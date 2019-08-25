@@ -153,7 +153,7 @@ func DeriveEndpointFrom(hostDevice, containerID string, pid int) (*models.Endpoi
 	}
 	// _, ip6, err := ipam.AllocateNext("ipv6")
 	// if err != nil {
-	// 	return nil, fmt.Errorf("unable to allocate IPv6 address: %s", err)
+	// 	return nil, fmt.Errorf("unable to allocate ipv6 address: %s", err)
 	// }
 	epModel := &models.EndpointChangeRequest{
 		Addressing: &models.AddressPair{

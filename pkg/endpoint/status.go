@@ -214,6 +214,9 @@ func (e *EndpointStatus) addStatusLog(s *statusLogMsg) {
 		e.Log[idx] = s
 	}
 }
+func (e *Endpoint) GetStatusModel() []*models.EndpointStatusChange {
+	return e.status.GetModel()
+}
 
 func (e *EndpointStatus) GetModel() []*models.EndpointStatusChange {
 	e.indexMU.RLock()

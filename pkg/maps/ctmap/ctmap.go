@@ -40,7 +40,7 @@ import (
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-ct")
 
-	// labelIPv6CTDumpInterrupts marks the count for conntrack dump resets (IPv6).
+	// labelIPv6CTDumpInterrupts marks the count for conntrack dump resets (ipv6).
 	labelIPv6CTDumpInterrupts = map[string]string{
 		metrics.LabelDatapathArea:   "conntrack",
 		metrics.LabelDatapathName:   "dump_interrupts",

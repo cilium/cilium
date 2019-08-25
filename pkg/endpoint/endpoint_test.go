@@ -226,22 +226,22 @@ func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
 	// Test that inserting identity labels works
 	rev := e.replaceIdentityLabels(pkgLabels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
 	c.Assert(rev, Not(Equals), 0)
-	c.Assert(string(e.OpLabels.OrchestrationIdentity.SortedList()), Equals, "cilium:foo=bar;cilium:zip=zop;")
+	c.Assert(string(e.allLabels.OrchestrationIdentity.SortedList()), Equals, "cilium:foo=bar;cilium:zip=zop;")
 	// Test that nothing changes
 	rev = e.replaceIdentityLabels(pkgLabels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
 	c.Assert(rev, Equals, 0)
-	c.Assert(string(e.OpLabels.OrchestrationIdentity.SortedList()), Equals, "cilium:foo=bar;cilium:zip=zop;")
+	c.Assert(string(e.allLabels.OrchestrationIdentity.SortedList()), Equals, "cilium:foo=bar;cilium:zip=zop;")
 	// Remove one label, change the source and value of the other.
 	rev = e.replaceIdentityLabels(pkgLabels.Map2Labels(map[string]string{"foo": "zop"}, "nginx"))
 	c.Assert(rev, Not(Equals), 0)
-	c.Assert(string(e.OpLabels.OrchestrationIdentity.SortedList()), Equals, "nginx:foo=zop;")
+	c.Assert(string(e.allLabels.OrchestrationIdentity.SortedList()), Equals, "nginx:foo=zop;")
 
 	// Test that inserting information labels works
 	e.replaceInformationLabels(pkgLabels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
-	c.Assert(string(e.OpLabels.OrchestrationInfo.SortedList()), Equals, "cilium:foo=bar;cilium:zip=zop;")
+	c.Assert(string(e.allLabels.OrchestrationInfo.SortedList()), Equals, "cilium:foo=bar;cilium:zip=zop;")
 	// Remove one label, change the source and value of the other.
 	e.replaceInformationLabels(pkgLabels.Map2Labels(map[string]string{"foo": "zop"}, "nginx"))
-	c.Assert(string(e.OpLabels.OrchestrationInfo.SortedList()), Equals, "nginx:foo=zop;")
+	c.Assert(string(e.allLabels.OrchestrationInfo.SortedList()), Equals, "nginx:foo=zop;")
 }
 
 func (s *EndpointSuite) TestEndpointState(c *C) {
@@ -527,8 +527,8 @@ func TestEndpoint_GetK8sPodLabels(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := &Endpoint{
-				mutex:    lock.RWMutex{},
-				OpLabels: tt.fields.OpLabels,
+				mutex:     lock.RWMutex{},
+				allLabels: tt.fields.OpLabels,
 			}
 			if got := e.getK8sPodLabels(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Endpoint.getK8sPodLabels() = %v, want %v", got, tt.want)
@@ -540,8 +540,8 @@ func TestEndpoint_GetK8sPodLabels(t *testing.T) {
 func (s *EndpointSuite) TestK8sPodNameIsSet(c *C) {
 	e := Endpoint{}
 	c.Assert(e.K8sNamespaceAndPodNameIsSet(), Equals, false)
-	e.K8sPodName = "foo"
-	e.K8sNamespace = "default"
+	e.k8sPodName = "foo"
+	e.k8sNamespace = "default"
 	c.Assert(e.K8sNamespaceAndPodNameIsSet(), Equals, true)
 }
 

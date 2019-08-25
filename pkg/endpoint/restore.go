@@ -94,7 +94,7 @@ func ReadEPsFromDirNames(owner regeneration.Owner, basePath string, eptsDirNames
 		if _, ok := possibleEPs[ep.ID]; ok {
 			// If the endpoint already exists then give priority to the directory
 			// that contains an endpoint that didn't fail to be build.
-			if strings.HasSuffix(ep.DirectoryPath(), epDirName) {
+			if strings.HasSuffix(ep.directoryPath(), epDirName) {
 				possibleEPs[ep.ID] = ep
 			}
 		} else {
@@ -127,7 +127,7 @@ func (e *Endpoint) RegenerateAfterRestore() error {
 
 	// NOTE: unconditionalRLock is used here because it's used only for logging an already restored endpoint
 	e.unconditionalRLock()
-	scopedLog.WithField(logfields.IPAddr, []string{e.IPv4.String(), e.IPv6.String()}).Info("Restored endpoint")
+	scopedLog.WithField(logfields.IPAddr, []string{e.ipv4.String(), e.ipv6.String()}).Info("Restored endpoint")
 	e.runlock()
 	return nil
 }
@@ -139,7 +139,7 @@ func (e *Endpoint) restoreIdentity() error {
 	}
 	scopedLog := log.WithField(logfields.EndpointID, e.ID)
 	// Filter the restored labels with the new daemon's filter
-	l, _ := labels.FilterLabels(e.OpLabels.AllLabels())
+	l, _ := labels.FilterLabels(e.allLabels.AllLabels())
 	e.runlock()
 
 	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
@@ -226,7 +226,7 @@ func (e *Endpoint) restoreIdentity() error {
 	// The identity of a freshly restored endpoint is incomplete due to some
 	// parts of the identity not being marshaled to JSON. Hence we must set
 	// the identity even if has not changed.
-	e.SetIdentity(identity, true)
+	e.setIdentity(identity, true)
 	e.unlock()
 
 	return nil
@@ -246,17 +246,17 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		DatapathMapID:         e.datapathMapID,
 		IfName:                e.ifName,
 		IfIndex:               e.ifIndex,
-		OpLabels:              e.OpLabels,
+		OpLabels:              e.allLabels,
 		LXCMAC:                e.mac,
-		IPv6:                  e.IPv6,
-		IPv4:                  e.IPv4,
+		IPv6:                  e.ipv6,
+		IPv4:                  e.ipv4,
 		NodeMAC:               e.nodeMAC,
 		SecurityIdentity:      e.securityIdentity,
 		Options:               e.Options,
 		DNSHistory:            e.DNSHistory,
-		K8sPodName:            e.K8sPodName,
-		K8sNamespace:          e.K8sNamespace,
-		DatapathConfiguration: e.DatapathConfiguration,
+		K8sPodName:            e.k8sPodName,
+		K8sNamespace:          e.k8sNamespace,
+		DatapathConfiguration: e.datapathConfiguration,
 	}
 }
 
@@ -300,7 +300,7 @@ type serializableEndpoint struct {
 	// ifIndex is the interface index of the host face interface (veth pair)
 	IfIndex int
 
-	// OpLabels is the endpoint's label configuration
+	// allLabels is the endpoint's label configuration
 	//
 	// FIXME: Rename this field to Labels
 	OpLabels labels.OpLabels
@@ -310,7 +310,7 @@ type serializableEndpoint struct {
 	// FIXME: Rename this field to MAC
 	LXCMAC mac.MAC // Container MAC address.
 
-	// IPv6 is the IPv6 address of the endpoint
+	// ipv6 is the ipv6 address of the endpoint
 	IPv6 addressing.CiliumIPv6
 
 	// IPv4 is the IPv4 address of the endpoint
@@ -329,10 +329,10 @@ type serializableEndpoint struct {
 	// this endpoint.
 	DNSHistory *fqdn.DNSCache
 
-	// K8sPodName is the Kubernetes pod name of the endpoint
+	// k8sPodName is the Kubernetes pod name of the endpoint
 	K8sPodName string
 
-	// K8sNamespace is the Kubernetes namespace of the endpoint
+	// k8sNamespace is the Kubernetes namespace of the endpoint
 	K8sNamespace string
 
 	// DatapathConfiguration is the endpoint's datapath configuration as
@@ -374,15 +374,15 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.datapathMapID = r.DatapathMapID
 	ep.ifName = r.IfName
 	ep.ifIndex = r.IfIndex
-	ep.OpLabels = r.OpLabels
+	ep.allLabels = r.OpLabels
 	ep.mac = r.LXCMAC
-	ep.IPv6 = r.IPv6
-	ep.IPv4 = r.IPv4
+	ep.ipv6 = r.IPv6
+	ep.ipv4 = r.IPv4
 	ep.nodeMAC = r.NodeMAC
 	ep.securityIdentity = r.SecurityIdentity
 	ep.DNSHistory = r.DNSHistory
-	ep.K8sPodName = r.K8sPodName
-	ep.K8sNamespace = r.K8sNamespace
-	ep.DatapathConfiguration = r.DatapathConfiguration
+	ep.k8sPodName = r.K8sPodName
+	ep.k8sNamespace = r.K8sNamespace
+	ep.datapathConfiguration = r.DatapathConfiguration
 	ep.Options = r.Options
 }

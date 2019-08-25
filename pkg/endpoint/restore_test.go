@@ -77,12 +77,12 @@ func (ds *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdenti
 	ep.dockerEndpointID = "93529fda8c401a071d21d6bd46fdf5499b9014dcb5a35f2e3efaa8d8002" + strID
 	ep.ifName = "lxc" + strID
 	ep.mac = mac.MAC([]byte{0x01, 0xff, 0xf2, 0x12, b[0], b[1]})
-	ep.IPv4 = addressing.DeriveCiliumIPv4(net.IP{0xc0, 0xa8, b[0], b[1]})
-	ep.IPv6 = addressing.DeriveCiliumIPv6(net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x00, b[0], b[1]})
+	ep.ipv4 = addressing.DeriveCiliumIPv4(net.IP{0xc0, 0xa8, b[0], b[1]})
+	ep.ipv6 = addressing.DeriveCiliumIPv6(net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x00, b[0], b[1]})
 	ep.ifIndex = 1
 	ep.nodeMAC = []byte{0x02, 0xff, 0xf2, 0x12, 0x0, 0x0}
 	ep.securityIdentity = identity
-	ep.OpLabels = labels.NewOpLabels()
+	ep.allLabels = labels.NewOpLabels()
 	return ep
 }
 
@@ -114,7 +114,7 @@ func (ds *EndpointSuite) TestReadEPsFromDirNames(c *C) {
 	for _, ep := range epsWanted {
 		c.Assert(ep, NotNil)
 
-		fullDirName := filepath.Join(tmpDir, ep.DirectoryPath())
+		fullDirName := filepath.Join(tmpDir, ep.directoryPath())
 		err := os.MkdirAll(fullDirName, 0777)
 		c.Assert(err, IsNil)
 
@@ -123,10 +123,10 @@ func (ds *EndpointSuite) TestReadEPsFromDirNames(c *C) {
 
 		switch ep.ID {
 		case 256, 257:
-			failedDir := filepath.Join(tmpDir, ep.FailedDirectoryPath())
+			failedDir := filepath.Join(tmpDir, ep.failedDirectoryPath())
 			err := os.Rename(fullDirName, failedDir)
 			c.Assert(err, IsNil)
-			epsNames = append(epsNames, ep.FailedDirectoryPath())
+			epsNames = append(epsNames, ep.failedDirectoryPath())
 
 			// create one failed and the other non failed directory for ep 256.
 			if ep.ID == 256 {
@@ -135,10 +135,10 @@ func (ds *EndpointSuite) TestReadEPsFromDirNames(c *C) {
 				ep.nodeMAC = []byte{0x02, 0xff, 0xf2, 0x12, 0xc1, 0xc1}
 				err = ep.writeHeaderfile(failedDir)
 				c.Assert(err, IsNil)
-				epsNames = append(epsNames, ep.DirectoryPath())
+				epsNames = append(epsNames, ep.directoryPath())
 			}
 		default:
-			epsNames = append(epsNames, ep.DirectoryPath())
+			epsNames = append(epsNames, ep.directoryPath())
 		}
 	}
 	eps := ReadEPsFromDirNames(ds, tmpDir, epsNames)

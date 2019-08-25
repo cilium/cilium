@@ -50,9 +50,9 @@ func (e *Endpoint) WaitForIdentity(timeoutDuration time.Duration) *identity.Iden
 // PrepareEndpointForTesting creates an endpoint useful for testing purposes.
 func PrepareEndpointForTesting(owner regeneration.Owner, proxy EndpointProxy, id uint16, identity *identity.Identity, ipv4 addressing.CiliumIPv4, ipv6 addressing.CiliumIPv6) *Endpoint {
 	e := NewEndpointWithState(owner, proxy, id, StateWaitingForIdentity)
-	e.IPv6 = ipv6
-	e.IPv4 = ipv4
-	e.SetIdentity(identity, true)
+	e.ipv6 = ipv6
+	e.ipv4 = ipv4
+	e.setIdentity(identity, true)
 
 	e.unconditionalLock()
 	e.setState(StateWaitingToRegenerate, "test")

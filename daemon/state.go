@@ -68,8 +68,8 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 		return false, nil
 	}
 
-	if ep.K8sPodName != "" && ep.K8sNamespace != "" && k8s.IsEnabled() {
-		_, err := k8s.Client().CoreV1().Pods(ep.K8sNamespace).Get(ep.K8sPodName, meta_v1.GetOptions{})
+	if ep.K8sNamespaceAndPodNameIsSet() && k8s.IsEnabled() {
+		_, err := k8s.Client().CoreV1().Pods(ep.GetK8sNamespace()).Get(ep.GetK8sPodName(), meta_v1.GetOptions{})
 		if err != nil && k8serrors.IsNotFound(err) {
 			return false, fmt.Errorf("kubernetes pod not found")
 		}
@@ -83,7 +83,7 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 		return false, fmt.Errorf("no workload could be associated with endpoint")
 	}
 
-	if !ep.DatapathConfiguration.ExternalIPAM {
+	if !ep.HasExternalIPAM() {
 		if err := d.allocateIPsLocked(ep); err != nil {
 			return false, fmt.Errorf("Failed to re-allocate IP of endpoint: %s", err)
 		}
@@ -168,8 +168,8 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 		state.restored = append(state.restored, ep)
 
 		if existingEndpoints != nil {
-			delete(existingEndpoints, ep.IPv4.String())
-			delete(existingEndpoints, ep.IPv6.String())
+			delete(existingEndpoints, ep.IPv4Address().String())
+			delete(existingEndpoints, ep.IPv6Address().String())
 		}
 	}
 
@@ -289,21 +289,21 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) error {
 	var err error
 
-	if option.Config.EnableIPv6 && ep.IPv6 != nil {
-		err = d.ipam.AllocateIP(ep.IPv6.IP(), ep.HumanStringLocked()+" [restored]")
+	if option.Config.EnableIPv6 && ep.IPv6Address() != nil {
+		err = d.ipam.AllocateIP(ep.IPv6Address().IP(), ep.HumanStringLocked()+" [restored]")
 		if err != nil {
-			return fmt.Errorf("unable to reallocate IPv6 address: %s", err)
+			return fmt.Errorf("unable to reallocate ipv6 address: %s", err)
 		}
 
 		defer func() {
 			if err != nil {
-				d.ipam.ReleaseIP(ep.IPv6.IP())
+				d.ipam.ReleaseIP(ep.IPv6Address().IP())
 			}
 		}()
 	}
 
-	if option.Config.EnableIPv4 && ep.IPv4 != nil {
-		if err = d.ipam.AllocateIP(ep.IPv4.IP(), ep.HumanStringLocked()+" [restored]"); err != nil {
+	if option.Config.EnableIPv4 && ep.IPv4Address() != nil {
+		if err = d.ipam.AllocateIP(ep.IPv4Address().IP(), ep.HumanStringLocked()+" [restored]"); err != nil {
 			return fmt.Errorf("unable to reallocate IPv4 address: %s", err)
 		}
 	}

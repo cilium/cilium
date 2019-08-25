@@ -142,10 +142,8 @@ type Endpoint struct {
 	// ifIndex is the interface index of the host face interface (veth pair)
 	ifIndex int
 
-	// OpLabels is the endpoint's label configuration
-	//
-	// FIXME: Rename this field to Labels
-	OpLabels pkgLabels.OpLabels
+	// allLabels is the endpoint's label configuration
+	allLabels pkgLabels.OpLabels
 
 	// identityRevision is incremented each time the identity label
 	// information of the endpoint has changed
@@ -155,11 +153,11 @@ type Endpoint struct {
 	//
 	mac mac.MAC // Container MAC address.
 
-	// IPv6 is the IPv6 address of the endpoint
-	IPv6 addressing.CiliumIPv6
+	// ipv6 is the ipv6 address of the endpoint
+	ipv6 addressing.CiliumIPv6
 
 	// IPv4 is the IPv4 address of the endpoint
-	IPv4 addressing.CiliumIPv4
+	ipv4 addressing.CiliumIPv4
 
 	// nodeMAC is the MAC of the node (agent). The MAC is different for every endpoint.
 	nodeMAC mac.MAC
@@ -200,11 +198,11 @@ type Endpoint struct {
 	// compiled and installed.
 	bpfHeaderfileHash string
 
-	// K8sPodName is the Kubernetes pod name of the endpoint
-	K8sPodName string
+	// k8sPodName is the Kubernetes pod name of the endpoint
+	k8sPodName string
 
-	// K8sNamespace is the Kubernetes namespace of the endpoint
-	K8sNamespace string
+	// k8sNamespace is the Kubernetes namespace of the endpoint
+	k8sNamespace string
 
 	// policyRevision is the policy revision this endpoint is currently on
 	// to modify this field please use endpoint.setPolicyRevision instead
@@ -276,9 +274,21 @@ type Endpoint struct {
 	// passed in via the plugin that created the endpoint, e.g. the CNI
 	// plugin which performed the plumbing will enable certain datapath
 	// features according to the mode selected.
-	DatapathConfiguration models.EndpointDatapathConfiguration
+	datapathConfiguration models.EndpointDatapathConfiguration
 
 	regenFailedChan chan struct{}
+}
+
+func (e *Endpoint) HasExternalIPAM() bool {
+	return e.datapathConfiguration.ExternalIPAM
+}
+
+func (e *Endpoint) SetIPv4(ipv4 addressing.CiliumIPv4) {
+	e.ipv4 = ipv4
+}
+
+func (e *Endpoint) IdentityLabels() pkgLabels.Labels {
+	return e.allLabels.IdentityLabels()
 }
 
 // UpdateController updates the controller with the specified name with the
@@ -369,7 +379,7 @@ func NewEndpointWithState(owner regeneration.Owner, proxy EndpointProxy, ID uint
 		owner:           owner,
 		proxy:           proxy,
 		ID:              ID,
-		OpLabels:        pkgLabels.NewOpLabels(),
+		allLabels:       pkgLabels.NewOpLabels(),
 		status:          NewEndpointStatus(),
 		DNSHistory:      fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
 		state:           state,
@@ -383,7 +393,7 @@ func NewEndpointWithState(owner regeneration.Owner, proxy EndpointProxy, ID uint
 	ep.startRegenerationFailureHandler()
 	ep.realizedPolicy = ep.desiredPolicy
 
-	ep.SetDefaultOpts(option.Config.Opts)
+	ep.setDefaultOpts(option.Config.Opts)
 	ep.UpdateLogger(nil)
 
 	ep.eventQueue.Run()
@@ -425,7 +435,7 @@ func (e *Endpoint) GetID16() uint16 {
 func (e *Endpoint) getK8sPodLabels() pkgLabels.Labels {
 	e.unconditionalRLock()
 	defer e.runlock()
-	allLabels := e.OpLabels.AllLabels()
+	allLabels := e.allLabels.AllLabels()
 	if allLabels == nil {
 		return nil
 	}
@@ -456,7 +466,7 @@ func (e *Endpoint) GetLabelsSHA() string {
 func (e *Endpoint) GetOpLabels() []string {
 	e.unconditionalRLock()
 	defer e.runlock()
-	return e.OpLabels.IdentityLabels().GetModel()
+	return e.allLabels.IdentityLabels().GetModel()
 }
 
 // GetOptions returns the datapath configuration options of the endpoint.
@@ -466,22 +476,22 @@ func (e *Endpoint) GetOptions() *option.IntOptions {
 
 // GetIPv4Address returns the IPv4 address of the endpoint as a string
 func (e *Endpoint) GetIPv4Address() string {
-	return e.IPv4.String()
+	return e.ipv4.String()
 }
 
-// GetIPv6Address returns the IPv6 address of the endpoint as a string
+// GetIPv6Address returns the ipv6 address of the endpoint as a string
 func (e *Endpoint) GetIPv6Address() string {
-	return e.IPv6.String()
+	return e.ipv6.String()
 }
 
 // IPv4Address returns the IPv4 address of the endpoint
 func (e *Endpoint) IPv4Address() addressing.CiliumIPv4 {
-	return e.IPv4
+	return e.ipv4
 }
 
-// IPv6Address returns the IPv6 address of the endpoint
+// IPv6Address returns the ipv6 address of the endpoint
 func (e *Endpoint) IPv6Address() addressing.CiliumIPv6 {
-	return e.IPv6
+	return e.ipv6
 }
 
 // GetNodeMAC returns the MAC address of the node from this endpoint's perspective.
@@ -581,9 +591,9 @@ func (e *Endpoint) forcePolicyComputation() {
 	e.forcePolicyCompute = true
 }
 
-// SetDefaultOpts initializes the endpoint Options and configures the specified
+// setDefaultOpts initializes the endpoint Options and configures the specified
 // options.
-func (e *Endpoint) SetDefaultOpts(opts *option.IntOptions) {
+func (e *Endpoint) setDefaultOpts(opts *option.IntOptions) {
 	if e.Options == nil {
 		e.Options = option.NewIntOptions(&EndpointMutableOptionLibrary)
 	}
@@ -668,7 +678,7 @@ func FilterEPDir(dirFiles []os.FileInfo) []string {
 // parseEndpoint parses the given strEp which is in the form of:
 // common.CiliumCHeaderPrefix + common.Version + ":" + endpointBase64
 // Note that the parse'd endpoint's identity is only partially restored. The
-// caller must call `SetIdentity()` to make the returned endpoint's identity useful.
+// caller must call `setIdentity()` to make the returned endpoint's identity useful.
 func parseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
 	// TODO: Provide a better mechanism to update from old version once we bump
 	// TODO: cilium version.
@@ -685,7 +695,7 @@ func parseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
 	}
 
 	// Validate the options that were parsed
-	ep.SetDefaultOpts(ep.Options)
+	ep.setDefaultOpts(ep.Options)
 
 	// Initialize fields to values which are non-nil that are not serialized.
 	ep.hasBPFProgram = make(chan struct{}, 0)
@@ -696,7 +706,7 @@ func parseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
 
 	ep.startRegenerationFailureHandler()
 
-	// We need to check for nil in Status, CurrentStatuses and Log, since in
+	// We need to check for nil in status, CurrentStatuses and Log, since in
 	// some use cases, status will be not nil and Cilium will eventually
 	// error/panic if CurrentStatus or Log are not initialized correctly.
 	// Reference issue GH-2477
@@ -727,13 +737,6 @@ func (e *Endpoint) LogStatus(typ StatusType, code StatusCode, msg string) {
 
 func (e *Endpoint) LogStatusOK(typ StatusType, msg string) {
 	e.LogStatus(typ, OK, msg)
-}
-
-// LogStatusOKLocked will log an OK message of the given status type with the
-// given msg string.
-// must be called with endpoint.Mutex held
-func (e *Endpoint) LogStatusOKLocked(typ StatusType, msg string) {
-	e.logStatusLocked(typ, OK, msg)
 }
 
 // logStatusLocked logs a status message
@@ -873,7 +876,7 @@ func (e *Endpoint) HasLabels(l pkgLabels.Labels) bool {
 // return 'false' if any label in l is not in the endpoint's labels.
 // e.Mutex must be RLocked
 func (e *Endpoint) hasLabelsRLocked(l pkgLabels.Labels) bool {
-	allEpLabels := e.OpLabels.AllLabels()
+	allEpLabels := e.allLabels.AllLabels()
 
 	for _, v := range l {
 		found := false
@@ -898,7 +901,7 @@ func (e *Endpoint) replaceInformationLabels(l pkgLabels.Labels) {
 	if l == nil {
 		return
 	}
-	e.OpLabels.ReplaceInformationLabels(l, e.getLogger())
+	e.allLabels.ReplaceInformationLabels(l, e.getLogger())
 }
 
 // replaceIdentityLabels replaces the identity labels of the endpoint. If a net
@@ -912,7 +915,7 @@ func (e *Endpoint) replaceIdentityLabels(l pkgLabels.Labels) int {
 		return e.identityRevision
 	}
 
-	changed := e.OpLabels.ReplaceIdentityLabels(l, e.getLogger())
+	changed := e.allLabels.ReplaceIdentityLabels(l, e.getLogger())
 	rev := 0
 	if changed {
 		e.identityRevision++
@@ -1021,7 +1024,7 @@ func (e *Endpoint) SetContainerName(name string) {
 // Kubernetes pod
 func (e *Endpoint) GetK8sNamespace() string {
 	e.unconditionalRLock()
-	ns := e.K8sNamespace
+	ns := e.k8sNamespace
 	e.runlock()
 	return ns
 }
@@ -1029,7 +1032,7 @@ func (e *Endpoint) GetK8sNamespace() string {
 // SetK8sNamespace modifies the endpoint's pod name
 func (e *Endpoint) SetK8sNamespace(name string) {
 	e.unconditionalLock()
-	e.K8sNamespace = name
+	e.k8sNamespace = name
 	e.UpdateLogger(map[string]interface{}{
 		logfields.K8sPodName: e.getK8sNamespaceAndPodName(),
 	})
@@ -1048,7 +1051,7 @@ func (e *Endpoint) K8sNamespaceAndPodNameIsSet() bool {
 // Kubernetes pod
 func (e *Endpoint) GetK8sPodName() string {
 	e.unconditionalRLock()
-	k8sPodName := e.K8sPodName
+	k8sPodName := e.k8sPodName
 	e.runlock()
 
 	return k8sPodName
@@ -1073,13 +1076,13 @@ func (e *Endpoint) GetK8sNamespaceAndPodName() string {
 }
 
 func (e *Endpoint) getK8sNamespaceAndPodName() string {
-	return e.K8sNamespace + "/" + e.K8sPodName
+	return e.k8sNamespace + "/" + e.k8sPodName
 }
 
 // SetK8sPodName modifies the endpoint's pod name
 func (e *Endpoint) SetK8sPodName(name string) {
 	e.unconditionalLock()
-	e.K8sPodName = name
+	e.k8sPodName = name
 	e.UpdateLogger(map[string]interface{}{
 		logfields.K8sPodName: e.getK8sNamespaceAndPodName(),
 	})
@@ -1429,7 +1432,7 @@ func APICanModify(e *Endpoint) error {
 	if e.IsInit() {
 		return nil
 	}
-	if e.OpLabels.OrchestrationIdentity.IsReserved() {
+	if e.allLabels.OrchestrationIdentity.IsReserved() {
 		return fmt.Errorf("endpoint may not be associated reserved labels")
 	}
 	return nil
@@ -1456,7 +1459,7 @@ func (e *Endpoint) ModifyIdentityLabels(addLabels, delLabels pkgLabels.Labels) e
 		return err
 	}
 
-	changed, err := e.OpLabels.ModifyIdentityLabels(addLabels, delLabels)
+	changed, err := e.allLabels.ModifyIdentityLabels(addLabels, delLabels)
 	if err != nil {
 		e.unlock()
 		return err
@@ -1483,7 +1486,7 @@ func (e *Endpoint) ModifyIdentityLabels(addLabels, delLabels pkgLabels.Labels) e
 // IsInit returns true if the endpoint still hasn't received identity labels,
 // i.e. has the special identity with label reserved:init.
 func (e *Endpoint) IsInit() bool {
-	init, found := e.OpLabels.GetIdentityLabel(pkgLabels.IDNameInit)
+	init, found := e.allLabels.GetIdentityLabel(pkgLabels.IDNameInit)
 	return found && init.Source == pkgLabels.LabelSourceReserved
 }
 
@@ -1535,7 +1538,7 @@ func (e *Endpoint) runLabelsResolver(ctx context.Context, myChangeRev int, block
 		e.getLogger().WithError(err).Info("Cannot run labels resolver")
 		return
 	}
-	newLabels := e.OpLabels.IdentityLabels()
+	newLabels := e.allLabels.IdentityLabels()
 	e.runlock()
 	scopedLog := e.getLogger().WithField(logfields.IdentityLabels, newLabels)
 
@@ -1581,7 +1584,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 	if err := e.rlockAlive(); err != nil {
 		return ErrNotAlive
 	}
-	newLabels := e.OpLabels.IdentityLabels()
+	newLabels := e.allLabels.IdentityLabels()
 	elog := e.getLogger().WithFields(logrus.Fields{
 		logfields.EndpointID:     e.ID,
 		logfields.IdentityLabels: newLabels,
@@ -1684,7 +1687,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 	elog.WithFields(logrus.Fields{logfields.Identity: identity.StringID()}).
 		Debug("Assigned new identity to endpoint")
 
-	e.SetIdentity(identity, false)
+	e.setIdentity(identity, false)
 
 	if oldIdentity != nil {
 		_, err := cache.Release(releaseCtx, e.owner, oldIdentity)
@@ -1818,11 +1821,11 @@ func (e *Endpoint) WaitForPolicyRevision(ctx context.Context, rev uint64, done f
 // IPs returns the slice of valid IPs for this endpoint.
 func (e *Endpoint) IPs() []net.IP {
 	ips := []net.IP{}
-	if e.IPv4.IsSet() {
-		ips = append(ips, e.IPv4.IP())
+	if e.ipv4.IsSet() {
+		ips = append(ips, e.ipv4.IP())
 	}
-	if e.IPv6.IsSet() {
-		ips = append(ips, e.IPv6.IP())
+	if e.ipv6.IsSet() {
+		ips = append(ips, e.ipv6.IP())
 	}
 	return ips
 }
@@ -1981,12 +1984,12 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpoin
 
 	if !conf.NoIPRelease {
 		if option.Config.EnableIPv4 {
-			if err := ipam.ReleaseIP(e.IPv4.IP()); err != nil {
+			if err := ipam.ReleaseIP(e.ipv4.IP()); err != nil {
 				errs = append(errs, fmt.Errorf("unable to release ipv4 address: %s", err))
 			}
 		}
 		if option.Config.EnableIPv6 {
-			if err := ipam.ReleaseIP(e.IPv6.IP()); err != nil {
+			if err := ipam.ReleaseIP(e.ipv6.IP()); err != nil {
 				errs = append(errs, fmt.Errorf("unable to release ipv6 address: %s", err))
 			}
 		}
@@ -2167,7 +2170,7 @@ func (e *Endpoint) SetDefaultConfiguration(restore bool) {
 }
 
 func (e *Endpoint) setDefaultPolicyConfig() {
-	e.SetDefaultOpts(option.Config.Opts)
+	e.setDefaultOpts(option.Config.Opts)
 	alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
 	e.desiredPolicy.IngressPolicyEnabled = alwaysEnforce
 	e.desiredPolicy.EgressPolicyEnabled = alwaysEnforce
@@ -2178,7 +2181,7 @@ type k8sClient interface {
 	IsEnabled() bool
 }
 
-func (e *Endpoint) FetchK8sLabels(cli k8sClient) (pkgLabels.Labels, pkgLabels.Labels, error) {
+func (e *Endpoint) fetchK8sLabels(cli k8sClient) (pkgLabels.Labels, pkgLabels.Labels, error) {
 	lbls, err := k8s.GetPodLabels(e.GetK8sNamespace(), e.GetK8sPodName())
 	if err != nil {
 		return nil, nil, err
@@ -2215,7 +2218,7 @@ func (e *Endpoint) createLabels(cli k8sClient, lbls []string) (pkgLabels.Labels,
 	}
 
 	if e.K8sNamespaceAndPodNameIsSet() && cli.IsEnabled() {
-		identityLabels, info, err := e.FetchK8sLabels(cli)
+		identityLabels, info, err := e.fetchK8sLabels(cli)
 		if err != nil {
 			e.Logger("api").WithError(err).Warning("Unable to fetch kubernetes labels")
 		} else {

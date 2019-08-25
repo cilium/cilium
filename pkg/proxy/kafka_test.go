@@ -277,7 +277,7 @@ func (s *proxyTestSuite) TestKafkaRedirect(c *C) {
 	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, uint16(localEndpointMock.GetID()), endpoint.StateReady)
 	ipv4, err := addressing.NewCiliumIPv4("127.0.0.1")
 	c.Assert(err, IsNil)
-	ep.IPv4 = ipv4
+	ep.SetIPv4(ipv4)
 	ep.UpdateLogger(nil)
 	ep.Expose(epMgr)
 	defer ep.Unexpose(epMgr)

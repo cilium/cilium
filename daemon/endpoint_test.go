@@ -74,7 +74,7 @@ func (ds *DaemonSuite) TestEndpointAddNoLabels(c *C) {
 	// Check that the endpoint has the reserved:init label.
 	ep, err := ds.d.endpointManager.Lookup(endpointid.NewIPPrefixID(net.ParseIP(epTemplate.Addressing.IPV4)))
 	c.Assert(err, IsNil)
-	c.Assert(ep.OpLabels.IdentityLabels(), checker.DeepEquals, expectedLabels)
+	c.Assert(ep.IdentityLabels(), checker.DeepEquals, expectedLabels)
 
 	secID := ep.WaitForIdentity(3 * time.Second)
 	c.Assert(secID, Not(IsNil))

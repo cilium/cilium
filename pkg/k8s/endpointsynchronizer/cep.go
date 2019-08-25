@@ -92,7 +92,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 
 				capabilities := k8sversion.Capabilities()
 
-				// K8sPodName and K8sNamespace are not always available when an
+				// k8sPodName and k8sNamespace are not always available when an
 				// endpoint is first created, so we collect them here.
 				podName := e.GetK8sPodName()
 				if podName == "" {

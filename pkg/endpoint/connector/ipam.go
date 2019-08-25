@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 )
 
-// IPv6Gateway returns the IPv6 gateway address for endpoints.
+// IPv6Gateway returns the ipv6 gateway address for endpoints.
 func IPv6Gateway(addr *models.NodeAddressing) string {
 	// The host's IP is the gateway address
 	return addr.IPV6.IP
@@ -35,7 +35,7 @@ func IPv4Gateway(addr *models.NodeAddressing) string {
 	return addr.IPV4.IP
 }
 
-// IPv6Routes returns IPv6 routes to be installed in endpoint's networking namespace.
+// IPv6Routes returns ipv6 routes to be installed in endpoint's networking namespace.
 func IPv6Routes(addr *models.NodeAddressing, linkMTU int) ([]route.Route, error) {
 	ip := net.ParseIP(addr.IPV6.IP)
 	if ip == nil {
@@ -92,5 +92,5 @@ func SufficientAddressing(addr *models.NodeAddressing) error {
 		return nil
 	}
 
-	return fmt.Errorf("Either IPv4 or IPv6 addressing must be provided")
+	return fmt.Errorf("Either IPv4 or ipv6 addressing must be provided")
 }

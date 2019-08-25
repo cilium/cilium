@@ -26,14 +26,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// DirectoryPath returns the directory name for this endpoint bpf program.
-func (e *Endpoint) DirectoryPath() string {
+// directoryPath returns the directory name for this endpoint bpf program.
+func (e *Endpoint) directoryPath() string {
 	return filepath.Join(".", fmt.Sprintf("%d", e.ID))
 }
 
-// FailedDirectoryPath returns the directory name for this endpoint bpf program
+// failedDirectoryPath returns the directory name for this endpoint bpf program
 // failed builds.
-func (e *Endpoint) FailedDirectoryPath() string {
+func (e *Endpoint) failedDirectoryPath() string {
 	return filepath.Join(".", fmt.Sprintf("%d%s", e.ID, "_next_fail"))
 }
 
@@ -42,14 +42,14 @@ func (e *Endpoint) StateDirectoryPath() string {
 	return filepath.Join(option.Config.StateDir, e.StringID())
 }
 
-// NextDirectoryPath returns the directory name for this endpoint bpf program
+// nextDirectoryPath returns the directory name for this endpoint bpf program
 // next bpf builds.
-func (e *Endpoint) NextDirectoryPath() string {
+func (e *Endpoint) nextDirectoryPath() string {
 	return filepath.Join(".", fmt.Sprintf("%d%s", e.ID, "_next"))
 }
 
 func (e *Endpoint) backupDirectoryPath() string {
-	return e.DirectoryPath() + "_stale"
+	return e.directoryPath() + "_stale"
 }
 
 // synchronizeDirectories moves the files related to endpoint BPF program
@@ -62,7 +62,7 @@ func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bo
 	scopedLog := e.getLogger()
 	scopedLog.Debug("synchronizing directories")
 
-	tmpDir := e.NextDirectoryPath()
+	tmpDir := e.nextDirectoryPath()
 
 	// Check if an existing endpoint directory exists, e.g.
 	// /var/run/cilium/state/1111
@@ -133,7 +133,7 @@ func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bo
 
 	// The build succeeded and is in place, any eventual existing failure
 	// directory can be removed.
-	e.removeDirectory(e.FailedDirectoryPath())
+	e.removeDirectory(e.failedDirectoryPath())
 
 	return nil
 }
@@ -144,8 +144,8 @@ func (e *Endpoint) removeDirectory(path string) error {
 }
 
 func (e *Endpoint) removeDirectories() {
-	e.removeDirectory(e.DirectoryPath())
-	e.removeDirectory(e.FailedDirectoryPath())
-	e.removeDirectory(e.NextDirectoryPath())
+	e.removeDirectory(e.directoryPath())
+	e.removeDirectory(e.failedDirectoryPath())
+	e.removeDirectory(e.nextDirectoryPath())
 	e.removeDirectory(e.backupDirectoryPath())
 }

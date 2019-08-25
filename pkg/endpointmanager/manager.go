@@ -191,7 +191,7 @@ func (mgr *EndpointManager) LookupIPv4(ipv4 string) *endpoint.Endpoint {
 	return ep
 }
 
-// LookupIPv6 looks up endpoint by IPv6 address
+// LookupIPv6 looks up endpoint by ipv6 address
 func (mgr *EndpointManager) LookupIPv6(ipv6 string) *endpoint.Endpoint {
 	mgr.mutex.RLock()
 	ep := mgr.lookupIPv6(ipv6)

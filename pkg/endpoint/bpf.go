@@ -97,13 +97,13 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 	}
 
 	fmt.Fprintf(fw, ""+
-		" * IPv6 address: %s\n"+
+		" * ipv6 address: %s\n"+
 		" * IPv4 address: %s\n"+
 		" * Identity: %d\n"+
 		" * PolicyMap: %s\n"+
 		" * NodeMAC: %s\n"+
 		" */\n\n",
-		e.IPv6.String(), e.IPv4.String(),
+		e.ipv6.String(), e.ipv4.String(),
 		e.GetIdentity(), bpf.LocalMapName(policymap.MapName, e.ID),
 		e.nodeMAC)
 
@@ -800,8 +800,8 @@ func (e *Endpoint) garbageCollectConntrack(filter *ctmap.GCFilter) {
 func (e *Endpoint) scrubIPsInConntrackTableLocked() {
 	e.garbageCollectConntrack(&ctmap.GCFilter{
 		MatchIPs: map[string]struct{}{
-			e.IPv4.String(): {},
-			e.IPv6.String(): {},
+			e.ipv4.String(): {},
+			e.ipv6.String(): {},
 		},
 	})
 }
@@ -1088,28 +1088,28 @@ func (e *Endpoint) syncPolicyMapController() {
 // RequireARPPassthrough returns true if the datapath must implement ARP
 // passthrough for this endpoint
 func (e *Endpoint) RequireARPPassthrough() bool {
-	return e.DatapathConfiguration.RequireArpPassthrough
+	return e.datapathConfiguration.RequireArpPassthrough
 }
 
 // RequireEgressProg returns true if the endpoint requires bpf_lxc with esction
 // "to-container" to be attached at egress on the host facing veth pair
 func (e *Endpoint) RequireEgressProg() bool {
-	return e.DatapathConfiguration.RequireEgressProg
+	return e.datapathConfiguration.RequireEgressProg
 }
 
 // RequireRouting returns true if the endpoint requires BPF routing to be
 // enabled, when disabled, routing is delegated to Linux routing
 func (e *Endpoint) RequireRouting() (required bool) {
 	required = true
-	if e.DatapathConfiguration.RequireRouting != nil {
-		required = *e.DatapathConfiguration.RequireRouting
+	if e.datapathConfiguration.RequireRouting != nil {
+		required = *e.datapathConfiguration.RequireRouting
 	}
 	return
 }
 
 // RequireEndpointRoute returns if the endpoint wants a per endpoint route
 func (e *Endpoint) RequireEndpointRoute() bool {
-	return e.DatapathConfiguration.InstallEndpointRoute
+	return e.datapathConfiguration.InstallEndpointRoute
 }
 
 type linkCheckerFunc func(string) error

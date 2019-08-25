@@ -280,7 +280,7 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 	// This is the temporary directory to store the generated headers,
 	// the original existing directory is not overwritten until the
 	// entire generation process has succeeded.
-	tmpDir := e.NextDirectoryPath()
+	tmpDir := e.nextDirectoryPath()
 	context.datapathRegenerationContext.nextDir = tmpDir
 
 	// Remove an eventual existing temporary directory that has been left
@@ -324,7 +324,7 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 
 	revision, compilationExecuted, err = e.regenerateBPF(context)
 	if err != nil {
-		failDir := e.FailedDirectoryPath()
+		failDir := e.failedDirectoryPath()
 		e.getLogger().WithFields(logrus.Fields{
 			logfields.Path: failDir,
 		}).Warn("generating BPF for endpoint failed, keeping stale directory.")
@@ -646,10 +646,10 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 	)
 }
 
-// SetIdentity resets endpoint's policy identity to 'id'.
+// setIdentity resets endpoint's policy identity to 'id'.
 // Caller triggers policy regeneration if needed.
 // Called with e.Mutex Locked
-func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool) {
+func (e *Endpoint) setIdentity(identity *identityPkg.Identity, newEndpoint bool) {
 
 	// Set a boolean flag to indicate whether the endpoint has been injected by
 	// Istio with a Cilium-compatible sidecar proxy.
@@ -684,8 +684,8 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool)
 
 	// Whenever the identity is updated, propagate change to key-value store
 	// of IP to identity mapping.
-	e.runIPIdentitySync(e.IPv4)
-	e.runIPIdentitySync(e.IPv6)
+	e.runIPIdentitySync(e.ipv4)
+	e.runIPIdentitySync(e.ipv6)
 
 	if oldIdentity != identity.StringID() {
 		e.getLogger().WithFields(logrus.Fields{

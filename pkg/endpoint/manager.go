@@ -98,12 +98,12 @@ func (e *Endpoint) generateReferences() map[id.PrefixType]string {
 		refs[id.DockerEndpointPrefix] = e.dockerEndpointID
 	}
 
-	if e.IPv4.IsSet() {
-		refs[id.IPv4Prefix] = e.IPv4.String()
+	if e.ipv4.IsSet() {
+		refs[id.IPv4Prefix] = e.ipv4.String()
 	}
 
-	if e.IPv6.IsSet() {
-		refs[id.IPv6Prefix] = e.IPv6.String()
+	if e.ipv6.IsSet() {
+		refs[id.IPv6Prefix] = e.ipv6.String()
 	}
 
 	if e.containerName != "" {
@@ -174,12 +174,12 @@ func (ep *Endpoint) checkIfExists(mgr endpointManager) error {
 
 	var checkIDs []string
 
-	if ep.IPv4.IsSet() {
-		checkIDs = append(checkIDs, id.NewID(id.IPv4Prefix, ep.IPv4.String()))
+	if ep.ipv4.IsSet() {
+		checkIDs = append(checkIDs, id.NewID(id.IPv4Prefix, ep.ipv4.String()))
 	}
 
-	if ep.IPv6.IsSet() {
-		checkIDs = append(checkIDs, id.NewID(id.IPv6Prefix, ep.IPv6.String()))
+	if ep.ipv6.IsSet() {
+		checkIDs = append(checkIDs, id.NewID(id.IPv6Prefix, ep.ipv6.String()))
 	}
 
 	for _, id := range checkIDs {
