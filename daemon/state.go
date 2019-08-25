@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/workloads"
 
 	"github.com/sirupsen/logrus"
@@ -159,18 +158,10 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 			continue
 		}
 
-		ep.UnconditionalLock()
 		scopedLog.Debug("Restoring endpoint")
-		ep.LogStatusOKLocked(endpoint.Other, "Restoring endpoint from previous cilium instance")
+		ep.LogStatusOK(endpoint.Other, "Restoring endpoint from previous cilium instance")
 
-		if !option.Config.KeepConfig {
-			ep.SetDefaultOpts(option.Config.Opts)
-			alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
-			ep.SetDesiredIngressPolicyEnabledLocked(alwaysEnforce)
-			ep.SetDesiredEgressPolicyEnabledLocked(alwaysEnforce)
-		}
-
-		ep.Unlock()
+		ep.SetDefaultPolicyConfiguration(true)
 
 		ep.SkipStateClean()
 

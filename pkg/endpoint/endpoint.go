@@ -337,35 +337,6 @@ func (e *Endpoint) GetEgressPolicyEnabledLocked() bool {
 	return e.desiredPolicy.EgressPolicyEnabled
 }
 
-// SetDesiredIngressPolicyEnabled sets Endpoint's ingress policy enforcement
-// configuration to the specified value. The endpoint's mutex must not be held.
-func (e *Endpoint) SetDesiredIngressPolicyEnabled(ingress bool) {
-	e.UnconditionalLock()
-	e.desiredPolicy.IngressPolicyEnabled = ingress
-	e.Unlock()
-
-}
-
-// SetDesiredEgressPolicyEnabled sets Endpoint's egress policy enforcement
-// configuration to the specified value. The endpoint's mutex must not be held.
-func (e *Endpoint) SetDesiredEgressPolicyEnabled(egress bool) {
-	e.UnconditionalLock()
-	e.desiredPolicy.EgressPolicyEnabled = egress
-	e.Unlock()
-}
-
-// SetDesiredIngressPolicyEnabledLocked sets Endpoint's ingress policy enforcement
-// configuration to the specified value. The endpoint's mutex must be held.
-func (e *Endpoint) SetDesiredIngressPolicyEnabledLocked(ingress bool) {
-	e.desiredPolicy.IngressPolicyEnabled = ingress
-}
-
-// SetDesiredEgressPolicyEnabledLocked sets Endpoint's egress policy enforcement
-// configuration to the specified value. The endpoint's mutex must be held.
-func (e *Endpoint) SetDesiredEgressPolicyEnabledLocked(egress bool) {
-	e.desiredPolicy.EgressPolicyEnabled = egress
-}
-
 // WaitForProxyCompletions blocks until all proxy changes have been completed.
 // Called with buildMutex held.
 func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
@@ -2006,4 +1977,21 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpoin
 	}
 
 	return errs
+}
+
+func (e *Endpoint) SetDefaultPolicyConfiguration(restore bool) {
+	e.UnconditionalLock()
+	defer e.Unlock()
+
+	if restore && !option.Config.KeepConfig {
+		return
+	}
+	e.setDefaultPolicyConfig()
+}
+
+func (e *Endpoint) setDefaultPolicyConfig() {
+	e.SetDefaultOpts(option.Config.Opts)
+	alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
+	e.desiredPolicy.IngressPolicyEnabled = alwaysEnforce
+	e.desiredPolicy.EgressPolicyEnabled = alwaysEnforce
 }
