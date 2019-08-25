@@ -406,9 +406,7 @@ func (k *kafkaRedirect) handleRequests(done <-chan struct{}, pair *connectionPai
 	}
 
 	// retrieve identity of source
-	k.redirect.localEndpoint.UnconditionalRLock()
 	mapname := k.redirect.localEndpoint.ConntrackName()
-	k.redirect.localEndpoint.RUnlock()
 	srcIdentity, err := k.conf.lookupSrcID(mapname, remoteAddr.String(), localAddr.String(), k.redirect.listener.ingress)
 	if err != nil {
 		scopedLog.WithField("source",

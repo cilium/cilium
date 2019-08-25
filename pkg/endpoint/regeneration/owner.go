@@ -75,8 +75,6 @@ type Owner interface {
 // EndpointInfoSource returns information about an endpoint being proxied.
 // The read lock must be held when calling any method.
 type EndpointInfoSource interface {
-	UnconditionalRLock()
-	RUnlock()
 	GetID() uint64
 	GetIPv4Address() string
 	GetIPv6Address() string
@@ -85,9 +83,11 @@ type EndpointInfoSource interface {
 	GetLabelsSHA() string
 	HasSidecarProxy() bool
 	ConntrackName() string
+	ConntrackNameLocked() string
 	GetIngressPolicyEnabledLocked() bool
 	GetEgressPolicyEnabledLocked() bool
 	ProxyID(l4 *policy.L4Filter) string
+	GetProxyInfoByFields() (uint64, string, string, []string, string, uint64)
 }
 
 // EndpointUpdater returns information about an endpoint being proxied and

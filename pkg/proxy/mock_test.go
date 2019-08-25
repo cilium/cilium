@@ -34,6 +34,14 @@ type proxyUpdaterMock struct {
 	hasSidecarProxy bool
 }
 
+func (m *proxyUpdaterMock) ConntrackNameLocked() string {
+	return "global"
+}
+
+func (m *proxyUpdaterMock) GetProxyInfoByFields() (uint64, string, string, []string, string, uint64) {
+	return m.GetID(), m.GetIPv4Address(), m.GetIPv6Address(), m.GetLabels(), m.GetLabelsSHA(), uint64(m.GetIdentity())
+}
+
 func (m *proxyUpdaterMock) UnconditionalRLock() { m.RWMutex.RLock() }
 func (m *proxyUpdaterMock) RUnlock()            { m.RWMutex.RUnlock() }
 

@@ -98,6 +98,36 @@ type EndpointInfo struct {
 	LabelsSHA256 string
 }
 
+// FillID sets the ID of EndpointInfo.
+func (e *EndpointInfo) FillID(id uint64) {
+	e.ID = id
+}
+
+// FillIPV4 sets the IPv4 of EndpointInfo.
+func (e *EndpointInfo) FillIPv4(ipv4 string) {
+	e.IPv4 = ipv4
+}
+
+// FillIPV6 sets the IPv6 of EndpointInfo.
+func (e *EndpointInfo) FillIPv6(ipv6 string) {
+	e.IPv6 = ipv6
+}
+
+// FillLabels sets the Labels of EndpointInfo.
+func (e *EndpointInfo) FillLabels(lbls []string) {
+	e.Labels = lbls
+}
+
+// FillLabelsSHA256 sets the SHA of EndpointInfo.
+func (e *EndpointInfo) FillLabelsSHA256(sha string) {
+	e.LabelsSHA256 = sha
+}
+
+// FillIdentity sets the Identity of EndpointInfo.
+func (e *EndpointInfo) FillIdentity(id uint64) {
+	e.Identity = id
+}
+
 // ServiceInfo contains information about the Kubernetes service
 type ServiceInfo struct {
 	// Name specifies the name of the service

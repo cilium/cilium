@@ -25,8 +25,6 @@ import (
 // EndpointInfoSource returns information about an endpoint being proxied.
 // The read lock must be held when calling any method.
 type EndpointInfoSource interface {
-	UnconditionalRLock()
-	RUnlock()
 	GetID() uint64
 	GetIPv4Address() string
 	GetIPv6Address() string
@@ -35,23 +33,25 @@ type EndpointInfoSource interface {
 	GetLabelsSHA() string
 	HasSidecarProxy() bool
 	ConntrackName() string
+	ConntrackNameLocked() string
 	GetIngressPolicyEnabledLocked() bool
 	GetEgressPolicyEnabledLocked() bool
 	ProxyID(l4 *policy.L4Filter) string
+	GetProxyInfoByFields() (uint64, string, string, []string, string, uint64)
 }
 
 // getEndpointInfo returns a consistent snapshot of the given source.
 // The source's read lock must not be held.
 func getEndpointInfo(source EndpointInfoSource) *accesslog.EndpointInfo {
-	source.UnconditionalRLock()
-	defer source.RUnlock()
+
+	id, ipv4, ipv6, labels, labelsSHA256, identity := source.GetProxyInfoByFields()
 	return &accesslog.EndpointInfo{
-		ID:           source.GetID(),
-		IPv4:         source.GetIPv4Address(),
-		IPv6:         source.GetIPv6Address(),
-		Labels:       source.GetLabels(),
-		LabelsSHA256: source.GetLabelsSHA(),
-		Identity:     uint64(source.GetIdentity()),
+		ID:           id,
+		IPv4:         ipv4,
+		IPv6:         ipv6,
+		Labels:       labels,
+		LabelsSHA256: labelsSHA256,
+		Identity:     identity,
 	}
 }
 

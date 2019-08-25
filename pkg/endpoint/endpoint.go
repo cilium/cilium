@@ -524,8 +524,25 @@ func (e *Endpoint) HasSidecarProxy() bool {
 // ConntrackName returns the name suffix for the endpoint-specific bpf
 // conntrack map, which is a 5-digit endpoint ID, or "global" when the
 // global map should be used.
-// Must be called with the endpoint locked.
 func (e *Endpoint) ConntrackName() string {
+	e.UnconditionalRLock()
+	defer e.RUnlock()
+	return e.conntrackName()
+}
+
+// ConntrackNameLocked returns the name suffix for the endpoint-specific bpf
+// conntrack map, which is a 5-digit endpoint ID, or "global" when the
+// global map should be used.
+// Must be called with the endpoint locked.
+func (e *Endpoint) ConntrackNameLocked() string {
+	return e.conntrackName()
+}
+
+// ConntrackName returns the name suffix for the endpoint-specific bpf
+// conntrack map, which is a 5-digit endpoint ID, or "global" when the
+// global map should be used.
+// Must be called with the endpoint locked.
+func (e *Endpoint) conntrackName() string {
 	if e.ConntrackLocalLocked() {
 		return fmt.Sprintf("%05d", int(e.ID))
 	}
@@ -988,7 +1005,7 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 	}
 
 	if e.ConntrackLocalLocked() {
-		ctmap.CloseLocalMaps(e.ConntrackName())
+		ctmap.CloseLocalMaps(e.conntrackName())
 	} else if !option.Config.DryMode {
 		e.scrubIPsInConntrackTableLocked()
 	}
@@ -2006,4 +2023,39 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpoin
 	}
 
 	return errs
+}
+
+type proxyInfo interface {
+	FillID(id uint64)
+	FillIPv4(ipv4 string)
+	FillIPv6(ipv6 string)
+	FillLabels(lbls []string)
+	FillLabelsSHA256(sha string)
+	FillIdentity(id uint64)
+}
+
+// GetProxyInfo populates info with information from the endpoint relevant
+// for traffic running through proxies. Returns an error if the endpoint is in
+// the process of being deleted.
+func (e *Endpoint) GetProxyInfo(info proxyInfo) error {
+	if err := e.RLockAlive(); err != nil {
+		e.LogDisconnectedMutexAction(err, "getting proxy info")
+		return err
+	}
+
+	info.FillID(uint64(e.ID))
+	info.FillIdentity(uint64(e.GetIdentity()))
+	info.FillLabels(e.GetLabels())
+	info.FillLabelsSHA256(e.GetLabelsSHA())
+
+	e.RUnlock()
+	return nil
+}
+
+// GetProxyInfoByFields returns the ID, IPv4 address, IPv6 address, labels,
+// SHA of labels, and identity of the endpoint.
+func (e *Endpoint) GetProxyInfoByFields() (uint64, string, string, []string, string, uint64) {
+	e.UnconditionalRLock()
+	defer e.RUnlock()
+	return e.GetID(), e.GetIPv4Address(), e.GetIPv6Address(), e.GetLabels(), e.GetLabelsSHA(), uint64(e.GetIdentity())
 }
