@@ -18,6 +18,7 @@ package endpoint
 
 import (
 	"context"
+	"net"
 	"reflect"
 	"sync"
 	"testing"
@@ -26,7 +27,10 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/fake"
+	"github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -34,11 +38,11 @@ import (
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/revert"
-
 	. "gopkg.in/check.v1"
 )
 
@@ -566,4 +570,152 @@ func (s *EndpointSuite) TestK8sPodNameIsSet(c *C) {
 	e.K8sPodName = "foo"
 	e.K8sNamespace = "default"
 	c.Assert(e.K8sNamespaceAndPodNameIsSet(), Equals, true)
+}
+
+type EndpointDeadlockEvent struct {
+	ep           *Endpoint
+	deadlockChan chan struct{}
+}
+
+var (
+	deadlockTimeout     = 2 * time.Second
+	deadlockTestTimeout = 3*deadlockTimeout + 1*time.Second
+)
+
+func (n *EndpointDeadlockEvent) Handle(ifc chan interface{}) {
+	// We need to sleep here so that we are consuming an event off the queue,
+	// but not acquiring the lock yet.
+	// There isn't much of a better way to ensure that an Event is being
+	// processed off of the EventQueue, but hasn't acquired the Endpoint's
+	// lock *before* we call deleteEndpointQuiet (see below test).
+	close(n.deadlockChan)
+	time.Sleep(deadlockTimeout)
+	n.ep.UnconditionalLock()
+	n.ep.Unlock()
+}
+
+// This unit test is a bit weird - see
+// https://github.com/cilium/cilium/pull/8687 .
+func (s *EndpointSuite) TestEndpointEventQueueDeadlockUponDeletion(c *C) {
+	// Need to modify global configuration (hooray!), change back when test is
+	// done.
+	oldQueueSize := option.Config.EndpointQueueSize
+	option.Config.EndpointQueueSize = 1
+	defer func() {
+		option.Config.EndpointQueueSize = oldQueueSize
+	}()
+
+	oldDatapath := s.datapath
+
+	s.datapath = fake.NewDatapath()
+
+	defer func() {
+		s.datapath = oldDatapath
+	}()
+
+	ep := NewEndpointWithState(s, 12345, StateReady)
+
+	// In case deadlock occurs, provide a timeout of 3 (number of events) *
+	// deadlockTimeout + 1 seconds to ensure that we are actually testing for
+	// deadlock, and not prematurely exiting, and also so the test suite doesn't
+	// hang forever.
+	ctx, cancel := context.WithTimeout(context.Background(), deadlockTestTimeout)
+	defer cancel()
+
+	// Create three events that go on the endpoint's EventQueue. We need three
+	// events because the first event enqueued immediately is consumed off of
+	// the queue; the second event is put onto the queue (which has length of
+	// one), and the third queue is waiting for the queue's buffer to not be
+	// full (e.g., the first event is finished processing). If the first event
+	// gets stuck processing forever due to deadlock, then the third event
+	// will never be consumed, and the endpoint's EventQueue will never be
+	// closed because Enqueue gets stuck.
+	ev1Ch := make(chan struct{})
+	ev2Ch := make(chan struct{})
+	ev3Ch := make(chan struct{})
+
+	ev := eventqueue.NewEvent(&EndpointDeadlockEvent{
+		ep:           ep,
+		deadlockChan: ev1Ch,
+	})
+
+	ev2 := eventqueue.NewEvent(&EndpointDeadlockEvent{
+		ep:           ep,
+		deadlockChan: ev2Ch,
+	})
+
+	ev3 := eventqueue.NewEvent(&EndpointDeadlockEvent{
+		ep:           ep,
+		deadlockChan: ev3Ch,
+	})
+
+	ev2EnqueueCh := make(chan struct{})
+
+	go func() {
+		_, err := ep.EventQueue.Enqueue(ev)
+		c.Assert(err, IsNil)
+		_, err = ep.EventQueue.Enqueue(ev2)
+		c.Assert(err, IsNil)
+		close(ev2EnqueueCh)
+		_, err = ep.EventQueue.Enqueue(ev3)
+		c.Assert(err, IsNil)
+	}()
+
+	// Ensure that the second event is enqueued before proceeding further, as
+	// we need to assume that at least one event is being processed, and another
+	// one is pushed onto the endpoint's EventQueue.
+	<-ev2EnqueueCh
+	epDelComplete := make(chan struct{})
+
+	// Launch endpoint deletion async so that we do not deadlock (which is what
+	// this unit test is designed to test).
+	go func(ch chan struct{}) {
+		errors := ep.Delete(&monitorOwnerDummy{}, &ipReleaserDummy{}, &dummyManager{}, DeleteConfig{})
+		c.Assert(errors, Not(IsNil))
+		epDelComplete <- struct{}{}
+	}(epDelComplete)
+
+	select {
+	case <-ctx.Done():
+		c.Log("endpoint deletion did not complete in time")
+		c.Fail()
+	case <-epDelComplete:
+		// Success, do nothing.
+	}
+}
+
+type ipReleaserDummy struct{}
+
+func (i *ipReleaserDummy) ReleaseIP(ip net.IP) error {
+	return nil
+}
+
+type monitorOwnerDummy struct{}
+
+func (m *monitorOwnerDummy) NotifyMonitorDeleted(e *Endpoint) {
+	return
+}
+
+type dummyManager struct{}
+
+func (d *dummyManager) AllocateID(id uint16) (uint16, error) {
+	return uint16(1), nil
+}
+
+func (d *dummyManager) RunK8sCiliumEndpointSync(*Endpoint) {
+}
+
+func (d *dummyManager) UpdateReferences(map[id.PrefixType]string, *Endpoint) {
+}
+
+func (d *dummyManager) UpdateIDReference(*Endpoint) {
+}
+
+func (d *dummyManager) RemoveReferences(map[id.PrefixType]string) {
+}
+
+func (d *dummyManager) RemoveID(uint16) {
+}
+
+func (d *dummyManager) ReleaseID(*Endpoint) {
 }
