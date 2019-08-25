@@ -594,15 +594,7 @@ func (h *getEndpointIDConfig) Handle(params GetEndpointIDConfigParams) middlewar
 	} else if ep == nil {
 		return NewGetEndpointIDConfigNotFound()
 	} else {
-		cfgStatus := &models.EndpointConfigurationStatus{
-			Realized: &models.EndpointConfigurationSpec{
-				LabelConfiguration: &models.LabelConfigurationSpec{
-					User: ep.OpLabels.Custom.GetModel(),
-				},
-				Options: *ep.Options.GetMutableModel(),
-			},
-			Immutable: *ep.Options.GetImmutableModel(),
-		}
+		cfgStatus := ep.GetConfigurationStatus()
 
 		return NewGetEndpointIDConfigOK().WithPayload(cfgStatus)
 	}
@@ -748,12 +740,10 @@ func (h *putEndpointIDLabels) Handle(params PatchEndpointIDLabelsParams) middlew
 		return NewPatchEndpointIDLabelsNotFound()
 	}
 
-	if err := ep.RLockAlive(); err != nil {
+	add, del, err := ep.ApplyUserLabelChanges(lbls)
+	if err != nil {
 		return api.Error(PutEndpointIDInvalidCode, err)
 	}
-
-	add, del := ep.OpLabels.SplitUserLabelChanges(lbls)
-	ep.RUnlock()
 
 	code, err := d.modifyEndpointIdentityLabelsFromAPI(params.ID, add, del)
 	if err != nil {
