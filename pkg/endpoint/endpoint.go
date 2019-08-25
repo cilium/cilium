@@ -1839,12 +1839,6 @@ func (e *Endpoint) IPs() []net.IP {
 	return ips
 }
 
-// InsertEvent is called when the endpoint is inserted into the endpoint
-// manager.
-func (e *Endpoint) InsertEvent() {
-	e.getLogger().Info("New endpoint")
-}
-
 // IsDisconnecting returns true if the endpoint is being disconnected or
 // already disconnected
 //
