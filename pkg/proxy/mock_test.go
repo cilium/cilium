@@ -34,6 +34,10 @@ type proxyUpdaterMock struct {
 	hasSidecarProxy bool
 }
 
+func (m *proxyUpdaterMock) GetProxyInfoByFields() (uint64, string, string, []string, string, uint64, error) {
+	return m.GetID(), m.GetIPv4Address(), m.GetIPv6Address(), m.GetLabels(), m.GetLabelsSHA(), uint64(m.GetIdentity()), nil
+}
+
 func (m *proxyUpdaterMock) UnconditionalRLock() { m.RWMutex.RLock() }
 func (m *proxyUpdaterMock) RUnlock()            { m.RWMutex.RUnlock() }
 
@@ -48,8 +52,9 @@ func (m *proxyUpdaterMock) ProxyID(l4 *policy.L4Filter) string    { return "" }
 func (m *proxyUpdaterMock) GetLabelsSHA() string {
 	return labels.NewLabelsFromModel(m.labels).SHA256Sum()
 }
-func (m *proxyUpdaterMock) HasSidecarProxy() bool { return m.hasSidecarProxy }
-func (m *proxyUpdaterMock) ConntrackName() string { return "global" }
+func (m *proxyUpdaterMock) HasSidecarProxy() bool       { return m.hasSidecarProxy }
+func (m *proxyUpdaterMock) ConntrackName() string       { return m.ConntrackNameLocked() }
+func (m *proxyUpdaterMock) ConntrackNameLocked() string { return "global" }
 
 func (m *proxyUpdaterMock) OnProxyPolicyUpdate(policyRevision uint64) {}
 func (m *proxyUpdaterMock) UpdateProxyStatistics(l4Protocol string, port uint16, ingress, request bool,

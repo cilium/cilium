@@ -59,16 +59,16 @@ func (r *defaultEndpointInfoRegistry) FillEndpointIdentityByIP(ip net.IP, info *
 		return false
 	}
 
-	if err := ep.RLockAlive(); err != nil {
-		ep.LogDisconnectedMutexAction(err, "before FillEndpointIdentityByIP")
+	id, ipv4, ipv6, labels, labelsSHA256, identity, err := ep.GetProxyInfoByFields()
+	if err != nil {
 		return false
 	}
 
-	info.ID = uint64(ep.ID)
-	info.Identity = uint64(ep.GetIdentity())
-	info.Labels = ep.GetLabels()
-	info.LabelsSHA256 = ep.GetLabelsSHA()
-
-	ep.RUnlock()
+	info.ID = id
+	info.IPv4 = ipv4
+	info.IPv6 = ipv6
+	info.Labels = labels
+	info.LabelsSHA256 = labelsSHA256
+	info.Identity = identity
 	return true
 }
