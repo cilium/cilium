@@ -199,7 +199,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 			// FIXME GH-3280 When we begin implementing revision numbers this will
 			// diverge from models.Endpoint.Spec to reflect the in-datapath config
 			Realized: spec,
-			Identity: e.SecurityIdentity.GetModel(),
+			Identity: e.securityIdentity.GetModel(),
 			Labels:   lblMdl,
 			Networking: &models.EndpointNetworking{
 				Addressing: []*models.AddressPair{{
@@ -323,7 +323,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		return nil
 	}
 
-	if e.SecurityIdentity == nil {
+	if e.securityIdentity == nil {
 		return nil
 	}
 
@@ -391,7 +391,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 	}
 
 	mdl := &models.EndpointPolicy{
-		ID: int64(e.SecurityIdentity.ID),
+		ID: int64(e.securityIdentity.ID),
 		// This field should be removed.
 		Build:                    int64(e.policyRevision),
 		PolicyRevision:           int64(e.policyRevision),
@@ -412,7 +412,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 	}
 
 	desiredMdl := &models.EndpointPolicy{
-		ID: int64(e.SecurityIdentity.ID),
+		ID: int64(e.securityIdentity.ID),
 		// This field should be removed.
 		Build:                    int64(e.nextPolicyRevision),
 		PolicyRevision:           int64(e.nextPolicyRevision),
@@ -524,7 +524,7 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 
 	// If desired state is waiting-for-identity but identity is already
 	// known, bump it to ready state immediately to force re-generation
-	if e.getState() == StateWaitingForIdentity && e.SecurityIdentity != nil {
+	if e.getState() == StateWaitingForIdentity && e.securityIdentity != nil {
 		e.setState(StateReady, "Preparing to force endpoint regeneration because identity is known while handling API PATCH")
 		changed = true
 	}

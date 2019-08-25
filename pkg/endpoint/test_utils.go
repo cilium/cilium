@@ -38,7 +38,7 @@ func (e *Endpoint) WaitForIdentity(timeoutDuration time.Duration) *identity.Iden
 			return nil
 		case <-tick.C:
 			e.unconditionalRLock()
-			secID = e.SecurityIdentity
+			secID = e.securityIdentity
 			e.runlock()
 			if secID != nil {
 				return secID

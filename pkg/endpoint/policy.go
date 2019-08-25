@@ -69,7 +69,7 @@ func (e *Endpoint) updateNetworkPolicy(proxyWaitGroup *completion.WaitGroup) (re
 	// sidecar Envoy proxies and those proxies needing network connectivity
 	// to get their initial configuration, which is required for them to ACK
 	// the NetworkPolicies.
-	if e.SecurityIdentity == nil {
+	if e.securityIdentity == nil {
 		return nil, nil
 	}
 
@@ -113,7 +113,7 @@ func (e *Endpoint) regeneratePolicy() (retErr error) {
 	var forceRegeneration bool
 
 	// No point in calculating policy if endpoint does not have an identity yet.
-	if e.SecurityIdentity == nil {
+	if e.securityIdentity == nil {
 		e.getLogger().Warn("Endpoint lacks identity, skipping policy calculation")
 		return nil
 	}
@@ -147,7 +147,7 @@ func (e *Endpoint) regeneratePolicy() (retErr error) {
 		// assigned after the endpoint is added to the endpointmanager
 		// (and hence also the identitymanager). In that case, detect
 		// that the selectorPolicy is not set and find it.
-		e.selectorPolicy = repo.GetPolicyCache().Lookup(e.SecurityIdentity)
+		e.selectorPolicy = repo.GetPolicyCache().Lookup(e.securityIdentity)
 		if e.selectorPolicy == nil {
 			err := fmt.Errorf("no cached selectorPolicy found")
 			e.getLogger().WithError(err).Warning("Failed to regenerate from cached policy")
@@ -156,7 +156,7 @@ func (e *Endpoint) regeneratePolicy() (retErr error) {
 	}
 	// TODO: GH-7515: This should be triggered closer to policy change
 	// handlers, but for now let's just update it here.
-	if err := repo.GetPolicyCache().UpdatePolicy(e.SecurityIdentity); err != nil {
+	if err := repo.GetPolicyCache().UpdatePolicy(e.securityIdentity); err != nil {
 		e.getLogger().WithError(err).Warning("Failed to update policy")
 		return err
 	}
@@ -614,13 +614,13 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 					return controller.NewExitReason("Endpoint disappeared")
 				}
 
-				if e.SecurityIdentity == nil {
+				if e.securityIdentity == nil {
 					e.runlock()
 					return nil
 				}
 
 				IP := endpointIP.IP()
-				ID := e.SecurityIdentity.ID
+				ID := e.securityIdentity.ID
 				hostIP := node.GetExternalIPv4()
 				key := node.GetIPsecKeyIdentity()
 				metadata := e.FormatGlobalEndpointID()
@@ -659,8 +659,8 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool)
 		strings.ToLower(istioSidecarProxyLabel.Value) == "true"
 
 	oldIdentity := "no identity"
-	if e.SecurityIdentity != nil {
-		oldIdentity = e.SecurityIdentity.StringID()
+	if e.securityIdentity != nil {
+		oldIdentity = e.securityIdentity.StringID()
 	}
 
 	// Current security identity for endpoint is its old identity - delete its
@@ -669,9 +669,9 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool)
 	if newEndpoint {
 		identitymanager.Add(identity)
 	} else {
-		identitymanager.RemoveOldAddNew(e.SecurityIdentity, identity)
+		identitymanager.RemoveOldAddNew(e.securityIdentity, identity)
 	}
-	e.SecurityIdentity = identity
+	e.securityIdentity = identity
 	e.replaceIdentityLabels(identity.Labels)
 
 	// Clear selectorPolicy. It will be determined at next regeneration.

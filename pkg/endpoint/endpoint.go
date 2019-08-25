@@ -164,9 +164,9 @@ type Endpoint struct {
 	// nodeMAC is the MAC of the node (agent). The MAC is different for every endpoint.
 	nodeMAC mac.MAC
 
-	// SecurityIdentity is the security identity of this endpoint. This is computed from
+	// securityIdentity is the security identity of this endpoint. This is computed from
 	// the endpoint's labels.
-	SecurityIdentity *identityPkg.Identity `json:"SecLabel"`
+	securityIdentity *identityPkg.Identity
 
 	// hasSidecarProxy indicates whether the endpoint has been injected by
 	// Istio with a Cilium-compatible sidecar proxy. If true, the sidecar proxy
@@ -398,11 +398,11 @@ func (e *Endpoint) GetID() uint64 {
 
 // GetLabels returns the labels as slice
 func (e *Endpoint) GetLabels() []string {
-	if e.SecurityIdentity == nil {
+	if e.securityIdentity == nil {
 		return []string{}
 	}
 
-	return e.SecurityIdentity.Labels.GetModel()
+	return e.securityIdentity.Labels.GetModel()
 }
 
 // GetSecurityIdentity returns the security identity of the endpoint. It assumes
@@ -412,7 +412,7 @@ func (e *Endpoint) GetSecurityIdentity() (*identityPkg.Identity, error) {
 		return nil, err
 	}
 	defer e.runlock()
-	return e.SecurityIdentity, nil
+	return e.securityIdentity, nil
 }
 
 // GetID16 returns the endpoint's ID as a 16-bit unsigned integer.
@@ -445,11 +445,11 @@ func (e *Endpoint) getK8sPodLabels() pkgLabels.Labels {
 
 // GetLabelsSHA returns the SHA of labels
 func (e *Endpoint) GetLabelsSHA() string {
-	if e.SecurityIdentity == nil {
+	if e.securityIdentity == nil {
 		return ""
 	}
 
-	return e.SecurityIdentity.GetLabelsSHA256()
+	return e.securityIdentity.GetLabelsSHA256()
 }
 
 // GetOpLabels returns the labels as slice
@@ -527,8 +527,8 @@ func (e *Endpoint) StringID() string {
 }
 
 func (e *Endpoint) GetIdentity() identityPkg.NumericIdentity {
-	if e.SecurityIdentity != nil {
-		return e.SecurityIdentity.ID
+	if e.securityIdentity != nil {
+		return e.securityIdentity.ID
 	}
 
 	return identityPkg.InvalidIdentity
@@ -615,7 +615,7 @@ func (e *Endpoint) ConntrackLocal() bool {
 // ConntrackLocalLocked is the same as ConntrackLocal, but assumes that the
 // endpoint is already locked for reading.
 func (e *Endpoint) ConntrackLocalLocked() bool {
-	if e.SecurityIdentity == nil || e.Options == nil ||
+	if e.securityIdentity == nil || e.Options == nil ||
 		!e.Options.IsEnabled(option.ConntrackLocal) {
 		return false
 	}
@@ -705,10 +705,10 @@ func parseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
 	}
 
 	// Make sure the endpoint has an identity, using the 'init' identity if none.
-	if ep.SecurityIdentity == nil {
-		ep.SecurityIdentity = identityPkg.LookupReservedIdentity(identityPkg.ReservedIdentityInit)
+	if ep.securityIdentity == nil {
+		ep.securityIdentity = identityPkg.LookupReservedIdentity(identityPkg.ReservedIdentityInit)
 	}
-	ep.SecurityIdentity.Sanitize()
+	ep.securityIdentity.Sanitize()
 
 	ep.UpdateLogger(nil)
 
@@ -943,7 +943,7 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 	}
 
 	e.owner.RemoveFromEndpointQueue(uint64(e.ID))
-	if e.SecurityIdentity != nil && len(e.realizedRedirects) > 0 {
+	if e.securityIdentity != nil && len(e.realizedRedirects) > 0 {
 		// Passing a new map of nil will purge all redirects
 		finalize, _ := e.removeOldRedirects(nil, proxyWaitGroup)
 		if finalize != nil {
@@ -957,18 +957,18 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 		}
 	}
 
-	if !conf.NoIdentityRelease && e.SecurityIdentity != nil {
-		identitymanager.Remove(e.SecurityIdentity)
+	if !conf.NoIdentityRelease && e.securityIdentity != nil {
+		identitymanager.Remove(e.securityIdentity)
 
 		releaseCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
 		defer cancel()
 
-		_, err := cache.Release(releaseCtx, e.owner, e.SecurityIdentity)
+		_, err := cache.Release(releaseCtx, e.owner, e.securityIdentity)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("unable to release identity: %s", err))
 		}
 		e.removeNetworkPolicy()
-		e.SecurityIdentity = nil
+		e.securityIdentity = nil
 	}
 
 	e.removeDirectories()
@@ -1440,8 +1440,8 @@ func (e *Endpoint) getIDandLabels() string {
 	defer e.runlock()
 
 	labels := ""
-	if e.SecurityIdentity != nil {
-		labels = e.SecurityIdentity.Labels.String()
+	if e.securityIdentity != nil {
+		labels = e.securityIdentity.Labels.String()
 	}
 
 	return fmt.Sprintf("%d (%s)", e.ID, labels)
@@ -1594,7 +1594,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 		return nil
 	}
 
-	if e.SecurityIdentity != nil && e.SecurityIdentity.Labels.Equals(newLabels) {
+	if e.securityIdentity != nil && e.securityIdentity.Labels.Equals(newLabels) {
 		// Sets endpoint state to ready if was waiting for identity
 		if e.getState() == StateWaitingForIdentity {
 			e.setState(StateReady, "Set identity for this endpoint")
@@ -1651,7 +1651,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 
 	// If endpoint has an old identity, defer release of it to the end of
 	// the function after the endpoint structured has been unlocked again
-	oldIdentity := e.SecurityIdentity
+	oldIdentity := e.securityIdentity
 	if oldIdentity != nil {
 		// The identity of the endpoint is changing, delay the use of
 		// the identity by a grace period to give all other cluster

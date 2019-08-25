@@ -109,11 +109,11 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 
 	fw.WriteString("/*\n")
 	fw.WriteString(" * Labels:\n")
-	if e.SecurityIdentity != nil {
-		if len(e.SecurityIdentity.Labels) == 0 {
+	if e.securityIdentity != nil {
+		if len(e.securityIdentity.Labels) == 0 {
 			fmt.Fprintf(fw, " * - %s\n", "(no labels)")
 		} else {
-			for _, v := range e.SecurityIdentity.Labels {
+			for _, v := range e.securityIdentity.Labels {
 				fmt.Fprintf(fw, " * - %s\n", v)
 			}
 		}
@@ -597,7 +597,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 
 	// Only generate & populate policy map if a security identity is set up for
 	// this endpoint.
-	if e.SecurityIdentity != nil {
+	if e.securityIdentity != nil {
 		stats.policyCalculation.Start()
 		err = e.regeneratePolicy()
 		stats.policyCalculation.End(err == nil)

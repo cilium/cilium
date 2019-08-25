@@ -63,7 +63,7 @@ func (s *EndpointSuite) newEndpoint(c *check.C, spec endpointGeneratorSpec) *End
 	})
 	c.Assert(err, check.IsNil)
 
-	e.SecurityIdentity = &identity.Identity{
+	e.securityIdentity = &identity.Identity{
 		ID: 100,
 		Labels: labels.NewLabelsFromModel([]string{
 			"k8s:io.cilium.k8s.policy.cluster=default",

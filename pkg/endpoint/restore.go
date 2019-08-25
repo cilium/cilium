@@ -176,8 +176,8 @@ func (e *Endpoint) restoreIdentity() error {
 
 	e.setState(StateRestoring, "Synchronizing endpoint labels with KVStore")
 
-	if e.SecurityIdentity != nil {
-		if oldSecID := e.SecurityIdentity.ID; identity.ID != oldSecID {
+	if e.securityIdentity != nil {
+		if oldSecID := e.securityIdentity.ID; identity.ID != oldSecID {
 			log.WithFields(logrus.Fields{
 				logfields.EndpointID:              e.ID,
 				logfields.IdentityLabels + ".old": oldSecID,
@@ -251,7 +251,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		IPv6:                  e.IPv6,
 		IPv4:                  e.IPv4,
 		NodeMAC:               e.nodeMAC,
-		SecurityIdentity:      e.SecurityIdentity,
+		SecurityIdentity:      e.securityIdentity,
 		Options:               e.Options,
 		DNSHistory:            e.DNSHistory,
 		K8sPodName:            e.K8sPodName,
@@ -319,7 +319,7 @@ type serializableEndpoint struct {
 	// nodeMAC is the MAC of the node (agent). The MAC is different for every endpoint.
 	NodeMAC mac.MAC
 
-	// SecurityIdentity is the security identity of this endpoint. This is computed from
+	// securityIdentity is the security identity of this endpoint. This is computed from
 	// the endpoint's labels.
 	SecurityIdentity *identity.Identity `json:"SecLabel"`
 
@@ -379,7 +379,7 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.IPv6 = r.IPv6
 	ep.IPv4 = r.IPv4
 	ep.nodeMAC = r.NodeMAC
-	ep.SecurityIdentity = r.SecurityIdentity
+	ep.securityIdentity = r.SecurityIdentity
 	ep.DNSHistory = r.DNSHistory
 	ep.K8sPodName = r.K8sPodName
 	ep.K8sNamespace = r.K8sNamespace
