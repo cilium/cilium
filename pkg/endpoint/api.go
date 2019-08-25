@@ -124,8 +124,24 @@ func NewEndpointFromChangeModel(owner regeneration.Owner, proxy EndpointProxy, b
 		}
 	}
 
-	if base.DatapathConfiguration != nil {
-		ep.DatapathConfiguration = *base.DatapathConfiguration
+	if option.Config.EnableEndpointRoutes {
+		if base.DatapathConfiguration == nil {
+			base.DatapathConfiguration = &models.EndpointDatapathConfiguration{}
+		}
+
+		// Indicate to insert a per endpoint route instead of routing
+		// via cilium_host interface
+		base.DatapathConfiguration.InstallEndpointRoute = true
+
+		// Since routing occurs via endpoint interface directly, BPF
+		// program is needed on that device at egress as BPF program on
+		// cilium_host interface is bypassed
+		base.DatapathConfiguration.RequireEgressProg = true
+
+		// Delegate routing to the Linux stack rather than tail-calling
+		// between BPF programs.
+		disabled := false
+		base.DatapathConfiguration.RequireRouting = &disabled
 	}
 
 	ep.SetDefaultOpts(option.Config.Opts)

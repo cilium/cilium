@@ -38,6 +38,7 @@ import (
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -53,9 +54,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/trigger"
-
 	"github.com/sirupsen/logrus"
-
 	"golang.org/x/sys/unix"
 )
 
@@ -2038,7 +2037,25 @@ func (e *Endpoint) GetProxyInfoByFields() (uint64, string, string, []string, str
 // * if the endpoint has a sidecar proxy, it waits for the endpoint's BPF
 // program to be generated for the first time.
 // * otherwise, waits for the endpoint to complete its first full regeneration.
-func (e *Endpoint) RegenerateAfterCreation(ctx context.Context, endpointStartFunc func(), syncBuild bool) error {
+func (e *Endpoint) RegenerateAfterCreation(ctx context.Context, mgr endpointManager, endpointStartFunc func(), addLabels, infoLabels pkgLabels.Labels, syncBuild bool) error {
+	err := mgr.AddEndpoint(e.owner, e, "Create endpoint from API PUT")
+	if err != nil {
+		return fmt.Errorf("unable to insert endpoint into manager: %s", err)
+	}
+
+	e.UpdateLabels(ctx, addLabels, infoLabels, true)
+
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("request cancelled while resolving identity")
+	default:
+	}
+
+	// Now that we have ep.ID we can pin the map from this point. This
+	// also has to happen before the first build took place.
+	if err = e.PinDatapathMap(); err != nil {
+		return fmt.Errorf("unable to pin datapath maps: %s", err)
+	}
 	if err := e.lockAlive(); err != nil {
 		return fmt.Errorf("endpoint was deleted while processing the request")
 	}
@@ -2154,4 +2171,80 @@ func (e *Endpoint) setDefaultPolicyConfig() {
 	alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
 	e.desiredPolicy.IngressPolicyEnabled = alwaysEnforce
 	e.desiredPolicy.EgressPolicyEnabled = alwaysEnforce
+}
+
+type k8sClient interface {
+	GetPodLabels(string, string) (map[string]string, error)
+	IsEnabled() bool
+}
+
+func (e *Endpoint) FetchK8sLabels(cli k8sClient) (pkgLabels.Labels, pkgLabels.Labels, error) {
+	lbls, err := k8s.GetPodLabels(e.GetK8sNamespace(), e.GetK8sPodName())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	k8sLbls := pkgLabels.Map2Labels(lbls, pkgLabels.LabelSourceK8s)
+	identityLabels, infoLabels := pkgLabels.FilterLabels(k8sLbls)
+	return identityLabels, infoLabels, nil
+}
+
+func checkLabels(add, del pkgLabels.Labels) (addLabels, delLabels pkgLabels.Labels, ok bool) {
+	addLabels, _ = pkgLabels.FilterLabels(add)
+	delLabels, _ = pkgLabels.FilterLabels(del)
+
+	if len(addLabels) == 0 && len(delLabels) == 0 {
+		return nil, nil, false
+	}
+	return addLabels, delLabels, true
+}
+
+func (e *Endpoint) createLabels(cli k8sClient, lbls []string) (pkgLabels.Labels, pkgLabels.Labels, error) {
+	addLabels := pkgLabels.NewLabelsFromModel(lbls)
+	infoLabels := pkgLabels.NewLabelsFromModel([]string{})
+
+	if len(addLabels) > 0 {
+		if lbls := addLabels.FindReserved(); lbls != nil {
+			return nil, nil, fmt.Errorf("not allowed to add reserved labels: %s", lbls)
+		}
+
+		addLabels, _, _ = checkLabels(addLabels, nil)
+		if len(addLabels) == 0 {
+			return nil, nil, fmt.Errorf("no valid labels provided")
+		}
+	}
+
+	if e.K8sNamespaceAndPodNameIsSet() && cli.IsEnabled() {
+		identityLabels, info, err := e.FetchK8sLabels(cli)
+		if err != nil {
+			e.Logger("api").WithError(err).Warning("Unable to fetch kubernetes labels")
+		} else {
+			addLabels.MergeLabels(identityLabels)
+			infoLabels.MergeLabels(info)
+		}
+	}
+
+	if len(addLabels) == 0 {
+		// If the endpoint has no labels, give the endpoint a special identity with
+		// label reserved:init so we can generate a custom policy for it until we
+		// get its actual identity.
+		addLabels = pkgLabels.Labels{
+			pkgLabels.IDNameInit: pkgLabels.NewLabel(pkgLabels.IDNameInit, "", pkgLabels.LabelSourceReserved),
+		}
+	}
+	return addLabels, infoLabels, nil
+}
+
+func CreationValidation(owner regeneration.Owner, proxy EndpointProxy, mgr endpointManager, cli k8sClient, epTemplate *models.EndpointChangeRequest) (*Endpoint, pkgLabels.Labels, pkgLabels.Labels, error) {
+	ep, err := NewEndpointFromChangeModel(owner, proxy, epTemplate)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("unable to parse endpoint parameters: %s", err)
+	}
+
+	if err := ep.checkIfExists(mgr); err != nil {
+		return ep, nil, nil, err
+	}
+
+	addLabels, infoLabels, err := ep.createLabels(cli, epTemplate.Labels)
+	return ep, addLabels, infoLabels, err
 }

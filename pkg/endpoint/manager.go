@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/endpoint/id"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -31,6 +32,10 @@ type endpointManager interface {
 	RemoveReferences(map[id.PrefixType]string)
 	RemoveID(uint16)
 	ReleaseID(*Endpoint) error
+	LookupCiliumID(uint16) *Endpoint
+	LookupContainerID(string) *Endpoint
+	Lookup(string) (*Endpoint, error)
+	AddEndpoint(regeneration.Owner, *Endpoint, string) error
 }
 
 // Expose exposes the endpoint to the endpointmanager. After this function
@@ -154,4 +159,40 @@ func (e *Endpoint) Unexpose(mgr endpointManager) <-chan struct{} {
 	}(e)
 	e.removeReferences(mgr)
 	return epRemoved
+}
+
+func (ep *Endpoint) checkIfExists(mgr endpointManager) error {
+	oldEp := mgr.LookupCiliumID(ep.ID)
+	if oldEp != nil {
+		return fmt.Errorf("endpoint ID %d already exists", ep.ID)
+	}
+
+	oldEp = mgr.LookupContainerID(ep.GetContainerID())
+	if oldEp != nil {
+		return fmt.Errorf("endpoint for container %s already exists", ep.GetContainerID())
+	}
+
+	var checkIDs []string
+
+	if ep.IPv4.IsSet() {
+		checkIDs = append(checkIDs, id.NewID(id.IPv4Prefix, ep.IPv4.String()))
+	}
+
+	if ep.IPv6.IsSet() {
+		checkIDs = append(checkIDs, id.NewID(id.IPv6Prefix, ep.IPv6.String()))
+	}
+
+	for _, id := range checkIDs {
+		oldEp, err := mgr.Lookup(id)
+		if err != nil {
+			return err
+		} else if oldEp != nil {
+			return fmt.Errorf("IP %s is already in use", id)
+		}
+	}
+
+	if err := APICanModify(ep); err != nil {
+		return err
+	}
+	return nil
 }

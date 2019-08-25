@@ -23,12 +23,10 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/endpoint"
-	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/workloads"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -126,19 +124,10 @@ func NewPutEndpointIDHandler(d *Daemon) PutEndpointIDHandler {
 	return &putEndpointID{d: d}
 }
 
-func fetchK8sLabels(ep *endpoint.Endpoint) (labels.Labels, labels.Labels, error) {
-	lbls, err := k8s.GetPodLabels(ep.GetK8sNamespace(), ep.GetK8sPodName())
-	if err != nil {
-		return nil, nil, err
-	}
-
-	k8sLbls := labels.Map2Labels(lbls, labels.LabelSourceK8s)
-	identityLabels, infoLabels := labels.FilterLabels(k8sLbls)
-	return identityLabels, infoLabels, nil
-}
-
 func invalidDataError(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
-	ep.Logger(daemonSubsys).WithError(err).Warning("Creation of endpoint failed due to invalid data")
+	if ep != nil {
+		ep.Logger(daemonSubsys).WithError(err).Warning("Creation of endpoint failed due to invalid data")
+	}
 	return nil, PutEndpointIDInvalidCode, err
 }
 
@@ -152,98 +141,23 @@ func (d *Daemon) errorDuringCreation(ep *endpoint.Endpoint, err error) (*endpoin
 	return nil, PutEndpointIDFailedCode, err
 }
 
+type K8sClientWrapper struct {
+}
+
+func (k *K8sClientWrapper) IsEnabled() bool {
+	return k8s.IsEnabled()
+}
+
+func (k *K8sClientWrapper) GetPodLabels(namespace, podName string) (map[string]string, error) {
+	return k8s.GetPodLabels(namespace, podName)
+}
+
 // createEndpoint attempts to create the endpoint corresponding to the change
 // request that was specified.
 func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, int, error) {
-	if option.Config.EnableEndpointRoutes {
-		if epTemplate.DatapathConfiguration == nil {
-			epTemplate.DatapathConfiguration = &models.EndpointDatapathConfiguration{}
-		}
-
-		// Indicate to insert a per endpoint route instead of routing
-		// via cilium_host interface
-		epTemplate.DatapathConfiguration.InstallEndpointRoute = true
-
-		// Since routing occurs via endpoint interface directly, BPF
-		// program is needed on that device at egress as BPF program on
-		// cilium_host interface is bypassed
-		epTemplate.DatapathConfiguration.RequireEgressProg = true
-
-		// Delegate routing to the Linux stack rather than tail-calling
-		// between BPF programs.
-		disabled := false
-		epTemplate.DatapathConfiguration.RequireRouting = &disabled
-	}
-
-	ep, err := endpoint.NewEndpointFromChangeModel(d, d.l7Proxy, epTemplate)
+	ep, addLabels, infoLabels, err := endpoint.CreationValidation(d, d.l7Proxy, d.endpointManager, &K8sClientWrapper{}, epTemplate)
 	if err != nil {
-		return invalidDataError(ep, fmt.Errorf("unable to parse endpoint parameters: %s", err))
-	}
-
-	oldEp := d.endpointManager.LookupCiliumID(ep.ID)
-	if oldEp != nil {
-		return invalidDataError(ep, fmt.Errorf("endpoint ID %d already exists", ep.ID))
-	}
-
-	oldEp = d.endpointManager.LookupContainerID(ep.GetContainerID())
-	if oldEp != nil {
-		return invalidDataError(ep, fmt.Errorf("endpoint for container %s already exists", ep.GetContainerID()))
-	}
-
-	var checkIDs []string
-
-	if ep.IPv4.IsSet() {
-		checkIDs = append(checkIDs, endpointid.NewID(endpointid.IPv4Prefix, ep.IPv4.String()))
-	}
-
-	if ep.IPv6.IsSet() {
-		checkIDs = append(checkIDs, endpointid.NewID(endpointid.IPv6Prefix, ep.IPv6.String()))
-	}
-
-	for _, id := range checkIDs {
-		oldEp, err := d.endpointManager.Lookup(id)
-		if err != nil {
-			return invalidDataError(ep, err)
-		} else if oldEp != nil {
-			return invalidDataError(ep, fmt.Errorf("IP %s is already in use", id))
-		}
-	}
-
-	if err = endpoint.APICanModify(ep); err != nil {
 		return invalidDataError(ep, err)
-	}
-
-	addLabels := labels.NewLabelsFromModel(epTemplate.Labels)
-	infoLabels := labels.NewLabelsFromModel([]string{})
-
-	if len(addLabels) > 0 {
-		if lbls := addLabels.FindReserved(); lbls != nil {
-			return invalidDataError(ep, fmt.Errorf("not allowed to add reserved labels: %s", lbls))
-		}
-
-		addLabels, _, _ = checkLabels(addLabels, nil)
-		if len(addLabels) == 0 {
-			return invalidDataError(ep, fmt.Errorf("no valid labels provided"))
-		}
-	}
-
-	if ep.K8sNamespaceAndPodNameIsSet() && k8s.IsEnabled() {
-		identityLabels, info, err := fetchK8sLabels(ep)
-		if err != nil {
-			ep.Logger("api").WithError(err).Warning("Unable to fetch kubernetes labels")
-		} else {
-			addLabels.MergeLabels(identityLabels)
-			infoLabels.MergeLabels(info)
-		}
-	}
-
-	if len(addLabels) == 0 {
-		// If the endpoint has no labels, give the endpoint a special identity with
-		// label reserved:init so we can generate a custom policy for it until we
-		// get its actual identity.
-		addLabels = labels.Labels{
-			labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
-		}
 	}
 
 	err = d.endpointManager.AddEndpoint(d, ep, "Create endpoint from API PUT")
@@ -275,7 +189,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		}
 	}
 
-	if err := ep.RegenerateAfterCreation(ctx, cfunc, epTemplate.SyncBuildEndpoint); err != nil {
+	if err := ep.RegenerateAfterCreation(ctx, d.endpointManager, cfunc, addLabels, infoLabels, epTemplate.SyncBuildEndpoint); err != nil {
 		return d.errorDuringCreation(ep, err)
 	}
 	return ep, 0, nil
