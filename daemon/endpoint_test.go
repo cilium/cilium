@@ -76,27 +76,7 @@ func (ds *DaemonSuite) TestEndpointAddNoLabels(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ep.OpLabels.IdentityLabels(), checker.DeepEquals, expectedLabels)
 
-	// Check that the endpoint received the reserved identity for the
-	// reserved:init entities.
-	timeout := time.NewTimer(3 * time.Second)
-	defer timeout.Stop()
-	tick := time.NewTicker(200 * time.Millisecond)
-	defer tick.Stop()
-	var secID *identity.Identity
-Loop:
-	for {
-		select {
-		case <-timeout.C:
-			break Loop
-		case <-tick.C:
-			ep.UnconditionalRLock()
-			secID = ep.SecurityIdentity
-			ep.RUnlock()
-			if secID != nil {
-				break Loop
-			}
-		}
-	}
+	secID := ep.WaitForIdentity(3 * time.Second)
 	c.Assert(secID, Not(IsNil))
 	c.Assert(secID.ID, Equals, identity.ReservedIdentityInit)
 }
