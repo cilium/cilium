@@ -337,35 +337,6 @@ func (e *Endpoint) GetEgressPolicyEnabledLocked() bool {
 	return e.desiredPolicy.EgressPolicyEnabled
 }
 
-// SetDesiredIngressPolicyEnabled sets Endpoint's ingress policy enforcement
-// configuration to the specified value. The endpoint's mutex must not be held.
-func (e *Endpoint) SetDesiredIngressPolicyEnabled(ingress bool) {
-	e.UnconditionalLock()
-	e.desiredPolicy.IngressPolicyEnabled = ingress
-	e.Unlock()
-
-}
-
-// SetDesiredEgressPolicyEnabled sets Endpoint's egress policy enforcement
-// configuration to the specified value. The endpoint's mutex must not be held.
-func (e *Endpoint) SetDesiredEgressPolicyEnabled(egress bool) {
-	e.UnconditionalLock()
-	e.desiredPolicy.EgressPolicyEnabled = egress
-	e.Unlock()
-}
-
-// SetDesiredIngressPolicyEnabledLocked sets Endpoint's ingress policy enforcement
-// configuration to the specified value. The endpoint's mutex must be held.
-func (e *Endpoint) SetDesiredIngressPolicyEnabledLocked(ingress bool) {
-	e.desiredPolicy.IngressPolicyEnabled = ingress
-}
-
-// SetDesiredEgressPolicyEnabledLocked sets Endpoint's egress policy enforcement
-// configuration to the specified value. The endpoint's mutex must be held.
-func (e *Endpoint) SetDesiredEgressPolicyEnabledLocked(egress bool) {
-	e.desiredPolicy.EgressPolicyEnabled = egress
-}
-
 // waitForProxyCompletions blocks until all proxy changes have been completed.
 // Called with buildMutex held.
 func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
@@ -2133,4 +2104,26 @@ func (e *Endpoint) waitForFirstRegeneration(ctx context.Context) error {
 			return fmt.Errorf("timeout while waiting for initial endpoint generation to complete")
 		}
 	}
+}
+
+// SetDefaultConfiguration sets the default configuration options for its
+// boolean configuration options and for policy enforcement based off of the
+// global policy enforcement configuration options. If restore is true, then
+// the configuration option to keep endpoint configuration during endpoint
+// restore is checked, and if so, this is a no-op.
+func (e *Endpoint) SetDefaultConfiguration(restore bool) {
+	e.UnconditionalLock()
+	defer e.Unlock()
+
+	if restore && option.Config.KeepConfig {
+		return
+	}
+	e.setDefaultPolicyConfig()
+}
+
+func (e *Endpoint) setDefaultPolicyConfig() {
+	e.SetDefaultOpts(option.Config.Opts)
+	alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
+	e.desiredPolicy.IngressPolicyEnabled = alwaysEnforce
+	e.desiredPolicy.EgressPolicyEnabled = alwaysEnforce
 }
