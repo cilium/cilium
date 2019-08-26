@@ -290,6 +290,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 				err = cache.WaitForInitialGlobalIdentities(identityCtx)
 				if err != nil {
 					scopedLog.WithError(err).Warn("Failed while waiting for initial global identities")
+					epRegenerated <- false
 					return
 				}
 				if option.Config.KVStore != "" {
