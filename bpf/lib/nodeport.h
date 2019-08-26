@@ -148,7 +148,7 @@ int tail_nodeport_nat_ipv6(struct __sk_buff *skb)
 			if (ret)
 				return ret;
 
-			BPF_V6(target.addr, HOST_IP);
+			BPF_V6(target.addr, ROUTER_IP);
 			ifindex = ENCAP_IFINDEX;
 
 			/* fib lookup not necessary when going over tunnel. */
@@ -835,7 +835,7 @@ static __always_inline int nodeport_nat_fwd(struct __sk_buff *skb,
 		union v6addr addr;
 #ifdef ENCAP_IFINDEX
 		if (encap)
-			BPF_V6(addr, HOST_IP);
+			BPF_V6(addr, ROUTER_IP);
 		else
 #endif
 			BPF_V6(addr, IPV6_NODEPORT);
@@ -873,7 +873,7 @@ static __always_inline int nodeport_nat_rev(struct __sk_buff *skb,
 		union v6addr addr;
 #ifdef ENCAP_IFINDEX
 		if (encap)
-			BPF_V6(addr, HOST_IP);
+			BPF_V6(addr, ROUTER_IP);
 		else
 #endif
 			BPF_V6(addr, IPV6_NODEPORT);
