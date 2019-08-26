@@ -606,27 +606,15 @@ func (p *Proxy) removeRedirect(id string) (err error, finalizeFunc revert.Finali
 	}
 	delete(p.redirects, id)
 
-	var implFinalizeFunc revert.FinalizeFunc
-	var implRevertFunc revert.RevertFunc
-
 	if r.implementation != nil {
-		implFinalizeFunc, implRevertFunc = r.implementation.Close()
-	}
-
-	finalizeFunc = func() {
-		// break GC loop (implementation may point back to 'r')
-		r.implementation = nil
-
-		if implFinalizeFunc != nil {
-			implFinalizeFunc()
+		finalizeFunc = func() {
+			r.implementation.Close()
+			// break GC loop (implementation may point back to 'r')
+			r.implementation = nil
 		}
 	}
 
 	revertFunc = func() error {
-		if implRevertFunc != nil {
-			return implRevertFunc()
-		}
-
 		p.mutex.Lock()
 		p.redirects[id] = r
 		p.mutex.Unlock()

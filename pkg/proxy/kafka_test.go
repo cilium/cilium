@@ -374,8 +374,7 @@ func (s *proxyTestSuite) TestKafkaRedirect(c *C) {
 	c.Assert(err, Equals, proto.ErrTopicAuthorizationFailed)
 
 	log.Debug("Testing done, closing listen socket")
-	finalize, _ := redir.Close()
-	finalize()
+	redir.Close()
 
 	// In order to see in the logs that the connections get closed after the
 	// 1-minute timeout, uncomment this line:
