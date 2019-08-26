@@ -16,7 +16,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -51,7 +50,6 @@ import (
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
@@ -1253,35 +1251,6 @@ func initEnv(cmd *cobra.Command) {
 		log.WithError(err).Fatal("Invalid sidecar-istio-proxy-image regular expression")
 		return
 	}
-}
-
-// waitForHostDeviceWhenReady waits the given ifaceName to be up and ready. If
-// ifaceName is not found, then it will wait forever until the device is
-// created.
-func waitForHostDeviceWhenReady(ifaceName string) error {
-	for i := 0; ; i++ {
-		if i%10 == 0 {
-			log.WithField(logfields.Interface, ifaceName).
-				Info("Waiting for the underlying interface to be initialized with containers")
-		}
-		_, err := netlink.LinkByName(ifaceName)
-		if err == nil {
-			log.WithField(logfields.Interface, ifaceName).
-				Info("Underlying interface initialized with containers!")
-			break
-		}
-		select {
-		case <-cleanUPSig:
-			return errors.New("clean up signal triggered")
-		default:
-			time.Sleep(time.Second)
-		}
-	}
-	return nil
-}
-
-func endParallelMapMode() {
-	ipcachemap.IPCache.EndParallelMode()
 }
 
 func (d *Daemon) initKVStore() {
