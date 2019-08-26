@@ -24,10 +24,10 @@ build:
 test: run k8s
 
 run:
-	ginkgo --focus " Runtime*" -v -- --cilium.provision=$(provision)
+	ginkgo --focus " RuntimeX*" -v -- --cilium.provision=$(provision)
 
 k8s:
-	ginkgo --focus " K8s*" -v -- --cilium.provision=$(provision)
+	ginkgo --focus " K8sIstio*" -v -- --cilium.provision=$(provision)
 
 clean:
 	@$(ECHO_CLEAN)
