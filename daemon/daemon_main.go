@@ -1214,7 +1214,7 @@ func initEnv(cmd *cobra.Command) {
 		if option.Config.EnableHostServicesUDP &&
 			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP4_RECVMSG) != nil ||
 				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP6_RECVMSG) != nil) {
-			log.Fatal("BPF host reachable services for UDP needs kernel 4.19.57 or higher. If you run an older kernel and only need TCP, then specify: --host-reachable-services-protos=tcp")
+			log.Fatal("BPF host reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer. If you run an older kernel and only need TCP, then specify: --host-reachable-services-protos=tcp")
 		}
 	}
 
