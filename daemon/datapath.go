@@ -17,10 +17,12 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -34,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -389,4 +392,33 @@ func (e *EndpointMapManager) RemoveMapPath(path string) {
 	} else {
 		log.WithField(logfields.Path, path).Info("Removed stale bpf map")
 	}
+}
+
+// waitForHostDeviceWhenReady waits the given ifaceName to be up and ready. If
+// ifaceName is not found, then it will wait forever until the device is
+// created.
+func waitForHostDeviceWhenReady(ifaceName string) error {
+	for i := 0; ; i++ {
+		if i%10 == 0 {
+			log.WithField(logfields.Interface, ifaceName).
+				Info("Waiting for the underlying interface to be initialized with containers")
+		}
+		_, err := netlink.LinkByName(ifaceName)
+		if err == nil {
+			log.WithField(logfields.Interface, ifaceName).
+				Info("Underlying interface initialized with containers!")
+			break
+		}
+		select {
+		case <-cleanUPSig:
+			return errors.New("clean up signal triggered")
+		default:
+			time.Sleep(time.Second)
+		}
+	}
+	return nil
+}
+
+func endParallelMapMode() {
+	ipcachemap.IPCache.EndParallelMode()
 }
