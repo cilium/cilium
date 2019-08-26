@@ -48,7 +48,6 @@ func (p *Proxy) StartEnvoy() {
 // createEnvoyRedirect creates a redirect with corresponding proxy
 // configuration. This will launch a proxy instance.
 func (p *Proxy) createEnvoyRedirect(r *Redirect, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) (RedirectImplementation, error) {
-	p.StartEnvoy()
 	l := r.listener
 	if envoyProxy != nil {
 		redir := &envoyRedirect{

@@ -15,10 +15,12 @@
 package policy
 
 import (
+	"context"
 	"fmt"
 	"sync/atomic"
 	"unsafe"
 
+	"github.com/cilium/cilium/pkg/completion"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/lock"
@@ -137,6 +139,30 @@ func (cache *PolicyCache) updateSelectorPolicy(identity *identityPkg.Identity) (
 		return false, err
 	}
 
+	// Make sure the needed proxy listeners are started
+	if selPolicy.L4Policy.RedirectType != RedirectTypeNone {
+		if proxyOwner := cache.repo.GetProxyOwner(); proxyOwner != nil {
+			completionCtx, cancel := context.WithTimeout(context.Background(), proxyStartTimeout)
+			proxyWaitGroup := completion.NewWaitGroup(completionCtx)
+			err, finalizeFunc, revertFunc := proxyOwner.StartProxies(selPolicy.L4Policy.RedirectType, proxyWaitGroup)
+			if err == nil {
+				// TODO: Move this higher up in the call stack
+				err = proxyWaitGroup.Wait()
+				if err == nil {
+					if finalizeFunc != nil {
+						finalizeFunc()
+					}
+				} else if revertFunc != nil {
+					revertFunc()
+				}
+			}
+			cancel()
+			if err != nil {
+				log.WithError(err).Error("StartProxies failed")
+			}
+		}
+	}
+
 	cip.setPolicy(selPolicy)
 
 	return true, nil
@@ -172,8 +198,7 @@ func (cache *PolicyCache) UpdatePolicy(identity *identityPkg.Identity) error {
 }
 
 // cachedSelectorPolicy is a wrapper around a selectorPolicy (stored in the
-// 'policy' field). It is always nested directly in the owning policyCache,
-// and is protected against concurrent writes via the policyCache mutex.
+// 'policy' field).
 type cachedSelectorPolicy struct {
 	lock.Mutex // lock is needed to synchronize parallel policy updates
 

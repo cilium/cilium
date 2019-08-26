@@ -772,6 +772,7 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 		iptablesManager:   iptablesManager,
 		endpointManager:   epMgr,
 	}
+	d.policy.ProxyOwner = &d
 	bootstrapStats.daemonInit.End(true)
 
 	// Open or create BPF maps.
