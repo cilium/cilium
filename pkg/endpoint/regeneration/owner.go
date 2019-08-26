@@ -35,10 +35,10 @@ type Owner interface {
 	GetPolicyRepository() *policy.Repository
 
 	// UpdateProxyRedirect must update the redirect configuration of an endpoint in the proxy
-	UpdateProxyRedirect(e EndpointUpdater, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc)
+	UpdateProxyRedirect(e EndpointUpdater, l4 *policy.L4Filter) (uint16, error, revert.FinalizeFunc, revert.RevertFunc)
 
 	// RemoveProxyRedirect must remove the redirect installed by UpdateProxyRedirect
-	RemoveProxyRedirect(e EndpointInfoSource, id string, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc)
+	RemoveProxyRedirect(e EndpointInfoSource, id string) (error, revert.FinalizeFunc, revert.RevertFunc)
 
 	// UpdateNetworkPolicy adds or updates a network policy in the set
 	// published to L7 proxies.

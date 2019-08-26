@@ -66,11 +66,11 @@ func (s *proxyTestSuite) GetPolicyRepository() *policy.Repository {
 	return s.repo
 }
 
-func (s *proxyTestSuite) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter, wg *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
+func (s *proxyTestSuite) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
 	return 0, nil, nil, nil
 }
 
-func (s *proxyTestSuite) RemoveProxyRedirect(e regeneration.EndpointInfoSource, id string, wg *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
+func (s *proxyTestSuite) RemoveProxyRedirect(e regeneration.EndpointInfoSource, id string) (error, revert.FinalizeFunc, revert.RevertFunc) {
 	return nil, nil, nil
 }
 
@@ -318,7 +318,7 @@ func (s *proxyTestSuite) TestKafkaRedirect(c *C) {
 		testMode: true,
 	})
 	c.Assert(err, IsNil)
-	defer redir.Close(nil)
+	defer redir.Close()
 
 	log.WithFields(logrus.Fields{
 		"address": proxyAddress,
@@ -371,7 +371,7 @@ func (s *proxyTestSuite) TestKafkaRedirect(c *C) {
 	c.Assert(err, Equals, proto.ErrTopicAuthorizationFailed)
 
 	log.Debug("Testing done, closing listen socket")
-	finalize, _ := redir.Close(nil)
+	finalize, _ := redir.Close()
 	finalize()
 
 	// In order to see in the logs that the connections get closed after the

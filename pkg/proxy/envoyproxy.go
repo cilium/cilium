@@ -88,11 +88,11 @@ func (p *Proxy) createEnvoyRedirect(r *Redirect) (RedirectImplementation, error)
 
 // UpdateRules is a no-op for envoy, as redirect data is synchronized via the
 // xDS cache.
-func (k *envoyRedirect) UpdateRules(wg *completion.WaitGroup, l4 *policy.L4Filter) (revert.RevertFunc, error) {
-	return func() error { return nil }, nil
+func (k *envoyRedirect) UpdateRules(l4 *policy.L4Filter) (revert.RevertFunc, error) {
+	return nil, nil
 }
 
 // Close is a no-op for Envoy, as the shared listener is managed separately
-func (r *envoyRedirect) Close(wg *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
+func (r *envoyRedirect) Close() (revert.FinalizeFunc, revert.RevertFunc) {
 	return nil, nil
 }

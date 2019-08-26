@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -41,7 +40,7 @@ type dnsRedirect struct {
 
 // setRules replaces old l7 rules of a redirect with new ones.
 // TODO: Get rid of the duplication between 'currentRules' and 'r.rules'
-func (dr *dnsRedirect) setRules(wg *completion.WaitGroup, newRules policy.L7DataMap) error {
+func (dr *dnsRedirect) setRules(newRules policy.L7DataMap) error {
 	var toRemove, toAdd []string
 
 	for _, rule := range dr.currentRules {
@@ -88,17 +87,17 @@ func (dr *dnsRedirect) setRules(wg *completion.WaitGroup, newRules policy.L7Data
 // UpdateRules atomically replaces the proxy rules in effect for this redirect.
 // It is not aware of revision number and doesn't account for out-of-order
 // calls to UpdateRules or the returned RevertFunc.
-func (dr *dnsRedirect) UpdateRules(wg *completion.WaitGroup, l4 *policy.L4Filter) (revert.RevertFunc, error) {
+func (dr *dnsRedirect) UpdateRules(l4 *policy.L4Filter) (revert.RevertFunc, error) {
 	oldRules := dr.currentRules
-	err := dr.setRules(wg, dr.redirect.rules)
+	err := dr.setRules(dr.redirect.rules)
 	revertFunc := func() error {
-		return dr.setRules(nil, oldRules)
+		return dr.setRules(oldRules)
 	}
 	return revertFunc, err
 }
 
 // Close the redirect.
-func (dr *dnsRedirect) Close(wg *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
+func (dr *dnsRedirect) Close() (revert.FinalizeFunc, revert.RevertFunc) {
 	return func() {
 		for _, rule := range dr.currentRules {
 			for _, dnsRule := range rule.DNS {
@@ -126,7 +125,7 @@ func createDNSRedirect(r *Redirect) (RedirectImplementation, error) {
 		"dnsRedirect": dr,
 	}).Debug("Creating DNS Proxy redirect")
 
-	return dr, dr.setRules(nil, r.rules)
+	return dr, dr.setRules(r.rules)
 }
 
 func copyRules(rules policy.L7DataMap) policy.L7DataMap {

@@ -65,8 +65,8 @@ type DaemonSuite struct {
 	OnGetCachedLabelList      func(id identity.NumericIdentity) (labels.LabelArray, error)
 	OnGetPolicyRepository     func() *policy.Repository
 	OnStartProxies            func(policy.RedirectType, *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc)
-	OnUpdateProxyRedirect     func(e regeneration.EndpointUpdater, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc)
-	OnRemoveProxyRedirect     func(e regeneration.EndpointInfoSource, id string, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc)
+	OnUpdateProxyRedirect     func(e regeneration.EndpointUpdater, l4 *policy.L4Filter) (uint16, error, revert.FinalizeFunc, revert.RevertFunc)
+	OnRemoveProxyRedirect     func(e regeneration.EndpointInfoSource, id string) (error, revert.FinalizeFunc, revert.RevertFunc)
 	OnUpdateNetworkPolicy     func(e regeneration.EndpointUpdater, policy *policy.L4Policy, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc)
 	OnRemoveNetworkPolicy     func(e regeneration.EndpointInfoSource)
 	OnQueueEndpointBuild      func(ctx context.Context, epID uint64) (func(), error)
@@ -241,16 +241,16 @@ func (ds *DaemonSuite) StartProxies(rType policy.RedirectType, wg *completion.Wa
 	panic("StartProxies should not have been called")
 }
 
-func (ds *DaemonSuite) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
+func (ds *DaemonSuite) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
 	if ds.OnUpdateProxyRedirect != nil {
-		return ds.OnUpdateProxyRedirect(e, l4, proxyWaitGroup)
+		return ds.OnUpdateProxyRedirect(e, l4)
 	}
 	panic("UpdateProxyRedirect should not have been called")
 }
 
-func (ds *DaemonSuite) RemoveProxyRedirect(e regeneration.EndpointInfoSource, id string, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
+func (ds *DaemonSuite) RemoveProxyRedirect(e regeneration.EndpointInfoSource, id string) (error, revert.FinalizeFunc, revert.RevertFunc) {
 	if ds.OnRemoveProxyRedirect != nil {
-		return ds.OnRemoveProxyRedirect(e, id, proxyWaitGroup)
+		return ds.OnRemoveProxyRedirect(e, id)
 	}
 	panic("RemoveProxyRedirect should not have been called")
 }

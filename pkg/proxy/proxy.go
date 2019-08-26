@@ -15,7 +15,6 @@
 package proxy
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"time"
@@ -500,10 +499,8 @@ func (p *Proxy) createListenerLocked(pp *ProxyPort, wg *completion.WaitGroup) (p
 // a proxy instance. If the redirect is already in place, only the rules will be
 // updated.
 // The proxy listening port is returned, but proxy configuration on that port
-// may still be ongoing asynchronously. Caller should wait for successful completion
-// on 'wg' before assuming the returned proxy port is listening.
-func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndpoint logger.EndpointUpdater,
-	wg *completion.WaitGroup) (proxyPort uint16, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
+// may still be ongoing asynchronously.
+func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndpoint logger.EndpointUpdater) (proxyPort uint16, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
 
 	p.mutex.Lock()
 	defer func() {
@@ -529,7 +526,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 			updateRevertFunc := redir.updateRules(l4)
 			revertStack.Push(updateRevertFunc)
 			var implUpdateRevertFunc revert.RevertFunc
-			implUpdateRevertFunc, err = redir.implementation.UpdateRules(wg, l4)
+			implUpdateRevertFunc, err = redir.implementation.UpdateRules(l4)
 			if err != nil {
 				err = fmt.Errorf("unable to update existing redirect: %s", err)
 				return 0, err, nil, nil
@@ -550,7 +547,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 
 		var removeRevertFunc revert.RevertFunc
 		var removeFinalizeFunc revert.FinalizeFunc
-		err, removeFinalizeFunc, removeRevertFunc = p.removeRedirect(id, wg)
+		err, removeFinalizeFunc, removeRevertFunc = p.removeRedirect(id)
 		redir.mutex.Unlock()
 
 		if err != nil {
@@ -594,12 +591,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 		p.redirects[id] = redir
 
 		revertStack.Push(func() error {
-			completionCtx, cancel := context.WithCancel(context.Background())
-			proxyWaitGroup := completion.NewWaitGroup(completionCtx)
-			err, finalize, _ := p.RemoveRedirect(id, proxyWaitGroup)
-			// Don't wait for an ACK. This is best-effort. Just clean up the completions.
-			cancel()
-			proxyWaitGroup.Wait() // Ignore the returned error.
+			err, finalize, _ := p.RemoveRedirect(id)
 			if err == nil && finalize != nil {
 				finalize()
 			}
@@ -618,18 +610,18 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 }
 
 // RemoveRedirect removes an existing redirect.
-func (p *Proxy) RemoveRedirect(id string, wg *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
+func (p *Proxy) RemoveRedirect(id string) (error, revert.FinalizeFunc, revert.RevertFunc) {
 	p.mutex.Lock()
 	defer func() {
 		p.UpdateRedirectMetrics()
 		p.mutex.Unlock()
 	}()
-	return p.removeRedirect(id, wg)
+	return p.removeRedirect(id)
 }
 
 // removeRedirect removes an existing redirect. p.mutex must be held
 // p.mutex must NOT be held when the returned finalize and revert functions are called!
-func (p *Proxy) removeRedirect(id string, wg *completion.WaitGroup) (err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
+func (p *Proxy) removeRedirect(id string) (err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
 	log.WithField(fieldProxyRedirectID, id).
 		Debug("Removing proxy redirect")
 
@@ -639,7 +631,7 @@ func (p *Proxy) removeRedirect(id string, wg *completion.WaitGroup) (err error, 
 	}
 	delete(p.redirects, id)
 
-	implFinalizeFunc, implRevertFunc := r.implementation.Close(wg)
+	implFinalizeFunc, implRevertFunc := r.implementation.Close()
 
 	finalizeFunc = func() {
 		// break GC loop (implementation may point back to 'r')

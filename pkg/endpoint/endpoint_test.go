@@ -86,11 +86,11 @@ func (s *EndpointSuite) GetPolicyRepository() *policy.Repository {
 	return s.repo
 }
 
-func (s *EndpointSuite) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter, wg *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
+func (s *EndpointSuite) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
 	return 0, nil, nil, nil
 }
 
-func (s *EndpointSuite) RemoveProxyRedirect(e regeneration.EndpointInfoSource, id string, wg *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
+func (s *EndpointSuite) RemoveProxyRedirect(e regeneration.EndpointInfoSource, id string) (error, revert.FinalizeFunc, revert.RevertFunc) {
 	return nil, nil, nil
 }
 
