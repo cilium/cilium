@@ -210,3 +210,74 @@ func RequiresGlobalIdentity(lbls labels.Labels) bool {
 
 	return false
 }
+
+// AddUserDefinedNumericIdentitySet adds all key-value pairs from the given map
+// to the map of user defined numeric identities and reserved identities.
+// The key-value pairs should map a numeric identity to a valid label.
+// Is not safe for concurrent use.
+func AddUserDefinedNumericIdentitySet(m map[string]string) error {
+	// Validate first
+	for k := range m {
+		ni, err := ParseNumericIdentity(k)
+		if err != nil {
+			return err
+		}
+		if !IsUserReservedIdentity(ni) {
+			return ErrNotUserIdentity
+		}
+	}
+	for k, lbl := range m {
+		ni, _ := ParseNumericIdentity(k)
+		AddUserDefinedNumericIdentity(ni, lbl)
+		AddReservedIdentity(ni, lbl)
+	}
+	return nil
+}
+
+// LookupReservedIdentityByLabels looks up a reserved identity by its labels and
+// returns it if found. Returns nil if not found.
+func LookupReservedIdentityByLabels(lbls labels.Labels) *Identity {
+	if identity := WellKnown.LookupByLabels(lbls); identity != nil {
+		return identity
+	}
+
+	for _, lbl := range lbls {
+		switch {
+		// If the set of labels contain a fixed identity then and exists in
+		// the map of reserved IDs then return the identity of that reserved ID.
+		case lbl.Key == labels.LabelKeyFixedIdentity:
+			id := GetReservedID(lbl.Value)
+			if id != IdentityUnknown && IsUserReservedIdentity(id) {
+				return LookupReservedIdentity(id)
+			}
+			// If a fixed identity was not found then we return nil to avoid
+			// falling to a reserved identity.
+			return nil
+		// If it doesn't contain a fixed-identity then make sure the set of
+		// labels only contains a single label and that label is of the reserved
+		// type. This is to prevent users from adding cilium-reserved labels
+		// into the workloads.
+		case lbl.Source == labels.LabelSourceReserved:
+			if len(lbls) != 1 {
+				return nil
+			}
+			id := GetReservedID(lbl.Key)
+			if id != IdentityUnknown && !IsUserReservedIdentity(id) {
+				return LookupReservedIdentity(id)
+			}
+		}
+	}
+	return nil
+}
+
+// IdentityAllocationIsLocal returns true if a call to AllocateIdentity with
+// the given labels would not require accessing the KV store to allocate the
+// identity.
+// Currently, this function returns true only if the labels are those of a
+// reserved identity, i.e. if the slice contains a single reserved
+// "reserved:*" label.
+func IdentityAllocationIsLocal(lbls labels.Labels) bool {
+	// If there is only one label with the "reserved" source and a well-known
+	// key, the well-known identity for it can be allocated locally.
+	return LookupReservedIdentityByLabels(lbls) != nil
+}

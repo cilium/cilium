@@ -62,6 +62,11 @@ func Remove(identity *identity.Identity) {
 	GlobalIdentityManager.Remove(identity)
 }
 
+// RemoveAll deletes all identities from the GlobalIdentityManager.
+func RemoveAll() {
+	GlobalIdentityManager.RemoveAll()
+}
+
 // Add inserts the identity into the identity manager. If the identity is
 // already in the identity manager, the reference count for the identity is
 // incremented.
@@ -90,6 +95,7 @@ func (idm *IdentityManager) add(identity *identity.Identity) {
 		for o := range idm.observers {
 			o.LocalEndpointIdentityAdded(identity)
 		}
+
 	} else {
 		idMeta.refCount++
 	}
@@ -123,6 +129,16 @@ func (idm *IdentityManager) RemoveOldAddNew(old, new *identity.Identity) {
 // GlobalIdentityManager.
 func RemoveOldAddNew(old, new *identity.Identity) {
 	GlobalIdentityManager.RemoveOldAddNew(old, new)
+}
+
+// RemoveAll removes all identities.
+func (idm *IdentityManager) RemoveAll() {
+	idm.mutex.Lock()
+	defer idm.mutex.Unlock()
+
+	for id := range idm.identities {
+		idm.remove(idm.identities[id].identity)
+	}
 }
 
 // Remove deletes the identity from the identity manager. If the identity is
