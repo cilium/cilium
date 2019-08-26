@@ -50,8 +50,8 @@ const (
 	// portReuseDelay is the delay until a port is being reused
 	portReuseDelay = 5 * time.Minute
 
-	// redirectCreationAttempts is the number of attempts to create a redirect
-	redirectCreationAttempts = 5
+	// listenerCreationAttempts is the number of attempts to create a redirect
+	listenerCreationAttempts = 5
 )
 
 type DatapathUpdater interface {
@@ -67,15 +67,20 @@ type ProxyPort struct {
 	parserType policy.L7ParserType
 	// 'true' for ingress, 'false' for egress (immutable)
 	ingress bool
+	// createListener is called when the listener should be created (immutable)
+	createListener func(*Proxy, *ProxyPort, *completion.WaitGroup) (error, revert.RevertFunc)
 	// ProxyPort is the desired proxy listening port number.
 	proxyPort uint16
-	// nRedirects is the number of redirects using this proxy port
+	// nRedirects is the number of acknowledged redirects using this proxy port
 	nRedirects int
 	// Configured is true when the proxy is (being) configured, but not necessarily
 	// acknowledged yet. This is reset to false when the underlying proxy listener
 	// is removed.
 	configured bool
-	// rulesPort congains the proxy port value configured to the datapath rules and
+	// acknowledged is true when a listener has been acknowledged. Reset to false
+	// when the listener is removed.
+	acknowledged bool
+	// rulesPort is the proxy port value configured to the datapath rules and
 	// is non-zero when a proxy has been successfully created and the
 	// datapath rules have been created.
 	rulesPort uint16
@@ -183,24 +188,28 @@ var (
 	// initialized here are immutable.
 	proxyPorts = []ProxyPort{
 		{
-			parserType: policy.ParserTypeHTTP,
-			ingress:    false,
-			name:       "cilium-http-egress",
+			parserType:     policy.ParserTypeHTTP,
+			ingress:        false,
+			name:           "cilium-http-egress",
+			createListener: createEnvoyListener,
 		},
 		{
-			parserType: policy.ParserTypeHTTP,
-			ingress:    true,
-			name:       "cilium-http-ingress",
+			parserType:     policy.ParserTypeHTTP,
+			ingress:        true,
+			name:           "cilium-http-ingress",
+			createListener: createEnvoyListener,
 		},
 		{
-			parserType: policy.ParserTypeKafka,
-			ingress:    false,
-			name:       "cilium-kafka-egress",
+			parserType:     policy.ParserTypeKafka,
+			ingress:        false,
+			name:           "cilium-kafka-egress",
+			createListener: createKafkaListener,
 		},
 		{
-			parserType: policy.ParserTypeKafka,
-			ingress:    true,
-			name:       "cilium-kafka-ingress",
+			parserType:     policy.ParserTypeKafka,
+			ingress:        true,
+			name:           "cilium-kafka-ingress",
+			createListener: createKafkaListener,
 		},
 		{
 			parserType: policy.ParserTypeDNS,
@@ -208,14 +217,16 @@ var (
 			name:       "cilium-dns-egress",
 		},
 		{
-			parserType: policy.ParserTypeNone,
-			ingress:    false,
-			name:       "cilium-proxylib-egress",
+			parserType:     policy.ParserTypeNone,
+			ingress:        false,
+			name:           "cilium-proxylib-egress",
+			createListener: createEnvoyListener,
 		},
 		{
-			parserType: policy.ParserTypeNone,
-			ingress:    true,
-			name:       "cilium-proxylib-ingress",
+			parserType:     policy.ParserTypeNone,
+			ingress:        true,
+			name:           "cilium-proxylib-ingress",
+			createListener: createEnvoyListener,
 		},
 	}
 )
@@ -290,13 +301,13 @@ func (p *Proxy) ackProxyPort(pp *ProxyPort) error {
 		// if the proxy is not currently configured.
 
 		// Remove old rules, if any and for different port
-		if pp.rulesPort != 0 && pp.rulesPort != pp.proxyPort {
+		if pp.rulesPort != 0 && pp.rulesPort != pp.proxyPort && p.datapathUpdater != nil {
 			scopedLog.Debugf("Removing old proxy port rules for %s:%d", pp.name, pp.rulesPort)
 			p.datapathUpdater.RemoveProxyRules(pp.rulesPort, pp.ingress, pp.name)
 			pp.rulesPort = 0
 		}
 		// Add new rules, if needed
-		if pp.rulesPort != pp.proxyPort {
+		if pp.rulesPort != pp.proxyPort && p.datapathUpdater != nil {
 			// This should always succeed if we have managed to start-up properly
 			scopedLog.Debugf("Adding new proxy port rules for %s:%d", pp.name, pp.proxyPort)
 			err := p.datapathUpdater.InstallProxyRules(pp.proxyPort, pp.ingress, pp.name)
@@ -305,6 +316,7 @@ func (p *Proxy) ackProxyPort(pp *ProxyPort) error {
 			}
 		}
 		pp.rulesPort = pp.proxyPort
+		pp.acknowledged = true
 	}
 	pp.nRedirects++
 	return nil
@@ -330,6 +342,7 @@ func (p *Proxy) releaseProxyPort(name string) error {
 		// This becomes possible when we are able to keep the proxy listeners
 		// configured also when there are no redirects.
 		log.WithField(fieldProxyRedirectID, name).Debugf("Delayed release of proxy port %d", pp.proxyPort)
+		pp.acknowledged = false
 	}
 
 	return nil
@@ -411,6 +424,75 @@ func (p *Proxy) ReinstallRules() {
 	}
 }
 
+// createListenerLocked creates listener for the given ProxyPort. This will allocate
+// a proxy port as required. The proxy listening port is returned, but proxy configuration
+// on that port may still be ongoing asynchronously. Caller should wait for successful
+// completion on 'wg' before assuming the returned proxy port is listening.
+func (p *Proxy) createListenerLocked(pp *ProxyPort, wg *completion.WaitGroup) (proxyPort uint16, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
+	defer func() {
+		if err == nil && proxyPort == 0 {
+			panic("Trying to configure zero proxy port")
+		}
+	}()
+
+	if pp.acknowledged {
+		// Already up and running
+		proxyPort = pp.proxyPort
+		return
+	}
+
+	scopedLog := log.WithField(fieldProxyRedirectID, pp.name)
+
+	if pp.createListener == nil {
+		scopedLog.Error("createListener not set")
+		return 0, err, nil, nil
+	}
+
+	for nRetry := 0; nRetry < listenerCreationAttempts; nRetry++ {
+		if nRetry > 0 {
+			// an error occurred and we can retry
+			scopedLog.WithError(err).Warningf("Unable to create listener, retrying")
+		}
+
+		if !pp.configured {
+			// Try allocate (the configured) port, but only if the proxy has not
+			// been already configured.
+			pp.proxyPort, err = allocatePort(pp.proxyPort, p.rangeMin, p.rangeMax)
+			if err != nil {
+				return 0, err, nil, nil
+			}
+		}
+
+		err, revertFunc = pp.createListener(p, pp, wg)
+
+		if err == nil {
+			scopedLog.Debug("Created new ", pp.parserType, " proxy listener")
+			// must mark the proxyPort configured while we still hold the lock to prevent racing between
+			// two parallel runs
+			pp.reservePort()
+
+			// Set the proxy port only after an ACK is received.
+			finalizeFunc = func() {
+				proxyPortsMutex.Lock()
+				err := p.ackProxyPort(pp)
+				proxyPortsMutex.Unlock()
+				if err != nil {
+					// Finalize functions can't error out. This failure can only
+					// happen if there is an internal Cilium logic error regarding
+					// installation of iptables rules.
+					panic(err)
+				}
+			}
+			// Must return the proxy port when successful
+			proxyPort = pp.proxyPort
+			return
+		}
+	}
+	// an error occurred, and we have no more retries
+	scopedLog.WithError(err).Error("Unable to create ", pp.parserType, " listener")
+	return 0, err, nil, nil
+}
+
 // CreateOrUpdateRedirect creates or updates a L4 redirect with corresponding
 // proxy configuration. This will allocate a proxy port as required and launch
 // a proxy instance. If the redirect is already in place, only the rules will be
@@ -487,25 +569,14 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 		return 0, err, nil, nil
 	}
 
-	redir := newRedirect(localEndpoint, pp, uint16(l4.Port))
-	redir.updateRules(l4)
-	// Rely on create*Redirect to update rules, unlike the update case above.
+	proxyPort, err, listenerFinalizeFunc, listenerRevertFunc := p.createListenerLocked(pp, wg)
+	if err == nil {
+		finalizeList.Append(listenerFinalizeFunc)
+		revertStack.Push(listenerRevertFunc)
 
-	for nRetry := 0; nRetry < redirectCreationAttempts; nRetry++ {
-		if nRetry > 0 {
-			// an error occurred and we can retry
-			scopedLog.WithError(err).Warningf("Unable to create %s proxy, retrying", pp.name)
-		}
-
-		if !pp.configured {
-			// Try allocate (the configured) port, but only if the proxy has not
-			// been already configured.
-			pp.proxyPort, err = allocatePort(pp.proxyPort, p.rangeMin, p.rangeMax)
-			if err != nil {
-				revertFunc() // Ignore errors while reverting. This is best-effort.
-				return 0, err, nil, nil
-			}
-		}
+		redir := newRedirect(localEndpoint, pp, uint16(l4.Port))
+		redir.updateRules(l4)
+		// Rely on create*Redirect to update rules, unlike the update case above.
 
 		switch l4.L7Parser {
 		case policy.ParserTypeDNS:
@@ -515,18 +586,15 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 			redir.implementation, err = createKafkaRedirect(redir, kafkaConfiguration{})
 
 		case policy.ParserTypeHTTP:
-			redir.implementation, err = p.createEnvoyRedirect(redir, p.datapathUpdater.SupportsOriginalSourceAddr(), wg)
+			redir.implementation, err = p.createEnvoyRedirect(redir)
 		default:
-			redir.implementation, err = p.createEnvoyRedirect(redir, p.datapathUpdater.SupportsOriginalSourceAddr(), wg)
+			redir.implementation, err = p.createEnvoyRedirect(redir)
 		}
 
 		if err == nil {
 			scopedLog.WithField(logfields.Object, logfields.Repr(redir)).
 				Debug("Created new ", l4.L7Parser, " proxy instance")
 			p.redirects[id] = redir
-			// must mark the proxyPort configured while we still hold the lock to prevent racing between
-			// two parallel runs
-			pp.reservePort()
 
 			revertStack.Push(func() error {
 				completionCtx, cancel := context.WithCancel(context.Background())
@@ -541,18 +609,6 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 				return err
 			})
 
-			// Set the proxy port only after an ACK is received.
-			finalizeList.Append(func() {
-				proxyPortsMutex.Lock()
-				err := p.ackProxyPort(pp)
-				proxyPortsMutex.Unlock()
-				if err != nil {
-					// Finalize functions can't error out. This failure can only
-					// happen if there is an internal Cilium logic error regarding
-					// installation of iptables rules.
-					panic(err)
-				}
-			})
 			// Must return the proxy port when successful
 			proxyPort = pp.proxyPort
 			return

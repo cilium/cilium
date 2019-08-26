@@ -15,6 +15,7 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -29,10 +30,7 @@ import (
 var envoyProxy *envoy.Envoy
 
 // envoyRedirect implements the RedirectImplementation interface for an l7 proxy.
-type envoyRedirect struct {
-	listenerName string
-	xdsServer    *envoy.XDSServer
-}
+type envoyRedirect struct{}
 
 var envoyOnce sync.Once
 
@@ -45,26 +43,47 @@ func (p *Proxy) StartEnvoy() {
 	}
 }
 
-// createEnvoyRedirect creates a redirect with corresponding proxy
-// configuration. This will launch a proxy instance.
-func (p *Proxy) createEnvoyRedirect(r *Redirect, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) (RedirectImplementation, error) {
-	l := r.listener
+// createEnvoyListener configures an Envoy listener
+// Once created we keep the listeners running until Cilium agent terminates.
+func createEnvoyListener(p *Proxy, pp *ProxyPort, wg *completion.WaitGroup) (error, revert.RevertFunc) {
 	if envoyProxy != nil {
-		redir := &envoyRedirect{
-			listenerName: fmt.Sprintf("%s:%d", l.name, l.proxyPort),
-			xdsServer:    p.XDSServer,
-		}
+		listenerName := fmt.Sprintf("%s:%d", pp.name, pp.proxyPort)
+
 		// Only use original source address for egress
-		if l.ingress {
-			mayUseOriginalSourceAddr = false
+		mayUseOriginalSourceAddr := false
+		if !pp.ingress {
+			mayUseOriginalSourceAddr = p.datapathUpdater.SupportsOriginalSourceAddr()
 		}
-		p.XDSServer.AddListener(redir.listenerName, l.parserType, l.proxyPort, l.ingress,
+		p.XDSServer.AddListener(listenerName, pp.parserType, pp.proxyPort, pp.ingress,
 			mayUseOriginalSourceAddr, wg)
 
-		return redir, nil
+		return nil, func() error {
+			// RevertFunc is called when a NACK is received from Envoy, which may be
+			// due to faulty listener configuration, e.g., due to the proxy port
+			// already being in use. So we must remove the potentially faulty listener
+			// here.
+			//
+			// Timeout not needed as we cancel the context immediately below.
+			completionCtx, cancel := context.WithCancel(context.Background())
+			proxyWaitGroup := completion.NewWaitGroup(completionCtx)
+			p.XDSServer.RemoveListener(listenerName, proxyWaitGroup)
+			// Don't wait for an ACK. This is best-effort. Just clean up the completions.
+			cancel()
+			proxyWaitGroup.Wait() // Ignore the returned error.
+			return nil
+		}
+	}
+	return fmt.Errorf("Envoy proxy process not started, cannot create listener"), nil
+}
+
+// createEnvoyRedirect is a no-op.
+func (p *Proxy) createEnvoyRedirect(r *Redirect) (RedirectImplementation, error) {
+	if envoyProxy != nil {
+		return &envoyRedirect{}, nil
 	}
 
-	return nil, fmt.Errorf("%s: Envoy proxy process not started, cannot add redirect", l.name)
+	return nil, fmt.Errorf("%s: Envoy proxy process not started, cannot add redirect",
+		r.listener.name)
 }
 
 // UpdateRules is a no-op for envoy, as redirect data is synchronized via the
@@ -73,18 +92,7 @@ func (k *envoyRedirect) UpdateRules(wg *completion.WaitGroup, l4 *policy.L4Filte
 	return func() error { return nil }, nil
 }
 
-// Close the redirect.
+// Close is a no-op for Envoy, as the shared listener is managed separately
 func (r *envoyRedirect) Close(wg *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
-	if envoyProxy == nil {
-		return nil, nil
-	}
-
-	revertFunc := r.xdsServer.RemoveListener(r.listenerName, wg)
-
-	return nil, func() error {
-		// Don't wait for an ACK for the reverted xDS updates.
-		// This is best-effort.
-		revertFunc(completion.NewCompletion(nil, nil))
-		return nil
-	}
+	return nil, nil
 }

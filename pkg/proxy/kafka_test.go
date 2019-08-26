@@ -251,16 +251,32 @@ func (s *proxyTestSuite) TestKafkaRedirect(c *C) {
 		"address": server.Address(),
 	}).Debug("Started kafka server")
 
+	p := &Proxy{
+		XDSServer:       nil,
+		rangeMin:        10000,
+		rangeMax:        20000,
+		redirects:       make(map[string]*Redirect),
+		datapathUpdater: nil,
+	}
+
+	proxyPortsMutex.Lock()
 	pp := getProxyPort(policy.ParserTypeKafka, true)
 	c.Assert(pp.configured, Equals, false)
-	var err error
-	pp.proxyPort, err = allocatePort(pp.proxyPort, 10000, 20000)
+	proxyPort, err, finalizeFunc, _ := p.createListenerLocked(pp, nil)
 	c.Assert(err, IsNil)
 	c.Assert(pp.proxyPort, Not(Equals), 0)
-	pp.reservePort()
+	c.Assert(pp.proxyPort, Equals, proxyPort)
 	c.Assert(pp.configured, Equals, true)
+	c.Assert(pp.acknowledged, Equals, false)
+	proxyPortsMutex.Unlock()
+	finalizeFunc()
 
-	proxyAddress := fmt.Sprintf("%s:%d", proxyAddress, uint16(pp.proxyPort))
+	proxyPortsMutex.Lock()
+	c.Assert(pp.acknowledged, Equals, true)
+	c.Assert(pp.rulesPort, Equals, pp.proxyPort)
+	proxyPortsMutex.Unlock()
+
+	proxyAddress := fmt.Sprintf("%s:%d", proxyAddress, uint16(proxyPort))
 
 	kafkaRule1 := api.PortRuleKafka{APIKey: "metadata", APIVersion: "0"}
 	c.Assert(kafkaRule1.Sanitize(), IsNil)
