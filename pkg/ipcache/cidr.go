@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,12 +32,7 @@ import (
 // allocation fails, all allocations are rolled back and the error is returned.
 // When an identity is freshly allocated for a CIDR, it is added to the
 // ipcache.
-func AllocateCIDRs(impl Implementation, prefixes []*net.IPNet) ([]*identity.Identity, error) {
-	// First, if the implementation will complain, exit early.
-	if err := checkPrefixes(impl, prefixes); err != nil {
-		return nil, err
-	}
-
+func AllocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
 	return allocateCIDRs(prefixes)
 }
 

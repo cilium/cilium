@@ -15,7 +15,6 @@
 package ipcache
 
 import (
-	"fmt"
 	"net"
 
 	"github.com/cilium/cilium/pkg/identity"
@@ -130,63 +129,6 @@ func (ipc *IPCache) AddListener(listener IPIdentityMappingListener) {
 	ipc.DumpToListenerLocked(listener)
 }
 
-func checkPrefixLengthsAgainstMap(impl Implementation, prefixes []*net.IPNet, existingPrefixes map[int]int, isIPv6 bool) error {
-	prefixLengths := make(map[int]struct{})
-
-	for i := range existingPrefixes {
-		prefixLengths[i] = struct{}{}
-	}
-
-	for _, prefix := range prefixes {
-		ones, bits := prefix.Mask.Size()
-		if _, ok := prefixLengths[ones]; !ok {
-			if bits == net.IPv6len*8 && isIPv6 || bits == net.IPv4len*8 && !isIPv6 {
-				prefixLengths[ones] = struct{}{}
-			}
-		}
-	}
-
-	maxPrefixLengths := impl.GetMaxPrefixLengths(isIPv6)
-	if len(prefixLengths) > maxPrefixLengths {
-		existingPrefixLengths := len(existingPrefixes)
-		return fmt.Errorf("adding specified CIDR prefixes would result in too many prefix lengths (current: %d, result: %d, max: %d)",
-			existingPrefixLengths, len(prefixLengths), maxPrefixLengths)
-	}
-	return nil
-}
-
-// checkPrefixes ensures that we will reject rules if the import of those
-// rules would cause the underlying implementation of the ipcache to exceed
-// the maximum number of supported CIDR prefix lengths.
-func checkPrefixes(impl Implementation, prefixes []*net.IPNet) (err error) {
-	IPIdentityCache.RLock()
-	defer IPIdentityCache.RUnlock()
-
-	if err = checkPrefixLengthsAgainstMap(impl, prefixes, IPIdentityCache.v4PrefixLengths, false); err != nil {
-		return
-	}
-	return checkPrefixLengthsAgainstMap(impl, prefixes, IPIdentityCache.v6PrefixLengths, true)
-}
-
-// refPrefixLength adds one reference to the prefix length in the map.
-func refPrefixLength(prefixLengths map[int]int, length int) {
-	if _, ok := prefixLengths[length]; ok {
-		prefixLengths[length]++
-	} else {
-		prefixLengths[length] = 1
-	}
-}
-
-// refPrefixLength removes one reference from the prefix length in the map.
-func unrefPrefixLength(prefixLengths map[int]int, length int) {
-	value := prefixLengths[length]
-	if value <= 1 {
-		delete(prefixLengths, length)
-	} else {
-		prefixLengths[length]--
-	}
-}
-
 // endpointIPToCIDR converts the endpoint IP into an equivalent full CIDR.
 func endpointIPToCIDR(ip net.IP) *net.IPNet {
 	bits := net.IPv6len * 8
@@ -251,15 +193,6 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, newIdentity 
 	// don't notify the listeners.
 	var err error
 	if _, cidr, err = net.ParseCIDR(ip); err == nil {
-		// Add a reference for the prefix length if this is a CIDR.
-		pl, bits := cidr.Mask.Size()
-		switch bits {
-		case net.IPv6len * 8:
-			refPrefixLength(ipc.v6PrefixLengths, pl)
-		case net.IPv4len * 8:
-			refPrefixLength(ipc.v4PrefixLengths, pl)
-		}
-
 		ones, bits := cidr.Mask.Size()
 		if ones == bits {
 			if _, endpointIPFound := ipc.ipToIdentityCache[cidr.IP.String()]; endpointIPFound {
@@ -372,15 +305,6 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) {
 
 	var err error
 	if _, cidr, err = net.ParseCIDR(ip); err == nil {
-		// Remove a reference for the prefix length if this is a CIDR.
-		pl, bits := cidr.Mask.Size()
-		switch bits {
-		case net.IPv6len * 8:
-			unrefPrefixLength(ipc.v6PrefixLengths, pl)
-		case net.IPv4len * 8:
-			unrefPrefixLength(ipc.v4PrefixLengths, pl)
-		}
-
 		// Check whether the deleted CIDR was shadowed by an endpoint IP. In
 		// this case, skip calling back the listeners since they don't know
 		// about its mapping.
