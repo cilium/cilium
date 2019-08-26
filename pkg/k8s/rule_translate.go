@@ -31,11 +31,11 @@ var _ policy.Translator = RuleTranslator{}
 // Translate populates/depopulates given rule with ToCIDR rules
 // Based on provided service/endpoint
 type RuleTranslator struct {
-	Service       ServiceID
-	Endpoint      Endpoints
-	ServiceLabels map[string]string
-	Revert        bool
-	IPCache       ipcache.Implementation
+	Service          ServiceID
+	Endpoint         Endpoints
+	ServiceLabels    map[string]string
+	Revert           bool
+	AllocatePrefixes bool
 }
 
 // Translate calls TranslateEgress on all r.Egress rules
@@ -70,7 +70,7 @@ func (k RuleTranslator) TranslateEgress(r *api.EgressRule, result *policy.Transl
 func (k RuleTranslator) populateEgress(r *api.EgressRule, result *policy.TranslationResult) error {
 	for _, service := range r.ToServices {
 		if k.serviceMatches(service) {
-			if err := generateToCidrFromEndpoint(r, k.Endpoint, k.IPCache); err != nil {
+			if err := generateToCidrFromEndpoint(r, k.Endpoint, k.AllocatePrefixes); err != nil {
 				return err
 			}
 			// TODO: generateToPortsFromEndpoint when ToPorts and ToCIDR are compatible
@@ -85,7 +85,7 @@ func (k RuleTranslator) depopulateEgress(r *api.EgressRule, result *policy.Trans
 		// counting rules twice
 		result.NumToServicesRules++
 		if k.serviceMatches(service) {
-			if err := deleteToCidrFromEndpoint(r, k.Endpoint, k.IPCache); err != nil {
+			if err := deleteToCidrFromEndpoint(r, k.Endpoint, k.AllocatePrefixes); err != nil {
 				return err
 			}
 			// TODO: generateToPortsFromEndpoint when ToPorts and ToCIDR are compatible
@@ -116,13 +116,13 @@ func (k RuleTranslator) serviceMatches(service api.Service) bool {
 func generateToCidrFromEndpoint(
 	egress *api.EgressRule,
 	endpoint Endpoints,
-	impl ipcache.Implementation) error {
+	allocatePrefixes bool) error {
 
-	// Non-nil implementation here implies that this translation is
+	// allocatePrefixes if true here implies that this translation is
 	// occurring after policy import. This means that the CIDRs were not
 	// known at that time, so the IPCache hasn't been informed about them.
 	// In this case, it's the job of this Translator to notify the IPCache.
-	if impl != nil {
+	if allocatePrefixes {
 		prefixes, err := endpoint.CIDRPrefixes()
 		if err != nil {
 			return err
@@ -173,7 +173,7 @@ func generateToCidrFromEndpoint(
 func deleteToCidrFromEndpoint(
 	egress *api.EgressRule,
 	endpoint Endpoints,
-	impl ipcache.Implementation) error {
+	releasePrefixes bool) error {
 
 	newToCIDR := make([]api.CIDRRule, 0, len(egress.ToCIDRSet))
 	deleted := make([]api.CIDRRule, 0, len(egress.ToCIDRSet))
@@ -200,7 +200,7 @@ func deleteToCidrFromEndpoint(
 	}
 
 	egress.ToCIDRSet = newToCIDR
-	if impl != nil {
+	if releasePrefixes {
 		prefixes := policy.GetPrefixesFromCIDRSet(deleted)
 		ipcache.ReleaseCIDRs(prefixes)
 	}
@@ -211,12 +211,6 @@ func deleteToCidrFromEndpoint(
 // PreprocessRules translates rules that apply to headless services
 func PreprocessRules(r api.Rules, cache *ServiceCache) error {
 
-	// Headless services are translated prior to policy import, so the
-	// policy will contain all of the CIDRs and can handle ipcache
-	// interactions when the policy is imported. Ignore the IPCache
-	// interaction here and just set the implementation to nil.
-	ipcache := ipcache.Implementation(nil)
-
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
 
@@ -224,7 +218,7 @@ func PreprocessRules(r api.Rules, cache *ServiceCache) error {
 		for ns, ep := range cache.endpoints {
 			svc, ok := cache.services[ns]
 			if ok && svc.IsExternal() {
-				t := NewK8sTranslator(ns, *ep, false, svc.Labels, ipcache)
+				t := NewK8sTranslator(ns, *ep, false, svc.Labels, false)
 				err := t.Translate(rule, &policy.TranslationResult{})
 				if err != nil {
 					return err
@@ -241,7 +235,7 @@ func NewK8sTranslator(
 	endpoint Endpoints,
 	revert bool,
 	labels map[string]string,
-	ipcache ipcache.Implementation) RuleTranslator {
+	allocatePrefixes bool) RuleTranslator {
 
-	return RuleTranslator{serviceInfo, endpoint, labels, revert, ipcache}
+	return RuleTranslator{serviceInfo, endpoint, labels, revert, allocatePrefixes}
 }

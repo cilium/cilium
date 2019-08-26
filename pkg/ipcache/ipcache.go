@@ -66,13 +66,6 @@ type IPCache struct {
 	listeners []IPIdentityMappingListener
 }
 
-// Implementation represents a concrete datapath implementation of the IPCache
-// which may restrict the ability to apply IPCache mappings, depending on the
-// underlying details of that implementation.
-type Implementation interface {
-	GetMaxPrefixLengths(ipv6 bool) int
-}
-
 // NewIPCache returns a new IPCache with the mappings of endpoint IP to security
 // identity (and vice-versa) initialized.
 func NewIPCache() *IPCache {

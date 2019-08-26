@@ -43,7 +43,6 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	bpfIPCache "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -1176,7 +1175,7 @@ func (d *Daemon) k8sServiceHandler() {
 			// corresponding external service for any toServices rules which
 			// select said service.
 			if !cacheOK || (cacheOK && serviceImportMeta.ruleTranslationError != nil) {
-				translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, false, svc.Labels, bpfIPCache.IPCache)
+				translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, false, svc.Labels, true)
 				result, err := d.policy.TranslateRules(translator)
 				endpointMetadataCache.upsert(event.ID, err)
 				if err != nil {
@@ -1201,7 +1200,7 @@ func (d *Daemon) k8sServiceHandler() {
 
 			endpointMetadataCache.delete(event.ID)
 
-			translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, true, svc.Labels, bpfIPCache.IPCache)
+			translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, true, svc.Labels, true)
 			result, err := d.policy.TranslateRules(translator)
 			if err != nil {
 				log.Errorf("Unable to depopulate egress policies from ToService rules: %v", err)
