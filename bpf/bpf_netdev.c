@@ -205,7 +205,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 			return TC_ACT_OK;
 		else
 			return ret;
-	} else if (likely(ipv6_match_prefix_96(dst, &node_ip))) {
+	} else {
 		struct endpoint_key key = {};
 		int ret;
 
@@ -218,6 +218,8 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 		key.family = ENDPOINT_KEY_IPV6;
 
 		ret = encap_and_redirect_netdev(skb, &key, secctx, TRACE_PAYLOAD_LEN);
+		if (!revalidate_data(skb, &data, &data_end, &ip6))
+			return DROP_INVALID;
 		if (ret == IPSEC_ENDPOINT)
 			return TC_ACT_OK;
 		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
@@ -388,6 +390,8 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 
 		cilium_dbg(skb, DBG_NETDEV_ENCAP4, key.ip4, secctx);
 		ret = encap_and_redirect_netdev(skb, &key, secctx, TRACE_PAYLOAD_LEN);
+		if (!revalidate_data(skb, &data, &data_end, &ip4))
+			return DROP_INVALID;
 		if (ret == IPSEC_ENDPOINT)
 			return TC_ACT_OK;
 		else if (ret != DROP_NO_TUNNEL_ENDPOINT)

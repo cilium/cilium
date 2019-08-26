@@ -57,6 +57,13 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 *identity)
 			return ret;
 	}
 #endif
+#if ENABLE_ENCAP_HOST_REMAP
+	{
+		int ret = encap_remap_v6_host_address(skb, false);
+		if (unlikely(ret < 0))
+			return ret;
+	}
+#endif
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 

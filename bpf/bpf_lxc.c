@@ -291,6 +291,8 @@ ct_recreate6:
 		 * (c) packet was redirected to tunnel device so return.
 		 */
 		ret = encap_and_redirect_lxc(skb, tunnel_endpoint, encrypt_key, &key, SECLABEL, monitor);
+		if (!revalidate_data(skb, &data, &data_end, &ip6))
+			return DROP_INVALID;
 		if (ret == IPSEC_ENDPOINT)
 			goto pass_to_stack;
 		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
@@ -299,6 +301,7 @@ ct_recreate6:
 #endif
 
 #ifdef ENABLE_NAT46
+	daddr = (union v6addr *)&ip6->daddr;
 	if (unlikely(ipv6_addr_is_mapped(daddr))) {
 		ep_tail_call(skb, CILIUM_CALL_NAT64);
 		return DROP_MISSED_TAIL_CALL;
@@ -597,6 +600,8 @@ ct_recreate4:
 		key.family = ENDPOINT_KEY_IPV4;
 
 		ret = encap_and_redirect_lxc(skb, tunnel_endpoint, encrypt_key, &key, SECLABEL, monitor);
+		if (!revalidate_data(skb, &data, &data_end, &ip4))
+			return DROP_INVALID;
 		if (ret == DROP_NO_TUNNEL_ENDPOINT)
 			goto pass_to_stack;
 		/* If not redirected noteably due to IPSEC then pass up to stack

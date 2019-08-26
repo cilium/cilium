@@ -140,20 +140,6 @@ static inline void ipv6_addr_clear_suffix(union v6addr *addr, int prefix)
 	prefix -= 32;
 }
 
-static inline int ipv6_match_prefix_96(const union v6addr *addr, const union v6addr *prefix)
-{
-	int tmp;
-
-	tmp = addr->p1 - prefix->p1;
-	if (!tmp) {
-		tmp = addr->p2 - prefix->p2;
-		if (!tmp)
-			tmp = addr->p3 - prefix->p3;
-	}
-
-	return !tmp;
-}
-
 static inline int ipv6_match_prefix_64(const union v6addr *addr, const union v6addr *prefix)
 {
 	int tmp;

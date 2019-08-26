@@ -54,6 +54,13 @@
 #define CONDITIONAL_PREALLOC BPF_F_NO_PREALLOC
 #endif
 
+/* TODO: ipsec still needs separate fixing */
+#ifndef ENABLE_IPSEC
+# ifdef ENABLE_IPV6
+#  define ENABLE_ENCAP_HOST_REMAP 1
+# endif
+#endif
+
 #define __inline__ __attribute__((always_inline))
 #ifndef __always_inline
 #define __always_inline inline __inline__
