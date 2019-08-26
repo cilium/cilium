@@ -194,7 +194,7 @@ func (d *Daemon) Datapath() datapath.Datapath {
 }
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
-// endpoint using the provided L4 filter. Returns the allocated proxy port
+// endpoint using the provided L4 filter.
 func (d *Daemon) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter) (error, revert.FinalizeFunc, revert.RevertFunc) {
 	if d.l7Proxy == nil {
 		return fmt.Errorf("can't redirect, proxy disabled"), nil, nil
