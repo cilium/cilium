@@ -522,11 +522,7 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 		COPTS="${COPTS} -DLB_L3 -DLB_L4"
 	fi
 	bpf_load $ENCAP_DEV "$COPTS" "ingress" bpf_overlay.c bpf_overlay.o from-overlay ${CALLS_MAP}
-	if [ "$NODE_PORT" = "true" ]; then
-		bpf_load $ENCAP_DEV "$COPTS" "egress" bpf_overlay.c bpf_overlay.o to-overlay ${CALLS_MAP}
-	else
-		bpf_unload $ENCAP_DEV "egress"
-	fi
+	bpf_load $ENCAP_DEV "$COPTS" "egress" bpf_overlay.c bpf_overlay.o to-overlay ${CALLS_MAP}
 else
 	# Remove eventual existing encapsulation device from previous run
 	ip link del cilium_vxlan 2> /dev/null || true

@@ -25,6 +25,7 @@
 
 #include <linux/if_packet.h>
 
+#include "lib/tailcall.h"
 #include "lib/utils.h"
 #include "lib/common.h"
 #include "lib/maps.h"
@@ -40,11 +41,11 @@
 #ifdef ENABLE_IPV6
 static inline int handle_ipv6(struct __sk_buff *skb, __u32 *identity)
 {
+	int ret, l4_off, l3_off = ETH_HLEN, hdrlen;
 	void *data_end, *data;
 	struct ipv6hdr *ip6;
 	struct bpf_tunnel_key key = {};
 	struct endpoint_info *ep;
-	int l4_off, l3_off = ETH_HLEN, hdrlen;
 	bool decrypted;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
@@ -57,6 +58,10 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 *identity)
 			return ret;
 	}
 #endif
+	ret = encap_remap_v6_host_address(skb, false);
+	if (unlikely(ret < 0))
+		return ret;
+
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
@@ -312,20 +317,34 @@ out:
 	return ret;
 }
 
-__section("to-overlay")
-int to_overlay(struct __sk_buff *skb)
-{
-	/* Cannot compile the section out entriely, test/bpf/verifier-test.sh
-	 * workaround.
-	 */
-	int ret = TC_ACT_OK;
 #ifdef ENABLE_NODEPORT
+declare_tailcall_if(is_defined(ENABLE_IPV6), CILIUM_CALL_ENCAP_NODEPORT_NAT)
+int tail_handle_nat_fwd(struct __sk_buff *skb)
+{
+	int ret;
+
 	if ((skb->mark & MARK_MAGIC_SNAT_DONE) == MARK_MAGIC_SNAT_DONE)
 		return TC_ACT_OK;
 	ret = nodeport_nat_fwd(skb, true);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, METRIC_EGRESS);
+	return ret;
+}
 #endif
+
+__section("to-overlay")
+int to_overlay(struct __sk_buff *skb)
+{
+	int ret = encap_remap_v6_host_address(skb, true);
+	if (unlikely(ret < 0))
+		goto out;
+#ifdef ENABLE_NODEPORT
+	invoke_tailcall_if(is_defined(ENABLE_IPV6),
+			   CILIUM_CALL_ENCAP_NODEPORT_NAT, tail_handle_nat_fwd);
+#endif
+out:
+	if (IS_ERR(ret))
+		return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, METRIC_EGRESS);
 	return ret;
 }
 
