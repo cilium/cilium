@@ -18,6 +18,7 @@ rules:
   - services
   - nodes
   - endpoints
+  - componentstatuses
   verbs:
   - get
   - list
