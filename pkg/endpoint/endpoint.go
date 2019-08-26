@@ -1275,10 +1275,10 @@ OKState:
 	return true
 }
 
-// BuilderSetStateLocked modifies the endpoint's state
+// builderSetState modifies the endpoint's state
 // endpoint.Mutex must be held
 // endpoint buildMutex must be held!
-func (e *Endpoint) BuilderSetStateLocked(toState, reason string) bool {
+func (e *Endpoint) builderSetState(toState, reason string) bool {
 	// Validate the state transition.
 	fromState := e.state
 	switch fromState { // From state
@@ -1818,18 +1818,6 @@ func (e *Endpoint) WaitForPolicyRevision(ctx context.Context, rev uint64, done f
 	return ch
 }
 
-// IPs returns the slice of valid IPs for this endpoint.
-func (e *Endpoint) IPs() []net.IP {
-	ips := []net.IP{}
-	if e.ipv4.IsSet() {
-		ips = append(ips, e.ipv4.IP())
-	}
-	if e.ipv6.IsSet() {
-		ips = append(ips, e.ipv6.IP())
-	}
-	return ips
-}
-
 // IsDisconnecting returns true if the endpoint is being disconnected or
 // already disconnected
 //
@@ -1864,7 +1852,7 @@ func (e *Endpoint) pinDatapathMap() error {
 	}
 	defer unix.Close(mapFd)
 
-	err = bpf.ObjPin(mapFd, e.BPFIpvlanMapPath())
+	err = bpf.ObjPin(mapFd, e.bpfIPVLANMapPath())
 
 	if err == nil {
 		e.isDatapathMapPinned = true

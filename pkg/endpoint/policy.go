@@ -264,7 +264,7 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 	//
 	// GH-5350: Remove this special case to require checking for StateWaitingForIdentity
 	if e.getState() != StateWaitingForIdentity &&
-		!e.BuilderSetStateLocked(StateRegenerating, "Regenerating endpoint: "+context.Reason) {
+		!e.builderSetState(StateRegenerating, "Regenerating endpoint: "+context.Reason) {
 		e.getLogger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
 		e.unlock()
 
@@ -318,7 +318,7 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 		// State will remain as waiting-to-regenerate if further
 		// changes are needed. There should be an another regenerate
 		// queued for taking care of it.
-		e.BuilderSetStateLocked(StateReady, "Completed endpoint regeneration with no pending regeneration requests")
+		e.builderSetState(StateReady, "Completed endpoint regeneration with no pending regeneration requests")
 		e.unlock()
 	}()
 

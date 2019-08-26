@@ -111,7 +111,7 @@ func (ep *epInfoCache) InterfaceName() string {
 
 // MapPath returns tail call map path
 func (ep *epInfoCache) MapPath() string {
-	return ep.endpoint.BPFIpvlanMapPath()
+	return ep.endpoint.bpfIPVLANMapPath()
 }
 
 // GetID returns the endpoint's ID.

@@ -61,8 +61,8 @@ func (e *Endpoint) callsMapPath() string {
 	return e.owner.Datapath().Loader().CallsMapPath(e.ID)
 }
 
-// BPFIpvlanMapPath returns the path to the ipvlan tail call map of an endpoint.
-func (e *Endpoint) BPFIpvlanMapPath() string {
+// bpfIPVLANMapPath returns the path to the ipvlan tail call map of an endpoint.
+func (e *Endpoint) bpfIPVLANMapPath() string {
 	return bpf.LocalMapPath(IpvlanMapName, e.ID)
 }
 
@@ -732,7 +732,7 @@ func (e *Endpoint) deleteMaps() []error {
 	maps := map[string]string{
 		"policy": e.policyMapPath(),
 		"calls":  e.callsMapPath(),
-		"egress": e.BPFIpvlanMapPath(),
+		"egress": e.bpfIPVLANMapPath(),
 	}
 	for name, path := range maps {
 		if err := os.RemoveAll(path); err != nil {
@@ -1122,7 +1122,7 @@ func (e *Endpoint) ValidateConnectorPlumbing(linkChecker linkCheckerFunc) error 
 		// because it requires entering container netns which is not
 		// always accessible (e.g. in k8s case "/proc" has to be bind
 		// mounted). Instead, we check whether the tail call map exists.
-		if _, err := os.Stat(e.BPFIpvlanMapPath()); err != nil {
+		if _, err := os.Stat(e.bpfIPVLANMapPath()); err != nil {
 			return fmt.Errorf("tail call map for IPvlan unavailable: %s", err)
 		}
 	} else {

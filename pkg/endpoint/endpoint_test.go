@@ -328,39 +328,39 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 	e.state = StateWaitingToRegenerate
 	// Builder can't transition to ready from waiting-to-regenerate
 	// as (another) build is pending
-	c.Assert(e.BuilderSetStateLocked(StateReady, "test"), Equals, false)
+	c.Assert(e.builderSetState(StateReady, "test"), Equals, false)
 	// Only builder knows when bpf regeneration starts
 	c.Assert(e.setState(StateRegenerating, "test"), Equals, false)
-	c.Assert(e.BuilderSetStateLocked(StateRegenerating, "test"), Equals, true)
+	c.Assert(e.builderSetState(StateRegenerating, "test"), Equals, true)
 	// Builder does not trigger the need for regeneration
-	c.Assert(e.BuilderSetStateLocked(StateWaitingToRegenerate, "test"), Equals, false)
+	c.Assert(e.builderSetState(StateWaitingToRegenerate, "test"), Equals, false)
 	// Builder transitions to ready state after build is done
-	c.Assert(e.BuilderSetStateLocked(StateReady, "test"), Equals, true)
+	c.Assert(e.builderSetState(StateReady, "test"), Equals, true)
 
 	// Check that direct transition from restoring --> regenerating is valid.
 	e.state = StateRestoring
-	c.Assert(e.BuilderSetStateLocked(StateRegenerating, "test"), Equals, true)
+	c.Assert(e.builderSetState(StateRegenerating, "test"), Equals, true)
 
 	// Typical lifecycle
 	e.state = StateCreating
 	c.Assert(e.setState(StateWaitingForIdentity, "test"), Equals, true)
 	// Initial build does not change the state
-	c.Assert(e.BuilderSetStateLocked(StateRegenerating, "test"), Equals, false)
-	c.Assert(e.BuilderSetStateLocked(StateReady, "test"), Equals, false)
+	c.Assert(e.builderSetState(StateRegenerating, "test"), Equals, false)
+	c.Assert(e.builderSetState(StateReady, "test"), Equals, false)
 	// identity arrives
 	c.Assert(e.setState(StateReady, "test"), Equals, true)
 	// a build is triggered after the identity is set
 	c.Assert(e.setState(StateWaitingToRegenerate, "test"), Equals, true)
 	// build starts
-	c.Assert(e.BuilderSetStateLocked(StateRegenerating, "test"), Equals, true)
+	c.Assert(e.builderSetState(StateRegenerating, "test"), Equals, true)
 	// another change arrives while building
 	c.Assert(e.setState(StateWaitingToRegenerate, "test"), Equals, true)
 	// Builder's transition to ready fails due to the queued build
-	c.Assert(e.BuilderSetStateLocked(StateReady, "test"), Equals, false)
+	c.Assert(e.builderSetState(StateReady, "test"), Equals, false)
 	// second build starts
-	c.Assert(e.BuilderSetStateLocked(StateRegenerating, "test"), Equals, true)
+	c.Assert(e.builderSetState(StateRegenerating, "test"), Equals, true)
 	// second build finishes
-	c.Assert(e.BuilderSetStateLocked(StateReady, "test"), Equals, true)
+	c.Assert(e.builderSetState(StateReady, "test"), Equals, true)
 	// endpoint is being deleted
 	c.Assert(e.setState(StateDisconnecting, "test"), Equals, true)
 	// parallel disconnect fails
