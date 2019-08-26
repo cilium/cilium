@@ -59,7 +59,6 @@ var _ = Describe("K8sIstioTest", func() {
 			// those that we care about are uncommented.
 			// "istio-citadel",
 			// "istio-galley",
-			// "istio-egressgateway",
 			"istio-ingressgateway",
 			"istio-pilot",
 			// "istio-policy",
@@ -92,7 +91,7 @@ var _ = Describe("K8sIstioTest", func() {
 		res := kubectl.NamespaceCreate(istioSystemNamespace)
 		res.ExpectSuccess("unable to create namespace %q", istioSystemNamespace)
 
-		By("Creating the Istio resources")
+		By("Creating the Istio CRDs")
 
 		res = kubectl.Apply(istioCRDYAMLPath)
 		res.ExpectSuccess("unable to create Istio CRDs")
@@ -102,8 +101,38 @@ var _ = Describe("K8sIstioTest", func() {
 		Expect(err).To(BeNil(),
 			"Istio CRDs are not ready after timeout")
 
+		By("Creating the Istio system PODs")
+
 		res = kubectl.Apply(istioYAMLPath)
 		res.ExpectSuccess("unable to create Istio resources")
+
+		// Ignore one-time jobs and Prometheus. All other pods in the
+		// namespaces have an "istio" label.
+		By("Waiting for Istio pods to be ready")
+		// First wait for at least one POD to get into running state so that WaitforPods
+		// below does not succeed if there are no PODs with the "istio" label.
+		err = kubectl.WaitforNPodsRunning(istioSystemNamespace, "-l istio", 1, helpers.HelperTimeout)
+		ExpectWithOffset(1, err).To(BeNil(),
+			"No Istio POD is Running after timeout in namespace %q", istioSystemNamespace)
+
+		// Then wait for all the Istio PODs to get Ready
+		// Note that this succeeds if there are no PODs matching the filter (-l istio -n istio-system).
+		err = kubectl.WaitforPods(istioSystemNamespace, "-l istio", helpers.HelperTimeout)
+		ExpectWithOffset(1, err).To(BeNil(),
+			"Istio pods are not ready after timeout in namespace %q", istioSystemNamespace)
+
+		for _, name := range istioServiceNames {
+			By("Waiting for Istio service %q to be ready", name)
+			err = kubectl.WaitForServiceEndpoints(
+				istioSystemNamespace, "", name, helpers.HelperTimeout)
+			ExpectWithOffset(1, err).Should(BeNil(), "Service %q is not ready after timeout", name)
+		}
+
+		for _, name := range istioServiceNames {
+			By("Waiting for DNS to resolve Istio service %q", name)
+			err = kubectl.WaitForKubeDNSEntry(name, istioSystemNamespace)
+			ExpectWithOffset(1, err).To(BeNil(), "DNS entry is not ready after timeout")
+		}
 	})
 
 	AfterAll(func() {
@@ -142,28 +171,6 @@ var _ = Describe("K8sIstioTest", func() {
 			"cilium endpoint list",
 			"cilium bpf proxy list")
 	})
-
-	waitIstioReady := func() {
-		// Ignore one-time jobs and Prometheus. All other pods in the
-		// namespaces have an "istio" label.
-		By("Waiting for Istio pods to be ready")
-		err := kubectl.WaitforPods(istioSystemNamespace, "-l istio", helpers.HelperTimeout)
-		ExpectWithOffset(1, err).To(BeNil(),
-			"Istio pods are not ready after timeout in namespace %q", istioSystemNamespace)
-
-		for _, name := range istioServiceNames {
-			By("Waiting for Istio service %q to be ready", name)
-			err = kubectl.WaitForServiceEndpoints(
-				istioSystemNamespace, "", name, helpers.HelperTimeout)
-			ExpectWithOffset(1, err).Should(BeNil(), "Service %q is not ready after timeout", name)
-		}
-
-		for _, name := range istioServiceNames {
-			By("Waiting for DNS to resolve Istio service %q", name)
-			err = kubectl.WaitForKubeDNSEntry(name, istioSystemNamespace)
-			ExpectWithOffset(1, err).To(BeNil(), "DNS entry is not ready after timeout")
-		}
-	}
 
 	// This is a subset of Services's "Bookinfo Demo" test suite, with the pods
 	// injected with Istio sidecar proxies and Istio mTLS enabled.
@@ -263,8 +270,6 @@ var _ = Describe("K8sIstioTest", func() {
 			bookinfoV1YAML := helpers.ManifestGet("bookinfo-v1-istio.yaml")
 			bookinfoV2YAML := helpers.ManifestGet("bookinfo-v2-istio.yaml")
 			l7PolicyPath := helpers.ManifestGet("cnp-specs.yaml")
-
-			waitIstioReady()
 
 			// Create the L7 policy before creating the pods, in order to test
 			// that the sidecar proxy mode doesn't deadlock on endpoint
