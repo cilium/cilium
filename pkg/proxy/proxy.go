@@ -516,21 +516,21 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 		redir.mutex.Lock()
 
 		if redir.listener.parserType == l4.L7Parser {
-			updateRevertFunc := redir.updateRules(l4)
-			revertStack.Push(updateRevertFunc)
-			var implUpdateRevertFunc revert.RevertFunc
-			implUpdateRevertFunc, err = redir.implementation.UpdateRules(l4)
-			if err != nil {
-				err = fmt.Errorf("unable to update existing redirect: %s", err)
-				return err, nil, nil
-			}
-			revertStack.Push(implUpdateRevertFunc)
+			if redir.implementation != nil {
+				updateRevertFunc := redir.updateRules(l4)
+				revertStack.Push(updateRevertFunc)
 
+				implUpdateRevertFunc, err := redir.implementation.UpdateRules(l4)
+				if err != nil {
+					err = fmt.Errorf("unable to update existing redirect: %s", err)
+					return err, nil, nil
+				}
+				revertStack.Push(implUpdateRevertFunc)
+			}
 			redir.lastUpdated = time.Now()
 
 			scopedLog.WithField(logfields.Object, logfields.Repr(redir)).
 				Debug("updated existing ", l4.L7Parser, " proxy instance")
-
 			redir.mutex.Unlock()
 			return
 		}
@@ -559,20 +559,16 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 	}
 
 	redir := newRedirect(localEndpoint, pp, uint16(l4.Port))
-	redir.updateRules(l4)
-	// Rely on create*Redirect to update rules, unlike the update case above.
+	if redir.implementation != nil {
+		redir.updateRules(l4)
+		// Rely on create*Redirect to update rules, unlike the update case above.
+	}
 
 	switch l4.L7Parser {
 	case policy.ParserTypeDNS:
 		redir.implementation, err = createDNSRedirect(redir)
-
 	case policy.ParserTypeKafka:
 		redir.implementation, err = createKafkaRedirect(redir, kafkaConfiguration{})
-
-	case policy.ParserTypeHTTP:
-		redir.implementation, err = p.createEnvoyRedirect(redir)
-	default:
-		redir.implementation, err = p.createEnvoyRedirect(redir)
 	}
 
 	if err == nil {
@@ -618,7 +614,12 @@ func (p *Proxy) removeRedirect(id string) (err error, finalizeFunc revert.Finali
 	}
 	delete(p.redirects, id)
 
-	implFinalizeFunc, implRevertFunc := r.implementation.Close()
+	var implFinalizeFunc revert.FinalizeFunc
+	var implRevertFunc revert.RevertFunc
+
+	if r.implementation != nil {
+		implFinalizeFunc, implRevertFunc = r.implementation.Close()
+	}
 
 	finalizeFunc = func() {
 		// break GC loop (implementation may point back to 'r')
