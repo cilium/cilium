@@ -54,6 +54,10 @@
 #define CONDITIONAL_PREALLOC BPF_F_NO_PREALLOC
 #endif
 
+#ifdef ENABLE_IPV6
+# define ENABLE_ENCAP_HOST_REMAP 1
+#endif
+
 #define __inline__ __attribute__((always_inline))
 #ifndef __always_inline
 #define __always_inline inline __inline__
@@ -81,7 +85,8 @@
 #define CILIUM_CALL_IPV6_NODEPORT_NAT		16
 #define CILIUM_CALL_IPV4_NODEPORT_REVNAT	17
 #define CILIUM_CALL_IPV6_NODEPORT_REVNAT	18
-#define CILIUM_CALL_SIZE			19
+#define CILIUM_CALL_ENCAP_NODEPORT_NAT		19
+#define CILIUM_CALL_SIZE			20
 
 typedef __u64 mac_t;
 
