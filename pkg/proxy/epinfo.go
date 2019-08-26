@@ -29,6 +29,11 @@ var (
 	// EndpointInfoRegistry interface.
 	DefaultEndpointInfoRegistry logger.EndpointInfoRegistry = &defaultEndpointInfoRegistry{}
 	endpointManager             EndpointLookup
+	// Allocator is a package-level variable which is used to lookup security
+	// identities from their numeric representation.
+	// TODO: plumb an allocator in from callers of these functions vs. having
+	// this as a package-level variable.
+	Allocator *cache.CachingIdentityAllocator
 )
 
 // EndpointLookup is any type which maps from IP to the endpoint owning that IP.
@@ -41,7 +46,7 @@ type EndpointLookup interface {
 type defaultEndpointInfoRegistry struct{}
 
 func (r *defaultEndpointInfoRegistry) FillEndpointIdentityByID(id identity.NumericIdentity, info *accesslog.EndpointInfo) bool {
-	identity := cache.LookupIdentityByID(id)
+	identity := Allocator.LookupIdentityByID(id)
 	if identity == nil {
 		return false
 	}

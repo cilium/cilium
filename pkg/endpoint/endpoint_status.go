@@ -21,7 +21,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
-	identitycache "github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/node"
@@ -149,7 +149,7 @@ func getEndpointNetworking(status *models.EndpointStatus) (networking *cilium_v2
 
 // updateLabels inserts the labels correnspoding to the specified identity into
 // the AllowedIdentityTuple.
-func updateLabels(allowedIdentityTuple *cilium_v2.AllowedIdentityTuple, secID identity.NumericIdentity) {
+func updateLabels(allocator cache.IdentityAllocator, allowedIdentityTuple *cilium_v2.AllowedIdentityTuple, secID identity.NumericIdentity) {
 	// IdentityUnknown denotes that this is an L4-only BPF
 	// allow, so it applies to all identities. In this case
 	// we should skip resolving the labels, because the
@@ -157,7 +157,7 @@ func updateLabels(allowedIdentityTuple *cilium_v2.AllowedIdentityTuple, secID id
 	// identity, but instead an allow of all identities for
 	// that port.
 	if secID != identity.IdentityUnknown {
-		identity := identitycache.LookupIdentityByID(secID)
+		identity := allocator.LookupIdentityByID(secID)
 		if identity != nil {
 			var l labels.Labels
 			if identity.CIDRLabel != nil {
@@ -173,7 +173,7 @@ func updateLabels(allowedIdentityTuple *cilium_v2.AllowedIdentityTuple, secID id
 
 // populateResponseWithPolicyKey inserts an AllowedIdentityTuple element into 'policy'
 // which corresponds to the specified 'desiredPolicy'.
-func populateResponseWithPolicyKey(policy *cilium_v2.EndpointPolicy, policyKey *policy.Key) {
+func populateResponseWithPolicyKey(allocator cache.IdentityAllocator, policy *cilium_v2.EndpointPolicy, policyKey *policy.Key) {
 	allowedIdentityTuple := cilium_v2.AllowedIdentityTuple{
 		DestPort: policyKey.DestPort,
 		Protocol: policyKey.Nexthdr,
@@ -181,7 +181,7 @@ func populateResponseWithPolicyKey(policy *cilium_v2.EndpointPolicy, policyKey *
 	}
 
 	secID := identity.NumericIdentity(policyKey.Identity)
-	updateLabels(&allowedIdentityTuple, secID)
+	updateLabels(allocator, &allowedIdentityTuple, secID)
 
 	switch {
 	case policyKey.IsIngress():
@@ -263,7 +263,7 @@ func (e *Endpoint) getEndpointPolicy() (policy *cilium_v2.EndpointPolicy) {
 					}
 				}
 
-				populateResponseWithPolicyKey(policy, &policyKey)
+				populateResponseWithPolicyKey(e.allocator, policy, &policyKey)
 			}
 		}
 

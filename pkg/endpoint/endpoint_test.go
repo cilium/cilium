@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/testutils/allocator"
 	. "gopkg.in/check.v1"
 )
 
@@ -55,6 +56,7 @@ type EndpointSuite struct {
 	repo             *policy.Repository
 	compilationMutex *lock.RWMutex
 	datapath         datapath.Datapath
+	mgr              *cache.CachingIdentityAllocator
 
 	// Owners interface mock
 	OnGetPolicyRepository     func() *policy.Repository
@@ -65,11 +67,11 @@ type EndpointSuite struct {
 }
 
 // suite can be used by testing.T benchmarks or tests as a mock regeneration.Owner
-var suite = EndpointSuite{repo: policy.NewPolicyRepository()}
+var suite = EndpointSuite{repo: policy.NewPolicyRepository(nil)}
 var _ = Suite(&suite)
 
 func (s *EndpointSuite) SetUpSuite(c *C) {
-	s.repo = policy.NewPolicyRepository()
+	s.repo = policy.NewPolicyRepository(nil)
 }
 
 func (s *EndpointSuite) GetPolicyRepository() *policy.Repository {
@@ -92,28 +94,18 @@ func (s *EndpointSuite) Datapath() datapath.Datapath {
 	return s.datapath
 }
 
-func (s *EndpointSuite) GetNodeSuffix() string {
-	return ""
-}
-
-func (s *EndpointSuite) UpdateIdentities(added, deleted cache.IdentityCache) {}
-
-type testIdentityAllocator struct{}
-
-func (t *testIdentityAllocator) UpdateIdentities(added, deleted cache.IdentityCache) {}
-
-func (t *testIdentityAllocator) GetNodeSuffix() string { return "foo" }
-
 func (s *EndpointSuite) SetUpTest(c *C) {
 	/* Required to test endpoint CEP policy model */
 	kvstore.SetupDummy("etcd")
 	identity.InitWellKnownIdentities()
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	<-cache.InitIdentityAllocator(&testIdentityAllocator{}, nil, nil)
+	mgr := cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
+	<-mgr.InitIdentityAllocator(nil, nil)
+	s.mgr = mgr
 }
 
 func (s *EndpointSuite) TearDownTest(c *C) {
-	cache.Close()
+	s.mgr.Close()
 	kvstore.Close()
 }
 
@@ -217,7 +209,7 @@ func (s *EndpointSuite) TestEndpointStatus(c *C) {
 }
 
 func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
-	e := NewEndpointWithState(s, &FakeEndpointProxy{}, 100, StateCreating)
+	e := NewEndpointWithState(s, &FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, 100, StateCreating)
 
 	// Test that inserting identity labels works
 	rev := e.replaceIdentityLabels(pkgLabels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
@@ -241,7 +233,7 @@ func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
 }
 
 func (s *EndpointSuite) TestEndpointState(c *C) {
-	e := NewEndpointWithState(s, &FakeEndpointProxy{}, 100, StateCreating)
+	e := NewEndpointWithState(s, &FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, 100, StateCreating)
 	e.unconditionalLock()
 	defer e.unlock()
 
@@ -585,7 +577,7 @@ func (s *EndpointSuite) TestEndpointEventQueueDeadlockUponDeletion(c *C) {
 		s.datapath = oldDatapath
 	}()
 
-	ep := NewEndpointWithState(s, &FakeEndpointProxy{}, 12345, StateReady)
+	ep := NewEndpointWithState(s, &FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, 12345, StateReady)
 
 	// In case deadlock occurs, provide a timeout of 3 (number of events) *
 	// deadlockTimeout + 1 seconds to ensure that we are actually testing for

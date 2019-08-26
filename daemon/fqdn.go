@@ -64,7 +64,7 @@ const (
 	metricErrorAllow   = "allow"
 )
 
-func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP) (map[policyApi.FQDNSelector][]*identity.Identity, error) {
+func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, identityAllocator *secIDCache.CachingIdentityAllocator) (map[policyApi.FQDNSelector][]*identity.Identity, error) {
 	var err error
 
 	// Used to track identities which are allocated in calls to
@@ -82,7 +82,7 @@ func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSel
 		}).Debug("getting identities for IPs associated with FQDNSelector")
 		var currentlyAllocatedIdentities []*identity.Identity
 		if currentlyAllocatedIdentities, err = ipcache.AllocateCIDRsForIPs(selectorIPs); err != nil {
-			secIDCache.ReleaseSlice(context.TODO(), nil, usedIdentities)
+			identityAllocator.ReleaseSlice(context.TODO(), nil, usedIdentities)
 			log.WithError(err).WithField("prefixes", selectorIPs).Warn(
 				"failed to allocate identities for IPs")
 			return nil, err
@@ -252,7 +252,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 func (d *Daemon) updateSelectors(ctx context.Context, selectorWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, selectorsWithoutIPs []policyApi.FQDNSelector) (wg *sync.WaitGroup, err error) {
 	// Convert set of selectors with IPs to update to set of selectors
 	// with identities corresponding to said IPs.
-	selectorsIdentities, err := identitiesForFQDNSelectorIPs(selectorWithIPsToUpdate)
+	selectorsIdentities, err := identitiesForFQDNSelectorIPs(selectorWithIPsToUpdate, d.identityAllocator)
 	if err != nil {
 		return &sync.WaitGroup{}, err
 	}
@@ -450,7 +450,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 					Port:         uint16(serverPort),
 				}
 			} else if serverSecID, exists := ipcache.IPIdentityCache.LookupByIP(serverIP); exists {
-				secID := secIDCache.LookupIdentityByID(serverSecID.ID)
+				secID := d.identityAllocator.LookupIdentityByID(serverSecID.ID)
 				// TODO: handle IPv6
 				lr.LogRecord.DestinationEndpoint = accesslog.EndpointInfo{
 					IPv4: serverIP,

@@ -43,7 +43,6 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
@@ -925,7 +924,7 @@ func initEnv(cmd *cobra.Command) {
 
 	policy.SetPolicyEnabled(option.Config.EnablePolicy)
 
-	if err := cache.AddUserDefinedNumericIdentitySet(option.Config.FixedIdentityMapping); err != nil {
+	if err := identity.AddUserDefinedNumericIdentitySet(option.Config.FixedIdentityMapping); err != nil {
 		log.Fatalf("Invalid fixed identities provided: %s", err)
 	}
 
@@ -1381,7 +1380,7 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPI {
 
 	// /identity/
 	api.PolicyGetIdentityHandler = newGetIdentityHandler(d)
-	api.PolicyGetIdentityIDHandler = newGetIdentityIDHandler(d)
+	api.PolicyGetIdentityIDHandler = newGetIdentityIDHandler(d.identityAllocator)
 
 	// /identity/endpoints
 	api.PolicyGetIdentityEndpointsHandler = newGetIdentityEndpointsIDHandler(d)

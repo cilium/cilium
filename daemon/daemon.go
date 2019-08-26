@@ -172,6 +172,8 @@ type Daemon struct {
 	iptablesManager rulesManager
 
 	endpointManager *endpointmanager.EndpointManager
+
+	identityAllocator *cache.CachingIdentityAllocator
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -326,22 +328,9 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 	// Must be done before calling policy.NewPolicyRepository() below.
 	identity.InitWellKnownIdentities()
 
-	epMgr := endpointmanager.NewEndpointManager(&endpointsynchronizer.EndpointSynchronizer{})
-	epMgr.InitMetrics()
-
-	// Cleanup on exit if running in tandem with Flannel.
-	if option.Config.FlannelUninstallOnExit {
-		cleanupFuncs.Add(func() {
-			for _, ep := range epMgr.GetEndpoints() {
-				ep.DeleteBPFProgramLocked()
-			}
-		})
-	}
-
 	d := Daemon{
 		svc:               service.NewService(),
 		k8sSvcCache:       k8s.NewServiceCache(),
-		policy:            policy.NewPolicyRepository(),
 		prefixLengths:     createPrefixLengthCounter(),
 		k8sResourceSynced: map[string]chan struct{}{},
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
@@ -351,9 +340,34 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 		datapath:          dp,
 		nodeDiscovery:     nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig),
 		iptablesManager:   iptablesManager,
-		endpointManager:   epMgr,
 	}
+
+	d.identityAllocator = cache.NewCachingIdentityAllocator(&d)
+	d.policy = policy.NewPolicyRepository(d.identityAllocator.GetIdentityCache())
+
+	// Propagate identity allocator down to packages which themselves do not
+	// have types to which we can add an allocator member.
+	//
+	// TODO: convert these package level variables to types for easier unit
+	// testing in the future.
+	ipcache.IdentityAllocator = d.identityAllocator
+	proxy.Allocator = d.identityAllocator
+
+	d.endpointManager = endpointmanager.NewEndpointManager(&endpointsynchronizer.EndpointSynchronizer{
+		Allocator: d.identityAllocator,
+	})
+	d.endpointManager.InitMetrics()
+
 	bootstrapStats.daemonInit.End(true)
+
+	// Cleanup on exit if running in tandem with Flannel.
+	if option.Config.FlannelUninstallOnExit {
+		cleanupFuncs.Add(func() {
+			for _, ep := range d.endpointManager.GetEndpoints() {
+				ep.DeleteBPFProgramLocked()
+			}
+		})
+	}
 
 	// Open or create BPF maps.
 	bootstrapStats.mapsInit.Start()
@@ -490,10 +504,10 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 
 	// This needs to be done after the node addressing has been configured
 	// as the node address is required as suffix.
-	// well known identities have already been initialized above
+	// well known identities have already been initialized above.
 	// Ignore the channel returned by this function, as we want the global
 	// identity allocator to run asynchronously.
-	cache.InitIdentityAllocator(&d, k8s.CiliumClient(), nil)
+	d.identityAllocator.InitIdentityAllocator(k8s.CiliumClient(), nil)
 
 	d.bootstrapClusterMesh(nodeMngr)
 
@@ -547,11 +561,12 @@ func (d *Daemon) bootstrapClusterMesh(nodeMngr *nodemanager.Manager) {
 		} else {
 			log.WithField("path", path).Info("Initializing ClusterMesh routing")
 			clustermesh, err := clustermesh.NewClusterMesh(clustermesh.Configuration{
-				Name:            "clustermesh",
-				ConfigDirectory: path,
-				NodeKeyCreator:  nodeStore.KeyCreator,
-				ServiceMerger:   &d.k8sSvcCache,
-				NodeManager:     nodeMngr,
+				Name:                  "clustermesh",
+				ConfigDirectory:       path,
+				NodeKeyCreator:        nodeStore.KeyCreator,
+				ServiceMerger:         &d.k8sSvcCache,
+				NodeManager:           nodeMngr,
+				RemoteIdentityWatcher: d.identityAllocator,
 			})
 			if err != nil {
 				log.WithError(err).Fatal("Unable to initialize ClusterMesh")

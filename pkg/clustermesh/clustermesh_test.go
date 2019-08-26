@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/testutils/allocator"
 
 	. "gopkg.in/check.v1"
 )
@@ -96,22 +97,15 @@ func (o *testObserver) OnDelete(k store.NamedKey) {
 	nodesMutex.Unlock()
 }
 
-type identityAllocatorOwnerMock struct{}
-
-func (i *identityAllocatorOwnerMock) UpdateIdentities(added, deleted cache.IdentityCache) {}
-
-func (i *identityAllocatorOwnerMock) GetNodeSuffix() string {
-	return "foo"
-}
-
 func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	kvstore.SetupDummy("etcd")
 	defer kvstore.Close()
 
 	identity.InitWellKnownIdentities()
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	<-cache.InitIdentityAllocator(&identityAllocatorOwnerMock{}, nil, nil)
-	defer cache.Close()
+	mgr := cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
+	<-mgr.InitIdentityAllocator(nil, nil)
+	defer mgr.Close()
 
 	dir, err := ioutil.TempDir("", "multicluster")
 	c.Assert(err, IsNil)
@@ -128,10 +122,11 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	c.Assert(err, IsNil)
 
 	cm, err := NewClusterMesh(Configuration{
-		Name:            "test2",
-		ConfigDirectory: dir,
-		NodeKeyCreator:  testNodeCreator,
-		nodeObserver:    &testObserver{},
+		Name:                  "test2",
+		ConfigDirectory:       dir,
+		NodeKeyCreator:        testNodeCreator,
+		nodeObserver:          &testObserver{},
+		RemoteIdentityWatcher: mgr,
 	})
 	c.Assert(err, IsNil)
 	c.Assert(cm, Not(IsNil))

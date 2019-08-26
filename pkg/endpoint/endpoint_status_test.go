@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
@@ -50,7 +49,7 @@ type endpointGeneratorSpec struct {
 }
 
 func (s *EndpointSuite) newEndpoint(c *check.C, spec endpointGeneratorSpec) *Endpoint {
-	e, err := NewEndpointFromChangeModel(s, nil, &models.EndpointChangeRequest{
+	e, err := NewEndpointFromChangeModel(s, &FakeEndpointProxy{}, s.mgr, &models.EndpointChangeRequest{
 		Addressing: &models.AddressPair{},
 		ID:         200,
 		Labels: models.Labels{
@@ -260,9 +259,9 @@ func (s *EndpointSuite) TestgetEndpointPolicyMapState(c *check.C) {
 	c.Assert(apiPolicy.Egress.Allowed, checker.DeepEquals, allowAllIdentityList)
 
 	fooLbls := labels.Labels{"": labels.ParseLabel("foo")}
-	fooIdentity, _, err := cache.AllocateIdentity(context.Background(), nil, fooLbls)
+	fooIdentity, _, err := e.allocator.AllocateIdentity(context.Background(), fooLbls, false)
 	c.Assert(err, check.Equals, nil)
-	defer cache.Release(context.Background(), nil, fooIdentity)
+	defer s.mgr.Release(context.Background(), fooIdentity)
 
 	e.desiredPolicy = policy.NewEndpointPolicy(s.repo)
 	e.desiredPolicy.IngressPolicyEnabled = true

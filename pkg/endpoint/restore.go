@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -143,7 +142,7 @@ func (e *Endpoint) restoreIdentity() error {
 
 	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
 	defer cancel()
-	identity, _, err := cache.AllocateIdentity(allocateCtx, e.owner, l)
+	identity, _, err := e.allocator.AllocateIdentity(allocateCtx, l, true)
 
 	if err != nil {
 		scopedLog.WithError(err).Warn("Unable to restore endpoint")
@@ -158,7 +157,7 @@ func (e *Endpoint) restoreIdentity() error {
 		identityCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
 		defer cancel()
 
-		err = cache.WaitForInitialGlobalIdentities(identityCtx)
+		err = e.allocator.WaitForInitialGlobalIdentities(identityCtx)
 		if err != nil {
 			scopedLog.WithError(err).Warn("Failed while waiting for initial global identities")
 			return err
