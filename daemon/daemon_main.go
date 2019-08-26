@@ -1203,14 +1203,14 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	if option.Config.EnableHostReachableServices {
-		// Note: probing for BPF_CGROUP_UDP{4,6}_SENDMSG instead of BPF_CGROUP_INET{4,6}_CONNECT hook since
-		// we want to catch 4.18+ and not 4.17+ kernels as they also have fib lookup helper which we require
-		// for BPF based node port.
 		if option.Config.EnableHostServicesTCP &&
-			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP4_SENDMSG) != nil ||
-				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP6_SENDMSG) != nil) {
-			log.Fatal("BPF host reachable services for TCP needs kernel 4.18.0 or higher.")
+			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_CONNECT) != nil ||
+				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_CONNECT) != nil) {
+			log.Fatal("BPF host reachable services for TCP needs kernel 4.17.0 or newer.")
 		}
+		// NOTE: as host-lb is a hard dependency for NodePort BPF, the following
+		//       probe will catch if the fib_lookup helper is missing (< 4.18),
+		//       which is another hard dependency for NodePort BPF.
 		if option.Config.EnableHostServicesUDP &&
 			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP4_RECVMSG) != nil ||
 				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP6_RECVMSG) != nil) {
