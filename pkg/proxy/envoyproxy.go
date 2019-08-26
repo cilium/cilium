@@ -36,31 +36,36 @@ type envoyRedirect struct {
 
 var envoyOnce sync.Once
 
+func (p *Proxy) StartEnvoy() {
+	if envoyProxy == nil {
+		envoyOnce.Do(func() {
+			// Start Envoy on first invocation
+			envoyProxy = envoy.StartEnvoy(option.Config.RunDir, option.Config.EnvoyLogPath, 0)
+		})
+	}
+}
+
 // createEnvoyRedirect creates a redirect with corresponding proxy
 // configuration. This will launch a proxy instance.
-func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServer, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) (RedirectImplementation, error) {
-	envoyOnce.Do(func() {
-		// Start Envoy on first invocation
-		envoyProxy = envoy.StartEnvoy(stateDir, option.Config.EnvoyLogPath, 0)
-	})
-
+func (p *Proxy) createEnvoyRedirect(r *Redirect, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) (RedirectImplementation, error) {
+	p.StartEnvoy()
 	l := r.listener
 	if envoyProxy != nil {
 		redir := &envoyRedirect{
 			listenerName: fmt.Sprintf("%s:%d", l.name, l.proxyPort),
-			xdsServer:    xdsServer,
+			xdsServer:    p.XDSServer,
 		}
 		// Only use original source address for egress
 		if l.ingress {
 			mayUseOriginalSourceAddr = false
 		}
-		xdsServer.AddListener(redir.listenerName, l.parserType, l.proxyPort, l.ingress,
+		p.XDSServer.AddListener(redir.listenerName, l.parserType, l.proxyPort, l.ingress,
 			mayUseOriginalSourceAddr, wg)
 
 		return redir, nil
 	}
 
-	return nil, fmt.Errorf("%s: Envoy proxy process failed to start, cannot add redirect", l.name)
+	return nil, fmt.Errorf("%s: Envoy proxy process not started, cannot add redirect", l.name)
 }
 
 // UpdateRules is a no-op for envoy, as redirect data is synchronized via the
