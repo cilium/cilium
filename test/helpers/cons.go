@@ -182,7 +182,7 @@ const (
 	KubectlPolicyNameLabel      = k8sConst.PolicyLabelName
 	KubectlPolicyNameSpaceLabel = k8sConst.PolicyLabelNamespace
 
-	CiliumStableVersion      = "v1.5"
+	CiliumStableVersion      = "v1.6"
 	CiliumStableImageVersion = "cilium/cilium:" + CiliumStableVersion
 	CiliumDeveloperImage     = "k8s1:5000/cilium/cilium-dev:latest"
 
@@ -224,7 +224,7 @@ const (
 )
 
 // NightlyStableUpgradesFrom the cilium images to update from in Nightly test.
-var NightlyStableUpgradesFrom = []string{"v1.3"}
+var NightlyStableUpgradesFrom = []string{"v1.6"}
 
 var (
 	CiliumV1_5 = versioncheck.MustCompile(">=v1.4.90,<v1.6")
