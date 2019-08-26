@@ -517,14 +517,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 
 		if redir.listener.parserType == l4.L7Parser {
 			if redir.implementation != nil {
-				updateRevertFunc := redir.updateRules(l4)
-				revertStack.Push(updateRevertFunc)
-
-				implUpdateRevertFunc, err := redir.implementation.UpdateRules(l4)
-				if err != nil {
-					err = fmt.Errorf("unable to update existing redirect: %s", err)
-					return err, nil, nil
-				}
+				implUpdateRevertFunc := redir.implementation.UpdateRules(l4.L7RulesPerEp)
 				revertStack.Push(implUpdateRevertFunc)
 			}
 			redir.lastUpdated = time.Now()
@@ -559,10 +552,6 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 	}
 
 	redir := newRedirect(localEndpoint, pp, uint16(l4.Port))
-	if redir.implementation != nil {
-		redir.updateRules(l4)
-		// Rely on create*Redirect to update rules, unlike the update case above.
-	}
 
 	switch l4.L7Parser {
 	case policy.ParserTypeDNS:
@@ -572,6 +561,9 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 	}
 
 	if err == nil {
+		if redir.implementation != nil {
+			redir.implementation.UpdateRules(l4.L7RulesPerEp)
+		}
 		scopedLog.WithField(logfields.Object, logfields.Repr(redir)).
 			Debug("Created new ", l4.L7Parser, " proxy instance")
 		p.redirects[id] = redir

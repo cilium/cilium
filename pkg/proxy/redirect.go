@@ -27,9 +27,9 @@ import (
 // proxy redirect type must implement
 type RedirectImplementation interface {
 	// UpdateRules notifies the proxy implementation that the new rules in
-	// parameter l4 are to be applied.
-	// Note: UpdateRules is not called when a redirect is created.
-	UpdateRules(l4 *policy.L4Filter) (revert.RevertFunc, error)
+	// parameter 'rules' are to be applied.
+	// Initially called right after the redirect is created.
+	UpdateRules(rules policy.L7DataMap) revert.RevertFunc
 
 	// Close closes and cleans up resources associated with the redirect
 	// implementation.
@@ -50,33 +50,16 @@ type Redirect struct {
 	// mutex must be held to read and write these fields
 	mutex       lock.RWMutex
 	lastUpdated time.Time
-	rules       policy.L7DataMap
 }
 
 func newRedirect(localEndpoint logger.EndpointUpdater, listener *ProxyPort, dstPort uint16) *Redirect {
+	now := time.Now()
 	return &Redirect{
 		listener:      listener,
 		dstPort:       dstPort,
 		endpointID:    localEndpoint.GetID(),
 		localEndpoint: localEndpoint,
-		created:       time.Now(),
-		lastUpdated:   time.Now(),
-	}
-}
-
-// updateRules updates the rules of the redirect, Redirect.mutex must be held
-// 'implementation' is not initialized when this is called the first time.
-// TODO: Replace this with RedirectImplementation UpdateRules method!
-func (r *Redirect) updateRules(l4 *policy.L4Filter) revert.RevertFunc {
-	oldRules := r.rules
-	r.rules = make(policy.L7DataMap, len(l4.L7RulesPerEp))
-	for key, val := range l4.L7RulesPerEp {
-		r.rules[key] = val
-	}
-	return func() error {
-		r.mutex.Lock()
-		r.rules = oldRules
-		r.mutex.Unlock()
-		return nil
+		created:       now,
+		lastUpdated:   now,
 	}
 }

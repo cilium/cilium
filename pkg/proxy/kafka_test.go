@@ -307,12 +307,6 @@ func (s *proxyTestSuite) TestKafkaRedirect(c *C) {
 	c.Assert(err, IsNil)
 	r := newRedirect(localEndpointMock, pp, uint16(portInt))
 
-	r.rules = policy.L7DataMap{
-		wildcardCachedSelector: api.L7Rules{
-			Kafka: []api.PortRuleKafka{kafkaRule1, kafkaRule2},
-		},
-	}
-
 	redir, err := createKafkaRedirect(r, kafkaConfiguration{
 		lookupSrcID: func(mapname, remoteAddr, localAddr string, ingress bool) (uint32, error) {
 			return uint32(1000), nil
@@ -322,6 +316,12 @@ func (s *proxyTestSuite) TestKafkaRedirect(c *C) {
 	})
 	c.Assert(err, IsNil)
 	defer redir.Close()
+
+	redir.UpdateRules(policy.L7DataMap{
+		wildcardCachedSelector: api.L7Rules{
+			Kafka: []api.PortRuleKafka{kafkaRule1, kafkaRule2},
+		},
+	})
 
 	log.WithFields(logrus.Fields{
 		"address": proxyAddress,
