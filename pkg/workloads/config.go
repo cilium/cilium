@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/identity/cache"
 )
 
 // setOpts validates the specified options against the selected workload runtime
@@ -79,7 +80,7 @@ var (
 	allocator allocatorInterface
 )
 
-func setupWorkload(workloadRuntime WorkloadRuntimeType, opts map[string]string, epMgr *endpointmanager.EndpointManager) error {
+func setupWorkload(workloadRuntime WorkloadRuntimeType, opts map[string]string, epMgr *endpointmanager.EndpointManager, allocator *cache.IdentityAllocatorManager) error {
 	workloadMod := getWorkload(workloadRuntime)
 	if workloadMod == nil {
 		return fmt.Errorf("unknown workloadRuntime runtime type %s", workloadRuntime)
@@ -89,7 +90,7 @@ func setupWorkload(workloadRuntime WorkloadRuntimeType, opts map[string]string, 
 		return err
 	}
 
-	return initClient(workloadMod, epMgr)
+	return initClient(workloadMod, epMgr, allocator)
 }
 
 type allocatorInterface interface {
@@ -98,11 +99,11 @@ type allocatorInterface interface {
 
 // Setup sets up the workload runtime specified in workloadRuntime and configures it
 // with the options provided in opts
-func Setup(a allocatorInterface, epMgr *endpointmanager.EndpointManager, workloadRuntimes []string, opts map[WorkloadRuntimeType]map[string]string) error {
-	return setup(a, epMgr, workloadRuntimes, opts, false)
+func Setup(a allocatorInterface, epMgr *endpointmanager.EndpointManager, allocator *cache.IdentityAllocatorManager, workloadRuntimes []string, opts map[WorkloadRuntimeType]map[string]string) error {
+	return setup(a, epMgr, allocator, workloadRuntimes, opts, false)
 }
 
-func setup(a allocatorInterface, epMgr *endpointmanager.EndpointManager, workloadRuntimes []string, opts map[WorkloadRuntimeType]map[string]string, bypassStatusCheck bool) error {
+func setup(a allocatorInterface, epMgr *endpointmanager.EndpointManager, allo *cache.IdentityAllocatorManager, workloadRuntimes []string, opts map[WorkloadRuntimeType]map[string]string, bypassStatusCheck bool) error {
 	var (
 		st  *models.Status
 		err error
@@ -139,7 +140,7 @@ func setup(a allocatorInterface, epMgr *endpointmanager.EndpointManager, workloa
 				case Auto:
 					var setupErr error
 					for _, rt := range []WorkloadRuntimeType{Docker, ContainerD, CRIO} {
-						setupErr = setupWorkload(rt, opts[rt], epMgr)
+						setupErr = setupWorkload(rt, opts[rt], epMgr, allo)
 						if !bypassStatusCheck {
 							st = Status()
 						}
@@ -150,7 +151,7 @@ func setup(a allocatorInterface, epMgr *endpointmanager.EndpointManager, workloa
 					err = setupErr
 					return
 				default:
-					err = setupWorkload(crt, opts[crt], epMgr)
+					err = setupWorkload(crt, opts[crt], epMgr, allo)
 					return
 				}
 			}

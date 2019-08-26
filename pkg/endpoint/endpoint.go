@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
@@ -947,7 +946,7 @@ type DeleteConfig struct {
 // endpoints which failed to be restored. Any cleanup routine of leaveLocked()
 // which depends on kvstore connectivity must be protected by a flag in
 // DeleteConfig and the restore logic must opt-out of it.
-func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf DeleteConfig) []error {
+func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, allocator identityAllocator, conf DeleteConfig) []error {
 	errors := []error{}
 
 	if !option.Config.DryMode {
@@ -974,7 +973,7 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 		releaseCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
 		defer cancel()
 
-		_, err := cache.Release(releaseCtx, e.owner, e.SecurityIdentity)
+		_, err := allocator.Release(releaseCtx, e.SecurityIdentity)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("unable to release identity: %s", err))
 		}
@@ -1468,7 +1467,7 @@ func (e *Endpoint) getIDandLabels() string {
 // Labels can be added or deleted. If a label change is performed, the
 // endpoint will receive a new identity and will be regenerated. Both of these
 // operations will happen in the background.
-func (e *Endpoint) ModifyIdentityLabels(addLabels, delLabels pkgLabels.Labels) error {
+func (e *Endpoint) ModifyIdentityLabels(addLabels, delLabels pkgLabels.Labels, allocator identityAllocator) error {
 	if err := e.lockAlive(); err != nil {
 		return err
 	}
@@ -1492,7 +1491,7 @@ func (e *Endpoint) ModifyIdentityLabels(addLabels, delLabels pkgLabels.Labels) e
 	e.unlock()
 
 	if changed {
-		e.runLabelsResolver(context.Background(), rev, false)
+		e.runLabelsResolver(context.Background(), rev, false, allocator)
 	}
 	return nil
 }
@@ -1511,7 +1510,7 @@ func (e *Endpoint) IsInit() bool {
 // If a net label changed was performed, the endpoint will receive a new
 // identity and will be regenerated. Both of these operations will happen in
 // the background.
-func (e *Endpoint) UpdateLabels(ctx context.Context, identityLabels, infoLabels pkgLabels.Labels, blocking bool) {
+func (e *Endpoint) UpdateLabels(ctx context.Context, identityLabels, infoLabels pkgLabels.Labels, blocking bool, allocator identityAllocator) {
 	log.WithFields(logrus.Fields{
 		logfields.ContainerID:    e.GetShortContainerID(),
 		logfields.EndpointID:     e.StringID(),
@@ -1529,7 +1528,7 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, identityLabels, infoLabels 
 	rev := e.replaceIdentityLabels(identityLabels)
 	e.unlock()
 	if rev != 0 {
-		e.runLabelsResolver(ctx, rev, blocking)
+		e.runLabelsResolver(ctx, rev, blocking, allocator)
 	}
 }
 
@@ -1544,7 +1543,7 @@ func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 }
 
 // Must be called with e.Mutex NOT held.
-func (e *Endpoint) runLabelsResolver(ctx context.Context, myChangeRev int, blocking bool) {
+func (e *Endpoint) runLabelsResolver(ctx context.Context, myChangeRev int, blocking bool, allocator identityAllocator) {
 	if err := e.rlockAlive(); err != nil {
 		// If a labels update and an endpoint delete API request arrive
 		// in quick succession, this could occur; in that case, there's
@@ -1559,10 +1558,10 @@ func (e *Endpoint) runLabelsResolver(ctx context.Context, myChangeRev int, block
 	// If we are certain we can resolve the identity without accessing the KV
 	// store, do it first synchronously right now. This can reduce the number
 	// of regenerations for the endpoint during its initialization.
-	if blocking || cache.IdentityAllocationIsLocal(newLabels) {
+	if blocking || identityPkg.IdentityAllocationIsLocal(newLabels) {
 		scopedLog.Info("Resolving identity labels (blocking)")
 
-		err := e.identityLabelsChanged(ctx, myChangeRev)
+		err := e.identityLabelsChanged(ctx, myChangeRev, allocator)
 		switch err {
 		case ErrNotAlive:
 			scopedLog.Debug("not changing endpoint identity because endpoint is in process of being removed")
@@ -1580,7 +1579,7 @@ func (e *Endpoint) runLabelsResolver(ctx context.Context, myChangeRev int, block
 	e.controllers.UpdateController(ctrlName,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				err := e.identityLabelsChanged(ctx, myChangeRev)
+				err := e.identityLabelsChanged(ctx, myChangeRev, allocator)
 				switch err {
 				case ErrNotAlive:
 					e.getLogger().Debug("not changing endpoint identity because endpoint is in process of being removed")
@@ -1594,7 +1593,7 @@ func (e *Endpoint) runLabelsResolver(ctx context.Context, myChangeRev int, block
 	)
 }
 
-func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) error {
+func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int, allocator identityAllocator) error {
 	if err := e.rlockAlive(); err != nil {
 		return ErrNotAlive
 	}
@@ -1628,7 +1627,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
 	defer cancel()
 
-	identity, _, err := cache.AllocateIdentity(allocateCtx, e.owner, newLabels)
+	identity, _, err := allocator.AllocateIdentity(allocateCtx, newLabels, true)
 	if err != nil {
 		err = fmt.Errorf("unable to resolve identity: %s", err)
 		e.LogStatus(Other, Warning, fmt.Sprintf("%s (will retry)", err.Error()))
@@ -1644,7 +1643,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 	defer cancel()
 
 	releaseNewlyAllocatedIdentity := func() {
-		_, err := cache.Release(releaseCtx, e.owner, identity)
+		_, err := allocator.Release(releaseCtx, identity)
 		if err != nil {
 			// non fatal error as keys will expire after lease expires but log it
 			elog.WithFields(logrus.Fields{logfields.Identity: identity.ID}).
@@ -1704,7 +1703,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 	e.SetIdentity(identity, false)
 
 	if oldIdentity != nil {
-		_, err := cache.Release(releaseCtx, e.owner, oldIdentity)
+		_, err := allocator.Release(releaseCtx, oldIdentity)
 		if err != nil {
 			elog.WithFields(logrus.Fields{logfields.Identity: oldIdentity.ID}).
 				WithError(err).Warn("Unable to release old endpoint identity")
@@ -1946,7 +1945,7 @@ type monitorOwner interface {
 // * cleanup of datapath state (BPF maps, proxy configuration, directories)
 // * releasing IP addresses allocated for the endpoint
 // * releasing of the reference to its allocated security identity
-func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpointManager, conf DeleteConfig) []error {
+func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpointManager, allocator identityAllocator, conf DeleteConfig) []error {
 	errs := []error{}
 
 	// Since the endpoint is being deleted, we no longer need to run events
@@ -2013,7 +2012,7 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpoin
 	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
 
-	errs = append(errs, e.leaveLocked(proxyWaitGroup, conf)...)
+	errs = append(errs, e.leaveLocked(proxyWaitGroup, allocator, conf)...)
 	e.unlock()
 
 	err := e.waitForProxyCompletions(proxyWaitGroup)

@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -26,9 +25,11 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 )
 
-type getIdentity struct{}
+type getIdentity struct {
+	d *Daemon
+}
 
-func newGetIdentityHandler(d *Daemon) GetIdentityHandler { return &getIdentity{} }
+func newGetIdentityHandler(d *Daemon) GetIdentityHandler { return &getIdentity{d: d} }
 
 func (h *getIdentity) Handle(params GetIdentityParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /identity request")
@@ -37,9 +38,9 @@ func (h *getIdentity) Handle(params GetIdentityParams) middleware.Responder {
 	if params.Labels == nil {
 		// if labels is nil, return all identities from the kvstore
 		// This is in response to "identity list" command
-		identities = cache.GetIdentities()
+		identities = h.d.identityAllocator.GetIdentities()
 	} else {
-		identity := cache.LookupIdentity(labels.NewLabelsFromModel(params.Labels))
+		identity := h.d.identityAllocator.LookupIdentity(labels.NewLabelsFromModel(params.Labels))
 		if identity == nil {
 			return NewGetIdentityIDNotFound()
 		}
@@ -50,9 +51,11 @@ func (h *getIdentity) Handle(params GetIdentityParams) middleware.Responder {
 	return NewGetIdentityOK().WithPayload(identities)
 }
 
-type getIdentityID struct{}
+type getIdentityID struct {
+	d *Daemon
+}
 
-func newGetIdentityIDHandler(d *Daemon) GetIdentityIDHandler { return &getIdentityID{} }
+func newGetIdentityIDHandler(d *Daemon) GetIdentityIDHandler { return &getIdentityID{d: d} }
 
 func (h *getIdentityID) Handle(params GetIdentityIDParams) middleware.Responder {
 	nid, err := identity.ParseNumericIdentity(params.ID)
@@ -60,7 +63,7 @@ func (h *getIdentityID) Handle(params GetIdentityIDParams) middleware.Responder 
 		return NewGetIdentityIDBadRequest()
 	}
 
-	identity := cache.LookupIdentityByID(nid)
+	identity := h.d.identityAllocator.LookupIdentityByID(nid)
 	if identity == nil {
 		return NewGetIdentityIDNotFound()
 	}

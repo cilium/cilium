@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -144,7 +145,9 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 
 	// Release the identity allocator reference created by NewDaemon. This
 	// is done manually here as we have no Close() function daemon
-	cache.Close()
+	ds.d.identityAllocator.Close()
+
+	identitymanager.RemoveAll()
 
 	ds.d.Close()
 }
