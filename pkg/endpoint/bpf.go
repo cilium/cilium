@@ -638,7 +638,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 		var desiredRedirects map[string]bool
 		var finalizeFunc revert.FinalizeFunc
 		var revertFunc revert.RevertFunc
-		if e.desiredPolicy != nil && e.desiredPolicy.L4Policy != nil && e.desiredPolicy.L4Policy.HasRedirect() {
+		if e.desiredPolicy != nil && e.desiredPolicy.L4Policy != nil && e.desiredPolicy.L4Policy.HasRedirects() {
 			stats.proxyConfiguration.Start()
 			desiredRedirects, err, finalizeFunc, revertFunc = e.addNewRedirects(e.desiredPolicy.L4Policy, datapathRegenCtxt.proxyWaitGroup)
 			stats.proxyConfiguration.End(err == nil)

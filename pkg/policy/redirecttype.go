@@ -46,3 +46,23 @@ const (
 	// RedirectTypeAgentMask is a mask of all redirect types implemented in the Cilium Agent
 	RedirectTypeAgentMask = RedirectTypeDNSEgress | RedirectTypeKafkaIngress | RedirectTypeKafkaEgress
 )
+
+// HasRedirects returns true if the L4Policy needs any L7 proxy redirects.
+func (r RedirectType) HasRedirects() bool {
+	return r != 0
+}
+
+// HasIngressRedirects returns true if the L4Policy needs any ingress L7 proxy redirects.
+func (r RedirectType) HasIngressRedirects() bool {
+	return r&RedirectTypeIngressMask != 0
+}
+
+// HasEgressRedirects returns true if the L4Policy needs any egress L7 proxy redirects.
+func (r RedirectType) HasEgressRedirects() bool {
+	return r&RedirectTypeEgressMask != 0
+}
+
+// HasAgentRedirects returns true if the L4Policy needs any L7 proxy redirects that run in the Cilium Agnet itself.
+func (r RedirectType) HasAgentRedirects() bool {
+	return r&RedirectTypeAgentMask != 0
+}
