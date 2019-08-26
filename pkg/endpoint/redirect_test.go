@@ -129,11 +129,12 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	identity.InitWellKnownIdentities()
 	idAllocatorOwner := &DummyIdentityAllocatorOwner{}
 
-	<-cache.InitIdentityAllocator(idAllocatorOwner, nil, nil)
-	defer cache.Close()
+	mgr := cache.NewCachingIdentityAllocator(idAllocatorOwner)
+	<-mgr.InitIdentityAllocator(nil, nil)
+	defer mgr.Close()
 
 	do := &DummyOwner{
-		repo: policy.NewPolicyRepository(),
+		repo: policy.NewPolicyRepository(nil),
 	}
 	identitymanager.Subscribe(do.repo)
 
@@ -153,10 +154,10 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 		redirectPortUserMap: make(map[uint16][]string),
 	}
 
-	ep := NewEndpointWithState(do, rsp, 12345, StateRegenerating)
+	ep := NewEndpointWithState(do, rsp, mgr, 12345, StateRegenerating)
 
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	epIdentity, _, err := cache.AllocateIdentity(context.Background(), idAllocatorOwner, qaBarLbls)
+	epIdentity, _, err := mgr.AllocateIdentity(context.Background(), qaBarLbls, true)
 	c.Assert(err, check.IsNil)
 	ep.SetIdentity(epIdentity, true)
 

@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
+	"github.com/cilium/cilium/pkg/testutils/allocator"
 	. "gopkg.in/check.v1"
 )
 
@@ -174,7 +175,8 @@ func (d DummyOwner) LookupRedirectPort(l4 *L4Filter) uint16 {
 }
 
 func bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int, c *C) *Repository {
-	testRepo := NewPolicyRepository()
+	mgr := cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
+	testRepo := NewPolicyRepository(mgr.GetIdentityCache())
 
 	var wg sync.WaitGroup
 	SetPolicyEnabled(option.DefaultEnforcement)

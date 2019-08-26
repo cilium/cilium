@@ -76,7 +76,7 @@ func getOpts(opts workloadRuntimeOpts) map[string]string {
 
 var (
 	setupOnce sync.Once
-	allocator allocatorInterface
+	allocator ipAllocator
 )
 
 func setupWorkload(workloadRuntime WorkloadRuntimeType, opts map[string]string, epMgr *endpointmanager.EndpointManager) error {
@@ -92,17 +92,17 @@ func setupWorkload(workloadRuntime WorkloadRuntimeType, opts map[string]string, 
 	return initClient(workloadMod, epMgr)
 }
 
-type allocatorInterface interface {
+type ipAllocator interface {
 	BlacklistIP(ip net.IP, owner string)
 }
 
 // Setup sets up the workload runtime specified in workloadRuntime and configures it
 // with the options provided in opts
-func Setup(a allocatorInterface, epMgr *endpointmanager.EndpointManager, workloadRuntimes []string, opts map[WorkloadRuntimeType]map[string]string) error {
+func Setup(a ipAllocator, epMgr *endpointmanager.EndpointManager, workloadRuntimes []string, opts map[WorkloadRuntimeType]map[string]string) error {
 	return setup(a, epMgr, workloadRuntimes, opts, false)
 }
 
-func setup(a allocatorInterface, epMgr *endpointmanager.EndpointManager, workloadRuntimes []string, opts map[WorkloadRuntimeType]map[string]string, bypassStatusCheck bool) error {
+func setup(a ipAllocator, epMgr *endpointmanager.EndpointManager, workloadRuntimes []string, opts map[WorkloadRuntimeType]map[string]string, bypassStatusCheck bool) error {
 	var (
 		st  *models.Status
 		err error

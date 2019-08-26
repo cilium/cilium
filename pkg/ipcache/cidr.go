@@ -28,6 +28,14 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
+var (
+	// IdentityAllocator is a package-level variable which is used to allocate
+	// identities for CIDRs.
+	// TODO: plumb an allocator in from callers of these functions vs. having
+	// this as a package-level variable.
+	IdentityAllocator *cache.CachingIdentityAllocator
+)
+
 // AllocateCIDRs attempts to allocate identities for a list of CIDRs. If any
 // allocation fails, all allocations are rolled back and the error is returned.
 // When an identity is freshly allocated for a CIDR, it is added to the
@@ -63,9 +71,9 @@ func allocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
 		allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.IPAllocationTimeout)
 		defer cancel()
 
-		id, isNew, err := cache.AllocateIdentity(allocateCtx, nil, cidr.GetCIDRLabels(prefix))
+		id, isNew, err := IdentityAllocator.AllocateIdentity(allocateCtx, cidr.GetCIDRLabels(prefix), false)
 		if err != nil {
-			cache.ReleaseSlice(context.Background(), nil, usedIdentities)
+			IdentityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)
 			return nil, fmt.Errorf("failed to allocate identity for cidr %s: %s", prefixStr, err)
 		}
 
@@ -104,11 +112,11 @@ func ReleaseCIDRs(prefixes []*net.IPNet) {
 			continue
 		}
 
-		if id := cache.LookupIdentity(cidr.GetCIDRLabels(prefix)); id != nil {
+		if id := IdentityAllocator.LookupIdentity(cidr.GetCIDRLabels(prefix)); id != nil {
 			releaseCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
 			defer cancel()
 
-			released, err := cache.Release(releaseCtx, nil, id)
+			released, err := IdentityAllocator.Release(releaseCtx, id)
 			if err != nil {
 				log.WithError(err).Warningf("Unable to release identity for CIDR %s. Ignoring error. Identity may be leaked", prefix.String())
 			}
