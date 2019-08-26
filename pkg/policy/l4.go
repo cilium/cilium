@@ -408,6 +408,34 @@ func (l4 *L4Filter) IsRedirect() bool {
 	return l4.L7Parser != ParserTypeNone
 }
 
+// GetRedirectType returns the type of redirect needed for the L4Filter, or RedirectTypeNone.
+func (l4 *L4Filter) GetRedirectType() RedirectType {
+	if l4.Ingress {
+		switch l4.L7Parser {
+		case ParserTypeNone:
+			return RedirectTypeNone
+		case ParserTypeDNS:
+			return RedirectTypeNone // DNS is egress only
+		case ParserTypeKafka:
+			return RedirectTypeKafkaIngress
+		case ParserTypeHTTP:
+			return RedirectTypeHTTPIngress
+		}
+		return RedirectTypeProxylibIngress
+	}
+	switch l4.L7Parser {
+	case ParserTypeNone:
+		return RedirectTypeNone
+	case ParserTypeDNS:
+		return RedirectTypeDNSEgress
+	case ParserTypeKafka:
+		return RedirectTypeKafkaEgress
+	case ParserTypeHTTP:
+		return RedirectTypeHTTPEgress
+	}
+	return RedirectTypeProxylibEgress
+}
+
 // MarshalIndent returns the `L4Filter` in indented JSON string.
 func (l4 *L4Filter) MarshalIndent() string {
 	b, err := json.MarshalIndent(l4, "", "  ")

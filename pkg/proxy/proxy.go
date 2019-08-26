@@ -104,6 +104,29 @@ type Proxy struct {
 	// Datapath updater for installing and removing proxy rules for a single
 	// proxy port
 	datapathUpdater DatapathUpdater
+
+	// mask of all listeners started so far,
+	runningProxies policy.RedirectType
+}
+
+// StartListeners makes sure the proxies and listeners for the given
+// mask of redirect types are configured.
+func (p *Proxy) StartListeners(rTypes policy.RedirectType, wg *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
+	rTypes &^= p.runningProxies // minus the proxies already running
+
+	if rTypes != 0 {
+		p.mutex.Lock()
+		defer p.mutex.Unlock()
+
+		// Check that Envoy is started when needed
+		if rTypes&^policy.RedirectTypeAgentMask != 0 {
+			p.StartEnvoy()
+		}
+
+		// TODO: Start the needed listeners
+		p.runningProxies |= rTypes
+	}
+	return nil, nil, nil
 }
 
 // StartProxySupport starts the servers to support L7 proxies: xDS GRPC server
