@@ -58,8 +58,17 @@ type proxyTestSuite struct {
 
 var _ = Suite(&proxyTestSuite{})
 
+type identityAllocatorOwnerMock struct{}
+
+func (i *identityAllocatorOwnerMock) UpdateIdentities(added, deleted cache.IdentityCache) {}
+
+func (i *identityAllocatorOwnerMock) GetNodeSuffix() string {
+	return "foo"
+}
+
 func (s *proxyTestSuite) SetUpSuite(c *C) {
-	s.repo = policy.NewPolicyRepository()
+	Allocator = cache.NewIdentityAllocatorManager(&identityAllocatorOwnerMock{})
+	s.repo = policy.NewPolicyRepository(nil)
 }
 
 func (s *proxyTestSuite) GetPolicyRepository() *policy.Repository {

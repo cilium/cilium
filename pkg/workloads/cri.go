@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/containerd/containerd/namespaces"
@@ -61,9 +62,10 @@ type criClient struct {
 	criRuntime.RuntimeServiceClient
 
 	endpointManager *endpointmanager.EndpointManager
+	allocator       *cache.IdentityAllocatorManager
 }
 
-func newCRIClient(ctx context.Context, epMgr *endpointmanager.EndpointManager) (*criClient, error) {
+func newCRIClient(ctx context.Context, epMgr *endpointmanager.EndpointManager, allocator *cache.IdentityAllocatorManager) (*criClient, error) {
 	cc, err := getGRPCCLient(ctx)
 	if err != nil {
 		return nil, err
@@ -72,6 +74,7 @@ func newCRIClient(ctx context.Context, epMgr *endpointmanager.EndpointManager) (
 	return &criClient{
 		RuntimeServiceClient: rsc,
 		endpointManager:      epMgr,
+		allocator:            allocator,
 	}, nil
 }
 
@@ -262,7 +265,7 @@ func (c *criClient) handleCreateWorkload(id string, retry bool) {
 			logfields.EndpointID: ep.ID,
 		}).Debug("Associated container event with endpoint")
 
-		processCreateWorkload(ep, id, pod.Labels, c.endpointManager)
+		processCreateWorkload(ep, id, pod.Labels, c.endpointManager, c.allocator)
 		return
 	}
 

@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 )
 
@@ -64,7 +65,7 @@ func getFilteredLabels(containerID string, allLabels map[string]string) (identit
 	return labels.FilterLabels(combinedLabels)
 }
 
-func processCreateWorkload(ep *endpoint.Endpoint, containerID string, allLabels map[string]string, epMgr *endpointmanager.EndpointManager) {
+func processCreateWorkload(ep *endpoint.Endpoint, containerID string, allLabels map[string]string, epMgr *endpointmanager.EndpointManager, allocator *cache.IdentityAllocatorManager) {
 	ep.SetContainerID(containerID)
 
 	// Update map allowing to lookup endpoint by endpoint
@@ -72,5 +73,5 @@ func processCreateWorkload(ep *endpoint.Endpoint, containerID string, allLabels 
 	ep.UpdateReferences(epMgr)
 
 	identityLabels, informationLabels := getFilteredLabels(containerID, allLabels)
-	ep.UpdateLabels(context.Background(), identityLabels, informationLabels, false)
+	ep.UpdateLabels(context.Background(), identityLabels, informationLabels, false, allocator)
 }

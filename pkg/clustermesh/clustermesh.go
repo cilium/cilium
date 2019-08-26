@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
@@ -55,6 +56,8 @@ type Configuration struct {
 	NodeManager *nodemanager.Manager
 
 	nodeObserver store.Observer
+
+	Allocator *cache.IdentityAllocatorManager
 }
 
 // NodeObserver returns the node store observer of the configuration
@@ -119,7 +122,6 @@ func (cm *ClusterMesh) Close() {
 		cluster.onRemove()
 		delete(cm.clusters, name)
 	}
-
 	cm.controllers.RemoveAllAndWait()
 }
 
@@ -152,7 +154,7 @@ func (cm *ClusterMesh) add(name, path string) {
 	log.WithField(fieldClusterName, name).Debug("Remote cluster configuration added")
 
 	if inserted {
-		cluster.onInsert()
+		cluster.onInsert(cm.conf.Allocator)
 	} else {
 		// signal a change in configuration
 		cluster.changed <- true

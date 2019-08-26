@@ -206,6 +206,7 @@ var _ = Describe("RuntimeChaos", func() {
 		identities, err := vm.GetEndpointsIdentityIds()
 		Expect(err).To(BeNil(), "Cannot get identities")
 
+		By("Deleting identities from kvstore")
 		for _, identityID := range identities {
 			action := helpers.CurlFail("%s/%s -X DELETE", prefix, identityID)
 			vm.Exec(action).ExpectSuccess("Key %s cannot be deleted correctly", identityID)
@@ -217,6 +218,7 @@ var _ = Describe("RuntimeChaos", func() {
 		Expect(newidentities).To(Equal(identities),
 			"Identities are not the same after delete keys from kvstore")
 
+		By("Checking that identities were restored correctly after deletion")
 		for _, identityID := range newidentities {
 			id, err := identity.ParseNumericIdentity(identityID)
 			Expect(err).To(BeNil(), "Cannot parse identity")
@@ -224,7 +226,7 @@ var _ = Describe("RuntimeChaos", func() {
 				continue
 			}
 			action := helpers.CurlFail("%s/%s", prefix, identityID)
-			vm.Exec(action).ExpectSuccess("Key %s cannot is not restored correctly", identityID)
+			vm.Exec(action).ExpectSuccess("Key %s was not restored correctly", identityID)
 		}
 	})
 

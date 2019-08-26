@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"reflect"
 	"time"
@@ -38,7 +39,9 @@ import (
 // of CiliumEndpoint resources.
 // TODO - see whether folding the global variables below into this function
 // is cleaner.
-type EndpointSynchronizer struct{}
+type EndpointSynchronizer struct {
+	Allocator *cache.IdentityAllocatorManager
+}
 
 // RunK8sCiliumEndpointSync starts a controller that synchronizes the endpoint
 // to the corresponding k8s CiliumEndpoint CRD. It is expected that each CEP
@@ -108,7 +111,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 
 				// Serialize the endpoint into a model. It is compared with the one
 				// from before, only updating on changes.
-				mdl := e.GetCiliumEndpointStatus()
+				mdl := e.GetCiliumEndpointStatus(epSync.Allocator)
 				if reflect.DeepEqual(mdl, lastMdl) {
 					scopedLog.Debug("Skipping CiliumEndpoint update because it has not changed")
 					return nil
