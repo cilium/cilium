@@ -65,6 +65,63 @@ encap_and_redirect_ipsec(struct __sk_buff *skb, __u32 tunnel_endpoint, __u8 key,
 #endif
 
 static inline int __inline__
+encap_remap_v6_host_address(struct __sk_buff *skb, const bool egress)
+{
+#ifdef ENABLE_ENCAP_HOST_REMAP
+	struct csum_offset csum = {};
+	union v6addr host_ip;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	union v6addr *which;
+	__u32 off, noff;
+	__u8 nexthdr;
+	__u16 proto;
+	__be32 sum;
+	int ret;
+
+	validate_ethertype(skb, &proto);
+	if (proto != bpf_htons(ETH_P_IPV6))
+		return 0;
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
+		return DROP_INVALID;
+	/* For requests routed via tunnel with external v6 node IP
+	 * we need to remap their source address to the router address
+	 * as otherwise replies are not routed via tunnel but public
+	 * address instead.
+	 */
+	if (egress) {
+		BPF_V6(host_ip, HOST_IP);
+		which = (union v6addr *)&ip6->saddr;
+	} else {
+		BPF_V6(host_ip, ROUTER_IP);
+		which = (union v6addr *)&ip6->daddr;
+	}
+	if (ipv6_addrcmp(which, &host_ip))
+		return 0;
+	nexthdr = ip6->nexthdr;
+	ret = ipv6_hdrlen(skb, ETH_HLEN, &nexthdr);
+	if (ret < 0)
+		return ret;
+	off = ((void *)ip6 - data) + ret;
+	if (egress) {
+		BPF_V6(host_ip, ROUTER_IP);
+		noff = ETH_HLEN + offsetof(struct ipv6hdr, saddr);
+	} else {
+		BPF_V6(host_ip, HOST_IP);
+		noff = ETH_HLEN + offsetof(struct ipv6hdr, daddr);
+	}
+	sum = csum_diff(which, 16, &host_ip, 16, 0);
+	csum_l4_offset_and_flags(nexthdr, &csum);
+	if (skb_store_bytes(skb, noff, &host_ip, 16, 0) < 0)
+		return DROP_WRITE_ERROR;
+	if (csum.offset &&
+	    csum_l4_replace(skb, off, &csum, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+		return DROP_CSUM_L4;
+#endif /* ENABLE_ENCAP_HOST_REMAP */
+	return 0;
+}
+
+static inline int __inline__
 __encap_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint,
 		    __u32 seclabel, __u32 monitor)
 {
