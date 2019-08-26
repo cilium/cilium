@@ -57,23 +57,26 @@ func (s *IdentityCacheTestSuite) TestLookupReservedIdentity(c *C) {
 		option.Config.ClusterName = bak
 	}()
 
-	hostID := identity.GetReservedID("host")
-	c.Assert(LookupIdentityByID(hostID), Not(IsNil))
+	mgr := NewIdentityAllocatorManager(newDummyOwner())
+	<-mgr.InitIdentityAllocator(nil, nil)
 
-	id := LookupIdentity(labels.NewLabelsFromModel([]string{"reserved:host"}))
+	hostID := identity.GetReservedID("host")
+	c.Assert(mgr.LookupIdentityByID(hostID), Not(IsNil))
+
+	id := mgr.LookupIdentity(labels.NewLabelsFromModel([]string{"reserved:host"}))
 	c.Assert(id, Not(IsNil))
 	c.Assert(id.ID, Equals, hostID)
 
 	worldID := identity.GetReservedID("world")
-	c.Assert(LookupIdentityByID(worldID), Not(IsNil))
+	c.Assert(mgr.LookupIdentityByID(worldID), Not(IsNil))
 
-	id = LookupIdentity(labels.NewLabelsFromModel([]string{"reserved:world"}))
+	id = mgr.LookupIdentity(labels.NewLabelsFromModel([]string{"reserved:world"}))
 	c.Assert(id, Not(IsNil))
 	c.Assert(id.ID, Equals, worldID)
 
 	identity.InitWellKnownIdentities()
 
-	id = LookupIdentity(kvstoreLabels)
+	id = mgr.LookupIdentity(kvstoreLabels)
 	c.Assert(id, Not(IsNil))
 	c.Assert(id.ID, Equals, identity.ReservedCiliumKVStore)
 }
@@ -133,7 +136,7 @@ func (s *IdentityCacheTestSuite) TestLookupReservedIdentityByLabels(c *C) {
 	}
 
 	for _, tt := range tests {
-		got := LookupReservedIdentityByLabels(tt.args.lbls)
+		got := identity.LookupReservedIdentityByLabels(tt.args.lbls)
 		switch {
 		case got == nil && tt.want == nil:
 		case got == nil && tt.want != nil ||

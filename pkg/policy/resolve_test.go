@@ -173,8 +173,17 @@ func (d DummyOwner) LookupRedirectPort(l4 *L4Filter) uint16 {
 	return 0
 }
 
+type identityAllocatorOwnerMock struct{}
+
+func (i *identityAllocatorOwnerMock) UpdateIdentities(added, deleted cache.IdentityCache) {}
+
+func (i *identityAllocatorOwnerMock) GetNodeSuffix() string {
+	return "foo"
+}
+
 func bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int, c *C) *Repository {
-	testRepo := NewPolicyRepository()
+	mgr := cache.NewIdentityAllocatorManager(&identityAllocatorOwnerMock{})
+	testRepo := NewPolicyRepository(mgr)
 
 	var wg sync.WaitGroup
 	SetPolicyEnabled(option.DefaultEnforcement)
