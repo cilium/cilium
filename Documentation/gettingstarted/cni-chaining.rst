@@ -22,6 +22,7 @@ policy enforcement and other advanced features like transparent encryption.
    :glob:
 
    cni-chaining-aws-cni
+   cni-chaining-azure-cni
    cni-chaining-calico
    cni-chaining-generic-veth
    cni-chaining-portmap
