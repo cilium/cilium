@@ -208,27 +208,36 @@ func (e *Endpoint) addNewRedirectsFromMap(m policy.L4PolicyMap, desiredRedirects
 // required to implement the given L4 policy.
 // Must be called with endpoint.Mutex held.
 func (e *Endpoint) addNewRedirects(m *policy.L4Policy) (desiredRedirects map[string]bool, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
+	if e.hasSidecarProxy && !m.HasAgentRedirects() {
+		return // nothing to do
+	}
+
 	desiredRedirects = make(map[string]bool)
+
 	var finalizeList revert.FinalizeList
 	var revertStack revert.RevertStack
 
 	var ff revert.FinalizeFunc
 	var rf revert.RevertFunc
 
-	err, ff, rf = e.addNewRedirectsFromMap(m.Ingress, desiredRedirects)
-	if err != nil {
-		return desiredRedirects, fmt.Errorf("unable to allocate ingress redirects: %s", err), nil, nil
+	if m.HasIngressRedirects() {
+		err, ff, rf = e.addNewRedirectsFromMap(m.Ingress, desiredRedirects)
+		if err != nil {
+			return desiredRedirects, fmt.Errorf("unable to allocate ingress redirects: %s", err), nil, nil
+		}
+		finalizeList.Append(ff)
+		revertStack.Push(rf)
 	}
-	finalizeList.Append(ff)
-	revertStack.Push(rf)
 
-	err, ff, rf = e.addNewRedirectsFromMap(m.Egress, desiredRedirects)
-	if err != nil {
-		revertStack.Revert() // Ignore errors while reverting. This is best-effort.
-		return desiredRedirects, fmt.Errorf("unable to allocate egress redirects: %s", err), nil, nil
+	if m.HasEgressRedirects() {
+		err, ff, rf = e.addNewRedirectsFromMap(m.Egress, desiredRedirects)
+		if err != nil {
+			revertStack.Revert() // Ignore errors while reverting. This is best-effort.
+			return desiredRedirects, fmt.Errorf("unable to allocate egress redirects: %s", err), nil, nil
+		}
+		finalizeList.Append(ff)
+		revertStack.Push(rf)
 	}
-	finalizeList.Append(ff)
-	revertStack.Push(rf)
 
 	return desiredRedirects, nil, finalizeList.Finalize, func() error {
 		e.getLogger().Debug("Reverting proxy redirect additions")
