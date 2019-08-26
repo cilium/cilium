@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpoint/connector"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s/utils"
@@ -467,7 +466,7 @@ func (d *dockerClient) handleCreateWorkload(id string, retry bool) {
 
 		// Finish ipvlan initialization if endpoint is connected via Docker libnetwork (cilium-docker)
 		if d.datapathMode == option.DatapathModeIpvlan {
-			if err := ep.FinishIPVLANInit(connector.ConfigureNetNSForIPVLAN, sandboxKey); err != nil {
+			if err := ep.FinishIPVLANInit(sandboxKey); err != nil {
 				retryLog.WithError(err).Warn("Cannot finish ipvlan initialization")
 				continue
 			}

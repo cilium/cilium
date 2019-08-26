@@ -1137,8 +1137,6 @@ func (e *Endpoint) ValidateConnectorPlumbing(linkChecker linkCheckerFunc) error 
 	return nil
 }
 
-type netNSIPVLANConfigFunc func(netNsPath string) (mapFD, mapID int, err error)
-
 // FinishIPVLANInit finishes configuring ipvlan slave device of the given endpoint.
 //
 // Unfortunately, Docker libnetwork itself moves a netdev to netns of a container
@@ -1156,7 +1154,7 @@ type netNSIPVLANConfigFunc func(netNsPath string) (mapFD, mapID int, err error)
 // policies for an ipvlan slave before a process of a container has started. So,
 // this enables a window between the two stages during which ALL container traffic
 // is allowed.
-func (e *Endpoint) FinishIPVLANInit(netNSIPVLANConfigFunc netNSIPVLANConfigFunc, netNsPath string) error {
+func (e *Endpoint) FinishIPVLANInit(netNsPath string) error {
 	if netNsPath == "" {
 		return fmt.Errorf("netNsPath is empty")
 	}
@@ -1179,7 +1177,7 @@ func (e *Endpoint) FinishIPVLANInit(netNSIPVLANConfigFunc netNSIPVLANConfigFunc,
 		return nil
 	}
 
-	mapFD, mapID, err := netNSIPVLANConfigFunc(netNsPath)
+	mapFD, mapID, err := e.owner.Datapath().SetupIPVLAN(netNsPath)
 	if err != nil {
 		return fmt.Errorf("Unable to setup ipvlan slave: %s", err)
 	}
