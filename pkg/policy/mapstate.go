@@ -15,6 +15,8 @@
 package policy
 
 import (
+	"fmt"
+
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -59,6 +61,10 @@ func (k Key) IsIngress() bool {
 // IsEgress returns true if the key refers to an egress policy key
 func (k Key) IsEgress() bool {
 	return k.TrafficDirection == trafficdirection.Egress.Uint8()
+}
+
+func (k Key) String() string {
+	return fmt.Sprintf("<Direction=%d, Identity=%d, DestPort=%d, NextHdr=%d>", k.TrafficDirection, k.Identity, k.DestPort, k.Nexthdr)
 }
 
 // MapStateEntry is the configuration associated with a Key in a
