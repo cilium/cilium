@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
@@ -36,13 +35,8 @@ var (
 
 // dnsRedirect implements the Redirect interface for an l7 proxy
 type dnsRedirect struct {
-	redirect             *Redirect
-	endpointInfoRegistry logger.EndpointInfoRegistry
-	conf                 dnsConfiguration
-	currentRules         policy.L7DataMap
-}
-
-type dnsConfiguration struct {
+	redirect     *Redirect
+	currentRules policy.L7DataMap
 }
 
 // setRules replaces old l7 rules of a redirect with new ones.
@@ -123,16 +117,13 @@ func (dr *dnsRedirect) Close(wg *completion.WaitGroup) (revert.FinalizeFunc, rev
 
 // creatednsRedirect creates a redirect to the dns proxy. The redirect structure passed
 // in is safe to access for reading and writing.
-func createDNSRedirect(r *Redirect, conf dnsConfiguration, endpointInfoRegistry logger.EndpointInfoRegistry) (RedirectImplementation, error) {
+func createDNSRedirect(r *Redirect) (RedirectImplementation, error) {
 	dr := &dnsRedirect{
-		redirect:             r,
-		conf:                 conf,
-		endpointInfoRegistry: endpointInfoRegistry,
+		redirect: r,
 	}
 
 	log.WithFields(logrus.Fields{
 		"dnsRedirect": dr,
-		"conf":        conf,
 	}).Debug("Creating DNS Proxy redirect")
 
 	return dr, dr.setRules(nil, r.rules)

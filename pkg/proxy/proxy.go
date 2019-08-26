@@ -509,10 +509,10 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 
 		switch l4.L7Parser {
 		case policy.ParserTypeDNS:
-			redir.implementation, err = createDNSRedirect(redir, dnsConfiguration{}, DefaultEndpointInfoRegistry)
+			redir.implementation, err = createDNSRedirect(redir)
 
 		case policy.ParserTypeKafka:
-			redir.implementation, err = createKafkaRedirect(redir, kafkaConfiguration{}, DefaultEndpointInfoRegistry)
+			redir.implementation, err = createKafkaRedirect(redir, kafkaConfiguration{})
 
 		case policy.ParserTypeHTTP:
 			redir.implementation, err = p.createEnvoyRedirect(redir, p.datapathUpdater.SupportsOriginalSourceAddr(), wg)

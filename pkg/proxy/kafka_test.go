@@ -300,7 +300,7 @@ func (s *proxyTestSuite) TestKafkaRedirect(c *C) {
 		},
 		// Disable use of SO_MARK, IP_TRANSPARENT for tests
 		testMode: true,
-	}, DefaultEndpointInfoRegistry)
+	})
 	c.Assert(err, IsNil)
 	defer redir.Close(nil)
 
