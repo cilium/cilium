@@ -37,6 +37,7 @@ contrib/packaging/docker/ @aanm @ianvernon
 contrib/vagrant @cilium/ci
 daemon/ @cilium/agent
 daemon/bpf.sha @cilium/bpf
+daemon/datapath.* @cilium/bpf
 daemon/endpoint.* @cilium/endpoint
 daemon/health.* @cilium/health
 daemon/k8s_watcher.* @cilium/kubernetes
@@ -118,6 +119,7 @@ pkg/proxy/ @cilium/proxy
 pkg/proxy/accesslog @cilium/api
 pkg/serializer @cilium/agent
 pkg/service @cilium/policy
+pkg/sysctl @cilium/bpf
 pkg/tuple @cilium/bpf
 plugins/cilium-cni/ @cilium/kubernetes
 plugins/cilium-docker/ @cilium/docker
