@@ -34,8 +34,11 @@ type Owner interface {
 	// Must return the policy repository
 	GetPolicyRepository() *policy.Repository
 
+	// GetProxyPort returns the port and name of a listener for the given type and direction
+	GetProxyPort(l7Type policy.L7ParserType, ingress bool) (uint16, string, error)
+
 	// UpdateProxyRedirect must update the redirect configuration of an endpoint in the proxy
-	UpdateProxyRedirect(e EndpointUpdater, l4 *policy.L4Filter) (uint16, error, revert.FinalizeFunc, revert.RevertFunc)
+	UpdateProxyRedirect(e EndpointUpdater, l4 *policy.L4Filter) (error, revert.FinalizeFunc, revert.RevertFunc)
 
 	// RemoveProxyRedirect must remove the redirect installed by UpdateProxyRedirect
 	RemoveProxyRedirect(e EndpointInfoSource, id string) (error, revert.FinalizeFunc, revert.RevertFunc)

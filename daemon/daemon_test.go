@@ -64,8 +64,9 @@ type DaemonSuite struct {
 	OnAlwaysAllowLocalhost    func() bool
 	OnGetCachedLabelList      func(id identity.NumericIdentity) (labels.LabelArray, error)
 	OnGetPolicyRepository     func() *policy.Repository
+	OnGetProxyPort            func(l7Type policy.L7ParserType, ingress bool) (uint16, string, error)
 	OnStartProxies            func(policy.RedirectType, *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc)
-	OnUpdateProxyRedirect     func(e regeneration.EndpointUpdater, l4 *policy.L4Filter) (uint16, error, revert.FinalizeFunc, revert.RevertFunc)
+	OnUpdateProxyRedirect     func(e regeneration.EndpointUpdater, l4 *policy.L4Filter) (error, revert.FinalizeFunc, revert.RevertFunc)
 	OnRemoveProxyRedirect     func(e regeneration.EndpointInfoSource, id string) (error, revert.FinalizeFunc, revert.RevertFunc)
 	OnUpdateNetworkPolicy     func(e regeneration.EndpointUpdater, policy *policy.L4Policy, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc)
 	OnRemoveNetworkPolicy     func(e regeneration.EndpointInfoSource)
@@ -133,6 +134,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.OnAlwaysAllowLocalhost = nil
 	ds.OnGetCachedLabelList = nil
 	ds.OnGetPolicyRepository = nil
+	ds.OnGetProxyPort = nil
 	ds.OnStartProxies = nil
 	ds.OnUpdateProxyRedirect = nil
 	ds.OnRemoveProxyRedirect = nil
@@ -234,6 +236,13 @@ func (ds *DaemonSuite) GetPolicyRepository() *policy.Repository {
 	panic("GetPolicyRepository should not have been called")
 }
 
+func (ds *DaemonSuite) GetProxyPort(l7Type policy.L7ParserType, ingress bool) (uint16, string, error) {
+	if ds.OnGetProxyPort != nil {
+		return ds.OnGetProxyPort(l7Type, ingress)
+	}
+	panic("GetProxyPort should not have been called")
+}
+
 func (ds *DaemonSuite) StartProxies(rType policy.RedirectType, wg *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
 	if ds.OnStartProxies != nil {
 		return ds.OnStartProxies(rType, wg)
@@ -241,7 +250,7 @@ func (ds *DaemonSuite) StartProxies(rType policy.RedirectType, wg *completion.Wa
 	panic("StartProxies should not have been called")
 }
 
-func (ds *DaemonSuite) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
+func (ds *DaemonSuite) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter) (error, revert.FinalizeFunc, revert.RevertFunc) {
 	if ds.OnUpdateProxyRedirect != nil {
 		return ds.OnUpdateProxyRedirect(e, l4)
 	}

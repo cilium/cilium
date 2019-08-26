@@ -15,6 +15,7 @@
 package policy
 
 import (
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
@@ -154,24 +155,16 @@ func (p *EndpointPolicy) computeDesiredL4PolicyMapEntries() {
 
 func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(l4PolicyMap L4PolicyMap, direction trafficdirection.TrafficDirection) {
 	for _, filter := range l4PolicyMap {
-		keysFromFilter := filter.ToKeys(direction)
-		for _, keyFromFilter := range keysFromFilter {
-			var proxyPort uint16
-			// Preserve the already-allocated proxy ports for redirects that
-			// already exist.
-			if filter.IsRedirect() {
-				proxyPort = p.PolicyOwner.LookupRedirectPort(filter)
-				// If the currently allocated proxy port is 0, this is a new
-				// redirect, for which no port has been allocated yet. Ignore
-				// it for now. This will be configured by
-				// e.addNewRedirectsFromMap once the port has been allocated.
-				if proxyPort == 0 {
-					continue
-				}
-			}
-			p.PolicyMapState[keyFromFilter] = MapStateEntry{ProxyPort: proxyPort}
-		}
+		filter.ToMapState(p.PolicyMapState, direction, p.PolicyOwner.LookupRedirectPort(filter))
 	}
+}
+
+func (p *EndpointPolicy) accumulateMapChanges(adds, deletes []identity.NumericIdentity, l4 *L4Filter) {
+	direction := trafficdirection.Egress
+	if l4.Ingress {
+		direction = trafficdirection.Ingress
+	}
+	p.PolicyMapChanges.accumulateMapChanges(adds, deletes, uint16(l4.Port), uint8(l4.U8Proto), direction, p.PolicyOwner.LookupRedirectPort(l4))
 }
 
 // NewEndpointPolicy returns an empty EndpointPolicy stub.

@@ -24,6 +24,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -154,33 +155,36 @@ func (l4 *L4Filter) HasL3DependentL7Rules() bool {
 	return true
 }
 
-// ToKeys converts filter into a list of Keys.
-func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection) []Key {
-	keysToAdd := []Key{}
+// ToMapState inserts MapState entries from the filter
+func (l4 *L4Filter) ToMapState(mapState MapState, direction trafficdirection.TrafficDirection, proxyPort uint16) {
 	port := uint16(l4.Port)
 	proto := uint8(l4.U8Proto)
+	entry := MapStateEntry{ProxyPort: proxyPort}
+	debug := flowdebug.Enabled()
 
 	if l4.AllowsAllAtL3() {
 		if l4.Port == 0 {
 			// Allow-all
-			log.WithFields(logrus.Fields{
-				logfields.TrafficDirection: direction,
-			}).Debug("ToKeys: allow all")
-
+			if debug {
+				log.WithFields(logrus.Fields{
+					logfields.TrafficDirection: direction,
+				}).Debug("ToMapState: allow all")
+			}
 			keyToAdd := Key{
 				DestPort:         0,
 				Nexthdr:          0,
 				TrafficDirection: direction.Uint8(),
 			}
-			keysToAdd = append(keysToAdd, keyToAdd)
+			mapState[keyToAdd] = entry
 		} else {
 			// L4 allow
-			log.WithFields(logrus.Fields{
-				logfields.Port:             port,
-				logfields.Protocol:         proto,
-				logfields.TrafficDirection: direction,
-			}).Debug("ToKeys: L4 allow all")
-
+			if debug {
+				log.WithFields(logrus.Fields{
+					logfields.Port:             port,
+					logfields.Protocol:         proto,
+					logfields.TrafficDirection: direction,
+				}).Debug("ToMapState: L4 allow all")
+			}
 			keyToAdd := Key{
 				Identity: 0,
 				// NOTE: Port is in host byte-order!
@@ -188,20 +192,22 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection) []Key {
 				Nexthdr:          proto,
 				TrafficDirection: direction.Uint8(),
 			}
-			keysToAdd = append(keysToAdd, keyToAdd)
+			mapState[keyToAdd] = entry
 		}
 		if !l4.HasL3DependentL7Rules() {
-			return keysToAdd
+			return
 		} // else we need to calculate all L3-dependent L4 peers below.
 	}
 
 	for _, cs := range l4.CachedSelectors {
 		identities := cs.GetSelections()
-		log.WithFields(logrus.Fields{
-			logfields.TrafficDirection: direction,
-			logfields.EndpointSelector: cs,
-			logfields.PolicyID:         identities,
-		}).Debug("ToKeys: Allowed remote IDs")
+		if debug {
+			log.WithFields(logrus.Fields{
+				logfields.TrafficDirection: direction,
+				logfields.EndpointSelector: cs,
+				logfields.PolicyID:         identities,
+			}).Debug("ToMapState: Allowed remote IDs")
+		}
 		for _, id := range identities {
 			srcID := id.Uint32()
 			keyToAdd := Key{
@@ -211,11 +217,9 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection) []Key {
 				Nexthdr:          proto,
 				TrafficDirection: direction.Uint8(),
 			}
-			keysToAdd = append(keysToAdd, keyToAdd)
+			mapState[keyToAdd] = entry
 		}
 	}
-
-	return keysToAdd
 }
 
 // IdentitySelectionUpdated implements CachedSelectionUser interface
@@ -232,7 +236,7 @@ func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, selections
 	}).Debug("identities selected by L4Filter updated")
 
 	// Skip updates on filter that wildcards L3.
-	// This logic mirrors the one in ToKeys().
+	// This logic mirrors the one in ToMapState().
 	if l4.AllowsAllAtL3() && !l4.HasL3DependentL7Rules() {
 		return
 	}
@@ -243,11 +247,7 @@ func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, selections
 	// that we could not push updates on a stale policy.
 	l4Policy := (*L4Policy)(atomic.LoadPointer(&l4.policy))
 	if l4Policy != nil {
-		direction := trafficdirection.Egress
-		if l4.Ingress {
-			direction = trafficdirection.Ingress
-		}
-		l4Policy.AccumulateMapChanges(added, deleted, uint16(l4.Port), uint8(l4.U8Proto), direction)
+		l4Policy.accumulateMapChanges(added, deleted, l4)
 	}
 }
 
@@ -599,15 +599,14 @@ func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
 	l4.mutex.Unlock()
 }
 
-// AccumulateMapChanges distributes the given changes to the registered users.
+// accumulateMapChanges distributes the given changes to the registered users.
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'adds' and 'deletes'.
-func (l4 *L4Policy) AccumulateMapChanges(adds, deletes []identity.NumericIdentity,
-	port uint16, proto uint8, direction trafficdirection.TrafficDirection) {
+func (l4 *L4Policy) accumulateMapChanges(adds, deletes []identity.NumericIdentity, l4Filter *L4Filter) {
 	l4.mutex.RLock()
 	for epPolicy := range l4.users {
-		epPolicy.PolicyMapChanges.AccumulateMapChanges(adds, deletes, port, proto, direction)
+		epPolicy.accumulateMapChanges(adds, deletes, l4Filter)
 	}
 	l4.mutex.RUnlock()
 }

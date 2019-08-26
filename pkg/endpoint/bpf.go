@@ -38,7 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/version"
 	"github.com/sirupsen/logrus"
@@ -155,92 +154,49 @@ func (e *Endpoint) addNewRedirectsFromMap(m policy.L4PolicyMap, desiredRedirects
 
 	var finalizeList revert.FinalizeList
 	var revertStack revert.RevertStack
-	var updatedStats []*models.ProxyStatistics
-	insertedDesiredMapState := make(map[policy.Key]struct{})
-	updatedDesiredMapState := make(policy.MapState)
 
 	for _, l4 := range m {
-		if l4.IsRedirect() {
-			var redirectPort uint16
-			var err error
-			// Only create a redirect if the proxy is NOT running in a sidecar
-			// container. If running in a sidecar container, just allow traffic
-			// to the port at L4 by setting the proxy port to 0.
-			if !e.hasSidecarProxy || l4.L7Parser != policy.ParserTypeHTTP {
-				var finalizeFunc revert.FinalizeFunc
-				var revertFunc revert.RevertFunc
-				redirectPort, err, finalizeFunc, revertFunc = e.owner.UpdateProxyRedirect(e, l4)
-				if err != nil {
-					revertStack.Revert() // Ignore errors while reverting. This is best-effort.
-					return err, nil, nil
-				}
-				finalizeList.Append(finalizeFunc)
-				revertStack.Push(revertFunc)
-
-				proxyID := e.ProxyID(l4)
-				if e.realizedRedirects == nil {
-					e.realizedRedirects = make(map[string]uint16)
-				}
-				if _, found := e.realizedRedirects[proxyID]; !found {
-					revertStack.Push(func() error {
-						delete(e.realizedRedirects, proxyID)
-						return nil
-					})
-				}
-				e.realizedRedirects[proxyID] = redirectPort
-
-				desiredRedirects[proxyID] = true
-
-				// Update the endpoint API model to report that Cilium manages a
-				// redirect for that port.
-				e.proxyStatisticsMutex.Lock()
-				proxyStats := e.getProxyStatisticsLocked(proxyID, string(l4.L7Parser), uint16(l4.Port), l4.Ingress)
-				proxyStats.AllocatedProxyPort = int64(redirectPort)
-				e.proxyStatisticsMutex.Unlock()
-
-				updatedStats = append(updatedStats, proxyStats)
+		proxyPort := e.LookupRedirectPort(l4)
+		if proxyPort != 0 {
+			err, finalizeFunc, revertFunc := e.owner.UpdateProxyRedirect(e, l4)
+			if err != nil {
+				revertStack.Revert() // Ignore errors while reverting. This is best-effort.
+				return err, nil, nil
 			}
+			finalizeList.Append(finalizeFunc)
+			revertStack.Push(revertFunc)
 
-			// Set the proxy port in the policy map.
-			var direction trafficdirection.TrafficDirection
-			if l4.Ingress {
-				direction = trafficdirection.Ingress
-			} else {
-				direction = trafficdirection.Egress
+			proxyID := e.ProxyID(l4)
+			if e.realizedRedirects == nil {
+				e.realizedRedirects = make(map[string]uint16)
 			}
-
-			keysFromFilter := l4.ToKeys(direction)
-
-			for _, keyFromFilter := range keysFromFilter {
-				if oldEntry, ok := e.desiredPolicy.PolicyMapState[keyFromFilter]; ok {
-					updatedDesiredMapState[keyFromFilter] = oldEntry
-				} else {
-					insertedDesiredMapState[keyFromFilter] = struct{}{}
-				}
-
-				e.desiredPolicy.PolicyMapState[keyFromFilter] = policy.MapStateEntry{ProxyPort: redirectPort}
+			if _, found := e.realizedRedirects[proxyID]; !found {
+				revertStack.Push(func() error {
+					delete(e.realizedRedirects, proxyID)
+					return nil
+				})
 			}
+			e.realizedRedirects[proxyID] = proxyPort
 
+			desiredRedirects[proxyID] = true
+
+			// Update the endpoint API model to report that Cilium manages a
+			// redirect for that port.
+			e.proxyStatisticsMutex.Lock()
+			proxyStats := e.getProxyStatisticsLocked(proxyID, string(l4.L7Parser), uint16(l4.Port), l4.Ingress)
+			oldProxyPort := proxyStats.AllocatedProxyPort
+			proxyStats.AllocatedProxyPort = int64(proxyPort)
+			e.proxyStatisticsMutex.Unlock()
+			if oldProxyPort != int64(proxyPort) {
+				revertStack.Push(func() error {
+					e.proxyStatisticsMutex.Lock()
+					proxyStats.AllocatedProxyPort = oldProxyPort
+					e.proxyStatisticsMutex.Unlock()
+					return nil
+				})
+			}
 		}
 	}
-
-	revertStack.Push(func() error {
-		// Restore the proxy stats.
-		e.proxyStatisticsMutex.Lock()
-		for _, stats := range updatedStats {
-			stats.AllocatedProxyPort = 0
-		}
-		e.proxyStatisticsMutex.Unlock()
-
-		// Restore the desired policy map state.
-		for key := range insertedDesiredMapState {
-			delete(e.desiredPolicy.PolicyMapState, key)
-		}
-		for key, entry := range updatedDesiredMapState {
-			e.desiredPolicy.PolicyMapState[key] = entry
-		}
-		return nil
-	})
 
 	return nil, finalizeList.Finalize, revertStack.Revert
 }
@@ -933,8 +889,6 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 	adds, deletes := e.desiredPolicy.PolicyMapChanges.ConsumeMapChanges()
 
 	for keyToAdd, entry := range adds {
-		// Keep the existing proxy port, if any
-		entry.ProxyPort = e.realizedRedirects[policy.ProxyIDFromKey(e.ID, keyToAdd)]
 		if !e.addPolicyKey(keyToAdd, entry, true) {
 			errors++
 		}

@@ -86,8 +86,12 @@ func (s *EndpointSuite) GetPolicyRepository() *policy.Repository {
 	return s.repo
 }
 
-func (s *EndpointSuite) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
-	return 0, nil, nil, nil
+func (s *EndpointSuite) GetProxyPort(l7Type policy.L7ParserType, ingress bool) (uint16, string, error) {
+	return 0, "", nil
+}
+
+func (s *EndpointSuite) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter) (error, revert.FinalizeFunc, revert.RevertFunc) {
+	return nil, nil, nil
 }
 
 func (s *EndpointSuite) RemoveProxyRedirect(e regeneration.EndpointInfoSource, id string) (error, revert.FinalizeFunc, revert.RevertFunc) {

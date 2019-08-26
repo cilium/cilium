@@ -51,13 +51,18 @@ func (e *Endpoint) ProxyID(l4 *policy.L4Filter) string {
 // lookupRedirectPort returns the redirect L4 proxy port for the given L4
 // policy map key, in host byte order. Returns 0 if not found or the
 // filter doesn't require a redirect.
+// This is independent of whether the redirect has already been created or not.
 // Must be called with Endpoint.Mutex held.
-func (e *Endpoint) LookupRedirectPort(l4Filter *policy.L4Filter) uint16 {
-	if !l4Filter.IsRedirect() {
+func (e *Endpoint) LookupRedirectPort(l4 *policy.L4Filter) uint16 {
+	rType := l4.GetRedirectType()
+	if rType == policy.RedirectTypeNone ||
+		// No redirect for Envoy HTTP proxies in the sidecar.
+		// Proxylib policies will use the host proxy even if the pod has a sidecar.
+		(e.hasSidecarProxy && l4.L7Parser == policy.ParserTypeHTTP) {
 		return 0
 	}
-	proxyID := e.ProxyID(l4Filter)
-	return e.realizedRedirects[proxyID]
+	proxyPort, _, _ := e.owner.GetProxyPort(l4.L7Parser, l4.Ingress)
+	return proxyPort
 }
 
 // Note that this function assumes that endpoint policy has already been generated!

@@ -66,8 +66,12 @@ func (s *proxyTestSuite) GetPolicyRepository() *policy.Repository {
 	return s.repo
 }
 
-func (s *proxyTestSuite) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
-	return 0, nil, nil, nil
+func (s *proxyTestSuite) GetProxyPort(l7Type policy.L7ParserType, ingress bool) (uint16, string, error) {
+	return 0, "", nil
+}
+
+func (s *proxyTestSuite) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter) (error, revert.FinalizeFunc, revert.RevertFunc) {
+	return nil, nil, nil
 }
 
 func (s *proxyTestSuite) RemoveProxyRedirect(e regeneration.EndpointInfoSource, id string) (error, revert.FinalizeFunc, revert.RevertFunc) {
@@ -262,10 +266,9 @@ func (s *proxyTestSuite) TestKafkaRedirect(c *C) {
 	proxyPortsMutex.Lock()
 	pp := getProxyPort(policy.ParserTypeKafka, true)
 	c.Assert(pp.configured, Equals, false)
-	proxyPort, err, finalizeFunc, _ := p.createListenerLocked(pp, nil)
+	err, finalizeFunc, _ := p.createListenerLocked(pp, nil)
 	c.Assert(err, IsNil)
 	c.Assert(pp.proxyPort, Not(Equals), 0)
-	c.Assert(pp.proxyPort, Equals, proxyPort)
 	c.Assert(pp.configured, Equals, true)
 	c.Assert(pp.acknowledged, Equals, false)
 	proxyPortsMutex.Unlock()
@@ -276,7 +279,7 @@ func (s *proxyTestSuite) TestKafkaRedirect(c *C) {
 	c.Assert(pp.rulesPort, Equals, pp.proxyPort)
 	proxyPortsMutex.Unlock()
 
-	proxyAddress := fmt.Sprintf("%s:%d", proxyAddress, uint16(proxyPort))
+	proxyAddress := fmt.Sprintf("%s:%d", proxyAddress, pp.proxyPort)
 
 	kafkaRule1 := api.PortRuleKafka{APIKey: "metadata", APIVersion: "0"}
 	c.Assert(kafkaRule1.Sanitize(), IsNil)

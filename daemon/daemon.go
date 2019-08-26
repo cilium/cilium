@@ -195,17 +195,17 @@ func (d *Daemon) Datapath() datapath.Datapath {
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
 // endpoint using the provided L4 filter. Returns the allocated proxy port
-func (d *Daemon) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
+func (d *Daemon) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter) (error, revert.FinalizeFunc, revert.RevertFunc) {
 	if d.l7Proxy == nil {
-		return 0, fmt.Errorf("can't redirect, proxy disabled"), nil, nil
+		return fmt.Errorf("can't redirect, proxy disabled"), nil, nil
 	}
 
-	port, err, finalizeFunc, revertFunc := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e)
+	err, finalizeFunc, revertFunc := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e)
 	if err != nil {
-		return 0, err, nil, nil
+		return err, nil, nil
 	}
 
-	return port, nil, finalizeFunc, revertFunc
+	return nil, finalizeFunc, revertFunc
 }
 
 // RemoveProxyRedirect removes a previously installed proxy redirect for an
@@ -955,7 +955,12 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 	return &d, restoredEndpoints, nil
 }
 
-// Ensure proxies included in the rTypes mask are configured.
+// GetProxyPort returns the proxy port and listener name, if configured.
+func (d *Daemon) GetProxyPort(l7Type policy.L7ParserType, ingress bool) (uint16, string, error) {
+	return proxy.GetProxyPort(l7Type, ingress)
+}
+
+// StartProxies ensures proxies included in the rTypes mask are configured.
 func (d *Daemon) StartProxies(rTypes policy.RedirectType, wg *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
 	if option.Config.DryMode {
 		return nil, nil, nil
