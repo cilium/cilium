@@ -68,6 +68,7 @@ const (
 
 type Listener struct {
 	// must hold the XDSServer.mutex when accessing 'count'
+	// TODO: Remove when not needed any more.
 	count uint
 
 	// mutex is needed when accessing the fields below.

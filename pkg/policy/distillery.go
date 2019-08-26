@@ -63,9 +63,9 @@ func (cache *PolicyCache) GetSelectorCache() *SelectorCache {
 	return cache.repo.GetSelectorCache()
 }
 
-// lookupOrCreate adds the specified Identity to the policy cache, with a reference
-// from the specified Endpoint, then returns the threadsafe copy of the policy
-// and whether policy has been computed for this identity.
+// lookupOrCreate adds the specified Identity to the policy cache,
+// then returns the threadsafe copy of the policy and whether policy
+// has been computed for this identity.
 func (cache *PolicyCache) lookupOrCreate(identity *identityPkg.Identity, create bool) (SelectorPolicy, bool) {
 	cache.Lock()
 	defer cache.Unlock()
@@ -80,15 +80,14 @@ func (cache *PolicyCache) lookupOrCreate(identity *identityPkg.Identity, create 
 	return nil, false
 }
 
-// insert adds the specified Identity to the policy cache, with a reference
-// from the specified Endpoint, then returns the threadsafe copy of the policy
-// and whether policy has been computed for this identity.
+// insert adds the specified Identity to the policy cache, then
+// returns the threadsafe copy of the policy and whether policy has
+// been computed for this identity.
 func (cache *PolicyCache) insert(identity *identityPkg.Identity) (SelectorPolicy, bool) {
 	return cache.lookupOrCreate(identity, true)
 }
 
-// delete forgets about any cached SelectorPolicy that this endpoint uses.
-//
+// delete forgets about any cached SelectorPolicy for the given Identity.
 // Returns true if the SelectorPolicy was removed from the cache.
 func (cache *PolicyCache) delete(identity *identityPkg.Identity) bool {
 	cache.Lock()

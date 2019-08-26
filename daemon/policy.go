@@ -458,8 +458,7 @@ func (r *PolicyReactionEvent) Handle(res chan interface{}) {
 
 // ReactToRuleUpdates does the following:
 // * regenerate all endpoints in epsToRegen
-// * bump the policy revision of all endpoints not in epsToRegen, but which are
-//   in allEps, to revision rev.
+// * bump the policy revision of all endpoints in epsToBumpRevision to revision rev.
 func (d *Daemon) ReactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.EndpointSet, rev uint64) {
 	var enqueueWaitGroup sync.WaitGroup
 
