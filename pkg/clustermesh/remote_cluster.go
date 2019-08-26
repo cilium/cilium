@@ -129,7 +129,7 @@ func (rc *remoteCluster) releaseOldConnection() {
 	}
 }
 
-func (rc *remoteCluster) restartRemoteConnection() {
+func (rc *remoteCluster) restartRemoteConnection(allocator *cache.IdentityAllocatorManager) {
 	rc.controllers.UpdateController(rc.remoteConnectionControllerName,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
@@ -193,7 +193,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 				ipCacheWatcher := ipcache.NewIPIdentityWatcher(backend)
 				go ipCacheWatcher.Watch()
 
-				remoteIdentityCache := cache.WatchRemoteIdentities(backend)
+				remoteIdentityCache := allocator.WatchRemoteIdentities(backend)
 
 				rc.mutex.Lock()
 				rc.remoteNodes = remoteNodes
@@ -220,7 +220,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 	)
 }
 
-func (rc *remoteCluster) onInsert() {
+func (rc *remoteCluster) onInsert(allocator *cache.IdentityAllocatorManager) {
 	rc.getLogger().Info("New remote cluster configuration")
 
 	if skipKvstoreConnection {
@@ -228,14 +228,14 @@ func (rc *remoteCluster) onInsert() {
 	}
 
 	rc.remoteConnectionControllerName = fmt.Sprintf("remote-etcd-%s", rc.name)
-	rc.restartRemoteConnection()
+	rc.restartRemoteConnection(allocator)
 
 	go func() {
 		for {
 			val := <-rc.changed
 			if val {
 				rc.getLogger().Info("etcd configuration has changed, re-creating connection")
-				rc.restartRemoteConnection()
+				rc.restartRemoteConnection(allocator)
 			} else {
 				rc.getLogger().Info("Closing connection to remote etcd")
 				return

@@ -175,6 +175,9 @@ func newIdentity(nid identity.NumericIdentity, lbls labels.LabelArray) scIdentit
 }
 
 func getIdentityCache(ids cache.IdentityCache) scIdentityCache {
+	if ids == nil {
+		return make(map[identity.NumericIdentity]scIdentity)
+	}
 	idCache := make(map[identity.NumericIdentity]scIdentity, len(ids))
 	for nid, lbls := range ids {
 		idCache[nid] = newIdentity(nid, lbls)

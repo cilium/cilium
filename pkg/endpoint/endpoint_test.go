@@ -59,6 +59,7 @@ type EndpointSuite struct {
 	repo             *policy.Repository
 	compilationMutex *lock.RWMutex
 	datapath         datapath.Datapath
+	mgr              *cache.IdentityAllocatorManager
 
 	// Owners interface mock
 	OnTracingEnabled          func() bool
@@ -79,11 +80,11 @@ type EndpointSuite struct {
 }
 
 // suite can be used by testing.T benchmarks or tests as a mock regeneration.Owner
-var suite = EndpointSuite{repo: policy.NewPolicyRepository()}
+var suite = EndpointSuite{repo: policy.NewPolicyRepository(nil)}
 var _ = Suite(&suite)
 
 func (s *EndpointSuite) SetUpSuite(c *C) {
-	s.repo = policy.NewPolicyRepository()
+	s.repo = policy.NewPolicyRepository(nil)
 }
 
 func (s *EndpointSuite) GetPolicyRepository() *policy.Repository {
@@ -140,11 +141,13 @@ func (s *EndpointSuite) SetUpTest(c *C) {
 	kvstore.SetupDummy("etcd")
 	identity.InitWellKnownIdentities()
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	<-cache.InitIdentityAllocator(&testIdentityAllocator{}, nil, nil)
+	mgr := cache.NewIdentityAllocatorManager(&testIdentityAllocator{})
+	<-mgr.InitIdentityAllocator(nil, nil)
+	s.mgr = mgr
 }
 
 func (s *EndpointSuite) TearDownTest(c *C) {
-	cache.Close()
+	s.mgr.Close()
 	kvstore.Close()
 }
 
@@ -673,7 +676,7 @@ func (s *EndpointSuite) TestEndpointEventQueueDeadlockUponDeletion(c *C) {
 	// Launch endpoint deletion async so that we do not deadlock (which is what
 	// this unit test is designed to test).
 	go func(ch chan struct{}) {
-		errors := ep.Delete(&monitorOwnerDummy{}, &ipReleaserDummy{}, &dummyManager{}, DeleteConfig{})
+		errors := ep.Delete(&monitorOwnerDummy{}, &ipReleaserDummy{}, &dummyManager{}, cache.NewIdentityAllocatorManager(&identityAllocatorOwnerMock{}), DeleteConfig{})
 		c.Assert(errors, Not(IsNil))
 		epDelComplete <- struct{}{}
 	}(epDelComplete)
@@ -722,4 +725,12 @@ func (d *dummyManager) RemoveID(uint16) {
 
 func (d *dummyManager) ReleaseID(*Endpoint) error {
 	return nil
+}
+
+type identityAllocatorOwnerMock struct{}
+
+func (i *identityAllocatorOwnerMock) UpdateIdentities(added, deleted cache.IdentityCache) {}
+
+func (i *identityAllocatorOwnerMock) GetNodeSuffix() string {
+	return "foo"
 }
