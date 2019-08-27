@@ -86,6 +86,8 @@ var (
 		"global.ipv6.enabled":    "false",
 		"global.tunnel":          "disabled",
 	}
+
+	cniIntegrationOverride string
 )
 
 // GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
@@ -93,12 +95,27 @@ func GetCurrentK8SEnv() string { return os.Getenv("K8S_VERSION") }
 
 // GetCurrentIntegration returns CI integration set up to run against Cilium.
 func GetCurrentIntegration() string {
+	if cniIntegrationOverride != "" {
+		return cniIntegrationOverride
+	}
 	switch strings.ToLower(os.Getenv("CNI_INTEGRATION")) {
 	case CIIntegrationFlannel:
 		return CIIntegrationFlannel
 	default:
 		return ""
 	}
+}
+
+// OverrideCurrentIntegration replaces the current integratino with the
+// specified integration. It can be reversed with
+func OverrideCurrentIntegration(integration string) {
+	cniIntegrationOverride = integration
+}
+
+// ResetCurrentIntegration cancels any current integration override so that
+// subsequent calls to GetCurrentIntegration() fetches it from the environment.
+func ResetCurrentIntegration() {
+	cniIntegrationOverride = ""
 }
 
 // Kubectl is a wrapper around an SSHMeta. It is used to run Kubernetes-specific

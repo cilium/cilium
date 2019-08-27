@@ -25,7 +25,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var longTimeout = 10 * time.Minute
+var (
+	longTimeout = 10 * time.Minute
+
+	flannelDSPath = helpers.GetFilePath("../examples/kubernetes/addons/flannel/flannel.yaml")
+)
 
 // ExpectKubeDNSReady is a wrapper around helpers/WaitKubeDNS. It asserts that
 // the error returned by that function is nil.
@@ -128,7 +132,7 @@ func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, options []string) {
 	switch helpers.GetCurrentIntegration() {
 	case helpers.CIIntegrationFlannel:
 		By("Installing Flannel")
-		vm.Apply(helpers.GetFilePath("../examples/kubernetes/addons/flannel/flannel.yaml"))
+		vm.Apply(flannelDSPath)
 	default:
 	}
 
@@ -143,6 +147,21 @@ func SkipIfFlannel() {
 		Skip(fmt.Sprintf(
 			"This feature is not supported in Cilium %q mode. Skipping test.",
 			helpers.CIIntegrationFlannel))
+	}
+}
+
+// deleteFlannelDS attempts to clean up all remaining flannel state. Flannel
+// and Cilium must both be currently deployed, and flannel will no longer be
+// deployed after this function returns.
+func deleteFlannelDS(kubectl *helpers.Kubectl) {
+	kubectl.Delete(flannelDSPath)
+
+	for _, node := range []string{helpers.K8s1, helpers.K8s2} {
+		ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, node)
+		ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("cannot fetch Cilium pod on %s", node))
+
+		status := kubectl.CiliumExec(ciliumPod, "ip link del dev flannel.1")
+		status.ExpectSuccess()
 	}
 }
 

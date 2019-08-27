@@ -217,6 +217,23 @@ var _ = Describe("K8sDatapathConfig", func() {
 			cleanService()
 		})
 	})
+
+	Context("CNIChaining", func() {
+		AfterEach(func() {
+			helpers.ResetCurrentIntegration()
+			deleteFlannelDS(kubectl)
+		})
+		It("Checks basic flannel connectivity", func() {
+			SkipIfFlannel()
+			helpers.OverrideCurrentIntegration(helpers.CIIntegrationFlannel)
+
+			deployCilium([]string{
+				"--set global.flannel.uninstallOnExit",
+			})
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			cleanService()
+		})
+	})
 })
 
 func testPodConnectivityAcrossNodes(kubectl *helpers.Kubectl) bool {
