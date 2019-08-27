@@ -61,8 +61,6 @@ var _ = Describe("K8sUpdates", func() {
 		kubectl.Exec(fmt.Sprintf(
 			"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
 
-		kubectl.DeleteETCDOperator()
-
 		ExpectAllPodsTerminated(kubectl)
 	})
 
@@ -155,8 +153,6 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		// Delete all etcd pods otherwise they will be kept running but
 		// the bpf endpoints will be cleaned up when we restart cilium
 		// with a clean state a couple lines bellow
-		kubectl.DeleteETCDOperator()
-
 		By("Waiting for pods to be terminated..")
 		ExpectAllPodsTerminated(kubectl)
 
@@ -187,7 +183,6 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		By("Cilium %q is installed and running", oldVersion)
 		ExpectCiliumReady(kubectl)
 
-		ExpectETCDOperatorReady(kubectl)
 		ExpectCiliumOperatorReady(kubectl)
 
 		By("Installing Microscope")
