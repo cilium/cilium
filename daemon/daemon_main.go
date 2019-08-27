@@ -1007,9 +1007,12 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
-	if option.Config.EnableNodePort {
+	if option.Config.EnableNodePort &&
+		!(option.Config.EnableHostReachableServices &&
+			option.Config.EnableHostServicesTCP && option.Config.EnableHostServicesUDP) {
 		// We enable host reachable services in order to allow
 		// access to node port services from the host.
+		log.Info("Auto-enabling host reachable services for UDP and TCP as required by BPF NodePort.")
 		option.Config.EnableHostReachableServices = true
 		option.Config.EnableHostServicesTCP = true
 		option.Config.EnableHostServicesUDP = true
