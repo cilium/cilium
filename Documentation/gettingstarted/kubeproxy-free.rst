@@ -52,9 +52,9 @@ install directory:
 
 .. code:: bash
 
-    curl -LO https://github.com/cilium/cilium/archive/master.tar.gz
-    tar xzvf cilium-master.tar.gz
-    cd cilium-master/install/kubernetes
+    curl -LO https://github.com/cilium/cilium/archive/v1.6.tar.gz
+    tar xzvf v1.6.tar.gz
+    cd cilium-1.6/install/kubernetes
 
 `Install Helm <https://helm.sh/docs/using_helm/#install-helm>`__ to prepare generating
 the deployment artifacts based on the Helm templates.
