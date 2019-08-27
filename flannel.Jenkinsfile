@@ -59,10 +59,10 @@ pipeline {
             }
             steps {
                 retry(3){
-                    sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant destroy --force'
-                    sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant destroy --force'
-                    sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up --no-provision'
-                    sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant up --no-provision'
+                    sh 'cd ${TESTDIR}; K8S_VERSION=1.11 vagrant destroy --force'
+                    sh 'cd ${TESTDIR}; K8S_VERSION=1.15 vagrant destroy --force'
+                    sh 'cd ${TESTDIR}; K8S_VERSION=1.11 vagrant up --no-provision'
+                    sh 'cd ${TESTDIR}; K8S_VERSION=1.15 vagrant up --no-provision'
                 }
             }
         }
@@ -82,13 +82,13 @@ pipeline {
             steps {
                 script {
                     parallel(
-                        "K8s-1.10":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant provision k8s1-1.10; K8S_VERSION=1.10 vagrant provision k8s2-1.10'
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo  --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
+                        "K8s-1.11":{
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.11 vagrant provision k8s1-1.11; K8S_VERSION=1.11 vagrant provision k8s2-1.11'
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo  --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
                         },
-                        "K8s-1.13":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant provision k8s1-1.13; K8S_VERSION=1.13 vagrant provision k8s2-1.13'
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.13 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
+                        "K8s-1.15":{
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.15 vagrant provision k8s1-1.15; K8S_VERSION=1.15 vagrant provision k8s2-1.15'
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.15 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
                         },
                         failFast: "${FAILFAST}".toBoolean()
                     )
@@ -108,8 +108,8 @@ pipeline {
     }
     post {
         always {
-            sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.10 vagrant destroy -f || true'
-            sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.13 vagrant destroy -f || true'
+            sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.11 vagrant destroy -f || true'
+            sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.15 vagrant destroy -f || true'
             cleanWs()
             sh '/usr/local/bin/cleanup || true'
         }
