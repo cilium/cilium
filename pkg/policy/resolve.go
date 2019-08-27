@@ -15,6 +15,8 @@
 package policy
 
 import (
+	"fmt"
+
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
@@ -114,6 +116,9 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner) *EndpointPolicy 
 		PolicyMapState: make(MapState),
 		PolicyOwner:    policyOwner,
 	}
+	fmt.Printf("DistillPolicy: p.L4Policy = %v\n", p.L4Policy)
+	fmt.Printf("DistillPolicy: calculatedPolicy.L4Policy = %v\n", calculatedPolicy.L4Policy)
+	fmt.Printf("ingressPolicyEnabled: %v, egressPolicyEnabled %v\n", p.IngressPolicyEnabled, p.EgressPolicyEnabled)
 
 	if !p.IngressPolicyEnabled || !p.EgressPolicyEnabled {
 		calculatedPolicy.PolicyMapState.AllowAllIdentities(
@@ -130,13 +135,20 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner) *EndpointPolicy 
 	//
 	// - PolicyMapChanges may congtain a deletion of an entry that
 	//   has already been deleted from PolicyMapState
+
+	fmt.Printf("DistillPolicy: before insertUser calculatedPolicy.L4Policy = %v\n", calculatedPolicy.L4Policy)
 	p.insertUser(calculatedPolicy)
+	fmt.Printf("DistillPolicy: after insertUser calculatedPolicy.L4Policy = %v\n", calculatedPolicy.L4Policy)
 
 	// Must come after the 'insertUser()' above to guarantee
 	// PolicyMapCanges will contain all changes that are applied
 	// after the computation of PolicyMapState has started.
 	calculatedPolicy.computeDesiredL4PolicyMapEntries()
 	calculatedPolicy.PolicyMapState.DetermineAllowLocalhostIngress(p.L4Policy)
+
+	for k := range calculatedPolicy.PolicyMapState {
+		fmt.Printf("DistillPolicy: calculatedPolicy key = %s\n", k)
+	}
 
 	return calculatedPolicy
 }
@@ -153,9 +165,13 @@ func (p *EndpointPolicy) computeDesiredL4PolicyMapEntries() {
 }
 
 func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(l4PolicyMap L4PolicyMap, direction trafficdirection.TrafficDirection) {
+	fmt.Printf("-------------------- computeDirectionL4PolicyMapEntries: l4PolicyMap = %v, direction= %d\n", l4PolicyMap, direction)
+
 	for _, filter := range l4PolicyMap {
 		keysFromFilter := filter.ToKeys(direction)
 		for _, keyFromFilter := range keysFromFilter {
+
+			fmt.Printf("-------------------- computeDirectionL4PolicyMapEntries: keyFromFilter = %s\n", keyFromFilter)
 			var proxyPort uint16
 			// Preserve the already-allocated proxy ports for redirects that
 			// already exist.

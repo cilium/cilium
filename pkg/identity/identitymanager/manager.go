@@ -15,6 +15,8 @@
 package identitymanager
 
 import (
+	"fmt"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
@@ -62,6 +64,11 @@ func Remove(identity *identity.Identity) {
 	GlobalIdentityManager.Remove(identity)
 }
 
+// Remove deletes the identity from the GlobalIdentityManager.
+func RemoveAll() {
+	GlobalIdentityManager.RemoveAll()
+}
+
 // Add inserts the identity into the identity manager. If the identity is
 // already in the identity manager, the reference count for the identity is
 // incremented.
@@ -87,10 +94,16 @@ func (idm *IdentityManager) add(identity *identity.Identity) {
 			identity: identity,
 			refCount: 1,
 		}
+		fmt.Printf("****************** adding identity %d to observers\n", identity.ID)
 		for o := range idm.observers {
+			fmt.Printf("\t ****************** adding identity %d to observers\n", identity.ID)
+
 			o.LocalEndpointIdentityAdded(identity)
 		}
+		fmt.Printf("****************** done adding identity %d to observers\n", identity.ID)
+
 	} else {
+		fmt.Printf("-------------------------- incrementing refcount of identity %d\n", identity.ID)
 		idMeta.refCount++
 	}
 }
@@ -123,6 +136,15 @@ func (idm *IdentityManager) RemoveOldAddNew(old, new *identity.Identity) {
 // GlobalIdentityManager.
 func RemoveOldAddNew(old, new *identity.Identity) {
 	GlobalIdentityManager.RemoveOldAddNew(old, new)
+}
+
+func (idm *IdentityManager) RemoveAll() {
+	idm.mutex.Lock()
+	defer idm.mutex.Unlock()
+
+	for id := range idm.identities {
+		idm.remove(idm.identities[id].identity)
+	}
 }
 
 // Remove deletes the identity from the identity manager. If the identity is

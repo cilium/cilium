@@ -145,6 +145,7 @@ func (cache *PolicyCache) updateSelectorPolicy(identity *identityPkg.Identity) (
 // LocalEndpointIdentityAdded creates a SelectorPolicy cache entry for the
 // specified Identity, without calculating any policy for it.
 func (cache *PolicyCache) LocalEndpointIdentityAdded(identity *identityPkg.Identity) {
+	fmt.Printf("****************** PolicyCache: LocalEndpointIdentityAdded: %d\n", identity.ID)
 	cache.insert(identity)
 }
 

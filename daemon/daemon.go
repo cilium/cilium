@@ -186,6 +186,8 @@ type Daemon struct {
 	iptablesManager rulesManager
 
 	endpointManager *endpointmanager.EndpointManager
+
+	identityAllocator *cache.IdentityAllocatorManager
 }
 
 // Datapath returns a reference to the datapath implementation.
@@ -744,7 +746,7 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 	// Must be done before calling policy.NewPolicyRepository() below.
 	identity.InitWellKnownIdentities()
 
-	epMgr := endpointmanager.NewEndpointManager(&endpointsynchronizer.EndpointSynchronizer{})
+	epMgr := endpointmanager.NewEndpointManager(nil)
 	epMgr.InitMetrics()
 
 	// Cleanup on exit if running in tandem with Flannel.
@@ -759,7 +761,6 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 	d := Daemon{
 		loadBalancer:      loadbalancer.NewLoadBalancer(),
 		k8sSvcCache:       k8s.NewServiceCache(),
-		policy:            policy.NewPolicyRepository(),
 		uniqueID:          map[uint64]context.CancelFunc{},
 		prefixLengths:     createPrefixLengthCounter(),
 		k8sResourceSynced: map[string]chan struct{}{},
@@ -771,6 +772,7 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 		nodeDiscovery:     nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig),
 		iptablesManager:   iptablesManager,
 		endpointManager:   epMgr,
+		policy:            policy.NewPolicyRepository(nil),
 	}
 	bootstrapStats.daemonInit.End(true)
 
@@ -898,7 +900,22 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 	// This needs to be done after the node addressing has been configured
 	// as the node address is required as suffix.
 	// well known identities have already been initialized above
-	cache.GlobalIdentityAllocatorManager = cache.NewIdentityAllocatorManager(&d, k8s.CiliumClient(), nil)
+	d.identityAllocator = cache.NewIdentityAllocatorManager(&d)
+
+	// Ignore the channel returned by this function, as we want the global
+	// identity allocator to run asynchronously.
+	d.identityAllocator.InitIdentityAllocator(k8s.CiliumClient(), nil)
+
+	// Propagate identity allocator down to packages which themselves do not
+	// have types to add an allocator member to.
+	//
+	// TODO: convert these package level variables to types for easier unit
+	// testing in the future.
+	ipcache.IdentityAllocator = d.identityAllocator
+	proxy.Allocator = d.identityAllocator
+	d.endpointManager.SetEpSynchronizer(&endpointsynchronizer.EndpointSynchronizer{
+		Allocator: d.identityAllocator,
+	})
 
 	d.bootstrapClusterMesh(nodeMngr)
 
@@ -983,6 +1000,7 @@ func (d *Daemon) bootstrapClusterMesh(nodeMngr *nodemanager.Manager) {
 				NodeKeyCreator:  nodeStore.KeyCreator,
 				ServiceMerger:   &d.k8sSvcCache,
 				NodeManager:     nodeMngr,
+				Allocator:       d.identityAllocator,
 			})
 			if err != nil {
 				log.WithError(err).Fatal("Unable to initialize ClusterMesh")
@@ -1018,7 +1036,7 @@ func (d *Daemon) bootstrapWorkloads() error {
 
 		// Workloads must be initialized after IPAM has started as it requires
 		// to allocate IPs.
-		if err := workloads.Setup(d.ipam, d.endpointManager, option.Config.Workloads, opts); err != nil {
+		if err := workloads.Setup(d.ipam, d.endpointManager, d.identityAllocator, option.Config.Workloads, opts); err != nil {
 			return fmt.Errorf("unable to setup workload: %s", err)
 		}
 

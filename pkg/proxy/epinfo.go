@@ -29,6 +29,7 @@ var (
 	// EndpointInfoRegistry interface.
 	DefaultEndpointInfoRegistry logger.EndpointInfoRegistry = &defaultEndpointInfoRegistry{}
 	endpointManager             EndpointLookup
+	Allocator                   *cache.IdentityAllocatorManager
 )
 
 // EndpointLookup is any type which maps from IP to the endpoint owning that IP.
@@ -41,7 +42,7 @@ type EndpointLookup interface {
 type defaultEndpointInfoRegistry struct{}
 
 func (r *defaultEndpointInfoRegistry) FillEndpointIdentityByID(id identity.NumericIdentity, info *accesslog.EndpointInfo) bool {
-	identity := cache.LookupIdentityByID(id)
+	identity := Allocator.LookupIdentityByID(id)
 	if identity == nil {
 		return false
 	}

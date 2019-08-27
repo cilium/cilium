@@ -17,6 +17,7 @@ package policy
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -175,8 +176,12 @@ func newIdentity(nid identity.NumericIdentity, lbls labels.LabelArray) scIdentit
 }
 
 func getIdentityCache(ids cache.IdentityCache) scIdentityCache {
+	if ids == nil {
+		return make(map[identity.NumericIdentity]scIdentity)
+	}
 	idCache := make(map[identity.NumericIdentity]scIdentity, len(ids))
 	for nid, lbls := range ids {
+		fmt.Printf("&&&&&&&&&&&&&&&&&&&&&&&&&& getIdentityCache: nid --> lbls: %d --> %v\n", nid, lbls)
 		idCache[nid] = newIdentity(nid, lbls)
 	}
 	return idCache
@@ -643,9 +648,12 @@ func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, selector 
 
 	// Find all matching identities from the identity cache.
 	for numericID, identity := range sc.idCache {
-		if newIDSel.matches(identity) {
+		matches := newIDSel.matches(identity)
+		if matches {
 			newIDSel.cachedSelections[numericID] = struct{}{}
 		}
+		fmt.Printf("$$$$$$$$$$$$$$$$$$$$$ numID (identity) = %d (%v) matches %v = %v\n", numericID, identity, newIDSel, matches)
+
 	}
 	// Create the immutable slice representation of the selected
 	// numeric identities
@@ -728,7 +736,7 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache) {
 			// sorted for the kv-store, so there should
 			// not be too many false negatives.
 			if lbls.Same(old.lbls) {
-				log.WithFields(logrus.Fields{logfields.Identity: numericID}).Debug("UpdateIdentities: Skipping add of an existing identical identity")
+				//log.WithFields(logrus.Fields{logfields.Identity: numericID}).Debug("UpdateIdentities: Skipping add of an existing identical identity")
 				delete(added, numericID)
 				continue
 			}

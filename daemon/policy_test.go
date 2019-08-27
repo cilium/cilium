@@ -133,6 +133,7 @@ func (ds *DaemonSuite) prepareEndpoint(c *C, identity *identity.Identity, qa boo
 		e.IPv6 = ProdIPv6Addr
 		e.IPv4 = ProdIPv4Addr
 	}
+	fmt.Println("********* DAEMONSUITE: prepareEndpoint SetIdentity")
 	e.SetIdentity(identity, true)
 
 	e.UnconditionalLock()
@@ -153,6 +154,12 @@ func (ds *DaemonSuite) regenerateEndpoint(c *C, e *endpoint.Endpoint) {
 	buildSuccess := <-e.Regenerate(regenerationMetadata)
 	c.Assert(buildSuccess, Equals, true)
 }
+
+type testIdentityAllocator struct{}
+
+func (t *testIdentityAllocator) UpdateIdentities(added, deleted cache.IdentityCache) {}
+
+func (t *testIdentityAllocator) GetNodeSuffix() string { return "foo" }
 
 func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	rules := api.Rules{
@@ -206,25 +213,25 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 
 	// Prepare the identities necessary for testing
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	qaBarSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), ds.d, qaBarLbls)
+	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls)
 	c.Assert(err, Equals, nil)
-	defer cache.Release(context.Background(), ds.d, qaBarSecLblsCtx)
+	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx)
 	prodBarLbls := labels.Labels{lblBar.Key: lblBar, lblProd.Key: lblProd}
-	prodBarSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), ds.d, prodBarLbls)
+	prodBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), prodBarLbls)
 	c.Assert(err, Equals, nil)
-	defer cache.Release(context.Background(), ds.d, prodBarSecLblsCtx)
+	defer ds.d.identityAllocator.Release(context.Background(), prodBarSecLblsCtx)
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
-	qaFooSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), ds.d, qaFooLbls)
+	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls)
 	c.Assert(err, Equals, nil)
-	defer cache.Release(context.Background(), ds.d, qaFooSecLblsCtx)
+	defer ds.d.identityAllocator.Release(context.Background(), qaFooSecLblsCtx)
 	prodFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblProd.Key: lblProd}
-	prodFooSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), ds.d, prodFooLbls)
+	prodFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), prodFooLbls)
 	c.Assert(err, Equals, nil)
-	defer cache.Release(context.Background(), ds.d, prodFooSecLblsCtx)
+	defer ds.d.identityAllocator.Release(context.Background(), prodFooSecLblsCtx)
 	prodFooJoeLbls := labels.Labels{lblFoo.Key: lblFoo, lblProd.Key: lblProd, lblJoe.Key: lblJoe}
-	prodFooJoeSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), ds.d, prodFooJoeLbls)
+	prodFooJoeSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), prodFooJoeLbls)
 	c.Assert(err, Equals, nil)
-	defer cache.Release(context.Background(), ds.d, prodFooJoeSecLblsCtx)
+	defer ds.d.identityAllocator.Release(context.Background(), prodFooJoeSecLblsCtx)
 
 	// Prepare endpoints
 	cleanup, err2 := prepareEndpointDirs()
@@ -343,13 +350,13 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
 	// Prepare the identities necessary for testing
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	qaBarSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), ds.d, qaBarLbls)
+	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls)
 	c.Assert(err, Equals, nil)
-	defer cache.Release(context.Background(), ds.d, qaBarSecLblsCtx)
+	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx)
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
-	qaFooSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), ds.d, qaFooLbls)
+	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls)
 	c.Assert(err, Equals, nil)
-	defer cache.Release(context.Background(), ds.d, qaFooSecLblsCtx)
+	defer ds.d.identityAllocator.Release(context.Background(), qaFooSecLblsCtx)
 
 	rules := api.Rules{
 		{
@@ -470,10 +477,12 @@ func (ds *DaemonSuite) TestReplacePolicy(c *C) {
 }
 
 func (ds *DaemonSuite) TestRemovePolicy(c *C) {
+	fmt.Println("++++++++++++++++++++ TESTREMOVEPOLICY +++++++++++++++++++++++++")
+
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	qaBarSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), ds.d, qaBarLbls)
+	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls)
 	c.Assert(err, Equals, nil)
-	defer cache.Release(context.Background(), ds.d, qaBarSecLblsCtx)
+	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx)
 
 	rules := api.Rules{
 		{
@@ -539,7 +548,7 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	c.Assert(qaBarNetworkPolicy, Not(IsNil))
 
 	// Delete the endpoint.
-	e.Delete(ds.d, ds.d.ipam, &dummyManager{}, endpoint.DeleteConfig{})
+	e.Delete(ds.d, ds.d.ipam, &dummyManager{}, ds.d.identityAllocator, endpoint.DeleteConfig{})
 
 	// Check that the policy has been removed from the xDS cache.
 	networkPolicies = ds.getXDSNetworkPolicies(c, nil)
@@ -572,9 +581,9 @@ func (d *dummyManager) ReleaseID(*endpoint.Endpoint) {
 
 func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	qaBarSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), ds.d, qaBarLbls)
+	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls)
 	c.Assert(err, Equals, nil)
-	defer cache.Release(context.Background(), ds.d, qaBarSecLblsCtx)
+	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx)
 
 	rules := api.Rules{
 		{
@@ -643,9 +652,9 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 
 	// Allocate identities needed for this test
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
-	qaFooID, _, err := cache.AllocateIdentity(context.Background(), ds.d, qaFooLbls)
+	qaFooID, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls)
 	c.Assert(err, Equals, nil)
-	defer cache.Release(context.Background(), ds.d, qaFooID)
+	defer ds.d.identityAllocator.Release(context.Background(), qaFooID)
 
 	// Regenerate endpoint
 	ds.regenerateEndpoint(c, e)
@@ -663,7 +672,7 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 	c.Assert(qaBarNetworkPolicy.IngressPerPortPolicies[0].Rules[0].RemotePolicies[0], Equals, uint64(qaFooID.ID))
 
 	// Delete the endpoint.
-	e.Delete(ds.d, ds.d.ipam, &dummyManager{}, endpoint.DeleteConfig{})
+	e.Delete(ds.d, ds.d.ipam, &dummyManager{}, ds.d.identityAllocator, endpoint.DeleteConfig{})
 
 	// Check that the policy has been removed from the xDS cache.
 	networkPolicies = ds.getXDSNetworkPolicies(c, nil)

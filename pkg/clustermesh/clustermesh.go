@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
@@ -55,6 +56,8 @@ type Configuration struct {
 	NodeManager *nodemanager.Manager
 
 	nodeObserver store.Observer
+
+	Allocator *cache.IdentityAllocatorManager
 }
 
 // NodeObserver returns the node store observer of the configuration
@@ -109,7 +112,7 @@ func NewClusterMesh(c Configuration) (*ClusterMesh, error) {
 // will close all connections to remote clusters
 func (cm *ClusterMesh) Close() {
 	cm.mutex.Lock()
-	defer cm.mutex.Unlock()
+	//defer cm.mutex.Unlock()
 
 	if cm.configWatcher != nil {
 		cm.configWatcher.close()
@@ -120,7 +123,12 @@ func (cm *ClusterMesh) Close() {
 		delete(cm.clusters, name)
 	}
 
+	fmt.Println("removing all controllers from clustermesh")
 	cm.controllers.RemoveAllAndWait()
+
+	cm.mutex.Unlock()
+	fmt.Println("closing allocator)")
+	//cm.conf.Allocator.Close()
 }
 
 func (cm *ClusterMesh) newRemoteCluster(name, path string) *remoteCluster {
@@ -152,7 +160,7 @@ func (cm *ClusterMesh) add(name, path string) {
 	log.WithField(fieldClusterName, name).Debug("Remote cluster configuration added")
 
 	if inserted {
-		cluster.onInsert()
+		cluster.onInsert(cm.conf.Allocator)
 	} else {
 		// signal a change in configuration
 		cluster.changed <- true

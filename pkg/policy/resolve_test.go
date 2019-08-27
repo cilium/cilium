@@ -173,12 +173,22 @@ func (d DummyOwner) LookupRedirectPort(l4 *L4Filter) uint16 {
 	return 0
 }
 
+type identityAllocatorOwnerMock struct{}
+
+func (i *identityAllocatorOwnerMock) UpdateIdentities(added, deleted cache.IdentityCache) {}
+
+func (i *identityAllocatorOwnerMock) GetNodeSuffix() string {
+	return "foo"
+}
+
 func bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int, c *C) *Repository {
-	testRepo := NewPolicyRepository()
+	mgr := cache.NewIdentityAllocatorManager(&identityAllocatorOwnerMock{})
+	//<-mgr.InitIdentityAllocator(nil, nil)
+	testRepo := NewPolicyRepository(mgr)
 
 	var wg sync.WaitGroup
 	SetPolicyEnabled(option.DefaultEnforcement)
-	GenerateNumIdentities(3000)
+	GenerateNumIdentities(10)
 	testSelectorCache.UpdateIdentities(identityCache, nil)
 	testRepo.selectorCache = testSelectorCache
 	rulez, _ := testRepo.AddList(ruleGenFunc(numRules))
@@ -491,7 +501,8 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
-	repo := bootstrapRepo(GenerateL3IngressRules, 1000, c)
+	fmt.Println("************************************************ TestMapStateWithIngress ******************************************************")
+	repo := bootstrapRepo(GenerateL3IngressRules, 10, c)
 
 	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
 	idFooSelectLabels := labels.Labels{}
@@ -613,7 +624,8 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 	cachedSelectorTest = testSelectorCache.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	c.Assert(cachedSelectorTest, IsNil)
 
-	c.Assert(policy, checker.Equals, &expectedEndpointPolicy)
+	c.Assert(policy.PolicyMapState, checker.DeepEquals, expectedEndpointPolicy.PolicyMapState)
+	//c.Assert(policy, checker.Equals, &expectedEndpointPolicy)
 
 	adds, deletes := policy.PolicyMapChanges.ConsumeMapChanges()
 	// maps on the policy got cleared

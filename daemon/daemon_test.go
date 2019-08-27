@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -144,6 +145,10 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.OnNewProxyLogRecord = nil
 	ds.OnClearPolicyConsumers = nil
 	ds.d.endpointManager = endpointmanager.NewEndpointManager(&dummyEpSyncher{})
+	//ds.d.identityAllocator = cache.NewIdentityAllocatorManager(ds.d)
+	//fmt.Println("bootstrapping identity allocator...")
+	//<-ds.d.identityAllocator.InitIdentityAllocator(k8s.CiliumClient(), nil)
+	//fmt.Println("done bootstrapping identity allocator...")
 }
 
 func (ds *DaemonSuite) TearDownTest(c *C) {
@@ -163,7 +168,9 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 
 	// Release the identity allocator reference created by NewDaemon. This
 	// is done manually here as we have no Close() function daemon
-	cache.Close()
+	ds.d.identityAllocator.Close()
+
+	identitymanager.RemoveAll()
 
 	ds.d.Close()
 }

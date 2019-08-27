@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/connector"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -93,17 +94,18 @@ func (c *dockerModule) getConfig() map[string]string {
 	return getOpts(c.opts)
 }
 
-func (c *dockerModule) newClient(epMgr *endpointmanager.EndpointManager) (WorkloadRuntime, error) {
-	return newDockerClient(c.opts, epMgr)
+func (c *dockerModule) newClient(epMgr *endpointmanager.EndpointManager, allocator *cache.IdentityAllocatorManager) (WorkloadRuntime, error) {
+	return newDockerClient(c.opts, epMgr, allocator)
 }
 
 type dockerClient struct {
 	*client.Client
 	datapathMode    string
 	endpointManager *endpointmanager.EndpointManager
+	allocator       *cache.IdentityAllocatorManager
 }
 
-func newDockerClient(opts workloadRuntimeOpts, epMgr *endpointmanager.EndpointManager) (WorkloadRuntime, error) {
+func newDockerClient(opts workloadRuntimeOpts, epMgr *endpointmanager.EndpointManager, allocator *cache.IdentityAllocatorManager) (WorkloadRuntime, error) {
 	defaultHeaders := map[string]string{"User-Agent": "cilium"}
 	ep := opts[EpOpt]
 	c, err := client.NewClient(ep.value, "v1.21", nil, defaultHeaders)
@@ -119,6 +121,7 @@ func newDockerClient(opts workloadRuntimeOpts, epMgr *endpointmanager.EndpointMa
 		Client:          c,
 		datapathMode:    dpMode.value,
 		endpointManager: epMgr,
+		allocator:       allocator,
 	}, nil
 }
 
@@ -483,7 +486,7 @@ func (d *dockerClient) handleCreateWorkload(id string, retry bool) {
 			allLabels = dockerContainer.Config.Labels
 		}
 
-		processCreateWorkload(ep, id, allLabels, d.endpointManager)
+		processCreateWorkload(ep, id, allLabels, d.endpointManager, d.allocator)
 
 		return
 	}

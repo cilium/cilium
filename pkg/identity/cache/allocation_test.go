@@ -42,8 +42,12 @@ func (s *IdentityCacheTestSuite) TestAllocateIdentityReserved(c *C) {
 	lbls = labels.Labels{
 		labels.IDNameHost: labels.NewLabel(labels.IDNameHost, "", labels.LabelSourceReserved),
 	}
-	c.Assert(IdentityAllocationIsLocal(lbls), Equals, true)
-	i, isNew, err = AllocateIdentity(context.Background(), nil, lbls)
+
+	mgr := NewIdentityAllocatorManager(newDummyOwner())
+	<-mgr.InitIdentityAllocator(nil, nil)
+
+	c.Assert(identity.IdentityAllocationIsLocal(lbls), Equals, true)
+	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls)
 	c.Assert(err, IsNil)
 	c.Assert(i.ID, Equals, identity.ReservedIdentityHost)
 	c.Assert(isNew, Equals, false)
@@ -51,14 +55,14 @@ func (s *IdentityCacheTestSuite) TestAllocateIdentityReserved(c *C) {
 	lbls = labels.Labels{
 		labels.IDNameWorld: labels.NewLabel(labels.IDNameWorld, "", labels.LabelSourceReserved),
 	}
-	c.Assert(IdentityAllocationIsLocal(lbls), Equals, true)
-	i, isNew, err = AllocateIdentity(context.Background(), nil, lbls)
+	c.Assert(identity.IdentityAllocationIsLocal(lbls), Equals, true)
+	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls)
 	c.Assert(err, IsNil)
 	c.Assert(i.ID, Equals, identity.ReservedIdentityWorld)
 	c.Assert(isNew, Equals, false)
 
-	c.Assert(IdentityAllocationIsLocal(labels.LabelHealth), Equals, true)
-	i, isNew, err = AllocateIdentity(context.Background(), nil, labels.LabelHealth)
+	c.Assert(identity.IdentityAllocationIsLocal(labels.LabelHealth), Equals, true)
+	i, isNew, err = mgr.AllocateIdentity(context.Background(), labels.LabelHealth)
 	c.Assert(err, IsNil)
 	c.Assert(i.ID, Equals, identity.ReservedIdentityHealth)
 	c.Assert(isNew, Equals, false)
@@ -66,8 +70,8 @@ func (s *IdentityCacheTestSuite) TestAllocateIdentityReserved(c *C) {
 	lbls = labels.Labels{
 		labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
 	}
-	c.Assert(IdentityAllocationIsLocal(lbls), Equals, true)
-	i, isNew, err = AllocateIdentity(context.Background(), nil, lbls)
+	c.Assert(identity.IdentityAllocationIsLocal(lbls), Equals, true)
+	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls)
 	c.Assert(err, IsNil)
 	c.Assert(i.ID, Equals, identity.ReservedIdentityInit)
 	c.Assert(isNew, Equals, false)
@@ -75,8 +79,8 @@ func (s *IdentityCacheTestSuite) TestAllocateIdentityReserved(c *C) {
 	lbls = labels.Labels{
 		labels.IDNameUnmanaged: labels.NewLabel(labels.IDNameUnmanaged, "", labels.LabelSourceReserved),
 	}
-	c.Assert(IdentityAllocationIsLocal(lbls), Equals, true)
-	i, isNew, err = AllocateIdentity(context.Background(), nil, lbls)
+	c.Assert(identity.IdentityAllocationIsLocal(lbls), Equals, true)
+	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls)
 	c.Assert(err, IsNil)
 	c.Assert(i.ID, Equals, identity.ReservedIdentityUnmanaged)
 	c.Assert(isNew, Equals, false)
@@ -220,11 +224,12 @@ func (ias *IdentityAllocatorSuite) TestEventWatcherBatching(c *C) {
 func (ias *IdentityAllocatorSuite) TestGetIdentityCache(c *C) {
 	identity.InitWellKnownIdentities()
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	<-InitIdentityAllocator(newDummyOwner(), nil, nil)
-	defer Close()
-	defer IdentityAllocator.DeleteAllKeys()
+	mgr := NewIdentityAllocatorManager(newDummyOwner())
+	<-mgr.InitIdentityAllocator(nil, nil)
+	defer mgr.Close()
+	defer mgr.IdentityAllocator.DeleteAllKeys()
 
-	cache := GetIdentityCache()
+	cache := mgr.GetIdentityCache()
 	_, ok := cache[identity.ReservedCiliumKVStore]
 	c.Assert(ok, Equals, true)
 }
@@ -237,11 +242,12 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	owner := newDummyOwner()
 	identity.InitWellKnownIdentities()
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	<-InitIdentityAllocator(owner, nil, nil)
-	defer Close()
-	defer IdentityAllocator.DeleteAllKeys()
+	mgr := NewIdentityAllocatorManager(owner)
+	<-mgr.InitIdentityAllocator(nil, nil)
+	defer mgr.Close()
+	defer mgr.IdentityAllocator.DeleteAllKeys()
 
-	id1a, isNew, err := AllocateIdentity(context.Background(), nil, lbls1)
+	id1a, isNew, err := mgr.AllocateIdentity(context.Background(), lbls1)
 	c.Assert(id1a, Not(IsNil))
 	c.Assert(err, IsNil)
 	c.Assert(isNew, Equals, true)
@@ -250,16 +256,16 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	c.Assert(owner.GetIdentity(id1a.ID), checker.DeepEquals, lbls1.LabelArray())
 
 	// reuse the same identity
-	id1b, isNew, err := AllocateIdentity(context.Background(), nil, lbls1)
+	id1b, isNew, err := mgr.AllocateIdentity(context.Background(), lbls1)
 	c.Assert(id1b, Not(IsNil))
 	c.Assert(isNew, Equals, false)
 	c.Assert(err, IsNil)
 	c.Assert(id1a.ID, Equals, id1b.ID)
 
-	released, err := Release(context.Background(), nil, id1a)
+	released, err := mgr.Release(context.Background(), id1a)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, false)
-	released, err = Release(context.Background(), nil, id1b)
+	released, err = mgr.Release(context.Background(), id1b)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, true)
 	// KV-store still keeps the ID even when a single node has released it.
@@ -268,7 +274,7 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	// owner's cache.
 	c.Assert(owner.GetIdentity(id1a.ID), checker.DeepEquals, lbls1.LabelArray())
 
-	id1b, isNew, err = AllocateIdentity(context.Background(), nil, lbls1)
+	id1b, isNew, err = mgr.AllocateIdentity(context.Background(), lbls1)
 	c.Assert(id1b, Not(IsNil))
 	c.Assert(err, IsNil)
 	// the value key should not have been removed so the same ID should be
@@ -278,11 +284,11 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	// Should still be cached, no new events should have been received.
 	c.Assert(owner.GetIdentity(id1a.ID), checker.DeepEquals, lbls1.LabelArray())
 
-	identity := LookupIdentityByID(id1b.ID)
+	identity := mgr.LookupIdentityByID(id1b.ID)
 	c.Assert(identity, Not(IsNil))
 	c.Assert(lbls1, checker.DeepEquals, identity.Labels)
 
-	id2, isNew, err := AllocateIdentity(context.Background(), nil, lbls2)
+	id2, isNew, err := mgr.AllocateIdentity(context.Background(), lbls2)
 	c.Assert(id2, Not(IsNil))
 	c.Assert(isNew, Equals, true)
 	c.Assert(err, IsNil)
@@ -291,7 +297,7 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	c.Assert(owner.WaitUntilID(id2.ID), Not(Equals), 0)
 	c.Assert(owner.GetIdentity(id2.ID), checker.DeepEquals, lbls2.LabelArray())
 
-	id3, isNew, err := AllocateIdentity(context.Background(), nil, lbls3)
+	id3, isNew, err := mgr.AllocateIdentity(context.Background(), lbls3)
 	c.Assert(id3, Not(IsNil))
 	c.Assert(isNew, Equals, true)
 	c.Assert(err, IsNil)
@@ -301,17 +307,17 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	c.Assert(owner.WaitUntilID(id3.ID), Not(Equals), 0)
 	c.Assert(owner.GetIdentity(id3.ID), checker.DeepEquals, lbls3.LabelArray())
 
-	released, err = Release(context.Background(), nil, id1b)
+	released, err = mgr.Release(context.Background(), id1b)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, true)
-	released, err = Release(context.Background(), nil, id2)
+	released, err = mgr.Release(context.Background(), id2)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, true)
-	released, err = Release(context.Background(), nil, id3)
+	released, err = mgr.Release(context.Background(), id3)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, true)
 
-	IdentityAllocator.DeleteAllKeys()
+	mgr.IdentityAllocator.DeleteAllKeys()
 	c.Assert(owner.WaitUntilID(id3.ID), Not(Equals), 0)
 }
 
@@ -321,11 +327,12 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 	owner := newDummyOwner()
 	identity.InitWellKnownIdentities()
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	<-InitIdentityAllocator(owner, nil, nil)
-	defer Close()
-	defer IdentityAllocator.DeleteAllKeys()
+	mgr := NewIdentityAllocatorManager(owner)
+	<-mgr.InitIdentityAllocator(nil, nil)
+	defer mgr.Close()
+	defer mgr.IdentityAllocator.DeleteAllKeys()
 
-	id, isNew, err := AllocateIdentity(context.Background(), nil, lbls1)
+	id, isNew, err := mgr.AllocateIdentity(context.Background(), lbls1)
 	c.Assert(id, Not(IsNil))
 	c.Assert(err, IsNil)
 	c.Assert(isNew, Equals, true)
@@ -335,16 +342,16 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 	c.Assert(owner.GetIdentity(id.ID), checker.DeepEquals, lbls1.LabelArray())
 
 	// reuse the same identity
-	id, isNew, err = AllocateIdentity(context.Background(), nil, lbls1)
+	id, isNew, err = mgr.AllocateIdentity(context.Background(), lbls1)
 	c.Assert(id, Not(IsNil))
 	c.Assert(err, IsNil)
 	c.Assert(isNew, Equals, false)
 
-	cache := GetIdentityCache()
+	cache := mgr.GetIdentityCache()
 	c.Assert(cache[id.ID], Not(IsNil))
 
 	// 1st Release, not released
-	released, err := Release(context.Background(), nil, id)
+	released, err := mgr.Release(context.Background(), id)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, false)
 
@@ -352,7 +359,7 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 	c.Assert(owner.GetIdentity(id.ID), checker.DeepEquals, lbls1.LabelArray())
 
 	// 2nd Release, released
-	released, err = Release(context.Background(), nil, id)
+	released, err = mgr.Release(context.Background(), id)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, true)
 
@@ -361,19 +368,19 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 	// Identity does not exist any more
 	c.Assert(owner.GetIdentity(id.ID), IsNil)
 
-	cache = GetIdentityCache()
+	cache = mgr.GetIdentityCache()
 	c.Assert(cache[id.ID], IsNil)
 
-	id, isNew, err = AllocateIdentity(context.Background(), nil, lbls1)
+	id, isNew, err = mgr.AllocateIdentity(context.Background(), lbls1)
 	c.Assert(id, Not(IsNil))
 	c.Assert(err, IsNil)
 	c.Assert(isNew, Equals, true)
 	c.Assert(id.ID.HasLocalScope(), Equals, true)
 
-	released, err = Release(context.Background(), nil, id)
+	released, err = mgr.Release(context.Background(), id)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, true)
 
-	IdentityAllocator.DeleteAllKeys()
+	mgr.IdentityAllocator.DeleteAllKeys()
 	c.Assert(owner.WaitUntilID(id.ID), Not(Equals), 0)
 }

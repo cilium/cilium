@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/health/probe"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/launcher"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -222,13 +223,19 @@ type EndpointAdder interface {
 	AddEndpoint(owner regeneration.Owner, ep *endpoint.Endpoint, reason string) error
 }
 
+type identityAllocator interface {
+	WaitForInitialGlobalIdentities(context.Context) error
+	AllocateIdentity(context.Context, labels.Labels) (*identity.Identity, bool, error)
+	Release(context.Context, *identity.Identity) (released bool, err error)
+}
+
 // LaunchAsEndpoint launches the cilium-health agent in a nested network
 // namespace and attaches it to Cilium the same way as any other endpoint,
 // but with special reserved labels.
 //
 // CleanupEndpoint() must be called before calling LaunchAsEndpoint() to ensure
 // cleanup of prior cilium-health endpoint instances.
-func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node.Node, mtuConfig mtu.Configuration, epMgr EndpointAdder) (*Client, error) {
+func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node.Node, mtuConfig mtu.Configuration, epMgr EndpointAdder, allocator identityAllocator) (*Client, error) {
 	var (
 		cmd  = launcher.Launcher{}
 		info = &models.EndpointChangeRequest{
@@ -343,7 +350,7 @@ func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node
 	// Give the endpoint a security identity
 	ctx, cancel := context.WithTimeout(baseCtx, LaunchTime)
 	defer cancel()
-	ep.UpdateLabels(ctx, labels.LabelHealth, nil, true)
+	ep.UpdateLabels(ctx, labels.LabelHealth, nil, true, allocator)
 
 	// Initialize the health client to talk to this instance. This is why
 	// the caller must limit usage of this package to a single goroutine.

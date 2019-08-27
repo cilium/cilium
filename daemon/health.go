@@ -76,7 +76,7 @@ func (d *Daemon) initHealth() {
 				if client == nil || err != nil {
 					var launchErr error
 					d.cleanupHealthEndpoint()
-					client, launchErr = health.LaunchAsEndpoint(ctx, d, &d.nodeDiscovery.LocalNode, d.mtuConfig, d.endpointManager)
+					client, launchErr = health.LaunchAsEndpoint(ctx, d, &d.nodeDiscovery.LocalNode, d.mtuConfig, d.endpointManager, d.identityAllocator)
 					if launchErr != nil {
 						if err != nil {
 							return fmt.Errorf("failed to restart endpoint (check failed: %q): %s", err, launchErr)

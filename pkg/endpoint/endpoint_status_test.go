@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
@@ -116,7 +115,7 @@ func (s *EndpointSuite) newEndpoint(c *check.C, spec endpointGeneratorSpec) *End
 
 func (s *EndpointSuite) TestGetCiliumEndpointStatusSuccessfulControllers(c *check.C) {
 	e := s.newEndpoint(c, endpointGeneratorSpec{})
-	cepA := e.GetCiliumEndpointStatus()
+	cepA := e.GetCiliumEndpointStatus(s.mgr)
 
 	// Run successful controllers in the background
 	for i := 0; i < 50; i++ {
@@ -140,7 +139,7 @@ func (s *EndpointSuite) TestGetCiliumEndpointStatusSuccessfulControllers(c *chec
 		case <-timeout:
 			return
 		case <-tick:
-			cepB := e.GetCiliumEndpointStatus()
+			cepB := e.GetCiliumEndpointStatus(s.mgr)
 			c.Assert(cepA, checker.DeepEquals, cepB)
 		}
 	}
@@ -148,7 +147,7 @@ func (s *EndpointSuite) TestGetCiliumEndpointStatusSuccessfulControllers(c *chec
 
 func (s *EndpointSuite) TestGetCiliumEndpointStatusSuccessfulLog(c *check.C) {
 	e := s.newEndpoint(c, endpointGeneratorSpec{})
-	cepA := e.GetCiliumEndpointStatus()
+	cepA := e.GetCiliumEndpointStatus(s.mgr)
 
 	go func() {
 		for i := 0; i < 1000; i++ {
@@ -168,7 +167,7 @@ func (s *EndpointSuite) TestGetCiliumEndpointStatusSuccessfulLog(c *check.C) {
 		case <-timeout:
 			return
 		case <-tick:
-			cepB := e.GetCiliumEndpointStatus()
+			cepB := e.GetCiliumEndpointStatus(s.mgr)
 			c.Assert(cepA, checker.DeepEquals, cepB)
 		}
 	}
@@ -193,8 +192,8 @@ func (s *EndpointSuite) TestGetCiliumEndpointStatusDeepEqual(c *check.C) {
 		numPortsPerIdentity:      10,
 	})
 
-	cepA := a.GetCiliumEndpointStatus()
-	cepB := b.GetCiliumEndpointStatus()
+	cepA := a.GetCiliumEndpointStatus(s.mgr)
+	cepB := b.GetCiliumEndpointStatus(s.mgr)
 
 	c.Assert(cepA, checker.DeepEquals, cepB)
 }
@@ -209,7 +208,7 @@ func (s *EndpointSuite) TestGetCiliumEndpointStatusCorrectnes(c *check.C) {
 		numPortsPerIdentity:      10,
 	})
 
-	cep := e.GetCiliumEndpointStatus()
+	cep := e.GetCiliumEndpointStatus(s.mgr)
 
 	c.Assert(len(cep.Status.Log), check.Equals, cilium_v2.EndpointStatusLogEntries)
 }
@@ -255,14 +254,14 @@ func (s *EndpointSuite) TestgetEndpointPolicyMapState(c *check.C) {
 		numPortsPerIdentity:      10,
 	})
 	// Policy not enabled; allow all.
-	apiPolicy := e.getEndpointPolicy()
+	apiPolicy := e.getEndpointPolicy(s.mgr)
 	c.Assert(apiPolicy.Ingress.Allowed, checker.DeepEquals, allowAllIdentityList)
 	c.Assert(apiPolicy.Egress.Allowed, checker.DeepEquals, allowAllIdentityList)
 
 	fooLbls := labels.Labels{"": labels.ParseLabel("foo")}
-	fooIdentity, _, err := cache.AllocateIdentity(context.Background(), nil, fooLbls)
+	fooIdentity, _, err := s.mgr.AllocateIdentity(context.Background(), fooLbls)
 	c.Assert(err, check.Equals, nil)
-	defer cache.Release(context.Background(), nil, fooIdentity)
+	defer s.mgr.Release(context.Background(), fooIdentity)
 
 	e.desiredPolicy = policy.NewEndpointPolicy(s.repo)
 	e.desiredPolicy.IngressPolicyEnabled = true
@@ -408,7 +407,7 @@ func (s *EndpointSuite) TestgetEndpointPolicyMapState(c *check.C) {
 		expectedIngressList := prepareExpectedList(tt.ingressResult)
 		expectedEgressList := prepareExpectedList(tt.egressResult)
 
-		apiPolicy = e.getEndpointPolicy()
+		apiPolicy = e.getEndpointPolicy(s.mgr)
 		c.Assert(apiPolicy.Ingress.Allowed, checker.DeepEquals, expectedIngressList)
 		c.Assert(apiPolicy.Egress.Allowed, checker.DeepEquals, expectedEgressList)
 	}
@@ -453,7 +452,7 @@ func (s *EndpointSuite) BenchmarkGetCiliumEndpointStatus(c *check.C) {
 
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
-		status := e.GetCiliumEndpointStatus()
+		status := e.GetCiliumEndpointStatus(s.mgr)
 		c.Assert(status, check.Not(check.IsNil))
 	}
 	c.StopTimer()

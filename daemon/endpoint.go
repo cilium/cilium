@@ -254,7 +254,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to insert endpoint into manager: %s", err))
 	}
 
-	ep.UpdateLabels(ctx, addLabels, infoLabels, true)
+	ep.UpdateLabels(ctx, addLabels, infoLabels, true, d.identityAllocator)
 
 	select {
 	case <-ctx.Done():
@@ -490,7 +490,7 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.Delete
 		}
 	}
 
-	return ep.Delete(d, d.ipam, d.endpointManager, conf)
+	return ep.Delete(d, d.ipam, d.endpointManager, d.identityAllocator, conf)
 }
 
 func (d *Daemon) DeleteEndpoint(id string) (int, error) {
@@ -719,7 +719,7 @@ func (d *Daemon) modifyEndpointIdentityLabelsFromAPI(id string, add, del labels.
 		return PatchEndpointIDInvalidCode, err
 	}
 
-	if err := ep.ModifyIdentityLabels(addLabels, delLabels); err != nil {
+	if err := ep.ModifyIdentityLabels(addLabels, delLabels, d.identityAllocator); err != nil {
 		return PatchEndpointIDLabelsNotFoundCode, err
 	}
 

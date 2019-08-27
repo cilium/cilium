@@ -74,6 +74,10 @@ func NewEndpointManager(epSynchronizer EndpointResourceSynchronizer) *EndpointMa
 	return &mgr
 }
 
+func (mgr *EndpointManager) SetEpSynchronizer(epSynchronizer EndpointResourceSynchronizer) {
+	mgr.EndpointResourceSynchronizer = epSynchronizer
+}
+
 // InitMetrics hooks the EndpointManager into the metrics subsystem. This can
 // only be done once, globally, otherwise the metrics library will panic.
 func (mgr *EndpointManager) InitMetrics() {

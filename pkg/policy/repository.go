@@ -71,17 +71,30 @@ func (p *Repository) GetPolicyCache() *PolicyCache {
 	return p.policyCache
 }
 
+type identityCacheProvider interface {
+	GetIdentityCache() cache.IdentityCache
+}
+
 // NewPolicyRepository allocates a new policy repository
-func NewPolicyRepository() *Repository {
+func NewPolicyRepository(idCacheProvider identityCacheProvider) *Repository {
 	repoChangeQueue := eventqueue.NewEventQueueBuffered("repository-change-queue", option.Config.PolicyQueueSize)
 	ruleReactionQueue := eventqueue.NewEventQueueBuffered("repository-reaction-queue", option.Config.PolicyQueueSize)
 	repoChangeQueue.Run()
 	ruleReactionQueue.Run()
+
+	var (
+		selectorCache *SelectorCache
+	)
+	if idCacheProvider == nil {
+		selectorCache = NewSelectorCache(nil)
+	} else {
+		selectorCache = NewSelectorCache(idCacheProvider.GetIdentityCache())
+	}
 	repo := &Repository{
 		revision:              1,
 		RepositoryChangeQueue: repoChangeQueue,
 		RuleReactionQueue:     ruleReactionQueue,
-		selectorCache:         NewSelectorCache(cache.GetIdentityCache()),
+		selectorCache:         selectorCache,
 	}
 	repo.policyCache = NewPolicyCache(repo, true)
 	return repo

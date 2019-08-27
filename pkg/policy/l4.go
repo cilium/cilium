@@ -215,6 +215,10 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection) []Key {
 		}
 	}
 
+	for i := range keysToAdd {
+		fmt.Printf("ToKeys %s: %s\n", direction.String(), keysToAdd[i])
+	}
+
 	return keysToAdd
 }
 

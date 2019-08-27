@@ -90,10 +90,10 @@ func (q *EventQueue) getLogger() *logrus.Entry {
 // NewEventQueueBuffered returns an EventQueue with a capacity of,
 // numBufferedEvents at a time, and all other needed fields initialized.
 func NewEventQueueBuffered(name string, numBufferedEvents int) *EventQueue {
-	log.WithFields(logrus.Fields{
+	/*log.WithFields(logrus.Fields{
 		"name":              name,
 		"numBufferedEvents": numBufferedEvents,
-	}).Debug("creating new EventQueue")
+	}).Debug("creating new EventQueue")*/
 	return &EventQueue{
 		name: name,
 		// Up to numBufferedEvents can be Enqueued until Enqueueing blocks.

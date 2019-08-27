@@ -17,6 +17,7 @@ package cache
 import (
 	"context"
 	"fmt"
+	"path"
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity"
@@ -33,6 +34,10 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/tools/cache"
+)
+
+var (
+	IdentitiesPath = path.Join(kvstore.BaseKeyPrefix, "state", "identities", "v1")
 )
 
 // GlobalIdentity is the structure used to store an identity
@@ -67,18 +72,14 @@ func (gi GlobalIdentity) PutKeyFromMap(v map[string]string) allocator.AllocatorK
 	return GlobalIdentity{labels.Map2Labels(v, "").LabelArray()}
 }
 
-var (
-	GlobalIdentityAllocatorManager *IdentityAllocatorManager
-)
-
 type IdentityAllocatorManager struct {
 	// IdentityAllocator is an allocator for security identities from the
 	// kvstore.
 	IdentityAllocator *allocator.Allocator
 
-	// GlobalIdentityAllocatorInitialized is closed whenever the global identity
+	// globalIdentityAllocatorInitialized is closed whenever the global identity
 	// allocator is initialized.
-	GlobalIdentityAllocatorInitialized chan struct{}
+	globalIdentityAllocatorInitialized chan struct{}
 
 	// localIdentityAllocatorInitialized is closed whenever the local identity
 	// allocator is initialized.
@@ -94,6 +95,8 @@ type IdentityAllocatorManager struct {
 	setupMutex lock.Mutex
 
 	watcher identityWatcher
+
+	owner IdentityAllocatorOwner
 }
 
 // IdentityAllocatorOwner is the interface the owner of an identity allocator
@@ -121,7 +124,7 @@ type IdentityAllocatorOwner interface {
 // TODO: identity backends are initialized directly in this function, pulling
 // in dependencies on kvstore and k8s. It would be better to decouple this,
 // since the backends are an interface.
-func (m *IdentityAllocatorManager) InitIdentityAllocator(owner IdentityAllocatorOwner, client clientset.Interface, identityStore cache.Store) <-chan struct{} {
+func (m *IdentityAllocatorManager) InitIdentityAllocator(client clientset.Interface, identityStore cache.Store) <-chan struct{} {
 	m.setupMutex.Lock()
 	defer m.setupMutex.Unlock()
 
@@ -143,7 +146,7 @@ func (m *IdentityAllocatorManager) InitIdentityAllocator(owner IdentityAllocator
 	// It is important to start listening for events before calling
 	// NewAllocator() as it will emit events while filling the
 	// initial cache
-	m.watcher.watch(owner, events)
+	m.watcher.watch(m.owner, events)
 
 	// Asynchronously set up the global identity allocator since it connects
 	// to the kvstore.
@@ -190,10 +193,10 @@ func (m *IdentityAllocatorManager) InitIdentityAllocator(owner IdentityAllocator
 		}
 
 		m.IdentityAllocator = a
-		close(m.GlobalIdentityAllocatorInitialized)
-	}(owner, events, minID, maxID)
+		close(m.globalIdentityAllocatorInitialized)
+	}(m.owner, events, minID, maxID)
 
-	return m.GlobalIdentityAllocatorInitialized
+	return m.globalIdentityAllocatorInitialized
 }
 
 // InitIdentityAllocator creates the the identity allocator. Only the first
@@ -207,29 +210,25 @@ func (m *IdentityAllocatorManager) InitIdentityAllocator(owner IdentityAllocator
 // TODO: identity backends are initialized directly in this function, pulling
 // in dependencies on kvstore and k8s. It would be better to decouple this,
 // since the backends are an interface.
-func InitIdentityAllocator(owner IdentityAllocatorOwner, client clientset.Interface, identityStore cache.Store) <-chan struct{} {
-	return GlobalIdentityAllocatorManager.InitIdentityAllocator(owner, client, identityStore)
-}
 
 // NewIdentityAllocatorManager creates a new instance of an
 // IdentityAllocatorManager.
-func NewIdentityAllocatorManager(owner IdentityAllocatorOwner, client clientset.Interface, identityStore cache.Store) *IdentityAllocatorManager {
+func NewIdentityAllocatorManager(owner IdentityAllocatorOwner) *IdentityAllocatorManager {
 	mgr := &IdentityAllocatorManager{
-		GlobalIdentityAllocatorInitialized: make(chan struct{}),
+		globalIdentityAllocatorInitialized: make(chan struct{}),
 		localIdentityAllocatorInitialized:  make(chan struct{}),
+		owner:                              owner,
 	}
-	// Ignore the channel returned by this function, as we want the global
-	// identity allocator to run asynchronously.
-	mgr.InitIdentityAllocator(owner, client, identityStore)
 	return mgr
 }
 
 func (m *IdentityAllocatorManager) Close() {
 	m.setupMutex.Lock()
 	defer m.setupMutex.Unlock()
+	fmt.Println("acquired mutex")
 
 	select {
-	case <-m.GlobalIdentityAllocatorInitialized:
+	case <-m.globalIdentityAllocatorInitialized:
 		// This means the channel was closed and therefore the IdentityAllocator == nil will never be true
 	default:
 		if m.IdentityAllocator == nil {
@@ -246,25 +245,21 @@ func (m *IdentityAllocatorManager) Close() {
 		}
 	}
 
+	fmt.Println("Deleting identityallocator")
 	m.IdentityAllocator.Delete()
+	fmt.Println("stopping watcher")
 	m.watcher.stop()
 	m.IdentityAllocator = nil
-	m.GlobalIdentityAllocatorInitialized = make(chan struct{})
+	m.globalIdentityAllocatorInitialized = make(chan struct{})
 	m.localIdentityAllocatorInitialized = make(chan struct{})
 	m.localIdentities = nil
-}
-
-// Close closes the identity allocator and allows to call
-// InitIdentityAllocator() again
-func Close() {
-	GlobalIdentityAllocatorManager.Close()
 }
 
 // WaitForInitialGlobalIdentities waits for the initial set of global security
 // identities to have been received and populated into the allocator cache.
 func (m *IdentityAllocatorManager) WaitForInitialGlobalIdentities(ctx context.Context) error {
 	select {
-	case <-m.GlobalIdentityAllocatorInitialized:
+	case <-m.globalIdentityAllocatorInitialized:
 	case <-ctx.Done():
 		return fmt.Errorf("initial global identity sync was cancelled: %s", ctx.Err())
 	}
@@ -272,48 +267,22 @@ func (m *IdentityAllocatorManager) WaitForInitialGlobalIdentities(ctx context.Co
 	return m.IdentityAllocator.WaitForInitialSync(ctx)
 }
 
-// WaitForInitialGlobalIdentities waits for the initial set of global security
-// identities to have been received and populated into the allocator cache.
-func WaitForInitialGlobalIdentities(ctx context.Context) error {
-	return GlobalIdentityAllocatorManager.WaitForInitialGlobalIdentities(ctx)
-}
-
-// IdentityAllocationIsLocal returns true if a call to AllocateIdentity with
-// the given labels would not require accessing the KV store to allocate the
-// identity.
-// Currently, this function returns true only if the labels are those of a
-// reserved identity, i.e. if the slice contains a single reserved
-// "reserved:*" label.
-func IdentityAllocationIsLocal(lbls labels.Labels) bool {
-	// If there is only one label with the "reserved" source and a well-known
-	// key, the well-known identity for it can be allocated locally.
-	return LookupReservedIdentityByLabels(lbls) != nil
-}
-
 // AllocateIdentity allocates an identity described by the specified labels. If
 // an identity for the specified set of labels already exist, the identity is
 // re-used and reference counting is performed, otherwise a new identity is
 // allocated via the kvstore.
-func AllocateIdentity(ctx context.Context, owner IdentityAllocatorOwner, lbls labels.Labels) (id *identity.Identity, allocated bool, err error) {
-	return GlobalIdentityAllocatorManager.AllocateIdentity(ctx, owner, lbls)
-}
-
-// AllocateIdentity allocates an identity described by the specified labels. If
-// an identity for the specified set of labels already exist, the identity is
-// re-used and reference counting is performed, otherwise a new identity is
-// allocated via the kvstore.
-func (m *IdentityAllocatorManager) AllocateIdentity(ctx context.Context, owner IdentityAllocatorOwner, lbls labels.Labels) (id *identity.Identity, allocated bool, err error) {
+func (m *IdentityAllocatorManager) AllocateIdentity(ctx context.Context, lbls labels.Labels) (id *identity.Identity, allocated bool, err error) {
 	// Notify the owner of the newly added identities so that the
 	// cached identities can be updated ASAP, rather than just
 	// relying on the kv-store update events.
 	defer func() {
 		if err == nil && allocated {
 			metrics.IdentityCount.Inc()
-			if owner != nil {
+			if m.owner != nil {
 				added := IdentityCache{
 					id.ID: id.LabelArray,
 				}
-				owner.UpdateIdentities(added, nil)
+				m.owner.UpdateIdentities(added, nil)
 			}
 		}
 	}()
@@ -325,7 +294,7 @@ func (m *IdentityAllocatorManager) AllocateIdentity(ctx context.Context, owner I
 
 	// If there is only one label with the "reserved" source and a well-known
 	// key, use the well-known identity for that key.
-	if reservedIdentity := LookupReservedIdentityByLabels(lbls); reservedIdentity != nil {
+	if reservedIdentity := identity.LookupReservedIdentityByLabels(lbls); reservedIdentity != nil {
 		if option.Config.Debug {
 			log.WithFields(logrus.Fields{
 				logfields.Identity:       reservedIdentity.ID,
@@ -371,7 +340,7 @@ func (m *IdentityAllocatorManager) AllocateIdentity(ctx context.Context, owner I
 // Release is the reverse operation of AllocateIdentity() and releases the
 // identity again. This function may result in kvstore operations.
 // After the last user has released the ID, the returned lastUse value is true.
-func (m *IdentityAllocatorManager) Release(ctx context.Context, owner IdentityAllocatorOwner, id *identity.Identity) (released bool, err error) {
+func (m *IdentityAllocatorManager) Release(ctx context.Context, id *identity.Identity) (released bool, err error) {
 	defer func() {
 		if released {
 			metrics.IdentityCount.Dec()
@@ -387,11 +356,11 @@ func (m *IdentityAllocatorManager) Release(ctx context.Context, owner IdentityAl
 		<-m.localIdentityAllocatorInitialized
 		lastUse := m.localIdentities.release(id)
 		// Notify release of locally managed identities on last use
-		if owner != nil && lastUse {
+		if m.owner != nil && lastUse {
 			deleted := IdentityCache{
 				id.ID: id.LabelArray,
 			}
-			owner.UpdateIdentities(nil, deleted)
+			m.owner.UpdateIdentities(nil, deleted)
 		}
 		return lastUse, nil
 	}
@@ -415,21 +384,6 @@ func (m *IdentityAllocatorManager) Release(ctx context.Context, owner IdentityAl
 	return m.IdentityAllocator.Release(ctx, GlobalIdentity{id.LabelArray})
 }
 
-// Release is the reverse operation of AllocateIdentity() and releases the
-// identity again. This function may result in kvstore operations.
-// After the last user has released the ID, the returned lastUse value is true.
-func Release(ctx context.Context, owner IdentityAllocatorOwner, id *identity.Identity) (released bool, err error) {
-	return GlobalIdentityAllocatorManager.Release(ctx, owner, id)
-}
-
-// ReleaseSlice attempts to release a set of identities. It is a helper
-// function that may be useful for cleaning up multiple identities in paths
-// where several identities may be allocated and another error means that they
-// should all be released.
-func ReleaseSlice(ctx context.Context, owner IdentityAllocatorOwner, identities []*identity.Identity) error {
-	return GlobalIdentityAllocatorManager.ReleaseSlice(ctx, owner, identities)
-}
-
 // ReleaseSlice attempts to release a set of identities. It is a helper
 // function that may be useful for cleaning up multiple identities in paths
 // where several identities may be allocated and another error means that they
@@ -440,7 +394,7 @@ func (m *IdentityAllocatorManager) ReleaseSlice(ctx context.Context, owner Ident
 		if id == nil {
 			continue
 		}
-		_, err2 := m.Release(ctx, owner, id)
+		_, err2 := m.Release(ctx, id)
 		if err2 != nil {
 			log.WithError(err2).WithFields(logrus.Fields{
 				logfields.Identity: id,
@@ -454,12 +408,6 @@ func (m *IdentityAllocatorManager) ReleaseSlice(ctx context.Context, owner Ident
 // WatchRemoteIdentities starts watching for identities in another kvstore and
 // syncs all identities to the local identity cache.
 func (m *IdentityAllocatorManager) WatchRemoteIdentities(backend kvstore.BackendOperations) *allocator.RemoteCache {
-	<-m.GlobalIdentityAllocatorInitialized
+	<-m.globalIdentityAllocatorInitialized
 	return m.IdentityAllocator.WatchRemoteKVStore(backend, m.IdentitiesPath)
-}
-
-// WatchRemoteIdentities starts watching for identities in another kvstore and
-// syncs all identities to the local identity cache.
-func WatchRemoteIdentities(backend kvstore.BackendOperations) *allocator.RemoteCache {
-	return GlobalIdentityAllocatorManager.WatchRemoteIdentities(backend)
 }

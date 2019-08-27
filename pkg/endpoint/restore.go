@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -110,8 +109,8 @@ func ReadEPsFromDirNames(owner regeneration.Owner, basePath string, eptsDirNames
 // * regenerates the endpoint
 // Returns an error if any operation fails while trying to perform the above
 // operations.
-func (e *Endpoint) RegenerateAfterRestore() error {
-	if err := e.restoreIdentity(); err != nil {
+func (e *Endpoint) RegenerateAfterRestore(identityAllocator identityAllocator) error {
+	if err := e.restoreIdentity(identityAllocator); err != nil {
 		return err
 	}
 
@@ -132,7 +131,13 @@ func (e *Endpoint) RegenerateAfterRestore() error {
 	return nil
 }
 
-func (e *Endpoint) restoreIdentity() error {
+type identityAllocator interface {
+	WaitForInitialGlobalIdentities(context.Context) error
+	AllocateIdentity(context.Context, labels.Labels) (*identity.Identity, bool, error)
+	Release(context.Context, *identity.Identity) (released bool, err error)
+}
+
+func (e *Endpoint) restoreIdentity(identityAllocator identityAllocator) error {
 	if err := e.RLockAlive(); err != nil {
 		e.LogDisconnectedMutexAction(err, "before filtering labels during regenerating restored endpoint")
 		return err
@@ -144,7 +149,7 @@ func (e *Endpoint) restoreIdentity() error {
 
 	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
 	defer cancel()
-	identity, _, err := cache.AllocateIdentity(allocateCtx, e.owner, l)
+	identity, _, err := identityAllocator.AllocateIdentity(allocateCtx, l)
 
 	if err != nil {
 		scopedLog.WithError(err).Warn("Unable to restore endpoint")
@@ -159,7 +164,7 @@ func (e *Endpoint) restoreIdentity() error {
 		identityCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
 		defer cancel()
 
-		err = cache.WaitForInitialGlobalIdentities(identityCtx)
+		err = identityAllocator.WaitForInitialGlobalIdentities(identityCtx)
 		if err != nil {
 			scopedLog.WithError(err).Warn("Failed while waiting for initial global identities")
 			return err
