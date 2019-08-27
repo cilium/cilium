@@ -516,7 +516,7 @@ Add the new options manually to your old `ConfigMap`, and make the necessary
 changes.
 
 In this example, the ``debug`` option is meant to be kept with ``true``, the
-``etcd-config`` is kept unchanged, and ``legacy-host-allows-world`` is a new
+``etcd-config`` is kept unchanged, and ``monitor-aggregation`` is a new
 option, but after reading the :ref:`version_notes` the value was kept unchanged
 from the default value.
 
@@ -532,7 +532,7 @@ new options while keeping the configuration that we wanted:
           disable-ipv4: "false"
           # If you want to clean cilium state; change this value to true
           clean-cilium-state: "false"
-          legacy-host-allows-world: "false"
+          monitor-aggregation: "medium"
           etcd-config: |-
             ---
             endpoints:
