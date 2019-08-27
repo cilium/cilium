@@ -59,6 +59,10 @@ const (
 	// EnableMicroscope is true when microscope should be enabled
 	EnableMicroscope = false
 
+	// CNIIntegration is the environment variable name for configuring CNI
+	// chaining in the CI.
+	CNIIntegration = "CNI_INTEGRATION"
+
 	// CIIntegrationFlannel contains the constant to be used when flannel is
 	// used in the CI.
 	CIIntegrationFlannel = "flannel"
@@ -93,7 +97,7 @@ func GetCurrentK8SEnv() string { return os.Getenv("K8S_VERSION") }
 
 // GetCurrentIntegration returns CI integration set up to run against Cilium.
 func GetCurrentIntegration() string {
-	switch strings.ToLower(os.Getenv("CNI_INTEGRATION")) {
+	switch strings.ToLower(os.Getenv(CNIIntegration)) {
 	case CIIntegrationFlannel:
 		return CIIntegrationFlannel
 	default:
