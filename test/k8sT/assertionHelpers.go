@@ -122,15 +122,15 @@ func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, options []string) {
 
 	ExpectCiliumRunning(vm)
 
-	By("Installing DNS Deployment")
-	_ = vm.Apply(helpers.DNSDeployment())
-
 	switch helpers.GetCurrentIntegration() {
 	case helpers.CIIntegrationFlannel:
 		By("Installing Flannel")
 		vm.Apply(helpers.GetFilePath("../examples/kubernetes/addons/flannel/flannel.yaml"))
 	default:
 	}
+
+	By("Installing DNS Deployment")
+	_ = vm.Apply(helpers.DNSDeployment())
 
 	ExpectCiliumReady(vm)
 	ExpectCiliumOperatorReady(vm)
