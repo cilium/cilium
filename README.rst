@@ -281,7 +281,7 @@ under the `General Public License, Version 2.0 <bpf/COPYING>`_.
 .. _`Architecture and Concepts`: http://docs.cilium.io/en/stable/concepts/
 .. _`Installing Cilium`: http://docs.cilium.io/en/stable/gettingstarted/#installation
 .. _`Frequently Asked Questions`: https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3Akind%2Fquestion+
-.. _Contributing: http://docs.cilium.io/en/stable/contributing
+.. _Contributing: http://docs.cilium.io/en/stable/contributing/contributing/
 .. _Prerequisites: http://docs.cilium.io/en/doc-1.0/install/system_requirements
 .. _`BPF and XDP Reference Guide`: http://docs.cilium.io/en/stable/bpf/
 
