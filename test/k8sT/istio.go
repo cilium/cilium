@@ -59,7 +59,6 @@ var _ = Describe("K8sIstioTest", func() {
 			// those that we care about are uncommented.
 			// "istio-citadel",
 			// "istio-galley",
-			// "istio-egressgateway",
 			"istio-ingressgateway",
 			"istio-pilot",
 			// "istio-policy",
@@ -92,7 +91,7 @@ var _ = Describe("K8sIstioTest", func() {
 		res := kubectl.NamespaceCreate(istioSystemNamespace)
 		res.ExpectSuccess("unable to create namespace %q", istioSystemNamespace)
 
-		By("Creating the Istio resources")
+		By("Creating the Istio CRDs")
 
 		res = kubectl.Apply(istioCRDYAMLPath)
 		res.ExpectSuccess("unable to create Istio CRDs")
@@ -101,6 +100,8 @@ var _ = Describe("K8sIstioTest", func() {
 		err := kubectl.WaitForCRDCount("istio.io|certmanager.k8s.io", 23, helpers.HelperTimeout)
 		Expect(err).To(BeNil(),
 			"Istio CRDs are not ready after timeout")
+
+		By("Creating the Istio system PODs")
 
 		res = kubectl.Apply(istioYAMLPath)
 		res.ExpectSuccess("unable to create Istio resources")
@@ -143,11 +144,22 @@ var _ = Describe("K8sIstioTest", func() {
 			"cilium bpf proxy list")
 	})
 
+	// This is defined as a separate function to be called from the test below
+	// so that we properly capture test artifacts if any of the assertions fail
+	// (see https://github.com/cilium/cilium/pull/8508).
 	waitIstioReady := func() {
 		// Ignore one-time jobs and Prometheus. All other pods in the
 		// namespaces have an "istio" label.
 		By("Waiting for Istio pods to be ready")
-		err := kubectl.WaitforPods(istioSystemNamespace, "-l istio", helpers.HelperTimeout)
+		// First wait for at least one POD to get into Ready state so that WaitforPods
+		// below does not succeed if there are no PODs with the "istio" label.
+		err := kubectl.WaitforNPods(istioSystemNamespace, "-l istio", 1, helpers.HelperTimeout)
+		ExpectWithOffset(1, err).To(BeNil(),
+			"No Istio POD is Ready after timeout in namespace %q", istioSystemNamespace)
+
+		// Then wait for all the Istio PODs to get Ready
+		// Note that this succeeds if there are no PODs matching the filter (-l istio -n istio-system).
+		err = kubectl.WaitforPods(istioSystemNamespace, "-l istio", helpers.HelperTimeout)
 		ExpectWithOffset(1, err).To(BeNil(),
 			"Istio pods are not ready after timeout in namespace %q", istioSystemNamespace)
 
