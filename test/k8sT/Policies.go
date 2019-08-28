@@ -127,14 +127,14 @@ var _ = Describe("K8sPolicyTest", func() {
 				ExpectWithOffset(1, res).To(getMatcher(expectWorldSuccess),
 					"ICMP egress connectivity to 8.8.8.8 from pod %q", pod)
 
-				By("DNS lookup of google.com")
+				By("DNS lookup of kubernetes.default.svc.cluster.local")
 				res = kubectl.ExecPodCmd(
 					namespaceForTest, pod,
-					"host -v www.google.com")
+					"host -v kubernetes.default.svc.cluster.local")
 
 				// kube-dns is always whitelisted so this should always work
 				ExpectWithOffset(1, res).To(getMatcher(expectWorldSuccess || expectClusterSuccess),
-					"DNS connectivity of www.google.com from pod %q", pod)
+					"DNS connectivity of kubernetes.default.svc.cluster.local from pod %q", pod)
 
 				By("HTTP connectivity from pod to pod")
 				res = kubectl.ExecPodCmd(
@@ -397,7 +397,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 				res = kubectl.ExecPodCmd(
 					namespaceForTest, pod,
-					"host www.google.com")
+					"host kubernetes.default.svc.cluster.local")
 				res.ExpectFail("Egress DNS connectivity should be denied for pod %q", pod)
 			}
 		})
@@ -424,7 +424,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 				res = kubectl.ExecPodCmd(
 					namespaceForTest, pod,
-					"host www.google.com")
+					"host kubernetes.default.svc.cluster.local")
 				res.ExpectFail("Egress DNS connectivity should be denied for pod %q", pod)
 			}
 
@@ -484,7 +484,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 				res = kubectl.ExecPodCmd(
 					namespaceForTest, pod,
-					"host www.google.com")
+					"host kubernetes.default.svc.cluster.local")
 				res.ExpectFail("Egress DNS connectivity should be denied for pod %q", pod)
 			}
 		})
@@ -530,7 +530,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 				res = kubectl.ExecPodCmd(
 					namespaceForTest, pod,
-					"host www.google.com")
+					"host kubernetes.default.svc.cluster.local")
 				res.ExpectSuccess("Egress DNS connectivity should be allowed for pod %q", pod)
 			}
 		})
