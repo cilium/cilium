@@ -690,7 +690,7 @@ type rulesManager interface {
 	RemoveRules()
 	InstallRules(ifName string) error
 	TransientRulesStart(ifName string) error
-	TransientRulesEnd()
+	TransientRulesEnd(quiet bool)
 }
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
