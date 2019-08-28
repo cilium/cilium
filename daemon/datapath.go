@@ -248,7 +248,7 @@ func (d *Daemon) compileBase() error {
 	d.iptablesManager.RemoveRules()
 	if option.Config.InstallIptRules {
 		err := d.iptablesManager.InstallRules(option.Config.HostDevice)
-		d.iptablesManager.TransientRulesEnd()
+		d.iptablesManager.TransientRulesEnd(false)
 		if err != nil {
 			return err
 		}

@@ -167,18 +167,18 @@ func (m *IptablesManager) removeCiliumRules(table, prog, match string) {
 	}
 }
 
-func (c *customChain) remove(waitArgs []string) {
+func (c *customChain) remove(waitArgs []string, quiet bool) {
 	if option.Config.EnableIPv4 {
 		prog := "iptables"
 		args := append(waitArgs, "-t", c.table, "-F", c.name)
 		err := runProg(prog, args, true)
-		if err != nil {
+		if err != nil && !quiet {
 			log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to flush Cilium %s chain", prog)
 		}
 
 		args = append(waitArgs, "-t", c.table, "-X", c.name)
 		err = runProg(prog, args, true)
-		if err != nil {
+		if err != nil && !quiet {
 			log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to delete Cilium %s chain", prog)
 		}
 	}
@@ -186,13 +186,13 @@ func (c *customChain) remove(waitArgs []string) {
 		prog := "ip6tables"
 		args := append(waitArgs, "-t", c.table, "-F", c.name)
 		err := runProg(prog, args, true)
-		if err != nil {
+		if err != nil && !quiet {
 			log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to flush Cilium %s chain", prog)
 		}
 
 		args = append(waitArgs, "-t", c.table, "-X", c.name)
 		err = runProg(prog, args, true)
-		if err != nil {
+		if err != nil && !quiet {
 			log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to delete Cilium %s chain", prog)
 		}
 	}
@@ -377,7 +377,7 @@ func (m *IptablesManager) RemoveRules() {
 	}
 
 	for _, c := range ciliumChains {
-		c.remove(m.waitArgs)
+		c.remove(m.waitArgs, false)
 	}
 }
 
@@ -650,7 +650,7 @@ func (m *IptablesManager) TransientRulesStart(ifName string) error {
 	if option.Config.EnableIPv4 {
 		localDeliveryInterface := getDeliveryInterface(ifName)
 
-		m.TransientRulesEnd()
+		m.TransientRulesEnd(true)
 
 		if err := transientChain.add(m.waitArgs); err != nil {
 			return fmt.Errorf("cannot add custom chain %s: %s", transientChain.name, err)
@@ -688,10 +688,10 @@ func (m *IptablesManager) TransientRulesStart(ifName string) error {
 }
 
 // TransientRulesEnd removes Cilium related rules installed from TransientRulesStart.
-func (m *IptablesManager) TransientRulesEnd() {
+func (m *IptablesManager) TransientRulesEnd(quiet bool) {
 	if option.Config.EnableIPv4 {
 		m.removeCiliumRules("filter", "iptables", ciliumTransientForwardChain)
-		transientChain.remove(m.waitArgs)
+		transientChain.remove(m.waitArgs, quiet)
 	}
 }
 
