@@ -661,10 +661,8 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 // createPrefixLengthCounter wraps around the counter library, providing
 // references to prefix lengths that will always be present.
 func createPrefixLengthCounter() *counter.PrefixLengthCounter {
-	prefixLengths4 := ipcachemap.IPCache.GetMaxPrefixLengths(false)
-	prefixLengths6 := ipcachemap.IPCache.GetMaxPrefixLengths(true)
-
-	return counter.DefaultPrefixLengthCounter(prefixLengths4, prefixLengths6)
+	max6, max4 := ipcachemap.IPCache.GetMaxPrefixLengths()
+	return counter.DefaultPrefixLengthCounter(max6, max4)
 }
 
 type rulesManager interface {

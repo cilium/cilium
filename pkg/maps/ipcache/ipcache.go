@@ -202,18 +202,11 @@ func (m *Map) Delete(k bpf.MapKey) error {
 
 // GetMaxPrefixLengths determines how many unique prefix lengths are supported
 // simultaneously based on the underlying BPF map type in use.
-func (m *Map) GetMaxPrefixLengths(ipv6 bool) (count int) {
+func (m *Map) GetMaxPrefixLengths() (ipv6, ipv4 int) {
 	if IPCache.MapType == bpf.BPF_MAP_TYPE_LPM_TRIE {
-		if ipv6 {
-			return net.IPv6len*8 + 1
-		} else {
-			return net.IPv4len*8 + 1
-		}
+		return net.IPv6len*8 + 1, net.IPv4len*8 + 1
 	}
-	if ipv6 {
-		return maxPrefixLengths6
-	}
-	return maxPrefixLengths4
+	return maxPrefixLengths6, maxPrefixLengths4
 }
 
 func (m *Map) supportsDelete() bool {
