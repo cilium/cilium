@@ -184,8 +184,8 @@ type Endpoint struct {
 	// Options determine the datapath configuration of the endpoint.
 	Options *option.IntOptions
 
-	// Status are the last n state transitions this endpoint went through
-	Status *EndpointStatus `json:"-"`
+	// status contains the last n state transitions this endpoint went through
+	status *EndpointStatus
 
 	// DNSHistory is the collection of still-valid DNS responses intercepted for
 	// this endpoint.
@@ -396,7 +396,7 @@ func NewEndpointWithState(owner regeneration.Owner, ID uint16, state string) *En
 		owner:         owner,
 		ID:            ID,
 		OpLabels:      pkgLabels.NewOpLabels(),
-		Status:        NewEndpointStatus(),
+		status:        NewEndpointStatus(),
 		DNSHistory:    fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
 		state:         state,
 		hasBPFProgram: make(chan struct{}, 0),
@@ -708,8 +708,8 @@ func ParseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
 	// some use cases, status will be not nil and Cilium will eventually
 	// error/panic if CurrentStatus or Log are not initialized correctly.
 	// Reference issue GH-2477
-	if ep.Status == nil || ep.Status.CurrentStatuses == nil || ep.Status.Log == nil {
-		ep.Status = NewEndpointStatus()
+	if ep.status == nil || ep.status.CurrentStatuses == nil || ep.status.Log == nil {
+		ep.status = NewEndpointStatus()
 	}
 
 	// Make sure the endpoint has an identity, using the 'init' identity if none.
@@ -747,8 +747,8 @@ func (e *Endpoint) LogStatusOKLocked(typ StatusType, msg string) {
 // logStatusLocked logs a status message
 // must be called with endpoint.Mutex held
 func (e *Endpoint) logStatusLocked(typ StatusType, code StatusCode, msg string) {
-	e.Status.indexMU.Lock()
-	defer e.Status.indexMU.Unlock()
+	e.status.indexMU.Lock()
+	defer e.status.indexMU.Unlock()
 	sts := &statusLogMsg{
 		Status: Status{
 			Code:  code,
@@ -758,7 +758,7 @@ func (e *Endpoint) logStatusLocked(typ StatusType, code StatusCode, msg string) 
 		},
 		Timestamp: time.Now().UTC(),
 	}
-	e.Status.addStatusLog(sts)
+	e.status.addStatusLog(sts)
 	e.getLogger().WithFields(logrus.Fields{
 		"code":                   sts.Status.Code,
 		"type":                   sts.Status.Type,
@@ -819,7 +819,7 @@ func (e *Endpoint) Update(cfg *models.EndpointConfigurationSpec) error {
 	if cfg.Options == nil {
 		regenCtx.RegenerationLevel = regeneration.RegenerateWithDatapathRebuild
 		regenCtx.Reason = "endpoint was manually regenerated via API"
-	} else if e.updateAndOverrideEndpointOptions(om) || e.Status.CurrentStatus() != OK {
+	} else if e.updateAndOverrideEndpointOptions(om) || e.status.CurrentStatus() != OK {
 		regenCtx.RegenerationLevel = regeneration.RegenerateWithDatapathRewrite
 	}
 

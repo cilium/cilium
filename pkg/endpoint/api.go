@@ -79,7 +79,7 @@ func NewEndpointFromChangeModel(owner regeneration.Owner, base *models.EndpointC
 		OpLabels:         labels.NewOpLabels(),
 		DNSHistory:       fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
 		state:            "",
-		Status:           NewEndpointStatus(),
+		status:           NewEndpointStatus(),
 		hasBPFProgram:    make(chan struct{}, 0),
 		desiredPolicy:    policy.NewEndpointPolicy(owner.GetPolicyRepository()),
 		controllers:      controller.NewManager(),
@@ -140,14 +140,14 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 	}
 
 	currentState := models.EndpointState(e.state)
-	if currentState == models.EndpointStateReady && e.Status.CurrentStatus() != OK {
+	if currentState == models.EndpointStateReady && e.status.CurrentStatus() != OK {
 		currentState = models.EndpointStateNotReady
 	}
 
 	// This returns the most recent log entry for this endpoint. It is backwards
 	// compatible with the json from before we added `cilium endpoint log` but it
 	// only returns 1 entry.
-	statusLog := e.Status.GetModel()
+	statusLog := e.status.GetModel()
 	if len(statusLog) > 0 {
 		statusLog = statusLog[:1]
 	}
@@ -217,7 +217,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 func (e *Endpoint) getHealthModel() *models.EndpointHealth {
 	// Duplicated from GetModelRLocked.
 	currentState := models.EndpointState(e.state)
-	if currentState == models.EndpointStateReady && e.Status.CurrentStatus() != OK {
+	if currentState == models.EndpointStateReady && e.status.CurrentStatus() != OK {
 		currentState = models.EndpointStateNotReady
 	}
 
@@ -562,5 +562,5 @@ func (e *Endpoint) ApplyUserLabelChanges(lbls labels.Labels) (add, del labels.La
 
 // GetStatusModel returns the model of the status of this endpoint.
 func (e *Endpoint) GetStatusModel() []*models.EndpointStatusChange {
-	return e.Status.GetModel()
+	return e.status.GetModel()
 }

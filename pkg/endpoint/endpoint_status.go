@@ -68,7 +68,7 @@ func getEndpointStatusControllers(status *models.EndpointStatus) (controllers ci
 func (e *Endpoint) getEndpointStatusLog() (log []*models.EndpointStatusChange) {
 	added := 0
 
-	if s := e.Status; s != nil {
+	if s := e.status; s != nil {
 		s.indexMU.RLock()
 		defer s.indexMU.RUnlock()
 

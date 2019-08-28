@@ -157,9 +157,9 @@ func (ds *EndpointSuite) TestReadEPsFromDirNames(c *C) {
 		// naturally differ between the wanted endpoint and the version
 		// that's restored, because the restored version has log
 		// messages relating to the restore.
-		restoredEP.Status = nil
+		restoredEP.status = nil
 		wanted := epsWanted[i]
-		wanted.Status = nil
+		wanted.status = nil
 		c.Assert(restoredEP.String(), checker.DeepEquals, wanted.String())
 	}
 }
