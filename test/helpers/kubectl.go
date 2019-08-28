@@ -643,7 +643,7 @@ func checkReady(pod v1.Pod) bool {
 	return true
 }
 
-// WaitforNPodsRunning waits up until timeout seconds have elapsed for at least
+// WaitforNPodsRunning waits up until timeout duration has elapsed for at least
 // minRequired pods in the specified namespace that match the provided JSONPath
 // filter to have their containterStatuses equal to "running".
 // Returns no error if minRequired pods achieve the aforementioned desired
