@@ -21,8 +21,11 @@ reached from the host namespace.
 .. note::
 
    Host-reachable services for TCP and UDP requires a v4.19.57, v5.1.16, v5.2.0
-   or more recent Linux kernel. For only enabling TCP-based host-reachable
-   services a v4.17.0 or newer kernel is required.
+   or more recent Linux kernel. Note that v5.0.y kernels do not have the fix
+   required to run host-reachable services with UDP since at this point in time
+   the v5.0.y stable kernel is end-of-life (EOL) and not maintained anymore. For
+   only enabling TCP-based host-reachable services a v4.17.0 or newer kernel
+   is required.
 
 .. include:: k8s-install-download-release.rst
 
