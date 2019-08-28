@@ -527,10 +527,6 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	else
 		bpf_unload $ENCAP_DEV "egress"
 	fi
-else
-	# Remove eventual existing encapsulation device from previous run
-	ip link del cilium_vxlan 2> /dev/null || true
-	ip link del cilium_geneve 2> /dev/null || true
 fi
 
 if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$MODE" = "routed" ] || [ "$NODE_PORT" = "true" ] ; then

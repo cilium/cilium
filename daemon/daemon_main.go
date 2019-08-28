@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
+	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -1142,6 +1143,15 @@ func runDaemon() {
 	}
 
 	log.Info("Initializing daemon")
+
+	// We need to ensure that tunnel mode is respected before waiting for
+	// flannel, otherwise flannel bootstrap may fail because it can't
+	// configure the flannel tunnel device, because there's still a cilium
+	// tunnel device left over from a previous run of the daemon.
+	if option.Config.Tunnel == option.TunnelDisabled {
+		_ = link.DeleteByName(fmt.Sprintf("cilium_%s", option.TunnelVXLAN))
+		_ = link.DeleteByName(fmt.Sprintf("cilium_%s", option.TunnelGeneve))
+	}
 
 	// Since flannel doesn't create the cni0 interface until the first container
 	// is initialized we need to wait until it is initialized so we can attach
