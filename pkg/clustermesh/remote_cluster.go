@@ -154,9 +154,11 @@ func (rc *remoteCluster) restartRemoteConnection() {
 					if backend != nil {
 						backend.Close()
 					}
-					rc.getLogger().WithError(err).Warning("Unable to establish etcd connection to remote cluser")
+					rc.getLogger().WithError(err).Warning("Unable to establish etcd connection to remote cluster")
 					return err
 				}
+
+				rc.getLogger().Info("Connection to remote cluster established")
 
 				remoteNodes, err := store.JoinSharedStore(store.Configuration{
 					Prefix:                  path.Join(nodeStore.NodeStorePrefix, rc.name),
@@ -219,7 +221,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 }
 
 func (rc *remoteCluster) onInsert() {
-	rc.getLogger().Info("New remote cluster discovered")
+	rc.getLogger().Info("New remote cluster configuration")
 
 	if skipKvstoreConnection {
 		return
