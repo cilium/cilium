@@ -600,9 +600,12 @@ func (s *EndpointSuite) TestEndpointEventQueueDeadlockUponDeletion(c *C) {
 	// Need to modify global configuration (hooray!), change back when test is
 	// done.
 	oldQueueSize := option.Config.EndpointQueueSize
+	oldDryMode := option.Config.DryMode
 	option.Config.EndpointQueueSize = 1
+	option.Config.DryMode = true
 	defer func() {
 		option.Config.EndpointQueueSize = oldQueueSize
+		option.Config.DryMode = oldDryMode
 	}()
 
 	oldDatapath := s.datapath
