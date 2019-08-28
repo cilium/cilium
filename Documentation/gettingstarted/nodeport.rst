@@ -23,7 +23,10 @@ without ``kube-proxy``.
 .. note::
 
    NodePort services depend on the :ref:`host-services` feature, therefore
-   a v4.19.57, v5.1.16, v5.2.0 or more recent Linux kernel is required.
+   a v4.19.57, v5.1.16, v5.2.0 or more recent Linux kernel is required. Note
+   that v5.0.y kernels do not have the fix required to run BPF NodePort since
+   at this point in time the v5.0.y stable kernel is end-of-life (EOL) and
+   not maintained anymore.
 
 .. include:: k8s-install-download-release.rst
 
