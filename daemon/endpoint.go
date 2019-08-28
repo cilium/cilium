@@ -646,7 +646,7 @@ func (h *getEndpointIDLog) Handle(params GetEndpointIDLogParams) middleware.Resp
 	} else if ep == nil {
 		return NewGetEndpointIDLogNotFound()
 	} else {
-		return NewGetEndpointIDLogOK().WithPayload(ep.Status.GetModel())
+		return NewGetEndpointIDLogOK().WithPayload(ep.GetStatusModel())
 	}
 }
 
