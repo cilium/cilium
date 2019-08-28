@@ -78,7 +78,7 @@ func (s *EndpointSuite) newEndpoint(c *check.C, spec endpointGeneratorSpec) *End
 	}
 
 	for i := 0; i < spec.logErrors; i++ {
-		e.Status.addStatusLog(&statusLogMsg{
+		e.status.addStatusLog(&statusLogMsg{
 			Status: Status{Code: Failure, Msg: "Failure", Type: BPF},
 		})
 	}
@@ -152,7 +152,7 @@ func (s *EndpointSuite) TestGetCiliumEndpointStatusSuccessfulLog(c *check.C) {
 
 	go func() {
 		for i := 0; i < 1000; i++ {
-			e.Status.addStatusLog(&statusLogMsg{
+			e.status.addStatusLog(&statusLogMsg{
 				Status: Status{Code: OK, Msg: "Success", Type: BPF},
 			})
 			time.Sleep(time.Millisecond)
