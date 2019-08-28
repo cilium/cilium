@@ -191,6 +191,17 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			cleanService()
 		})
+		It("Check connectivity with transparent encryption, auto-interface, and direct routing", func() {
+			SkipIfFlannel()
+
+			deployCilium([]string{
+				"--set global.tunnel=disabled",
+				"--set global.autoDirectNodeRoutes=true",
+				"--set global.encryption.enabled=true",
+			})
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			cleanService()
+		})
 	})
 
 	Context("IPv4Only", func() {
