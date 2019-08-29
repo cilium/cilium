@@ -215,7 +215,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		vm.ExecWithSudo("mkdir -m777 -p /data")
 		for _, file := range generatedFiles {
 			vm.Exec(fmt.Sprintf("mv %s /data/%s",
-				filepath.Join(helpers.BasePath, file), file)).ExpectSuccess(
+				filepath.Join(vm.BasePath(), file), file)).ExpectSuccess(
 				"Cannot copy %q to bind container", file)
 		}
 

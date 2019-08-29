@@ -89,7 +89,7 @@ var _ = Describe("RuntimePolicyValidationTests", func() {
 		jsonFiles, err := getFilesWithExtensionFromDir(examplePathHost, "json")
 		Expect(err).Should(BeNil(), "Unable to get files at path %s: %s", examplePathHost, err)
 
-		examplePathVM := filepath.Join(helpers.BasePath, "..", examplesDemoPath)
+		examplePathVM := filepath.Join(vm.BasePath(), "..", examplesDemoPath)
 		for _, file := range jsonFiles {
 			jsonPolicyPath := filepath.Join(examplePathVM, file)
 			vm.ExecCilium(fmt.Sprintf("policy validate %s", jsonPolicyPath)).ExpectSuccess("Unable to validate policy %s", jsonPolicyPath)
@@ -101,7 +101,7 @@ var _ = Describe("RuntimePolicyValidationTests", func() {
 		jsonFiles, err = getFilesWithExtensionFromDir(jsonExamplesPathHost, "json")
 		Expect(err).Should(BeNil(), "Unable to get files at path %s: %s", jsonExamplesPathHost, err)
 
-		jsonExamplesPathVM := filepath.Join(helpers.BasePath, "..", examplesPoliciesPath)
+		jsonExamplesPathVM := filepath.Join(vm.BasePath(), "..", examplesPoliciesPath)
 		for _, file := range jsonFiles {
 			jsonPolicyPath := filepath.Join(jsonExamplesPathVM, file)
 			vm.ExecCilium(fmt.Sprintf("policy validate %s", jsonPolicyPath)).ExpectSuccess("Unable to validate policy %s", jsonPolicyPath)
@@ -113,10 +113,10 @@ var _ = Describe("RuntimePolicyValidationTests", func() {
 		jsonFiles, err = getFilesWithExtensionFromDir(yamlExamplesPathHost, "yaml")
 		Expect(err).Should(BeNil(), "Unable to get files at path %s: %s", yamlExamplesPathHost, err)
 
-		yamlExamplesPathVM := filepath.Join(helpers.BasePath, "..", examplesPoliciesPath)
+		yamlExamplesPathVM := filepath.Join(vm.BasePath(), "..", examplesPoliciesPath)
 		for _, file := range jsonFiles {
 			yamlPolicyPath := filepath.Join(yamlExamplesPathVM, file)
-			res := vm.Exec(fmt.Sprintf("yamllint -c %s %s", filepath.Join(helpers.BasePath, "yaml.config"), yamlPolicyPath))
+			res := vm.Exec(fmt.Sprintf("yamllint -c %s %s", filepath.Join(vm.BasePath(), "yaml.config"), yamlPolicyPath))
 			res.ExpectSuccess("Unable to validate YAML %s", yamlPolicyPath)
 		}
 	})

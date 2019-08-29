@@ -279,7 +279,7 @@ var runtimeConnectivityTest = func(datapathMode string) func() {
 				Expect(err).To(BeNil())
 
 				cmd := vm.ExecWithSudo(fmt.Sprintf("mv %s %s",
-					helpers.GetFilePath(filename),
+					vm.GetFilePath(filename),
 					filepath.Join(netDPath, filename)))
 				cmd.ExpectSuccess("cannot install cilium cni plugin conf")
 				script := fmt.Sprintf(`
@@ -305,7 +305,7 @@ var runtimeConnectivityTest = func(datapathMode string) func() {
 				}]`
 				err = helpers.RenderTemplateToFile(policyFileName, policy, os.ModePerm)
 				Expect(err).Should(BeNil())
-				_, err = vm.PolicyImportAndWait(helpers.GetFilePath(policyFileName), helpers.HelperTimeout)
+				_, err = vm.PolicyImportAndWait(vm.GetFilePath(policyFileName), helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), fmt.Sprintf("Cannot import policy %s", policyFileName))
 
 				By("Adding containers")

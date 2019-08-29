@@ -29,20 +29,21 @@ import (
 var _ = Describe("K8sPolicyTest", func() {
 
 	var (
-		kubectl              *helpers.Kubectl
-		demoPath             = helpers.ManifestGet("demo.yaml")
-		l3Policy             = helpers.ManifestGet("l3-l4-policy.yaml")
-		l7Policy             = helpers.ManifestGet("l7-policy.yaml")
-		l7PolicyKafka        = helpers.ManifestGet("l7-policy-kafka.yaml")
-		serviceAccountPolicy = helpers.ManifestGet("service-account.yaml")
-		knpDenyIngress       = helpers.ManifestGet("knp-default-deny-ingress.yaml")
-		knpDenyEgress        = helpers.ManifestGet("knp-default-deny-egress.yaml")
-		knpDenyIngressEgress = helpers.ManifestGet("knp-default-deny-ingress-egress.yaml")
-		cnpDenyIngress       = helpers.ManifestGet("cnp-default-deny-ingress.yaml")
-		cnpDenyEgress        = helpers.ManifestGet("cnp-default-deny-egress.yaml")
-		knpAllowIngress      = helpers.ManifestGet("knp-default-allow-ingress.yaml")
-		knpAllowEgress       = helpers.ManifestGet("knp-default-allow-egress.yaml")
-		cnpMatchExpression   = helpers.ManifestGet("cnp-matchexpressions.yaml")
+		kubectl *helpers.Kubectl
+		// these are set in BeforeAll()
+		demoPath             string
+		l3Policy             string
+		l7Policy             string
+		l7PolicyKafka        string
+		serviceAccountPolicy string
+		knpDenyIngress       string
+		knpDenyEgress        string
+		knpDenyIngressEgress string
+		cnpDenyIngress       string
+		cnpDenyEgress        string
+		knpAllowIngress      string
+		knpAllowEgress       string
+		cnpMatchExpression   string
 		app1Service          = "app1-service"
 		microscopeErr        error
 		microscopeCancel                        = func() error { return nil }
@@ -53,6 +54,21 @@ var _ = Describe("K8sPolicyTest", func() {
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+
+		demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
+		l3Policy = helpers.ManifestGet(kubectl.BasePath(), "l3-l4-policy.yaml")
+		l7Policy = helpers.ManifestGet(kubectl.BasePath(), "l7-policy.yaml")
+		l7PolicyKafka = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-kafka.yaml")
+		serviceAccountPolicy = helpers.ManifestGet(kubectl.BasePath(), "service-account.yaml")
+		knpDenyIngress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-deny-ingress.yaml")
+		knpDenyEgress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-deny-egress.yaml")
+		knpDenyIngressEgress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-deny-ingress-egress.yaml")
+		cnpDenyIngress = helpers.ManifestGet(kubectl.BasePath(), "cnp-default-deny-ingress.yaml")
+		cnpDenyEgress = helpers.ManifestGet(kubectl.BasePath(), "cnp-default-deny-egress.yaml")
+		knpAllowIngress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-allow-ingress.yaml")
+		knpAllowEgress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-allow-egress.yaml")
+		cnpMatchExpression = helpers.ManifestGet(kubectl.BasePath(), "cnp-matchexpressions.yaml")
+
 		DeployCiliumAndDNS(kubectl)
 	})
 
@@ -264,7 +280,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		}, 500)
 
 		It("Invalid Policy report status correctly", func() {
-			manifest := helpers.ManifestGet("invalid_cnp.yaml")
+			manifest := helpers.ManifestGet(kubectl.BasePath(), "invalid_cnp.yaml")
 			cnpName := "foo"
 			kubectl.Apply(manifest, namespaceForTest).ExpectSuccess("Cannot apply policy manifest")
 
@@ -545,11 +561,18 @@ var _ = Describe("K8sPolicyTest", func() {
 			)
 
 			var (
-				cnpToEntitiesAll     = helpers.ManifestGet("cnp-to-entities-all.yaml")
-				cnpToEntitiesWorld   = helpers.ManifestGet("cnp-to-entities-world.yaml")
-				cnpToEntitiesCluster = helpers.ManifestGet("cnp-to-entities-cluster.yaml")
-				cnpToEntitiesHost    = helpers.ManifestGet("cnp-to-entities-host.yaml")
+				cnpToEntitiesAll     string
+				cnpToEntitiesWorld   string
+				cnpToEntitiesCluster string
+				cnpToEntitiesHost    string
 			)
+
+			BeforeAll(func() {
+				cnpToEntitiesAll = helpers.ManifestGet(kubectl.BasePath(), "cnp-to-entities-all.yaml")
+				cnpToEntitiesWorld = helpers.ManifestGet(kubectl.BasePath(), "cnp-to-entities-world.yaml")
+				cnpToEntitiesCluster = helpers.ManifestGet(kubectl.BasePath(), "cnp-to-entities-cluster.yaml")
+				cnpToEntitiesHost = helpers.ManifestGet(kubectl.BasePath(), "cnp-to-entities-host.yaml")
+			})
 
 			It("Validate toEntities All", func() {
 				By("Installing toEntities All")
@@ -592,11 +615,18 @@ var _ = Describe("K8sPolicyTest", func() {
 			)
 
 			var (
-				cnpUpdateAllow        = helpers.ManifestGet("cnp-update-allow-all.yaml")
-				cnpUpdateDeny         = helpers.ManifestGet("cnp-update-deny-ingress.yaml")
-				cnpUpdateNoSpecs      = helpers.ManifestGet("cnp-update-no-specs.yaml")
-				cnpUpdateDenyLabelled = helpers.ManifestGet("cnp-update-deny-ingress-labelled.yaml")
+				cnpUpdateAllow        string
+				cnpUpdateDeny         string
+				cnpUpdateNoSpecs      string
+				cnpUpdateDenyLabelled string
 			)
+
+			BeforeAll(func() {
+				cnpUpdateAllow = helpers.ManifestGet(kubectl.BasePath(), "cnp-update-allow-all.yaml")
+				cnpUpdateDeny = helpers.ManifestGet(kubectl.BasePath(), "cnp-update-deny-ingress.yaml")
+				cnpUpdateNoSpecs = helpers.ManifestGet(kubectl.BasePath(), "cnp-update-no-specs.yaml")
+				cnpUpdateDenyLabelled = helpers.ManifestGet(kubectl.BasePath(), "cnp-update-deny-ingress-labelled.yaml")
+			})
 
 			validateL3L4 := func(allowApp3 bool) {
 				res := kubectl.ExecPodCmd(
@@ -707,7 +737,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		var err error
 
 		BeforeEach(func() {
-			kubectl.Apply(helpers.ManifestGet(deployment))
+			kubectl.Apply(helpers.ManifestGet(kubectl.BasePath(), deployment))
 			ciliumPods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
 			Expect(err).To(BeNil(), "cannot retrieve Cilium Pods")
 			Expect(ciliumPods).ShouldNot(BeEmpty(), "cannot retrieve Cilium pods")
@@ -721,16 +751,16 @@ var _ = Describe("K8sPolicyTest", func() {
 
 		AfterEach(func() {
 
-			kubectl.Delete(helpers.ManifestGet(webPolicy)).ExpectSuccess(
+			kubectl.Delete(helpers.ManifestGet(kubectl.BasePath(), webPolicy)).ExpectSuccess(
 				"Web policy cannot be deleted")
-			kubectl.Delete(helpers.ManifestGet(redisPolicyDeprecated)).ExpectSuccess(
+			kubectl.Delete(helpers.ManifestGet(kubectl.BasePath(), redisPolicyDeprecated)).ExpectSuccess(
 				"Redis deprecated policy cannot be deleted")
-			kubectl.Delete(helpers.ManifestGet(deployment)).ExpectSuccess(
+			kubectl.Delete(helpers.ManifestGet(kubectl.BasePath(), deployment)).ExpectSuccess(
 				"Guestbook deployment cannot be deleted")
 
 			// This policy shouldn't be there, but test can fail before delete
 			// the policy and we want to make sure that it's deleted
-			kubectl.Delete(helpers.ManifestGet(redisPolicy))
+			kubectl.Delete(helpers.ManifestGet(kubectl.BasePath(), redisPolicy))
 			for _, ciliumPod := range ciliumPods {
 				err := kubectl.WaitPolicyDeleted(ciliumPod, getPolicyCmd(webPolicyName))
 				Expect(err).To(
@@ -797,7 +827,7 @@ EOF`, k, v)
 
 			By("Apply policy to web")
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.DefaultNamespace, helpers.ManifestGet(webPolicy),
+				helpers.DefaultNamespace, helpers.ManifestGet(kubectl.BasePath(), webPolicy),
 				helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot apply web-policy")
 
@@ -808,7 +838,7 @@ EOF`, k, v)
 
 			By("Apply policy to Redis")
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.DefaultNamespace, helpers.ManifestGet(redisPolicy),
+				helpers.DefaultNamespace, helpers.ManifestGet(kubectl.BasePath(), redisPolicy),
 				helpers.KubectlApply, helpers.HelperTimeout)
 
 			Expect(err).Should(BeNil(), "Cannot apply redis policy")
@@ -821,14 +851,14 @@ EOF`, k, v)
 			testConnectivitytoRedis()
 
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.DefaultNamespace, helpers.ManifestGet(redisPolicy),
+				helpers.DefaultNamespace, helpers.ManifestGet(kubectl.BasePath(), redisPolicy),
 				helpers.KubectlDelete, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot apply redis policy")
 
 			By("Apply deprecated policy to Redis")
 
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.DefaultNamespace, helpers.ManifestGet(redisPolicyDeprecated),
+				helpers.DefaultNamespace, helpers.ManifestGet(kubectl.BasePath(), redisPolicyDeprecated),
 				helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot apply redis deprecated policy err: %q", err)
 
@@ -851,15 +881,21 @@ EOF`, k, v)
 			clusterIP         string
 			secondNSclusterIP string
 
-			demoPath           = helpers.ManifestGet("demo.yaml")
-			l3L4Policy         = helpers.ManifestGet("l3-l4-policy.yaml")
-			cnpSecondNS        = helpers.ManifestGet("cnp-second-namespaces.yaml")
-			netpolNsSelector   = fmt.Sprintf("%s -n %s", helpers.ManifestGet("netpol-namespace-selector.yaml"), secondNS)
-			l3l4PolicySecondNS = fmt.Sprintf("%s -n %s", l3L4Policy, secondNS)
-			demoManifest       = fmt.Sprintf("%s -n %s", demoPath, secondNS)
+			demoPath           string
+			l3L4Policy         string
+			cnpSecondNS        string
+			netpolNsSelector   string
+			l3l4PolicySecondNS string
+			demoManifest       string
 		)
 
 		BeforeAll(func() {
+			demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
+			l3L4Policy = helpers.ManifestGet(kubectl.BasePath(), "l3-l4-policy.yaml")
+			cnpSecondNS = helpers.ManifestGet(kubectl.BasePath(), "cnp-second-namespaces.yaml")
+			netpolNsSelector = fmt.Sprintf("%s -n %s", helpers.ManifestGet(kubectl.BasePath(), "netpol-namespace-selector.yaml"), secondNS)
+			l3l4PolicySecondNS = fmt.Sprintf("%s -n %s", l3L4Policy, secondNS)
+			demoManifest = fmt.Sprintf("%s -n %s", demoPath, secondNS)
 
 			res := kubectl.NamespaceCreate(secondNS)
 			res.ExpectSuccess("unable to create namespace %q", secondNS)

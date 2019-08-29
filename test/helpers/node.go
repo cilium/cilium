@@ -24,7 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 
 	"github.com/sirupsen/logrus"
@@ -43,6 +42,7 @@ type SSHMeta struct {
 	rawConfig []byte
 	nodeName  string
 	logger    *logrus.Entry
+	basePath  string
 }
 
 // CreateSSHMeta returns an SSHMeta with the specified host, port, and user, as
@@ -113,13 +113,9 @@ func GetVagrantSSHMeta(vmName string) *SSHMeta {
 // setBasePath if the SSHConfig is defined we set the BasePath to the GOPATH,
 // from golang 1.8 GOPATH is by default $HOME/go so we also check that.
 func (s *SSHMeta) setBasePath() {
-	if config.CiliumTestConfig.SSHConfig == "" {
-		return
-	}
-
 	gopath := s.Exec("echo $GOPATH").SingleOut()
 	if gopath != "" {
-		BasePath = filepath.Join(gopath, CiliumPath)
+		s.basePath = filepath.Join(gopath, CiliumPath)
 		return
 	}
 
@@ -128,7 +124,7 @@ func (s *SSHMeta) setBasePath() {
 		return
 	}
 
-	BasePath = filepath.Join(home, "go", CiliumPath)
+	s.basePath = filepath.Join(home, "go", CiliumPath)
 	return
 }
 

@@ -29,13 +29,16 @@ import (
 var _ = Describe("K8sKafkaPolicyTest", func() {
 
 	var (
-		kubectl             *helpers.Kubectl
-		microscopeErr       error
-		microscopeCancel                       = func() error { return nil }
-		backgroundCancel    context.CancelFunc = func() { return }
-		backgroundError     error
-		l7Policy            = helpers.ManifestGet("kafka-sw-security-policy.yaml")
-		demoPath            = helpers.ManifestGet("kafka-sw-app.yaml")
+		kubectl          *helpers.Kubectl
+		microscopeErr    error
+		microscopeCancel                    = func() error { return nil }
+		backgroundCancel context.CancelFunc = func() { return }
+		backgroundError  error
+
+		// these two are set in BeforeAll
+		l7Policy string
+		demoPath string
+
 		kafkaApp            = "kafka"
 		backupApp           = "empire-backup"
 		empireHqApp         = "empire-hq"
@@ -127,6 +130,10 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 
 		BeforeAll(func() {
 			kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+
+			l7Policy = helpers.ManifestGet(kubectl.BasePath(), "kafka-sw-security-policy.yaml")
+			demoPath = helpers.ManifestGet(kubectl.BasePath(), "kafka-sw-app.yaml")
+
 			DeployCiliumAndDNS(kubectl)
 
 			kubectl.Apply(demoPath)

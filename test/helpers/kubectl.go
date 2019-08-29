@@ -115,7 +115,7 @@ type Kubectl struct {
 // CreateKubectl initializes a Kubectl helper with the provided vmName and log
 // It marks the test as Fail if cannot get the ssh meta information or cannot
 // execute a `ls` on the virtual machine.
-func CreateKubectl(vmName string, log *logrus.Entry) *Kubectl {
+func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 	if config.CiliumTestConfig.Kubeconfig == "" {
 		node := GetVagrantSSHMeta(vmName)
 		if node == nil {
@@ -133,25 +133,25 @@ func CreateKubectl(vmName string, log *logrus.Entry) *Kubectl {
 		}
 		node.logger = log
 
-		return &Kubectl{
+		k = &Kubectl{
 			Executor: node,
 		}
+		k.setBasePath()
+	} else {
+		exec := CreateLocalExecutor([]string{"KUBECONFIG=" + config.CiliumTestConfig.Kubeconfig})
+		exec.logger = log
+
+		k = &Kubectl{
+			Executor: exec,
+		}
+		k.setBasePath()
 	}
 
-	exec := CreateLocalExecutor([]string{"KUBECONFIG=" + config.CiliumTestConfig.Kubeconfig})
-	exec.logger = log
-
-	k := &Kubectl{
-		Executor: exec,
-	}
-
-	res := k.Apply(filepath.Join(manifestsPath, "log-gatherer.yaml"), "kube-system")
+	res := k.Apply(filepath.Join(k.BasePath(), manifestsPath, "log-gatherer.yaml"), "kube-system")
 	if !res.WasSuccessful() {
 		ginkgoext.Fail(fmt.Sprintf("Cannot connect to k8s cluster, output:\n%s", res.CombineOutput().String()), 1)
 		return nil
 	}
-
-	k.setBasePath()
 
 	return k
 }
@@ -441,7 +441,7 @@ func (kub *Kubectl) MicroscopeStart(microscopeOptions ...string) (error, func() 
 	var cb = func() error { return nil }
 	cmd := fmt.Sprintf("%[1]s -ti -n %[2]s exec %[3]s -- %[4]s",
 		KubectlCmd, KubeSystemNamespace, microscope, microscopeCmdWithTimestamps)
-	microscopePath := ManifestGet(microscopeManifest)
+	microscopePath := ManifestGet(kub.BasePath(), microscopeManifest)
 	_ = kub.Apply(microscopePath)
 
 	err := kub.WaitforPods(
@@ -564,7 +564,7 @@ func (kub *Kubectl) PprofReport() {
 			}
 
 			dest := filepath.Join(
-				BasePath, testPath,
+				kub.BasePath(), testPath,
 				fmt.Sprintf("%s-profile-%s.pprof", pod, file))
 			_ = kub.Exec(fmt.Sprintf("%[1]s cp %[2]s/%[3]s:/tmp/%[4]s %[5]s",
 				KubectlCmd, KubeSystemNamespace, pod, file, dest),
@@ -871,8 +871,7 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 			return false
 		}
 
-		// Due to lag between new IPs for the same service being synced between
-		// kube-apiserver and DNS, check if the IP for the service that is
+		// Due to lag between new IPs for the same service being synced between // kube-apiserver and DNS, check if the IP for the service that is
 		// stored in K8s matches the IP of the service cached in DNS. These
 		// can be different, because some tests use the same service names.
 		// Wait accordingly for services to match, and for resolving the service
@@ -1075,8 +1074,9 @@ func (kub *Kubectl) generateCiliumYaml(options []string, filename string) error 
 
 	// TODO GH-8753: Use helm rendering library instead of shelling out to
 	// helm template
+	helmTemplate := kub.GetFilePath(HelmTemplate)
 	res := kub.ExecMiddle(fmt.Sprintf("helm template %s --namespace=kube-system %s > %s",
-		HelmTemplate, strings.Join(options, " "), filename))
+		helmTemplate, strings.Join(options, " "), filename))
 	if !res.WasSuccessful() {
 		return res.GetErr("Unable to generate YAML")
 	}
@@ -1136,33 +1136,33 @@ func (kub *Kubectl) CiliumInstallVersion(dsPatchName, cmPatchName, versionTag st
 		ginkgoVersionedPath := filepath.Join(manifestsPath, versionTag, GetCurrentK8SEnv(), GetCurrentIntegration(), filename)
 		_, err := os.Stat(ginkgoVersionedPath)
 		if err == nil {
-			return filepath.Join(BasePath, ginkgoVersionedPath)
+			return filepath.Join(kub.BasePath(), ginkgoVersionedPath)
 		}
 		// try dependent Cilium version and integration patch file
 		ginkgoVersionedPath = filepath.Join(manifestsPath, versionTag, GetCurrentIntegration(), filename)
 		_, err = os.Stat(ginkgoVersionedPath)
 		if err == nil {
-			return filepath.Join(BasePath, ginkgoVersionedPath)
+			return filepath.Join(kub.BasePath(), ginkgoVersionedPath)
 		}
 		// try dependent Cilium and k8s version patch file
 		ginkgoVersionedPath = filepath.Join(manifestsPath, versionTag, GetCurrentK8SEnv(), filename)
 		_, err = os.Stat(ginkgoVersionedPath)
 		if err == nil {
-			return filepath.Join(BasePath, ginkgoVersionedPath)
+			return filepath.Join(kub.BasePath(), ginkgoVersionedPath)
 		}
 		// try dependent Cilium version patch file
 		ginkgoVersionedPath = filepath.Join(manifestsPath, versionTag, filename)
 		_, err = os.Stat(ginkgoVersionedPath)
 		if err == nil {
-			return filepath.Join(BasePath, ginkgoVersionedPath)
+			return filepath.Join(kub.BasePath(), ginkgoVersionedPath)
 		}
 		// try dependent integration patch file
 		ginkgoVersionedPath = filepath.Join(manifestsPath, GetCurrentIntegration(), filename)
 		_, err = os.Stat(ginkgoVersionedPath)
 		if err == nil {
-			return filepath.Join(BasePath, ginkgoVersionedPath)
+			return filepath.Join(kub.BasePath(), ginkgoVersionedPath)
 		}
-		return filepath.Join(BasePath, manifestsPath, filename)
+		return filepath.Join(kub.BasePath(), manifestsPath, filename)
 	}
 	getK8sDescriptor := func(filename string) string {
 		return fmt.Sprintf("https://raw.githubusercontent.com/cilium/cilium/%s/examples/kubernetes/%s/%s", versionTag, GetCurrentK8SEnv(), filename)
@@ -1802,7 +1802,7 @@ func (kub *Kubectl) GatherCiliumCoreDumps(ctx context.Context, ciliumPod string)
 		log.WithError(err).Errorf("cannot create test result path '%s'", testPath)
 		return
 	}
-	resultPath := filepath.Join(BasePath, testPath)
+	resultPath := filepath.Join(kub.BasePath(), testPath)
 
 	for _, core := range cores.ByLines() {
 		dst := filepath.Join(resultPath, core)
@@ -1860,7 +1860,7 @@ func (kub *Kubectl) DumpCiliumCommandOutput(ctx context.Context, namespace strin
 		reportCmds := genReportCmds(ciliumKubCLICommands)
 		kub.reportMapContext(ctx, testPath, reportCmds, logGathererNamespace, logGathererSelector)
 
-		logsPath := filepath.Join(BasePath, testPath)
+		logsPath := filepath.Join(kub.BasePath(), testPath)
 
 		// Get bugtool output. Since bugtool output is dumped in the pod's filesystem,
 		// copy it over with `kubectl cp`.
@@ -2181,6 +2181,11 @@ func (kub *Kubectl) ciliumHealthPreFlightCheck() error {
 		}
 	}
 	return nil
+}
+
+// GetFilePath is a utility function which returns path to give fale relative to BasePath
+func (kub *Kubectl) GetFilePath(filename string) string {
+	return filepath.Join(kub.BasePath(), filename)
 }
 
 // serviceCache keeps service information from

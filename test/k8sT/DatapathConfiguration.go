@@ -31,8 +31,8 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		demoDSPath = helpers.ManifestGet("demo_ds.yaml")
-		ipsecDSPath = helpers.ManifestGet("ipsec_ds.yaml")
+		demoDSPath = helpers.ManifestGet(kubectl.BasePath(), "demo_ds.yaml")
+		ipsecDSPath = helpers.ManifestGet(kubectl.BasePath(), "ipsec_ds.yaml")
 
 		deleteCiliumDS(kubectl)
 	})

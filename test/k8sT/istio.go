@@ -45,12 +45,12 @@ var _ = Describe("K8sIstioTest", func() {
 		// istioCRDYAMLPath is the file generated from istio-init during a
 		// step in Documentation/gettingstarted/istio.rst to setup
 		// Istio 1.2.5. In the GSG the file is directly piped to kubectl.
-		istioCRDYAMLPath = helpers.ManifestGet("istio-crds.yaml")
+		istioCRDYAMLPath = ""
 
 		// istioYAMLPath is the istio-cilium.yaml file generated following the
 		// instructions in Documentation/gettingstarted/istio.rst to setup
 		// Istio 1.2.5. mTLS is enabled.
-		istioYAMLPath = helpers.ManifestGet("istio-cilium.yaml")
+		istioYAMLPath = ""
 
 		// istioServiceNames is the subset of Istio services in the Istio
 		// namespace that are accessed from sidecar proxies.
@@ -85,6 +85,9 @@ var _ = Describe("K8sIstioTest", func() {
 		}
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+
+		istioCRDYAMLPath = helpers.ManifestGet(kubectl.BasePath(), "istio-crds.yaml")
+		istioYAMLPath = helpers.ManifestGet(kubectl.BasePath(), "istio-cilium.yaml")
 		DeployCiliumAndDNS(kubectl)
 
 		By("Creating the istio-system namespace")
@@ -272,9 +275,9 @@ var _ = Describe("K8sIstioTest", func() {
 			// cd test/k8sT/manifests/
 			// istioctl kube-inject -f bookinfo-v1.yaml > bookinfo-v1-istio.yaml
 			// istioctl kube-inject -f bookinfo-v2.yaml > bookinfo-v2-istio.yaml
-			bookinfoV1YAML := helpers.ManifestGet("bookinfo-v1-istio.yaml")
-			bookinfoV2YAML := helpers.ManifestGet("bookinfo-v2-istio.yaml")
-			l7PolicyPath := helpers.ManifestGet("cnp-specs.yaml")
+			bookinfoV1YAML := helpers.ManifestGet(kubectl.BasePath(), "bookinfo-v1-istio.yaml")
+			bookinfoV2YAML := helpers.ManifestGet(kubectl.BasePath(), "bookinfo-v2-istio.yaml")
+			l7PolicyPath := helpers.ManifestGet(kubectl.BasePath(), "cnp-specs.yaml")
 
 			waitIstioReady()
 

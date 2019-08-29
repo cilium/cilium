@@ -117,8 +117,13 @@ var _ = Describe("K8sServicesTest", func() {
 	Context("Checks ClusterIP Connectivity", func() {
 
 		var (
-			demoYAML = helpers.ManifestGet("demo.yaml")
+			demoYAML string
 		)
+
+		BeforeAll(func() {
+
+			demoYAML = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
+		})
 
 		BeforeEach(func() {
 			res := kubectl.Apply(demoYAML)
@@ -157,10 +162,11 @@ var _ = Describe("K8sServicesTest", func() {
 	Context("Checks service across nodes", func() {
 
 		var (
-			demoYAML = helpers.ManifestGet("demo_ds.yaml")
+			demoYAML string
 		)
 
 		BeforeAll(func() {
+			demoYAML = helpers.ManifestGet(kubectl.BasePath(), "demo_ds.yaml")
 			res := kubectl.Apply(demoYAML)
 			res.ExpectSuccess("Unable to apply %s", demoYAML)
 		})
@@ -239,8 +245,12 @@ var _ = Describe("K8sServicesTest", func() {
 
 		Context("with L7 policy", func() {
 			var (
-				demoPolicy = helpers.ManifestGet("l7-policy-demo.yaml")
+				demoPolicy string
 			)
+
+			BeforeAll(func() {
+				demoPolicy = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-demo.yaml")
+			})
 
 			AfterAll(func() {
 				// Explicitly ignore result of deletion of resources to avoid incomplete
@@ -313,14 +323,20 @@ var _ = Describe("K8sServicesTest", func() {
 			expectedCIDR = "198.49.23.144/32"
 			podName      = "toservices"
 
-			endpointPath      = helpers.ManifestGet("external_endpoint.yaml")
-			podPath           = helpers.ManifestGet("external_pod.yaml")
-			policyPath        = helpers.ManifestGet("external-policy.yaml")
-			policyLabeledPath = helpers.ManifestGet("external-policy-labeled.yaml")
-			servicePath       = helpers.ManifestGet("external_service.yaml")
+			endpointPath      string
+			podPath           string
+			policyPath        string
+			policyLabeledPath string
+			servicePath       string
 		)
 
 		BeforeAll(func() {
+			endpointPath = helpers.ManifestGet(kubectl.BasePath(), "external_endpoint.yaml")
+			podPath = helpers.ManifestGet(kubectl.BasePath(), "external_pod.yaml")
+			policyPath = helpers.ManifestGet(kubectl.BasePath(), "external-policy.yaml")
+			policyLabeledPath = helpers.ManifestGet(kubectl.BasePath(), "external-policy-labeled.yaml")
+			servicePath = helpers.ManifestGet(kubectl.BasePath(), "external_service.yaml")
+
 			kubectl.Apply(servicePath).ExpectSuccess("cannot install external service")
 			kubectl.Apply(podPath).ExpectSuccess("cannot install pod path")
 
@@ -437,9 +453,9 @@ var _ = Describe("K8sServicesTest", func() {
 
 		BeforeEach(func() {
 
-			bookinfoV1YAML = helpers.ManifestGet("bookinfo-v1.yaml")
-			bookinfoV2YAML = helpers.ManifestGet("bookinfo-v2.yaml")
-			policyPath = helpers.ManifestGet("cnp-specs.yaml")
+			bookinfoV1YAML = helpers.ManifestGet(kubectl.BasePath(), "bookinfo-v1.yaml")
+			bookinfoV2YAML = helpers.ManifestGet(kubectl.BasePath(), "bookinfo-v2.yaml")
+			policyPath = helpers.ManifestGet(kubectl.BasePath(), "cnp-specs.yaml")
 
 			resourceYAMLs = []string{bookinfoV1YAML, bookinfoV2YAML}
 
