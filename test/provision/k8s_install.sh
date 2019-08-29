@@ -299,14 +299,6 @@ else
     fi
     sudo systemctl stop etcd
     docker pull k8s1:5000/cilium/cilium-dev:latest
-    # We need this workaround since kube-proxy is not aware of multiple network
-    # interfaces. If we send a packet to a service IP that packet is sent
-    # to the default route, because the service IP is unknown by the linux routing
-    # table, with the source IP of the interface in the default routing table, even
-    # though the service IP should be routed to a different interface.
-    # This particular workaround is only needed for cilium, running on a pod on host
-    # network namespace, to reach out kube-api-server.
-    sudo iptables -t nat -A POSTROUTING -o enp0s8 ! -s 192.168.36.12 -j MASQUERADE
 fi
 
 # Create world network
