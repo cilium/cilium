@@ -209,9 +209,7 @@ spec:
                 properties:
                   ports:
                     description: |-
-                      Ports is a list of L4 port/protocol
-
-                      If omitted or empty but RedirectPort is set, then all ports of the endpoint subject to either the ingress or egress rule are being redirected.
+                      Ports is a list of L4 port/protocol.
                     items:
                       description: PortProtocol specifies an L4 port with an optional
                         transport protocol
@@ -234,14 +232,6 @@ spec:
                       required:
                       - port
                     type: array
-                  redirectPort:
-                    description: RedirectPort is the L4 port which, if set, all traffic
-                      matching the Ports is being redirected to. Whatever listener
-                      behind that port becomes responsible to enforce the port rules
-                      and is also responsible to reinject all traffic back and ensure
-                      it reaches its original destination.
-                    format: uint16
-                    type: integer
                   rules:
                     description: Rules is a list of additional port level rules which
                       must be met in order for the PortRule to allow the traffic.
@@ -706,9 +696,7 @@ spec:
                 properties:
                   ports:
                     description: |-
-                      Ports is a list of L4 port/protocol
-
-                      If omitted or empty but RedirectPort is set, then all ports of the endpoint subject to either the ingress or egress rule are being redirected.
+                      Ports is a list of L4 port/protocol.
                     items:
                       description: PortProtocol specifies an L4 port with an optional
                         transport protocol
@@ -731,14 +719,6 @@ spec:
                       required:
                       - port
                     type: array
-                  redirectPort:
-                    description: RedirectPort is the L4 port which, if set, all traffic
-                      matching the Ports is being redirected to. Whatever listener
-                      behind that port becomes responsible to enforce the port rules
-                      and is also responsible to reinject all traffic back and ensure
-                      it reaches its original destination.
-                    format: uint16
-                    type: integer
                   rules:
                     description: Rules is a list of additional port level rules which
                       must be met in order for the PortRule to allow the traffic.
@@ -1067,9 +1047,7 @@ spec:
           properties:
             ports:
               description: |-
-                Ports is a list of L4 port/protocol
-
-                If omitted or empty but RedirectPort is set, then all ports of the endpoint subject to either the ingress or egress rule are being redirected.
+                Ports is a list of L4 port/protocol.
               items:
                 description: PortProtocol specifies an L4 port with an optional transport
                   protocol
@@ -1092,14 +1070,6 @@ spec:
                 required:
                 - port
               type: array
-            redirectPort:
-              description: RedirectPort is the L4 port which, if set, all traffic
-                matching the Ports is being redirected to. Whatever listener behind
-                that port becomes responsible to enforce the port rules and is also
-                responsible to reinject all traffic back and ensure it reaches its
-                original destination.
-              format: uint16
-              type: integer
             rules:
               description: Rules is a list of additional port level rules which must
                 be met in order for the PortRule to allow the traffic. If omitted
@@ -1460,9 +1430,7 @@ spec:
                       properties:
                         ports:
                           description: |-
-                            Ports is a list of L4 port/protocol
-
-                            If omitted or empty but RedirectPort is set, then all ports of the endpoint subject to either the ingress or egress rule are being redirected.
+                            Ports is a list of L4 port/protocol.
                           items:
                             description: PortProtocol specifies an L4 port with an
                               optional transport protocol
@@ -1487,14 +1455,6 @@ spec:
                             required:
                             - port
                           type: array
-                        redirectPort:
-                          description: RedirectPort is the L4 port which, if set,
-                            all traffic matching the Ports is being redirected to.
-                            Whatever listener behind that port becomes responsible
-                            to enforce the port rules and is also responsible to reinject
-                            all traffic back and ensure it reaches its original destination.
-                          format: uint16
-                          type: integer
                         rules:
                           description: Rules is a list of additional port level rules
                             which must be met in order for the PortRule to allow the
@@ -1974,9 +1934,7 @@ spec:
                       properties:
                         ports:
                           description: |-
-                            Ports is a list of L4 port/protocol
-
-                            If omitted or empty but RedirectPort is set, then all ports of the endpoint subject to either the ingress or egress rule are being redirected.
+                            Ports is a list of L4 port/protocol.
                           items:
                             description: PortProtocol specifies an L4 port with an
                               optional transport protocol
@@ -2001,14 +1959,6 @@ spec:
                             required:
                             - port
                           type: array
-                        redirectPort:
-                          description: RedirectPort is the L4 port which, if set,
-                            all traffic matching the Ports is being redirected to.
-                            Whatever listener behind that port becomes responsible
-                            to enforce the port rules and is also responsible to reinject
-                            all traffic back and ensure it reaches its original destination.
-                          format: uint16
-                          type: integer
                         rules:
                           description: Rules is a list of additional port level rules
                             which must be met in order for the PortRule to allow the
@@ -2436,9 +2386,7 @@ spec:
                       properties:
                         ports:
                           description: |-
-                            Ports is a list of L4 port/protocol
-
-                            If omitted or empty but RedirectPort is set, then all ports of the endpoint subject to either the ingress or egress rule are being redirected.
+                            Ports is a list of L4 port/protocol.
                           items:
                             description: PortProtocol specifies an L4 port with an
                               optional transport protocol
@@ -2463,14 +2411,6 @@ spec:
                             required:
                             - port
                           type: array
-                        redirectPort:
-                          description: RedirectPort is the L4 port which, if set,
-                            all traffic matching the Ports is being redirected to.
-                            Whatever listener behind that port becomes responsible
-                            to enforce the port rules and is also responsible to reinject
-                            all traffic back and ensure it reaches its original destination.
-                          format: uint16
-                          type: integer
                         rules:
                           description: L7Rules is a union of port level rule types.
                             Mixing of different port level rule types is disallowed,
@@ -2962,9 +2902,7 @@ spec:
                       properties:
                         ports:
                           description: |-
-                            Ports is a list of L4 port/protocol
-
-                            If omitted or empty but RedirectPort is set, then all ports of the endpoint subject to either the ingress or egress rule are being redirected.
+                            Ports is a list of L4 port/protocol.
                           items:
                             description: PortProtocol specifies an L4 port with an
                               optional transport protocol
@@ -2989,14 +2927,6 @@ spec:
                             required:
                             - port
                           type: array
-                        redirectPort:
-                          description: RedirectPort is the L4 port which, if set,
-                            all traffic matching the Ports is being redirected to.
-                            Whatever listener behind that port becomes responsible
-                            to enforce the port rules and is also responsible to reinject
-                            all traffic back and ensure it reaches its original destination.
-                          format: uint16
-                          type: integer
                         rules:
                           description: L7Rules is a union of port level rule types.
                             Mixing of different port level rule types is disallowed,
@@ -3302,9 +3232,7 @@ spec:
                         properties:
                           ports:
                             description: |-
-                              Ports is a list of L4 port/protocol
-
-                              If omitted or empty but RedirectPort is set, then all ports of the endpoint subject to either the ingress or egress rule are being redirected.
+                              Ports is a list of L4 port/protocol.
                             items:
                               description: PortProtocol specifies an L4 port with
                                 an optional transport protocol
@@ -3329,15 +3257,6 @@ spec:
                               required:
                               - port
                             type: array
-                          redirectPort:
-                            description: RedirectPort is the L4 port which, if set,
-                              all traffic matching the Ports is being redirected to.
-                              Whatever listener behind that port becomes responsible
-                              to enforce the port rules and is also responsible to
-                              reinject all traffic back and ensure it reaches its
-                              original destination.
-                            format: uint16
-                            type: integer
                           rules:
                             description: L7Rules is a union of port level rule types.
                               Mixing of different port level rule types is disallowed,
@@ -3837,9 +3756,7 @@ spec:
                         properties:
                           ports:
                             description: |-
-                              Ports is a list of L4 port/protocol
-
-                              If omitted or empty but RedirectPort is set, then all ports of the endpoint subject to either the ingress or egress rule are being redirected.
+                              Ports is a list of L4 port/protocol.
                             items:
                               description: PortProtocol specifies an L4 port with
                                 an optional transport protocol
@@ -3864,15 +3781,6 @@ spec:
                               required:
                               - port
                             type: array
-                          redirectPort:
-                            description: RedirectPort is the L4 port which, if set,
-                              all traffic matching the Ports is being redirected to.
-                              Whatever listener behind that port becomes responsible
-                              to enforce the port rules and is also responsible to
-                              reinject all traffic back and ensure it reaches its
-                              original destination.
-                            format: uint16
-                            type: integer
                           rules:
                             description: L7Rules is a union of port level rule types.
                               Mixing of different port level rule types is disallowed,

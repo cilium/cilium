@@ -60,10 +60,6 @@ func (p PortProtocol) Covers(other PortProtocol) bool {
 type PortRule struct {
 	// Ports is a list of L4 port/protocol
 	//
-	// If omitted or empty but RedirectPort is set, then all ports of the
-	// endpoint subject to either the ingress or egress rule are being
-	// redirected.
-	//
 	// +optional
 	Ports []PortProtocol `json:"ports,omitempty"`
 

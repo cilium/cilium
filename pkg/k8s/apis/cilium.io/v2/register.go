@@ -975,21 +975,11 @@ var (
 			"rules which must be met.",
 		Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 			"ports": {
-				Description: "Ports is a list of L4 port/protocol\n\nIf omitted or empty but " +
-					"RedirectPort is set, then all ports of the endpoint subject to either the " +
-					"ingress or egress rule are being redirected.",
-				Type: "array",
+				Description: "Ports is a list of L4 port/protocol.",
+				Type:        "array",
 				Items: &apiextensionsv1beta1.JSONSchemaPropsOrArray{
 					Schema: &PortProtocol,
 				},
-			},
-			"redirectPort": {
-				Description: "RedirectPort is the L4 port which, if set, all traffic matching " +
-					"the Ports is being redirected to. Whatever listener behind that port " +
-					"becomes responsible to enforce the port rules and is also responsible to " +
-					"reinject all traffic back and ensure it reaches its original destination.",
-				Type:   "integer",
-				Format: "uint16",
 			},
 			"rules": L7Rules,
 		},
