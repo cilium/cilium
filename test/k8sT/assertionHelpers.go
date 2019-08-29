@@ -153,6 +153,14 @@ func deleteCiliumDS(kubectl *helpers.Kubectl) {
 	Expect(waitToDeleteCilium(kubectl, logger)).To(BeNil(), "timed out deleting Cilium pods")
 }
 
+func deleteETCDOperator(kubectl *helpers.Kubectl) {
+	// Do not assert on success in AfterEach intentionally to avoid
+	// incomplete teardown.
+	_ = kubectl.DeleteResource("deploy", fmt.Sprintf("-n %s -l io.cilium/app=etcd-operator", helpers.KubeSystemNamespace))
+	_ = kubectl.DeleteResource("pod", fmt.Sprintf("-n %s -l io.cilium/app=etcd-operator", helpers.KubeSystemNamespace))
+	_ = kubectl.WaitCleanAllTerminatingPods(helpers.HelperTimeout)
+}
+
 func waitToDeleteCilium(kubectl *helpers.Kubectl, logger *logrus.Entry) error {
 	var (
 		pods []string
