@@ -1610,7 +1610,7 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 			err := helpers.RenderTemplateToFile(invalidJSON, data, 0777)
 			Expect(err).Should(BeNil())
 
-			path := helpers.GetFilePath(invalidJSON)
+			path := vm.GetFilePath(invalidJSON)
 			_, err = vm.PolicyImportAndWait(path, helpers.HelperTimeout)
 			Expect(err).Should(HaveOccurred())
 			defer os.Remove(invalidJSON)
@@ -1643,7 +1643,7 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 			err := helpers.RenderTemplateToFile(policyJSON, policy, 0777)
 			Expect(err).Should(BeNil())
 
-			path := helpers.GetFilePath(policyJSON)
+			path := vm.GetFilePath(policyJSON)
 			_, err = vm.PolicyImportAndWait(path, helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 		})

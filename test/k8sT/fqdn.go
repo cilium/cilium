@@ -32,8 +32,8 @@ var _ = Describe("K8sFQDNTest", func() {
 		backgroundCancel context.CancelFunc = func() { return }
 		backgroundError  error
 
-		bindManifest = helpers.ManifestGet("bind_deployment.yaml")
-		demoManifest = helpers.ManifestGet("demo.yaml")
+		bindManifest = ""
+		demoManifest = ""
 
 		apps    = []string{helpers.App2, helpers.App3}
 		appPods map[string]string
@@ -46,10 +46,12 @@ var _ = Describe("K8sFQDNTest", func() {
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+		bindManifest = helpers.ManifestGet(kubectl.BasePath(), "bind_deployment.yaml")
+		demoManifest = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
 		DeployCiliumAndDNS(kubectl)
 
 		By("Applying bind deployment")
-		bindManifest = helpers.ManifestGet("bind_deployment.yaml")
+		bindManifest = helpers.ManifestGet(kubectl.BasePath(), "bind_deployment.yaml")
 
 		res := kubectl.Apply(bindManifest)
 		res.ExpectSuccess("Bind config cannot be deployed")
@@ -143,7 +145,7 @@ var _ = Describe("K8sFQDNTest", func() {
 			res.ExpectFail("%q can  connect when it should not work", helpers.App2)
 		}
 
-		fqndProxyPolicy := helpers.ManifestGet("fqdn-proxy-policy.yaml")
+		fqndProxyPolicy := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-policy.yaml")
 
 		_, err := kubectl.CiliumPolicyAction(
 			helpers.DefaultNamespace, fqndProxyPolicy,
@@ -208,7 +210,7 @@ var _ = Describe("K8sFQDNTest", func() {
 	It("Validate that multiple specs are working correctly", func() {
 		// To make sure that UUID in multiple specs are plumbed correctly to
 		// Cilium Policy
-		fqdnPolicy := helpers.ManifestGet("fqdn-proxy-multiple-specs.yaml")
+		fqdnPolicy := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-multiple-specs.yaml")
 		world1Target := "http://world1.cilium.test"
 		world2Target := "http://world2.cilium.test"
 

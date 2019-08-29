@@ -318,7 +318,7 @@ func reportMapContext(ctx context.Context, path string, reportCmds map[string]st
 // 2- base_path/k8s_version/integration/filename
 // 3- base_path/k8s_version/filename
 // 4- base_path/filename
-func ManifestGet(manifestFilename string) string {
+func ManifestGet(base, manifestFilename string) string {
 	// Try dependent integration file only if we have one configured. This is
 	// needed since no integration is "" and that causes us to find the
 	// base_path/filename before we check the base_path/k8s_version/filename
@@ -326,14 +326,14 @@ func ManifestGet(manifestFilename string) string {
 		fullPath := filepath.Join(manifestsPath, integration, manifestFilename)
 		_, err := os.Stat(fullPath)
 		if err == nil {
-			return filepath.Join(BasePath, fullPath)
+			return filepath.Join(base, fullPath)
 		}
 
 		// try dependent k8s version and integration file
 		fullPath = filepath.Join(manifestsPath, GetCurrentK8SEnv(), integration, manifestFilename)
 		_, err = os.Stat(fullPath)
 		if err == nil {
-			return filepath.Join(BasePath, fullPath)
+			return filepath.Join(base, fullPath)
 		}
 	}
 
@@ -341,9 +341,9 @@ func ManifestGet(manifestFilename string) string {
 	fullPath := filepath.Join(manifestsPath, GetCurrentK8SEnv(), manifestFilename)
 	_, err := os.Stat(fullPath)
 	if err == nil {
-		return filepath.Join(BasePath, fullPath)
+		return filepath.Join(base, fullPath)
 	}
-	return filepath.Join(BasePath, "k8sT", "manifests", manifestFilename)
+	return filepath.Join(base, "k8sT", "manifests", manifestFilename)
 }
 
 // WriteOrAppendToFile writes data to a file named by filename.
@@ -365,7 +365,7 @@ func WriteOrAppendToFile(filename string, data []byte, perm os.FileMode) error {
 }
 
 // DNSDeployment returns the manifest to install dns engine on the server.
-func DNSDeployment() string {
+func DNSDeployment(base string) string {
 	var DNSEngine = "coredns"
 	k8sVersion := GetCurrentK8SEnv()
 	switch k8sVersion {
@@ -375,9 +375,9 @@ func DNSDeployment() string {
 	fullPath := filepath.Join("provision", "manifest", k8sVersion, DNSEngine+"_deployment.yaml")
 	_, err := os.Stat(fullPath)
 	if err == nil {
-		return filepath.Join(BasePath, fullPath)
+		return filepath.Join(base, fullPath)
 	}
-	return filepath.Join(BasePath, "provision", "manifest", DNSEngine+"_deployment.yaml")
+	return filepath.Join(base, "provision", "manifest", DNSEngine+"_deployment.yaml")
 }
 
 // getK8sSupportedConstraints returns the Kubernetes versions supported by
