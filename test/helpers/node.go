@@ -43,6 +43,7 @@ type SSHMeta struct {
 	rawConfig []byte
 	nodeName  string
 	logger    *logrus.Entry
+	basePath  string
 }
 
 // CreateSSHMeta returns an SSHMeta with the specified host, port, and user, as
@@ -117,18 +118,18 @@ func (s *SSHMeta) setBasePath() {
 		return
 	}
 
-	gopath := s.Exec("echo $GOPATH").SingleOut()
+	gopath := os.Getenv("GOPATH")
 	if gopath != "" {
-		BasePath = filepath.Join(gopath, CiliumPath)
+		s.basePath = filepath.Join(gopath, CiliumPath)
 		return
 	}
 
-	home := s.Exec("echo $HOME").SingleOut()
+	home := os.Getenv("HOME")
 	if home == "" {
 		return
 	}
 
-	BasePath = filepath.Join(home, "go", CiliumPath)
+	s.basePath = filepath.Join(home, "go", CiliumPath)
 	return
 }
 

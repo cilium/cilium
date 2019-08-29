@@ -43,11 +43,14 @@ var (
 
 	// CiliumBasePath is the absolute path to the cilium source repository
 	// in the guest VMs
-	CiliumBasePath = "../"
+	CiliumBasePathHost = "../"
+
+	CiliumBasePathVM = "/home/vagrant/go/src/github.com/cilium/cilium"
 
 	// BasePath is the path in the Vagrant VMs to which the test directory
 	// is mounted
-	BasePath = path.Join(CiliumBasePath, "test")
+	BasePathHost = path.Join(CiliumBasePathHost, "test")
+	BasePathVM   = path.Join(CiliumBasePathVM, "test")
 
 	// CheckLogs newtes a new buffer where all the warnings and checks that
 	// happens during the test are saved. This buffer will be printed in the
@@ -290,11 +293,6 @@ const (
 	ciliumEtcdOperatorRBAC = "cilium-etcd-operator-rbac.yaml"
 	ciliumEtcdOperator     = "cilium-etcd-operator.yaml"
 )
-
-//GetFilePath returns the absolute path of the provided filename
-func GetFilePath(filename string) string {
-	return fmt.Sprintf("%s/%s", BasePath, filename)
-}
 
 // K8s1VMName is the name of the Kubernetes master node when running K8s tests.
 func K8s1VMName() string {

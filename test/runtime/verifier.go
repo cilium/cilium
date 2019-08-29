@@ -41,7 +41,7 @@ var _ = Describe("RuntimeVerifier", func() {
 		ExpectCiliumNotRunning(vm)
 		res = vm.ExecWithSudo("rm -f /sys/fs/bpf/tc/globals/cilium*")
 		res.ExpectSuccess()
-		cmd := fmt.Sprintf("make -C %s/../bpf clean V=0", helpers.BasePath)
+		cmd := fmt.Sprintf("make -C %s/../bpf clean V=0", vm.BasePath())
 		res = vm.Exec(cmd)
 		res.ExpectSuccess("Expected cleaning the bpf/ tree to succeed")
 	})
@@ -69,12 +69,12 @@ var _ = Describe("RuntimeVerifier", func() {
 
 	It("runs the kernel verifier against the tree copy of the BPF datapath", func() {
 		By("Building BPF objects from the tree")
-		cmd := fmt.Sprintf("make -C %s/../bpf V=0", helpers.BasePath)
+		cmd := fmt.Sprintf("make -C %s/../bpf V=0", vm.BasePath())
 		res := vm.Exec(cmd)
 		res.ExpectSuccess("Expected compilation of the BPF objects to succeed")
 
 		By("Running the verifier test script")
-		cmd = fmt.Sprintf("%s/%s", helpers.BasePath, script)
+		cmd = vm.GetFilePath(script)
 		res = vm.ExecWithSudo(cmd)
 		res.ExpectSuccess("Expected the kernel verifier to pass for BPF programs")
 	})

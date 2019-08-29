@@ -11,10 +11,10 @@ import (
 )
 
 var (
-	demoPath         = helpers.ManifestGet("demo.yaml")
-	l7Policy         = helpers.ManifestGet("l7-policy.yaml")
-	migrateSVCClient = helpers.ManifestGet("migrate-svc-client.yaml")
-	migrateSVCServer = helpers.ManifestGet("migrate-svc-server.yaml")
+	demoPath         = ""
+	l7Policy         = ""
+	migrateSVCClient = ""
+	migrateSVCServer = ""
 )
 
 var _ = Describe("K8sUpdates", func() {
@@ -42,7 +42,11 @@ var _ = Describe("K8sUpdates", func() {
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		_ = kubectl.Delete(helpers.DNSDeployment())
+		demoPath = helpers.ManifestGet(kubectl.BasePath, "demo.yaml")
+		l7Policy = helpers.ManifestGet(kubectl.BasePath, "l7-policy.yaml")
+		migrateSVCClient = helpers.ManifestGet(kubectl.BasePath, "migrate-svc-client.yaml")
+		migrateSVCServer = helpers.ManifestGet(kubectl.BasePath, "migrate-svc-server.yaml")
+		_ = kubectl.Delete(helpers.DNSDeployment(kubectl.BasePath))
 
 		kubectl.Delete(migrateSVCClient)
 		kubectl.Delete(migrateSVCServer)
@@ -129,7 +133,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		err = kubectl.WaitForCiliumInitContainerToFinish()
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be clean up environment", newVersion)
 
-		if res := kubectl.Delete(helpers.DNSDeployment()); !res.WasSuccessful() {
+		if res := kubectl.Delete(helpers.DNSDeployment(kubectl.BasePath)); !res.WasSuccessful() {
 			log.Warningf("Unable to delete CoreDNS deployment: %s", res.OutputPrettyPrint())
 		}
 
@@ -148,7 +152,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 
 		// Delete kube-dns because if not will be a restore the old
 		// endpoints from master instead of create the new ones.
-		if res := kubectl.Delete(helpers.DNSDeployment()); !res.WasSuccessful() {
+		if res := kubectl.Delete(helpers.DNSDeployment(kubectl.BasePath)); !res.WasSuccessful() {
 			log.Warningf("Unable to delete CoreDNS deployment: %s", res.OutputPrettyPrint())
 		}
 
@@ -180,7 +184,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		Expect(err).To(BeNil(), "Cilium %q was not able to be deployed", oldVersion)
 
 		By("Installing kube-dns")
-		_ = kubectl.Apply(helpers.DNSDeployment())
+		_ = kubectl.Apply(helpers.DNSDeployment(kubectl.BasePath))
 
 		// Cilium is only ready if kvstore is ready, the kvstore is ready if
 		// kube-dns is running.

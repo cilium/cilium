@@ -54,8 +54,9 @@ type Executor interface {
 
 // LocalExecutor executes commands, implements Executor interface
 type LocalExecutor struct {
-	env    []string
-	logger *logrus.Entry
+	env      []string
+	logger   *logrus.Entry
+	basePath string
 }
 
 // CreateLocalExecutor returns a local executor
@@ -82,7 +83,7 @@ func (s *LocalExecutor) CloseSSHClient() {
 func (s *LocalExecutor) setBasePath() {
 	gopath := os.Getenv("GOPATH")
 	if gopath != "" {
-		BasePath = filepath.Join(gopath, CiliumPath)
+		s.basePath = filepath.Join(gopath, CiliumPath)
 		return
 	}
 
@@ -91,7 +92,7 @@ func (s *LocalExecutor) setBasePath() {
 		return
 	}
 
-	BasePath = filepath.Join(home, "go", CiliumPath)
+	s.basePath = filepath.Join(home, "go", CiliumPath)
 	return
 }
 

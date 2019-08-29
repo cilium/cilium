@@ -16,6 +16,7 @@ package RuntimeTest
 
 import (
 	"fmt"
+	"path/filepath"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -41,7 +42,8 @@ var _ = Describe("RuntimePrivilegedUnitTests", func() {
 	})
 
 	It("Run Tests", func() {
-		res := vm.ExecWithSudo(fmt.Sprintf("make -C %s tests-privileged", helpers.CiliumBasePath))
+		path, _ := filepath.Split(vm.BasePath())
+		res := vm.ExecWithSudo(fmt.Sprintf("make -C %s tests-privileged", path))
 		res.ExpectSuccess("Failed to run privileged unit tests")
 	})
 })
