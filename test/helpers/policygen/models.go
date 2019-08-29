@@ -198,15 +198,15 @@ func (t *Target) GetManifestName(spec *TestSpec) string {
 
 // GetManifestPath returns the manifest path for the target using the spec
 // parameter
-func (t *Target) GetManifestPath(spec *TestSpec) string {
-	return fmt.Sprintf("%s/%s", helpers.BasePath, t.GetManifestName(spec))
+func (t *Target) GetManifestPath(spec *TestSpec, base string) string {
+	return fmt.Sprintf("%s/%s", base, t.GetManifestName(spec))
 }
 
 // CreateApplyManifest creates the manifest for the type of the target and
 // applies it in kubernetes. It will fail if the service manifest cannot be
 // created correctly or applied to Kubernetes
-func (t *Target) CreateApplyManifest(spec *TestSpec) error {
-	manifestPath := t.GetManifestPath(spec)
+func (t *Target) CreateApplyManifest(spec *TestSpec, base string) error {
+	manifestPath := t.GetManifestPath(spec, base)
 	getTemplate := func(tmpl string) (*bytes.Buffer, error) {
 		metadata := map[string]interface{}{
 			"spec":       spec,
@@ -340,24 +340,24 @@ func (t TestSpec) String() string {
 // if needed. Then it will execute `connectivityTest` and compare the results
 // with the expected results within the test specification
 func (t *TestSpec) RunTest(kub *helpers.Kubectl) {
-	defer func() { go t.Destroy(destroyDelay) }()
+	defer func() { go t.Destroy(destroyDelay, kub.BasePath()) }()
 
 	t.Kub = kub
 	err := t.CreateManifests()
 	gomega.Expect(err).To(gomega.BeNil(), "cannot create pods manifest for %s", t.Prefix)
 
-	manifest, err := t.ApplyManifest()
+	manifest, err := t.ApplyManifest(kub.BasePath())
 	gomega.Expect(err).To(gomega.BeNil(), "cannot apply pods manifest for %s", t.Prefix)
 	log.WithField("prefix", t.Prefix).Infof("Manifest '%s' is created correctly", manifest)
 
-	err = t.Destination.CreateApplyManifest(t)
+	err = t.Destination.CreateApplyManifest(t, kub.BasePath())
 	gomega.Expect(err).To(gomega.BeNil(), "cannot apply destination for %s", t.Prefix)
 
 	if t.IsPolicyInvalid() {
 		// Some policies cannot be applied correctly because of different
 		// rules. This code makes sure that the status of the policy has a error
 		// in the status.
-		cnp, err := t.InvalidNetworkPolicyApply()
+		cnp, err := t.InvalidNetworkPolicyApply(kub.BasePath())
 		kub.Exec(fmt.Sprintf("%s delete cnp %s", helpers.KubectlCmd, t.Prefix))
 		gomega.Expect(err).To(gomega.BeNil(), "Cannot apply network policy")
 		gomega.Expect(cnp).NotTo(gomega.BeNil(), "CNP is not a valid struct")
@@ -370,7 +370,7 @@ func (t *TestSpec) RunTest(kub *helpers.Kubectl) {
 		return
 	}
 
-	err = t.NetworkPolicyApply()
+	err = t.NetworkPolicyApply(kub.BasePath())
 	gomega.Expect(err).To(gomega.BeNil(), "cannot apply network policy for %s", t.Prefix)
 
 	err = kub.CiliumEndpointWaitReady()
@@ -399,11 +399,11 @@ func (t *TestSpec) IsPolicyInvalid() bool {
 // Destroy deletes the pods, CiliumNetworkPolicies and Destinations created by
 // `TestSpec` after specified delay. The delay parameter is used to have the
 // pod running for a while and keep Cilium and Kubernetes with a consider load.
-func (t *TestSpec) Destroy(delay time.Duration) error {
+func (t *TestSpec) Destroy(delay time.Duration, base string) error {
 	manifestToDestroy := []string{
-		t.GetManifestsPath(),
-		fmt.Sprintf("%s/%s", helpers.BasePath, t.NetworkPolicyName()),
-		fmt.Sprintf("%s", t.Destination.GetManifestPath(t)),
+		t.GetManifestsPath(base),
+		fmt.Sprintf("%s/%s", base, t.NetworkPolicyName()),
+		fmt.Sprintf("%s", t.Destination.GetManifestPath(t, base)),
 	}
 
 	done := time.After(delay)
@@ -424,8 +424,8 @@ func (t *TestSpec) GetManifestName() string {
 }
 
 // GetManifestsPath returns the `TestSpec` manifest path
-func (t *TestSpec) GetManifestsPath() string {
-	return fmt.Sprintf("%s/%s", helpers.BasePath, t.GetManifestName())
+func (t *TestSpec) GetManifestsPath(base string) string {
+	return fmt.Sprintf("%s/%s", base, t.GetManifestName())
 }
 
 // CreateManifests creates a new pod manifest. It sets a random prefix for the
@@ -485,12 +485,12 @@ spec:
 
 // ApplyManifest applies a new deployment manifest into the Kubernetes cluster.
 // Returns an error if the manifest cannot be applied correctly
-func (t *TestSpec) ApplyManifest() (string, error) {
+func (t *TestSpec) ApplyManifest(base string) (string, error) {
 	err := t.CreateManifests()
 	if err != nil {
 		return "", err
 	}
-	res := t.Kub.Apply(t.GetManifestsPath())
+	res := t.Kub.Apply(t.GetManifestsPath(base))
 	if !res.WasSuccessful() {
 		return "", fmt.Errorf("%s", res.CombineOutput())
 	}
@@ -657,7 +657,7 @@ func (t *TestSpec) NetworkPolicyName() string {
 // NetworkPolicyApply applies the CiliumNetworkPolicy in Kubernetes and wait
 // until the statuses of all pods have been updated. Returns an error if the
 // status of the pods did not update or if the policy was unable to be applied
-func (t *TestSpec) NetworkPolicyApply() error {
+func (t *TestSpec) NetworkPolicyApply(base string) error {
 	policy, err := t.CreateCiliumNetworkPolicy()
 	if err != nil {
 		return fmt.Errorf("Network policy cannot be created prefix=%s: %s", t.Prefix, err)
@@ -676,7 +676,7 @@ func (t *TestSpec) NetworkPolicyApply() error {
 
 	_, err = t.Kub.CiliumPolicyAction(
 		helpers.DefaultNamespace,
-		fmt.Sprintf("%s/%s", helpers.BasePath, t.NetworkPolicyName()),
+		fmt.Sprintf("%s/%s", base, t.NetworkPolicyName()),
 		helpers.KubectlApply,
 		helpers.HelperTimeout)
 
@@ -690,7 +690,7 @@ func (t *TestSpec) NetworkPolicyApply() error {
 // but instead of apply the policy, this return the CNP status for the TestSpec
 // policy. This function is only used when a invalid combination of policies
 // are created, where we need to test that the error is present.
-func (t *TestSpec) InvalidNetworkPolicyApply() (*cnpv2.CiliumNetworkPolicy, error) {
+func (t *TestSpec) InvalidNetworkPolicyApply(base string) (*cnpv2.CiliumNetworkPolicy, error) {
 	policy, err := t.CreateCiliumNetworkPolicy()
 	if err != nil {
 		return nil, fmt.Errorf("Network policy cannot be created prefix=%s: %s", t.Prefix, err)
@@ -701,7 +701,7 @@ func (t *TestSpec) InvalidNetworkPolicyApply() (*cnpv2.CiliumNetworkPolicy, erro
 		return nil, fmt.Errorf("Network policy cannot be written prefix=%s: %s", t.Prefix, err)
 	}
 
-	res := t.Kub.Apply(filepath.Join(helpers.BasePath, t.NetworkPolicyName()))
+	res := t.Kub.Apply(filepath.Join(base, t.NetworkPolicyName()))
 	if !res.WasSuccessful() {
 		return nil, fmt.Errorf("%s", res.CombineOutput())
 	}
@@ -811,9 +811,9 @@ func (tg TestSpecsGroup) CreateAndApplyManifests(kub *helpers.Kubectl) {
 	manifests := []string{}
 	for _, test := range tg {
 		test.CreateManifests()
-		manifests = append(manifests, test.GetManifestsPath())
+		manifests = append(manifests, test.GetManifestsPath(kub.BasePath()))
 		test.Kub = kub
-		err := test.Destination.CreateApplyManifest(test)
+		err := test.Destination.CreateApplyManifest(test, kub.BasePath())
 		gomega.ExpectWithOffset(1, err).To(gomega.BeNil(), "cannot apply destination for %s", test.Prefix)
 	}
 
@@ -830,7 +830,7 @@ func (tg TestSpecsGroup) CreateAndApplyCNP(kub *helpers.Kubectl) {
 	for _, test := range tg {
 		// TODO: Should be any better way to do this
 		test.Kub = kub
-		err := test.NetworkPolicyApply()
+		err := test.NetworkPolicyApply(kub.BasePath())
 		gomega.ExpectWithOffset(1, err).To(gomega.BeNil())
 	}
 }

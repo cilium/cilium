@@ -28,12 +28,13 @@ var _ = Describe("K8sChaosTest", func() {
 
 	var (
 		kubectl       *helpers.Kubectl
-		demoDSPath    = helpers.ManifestGet("demo_ds.yaml")
+		demoDSPath    string
 		testDSService = "testds-service"
 	)
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+		demoDSPath = helpers.ManifestGet(kubectl.BasePath(), "demo_ds.yaml")
 		DeployCiliumAndDNS(kubectl)
 	})
 
@@ -169,8 +170,8 @@ var _ = Describe("K8sChaosTest", func() {
 	Context("Restart with long lived connections", func() {
 
 		var (
-			netperfManifest    = helpers.ManifestGet("netperf-deployment.yaml")
-			netperfPolicy      = helpers.ManifestGet("netperf-policy.yaml")
+			netperfManifest    string
+			netperfPolicy      string
 			netperfServiceName = "netperf-service"
 			podsIps            map[string]string
 			netperfClient      = "netperf-client"
@@ -178,6 +179,9 @@ var _ = Describe("K8sChaosTest", func() {
 		)
 
 		BeforeAll(func() {
+			netperfManifest = helpers.ManifestGet(kubectl.BasePath(), "netperf-deployment.yaml")
+			netperfPolicy = helpers.ManifestGet(kubectl.BasePath(), "netperf-policy.yaml")
+
 			kubectl.Apply(netperfManifest).ExpectSuccess("Netperf cannot be deployed")
 
 			err := kubectl.WaitforPods(

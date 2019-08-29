@@ -43,11 +43,12 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	endpointCount := 45
 	endpointsTimeout := endpointTimeout * time.Duration(endpointCount)
 	manifestPath := "tmp.yaml"
-	vagrantManifestPath := path.Join(helpers.BasePath, manifestPath)
+	vagrantManifestPath := ""
 	var err error
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+		vagrantManifestPath = path.Join(kubectl.BasePath(), manifestPath)
 		DeployCiliumAndDNS(kubectl)
 	})
 	deleteAll := func() {
@@ -298,14 +299,14 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 		It("Test TCP Keepalive with L7 Policy", func() {
 			kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
-			manifest := helpers.ManifestGet(netcatDsManifest)
+			manifest := helpers.ManifestGet(kubectl.BasePath(), netcatDsManifest)
 			kubectl.Apply(manifest).ExpectSuccess("Cannot apply netcat ds")
 			defer kubectl.Delete(manifest)
 			testConnectivity()
 		})
 
 		It("Test TCP Keepalive without L7 Policy", func() {
-			manifest := helpers.ManifestGet(netcatDsManifest)
+			manifest := helpers.ManifestGet(kubectl.BasePath(), netcatDsManifest)
 			kubectl.Apply(manifest).ExpectSuccess("Cannot apply netcat ds")
 			defer kubectl.Delete(manifest)
 			kubectl.Exec(fmt.Sprintf(
@@ -324,9 +325,9 @@ var _ = Describe("NightlyExamples", func() {
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		demoPath = helpers.ManifestGet("demo.yaml")
-		l3Policy = helpers.ManifestGet("l3-l4-policy.yaml")
-		l7Policy = helpers.ManifestGet("l7-policy.yaml")
+		demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
+		l3Policy = helpers.ManifestGet(kubectl.BasePath(), "l3-l4-policy.yaml")
+		l7Policy = helpers.ManifestGet(kubectl.BasePath(), "l7-policy.yaml")
 	})
 
 	AfterFailed(func() {
@@ -357,7 +358,7 @@ var _ = Describe("NightlyExamples", func() {
 		BeforeEach(func() {
 			// Delete kube-dns because if not will be a restore the old endpoints
 			// from master instead of create the new ones.
-			_ = kubectl.Delete(helpers.DNSDeployment())
+			_ = kubectl.Delete(helpers.DNSDeployment(kubectl.BasePath()))
 
 			_ = kubectl.DeleteResource(
 				"deploy", fmt.Sprintf("-n %s cilium-operator", helpers.KubeSystemNamespace))
@@ -375,7 +376,7 @@ var _ = Describe("NightlyExamples", func() {
 		})
 
 		AfterAll(func() {
-			_ = kubectl.Apply(helpers.DNSDeployment())
+			_ = kubectl.Apply(helpers.DNSDeployment(kubectl.BasePath()))
 		})
 
 		for _, image := range helpers.NightlyStableUpgradesFrom {
@@ -396,11 +397,14 @@ var _ = Describe("NightlyExamples", func() {
 			GRPCManifest = "../examples/kubernetes-grpc/cc-door-app.yaml"
 			GRPCPolicy   = "../examples/kubernetes-grpc/cc-door-ingress-security.yaml"
 
-			AppManifest    = helpers.GetFilePath(GRPCManifest)
-			PolicyManifest = helpers.GetFilePath(GRPCPolicy)
+			AppManifest    = ""
+			PolicyManifest = ""
 		)
 
 		BeforeAll(func() {
+			AppManifest = kubectl.GetFilePath(GRPCManifest)
+			PolicyManifest = kubectl.GetFilePath(GRPCPolicy)
+
 			DeployCiliumAndDNS(kubectl)
 		})
 

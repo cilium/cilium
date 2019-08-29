@@ -336,7 +336,11 @@ func (s *SSHMeta) GetEndpointsNames() ([]string, error) {
 // containing policies, DaemonSets, etc.) are stored for the runtime tests.
 // TODO: this can just be a constant; there's no need to have a function.
 func (s *SSHMeta) ManifestsPath() string {
-	return fmt.Sprintf("%s/runtime/manifests/", BasePath)
+	return fmt.Sprintf("%s/runtime/manifests/", s.basePath)
+}
+
+func (s *SSHMeta) BasePath() string {
+	return s.basePath
 }
 
 // MonitorStart starts the  monitor command in background and returns a callback
@@ -553,10 +557,15 @@ func (s *SSHMeta) PolicyRenderAndImport(policy string) (int, error) {
 		s.logger.Errorf("PolicyRenderAndImport: cannot create policy file on '%s'", filename)
 		return 0, fmt.Errorf("cannot render the policy:  %s", err)
 	}
-	path := GetFilePath(filename)
+	path := s.GetFilePath(filename)
 	s.logger.Debugf("PolicyRenderAndImport: import policy from '%s'", path)
 	defer os.Remove(filename)
 	return s.PolicyImportAndWait(path, HelperTimeout)
+}
+
+// GetFilePath is a utility function which returns path to give fale relative to BasePath
+func (s *SSHMeta) GetFilePath(filename string) string {
+	return fmt.Sprintf("%s/%s", s.basePath, filename)
 }
 
 // PolicyWait executes `cilium policy wait`, which waits until all endpoints are
@@ -679,7 +688,7 @@ func (s *SSHMeta) PprofReport() {
 				}
 
 				dest := filepath.Join(
-					BasePath, testPath,
+					s.basePath, testPath,
 					fmt.Sprintf("%s.pprof", file))
 				_ = s.ExecWithSudo(fmt.Sprintf("mv /tmp/%s %s", file, dest))
 			}
@@ -704,7 +713,7 @@ func (s *SSHMeta) DumpCiliumCommandOutput() {
 	// No need to create file for bugtool because it creates an archive of files
 	// for us.
 	res := s.ExecWithSudo(
-		fmt.Sprintf("%s -t %s", CiliumBugtool, filepath.Join(BasePath, testPath)),
+		fmt.Sprintf("%s -t %s", CiliumBugtool, filepath.Join(s.basePath, testPath)),
 		ExecOptions{SkipLog: true})
 	if !res.WasSuccessful() {
 		s.logger.Errorf("Error running bugtool: %s", res.CombineOutput())
@@ -730,9 +739,9 @@ func (s *SSHMeta) GatherLogs() {
 	reportMap(testPath, ciliumLogCommands, s)
 
 	ciliumStateCommands := []string{
-		fmt.Sprintf("sudo rsync -rv --exclude=*.sock %s %s", RunDir, filepath.Join(BasePath, testPath, "lib")),
-		fmt.Sprintf("sudo rsync -rv --exclude=*.sock %s %s", LibDir, filepath.Join(BasePath, testPath, "run")),
-		fmt.Sprintf("sudo mv /tmp/core* %s", filepath.Join(BasePath, testPath)),
+		fmt.Sprintf("sudo rsync -rv --exclude=*.sock %s %s", RunDir, filepath.Join(s.basePath, testPath, "lib")),
+		fmt.Sprintf("sudo rsync -rv --exclude=*.sock %s %s", LibDir, filepath.Join(s.basePath, testPath, "run")),
+		fmt.Sprintf("sudo mv /tmp/core* %s", filepath.Join(s.basePath, testPath)),
 	}
 
 	for _, cmd := range ciliumStateCommands {
