@@ -146,12 +146,11 @@ func ParseService(svc *types.Service) (ServiceID, *Service) {
 					for _, ip := range []net.IP{net.IPv4(0, 0, 0, 0), node.GetNodePortIPv4(), node.GetInternalIPv4()} {
 						nodePortFE := loadbalancer.NewL3n4AddrID(proto, ip, port, id)
 						svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
-
 					}
 				case option.Config.EnableIPv6 &&
 					clusterIP != nil && strings.Contains(svc.Spec.ClusterIP, ":"):
 
-					for _, ip := range []net.IP{net.IPv6zero, node.GetNodePortIPv6(), node.GetIPv6()} {
+					for _, ip := range []net.IP{net.IPv6zero, node.GetNodePortIPv6(), node.GetIPv6Router()} {
 						nodePortFE := loadbalancer.NewL3n4AddrID(proto, ip, port, id)
 						svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
 					}
