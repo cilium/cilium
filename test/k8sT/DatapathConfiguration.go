@@ -228,7 +228,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			helpers.OverrideCurrentIntegration(helpers.CIIntegrationFlannel)
 
 			deployCilium([]string{
-				"--set global.flannel.uninstallOnExit",
+				"--set global.flannel.uninstallOnExit=true",
 			})
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			cleanService()
