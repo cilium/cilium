@@ -104,7 +104,7 @@ func (ev *EndpointRevisionBumpEvent) Handle(res chan interface{}) {
 func (e *Endpoint) PolicyRevisionBumpEvent(rev uint64) {
 	epBumpEvent := eventqueue.NewEvent(&EndpointRevisionBumpEvent{Rev: rev, ep: e})
 	// Don't check policy revision event results - it is best effort.
-	_, err := e.EventQueue.Enqueue(epBumpEvent)
+	_, err := e.eventQueue.Enqueue(epBumpEvent)
 	if err != nil {
 		log.WithFields(logrus.Fields{
 			logfields.PolicyRevision: rev,
