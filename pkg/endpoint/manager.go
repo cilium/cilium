@@ -50,8 +50,8 @@ func (e *Endpoint) Expose(mgr endpointManager) error {
 	// its ID, and its eventqueue can be safely started. Ensure that it is only
 	// started once it is exposed to the endpointmanager so that it will be
 	// stopped when the endpoint is removed from the endpointmanager.
-	e.EventQueue = eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", e.ID), option.Config.EndpointQueueSize)
-	e.EventQueue.Run()
+	e.eventQueue = eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", e.ID), option.Config.EndpointQueueSize)
+	e.eventQueue.Run()
 
 	// No need to check liveness as an endpoint can only be deleted via the
 	// API after it has been inserted into the manager.
@@ -129,11 +129,11 @@ func (e *Endpoint) Unexpose(mgr endpointManager) <-chan struct{} {
 		// The endpoint's EventQueue may not be stopped yet (depending on whether
 		// the caller of the EventQueue has stopped it or not). Call it here
 		// to be safe so that ep.WaitToBeDrained() does not hang forever.
-		ep.EventQueue.Stop()
+		ep.eventQueue.Stop()
 
 		// Wait for no more events (primarily regenerations) to be occurring for
 		// this endpoint.
-		ep.EventQueue.WaitToBeDrained()
+		ep.eventQueue.WaitToBeDrained()
 
 		mgr.ReleaseID(ep)
 		close(epRemoved)

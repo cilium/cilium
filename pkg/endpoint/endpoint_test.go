@@ -655,12 +655,12 @@ func (s *EndpointSuite) TestEndpointEventQueueDeadlockUponDeletion(c *C) {
 	ev2EnqueueCh := make(chan struct{})
 
 	go func() {
-		_, err := ep.EventQueue.Enqueue(ev)
+		_, err := ep.eventQueue.Enqueue(ev)
 		c.Assert(err, IsNil)
-		_, err = ep.EventQueue.Enqueue(ev2)
+		_, err = ep.eventQueue.Enqueue(ev2)
 		c.Assert(err, IsNil)
 		close(ev2EnqueueCh)
-		_, err = ep.EventQueue.Enqueue(ev3)
+		_, err = ep.eventQueue.Enqueue(ev3)
 		c.Assert(err, IsNil)
 	}()
 

@@ -270,7 +270,7 @@ type Endpoint struct {
 
 	realizedPolicy *policy.EndpointPolicy
 
-	EventQueue *eventqueue.EventQueue `json:"-"`
+	eventQueue *eventqueue.EventQueue
 
 	// DatapathConfiguration is the endpoint's datapath configuration as
 	// passed in via the plugin that created the endpoint, e.g. the CNI
@@ -401,7 +401,7 @@ func NewEndpointWithState(owner regeneration.Owner, ID uint16, state string) *En
 		state:         state,
 		hasBPFProgram: make(chan struct{}, 0),
 		controllers:   controller.NewManager(),
-		EventQueue:    eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", ID), option.Config.EndpointQueueSize),
+		eventQueue:    eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", ID), option.Config.EndpointQueueSize),
 		desiredPolicy: policy.NewEndpointPolicy(owner.GetPolicyRepository()),
 	}
 	ep.realizedPolicy = ep.desiredPolicy
@@ -409,7 +409,7 @@ func NewEndpointWithState(owner regeneration.Owner, ID uint16, state string) *En
 	ep.SetDefaultOpts(option.Config.Opts)
 	ep.UpdateLogger(nil)
 
-	ep.EventQueue.Run()
+	ep.eventQueue.Run()
 
 	return ep
 }
@@ -1931,14 +1931,14 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpoin
 	// Since the endpoint is being deleted, we no longer need to run events
 	// in its event queue. This is a no-op if the queue has already been
 	// closed elsewhere.
-	e.EventQueue.Stop()
+	e.eventQueue.Stop()
 
 	// Wait for the queue to be drained in case an event which is currently
 	// running for the endpoint tries to acquire the lock - we cannot be sure
 	// what types of events will be pushed onto the EventQueue for an endpoint
 	// and when they will happen. After this point, no events for the endpoint
 	// will be processed on its EventQueue, specifically regenerations.
-	e.EventQueue.WaitToBeDrained()
+	e.eventQueue.WaitToBeDrained()
 
 	// Given that we are deleting the endpoint and that no more builds are
 	// going to occur for this endpoint, close the channel which signals whether
