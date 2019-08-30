@@ -553,7 +553,9 @@ struct lb6_service_v2 {
 	__u16 count;
 	__u16 rev_nat_index;
 	__u16 weight;
-	__u16 pad;
+	__u8 is_k8s_external_ip:1, /* K8s External IPs */
+	     reserved:7;
+	__u8 pad;
 };
 
 /* See lb4_backend comments */
@@ -585,7 +587,9 @@ struct lb4_service_v2 {
 	__u16 count;
 	__u16 rev_nat_index;	/* Reverse NAT ID in lb4_reverse_nat */
 	__u16 weight;		/* Currently not used */
-	__u16 pad;
+	__u8 is_k8s_external_ip:1, /* K8s External IPs */
+	     reserved:7;
+	__u8 pad;
 };
 
 struct lb4_backend {
