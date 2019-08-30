@@ -368,6 +368,7 @@ func GetNodeAddressing() *models.NodeAddressing {
 }
 
 func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
+	var hasIPv4, hasIPv6 bool
 	f, err := os.Open(nodeConfig)
 	switch {
 	case err != nil:
@@ -377,7 +378,31 @@ func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
 		for scanner.Scan() {
 			txt := scanner.Text()
 			switch {
-			case strings.Contains(txt, "IPV4_GATEWAY"):
+			case !hasIPv6 && strings.Contains(txt, defaults.RestoreV6Addr):
+				defineLine := strings.Split(txt, defaults.RestoreV6Addr)
+				if len(defineLine) != 2 {
+					continue
+				}
+				ipv6 := common.C2GoArray(defineLine[1])
+				if len(ipv6) != net.IPv6len {
+					continue
+				}
+				ipv6Router = net.IP(ipv6)
+				hasIPv6 = true
+			case !hasIPv4 && strings.Contains(txt, defaults.RestoreV4Addr):
+				defineLine := strings.Split(txt, defaults.RestoreV4Addr)
+				if len(defineLine) != 2 {
+					continue
+				}
+				ipv4 := common.C2GoArray(defineLine[1])
+				if len(ipv4) != net.IPv6len {
+					continue
+				}
+				ipv4GW = net.IP(ipv4)
+				hasIPv4 = true
+
+			// Legacy cases based on the header defines:
+			case !hasIPv4 && strings.Contains(txt, "IPV4_GATEWAY"):
 				// #define IPV4_GATEWAY 0xee1c000a
 				defineLine := strings.Split(txt, " ")
 				if len(defineLine) != 3 {
@@ -392,8 +417,9 @@ func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
 					bs := make([]byte, net.IPv4len)
 					byteorder.NetworkToHostPut(bs, uint32(ipv4GWint64))
 					ipv4GW = net.IPv4(bs[0], bs[1], bs[2], bs[3])
+					hasIPv4 = true
 				}
-			case strings.Contains(txt, " ROUTER_IP "):
+			case !hasIPv6 && strings.Contains(txt, " ROUTER_IP "):
 				// #define ROUTER_IP 0xf0, 0xd, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xa, 0x0, 0x0, 0x0, 0x0, 0x0, 0x8a, 0xd6
 				defineLine := strings.Split(txt, " ROUTER_IP ")
 				if len(defineLine) != 2 {
@@ -404,6 +430,7 @@ func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
 					continue
 				}
 				ipv6Router = net.IP(ipv6)
+				hasIPv6 = true
 			}
 		}
 	}
