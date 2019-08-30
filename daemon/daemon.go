@@ -186,6 +186,10 @@ type Daemon struct {
 	iptablesManager rulesManager
 
 	endpointManager *endpointmanager.EndpointManager
+
+	// k8sAPIServerSVCBootstrap stores a state for bootstrapping k8s
+	// api-server service when running w/o kubeproxy
+	k8sAPIServerSVCBootstrap *k8sAPIServerSVCBootstrap
 }
 
 // Datapath returns a reference to the datapath implementation.
@@ -812,6 +816,18 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 	bootstrapStats.k8sInit.Start()
 	k8s.Configure(option.Config.K8sAPIServer, option.Config.K8sKubeConfigPath, defaults.K8sClientQPSLimit, defaults.K8sClientBurst)
 	bootstrapStats.k8sInit.End(true)
+
+	if option.Config.K8sAPIServerURLForBootstrap != "" {
+		// initK8sAPIServerSVCBootstrap() should be called after k8s.Configure(),
+		// as initK8sAPIServerSVCBootstrap() temporarily overwrites the k8s client
+		// configuration which is set by k8s.Configure().
+		b, err := initK8sAPIServerSVCBootstrap(option.Config.K8sAPIServerURLForBootstrap)
+		if err != nil {
+			return nil, nil, fmt.Errorf("Failed to initialize k8s api-server bootstrapping: %s", err)
+		}
+		d.k8sAPIServerSVCBootstrap = b
+	}
+
 	d.runK8sServiceHandler()
 	policyApi.InitEntities(option.Config.ClusterName)
 

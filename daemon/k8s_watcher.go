@@ -1400,6 +1400,13 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 			if _, err := d.svcAdd(*fe.addr, besValues, true, fe.nodePort); err != nil {
 				scopedLog.WithError(err).Error("Error while inserting service in LB map")
 			}
+			if d.k8sAPIServerSVCBootstrap != nil {
+				if err := d.k8sAPIServerSVCBootstrap.maybeFinish(
+					fe.addr.IP, fe.addr.Port, len(besValues)); err != nil {
+					scopedLog.WithError(err).Fatal("Failed to bootstrap the k8s api-server service")
+				}
+			}
+
 		}
 	}
 	return nil
