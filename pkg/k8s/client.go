@@ -74,11 +74,7 @@ func createConfig(apiServerURL, kubeCfgPath string, qps float32, burst int) (*re
 		}
 		config.Host = apiServerURL
 	default:
-		config := &rest.Config{Host: apiServerURL, UserAgent: userAgent}
-		setConfig(config, userAgent, qps, burst)
-		if err := rest.SetKubernetesDefaults(config); err != nil {
-			return nil, err
-		}
+		config = &rest.Config{Host: apiServerURL, UserAgent: userAgent}
 	}
 
 	setConfig(config, userAgent, qps, burst)
