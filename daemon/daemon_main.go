@@ -584,6 +584,8 @@ func init() {
 	flags.String(option.K8sKubeConfigPath, "", "Absolute path of the kubernetes kubeconfig file")
 	option.BindEnv(option.K8sKubeConfigPath)
 
+	flags.String(option.K8sAPIServerURLForBootstrap, "", "Kubernetes api server address for bootstrapping without kube-proxy")
+
 	flags.String(option.K8sNamespaceName, "", "Name of the Kubernetes namespace in which Cilium is deployed in")
 	flags.MarkHidden(option.K8sNamespaceName)
 	option.BindEnv(option.K8sNamespaceName)
@@ -1215,6 +1217,22 @@ func initEnv(cmd *cobra.Command) {
 			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP4_RECVMSG) != nil ||
 				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP6_RECVMSG) != nil) {
 			log.Fatal("BPF host reachable services for UDP needs kernel 4.19.57 or higher. If you run an older kernel and only need TCP, then specify: --host-reachable-services-protos=tcp")
+		}
+	}
+
+	if option.Config.K8sAPIServerURLForBootstrap != "" {
+		if option.Config.K8sAPIServer != "" || option.Config.K8sKubeConfigPath != "" {
+			// The check is needed, as currently the bootstrapper can read
+			// the api-server address only from the env variables set by kubelet.
+			log.Fatalf("%q cannot be specified when %q or %q is set",
+				option.Config.K8sAPIServerURLForBootstrap,
+				option.Config.K8sAPIServer,
+				option.Config.K8sKubeConfigPath)
+		}
+		if !option.Config.EnableNodePort ||
+			!(option.Config.EnableHostReachableServices && option.Config.EnableHostServicesTCP) {
+			// Required for the connectivity from the host netns (cilium-agent) to ClusterIP.
+			log.Fatalf("Cannot bootstrap the k8s api-server service without BPF host reachable services for TCP")
 		}
 	}
 

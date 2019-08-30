@@ -183,6 +183,10 @@ const (
 	// K8sKubeConfigPath is the absolute path of the kubernetes kubeconfig file
 	K8sKubeConfigPath = "k8s-kubeconfig-path"
 
+	// K8sAPIServerURLForBootstrap is the kubernetes api server address for
+	// bootstrapping api-server service when running without kube-proxy
+	K8sAPIServerURLForBootstrap = "k8s-api-server-url-no-kubeproxy"
+
 	// K8sServiceCacheSize is service cache size for cilium k8s package.
 	K8sServiceCacheSize = "k8s-service-cache-size"
 
@@ -964,6 +968,7 @@ type DaemonConfig struct {
 	IPv6ServiceRange              string
 	K8sAPIServer                  string
 	K8sKubeConfigPath             string
+	K8sAPIServerURLForBootstrap   string
 	K8sWatcherEndpointSelector    string
 	KVStore                       string
 	KVStoreOpt                    map[string]string
@@ -1556,6 +1561,7 @@ func (c *DaemonConfig) Populate() {
 	c.IPv6ServiceRange = viper.GetString(IPv6ServiceRange)
 	c.K8sAPIServer = viper.GetString(K8sAPIServer)
 	c.K8sKubeConfigPath = viper.GetString(K8sKubeConfigPath)
+	c.K8sAPIServerURLForBootstrap = viper.GetString(K8sAPIServerURLForBootstrap)
 	c.K8sRequireIPv4PodCIDR = viper.GetBool(K8sRequireIPv4PodCIDRName)
 	c.K8sRequireIPv6PodCIDR = viper.GetBool(K8sRequireIPv6PodCIDRName)
 	c.K8sServiceCacheSize = uint(viper.GetInt(K8sServiceCacheSize))
