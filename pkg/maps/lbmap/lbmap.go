@@ -763,3 +763,20 @@ func RemoveDeprecatedMaps() error {
 	}
 	return nil
 }
+
+// ExistAndHaveBackends return true if a service identified with the given
+// frontend addr exists and has at least one backend.
+func ExistAndHaveBackends(svc *loadbalancer.L3n4Addr) bool {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	var svcKey ServiceKeyV2
+
+	if !svc.IsIPv6() {
+		svcKey = NewService4KeyV2(svc.IP, svc.Port, u8proto.ANY, 0)
+	} else {
+		svcKey = NewService6KeyV2(svc.IP, svc.Port, u8proto.ANY, 0)
+	}
+
+	return cache.existAndHaveBackends(svcKey)
+}
