@@ -298,4 +298,10 @@ const (
 	// It is enabled by default and directs that the ICMP Fragmentation needed type
 	// packets are allowed to enable TCP Path MTU.
 	AllowICMPFragNeeded = true
+
+	// RestoreV4Addr is used as match for cilium_host v4 address
+	RestoreV4Addr = "cilium.v4.internal.raw "
+
+	// RestoreV6Addr is used as match for cilium_host v6 (router) address
+	RestoreV6Addr = "cilium.v6.internal.raw "
 )

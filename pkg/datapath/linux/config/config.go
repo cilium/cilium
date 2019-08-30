@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -66,24 +67,18 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	routerIP := node.GetIPv6Router()
 	hostIP := node.GetIPv6()
 
-	fmt.Fprintf(fw, ""+
-		"/*\n"+
-		" * Node-IPv6: %s\n"+
-		" * Router-IPv6: %s\n"+
-		" * Host-IPv4: %s\n"+
-		" *\n"+
-		" * External-IPv4: %s\n"+
-		" * External-IPv6: %s\n"+
-		" *\n"+
-		" * NodePort-SNAT-IPv4: %s\n"+
-		" * NodePort-SNAT-IPv6: %s\n"+
-		" */\n\n",
-		hostIP.String(), routerIP.String(),
-		node.GetInternalIPv4().String(),
-		node.GetExternalIPv4().String(),
-		node.GetIPv6().String(),
-		node.GetNodePortIPv4().String(),
-		node.GetNodePortIPv6().String())
+	fmt.Fprintf(fw, "/*\n")
+	fmt.Fprintf(fw, " cilium.v6.external.str %s\n", node.GetIPv6().String())
+	fmt.Fprintf(fw, " cilium.v6.internal.str %s\n", node.GetIPv6Router().String())
+	fmt.Fprintf(fw, " cilium.v6.nodeport.str %s\n", node.GetNodePortIPv6().String())
+	fmt.Fprintf(fw, "\n")
+	fmt.Fprintf(fw, " cilium.v4.external.str %s\n", node.GetExternalIPv4().String())
+	fmt.Fprintf(fw, " cilium.v4.internal.str %s\n", node.GetInternalIPv4().String())
+	fmt.Fprintf(fw, " cilium.v4.nodeport.str %s\n", node.GetNodePortIPv4().String())
+	fmt.Fprintf(fw, "\n")
+	fw.WriteString(dumpRaw(defaults.RestoreV6Addr, node.GetIPv6Router()))
+	fw.WriteString(dumpRaw(defaults.RestoreV4Addr, node.GetInternalIPv4()))
+	fmt.Fprintf(fw, " */\n\n")
 
 	if option.Config.EnableIPv6 {
 		extraMacrosMap["ROUTER_IP"] = routerIP.String()
