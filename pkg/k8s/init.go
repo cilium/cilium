@@ -118,21 +118,8 @@ func useNodeCIDR(n *node.Node) {
 // Init initializes the Kubernetes package. It is required to call Configure()
 // beforehand.
 func Init() error {
-	if err := createDefaultClient(); err != nil {
-		return fmt.Errorf("unable to create k8s client: %s", err)
-	}
-
-	if err := createDefaultCiliumClient(); err != nil {
-		return fmt.Errorf("unable to create cilium k8s client: %s", err)
-	}
-
-	if err := k8sversion.Update(Client()); err != nil {
+	if err := createClients(); err != nil {
 		return err
-	}
-
-	if !k8sversion.Capabilities().MinimalVersionMet {
-		return fmt.Errorf("k8s version (%v) is not meeting the minimal requirement (%v)",
-			k8sversion.Version(), k8sversion.MinimalVersionConstraint)
 	}
 
 	if nodeName := os.Getenv(EnvNodeNameSpec); nodeName != "" {
@@ -179,6 +166,34 @@ func Init() error {
 		// want to specify them manually
 	} else if option.Config.K8sRequireIPv4PodCIDR || option.Config.K8sRequireIPv6PodCIDR {
 		return fmt.Errorf("node name must be specified via environment variable '%s' to retrieve Kubernetes PodCIDR range", EnvNodeNameSpec)
+	}
+
+	return nil
+}
+
+// UpdateAPIServerURL updates the k8s api-server URL and re-creates both clients
+// so that they would connect via the new URL.
+func UpdateAPIServerURL(url string) error {
+	SetAPIServerURL(url)
+	return createClients()
+}
+
+func createClients() error {
+	if err := createDefaultClient(); err != nil {
+		return fmt.Errorf("unable to create k8s client: %s", err)
+	}
+
+	if err := createDefaultCiliumClient(); err != nil {
+		return fmt.Errorf("unable to create cilium k8s client: %s", err)
+	}
+
+	if err := k8sversion.Update(Client()); err != nil {
+		return err
+	}
+
+	if !k8sversion.Capabilities().MinimalVersionMet {
+		return fmt.Errorf("k8s version (%v) is not meeting the minimal requirement (%v)",
+			k8sversion.Version(), k8sversion.MinimalVersionConstraint)
 	}
 
 	return nil

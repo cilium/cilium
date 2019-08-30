@@ -45,6 +45,11 @@ func GetAPIServerURL() string {
 	return config.APIServerURL
 }
 
+// SetAPIServerURL sets the k8s API server URL address
+func SetAPIServerURL(url string) {
+	config.APIServerURL = url
+}
+
 // GetKubeconfigPath returns the configured path to the kubeconfig
 // configuration file
 func GetKubeconfigPath() string {
