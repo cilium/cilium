@@ -22,7 +22,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-const allowedDNSCharsREGroup = "[-a-zA-Z0-9]"
+const allowedDNSCharsREGroup = "[-a-zA-Z0-9_]"
 
 // Validate ensures that pattern is a parseable matchPattern. It returns the
 // regexp generated when validating.
