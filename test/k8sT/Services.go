@@ -427,110 +427,109 @@ var _ = Describe("K8sServicesTest", func() {
 		})
 	})
 
-	Context("External IPs services", func() {
-
-		var (
-			externalIP   = "192.168.9.10"
-			expectedCIDR = externalIP + "/32"
-			serviceName  = "external-ips-service." + helpers.DefaultNamespace + ".svc.cluster.local"
-			podName      = "toservices"
-
-			podPath           = helpers.ManifestGet("external_pod.yaml")
-			policyPath        = helpers.ManifestGet("external-policy-external-ips-service.yaml")
-			policyLabeledPath = helpers.ManifestGet("external-policy-labeled.yaml")
-			servicePath       = helpers.ManifestGet("external-ips-service.yaml")
-
-			// shouldConnect asserts that srcPod can connect to dst.
-			shouldConnect = func(srcPod, dst string) {
-				By("Checking that %q can connect to %q", srcPod, dst)
-				res := kubectl.ExecPodCmd(helpers.DefaultNamespace, srcPod, fmt.Sprintf("sh -c 'rm -f index.html && wget %s'", dst))
-				res.ExpectSuccess("Unable to connect from %q to %q", srcPod, dst)
-			}
-		)
-
-		BeforeAll(func() {
-			kubectl.Apply(servicePath).ExpectSuccess("cannot install external service")
-			kubectl.Apply(podPath).ExpectSuccess("cannot install pod path")
-
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
-			Expect(err).To(BeNil(), "Pods are not ready after timeout")
-
-			err = kubectl.CiliumEndpointWaitReady()
-			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
-		})
-
-		AfterAll(func() {
-			_ = kubectl.Delete(servicePath)
-			_ = kubectl.Delete(podPath)
-
-			ExpectAllPodsTerminated(kubectl)
-		})
-
-		AfterEach(func() {
-			_ = kubectl.Delete(policyLabeledPath)
-			_ = kubectl.Delete(policyPath)
-		})
-
-		validateEgress := func() {
-			By("Checking that toServices CIDR is plumbed into CEP")
-			Eventually(func() string {
-				res := kubectl.Exec(fmt.Sprintf(
-					"%s -n %s get cep %s -o json",
-					helpers.KubectlCmd,
-					helpers.DefaultNamespace,
-					podName))
-				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "cannot get Cilium endpoint")
-				data, err := res.Filter(`{.status.policy.egress}`)
-				ExpectWithOffset(1, err).To(BeNil(), "unable to get endpoint %s metadata", podName)
-				return data.String()
-			}, 2*time.Minute, 2*time.Second).Should(ContainSubstring(expectedCIDR))
-		}
-
-		validateEgressAfterDeletion := func() {
-			By("Checking that toServices CIDR is no longer plumbed into CEP")
-			Eventually(func() string {
-				res := kubectl.Exec(fmt.Sprintf(
-					"%s -n %s get cep %s -o json",
-					helpers.KubectlCmd,
-					helpers.DefaultNamespace,
-					podName))
-				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "cannot get Cilium endpoint")
-				data, err := res.Filter(`{.status.policy.egress}`)
-				ExpectWithOffset(1, err).To(BeNil(), "unable to get endpoint %s metadata", podName)
-				return data.String()
-			}, 2*time.Minute, 2*time.Second).ShouldNot(ContainSubstring(expectedCIDR))
-		}
-
-		It("Connects to external IPs", func() {
-			shouldConnect(podName, externalIP)
-		})
-
-		It("Connects to service IP backed by external IPs", func() {
-			err := kubectl.WaitForKubeDNSEntry("external-ips-service", helpers.DefaultNamespace)
-			Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
-			shouldConnect(podName, serviceName)
-		})
-
-		It("To Services first policy", func() {
-			applyPolicy(policyPath)
-
-			validateEgress()
-
-			kubectl.Delete(policyPath)
-			validateEgressAfterDeletion()
-		})
-
-		It("To Services first endpoint creation match service by labels", func() {
-			By("Creating Kubernetes Endpoint")
-			applyPolicy(policyLabeledPath)
-
-			validateEgress()
-
-			kubectl.Delete(policyLabeledPath)
-			validateEgressAfterDeletion()
-		})
-
-	})
+	// FIXME: to test external IPs one needs to setup a routing to the VMs
+	//        a manual test can be achieved by running
+	//        Disable kube-proxy
+	//        start cilium with --enable-node-port --device=enp0s9
+	//        kubectl apply -f test/k8sT/manifests/demo.yaml
+	//        kubectl apply -f test/k8sT/manifests/external-ips-service.yaml
+	//        (outside of the VM add a route for the external IP via the IP
+	//        of the VM where the service is installed)
+	//        $ ip r a 192.0.2.233 via 192.168.34.11
+	//        $ curl 192.0.2.233:82
+	//        <html><body><h1>It works!</h1></body></html>
+	// Context("External IPs services", func() {
+	//
+	// 	var (
+	// 		externalIP   = "192.0.2.233"
+	// 		expectedCIDR = externalIP + "/32"
+	// 		podName      = "toservices"
+	//
+	// 		podPath           = helpers.ManifestGet("demo.yaml")
+	// 		policyLabeledPath = helpers.ManifestGet("external-policy-labeled.yaml")
+	// 		servicePath       = helpers.ManifestGet("external-ips-service.yaml")
+	//
+	// 		// shouldConnect asserts that srcPod can connect to dst.
+	// 		shouldConnect = func(srcPod, dst string) {
+	// 			By("Checking that %q can connect to %q", srcPod, dst)
+	// 			res := kubectl.ExecPodCmd(helpers.DefaultNamespace, srcPod, fmt.Sprintf("sh -c 'rm -f index.html && wget %s'", dst))
+	// 			res.ExpectSuccess("Unable to connect from %q to %q", srcPod, dst)
+	// 		}
+	// 	)
+	//
+	// 	BeforeAll(func() {
+	// 		kubectl.Apply(servicePath).ExpectSuccess("cannot install external service")
+	// 		kubectl.Apply(podPath).ExpectSuccess("cannot install pod path")
+	//
+	// 		err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
+	// 		Expect(err).To(BeNil(), "Pods are not ready after timeout")
+	//
+	// 		err = kubectl.CiliumEndpointWaitReady()
+	// 		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
+	// 	})
+	//
+	// 	AfterAll(func() {
+	// 		_ = kubectl.Delete(servicePath)
+	// 		_ = kubectl.Delete(podPath)
+	//
+	// 		ExpectAllPodsTerminated(kubectl)
+	// 	})
+	//
+	// 	AfterEach(func() {
+	// 		_ = kubectl.Delete(policyLabeledPath)
+	// 	})
+	//
+	// 	validateEgress := func() {
+	// 		By("Checking that toServices CIDR is plumbed into CEP")
+	// 		Eventually(func() string {
+	// 			res := kubectl.Exec(fmt.Sprintf(
+	// 				"%s -n %s get cep %s -o json",
+	// 				helpers.KubectlCmd,
+	// 				helpers.DefaultNamespace,
+	// 				podName))
+	// 			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "cannot get Cilium endpoint")
+	// 			data, err := res.Filter(`{.status.policy.egress}`)
+	// 			ExpectWithOffset(1, err).To(BeNil(), "unable to get endpoint %s metadata", podName)
+	// 			return data.String()
+	// 		}, 2*time.Minute, 2*time.Second).Should(ContainSubstring(expectedCIDR))
+	// 	}
+	//
+	// 	validateEgressAfterDeletion := func() {
+	// 		By("Checking that toServices CIDR is no longer plumbed into CEP")
+	// 		Eventually(func() string {
+	// 			res := kubectl.Exec(fmt.Sprintf(
+	// 				"%s -n %s get cep %s -o json",
+	// 				helpers.KubectlCmd,
+	// 				helpers.DefaultNamespace,
+	// 				podName))
+	// 			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "cannot get Cilium endpoint")
+	// 			data, err := res.Filter(`{.status.policy.egress}`)
+	// 			ExpectWithOffset(1, err).To(BeNil(), "unable to get endpoint %s metadata", podName)
+	// 			return data.String()
+	// 		}, 2*time.Minute, 2*time.Second).ShouldNot(ContainSubstring(expectedCIDR))
+	// 	}
+	//
+	// 	It("Connects to external IPs", func() {
+	// 		shouldConnect(podName, externalIP)
+	// 	})
+	//
+	// 	It("Connects to service IP backed by external IPs", func() {
+	// 		err := kubectl.WaitForKubeDNSEntry("external-ips-service", helpers.DefaultNamespace)
+	// 		Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
+	// 		shouldConnect(podName, serviceName)
+	// 	})
+	//
+	// 	It("To Services first endpoint creation match service by labels", func() {
+	// 		By("Creating Kubernetes Endpoint")
+	// 		applyPolicy(policyLabeledPath)
+	//
+	// 		validateEgress()
+	//
+	// 		kubectl.Delete(policyLabeledPath)
+	// 		validateEgressAfterDeletion()
+	// 	})
+	//
+	// })
 
 	Context("Bookinfo Demo", func() {
 
