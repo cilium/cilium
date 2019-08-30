@@ -26,8 +26,8 @@ var (
 )
 
 type configuration struct {
-	// APIServer is the address of the API server
-	APIServer string
+	// APIServerURL is the URL address of the API server
+	APIServerURL string
 
 	// KubeconfigPath is the local path to the kubeconfig configuration
 	// file on the filesystem
@@ -40,9 +40,9 @@ type configuration struct {
 	Burst int
 }
 
-// GetAPIServer returns the configured API server address
-func GetAPIServer() string {
-	return config.APIServer
+// GetAPIServerURL returns the configured API server URL address
+func GetAPIServerURL() string {
+	return config.APIServerURL
 }
 
 // GetKubeconfigPath returns the configured path to the kubeconfig
@@ -62,22 +62,22 @@ func GetBurst() int {
 }
 
 // Configure sets the parameters of the Kubernetes package
-func Configure(apiServer, kubeconfigPath string, qps float32, burst int) {
-	config.APIServer = apiServer
+func Configure(apiServerURL, kubeconfigPath string, qps float32, burst int) {
+	config.APIServerURL = apiServerURL
 	config.KubeconfigPath = kubeconfigPath
 	config.QPS = qps
 	config.Burst = burst
 
 	if IsEnabled() &&
-		config.APIServer != "" &&
-		!strings.HasPrefix(apiServer, "http") {
-		config.APIServer = "http://" + apiServer
+		config.APIServerURL != "" &&
+		!strings.HasPrefix(apiServerURL, "http") {
+		config.APIServerURL = "http://" + apiServerURL // default to HTTP
 	}
 }
 
 // IsEnabled checks if Cilium is being used in tandem with Kubernetes.
 func IsEnabled() bool {
-	return config.APIServer != "" ||
+	return config.APIServerURL != "" ||
 		config.KubeconfigPath != "" ||
 		(os.Getenv("KUBERNETES_SERVICE_HOST") != "" &&
 			os.Getenv("KUBERNETES_SERVICE_PORT") != "")
