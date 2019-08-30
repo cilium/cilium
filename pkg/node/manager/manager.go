@@ -283,9 +283,10 @@ func (m *Manager) NodeUpdated(n node.Node) {
 
 	for _, address := range n.IPAddresses {
 		// Map the Cilium internal IP to the reachable node IP so it
-		// can be routed via the overlay
+		// can be routed via the overlay. Routing via overlay is always
+		// done via public v4 address hence n.GetNodeIP(false).
 		if address.Type == addressing.NodeCiliumInternalIP {
-			nodeIP = n.GetNodeIP(address.IP.To4() == nil)
+			nodeIP = n.GetNodeIP(false)
 			if address.IP.To4() != nil {
 				nodeIP4 = nodeIP
 			}
@@ -326,8 +327,7 @@ func (m *Manager) NodeUpdated(n node.Node) {
 		if address == nil {
 			continue
 		}
-		isIPv6 := address.To4() == nil
-		isOwning := ipcache.IPIdentityCache.Upsert(address.String(), n.GetNodeIP(isIPv6), n.EncryptionKey, ipcache.Identity{
+		isOwning := ipcache.IPIdentityCache.Upsert(address.String(), n.GetNodeIP(false), n.EncryptionKey, ipcache.Identity{
 			ID:     identity.ReservedIdentityHealth,
 			Source: n.Source,
 		})
