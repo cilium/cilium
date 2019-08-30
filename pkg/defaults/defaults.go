@@ -293,4 +293,10 @@ const (
 	// K8sServiceCacheSize is the default value for option.K8sServiceCacheSize
 	// which denotes the value of Cilium's K8s service cache size.
 	K8sServiceCacheSize = 128
+
+	// RestoreV4Addr is used as match for cilium_host v4 address
+	RestoreV4Addr = "cilium.v4.internal.raw "
+
+	// RestoreV6Addr is used as match for cilium_host v6 (router) address
+	RestoreV6Addr = "cilium.v6.internal.raw "
 )
