@@ -95,7 +95,7 @@ func CreateConfigFromAgentResponse(resp *models.DaemonConfiguration) (*rest.Conf
 // CreateConfig creates a client configuration based on the configured API
 // server and Kubeconfig path
 func CreateConfig() (*rest.Config, error) {
-	return createConfig(GetAPIServer(), GetKubeconfigPath(), GetQPS(), GetBurst())
+	return createConfig(GetAPIServerURL(), GetKubeconfigPath(), GetQPS(), GetBurst())
 }
 
 // CreateClient creates a new client to access the Kubernetes API
