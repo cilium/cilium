@@ -3,12 +3,15 @@ kind: Service
 metadata:
   name: external-ips-service
   labels:
-    zgroup: external
-    test: external
+    zgroup: testapp
+    id: app1
 spec:
+  selector:
+    zgroup: testapp
+    id: app1
   externalIPs:
-  - 192.168.9.10
+  - 192.0.2.233
   ports:
   - protocol: TCP
-    port: 80
-    targetPort: 9376
+    port: 82
+    targetPort: 80
