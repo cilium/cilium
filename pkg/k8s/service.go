@@ -182,6 +182,7 @@ func ParseServiceIDFrom(dn string) *ServiceID {
 
 // Service is an abstraction for a k8s service that is composed by the frontend IP
 // address (FEIP) and the map of the frontend ports (Ports).
+// +k8s:deepcopy-gen=true
 type Service struct {
 	FrontendIP net.IP
 	IsHeadless bool
