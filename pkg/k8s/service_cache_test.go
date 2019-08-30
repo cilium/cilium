@@ -179,7 +179,7 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 		c.Assert(event.Action, check.Equals, UpdateService)
 		c.Assert(event.ID, check.Equals, svcID)
 		c.Assert(event.Endpoints, checker.DeepEquals, endpoints)
-		_, svc := ParseService(k8sSvc)
+		_, svc, _ := ParseService(k8sSvc)
 		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
@@ -200,7 +200,7 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 		c.Assert(event.Action, check.Equals, DeleteService)
 		c.Assert(event.ID, check.Equals, svcID)
 		c.Assert(event.Endpoints, checker.DeepEquals, endpoints)
-		_, svc := ParseService(k8sSvc)
+		_, svc, _ := ParseService(k8sSvc)
 		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
@@ -212,7 +212,7 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 		c.Assert(event.Action, check.Equals, UpdateService)
 		c.Assert(event.ID, check.Equals, svcID)
 		c.Assert(event.Endpoints, checker.DeepEquals, endpoints)
-		_, svc := ParseService(k8sSvc)
+		_, svc, _ := ParseService(k8sSvc)
 		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
@@ -229,7 +229,7 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 		c.Assert(event.Action, check.Equals, DeleteService)
 		c.Assert(event.ID, check.Equals, svcID)
 		c.Assert(event.Endpoints, checker.DeepEquals, endpoints)
-		_, svc := ParseService(k8sSvc)
+		_, svc, _ := ParseService(k8sSvc)
 		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
@@ -246,7 +246,7 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 		c.Assert(event.Action, check.Equals, UpdateService)
 		c.Assert(event.ID, check.Equals, svcID)
 		c.Assert(event.Endpoints, checker.DeepEquals, endpoints)
-		_, svc := ParseService(k8sSvc)
+		_, svc, _ := ParseService(k8sSvc)
 		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
@@ -258,7 +258,7 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 		c.Assert(event.Action, check.Equals, DeleteService)
 		c.Assert(event.ID, check.Equals, svcID)
 		c.Assert(event.Endpoints, checker.DeepEquals, endpoints)
-		_, svc := ParseService(k8sSvc)
+		_, svc, _ := ParseService(k8sSvc)
 		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
@@ -383,7 +383,7 @@ func (s *K8sSuite) TestServiceCacheWithK8sExternalIPs(c *check.C) {
 			},
 		}
 		c.Assert(event.Endpoints, checker.DeepEquals, eps)
-		_, svc := ParseService(k8sSvc)
+		_, svc, _ := ParseService(k8sSvc)
 		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
@@ -445,7 +445,7 @@ func (s *K8sSuite) TestServiceCacheWithK8sExternalIPs(c *check.C) {
 			},
 		}
 		c.Assert(event.Endpoints, checker.DeepEquals, eps)
-		_, svc := ParseService(k8sSvc)
+		_, svc, _ := ParseService(k8sSvc)
 		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
@@ -479,7 +479,7 @@ func (s *K8sSuite) TestServiceCacheWithK8sExternalIPs(c *check.C) {
 			},
 		}
 		c.Assert(event.Endpoints, checker.DeepEquals, eps)
-		_, svc := ParseService(k8sSvc)
+		_, svc, _ := ParseService(k8sSvc)
 		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
@@ -504,7 +504,7 @@ func (s *K8sSuite) TestServiceCacheWithK8sExternalIPs(c *check.C) {
 			},
 		}
 		c.Assert(event.Endpoints, checker.DeepEquals, eps)
-		_, svc := ParseService(k8sSvc)
+		_, svc, _ := ParseService(k8sSvc)
 		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
@@ -532,7 +532,7 @@ func (s *K8sSuite) TestServiceCacheWithK8sExternalIPs(c *check.C) {
 			},
 		}
 		c.Assert(event.Endpoints, checker.DeepEquals, eps)
-		_, svc := ParseService(k8sSvc)
+		_, svc, _ := ParseService(k8sSvc)
 		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
@@ -571,7 +571,7 @@ func (s *K8sSuite) TestServiceCacheWithK8sExternalIPs(c *check.C) {
 			},
 		}
 		c.Assert(event.Endpoints, checker.DeepEquals, eps)
-		_, svc := ParseService(k8sSvc)
+		_, svc, _ := ParseService(k8sSvc)
 		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
@@ -596,7 +596,7 @@ func (s *K8sSuite) TestServiceCacheWithK8sExternalIPs(c *check.C) {
 			},
 		}
 		c.Assert(event.Endpoints, checker.DeepEquals, eps)
-		_, svc := ParseService(k8sSvc)
+		_, svc, _ := ParseService(k8sSvc)
 		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
@@ -637,7 +637,7 @@ func (s *K8sSuite) TestServiceCacheWithK8sExternalIPs(c *check.C) {
 			},
 		}
 		c.Assert(event.Endpoints, checker.DeepEquals, eps)
-		_, svc := ParseService(k8sSvc)
+		_, svc, _ := ParseService(k8sSvc)
 		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
@@ -659,7 +659,7 @@ func (s *K8sSuite) TestServiceCacheWithK8sExternalIPs(c *check.C) {
 			},
 		}
 		c.Assert(event.Endpoints, checker.DeepEquals, eps)
-		_, svc := ParseService(k8sSvc)
+		_, svc, _ := ParseService(k8sSvc)
 		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
@@ -690,7 +690,7 @@ func (s *K8sSuite) TestServiceCacheWithK8sExternalIPs(c *check.C) {
 			},
 		}
 		c.Assert(event.Endpoints, checker.DeepEquals, eps)
-		_, svc := ParseService(k8sSvc)
+		_, svc, _ := ParseService(k8sSvc)
 		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
@@ -932,7 +932,7 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 		return true
 	}, 2*time.Second), check.IsNil)
 
-	k8sSvcID, _ := ParseService(k8sSvc)
+	k8sSvcID, _, _ := ParseService(k8sSvc)
 	addresses := svcCache.GetRandomBackendIP(k8sSvcID)
 	c.Assert(addresses, checker.DeepEquals, loadbalancer.NewL3n4Addr(loadbalancer.TCP, net.ParseIP("127.0.0.1"), 80))
 }

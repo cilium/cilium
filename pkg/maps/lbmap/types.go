@@ -166,6 +166,12 @@ type ServiceValueV2 interface {
 	// Get weight
 	GetWeight() uint16
 
+	// Set flags
+	SetFlags(uint8)
+
+	// Get flags
+	GetFlags() uint8
+
 	// Set backend identifier
 	SetBackendID(id loadbalancer.BackendID)
 
@@ -531,4 +537,20 @@ func LBBackEnd2Backend(be loadbalancer.LBBackEnd) (Backend, error) {
 	}
 
 	return NewBackend4(loadbalancer.BackendID(be.ID), be.IP, be.Port, u8proto.ANY)
+}
+
+const (
+	externalIPsMask = 1 << 0
+)
+
+func createSvcFlag(externalIPs bool) uint8 {
+	var flags uint8
+	if externalIPs {
+		flags |= externalIPsMask
+	}
+	return flags
+}
+
+func hasExternalIPsSet(flags uint8) bool {
+	return flags&externalIPsMask != 0
 }

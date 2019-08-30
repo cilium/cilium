@@ -51,14 +51,14 @@ func getAnnotationShared(svc *types.Service) bool {
 // ParseServiceID parses a Kubernetes service and returns the ServiceID
 func ParseServiceID(svc *types.Service) ServiceID {
 	return ServiceID{
-		Name:        svc.ObjectMeta.Name,
-		Namespace:   svc.ObjectMeta.Namespace,
-		k8sExternal: len(svc.Spec.ExternalIPs) != 0,
+		Name:      svc.ObjectMeta.Name,
+		Namespace: svc.ObjectMeta.Namespace,
 	}
 }
 
-// ParseService parses a Kubernetes service and returns a Service
-func ParseService(svc *types.Service) (ServiceID, *Service) {
+// ParseService parses a Kubernetes service and returns a Service for the
+// clusterIP and a slice of service for each externalIP defined in the service.
+func ParseService(svc *types.Service) (ServiceID, *Service, Services) {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sSvcName:    svc.ObjectMeta.Name,
 		logfields.K8sNamespace:  svc.ObjectMeta.Namespace,
@@ -73,16 +73,16 @@ func ParseService(svc *types.Service) (ServiceID, *Service) {
 		break
 
 	case v1.ServiceTypeExternalName:
-		// External-name services must be ignored
-		return svcID, nil
+		// WithExternalIPs-name services must be ignored
+		return ServiceID{}, nil, nil
 
 	default:
 		scopedLog.Warn("Ignoring k8s service: unsupported type")
-		return svcID, nil
+		return ServiceID{}, nil, nil
 	}
 
-	if svc.Spec.ClusterIP == "" {
-		return svcID, nil
+	if svc.Spec.ClusterIP == "" && len(svc.Spec.ExternalIPs) == 0 {
+		return ServiceID{}, nil, nil
 	}
 
 	clusterIP := net.ParseIP(svc.Spec.ClusterIP)
@@ -93,24 +93,6 @@ func ParseService(svc *types.Service) (ServiceID, *Service) {
 	svcInfo := NewService(clusterIP, headless, svc.Labels, svc.Spec.Selector)
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
 	svcInfo.Shared = getAnnotationShared(svc)
-
-	if len(svc.Spec.ExternalIPs) != 0 {
-		// Accordingly with k8s docs: Traffic that ingresses into the cluster
-		// with the external IP (as destination IP), on the service port, will
-		// be routed to one of the service endpoints.
-		// For Cilium this means the backends are the cartesian product of
-		// service ports x external IPs + real k8s endpoints and the service IP
-		// will continue to be the service IP.
-		eps := newEndpoints()
-		for _, ipStr := range svc.Spec.ExternalIPs {
-			portCfg := service.PortConfiguration{}
-			for _, port := range svc.Spec.Ports {
-				portCfg[port.Name] = loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-			}
-			eps.Backends[ipStr] = portCfg
-		}
-		svcInfo.K8sExternalIPs = eps
-	}
 
 	for _, port := range svc.Spec.Ports {
 		p := loadbalancer.NewFEPort(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
@@ -160,7 +142,29 @@ func ParseService(svc *types.Service) (ServiceID, *Service) {
 		}
 	}
 
-	return svcID, svcInfo
+	var svcInfoExternal []*Service
+
+	if len(svc.Spec.ExternalIPs) != 0 {
+		// Accordingly with k8s docs: Traffic that ingresses into the cluster
+		// with the external IP (as destination IP), on the service port, will
+		// be routed to one of the service endpoints.
+		// For Cilium this means the backends are the cartesian product of
+		// service ports x k8s endpoints where the cluster IP, if it exists,
+		// will continue to be the frontend IP. The external IPs will be also
+		// considered frontend IPs for this service.
+		for _, ipStr := range svc.Spec.ExternalIPs {
+			svcCpy := svcInfo.DeepCopy()
+			svcCpy.FrontendIP = net.ParseIP(ipStr)
+			svcInfoExternal = append(svcInfoExternal, svcCpy)
+		}
+	}
+
+	// Distinguish between a service that contains externalIPs but does not
+	// contain a cluster IP nor is headless.
+	if svcInfo.FrontendIP == nil && !svcInfo.IsHeadless {
+		return svcID, nil, svcInfoExternal
+	}
+	return svcID, svcInfo, svcInfoExternal
 }
 
 // ServiceID identities the Kubernetes service
@@ -168,7 +172,22 @@ type ServiceID struct {
 	Name      string `json:"serviceName,omitempty"`
 	Namespace string `json:"namespace,omitempty"`
 	// k8sExternal accounts if the service contains external K8s IPs or not.
-	k8sExternal bool
+	K8sExternal bool `json:"-"`
+}
+
+func (s ServiceID) WithK8sExternalIPs() ServiceID {
+	return ServiceID{
+		Name:        s.Name,
+		Namespace:   s.Namespace,
+		K8sExternal: true,
+	}
+}
+
+func (s ServiceID) WithoutK8sExternalIPs() ServiceID {
+	return ServiceID{
+		Name:      s.Name,
+		Namespace: s.Namespace,
+	}
 }
 
 // String returns the string representation of a service ID
@@ -198,6 +217,29 @@ func ParseServiceIDFrom(dn string) *ServiceID {
 		return &svc
 	}
 	return nil
+}
+
+type Services []*Service
+
+// DeepEquals returns true if the receiver's Service equals the Service the
+// function is comparing to.
+func (s Services) DeepEquals(other Services) bool {
+	switch {
+	case (s == nil) != (other == nil):
+		return false
+	case (s == nil) && (other == nil):
+		return true
+	}
+
+	if len(s) != len(other) {
+		return false
+	}
+	for i, svc := range other {
+		if !s[i].DeepEquals(svc) {
+			return false
+		}
+	}
+	return true
 }
 
 // Service is an abstraction for a k8s service that is composed by the frontend IP

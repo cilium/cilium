@@ -36,12 +36,13 @@ import (
 func (d *Daemon) addSVC2BPFMap(feCilium loadbalancer.L3n4AddrID, feBPF lbmap.ServiceKey,
 	besBPF []lbmap.ServiceValue,
 	svcKeyV2 lbmap.ServiceKeyV2, svcValuesV2 []lbmap.ServiceValueV2, backendsV2 []lbmap.Backend,
-	addRevNAT bool) error {
+	addRevNAT, k8sExternalIP bool) error {
+
 	log.WithField(logfields.ServiceName, feCilium.String()).Debug("adding service to BPF maps")
 
 	revNATID := int(feCilium.ID)
 
-	if err := lbmap.UpdateService(feBPF, besBPF, addRevNAT, revNATID,
+	if err := lbmap.UpdateService(feBPF, besBPF, addRevNAT, revNATID, k8sExternalIP,
 		service.AcquireBackendID, service.DeleteBackendID); err != nil {
 		if addRevNAT {
 			delete(d.loadBalancer.RevNATMap, loadbalancer.ServiceID(feCilium.ID))
@@ -89,7 +90,7 @@ func (d *Daemon) SVCAdd(feL3n4Addr loadbalancer.L3n4AddrID, be []loadbalancer.LB
 		return false, fmt.Errorf("service ID %d is already registered to L3n4Addr %s, please choose a different ID", feL3n4Addr.ID, feAddr.String())
 	}
 
-	return d.svcAdd(feL3n4Addr, be, addRevNAT, false)
+	return d.svcAdd(feL3n4Addr, be, addRevNAT, false, false)
 }
 
 // svcAdd adds a service from the given feL3n4Addr (frontend) and LBBackEnd (backends).
@@ -101,7 +102,7 @@ func (d *Daemon) SVCAdd(feL3n4Addr loadbalancer.L3n4AddrID, be []loadbalancer.LB
 // All of the backends added will be DeepCopied to the internal load balancer map.
 func (d *Daemon) svcAdd(
 	feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.LBBackEnd,
-	addRevNAT, nodePort bool) (bool, error) {
+	addRevNAT, nodePort, externalIP bool) (bool, error) {
 
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.ServiceID: feL3n4Addr.String(),
@@ -117,10 +118,11 @@ func (d *Daemon) svcAdd(
 	}
 
 	svc := loadbalancer.LBSVC{
-		FE:       feL3n4Addr,
-		BES:      beCpy,
-		Sha256:   feL3n4Addr.L3n4Addr.SHA256Sum(),
-		NodePort: nodePort,
+		FE:           feL3n4Addr,
+		BES:          beCpy,
+		Sha256:       feL3n4Addr.L3n4Addr.SHA256Sum(),
+		NodePort:     nodePort,
+		IsExternalIP: externalIP,
 	}
 
 	fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(svc)
@@ -136,7 +138,7 @@ func (d *Daemon) svcAdd(
 	d.loadBalancer.BPFMapMU.Lock()
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
-	err = d.addSVC2BPFMap(feL3n4Addr, fe, besValues, svcKeyV2, svcValuesV2, backendsV2, addRevNAT)
+	err = d.addSVC2BPFMap(feL3n4Addr, fe, besValues, svcKeyV2, svcValuesV2, backendsV2, addRevNAT, externalIP)
 	if err != nil {
 		return false, err
 	}
@@ -527,7 +529,7 @@ func (d *Daemon) SyncLBMap() error {
 				" This entry will be removed from the bpf's LB map.", svc.FE.String(), svc.BES, err)
 		}
 
-		err = d.addSVC2BPFMap(svc.FE, fe, besValues, svcKeyV2, svcValuesV2, backendsV2, false)
+		err = d.addSVC2BPFMap(svc.FE, fe, besValues, svcKeyV2, svcValuesV2, backendsV2, false, svc.IsExternalIP)
 		if err != nil {
 			return fmt.Errorf("Unable to add service FE: %s: %s."+
 				" This entry will be removed from the bpf's LB map.", svc.FE.String(), err)

@@ -16,6 +16,8 @@ package lbmap
 
 import (
 	"fmt"
+	"net"
+	"strconv"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -148,7 +150,7 @@ func generateWrrSeq(weights []uint16) (*RRSeqValue, error) {
 
 // UpdateService adds or updates the given service in the bpf maps.
 func UpdateService(fe ServiceKey, backends []ServiceValue,
-	addRevNAT bool, revNATID int,
+	addRevNAT bool, revNATID int, k8sExternalIP bool,
 	acquireBackendID func(loadbalancer.L3n4Addr) (loadbalancer.BackendID, error),
 	releaseBackendID func(loadbalancer.BackendID)) error {
 
@@ -200,7 +202,7 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 	}
 
 	// Update the v2 service BPF maps
-	if err := updateServiceV2Locked(fe, besValuesV2, svc, addRevNAT, revNATID, weights, nNonZeroWeights); err != nil {
+	if err := updateServiceV2Locked(fe, besValuesV2, svc, addRevNAT, revNATID, weights, nNonZeroWeights, k8sExternalIP); err != nil {
 		return err
 	}
 
@@ -270,7 +272,7 @@ func updateBackendsLocked(addedBackends map[loadbalancer.BackendID]ServiceValue)
 func updateServiceV2Locked(fe ServiceKey, backends serviceValueMap,
 	svc *bpfService,
 	addRevNAT bool, revNATID int,
-	weights []uint16, nNonZeroWeights uint16) error {
+	weights []uint16, nNonZeroWeights uint16, k8sExternalIP bool) error {
 
 	var (
 		existingCount int
@@ -326,7 +328,7 @@ func updateServiceV2Locked(fe ServiceKey, backends serviceValueMap,
 		}()
 	}
 
-	err = updateMasterServiceV2(svcKeyV2, len(svc.backendsV2), nNonZeroWeights, revNATID)
+	err = updateMasterServiceV2(svcKeyV2, len(svc.backendsV2), nNonZeroWeights, revNATID, createSvcFlag(k8sExternalIP))
 	if err != nil {
 		return fmt.Errorf("unable to update service %+v: %s", svcKeyV2, err)
 	}
@@ -387,6 +389,7 @@ func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC,
 	newSVCList := []*loadbalancer.LBSVC{}
 	errors := []error{}
 	idCache := map[string]loadbalancer.ServiceID{}
+	flagsCache := map[string]uint8{}
 	backendValueMap := map[loadbalancer.BackendID]BackendValue{}
 
 	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
@@ -401,6 +404,12 @@ func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC,
 
 		// Skip master service
 		if svcKey.GetSlave() == 0 {
+			// Build a cache of flags stored in the value of the master key to
+			// map it later.
+			// FIXME proto is being ignored everywhere in the datapath.
+			addrStr := svcKey.GetAddress().String()
+			portStr := strconv.Itoa(int(svcKey.GetPort()))
+			flagsCache[net.JoinHostPort(addrStr, portStr)] = svcValue.GetFlags()
 			return
 		}
 
@@ -461,6 +470,9 @@ func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC,
 	// parsed entries and fill in the service ID
 	for i := range newSVCList {
 		newSVCList[i].FE.ID = loadbalancer.ID(idCache[newSVCList[i].FE.String()])
+		addrStr := newSVCList[i].FE.IP.String()
+		portStr := strconv.Itoa(int(newSVCList[i].FE.Port))
+		newSVCList[i].IsExternalIP = hasExternalIPsSet(flagsCache[net.JoinHostPort(addrStr, portStr)])
 	}
 
 	// Do the same for the svcMap
@@ -574,12 +586,13 @@ func lookupServiceV2(key ServiceKeyV2) (ServiceValueV2, error) {
 	return svc.ToNetwork(), nil
 }
 
-func updateMasterServiceV2(fe ServiceKeyV2, nbackends int, nonZeroWeights uint16, revNATID int) error {
+func updateMasterServiceV2(fe ServiceKeyV2, nbackends int, nonZeroWeights uint16, revNATID int, flags uint8) error {
 	fe.SetSlave(0)
 	zeroValue := fe.NewValue().(ServiceValueV2)
 	zeroValue.SetCount(nbackends)
 	zeroValue.SetWeight(nonZeroWeights)
 	zeroValue.SetRevNat(revNATID)
+	zeroValue.SetFlags(flags)
 
 	return updateServiceEndpointV2(fe, zeroValue)
 }

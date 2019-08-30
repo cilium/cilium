@@ -1396,7 +1396,7 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 		}
 
 		for _, fe := range frontends {
-			if _, err := d.svcAdd(*fe.addr, besValues, true, fe.nodePort); err != nil {
+			if _, err := d.svcAdd(*fe.addr, besValues, true, fe.nodePort, svcID.K8sExternal); err != nil {
 				scopedLog.WithError(err).Error("Error while inserting service in LB map")
 			}
 		}

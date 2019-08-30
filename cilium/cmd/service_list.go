@@ -60,10 +60,11 @@ func listServices(cmd *cobra.Command, args []string) {
 }
 
 func printServiceList(w *tabwriter.Writer, list []*models.Service) {
-	fmt.Fprintln(w, "ID\tFrontend\tBackend\t")
+	fmt.Fprintln(w, "ID\tFrontend\tExternal IP\tBackend\t")
 
 	type ServiceOutput struct {
 		ID               int64
+		ExternalIP       bool
 		FrontendAddress  string
 		BackendAddresses []string
 	}
@@ -99,6 +100,7 @@ func printServiceList(w *tabwriter.Writer, list []*models.Service) {
 
 		SvcOutput := ServiceOutput{
 			ID:               svc.Status.Realized.ID,
+			ExternalIP:       svc.Spec.Flags.ExternalIP,
 			FrontendAddress:  feA.String(),
 			BackendAddresses: backendAddresses,
 		}
@@ -113,19 +115,19 @@ func printServiceList(w *tabwriter.Writer, list []*models.Service) {
 		var str string
 
 		if len(service.BackendAddresses) == 0 {
-			str = fmt.Sprintf("%d\t%s\t\t",
-				service.ID, service.FrontendAddress)
+			str = fmt.Sprintf("%d\t%s\t%t\t\t",
+				service.ID, service.FrontendAddress, service.ExternalIP)
 			fmt.Fprintln(w, str)
 			continue
 		}
 
-		str = fmt.Sprintf("%d\t%s\t%s\t",
-			service.ID, service.FrontendAddress,
+		str = fmt.Sprintf("%d\t%s\t%t\t%s\t",
+			service.ID, service.FrontendAddress, service.ExternalIP,
 			service.BackendAddresses[0])
 		fmt.Fprintln(w, str)
 
 		for _, bkaddr := range service.BackendAddresses[1:] {
-			str := fmt.Sprintf("\t\t%s\t", bkaddr)
+			str := fmt.Sprintf("\t\t\t%s\t", bkaddr)
 			fmt.Fprintln(w, str)
 		}
 	}

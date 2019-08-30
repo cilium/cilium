@@ -85,10 +85,11 @@ type ServiceCache struct {
 
 	// mutex protects the maps below including the concurrent access of each
 	// value.
-	mutex     lock.RWMutex
-	services  map[ServiceID]*Service
-	endpoints map[ServiceID]*Endpoints
-	ingresses map[ServiceID]*Service
+	mutex                  lock.RWMutex
+	services               map[ServiceID]*Service
+	k8sServicesExternalIPs map[ServiceID]Services
+	endpoints              map[ServiceID]*Endpoints
+	ingresses              map[ServiceID]*Service
 
 	// externalEndpoints is a list of additional service backends derived from source other than the local cluster
 	externalEndpoints map[ServiceID]externalEndpoints
@@ -97,11 +98,12 @@ type ServiceCache struct {
 // NewServiceCache returns a new ServiceCache
 func NewServiceCache() ServiceCache {
 	return ServiceCache{
-		services:          map[ServiceID]*Service{},
-		endpoints:         map[ServiceID]*Endpoints{},
-		ingresses:         map[ServiceID]*Service{},
-		externalEndpoints: map[ServiceID]externalEndpoints{},
-		Events:            make(chan ServiceEvent, option.Config.K8sServiceCacheSize),
+		services:               map[ServiceID]*Service{},
+		k8sServicesExternalIPs: map[ServiceID]Services{},
+		endpoints:              map[ServiceID]*Endpoints{},
+		ingresses:              map[ServiceID]*Service{},
+		externalEndpoints:      map[ServiceID]externalEndpoints{},
+		Events:                 make(chan ServiceEvent, option.Config.K8sServiceCacheSize),
 	}
 }
 
@@ -129,80 +131,111 @@ func (s *ServiceCache) UpdateService(k8sSvc *types.Service) ServiceID {
 		externalK8sEndpoints *Endpoints
 	)
 
-	svcID, newService := ParseService(k8sSvc)
-	if newService == nil {
+	svcID, newService, newServiceExternalIPs := ParseService(k8sSvc)
+	if newService == nil && newServiceExternalIPs == nil {
 		return svcID
 	}
+
+	hasNewExternalIPs := newServiceExternalIPs != nil
+
+	externalSvcID := svcID.WithK8sExternalIPs()
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	oldService, ok := s.services[svcID]
-	if ok && oldService.DeepEquals(newService) {
-		return svcID
+	needsUpdateNonExternalIPs := true
+
+	// newService is nil if a k8s service only contains externalIPs without a clusterIP
+	oldService, oldSvcFound := s.services[svcID]
+	if oldSvcFound {
+		needsUpdateNonExternalIPs = !oldService.DeepEquals(newService)
 	}
 
-	// If the new service has received externalIPs then we need to check
-	// if it previously existed without externalIPs or vice-versa.
-	oldSvcID := svcID
-	if newService.IsK8sExternal() {
-		oldSvcID.k8sExternal = false
-	} else {
-		oldSvcID.k8sExternal = true
-	}
-	oldService, ok = s.services[oldSvcID]
-
-	s.services[svcID] = newService
-
-	if ok {
-		switch {
-		// Get old external services
-		case oldService.IsK8sExternal() && !newService.IsK8sExternal():
-			delete(s.endpoints, oldSvcID)
-			delete(s.services, oldSvcID)
-			// We want to get any correlation for the service if there are
-			// normal k8s endpoints running
-			endpoints, serviceReady := s.correlateEndpoints(svcID)
-
-			event := ServiceEvent{
-				Action:    DeleteService,
-				ID:        svcID,
-				Service:   newService,
-				Endpoints: endpoints,
-			}
-			if serviceReady {
-				event.Action = UpdateService
-			}
-			s.Events <- event
-
+	// K8s ExternalIPs is only enabled if nodeport is also enabled.
+	if !option.Config.EnableNodePort {
+		if oldSvcFound && !needsUpdateNonExternalIPs {
 			return svcID
-		case !oldService.IsK8sExternal() && newService.IsK8sExternal():
+		}
+	} else {
+		oldSvcExternalIPs, oldSvcExternalIPFound := s.k8sServicesExternalIPs[externalSvcID]
+		if oldSvcExternalIPFound {
+			needsUpdateExternalIPs := !oldSvcExternalIPs.DeepEquals(newServiceExternalIPs)
+			if !needsUpdateExternalIPs && oldSvcFound && !needsUpdateNonExternalIPs {
+				return svcID
+			}
+		}
+
+		// If the new service has received externalIPs then we need to check
+		// if it previously existed without externalIPs or vice-versa.
+		switch {
+		// From a non externalIPs to a externalIPs
+		case newService == nil && hasNewExternalIPs:
+			_, ok := s.services[svcID]
+			if ok {
+				delete(s.services, svcID)
+				// We want to get any correlation for the service if there are
+				// normal k8s endpoints running
+				endpoints, serviceReady := s.correlateEndpoints(svcID)
+				event := ServiceEvent{
+					Action:    DeleteService,
+					ID:        svcID,
+					Service:   newService,
+					Endpoints: endpoints,
+				}
+				if serviceReady {
+					event.Action = UpdateService
+				}
+				s.Events <- event
+			}
+
+		// From a externalIPs to a non externalIPs
+		case newService != nil && !hasNewExternalIPs:
+			_, ok := s.k8sServicesExternalIPs[externalSvcID]
+			if ok {
+				delete(s.k8sServicesExternalIPs, externalSvcID)
+				// correlate external IPs with the service
+				externalK8sEndpoints, externalServiceReady = s.correlateExternalIPsToEndpoints(svcID)
+
+				event := ServiceEvent{
+					Action:    DeleteService,
+					ID:        externalSvcID,
+					Service:   newService,
+					Endpoints: externalK8sEndpoints,
+				}
+				if externalServiceReady {
+					event.Action = UpdateService
+				}
+				s.Events <- event
+			}
+		}
+
+		s.k8sServicesExternalIPs[externalSvcID] = newServiceExternalIPs
+
+		// correlate external IPs with the service
+		externalK8sEndpoints, externalServiceReady = s.correlateExternalIPsToEndpoints(svcID)
+
+		if externalServiceReady {
+			for _, newServiceExternalIP := range newServiceExternalIPs {
+				s.Events <- ServiceEvent{
+					Action:    UpdateService,
+					ID:        externalSvcID,
+					Service:   newServiceExternalIP,
+					Endpoints: externalK8sEndpoints,
+				}
+			}
 		}
 	}
 
-	if newService.IsK8sExternal() {
-		s.endpoints[svcID] = newService.K8sExternalIPs
-
-		// correlate external IPs with the service
-		externalK8sEndpoints, externalServiceReady = s.correlateEndpoints(svcID)
-
-		// We also need to store the svcID as non external so that k8s endpoints
-		// of this service can be correlated
-		svcID.k8sExternal = false
-		s.services[svcID] = newService
-	}
-
+	s.services[svcID] = newService
 	// Check if the corresponding k8s endpoints resource is already available
 	endpoints, serviceReady := s.correlateEndpoints(svcID)
 
-	svcID.k8sExternal = newService.IsK8sExternal()
-
-	if serviceReady || externalServiceReady {
+	if serviceReady {
 		s.Events <- ServiceEvent{
 			Action:    UpdateService,
 			ID:        svcID,
 			Service:   newService,
-			Endpoints: endpoints.Merge(externalK8sEndpoints),
+			Endpoints: endpoints,
 		}
 	}
 
@@ -217,30 +250,27 @@ func (s *ServiceCache) DeleteService(k8sSvc *types.Service) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	oldSvc, oldSvcOk := s.services[svcID]
-	oldEndpoints, _ := s.correlateEndpoints(svcID)
-	delete(s.services, svcID)
-	if svcID.k8sExternal {
-		// We will delete the external endpoints created in the service addition
-		delete(s.endpoints, svcID)
+	// K8s ExternalIPs is only enabled if nodeport is also enabled.
+	if option.Config.EnableNodePort {
+		externalSvcID := svcID.WithK8sExternalIPs()
+		oldSvcExternalIPs, hasExternalIPs := s.k8sServicesExternalIPs[externalSvcID]
+		if hasExternalIPs {
+			oldEndpoints, _ := s.correlateExternalIPsToEndpoints(svcID)
 
-		svcID.k8sExternal = false
-		oldNonExternalSvc, oldNonExternalSvcOk := s.services[svcID]
-		oldNonExternalEndpoints, _ := s.correlateEndpoints(svcID)
-		delete(s.services, svcID)
-		svcID.k8sExternal = true
-
-		if oldNonExternalSvcOk {
-			s.Events <- ServiceEvent{
-				Action:    DeleteService,
-				ID:        svcID,
-				Service:   oldNonExternalSvc,
-				Endpoints: oldNonExternalEndpoints.Merge(oldEndpoints),
+			for _, oldSvcExternalIP := range oldSvcExternalIPs {
+				s.Events <- ServiceEvent{
+					Action:    DeleteService,
+					ID:        externalSvcID,
+					Service:   oldSvcExternalIP,
+					Endpoints: oldEndpoints,
+				}
 			}
 		}
-		return
 	}
 
+	oldSvc, oldSvcOk := s.services[svcID]
+	delete(s.services, svcID)
+	oldEndpoints, _ := s.correlateEndpoints(svcID)
 	if oldSvcOk {
 		s.Events <- ServiceEvent{
 			Action:    DeleteService,
@@ -269,36 +299,37 @@ func (s *ServiceCache) UpdateEndpoints(k8sEndpoints *types.Endpoints) (ServiceID
 
 	s.endpoints[svcID] = newEndpoints
 
-	// We need to take into account services with external IPs
-	var externalK8sEndpoints *Endpoints
-	svcID.k8sExternal = true
-	externalSvc, isExternal := s.services[svcID]
-	if isExternal {
-		externalK8sEndpoints, _ = s.correlateEndpoints(svcID)
-	}
-	// If no external IPs were found then we need to set it back to
-	// k8sExternal to false so we keep original behavior of services without
-	// external IPs.
-	svcID.k8sExternal = false
-	service, ok := s.services[svcID]
-	endpoints, serviceReady := s.correlateEndpoints(svcID)
+	// K8s ExternalIPs is only enabled if nodeport is also enabled.
+	if option.Config.EnableNodePort {
+		externalSvcID := svcID.WithK8sExternalIPs()
+		svcExternalIPs, hasExternalIPs := s.k8sServicesExternalIPs[externalSvcID]
+		if hasExternalIPs {
+			k8sEndpoints, externalServiceReady := s.correlateExternalIPsToEndpoints(svcID)
 
-	// If it is external then we will set as it is external to the events
-	// channel.
-	if isExternal {
-		svcID.k8sExternal = true
-		service = externalSvc
+			if externalServiceReady {
+				for _, oldSvcExternalIP := range svcExternalIPs {
+					s.Events <- ServiceEvent{
+						Action:    UpdateService,
+						ID:        externalSvcID,
+						Service:   oldSvcExternalIP,
+						Endpoints: k8sEndpoints,
+					}
+				}
+			}
+		}
 	}
 
-	// Only send a service update if we have normal k8s endpoints correlation
-	// with the service. K8s correlation update was already made when the
-	// service was added.
-	if ok && serviceReady {
-		s.Events <- ServiceEvent{
-			Action:    UpdateService,
-			ID:        svcID,
-			Service:   service,
-			Endpoints: endpoints.Merge(externalK8sEndpoints),
+	svc, ok := s.services[svcID]
+
+	if ok {
+		endpoints, serviceReady := s.correlateEndpoints(svcID)
+		if serviceReady {
+			s.Events <- ServiceEvent{
+				Action:    UpdateService,
+				ID:        svcID,
+				Service:   svc,
+				Endpoints: endpoints,
+			}
 		}
 	}
 
@@ -313,32 +344,47 @@ func (s *ServiceCache) DeleteEndpoints(k8sEndpoints *types.Endpoints) ServiceID 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	service, serviceOK := s.services[svcID]
 	delete(s.endpoints, svcID)
-	endpoints, serviceReady := s.correlateEndpoints(svcID)
 
-	svcID.k8sExternal = true
-	externalService, externalServiceOK := s.services[svcID]
-	svcID.k8sExternal = externalServiceOK
-	var externalServiceReady bool
-	if externalServiceOK {
-		endpoints, externalServiceReady = s.correlateEndpoints(svcID)
-		service = externalService
+	// K8s ExternalIPs is only enabled if nodeport is also enabled.
+	if option.Config.EnableNodePort {
+		externalSvcID := svcID.WithK8sExternalIPs()
+		svcExternalIPs, hasExternalIPs := s.k8sServicesExternalIPs[externalSvcID]
+		if hasExternalIPs {
+			k8sEndpoints, externalServiceReady := s.correlateExternalIPsToEndpoints(svcID)
+			event := ServiceEvent{
+				Action:    DeleteService,
+				ID:        externalSvcID,
+				Endpoints: k8sEndpoints,
+			}
+			if externalServiceReady {
+				event.Action = UpdateService
+			}
+			for _, oldSvcExternalIP := range svcExternalIPs {
+				event.Service = oldSvcExternalIP
+				s.Events <- event
+			}
+		}
 	}
 
-	if serviceOK {
-		event := ServiceEvent{
-			Action:    DeleteService,
-			ID:        svcID,
-			Service:   service,
-			Endpoints: endpoints,
-		}
+	svc, ok := s.services[svcID]
 
-		if serviceReady || externalServiceReady {
-			event.Action = UpdateService
-		}
+	if ok {
+		endpoints, serviceReady := s.correlateEndpoints(svcID)
+		if serviceReady {
+			event := ServiceEvent{
+				Action:    DeleteService,
+				ID:        svcID,
+				Service:   svc,
+				Endpoints: endpoints,
+			}
 
-		s.Events <- event
+			if serviceReady {
+				event.Action = UpdateService
+			}
+
+			s.Events <- event
+		}
 	}
 
 	return svcID
@@ -443,7 +489,68 @@ func (s *ServiceCache) UniqueServiceFrontends() FrontendList {
 		}
 	}
 
+	for _, svcs := range s.k8sServicesExternalIPs {
+		for _, svc := range svcs {
+			for _, p := range svc.Ports {
+				address := loadbalancer.L3n4Addr{
+					IP:     svc.FrontendIP,
+					L4Addr: *p.L4Addr,
+				}
+
+				uniqueFrontends[address.StringWithProtocol()] = struct{}{}
+			}
+			for _, nodePortFEs := range svc.NodePorts {
+				for _, fe := range nodePortFEs {
+					uniqueFrontends[fe.StringWithProtocol()] = struct{}{}
+				}
+			}
+		}
+	}
+
 	return uniqueFrontends
+}
+
+func (s *ServiceCache) correlateExternalIPsToEndpoints(id ServiceID) (*Endpoints, bool) {
+	endpoints := newEndpoints()
+
+	localEndpoints, hasLocalEndpoints := s.endpoints[id]
+	if hasLocalEndpoints {
+		for ip, e := range localEndpoints.Backends {
+			endpoints.Backends[ip] = e
+		}
+	}
+
+	svc, hasExternalService := s.k8sServicesExternalIPs[id.WithK8sExternalIPs()]
+	// All externalIPs services will share the same configuration except the
+	// frontendIP so we only need to check if the first service has
+	// "IncludeExternal" set.
+	if hasExternalService && len(svc) > 0 && svc[0].IncludeExternal {
+		externalEndpoints, hasExternalEndpoints := s.externalEndpoints[id]
+		if hasExternalEndpoints {
+			for clusterName, remoteClusterEndpoints := range externalEndpoints.endpoints {
+				if clusterName == option.Config.ClusterName {
+					continue
+				}
+
+				for ip, e := range remoteClusterEndpoints.Backends {
+					if _, ok := endpoints.Backends[ip]; ok {
+						log.WithFields(logrus.Fields{
+							logfields.K8sSvcName:   id.Name,
+							logfields.K8sNamespace: id.Namespace,
+							logfields.IPAddr:       ip,
+							"cluster":              clusterName,
+						}).Warning("Conflicting service backend IP")
+					} else {
+						endpoints.Backends[ip] = e
+					}
+				}
+			}
+		}
+	}
+
+	// Report the service as ready if a local endpoints object exists or if
+	// external endpoints have have been identified
+	return endpoints, hasLocalEndpoints || len(endpoints.Backends) > 0
 }
 
 // correlateEndpoints builds a combined Endpoints of the local endpoints and

@@ -69,22 +69,23 @@ func dumpSVC(serviceList map[string][]string) {
 		svc := svcKey.String()
 		revNATID := svcVal.GetRevNat()
 		backendID := svcVal.GetBackendID()
+		flags := svcVal.GetFlags()
 
 		if backendID == 0 {
 			ip := "0.0.0.0"
 			if svcKey.IsIPv6() {
 				ip = "[::]"
 			}
-			entry = fmt.Sprintf("%s:%d (%d)", ip, 0, revNATID)
+			entry = fmt.Sprintf("%s:%d (%d) [FLAGS: 0x%x]", ip, 0, revNATID, flags)
 		} else if backend, found := backendMap[backendID]; !found {
 			entry = fmt.Sprintf("backend %d not found", backendID)
 		} else {
-			fmtStr := "%s:%d (%d)"
+			fmtStr := "%s:%d (%d) [FLAGS: 0x%x]"
 			if svcKey.IsIPv6() {
-				fmtStr = "[%s]:%d (%d)"
+				fmtStr = "[%s]:%d (%d) [FLAGS: 0x%x]"
 			}
 			entry = fmt.Sprintf(fmtStr, backend.GetAddress(),
-				backend.GetPort(), revNATID)
+				backend.GetPort(), revNATID, flags)
 		}
 
 		serviceList[svc] = append(serviceList[svc], entry)

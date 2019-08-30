@@ -86,7 +86,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		},
 	}
 
-	id, svc := ParseService(k8sSvc)
+	id, svc, _ := ParseService(k8sSvc)
 	c.Assert(id, checker.DeepEquals, ServiceID{Namespace: "bar", Name: "foo"})
 	c.Assert(svc, checker.DeepEquals, &Service{
 		FrontendIP: net.ParseIP("127.0.0.1"),
@@ -112,7 +112,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		},
 	}
 
-	id, svc = ParseService(k8sSvc)
+	id, svc, _ = ParseService(k8sSvc)
 	c.Assert(id, checker.DeepEquals, ServiceID{Namespace: "bar", Name: "foo"})
 	c.Assert(svc, checker.DeepEquals, &Service{
 		IsHeadless: true,
@@ -680,12 +680,12 @@ func (s *K8sSuite) TestServiceString(c *check.C) {
 		},
 	}
 
-	_, svc := ParseService(k8sSvc)
+	_, svc, _ := ParseService(k8sSvc)
 	c.Assert(svc.String(), check.Equals, "frontend:127.0.0.1/ports=[]/selector=map[foo:bar]")
 }
 
 func (s *K8sSuite) TestNewClusterService(c *check.C) {
-	id, svc := ParseService(&types.Service{
+	id, svc, _ := ParseService(&types.Service{
 		Service: &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "foo",
