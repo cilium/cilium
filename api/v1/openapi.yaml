@@ -1978,6 +1978,7 @@ definitions:
             enum:
             - ClusterIP
             - NodePort
+            - ExternalIPs
           name:
             description: Service name  (e.g. Kubernetes service name)
             type: string
