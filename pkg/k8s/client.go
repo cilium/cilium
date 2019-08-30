@@ -18,6 +18,7 @@ package k8s
 import (
 	goerrors "errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -43,35 +44,45 @@ var (
 	k8sCiliumCli = &K8sCiliumClient{}
 )
 
-// CreateConfig creates a rest.Config for a given endpoint using a kubeconfig file.
-func createConfig(endpoint, kubeCfgPath string, qps float32, burst int) (*rest.Config, error) {
+// createConfig creates a rest.Config for connecting to k8s api-server.
+//
+// The precedence of the configuration selection is the following:
+// 1. kubeCfgPath
+// 2. apiServerURL (https if specified)
+// 3. rest.InClusterConfig().
+func createConfig(apiServerURL, kubeCfgPath string, qps float32, burst int) (*rest.Config, error) {
+	var (
+		config *rest.Config
+		err    error
+	)
 	userAgent := fmt.Sprintf("Cilium %s", version.Version)
 
-	// If the endpoint and the kubeCfgPath are empty then we can try getting
+	switch {
+	// If the apiServerURL and the kubeCfgPath are empty then we can try getting
 	// the rest.Config from the InClusterConfig
-	if endpoint == "" && kubeCfgPath == "" {
-		config, err := rest.InClusterConfig()
-		if err != nil {
+	case apiServerURL == "" && kubeCfgPath == "":
+		if config, err = rest.InClusterConfig(); err != nil {
 			return nil, err
 		}
-		setConfig(config, userAgent, qps, burst)
-		return config, nil
-	}
-
-	if kubeCfgPath != "" {
-		config, err := clientcmd.BuildConfigFromFlags("", kubeCfgPath)
-		if err != nil {
+	case kubeCfgPath != "":
+		if config, err = clientcmd.BuildConfigFromFlags("", kubeCfgPath); err != nil {
 			return nil, err
 		}
+	case strings.HasPrefix(apiServerURL, "https://"):
+		if config, err = rest.InClusterConfig(); err != nil {
+			return nil, err
+		}
+		config.Host = apiServerURL
+	default:
+		config := &rest.Config{Host: apiServerURL, UserAgent: userAgent}
 		setConfig(config, userAgent, qps, burst)
-		return config, nil
+		if err := rest.SetKubernetesDefaults(config); err != nil {
+			return nil, err
+		}
 	}
 
-	config := &rest.Config{Host: endpoint, UserAgent: userAgent}
 	setConfig(config, userAgent, qps, burst)
-	err := rest.SetKubernetesDefaults(config)
-
-	return config, err
+	return config, nil
 }
 
 func setConfig(config *rest.Config, userAgent string, qps float32, burst int) {
