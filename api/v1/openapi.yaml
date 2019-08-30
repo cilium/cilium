@@ -1978,6 +1978,7 @@ definitions:
             enum:
             - ClusterIP
             - NodePort
+            - ExternalIP
   ServiceStatus:
     description: Configuration of a service
     type: object

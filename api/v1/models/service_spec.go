@@ -140,7 +140,7 @@ func (m *ServiceSpec) UnmarshalBinary(b []byte) error {
 type ServiceSpecFlags struct {
 
 	// Service type
-	// Enum: [ClusterIP NodePort]
+	// Enum: [ClusterIP NodePort ExternalIP]
 	Type string `json:"type,omitempty"`
 }
 
@@ -162,7 +162,7 @@ var serviceSpecFlagsTypeTypePropEnum []interface{}
 
 func init() {
 	var res []string
-	if err := json.Unmarshal([]byte(`["ClusterIP","NodePort"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["ClusterIP","NodePort","ExternalIP"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
@@ -177,6 +177,9 @@ const (
 
 	// ServiceSpecFlagsTypeNodePort captures enum value "NodePort"
 	ServiceSpecFlagsTypeNodePort string = "NodePort"
+
+	// ServiceSpecFlagsTypeExternalIP captures enum value "ExternalIP"
+	ServiceSpecFlagsTypeExternalIP string = "ExternalIP"
 )
 
 // prop value enum
