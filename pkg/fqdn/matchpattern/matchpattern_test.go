@@ -79,8 +79,20 @@ func (ts *MatchPatternTestSuite) TestMatchPatternMatching(c *C) {
 		},
 		{
 			pattern: "*",
-			accept:  []string{"io.", "cilium.io.", "svc.cluster.local.", "service.namesace.svc.cluster.local."},
-			reject:  []string{"", ".", ".io.", ".cilium.io.", ".svc.cluster.local.", "cilium.io"}, // note no final . on this last one
+			accept:  []string{"io.", "cilium.io.", "svc.cluster.local.", "service.namesace.svc.cluster.local.", "_foobar._tcp.cilium.io."}, // the last is for SRV RFC-2782 and DNS-SD RFC6763
+			reject:  []string{"", ".", ".io.", ".cilium.io.", ".svc.cluster.local.", "cilium.io"},                                          // note no final . on this last one
+		},
+
+		// These are more explicit tests for SRV RFC-2782 and DNS-SD RFC6763
+		{
+			pattern: "_foobar._tcp.cilium.io.",
+			accept:  []string{"_foobar._tcp.cilium.io."},
+			reject:  []string{"", "_tcp.cilium.io.", "cilium.io."},
+		},
+		{
+			pattern: "*.*.cilium.io.",
+			accept:  []string{"_foobar._tcp.cilium.io."},
+			reject:  []string{""},
 		},
 	} {
 		reStr := ToRegexp(testCase.pattern)
