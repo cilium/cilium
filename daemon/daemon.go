@@ -30,8 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/datapath"
-	bpfIPCache "github.com/cilium/cilium/pkg/datapath/ipcache"
-	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/debug"
@@ -54,12 +52,8 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
-	"github.com/cilium/cilium/pkg/maps/lbmap"
-	"github.com/cilium/cilium/pkg/maps/lxcmap"
-	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
-	"github.com/cilium/cilium/pkg/maps/tunnel"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -71,16 +65,13 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
-	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/sockops"
-	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/trigger"
 	"github.com/cilium/cilium/pkg/workloads"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 
 	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -186,11 +177,6 @@ type Daemon struct {
 	endpointManager *endpointmanager.EndpointManager
 }
 
-// Datapath returns a reference to the datapath implementation.
-func (d *Daemon) Datapath() datapath.Datapath {
-	return d.datapath
-}
-
 // QueueEndpointBuild waits for a "build permit" for the endpoint
 // identified by 'epID'. This function blocks until the endpoint can
 // start building.  The returned function must then be called to
@@ -282,159 +268,10 @@ func (d *Daemon) GetOptions() *option.IntOptions {
 	return option.Config.Opts
 }
 
-func (d *Daemon) setHostAddresses() error {
-	l, err := netlink.LinkByName(option.Config.LBInterface)
-	if err != nil {
-		return fmt.Errorf("unable to get network device %s: %s", option.Config.Device, err)
-	}
-
-	getAddr := func(netLinkFamily int) (net.IP, error) {
-		addrs, err := netlink.AddrList(l, netLinkFamily)
-		if err != nil {
-			return nil, fmt.Errorf("error while getting %s's addresses: %s", option.Config.Device, err)
-		}
-		for _, possibleAddr := range addrs {
-			if netlink.Scope(possibleAddr.Scope) == netlink.SCOPE_UNIVERSE {
-				return possibleAddr.IP, nil
-			}
-		}
-		return nil, nil
-	}
-
-	if option.Config.EnableIPv4 {
-		hostV4Addr, err := getAddr(netlink.FAMILY_V4)
-		if err != nil {
-			return err
-		}
-		if hostV4Addr != nil {
-			option.Config.HostV4Addr = hostV4Addr
-			log.Infof("Using IPv4 host address: %s", option.Config.HostV4Addr)
-		}
-	}
-
-	if option.Config.EnableIPv6 {
-		hostV6Addr, err := getAddr(netlink.FAMILY_V6)
-		if err != nil {
-			return err
-		}
-		if hostV6Addr != nil {
-			option.Config.HostV6Addr = hostV6Addr
-			log.Infof("Using IPv6 host address: %s", option.Config.HostV6Addr)
-		}
-	}
-	return nil
-}
-
 // GetCompilationLock returns the mutex responsible for synchronizing compilation
 // of BPF programs.
 func (d *Daemon) GetCompilationLock() *lock.RWMutex {
 	return d.compilationMutex
-}
-
-// initMaps opens all BPF maps (and creates them if they do not exist). This
-// must be done *before* any operations which read BPF maps, especially
-// restoring endpoints and services.
-func (d *Daemon) initMaps() error {
-	if option.Config.DryMode {
-		return nil
-	}
-
-	// Delete old proxymaps if left over from an upgrade.
-	// TODO: Remove this code when Cilium 1.6 is the oldest supported release
-	for _, name := range []string{"cilium_proxy4", "cilium_proxy6"} {
-		path := bpf.MapPath(name)
-		if _, err := os.Stat(path); err == nil {
-			if err = os.RemoveAll(path); err == nil {
-				log.Infof("removed legacy proxymap file %s", path)
-			}
-		}
-	}
-
-	if _, err := lxcmap.LXCMap.OpenOrCreate(); err != nil {
-		return err
-	}
-
-	// The ipcache is shared between endpoints. Parallel mode needs to be
-	// used to allow existing endpoints that have not been regenerated yet
-	// to continue using the existing ipcache until the endpoint is
-	// regenerated for the first time. Existing endpoints are using a
-	// policy map which is potentially out of sync as local identities are
-	// re-allocated on startup. Parallel mode allows to continue using the
-	// old version until regeneration. Note that the old version is not
-	// updated with new identities. This is fine as any new identity
-	// appearing would require a regeneration of the endpoint anyway in
-	// order for the endpoint to gain the privilege of communication.
-	if _, err := ipcachemap.IPCache.OpenParallel(); err != nil {
-		return err
-	}
-
-	if _, err := metricsmap.Metrics.OpenOrCreate(); err != nil {
-		return err
-	}
-
-	if _, err := tunnel.TunnelMap.OpenOrCreate(); err != nil {
-		return err
-	}
-
-	if err := openServiceMaps(); err != nil {
-		log.WithError(err).Fatal("Unable to open service maps")
-	}
-
-	// Set up the list of IPCache listeners in the daemon, to be
-	// used by syncEndpointsAndHostIPs()
-	// xDS cache will be added later by calling AddListener(), but only if necessary.
-	ipcache.IPIdentityCache.SetListeners([]ipcache.IPIdentityMappingListener{
-		bpfIPCache.NewListener(d),
-	})
-
-	// Start the controller for periodic sync of the metrics map with
-	// the prometheus server.
-	controller.NewManager().UpdateController("metricsmap-bpf-prom-sync",
-		controller.ControllerParams{
-			DoFunc:      metricsmap.SyncMetricsMap,
-			RunInterval: 5 * time.Second,
-		})
-
-	// Clean all lb entries
-	if !option.Config.RestoreState {
-		log.Debug("cleaning up all BPF LB maps")
-
-		d.loadBalancer.BPFMapMU.Lock()
-		defer d.loadBalancer.BPFMapMU.Unlock()
-
-		if option.Config.EnableIPv6 {
-			if err := lbmap.Service6MapV2.DeleteAll(); err != nil {
-				return err
-			}
-			if err := lbmap.RRSeq6MapV2.DeleteAll(); err != nil {
-				return err
-			}
-			if err := lbmap.Backend6Map.DeleteAll(); err != nil {
-				return err
-			}
-		}
-		if err := d.RevNATDeleteAll(); err != nil {
-			return err
-		}
-
-		if option.Config.EnableIPv4 {
-			if err := lbmap.Service4MapV2.DeleteAll(); err != nil {
-				return err
-			}
-			if err := lbmap.RRSeq4MapV2.DeleteAll(); err != nil {
-				return err
-			}
-			if err := lbmap.Backend4Map.DeleteAll(); err != nil {
-				return err
-			}
-		}
-
-		// If we are not restoring state, all endpoints can be
-		// deleted. Entries will be re-populated.
-		lxcmap.LXCMap.DeleteAll()
-	}
-
-	return nil
 }
 
 func (d *Daemon) init() error {
@@ -489,114 +326,6 @@ func (d *Daemon) init() error {
 				},
 				RunInterval: time.Minute,
 			})
-	}
-
-	return nil
-}
-
-// syncLXCMap adds local host enties to bpf lxcmap, as well as
-// ipcache, if needed, and also notifies the daemon and network policy
-// hosts cache if changes were made.
-func (d *Daemon) syncEndpointsAndHostIPs() error {
-	specialIdentities := []identity.IPIdentityPair{}
-
-	if option.Config.EnableIPv4 {
-		addrs, err := d.datapath.LocalNodeAddressing().IPv4().LocalAddresses()
-		if err != nil {
-			log.WithError(err).Warning("Unable to list local IPv4 addresses")
-		}
-
-		for _, ip := range addrs {
-			if option.Config.IsExcludedLocalAddress(ip) {
-				continue
-			}
-
-			if len(ip) > 0 {
-				specialIdentities = append(specialIdentities,
-					identity.IPIdentityPair{
-						IP: ip,
-						ID: identity.ReservedIdentityHost,
-					})
-			}
-		}
-
-		specialIdentities = append(specialIdentities,
-			identity.IPIdentityPair{
-				IP:   net.IPv4zero,
-				Mask: net.CIDRMask(0, net.IPv4len*8),
-				ID:   identity.ReservedIdentityWorld,
-			})
-	}
-
-	if option.Config.EnableIPv6 {
-		addrs, err := d.datapath.LocalNodeAddressing().IPv6().LocalAddresses()
-		if err != nil {
-			log.WithError(err).Warning("Unable to list local IPv4 addresses")
-		}
-
-		addrs = append(addrs, node.GetIPv6Router())
-		for _, ip := range addrs {
-			if option.Config.IsExcludedLocalAddress(ip) {
-				continue
-			}
-
-			if len(ip) > 0 {
-				specialIdentities = append(specialIdentities,
-					identity.IPIdentityPair{
-						IP: ip,
-						ID: identity.ReservedIdentityHost,
-					})
-			}
-		}
-
-		specialIdentities = append(specialIdentities,
-			identity.IPIdentityPair{
-				IP:   net.IPv6zero,
-				Mask: net.CIDRMask(0, net.IPv6len*8),
-				ID:   identity.ReservedIdentityWorld,
-			})
-	}
-
-	existingEndpoints, err := lxcmap.DumpToMap()
-	if err != nil {
-		return err
-	}
-
-	for _, ipIDPair := range specialIdentities {
-		hostKey := node.GetIPsecKeyIdentity()
-		isHost := ipIDPair.ID == identity.ReservedIdentityHost
-		if isHost {
-			added, err := lxcmap.SyncHostEntry(ipIDPair.IP)
-			if err != nil {
-				return fmt.Errorf("Unable to add host entry to endpoint map: %s", err)
-			}
-			if added {
-				log.WithField(logfields.IPAddr, ipIDPair.IP).Debugf("Added local ip to endpoint map")
-			}
-		}
-
-		delete(existingEndpoints, ipIDPair.IP.String())
-
-		// Upsert will not propagate (reserved:foo->ID) mappings across the cluster,
-		// and we specifically don't want to do so.
-		ipcache.IPIdentityCache.Upsert(ipIDPair.PrefixString(), nil, hostKey, ipcache.Identity{
-			ID:     ipIDPair.ID,
-			Source: source.Local,
-		})
-	}
-
-	for hostIP, info := range existingEndpoints {
-		if ip := net.ParseIP(hostIP); info.IsHost() && ip != nil {
-			if err := lxcmap.DeleteEntry(ip); err != nil {
-				log.WithError(err).WithFields(logrus.Fields{
-					logfields.IPAddr: hostIP,
-				}).Warn("Unable to delete obsolete host IP from BPF map")
-			} else {
-				log.Debugf("Removed outdated host ip %s from endpoint map", hostIP)
-			}
-
-			ipcache.IPIdentityCache.Delete(hostIP, source.Local)
-		}
 	}
 
 	return nil
@@ -879,23 +608,6 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 	bootstrapStats.fqdn.End(true)
 
 	return &d, restoredEndpoints, nil
-}
-
-func setupIPSec() (int, error) {
-	if option.Config.EncryptNode == false {
-		ipsec.DeleteIPsecEncryptRoute()
-	}
-
-	if !option.Config.EnableIPSec {
-		return 0, nil
-	}
-
-	authKeySize, spi, err := ipsec.LoadIPSecKeysFile(option.Config.IPSecKeyFile)
-	if err != nil {
-		return 0, err
-	}
-	node.SetIPsecKeyIdentity(spi)
-	return authKeySize, nil
 }
 
 func (d *Daemon) bootstrapClusterMesh(nodeMngr *nodemanager.Manager) {
