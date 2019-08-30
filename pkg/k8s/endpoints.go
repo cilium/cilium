@@ -31,6 +31,7 @@ import (
 // consists of a set of backend IPs in combination with a set of ports and
 // protocols. The name of the backend ports must match the names of the
 // frontend ports of the corresponding service.
+// +k8s:deepcopy-gen=true
 type Endpoints struct {
 	// Backends is a map containing all backend IPs and ports. The key to
 	// the map is the backend IP in string form. The value defines the list

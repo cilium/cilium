@@ -271,6 +271,8 @@ generate-health-api: api/v1/health/openapi.yaml
 generate-k8s-api:
 	$(call generate_k8s_api_all,github.com/cilium/cilium/pkg/k8s/apis,"cilium.io:v2")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"policy:api")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"pkg:loadbalancer")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"pkg:k8s")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"pkg:node")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"pkg:service")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/api,"v1:models")

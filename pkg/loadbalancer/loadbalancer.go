@@ -76,13 +76,6 @@ func (b *Backend) String() string {
 	return b.L3n4Addr.String()
 }
 
-func (b *Backend) DeepCopy() *Backend {
-	return &Backend{
-		ID:       b.ID,
-		L3n4Addr: *b.L3n4Addr.DeepCopy(),
-	}
-}
-
 // SVC is a structure for storing service details.
 type SVC struct {
 	Frontend  L3n4AddrID // SVC frontend addr and an allocated ID
@@ -345,15 +338,6 @@ type L3n4AddrID struct {
 func NewL3n4AddrID(protocol L4Type, ip net.IP, portNumber uint16, id ID) *L3n4AddrID {
 	l3n4Addr := NewL3n4Addr(protocol, ip, portNumber)
 	return &L3n4AddrID{L3n4Addr: *l3n4Addr, ID: id}
-}
-
-// DeepCopy returns a DeepCopy of the given L3n4AddrID.
-func (l *L3n4AddrID) DeepCopy() *L3n4AddrID {
-	return &L3n4AddrID{
-		L3n4Addr: *l.L3n4Addr.DeepCopy(),
-		ID:       l.ID,
-	}
-
 }
 
 // IsIPv6 returns true if the IP address in L3n4Addr's L3n4AddrID is IPv6 or not.
