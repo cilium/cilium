@@ -24,6 +24,8 @@
 1. Run `screen` which will create a new terminal, this is helpful as you can leave your terminal while
      tests are running and come back again afterwards.
 1. Enter the `test` directory with `cd test`
+1. Consider configuring the memory for each VM lower, depending on memory available:
+   `export MEMORY=3072`
 1. Run the ginkgo command to initialize the tests, for example:
     `K8S_VERSION=1.14 ginkgo --focus="K8s*" -v -- --cilium.showCommands --cilium.holdEnvironment=true`
    * If you customize the `packet_plan` to `t1.small.x86`, you will need to
