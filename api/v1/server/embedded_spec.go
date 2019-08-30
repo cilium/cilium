@@ -2685,6 +2685,10 @@ func init() {
               "description": "Perform direct server return",
               "type": "boolean"
             },
+            "external-ip": {
+              "description": "Service is of ExternalIPs type",
+              "type": "boolean"
+            },
             "node-port": {
               "description": "Service is of Nodeport type",
               "type": "boolean"
@@ -5764,6 +5768,10 @@ func init() {
             },
             "direct-server-return": {
               "description": "Perform direct server return",
+              "type": "boolean"
+            },
+            "external-ip": {
+              "description": "Service is of ExternalIPs type",
               "type": "boolean"
             },
             "node-port": {

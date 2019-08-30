@@ -1924,6 +1924,9 @@ definitions:
           node-port:
             description: Service is of Nodeport type
             type: boolean
+          external-ip:
+            description: Service is of ExternalIPs type
+            type: boolean
   ServiceStatus:
     description: Configuration of a service
     type: object

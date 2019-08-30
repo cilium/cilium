@@ -144,6 +144,9 @@ type ServiceSpecFlags struct {
 	// Perform direct server return
 	DirectServerReturn bool `json:"direct-server-return,omitempty"`
 
+	// Service is of ExternalIPs type
+	ExternalIP bool `json:"external-ip,omitempty"`
+
 	// Service is of Nodeport type
 	NodePort bool `json:"node-port,omitempty"`
 }
