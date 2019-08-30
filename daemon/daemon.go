@@ -27,7 +27,6 @@ import (
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/clustermesh"
-	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/datapath"
@@ -73,7 +72,6 @@ import (
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
-	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/sockops"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
@@ -191,56 +189,6 @@ type Daemon struct {
 // Datapath returns a reference to the datapath implementation.
 func (d *Daemon) Datapath() datapath.Datapath {
 	return d.datapath
-}
-
-// UpdateProxyRedirect updates the redirect rules in the proxy for a particular
-// endpoint using the provided L4 filter. Returns the allocated proxy port
-func (d *Daemon) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
-	if d.l7Proxy == nil {
-		return 0, fmt.Errorf("can't redirect, proxy disabled"), nil, nil
-	}
-
-	port, err, finalizeFunc, revertFunc := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, proxyWaitGroup)
-	if err != nil {
-		return 0, err, nil, nil
-	}
-
-	return port, nil, finalizeFunc, revertFunc
-}
-
-// RemoveProxyRedirect removes a previously installed proxy redirect for an
-// endpoint
-func (d *Daemon) RemoveProxyRedirect(e regeneration.EndpointInfoSource, id string, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
-	if d.l7Proxy == nil {
-		return nil, nil, nil
-	}
-
-	log.WithFields(logrus.Fields{
-		logfields.EndpointID: e.GetID(),
-		logfields.L4PolicyID: id,
-	}).Debug("Removing redirect to endpoint")
-	return d.l7Proxy.RemoveRedirect(id, proxyWaitGroup)
-}
-
-// UpdateNetworkPolicy adds or updates a network policy in the set
-// published to L7 proxies.
-func (d *Daemon) UpdateNetworkPolicy(e regeneration.EndpointUpdater, policy *policy.L4Policy,
-	proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
-	if d.l7Proxy == nil {
-		return fmt.Errorf("can't update network policy, proxy disabled"), nil
-	}
-	err, revertFunc := d.l7Proxy.UpdateNetworkPolicy(e, policy, e.GetIngressPolicyEnabledLocked(),
-		e.GetEgressPolicyEnabledLocked(), proxyWaitGroup)
-	return err, revert.RevertFunc(revertFunc)
-}
-
-// RemoveNetworkPolicy removes a network policy from the set published to
-// L7 proxies.
-func (d *Daemon) RemoveNetworkPolicy(e regeneration.EndpointInfoSource) {
-	if d.l7Proxy == nil {
-		return
-	}
-	d.l7Proxy.RemoveNetworkPolicy(e)
 }
 
 // QueueEndpointBuild waits for a "build permit" for the endpoint
@@ -1096,11 +1044,6 @@ func (d *Daemon) SendNotification(typ monitorAPI.AgentNotification, text string)
 	}
 	event := monitorAPI.AgentNotify{Type: typ, Text: text}
 	return d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, event)
-}
-
-// NewProxyLogRecord is invoked by the proxy accesslog on each new access log entry
-func (d *Daemon) NewProxyLogRecord(l *logger.LogRecord) error {
-	return d.monitorAgent.SendEvent(monitorAPI.MessageTypeAccessLog, l.LogRecord)
 }
 
 // GetNodeSuffix returns the suffix to be appended to kvstore keys of this
