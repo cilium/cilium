@@ -21,6 +21,17 @@ SPELLING_LIST = spelling_wordlist.txt
 help:
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
+CONTRIB_DOCS_PATH = Documentation/contributing/contributing.rst
+REQUIRED_GO_VERSION = $(shell cat ../GO_VERSION)
+
+check-go-version:
+	@if ! grep "go <https://golang.org/dl/>.*$(REQUIRED_GO_VERSION)" ../$(CONTRIB_DOCS_PATH) > /dev/null; then \
+		echo "Contributing documentation has invalid Go version."; \
+		echo "Please set the following version in $(CONTRIB_DOCS_PATH):"; \
+		echo "$(REQUIRED_GO_VERSION)"; \
+		exit 1; \
+	fi
+
 PIP_REQUIREMENTS = $(shell cat requirements.txt | sed -e 's/==.*//g' -e 's/\n/ /g')
 
 check-requirements:
@@ -79,6 +90,6 @@ checklinks:
 
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
-%: Makefile check-requirements check-build
+%: Makefile check-go-version check-requirements check-build
 	@$(ECHO_GEN)_build/$@
 	$(QUIET)$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
