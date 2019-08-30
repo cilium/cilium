@@ -218,14 +218,6 @@ func (l *L4Addr) Equals(o *L4Addr) bool {
 	return l.Port == o.Port && l.Protocol == o.Protocol
 }
 
-// DeepCopy returns a DeepCopy of the given L4Addr.
-func (l *L4Addr) DeepCopy() *L4Addr {
-	return &L4Addr{
-		Port:     l.Port,
-		Protocol: l.Protocol,
-	}
-}
-
 // FEPort represents a frontend port with its ID and the L4Addr's inheritance.
 type FEPort struct {
 	*L4Addr
@@ -397,16 +389,6 @@ func (a *L3n4Addr) StringID() string {
 	return a.String()
 }
 
-// DeepCopy returns a DeepCopy of the given L3n4Addr.
-func (a *L3n4Addr) DeepCopy() *L3n4Addr {
-	copyIP := make(net.IP, len(a.IP))
-	copy(copyIP, a.IP)
-	return &L3n4Addr{
-		IP:     copyIP,
-		L4Addr: *a.L4Addr.DeepCopy(),
-	}
-}
-
 // SHA256Sum calculates L3n4Addr's internal SHA256Sum.
 func (a L3n4Addr) SHA256Sum() string {
 	// FIXME: Remove Protocol's omission once we care about protocols.
@@ -436,15 +418,6 @@ type L3n4AddrID struct {
 func NewL3n4AddrID(protocol L4Type, ip net.IP, portNumber uint16, id ID) *L3n4AddrID {
 	l3n4Addr := NewL3n4Addr(protocol, ip, portNumber)
 	return &L3n4AddrID{L3n4Addr: *l3n4Addr, ID: id}
-}
-
-// DeepCopy returns a DeepCopy of the given L3n4AddrID.
-func (l *L3n4AddrID) DeepCopy() *L3n4AddrID {
-	return &L3n4AddrID{
-		L3n4Addr: *l.L3n4Addr.DeepCopy(),
-		ID:       l.ID,
-	}
-
 }
 
 // IsIPv6 returns true if the IP address in L3n4Addr's L3n4AddrID is IPv6 or not.
