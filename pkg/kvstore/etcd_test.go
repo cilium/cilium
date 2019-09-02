@@ -27,7 +27,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 
-	etcdAPI "github.com/coreos/etcd/clientv3"
+	etcdAPI "go.etcd.io/etcd/clientv3"
 	. "gopkg.in/check.v1"
 )
 
