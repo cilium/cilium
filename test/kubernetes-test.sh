@@ -26,15 +26,28 @@ while true; do
 done
 
 set -e
-echo "Installing kubernetes"
 
+echo "Installing kubetest manually"
+
+mkdir -p ${HOME}/go/src/k8s.io
+cd ${HOME}/go/src/k8s.io
+test -d test-infra && rm -rfv test-infra
+# Last commit before vendor directory was removed
+# why? see https://github.com/kubernetes/test-infra/issues/14165#issuecomment-528620301
+git clone https://github.com/kubernetes/test-infra.git
+cd test-infra
+git reset --hard dbc2ac103595c2348322d1bac7e4743b96fca225
+GO111MODULE=off go install k8s.io/test-infra/kubetest
+
+echo "Installing kubernetes"
 KUBERNETES_VERSION=$(kubectl version -o json | jq -r '.serverVersion | .gitVersion')
 
-mkdir -p $HOME/go/src/github.com/kubernetes/
-cd $HOME/go/src/github.com/kubernetes/
+mkdir -p ${HOME}/go/src/k8s.io/
+cd ${HOME}/go/src/k8s.io/
 test -d kubernetes && rm -rfv kubernetes
 git clone https://github.com/kubernetes/kubernetes.git -b ${KUBERNETES_VERSION} --depth 1
 cd kubernetes
+
 make ginkgo
 make WHAT='test/e2e/e2e.test'
 
@@ -44,4 +57,4 @@ export KUBE_MASTER=192.168.36.11
 export KUBE_MASTER_IP=192.168.36.11
 export KUBE_MASTER_URL="https://192.168.36.11:6443"
 
-go run hack/e2e.go --test --test_args="--ginkgo.focus=NetworkPolicy --e2e-verify-service-account=false --host ${KUBE_MASTER_URL} --ginkgo.skip=name ports"
+go run hack/e2e.go -- --test --test_args="--ginkgo.focus=NetworkPolicy --e2e-verify-service-account=false --host ${KUBE_MASTER_URL} --ginkgo.skip=name ports"
