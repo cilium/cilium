@@ -337,7 +337,7 @@ function deploy_cilium(){
                 s+image: cilium/cilium:stable+image: cilium/cilium:${docker_image_tag}+g;\
                 s+imagePullPolicy: Always+imagePullPolicy: Never+g;\
                 s+debug: \"false\"+debug: \"true\"+g;\
-                s+#ca-file: '+ca-file: '+g;\
+                s+#trusted-ca-file: '+trusted-ca-file: '+g;\
                 s+etcd-ca: \"\"+etcd-ca: \""$(base64 -w 0 "${certs_dir}/ca.pem")"\"+g" \
             "${cilium_original}" > "${cilium_dir}/cilium.yaml"
 

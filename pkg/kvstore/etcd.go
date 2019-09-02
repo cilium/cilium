@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"net/url"
 	"os"
@@ -36,10 +37,12 @@ import (
 	"github.com/coreos/etcd/clientv3/concurrency"
 	clientyaml "github.com/coreos/etcd/clientv3/yaml"
 	v3rpcErrors "github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
+	"github.com/coreos/etcd/pkg/tlsutil"
 	"github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
 	ctx "golang.org/x/net/context"
 	"golang.org/x/time/rate"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -477,7 +480,7 @@ func (e *etcdClient) renewLockSession() error {
 
 func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error, rateLimit int, opts *ExtraOptions) (BackendOperations, error) {
 	if cfgPath != "" {
-		cfg, err := clientyaml.NewConfig(cfgPath)
+		cfg, err := newConfig(cfgPath)
 		if err != nil {
 			return nil, err
 		}
@@ -1375,7 +1378,7 @@ func IsEtcdOperator(selectedBackend string, opts map[string]string, k8sNamespace
 		return false
 	}
 
-	cfg, err := clientyaml.NewConfig(etcdConfig)
+	cfg, err := newConfig(etcdConfig)
 	if err != nil {
 		log.WithError(err).Error("Unable to read etcd configuration.")
 		return false
@@ -1387,4 +1390,60 @@ func IsEtcdOperator(selectedBackend string, opts map[string]string, k8sNamespace
 	}
 
 	return false
+}
+
+// newConfig is a wrapper of clientyaml.NewConfig. Since etcd has deprecated
+// the `ca-file` field from yamlConfig in v3.4, the clientyaml.NewConfig won't
+// read that field from the etcd configuration file making Cilium fail to
+// connect to a TLS-enabled etcd server. Since we should have deprecated the
+// usage of this field a long time ago, in this galaxy, we will have this
+// wrapper function as a workaround which will still use the `ca-file` field to
+// avoid users breaking their connectivity to etcd when upgrading Cilium.
+// TODO remove this wrapper in cilium >= 1.8
+func newConfig(fpath string) (*client.Config, error) {
+	cfg, err := clientyaml.NewConfig(fpath)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.TLS == nil || cfg.TLS.RootCAs != nil {
+		return cfg, nil
+	}
+
+	yc := &yamlConfig{}
+	b, err := ioutil.ReadFile(fpath)
+	if err != nil {
+		return nil, err
+	}
+	err = yaml.Unmarshal(b, yc)
+	if err != nil {
+		return nil, err
+	}
+	if yc.InsecureTransport {
+		return cfg, nil
+	}
+
+	if yc.CAfile != "" {
+		cp, err := tlsutil.NewCertPool([]string{yc.CAfile})
+		if err != nil {
+			return nil, err
+		}
+		cfg.TLS.RootCAs = cp
+	}
+	return cfg, nil
+}
+
+// copy of the internal structure in go.etcd.io/etcd/clientv3/yaml so we
+// can still use the `ca-file` field for one more release.
+type yamlConfig struct {
+	client.Config
+
+	InsecureTransport     bool   `json:"insecure-transport"`
+	InsecureSkipTLSVerify bool   `json:"insecure-skip-tls-verify"`
+	Certfile              string `json:"cert-file"`
+	Keyfile               string `json:"key-file"`
+	TrustedCAfile         string `json:"trusted-ca-file"`
+
+	// CAfile is being deprecated. Use 'TrustedCAfile' instead.
+	// TODO: deprecate this in v4
+	CAfile string `json:"ca-file"`
 }
