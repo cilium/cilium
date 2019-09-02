@@ -46,7 +46,7 @@ spec:
           command: ["/bin/sh"]
           args:
           - -c
-          - "cilium preflight fqdn-poller --tofqdns-pre-cache /var/run/cilium/dns-precache-upgrade.json && touch /tmp/ready; sleep 1h"
+          - "touch /tmp/ready; sleep 1h"
           livenessProbe:
             exec:
               command:
@@ -72,6 +72,47 @@ spec:
           - mountPath: /var/lib/etcd-secrets
             name: etcd-secrets
             readOnly: true
+{{- end }}
+{{- end }}
+
+{{- if ne .Values.tofqdnsPreCache "" }}
+{{- if contains "/" .Values.image }}
+        - image: "{{ .Values.image }}"
+{{- else }}
+        - image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+{{- end }}
+          imagePullPolicy: {{ .Values.global.pullPolicy }}
+          name: cilium-pre-flight-check
+          command: ["/bin/sh"]
+          args:
+          - -c
+          - "cilium preflight fqdn-poller --tofqdns-pre-cache {{ .Values.tofqdnsPreCache }} && touch /tmp/ready-tofqdns-precache"
+          livenessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/read-tofqdns-precachey
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/read-tofqdns-precachey
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+          - mountPath: /var/run/cilium
+            name: cilium-run
+{{- if .Values.global.etcd.enabled }}
+          - mountPath: /var/lib/etcd-config
+            name: etcd-config-path
+            readOnly: true
+{{- if or .Values.global.etcd.ssl .Values.global.etcd.managed }}
+          - mountPath: /var/lib/etcd-secrets
+            name: etcd-secrets
+            readOnly: true
+{{- end }}
 {{- end }}
 {{- end }}
       hostNetwork: true
