@@ -326,6 +326,19 @@ Command to collect the system dump using the cluster-diagnosis tool:
 
     python cluster-diagnosis.zip sysdump
 
+You can specify from which nodes to collect the system dumps by passing
+node IP addresses via the ``--nodes`` argument:
+
+.. code:: bash
+
+    python cluster-diagnosis.zip sysdump --nodes=$NODE1_IP,$NODE2_IP2
+
+Use ``--help`` to see more options:
+
+.. code:: bash
+
+    python cluster-diagnosis.zip sysdump --help
+
 Symptom Library
 ===============
 
