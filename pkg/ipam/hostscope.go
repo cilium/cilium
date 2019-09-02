@@ -61,10 +61,15 @@ func (h *hostScopeAllocator) AllocateNext(owner string) (*AllocationResult, erro
 }
 
 func (h *hostScopeAllocator) Dump() (map[string]string, string) {
+	var origIP *big.Int
 	alloc := map[string]string{}
 	ral := k8sAPI.RangeAllocation{}
 	h.allocator.Snapshot(&ral)
-	origIP := big.NewInt(0).SetBytes(h.allocCIDR.IP.To4())
+	if h.allocCIDR.IP.To4() != nil {
+		origIP = big.NewInt(0).SetBytes(h.allocCIDR.IP.To4())
+	} else {
+		origIP = big.NewInt(0).SetBytes(h.allocCIDR.IP.To16())
+	}
 	bits := big.NewInt(0).SetBytes(ral.Data)
 	for i := 0; i < bits.BitLen(); i++ {
 		if bits.Bit(i) != 0 {
