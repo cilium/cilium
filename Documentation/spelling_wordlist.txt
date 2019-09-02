@@ -593,6 +593,7 @@ toCIDR
 toCIDRSet
 tofqdns
 toFQDNs
+tofqdnsPreCache
 toGroups
 toolchain
 Toolchain
