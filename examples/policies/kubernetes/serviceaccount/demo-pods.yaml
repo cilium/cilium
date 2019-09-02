@@ -13,11 +13,14 @@ apiVersion: v1
 metadata:
   name: vader
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: leia-deployment
 spec:
+  selector:
+    matchLabels:
+      name: leia
   replicas: 1
   template:
     metadata:

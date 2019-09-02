@@ -1,8 +1,11 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: probe
 spec:
+  selector:
+    matchLabels:
+      name: probe
   replicas: 5
   template:
     metadata:
@@ -40,11 +43,14 @@ spec:
   selector:
     name: echo
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: echo
 spec:
+  selector:
+    matchLabels:
+      name: echo
   replicas: 5
   template:
     metadata:

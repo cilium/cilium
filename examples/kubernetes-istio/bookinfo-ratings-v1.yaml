@@ -64,11 +64,15 @@ specs:
           - method: GET
             path: "/ratings/[0-9]*"
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ratings-v1
 spec:
+  selector:
+    matchLabels:
+      app: ratings
+      version: v1
   replicas: 1
   template:
     metadata:

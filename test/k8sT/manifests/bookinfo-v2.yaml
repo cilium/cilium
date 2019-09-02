@@ -28,11 +28,16 @@ spec:
   selector:
     app: ratings
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ratings-v1
 spec:
+  selector:
+    matchLabels:
+      app: ratings
+      version: v1
+      zgroup: bookinfo
   replicas: 1
   template:
     metadata:
@@ -52,11 +57,16 @@ spec:
 ##################################################################################################
 # Reviews service v2
 ##################################################################################################
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: reviews-v2
 spec:
+  selector:
+    matchLabels:
+      app: reviews
+      version: v2
+      zgroup: bookinfo
   replicas: 1
   template:
     metadata:

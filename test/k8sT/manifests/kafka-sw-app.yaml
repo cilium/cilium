@@ -1,8 +1,12 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kafka-broker
 spec:
+  selector:
+    matchLabels:
+      app: kafka
+      zgroup: kafkaTestApp
   replicas: 1
   template:
     metadata:
@@ -52,11 +56,15 @@ spec:
     app: kafka
   clusterIP: None
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: empire-hq
 spec:
+  selector:
+    matchLabels:
+      app: empire-hq
+      zgroup: kafkaTestApp
   replicas: 1
   template:
     metadata:
@@ -72,11 +80,16 @@ spec:
       nodeSelector:
         "kubernetes.io/hostname": k8s1
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: empire-outpost-8888
 spec:
+  selector:
+    matchLabels:
+      app: empire-outpost
+      outpostid: "8888"
+      zgroup: kafkaTestApp
   replicas: 1
   template:
     metadata:
@@ -91,11 +104,16 @@ spec:
         image: docker.io/cilium/kafkaclient:latest
         imagePullPolicy: IfNotPresent
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: empire-outpost-9999
 spec:
+  selector:
+    matchLabels:
+      app: empire-outpost
+      outpostid: "9999"
+      zgroup: kafkaTestApp
   replicas: 1
   template:
     metadata:
@@ -110,11 +128,15 @@ spec:
         image: docker.io/cilium/kafkaclient:latest
         imagePullPolicy: IfNotPresent
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: empire-backup
 spec:
+  selector:
+    matchLabels:
+      app: empire-backup
+      zgroup: kafkaTestApp
   replicas: 1
   template:
     metadata:

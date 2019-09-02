@@ -38,11 +38,15 @@ specs:
           - method: GET
             path: "/reviews/[0-9]*"
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: reviews-v2
 spec:
+  selector:
+    matchLabels:
+      app: reviews
+      version: v2
   replicas: 1
   template:
     metadata:
