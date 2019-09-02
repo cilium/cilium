@@ -1825,6 +1825,7 @@
     "github.com/coreos/etcd/clientv3/concurrency",
     "github.com/coreos/etcd/clientv3/yaml",
     "github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes",
+    "github.com/coreos/etcd/pkg/tlsutil",
     "github.com/davecgh/go-spew/spew",
     "github.com/docker/docker/api/types",
     "github.com/docker/docker/api/types/events",
@@ -1949,6 +1950,7 @@
     "k8s.io/kubernetes/pkg/kubelet/types",
     "k8s.io/kubernetes/pkg/kubelet/util",
     "k8s.io/kubernetes/pkg/registry/core/service/ipallocator",
+    "sigs.k8s.io/yaml",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

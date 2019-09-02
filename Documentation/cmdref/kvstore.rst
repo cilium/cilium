@@ -66,7 +66,7 @@ Example of the etcd configuration file:
     endpoints:
     - https://192.168.0.1:2379
     - https://192.168.0.2:2379
-    ca-file: '/var/lib/cilium/etcd-ca.pem'
+    trusted-ca-file: '/var/lib/cilium/etcd-ca.pem'
     # In case you want client to server authentication
     key-file: '/var/lib/cilium/etcd-client.key'
     cert-file: '/var/lib/cilium/etcd-client.crt'
