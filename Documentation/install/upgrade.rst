@@ -786,10 +786,23 @@ Upgrade steps - :ref:`DNS Polling`
    ``--tofqdns-pre-cache="/var/run/cilium/dns-precache-upgrade.json"`` to
    cilium-agent.
 
-#. Deploy the cilium :ref:`pre_flight` helper. This will download the cilium
-   container image and also create DNS pre-cache data at
+#. Deploy the cilium :ref:`pre_flight` helper by generating the manifest with
+   the ``preflight.tofqdnsPreCache`` option set as below. This will download the
+   cilium container image and also create DNS pre-cache data at
    ``/var/run/cilium/dns-precache-upgrade.json``. This data will have a TTL of
    1 week.
+
+.. code:: bash
+
+    helm template cilium \
+      --namespace=kube-system \
+      --set preflight.enabled=true \
+      --set preflight.tofqdnsPrecache="/var/run/cilium/dns-precache-upgrade.json" \
+      --set agent.enabled=false \
+      --set config.enabled=false \
+      --set operator.enabled=false \
+      > cilium-preflight.yaml
+    kubectl create cilium-preflight.yaml
 
 #. Deploy the new cilium DaemonSet
 
