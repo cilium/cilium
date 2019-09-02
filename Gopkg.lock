@@ -1454,7 +1454,7 @@
   version = "v2.2.1"
 
 [[projects]]
-  digest = "1:759855d98a898d7d6a091b89b9c85c03d6efd673c44e15561d716543f4e88f31"
+  digest = "1:760e08df99c3c3b53764ef7c41c03ea9d90e8594d9df42364d9209e99a0352e1"
   name = "k8s.io/api"
   packages = [
     "admissionregistration/v1beta1",
@@ -1495,10 +1495,10 @@
     "storage/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.15.1"
+  revision = "kubernetes-1.15.3"
 
 [[projects]]
-  digest = "1:2c1e111c1b0793e7b2e3bfe64743ce68c02035d30fd7bf540edfbd7b9ae318e0"
+  digest = "1:e53c720ac9b16d35cbc40bbb07582c24f1a89557b89fe35328f539e5fa1a34d8"
   name = "k8s.io/apiextensions-apiserver"
   packages = [
     "pkg/apis/apiextensions",
@@ -1509,10 +1509,10 @@
     "pkg/features",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.15.1"
+  revision = "kubernetes-1.15.3"
 
 [[projects]]
-  digest = "1:81e06243f0372a0dd83e81fdca810b2128321e578f494f00b150d500fe504abb"
+  digest = "1:fa17ab617911e9fdcd3eccb05e815ce02d6fe3b8a113d00d63001b507862250e"
   name = "k8s.io/apimachinery"
   packages = [
     "pkg/api/errors",
@@ -1560,7 +1560,7 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.15.1"
+  revision = "kubernetes-1.15.3"
 
 [[projects]]
   digest = "1:2e3f244d6f43f038d3fa4450be13ca29574df19f32f64f358a75c24770d5f002"
@@ -1570,10 +1570,10 @@
     "pkg/util/feature",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.15.1"
+  revision = "kubernetes-1.15.3"
 
 [[projects]]
-  digest = "1:de42297763aabde3e66c7880eec6c5338344d1aa94cf96be7614fa9ea7ad9c4e"
+  digest = "1:810f2bd2036993645a6ea789ce05425fd48259e2c1ab920ba7fcb88e90e6467f"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -1681,7 +1681,7 @@
     "util/retry",
   ]
   pruneopts = "NUT"
-  revision = "6012d37cafac5dc528678379b70efd4290cb4ca5"
+  revision = "d946203e8cddbb59e4cce706cc672a1cd65bad56"
   source = "https://github.com/cilium/client-go"
 
 [[projects]]
@@ -1700,7 +1700,7 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "kubernetes-1.15.1"
+  revision = "kubernetes-1.15.3"
 
 [[projects]]
   branch = "master"
@@ -1715,7 +1715,7 @@
   name = "k8s.io/cri-api"
   packages = ["pkg/apis/runtime/v1alpha2"]
   pruneopts = "NUT"
-  revision = "kubernetes-1.15.1"
+  revision = "kubernetes-1.15.3"
 
 [[projects]]
   digest = "1:61024ed77a53ac618effed55043bf6a9afbdeb64136bd6a5b0c992d4c0363766"
@@ -1761,7 +1761,7 @@
     "pkg/registry/core/service/ipallocator",
   ]
   pruneopts = "NUT"
-  revision = "v1.15.1"
+  revision = "v1.15.3"
 
 [[projects]]
   branch = "master"
