@@ -1,9 +1,12 @@
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kafka-broker
 spec:
+  selector:
+    matchLabels:
+      app: kafka
   replicas: 1
   template:
     metadata:
@@ -29,11 +32,14 @@ spec:
         - name: KAFKA_ZOOKEEPER_CONNECTION_TIMEOUT_MS
           value: "60000"
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: zookeeper
 spec:
+  selector:
+    matchLabels:
+      app: zook
   replicas: 1
   template:
     metadata:
@@ -77,11 +83,14 @@ spec:
     app: kafka
   clusterIP: None
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: empire-hq
 spec:
+  selector:
+    matchLabels:
+      app: empire-hq
   replicas: 1
   template:
     metadata:
@@ -92,11 +101,15 @@ spec:
       - name: empire-hq
         image: docker.io/cilium/kafkaclient
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: empire-outpost-8888
 spec:
+  selector:
+    matchLabels:
+      app: empire-outpost
+      outpostid: "8888"
   replicas: 1
   template:
     metadata:
@@ -108,11 +121,15 @@ spec:
       - name: empire-outpost-8888
         image: docker.io/cilium/kafkaclient
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: empire-outpost-9999
 spec:
+  selector:
+    matchLabels:
+      app: empire-outpost
+      outpostid: "9999"
   replicas: 1
   template:
     metadata:
@@ -124,11 +141,14 @@ spec:
       - name: empire-outpost-9999
         image: docker.io/cilium/kafkaclient
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: empire-backup
 spec:
+  selector:
+    matchLabels:
+      app: empire-backup
   replicas: 1
   template:
     metadata:

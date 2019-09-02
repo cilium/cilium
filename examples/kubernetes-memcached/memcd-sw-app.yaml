@@ -1,9 +1,12 @@
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: memcached-server
 spec:
+  selector:
+    matchLabels:
+      app: memcd-server
   replicas: 1
   template:
     metadata:
@@ -32,11 +35,14 @@ spec:
     app: memcd-server
   clusterIP: None
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: a-wing
 spec:
+  selector:
+    matchLabels:
+      app: a-wing
   replicas: 1
   template:
     metadata:
@@ -49,11 +55,14 @@ spec:
         command: ["sleep"]
         args: ["30000"]
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: x-wing
 spec:
+  selector:
+    matchLabels:
+      app: x-wing
   replicas: 1
   template:
     metadata:
@@ -66,11 +75,14 @@ spec:
         command: ["sleep"]
         args: ["30000"]
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: alliance-tracker
 spec:
+  selector:
+    matchLabels:
+      name: fleet-tracker
   replicas: 1
   template:
     metadata:

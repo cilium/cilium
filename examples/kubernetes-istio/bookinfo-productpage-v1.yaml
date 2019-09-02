@@ -51,11 +51,15 @@ specs:
           - method: GET
             path: "/api/v1/products/[0-9]*/ratings"
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: productpage-v1
 spec:
+  selector:
+    matchLabels:
+      app: productpage
+      version: v1
   replicas: 1
   template:
     metadata:

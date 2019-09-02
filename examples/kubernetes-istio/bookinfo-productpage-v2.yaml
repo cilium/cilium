@@ -47,11 +47,15 @@ specs:
           - method: GET
             path: "/api/v1/products/[0-9]*"
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: productpage-v2
 spec:
+  selector:
+    matchLabels:
+      app: productpage
+      version: v2
   replicas: 1
   template:
     metadata:

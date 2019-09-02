@@ -1,10 +1,13 @@
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: netcatds
   namespace: default
 spec:
+  selector:
+    matchLabels:
+      zgroup: netcatds
   template:
     metadata:
       labels:
