@@ -227,7 +227,7 @@ func (d *Daemon) RemoveProxyRedirect(e regeneration.EndpointInfoSource, id strin
 func (d *Daemon) UpdateNetworkPolicy(e regeneration.EndpointUpdater, policy *policy.L4Policy,
 	proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
 	if d.l7Proxy == nil {
-		return fmt.Errorf("can't update network policy, proxy disabled"), nil
+		return nil, nil
 	}
 	err, revertFunc := d.l7Proxy.UpdateNetworkPolicy(e, policy, e.GetIngressPolicyEnabledLocked(),
 		e.GetEgressPolicyEnabledLocked(), proxyWaitGroup)
