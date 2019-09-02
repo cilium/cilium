@@ -121,68 +121,14 @@ struct bpf_elf_map __section_maps LB4_BACKEND_MAP = {
 #define cilium_dbg_lb(a, b, c, d)
 #endif
 
-#ifdef HAVE_MAP_VAL_ADJ
-static inline int lb_next_rr(struct __sk_buff *skb,
-			     struct lb_sequence *seq,
-			     __be16 hash)
+static inline int lb6_select_slave(__u16 count)
 {
-	int slave = 0;
-	__u8 offset = hash % seq->count;
-
-	if (offset < LB_RR_MAX_SEQ) {
-		/* Slave 0 is reserved for the master slot */
-		slave = seq->idx[offset] + 1;
-		cilium_dbg(skb, DBG_RR_SLAVE_SEL, hash, slave);
-	}
-
-	return slave;
-}
-#endif
-
-static inline int lb6_select_slave(struct __sk_buff *skb,
-				   __u16 count, __u16 weight)
-{
-/* Disabled for now since on older kernels dynamic map access
- * will cause a significant complexity increase for the entire
- * program due to pruning having less opportunities matching
- * register state in the verifier. For later kernels this is
- * less of a problem, so we can enabled to in future based on
- * changing the HAVE_MAP_VAL_ADJ probe. Thus just do the slave
- * selection based on hash instead of hash w/ weights.
- */
-#if 0 /* HAVE_MAP_VAL_ADJ */
-	if (weight) {
-		struct lb_sequence *seq;
-
-		seq = map_lookup_elem(&cilium_lb6_rr_seq, key);
-		if (seq && seq->count != 0)
-			slave = lb_next_rr(skb, seq, hash);
-	}
-#endif
 	/* Slave 0 is reserved for the master slot */
 	return (get_prandom_u32() % count) + 1;
 }
 
-static inline int lb4_select_slave(struct __sk_buff *skb,
-				   __u16 count, __u16 weight)
+static inline int lb4_select_slave(__u16 count)
 {
-/* Disabled for now since on older kernels dynamic map access
- * will cause a significant complexity increase for the entire
- * program due to pruning having less opportunities matching
- * register state in the verifier. For later kernels this is
- * less of a problem, so we can enabled to in future based on
- * changing the HAVE_MAP_VAL_ADJ probe. Thus just do the slave
- * selection based on hash instead of hash w/ weights.
- */
-#if 0 /* HAVE_MAP_VAL_ADJ */
-	if (weight) {
-		struct lb_sequence *seq;
-
-		seq = map_lookup_elem(&cilium_lb4_rr_seq, key);
-		if (seq && seq->count != 0)
-			slave = lb_next_rr(skb, seq, hash);
-	}
-#endif
 	/* Slave 0 is reserved for the master slot */
 	return (get_prandom_u32() % count) + 1;
 }
@@ -492,7 +438,7 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb,
 	ret = ct_lookup6(map, tuple, skb, l4_off, CT_SERVICE, state, &monitor);
 	switch(ret) {
 	case CT_NEW:
-		slave = lb6_select_slave(skb, svc_v2->count, svc_v2->weight);
+		slave = lb6_select_slave(svc_v2->count);
 		if ((slave_svc = lb6_lookup_slave_v2(skb, key, slave)) == NULL) {
 			goto drop_no_service;
 		}
@@ -527,7 +473,7 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb,
 	if (state->rev_nat_index != svc_v2->rev_nat_index) {
 		cilium_dbg_lb(skb, DBG_LB_STALE_CT, svc_v2->rev_nat_index,
 			      state->rev_nat_index);
-		slave = lb6_select_slave(skb, svc_v2->count, svc_v2->weight);
+		slave = lb6_select_slave(svc_v2->count);
 		if (!(slave_svc = lb6_lookup_slave_v2(skb, key, slave))) {
 			goto drop_no_service;
 		}
@@ -545,7 +491,7 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb,
 		if (!(svc_v2 = lb6_lookup_service_v2(skb, key))) {
 			goto drop_no_service;
 		}
-		slave = lb6_select_slave(skb, svc_v2->count, svc_v2->weight);
+		slave = lb6_select_slave(svc_v2->count);
 		if (!(slave_svc = lb6_lookup_slave_v2(skb, key, slave))) {
 			goto drop_no_service;
 		}
@@ -853,7 +799,7 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 	switch(ret) {
 	case CT_NEW:
 		/* No CT entry has been found, so select a svc endpoint */
-		slave = lb4_select_slave(skb, svc_v2->count, svc_v2->weight);
+		slave = lb4_select_slave(svc_v2->count);
 		if ((slave_svc = lb4_lookup_slave_v2(skb, key, slave)) == NULL) {
 			goto drop_no_service;
 		}
@@ -897,7 +843,7 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 	if (state->rev_nat_index != svc_v2->rev_nat_index) {
 		cilium_dbg_lb(skb, DBG_LB_STALE_CT, svc_v2->rev_nat_index,
 			      state->rev_nat_index);
-		slave = lb4_select_slave(skb, svc_v2->count, svc_v2->weight);
+		slave = lb4_select_slave(svc_v2->count);
 		if (!(slave_svc = lb4_lookup_slave_v2(skb, key, slave))) {
 			goto drop_no_service;
 		}
@@ -915,7 +861,7 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 		if (!(svc_v2 = lb4_lookup_service_v2(skb, key))) {
 			goto drop_no_service;
 		}
-		slave = lb4_select_slave(skb, svc_v2->count, svc_v2->weight);
+		slave = lb4_select_slave(svc_v2->count);
 		if (!(slave_svc = lb4_lookup_slave_v2(skb, key, slave))) {
 			goto drop_no_service;
 		}
