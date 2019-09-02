@@ -109,8 +109,8 @@ required = [
   # on-revision = ""
 
 [[constraint]]
-  name = "github.com/coreos/etcd"
-  revision = "v3.3.13"
+  name = "go.etcd.io/etcd"
+  revision = "v3.4.0"
 
   # main-usage = "pkg/kvstore"
   # on-revision = ""

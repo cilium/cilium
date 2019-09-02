@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -1111,16 +1112,21 @@ func (d *Daemon) initKVStore() {
 				// If the service is available, do the service translation to
 				// the service IP. Otherwise dial with the original service
 				// name `s`.
-				svc := k8s.ParseServiceIDFrom(s)
-				if svc != nil {
-					backendIP := d.k8sSvcCache.GetRandomBackendIP(*svc)
-					if backendIP != nil {
-						s = backendIP.String()
+				u, err := url.Parse(s)
+				if err == nil {
+					svc := k8s.ParseServiceIDFrom(u.Host)
+					if svc != nil {
+						backendIP := d.k8sSvcCache.GetRandomBackendIP(*svc)
+						if backendIP != nil {
+							s = backendIP.String()
+						}
+					} else {
+						log.Debug("Service not found")
 					}
+					log.Debugf("custom dialer based on k8s service backend is dialing to 2 %q", s)
 				} else {
-					log.Debug("Service not found")
+					log.Errorf("Unable to parse etcd service URL %s", err)
 				}
-				log.Debugf("custom dialer based on k8s service backend is dialing to %q", s)
 				return net.Dial("tcp", s)
 			},
 			),
