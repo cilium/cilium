@@ -13,6 +13,9 @@ operator:
 # Include the PreFlight DaemonSet
 preflight:
   enabled: false
+  # Path to write the --tofqdns-pre-cache file to. When empty no file is
+  # generated.
+  tofqdnsPreCache: ""
 
 # global groups all configuration options that have effect on all sub-charts
 global:
