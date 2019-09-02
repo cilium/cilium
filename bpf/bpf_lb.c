@@ -98,7 +98,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 		return TC_ACT_OK;
 	}
 
-	slave = lb6_select_slave(skb, svc->count, svc->weight);
+	slave = lb6_select_slave(svc->count);
 	if (!(svc = lb6_lookup_slave_v2(skb, &key, slave)))
 		return DROP_NO_SERVICE;
 	if (!(backend = lb6_lookup_backend(skb, svc->backend_id)))
@@ -160,7 +160,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		return TC_ACT_OK;
 	}
 
-	slave = lb4_select_slave(skb, svc->count, svc->weight);
+	slave = lb4_select_slave(svc->count);
 	if (!(svc = lb4_lookup_slave_v2(skb, &key, slave)))
 		return DROP_NO_SERVICE;
 	if (!(backend = lb4_lookup_backend(skb, svc->backend_id)))
