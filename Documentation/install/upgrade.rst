@@ -17,8 +17,8 @@ questions, feel free to ping us on the `Slack channel`.
 
 .. warning::
 
-   Do not upgrade to 1.6.0 before reading the section
-   :ref:`1.6_required_changes`.
+   Do not upgrade to 1.7.0 before reading the section
+   :ref:`1.7_required_changes`.
 
 .. _pre_flight:
 
@@ -225,6 +225,56 @@ Annotations:
 #. **Temporary disruption**: All traffic may be temporarily disrupted during
    upgrade. Connections should successfully re-establish without requiring
    clients to reconnect.
+
+.. _1.7_upgrade_notes:
+
+1.7 Upgrade Notes
+-----------------
+
+.. _1.7_required_changes:
+
+IMPORTANT: Changes required before upgrading to 1.7.0
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. warning::
+
+   Do not upgrade to 1.7.0 before reading the following section and completing
+   the required steps.
+
+* If ``kvstore`` is setup with ``etcd`` **and** TLS is enabled, the field name
+  ``ca-file`` will have its usage deprecated and will be removed in Cilium v1.8.0.
+  The new field name, ``trusted-ca-file``, can be used since Cilium v1.1.0.
+
+  *Required action:*
+
+  This field name should be changed from ``ca-file`` to ``trusted-ca-file``.
+
+  Example of an old etcd configuration, with the ``ca-file`` field name:
+
+  .. code:: yaml
+
+    ---
+    endpoints:
+    - https://192.168.0.1:2379
+    - https://192.168.0.2:2379
+    ca-file: '/var/lib/cilium/etcd-ca.pem'
+    # In case you want client to server authentication
+    key-file: '/var/lib/cilium/etcd-client.key'
+    cert-file: '/var/lib/cilium/etcd-client.crt'
+
+  Example of new etcd configuration, with the ``trusted-ca-file`` field name:
+
+  .. code:: yaml
+
+    ---
+    endpoints:
+    - https://192.168.0.1:2379
+    - https://192.168.0.2:2379
+    trusted-ca-file: '/var/lib/cilium/etcd-ca.pem'
+    # In case you want client to server authentication
+    key-file: '/var/lib/cilium/etcd-client.key'
+    cert-file: '/var/lib/cilium/etcd-client.crt'
+
 
 .. _1.6_upgrade_notes:
 
