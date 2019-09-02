@@ -18,11 +18,15 @@ spec:
   selector:
     id: app1
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: app1
 spec:
+  selector:
+    matchLabels:
+      id: app1
+      zgroup: testapp
   replicas: 2
   template:
     metadata:
@@ -45,11 +49,16 @@ spec:
       nodeSelector:
         "kubernetes.io/hostname": k8s1
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: app2
 spec:
+  selector:
+    matchLabels:
+      id: app2
+      zgroup: testapp
+      appSecond: "true"
   replicas: 1
   template:
     metadata:
@@ -70,11 +79,15 @@ spec:
       nodeSelector:
         "kubernetes.io/hostname": k8s1
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: app3
 spec:
+  selector:
+    matchLabels:
+      id: app3
+      zgroup: testapp
   replicas: 1
   template:
     metadata:

@@ -1,9 +1,12 @@
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cass-server
 spec:
+  selector:
+    matchLabels:
+      app: cass-server
   replicas: 1
   template:
     metadata:
@@ -32,11 +35,14 @@ spec:
     app: cass-server
   clusterIP: None
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: empire-hq
 spec:
+  selector:
+    matchLabels:
+      app: empire-hq
   replicas: 1
   template:
     metadata:
@@ -49,11 +55,14 @@ spec:
         command: ["sleep"]
         args: ["30000"]
 --- 
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: empire-outpost
 spec:
+  selector:
+    matchLabels:
+      app: empire-outpost
   replicas: 1
   template:
     metadata:

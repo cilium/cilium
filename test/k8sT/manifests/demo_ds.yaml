@@ -1,10 +1,13 @@
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: testds
   namespace: default
 spec:
+  selector:
+    matchLabels:
+      zgroup: testDS
   template:
     metadata:
       labels:
@@ -28,12 +31,15 @@ spec:
         key: node.cloudprovider.kubernetes.io/uninitialized
         value: "true"
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: testclient
   namespace: default
 spec:
+  selector:
+    matchLabels:
+      zgroup: testDSClient
   template:
     metadata:
       labels:

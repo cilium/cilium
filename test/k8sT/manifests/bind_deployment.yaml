@@ -41,7 +41,7 @@ data:
             file "/data/db.cilium.test";
     };
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
@@ -49,6 +49,9 @@ metadata:
   name: bind
   namespace: default
 spec:
+  selector:
+    matchLabels:
+      zgroup: bind
   replicas: 1
   template:
     metadata:
