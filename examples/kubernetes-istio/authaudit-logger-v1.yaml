@@ -1,8 +1,12 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: authaudit-logger-v1
 spec:
+  selector:
+    matchLabels:
+      app: authaudit-logger
+      version: v1
   replicas: 1
   template:
     metadata:

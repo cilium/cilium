@@ -1,11 +1,14 @@
 kind: DaemonSet
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 metadata:
   name: cilium-node-init
   namespace: {{ .Release.Namespace }}
   labels:
     app: cilium-node-init
 spec:
+  selector:
+    matchLabels:
+      app: cilium-node-init
   template:
     metadata:
       labels:

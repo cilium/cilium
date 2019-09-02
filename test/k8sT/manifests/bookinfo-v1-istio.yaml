@@ -28,14 +28,19 @@ spec:
   selector:
     app: details
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   creationTimestamp: null
   name: details-v1
 spec:
   replicas: 1
-  selector: null
+  selector:
+    matchLabels:
+      app: details
+      track: stable
+      version: v1
+      zgroup: bookinfo
   strategy: {}
   template:
     metadata:
@@ -223,14 +228,19 @@ spec:
   selector:
     app: reviews
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   creationTimestamp: null
   name: reviews-v1
 spec:
   replicas: 1
-  selector: null
+  selector:
+    matchLabels:
+      app: reviews
+      track: stable
+      version: v1
+      zgroup: bookinfo
   strategy: {}
   template:
     metadata:
@@ -418,14 +428,19 @@ spec:
   selector:
     app: productpage
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   creationTimestamp: null
   name: productpage-v1
 spec:
   replicas: 1
-  selector: null
+  selector:
+    matchLabels:
+      app: productpage
+      track: stable
+      version: v1
+      zgroup: bookinfo
   strategy: {}
   template:
     metadata:

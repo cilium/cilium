@@ -12,11 +12,14 @@ spec:
   selector:
     name: rebel-base
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: rebel-base
 spec:
+  selector:
+    matchLabels:
+      name: rebel-base
   replicas: 2
   template:
     metadata:
@@ -53,11 +56,14 @@ metadata:
 data:
   message: "{\"Galaxy\": \"Alderaan\", \"Cluster\": \"Cluster-2\"}\n"
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: x-wing
 spec:
+  selector:
+    matchLabels:
+      name: x-wing
   replicas: 2
   template:
     metadata:

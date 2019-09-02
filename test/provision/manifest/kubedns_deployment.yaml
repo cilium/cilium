@@ -43,7 +43,7 @@ data:
   stubDomains: |
     {"cilium.test": ["10.96.0.100"]}
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   generation: 1
