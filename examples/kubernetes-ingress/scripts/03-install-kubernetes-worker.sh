@@ -169,7 +169,7 @@ sudo tee /var/lib/cilium/etcd-config.yml <<EOF
 ---
 endpoints:
 - https://${controllers_ips[0]}:2379
-ca-file: '/var/lib/cilium/ca-etcd.pem'
+trusted-ca-file: '/var/lib/cilium/ca-etcd.pem'
 key-file: '/var/lib/cilium/etcd-cilium-key.pem'
 cert-file: '/var/lib/cilium/etcd-cilium.pem'
 EOF

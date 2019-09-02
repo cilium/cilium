@@ -73,10 +73,10 @@ enabled.
         - https://node-1:31079
         - https://node-2:31079
         #
-        # In case you want to use TLS in etcd, uncomment the 'ca-file' line
+        # In case you want to use TLS in etcd, uncomment the 'trusted-ca-file' line
         # and create a kubernetes secret by following the tutorial in
         # https://cilium.link/etcd-config
-        ca-file: '/var/lib/etcd-secrets/etcd-client-ca.crt'
+        trusted-ca-file: '/var/lib/etcd-secrets/etcd-client-ca.crt'
         #
         # In case you want client to server authentication, uncomment the following
         # lines and create a kubernetes secret by following the tutorial in

@@ -24,7 +24,7 @@ data:
 {{- end }}
 {{- end }}
 {{- if or .Values.global.etcd.ssl .Values.global.etcd.managed }}
-    ca-file: '/var/lib/etcd-secrets/etcd-client-ca.crt'
+    trusted-ca-file: '/var/lib/etcd-secrets/etcd-client-ca.crt'
     key-file: '/var/lib/etcd-secrets/etcd-client.key'
     cert-file: '/var/lib/etcd-secrets/etcd-client.crt'
 {{- end }}
