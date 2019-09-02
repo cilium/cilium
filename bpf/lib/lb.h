@@ -139,26 +139,9 @@ static inline int lb_next_rr(struct __sk_buff *skb,
 }
 #endif
 
-static inline __u32 lb_enforce_rehash(struct __sk_buff *skb)
-{
-#ifdef HAVE_SET_HASH_INVALID
-	set_hash_invalid(skb);
-#else
-	/* Ugly workaround for 4.8 kernel where we don't have this function. */
-	__u32 tmp;
-
-	skb_load_bytes(skb,  0, &tmp, sizeof(tmp));
-	skb_store_bytes(skb, 0, &tmp, sizeof(tmp), BPF_F_INVALIDATE_HASH);
-#endif
-	return get_hash_recalc(skb);
-}
-
 static inline int lb6_select_slave(struct __sk_buff *skb,
 				   __u16 count, __u16 weight)
 {
-	__u32 hash = lb_enforce_rehash(skb);
-	int slave = 0;
-
 /* Disabled for now since on older kernels dynamic map access
  * will cause a significant complexity increase for the entire
  * program due to pruning having less opportunities matching
@@ -176,22 +159,13 @@ static inline int lb6_select_slave(struct __sk_buff *skb,
 			slave = lb_next_rr(skb, seq, hash);
 	}
 #endif
-
-	if (slave == 0) {
-		/* Slave 0 is reserved for the master slot */
-		slave = (hash % count) + 1;
-		cilium_dbg(skb, DBG_PKT_HASH, hash, slave);
-	}
-
-	return slave;
+	/* Slave 0 is reserved for the master slot */
+	return (get_prandom_u32() % count) + 1;
 }
 
 static inline int lb4_select_slave(struct __sk_buff *skb,
 				   __u16 count, __u16 weight)
 {
-	__u32 hash = lb_enforce_rehash(skb);
-	int slave = 0;
-
 /* Disabled for now since on older kernels dynamic map access
  * will cause a significant complexity increase for the entire
  * program due to pruning having less opportunities matching
@@ -209,14 +183,8 @@ static inline int lb4_select_slave(struct __sk_buff *skb,
 			slave = lb_next_rr(skb, seq, hash);
 	}
 #endif
-
-	if (slave == 0) {
-		/* Slave 0 is reserved for the master slot */
-		slave = (hash % count) + 1;
-		cilium_dbg_lb(skb, DBG_PKT_HASH, hash, slave);
-	}
-
-	return slave;
+	/* Slave 0 is reserved for the master slot */
+	return (get_prandom_u32() % count) + 1;
 }
 
 static inline int __inline__ extract_l4_port(struct __sk_buff *skb, __u8 nexthdr,
