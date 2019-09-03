@@ -442,17 +442,17 @@ required = [
 
 [[override]]
   name = "golang.org/x/crypto"
-  revision = "e84da0312774c21d64ee2317962ef669b27ffb41"
+  revision = "60c769a6c58655dab1b9adac0d58967dd517cfba"
 
   # main-usage = "only in integration tests"
   # on-revision = ""
 
 [[override]]
   name = "golang.org/x/net"
-  revision = "65e2d4e15006aab9813ff8769e768bbf4bb667a0"
+  revision = "74dc4d7220e7acc4e100824340f3e66577424772"
 
   # main-usage = "pkg/kvstore/etcd, pkg/workloads, pkg/envoy and api/v1"
-  # on-revision = "last revision of branch 1.12"
+  # on-revision = "last revision of branch 1.13"
 
 [[constraint]]
   name = "golang.org/x/sync"
@@ -463,7 +463,7 @@ required = [
 
 [[override]]
   name = "golang.org/x/sys"
-  revision = "98c5dad5d1a0e8a73845ecc8897d0bd56586511d"
+  revision = "fde4db37ae7ad8191b03d30d27f258b5291ae4e3"
 
   # main-usage = "daemon, pkg/bpf, pkg/maps/ipcache"
   # on-revision = "github.com/shirou/gopsutil uses master so we override it with a particullar commit after v2.18.10 was released"

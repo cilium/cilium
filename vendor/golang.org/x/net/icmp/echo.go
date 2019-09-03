@@ -4,7 +4,13 @@
 
 package icmp
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+
+	"golang.org/x/net/internal/iana"
+	"golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv6"
+)
 
 // An Echo represents an ICMP echo request or reply message body.
 type Echo struct {
@@ -59,29 +65,39 @@ func (p *ExtendedEchoRequest) Len(proto int) int {
 		return 0
 	}
 	l, _ := multipartMessageBodyDataLen(proto, false, nil, p.Extensions)
-	return 4 + l
+	return l
 }
 
 // Marshal implements the Marshal method of MessageBody interface.
 func (p *ExtendedEchoRequest) Marshal(proto int) ([]byte, error) {
+	var typ Type
+	switch proto {
+	case iana.ProtocolICMP:
+		typ = ipv4.ICMPTypeExtendedEchoRequest
+	case iana.ProtocolIPv6ICMP:
+		typ = ipv6.ICMPTypeExtendedEchoRequest
+	default:
+		return nil, errInvalidProtocol
+	}
+	if !validExtensions(typ, p.Extensions) {
+		return nil, errInvalidExtension
+	}
 	b, err := marshalMultipartMessageBody(proto, false, nil, p.Extensions)
 	if err != nil {
 		return nil, err
 	}
-	bb := make([]byte, 4)
-	binary.BigEndian.PutUint16(bb[:2], uint16(p.ID))
-	bb[2] = byte(p.Seq)
+	binary.BigEndian.PutUint16(b[:2], uint16(p.ID))
+	b[2] = byte(p.Seq)
 	if p.Local {
-		bb[3] |= 0x01
+		b[3] |= 0x01
 	}
-	bb = append(bb, b...)
-	return bb, nil
+	return b, nil
 }
 
 // parseExtendedEchoRequest parses b as an ICMP extended echo request
 // message body.
 func parseExtendedEchoRequest(proto int, typ Type, b []byte) (MessageBody, error) {
-	if len(b) < 4+4 {
+	if len(b) < 4 {
 		return nil, errMessageTooShort
 	}
 	p := &ExtendedEchoRequest{ID: int(binary.BigEndian.Uint16(b[:2])), Seq: int(b[2])}
@@ -89,7 +105,7 @@ func parseExtendedEchoRequest(proto int, typ Type, b []byte) (MessageBody, error
 		p.Local = true
 	}
 	var err error
-	_, p.Extensions, err = parseMultipartMessageBody(proto, typ, b[4:])
+	_, p.Extensions, err = parseMultipartMessageBody(proto, typ, b)
 	if err != nil {
 		return nil, err
 	}

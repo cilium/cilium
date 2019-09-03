@@ -4,6 +4,12 @@
 
 package icmp
 
+import (
+	"golang.org/x/net/internal/iana"
+	"golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv6"
+)
+
 // A DstUnreach represents an ICMP destination unreachable message
 // body.
 type DstUnreach struct {
@@ -17,11 +23,23 @@ func (p *DstUnreach) Len(proto int) int {
 		return 0
 	}
 	l, _ := multipartMessageBodyDataLen(proto, true, p.Data, p.Extensions)
-	return 4 + l
+	return l
 }
 
 // Marshal implements the Marshal method of MessageBody interface.
 func (p *DstUnreach) Marshal(proto int) ([]byte, error) {
+	var typ Type
+	switch proto {
+	case iana.ProtocolICMP:
+		typ = ipv4.ICMPTypeDestinationUnreachable
+	case iana.ProtocolIPv6ICMP:
+		typ = ipv6.ICMPTypeDestinationUnreachable
+	default:
+		return nil, errInvalidProtocol
+	}
+	if !validExtensions(typ, p.Extensions) {
+		return nil, errInvalidExtension
+	}
 	return marshalMultipartMessageBody(proto, true, p.Data, p.Extensions)
 }
 
