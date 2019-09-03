@@ -31,6 +31,7 @@
 #define CT_DEFAULT_LIFETIME_TCP		21600	/* 6 hours */
 #define CT_DEFAULT_LIFETIME_NONTCP	60	/* 60 seconds */
 #define CT_DEFAULT_SYN_TIMEOUT		60	/* 60 seconds */
+#define CT_DEFAULT_SERVICE_OFFSET	50	/* 50 seconds */
 #define CT_DEFAULT_CLOSE_TIMEOUT	10	/* 10 seconds */
 #define CT_DEFAULT_REPORT_INTERVAL	5	/* 5 seconds */
 
@@ -48,6 +49,10 @@
 
 #ifndef CT_CLOSE_TIMEOUT
 #define CT_CLOSE_TIMEOUT CT_DEFAULT_CLOSE_TIMEOUT
+#endif
+
+#ifndef CT_SERVICE_OFFSET
+#define CT_SERVICE_OFFSET CT_DEFAULT_SERVICE_OFFSET
 #endif
 
 /* CT_REPORT_INTERVAL, when MONITOR_AGGREGATION is >= TRACE_AGGREGATE_ACTIVE_CT
@@ -220,7 +225,7 @@ static inline __u8 __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 					  __u32 *monitor)
 {
 	struct ct_entry *entry;
-	int reopen;
+	int reopen, off = 0;
 
 	if ((entry = map_lookup_elem(map, tuple))) {
 		cilium_dbg(skb, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
@@ -284,15 +289,21 @@ static inline __u8 __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 			break;
 		case ACTION_CLOSE:
 			/* RST or similar, immediately delete ct entry */
-			if (dir == CT_INGRESS)
+			if (dir == CT_INGRESS) {
 				entry->rx_closing = 1;
-			else
+			} else if (dir == CT_EGRESS) {
 				entry->tx_closing = 1;
+			} else {
+				entry->rx_closing = 1;
+				entry->tx_closing = 1;
+				off = CT_SERVICE_OFFSET;
+			}
 
 			*monitor = TRACE_PAYLOAD_LEN;
 			if (ct_entry_alive(entry))
 				break;
-			__ct_update_timeout(entry, CT_CLOSE_TIMEOUT, dir, seen_flags);
+			__ct_update_timeout(entry, CT_CLOSE_TIMEOUT + off, dir,
+					    seen_flags);
 			break;
 		}
 
