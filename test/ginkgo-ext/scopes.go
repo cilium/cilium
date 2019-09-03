@@ -128,7 +128,7 @@ func By(message string, optionalValues ...interface{}) {
 	if len(optionalValues) > 0 {
 		message = fmt.Sprintf(message, optionalValues...)
 	}
-	fullmessage := fmt.Sprintf("STEP: %s", message)
+	fullmessage := fmt.Sprintf("%s STEP: %s", time.Now().Format(time.RFC3339), message)
 	GinkgoPrint(fullmessage)
 }
 
