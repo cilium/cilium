@@ -45,9 +45,10 @@ daemon/loadbalancer.* @cilium/loadbalancer
 daemon/metrics.* @cilium/metrics
 daemon/policy.* @cilium/policy
 daemon/prefilter.go @cilium/bpf
+daemon/proxy.go @cilium/proxy
 daemon/requirements.go @cilium/bpf
-daemon/services.* @cilium/loadbalancer
 daemon/state.go @cilium/endpoint
+daemon/sysctl.* @cilium/bpf
 Documentation/ @cilium/docs
 Documentation/bpf.rst @scanf @borkmann
 Documentation/contributing.rst @cilium/contributing
