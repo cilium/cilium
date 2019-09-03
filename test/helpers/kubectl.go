@@ -2236,7 +2236,7 @@ func (kub *Kubectl) KubeDNSPreFlightCheck() error {
 // servicePreFlightCheck makes sure that k8s service with given name and
 // namespace is properly plumbed in Cilium
 func (kub *Kubectl) servicePreFlightCheck(serviceName, serviceNamespace string) error {
-	ginkgoext.By("Performing K8s service preflight check")
+	ginkgoext.By("Performing K8s service preflight check for %s/%s", serviceNamespace, serviceName)
 	var service *v1.Service
 	for _, s := range kub.serviceCache.services.Items {
 		if s.Name == serviceName && s.Namespace == serviceNamespace {
@@ -2260,6 +2260,7 @@ func (kub *Kubectl) servicePreFlightCheck(serviceName, serviceNamespace string) 
 }
 
 func validateK8sService(k8sService v1.Service, k8sEndpoints []v1.Endpoints, ciliumSvcs []models.Service, ciliumLB map[string][]string) error {
+	ginkgoext.By("Validating K8s service %s/%s", k8sService.ObjectMeta.Name, k8sService.ObjectMeta.Namespace)
 	var ciliumService *models.Service
 CILIUM_SERVICES:
 	for _, cSvc := range ciliumSvcs {
