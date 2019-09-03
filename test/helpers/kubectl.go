@@ -854,17 +854,29 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 			return false
 		}
 
+		ctx, cancel := context.WithTimeout(context.Background(), MidCommandTimeout)
+		defer cancel()
 		// ClusterIPNone denotes that this service is headless; there is no
 		// service IP for this service, and thus the IP returned by `dig` is
 		// an IP of the pod itself, not ClusterIPNone, which is what Kubernetes
 		// shows as the IP for the service for headless services.
 		if serviceIP == v1.ClusterIPNone {
-			res := kub.ExecShort(fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP))
-			_ = kub.ExecShort(fmt.Sprintf(digCMDFallback, serviceNameWithNamespace, dnsClusterIP))
+			res, err := kub.ExecInFirstPod(ctx, LogGathererNamespace, LogGathererSelector, fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP))
+			if err != nil {
+				logger.Debugf("failed to run dig in log-gatherer pod")
+				return false
+			}
+			kub.ExecInFirstPod(ctx, LogGathererNamespace, LogGathererSelector, fmt.Sprintf(digCMDFallback, serviceNameWithNamespace, dnsClusterIP))
+
 			return res.WasSuccessful()
 		}
 		log.Debugf("service is not headless; checking whether IP retrieved from DNS matches the IP for the service stored in Kubernetes")
-		res := kub.ExecShort(fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP))
+
+		res, err := kub.ExecInFirstPod(ctx, LogGathererNamespace, LogGathererSelector, fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP))
+		if err != nil {
+			logger.Debugf("failed to run dig in log-gatherer pod")
+			return false
+		}
 		serviceIPFromDNS := res.SingleOut()
 		if !govalidator.IsIP(serviceIPFromDNS) {
 			logger.Debugf("output of dig (%s) did not return an IP", serviceIPFromDNS)
@@ -878,7 +890,7 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 		// name to resolve via DNS.
 		if !strings.Contains(serviceIPFromDNS, serviceIP) {
 			logger.Debugf("service IP retrieved from DNS (%s) does not match the IP for the service stored in Kubernetes (%s)", serviceIPFromDNS, serviceIP)
-			_ = kub.ExecShort(fmt.Sprintf(digCMDFallback, serviceNameWithNamespace, dnsClusterIP))
+			kub.ExecInFirstPod(ctx, LogGathererNamespace, LogGathererSelector, fmt.Sprintf(digCMDFallback, serviceNameWithNamespace, dnsClusterIP))
 			return false
 		}
 		logger.Debugf("service IP retrieved from DNS (%s) matches the IP for the service stored in Kubernetes (%s)", serviceIPFromDNS, serviceIP)
