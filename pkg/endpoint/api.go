@@ -579,8 +579,3 @@ func (e *Endpoint) ApplyUserLabelChanges(lbls labels.Labels) (add, del labels.La
 	add, del = e.allLabels.SplitUserLabelChanges(lbls)
 	return
 }
-
-// GetStatusModel returns the model of the status of this endpoint.
-func (e *Endpoint) GetStatusModel() []*models.EndpointStatusChange {
-	return e.status.GetModel()
-}
