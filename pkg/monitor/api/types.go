@@ -100,6 +100,43 @@ func (m *MessageTypeFilter) Contains(typ int) bool {
 	return false
 }
 
+// Must be synchronized with <bpf/lib/trace.h>
+const (
+	TraceToLxc = iota
+	TraceToProxy
+	TraceToHost
+	TraceToStack
+	TraceToOverlay
+	TraceFromLxc
+	TraceFromProxy
+	TraceFromHost
+	TraceFromStack
+	TraceFromOverlay
+	TraceFromNetwork
+)
+
+var traceObsPoints = map[uint8]string{
+	TraceToLxc:       "to-endpoint",
+	TraceToProxy:     "to-proxy",
+	TraceToHost:      "to-host",
+	TraceToStack:     "to-stack",
+	TraceToOverlay:   "to-overlay",
+	TraceFromLxc:     "from-endpoint",
+	TraceFromProxy:   "from-proxy",
+	TraceFromHost:    "from-host",
+	TraceFromStack:   "from-stack",
+	TraceFromOverlay: "from-overlay",
+	TraceFromNetwork: "from-network",
+}
+
+// TraceObservationPoint returns the name of a trace observation point
+func TraceObservationPoint(obsPoint uint8) string {
+	if str, ok := traceObsPoints[obsPoint]; ok {
+		return str
+	}
+	return fmt.Sprintf("%d", obsPoint)
+}
+
 // AgentNotify is a notification from the agent
 type AgentNotify struct {
 	Type AgentNotification

@@ -17,6 +17,8 @@ package monitor
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/cilium/cilium/pkg/monitor/api"
 )
 
 const (
@@ -41,42 +43,6 @@ type TraceNotify struct {
 	Pad      uint8
 	Ifindex  uint32
 	// data
-}
-
-// Available observation points.
-const (
-	TraceToLxc = iota
-	TraceToProxy
-	TraceToHost
-	TraceToStack
-	TraceToOverlay
-	TraceFromLxc
-	TraceFromProxy
-	TraceFromHost
-	TraceFromStack
-	TraceFromOverlay
-	TraceFromNetwork
-)
-
-var traceObsPoints = map[uint8]string{
-	TraceToLxc:       "to-endpoint",
-	TraceToProxy:     "to-proxy",
-	TraceToHost:      "to-host",
-	TraceToStack:     "to-stack",
-	TraceToOverlay:   "to-overlay",
-	TraceFromLxc:     "from-endpoint",
-	TraceFromProxy:   "from-proxy",
-	TraceFromHost:    "from-host",
-	TraceFromStack:   "from-stack",
-	TraceFromOverlay: "from-overlay",
-	TraceFromNetwork: "from-network",
-}
-
-func obsPoint(obsPoint uint8) string {
-	if str, ok := traceObsPoints[obsPoint]; ok {
-		return str
-	}
-	return fmt.Sprintf("%d", obsPoint)
 }
 
 // Reasons for forwarding a packet.
@@ -115,27 +81,27 @@ func (n *TraceNotify) traceReason() string {
 
 func (n *TraceNotify) traceSummary() string {
 	switch n.ObsPoint {
-	case TraceToLxc:
+	case api.TraceToLxc:
 		return fmt.Sprintf("-> endpoint %d", n.DstID)
-	case TraceToProxy:
+	case api.TraceToProxy:
 		return "-> proxy"
-	case TraceToHost:
+	case api.TraceToHost:
 		return "-> host from"
-	case TraceToStack:
+	case api.TraceToStack:
 		return "-> stack"
-	case TraceToOverlay:
+	case api.TraceToOverlay:
 		return "-> overlay"
-	case TraceFromLxc:
+	case api.TraceFromLxc:
 		return fmt.Sprintf("<- endpoint %d", n.Source)
-	case TraceFromProxy:
+	case api.TraceFromProxy:
 		return "<- proxy"
-	case TraceFromHost:
+	case api.TraceFromHost:
 		return "<- host"
-	case TraceFromStack:
+	case api.TraceFromStack:
 		return "<- stack"
-	case TraceFromOverlay:
+	case api.TraceFromOverlay:
 		return "<- overlay"
-	case TraceFromNetwork:
+	case api.TraceFromNetwork:
 		return "<- network"
 	default:
 		return "unknown trace"
@@ -158,7 +124,7 @@ func (n *TraceNotify) DumpInfo(data []byte) {
 // DumpVerbose prints the trace notification in human readable form
 func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
 	fmt.Printf("%s MARK %#x FROM %d %s: %d bytes (%d captured), state %s",
-		prefix, n.Hash, n.Source, obsPoint(n.ObsPoint), n.OrigLen, n.CapLen, connState(n.Reason))
+		prefix, n.Hash, n.Source, api.TraceObservationPoint(n.ObsPoint), n.OrigLen, n.CapLen, connState(n.Reason))
 
 	if n.Ifindex != 0 {
 		fmt.Printf(", interface %s", ifname(int(n.Ifindex)))
@@ -224,7 +190,7 @@ func TraceNotifyToVerbose(n *TraceNotify) TraceNotifyVerbose {
 		Mark:             fmt.Sprintf("%#x", n.Hash),
 		Ifindex:          ifname(int(n.Ifindex)),
 		State:            connState(n.Reason),
-		ObservationPoint: obsPoint(n.ObsPoint),
+		ObservationPoint: api.TraceObservationPoint(n.ObsPoint),
 		TraceSummary:     n.traceSummary(),
 		Source:           n.Source,
 		Bytes:            n.OrigLen,
