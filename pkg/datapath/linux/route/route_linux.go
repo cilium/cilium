@@ -45,6 +45,9 @@ const (
 
 	// EncryptRouteProtocol for Encryption specific routes
 	EncryptRouteProtocol = 192
+
+	// TCPOverhead to derive MSS from MTU
+	TCPOverhead = 40
 )
 
 // getNetlinkRoute returns the route configuration as netlink.Route
@@ -260,14 +263,8 @@ func Upsert(route Route, mtuConfig *mtu.Configuration) (bool, error) {
 	routeSpec.LinkIndex = link.Attrs().Index
 
 	if mtuConfig != nil {
-		// If the route includes the local address, then the route is for
-		// local containers and we can use a high MTU for transmit. Otherwise,
-		// it needs to be able to fit within the MTU of tunnel devices.
-		if route.Prefix.Contains(route.Local) {
-			routeSpec.MTU = mtuConfig.GetDeviceMTU()
-		} else {
-			routeSpec.MTU = mtuConfig.GetRouteMTU()
-		}
+		routeSpec.MTU = mtuConfig.GetDeviceMTU()
+		routeSpec.AdvMSS = mtuConfig.GetRouteMTU() - TCPOverhead
 	}
 
 	err = fmt.Errorf("routeReplace not called yet")
