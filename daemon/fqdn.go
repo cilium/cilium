@@ -594,6 +594,19 @@ func (h *getFqdnCacheID) Handle(params GetFqdnCacheIDParams) middleware.Responde
 	return NewGetFqdnCacheIDOK().WithPayload(lookups)
 }
 
+type getFqdnNamesHandler struct {
+	daemon *Daemon
+}
+
+func NewGetFqdnNamesHandler(d *Daemon) GetFqdnNamesHandler {
+	return &getFqdnNamesHandler{daemon: d}
+}
+
+func (h *getFqdnNamesHandler) Handle(params GetFqdnNamesParams) middleware.Responder {
+	payload := h.daemon.dnsNameManager.GetModel()
+	return NewGetFqdnNamesOK().WithPayload(payload)
+}
+
 // extractDNSLookups returns API models.DNSLookup copies of DNS data in each
 // endpoint's DNSHistory. These are filtered by CIDRStr and matchPatternStr if
 // they are non-empty.
