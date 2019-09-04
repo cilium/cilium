@@ -599,6 +599,24 @@ func init() {
 	flags.Int(option.CTMapEntriesGlobalAnyName, option.CTMapEntriesGlobalAnyDefault, "Maximum number of entries in non-TCP CT table")
 	option.BindEnvWithLegacyEnvFallback(option.CTMapEntriesGlobalAnyName, "CILIUM_GLOBAL_CT_MAX_ANY")
 
+	flags.String(option.CTMapEntriesTimeoutTCPName, option.CTMapEntriesTimeoutTCPDefault, "Timeout for established entries in TCP CT table")
+	option.BindEnv(option.CTMapEntriesTimeoutTCPName)
+
+	flags.String(option.CTMapEntriesTimeoutAnyName, option.CTMapEntriesTimeoutAnyDefault, "Timeout for entries in non-TCP CT table")
+	option.BindEnv(option.CTMapEntriesTimeoutAnyName)
+
+	flags.String(option.CTMapEntriesTimeoutSVCTCPName, option.CTMapEntriesTimeoutSVCTCPDefault, "Timeout for established service entries in TCP CT table")
+	option.BindEnv(option.CTMapEntriesTimeoutSVCTCPName)
+
+	flags.String(option.CTMapEntriesTimeoutSVCAnyName, option.CTMapEntriesTimeoutSVCAnyDefault, "Timeout for service entries in non-TCP CT table")
+	option.BindEnv(option.CTMapEntriesTimeoutSVCAnyName)
+
+	flags.String(option.CTMapEntriesTimeoutSYNName, option.CTMapEntriesTimeoutSYNDefault, "Establishment timeout for entries in TCP CT table")
+	option.BindEnv(option.CTMapEntriesTimeoutSYNName)
+
+	flags.String(option.CTMapEntriesTimeoutFINName, option.CTMapEntriesTimeoutFINDefault, "Teardown timeout for entries in TCP CT table")
+	option.BindEnv(option.CTMapEntriesTimeoutFINName)
+
 	flags.Int(option.NATMapEntriesGlobalName, option.NATMapEntriesGlobalDefault, "Maximum number of entries for the global BPF NAT table")
 	option.BindEnv(option.NATMapEntriesGlobalName)
 

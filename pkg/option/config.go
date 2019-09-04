@@ -387,6 +387,20 @@ const (
 	CTMapEntriesGlobalTCPName    = "bpf-ct-global-tcp-max"
 	CTMapEntriesGlobalAnyName    = "bpf-ct-global-any-max"
 
+	// CTMapEntriesTimeout* name option and default value mappings
+	CTMapEntriesTimeoutSYNName       = "bpf-ct-timeout-regular-tcp-syn"
+	CTMapEntriesTimeoutSYNDefault    = "1m"
+	CTMapEntriesTimeoutFINName       = "bpf-ct-timeout-regular-tcp-fin"
+	CTMapEntriesTimeoutFINDefault    = "10s"
+	CTMapEntriesTimeoutTCPName       = "bpf-ct-timeout-regular-tcp"
+	CTMapEntriesTimeoutTCPDefault    = "6h"
+	CTMapEntriesTimeoutAnyName       = "bpf-ct-timeout-regular-any"
+	CTMapEntriesTimeoutAnyDefault    = "1m"
+	CTMapEntriesTimeoutSVCTCPName    = "bpf-ct-timeout-service-tcp"
+	CTMapEntriesTimeoutSVCTCPDefault = "6h"
+	CTMapEntriesTimeoutSVCAnyName    = "bpf-ct-timeout-service-any"
+	CTMapEntriesTimeoutSVCAnyDefault = "1m"
+
 	// NATMapEntriesGlobalDefault holds the default size of the NAT map
 	// and is 2/3 of the full CT size as a heuristic
 	NATMapEntriesGlobalDefault = int((CTMapEntriesGlobalTCPDefault + CTMapEntriesGlobalAnyDefault) * 2 / 3)
@@ -855,6 +869,14 @@ type DaemonConfig struct {
 	// CTMapEntriesGlobalAny is the maximum number of conntrack entries
 	// allowed in each non-TCP CT table for IPv4/IPv6.
 	CTMapEntriesGlobalAny int
+
+	// CTMapEntriesTimeout* values configured by the user.
+	CTMapEntriesTimeoutTCP    time.Duration
+	CTMapEntriesTimeoutAny    time.Duration
+	CTMapEntriesTimeoutSVCTCP time.Duration
+	CTMapEntriesTimeoutSVCAny time.Duration
+	CTMapEntriesTimeoutSYN    time.Duration
+	CTMapEntriesTimeoutFIN    time.Duration
 
 	// NATMapEntriesGlobal is the maximum number of NAT mappings allowed
 	// in the BPF NAT table
@@ -1386,6 +1408,21 @@ func (c *DaemonConfig) Validate() error {
 		}
 	}
 
+	timeMin := time.Second
+	timeCheck := []time.Duration{
+		c.CTMapEntriesTimeoutTCP,
+		c.CTMapEntriesTimeoutAny,
+		c.CTMapEntriesTimeoutSVCTCP,
+		c.CTMapEntriesTimeoutSVCAny,
+		c.CTMapEntriesTimeoutSYN,
+		c.CTMapEntriesTimeoutFIN,
+	}
+	for _, t := range timeCheck {
+		if t < timeMin {
+			return fmt.Errorf("specified CT table timeout of %s must be >= %s", t.String(), timeMin.String())
+		}
+	}
+
 	policyMapMin := (1 << 8)
 	policyMapMax := (1 << 16)
 	if c.PolicyMapMaxEntries < policyMapMin {
@@ -1623,6 +1660,43 @@ func (c *DaemonConfig) Populate() {
 	if nativeCIDR := viper.GetString(IPv4NativeRoutingCIDR); nativeCIDR != "" {
 		c.ipv4NativeRoutingCIDR = cidr.MustParseCIDR(nativeCIDR)
 	}
+
+	// CTMapEntriesTimeout options
+	c.CTMapEntriesTimeoutTCP, err = time.ParseDuration(viper.GetString(CTMapEntriesTimeoutTCPName))
+	if err != nil {
+		log.WithError(err).Fatalf("Unable to parse %s duration!", CTMapEntriesTimeoutTCPName)
+	}
+	c.CTMapEntriesTimeoutTCP = c.CTMapEntriesTimeoutTCP.Round(time.Second)
+
+	c.CTMapEntriesTimeoutAny, err = time.ParseDuration(viper.GetString(CTMapEntriesTimeoutAnyName))
+	if err != nil {
+		log.WithError(err).Fatalf("Unable to parse %s duration!", CTMapEntriesTimeoutAnyName)
+	}
+	c.CTMapEntriesTimeoutAny = c.CTMapEntriesTimeoutAny.Round(time.Second)
+
+	c.CTMapEntriesTimeoutSVCTCP, err = time.ParseDuration(viper.GetString(CTMapEntriesTimeoutSVCTCPName))
+	if err != nil {
+		log.WithError(err).Fatalf("Unable to parse %s duration!", CTMapEntriesTimeoutSVCTCPName)
+	}
+	c.CTMapEntriesTimeoutSVCTCP = c.CTMapEntriesTimeoutSVCTCP.Round(time.Second)
+
+	c.CTMapEntriesTimeoutSVCAny, err = time.ParseDuration(viper.GetString(CTMapEntriesTimeoutSVCAnyName))
+	if err != nil {
+		log.WithError(err).Fatalf("Unable to parse %s duration!", CTMapEntriesTimeoutSVCAnyName)
+	}
+	c.CTMapEntriesTimeoutSVCAny = c.CTMapEntriesTimeoutSVCAny.Round(time.Second)
+
+	c.CTMapEntriesTimeoutSYN, err = time.ParseDuration(viper.GetString(CTMapEntriesTimeoutSYNName))
+	if err != nil {
+		log.WithError(err).Fatalf("Unable to parse %s duration!", CTMapEntriesTimeoutSYNName)
+	}
+	c.CTMapEntriesTimeoutSYN = c.CTMapEntriesTimeoutSYN.Round(time.Second)
+
+	c.CTMapEntriesTimeoutFIN, err = time.ParseDuration(viper.GetString(CTMapEntriesTimeoutFINName))
+	if err != nil {
+		log.WithError(err).Fatalf("Unable to parse %s duration!", CTMapEntriesTimeoutFINName)
+	}
+	c.CTMapEntriesTimeoutFIN = c.CTMapEntriesTimeoutFIN.Round(time.Second)
 
 	// toFQDNs options
 	// When the poller is enabled, the default MinTTL is lowered. This is to
