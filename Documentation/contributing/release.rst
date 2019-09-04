@@ -257,6 +257,8 @@ If you intent to release a new minor release, see the
 
 #. Announce the release in the ``#general`` channel on Slack
 
+#. Update the ``README.rst#stable-releases`` section from the Cilium master branch
+
 #. Bump the version of Cilium used in the Cilium upgrade tests to use the new release
 
    Please reach out on the ``#development`` channel on Slack for assistance with
