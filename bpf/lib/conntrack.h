@@ -28,27 +28,6 @@
 #include "l4.h"
 #include "nat46.h"
 
-#ifndef CT_CONNECTION_LIFETIME_TCP
-# define CT_CONNECTION_LIFETIME_TCP	21600	/* 6 hours */
-#endif
-#ifndef CT_CONNECTION_LIFETIME_NONTCP
-# define CT_CONNECTION_LIFETIME_NONTCP	60	/* 60 seconds */
-#endif
-
-#ifndef CT_SERVICE_LIFETIME_TCP
-# define CT_SERVICE_LIFETIME_TCP	21600	/* 6 hours */
-#endif
-#ifndef CT_SERVICE_LIFETIME_NONTCP
-# define CT_SERVICE_LIFETIME_NONTCP	60	/* 60 seconds */
-#endif
-
-#ifndef CT_SYN_TIMEOUT
-# define CT_SYN_TIMEOUT			60	/* 60 seconds */
-#endif
-#ifndef CT_CLOSE_TIMEOUT
-# define CT_CLOSE_TIMEOUT		10	/* 10 seconds */
-#endif
-
 /* CT_REPORT_INTERVAL, when MONITOR_AGGREGATION is >= TRACE_AGGREGATE_ACTIVE_CT
  * determines how frequently monitor notifications should be sent for active
  * connections. A notification is always triggered on a packet event.
