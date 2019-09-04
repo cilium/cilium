@@ -351,6 +351,14 @@ const (
 	CTMapEntriesGlobalTCPName    = "bpf-ct-global-tcp-max"
 	CTMapEntriesGlobalAnyName    = "bpf-ct-global-any-max"
 
+	// CTMapEntriesTimeout* name option and default value mappings
+	CTMapEntriesTimeoutSYNName    = "bpf-ct-timeout-regular-tcp-syn"
+	CTMapEntriesTimeoutFINName    = "bpf-ct-timeout-regular-tcp-fin"
+	CTMapEntriesTimeoutTCPName    = "bpf-ct-timeout-regular-tcp"
+	CTMapEntriesTimeoutAnyName    = "bpf-ct-timeout-regular-any"
+	CTMapEntriesTimeoutSVCTCPName = "bpf-ct-timeout-service-tcp"
+	CTMapEntriesTimeoutSVCAnyName = "bpf-ct-timeout-service-any"
+
 	// PolicyMapEntriesName configures max entries for BPF policymap.
 	PolicyMapEntriesName = "bpf-policy-map-max"
 
@@ -681,6 +689,14 @@ type DaemonConfig struct {
 	// CTMapEntriesGlobalAny is the maximum number of conntrack entries
 	// allowed in each non-TCP CT table for IPv4/IPv6.
 	CTMapEntriesGlobalAny int
+
+	// CTMapEntriesTimeout* values configured by the user.
+	CTMapEntriesTimeoutTCP    time.Duration
+	CTMapEntriesTimeoutAny    time.Duration
+	CTMapEntriesTimeoutSVCTCP time.Duration
+	CTMapEntriesTimeoutSVCAny time.Duration
+	CTMapEntriesTimeoutSYN    time.Duration
+	CTMapEntriesTimeoutFIN    time.Duration
 
 	// PolicyMapMaxEntries is the maximum number of peer identities that an
 	// endpoint may allow traffic to exchange traffic with.
@@ -1222,6 +1238,12 @@ func (c *DaemonConfig) Populate() {
 	c.Tunnel = viper.GetString(TunnelName)
 	c.Version = viper.GetString(Version)
 	c.Workloads = viper.GetStringSlice(ContainerRuntime)
+	c.CTMapEntriesTimeoutTCP = viper.GetDuration(CTMapEntriesTimeoutTCPName)
+	c.CTMapEntriesTimeoutAny = viper.GetDuration(CTMapEntriesTimeoutAnyName)
+	c.CTMapEntriesTimeoutSVCTCP = viper.GetDuration(CTMapEntriesTimeoutSVCTCPName)
+	c.CTMapEntriesTimeoutSVCAny = viper.GetDuration(CTMapEntriesTimeoutSVCAnyName)
+	c.CTMapEntriesTimeoutSYN = viper.GetDuration(CTMapEntriesTimeoutSYNName)
+	c.CTMapEntriesTimeoutFIN = viper.GetDuration(CTMapEntriesTimeoutFINName)
 
 	// toFQDNs options
 	// When the poller is enabled, the default MinTTL is lowered. This is to

@@ -109,6 +109,13 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 	fmt.Fprintf(fw, "#define SOCKOPS_MAP_SIZE %d\n", sockmap.MaxEntries)
 	fmt.Fprintf(fw, "#define ENCRYPT_MAP %s\n", encrypt.MapName)
 
+	fmt.Fprintf(fw, "#define CT_CONNECTION_LIFETIME_TCP %d\n", int64(option.Config.CTMapEntriesTimeoutTCP.Seconds()))
+	fmt.Fprintf(fw, "#define CT_CONNECTION_LIFETIME_NONTCP %d\n", int64(option.Config.CTMapEntriesTimeoutAny.Seconds()))
+	fmt.Fprintf(fw, "#define CT_SERVICE_LIFETIME_TCP %d\n", int64(option.Config.CTMapEntriesTimeoutSVCTCP.Seconds()))
+	fmt.Fprintf(fw, "#define CT_SERVICE_LIFETIME_NONTCP %d\n", int64(option.Config.CTMapEntriesTimeoutSVCAny.Seconds()))
+	fmt.Fprintf(fw, "#define CT_SYN_TIMEOUT %d\n", int64(option.Config.CTMapEntriesTimeoutSYN.Seconds()))
+	fmt.Fprintf(fw, "#define CT_CLOSE_TIMEOUT %d\n", int64(option.Config.CTMapEntriesTimeoutFIN.Seconds()))
+
 	if option.Config.DatapathMode == option.DatapathModeIpvlan {
 		fmt.Fprintf(fw, "#define ENABLE_SECCTX_FROM_IPCACHE 1\n")
 	}
