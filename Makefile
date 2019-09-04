@@ -51,6 +51,23 @@ TEST_UNITTEST_LDFLAGS= -ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulD
 	-X github.com/cilium/cilium/pkg/datapath.DatapathSHA=1234567890abcdef7890 \
 	-X github.com/cilium/cilium/pkg/logging.DefaultLogLevelStr=$(LOGLEVEL)"
 
+define generate_k8s_api
+	cd "./vendor/k8s.io/code-generator" && \
+	./generate-groups.sh $(1) \
+	    github.com/cilium/cilium/pkg/k8s/client \
+	    $(2) \
+	    $(3) \
+	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
+endef
+
+define generate_k8s_api_all
+	$(call generate_k8s_api,all,$(1),$(2))
+endef
+
+define generate_k8s_api_deepcopy
+	$(call generate_k8s_api,deepcopy,$(1),$(2))
+endef
+
 all: precheck build postcheck
 	@echo "Build finished."
 
@@ -236,126 +253,26 @@ generate-health-api: api/v1/health/openapi.yaml
 		-t api/v1 -t api/v1/health/ -f api/v1/health/openapi.yaml
 
 generate-k8s-api:
-	cd "./vendor/k8s.io/code-generator" && \
-	./generate-groups.sh all \
-	    github.com/cilium/cilium/pkg/k8s/client \
-	    github.com/cilium/cilium/pkg/k8s/apis \
-	    "cilium.io:v2" \
-	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-	cd "./vendor/k8s.io/code-generator" && \
-	./generate-groups.sh deepcopy \
-	    github.com/cilium/cilium/pkg/k8s/client \
-	    github.com/cilium/cilium/pkg \
-	    "policy:api" \
-	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-	cd "./vendor/k8s.io/code-generator" && \
-	./generate-groups.sh deepcopy \
-	    github.com/cilium/cilium/pkg/k8s/client \
-	    github.com/cilium/cilium \
-	    "pkg:node" \
-	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-	cd "./vendor/k8s.io/code-generator" && \
-	./generate-groups.sh deepcopy \
-	    github.com/cilium/cilium/pkg/k8s/client \
-	    github.com/cilium/cilium \
-	    "pkg:service" \
-	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-	cd "./vendor/k8s.io/code-generator" && \
-	./generate-groups.sh deepcopy \
-	    github.com/cilium/cilium/pkg/k8s/client \
-	    github.com/cilium/cilium/api \
-	    "v1:models" \
-	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-	cd "./vendor/k8s.io/code-generator" && \
-	./generate-groups.sh deepcopy \
-	    github.com/cilium/cilium/pkg/k8s/client \
-	    github.com/cilium/cilium/pkg \
-	    "k8s:types" \
-	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-	cd "./vendor/k8s.io/code-generator" && \
-	./generate-groups.sh deepcopy \
-	    github.com/cilium/cilium/pkg/k8s/client \
-	    github.com/cilium/cilium/pkg \
-	    "maps:policymap" \
-	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-	cd "./vendor/k8s.io/code-generator" && \
-	./generate-groups.sh deepcopy \
-	    github.com/cilium/cilium/pkg/k8s/client \
-	    github.com/cilium/cilium/pkg \
-	    "maps:ipcache" \
-	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-	cd "./vendor/k8s.io/code-generator" && \
-	./generate-groups.sh deepcopy \
-	    github.com/cilium/cilium/pkg/k8s/client \
-	    github.com/cilium/cilium/pkg \
-	    "maps:lxcmap" \
-	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-	cd "./vendor/k8s.io/code-generator" && \
-	./generate-groups.sh deepcopy \
-	    github.com/cilium/cilium/pkg/k8s/client \
-	    github.com/cilium/cilium/pkg \
-	    "maps:tunnel" \
-	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-	cd "./vendor/k8s.io/code-generator" && \
-	./generate-groups.sh deepcopy \
-	    github.com/cilium/cilium/pkg/k8s/client \
-	    github.com/cilium/cilium/pkg \
-	    "maps:encrypt" \
-	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-	cd "./vendor/k8s.io/code-generator" && \
-	./generate-groups.sh deepcopy \
-	    github.com/cilium/cilium/pkg/k8s/client \
-	    github.com/cilium/cilium/pkg \
-	    "maps:metricsmap" \
-	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-	cd "./vendor/k8s.io/code-generator" && \
-	./generate-groups.sh deepcopy \
-	    github.com/cilium/cilium/pkg/k8s/client \
-	    github.com/cilium/cilium/pkg \
-	    "maps:nat" \
-	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-	cd "./vendor/k8s.io/code-generator" && \
-	./generate-groups.sh deepcopy \
-	    github.com/cilium/cilium/pkg/k8s/client \
-	    github.com/cilium/cilium/pkg \
-	    "maps:configmap" \
-	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-	cd "./vendor/k8s.io/code-generator" && \
-	./generate-groups.sh deepcopy \
-	    github.com/cilium/cilium/pkg/k8s/client \
-	    github.com/cilium/cilium/pkg \
-	    "maps:lbmap" \
-	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-	cd "./vendor/k8s.io/code-generator" && \
-	./generate-groups.sh deepcopy \
-	    github.com/cilium/cilium/pkg/k8s/client \
-	    github.com/cilium/cilium/pkg \
-	    "maps:eppolicymap" \
-	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-	cd "./vendor/k8s.io/code-generator" && \
-	./generate-groups.sh deepcopy \
-	    github.com/cilium/cilium/pkg/k8s/client \
-	    github.com/cilium/cilium/pkg \
-	    "maps:sockmap" \
-	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-	cd "./vendor/k8s.io/code-generator" && \
-	./generate-groups.sh deepcopy \
-	    github.com/cilium/cilium/pkg/k8s/client \
-	    github.com/cilium/cilium/pkg \
-	    "maps:ctmap" \
-	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-	cd "./vendor/k8s.io/code-generator" && \
-	./generate-groups.sh deepcopy \
-	    github.com/cilium/cilium/pkg/k8s/client \
-	    github.com/cilium/cilium \
-	    "pkg:tuple" \
-	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
-	cd "./vendor/k8s.io/code-generator" && \
-	./generate-groups.sh deepcopy \
-	    github.com/cilium/cilium/pkg/k8s/client \
-	    github.com/cilium/cilium \
-	    "pkg:bpf" \
-	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
+	$(call generate_k8s_api_all,github.com/cilium/cilium/pkg/k8s/apis,"cilium.io:v2")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"policy:api")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"pkg:node")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"pkg:service")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/api,"v1:models")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"k8s:types")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:policymap")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:ipcache")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:lxcmap")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:tunnel")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:encrypt")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:metricsmap")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:nat")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:lbmap")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:configmap")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:eppolicymap")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:sockmap")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:ctmap")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"pkg:tuple")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"pkg:bpf")
 
 vps:
 	VBoxManage list runningvms
