@@ -387,6 +387,14 @@ const (
 	CTMapEntriesGlobalTCPName    = "bpf-ct-global-tcp-max"
 	CTMapEntriesGlobalAnyName    = "bpf-ct-global-any-max"
 
+	// CTMapEntriesTimeout* name option and default value mappings
+	CTMapEntriesTimeoutSYNName    = "bpf-ct-timeout-regular-tcp-syn"
+	CTMapEntriesTimeoutFINName    = "bpf-ct-timeout-regular-tcp-fin"
+	CTMapEntriesTimeoutTCPName    = "bpf-ct-timeout-regular-tcp"
+	CTMapEntriesTimeoutAnyName    = "bpf-ct-timeout-regular-any"
+	CTMapEntriesTimeoutSVCTCPName = "bpf-ct-timeout-service-tcp"
+	CTMapEntriesTimeoutSVCAnyName = "bpf-ct-timeout-service-any"
+
 	// NATMapEntriesGlobalDefault holds the default size of the NAT map
 	// and is 2/3 of the full CT size as a heuristic
 	NATMapEntriesGlobalDefault = int((CTMapEntriesGlobalTCPDefault + CTMapEntriesGlobalAnyDefault) * 2 / 3)
@@ -855,6 +863,14 @@ type DaemonConfig struct {
 	// CTMapEntriesGlobalAny is the maximum number of conntrack entries
 	// allowed in each non-TCP CT table for IPv4/IPv6.
 	CTMapEntriesGlobalAny int
+
+	// CTMapEntriesTimeout* values configured by the user.
+	CTMapEntriesTimeoutTCP    time.Duration
+	CTMapEntriesTimeoutAny    time.Duration
+	CTMapEntriesTimeoutSVCTCP time.Duration
+	CTMapEntriesTimeoutSVCAny time.Duration
+	CTMapEntriesTimeoutSYN    time.Duration
+	CTMapEntriesTimeoutFIN    time.Duration
 
 	// NATMapEntriesGlobal is the maximum number of NAT mappings allowed
 	// in the BPF NAT table
@@ -1619,6 +1635,12 @@ func (c *DaemonConfig) Populate() {
 	c.Workloads = viper.GetStringSlice(ContainerRuntime)
 	c.WriteCNIConfigurationWhenReady = viper.GetString(WriteCNIConfigurationWhenReady)
 	c.PolicyTriggerInterval = viper.GetDuration(PolicyTriggerInterval)
+	c.CTMapEntriesTimeoutTCP = viper.GetDuration(CTMapEntriesTimeoutTCPName)
+	c.CTMapEntriesTimeoutAny = viper.GetDuration(CTMapEntriesTimeoutAnyName)
+	c.CTMapEntriesTimeoutSVCTCP = viper.GetDuration(CTMapEntriesTimeoutSVCTCPName)
+	c.CTMapEntriesTimeoutSVCAny = viper.GetDuration(CTMapEntriesTimeoutSVCAnyName)
+	c.CTMapEntriesTimeoutSYN = viper.GetDuration(CTMapEntriesTimeoutSYNName)
+	c.CTMapEntriesTimeoutFIN = viper.GetDuration(CTMapEntriesTimeoutFINName)
 
 	if nativeCIDR := viper.GetString(IPv4NativeRoutingCIDR); nativeCIDR != "" {
 		c.ipv4NativeRoutingCIDR = cidr.MustParseCIDR(nativeCIDR)
