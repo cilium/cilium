@@ -57,7 +57,7 @@ TEST_UNITTEST_LDFLAGS= -ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulD
 
 define generate_k8s_api
 	cd "./vendor/k8s.io/code-generator" && \
-	./generate-groups.sh $(1) \
+	GO111MODULE=off ./generate-groups.sh $(1) \
 	    github.com/cilium/cilium/pkg/k8s/client \
 	    $(2) \
 	    $(3) \
