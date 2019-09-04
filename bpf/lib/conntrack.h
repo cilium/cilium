@@ -28,26 +28,25 @@
 #include "l4.h"
 #include "nat46.h"
 
-#define CT_DEFAULT_LIFETIME_TCP		21600	/* 6 hours */
-#define CT_DEFAULT_LIFETIME_NONTCP	60	/* 60 seconds */
-#define CT_DEFAULT_SYN_TIMEOUT		60	/* 60 seconds */
-#define CT_DEFAULT_CLOSE_TIMEOUT	10	/* 10 seconds */
-#define CT_DEFAULT_REPORT_INTERVAL	5	/* 5 seconds */
-
-#ifndef CT_LIFETIME_TCP
-#define CT_LIFETIME_TCP CT_DEFAULT_LIFETIME_TCP
+#ifndef CT_CONNECTION_LIFETIME_TCP
+# define CT_CONNECTION_LIFETIME_TCP	21600	/* 6 hours */
+#endif
+#ifndef CT_CONNECTION_LIFETIME_NONTCP
+# define CT_CONNECTION_LIFETIME_NONTCP	60	/* 60 seconds */
 #endif
 
-#ifndef CT_LIFETIME_NONTCP
-#define CT_LIFETIME_NONTCP CT_DEFAULT_LIFETIME_NONTCP
+#ifndef CT_SERVICE_LIFETIME_TCP
+# define CT_SERVICE_LIFETIME_TCP	21600	/* 6 hours */
+#endif
+#ifndef CT_SERVICE_LIFETIME_NONTCP
+# define CT_SERVICE_LIFETIME_NONTCP	60	/* 60 seconds */
 #endif
 
 #ifndef CT_SYN_TIMEOUT
-#define CT_SYN_TIMEOUT CT_DEFAULT_SYN_TIMEOUT
+# define CT_SYN_TIMEOUT			60	/* 60 seconds */
 #endif
-
 #ifndef CT_CLOSE_TIMEOUT
-#define CT_CLOSE_TIMEOUT CT_DEFAULT_CLOSE_TIMEOUT
+# define CT_CLOSE_TIMEOUT		10	/* 10 seconds */
 #endif
 
 /* CT_REPORT_INTERVAL, when MONITOR_AGGREGATION is >= TRACE_AGGREGATE_ACTIVE_CT
@@ -55,7 +54,7 @@
  * connections. A notification is always triggered on a packet event.
  */
 #ifndef CT_REPORT_INTERVAL
-#define CT_REPORT_INTERVAL CT_DEFAULT_REPORT_INTERVAL
+# define CT_REPORT_INTERVAL		5	/* 5 seconds */
 #endif
 
 #ifdef CONNTRACK
@@ -181,16 +180,20 @@ static inline __u32 __inline__ ct_update_timeout(struct ct_entry *entry,
 						 bool tcp, int dir,
 						 union tcp_flags seen_flags)
 {
-	__u32 lifetime = CT_LIFETIME_NONTCP;
+	__u32 lifetime = dir == CT_SERVICE ?
+			 CT_SERVICE_LIFETIME_NONTCP :
+			 CT_CONNECTION_LIFETIME_NONTCP;
 	bool syn = seen_flags.value & TCP_FLAG_SYN;
 
 	if (tcp) {
 		entry->seen_non_syn |= !syn;
-
-		if (entry->seen_non_syn)
-			lifetime = CT_LIFETIME_TCP;
-		else
+		if (entry->seen_non_syn) {
+			lifetime = dir == CT_SERVICE ?
+				   CT_SERVICE_LIFETIME_TCP :
+				   CT_CONNECTION_LIFETIME_TCP;
+		} else {
 			lifetime = CT_SYN_TIMEOUT;
+		}
 	}
 
 	return __ct_update_timeout(entry, lifetime, dir, seen_flags);
