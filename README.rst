@@ -77,7 +77,7 @@ coordination between hosts.
 
 The following multi node networking models are supported:
 
-* **Overlay:** Encapsulation based virtual network spawning all hosts.
+* **Overlay:** Encapsulation-based virtual network spanning all hosts.
   Currently VXLAN and Geneve are baked in but all encapsulation formats
   supported by Linux can be enabled.
 
