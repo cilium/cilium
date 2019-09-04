@@ -500,7 +500,8 @@ func (n *linuxNodeHandler) encryptNode(newNode *node.Node) {
 				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, ipsec.IPSecDirOutNode)
 				upsertIPsecLog(err, "EncryptNode IPv4", ipsecLocal, ipsecRemote, spi)
 			}
-			if remoteIPv4 := newNode.GetCiliumInternalIP(false); remoteIPv4 != nil {
+			remoteIPv4 := newNode.GetCiliumInternalIP(false)
+			if remoteIPv4 != nil && !n.subnetEncryption() {
 				mask := newNode.IPv4AllocCIDR.Mask
 				ipsecRemoteRoute := &net.IPNet{IP: remoteIPv4.Mask(mask), Mask: mask}
 				ipsecRemote := &net.IPNet{IP: remoteIPv4, Mask: mask}
@@ -532,7 +533,8 @@ func (n *linuxNodeHandler) encryptNode(newNode *node.Node) {
 				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, ipsec.IPSecDirOut)
 				upsertIPsecLog(err, "EncryptNode IPv6", ipsecLocal, ipsecRemote, spi)
 			}
-			if remoteIPv6 := newNode.GetCiliumInternalIP(true); remoteIPv6 != nil {
+			remoteIPv6 := newNode.GetCiliumInternalIP(true)
+			if remoteIPv6 != nil && !n.subnetEncryption() {
 				mask := newNode.IPv6AllocCIDR.Mask
 				ipsecRemoteRoute := &net.IPNet{IP: remoteIPv6.Mask(mask), Mask: mask}
 				ipsecRemote := &net.IPNet{IP: remoteIPv6, Mask: mask}
