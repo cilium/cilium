@@ -26,6 +26,12 @@ cilium-agent [flags]
       --bpf-compile-debug                                     Enable debugging of the BPF compilation process
       --bpf-ct-global-any-max int                             Maximum number of entries in non-TCP CT table (default 262144)
       --bpf-ct-global-tcp-max int                             Maximum number of entries in TCP CT table (default 1000000)
+      --bpf-ct-timeout-regular-any duration                   Timeout for entries in non-TCP CT table (default 1m0s)
+      --bpf-ct-timeout-regular-tcp duration                   Timeout for established entries in TCP CT table (default 6h0m0s)
+      --bpf-ct-timeout-regular-tcp-fin duration               Teardown timeout for entries in TCP CT table (default 10s)
+      --bpf-ct-timeout-regular-tcp-syn duration               Establishment timeout for entries in TCP CT table (default 1m0s)
+      --bpf-ct-timeout-service-any duration                   Timeout for service entries in non-TCP CT table (default 1m0s)
+      --bpf-ct-timeout-service-tcp duration                   Timeout for established service entries in TCP CT table (default 6h0m0s)
       --bpf-nat-global-max int                                Maximum number of entries for the global BPF NAT table (default 841429)
       --bpf-policy-map-max int                                Maximum number of entries in endpoint policy map (per endpoint) (default 16384)
       --bpf-root string                                       Path to BPF filesystem
