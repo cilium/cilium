@@ -168,23 +168,20 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 
 	svcCache.UpdateEndpoints(k8sEndpoints)
 
-	endpoints, ready := svcCache.correlateEndpoints(svcID)
-	c.Assert(ready, check.Equals, true)
-	c.Assert(endpoints.String(), check.Equals, "2.2.2.2:8080/TCP")
-
 	// The service should be ready as both service and endpoints have been
 	// imported
 	c.Assert(testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
 		c.Assert(event.Action, check.Equals, UpdateService)
 		c.Assert(event.ID, check.Equals, svcID)
-		c.Assert(event.Endpoints, checker.DeepEquals, endpoints)
-		_, svc := ParseService(k8sSvc)
-		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
 
-	// Updating the service without changing it should not result in an event
+	endpoints, ready := svcCache.correlateEndpoints(svcID)
+	c.Assert(ready, check.Equals, true)
+	c.Assert(endpoints.String(), check.Equals, "2.2.2.2:8080/TCP")
+
+	// Updating the service without chaning it should not result in an event
 	svcCache.UpdateService(k8sSvc)
 	time.Sleep(100 * time.Millisecond)
 	select {
@@ -199,9 +196,6 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 		event := <-svcCache.Events
 		c.Assert(event.Action, check.Equals, DeleteService)
 		c.Assert(event.ID, check.Equals, svcID)
-		c.Assert(event.Endpoints, checker.DeepEquals, endpoints)
-		_, svc := ParseService(k8sSvc)
-		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
 
@@ -211,45 +205,34 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 		event := <-svcCache.Events
 		c.Assert(event.Action, check.Equals, UpdateService)
 		c.Assert(event.ID, check.Equals, svcID)
-		c.Assert(event.Endpoints, checker.DeepEquals, endpoints)
-		_, svc := ParseService(k8sSvc)
-		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
 
 	// Deleting the endpoints will result in a service delete event
 	svcCache.DeleteEndpoints(k8sEndpoints)
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		c.Assert(event.Action, check.Equals, DeleteService)
+		c.Assert(event.ID, check.Equals, svcID)
+		return true
+	}, 2*time.Second), check.IsNil)
 
 	endpoints, serviceReady := svcCache.correlateEndpoints(svcID)
 	c.Assert(serviceReady, check.Equals, false)
 	c.Assert(endpoints.String(), check.Equals, "")
 
-	c.Assert(testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
-		c.Assert(event.Action, check.Equals, DeleteService)
-		c.Assert(event.ID, check.Equals, svcID)
-		c.Assert(event.Endpoints, checker.DeepEquals, endpoints)
-		_, svc := ParseService(k8sSvc)
-		c.Assert(event.Service, checker.DeepEquals, svc)
-		return true
-	}, 2*time.Second), check.IsNil)
-
 	// Reinserting the endpoints should re-match with the still existing service
 	svcCache.UpdateEndpoints(k8sEndpoints)
-
-	endpoints, serviceReady = svcCache.correlateEndpoints(svcID)
-	c.Assert(serviceReady, check.Equals, true)
-	c.Assert(endpoints.String(), check.Equals, "2.2.2.2:8080/TCP")
-
 	c.Assert(testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
 		c.Assert(event.Action, check.Equals, UpdateService)
 		c.Assert(event.ID, check.Equals, svcID)
-		c.Assert(event.Endpoints, checker.DeepEquals, endpoints)
-		_, svc := ParseService(k8sSvc)
-		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
+
+	endpoints, serviceReady = svcCache.correlateEndpoints(svcID)
+	c.Assert(serviceReady, check.Equals, true)
+	c.Assert(endpoints.String(), check.Equals, "2.2.2.2:8080/TCP")
 
 	// Deleting the service will result in a service delete event
 	svcCache.DeleteService(k8sSvc)
@@ -257,9 +240,6 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 		event := <-svcCache.Events
 		c.Assert(event.Action, check.Equals, DeleteService)
 		c.Assert(event.ID, check.Equals, svcID)
-		c.Assert(event.Endpoints, checker.DeepEquals, endpoints)
-		_, svc := ParseService(k8sSvc)
-		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
 
@@ -297,11 +277,6 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 		event := <-svcCache.Events
 		c.Assert(event.Action, check.Equals, UpdateIngress)
 		c.Assert(event.ID, check.Equals, ingressID)
-		var eps *Endpoints
-		c.Assert(event.Endpoints, checker.Equals, eps)
-		_, svc, err := ParseIngress(k8sIngress, net.ParseIP("1.1.1.1"))
-		c.Assert(err, check.IsNil)
-		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
 
@@ -321,11 +296,6 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 		event := <-svcCache.Events
 		c.Assert(event.Action, check.Equals, DeleteIngress)
 		c.Assert(event.ID, check.Equals, ingressID)
-		var eps *Endpoints
-		c.Assert(event.Endpoints, checker.Equals, eps)
-		_, svc, err := ParseIngress(k8sIngress, net.ParseIP("1.1.1.1"))
-		c.Assert(err, check.IsNil)
-		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
 }
