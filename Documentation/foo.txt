@@ -1,0 +1,20 @@
+ID uint16
+ContainerName string
+ContainerID string `json:"dockerID,omitempty"`
+DockerNetworkID string
+DockerEndpointID string
+DatapathMapID int
+IfName string
+IfIndex int
+OpLabels pkgLabels.OpLabels
+LXCMAC mac.MAC
+IPv6 addressing.CiliumIPv6
+IPv4 addressing.CiliumIPv4
+NodeMAC mac.MAC
+SecurityIdentity *identityPkg.Identity `json:"SecLabel"`
+Options *option.IntOptions
+Status *EndpointStatus `json:"-"`
+DNSHistory *fqdn.DNSCache
+K8sPodName string
+K8sNamespace string
+DatapathConfiguration models.EndpointDatapathConfiguration
