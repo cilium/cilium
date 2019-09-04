@@ -232,12 +232,11 @@ var _ = Describe("K8sChaosTest", func() {
 				ctx,
 				helpers.DefaultNamespace,
 				netperfClient,
-				fmt.Sprintf("netperf -l 300 -t TCP_STREAM -H %s", podsIps[netperfServer]))
+				fmt.Sprintf("netperf -l 60 -t TCP_STREAM -H %s", podsIps[netperfServer]))
 
 			restartCilium()
 
 			By("Stopping netperf client test")
-			cancel()
 			res.WaitUntilFinish()
 			res.ExpectSuccess("Failed while cilium was restarting")
 		})
@@ -250,7 +249,7 @@ var _ = Describe("K8sChaosTest", func() {
 				ctx,
 				helpers.DefaultNamespace,
 				netperfClient,
-				fmt.Sprintf("netperf -l 300 -t TCP_STREAM -H %s", podsIps[netperfServer]))
+				fmt.Sprintf("netperf -l 60 -t TCP_STREAM -H %s", podsIps[netperfServer]))
 
 			By("Installing the L3-L4 Policy")
 			_, err := kubectl.CiliumPolicyAction(
@@ -260,7 +259,6 @@ var _ = Describe("K8sChaosTest", func() {
 			restartCilium()
 
 			By("Stopping netperf client test")
-			cancel()
 			res.WaitUntilFinish()
 			res.ExpectSuccess("Failed while cilium was restarting")
 		})
