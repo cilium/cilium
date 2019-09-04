@@ -1664,7 +1664,7 @@ func (c *DaemonConfig) Populate() {
 	// CTMapEntriesTimeout options
 	c.CTMapEntriesTimeoutTCP, err = time.ParseDuration(viper.GetString(CTMapEntriesTimeoutTCPName))
 	if err != nil {
-		log.WithError(err).Fatalf("Unable to parse %s duration!", CTMapEntriesTimeoutTCPName)
+		log.WithError(err).Fatalf("Unable to parse %s duration: '%s'!", CTMapEntriesTimeoutTCPName, viper.GetString(CTMapEntriesTimeoutTCPName))
 	}
 	c.CTMapEntriesTimeoutTCP = c.CTMapEntriesTimeoutTCP.Round(time.Second)
 
