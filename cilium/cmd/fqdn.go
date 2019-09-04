@@ -35,6 +35,14 @@ var fqdnCmd = &cobra.Command{
 	},
 }
 
+var fqdnNames = &cobra.Command{
+	Use:   "names",
+	Short: "show internal state Cilium has for DNS names / regexes",
+	Run: func(cmd *cobra.Command, args []string) {
+		listFQDNNames()
+	},
+}
+
 var fqdnCacheCmd = &cobra.Command{
 	Use:   "cache",
 	Short: "Manage fqdn proxy cache",
@@ -65,6 +73,7 @@ func init() {
 	fqdnCacheCmd.AddCommand(fqdnListCacheCmd)
 	fqdnCacheCmd.AddCommand(fqdnCleanCacheCmd)
 	fqdnCmd.AddCommand(fqdnCacheCmd)
+	fqdnCmd.AddCommand(fqdnNames)
 	rootCmd.AddCommand(fqdnCmd)
 
 	fqdnCleanCacheCmd.Flags().BoolVarP(&force, "force", "f", false, "Skip confirmation")
@@ -135,4 +144,14 @@ func listFQDNCache() {
 			strings.Join(lookup.Ips, ","))
 	}
 	w.Flush()
+}
+
+func listFQDNNames() {
+	result, err := client.Policy.GetFqdnNames(nil)
+	if err != nil {
+		Fatalf("Error: %s\n", err)
+	}
+	if err := command.PrintOutputWithType(result.Payload, "json"); err != nil {
+		Fatalf("Unable to print JSON output: %s\n", err)
+	}
 }
