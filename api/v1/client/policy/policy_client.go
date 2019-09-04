@@ -150,6 +150,38 @@ func (a *Client) GetFqdnCacheID(params *GetFqdnCacheIDParams) (*GetFqdnCacheIDOK
 }
 
 /*
+GetFqdnNames lists internal DNS selector representations
+
+Retrieves the list of DNS-related fields (names to poll, selectors and
+their corresponding regexes).
+
+*/
+func (a *Client) GetFqdnNames(params *GetFqdnNamesParams) (*GetFqdnNamesOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewGetFqdnNamesParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "GetFqdnNames",
+		Method:             "GET",
+		PathPattern:        "/fqdn/names",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetFqdnNamesReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*GetFqdnNamesOK), nil
+
+}
+
+/*
 GetIdentity retrieves a list of identities that have metadata matching the provided parameters
 
 Retrieves a list of identities that have metadata matching the provided parameters, or all identities if no parameters are provided.

@@ -580,6 +580,29 @@ func init() {
         }
       }
     },
+    "/fqdn/names": {
+      "get": {
+        "description": "Retrieves the list of DNS-related fields (names to poll, selectors and\ntheir corresponding regexes).\n",
+        "tags": [
+          "policy"
+        ],
+        "summary": "List internal DNS selector representations",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/NameManager"
+            }
+          },
+          "400": {
+            "description": "Invalid request (error parsing parameters)",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        }
+      }
+    },
     "/healthz": {
       "get": {
         "description": "Returns health and status information of the Cilium daemon and related\ncomponents such as the local container runtime, connected datastore,\nKubernetes integration.\n",
@@ -2404,6 +2427,26 @@ func init() {
         }
       }
     },
+    "NameManager": {
+      "description": "Internal state about DNS names in relation to policy subsystem",
+      "type": "object",
+      "properties": {
+        "DNSPollNames": {
+          "description": "Names to poll for DNS Poller",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "FQDNPolicySelectors": {
+          "description": "Mapping of FQDNSelectors to corresponding regular expressions",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SelectorEntry"
+          }
+        }
+      }
+    },
     "NodeAddressing": {
       "description": "Addressing information of a node for all address families",
       "type": "object",
@@ -2624,6 +2667,20 @@ func init() {
       "type": "array",
       "items": {
         "$ref": "#/definitions/SelectorIdentityMapping"
+      }
+    },
+    "SelectorEntry": {
+      "description": "Mapping of FQDNSelector to corresponding regular expression",
+      "type": "object",
+      "properties": {
+        "regexString": {
+          "description": "String representation of regular expression form of FQDNSelector",
+          "type": "string"
+        },
+        "selectorString": {
+          "description": "FQDNSelector in string representation",
+          "type": "string"
+        }
       }
     },
     "SelectorIdentityMapping": {
@@ -3591,6 +3648,29 @@ func init() {
           },
           "404": {
             "description": "No DNS data with provided parameters found"
+          }
+        }
+      }
+    },
+    "/fqdn/names": {
+      "get": {
+        "description": "Retrieves the list of DNS-related fields (names to poll, selectors and\ntheir corresponding regexes).\n",
+        "tags": [
+          "policy"
+        ],
+        "summary": "List internal DNS selector representations",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/NameManager"
+            }
+          },
+          "400": {
+            "description": "Invalid request (error parsing parameters)",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
           }
         }
       }
@@ -5485,6 +5565,26 @@ func init() {
         }
       }
     },
+    "NameManager": {
+      "description": "Internal state about DNS names in relation to policy subsystem",
+      "type": "object",
+      "properties": {
+        "DNSPollNames": {
+          "description": "Names to poll for DNS Poller",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "FQDNPolicySelectors": {
+          "description": "Mapping of FQDNSelectors to corresponding regular expressions",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SelectorEntry"
+          }
+        }
+      }
+    },
     "NodeAddressing": {
       "description": "Addressing information of a node for all address families",
       "type": "object",
@@ -5705,6 +5805,20 @@ func init() {
       "type": "array",
       "items": {
         "$ref": "#/definitions/SelectorIdentityMapping"
+      }
+    },
+    "SelectorEntry": {
+      "description": "Mapping of FQDNSelector to corresponding regular expression",
+      "type": "object",
+      "properties": {
+        "regexString": {
+          "description": "String representation of regular expression form of FQDNSelector",
+          "type": "string"
+        },
+        "selectorString": {
+          "description": "FQDNSelector in string representation",
+          "type": "string"
+        }
       }
     },
     "SelectorIdentityMapping": {

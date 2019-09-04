@@ -93,6 +93,9 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		PolicyGetFqdnCacheIDHandler: policy.GetFqdnCacheIDHandlerFunc(func(params policy.GetFqdnCacheIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation PolicyGetFqdnCacheID has not yet been implemented")
 		}),
+		PolicyGetFqdnNamesHandler: policy.GetFqdnNamesHandlerFunc(func(params policy.GetFqdnNamesParams) middleware.Responder {
+			return middleware.NotImplemented("operation PolicyGetFqdnNames has not yet been implemented")
+		}),
 		DaemonGetHealthzHandler: daemon.GetHealthzHandlerFunc(func(params daemon.GetHealthzParams) middleware.Responder {
 			return middleware.NotImplemented("operation DaemonGetHealthz has not yet been implemented")
 		}),
@@ -225,6 +228,8 @@ type CiliumAPI struct {
 	PolicyGetFqdnCacheHandler policy.GetFqdnCacheHandler
 	// PolicyGetFqdnCacheIDHandler sets the operation handler for the get fqdn cache ID operation
 	PolicyGetFqdnCacheIDHandler policy.GetFqdnCacheIDHandler
+	// PolicyGetFqdnNamesHandler sets the operation handler for the get fqdn names operation
+	PolicyGetFqdnNamesHandler policy.GetFqdnNamesHandler
 	// DaemonGetHealthzHandler sets the operation handler for the get healthz operation
 	DaemonGetHealthzHandler daemon.GetHealthzHandler
 	// PolicyGetIdentityHandler sets the operation handler for the get identity operation
@@ -396,6 +401,10 @@ func (o *CiliumAPI) Validate() error {
 
 	if o.PolicyGetFqdnCacheIDHandler == nil {
 		unregistered = append(unregistered, "policy.GetFqdnCacheIDHandler")
+	}
+
+	if o.PolicyGetFqdnNamesHandler == nil {
+		unregistered = append(unregistered, "policy.GetFqdnNamesHandler")
 	}
 
 	if o.DaemonGetHealthzHandler == nil {
@@ -667,6 +676,11 @@ func (o *CiliumAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/fqdn/cache/{id}"] = policy.NewGetFqdnCacheID(o.context, o.PolicyGetFqdnCacheIDHandler)
+
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/fqdn/names"] = policy.NewGetFqdnNames(o.context, o.PolicyGetFqdnNamesHandler)
 
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)

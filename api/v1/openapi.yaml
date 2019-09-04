@@ -783,7 +783,23 @@ paths:
             "$ref": "#/definitions/Error"
         '404':
           description: No DNS data with provided parameters found
-
+  "/fqdn/names":
+    get:
+      summary: List internal DNS selector representations
+      description: |
+        Retrieves the list of DNS-related fields (names to poll, selectors and
+        their corresponding regexes).
+      tags:
+      - policy
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/NameManager"
+        '400':
+          description: Invalid request (error parsing parameters)
+          schema:
+            "$ref": "#/definitions/Error"
 parameters:
   endpoint-id:
     name: id
@@ -2099,6 +2115,30 @@ definitions:
           type: string
   Error:
     type: string
+  NameManager:
+    description: Internal state about DNS names in relation to policy subsystem
+    type: object
+    properties:
+      DNSPollNames:
+        description: Names to poll for DNS Poller
+        type: array
+        items:
+          type: string
+      FQDNPolicySelectors:
+        description: Mapping of FQDNSelectors to corresponding regular expressions
+        type: array
+        items:
+          "$ref": "#/definitions/SelectorEntry"
+  SelectorEntry:
+    description: Mapping of FQDNSelector to corresponding regular expression
+    type: object
+    properties:
+      selectorString:
+        description: FQDNSelector in string representation
+        type: string
+      regexString:
+        description: String representation of regular expression form of FQDNSelector
+        type: string
   DNSLookup:
     description: An IP -> DNS mapping, with metadata
     type: object
