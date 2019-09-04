@@ -146,8 +146,10 @@ var _ = Describe("K8sServicesTest", func() {
 			By("testing connectivity via cluster IP %s", clusterIP)
 			monitorStop := kubectl.MonitorStart(helpers.KubeSystemNamespace, ciliumPodK8s1,
 				"cluster-ip-same-node.log")
-			status := kubectl.Exec(helpers.CurlFail("http://%s/", clusterIP))
+			status, err := kubectl.ExecInFirstPod(context.TODO(), helpers.LogGathererNamespace, helpers.LogGathererSelector, helpers.CurlFail("http://%s/", clusterIP))
 			monitorStop()
+			Expect(err).To(BeNil(), "Cannot run curl in log gatherer")
+
 			status.ExpectSuccess("cannot curl to service IP from host")
 			ciliumPods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
 			Expect(err).To(BeNil(), "Cannot get cilium pods")
@@ -198,7 +200,9 @@ var _ = Describe("K8sServicesTest", func() {
 			}
 			doRequests := func(url string, count int) {
 				for i := 1; i <= count; i++ {
-					res := kubectl.Exec(helpers.CurlFail(url))
+
+					res, err := kubectl.ExecInFirstPod(context.TODO(), helpers.LogGathererNamespace, helpers.LogGathererSelector, helpers.CurlFail(url))
+					ExpectWithOffset(1, err).To(BeNil(), "Cannot run curl in log gatherer")
 					ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
 						"k8s1 host can not connect to service %q", url)
 				}
