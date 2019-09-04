@@ -19,6 +19,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
@@ -54,6 +55,34 @@ type NameManager struct {
 	cache *DNSCache
 
 	bootstrapCompleted bool
+}
+
+// GetModel returns the API model of the NameManager.
+func (n *NameManager) GetModel() *models.NameManager {
+	n.Mutex.Lock()
+	defer n.Mutex.Unlock()
+
+	var (
+		namesToPoll  []string
+		allSelectors []*models.SelectorEntry
+	)
+
+	for name := range n.namesToPoll {
+		namesToPoll = append(namesToPoll, name)
+	}
+
+	for fqdnSel, regex := range n.allSelectors {
+		pair := &models.SelectorEntry{
+			SelectorString: fqdnSel.String(),
+			RegexString:    regex.String(),
+		}
+		allSelectors = append(allSelectors, pair)
+	}
+
+	return &models.NameManager{
+		DNSPollNames:        namesToPoll,
+		FQDNPolicySelectors: allSelectors,
+	}
 }
 
 // RegisterForIdentityUpdates exposes this FQDNSelector so that identities
