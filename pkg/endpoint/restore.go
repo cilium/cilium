@@ -174,7 +174,7 @@ func (e *Endpoint) restoreIdentity() error {
 		return err
 	}
 
-	e.SetStateLocked(StateRestoring, "Synchronizing endpoint labels with KVStore")
+	e.setState(StateRestoring, "Synchronizing endpoint labels with KVStore")
 
 	if e.SecurityIdentity != nil {
 		if oldSecID := e.SecurityIdentity.ID; identity.ID != oldSecID {
