@@ -164,6 +164,10 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 	swgEps := lock.NewStoppableWaitGroup()
 	svcCache.UpdateEndpoints(k8sEndpoints, swgEps)
 
+	endpoints, ready := svcCache.correlateEndpoints(svcID)
+	c.Assert(ready, check.Equals, true)
+	c.Assert(endpoints.String(), check.Equals, "2.2.2.2:8080/TCP")
+
 	// The service should be ready as both service and endpoints have been
 	// imported
 	c.Assert(testutils.WaitUntil(func() bool {
@@ -171,10 +175,13 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 		defer event.SWG.Done()
 		c.Assert(event.Action, check.Equals, UpdateService)
 		c.Assert(event.ID, check.Equals, svcID)
+		c.Assert(event.Endpoints, checker.DeepEquals, endpoints)
+		_, svc := ParseService(k8sSvc)
+		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
 
-	endpoints, ready := svcCache.correlateEndpoints(svcID)
+	endpoints, ready = svcCache.correlateEndpoints(svcID)
 	c.Assert(ready, check.Equals, true)
 	c.Assert(endpoints.String(), check.Equals, "2.2.2.2:8080/TCP")
 
@@ -194,6 +201,9 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 		defer event.SWG.Done()
 		c.Assert(event.Action, check.Equals, DeleteService)
 		c.Assert(event.ID, check.Equals, svcID)
+		c.Assert(event.Endpoints, checker.DeepEquals, endpoints)
+		_, svc := ParseService(k8sSvc)
+		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
 
@@ -204,36 +214,47 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 		defer event.SWG.Done()
 		c.Assert(event.Action, check.Equals, UpdateService)
 		c.Assert(event.ID, check.Equals, svcID)
+		c.Assert(event.Endpoints, checker.DeepEquals, endpoints)
+		_, svc := ParseService(k8sSvc)
+		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
 
 	// Deleting the endpoints will result in a service delete event
 	svcCache.DeleteEndpoints(k8sEndpoints, swgEps)
-	c.Assert(testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
-		defer event.SWG.Done()
-		c.Assert(event.Action, check.Equals, DeleteService)
-		c.Assert(event.ID, check.Equals, svcID)
-		return true
-	}, 2*time.Second), check.IsNil)
 
 	endpoints, serviceReady := svcCache.correlateEndpoints(svcID)
 	c.Assert(serviceReady, check.Equals, false)
 	c.Assert(endpoints.String(), check.Equals, "")
 
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		defer event.SWG.Done()
+		c.Assert(event.Action, check.Equals, DeleteService)
+		c.Assert(event.ID, check.Equals, svcID)
+		c.Assert(event.Endpoints, checker.DeepEquals, endpoints)
+		_, svc := ParseService(k8sSvc)
+		c.Assert(event.Service, checker.DeepEquals, svc)
+		return true
+	}, 2*time.Second), check.IsNil)
+
 	// Reinserting the endpoints should re-match with the still existing service
 	svcCache.UpdateEndpoints(k8sEndpoints, swgEps)
+
+	endpoints, serviceReady = svcCache.correlateEndpoints(svcID)
+	c.Assert(serviceReady, check.Equals, true)
+	c.Assert(endpoints.String(), check.Equals, "2.2.2.2:8080/TCP")
+
 	c.Assert(testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
 		defer event.SWG.Done()
 		c.Assert(event.Action, check.Equals, UpdateService)
 		c.Assert(event.ID, check.Equals, svcID)
+		c.Assert(event.Endpoints, checker.DeepEquals, endpoints)
+		_, svc := ParseService(k8sSvc)
+		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
-
-	endpoints, serviceReady = svcCache.correlateEndpoints(svcID)
-	c.Assert(serviceReady, check.Equals, true)
-	c.Assert(endpoints.String(), check.Equals, "2.2.2.2:8080/TCP")
 
 	// Deleting the service will result in a service delete event
 	svcCache.DeleteService(k8sSvc, swgSvcs)
@@ -242,6 +263,9 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 		defer event.SWG.Done()
 		c.Assert(event.Action, check.Equals, DeleteService)
 		c.Assert(event.ID, check.Equals, svcID)
+		c.Assert(event.Endpoints, checker.DeepEquals, endpoints)
+		_, svc := ParseService(k8sSvc)
+		c.Assert(event.Service, checker.DeepEquals, svc)
 		return true
 	}, 2*time.Second), check.IsNil)
 
