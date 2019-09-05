@@ -274,7 +274,7 @@ func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
 func (s *EndpointSuite) TestEndpointState(c *C) {
 	e := NewEndpointWithState(s, 100, StateCreating)
 	e.unconditionalLock()
-	defer e.Unlock()
+	defer e.unlock()
 
 	e.state = StateCreating
 	c.Assert(e.setState(StateCreating, "test"), Equals, false)
@@ -591,7 +591,7 @@ func (n *EndpointDeadlockEvent) Handle(ifc chan interface{}) {
 	close(n.deadlockChan)
 	time.Sleep(deadlockTimeout)
 	n.ep.unconditionalLock()
-	n.ep.Unlock()
+	n.ep.unlock()
 }
 
 // This unit test is a bit weird - see

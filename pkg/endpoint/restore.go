@@ -227,7 +227,7 @@ func (e *Endpoint) restoreIdentity() error {
 	// parts of the identity not being marshaled to JSON. Hence we must set
 	// the identity even if has not changed.
 	e.SetIdentity(identity, true)
-	e.Unlock()
+	e.unlock()
 
 	return nil
 }
