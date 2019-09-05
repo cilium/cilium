@@ -32,7 +32,7 @@ func (ev *EndpointRegenerationEvent) Handle(res chan interface{}) {
 	e := ev.ep
 	regenContext := ev.regenContext
 
-	err := e.RLockAlive()
+	err := e.rlockAlive()
 	if err != nil {
 		e.LogDisconnectedMutexAction(err, "before regeneration")
 		res <- &EndpointRegenerationResult{

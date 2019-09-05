@@ -437,7 +437,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	}
 
 	stats.waitingForLock.Start()
-	err = e.LockAlive()
+	err = e.lockAlive()
 	stats.waitingForLock.End(err == nil)
 	if err != nil {
 		return 0, compilationExecuted, err
@@ -521,7 +521,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	datapathRegenCtxt := regenContext.datapathRegenerationContext
 
 	stats.waitingForLock.Start()
-	err := e.LockAlive()
+	err := e.lockAlive()
 	stats.waitingForLock.End(err == nil)
 	if err != nil {
 		return err
@@ -706,7 +706,7 @@ func (e *Endpoint) finalizeProxyState(regenContext *regenerationContext, err err
 		datapathRegenCtx.finalizeList.Finalize()
 		e.Unlock()
 	} else {
-		if err := e.LockAlive(); err != nil {
+		if err := e.lockAlive(); err != nil {
 			e.getLogger().WithError(err).Debug("Skipping unnecessary reverting of endpoint regeneration changes")
 			return
 		}
@@ -1074,7 +1074,7 @@ func (e *Endpoint) syncPolicyMapController() {
 				// Failure to lock is not an error, it means
 				// that the endpoint was disconnected and we
 				// should exit gracefully.
-				if err := e.LockAlive(); err != nil {
+				if err := e.lockAlive(); err != nil {
 					return controller.NewExitReason("Endpoint disappeared")
 				}
 				defer e.Unlock()
@@ -1160,7 +1160,7 @@ func (e *Endpoint) FinishIPVLANInit(netNsPath string) error {
 	}
 
 	// Just ignore if the endpoint is dying
-	if err := e.LockAlive(); err != nil {
+	if err := e.lockAlive(); err != nil {
 		return nil
 	}
 	defer e.Unlock()

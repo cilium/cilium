@@ -402,7 +402,7 @@ func (e *Endpoint) GetLabels() []string {
 // GetSecurityIdentity returns the security identity of the endpoint. It assumes
 // the endpoint's mutex is held.
 func (e *Endpoint) GetSecurityIdentity() (*identityPkg.Identity, error) {
-	if err := e.RLockAlive(); err != nil {
+	if err := e.rlockAlive(); err != nil {
 		return nil, err
 	}
 	defer e.RUnlock()
@@ -782,7 +782,7 @@ func (e *Endpoint) Update(cfg *models.EndpointConfigurationSpec) error {
 		return UpdateValidationError{err.Error()}
 	}
 
-	if err := e.LockAlive(); err != nil {
+	if err := e.lockAlive(); err != nil {
 		return err
 	}
 
@@ -826,7 +826,7 @@ func (e *Endpoint) Update(cfg *models.EndpointConfigurationSpec) error {
 		for {
 			select {
 			case <-ticker.C:
-				if err := e.LockAlive(); err != nil {
+				if err := e.lockAlive(); err != nil {
 					return err
 				}
 				// Check endpoint state before attempting configuration update because
@@ -1139,13 +1139,13 @@ func (e *Endpoint) setDatapathMapIDAndPinMap(id int) error {
 }
 
 // GetState returns the endpoint's state
-// endpoint.Mutex may only be.RLockAlive()ed
+// endpoint.Mutex may only be.rlockAlive()ed
 func (e *Endpoint) GetStateLocked() string {
 	return e.state
 }
 
 // GetState returns the endpoint's state
-// endpoint.Mutex may only be.RLockAlive()ed
+// endpoint.Mutex may only be.rlockAlive()ed
 func (e *Endpoint) GetState() string {
 	e.UnconditionalRLock()
 	defer e.RUnlock()
@@ -1430,7 +1430,7 @@ func (e *Endpoint) getIDandLabels() string {
 // endpoint will receive a new identity and will be regenerated. Both of these
 // operations will happen in the background.
 func (e *Endpoint) ModifyIdentityLabels(addLabels, delLabels pkgLabels.Labels) error {
-	if err := e.LockAlive(); err != nil {
+	if err := e.lockAlive(); err != nil {
 		return err
 	}
 
@@ -1480,7 +1480,7 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, identityLabels, infoLabels 
 		logfields.InfoLabels:     infoLabels.String(),
 	}).Debug("Refreshing labels of endpoint")
 
-	if err := e.LockAlive(); err != nil {
+	if err := e.lockAlive(); err != nil {
 		e.LogDisconnectedMutexAction(err, "when trying to refresh endpoint labels")
 		return
 	}
@@ -1506,7 +1506,7 @@ func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 
 // Must be called with e.Mutex NOT held.
 func (e *Endpoint) runLabelsResolver(ctx context.Context, myChangeRev int, blocking bool) {
-	if err := e.RLockAlive(); err != nil {
+	if err := e.rlockAlive(); err != nil {
 		// If a labels update and an endpoint delete API request arrive
 		// in quick succession, this could occur; in that case, there's
 		// no point updating the controller.
@@ -1556,7 +1556,7 @@ func (e *Endpoint) runLabelsResolver(ctx context.Context, myChangeRev int, block
 }
 
 func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) error {
-	if err := e.RLockAlive(); err != nil {
+	if err := e.rlockAlive(); err != nil {
 		return ErrNotAlive
 	}
 	newLabels := e.OpLabels.IdentityLabels()
@@ -1613,7 +1613,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 		}
 	}
 
-	if err := e.LockAlive(); err != nil {
+	if err := e.lockAlive(); err != nil {
 		releaseNewlyAllocatedIdentity()
 		return err
 	}
@@ -1645,7 +1645,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 			elog.Debugf("Applying grace period before regeneration due to identity change")
 			time.Sleep(option.Config.IdentityChangeGracePeriod)
 
-			if err := e.LockAlive(); err != nil {
+			if err := e.lockAlive(); err != nil {
 				releaseNewlyAllocatedIdentity()
 				return err
 			}
@@ -1702,7 +1702,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 // SetPolicyRevision sets the endpoint's policy revision with the given
 // revision.
 func (e *Endpoint) SetPolicyRevision(rev uint64) {
-	if err := e.LockAlive(); err != nil {
+	if err := e.lockAlive(); err != nil {
 		return
 	}
 	e.setPolicyRevision(rev)
@@ -1819,7 +1819,7 @@ func (e *Endpoint) IsDisconnecting() bool {
 // PinDatapathMap retrieves a file descriptor from the map ID from the API call
 // and pins the corresponding map into the BPF file system.
 func (e *Endpoint) PinDatapathMap() error {
-	if err := e.LockAlive(); err != nil {
+	if err := e.lockAlive(); err != nil {
 		return err
 	}
 	defer e.Unlock()
@@ -1852,7 +1852,7 @@ func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
 	e.buildMutex.Lock()
 	defer e.buildMutex.Unlock()
 
-	if err := e.LockAlive(); err != nil {
+	if err := e.lockAlive(); err != nil {
 		// endpoint was removed in the meanwhile, return
 		return
 	}
@@ -1868,7 +1868,7 @@ func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
 // SyncEndpointHeaderFile it bumps the current DNS History information for the
 // endpoint in the lxc_config.h file.
 func (e *Endpoint) SyncEndpointHeaderFile() error {
-	if err := e.LockAlive(); err != nil {
+	if err := e.lockAlive(); err != nil {
 		// endpoint was removed in the meanwhile, return
 		return nil
 	}
@@ -1933,7 +1933,7 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpoin
 	// requests have been enqueued, have all of them except the first
 	// return here. Ignore the request if the endpoint is already
 	// disconnected.
-	if err := e.LockAlive(); err != nil {
+	if err := e.lockAlive(); err != nil {
 		return []error{}
 	}
 	e.SetStateLocked(StateDisconnecting, "Deleting endpoint")
@@ -2016,7 +2016,7 @@ func (e *Endpoint) GetProxyInfoByFields() (uint64, string, string, []string, str
 // program to be generated for the first time.
 // * otherwise, waits for the endpoint to complete its first full regeneration.
 func (e *Endpoint) RegenerateAfterCreation(ctx context.Context, endpointStartFunc func(), syncBuild bool) error {
-	if err := e.LockAlive(); err != nil {
+	if err := e.lockAlive(); err != nil {
 		return fmt.Errorf("endpoint was deleted while processing the request")
 	}
 
@@ -2091,7 +2091,7 @@ func (e *Endpoint) waitForFirstRegeneration(ctx context.Context) error {
 
 		case <-ctx.Done():
 		case <-ticker.C:
-			if err := e.RLockAlive(); err != nil {
+			if err := e.rlockAlive(); err != nil {
 				return fmt.Errorf("endpoint was deleted while waiting for initial endpoint generation to complete")
 			}
 			hasSidecarProxy := e.HasSidecarProxy()
