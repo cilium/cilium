@@ -140,6 +140,7 @@ func (e *Endpoint) restoreIdentity() error {
 	scopedLog := log.WithField(logfields.EndpointID, e.ID)
 	// Filter the restored labels with the new daemon's filter
 	l, _ := labels.FilterLabels(e.OpLabels.AllLabels())
+	scopedLog.Debugf("aanm e.OpLabels %+v", e.OpLabels)
 	e.RUnlock()
 
 	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
@@ -355,8 +356,10 @@ func (ep *Endpoint) UnmarshalJSON(raw []byte) error {
 	if err := json.Unmarshal(raw, restoredEp); err != nil {
 		return fmt.Errorf("error unmarshaling serializableEndpoint from base64 representation: %s", err)
 	}
+	log.Debugf("Full restored endpoint1 %+v", restoredEp)
 
 	ep.fromSerializedEndpoint(restoredEp)
+	log.Debugf("Full restored endpoint2 %+v", ep)
 	return nil
 }
 

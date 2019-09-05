@@ -158,7 +158,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 			continue
 		}
 
-		scopedLog.Debug("Restoring endpoint")
+		scopedLog.Debugf("aanm Restoring endpoint %+v", ep)
 		ep.LogStatusOK(endpoint.Other, "Restoring endpoint from previous cilium instance")
 
 		ep.SetDefaultConfiguration(true)
