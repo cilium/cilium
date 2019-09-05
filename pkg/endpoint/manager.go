@@ -55,7 +55,7 @@ func (e *Endpoint) Expose(mgr endpointManager) error {
 
 	// No need to check liveness as an endpoint can only be deleted via the
 	// API after it has been inserted into the manager.
-	e.UnconditionalRLock()
+	e.unconditionalRLock()
 	mgr.UpdateIDReference(e)
 	e.updateReferences(mgr)
 	e.RUnlock()
