@@ -55,8 +55,8 @@ func (e *Endpoint) unconditionalLock() {
 	e.mutex.Lock()
 }
 
-// UnconditionalRLock should be used only for reporting endpoint state
-func (e *Endpoint) UnconditionalRLock() {
+// unconditionalRLock should be used only for reporting endpoint state
+func (e *Endpoint) unconditionalRLock() {
 	e.mutex.RLock()
 }
 
