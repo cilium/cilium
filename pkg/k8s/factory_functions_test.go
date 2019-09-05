@@ -409,6 +409,64 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 			},
 			want: true,
 		},
+		{
+			name: "Pods with differing proxy-visibility annotations",
+			args: args{
+				o1: &types.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pod1",
+						Labels: map[string]string{
+							"foo": "bar",
+						},
+					},
+					StatusHostIP: "127.0.0.1",
+					StatusPodIP:  "127.0.0.2",
+				},
+				o2: &types.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pod1",
+						Labels: map[string]string{
+							"foo": "bar",
+						},
+						Annotations: map[string]string{
+							annotation.ProxyVisibility: "80/HTTP",
+						},
+					},
+					StatusHostIP: "127.0.0.1",
+					StatusPodIP:  "127.0.0.2",
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Pods with irrelevant annotations",
+			args: args{
+				o1: &types.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pod1",
+						Labels: map[string]string{
+							"foo": "bar",
+						},
+					},
+					StatusHostIP: "127.0.0.1",
+					StatusPodIP:  "127.0.0.2",
+				},
+				o2: &types.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pod1",
+						Labels: map[string]string{
+							"foo": "bar",
+						},
+						Annotations: map[string]string{
+							"useless": "80/HTTP",
+						},
+					},
+					StatusHostIP: "127.0.0.1",
+					StatusPodIP:  "127.0.0.2",
+				},
+			},
+			want: true,
+		},
 	}
 	for _, tt := range tests {
 		got := EqualV1Pod(tt.args.o1, tt.args.o2)
