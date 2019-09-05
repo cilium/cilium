@@ -51,8 +51,6 @@ func CheckStructAlignments(path string) error {
 		"lb4_key_v2":           {reflect.TypeOf(lbmap.Service4KeyV2{})},
 		"lb4_service_v2":       {reflect.TypeOf(lbmap.Service4ValueV2{})},
 		"lb4_backend":          {reflect.TypeOf(lbmap.Backend4Value{})},
-		"lb6_key":              {reflect.TypeOf(lbmap.Service6Key{})},
-		"lb6_service":          {reflect.TypeOf(lbmap.Service6Value{})},
 		"lb6_key_v2":           {reflect.TypeOf(lbmap.Service6KeyV2{})},
 		"lb6_service_v2":       {reflect.TypeOf(lbmap.Service6ValueV2{})},
 		"lb6_backend":          {reflect.TypeOf(lbmap.Backend6Value{})},
