@@ -133,7 +133,7 @@ func (e *Endpoint) RegenerateAfterRestore() error {
 }
 
 func (e *Endpoint) restoreIdentity() error {
-	if err := e.RLockAlive(); err != nil {
+	if err := e.rlockAlive(); err != nil {
 		e.LogDisconnectedMutexAction(err, "before filtering labels during regenerating restored endpoint")
 		return err
 	}
@@ -169,7 +169,7 @@ func (e *Endpoint) restoreIdentity() error {
 		}
 	}
 
-	if err := e.LockAlive(); err != nil {
+	if err := e.lockAlive(); err != nil {
 		scopedLog.Warn("Endpoint to restore has been deleted")
 		return err
 	}

@@ -249,7 +249,7 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 
 	stats.waitingForLock.Start()
 	// Check if endpoints is still alive before doing any build
-	err = e.LockAlive()
+	err = e.lockAlive()
 	stats.waitingForLock.End(err == nil)
 	if err != nil {
 		return err
@@ -295,7 +295,7 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 	stats.prepareBuild.End(true)
 
 	defer func() {
-		if err := e.LockAlive(); err != nil {
+		if err := e.lockAlive(); err != nil {
 			if retErr == nil {
 				retErr = err
 			} else {
@@ -342,7 +342,7 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 	// in the datapath. PolicyMap state is not updated here, because that is
 	// performed in endpoint.syncPolicyMap().
 	stats.waitingForLock.Start()
-	err := e.LockAlive()
+	err := e.lockAlive()
 	stats.waitingForLock.End(err == nil)
 	if err != nil {
 		return err
@@ -414,7 +414,7 @@ func (e *Endpoint) updateRegenerationStatistics(context *regenerationContext, er
 //  - true if the regeneration succeed
 //  - nothing and the channel is closed if the regeneration did not happen
 func (e *Endpoint) RegenerateIfAlive(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool {
-	if err := e.LockAlive(); err != nil {
+	if err := e.lockAlive(); err != nil {
 		log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
 		e.LogStatus(Policy, Failure, "Error while handling policy updates for endpoint: "+err.Error())
 	} else {
@@ -544,7 +544,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 	e.controllers.UpdateController(fmt.Sprintf("sync-%s-identity-mapping (%d)", addressFamily, e.ID),
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				if err := e.RLockAlive(); err != nil {
+				if err := e.rlockAlive(); err != nil {
 					return controller.NewExitReason("Endpoint disappeared")
 				}
 
