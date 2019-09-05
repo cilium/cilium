@@ -160,25 +160,6 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		return invalidDataError(ep, err)
 	}
 
-	err = d.endpointManager.AddEndpoint(d, ep, "Create endpoint from API PUT")
-	if err != nil {
-		return d.errorDuringCreation(ep, fmt.Errorf("unable to insert endpoint into manager: %s", err))
-	}
-
-	ep.UpdateLabels(ctx, addLabels, infoLabels, true)
-
-	select {
-	case <-ctx.Done():
-		return d.errorDuringCreation(ep, fmt.Errorf("request cancelled while resolving identity"))
-	default:
-	}
-
-	// Now that we have ep.ID we can pin the map from this point. This
-	// also has to happen before the first build took place.
-	if err = ep.PinDatapathMap(); err != nil {
-		return d.errorDuringCreation(ep, fmt.Errorf("unable to pin datapath maps: %s", err))
-	}
-
 	cfunc := func() {
 		// Only used for CRI-O since it does not support events.
 		if d.workloadsEventsCh != nil && ep.GetContainerID() != "" {
