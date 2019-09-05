@@ -58,7 +58,7 @@ func (e *Endpoint) Expose(mgr endpointManager) error {
 	e.unconditionalRLock()
 	mgr.UpdateIDReference(e)
 	e.updateReferences(mgr)
-	e.RUnlock()
+	e.runlock()
 
 	e.getLogger().Info("New endpoint")
 
@@ -73,7 +73,7 @@ func (e *Endpoint) UpdateReferences(mgr endpointManager) error {
 	if err := e.rlockAlive(); err != nil {
 		return err
 	}
-	defer e.RUnlock()
+	defer e.runlock()
 	e.updateReferences(mgr)
 	return nil
 }
