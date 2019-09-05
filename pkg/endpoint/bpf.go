@@ -442,7 +442,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	if err != nil {
 		return 0, compilationExecuted, err
 	}
-	defer e.Unlock()
+	defer e.unlock()
 
 	e.ctCleaned = true
 
@@ -527,7 +527,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 		return err
 	}
 
-	defer e.Unlock()
+	defer e.unlock()
 
 	currentDir := datapathRegenCtxt.currentDir
 	nextDir := datapathRegenCtxt.nextDir
@@ -704,7 +704,7 @@ func (e *Endpoint) finalizeProxyState(regenContext *regenerationContext, err err
 		e.unconditionalLock()
 		e.getLogger().Debug("Finalizing successful endpoint regeneration")
 		datapathRegenCtx.finalizeList.Finalize()
-		e.Unlock()
+		e.unlock()
 	} else {
 		if err := e.lockAlive(); err != nil {
 			e.getLogger().WithError(err).Debug("Skipping unnecessary reverting of endpoint regeneration changes")
@@ -715,7 +715,7 @@ func (e *Endpoint) finalizeProxyState(regenContext *regenerationContext, err err
 			e.getLogger().WithError(err).Error("Reverting endpoint regeneration changes failed")
 		}
 		e.getLogger().Debug("Finished reverting endpoint changes after BPF regeneration failed")
-		e.Unlock()
+		e.unlock()
 	}
 }
 
@@ -809,7 +809,7 @@ func (e *Endpoint) scrubIPsInConntrackTableLocked() {
 func (e *Endpoint) scrubIPsInConntrackTable() {
 	e.unconditionalLock()
 	e.scrubIPsInConntrackTableLocked()
-	e.Unlock()
+	e.unlock()
 }
 
 // SkipStateClean can be called on a endpoint before its first build to skip
@@ -822,7 +822,7 @@ func (e *Endpoint) SkipStateClean() {
 	// Mark conntrack as already cleaned
 	e.unconditionalLock()
 	e.ctCleaned = true
-	e.Unlock()
+	e.unlock()
 }
 
 func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool) bool {
@@ -1077,7 +1077,7 @@ func (e *Endpoint) syncPolicyMapController() {
 				if err := e.lockAlive(); err != nil {
 					return controller.NewExitReason("Endpoint disappeared")
 				}
-				defer e.Unlock()
+				defer e.unlock()
 				return e.syncPolicyMapWithDump()
 			},
 			RunInterval: 1 * time.Minute,
@@ -1163,7 +1163,7 @@ func (e *Endpoint) FinishIPVLANInit(netNsPath string) error {
 	if err := e.lockAlive(); err != nil {
 		return nil
 	}
-	defer e.Unlock()
+	defer e.unlock()
 
 	// No need to finish IPVLAN initialization for Docker if the endpoint isn't
 	// running with Docker.

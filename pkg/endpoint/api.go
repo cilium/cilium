@@ -453,7 +453,7 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 	if err := e.lockAlive(); err != nil {
 		return "", err
 	}
-	defer e.Unlock()
+	defer e.unlock()
 
 	if newEp.ifIndex != 0 && e.ifIndex != newEp.ifIndex {
 		e.ifIndex = newEp.ifIndex

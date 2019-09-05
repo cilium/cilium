@@ -262,12 +262,12 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 	if e.GetStateLocked() != StateWaitingForIdentity &&
 		!e.BuilderSetStateLocked(StateRegenerating, "Regenerating endpoint: "+context.Reason) {
 		e.getLogger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
-		e.Unlock()
+		e.unlock()
 
 		return fmt.Errorf("Skipping build due to invalid state: %s", e.state)
 	}
 
-	e.Unlock()
+	e.unlock()
 
 	stats.prepareBuild.Start()
 	origDir := e.StateDirectoryPath()
@@ -315,7 +315,7 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 		// changes are needed. There should be an another regenerate
 		// queued for taking care of it.
 		e.BuilderSetStateLocked(StateReady, "Completed endpoint regeneration with no pending regeneration requests")
-		e.Unlock()
+		e.unlock()
 	}()
 
 	revision, compilationExecuted, err = e.regenerateBPF(context)
@@ -348,7 +348,7 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 		return err
 	}
 
-	defer e.Unlock()
+	defer e.unlock()
 
 	// Depending upon result of BPF regeneration (compilation executed),
 	// shift endpoint directories to match said BPF regeneration
@@ -427,7 +427,7 @@ func (e *Endpoint) RegenerateIfAlive(regenMetadata *regeneration.ExternalRegener
 		default:
 			regen = e.setState(StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
 		}
-		e.Unlock()
+		e.unlock()
 		if regen {
 			// Regenerate logs status according to the build success/failure
 			return e.Regenerate(regenMetadata)
