@@ -506,8 +506,6 @@ var _ = Describe("K8sServicesTest", func() {
 		})
 
 		It("Connects to service IP backed by external IPs", func() {
-			err := kubectl.WaitForKubeDNSEntry("external-ips-service", helpers.DefaultNamespace)
-			Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
 			shouldConnect(podName, serviceName)
 		})
 
