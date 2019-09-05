@@ -709,7 +709,7 @@ func parseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
 }
 
 func (e *Endpoint) LogStatus(typ StatusType, code StatusCode, msg string) {
-	e.UnconditionalLock()
+	e.unconditionalLock()
 	defer e.Unlock()
 	// FIXME GH2323 instead of a mutex we could use a channel to send the status
 	// log message to a single writer?
@@ -1003,7 +1003,7 @@ func (e *Endpoint) GetContainerName() string {
 
 // SetContainerName modifies the endpoint's container name
 func (e *Endpoint) SetContainerName(name string) {
-	e.UnconditionalLock()
+	e.unconditionalLock()
 	e.ContainerName = name
 	e.Unlock()
 }
@@ -1019,7 +1019,7 @@ func (e *Endpoint) GetK8sNamespace() string {
 
 // SetK8sNamespace modifies the endpoint's pod name
 func (e *Endpoint) SetK8sNamespace(name string) {
-	e.UnconditionalLock()
+	e.unconditionalLock()
 	e.K8sNamespace = name
 	e.UpdateLogger(map[string]interface{}{
 		logfields.K8sPodName: e.GetK8sNamespaceAndPodNameLocked(),
@@ -1029,7 +1029,7 @@ func (e *Endpoint) SetK8sNamespace(name string) {
 
 // K8sNamespaceAndPodNameIsSet returns true if the pod name is set
 func (e *Endpoint) K8sNamespaceAndPodNameIsSet() bool {
-	e.UnconditionalLock()
+	e.unconditionalLock()
 	podName := e.GetK8sNamespaceAndPodNameLocked()
 	e.Unlock()
 	return podName != "" && podName != "/"
@@ -1062,7 +1062,7 @@ func (e *Endpoint) GetK8sNamespaceAndPodNameLocked() string {
 
 // SetK8sPodName modifies the endpoint's pod name
 func (e *Endpoint) SetK8sPodName(name string) {
-	e.UnconditionalLock()
+	e.unconditionalLock()
 	e.K8sPodName = name
 	e.UpdateLogger(map[string]interface{}{
 		logfields.K8sPodName: e.GetK8sNamespaceAndPodNameLocked(),
@@ -1072,7 +1072,7 @@ func (e *Endpoint) SetK8sPodName(name string) {
 
 // SetContainerID modifies the endpoint's container ID
 func (e *Endpoint) SetContainerID(id string) {
-	e.UnconditionalLock()
+	e.unconditionalLock()
 	e.ContainerID = id
 	e.UpdateLogger(map[string]interface{}{
 		logfields.ContainerID: e.getShortContainerID(),
@@ -1112,14 +1112,14 @@ func (e *Endpoint) getShortContainerID() string {
 
 // SetDockerEndpointID modifies the endpoint's Docker Endpoint ID
 func (e *Endpoint) SetDockerEndpointID(id string) {
-	e.UnconditionalLock()
+	e.unconditionalLock()
 	e.DockerEndpointID = id
 	e.Unlock()
 }
 
 // SetDockerNetworkID modifies the endpoint's Docker Endpoint ID
 func (e *Endpoint) SetDockerNetworkID(id string) {
-	e.UnconditionalLock()
+	e.unconditionalLock()
 	e.DockerNetworkID = id
 	e.Unlock()
 }
@@ -1155,7 +1155,7 @@ func (e *Endpoint) GetState() string {
 // SetState modifies the endpoint's state. Returns true only if endpoints state
 // was changed as requested
 func (e *Endpoint) SetState(toState, reason string) bool {
-	e.UnconditionalLock()
+	e.unconditionalLock()
 	defer e.Unlock()
 
 	return e.setState(toState, reason)
@@ -1327,8 +1327,8 @@ OKState:
 // proxyPolicyRevision when the specified revision has been applied in the
 // proxy.
 func (e *Endpoint) OnProxyPolicyUpdate(revision uint64) {
-	// NOTE: UnconditionalLock is used here because this callback has no way of reporting an error
-	e.UnconditionalLock()
+	// NOTE: unconditionalLock is used here because this callback has no way of reporting an error
+	e.unconditionalLock()
 	if revision > e.proxyPolicyRevision {
 		e.proxyPolicyRevision = revision
 	}
@@ -1772,8 +1772,8 @@ type policySignal struct {
 //  - the endpoint's policy revision reaches the wanted revision
 // When the done callback is non-nil it will be called just before the channel is closed.
 func (e *Endpoint) WaitForPolicyRevision(ctx context.Context, rev uint64, done func(ts time.Time)) <-chan struct{} {
-	// NOTE: UnconditionalLock is used here because this method handles endpoint in disconnected state on its own
-	e.UnconditionalLock()
+	// NOTE: unconditionalLock is used here because this method handles endpoint in disconnected state on its own
+	e.unconditionalLock()
 	defer e.Unlock()
 
 	if done == nil {
@@ -2123,7 +2123,7 @@ func (e *Endpoint) waitForFirstRegeneration(ctx context.Context) error {
 // the configuration option to keep endpoint configuration during endpoint
 // restore is checked, and if so, this is a no-op.
 func (e *Endpoint) SetDefaultConfiguration(restore bool) {
-	e.UnconditionalLock()
+	e.unconditionalLock()
 	defer e.Unlock()
 
 	if restore && option.Config.KeepConfig {

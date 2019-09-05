@@ -273,7 +273,7 @@ func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
 
 func (s *EndpointSuite) TestEndpointState(c *C) {
 	e := NewEndpointWithState(s, 100, StateCreating)
-	e.UnconditionalLock()
+	e.unconditionalLock()
 	defer e.Unlock()
 
 	e.state = StateCreating
@@ -590,7 +590,7 @@ func (n *EndpointDeadlockEvent) Handle(ifc chan interface{}) {
 	// lock *before* we call deleteEndpointQuiet (see below test).
 	close(n.deadlockChan)
 	time.Sleep(deadlockTimeout)
-	n.ep.UnconditionalLock()
+	n.ep.unconditionalLock()
 	n.ep.Unlock()
 }
 

@@ -46,12 +46,12 @@ func (e *Endpoint) RUnlock() {
 	e.mutex.RUnlock()
 }
 
-// UnconditionalLock should be used only for locking endpoint for
+// unconditionalLock should be used only for locking endpoint for
 // - setting its state to StateDisconnected
 // - handling regular Lock errors
 // - reporting endpoint status (like in LogStatus method)
 // Use Lock in all other cases
-func (e *Endpoint) UnconditionalLock() {
+func (e *Endpoint) unconditionalLock() {
 	e.mutex.Lock()
 }
 
