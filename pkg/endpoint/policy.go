@@ -299,7 +299,7 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 			if retErr == nil {
 				retErr = err
 			} else {
-				e.LogDisconnectedMutexAction(err, "after regenerate")
+				e.logDisconnectedMutexAction(err, "after regenerate")
 			}
 			return
 		}
