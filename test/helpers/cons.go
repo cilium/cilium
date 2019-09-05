@@ -41,11 +41,11 @@ var (
 	// CiliumStartTimeout is a predefined timeout value for Cilium startup.
 	CiliumStartTimeout = 100 * time.Second
 
-	// CiliumBasePath is the absolute path to the cilium source repository
+	// CiliumBasePath is the path to the cilium source repository
 	// in the guest VMs
 	CiliumBasePathHost = "../"
 
-	CiliumBasePathVM = "/home/vagrant/go/src/github.com/cilium/cilium"
+	CiliumBasePathVM = "../"
 
 	// BasePath is the path in the Vagrant VMs to which the test directory
 	// is mounted

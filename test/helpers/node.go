@@ -24,7 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 
 	"github.com/sirupsen/logrus"
@@ -114,17 +113,13 @@ func GetVagrantSSHMeta(vmName string) *SSHMeta {
 // setBasePath if the SSHConfig is defined we set the BasePath to the GOPATH,
 // from golang 1.8 GOPATH is by default $HOME/go so we also check that.
 func (s *SSHMeta) setBasePath() {
-	if config.CiliumTestConfig.SSHConfig == "" {
-		return
-	}
-
-	gopath := os.Getenv("GOPATH")
+	gopath := s.Exec("echo $GOPATH").SingleOut()
 	if gopath != "" {
 		s.basePath = filepath.Join(gopath, CiliumPath)
 		return
 	}
 
-	home := os.Getenv("HOME")
+	home := s.Exec("echo $HOME").SingleOut()
 	if home == "" {
 		return
 	}
