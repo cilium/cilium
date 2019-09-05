@@ -26,7 +26,7 @@ import (
 )
 
 var (
-	starWarsDemoLinkRoot = "https://raw.githubusercontent.com/cilium/star-wars-demo/v1.0"
+	starWarsDemoLinkRoot = "https://raw.githubusercontent.com/cilium/star-wars-demo/v1.0.1"
 )
 
 func getStarWarsResourceLink(file string) string {
