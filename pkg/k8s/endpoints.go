@@ -64,6 +64,26 @@ func newEndpoints() *Endpoints {
 	}
 }
 
+// Merge merges the given endpoint's backends with the receiver's endpoints'
+// backend. If there are differences between the backends the parameter's
+// values will overwrite the values in the receiver.
+func (e *Endpoints) Merge(o *Endpoints) *Endpoints {
+	if o == nil {
+		return e
+	}
+	for oBackendIP, oBackendPorts := range o.Backends {
+		if portCfg, ok := e.Backends[oBackendIP]; ok {
+			for oPort, oL4Addr := range oBackendPorts {
+				portCfg[oPort] = oL4Addr
+			}
+			e.Backends[oBackendIP] = portCfg
+		} else {
+			e.Backends[oBackendIP] = oBackendPorts
+		}
+	}
+	return e
+}
+
 // DeepEquals returns true if both endpoints are deep equal.
 func (e *Endpoints) DeepEquals(o *Endpoints) bool {
 	switch {
