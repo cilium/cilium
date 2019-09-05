@@ -106,7 +106,7 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 		logfields.DesiredPolicyRevision:  e.nextPolicyRevision,
 		logfields.IPv4:                   e.IPv4.String(),
 		logfields.IPv6:                   e.IPv6.String(),
-		logfields.K8sPodName:             e.GetK8sNamespaceAndPodNameLocked(),
+		logfields.K8sPodName:             e.getK8sNamespaceAndPodName(),
 	})
 
 	if e.SecurityIdentity != nil {
