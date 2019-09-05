@@ -113,6 +113,7 @@ struct ipv4_nat_target {
 	 * to not mange the port, but only remap to the SNAT IP as an optimization.
 	 */
 	const bool force_range;
+	const bool force_xlate;
 };
 
 #if defined ENABLE_IPV4 && (defined ENABLE_MASQUERADE || defined ENABLE_NODEPORT)
@@ -431,7 +432,7 @@ static __always_inline bool snat_v4_can_skip(const struct ipv4_nat_target *targe
 {
 	__u16 dport = bpf_ntohs(tuple->dport), sport = bpf_ntohs(tuple->sport);
 
-	if (dir == NAT_DIR_EGRESS && sport < NAT_MIN_EGRESS)
+	if (dir == NAT_DIR_EGRESS && !target->force_xlate && sport < NAT_MIN_EGRESS)
 		return true;
 	if (dir == NAT_DIR_INGRESS && (dport < target->min_port || dport > target->max_port))
 		return true;
@@ -532,6 +533,7 @@ struct ipv6_nat_target {
 	const __u16 min_port; /* host endianess */
 	const __u16 max_port; /* host endianess */
 	const bool force_range;
+	const bool force_xlate;
 };
 
 #if defined ENABLE_IPV6 && (defined ENABLE_MASQUERADE || defined ENABLE_NODEPORT)
@@ -839,7 +841,7 @@ static __always_inline bool snat_v6_can_skip(const struct ipv6_nat_target *targe
 {
 	__u16 dport = bpf_ntohs(tuple->dport), sport = bpf_ntohs(tuple->sport);
 
-	if (dir == NAT_DIR_EGRESS && sport < NAT_MIN_EGRESS)
+	if (dir == NAT_DIR_EGRESS && !target->force_xlate && sport < NAT_MIN_EGRESS)
 		return true;
 	if (dir == NAT_DIR_INGRESS && (dport < target->min_port || dport > target->max_port))
 		return true;
