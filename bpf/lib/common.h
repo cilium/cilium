@@ -533,20 +533,6 @@ struct ct_entry {
 	__u32 last_rx_report;
 };
 
-struct lb6_key {
-        union v6addr address;
-        __be16 dport;		/* L4 port filter, if unset, all ports apply */
-	__u16 slave;		/* Backend iterator, 0 indicates the master service */
-} __attribute__((packed));
-
-struct lb6_service {
-	union v6addr target;
-	__be16 port;
-	__u16 count;
-	__u16 rev_nat_index;
-	__u16 weight;
-} __attribute__((packed));
-
 struct lb6_key_v2 {
 	union v6addr address;	/* Service virtual IPv6 address */
 	__be16 dport;		/* L4 port filter, if unset, all ports apply */
