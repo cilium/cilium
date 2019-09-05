@@ -41,7 +41,7 @@ func (ev *EndpointRegenerationEvent) Handle(res chan interface{}) {
 
 		return
 	}
-	e.RUnlock()
+	e.runlock()
 
 	// We should only queue the request after we use all the endpoint's
 	// lock/unlock. Otherwise this can get a deadlock if the endpoint is

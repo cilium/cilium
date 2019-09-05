@@ -128,7 +128,7 @@ func (e *Endpoint) RegenerateAfterRestore() error {
 	// NOTE: unconditionalRLock is used here because it's used only for logging an already restored endpoint
 	e.unconditionalRLock()
 	scopedLog.WithField(logfields.IPAddr, []string{e.IPv4.String(), e.IPv6.String()}).Info("Restored endpoint")
-	e.RUnlock()
+	e.runlock()
 	return nil
 }
 
@@ -140,7 +140,7 @@ func (e *Endpoint) restoreIdentity() error {
 	scopedLog := log.WithField(logfields.EndpointID, e.ID)
 	// Filter the restored labels with the new daemon's filter
 	l, _ := labels.FilterLabels(e.OpLabels.AllLabels())
-	e.RUnlock()
+	e.runlock()
 
 	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
 	defer cancel()
