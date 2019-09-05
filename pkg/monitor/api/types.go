@@ -115,7 +115,8 @@ const (
 	TraceFromNetwork
 )
 
-var traceObsPoints = map[uint8]string{
+// TraceObservationPoints is a map of all supported trace observation points
+var TraceObservationPoints = map[uint8]string{
 	TraceToLxc:       "to-endpoint",
 	TraceToProxy:     "to-proxy",
 	TraceToHost:      "to-host",
@@ -131,7 +132,7 @@ var traceObsPoints = map[uint8]string{
 
 // TraceObservationPoint returns the name of a trace observation point
 func TraceObservationPoint(obsPoint uint8) string {
-	if str, ok := traceObsPoints[obsPoint]; ok {
+	if str, ok := TraceObservationPoints[obsPoint]; ok {
 		return str
 	}
 	return fmt.Sprintf("%d", obsPoint)
