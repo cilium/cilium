@@ -49,50 +49,46 @@ const (
 
 // Get returns value of key
 func Get(key string) (*string, error) {
-	v, err := Client().Get(key)
-	Trace("Get", err, logrus.Fields{fieldKey: key, fieldValue: string(v)})
-	if v == nil {
+	bv, err := Client().Get(key)
+	Trace("Get", err, logrus.Fields{fieldKey: key, fieldValue: string(bv)})
+	if bv == nil {
 		return nil, err
-	} else {
-		v := string(v)
-		return &v, err
 	}
+	v := string(bv)
+	return &v, err
 }
 
 // GetIfLocked returns value of key if the client is still holding the given lock.
 func GetIfLocked(key string, lock KVLocker) (*string, error) {
-	v, err := Client().GetIfLocked(key, lock)
-	Trace("GetIfLocked", err, logrus.Fields{fieldKey: key, fieldValue: string(v)})
-	if v == nil {
+	bv, err := Client().GetIfLocked(key, lock)
+	Trace("GetIfLocked", err, logrus.Fields{fieldKey: key, fieldValue: string(bv)})
+	if bv == nil {
 		return nil, err
-	} else {
-		v := string(v)
-		return &v, err
 	}
+	v := string(bv)
+	return &v, err
 }
 
 // GetPrefix returns the first key which matches the prefix and its value.
 func GetPrefix(ctx context.Context, prefix string) (string, *string, error) {
-	k, v, err := Client().GetPrefix(ctx, prefix)
-	Trace("GetPrefix", err, logrus.Fields{fieldPrefix: prefix, fieldKey: k, fieldValue: string(v)})
-	if v == nil {
+	k, bv, err := Client().GetPrefix(ctx, prefix)
+	Trace("GetPrefix", err, logrus.Fields{fieldPrefix: prefix, fieldKey: k, fieldValue: string(bv)})
+	if bv == nil {
 		return k, nil, err
-	} else {
-		v := string(v)
-		return k, &v, err
 	}
+	v := string(bv)
+	return k, &v, err
 }
 
 // GetPrefixIfLocked returns the first key which matches the prefix and its value if the client is still holding the given lock.
 func GetPrefixIfLocked(ctx context.Context, prefix string, lock KVLocker) (string, *string, error) {
-	k, v, err := Client().GetPrefixIfLocked(ctx, prefix, lock)
-	Trace("GetPrefixIfLocked", err, logrus.Fields{fieldPrefix: prefix, fieldKey: k, fieldValue: string(v)})
-	if v == nil {
+	k, bv, err := Client().GetPrefixIfLocked(ctx, prefix, lock)
+	Trace("GetPrefixIfLocked", err, logrus.Fields{fieldPrefix: prefix, fieldKey: k, fieldValue: string(bv)})
+	if bv == nil {
 		return k, nil, err
-	} else {
-		v := string(v)
-		return k, &v, err
 	}
+	v := string(bv)
+	return k, &v, err
 }
 
 // ListPrefix returns the list of keys matching the prefix
