@@ -1506,9 +1506,10 @@
   version = "v2.2.1"
 
 [[projects]]
-  digest = "1:760e08df99c3c3b53764ef7c41c03ea9d90e8594d9df42364d9209e99a0352e1"
+  digest = "1:061024a203efbf02654d4aa55d69cd10d1f8985dada4cbafe5d6ce1b6914d22a"
   name = "k8s.io/api"
   packages = [
+    "admissionregistration/v1",
     "admissionregistration/v1beta1",
     "apps/v1",
     "apps/v1beta1",
@@ -1528,6 +1529,7 @@
     "coordination/v1",
     "coordination/v1beta1",
     "core/v1",
+    "discovery/v1alpha1",
     "events/v1beta1",
     "extensions/v1beta1",
     "networking/v1",
@@ -1547,26 +1549,28 @@
     "storage/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.15.3"
+  revision = "kubernetes-1.16.0-rc.2"
 
 [[projects]]
-  digest = "1:e53c720ac9b16d35cbc40bbb07582c24f1a89557b89fe35328f539e5fa1a34d8"
+  digest = "1:6aab404e4451f049e6c4dfdb102d43fb209b445cdac708f7e74b5e70b41ddd90"
   name = "k8s.io/apiextensions-apiserver"
   packages = [
     "pkg/apis/apiextensions",
+    "pkg/apis/apiextensions/v1",
     "pkg/apis/apiextensions/v1beta1",
     "pkg/client/clientset/clientset",
     "pkg/client/clientset/clientset/scheme",
+    "pkg/client/clientset/clientset/typed/apiextensions/v1",
     "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
-    "pkg/features",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.15.3"
+  revision = "kubernetes-1.16.0-rc.2"
 
 [[projects]]
-  digest = "1:fa17ab617911e9fdcd3eccb05e815ce02d6fe3b8a113d00d63001b507862250e"
+  digest = "1:26f6aafe332e6b1639c6c5701c7130e8c146b58afa29c36700f34fab3e20070a"
   name = "k8s.io/apimachinery"
   packages = [
+    "pkg/api/equality",
     "pkg/api/errors",
     "pkg/api/meta",
     "pkg/api/resource",
@@ -1612,20 +1616,10 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.15.3"
+  revision = "kubernetes-1.16.0-rc.2"
 
 [[projects]]
-  digest = "1:2e3f244d6f43f038d3fa4450be13ca29574df19f32f64f358a75c24770d5f002"
-  name = "k8s.io/apiserver"
-  packages = [
-    "pkg/features",
-    "pkg/util/feature",
-  ]
-  pruneopts = "NUT"
-  revision = "kubernetes-1.15.3"
-
-[[projects]]
-  digest = "1:810f2bd2036993645a6ea789ce05425fd48259e2c1ab920ba7fcb88e90e6467f"
+  digest = "1:80871e6c8e3ca1a42411eb5fb4ceb8d754b5bdfac9beaee110048e0c0485f7b4"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -1633,6 +1627,8 @@
     "kubernetes",
     "kubernetes/fake",
     "kubernetes/scheme",
+    "kubernetes/typed/admissionregistration/v1",
+    "kubernetes/typed/admissionregistration/v1/fake",
     "kubernetes/typed/admissionregistration/v1beta1",
     "kubernetes/typed/admissionregistration/v1beta1/fake",
     "kubernetes/typed/apps/v1",
@@ -1671,6 +1667,8 @@
     "kubernetes/typed/coordination/v1beta1/fake",
     "kubernetes/typed/core/v1",
     "kubernetes/typed/core/v1/fake",
+    "kubernetes/typed/discovery/v1alpha1",
+    "kubernetes/typed/discovery/v1alpha1/fake",
     "kubernetes/typed/events/v1beta1",
     "kubernetes/typed/events/v1beta1/fake",
     "kubernetes/typed/extensions/v1beta1",
@@ -1733,11 +1731,11 @@
     "util/retry",
   ]
   pruneopts = "NUT"
-  revision = "d946203e8cddbb59e4cce706cc672a1cd65bad56"
+  revision = "681a44b69bb78f00dd0da0ba092a7e01d08d99bd"
   source = "https://github.com/cilium/client-go"
 
 [[projects]]
-  digest = "1:f41480fd8c5f54b13326ee0f2ee398d5734789b790dbc4db57f9b08a0d63139a"
+  digest = "1:1b6fd3650ea50bc09ff7174c152175eeb4459d579585163ecae6ff1d82dee3d4"
   name = "k8s.io/code-generator"
   packages = [
     "cmd/client-gen",
@@ -1752,25 +1750,17 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "kubernetes-1.15.3"
+  revision = "kubernetes-1.16.0-rc.2"
 
 [[projects]]
-  branch = "master"
-  digest = "1:661387e3ba412767f773c327c3752e05f13b280677661d77de30345e598ddc01"
-  name = "k8s.io/component-base"
-  packages = ["featuregate"]
-  pruneopts = "NUT"
-  revision = "4ec51977545472652ffe99d8f6ca92c55f018f31"
-
-[[projects]]
-  digest = "1:6ab908b738c8935c785ff7562d574ce3ed8559301610906ff3c4c5ca88db863d"
+  digest = "1:5e496d711fa03e4aaf3cab0d7de079634a9465ebf940613b69b34f5cc6513db8"
   name = "k8s.io/cri-api"
   packages = ["pkg/apis/runtime/v1alpha2"]
   pruneopts = "NUT"
-  revision = "kubernetes-1.15.3"
+  revision = "kubernetes-1.16.0-rc.2"
 
 [[projects]]
-  digest = "1:61024ed77a53ac618effed55043bf6a9afbdeb64136bd6a5b0c992d4c0363766"
+  digest = "1:d233b263f74608ab5528c04453935d899a2b9fb0bf02b03d38a4a11f91442a5c"
   name = "k8s.io/gengo"
   packages = [
     "args",
@@ -1783,14 +1773,14 @@
     "types",
   ]
   pruneopts = "NUT"
-  revision = "f8a0810f38afb8478882b3835a615aebfda39afa"
+  revision = "26a664648505d962332bda642b27306bc10d1082"
 
 [[projects]]
-  digest = "1:90dac8d69edf2e941129e41e989f5d0085ea1de22d16988a7ddef01a66c8d45b"
+  digest = "1:c05ad592787fc6cdacf8c5309d826561aa4a7d9e4e7ea28660dfb2c77ff68ab0"
   name = "k8s.io/klog"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "v0.3.1"
+  revision = "v0.4.0"
 
 [[projects]]
   branch = "master"
@@ -1801,23 +1791,21 @@
   revision = "c01ed926f1243ac17a23a66f67da7fbdb2e2e298"
 
 [[projects]]
-  digest = "1:0ed05a6588de154fb16f7892110354966ee206e28cca93b621d679d1d3eba028"
+  digest = "1:6fc4e20e0e0b1373bcc060bc81d0f9c2a14d117102f3bcc9916e85d7327263c3"
   name = "k8s.io/kubernetes"
   packages = [
     "pkg/apis/core",
     "pkg/apis/scheduling",
-    "pkg/features",
     "pkg/kubelet/types",
     "pkg/kubelet/util",
     "pkg/registry/core/service/allocator",
     "pkg/registry/core/service/ipallocator",
   ]
   pruneopts = "NUT"
-  revision = "v1.15.3"
+  revision = "v1.16.0-rc.2"
 
 [[projects]]
-  branch = "master"
-  digest = "1:5011e453320ffdc30c5a06516f4de57df6e1c094b2923a1c7e699ea3f4364bc9"
+  digest = "1:99dbf7ef753ca02399778c93a4ed4b689b28668317134ecd1fabeb07be70f354"
   name = "k8s.io/utils"
   packages = [
     "buffer",
@@ -1826,7 +1814,7 @@
     "trace",
   ]
   pruneopts = "NUT"
-  revision = "21c4ce38f2a793ec01e925ddc31216500183b773"
+  revision = "581e00157fb1a0435d4fac54a52d1ca1e481d60e"
 
 [[projects]]
   digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"
