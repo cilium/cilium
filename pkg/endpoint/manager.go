@@ -105,7 +105,7 @@ func (e *Endpoint) generateReferences() map[id.PrefixType]string {
 		refs[id.ContainerNamePrefix] = e.ContainerName
 	}
 
-	if podName := e.GetK8sNamespaceAndPodNameLocked(); podName != "" {
+	if podName := e.getK8sNamespaceAndPodName(); podName != "" {
 		refs[id.PodNamePrefix] = podName
 	}
 	return refs

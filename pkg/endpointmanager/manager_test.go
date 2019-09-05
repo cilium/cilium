@@ -702,9 +702,7 @@ func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
 		ep = mgr.lookupDockerContainerName(want.ep.GetContainerName())
 		c.Assert(ep, checker.DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
 
-		want.ep.UnconditionalRLock()
-		ep = mgr.LookupPodName(want.ep.GetK8sNamespaceAndPodNameLocked())
-		want.ep.RUnlock()
+		ep = mgr.LookupPodName(want.ep.GetK8sNamespaceAndPodName())
 		c.Assert(ep, checker.DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
 		tt.postTestRun()
 	}

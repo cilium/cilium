@@ -143,7 +143,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 	for _, ep := range possibleEPs {
 		scopedLog := log.WithField(logfields.EndpointID, ep.ID)
 		if k8s.IsEnabled() {
-			scopedLog = scopedLog.WithField("k8sPodName", ep.GetK8sNamespaceAndPodNameLocked())
+			scopedLog = scopedLog.WithField("k8sPodName", ep.GetK8sNamespaceAndPodName())
 		}
 
 		restore, err := d.validateEndpoint(ep)
