@@ -135,6 +135,7 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 
 		k = &Kubectl{
 			Executor: node,
+			BasePath: node.BasePath(),
 		}
 		k.setBasePath()
 	} else {
@@ -1086,9 +1087,8 @@ func (kub *Kubectl) generateCiliumYaml(options []string, filename string) error 
 
 	// TODO GH-8753: Use helm rendering library instead of shelling out to
 	// helm template
-	helmTemplate := filepath.Join(kub.BasePath(), HelmTemplate)
-	res := kub.ExecMiddle(fmt.Sprintf("helm template %s --namespace=kube-system %s > %s",
-		helmTemplate, strings.Join(options, " "), filename))
+	res := kub.ExecMiddle(fmt.Sprintf("pwd; helm template %s --namespace=kube-system %s > %s",
+		kub.GetFilePath(helmTemplate), strings.Join(options, " "), filename))
 	if !res.WasSuccessful() {
 		return res.GetErr("Unable to generate YAML")
 	}
