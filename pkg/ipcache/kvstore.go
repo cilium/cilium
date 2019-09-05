@@ -61,7 +61,7 @@ var (
 type store interface {
 	// update will insert the {key, value} tuple into the underlying
 	// kvstore.
-	upsert(ctx context.Context, key string, value []byte, lease bool) error
+	upsert(ctx context.Context, key string, value string, lease bool) error
 
 	// delete will remove the key from the underlying kvstore.
 	release(ctx context.Context, key string) error
@@ -72,7 +72,7 @@ type kvstoreImplementation struct{}
 
 // upsert places the mapping of {key, value} into the kvstore, optionally with
 // a lease.
-func (k kvstoreImplementation) upsert(ctx context.Context, key string, value []byte, lease bool) error {
+func (k kvstoreImplementation) upsert(ctx context.Context, key string, value string, lease bool) error {
 	_, err := kvstore.UpdateIfDifferent(ctx, key, value, lease)
 	return err
 }
@@ -126,7 +126,7 @@ func UpsertIPToKVStore(ctx context.Context, IP, hostIP net.IP, ID identity.Numer
 		logfields.Modification: Upsert,
 	}).Debug("Upserting IP->ID mapping to kvstore")
 
-	err = globalMap.store.upsert(ctx, ipKey, marshaledIPIDPair, true)
+	err = globalMap.store.upsert(ctx, ipKey, string(marshaledIPIDPair), true)
 	if err == nil {
 		globalMap.Lock()
 		globalMap.marshaledIPIDPairs[ipKey] = marshaledIPIDPair
@@ -291,7 +291,7 @@ restart:
 
 				if m, ok := globalMap.marshaledIPIDPairs[event.Key]; ok {
 					log.WithField("ip", ip).Warning("Received kvstore delete notification for alive ipcache entry")
-					err := globalMap.store.upsert(context.TODO(), event.Key, m, true)
+					err := globalMap.store.upsert(context.TODO(), event.Key, string(m), true)
 					if err != nil {
 						log.WithError(err).WithField("ip", ip).Warning("Unable to re-create alive ipcache entry")
 					}
