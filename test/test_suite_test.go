@@ -39,7 +39,7 @@ import (
 var (
 	log             = logging.DefaultLogger
 	DefaultSettings = map[string]string{
-		"K8S_VERSION": "1.15",
+		"K8S_VERSION": "1.16",
 	}
 	k8sNodesEnv         = "K8S_NODES"
 	commandsLogFileName = "cmds.log"
