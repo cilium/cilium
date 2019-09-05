@@ -160,58 +160,6 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		return invalidDataError(ep, err)
 	}
 
-	addLabels := labels.NewLabelsFromModel(epTemplate.Labels)
-	infoLabels := labels.NewLabelsFromModel([]string{})
-
-	if len(addLabels) > 0 {
-		if lbls := addLabels.FindReserved(); lbls != nil {
-			return invalidDataError(ep, fmt.Errorf("not allowed to add reserved labels: %s", lbls))
-		}
-
-		addLabels, _, _ = checkLabels(addLabels, nil)
-		if len(addLabels) == 0 {
-			return invalidDataError(ep, fmt.Errorf("no valid labels provided"))
-		}
-	}
-
-	if ep.K8sNamespaceAndPodNameIsSet() && k8s.IsEnabled() {
-		identityLabels, info, err := fetchK8sLabels(ep)
-		if err != nil {
-			ep.Logger("api").WithError(err).Warning("Unable to fetch kubernetes labels")
-		} else {
-			addLabels.MergeLabels(identityLabels)
-			infoLabels.MergeLabels(info)
-		}
-	}
-
-	if len(addLabels) == 0 {
-		// If the endpoint has no labels, give the endpoint a special identity with
-		// label reserved:init so we can generate a custom policy for it until we
-		// get its actual identity.
-		addLabels = labels.Labels{
-			labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
-		}
-	}
-
-	err = d.endpointManager.AddEndpoint(d, ep, "Create endpoint from API PUT")
-	if err != nil {
-		return d.errorDuringCreation(ep, fmt.Errorf("unable to insert endpoint into manager: %s", err))
-	}
-
-	ep.UpdateLabels(ctx, addLabels, infoLabels, true)
-
-	select {
-	case <-ctx.Done():
-		return d.errorDuringCreation(ep, fmt.Errorf("request cancelled while resolving identity"))
-	default:
-	}
-
-	// Now that we have ep.ID we can pin the map from this point. This
-	// also has to happen before the first build took place.
-	if err = ep.PinDatapathMap(); err != nil {
-		return d.errorDuringCreation(ep, fmt.Errorf("unable to pin datapath maps: %s", err))
-	}
-
 	cfunc := func() {
 		// Only used for CRI-O since it does not support events.
 		if d.workloadsEventsCh != nil && ep.GetContainerID() != "" {
