@@ -130,6 +130,8 @@ type Endpoint struct {
 	// libnetwork
 	dockerEndpointID string
 
+	annotations map[string]string
+
 	// Corresponding BPF map identifier for tail call map of ipvlan datapath
 	datapathMapID int
 
@@ -276,6 +278,13 @@ type Endpoint struct {
 	// plugin which performed the plumbing will enable certain datapath
 	// features according to the mode selected.
 	DatapathConfiguration models.EndpointDatapathConfiguration
+}
+
+// UpdateAnnotations updates the annotations for this Endpoint.
+func (e *Endpoint) UpdateAnnotations(anno map[string]string) {
+	e.unconditionalLock()
+	defer e.unlock()
+	e.annotations = anno
 }
 
 // UpdateController updates the controller with the specified name with the
