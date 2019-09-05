@@ -152,13 +152,12 @@ func (s *AllocatorSuite) TestGC(c *C) {
 			c.Error(err)
 			return false
 		}
-		//FIXME: This isn't nil but it probably should be. This is because TestAllocatorKey is setup with "" and returns itself, a non-nil
-		return key == nil || key.String() == ""
+		return key == nil
 	}, 5*time.Second), IsNil)
 
 	key, err := allocator.GetByID(shortID)
 	c.Assert(err, IsNil)
-	c.Assert(key, Equals, TestAllocatorKey(""))
+	c.Assert(key, IsNil)
 }
 
 func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {

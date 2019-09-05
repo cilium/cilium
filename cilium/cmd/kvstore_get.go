@@ -53,16 +53,16 @@ var kvstoreGetCmd = &cobra.Command{
 			}
 		} else {
 			val, err := kvstore.Get(key)
-			if err != nil {
+			if err != nil || val == nil {
 				Fatalf("Unable to retrieve key: %s", err)
 			}
 			if command.OutputJSON() {
-				if err := command.PrintOutput(val); err != nil {
+				if err := command.PrintOutput(*val); err != nil {
 					os.Exit(1)
 				}
 				return
 			}
-			fmt.Printf("%s => %s\n", key, string(val))
+			fmt.Printf("%s => %s\n", key, *val)
 		}
 	},
 }
