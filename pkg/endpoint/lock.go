@@ -60,7 +60,7 @@ func (e *Endpoint) UnconditionalRLock() {
 	e.mutex.RLock()
 }
 
-// LogDisconnectedMutexAction gets the logger and logs given error with context
-func (e *Endpoint) LogDisconnectedMutexAction(err error, context string) {
+// logDisconnectedMutexAction gets the logger and logs given error with context
+func (e *Endpoint) logDisconnectedMutexAction(err error, context string) {
 	e.getLogger().WithError(err).Error(context)
 }
