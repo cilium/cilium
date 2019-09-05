@@ -202,7 +202,7 @@ pipeline {
             }
         }
 
-        stage('Copy code and boot VMs 1.{14}'){
+        stage('Copy code and boot VMs 1.{14,15}'){
 
             options {
                 timeout(time: 60, unit: 'MINUTES')
@@ -238,9 +238,9 @@ pipeline {
                         }
                     }
                 }
-                /* stage('Boot vms 1.16') {
+                stage('Boot vms 1.15') {
                     environment {
-                        TESTED_SUITE="1.16"
+                        TESTED_SUITE="1.15"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
@@ -256,15 +256,15 @@ pipeline {
                         unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
-                                    currentBuild.displayName = 'K8S 1.16 vm provisioning fail\n' + currentBuild.displayName
+                                    currentBuild.displayName = 'K8S 1.15 vm provisioning fail\n' + currentBuild.displayName
                                 }
                             }
                         }
                     }
-                }*/
+                }
             }
         }
-        stage('BDD-Test-k8s-1.14') {
+        stage('BDD-Test-k8s-1.{14,15}') {
             environment {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
@@ -298,9 +298,9 @@ pipeline {
                         }
                     }
                 }
-                /*stage('BDD-Test-k8s-1.16') {
+                stage('BDD-Test-k8s-1.15') {
                     environment {
-                        TESTED_SUITE="1.16"
+                        TESTED_SUITE="1.15"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
@@ -318,12 +318,12 @@ pipeline {
                         unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
-                                    currentBuild.displayName = 'K8s 1.16 tests fail\n' + currentBuild.displayName
+                                    currentBuild.displayName = 'K8s 1.15 tests fail\n' + currentBuild.displayName
                                 }
                             }
                         }
                     }
-                }*/
+                }
             }
         }
     }

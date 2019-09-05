@@ -664,12 +664,12 @@ var _ = Describe("K8sPolicyTest", func() {
 					namespaceForTest, cnpUpdateNoSpecs, helpers.KubectlApply, helpers.HelperTimeout)
 				switch helpers.GetCurrentK8SEnv() {
 				// In k8s 1.15 no-specs policy is not allowed by kube-apiserver
-				case "1.15":
-					Expect(err).Should(Not(BeNil()), "%q Policy cannot be applied", cnpUpdateAllow)
-					validateL3L4(denyFromApp3)
-				default:
+				case "1.8", "1.9", "1.10", "1.11", "1.12", "1.13", "1.14":
 					Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateAllow)
 					validateL3L4(allowAll)
+				default:
+					Expect(err).Should(Not(BeNil()), "%q Policy cannot be applied", cnpUpdateAllow)
+					validateL3L4(denyFromApp3)
 				}
 
 				By("Applying l3-l4 policy with user-specified labels")
@@ -753,8 +753,13 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			kubectl.Delete(helpers.ManifestGet(kubectl.BasePath(), webPolicy)).ExpectSuccess(
 				"Web policy cannot be deleted")
-			kubectl.Delete(helpers.ManifestGet(kubectl.BasePath(), redisPolicyDeprecated)).ExpectSuccess(
-				"Redis deprecated policy cannot be deleted")
+			k8sVersion := helpers.GetCurrentK8SEnv()
+			switch k8sVersion {
+			case "1.10", "1.11", "1.12", "1.13", "1.14", "1.15":
+				kubectl.Delete(helpers.ManifestGet(kubectl.BasePath(), redisPolicyDeprecated)).ExpectSuccess(
+					"Redis deprecated policy cannot be deleted")
+			default:
+			}
 			kubectl.Delete(helpers.ManifestGet(kubectl.BasePath(), deployment)).ExpectSuccess(
 				"Guestbook deployment cannot be deleted")
 
@@ -854,6 +859,13 @@ EOF`, k, v)
 				helpers.DefaultNamespace, helpers.ManifestGet(kubectl.BasePath(), redisPolicy),
 				helpers.KubectlDelete, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot apply redis policy")
+
+			k8sVersion := helpers.GetCurrentK8SEnv()
+			switch k8sVersion {
+			case "1.10", "1.11", "1.12", "1.13", "1.14", "1.15":
+			default:
+				Skip(fmt.Sprintf("K8s %s doesn't support extensions/v1beta1 NetworkPolicies, skipping test", k8sVersion))
+			}
 
 			By("Apply deprecated policy to Redis")
 
