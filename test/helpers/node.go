@@ -114,10 +114,6 @@ func GetVagrantSSHMeta(vmName string) *SSHMeta {
 // setBasePath if the SSHConfig is defined we set the BasePath to the GOPATH,
 // from golang 1.8 GOPATH is by default $HOME/go so we also check that.
 func (s *SSHMeta) setBasePath() {
-	if config.CiliumTestConfig.SSHConfig == "" {
-		return
-	}
-
 	gopath := os.Getenv("GOPATH")
 	if gopath != "" {
 		s.basePath = filepath.Join(gopath, CiliumPath)
