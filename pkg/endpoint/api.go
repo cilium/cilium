@@ -127,7 +127,7 @@ func NewEndpointFromChangeModel(owner regeneration.Owner, base *models.EndpointC
 	ep.SetDefaultOpts(option.Config.Opts)
 
 	ep.UpdateLogger(nil)
-	ep.SetStateLocked(string(base.State), "Endpoint creation")
+	ep.setState(string(base.State), "Endpoint creation")
 
 	return ep, nil
 }
@@ -474,7 +474,7 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 		validPatchTransitionState &&
 		e.GetStateLocked() != StateWaitingForIdentity {
 		// Will not change state if the current state does not allow the transition.
-		if e.SetStateLocked(StateWaitingForIdentity, "Update endpoint from API PATCH") {
+		if e.setState(StateWaitingForIdentity, "Update endpoint from API PATCH") {
 			changed = true
 		}
 	}
@@ -505,7 +505,7 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 	// If desired state is waiting-for-identity but identity is already
 	// known, bump it to ready state immediately to force re-generation
 	if e.GetStateLocked() == StateWaitingForIdentity && e.SecurityIdentity != nil {
-		e.SetStateLocked(StateReady, "Preparing to force endpoint regeneration because identity is known while handling API PATCH")
+		e.setState(StateReady, "Preparing to force endpoint regeneration because identity is known while handling API PATCH")
 		changed = true
 	}
 
@@ -518,7 +518,7 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 
 		// Transition to waiting-to-regenerate if ready.
 		if e.GetStateLocked() == StateReady {
-			e.SetStateLocked(StateWaitingToRegenerate, "Forcing endpoint regeneration because identity is known while handling API PATCH")
+			e.setState(StateWaitingToRegenerate, "Forcing endpoint regeneration because identity is known while handling API PATCH")
 		}
 
 		switch e.GetStateLocked() {

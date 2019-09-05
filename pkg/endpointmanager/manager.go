@@ -336,7 +336,7 @@ func (mgr *EndpointManager) RemoveReferences(mappings map[endpointid.PrefixType]
 	}
 }
 
-// RegenerateAllEndpoints calls a SetStateLocked for each endpoint and
+// RegenerateAllEndpoints calls a setState for each endpoint and
 // regenerates if state transaction is valid. During this process, the endpoint
 // list is locked and cannot be modified.
 // Returns a waiting group that can be used to know when all the endpoints are

@@ -422,10 +422,10 @@ func (e *Endpoint) RegenerateIfAlive(regenMetadata *regeneration.ExternalRegener
 		state := e.GetStateLocked()
 		switch state {
 		case StateRestoring, StateWaitingToRegenerate:
-			e.SetStateLocked(state, fmt.Sprintf("Skipped duplicate endpoint regeneration trigger due to %s", regenMetadata.Reason))
+			e.setState(state, fmt.Sprintf("Skipped duplicate endpoint regeneration trigger due to %s", regenMetadata.Reason))
 			regen = false
 		default:
-			regen = e.SetStateLocked(StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
+			regen = e.setState(StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
 		}
 		e.Unlock()
 		if regen {
@@ -613,7 +613,7 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool)
 
 	// Sets endpoint state to ready if was waiting for identity
 	if e.GetStateLocked() == StateWaitingForIdentity {
-		e.SetStateLocked(StateReady, "Set identity for this endpoint")
+		e.setState(StateReady, "Set identity for this endpoint")
 	}
 
 	// Whenever the identity is updated, propagate change to key-value store
