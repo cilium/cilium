@@ -1,17 +1,16 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 metadata:
-  name: "external-policy-labeled"
+  name: "external-policy"
 spec:
   endpointSelector:
     matchLabels:
       "test": "toservices"
   egress:
   - toServices:
-    - k8sServiceSelector:
-        selector:
-          matchLabels:
-            "test": "external"
+    - k8sService:
+        serviceName: external-ips-service
+        namespace: default
   - toPorts:
       - ports:
           - port: '53'
