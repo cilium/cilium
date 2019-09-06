@@ -28,7 +28,7 @@ import (
 )
 
 func (s *EndpointSuite) TestWriteInformationalComments(c *C) {
-	e := NewEndpointWithState(s, 100, StateCreating)
+	e := NewEndpointWithState(s, &FakeEndpointProxy{}, 100, StateCreating)
 
 	var f bytes.Buffer
 	err := e.writeInformationalComments(&f)
@@ -38,7 +38,7 @@ func (s *EndpointSuite) TestWriteInformationalComments(c *C) {
 type writeFunc func(io.Writer) error
 
 func BenchmarkWriteHeaderfile(b *testing.B) {
-	e := NewEndpointWithState(&suite, 100, StateCreating)
+	e := NewEndpointWithState(&suite, &FakeEndpointProxy{}, 100, StateCreating)
 	dp := linux.NewDatapath(linux.DatapathConfiguration{}, nil)
 
 	targetComments := func(w io.Writer) error {

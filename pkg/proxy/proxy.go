@@ -634,3 +634,8 @@ func (p *Proxy) UpdateRedirectMetrics() {
 		metrics.ProxyRedirects.WithLabelValues(proto).Set(float64(count))
 	}
 }
+
+// UpdateProxyRedirect must update the redirect configuration of an endpoint in the proxy
+func (p *Proxy) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
+	return p.XDSServer.UpdateNetworkPolicy(ep, policy, ingressPolicyEnforced, egressPolicyEnforced, wg)
+}

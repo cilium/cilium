@@ -166,7 +166,7 @@ func (e *Endpoint) addNewRedirectsFromMap(m policy.L4PolicyMap, desiredRedirects
 			if !e.hasSidecarProxy || l4.L7Parser != policy.ParserTypeHTTP {
 				var finalizeFunc revert.FinalizeFunc
 				var revertFunc revert.RevertFunc
-				redirectPort, err, finalizeFunc, revertFunc = e.owner.UpdateProxyRedirect(e, l4, proxyWaitGroup)
+				redirectPort, err, finalizeFunc, revertFunc = e.updateProxyRedirect(l4, proxyWaitGroup)
 				if err != nil {
 					revertStack.Revert() // Ignore errors while reverting. This is best-effort.
 					return err, nil, nil
@@ -299,7 +299,7 @@ func (e *Endpoint) removeOldRedirects(desiredRedirects map[string]bool, proxyWai
 			continue
 		}
 
-		err, finalizeFunc, revertFunc := e.owner.RemoveProxyRedirect(e, id, proxyWaitGroup)
+		err, finalizeFunc, revertFunc := e.proxy.RemoveRedirect(id, proxyWaitGroup)
 		if err != nil {
 			e.getLogger().WithError(err).WithField(logfields.L4PolicyID, id).Warn("Error while removing proxy redirect")
 			continue
