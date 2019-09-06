@@ -19,33 +19,38 @@ For installing ``kubeadm`` and for more provisioning options please refer to
 
 Initialize the control-plane node:
 
-.. code:: bash
+.. tabs::
 
-    kubeadm init --pod-network-cidr=10.217.0.0/16
+  .. group-tab:: K8s 1.16 and newer
 
-.. note::
+    .. code:: bash
 
-    Currently, it is not possible to disable kube-proxy via ``--skip-phases=addon/kube-proxy``
-    due to the bug `kubeadm#1733 <https://github.com/kubernetes/kubeadm/issues/1733>`__.
+      kubeadm init --pod-network-cidr=10.217.0.0/16 --skip-phases=addon/kube-proxy
 
-    Once it has been resolved, the workaround below for manually removing the
-    ``kube-proxy`` DaemonSet and iptables-save/restore cleaning is no longer needed
-    and initialization would look like:
-    ``kubeadm init --pod-network-cidr=10.217.0.0/16 --skip-phases=addon/kube-proxy``
+  .. group-tab:: K8s 1.15 and older
 
-Next, delete the ``kube-proxy`` DaemonSet and remove its iptables rules:
+    .. code:: bash
 
-.. code:: bash
+      kubeadm init --pod-network-cidr=10.217.0.0/16
 
-   kubectl -n kube-system delete ds kube-proxy
-   iptables-restore <(iptables-save | grep -v KUBE)
+    
+    In K8s 1.15 and older it is not yet possible to disable kube-proxy via ``--skip-phases=addon/kube-proxy``,
+    therefore the below workaround for manually removing the ``kube-proxy`` DaemonSet and cleaning the
+    corresponding iptables rules is still necessary (`kubeadm#1733 <https://github.com/kubernetes/kubeadm/issues/1733>`__).
+    
+    Delete the ``kube-proxy`` DaemonSet and remove its iptables rules as following:
+
+    .. code:: bash
+
+      kubectl -n kube-system delete ds kube-proxy
+      iptables-restore <(iptables-save | grep -v KUBE)
 
 Afterwards, join worker nodes by specifying the control-plane node IP address
 and the token returned by ``kubeadm init``:
 
 .. code:: bash
 
-   kubectl join <..>
+   kubeadm join <..>
 
 Download the Cilium release tarball and change to the Kubernetes
 install directory:
