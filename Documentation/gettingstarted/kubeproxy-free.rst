@@ -45,7 +45,7 @@ and the token returned by ``kubeadm init``:
 
 .. code:: bash
 
-   kubectl join <..>
+   kubeadm join <..>
 
 Download the Cilium release tarball and change to the Kubernetes
 install directory:
