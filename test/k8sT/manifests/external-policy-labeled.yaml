@@ -7,12 +7,9 @@ spec:
     matchLabels:
       "test": "toservices"
   egress:
-  - toServices:
+  -
+    toServices:
     - k8sServiceSelector:
         selector:
           matchLabels:
             "test": "external"
-  - toPorts:
-      - ports:
-          - port: '53'
-            protocol: ANY

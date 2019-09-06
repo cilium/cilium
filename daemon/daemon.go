@@ -27,12 +27,9 @@ import (
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/clustermesh"
-	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/datapath"
-	bpfIPCache "github.com/cilium/cilium/pkg/datapath/ipcache"
-	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/debug"
@@ -55,12 +52,8 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
-	"github.com/cilium/cilium/pkg/maps/lbmap"
-	"github.com/cilium/cilium/pkg/maps/lxcmap"
-	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
-	"github.com/cilium/cilium/pkg/maps/tunnel"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -72,17 +65,13 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
-	"github.com/cilium/cilium/pkg/proxy/logger"
-	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/sockops"
-	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/trigger"
 	"github.com/cilium/cilium/pkg/workloads"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 
 	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -188,131 +177,6 @@ type Daemon struct {
 	endpointManager *endpointmanager.EndpointManager
 }
 
-// Datapath returns a reference to the datapath implementation.
-func (d *Daemon) Datapath() datapath.Datapath {
-	return d.datapath
-}
-
-// UpdateProxyRedirect updates the redirect rules in the proxy for a particular
-// endpoint using the provided L4 filter. Returns the allocated proxy port
-func (d *Daemon) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
-	if d.l7Proxy == nil {
-		return 0, fmt.Errorf("can't redirect, proxy disabled"), nil, nil
-	}
-
-	port, err, finalizeFunc, revertFunc := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, proxyWaitGroup)
-	if err != nil {
-		return 0, err, nil, nil
-	}
-
-	return port, nil, finalizeFunc, revertFunc
-}
-
-// RemoveProxyRedirect removes a previously installed proxy redirect for an
-// endpoint
-func (d *Daemon) RemoveProxyRedirect(e regeneration.EndpointInfoSource, id string, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
-	if d.l7Proxy == nil {
-		return nil, nil, nil
-	}
-
-	log.WithFields(logrus.Fields{
-		logfields.EndpointID: e.GetID(),
-		logfields.L4PolicyID: id,
-	}).Debug("Removing redirect to endpoint")
-	return d.l7Proxy.RemoveRedirect(id, proxyWaitGroup)
-}
-
-// UpdateNetworkPolicy adds or updates a network policy in the set
-// published to L7 proxies.
-func (d *Daemon) UpdateNetworkPolicy(e regeneration.EndpointUpdater, policy *policy.L4Policy,
-	proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
-	if d.l7Proxy == nil {
-		return fmt.Errorf("can't update network policy, proxy disabled"), nil
-	}
-	err, revertFunc := d.l7Proxy.UpdateNetworkPolicy(e, policy, e.GetIngressPolicyEnabledLocked(),
-		e.GetEgressPolicyEnabledLocked(), proxyWaitGroup)
-	return err, revert.RevertFunc(revertFunc)
-}
-
-// RemoveNetworkPolicy removes a network policy from the set published to
-// L7 proxies.
-func (d *Daemon) RemoveNetworkPolicy(e regeneration.EndpointInfoSource) {
-	if d.l7Proxy == nil {
-		return
-	}
-	d.l7Proxy.RemoveNetworkPolicy(e)
-}
-
-// QueueEndpointBuild waits for a "build permit" for the endpoint
-// identified by 'epID'. This function blocks until the endpoint can
-// start building.  The returned function must then be called to
-// release the "build permit" when the most resource intensive parts
-// of the build are done. The returned function is idempotent, so it
-// may be called more than once. Returns a nil function if the caller should NOT
-// start building the endpoint. This may happen due to a build being
-// queued for the endpoint already, or due to the wait for the build
-// permit being canceled. The latter case happens when the endpoint is
-// being deleted. Returns an error if the build permit could not be acquired.
-func (d *Daemon) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
-	d.uniqueIDMU.Lock()
-	// Skip new build requests if the endpoint is already in the queue
-	// waiting. In this case the queued build will pick up any changes
-	// made so far, so there is no need to queue another build now.
-	if _, queued := d.uniqueID[epID]; queued {
-		d.uniqueIDMU.Unlock()
-		return nil, nil
-	}
-	// Store a cancel function to the 'uniqueID' map so that we can
-	// cancel the wait when the endpoint is being deleted.
-	uniqueIDCtx, cancel := context.WithCancel(ctx)
-	d.uniqueID[epID] = cancel
-	d.uniqueIDMU.Unlock()
-
-	// Acquire build permit. This may block.
-	err := d.buildEndpointSem.Acquire(uniqueIDCtx, 1)
-
-	// Not queueing any more, so remove the cancel func from 'uniqueID' map.
-	// The caller may still cancel the build by calling the cancel func after we
-	// return it. After this point another build may be queued for this
-	// endpoint.
-	d.uniqueIDMU.Lock()
-	delete(d.uniqueID, epID)
-	d.uniqueIDMU.Unlock()
-
-	if err != nil {
-		return nil, err // Acquire failed
-	}
-
-	// Acquire succeeded, but the context was canceled after?
-	if uniqueIDCtx.Err() != nil {
-		d.buildEndpointSem.Release(1)
-		return nil, uniqueIDCtx.Err()
-	}
-
-	// At this point the build permit has been acquired. It must
-	// be released by the caller by calling the returned function
-	// when the heavy lifting of the build is done.
-	// Using sync.Once to make the returned function idempotent.
-	var once sync.Once
-	doneFunc := func() {
-		once.Do(func() {
-			d.buildEndpointSem.Release(1)
-		})
-	}
-	return doneFunc, nil
-}
-
-// RemoveFromEndpointQueue removes the endpoint from the "build permit" queue,
-// canceling the wait for the build permit if still waiting.
-func (d *Daemon) RemoveFromEndpointQueue(epID uint64) {
-	d.uniqueIDMU.Lock()
-	if cancel, queued := d.uniqueID[epID]; queued && cancel != nil {
-		delete(d.uniqueID, epID)
-		cancel()
-	}
-	d.uniqueIDMU.Unlock()
-}
-
 // GetPolicyRepository returns the policy repository of the daemon
 func (d *Daemon) GetPolicyRepository() *policy.Repository {
 	return d.policy
@@ -334,159 +198,10 @@ func (d *Daemon) GetOptions() *option.IntOptions {
 	return option.Config.Opts
 }
 
-func (d *Daemon) setHostAddresses() error {
-	l, err := netlink.LinkByName(option.Config.LBInterface)
-	if err != nil {
-		return fmt.Errorf("unable to get network device %s: %s", option.Config.Device, err)
-	}
-
-	getAddr := func(netLinkFamily int) (net.IP, error) {
-		addrs, err := netlink.AddrList(l, netLinkFamily)
-		if err != nil {
-			return nil, fmt.Errorf("error while getting %s's addresses: %s", option.Config.Device, err)
-		}
-		for _, possibleAddr := range addrs {
-			if netlink.Scope(possibleAddr.Scope) == netlink.SCOPE_UNIVERSE {
-				return possibleAddr.IP, nil
-			}
-		}
-		return nil, nil
-	}
-
-	if option.Config.EnableIPv4 {
-		hostV4Addr, err := getAddr(netlink.FAMILY_V4)
-		if err != nil {
-			return err
-		}
-		if hostV4Addr != nil {
-			option.Config.HostV4Addr = hostV4Addr
-			log.Infof("Using IPv4 host address: %s", option.Config.HostV4Addr)
-		}
-	}
-
-	if option.Config.EnableIPv6 {
-		hostV6Addr, err := getAddr(netlink.FAMILY_V6)
-		if err != nil {
-			return err
-		}
-		if hostV6Addr != nil {
-			option.Config.HostV6Addr = hostV6Addr
-			log.Infof("Using IPv6 host address: %s", option.Config.HostV6Addr)
-		}
-	}
-	return nil
-}
-
 // GetCompilationLock returns the mutex responsible for synchronizing compilation
 // of BPF programs.
 func (d *Daemon) GetCompilationLock() *lock.RWMutex {
 	return d.compilationMutex
-}
-
-// initMaps opens all BPF maps (and creates them if they do not exist). This
-// must be done *before* any operations which read BPF maps, especially
-// restoring endpoints and services.
-func (d *Daemon) initMaps() error {
-	if option.Config.DryMode {
-		return nil
-	}
-
-	// Delete old proxymaps if left over from an upgrade.
-	// TODO: Remove this code when Cilium 1.6 is the oldest supported release
-	for _, name := range []string{"cilium_proxy4", "cilium_proxy6"} {
-		path := bpf.MapPath(name)
-		if _, err := os.Stat(path); err == nil {
-			if err = os.RemoveAll(path); err == nil {
-				log.Infof("removed legacy proxymap file %s", path)
-			}
-		}
-	}
-
-	if _, err := lxcmap.LXCMap.OpenOrCreate(); err != nil {
-		return err
-	}
-
-	// The ipcache is shared between endpoints. Parallel mode needs to be
-	// used to allow existing endpoints that have not been regenerated yet
-	// to continue using the existing ipcache until the endpoint is
-	// regenerated for the first time. Existing endpoints are using a
-	// policy map which is potentially out of sync as local identities are
-	// re-allocated on startup. Parallel mode allows to continue using the
-	// old version until regeneration. Note that the old version is not
-	// updated with new identities. This is fine as any new identity
-	// appearing would require a regeneration of the endpoint anyway in
-	// order for the endpoint to gain the privilege of communication.
-	if _, err := ipcachemap.IPCache.OpenParallel(); err != nil {
-		return err
-	}
-
-	if _, err := metricsmap.Metrics.OpenOrCreate(); err != nil {
-		return err
-	}
-
-	if _, err := tunnel.TunnelMap.OpenOrCreate(); err != nil {
-		return err
-	}
-
-	if err := openServiceMaps(); err != nil {
-		log.WithError(err).Fatal("Unable to open service maps")
-	}
-
-	// Set up the list of IPCache listeners in the daemon, to be
-	// used by syncEndpointsAndHostIPs()
-	// xDS cache will be added later by calling AddListener(), but only if necessary.
-	ipcache.IPIdentityCache.SetListeners([]ipcache.IPIdentityMappingListener{
-		bpfIPCache.NewListener(d),
-	})
-
-	// Start the controller for periodic sync of the metrics map with
-	// the prometheus server.
-	controller.NewManager().UpdateController("metricsmap-bpf-prom-sync",
-		controller.ControllerParams{
-			DoFunc:      metricsmap.SyncMetricsMap,
-			RunInterval: 5 * time.Second,
-		})
-
-	// Clean all lb entries
-	if !option.Config.RestoreState {
-		log.Debug("cleaning up all BPF LB maps")
-
-		d.loadBalancer.BPFMapMU.Lock()
-		defer d.loadBalancer.BPFMapMU.Unlock()
-
-		if option.Config.EnableIPv6 {
-			if err := lbmap.Service6MapV2.DeleteAll(); err != nil {
-				return err
-			}
-			if err := lbmap.RRSeq6MapV2.DeleteAll(); err != nil {
-				return err
-			}
-			if err := lbmap.Backend6Map.DeleteAll(); err != nil {
-				return err
-			}
-		}
-		if err := d.RevNATDeleteAll(); err != nil {
-			return err
-		}
-
-		if option.Config.EnableIPv4 {
-			if err := lbmap.Service4MapV2.DeleteAll(); err != nil {
-				return err
-			}
-			if err := lbmap.RRSeq4MapV2.DeleteAll(); err != nil {
-				return err
-			}
-			if err := lbmap.Backend4Map.DeleteAll(); err != nil {
-				return err
-			}
-		}
-
-		// If we are not restoring state, all endpoints can be
-		// deleted. Entries will be re-populated.
-		lxcmap.LXCMap.DeleteAll()
-	}
-
-	return nil
 }
 
 func (d *Daemon) init() error {
@@ -541,114 +256,6 @@ func (d *Daemon) init() error {
 				},
 				RunInterval: time.Minute,
 			})
-	}
-
-	return nil
-}
-
-// syncLXCMap adds local host enties to bpf lxcmap, as well as
-// ipcache, if needed, and also notifies the daemon and network policy
-// hosts cache if changes were made.
-func (d *Daemon) syncEndpointsAndHostIPs() error {
-	specialIdentities := []identity.IPIdentityPair{}
-
-	if option.Config.EnableIPv4 {
-		addrs, err := d.datapath.LocalNodeAddressing().IPv4().LocalAddresses()
-		if err != nil {
-			log.WithError(err).Warning("Unable to list local IPv4 addresses")
-		}
-
-		for _, ip := range addrs {
-			if option.Config.IsExcludedLocalAddress(ip) {
-				continue
-			}
-
-			if len(ip) > 0 {
-				specialIdentities = append(specialIdentities,
-					identity.IPIdentityPair{
-						IP: ip,
-						ID: identity.ReservedIdentityHost,
-					})
-			}
-		}
-
-		specialIdentities = append(specialIdentities,
-			identity.IPIdentityPair{
-				IP:   net.IPv4zero,
-				Mask: net.CIDRMask(0, net.IPv4len*8),
-				ID:   identity.ReservedIdentityWorld,
-			})
-	}
-
-	if option.Config.EnableIPv6 {
-		addrs, err := d.datapath.LocalNodeAddressing().IPv6().LocalAddresses()
-		if err != nil {
-			log.WithError(err).Warning("Unable to list local IPv4 addresses")
-		}
-
-		addrs = append(addrs, node.GetIPv6Router())
-		for _, ip := range addrs {
-			if option.Config.IsExcludedLocalAddress(ip) {
-				continue
-			}
-
-			if len(ip) > 0 {
-				specialIdentities = append(specialIdentities,
-					identity.IPIdentityPair{
-						IP: ip,
-						ID: identity.ReservedIdentityHost,
-					})
-			}
-		}
-
-		specialIdentities = append(specialIdentities,
-			identity.IPIdentityPair{
-				IP:   net.IPv6zero,
-				Mask: net.CIDRMask(0, net.IPv6len*8),
-				ID:   identity.ReservedIdentityWorld,
-			})
-	}
-
-	existingEndpoints, err := lxcmap.DumpToMap()
-	if err != nil {
-		return err
-	}
-
-	for _, ipIDPair := range specialIdentities {
-		hostKey := node.GetIPsecKeyIdentity()
-		isHost := ipIDPair.ID == identity.ReservedIdentityHost
-		if isHost {
-			added, err := lxcmap.SyncHostEntry(ipIDPair.IP)
-			if err != nil {
-				return fmt.Errorf("Unable to add host entry to endpoint map: %s", err)
-			}
-			if added {
-				log.WithField(logfields.IPAddr, ipIDPair.IP).Debugf("Added local ip to endpoint map")
-			}
-		}
-
-		delete(existingEndpoints, ipIDPair.IP.String())
-
-		// Upsert will not propagate (reserved:foo->ID) mappings across the cluster,
-		// and we specifically don't want to do so.
-		ipcache.IPIdentityCache.Upsert(ipIDPair.PrefixString(), nil, hostKey, ipcache.Identity{
-			ID:     ipIDPair.ID,
-			Source: source.Local,
-		})
-	}
-
-	for hostIP, info := range existingEndpoints {
-		if ip := net.ParseIP(hostIP); info.IsHost() && ip != nil {
-			if err := lxcmap.DeleteEntry(ip); err != nil {
-				log.WithError(err).WithFields(logrus.Fields{
-					logfields.IPAddr: hostIP,
-				}).Warn("Unable to delete obsolete host IP from BPF map")
-			} else {
-				log.Debugf("Removed outdated host ip %s from endpoint map", hostIP)
-			}
-
-			ipcache.IPIdentityCache.Delete(hostIP, source.Local)
-		}
 	}
 
 	return nil
@@ -933,23 +540,6 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 	return &d, restoredEndpoints, nil
 }
 
-func setupIPSec() (int, error) {
-	if option.Config.EncryptNode == false {
-		ipsec.DeleteIPsecEncryptRoute()
-	}
-
-	if !option.Config.EnableIPSec {
-		return 0, nil
-	}
-
-	authKeySize, spi, err := ipsec.LoadIPSecKeysFile(option.Config.IPSecKeyFile)
-	if err != nil {
-		return 0, err
-	}
-	node.SetIPsecKeyIdentity(spi)
-	return authKeySize, nil
-}
-
 func (d *Daemon) bootstrapClusterMesh(nodeMngr *nodemanager.Manager) {
 	bootstrapStats.clusterMeshInit.Start()
 	if path := option.Config.ClusterMeshConfig; path != "" {
@@ -1096,11 +686,6 @@ func (d *Daemon) SendNotification(typ monitorAPI.AgentNotification, text string)
 	}
 	event := monitorAPI.AgentNotify{Type: typ, Text: text}
 	return d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, event)
-}
-
-// NewProxyLogRecord is invoked by the proxy accesslog on each new access log entry
-func (d *Daemon) NewProxyLogRecord(l *logger.LogRecord) error {
-	return d.monitorAgent.SendEvent(monitorAPI.MessageTypeAccessLog, l.LogRecord)
 }
 
 // GetNodeSuffix returns the suffix to be appended to kvstore keys of this

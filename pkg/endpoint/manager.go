@@ -60,7 +60,7 @@ func (e *Endpoint) Expose(mgr endpointManager) error {
 	e.updateReferences(mgr)
 	e.RUnlock()
 
-	e.InsertEvent()
+	e.getLogger().Info("New endpoint")
 
 	mgr.RunK8sCiliumEndpointSync(e)
 	return nil

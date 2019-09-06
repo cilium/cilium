@@ -18,14 +18,12 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
-	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -249,7 +247,6 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	}
 
 	err = d.endpointManager.AddEndpoint(d, ep, "Create endpoint from API PUT")
-	logger := ep.Logger(daemonSubsys)
 	if err != nil {
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to insert endpoint into manager: %s", err))
 	}
@@ -273,95 +270,22 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to pin datapath maps: %s", err))
 	}
 
-	build := ep.GetStateLocked() == endpoint.StateReady
-	if build {
-		ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Identity is known at endpoint creation time")
-	}
 	ep.Unlock()
 
-	if build {
-		// Do not synchronously regenerate the endpoint when first creating it.
-		// We have custom logic later for waiting for specific checkpoints to be
-		// reached upon regeneration later (checking for when BPF programs have
-		// been compiled), as opposed to waiting for the entire regeneration to
-		// be complete (including proxies being configured). This is done to
-		// avoid a chicken-and-egg problem with L7 policies are imported which
-		// select the endpoint being generated, as when such policies are
-		// imported, regeneration blocks on waiting for proxies to be
-		// configured. When Cilium is used with Istio, though, the proxy is
-		// started as a sidecar, and is not launched yet when this specific code
-		// is executed; if we waited for regeneration to be complete, including
-		// proxy configuration, this code would effectively deadlock addition
-		// of endpoints.
-		ep.Regenerate(&regeneration.ExternalRegenerationMetadata{
-			Reason:        "Initial build on endpoint creation",
-			ParentContext: ctx,
-		})
-	}
-
-	// Only used for CRI-O since it does not support events.
-	if d.workloadsEventsCh != nil && ep.GetContainerID() != "" {
-		d.workloadsEventsCh <- &workloads.EventMessage{
-			WorkloadID: ep.GetContainerID(),
-			EventType:  workloads.EventTypeStart,
-		}
-	}
-
-	// Wait for endpoint to be in "ready" state if specified in API call.
-	if !epTemplate.SyncBuildEndpoint {
-		return ep, 0, nil
-	}
-
-	logger.Info("Waiting for endpoint to be generated")
-
-	// Default timeout for PUT /endpoint/{id} is 60 seconds, so put timeout
-	// in this function a bit below that timeout. If the timeout for clients
-	// in API is below this value, they will get a message containing
-	// "context deadline exceeded" if the operation takes longer than the
-	// client's configured timeout value.
-	ctx, cancel := context.WithTimeout(ctx, endpoint.EndpointGenerationTimeout)
-
-	// Check the endpoint's state and labels periodically.
-	ticker := time.NewTicker(1 * time.Second)
-	defer func() {
-		cancel()
-		ticker.Stop()
-	}()
-
-	// Wait for any successful BPF regeneration, which is indicated by any
-	// positive policy revision (>0). As long as at least one BPF
-	// regeneration is successful, the endpoint has network connectivity
-	// so we can return from the creation API call.
-	revCh := ep.WaitForPolicyRevision(ctx, 1, nil)
-
-	for {
-		select {
-		case <-revCh:
-			if ctx.Err() == nil {
-				// At least one BPF regeneration has successfully completed.
-				return ep, 0, nil
-			}
-
-		case <-ctx.Done():
-		case <-ticker.C:
-			if err := ep.RLockAlive(); err != nil {
-				return d.errorDuringCreation(ep, fmt.Errorf("endpoint was deleted while waiting for initial endpoint generation to complete"))
-			}
-			hasSidecarProxy := ep.HasSidecarProxy()
-			ep.RUnlock()
-			if hasSidecarProxy && ep.HasBPFProgram() {
-				// If the endpoint is determined to have a sidecar proxy,
-				// return immediately to let the sidecar container start,
-				// in case it is required to enforce L7 rules.
-				logger.Info("Endpoint has sidecar proxy, returning from synchronous creation request before regeneration has succeeded")
-				return ep, 0, nil
+	cfunc := func() {
+		// Only used for CRI-O since it does not support events.
+		if d.workloadsEventsCh != nil && ep.GetContainerID() != "" {
+			d.workloadsEventsCh <- &workloads.EventMessage{
+				WorkloadID: ep.GetContainerID(),
+				EventType:  workloads.EventTypeStart,
 			}
 		}
-
-		if ctx.Err() != nil {
-			return d.errorDuringCreation(ep, fmt.Errorf("timeout while waiting for initial endpoint generation to complete"))
-		}
 	}
+
+	if err := ep.RegenerateAfterCreation(ctx, cfunc, epTemplate.SyncBuildEndpoint); err != nil {
+		return d.errorDuringCreation(ep, err)
+	}
+	return ep, 0, nil
 }
 
 func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder {
@@ -750,4 +674,74 @@ func (h *putEndpointIDLabels) Handle(params PatchEndpointIDLabelsParams) middlew
 		return api.Error(code, err)
 	}
 	return NewPatchEndpointIDLabelsOK()
+}
+
+// QueueEndpointBuild waits for a "build permit" for the endpoint
+// identified by 'epID'. This function blocks until the endpoint can
+// start building.  The returned function must then be called to
+// release the "build permit" when the most resource intensive parts
+// of the build are done. The returned function is idempotent, so it
+// may be called more than once. Returns a nil function if the caller should NOT
+// start building the endpoint. This may happen due to a build being
+// queued for the endpoint already, or due to the wait for the build
+// permit being canceled. The latter case happens when the endpoint is
+// being deleted. Returns an error if the build permit could not be acquired.
+func (d *Daemon) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
+	d.uniqueIDMU.Lock()
+	// Skip new build requests if the endpoint is already in the queue
+	// waiting. In this case the queued build will pick up any changes
+	// made so far, so there is no need to queue another build now.
+	if _, queued := d.uniqueID[epID]; queued {
+		d.uniqueIDMU.Unlock()
+		return nil, nil
+	}
+	// Store a cancel function to the 'uniqueID' map so that we can
+	// cancel the wait when the endpoint is being deleted.
+	uniqueIDCtx, cancel := context.WithCancel(ctx)
+	d.uniqueID[epID] = cancel
+	d.uniqueIDMU.Unlock()
+
+	// Acquire build permit. This may block.
+	err := d.buildEndpointSem.Acquire(uniqueIDCtx, 1)
+
+	// Not queueing any more, so remove the cancel func from 'uniqueID' map.
+	// The caller may still cancel the build by calling the cancel func after we
+	// return it. After this point another build may be queued for this
+	// endpoint.
+	d.uniqueIDMU.Lock()
+	delete(d.uniqueID, epID)
+	d.uniqueIDMU.Unlock()
+
+	if err != nil {
+		return nil, err // Acquire failed
+	}
+
+	// Acquire succeeded, but the context was canceled after?
+	if uniqueIDCtx.Err() != nil {
+		d.buildEndpointSem.Release(1)
+		return nil, uniqueIDCtx.Err()
+	}
+
+	// At this point the build permit has been acquired. It must
+	// be released by the caller by calling the returned function
+	// when the heavy lifting of the build is done.
+	// Using sync.Once to make the returned function idempotent.
+	var once sync.Once
+	doneFunc := func() {
+		once.Do(func() {
+			d.buildEndpointSem.Release(1)
+		})
+	}
+	return doneFunc, nil
+}
+
+// RemoveFromEndpointQueue removes the endpoint from the "build permit" queue,
+// canceling the wait for the build permit if still waiting.
+func (d *Daemon) RemoveFromEndpointQueue(epID uint64) {
+	d.uniqueIDMU.Lock()
+	if cancel, queued := d.uniqueID[epID]; queued && cancel != nil {
+		delete(d.uniqueID, epID)
+		cancel()
+	}
+	d.uniqueIDMU.Unlock()
 }

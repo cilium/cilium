@@ -17,13 +17,13 @@ package connector
 import (
 	"fmt"
 	"math"
+	"strings"
 	"unsafe"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-
 	"github.com/containernetworking/plugins/pkg/ns"
 
 	"github.com/vishvananda/netlink"
@@ -133,13 +133,13 @@ func createTailCallMap() (int, int, error) {
 	return int(fd), int(info.MapID), nil
 }
 
-// SetupIpvlanInRemoteNs creates a tail call map, renames the netdevice inside
+// setupIpvlanInRemoteNs creates a tail call map, renames the netdevice inside
 // the target netns and attaches a BPF program to it on egress path which
 // then jumps into the tail call map index 0.
 //
 // NB: Do not close the returned mapFd before it has been pinned. Otherwise,
 // the map will be destroyed.
-func SetupIpvlanInRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (int, int, error) {
+func setupIpvlanInRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (int, int, error) {
 	rl := unix.Rlimit{
 		Cur: math.MaxUint64,
 		Max: math.MaxUint64,
@@ -298,7 +298,7 @@ func createIpvlanSlave(lxcIfName string, mtu, masterDev int, mode string, ep *mo
 
 // CreateAndSetupIpvlanSlave creates an ipvlan slave device for the given
 // master device, moves it to the given network namespace, and finally
-// initializes it (see SetupIpvlanInRemoteNs).
+// initializes it (see setupIpvlanInRemoteNs).
 func CreateAndSetupIpvlanSlave(id string, slaveIfName string, netNs ns.NetNS, mtu int, masterDev int, mode string, ep *models.EndpointChangeRequest) (int, error) {
 	var tmpIfName string
 
@@ -317,7 +317,7 @@ func CreateAndSetupIpvlanSlave(id string, slaveIfName string, netNs ns.NetNS, mt
 		return 0, fmt.Errorf("unable to move ipvlan slave '%v' to netns: %s", link, err)
 	}
 
-	mapFD, mapID, err := SetupIpvlanInRemoteNs(netNs, tmpIfName, slaveIfName)
+	mapFD, mapID, err := setupIpvlanInRemoteNs(netNs, tmpIfName, slaveIfName)
 	if err != nil {
 		return 0, fmt.Errorf("unable to setup ipvlan slave in remote netns: %s", err)
 	}
@@ -325,4 +325,50 @@ func CreateAndSetupIpvlanSlave(id string, slaveIfName string, netNs ns.NetNS, mt
 	ep.DatapathMapID = int64(mapID)
 
 	return mapFD, nil
+}
+
+// ConfigureNetNSForIPVLAN sets up IPVLAN in the specified network namespace.
+// Returns the file descriptor for the tail call map / ID, and an error if
+// any operation while configuring said namespace fails.
+func ConfigureNetNSForIPVLAN(netNsPath string) (mapFD, mapID int, err error) {
+	var ipvlanIface string
+	// To access the netns, `/var/run/docker/netns` has to
+	// be bind mounted into the cilium-agent container with
+	// the `rshared` option to prevent from leaking netns
+	netNs, err := ns.GetNS(netNsPath)
+	if err != nil {
+		return 0, 0, fmt.Errorf("Unable to open container netns %s: %s", netNsPath, err)
+	}
+
+	// Docker doesn't report about interfaces used to connect to
+	// container network, so we need to scan all to find the ipvlan slave
+	err = netNs.Do(func(ns.NetNS) error {
+		links, err := netlink.LinkList()
+		if err != nil {
+			return err
+		}
+		for _, link := range links {
+			if link.Type() == "ipvlan" &&
+				strings.HasPrefix(link.Attrs().Name,
+					ContainerInterfacePrefix) {
+				ipvlanIface = link.Attrs().Name
+				break
+			}
+		}
+		if ipvlanIface == "" {
+			return fmt.Errorf("ipvlan slave link not found")
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, 0, fmt.Errorf("Unable to find ipvlan slave in container netns: %s", err)
+	}
+
+	mapFD, mapID, err = setupIpvlanInRemoteNs(netNs,
+		ipvlanIface, ipvlanIface)
+	if err != nil {
+		return 0, 0, fmt.Errorf("Unable to setup ipvlan slave: %s", err)
+	}
+
+	return mapFD, mapID, nil
 }

@@ -485,7 +485,7 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 	}
 
 	if len(newEp.nodeMAC) != 0 && bytes.Compare(e.GetNodeMAC(), newEp.nodeMAC) != 0 {
-		e.SetNodeMACLocked(newEp.nodeMAC)
+		e.nodeMAC = newEp.nodeMAC
 		changed = true
 	}
 

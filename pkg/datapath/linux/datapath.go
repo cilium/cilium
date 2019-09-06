@@ -94,3 +94,7 @@ func (l *linuxDatapath) SupportsOriginalSourceAddr() bool {
 func (l *linuxDatapath) Loader() datapath.Loader {
 	return l.loader
 }
+
+func (l *linuxDatapath) SetupIPVLAN(netNS string) (int, int, error) {
+	return connector.ConfigureNetNSForIPVLAN(netNS)
+}

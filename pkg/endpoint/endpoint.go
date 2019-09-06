@@ -337,38 +337,9 @@ func (e *Endpoint) GetEgressPolicyEnabledLocked() bool {
 	return e.desiredPolicy.EgressPolicyEnabled
 }
 
-// SetDesiredIngressPolicyEnabled sets Endpoint's ingress policy enforcement
-// configuration to the specified value. The endpoint's mutex must not be held.
-func (e *Endpoint) SetDesiredIngressPolicyEnabled(ingress bool) {
-	e.UnconditionalLock()
-	e.desiredPolicy.IngressPolicyEnabled = ingress
-	e.Unlock()
-
-}
-
-// SetDesiredEgressPolicyEnabled sets Endpoint's egress policy enforcement
-// configuration to the specified value. The endpoint's mutex must not be held.
-func (e *Endpoint) SetDesiredEgressPolicyEnabled(egress bool) {
-	e.UnconditionalLock()
-	e.desiredPolicy.EgressPolicyEnabled = egress
-	e.Unlock()
-}
-
-// SetDesiredIngressPolicyEnabledLocked sets Endpoint's ingress policy enforcement
-// configuration to the specified value. The endpoint's mutex must be held.
-func (e *Endpoint) SetDesiredIngressPolicyEnabledLocked(ingress bool) {
-	e.desiredPolicy.IngressPolicyEnabled = ingress
-}
-
-// SetDesiredEgressPolicyEnabledLocked sets Endpoint's egress policy enforcement
-// configuration to the specified value. The endpoint's mutex must be held.
-func (e *Endpoint) SetDesiredEgressPolicyEnabledLocked(egress bool) {
-	e.desiredPolicy.EgressPolicyEnabled = egress
-}
-
-// WaitForProxyCompletions blocks until all proxy changes have been completed.
+// waitForProxyCompletions blocks until all proxy changes have been completed.
 // Called with buildMutex held.
-func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
+func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
 	if proxyWaitGroup == nil {
 		return nil
 	}
@@ -510,11 +481,6 @@ func (e *Endpoint) IPv6Address() addressing.CiliumIPv6 {
 // GetNodeMAC returns the MAC address of the node from this endpoint's perspective.
 func (e *Endpoint) GetNodeMAC() mac.MAC {
 	return e.nodeMAC
-}
-
-// SetNodeMACLocked updates the node MAC inside the endpoint.
-func (e *Endpoint) SetNodeMACLocked(m mac.MAC) {
-	e.nodeMAC = m
 }
 
 func (e *Endpoint) HasSidecarProxy() bool {
@@ -693,11 +659,11 @@ func FilterEPDir(dirFiles []os.FileInfo) []string {
 	return eptsID
 }
 
-// ParseEndpoint parses the given strEp which is in the form of:
+// parseEndpoint parses the given strEp which is in the form of:
 // common.CiliumCHeaderPrefix + common.Version + ":" + endpointBase64
 // Note that the parse'd endpoint's identity is only partially restored. The
 // caller must call `SetIdentity()` to make the returned endpoint's identity useful.
-func ParseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
+func parseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
 	// TODO: Provide a better mechanism to update from old version once we bump
 	// TODO: cilium version.
 	strEpSlice := strings.Split(strEp, ":")
@@ -1166,14 +1132,14 @@ func (e *Endpoint) GetDockerNetworkID() string {
 	return e.DockerNetworkID
 }
 
-// SetDatapathMapIDAndPinMapLocked modifies the endpoint's datapath map ID
-func (e *Endpoint) SetDatapathMapIDAndPinMapLocked(id int) error {
+// setDatapathMapIDAndPinMapLocked modifies the endpoint's datapath map ID
+func (e *Endpoint) setDatapathMapIDAndPinMapLocked(id int) error {
 	e.datapathMapID = id
 	return e.PinDatapathMap()
 }
 
-// IsDatapathMapPinnedLocked returns whether the endpoint's datapath map has been pinned
-func (e *Endpoint) IsDatapathMapPinnedLocked() bool {
+// isDatapathMapPinnedLocked returns whether the endpoint's datapath map has been pinned
+func (e *Endpoint) isDatapathMapPinnedLocked() bool {
 	return e.isDatapathMapPinned
 }
 
@@ -1844,12 +1810,6 @@ func (e *Endpoint) IPs() []net.IP {
 	return ips
 }
 
-// InsertEvent is called when the endpoint is inserted into the endpoint
-// manager.
-func (e *Endpoint) InsertEvent() {
-	e.getLogger().Info("New endpoint")
-}
-
 // IsDisconnecting returns true if the endpoint is being disconnected or
 // already disconnected
 //
@@ -2011,7 +1971,7 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpoin
 	errs = append(errs, e.leaveLocked(proxyWaitGroup, conf)...)
 	e.Unlock()
 
-	err := e.WaitForProxyCompletions(proxyWaitGroup)
+	err := e.waitForProxyCompletions(proxyWaitGroup)
 	if err != nil {
 		errs = append(errs, fmt.Errorf("unable to remove proxy redirects: %s", err))
 	}
@@ -2038,4 +1998,132 @@ func (e *Endpoint) GetProxyInfoByFields() (uint64, string, string, []string, str
 		err = fmt.Errorf("endpoint is in the process of being deleted")
 	}
 	return e.GetID(), e.GetIPv4Address(), e.GetIPv6Address(), e.GetLabels(), e.GetLabelsSHA(), uint64(e.GetIdentity()), err
+}
+
+// RegenerateAfterCreation handles the first regeneration of an endpoint after
+// it is created.
+// After a call to `Regenerate` on the endpoint is made, `endpointStartFunc`
+// is invoked - this can be used as a callback to expose the endpoint to other
+// subsystems if needed.
+// If syncBuild is true, this function waits for specific conditions until
+// returning:
+// * if the endpoint has a sidecar proxy, it waits for the endpoint's BPF
+// program to be generated for the first time.
+// * otherwise, waits for the endpoint to complete its first full regeneration.
+func (e *Endpoint) RegenerateAfterCreation(ctx context.Context, endpointStartFunc func(), syncBuild bool) error {
+	if err := e.LockAlive(); err != nil {
+		return fmt.Errorf("endpoint was deleted while processing the request")
+	}
+
+	build := e.GetStateLocked() == StateReady
+	if build {
+		e.SetStateLocked(StateWaitingToRegenerate, "Identity is known at endpoint creation time")
+	}
+	e.Unlock()
+
+	if build {
+		// Do not synchronously regenerate the endpoint when first creating it.
+		// We have custom logic later for waiting for specific checkpoints to be
+		// reached upon regeneration later (checking for when BPF programs have
+		// been compiled), as opposed to waiting for the entire regeneration to
+		// be complete (including proxies being configured). This is done to
+		// avoid a chicken-and-egg problem with L7 policies are imported which
+		// select the endpoint being generated, as when such policies are
+		// imported, regeneration blocks on waiting for proxies to be
+		// configured. When Cilium is used with Istio, though, the proxy is
+		// started as a sidecar, and is not launched yet when this specific code
+		// is executed; if we waited for regeneration to be complete, including
+		// proxy configuration, this code would effectively deadlock addition
+		// of endpoints.
+		e.Regenerate(&regeneration.ExternalRegenerationMetadata{
+			Reason:        "Initial build on endpoint creation",
+			ParentContext: ctx,
+		})
+	}
+
+	if endpointStartFunc != nil {
+		endpointStartFunc()
+	}
+
+	// Wait for endpoint to be in "ready" state if specified in API call.
+	if !syncBuild {
+		return nil
+	}
+
+	return e.waitForFirstRegeneration(ctx)
+}
+
+func (e *Endpoint) waitForFirstRegeneration(ctx context.Context) error {
+	e.getLogger().Info("Waiting for endpoint to be generated")
+
+	// Default timeout for PUT /endpoint/{id} is 60 seconds, so put timeout
+	// in this function a bit below that timeout. If the timeout for clients
+	// in API is below this value, they will get a message containing
+	// "context deadline exceeded" if the operation takes longer than the
+	// client's configured timeout value.
+	ctx, cancel := context.WithTimeout(ctx, EndpointGenerationTimeout)
+
+	// Check the endpoint's state and labels periodically.
+	ticker := time.NewTicker(1 * time.Second)
+	defer func() {
+		cancel()
+		ticker.Stop()
+	}()
+
+	// Wait for any successful BPF regeneration, which is indicated by any
+	// positive policy revision (>0). As long as at least one BPF
+	// regeneration is successful, the endpoint has network connectivity
+	// so we can return from the creation API call.
+	revCh := e.WaitForPolicyRevision(ctx, 1, nil)
+
+	for {
+		select {
+		case <-revCh:
+			if ctx.Err() == nil {
+				// At least one BPF regeneration has successfully completed.
+				return nil
+			}
+
+		case <-ctx.Done():
+		case <-ticker.C:
+			if err := e.RLockAlive(); err != nil {
+				return fmt.Errorf("endpoint was deleted while waiting for initial endpoint generation to complete")
+			}
+			hasSidecarProxy := e.HasSidecarProxy()
+			e.RUnlock()
+			if hasSidecarProxy && e.HasBPFProgram() {
+				// If the endpoint is determined to have a sidecar proxy,
+				// return immediately to let the sidecar container start,
+				// in case it is required to enforce L7 rules.
+				e.getLogger().Info("Endpoint has sidecar proxy, returning from synchronous creation request before regeneration has succeeded")
+				return nil
+			}
+		}
+
+		if ctx.Err() != nil {
+			return fmt.Errorf("timeout while waiting for initial endpoint generation to complete")
+		}
+	}
+}
+
+// SetDefaultConfiguration sets the default configuration options for its
+// boolean configuration options and for policy enforcement based off of the
+// global policy enforcement configuration options. If restore is true, then
+// the configuration option to keep endpoint configuration during endpoint
+// restore is checked, and if so, this is a no-op.
+func (e *Endpoint) SetDefaultConfiguration(restore bool) {
+	e.UnconditionalLock()
+	defer e.Unlock()
+
+	if restore && option.Config.KeepConfig {
+		return
+	}
+	e.setDefaultPolicyConfig()
+}
+
+func (e *Endpoint) setDefaultPolicyConfig() {
+	e.SetDefaultOpts(option.Config.Opts)
+	alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
+	e.desiredPolicy.IngressPolicyEnabled = alwaysEnforce
+	e.desiredPolicy.EgressPolicyEnabled = alwaysEnforce
 }

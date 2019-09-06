@@ -42,21 +42,32 @@ const (
 	MessageTypeAgent = 130
 )
 
+const (
+	MessageTypeNameDrop    = "drop"
+	MessageTypeNameDebug   = "debug"
+	MessageTypeNameCapture = "capture"
+	MessageTypeNameTrace   = "trace"
+	MessageTypeNameL7      = "l7"
+	MessageTypeNameAgent   = "agent"
+)
+
 type MessageTypeFilter []int
 
 var (
 	// MessageTypeNames is a map of all type names
 	MessageTypeNames = map[string]int{
-		"drop":    MessageTypeDrop,
-		"debug":   MessageTypeDebug,
-		"capture": MessageTypeCapture,
-		"trace":   MessageTypeTrace,
-		"l7":      MessageTypeAccessLog,
-		"agent":   MessageTypeAgent,
+		MessageTypeNameDrop:    MessageTypeDrop,
+		MessageTypeNameDebug:   MessageTypeDebug,
+		MessageTypeNameCapture: MessageTypeCapture,
+		MessageTypeNameTrace:   MessageTypeTrace,
+		MessageTypeNameL7:      MessageTypeAccessLog,
+		MessageTypeNameAgent:   MessageTypeAgent,
 	}
 )
 
-func type2name(typ int) string {
+// MessageTypeName returns the name for a message type or the numeric value if
+// the name can't be found
+func MessageTypeName(typ int) string {
 	for name, value := range MessageTypeNames {
 		if value == typ {
 			return name
@@ -69,7 +80,7 @@ func type2name(typ int) string {
 func (m *MessageTypeFilter) String() string {
 	pieces := make([]string, 0, len(*m))
 	for _, typ := range *m {
-		pieces = append(pieces, type2name(typ))
+		pieces = append(pieces, MessageTypeName(typ))
 	}
 
 	return strings.Join(pieces, ",")
@@ -115,7 +126,8 @@ const (
 	TraceFromNetwork
 )
 
-var traceObsPoints = map[uint8]string{
+// TraceObservationPoints is a map of all supported trace observation points
+var TraceObservationPoints = map[uint8]string{
 	TraceToLxc:       "to-endpoint",
 	TraceToProxy:     "to-proxy",
 	TraceToHost:      "to-host",
@@ -131,7 +143,7 @@ var traceObsPoints = map[uint8]string{
 
 // TraceObservationPoint returns the name of a trace observation point
 func TraceObservationPoint(obsPoint uint8) string {
-	if str, ok := traceObsPoints[obsPoint]; ok {
+	if str, ok := TraceObservationPoints[obsPoint]; ok {
 		return str
 	}
 	return fmt.Sprintf("%d", obsPoint)

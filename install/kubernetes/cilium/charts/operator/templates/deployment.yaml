@@ -31,6 +31,7 @@ spec:
       containers:
       - args:
         - --debug=$(CILIUM_DEBUG)
+        - --identity-allocation-mode=$(CILIUM_IDENTITY_ALLOCATION_MODE)
 {{- if .Values.global.prometheus.enabled }}
         - --enable-metrics
 {{- end }}
@@ -109,6 +110,12 @@ spec:
             secretKeyRef:
               key: AWS_DEFAULT_REGION
               name: cilium-aws
+              optional: true
+        - name: CILIUM_IDENTITY_ALLOCATION_MODE
+          valueFrom:
+            configMapKeyRef:
+              key: identity-allocation-mode
+              name: cilium-config
               optional: true
 {{- if .Values.global.k8sServiceHost }}
         - name: KUBERNETES_SERVICE_HOST

@@ -118,3 +118,7 @@ func (f *fakeLoader) Init(d datapath.ConfigWriter, nodeCfg *datapath.LocalNodeCo
 func (f *fakeLoader) CallsMapPath(id uint16) string {
 	return ""
 }
+
+func (f *fakeDatapath) SetupIPVLAN(netNS string) (int, int, error) {
+	return 0, 0, nil
+}
