@@ -29,16 +29,17 @@ Initialize the control-plane node:
 
   .. group-tab:: K8s 1.15 and older
 
+    In K8s 1.15 and older it is not yet possible to disable kube-proxy via ``--skip-phases=addon/kube-proxy``
+    in kubeadm, therefore the below workaround for manually removing the ``kube-proxy`` DaemonSet and
+    cleaning the corresponding iptables rules after kubeadm initialization is still necessary (`kubeadm#1733 <https://github.com/kubernetes/kubeadm/issues/1733>`__).
+
+    Initialize control-plane as first step:
+
     .. code:: bash
 
       kubeadm init --pod-network-cidr=10.217.0.0/16
 
-    
-    In K8s 1.15 and older it is not yet possible to disable kube-proxy via ``--skip-phases=addon/kube-proxy``,
-    therefore the below workaround for manually removing the ``kube-proxy`` DaemonSet and cleaning the
-    corresponding iptables rules is still necessary (`kubeadm#1733 <https://github.com/kubernetes/kubeadm/issues/1733>`__).
-    
-    Delete the ``kube-proxy`` DaemonSet and remove its iptables rules as following:
+    Then delete the ``kube-proxy`` DaemonSet and remove its iptables rules as following:
 
     .. code:: bash
 
