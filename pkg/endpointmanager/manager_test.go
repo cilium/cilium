@@ -106,7 +106,7 @@ type dummyEpSyncher struct{}
 func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint) {}
 
 func (s *EndpointManagerSuite) TestLookup(c *C) {
-	ep := endpoint.NewEndpointWithState(s, 10, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, 10, endpoint.StateReady)
 	mgr := NewEndpointManager(&dummyEpSyncher{})
 	type args struct {
 		id string
@@ -353,7 +353,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 
 func (s *EndpointManagerSuite) TestLookupCiliumID(c *C) {
 	mgr := NewEndpointManager(&dummyEpSyncher{})
-	ep := endpoint.NewEndpointWithState(s, 2, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, 2, endpoint.StateReady)
 	type args struct {
 		id uint16
 	}
@@ -422,7 +422,7 @@ func (s *EndpointManagerSuite) TestLookupCiliumID(c *C) {
 
 func (s *EndpointManagerSuite) TestLookupContainerID(c *C) {
 	mgr := NewEndpointManager(&dummyEpSyncher{})
-	ep := endpoint.NewEndpointWithState(s, 3, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, 3, endpoint.StateReady)
 	type args struct {
 		id string
 	}
@@ -489,7 +489,7 @@ func (s *EndpointManagerSuite) TestLookupContainerID(c *C) {
 
 func (s *EndpointManagerSuite) TestLookupIPv4(c *C) {
 	mgr := NewEndpointManager(&dummyEpSyncher{})
-	ep := endpoint.NewEndpointWithState(s, 4, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, 4, endpoint.StateReady)
 	type args struct {
 		ip string
 	}
@@ -558,7 +558,7 @@ func (s *EndpointManagerSuite) TestLookupIPv4(c *C) {
 
 func (s *EndpointManagerSuite) TestLookupPodName(c *C) {
 	mgr := NewEndpointManager(&dummyEpSyncher{})
-	ep := endpoint.NewEndpointWithState(s, 5, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, 5, endpoint.StateReady)
 	type args struct {
 		podName string
 	}
@@ -626,7 +626,7 @@ func (s *EndpointManagerSuite) TestLookupPodName(c *C) {
 
 func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
 	mgr := NewEndpointManager(&dummyEpSyncher{})
-	ep := endpoint.NewEndpointWithState(s, 6, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, 6, endpoint.StateReady)
 	type args struct {
 		ep *endpoint.Endpoint
 	}
@@ -704,7 +704,7 @@ func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
 
 func (s *EndpointManagerSuite) TestRemove(c *C) {
 	mgr := NewEndpointManager(&dummyEpSyncher{})
-	ep := endpoint.NewEndpointWithState(s, 7, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, 7, endpoint.StateReady)
 	type args struct {
 	}
 	type want struct {
@@ -744,7 +744,7 @@ func (s *EndpointManagerSuite) TestRemove(c *C) {
 
 func (s *EndpointManagerSuite) TestHasGlobalCT(c *C) {
 	mgr := NewEndpointManager(&dummyEpSyncher{})
-	ep := endpoint.NewEndpointWithState(s, 1, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, 1, endpoint.StateReady)
 	type args struct {
 		ep *endpoint.Endpoint
 	}
@@ -807,7 +807,7 @@ func (s *EndpointManagerSuite) TestHasGlobalCT(c *C) {
 
 func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 	mgr := NewEndpointManager(&dummyEpSyncher{})
-	ep := endpoint.NewEndpointWithState(s, 1, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, 1, endpoint.StateReady)
 	type args struct {
 		ctx    context.Context
 		rev    uint64
@@ -845,7 +845,7 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 			},
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s, 1, endpoint.StateReady)
+				ep = endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, 1, endpoint.StateReady)
 			},
 		},
 		{
@@ -871,7 +871,7 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 			},
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s, 1, endpoint.StateReady)
+				ep = endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, 1, endpoint.StateReady)
 			},
 		},
 		{
@@ -897,7 +897,7 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 			},
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s, 1, endpoint.StateReady)
+				ep = endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, 1, endpoint.StateReady)
 			},
 		},
 	}

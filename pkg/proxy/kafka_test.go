@@ -274,7 +274,7 @@ func (s *proxyTestSuite) TestKafkaRedirect(c *C) {
 
 	// Insert a mock EP to the endpointmanager so that DefaultEndpointInfoRegistry may find
 	// the EP ID by the IP.
-	ep := endpoint.NewEndpointWithState(s, uint16(localEndpointMock.GetID()), endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, uint16(localEndpointMock.GetID()), endpoint.StateReady)
 	ipv4, err := addressing.NewCiliumIPv4("127.0.0.1")
 	c.Assert(err, IsNil)
 	ep.IPv4 = ipv4
