@@ -175,7 +175,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		epTemplate.DatapathConfiguration.RequireRouting = &disabled
 	}
 
-	ep, err := endpoint.NewEndpointFromChangeModel(d, epTemplate)
+	ep, err := endpoint.NewEndpointFromChangeModel(d, d.l7Proxy, epTemplate)
 	if err != nil {
 		return invalidDataError(ep, fmt.Errorf("unable to parse endpoint parameters: %s", err))
 	}
@@ -322,7 +322,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 
 	// Validate the template. Assignment afterwards is atomic.
 	// Note: newEp's labels are ignored.
-	newEp, err2 := endpoint.NewEndpointFromChangeModel(h.d, epTemplate)
+	newEp, err2 := endpoint.NewEndpointFromChangeModel(h.d, h.d.l7Proxy, epTemplate)
 	if err2 != nil {
 		return api.Error(PutEndpointIDInvalidCode, err2)
 	}

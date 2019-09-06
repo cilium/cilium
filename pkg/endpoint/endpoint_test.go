@@ -20,12 +20,10 @@ import (
 	"context"
 	"net"
 	"reflect"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/endpoint/id"
@@ -42,7 +40,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
-	"github.com/cilium/cilium/pkg/revert"
 	. "gopkg.in/check.v1"
 )
 
@@ -61,21 +58,12 @@ type EndpointSuite struct {
 	datapath         datapath.Datapath
 
 	// Owners interface mock
-	OnTracingEnabled          func() bool
-	OnAlwaysAllowLocalhost    func() bool
-	OnGetCachedLabelList      func(id identity.NumericIdentity) (pkgLabels.LabelArray, error)
 	OnGetPolicyRepository     func() *policy.Repository
-	OnUpdateProxyRedirect     func(e regeneration.EndpointUpdater, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc)
-	OnRemoveProxyRedirect     func(e regeneration.EndpointInfoSource, id string, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc)
-	OnUpdateNetworkPolicy     func(e regeneration.EndpointUpdater, policy *policy.L4Policy, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc)
-	OnRemoveNetworkPolicy     func(e regeneration.EndpointInfoSource)
 	OnQueueEndpointBuild      func(ctx context.Context, epID uint64) (func(), error)
 	OnRemoveFromEndpointQueue func(epID uint64)
-	OnDebugEnabled            func() bool
 	OnGetCompilationLock      func() *lock.RWMutex
 	OnSendNotification        func(typ monitorAPI.AgentNotification, text string) error
 	OnNewProxyLogRecord       func(l *accesslog.LogRecord) error
-	OnClearPolicyConsumers    func(id uint16) *sync.WaitGroup
 }
 
 // suite can be used by testing.T benchmarks or tests as a mock regeneration.Owner
@@ -89,21 +77,6 @@ func (s *EndpointSuite) SetUpSuite(c *C) {
 func (s *EndpointSuite) GetPolicyRepository() *policy.Repository {
 	return s.repo
 }
-
-func (s *EndpointSuite) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter, wg *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
-	return 0, nil, nil, nil
-}
-
-func (s *EndpointSuite) RemoveProxyRedirect(e regeneration.EndpointInfoSource, id string, wg *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
-	return nil, nil, nil
-}
-
-func (s *EndpointSuite) UpdateNetworkPolicy(e regeneration.EndpointUpdater, policy *policy.L4Policy,
-	proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
-	return nil, nil
-}
-
-func (s *EndpointSuite) RemoveNetworkPolicy(e regeneration.EndpointInfoSource) {}
 
 func (s *EndpointSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
 	return nil, nil
@@ -248,7 +221,7 @@ func (s *EndpointSuite) TestEndpointStatus(c *C) {
 }
 
 func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
-	e := NewEndpointWithState(s, 100, StateCreating)
+	e := NewEndpointWithState(s, &FakeEndpointProxy{}, 100, StateCreating)
 
 	// Test that inserting identity labels works
 	rev := e.replaceIdentityLabels(pkgLabels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
@@ -272,7 +245,7 @@ func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
 }
 
 func (s *EndpointSuite) TestEndpointState(c *C) {
-	e := NewEndpointWithState(s, 100, StateCreating)
+	e := NewEndpointWithState(s, &FakeEndpointProxy{}, 100, StateCreating)
 	e.unconditionalLock()
 	defer e.unlock()
 
@@ -616,7 +589,7 @@ func (s *EndpointSuite) TestEndpointEventQueueDeadlockUponDeletion(c *C) {
 		s.datapath = oldDatapath
 	}()
 
-	ep := NewEndpointWithState(s, 12345, StateReady)
+	ep := NewEndpointWithState(s, &FakeEndpointProxy{}, 12345, StateReady)
 
 	// In case deadlock occurs, provide a timeout of 3 (number of events) *
 	// deadlockTimeout + 1 seconds to ensure that we are actually testing for

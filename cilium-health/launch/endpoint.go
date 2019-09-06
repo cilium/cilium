@@ -228,7 +228,7 @@ type EndpointAdder interface {
 //
 // CleanupEndpoint() must be called before calling LaunchAsEndpoint() to ensure
 // cleanup of prior cilium-health endpoint instances.
-func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node.Node, mtuConfig mtu.Configuration, epMgr EndpointAdder) (*Client, error) {
+func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node.Node, mtuConfig mtu.Configuration, epMgr EndpointAdder, proxy endpoint.EndpointProxy) (*Client, error) {
 	var (
 		cmd  = launcher.Launcher{}
 		info = &models.EndpointChangeRequest{
@@ -306,7 +306,7 @@ func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node
 	}
 
 	// Create the endpoint
-	ep, err := endpoint.NewEndpointFromChangeModel(owner, info)
+	ep, err := endpoint.NewEndpointFromChangeModel(owner, proxy, info)
 	if err != nil {
 		return nil, fmt.Errorf("Error while creating endpoint model: %s", err)
 	}
