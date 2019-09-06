@@ -287,6 +287,9 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointC
 			err := o.build(ctx, templateCfg, hash)
 			if err != nil {
 				scopedLog.WithError(err).Error("BPF template object creation failed")
+				o.Lock()
+				delete(o.compileQueue, hash)
+				o.Unlock()
 			}
 			return err
 		}, serializer.NoRetry)
