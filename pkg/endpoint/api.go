@@ -59,13 +59,14 @@ func (e *Endpoint) GetLabelsModel() (*models.LabelConfiguration, error) {
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
-func NewEndpointFromChangeModel(owner regeneration.Owner, base *models.EndpointChangeRequest) (*Endpoint, error) {
+func NewEndpointFromChangeModel(owner regeneration.Owner, proxy EndpointProxy, base *models.EndpointChangeRequest) (*Endpoint, error) {
 	if base == nil {
 		return nil, nil
 	}
 
 	ep := &Endpoint{
 		owner:            owner,
+		proxy:            proxy,
 		ID:               uint16(base.ID),
 		containerName:    base.ContainerName,
 		containerID:      base.ContainerID,

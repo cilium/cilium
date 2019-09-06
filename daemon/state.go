@@ -221,12 +221,13 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 			ctmap.DeleteIfUpgradeNeeded(ep)
 		}
 
+		ep.SetProxy(d.l7Proxy)
+
 		// Insert into endpoint manager so it can be regenerated when calls to
 		// RegenerateAllEndpoints() are made. This must be done synchronously (i.e.,
 		// not in a goroutine) because regenerateRestoredEndpoints must guarantee
 		// upon returning that endpoints are exposed to other subsystems via
 		// endpointmanager.
-
 		if err := ep.Expose(d.endpointManager); err != nil {
 			log.WithError(err).Warning("Unable to restore endpoint")
 			// remove endpoint from slice of endpoints to restore

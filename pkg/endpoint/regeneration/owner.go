@@ -17,7 +17,6 @@ package regeneration
 import (
 	"context"
 
-	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -25,29 +24,12 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
-	"github.com/cilium/cilium/pkg/revert"
 )
 
 // Owner is the interface defines the requirements for anybody owning policies.
 type Owner interface {
-
 	// Must return the policy repository
 	GetPolicyRepository() *policy.Repository
-
-	// UpdateProxyRedirect must update the redirect configuration of an endpoint in the proxy
-	UpdateProxyRedirect(e EndpointUpdater, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc)
-
-	// RemoveProxyRedirect must remove the redirect installed by UpdateProxyRedirect
-	RemoveProxyRedirect(e EndpointInfoSource, id string, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc)
-
-	// UpdateNetworkPolicy adds or updates a network policy in the set
-	// published to L7 proxies.
-	UpdateNetworkPolicy(e EndpointUpdater, policy *policy.L4Policy,
-		proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc)
-
-	// RemoveNetworkPolicy removes a network policy from the set published to
-	// L7 proxies.
-	RemoveNetworkPolicy(e EndpointInfoSource)
 
 	// QueueEndpointBuild puts the given endpoint in the processing queue
 	QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error)

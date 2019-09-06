@@ -78,8 +78,12 @@ func (e *Endpoint) updateNetworkPolicy(proxyWaitGroup *completion.WaitGroup) (re
 		return nil, nil
 	}
 
+	if e.proxy == nil {
+		return fmt.Errorf("can't update network policy, proxy disabled"), nil
+	}
+
 	// Publish the updated policy to L7 proxies.
-	return e.owner.UpdateNetworkPolicy(e, e.desiredPolicy.L4Policy, proxyWaitGroup)
+	return e.proxy.UpdateNetworkPolicy(e, e.desiredPolicy.L4Policy, e.desiredPolicy.IngressPolicyEnabled, e.desiredPolicy.EgressPolicyEnabled, proxyWaitGroup)
 }
 
 // setNextPolicyRevision updates the desired policy revision field

@@ -109,6 +109,8 @@ var _ notifications.RegenNotificationInfo = &Endpoint{}
 type Endpoint struct {
 	owner regeneration.Owner
 
+	proxy EndpointProxy
+
 	// ID of the endpoint, unique in the scope of the node
 	ID uint16
 
@@ -363,9 +365,10 @@ func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 }
 
 // NewEndpointWithState creates a new endpoint useful for testing purposes
-func NewEndpointWithState(owner regeneration.Owner, ID uint16, state string) *Endpoint {
+func NewEndpointWithState(owner regeneration.Owner, proxy EndpointProxy, ID uint16, state string) *Endpoint {
 	ep := &Endpoint{
 		owner:           owner,
+		proxy:           proxy,
 		ID:              ID,
 		OpLabels:        pkgLabels.NewOpLabels(),
 		status:          NewEndpointStatus(),
@@ -965,7 +968,7 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 		if err != nil {
 			errors = append(errors, fmt.Errorf("unable to release identity: %s", err))
 		}
-		e.owner.RemoveNetworkPolicy(e)
+		e.removeNetworkPolicy()
 		e.SecurityIdentity = nil
 	}
 
