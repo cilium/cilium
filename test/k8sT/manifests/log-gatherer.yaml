@@ -23,7 +23,7 @@ spec:
         - "10000"
         command:
         - sleep
-        image: nebril/systemd:latest
+        image: nebril/systemd:latest #TODO: move to cilium org
         imagePullPolicy: Always
         name: log-gatherer
         securityContext:

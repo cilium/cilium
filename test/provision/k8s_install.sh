@@ -268,8 +268,8 @@ sudo rm -rfv /var/lib/kubelet
 
 #check hostname to know if is kubernetes or runtime test
 if [[ "${HOST}" == "k8s1" ]]; then
-	if [[ "${SKIP_K8S_PROVISION}" == "false" ]]; then
-		echo "${KUBEADM_CONFIG}" | envtpl  > /tmp/config.yaml
+    if [[ "${SKIP_K8S_PROVISION}" == "false" ]]; then
+      echo "${KUBEADM_CONFIG}" | envtpl  > /tmp/config.yaml
 
       sudo kubeadm init  --config /tmp/config.yaml $KUBEADM_OPTIONS
 

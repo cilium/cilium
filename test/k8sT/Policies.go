@@ -880,12 +880,12 @@ EOF`, k, v)
 			clusterIP         string
 			secondNSclusterIP string
 
-			demoPath           = ""
-			l3L4Policy         = ""
-			cnpSecondNS        = ""
-			netpolNsSelector   = ""
-			l3l4PolicySecondNS = ""
-			demoManifest       = ""
+			demoPath           string
+			l3L4Policy         string
+			cnpSecondNS        string
+			netpolNsSelector   string
+			l3l4PolicySecondNS string
+			demoManifest       string
 		)
 
 		BeforeAll(func() {
