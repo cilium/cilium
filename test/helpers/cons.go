@@ -42,15 +42,12 @@ var (
 	CiliumStartTimeout = 100 * time.Second
 
 	// CiliumBasePath is the path to the cilium source repository
-	// in the guest VMs
-	CiliumBasePathHost = "../"
-
-	CiliumBasePathVM = "../"
+	// relative to test dir
+	CiliumBasePath = "../"
 
 	// BasePath is the path in the Vagrant VMs to which the test directory
 	// is mounted
-	BasePathHost = path.Join(CiliumBasePathHost, "test")
-	BasePathVM   = path.Join(CiliumBasePathVM, "test")
+	BasePath = path.Join(CiliumBasePath, "test")
 
 	// CheckLogs newtes a new buffer where all the warnings and checks that
 	// happens during the test are saved. This buffer will be printed in the

@@ -840,7 +840,7 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 
 	// If it fails we want to know if it's because of connection cannot be
 	// established or DNS does not exist.
-	//digCMDFallback := "dig +tcp %s @%s"
+	digCMDFallback := "dig +tcp %s @%s"
 
 	dnsClusterIP, _, err := kub.GetServiceHostPort(KubeSystemNamespace, "kube-dns")
 	if err != nil {
@@ -855,35 +855,25 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 			return false
 		}
 
+		ctx, cancel := context.WithTimeout(context.Background(), MidCommandTimeout)
 		// ClusterIPNone denotes that this service is headless; there is no
 		// service IP for this service, and thus the IP returned by `dig` is
 		// an IP of the pod itself, not ClusterIPNone, which is what Kubernetes
 		// shows as the IP for the service for headless services.
 		if serviceIP == v1.ClusterIPNone {
-			ress, err := kub.ExecInPods(context.TODO(), "kube-system", "k8s-app=cilium-test-logs", fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP), true)
+			defer cancel()
+			res, err := kub.ExecInFirstPod(ctx, LogGathererNamespace, LogGathererSelector, fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP))
 			if err != nil {
-				logger.Debugf("failed to run dig in log-gatherer pods")
+				logger.Debugf("failed to run dig in log-gatherer pod")
 				return false
 			}
-			var res *CmdRes
-			for _, v := range ress {
-				res = v
-				break
-			}
-			//_ = kub.ExecShort(fmt.Sprintf(digCMDFallback, serviceNameWithNamespace, dnsClusterIP))
+			kub.ExecInFirstPod(ctx, LogGathererNamespace, LogGathererSelector, fmt.Sprintf(digCMDFallback, serviceNameWithNamespace, dnsClusterIP))
+
 			return res.WasSuccessful()
 		}
 		log.Debugf("service is not headless; checking whether IP retrieved from DNS matches the IP for the service stored in Kubernetes")
-		ress, err := kub.ExecInPods(context.TODO(), "kube-system", "k8s-app=cilium-test-logs", fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP), true)
-		if err != nil {
-			logger.Debugf("failed to run dig in log-gatherer pods")
-			return false
-		}
-		var res *CmdRes
-		for _, v := range ress {
-			res = v
-			break
-		}
+
+		res, err := kub.ExecInFirstPod(ctx, LogGathererNamespace, LogGathererSelector, fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP))
 		serviceIPFromDNS := res.SingleOut()
 		if !govalidator.IsIP(serviceIPFromDNS) {
 			logger.Debugf("output of dig (%s) did not return an IP", serviceIPFromDNS)
@@ -897,7 +887,7 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 		// name to resolve via DNS.
 		if !strings.Contains(serviceIPFromDNS, serviceIP) {
 			logger.Debugf("service IP retrieved from DNS (%s) does not match the IP for the service stored in Kubernetes (%s)", serviceIPFromDNS, serviceIP)
-			//_ = kub.ExecShort(fmt.Sprintf(digCMDFallback, serviceNameWithNamespace, dnsClusterIP))
+			kub.ExecInFirstPod(ctx, LogGathererNamespace, LogGathererSelector, fmt.Sprintf(digCMDFallback, serviceNameWithNamespace, dnsClusterIP))
 			return false
 		}
 		logger.Debugf("service IP retrieved from DNS (%s) matches the IP for the service stored in Kubernetes (%s)", serviceIPFromDNS, serviceIP)
