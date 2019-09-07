@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package endpointmanager
+package gc
 
 import (
 	"fmt"
@@ -21,11 +21,59 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-
 	"github.com/sirupsen/logrus"
 )
+
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ct-gc")
+
+// EndpointManager is any type which returns the list of Endpoints which are
+// globally exposed on the current node.
+type EndpointManager interface {
+	GetEndpoints() []*endpoint.Endpoint
+}
+
+// EnableConntrackGC enables the connection tracking garbage collection.
+func EnableConntrackGC(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr EndpointManager) {
+	var (
+		initialScan         = true
+		initialScanComplete = make(chan struct{})
+		mapType             bpf.MapType
+	)
+
+	go func() {
+		for {
+			var maxDeleteRatio float64
+			eps := mgr.GetEndpoints()
+			if len(eps) > 0 || initialScan {
+				mapType, maxDeleteRatio = runGC(nil, ipv4, ipv6, createGCFilter(initialScan, restoredEndpoints))
+			}
+			for _, e := range eps {
+				if !e.ConntrackLocal() {
+					// Skip because GC was handled above.
+					continue
+				}
+				runGC(e, ipv4, ipv6, &ctmap.GCFilter{RemoveExpired: true})
+			}
+
+			if initialScan {
+				close(initialScanComplete)
+				initialScan = false
+			}
+
+			time.Sleep(ctmap.GetInterval(mapType, maxDeleteRatio))
+		}
+	}()
+
+	select {
+	case <-initialScanComplete:
+		log.Info("Initial scan of connection tracking completed")
+	case <-time.After(30 * time.Second):
+		log.Fatal("Timeout while waiting for initial conntrack scan")
+	}
+}
 
 // runGC run CT's garbage collector for the given endpoint. `isLocal` refers if
 // the CT map is set to local. If `isIPv6` is set specifies that is the IPv6
@@ -35,7 +83,7 @@ import (
 // The provided endpoint is optional; if it is provided, then its map will be
 // garbage collected and any failures will be logged to the endpoint log.
 // Otherwise it will garbage-collect the global map and use the global log.
-func (epMgr *EndpointManager) runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) (mapType bpf.MapType, maxDeleteRatio float64) {
+func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) (mapType bpf.MapType, maxDeleteRatio float64) {
 	var maps []*ctmap.Map
 
 	if e == nil {
@@ -100,44 +148,4 @@ func createGCFilter(initialScan bool, restoredEndpoints []*endpoint.Endpoint) *c
 	}
 
 	return filter
-}
-
-// EnableConntrackGC enables the connection tracking garbage collection.
-func (epMgr *EndpointManager) EnableConntrackGC(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint) {
-	var (
-		initialScan         = true
-		initialScanComplete = make(chan struct{})
-		mapType             bpf.MapType
-	)
-
-	go func() {
-		for {
-			var maxDeleteRatio float64
-			eps := epMgr.GetEndpoints()
-			if len(eps) > 0 || initialScan {
-				mapType, maxDeleteRatio = epMgr.runGC(nil, ipv4, ipv6, createGCFilter(initialScan, restoredEndpoints))
-			}
-			for _, e := range eps {
-				if !e.ConntrackLocal() {
-					// Skip because GC was handled above.
-					continue
-				}
-				epMgr.runGC(e, ipv4, ipv6, &ctmap.GCFilter{RemoveExpired: true})
-			}
-
-			if initialScan {
-				close(initialScanComplete)
-				initialScan = false
-			}
-
-			time.Sleep(ctmap.GetInterval(mapType, maxDeleteRatio))
-		}
-	}()
-
-	select {
-	case <-initialScanComplete:
-		log.Info("Initial scan of connection tracking completed")
-	case <-time.After(30 * time.Second):
-		log.Fatal("Timeout while waiting for initial conntrack scan")
-	}
 }
