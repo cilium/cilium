@@ -21,34 +21,25 @@ import (
 	"time"
 )
 
-// DefaultTimeout used for requests
-var DefaultTimeout = 30 * time.Second
-
-// Client for accessing the http probe
-type Client struct {
-	client *http.Client
-	host   *url.URL
-}
-
-// NewClient creates a new http client with DefaultTransport
-func NewClient(host string) (*Client, error) {
-	hostURL, err := url.Parse(host)
-	if err != nil {
-		return nil, err
-	}
-
-	cl := &http.Client{Timeout: DefaultTimeout}
-	return &Client{cl, hostURL}, nil
-}
+// http Client for probing
+// Use our custom client since DefaultClient specifies timeout of 0 (no timeout).
+// See https://medium.com/@nate510/don-t-use-go-s-default-http-client-4804cb19f779.
+// Use a timeout of 30s.
+var client = &http.Client{Timeout: 30 * time.Second}
 
 // GetHello performs a GET request on the /hello endpoint
-func (c *Client) GetHello() error {
-	requestURL, err := c.host.Parse("/hello")
+func GetHello(host string) error {
+	hostURL, err := url.Parse(host)
 	if err != nil {
 		return err
 	}
 
-	resp, err := c.client.Get(requestURL.String())
+	requestURL, err := hostURL.Parse("/hello")
+	if err != nil {
+		return err
+	}
+
+	resp, err := client.Get(requestURL.String())
 	if err != nil {
 		return err
 	}
