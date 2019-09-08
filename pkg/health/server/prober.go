@@ -240,22 +240,16 @@ func (p *prober) httpProbe(node string, ip string, port int) *models.Connectivit
 		"path":             PortToPaths[port],
 	})
 
-	client, err := probe.NewClient(host)
+	scopedLog.Debug("Greeting host")
+	start := time.Now()
+	err := probe.GetHello(host)
+	rtt := time.Since(start)
 	if err == nil {
-		scopedLog.Debug("Greeting host")
-		start := time.Now()
-		err = client.GetHello()
-		rtt := time.Since(start)
-		if err == nil {
-			scopedLog.WithField("rtt", rtt).Debug("Greeting successful")
-			result.Status = ""
-			result.Latency = rtt.Nanoseconds()
-		} else {
-			scopedLog.WithError(err).Debug("Greeting snubbed")
-			result.Status = err.Error()
-		}
+		scopedLog.WithField("rtt", rtt).Debug("Greeting successful")
+		result.Status = ""
+		result.Latency = rtt.Nanoseconds()
 	} else {
-		scopedLog.WithError(err).Info("Failed to express greeting to host")
+		scopedLog.WithError(err).Debug("Greeting failed")
 		result.Status = err.Error()
 	}
 
