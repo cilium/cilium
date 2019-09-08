@@ -152,13 +152,13 @@ func configureHealthInterface(netNS ns.NetNS, ifName string, ip4Addr, ip6Addr *n
 // Client wraps a client to a specific cilium-health endpoint instance, to
 // provide convenience methods such as PingEndpoint().
 type Client struct {
-	*probe.Client
+	host string
 }
 
 // PingEndpoint attempts to make an API ping request to the local cilium-health
 // endpoint, and returns whether this was successful.
 func (c *Client) PingEndpoint() error {
-	return c.Client.GetHello()
+	return probe.GetHello(c.host)
 }
 
 // KillEndpoint attempts to kill any existing cilium-health endpoint if it
@@ -345,11 +345,11 @@ func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node
 
 	// Initialize the health client to talk to this instance. This is why
 	// the caller must limit usage of this package to a single goroutine.
-	client, err := probe.NewClient("http://" + net.JoinHostPort(healthIP.String(), fmt.Sprintf("%d", healthDefaults.HTTPPathPort)))
-	if err != nil {
+	client := &Client{host: "http://" + net.JoinHostPort(healthIP.String(), fmt.Sprintf("%d", healthDefaults.HTTPPathPort))}
+	if err = client.PingEndpoint(); err != nil {
 		return nil, fmt.Errorf("Cannot establish connection to health endpoint: %s", err)
 	}
 	metrics.SubprocessStart.WithLabelValues(ciliumHealth).Inc()
 
-	return &Client{Client: client}, nil
+	return client, nil
 }
