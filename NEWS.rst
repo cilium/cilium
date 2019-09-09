@@ -2,6 +2,18 @@
 NEWS
 ******
 
+v1.4.8
+======
+
+::
+
+    André Martins (1):
+          test: fix k8s upstream test
+    
+    Jarno Rajahalme (2):
+          istio: Update to 1.2.5
+          Dockerfile: Use latest Envoy image
+    
 v1.4.7
 ======
 
