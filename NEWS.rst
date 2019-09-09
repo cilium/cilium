@@ -2,6 +2,31 @@
 NEWS
 ******
 
+v1.5.8
+======
+
+::
+
+    André Martins (2):
+          bump k8s support to 1.15.3
+          test: fix k8s upstream test
+    
+    Daniel Borkmann (3):
+          bpf: usr prandom as slave selection in lb
+          bpf: add separate ct_service lifetime for tcp/non-tcp
+          cilium: make all ct timeouts configurable
+    
+    Jarno Rajahalme (3):
+          istio: Update to 1.2.5
+          Dockerfile: Use latest Envoy image
+          test: Wait for at least one Istio POD to get ready
+    
+    Joe Stringer (1):
+          docs: Update direct routing policy limitation
+    
+    Ray Bejjani (1):
+          tofqdns: Allow "_" in DNS names to support service discovery schemes
+    
 v1.5.7
 ======
 
