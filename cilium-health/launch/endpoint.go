@@ -345,12 +345,8 @@ func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node
 	defer cancel()
 	ep.UpdateLabels(ctx, labels.LabelHealth, nil, true)
 
-	// Initialize the health client to talk to this instance. This is why
-	// the caller must limit usage of this package to a single goroutine.
+	// Initialize the health client to talk to this instance.
 	client := &Client{host: "http://" + net.JoinHostPort(healthIP.String(), fmt.Sprintf("%d", healthDefaults.HTTPPathPort))}
-	if err = client.PingEndpoint(); err != nil {
-		return nil, fmt.Errorf("Cannot establish connection to health endpoint: %s", err)
-	}
 	metrics.SubprocessStart.WithLabelValues(ciliumHealth).Inc()
 
 	return client, nil
