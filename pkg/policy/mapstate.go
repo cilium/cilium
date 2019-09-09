@@ -76,7 +76,7 @@ type MapStateEntry struct {
 // endpoint.
 func (keys MapState) DetermineAllowLocalhostIngress(l4Policy *L4Policy) {
 
-	if option.Config.AlwaysAllowLocalhost() || (l4Policy != nil && l4Policy.HasRedirect()) {
+	if option.Config.AlwaysAllowLocalhost() {
 		keys[localHostKey] = MapStateEntry{}
 	}
 }
