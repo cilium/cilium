@@ -28,6 +28,8 @@ var _ = Describe("K8sDatapathConfig", func() {
 	var kubectl *helpers.Kubectl
 	var demoDSPath string
 	var ipsecDSPath string
+	var ciliumPodK8s1 string
+	var monitorLog = "monitor-aggregation.log"
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
@@ -35,6 +37,10 @@ var _ = Describe("K8sDatapathConfig", func() {
 		ipsecDSPath = helpers.ManifestGet("ipsec_ds.yaml")
 
 		deleteCiliumDS(kubectl)
+
+		var err error
+		ciliumPodK8s1, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+		Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
 	})
 
 	BeforeEach(func() {
@@ -218,6 +224,23 @@ var _ = Describe("K8sDatapathConfig", func() {
 			})
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			cleanService()
+		})
+	})
+
+	Context("MonitorAggregation", func() {
+		It("Checks that monitor aggregation limits notifications", func() {
+			deployCilium([]string{
+				"--set global.bpf.monitorAggregation=maximum",
+				"--set global.bpf.monitorInterval=60s",
+				"--set global.bpf.monitorFlags=syn",
+			})
+			monitorStop := kubectl.MonitorStart(helpers.KubeSystemNamespace, ciliumPodK8s1, monitorLog)
+			result := testPodConnectivityAcrossNodes(kubectl)
+			monitorStop()
+			cleanService()
+			Expect(result).Should(BeTrue(), "Connectivity test between nodes failed")
+
+			// TODO: Count how many packets go through
 		})
 	})
 })
