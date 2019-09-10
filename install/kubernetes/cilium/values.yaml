@@ -180,6 +180,10 @@ global:
     # montiorAggregation is the level of aggregation for datapath trace events
     monitorAggregation: medium
 
+    # monitorInterval is the typical time between monitor notifications for
+    # active connections
+    monitorInterval: "5s"
+
   # encryption is the encryption specific configuration
   encryption:
     # enabled enables encryption

@@ -102,6 +102,12 @@ data:
   # that will be seen in monitor output.
   monitor-aggregation: {{ .Values.global.bpf.monitorAggregation }}
 
+  # The monitor aggregation interval governs the typical time between monitor
+  # notification events for each allowed connection.
+  #
+  # Only effective when monitor aggregation is set to "medium" or higher.
+  monitor-aggregation-interval: {{ .Values.global.bpf.monitorInterval }}
+
   # ct-global-max-entries-* specifies the maximum number of connections
   # supported across all endpoints, split by protocol: tcp or other. One pair
   # of maps uses these values for IPv4 connections, and another pair of maps
