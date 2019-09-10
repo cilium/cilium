@@ -612,6 +612,9 @@ func init() {
 	flags.Duration(option.CTMapEntriesTimeoutFINName, 10*time.Second, "Teardown timeout for entries in TCP CT table")
 	option.BindEnv(option.CTMapEntriesTimeoutFINName)
 
+	flags.Duration(option.MonitorAggregationInterval, 5*time.Second, "Monitor report interval when monitor aggregation is enabled")
+	option.BindEnv(option.MonitorAggregationInterval)
+
 	flags.Int(option.NATMapEntriesGlobalName, option.NATMapEntriesGlobalDefault, "Maximum number of entries for the global BPF NAT table")
 	option.BindEnv(option.NATMapEntriesGlobalName)
 

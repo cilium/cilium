@@ -28,14 +28,6 @@
 #include "l4.h"
 #include "nat46.h"
 
-/* CT_REPORT_INTERVAL, when MONITOR_AGGREGATION is >= TRACE_AGGREGATE_ACTIVE_CT
- * determines how frequently monitor notifications should be sent for active
- * connections. A notification is always triggered on a packet event.
- */
-#ifndef CT_REPORT_INTERVAL
-# define CT_REPORT_INTERVAL		5	/* 5 seconds */
-#endif
-
 #ifdef CONNTRACK
 enum {
 	ACTION_UNSPEC,
