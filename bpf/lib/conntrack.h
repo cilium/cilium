@@ -87,7 +87,7 @@ static inline __u32 __inline__ __ct_update_timeout(struct ct_entry *entry,
 {
 	__u32 now = bpf_ktime_get_sec();
 	__u8 accumulated_flags;
-	__u8 seen_flags = flags.lower_bits;
+	__u8 seen_flags = flags.lower_bits & CT_REPORT_FLAGS;
 	__u32 last_report;
 
 #ifdef NEEDS_TIMEOUT
