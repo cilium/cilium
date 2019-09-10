@@ -121,6 +121,7 @@ cilium-agent [flags]
       --masquerade                                            Masquerade packets from endpoints leaving the host (default true)
       --metrics strings                                       Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar)
       --monitor-aggregation string                            Level of monitor aggregation for traces from the datapath (default "None")
+      --monitor-aggregation-flags strings                     TCP flags that trigger monitor reports when monitor aggregation is enabled (default [syn,fin,rst])
       --monitor-aggregation-interval duration                 Monitor report interval when monitor aggregation is enabled (default 5s)
       --monitor-queue-size int                                Size of the event queue when reading monitor events
       --mtu int                                               Overwrite auto-detected MTU of underlying network

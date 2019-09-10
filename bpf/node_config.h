@@ -59,6 +59,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define CT_SYN_TIMEOUT			60
 #define CT_CLOSE_TIMEOUT		10
 #define CT_REPORT_INTERVAL		5
+#define CT_REPORT_FLAGS			0xff
 
 #ifdef ENABLE_MASQUERADE
 #define SNAT_MAPPING_MIN_PORT 1024

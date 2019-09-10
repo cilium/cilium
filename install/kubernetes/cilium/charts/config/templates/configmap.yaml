@@ -108,6 +108,12 @@ data:
   # Only effective when monitor aggregation is set to "medium" or higher.
   monitor-aggregation-interval: {{ .Values.global.bpf.monitorInterval }}
 
+  # The monitor aggregation flags determine which TCP flags which, upon the
+  # first observation, cause monitor notifications to be generated.
+  #
+  # Only effective when monitor aggregation is set to "medium" or higher.
+  monitor-aggregation-flags: {{ .Values.global.bpf.monitorFlags }}
+
   # ct-global-max-entries-* specifies the maximum number of connections
   # supported across all endpoints, split by protocol: tcp or other. One pair
   # of maps uses these values for IPv4 connections, and another pair of maps

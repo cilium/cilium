@@ -615,6 +615,9 @@ func init() {
 	flags.Duration(option.MonitorAggregationInterval, 5*time.Second, "Monitor report interval when monitor aggregation is enabled")
 	option.BindEnv(option.MonitorAggregationInterval)
 
+	flags.StringSlice(option.MonitorAggregationFlags, option.MonitorAggregationFlagsDefault, "TCP flags that trigger monitor reports when monitor aggregation is enabled")
+	option.BindEnv(option.MonitorAggregationFlags)
+
 	flags.Int(option.NATMapEntriesGlobalName, option.NATMapEntriesGlobalDefault, "Maximum number of entries for the global BPF NAT table")
 	option.BindEnv(option.NATMapEntriesGlobalName)
 
