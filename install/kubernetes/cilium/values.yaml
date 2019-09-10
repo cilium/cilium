@@ -184,6 +184,10 @@ global:
     # active connections
     monitorInterval: "5s"
 
+    # monitorFlags are TCP flags that trigger notifications when seen for the
+    # first time
+    monitorFlags: "all"
+
   # encryption is the encryption specific configuration
   encryption:
     # enabled enables encryption
