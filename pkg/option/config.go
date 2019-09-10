@@ -359,6 +359,9 @@ const (
 	// comandline.
 	MonitorAggregationName = "monitor-aggregation"
 
+	// MonitorAggregationInterval configures interval for monitor-aggregation
+	MonitorAggregationInterval = "monitor-aggregation-interval"
+
 	// ciliumEnvPrefix is the prefix used for environment variables
 	ciliumEnvPrefix = "CILIUM_"
 
@@ -871,6 +874,10 @@ type DaemonConfig struct {
 	CTMapEntriesTimeoutSVCAny time.Duration
 	CTMapEntriesTimeoutSYN    time.Duration
 	CTMapEntriesTimeoutFIN    time.Duration
+
+	// MonitorAggregationInterval configures the interval between monitor
+	// messages when monitor aggregation is enabled.
+	MonitorAggregationInterval time.Duration
 
 	// NATMapEntriesGlobal is the maximum number of NAT mappings allowed
 	// in the BPF NAT table
@@ -1609,6 +1616,7 @@ func (c *DaemonConfig) Populate() {
 	c.IPSecKeyFile = viper.GetString(IPSecKeyFileName)
 	c.ModePreFilter = viper.GetString(PrefilterMode)
 	c.MonitorAggregation = viper.GetString(MonitorAggregationName)
+	c.MonitorAggregationInterval = viper.GetDuration(MonitorAggregationInterval)
 	c.MonitorQueueSize = viper.GetInt(MonitorQueueSizeName)
 	c.MTU = viper.GetInt(MTUName)
 	c.NAT46Range = viper.GetString(NAT46Range)
