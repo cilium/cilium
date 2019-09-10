@@ -218,50 +218,8 @@ performance packet processor in the Linux kernel networking data path.
 Further information about BPF and XDP targeted for developers can be found in
 the `BPF and XDP Reference Guide`_.
 
-
-Further Reading
-===============
-
-.. further-reading-begin
-
-Related Material
-----------------
-
-* `k8s-snowflake: Configs and scripts for bootstrapping an opinionated
-  Kubernetes cluster anywhere using Cilium plugin
-  <https://github.com/jessfraz/k8s-snowflake>`_
-* `Using Cilium for NetworkPolicy: Kubernetes documentation on how to use Cilium
-  to implement NetworkPolicy
-  <https://kubernetes.io/docs/tasks/administer-cluster/cilium-network-policy/>`_
-
-Presentations
--------------
-
-* DockerCon, Austin TX, Apr 2017 - Cilium - Network and Application Security with BPF and XDP: `Slides
-  <https://www.slideshare.net/ThomasGraf5/dockercon-2017-cilium-network-and-application-security-with-bpf-and-xdp>`__, `Video <https://www.youtube.com/watch?v=ilKlmTDdFgk>`__
-* CNCF/KubeCon Meetup, Berlin, Mar 2017 - Linux Native, HTTP Aware Network Security:
-  `Slides <https://www.slideshare.net/ThomasGraf5/linux-native-http-aware-network-security>`__, `Video <https://www.youtube.com/watch?v=Yf_INdTWIHI>`__
-* Docker Distributed Systems Summit, Berlin, Oct 2016:
-  `Slides <http://www.slideshare.net/Docker/cilium-bpf-xdp-for-containers-66969823>`__, `Video <https://www.youtube.com/watch?v=TnJF7ht3ZYc&list=PLkA60AVN3hh8oPas3cq2VA9xB7WazcIgs&index=7>`__
-* NetDev1.2, Tokyo, Sep 2016 - cls_bpf/eBPF updates since netdev 1.1: `Slides <http://borkmann.ch/talks/2016_tcws.pdf>`__, `Video <https://youtu.be/gwzaKXWIelc?t=12m55s>`__
-* NetDev1.2, Tokyo, Sep 2016 - Advanced programmability and recent updates with tc’s cls_bpf: `Slides <http://borkmann.ch/talks/2016_netdev2.pdf>`__, `Video <https://www.youtube.com/watch?v=GwT9hRiqdUo>`__
-* ContainerCon NA, Toronto, Aug 2016 - Fast IPv6 container networking with BPF & XDP: `Slides <http://www.slideshare.net/ThomasGraf5/cilium-fast-ipv6-container-networking-with-bpf-and-xdp>`__
-
-Podcasts
---------
-
-* Software Gone Wild by Ivan Pepelnjak, Oct 2016: `Blog <http://blog.ipspace.net/2016/10/fast-linux-packet-forwarding-with.html>`__, `MP3 <http://media.blubrry.com/ipspace/stream.ipspace.net/nuggets/podcast/Show_64-Cilium_with_Thomas_Graf.mp3>`__
-* OVS Orbit by Ben Pfaff, May 2016: `Blog <https://ovsorbit.benpfaff.org/#e4>`__, `MP3 <https://ovsorbit.benpfaff.org/episode-4.mp3>`__
-
-Community blog posts
---------------------
-
-* `Cilium for Network and Application Security with BPF and XDP, Apr 2017
-  <https://blog.scottlowe.org/2017/04/18/black-belt-cilium/>`_
-* `Cilium, BPF and XDP, Google Open Source Blog, Nov 2016
-  <https://opensource.googleblog.com/2016/11/cilium-networking-and-security.html>`_
-
-.. further-reading-end
+To know more about Cilium, it's extensions and use cases around Cilium and BPF
+take a look at `Further Readings <FURTHER_READINGS.md>`_ section.
 
 Community
 =========
