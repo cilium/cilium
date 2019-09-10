@@ -8,6 +8,6 @@
 Further Reading
 ###############
 
-.. include:: ../README.rst
+.. include:: ../FURTHER_READINGS.rst
       :start-after: further-reading-begin
       :end-before: further-reading-end
