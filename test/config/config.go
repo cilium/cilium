@@ -21,8 +21,13 @@ import (
 
 // CiliumTestConfigType holds all of the configurable elements of the testsuite
 type CiliumTestConfigType struct {
-	Reprovision         bool
-	HoldEnvironment     bool
+	Reprovision bool
+	// HoldEnvironment leaves the test infrastructure in place on failure
+	HoldEnvironment bool
+	// PassCLIEnvironment passes through the environment invoking the gingko
+	// tests. When false all subcommands are executed with an empty environment,
+	// including PATH.
+	PassCLIEnvironment  bool
 	SSHConfig           string
 	ShowCommands        bool
 	TestScope           string
@@ -44,6 +49,8 @@ func (c *CiliumTestConfigType) ParseFlags() {
 		"Provision Vagrant boxes and Cilium before running test")
 	flag.BoolVar(&c.HoldEnvironment, "cilium.holdEnvironment", false,
 		"On failure, hold the environment in its current state")
+	flag.BoolVar(&c.PassCLIEnvironment, "cilium.passCLIEnvironment", false,
+		"Pass the environment invoking ginkgo, including PATH, to subcommands")
 	flag.BoolVar(&c.SkipLogGathering, "cilium.skipLogs", false,
 		"skip gathering logs if a test fails")
 	flag.StringVar(&c.SSHConfig, "cilium.SSHConfig", "",
