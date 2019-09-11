@@ -138,7 +138,16 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 		}
 		k.setBasePath()
 	} else {
-		exec := CreateLocalExecutor([]string{"KUBECONFIG=" + config.CiliumTestConfig.Kubeconfig})
+		// Prepare environment variables
+		// NOTE: order matters and we want the KUBECONFIG from config to win
+		var environ []string
+		if config.CiliumTestConfig.PassCLIEnvironment {
+			environ = append(environ, os.Environ()...)
+		}
+		environ = append(environ, "KUBECONFIG="+config.CiliumTestConfig.Kubeconfig)
+
+		// Create the executor
+		exec := CreateLocalExecutor(environ)
 		exec.logger = log
 
 		k = &Kubectl{
