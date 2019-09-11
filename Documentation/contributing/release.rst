@@ -264,6 +264,8 @@ If you intent to release a new minor release, see the
    Please reach out on the ``#development`` channel on Slack for assistance with
    this task.
 
+#. Update the latest released versions of Cilium in ``README.md``.
+
 #. Update the external tools and guides to point to the released Cilium version:
 
     * `kubeadm <https://kubernetes.io/docs/setup/independent/create-cluster-kubeadm/>`_
