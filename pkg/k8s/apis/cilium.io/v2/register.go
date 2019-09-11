@@ -42,7 +42,7 @@ const (
 
 	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
 	// Used to determine if CRD needs to be updated in cluster
-	CustomResourceDefinitionSchemaVersion = "1.14"
+	CustomResourceDefinitionSchemaVersion = "1.15"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
@@ -50,9 +50,9 @@ const (
 	// CNPKindDefinition is the kind name for Cilium Network Policy
 	CNPKindDefinition = "CiliumNetworkPolicy"
 
-	fqdnNameRegex = `^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])\.?$`
+	fqdnNameRegex = `^([-a-zA-Z0-9_]+[.]?)+$`
 
-	fqdnPatternRegex = `^(([a-zA-Z0-9\*]|[a-zA-Z0-9\*][a-zA-Z0-9\-\*]*[a-zA-Z0-9\*])\.)*([A-Za-z0-9\*]|[A-Za-z0-9\*][A-Za-z0-9\-\*]*[A-Za-z0-9\*])\.?$`
+	fqdnPatternRegex = `^([-a-zA-Z0-9_*]+[.]?)+$`
 )
 
 // SchemeGroupVersion is group version used to register these objects
