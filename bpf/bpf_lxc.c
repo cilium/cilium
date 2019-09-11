@@ -174,14 +174,8 @@ skip_service_lookup:
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, perform the CIDR policy check. */
 	verdict = policy_can_egress6(skb, tuple, *dstID);
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
-		/* If the connection was previously known and packet is now
-		 * denied, remove the connection tracking entry */
-		if (ret == CT_ESTABLISHED)
-			ct_delete6(get_ct_map6(tuple), tuple, skb);
-
+	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0)
 		return verdict;
-	}
 
 	switch (ret) {
 	case CT_NEW:
@@ -493,14 +487,8 @@ skip_service_lookup:
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, perform the CIDR policy check. */
 	verdict = policy_can_egress4(skb, &tuple, *dstID);
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
-		/* If the connection was previously known and packet is now
-		 * denied, remove the connection tracking entry */
-		if (ret == CT_ESTABLISHED)
-			ct_delete4(get_ct_map4(&tuple), &tuple, skb);
-
+	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0)
 		return verdict;
-	}
 
 	switch (ret) {
 	case CT_NEW:
@@ -824,14 +812,8 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason)
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
-		/* If the connection was previously known and packet is now
-		 * denied, remove the connection tracking entry */
-		if (ret == CT_ESTABLISHED)
-			ct_delete6(get_ct_map6(&tuple), &tuple, skb);
-
+	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0)
 		return verdict;
-	}
 
 	if (skip_ingress_proxy)
 		verdict = 0;
@@ -1018,14 +1000,8 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
-		/* If the connection was previously known and packet is now
-		 * denied, remove the connection tracking entry */
-		if (ret == CT_ESTABLISHED)
-			ct_delete4(get_ct_map4(&tuple), &tuple, skb);
-
+	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0)
 		return verdict;
-	}
 
 	if (skip_ingress_proxy)
 		verdict = 0;
