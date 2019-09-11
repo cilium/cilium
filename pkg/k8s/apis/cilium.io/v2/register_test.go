@@ -166,6 +166,9 @@ func (s *CiliumV2RegisterSuite) TestFQDNNameRegex(c *C) {
 		"cilium.io",
 		"cilium.io.",
 		"www.xn--e28h.com",
+		"_tcp.cilium.io",
+		"foo._tcp.cilium.io",
+		"_http._tcp.cilium.io",
 	}
 
 	badFqdnPatterns := []string{
@@ -178,6 +181,9 @@ func (s *CiliumV2RegisterSuite) TestFQDNNameRegex(c *C) {
 		"*.cilium.io.*",
 		"*.cilium.io.*.",
 		"*.xn--e28h.com",
+		"*._tcp.cilium.io",
+		"*._tcp.*",
+		"_http._tcp.*",
 	}
 
 	for _, f := range badFqdns {

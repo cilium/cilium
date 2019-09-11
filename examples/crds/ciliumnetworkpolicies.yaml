@@ -179,6 +179,22 @@ spec:
               items:
                 type: string
               type: array
+            toFQDNs:
+                description: "ToFQDNs is a list of rules matching fqdns that endpoint\n\t\t\t\tis
+                  allowed to communicate with"
+                items:
+                  description: FQDNRule is a rule that specifies an fully qualified
+                    domain name to which outside communication is allowed
+                  properties:
+                    matchName:
+                      description: MatchName matches fqdn name
+                      pattern: ^([-a-zA-Z0-9_]+[.]?)+$
+                      type: string
+                    matchPattern:
+                      description: MatchPattern matches fqdn by pattern
+                      pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
+                      type: string
+                type: array
             toGroups:
               description: "ToGroups is a list of constraints that will\n\t\t\t\tgather
                 data from third-party providers and create a new\n\t\t\t\tderived
@@ -237,6 +253,22 @@ spec:
                       must be met in order for the PortRule to allow the traffic.
                       If omitted or empty, no layer 7 rules are enforced.
                     properties:
+                      dns:
+                        description: DNS specific rules
+                        items:
+                          description: FQDNRule is a rule that specifies an fully
+                            qualified domain name to which outside communication
+                            is allowed
+                          properties:
+                            matchName:
+                              description: MatchName matches fqdn name
+                              pattern: ^([-a-zA-Z0-9_]+[.]?)+$
+                              type: string
+                            matchPattern:
+                              description: MatchPattern matches fqdn by pattern
+                              pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
+                              type: string
+                        type: array
                       http:
                         description: HTTP specific rules.
                         items:
@@ -724,6 +756,22 @@ spec:
                       must be met in order for the PortRule to allow the traffic.
                       If omitted or empty, no layer 7 rules are enforced.
                     properties:
+                      dns:
+                        description: DNS specific rules
+                        items:
+                          description: FQDNRule is a rule that specifies an fully
+                            qualified domain name to which outside communication
+                            is allowed
+                          properties:
+                            matchName:
+                              description: MatchName matches fqdn name
+                              pattern: ^([-a-zA-Z0-9_]+[.]?)+$
+                              type: string
+                            matchPattern:
+                              description: MatchPattern matches fqdn by pattern
+                              pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
+                              type: string
+                        type: array
                       http:
                         description: HTTP specific rules.
                         items:
@@ -840,6 +888,21 @@ spec:
             be set. If none are specified, then no additional port level rules are
             applied.
           properties:
+            dns:
+              description: DNS specific rules
+              items:
+                description: FQDNRule is a rule that specifies an fully qualified
+                  domain name to which outside communication is allowed
+                properties:
+                  matchName:
+                    description: MatchName matches fqdn name
+                    pattern: ^([-a-zA-Z0-9_]+[.]?)+$
+                    type: string
+                  matchPattern:
+                    description: MatchPattern matches fqdn by pattern
+                    pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
+                    type: string
+              type: array
             http:
               description: HTTP specific rules.
               items:
@@ -1075,6 +1138,21 @@ spec:
                 be met in order for the PortRule to allow the traffic. If omitted
                 or empty, no layer 7 rules are enforced.
               properties:
+                dns:
+                  description: DNS specific rules
+                  items:
+                    description: FQDNRule is a rule that specifies an fully qualified
+                      domain name to which outside communication is allowed
+                    properties:
+                      matchName:
+                        description: MatchName matches fqdn name
+                        pattern: ^([-a-zA-Z0-9_]+[.]?)+$
+                        type: string
+                      matchPattern:
+                        description: MatchPattern matches fqdn by pattern
+                        pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
+                        type: string
+                  type: array
                 http:
                   description: HTTP specific rules.
                   items:
@@ -1398,6 +1476,22 @@ spec:
                     items:
                       type: string
                     type: array
+                  toFQDNs:
+                    description: "ToFQDNs is a list of rules matching fqdns that
+                      endpoint\n\t\t\t\tis allowed to communicate with"
+                    items:
+                      description: FQDNRule is a rule that specifies an fully qualified
+                        domain name to which outside communication is allowed
+                      properties:
+                        matchName:
+                          description: MatchName matches fqdn name
+                          pattern: ^([-a-zA-Z0-9_]+[.]?)+$
+                          type: string
+                        matchPattern:
+                          description: MatchPattern matches fqdn by pattern
+                          pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
+                          type: string
+                    type: array
                   toGroups:
                     description: "ToGroups is a list of constraints that will\n\t\t\t\tgather
                       data from third-party providers and create a new\n\t\t\t\tderived
@@ -1460,6 +1554,22 @@ spec:
                             which must be met in order for the PortRule to allow the
                             traffic. If omitted or empty, no layer 7 rules are enforced.
                           properties:
+                            dns:
+                              description: DNS specific rules
+                              items:
+                                description: FQDNRule is a rule that specifies an
+                                  fully qualified domain name to which outside communication
+                                  is allowed
+                                properties:
+                                  matchName:
+                                    description: MatchName matches fqdn name
+                                    pattern: ^([-a-zA-Z0-9_]+[.]?)+$
+                                    type: string
+                                  matchPattern:
+                                    description: MatchPattern matches fqdn by pattern
+                                    pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
+                                    type: string
+                              type: array
                             http:
                               description: HTTP specific rules.
                               items:
@@ -1964,6 +2074,22 @@ spec:
                             which must be met in order for the PortRule to allow the
                             traffic. If omitted or empty, no layer 7 rules are enforced.
                           properties:
+                            dns:
+                              description: DNS specific rules
+                              items:
+                                description: FQDNRule is a rule that specifies an
+                                  fully qualified domain name to which outside communication
+                                  is allowed
+                                properties:
+                                  matchName:
+                                    description: MatchName matches fqdn name
+                                    pattern: ^([-a-zA-Z0-9_]+[.]?)+$
+                                    type: string
+                                  matchPattern:
+                                    description: MatchPattern matches fqdn by pattern
+                                    pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
+                                    type: string
+                              type: array
                             http:
                               description: HTTP specific rules.
                               items:
@@ -2354,6 +2480,22 @@ spec:
                     items:
                       type: string
                     type: array
+                  toFQDNs:
+                    description: "ToFQDNs is a list of rules matching fqdns that
+                      endpoint\n\t\t\t\tis allowed to communicate with"
+                    items:
+                      description: FQDNRule is a rule that specifies an fully qualified
+                        domain name to which outside communication is allowed
+                      properties:
+                        matchName:
+                          description: MatchName matches fqdn name
+                          pattern: ^([-a-zA-Z0-9_]+[.]?)+$
+                          type: string
+                        matchPattern:
+                          description: MatchPattern matches fqdn by pattern
+                          pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
+                          type: string
+                    type: array
                   toGroups:
                     description: "ToGroups is a list of constraints that will\n\t\t\t\tgather
                       data from third-party providers and create a new\n\t\t\t\tderived
@@ -2417,6 +2559,22 @@ spec:
                             so exactly one of the following must be set. If none are
                             specified, then no additional port level rules are applied.
                           properties:
+                            dns:
+                              description: DNS specific rules
+                              items:
+                                description: FQDNRule is a rule that specifies an
+                                  fully qualified domain name to which outside communication
+                                  is allowed
+                                properties:
+                                  matchName:
+                                    description: MatchName matches fqdn name
+                                    pattern: ^([-a-zA-Z0-9_]+[.]?)+$
+                                    type: string
+                                  matchPattern:
+                                    description: MatchPattern matches fqdn by pattern
+                                    pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
+                                    type: string
+                              type: array
                             http:
                               description: HTTP specific rules.
                               items:
@@ -2933,6 +3091,22 @@ spec:
                             so exactly one of the following must be set. If none are
                             specified, then no additional port level rules are applied.
                           properties:
+                            dns:
+                              description: DNS specific rules
+                              items:
+                                description: FQDNRule is a rule that specifies an
+                                  fully qualified domain name to which outside communication
+                                  is allowed
+                                properties:
+                                  matchName:
+                                    description: MatchName matches fqdn name
+                                    pattern: ^([-a-zA-Z0-9_]+[.]?)+$
+                                    type: string
+                                  matchPattern:
+                                    description: MatchPattern matches fqdn by pattern
+                                    pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
+                                    type: string
+                              type: array
                             http:
                               description: HTTP specific rules.
                               items:
@@ -3200,6 +3374,23 @@ spec:
                       items:
                         type: string
                       type: array
+                    toFQDNs:
+                      description: "ToFQDNs is a list of rules matching fqdns that
+                        endpoint\n\t\t\t\tis allowed to communicate with"
+                      items:
+                        description: FQDNRule is a rule that specifies an fully
+                          qualified domain name to which outside communication is
+                          allowed
+                        properties:
+                          matchName:
+                            description: MatchName matches fqdn name
+                            pattern: ^([-a-zA-Z0-9_]+[.]?)+$
+                            type: string
+                          matchPattern:
+                            description: MatchPattern matches fqdn by pattern
+                            pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
+                            type: string
+                      type: array
                     toGroups:
                       description: "ToGroups is a list of constraints that will\n\t\t\t\tgather
                         data from third-party providers and create a new\n\t\t\t\tderived
@@ -3264,6 +3455,23 @@ spec:
                               are specified, then no additional port level rules are
                               applied.
                             properties:
+                              dns:
+                                description: DNS specific rules
+                                items:
+                                  description: FQDNRule is a rule that specifies
+                                    an fully qualified domain name to which outside
+                                    communication is allowed
+                                  properties:
+                                    matchName:
+                                      description: MatchName matches fqdn name
+                                      pattern: ^([-a-zA-Z0-9_]+[.]?)+$
+                                      type: string
+                                    matchPattern:
+                                      description: MatchPattern matches fqdn by
+                                        pattern
+                                      pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
+                                      type: string
+                                type: array
                               http:
                                 description: HTTP specific rules.
                                 items:
@@ -3788,6 +3996,23 @@ spec:
                               are specified, then no additional port level rules are
                               applied.
                             properties:
+                              dns:
+                                description: DNS specific rules
+                                items:
+                                  description: FQDNRule is a rule that specifies
+                                    an fully qualified domain name to which outside
+                                    communication is allowed
+                                  properties:
+                                    matchName:
+                                      description: MatchName matches fqdn name
+                                      pattern: ^([-a-zA-Z0-9_]+[.]?)+$
+                                      type: string
+                                    matchPattern:
+                                      description: MatchPattern matches fqdn by
+                                        pattern
+                                      pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
+                                      type: string
+                                type: array
                               http:
                                 description: HTTP specific rules.
                                 items:
