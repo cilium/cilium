@@ -491,6 +491,12 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 
 	bootstrapStats.bpfBase.Start()
 	err = d.init()
+	bootstrapStats.bpfBase.EndError(err)
+	if err != nil {
+		log.WithError(err).Error("Error while initializing daemon")
+		return nil, restoredEndpoints, err
+	}
+
 	// We can only start monitor agent once cilium_event has been set up.
 	if option.Config.RunMonitorAgent {
 		monitorAgent, err := monitoragent.NewAgent(context.TODO(), defaults.MonitorBufferPages)
@@ -498,11 +504,6 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 			return nil, nil, err
 		}
 		d.monitorAgent = monitorAgent
-	}
-	bootstrapStats.bpfBase.EndError(err)
-	if err != nil {
-		log.WithError(err).Error("Error while initializing daemon")
-		return nil, restoredEndpoints, err
 	}
 	if err := loader.RestoreTemplates(option.Config.StateDir); err != nil {
 		log.WithError(err).Error("Unable to restore previous BPF templates")
