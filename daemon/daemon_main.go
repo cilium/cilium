@@ -642,6 +642,9 @@ func init() {
 	flags.StringVar(&option.Config.FQDNRejectResponse, option.FQDNRejectResponseCode, option.FQDNProxyDenyWithRefused, fmt.Sprintf("DNS response code for rejecting DNS requests, available options are '%v'", option.FQDNRejectOptions))
 	option.BindEnv(option.FQDNRejectResponseCode)
 
+	flags.DurationVar(&option.Config.FQDNProxyResponseDelay, option.FQDNProxyResponseDelay, time.Duration(0), "The miniumum time the DNS proxy holds an allowed response before sending it along. The higher this is the more time is allowed for cilium to update the datapath with the DNS information.")
+	option.BindEnv(option.FQDNProxyResponseDelay)
+
 	flags.Int(option.ToFQDNsMaxIPsPerHost, defaults.ToFQDNsMaxIPsPerHost, "Maximum number of IPs to maintain per FQDN name for each endpoint")
 	option.BindEnv(option.ToFQDNsMaxIPsPerHost)
 

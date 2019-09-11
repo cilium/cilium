@@ -114,6 +114,14 @@ type DNSProxy struct {
 	// rejectReply is the OPCode send from the DNS-proxy to the endpoint if the
 	// DNS request is invalid
 	rejectReply int
+
+	// responseDelay is the minimum amount of time to delay a DNS response when
+	// returning it to the original endpoint. This time is counted parallel to
+	// .NotifyOnDNSMessage calls. In cases where .NotifyOnDNSMessage takes longer
+	// than responseDelay the effective delay is also longer.
+	// A delay of 0 means that the response goroutine does not wait. It may see
+	// scheduling delays.
+	responseDelay time.Duration
 }
 
 // LookupEndpointIDByIPFunc wraps logic to lookup an endpoint with any backend.
@@ -153,7 +161,7 @@ func (proxyStat *ProxyRequestContext) IsTimeout() bool {
 // notifyFunc will be called with DNS response data that is returned to a
 // requesting endpoint. Note that denied requests will not trigger this
 // callback.
-func StartDNSProxy(address string, port uint16, lookupEPFunc LookupEndpointIDByIPFunc, notifyFunc NotifyOnDNSMsgFunc) (*DNSProxy, error) {
+func StartDNSProxy(address string, port uint16, responseDelay time.Duration, lookupEPFunc LookupEndpointIDByIPFunc, notifyFunc NotifyOnDNSMsgFunc) (*DNSProxy, error) {
 	if port == 0 {
 		log.Debug("DNS Proxy port is configured to 0. A random port will be assigned by the OS.")
 	}
@@ -168,6 +176,7 @@ func StartDNSProxy(address string, port uint16, lookupEPFunc LookupEndpointIDByI
 		lookupTargetDNSServer: lookupTargetDNSServer,
 		allowed:               regexpmap.NewRegexpMap(),
 		rejectReply:           dns.RcodeRefused,
+		responseDelay:         responseDelay,
 	}
 
 	// Start the DNS listeners on UDP and TCP
@@ -376,20 +385,33 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	scopedLog.WithField(logfields.Response, response).Debug("Received DNS response to proxied lookup")
 	stat.Success = true
 
-	scopedLog.Debug("Responding to original DNS query")
-	// restore the ID to the one in the initial request so it matches what the requester expects.
-	response.Id = requestID
-	err = w.WriteMsg(response)
-	if err != nil {
-		scopedLog.WithError(err).Error("Cannot forward proxied DNS response")
-		stat.Err = fmt.Errorf("Cannot forward proxied DNS response: %s", err)
-		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, response, protocol, true, stat)
-	}
+	// ctx is used to both delay sending the response by responseDelay and make
+	// ServeDNS block on both operations completing.
+	// In the case where
+	ctx, cancel := context.WithTimeout(context.TODO(), p.responseDelay)
+	defer cancel()
+	wait := make(chan struct{})
+	go func() {
+		defer close(wait)
+		<-ctx.Done()
+		scopedLog.Debug("Responding to original DNS query")
+		// restore the ID to the one in the initial request so it matches what the requester expects.
+		response.Id = requestID
+		err = w.WriteMsg(response)
+		if err != nil {
+			scopedLog.WithError(err).Error("Cannot forward proxied DNS response")
+			stat.Err = fmt.Errorf("Cannot forward proxied DNS response: %s", err)
+			p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, response, protocol, true, stat)
+		}
+	}()
 
 	// Note: This may block and it is safer to do it after we have written out
 	// the DNS response to the pod.
 	scopedLog.Debug("Notifying with DNS response to original DNS query")
 	p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, response, protocol, true, stat)
+
+	// Wait for the response goroutine to complete before we return
+	<-wait
 }
 
 // sendRefused creates and sends a REFUSED response for request to w

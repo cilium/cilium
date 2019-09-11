@@ -462,6 +462,9 @@ const (
 	// the default for denied DNS requests.
 	FQDNProxyDenyWithRefused = "refused"
 
+	//FQDNProxyResponseDelay is the minimum time the proxy holds back a response
+	FQDNProxyResponseDelay = "tofqdns-proxy-response-delay"
+
 	// PreAllocateMapsName is the name of the option PreAllocateMaps
 	PreAllocateMapsName = "preallocate-bpf-maps"
 
@@ -1031,6 +1034,11 @@ type DaemonConfig struct {
 
 	// FQDNRejectResponse is the dns-proxy response for invalid dns-proxy request
 	FQDNRejectResponse string
+
+	// FQDNProxyResponseDelay is the minimum time the proxy holds responses
+	// before sending them along. This time is useful to allow cilium to populate
+	// the datapath.
+	FQDNProxyResponseDelay time.Duration
 
 	// Path to a file with DNS cache data to preload on startup
 	ToFQDNsPreCache string

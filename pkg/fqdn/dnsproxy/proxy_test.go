@@ -139,7 +139,7 @@ func (s *DNSProxyTestSuite) SetUpSuite(c *C) {
 	s.dnsServer = setupServer(c)
 	c.Assert(s.dnsServer, Not(IsNil), Commentf("unable to setup DNS server"))
 
-	proxy, err := StartDNSProxy("", 0,
+	proxy, err := StartDNSProxy("", 0, time.Duration(0),
 		func(ip net.IP) (*endpoint.Endpoint, error) {
 			ep := endpoint.NewEndpointWithState(s, 123, endpoint.StateReady)
 			return ep, nil

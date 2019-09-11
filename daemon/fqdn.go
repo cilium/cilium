@@ -233,7 +233,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 	if err != nil {
 		return err
 	}
-	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port, d.lookupEPByIP, d.notifyOnDNSMsg)
+	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port, option.Config.FQDNProxyResponseDelay, d.lookupEPByIP, d.notifyOnDNSMsg)
 	if err == nil {
 		// Increase the ProxyPort reference count so that it will never get released.
 		err = d.l7Proxy.SetProxyPort(listenerName, proxy.DefaultDNSProxy.BindPort)
