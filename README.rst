@@ -29,11 +29,11 @@ along with their latest minor release, corresponding image pull tags and their
 release notes:
 
 +-------------------------------------------------------+------------+------------------------------------+--------------------------------------------------------------------------+------------------------------------------------------------------------+
-| `v1.6 <https://github.com/cilium/cilium/tree/v1.6>`__ | 2019-08-16 | ``docker.io/cilium/cilium:v1.6.0`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.6.0>`__ | `General Announcement <https://cilium.io/blog/2019/08/20/cilium-16>`__ |
+| `v1.6 <https://github.com/cilium/cilium/tree/v1.6>`__ | 2019-09-09 | ``docker.io/cilium/cilium:v1.6.1`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.6.1>`__ | `General Announcement <https://cilium.io/blog/2019/08/20/cilium-16>`__ |
 +-------------------------------------------------------+------------+------------------------------------+--------------------------------------------------------------------------+------------------------------------------------------------------------+
-| `v1.5 <https://github.com/cilium/cilium/tree/v1.5>`__ | 2019-08-23 | ``docker.io/cilium/cilium:v1.5.7`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.5.7>`__ | `General Announcement <https://cilium.io/blog/2019/04/24/cilium-15>`__ |
+| `v1.5 <https://github.com/cilium/cilium/tree/v1.5>`__ | 2019-09-09 | ``docker.io/cilium/cilium:v1.5.8`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.5.8>`__ | `General Announcement <https://cilium.io/blog/2019/04/24/cilium-15>`__ |
 +-------------------------------------------------------+------------+------------------------------------+--------------------------------------------------------------------------+------------------------------------------------------------------------+
-| `v1.4 <https://github.com/cilium/cilium/tree/v1.4>`__ | 2019-08-15 | ``docker.io/cilium/cilium:v1.4.7`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.4.7>`__ | `General Announcement <https://cilium.io/blog/2019/02/12/cilium-14>`__ |
+| `v1.4 <https://github.com/cilium/cilium/tree/v1.4>`__ | 2019-09-09 | ``docker.io/cilium/cilium:v1.4.8`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.4.8>`__ | `General Announcement <https://cilium.io/blog/2019/02/12/cilium-14>`__ |
 +-------------------------------------------------------+------------+------------------------------------+--------------------------------------------------------------------------+------------------------------------------------------------------------+
 
 Functionality Overview
