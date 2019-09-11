@@ -205,11 +205,6 @@ func (d *Daemon) GetCompilationLock() *lock.RWMutex {
 }
 
 func (d *Daemon) init() error {
-	globalsDir := option.Config.GetGlobalsDir()
-	if err := os.MkdirAll(globalsDir, defaults.RuntimePathRights); err != nil {
-		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("Could not create runtime directory")
-	}
-
 	if err := os.Chdir(option.Config.StateDir); err != nil {
 		log.WithError(err).WithField(logfields.Path, option.Config.StateDir).Fatal("Could not change to runtime directory")
 	}

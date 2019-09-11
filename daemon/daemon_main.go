@@ -832,6 +832,12 @@ func initEnv(cmd *cobra.Command) {
 	if err := os.MkdirAll(option.Config.LibDir, defaults.RuntimePathRights); err != nil {
 		scopedLog.WithError(err).Fatal("Could not create library directory")
 	}
+
+	globalsDir := option.Config.GetGlobalsDir()
+	if err := os.MkdirAll(globalsDir, defaults.RuntimePathRights); err != nil {
+		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("Could not create globals directory")
+	}
+
 	if !option.Config.KeepTemplates {
 		// We need to remove the old probes here as otherwise stale .t tests could
 		// still reside from newer Cilium versions which might break downgrade.
