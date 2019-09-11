@@ -439,6 +439,18 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 		return nil, nil, err
 	}
 
+	// Start the proxy before we restore endpoints so that we can inject the
+	// daemon's proxy into each endpoint.
+	bootstrapStats.proxyStart.Start()
+	// FIXME: Make the port range configurable.
+	if option.Config.InstallIptRules {
+		d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
+			option.Config.AccessLog, &d, option.Config.AgentLabels, d.datapath, d.endpointManager)
+	} else {
+		log.Warning("L7 proxies not supported when --install-iptables-rules=\"false\"")
+	}
+	bootstrapStats.proxyStart.End(true)
+
 	bootstrapStats.restore.Start()
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the
@@ -514,16 +526,6 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 	// we populate the IPCache with the host's IP(s).
 	ipcache.InitIPIdentityWatcher()
 	identitymanager.Subscribe(d.policy)
-
-	bootstrapStats.proxyStart.Start()
-	// FIXME: Make the port range configurable.
-	if option.Config.InstallIptRules {
-		d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
-			option.Config.AccessLog, &d, option.Config.AgentLabels, d.datapath, d.endpointManager)
-	} else {
-		log.Warning("L7 proxies not supported when --install-iptables-rules=\"false\"")
-	}
-	bootstrapStats.proxyStart.End(true)
 
 	bootstrapStats.fqdn.Start()
 	if err := fqdn.ConfigFromResolvConf(); err != nil {

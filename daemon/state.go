@@ -162,7 +162,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 		ep.LogStatusOK(endpoint.Other, "Restoring endpoint from previous cilium instance")
 
 		ep.SetDefaultConfiguration(true)
-
+		ep.SetProxy(d.l7Proxy)
 		ep.SkipStateClean()
 
 		state.restored = append(state.restored, ep)
@@ -220,8 +220,6 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 		if ep.Options.IsEnabled(option.ConntrackLocal) {
 			ctmap.DeleteIfUpgradeNeeded(ep)
 		}
-
-		ep.SetProxy(d.l7Proxy)
 
 		// Insert into endpoint manager so it can be regenerated when calls to
 		// RegenerateAllEndpoints() are made. This must be done synchronously (i.e.,
