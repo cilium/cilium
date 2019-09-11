@@ -6,9 +6,15 @@ KUBE_SYSTEM_NAMESPACE="kube-system"
 KUBECTL="/usr/bin/kubectl"
 PROVISIONSRC="/tmp/provision"
 GOPATH="/home/vagrant/go"
-REGISTRY="k8s1:5000"
-CILIUM_TAG="cilium/cilium-dev"
-CILIUM_OPERATOR_TAG="cilium/operator"
+CILIUM_REGISTRY=${CILIUM_REGISTRY:-"k8s1:5000"}
+CILIUM_REMOTE_IMAGE=${CILIUM_IMAGE:-cilium/cilium-dev}
+CILIUM_TAG=${CILIUM_TAG:-"latest"}
+CILIUM_OPERATOR_REMOTE_IMAGE=${CILIUM_OPERATOR_IMAGE:-cilium/operator}
+CILIUM_OPERATOR_TAG=${CILIUM_OPERATOR_TAG:-"latest"}
+
+# These must match the makefile/Dockerfile since that names the image in the local docker
+CILIUM_LOCAL_BUILD_IMAGE=${CILIUM_LOCAL_BUILD_IMAGE:-cilium/cilium}
+CILIUM_OPERATOR_LOCAL_BUILD_IMAGE=${CILIUM_OPERATOR_LOCAL_BUILD_IMAGE:-cilium/operator}
 
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
@@ -29,34 +35,35 @@ then
     if [[ "$(hostname)" == "k8s1" ]]; then
       ./test/provision/container-images.sh cilium_images .
       if [[ "${CILIUM_IMAGE}" == "" && "${CILIUM_OPERATOR_IMAGE}" == "" ]]; then
-        echo "building cilium/cilium container image..."
+        echo "building ${CILIUM_LOCAL_BUILD_IMAGE} container image..."
         make LOCKDEBUG=1 docker-image-no-clean
 
-        echo "building cilium/operator container image..."
-	make LOCKDEBUG=1 docker-operator-image&
+        echo "building ${CILIUM_OPERATOR_LOCAL_BUILD_IMAGE} container image..."
+        make LOCKDEBUG=1 docker-operator-image&
         export OPERATORPID=$!
 
-        echo "pushing cilium/cilium image to k8s1:5000/cilium/cilium-dev..."
-        docker tag cilium/cilium k8s1:5000/cilium/cilium-dev
-        docker rmi cilium/cilium:latest
-        docker push k8s1:5000/cilium/cilium-dev
+        echo "pushing ${CILIUM_LOCAL_BUILD_IMAGE} image to k8s1:5000/cilium/cilium-dev..."
+        docker tag ${CILIUM_LOCAL_BUILD_IMAGE} "${CILIUM_REGISTRY}/${CILIUM_REMOTE_IMAGE}:${CILIUM_TAG}"
+        docker rmi "${CILIUM_LOCAL_BUILD_IMAGE}:${CILIUM_TAG}"
+        docker push ${CILIUM_REGISTRY}/${CILIUM_REMOTE_IMAGE}:${CILIUM_TAG}
+
 
         wait $OPERATORPID
-        echo "pushing cilium/operator image to k8s1:5000/cilium/operator..."
-        docker tag cilium/operator k8s1:5000/cilium/operator
-        docker push k8s1:5000/cilium/operator
+        echo "pushing ${CILIUM_OPERATOR_LOCAL_BUILD_IMAGE} image to k8s1:5000/cilium/operator..."
+        docker tag ${CILIUM_OPERATOR_LOCAL_BUILD_IMAGE} "${CILIUM_REGISTRY}/${CILIUM_OPERATOR_REMOTE_IMAGE}:${CILIUM_OPERATOR_TAG}"
+        docker push "${CILIUM_REGISTRY}/${CILIUM_OPERATOR_REMOTE_IMAGE}:${CILIUM_OPERATOR_TAG}"
         delete_cilium_pods
       elif [[ "${CILIUM_IMAGE}" != "" && "${CILIUM_OPERATOR_IMAGE}" == "" ]]; then
-        pull_image_and_push_to_local_registry ${CILIUM_IMAGE} ${REGISTRY} ${CILIUM_TAG}
-        build_operator_image
+        pull_image_and_push_to_local_registry ${CILIUM_IMAGE} ${CILIUM_REGISTRY} ${CILIUM_TAG}
+				build_operator_image ${CILIUM_OPERATOR_LOCAL_BUILD_IMAGE} "${CILIUM_REGISTRY}/${CILIUM_OPERATOR_REMOTE_IMAGE}:${CILIUM_OPERATOR_TAG}"
         delete_cilium_pods
       elif [[ "${CILIUM_IMAGE}" == "" && "${CILIUM_OPERATOR_IMAGE}" != "" ]]; then
-        pull_image_and_push_to_local_registry ${CILIUM_OPERATOR_IMAGE} ${REGISTRY} ${CILIUM_OPERATOR_TAG}
-        build_cilium_image
+        pull_image_and_push_to_local_registry ${CILIUM_OPERATOR_IMAGE} ${CILIUM_REGISTRY} ${CILIUM_OPERATOR_TAG}
+        build_cilium_image ${CILIUM_LOCAL_BUILD_IMAGE} "${CILIUM_REGISTRY}/${CILIUM_REMOTE_IMAGE}:${CILIUM__TAG}"
         delete_cilium_pods
       else
-        pull_image_and_push_to_local_registry ${CILIUM_IMAGE} ${REGISTRY} ${CILIUM_TAG}
-        pull_image_and_push_to_local_registry ${CILIUM_OPERATOR_IMAGE} ${REGISTRY} ${CILIUM_OPERATOR_TAG}
+        pull_image_and_push_to_local_registry ${CILIUM_IMAGE} ${CILIUM_REGISTRY} ${CILIUM_TAG}
+        pull_image_and_push_to_local_registry ${CILIUM_OPERATOR_IMAGE} ${CILIUM_REGISTRY} ${CILIUM_OPERATOR_TAG}
         delete_cilium_pods
       fi
     else

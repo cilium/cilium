@@ -17,6 +17,11 @@ IPv6=$4
 CONTAINER_RUNTIME=$5
 CNI_INTEGRATION=$6
 
+# Cilium image defaults
+CILIUM_REGISTRY=${CILIUM_REGISTRY:-"k8s1:5000"}
+CILIUM_IMAGE=${CILIUM_IMAGE:-cilium/cilium-dev}
+CILIUM_TAG=${CILIUM_TAG:-"latest"}
+
 # Kubeadm default parameters
 export KUBEADM_ADDR='192.168.36.11'
 export KUBEADM_POD_NETWORK='10.10.0.0'
@@ -303,7 +308,7 @@ else
       echo "SKIPPING K8S INSTALLATION"
     fi
     sudo systemctl stop etcd
-    docker pull k8s1:5000/cilium/cilium-dev:latest
+    docker pull ${REGISTRY}/${CILIUM_IMAGE}:${CILIUM_TAG}
 fi
 
 # Create world network

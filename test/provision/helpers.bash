@@ -89,20 +89,26 @@ function pull_image_and_push_to_local_registry {
 }
 
 function build_cilium_image {
+	LOCAL_IMAGE=$1
+	REMOTE_TARGET=$2
+
   echo "building cilium image..."
   make LOCKDEBUG=1 docker-image-no-clean
   echo "tagging cilium image..."
-  docker tag cilium/cilium k8s1:5000/cilium/cilium-dev
+  docker tag ${LOCAL_IMAGE} ${REMOTE_TARGET}
   echo "pushing cilium image..."
-  docker push k8s1:5000/cilium/cilium-dev
+	docker push ${REMOTE_TARGET}
 }
 
 function build_operator_image {
+	LOCAL_IMAGE=$1
+	REMOTE_TARGET=$2
+
   # build cilium-operator image
   echo "building cilium-operator image..."
   make LOCKDEBUG=1 docker-operator-image
   echo "tagging cilium-operator image..."
-  docker tag cilium/operator k8s1:5000/cilium/operator
+  docker tag ${LOCAL_IMAGE} ${REMOTE_TARGET}
   echo "pushing cilium-operator image..."
-  docker push k8s1:5000/cilium/operator
+	docker push ${REMOTE_TARGET}
 }
