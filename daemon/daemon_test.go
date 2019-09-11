@@ -76,7 +76,7 @@ type DaemonSuite struct {
 	OnClearPolicyConsumers    func(id uint16) *sync.WaitGroup
 }
 
-func TestMain(m *testing.M) {
+func setupTestConfig() {
 	option.Config.Populate()
 	option.Config.IdentityAllocationMode = option.IdentityAllocationModeKVstore
 
@@ -85,6 +85,7 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic("TempDir() failed.")
 	}
+
 	err = os.Mkdir(filepath.Join(tempRunDir, "globals"), 0777)
 	if err != nil {
 		panic("Mkdir failed")
@@ -109,10 +110,16 @@ func TestMain(m *testing.M) {
 	// state left on disk.
 	option.Config.EnableHostIPRestore = false
 
+}
+
+func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
+
+	setupTestConfig()
+
 	ds.oldPolicyEnabled = policy.GetPolicyEnabled()
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
 
@@ -143,9 +150,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 func (ds *DaemonSuite) TearDownTest(c *C) {
 	endpointmanager.RemoveAll()
 
-	if ds.d != nil {
-		os.RemoveAll(option.Config.RunDir)
-	}
+	os.RemoveAll(option.Config.RunDir)
 
 	if ds.kvstoreInit {
 		kvstore.DeletePrefix(common.OperationalPath)
