@@ -109,8 +109,6 @@ var _ notifications.RegenNotificationInfo = &Endpoint{}
 type Endpoint struct {
 	owner regeneration.Owner
 
-	proxy EndpointProxy
-
 	// ID of the endpoint, unique in the scope of the node
 	ID uint16
 
@@ -224,6 +222,8 @@ type Endpoint struct {
 	// proxyStatisticsMutex is the mutex that must be held to read or write
 	// proxyStatistics.
 	proxyStatisticsMutex lock.RWMutex
+
+	proxy EndpointProxy
 
 	// proxyStatistics contains statistics of proxy redirects.
 	// They keys in this map are policy.ProxyIDs.
