@@ -32,7 +32,7 @@ func Validate(pattern string) (matcher *regexp.Regexp, err error) {
 
 	// error check
 	if strings.ContainsAny(pattern, "[]+{},") {
-		return nil, errors.New(`Only alphanumeric ASCII characters, the hyphen "-", "." and "*" are allowed in a matchPattern`)
+		return nil, errors.New(`Only alphanumeric ASCII characters, the hyphen "-", underscore "_", "." and "*" are allowed in a matchPattern`)
 	}
 
 	return regexp.Compile(ToRegexp(pattern))
