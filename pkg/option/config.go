@@ -25,6 +25,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -1762,7 +1763,12 @@ func (c *DaemonConfig) Populate() {
 	var collectors []prometheus.Collector
 	metricsSlice := common.MapStringStructToSlice(defaultMetrics)
 	c.MetricsConfig, collectors = metrics.CreateConfiguration(metricsSlice)
-	metrics.MustRegister(collectors...)
+
+	// Only run this once so we can call this function multiple times in unit
+	// tests; as otherwise panics will occur.
+	metricsOnce.Do(func() {
+		metrics.MustRegister(collectors...)
+	})
 
 	if err := c.parseExcludedLocalAddresses(viper.GetStringSlice(ExcludeLocalAddress)); err != nil {
 		log.WithError(err).Fatalf("Unable to parse excluded local addresses")
@@ -1805,6 +1811,8 @@ func (c *DaemonConfig) Populate() {
 	c.SkipCRDCreation = viper.GetBool(SkipCRDCreation)
 	c.DisableCNPStatusUpdates = viper.GetBool(DisableCNPStatusUpdates)
 }
+
+var metricsOnce sync.Once
 
 func sanitizeIntParam(paramName string, paramDefault int) int {
 	intParam := viper.GetInt(paramName)
