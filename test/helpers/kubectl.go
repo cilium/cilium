@@ -115,7 +115,7 @@ type Kubectl struct {
 // CreateKubectl initializes a Kubectl helper with the provided vmName and log
 // It marks the test as Fail if cannot get the ssh meta information or cannot
 // execute a `ls` on the virtual machine.
-func CreateKubectl(vmName string, log *logrus.Entry) *Kubectl {
+func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 	if config.CiliumTestConfig.Kubeconfig == "" {
 		node := GetVagrantSSHMeta(vmName)
 		if node == nil {
@@ -133,25 +133,25 @@ func CreateKubectl(vmName string, log *logrus.Entry) *Kubectl {
 		}
 		node.logger = log
 
-		return &Kubectl{
+		k = &Kubectl{
 			Executor: node,
 		}
+		k.setBasePath()
+	} else {
+		exec := CreateLocalExecutor([]string{"KUBECONFIG=" + config.CiliumTestConfig.Kubeconfig})
+		exec.logger = log
+
+		k = &Kubectl{
+			Executor: exec,
+		}
+		k.setBasePath()
 	}
 
-	exec := CreateLocalExecutor([]string{"KUBECONFIG=" + config.CiliumTestConfig.Kubeconfig})
-	exec.logger = log
-
-	k := &Kubectl{
-		Executor: exec,
-	}
-
-	res := k.Apply(filepath.Join(manifestsPath, "log-gatherer.yaml"), "kube-system")
+	res := k.Apply(filepath.Join(k.BasePath(), manifestsPath, "log-gatherer.yaml"), "kube-system")
 	if !res.WasSuccessful() {
 		ginkgoext.Fail(fmt.Sprintf("Cannot connect to k8s cluster, output:\n%s", res.CombineOutput().String()), 1)
 		return nil
 	}
-
-	k.setBasePath()
 
 	return k
 }
