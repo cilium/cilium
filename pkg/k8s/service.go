@@ -17,7 +17,9 @@ package k8s
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"strings"
+	"time"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/comparator"
@@ -327,4 +329,35 @@ func NewClusterService(id ServiceID, k8sService *Service, k8sEndpoints *Endpoint
 	}
 
 	return svc
+}
+
+type BackendIPGetter interface {
+	GetRandomBackendIP(svcID ServiceID) *loadbalancer.L3n4Addr
+}
+
+// CreateCustomDialer returns a custom dialer that picks a random backend IP,
+// from the given BackendIPGetter, if the address the used to dial is a k8s
+// service.
+func CreateCustomDialer(b BackendIPGetter, log *logrus.Entry) func(s string, duration time.Duration) (conn net.Conn, e error) {
+	return func(s string, duration time.Duration) (conn net.Conn, e error) {
+		// If the service is available, do the service translation to
+		// the service IP. Otherwise dial with the original service
+		// name `s`.
+		u, err := url.Parse(s)
+		if err == nil {
+			svc := ParseServiceIDFrom(u.Host)
+			if svc != nil {
+				backendIP := b.GetRandomBackendIP(*svc)
+				if backendIP != nil {
+					s = backendIP.String()
+				}
+			} else {
+				log.Debug("Service not found")
+			}
+			log.Debugf("custom dialer based on k8s service backend is dialing to %q", s)
+		} else {
+			log.Errorf("Unable to parse etcd service URL %s", err)
+		}
+		return net.Dial("tcp", s)
+	}
 }
