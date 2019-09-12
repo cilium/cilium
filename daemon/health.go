@@ -93,6 +93,10 @@ func (d *Daemon) initHealth() {
 				return err
 			},
 			RunInterval: 30 * time.Second,
+			// Add backoff to launching the health endpoint in the case that
+			// regenerations fail so we do not keep on retrying compilations,
+			// which are costly.
+			ErrorRetryBaseDuration: 1 * time.Second,
 		},
 	)
 
