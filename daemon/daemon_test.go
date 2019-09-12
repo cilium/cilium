@@ -76,11 +76,7 @@ type DaemonSuite struct {
 	OnClearPolicyConsumers    func(id uint16) *sync.WaitGroup
 }
 
-func setupTestConfig() {
-	option.Config.Populate()
-	option.Config.IdentityAllocationMode = option.IdentityAllocationModeKVstore
-
-	time.Local = time.UTC
+func setupTestDirectories() {
 	tempRunDir, err := ioutil.TempDir("", "cilium-test-run")
 	if err != nil {
 		panic("TempDir() failed.")
@@ -91,15 +87,21 @@ func setupTestConfig() {
 		panic("Mkdir failed")
 	}
 
-	option.Config.DryMode = true
-	option.Config.Opts = option.NewIntOptions(&option.DaemonMutableOptionLibrary)
 	option.Config.Device = "undefined"
 	option.Config.RunDir = tempRunDir
 	option.Config.StateDir = tempRunDir
 	option.Config.AccessLog = filepath.Join(tempRunDir, "cilium-access.log")
+}
 
+func TestMain(m *testing.M) {
+	// Set up all configuration options which are global to the entire test
+	// run.
+	option.Config.Populate()
+	option.Config.IdentityAllocationMode = option.IdentityAllocationModeKVstore
+	option.Config.DryMode = true
+	option.Config.Opts = option.NewIntOptions(&option.DaemonMutableOptionLibrary)
 	// GetConfig the default labels prefix filter
-	err = labels.ParseLabelPrefixCfg(nil, "")
+	err := labels.ParseLabelPrefixCfg(nil, "")
 	if err != nil {
 		panic("ParseLabelPrefixCfg() failed")
 	}
@@ -110,15 +112,13 @@ func setupTestConfig() {
 	// state left on disk.
 	option.Config.EnableHostIPRestore = false
 
-}
-
-func TestMain(m *testing.M) {
+	time.Local = time.UTC
 	os.Exit(m.Run())
 }
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
 
-	setupTestConfig()
+	setupTestDirectories()
 
 	ds.oldPolicyEnabled = policy.GetPolicyEnabled()
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
@@ -150,7 +150,11 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 func (ds *DaemonSuite) TearDownTest(c *C) {
 	endpointmanager.RemoveAll()
 
-	os.RemoveAll(option.Config.RunDir)
+	// It's helpful to keep the directories around if a test failed; only delete
+	// them if tests succeed.
+	if !c.Failed() {
+		os.RemoveAll(option.Config.RunDir)
+	}
 
 	if ds.kvstoreInit {
 		kvstore.DeletePrefix(common.OperationalPath)
