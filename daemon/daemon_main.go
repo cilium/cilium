@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -1126,28 +1125,7 @@ func (d *Daemon) initKVStore() {
 		d.waitForCacheSync(k8sAPIGroupServiceV1Core, k8sAPIGroupEndpointV1Core)
 		log := log.WithField(logfields.LogSubsys, "etcd")
 		goopts.DialOption = []grpc.DialOption{
-			grpc.WithDialer(func(s string, duration time.Duration) (conn net.Conn, e error) {
-				// If the service is available, do the service translation to
-				// the service IP. Otherwise dial with the original service
-				// name `s`.
-				u, err := url.Parse(s)
-				if err == nil {
-					svc := k8s.ParseServiceIDFrom(u.Host)
-					if svc != nil {
-						backendIP := d.k8sSvcCache.GetRandomBackendIP(*svc)
-						if backendIP != nil {
-							s = backendIP.String()
-						}
-					} else {
-						log.Debug("Service not found")
-					}
-					log.Debugf("custom dialer based on k8s service backend is dialing to 2 %q", s)
-				} else {
-					log.Errorf("Unable to parse etcd service URL %s", err)
-				}
-				return net.Dial("tcp", s)
-			},
-			),
+			grpc.WithDialer(k8s.CreateCustomDialer(&d.k8sSvcCache, log)),
 		}
 	}
 

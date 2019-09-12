@@ -17,7 +17,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -32,11 +31,11 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
-	"github.com/spf13/cobra/doc"
 
 	gops "github.com/google/gops/agent"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/cobra/doc"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"k8s.io/klog"
@@ -279,23 +278,7 @@ func runOperator(cmd *cobra.Command) {
 				scopedLog.Info("Kubernetes services synced")
 				goopts = &kvstore.ExtraOptions{
 					DialOption: []grpc.DialOption{
-						grpc.WithDialer(func(s string, duration time.Duration) (conn net.Conn, e error) {
-							// If the service is available, do the service translation to
-							// the service IP. Otherwise dial with the original service
-							// name `s`.
-							svc := k8s.ParseServiceIDFrom(s)
-							if svc != nil {
-								backendIP := k8sSvcCache.GetRandomBackendIP(*svc)
-								if backendIP != nil {
-									s = backendIP.String()
-								}
-							} else {
-								log.Debug("Service not found")
-							}
-							log.Debugf("custom dialer based on k8s service backend is dialing to %q", s)
-							return net.Dial("tcp", s)
-						},
-						),
+						grpc.WithDialer(k8s.CreateCustomDialer(&k8sSvcCache, log)),
 					},
 				}
 			}
