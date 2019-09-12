@@ -775,14 +775,10 @@ func (e UpdateStateChangeError) Error() string { return e.msg }
 // if there was an issue triggering policy updates for the given endpoint,
 // or if endpoint regeneration was unable to be triggered. Note that the
 // LabelConfiguration in the EndpointConfigurationSpec is *not* consumed here.
-func (e *Endpoint) Update(cfg *models.EndpointConfigurationSpec) error {
+func (e *Endpoint) Update(ctx context.Context, cfg *models.EndpointConfigurationSpec) error {
 	om, err := EndpointMutableOptionLibrary.ValidateConfigurationMap(cfg.Options)
 	if err != nil {
 		return UpdateValidationError{err.Error()}
-	}
-
-	if err := e.lockAlive(); err != nil {
-		return err
 	}
 
 	e.getLogger().WithField("configuration-options", cfg).Debug("updating endpoint configuration options")
@@ -793,7 +789,8 @@ func (e *Endpoint) Update(cfg *models.EndpointConfigurationSpec) error {
 	// Note: This "retry" behaviour is better suited to a controller, and can be
 	// moved there once we have an endpoint regeneration controller.
 	regenCtx := &regeneration.ExternalRegenerationMetadata{
-		Reason: "endpoint was updated via API",
+		Reason:        "endpoint was updated via API",
+		ParentContext: ctx,
 	}
 
 	// If configuration options are provided, we only regenerate if necessary.
@@ -806,47 +803,11 @@ func (e *Endpoint) Update(cfg *models.EndpointConfigurationSpec) error {
 	}
 
 	if regenCtx.RegenerationLevel > regeneration.RegenerateWithoutDatapath {
-		e.getLogger().Debug("need to regenerate endpoint; checking state before" +
-			" attempting to regenerate")
 
-		// TODO / FIXME: GH-3281: need ways to queue up regenerations per-endpoint.
-
-		// Default timeout for PATCH /endpoint/{id}/config is 60 seconds, so put
-		// timeout in this function a bit below that timeout. If the timeout
-		// for clients in API is below this value, they will get a message containing
-		// "context deadline exceeded".
-		timeout := time.After(EndpointGenerationTimeout)
-
-		// Check for endpoint state every second.
-		ticker := time.NewTicker(1 * time.Second)
-		defer ticker.Stop()
-
-		e.unlock()
-		for {
-			select {
-			case <-ticker.C:
-				if err := e.lockAlive(); err != nil {
-					return err
-				}
-				// Check endpoint state before attempting configuration update because
-				// configuration updates can only be applied when the endpoint is in
-				// specific states. See GH-3058.
-				stateTransitionSucceeded := e.setState(StateWaitingToRegenerate, regenCtx.Reason)
-				if stateTransitionSucceeded {
-					e.unlock()
-					e.Regenerate(regenCtx)
-					return nil
-				}
-				e.unlock()
-			case <-timeout:
-				e.getLogger().Warning("timed out waiting for endpoint state to change")
-				return UpdateStateChangeError{fmt.Sprintf("unable to regenerate endpoint program because state transition to %s was unsuccessful; check `cilium endpoint log %d` for more information", StateWaitingToRegenerate, e.ID)}
-			}
-		}
+		e.Regenerate(regenCtx)
+		return nil
 
 	}
-
-	e.unlock()
 	return nil
 }
 
@@ -985,8 +946,11 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 
 // RegenerateWait should only be called when endpoint's state has successfully
 // been changed to "waiting-to-regenerate"
-func (e *Endpoint) RegenerateWait(reason string) error {
-	if !<-e.Regenerate(&regeneration.ExternalRegenerationMetadata{Reason: reason}) {
+func (e *Endpoint) RegenerateWait(ctx context.Context, reason string) error {
+	if !<-e.Regenerate(&regeneration.ExternalRegenerationMetadata{
+		Reason:        reason,
+		ParentContext: ctx,
+	}) {
 		return fmt.Errorf("error while regenerating endpoint."+
 			" For more info run: 'cilium endpoint get %d'", e.ID)
 	}
@@ -1690,7 +1654,11 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 		}
 	}
 
-	readyToRegenerate := false
+	// Unconditionally force policy recomputation after a new identity has been
+	// assigned.
+	e.forcePolicyComputation()
+
+	e.unlock()
 
 	// Regeneration is only triggered once the endpoint ID has been
 	// assigned. This ensures that on the initial creation, the endpoint is
@@ -1701,16 +1669,6 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 	// called, the controller calling identityLabelsChanged() will trigger
 	// the regeneration as soon as the identity is known.
 	if e.ID != 0 {
-		readyToRegenerate = e.setState(StateWaitingToRegenerate, "Triggering regeneration due to new identity")
-	}
-
-	// Unconditionally force policy recomputation after a new identity has been
-	// assigned.
-	e.forcePolicyComputation()
-
-	e.unlock()
-
-	if readyToRegenerate {
 		e.Regenerate(&regeneration.ExternalRegenerationMetadata{Reason: "updated security labels"})
 	}
 
@@ -2037,32 +1995,25 @@ func (e *Endpoint) RegenerateAfterCreation(ctx context.Context, endpointStartFun
 	if err := e.lockAlive(); err != nil {
 		return fmt.Errorf("endpoint was deleted while processing the request")
 	}
-
-	build := e.GetStateLocked() == StateReady
-	if build {
-		e.setState(StateWaitingToRegenerate, "Identity is known at endpoint creation time")
-	}
 	e.unlock()
 
-	if build {
-		// Do not synchronously regenerate the endpoint when first creating it.
-		// We have custom logic later for waiting for specific checkpoints to be
-		// reached upon regeneration later (checking for when BPF programs have
-		// been compiled), as opposed to waiting for the entire regeneration to
-		// be complete (including proxies being configured). This is done to
-		// avoid a chicken-and-egg problem with L7 policies are imported which
-		// select the endpoint being generated, as when such policies are
-		// imported, regeneration blocks on waiting for proxies to be
-		// configured. When Cilium is used with Istio, though, the proxy is
-		// started as a sidecar, and is not launched yet when this specific code
-		// is executed; if we waited for regeneration to be complete, including
-		// proxy configuration, this code would effectively deadlock addition
-		// of endpoints.
-		e.Regenerate(&regeneration.ExternalRegenerationMetadata{
-			Reason:        "Initial build on endpoint creation",
-			ParentContext: ctx,
-		})
-	}
+	// Do not synchronously regenerate the endpoint when first creating it.
+	// We have custom logic later for waiting for specific checkpoints to be
+	// reached upon regeneration later (checking for when BPF programs have
+	// been compiled), as opposed to waiting for the entire regeneration to
+	// be complete (including proxies being configured). This is done to
+	// avoid a chicken-and-egg problem with L7 policies are imported which
+	// select the endpoint being generated, as when such policies are
+	// imported, regeneration blocks on waiting for proxies to be
+	// configured. When Cilium is used with Istio, though, the proxy is
+	// started as a sidecar, and is not launched yet when this specific code
+	// is executed; if we waited for regeneration to be complete, including
+	// proxy configuration, this code would effectively deadlock addition
+	// of endpoints.
+	e.Regenerate(&regeneration.ExternalRegenerationMetadata{
+		Reason:        "Initial build on endpoint creation",
+		ParentContext: ctx,
+	})
 
 	if endpointStartFunc != nil {
 		endpointStartFunc()

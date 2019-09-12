@@ -359,8 +359,10 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 		return NewPatchEndpointIDNotFound()
 	}
 
+	ctx := params.HTTPRequest.Context()
+
 	if reason != "" {
-		if err := ep.RegenerateWait(reason); err != nil {
+		if err := ep.RegenerateWait(ctx, reason); err != nil {
 			return api.Error(PatchEndpointIDFailedCode, err)
 		}
 		// FIXME: Special return code to indicate regeneration happened?
@@ -447,7 +449,7 @@ func (h *deleteEndpointID) Handle(params DeleteEndpointIDParams) middleware.Resp
 }
 
 // EndpointUpdate updates the options of the given endpoint and regenerates the endpoint
-func (d *Daemon) EndpointUpdate(id string, cfg *models.EndpointConfigurationSpec) error {
+func (d *Daemon) EndpointUpdate(ctx context.Context, id string, cfg *models.EndpointConfigurationSpec) error {
 	ep, err := d.endpointManager.Lookup(id)
 	if err != nil {
 		return api.Error(PatchEndpointIDInvalidCode, err)
@@ -457,7 +459,7 @@ func (d *Daemon) EndpointUpdate(id string, cfg *models.EndpointConfigurationSpec
 		return api.Error(PatchEndpointIDInvalidCode, err)
 	}
 
-	if err := ep.Update(cfg); err != nil {
+	if err := ep.Update(ctx, cfg); err != nil {
 		switch err.(type) {
 		case endpoint.UpdateValidationError:
 			return api.Error(PatchEndpointIDConfigInvalidCode, err)
@@ -484,7 +486,7 @@ func (h *patchEndpointIDConfig) Handle(params PatchEndpointIDConfigParams) middl
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PATCH /endpoint/{id}/config request")
 
 	d := h.daemon
-	if err := d.EndpointUpdate(params.ID, params.EndpointConfiguration); err != nil {
+	if err := d.EndpointUpdate(params.HTTPRequest.Context(), params.ID, params.EndpointConfiguration); err != nil {
 		if apierr, ok := err.(*api.APIError); ok {
 			return apierr
 		}
