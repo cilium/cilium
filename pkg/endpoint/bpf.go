@@ -602,7 +602,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 		err = e.regeneratePolicy()
 		stats.policyCalculation.End(err == nil)
 		if err != nil {
-			return fmt.Errorf("unable to regenerate policy for '%s': %s", e.policyMap.String(), err)
+			return fmt.Errorf("unable to regenerate policy for '%s': %s", e.StringID(), err)
 		}
 
 		_ = e.updateAndOverrideEndpointOptions(nil)
