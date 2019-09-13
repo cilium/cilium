@@ -53,17 +53,7 @@ and the token returned by ``kubeadm init``:
 
    kubeadm join <..>
 
-Download the Cilium release tarball and change to the Kubernetes
-install directory:
-
-.. code:: bash
-
-    curl -LO https://github.com/cilium/cilium/archive/v1.6.tar.gz
-    tar xzvf v1.6.tar.gz
-    cd cilium-1.6/install/kubernetes
-
-`Install Helm <https://helm.sh/docs/using_helm/#install-helm>`__ to prepare generating
-the deployment artifacts based on the Helm templates.
+.. include:: k8s-install-download-release.rst
 
 Next, generate the required YAML files and deploy them. Replace ``$API_SERVER_IP``
 and ``$API_SERVER_PORT`` with the control-plane node IP address and the kube-apiserver
@@ -83,13 +73,6 @@ port number reported by ``kubeadm init`` (usually it is ``6443``).
 This will install Cilium as a CNI plugin with the BPF kube-proxy replacement.
 See :ref:`nodeport` for requirements and configuration options for NodePort
 services.
-
-.. note::
-
-   Currently, in the kube-proxy-free setup, Cilium will connect to only one
-   kube-apiserver specified by ``k8sServiceHost:k8sServicePort``. This is not
-   ideal in a multi-control-plane node setup. The upcoming Cilium release will
-   allow to connect to multiple nodes (`GH#9018 <https://github.com/cilium/cilium/issues/9018>`__).
 
 Finally, verify that Cilium has come up correctly on all nodes:
 
