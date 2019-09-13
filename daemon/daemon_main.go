@@ -400,7 +400,7 @@ func init() {
 	flags.Bool(option.K8sEventHandover, defaults.K8sEventHandover, "Enable k8s event handover to kvstore for improved scalability")
 	option.BindEnv(option.K8sEventHandover)
 
-	flags.String(option.K8sAPIServer, "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
+	flags.String(option.K8sAPIServer, "", "Kubernetes API server URL")
 	option.BindEnv(option.K8sAPIServer)
 
 	flags.String(option.K8sKubeConfigPath, "", "Absolute path of the kubernetes kubeconfig file")

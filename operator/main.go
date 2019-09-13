@@ -105,7 +105,7 @@ func init() {
 	flags.String(option.ClusterName, defaults.ClusterName, "Name of the cluster")
 	option.BindEnv(option.ClusterName)
 	flags.BoolP("debug", "D", false, "Enable debugging mode")
-	flags.StringVar(&k8sAPIServer, "k8s-api-server", "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
+	flags.StringVar(&k8sAPIServer, "k8s-api-server", "", "Kubernetes API server URL")
 	flags.StringVar(&k8sKubeConfigPath, "k8s-kubeconfig-path", "", "Absolute path of the kubernetes kubeconfig file")
 	flags.String(option.KVStore, "", "Key-value store type")
 	option.BindEnv(option.KVStore)

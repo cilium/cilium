@@ -32,7 +32,7 @@ cilium-operator [flags]
       --identity-gc-interval duration          GC interval for security identities (default 15m0s)
       --identity-heartbeat-timeout duration    Timeout after which identity expires on lack of heartbeat (default 15m0s)
       --ipam string                            Backend to use for IPAM
-      --k8s-api-server string                  Kubernetes api address server (for https use --k8s-kubeconfig-path instead)
+      --k8s-api-server string                  Kubernetes API server URL
       --k8s-client-burst int                   Burst value allowed for the K8s client
       --k8s-client-qps float32                 Queries per second limit for the K8s client
       --k8s-kubeconfig-path string             Absolute path of the kubernetes kubeconfig file

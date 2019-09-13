@@ -100,7 +100,7 @@ cilium-agent [flags]
       --ipv6-range string                                     Per-node IPv6 endpoint prefix, must be /96, e.g. fd02:1:1::/96 (default "auto")
       --ipv6-service-range string                             Kubernetes IPv6 services CIDR if not inside cluster prefix (default "auto")
       --ipvlan-master-device string                           Device facing external network acting as ipvlan master (default "undefined")
-      --k8s-api-server string                                 Kubernetes api address server (for https use --k8s-kubeconfig-path instead)
+      --k8s-api-server string                                 Kubernetes API server URL
       --k8s-kubeconfig-path string                            Absolute path of the kubernetes kubeconfig file
       --k8s-require-ipv4-pod-cidr                             Require IPv4 PodCIDR to be specified in node resource
       --k8s-require-ipv6-pod-cidr                             Require IPv6 PodCIDR to be specified in node resource
