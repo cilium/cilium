@@ -83,11 +83,12 @@ union tcp_flags {
  */
 static inline __u32 __inline__ __ct_update_timeout(struct ct_entry *entry,
 						   __u32 lifetime, int dir,
-						   union tcp_flags flags)
+						   union tcp_flags flags,
+						   __u8 report_mask)
 {
 	__u32 now = bpf_ktime_get_sec();
 	__u8 accumulated_flags;
-	__u8 seen_flags = flags.lower_bits & CT_REPORT_FLAGS;
+	__u8 seen_flags = flags.lower_bits & report_mask;
 	__u32 last_report;
 
 #ifdef NEEDS_TIMEOUT
@@ -173,7 +174,8 @@ static inline __u32 __inline__ ct_update_timeout(struct ct_entry *entry,
 		}
 	}
 
-	return __ct_update_timeout(entry, lifetime, dir, seen_flags);
+	return __ct_update_timeout(entry, lifetime, dir, seen_flags,
+				   CT_REPORT_FLAGS);
 }
 
 static inline void __inline__ ct_reset_closing(struct ct_entry *entry)
@@ -266,7 +268,8 @@ static inline __u8 __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 			*monitor = TRACE_PAYLOAD_LEN;
 			if (ct_entry_alive(entry))
 				break;
-			__ct_update_timeout(entry, CT_CLOSE_TIMEOUT, dir, seen_flags);
+			__ct_update_timeout(entry, CT_CLOSE_TIMEOUT, dir,
+					    seen_flags, CT_REPORT_FLAGS);
 			break;
 		}
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-// Copyright (c) 2018 Authors of Cilium
+// Copyright (c) 2018-2019 Authors of Cilium
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -8,6 +8,7 @@
 #include "node_config.h"
 
 #include "lib/common.h"
+#include "lib/conntrack_test.h"
 #include "lib/ipv6.h"
 
 #define SKIP_UNDEF_LPM_LOOKUP_FN
@@ -104,6 +105,7 @@ int main(int argc, char *argv[])
 {
 	test_lpm_lookup();
 	test_ipv6_addr_clear_suffix();
+	test___ct_update_timeout();
 
 	return 0;
 }
