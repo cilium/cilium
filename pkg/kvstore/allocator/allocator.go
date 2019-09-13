@@ -143,15 +143,11 @@ func (k *kvstoreBackend) DeleteAllKeys() {
 	kvstore.DeletePrefix(k.basePrefix)
 }
 
-func encodeKey(key allocator.AllocatorKey) []byte {
-	return []byte(kvstore.Encode([]byte(key.GetKey())))
-}
-
 // AllocateID allocates a key->ID mapping in the kvstore.
 func (k *kvstoreBackend) AllocateID(ctx context.Context, id idpool.ID, key allocator.AllocatorKey) error {
 	// create /id/<ID> and fail if it already exists
 	keyPath := path.Join(k.idPrefix, id.String())
-	success, err := kvstore.CreateOnly(ctx, keyPath, encodeKey(key), false)
+	success, err := kvstore.CreateOnly(ctx, keyPath, kvstore.Encode(key.GetKey()), false)
 	if err != nil || !success {
 		return fmt.Errorf("unable to create master key '%s': %s", keyPath, err)
 	}
@@ -163,7 +159,7 @@ func (k *kvstoreBackend) AllocateID(ctx context.Context, id idpool.ID, key alloc
 func (k *kvstoreBackend) AllocateIDIfLocked(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, lock kvstore.KVLocker) error {
 	// create /id/<ID> and fail if it already exists
 	keyPath := path.Join(k.idPrefix, id.String())
-	success, err := kvstore.CreateOnlyIfLocked(ctx, keyPath, encodeKey(key), false, lock)
+	success, err := kvstore.CreateOnlyIfLocked(ctx, keyPath, kvstore.Encode(key.GetKey()), false, lock)
 	if err != nil || !success {
 		return fmt.Errorf("unable to create master key '%s': %s", keyPath, err)
 	}
@@ -173,7 +169,7 @@ func (k *kvstoreBackend) AllocateIDIfLocked(ctx context.Context, id idpool.ID, k
 
 // AcquireReference marks that this node is using this key->ID mapping in the kvstore.
 func (k *kvstoreBackend) AcquireReference(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, lock kvstore.KVLocker) error {
-	keyString := string(encodeKey(key))
+	keyString := kvstore.Encode(key.GetKey())
 	if err := k.createValueNodeKey(ctx, keyString, id, lock); err != nil {
 		return fmt.Errorf("unable to create slave key '%s': %s", keyString, err)
 	}
@@ -185,7 +181,7 @@ func (k *kvstoreBackend) createValueNodeKey(ctx context.Context, key string, new
 	// add a new key /value/<key>/<node> to account for the reference
 	// The key is protected with a TTL/lease and will expire after LeaseTTL
 	valueKey := path.Join(k.valuePrefix, key, k.suffix)
-	if _, err := kvstore.UpdateIfDifferentIfLocked(ctx, valueKey, []byte(newID.String()), true, lock); err != nil {
+	if _, err := kvstore.UpdateIfDifferentIfLocked(ctx, valueKey, newID.String(), true, lock); err != nil {
 		return fmt.Errorf("unable to create value-node key '%s': %s", valueKey, err)
 	}
 
@@ -200,7 +196,7 @@ func (k *kvstoreBackend) lock(ctx context.Context, key string) (*kvstore.Lock, e
 
 // Lock locks a key in the scope of an allocator
 func (k *kvstoreBackend) Lock(ctx context.Context, key allocator.AllocatorKey) (kvstore.KVLocker, error) {
-	return k.lock(ctx, string(encodeKey(key)))
+	return k.lock(ctx, kvstore.Encode(key.GetKey()))
 }
 
 // Get returns the ID which is allocated to a key in the kvstore
@@ -220,7 +216,7 @@ func (k *kvstoreBackend) Get(ctx context.Context, key allocator.AllocatorKey) (i
 	// key2 := cilium/state/identities/v1/value/label;foo;bar;/172.0.124.60
 	//
 	// Only key1 should match
-	prefix := path.Join(k.valuePrefix, string(encodeKey(key)))
+	prefix := path.Join(k.valuePrefix, kvstore.Encode(key.GetKey()))
 	pairs, err := kvstore.ListPrefix(prefix)
 	kvstore.Trace("ListPrefix", err, logrus.Fields{fieldPrefix: prefix, "entries": len(pairs)})
 	if err != nil {
@@ -257,7 +253,7 @@ func (k *kvstoreBackend) GetIfLocked(ctx context.Context, key allocator.Allocato
 	// key2 := cilium/state/identities/v1/value/label;foo;bar;/172.0.124.60
 	//
 	// Only key1 should match
-	prefix := path.Join(k.valuePrefix, string(encodeKey(key)))
+	prefix := path.Join(k.valuePrefix, kvstore.Encode(key.GetKey()))
 	pairs, err := kvstore.ListPrefixIfLocked(prefix, lock)
 	kvstore.Trace("ListPrefixLocked", err, logrus.Fields{fieldPrefix: prefix, "entries": len(pairs)})
 	if err != nil {
@@ -284,12 +280,16 @@ func (k *kvstoreBackend) GetByID(id idpool.ID) (allocator.AllocatorKey, error) {
 		return nil, err
 	}
 
-	s, err := kvstore.Decode(string(v))
+	if v == nil {
+		return nil, nil
+	}
+
+	s, err := kvstore.Decode(*v)
 	if err != nil {
 		return nil, err
 	}
 
-	return k.keyType.PutKey(string(s)), nil
+	return k.keyType.PutKey(s), nil
 }
 
 // UpdateKey refreshes the record that this node is using this key -> id
@@ -300,12 +300,12 @@ func (k *kvstoreBackend) UpdateKey(ctx context.Context, id idpool.ID, key alloca
 		err       error
 		recreated bool
 		keyPath   = path.Join(k.idPrefix, id.String())
-		valueKey  = path.Join(k.valuePrefix, string(encodeKey(key)), k.suffix)
+		valueKey  = path.Join(k.valuePrefix, kvstore.Encode(key.GetKey()), k.suffix)
 	)
 
 	// Use of CreateOnly() ensures that any existing potentially
 	// conflicting key is never overwritten.
-	success, err := kvstore.CreateOnly(ctx, keyPath, encodeKey(key), false)
+	success, err := kvstore.CreateOnly(ctx, keyPath, kvstore.Encode(key.GetKey()), false)
 	switch {
 	case err != nil:
 		return fmt.Errorf("Unable to re-create missing master key \"%s\" -> \"%s\": %s", fieldKey, valueKey, err)
@@ -317,9 +317,9 @@ func (k *kvstoreBackend) UpdateKey(ctx context.Context, id idpool.ID, key alloca
 	// ensure that the next garbage collection cycle of any participating
 	// node does not remove the master key again.
 	if reliablyMissing {
-		recreated, err = kvstore.CreateOnly(ctx, valueKey, []byte(id.String()), true)
+		recreated, err = kvstore.CreateOnly(ctx, valueKey, id.String(), true)
 	} else {
-		recreated, err = kvstore.UpdateIfDifferent(ctx, valueKey, []byte(id.String()), true)
+		recreated, err = kvstore.UpdateIfDifferent(ctx, valueKey, id.String(), true)
 	}
 	switch {
 	case err != nil:
@@ -339,12 +339,12 @@ func (k *kvstoreBackend) UpdateKeyIfLocked(ctx context.Context, id idpool.ID, ke
 		err       error
 		recreated bool
 		keyPath   = path.Join(k.idPrefix, id.String())
-		valueKey  = path.Join(k.valuePrefix, string(encodeKey(key)), k.suffix)
+		valueKey  = path.Join(k.valuePrefix, kvstore.Encode(key.GetKey()), k.suffix)
 	)
 
 	// Use of CreateOnly() ensures that any existing potentially
 	// conflicting key is never overwritten.
-	success, err := kvstore.CreateOnlyIfLocked(ctx, keyPath, encodeKey(key), false, lock)
+	success, err := kvstore.CreateOnlyIfLocked(ctx, keyPath, kvstore.Encode(key.GetKey()), false, lock)
 	switch {
 	case err != nil:
 		return fmt.Errorf("Unable to re-create missing master key \"%s\" -> \"%s\": %s", fieldKey, valueKey, err)
@@ -357,9 +357,9 @@ func (k *kvstoreBackend) UpdateKeyIfLocked(ctx context.Context, id idpool.ID, ke
 	// node does not remove the master key again.
 	// lock is ignored since the key doesn't exist.
 	if reliablyMissing {
-		recreated, err = kvstore.CreateOnly(ctx, valueKey, []byte(id.String()), true)
+		recreated, err = kvstore.CreateOnly(ctx, valueKey, id.String(), true)
 	} else {
-		recreated, err = kvstore.UpdateIfDifferentIfLocked(ctx, valueKey, []byte(id.String()), true, lock)
+		recreated, err = kvstore.UpdateIfDifferentIfLocked(ctx, valueKey, id.String(), true, lock)
 	}
 	switch {
 	case err != nil:
@@ -376,7 +376,7 @@ func (k *kvstoreBackend) UpdateKeyIfLocked(ctx context.Context, id idpool.ID, ke
 // Allocator.slaveKeysMutex when called from pkg/allocator.Allocator.Release.
 func (k *kvstoreBackend) Release(ctx context.Context, key allocator.AllocatorKey) (err error) {
 	log.WithField(fieldKey, key).Info("Releasing key")
-	valueKey := path.Join(k.valuePrefix, string(encodeKey(key)), k.suffix)
+	valueKey := path.Join(k.valuePrefix, kvstore.Encode(key.GetKey()), k.suffix)
 	log.WithField(fieldKey, key).Info("Released last local use of key, invoking global release")
 
 	// does not need to be deleted with a lock as its protected by the
@@ -541,5 +541,5 @@ func (k *kvstoreBackend) Status() (string, error) {
 }
 
 func (k *kvstoreBackend) Encode(v string) string {
-	return kvstore.Encode([]byte(v))
+	return kvstore.Encode(v)
 }

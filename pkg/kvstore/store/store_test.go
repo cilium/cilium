@@ -268,7 +268,7 @@ func (s *StoreSuite) TestStoreLocalKeyProtection(c *C) {
 	kvstore.DeletePrefix(store.conf.Prefix)
 	c.Assert(expect(func() bool {
 		v, err := kvstore.Get(store.keyPath(&localKey1))
-		return err == nil && string(v) != ""
+		return err == nil && v == nil
 	}), IsNil)
 }
 
