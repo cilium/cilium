@@ -68,6 +68,12 @@ const (
 )
 
 var (
+	// defaultHelmOptions are passed to helm in ciliumInstallHelm, unless
+	// overridden by options passed in at invocation. In those cases, the test
+	// has a specific need to override the option.
+	// These defaults are made to match some environment variables in init(),
+	// below. These overrides represent a desire to set the default for all
+	// tests, instead of test-specific variations.
 	defaultHelmOptions = map[string]string{
 		"global.registry":               "k8s1:5000/cilium",
 		"agent.image":                   "cilium-dev",
@@ -90,6 +96,20 @@ var (
 		"global.tunnel":          "disabled",
 	}
 )
+
+func init() {
+	// Copy over envronment variables that are passed in.
+	for envVar, helmVar := range map[string]string{
+		"CILIUM_REGISTRY":       "global.registry",
+		"CILIUM_TAG":            "global.tag",
+		"CILIUM_IMAGE":          "agent.image",
+		"CILIUM_OPERATOR_IMAGE": "operator.image",
+	} {
+		if v := os.Getenv(envVar); v != "" {
+			defaultHelmOptions[helmVar] = v
+		}
+	}
+}
 
 // GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
 func GetCurrentK8SEnv() string { return os.Getenv("K8S_VERSION") }
