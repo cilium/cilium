@@ -435,7 +435,8 @@ required = [
 
 [[constraint]]
   name = "github.com/vishvananda/netlink"
-  revision = "b1e98597921720cee4147d6476110fc8fc56072d"
+  source = "github.com/DataDog/netlink.git"
+  branch = "lbernail/output-mark"
 
   # main-usage = "all over the code"
   # on-revision = "last available commit and there is no stable release"

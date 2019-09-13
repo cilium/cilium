@@ -56,6 +56,10 @@ func LinkSetVfTxRate(link Link, vf, rate int) error {
 	return ErrNotImplemented
 }
 
+func LinkSetVfRate(link Link, vf, minRate, maxRate int) error {
+	return ErrNotImplemented
+}
+
 func LinkSetNoMaster(link Link) error {
 	return ErrNotImplemented
 }
@@ -153,6 +157,10 @@ func LinkList() ([]Link, error) {
 }
 
 func AddrAdd(link Link, addr *Addr) error {
+	return ErrNotImplemented
+}
+
+func AddrReplace(link Link, addr *Addr) error {
 	return ErrNotImplemented
 }
 

@@ -31,6 +31,7 @@ type Route struct {
 	Local   net.IP
 	Device  string
 	MTU     int
+	AdvMSS  int
 	Proto   int
 	Scope   netlink.Scope
 	Table   int
