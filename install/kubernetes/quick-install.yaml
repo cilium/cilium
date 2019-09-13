@@ -170,7 +170,6 @@ rules:
   - services
   - nodes
   - endpoints
-  - componentstatuses
   verbs:
   - get
   - list
@@ -232,13 +231,6 @@ kind: ClusterRole
 metadata:
   name: cilium-operator
 rules:
-- apiGroups:
-  - ""
-  resources:
-  # to get k8s version and status
-  - componentstatuses
-  verbs:
-  - get
 - apiGroups:
   - ""
   resources:
