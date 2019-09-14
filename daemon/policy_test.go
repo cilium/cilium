@@ -135,8 +135,8 @@ func (ds *DaemonSuite) prepareEndpoint(c *C, identity *identity.Identity, qa boo
 	}
 	e.SetIdentity(identity, true)
 
-	ready := e.SetState(endpoint.StateWaitingToRegenerate, "test")
-	c.Assert(ready, Equals, true)
+	//ready := e.SetState(endpoint.StateWaitingToRegenerate, "test")
+	//c.Assert(ready, Equals, true)
 	buildSuccess := <-e.Regenerate(regenerationMetadata)
 	c.Assert(buildSuccess, Equals, true)
 
@@ -148,6 +148,7 @@ func (ds *DaemonSuite) regenerateEndpoint(c *C, e *endpoint.Endpoint) {
 	c.Assert(ready, Equals, true)
 	buildSuccess := <-e.Regenerate(regenerationMetadata)
 	c.Assert(buildSuccess, Equals, true)
+	c.Assert(e.DidRegenerationSucceed(), Equals, true)
 }
 
 func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
@@ -567,6 +568,8 @@ func (d *dummyManager) ReleaseID(*endpoint.Endpoint) {
 }
 
 func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
+	fmt.Println("******************************************")
+	defer fmt.Println("******************************************")
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
 	qaBarSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), ds.d, qaBarLbls)
 	c.Assert(err, Equals, nil)
@@ -628,6 +631,8 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 	// Create the endpoint and generate its policy.
 	e := ds.prepareEndpoint(c, qaBarSecLblsCtx, true)
 
+	//time.Sleep(5 * time.Second)
+
 	// Check that the policy has been updated in the xDS cache for the L7
 	// proxies.
 	networkPolicies := ds.getXDSNetworkPolicies(c, nil)
@@ -645,6 +650,7 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 
 	// Regenerate endpoint
 	ds.regenerateEndpoint(c, e)
+	//fmt.Printf("endpoint %d policy: %s\n", e.ID, e.PolicyString())
 
 	// Check that the policy has been updated in the xDS cache for the L7
 	// proxies.

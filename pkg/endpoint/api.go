@@ -83,7 +83,11 @@ func NewEndpointFromChangeModel(owner regeneration.Owner, base *models.EndpointC
 		hasBPFProgram:    make(chan struct{}, 0),
 		desiredPolicy:    policy.NewEndpointPolicy(owner.GetPolicyRepository()),
 		controllers:      controller.NewManager(),
+		regenStatuses:    make(chan *RegenRequest, 25),
+		regenFailedChan:  make(chan struct{}),
+		restoreAttempted: make(chan struct{}, 0),
 	}
+	close(ep.restoreAttempted)
 	ep.realizedPolicy = ep.desiredPolicy
 
 	if base.Mac != "" {

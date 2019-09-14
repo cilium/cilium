@@ -219,6 +219,8 @@ type Endpoint struct {
 	// the proxy.
 	proxyPolicyRevision uint64
 
+	regenFailedChan chan struct{}
+
 	// proxyStatisticsMutex is the mutex that must be held to read or write
 	// proxyStatistics.
 	proxyStatisticsMutex lock.RWMutex
@@ -248,6 +250,10 @@ type Endpoint struct {
 	// controllers is the list of async controllers syncing the endpoint to
 	// other resources
 	controllers *controller.Manager
+
+	regenStatuses chan *RegenRequest
+
+	restoreAttempted chan struct{}
 
 	// realizedRedirects maps the ID of each proxy redirect that has been
 	// successfully added into a proxy for this endpoint, to the redirect's
@@ -363,17 +369,21 @@ func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 // NewEndpointWithState creates a new endpoint useful for testing purposes
 func NewEndpointWithState(owner regeneration.Owner, ID uint16, state string) *Endpoint {
 	ep := &Endpoint{
-		owner:         owner,
-		ID:            ID,
-		OpLabels:      pkgLabels.NewOpLabels(),
-		status:        NewEndpointStatus(),
-		DNSHistory:    fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
-		state:         state,
-		hasBPFProgram: make(chan struct{}, 0),
-		controllers:   controller.NewManager(),
-		eventQueue:    eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", ID), option.Config.EndpointQueueSize),
-		desiredPolicy: policy.NewEndpointPolicy(owner.GetPolicyRepository()),
+		owner:            owner,
+		ID:               ID,
+		OpLabels:         pkgLabels.NewOpLabels(),
+		status:           NewEndpointStatus(),
+		DNSHistory:       fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
+		state:            state,
+		hasBPFProgram:    make(chan struct{}, 0),
+		controllers:      controller.NewManager(),
+		eventQueue:       eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", ID), option.Config.EndpointQueueSize),
+		desiredPolicy:    policy.NewEndpointPolicy(owner.GetPolicyRepository()),
+		regenStatuses:    make(chan *RegenRequest, 25),
+		regenFailedChan:  make(chan struct{}),
+		restoreAttempted: make(chan struct{}, 0),
 	}
+	close(ep.restoreAttempted)
 	ep.realizedPolicy = ep.desiredPolicy
 
 	ep.SetDefaultOpts(option.Config.Opts)
@@ -685,7 +695,9 @@ func parseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
 	ep.desiredPolicy = policy.NewEndpointPolicy(owner.GetPolicyRepository())
 	ep.realizedPolicy = ep.desiredPolicy
 	ep.controllers = controller.NewManager()
-
+	ep.regenStatuses = make(chan *RegenRequest, 25)
+	ep.restoreAttempted = make(chan struct{}, 0)
+	ep.regenFailedChan = make(chan struct{})
 	// We need to check for nil in Status, CurrentStatuses and Log, since in
 	// some use cases, status will be not nil and Cilium will eventually
 	// error/panic if CurrentStatus or Log are not initialized correctly.

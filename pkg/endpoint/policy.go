@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/revert"
+	"github.com/pborman/uuid"
 
 	"github.com/sirupsen/logrus"
 )
@@ -425,40 +426,52 @@ func (e *Endpoint) RegenerateIfAlive(regenMetadata *regeneration.ExternalRegener
 	return e.Regenerate(regenMetadata)
 }
 
+func (e *Endpoint) regenerateOnRestore(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool {
+	e.getLogger().Infof("regenerating upon restore")
+	r := NewRegenRequest()
+	e.regenerateController(regenMetadata, r)
+	return r.doneCh
+}
+
 // Regenerate forces the regeneration of endpoint programs & policy. Returns
 // a channel which indicates whether regeneration was successful or not.
 // Regeneration is deemed to have been successful once the Endpoint reaches
 // the policy revision of the policy repository at the time that this function
 // is called.
 func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool {
+	r := NewRegenRequest()
+	select {
+	case <-e.restoreAttempted:
+		e.getLogger().Info("regenerating after restoration completed")
+	default:
+		e.getLogger().Infof("tried to regenerate before restoration completed for UUID %s", r.uuid)
+		r.doneCh <- false
+		close(r.doneCh)
+		return r.doneCh
+	}
+	//rev := e.owner.GetPolicyRepository().GetRevision()
+	e.regenerateController(regenMetadata, r)
 
-	rev := e.owner.GetPolicyRepository().GetRevision()
-	e.regenerateController(regenMetadata)
+	/*go func() {
+	/*var (
+		ctx   context.Context
+		cFunc context.CancelFunc
+	)*/
 
-	done := make(chan bool, 1)
+	/*if regenMetadata.ParentContext != nil {
+		ctx, cFunc = context.WithCancel(regenMetadata.ParentContext)
+	} else {
+		ctx, cFunc = context.WithTimeout(context.Background(), 10*time.Second)
+	}
+	defer cFunc()*/
 
-	go func() {
-		var (
-			ctx   context.Context
-			cFunc context.CancelFunc
-		)
+	//fmt.Printf("waiting for %d to have revision %d\n", e.ID, rev)
+	//revReached := e.WaitForPolicyRevision(ctx, rev, nil)
 
-		if regenMetadata.ParentContext != nil {
-			ctx, cFunc = context.WithCancel(regenMetadata.ParentContext)
-		} else {
-			ctx, cFunc = context.WithTimeout(context.Background(), 10*time.Second)
-		}
-		defer cFunc()
-
-		revReached := e.WaitForPolicyRevision(ctx, rev, nil)
-
-		select {
-		case <-ctx.Done():
-			done <- false
-			close(done)
-			return
+	/*select {
 		case <-revReached:
 			if ctx.Err() == nil {
+				fmt.Printf("WaitToRegen: revision %d reached for endpoint %d\n", rev, e.ID)
 				done <- true
 				close(done)
 				return
@@ -467,15 +480,53 @@ func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMe
 			close(done)
 			return
 		}
-	}()
+	}()*/
 
-	return done
+	return r.doneCh
 }
 
-func (e *Endpoint) regenerateController(regenMetadata *regeneration.ExternalRegenerationMetadata) {
+type RegenRequest struct {
+	uuid   uuid.UUID
+	doneCh chan bool
+}
+
+func NewRegenRequest() *RegenRequest {
+	return &RegenRequest{
+		uuid:   uuid.NewUUID(),
+		doneCh: make(chan bool, 1),
+	}
+}
+
+func (e *Endpoint) retryRegeneration() {
+	go func() {
+		for {
+			<-e.regenFailedChan
+			r := &regeneration.ExternalRegenerationMetadata{
+				ParentContext: context.Background(),
+				Reason: "retrying regeneration",
+			}
+			e.Regenerate(r)
+
+
+		}
+
+	}()
+}
+
+func (e *Endpoint) regenerateController(regenMetadata *regeneration.ExternalRegenerationMetadata, req *RegenRequest) {
 	var useControllerContext bool
+	e.regenStatuses <- req
 	e.controllers.UpdateController(fmt.Sprintf("endpoint-regeneration-%s", e.StringID()), controller.ControllerParams{
-		DoFunc: func(ctrlrCtx context.Context) error {
+		DoFunc: func(ctrlrCtx context.Context) (regenError error) {
+			defer func() {
+				e.getLogger().Info("in defer func regenerateController")
+				for i := range e.regenStatuses {
+					e.getLogger().Infof("sending success %v to regenRequest %s", regenError == nil, i.uuid.String())
+					i.doneCh <- regenError == nil
+				}
+				e.getLogger().Info("exiting defer func regenerateController")
+			}()
+			//e.getLogger().Info("regenerating before loc")
 			if err := e.lockAlive(); err != nil {
 				return err
 			}
@@ -525,8 +576,6 @@ func (e *Endpoint) regenerateController(regenMetadata *regeneration.ExternalRege
 				e.getLogger().Errorf("enqueue of EndpointRegenerationEvent failed: %s", err)
 				return err
 			}
-
-			var regenError error
 
 			select {
 			case result, ok := <-resChan:

@@ -111,6 +111,11 @@ func ReadEPsFromDirNames(owner regeneration.Owner, basePath string, eptsDirNames
 // Returns an error if any operation fails while trying to perform the above
 // operations.
 func (e *Endpoint) RegenerateAfterRestore() error {
+	defer func() {
+		e.getLogger().Info("closing e.restoreAttempted")
+		close(e.restoreAttempted)
+	}()
+
 	if err := e.restoreIdentity(); err != nil {
 		return err
 	}
@@ -120,7 +125,7 @@ func (e *Endpoint) RegenerateAfterRestore() error {
 	regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
 		Reason: "syncing state to host",
 	}
-	if buildSuccess := <-e.Regenerate(regenerationMetadata); !buildSuccess {
+	if buildSuccess := <-e.regenerateOnRestore(regenerationMetadata); !buildSuccess {
 		scopedLog.Warn("Failed while regenerating endpoint")
 		return fmt.Errorf("failed while regenerating endpoint")
 	}

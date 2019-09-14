@@ -15,6 +15,7 @@
 package endpoint
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/cilium/cilium/pkg/identity"
@@ -41,4 +42,20 @@ func (e *Endpoint) WaitForIdentity(timeoutDuration time.Duration) *identity.Iden
 			}
 		}
 	}
+}
+
+func (e *Endpoint) DidRegenerationSucceed() bool {
+	if e.realizedPolicy == nil {
+		return false
+	}
+	return true
+}
+
+func (e *Endpoint) PolicyString() string {
+	fmt.Printf("trying to acquire lock for endpoint %d\n", e.ID)
+	e.unconditionalLock()
+	fmt.Printf("acquired lock for endpoint %d\n", e.ID)
+	defer e.unlock()
+
+	return fmt.Sprintf("%v", e.realizedPolicy.L4Policy.Ingress)
 }
