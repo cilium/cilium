@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
@@ -444,7 +445,7 @@ func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMe
 	case <-e.restoreAttempted:
 		e.getLogger().Info("regenerating after restoration completed")
 	default:
-		e.getLogger().Infof("tried to regenerate before restoration completed for UUID %s", r.uuid)
+		e.getLogger().Warningf("tried to regenerate before restoration completed for UUID %s", r.uuid)
 		r.doneCh <- false
 		close(r.doneCh)
 		return r.doneCh
@@ -498,106 +499,134 @@ func NewRegenRequest() *RegenRequest {
 }
 
 func (e *Endpoint) retryRegeneration() {
+	b := backoff.Exponential{
+		Min:    time.Duration(200) * time.Millisecond,
+		Factor: 2.0,
+		Name:   "endpoint-%s-regeneration-failed",
+	}
+
+	var numConcurrentFailedRegens int
+
 	go func() {
 		for {
-			<-e.regenFailedChan
-			r := &regeneration.ExternalRegenerationMetadata{
-				ParentContext: context.Background(),
-				Reason: "retrying regeneration",
+			select {
+			case <-e.regenFailedChan:
+				e.getLogger().Info("received signal that regeneration failed")
+				select {
+				case <-e.aliveCtx.Done():
+					e.getLogger().Info("exiting retrying regeneration goroutine due to endpoint being deleted")
+					return
+				default:
+					// If there already is a attempt to regenerate after failure enqueued we don't have to do anything.
+				}
+			case <-e.aliveCtx.Done():
+				e.getLogger().Info("exiting retrying regeneration goroutine due to endpoint being deleted")
+				return
 			}
-			e.Regenerate(r)
-
-
+			if numConcurrentFailedRegens > 0 {
+				e.getLogger().Infof("waiting backoff after attempt %d", numConcurrentFailedRegens)
+				b.Wait(e.aliveCtx)
+				e.getLogger().Infof("done waiting backoff after attempt %d", numConcurrentFailedRegens)
+			}
+			numConcurrentFailedRegens += 1
+			r := &regeneration.ExternalRegenerationMetadata{
+				ParentContext: e.aliveCtx,
+				Reason:        "retrying regeneration",
+			}
+			success := <-e.Regenerate(r)
+			if success {
+				e.getLogger().Info("regeneration after retry succeeded; resetting exponential backoff")
+				numConcurrentFailedRegens = 0
+				b = backoff.Exponential{
+					Min:    time.Duration(200) * time.Millisecond,
+					Factor: 2.0,
+					Name:   "endpoint-%s-regeneration-failed",
+				}
+			} else {
+				e.getLogger().Info("regeneration attempt after failure failed as well")
+			}
 		}
 
 	}()
 }
 
 func (e *Endpoint) regenerateController(regenMetadata *regeneration.ExternalRegenerationMetadata, req *RegenRequest) {
-	var useControllerContext bool
-	e.regenStatuses <- req
-	e.controllers.UpdateController(fmt.Sprintf("endpoint-regeneration-%s", e.StringID()), controller.ControllerParams{
-		DoFunc: func(ctrlrCtx context.Context) (regenError error) {
-			defer func() {
-				e.getLogger().Info("in defer func regenerateController")
-				for i := range e.regenStatuses {
-					e.getLogger().Infof("sending success %v to regenRequest %s", regenError == nil, i.uuid.String())
-					i.doneCh <- regenError == nil
-				}
-				e.getLogger().Info("exiting defer func regenerateController")
-			}()
-			//e.getLogger().Info("regenerating before loc")
-			if err := e.lockAlive(); err != nil {
-				return err
-			}
-			if !(e.state == StateRestoring || e.state == StateWaitingToRegenerate) {
-				stateTransitionSucceeded := e.setState(StateWaitingToRegenerate, regenMetadata.Reason)
-				if !stateTransitionSucceeded {
-					e.unlock()
-					return fmt.Errorf("unable to regenerate due to invalid state transition")
-				}
-			}
-			e.unlock()
+	go func() {
+		var err error
 
-			// TODO (ianvernon) - the controller itself has a context which is
-			//  canceled when endpoint's controllers are stopped. However, we
-			//  already have context associated with this regeneration which
-			//  is passed down via the caller of regeneration. Currently, we
-			//  do not account for the context passed into this function unless
-			//  the regeneration context has a nil ParentContext.
-			var (
-				ctx   context.Context
-				cFunc context.CancelFunc
-			)
-			if !useControllerContext && regenMetadata.ParentContext != nil {
-				ctx, cFunc = context.WithCancel(regenMetadata.ParentContext)
-				// Use the caller's context for the first try to regenerate;
-				// if regeneration fails, use the controller's context.
-				useControllerContext = true
-			} else {
-				ctx, cFunc = context.WithCancel(ctrlrCtx)
-			}
-
-			// Free up resources with context.
-			defer cFunc()
-
-			regenContext := ParseExternalRegenerationMetadata(ctx, cFunc, regenMetadata)
-
-			epEvent := eventqueue.NewEvent(&EndpointRegenerationEvent{
-				regenContext: regenContext,
-				ep:           e,
-			})
-
-			// This may block if the Endpoint's EventQueue is full. This has to be done
-			// synchronously as some callers depend on the fact that the event is
-			// synchronously enqueued.
-			resChan, err := e.eventQueue.Enqueue(epEvent)
+		defer func() {
 			if err != nil {
-				e.getLogger().Errorf("enqueue of EndpointRegenerationEvent failed: %s", err)
-				return err
-			}
-
-			select {
-			case result, ok := <-resChan:
-				if ok {
-					regenResult := result.(*EndpointRegenerationResult)
-					regenError = regenResult.err
-
-					if regenError != nil {
-						e.getLogger().WithError(regenError).Error("endpoint regeneration failed")
-					}
-				} else {
-					// This may be unnecessary(?) since 'closing' of the results
-					// channel means that event has been cancelled?
-					e.getLogger().Debug("regeneration was cancelled")
+				e.getLogger().Info("err is non-nil; regeneration failed")
+				select {
+				case e.regenFailedChan <- struct{}{}:
+				default:
+					e.getLogger().Info("e.regenFailedChan is full?")
 				}
+			} else {
+				e.getLogger().Info("err is nil; regeneration succeeded")
 			}
+			req.doneCh <- err == nil
+		}()
 
-			return regenError
-		},
-		// Regenerations can be costly - provide backoff.
-		ErrorRetryBaseDuration: 1 * time.Second,
-	})
+		if err := e.lockAlive(); err != nil {
+			return
+		}
+		if !(e.state == StateRestoring || e.state == StateWaitingToRegenerate) {
+			stateTransitionSucceeded := e.setState(StateWaitingToRegenerate, regenMetadata.Reason)
+			if !stateTransitionSucceeded {
+				e.unlock()
+				err = fmt.Errorf("unable to regenerate due to invalid state transition")
+				return
+			}
+		}
+		e.unlock()
+
+		var (
+			ctx   context.Context
+			cFunc context.CancelFunc
+		)
+		if regenMetadata.ParentContext != nil {
+			ctx, cFunc = context.WithCancel(regenMetadata.ParentContext)
+		} else {
+			ctx, cFunc = context.WithCancel(context.Background())
+		}
+
+		// Free up resources with context.
+		defer cFunc()
+
+		regenContext := ParseExternalRegenerationMetadata(ctx, cFunc, regenMetadata)
+
+		epEvent := eventqueue.NewEvent(&EndpointRegenerationEvent{
+			regenContext: regenContext,
+			ep:           e,
+		})
+
+		// This may block if the Endpoint's EventQueue is full. This has to be done
+		// synchronously as some callers depend on the fact that the event is
+		// synchronously enqueued.
+		var resChan <-chan interface{}
+		resChan, err = e.eventQueue.Enqueue(epEvent)
+		if err != nil {
+			e.getLogger().Errorf("enqueue of EndpointRegenerationEvent failed: %s", err)
+			return
+		}
+
+		select {
+		case result, ok := <-resChan:
+			if ok {
+				regenResult := result.(*EndpointRegenerationResult)
+				err = regenResult.err
+
+				if err != nil {
+					e.getLogger().WithError(err).Error("endpoint regeneration failed")
+				}
+			} else {
+				// This may be unnecessary(?) since 'closing' of the results
+				// channel means that event has been cancelled?
+				e.getLogger().Debug("regeneration was cancelled")
+			}
+		}
+	}()
 }
 
 func (e *Endpoint) notifyEndpointRegeneration(err error) {

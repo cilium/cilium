@@ -19,6 +19,7 @@ package endpoint
 
 import (
 	"bytes"
+	"context"
 	"sort"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -83,10 +84,15 @@ func NewEndpointFromChangeModel(owner regeneration.Owner, base *models.EndpointC
 		hasBPFProgram:    make(chan struct{}, 0),
 		desiredPolicy:    policy.NewEndpointPolicy(owner.GetPolicyRepository()),
 		controllers:      controller.NewManager(),
-		regenStatuses:    make(chan *RegenRequest, 25),
-		regenFailedChan:  make(chan struct{}),
+		regenFailedChan:  make(chan struct{}, 1),
 		restoreAttempted: make(chan struct{}, 0),
 	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	ep.aliveCancel = cancel
+	ep.aliveCtx = ctx
+
+	ep.retryRegeneration()
 	close(ep.restoreAttempted)
 	ep.realizedPolicy = ep.desiredPolicy
 

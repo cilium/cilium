@@ -143,6 +143,10 @@ type Endpoint struct {
 	// ifIndex is the interface index of the host face interface (veth pair)
 	ifIndex int
 
+	aliveCtx context.Context
+
+	aliveCancel context.CancelFunc
+
 	// OpLabels is the endpoint's label configuration
 	//
 	// FIXME: Rename this field to Labels
@@ -250,8 +254,6 @@ type Endpoint struct {
 	// controllers is the list of async controllers syncing the endpoint to
 	// other resources
 	controllers *controller.Manager
-
-	regenStatuses chan *RegenRequest
 
 	restoreAttempted chan struct{}
 
@@ -379,11 +381,15 @@ func NewEndpointWithState(owner regeneration.Owner, ID uint16, state string) *En
 		controllers:      controller.NewManager(),
 		eventQueue:       eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", ID), option.Config.EndpointQueueSize),
 		desiredPolicy:    policy.NewEndpointPolicy(owner.GetPolicyRepository()),
-		regenStatuses:    make(chan *RegenRequest, 25),
-		regenFailedChan:  make(chan struct{}),
+		regenFailedChan:  make(chan struct{}, 1),
 		restoreAttempted: make(chan struct{}, 0),
 	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	ep.aliveCancel = cancel
+	ep.aliveCtx = ctx
 	close(ep.restoreAttempted)
+	ep.retryRegeneration()
 	ep.realizedPolicy = ep.desiredPolicy
 
 	ep.SetDefaultOpts(option.Config.Opts)
@@ -695,9 +701,15 @@ func parseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
 	ep.desiredPolicy = policy.NewEndpointPolicy(owner.GetPolicyRepository())
 	ep.realizedPolicy = ep.desiredPolicy
 	ep.controllers = controller.NewManager()
-	ep.regenStatuses = make(chan *RegenRequest, 25)
 	ep.restoreAttempted = make(chan struct{}, 0)
-	ep.regenFailedChan = make(chan struct{})
+	ep.regenFailedChan = make(chan struct{}, 1)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	ep.aliveCancel = cancel
+	ep.aliveCtx = ctx
+
+	ep.retryRegeneration()
+
 	// We need to check for nil in Status, CurrentStatuses and Log, since in
 	// some use cases, status will be not nil and Cilium will eventually
 	// error/panic if CurrentStatus or Log are not initialized correctly.
@@ -1924,6 +1936,7 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpoin
 	if err := e.lockAlive(); err != nil {
 		return []error{}
 	}
+	e.aliveCancel()
 	e.setState(StateDisconnecting, "Deleting endpoint")
 
 	// Remove the endpoint before we clean up. This ensures it is no longer
