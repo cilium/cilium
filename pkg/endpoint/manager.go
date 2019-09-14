@@ -53,6 +53,9 @@ func (e *Endpoint) Expose(mgr endpointManager) error {
 	e.eventQueue = eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", e.ID), option.Config.EndpointQueueSize)
 	e.eventQueue.Run()
 
+	// Before we expose it, make sure operations that are contingent upon
+	// endpoint's state are invoked in the switch statement above!!
+
 	// No need to check liveness as an endpoint can only be deleted via the
 	// API after it has been inserted into the manager.
 	e.unconditionalRLock()

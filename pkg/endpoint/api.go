@@ -92,7 +92,7 @@ func NewEndpointFromChangeModel(owner regeneration.Owner, base *models.EndpointC
 	ep.aliveCancel = cancel
 	ep.aliveCtx = ctx
 
-	ep.retryRegeneration()
+	ep.regenerationRetryController()
 	close(ep.restoreAttempted)
 	ep.realizedPolicy = ep.desiredPolicy
 

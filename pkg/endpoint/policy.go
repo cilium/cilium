@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
@@ -498,55 +497,37 @@ func NewRegenRequest() *RegenRequest {
 	}
 }
 
-func (e *Endpoint) retryRegeneration() {
-	b := backoff.Exponential{
-		Min:    time.Duration(200) * time.Millisecond,
-		Factor: 2.0,
-		Name:   "endpoint-%s-regeneration-failed",
-	}
-
-	var numConcurrentFailedRegens int
-
+func (e *Endpoint) regenerationRetryController() {
 	go func() {
 		for {
 			select {
 			case <-e.regenFailedChan:
-				e.getLogger().Info("received signal that regeneration failed")
+				e.getLogger().Debug("received signal that regeneration failed")
 				select {
 				case <-e.aliveCtx.Done():
-					e.getLogger().Info("exiting retrying regeneration goroutine due to endpoint being deleted")
+					e.getLogger().Debug("exiting retrying regeneration goroutine due to endpoint being deleted")
 					return
 				default:
-					// If there already is a attempt to regenerate after failure enqueued we don't have to do anything.
 				}
 			case <-e.aliveCtx.Done():
-				e.getLogger().Info("exiting retrying regeneration goroutine due to endpoint being deleted")
+				e.getLogger().Debug("exiting retrying regeneration goroutine due to endpoint being deleted")
 				return
 			}
-			if numConcurrentFailedRegens > 0 {
-				e.getLogger().Infof("waiting backoff after attempt %d", numConcurrentFailedRegens)
-				b.Wait(e.aliveCtx)
-				e.getLogger().Infof("done waiting backoff after attempt %d", numConcurrentFailedRegens)
-			}
-			numConcurrentFailedRegens += 1
-			r := &regeneration.ExternalRegenerationMetadata{
-				ParentContext: e.aliveCtx,
-				Reason:        "retrying regeneration",
-			}
-			success := <-e.Regenerate(r)
-			if success {
-				e.getLogger().Info("regeneration after retry succeeded; resetting exponential backoff")
-				numConcurrentFailedRegens = 0
-				b = backoff.Exponential{
-					Min:    time.Duration(200) * time.Millisecond,
-					Factor: 2.0,
-					Name:   "endpoint-%s-regeneration-failed",
-				}
-			} else {
-				e.getLogger().Info("regeneration attempt after failure failed as well")
-			}
-		}
+			e.controllers.UpdateController(fmt.Sprintf("endpoint-%s-regeneration-recovery", e.StringID()), controller.ControllerParams{
+				DoFunc: func(ctx context.Context) error {
 
+					r := &regeneration.ExternalRegenerationMetadata{
+						ParentContext: e.aliveCtx,
+						Reason:        "retrying regeneration",
+					}
+					if success := <-e.Regenerate(r); success {
+						return nil
+					}
+					return fmt.Errorf("regeneration recovery failed")
+				},
+				ErrorRetryBaseDuration: 2 * time.Second,
+			})
+		}
 	}()
 }
 
@@ -555,17 +536,20 @@ func (e *Endpoint) regenerateController(regenMetadata *regeneration.ExternalRege
 		var err error
 
 		defer func() {
-			if err != nil {
-				e.getLogger().Info("err is non-nil; regeneration failed")
+			regenSuccess := err == nil
+			if !regenSuccess {
 				select {
 				case e.regenFailedChan <- struct{}{}:
+					e.getLogger().Info("sending regeneration failure")
 				default:
-					e.getLogger().Info("e.regenFailedChan is full?")
+					// If we can't write to the channel, that means that it is
+					// full / a regeneration will occur - we don't have to
+					// do anything in this case.
+
+					e.getLogger().Info("not sending regeneration failure")
 				}
-			} else {
-				e.getLogger().Info("err is nil; regeneration succeeded")
 			}
-			req.doneCh <- err == nil
+			req.doneCh <- regenSuccess
 		}()
 
 		if err := e.lockAlive(); err != nil {
