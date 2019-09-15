@@ -479,8 +479,11 @@ func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMe
 		// Free up resources with context.
 		defer cFunc()
 
-		var buildSuccess bool
-		var regenError error
+		var (
+			buildSuccess bool
+			regenError   error
+			canceled     bool
+		)
 
 		select {
 		case result, ok := <-resChan:
@@ -496,14 +499,73 @@ func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMe
 				// This may be unnecessary(?) since 'closing' of the results
 				// channel means that event has been cancelled?
 				e.getLogger().Debug("regeneration was cancelled")
+				canceled = true
 			}
 		}
 
+		// If a build is canceled, that means that the Endpoint is being deleted
+		// not that the build failed.
+		if !buildSuccess && !canceled {
+			select {
+			case e.regenFailedChan <- struct{}{}:
+			default:
+				// If we can't write to the channel, that means that it is
+				// full / a regeneration will occur - we don't have to
+				// do anything.
+			}
+		}
 		done <- buildSuccess
 		close(done)
 	}()
 
 	return done
+}
+
+var reasonRegenRetry = "retrying regeneration"
+
+// startRegenerationFailureHandler waits for a build of the Endpoint to fail.
+// Terminates when the given Endpoint is deleted.
+// If a build fails, the controller tries to regenerate the
+// Endpoint until it succeeds. Once the controller succeeds, it will not be
+// ran again unless another build failure occurs. If the call to `Regenerate`
+// fails inside of the controller,
+func (e *Endpoint) startRegenerationFailureHandler() {
+	e.controllers.UpdateController(fmt.Sprintf("endpoint-%s-regeneration-recovery", e.StringID()), controller.ControllerParams{
+		DoFunc: func(ctx context.Context) error {
+			select {
+			case <-e.regenFailedChan:
+				e.getLogger().Debug("received signal that regeneration failed")
+			case <-ctx.Done():
+				e.getLogger().Debug("exiting retrying regeneration goroutine due to endpoint being deleted")
+				return nil
+			}
+
+			if err := e.lockAlive(); err != nil {
+				// We don't need to regenerate because the endpoint is d
+				// disconnecting / is disconnected, exit gracefully.
+				return nil
+			}
+
+			stateTransitionSucceeded := e.setState(StateWaitingToRegenerate, reasonRegenRetry)
+			e.unlock()
+			if !stateTransitionSucceeded {
+				// Another regeneration has already been enqueued.
+				return nil
+			}
+
+			r := &regeneration.ExternalRegenerationMetadata{
+				// TODO (ianvernon) - is there a way we can plumb a parent
+				// context to a controller (e.g., endpoint.aliveCtx)?
+				ParentContext: ctx,
+				Reason:        reasonRegenRetry,
+			}
+			if success := <-e.Regenerate(r); success {
+				return nil
+			}
+			return fmt.Errorf("regeneration recovery failed")
+		},
+		ErrorRetryBaseDuration: 2 * time.Second,
+	})
 }
 
 func (e *Endpoint) notifyEndpointRegeneration(err error) {
