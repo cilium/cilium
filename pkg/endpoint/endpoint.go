@@ -276,6 +276,10 @@ type Endpoint struct {
 	// plugin which performed the plumbing will enable certain datapath
 	// features according to the mode selected.
 	DatapathConfiguration models.EndpointDatapathConfiguration
+
+	aliveCtx        context.Context
+	aliveCancel     context.CancelFunc
+	regenFailedChan chan struct{}
 }
 
 // UpdateController updates the controller with the specified name with the
@@ -363,17 +367,23 @@ func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 // NewEndpointWithState creates a new endpoint useful for testing purposes
 func NewEndpointWithState(owner regeneration.Owner, ID uint16, state string) *Endpoint {
 	ep := &Endpoint{
-		owner:         owner,
-		ID:            ID,
-		OpLabels:      pkgLabels.NewOpLabels(),
-		status:        NewEndpointStatus(),
-		DNSHistory:    fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
-		state:         state,
-		hasBPFProgram: make(chan struct{}, 0),
-		controllers:   controller.NewManager(),
-		eventQueue:    eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", ID), option.Config.EndpointQueueSize),
-		desiredPolicy: policy.NewEndpointPolicy(owner.GetPolicyRepository()),
+		owner:           owner,
+		ID:              ID,
+		OpLabels:        pkgLabels.NewOpLabels(),
+		status:          NewEndpointStatus(),
+		DNSHistory:      fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
+		state:           state,
+		hasBPFProgram:   make(chan struct{}, 0),
+		controllers:     controller.NewManager(),
+		eventQueue:      eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", ID), option.Config.EndpointQueueSize),
+		desiredPolicy:   policy.NewEndpointPolicy(owner.GetPolicyRepository()),
+		regenFailedChan: make(chan struct{}, 1),
 	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	ep.aliveCancel = cancel
+	ep.aliveCtx = ctx
+	ep.startAsyncRegenerationFailureHandler()
 	ep.realizedPolicy = ep.desiredPolicy
 
 	ep.SetDefaultOpts(option.Config.Opts)
@@ -685,6 +695,13 @@ func parseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
 	ep.desiredPolicy = policy.NewEndpointPolicy(owner.GetPolicyRepository())
 	ep.realizedPolicy = ep.desiredPolicy
 	ep.controllers = controller.NewManager()
+	ep.regenFailedChan = make(chan struct{}, 1)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	ep.aliveCancel = cancel
+	ep.aliveCtx = ctx
+
+	ep.startAsyncRegenerationFailureHandler()
 
 	// We need to check for nil in Status, CurrentStatuses and Log, since in
 	// some use cases, status will be not nil and Cilium will eventually
@@ -1954,6 +1971,7 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpoin
 	if err := e.lockAlive(); err != nil {
 		return []error{}
 	}
+	e.aliveCancel()
 	e.setState(StateDisconnecting, "Deleting endpoint")
 
 	// Remove the endpoint before we clean up. This ensures it is no longer
