@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
@@ -481,6 +482,19 @@ func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMe
 
 		var buildSuccess bool
 		var regenError error
+		defer func() {
+			if !buildSuccess {
+				select {
+				case e.regenFailedChan <- struct{}{}:
+				default:
+					// If we can't write to the channel, that means that it is
+					// full / a regeneration will occur - we don't have to
+					// do anything.
+				}
+			}
+			done <- buildSuccess
+			close(done)
+		}()
 
 		select {
 		case result, ok := <-resChan:
@@ -498,12 +512,89 @@ func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMe
 				e.getLogger().Debug("regeneration was cancelled")
 			}
 		}
-
-		done <- buildSuccess
-		close(done)
 	}()
 
 	return done
+}
+
+var reasonRegenRetry = "retrying regeneration"
+
+// startAsyncRegenerationFailureHandler launches a goroutine which waits for a build of
+// the Endpoint to fail. If the Endpoint is deleted, the goroutine is terminated.
+// If a build fails, a controller is launched which tries to regenerate the
+// Endpoint until it suceeds. Once the controller succeeds, it will not be
+// ran again unless another build failure occurs.
+func (e *Endpoint) startAsyncRegenerationFailureHandler() {
+	var boff backoff.Exponential
+	var numConsecutiveFailures int
+	go func() {
+		for {
+			select {
+			case <-e.regenFailedChan:
+				e.getLogger().Debug("received signal that regeneration failed")
+				select {
+				case <-e.aliveCtx.Done():
+					e.getLogger().Debug("exiting retrying regeneration goroutine due to endpoint being deleted")
+					return
+				default:
+				}
+			case <-e.aliveCtx.Done():
+				e.getLogger().Debug("exiting retrying regeneration goroutine due to endpoint being deleted")
+				return
+			}
+
+			if numConsecutiveFailures == 0 {
+				// Reset backoff if we've had success between the last time
+				// failure occurred.
+				boff = backoff.Exponential{Min: time.Duration(100) * time.Millisecond}
+			}
+			// Maintain backoff outside of the controller - we need to meter
+			// controller updates here. Calling `UpdateController` will reset
+			// the number of retries if regeneration keeps on failing, so we
+			// limit it ourselves. Starting regeneration itself from a
+			// controller is difficult because a given regeneration takes in
+			// context / is expected to return values to a given caller of
+			// Regenerate(). This could definitely be cleaned up later with some
+			// more fine-tuned combing through of the Endpoint regeneration
+			// code.
+			if err := boff.Wait(e.aliveCtx); err != nil {
+				// Error is only returned if the context is done; in this case
+				// that means the endpoint was deleted, so we can exit
+				// gracefully.
+				return
+			}
+
+			e.controllers.UpdateController(fmt.Sprintf("endpoint-%s-regeneration-recovery", e.StringID()), controller.ControllerParams{
+				DoFunc: func(ctx context.Context) error {
+					if err := e.lockAlive(); err != nil {
+						// We don't need to regenerate because the endpoint
+						// is disconnecting / is disconnected, exit gracefully.
+						numConsecutiveFailures = 0
+						return nil
+					}
+					stateTransitionSucceeded := e.setState(StateWaitingToRegenerate, reasonRegenRetry)
+					e.unlock()
+					if !stateTransitionSucceeded {
+						// Another regeneration has already been enqueued.
+						numConsecutiveFailures = 0
+						return nil
+					}
+
+					r := &regeneration.ExternalRegenerationMetadata{
+						ParentContext: e.aliveCtx,
+						Reason:        reasonRegenRetry,
+					}
+					if success := <-e.Regenerate(r); success {
+						numConsecutiveFailures = 0
+						return nil
+					}
+					numConsecutiveFailures += 1
+					return fmt.Errorf("regeneration recovery failed")
+				},
+				ErrorRetryBaseDuration: 2 * time.Second,
+			})
+		}
+	}()
 }
 
 func (e *Endpoint) notifyEndpointRegeneration(err error) {
