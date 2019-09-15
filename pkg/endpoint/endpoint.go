@@ -302,6 +302,8 @@ type Endpoint struct {
 	// plugin which performed the plumbing will enable certain datapath
 	// features according to the mode selected.
 	DatapathConfiguration models.EndpointDatapathConfiguration
+
+	regenFailedChan chan struct{}
 }
 
 // UpdateController updates the controller with the specified name with the
@@ -408,17 +410,20 @@ func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 // NewEndpointWithState creates a new endpoint useful for testing purposes
 func NewEndpointWithState(owner regeneration.Owner, ID uint16, state string) *Endpoint {
 	ep := &Endpoint{
-		owner:         owner,
-		ID:            ID,
-		OpLabels:      pkgLabels.NewOpLabels(),
-		Status:        NewEndpointStatus(),
-		DNSHistory:    fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
-		state:         state,
-		hasBPFProgram: make(chan struct{}, 0),
-		controllers:   controller.NewManager(),
-		EventQueue:    eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", ID), option.Config.EndpointQueueSize),
-		desiredPolicy: policy.NewEndpointPolicy(owner.GetPolicyRepository()),
+		owner:           owner,
+		ID:              ID,
+		OpLabels:        pkgLabels.NewOpLabels(),
+		Status:          NewEndpointStatus(),
+		DNSHistory:      fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
+		state:           state,
+		hasBPFProgram:   make(chan struct{}, 0),
+		controllers:     controller.NewManager(),
+		EventQueue:      eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", ID), option.Config.EndpointQueueSize),
+		desiredPolicy:   policy.NewEndpointPolicy(owner.GetPolicyRepository()),
+		regenFailedChan: make(chan struct{}, 1),
 	}
+
+	ep.startRegenerationFailureHandler()
 	ep.realizedPolicy = ep.desiredPolicy
 
 	ep.SetDefaultOpts(option.Config.Opts)
@@ -454,7 +459,10 @@ func NewEndpointFromChangeModel(owner regeneration.Owner, base *models.EndpointC
 		hasBPFProgram:    make(chan struct{}, 0),
 		desiredPolicy:    policy.NewEndpointPolicy(owner.GetPolicyRepository()),
 		controllers:      controller.NewManager(),
+		regenFailedChan:  make(chan struct{}, 1),
 	}
+
+	ep.startRegenerationFailureHandler()
 	ep.realizedPolicy = ep.desiredPolicy
 
 	if base.Mac != "" {
@@ -1079,6 +1087,9 @@ func ParseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
 	ep.desiredPolicy = policy.NewEndpointPolicy(owner.GetPolicyRepository())
 	ep.realizedPolicy = ep.desiredPolicy
 	ep.controllers = controller.NewManager()
+	ep.regenFailedChan = make(chan struct{}, 1)
+
+	ep.startRegenerationFailureHandler()
 
 	// We need to check for nil in Status, CurrentStatuses and Log, since in
 	// some use cases, status will be not nil and Cilium will eventually
