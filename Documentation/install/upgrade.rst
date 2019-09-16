@@ -275,6 +275,12 @@ IMPORTANT: Changes required before upgrading to 1.7.0
     key-file: '/var/lib/cilium/etcd-client.key'
     cert-file: '/var/lib/cilium/etcd-client.crt'
 
+Removed options
+~~~~~~~~~~~~~~~~~~
+
+* ``lb``: The ``--lb`` feature has been removed. If you need load-balancing on
+  a particular device, consider using :ref:`nodeport`.
+
 
 .. _1.6_upgrade_notes:
 
