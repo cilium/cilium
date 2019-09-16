@@ -457,6 +457,9 @@ const (
 	// the default for denied DNS requests.
 	FQDNProxyDenyWithRefused = "refused"
 
+	// FQDNProxyResponseMaxDelay is the maximum time the proxy holds back a response
+	FQDNProxyResponseMaxDelay = "tofqdns-proxy-response-max-delay"
+
 	// PreAllocateMapsName is the name of the option PreAllocateMaps
 	PreAllocateMapsName = "preallocate-bpf-maps"
 
@@ -1026,6 +1029,11 @@ type DaemonConfig struct {
 
 	// FQDNRejectResponse is the dns-proxy response for invalid dns-proxy request
 	FQDNRejectResponse string
+
+	// FQDNProxyResponseMaxDelay The maximum time the DNS proxy holds an allowed
+	// DNS response before sending it along. Responses are sent as soon as the
+	// datapath is updated with the new IP information.
+	FQDNProxyResponseMaxDelay time.Duration
 
 	// Path to a file with DNS cache data to preload on startup
 	ToFQDNsPreCache string
