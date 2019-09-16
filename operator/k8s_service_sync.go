@@ -66,10 +66,10 @@ func k8sServiceHandler() {
 		}
 
 		switch event.Action {
-		case k8s.UpdateService, k8s.UpdateIngress:
+		case k8s.UpdateService:
 			servicesStore.UpdateLocalKeySync(&svc)
 
-		case k8s.DeleteService, k8s.DeleteIngress:
+		case k8s.DeleteService:
 			servicesStore.DeleteLocalKey(&svc)
 		}
 	}

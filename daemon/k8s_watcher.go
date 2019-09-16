@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -54,7 +53,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -71,7 +69,6 @@ const (
 	k8sAPIGroupEndpointV1Core        = "core/v1::Endpoint"
 	k8sAPIGroupPodV1Core             = "core/v1::Pods"
 	k8sAPIGroupNetworkingV1Core      = "networking.k8s.io/v1::NetworkPolicy"
-	k8sAPIGroupIngressV1Beta1        = "extensions/v1beta1::Ingress"
 	k8sAPIGroupCiliumNetworkPolicyV2 = "cilium/v2::CiliumNetworkPolicy"
 	k8sAPIGroupCiliumNodeV2          = "cilium/v2::CiliumNode"
 	k8sAPIGroupCiliumEndpointV2      = "cilium/v2::CiliumEndpoint"
@@ -79,7 +76,6 @@ const (
 
 	metricCNP            = "CiliumNetworkPolicy"
 	metricEndpoint       = "Endpoint"
-	metricIngress        = "Ingress"
 	metricKNP            = "NetworkPolicy"
 	metricNS             = "Namespace"
 	metricCiliumNode     = "CiliumNode"
@@ -306,7 +302,7 @@ func (d *Daemon) initK8sSubsystem() <-chan struct{} {
 	go func() {
 		log.Info("Waiting until all pre-existing resources related to policy have been received")
 		// Wait only for certain caches, but not all!
-		// We don't wait for nodes synchronization nor ingresses.
+		// We don't wait for nodes synchronization.
 		d.waitForCacheSync(
 			// To perform the service translation and have the BPF LB datapath
 			// with the right service -> backend (k8s endpoints) translation.
@@ -376,7 +372,6 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 	serKNPs := serializer.NewFunctionQueue(queueSize)
 	serSvcs := serializer.NewFunctionQueue(queueSize)
 	serEps := serializer.NewFunctionQueue(queueSize)
-	serIngresses := serializer.NewFunctionQueue(queueSize)
 	serCNPs := serializer.NewFunctionQueue(queueSize)
 	serPods := serializer.NewFunctionQueue(queueSize)
 	serNodes := serializer.NewFunctionQueue(queueSize)
@@ -591,76 +586,6 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 	d.blockWaitGroupToSyncResources(wait.NeverStop, endpointController, k8sAPIGroupEndpointV1Core)
 	go endpointController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupEndpointV1Core)
-
-	if option.Config.IsLBEnabled() {
-		_, ingressController := informer.NewInformer(
-			cache.NewListWatchFromClient(k8s.Client().ExtensionsV1beta1().RESTClient(),
-				"ingresses", v1.NamespaceAll, fields.Everything()),
-			&v1beta1.Ingress{},
-			0,
-			cache.ResourceEventHandlerFuncs{
-				AddFunc: func(obj interface{}) {
-					var valid, equal bool
-					defer func() { d.K8sEventReceived(metricEndpoint, metricCreate, valid, equal) }()
-					if k8sIngress := k8s.CopyObjToV1beta1Ingress(obj); k8sIngress != nil {
-						valid = true
-						serIngresses.Enqueue(func() error {
-							err := d.addIngressV1beta1(k8sIngress)
-							d.K8sEventProcessed(metricIngress, metricCreate, err == nil)
-							return nil
-						}, serializer.NoRetry)
-					}
-				},
-				UpdateFunc: func(oldObj, newObj interface{}) {
-					var valid, equal bool
-					defer func() { d.K8sEventReceived(metricEndpoint, metricUpdate, valid, equal) }()
-					if oldk8sIngress := k8s.CopyObjToV1beta1Ingress(oldObj); oldk8sIngress != nil {
-						valid = true
-						if newk8sIngress := k8s.CopyObjToV1beta1Ingress(newObj); newk8sIngress != nil {
-							if k8s.EqualV1beta1Ingress(oldk8sIngress, newk8sIngress) {
-								equal = true
-								return
-							}
-
-							serIngresses.Enqueue(func() error {
-								err := d.updateIngressV1beta1(oldk8sIngress, newk8sIngress)
-								d.K8sEventProcessed(metricIngress, metricUpdate, err == nil)
-								return nil
-							}, serializer.NoRetry)
-						}
-					}
-				},
-				DeleteFunc: func(obj interface{}) {
-					var valid, equal bool
-					defer func() { d.K8sEventReceived(metricEndpoint, metricDelete, valid, equal) }()
-					k8sIngress := k8s.CopyObjToV1beta1Ingress(obj)
-					if k8sIngress == nil {
-						deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
-						if !ok {
-							return
-						}
-						// Delete was not observed by the watcher but is
-						// removed from kube-apiserver. This is the last
-						// known state and the object no longer exists.
-						k8sIngress = k8s.CopyObjToV1beta1Ingress(deletedObj.Obj)
-						if k8sIngress == nil {
-							return
-						}
-					}
-					valid = true
-					serEps.Enqueue(func() error {
-						err := d.deleteIngressV1beta1(k8sIngress)
-						d.K8sEventProcessed(metricIngress, metricDelete, err == nil)
-						return nil
-					}, serializer.NoRetry)
-				},
-			},
-			k8s.ConvertToIngress,
-		)
-		d.blockWaitGroupToSyncResources(wait.NeverStop, ingressController, k8sAPIGroupIngressV1Beta1)
-		go ingressController.Run(wait.NeverStop)
-		d.k8sAPIGroups.addAPI(k8sAPIGroupIngressV1Beta1)
-	}
 
 	var (
 		cnpEventStore    cache.Store
@@ -1159,7 +1084,7 @@ func (d *Daemon) k8sServiceHandler() {
 		}).Debug("Kubernetes service definition changed")
 
 		switch event.Action {
-		case k8s.UpdateService, k8s.UpdateIngress:
+		case k8s.UpdateService:
 			if err := d.addK8sSVCs(event.ID, svc, event.Endpoints); err != nil {
 				scopedLog.WithError(err).Error("Unable to add/update service to implement k8s event")
 			}
@@ -1189,7 +1114,7 @@ func (d *Daemon) k8sServiceHandler() {
 				d.TriggerPolicyUpdates(true, "Kubernetes service endpoint updated")
 			}
 
-		case k8s.DeleteService, k8s.DeleteIngress:
+		case k8s.DeleteService:
 			if err := d.delK8sSVCs(event.ID, event.Service, event.Endpoints); err != nil {
 				scopedLog.WithError(err).Error("Unable to delete service to implement k8s event")
 			}
@@ -1401,144 +1326,6 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 			}
 		}
 	}
-	return nil
-}
-
-func (d *Daemon) addIngressV1beta1(ingress *types.Ingress) error {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.K8sIngressName: ingress.ObjectMeta.Name,
-		logfields.K8sAPIVersion:  ingress.TypeMeta.APIVersion,
-		logfields.K8sNamespace:   ingress.ObjectMeta.Namespace,
-	})
-	scopedLog.Info("Kubernetes ingress added")
-
-	var host net.IP
-	switch {
-	case option.Config.EnableIPv4:
-		host = option.Config.HostV4Addr
-	case option.Config.EnableIPv6:
-		host = option.Config.HostV6Addr
-	default:
-		return fmt.Errorf("either IPv4 or IPv6 must be enabled")
-	}
-
-	_, err := d.k8sSvcCache.UpdateIngress(ingress, host)
-	if err != nil {
-		return err
-	}
-
-	hostname, _ := os.Hostname()
-	dpyCopyIngress := ingress.DeepCopy()
-	dpyCopyIngress.Status.LoadBalancer.Ingress = []v1.LoadBalancerIngress{
-		{
-			IP:       host.String(),
-			Hostname: hostname,
-		},
-	}
-
-	_, err = k8s.Client().ExtensionsV1beta1().Ingresses(dpyCopyIngress.ObjectMeta.Namespace).UpdateStatus(dpyCopyIngress.Ingress)
-	if err != nil {
-		scopedLog.WithError(err).WithFields(logrus.Fields{
-			logfields.K8sIngress: dpyCopyIngress,
-		}).Error("Unable to update status of ingress")
-	}
-	return err
-}
-
-func (d *Daemon) updateIngressV1beta1(oldIngress, newIngress *types.Ingress) error {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.K8sIngressName + ".old": oldIngress.ObjectMeta.Name,
-		logfields.K8sAPIVersion + ".old":  oldIngress.TypeMeta.APIVersion,
-		logfields.K8sNamespace + ".old":   oldIngress.ObjectMeta.Namespace,
-		logfields.K8sIngressName:          newIngress.ObjectMeta.Name,
-		logfields.K8sAPIVersion:           newIngress.TypeMeta.APIVersion,
-		logfields.K8sNamespace:            newIngress.ObjectMeta.Namespace,
-	})
-
-	if oldIngress.Spec.Backend == nil || newIngress.Spec.Backend == nil {
-		// We only support Single Service Ingress for now
-		scopedLog.Warn("Cilium only supports Single Service Ingress for now, ignoring ingress")
-		return nil
-	}
-
-	// Add RevNAT to the BPF Map for non-LB nodes when a LB node update the
-	// ingress status with its address.
-	if !option.Config.IsLBEnabled() {
-		port := newIngress.Spec.Backend.ServicePort.IntValue()
-		for _, lb := range newIngress.Status.LoadBalancer.Ingress {
-			ingressIP := net.ParseIP(lb.IP)
-			if ingressIP == nil {
-				continue
-			}
-			feAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, ingressIP, uint16(port))
-			feAddrID, err := service.AcquireID(*feAddr, 0)
-			if err != nil {
-				scopedLog.WithError(err).Error("Error while getting a new service ID. Ignoring ingress...")
-				continue
-			}
-			scopedLog.WithFields(logrus.Fields{
-				logfields.ServiceID: feAddrID.ID,
-			}).Debug("Got service ID for ingress")
-
-			if err := d.RevNATAdd(loadbalancer.ServiceID(feAddrID.ID),
-				feAddrID.L3n4Addr); err != nil {
-				scopedLog.WithError(err).WithFields(logrus.Fields{
-					logfields.ServiceID: feAddrID.ID,
-					logfields.IPAddr:    feAddrID.L3n4Addr.IP,
-					logfields.Port:      feAddrID.L3n4Addr.Port,
-					logfields.Protocol:  feAddrID.L3n4Addr.Protocol,
-				}).Error("Unable to add reverse NAT ID for ingress")
-			}
-		}
-		return nil
-	}
-
-	if oldIngress.Spec.Backend.ServiceName == newIngress.Spec.Backend.ServiceName &&
-		oldIngress.Spec.Backend.ServicePort == newIngress.Spec.Backend.ServicePort {
-		return nil
-	}
-
-	return d.addIngressV1beta1(newIngress)
-}
-
-func (d *Daemon) deleteIngressV1beta1(ingress *types.Ingress) error {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.K8sIngressName: ingress.ObjectMeta.Name,
-		logfields.K8sAPIVersion:  ingress.TypeMeta.APIVersion,
-		logfields.K8sNamespace:   ingress.ObjectMeta.Namespace,
-	})
-
-	if ingress.Spec.Backend == nil {
-		// We only support Single Service Ingress for now
-		scopedLog.Warn("Cilium only supports Single Service Ingress for now, ignoring ingress deletion")
-		return nil
-	}
-
-	d.k8sSvcCache.DeleteIngress(ingress)
-
-	// Remove RevNAT from the BPF Map for non-LB nodes.
-	if !option.Config.IsLBEnabled() {
-		port := ingress.Spec.Backend.ServicePort.IntValue()
-		for _, lb := range ingress.Status.LoadBalancer.Ingress {
-			ingressIP := net.ParseIP(lb.IP)
-			if ingressIP == nil {
-				continue
-			}
-			feAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, ingressIP, uint16(port))
-			// This is the only way that we can get the service's ID
-			// without accessing the KVStore.
-			svc := d.svcGetBySHA256Sum(feAddr.SHA256Sum())
-			if svc != nil {
-				if err := d.RevNATDelete(loadbalancer.ServiceID(svc.FE.ID)); err != nil {
-					scopedLog.WithError(err).WithFields(logrus.Fields{
-						logfields.ServiceID: svc.FE.ID,
-					}).Error("Error while removing RevNAT for ingress")
-				}
-			}
-		}
-		return nil
-	}
-
 	return nil
 }
 
