@@ -34,9 +34,6 @@ type Owner interface {
 	// QueueEndpointBuild puts the given endpoint in the processing queue
 	QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error)
 
-	// RemoveFromEndpointQueue removes an endpoint from the working queue
-	RemoveFromEndpointQueue(epID uint64)
-
 	// GetCompilationLock returns the mutex responsible for synchronizing compilation
 	// of BPF programs.
 	GetCompilationLock() *lock.RWMutex

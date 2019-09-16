@@ -77,8 +77,6 @@ func (s *DNSProxyTestSuite) QueueEndpointBuild(ctx context.Context, epID uint64)
 	return nil, nil
 }
 
-func (s *DNSProxyTestSuite) RemoveFromEndpointQueue(epID uint64) {}
-
 func (s *DNSProxyTestSuite) GetCompilationLock() *lock.RWMutex {
 	return nil
 }

@@ -457,7 +457,7 @@ func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMe
 	if regenMetadata.ParentContext != nil {
 		ctx, cFunc = context.WithCancel(regenMetadata.ParentContext)
 	} else {
-		ctx, cFunc = context.WithCancel(context.Background())
+		ctx, cFunc = context.WithCancel(e.aliveCtx)
 	}
 
 	regenContext := ParseExternalRegenerationMetadata(ctx, cFunc, regenMetadata)

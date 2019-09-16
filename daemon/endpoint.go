@@ -680,39 +680,17 @@ func (h *putEndpointIDLabels) Handle(params PatchEndpointIDLabelsParams) middlew
 // permit being canceled. The latter case happens when the endpoint is
 // being deleted. Returns an error if the build permit could not be acquired.
 func (d *Daemon) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
-	d.uniqueIDMU.Lock()
-	// Skip new build requests if the endpoint is already in the queue
-	// waiting. In this case the queued build will pick up any changes
-	// made so far, so there is no need to queue another build now.
-	if _, queued := d.uniqueID[epID]; queued {
-		d.uniqueIDMU.Unlock()
-		return nil, nil
-	}
-	// Store a cancel function to the 'uniqueID' map so that we can
-	// cancel the wait when the endpoint is being deleted.
-	uniqueIDCtx, cancel := context.WithCancel(ctx)
-	d.uniqueID[epID] = cancel
-	d.uniqueIDMU.Unlock()
-
 	// Acquire build permit. This may block.
-	err := d.buildEndpointSem.Acquire(uniqueIDCtx, 1)
-
-	// Not queueing any more, so remove the cancel func from 'uniqueID' map.
-	// The caller may still cancel the build by calling the cancel func after we
-	// return it. After this point another build may be queued for this
-	// endpoint.
-	d.uniqueIDMU.Lock()
-	delete(d.uniqueID, epID)
-	d.uniqueIDMU.Unlock()
+	err := d.buildEndpointSem.Acquire(ctx, 1)
 
 	if err != nil {
 		return nil, err // Acquire failed
 	}
 
 	// Acquire succeeded, but the context was canceled after?
-	if uniqueIDCtx.Err() != nil {
+	if ctx.Err() != nil {
 		d.buildEndpointSem.Release(1)
-		return nil, uniqueIDCtx.Err()
+		return nil, ctx.Err()
 	}
 
 	// At this point the build permit has been acquired. It must
@@ -726,15 +704,4 @@ func (d *Daemon) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), e
 		})
 	}
 	return doneFunc, nil
-}
-
-// RemoveFromEndpointQueue removes the endpoint from the "build permit" queue,
-// canceling the wait for the build permit if still waiting.
-func (d *Daemon) RemoveFromEndpointQueue(epID uint64) {
-	d.uniqueIDMU.Lock()
-	if cancel, queued := d.uniqueID[epID]; queued && cancel != nil {
-		delete(d.uniqueID, epID)
-		cancel()
-	}
-	d.uniqueIDMU.Unlock()
 }
