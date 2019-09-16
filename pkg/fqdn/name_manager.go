@@ -17,6 +17,7 @@ package fqdn
 import (
 	"net"
 	"regexp"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/pkg/identity"
@@ -132,8 +133,8 @@ func NewNameManager(config Config) *NameManager {
 	}
 
 	if config.UpdateSelectors == nil {
-		config.UpdateSelectors = func(selectorIPMapping map[api.FQDNSelector][]net.IP, namesMissingIPs []api.FQDNSelector) error {
-			return nil
+		config.UpdateSelectors = func(selectorIPMapping map[api.FQDNSelector][]net.IP, namesMissingIPs []api.FQDNSelector) (*sync.WaitGroup, error) {
+			return &sync.WaitGroup{}, nil
 		}
 	}
 
@@ -166,7 +167,7 @@ func (n *NameManager) GetDNSNames() (dnsNames []string) {
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
 // have changed for a name, store which rules must be updated in rulesToUpdate,
 // regenerate them, and emit via UpdateSelectors.
-func (n *NameManager) UpdateGenerateDNS(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) error {
+func (n *NameManager) UpdateGenerateDNS(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (wg *sync.WaitGroup, err error) {
 	// Update IPs in n
 	fqdnSelectorsToUpdate, updatedDNSNames := n.UpdateDNSIPs(lookupTime, updatedDNSIPs)
 	for dnsName, IPs := range updatedDNSNames {
@@ -189,7 +190,7 @@ func (n *NameManager) UpdateGenerateDNS(lookupTime time.Time, updatedDNSIPs map[
 // ForceGenerateDNS unconditionally regenerates all rules that refer to DNS
 // names in namesToRegen. These names are FQDNs and toFQDNs.matchPatterns or
 // matchNames that match them will cause these rules to regenerate.
-func (n *NameManager) ForceGenerateDNS(namesToRegen []string) error {
+func (n *NameManager) ForceGenerateDNS(namesToRegen []string) (wg *sync.WaitGroup, err error) {
 	n.Mutex.Lock()
 	affectedFQDNSels := make(map[api.FQDNSelector]struct{}, 0)
 	for _, dnsName := range namesToRegen {
