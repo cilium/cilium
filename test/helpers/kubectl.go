@@ -63,6 +63,9 @@ const (
 	// used in the CI.
 	CIIntegrationFlannel = "flannel"
 
+	// CIIntegrationEKS contains the constants to be used when running tests on EKS.
+	CIIntegrationEKS = "eks"
+
 	LogGathererSelector  = "k8s-app=cilium-test-logs"
 	LogGathererNamespace = "kube-system"
 )
@@ -95,6 +98,14 @@ var (
 		"global.ipv6.enabled":    "false",
 		"global.tunnel":          "disabled",
 	}
+
+	eksHelmOverrides = map[string]string{
+		"global.k8s.requireIPv4PodCIDR": "false",
+		"global.cni.chainingMode":       "aws-cni",
+		"global.masquerade":             "false",
+		"global.tunnel":                 "disabled",
+		"global.nodeinit.enabled":       "true",
+	}
 )
 
 func init() {
@@ -119,6 +130,8 @@ func GetCurrentIntegration() string {
 	switch strings.ToLower(os.Getenv("CNI_INTEGRATION")) {
 	case CIIntegrationFlannel:
 		return CIIntegrationFlannel
+	case CIIntegrationEKS:
+		return CIIntegrationEKS
 	default:
 		return ""
 	}
@@ -1110,6 +1123,13 @@ func (kub *Kubectl) generateCiliumYaml(options []string, filename string) error 
 		for k, v := range flannelHelmOverrides {
 			options = append(options, fmt.Sprintf("--set %s=%s", k, v))
 		}
+
+	case CIIntegrationEKS:
+		// Appending the options will override earlier options on CLI.
+		for k, v := range eksHelmOverrides {
+			options = append(options, fmt.Sprintf("--set %s=%s", k, v))
+		}
+
 	default:
 	}
 
