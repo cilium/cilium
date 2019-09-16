@@ -37,7 +37,6 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
 	. "gopkg.in/check.v1"
 )
@@ -55,12 +54,10 @@ type DaemonSuite struct {
 	kvstoreInit bool
 
 	// Owners interface mock
-	OnGetPolicyRepository     func() *policy.Repository
-	OnQueueEndpointBuild      func(ctx context.Context, epID uint64) (func(), error)
-	OnRemoveFromEndpointQueue func(epID uint64)
-	OnGetCompilationLock      func() *lock.RWMutex
-	OnSendNotification        func(typ monitorAPI.AgentNotification, text string) error
-	OnNewProxyLogRecord       func(l *accesslog.LogRecord) error
+	OnGetPolicyRepository func() *policy.Repository
+	OnQueueEndpointBuild  func(ctx context.Context, epID uint64) (func(), error)
+	OnGetCompilationLock  func() *lock.RWMutex
+	OnSendNotification    func(typ monitorAPI.AgentNotification, text string) error
 }
 
 func setupTestDirectories() {
@@ -123,10 +120,8 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 
 	ds.OnGetPolicyRepository = nil
 	ds.OnQueueEndpointBuild = nil
-	ds.OnRemoveFromEndpointQueue = nil
 	ds.OnGetCompilationLock = nil
 	ds.OnSendNotification = nil
-	ds.OnNewProxyLogRecord = nil
 	ds.d.endpointManager = endpointmanager.NewEndpointManager(&dummyEpSyncher{})
 }
 
@@ -211,14 +206,6 @@ func (ds *DaemonSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (fun
 	panic("QueueEndpointBuild should not have been called")
 }
 
-func (ds *DaemonSuite) RemoveFromEndpointQueue(epID uint64) {
-	if ds.OnRemoveFromEndpointQueue != nil {
-		ds.OnRemoveFromEndpointQueue(epID)
-		return
-	}
-	panic("RemoveFromEndpointQueue should not have been called")
-}
-
 func (ds *DaemonSuite) GetCompilationLock() *lock.RWMutex {
 	if ds.OnGetCompilationLock != nil {
 		return ds.OnGetCompilationLock()
@@ -231,13 +218,6 @@ func (ds *DaemonSuite) SendNotification(typ monitorAPI.AgentNotification, text s
 		return ds.OnSendNotification(typ, text)
 	}
 	panic("SendNotification should not have been called")
-}
-
-func (ds *DaemonSuite) NewProxyLogRecord(l *accesslog.LogRecord) error {
-	if ds.OnNewProxyLogRecord != nil {
-		return ds.OnNewProxyLogRecord(l)
-	}
-	panic("NewProxyLogRecord should not have been called")
 }
 
 func (ds *DaemonSuite) Datapath() datapath.Datapath {

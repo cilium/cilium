@@ -85,8 +85,6 @@ func (s *proxyTestSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (f
 	return nil, nil
 }
 
-func (s *proxyTestSuite) RemoveFromEndpointQueue(epID uint64) {}
-
 func (s *proxyTestSuite) GetCompilationLock() *lock.RWMutex {
 	return nil
 }
