@@ -210,11 +210,6 @@ const (
 	// LabelPrefixFile is the valid label prefixes file path
 	LabelPrefixFile = "label-prefix-file"
 
-	// LBDeprecated is the deprecated option that used to enable load
-	// balancer mode where load balancer bpf program is attached to the
-	// given interface
-	LBDeprecated = "lb"
-
 	// EnableNodePort enables NodePort services implemented by Cilium in BPF
 	EnableNodePort = "enable-node-port"
 
@@ -768,7 +763,6 @@ type DaemonConfig struct {
 	ModePreFilter    string     // XDP mode, values: { native | generic }
 	HostV4Addr       net.IP     // Host v4 address of the snooping device
 	HostV6Addr       net.IP     // Host v6 address of the snooping device
-	LBInterface      string     // Set with name of the interface to loadbalance packets from
 	EncryptInterface string     // Set with name of network facing interface to encrypt
 	EncryptNode      bool       // Set to true for encrypting node IP traffic
 	Workloads        []string   // List of Workloads set by the user to used by cilium.
@@ -1269,11 +1263,6 @@ func (c *DaemonConfig) IsPodSubnetsDefined() bool {
 	return len(c.IPv4PodSubnets) > 0 || len(c.IPv6PodSubnets) > 0
 }
 
-// IsLBEnabled returns true if LB should be enabled
-func (c *DaemonConfig) IsLBEnabled() bool {
-	return c.LBInterface != ""
-}
-
 // GetNodeConfigPath returns the full path of the NodeConfigFile.
 func (c *DaemonConfig) GetNodeConfigPath() string {
 	return filepath.Join(c.GetGlobalsDir(), common.NodeConfigFile)
@@ -1598,7 +1587,6 @@ func (c *DaemonConfig) Populate() {
 	c.IPAllocationTimeout = viper.GetDuration(IPAllocationTimeout)
 	c.LabelPrefixFile = viper.GetString(LabelPrefixFile)
 	c.Labels = viper.GetStringSlice(Labels)
-	c.LBInterface = viper.GetString(LBDeprecated)
 	c.LibDir = viper.GetString(LibDir)
 	c.LogDriver = viper.GetStringSlice(LogDriver)
 	c.LogSystemLoadConfig = viper.GetBool(LogSystemLoadConfigName)

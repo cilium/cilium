@@ -56,7 +56,6 @@ import (
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/pprof"
-	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/version"
 	"github.com/cilium/cilium/pkg/workloads"
 
@@ -463,10 +462,6 @@ func init() {
 	flags.StringSlice(option.Labels, []string{}, "List of label prefixes used to determine identity of an endpoint")
 	option.BindEnv(option.Labels)
 
-	flags.String(option.LBDeprecated, "", "Enables load balancer mode where load balancer bpf program is attached to the given interface")
-	flags.MarkDeprecated(option.LBDeprecated, "Direct device load-balancing will be deprecated in 1.7")
-	option.BindEnv(option.LBDeprecated)
-
 	flags.Bool(option.EnableNodePort, false, "Enable NodePort type services by Cilium (beta)")
 	option.BindEnv(option.EnableNodePort)
 
@@ -820,10 +815,6 @@ func initEnv(cmd *cobra.Command) {
 		logfields.Path + ".RunDir": option.Config.RunDir,
 		logfields.Path + ".LibDir": option.Config.LibDir,
 	})
-
-	if option.Config.LBInterface != "" {
-		service.EnableGlobalServiceID(true)
-	}
 
 	option.Config.BpfDir = filepath.Join(option.Config.LibDir, defaults.BpfDir)
 	scopedLog = scopedLog.WithField(logfields.Path+".BPFDir", defaults.BpfDir)

@@ -802,15 +802,13 @@ func restoreServices() {
 		// are disabled. Global service IDs require kvstore access but
 		// service load-balancing needs to be enabled before the
 		// kvstore is guaranteed to be connected
-		if option.Config.LBInterface == "" {
-			_, err := service.RestoreID(svc.FE.L3n4Addr, uint32(svc.FE.ID))
-			if err != nil {
-				failed++
-				scopedLog.WithError(err).Warning("Unable to restore service ID from datapath")
-			} else {
-				restored++
-				scopedLog.Debug("Restored service ID from datapath")
-			}
+		_, err := service.RestoreID(svc.FE.L3n4Addr, uint32(svc.FE.ID))
+		if err != nil {
+			failed++
+			scopedLog.WithError(err).Warning("Unable to restore service ID from datapath")
+		} else {
+			restored++
+			scopedLog.Debug("Restored service ID from datapath")
 		}
 
 		// Restore the service cache to guarantee backend ordering
