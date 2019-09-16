@@ -475,7 +475,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 			"qname": qname,
 			"ips":   responseIPs,
 		}).Debug("Updating DNS name in cache from response to to query")
-		_, err := d.dnsNameManager.UpdateGenerateDNS(lookupTime, map[string]*fqdn.DNSIPRecords{
+		wg, err := d.dnsNameManager.UpdateGenerateDNS(lookupTime, map[string]*fqdn.DNSIPRecords{
 			qname: {
 				IPs: responseIPs,
 				TTL: int(TTL),
@@ -483,6 +483,28 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		if err != nil {
 			log.WithError(err).Error("error updating internal DNS cache for rule generation")
 		}
+
+		updateComplete := make(chan struct{})
+		go func(wg *sync.WaitGroup, done chan struct{}) {
+			wg.Wait()
+			updateComplete <- struct{}{}
+		}(wg, updateComplete)
+
+		updateCtx, updateCancel := context.WithTimeout(context.TODO(), option.Config.FQDNProxyResponseMaxDelay)
+		defer updateCancel()
+		updateStart := time.Now()
+
+		select {
+		case <-updateCtx.Done():
+			log.Error("reached maximum delay for waiting for FQDNs to be plumbed to endpoints; returning response")
+		case <-updateComplete:
+		}
+
+		log.WithFields(logrus.Fields{
+			logfields.Duration:   time.Since(updateStart),
+			logfields.EndpointID: ep.GetID(),
+			"qname":              qname,
+		}).Debug("Waited for endpoints to regenerate due to a DNS response")
 		endMetric()
 	}
 
