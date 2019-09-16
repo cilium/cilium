@@ -165,21 +165,10 @@ func (d *Daemon) compileBase() error {
 			return err
 		}
 
-		if option.Config.IsLBEnabled() {
-			if option.Config.Device != option.Config.LBInterface {
-				//FIXME: allow different interfaces
-				return fmt.Errorf("Unable to have an interface for LB mode different than snooping interface")
-			}
-			if err := d.setHostAddresses(); err != nil {
-				return err
-			}
-			mode = "lb"
+		if option.Config.DatapathMode == option.DatapathModeIpvlan {
+			mode = "ipvlan"
 		} else {
-			if option.Config.DatapathMode == option.DatapathModeIpvlan {
-				mode = "ipvlan"
-			} else {
-				mode = "direct"
-			}
+			mode = "direct"
 		}
 
 		args[initArgMode] = mode
@@ -189,11 +178,6 @@ func (d *Daemon) compileBase() error {
 		}
 		args[initArgDevice] = option.Config.Device
 	} else {
-		if option.Config.IsLBEnabled() && strings.ToLower(option.Config.Tunnel) != "disabled" {
-			//FIXME: allow LBMode in tunnel
-			return fmt.Errorf("Unable to run LB mode with tunnel mode")
-		}
-
 		args[initArgMode] = option.Config.Tunnel
 
 		if option.Config.IsFlannelMasterDeviceSet() {
@@ -664,49 +648,6 @@ func setupIPSec() (int, error) {
 	}
 	node.SetIPsecKeyIdentity(spi)
 	return authKeySize, nil
-}
-
-func (d *Daemon) setHostAddresses() error {
-	l, err := netlink.LinkByName(option.Config.LBInterface)
-	if err != nil {
-		return fmt.Errorf("unable to get network device %s: %s", option.Config.Device, err)
-	}
-
-	getAddr := func(netLinkFamily int) (net.IP, error) {
-		addrs, err := netlink.AddrList(l, netLinkFamily)
-		if err != nil {
-			return nil, fmt.Errorf("error while getting %s's addresses: %s", option.Config.Device, err)
-		}
-		for _, possibleAddr := range addrs {
-			if netlink.Scope(possibleAddr.Scope) == netlink.SCOPE_UNIVERSE {
-				return possibleAddr.IP, nil
-			}
-		}
-		return nil, nil
-	}
-
-	if option.Config.EnableIPv4 {
-		hostV4Addr, err := getAddr(netlink.FAMILY_V4)
-		if err != nil {
-			return err
-		}
-		if hostV4Addr != nil {
-			option.Config.HostV4Addr = hostV4Addr
-			log.Infof("Using IPv4 host address: %s", option.Config.HostV4Addr)
-		}
-	}
-
-	if option.Config.EnableIPv6 {
-		hostV6Addr, err := getAddr(netlink.FAMILY_V6)
-		if err != nil {
-			return err
-		}
-		if hostV6Addr != nil {
-			option.Config.HostV6Addr = hostV6Addr
-			log.Infof("Using IPv6 host address: %s", option.Config.HostV6Addr)
-		}
-	}
-	return nil
 }
 
 // Datapath returns a reference to the datapath implementation.
