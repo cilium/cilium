@@ -5,7 +5,7 @@ include ../Makefile.defs
 SUBDIRS = sockops
 
 BPF_SIMPLE = bpf_netdev.o bpf_xdp.o bpf_ipsec.o bpf_network.o bpf_alignchecker.o bpf_hostdev_ingress.o
-BPF = bpf_lxc.o bpf_lb.o bpf_overlay.o bpf_sock.o $(BPF_SIMPLE)
+BPF = bpf_lxc.o bpf_overlay.o bpf_sock.o $(BPF_SIMPLE)
 
 TARGET=cilium-map-migrate
 
@@ -50,21 +50,6 @@ LB_OPTIONS = \
 # These options are intended to max out the BPF program complexity. it is load
 # tested as well.
 MAX_LB_OPTIONS = -DENABLE_IPV4 -DENABLE_IPV6 -DLB_L3 -DLB_L4
-
-bpf_lb.ll: bpf_lb.c $(LIB)
-	$(QUIET) set -e; \
-	if [ $(BUILD_PERMUTATIONS) != "" ]; then \
-		$(foreach OPTS,$(LB_OPTIONS), \
-			$(ECHO_CC) " [$(subst :,$(space),$(OPTS))]"; \
-			${CLANG} $(subst :,$(space),$(OPTS)) ${CLANG_FLAGS} -c $< -o $@; \
-			${LLC} ${LLC_FLAGS} -o /dev/null $@; ) \
-	fi
-	@$(ECHO_CC)
-	$(QUIET) ${CLANG} ${MAX_LB_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
-
-bpf_lb.o: bpf_lb.ll
-	@$(ECHO_CC)
-	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
 
 bpf_sock.ll: bpf_sock.c $(LIB)
 	$(QUIET) set -e; \
