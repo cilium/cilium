@@ -19,7 +19,7 @@ RUNDIR=$2
 IP4_HOST=$3
 IP6_HOST=$4
 MODE=$5
-# Only set if MODE = "direct", "ipvlan", "lb" or "flannel"
+# Only set if MODE = "direct", "ipvlan", "flannel"
 NATIVE_DEV=$6
 XDP_DEV=$7
 XDP_MODE=$8
@@ -550,21 +550,6 @@ if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$MODE" = "routed" ] ||
 		else
 			bpf_unload $NATIVE_DEV "egress"
 		fi
-
-		echo "$NATIVE_DEV" > $RUNDIR/device.state
-	fi
-elif [ "$MODE" = "lb" ]; then
-	if [ -z "$NATIVE_DEV" ]; then
-		echo "No device specified for $MODE mode, ignoring..."
-	else
-		if [ "$IP6_HOST" != "<nil>" ]; then
-			echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
-		fi
-
-		CALLS_MAP="cilium_calls_lb"
-		COPTS="-DLB_L3 -DLB_L4"
-		bpf_load $NATIVE_DEV "$COPTS" "ingress" bpf_lb.c bpf_lb.o from-netdev $CALLS_MAP
-		bpf_unload $NATIVE_DEV "egress"
 
 		echo "$NATIVE_DEV" > $RUNDIR/device.state
 	fi

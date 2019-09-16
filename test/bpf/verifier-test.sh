@@ -18,7 +18,7 @@ set -eo pipefail
 
 DEV="cilium-probe"
 DIR=$(dirname $0)/../../bpf
-TC_PROGS="bpf_hostdev_ingress bpf_ipsec bpf_lb bpf_lxc bpf_netdev bpf_network bpf_overlay"
+TC_PROGS="bpf_hostdev_ingress bpf_ipsec bpf_lxc bpf_netdev bpf_network bpf_overlay"
 CG_PROGS="bpf_sock sockops/bpf_sockops sockops/bpf_redir"
 XDP_PROGS="bpf_xdp"
 IGNORED_PROGS="bpf_alignchecker"
