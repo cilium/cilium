@@ -65,7 +65,7 @@ func getFilteredLabels(containerID string, allLabels map[string]string) (identit
 	return labels.FilterLabels(combinedLabels)
 }
 
-func processCreateWorkload(ep *endpoint.Endpoint, containerID string, allLabels map[string]string, epMgr *endpointmanager.EndpointManager, allocator *cache.IdentityAllocatorManager) {
+func processCreateWorkload(ep *endpoint.Endpoint, containerID string, allLabels map[string]string, epMgr *endpointmanager.EndpointManager, allocator *cache.CachingIdentityAllocator) {
 	ep.SetContainerID(containerID)
 
 	// Update map allowing to lookup endpoint by endpoint

@@ -87,7 +87,7 @@ func (c *containerDModule) getConfig() map[string]string {
 	return getOpts(c.opts)
 }
 
-func (c *containerDModule) newClient(epMgr *endpointmanager.EndpointManager, allocator *cache.IdentityAllocatorManager) (WorkloadRuntime, error) {
+func (c *containerDModule) newClient(epMgr *endpointmanager.EndpointManager, allocator *cache.CachingIdentityAllocator) (WorkloadRuntime, error) {
 	return newContainerDClient(c.opts, epMgr, allocator)
 }
 
@@ -96,7 +96,7 @@ type containerDClient struct {
 	cri *criClient
 }
 
-func newContainerDClient(opts workloadRuntimeOpts, epMgr *endpointmanager.EndpointManager, allocator *cache.IdentityAllocatorManager) (WorkloadRuntime, error) {
+func newContainerDClient(opts workloadRuntimeOpts, epMgr *endpointmanager.EndpointManager, allocator *cache.CachingIdentityAllocator) (WorkloadRuntime, error) {
 	ep := string(opts[EpOpt].value)
 	c, err := containerd.New(ep)
 	if err != nil {
