@@ -74,9 +74,9 @@ func (gi GlobalIdentity) PutKeyFromMap(v map[string]string) allocator.AllocatorK
 	return GlobalIdentity{labels.Map2Labels(v, "").LabelArray()}
 }
 
-// IdentityAllocatorManager manages the allocation of identities for both
+// CachingIdentityAllocator manages the allocation of identities for both
 // global and local identities.
-type IdentityAllocatorManager struct {
+type CachingIdentityAllocator struct {
 	// IdentityAllocator is an allocator for security identities from the
 	// kvstore.
 	IdentityAllocator *allocator.Allocator
@@ -126,7 +126,7 @@ type IdentityAllocatorOwner interface {
 // TODO: identity backends are initialized directly in this function, pulling
 // in dependencies on kvstore and k8s. It would be better to decouple this,
 // since the backends are an interface.
-func (m *IdentityAllocatorManager) InitIdentityAllocator(client clientset.Interface, identityStore cache.Store) <-chan struct{} {
+func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interface, identityStore cache.Store) <-chan struct{} {
 	m.setupMutex.Lock()
 	defer m.setupMutex.Unlock()
 
@@ -214,9 +214,9 @@ func (m *IdentityAllocatorManager) InitIdentityAllocator(client clientset.Interf
 // since the backends are an interface.
 
 // NewIdentityAllocatorManager creates a new instance of an
-// IdentityAllocatorManager.
-func NewIdentityAllocatorManager(owner IdentityAllocatorOwner) *IdentityAllocatorManager {
-	mgr := &IdentityAllocatorManager{
+// CachingIdentityAllocator.
+func NewIdentityAllocatorManager(owner IdentityAllocatorOwner) *CachingIdentityAllocator {
+	mgr := &CachingIdentityAllocator{
 		globalIdentityAllocatorInitialized: make(chan struct{}),
 		localIdentityAllocatorInitialized:  make(chan struct{}),
 		owner:                              owner,
@@ -227,7 +227,7 @@ func NewIdentityAllocatorManager(owner IdentityAllocatorOwner) *IdentityAllocato
 
 // Close closes the identity allocator and allows to call
 // InitIdentityAllocator() again.
-func (m *IdentityAllocatorManager) Close() {
+func (m *CachingIdentityAllocator) Close() {
 	m.setupMutex.Lock()
 	defer m.setupMutex.Unlock()
 
@@ -259,7 +259,7 @@ func (m *IdentityAllocatorManager) Close() {
 
 // WaitForInitialGlobalIdentities waits for the initial set of global security
 // identities to have been received and populated into the allocator cache.
-func (m *IdentityAllocatorManager) WaitForInitialGlobalIdentities(ctx context.Context) error {
+func (m *CachingIdentityAllocator) WaitForInitialGlobalIdentities(ctx context.Context) error {
 	select {
 	case <-m.globalIdentityAllocatorInitialized:
 	case <-ctx.Done():
@@ -273,7 +273,7 @@ func (m *IdentityAllocatorManager) WaitForInitialGlobalIdentities(ctx context.Co
 // an identity for the specified set of labels already exist, the identity is
 // re-used and reference counting is performed, otherwise a new identity is
 // allocated via the kvstore.
-func (m *IdentityAllocatorManager) AllocateIdentity(ctx context.Context, lbls labels.Labels, notifyOwner bool) (id *identity.Identity, allocated bool, err error) {
+func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls labels.Labels, notifyOwner bool) (id *identity.Identity, allocated bool, err error) {
 	// Notify the owner of the newly added identities so that the
 	// cached identities can be updated ASAP, rather than just
 	// relying on the kv-store update events.
@@ -342,7 +342,7 @@ func (m *IdentityAllocatorManager) AllocateIdentity(ctx context.Context, lbls la
 // Release is the reverse operation of AllocateIdentity() and releases the
 // identity again. This function may result in kvstore operations.
 // After the last user has released the ID, the returned lastUse value is true.
-func (m *IdentityAllocatorManager) Release(ctx context.Context, id *identity.Identity) (released bool, err error) {
+func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Identity) (released bool, err error) {
 	defer func() {
 		if released {
 			metrics.IdentityCount.Dec()
@@ -390,7 +390,7 @@ func (m *IdentityAllocatorManager) Release(ctx context.Context, id *identity.Ide
 // function that may be useful for cleaning up multiple identities in paths
 // where several identities may be allocated and another error means that they
 // should all be released.
-func (m *IdentityAllocatorManager) ReleaseSlice(ctx context.Context, owner IdentityAllocatorOwner, identities []*identity.Identity) error {
+func (m *CachingIdentityAllocator) ReleaseSlice(ctx context.Context, owner IdentityAllocatorOwner, identities []*identity.Identity) error {
 	var err error
 	for _, id := range identities {
 		if id == nil {
@@ -409,7 +409,7 @@ func (m *IdentityAllocatorManager) ReleaseSlice(ctx context.Context, owner Ident
 
 // WatchRemoteIdentities starts watching for identities in another kvstore and
 // syncs all identities to the local identity cache.
-func (m *IdentityAllocatorManager) WatchRemoteIdentities(backend kvstore.BackendOperations) *allocator.RemoteCache {
+func (m *CachingIdentityAllocator) WatchRemoteIdentities(backend kvstore.BackendOperations) *allocator.RemoteCache {
 	<-m.globalIdentityAllocatorInitialized
 	return m.IdentityAllocator.WatchRemoteKVStore(backend, m.identitiesPath)
 }

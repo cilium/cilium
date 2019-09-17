@@ -149,7 +149,7 @@ func getEndpointNetworking(status *models.EndpointStatus) (networking *cilium_v2
 
 // updateLabels inserts the labels correnspoding to the specified identity into
 // the AllowedIdentityTuple.
-func updateLabels(allocator *identitycache.IdentityAllocatorManager, allowedIdentityTuple *cilium_v2.AllowedIdentityTuple, secID identity.NumericIdentity) {
+func updateLabels(allocator *identitycache.CachingIdentityAllocator, allowedIdentityTuple *cilium_v2.AllowedIdentityTuple, secID identity.NumericIdentity) {
 	// IdentityUnknown denotes that this is an L4-only BPF
 	// allow, so it applies to all identities. In this case
 	// we should skip resolving the labels, because the
@@ -173,7 +173,7 @@ func updateLabels(allocator *identitycache.IdentityAllocatorManager, allowedIden
 
 // populateResponseWithPolicyKey inserts an AllowedIdentityTuple element into 'policy'
 // which corresponds to the specified 'desiredPolicy'.
-func populateResponseWithPolicyKey(allocator *identitycache.IdentityAllocatorManager, policy *cilium_v2.EndpointPolicy, policyKey *policy.Key) {
+func populateResponseWithPolicyKey(allocator *identitycache.CachingIdentityAllocator, policy *cilium_v2.EndpointPolicy, policyKey *policy.Key) {
 	allowedIdentityTuple := cilium_v2.AllowedIdentityTuple{
 		DestPort: policyKey.DestPort,
 		Protocol: policyKey.Nexthdr,
@@ -223,7 +223,7 @@ func desiredPolicyAllowsIdentity(desired *policy.EndpointPolicy, identity identi
 
 // getEndpointPolicy returns an API representation of the policy that the
 // received Endpoint intends to apply.
-func (e *Endpoint) getEndpointPolicy(allocator *identitycache.IdentityAllocatorManager) (policy *cilium_v2.EndpointPolicy) {
+func (e *Endpoint) getEndpointPolicy(allocator *identitycache.CachingIdentityAllocator) (policy *cilium_v2.EndpointPolicy) {
 	if e.desiredPolicy != nil {
 		policy = &cilium_v2.EndpointPolicy{
 			Ingress: &cilium_v2.EndpointPolicyDirection{
@@ -280,7 +280,7 @@ func (e *Endpoint) getEndpointPolicy(allocator *identitycache.IdentityAllocatorM
 
 // GetCiliumEndpointStatus creates a cilium_v2.EndpointStatus of an endpoint.
 // See cilium_v2.EndpointStatus for a detailed explanation of each field.
-func (e *Endpoint) GetCiliumEndpointStatus(allocator *identitycache.IdentityAllocatorManager) *cilium_v2.EndpointStatus {
+func (e *Endpoint) GetCiliumEndpointStatus(allocator *identitycache.CachingIdentityAllocator) *cilium_v2.EndpointStatus {
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 

@@ -62,10 +62,10 @@ type criClient struct {
 	criRuntime.RuntimeServiceClient
 
 	endpointManager *endpointmanager.EndpointManager
-	allocator       *cache.IdentityAllocatorManager
+	allocator       *cache.CachingIdentityAllocator
 }
 
-func newCRIClient(ctx context.Context, epMgr *endpointmanager.EndpointManager, allocator *cache.IdentityAllocatorManager) (*criClient, error) {
+func newCRIClient(ctx context.Context, epMgr *endpointmanager.EndpointManager, allocator *cache.CachingIdentityAllocator) (*criClient, error) {
 	cc, err := getGRPCCLient(ctx)
 	if err != nil {
 		return nil, err

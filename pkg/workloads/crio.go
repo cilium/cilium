@@ -66,7 +66,7 @@ func (c *criOModule) getConfig() map[string]string {
 	return getOpts(c.opts)
 }
 
-func (c *criOModule) newClient(epMgr *endpointmanager.EndpointManager, allocator *cache.IdentityAllocatorManager) (WorkloadRuntime, error) {
+func (c *criOModule) newClient(epMgr *endpointmanager.EndpointManager, allocator *cache.CachingIdentityAllocator) (WorkloadRuntime, error) {
 	return newCRIOClient(c.opts, epMgr, allocator)
 }
 
@@ -74,7 +74,7 @@ type criOClient struct {
 	cri *criClient
 }
 
-func newCRIOClient(opts workloadRuntimeOpts, epMgr *endpointmanager.EndpointManager, allocator *cache.IdentityAllocatorManager) (WorkloadRuntime, error) {
+func newCRIOClient(opts workloadRuntimeOpts, epMgr *endpointmanager.EndpointManager, allocator *cache.CachingIdentityAllocator) (WorkloadRuntime, error) {
 	ep := string(opts[EpOpt].value)
 	p, err := url.Parse(ep)
 	if err != nil {
