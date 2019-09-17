@@ -15,8 +15,6 @@
 package k8s
 
 import (
-	"net"
-
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -37,12 +35,6 @@ const (
 
 	// DeleteService reflects that the service was deleted
 	DeleteService
-
-	// UpdateIngress reflects that the ingress was updated or added
-	UpdateIngress
-
-	// DeleteIngress reflects that the ingress was deleted
-	DeleteIngress
 )
 
 // String returns the cache action as a string
@@ -52,10 +44,6 @@ func (c CacheAction) String() string {
 		return "service-updated"
 	case DeleteService:
 		return "service-deleted"
-	case UpdateIngress:
-		return "ingress-updated"
-	case DeleteIngress:
-		return "ingress-deleted"
 	default:
 		return "unknown"
 	}
@@ -77,9 +65,8 @@ type ServiceEvent struct {
 	Endpoints *Endpoints
 }
 
-// ServiceCache is a list of services and ingresses correlated with the
-// matching endpoints. The Events member will receive events as services and
-// ingresses
+// ServiceCache is a list of services correlated with the matching endpoints.
+// The Events member will receive events as services.
 type ServiceCache struct {
 	Events chan ServiceEvent
 
@@ -88,7 +75,6 @@ type ServiceCache struct {
 	mutex     lock.RWMutex
 	services  map[ServiceID]*Service
 	endpoints map[ServiceID]*Endpoints
-	ingresses map[ServiceID]*Service
 
 	// externalEndpoints is a list of additional service backends derived from source other than the local cluster
 	externalEndpoints map[ServiceID]externalEndpoints
@@ -99,7 +85,6 @@ func NewServiceCache() ServiceCache {
 	return ServiceCache{
 		services:          map[ServiceID]*Service{},
 		endpoints:         map[ServiceID]*Endpoints{},
-		ingresses:         map[ServiceID]*Service{},
 		externalEndpoints: map[ServiceID]externalEndpoints{},
 		Events:            make(chan ServiceEvent, option.Config.K8sServiceCacheSize),
 	}
@@ -237,56 +222,6 @@ func (s *ServiceCache) DeleteEndpoints(k8sEndpoints *types.Endpoints) ServiceID 
 	}
 
 	return svcID
-}
-
-// UpdateIngress parses a Kubernetes ingress and adds or updates it in the
-// ServiceCache.
-func (s *ServiceCache) UpdateIngress(ingress *types.Ingress, host net.IP) (ServiceID, error) {
-	svcID, newService, err := ParseIngress(ingress, host)
-	if err != nil {
-		return svcID, err
-	}
-
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if oldService, ok := s.ingresses[svcID]; ok {
-		if oldService.DeepEquals(newService) {
-			return svcID, nil
-		}
-	}
-
-	s.ingresses[svcID] = newService
-
-	s.Events <- ServiceEvent{
-		Action:  UpdateIngress,
-		ID:      svcID,
-		Service: newService,
-	}
-
-	return svcID, nil
-}
-
-// DeleteIngress parses a Kubernetes ingress and removes it from the
-// ServiceCache
-func (s *ServiceCache) DeleteIngress(ingress *types.Ingress) {
-	svcID := ParseIngressID(ingress)
-
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	oldService, ok := s.ingresses[svcID]
-	endpoints := s.endpoints[svcID]
-	delete(s.ingresses, svcID)
-
-	if ok {
-		s.Events <- ServiceEvent{
-			Action:    DeleteIngress,
-			ID:        svcID,
-			Service:   oldService,
-			Endpoints: endpoints,
-		}
-	}
 }
 
 // FrontendList is the list of all k8s service frontends
