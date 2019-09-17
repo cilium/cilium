@@ -222,19 +222,52 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 })
 
+func fetchPodsWithOffset(kubectl *helpers.Kubectl, name, filter, hostIPAntiAffinity string, callOffset int) (targetPod string, targetPodJSON *helpers.CmdRes) {
+	callOffset++
+
+	// Fetch pod (names) with the specified filter
+	err := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", filter), helpers.HelperTimeout)
+	ExpectWithOffset(callOffset, err).Should(BeNil(), "Failure while waiting for connectivity test pods to start")
+	pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, filter)
+	ExpectWithOffset(callOffset, err).Should(BeNil(), "Failure while retrieving pod name for %s", filter)
+
+	// Fetch the json description of one of the pods
+	targetPod = pods[0]
+	targetPodJSON = kubectl.Get(
+		helpers.DefaultNamespace,
+		fmt.Sprintf("pod %s -o json", targetPod))
+
+	// If multinode / antiaffinity is required, ensure that the target is
+	// not on the same node as "hostIPAntiAffinity".
+	if hostIPAntiAffinity != "" {
+		targetHost, err := targetPodJSON.Filter("{.status.hostIP}")
+		ExpectWithOffset(callOffset, err).Should(BeNil(), "Failure to retrieve host of pod %s", targetPod)
+
+		if targetHost.String() == hostIPAntiAffinity {
+			targetPod = pods[1]
+			targetPodJSON = kubectl.Get(
+				helpers.DefaultNamespace,
+				fmt.Sprintf("pod %s -o json", targetPod))
+		}
+	}
+	return targetPod, targetPodJSON
+}
+
 func testPodConnectivityAcrossNodes(kubectl *helpers.Kubectl) bool {
+	callOffset := 1
+
 	By("Checking pod connectivity between nodes")
 
-	filter := "zgroup=testDS"
+	srcPod, srcPodJSON := fetchPodsWithOffset(kubectl, "client", "zgroup=testDSClient", "", callOffset)
+	srcHost, err := srcPodJSON.Filter("{.status.hostIP}")
+	ExpectWithOffset(callOffset, err).Should(BeNil(), "Failure to retrieve host of pod %s", srcPod)
 
-	err := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", filter), helpers.HelperTimeout)
-	ExpectWithOffset(1, err).Should(BeNil(), "Failure while waiting for connectivity test pods to start")
-	pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, filter)
-	Expect(err).Should(BeNil(), "Failure while retrieving pod name for %s", filter)
-	podIP, err := kubectl.Get(
-		helpers.DefaultNamespace,
-		fmt.Sprintf("pod %s -o json", pods[1])).Filter("{.status.podIP}")
-	Expect(err).Should(BeNil(), "Failure to retrieve IP of pod %s", pods[1])
-	res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pods[0], helpers.Ping(podIP.String()))
+	dstPod, dstPodJSON := fetchPodsWithOffset(kubectl, "server", "zgroup=testDS", srcHost.String(), callOffset)
+	podIP, err := dstPodJSON.Filter("{.status.podIP}")
+	ExpectWithOffset(callOffset, err).Should(BeNil(), "Failure to retrieve IP of pod %s", dstPod)
+	targetIP := podIP.String()
+
+	// ICMP connectivity test
+	res := kubectl.ExecPodCmd(helpers.DefaultNamespace, srcPod, helpers.Ping(targetIP))
 	return res.WasSuccessful()
 }
