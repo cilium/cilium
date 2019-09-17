@@ -962,6 +962,17 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry,
 	return true
 }
 
+// ApplyPolicyMapChanges updates the Endpoint's PolicyMap with the changes
+// that have accumulated for the PolicyMap via various outside events (e.g.,
+// identities added / deleted).
+func (e *Endpoint) ApplyPolicyMapChanges() error {
+	if err := e.LockAlive(); err != nil {
+		return err
+	}
+	defer e.Unlock()
+	return e.applyPolicyMapChanges()
+}
+
 // applyPolicyMapChanges applies any incremental policy map changes
 // collected on the desired policy.
 func (e *Endpoint) applyPolicyMapChanges() error {
