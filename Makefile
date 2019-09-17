@@ -262,7 +262,15 @@ generate-health-api: api/v1/health/openapi.yaml
 	-$(SWAGGER) generate client -a restapi \
 		-t api/v1 -t api/v1/health/ -f api/v1/health/openapi.yaml
 
-generate-k8s-api:
+revert-k8s-generator-patch:
+	patch -p1 -R < hack/82410.patch
+
+apply-k8s-generator-patch:
+	patch -p1 < hack/82410.patch
+
+generate-k8s-api: apply-k8s-generator-patch generate-k8s-api-patch revert-k8s-generator-patch
+
+generate-k8s-api-patch:
 	$(call generate_k8s_api_all,github.com/cilium/cilium/pkg/k8s/apis,"cilium.io:v2")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"policy:api")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"pkg:node")
