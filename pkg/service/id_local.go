@@ -81,8 +81,14 @@ func (alloc *IDAllocator) acquireLocalID(svc loadbalancer.L3n4Addr, desiredID ui
 	}
 
 	if desiredID != 0 {
-		if _, ok := alloc.entitiesID[desiredID]; !ok {
+		if foundSVC, ok := alloc.entitiesID[desiredID]; !ok {
 			return alloc.addID(svc, desiredID), nil
+		} else {
+			sum := svc.SHA256Sum()
+			foundSum := foundSVC.SHA256Sum()
+			if sum != foundSum {
+				return nil, fmt.Errorf("Service ID %d is already registered to %q", desiredID, foundSVC)
+			}
 		}
 	}
 
