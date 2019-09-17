@@ -328,65 +328,6 @@ func L3n4Addr2RevNatKeynValue(svcID loadbalancer.ServiceID, feL3n4Addr loadbalan
 	return NewRevNat4Key(uint16(svcID)), NewRevNat4Value(feL3n4Addr.IP, feL3n4Addr.Port)
 }
 
-// serviceKey2L3n4Addr converts the given svcKey to a L3n4Addr.
-func serviceKey2L3n4Addr(svcKey ServiceKey) *loadbalancer.L3n4Addr {
-	log.WithField(logfields.ServiceID, svcKey).Debug("creating L3n4Addr for ServiceKey")
-	var (
-		feIP   net.IP
-		fePort uint16
-	)
-	if svcKey.IsIPv6() {
-		svc6Key := svcKey.(*Service6Key)
-		feIP = svc6Key.Address.IP()
-		fePort = svc6Key.Port
-	} else {
-		svc4Key := svcKey.(*Service4Key)
-		feIP = svc4Key.Address.IP()
-		fePort = svc4Key.Port
-	}
-	return loadbalancer.NewL3n4Addr(loadbalancer.NONE, feIP, fePort)
-}
-
-// serviceKeynValue2FEnBE converts the given svcKey and svcValue to a frontend in the
-// form of L3n4AddrID and backend in the form of L3n4Addr.
-func serviceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*loadbalancer.L3n4AddrID, *loadbalancer.LBBackEnd) {
-	var (
-		beIP     net.IP
-		svcID    loadbalancer.ID
-		bePort   uint16
-		beWeight uint16
-	)
-
-	log.WithFields(logrus.Fields{
-		logfields.ServiceID: svcKey,
-		logfields.Object:    logfields.Repr(svcValue),
-	}).Debug("converting ServiceKey and ServiceValue to frontend and backend")
-
-	if svcKey.IsIPv6() {
-		svc6Val := svcValue.(*Service6Value)
-		svcID = loadbalancer.ID(svc6Val.RevNat)
-		beIP = svc6Val.Address.IP()
-		bePort = svc6Val.Port
-		beWeight = svc6Val.Weight
-	} else {
-		svc4Val := svcValue.(*Service4Value)
-		svcID = loadbalancer.ID(svc4Val.RevNat)
-		beIP = svc4Val.Address.IP()
-		bePort = svc4Val.Port
-		beWeight = svc4Val.Weight
-	}
-
-	feL3n4Addr := serviceKey2L3n4Addr(svcKey)
-	beLBBackEnd := loadbalancer.NewLBBackEnd(0, loadbalancer.NONE, beIP, bePort, beWeight)
-
-	feL3n4AddrID := &loadbalancer.L3n4AddrID{
-		L3n4Addr: *feL3n4Addr,
-		ID:       svcID,
-	}
-
-	return feL3n4AddrID, beLBBackEnd
-}
-
 func serviceValue2L3n4Addr(svcVal ServiceValue) *loadbalancer.L3n4Addr {
 	var (
 		beIP   net.IP
