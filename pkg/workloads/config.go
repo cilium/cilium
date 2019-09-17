@@ -80,7 +80,7 @@ var (
 	allocator allocatorInterface
 )
 
-func setupWorkload(workloadRuntime WorkloadRuntimeType, opts map[string]string, epMgr *endpointmanager.EndpointManager, allocator *cache.IdentityAllocatorManager) error {
+func setupWorkload(workloadRuntime WorkloadRuntimeType, opts map[string]string, epMgr *endpointmanager.EndpointManager, allocator *cache.CachingIdentityAllocator) error {
 	workloadMod := getWorkload(workloadRuntime)
 	if workloadMod == nil {
 		return fmt.Errorf("unknown workloadRuntime runtime type %s", workloadRuntime)
@@ -99,11 +99,11 @@ type allocatorInterface interface {
 
 // Setup sets up the workload runtime specified in workloadRuntime and configures it
 // with the options provided in opts
-func Setup(a allocatorInterface, epMgr *endpointmanager.EndpointManager, allocator *cache.IdentityAllocatorManager, workloadRuntimes []string, opts map[WorkloadRuntimeType]map[string]string) error {
+func Setup(a allocatorInterface, epMgr *endpointmanager.EndpointManager, allocator *cache.CachingIdentityAllocator, workloadRuntimes []string, opts map[WorkloadRuntimeType]map[string]string) error {
 	return setup(a, epMgr, allocator, workloadRuntimes, opts, false)
 }
 
-func setup(a allocatorInterface, epMgr *endpointmanager.EndpointManager, allo *cache.IdentityAllocatorManager, workloadRuntimes []string, opts map[WorkloadRuntimeType]map[string]string, bypassStatusCheck bool) error {
+func setup(a allocatorInterface, epMgr *endpointmanager.EndpointManager, allo *cache.CachingIdentityAllocator, workloadRuntimes []string, opts map[WorkloadRuntimeType]map[string]string, bypassStatusCheck bool) error {
 	var (
 		st  *models.Status
 		err error

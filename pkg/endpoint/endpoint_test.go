@@ -55,7 +55,7 @@ type EndpointSuite struct {
 	repo             *policy.Repository
 	compilationMutex *lock.RWMutex
 	datapath         datapath.Datapath
-	mgr              *cache.IdentityAllocatorManager
+	mgr              *cache.CachingIdentityAllocator
 
 	// Owners interface mock
 	OnGetPolicyRepository     func() *policy.Repository
