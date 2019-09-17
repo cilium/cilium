@@ -74,6 +74,27 @@ func NewEndpointManager(epSynchronizer EndpointResourceSynchronizer) *EndpointMa
 	return &mgr
 }
 
+// UpdatePolicyMaps returns a WaitGroup which is signaled upon once all endpoints
+// have had their PolicyMaps updated against the Endpoint's desired policy state.
+func (mgr *EndpointManager) UpdatePolicyMaps() *sync.WaitGroup {
+	var wg sync.WaitGroup
+
+	eps := mgr.GetEndpoints()
+	wg.Add(len(eps))
+
+	// TODO: bound by number of CPUs?
+	for _, ep := range eps {
+		go func(ep *endpoint.Endpoint) {
+			if err := ep.ApplyPolicyMapChanges(); err != nil {
+				ep.Logger("endpointmanager").Warning("Failed to apply policy map changes. These will be re-applied in future updates.")
+			}
+			wg.Done()
+		}(ep)
+	}
+
+	return &wg
+}
+
 // InitMetrics hooks the EndpointManager into the metrics subsystem. This can
 // only be done once, globally, otherwise the metrics library will panic.
 func (mgr *EndpointManager) InitMetrics() {
