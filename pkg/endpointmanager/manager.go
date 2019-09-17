@@ -74,6 +74,27 @@ func init() {
 	metrics.MustRegister(metrics.EndpointCount)
 }
 
+// UpdatePolicyMaps returns a WaitGroup which is signaled upon once all endpoints
+// have had their PolicyMaps updated against the Endpoint's desired policy state.
+func UpdatePolicyMaps() *sync.WaitGroup {
+	var wg sync.WaitGroup
+
+	eps := GetEndpoints()
+	wg.Add(len(eps))
+
+	// TODO: bound by number of CPUs?
+	for _, ep := range eps {
+		go func(ep *endpoint.Endpoint) {
+			if err := ep.ApplyPolicyMapChanges(); err != nil {
+				ep.Logger("endpointmanager").Warning("Failed to apply policy map changes. These will be re-applied in future updates.")
+			}
+			wg.Done()
+		}(ep)
+	}
+
+	return &wg
+}
+
 // Insert inserts the endpoint into the global maps.
 func Insert(ep *endpoint.Endpoint) error {
 	if ep.ID != 0 {
