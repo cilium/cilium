@@ -26,7 +26,7 @@ var (
 	defaultClient WorkloadRuntime
 )
 
-func initClient(module workloadModule, epMgr *endpointmanager.EndpointManager, allocator *cache.IdentityAllocatorManager) error {
+func initClient(module workloadModule, epMgr *endpointmanager.EndpointManager, allocator *cache.CachingIdentityAllocator) error {
 	c, err := module.newClient(epMgr, allocator)
 	if err != nil {
 		return err

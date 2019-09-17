@@ -88,7 +88,7 @@ func (c *dockerModule) getConfig() map[string]string {
 	return getOpts(c.opts)
 }
 
-func (c *dockerModule) newClient(epMgr *endpointmanager.EndpointManager, allocator *cache.IdentityAllocatorManager) (WorkloadRuntime, error) {
+func (c *dockerModule) newClient(epMgr *endpointmanager.EndpointManager, allocator *cache.CachingIdentityAllocator) (WorkloadRuntime, error) {
 	return newDockerClient(c.opts, epMgr, allocator)
 }
 
@@ -96,10 +96,10 @@ type dockerClient struct {
 	*client.Client
 	datapathMode    string
 	endpointManager *endpointmanager.EndpointManager
-	allocator       *cache.IdentityAllocatorManager
+	allocator       *cache.CachingIdentityAllocator
 }
 
-func newDockerClient(opts workloadRuntimeOpts, epMgr *endpointmanager.EndpointManager, allocator *cache.IdentityAllocatorManager) (WorkloadRuntime, error) {
+func newDockerClient(opts workloadRuntimeOpts, epMgr *endpointmanager.EndpointManager, allocator *cache.CachingIdentityAllocator) (WorkloadRuntime, error) {
 	defaultHeaders := map[string]string{"User-Agent": "cilium"}
 	ep := opts[EpOpt]
 	c, err := client.NewClient(ep.value, "v1.21", nil, defaultHeaders)

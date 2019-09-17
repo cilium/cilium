@@ -176,7 +176,7 @@ type Daemon struct {
 
 	endpointManager *endpointmanager.EndpointManager
 
-	identityAllocator *cache.IdentityAllocatorManager
+	identityAllocator *cache.CachingIdentityAllocator
 }
 
 // GetPolicyRepository returns the policy repository of the daemon

@@ -46,7 +46,7 @@ func (s IdentitiesModel) Less(i, j int) bool {
 }
 
 // GetIdentityCache returns a cache of all known identities
-func (m *IdentityAllocatorManager) GetIdentityCache() IdentityCache {
+func (m *CachingIdentityAllocator) GetIdentityCache() IdentityCache {
 	log.Debug("getting identity cache for identity allocator manager")
 	cache := IdentityCache{}
 
@@ -80,7 +80,7 @@ func (m *IdentityAllocatorManager) GetIdentityCache() IdentityCache {
 }
 
 // GetIdentities returns all known identities
-func (m *IdentityAllocatorManager) GetIdentities() IdentitiesModel {
+func (m *CachingIdentityAllocator) GetIdentities() IdentitiesModel {
 	identities := IdentitiesModel{}
 
 	m.IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
@@ -207,7 +207,7 @@ func (w *identityWatcher) stop() {
 // LookupIdentity looks up the identity by its labels but does not create it.
 // This function will first search through the local cache and fall back to
 // querying the kvstore.
-func (m *IdentityAllocatorManager) LookupIdentity(lbls labels.Labels) *identity.Identity {
+func (m *CachingIdentityAllocator) LookupIdentity(lbls labels.Labels) *identity.Identity {
 	if reservedIdentity := identity.LookupReservedIdentityByLabels(lbls); reservedIdentity != nil {
 		return reservedIdentity
 	}
@@ -237,7 +237,7 @@ var unknownIdentity = identity.NewIdentity(identity.IdentityUnknown, labels.Labe
 
 // LookupIdentityByID returns the identity by ID. This function will first
 // search through the local cache and fall back to querying the kvstore.
-func (m *IdentityAllocatorManager) LookupIdentityByID(id identity.NumericIdentity) *identity.Identity {
+func (m *CachingIdentityAllocator) LookupIdentityByID(id identity.NumericIdentity) *identity.Identity {
 	if id == identity.IdentityUnknown {
 		return unknownIdentity
 	}
