@@ -29,9 +29,7 @@ import (
 
 	"gopkg.in/check.v1"
 	"k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
@@ -252,59 +250,11 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 		c.Error("Unexpected service delete event received")
 	default:
 	}
-
-	k8sIngress := &types.Ingress{
-		Ingress: &v1beta1.Ingress{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "bar",
-			},
-			Spec: v1beta1.IngressSpec{
-				Backend: &v1beta1.IngressBackend{
-					ServiceName: "svc1",
-					ServicePort: intstr.IntOrString{
-						IntVal: 8080,
-						StrVal: "foo",
-						Type:   intstr.Int,
-					},
-				},
-			},
-		},
-	}
-	ingressID, err := svcCache.UpdateIngress(k8sIngress, net.ParseIP("1.1.1.1"))
-	c.Assert(err, check.IsNil)
-
-	c.Assert(testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
-		c.Assert(event.Action, check.Equals, UpdateIngress)
-		c.Assert(event.ID, check.Equals, ingressID)
-		return true
-	}, 2*time.Second), check.IsNil)
-
-	// Updating the ingress without changes should not result in an event
-	_, err = svcCache.UpdateIngress(k8sIngress, net.ParseIP("1.1.1.1"))
-	c.Assert(err, check.IsNil)
-	time.Sleep(100 * time.Millisecond)
-	select {
-	case <-svcCache.Events:
-		c.Error("Unexpected ingress event received for unchanged ingress object")
-	default:
-	}
-
-	// Deleting the ingress resource will emit a delete event
-	svcCache.DeleteIngress(k8sIngress)
-	c.Assert(testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
-		c.Assert(event.Action, check.Equals, DeleteIngress)
-		c.Assert(event.ID, check.Equals, ingressID)
-		return true
-	}, 2*time.Second), check.IsNil)
 }
 
 func (s *K8sSuite) TestCacheActionString(c *check.C) {
 	c.Assert(UpdateService.String(), check.Equals, "service-updated")
 	c.Assert(DeleteService.String(), check.Equals, "service-deleted")
-	c.Assert(UpdateIngress.String(), check.Equals, "ingress-updated")
-	c.Assert(DeleteIngress.String(), check.Equals, "ingress-deleted")
 }
 
 func (s *K8sSuite) TestServiceMerging(c *check.C) {
