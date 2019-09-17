@@ -40,7 +40,7 @@ import (
 // TODO - see whether folding the global variables below into this function
 // is cleaner.
 type EndpointSynchronizer struct {
-	Allocator *cache.IdentityAllocatorManager
+	Allocator *cache.CachingIdentityAllocator
 }
 
 // RunK8sCiliumEndpointSync starts a controller that synchronizes the endpoint

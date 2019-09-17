@@ -57,7 +57,7 @@ type Configuration struct {
 
 	nodeObserver store.Observer
 
-	Allocator *cache.IdentityAllocatorManager
+	Allocator *cache.CachingIdentityAllocator
 }
 
 // NodeObserver returns the node store observer of the configuration
