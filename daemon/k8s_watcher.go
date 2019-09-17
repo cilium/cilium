@@ -1256,25 +1256,23 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 
 		uniqPorts[fePort.Port] = false
 
-		if fePort.ID == 0 {
-			feAddr := loadbalancer.NewL3n4Addr(fePort.Protocol, svc.FrontendIP, fePort.Port)
-			feAddrID, err := service.AcquireID(*feAddr, 0)
-			if err != nil {
-				scopedLog.WithError(err).WithFields(logrus.Fields{
-					logfields.ServiceID: fePortName,
-					logfields.IPAddr:    svc.FrontendIP,
-					logfields.Port:      fePort.Port,
-					logfields.Protocol:  fePort.Protocol,
-				}).Error("Error while getting a new service ID. Ignoring service...")
-				continue
-			}
-			scopedLog.WithFields(logrus.Fields{
-				logfields.ServiceName: fePortName,
-				logfields.ServiceID:   feAddrID.ID,
-				logfields.Object:      logfields.Repr(svc),
-			}).Debug("Got feAddr ID for service")
-			fePort.ID = loadbalancer.ServiceID(feAddrID.ID)
+		feAddr := loadbalancer.NewL3n4Addr(fePort.Protocol, svc.FrontendIP, fePort.Port)
+		feAddrID, err := service.AcquireID(*feAddr, 0)
+		if err != nil {
+			scopedLog.WithError(err).WithFields(logrus.Fields{
+				logfields.ServiceID: fePortName,
+				logfields.IPAddr:    svc.FrontendIP,
+				logfields.Port:      fePort.Port,
+				logfields.Protocol:  fePort.Protocol,
+			}).Error("Error while getting a new service ID. Ignoring service...")
+			continue
 		}
+		scopedLog.WithFields(logrus.Fields{
+			logfields.ServiceName: fePortName,
+			logfields.ServiceID:   feAddrID.ID,
+			logfields.Object:      logfields.Repr(svc),
+		}).Debug("Got feAddr ID for service")
+		fePort.ID = loadbalancer.ServiceID(feAddrID.ID)
 
 		type frontend struct {
 			addr     *loadbalancer.L3n4AddrID
@@ -1290,20 +1288,18 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 			})
 
 		for _, nodePortFE := range svc.NodePorts[fePortName] {
-			if nodePortFE.ID == 0 {
-				feAddr := loadbalancer.NewL3n4Addr(nodePortFE.Protocol, nodePortFE.IP, nodePortFE.Port)
-				feAddrID, err := service.AcquireID(*feAddr, 0)
-				if err != nil {
-					scopedLog.WithError(err).WithFields(logrus.Fields{
-						logfields.ServiceID: fePortName,
-						logfields.IPAddr:    nodePortFE.IP,
-						logfields.Port:      nodePortFE.Port,
-						logfields.Protocol:  nodePortFE.Protocol,
-					}).Error("Error while getting a new nodeport service ID. Ignoring service...")
-					continue
-				}
-				nodePortFE.ID = feAddrID.ID
+			feAddr := loadbalancer.NewL3n4Addr(nodePortFE.Protocol, nodePortFE.IP, nodePortFE.Port)
+			feAddrID, err := service.AcquireID(*feAddr, 0)
+			if err != nil {
+				scopedLog.WithError(err).WithFields(logrus.Fields{
+					logfields.ServiceID: fePortName,
+					logfields.IPAddr:    nodePortFE.IP,
+					logfields.Port:      nodePortFE.Port,
+					logfields.Protocol:  nodePortFE.Protocol,
+				}).Error("Error while getting a new nodeport service ID. Ignoring service...")
+				continue
 			}
+			nodePortFE.ID = feAddrID.ID
 			frontends = append(frontends, frontend{
 				addr:     nodePortFE,
 				nodePort: true,
