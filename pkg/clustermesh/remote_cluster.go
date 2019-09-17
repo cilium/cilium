@@ -129,7 +129,7 @@ func (rc *remoteCluster) releaseOldConnection() {
 	}
 }
 
-func (rc *remoteCluster) restartRemoteConnection(allocator *cache.IdentityAllocatorManager) {
+func (rc *remoteCluster) restartRemoteConnection(allocator *cache.CachingIdentityAllocator) {
 	rc.controllers.UpdateController(rc.remoteConnectionControllerName,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
@@ -220,7 +220,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator *cache.IdentityAlloca
 	)
 }
 
-func (rc *remoteCluster) onInsert(allocator *cache.IdentityAllocatorManager) {
+func (rc *remoteCluster) onInsert(allocator *cache.CachingIdentityAllocator) {
 	rc.getLogger().Info("New remote cluster configuration")
 
 	if skipKvstoreConnection {

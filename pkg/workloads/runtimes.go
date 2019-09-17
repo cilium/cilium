@@ -89,7 +89,7 @@ type workloadModule interface {
 
 	// newClient must initializes the workload and create a new kvstore
 	// client which implements the WorkloadRuntime interface
-	newClient(epMgr *endpointmanager.EndpointManager, allocator *cache.IdentityAllocatorManager) (WorkloadRuntime, error)
+	newClient(epMgr *endpointmanager.EndpointManager, allocator *cache.CachingIdentityAllocator) (WorkloadRuntime, error)
 }
 
 // WorkloadRuntimeType is the type of a container runtime

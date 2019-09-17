@@ -64,7 +64,7 @@ const (
 	metricErrorAllow   = "allow"
 )
 
-func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, identityAllocator *secIDCache.IdentityAllocatorManager) (map[policyApi.FQDNSelector][]*identity.Identity, error) {
+func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, identityAllocator *secIDCache.CachingIdentityAllocator) (map[policyApi.FQDNSelector][]*identity.Identity, error) {
 	var err error
 
 	// Used to track identities which are allocated in calls to
