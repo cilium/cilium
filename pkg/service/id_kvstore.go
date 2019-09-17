@@ -131,6 +131,10 @@ func setMaxID(key string, firstID, maxID uint32) error {
 // gasNewL3n4AddrID gets and sets a new L3n4Addr ID. If baseID is different than zero,
 // KVStore tries to assign that ID first.
 func gasNewL3n4AddrID(l3n4AddrID *loadbalancer.L3n4AddrID, baseID uint32) error {
+	var (
+		requireBaseID bool
+		requiredID    uint32
+	)
 	client := kvstore.Client()
 
 	if baseID == 0 {
@@ -139,6 +143,9 @@ func gasNewL3n4AddrID(l3n4AddrID *loadbalancer.L3n4AddrID, baseID uint32) error 
 		if err != nil {
 			return err
 		}
+	} else {
+		requireBaseID = true
+		requiredID = baseID
 	}
 
 	setIDtoL3n4Addr := func(id uint32) error {
@@ -198,6 +205,11 @@ func gasNewL3n4AddrID(l3n4AddrID *loadbalancer.L3n4AddrID, baseID uint32) error 
 			return err
 		} else if !retry {
 			return nil
+		} else {
+			if requireBaseID {
+				return fmt.Errorf("Service ID %d is already registered to other service",
+					requiredID)
+			}
 		}
 	}
 }

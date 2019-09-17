@@ -40,6 +40,10 @@ var (
 		IP:     net.IPv6loopback,
 		L4Addr: loadbalancer.L4Addr{Port: 1, Protocol: "UDP"},
 	}
+	l3n4Addr4 = loadbalancer.L3n4Addr{
+		IP:     net.IPv6loopback,
+		L4Addr: loadbalancer.L4Addr{Port: 2, Protocol: "UDP"},
+	}
 	wantL3n4AddrID = &loadbalancer.L3n4AddrID{
 		ID:       123,
 		L3n4Addr: l3n4Addr2,
@@ -132,6 +136,11 @@ func (ds *ServiceTestSuite) TestServices(c *C) {
 	gotL3n4AddrID, err = AcquireID(l3n4Addr1, 99)
 	c.Assert(err, Equals, nil)
 	c.Assert(gotL3n4AddrID.ID, Equals, loadbalancer.ID(99))
+
+	// ID "99" has been already allocated to l3n4Addr1
+	gotL3n4AddrID, err = AcquireID(l3n4Addr4, 99)
+	c.Assert(err, NotNil)
+	c.Assert(gotL3n4AddrID, IsNil)
 }
 
 func (ds *ServiceTestSuite) TestGetMaxServiceID(c *C) {
