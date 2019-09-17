@@ -132,12 +132,27 @@ func (lk *localKeys) use(key string) idpool.ID {
 // release releases the refcnt of a key. When the last reference was released,
 // the key is deleted and the returned lastUse value is true.
 func (lk *localKeys) release(key string) (lastUse bool, err error) {
+	return lk.releaseWithFunc(key, nil)
+}
+
+// releaseWithFunc releases the refcnt of a key. When the last reference was
+// released, the key is deleted, the returned lastUse value is true and 'f' is
+// executed. If 'f' returns a non-nil error, the key will not be deleted from
+// the local keys map.
+func (lk *localKeys) releaseWithFunc(key string, f func() error) (lastUse bool, err error) {
 	lk.Lock()
 	defer lk.Unlock()
 	if k, ok := lk.keys[key]; ok {
 		k.refcnt--
 		kvstore.Trace("Decremented local key refcnt", nil, logrus.Fields{fieldKey: key, fieldID: k.val, fieldRefCnt: k.refcnt})
 		if k.refcnt == 0 {
+			if f != nil {
+				err = f()
+				if err != nil {
+					k.refcnt++
+					return false, err
+				}
+			}
 			delete(lk.keys, key)
 			delete(lk.ids, k.val)
 			return true, nil

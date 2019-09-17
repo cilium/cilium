@@ -684,13 +684,9 @@ func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool
 
 	// release the key locally, if it was the last use, remove the node
 	// specific value key to remove the global reference mark
-	lastUse, err = a.localKeys.release(k)
-	if err != nil {
-		return lastUse, err
-	}
-	if lastUse {
-		a.backend.Release(ctx, key)
-	}
+	lastUse, err = a.localKeys.releaseWithFunc(k, func() error {
+		return a.backend.Release(ctx, key)
+	})
 
 	return lastUse, err
 }
