@@ -307,14 +307,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) {
 		}
 	} else if endpointIP := net.ParseIP(ip); endpointIP != nil { // Endpoint IP.
 		// Convert the endpoint IP into an equivalent full CIDR.
-		bits := net.IPv6len * 8
-		if endpointIP.To4() != nil {
-			bits = net.IPv4len * 8
-		}
-		cidr = &net.IPNet{
-			IP:   endpointIP,
-			Mask: net.CIDRMask(bits, bits),
-		}
+		cidr = endpointIPToCIDR(endpointIP)
 
 		// Check whether the deleted endpoint IP was shadowing that CIDR, and
 		// restore its mapping with the listeners if that was the case.
