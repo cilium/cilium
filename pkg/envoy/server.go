@@ -764,7 +764,6 @@ func getNetworkPolicy(name string, id identity.NumericIdentity, conntrackName st
 // a subsequent call to the endpoint's OnProxyPolicyUpdate() function.
 func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
-
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

@@ -111,7 +111,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 
 				// Serialize the endpoint into a model. It is compared with the one
 				// from before, only updating on changes.
-				mdl := e.GetCiliumEndpointStatus(epSync.Allocator)
+				mdl := e.GetCiliumEndpointStatus()
 				if reflect.DeepEqual(mdl, lastMdl) {
 					scopedLog.Debug("Skipping CiliumEndpoint update because it has not changed")
 					return nil
