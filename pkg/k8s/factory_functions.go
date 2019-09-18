@@ -471,6 +471,7 @@ func ConvertToNode(obj interface{}) interface{} {
 			ObjectMeta:      concreteObj.ObjectMeta,
 			StatusAddresses: concreteObj.Status.Addresses,
 			SpecPodCIDR:     concreteObj.Spec.PodCIDR,
+			SpecPodCIDRs:    concreteObj.Spec.PodCIDRs,
 		}
 		*concreteObj = v1.Node{}
 		return p
@@ -486,6 +487,7 @@ func ConvertToNode(obj interface{}) interface{} {
 				ObjectMeta:      node.ObjectMeta,
 				StatusAddresses: node.Status.Addresses,
 				SpecPodCIDR:     node.Spec.PodCIDR,
+				SpecPodCIDRs:    node.Spec.PodCIDRs,
 			},
 		}
 		*node = v1.Node{}

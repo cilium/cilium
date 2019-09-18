@@ -117,7 +117,23 @@ func ParseNode(k8sNode *types.Node, source source.Source) *node.Node {
 		Source:      source,
 	}
 
-	if len(k8sNode.SpecPodCIDR) != 0 {
+	if len(k8sNode.SpecPodCIDRs) != 0 {
+		if len(k8sNode.SpecPodCIDRs) > 2 {
+			scopedLog.WithField("podCIDR", k8sNode.SpecPodCIDRs).Errorf("Invalid PodCIDRs expected 1 or 2 PodCIDRs, received %d", len(k8sNode.SpecPodCIDRs))
+		} else {
+			for _, podCIDR := range k8sNode.SpecPodCIDRs {
+				if allocCIDR, err := cidr.ParseCIDR(podCIDR); err != nil {
+					scopedLog.WithError(err).WithField("podCIDR", k8sNode.SpecPodCIDR).Warn("Invalid PodCIDR value for node")
+				} else {
+					if allocCIDR.IP.To4() != nil {
+						newNode.IPv4AllocCIDR = allocCIDR
+					} else {
+						newNode.IPv6AllocCIDR = allocCIDR
+					}
+				}
+			}
+		}
+	} else if len(k8sNode.SpecPodCIDR) != 0 {
 		if allocCIDR, err := cidr.ParseCIDR(k8sNode.SpecPodCIDR); err != nil {
 			scopedLog.WithError(err).WithField(logfields.V4Prefix, k8sNode.SpecPodCIDR).Warn("Invalid PodCIDR value for node")
 		} else {
