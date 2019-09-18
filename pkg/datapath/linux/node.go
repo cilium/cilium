@@ -458,8 +458,8 @@ func (n *linuxNodeHandler) enableSubnetIPsec(v4CIDR, v6CIDR []*net.IPNet) {
 		ipsecIPv4Wildcard := &net.IPNet{IP: net.ParseIP(wildcardIPv4), Mask: net.IPv4Mask(0, 0, 0, 0)}
 
 		n.replaceNodeIPSecInRoute(cidr)
-		spi, err = ipsec.UpsertIPsecEndpoint(cidr, ipsecIPv4Wildcard, ipsec.IPSecDirIn)
-		upsertIPsecLog(err, "CNI In IPv4", cidr, ipsecIPv4Wildcard, spi)
+		//spi, err = ipsec.UpsertIPsecEndpoint(cidr, ipsecIPv4Wildcard, ipsec.IPSecDirIn)
+		//upsertIPsecLog(err, "CNI In IPv4", cidr, ipsecIPv4Wildcard, spi)
 
 		n.replaceNodeIPSecOutRoute(cidr)
 		spi, err = ipsec.UpsertIPsecEndpoint(ipsecIPv4Wildcard, cidr, ipsec.IPSecDirOut)
@@ -472,8 +472,8 @@ func (n *linuxNodeHandler) enableSubnetIPsec(v4CIDR, v6CIDR []*net.IPNet) {
 		ipsecIPv6Wildcard := &net.IPNet{IP: net.ParseIP(wildcardIPv6), Mask: net.CIDRMask(0, 0)}
 
 		n.replaceNodeIPSecInRoute(cidr)
-		spi, err = ipsec.UpsertIPsecEndpoint(cidr, ipsecIPv6Wildcard, ipsec.IPSecDirIn)
-		upsertIPsecLog(err, "CNI In IPv6", cidr, ipsecIPv6Wildcard, spi)
+		//spi, err = ipsec.UpsertIPsecEndpoint(cidr, ipsecIPv6Wildcard, ipsec.IPSecDirIn)
+		//upsertIPsecLog(err, "CNI In IPv6", cidr, ipsecIPv6Wildcard, spi)
 
 		n.replaceNodeIPSecOutRoute(cidr)
 		spi, err := ipsec.UpsertIPsecEndpoint(ipsecIPv6Wildcard, cidr, ipsec.IPSecDirOut)
