@@ -1182,16 +1182,15 @@
   revision = "d98352740cb2c55f81556b63d4a1ec64c5a319c2"
 
 [[projects]]
-  branch = "lbernail/output-mark"
-  digest = "1:48781f10f60703b201a8ace894a1383554e59fa23da2b6a5798e0f727b36fdb2"
+  branch = "master"
+  digest = "1:0c3f29eb61ecfa6d5ae34a18480f5488ad03b22d1f20b976bdf4d3f461864620"
   name = "github.com/vishvananda/netlink"
   packages = [
     ".",
     "nl",
   ]
   pruneopts = "NUT"
-  revision = "35056dd2ec755db7e2784f3e44657853bc9aa40a"
-  source = "github.com/DataDog/netlink.git"
+  revision = "e906d226249b76de7fe3c326ea4616ca3b5945a6"
 
 [[projects]]
   branch = "master"

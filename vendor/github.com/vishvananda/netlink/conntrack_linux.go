@@ -22,11 +22,7 @@ const (
 	// https://github.com/torvalds/linux/blob/master/include/uapi/linux/netfilter/nfnetlink.h -> #define NFNL_SUBSYS_CTNETLINK_EXP 2
 	ConntrackExpectTable = 2
 )
-const (
-	// For Parsing Mark
-	TCP_PROTO = 6
-	UDP_PROTO = 17
-)
+
 const (
 	// backward compatibility with golang 1.6 which does not have io.SeekCurrent
 	seekCurrent = 1
