@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -145,7 +145,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
   "protocol": "TCP",
   "l7-rules": [
     {
-      "\u0026LabelSelector{MatchLabels:map[string]string{any.foo: ,},MatchExpressions:[],}": {
+      "\u0026LabelSelector{MatchLabels:map[string]string{any.foo: ,},MatchExpressions:[]LabelSelectorRequirement{},}": {
         "http": [
           {
             "path": "/",
@@ -161,7 +161,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
   "protocol": "TCP",
   "l7-rules": [
     {
-      "\u0026LabelSelector{MatchLabels:map[string]string{any.foo: ,},MatchExpressions:[],}": {
+      "\u0026LabelSelector{MatchLabels:map[string]string{any.foo: ,},MatchExpressions:[]LabelSelectorRequirement{},}": {
         "l7proto": "tester",
         "l7": [
           {
@@ -182,7 +182,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
   "protocol": "TCP",
   "l7-rules": [
     {
-      "\u0026LabelSelector{MatchLabels:map[string]string{any.foo: ,},MatchExpressions:[],}": {
+      "\u0026LabelSelector{MatchLabels:map[string]string{any.foo: ,},MatchExpressions:[]LabelSelectorRequirement{},}": {
         "http": [
           {
             "path": "/",
@@ -196,7 +196,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
       }
     },
     {
-      "\u0026LabelSelector{MatchLabels:map[string]string{},MatchExpressions:[],}": {
+      "\u0026LabelSelector{MatchLabels:map[string]string{},MatchExpressions:[]LabelSelectorRequirement{},}": {
         "http": [
           {
             "path": "/",

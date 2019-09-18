@@ -31,9 +31,13 @@ type hostScopeAllocator struct {
 }
 
 func newHostScopeAllocator(n *net.IPNet) Allocator {
+	cidrRange, err := ipallocator.NewCIDRRange(n)
+	if err != nil {
+		panic(err)
+	}
 	a := &hostScopeAllocator{
 		allocCIDR: n,
-		allocator: ipallocator.NewCIDRRange(n),
+		allocator: cidrRange,
 	}
 
 	return a

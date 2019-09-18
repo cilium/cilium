@@ -57,13 +57,17 @@ type API struct {
 
 func NewAPI(subnets []*types.Subnet, vpcs []*types.Vpc) *API {
 	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
+	cidrRange, err := ipallocator.NewCIDRRange(cidr)
+	if err != nil {
+		panic(err)
+	}
 
 	api := &API{
 		unattached: map[string]*v2.ENI{},
 		enis:       map[string]eniMap{},
 		subnets:    map[string]*types.Subnet{},
 		vpcs:       map[string]*types.Vpc{},
-		allocator:  ipallocator.NewCIDRRange(cidr),
+		allocator:  cidrRange,
 		errors:     map[Operation]error{},
 		delays:     map[Operation]time.Duration{},
 	}
