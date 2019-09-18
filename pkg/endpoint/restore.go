@@ -135,6 +135,7 @@ type identityAllocator interface {
 	WaitForInitialGlobalIdentities(context.Context) error
 	AllocateIdentity(context.Context, labels.Labels, bool) (*identity.Identity, bool, error)
 	Release(context.Context, *identity.Identity) (released bool, err error)
+	LookupIdentityByID(id identity.NumericIdentity) *identity.Identity
 }
 
 func (e *Endpoint) restoreIdentity(identityAllocator identityAllocator) error {
