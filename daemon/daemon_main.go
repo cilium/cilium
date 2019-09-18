@@ -838,6 +838,10 @@ func initEnv(cmd *cobra.Command) {
 		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("Could not create globals directory")
 	}
 
+	if err := os.Chdir(option.Config.StateDir); err != nil {
+		log.WithError(err).WithField(logfields.Path, option.Config.StateDir).Fatal("Could not change to runtime directory")
+	}
+
 	if !option.Config.KeepTemplates {
 		// We need to remove the old probes here as otherwise stale .t tests could
 		// still reside from newer Cilium versions which might break downgrade.

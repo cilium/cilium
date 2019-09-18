@@ -205,10 +205,6 @@ func (d *Daemon) GetCompilationLock() *lock.RWMutex {
 }
 
 func (d *Daemon) init() error {
-	if err := os.Chdir(option.Config.StateDir); err != nil {
-		log.WithError(err).WithField(logfields.Path, option.Config.StateDir).Fatal("Could not change to runtime directory")
-	}
-
 	// Remove any old sockops and re-enable with _new_ programs if flag is set
 	sockops.SockmapDisable()
 	sockops.SkmsgDisable()
