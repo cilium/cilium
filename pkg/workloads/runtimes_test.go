@@ -85,9 +85,8 @@ func (s *WorkloadsTestSuite) TestSetupWithoutStatusCheck(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		mgr := cache.NewIdentityAllocatorManager(&identityAllocatorOwnerMock{})
 		epMgr := endpointmanager.NewEndpointManager(&dummyEpSyncher{})
-		if err := setup(nil, epMgr, mgr, tt.args.containerRuntimes, tt.args.containerRuntimesOpts, true); (err != nil) != tt.wantErr {
+		if err := setup(nil, epMgr, tt.args.containerRuntimes, tt.args.containerRuntimesOpts, true); (err != nil) != tt.wantErr {
 			c.Errorf("setup() for %s error = %v, wantErr %v", tt.name, err, tt.wantErr)
 		}
 		setupOnce = sync.Once{}
@@ -124,8 +123,7 @@ func (s *WorkloadsTestSuite) TestSetupWithoutStatusCheck(c *C) {
 	}
 	for _, tt := range tests {
 		epMgr := endpointmanager.NewEndpointManager(&dummyEpSyncher{})
-		mgr := cache.NewIdentityAllocatorManager(&identityAllocatorOwnerMock{})
-		if err := setup(nil, epMgr, mgr, tt.args.containerRuntimes, tt.args.containerRuntimesOpts, true); (err != nil) != tt.wantErr {
+		if err := setup(nil, epMgr, tt.args.containerRuntimes, tt.args.containerRuntimesOpts, true); (err != nil) != tt.wantErr {
 			c.Errorf("setup() for %s error = %v, wantErr %v", tt.name, err, tt.wantErr)
 		}
 		setupOnce = sync.Once{}

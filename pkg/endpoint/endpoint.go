@@ -35,7 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
-	identityPkg "github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
@@ -108,6 +108,8 @@ var _ notifications.RegenNotificationInfo = &Endpoint{}
 type Endpoint struct {
 	owner regeneration.Owner
 
+	allocator identityAllocator
+
 	// ID of the endpoint, unique in the scope of the node
 	ID uint16
 
@@ -166,7 +168,7 @@ type Endpoint struct {
 
 	// SecurityIdentity is the security identity of this endpoint. This is computed from
 	// the endpoint's labels.
-	SecurityIdentity *identityPkg.Identity `json:"SecLabel"`
+	SecurityIdentity *identity.Identity `json:"SecLabel"`
 
 	// hasSidecarProxy indicates whether the endpoint has been injected by
 	// Istio with a Cilium-compatible sidecar proxy. If true, the sidecar proxy
@@ -285,6 +287,12 @@ type Endpoint struct {
 	regenFailedChan chan struct{}
 }
 
+func (e *Endpoint) SetAllocator(allocator identityAllocator) {
+	e.unconditionalLock()
+	defer e.unlock()
+	e.allocator = allocator
+}
+
 // UpdateController updates the controller with the specified name with the
 // provided list of parameters in endpoint's list of controllers.
 func (e *Endpoint) UpdateController(name string, params controller.ControllerParams) {
@@ -367,8 +375,28 @@ func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 	return nil
 }
 
+type FakeIdentityAllocator struct{}
+
+func (f *FakeIdentityAllocator) WaitForInitialGlobalIdentities(context.Context) error {
+	return nil
+}
+
+func (f *FakeIdentityAllocator) AllocateIdentity(context.Context, pkgLabels.Labels, bool) (*identity.Identity, bool, error) {
+	return nil, true, nil
+}
+
+func (f *FakeIdentityAllocator) Release(context.Context, *identity.Identity) (released bool, err error) {
+	return true, nil
+}
+func (f *FakeIdentityAllocator) LookupIdentityByID(id identity.NumericIdentity) *identity.Identity {
+	if identity := identity.LookupReservedIdentity(id); identity != nil {
+		return identity
+	}
+	return nil
+}
+
 // NewEndpointWithState creates a new endpoint useful for testing purposes
-func NewEndpointWithState(owner regeneration.Owner, proxy EndpointProxy, ID uint16, state string) *Endpoint {
+func NewEndpointWithState(owner regeneration.Owner, proxy EndpointProxy, allocator identityAllocator, ID uint16, state string) *Endpoint {
 	ep := &Endpoint{
 		owner:           owner,
 		proxy:           proxy,
@@ -382,6 +410,7 @@ func NewEndpointWithState(owner regeneration.Owner, proxy EndpointProxy, ID uint
 		eventQueue:      eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", ID), option.Config.EndpointQueueSize),
 		desiredPolicy:   policy.NewEndpointPolicy(owner.GetPolicyRepository()),
 		regenFailedChan: make(chan struct{}, 1),
+		allocator:       allocator,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -414,7 +443,7 @@ func (e *Endpoint) GetLabels() []string {
 
 // GetSecurityIdentity returns the security identity of the endpoint. It assumes
 // the endpoint's mutex is held.
-func (e *Endpoint) GetSecurityIdentity() (*identityPkg.Identity, error) {
+func (e *Endpoint) GetSecurityIdentity() (*identity.Identity, error) {
 	if err := e.rlockAlive(); err != nil {
 		return nil, err
 	}
@@ -533,16 +562,16 @@ func (e *Endpoint) StringID() string {
 	return strconv.Itoa(int(e.ID))
 }
 
-func (e *Endpoint) GetIdentity() identityPkg.NumericIdentity {
+func (e *Endpoint) GetIdentity() identity.NumericIdentity {
 	if e.SecurityIdentity != nil {
 		return e.SecurityIdentity.ID
 	}
 
-	return identityPkg.InvalidIdentity
+	return identity.InvalidIdentity
 }
 
 // Allows is only used for unit testing
-func (e *Endpoint) Allows(id identityPkg.NumericIdentity) bool {
+func (e *Endpoint) Allows(id identity.NumericIdentity) bool {
 	e.unconditionalRLock()
 	defer e.runlock()
 
@@ -717,7 +746,7 @@ func parseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
 
 	// Make sure the endpoint has an identity, using the 'init' identity if none.
 	if ep.SecurityIdentity == nil {
-		ep.SecurityIdentity = identityPkg.LookupReservedIdentity(identityPkg.ReservedIdentityInit)
+		ep.SecurityIdentity = identity.LookupReservedIdentity(identity.ReservedIdentityInit)
 	}
 	ep.SecurityIdentity.Sanitize()
 
@@ -1467,7 +1496,7 @@ func (e *Endpoint) getIDandLabels() string {
 // Labels can be added or deleted. If a label change is performed, the
 // endpoint will receive a new identity and will be regenerated. Both of these
 // operations will happen in the background.
-func (e *Endpoint) ModifyIdentityLabels(addLabels, delLabels pkgLabels.Labels, allocator identityAllocator) error {
+func (e *Endpoint) ModifyIdentityLabels(addLabels, delLabels pkgLabels.Labels) error {
 	if err := e.lockAlive(); err != nil {
 		return err
 	}
@@ -1491,7 +1520,7 @@ func (e *Endpoint) ModifyIdentityLabels(addLabels, delLabels pkgLabels.Labels, a
 	e.unlock()
 
 	if changed {
-		e.runLabelsResolver(context.Background(), rev, false, allocator)
+		e.runLabelsResolver(context.Background(), rev, false)
 	}
 	return nil
 }
@@ -1510,7 +1539,7 @@ func (e *Endpoint) IsInit() bool {
 // If a net label changed was performed, the endpoint will receive a new
 // identity and will be regenerated. Both of these operations will happen in
 // the background.
-func (e *Endpoint) UpdateLabels(ctx context.Context, identityLabels, infoLabels pkgLabels.Labels, blocking bool, allocator identityAllocator) {
+func (e *Endpoint) UpdateLabels(ctx context.Context, identityLabels, infoLabels pkgLabels.Labels, blocking bool) {
 	log.WithFields(logrus.Fields{
 		logfields.ContainerID:    e.GetShortContainerID(),
 		logfields.EndpointID:     e.StringID(),
@@ -1528,7 +1557,7 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, identityLabels, infoLabels 
 	rev := e.replaceIdentityLabels(identityLabels)
 	e.unlock()
 	if rev != 0 {
-		e.runLabelsResolver(ctx, rev, blocking, allocator)
+		e.runLabelsResolver(ctx, rev, blocking)
 	}
 }
 
@@ -1543,7 +1572,7 @@ func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 }
 
 // Must be called with e.Mutex NOT held.
-func (e *Endpoint) runLabelsResolver(ctx context.Context, myChangeRev int, blocking bool, allocator identityAllocator) {
+func (e *Endpoint) runLabelsResolver(ctx context.Context, myChangeRev int, blocking bool) {
 	if err := e.rlockAlive(); err != nil {
 		// If a labels update and an endpoint delete API request arrive
 		// in quick succession, this could occur; in that case, there's
@@ -1558,10 +1587,10 @@ func (e *Endpoint) runLabelsResolver(ctx context.Context, myChangeRev int, block
 	// If we are certain we can resolve the identity without accessing the KV
 	// store, do it first synchronously right now. This can reduce the number
 	// of regenerations for the endpoint during its initialization.
-	if blocking || identityPkg.IdentityAllocationIsLocal(newLabels) {
+	if blocking || identity.IdentityAllocationIsLocal(newLabels) {
 		scopedLog.Info("Resolving identity labels (blocking)")
 
-		err := e.identityLabelsChanged(ctx, myChangeRev, allocator)
+		err := e.identityLabelsChanged(ctx, myChangeRev)
 		switch err {
 		case ErrNotAlive:
 			scopedLog.Debug("not changing endpoint identity because endpoint is in process of being removed")
@@ -1579,7 +1608,7 @@ func (e *Endpoint) runLabelsResolver(ctx context.Context, myChangeRev int, block
 	e.controllers.UpdateController(ctrlName,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				err := e.identityLabelsChanged(ctx, myChangeRev, allocator)
+				err := e.identityLabelsChanged(ctx, myChangeRev)
 				switch err {
 				case ErrNotAlive:
 					e.getLogger().Debug("not changing endpoint identity because endpoint is in process of being removed")
@@ -1593,7 +1622,7 @@ func (e *Endpoint) runLabelsResolver(ctx context.Context, myChangeRev int, block
 	)
 }
 
-func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int, allocator identityAllocator) error {
+func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) error {
 	if err := e.rlockAlive(); err != nil {
 		return ErrNotAlive
 	}
@@ -1627,7 +1656,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int, a
 	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
 	defer cancel()
 
-	identity, _, err := allocator.AllocateIdentity(allocateCtx, newLabels, true)
+	allocatedIdentity, _, err := e.allocator.AllocateIdentity(allocateCtx, newLabels, true)
 	if err != nil {
 		err = fmt.Errorf("unable to resolve identity: %s", err)
 		e.LogStatus(Other, Warning, fmt.Sprintf("%s (will retry)", err.Error()))
@@ -1643,10 +1672,10 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int, a
 	defer cancel()
 
 	releaseNewlyAllocatedIdentity := func() {
-		_, err := allocator.Release(releaseCtx, identity)
+		_, err := e.allocator.Release(releaseCtx, allocatedIdentity)
 		if err != nil {
 			// non fatal error as keys will expire after lease expires but log it
-			elog.WithFields(logrus.Fields{logfields.Identity: identity.ID}).
+			elog.WithFields(logrus.Fields{logfields.Identity: allocatedIdentity.ID}).
 				WithError(err).Warn("Unable to release newly allocated identity again")
 		}
 	}
@@ -1677,7 +1706,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int, a
 		// If the identity change is from init -> *, don't delay the
 		// use of the identity as we want the init duration to be as
 		// short as possible.
-		if identity.ID != oldIdentity.ID && oldIdentity.ID != identityPkg.ReservedIdentityInit {
+		if allocatedIdentity.ID != oldIdentity.ID && oldIdentity.ID != identity.ReservedIdentityInit {
 			e.unlock()
 
 			elog.Debugf("Applying grace period before regeneration due to identity change")
@@ -1697,13 +1726,13 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int, a
 		}
 	}
 
-	elog.WithFields(logrus.Fields{logfields.Identity: identity.StringID()}).
+	elog.WithFields(logrus.Fields{logfields.Identity: allocatedIdentity.StringID()}).
 		Debug("Assigned new identity to endpoint")
 
-	e.SetIdentity(identity, false)
+	e.SetIdentity(allocatedIdentity, false)
 
 	if oldIdentity != nil {
-		_, err := allocator.Release(releaseCtx, oldIdentity)
+		_, err := e.allocator.Release(releaseCtx, oldIdentity)
 		if err != nil {
 			elog.WithFields(logrus.Fields{logfields.Identity: oldIdentity.ID}).
 				WithError(err).Warn("Unable to release old endpoint identity")
