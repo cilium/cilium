@@ -1186,7 +1186,7 @@ func runDaemon() {
 
 	bootstrapStats.enableConntrack.Start()
 	log.Info("Starting connection tracking garbage collector")
-	gc.EnableConntrackGC(option.Config.EnableIPv4, option.Config.EnableIPv6,
+	gc.Enable(option.Config.EnableIPv4, option.Config.EnableIPv6,
 		restoredEndpoints.restored, d.endpointManager)
 	bootstrapStats.enableConntrack.End(true)
 
