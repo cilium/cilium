@@ -35,8 +35,8 @@ type EndpointManager interface {
 	GetEndpoints() []*endpoint.Endpoint
 }
 
-// EnableConntrackGC enables the connection tracking garbage collection.
-func EnableConntrackGC(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr EndpointManager) {
+// Enable enables the connection tracking garbage collection.
+func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr EndpointManager) {
 	var (
 		initialScan         = true
 		initialScanComplete = make(chan struct{})
