@@ -70,11 +70,13 @@ func (e *Endpoint) updateNetworkPolicy(proxyWaitGroup *completion.WaitGroup) (re
 	// to get their initial configuration, which is required for them to ACK
 	// the NetworkPolicies.
 	if e.SecurityIdentity == nil {
+		fmt.Printf("security identity is nil, returning\n")
 		return nil, nil
 	}
 
 	// If desired L4Policy is nil then no policy change is needed.
 	if e.desiredPolicy == nil || e.desiredPolicy.L4Policy == nil {
+		fmt.Printf("desire policy / desiredPolicy.L4Policy are nil\n")
 		return nil, nil
 	}
 

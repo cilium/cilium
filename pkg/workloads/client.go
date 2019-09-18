@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/identity/cache"
 )
 
 var (
@@ -26,8 +25,8 @@ var (
 	defaultClient WorkloadRuntime
 )
 
-func initClient(module workloadModule, epMgr *endpointmanager.EndpointManager, allocator *cache.CachingIdentityAllocator) error {
-	c, err := module.newClient(epMgr, allocator)
+func initClient(module workloadModule, epMgr *endpointmanager.EndpointManager) error {
+	c, err := module.newClient(epMgr)
 	if err != nil {
 		return err
 	}

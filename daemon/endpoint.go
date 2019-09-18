@@ -175,7 +175,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		epTemplate.DatapathConfiguration.RequireRouting = &disabled
 	}
 
-	ep, err := endpoint.NewEndpointFromChangeModel(d, d.l7Proxy, epTemplate)
+	ep, err := endpoint.NewEndpointFromChangeModel(d, d.l7Proxy, d.identityAllocator, epTemplate)
 	if err != nil {
 		return invalidDataError(ep, fmt.Errorf("unable to parse endpoint parameters: %s", err))
 	}
@@ -251,7 +251,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to insert endpoint into manager: %s", err))
 	}
 
-	ep.UpdateLabels(ctx, addLabels, infoLabels, true, d.identityAllocator)
+	ep.UpdateLabels(ctx, addLabels, infoLabels, true)
 
 	select {
 	case <-ctx.Done():
@@ -322,7 +322,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 
 	// Validate the template. Assignment afterwards is atomic.
 	// Note: newEp's labels are ignored.
-	newEp, err2 := endpoint.NewEndpointFromChangeModel(h.d, h.d.l7Proxy, epTemplate)
+	newEp, err2 := endpoint.NewEndpointFromChangeModel(h.d, h.d.l7Proxy, h.d.identityAllocator, epTemplate)
 	if err2 != nil {
 		return api.Error(PutEndpointIDInvalidCode, err2)
 	}
@@ -628,7 +628,7 @@ func (d *Daemon) modifyEndpointIdentityLabelsFromAPI(id string, add, del labels.
 		return PatchEndpointIDInvalidCode, err
 	}
 
-	if err := ep.ModifyIdentityLabels(addLabels, delLabels, d.identityAllocator); err != nil {
+	if err := ep.ModifyIdentityLabels(addLabels, delLabels); err != nil {
 		return PatchEndpointIDLabelsNotFoundCode, err
 	}
 

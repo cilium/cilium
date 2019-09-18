@@ -221,6 +221,8 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 			ctmap.DeleteIfUpgradeNeeded(ep)
 		}
 
+		ep.SetAllocator(d.identityAllocator)
+
 		// Insert into endpoint manager so it can be regenerated when calls to
 		// RegenerateAllEndpoints() are made. This must be done synchronously (i.e.,
 		// not in a goroutine) because regenerateRestoredEndpoints must guarantee

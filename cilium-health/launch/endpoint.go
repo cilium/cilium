@@ -227,6 +227,7 @@ type identityAllocator interface {
 	WaitForInitialGlobalIdentities(context.Context) error
 	AllocateIdentity(context.Context, labels.Labels, bool) (*identity.Identity, bool, error)
 	Release(context.Context, *identity.Identity) (released bool, err error)
+	LookupIdentityByID(id identity.NumericIdentity) *identity.Identity
 }
 
 // LaunchAsEndpoint launches the cilium-health agent in a nested network
@@ -313,7 +314,7 @@ func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node
 	}
 
 	// Create the endpoint
-	ep, err := endpoint.NewEndpointFromChangeModel(owner, proxy, info)
+	ep, err := endpoint.NewEndpointFromChangeModel(owner, proxy, allocator, info)
 	if err != nil {
 		return nil, fmt.Errorf("Error while creating endpoint model: %s", err)
 	}
@@ -348,7 +349,7 @@ func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node
 	// Give the endpoint a security identity
 	ctx, cancel := context.WithTimeout(baseCtx, LaunchTime)
 	defer cancel()
-	ep.UpdateLabels(ctx, labels.LabelHealth, nil, true, allocator)
+	ep.UpdateLabels(ctx, labels.LabelHealth, nil, true)
 
 	// Initialize the health client to talk to this instance.
 	client := &Client{host: "http://" + net.JoinHostPort(healthIP.String(), fmt.Sprintf("%d", healthDefaults.HTTPPathPort))}

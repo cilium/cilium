@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/identity/cache"
 )
 
 const (
@@ -66,15 +65,15 @@ func (c *criOModule) getConfig() map[string]string {
 	return getOpts(c.opts)
 }
 
-func (c *criOModule) newClient(epMgr *endpointmanager.EndpointManager, allocator *cache.CachingIdentityAllocator) (WorkloadRuntime, error) {
-	return newCRIOClient(c.opts, epMgr, allocator)
+func (c *criOModule) newClient(epMgr *endpointmanager.EndpointManager) (WorkloadRuntime, error) {
+	return newCRIOClient(c.opts, epMgr)
 }
 
 type criOClient struct {
 	cri *criClient
 }
 
-func newCRIOClient(opts workloadRuntimeOpts, epMgr *endpointmanager.EndpointManager, allocator *cache.CachingIdentityAllocator) (WorkloadRuntime, error) {
+func newCRIOClient(opts workloadRuntimeOpts, epMgr *endpointmanager.EndpointManager) (WorkloadRuntime, error) {
 	ep := string(opts[EpOpt].value)
 	p, err := url.Parse(ep)
 	if err != nil {
@@ -83,7 +82,7 @@ func newCRIOClient(opts workloadRuntimeOpts, epMgr *endpointmanager.EndpointMana
 	if p.Scheme == "" {
 		ep = "unix://" + ep
 	}
-	rsc, err := newCRIClient(context.WithValue(context.Background(), EpOpt, ep), epMgr, allocator)
+	rsc, err := newCRIClient(context.WithValue(context.Background(), EpOpt, ep), epMgr)
 	return &criOClient{rsc}, err
 }
 

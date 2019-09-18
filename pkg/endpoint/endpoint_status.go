@@ -21,7 +21,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
-	identitycache "github.com/cilium/cilium/pkg/identity/cache"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/node"
@@ -149,7 +148,7 @@ func getEndpointNetworking(status *models.EndpointStatus) (networking *cilium_v2
 
 // updateLabels inserts the labels correnspoding to the specified identity into
 // the AllowedIdentityTuple.
-func updateLabels(allocator *identitycache.CachingIdentityAllocator, allowedIdentityTuple *cilium_v2.AllowedIdentityTuple, secID identity.NumericIdentity) {
+func updateLabels(allocator identityAllocator, allowedIdentityTuple *cilium_v2.AllowedIdentityTuple, secID identity.NumericIdentity) {
 	// IdentityUnknown denotes that this is an L4-only BPF
 	// allow, so it applies to all identities. In this case
 	// we should skip resolving the labels, because the
@@ -173,7 +172,7 @@ func updateLabels(allocator *identitycache.CachingIdentityAllocator, allowedIden
 
 // populateResponseWithPolicyKey inserts an AllowedIdentityTuple element into 'policy'
 // which corresponds to the specified 'desiredPolicy'.
-func populateResponseWithPolicyKey(allocator *identitycache.CachingIdentityAllocator, policy *cilium_v2.EndpointPolicy, policyKey *policy.Key) {
+func populateResponseWithPolicyKey(allocator identityAllocator, policy *cilium_v2.EndpointPolicy, policyKey *policy.Key) {
 	allowedIdentityTuple := cilium_v2.AllowedIdentityTuple{
 		DestPort: policyKey.DestPort,
 		Protocol: policyKey.Nexthdr,
@@ -223,7 +222,7 @@ func desiredPolicyAllowsIdentity(desired *policy.EndpointPolicy, identity identi
 
 // getEndpointPolicy returns an API representation of the policy that the
 // received Endpoint intends to apply.
-func (e *Endpoint) getEndpointPolicy(allocator *identitycache.CachingIdentityAllocator) (policy *cilium_v2.EndpointPolicy) {
+func (e *Endpoint) getEndpointPolicy() (policy *cilium_v2.EndpointPolicy) {
 	if e.desiredPolicy != nil {
 		policy = &cilium_v2.EndpointPolicy{
 			Ingress: &cilium_v2.EndpointPolicyDirection{
@@ -263,7 +262,7 @@ func (e *Endpoint) getEndpointPolicy(allocator *identitycache.CachingIdentityAll
 					}
 				}
 
-				populateResponseWithPolicyKey(allocator, policy, &policyKey)
+				populateResponseWithPolicyKey(e.allocator, policy, &policyKey)
 			}
 		}
 
@@ -280,7 +279,7 @@ func (e *Endpoint) getEndpointPolicy(allocator *identitycache.CachingIdentityAll
 
 // GetCiliumEndpointStatus creates a cilium_v2.EndpointStatus of an endpoint.
 // See cilium_v2.EndpointStatus for a detailed explanation of each field.
-func (e *Endpoint) GetCiliumEndpointStatus(allocator *identitycache.CachingIdentityAllocator) *cilium_v2.EndpointStatus {
+func (e *Endpoint) GetCiliumEndpointStatus() *cilium_v2.EndpointStatus {
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 
@@ -301,7 +300,7 @@ func (e *Endpoint) GetCiliumEndpointStatus(allocator *identitycache.CachingIdent
 		Networking:          networking,
 		Health:              modelStatus.Health,
 		State:               string(modelStatus.State),
-		Policy:              e.getEndpointPolicy(allocator),
+		Policy:              e.getEndpointPolicy(),
 		Encryption:          cilium_v2.EncryptionSpec{Key: int(node.GetIPsecKeyIdentity())},
 
 		// Scheduled for deprecation in 1.5
