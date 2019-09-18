@@ -21,15 +21,15 @@
 #       otherwise alias for wget
 #######################################
 
-if [[ -n "${IPV6_EXT}" ]]; then
-    master_ip=${MASTER_IPV6_PUBLIC:-"FD00::0B"}
-    # controllers_ips[0] contains the IP with brackets, to be used with Port in IPv6
-    # controllers_ips[1] contains the IP without brackets
-    controllers_ips=( "[${master_ip}]" "${master_ip}" )
-else
+#if [[ -n "${IPV6_EXT}" ]]; then
+#    master_ip=${MASTER_IPV6_PUBLIC:-"FD00::0B"}
+#    # controllers_ips[0] contains the IP with brackets, to be used with Port in IPv6
+#    # controllers_ips[1] contains the IP without brackets
+#    controllers_ips=( "[${master_ip}]" "${master_ip}" )
+#else
     master_ip=${MASTER_IPV4:-"192.168.33.11"}
     controllers_ips=( "${master_ip}" "${master_ip}" )
-fi
+#fi
 
 # container runtime options
 case "${RUNTIME}" in

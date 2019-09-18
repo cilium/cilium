@@ -200,11 +200,11 @@ function write_k8s_install() {
         #   master  : FD02::0:0:0/96
         #   worker 1: FD02::1:0:0/96
         #   worker 1: FD02::2:0:0/96
-        k8s_cluster_cidr+="FD02::/80"
-        k8s_node_cidr_mask_size="96"
-        k8s_service_cluster_ip_range="FD03::/112"
-        k8s_cluster_api_server_ip="FD03::1"
-        k8s_cluster_dns_ip="FD03::A"
+        k8s_cluster_cidr+="10.16.0.0/12,FD02::/80"
+        k8s_node_cidr_mask_size="26"
+        k8s_service_cluster_ip_range="172.20.0.0/24,FD03::/112"
+        #k8s_cluster_api_server_ip="FD03::1"
+        #k8s_cluster_dns_ip="FD03::A"
     fi
     k8s_cluster_cidr=${k8s_cluster_cidr:-"10.16.0.0/12"}
     k8s_node_cidr_mask_size=${k8s_node_cidr_mask_size:-"16"}

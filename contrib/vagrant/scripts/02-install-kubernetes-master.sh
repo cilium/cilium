@@ -63,6 +63,7 @@ Documentation=https://kubernetes.io/docs/home
 
 [Service]
 ExecStart=/usr/bin/kube-apiserver \\
+  --feature-gates="IPv6DualStack=true" \\
   --enable-admission-plugins=NamespaceLifecycle,LimitRanger,ServiceAccount,PersistentVolumeClaimResize,DefaultStorageClass,DefaultTolerationSeconds,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota,Priority \\
   --advertise-address=${controllers_ips[1]} \\
   --allow-privileged=true \\
@@ -128,6 +129,7 @@ Documentation=https://kubernetes.io/docs/home
 
 [Service]
 ExecStart=/usr/bin/kube-controller-manager \\
+  --feature-gates="IPv6DualStack=true" \\
   --allocate-node-cidrs=true \\
   --cluster-cidr=${k8s_cluster_cidr} \\
   --cluster-name=kubernetes \\

@@ -290,7 +290,9 @@ After=network.target
 ExecStart=/usr/bin/kube-proxy \\
   --cluster-cidr=${k8s_cluster_cidr} \\
   --kubeconfig=/var/lib/kube-proxy/kube-proxy.kubeconfig \\
-  --proxy-mode=iptables \\
+  --proxy-mode=ipvs \\
+  --cluster-cidrs=${k8s_cluster_cidr} \\
+  --feature-gates="IPv6DualStack=true" \\
   --v=2
 
 Restart=on-failure
@@ -324,6 +326,7 @@ ExecStartPre=/bin/bash -c ' \\
 ExecStart=/usr/bin/kubelet \\
   --client-ca-file=/var/lib/kubelet/ca-k8s.pem \\
   --cloud-provider= \\
+  --feature-gates="IPv6DualStack=true" \\
   --cluster-dns=${cluster_dns_ip} \\
   --cluster-domain=cluster.local \\
   --container-runtime=${container_runtime_kubelet} \\

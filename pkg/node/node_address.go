@@ -257,9 +257,9 @@ func GetNodePortIPv6() net.IP {
 
 // SetIPv6NodeRange sets the IPv6 address pool to be used on this node
 func SetIPv6NodeRange(net *net.IPNet) error {
-	if ones, _ := net.Mask.Size(); ones != defaults.IPv6NodePrefixLen {
-		return fmt.Errorf("prefix length must be /%d", defaults.IPv6NodePrefixLen)
-	}
+	// if ones, _ := net.Mask.Size(); ones != defaults.IPv6NodePrefixLen {
+	// 	return fmt.Errorf("prefix length must be /%d", defaults.IPv6NodePrefixLen)
+	// }
 
 	copy := *net
 	ipv6AllocRange = cidr.NewCIDR(&copy)
