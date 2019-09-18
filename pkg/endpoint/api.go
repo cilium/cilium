@@ -60,7 +60,7 @@ func (e *Endpoint) GetLabelsModel() (*models.LabelConfiguration, error) {
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
-func NewEndpointFromChangeModel(owner regeneration.Owner, proxy EndpointProxy, base *models.EndpointChangeRequest) (*Endpoint, error) {
+func NewEndpointFromChangeModel(owner regeneration.Owner, proxy EndpointProxy, allocator identityAllocator, base *models.EndpointChangeRequest) (*Endpoint, error) {
 	if base == nil {
 		return nil, nil
 	}
@@ -86,6 +86,7 @@ func NewEndpointFromChangeModel(owner regeneration.Owner, proxy EndpointProxy, b
 		desiredPolicy:    policy.NewEndpointPolicy(owner.GetPolicyRepository()),
 		controllers:      controller.NewManager(),
 		regenFailedChan:  make(chan struct{}, 1),
+		allocator:        allocator,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

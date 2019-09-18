@@ -125,7 +125,7 @@ func prepareEndpointDirs() (cleanup func(), err error) {
 }
 
 func (ds *DaemonSuite) prepareEndpoint(c *C, identity *identity.Identity, qa bool) *endpoint.Endpoint {
-	e := endpoint.NewEndpointWithState(ds.d, ds.d.l7Proxy, testEndpointID, endpoint.StateWaitingForIdentity)
+	e := endpoint.NewEndpointWithState(ds.d, ds.d.l7Proxy, ds.d.identityAllocator, testEndpointID, endpoint.StateWaitingForIdentity)
 	if qa {
 		e.IPv6 = QAIPv6Addr
 		e.IPv4 = QAIPv4Addr
@@ -654,13 +654,18 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 	ds.regenerateEndpoint(c, e)
 
 	// Check that the policy has been updated in the xDS cache for the L7
-	// proxies.
-	networkPolicies = ds.getXDSNetworkPolicies(c, nil)
-	c.Assert(networkPolicies, HasLen, 2)
-	qaBarNetworkPolicy = networkPolicies[QAIPv4Addr.String()]
-	c.Assert(qaBarNetworkPolicy, Not(IsNil))
-
-	c.Assert(qaBarNetworkPolicy.IngressPerPortPolicies, HasLen, 1)
+	// proxies. The plumbing of the identity when `AllocateIdentity` is performed
+	// down to the `SelectorCache` is asynchronous, so use waiting with a
+	// timeout.
+	err = testutils.WaitUntil(func() bool {
+		networkPolicies = ds.getXDSNetworkPolicies(c, nil)
+		if len(networkPolicies) != 2 {
+			return false
+		}
+		qaBarNetworkPolicy = networkPolicies[QAIPv4Addr.String()]
+		return qaBarNetworkPolicy != nil && len(qaBarNetworkPolicy.IngressPerPortPolicies) == 1
+	}, time.Second*1)
+	c.Assert(err, IsNil)
 	c.Assert(qaBarNetworkPolicy.IngressPerPortPolicies[0].Rules, HasLen, 1)
 	c.Assert(qaBarNetworkPolicy.IngressPerPortPolicies[0].Rules[0].RemotePolicies, HasLen, 1)
 	c.Assert(qaBarNetworkPolicy.IngressPerPortPolicies[0].Rules[0].RemotePolicies[0], Equals, uint64(qaFooID.ID))
