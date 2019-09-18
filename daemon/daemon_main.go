@@ -825,21 +825,9 @@ func initEnv(cmd *cobra.Command) {
 
 	option.Config.StateDir = filepath.Join(option.Config.RunDir, defaults.StateDir)
 	scopedLog = scopedLog.WithField(logfields.Path+".StateDir", option.Config.StateDir)
-	if err := os.MkdirAll(option.Config.StateDir, defaults.StateDirRights); err != nil {
-		scopedLog.WithError(err).Fatal("Could not create state directory")
-	}
 
-	if err := os.MkdirAll(option.Config.LibDir, defaults.RuntimePathRights); err != nil {
-		scopedLog.WithError(err).Fatal("Could not create library directory")
-	}
-
-	globalsDir := option.Config.GetGlobalsDir()
-	if err := os.MkdirAll(globalsDir, defaults.RuntimePathRights); err != nil {
-		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("Could not create globals directory")
-	}
-
-	if err := os.Chdir(option.Config.StateDir); err != nil {
-		log.WithError(err).WithField(logfields.Path, option.Config.StateDir).Fatal("Could not change to runtime directory")
+	if err := createDirectories(); err != nil {
+		scopedLog.WithError(err).Fatal("error creating directories")
 	}
 
 	if !option.Config.KeepTemplates {
@@ -1099,6 +1087,27 @@ func initEnv(cmd *cobra.Command) {
 		log.WithError(err).Fatal("Invalid sidecar-istio-proxy-image regular expression")
 		return
 	}
+}
+
+func createDirectories() error {
+	option.Config.StateDir = filepath.Join(option.Config.RunDir, defaults.StateDir)
+	if err := os.MkdirAll(option.Config.StateDir, defaults.StateDirRights); err != nil {
+		return fmt.Errorf("Could not create state directory: %s", err)
+	}
+
+	if err := os.MkdirAll(option.Config.LibDir, defaults.RuntimePathRights); err != nil {
+		return fmt.Errorf("Could not create library directory: %s", err)
+	}
+
+	globalsDir := option.Config.GetGlobalsDir()
+	if err := os.MkdirAll(globalsDir, defaults.RuntimePathRights); err != nil {
+		return fmt.Errorf("Could not create globals directory: %s", err)
+	}
+
+	if err := os.Chdir(option.Config.StateDir); err != nil {
+		return fmt.Errorf("Could not change to runtime directory: %s", err)
+	}
+	return nil
 }
 
 func (d *Daemon) initKVStore() {
