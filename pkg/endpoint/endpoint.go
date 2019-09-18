@@ -108,6 +108,8 @@ var _ notifications.RegenNotificationInfo = &Endpoint{}
 type Endpoint struct {
 	owner regeneration.Owner
 
+	allocator identityAllocator
+
 	// ID of the endpoint, unique in the scope of the node
 	ID uint16
 
@@ -277,6 +279,12 @@ type Endpoint struct {
 	DatapathConfiguration models.EndpointDatapathConfiguration
 
 	regenFailedChan chan struct{}
+}
+
+func (e *Endpoint) SetAllocator(allocator identityAllocator) {
+	e.unconditionalLock()
+	defer e.unlock()
+	e.allocator = allocator
 }
 
 // UpdateController updates the controller with the specified name with the
@@ -1454,7 +1462,7 @@ func (e *Endpoint) getIDandLabels() string {
 // Labels can be added or deleted. If a label change is performed, the
 // endpoint will receive a new identity and will be regenerated. Both of these
 // operations will happen in the background.
-func (e *Endpoint) ModifyIdentityLabels(addLabels, delLabels pkgLabels.Labels, allocator identityAllocator) error {
+func (e *Endpoint) ModifyIdentityLabels(addLabels, delLabels pkgLabels.Labels) error {
 	if err := e.lockAlive(); err != nil {
 		return err
 	}
@@ -1478,7 +1486,7 @@ func (e *Endpoint) ModifyIdentityLabels(addLabels, delLabels pkgLabels.Labels, a
 	e.unlock()
 
 	if changed {
-		e.runLabelsResolver(context.Background(), rev, false, allocator)
+		e.runLabelsResolver(context.Background(), rev, false)
 	}
 	return nil
 }
@@ -1497,7 +1505,7 @@ func (e *Endpoint) IsInit() bool {
 // If a net label changed was performed, the endpoint will receive a new
 // identity and will be regenerated. Both of these operations will happen in
 // the background.
-func (e *Endpoint) UpdateLabels(ctx context.Context, identityLabels, infoLabels pkgLabels.Labels, blocking bool, allocator identityAllocator) {
+func (e *Endpoint) UpdateLabels(ctx context.Context, identityLabels, infoLabels pkgLabels.Labels, blocking bool) {
 	log.WithFields(logrus.Fields{
 		logfields.ContainerID:    e.GetShortContainerID(),
 		logfields.EndpointID:     e.StringID(),
@@ -1515,7 +1523,7 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, identityLabels, infoLabels 
 	rev := e.replaceIdentityLabels(identityLabels)
 	e.unlock()
 	if rev != 0 {
-		e.runLabelsResolver(ctx, rev, blocking, allocator)
+		e.runLabelsResolver(ctx, rev, blocking)
 	}
 }
 
@@ -1530,7 +1538,7 @@ func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 }
 
 // Must be called with e.Mutex NOT held.
-func (e *Endpoint) runLabelsResolver(ctx context.Context, myChangeRev int, blocking bool, allocator identityAllocator) {
+func (e *Endpoint) runLabelsResolver(ctx context.Context, myChangeRev int, blocking bool) {
 	if err := e.rlockAlive(); err != nil {
 		// If a labels update and an endpoint delete API request arrive
 		// in quick succession, this could occur; in that case, there's
@@ -1548,7 +1556,7 @@ func (e *Endpoint) runLabelsResolver(ctx context.Context, myChangeRev int, block
 	if blocking || identityPkg.IdentityAllocationIsLocal(newLabels) {
 		scopedLog.Info("Resolving identity labels (blocking)")
 
-		err := e.identityLabelsChanged(ctx, myChangeRev, allocator)
+		err := e.identityLabelsChanged(ctx, myChangeRev)
 		switch err {
 		case ErrNotAlive:
 			scopedLog.Debug("not changing endpoint identity because endpoint is in process of being removed")
@@ -1566,7 +1574,7 @@ func (e *Endpoint) runLabelsResolver(ctx context.Context, myChangeRev int, block
 	e.controllers.UpdateController(ctrlName,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				err := e.identityLabelsChanged(ctx, myChangeRev, allocator)
+				err := e.identityLabelsChanged(ctx, myChangeRev)
 				switch err {
 				case ErrNotAlive:
 					e.getLogger().Debug("not changing endpoint identity because endpoint is in process of being removed")
@@ -1580,7 +1588,7 @@ func (e *Endpoint) runLabelsResolver(ctx context.Context, myChangeRev int, block
 	)
 }
 
-func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int, allocator identityAllocator) error {
+func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) error {
 	if err := e.rlockAlive(); err != nil {
 		return ErrNotAlive
 	}
@@ -1614,7 +1622,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int, a
 	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
 	defer cancel()
 
-	identity, _, err := allocator.AllocateIdentity(allocateCtx, newLabels, true)
+	identity, _, err := e.allocator.AllocateIdentity(allocateCtx, newLabels, true)
 	if err != nil {
 		err = fmt.Errorf("unable to resolve identity: %s", err)
 		e.LogStatus(Other, Warning, fmt.Sprintf("%s (will retry)", err.Error()))
@@ -1630,7 +1638,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int, a
 	defer cancel()
 
 	releaseNewlyAllocatedIdentity := func() {
-		_, err := allocator.Release(releaseCtx, identity)
+		_, err := e.allocator.Release(releaseCtx, identity)
 		if err != nil {
 			// non fatal error as keys will expire after lease expires but log it
 			elog.WithFields(logrus.Fields{logfields.Identity: identity.ID}).
@@ -1690,7 +1698,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int, a
 	e.SetIdentity(identity, false)
 
 	if oldIdentity != nil {
-		_, err := allocator.Release(releaseCtx, oldIdentity)
+		_, err := e.allocator.Release(releaseCtx, oldIdentity)
 		if err != nil {
 			elog.WithFields(logrus.Fields{logfields.Identity: oldIdentity.ID}).
 				WithError(err).Warn("Unable to release old endpoint identity")

@@ -251,7 +251,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to insert endpoint into manager: %s", err))
 	}
 
-	ep.UpdateLabels(ctx, addLabels, infoLabels, true, d.identityAllocator)
+	ep.UpdateLabels(ctx, addLabels, infoLabels, true)
 
 	select {
 	case <-ctx.Done():
@@ -628,7 +628,7 @@ func (d *Daemon) modifyEndpointIdentityLabelsFromAPI(id string, add, del labels.
 		return PatchEndpointIDInvalidCode, err
 	}
 
-	if err := ep.ModifyIdentityLabels(addLabels, delLabels, d.identityAllocator); err != nil {
+	if err := ep.ModifyIdentityLabels(addLabels, delLabels); err != nil {
 		return PatchEndpointIDLabelsNotFoundCode, err
 	}
 

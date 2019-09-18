@@ -254,7 +254,7 @@ func (s *EndpointSuite) TestgetEndpointPolicyMapState(c *check.C) {
 		numPortsPerIdentity:      10,
 	})
 	// Policy not enabled; allow all.
-	apiPolicy := e.getEndpointPolicy(s.mgr)
+	apiPolicy := e.getEndpointPolicy()
 	c.Assert(apiPolicy.Ingress.Allowed, checker.DeepEquals, allowAllIdentityList)
 	c.Assert(apiPolicy.Egress.Allowed, checker.DeepEquals, allowAllIdentityList)
 
@@ -407,7 +407,7 @@ func (s *EndpointSuite) TestgetEndpointPolicyMapState(c *check.C) {
 		expectedIngressList := prepareExpectedList(tt.ingressResult)
 		expectedEgressList := prepareExpectedList(tt.egressResult)
 
-		apiPolicy = e.getEndpointPolicy(s.mgr)
+		apiPolicy = e.getEndpointPolicy()
 		c.Assert(apiPolicy.Ingress.Allowed, checker.DeepEquals, expectedIngressList)
 		c.Assert(apiPolicy.Egress.Allowed, checker.DeepEquals, expectedEgressList)
 	}
