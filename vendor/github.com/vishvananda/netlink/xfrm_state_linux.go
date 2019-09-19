@@ -158,6 +158,10 @@ func (h *Handle) xfrmStateAddOrUpdate(state *XfrmState, nlProto int) error {
 		out := nl.NewRtAttr(nl.XFRMA_REPLAY_ESN_VAL, writeReplayEsn(state.ReplayWindow))
 		req.AddData(out)
 	}
+	if state.OutputMark != 0 {
+		out := nl.NewRtAttr(nl.XFRMA_OUTPUT_MARK, nl.Uint32Attr(uint32(state.OutputMark)))
+		req.AddData(out)
+	}
 
 	ifId := nl.NewRtAttr(nl.XFRMA_IF_ID, nl.Uint32Attr(uint32(state.Ifid)))
 	req.AddData(ifId)
@@ -373,6 +377,8 @@ func parseXfrmState(m []byte, family int) (*XfrmState, error) {
 			state.Mark = new(XfrmMark)
 			state.Mark.Value = mark.Value
 			state.Mark.Mask = mark.Mask
+		case nl.XFRMA_OUTPUT_MARK:
+			state.OutputMark = int(native.Uint32(attr.Value))
 		case nl.XFRMA_IF_ID:
 			state.Ifid = int(native.Uint32(attr.Value))
 		}

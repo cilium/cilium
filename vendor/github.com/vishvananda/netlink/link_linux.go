@@ -528,6 +528,37 @@ func (h *Handle) LinkSetVfTxRate(link Link, vf, rate int) error {
 	return err
 }
 
+// LinkSetVfRate sets the min and max tx rate of a vf for the link.
+// Equivalent to: `ip link set $link vf $vf min_tx_rate $min_rate max_tx_rate $max_rate`
+func LinkSetVfRate(link Link, vf, minRate, maxRate int) error {
+	return pkgHandle.LinkSetVfRate(link, vf, minRate, maxRate)
+}
+
+// LinkSetVfRate sets the min and max tx rate of a vf for the link.
+// Equivalent to: `ip link set $link vf $vf min_tx_rate $min_rate max_tx_rate $max_rate`
+func (h *Handle) LinkSetVfRate(link Link, vf, minRate, maxRate int) error {
+	base := link.Attrs()
+	h.ensureIndex(base)
+	req := h.newNetlinkRequest(unix.RTM_SETLINK, unix.NLM_F_ACK)
+
+	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
+	msg.Index = int32(base.Index)
+	req.AddData(msg)
+
+	data := nl.NewRtAttr(unix.IFLA_VFINFO_LIST, nil)
+	info := data.AddRtAttr(nl.IFLA_VF_INFO, nil)
+	vfmsg := nl.VfRate{
+		Vf:        uint32(vf),
+		MinTxRate: uint32(minRate),
+		MaxTxRate: uint32(maxRate),
+	}
+	info.AddRtAttr(nl.IFLA_VF_RATE, vfmsg.Serialize())
+	req.AddData(data)
+
+	_, err := req.Execute(unix.NETLINK_ROUTE, 0)
+	return err
+}
+
 // LinkSetVfSpoofchk enables/disables spoof check on a vf for the link.
 // Equivalent to: `ip link set $link vf $vf spoofchk $check`
 func LinkSetVfSpoofchk(link Link, vf int, check bool) error {
@@ -1119,8 +1150,8 @@ func (h *Handle) linkModify(link Link, flags int) error {
 		native.PutUint32(b, uint32(base.ParentIndex))
 		data := nl.NewRtAttr(unix.IFLA_LINK, b)
 		req.AddData(data)
-	} else if link.Type() == "ipvlan" {
-		return fmt.Errorf("Can't create ipvlan link without ParentIndex")
+	} else if link.Type() == "ipvlan" || link.Type() == "ipoib" {
+		return fmt.Errorf("Can't create %s link without ParentIndex", link.Type())
 	}
 
 	nameData := nl.NewRtAttr(unix.IFLA_IFNAME, nl.ZeroTerminated(base.Name))
@@ -1218,6 +1249,7 @@ func (h *Handle) linkModify(link Link, flags int) error {
 	case *IPVlan:
 		data := linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
 		data.AddRtAttr(nl.IFLA_IPVLAN_MODE, nl.Uint16Attr(uint16(link.Mode)))
+		data.AddRtAttr(nl.IFLA_IPVLAN_FLAG, nl.Uint16Attr(uint16(link.Flag)))
 	case *Macvlan:
 		if link.Mode != MACVLAN_MODE_DEFAULT {
 			data := linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
@@ -1246,6 +1278,8 @@ func (h *Handle) linkModify(link Link, flags int) error {
 		addGTPAttrs(link, linkInfo)
 	case *Xfrmi:
 		addXfrmiAttrs(link, linkInfo)
+	case *IPoIB:
+		addIPoIBAttrs(link, linkInfo)
 	}
 
 	req.AddData(linkInfo)
@@ -1501,6 +1535,8 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 						link = &Xfrmi{}
 					case "tun":
 						link = &Tuntap{}
+					case "ipoib":
+						link = &IPoIB{}
 					default:
 						link = &GenericLink{LinkType: linkType}
 					}
@@ -1546,6 +1582,8 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 						parseXfrmiData(link, data)
 					case "tun":
 						parseTuntapData(link, data)
+					case "ipoib":
+						parseIPoIBData(link, data)
 					}
 				}
 			}
@@ -2096,9 +2134,11 @@ func parseBondData(link Link, data []syscall.NetlinkRouteAttr) {
 func parseIPVlanData(link Link, data []syscall.NetlinkRouteAttr) {
 	ipv := link.(*IPVlan)
 	for _, datum := range data {
-		if datum.Attr.Type == nl.IFLA_IPVLAN_MODE {
+		switch datum.Attr.Type {
+		case nl.IFLA_IPVLAN_MODE:
 			ipv.Mode = IPVlanMode(native.Uint32(datum.Value[0:4]))
-			return
+		case nl.IFLA_IPVLAN_FLAG:
+			ipv.Flag = IPVlanFlag(native.Uint32(datum.Value[0:4]))
 		}
 	}
 }
@@ -2240,9 +2280,7 @@ func parseGretapData(link Link, data []syscall.NetlinkRouteAttr) {
 		case nl.IFLA_GRE_ENCAP_FLAGS:
 			gre.EncapFlags = native.Uint16(datum.Value[0:2])
 		case nl.IFLA_GRE_COLLECT_METADATA:
-			if len(datum.Value) > 0 {
-				gre.FlowBased = int8(datum.Value[0]) != 0
-			}
+			gre.FlowBased = true
 		}
 	}
 }
@@ -2642,6 +2680,10 @@ func parseVfInfo(data []syscall.NetlinkRouteAttr, id int) VfInfo {
 		case nl.IFLA_VF_LINK_STATE:
 			ls := nl.DeserializeVfLinkState(element.Value[:])
 			vf.LinkState = ls.LinkState
+		case nl.IFLA_VF_RATE:
+			vfr := nl.DeserializeVfRate(element.Value[:])
+			vf.MaxTxRate = vfr.MaxTxRate
+			vf.MinTxRate = vfr.MinTxRate
 		}
 	}
 	return vf
@@ -2737,4 +2779,25 @@ func parseTuntapData(link Link, data []syscall.NetlinkRouteAttr) {
 			}
 		}
 	}
+}
+
+func parseIPoIBData(link Link, data []syscall.NetlinkRouteAttr) {
+	ipoib := link.(*IPoIB)
+	for _, datum := range data {
+		switch datum.Attr.Type {
+		case nl.IFLA_IPOIB_PKEY:
+			ipoib.Pkey = uint16(native.Uint16(datum.Value))
+		case nl.IFLA_IPOIB_MODE:
+			ipoib.Mode = IPoIBMode(native.Uint16(datum.Value))
+		case nl.IFLA_IPOIB_UMCAST:
+			ipoib.Umcast = uint16(native.Uint16(datum.Value))
+		}
+	}
+}
+
+func addIPoIBAttrs(ipoib *IPoIB, linkInfo *nl.RtAttr) {
+	data := linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
+	data.AddRtAttr(nl.IFLA_IPOIB_PKEY, nl.Uint16Attr(uint16(ipoib.Pkey)))
+	data.AddRtAttr(nl.IFLA_IPOIB_MODE, nl.Uint16Attr(uint16(ipoib.Mode)))
+	data.AddRtAttr(nl.IFLA_IPOIB_UMCAST, nl.Uint16Attr(uint16(ipoib.Umcast)))
 }
