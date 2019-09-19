@@ -305,28 +305,6 @@ func (h *getServiceID) Handle(params GetServiceIDParams) middleware.Responder {
 	return NewGetServiceIDNotFound()
 }
 
-// SVCGetBySHA256Sum returns a DeepCopied frontend with its backends.
-func (d *Daemon) svcGetBySHA256Sum(feL3n4SHA256Sum string) *loadbalancer.LBSVC {
-	d.loadBalancer.BPFMapMU.RLock()
-	defer d.loadBalancer.BPFMapMU.RUnlock()
-
-	v, ok := d.loadBalancer.SVCMap[feL3n4SHA256Sum]
-	if !ok {
-		return nil
-	}
-	// We will move the slice from the loadbalancer map which has a mutex. If
-	// we don't copy the slice we might risk changing memory that should be
-	// locked.
-	beCpy := []loadbalancer.LBBackEnd{}
-	for _, v := range v.BES {
-		beCpy = append(beCpy, v)
-	}
-	return &loadbalancer.LBSVC{
-		FE:  *v.FE.DeepCopy(),
-		BES: beCpy,
-	}
-}
-
 type getService struct {
 	d *Daemon
 }
@@ -339,41 +317,6 @@ func (h *getService) Handle(params GetServiceParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /service request")
 	list := h.d.GetServiceList()
 	return NewGetServiceOK().WithPayload(list)
-}
-
-// RevNATAdd deep copies the given revNAT address to the cilium lbmap with the given id.
-func (d *Daemon) RevNATAdd(id loadbalancer.ServiceID, revNAT loadbalancer.L3n4Addr) error {
-	revNATK, revNATV := lbmap.L3n4Addr2RevNatKeynValue(id, revNAT)
-
-	d.loadBalancer.BPFMapMU.Lock()
-	defer d.loadBalancer.BPFMapMU.Unlock()
-
-	err := lbmap.UpdateRevNat(revNATK, revNATV)
-	if err != nil {
-		return err
-	}
-
-	d.loadBalancer.RevNATMap[id] = *revNAT.DeepCopy()
-	return nil
-}
-
-// RevNATDelete deletes the revNatKey from the local bpf map.
-func (d *Daemon) RevNATDelete(id loadbalancer.ServiceID) error {
-	d.loadBalancer.BPFMapMU.Lock()
-	defer d.loadBalancer.BPFMapMU.Unlock()
-
-	revNAT, ok := d.loadBalancer.RevNATMap[id]
-	if !ok {
-		return nil
-	}
-
-	err := lbmap.DeleteRevNATBPF(id, revNAT.IsIPv6())
-
-	// TODO should we delete even if err is != nil?
-	if err == nil {
-		delete(d.loadBalancer.RevNATMap, id)
-	}
-	return err
 }
 
 // RevNATDeleteAll deletes all RevNAT4, if IPv4 is enabled on daemon, and all RevNAT6
@@ -396,35 +339,6 @@ func (d *Daemon) RevNATDeleteAll() error {
 	// TODO should we delete even if err is != nil?
 	d.loadBalancer.RevNATMap = map[loadbalancer.ServiceID]loadbalancer.L3n4Addr{}
 	return nil
-}
-
-// RevNATGet returns a DeepCopy of the revNAT found with the given ID or nil if not found.
-func (d *Daemon) RevNATGet(id loadbalancer.ServiceID) (*loadbalancer.L3n4Addr, error) {
-	d.loadBalancer.BPFMapMU.RLock()
-	defer d.loadBalancer.BPFMapMU.RUnlock()
-
-	revNAT, ok := d.loadBalancer.RevNATMap[id]
-	if !ok {
-		return nil, nil
-	}
-	return revNAT.DeepCopy(), nil
-}
-
-// RevNATDump dumps a DeepCopy of the cilium's loadbalancer.
-func (d *Daemon) RevNATDump() ([]loadbalancer.L3n4AddrID, error) {
-	dump := []loadbalancer.L3n4AddrID{}
-
-	d.loadBalancer.BPFMapMU.RLock()
-	defer d.loadBalancer.BPFMapMU.RUnlock()
-
-	for k, v := range d.loadBalancer.RevNATMap {
-		dump = append(dump, loadbalancer.L3n4AddrID{
-			ID:       loadbalancer.ID(k),
-			L3n4Addr: *v.DeepCopy(),
-		})
-	}
-
-	return dump, nil
 }
 
 func openServiceMaps() error {
