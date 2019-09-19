@@ -537,6 +537,18 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 
 type dummyManager struct{}
 
+func (d *dummyManager) LookupCiliumID(uint16) *endpoint.Endpoint {
+	return nil
+}
+
+func (d *dummyManager) LookupContainerID(string) *endpoint.Endpoint {
+	return nil
+}
+
+func (d *dummyManager) Lookup(string) (*endpoint.Endpoint, error) {
+	return nil, nil
+}
+
 func (d *dummyManager) AllocateID(id uint16) (uint16, error) {
 	return uint16(1), nil
 }
@@ -557,6 +569,10 @@ func (d *dummyManager) RemoveID(uint16) {
 }
 
 func (d *dummyManager) ReleaseID(*endpoint.Endpoint) error {
+	return nil
+}
+
+func (d *dummyManager) AddEndpoint(o regeneration.Owner, e *endpoint.Endpoint, s string) error {
 	return nil
 }
 
