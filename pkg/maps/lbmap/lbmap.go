@@ -147,8 +147,7 @@ func generateWrrSeq(weights []uint16) (*RRSeqValue, error) {
 }
 
 // UpdateService adds or updates the given service in the bpf maps.
-func UpdateService(fe ServiceKey, backends []ServiceValue,
-	addRevNAT bool, revNATID int,
+func UpdateService(fe ServiceKey, backends []ServiceValue, revNATID int,
 	acquireBackendID func(loadbalancer.L3n4Addr) (loadbalancer.BackendID, error),
 	releaseBackendID func(loadbalancer.BackendID)) error {
 
@@ -200,7 +199,7 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 	}
 
 	// Update the v2 service BPF maps
-	if err := updateServiceV2Locked(fe, besValuesV2, svc, addRevNAT, revNATID, weights, nNonZeroWeights); err != nil {
+	if err := updateServiceV2Locked(fe, besValuesV2, svc, revNATID, weights, nNonZeroWeights); err != nil {
 		return err
 	}
 
@@ -268,8 +267,7 @@ func updateBackendsLocked(addedBackends map[loadbalancer.BackendID]ServiceValue)
 }
 
 func updateServiceV2Locked(fe ServiceKey, backends serviceValueMap,
-	svc *bpfService,
-	addRevNAT bool, revNATID int,
+	svc *bpfService, revNATID int,
 	weights []uint16, nNonZeroWeights uint16) error {
 
 	var (
@@ -310,21 +308,19 @@ func updateServiceV2Locked(fe ServiceKey, backends serviceValueMap,
 		slot++
 	}
 
-	if addRevNAT {
-		zeroValue := fe.NewValue().(ServiceValue)
-		zeroValue.SetRevNat(revNATID)
-		revNATKey := zeroValue.RevNatKey()
-		revNATValue := fe.RevNatValue()
+	zeroValue := fe.NewValue().(ServiceValue)
+	zeroValue.SetRevNat(revNATID)
+	revNATKey := zeroValue.RevNatKey()
+	revNATValue := fe.RevNatValue()
 
-		if err := updateRevNatLocked(revNATKey, revNATValue); err != nil {
-			return fmt.Errorf("unable to update reverse NAT %+v with value %+v, %s", revNATKey, revNATValue, err)
-		}
-		defer func() {
-			if err != nil {
-				deleteRevNatLocked(revNATKey)
-			}
-		}()
+	if err := updateRevNatLocked(revNATKey, revNATValue); err != nil {
+		return fmt.Errorf("unable to update reverse NAT %+v with value %+v, %s", revNATKey, revNATValue, err)
 	}
+	defer func() {
+		if err != nil {
+			deleteRevNatLocked(revNATKey)
+		}
+	}()
 
 	err = updateMasterServiceV2(svcKeyV2, len(svc.backendsV2), nNonZeroWeights, revNATID)
 	if err != nil {
