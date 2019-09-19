@@ -372,6 +372,15 @@ func DNSDeployment(base string) string {
 	case "1.7", "1.8", "1.9", "1.10":
 		DNSEngine = "kubedns"
 	}
+
+	if integration := GetCurrentIntegration(); integration != "" {
+		fullPath := filepath.Join("provision", "manifest", k8sVersion, integration, DNSEngine+"_deployment.yaml")
+		_, err := os.Stat(fullPath)
+		if err == nil {
+			return filepath.Join(base, fullPath)
+		}
+	}
+
 	fullPath := filepath.Join("provision", "manifest", k8sVersion, DNSEngine+"_deployment.yaml")
 	_, err := os.Stat(fullPath)
 	if err == nil {
