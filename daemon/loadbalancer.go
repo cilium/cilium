@@ -66,9 +66,6 @@ func (d *Daemon) SVCAdd(feL3n4Addr loadbalancer.L3n4AddrID, be []loadbalancer.LB
 	if feL3n4Addr.ID == 0 {
 		return false, fmt.Errorf("invalid service ID 0")
 	}
-	if _, err := service.AcquireID(feL3n4Addr.L3n4Addr, uint32(feL3n4Addr.ID)); err != nil {
-		return false, fmt.Errorf("unable to store service %s in kvstore: %s", feL3n4Addr.String(), err)
-	}
 
 	return d.svcAdd(feL3n4Addr, be, addRevNAT, false)
 }
@@ -89,6 +86,13 @@ func (d *Daemon) svcAdd(
 		logfields.Object:    logfields.Repr(bes),
 	})
 	scopedLog.Debug("adding service")
+
+	feAddrID, err := service.AcquireID(feL3n4Addr.L3n4Addr, uint32(feL3n4Addr.ID))
+	if err != nil {
+		return false, fmt.Errorf("Unable to allocate service ID %d for %q: %s",
+			feL3n4Addr.ID, feL3n4Addr.String(), err)
+	}
+	feL3n4Addr.ID = feAddrID.ID
 
 	// Move the slice to the loadbalancer map which has a mutex. If we don't
 	// copy the slice we might risk changing memory that should be locked.
