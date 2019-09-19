@@ -39,8 +39,10 @@ type IPIdentityMappingListener interface {
 	// oldID is not nil; otherwise it is nil.
 	// hostIP is the IP address of the location of the cidr.
 	// hostIP is optional and may only be non-nil for an Upsert modification.
+	// k8sMeta contains the Kubernetes pod namespace and name behind the IP
+	// and may be nil.
 	OnIPIdentityCacheChange(modType CacheModification, cidr net.IPNet, oldHostIP, newHostIP net.IP,
-		oldID *identity.NumericIdentity, newID identity.NumericIdentity, encryptKey uint8)
+		oldID *identity.NumericIdentity, newID identity.NumericIdentity, encryptKey uint8, k8sMeta *K8sMetadata)
 
 	// OnIPIdentityCacheGC will be called to sync other components which are
 	// reliant upon the IPIdentityCache with the IPIdentityCache.
