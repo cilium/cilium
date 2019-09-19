@@ -31,28 +31,26 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// addSVC2BPFMap adds the given bpf service to the bpf maps. If addRevNAT is set, adds the
-// RevNAT value (feCilium.L3n4Addr) to the lb's RevNAT map for the given feCilium.ID.
+// addSVC2BPFMap adds the given bpf service to the bpf maps.
 func (d *Daemon) addSVC2BPFMap(feCilium loadbalancer.L3n4AddrID, feBPF lbmap.ServiceKey,
 	besBPF []lbmap.ServiceValue,
-	svcKeyV2 lbmap.ServiceKeyV2, svcValuesV2 []lbmap.ServiceValueV2, backendsV2 []lbmap.Backend,
-	addRevNAT bool) error {
+	svcKeyV2 lbmap.ServiceKeyV2, svcValuesV2 []lbmap.ServiceValueV2,
+	backendsV2 []lbmap.Backend) error {
+
 	log.WithField(logfields.ServiceName, feCilium.String()).Debug("adding service to BPF maps")
 
 	revNATID := int(feCilium.ID)
 
-	if err := lbmap.UpdateService(feBPF, besBPF, addRevNAT, revNATID,
+	if err := lbmap.UpdateService(feBPF, besBPF, revNATID,
 		service.AcquireBackendID, service.DeleteBackendID); err != nil {
-		if addRevNAT {
-			delete(d.loadBalancer.RevNATMap, loadbalancer.ServiceID(feCilium.ID))
-		}
+
+		delete(d.loadBalancer.RevNATMap, loadbalancer.ServiceID(feCilium.ID))
 		return err
 	}
 
-	if addRevNAT {
-		log.WithField(logfields.ServiceName, feCilium.String()).Debug("adding service to RevNATMap")
-		d.loadBalancer.RevNATMap[loadbalancer.ServiceID(feCilium.ID)] = *feCilium.L3n4Addr.DeepCopy()
-	}
+	log.WithField(logfields.ServiceName, feCilium.String()).Debug("adding service to RevNATMap")
+	d.loadBalancer.RevNATMap[loadbalancer.ServiceID(feCilium.ID)] = *feCilium.L3n4Addr.DeepCopy()
+
 	return nil
 }
 
@@ -61,13 +59,13 @@ func (d *Daemon) addSVC2BPFMap(feCilium loadbalancer.L3n4AddrID, feBPF lbmap.Ser
 // returned to the caller.
 //
 // Returns true if service was created.
-func (d *Daemon) SVCAdd(feL3n4Addr loadbalancer.L3n4AddrID, be []loadbalancer.LBBackEnd, addRevNAT bool) (bool, error) {
+func (d *Daemon) SVCAdd(feL3n4Addr loadbalancer.L3n4AddrID, be []loadbalancer.LBBackEnd) (bool, error) {
 	log.WithField(logfields.ServiceID, feL3n4Addr.String()).Debug("adding service")
 	if feL3n4Addr.ID == 0 {
 		return false, fmt.Errorf("invalid service ID 0")
 	}
 
-	created, id, err := d.svcAdd(feL3n4Addr, be, addRevNAT, false)
+	created, id, err := d.svcAdd(feL3n4Addr, be, false)
 	if err == nil && id != feL3n4Addr.ID {
 		return false,
 			fmt.Errorf("the service provided is already registered with ID %d, please use that ID instead of %d",
@@ -78,7 +76,6 @@ func (d *Daemon) SVCAdd(feL3n4Addr loadbalancer.L3n4AddrID, be []loadbalancer.LB
 }
 
 // svcAdd adds a service from the given feL3n4Addr (frontend) and LBBackEnd (backends).
-// If addRevNAT is set, the RevNAT entry is also created for this particular service.
 // If any of the backend addresses set in bes have a different L3 address type than the
 // one set in fe, it returns an error without modifying the bpf LB map. If any backend
 // entry fails while updating the LB map, the frontend won't be inserted in the LB map
@@ -86,7 +83,7 @@ func (d *Daemon) SVCAdd(feL3n4Addr loadbalancer.L3n4AddrID, be []loadbalancer.LB
 // All of the backends added will be DeepCopied to the internal load balancer map.
 func (d *Daemon) svcAdd(
 	feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.LBBackEnd,
-	addRevNAT, nodePort bool) (bool, loadbalancer.ID, error) {
+	nodePort bool) (bool, loadbalancer.ID, error) {
 
 	var err error
 
@@ -139,7 +136,7 @@ func (d *Daemon) svcAdd(
 	d.loadBalancer.BPFMapMU.Lock()
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
-	err = d.addSVC2BPFMap(feL3n4Addr, fe, besValues, svcKeyV2, svcValuesV2, backendsV2, addRevNAT)
+	err = d.addSVC2BPFMap(feL3n4Addr, fe, besValues, svcKeyV2, svcValuesV2, backendsV2)
 	if err != nil {
 		return false, loadbalancer.ID(0), err
 	}
@@ -194,7 +191,7 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 	// Add flag to indicate whether service should be registered in
 	// global key value store
 
-	if created, err := h.d.SVCAdd(frontend, backends, true); err != nil {
+	if created, err := h.d.SVCAdd(frontend, backends); err != nil {
 		return api.Error(PutServiceIDFailureCode, err)
 	} else if created {
 		return NewPutServiceIDCreated()
@@ -525,7 +522,7 @@ func (d *Daemon) SyncLBMap() error {
 				" This entry will be removed from the bpf's LB map.", svc.FE.String(), svc.BES, err)
 		}
 
-		err = d.addSVC2BPFMap(svc.FE, fe, besValues, svcKeyV2, svcValuesV2, backendsV2, false)
+		err = d.addSVC2BPFMap(svc.FE, fe, besValues, svcKeyV2, svcValuesV2, backendsV2)
 		if err != nil {
 			return fmt.Errorf("Unable to add service FE: %s: %s."+
 				" This entry will be removed from the bpf's LB map.", svc.FE.String(), err)
