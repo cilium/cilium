@@ -66,6 +66,9 @@ const (
 	// CIIntegrationEKS contains the constants to be used when running tests on EKS.
 	CIIntegrationEKS = "eks"
 
+	// CIIntegrationMicrok8s contains the constant to be used when running tests on microk8s.
+	CIIntegrationMicrok8s = "microk8s"
+
 	LogGathererSelector  = "k8s-app=cilium-test-logs"
 	LogGathererNamespace = "kube-system"
 )
@@ -107,12 +110,22 @@ var (
 		"global.nodeinit.enabled":       "true",
 	}
 
+	microk8sHelmOverrides = map[string]string{
+		"global.cni.confPath":                 "/var/snap/microk8s/current/args/cni-network",
+		"global.cni.binPath":                  "/var/snap/microk8s/current/opt/cni/bin",
+		"global.cni.customConf":               "true",
+		"global.containerRuntime.integration": "containerd",
+		"global.containerRuntime.socketPath":  "/var/snap/microk8s/common/run/containerd.sock",
+		"global.daemon.runPath":               "/var/snap/microk8s/current/var/run/cilium",
+	}
+
 	// helmOverrides allows overriding of cilium-agent options for
 	// specific CI environment integrations.
 	// The key must be a string consisting of lower case characters.
 	helmOverrides = map[string]map[string]string{
 		CIIntegrationFlannel:  flannelHelmOverrides,
 		CIIntegrationEKS:      eksHelmOverrides,
+		CIIntegrationMicrok8s: microk8sHelmOverrides,
 	}
 )
 
