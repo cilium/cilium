@@ -63,7 +63,7 @@ func upsertEndpointRoute(ep endpoint, ip net.IPNet) error {
 		Scope:  netlink.SCOPE_LINK,
 	}
 
-	_, err := route.Upsert(endpointRoute, nil)
+	_, err := route.Upsert(endpointRoute)
 	return err
 }
 
