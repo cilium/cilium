@@ -53,6 +53,16 @@ and the token returned by ``kubeadm init``:
 
    kubeadm join <..>
 
+.. note:: Newer kernels do not include ``br_netfilter`` module, so you might need to disable netfilter preflight check
+          when running your kubeadm ``init`` and ``join`` commands:
+
+          .. code:: bash
+
+             kubeadm <..> --ignore-preflight-errors=FileContent--proc-sys-net-bridge-bridge-nf-call-iptables
+
+          Cilium does not depend on any bridge device whether running with kube-proxy or not,
+          so it's safe to skip this step.
+
 .. include:: k8s-install-download-release.rst
 
 Next, generate the required YAML files and deploy them. Replace ``$API_SERVER_IP``
