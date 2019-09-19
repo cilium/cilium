@@ -83,7 +83,7 @@ func allocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
 
 	// Only upsert into ipcache if identity wasn't allocated before.
 	for prefixString, id := range newlyAllocatedIdentities {
-		IPIdentityCache.Upsert(prefixString, nil, 0, Identity{
+		IPIdentityCache.Upsert(prefixString, nil, 0, nil, Identity{
 			ID:     id.ID,
 			Source: source.Generated,
 		})

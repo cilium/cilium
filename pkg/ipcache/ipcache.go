@@ -48,6 +48,14 @@ type IPKeyPair struct {
 	Key uint8
 }
 
+// K8sMetadata contains Kubernetes pod information of the IP
+type K8sMetadata struct {
+	// Namespace is the Kubernetes namespace of the pod behind the IP
+	Namespace string
+	// PodName is the Kubernetes pod name behind the IP
+	PodName string
+}
+
 // IPCache is a collection of mappings:
 // - mapping of endpoint IP or CIDR to security identities of all endpoints
 //   which are part of the same cluster, and vice-versa
@@ -57,6 +65,7 @@ type IPCache struct {
 	ipToIdentityCache map[string]Identity
 	identityToIPCache map[identity.NumericIdentity]map[string]struct{}
 	ipToHostIPCache   map[string]IPKeyPair
+	ipToK8sMetadata   map[string]K8sMetadata
 
 	// prefixLengths reference-count the number of CIDRs that use
 	// particular prefix lengths for the mask.
@@ -74,6 +83,7 @@ func NewIPCache() *IPCache {
 		ipToIdentityCache: map[string]Identity{},
 		identityToIPCache: map[identity.NumericIdentity]map[string]struct{}{},
 		ipToHostIPCache:   map[string]IPKeyPair{},
+		ipToK8sMetadata:   map[string]K8sMetadata{},
 		v4PrefixLengths:   map[int]int{},
 		v6PrefixLengths:   map[int]int{},
 	}
@@ -139,6 +149,13 @@ func (ipc *IPCache) getHostIPCache(ip string) (net.IP, uint8) {
 	return ipKeyPair.IP, ipKeyPair.Key
 }
 
+func (ipc *IPCache) getK8sMetadata(ip string) *K8sMetadata {
+	if k8sMeta, ok := ipc.ipToK8sMetadata[ip]; ok {
+		return &k8sMeta
+	}
+	return nil
+}
+
 // Upsert adds / updates the provided IP (endpoint or CIDR prefix) and identity
 // into the IPCache.
 //
@@ -146,8 +163,9 @@ func (ipc *IPCache) getHostIPCache(ip string) (net.IP, uint8) {
 // returns false if the kubernetes layer is trying to upsert an entry now
 // managed by the kvstore layer. See source.AllowOverwrite() for rules on
 // ownership. hostIP is the location of the given IP. It is optional (may be
-// nil) and is propagated to the listeners.
-func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, newIdentity Identity) bool {
+// nil) and is propagated to the listeners. k8sMeta contains Kubernetes-specific
+// metadata such as pod namespace and pod name belonging to the IP (may be nil).
+func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8sMetadata, newIdentity Identity) bool {
 	scopedLog := log
 	if option.Config.Debug {
 		scopedLog = log.WithFields(logrus.Fields{
@@ -165,6 +183,7 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, newIdentity 
 	callbackListeners := true
 
 	oldHostIP, oldHostKey := ipc.getHostIPCache(ip)
+	oldK8sMeta := ipc.ipToK8sMetadata[ip]
 
 	cachedIdentity, found := ipc.ipToIdentityCache[ip]
 	if found {
@@ -174,7 +193,8 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, newIdentity 
 
 		// Skip update if IP is already mapped to the given identity
 		// and the host IP hasn't changed.
-		if cachedIdentity == newIdentity && oldHostIP.Equal(hostIP) && hostKey == oldHostKey {
+		if cachedIdentity == newIdentity && oldHostIP.Equal(hostIP) &&
+			hostKey == oldHostKey && oldK8sMeta.Equal(k8sMeta) {
 			return true
 		}
 
@@ -246,9 +266,15 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, newIdentity 
 		ipc.ipToHostIPCache[ip] = IPKeyPair{IP: hostIP, Key: hostKey}
 	}
 
+	if k8sMeta == nil {
+		delete(ipc.ipToK8sMetadata, ip)
+	} else {
+		ipc.ipToK8sMetadata[ip] = *k8sMeta
+	}
+
 	if callbackListeners {
 		for _, listener := range ipc.listeners {
-			listener.OnIPIdentityCacheChange(Upsert, *cidr, oldHostIP, hostIP, oldIdentity, newIdentity.ID, hostKey)
+			listener.OnIPIdentityCacheChange(Upsert, *cidr, oldHostIP, hostIP, oldIdentity, newIdentity.ID, hostKey, k8sMeta)
 		}
 	}
 
@@ -260,12 +286,13 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, newIdentity 
 func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
 	for ip, identity := range ipc.ipToIdentityCache {
 		hostIP, encryptKey := ipc.getHostIPCache(ip)
+		k8sMeta := ipc.getK8sMetadata(ip)
 		_, cidr, err := net.ParseCIDR(ip)
 		if err != nil {
 			endpointIP := net.ParseIP(ip)
 			cidr = endpointIPToCIDR(endpointIP)
 		}
-		listener.OnIPIdentityCacheChange(Upsert, *cidr, nil, hostIP, nil, identity.ID, encryptKey)
+		listener.OnIPIdentityCacheChange(Upsert, *cidr, nil, hostIP, nil, identity.ID, encryptKey, k8sMeta)
 	}
 }
 
@@ -291,6 +318,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) {
 	var cidr *net.IPNet
 	cacheModification := Delete
 	oldHostIP, encryptKey := ipc.getHostIPCache(ip)
+	oldK8sMeta := ipc.getK8sMetadata(ip)
 	var newHostIP net.IP
 	var oldIdentity *identity.NumericIdentity
 	newIdentity := cachedIdentity
@@ -338,11 +366,12 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) {
 		delete(ipc.identityToIPCache, cachedIdentity.ID)
 	}
 	delete(ipc.ipToHostIPCache, ip)
+	delete(ipc.ipToK8sMetadata, ip)
 
 	if callbackListeners {
 		for _, listener := range ipc.listeners {
 			listener.OnIPIdentityCacheChange(cacheModification, *cidr, oldHostIP, newHostIP,
-				oldIdentity, newIdentity.ID, encryptKey)
+				oldIdentity, newIdentity.ID, encryptKey, oldK8sMeta)
 		}
 	}
 }
@@ -415,4 +444,16 @@ func (ipc *IPCache) LookupByIdentity(id identity.NumericIdentity) (map[string]st
 func GetIPIdentityMapModel() {
 	// TODO (ianvernon) return model of ip to identity mapping. For use in CLI.
 	// see GH-2555
+}
+
+// Equal returns true if two K8sMetadata pointers contain the same data or are
+// both nil.
+func (m *K8sMetadata) Equal(o *K8sMetadata) bool {
+	if m == o {
+		return true
+	} else if m == nil || o == nil {
+		return false
+	}
+
+	return m.Namespace == o.Namespace && m.PodName == m.PodName
 }

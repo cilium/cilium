@@ -504,7 +504,7 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 
 		// Upsert will not propagate (reserved:foo->ID) mappings across the cluster,
 		// and we specifically don't want to do so.
-		ipcache.IPIdentityCache.Upsert(ipIDPair.PrefixString(), nil, hostKey, ipcache.Identity{
+		ipcache.IPIdentityCache.Upsert(ipIDPair.PrefixString(), nil, hostKey, nil, ipcache.Identity{
 			ID:     ipIDPair.ID,
 			Source: source.Local,
 		})

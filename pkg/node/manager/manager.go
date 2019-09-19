@@ -294,7 +294,7 @@ func (m *Manager) NodeUpdated(n node.Node) {
 			continue
 		}
 
-		isOwning := ipcache.IPIdentityCache.Upsert(address.IP.String(), nodeIP, n.EncryptionKey, ipcache.Identity{
+		isOwning := ipcache.IPIdentityCache.Upsert(address.IP.String(), nodeIP, n.EncryptionKey, nil, ipcache.Identity{
 			ID:     identity.ReservedIdentityHost,
 			Source: n.Source,
 		})
@@ -313,7 +313,7 @@ func (m *Manager) NodeUpdated(n node.Node) {
 				continue
 			}
 
-			isOwning := ipcache.IPIdentityCache.Upsert(address.IP.String(), nodeIP4, n.EncryptionKey, ipcache.Identity{
+			isOwning := ipcache.IPIdentityCache.Upsert(address.IP.String(), nodeIP4, n.EncryptionKey, nil, ipcache.Identity{
 				ID:     identity.ReservedIdentityHost,
 				Source: n.Source,
 			})
@@ -327,7 +327,7 @@ func (m *Manager) NodeUpdated(n node.Node) {
 		if address == nil {
 			continue
 		}
-		isOwning := ipcache.IPIdentityCache.Upsert(address.String(), n.GetNodeIP(false), n.EncryptionKey, ipcache.Identity{
+		isOwning := ipcache.IPIdentityCache.Upsert(address.String(), n.GetNodeIP(false), n.EncryptionKey, nil, ipcache.Identity{
 			ID:     identity.ReservedIdentityHealth,
 			Source: n.Source,
 		})

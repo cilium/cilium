@@ -104,14 +104,17 @@ func newKVReferenceCounter(s store) *kvReferenceCounter {
 
 // UpsertIPToKVStore updates / inserts the provided IP->Identity mapping into the
 // kvstore, which will subsequently trigger an event in NewIPIdentityWatcher().
-func UpsertIPToKVStore(ctx context.Context, IP, hostIP net.IP, ID identity.NumericIdentity, key uint8, metadata string) error {
+func UpsertIPToKVStore(ctx context.Context, IP, hostIP net.IP, ID identity.NumericIdentity, key uint8,
+	metadata, k8sNamespace, k8sPodName string) error {
 	ipKey := path.Join(IPIdentitiesPath, AddressSpace, IP.String())
 	ipIDPair := identity.IPIdentityPair{
-		IP:       IP,
-		ID:       ID,
-		Metadata: metadata,
-		HostIP:   hostIP,
-		Key:      key,
+		IP:           IP,
+		ID:           ID,
+		Metadata:     metadata,
+		HostIP:       hostIP,
+		Key:          key,
+		K8sNamespace: k8sNamespace,
+		K8sPodName:   k8sPodName,
 	}
 
 	marshaledIPIDPair, err := json.Marshal(ipIDPair)
@@ -266,8 +269,15 @@ restart:
 					scopedLog.Debug("Ignoring entry with nil IP")
 					continue
 				}
+				var k8sMeta *K8sMetadata
+				if ipIDPair.K8sNamespace != "" || ipIDPair.K8sPodName != "" {
+					k8sMeta = &K8sMetadata{
+						Namespace: ipIDPair.K8sNamespace,
+						PodName:   ipIDPair.K8sPodName,
+					}
+				}
 
-				IPIdentityCache.Upsert(ip, ipIDPair.HostIP, ipIDPair.Key, Identity{
+				IPIdentityCache.Upsert(ip, ipIDPair.HostIP, ipIDPair.Key, k8sMeta, Identity{
 					ID:     ipIDPair.ID,
 					Source: source.KVStore,
 				})

@@ -1483,10 +1483,15 @@ func (d *Daemon) updatePodHostIP(pod *types.Pod) (bool, error) {
 
 	hostKey := node.GetIPsecKeyIdentity()
 
+	k8sMeta := &ipcache.K8sMetadata{
+		Namespace: pod.Namespace,
+		PodName:   pod.Name,
+	}
+
 	// Initial mapping of podIP <-> hostIP <-> identity. The mapping is
 	// later updated once the allocator has determined the real identity.
 	// If the endpoint remains unmanaged, the identity remains untouched.
-	selfOwned := ipcache.IPIdentityCache.Upsert(pod.StatusPodIP, hostIP, hostKey, ipcache.Identity{
+	selfOwned := ipcache.IPIdentityCache.Upsert(pod.StatusPodIP, hostIP, hostKey, k8sMeta, ipcache.Identity{
 		ID:     identity.ReservedIdentityUnmanaged,
 		Source: source.Kubernetes,
 	})
@@ -1695,14 +1700,19 @@ func endpointUpdated(endpoint *types.CiliumEndpoint) {
 			return
 		}
 
+		k8sMeta := &ipcache.K8sMetadata{
+			Namespace: endpoint.Namespace,
+			PodName:   endpoint.Name,
+		}
+
 		for _, pair := range endpoint.Networking.Addressing {
 			if pair.IPV4 != "" {
-				ipcache.IPIdentityCache.Upsert(pair.IPV4, nodeIP, encryptionKey,
+				ipcache.IPIdentityCache.Upsert(pair.IPV4, nodeIP, encryptionKey, k8sMeta,
 					ipcache.Identity{ID: id, Source: source.CustomResource})
 			}
 
 			if pair.IPV6 != "" {
-				ipcache.IPIdentityCache.Upsert(pair.IPV6, nodeIP, encryptionKey,
+				ipcache.IPIdentityCache.Upsert(pair.IPV6, nodeIP, encryptionKey, k8sMeta,
 					ipcache.Identity{ID: id, Source: source.CustomResource})
 			}
 		}
