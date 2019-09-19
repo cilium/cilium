@@ -16,6 +16,9 @@ package k8sTest
 
 import (
 	"fmt"
+	"io/ioutil"
+	"regexp"
+	"strconv"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -28,6 +31,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 	var kubectl *helpers.Kubectl
 	var demoDSPath string
 	var ipsecDSPath string
+	var monitorLog = "monitor-aggregation.log"
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
@@ -84,6 +88,82 @@ var _ = Describe("K8sDatapathConfig", func() {
 		err = kubectl.CiliumEndpointWaitReady()
 		ExpectWithOffset(1, err).To(BeNil(), "Failure while waiting for all cilium endpoints to reach ready state")
 	}
+
+	Context("MonitorAggregation", func() {
+		It("Checks that monitor aggregation restricts notifications", func() {
+			deployCilium([]string{
+				"--set global.bpf.monitorAggregation=medium",
+				"--set global.bpf.monitorInterval=60s",
+				"--set global.bpf.monitorFlags=syn",
+				"--set global.debug.enabled=false",
+			})
+			nodeName := helpers.K8s1
+
+			var err error
+			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, nodeName)
+			Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
+
+			By(fmt.Sprintf("Launching cilium monitor on %q", ciliumPodK8s1))
+			monitorStop := kubectl.MonitorStart(helpers.KubeSystemNamespace, ciliumPodK8s1, monitorLog)
+			result, targetIP := testPodConnectivityAcrossNodesAndReturnIP(kubectl, 1)
+			monitorStop()
+			cleanService()
+			Expect(result).Should(BeTrue(), "Connectivity test between nodes failed")
+
+			monitorPath := fmt.Sprintf("%s/%s", helpers.ReportDirectoryPath(), monitorLog)
+			By("Reading the monitor log at %s", monitorPath)
+			monitorOutput, err := ioutil.ReadFile(monitorPath)
+			Expect(err).To(BeNil(), "Could not read monitor log")
+
+			By("Checking that exactly one ICMP notification in each direction was observed")
+			expEgress := fmt.Sprintf("ICMPv4.*DstIP=%s", targetIP)
+			expEgressRegex := regexp.MustCompile(expEgress)
+			egressMatches := expEgressRegex.FindAllIndex(monitorOutput, -1)
+			Expect(len(egressMatches)).To(Equal(1), "Monitor log contained unexpected number of egress notifications matching %q", expEgress)
+
+			expIngress := fmt.Sprintf("ICMPv4.*SrcIP=%s", targetIP)
+			expIngressRegex := regexp.MustCompile(expIngress)
+			ingressMatches := expIngressRegex.FindAllIndex(monitorOutput, -1)
+			Expect(len(ingressMatches)).To(Equal(1), "Monitor log contained unexpected number of ingress notifications matching %q", expIngress)
+
+			By("Checking the set of TCP notifications received matches expectations")
+			// | TCP Flags | Direction | Report? | Why?
+			// +===========+===========+=========+=====
+			// | SYN       |    ->     |    Y    | monitorFlags=SYN
+			// | SYN / ACK |    <-     |    Y    | monitorFlags=SYN
+			// | ACK       |    ->     |    N    | monitorFlags=(!ACK)
+			// | ACK       |    ...    |    N    | monitorFlags=(!ACK)
+			// | ACK       |    <-     |    N    | monitorFlags=(!ACK)
+			// | FIN       |    ->     |    Y    | monitorAggregation=medium
+			// | FIN / ACK |    <-     |    Y    | monitorAggregation=medium
+			// | ACK       |    ->     |    Y    | monitorAggregation=medium
+
+			// Multiple connection attempts may be made, we need to
+			// narrow down to the last connection close, then match
+			// the ephemeral port + flags to ensure that the
+			// notifications match the table above.
+			egressTCPExpr := `TCP.*DstPort=80.*FIN=true`
+			egressTCPRegex := regexp.MustCompile(egressTCPExpr)
+			egressTCPMatches := egressTCPRegex.FindAll(monitorOutput, -1)
+			Expect(len(egressTCPMatches)).To(BeNumerically(">", 0), "Could not locate final FIN notification in monitor log")
+			finalMatch := egressTCPMatches[len(egressTCPMatches)-1]
+			portRegex := regexp.MustCompile(`SrcPort=([0-9]*)`)
+			// FindSubmatch should return ["SrcPort=12345" "12345"]
+			portBytes := portRegex.FindSubmatch(finalMatch)[1]
+
+			By("Looking for TCP notifications using the ephemeral port %q", portBytes)
+			port, err := strconv.Atoi(string(portBytes))
+			Expect(err).To(BeNil(), fmt.Sprintf("ephemeral port %q could not be converted to integer", string(portBytes)))
+			expEgress = fmt.Sprintf("SrcPort=%d", port)
+			expEgressRegex = regexp.MustCompile(expEgress)
+			egressMatches = expEgressRegex.FindAllIndex(monitorOutput, -1)
+			Expect(len(egressMatches)).To(Equal(3), "Monitor log contained unexpected number of egress notifications matching %q", expEgress)
+			expIngress = fmt.Sprintf("DstPort=%d", port)
+			expIngressRegex = regexp.MustCompile(expIngress)
+			ingressMatches = expIngressRegex.FindAllIndex(monitorOutput, -1)
+			Expect(len(ingressMatches)).To(Equal(2), "Monitor log contained unexpected number of ingress notifications matching %q", expIngress)
+		})
+	})
 
 	Context("Encapsulation", func() {
 		BeforeEach(func() {
@@ -222,6 +302,11 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 })
 
+func testPodConnectivityAcrossNodes(kubectl *helpers.Kubectl) bool {
+	result, _ := testPodConnectivityAcrossNodesAndReturnIP(kubectl, 1)
+	return result
+}
+
 func fetchPodsWithOffset(kubectl *helpers.Kubectl, name, filter, hostIPAntiAffinity string, callOffset int) (targetPod string, targetPodJSON *helpers.CmdRes) {
 	callOffset++
 
@@ -253,8 +338,8 @@ func fetchPodsWithOffset(kubectl *helpers.Kubectl, name, filter, hostIPAntiAffin
 	return targetPod, targetPodJSON
 }
 
-func testPodConnectivityAcrossNodes(kubectl *helpers.Kubectl) bool {
-	callOffset := 1
+func testPodConnectivityAcrossNodesAndReturnIP(kubectl *helpers.Kubectl, callOffset int) (bool, string) {
+	callOffset++
 
 	By("Checking pod connectivity between nodes")
 
@@ -270,11 +355,11 @@ func testPodConnectivityAcrossNodes(kubectl *helpers.Kubectl) bool {
 	// ICMP connectivity test
 	res := kubectl.ExecPodCmd(helpers.DefaultNamespace, srcPod, helpers.Ping(targetIP))
 	if !res.WasSuccessful() {
-		return false
+		return false, targetIP
 	}
 
 	// HTTP connectivity test
 	res = kubectl.ExecPodCmd(helpers.DefaultNamespace, srcPod,
 		helpers.CurlFail("http://%s:80/", targetIP))
-	return res.WasSuccessful()
+	return res.WasSuccessful(), targetIP
 }
