@@ -66,27 +66,8 @@ func (d *Daemon) SVCAdd(feL3n4Addr loadbalancer.L3n4AddrID, be []loadbalancer.LB
 	if feL3n4Addr.ID == 0 {
 		return false, fmt.Errorf("invalid service ID 0")
 	}
-	// Check if the service is already registered with this ID.
-	feAddr, err := service.GetID(uint32(feL3n4Addr.ID))
-	if err != nil {
-		return false, fmt.Errorf("unable to get service %d: %s", feL3n4Addr.ID, err)
-	}
-	if feAddr == nil {
-		feAddr, err = service.AcquireID(feL3n4Addr.L3n4Addr, uint32(feL3n4Addr.ID))
-		if err != nil {
-			return false, fmt.Errorf("unable to store service %s in kvstore: %s", feL3n4Addr.String(), err)
-		}
-		// This won't be atomic so we need to check if the baseID, feL3n4Addr.ID was given to the service
-		if feAddr.ID != feL3n4Addr.ID {
-			return false, fmt.Errorf("the service provided %s is already registered with ID %d, please use that ID instead of %d", feL3n4Addr.L3n4Addr.String(), feAddr.ID, feL3n4Addr.ID)
-		}
-	}
-
-	feAddr256Sum := feAddr.L3n4Addr.SHA256Sum()
-	feL3n4Addr256Sum := feL3n4Addr.L3n4Addr.SHA256Sum()
-
-	if feAddr256Sum != feL3n4Addr256Sum {
-		return false, fmt.Errorf("service ID %d is already registered to L3n4Addr %s, please choose a different ID", feL3n4Addr.ID, feAddr.String())
+	if _, err := service.AcquireID(feL3n4Addr.L3n4Addr, uint32(feL3n4Addr.ID)); err != nil {
+		return false, fmt.Errorf("unable to store service %s in kvstore: %s", feL3n4Addr.String(), err)
 	}
 
 	return d.svcAdd(feL3n4Addr, be, addRevNAT, false)
