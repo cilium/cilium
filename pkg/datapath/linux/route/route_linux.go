@@ -21,8 +21,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/cilium/cilium/pkg/mtu"
-
 	"github.com/vishvananda/netlink"
 )
 
@@ -239,7 +237,7 @@ func deleteNexthopRoute(route Route, link netlink.Link, routerNet *net.IPNet) er
 // EINVAL if the Netlink calls are issued in short order.
 //
 // An error is returned if the route can not be added or updated.
-func Upsert(route Route, mtuConfig *mtu.Configuration) (bool, error) {
+func Upsert(route Route) (bool, error) {
 	var nexthopRouteCreated bool
 
 	link, err := netlink.LinkByName(route.Device)
@@ -258,17 +256,6 @@ func Upsert(route Route, mtuConfig *mtu.Configuration) (bool, error) {
 
 	routeSpec := route.getNetlinkRoute()
 	routeSpec.LinkIndex = link.Attrs().Index
-
-	if mtuConfig != nil {
-		// If the route includes the local address, then the route is for
-		// local containers and we can use a high MTU for transmit. Otherwise,
-		// it needs to be able to fit within the MTU of tunnel devices.
-		if route.Prefix.Contains(route.Local) {
-			routeSpec.MTU = mtuConfig.GetDeviceMTU()
-		} else {
-			routeSpec.MTU = mtuConfig.GetRouteMTU()
-		}
-	}
 
 	err = fmt.Errorf("routeReplace not called yet")
 
