@@ -29,7 +29,6 @@ import (
 )
 
 var (
-	addRev   bool
 	idU      uint64
 	frontend string
 	backends []string
@@ -46,7 +45,6 @@ var serviceUpdateCmd = &cobra.Command{
 
 func init() {
 	serviceCmd.AddCommand(serviceUpdateCmd)
-	serviceUpdateCmd.Flags().BoolVarP(&addRev, "rev", "", true, "Add reverse translation")
 	serviceUpdateCmd.Flags().Uint64VarP(&idU, "id", "", 0, "Identifier")
 	serviceUpdateCmd.Flags().StringVarP(&frontend, "frontend", "", "", "Frontend address")
 	serviceUpdateCmd.Flags().StringSliceVarP(&backends, "backends", "", []string{}, "Backend address or addresses followed by optional weight (<IP:Port>[/weight])")
@@ -92,7 +90,6 @@ func updateService(cmd *cobra.Command, args []string) {
 	}
 
 	spec.FrontendAddress = fa
-	spec.Flags.DirectServerReturn = addRev
 
 	if len(backends) == 0 {
 		fmt.Printf("Reading backend list from stdin...\n")
