@@ -47,7 +47,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/serializer"
-	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/spanstat"
 
@@ -1190,7 +1189,7 @@ func (d *Daemon) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s.End
 
 	repPorts := svcInfo.UniquePorts()
 
-	frontends := []*loadbalancer.L3n4AddrID{}
+	frontends := []*loadbalancer.L3n4Addr{}
 
 	for portName, svcPort := range svcInfo.Ports {
 		if !repPorts[svcPort.Port] {
@@ -1198,33 +1197,20 @@ func (d *Daemon) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s.End
 		}
 		repPorts[svcPort.Port] = false
 
-		fe := loadbalancer.NewL3n4AddrID(svcPort.Protocol, svcInfo.FrontendIP, svcPort.Port, loadbalancer.ID(svcPort.ID))
+		fe := loadbalancer.NewL3n4Addr(svcPort.Protocol, svcInfo.FrontendIP, svcPort.Port)
 		frontends = append(frontends, fe)
 
 		for _, nodePortFE := range svcInfo.NodePorts[portName] {
-			frontends = append(frontends, nodePortFE)
+			frontends = append(frontends, &nodePortFE.L3n4Addr)
 		}
 	}
 
 	for _, fe := range frontends {
-		if fe.ID != 0 {
-			if err := service.DeleteID(uint32(fe.ID)); err != nil {
-				scopedLog.WithError(err).Warn("Error while cleaning service ID")
-			}
-		}
-
-		if err := d.svcDeleteByFrontend(fe); err != nil {
+		if err := d.svcDelete(fe); err != nil {
 			scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(fe)).
 				Warn("Error deleting service by frontend")
-			continue
 		} else {
 			scopedLog.Debugf("# cilium lb delete-service %s %d 0", fe.IP, fe.Port)
-		}
-
-		if err := d.RevNATDelete(loadbalancer.ServiceID(fe.ID)); err != nil {
-			scopedLog.WithError(err).WithField(logfields.ServiceID, fe.ID).Warn("Error deleting reverse NAT")
-		} else {
-			scopedLog.Debugf("# cilium lb delete-rev-nat %d", fe.ID)
 		}
 	}
 	return nil
