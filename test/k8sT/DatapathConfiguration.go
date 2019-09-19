@@ -269,5 +269,12 @@ func testPodConnectivityAcrossNodes(kubectl *helpers.Kubectl) bool {
 
 	// ICMP connectivity test
 	res := kubectl.ExecPodCmd(helpers.DefaultNamespace, srcPod, helpers.Ping(targetIP))
+	if !res.WasSuccessful() {
+		return false
+	}
+
+	// HTTP connectivity test
+	res = kubectl.ExecPodCmd(helpers.DefaultNamespace, srcPod,
+		helpers.CurlFail("http://%s:80/", targetIP))
 	return res.WasSuccessful()
 }
