@@ -211,50 +211,61 @@ func NewDeleteServiceIDHandler(d *Daemon) DeleteServiceIDHandler {
 func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /service/{id} request")
 
-	d := h.d
+	found, err := h.d.svcDeleteByID(loadbalancer.ServiceID(params.ID))
+	switch {
+	case err != nil:
+		log.WithError(err).WithField(logfields.ServiceID, params.ID).
+			Warn("DELETE /service/{id}: error deleting service")
+		return api.Error(DeleteServiceIDFailureCode, err)
+	case !found:
+		return NewDeleteServiceIDNotFound()
+	default:
+		return NewDeleteServiceIDOK()
+	}
+}
+
+func (d *Daemon) svcDeleteByID(id loadbalancer.ServiceID) (bool, error) {
 	d.loadBalancer.BPFMapMU.Lock()
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
-	svc, ok := d.loadBalancer.SVCMapID[loadbalancer.ServiceID(params.ID)]
-
+	svc, ok := d.loadBalancer.SVCMapID[id]
 	if !ok {
-		return NewDeleteServiceIDNotFound()
+		return false, nil
 	}
-
-	// FIXME: How to handle error?
-	err := service.DeleteID(uint32(params.ID))
-
-	if err != nil {
-		log.WithError(err).Warn("error, DeleteL3n4AddrIDByUUID failed")
-	}
-
-	if err := h.d.svcDelete(svc); err != nil {
-		log.WithError(err).WithField(logfields.Object, logfields.Repr(svc)).Warn("DELETE /service/{id}: error deleting service")
-		return api.Error(DeleteServiceIDFailureCode, err)
-	}
-
-	return NewDeleteServiceIDOK()
+	return true, d.svcDeleteLocked(svc)
 }
 
-func (d *Daemon) svcDeleteByFrontendLocked(frontend *loadbalancer.L3n4AddrID) error {
+func (d *Daemon) svcDelete(frontend *loadbalancer.L3n4Addr) error {
+	d.loadBalancer.BPFMapMU.Lock()
+	defer d.loadBalancer.BPFMapMU.Unlock()
+
 	svc, ok := d.loadBalancer.SVCMap[frontend.SHA256Sum()]
 	if !ok {
-		return fmt.Errorf("Service frontend not found %+v", frontend)
+		return fmt.Errorf("Service not found %+v", frontend)
 	}
-	return d.svcDelete(&svc)
+
+	return d.svcDeleteLocked(&svc)
 }
 
-// Deletes a service by the frontend address
-func (d *Daemon) svcDeleteByFrontend(frontend *loadbalancer.L3n4AddrID) error {
-	d.loadBalancer.BPFMapMU.Lock()
-	defer d.loadBalancer.BPFMapMU.Unlock()
+func (d *Daemon) svcDeleteLocked(svc *loadbalancer.LBSVC) error {
+	svcID := loadbalancer.ServiceID(svc.FE.ID)
+	if err := service.DeleteID(uint32(svcID)); err != nil {
+		return fmt.Errorf("Unable to release service ID %d: %s", svcID, err)
+	}
 
-	return d.svcDeleteByFrontendLocked(frontend)
-}
-
-func (d *Daemon) svcDelete(svc *loadbalancer.LBSVC) error {
 	if err := d.svcDeleteBPF(svc.FE); err != nil {
-		return err
+		return fmt.Errorf("Deleting service from BPF maps failed: %s", err)
+	}
+
+	if revNAT, ok := d.loadBalancer.RevNATMap[svcID]; ok {
+		if err := lbmap.DeleteRevNATBPF(svcID, revNAT.IsIPv6()); err != nil {
+			return fmt.Errorf("Unable to delete revNAT for service %d: %s", svcID, err)
+		}
+
+		delete(d.loadBalancer.RevNATMap, svcID)
+	} else {
+		log.WithField(logfields.ServiceID, logfields.Repr(svc)).
+			Warn("Unable to find revNAT cache entry for service")
 	}
 
 	d.loadBalancer.DeleteService(svc)
