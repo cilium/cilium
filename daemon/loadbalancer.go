@@ -67,7 +67,14 @@ func (d *Daemon) SVCAdd(feL3n4Addr loadbalancer.L3n4AddrID, be []loadbalancer.LB
 		return false, fmt.Errorf("invalid service ID 0")
 	}
 
-	return d.svcAdd(feL3n4Addr, be, addRevNAT, false)
+	created, id, err := d.svcAdd(feL3n4Addr, be, addRevNAT, false)
+	if err == nil && id != feL3n4Addr.ID {
+		return false,
+			fmt.Errorf("the service provided is already registered with ID %d, please use that ID instead of %d",
+				id, feL3n4Addr.ID)
+	}
+
+	return created, err
 }
 
 // svcAdd adds a service from the given feL3n4Addr (frontend) and LBBackEnd (backends).
@@ -79,7 +86,7 @@ func (d *Daemon) SVCAdd(feL3n4Addr loadbalancer.L3n4AddrID, be []loadbalancer.LB
 // All of the backends added will be DeepCopied to the internal load balancer map.
 func (d *Daemon) svcAdd(
 	feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.LBBackEnd,
-	addRevNAT, nodePort bool) (bool, error) {
+	addRevNAT, nodePort bool) (bool, loadbalancer.ID, error) {
 
 	var err error
 
@@ -91,8 +98,9 @@ func (d *Daemon) svcAdd(
 
 	feAddrID, err := service.AcquireID(feL3n4Addr.L3n4Addr, uint32(feL3n4Addr.ID))
 	if err != nil {
-		return false, fmt.Errorf("Unable to allocate service ID %d for %q: %s",
-			feL3n4Addr.ID, feL3n4Addr, err)
+		return false, loadbalancer.ID(0),
+			fmt.Errorf("Unable to allocate service ID %d for %q: %s",
+				feL3n4Addr.ID, feL3n4Addr, err)
 	}
 	feL3n4Addr.ID = feAddrID.ID
 	defer func() {
@@ -120,12 +128,12 @@ func (d *Daemon) svcAdd(
 
 	fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(svc)
 	if err != nil {
-		return false, err
+		return false, loadbalancer.ID(0), err
 	}
 
 	svcKeyV2, svcValuesV2, backendsV2, err := lbmap.LBSVC2ServiceKeynValuenBackendV2(&svc)
 	if err != nil {
-		return false, err
+		return false, loadbalancer.ID(0), err
 	}
 
 	d.loadBalancer.BPFMapMU.Lock()
@@ -133,7 +141,7 @@ func (d *Daemon) svcAdd(
 
 	err = d.addSVC2BPFMap(feL3n4Addr, fe, besValues, svcKeyV2, svcValuesV2, backendsV2, addRevNAT)
 	if err != nil {
-		return false, err
+		return false, loadbalancer.ID(0), err
 	}
 
 	// Fill the just acquired backend IDs to ensure the consistent ordering
@@ -149,7 +157,7 @@ func (d *Daemon) svcAdd(
 		svc.BES[i].ID = id
 	}
 
-	return d.loadBalancer.AddService(svc), nil
+	return d.loadBalancer.AddService(svc), feAddrID.ID, nil
 }
 
 type putServiceID struct {
