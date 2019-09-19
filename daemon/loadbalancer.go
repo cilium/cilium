@@ -190,16 +190,11 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		backends = append(backends, *b)
 	}
 
-	revnat := false
-	if params.Config.Flags != nil {
-		revnat = params.Config.Flags.DirectServerReturn
-	}
-
 	// FIXME
 	// Add flag to indicate whether service should be registered in
 	// global key value store
 
-	if created, err := h.d.SVCAdd(frontend, backends, revnat); err != nil {
+	if created, err := h.d.SVCAdd(frontend, backends, true); err != nil {
 		return api.Error(PutServiceIDFailureCode, err)
 	} else if created {
 		return NewPutServiceIDCreated()

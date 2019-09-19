@@ -284,8 +284,7 @@ Add a new loadbalancer
 
     cilium service update --frontend 127.0.0.1:80 \
         --backends 127.0.0.2:90,127.0.0.3:90 \
-        --id 20 \
-        --rev 2
+        --id 20
 
 BPF
 ---
