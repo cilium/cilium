@@ -97,6 +97,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"--set global.bpf.monitorFlags=syn",
 				"--set global.debug.enabled=false",
 			})
+			// For local single-node testing, configure
+			// requireMultiNode to false and specify the node name.
+			requireMultiNode := true
 			nodeName := helpers.K8s1
 
 			var err error
@@ -105,7 +108,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 			By(fmt.Sprintf("Launching cilium monitor on %q", ciliumPodK8s1))
 			monitorStop := kubectl.MonitorStart(helpers.KubeSystemNamespace, ciliumPodK8s1, monitorLog)
-			result, targetIP := testPodConnectivityAcrossNodesAndReturnIP(kubectl, 1)
+			result, targetIP := testPodConnectivityAcrossNodesAndReturnIP(kubectl, requireMultiNode, 1)
 			monitorStop()
 			cleanService()
 			Expect(result).Should(BeTrue(), "Connectivity test between nodes failed")
@@ -303,11 +306,11 @@ var _ = Describe("K8sDatapathConfig", func() {
 })
 
 func testPodConnectivityAcrossNodes(kubectl *helpers.Kubectl) bool {
-	result, _ := testPodConnectivityAcrossNodesAndReturnIP(kubectl, 1)
+	result, _ := testPodConnectivityAcrossNodesAndReturnIP(kubectl, true, 1)
 	return result
 }
 
-func fetchPodsWithOffset(kubectl *helpers.Kubectl, name, filter, hostIPAntiAffinity string, callOffset int) (targetPod string, targetPodJSON *helpers.CmdRes) {
+func fetchPodsWithOffset(kubectl *helpers.Kubectl, name, filter, hostIPAntiAffinity string, requireMultiNode bool, callOffset int) (targetPod string, targetPodJSON *helpers.CmdRes) {
 	callOffset++
 
 	// Fetch pod (names) with the specified filter
@@ -315,6 +318,10 @@ func fetchPodsWithOffset(kubectl *helpers.Kubectl, name, filter, hostIPAntiAffin
 	ExpectWithOffset(callOffset, err).Should(BeNil(), "Failure while waiting for connectivity test pods to start")
 	pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, filter)
 	ExpectWithOffset(callOffset, err).Should(BeNil(), "Failure while retrieving pod name for %s", filter)
+	if requireMultiNode {
+		ExpectWithOffset(callOffset, len(pods)).Should(BeNumerically(">", 1),
+			fmt.Sprintf("This test requires at least two %s instances, but only one was found", name))
+	}
 
 	// Fetch the json description of one of the pods
 	targetPod = pods[0]
@@ -324,7 +331,7 @@ func fetchPodsWithOffset(kubectl *helpers.Kubectl, name, filter, hostIPAntiAffin
 
 	// If multinode / antiaffinity is required, ensure that the target is
 	// not on the same node as "hostIPAntiAffinity".
-	if hostIPAntiAffinity != "" {
+	if requireMultiNode && hostIPAntiAffinity != "" {
 		targetHost, err := targetPodJSON.Filter("{.status.hostIP}")
 		ExpectWithOffset(callOffset, err).Should(BeNil(), "Failure to retrieve host of pod %s", targetPod)
 
@@ -338,16 +345,16 @@ func fetchPodsWithOffset(kubectl *helpers.Kubectl, name, filter, hostIPAntiAffin
 	return targetPod, targetPodJSON
 }
 
-func testPodConnectivityAcrossNodesAndReturnIP(kubectl *helpers.Kubectl, callOffset int) (bool, string) {
+func testPodConnectivityAcrossNodesAndReturnIP(kubectl *helpers.Kubectl, requireMultiNode bool, callOffset int) (bool, string) {
 	callOffset++
 
 	By("Checking pod connectivity between nodes")
 
-	srcPod, srcPodJSON := fetchPodsWithOffset(kubectl, "client", "zgroup=testDSClient", "", callOffset)
+	srcPod, srcPodJSON := fetchPodsWithOffset(kubectl, "client", "zgroup=testDSClient", "", requireMultiNode, callOffset)
 	srcHost, err := srcPodJSON.Filter("{.status.hostIP}")
 	ExpectWithOffset(callOffset, err).Should(BeNil(), "Failure to retrieve host of pod %s", srcPod)
 
-	dstPod, dstPodJSON := fetchPodsWithOffset(kubectl, "server", "zgroup=testDS", srcHost.String(), callOffset)
+	dstPod, dstPodJSON := fetchPodsWithOffset(kubectl, "server", "zgroup=testDS", srcHost.String(), requireMultiNode, callOffset)
 	podIP, err := dstPodJSON.Filter("{.status.podIP}")
 	ExpectWithOffset(callOffset, err).Should(BeNil(), "Failure to retrieve IP of pod %s", dstPod)
 	targetIP := podIP.String()
