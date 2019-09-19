@@ -245,20 +245,22 @@ func Fail(description string, callerSkip ...int) {
 	ginkgoext.Fail(description, callerSkip...)
 }
 
-// CreateReportDirectory creates and returns the directory path to export all report
-// commands that need to be run in the case that a test has failed.
-// If the directory cannot be created it'll return an error
-func CreateReportDirectory() (string, error) {
+// ReportDirectoryPath determines the directory path for exporting report
+// commands in the case of test failure.
+func ReportDirectoryPath() string {
 	prefix := ""
 	testName := ginkgoext.GetTestName()
 	if strings.HasPrefix(strings.ToLower(testName), K8s) {
 		prefix = fmt.Sprintf("%s-", strings.Replace(GetCurrentK8SEnv(), ".", "", -1))
 	}
+	return filepath.Join(TestResultsPath, prefix, testName)
+}
 
-	testPath := filepath.Join(
-		TestResultsPath,
-		prefix,
-		testName)
+// CreateReportDirectory creates and returns the directory path to export all report
+// commands that need to be run in the case that a test has failed.
+// If the directory cannot be created it'll return an error
+func CreateReportDirectory() (string, error) {
+	testPath := ReportDirectoryPath()
 	if _, err := os.Stat(testPath); err == nil {
 		return testPath, nil
 	}
