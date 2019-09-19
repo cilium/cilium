@@ -81,6 +81,8 @@ func (d *Daemon) svcAdd(
 	feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.LBBackEnd,
 	addRevNAT, nodePort bool) (bool, error) {
 
+	var err error
+
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.ServiceID: feL3n4Addr.String(),
 		logfields.Object:    logfields.Repr(bes),
@@ -90,9 +92,17 @@ func (d *Daemon) svcAdd(
 	feAddrID, err := service.AcquireID(feL3n4Addr.L3n4Addr, uint32(feL3n4Addr.ID))
 	if err != nil {
 		return false, fmt.Errorf("Unable to allocate service ID %d for %q: %s",
-			feL3n4Addr.ID, feL3n4Addr.String(), err)
+			feL3n4Addr.ID, feL3n4Addr, err)
 	}
 	feL3n4Addr.ID = feAddrID.ID
+	defer func() {
+		if err != nil {
+			if err := service.DeleteID(uint32(feAddrID.ID)); err != nil {
+				scopedLog.WithField(logfields.ServiceID, feAddrID.ID).
+					Warn("Unable to release service ID")
+			}
+		}
+	}()
 
 	// Move the slice to the loadbalancer map which has a mutex. If we don't
 	// copy the slice we might risk changing memory that should be locked.
