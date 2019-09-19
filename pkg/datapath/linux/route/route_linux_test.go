@@ -101,8 +101,7 @@ func testReplaceRoute(c *C, prefixStr, nexthopStr string, lookupTest bool) {
 		Scope:  netlink.SCOPE_LINK,
 	})
 
-	mtuConf := mtu.NewConfiguration(0, false, false, 0)
-	_, err = Upsert(rt, &mtuConf)
+	_, err = Upsert(rt)
 	c.Assert(err, IsNil)
 
 	if lookupTest {

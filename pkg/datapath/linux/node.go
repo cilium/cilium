@@ -334,11 +334,13 @@ func (n *linuxNodeHandler) createNodeRoute(prefix *cidr.CIDR) (route.Route, erro
 		local = n.nodeAddressing.IPv6().PrimaryExternal()
 	}
 
+	// The default routing table accounts for encryption overhead for encrypt-node traffic
 	return route.Route{
 		Nexthop: &nexthop,
 		Local:   local,
 		Device:  n.datapathConfig.HostDevice,
 		Prefix:  *prefix.IPNet,
+		MTU:     n.nodeConfig.MtuConfig.GetRouteMTU(),
 	}, nil
 }
 
@@ -364,7 +366,7 @@ func (n *linuxNodeHandler) updateNodeRoute(prefix *cidr.CIDR, addressFamilyEnabl
 	if err != nil {
 		return err
 	}
-	if _, err := route.Upsert(nodeRoute, &n.nodeConfig.MtuConfig); err != nil {
+	if _, err := route.Upsert(nodeRoute); err != nil {
 		log.WithError(err).WithFields(nodeRoute.LogFields()).Warning("Unable to update route")
 		return err
 	}
@@ -910,19 +912,23 @@ func (n *linuxNodeHandler) createNodeIPSecOutRoute(ip *net.IPNet) route.Route {
 func (n *linuxNodeHandler) createNodeExternalIPSecOutRoute(ip *net.IPNet, dflt bool) route.Route {
 	var tbl int
 	var dev string
+	var mtu int
 
 	if dflt {
 		dev = n.datapathConfig.HostDevice
+		mtu = n.nodeConfig.MtuConfig.GetRouteMTU()
 	} else {
 		tbl = linux_defaults.RouteTableIPSec
 		dev = n.datapathConfig.HostDevice
 	}
 
+	// The default routing table accounts for encryption overhead for encrypt-node traffic
 	return route.Route{
 		Device: dev,
 		Prefix: *ip,
 		Table:  tbl,
 		Proto:  route.EncryptRouteProtocol,
+		MTU:    mtu,
 	}
 }
 
@@ -943,7 +949,7 @@ func (n *linuxNodeHandler) replaceNodeIPSecOutRoute(ip *net.IPNet) {
 		}
 	}
 
-	_, err := route.Upsert(n.createNodeIPSecOutRoute(ip), &n.nodeConfig.MtuConfig)
+	_, err := route.Upsert(n.createNodeIPSecOutRoute(ip))
 	if err != nil {
 		log.WithError(err).Error("Unable to replace the IPSec route OUT the host routing table")
 	}
@@ -966,11 +972,11 @@ func (n *linuxNodeHandler) replaceNodeExternalIPSecOutRoute(ip *net.IPNet) {
 		}
 	}
 
-	_, err := route.Upsert(n.createNodeExternalIPSecOutRoute(ip, true), &n.nodeConfig.MtuConfig)
+	_, err := route.Upsert(n.createNodeExternalIPSecOutRoute(ip, true))
 	if err != nil {
 		log.WithError(err).Error("Unable to replace the IPSec route OUT the default routing table")
 	}
-	_, err = route.Upsert(n.createNodeExternalIPSecOutRoute(ip, false), &n.nodeConfig.MtuConfig)
+	_, err = route.Upsert(n.createNodeExternalIPSecOutRoute(ip, false))
 	if err != nil {
 		log.WithError(err).Error("Unable to replace the IPSec route OUT the host routing table")
 	}
@@ -1037,7 +1043,7 @@ func (n *linuxNodeHandler) replaceNodeIPSecInRoute(ip *net.IPNet) {
 		}
 	}
 
-	_, err := route.Upsert(n.createNodeIPSecInRoute(ip), &n.nodeConfig.MtuConfig)
+	_, err := route.Upsert(n.createNodeIPSecInRoute(ip))
 	if err != nil {
 		log.WithError(err).Error("Unable to replace the IPSec route IN the host routing table")
 	}
