@@ -53,9 +53,11 @@ type VfInfo struct {
 	Mac       net.HardwareAddr
 	Vlan      int
 	Qos       int
-	TxRate    int
+	TxRate    int // IFLA_VF_TX_RATE  Max TxRate
 	Spoofchk  bool
 	LinkState uint32
+	MaxTxRate uint32 // IFLA_VF_RATE Max TxRate
+	MinTxRate uint32 // IFLA_VF_RATE Min TxRate
 }
 
 // LinkOperState represents the values of the IFLA_OPERSTATE link
@@ -397,9 +399,18 @@ const (
 	IPVLAN_MODE_MAX
 )
 
+type IPVlanFlag uint16
+
+const (
+	IPVLAN_FLAG_BRIDGE IPVlanFlag = iota
+	IPVLAN_FLAG_PRIVATE
+	IPVLAN_FLAG_VEPA
+)
+
 type IPVlan struct {
 	LinkAttrs
 	Mode IPVlanMode
+	Flag IPVlanFlag
 }
 
 func (ipvlan *IPVlan) Attrs() *LinkAttrs {
@@ -905,6 +916,48 @@ func (xfrm *Xfrmi) Attrs() *LinkAttrs {
 
 func (xfrm *Xfrmi) Type() string {
 	return "xfrm"
+}
+
+// IPoIB interface
+
+type IPoIBMode uint16
+
+func (m *IPoIBMode) String() string {
+	str, ok := iPoIBModeToString[*m]
+	if !ok {
+		return fmt.Sprintf("mode(%d)", *m)
+	}
+	return str
+}
+
+const (
+	IPOIB_MODE_DATAGRAM = iota
+	IPOIB_MODE_CONNECTED
+)
+
+var iPoIBModeToString = map[IPoIBMode]string{
+	IPOIB_MODE_DATAGRAM:  "datagram",
+	IPOIB_MODE_CONNECTED: "connected",
+}
+
+var StringToIPoIBMode = map[string]IPoIBMode{
+	"datagram":  IPOIB_MODE_DATAGRAM,
+	"connected": IPOIB_MODE_CONNECTED,
+}
+
+type IPoIB struct {
+	LinkAttrs
+	Pkey   uint16
+	Mode   IPoIBMode
+	Umcast uint16
+}
+
+func (ipoib *IPoIB) Attrs() *LinkAttrs {
+	return &ipoib.LinkAttrs
+}
+
+func (ipoib *IPoIB) Type() string {
+	return "ipoib"
 }
 
 // iproute2 supported devices;
