@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
@@ -107,8 +108,6 @@ var _ notifications.RegenNotificationInfo = &Endpoint{}
 // purposes is the serializableEndpoint type in this package.
 type Endpoint struct {
 	owner regeneration.Owner
-
-	allocator identityAllocator
 
 	// ID of the endpoint, unique in the scope of the node
 	ID uint16
@@ -285,9 +284,11 @@ type Endpoint struct {
 	aliveCtx        context.Context
 	aliveCancel     context.CancelFunc
 	regenFailedChan chan struct{}
+
+	allocator cache.IdentityAllocator
 }
 
-func (e *Endpoint) SetAllocator(allocator identityAllocator) {
+func (e *Endpoint) SetAllocator(allocator cache.IdentityAllocator) {
 	e.unconditionalLock()
 	defer e.unlock()
 	e.allocator = allocator
@@ -396,7 +397,7 @@ func (f *FakeIdentityAllocator) LookupIdentityByID(id identity.NumericIdentity) 
 }
 
 // NewEndpointWithState creates a new endpoint useful for testing purposes
-func NewEndpointWithState(owner regeneration.Owner, proxy EndpointProxy, allocator identityAllocator, ID uint16, state string) *Endpoint {
+func NewEndpointWithState(owner regeneration.Owner, proxy EndpointProxy, allocator cache.IdentityAllocator, ID uint16, state string) *Endpoint {
 	ep := &Endpoint{
 		owner:           owner,
 		proxy:           proxy,
@@ -975,7 +976,7 @@ type DeleteConfig struct {
 // endpoints which failed to be restored. Any cleanup routine of leaveLocked()
 // which depends on kvstore connectivity must be protected by a flag in
 // DeleteConfig and the restore logic must opt-out of it.
-func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, allocator identityAllocator, conf DeleteConfig) []error {
+func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, allocator cache.IdentityAllocator, conf DeleteConfig) []error {
 	errors := []error{}
 
 	if !option.Config.DryMode {
@@ -1974,7 +1975,7 @@ type monitorOwner interface {
 // * cleanup of datapath state (BPF maps, proxy configuration, directories)
 // * releasing IP addresses allocated for the endpoint
 // * releasing of the reference to its allocated security identity
-func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpointManager, allocator identityAllocator, conf DeleteConfig) []error {
+func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpointManager, allocator cache.IdentityAllocator, conf DeleteConfig) []error {
 	errs := []error{}
 
 	// Since the endpoint is being deleted, we no longer need to run events

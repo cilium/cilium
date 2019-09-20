@@ -115,6 +115,23 @@ type IdentityAllocatorOwner interface {
 	GetNodeSuffix() string
 }
 
+type IdentityAllocator interface {
+	// WaitForInitialGlobalIdentities waits for the initial set of global
+	// security identities to have been received.
+	WaitForInitialGlobalIdentities(context.Context) error
+
+	// AllocateIdentity allocates an identity described by the specified labels.
+	AllocateIdentity(context.Context, labels.Labels, bool) (*identity.Identity, bool, error)
+
+	// Release is the reverse operation of AllocateIdentity() and releases the
+	// specified identity.
+	Release(context.Context, *identity.Identity) (released bool, err error)
+
+	// LookupIdentityByID returns the identity that corresponds to the given
+	// numeric identity.
+	LookupIdentityByID(id identity.NumericIdentity) *identity.Identity
+}
+
 // InitIdentityAllocator creates the the identity allocator. Only the first
 // invocation of this function will have an effect. The Caller must have
 // initialized well known identities before calling this (by calling
