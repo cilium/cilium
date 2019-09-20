@@ -22,6 +22,7 @@ cilium-agent [flags]
       --annotate-k8s-node                                     Annotate Kubernetes node (default true)
       --auto-create-cilium-node-resource                      Automatically create CiliumNode resource for own node on startup (default true)
       --auto-direct-node-routes                               Enable automatic L2 routing between nodes
+      --aws-instance-limit-mapping map                        Add or overwrite mappings of AWS instance limit in the form of {"AWS instance type": "Maximum Network Interfaces","IPv4 Addresses per Interface","IPv6 Addresses per Interface"}. cli example: --aws-instance-limit-mapping=a1.medium=2,4,4 --aws-instance-limit-mapping=a2.somecustomflavor=4,5,6 configmap example: {"a1.medium": "2,4,4", "a2.somecustomflavor": "4,5,6"} (default map[])
       --blacklist-conflicting-routes                          Don't blacklist IP allocations conflicting with local non-cilium routes (default true)
       --bpf-compile-debug                                     Enable debugging of the BPF compilation process
       --bpf-ct-global-any-max int                             Maximum number of entries in non-TCP CT table (default 262144)
