@@ -182,7 +182,7 @@ func (i *identityAllocatorOwnerMock) GetNodeSuffix() string {
 }
 
 func bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int, c *C) *Repository {
-	mgr := cache.NewIdentityAllocatorManager(&identityAllocatorOwnerMock{})
+	mgr := cache.NewCachingIdentityAllocator(&identityAllocatorOwnerMock{})
 	testRepo := NewPolicyRepository(mgr)
 
 	var wg sync.WaitGroup

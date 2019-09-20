@@ -148,7 +148,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 	// It is important to start listening for events before calling
 	// NewAllocator() as it will emit events while filling the
 	// initial cache
-	m.watcher.watch(m.owner, events)
+	m.watcher.watch(events)
 
 	// Asynchronously set up the global identity allocator since it connects
 	// to the kvstore.
@@ -213,9 +213,9 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 // in dependencies on kvstore and k8s. It would be better to decouple this,
 // since the backends are an interface.
 
-// NewIdentityAllocatorManager creates a new instance of an
+// NewCachingIdentityAllocator creates a new instance of an
 // CachingIdentityAllocator.
-func NewIdentityAllocatorManager(owner IdentityAllocatorOwner) *CachingIdentityAllocator {
+func NewCachingIdentityAllocator(owner IdentityAllocatorOwner) *CachingIdentityAllocator {
 	mgr := &CachingIdentityAllocator{
 		globalIdentityAllocatorInitialized: make(chan struct{}),
 		localIdentityAllocatorInitialized:  make(chan struct{}),
