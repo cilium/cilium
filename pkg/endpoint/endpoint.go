@@ -288,6 +288,7 @@ type Endpoint struct {
 	allocator cache.IdentityAllocator
 }
 
+// SetAllocator sets the identity allocator for this endpoint.
 func (e *Endpoint) SetAllocator(allocator cache.IdentityAllocator) {
 	e.unconditionalLock()
 	defer e.unlock()
@@ -373,26 +374,6 @@ func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 	}
 	e.getLogger().Debug("Wait time for proxy updates: ", time.Since(start))
 
-	return nil
-}
-
-type FakeIdentityAllocator struct{}
-
-func (f *FakeIdentityAllocator) WaitForInitialGlobalIdentities(context.Context) error {
-	return nil
-}
-
-func (f *FakeIdentityAllocator) AllocateIdentity(context.Context, pkgLabels.Labels, bool) (*identity.Identity, bool, error) {
-	return nil, true, nil
-}
-
-func (f *FakeIdentityAllocator) Release(context.Context, *identity.Identity) (released bool, err error) {
-	return true, nil
-}
-func (f *FakeIdentityAllocator) LookupIdentityByID(id identity.NumericIdentity) *identity.Identity {
-	if identity := identity.LookupReservedIdentity(id); identity != nil {
-		return identity
-	}
 	return nil
 }
 
