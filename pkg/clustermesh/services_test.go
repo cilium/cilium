@@ -81,12 +81,12 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 
 	cm, err := NewClusterMesh(Configuration{
-		Name:            "test2",
-		ConfigDirectory: dir,
-		NodeKeyCreator:  testNodeCreator,
-		nodeObserver:    &testObserver{},
-		ServiceMerger:   &s.svcCache,
-		Allocator:       mgr,
+		Name:                  "test2",
+		ConfigDirectory:       dir,
+		NodeKeyCreator:        testNodeCreator,
+		nodeObserver:          &testObserver{},
+		ServiceMerger:         &s.svcCache,
+		RemoteIdentityWatcher: mgr,
 	})
 	c.Assert(err, IsNil)
 	c.Assert(cm, Not(IsNil))
@@ -102,8 +102,8 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 func (s *ClusterMeshServicesTestSuite) TearDownTest(c *C) {
 	if s.mesh != nil {
 		s.mesh.Close()
+		s.mesh.conf.RemoteIdentityWatcher.Close()
 	}
-
 	os.RemoveAll(s.testDir)
 	kvstore.DeletePrefix("cilium/state/services/v1/" + s.randomName)
 	kvstore.Close()
