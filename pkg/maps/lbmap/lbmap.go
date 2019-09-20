@@ -66,24 +66,10 @@ func updateRevNatLocked(key RevNatKey, value RevNatValue) error {
 	return key.Map().Update(key.ToNetwork(), value.ToNetwork())
 }
 
-func UpdateRevNat(key RevNatKey, value RevNatValue) error {
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	return updateRevNatLocked(key, value)
-}
-
 func deleteRevNatLocked(key RevNatKey) error {
 	log.WithField(logfields.BPFMapKey, key).Debug("deleting RevNatKey")
 
 	return key.Map().Delete(key.ToNetwork())
-}
-
-func DeleteRevNat(key RevNatKey) error {
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	return deleteRevNatLocked(key)
 }
 
 // gcd computes the gcd of two numbers.
@@ -517,46 +503,6 @@ func DumpBackendMapsToUserspace() (map[BackendAddrID]*loadbalancer.LBBackEnd, er
 	}
 
 	return lbBackends, nil
-}
-
-// DumpRevNATMapsToUserspace dumps the contents of both the IPv6 and IPv4
-// revNAT BPF maps, and stores the contents of said dumps in a RevNATMap.
-// Returns the errors that occurred while dumping the maps.
-func DumpRevNATMapsToUserspace() (loadbalancer.RevNATMap, []error) {
-	mutex.RLock()
-	defer mutex.RUnlock()
-
-	newRevNATMap := loadbalancer.RevNATMap{}
-	errors := []error{}
-
-	parseRevNATEntries := func(key bpf.MapKey, value bpf.MapValue) {
-		revNatK := key.DeepCopyMapKey().(RevNatKey)
-		revNatV := value.DeepCopyMapValue().(RevNatValue)
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.BPFMapKey:   revNatK,
-			logfields.BPFMapValue: revNatV,
-		})
-
-		scopedLog.Debug("parsing BPF revNAT mapping")
-		fe := revNatValue2L3n4AddrID(revNatK, revNatV)
-		newRevNATMap[loadbalancer.ServiceID(fe.ID)] = fe.L3n4Addr
-	}
-
-	if option.Config.EnableIPv4 {
-		if err := RevNat4Map.DumpWithCallback(parseRevNATEntries); err != nil {
-			err = fmt.Errorf("error dumping RevNat4Map: %s", err)
-			errors = append(errors, err)
-		}
-	}
-
-	if option.Config.EnableIPv6 {
-		if err := RevNat6Map.DumpWithCallback(parseRevNATEntries); err != nil {
-			err = fmt.Errorf("error dumping RevNat6Map: %s", err)
-			errors = append(errors, err)
-		}
-	}
-
-	return newRevNATMap, errors
 }
 
 // RestoreService restores a single service in the cache. This is required to
