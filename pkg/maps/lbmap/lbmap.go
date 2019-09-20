@@ -379,8 +379,7 @@ func DeleteRevNATBPF(id loadbalancer.ServiceID, isIPv6 bool) error {
 	} else {
 		revNATK = NewRevNat4Key(uint16(id))
 	}
-	err := DeleteRevNat(revNATK)
-	return err
+	return deleteRevNatLocked(revNATK)
 }
 
 // DumpServiceMapsToUserspaceV2 dumps the services in the same way as
@@ -710,6 +709,10 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(loadbala
 		}
 		releaseBackendID(backendKey.GetID())
 		log.WithField(logfields.BackendID, backendKey).Debug("Deleted backend")
+	}
+
+	if err := DeleteRevNATBPF(loadbalancer.ServiceID(svc.ID), isIPv6); err != nil {
+		return fmt.Errorf("Unable to delete revNAT entry %d: %s", svc.ID, err)
 	}
 
 	return nil
