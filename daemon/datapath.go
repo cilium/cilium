@@ -608,9 +608,9 @@ func (d *Daemon) initMaps() error {
 			if err := lbmap.Backend6Map.DeleteAll(); err != nil {
 				return err
 			}
-		}
-		if err := d.RevNATDeleteAll(); err != nil {
-			return err
+			if err := lbmap.RevNat6Map.DeleteAll(); err != nil {
+				return err
+			}
 		}
 
 		if option.Config.EnableIPv4 {
@@ -621,6 +621,9 @@ func (d *Daemon) initMaps() error {
 				return err
 			}
 			if err := lbmap.Backend4Map.DeleteAll(); err != nil {
+				return err
+			}
+			if err := lbmap.RevNat4Map.DeleteAll(); err != nil {
 				return err
 			}
 		}
