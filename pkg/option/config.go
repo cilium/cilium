@@ -77,6 +77,11 @@ const (
 	// the daemon, which can also be disbled using this option.
 	AnnotateK8sNode = "annotate-k8s-node"
 
+	// AwsInstanceLimitMapping allows overwirting AWS instance limits defined in
+	// pkg/aws/eni/limits.go
+	// e.g. {"a1.medium": "2,4,4", "a2.custom2": "4,5,6"}
+	AwsInstanceLimitMapping = "aws-instance-limit-mapping"
+
 	// BPFRoot is the Path to BPF filesystem
 	BPFRoot = "bpf-root"
 
@@ -1223,6 +1228,11 @@ type DaemonConfig struct {
 	// AllowICMPFragNeeded allows ICMP Fragmentation Needed type packets in
 	// the network policy for cilium-agent.
 	AllowICMPFragNeeded bool
+
+	// AwsInstanceLimitMapping allows overwirting AWS instance limits defined in
+	// pkg/aws/eni/limits.go
+	// e.g. {"a1.medium": "2,4,4", "a2.custom2": "4,5,6"}
+	AwsInstanceLimitMapping map[string]string
 }
 
 var (
@@ -1256,6 +1266,7 @@ var (
 		AutoCreateCiliumNodeResource: defaults.AutoCreateCiliumNodeResource,
 		IdentityAllocationMode:       IdentityAllocationModeKVstore,
 		AllowICMPFragNeeded:          defaults.AllowICMPFragNeeded,
+		AwsInstanceLimitMapping:      make(map[string]string),
 	}
 )
 
@@ -1750,6 +1761,10 @@ func (c *DaemonConfig) Populate() {
 	c.MonitorAggregationFlags = byteorder.HostToNetwork(ctMonitorReportFlags).(uint16)
 
 	// Map options
+	if m := viper.GetStringMapString(AwsInstanceLimitMapping); len(m) != 0 {
+		c.AwsInstanceLimitMapping = m
+	}
+
 	if m := viper.GetStringMapString(ContainerRuntimeEndpoint); len(m) != 0 {
 		c.ContainerRuntimeEndpoint = m
 	}
