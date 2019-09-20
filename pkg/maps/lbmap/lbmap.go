@@ -356,18 +356,6 @@ func removeBackendsLocked(removedBackendIDs []BackendKey,
 	return nil
 }
 
-// DeleteRevNATBPF deletes the revNAT entry from its corresponding BPF map
-// (IPv4 or IPv6) with ID id. Returns an error if the deletion operation failed.
-func DeleteRevNATBPF(id loadbalancer.ServiceID, isIPv6 bool) error {
-	var revNATK RevNatKey
-	if isIPv6 {
-		revNATK = NewRevNat6Key(uint16(id))
-	} else {
-		revNATK = NewRevNat4Key(uint16(id))
-	}
-	return deleteRevNatLocked(revNATK)
-}
-
 // DumpServiceMapsToUserspaceV2 dumps the services in the same way as
 // DumpServiceMapsToUserspace.
 func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC, []error) {
@@ -624,7 +612,8 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(loadbala
 	defer mutex.Unlock()
 
 	var (
-		svcKey ServiceKeyV2
+		svcKey    ServiceKeyV2
+		revNATKey RevNatKey
 	)
 
 	isIPv6 := svc.IsIPv6()
@@ -633,8 +622,10 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(loadbala
 
 	if isIPv6 {
 		svcKey = NewService6KeyV2(svc.IP, svc.Port, u8proto.ANY, 0)
+		revNATKey = NewRevNat6Key(uint16(svc.ID))
 	} else {
 		svcKey = NewService4KeyV2(svc.IP, svc.Port, u8proto.ANY, 0)
+		revNATKey = NewRevNat4Key(uint16(svc.ID))
 	}
 
 	backendsToRemove, backendsCount, err := cache.removeServiceV2(svcKey)
@@ -657,7 +648,7 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(loadbala
 		log.WithField(logfields.BackendID, backendKey).Debug("Deleted backend")
 	}
 
-	if err := DeleteRevNATBPF(loadbalancer.ServiceID(svc.ID), isIPv6); err != nil {
+	if err := deleteRevNatLocked(revNATKey); err != nil {
 		return fmt.Errorf("Unable to delete revNAT entry %d: %s", svc.ID, err)
 	}
 
