@@ -689,23 +689,3 @@ func DeleteOrphanBackends(releaseBackendID func(loadbalancer.BackendID)) []error
 
 	return errors
 }
-
-// RemoveDeprecatedMaps removes the maps for legacy services, left over from
-// previous installations.
-//
-// Safe to remove in Cilium 1.7.
-func RemoveDeprecatedMaps() error {
-	if err := Service6Map.UnpinIfExists(); err != nil {
-		return err
-	}
-	if err := RRSeq6Map.UnpinIfExists(); err != nil {
-		return err
-	}
-	if err := Service4Map.UnpinIfExists(); err != nil {
-		return err
-	}
-	if err := RRSeq4Map.UnpinIfExists(); err != nil {
-		return err
-	}
-	return nil
-}
