@@ -656,6 +656,15 @@ func (s *EndpointSuite) TestEndpointEventQueueDeadlockUponDeletion(c *C) {
 	}
 }
 
+func BenchmarkEndpointGetModel(b *testing.B) {
+	e := NewEndpointWithState(&suite, &FakeEndpointProxy{}, 123, StateCreating)
+
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		e.GetModel()
+	}
+}
+
 type ipReleaserDummy struct{}
 
 func (i *ipReleaserDummy) ReleaseIP(ip net.IP) error {

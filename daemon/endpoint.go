@@ -17,6 +17,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"sync"
 	"time"
 
@@ -57,7 +58,7 @@ func (h *getEndpoint) Handle(params GetEndpointParams) middleware.Responder {
 }
 
 func (d *Daemon) getEndpointList(params GetEndpointParams) []*models.Endpoint {
-	maxGoroutines := 10
+	maxGoroutines := runtime.NumCPU()
 	var (
 		epWorkersWg, epsAppendWg sync.WaitGroup
 		convertedLabels          labels.Labels
@@ -76,7 +77,7 @@ func (d *Daemon) getEndpointList(params GetEndpointParams) []*models.Endpoint {
 	epsCh := make(chan *endpoint.Endpoint, maxGoroutines)
 	epModelsCh := make(chan *models.Endpoint, maxGoroutines)
 
-	epWorkersWg.Add(maxGoRoutines)
+	epWorkersWg.Add(maxGoroutines)
 	for i := 0; i < maxGoroutines; i++ {
 		// Run goroutines to process each endpoint and the corresponding model.
 		// The obtained endpoint model is sent to the endpoint models channel from
