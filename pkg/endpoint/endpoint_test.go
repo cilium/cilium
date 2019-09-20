@@ -110,7 +110,7 @@ func (s *EndpointSuite) SetUpTest(c *C) {
 	kvstore.SetupDummy("etcd")
 	identity.InitWellKnownIdentities()
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	mgr := cache.NewIdentityAllocatorManager(&testIdentityAllocator{})
+	mgr := cache.NewCachingIdentityAllocator(&testIdentityAllocator{})
 	<-mgr.InitIdentityAllocator(nil, nil)
 	s.mgr = mgr
 }
@@ -645,7 +645,7 @@ func (s *EndpointSuite) TestEndpointEventQueueDeadlockUponDeletion(c *C) {
 	// Launch endpoint deletion async so that we do not deadlock (which is what
 	// this unit test is designed to test).
 	go func(ch chan struct{}) {
-		errors := ep.Delete(&monitorOwnerDummy{}, &ipReleaserDummy{}, &dummyManager{}, cache.NewIdentityAllocatorManager(&identityAllocatorOwnerMock{}), DeleteConfig{})
+		errors := ep.Delete(&monitorOwnerDummy{}, &ipReleaserDummy{}, &dummyManager{}, cache.NewCachingIdentityAllocator(&identityAllocatorOwnerMock{}), DeleteConfig{})
 		c.Assert(errors, Not(IsNil))
 		epDelComplete <- struct{}{}
 	}(epDelComplete)
