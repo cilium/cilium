@@ -142,7 +142,6 @@ func collectEvent(event allocator.AllocatorEvent, added, deleted IdentityCache) 
 
 // watch starts the identity watcher
 func (w *identityWatcher) watch(events allocator.AllocatorEventChan) {
-	w.stopChan = make(chan bool)
 
 	go func() {
 		for {
