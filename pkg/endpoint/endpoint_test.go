@@ -208,7 +208,7 @@ func (s *EndpointSuite) TestEndpointStatus(c *C) {
 }
 
 func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
-	e := NewEndpointWithState(s, &FakeEndpointProxy{}, &FakeIdentityAllocator{}, 100, StateCreating)
+	e := NewEndpointWithState(s, &FakeEndpointProxy{}, &cache.FakeIdentityAllocator{}, 100, StateCreating)
 
 	// Test that inserting identity labels works
 	rev := e.replaceIdentityLabels(pkgLabels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
@@ -232,7 +232,7 @@ func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
 }
 
 func (s *EndpointSuite) TestEndpointState(c *C) {
-	e := NewEndpointWithState(s, &FakeEndpointProxy{}, &FakeIdentityAllocator{}, 100, StateCreating)
+	e := NewEndpointWithState(s, &FakeEndpointProxy{}, &cache.FakeIdentityAllocator{}, 100, StateCreating)
 	e.unconditionalLock()
 	defer e.unlock()
 
@@ -576,7 +576,7 @@ func (s *EndpointSuite) TestEndpointEventQueueDeadlockUponDeletion(c *C) {
 		s.datapath = oldDatapath
 	}()
 
-	ep := NewEndpointWithState(s, &FakeEndpointProxy{}, &FakeIdentityAllocator{}, 12345, StateReady)
+	ep := NewEndpointWithState(s, &FakeEndpointProxy{}, &cache.FakeIdentityAllocator{}, 12345, StateReady)
 
 	// In case deadlock occurs, provide a timeout of 3 (number of events) *
 	// deadlockTimeout + 1 seconds to ensure that we are actually testing for

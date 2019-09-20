@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
@@ -97,7 +98,7 @@ type dummyEpSyncher struct{}
 func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint) {}
 
 func (s *EndpointManagerSuite) TestLookup(c *C) {
-	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &endpoint.FakeIdentityAllocator{}, 10, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &cache.FakeIdentityAllocator{}, 10, endpoint.StateReady)
 	mgr := NewEndpointManager(&dummyEpSyncher{})
 	type args struct {
 		id string
@@ -344,7 +345,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 
 func (s *EndpointManagerSuite) TestLookupCiliumID(c *C) {
 	mgr := NewEndpointManager(&dummyEpSyncher{})
-	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &endpoint.FakeIdentityAllocator{}, 2, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &cache.FakeIdentityAllocator{}, 2, endpoint.StateReady)
 	type args struct {
 		id uint16
 	}
@@ -413,7 +414,7 @@ func (s *EndpointManagerSuite) TestLookupCiliumID(c *C) {
 
 func (s *EndpointManagerSuite) TestLookupContainerID(c *C) {
 	mgr := NewEndpointManager(&dummyEpSyncher{})
-	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &endpoint.FakeIdentityAllocator{}, 3, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &cache.FakeIdentityAllocator{}, 3, endpoint.StateReady)
 	type args struct {
 		id string
 	}
@@ -480,7 +481,7 @@ func (s *EndpointManagerSuite) TestLookupContainerID(c *C) {
 
 func (s *EndpointManagerSuite) TestLookupIPv4(c *C) {
 	mgr := NewEndpointManager(&dummyEpSyncher{})
-	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &endpoint.FakeIdentityAllocator{}, 4, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &cache.FakeIdentityAllocator{}, 4, endpoint.StateReady)
 	type args struct {
 		ip string
 	}
@@ -549,7 +550,7 @@ func (s *EndpointManagerSuite) TestLookupIPv4(c *C) {
 
 func (s *EndpointManagerSuite) TestLookupPodName(c *C) {
 	mgr := NewEndpointManager(&dummyEpSyncher{})
-	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &endpoint.FakeIdentityAllocator{}, 5, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &cache.FakeIdentityAllocator{}, 5, endpoint.StateReady)
 	type args struct {
 		podName string
 	}
@@ -617,7 +618,7 @@ func (s *EndpointManagerSuite) TestLookupPodName(c *C) {
 
 func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
 	mgr := NewEndpointManager(&dummyEpSyncher{})
-	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &endpoint.FakeIdentityAllocator{}, 6, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &cache.FakeIdentityAllocator{}, 6, endpoint.StateReady)
 	type args struct {
 		ep *endpoint.Endpoint
 	}
@@ -695,7 +696,7 @@ func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
 
 func (s *EndpointManagerSuite) TestRemove(c *C) {
 	mgr := NewEndpointManager(&dummyEpSyncher{})
-	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &endpoint.FakeIdentityAllocator{}, 7, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &cache.FakeIdentityAllocator{}, 7, endpoint.StateReady)
 	type args struct {
 	}
 	type want struct {
@@ -735,7 +736,7 @@ func (s *EndpointManagerSuite) TestRemove(c *C) {
 
 func (s *EndpointManagerSuite) TestHasGlobalCT(c *C) {
 	mgr := NewEndpointManager(&dummyEpSyncher{})
-	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &endpoint.FakeIdentityAllocator{}, 1, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &cache.FakeIdentityAllocator{}, 1, endpoint.StateReady)
 	type args struct {
 		ep *endpoint.Endpoint
 	}
@@ -798,7 +799,7 @@ func (s *EndpointManagerSuite) TestHasGlobalCT(c *C) {
 
 func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 	mgr := NewEndpointManager(&dummyEpSyncher{})
-	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &endpoint.FakeIdentityAllocator{}, 1, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &cache.FakeIdentityAllocator{}, 1, endpoint.StateReady)
 	type args struct {
 		ctx    context.Context
 		rev    uint64
@@ -836,7 +837,7 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 			},
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &endpoint.FakeIdentityAllocator{}, 1, endpoint.StateReady)
+				ep = endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &cache.FakeIdentityAllocator{}, 1, endpoint.StateReady)
 			},
 		},
 		{
@@ -862,7 +863,7 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 			},
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &endpoint.FakeIdentityAllocator{}, 1, endpoint.StateReady)
+				ep = endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &cache.FakeIdentityAllocator{}, 1, endpoint.StateReady)
 			},
 		},
 		{
@@ -888,7 +889,7 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 			},
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &endpoint.FakeIdentityAllocator{}, 1, endpoint.StateReady)
+				ep = endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &cache.FakeIdentityAllocator{}, 1, endpoint.StateReady)
 			},
 		},
 	}

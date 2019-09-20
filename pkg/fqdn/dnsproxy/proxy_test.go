@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn/regexpmap"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
@@ -132,7 +133,7 @@ func (s *DNSProxyTestSuite) SetUpSuite(c *C) {
 
 	proxy, err := StartDNSProxy("", 0,
 		func(ip net.IP) (*endpoint.Endpoint, error) {
-			ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &endpoint.FakeIdentityAllocator{}, 123, endpoint.StateReady)
+			ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &cache.FakeIdentityAllocator{}, 123, endpoint.StateReady)
 			return ep, nil
 		},
 		func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, dstAddr string, msg *dns.Msg, protocol string, allowed bool, stat ProxyRequestContext) error {
