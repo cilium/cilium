@@ -93,24 +93,12 @@ func (s *EndpointSuite) Datapath() datapath.Datapath {
 	return s.datapath
 }
 
-func (s *EndpointSuite) GetNodeSuffix() string {
-	return ""
-}
-
-func (s *EndpointSuite) UpdateIdentities(added, deleted cache.IdentityCache) {}
-
-type testIdentityAllocator struct{}
-
-func (t *testIdentityAllocator) UpdateIdentities(added, deleted cache.IdentityCache) {}
-
-func (t *testIdentityAllocator) GetNodeSuffix() string { return "foo" }
-
 func (s *EndpointSuite) SetUpTest(c *C) {
 	/* Required to test endpoint CEP policy model */
 	kvstore.SetupDummy("etcd")
 	identity.InitWellKnownIdentities()
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	mgr := cache.NewCachingIdentityAllocator(&testIdentityAllocator{})
+	mgr := cache.NewCachingIdentityAllocator(&cache.IdentityAllocatorOwnerMock{})
 	<-mgr.InitIdentityAllocator(nil, nil)
 	s.mgr = mgr
 }
@@ -645,7 +633,7 @@ func (s *EndpointSuite) TestEndpointEventQueueDeadlockUponDeletion(c *C) {
 	// Launch endpoint deletion async so that we do not deadlock (which is what
 	// this unit test is designed to test).
 	go func(ch chan struct{}) {
-		errors := ep.Delete(&monitorOwnerDummy{}, &ipReleaserDummy{}, &dummyManager{}, cache.NewCachingIdentityAllocator(&identityAllocatorOwnerMock{}), DeleteConfig{})
+		errors := ep.Delete(&monitorOwnerDummy{}, &ipReleaserDummy{}, &dummyManager{}, cache.NewCachingIdentityAllocator(&cache.IdentityAllocatorOwnerMock{}), DeleteConfig{})
 		c.Assert(errors, Not(IsNil))
 		epDelComplete <- struct{}{}
 	}(epDelComplete)
@@ -694,12 +682,4 @@ func (d *dummyManager) RemoveID(uint16) {
 
 func (d *dummyManager) ReleaseID(*Endpoint) error {
 	return nil
-}
-
-type identityAllocatorOwnerMock struct{}
-
-func (i *identityAllocatorOwnerMock) UpdateIdentities(added, deleted cache.IdentityCache) {}
-
-func (i *identityAllocatorOwnerMock) GetNodeSuffix() string {
-	return "foo"
 }

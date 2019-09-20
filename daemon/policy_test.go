@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -149,12 +148,6 @@ func (ds *DaemonSuite) regenerateEndpoint(c *C, e *endpoint.Endpoint) {
 	buildSuccess := <-e.Regenerate(regenerationMetadata)
 	c.Assert(buildSuccess, Equals, true)
 }
-
-type testIdentityAllocator struct{}
-
-func (t *testIdentityAllocator) UpdateIdentities(added, deleted cache.IdentityCache) {}
-
-func (t *testIdentityAllocator) GetNodeSuffix() string { return "foo" }
 
 func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	rules := api.Rules{
