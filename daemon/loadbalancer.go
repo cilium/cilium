@@ -302,10 +302,6 @@ func (h *getService) Handle(params GetServiceParams) middleware.Responder {
 }
 
 func openServiceMaps() error {
-	if err := lbmap.RemoveDeprecatedMaps(); err != nil {
-		return err
-	}
-
 	if option.Config.EnableIPv6 {
 		if _, err := lbmap.Service6MapV2.OpenOrCreate(); err != nil {
 			return err
