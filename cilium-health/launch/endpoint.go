@@ -32,7 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/health/probe"
-	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/launcher"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -229,20 +229,13 @@ type EndpointAdder interface {
 	AddEndpoint(owner regeneration.Owner, ep *endpoint.Endpoint, reason string) error
 }
 
-type identityAllocator interface {
-	WaitForInitialGlobalIdentities(context.Context) error
-	AllocateIdentity(context.Context, labels.Labels, bool) (*identity.Identity, bool, error)
-	Release(context.Context, *identity.Identity) (released bool, err error)
-	LookupIdentityByID(id identity.NumericIdentity) *identity.Identity
-}
-
 // LaunchAsEndpoint launches the cilium-health agent in a nested network
 // namespace and attaches it to Cilium the same way as any other endpoint,
 // but with special reserved labels.
 //
 // CleanupEndpoint() must be called before calling LaunchAsEndpoint() to ensure
 // cleanup of prior cilium-health endpoint instances.
-func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node.Node, mtuConfig mtu.Configuration, epMgr EndpointAdder, proxy endpoint.EndpointProxy, allocator identityAllocator) (*Client, error) {
+func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node.Node, mtuConfig mtu.Configuration, epMgr EndpointAdder, proxy endpoint.EndpointProxy, allocator cache.IdentityAllocator) (*Client, error) {
 	var (
 		cmd  = launcher.Launcher{}
 		info = &models.EndpointChangeRequest{
