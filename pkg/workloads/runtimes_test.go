@@ -23,8 +23,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/identity/cache"
-
 	. "gopkg.in/check.v1"
 )
 
@@ -40,14 +38,6 @@ var _ = Suite(&WorkloadsTestSuite{})
 type dummyEpSyncher struct{}
 
 func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint) {}
-
-type identityAllocatorOwnerMock struct{}
-
-func (i *identityAllocatorOwnerMock) UpdateIdentities(added, deleted cache.IdentityCache) {}
-
-func (i *identityAllocatorOwnerMock) GetNodeSuffix() string {
-	return "foo"
-}
 
 func (s *WorkloadsTestSuite) TestSetupWithoutStatusCheck(c *C) {
 	// backup registered workload since None will unregister them all

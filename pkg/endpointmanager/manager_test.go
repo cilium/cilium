@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
@@ -86,12 +85,6 @@ func (s *EndpointManagerSuite) SendNotification(typ monitorAPI.AgentNotification
 func (s *EndpointManagerSuite) Datapath() datapath.Datapath {
 	return nil
 }
-
-func (s *EndpointManagerSuite) GetNodeSuffix() string {
-	return ""
-}
-
-func (s *EndpointManagerSuite) UpdateIdentities(added, deleted cache.IdentityCache) {}
 
 type DummyRuleCacheOwner struct{}
 
