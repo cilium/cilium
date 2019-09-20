@@ -32,6 +32,8 @@ type PortProtocol struct {
 	// Port is an L4 port number. For now the string will be strictly
 	// parsed as a single uint16. In the future, this field may support
 	// ranges in the form "1024-2048
+	//
+	// +kubebuilder:validation:Pattern=`^(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4})$`
 	Port string `json:"port"`
 
 	// Protocol is the L4 protocol. If omitted or empty, any protocol
@@ -39,7 +41,8 @@ type PortProtocol struct {
 	//
 	// Matching on ICMP is not supported.
 	//
-	// +optional
+	// +kubebuilder:validation:Enum=TCP;UDP;ANY
+	// +kubebuilder:validation:Optional
 	Protocol L4Proto `json:"protocol,omitempty"`
 }
 
@@ -60,14 +63,14 @@ func (p PortProtocol) Covers(other PortProtocol) bool {
 type PortRule struct {
 	// Ports is a list of L4 port/protocol
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Ports []PortProtocol `json:"ports,omitempty"`
 
 	// Rules is a list of additional port level rules which must be met in
 	// order for the PortRule to allow the traffic. If omitted or empty,
 	// no layer 7 rules are enforced.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Rules *L7Rules `json:"rules,omitempty"`
 }
 
@@ -77,27 +80,27 @@ type PortRule struct {
 type L7Rules struct {
 	// HTTP specific rules.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	HTTP []PortRuleHTTP `json:"http,omitempty"`
 
 	// Kafka-specific rules.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Kafka []PortRuleKafka `json:"kafka,omitempty"`
 
 	// DNS-specific rules.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	DNS []PortRuleDNS `json:"dns,omitempty"`
 
 	// Name of the L7 protocol for which the Key-value pair rules apply
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	L7Proto string `json:"l7proto,omitempty"`
 
 	// Key-value pair rules
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	L7 []PortRuleL7 `json:"l7,omitempty"`
 }
 

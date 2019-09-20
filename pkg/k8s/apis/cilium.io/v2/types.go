@@ -62,7 +62,8 @@ type CiliumNetworkPolicy struct {
 	Specs api.Rules `json:"specs,omitempty"`
 
 	// Status is the status of the Cilium policy rule
-	// +optional
+	//
+	// +kubebuilder:validation:Optional
 	Status CiliumNetworkPolicyStatus `json:"status"`
 }
 
@@ -89,7 +90,7 @@ type CiliumNetworkPolicyNodeStatus struct {
 	Error string `json:"error,omitempty"`
 
 	// LastUpdated contains the last time this status was updated
-	LastUpdated Timestamp `json:"lastUpdated,omitempty"`
+	LastUpdated metav1.Time `json:"lastUpdated,omitempty"`
 
 	// Revision is the policy revision of the repository which first implemented
 	// this policy.
@@ -308,12 +309,12 @@ type EndpointStatus struct {
 
 	// Networking properties of the endpoint
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Networking *EndpointNetworking `json:"networking,omitempty"`
 
 	// Encryption is the encryption configuration of the node
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Encryption EncryptionSpec `json:"encryption,omitempty"`
 
 	Policy *EndpointPolicy `json:"policy,omitempty"`
@@ -643,30 +644,30 @@ type NodeAddress struct {
 type NodeSpec struct {
 	// Addresses is the list of all node addresses
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Addresses []NodeAddress `json:"addresses,omitempty"`
 
 	// HealthAddressing is the addressing information for health
 	// connectivity checking
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	HealthAddressing HealthAddressingSpec `json:"health,omitempty"`
 
 	// Encryption is the encryption configuration of the node
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Encryption EncryptionSpec `json:"encryption,omitempty"`
 
 	// ENI is the AWS ENI specific configuration
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	ENI ENISpec `json:"eni,omitempty"`
 
 	// IPAM is the address management specification. This section can be
 	// populated by a user or it can be automatically populated by an IPAM
 	// operator
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	IPAM IPAMSpec `json:"ipam,omitempty"`
 }
 
@@ -675,12 +676,12 @@ type NodeSpec struct {
 type HealthAddressingSpec struct {
 	// IPv4 is the IPv4 address of the IPv4 health endpoint
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	IPv4 string `json:"ipv4,omitempty"`
 
 	// IPv6 is the IPv6 address of the IPv4 health endpoint
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	IPv6 string `json:"ipv6,omitempty"`
 }
 
@@ -689,7 +690,7 @@ type EncryptionSpec struct {
 	// Key is the index to the key to use for encryption or 0 if encryption
 	// is disabled
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Key int `json:"key,omitempty"`
 }
 
@@ -715,7 +716,7 @@ type ENISpec struct {
 	// the PreAllocate and MaxAboveWatermark logic takes over to continue
 	// allocating IPs.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	MinAllocate int `json:"min-allocate,omitempty"`
 
 	// PreAllocate defines the number of IP addresses that must be
@@ -723,7 +724,7 @@ type ENISpec struct {
 	// addresses available immediately without requiring cilium-operator to
 	// get involved.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	PreAllocate int `json:"pre-allocate,omitempty"`
 
 	// MaxAboveWatermark is the maximum number of addresses to allocate
@@ -733,7 +734,7 @@ type ENISpec struct {
 	// IPs as possible are allocated. Limiting the amount can help reduce
 	// waste of IPs.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	MaxAboveWatermark int `json:"max-above-watermark,omitempty"`
 
 	// FirstInterfaceIndex is the index of the first ENI to use for IP
@@ -741,19 +742,19 @@ type ENISpec struct {
 	// FirstInterfaceIndex is set to 1, then only eth1 and eth2 will be
 	// used for IP allocation, eth0 will be ignored for PodIP allocation.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	FirstInterfaceIndex int `json:"first-interface-index,omitempty"`
 
 	// SecurityGroups is the list of security groups to attach to any ENI
 	// that is created and attached to the instance.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	SecurityGroups []string `json:"security-groups,omitempty"`
 
 	// SubnetTags is the list of tags to use when evaluating what AWS
 	// subnets to use for ENI and IP allocation
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	SubnetTags map[string]string `json:"subnet-tags,omitempty"`
 
 	// VpcID is the VPC ID to use when allocating ENIs
@@ -766,7 +767,7 @@ type ENISpec struct {
 	// DeleteOnTermination defines that the ENI should be deleted when the
 	// associated instance is terminated
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	DeleteOnTermination bool `json:"delete-on-termination,omitempty"`
 }
 
@@ -776,13 +777,13 @@ type IPAMSpec struct {
 	// an IP is used, the IP will remain on this list but will be added to
 	// Status.IPAM.Used
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Pool map[string]AllocationIP `json:"pool,omitempty"`
 
 	// PodCIDRs is the list of CIDRs available to the node for allocation.
 	// When an IP is used, the IP will be added to Status.IPAM.Used
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	PodCIDRs []string `json:"podCIDRs,omitempty"`
 }
 
@@ -790,12 +791,12 @@ type IPAMSpec struct {
 type NodeStatus struct {
 	// ENI is the AWS ENi specific status of the node
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	ENI ENIStatus `json:"eni,omitempty"`
 
 	// IPAM is the IPAM status of the node
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	IPAM IPAMStatus `json:"ipam,omitempty"`
 }
 
@@ -804,7 +805,7 @@ type IPAMStatus struct {
 	// Used lists all IPs out of Spec.IPAM.Pool which have been allocated
 	// and are in use.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Used map[string]AllocationIP `json:"used,omitempty"`
 }
 
@@ -818,14 +819,14 @@ type AllocationIP struct {
 	// The owner field is left blank for an entry in Spec.IPAM.Pool and
 	// filled out as the IP is used and also added to Status.IPAM.Used.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Owner string `json:"owner,omitempty"`
 
 	// Resource is set for both available and allocated IPs, it represents
 	// what resource the IP is associated with, e.g. in combination with
 	// AWS ENI, this will refer to the ID of the ENI
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Resource string `json:"resource,omitempty"`
 }
 
@@ -833,7 +834,7 @@ type AllocationIP struct {
 type ENIStatus struct {
 	// ENIs is the list of ENIs on the node
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	ENIs map[string]ENI `json:"enis,omitempty"`
 }
 
@@ -844,49 +845,49 @@ type ENIStatus struct {
 type ENI struct {
 	// ID is the ENI ID
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	ID string `json:"id,omitempty"`
 
 	// IP is the primary IP of the ENI
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	IP string `json:"ip,omitempty"`
 
 	// MAC is the mac address of the ENI
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	MAC string `json:"mac,omitempty"`
 
 	// AvailabilityZone is the availability zone of the ENI
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	AvailabilityZone string `json:"availability-zone,omitempty"`
 
 	// Description is the description field of the ENI
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Description string `json:"description,omitempty"`
 
 	// Number is the interface index, it used in combination with
 	// FirstInterfaceIndex
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Number int `json:"number,omitempty"`
 
 	// Subnet is the subnet the ENI is associated with
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Subnet AwsSubnet `json:"subnet,omitempty"`
 
 	// VPC is the VPC information to which the ENI is attached to
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	VPC AwsVPC `json:"vpc,omitempty"`
 
 	// Addresses is the list of all IPs associated with the ENI, including
 	// all secondary addresses
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Addresses []string `json:"addresses,omitempty"`
 
 	// SecurityGroups are the security groups associated with the ENI

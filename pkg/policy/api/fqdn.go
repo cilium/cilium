@@ -36,6 +36,8 @@ var (
 type FQDNSelector struct {
 	// MatchName matches literal DNS names. A trailing "." is automatically added
 	// when missing.
+	//
+	// +kubebuilder:validation:Pattern=`^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])\.?$`
 	MatchName string `json:"matchName,omitempty"`
 
 	// MatchPattern allows using wildcards to match DNS names. All wildcards are
@@ -54,6 +56,8 @@ type FQDNSelector struct {
 	// begins with "sub"
 	//   sub.cilium.io and subdomain.cilium.io match, www.cilium.io,
 	//   blog.cilium.io, cilium.io and google.com do not
+	//
+	// +kubebuilder:validation:Pattern=`^(([a-zA-Z0-9\*]|[a-zA-Z0-9\*][a-zA-Z0-9\-\*]*[a-zA-Z0-9\*])\.)*([A-Za-z0-9\*]|[A-Za-z0-9\*][A-Za-z0-9\-\*]*[A-Za-z0-9\*])\.?$`
 	MatchPattern string `json:"matchPattern,omitempty"`
 }
 

@@ -1,9 +1,11 @@
 #!/bin/bash
 
+dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+
 arg1=$1
 
 BINDATA_FILE=bindata.go
-REQUIRED_GO_VERSION=$(cat ../GO_VERSION)
+REQUIRED_GO_VERSION=$(cat ${dir}/../../GO_VERSION)
 
 if [[ "$arg1" == "apply" ]]; then
   NEW_SHA1SUM=`sha1sum ${BINDATA_FILE} | awk '{ print $1}'`

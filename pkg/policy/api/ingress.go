@@ -45,7 +45,7 @@ type IngressRule struct {
 	// Any endpoint with the label "role=backend" can be consumed by any
 	// endpoint carrying the label "role=frontend".
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	FromEndpoints []EndpointSelector `json:"fromEndpoints,omitempty"`
 
 	// FromRequires is a list of additional constraints which must be met
@@ -57,7 +57,7 @@ type IngressRule struct {
 	// Any Endpoint with the label "team=A" requires consuming endpoint
 	// to also carry the label "team=A".
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	FromRequires []EndpointSelector `json:"fromRequires,omitempty"`
 
 	// ToPorts is a list of destination ports identified by port number and
@@ -68,7 +68,7 @@ type IngressRule struct {
 	// Any endpoint with the label "app=httpd" can only accept incoming
 	// connections on port 80/tcp.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	ToPorts []PortRule `json:"toPorts,omitempty"`
 
 	// FromCIDR is a list of IP blocks which the endpoint subject to the
@@ -84,7 +84,7 @@ type IngressRule struct {
 	// Any endpoint with the label "app=my-legacy-pet" is allowed to receive
 	// connections from 10.3.9.1
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	FromCIDR CIDRSlice `json:"fromCIDR,omitempty"`
 
 	// FromCIDRSet is a list of IP blocks which the endpoint subject to the
@@ -99,14 +99,14 @@ type IngressRule struct {
 	// Any endpoint with the label "app=my-legacy-pet" is allowed to receive
 	// connections from 10.0.0.0/8 except from IPs in subnet 10.96.0.0/12.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	FromCIDRSet CIDRRuleSlice `json:"fromCIDRSet,omitempty"`
 
 	// FromEntities is a list of special entities which the endpoint subject
 	// to the rule is allowed to receive connections from. Supported entities are
 	// `world`, `cluster` and `host`
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	FromEntities EntitySlice `json:"fromEntities,omitempty"`
 
 	// TODO: Move this to the policy package (https://github.com/cilium/cilium/issues/8353)

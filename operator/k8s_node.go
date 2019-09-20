@@ -179,7 +179,7 @@ func runNodeWatcher() error {
 			controller.ControllerParams{
 				RunInterval: ciliumCNPNodeStatusGCInterval,
 				DoFunc: func(ctx context.Context) error {
-					lastRun := time.Now().Add(-kvNodeGCInterval)
+					lastRun := meta_v1.NewTime(meta_v1.Now().Add(-kvNodeGCInterval))
 					k8sCapabilities := k8sversion.Capabilities()
 					continueID := ""
 					wg := sync.WaitGroup{}
@@ -196,7 +196,7 @@ func runNodeWatcher() error {
 
 						for _, cnp := range cnpList.Items {
 							needsUpdate := false
-							nodesToDelete := map[string]cilium_v2.Timestamp{}
+							nodesToDelete := map[string]meta_v1.Time{}
 							for n, status := range cnp.Status.Nodes {
 								kvStoreNodeName := node.GetKeyNodeName(option.Config.ClusterName, n)
 								if _, exists := kvStoreNodes[kvStoreNodeName]; !exists {
@@ -206,7 +206,7 @@ func runNodeWatcher() error {
 									// was created, we will only delete the node
 									// from the CNP Status if the last time it was
 									// update was before the lastRun.
-									if status.LastUpdated.Before(lastRun) {
+									if status.LastUpdated.Before(&lastRun) {
 										nodesToDelete[n] = status.LastUpdated
 										delete(cnp.Status.Nodes, n)
 										needsUpdate = true
@@ -237,7 +237,7 @@ func runNodeWatcher() error {
 	return nil
 }
 
-func updateCNP(ciliumClient v2.CiliumV2Interface, cnp *cilium_v2.CiliumNetworkPolicy, nodesToDelete map[string]cilium_v2.Timestamp, capabilities k8sversion.ServerCapabilities) {
+func updateCNP(ciliumClient v2.CiliumV2Interface, cnp *cilium_v2.CiliumNetworkPolicy, nodesToDelete map[string]meta_v1.Time, capabilities k8sversion.ServerCapabilities) {
 	if len(nodesToDelete) == 0 {
 		return
 	}

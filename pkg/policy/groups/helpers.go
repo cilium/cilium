@@ -110,7 +110,7 @@ func updateOrCreateCNP(cnp *cilium_v2.CiliumNetworkPolicy) (*cilium_v2.CiliumNet
 
 func updateDerivativeStatus(cnp *cilium_v2.CiliumNetworkPolicy, derivativeName string, err error) error {
 	status := cilium_v2.CiliumNetworkPolicyNodeStatus{
-		LastUpdated: cilium_v2.NewTimestamp(),
+		LastUpdated: v1.Now(),
 		Enforcing:   false,
 	}
 

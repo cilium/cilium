@@ -33,6 +33,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 )
@@ -310,7 +311,7 @@ func (c *CNPStatusUpdateContext) update(cnp *types.SlimCNP, enforcing, ok bool, 
 			Enforcing:   enforcing,
 			Error:       cnpError.Error(),
 			OK:          ok,
-			LastUpdated: cilium_v2.NewTimestamp(),
+			LastUpdated: metav1.Now(),
 			Annotations: annotations,
 		}
 	} else {
@@ -318,7 +319,7 @@ func (c *CNPStatusUpdateContext) update(cnp *types.SlimCNP, enforcing, ok bool, 
 			Enforcing:   enforcing,
 			Revision:    rev,
 			OK:          ok,
-			LastUpdated: cilium_v2.NewTimestamp(),
+			LastUpdated: metav1.Now(),
 			Annotations: annotations,
 		}
 	}

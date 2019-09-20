@@ -32,7 +32,7 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "policy-api")
 
 // EndpointSelector is a wrapper for k8s LabelSelector.
 type EndpointSelector struct {
-	*metav1.LabelSelector
+	*metav1.LabelSelector `json:",inline"`
 
 	// requirements provides a cache for a k8s-friendly format of the
 	// LabelSelector, which allows more efficient matching in Matches().

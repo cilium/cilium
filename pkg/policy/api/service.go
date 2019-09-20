@@ -33,6 +33,7 @@ type K8sServiceNamespace struct {
 
 // K8sServiceSelectorNamespace wraps service selector with namespace
 type K8sServiceSelectorNamespace struct {
+	// +kubebuilder:validation:Required
 	Selector  ServiceSelector `json:"selector"`
 	Namespace string          `json:"namespace,omitempty"`
 }

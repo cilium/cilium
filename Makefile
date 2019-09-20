@@ -15,6 +15,9 @@ GOLANG_SRCFILES := $(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFIL
 BPF_FILES_EVAL := $(shell git ls-files $(ROOT_DIR)/bpf/ | grep -v .gitignore | tr "\n" ' ')
 BPF_FILES ?= $(BPF_FILES_EVAL)
 BPF_SRCFILES := $(subst ../,,$(BPF_FILES))
+K8S_CRD_EVAL := $(shell git ls-files $(ROOT_DIR)/examples/crds | grep -v .gitignore | tr "\n" ' ')
+K8S_CRD_FILES ?= $(K8S_CRD_EVAL)
+K8S_CRD_SRCFILES := $(subst ../,,$(K8S_CRD_FILES))
 
 SWAGGER_VERSION := v0.19.0
 SWAGGER := $(CONTAINER_ENGINE_FULL) run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) -e GOPATH=$(GOPATH) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
@@ -222,6 +225,11 @@ dev-docker-image: GIT_VERSION
 	$(QUIET)echo "Push like this when ready:"
 	$(QUIET)echo "${CONTAINER_ENGINE} push cilium/cilium-dev:$(DOCKER_IMAGE_TAG)"
 
+CRD_OPTIONS ?= "crd:trivialVersions=true"
+# Generate manifests e.g. CRD, RBAC etc.
+manifests:
+	$(GOPATH)/bin/controller-gen $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./pkg/k8s/apis/cilium.io/v2" output:crd:artifacts:config=config/crd/bases
+
 docker-operator-image: GIT_VERSION
 	$(CONTAINER_ENGINE_FULL) build --build-arg LOCKDEBUG=${LOCKDEBUG} -f cilium-operator.Dockerfile -t "cilium/operator:$(DOCKER_IMAGE_TAG)" .
 	$(QUIET)echo "Push like this when ready:"
@@ -290,6 +298,22 @@ generate-k8s-api-patch:
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:ctmap")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"pkg:tuple")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"pkg:bpf")
+
+K8S_VALIDATION := $(QUIET) go-bindata -pkg v2
+
+.PHONY: check-bindata
+check-bindata: bindata.go
+	@echo "  CHECK contrib/scripts/bindata.sh"
+	$(QUIET) ./contrib/scripts/bindata.sh $(GO_BINDATA_SHA1SUM)
+
+apply-bindata: go-bindata
+	@$(ECHO_GEN)bpf.sha
+	$(QUIET) ./contrib/scripts/bindata.sh apply
+
+bindata.go go-bindata: $(K8S_CRD_FILES)
+	@$(ECHO_GEN) $@
+	$(K8S_VALIDATION) -o ./pkg/k8s/apis/cilium.io/v2/bindata.go $(K8S_CRD_FILES)
+
 
 vps:
 	VBoxManage list runningvms
