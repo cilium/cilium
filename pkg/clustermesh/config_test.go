@@ -69,7 +69,7 @@ func (s *ClusterMeshTestSuite) TestWatchConfigDirectory(c *C) {
 	createFile(c, file1)
 	createFile(c, file2)
 
-	mgr := cache.NewIdentityAllocatorManager(&identityAllocatorOwnerMock{})
+	mgr := cache.NewCachingIdentityAllocator(&identityAllocatorOwnerMock{})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	<-mgr.InitIdentityAllocator(nil, nil)
 

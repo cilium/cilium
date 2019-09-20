@@ -57,7 +57,7 @@ func (s *IdentityCacheTestSuite) TestLookupReservedIdentity(c *C) {
 		option.Config.ClusterName = bak
 	}()
 
-	mgr := NewIdentityAllocatorManager(newDummyOwner())
+	mgr := NewCachingIdentityAllocator(newDummyOwner())
 	<-mgr.InitIdentityAllocator(nil, nil)
 
 	hostID := identity.GetReservedID("host")

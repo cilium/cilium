@@ -34,7 +34,7 @@ var (
 	toFoo        = &SearchContext{To: labels.ParseSelectLabelArray("foo")}
 
 	dummySelectorCacheUser = &DummySelectorCacheUser{}
-	c                      = cache.NewIdentityAllocatorManager(&identityAllocatorOwnerMock{})
+	c                      = cache.NewCachingIdentityAllocator(&identityAllocatorOwnerMock{})
 	testSelectorCache      = NewSelectorCache(c.GetIdentityCache())
 
 	wildcardCachedSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, api.WildcardEndpointSelector)
