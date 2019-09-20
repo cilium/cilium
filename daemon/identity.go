@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -52,10 +53,12 @@ func (h *getIdentity) Handle(params GetIdentityParams) middleware.Responder {
 }
 
 type getIdentityID struct {
-	d *Daemon
+	c *cache.CachingIdentityAllocator
 }
 
-func newGetIdentityIDHandler(d *Daemon) GetIdentityIDHandler { return &getIdentityID{d: d} }
+func newGetIdentityIDHandler(c *cache.CachingIdentityAllocator) GetIdentityIDHandler {
+	return &getIdentityID{c: c}
+}
 
 func (h *getIdentityID) Handle(params GetIdentityIDParams) middleware.Responder {
 	nid, err := identity.ParseNumericIdentity(params.ID)
@@ -63,7 +66,7 @@ func (h *getIdentityID) Handle(params GetIdentityIDParams) middleware.Responder 
 		return NewGetIdentityIDBadRequest()
 	}
 
-	identity := h.d.identityAllocator.LookupIdentityByID(nid)
+	identity := h.c.LookupIdentityByID(nid)
 	if identity == nil {
 		return NewGetIdentityIDNotFound()
 	}
