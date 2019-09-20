@@ -29,6 +29,7 @@
 #include "iproute2/bpf_elf.h"
 
 #define BPF_MAX_FIXUPS	64
+#define BPF_MAX_INSNS	(2 * BPF_MAXINSNS)
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
@@ -44,7 +45,7 @@ struct bpf_test {
 	const char *emits;
 	enum bpf_prog_type type;
 	enum bpf_attach_type attach_type;
-	struct bpf_insn insns[BPF_MAXINSNS];
+	struct bpf_insn insns[BPF_MAX_INSNS];
 	struct bpf_map_fixup fixup_map[BPF_MAX_FIXUPS];
 	const char *warn;
 };
@@ -118,11 +119,11 @@ static int bpf_map_create(enum bpf_map_type type, uint32_t size_key,
 	return bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
 }
 
-static int bpf_test_length(const struct bpf_insn *insn)
+static int bpf_test_length(const struct bpf_insn *insn, size_t max)
 {
 	int len;
 
-	for (len = BPF_MAXINSNS - 1; len > 0; --len)
+	for (len = max - 1; len > 0; --len)
 		if (insn[len].code != 0 || insn[len].imm != 0)
 			break;
 
@@ -221,7 +222,7 @@ static int bpf_map_selfcheck_pinned(int fd, const struct bpf_elf_map *map,
 static void bpf_report(const struct bpf_test *test, int success,
 		       int debug_mode)
 {
-	static char bpf_vlog[1U << 16];
+	static char bpf_vlog[1U << 17];
 	int fd;
 
 	printf("%s#define %s\n\n", success ? "" : "// ", test->emits);
@@ -233,8 +234,8 @@ static void bpf_report(const struct bpf_test *test, int success,
 
 		memset(bpf_vlog, 0, sizeof(bpf_vlog));
 		fd = bpf_prog_load(test->type, test->attach_type, test->insns,
-				   bpf_test_length(test->insns), "GPL",
-				   bpf_vlog, sizeof(bpf_vlog));
+				   bpf_test_length(test->insns, ARRAY_SIZE(test->insns)),
+				   "GPL", bpf_vlog, sizeof(bpf_vlog));
 		printf("%s\n%s", strerror(errno), bpf_vlog);
 		printf("#endif\n\n");
 		if (fd > 0)
@@ -282,7 +283,8 @@ static void bpf_run_test(struct bpf_test *test, int debug_mode)
 	}
 
 	fd = bpf_prog_load(test->type, test->attach_type, test->insns,
-			   bpf_test_length(test->insns), "GPL", NULL, 0);
+			   bpf_test_length(test->insns, ARRAY_SIZE(test->insns)),
+			   "GPL", NULL, 0);
 	bpf_report(test, fd > 0, debug_mode);
 	if (fd > 0)
 		close(fd);
