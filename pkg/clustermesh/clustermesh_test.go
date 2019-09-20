@@ -96,21 +96,13 @@ func (o *testObserver) OnDelete(k store.NamedKey) {
 	nodesMutex.Unlock()
 }
 
-type identityAllocatorOwnerMock struct{}
-
-func (i *identityAllocatorOwnerMock) UpdateIdentities(added, deleted cache.IdentityCache) {}
-
-func (i *identityAllocatorOwnerMock) GetNodeSuffix() string {
-	return "foo"
-}
-
 func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	kvstore.SetupDummy("etcd")
 	defer kvstore.Close()
 
 	identity.InitWellKnownIdentities()
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	mgr := cache.NewCachingIdentityAllocator(&identityAllocatorOwnerMock{})
+	mgr := cache.NewCachingIdentityAllocator(&cache.IdentityAllocatorOwnerMock{})
 	<-mgr.InitIdentityAllocator(nil, nil)
 	defer mgr.Close()
 
