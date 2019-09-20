@@ -67,7 +67,7 @@ func (i *identityAllocatorOwnerMock) GetNodeSuffix() string {
 }
 
 func (s *proxyTestSuite) SetUpSuite(c *C) {
-	Allocator = cache.NewIdentityAllocatorManager(&identityAllocatorOwnerMock{})
+	Allocator = cache.NewCachingIdentityAllocator(&identityAllocatorOwnerMock{})
 	s.repo = policy.NewPolicyRepository(nil)
 }
 
