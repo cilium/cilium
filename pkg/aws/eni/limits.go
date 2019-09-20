@@ -15,6 +15,14 @@
 
 package eni
 
+import (
+	"fmt"
+	"strconv"
+	"strings"
+
+	"github.com/cilium/cilium/pkg/option"
+)
+
 // Limits specifies the ENI relevant instance limits
 type Limits struct {
 	// Adapters specifies the maximum number of ENIs that can be attached
@@ -252,7 +260,34 @@ var limits = map[string]Limits{
 }
 
 // GetLimits returns the instance limits of a particular instance type
-func GetLimits(instanceType string) (limit Limits, ok bool) {
+func GetLimits(instanceType string) (limit Limits, ok bool, err error) {
+	if len(option.Config.AwsInstanceLimitMapping) != 0 {
+		limitString, ok := option.Config.AwsInstanceLimitMapping[instanceType]
+		if ok {
+			if limit, err = parseLimitString(limitString); err != nil {
+				return limit, false, fmt.Errorf("Parse aws-instance-limit-mapping configuration failed, %s", err)
+			} else {
+				return limit, ok, nil
+			}
+		}
+	}
 	limit, ok = limits[instanceType]
-	return
+	return limit, ok, nil
+}
+
+// parseLimitString returns the Limits struct parsed from config string
+func parseLimitString(limitString string) (limit Limits, err error) {
+	intSlice := make([]int, 3)
+	stringSlice := strings.Split(strings.ReplaceAll(limitString, " ", "") , ",")
+	if len(stringSlice) != 3 {
+		return limit, fmt.Errorf("invalid limit value")
+	}
+	for i, s := range stringSlice {
+		if intLimit, err := strconv.Atoi(s); err != nil {
+			return limit, err
+		} else {
+			intSlice[i] = intLimit
+		}
+	}
+	return Limits{intSlice[0], intSlice[1], intSlice[2]}, nil
 }

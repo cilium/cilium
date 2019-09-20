@@ -423,9 +423,13 @@ func (n *Node) determineAllocationAction() (*allocatableResources, error) {
 	}
 
 	instanceType := n.resource.Spec.ENI.InstanceType
-	limits, ok := GetLimits(instanceType)
+	limits, ok, err := GetLimits(instanceType)
 
 	scopedLog := n.loggerLocked()
+
+	if err != nil {
+		return nil, err
+	}
 
 	if !ok {
 		n.manager.metricsAPI.IncENIAllocationAttempt("limits unavailable", "")
