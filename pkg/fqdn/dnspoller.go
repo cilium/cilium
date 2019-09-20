@@ -113,7 +113,7 @@ func (poller *DNSPoller) LookupUpdateDNS(ctx context.Context) error {
 		poller.config.PollerResponseNotify(lookupTime, qname, response)
 	}
 
-	_, err := poller.ruleManager.UpdateGenerateDNS(lookupTime, updatedDNSIPs)
+	_, err := poller.ruleManager.UpdateGenerateDNS(ctx, lookupTime, updatedDNSIPs)
 	return err
 }
 
