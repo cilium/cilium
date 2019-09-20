@@ -104,6 +104,7 @@ func (m *CachingIdentityAllocator) GetIdentities() IdentitiesModel {
 
 type identityWatcher struct {
 	stopChan chan bool
+	owner    IdentityAllocatorOwner
 }
 
 // collectEvent records the 'event' as an added or deleted identity,
@@ -140,7 +141,7 @@ func collectEvent(event allocator.AllocatorEvent, added, deleted IdentityCache) 
 }
 
 // watch starts the identity watcher
-func (w *identityWatcher) watch(owner IdentityAllocatorOwner, events allocator.AllocatorEventChan) {
+func (w *identityWatcher) watch(events allocator.AllocatorEventChan) {
 	w.stopChan = make(chan bool)
 
 	go func() {
@@ -194,7 +195,7 @@ func (w *identityWatcher) watch(owner IdentityAllocatorOwner, events allocator.A
 				}
 			}
 			// Issue collected updates
-			owner.UpdateIdentities(added, deleted) // disjoint sets
+			w.owner.UpdateIdentities(added, deleted) // disjoint sets
 		}
 	}()
 }
