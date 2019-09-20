@@ -301,26 +301,6 @@ func (h *getService) Handle(params GetServiceParams) middleware.Responder {
 	return NewGetServiceOK().WithPayload(list)
 }
 
-// RevNATDeleteAll deletes all RevNAT4, if IPv4 is enabled on daemon, and all RevNAT6
-// stored on the daemon and on the bpf maps.
-//
-// Must be called with d.loadBalancer.BPFMapMU locked.
-func (d *Daemon) RevNATDeleteAll() error {
-	if option.Config.EnableIPv4 {
-		if err := lbmap.RevNat4Map.DeleteAll(); err != nil {
-			return err
-		}
-	}
-
-	if option.Config.EnableIPv6 {
-		if err := lbmap.RevNat6Map.DeleteAll(); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func openServiceMaps() error {
 	if err := lbmap.RemoveDeprecatedMaps(); err != nil {
 		return err
