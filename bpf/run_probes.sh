@@ -100,6 +100,14 @@ function probe_run_tc()
 	echo "#define $FEATURE" >> "$FEATURE_FILE"
 }
 
+function prep_probe()
+{
+	OUT_FILE=$1
+	# Various extensions for textual replacement go here.
+	awk -F":" '/insn-repeat/ { for(i = 0;i < $2; i++) print }; { print }' "$OUT_FILE" > \
+	      "$OUT/tmp.t" && mv "$OUT/tmp.t" "$OUT_FILE"
+}
+
 # Low level probes that only check verifier.
 function probe_run_ll()
 {
@@ -111,8 +119,8 @@ function probe_run_ll()
 	for PROBE in "${PROBE_BASE}"/*.t
 	do
 		OUT_BIN=`basename "$PROBE"`
-
 		cp "$PROBE" "$OUT/raw_probe.t"
+		prep_probe "$OUT/raw_probe.t"
 		clang $PROBE_OPTS "$PROBE_BASE/raw_main.c" -o "$OUT/$OUT_BIN" &&
 		"$OUT/$OUT_BIN" 1>> "$FEATURE_FILE" 2>> "$INFO_FILE"
 	done
