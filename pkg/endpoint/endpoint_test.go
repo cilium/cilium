@@ -687,6 +687,18 @@ func (s *EndpointSuite) TestEndpointEventQueueDeadlockUponDeletion(c *C) {
 	}
 }
 
+func BenchmarkEndpointGetModel(b *testing.B) {
+	e := NewEndpointWithState(&suite, 12345, StateCreating)
+
+	if e == nil {
+		b.Error("Cannot create endpoint from state")
+	}
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		e.GetModel()
+	}
+}
+
 type ipReleaserDummy struct{}
 
 func (i *ipReleaserDummy) ReleaseIP(ip net.IP) error {
