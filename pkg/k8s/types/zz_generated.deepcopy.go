@@ -219,6 +219,11 @@ func (in *Node) DeepCopyInto(out *Node) {
 		*out = make([]v1.NodeAddress, len(*in))
 		copy(*out, *in)
 	}
+	if in.SpecPodCIDRs != nil {
+		in, out := &in.SpecPodCIDRs, &out.SpecPodCIDRs
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
