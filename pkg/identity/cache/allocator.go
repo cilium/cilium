@@ -216,11 +216,17 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 // NewCachingIdentityAllocator creates a new instance of an
 // CachingIdentityAllocator.
 func NewCachingIdentityAllocator(owner IdentityAllocatorOwner) *CachingIdentityAllocator {
+	watcher := identityWatcher{
+		stopChan: make(chan bool),
+		owner:    owner,
+	}
+
 	mgr := &CachingIdentityAllocator{
 		globalIdentityAllocatorInitialized: make(chan struct{}),
 		localIdentityAllocatorInitialized:  make(chan struct{}),
 		owner:                              owner,
 		identitiesPath:                     IdentitiesPath,
+		watcher:                            watcher,
 	}
 	return mgr
 }
