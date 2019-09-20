@@ -255,17 +255,6 @@ func (d *Daemon) svcDeleteLocked(svc *loadbalancer.LBSVC) error {
 		return fmt.Errorf("Deleting service from BPF maps failed: %s", err)
 	}
 
-	if revNAT, ok := d.loadBalancer.RevNATMap[svcID]; ok {
-		if err := lbmap.DeleteRevNATBPF(svcID, revNAT.IsIPv6()); err != nil {
-			return fmt.Errorf("Unable to delete revNAT for service %d: %s", svcID, err)
-		}
-
-		delete(d.loadBalancer.RevNATMap, svcID)
-	} else {
-		log.WithField(logfields.ServiceID, logfields.Repr(svc)).
-			Warn("Unable to find revNAT cache entry for service")
-	}
-
 	d.loadBalancer.DeleteService(svc)
 
 	return nil
