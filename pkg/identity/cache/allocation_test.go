@@ -172,9 +172,12 @@ func (d *dummyOwner) WaitUntilID(target identity.NumericIdentity) int {
 func (ias *IdentityAllocatorSuite) TestEventWatcherBatching(c *C) {
 	owner := newDummyOwner()
 	events := make(allocator.AllocatorEventChan, 1024)
-	var watcher identityWatcher
+	watcher := identityWatcher{
+		stopChan: make(chan bool),
+		owner:    owner,
+	}
 
-	watcher.watch(owner, events)
+	watcher.watch(events)
 	defer close(watcher.stopChan)
 
 	lbls := labels.NewLabelsFromSortedList("id=foo")
