@@ -1380,7 +1380,7 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPI {
 
 	// /identity/
 	api.PolicyGetIdentityHandler = newGetIdentityHandler(d)
-	api.PolicyGetIdentityIDHandler = newGetIdentityIDHandler(d)
+	api.PolicyGetIdentityIDHandler = newGetIdentityIDHandler(d.identityAllocator)
 
 	// /identity/endpoints
 	api.PolicyGetIdentityEndpointsHandler = newGetIdentityEndpointsIDHandler(d)
