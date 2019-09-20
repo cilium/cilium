@@ -41,13 +41,8 @@ func (d *Daemon) addSVC2BPFMap(feCilium loadbalancer.L3n4AddrID, feBPF lbmap.Ser
 
 	if err := lbmap.UpdateService(feBPF, besBPF, int(feCilium.ID), int(oldID),
 		service.AcquireBackendID, service.DeleteBackendID); err != nil {
-
-		delete(d.loadBalancer.RevNATMap, loadbalancer.ServiceID(feCilium.ID))
 		return err
 	}
-
-	log.WithField(logfields.ServiceName, feCilium.String()).Debug("adding service to RevNATMap")
-	d.loadBalancer.RevNATMap[loadbalancer.ServiceID(feCilium.ID)] = *feCilium.L3n4Addr.DeepCopy()
 
 	return nil
 }
@@ -323,8 +318,6 @@ func (d *Daemon) RevNATDeleteAll() error {
 		}
 	}
 
-	// TODO should we delete even if err is != nil?
-	d.loadBalancer.RevNATMap = map[loadbalancer.ServiceID]loadbalancer.L3n4Addr{}
 	return nil
 }
 
@@ -382,9 +375,7 @@ func (d *Daemon) SyncLBMap() error {
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
 	newSVCMapID := loadbalancer.SVCMapID{}
-	newRevNATMap := loadbalancer.RevNATMap{}
 	failedSyncSVC := []loadbalancer.LBSVC{}
-	failedSyncRevNAT := map[loadbalancer.ServiceID]loadbalancer.L3n4Addr{}
 
 	addSVC2BPFMap := func(oldID loadbalancer.ServiceID, svc loadbalancer.LBSVC) error {
 		scopedLog := log.WithFields(logrus.Fields{
@@ -417,10 +408,6 @@ func (d *Daemon) SyncLBMap() error {
 	for _, err := range lbmapDumpErrors {
 		log.WithError(err).Warn("Unable to list services in services BPF map")
 	}
-	newRevNATMap, revNATMapDumpErrors := lbmap.DumpRevNATMapsToUserspace()
-	for _, err := range revNATMapDumpErrors {
-		log.WithError(err).Warn("Unable to list services in RevNat BPF map")
-	}
 
 	// Need to do this outside of parseSVCEntries to avoid deadlock, because we
 	// are modifying the BPF maps, and calling Dump on a Map RLocks the maps.
@@ -452,13 +439,6 @@ func (d *Daemon) SyncLBMap() error {
 				failedSyncSVC = append(failedSyncSVC, *svc)
 				delete(newSVCMap, svc.Sha256)
 
-				revNAT, ok := newRevNATMap[loadbalancer.ServiceID(svc.FE.ID)]
-				if ok {
-					// Revert the old revNAT
-					newRevNATMap[oldID] = revNAT
-					failedSyncRevNAT[loadbalancer.ServiceID(svc.FE.ID)] = revNAT
-					delete(newRevNATMap, loadbalancer.ServiceID(svc.FE.ID))
-				}
 				// Don't update the maps of services since the service failed to
 				// sync.
 				continue
@@ -475,48 +455,25 @@ func (d *Daemon) SyncLBMap() error {
 		}
 	}
 
-	for id, revNAT := range failedSyncRevNAT {
-		var revNATK lbmap.RevNatKey
-		if !revNAT.IsIPv6() {
-			revNATK = lbmap.NewRevNat4Key(uint16(id))
-		} else {
-			revNATK = lbmap.NewRevNat6Key(uint16(id))
-		}
-
-		if err := lbmap.DeleteRevNat(revNATK); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.ServiceID: id,
-				"revNAT":            revNAT,
-			}).Warn("Unable to clean rev NAT from BPF map")
-		}
-	}
-
 	log.WithFields(logrus.Fields{
 		"restoredServices": len(newSVCMap),
-		"restoredRevNat":   len(newRevNATMap),
 		"failedServices":   len(failedSyncSVC),
-		"failedRevNat":     len(failedSyncRevNAT),
 	}).Info("Restored services from BPF maps")
 
 	d.loadBalancer.SVCMap = newSVCMap
 	d.loadBalancer.SVCMapID = newSVCMapID
-	d.loadBalancer.RevNATMap = newRevNATMap
 
 	return nil
 }
 
 // syncLBMapsWithK8s ensures that the only contents of all BPF maps related to
-// services (loadbalancer, RevNAT - for IPv4 and IPv6) are those that are
-// sent to Cilium via K8s. This function is intended to be ran as part of a
-// controller by the daemon when bootstrapping, although it could be called
-// elsewhere it needed. Returns an error if any issues occur dumping BPF maps
-// or deleting entries from BPF maps.
+// services  are those that are sent to Cilium via K8s. This function is
+// intended to be ran as part of a // controller by the daemon when bootstrapping,
+// although it could be called elsewhere it needed. Returns an error if any issues
+// occur dumping BPF maps or deleting entries from BPF maps.
 func (d *Daemon) syncLBMapsWithK8s() error {
 	k8sDeletedServices := map[string]loadbalancer.L3n4AddrID{}
 	alreadyChecked := map[string]struct{}{}
-
-	// Maps service IDs to whether they are IPv6 (true) or IPv4 (false).
-	k8sDeletedRevNATS := make(map[loadbalancer.ServiceID]bool)
 
 	// Set of L3n4Addrs in string form for storage as a key in map.
 	k8sServicesFrontendAddresses := d.k8sSvcCache.UniqueServiceFrontends()
@@ -527,8 +484,6 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
 	log.Debugf("dumping BPF service maps to userspace")
-	// At this point the creation of the v2 svc from the corresponding legacy
-	// one has already happened, so it's safe to rely on the v2 when dumping
 	_, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspaceV2()
 
 	if len(lbmapDumpErrors) > 0 {
@@ -539,17 +494,8 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 		return fmt.Errorf("error(s): %s", errorStrings)
 	}
 
-	newRevNATMap, revNATMapDumpErrors := lbmap.DumpRevNATMapsToUserspace()
-	if len(revNATMapDumpErrors) > 0 {
-		errorStrings := ""
-		for _, err := range revNATMapDumpErrors {
-			errorStrings = fmt.Sprintf("%s, %s", err, errorStrings)
-		}
-		return fmt.Errorf("error(s): %s", errorStrings)
-	}
-
-	// Check whether services in service and revNAT BPF maps exist in the
-	// in-memory K8s service maps. If not, mark them for deletion.
+	// Check whether services in service BPF maps exist in the in-memory
+	// K8s service maps. If not, mark them for deletion.
 	for _, svc := range newSVCList {
 		id := svc.FE.L3n4Addr.StringWithProtocol()
 		if _, ok := alreadyChecked[id]; ok {
@@ -571,35 +517,13 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 		scopedLog.Debug("Found matching k8s service for service in BPF map")
 	}
 
-	for serviceID, serviceInfo := range newRevNATMap {
-		if _, ok := d.loadBalancer.RevNATMap[serviceID]; !ok {
-			log.WithFields(logrus.Fields{
-				logfields.ServiceID: serviceID,
-				logfields.L3n4Addr:  logfields.Repr(serviceInfo)}).Debug("revNAT ID read from BPF maps is not managed by K8s; will delete it from BPF maps")
-			// Map service ID to whether service is IPv4 or IPv6.
-			if serviceInfo.IP.To4() == nil {
-				k8sDeletedRevNATS[serviceID] = true
-			} else {
-				k8sDeletedRevNATS[serviceID] = false
-			}
-		}
-	}
-
 	bpfDeleteErrors := []error{}
-
 	// Delete map entries from BPF which don't exist in list of Kubernetes
 	// services.
 	for _, svc := range k8sDeletedServices {
 		svcLogger := log.WithField(logfields.Object, logfields.Repr(svc))
 		svcLogger.Debug("removing service because it was not synced from Kubernetes")
 		if err := d.svcDeleteBPF(svc); err != nil {
-			bpfDeleteErrors = append(bpfDeleteErrors, err)
-		}
-	}
-
-	for serviceID, isIPv6 := range k8sDeletedRevNATS {
-		log.WithFields(logrus.Fields{logfields.ServiceID: serviceID, "isIPv6": isIPv6}).Debug("removing revNAT because it was not synced from Kubernetes")
-		if err := lbmap.DeleteRevNATBPF(serviceID, isIPv6); err != nil {
 			bpfDeleteErrors = append(bpfDeleteErrors, err)
 		}
 	}
@@ -612,7 +536,7 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 		return fmt.Errorf("Errors deleting BPF map entries: %s", bpfErrorsString)
 	}
 
-	log.Debugf("successfully synced BPF loadbalancer and revNAT maps with in-memory Kubernetes service maps")
+	log.Debugf("successfully synced BPF loadbalancer maps with in-memory Kubernetes service maps")
 
 	return nil
 }

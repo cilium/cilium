@@ -136,10 +136,9 @@ type RevNATMap map[ServiceID]L3n4Addr
 // LoadBalancer is the internal representation of the loadbalancer in the local cilium
 // daemon.
 type LoadBalancer struct {
-	BPFMapMU  lock.RWMutex
-	SVCMap    SVCMap
-	SVCMapID  SVCMapID
-	RevNATMap RevNATMap
+	BPFMapMU lock.RWMutex
+	SVCMap   SVCMap
+	SVCMapID SVCMapID
 }
 
 // AddService adds a service to list of loadbalancers and returns true if created.
@@ -189,9 +188,8 @@ func NewL4Type(name string) (L4Type, error) {
 // NewLoadBalancer returns a LoadBalancer with all maps initialized.
 func NewLoadBalancer() *LoadBalancer {
 	return &LoadBalancer{
-		SVCMap:    SVCMap{},
-		SVCMapID:  SVCMapID{},
-		RevNATMap: RevNATMap{},
+		SVCMap:   SVCMap{},
+		SVCMapID: SVCMapID{},
 	}
 }
 
