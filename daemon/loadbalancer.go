@@ -35,13 +35,11 @@ import (
 func (d *Daemon) addSVC2BPFMap(feCilium loadbalancer.L3n4AddrID, feBPF lbmap.ServiceKey,
 	besBPF []lbmap.ServiceValue,
 	svcKeyV2 lbmap.ServiceKeyV2, svcValuesV2 []lbmap.ServiceValueV2,
-	backendsV2 []lbmap.Backend) error {
+	backendsV2 []lbmap.Backend, oldID loadbalancer.ServiceID) error {
 
 	log.WithField(logfields.ServiceName, feCilium.String()).Debug("adding service to BPF maps")
 
-	revNATID := int(feCilium.ID)
-
-	if err := lbmap.UpdateService(feBPF, besBPF, revNATID,
+	if err := lbmap.UpdateService(feBPF, besBPF, int(feCilium.ID), int(oldID),
 		service.AcquireBackendID, service.DeleteBackendID); err != nil {
 
 		delete(d.loadBalancer.RevNATMap, loadbalancer.ServiceID(feCilium.ID))
@@ -136,7 +134,7 @@ func (d *Daemon) svcAdd(
 	d.loadBalancer.BPFMapMU.Lock()
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
-	err = d.addSVC2BPFMap(feL3n4Addr, fe, besValues, svcKeyV2, svcValuesV2, backendsV2)
+	err = d.addSVC2BPFMap(feL3n4Addr, fe, besValues, svcKeyV2, svcValuesV2, backendsV2, 0)
 	if err != nil {
 		return false, loadbalancer.ID(0), err
 	}
@@ -406,35 +404,6 @@ func (d *Daemon) SyncLBMap() error {
 		})
 		scopedLog.Debug("adding service ID with SHA")
 
-		// check if the ID for revNat is present in the bpf map, update the
-		// reverse nat key, delete the old one.
-		revNAT, ok := newRevNATMap[oldID]
-		if ok {
-			scopedLog.Debug("Service ID is present in BPF map, updating revnat key")
-			revNATK, revNATV := lbmap.L3n4Addr2RevNatKeynValue(
-				loadbalancer.ServiceID(svc.FE.ID), revNAT)
-			err := lbmap.UpdateRevNat(revNATK, revNATV)
-			if err != nil {
-				return fmt.Errorf("Unable to add revNAT: %s: %s."+
-					" This entry will be removed from the bpf's LB map.", revNAT.String(), err)
-			}
-
-			// Remove the old entry from the bpf map.
-			revNATK, _ = lbmap.L3n4Addr2RevNatKeynValue(oldID, revNAT)
-			if err := lbmap.DeleteRevNat(revNATK); err != nil {
-				scopedLog.WithError(err).Warn("Unable to remove old rev NAT entry")
-			}
-
-			scopedLog.Debug("deleting old ID from newRevNATMap")
-			delete(newRevNATMap, oldID)
-
-			log.WithFields(logrus.Fields{
-				logfields.ServiceName: svc.FE.String(),
-				"revNAT":              revNAT,
-			}).Debug("adding service --> revNAT to newRevNATMap")
-			newRevNATMap[loadbalancer.ServiceID(svc.FE.ID)] = revNAT
-		}
-
 		fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(svc)
 		if err != nil {
 			return fmt.Errorf("Unable to create a BPF key and values for service FE: %s and backends: %+v. Error: %s."+
@@ -447,7 +416,7 @@ func (d *Daemon) SyncLBMap() error {
 				" This entry will be removed from the bpf's LB map.", svc.FE.String(), svc.BES, err)
 		}
 
-		err = d.addSVC2BPFMap(svc.FE, fe, besValues, svcKeyV2, svcValuesV2, backendsV2)
+		err = d.addSVC2BPFMap(svc.FE, fe, besValues, svcKeyV2, svcValuesV2, backendsV2, oldID)
 		if err != nil {
 			return fmt.Errorf("Unable to add service FE: %s: %s."+
 				" This entry will be removed from the bpf's LB map.", svc.FE.String(), err)
