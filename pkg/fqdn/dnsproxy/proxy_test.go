@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn/regexpmap"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
@@ -88,12 +87,6 @@ func (s *DNSProxyTestSuite) SendNotification(typ monitorAPI.AgentNotification, t
 func (s *DNSProxyTestSuite) Datapath() datapath.Datapath {
 	return nil
 }
-
-func (s *DNSProxyTestSuite) GetNodeSuffix() string {
-	return ""
-}
-
-func (s *DNSProxyTestSuite) UpdateIdentities(added, deleted cache.IdentityCache) {}
 
 var _ = Suite(&DNSProxyTestSuite{})
 

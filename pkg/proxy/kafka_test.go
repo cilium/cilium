@@ -58,16 +58,8 @@ type proxyTestSuite struct {
 
 var _ = Suite(&proxyTestSuite{})
 
-type identityAllocatorOwnerMock struct{}
-
-func (i *identityAllocatorOwnerMock) UpdateIdentities(added, deleted cache.IdentityCache) {}
-
-func (i *identityAllocatorOwnerMock) GetNodeSuffix() string {
-	return "foo"
-}
-
 func (s *proxyTestSuite) SetUpSuite(c *C) {
-	Allocator = cache.NewCachingIdentityAllocator(&identityAllocatorOwnerMock{})
+	Allocator = cache.NewCachingIdentityAllocator(&cache.IdentityAllocatorOwnerMock{})
 	s.repo = policy.NewPolicyRepository(nil)
 }
 
@@ -105,12 +97,6 @@ func (s *proxyTestSuite) SendNotification(typ monitorAPI.AgentNotification, text
 func (s *proxyTestSuite) Datapath() datapath.Datapath {
 	return nil
 }
-
-func (s *proxyTestSuite) GetNodeSuffix() string {
-	return ""
-}
-
-func (s *proxyTestSuite) UpdateIdentities(added, deleted cache.IdentityCache) {}
 
 type DummySelectorCacheUser struct{}
 
