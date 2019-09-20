@@ -562,12 +562,12 @@ func (d *Daemon) bootstrapClusterMesh(nodeMngr *nodemanager.Manager) {
 		} else {
 			log.WithField("path", path).Info("Initializing ClusterMesh routing")
 			clustermesh, err := clustermesh.NewClusterMesh(clustermesh.Configuration{
-				Name:            "clustermesh",
-				ConfigDirectory: path,
-				NodeKeyCreator:  nodeStore.KeyCreator,
-				ServiceMerger:   &d.k8sSvcCache,
-				NodeManager:     nodeMngr,
-				Allocator:       d.identityAllocator,
+				Name:                  "clustermesh",
+				ConfigDirectory:       path,
+				NodeKeyCreator:        nodeStore.KeyCreator,
+				ServiceMerger:         &d.k8sSvcCache,
+				NodeManager:           nodeMngr,
+				RemoteIdentityWatcher: d.identityAllocator,
 			})
 			if err != nil {
 				log.WithError(err).Fatal("Unable to initialize ClusterMesh")

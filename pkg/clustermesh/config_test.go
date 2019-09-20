@@ -74,10 +74,10 @@ func (s *ClusterMeshTestSuite) TestWatchConfigDirectory(c *C) {
 	<-mgr.InitIdentityAllocator(nil, nil)
 
 	cm, err := NewClusterMesh(Configuration{
-		Name:            "test1",
-		ConfigDirectory: dir,
-		NodeKeyCreator:  testNodeCreator,
-		Allocator:       mgr,
+		Name:                  "test1",
+		ConfigDirectory:       dir,
+		NodeKeyCreator:        testNodeCreator,
+		RemoteIdentityWatcher: mgr,
 	})
 	c.Assert(err, IsNil)
 	c.Assert(cm, Not(IsNil))
