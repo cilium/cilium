@@ -901,7 +901,10 @@ func (e *Endpoint) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 	return info, nil
 }
 
-func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool) bool {
+// The bool pointed by hadProxy, if not nil, will be set to 'true' if
+// the deleted entry had a proxy port assigned to it.  *hadProxy is
+// not otherwise changed (e.g., it is never set to 'false').
+func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool, hadProxy *bool) bool {
 	// Convert from policy.Key to policymap.Key
 	policymapKey := policymap.PolicyKey{
 		Identity:         keyToDelete.Identity,
@@ -920,6 +923,12 @@ func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool) boo
 	if err != nil && errno != syscall.ENOENT {
 		e.getLogger().WithError(err).WithField(logfields.BPFMapKey, policymapKey).Error("Failed to delete PolicyMap key")
 		return false
+	}
+
+	if hadProxy != nil {
+		if entry, ok := e.realizedPolicy.PolicyMapState[keyToDelete]; ok && entry.ProxyPort != 0 {
+			*hadProxy = true
+		}
 	}
 
 	// Operation was successful, remove from realized state.
@@ -965,17 +974,28 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry,
 // ApplyPolicyMapChanges updates the Endpoint's PolicyMap with the changes
 // that have accumulated for the PolicyMap via various outside events (e.g.,
 // identities added / deleted).
-func (e *Endpoint) ApplyPolicyMapChanges() error {
+func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) error {
 	if err := e.LockAlive(); err != nil {
 		return err
 	}
 	defer e.Unlock()
-	return e.applyPolicyMapChanges()
+
+	proxyChanges, err := e.applyPolicyMapChanges()
+	if err != nil {
+		return err
+	}
+
+	if proxyChanges {
+		// Ignoring the revertFunc; keep all successful changes even if some fail.
+		err, _ = e.updateNetworkPolicy(proxyWaitGroup)
+	}
+
+	return err
 }
 
 // applyPolicyMapChanges applies any incremental policy map changes
 // collected on the desired policy.
-func (e *Endpoint) applyPolicyMapChanges() error {
+func (e *Endpoint) applyPolicyMapChanges() (proxyChanges bool, err error) {
 	errors := 0
 
 	//  Note that after successful endpoint regeneration the
@@ -989,19 +1009,22 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 	for keyToAdd, entry := range adds {
 		// Keep the existing proxy port, if any
 		entry.ProxyPort = e.realizedRedirects[policy.ProxyIDFromKey(e.ID, keyToAdd)]
+		if entry.ProxyPort != 0 {
+			proxyChanges = true
+		}
 		if !e.addPolicyKey(keyToAdd, entry, true) {
 			errors++
 		}
 	}
 
 	for keyToDelete := range deletes {
-		if !e.deletePolicyKey(keyToDelete, true) {
+		if !e.deletePolicyKey(keyToDelete, true, &proxyChanges) {
 			errors++
 		}
 	}
 
 	if errors > 0 {
-		return fmt.Errorf("updating desired PolicyMap state failed")
+		return proxyChanges, fmt.Errorf("updating desired PolicyMap state failed")
 	} else if len(adds)+len(deletes) > 0 {
 		e.getLogger().WithFields(logrus.Fields{
 			logfields.AddedPolicyID:   adds,
@@ -1009,7 +1032,7 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 		}).Debug("Applied policy map updates due identity changes")
 	}
 
-	return nil
+	return proxyChanges, nil
 }
 
 // syncPolicyMap updates the bpf policy map state based on the
@@ -1024,7 +1047,7 @@ func (e *Endpoint) syncPolicyMap() error {
 		for keyToDelete := range e.realizedPolicy.PolicyMapState {
 			// If key that is in realized state is not in desired state, just remove it.
 			if _, ok := e.desiredPolicy.PolicyMapState[keyToDelete]; !ok {
-				if !e.deletePolicyKey(keyToDelete, false) {
+				if !e.deletePolicyKey(keyToDelete, false, nil) {
 					errors++
 				}
 			}
@@ -1042,7 +1065,8 @@ func (e *Endpoint) syncPolicyMap() error {
 
 	// Still may have changes due to identities added and/or
 	// deleted after the desired policy was computed.
-	return e.applyPolicyMapChanges()
+	_, err := e.applyPolicyMapChanges()
+	return err
 }
 
 // addPolicyMapDelta adds new or updates existing bpf policy map state based
@@ -1138,7 +1162,7 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 		// If key that is in policy map is not in desired state, just remove it.
 		if _, ok := e.desiredPolicy.PolicyMapState[keyToDelete]; !ok {
 			e.getLogger().WithField(logfields.BPFMapKey, entry.Key.String()).Debug("syncPolicyMapWithDump removing a bpf policy entry not in the desired state")
-			if !e.deletePolicyKey(keyToDelete, false) {
+			if !e.deletePolicyKey(keyToDelete, false, nil) {
 				errors++
 			}
 		}

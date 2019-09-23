@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -74,23 +75,50 @@ func init() {
 	metrics.MustRegister(metrics.EndpointCount)
 }
 
+// waitForProxyCompletions blocks until all proxy changes have been completed.
+func waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
+	err := proxyWaitGroup.Context().Err()
+	if err != nil {
+		return fmt.Errorf("context cancelled before waiting for proxy updates: %s", err)
+	}
+
+	start := time.Now()
+	log.Debug("Waiting for proxy updates to complete...")
+	err = proxyWaitGroup.Wait()
+	if err != nil {
+		return fmt.Errorf("proxy updates failed: %s", err)
+	}
+	log.Debug("Wait time for proxy updates: ", time.Since(start))
+
+	return nil
+}
+
 // UpdatePolicyMaps returns a WaitGroup which is signaled upon once all endpoints
 // have had their PolicyMaps updated against the Endpoint's desired policy state.
-func UpdatePolicyMaps() *sync.WaitGroup {
+func UpdatePolicyMaps(ctx context.Context) *sync.WaitGroup {
 	var wg sync.WaitGroup
 
+	proxyWaitGroup := completion.NewWaitGroup(ctx)
+
 	eps := GetEndpoints()
-	wg.Add(len(eps))
+	wg.Add(len(eps) + 1) // One more for the waitForProxyCompletions below
 
 	// TODO: bound by number of CPUs?
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint) {
-			if err := ep.ApplyPolicyMapChanges(); err != nil {
-				ep.Logger("endpointmanager").Warning("Failed to apply policy map changes. These will be re-applied in future updates.")
+			if err := ep.ApplyPolicyMapChanges(proxyWaitGroup); err != nil {
+				ep.Logger("endpointmanager").WithError(err).Warning("Failed to apply policy map changes. These will be re-applied in future updates.")
 			}
 			wg.Done()
 		}(ep)
 	}
+
+	go func() {
+		if err := waitForProxyCompletions(proxyWaitGroup); err != nil {
+			log.WithError(err).Warning("Failed to apply L7 proxy policy changes. These will be re-applied in future updates.")
+		}
+		wg.Done()
+	}()
 
 	return &wg
 }

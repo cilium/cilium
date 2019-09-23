@@ -15,6 +15,7 @@
 package fqdn
 
 import (
+	"context"
 	"net"
 	"regexp"
 	"sync"
@@ -133,7 +134,7 @@ func NewNameManager(config Config) *NameManager {
 	}
 
 	if config.UpdateSelectors == nil {
-		config.UpdateSelectors = func(selectorIPMapping map[api.FQDNSelector][]net.IP, namesMissingIPs []api.FQDNSelector) (*sync.WaitGroup, error) {
+		config.UpdateSelectors = func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]net.IP, namesMissingIPs []api.FQDNSelector) (*sync.WaitGroup, error) {
 			return &sync.WaitGroup{}, nil
 		}
 	}
@@ -167,7 +168,7 @@ func (n *NameManager) GetDNSNames() (dnsNames []string) {
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
 // have changed for a name, store which rules must be updated in rulesToUpdate,
 // regenerate them, and emit via UpdateSelectors.
-func (n *NameManager) UpdateGenerateDNS(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (wg *sync.WaitGroup, err error) {
+func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (wg *sync.WaitGroup, err error) {
 	// Update IPs in n
 	fqdnSelectorsToUpdate, updatedDNSNames := n.UpdateDNSIPs(lookupTime, updatedDNSIPs)
 	for dnsName, IPs := range updatedDNSNames {
@@ -184,13 +185,13 @@ func (n *NameManager) UpdateGenerateDNS(lookupTime time.Time, updatedDNSIPs map[
 			Debug("No IPs to insert when generating DNS name selected by ToFQDN rule")
 	}
 
-	return n.config.UpdateSelectors(selectorIPMapping, namesMissingIPs)
+	return n.config.UpdateSelectors(ctx, selectorIPMapping, namesMissingIPs)
 }
 
 // ForceGenerateDNS unconditionally regenerates all rules that refer to DNS
 // names in namesToRegen. These names are FQDNs and toFQDNs.matchPatterns or
 // matchNames that match them will cause these rules to regenerate.
-func (n *NameManager) ForceGenerateDNS(namesToRegen []string) (wg *sync.WaitGroup, err error) {
+func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []string) (wg *sync.WaitGroup, err error) {
 	n.Mutex.Lock()
 	affectedFQDNSels := make(map[api.FQDNSelector]struct{}, 0)
 	for _, dnsName := range namesToRegen {
@@ -210,7 +211,7 @@ func (n *NameManager) ForceGenerateDNS(namesToRegen []string) (wg *sync.WaitGrou
 
 	// emit the new rules
 	return n.config.
-		UpdateSelectors(selectorIPMapping, namesMissingIPs)
+		UpdateSelectors(ctx, selectorIPMapping, namesMissingIPs)
 }
 
 func (n *NameManager) CompleteBootstrap() {
