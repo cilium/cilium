@@ -1313,11 +1313,6 @@ func init() {
           "description": "Layer 4 port number",
           "type": "integer",
           "format": "uint16"
-        },
-        "weight": {
-          "description": "Weight for Round Robin",
-          "type": "integer",
-          "format": "uint16"
         }
       }
     },
@@ -4441,11 +4436,6 @@ func init() {
         },
         "port": {
           "description": "Layer 4 port number",
-          "type": "integer",
-          "format": "uint16"
-        },
-        "weight": {
-          "description": "Weight for Round Robin",
           "type": "integer",
           "format": "uint16"
         }
