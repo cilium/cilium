@@ -64,7 +64,10 @@ It can take 10+ minutes for the final command to be complete indicating that the
             --subnet-prefix 10.240.0.0/16
 
         # Create a service principal and read in the application ID
-        SP_ID=$(az ad sp create-for-rbac --password $SP_PASSWORD --skip-assignment --query [appId] -o tsv)
+        SP_ID_PASSWORD=$(az ad sp create-for-rbac --skip-assignment --query [appId,password] -o tsv)
+        SP_ID=$(echo ${SP_ID_PASSWORD} | sed -e 's/ .*//g')
+        SP_PASSWORD=$(echo ${SP_ID_PASSWORD} | sed -e 's/.* //g')
+        unset SP_ID_PASSWORD
 
         # Wait 15 seconds to make sure that service principal has propagated
         echo "Waiting for service principal to propagate..."
