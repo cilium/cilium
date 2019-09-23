@@ -1898,10 +1898,6 @@ definitions:
         description: Layer 4 port number
         type: integer
         format: uint16
-      weight:
-        description: Weight for Round Robin
-        type: integer
-        format: uint16
   Service:
     description: Collection of endpoints to be served
     type: object
