@@ -345,39 +345,6 @@ func serviceValue2L3n4Addr(svcVal ServiceValue) *loadbalancer.L3n4Addr {
 	return loadbalancer.NewL3n4Addr(loadbalancer.NONE, beIP, bePort)
 }
 
-// RevNat6Value2L3n4Addr converts the given RevNat6Value to a L3n4Addr.
-func revNat6Value2L3n4Addr(revNATV *RevNat6Value) *loadbalancer.L3n4Addr {
-	return loadbalancer.NewL3n4Addr(loadbalancer.NONE, revNATV.Address.IP(), revNATV.Port)
-}
-
-// revNat4Value2L3n4Addr converts the given RevNat4Value to a L3n4Addr.
-func revNat4Value2L3n4Addr(revNATV *RevNat4Value) *loadbalancer.L3n4Addr {
-	return loadbalancer.NewL3n4Addr(loadbalancer.NONE, revNATV.Address.IP(), revNATV.Port)
-}
-
-// revNatValue2L3n4AddrID converts the given RevNatKey and RevNatValue to a L3n4AddrID.
-func revNatValue2L3n4AddrID(revNATKey RevNatKey, revNATValue RevNatValue) *loadbalancer.L3n4AddrID {
-	var (
-		svcID loadbalancer.ID
-		be    *loadbalancer.L3n4Addr
-	)
-	if revNATKey.IsIPv6() {
-		revNat6Key := revNATKey.(*RevNat6Key)
-		svcID = loadbalancer.ID(revNat6Key.Key)
-
-		revNat6Value := revNATValue.(*RevNat6Value)
-		be = revNat6Value2L3n4Addr(revNat6Value)
-	} else {
-		revNat4Key := revNATKey.(*RevNat4Key)
-		svcID = loadbalancer.ID(revNat4Key.Key)
-
-		revNat4Value := revNATValue.(*RevNat4Value)
-		be = revNat4Value2L3n4Addr(revNat4Value)
-	}
-
-	return &loadbalancer.L3n4AddrID{L3n4Addr: *be, ID: svcID}
-}
-
 // LBSVC2ServiceKeynValuenBackendValueV2 transforms the SVC Cilium type into a bpf SVC v2 type.
 func LBSVC2ServiceKeynValuenBackendV2(svc *loadbalancer.LBSVC) (ServiceKeyV2, []ServiceValueV2, []Backend, error) {
 	log.WithFields(logrus.Fields{
