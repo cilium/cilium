@@ -546,8 +546,7 @@ struct lb6_service_v2 {
 	__u32 backend_id;
 	__u16 count;
 	__u16 rev_nat_index;
-	__u16 weight;
-	__u16 pad;
+	__u32 pad;
 };
 
 /* See lb4_backend comments */
@@ -578,8 +577,7 @@ struct lb4_service_v2 {
 	 */
 	__u16 count;
 	__u16 rev_nat_index;	/* Reverse NAT ID in lb4_reverse_nat */
-	__u16 weight;		/* Currently not used */
-	__u16 pad;
+	__u32 pad;
 };
 
 struct lb4_backend {
