@@ -46,6 +46,12 @@ github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1
 github.com/cespare/xxhash/v2
 # github.com/cilium/arping v1.0.1-0.20190728065459-c5eaf8d7a710 => github.com/cilium/arping v1.0.1-0.20190728065459-c5eaf8d7a710
 github.com/cilium/arping
+# github.com/cilium/ebpf v0.0.0-20191113100448-d9fb101ca1fb => github.com/cilium/ebpf v0.0.0-20191113100448-d9fb101ca1fb
+github.com/cilium/ebpf
+github.com/cilium/ebpf/asm
+github.com/cilium/ebpf/internal
+github.com/cilium/ebpf/internal/unix
+github.com/cilium/ebpf/perf
 # github.com/cilium/proxy v0.0.0-20191113190709-4c7b379792e6 => github.com/cilium/proxy v0.0.0-20191113190709-4c7b379792e6
 github.com/cilium/proxy/go/cilium/api
 github.com/cilium/proxy/go/envoy/api/v2
@@ -459,7 +465,7 @@ golang.org/x/oauth2
 golang.org/x/oauth2/internal
 # golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e => golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.0.0-20191010194322-b09406accb47 => golang.org/x/sys v0.0.0-20190813064441-fde4db37ae7a
+# golang.org/x/sys v0.0.0-20191022100944-742c48ecaeb7 => golang.org/x/sys v0.0.0-20190813064441-fde4db37ae7a
 golang.org/x/sys/cpu
 golang.org/x/sys/unix
 golang.org/x/sys/windows
