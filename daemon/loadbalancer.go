@@ -108,7 +108,7 @@ func (d *Daemon) svcAdd(
 	d.loadBalancer.BPFMapMU.Lock()
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
-	if err := lbmap.UpdateService(fe, besValues, int(feL3n4Addr.ID), 0,
+	if err := lbmap.UpdateService(fe, besValues, int(feL3n4Addr.ID),
 		service.AcquireBackendID, service.DeleteBackendID); err != nil {
 		return false, loadbalancer.ID(0), err
 	}
