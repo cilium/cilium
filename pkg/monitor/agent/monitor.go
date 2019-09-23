@@ -16,26 +16,31 @@ package agent
 
 import (
 	"context"
-	"io/ioutil"
 	"net"
 	"os"
-	"path"
-	"syscall"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/defaults"
+	oldBPF "github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/monitor/payload"
 	"github.com/cilium/cilium/pkg/option"
+
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/perf"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 const (
 	pollTimeout = 5000
+)
+
+var (
+	eventsMapName = "cilium_events"
 )
 
 // isCtxDone is a utility function that returns true when the context's Done()
@@ -50,13 +55,6 @@ func isCtxDone(ctx context.Context) bool {
 	}
 }
 
-func getPerfConfig(nPages int) *bpf.PerfEventConfig {
-	// configure BPF perf buffer reader
-	c := bpf.DefaultPerfEventConfig()
-	c.NumPages = nPages
-	return c
-}
-
 // Monitor structure for centralizing the responsibilities of the main events
 // reader.
 // There is some racey-ness around perfReaderCancel since it replaces on every
@@ -69,12 +67,14 @@ func getPerfConfig(nPages int) *bpf.PerfEventConfig {
 // cancel must have been called for us to get this far anyway).
 type Monitor struct {
 	lock.Mutex
+	models.MonitorStatus
 
 	ctx              context.Context
 	perfReaderCancel context.CancelFunc
 	listeners        map[listener.MonitorListener]struct{}
-	nPages           int
-	monitorEvents    *bpf.PerCpuEvents
+
+	events        *ebpf.Map
+	monitorEvents *perf.Reader
 }
 
 // NewMonitor creates a Monitor, and starts client connection handling and agent event
@@ -82,21 +82,23 @@ type Monitor struct {
 // Note that the perf buffer reader is started only when listeners are
 // connected.
 func NewMonitor(ctx context.Context, nPages int, server1_2 net.Listener) (m *Monitor, err error) {
+	// assert that we can actually connect the monitor
+	path := oldBPF.MapPath(eventsMapName)
+	eventsMap, err := ebpf.LoadPinnedMap(path)
+	if err != nil {
+		return nil, err
+	}
+
 	m = &Monitor{
 		ctx:              ctx,
 		listeners:        make(map[listener.MonitorListener]struct{}),
-		nPages:           nPages,
 		perfReaderCancel: func() {}, // no-op to avoid doing null checks everywhere
-	}
-
-	// assert that we can actually connect the monitor
-	c := getPerfConfig(nPages)
-	mapPath := c.MapName
-	if !path.IsAbs(mapPath) {
-		mapPath = bpf.MapPath(mapPath)
-	}
-	if _, err := os.Stat(mapPath); os.IsNotExist(err) {
-		return nil, err
+		events:           eventsMap,
+		MonitorStatus: models.MonitorStatus{
+			Cpus:     int64(eventsMap.ABI().MaxEntries),
+			Npages:   int64(nPages),
+			Pagesize: int64(os.Getpagesize()),
+		},
 	}
 
 	// start new MonitorListener handler
@@ -119,7 +121,7 @@ func (m *Monitor) registerNewListener(parentCtx context.Context, conn net.Conn, 
 		m.perfReaderCancel() // don't leak any old readers, just in case.
 		perfEventReaderCtx, cancel := context.WithCancel(parentCtx)
 		m.perfReaderCancel = cancel
-		go m.perfEventReader(perfEventReaderCtx, m.nPages)
+		go m.handleEvents(perfEventReaderCtx)
 	}
 
 	switch version {
@@ -160,50 +162,64 @@ func (m *Monitor) removeListener(ml listener.MonitorListener) {
 	}
 }
 
-// perfEventReader is a goroutine that reads events from the perf buffer. It
+// handleEvents reads events from the perf buffer and processes them. It
 // will exit when stopCtx is done. Note, however, that it will block in the
 // Poll call but assumes enough events are generated that these blocks are
 // short.
-func (m *Monitor) perfEventReader(stopCtx context.Context, nPages int) {
+func (m *Monitor) handleEvents(stopCtx context.Context) {
 	scopedLog := log.WithField(logfields.StartTime, time.Now())
 	scopedLog.Info("Beginning to read perf buffer")
 	defer scopedLog.Info("Stopped reading perf buffer")
 
-	c := getPerfConfig(nPages)
-	monitorEvents, err := bpf.NewPerCpuEvents(c)
+	bufferSize := int(m.Pagesize * m.Npages)
+	monitorEvents, err := perf.NewReader(m.events, bufferSize)
 	if err != nil {
 		scopedLog.WithError(err).Fatal("Cannot initialise BPF perf ring buffer sockets")
 	}
-	defer monitorEvents.CloseAll()
+	defer func() {
+		monitorEvents.Close()
+		m.Lock()
+		m.monitorEvents = nil
+		m.Unlock()
+	}()
 
-	// update the class's monitorEvents This is only accessed by .DumpStats()
-	// also grab the callbacks we need to avoid locking again. These methods never change.
 	m.Lock()
 	m.monitorEvents = monitorEvents
-	receiveEvent := m.receiveEvent
-	lostEvent := m.lostEvent
-	errorEvent := m.errorEvent
 	m.Unlock()
 
 	for !isCtxDone(stopCtx) {
-		todo, err := monitorEvents.Poll(pollTimeout)
+		record, err := monitorEvents.Read()
 		switch {
 		case isCtxDone(stopCtx):
 			return
-
-		case err == syscall.EBADF:
-			return
-
 		case err != nil:
-			scopedLog.WithError(err).Error("Error in Poll")
+			if perf.IsUnknownEvent(err) {
+				m.Lock()
+				m.MonitorStatus.Unknown++
+				m.Unlock()
+			} else {
+				scopedLog.WithError(err).Warn("Error received while reading from perf buffer")
+				if errors.Cause(err) == unix.EBADFD {
+					return
+				}
+			}
 			continue
 		}
 
-		if todo > 0 {
-			if err := monitorEvents.ReadAll(receiveEvent, lostEvent, errorEvent); err != nil {
-				scopedLog.WithError(err).Warn("Error received while reading from perf buffer")
-			}
+		m.Lock()
+		plType := payload.EventSample
+		if record.LostSamples > 0 {
+			plType = payload.RecordLost
+			m.MonitorStatus.Lost += int64(record.LostSamples)
 		}
+		pl := payload.Payload{
+			Data: record.RawSample,
+			CPU:  record.CPU,
+			Lost: record.LostSamples,
+			Type: plType,
+		}
+		m.sendLocked(&pl)
+		m.Unlock()
 	}
 }
 
@@ -216,15 +232,8 @@ func (m *Monitor) Status() *models.MonitorStatus {
 		return nil
 	}
 
-	lost, _, unknown := m.monitorEvents.Stats()
-	status := models.MonitorStatus{
-		Cpus:     int64(m.monitorEvents.Cpus),
-		Lost:     int64(lost),
-		Npages:   int64(m.monitorEvents.Npages),
-		Pagesize: int64(m.monitorEvents.Pagesize),
-		Unknown:  int64(unknown),
-	}
-
+	// Shallow-copy the structure, then return the newly allocated copy.
+	status := m.MonitorStatus
 	return &status
 }
 
@@ -255,25 +264,12 @@ func (m *Monitor) connectionHandler1_2(parentCtx context.Context, server net.Lis
 func (m *Monitor) send(pl *payload.Payload) {
 	m.Lock()
 	defer m.Unlock()
+	m.sendLocked(pl)
+}
+
+// sendLocked enqueues the payload to all listeners while holding the monitor lock.
+func (m *Monitor) sendLocked(pl *payload.Payload) {
 	for ml := range m.listeners {
 		ml.Enqueue(pl)
-	}
-}
-
-func (m *Monitor) receiveEvent(es *bpf.PerfEventSample, c int) {
-	pl := payload.Payload{Data: es.DataCopy(), CPU: c, Lost: 0, Type: payload.EventSample}
-	m.send(&pl)
-}
-
-func (m *Monitor) lostEvent(el *bpf.PerfEventLost, c int) {
-	pl := payload.Payload{Data: []byte{}, CPU: c, Lost: el.Lost, Type: payload.RecordLost}
-	m.send(&pl)
-}
-
-func (m *Monitor) errorEvent(el *bpf.PerfEvent) {
-	log.Errorf("BUG: Timeout while reading perf ring buffer: %s", el.Debug())
-	dumpFile := path.Join(defaults.RuntimePath, defaults.StateDir, "ring-buffer-crash.dump")
-	if err := ioutil.WriteFile(dumpFile, []byte(el.DebugDump()), 0644); err != nil {
-		log.WithError(err).Errorf("Unable to dump ring buffer state to %s", dumpFile)
 	}
 }
