@@ -23,9 +23,6 @@ type BackendAddress struct {
 
 	// Layer 4 port number
 	Port uint16 `json:"port,omitempty"`
-
-	// Weight for Round Robin
-	Weight uint16 `json:"weight,omitempty"`
 }
 
 // Validate validates this backend address
