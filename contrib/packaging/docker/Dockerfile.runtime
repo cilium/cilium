@@ -45,6 +45,8 @@ apt-get install -y --no-install-recommends \
 #
 git clone --depth 1 -b static-data https://github.com/cilium/iproute2.git iproute2 && \
 cd iproute2 && \
+git --no-pager remote -v && \
+git --no-pager log -1 && \
 ./configure && \
 make -j `getconf _NPROCESSORS_ONLN` && \
 strip tc/tc && \
@@ -57,6 +59,8 @@ git clone -b master https://github.com/llvm/llvm-project.git llvm && \
 mkdir -p llvm/llvm/build/install && \
 cd llvm/ && \
 git checkout -b d941df363d1cb621a3836b909c37d79f2a3e27e2 d941df363d1cb621a3836b909c37d79f2a3e27e2 && \
+git --no-pager remote -v && \
+git --no-pager log -1 && \
 cd llvm/build && \
 cmake .. -G "Ninja" -DLLVM_TARGETS_TO_BUILD="BPF" -DLLVM_ENABLE_PROJECTS="clang" -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DLLVM_BUILD_RUNTIME=OFF && \
 ninja clang llc && \
@@ -70,6 +74,8 @@ cd ../../../ && \
 #
 git clone --depth 1 -b master git://git.kernel.org/pub/scm/linux/kernel/git/bpf/bpf-next.git linux && \
 cd linux/tools/bpf/bpftool/ && \
+git --no-pager remote -v && \
+git --no-pager log -1 && \
 make -j `getconf _NPROCESSORS_ONLN` && \
 strip bpftool && \
 cd ../../../../ && \
@@ -102,6 +108,8 @@ WORKDIR /tmp
 RUN go get -d github.com/google/gops && \
 cd /go/src/github.com/google/gops && \
 git checkout -b v0.3.6 v0.3.6 && \
+git --no-pager remote -v && \
+git --no-pager log -1 && \
 go install && \
 strip /go/bin/gops
 
