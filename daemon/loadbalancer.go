@@ -335,8 +335,7 @@ func openServiceMaps() error {
 
 // SyncLBMap syncs the bpf lbmap with the daemon's lb map. All bpf entries will overwrite
 // the daemon's LB map. If the bpf lbmap entry has a different service ID than the
-// KVStore's ID, that entry will be updated on the bpf map accordingly with the new ID
-// retrieved from the KVStore.
+// KVStore's ID, that entry will be removed.
 func (d *Daemon) SyncLBMap() error {
 	// Don't bother syncing if we are in dry mode.
 	if option.Config.DryMode {
@@ -351,33 +350,6 @@ func (d *Daemon) SyncLBMap() error {
 	newSVCMapID := loadbalancer.SVCMapID{}
 	failedSyncSVC := []loadbalancer.LBSVC{}
 
-	addSVC2BPFMap := func(oldID loadbalancer.ServiceID, svc loadbalancer.LBSVC) error {
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.ServiceID: oldID,
-			logfields.SHA:       svc.FE.SHA256Sum(),
-		})
-		scopedLog.Debug("adding service ID with SHA")
-
-		fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(svc)
-		if err != nil {
-			return fmt.Errorf("Unable to create a BPF key and values for service FE: %s and backends: %+v. Error: %s."+
-				" This entry will be removed from the bpf's LB map.", svc.FE.String(), svc.BES, err)
-		}
-
-		svcKeyV2, svcValuesV2, backendsV2, err := lbmap.LBSVC2ServiceKeynValuenBackendV2(&svc)
-		if err != nil {
-			return fmt.Errorf("Unable to create a BPF key and values for service v2 FE: %s and backends: %+v. Error: %s."+
-				" This entry will be removed from the bpf's LB map.", svc.FE.String(), svc.BES, err)
-		}
-
-		err = d.addSVC2BPFMap(svc.FE, fe, besValues, svcKeyV2, svcValuesV2, backendsV2, oldID)
-		if err != nil {
-			return fmt.Errorf("Unable to add service FE: %s: %s."+
-				" This entry will be removed from the bpf's LB map.", svc.FE.String(), err)
-		}
-		return nil
-	}
-
 	newSVCMap, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspaceV2()
 	for _, err := range lbmapDumpErrors {
 		log.WithError(err).Warn("Unable to list services in services BPF map")
@@ -387,8 +359,7 @@ func (d *Daemon) SyncLBMap() error {
 	// are modifying the BPF maps, and calling Dump on a Map RLocks the maps.
 	for _, svc := range newSVCList {
 		scopedLog := log.WithField(logfields.Object, logfields.Repr(svc))
-		kvL3n4AddrID, err := service.RestoreID(svc.FE.L3n4Addr, uint32(svc.FE.ID))
-		if err != nil {
+		if _, err := service.RestoreID(svc.FE.L3n4Addr, uint32(svc.FE.ID)); err != nil {
 			scopedLog.WithError(err).Error("Unable to restore service ID")
 			failedSyncSVC = append(failedSyncSVC, *svc)
 			delete(newSVCMap, svc.Sha256)
@@ -396,32 +367,9 @@ func (d *Daemon) SyncLBMap() error {
 			// sync.
 			continue
 		}
-
-		// Mismatch detected between BPF Maps and KVstore, so we need to update
-		// the ID in the BPF Maps to reflect the ID of the KVstore.
-		if svc.FE.ID != kvL3n4AddrID.ID {
-			scopedLog = scopedLog.WithField(logfields.ServiceID+".new", kvL3n4AddrID.ID)
-			scopedLog.WithError(err).Warning("Service ID in BPF map is out of sync with KVStore. Acquired new ID")
-
-			oldID := loadbalancer.ServiceID(svc.FE.ID)
-			svc.FE.ID = kvL3n4AddrID.ID
-			// If we cannot add the service to the BPF maps, update the list of
-			// services that failed to sync.
-			if err := addSVC2BPFMap(oldID, *svc); err != nil {
-				scopedLog.WithError(err).Error("Unable to synchronize service to BPF map")
-
-				failedSyncSVC = append(failedSyncSVC, *svc)
-				delete(newSVCMap, svc.Sha256)
-
-				// Don't update the maps of services since the service failed to
-				// sync.
-				continue
-			}
-		}
 		newSVCMapID[loadbalancer.ServiceID(svc.FE.ID)] = svc
 	}
 
-	// Clean services and rev nats from BPF maps that failed to be restored.
 	for _, svc := range failedSyncSVC {
 		if err := d.svcDeleteBPF(svc.FE); err != nil {
 			log.WithError(err).WithField(logfields.Object, logfields.Repr(svc)).
