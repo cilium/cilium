@@ -1267,7 +1267,6 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 			if backendPort := portConfiguration[string(fePortName)]; backendPort != nil {
 				besValues = append(besValues, loadbalancer.LBBackEnd{
 					L3n4Addr: loadbalancer.L3n4Addr{IP: net.ParseIP(ip), L4Addr: *backendPort},
-					Weight:   0,
 				})
 			}
 		}

@@ -394,7 +394,7 @@ func DumpBackendMapsToUserspace() (map[BackendAddrID]*loadbalancer.LBBackEnd, er
 		ip := backendVal.GetAddress()
 		port := backendVal.GetPort()
 		proto := loadbalancer.NONE
-		lbBackend := loadbalancer.NewLBBackEnd(backendID, proto, ip, port, 0)
+		lbBackend := loadbalancer.NewLBBackEnd(backendID, proto, ip, port)
 		lbBackends[backendVal.BackendAddrID()] = lbBackend
 	}
 
