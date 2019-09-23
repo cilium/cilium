@@ -106,6 +106,14 @@ var (
 		"global.tunnel":                 "disabled",
 		"global.nodeinit.enabled":       "true",
 	}
+
+	// helmOverrides allows overriding of cilium-agent options for
+	// specific CI environment integrations.
+	// The key must be a string consisting of lower case characters.
+	helmOverrides = map[string]map[string]string{
+		CIIntegrationFlannel:  flannelHelmOverrides,
+		CIIntegrationEKS:      eksHelmOverrides,
+	}
 )
 
 func init() {
@@ -127,14 +135,11 @@ func GetCurrentK8SEnv() string { return os.Getenv("K8S_VERSION") }
 
 // GetCurrentIntegration returns CI integration set up to run against Cilium.
 func GetCurrentIntegration() string {
-	switch strings.ToLower(os.Getenv("CNI_INTEGRATION")) {
-	case CIIntegrationFlannel:
-		return CIIntegrationFlannel
-	case CIIntegrationEKS:
-		return CIIntegrationEKS
-	default:
-		return ""
+	integration := strings.ToLower(os.Getenv("CNI_INTEGRATION"))
+	if _, exists := helmOverrides[integration]; exists {
+		return integration
 	}
+	return ""
 }
 
 // Kubectl is a wrapper around an SSHMeta. It is used to run Kubernetes-specific
@@ -1117,20 +1122,12 @@ func (kub *Kubectl) generateCiliumYaml(options []string, filename string) error 
 		options = addIfNotOverwritten(options, key, value)
 	}
 
-	switch GetCurrentIntegration() {
-	case CIIntegrationFlannel:
+	if integration := GetCurrentIntegration(); integration != "" {
+		overrides := helmOverrides[integration]
 		// Appending the options will override earlier options on CLI.
-		for k, v := range flannelHelmOverrides {
+		for k, v := range overrides {
 			options = append(options, fmt.Sprintf("--set %s=%s", k, v))
 		}
-
-	case CIIntegrationEKS:
-		// Appending the options will override earlier options on CLI.
-		for k, v := range eksHelmOverrides {
-			options = append(options, fmt.Sprintf("--set %s=%s", k, v))
-		}
-
-	default:
 	}
 
 	// TODO GH-8753: Use helm rendering library instead of shelling out to
