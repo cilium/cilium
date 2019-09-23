@@ -140,6 +140,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		bindNamedConf    = "named.conf.local"
 		bindNamedOptions = "named.conf.options"
 
+		world1Domain = "world1.cilium.test"
 		world1Target = "http://world1.cilium.test"
 		world2Target = "http://world2.cilium.test"
 
@@ -866,12 +867,20 @@ INITSYSTEM=SYSTEMD`
 			Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
 		})
 
+		BeforeEach(func() {
+			By("Clearing fqdn cache: %s", vm.Exec("cilium fqdn cache clean -f").CombineOutput().String())
+		})
+
 		AfterAll(func() {
 			vm.SetUpCilium()
 			_ = vm.WaitEndpointsReady() // Don't assert because don't want to block all AfterAll.
 		})
 
 		It("Policy addition after DNS lookup", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			monitorCMD := vm.ExecInBackground(ctx, "cilium monitor")
+			defer cancel()
+
 			policy := `
 [
        {
@@ -915,13 +924,83 @@ INITSYSTEM=SYSTEMD`
 
 			By("Trying curl connection to %q without DNS request", world1Target)
 			// The --resolve below suppresses further lookups
-			curlCmd := helpers.CurlFail(fmt.Sprintf("--resolve %s:%s", world1Target, worldIps[WorldHttpd1]))
+			curlCmd := helpers.CurlFail(fmt.Sprintf("%s:80/ --resolve %s:80:%s", world1Target, world1Domain, worldIps[WorldHttpd1]))
+			monitorCMD.Reset()
 			res = vm.ContainerExec(helpers.App1, curlCmd)
 			res.ExpectFail("Can access to %q when should not (No DNS request to allow the IP)", world1Target)
+			monitorCMD.ExpectContains("xx drop (Policy denied (L3))")
 
 			By("Testing connectivity to %q", world1Target)
 			res = vm.ContainerExec(helpers.App1, helpers.CurlFail(world1Target))
 			res.ExpectSuccess("Cannot access to %q when it should work", world1Target)
+		})
+
+		It("L3-dependent L7/HTTP with toFQDN updates proxy policy", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			monitorCMD := vm.ExecInBackground(ctx, "cilium monitor")
+			defer cancel()
+
+			policy := `
+[
+       {
+               "labels": [{
+                       "key": "L3-dependent L7 with toFQDN"
+               }],
+               "endpointSelector": {
+                       "matchLabels": {
+                               "container:id.app1": ""
+                       }
+               },
+               "egress": [
+                       {
+                               "toPorts": [{
+                                       "ports":[{"port": "53", "protocol": "ANY"}],
+                                       "rules": {
+                                               "dns": [
+                                                       {"matchName": "world1.cilium.test"},
+                                                       {"matchPattern": "*.cilium.test"}
+                                               ]
+                                       }
+                               }]
+                       },
+                       {
+                               "toPorts": [{
+                                       "ports":[{"port": "80", "protocol": "TCP"}],
+                                       "rules": {
+                                               "http": [
+                                                       {"method": "GET"}
+                                               ]
+                                       }
+                               }],
+                               "toFQDNs": [
+                                       {"matchName": "world1.cilium.test"},
+                                       {"matchPattern": "*.cilium.test"}
+                               ]
+                       }
+               ]
+       }
+]`
+			By("Testing connectivity to %q", world1Target)
+			res := vm.ContainerExec(helpers.App1, helpers.CurlFail(world1Target))
+			res.ExpectSuccess("Cannot access %q", world1Target)
+
+			By("Importing the policy")
+			_, err := vm.PolicyRenderAndImport(policy)
+			Expect(err).To(BeNil(), "Policy cannot be imported")
+
+			By("Trying curl connection to %q without DNS request", world1Target)
+			// The --resolve below suppresses further lookups
+			curlCmd := helpers.CurlFail(fmt.Sprintf("%s:80/ --resolve %s:80:%s", world1Target, world1Domain, worldIps[WorldHttpd1]))
+			monitorCMD.Reset()
+			res = vm.ContainerExec(helpers.App1, curlCmd)
+			res.ExpectFail("Can access to %q when should not (No DNS request to allow the IP)", world1Target)
+			monitorCMD.ExpectContains("xx drop (Policy denied (L3))")
+
+			By("Testing connectivity to %q", world1Target)
+			monitorCMD.Reset()
+			res = vm.ContainerExec(helpers.App1, helpers.CurlFail(world1Target))
+			res.ExpectSuccess("Cannot access to %q when it should work", world1Target)
+			monitorCMD.ExpectContains("verdict Forwarded GET http://world1.cilium.test/ => 200")
 		})
 	})
 
