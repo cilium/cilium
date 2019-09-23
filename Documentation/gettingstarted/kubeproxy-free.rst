@@ -76,7 +76,6 @@ port number reported by ``kubeadm init`` (usually it is ``6443``).
         --set global.nodePort.enabled=true \
         --set global.k8sServiceHost=$API_SERVER_IP \
         --set global.k8sServicePort=$API_SERVER_PORT \
-        --set global.tag=v1.6.0 \
     > cilium.yaml
     kubectl apply -f cilium.yaml
 
