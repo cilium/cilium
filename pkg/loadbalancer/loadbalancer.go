@@ -70,11 +70,10 @@ type ID uint32
 type LBBackEnd struct {
 	ID BackendID
 	L3n4Addr
-	Weight uint16
 }
 
 func (lbbe *LBBackEnd) String() string {
-	return fmt.Sprintf("%s, weight: %d", lbbe.L3n4Addr.String(), lbbe.Weight)
+	return lbbe.L3n4Addr.String()
 }
 
 // LBSVC is essentially used for the REST API.
@@ -302,12 +301,11 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 }
 
 // NewLBBackEnd creates the LBBackEnd struct instance from given params.
-func NewLBBackEnd(id BackendID, protocol L4Type, ip net.IP, portNumber uint16, weight uint16) *LBBackEnd {
+func NewLBBackEnd(id BackendID, protocol L4Type, ip net.IP, portNumber uint16) *LBBackEnd {
 	lbport := NewL4Addr(protocol, portNumber)
 	lbbe := LBBackEnd{
 		ID:       BackendID(id),
 		L3n4Addr: L3n4Addr{IP: ip, L4Addr: *lbport},
-		Weight:   weight,
 	}
 	log.WithField("backend", lbbe).Debug("created new LBBackend")
 
@@ -326,10 +324,7 @@ func NewLBBackEndFromBackendModel(base *models.BackendAddress) (*LBBackEnd, erro
 		return nil, fmt.Errorf("invalid IP address \"%s\"", *base.IP)
 	}
 
-	return &LBBackEnd{
-		L3n4Addr: L3n4Addr{IP: ip, L4Addr: *l4addr},
-		Weight:   base.Weight,
-	}, nil
+	return &LBBackEnd{L3n4Addr: L3n4Addr{IP: ip, L4Addr: *l4addr}}, nil
 }
 
 func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error) {
@@ -364,9 +359,8 @@ func (b *LBBackEnd) GetBackendModel() *models.BackendAddress {
 
 	ip := b.IP.String()
 	return &models.BackendAddress{
-		IP:     &ip,
-		Port:   b.Port,
-		Weight: b.Weight,
+		IP:   &ip,
+		Port: b.Port,
 	}
 }
 

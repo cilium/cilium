@@ -106,7 +106,7 @@ func updateService(cmd *cobra.Command, args []string) {
 		}
 
 		// Backend ID will be set by the daemon
-		be := loadbalancer.NewLBBackEnd(0, loadbalancer.TCP, beAddr.IP, uint16(beAddr.Port), 0)
+		be := loadbalancer.NewLBBackEnd(0, loadbalancer.TCP, beAddr.IP, uint16(beAddr.Port))
 
 		if be.IsIPv6() && faIP.To4() != nil {
 			Fatalf("Address mismatch between frontend and backend %s", backend)

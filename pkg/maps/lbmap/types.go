@@ -393,7 +393,7 @@ func serviceKeynValuenBackendValue2FEnBE(svcKey ServiceKeyV2, svcValue ServiceVa
 		beIP := backend.GetAddress()
 		bePort := backend.GetPort()
 		beProto := loadbalancer.NONE
-		beLBBackEnd = loadbalancer.NewLBBackEnd(backendID, beProto, beIP, bePort, 0)
+		beLBBackEnd = loadbalancer.NewLBBackEnd(backendID, beProto, beIP, bePort)
 	}
 
 	return feL3n4AddrID, beLBBackEnd
