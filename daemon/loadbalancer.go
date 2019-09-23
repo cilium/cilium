@@ -31,22 +31,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// addSVC2BPFMap adds the given bpf service to the bpf maps.
-func (d *Daemon) addSVC2BPFMap(feCilium loadbalancer.L3n4AddrID, feBPF lbmap.ServiceKey,
-	besBPF []lbmap.ServiceValue,
-	svcKeyV2 lbmap.ServiceKeyV2, svcValuesV2 []lbmap.ServiceValueV2,
-	backendsV2 []lbmap.Backend, oldID loadbalancer.ServiceID) error {
-
-	log.WithField(logfields.ServiceName, feCilium.String()).Debug("adding service to BPF maps")
-
-	if err := lbmap.UpdateService(feBPF, besBPF, int(feCilium.ID), int(oldID),
-		service.AcquireBackendID, service.DeleteBackendID); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // SVCAdd is the public method to add services. We assume the ID provided is not in
 // sync with the KVStore. If that's the, case the service won't be used and an error is
 // returned to the caller.
@@ -121,16 +105,11 @@ func (d *Daemon) svcAdd(
 		return false, loadbalancer.ID(0), err
 	}
 
-	svcKeyV2, svcValuesV2, backendsV2, err := lbmap.LBSVC2ServiceKeynValuenBackendV2(&svc)
-	if err != nil {
-		return false, loadbalancer.ID(0), err
-	}
-
 	d.loadBalancer.BPFMapMU.Lock()
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
-	err = d.addSVC2BPFMap(feL3n4Addr, fe, besValues, svcKeyV2, svcValuesV2, backendsV2, 0)
-	if err != nil {
+	if err := lbmap.UpdateService(fe, besValues, int(feL3n4Addr.ID), 0,
+		service.AcquireBackendID, service.DeleteBackendID); err != nil {
 		return false, loadbalancer.ID(0), err
 	}
 
