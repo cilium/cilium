@@ -124,6 +124,19 @@
   revision = "97b3e8dcf2b43a2048e16ac6b027f8003e6f32d5"
 
 [[projects]]
+  branch = "step2"
+  digest = "1:86a6036717fb8d67b3fa573d7d37899467569686429aecb541266ed2052db1e8"
+  name = "github.com/cilium/ebpf"
+  packages = [
+    ".",
+    "asm",
+    "internal",
+    "perf",
+  ]
+  pruneopts = "NUT"
+  revision = "8f30a09a7c8072da6f8b6e2dcdcb631140336e0f"
+
+[[projects]]
   digest = "1:2b404b091881f73038d4a98ad226e525e48dcb18a5088b313efd19de44916cc2"
   name = "github.com/cilium/proxy"
   packages = [
@@ -1837,6 +1850,8 @@
     "github.com/aws/aws-sdk-go-v2/service/ec2",
     "github.com/c9s/goprocinfo/linux",
     "github.com/cilium/arping",
+    "github.com/cilium/ebpf",
+    "github.com/cilium/ebpf/perf",
     "github.com/cilium/proxy/go/cilium/api",
     "github.com/cilium/proxy/go/envoy/api/v2",
     "github.com/cilium/proxy/go/envoy/api/v2/core",

@@ -606,3 +606,7 @@ required = [
     name = "k8s.io/code-generator"
     unused-packages = false
     non-go = false
+
+[[constraint]]
+  branch = "step2"
+  name = "github.com/cilium/ebpf"
