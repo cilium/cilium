@@ -133,7 +133,7 @@ func generateWrrSeq(weights []uint16) (*RRSeqValue, error) {
 }
 
 // UpdateService adds or updates the given service in the bpf maps.
-func UpdateService(fe ServiceKey, backends []ServiceValue, revNATID int, oldID int,
+func UpdateService(fe ServiceKey, backends []ServiceValue, revNATID int,
 	acquireBackendID func(loadbalancer.L3n4Addr) (loadbalancer.BackendID, error),
 	releaseBackendID func(loadbalancer.BackendID)) error {
 
@@ -187,16 +187,6 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, revNATID int, oldID i
 	// Update the v2 service BPF maps
 	if err := updateServiceV2Locked(fe, besValuesV2, svc, revNATID, weights, nNonZeroWeights); err != nil {
 		return err
-	}
-
-	// Delete old revNAT entry if svc ID has changed
-	if oldID != 0 && oldID != revNATID {
-		zeroValue := fe.NewValue().(ServiceValue)
-		zeroValue.SetRevNat(revNATID)
-		revNATKey := zeroValue.RevNatKey()
-		if err := deleteRevNatLocked(revNATKey); err != nil {
-			return err
-		}
 	}
 
 	// Delete no longer needed backends
