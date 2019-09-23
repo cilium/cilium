@@ -95,7 +95,7 @@ func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSel
 	return selectorIdentitySliceMapping, nil
 }
 
-func (d *Daemon) updateSelectorCacheFQDNs(selectors map[policyApi.FQDNSelector][]*identity.Identity, selectorsWithoutIPs []policyApi.FQDNSelector) (wg *sync.WaitGroup) {
+func (d *Daemon) updateSelectorCacheFQDNs(ctx context.Context, selectors map[policyApi.FQDNSelector][]*identity.Identity, selectorsWithoutIPs []policyApi.FQDNSelector) (wg *sync.WaitGroup) {
 	// Update mapping of selector to set of IPs in selector cache.
 	for selector, identitySlice := range selectors {
 		log.WithFields(logrus.Fields{
@@ -125,7 +125,7 @@ func (d *Daemon) updateSelectorCacheFQDNs(selectors map[policyApi.FQDNSelector][
 	if len(selectors) == 0 && len(selectorsWithoutIPs) == 0 {
 		return &sync.WaitGroup{}
 	}
-	return endpointmanager.UpdatePolicyMaps()
+	return endpointmanager.UpdatePolicyMaps(ctx)
 }
 
 // bootstrapFQDN initializes the toFQDNs related subsystems: DNSPoller,
@@ -190,7 +190,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			metrics.FQDNGarbageCollectorCleanedTotal.Add(float64(len(namesToClean)))
 			log.WithField(logfields.Controller, dnsGCJobName).Infof(
 				"FQDN garbage collector work deleted %d name entries", len(namesToClean))
-			_, err := d.dnsNameManager.ForceGenerateDNS(namesToClean)
+			_, err := d.dnsNameManager.ForceGenerateDNS(context.TODO(), namesToClean)
 			return err
 		},
 	})
@@ -249,7 +249,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 // updateSelectors propagates the mapping of FQDNSelector to identity, as well
 // as the set of FQDNSelectors which have no IPs which correspond to them
 // (usually due to TTL expiry), down to policy layer managed by this daemon.
-func (d *Daemon) updateSelectors(selectorWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, selectorsWithoutIPs []policyApi.FQDNSelector) (wg *sync.WaitGroup, err error) {
+func (d *Daemon) updateSelectors(ctx context.Context, selectorWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, selectorsWithoutIPs []policyApi.FQDNSelector) (wg *sync.WaitGroup, err error) {
 	// Convert set of selectors with IPs to update to set of selectors
 	// with identities corresponding to said IPs.
 	selectorsIdentities, err := identitiesForFQDNSelectorIPs(selectorWithIPsToUpdate)
@@ -258,7 +258,7 @@ func (d *Daemon) updateSelectors(selectorWithIPsToUpdate map[policyApi.FQDNSelec
 	}
 
 	// Update mapping in selector cache with new identities.
-	return d.updateSelectorCacheFQDNs(selectorsIdentities, selectorsWithoutIPs), nil
+	return d.updateSelectorCacheFQDNs(ctx, selectorsIdentities, selectorsWithoutIPs), nil
 }
 
 // pollerResponseNotify handles update events for updates from the poller. It
@@ -475,7 +475,12 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 			"qname": qname,
 			"ips":   responseIPs,
 		}).Debug("Updating DNS name in cache from response to to query")
-		wg, err := d.dnsNameManager.UpdateGenerateDNS(lookupTime, map[string]*fqdn.DNSIPRecords{
+
+		updateCtx, updateCancel := context.WithTimeout(context.TODO(), option.Config.FQDNProxyResponseMaxDelay)
+		defer updateCancel()
+		updateStart := time.Now()
+
+		wg, err := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, map[string]*fqdn.DNSIPRecords{
 			qname: {
 				IPs: responseIPs,
 				TTL: int(TTL),
@@ -489,10 +494,6 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 			wg.Wait()
 			close(updateComplete)
 		}(wg, updateComplete)
-
-		updateCtx, updateCancel := context.WithTimeout(context.TODO(), option.Config.FQDNProxyResponseMaxDelay)
-		defer updateCancel()
-		updateStart := time.Now()
 
 		select {
 		case <-updateCtx.Done():
@@ -571,7 +572,7 @@ func (h *deleteFqdnCache) Handle(params DeleteFqdnCacheParams) middleware.Respon
 	if err != nil {
 		return api.Error(DeleteFqdnCacheBadRequestCode, err)
 	}
-	h.daemon.dnsNameManager.ForceGenerateDNS(namesToRegen)
+	h.daemon.dnsNameManager.ForceGenerateDNS(context.TODO(), namesToRegen)
 	return NewDeleteFqdnCacheOK()
 }
 
