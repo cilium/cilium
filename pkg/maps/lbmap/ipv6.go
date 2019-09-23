@@ -198,15 +198,13 @@ type Service6Value struct {
 	Port    uint16     `align:"port"`
 	Count   uint16     `align:"count"`
 	RevNat  uint16     `align:"rev_nat_index"`
-	Weight  uint16     `align:"weight"`
 }
 
-func NewService6Value(count uint16, target net.IP, port uint16, revNat uint16, weight uint16) *Service6Value {
+func NewService6Value(count uint16, target net.IP, port uint16, revNat uint16) *Service6Value {
 	svc := Service6Value{
 		Count:  count,
 		Port:   port,
 		RevNat: revNat,
-		Weight: weight,
 	}
 
 	copy(svc.Address[:], target.To16())
@@ -221,8 +219,6 @@ func (s *Service6Value) SetCount(count int)          { s.Count = uint16(count) }
 func (s *Service6Value) GetCount() int               { return int(s.Count) }
 func (s *Service6Value) SetRevNat(id int)            { s.RevNat = uint16(id) }
 func (s *Service6Value) RevNatKey() RevNatKey        { return &RevNat6Key{s.RevNat} }
-func (s *Service6Value) SetWeight(weight uint16)     { s.Weight = weight }
-func (s *Service6Value) GetWeight() uint16           { return s.Weight }
 func (s *Service6Value) IsIPv6() bool                { return true }
 
 func (s *Service6Value) SetAddress(ip net.IP) error {
@@ -243,7 +239,6 @@ func (s *Service6Value) ToNetwork() ServiceValue {
 	n := *s
 	n.RevNat = byteorder.HostToNetwork(n.RevNat).(uint16)
 	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
-	n.Weight = byteorder.HostToNetwork(n.Weight).(uint16)
 	return &n
 }
 
@@ -252,7 +247,6 @@ func (s *Service6Value) ToHost() ServiceValue {
 	n := *s
 	n.RevNat = byteorder.NetworkToHost(n.RevNat).(uint16)
 	n.Port = byteorder.NetworkToHost(n.Port).(uint16)
-	n.Weight = byteorder.NetworkToHost(n.Weight).(uint16)
 	return &n
 }
 
@@ -366,16 +360,14 @@ type Service6ValueV2 struct {
 	BackendID uint32 `align:"backend_id"`
 	Count     uint16 `align:"count"`
 	RevNat    uint16 `align:"rev_nat_index"`
-	Weight    uint16 `align:"weight"`
 	Pad       uint16
 }
 
-func NewService6ValueV2(count uint16, backendID loadbalancer.BackendID, revNat uint16, weight uint16) *Service6ValueV2 {
+func NewService6ValueV2(count uint16, backendID loadbalancer.BackendID, revNat uint16) *Service6ValueV2 {
 	svc := Service6ValueV2{
 		Count:     count,
 		BackendID: uint32(backendID),
 		RevNat:    revNat,
-		Weight:    weight,
 	}
 
 	return &svc
@@ -387,13 +379,11 @@ func (s *Service6ValueV2) String() string {
 
 func (s *Service6ValueV2) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
 
-func (s *Service6ValueV2) SetCount(count int)      { s.Count = uint16(count) }
-func (s *Service6ValueV2) GetCount() int           { return int(s.Count) }
-func (s *Service6ValueV2) SetRevNat(id int)        { s.RevNat = uint16(id) }
-func (s *Service6ValueV2) GetRevNat() int          { return int(s.RevNat) }
-func (s *Service6ValueV2) SetWeight(weight uint16) { s.Weight = weight }
-func (s *Service6ValueV2) GetWeight() uint16       { return s.Weight }
-func (s *Service6ValueV2) RevNatKey() RevNatKey    { return &RevNat6Key{s.RevNat} }
+func (s *Service6ValueV2) SetCount(count int)   { s.Count = uint16(count) }
+func (s *Service6ValueV2) GetCount() int        { return int(s.Count) }
+func (s *Service6ValueV2) SetRevNat(id int)     { s.RevNat = uint16(id) }
+func (s *Service6ValueV2) GetRevNat() int       { return int(s.RevNat) }
+func (s *Service6ValueV2) RevNatKey() RevNatKey { return &RevNat6Key{s.RevNat} }
 
 func (s *Service6ValueV2) SetBackendID(id loadbalancer.BackendID) {
 	s.BackendID = uint32(id)
@@ -405,7 +395,6 @@ func (s *Service6ValueV2) GetBackendID() loadbalancer.BackendID {
 func (s *Service6ValueV2) ToNetwork() ServiceValueV2 {
 	n := *s
 	n.RevNat = byteorder.HostToNetwork(n.RevNat).(uint16)
-	n.Weight = byteorder.HostToNetwork(n.Weight).(uint16)
 	return &n
 }
 
