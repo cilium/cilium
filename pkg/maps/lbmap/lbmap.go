@@ -72,66 +72,6 @@ func deleteRevNatLocked(key RevNatKey) error {
 	return key.Map().Delete(key.ToNetwork())
 }
 
-// gcd computes the gcd of two numbers.
-func gcd(x, y uint16) uint16 {
-	for y != 0 {
-		x, y = y, x%y
-	}
-	return x
-}
-
-// generateWrrSeq generates a wrr sequence based on provided weights.
-func generateWrrSeq(weights []uint16) (*RRSeqValue, error) {
-	svcRRSeq := RRSeqValue{}
-
-	n := len(weights)
-	if n < 2 {
-		return nil, fmt.Errorf("needs at least 2 weights")
-	}
-
-	g := uint16(0)
-	for i := 0; i < n; i++ {
-		if weights[i] != 0 {
-			g = gcd(g, weights[i])
-		}
-	}
-
-	// This means all the weights are 0.
-	if g == 0 {
-		return nil, fmt.Errorf("all specified weights are 0")
-	}
-
-	sum := uint16(0)
-	for i := range weights {
-		// Normalize the weights.
-		weights[i] = weights[i] / g
-		sum += weights[i]
-	}
-
-	// Check if Generated seq fits in our array.
-	if int(sum) > len(svcRRSeq.Idx) {
-		return nil, fmt.Errorf("sum of normalized weights exceeds %d", len(svcRRSeq.Idx))
-	}
-
-	// Generate the Sequence.
-	i := uint16(0)
-	k := uint16(0)
-	for {
-		j := uint16(0)
-		for j < weights[k] {
-			svcRRSeq.Idx[i] = k
-			i++
-			j++
-		}
-		if i >= sum {
-			break
-		}
-		k++
-	}
-	svcRRSeq.Count = sum
-	return &svcRRSeq, nil
-}
-
 // UpdateService adds or updates the given service in the bpf maps.
 func UpdateService(fe ServiceKey, backends []ServiceValue, revNATID int,
 	acquireBackendID func(loadbalancer.L3n4Addr) (loadbalancer.BackendID, error),
@@ -144,11 +84,6 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, revNATID int,
 
 	mutex.Lock()
 	defer mutex.Unlock()
-
-	var (
-		weights         []uint16
-		nNonZeroWeights uint16
-	)
 
 	// Find out which backends are new (i.e. the ones which do not exist yet and
 	// will be created in this function) and acquire IDs for them
@@ -166,15 +101,6 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, revNATID int,
 		return err
 	}
 
-	// FIXME(brb) Uncomment the following code after we have enabled weights
-	// in the BPF datapath code.
-	//for _, be := range besValues {
-	//	weights = append(weights, be.GetWeight())
-	//	if be.GetWeight() != 0 {
-	//		nNonZeroWeights++
-	//	}
-	//}
-
 	besValuesV2 := svc.getBackendsV2()
 
 	scopedLog.Debug("Updating BPF representation of service")
@@ -185,7 +111,7 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, revNATID int,
 	}
 
 	// Update the v2 service BPF maps
-	if err := updateServiceV2Locked(fe, besValuesV2, svc, revNATID, weights, nNonZeroWeights); err != nil {
+	if err := updateServiceV2Locked(fe, besValuesV2, svc, revNATID); err != nil {
 		return err
 	}
 
@@ -253,8 +179,7 @@ func updateBackendsLocked(addedBackends map[loadbalancer.BackendID]ServiceValue)
 }
 
 func updateServiceV2Locked(fe ServiceKey, backends serviceValueMap,
-	svc *bpfService, revNATID int,
-	weights []uint16, nNonZeroWeights uint16) error {
+	svc *bpfService, revNATID int) error {
 
 	var (
 		existingCount int
@@ -276,11 +201,10 @@ func updateServiceV2Locked(fe ServiceKey, backends serviceValueMap,
 
 	svcValV2 = svcKeyV2.NewValue().(ServiceValueV2)
 	slot := 1
-	for addrID, svcVal := range backends {
+	for addrID := range backends {
 		backendKey := cache.getBackendKey(addrID)
 		svcValV2.SetBackendID(backendKey.GetID())
 		svcValV2.SetRevNat(revNATID)
-		svcValV2.SetWeight(svcVal.GetWeight())
 		svcKeyV2.SetSlave(slot)
 		if err := updateServiceEndpointV2(svcKeyV2, svcValV2); err != nil {
 			return fmt.Errorf("Unable to update service %+v with the value %+v: %s",
@@ -308,14 +232,9 @@ func updateServiceV2Locked(fe ServiceKey, backends serviceValueMap,
 		}
 	}()
 
-	err = updateMasterServiceV2(svcKeyV2, len(svc.backendsV2), nNonZeroWeights, revNATID)
+	err = updateMasterServiceV2(svcKeyV2, len(svc.backendsV2), revNATID)
 	if err != nil {
 		return fmt.Errorf("unable to update service %+v: %s", svcKeyV2, err)
-	}
-
-	err = updateWrrSeqV2(svcKeyV2, weights)
-	if err != nil {
-		return fmt.Errorf("unable to update service weights for %s with value %+v: %s", svcKeyV2.String(), weights, err)
 	}
 
 	for i := slot; i <= existingCount; i++ {
@@ -474,9 +393,8 @@ func DumpBackendMapsToUserspace() (map[BackendAddrID]*loadbalancer.LBBackEnd, er
 	for backendID, backendVal := range backendValueMap {
 		ip := backendVal.GetAddress()
 		port := backendVal.GetPort()
-		weight := uint16(0) // FIXME(brb): set weight when we support it
 		proto := loadbalancer.NONE
-		lbBackend := loadbalancer.NewLBBackEnd(backendID, proto, ip, port, weight)
+		lbBackend := loadbalancer.NewLBBackEnd(backendID, proto, ip, port, 0)
 		lbBackends[backendVal.BackendAddrID()] = lbBackend
 	}
 
@@ -503,58 +421,17 @@ func lookupServiceV2(key ServiceKeyV2) (ServiceValueV2, error) {
 	return svc.ToNetwork(), nil
 }
 
-func updateMasterServiceV2(fe ServiceKeyV2, nbackends int, nonZeroWeights uint16, revNATID int) error {
+func updateMasterServiceV2(fe ServiceKeyV2, nbackends int, revNATID int) error {
 	fe.SetSlave(0)
 	zeroValue := fe.NewValue().(ServiceValueV2)
 	zeroValue.SetCount(nbackends)
-	zeroValue.SetWeight(nonZeroWeights)
 	zeroValue.SetRevNat(revNATID)
 
 	return updateServiceEndpointV2(fe, zeroValue)
 }
 
-// updateWrrSeq updates bpf map with the generated wrr sequence.
-func updateWrrSeqV2(fe ServiceKeyV2, weights []uint16) error {
-	sum := uint16(0)
-	for _, v := range weights {
-		sum += v
-	}
-	if sum == 0 {
-		return nil
-	}
-	svcRRSeq, err := generateWrrSeq(weights)
-	if err != nil {
-		return fmt.Errorf("unable to generate weighted round robin seq for %s with value %+v: %s", fe.String(), weights, err)
-	}
-	return updateServiceWeightsV2(fe, svcRRSeq)
-}
-
-// updateServiceWeightsV2 updates cilium_lb6_rr_seq_v2 or cilium_lb4_rr_seq_v2 bpf maps.
-func updateServiceWeightsV2(key ServiceKeyV2, value *RRSeqValue) error {
-	if _, err := key.RRMap().OpenOrCreate(); err != nil {
-		return err
-	}
-
-	return key.RRMap().Update(key.ToNetwork(), value)
-}
-
 func deleteServiceLockedV2(key ServiceKeyV2) error {
-	err := key.Map().Delete(key.ToNetwork())
-	if err != nil {
-		return err
-	}
-	return lookupAndDeleteServiceWeightsV2(key)
-}
-
-// lookupAndDeleteServiceWeightsV2 deletes entry from cilium_lb6_rr_seq or cilium_lb4_rr_seq
-func lookupAndDeleteServiceWeightsV2(key ServiceKeyV2) error {
-	_, err := key.RRMap().Lookup(key.ToNetwork())
-	if err != nil {
-		// Ignore if entry is not found.
-		return nil
-	}
-
-	return key.RRMap().Delete(key.ToNetwork())
+	return key.Map().Delete(key.ToNetwork())
 }
 
 func updateBackend(backend Backend) error {

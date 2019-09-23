@@ -41,9 +41,6 @@ type ServiceKey interface {
 	// Returns the BPF map matching the key type
 	Map() *bpf.Map
 
-	// Returns the BPF Weighted Round Robin map matching the key type
-	RRMap() *bpf.Map
-
 	// Returns a RevNatValue matching a ServiceKey
 	RevNatValue() RevNatValue
 
@@ -91,12 +88,6 @@ type ServiceValue interface {
 	// Set reverse NAT identifier
 	SetRevNat(int)
 
-	// Set Weight
-	SetWeight(uint16)
-
-	// Get Weight
-	GetWeight() uint16
-
 	// ToNetwork converts fields to network byte order.
 	ToNetwork() ServiceValue
 
@@ -121,9 +112,6 @@ type ServiceKeyV2 interface {
 
 	// Return the BPF map matching the key type
 	Map() *bpf.Map
-
-	// Return the BPF Weighted Round Robin map matching the key type
-	RRMap() *bpf.Map
 
 	// Set slave slot for the key
 	SetSlave(slave int)
@@ -159,12 +147,6 @@ type ServiceValueV2 interface {
 
 	// Get reverse NAT identifier
 	GetRevNat() int
-
-	// Set weight
-	SetWeight(uint16)
-
-	// Get weight
-	GetWeight() uint16
 
 	// Set backend identifier
 	SetBackendID(id loadbalancer.BackendID)
@@ -303,7 +285,6 @@ func LBSVC2ServiceKeynValue(svc loadbalancer.LBSVC) (ServiceKey, []ServiceValue,
 		}
 		beValue.SetPort(be.Port)
 		beValue.SetRevNat(int(svc.FE.ID))
-		beValue.SetWeight(be.Weight)
 
 		besValues = append(besValues, beValue)
 		log.WithFields(logrus.Fields{
@@ -363,7 +344,6 @@ func LBSVC2ServiceKeynValuenBackendV2(svc *loadbalancer.LBSVC) (ServiceKeyV2, []
 		}
 
 		svcValue.SetRevNat(int(svc.FE.ID))
-		svcValue.SetWeight(be.Weight)
 		svcValue.SetBackendID(loadbalancer.BackendID(be.ID))
 
 		backends = append(backends, backend)
@@ -412,9 +392,8 @@ func serviceKeynValuenBackendValue2FEnBE(svcKey ServiceKeyV2, svcValue ServiceVa
 	if backendID != 0 {
 		beIP := backend.GetAddress()
 		bePort := backend.GetPort()
-		beWeight := svcValue.GetWeight()
 		beProto := loadbalancer.NONE
-		beLBBackEnd = loadbalancer.NewLBBackEnd(backendID, beProto, beIP, bePort, beWeight)
+		beLBBackEnd = loadbalancer.NewLBBackEnd(backendID, beProto, beIP, bePort, 0)
 	}
 
 	return feL3n4AddrID, beLBBackEnd
