@@ -92,6 +92,15 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 		existingFilter.mergeCachedSelectors(filterToMerge, selectorCache)
 	}
 
+	if filterToMerge.TerminatingTLS != existingFilter.TerminatingTLS {
+		ctx.PolicyTrace("   Merge conflict: mismatching terminating TLS contexts %v/%v\n", filterToMerge.TerminatingTLS, existingFilter.TerminatingTLS)
+		return fmt.Errorf("cannot merge conflicting terminating TLS contexts (%v/%v)", filterToMerge.TerminatingTLS, existingFilter.TerminatingTLS)
+	}
+	if filterToMerge.OriginatingTLS != existingFilter.OriginatingTLS {
+		ctx.PolicyTrace("   Merge conflict: mismatching originating TLS contexts %v/%v\n", filterToMerge.OriginatingTLS, existingFilter.OriginatingTLS)
+		return fmt.Errorf("cannot merge conflicting originating TLS contexts (%v/%v)", filterToMerge.OriginatingTLS, existingFilter.OriginatingTLS)
+	}
+
 	// Merge the L7-related data from the arguments provided to this function
 	// with the existing L7-related data already in the filter.
 	if filterToMerge.L7Parser != ParserTypeNone {
