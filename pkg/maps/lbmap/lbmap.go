@@ -16,6 +16,7 @@ package lbmap
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -49,6 +50,104 @@ var (
 	// combined
 	cache = newLBMapCache()
 )
+
+func UpsertService(
+	svcID uint16, svcIP net.IP, svcPort uint16,
+	backendIDs []uint16, prevBackendCount int,
+	ipv6 bool) error {
+
+	var (
+		svcKey ServiceKeyV2
+		err    error
+	)
+
+	if ipv6 {
+		svcKey = NewService6KeyV2(svcIP, svcPort, u8proto.ANY, 0)
+	} else {
+		svcKey = NewService4KeyV2(svcIP, svcPort, u8proto.ANY, 0)
+	}
+
+	slot := 1
+	svcVal := svcKey.NewValue().(ServiceValueV2)
+	for _, backendID := range backendIDs {
+		svcVal.SetBackendID(loadbalancer.BackendID(backendID))
+		svcVal.SetRevNat(int(svcID))
+		svcKey.SetSlave(slot) // TODO rename
+		if err := updateServiceEndpointV2(svcKey, svcVal); err != nil {
+			return fmt.Errorf("Unable to update service entry %+v => %+v: %s",
+				svcKey, svcVal, err)
+		}
+		slot++
+	}
+
+	zeroValue := svcKey.NewValue().(ServiceValueV2)
+	zeroValue.SetRevNat(int(svcID)) // TODO change to uint16
+	revNATKey := zeroValue.RevNatKey()
+	revNATValue := svcKey.RevNatValue()
+	if err := updateRevNatLocked(revNATKey, revNATValue); err != nil {
+		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %s", revNATKey, revNATValue, err)
+	}
+	defer func() {
+		if err != nil {
+			deleteRevNatLocked(revNATKey)
+		}
+	}()
+
+	if err = updateMasterServiceV2(svcKey, len(backendIDs), int(svcID)); err != nil {
+		return fmt.Errorf("Unable to update service %+v: %s", svcKey, err)
+	}
+
+	for i := slot; i <= prevBackendCount; i++ {
+		svcKey.SetSlave(i)
+		if err := deleteServiceLockedV2(svcKey); err != nil {
+			// TODO(brb) maybe just log as it is not so critical
+			return fmt.Errorf("Unable to delete service %+v: %s", svcKey, err)
+		}
+	}
+
+	return nil
+
+}
+
+func AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) error {
+	var (
+		backend Backend
+		err     error
+	)
+
+	if ipv6 {
+		backend, err = NewBackend6(loadbalancer.BackendID(id), ip, port, u8proto.ANY)
+	} else {
+		backend, err = NewBackend4(loadbalancer.BackendID(id), ip, port, u8proto.ANY)
+	}
+
+	if err != nil {
+		return fmt.Errorf("Unable to create backend (%d, %s, %d, %t): %s",
+			id, ip, port, ipv6)
+	}
+
+	if err := updateBackend(backend); err != nil {
+		return fmt.Errorf("Unable to add backend %q: %s", backend, err)
+	}
+
+	return nil
+}
+
+func DeleteBackendByID(id uint16, ipv6 bool) error {
+	var key BackendKey
+
+	if ipv6 {
+		key = NewBackend6Key(loadbalancer.BackendID(id))
+	} else {
+		key = NewBackend4Key(loadbalancer.BackendID(id))
+	}
+
+	if err := deleteBackendLocked(key); err != nil {
+		return fmt.Errorf("Unable to remove backend %d (%t): %s", id, ipv6, err)
+	}
+
+	return nil
+}
 
 func updateRevNatLocked(key RevNatKey, value RevNatValue) error {
 	log.WithFields(logrus.Fields{
