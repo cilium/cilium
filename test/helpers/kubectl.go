@@ -69,6 +69,9 @@ const (
 	// CIIntegrationMicrok8s contains the constant to be used when running tests on microk8s.
 	CIIntegrationMicrok8s = "microk8s"
 
+	// CIIntegrationMicrok8s is the value to set CNI_INTEGRATION when running with minikube.
+	CIIntegrationMinikube = "minikube"
+
 	LogGathererSelector  = "k8s-app=cilium-test-logs"
 	LogGathererNamespace = "kube-system"
 )
@@ -118,6 +121,11 @@ var (
 		"global.containerRuntime.socketPath":  "/var/snap/microk8s/common/run/containerd.sock",
 		"global.daemon.runPath":               "/var/snap/microk8s/current/var/run/cilium",
 	}
+	minikubeHelmOverrides = map[string]string{
+		"global.ipv6.enabled":           "false",
+		"global.bpf.preallocateMaps":    "false",
+		"global.k8s.requireIPv4PodCIDR": "false",
+	}
 
 	// helmOverrides allows overriding of cilium-agent options for
 	// specific CI environment integrations.
@@ -126,6 +134,7 @@ var (
 		CIIntegrationFlannel:  flannelHelmOverrides,
 		CIIntegrationEKS:      eksHelmOverrides,
 		CIIntegrationMicrok8s: microk8sHelmOverrides,
+		CIIntegrationMinikube: minikubeHelmOverrides,
 	}
 )
 
