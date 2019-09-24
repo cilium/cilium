@@ -661,14 +661,34 @@ func (m *IptablesManager) TransientRulesStart(ifName string) error {
 		// plain Docker setup, we would otherwise hit default DENY in FORWARD chain.
 		// Also, k8s 1.15 introduced "-m conntrack --ctstate INVALID -j DROP" which
 		// in the direct routing case can drop EP replies.
-		// Therefore, add both rules below to avoid having a user to manually opt-in.
+		//
+		// Therefore, add three rules below to avoid having a user to manually opt-in.
 		// See also: https://github.com/kubernetes/kubernetes/issues/39823
 		// In here can only be basic ACCEPT rules, nothing more complicated.
+		//
+		// The second rule is for the case of nodeport traffic where the backend is
+		// remote. The traffic flow in FORWARD is as follows:
+		//
+		//  - Node serving nodeport request:
+		//      IN=eno1 OUT=cilium_host
+		//      IN=cilium_host OUT=eno1
+		//
+		//  - Node running backend:
+		//       IN=eno1 OUT=cilium_host
+		//       IN=lxc... OUT=eno1
 		if err := runProg("iptables", append(
 			m.waitArgs,
 			"-A", ciliumTransientForwardChain,
 			"-o", localDeliveryInterface,
 			"-m", "comment", "--comment", "cilium (transient): any->cluster on "+localDeliveryInterface+" forward accept",
+			"-j", "ACCEPT"), false); err != nil {
+			return err
+		}
+		if err := runProg("iptables", append(
+			m.waitArgs,
+			"-A", ciliumTransientForwardChain,
+			"-i", localDeliveryInterface,
+			"-m", "comment", "--comment", "cilium (transient): cluster->any on "+localDeliveryInterface+" forward accept (nodeport)",
 			"-j", "ACCEPT"), false); err != nil {
 			return err
 		}
@@ -740,6 +760,14 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 			"-A", ciliumForwardChain,
 			"-o", localDeliveryInterface,
 			"-m", "comment", "--comment", "cilium: any->cluster on "+localDeliveryInterface+" forward accept",
+			"-j", "ACCEPT"), false); err != nil {
+			return err
+		}
+		if err := runProg("iptables", append(
+			m.waitArgs,
+			"-A", ciliumForwardChain,
+			"-i", localDeliveryInterface,
+			"-m", "comment", "--comment", "cilium: cluster->any on "+localDeliveryInterface+" forward accept (nodeport)",
 			"-j", "ACCEPT"), false); err != nil {
 			return err
 		}
