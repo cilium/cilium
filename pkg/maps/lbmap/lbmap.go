@@ -106,7 +106,34 @@ func UpsertService(
 	}
 
 	return nil
+}
 
+func DeleteService(svc loadbalancer.L3n4AddrID, backends []loadbalancer.LBBackEnd) error {
+	var (
+		svcKey    ServiceKeyV2
+		revNATKey RevNatKey
+	)
+
+	if svc.IsIPv6() {
+		svcKey = NewService6KeyV2(svc.IP, svc.Port, u8proto.ANY, 0)
+		revNATKey = NewRevNat6Key(uint16(svc.ID))
+	} else {
+		svcKey = NewService4KeyV2(svc.IP, svc.Port, u8proto.ANY, 0)
+		revNATKey = NewRevNat4Key(uint16(svc.ID))
+	}
+
+	for slot := 0; slot <= len(backends); slot++ {
+		svcKey.SetSlave(slot)
+		if err := svcKey.MapDelete(); err != nil {
+			return err
+		}
+	}
+
+	if err := deleteRevNatLocked(revNATKey); err != nil {
+		return fmt.Errorf("Unable to delete revNAT entry %d: %s", svc.ID, err)
+	}
+
+	return nil
 }
 
 func AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) error {
