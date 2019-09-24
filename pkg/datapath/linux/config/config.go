@@ -153,11 +153,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["LB6_REVERSE_NAT_MAP"] = "cilium_lb6_reverse_nat"
 	cDefinesMap["LB6_SERVICES_MAP_V2"] = "cilium_lb6_services_v2"
 	cDefinesMap["LB6_BACKEND_MAP"] = "cilium_lb6_backends"
-	cDefinesMap["LB6_RR_SEQ_MAP_V2"] = "cilium_lb6_rr_seq_v2"
 	cDefinesMap["LB6_REVERSE_NAT_SK_MAP"] = "cilium_lb6_reverse_sk"
 	cDefinesMap["LB4_REVERSE_NAT_MAP"] = "cilium_lb4_reverse_nat"
 	cDefinesMap["LB4_SERVICES_MAP_V2"] = "cilium_lb4_services_v2"
-	cDefinesMap["LB4_RR_SEQ_MAP_V2"] = "cilium_lb4_rr_seq_v2"
 	cDefinesMap["LB4_BACKEND_MAP"] = "cilium_lb4_backends"
 	cDefinesMap["LB4_REVERSE_NAT_SK_MAP"] = "cilium_lb4_reverse_sk"
 
