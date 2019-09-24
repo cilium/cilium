@@ -97,24 +97,6 @@ var (
 
 			return revKey.ToNetwork(), revNat.ToNetwork(), nil
 		}).WithCache()
-	// RRSeq6Map represents the BPF map for wrr sequences in IPv6 load balancer
-	RRSeq6Map = bpf.NewMap("cilium_lb6_rr_seq",
-		bpf.MapTypeHash,
-		&Service6Key{},
-		int(unsafe.Sizeof(Service6Key{})),
-		&RRSeqValue{},
-		int(unsafe.Sizeof(RRSeqValue{})),
-		maxFrontEnds,
-		0, 0,
-		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
-			svcKey := mapKey.(*Service6Key)
-
-			if _, _, err := bpf.ConvertKeyValue(key, value, svcKey, mapValue); err != nil {
-				return nil, nil, err
-			}
-
-			return svcKey.ToNetwork(), mapValue, nil
-		}).WithCache()
 	// RRSeq6MapV2 represents the BPF map for wrr sequences in IPv6 load balancer
 	RRSeq6MapV2 = bpf.NewMap("cilium_lb6_rr_seq_v2",
 		bpf.MapTypeHash,
@@ -157,7 +139,6 @@ func NewService6Key(ip net.IP, port uint16, slave uint16) *Service6Key {
 
 func (k Service6Key) IsIPv6() bool               { return true }
 func (k Service6Key) Map() *bpf.Map              { return Service6Map }
-func (k Service6Key) RRMap() *bpf.Map            { return RRSeq6Map }
 func (k Service6Key) NewValue() bpf.MapValue     { return &Service6Value{} }
 func (k *Service6Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 func (k *Service6Key) GetPort() uint16           { return k.Port }
@@ -340,7 +321,6 @@ func (k *Service6KeyV2) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 func (k *Service6KeyV2) NewValue() bpf.MapValue    { return &Service6ValueV2{} }
 func (k *Service6KeyV2) IsIPv6() bool              { return true }
 func (k *Service6KeyV2) Map() *bpf.Map             { return Service6MapV2 }
-func (k *Service6KeyV2) RRMap() *bpf.Map           { return RRSeq6MapV2 }
 func (k *Service6KeyV2) SetSlave(slave int)        { k.Slave = uint16(slave) }
 func (k *Service6KeyV2) GetSlave() int             { return int(k.Slave) }
 func (k *Service6KeyV2) GetAddress() net.IP        { return k.Address.IP() }

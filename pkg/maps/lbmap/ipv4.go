@@ -95,23 +95,6 @@ var (
 
 			return revKey.ToNetwork(), revNat.ToNetwork(), nil
 		}).WithCache()
-	RRSeq4Map = bpf.NewMap("cilium_lb4_rr_seq",
-		bpf.MapTypeHash,
-		&Service4Key{},
-		int(unsafe.Sizeof(Service4Key{})),
-		&RRSeqValue{},
-		int(unsafe.Sizeof(RRSeqValue{})),
-		maxFrontEnds,
-		0, 0,
-		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
-			svcKey := mapKey.(*Service4Key)
-
-			if _, _, err := bpf.ConvertKeyValue(key, value, svcKey, mapValue); err != nil {
-				return nil, nil, err
-			}
-
-			return svcKey.ToNetwork(), mapValue, nil
-		}).WithCache()
 	RRSeq4MapV2 = bpf.NewMap("cilium_lb4_rr_seq_v2",
 		bpf.MapTypeHash,
 		&Service4KeyV2{},
@@ -142,7 +125,6 @@ type Service4Key struct {
 
 func (k Service4Key) IsIPv6() bool               { return false }
 func (k Service4Key) Map() *bpf.Map              { return Service4Map }
-func (k Service4Key) RRMap() *bpf.Map            { return RRSeq4Map }
 func (k Service4Key) NewValue() bpf.MapValue     { return &Service4Value{} }
 func (k *Service4Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 func (k *Service4Key) GetPort() uint16           { return k.Port }
@@ -354,7 +336,6 @@ func (k *Service4KeyV2) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 func (k *Service4KeyV2) NewValue() bpf.MapValue    { return &Service4ValueV2{} }
 func (k *Service4KeyV2) IsIPv6() bool              { return false }
 func (k *Service4KeyV2) Map() *bpf.Map             { return Service4MapV2 }
-func (k *Service4KeyV2) RRMap() *bpf.Map           { return RRSeq4MapV2 }
 func (k *Service4KeyV2) SetSlave(slave int)        { k.Slave = uint16(slave) }
 func (k *Service4KeyV2) GetSlave() int             { return int(k.Slave) }
 func (k *Service4KeyV2) GetAddress() net.IP        { return k.Address.IP() }

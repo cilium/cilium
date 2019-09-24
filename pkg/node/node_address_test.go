@@ -75,7 +75,6 @@ func (s *NodeSuite) Test_getCiliumHostIPsFromFile(c *C) {
 #define HOST_IP 0xfd, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb
 #define HOST_ID 1
 #define WORLD_ID 2
-#define LB_RR_MAX_SEQ 31
 #define CILIUM_LB_MAP_MAX_ENTRIES 65536
 #define TUNNEL_ENDPOINT_MAP_SIZE 65536
 #define ENDPOINTS_MAP_SIZE 65535
