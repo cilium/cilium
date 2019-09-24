@@ -44,7 +44,7 @@ func (d *Daemon) SVCAdd(feL3n4Addr loadbalancer.L3n4AddrID, be []loadbalancer.LB
 		return false, fmt.Errorf("invalid service ID 0")
 	}
 
-	created, id, err := d.svcAdd(feL3n4Addr, be, false)
+	created, id, err := d.svc.UpsertService(feL3n4Addr, be, svc.TypeClusterIP)
 	if err == nil && id != feL3n4Addr.ID {
 		return false,
 			fmt.Errorf("the service provided is already registered with ID %d, please use that ID instead of %d",
@@ -52,24 +52,6 @@ func (d *Daemon) SVCAdd(feL3n4Addr loadbalancer.L3n4AddrID, be []loadbalancer.LB
 	}
 
 	return created, err
-}
-
-// svcAdd adds a service from the given feL3n4Addr (frontend) and LBBackEnd (backends).
-// If any of the backend addresses set in bes have a different L3 address type than the
-// one set in fe, it returns an error without modifying the bpf LB map. If any backend
-// entry fails while updating the LB map, the frontend won't be inserted in the LB map
-// therefore there won't be any traffic going to the given backends.
-// All of the backends added will be DeepCopied to the internal load balancer map.
-// TODO(brb) update comment
-func (d *Daemon) svcAdd(
-	feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.LBBackEnd,
-	nodePort bool) (bool, loadbalancer.ID, error) {
-
-	svcType := svc.TypeClusterIP
-	if nodePort {
-		svcType = svc.TypeNodePort
-	}
-	return d.svc.UpsertService(feL3n4Addr, bes, svcType)
 }
 
 type putServiceID struct {
