@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -279,10 +280,11 @@ func (h *getService) Handle(params GetServiceParams) middleware.Responder {
 }
 
 func openServiceMaps() error {
-	if err := lbmap.RRSeq6MapV2.UnpinIfExists(); err != nil {
+	// Removal of rr-seq maps can be removed in v1.8+.
+	if err := bpf.UnpinMapIfExists("cilium_lb6_rr_seq_v2"); err != nil {
 		return nil
 	}
-	if err := lbmap.RRSeq4MapV2.UnpinIfExists(); err != nil {
+	if err := bpf.UnpinMapIfExists("cilium_lb4_rr_seq_v2"); err != nil {
 		return nil
 	}
 
