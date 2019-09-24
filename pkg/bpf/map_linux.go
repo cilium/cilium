@@ -1087,3 +1087,16 @@ func (m *Map) exist() (bool, error) {
 
 	return false, nil
 }
+
+// UnpinMapIfExists unpins the given map identified by name.
+// If the map doesn't exist, returns success.
+func UnpinMapIfExists(name string) error {
+	path := MapPath(name)
+
+	if _, err := os.Stat(path); err != nil {
+		// Map doesn't exist
+		return nil
+	}
+
+	return os.RemoveAll(path)
+}
