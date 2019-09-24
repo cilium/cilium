@@ -17,6 +17,7 @@ package kvstore
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -1428,6 +1429,10 @@ func newConfig(fpath string) (*client.Config, error) {
 			return nil, err
 		}
 		cfg.TLS.RootCAs = cp
+	}
+	cfg.TLS.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+		cer, err := tls.LoadX509KeyPair(yc.Certfile, yc.Keyfile)
+		return &cer, err
 	}
 	return cfg, nil
 }
