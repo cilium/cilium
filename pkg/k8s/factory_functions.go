@@ -194,8 +194,9 @@ func EqualV2CNP(cnp1, cnp2 *types.SlimCNP) bool {
 		reflect.DeepEqual(cnp1.Specs, cnp2.Specs)
 }
 
+// AnnotationsEqual returns whether the annotation with any key in
+// relevantAnnotations is equal in anno1 and anno2.
 func AnnotationsEqual(relevantAnnotations []string, anno1, anno2 map[string]string) bool {
-	log.Infof("checking AnnotationsEqual out of annotations %v: %s, %s", relevantAnnotations, anno1, anno2)
 	for i := range relevantAnnotations {
 		an := relevantAnnotations[i]
 		if anno1[an] != anno2[an] {

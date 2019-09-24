@@ -237,8 +237,8 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		} else {
 			addLabels.MergeLabels(identityLabels)
 			infoLabels.MergeLabels(info)
+			ep.UpdateVisibilityPolicy(annotations)
 		}
-		ep.UpdateAnnotations(annotations)
 	}
 
 	if len(addLabels) == 0 {
@@ -265,12 +265,12 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 			mgr.UpdateController(controllerName,
 				controller.ControllerParams{
 					DoFunc: func(ctx context.Context) error {
-						identityLabels, info, err := fetchK8sLabels(ep)
+						identityLabels, info, annotations, err := fetchK8sLabelsAndAnnotations(ep)
 						if err != nil {
 							ep.Logger(controllerName).WithError(err).Warning("Unable to fetch kubernetes labels")
 							return err
 						}
-
+						ep.UpdateVisibilityPolicy(annotations)
 						ep.UpdateLabels(ctx, identityLabels, info, true)
 						close(done)
 						return nil

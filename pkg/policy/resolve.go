@@ -76,6 +76,7 @@ type EndpointPolicy struct {
 // PolicyOwner is anything which consumes a EndpointPolicy.
 type PolicyOwner interface {
 	LookupRedirectPort(l4 *L4Filter) uint16
+	//LookupRedirectPortByMetadata(ingress bool, l4Proto string, port uint16) uint16
 }
 
 // newSelectorPolicy returns an empty selectorPolicy stub.
