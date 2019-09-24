@@ -108,7 +108,7 @@ func NewDeleteServiceIDHandler(d *Daemon) DeleteServiceIDHandler {
 func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /service/{id} request")
 
-	found, err := h.d.svcDeleteByID(loadbalancer.ServiceID(params.ID))
+	found, err := h.d.svc.DeleteServiceByID(loadbalancer.ServiceID(params.ID))
 	switch {
 	case err != nil:
 		log.WithError(err).WithField(logfields.ServiceID, params.ID).
@@ -119,44 +119,6 @@ func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Respon
 	default:
 		return NewDeleteServiceIDOK()
 	}
-}
-
-func (d *Daemon) svcDeleteByID(id loadbalancer.ServiceID) (bool, error) {
-	d.loadBalancer.BPFMapMU.Lock()
-	defer d.loadBalancer.BPFMapMU.Unlock()
-
-	svc, ok := d.loadBalancer.SVCMapID[id]
-	if !ok {
-		return false, nil
-	}
-	return true, d.svcDeleteLocked(svc)
-}
-
-func (d *Daemon) svcDelete(frontend *loadbalancer.L3n4Addr) error {
-	d.loadBalancer.BPFMapMU.Lock()
-	defer d.loadBalancer.BPFMapMU.Unlock()
-
-	svc, ok := d.loadBalancer.SVCMap[frontend.SHA256Sum()]
-	if !ok {
-		return fmt.Errorf("Service not found %+v", frontend)
-	}
-
-	return d.svcDeleteLocked(&svc)
-}
-
-func (d *Daemon) svcDeleteLocked(svc *loadbalancer.LBSVC) error {
-	svcID := loadbalancer.ServiceID(svc.FE.ID)
-	if err := service.DeleteID(uint32(svcID)); err != nil {
-		return fmt.Errorf("Unable to release service ID %d: %s", svcID, err)
-	}
-
-	if err := d.svcDeleteBPF(svc.FE); err != nil {
-		return fmt.Errorf("Deleting service from BPF maps failed: %s", err)
-	}
-
-	d.loadBalancer.DeleteService(svc)
-
-	return nil
 }
 
 func (d *Daemon) svcDeleteBPF(svc loadbalancer.L3n4AddrID) error {
