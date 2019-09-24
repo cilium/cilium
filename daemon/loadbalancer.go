@@ -279,6 +279,13 @@ func (h *getService) Handle(params GetServiceParams) middleware.Responder {
 }
 
 func openServiceMaps() error {
+	if err := lbmap.RRSeq6MapV2.UnpinIfExists(); err != nil {
+		return nil
+	}
+	if err := lbmap.RRSeq4MapV2.UnpinIfExists(); err != nil {
+		return nil
+	}
+
 	if option.Config.EnableIPv6 {
 		if _, err := lbmap.Service6MapV2.OpenOrCreate(); err != nil {
 			return err
@@ -287,9 +294,6 @@ func openServiceMaps() error {
 			return err
 		}
 		if _, err := lbmap.RevNat6Map.OpenOrCreate(); err != nil {
-			return err
-		}
-		if _, err := lbmap.RRSeq6MapV2.OpenOrCreate(); err != nil {
 			return err
 		}
 	}
@@ -302,9 +306,6 @@ func openServiceMaps() error {
 			return err
 		}
 		if _, err := lbmap.RevNat4Map.OpenOrCreate(); err != nil {
-			return err
-		}
-		if _, err := lbmap.RRSeq4MapV2.OpenOrCreate(); err != nil {
 			return err
 		}
 	}

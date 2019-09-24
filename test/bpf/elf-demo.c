@@ -3,7 +3,6 @@
 #include <linux/bpf.h>
 #include <string.h>
 
-#define LB_RR_MAX_SEQ
 #include "lib/utils.h"
 #include "lib/common.h"
 #include "lib/eth.h"
