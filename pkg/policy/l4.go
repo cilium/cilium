@@ -132,6 +132,25 @@ type L4Filter struct {
 	policy unsafe.Pointer // *L4Policy
 }
 
+//
+func (l4 *L4Filter) CopyL7RulesPerEndpoint() L7DataMap {
+	m := make(L7DataMap, len(l4.L7RulesPerEp))
+	for k, v := range l4.L7RulesPerEp {
+		m[k] = v
+	}
+	return m
+
+}
+func (l4 *L4Filter) GetL7Parser() L7ParserType {
+	return l4.L7Parser
+}
+func (l4 *L4Filter) GetIngress() bool {
+	return l4.Ingress
+}
+func (l4 *L4Filter) GetPort() uint16 {
+	return uint16(l4.Port)
+}
+
 // AllowsAllAtL3 returns whether this L4Filter applies to all endpoints at L3.
 func (l4 *L4Filter) AllowsAllAtL3() bool {
 	return l4.allowsAllAtL3
@@ -657,4 +676,11 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 		Ingress: ingress,
 		Egress:  egress,
 	}
+}
+
+type ProxyPolicy interface {
+	CopyL7RulesPerEndpoint() L7DataMap
+	GetL7Parser() L7ParserType
+	GetIngress() bool
+	GetPort() uint16
 }
