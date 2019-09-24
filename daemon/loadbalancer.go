@@ -430,12 +430,10 @@ func restoreServices() {
 
 // GetServiceList returns list of services
 func (d *Daemon) GetServiceList() []*models.Service {
-	list := []*models.Service{}
+	svcs := d.svc.DeepCopyServices()
+	list := make([]*models.Service, 0, len(svcs))
 
-	d.loadBalancer.BPFMapMU.RLock()
-	defer d.loadBalancer.BPFMapMU.RUnlock()
-
-	for _, v := range d.loadBalancer.SVCMap {
+	for _, v := range svcs {
 		list = append(list, v.GetModel())
 	}
 	return list

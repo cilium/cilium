@@ -103,7 +103,7 @@ func (s *Service) UpsertService(frontend lb.L3n4AddrID, backends []lb.LBBackEnd,
 			FE:            frontend,
 			BES:           backendsCopy,
 			BackendByHash: map[string]*lb.LBBackEnd{},
-			// TODO(brb) Set service type
+			NodePort:      svcType == TypeNodePort,
 		}
 		s.svcByID[frontend.ID] = svc
 		s.svcByHash[hash] = svc
@@ -163,6 +163,28 @@ func (s *Service) DeleteService(frontend lb.L3n4Addr) (bool, error) {
 	}
 
 	return false, nil
+}
+
+func (s *Service) DeepCopyServices() []lb.LBSVC {
+	s.RLock()
+	defer s.RUnlock()
+
+	svcs := make([]lb.LBSVC, 0, len(s.svcByHash))
+	for _, svc := range s.svcByHash {
+		backends := make([]lb.LBBackEnd, len(svc.BES))
+		for i, backend := range svc.BES {
+			backends[i].L3n4Addr = *backend.DeepCopy()
+			backends[i].ID = backend.ID
+		}
+		svcs = append(svcs,
+			lb.LBSVC{
+				FE:       *svc.FE.DeepCopy(),
+				BES:      backends,
+				NodePort: svc.NodePort,
+			})
+	}
+
+	return svcs
 }
 
 func (s *Service) deleteServiceLocked(svc *lb.LBSVC) error {
