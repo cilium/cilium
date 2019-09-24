@@ -273,6 +273,8 @@ type Endpoint struct {
 
 	realizedPolicy *policy.EndpointPolicy
 
+	visibilityPolicy *policy.VisibilityPolicy
+
 	eventQueue *eventqueue.EventQueue
 
 	// DatapathConfiguration is the endpoint's datapath configuration as
@@ -284,13 +286,6 @@ type Endpoint struct {
 	aliveCtx        context.Context
 	aliveCancel     context.CancelFunc
 	regenFailedChan chan struct{}
-}
-
-// UpdateAnnotations updates the annotations for this Endpoint.
-func (e *Endpoint) UpdateAnnotations(anno map[string]string) {
-	e.unconditionalLock()
-	defer e.unlock()
-	e.annotations = anno
 }
 
 // UpdateController updates the controller with the specified name with the

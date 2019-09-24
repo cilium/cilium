@@ -1577,14 +1577,16 @@ func (d *Daemon) updateK8sPodV1(oldK8sPod, newK8sPod *types.Pod) error {
 
 	switch {
 	case annotationsChanged && labelsChanged:
-		// Update annotations and let identity update handle regeneration with
-		// annotations. This is hacky :(
-
-		podEP.UpdateAnnotations(newAnno)
+		// Update annotations and let identity update handle regeneration.
+		podEP.UpdateVisibilityPolicy(newAnno)
 		return updateEndpointLabels(podEP, oldPodLabels, newPodLabels)
 	case annotationsChanged:
 		//  Update annotations and regenerate.
-		podEP.UpdateAnnotations(newAnno)
+		podEP.UpdateVisibilityPolicy(newAnno)
+
+		// No need to log an error if the state transition didn't succeed,
+		// if it didn't succeed that means the endpoint is being deleted, or
+		// another regeneration has already been queued up for this endpoint.
 		stateTransitionSucceeded := podEP.SetState(endpoint.StateWaitingToRegenerate, "annotations updated")
 		if stateTransitionSucceeded {
 			podEP.Regenerate(&regeneration.ExternalRegenerationMetadata{
