@@ -123,6 +123,9 @@ type ServiceKeyV2 interface {
 	// Get frontend port
 	GetPort() uint16
 
+	// Returns a RevNatValue matching a ServiceKeyV2
+	RevNatValue() RevNatValue
+
 	// Delete entry identified with the key from the matching map
 	MapDelete() error
 
