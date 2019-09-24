@@ -317,7 +317,7 @@ func openServiceMaps() error {
 
 // SyncLBMap syncs the bpf lbmap with the daemon's lb map. All bpf entries will overwrite
 // the daemon's LB map. If the bpf lbmap entry has a different service ID than the
-// KVStore's ID, that entry will be removed.
+// KVStore's ID (KVStore is currently not used for svc IDs), that entry will be removed.
 func (d *Daemon) SyncLBMap() error {
 	// Don't bother syncing if we are in dry mode.
 	if option.Config.DryMode {
