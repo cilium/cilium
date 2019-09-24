@@ -67,6 +67,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/sockops"
 	"github.com/cilium/cilium/pkg/status"
+	"github.com/cilium/cilium/pkg/svc"
 	"github.com/cilium/cilium/pkg/trigger"
 	"github.com/cilium/cilium/pkg/workloads"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
@@ -107,6 +108,7 @@ type Daemon struct {
 	buildEndpointSem *semaphore.Weighted
 	l7Proxy          *proxy.Proxy
 	loadBalancer     *loadbalancer.LoadBalancer
+	svc              *svc.Service
 	policy           *policy.Repository
 	preFilter        *prefilter.PreFilter
 	// Only used for CRI-O since it does not support events.
@@ -340,6 +342,7 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 
 	d := Daemon{
 		loadBalancer:      loadbalancer.NewLoadBalancer(),
+		svc:               svc.NewService(),
 		k8sSvcCache:       k8s.NewServiceCache(),
 		policy:            policy.NewPolicyRepository(),
 		prefixLengths:     createPrefixLengthCounter(),

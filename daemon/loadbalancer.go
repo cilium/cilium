@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
+	"github.com/cilium/cilium/pkg/svc"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
@@ -59,75 +60,16 @@ func (d *Daemon) SVCAdd(feL3n4Addr loadbalancer.L3n4AddrID, be []loadbalancer.LB
 // entry fails while updating the LB map, the frontend won't be inserted in the LB map
 // therefore there won't be any traffic going to the given backends.
 // All of the backends added will be DeepCopied to the internal load balancer map.
+// TODO(brb) update comment
 func (d *Daemon) svcAdd(
 	feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.LBBackEnd,
 	nodePort bool) (bool, loadbalancer.ID, error) {
 
-	var err error
-
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.ServiceID: feL3n4Addr.String(),
-		logfields.Object:    logfields.Repr(bes),
-	})
-	scopedLog.Debug("adding service")
-
-	feAddrID, err := service.AcquireID(feL3n4Addr.L3n4Addr, uint32(feL3n4Addr.ID))
-	if err != nil {
-		return false, loadbalancer.ID(0),
-			fmt.Errorf("Unable to allocate service ID %d for %q: %s",
-				feL3n4Addr.ID, feL3n4Addr, err)
+	svcType := svc.TypeClusterIP
+	if nodePort {
+		svcType = svc.TypeNodePort
 	}
-	feL3n4Addr.ID = feAddrID.ID
-	defer func() {
-		if err != nil {
-			if err := service.DeleteID(uint32(feAddrID.ID)); err != nil {
-				scopedLog.WithField(logfields.ServiceID, feAddrID.ID).
-					Warn("Unable to release service ID")
-			}
-		}
-	}()
-
-	// Move the slice to the loadbalancer map which has a mutex. If we don't
-	// copy the slice we might risk changing memory that should be locked.
-	beCpy := []loadbalancer.LBBackEnd{}
-	for _, v := range bes {
-		beCpy = append(beCpy, v)
-	}
-
-	svc := loadbalancer.LBSVC{
-		FE:       feL3n4Addr,
-		BES:      beCpy,
-		Sha256:   feL3n4Addr.L3n4Addr.SHA256Sum(),
-		NodePort: nodePort,
-	}
-
-	fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(svc)
-	if err != nil {
-		return false, loadbalancer.ID(0), err
-	}
-
-	d.loadBalancer.BPFMapMU.Lock()
-	defer d.loadBalancer.BPFMapMU.Unlock()
-
-	if err := lbmap.UpdateService(fe, besValues, int(feL3n4Addr.ID),
-		service.AcquireBackendID, service.DeleteBackendID); err != nil {
-		return false, loadbalancer.ID(0), err
-	}
-
-	// Fill the just acquired backend IDs to ensure the consistent ordering
-	// of the backends when listing services. This step will go away once
-	// we start acquiring backend IDs in this module.
-	for i, be := range svc.BES {
-		id, err := service.LookupBackendID(be.L3n4Addr)
-		if err != nil {
-			scopedLog.WithField(logfields.BackendName, be.L3n4Addr).WithError(err).
-				Warning("Unable to lookup backend ID")
-			continue
-		}
-		svc.BES[i].ID = id
-	}
-
-	return d.loadBalancer.AddService(svc), feAddrID.ID, nil
+	return d.svc.UpsertService(feL3n4Addr, bes, svcType)
 }
 
 type putServiceID struct {
