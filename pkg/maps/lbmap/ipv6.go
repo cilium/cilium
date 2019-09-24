@@ -97,24 +97,6 @@ var (
 
 			return revKey.ToNetwork(), revNat.ToNetwork(), nil
 		}).WithCache()
-	// RRSeq6MapV2 represents the BPF map for wrr sequences in IPv6 load balancer
-	RRSeq6MapV2 = bpf.NewMap("cilium_lb6_rr_seq_v2",
-		bpf.MapTypeHash,
-		&Service6KeyV2{},
-		int(unsafe.Sizeof(Service6KeyV2{})),
-		&RRSeqValue{},
-		int(unsafe.Sizeof(RRSeqValue{})),
-		maxFrontEnds,
-		0, 0,
-		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
-			svcKey := mapKey.(*Service6KeyV2)
-
-			if _, _, err := bpf.ConvertKeyValue(key, value, svcKey, mapValue); err != nil {
-				return nil, nil, err
-			}
-
-			return svcKey.ToNetwork(), mapValue, nil
-		}).WithCache()
 )
 
 // Service6Key must match 'struct lb6_key' in "bpf/lib/common.h".

@@ -15,9 +15,7 @@
 package lbmap
 
 import (
-	"fmt"
 	"net"
-	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -239,22 +237,6 @@ type idx [MaxSeq]uint16
 func (in *idx) DeepCopyInto(out *idx) {
 	copy(out[:], in[:])
 	return
-}
-
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
-type RRSeqValue struct {
-	// Length of Generated sequence
-	Count uint16
-
-	// Generated Sequence
-	Idx idx
-}
-
-func (s *RRSeqValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
-
-func (s *RRSeqValue) String() string {
-	return fmt.Sprintf("count=%d idx=%v", s.Count, s.Idx)
 }
 
 // l3n4Addr2ServiceKey converts the given l3n4Addr to a ServiceKey with the slave ID
