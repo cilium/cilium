@@ -49,6 +49,7 @@ import (
 	"github.com/cilium/cilium/pkg/serializer"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/spanstat"
+	service "github.com/cilium/cilium/pkg/svc"
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -1243,8 +1244,8 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 		uniqPorts[fePort.Port] = false
 
 		type frontend struct {
-			addr     *loadbalancer.L3n4AddrID
-			nodePort bool
+			addr    *loadbalancer.L3n4AddrID
+			svcType service.Type
 		}
 
 		frontends := []frontend{}
@@ -1252,13 +1253,13 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 			frontend{
 				addr: loadbalancer.NewL3n4AddrID(fePort.Protocol, svc.FrontendIP,
 					fePort.Port, loadbalancer.ID(fePort.ID)),
-				nodePort: false,
+				svcType: service.TypeClusterIP,
 			})
 
 		for _, nodePortFE := range svc.NodePorts[fePortName] {
 			frontends = append(frontends, frontend{
-				addr:     nodePortFE,
-				nodePort: true,
+				addr:    nodePortFE,
+				svcType: service.TypeNodePort,
 			})
 		}
 
@@ -1272,7 +1273,7 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 		}
 
 		for _, fe := range frontends {
-			if _, _, err := d.svcAdd(*fe.addr, besValues, fe.nodePort); err != nil {
+			if _, _, err := d.svc.UpsertService(*fe.addr, besValues, fe.svcType); err != nil {
 				scopedLog.WithError(err).Error("Error while inserting service in LB map")
 			}
 		}
