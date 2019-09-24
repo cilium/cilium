@@ -78,10 +78,11 @@ func (lbbe *LBBackEnd) String() string {
 
 // LBSVC is essentially used for the REST API.
 type LBSVC struct {
-	Sha256   string
-	FE       L3n4AddrID
-	BES      []LBBackEnd
-	NodePort bool
+	Sha256        string
+	FE            L3n4AddrID
+	BES           []LBBackEnd
+	BackendByHash map[string]*LBBackEnd // sha256 -> backend
+	NodePort      bool
 }
 
 type backendPlacement struct {
