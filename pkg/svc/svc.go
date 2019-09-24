@@ -110,7 +110,7 @@ func (s *Service) UpsertService(frontend lb.L3n4AddrID, backends []lb.LBBackEnd,
 	}
 
 	prevBackendCount := len(svc.BES)
-	newBackends, obsoleteBackendIDs, err := s.updateBackendsLocked(svc, backends)
+	newBackends, obsoleteBackendIDs, err := s.updateBackendsCacheLocked(svc, backends)
 	if err != nil {
 		return false, lb.ID(0), err
 	}
@@ -143,7 +143,51 @@ func (s *Service) UpsertService(frontend lb.L3n4AddrID, backends []lb.LBBackEnd,
 	return new, lb.ID(svc.FE.ID), nil
 }
 
-func (s *Service) updateBackendsLocked(svc *lb.LBSVC, backends []lb.LBBackEnd) ([]lb.LBBackEnd, []lb.BackendID, error) {
+func (s *Service) DeleteServiceByID(id lb.ServiceID) (bool, error) {
+	s.Lock()
+	defer s.Unlock()
+
+	if svc, found := s.svcByID[lb.ID(id)]; found {
+		return true, s.deleteServiceLocked(svc)
+	}
+
+	return false, nil
+}
+
+func (s *Service) DeleteService(frontend lb.L3n4Addr) (bool, error) {
+	s.Lock()
+	defer s.Unlock()
+
+	if svc, found := s.svcByHash[frontend.SHA256Sum()]; found {
+		return true, s.deleteServiceLocked(svc)
+	}
+
+	return false, nil
+}
+
+func (s *Service) deleteServiceLocked(svc *lb.LBSVC) error {
+
+	obsoleteBackendIDs := s.deleteBackendsFromCacheLocked(svc)
+
+	if err := lbmap.DeleteService(svc.FE, svc.BES); err != nil {
+		return err
+	}
+
+	delete(s.svcByHash, svc.Sha256)
+	delete(s.svcByID, svc.FE.ID)
+
+	ipv6 := svc.FE.L3n4Addr.IsIPv6()
+	for _, id := range obsoleteBackendIDs {
+		if err := lbmap.DeleteBackendByID(uint16(id), ipv6); err != nil {
+			// TODO maybe just log as it's not critical
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *Service) updateBackendsCacheLocked(svc *lb.LBSVC, backends []lb.LBBackEnd) ([]lb.LBBackEnd, []lb.BackendID, error) {
 	obsoleteBackendIDs := []lb.BackendID{}
 	newBackends := []lb.LBBackEnd{}
 	backendSet := map[string]struct{}{}
@@ -185,4 +229,18 @@ func (s *Service) updateBackendsLocked(svc *lb.LBSVC, backends []lb.LBBackEnd) (
 
 	svc.BES = backends
 	return newBackends, obsoleteBackendIDs, nil
+}
+
+func (s *Service) deleteBackendsFromCacheLocked(svc *lb.LBSVC) []lb.BackendID {
+	obsoleteBackendIDs := []lb.BackendID{}
+
+	for _, backend := range svc.BES {
+		hash := backend.L3n4Addr.SHA256Sum()
+		if s.backendRefCount.Delete(hash) {
+			service.DeleteBackendID(backend.ID)
+			obsoleteBackendIDs = append(obsoleteBackendIDs, backend.ID)
+		}
+	}
+
+	return obsoleteBackendIDs
 }
