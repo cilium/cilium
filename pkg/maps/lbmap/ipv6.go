@@ -309,6 +309,13 @@ func (k *Service6KeyV2) GetAddress() net.IP        { return k.Address.IP() }
 func (k *Service6KeyV2) GetPort() uint16           { return k.Port }
 func (k *Service6KeyV2) MapDelete() error          { return k.Map().Delete(k.ToNetwork()) }
 
+func (k *Service6KeyV2) RevNatValue() RevNatValue {
+	return &RevNat6Value{
+		Address: k.Address,
+		Port:    k.Port,
+	}
+}
+
 func (k *Service6KeyV2) ToNetwork() ServiceKeyV2 {
 	n := *k
 	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
