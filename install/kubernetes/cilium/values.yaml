@@ -180,6 +180,14 @@ global:
     # montiorAggregation is the level of aggregation for datapath trace events
     monitorAggregation: medium
 
+    # monitorInterval is the typical time between monitor notifications for
+    # active connections
+    monitorInterval: "5s"
+
+    # monitorFlags are TCP flags that trigger notifications when seen for the
+    # first time
+    monitorFlags: "all"
+
   # encryption is the encryption specific configuration
   encryption:
     # enabled enables encryption
@@ -287,3 +295,6 @@ global:
     # bootstrapFile is the location of the file where the bootstrap timestamp is
     # written by the node-init DaemonSet
     bootstrapFile: "/tmp/cilium-bootstrap-time"
+
+  daemon:
+    runPath: "/var/run/cilium"

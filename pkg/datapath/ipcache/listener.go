@@ -79,7 +79,8 @@ func NewListener(d datapath) *BPFListener {
 // IP->ID mapping will replace any existing contents; knowledge of the old pair
 // is not required to upsert the new pair.
 func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidr net.IPNet,
-	oldHostIP, newHostIP net.IP, oldID *identity.NumericIdentity, newID identity.NumericIdentity, encryptKey uint8) {
+	oldHostIP, newHostIP net.IP, oldID *identity.NumericIdentity, newID identity.NumericIdentity,
+	encryptKey uint8, k8sMeta *ipcache.K8sMetadata) {
 
 	scopedLog := log
 	if option.Config.Debug {

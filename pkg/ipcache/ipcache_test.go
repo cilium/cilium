@@ -48,7 +48,7 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 	// Deletion of key that doesn't exist doesn't cause panic.
 	IPIdentityCache.Delete(endpointIP, source.KVStore)
 
-	IPIdentityCache.Upsert(endpointIP, nil, 0, Identity{
+	IPIdentityCache.Upsert(endpointIP, nil, 0, nil, Identity{
 		ID:     identity,
 		Source: source.KVStore,
 	})
@@ -63,13 +63,13 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 	c.Assert(cachedIdentity.Source, Equals, source.KVStore)
 
 	// kubernetes source cannot update kvstore source
-	updated := IPIdentityCache.Upsert(endpointIP, nil, 0, Identity{
+	updated := IPIdentityCache.Upsert(endpointIP, nil, 0, nil, Identity{
 		ID:     identity,
 		Source: source.Kubernetes,
 	})
 	c.Assert(updated, Equals, false)
 
-	IPIdentityCache.Upsert(endpointIP, nil, 0, Identity{
+	IPIdentityCache.Upsert(endpointIP, nil, 0, nil, Identity{
 		ID:     identity,
 		Source: source.KVStore,
 	})
@@ -80,21 +80,33 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 
 	IPIdentityCache.Delete(endpointIP, source.KVStore)
 
-	// Assure deletion occurs across both mappings.
+	// Assure deletion occurs across all mappings.
 	c.Assert(len(IPIdentityCache.ipToIdentityCache), Equals, 0)
 	c.Assert(len(IPIdentityCache.identityToIPCache), Equals, 0)
+	c.Assert(len(IPIdentityCache.ipToHostIPCache), Equals, 0)
+	c.Assert(len(IPIdentityCache.ipToK8sMetadata), Equals, 0)
 
 	_, exists = IPIdentityCache.LookupByIP(endpointIP)
 
 	c.Assert(exists, Equals, false)
 
-	IPIdentityCache.Upsert(endpointIP, nil, 0, Identity{
+	hostIP := net.ParseIP("192.168.1.10")
+	k8sMeta := &K8sMetadata{
+		Namespace: "default",
+		PodName:   "podname",
+	}
+
+	IPIdentityCache.Upsert(endpointIP, hostIP, 0, k8sMeta, Identity{
 		ID:     identity,
 		Source: source.KVStore,
 	})
 
+	cachedHostIP, _ := IPIdentityCache.getHostIPCache(endpointIP)
+	c.Assert(cachedHostIP, checker.DeepEquals, hostIP)
+	c.Assert(IPIdentityCache.getK8sMetadata(endpointIP), checker.DeepEquals, k8sMeta)
+
 	newIdentity := identityPkg.NumericIdentity(69)
-	IPIdentityCache.Upsert(endpointIP, nil, 0, Identity{
+	IPIdentityCache.Upsert(endpointIP, hostIP, 0, k8sMeta, Identity{
 		ID:     newIdentity,
 		Source: source.KVStore,
 	})
@@ -115,13 +127,15 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 	// Assure deletion occurs across both mappings.
 	c.Assert(len(IPIdentityCache.ipToIdentityCache), Equals, 0)
 	c.Assert(len(IPIdentityCache.identityToIPCache), Equals, 0)
+	c.Assert(len(IPIdentityCache.ipToHostIPCache), Equals, 0)
+	c.Assert(len(IPIdentityCache.ipToK8sMetadata), Equals, 0)
 
 	// Test mapping of multiple IPs to same identity.
 	endpointIPs := []string{"192.168.0.1", "20.3.75.3", "27.2.2.2", "127.0.0.1", "127.0.0.1"}
 	identities := []identityPkg.NumericIdentity{5, 67, 29, 29, 29}
 
 	for index := range endpointIPs {
-		IPIdentityCache.Upsert(endpointIPs[index], nil, 0, Identity{
+		IPIdentityCache.Upsert(endpointIPs[index], nil, 0, nil, Identity{
 			ID:     identities[index],
 			Source: source.KVStore,
 		})

@@ -504,7 +504,7 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 
 		// Upsert will not propagate (reserved:foo->ID) mappings across the cluster,
 		// and we specifically don't want to do so.
-		ipcache.IPIdentityCache.Upsert(ipIDPair.PrefixString(), nil, hostKey, ipcache.Identity{
+		ipcache.IPIdentityCache.Upsert(ipIDPair.PrefixString(), nil, hostKey, nil, ipcache.Identity{
 			ID:     ipIDPair.ID,
 			Source: source.Local,
 		})
@@ -608,9 +608,9 @@ func (d *Daemon) initMaps() error {
 			if err := lbmap.Backend6Map.DeleteAll(); err != nil {
 				return err
 			}
-		}
-		if err := d.RevNATDeleteAll(); err != nil {
-			return err
+			if err := lbmap.RevNat6Map.DeleteAll(); err != nil {
+				return err
+			}
 		}
 
 		if option.Config.EnableIPv4 {
@@ -621,6 +621,9 @@ func (d *Daemon) initMaps() error {
 				return err
 			}
 			if err := lbmap.Backend4Map.DeleteAll(); err != nil {
+				return err
+			}
+			if err := lbmap.RevNat4Map.DeleteAll(); err != nil {
 				return err
 			}
 		}

@@ -29,6 +29,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
@@ -359,6 +360,12 @@ const (
 	// comandline.
 	MonitorAggregationName = "monitor-aggregation"
 
+	// MonitorAggregationInterval configures interval for monitor-aggregation
+	MonitorAggregationInterval = "monitor-aggregation-interval"
+
+	// MonitorAggregationFlags configures TCP flags used by monitor aggregation.
+	MonitorAggregationFlags = "monitor-aggregation-flags"
+
 	// ciliumEnvPrefix is the prefix used for environment variables
 	ciliumEnvPrefix = "CILIUM_"
 
@@ -615,6 +622,10 @@ var (
 	// ContainerRuntimeAuto is the configuration for autodetecting the
 	// container runtime backends that Cilium should use.
 	ContainerRuntimeAuto = []string{"auto"}
+
+	// MonitorAggregationFlagsDefault ensure that all TCP flags trigger
+	// monitor notifications even under medium monitor aggregation.
+	MonitorAggregationFlagsDefault = []string{"syn", "fin", "rst"}
 )
 
 // Available option for DaemonConfig.DatapathMode
@@ -873,6 +884,15 @@ type DaemonConfig struct {
 	CTMapEntriesTimeoutSVCAny time.Duration
 	CTMapEntriesTimeoutSYN    time.Duration
 	CTMapEntriesTimeoutFIN    time.Duration
+
+	// MonitorAggregationInterval configures the interval between monitor
+	// messages when monitor aggregation is enabled.
+	MonitorAggregationInterval time.Duration
+
+	// MonitorAggregationFlags determines which TCP flags that the monitor
+	// aggregation ensures reports are generated for when monitor-aggragation
+	// is enabled. Network byte-order.
+	MonitorAggregationFlags uint16
 
 	// NATMapEntriesGlobal is the maximum number of NAT mappings allowed
 	// in the BPF NAT table
@@ -1616,6 +1636,7 @@ func (c *DaemonConfig) Populate() {
 	c.IPSecKeyFile = viper.GetString(IPSecKeyFileName)
 	c.ModePreFilter = viper.GetString(PrefilterMode)
 	c.MonitorAggregation = viper.GetString(MonitorAggregationName)
+	c.MonitorAggregationInterval = viper.GetDuration(MonitorAggregationInterval)
 	c.MonitorQueueSize = viper.GetInt(MonitorQueueSizeName)
 	c.MTU = viper.GetInt(MTUName)
 	c.NAT46Range = viper.GetString(NAT46Range)
@@ -1725,6 +1746,19 @@ func (c *DaemonConfig) Populate() {
 				hostServicesProtos[i])
 		}
 	}
+
+	monitorAggregationFlags := viper.GetStringSlice(MonitorAggregationFlags)
+	var ctMonitorReportFlags uint16
+	for i := 0; i < len(monitorAggregationFlags); i++ {
+		value := strings.ToLower(monitorAggregationFlags[i])
+		flag, exists := TCPFlags[value]
+		if !exists {
+			log.Fatalf("Unable to parse TCP flag %q for %s!",
+				value, MonitorAggregationFlags)
+		}
+		ctMonitorReportFlags |= flag
+	}
+	c.MonitorAggregationFlags = byteorder.HostToNetwork(ctMonitorReportFlags).(uint16)
 
 	// Map options
 	if m := viper.GetStringMapString(AwsInstanceLimitMapping); len(m) != 0 {

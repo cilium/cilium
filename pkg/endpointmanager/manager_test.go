@@ -75,8 +75,6 @@ func (s *EndpointManagerSuite) QueueEndpointBuild(ctx context.Context, epID uint
 	return nil, nil
 }
 
-func (s *EndpointManagerSuite) RemoveFromEndpointQueue(epID uint64) {}
-
 func (s *EndpointManagerSuite) GetCompilationLock() *lock.RWMutex {
 	return nil
 }

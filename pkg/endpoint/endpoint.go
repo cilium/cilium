@@ -279,6 +279,8 @@ type Endpoint struct {
 	// features according to the mode selected.
 	DatapathConfiguration models.EndpointDatapathConfiguration
 
+	aliveCtx        context.Context
+	aliveCancel     context.CancelFunc
 	regenFailedChan chan struct{}
 }
 
@@ -381,6 +383,9 @@ func NewEndpointWithState(owner regeneration.Owner, proxy EndpointProxy, ID uint
 		regenFailedChan: make(chan struct{}, 1),
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	ep.aliveCancel = cancel
+	ep.aliveCtx = ctx
 	ep.startRegenerationFailureHandler()
 	ep.realizedPolicy = ep.desiredPolicy
 
@@ -695,6 +700,10 @@ func parseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
 	ep.controllers = controller.NewManager()
 	ep.regenFailedChan = make(chan struct{}, 1)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	ep.aliveCancel = cancel
+	ep.aliveCtx = ctx
+
 	ep.startRegenerationFailureHandler()
 
 	// We need to check for nil in Status, CurrentStatuses and Log, since in
@@ -943,7 +952,6 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 		e.owner.Datapath().Loader().Unload(e.createEpInfoCache(""))
 	}
 
-	e.owner.RemoveFromEndpointQueue(uint64(e.ID))
 	if e.SecurityIdentity != nil && len(e.realizedRedirects) > 0 {
 		// Passing a new map of nil will purge all redirects
 		finalize, _ := e.removeOldRedirects(nil, proxyWaitGroup)
@@ -1965,6 +1973,7 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpoin
 	if err := e.lockAlive(); err != nil {
 		return []error{}
 	}
+	e.aliveCancel()
 	e.setState(StateDisconnecting, "Deleting endpoint")
 
 	// Remove the endpoint before we clean up. This ensures it is no longer

@@ -270,7 +270,7 @@ spec:
       volumes:
         # To keep state between restarts / upgrades
       - hostPath:
-          path: /var/run/cilium
+          path: {{ .Values.global.daemon.runPath }}
           type: DirectoryOrCreate
         name: cilium-run
 {{- /* CRI-O already mounts the BPF filesystem */ -}}

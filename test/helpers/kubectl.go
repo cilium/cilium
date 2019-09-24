@@ -63,11 +63,26 @@ const (
 	// used in the CI.
 	CIIntegrationFlannel = "flannel"
 
+	// CIIntegrationEKS contains the constants to be used when running tests on EKS.
+	CIIntegrationEKS = "eks"
+
+	// CIIntegrationMicrok8s contains the constant to be used when running tests on microk8s.
+	CIIntegrationMicrok8s = "microk8s"
+
+	// CIIntegrationMicrok8s is the value to set CNI_INTEGRATION when running with minikube.
+	CIIntegrationMinikube = "minikube"
+
 	LogGathererSelector  = "k8s-app=cilium-test-logs"
 	LogGathererNamespace = "kube-system"
 )
 
 var (
+	// defaultHelmOptions are passed to helm in ciliumInstallHelm, unless
+	// overridden by options passed in at invocation. In those cases, the test
+	// has a specific need to override the option.
+	// These defaults are made to match some environment variables in init(),
+	// below. These overrides represent a desire to set the default for all
+	// tests, instead of test-specific variations.
 	defaultHelmOptions = map[string]string{
 		"global.registry":               "k8s1:5000/cilium",
 		"agent.image":                   "cilium-dev",
@@ -89,19 +104,64 @@ var (
 		"global.ipv6.enabled":    "false",
 		"global.tunnel":          "disabled",
 	}
+
+	eksHelmOverrides = map[string]string{
+		"global.k8s.requireIPv4PodCIDR": "false",
+		"global.cni.chainingMode":       "aws-cni",
+		"global.masquerade":             "false",
+		"global.tunnel":                 "disabled",
+		"global.nodeinit.enabled":       "true",
+	}
+
+	microk8sHelmOverrides = map[string]string{
+		"global.cni.confPath":                 "/var/snap/microk8s/current/args/cni-network",
+		"global.cni.binPath":                  "/var/snap/microk8s/current/opt/cni/bin",
+		"global.cni.customConf":               "true",
+		"global.containerRuntime.integration": "containerd",
+		"global.containerRuntime.socketPath":  "/var/snap/microk8s/common/run/containerd.sock",
+		"global.daemon.runPath":               "/var/snap/microk8s/current/var/run/cilium",
+	}
+	minikubeHelmOverrides = map[string]string{
+		"global.ipv6.enabled":           "false",
+		"global.bpf.preallocateMaps":    "false",
+		"global.k8s.requireIPv4PodCIDR": "false",
+	}
+
+	// helmOverrides allows overriding of cilium-agent options for
+	// specific CI environment integrations.
+	// The key must be a string consisting of lower case characters.
+	helmOverrides = map[string]map[string]string{
+		CIIntegrationFlannel:  flannelHelmOverrides,
+		CIIntegrationEKS:      eksHelmOverrides,
+		CIIntegrationMicrok8s: microk8sHelmOverrides,
+		CIIntegrationMinikube: minikubeHelmOverrides,
+	}
 )
+
+func init() {
+	// Copy over envronment variables that are passed in.
+	for envVar, helmVar := range map[string]string{
+		"CILIUM_REGISTRY":       "global.registry",
+		"CILIUM_TAG":            "global.tag",
+		"CILIUM_IMAGE":          "agent.image",
+		"CILIUM_OPERATOR_IMAGE": "operator.image",
+	} {
+		if v := os.Getenv(envVar); v != "" {
+			defaultHelmOptions[helmVar] = v
+		}
+	}
+}
 
 // GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
 func GetCurrentK8SEnv() string { return os.Getenv("K8S_VERSION") }
 
 // GetCurrentIntegration returns CI integration set up to run against Cilium.
 func GetCurrentIntegration() string {
-	switch strings.ToLower(os.Getenv("CNI_INTEGRATION")) {
-	case CIIntegrationFlannel:
-		return CIIntegrationFlannel
-	default:
-		return ""
+	integration := strings.ToLower(os.Getenv("CNI_INTEGRATION"))
+	if _, exists := helmOverrides[integration]; exists {
+		return integration
 	}
+	return ""
 }
 
 // Kubectl is a wrapper around an SSHMeta. It is used to run Kubernetes-specific
@@ -138,7 +198,16 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 		}
 		k.setBasePath()
 	} else {
-		exec := CreateLocalExecutor([]string{"KUBECONFIG=" + config.CiliumTestConfig.Kubeconfig})
+		// Prepare environment variables
+		// NOTE: order matters and we want the KUBECONFIG from config to win
+		var environ []string
+		if config.CiliumTestConfig.PassCLIEnvironment {
+			environ = append(environ, os.Environ()...)
+		}
+		environ = append(environ, "KUBECONFIG="+config.CiliumTestConfig.Kubeconfig)
+
+		// Create the executor
+		exec := CreateLocalExecutor(environ)
 		exec.logger = log
 
 		k = &Kubectl{
@@ -1075,13 +1144,12 @@ func (kub *Kubectl) generateCiliumYaml(options []string, filename string) error 
 		options = addIfNotOverwritten(options, key, value)
 	}
 
-	switch GetCurrentIntegration() {
-	case CIIntegrationFlannel:
+	if integration := GetCurrentIntegration(); integration != "" {
+		overrides := helmOverrides[integration]
 		// Appending the options will override earlier options on CLI.
-		for k, v := range flannelHelmOverrides {
+		for k, v := range overrides {
 			options = append(options, fmt.Sprintf("--set %s=%s", k, v))
 		}
-	default:
 	}
 
 	// TODO GH-8753: Use helm rendering library instead of shelling out to

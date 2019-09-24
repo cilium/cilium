@@ -39,7 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	. "gopkg.in/check.v1"
 )
 
@@ -63,7 +62,6 @@ type EndpointSuite struct {
 	OnRemoveFromEndpointQueue func(epID uint64)
 	OnGetCompilationLock      func() *lock.RWMutex
 	OnSendNotification        func(typ monitorAPI.AgentNotification, text string) error
-	OnNewProxyLogRecord       func(l *accesslog.LogRecord) error
 }
 
 // suite can be used by testing.T benchmarks or tests as a mock regeneration.Owner
@@ -81,8 +79,6 @@ func (s *EndpointSuite) GetPolicyRepository() *policy.Repository {
 func (s *EndpointSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
 	return nil, nil
 }
-
-func (s *EndpointSuite) RemoveFromEndpointQueue(epID uint64) {}
 
 func (s *EndpointSuite) GetCompilationLock() *lock.RWMutex {
 	return nil

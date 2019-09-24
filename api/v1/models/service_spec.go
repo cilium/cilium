@@ -138,12 +138,6 @@ func (m *ServiceSpec) UnmarshalBinary(b []byte) error {
 // swagger:model ServiceSpecFlags
 type ServiceSpecFlags struct {
 
-	// Frontend to backend translation activated
-	ActiveFrontend bool `json:"active-frontend,omitempty"`
-
-	// Perform direct server return
-	DirectServerReturn bool `json:"direct-server-return,omitempty"`
-
 	// Service is of Nodeport type
 	NodePort bool `json:"node-port,omitempty"`
 }

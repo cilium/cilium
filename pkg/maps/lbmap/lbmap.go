@@ -66,24 +66,10 @@ func updateRevNatLocked(key RevNatKey, value RevNatValue) error {
 	return key.Map().Update(key.ToNetwork(), value.ToNetwork())
 }
 
-func UpdateRevNat(key RevNatKey, value RevNatValue) error {
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	return updateRevNatLocked(key, value)
-}
-
 func deleteRevNatLocked(key RevNatKey) error {
 	log.WithField(logfields.BPFMapKey, key).Debug("deleting RevNatKey")
 
 	return key.Map().Delete(key.ToNetwork())
-}
-
-func DeleteRevNat(key RevNatKey) error {
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	return deleteRevNatLocked(key)
 }
 
 // gcd computes the gcd of two numbers.
@@ -147,8 +133,7 @@ func generateWrrSeq(weights []uint16) (*RRSeqValue, error) {
 }
 
 // UpdateService adds or updates the given service in the bpf maps.
-func UpdateService(fe ServiceKey, backends []ServiceValue,
-	addRevNAT bool, revNATID int,
+func UpdateService(fe ServiceKey, backends []ServiceValue, revNATID int,
 	acquireBackendID func(loadbalancer.L3n4Addr) (loadbalancer.BackendID, error),
 	releaseBackendID func(loadbalancer.BackendID)) error {
 
@@ -200,7 +185,7 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 	}
 
 	// Update the v2 service BPF maps
-	if err := updateServiceV2Locked(fe, besValuesV2, svc, addRevNAT, revNATID, weights, nNonZeroWeights); err != nil {
+	if err := updateServiceV2Locked(fe, besValuesV2, svc, revNATID, weights, nNonZeroWeights); err != nil {
 		return err
 	}
 
@@ -268,8 +253,7 @@ func updateBackendsLocked(addedBackends map[loadbalancer.BackendID]ServiceValue)
 }
 
 func updateServiceV2Locked(fe ServiceKey, backends serviceValueMap,
-	svc *bpfService,
-	addRevNAT bool, revNATID int,
+	svc *bpfService, revNATID int,
 	weights []uint16, nNonZeroWeights uint16) error {
 
 	var (
@@ -310,21 +294,19 @@ func updateServiceV2Locked(fe ServiceKey, backends serviceValueMap,
 		slot++
 	}
 
-	if addRevNAT {
-		zeroValue := fe.NewValue().(ServiceValue)
-		zeroValue.SetRevNat(revNATID)
-		revNATKey := zeroValue.RevNatKey()
-		revNATValue := fe.RevNatValue()
+	zeroValue := fe.NewValue().(ServiceValue)
+	zeroValue.SetRevNat(revNATID)
+	revNATKey := zeroValue.RevNatKey()
+	revNATValue := fe.RevNatValue()
 
-		if err := updateRevNatLocked(revNATKey, revNATValue); err != nil {
-			return fmt.Errorf("unable to update reverse NAT %+v with value %+v, %s", revNATKey, revNATValue, err)
-		}
-		defer func() {
-			if err != nil {
-				deleteRevNatLocked(revNATKey)
-			}
-		}()
+	if err := updateRevNatLocked(revNATKey, revNATValue); err != nil {
+		return fmt.Errorf("unable to update reverse NAT %+v with value %+v, %s", revNATKey, revNATValue, err)
 	}
+	defer func() {
+		if err != nil {
+			deleteRevNatLocked(revNATKey)
+		}
+	}()
 
 	err = updateMasterServiceV2(svcKeyV2, len(svc.backendsV2), nNonZeroWeights, revNATID)
 	if err != nil {
@@ -362,19 +344,6 @@ func removeBackendsLocked(removedBackendIDs []BackendKey,
 	}
 
 	return nil
-}
-
-// DeleteRevNATBPF deletes the revNAT entry from its corresponding BPF map
-// (IPv4 or IPv6) with ID id. Returns an error if the deletion operation failed.
-func DeleteRevNATBPF(id loadbalancer.ServiceID, isIPv6 bool) error {
-	var revNATK RevNatKey
-	if isIPv6 {
-		revNATK = NewRevNat6Key(uint16(id))
-	} else {
-		revNATK = NewRevNat4Key(uint16(id))
-	}
-	err := DeleteRevNat(revNATK)
-	return err
 }
 
 // DumpServiceMapsToUserspaceV2 dumps the services in the same way as
@@ -514,46 +483,6 @@ func DumpBackendMapsToUserspace() (map[BackendAddrID]*loadbalancer.LBBackEnd, er
 	return lbBackends, nil
 }
 
-// DumpRevNATMapsToUserspace dumps the contents of both the IPv6 and IPv4
-// revNAT BPF maps, and stores the contents of said dumps in a RevNATMap.
-// Returns the errors that occurred while dumping the maps.
-func DumpRevNATMapsToUserspace() (loadbalancer.RevNATMap, []error) {
-	mutex.RLock()
-	defer mutex.RUnlock()
-
-	newRevNATMap := loadbalancer.RevNATMap{}
-	errors := []error{}
-
-	parseRevNATEntries := func(key bpf.MapKey, value bpf.MapValue) {
-		revNatK := key.DeepCopyMapKey().(RevNatKey)
-		revNatV := value.DeepCopyMapValue().(RevNatValue)
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.BPFMapKey:   revNatK,
-			logfields.BPFMapValue: revNatV,
-		})
-
-		scopedLog.Debug("parsing BPF revNAT mapping")
-		fe := revNatValue2L3n4AddrID(revNatK, revNatV)
-		newRevNATMap[loadbalancer.ServiceID(fe.ID)] = fe.L3n4Addr
-	}
-
-	if option.Config.EnableIPv4 {
-		if err := RevNat4Map.DumpWithCallback(parseRevNATEntries); err != nil {
-			err = fmt.Errorf("error dumping RevNat4Map: %s", err)
-			errors = append(errors, err)
-		}
-	}
-
-	if option.Config.EnableIPv6 {
-		if err := RevNat6Map.DumpWithCallback(parseRevNATEntries); err != nil {
-			err = fmt.Errorf("error dumping RevNat6Map: %s", err)
-			errors = append(errors, err)
-		}
-	}
-
-	return newRevNATMap, errors
-}
-
 // RestoreService restores a single service in the cache. This is required to
 // guarantee consistent backend ordering, slave slot and backend by backend
 // address ID lookups.
@@ -673,7 +602,8 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(loadbala
 	defer mutex.Unlock()
 
 	var (
-		svcKey ServiceKeyV2
+		svcKey    ServiceKeyV2
+		revNATKey RevNatKey
 	)
 
 	isIPv6 := svc.IsIPv6()
@@ -682,8 +612,10 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(loadbala
 
 	if isIPv6 {
 		svcKey = NewService6KeyV2(svc.IP, svc.Port, u8proto.ANY, 0)
+		revNATKey = NewRevNat6Key(uint16(svc.ID))
 	} else {
 		svcKey = NewService4KeyV2(svc.IP, svc.Port, u8proto.ANY, 0)
+		revNATKey = NewRevNat4Key(uint16(svc.ID))
 	}
 
 	backendsToRemove, backendsCount, err := cache.removeServiceV2(svcKey)
@@ -706,23 +638,11 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(loadbala
 		log.WithField(logfields.BackendID, backendKey).Debug("Deleted backend")
 	}
 
-	return nil
-}
-
-// DeleteServiceCache deletes the service cache.
-func DeleteServiceCache(svc loadbalancer.L3n4AddrID) {
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	var svcKey ServiceKey
-
-	if !svc.IsIPv6() {
-		svcKey = NewService4Key(svc.IP, svc.Port, 0)
-	} else {
-		svcKey = NewService6Key(svc.IP, svc.Port, 0)
+	if err := deleteRevNatLocked(revNATKey); err != nil {
+		return fmt.Errorf("Unable to delete revNAT entry %d: %s", svc.ID, err)
 	}
 
-	cache.delete(svcKey)
+	return nil
 }
 
 func DeleteOrphanBackends(releaseBackendID func(loadbalancer.BackendID)) []error {
@@ -742,24 +662,4 @@ func DeleteOrphanBackends(releaseBackendID func(loadbalancer.BackendID)) []error
 	}
 
 	return errors
-}
-
-// RemoveDeprecatedMaps removes the maps for legacy services, left over from
-// previous installations.
-//
-// Safe to remove in Cilium 1.7.
-func RemoveDeprecatedMaps() error {
-	if err := Service6Map.UnpinIfExists(); err != nil {
-		return err
-	}
-	if err := RRSeq6Map.UnpinIfExists(); err != nil {
-		return err
-	}
-	if err := Service4Map.UnpinIfExists(); err != nil {
-		return err
-	}
-	if err := RRSeq4Map.UnpinIfExists(); err != nil {
-		return err
-	}
-	return nil
 }

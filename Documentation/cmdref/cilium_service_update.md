@@ -19,7 +19,6 @@ cilium service update [flags]
       --frontend string    Frontend address
   -h, --help               help for update
       --id uint            Identifier
-      --rev                Add reverse translation (default true)
 ```
 
 ### Options inherited from parent commands

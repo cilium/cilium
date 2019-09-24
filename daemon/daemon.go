@@ -116,9 +116,6 @@ type Daemon struct {
 	statusResponse     models.StatusResponse
 	statusCollector    *status.Collector
 
-	uniqueIDMU lock.Mutex
-	uniqueID   map[uint64]context.CancelFunc
-
 	monitorAgent *monitoragent.Agent
 	ciliumHealth *health.CiliumHealth
 
@@ -345,7 +342,6 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 		loadBalancer:      loadbalancer.NewLoadBalancer(),
 		k8sSvcCache:       k8s.NewServiceCache(),
 		policy:            policy.NewPolicyRepository(),
-		uniqueID:          map[uint64]context.CancelFunc{},
 		prefixLengths:     createPrefixLengthCounter(),
 		k8sResourceSynced: map[string]chan struct{}{},
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),

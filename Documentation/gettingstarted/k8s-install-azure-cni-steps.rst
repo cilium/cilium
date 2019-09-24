@@ -63,9 +63,10 @@ Generate the required YAML file and deploy it:
 
    helm template cilium \
      --namespace cilium \
+     --set nodeinit.azure=true \
      --set global.cni.chainingMode=generic-veth \
      --set global.cni.customConf=true \
-     --set nodeinit.enabled=true \
+     --set global.nodeinit.enabled=true \
      --set global.cni.configMap=cni-configuration \
      --set global.tunnel=disabled \
      > cilium.yaml

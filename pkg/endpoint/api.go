@@ -19,6 +19,7 @@ package endpoint
 
 import (
 	"bytes"
+	"context"
 	"sort"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -86,6 +87,10 @@ func NewEndpointFromChangeModel(owner regeneration.Owner, proxy EndpointProxy, b
 		controllers:      controller.NewManager(),
 		regenFailedChan:  make(chan struct{}, 1),
 	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	ep.aliveCancel = cancel
+	ep.aliveCtx = ctx
 
 	ep.startRegenerationFailureHandler()
 	ep.realizedPolicy = ep.desiredPolicy

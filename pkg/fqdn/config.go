@@ -15,6 +15,7 @@
 package fqdn
 
 import (
+	"context"
 	"net"
 	"sync"
 	"time"
@@ -49,7 +50,7 @@ type Config struct {
 
 	// UpdateSelectors is a callback to update the mapping of FQDNSelector to
 	// sets of IPs.
-	UpdateSelectors func(selectorsWithIPs map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, error)
+	UpdateSelectors func(ctx context.Context, selectorsWithIPs map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, error)
 
 	// PollerResponseNotify is used when the poller receives DNS data in response
 	// to a successful poll.

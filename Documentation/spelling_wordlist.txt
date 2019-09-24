@@ -4,6 +4,7 @@ Alemayhu
 allocators
 allocator
 alu
+aks
 ami
 analytics
 ansible
@@ -20,6 +21,7 @@ au
 authenticator
 awk
 aws
+az
 backend
 backends
 backport

@@ -47,7 +47,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/serializer"
-	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/spanstat"
 
@@ -1190,7 +1189,7 @@ func (d *Daemon) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s.End
 
 	repPorts := svcInfo.UniquePorts()
 
-	frontends := []*loadbalancer.L3n4AddrID{}
+	frontends := []*loadbalancer.L3n4Addr{}
 
 	for portName, svcPort := range svcInfo.Ports {
 		if !repPorts[svcPort.Port] {
@@ -1198,33 +1197,20 @@ func (d *Daemon) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s.End
 		}
 		repPorts[svcPort.Port] = false
 
-		fe := loadbalancer.NewL3n4AddrID(svcPort.Protocol, svcInfo.FrontendIP, svcPort.Port, loadbalancer.ID(svcPort.ID))
+		fe := loadbalancer.NewL3n4Addr(svcPort.Protocol, svcInfo.FrontendIP, svcPort.Port)
 		frontends = append(frontends, fe)
 
 		for _, nodePortFE := range svcInfo.NodePorts[portName] {
-			frontends = append(frontends, nodePortFE)
+			frontends = append(frontends, &nodePortFE.L3n4Addr)
 		}
 	}
 
 	for _, fe := range frontends {
-		if fe.ID != 0 {
-			if err := service.DeleteID(uint32(fe.ID)); err != nil {
-				scopedLog.WithError(err).Warn("Error while cleaning service ID")
-			}
-		}
-
-		if err := d.svcDeleteByFrontend(fe); err != nil {
+		if err := d.svcDelete(fe); err != nil {
 			scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(fe)).
 				Warn("Error deleting service by frontend")
-			continue
 		} else {
 			scopedLog.Debugf("# cilium lb delete-service %s %d 0", fe.IP, fe.Port)
-		}
-
-		if err := d.RevNATDelete(loadbalancer.ServiceID(fe.ID)); err != nil {
-			scopedLog.WithError(err).WithField(logfields.ServiceID, fe.ID).Warn("Error deleting reverse NAT")
-		} else {
-			scopedLog.Debugf("# cilium lb delete-rev-nat %d", fe.ID)
 		}
 	}
 	return nil
@@ -1287,7 +1273,7 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 		}
 
 		for _, fe := range frontends {
-			if _, _, err := d.svcAdd(*fe.addr, besValues, true, fe.nodePort); err != nil {
+			if _, _, err := d.svcAdd(*fe.addr, besValues, fe.nodePort); err != nil {
 				scopedLog.WithError(err).Error("Error while inserting service in LB map")
 			}
 		}
@@ -1483,10 +1469,15 @@ func (d *Daemon) updatePodHostIP(pod *types.Pod) (bool, error) {
 
 	hostKey := node.GetIPsecKeyIdentity()
 
+	k8sMeta := &ipcache.K8sMetadata{
+		Namespace: pod.Namespace,
+		PodName:   pod.Name,
+	}
+
 	// Initial mapping of podIP <-> hostIP <-> identity. The mapping is
 	// later updated once the allocator has determined the real identity.
 	// If the endpoint remains unmanaged, the identity remains untouched.
-	selfOwned := ipcache.IPIdentityCache.Upsert(pod.StatusPodIP, hostIP, hostKey, ipcache.Identity{
+	selfOwned := ipcache.IPIdentityCache.Upsert(pod.StatusPodIP, hostIP, hostKey, k8sMeta, ipcache.Identity{
 		ID:     identity.ReservedIdentityUnmanaged,
 		Source: source.Kubernetes,
 	})
@@ -1695,14 +1686,19 @@ func endpointUpdated(endpoint *types.CiliumEndpoint) {
 			return
 		}
 
+		k8sMeta := &ipcache.K8sMetadata{
+			Namespace: endpoint.Namespace,
+			PodName:   endpoint.Name,
+		}
+
 		for _, pair := range endpoint.Networking.Addressing {
 			if pair.IPV4 != "" {
-				ipcache.IPIdentityCache.Upsert(pair.IPV4, nodeIP, encryptionKey,
+				ipcache.IPIdentityCache.Upsert(pair.IPV4, nodeIP, encryptionKey, k8sMeta,
 					ipcache.Identity{ID: id, Source: source.CustomResource})
 			}
 
 			if pair.IPV6 != "" {
-				ipcache.IPIdentityCache.Upsert(pair.IPV6, nodeIP, encryptionKey,
+				ipcache.IPIdentityCache.Upsert(pair.IPV6, nodeIP, encryptionKey, k8sMeta,
 					ipcache.Identity{ID: id, Source: source.CustomResource})
 			}
 		}

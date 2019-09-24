@@ -73,7 +73,7 @@ data:
             upstream
             fallthrough in-addr.arpa ip6.arpa
         }
-        proxy cilium.test 10.96.0.100:53 {
+        proxy cilium.test 10.100.0.100:53 {
             fail_timeout 10s
             max_fails 0
         }
@@ -193,7 +193,7 @@ metadata:
 spec:
   selector:
     k8s-app: kube-dns
-  clusterIP: 10.96.0.10
+  clusterIP: 10.100.0.10
   ports:
   - name: dns
     port: 53

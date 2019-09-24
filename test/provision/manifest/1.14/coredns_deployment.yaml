@@ -67,7 +67,7 @@ data:
         health
         kubernetes cluster.local in-addr.arpa ip6.arpa {
             pods insecure
-            ttl 0
+            ttl 5
             upstream
             fallthrough in-addr.arpa ip6.arpa
         }

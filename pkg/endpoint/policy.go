@@ -457,7 +457,7 @@ func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMe
 	if regenMetadata.ParentContext != nil {
 		ctx, cFunc = context.WithCancel(regenMetadata.ParentContext)
 	} else {
-		ctx, cFunc = context.WithCancel(context.Background())
+		ctx, cFunc = context.WithCancel(e.aliveCtx)
 	}
 
 	regenContext := ParseExternalRegenerationMetadata(ctx, cFunc, regenMetadata)
@@ -624,12 +624,14 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 				hostIP := node.GetExternalIPv4()
 				key := node.GetIPsecKeyIdentity()
 				metadata := e.FormatGlobalEndpointID()
+				k8sNamespace := e.K8sNamespace
+				k8sPodName := e.K8sPodName
 
 				// Release lock as we do not want to have long-lasting key-value
 				// store operations resulting in lock being held for a long time.
 				e.runlock()
 
-				if err := ipcache.UpsertIPToKVStore(ctx, IP, hostIP, ID, key, metadata); err != nil {
+				if err := ipcache.UpsertIPToKVStore(ctx, IP, hostIP, ID, key, metadata, k8sNamespace, k8sPodName); err != nil {
 					return fmt.Errorf("unable to add endpoint IP mapping '%s'->'%d': %s", IP.String(), ID, err)
 				}
 				return nil

@@ -756,7 +756,7 @@ func (s *SSHMeta) GatherLogs() {
 // backends. Returns the result of creating said service.
 func (s *SSHMeta) ServiceAdd(id int, frontend string, backends []string) *CmdRes {
 	cmd := fmt.Sprintf(
-		"service update --frontend '%s' --backends '%s' --id '%d' --rev",
+		"service update --frontend '%s' --backends '%s' --id '%d'",
 		frontend, strings.Join(backends, ","), id)
 	return s.ExecCilium(cmd)
 }

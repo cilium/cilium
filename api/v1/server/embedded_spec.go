@@ -2734,14 +2734,6 @@ func init() {
           "description": "Optional service configuration flags",
           "type": "object",
           "properties": {
-            "active-frontend": {
-              "description": "Frontend to backend translation activated",
-              "type": "boolean"
-            },
-            "direct-server-return": {
-              "description": "Perform direct server return",
-              "type": "boolean"
-            },
             "node-port": {
               "description": "Service is of Nodeport type",
               "type": "boolean"
@@ -5872,14 +5864,6 @@ func init() {
           "description": "Optional service configuration flags",
           "type": "object",
           "properties": {
-            "active-frontend": {
-              "description": "Frontend to backend translation activated",
-              "type": "boolean"
-            },
-            "direct-server-return": {
-              "description": "Perform direct server return",
-              "type": "boolean"
-            },
             "node-port": {
               "description": "Service is of Nodeport type",
               "type": "boolean"

@@ -167,10 +167,6 @@ func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) (
 	return bpfSvc, toAddBackendIDs, toRemoveBackendIDs, nil
 }
 
-func (l *lbmapCache) delete(fe ServiceKey) {
-	delete(l.entries, fe.String())
-}
-
 // addBackendV2Locked increments a ref count for the given backend and returns
 // whether any instance of the backend existed before.
 func (l *lbmapCache) addBackendV2Locked(addrID BackendAddrID) bool {
@@ -241,9 +237,7 @@ func (l *lbmapCache) removeServiceV2(svcKey ServiceKeyV2) ([]BackendKey, int, er
 		}
 	}
 
-	// FIXME(brb) uncomment the following line after we have removed the support for
-	// legacy svc.
-	//delete(l.entries, frontendID)
+	delete(l.entries, frontendID)
 
 	return backendsToRemove, count, nil
 }
