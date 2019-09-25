@@ -16,6 +16,7 @@ package lbmap
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -49,6 +50,135 @@ var (
 	// combined
 	cache = newLBMapCache()
 )
+
+// UpsertService inserts or updates the given service in a BPF map.
+//
+// The corresponding backend entries (identified with the given backendIDs)
+// have to exist before calling the function.
+//
+// The given prevBackendCount denotes a previous service backend entries count,
+// so that the function can remove obsolete ones.
+func UpsertService(
+	svcID uint16, svcIP net.IP, svcPort uint16,
+	backendIDs []uint16, prevBackendCount int,
+	ipv6 bool) error {
+
+	var svcKey ServiceKeyV2
+
+	if ipv6 {
+		svcKey = NewService6KeyV2(svcIP, svcPort, u8proto.ANY, 0)
+	} else {
+		svcKey = NewService4KeyV2(svcIP, svcPort, u8proto.ANY, 0)
+	}
+
+	slot := 1
+	svcVal := svcKey.NewValue().(ServiceValueV2)
+	for _, backendID := range backendIDs {
+		svcVal.SetBackendID(loadbalancer.BackendID(backendID))
+		svcVal.SetRevNat(int(svcID))
+		svcKey.SetSlave(slot) // TODO(brb) Rename to SetSlot
+		if err := updateServiceEndpointV2(svcKey, svcVal); err != nil {
+			return fmt.Errorf("Unable to update service entry %+v => %+v: %s",
+				svcKey, svcVal, err)
+		}
+		slot++
+	}
+
+	zeroValue := svcKey.NewValue().(ServiceValueV2)
+	zeroValue.SetRevNat(int(svcID)) // TODO change to uint16
+	revNATKey := zeroValue.RevNatKey()
+	revNATValue := svcKey.RevNatValue()
+	if err := updateRevNatLocked(revNATKey, revNATValue); err != nil {
+		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %s", revNATKey, revNATValue, err)
+	}
+
+	if err := updateMasterServiceV2(svcKey, len(backendIDs), int(svcID)); err != nil {
+		deleteRevNatLocked(revNATKey)
+		return fmt.Errorf("Unable to update service %+v: %s", svcKey, err)
+	}
+
+	for i := slot; i <= prevBackendCount; i++ {
+		svcKey.SetSlave(i)
+		if err := deleteServiceLockedV2(svcKey); err != nil {
+			log.WithFields(logrus.Fields{
+				logfields.ServiceKey: svcKey,
+				logfields.SlaveSlot:  svcKey.GetSlave(),
+			}).WithError(err).Warn("Unable to delete service entry from BPF map")
+		}
+	}
+
+	return nil
+}
+
+// DeleteService removes given service from a BPF map.
+func DeleteService(svc loadbalancer.L3n4AddrID, backendCount int) error {
+	var (
+		svcKey    ServiceKeyV2
+		revNATKey RevNatKey
+	)
+
+	if svc.IsIPv6() {
+		svcKey = NewService6KeyV2(svc.IP, svc.Port, u8proto.ANY, 0)
+		revNATKey = NewRevNat6Key(uint16(svc.ID))
+	} else {
+		svcKey = NewService4KeyV2(svc.IP, svc.Port, u8proto.ANY, 0)
+		revNATKey = NewRevNat4Key(uint16(svc.ID))
+	}
+
+	for slot := 0; slot <= backendCount; slot++ {
+		svcKey.SetSlave(slot)
+		if err := svcKey.MapDelete(); err != nil {
+			return fmt.Errorf("Unable to delete service entry %+v: %s", svcKey, err)
+		}
+	}
+
+	if err := deleteRevNatLocked(revNATKey); err != nil {
+		return fmt.Errorf("Unable to delete revNAT entry %+v: %s", revNATKey, err)
+	}
+
+	return nil
+}
+
+// AddBackend adds a backend into a BPF map.
+func AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) error {
+	var (
+		backend Backend
+		err     error
+	)
+
+	if ipv6 {
+		backend, err = NewBackend6(loadbalancer.BackendID(id), ip, port, u8proto.ANY)
+	} else {
+		backend, err = NewBackend4(loadbalancer.BackendID(id), ip, port, u8proto.ANY)
+	}
+	if err != nil {
+		return fmt.Errorf("Unable to create backend (%d, %s, %d, %t): %s",
+			id, ip, port, ipv6, err)
+	}
+
+	if err := updateBackend(backend); err != nil {
+		return fmt.Errorf("Unable to add backend %+v: %s", backend, err)
+	}
+
+	return nil
+}
+
+// DeleteBackendByID removes a backend identified with the given ID from a BPF map.
+func DeleteBackendByID(id uint16, ipv6 bool) error {
+	var key BackendKey
+
+	if ipv6 {
+		key = NewBackend6Key(loadbalancer.BackendID(id))
+	} else {
+		key = NewBackend4Key(loadbalancer.BackendID(id))
+	}
+
+	if err := deleteBackendLocked(key); err != nil {
+		return fmt.Errorf("Unable to delete backend %d (%t): %s", id, ipv6, err)
+	}
+
+	return nil
+}
 
 func updateRevNatLocked(key RevNatKey, value RevNatValue) error {
 	log.WithFields(logrus.Fields{
