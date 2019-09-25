@@ -328,7 +328,7 @@ func (s *Service) SyncWithK8s(k8sSVCFrontends k8s.FrontendList) error {
 		if !k8sSVCFrontends.LooseMatch(svc.FE.L3n4Addr) {
 			scopedLog.Warning("Deleting no longer present service")
 			if err := s.deleteServiceLocked(svc); err != nil {
-				return fmt.Errorf("Unable to remove service %q: %s", svc, err)
+				return fmt.Errorf("Unable to remove service %+v: %s", svc, err)
 			}
 		}
 

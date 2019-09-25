@@ -134,7 +134,7 @@ func AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) error {
 
 	if err != nil {
 		return fmt.Errorf("Unable to create backend (%d, %s, %d, %t): %s",
-			id, ip, port, ipv6)
+			id, ip, port, ipv6, err)
 	}
 
 	if err := updateBackend(backend); err != nil {
