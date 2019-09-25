@@ -45,7 +45,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/endpointsynchronizer"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -107,7 +106,6 @@ const (
 type Daemon struct {
 	buildEndpointSem *semaphore.Weighted
 	l7Proxy          *proxy.Proxy
-	loadBalancer     *loadbalancer.LoadBalancer
 	svc              *svc.Service
 	policy           *policy.Repository
 	preFilter        *prefilter.PreFilter
@@ -341,7 +339,6 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 	}
 
 	d := Daemon{
-		loadBalancer:      loadbalancer.NewLoadBalancer(),
 		svc:               svc.NewService(),
 		k8sSvcCache:       k8s.NewServiceCache(),
 		policy:            policy.NewPolicyRepository(),
