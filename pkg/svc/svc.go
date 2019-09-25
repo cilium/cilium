@@ -24,9 +24,18 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/service"
 
 	"github.com/sirupsen/logrus"
+)
+
+var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "svc")
+
+	updateMetric = metrics.ServicesCount.WithLabelValues("update")
+	deleteMetric = metrics.ServicesCount.WithLabelValues("delete")
+	addMetric    = metrics.ServicesCount.WithLabelValues("add")
 )
 
 // Type is a type of a service.
@@ -36,8 +45,6 @@ const (
 	TypeClusterIP = Type("ClusterIP")
 	TypeNodePort  = Type("NodePort")
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "svc")
 
 // Service is a service handler. Its main responsibility is to reflect
 // service-related changes into BPF maps used by datapath BPF programs.
@@ -190,6 +197,12 @@ func (s *Service) UpsertService(
 			log.WithError(err).WithField(logfields.BackendID, id).
 				Warn("Failed to remove backend from maps")
 		}
+	}
+
+	if new {
+		addMetric.Inc()
+	} else {
+		updateMetric.Inc()
 	}
 
 	return new, lb.ID(svc.FE.ID), nil
@@ -395,6 +408,8 @@ func (s *Service) deleteServiceLocked(svc *lb.LBSVC) error {
 	if err := service.DeleteID(uint32(svc.FE.ID)); err != nil {
 		return fmt.Errorf("Unable to release service ID %d: %s", svc.FE.ID, err)
 	}
+
+	deleteMetric.Inc()
 
 	return nil
 }
