@@ -16,7 +16,6 @@ package main
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/service"
@@ -329,103 +328,6 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 	log.Debugf("successfully synced BPF loadbalancer maps with in-memory Kubernetes service maps")
 
 	return nil
-}
-
-func restoreBackendIDs() (map[lbmap.BackendAddrID]lbmap.BackendKey, error) {
-	lbBackends, err := lbmap.DumpBackendMapsToUserspace()
-	if err != nil {
-		return nil, fmt.Errorf("Unable to dump LB backend maps: %s", err)
-	}
-
-	restoredBackendIDs := map[lbmap.BackendAddrID]lbmap.BackendKey{}
-
-	for addrID, lbBackend := range lbBackends {
-		err := service.RestoreBackendID(lbBackend.L3n4Addr, lbBackend.ID)
-		if err != nil {
-			return nil, err
-		}
-		be, err := lbmap.LBBackEnd2Backend(*lbBackend)
-		if err != nil {
-			return nil, err
-		}
-		restoredBackendIDs[addrID] = be.GetKey()
-	}
-
-	log.WithField(logfields.BackendIDs, restoredBackendIDs).
-		Debug("Restored backend IDs")
-
-	return restoredBackendIDs, nil
-}
-
-func restoreServices() {
-	before := time.Now()
-
-	// Restore Backend IDs first, otherwise they can get taken by subsequent
-	// calls to UpdateService
-	restoredBackendIDs, err := restoreBackendIDs()
-	if err != nil {
-		log.WithError(err).Warning("Error occurred while restoring backend IDs")
-	}
-	lbmap.AddBackendIDsToCache(restoredBackendIDs)
-
-	failed, restored, skipped, removed := 0, 0, 0, 0
-	svcIDs := make(map[loadbalancer.ID]struct{})
-
-	svcMapV2, _, errors := lbmap.DumpServiceMapsToUserspaceV2()
-	for _, err := range errors {
-		log.WithError(err).Warning("Error occurred while dumping service v2 table from datapath")
-	}
-
-	for _, svc := range svcMapV2 {
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.ServiceID: svc.FE.ID,
-			logfields.ServiceIP: svc.FE.L3n4Addr.String(),
-		})
-		// Services where the service ID was missing in the BPF map
-		// cannot be restored
-		if uint32(svc.FE.ID) == uint32(0) {
-			skipped++
-			continue
-		}
-
-		svcIDs[svc.FE.ID] = struct{}{}
-
-		// The service ID can only be restored when global service IDs
-		// are disabled. Global service IDs require kvstore access but
-		// service load-balancing needs to be enabled before the
-		// kvstore is guaranteed to be connected
-		_, err := service.RestoreID(svc.FE.L3n4Addr, uint32(svc.FE.ID))
-		if err != nil {
-			failed++
-			scopedLog.WithError(err).Warning("Unable to restore service ID from datapath")
-		} else {
-			restored++
-			scopedLog.Debug("Restored service ID from datapath")
-		}
-
-		// Restore the service cache to guarantee backend ordering
-		// across restarts
-		if err := lbmap.RestoreService(svc); err != nil {
-			scopedLog.WithError(err).Warning("Unable to restore service in cache")
-			failed++
-			continue
-		}
-	}
-
-	// Remove backend entries which are not used by any service.
-	if errs := lbmap.DeleteOrphanBackends(service.DeleteBackendID); errs != nil && len(errs) > 0 {
-		for _, err := range errs {
-			log.WithError(err).Warning("Unable to remove orphan backend")
-		}
-	}
-
-	log.WithFields(logrus.Fields{
-		logfields.Duration: time.Now().Sub(before),
-		"restored":         restored,
-		"failed":           failed,
-		"skipped":          skipped,
-		"removed":          removed,
-	}).Info("Restore service IDs from BPF maps")
 }
 
 // GetServiceList returns list of services

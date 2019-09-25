@@ -334,26 +334,6 @@ func DumpBackendMapsToUserspace() (map[BackendAddrID]*loadbalancer.LBBackEnd, er
 	return lbBackends, nil
 }
 
-// RestoreService restores a single service in the cache. This is required to
-// guarantee consistent backend ordering, slave slot and backend by backend
-// address ID lookups.
-func RestoreService(svc loadbalancer.LBSVC) error {
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	return cache.restoreService(svc)
-}
-
-func lookupServiceV2(key ServiceKeyV2) (ServiceValueV2, error) {
-	val, err := key.Map().Lookup(key.ToNetwork())
-	if err != nil {
-		return nil, err
-	}
-	svc := val.(ServiceValueV2)
-
-	return svc.ToNetwork(), nil
-}
-
 func updateMasterServiceV2(fe ServiceKeyV2, nbackends int, revNATID int) error {
 	fe.SetSlave(0)
 	zeroValue := fe.NewValue().(ServiceValueV2)
@@ -393,14 +373,6 @@ func updateServiceEndpointV2(key ServiceKeyV2, value ServiceValueV2) error {
 	}
 
 	return key.Map().Update(key.ToNetwork(), value.ToNetwork())
-}
-
-// AddBackendIDsToCache populates the given backend IDs to the lbmap local cache.
-func AddBackendIDsToCache(backendIDs map[BackendAddrID]BackendKey) {
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	cache.addBackendIDs(backendIDs)
 }
 
 // DeleteServiceV2 deletes a service from the lbmap and deletes backends of it if
@@ -453,23 +425,4 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(loadbala
 	}
 
 	return nil
-}
-
-func DeleteOrphanBackends(releaseBackendID func(loadbalancer.BackendID)) []error {
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	errors := make([]error, 0)
-	toRemove := cache.removeBackendsWithRefCountZero()
-
-	for _, key := range toRemove {
-		log.WithField(logfields.BackendID, key).Debug("Removing orphan backend")
-		if err := deleteBackendLocked(key); err != nil {
-			errors = append(errors,
-				fmt.Errorf("Unable to remove backend from the BPF map %d: %s", key, err))
-		}
-		releaseBackendID(key.GetID())
-	}
-
-	return errors
 }
