@@ -412,10 +412,9 @@ func (s *Service) restoreServicesLocked() error {
 }
 
 func (s *Service) deleteServiceLocked(svc *lb.LBSVC) error {
-
 	obsoleteBackendIDs := s.deleteBackendsFromCacheLocked(svc)
 
-	if err := lbmap.DeleteService(svc.FE, svc.BES); err != nil {
+	if err := lbmap.DeleteService(svc.FE, len(svc.BES)); err != nil {
 		return err
 	}
 
