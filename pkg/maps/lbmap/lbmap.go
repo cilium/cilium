@@ -20,7 +20,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -29,26 +28,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-lb")
-
-	// mutex protects access to the BPF map to guarantee atomicity if a
-	// transaction must be split across multiple map access operations.
-	mutex lock.RWMutex
-)
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-lb")
 
 const (
 	// Maximum number of entries in each hashtable
-	MaxEntries   = 65536
-	maxFrontEnds = 256
-	// MaxSeq is used by daemon for generating bpf define LB_RR_MAX_SEQ.
-	MaxSeq = 31
-)
-
-var (
-	// cache contains *all* services of both IPv4 and IPv6 based maps
-	// combined
-	cache = newLBMapCache()
+	MaxEntries = 65536
 )
 
 func UpsertService(
@@ -201,9 +185,6 @@ func deleteRevNatLocked(key RevNatKey) error {
 // DumpServiceMapsToUserspaceV2 dumps the services in the same way as
 // DumpServiceMapsToUserspace.
 func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC, []error) {
-	mutex.RLock()
-	defer mutex.RUnlock()
-
 	newSVCMap := loadbalancer.SVCMap{}
 	newSVCList := []*loadbalancer.LBSVC{}
 	errors := []error{}
@@ -295,9 +276,6 @@ func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC,
 
 // DumpBackendMapsToUserspace dumps the backend entries from the BPF maps.
 func DumpBackendMapsToUserspace() (map[BackendAddrID]*loadbalancer.LBBackEnd, error) {
-	mutex.RLock()
-	defer mutex.RUnlock()
-
 	backendValueMap := map[loadbalancer.BackendID]BackendValue{}
 	lbBackends := map[BackendAddrID]*loadbalancer.LBBackEnd{}
 
@@ -373,56 +351,4 @@ func updateServiceEndpointV2(key ServiceKeyV2, value ServiceValueV2) error {
 	}
 
 	return key.Map().Update(key.ToNetwork(), value.ToNetwork())
-}
-
-// DeleteServiceV2 deletes a service from the lbmap and deletes backends of it if
-// they are not used by any other service.
-//
-//The given key has to be of the master service.
-func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(loadbalancer.BackendID)) error {
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	var (
-		svcKey    ServiceKeyV2
-		revNATKey RevNatKey
-	)
-
-	isIPv6 := svc.IsIPv6()
-
-	log.WithField(logfields.ServiceName, svc).Debug("Deleting service")
-
-	if isIPv6 {
-		svcKey = NewService6KeyV2(svc.IP, svc.Port, u8proto.ANY, 0)
-		revNATKey = NewRevNat6Key(uint16(svc.ID))
-	} else {
-		svcKey = NewService4KeyV2(svc.IP, svc.Port, u8proto.ANY, 0)
-		revNATKey = NewRevNat4Key(uint16(svc.ID))
-	}
-
-	backendsToRemove, backendsCount, err := cache.removeServiceV2(svcKey)
-	if err != nil {
-		return err
-	}
-
-	for slot := 0; slot <= backendsCount; slot++ {
-		svcKey.SetSlave(slot)
-		if err := svcKey.MapDelete(); err != nil {
-			return err
-		}
-	}
-
-	for _, backendKey := range backendsToRemove {
-		if err := deleteBackendLocked(backendKey); err != nil {
-			return fmt.Errorf("Unable to delete backend with ID %d: %s", backendKey, err)
-		}
-		releaseBackendID(backendKey.GetID())
-		log.WithField(logfields.BackendID, backendKey).Debug("Deleted backend")
-	}
-
-	if err := deleteRevNatLocked(revNATKey); err != nil {
-		return fmt.Errorf("Unable to delete revNAT entry %d: %s", svc.ID, err)
-	}
-
-	return nil
 }

@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/svc"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -117,14 +116,6 @@ func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Respon
 	default:
 		return NewDeleteServiceIDOK()
 	}
-}
-
-func (d *Daemon) svcDeleteBPF(svc loadbalancer.L3n4AddrID) error {
-	if err := lbmap.DeleteServiceV2(svc, service.DeleteBackendID); err != nil {
-		return fmt.Errorf("Deleting service from BPF maps failed: %s", err)
-	}
-
-	return nil
 }
 
 type getServiceID struct {
