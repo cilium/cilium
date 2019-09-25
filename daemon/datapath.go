@@ -595,9 +595,7 @@ func (d *Daemon) initMaps() error {
 	if !option.Config.RestoreState {
 		log.Debug("cleaning up all BPF LB maps")
 
-		d.loadBalancer.BPFMapMU.Lock()
-		defer d.loadBalancer.BPFMapMU.Unlock()
-
+		// TODO(brb) move to d.svc
 		if option.Config.EnableIPv6 {
 			if err := lbmap.Service6MapV2.DeleteAll(); err != nil {
 				return err
