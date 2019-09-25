@@ -181,6 +181,8 @@ func (s *Service) UpsertService(frontend lb.L3n4AddrID, backends []lb.LBBackEnd,
 		}
 		s.svcByID[frontend.ID] = svc
 		s.svcByHash[hash] = svc
+	} else {
+		svc.NodePort = svcType == TypeNodePort
 	}
 
 	prevBackendCount := len(svc.BES)
