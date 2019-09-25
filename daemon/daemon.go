@@ -45,7 +45,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/endpointsynchronizer"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -67,6 +66,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/sockops"
 	"github.com/cilium/cilium/pkg/status"
+	"github.com/cilium/cilium/pkg/svc"
 	"github.com/cilium/cilium/pkg/trigger"
 	"github.com/cilium/cilium/pkg/workloads"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
@@ -106,7 +106,7 @@ const (
 type Daemon struct {
 	buildEndpointSem *semaphore.Weighted
 	l7Proxy          *proxy.Proxy
-	loadBalancer     *loadbalancer.LoadBalancer
+	svc              *svc.Service
 	policy           *policy.Repository
 	preFilter        *prefilter.PreFilter
 	// Only used for CRI-O since it does not support events.
@@ -339,7 +339,7 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 	}
 
 	d := Daemon{
-		loadBalancer:      loadbalancer.NewLoadBalancer(),
+		svc:               svc.NewService(),
 		k8sSvcCache:       k8s.NewServiceCache(),
 		policy:            policy.NewPolicyRepository(),
 		prefixLengths:     createPrefixLengthCounter(),
@@ -372,7 +372,7 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 	// Also, create missing v2 services from the corresponding legacy ones.
 	if option.Config.RestoreState && !option.Config.DryMode {
 		bootstrapStats.restore.Start()
-		restoreServices()
+		d.svc.RestoreServices()
 		bootstrapStats.restore.End(true)
 	}
 

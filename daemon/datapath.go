@@ -41,7 +41,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
-	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -572,8 +571,9 @@ func (d *Daemon) initMaps() error {
 		return err
 	}
 
-	if err := openServiceMaps(); err != nil {
-		log.WithError(err).Fatal("Unable to open service maps")
+	if err := d.svc.InitMaps(option.Config.EnableIPv6, option.Config.EnableIPv4,
+		option.Config.RestoreState); err != nil {
+		log.WithError(err).Fatal("Unable to initialize service maps")
 	}
 
 	// Set up the list of IPCache listeners in the daemon, to be
@@ -591,37 +591,7 @@ func (d *Daemon) initMaps() error {
 			RunInterval: 5 * time.Second,
 		})
 
-	// Clean all lb entries
 	if !option.Config.RestoreState {
-		log.Debug("cleaning up all BPF LB maps")
-
-		d.loadBalancer.BPFMapMU.Lock()
-		defer d.loadBalancer.BPFMapMU.Unlock()
-
-		if option.Config.EnableIPv6 {
-			if err := lbmap.Service6MapV2.DeleteAll(); err != nil {
-				return err
-			}
-			if err := lbmap.Backend6Map.DeleteAll(); err != nil {
-				return err
-			}
-			if err := lbmap.RevNat6Map.DeleteAll(); err != nil {
-				return err
-			}
-		}
-
-		if option.Config.EnableIPv4 {
-			if err := lbmap.Service4MapV2.DeleteAll(); err != nil {
-				return err
-			}
-			if err := lbmap.Backend4Map.DeleteAll(); err != nil {
-				return err
-			}
-			if err := lbmap.RevNat4Map.DeleteAll(); err != nil {
-				return err
-			}
-		}
-
 		// If we are not restoring state, all endpoints can be
 		// deleted. Entries will be re-populated.
 		lxcmap.LXCMap.DeleteAll()
