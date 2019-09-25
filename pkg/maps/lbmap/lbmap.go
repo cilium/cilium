@@ -35,15 +35,19 @@ const (
 	MaxEntries = 65536
 )
 
+// UpsertService inserts or updates the given service in a BPF map.
+//
+// The corresponding backend entries (identified with the given backendIDs)
+// have to exist before calling the function.
+//
+// The given prevBackendCount denotes a previous service backend entries count,
+// so that the function can remove obsolete ones.
 func UpsertService(
 	svcID uint16, svcIP net.IP, svcPort uint16,
 	backendIDs []uint16, prevBackendCount int,
 	ipv6 bool) error {
 
-	var (
-		svcKey ServiceKeyV2
-		err    error
-	)
+	var svcKey ServiceKeyV2
 
 	if ipv6 {
 		svcKey = NewService6KeyV2(svcIP, svcPort, u8proto.ANY, 0)
@@ -56,7 +60,7 @@ func UpsertService(
 	for _, backendID := range backendIDs {
 		svcVal.SetBackendID(loadbalancer.BackendID(backendID))
 		svcVal.SetRevNat(int(svcID))
-		svcKey.SetSlave(slot) // TODO rename
+		svcKey.SetSlave(slot) // TODO(brb) Rename to SetSlot
 		if err := updateServiceEndpointV2(svcKey, svcVal); err != nil {
 			return fmt.Errorf("Unable to update service entry %+v => %+v: %s",
 				svcKey, svcVal, err)
@@ -71,28 +75,27 @@ func UpsertService(
 	if err := updateRevNatLocked(revNATKey, revNATValue); err != nil {
 		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %s", revNATKey, revNATValue, err)
 	}
-	defer func() {
-		if err != nil {
-			deleteRevNatLocked(revNATKey)
-		}
-	}()
 
-	if err = updateMasterServiceV2(svcKey, len(backendIDs), int(svcID)); err != nil {
+	if err := updateMasterServiceV2(svcKey, len(backendIDs), int(svcID)); err != nil {
+		deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %s", svcKey, err)
 	}
 
 	for i := slot; i <= prevBackendCount; i++ {
 		svcKey.SetSlave(i)
 		if err := deleteServiceLockedV2(svcKey); err != nil {
-			// TODO(brb) maybe just log as it is not so critical
-			return fmt.Errorf("Unable to delete service %+v: %s", svcKey, err)
+			log.WithFields(logrus.Fields{
+				logfields.ServiceKey: svcKey,
+				logfields.SlaveSlot:  svcKey.GetSlave(),
+			}).WithError(err).Warn("Unable to delete service entry from BPF map")
 		}
 	}
 
 	return nil
 }
 
-func DeleteService(svc loadbalancer.L3n4AddrID, backends []loadbalancer.LBBackEnd) error {
+// DeleteService removes given service from a BPF map.
+func DeleteService(svc loadbalancer.L3n4AddrID, backendCount int) error {
 	var (
 		svcKey    ServiceKeyV2
 		revNATKey RevNatKey
@@ -106,20 +109,21 @@ func DeleteService(svc loadbalancer.L3n4AddrID, backends []loadbalancer.LBBackEn
 		revNATKey = NewRevNat4Key(uint16(svc.ID))
 	}
 
-	for slot := 0; slot <= len(backends); slot++ {
+	for slot := 0; slot <= backendCount; slot++ {
 		svcKey.SetSlave(slot)
 		if err := svcKey.MapDelete(); err != nil {
-			return err
+			return fmt.Errorf("Unable to delete service entry %+v: %s", svcKey, err)
 		}
 	}
 
 	if err := deleteRevNatLocked(revNATKey); err != nil {
-		return fmt.Errorf("Unable to delete revNAT entry %d: %s", svc.ID, err)
+		return fmt.Errorf("Unable to delete revNAT entry %+v: %s", revNATKey, err)
 	}
 
 	return nil
 }
 
+// AddBackend adds a backend into a BPF map.
 func AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) error {
 	var (
 		backend Backend
@@ -131,19 +135,19 @@ func AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) error {
 	} else {
 		backend, err = NewBackend4(loadbalancer.BackendID(id), ip, port, u8proto.ANY)
 	}
-
 	if err != nil {
 		return fmt.Errorf("Unable to create backend (%d, %s, %d, %t): %s",
 			id, ip, port, ipv6, err)
 	}
 
 	if err := updateBackend(backend); err != nil {
-		return fmt.Errorf("Unable to add backend %q: %s", backend, err)
+		return fmt.Errorf("Unable to add backend %+v: %s", backend, err)
 	}
 
 	return nil
 }
 
+// DeleteBackendByID removes a backend identified with the given ID from a BPF map.
 func DeleteBackendByID(id uint16, ipv6 bool) error {
 	var key BackendKey
 
@@ -154,18 +158,13 @@ func DeleteBackendByID(id uint16, ipv6 bool) error {
 	}
 
 	if err := deleteBackendLocked(key); err != nil {
-		return fmt.Errorf("Unable to remove backend %d (%t): %s", id, ipv6, err)
+		return fmt.Errorf("Unable to delete backend %d (%t): %s", id, ipv6, err)
 	}
 
 	return nil
 }
 
 func updateRevNatLocked(key RevNatKey, value RevNatValue) error {
-	log.WithFields(logrus.Fields{
-		logfields.BPFMapKey:   key,
-		logfields.BPFMapValue: value,
-	}).Debug("adding revNat to lbmap")
-
 	if key.GetKey() == 0 {
 		return fmt.Errorf("invalid RevNat ID (0)")
 	}
@@ -177,8 +176,6 @@ func updateRevNatLocked(key RevNatKey, value RevNatValue) error {
 }
 
 func deleteRevNatLocked(key RevNatKey) error {
-	log.WithField(logfields.BPFMapKey, key).Debug("deleting RevNatKey")
-
 	return key.Map().Delete(key.ToNetwork())
 }
 
