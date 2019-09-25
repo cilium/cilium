@@ -20,11 +20,8 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/pkg/api"
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/lbmap"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/svc"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -80,10 +77,6 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		}
 		backends = append(backends, *b)
 	}
-
-	// FIXME
-	// Add flag to indicate whether service should be registered in
-	// global key value store
 
 	if created, err := h.d.SVCAdd(frontend, backends); err != nil {
 		return api.Error(PutServiceIDFailureCode, err)
@@ -149,42 +142,6 @@ func (h *getService) Handle(params GetServiceParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /service request")
 	list := h.d.GetServiceList()
 	return NewGetServiceOK().WithPayload(list)
-}
-
-func openServiceMaps() error {
-	// Removal of rr-seq maps can be removed in v1.8+.
-	if err := bpf.UnpinMapIfExists("cilium_lb6_rr_seq_v2"); err != nil {
-		return nil
-	}
-	if err := bpf.UnpinMapIfExists("cilium_lb4_rr_seq_v2"); err != nil {
-		return nil
-	}
-
-	if option.Config.EnableIPv6 {
-		if _, err := lbmap.Service6MapV2.OpenOrCreate(); err != nil {
-			return err
-		}
-		if _, err := lbmap.Backend6Map.OpenOrCreate(); err != nil {
-			return err
-		}
-		if _, err := lbmap.RevNat6Map.OpenOrCreate(); err != nil {
-			return err
-		}
-	}
-
-	if option.Config.EnableIPv4 {
-		if _, err := lbmap.Service4MapV2.OpenOrCreate(); err != nil {
-			return err
-		}
-		if _, err := lbmap.Backend4Map.OpenOrCreate(); err != nil {
-			return err
-		}
-		if _, err := lbmap.RevNat4Map.OpenOrCreate(); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // GetServiceList returns list of services

@@ -16,6 +16,7 @@ package svc
 import (
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/k8s"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -76,6 +77,72 @@ func NewService() *Service {
 		backendRefCount: StringCounter{},
 		backendByHash:   map[string]lb.LBBackEnd{},
 	}
+}
+
+func (s *Service) Init(ipv6, ipv4, restore bool) error {
+	s.Lock()
+	defer s.Unlock()
+
+	// Removal of rr-seq maps can be removed in v1.8+.
+	if err := bpf.UnpinMapIfExists("cilium_lb6_rr_seq_v2"); err != nil {
+		return nil
+	}
+	if err := bpf.UnpinMapIfExists("cilium_lb4_rr_seq_v2"); err != nil {
+		return nil
+	}
+
+	// TODO use list
+
+	if ipv6 {
+		if _, err := lbmap.Service6MapV2.OpenOrCreate(); err != nil {
+			return err
+		}
+		if _, err := lbmap.Backend6Map.OpenOrCreate(); err != nil {
+			return err
+		}
+		if _, err := lbmap.RevNat6Map.OpenOrCreate(); err != nil {
+			return err
+		}
+	}
+
+	if ipv4 {
+		if _, err := lbmap.Service4MapV2.OpenOrCreate(); err != nil {
+			return err
+		}
+		if _, err := lbmap.Backend4Map.OpenOrCreate(); err != nil {
+			return err
+		}
+		if _, err := lbmap.RevNat4Map.OpenOrCreate(); err != nil {
+			return err
+		}
+	}
+
+	if !restore {
+		if ipv6 {
+			if err := lbmap.Service6MapV2.DeleteAll(); err != nil {
+				return err
+			}
+			if err := lbmap.Backend6Map.DeleteAll(); err != nil {
+				return err
+			}
+			if err := lbmap.RevNat6Map.DeleteAll(); err != nil {
+				return err
+			}
+		}
+		if ipv4 {
+			if err := lbmap.Service4MapV2.DeleteAll(); err != nil {
+				return err
+			}
+			if err := lbmap.Backend4Map.DeleteAll(); err != nil {
+				return err
+			}
+			if err := lbmap.RevNat4Map.DeleteAll(); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func (s *Service) UpsertService(frontend lb.L3n4AddrID, backends []lb.LBBackEnd, svcType Type) (bool, lb.ID, error) {
