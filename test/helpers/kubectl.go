@@ -71,6 +71,8 @@ const (
 
 	LogGathererSelector  = "k8s-app=cilium-test-logs"
 	LogGathererNamespace = "kube-system"
+
+	CiliumSelector = "k8s-app=cilium"
 )
 
 var (
@@ -1926,26 +1928,14 @@ func (kub *Kubectl) ExecInPods(ctx context.Context, namespace, selector, cmd str
 // DumpCiliumCommandOutput runs a variety of commands (CiliumKubCLICommands) and writes the results to
 // TestResultsPath
 func (kub *Kubectl) DumpCiliumCommandOutput(ctx context.Context, namespace string) {
+	testPath, err := CreateReportDirectory()
+	if err != nil {
+		log.WithError(err).Errorf("cannot create test result path '%s'", testPath)
+		return
+	}
+
 	ReportOnPod := func(pod string) {
 		logger := kub.Logger().WithField("CiliumPod", pod)
-
-		testPath, err := CreateReportDirectory()
-		if err != nil {
-			logger.WithError(err).Errorf("cannot create test result path '%s'", testPath)
-			return
-		}
-
-		genReportCmds := func(cliCmds map[string]string) map[string]string {
-			reportCmds := map[string]string{}
-			for cmd, logfile := range cliCmds {
-				command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, pod, cmd)
-				reportCmds[command] = fmt.Sprintf("%s_%s", pod, logfile)
-			}
-			return reportCmds
-		}
-
-		reportCmds := genReportCmds(ciliumKubCLICommands)
-		kub.reportMapContext(ctx, testPath, reportCmds, LogGathererNamespace, LogGathererSelector)
 
 		logsPath := filepath.Join(kub.BasePath(), testPath)
 
@@ -1994,18 +1984,6 @@ func (kub *Kubectl) DumpCiliumCommandOutput(ctx context.Context, namespace strin
 			_ = kub.ExecPodCmdBackground(ctx, KubeSystemNamespace, pod, fmt.Sprintf("rm /tmp/%s", line))
 		}
 
-		// Finally, get kvstore output - this is best effort; we do this last
-		// because if connectivity to the kvstore is broken from a cilium pod,
-		// we don't want the context above to timeout and as a result, get none
-		// of the other logs from the tests.
-
-		// Use a shorter context for kvstore-related commands to avoid having
-		// further log-gathering fail as well if the first Cilium pod fails to
-		// gather kvstore logs.
-		kvstoreCmdCtx, cancel := context.WithTimeout(ctx, MidCommandTimeout)
-		defer cancel()
-		reportCmds = genReportCmds(ciliumKubCLICommandsKVStore)
-		kub.reportMapContext(kvstoreCmdCtx, testPath, reportCmds, LogGathererNamespace, LogGathererSelector)
 	}
 
 	pods, err := kub.GetCiliumPodsContext(ctx, namespace)
@@ -2013,6 +1991,21 @@ func (kub *Kubectl) DumpCiliumCommandOutput(ctx context.Context, namespace strin
 		kub.Logger().WithError(err).Error("cannot retrieve cilium pods on ReportDump")
 		return
 	}
+
+	kub.reportMapContext(ctx, testPath, ciliumKubCLICommands, namespace, CiliumSelector)
+
+	// Finally, get kvstore output - this is best effort; we do this last
+	// because if connectivity to the kvstore is broken from a cilium pod,
+	// we don't want the context above to timeout and as a result, get none
+	// of the other logs from the tests.
+
+	// Use a shorter context for kvstore-related commands to avoid having
+	// further log-gathering fail as well if the first Cilium pod fails to
+	// gather kvstore logs.
+	kvstoreCmdCtx, cancel := context.WithTimeout(ctx, MidCommandTimeout)
+	defer cancel()
+	kub.reportMapContext(kvstoreCmdCtx, testPath, ciliumKubCLICommandsKVStore, namespace, CiliumSelector)
+
 	for _, pod := range pods {
 		ReportOnPod(pod)
 		kub.GatherCiliumCoreDumps(ctx, pod)
@@ -2054,12 +2047,12 @@ func (kub *Kubectl) GatherLogs(ctx context.Context) {
 			"cannot create test results path '%s'", testPath)
 		return
 	}
-	kub.reportMap(testPath, reportCmds, LogGathererNamespace, LogGathererSelector)
+	kub.reportMapHost(ctx, testPath, reportCmds)
 
 	reportCmds = map[string]string{
 		"journalctl --no-pager -au kubelet": "kubelet.log",
-		"sudo top -n 1 -b":                  "top.log",
-		"sudo ps aux":                       "ps.log",
+		"top -n 1 -b":                       "top.log",
+		"ps aux":                            "ps.log",
 	}
 
 	kub.reportMapContext(ctx, testPath, reportCmds, LogGathererNamespace, LogGathererSelector)
@@ -2525,6 +2518,25 @@ func (kub *Kubectl) reportMapContext(ctx context.Context, path string, reportCmd
 			if err != nil {
 				log.WithError(err).Errorf("cannot create test results for command '%s' from pod %s", cmd, name)
 			}
+		}
+	}
+}
+
+// reportMapHost saves executed commands to files based on provided map
+func (kub *Kubectl) reportMapHost(ctx context.Context, path string, reportCmds map[string]string) {
+	for cmd, logfile := range reportCmds {
+		res := kub.ExecContext(ctx, cmd)
+
+		if !res.WasSuccessful() {
+			log.WithError(res.GetErr("reportMapHost")).Errorf("command %s failed", cmd)
+		}
+
+		err := ioutil.WriteFile(
+			fmt.Sprintf("%s/%s", path, logfile),
+			res.CombineOutput().Bytes(),
+			LogPerm)
+		if err != nil {
+			log.WithError(err).Errorf("cannot create test results for command '%s'", cmd)
 		}
 	}
 }

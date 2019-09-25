@@ -40,7 +40,7 @@ spec:
           name: journald
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
-      hostPID: false
+      hostPID: true
       priorityClassName: system-node-critical
       restartPolicy: Always
       serviceAccount: cilium
