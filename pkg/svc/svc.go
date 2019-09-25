@@ -46,7 +46,7 @@ type Service struct {
 	svcByID   map[lb.ID]*lb.LBSVC
 
 	backendRefCount counter.StringCounter
-	backendByHash   map[string]lb.LBBackEnd // TODO(brb) *lb.LBBackEnd
+	backendByHash   map[string]*lb.LBBackEnd
 }
 
 // NewService creates a new instance of the service handler.
@@ -55,7 +55,7 @@ func NewService() *Service {
 		svcByHash:       map[string]*lb.LBSVC{},
 		svcByID:         map[lb.ID]*lb.LBSVC{},
 		backendRefCount: counter.StringCounter{},
-		backendByHash:   map[string]lb.LBBackEnd{},
+		backendByHash:   map[string]*lb.LBBackEnd{},
 	}
 }
 
@@ -316,7 +316,7 @@ func (s *Service) restoreBackendsLocked() error {
 		}
 
 		hash := b.L3n4Addr.SHA256Sum()
-		s.backendByHash[hash] = *b
+		s.backendByHash[hash] = b
 	}
 
 	return nil
@@ -413,7 +413,7 @@ func (s *Service) updateBackendsCacheLocked(svc *lb.LBSVC, backends []lb.LBBackE
 				}
 				backends[i].ID = id
 				newBackends = append(newBackends, backends[i])
-				s.backendByHash[hash] = backends[i]
+				s.backendByHash[hash] = &backends[i]
 			} else {
 				backends[i].ID = s.backendByHash[hash].ID
 			}
