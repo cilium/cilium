@@ -22,20 +22,14 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/metrics"
 
 	"github.com/sirupsen/logrus"
 )
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "loadbalancer")
-
-	updateMetric = metrics.ServicesCount.WithLabelValues("update")
-	deleteMetric = metrics.ServicesCount.WithLabelValues("delete")
-	addMetric    = metrics.ServicesCount.WithLabelValues("add")
 )
 
 const (
@@ -78,10 +72,11 @@ func (lbbe *LBBackEnd) String() string {
 
 // LBSVC is essentially used for the REST API.
 type LBSVC struct {
-	Sha256   string
-	FE       L3n4AddrID
-	BES      []LBBackEnd
-	NodePort bool
+	Sha256        string
+	FE            L3n4AddrID
+	BES           []LBBackEnd
+	BackendByHash map[string]*LBBackEnd // sha256 -> backend
+	NodePort      bool
 }
 
 type backendPlacement struct {
@@ -122,56 +117,7 @@ func (s *LBSVC) GetModel() *models.Service {
 	}
 }
 
-// SVCMap is a map of the daemon's services. The key is the sha256sum of the LBSVC's FE
-// and the value the LBSVC.
 type SVCMap map[string]LBSVC
-
-// SVCMapID maps service IDs to service structures.
-type SVCMapID map[ServiceID]*LBSVC
-
-// RevNATMap is a map of the daemon's RevNATs.
-type RevNATMap map[ServiceID]L3n4Addr
-
-// LoadBalancer is the internal representation of the loadbalancer in the local cilium
-// daemon.
-type LoadBalancer struct {
-	BPFMapMU lock.RWMutex
-	SVCMap   SVCMap
-	SVCMapID SVCMapID
-}
-
-// AddService adds a service to list of loadbalancers and returns true if created.
-func (lb *LoadBalancer) AddService(svc LBSVC) bool {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.ServiceName: svc.FE.String(),
-		logfields.SHA:         svc.Sha256,
-	})
-
-	oldSvc, ok := lb.SVCMapID[ServiceID(svc.FE.ID)]
-	if ok {
-		// If service already existed, remove old entry from Cilium's map
-		scopedLog.Debug("service is already in lb.SVCMapID; deleting old entry and updating it with new entry")
-		delete(lb.SVCMap, oldSvc.Sha256)
-		updateMetric.Inc()
-	} else {
-		addMetric.Inc()
-	}
-	scopedLog.Debug("adding service to loadbalancer")
-	lb.SVCMap[svc.Sha256] = svc
-	lb.SVCMapID[ServiceID(svc.FE.ID)] = &svc
-	return !ok
-}
-
-// DeleteService deletes svc from lb's SVCMap and SVCMapID.
-func (lb *LoadBalancer) DeleteService(svc *LBSVC) {
-	log.WithFields(logrus.Fields{
-		logfields.ServiceName: svc.FE.String(),
-		logfields.SHA:         svc.Sha256,
-	}).Debug("deleting service from loadbalancer")
-	delete(lb.SVCMap, svc.Sha256)
-	delete(lb.SVCMapID, ServiceID(svc.FE.ID))
-	deleteMetric.Inc()
-}
 
 func NewL4Type(name string) (L4Type, error) {
 	switch strings.ToLower(name) {
@@ -181,14 +127,6 @@ func NewL4Type(name string) (L4Type, error) {
 		return UDP, nil
 	default:
 		return "", fmt.Errorf("unknown L4 protocol")
-	}
-}
-
-// NewLoadBalancer returns a LoadBalancer with all maps initialized.
-func NewLoadBalancer() *LoadBalancer {
-	return &LoadBalancer{
-		SVCMap:   SVCMap{},
-		SVCMapID: SVCMapID{},
 	}
 }
 
