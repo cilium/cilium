@@ -172,7 +172,31 @@ func (s *Service) DeleteService(frontend lb.L3n4Addr) (bool, error) {
 	return false, nil
 }
 
-func (s *Service) DeepCopyServices() []lb.LBSVC {
+func (s *Service) GetDeepCopyServiceByID(id lb.ServiceID) (*lb.LBSVC, bool) {
+	s.RLock()
+	defer s.RUnlock()
+
+	svc, found := s.svcByID[lb.ID(id)]
+	if !found {
+		return nil, false
+	}
+
+	// TODO DRY
+	backends := make([]lb.LBBackEnd, len(svc.BES))
+	for i, backend := range svc.BES {
+		backends[i].L3n4Addr = *backend.DeepCopy()
+		backends[i].ID = backend.ID
+	}
+	copy := lb.LBSVC{
+		FE:       *svc.FE.DeepCopy(),
+		BES:      backends,
+		NodePort: svc.NodePort,
+	}
+
+	return &copy, true
+}
+
+func (s *Service) GetDeepCopyServices() []lb.LBSVC {
 	s.RLock()
 	defer s.RUnlock()
 

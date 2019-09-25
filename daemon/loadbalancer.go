@@ -131,10 +131,7 @@ func (h *getServiceID) Handle(params GetServiceIDParams) middleware.Responder {
 
 	d := h.daemon
 
-	d.loadBalancer.BPFMapMU.RLock()
-	defer d.loadBalancer.BPFMapMU.RUnlock()
-
-	if svc, ok := d.loadBalancer.SVCMapID[loadbalancer.ServiceID(params.ID)]; ok {
+	if svc, ok := d.svc.GetDeepCopyServiceByID(loadbalancer.ServiceID(params.ID)); ok {
 		return NewGetServiceIDOK().WithPayload(svc.GetModel())
 	}
 	return NewGetServiceIDNotFound()
@@ -192,7 +189,7 @@ func openServiceMaps() error {
 
 // GetServiceList returns list of services
 func (d *Daemon) GetServiceList() []*models.Service {
-	svcs := d.svc.DeepCopyServices()
+	svcs := d.svc.GetDeepCopyServices()
 	list := make([]*models.Service, 0, len(svcs))
 
 	for _, v := range svcs {
