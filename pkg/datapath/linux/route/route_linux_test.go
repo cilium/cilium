@@ -21,7 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/testutils"
 
 	"github.com/vishvananda/netlink"
