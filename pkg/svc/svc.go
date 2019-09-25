@@ -39,6 +39,10 @@ const (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "svc")
 
+// Service is a service handler. Its main responsibility is to reflect
+// service-related changes into BPF maps used by datapath BPF programs.
+// The changes can be triggered either by k8s_watcher or directly by
+// API calls to the /services endpoint.
 type Service struct {
 	lock.RWMutex
 
@@ -154,20 +158,20 @@ func (s *Service) UpsertService(
 		prevBackendCount = len(svc.BES)
 	}
 
-	// Update backends cache (allocates backend IDs for new backends)
+	// Update backends cache (handles backend ID allocation / release)
 	newBackends, obsoleteBackendIDs, err := s.updateBackendsCacheLocked(svc, backends)
 	if err != nil {
 		return false, lb.ID(0), err
 	}
 
-	// Add new backends to BPF maps
+	// Add new backends into BPF maps
 	for _, b := range newBackends {
 		if err := lbmap.AddBackend(uint16(b.ID), b.L3n4Addr.IP, b.L3n4Addr.L4Addr.Port, ipv6); err != nil {
 			return false, lb.ID(0), err
 		}
 	}
 
-	// Insert service entries to BPF maps
+	// Upsert service entries into BPF maps
 	backendIDs := make([]uint16, len(backends))
 	for i, b := range backends {
 		backendIDs[i] = uint16(b.ID)
@@ -180,7 +184,7 @@ func (s *Service) UpsertService(
 		return false, lb.ID(0), err
 	}
 
-	// Remove backends not used by any service
+	// Remove backends not used by any service from BPF maps
 	for _, id := range obsoleteBackendIDs {
 		if err := lbmap.DeleteBackendByID(uint16(id), ipv6); err != nil {
 			log.WithError(err).WithField(logfields.BackendID, id).
