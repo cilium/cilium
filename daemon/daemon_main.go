@@ -899,7 +899,7 @@ func initEnv(cmd *cobra.Command) {
 	// the path to an already mounted filesystem instead. This is
 	// useful if the daemon is being round inside a namespace and the
 	// BPF filesystem is mapped into the slave namespace.
-	bpf.CheckOrMountFS(option.Config.BPFRoot)
+	bpf.CheckOrMountFS(option.Config.BPFRoot, k8s.IsEnabled())
 	cgroups.CheckOrMountCgrpFS(option.Config.CGroupRoot)
 
 	option.Config.Opts.SetBool(option.Debug, option.Config.Debug)

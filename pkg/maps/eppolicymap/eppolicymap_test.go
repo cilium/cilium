@@ -52,13 +52,13 @@ func (e *EPPolicyMapTestSuite) TearDownTest(c *C) {
 }
 
 func (e *EPPolicyMapTestSuite) TestCreateEPPolicy(c *C) {
-	bpf.CheckOrMountFS("")
+	bpf.CheckOrMountFS("", false)
 	CreateEPPolicyMap()
 }
 
 func (e *EPPolicyMapTestSuite) TestWriteEndpoint(c *C) {
 	option.Config.SockopsEnable = true
-	bpf.CheckOrMountFS("")
+	bpf.CheckOrMountFS("", false)
 	keys := make([]*lxcmap.EndpointKey, 1)
 	many := make([]*lxcmap.EndpointKey, 256)
 	fd, err := bpf.CreateMap(bpf.BPF_MAP_TYPE_HASH,
@@ -85,7 +85,7 @@ func (e *EPPolicyMapTestSuite) TestWriteEndpoint(c *C) {
 // in invalid fd in if its disabled.
 func (e *EPPolicyMapTestSuite) TestWriteEndpointFails(c *C) {
 	option.Config.SockopsEnable = true
-	bpf.CheckOrMountFS("")
+	bpf.CheckOrMountFS("", false)
 	keys := make([]*lxcmap.EndpointKey, 1)
 	_, err := bpf.CreateMap(bpf.BPF_MAP_TYPE_HASH,
 		uint32(unsafe.Sizeof(policymap.PolicyKey{})),
@@ -101,7 +101,7 @@ func (e *EPPolicyMapTestSuite) TestWriteEndpointFails(c *C) {
 
 func (e *EPPolicyMapTestSuite) TestWriteEndpointDisabled(c *C) {
 	option.Config.SockopsEnable = false
-	bpf.CheckOrMountFS("")
+	bpf.CheckOrMountFS("", false)
 	keys := make([]*lxcmap.EndpointKey, 1)
 	fd, err := bpf.CreateMap(bpf.BPF_MAP_TYPE_HASH,
 		uint32(unsafe.Sizeof(policymap.PolicyKey{})),
