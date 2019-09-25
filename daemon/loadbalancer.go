@@ -200,61 +200,6 @@ func openServiceMaps() error {
 	return nil
 }
 
-// SyncLBMap syncs the bpf lbmap with the daemon's lb map. All bpf entries will overwrite
-// the daemon's LB map. If the bpf lbmap entry has a different service ID than the
-// KVStore's ID (KVStore is currently not used for svc IDs), that entry will be removed.
-func (d *Daemon) SyncLBMap() error {
-	// Don't bother syncing if we are in dry mode.
-	if option.Config.DryMode {
-		return nil
-	}
-
-	log.Info("Restoring services from BPF maps...")
-
-	d.loadBalancer.BPFMapMU.Lock()
-	defer d.loadBalancer.BPFMapMU.Unlock()
-
-	newSVCMapID := loadbalancer.SVCMapID{}
-	failedSyncSVC := []loadbalancer.LBSVC{}
-
-	newSVCMap, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspaceV2()
-	for _, err := range lbmapDumpErrors {
-		log.WithError(err).Warn("Unable to list services in services BPF map")
-	}
-
-	// Need to do this outside of parseSVCEntries to avoid deadlock, because we
-	// are modifying the BPF maps, and calling Dump on a Map RLocks the maps.
-	for _, svc := range newSVCList {
-		scopedLog := log.WithField(logfields.Object, logfields.Repr(svc))
-		if _, err := service.RestoreID(svc.FE.L3n4Addr, uint32(svc.FE.ID)); err != nil {
-			scopedLog.WithError(err).Error("Unable to restore service ID")
-			failedSyncSVC = append(failedSyncSVC, *svc)
-			delete(newSVCMap, svc.Sha256)
-			// Don't update the maps of services since the service failed to
-			// sync.
-			continue
-		}
-		newSVCMapID[loadbalancer.ServiceID(svc.FE.ID)] = svc
-	}
-
-	for _, svc := range failedSyncSVC {
-		if err := d.svcDeleteBPF(svc.FE); err != nil {
-			log.WithError(err).WithField(logfields.Object, logfields.Repr(svc)).
-				Warn("Unable to remove unrestorable service from BPF map")
-		}
-	}
-
-	log.WithFields(logrus.Fields{
-		"restoredServices": len(newSVCMap),
-		"failedServices":   len(failedSyncSVC),
-	}).Info("Restored services from BPF maps")
-
-	d.loadBalancer.SVCMap = newSVCMap
-	d.loadBalancer.SVCMapID = newSVCMapID
-
-	return nil
-}
-
 // syncLBMapsWithK8s ensures that the only contents of all BPF maps related to
 // services  are those that are sent to Cilium via K8s. This function is
 // intended to be ran as part of a // controller by the daemon when bootstrapping,
