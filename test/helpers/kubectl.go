@@ -2558,7 +2558,7 @@ func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.En
 		}
 	}
 	if k8sService == nil {
-		return fmt.Errorf("Could not find Cilium service with ip %s in k8s", cSvc.Spec.FrontendAddress.IP)
+		return fmt.Errorf("Could not find Cilium service with ip %s:%d in k8s", cSvc.Spec.FrontendAddress.IP, cSvc.Spec.FrontendAddress.Port)
 	}
 
 	var k8sServicePort *v1.ServicePort
