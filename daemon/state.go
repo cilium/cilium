@@ -340,10 +340,6 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState) chan struc
 						},
 					},
 				)
-				return
-			}
-			if err := d.SyncLBMap(); err != nil {
-				log.WithError(err).Warn("Error while recovering endpoints")
 			}
 		}()
 	} else {
