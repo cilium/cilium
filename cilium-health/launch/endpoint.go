@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
+	"github.com/cilium/cilium/pkg/sysctl"
 
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
@@ -121,7 +122,12 @@ func configureHealthInterface(netNS ns.NetNS, ifName string, ip4Addr, ip6Addr *n
 			return err
 		}
 
-		if ip6Addr != nil {
+		if ip6Addr == nil {
+			name := fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", ifName)
+			// Ignore the error; if IPv6 is completely disabled
+			// then it's okay if we can't write the sysctl.
+			_ = sysctl.Write(name, "1")
+		} else {
 			if err = netlink.AddrAdd(link, &netlink.Addr{IPNet: ip6Addr}); err != nil {
 				return err
 			}
