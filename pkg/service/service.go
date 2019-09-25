@@ -11,28 +11,23 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package svc
+package service
 
 import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/counter"
-	"github.com/cilium/cilium/pkg/k8s"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/service"
 
 	"github.com/sirupsen/logrus"
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "svc")
-
 	updateMetric = metrics.ServicesCount.WithLabelValues("update")
 	deleteMetric = metrics.ServicesCount.WithLabelValues("delete")
 	addMetric    = metrics.ServicesCount.WithLabelValues("add")
@@ -136,7 +131,7 @@ func (s *Service) UpsertService(
 		new = true
 
 		// Allocate service ID for the new service
-		addrID, err := service.AcquireID(frontend.L3n4Addr, uint32(frontend.ID))
+		addrID, err := AcquireID(frontend.L3n4Addr, uint32(frontend.ID))
 		if err != nil {
 			return false, lb.ID(0),
 				fmt.Errorf("Unable to allocate service ID %d for %q: %s",
@@ -289,10 +284,12 @@ func (s *Service) RestoreServices() error {
 }
 
 // SyncWithK8s removes services which are not present in the given
-// list of services retrieved from the k8s service cache.
+// list of services retrieved from the k8s service catch. Due to
+// the circular dependency pkg/k8s -> pkg/service -> pkg/k8s the matching
+// is done via the given callback.
 //
 // Safe to run multiple times.
-func (s *Service) SyncWithK8s(k8sSVCFrontends k8s.FrontendList) error {
+func (s *Service) SyncWithK8s(matchSVC func(lb.L3n4Addr) bool) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -304,7 +301,7 @@ func (s *Service) SyncWithK8s(k8sSVCFrontends k8s.FrontendList) error {
 		}
 		alreadyChecked[hash] = struct{}{}
 
-		if !k8sSVCFrontends.LooseMatch(svc.FE.L3n4Addr) {
+		if !matchSVC(svc.FE.L3n4Addr) {
 			log.WithFields(logrus.Fields{
 				logfields.ServiceID: svc.FE.ID,
 				logfields.L3n4Addr:  logfields.Repr(svc.FE.L3n4Addr)}).
@@ -327,7 +324,7 @@ func (s *Service) restoreBackendsLocked() error {
 	}
 
 	for _, b := range backends {
-		if err := service.RestoreBackendID(b.L3n4Addr, b.ID); err != nil {
+		if err := RestoreBackendID(b.L3n4Addr, b.ID); err != nil {
 			return fmt.Errorf("Unable to restore backend ID %d for %q: %s",
 				b.ID, b.L3n4Addr, err)
 		}
@@ -342,7 +339,7 @@ func (s *Service) restoreBackendsLocked() error {
 func (s *Service) deleteOrphanBackends() error {
 	for hash, b := range s.backendByHash {
 		if s.backendRefCount[hash] == 0 {
-			service.DeleteBackendID(b.ID)
+			DeleteBackendID(b.ID)
 			if err := lbmap.DeleteBackendByID(uint16(b.ID), b.L3n4Addr.IsIPv6()); err != nil {
 				return fmt.Errorf("Unable to remove backend %d from map: %s", b.ID, err)
 			}
@@ -367,7 +364,7 @@ func (s *Service) restoreServicesLocked() error {
 			logfields.ServiceIP: svc.FE.L3n4Addr.String(),
 		})
 
-		if _, err := service.RestoreID(svc.FE.L3n4Addr, uint32(svc.FE.ID)); err != nil {
+		if _, err := RestoreID(svc.FE.L3n4Addr, uint32(svc.FE.ID)); err != nil {
 			failed++
 			scopedLog.WithError(err).Warning("Unable to restore service ID")
 		}
@@ -405,7 +402,7 @@ func (s *Service) deleteServiceLocked(svc *lb.LBSVC) error {
 			return err
 		}
 	}
-	if err := service.DeleteID(uint32(svc.FE.ID)); err != nil {
+	if err := DeleteID(uint32(svc.FE.ID)); err != nil {
 		return fmt.Errorf("Unable to release service ID %d: %s", svc.FE.ID, err)
 	}
 
@@ -425,7 +422,7 @@ func (s *Service) updateBackendsCacheLocked(svc *lb.LBSVC, backends []lb.LBBackE
 
 		if b, found := svc.BackendByHash[hash]; !found {
 			if s.backendRefCount.Add(hash) {
-				id, err := service.AcquireBackendID(backend.L3n4Addr)
+				id, err := AcquireBackendID(backend.L3n4Addr)
 				if err != nil {
 					return nil, nil, fmt.Errorf("Unable to acquire backend ID for %q: %s",
 						backend.L3n4Addr, err)
@@ -445,7 +442,7 @@ func (s *Service) updateBackendsCacheLocked(svc *lb.LBSVC, backends []lb.LBBackE
 		hash := backend.L3n4Addr.SHA256Sum()
 		if _, found := backendSet[hash]; !found {
 			if s.backendRefCount.Delete(hash) {
-				service.DeleteBackendID(backend.ID)
+				DeleteBackendID(backend.ID)
 				delete(s.backendByHash, hash)
 				obsoleteBackendIDs = append(obsoleteBackendIDs, backend.ID)
 			}
@@ -464,7 +461,7 @@ func (s *Service) deleteBackendsFromCacheLocked(svc *lb.LBSVC) []lb.BackendID {
 	for _, backend := range svc.BES {
 		hash := backend.L3n4Addr.SHA256Sum()
 		if s.backendRefCount.Delete(hash) {
-			service.DeleteBackendID(backend.ID)
+			DeleteBackendID(backend.ID)
 			obsoleteBackendIDs = append(obsoleteBackendIDs, backend.ID)
 		}
 	}

@@ -47,9 +47,9 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/serializer"
+	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/spanstat"
-	service "github.com/cilium/cilium/pkg/svc"
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"

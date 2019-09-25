@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/svc"
+	"github.com/cilium/cilium/pkg/service"
 
 	"github.com/go-openapi/runtime/middleware"
 )
@@ -38,7 +38,7 @@ func (d *Daemon) SVCAdd(feL3n4Addr loadbalancer.L3n4AddrID, be []loadbalancer.LB
 		return false, fmt.Errorf("invalid service ID 0")
 	}
 
-	created, id, err := d.svc.UpsertService(feL3n4Addr, be, svc.TypeClusterIP)
+	created, id, err := d.svc.UpsertService(feL3n4Addr, be, service.TypeClusterIP)
 	if err == nil && id != feL3n4Addr.ID {
 		return false,
 			fmt.Errorf("the service provided is already registered with ID %d, please use that ID instead of %d",
