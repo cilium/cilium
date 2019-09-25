@@ -43,7 +43,7 @@ var (
 )
 
 func runTests(m *testing.M) (int, error) {
-	bpf.CheckOrMountFS("")
+	bpf.CheckOrMountFS("", false)
 	if err := bpf.ConfigureResourceLimits(); err != nil {
 		return 1, fmt.Errorf("Failed to configure rlimit")
 	}
