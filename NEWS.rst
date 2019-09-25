@@ -2,6 +2,76 @@
 NEWS
 ******
 
+v1.6.2
+======
+
+::
+
+    André Martins (19):
+          update to k8s 1.16.0.rc.2
+          Makefile: simplify k8s code generation target
+          Makefile: avoid go modules when running k8s code generation
+          test: test against k8s 1.16 by default
+          dev VM: update k8s to v1.16.0-rc.2
+          test: disable non-working k8s upstream test
+          add PR #82410 patch from kubernetes/kubernetes
+          pkg/k8s: create custom dialer function
+          use common custom dialer to connect to etcd
+          test: bump k8s testing versions to 1.13.11, 1.14.7 and 1.15.4
+          charts/managed-etcd: bump cilium-etcd-operator to v2.0.7
+          Gopkg.* bump to k8s 1.16.0
+          test: test against k8s 1.16.0
+          dev VM: update to k8s 1.16.0
+          docs: fix aks guide
+          docs: fix proper nodeinit.enabled flag
+          plugins/cilium-cni: add support for AKS
+          docs: add akz and az to list of spelling words
+          docs/azure: wait for azure-vnet.json to be created
+    
+    Boran Car (2):
+          Refactor probing to reuse client
+          Do not ping during preflight checks
+    
+    Daniel Borkmann (1):
+          iptables: fix cilium_forward chain rules to support openshift
+    
+    Deepesh Pathak (1):
+          daemon: fix container runtime disabled state log
+    
+    Ian Vernon (6):
+          loader: remove hash from compileQueue if build fails
+          daemon: check error from `d.init()`
+          daemon: move directory setup into `SetUpTest`
+          daemon: do not delete directories created by tests if tests fail
+          endpoint: use endpoint ID for error message
+          endpoint: start a controller to retry regeneration
+    
+    Jarno Rajahalme (2):
+          test: Add L3-dependent L7 test with toFQDN
+          endpoint: Update proxy policies when applying policy map changes out-of-band
+    
+    Joe Stringer (3):
+          Dockerfile: Use latest iproute2 image
+          daemon: Start controller when pod labels resolution fails
+          test: Add a standalone test for validating static pod labels
+    
+    John Fastabend (1):
+          cilium: encryption, replace Router() IP with CiliumInternal
+    
+    Martynas Pumputis (3):
+          Revert "Revert "Remove componentstatus from rbac""
+          docs: Update kubeproxy-free guide
+          docs: Do not pin cilium image vsn in kubeproxy-free guide
+    
+    Ray Bejjani (4):
+          CI: increase timeouts by 30m to avoid  k8s-1.10 test timeouts
+          endpoint: Expose Endpoint.ApplyPolicyMapChanges
+          policy: Expose map-update WaitGroup in FQDN update callchains
+          FQDN: Wait on policy map update when adding new IPs
+    
+    Thomas Graf (1):
+          bpf: Don't delete conntrack entries on policy deny
+    
 v1.6.1
 ======
 
