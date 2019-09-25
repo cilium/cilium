@@ -571,10 +571,9 @@ func (d *Daemon) initMaps() error {
 		return err
 	}
 
-	if err := d.svc.Init(option.Config.EnableIPv6, option.Config.EnableIPv4,
+	if err := d.svc.InitMaps(option.Config.EnableIPv6, option.Config.EnableIPv4,
 		option.Config.RestoreState); err != nil {
-
-		log.WithError(err).Fatal("Unable to initialize svc (open service maps)")
+		log.WithError(err).Fatal("Unable to initialize service maps")
 	}
 
 	// Set up the list of IPCache listeners in the daemon, to be

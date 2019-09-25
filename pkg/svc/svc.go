@@ -29,12 +29,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Type is a type of a service.
 type Type string
 
 const (
 	TypeClusterIP = Type("ClusterIP")
 	TypeNodePort  = Type("NodePort")
-	TypeOther     = Type("Other")
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "svc")
@@ -46,9 +46,10 @@ type Service struct {
 	svcByID   map[lb.ID]*lb.LBSVC
 
 	backendRefCount counter.StringCounter
-	backendByHash   map[string]lb.LBBackEnd // TODO(brb)
+	backendByHash   map[string]lb.LBBackEnd // TODO(brb) *lb.LBBackEnd
 }
 
+// NewService creates a new instance of the service handler.
 func NewService() *Service {
 	return &Service{
 		svcByHash:       map[string]*lb.LBSVC{},
@@ -58,11 +59,14 @@ func NewService() *Service {
 	}
 }
 
-func (s *Service) Init(ipv6, ipv4, restore bool) error {
+// InitMaps opens or creates BPF maps used by services.
+//
+// If restore is set to false, entries of the maps are removed.
+func (s *Service) InitMaps(ipv6, ipv4, restore bool) error {
 	s.Lock()
 	defer s.Unlock()
 
-	// Removal of rr-seq maps can be removed in v1.8+.
+	// The following two calls can be removed in v1.8+.
 	if err := bpf.UnpinMapIfExists("cilium_lb6_rr_seq_v2"); err != nil {
 		return nil
 	}
@@ -70,78 +74,57 @@ func (s *Service) Init(ipv6, ipv4, restore bool) error {
 		return nil
 	}
 
-	// TODO use list
-
+	toOpen := []*bpf.Map{}
+	toDelete := []*bpf.Map{}
 	if ipv6 {
-		if _, err := lbmap.Service6MapV2.OpenOrCreate(); err != nil {
-			return err
-		}
-		if _, err := lbmap.Backend6Map.OpenOrCreate(); err != nil {
-			return err
-		}
-		if _, err := lbmap.RevNat6Map.OpenOrCreate(); err != nil {
-			return err
+		toOpen = append(toOpen, lbmap.Service6MapV2, lbmap.Backend6Map, lbmap.RevNat6Map)
+		if !restore {
+			toDelete = append(toDelete, lbmap.Service6MapV2, lbmap.Backend6Map, lbmap.RevNat6Map)
 		}
 	}
-
 	if ipv4 {
-		if _, err := lbmap.Service4MapV2.OpenOrCreate(); err != nil {
-			return err
-		}
-		if _, err := lbmap.Backend4Map.OpenOrCreate(); err != nil {
-			return err
-		}
-		if _, err := lbmap.RevNat4Map.OpenOrCreate(); err != nil {
-			return err
+		toOpen = append(toOpen, lbmap.Service4MapV2, lbmap.Backend4Map, lbmap.RevNat4Map)
+		if !restore {
+			toDelete = append(toDelete, lbmap.Service4MapV2, lbmap.Backend4Map, lbmap.RevNat4Map)
 		}
 	}
 
-	if !restore {
-		if ipv6 {
-			if err := lbmap.Service6MapV2.DeleteAll(); err != nil {
-				return err
-			}
-			if err := lbmap.Backend6Map.DeleteAll(); err != nil {
-				return err
-			}
-			if err := lbmap.RevNat6Map.DeleteAll(); err != nil {
-				return err
-			}
+	for _, m := range toOpen {
+		if _, err := m.OpenOrCreate(); err != nil {
+			return err
 		}
-		if ipv4 {
-			if err := lbmap.Service4MapV2.DeleteAll(); err != nil {
-				return err
-			}
-			if err := lbmap.Backend4Map.DeleteAll(); err != nil {
-				return err
-			}
-			if err := lbmap.RevNat4Map.DeleteAll(); err != nil {
-				return err
-			}
+	}
+	for _, m := range toDelete {
+		if err := m.DeleteAll(); err != nil {
+			return err
 		}
 	}
 
 	return nil
 }
 
-func (s *Service) UpsertService(frontend lb.L3n4AddrID, backends []lb.LBBackEnd, svcType Type) (bool, lb.ID, error) {
+// UpsertService inserts or updates the given service.
+//
+// Returns true if the service hasn't existed before.
+//
+// TODO(brb) split into multiple smaller functions.
+func (s *Service) UpsertService(
+	frontend lb.L3n4AddrID, backends []lb.LBBackEnd, svcType Type) (bool, lb.ID, error) {
+
 	s.Lock()
 	defer s.Unlock()
 
 	var err error
-	new := false
+	new := false // service is new?
 	ipv6 := frontend.IsIPv6()
+	prevBackendCount := 0
 
 	hash := frontend.SHA256Sum()
 	svc, found := s.svcByHash[hash]
 	if !found {
 		new = true
-		// TODO(brb) comment why
-		backendsCopy := []lb.LBBackEnd{}
-		for _, v := range backends {
-			backendsCopy = append(backendsCopy, v)
-		}
 
+		// Allocate service ID for the new service
 		addrID, err := service.AcquireID(frontend.L3n4Addr, uint32(frontend.ID))
 		if err != nil {
 			return false, lb.ID(0),
@@ -149,8 +132,12 @@ func (s *Service) UpsertService(frontend lb.L3n4AddrID, backends []lb.LBBackEnd,
 					frontend.ID, frontend, err)
 		}
 		// TODO(brb) defer ReleaseID
-		// TODO(brb) add svc.ID field
 		frontend.ID = addrID.ID
+
+		backendsCopy := []lb.LBBackEnd{}
+		for _, v := range backends {
+			backendsCopy = append(backendsCopy, v)
+		}
 		svc = &lb.LBSVC{
 			Sha256:        hash,
 			FE:            frontend,
@@ -161,21 +148,26 @@ func (s *Service) UpsertService(frontend lb.L3n4AddrID, backends []lb.LBBackEnd,
 		s.svcByID[frontend.ID] = svc
 		s.svcByHash[hash] = svc
 	} else {
+		// NOTE: We cannot restore svcType from BPF maps, so just set it
+		//       each time (safe until GH#8700 has been fixed).
 		svc.NodePort = svcType == TypeNodePort
+		prevBackendCount = len(svc.BES)
 	}
 
-	prevBackendCount := len(svc.BES)
+	// Update backends cache (allocates backend IDs for new backends)
 	newBackends, obsoleteBackendIDs, err := s.updateBackendsCacheLocked(svc, backends)
 	if err != nil {
 		return false, lb.ID(0), err
 	}
 
+	// Add new backends to BPF maps
 	for _, b := range newBackends {
 		if err := lbmap.AddBackend(uint16(b.ID), b.L3n4Addr.IP, b.L3n4Addr.L4Addr.Port, ipv6); err != nil {
 			return false, lb.ID(0), err
 		}
 	}
 
+	// Insert service entries to BPF maps
 	backendIDs := make([]uint16, len(backends))
 	for i, b := range backends {
 		backendIDs[i] = uint16(b.ID)
@@ -188,16 +180,18 @@ func (s *Service) UpsertService(frontend lb.L3n4AddrID, backends []lb.LBBackEnd,
 		return false, lb.ID(0), err
 	}
 
+	// Remove backends not used by any service
 	for _, id := range obsoleteBackendIDs {
 		if err := lbmap.DeleteBackendByID(uint16(id), ipv6); err != nil {
-			// TODO maybe just log as it's not critical
-			return false, lb.ID(0), err
+			log.WithError(err).WithField(logfields.BackendID, id).
+				Warn("Failed to remove backend from maps")
 		}
 	}
 
 	return new, lb.ID(svc.FE.ID), nil
 }
 
+// DeleteServiceByID removes a service identified by the given ID.
 func (s *Service) DeleteServiceByID(id lb.ServiceID) (bool, error) {
 	s.Lock()
 	defer s.Unlock()
@@ -209,6 +203,7 @@ func (s *Service) DeleteServiceByID(id lb.ServiceID) (bool, error) {
 	return false, nil
 }
 
+// DeleteService removes the given service.
 func (s *Service) DeleteService(frontend lb.L3n4Addr) (bool, error) {
 	s.Lock()
 	defer s.Unlock()
@@ -220,6 +215,10 @@ func (s *Service) DeleteService(frontend lb.L3n4Addr) (bool, error) {
 	return false, nil
 }
 
+// GetDeepCopyServiceByID returns a deep-copy of a service identified with
+// the given ID.
+//
+// If a service cannot be found, returns false.
 func (s *Service) GetDeepCopyServiceByID(id lb.ServiceID) (*lb.LBSVC, bool) {
 	s.RLock()
 	defer s.RUnlock()
@@ -229,43 +228,26 @@ func (s *Service) GetDeepCopyServiceByID(id lb.ServiceID) (*lb.LBSVC, bool) {
 		return nil, false
 	}
 
-	// TODO DRY
-	backends := make([]lb.LBBackEnd, len(svc.BES))
-	for i, backend := range svc.BES {
-		backends[i].L3n4Addr = *backend.DeepCopy()
-		backends[i].ID = backend.ID
-	}
-	copy := lb.LBSVC{
-		FE:       *svc.FE.DeepCopy(),
-		BES:      backends,
-		NodePort: svc.NodePort,
-	}
-
-	return &copy, true
+	return deepCopyLBSVC(svc), true
 }
 
-func (s *Service) GetDeepCopyServices() []lb.LBSVC {
+// GetDeepCopyServices returns a deep-copy of all installed services.
+func (s *Service) GetDeepCopyServices() []*lb.LBSVC {
 	s.RLock()
 	defer s.RUnlock()
 
-	svcs := make([]lb.LBSVC, 0, len(s.svcByHash))
+	svcs := make([]*lb.LBSVC, 0, len(s.svcByHash))
 	for _, svc := range s.svcByHash {
-		backends := make([]lb.LBBackEnd, len(svc.BES))
-		for i, backend := range svc.BES {
-			backends[i].L3n4Addr = *backend.DeepCopy()
-			backends[i].ID = backend.ID
-		}
-		svcs = append(svcs,
-			lb.LBSVC{
-				FE:       *svc.FE.DeepCopy(),
-				BES:      backends,
-				NodePort: svc.NodePort,
-			})
+		svcs = append(svcs, deepCopyLBSVC(svc))
 	}
 
 	return svcs
 }
 
+// RestoreServices restores services from BPF maps.
+//
+// The method should be called once before establishing a connectivity
+// to kube-apiserver.
 func (s *Service) RestoreServices() error {
 	s.Lock()
 	defer s.Unlock()
@@ -275,47 +257,48 @@ func (s *Service) RestoreServices() error {
 		return err
 	}
 
+	// Restore service cache from BPF maps
 	if err := s.restoreServicesLocked(); err != nil {
 		return err
 	}
 
-	// Remove obsolete backends
+	// Remove obsolete backends and release their IDs
 	if err := s.deleteOrphanBackends(); err != nil {
-		// TODO just log a warning
-		return err
+		log.WithError(err).Warn("Failed to remove orphan backends")
+
 	}
 
 	return nil
 }
 
+// SyncWithK8s removes services which are not present in the given
+// list of services retrieved from the k8s service cache.
+//
+// Safe to run multiple times.
 func (s *Service) SyncWithK8s(k8sSVCFrontends k8s.FrontendList) error {
-	// NOTE: s.Lock should be taken after k8sSvcCache.Mutex has been released,
-	//       otherwise a deadlock can happen: See GH-8764.
 	s.Lock()
 	defer s.Unlock()
 
 	alreadyChecked := map[string]struct{}{}
 
 	for hash, svc := range s.svcByHash {
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.ServiceID: svc.FE.ID,
-			logfields.L3n4Addr:  logfields.Repr(svc.FE.L3n4Addr)})
-
 		if _, found := alreadyChecked[hash]; found {
 			continue
 		}
 		alreadyChecked[hash] = struct{}{}
 
 		if !k8sSVCFrontends.LooseMatch(svc.FE.L3n4Addr) {
-			scopedLog.Warning("Deleting no longer present service")
+			log.WithFields(logrus.Fields{
+				logfields.ServiceID: svc.FE.ID,
+				logfields.L3n4Addr:  logfields.Repr(svc.FE.L3n4Addr)}).
+				Warn("Deleting no longer present service")
+
 			if err := s.deleteServiceLocked(svc); err != nil {
 				return fmt.Errorf("Unable to remove service %+v: %s", svc, err)
 			}
 		}
 
 	}
-
-	log.Info("Finished syncing svc maps with in-memory Kubernetes service maps")
 
 	return nil
 }
@@ -376,7 +359,6 @@ func (s *Service) restoreServicesLocked() error {
 			s.backendRefCount.Add(backend.L3n4Addr.SHA256Sum())
 		}
 
-		// TODO check that all fields are restored
 		s.svcByHash[svc.FE.SHA256Sum()] = svcs[i]
 		s.svcByID[svc.FE.ID] = svcs[i]
 		restored++
@@ -385,7 +367,7 @@ func (s *Service) restoreServicesLocked() error {
 	log.WithFields(logrus.Fields{
 		"restored": restored,
 		"failed":   failed,
-	}).Info("Restore services from maps")
+	}).Info("Restored services from maps")
 
 	return nil
 }
@@ -403,13 +385,11 @@ func (s *Service) deleteServiceLocked(svc *lb.LBSVC) error {
 	ipv6 := svc.FE.L3n4Addr.IsIPv6()
 	for _, id := range obsoleteBackendIDs {
 		if err := lbmap.DeleteBackendByID(uint16(id), ipv6); err != nil {
-			// TODO maybe just log as it's not critical
 			return err
 		}
 	}
 	if err := service.DeleteID(uint32(svc.FE.ID)); err != nil {
-		// TODO maybe just log as it's not critical
-		return err
+		return fmt.Errorf("Unable to release service ID %d: %s", svc.FE.ID, err)
 	}
 
 	return nil
@@ -471,4 +451,17 @@ func (s *Service) deleteBackendsFromCacheLocked(svc *lb.LBSVC) []lb.BackendID {
 	}
 
 	return obsoleteBackendIDs
+}
+
+func deepCopyLBSVC(svc *lb.LBSVC) *lb.LBSVC {
+	backends := make([]lb.LBBackEnd, len(svc.BES))
+	for i, backend := range svc.BES {
+		backends[i].L3n4Addr = *backend.DeepCopy()
+		backends[i].ID = backend.ID
+	}
+	return &lb.LBSVC{
+		FE:       *svc.FE.DeepCopy(),
+		BES:      backends,
+		NodePort: svc.NodePort,
+	}
 }
