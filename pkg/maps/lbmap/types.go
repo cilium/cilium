@@ -234,14 +234,6 @@ type RevNatValue interface {
 	ToNetwork() RevNatValue
 }
 
-type idx [MaxSeq]uint16
-
-// DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *idx) DeepCopyInto(out *idx) {
-	copy(out[:], in[:])
-	return
-}
-
 // l3n4Addr2ServiceKey converts the given l3n4Addr to a ServiceKey with the slave ID
 // set to 0.
 func l3n4Addr2ServiceKey(l3n4Addr loadbalancer.L3n4AddrID) ServiceKey {
