@@ -16,6 +16,7 @@ package svc
 import (
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/k8s"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -215,6 +216,38 @@ func (s *Service) RestoreServices() error {
 	return nil
 }
 
+func (s *Service) SyncWithK8s(k8sSVCFrontends k8s.FrontendList) error {
+	// NOTE: s.Lock should be taken after k8sSvcCache.Mutex has been released,
+	//       otherwise a deadlock can happen: See GH-8764.
+	s.Lock()
+	defer s.Unlock()
+
+	alreadyChecked := map[string]struct{}{}
+
+	for hash, svc := range s.svcByHash {
+		scopedLog := log.WithFields(logrus.Fields{
+			logfields.ServiceID: svc.FE.ID,
+			logfields.L3n4Addr:  logfields.Repr(svc.FE.L3n4Addr)})
+
+		if _, found := alreadyChecked[hash]; found {
+			continue
+		}
+		alreadyChecked[hash] = struct{}{}
+
+		if !k8sSVCFrontends.LooseMatch(svc.FE.L3n4Addr) {
+			scopedLog.Warning("Deleting no longer present service")
+			if err := s.deleteServiceLocked(svc); err != nil {
+				return fmt.Errorf("Unable to remove service %q: %s", svc, err)
+			}
+		}
+
+	}
+
+	log.Info("Finished syncing svc maps with in-memory Kubernetes service maps")
+
+	return nil
+}
+
 func (s *Service) restoreBackendsLocked() error {
 	backends, err := lbmap.DumpBackendMapsToUserspace()
 	if err != nil {
@@ -271,6 +304,7 @@ func (s *Service) restoreServicesLocked() error {
 			s.backendRefCount.Add(backend.L3n4Addr.SHA256Sum())
 		}
 
+		// TODO check that all fields are restored
 		s.svcByHash[svc.FE.SHA256Sum()] = svcs[i]
 		s.svcByID[svc.FE.ID] = svcs[i]
 		restored++
@@ -301,6 +335,10 @@ func (s *Service) deleteServiceLocked(svc *lb.LBSVC) error {
 			// TODO maybe just log as it's not critical
 			return err
 		}
+	}
+	if err := service.DeleteID(uint32(svc.FE.ID)); err != nil {
+		// TODO maybe just log as it's not critical
+		return err
 	}
 
 	return nil

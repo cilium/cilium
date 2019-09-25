@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/svc"
 
 	"github.com/go-openapi/runtime/middleware"
-	"github.com/sirupsen/logrus"
 )
 
 // SVCAdd is the public method to add services. We assume the ID provided is not in
@@ -196,81 +195,6 @@ func openServiceMaps() error {
 			return err
 		}
 	}
-
-	return nil
-}
-
-// syncLBMapsWithK8s ensures that the only contents of all BPF maps related to
-// services  are those that are sent to Cilium via K8s. This function is
-// intended to be ran as part of a // controller by the daemon when bootstrapping,
-// although it could be called elsewhere it needed. Returns an error if any issues
-// occur dumping BPF maps or deleting entries from BPF maps.
-func (d *Daemon) syncLBMapsWithK8s() error {
-	k8sDeletedServices := map[string]loadbalancer.L3n4AddrID{}
-	alreadyChecked := map[string]struct{}{}
-
-	// Set of L3n4Addrs in string form for storage as a key in map.
-	k8sServicesFrontendAddresses := d.k8sSvcCache.UniqueServiceFrontends()
-
-	// NOTE: loadBalancer.BPFMapMU should be taken after k8sSvcCache.Mutex
-	// has been released, otherwise a deadlock can happen: See GH-8764.
-	d.loadBalancer.BPFMapMU.Lock()
-	defer d.loadBalancer.BPFMapMU.Unlock()
-
-	log.Debugf("dumping BPF service maps to userspace")
-	_, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspaceV2()
-
-	if len(lbmapDumpErrors) > 0 {
-		errorStrings := ""
-		for _, err := range lbmapDumpErrors {
-			errorStrings = fmt.Sprintf("%s, %s", err, errorStrings)
-		}
-		return fmt.Errorf("error(s): %s", errorStrings)
-	}
-
-	// Check whether services in service BPF maps exist in the in-memory
-	// K8s service maps. If not, mark them for deletion.
-	for _, svc := range newSVCList {
-		id := svc.FE.L3n4Addr.StringWithProtocol()
-		if _, ok := alreadyChecked[id]; ok {
-			continue
-		}
-
-		alreadyChecked[id] = struct{}{}
-
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.ServiceID: svc.FE.ID,
-			logfields.L3n4Addr:  logfields.Repr(svc.FE.L3n4Addr)})
-
-		if !k8sServicesFrontendAddresses.LooseMatch(svc.FE.L3n4Addr) {
-			scopedLog.Warning("Deleting no longer present service in datapath")
-			k8sDeletedServices[id] = svc.FE
-			continue
-		}
-
-		scopedLog.Debug("Found matching k8s service for service in BPF map")
-	}
-
-	bpfDeleteErrors := []error{}
-	// Delete map entries from BPF which don't exist in list of Kubernetes
-	// services.
-	for _, svc := range k8sDeletedServices {
-		svcLogger := log.WithField(logfields.Object, logfields.Repr(svc))
-		svcLogger.Debug("removing service because it was not synced from Kubernetes")
-		if err := d.svcDeleteBPF(svc); err != nil {
-			bpfDeleteErrors = append(bpfDeleteErrors, err)
-		}
-	}
-
-	if len(bpfDeleteErrors) > 0 {
-		bpfErrorsString := ""
-		for _, err := range bpfDeleteErrors {
-			bpfErrorsString = fmt.Sprintf("%s, %s", err, bpfErrorsString)
-		}
-		return fmt.Errorf("Errors deleting BPF map entries: %s", bpfErrorsString)
-	}
-
-	log.Debugf("successfully synced BPF loadbalancer maps with in-memory Kubernetes service maps")
 
 	return nil
 }
