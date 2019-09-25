@@ -18,8 +18,12 @@ import (
 
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/service"
+
+	"github.com/sirupsen/logrus"
 )
 
 type Type string
@@ -29,6 +33,8 @@ const (
 	TypeNodePort  = Type("NodePort")
 	TypeOther     = Type("Other")
 )
+
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "svc")
 
 // TODO(brb) move to pkg/counter/strings.go
 type StringCounter map[string]int
@@ -59,7 +65,7 @@ type Service struct {
 	svcByID   map[lb.ID]*lb.LBSVC
 
 	backendRefCount StringCounter
-	backendIDByHash map[string]lb.BackendID
+	backendByHash   map[string]lb.LBBackEnd
 }
 
 func NewService() *Service {
@@ -67,7 +73,7 @@ func NewService() *Service {
 		svcByHash:       map[string]*lb.LBSVC{},
 		svcByID:         map[lb.ID]*lb.LBSVC{},
 		backendRefCount: StringCounter{},
-		backendIDByHash: map[string]lb.BackendID{},
+		backendByHash:   map[string]lb.LBBackEnd{},
 	}
 }
 
@@ -187,6 +193,97 @@ func (s *Service) DeepCopyServices() []lb.LBSVC {
 	return svcs
 }
 
+func (s *Service) RestoreServices() error {
+	s.Lock()
+	defer s.Unlock()
+
+	// Restore backend IDs
+	if err := s.restoreBackendsLocked(); err != nil {
+		return err
+	}
+
+	if err := s.restoreServicesLocked(); err != nil {
+		return err
+	}
+
+	// Remove obsolete backends
+	if err := s.deleteOrphanBackends(); err != nil {
+		// TODO just log a warning
+		return err
+	}
+
+	return nil
+}
+
+func (s *Service) restoreBackendsLocked() error {
+	backends, err := lbmap.DumpBackendMapsToUserspace()
+	if err != nil {
+		return fmt.Errorf("Unable to dump backend maps: %s", err)
+	}
+
+	for _, b := range backends {
+		if err := service.RestoreBackendID(b.L3n4Addr, b.ID); err != nil {
+			return fmt.Errorf("Unable to restore backend ID %d for %q: %s",
+				b.ID, b.L3n4Addr, err)
+		}
+
+		hash := b.L3n4Addr.SHA256Sum()
+		s.backendByHash[hash] = *b
+	}
+
+	return nil
+}
+
+func (s *Service) deleteOrphanBackends() error {
+	for hash, b := range s.backendByHash {
+		if s.backendRefCount[hash] == 0 {
+			service.DeleteBackendID(b.ID)
+			if err := lbmap.DeleteBackendByID(uint16(b.ID), b.L3n4Addr.IsIPv6()); err != nil {
+				return fmt.Errorf("Unable to remove backend %d from map: %s", b.ID, err)
+			}
+			delete(s.backendByHash, hash)
+		}
+	}
+
+	return nil
+}
+
+func (s *Service) restoreServicesLocked() error {
+	failed, restored := 0, 0
+
+	_, svcs, errors := lbmap.DumpServiceMapsToUserspaceV2()
+	for _, err := range errors {
+		log.WithError(err).Warning("Error occurred while dumping service maps")
+	}
+
+	for i, svc := range svcs {
+		scopedLog := log.WithFields(logrus.Fields{
+			logfields.ServiceID: svc.FE.ID,
+			logfields.ServiceIP: svc.FE.L3n4Addr.String(),
+		})
+
+		if _, err := service.RestoreID(svc.FE.L3n4Addr, uint32(svc.FE.ID)); err != nil {
+			failed++
+			scopedLog.WithError(err).Warning("Unable to restore service ID")
+		}
+
+		for _, backend := range svc.BES {
+			s.backendRefCount.Add(backend.L3n4Addr.SHA256Sum())
+		}
+
+		s.svcByHash[svc.FE.SHA256Sum()] = svcs[i]
+		s.svcByID[svc.FE.ID] = svcs[i]
+		restored++
+	}
+
+	log.WithFields(logrus.Fields{
+		"restored": restored,
+		"failed":   failed,
+	}).Info("Restore services from maps")
+
+	return nil
+}
+
 func (s *Service) deleteServiceLocked(svc *lb.LBSVC) error {
 
 	obsoleteBackendIDs := s.deleteBackendsFromCacheLocked(svc)
@@ -227,9 +324,9 @@ func (s *Service) updateBackendsCacheLocked(svc *lb.LBSVC, backends []lb.LBBackE
 				}
 				backends[i].ID = id
 				newBackends = append(newBackends, backends[i])
-				s.backendIDByHash[hash] = id
+				s.backendByHash[hash] = backends[i]
 			} else {
-				backends[i].ID = s.backendIDByHash[hash]
+				backends[i].ID = s.backendByHash[hash].ID
 			}
 		} else {
 			backends[i].ID = b.ID
@@ -241,7 +338,7 @@ func (s *Service) updateBackendsCacheLocked(svc *lb.LBSVC, backends []lb.LBBackE
 		if _, found := backendSet[hash]; !found {
 			if s.backendRefCount.Delete(hash) {
 				service.DeleteBackendID(backend.ID)
-				delete(s.backendIDByHash, hash)
+				delete(s.backendByHash, hash)
 				obsoleteBackendIDs = append(obsoleteBackendIDs, backend.ID)
 			}
 

@@ -375,7 +375,7 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 	// Also, create missing v2 services from the corresponding legacy ones.
 	if option.Config.RestoreState && !option.Config.DryMode {
 		bootstrapStats.restore.Start()
-		restoreServices()
+		d.svc.RestoreServices()
 		bootstrapStats.restore.End(true)
 	}
 
