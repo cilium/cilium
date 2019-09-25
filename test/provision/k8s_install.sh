@@ -237,6 +237,7 @@ case $K8S_VERSION in
 esac
 
 #Install kubernetes
+set +e
 case $K8S_VERSION in
     "1.8"|"1.9"|"1.10"|"1.11"|"1.12"|"1.13"|"1.14"|"1.15"|"1.16")
         install_k8s_using_packages \
@@ -244,11 +245,17 @@ case $K8S_VERSION in
             kubelet=${K8S_FULL_VERSION}* \
             kubeadm=${K8S_FULL_VERSION}* \
             kubectl=${K8S_FULL_VERSION}*
+		if [ $? -ne 0 ]; then
+			echo "falling back on binary k8s install"
+			set -e
+			install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}"
+		fi
         ;;
 #   "1.16")
 #       install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}"
 #       ;;
 esac
+set -e
 
 case $CONTAINER_RUNTIME in
     "docker")
