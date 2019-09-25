@@ -17,6 +17,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/k8s"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -38,43 +39,21 @@ const (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "svc")
 
-// TODO(brb) move to pkg/counter/strings.go
-type StringCounter map[string]int
-
-func (s StringCounter) Add(key string) (changed bool) {
-	value, exists := s[key]
-	if !exists {
-		changed = true
-	}
-	s[key] = value + 1
-	return changed
-}
-
-func (s StringCounter) Delete(key string) bool {
-	value := s[key]
-	if value <= 1 {
-		delete(s, key)
-		return true
-	}
-	s[key] = value - 1
-	return false
-}
-
 type Service struct {
 	lock.RWMutex
 
 	svcByHash map[string]*lb.LBSVC
 	svcByID   map[lb.ID]*lb.LBSVC
 
-	backendRefCount StringCounter
-	backendByHash   map[string]lb.LBBackEnd
+	backendRefCount counter.StringCounter
+	backendByHash   map[string]lb.LBBackEnd // TODO(brb)
 }
 
 func NewService() *Service {
 	return &Service{
 		svcByHash:       map[string]*lb.LBSVC{},
 		svcByID:         map[lb.ID]*lb.LBSVC{},
-		backendRefCount: StringCounter{},
+		backendRefCount: counter.StringCounter{},
 		backendByHash:   map[string]lb.LBBackEnd{},
 	}
 }
