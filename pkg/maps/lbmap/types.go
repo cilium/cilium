@@ -25,6 +25,16 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// LBMap is the interface describing methods for manipulating service maps.
+type LBMap interface {
+	UpsertService(uint16, net.IP, uint16, []uint16, int, bool) error
+	DeleteService(loadbalancer.L3n4AddrID, int) error
+	AddBackend(uint16, net.IP, uint16, bool) error
+	DeleteBackendByID(uint16, bool) error
+	DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC, []error)
+	DumpBackendMapsToUserspace() (map[BackendAddrID]*loadbalancer.LBBackEnd, error)
+}
+
 // BackendAddrID is the type of a service endpoint's unique identifier which
 // consists of "IP:PORT"
 type BackendAddrID string
