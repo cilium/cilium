@@ -137,7 +137,12 @@ func (s *Service) UpsertService(
 	var err error
 	new := false // service is new?
 	ipv6 := frontend.IsIPv6()
-	prevBackendCount := 0
+
+	backendsCopy := []lb.LBBackEnd{}
+	for _, v := range backends {
+		// TODO(brb) deep copy?
+		backendsCopy = append(backendsCopy, v)
+	}
 
 	hash := frontend.SHA256Sum()
 	svc, found := s.svcByHash[hash]
@@ -154,14 +159,9 @@ func (s *Service) UpsertService(
 		// TODO(brb) defer ReleaseID
 		frontend.ID = addrID.ID
 
-		backendsCopy := []lb.LBBackEnd{}
-		for _, v := range backends {
-			backendsCopy = append(backendsCopy, v)
-		}
 		svc = &lb.LBSVC{
 			Sha256:        hash,
 			FE:            frontend,
-			BES:           backendsCopy,
 			BackendByHash: map[string]*lb.LBBackEnd{},
 			NodePort:      svcType == TypeNodePort,
 		}
@@ -171,11 +171,12 @@ func (s *Service) UpsertService(
 		// NOTE: We cannot restore svcType from BPF maps, so just set it
 		//       each time (safe until GH#8700 has been fixed).
 		svc.NodePort = svcType == TypeNodePort
-		prevBackendCount = len(svc.BES)
 	}
 
+	prevBackendCount := len(svc.BES)
+
 	// Update backends cache (handles backend ID allocation / release)
-	newBackends, obsoleteBackendIDs, err := s.updateBackendsCacheLocked(svc, backends)
+	newBackends, obsoleteBackendIDs, err := s.updateBackendsCacheLocked(svc, backendsCopy)
 	if err != nil {
 		return false, lb.ID(0), err
 	}
@@ -188,8 +189,8 @@ func (s *Service) UpsertService(
 	}
 
 	// Upsert service entries into BPF maps
-	backendIDs := make([]uint16, len(backends))
-	for i, b := range backends {
+	backendIDs := make([]uint16, len(backendsCopy))
+	for i, b := range backendsCopy {
 		backendIDs[i] = uint16(b.ID)
 	}
 	err = s.lbmap.UpsertService(
@@ -338,6 +339,10 @@ func (s *Service) restoreBackendsLocked() error {
 	}
 
 	for _, b := range backends {
+		log.WithFields(logrus.Fields{
+			logfields.BackendID: b.ID,
+			logfields.L3n4Addr:  b.L3n4Addr.String(),
+		}).Debug("Restoring backend...")
 		if err := RestoreBackendID(b.L3n4Addr, b.ID); err != nil {
 			return fmt.Errorf("Unable to restore backend ID %d for %q: %s",
 				b.ID, b.L3n4Addr, err)
@@ -377,6 +382,7 @@ func (s *Service) restoreServicesLocked() error {
 			logfields.ServiceID: svc.FE.ID,
 			logfields.ServiceIP: svc.FE.L3n4Addr.String(),
 		})
+		scopedLog.Debug("Restoring service...")
 
 		if _, err := RestoreID(svc.FE.L3n4Addr, uint32(svc.FE.ID)); err != nil {
 			failed++
@@ -387,6 +393,7 @@ func (s *Service) restoreServicesLocked() error {
 			s.backendRefCount.Add(backend.L3n4Addr.SHA256Sum())
 		}
 
+		svc.BackendByHash = map[string]*lb.LBBackEnd{}
 		s.svcByHash[svc.FE.SHA256Sum()] = svcs[i]
 		s.svcByID[svc.FE.ID] = svcs[i]
 		restored++
@@ -425,7 +432,9 @@ func (s *Service) deleteServiceLocked(svc *lb.LBSVC) error {
 	return nil
 }
 
-func (s *Service) updateBackendsCacheLocked(svc *lb.LBSVC, backends []lb.LBBackEnd) ([]lb.LBBackEnd, []lb.BackendID, error) {
+func (s *Service) updateBackendsCacheLocked(svc *lb.LBSVC, backends []lb.LBBackEnd) (
+	[]lb.LBBackEnd, []lb.BackendID, error) {
+
 	obsoleteBackendIDs := []lb.BackendID{}
 	newBackends := []lb.LBBackEnd{}
 	backendSet := map[string]struct{}{}
@@ -443,17 +452,18 @@ func (s *Service) updateBackendsCacheLocked(svc *lb.LBSVC, backends []lb.LBBackE
 				}
 				backends[i].ID = id
 				newBackends = append(newBackends, backends[i])
+				// TODO make backendByHash by value not by ref
 				s.backendByHash[hash] = &backends[i]
 			} else {
 				backends[i].ID = s.backendByHash[hash].ID
 			}
+			svc.BackendByHash[hash] = &backends[i]
 		} else {
 			backends[i].ID = b.ID
 		}
 	}
 
-	for _, backend := range svc.BES {
-		hash := backend.L3n4Addr.SHA256Sum()
+	for hash, backend := range svc.BackendByHash {
 		if _, found := backendSet[hash]; !found {
 			if s.backendRefCount.Delete(hash) {
 				DeleteBackendID(backend.ID)
@@ -472,8 +482,7 @@ func (s *Service) updateBackendsCacheLocked(svc *lb.LBSVC, backends []lb.LBBackE
 func (s *Service) deleteBackendsFromCacheLocked(svc *lb.LBSVC) []lb.BackendID {
 	obsoleteBackendIDs := []lb.BackendID{}
 
-	for _, backend := range svc.BES {
-		hash := backend.L3n4Addr.SHA256Sum()
+	for hash, backend := range svc.BackendByHash {
 		if s.backendRefCount.Delete(hash) {
 			DeleteBackendID(backend.ID)
 			obsoleteBackendIDs = append(obsoleteBackendIDs, backend.ID)
