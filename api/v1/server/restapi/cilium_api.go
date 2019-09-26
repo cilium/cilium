@@ -99,6 +99,9 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		DaemonGetHealthzHandler: daemon.GetHealthzHandlerFunc(func(params daemon.GetHealthzParams) middleware.Responder {
 			return middleware.NotImplemented("operation DaemonGetHealthz has not yet been implemented")
 		}),
+		PolicyGetIPHandler: policy.GetIPHandlerFunc(func(params policy.GetIPParams) middleware.Responder {
+			return middleware.NotImplemented("operation PolicyGetIP has not yet been implemented")
+		}),
 		PolicyGetIdentityHandler: policy.GetIdentityHandlerFunc(func(params policy.GetIdentityParams) middleware.Responder {
 			return middleware.NotImplemented("operation PolicyGetIdentity has not yet been implemented")
 		}),
@@ -232,6 +235,8 @@ type CiliumAPI struct {
 	PolicyGetFqdnNamesHandler policy.GetFqdnNamesHandler
 	// DaemonGetHealthzHandler sets the operation handler for the get healthz operation
 	DaemonGetHealthzHandler daemon.GetHealthzHandler
+	// PolicyGetIPHandler sets the operation handler for the get IP operation
+	PolicyGetIPHandler policy.GetIPHandler
 	// PolicyGetIdentityHandler sets the operation handler for the get identity operation
 	PolicyGetIdentityHandler policy.GetIdentityHandler
 	// PolicyGetIdentityEndpointsHandler sets the operation handler for the get identity endpoints operation
@@ -409,6 +414,10 @@ func (o *CiliumAPI) Validate() error {
 
 	if o.DaemonGetHealthzHandler == nil {
 		unregistered = append(unregistered, "daemon.GetHealthzHandler")
+	}
+
+	if o.PolicyGetIPHandler == nil {
+		unregistered = append(unregistered, "policy.GetIPHandler")
 	}
 
 	if o.PolicyGetIdentityHandler == nil {
@@ -686,6 +695,11 @@ func (o *CiliumAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/healthz"] = daemon.NewGetHealthz(o.context, o.DaemonGetHealthzHandler)
+
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/ip"] = policy.NewGetIP(o.context, o.PolicyGetIPHandler)
 
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
