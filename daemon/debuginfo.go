@@ -66,7 +66,7 @@ func (h *getDebugInfo) Handle(params restapi.GetDebuginfoParams) middleware.Resp
 		dr.EnvironmentVariables = append(dr.EnvironmentVariables, v)
 	}
 
-	dr.ServiceList = d.GetServiceList()
+	dr.ServiceList = getServiceList(d.svc)
 
 	return restapi.NewGetDebuginfoOK().WithPayload(&dr)
 }

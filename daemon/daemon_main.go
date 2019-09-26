@@ -1387,12 +1387,12 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPI {
 	api.PolicyGetPolicyResolveHandler = NewGetPolicyResolveHandler(d)
 
 	// /service/{id}/
-	api.ServiceGetServiceIDHandler = NewGetServiceIDHandler(d)
-	api.ServiceDeleteServiceIDHandler = NewDeleteServiceIDHandler(d)
-	api.ServicePutServiceIDHandler = NewPutServiceIDHandler(d)
+	api.ServiceGetServiceIDHandler = NewGetServiceIDHandler(d.svc)
+	api.ServiceDeleteServiceIDHandler = NewDeleteServiceIDHandler(d.svc)
+	api.ServicePutServiceIDHandler = NewPutServiceIDHandler(d.svc)
 
 	// /service/
-	api.ServiceGetServiceHandler = NewGetServiceHandler(d)
+	api.ServiceGetServiceHandler = NewGetServiceHandler(d.svc)
 
 	// /prefilter/
 	api.PrefilterGetPrefilterHandler = NewGetPrefilterHandler(d)
