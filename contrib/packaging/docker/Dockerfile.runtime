@@ -36,6 +36,7 @@ RUN \
 #
 # Build dependencies
 #
+apt-get update && \
 apt-get install -y --no-install-recommends make git curl ca-certificates xz-utils \
 # Additional iproute2 build dependencies
   gcc git pkg-config bison flex build-essential && \
