@@ -22,23 +22,24 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/source"
 
 	"github.com/go-openapi/runtime/middleware"
 )
 
-type getIPCache struct{}
+type getIP struct{}
 
-// NewGetIPCacheHandler for the global IP cache
-func NewGetIPCacheHandler() GetIPCacheHandler {
-	return &getIPCache{}
+// NewGetIPHandler for the global IP cache
+func NewGetIPHandler() GetIPHandler {
+	return &getIP{}
 }
 
-func (h *getIPCache) Handle(params GetIPCacheParams) middleware.Responder {
+func (h *getIP) Handle(params GetIPParams) middleware.Responder {
 	listener := &ipCacheDumpListener{}
 	if params.Cidr != nil {
 		_, cidrFilter, err := net.ParseCIDR(*params.Cidr)
 		if err != nil {
-			return api.Error(GetIPCacheBadRequestCode, err)
+			return api.Error(GetIPBadRequestCode, err)
 		}
 		listener.cidrFilter = cidrFilter
 	}
@@ -46,17 +47,15 @@ func (h *getIPCache) Handle(params GetIPCacheParams) middleware.Responder {
 	ipcache.IPIdentityCache.DumpToListenerLocked(listener)
 	ipcache.IPIdentityCache.RUnlock()
 	if len(listener.entries) == 0 {
-		return NewGetIPCacheNotFound()
+		return NewGetIPNotFound()
 	}
 
-	return NewGetIPCacheOK().WithPayload(&models.IPCache{
-		Cache: listener.entries,
-	})
+	return NewGetIPOK().WithPayload(listener.entries)
 }
 
 type ipCacheDumpListener struct {
 	cidrFilter *net.IPNet
-	entries    []*models.IPCacheEntry
+	entries    []*models.IPListEntry
 }
 
 // OnIPIdentityCacheChange is called by DumpToListenerLocked
@@ -75,7 +74,7 @@ func (ipc *ipCacheDumpListener) OnIPIdentityCacheChange(modType ipcache.CacheMod
 		hostIP = newHostIP.String()
 	}
 
-	entry := &models.IPCacheEntry{
+	entry := &models.IPListEntry{
 		Cidr:       &cidrStr,
 		Identity:   &identity,
 		HostIP:     hostIP,
@@ -83,9 +82,10 @@ func (ipc *ipCacheDumpListener) OnIPIdentityCacheChange(modType ipcache.CacheMod
 	}
 
 	if k8sMeta != nil {
-		entry.K8sMetadata = &models.IPCacheEntryK8sMetadata{
+		entry.Metadata = &models.IPListEntryMetadata{
+			Source:    string(source.Kubernetes),
 			Namespace: k8sMeta.Namespace,
-			PodName:   k8sMeta.PodName,
+			Name:      k8sMeta.PodName,
 		}
 	}
 

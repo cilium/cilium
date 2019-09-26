@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipcacheMap "github.com/cilium/cilium/pkg/maps/ipcache"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -44,6 +45,11 @@ type datapath interface {
 	TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, error)
 }
 
+// monitor is an interface not notify the monitor about changes to the ipcache
+type monitorNotify interface {
+	SendNotification(typ monitorAPI.AgentNotification, text string) error
+}
+
 // BPFListener implements the ipcache.IPIdentityMappingBPFListener
 // interface with an IPCache store that is backed by BPF maps.
 //
@@ -57,18 +63,58 @@ type BPFListener struct {
 
 	// datapath allows this listener to trigger BPF program regeneration.
 	datapath datapath
+
+	// monitorNotify is used to notify the monitor about ipcache updates
+	monitorNotify monitorNotify
 }
 
-func newListener(m *ipcacheMap.Map, d datapath) *BPFListener {
+func newListener(m *ipcacheMap.Map, d datapath, mn monitorNotify) *BPFListener {
 	return &BPFListener{
-		bpfMap:   m,
-		datapath: d,
+		bpfMap:        m,
+		datapath:      d,
+		monitorNotify: mn,
 	}
 }
 
 // NewListener returns a new listener to push IPCache entries into BPF maps.
-func NewListener(d datapath) *BPFListener {
-	return newListener(ipcacheMap.IPCache, d)
+func NewListener(d datapath, mn monitorNotify) *BPFListener {
+	return newListener(ipcacheMap.IPCache, d, mn)
+}
+
+func (l *BPFListener) notifyMonitor(modType ipcache.CacheModification,
+	cidr net.IPNet, oldHostIP, newHostIP net.IP, oldID *identity.NumericIdentity,
+	newID identity.NumericIdentity, encryptKey uint8, k8sMeta *ipcache.K8sMetadata) {
+	var (
+		k8sNamespace, k8sPodName string
+		newIdentity, oldIdentity uint32
+		oldIdentityPtr           *uint32
+	)
+
+	if l.monitorNotify == nil {
+		return
+	}
+
+	if k8sMeta != nil {
+		k8sNamespace = k8sMeta.Namespace
+		k8sPodName = k8sMeta.PodName
+	}
+
+	newIdentity = newID.Uint32()
+	if oldID != nil {
+		oldIdentity = (*oldID).Uint32()
+		oldIdentityPtr = &oldIdentity
+	}
+
+	repr, err := monitorAPI.IPCacheNotificationRepr(cidr.String(), newIdentity, oldIdentityPtr,
+		newHostIP, oldHostIP, encryptKey, k8sNamespace, k8sPodName)
+	if err == nil {
+		switch modType {
+		case ipcache.Upsert:
+			l.monitorNotify.SendNotification(monitorAPI.AgentNotifyIPCacheUpserted, repr)
+		case ipcache.Delete:
+			l.monitorNotify.SendNotification(monitorAPI.AgentNotifyIPCacheDeleted, repr)
+		}
+	}
 }
 
 // OnIPIdentityCacheChange is called whenever there is a change of state in the
@@ -92,6 +138,8 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 	}
 
 	scopedLog.Debug("Daemon notified of IP-Identity cache state change")
+
+	l.notifyMonitor(modType, cidr, oldHostIP, newHostIP, oldID, newID, encryptKey, k8sMeta)
 
 	// TODO - see if we can factor this into an interface under something like
 	// pkg/datapath instead of in the daemon directly so that the code is more
@@ -241,7 +289,7 @@ func (l *BPFListener) garbageCollect(ctx context.Context) (*sync.WaitGroup, erro
 		if _, err := pendingMap.OpenOrCreate(); err != nil {
 			return nil, fmt.Errorf("Unable to create %s map: %s", pendingMapName, err)
 		}
-		pendingListener := newListener(pendingMap, l.datapath)
+		pendingListener := newListener(pendingMap, l.datapath, nil)
 		ipcache.IPIdentityCache.DumpToListenerLocked(pendingListener)
 		err := pendingMap.Close()
 		if err != nil {

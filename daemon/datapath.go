@@ -580,7 +580,7 @@ func (d *Daemon) initMaps() error {
 	// used by syncEndpointsAndHostIPs()
 	// xDS cache will be added later by calling AddListener(), but only if necessary.
 	ipcache.IPIdentityCache.SetListeners([]ipcache.IPIdentityMappingListener{
-		datapathIpcache.NewListener(d),
+		datapathIpcache.NewListener(d, d),
 	})
 
 	// Start the controller for periodic sync of the metrics map with
