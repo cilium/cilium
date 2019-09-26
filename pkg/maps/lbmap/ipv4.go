@@ -107,8 +107,8 @@ func (k *RevNat4Key) ToNetwork() RevNatKey {
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type RevNat4Value struct {
-	Address types.IPv4
-	Port    uint16
+	Address types.IPv4 `align:"address"`
+	Port    uint16     `align:"port"`
 }
 
 func (v *RevNat4Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
@@ -150,7 +150,7 @@ type Service4KeyV2 struct {
 	Port    uint16     `align:"dport"`
 	Slave   uint16     `align:"slave"`
 	Proto   uint8      `align:"proto"`
-	Pad     pad3uint8
+	Pad     pad3uint8  `align:"pad"`
 }
 
 func NewService4KeyV2(ip net.IP, port uint16, proto u8proto.U8proto, slave uint16) *Service4KeyV2 {
@@ -199,7 +199,7 @@ type Service4ValueV2 struct {
 	BackendID uint32 `align:"backend_id"`
 	Count     uint16 `align:"count"`
 	RevNat    uint16 `align:"rev_nat_index"`
-	Pad       uint32
+	Pad       uint32 `align:"pad"`
 }
 
 func NewService4ValueV2(count uint16, backendID loadbalancer.BackendID, revNat uint16) *Service4ValueV2 {
@@ -261,7 +261,7 @@ type Backend4Value struct {
 	Address types.IPv4      `align:"address"`
 	Port    uint16          `align:"port"`
 	Proto   u8proto.U8proto `align:"proto"`
-	Pad     uint8
+	Pad     uint8           `align:"pad"`
 }
 
 func NewBackend4Value(ip net.IP, port uint16, proto u8proto.U8proto) (*Backend4Value, error) {

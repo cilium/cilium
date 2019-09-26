@@ -108,8 +108,8 @@ func (v *RevNat6Key) ToNetwork() RevNatKey {
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type RevNat6Value struct {
-	Address types.IPv6
-	Port    uint16
+	Address types.IPv6 `align:"address"`
+	Port    uint16     `align:"port"`
 }
 
 func NewRevNat6Value(ip net.IP, port uint16) *RevNat6Value {
@@ -140,7 +140,7 @@ type Service6KeyV2 struct {
 	Port    uint16     `align:"dport"`
 	Slave   uint16     `align:"slave"`
 	Proto   uint8      `align:"proto"`
-	Pad     pad3uint8
+	Pad     pad3uint8  `align:"pad"`
 }
 
 func NewService6KeyV2(ip net.IP, port uint16, proto u8proto.U8proto, slave uint16) *Service6KeyV2 {
@@ -189,7 +189,7 @@ type Service6ValueV2 struct {
 	BackendID uint32 `align:"backend_id"`
 	Count     uint16 `align:"count"`
 	RevNat    uint16 `align:"rev_nat_index"`
-	Pad       uint32
+	Pad       uint32 `align:"pad"`
 }
 
 func NewService6ValueV2(count uint16, backendID loadbalancer.BackendID, revNat uint16) *Service6ValueV2 {
@@ -251,7 +251,7 @@ type Backend6Value struct {
 	Address types.IPv6      `align:"address"`
 	Port    uint16          `align:"port"`
 	Proto   u8proto.U8proto `align:"proto"`
-	Pad     uint8
+	Pad     uint8           `align:"pad"`
 }
 
 func NewBackend6Value(ip net.IP, port uint16, proto u8proto.U8proto) (*Backend6Value, error) {
