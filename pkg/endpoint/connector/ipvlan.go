@@ -16,7 +16,6 @@ package connector
 
 import (
 	"fmt"
-	"math"
 	"strings"
 	"unsafe"
 
@@ -141,8 +140,8 @@ func createTailCallMap() (int, int, error) {
 // the map will be destroyed.
 func setupIpvlanInRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (int, int, error) {
 	rl := unix.Rlimit{
-		Cur: math.MaxUint64,
-		Max: math.MaxUint64,
+		Cur: unix.RLIM_INFINITY,
+		Max: unix.RLIM_INFINITY,
 	}
 
 	err := unix.Setrlimit(unix.RLIMIT_MEMLOCK, &rl)

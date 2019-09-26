@@ -15,8 +15,6 @@
 package bpf
 
 import (
-	"math"
-
 	"golang.org/x/sys/unix"
 )
 
@@ -24,7 +22,7 @@ import (
 // BPF syscall interactions.
 func ConfigureResourceLimits() error {
 	return unix.Setrlimit(unix.RLIMIT_MEMLOCK, &unix.Rlimit{
-		Cur: math.MaxUint64,
-		Max: math.MaxUint64,
+		Cur: unix.RLIM_INFINITY,
+		Max: unix.RLIM_INFINITY,
 	})
 }

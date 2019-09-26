@@ -18,7 +18,6 @@ package bpf
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -550,8 +549,8 @@ func TestDummyProg(progType ProgType, attachType uint32) error {
 		License:    uintptr(unsafe.Pointer(&license[0])),
 	}
 	tmpLim := unix.Rlimit{
-		Cur: math.MaxUint64,
-		Max: math.MaxUint64,
+		Cur: unix.RLIM_INFINITY,
+		Max: unix.RLIM_INFINITY,
 	}
 	err := unix.Getrlimit(unix.RLIMIT_MEMLOCK, &oldLim)
 	if err != nil {
