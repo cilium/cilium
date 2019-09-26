@@ -35,6 +35,9 @@ const (
 	MaxEntries = 65536
 )
 
+// LBBPFMap is an implementation of the LBMap interface.
+type LBBPFMap struct{}
+
 // UpsertService inserts or updates the given service in a BPF map.
 //
 // The corresponding backend entries (identified with the given backendIDs)
@@ -42,7 +45,7 @@ const (
 //
 // The given prevBackendCount denotes a previous service backend entries count,
 // so that the function can remove obsolete ones.
-func UpsertService(
+func (*LBBPFMap) UpsertService(
 	svcID uint16, svcIP net.IP, svcPort uint16,
 	backendIDs []uint16, prevBackendCount int,
 	ipv6 bool) error {
@@ -95,7 +98,7 @@ func UpsertService(
 }
 
 // DeleteService removes given service from a BPF map.
-func DeleteService(svc loadbalancer.L3n4AddrID, backendCount int) error {
+func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int) error {
 	var (
 		svcKey    ServiceKeyV2
 		revNATKey RevNatKey
@@ -124,7 +127,7 @@ func DeleteService(svc loadbalancer.L3n4AddrID, backendCount int) error {
 }
 
 // AddBackend adds a backend into a BPF map.
-func AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) error {
+func (*LBBPFMap) AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) error {
 	var (
 		backend Backend
 		err     error
@@ -148,7 +151,7 @@ func AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) error {
 }
 
 // DeleteBackendByID removes a backend identified with the given ID from a BPF map.
-func DeleteBackendByID(id uint16, ipv6 bool) error {
+func (*LBBPFMap) DeleteBackendByID(id uint16, ipv6 bool) error {
 	var key BackendKey
 
 	if ipv6 {
@@ -181,7 +184,7 @@ func deleteRevNatLocked(key RevNatKey) error {
 
 // DumpServiceMapsToUserspaceV2 dumps the services in the same way as
 // DumpServiceMapsToUserspace.
-func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC, []error) {
+func (*LBBPFMap) DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC, []error) {
 	newSVCMap := loadbalancer.SVCMap{}
 	newSVCList := []*loadbalancer.LBSVC{}
 	errors := []error{}
@@ -272,7 +275,7 @@ func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC,
 }
 
 // DumpBackendMapsToUserspace dumps the backend entries from the BPF maps.
-func DumpBackendMapsToUserspace() (map[BackendAddrID]*loadbalancer.LBBackEnd, error) {
+func (*LBBPFMap) DumpBackendMapsToUserspace() (map[BackendAddrID]*loadbalancer.LBBackEnd, error) {
 	backendValueMap := map[loadbalancer.BackendID]BackendValue{}
 	lbBackends := map[BackendAddrID]*loadbalancer.LBBackEnd{}
 
