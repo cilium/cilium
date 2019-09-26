@@ -189,7 +189,7 @@ type Service6ValueV2 struct {
 	BackendID uint32 `align:"backend_id"`
 	Count     uint16 `align:"count"`
 	RevNat    uint16 `align:"rev_nat_index"`
-	Pad       uint16
+	Pad       uint32
 }
 
 func NewService6ValueV2(count uint16, backendID loadbalancer.BackendID, revNat uint16) *Service6ValueV2 {
