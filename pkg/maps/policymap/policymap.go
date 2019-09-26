@@ -70,10 +70,10 @@ func (pe *PolicyEntry) String() string {
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type PolicyKey struct {
-	Identity         uint32
-	DestPort         uint16 // In network byte-order
-	Nexthdr          uint8
-	TrafficDirection uint8
+	Identity         uint32 `align:"sec_label"`
+	DestPort         uint16 `align:"dport"` // In network byte-order
+	Nexthdr          uint8  `align:"protocol"`
+	TrafficDirection uint8  `align:"egress"`
 }
 
 // PolicyEntry represents an entry in the BPF policy map for an endpoint. It must
@@ -81,12 +81,12 @@ type PolicyKey struct {
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type PolicyEntry struct {
-	ProxyPort uint16 // In network byte-order
-	Pad0      uint16
-	Pad1      uint16
-	Pad2      uint16
-	Packets   uint64
-	Bytes     uint64
+	ProxyPort uint16 `align:"proxy_port"` // In network byte-order
+	Pad0      uint16 `align:"pad0"`
+	Pad1      uint16 `align:"pad1"`
+	Pad2      uint16 `align:"pad2"`
+	Packets   uint64 `align:"packets"`
+	Bytes     uint64 `align:"bytes"`
 }
 
 func (pe *PolicyEntry) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(pe) }
