@@ -38,7 +38,7 @@ JOB_BASE_NAME ?= cilium_test
 
 UTC_DATE=$(shell date -u "+%Y-%m-%d")
 
-GO_VERSION := 1.13.0
+GO_VERSION := 1.13.1
 
 # Since there's a bug with NFS or the kernel, the flock syscall hangs the documentation
 # build in the developer VM. For this reason the documentation build is skipped if NFS
