@@ -27,27 +27,6 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 )
 
-// SVCAdd is the public method to add services. We assume the ID provided is not in
-// sync with the KVStore. If that's the, case the service won't be used and an error is
-// returned to the caller.
-//
-// Returns true if service was created.
-func (d *Daemon) SVCAdd(feL3n4Addr loadbalancer.L3n4AddrID, be []loadbalancer.LBBackEnd) (bool, error) {
-	log.WithField(logfields.ServiceID, feL3n4Addr.String()).Debug("adding service")
-	if feL3n4Addr.ID == 0 {
-		return false, fmt.Errorf("invalid service ID 0")
-	}
-
-	created, id, err := d.svc.UpsertService(feL3n4Addr, be, service.TypeClusterIP)
-	if err == nil && id != feL3n4Addr.ID {
-		return false,
-			fmt.Errorf("the service provided is already registered with ID %d, please use that ID instead of %d",
-				id, feL3n4Addr.ID)
-	}
-
-	return created, err
-}
-
 type putServiceID struct {
 	d *Daemon
 }
@@ -59,6 +38,10 @@ func NewPutServiceIDHandler(d *Daemon) PutServiceIDHandler {
 func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /service/{id} request")
 
+	if params.Config.ID == 0 {
+		return api.Error(PutServiceIDFailureCode, fmt.Errorf("invalid service ID 0"))
+	}
+
 	f, err := loadbalancer.NewL3n4AddrFromModel(params.Config.FrontendAddress)
 	if err != nil {
 		return api.Error(PutServiceIDInvalidFrontendCode, err)
@@ -68,7 +51,6 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		L3n4Addr: *f,
 		ID:       loadbalancer.ID(params.Config.ID),
 	}
-
 	backends := []loadbalancer.LBBackEnd{}
 	for _, v := range params.Config.BackendAddresses {
 		b, err := loadbalancer.NewLBBackEndFromBackendModel(v)
@@ -78,7 +60,12 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		backends = append(backends, *b)
 	}
 
-	if created, err := h.d.SVCAdd(frontend, backends); err != nil {
+	created, id, err := h.d.svc.UpsertService(frontend, backends, service.TypeClusterIP)
+	if err == nil && id != frontend.ID {
+		return api.Error(PutServiceIDInvalidFrontendCode,
+			fmt.Errorf("the service provided is already registered with ID %d, please use that ID instead of %d",
+				id, frontend.ID))
+	} else if err != nil {
 		return api.Error(PutServiceIDFailureCode, err)
 	} else if created {
 		return NewPutServiceIDCreated()
