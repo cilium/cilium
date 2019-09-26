@@ -28,11 +28,11 @@ import (
 )
 
 type putServiceID struct {
-	d *Daemon
+	svc *service.Service
 }
 
-func NewPutServiceIDHandler(d *Daemon) PutServiceIDHandler {
-	return &putServiceID{d: d}
+func NewPutServiceIDHandler(svc *service.Service) PutServiceIDHandler {
+	return &putServiceID{svc: svc}
 }
 
 func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
@@ -60,7 +60,7 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		backends = append(backends, *b)
 	}
 
-	created, id, err := h.d.svc.UpsertService(frontend, backends, service.TypeClusterIP)
+	created, id, err := h.svc.UpsertService(frontend, backends, service.TypeClusterIP)
 	if err == nil && id != frontend.ID {
 		return api.Error(PutServiceIDInvalidFrontendCode,
 			fmt.Errorf("the service provided is already registered with ID %d, please use that ID instead of %d",
@@ -75,17 +75,17 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 }
 
 type deleteServiceID struct {
-	d *Daemon
+	svc *service.Service
 }
 
-func NewDeleteServiceIDHandler(d *Daemon) DeleteServiceIDHandler {
-	return &deleteServiceID{d: d}
+func NewDeleteServiceIDHandler(svc *service.Service) DeleteServiceIDHandler {
+	return &deleteServiceID{svc: svc}
 }
 
 func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /service/{id} request")
 
-	found, err := h.d.svc.DeleteServiceByID(loadbalancer.ServiceID(params.ID))
+	found, err := h.svc.DeleteServiceByID(loadbalancer.ServiceID(params.ID))
 	switch {
 	case err != nil:
 		log.WithError(err).WithField(logfields.ServiceID, params.ID).
@@ -99,41 +99,38 @@ func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Respon
 }
 
 type getServiceID struct {
-	daemon *Daemon
+	svc *service.Service
 }
 
-func NewGetServiceIDHandler(d *Daemon) GetServiceIDHandler {
-	return &getServiceID{daemon: d}
+func NewGetServiceIDHandler(svc *service.Service) GetServiceIDHandler {
+	return &getServiceID{svc: svc}
 }
 
 func (h *getServiceID) Handle(params GetServiceIDParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /service/{id} request")
 
-	d := h.daemon
-
-	if svc, ok := d.svc.GetDeepCopyServiceByID(loadbalancer.ServiceID(params.ID)); ok {
+	if svc, ok := h.svc.GetDeepCopyServiceByID(loadbalancer.ServiceID(params.ID)); ok {
 		return NewGetServiceIDOK().WithPayload(svc.GetModel())
 	}
 	return NewGetServiceIDNotFound()
 }
 
 type getService struct {
-	d *Daemon
+	svc *service.Service
 }
 
-func NewGetServiceHandler(d *Daemon) GetServiceHandler {
-	return &getService{d: d}
+func NewGetServiceHandler(svc *service.Service) GetServiceHandler {
+	return &getService{svc: svc}
 }
 
 func (h *getService) Handle(params GetServiceParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /service request")
-	list := h.d.GetServiceList()
+	list := getServiceList(h.svc)
 	return NewGetServiceOK().WithPayload(list)
 }
 
-// GetServiceList returns list of services
-func (d *Daemon) GetServiceList() []*models.Service {
-	svcs := d.svc.GetDeepCopyServices()
+func getServiceList(svc *service.Service) []*models.Service {
+	svcs := svc.GetDeepCopyServices()
 	list := make([]*models.Service, 0, len(svcs))
 
 	for _, v := range svcs {
