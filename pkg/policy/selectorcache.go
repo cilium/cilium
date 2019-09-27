@@ -548,15 +548,21 @@ func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, identiti
 // an identical EndpointSelector has already been cached, the corresponding
 // CachedSelector is returned, otherwise one is created and added to the cache.
 func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api.FQDNSelector) (cachedSelector CachedSelector, added bool) {
-	sc.mutex.Lock()
-	defer sc.mutex.Unlock()
-
 	key := fqdnSelec.String()
+
+	// If the selector already exists, use it.
+	sc.mutex.Lock()
 	fqdnSel, exists := sc.selectors[key]
 	if exists {
-		return fqdnSel, fqdnSel.addUser(user)
+		added := fqdnSel.addUser(user)
+		sc.mutex.Unlock()
+		return fqdnSel, added
 	}
+	sc.mutex.Unlock()
 
+	// Create the new selector. Pulling the identities it selects could
+	// cause allocation of new CIDR identities, so we do this while not
+	// holding the 'sc.mutex'.
 	newFQDNSel := &fqdnSelector{
 		selectorManager: selectorManager{
 			key:              key,
@@ -567,15 +573,18 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 		dnsProxy: sc.localIdentityNotifier,
 	}
 
-	// Add the initial user
-	newFQDNSel.users[user] = struct{}{}
-
-	// Make the FQDN subsystem aware of this selector.
+	// Make the FQDN subsystem aware of this selector and fetch identities
+	// that the FQDN subsystem is aware of.
+	//
+	// If the same 'fqdnSelec' is registered twice here from different
+	// goroutines, we do *NOT* need to unregister the second one because
+	// 'fqdnSelec' is just a struct passed by value. The call below doesn't
+	// retain any references/pointers.
+	//
+	// If this is called twice, one of the results will arbitrarily contain
+	// a real slice of ids, while the other will receive nil. We must fold
+	// them together below.
 	ids := newFQDNSel.dnsProxy.RegisterForIdentityUpdates(newFQDNSel.selector)
-	for _, id := range ids {
-		newFQDNSel.cachedSelections[id] = struct{}{}
-	}
-	newFQDNSel.updateSelections()
 
 	// Do not go through the identity cache to see what identities "match" this
 	// selector. This has to be updated via whatever is getting the CIDR identities
@@ -590,9 +599,29 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 	// current selections after adding a selector. This way the
 	// behavior is the same between the two cases here (selector
 	// is already cached, or is a new one).
-	sc.selectors[key] = newFQDNSel
 
-	return newFQDNSel, true
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+
+	// Check whether the selectorCache was updated while 'newFQDNSel' was
+	// being registered without the 'sc.mutex'. If so, use it. Otherwise
+	// we can use the one we just created/configured above.
+	if sel, exists := sc.selectors[key]; exists {
+		newFQDNSel = sel.(*fqdnSelector)
+	} else {
+		sc.selectors[key] = newFQDNSel
+	}
+
+	// Add the ids from the slice above to the FQDN selector in the cache.
+	// This could plausibly happen twice, once with an empty 'ids' slice
+	// and once with the real 'ids' slice. Either way, they are added to
+	// the selector that is stored in 'sc.selectors[]'
+	for _, id := range ids {
+		newFQDNSel.cachedSelections[id] = struct{}{}
+	}
+	newFQDNSel.updateSelections()
+
+	return newFQDNSel, newFQDNSel.addUser(user)
 }
 
 // FindCachedIdentitySelector finds the given api.EndpointSelector in the
