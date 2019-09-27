@@ -25,10 +25,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// BackendAddrID is the type of a service endpoint's unique identifier which
-// consists of "IP:PORT"
-type BackendAddrID string
-
 // ServiceKey is the interface describing protocol independent key for services map v2.
 //
 // NOTE: ServiceKeyV2.String() output should match output of corresponding ServiceKey.String()!
@@ -115,9 +111,6 @@ type BackendValue interface {
 
 	// Get backend port
 	GetPort() uint16
-
-	// Get backend address identifier (string of IP:Port)
-	BackendAddrID() BackendAddrID
 
 	// Convert fields to network byte order.
 	ToNetwork() BackendValue
