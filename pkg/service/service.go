@@ -49,7 +49,7 @@ type LBMap interface {
 	AddBackend(uint16, net.IP, uint16, bool) error
 	DeleteBackendByID(uint16, bool) error
 	DumpServiceMapsToUserspaceV2() (lb.SVCMap, []*lb.LBSVC, []error)
-	DumpBackendMapsToUserspace() (map[lbmap.BackendAddrID]*lb.LBBackEnd, error)
+	DumpBackendMapsToUserspace() ([]*lb.LBBackEnd, error)
 }
 
 // Service is a service handler. Its main responsibility is to reflect
