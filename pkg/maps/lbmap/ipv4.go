@@ -288,10 +288,6 @@ func (v *Backend4Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) 
 func (b *Backend4Value) GetAddress() net.IP { return b.Address.IP() }
 func (b *Backend4Value) GetPort() uint16    { return b.Port }
 
-func (b *Backend4Value) BackendAddrID() BackendAddrID {
-	return BackendAddrID(fmt.Sprintf("%s:%d", b.Address, b.Port))
-}
-
 func (v *Backend4Value) ToNetwork() BackendValue {
 	n := *v
 	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
