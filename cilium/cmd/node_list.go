@@ -62,7 +62,8 @@ func init() {
 }
 
 func formatStatusResponse(w io.Writer, nodes []*models.NodeElement) {
-	nodesOutput := []string{"Name\tIPv4 Address\tEndpoint CIDR\tIPv6 Address\tEndpoint CIDR\n"}
+	nodesOutputHeader := "Name\tIPv4 Address\tEndpoint CIDR\tIPv6 Address\tEndpoint CIDR\n"
+	nodesOutput := make([]string, len(nodes))
 
 	for _, node := range nodes {
 		ipv4, ipv4Range, ipv6, ipv6Range := "", "", "", ""
@@ -83,6 +84,7 @@ func formatStatusResponse(w io.Writer, nodes []*models.NodeElement) {
 
 	if len(nodesOutput) > 1 {
 		tab := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
+		fmt.Fprintf(tab, nodesOutputHeader)
 		sort.Strings(nodesOutput)
 		for _, s := range nodesOutput {
 			fmt.Fprint(tab, s)
