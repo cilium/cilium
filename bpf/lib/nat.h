@@ -47,10 +47,17 @@ struct nat_entry {
 #define NAT_PUNT_TO_STACK	1
 
 #ifdef HAVE_LRU_MAP_TYPE
-#define NAT_MAP_TYPE BPF_MAP_TYPE_LRU_HASH
+# define NAT_MAP_TYPE BPF_MAP_TYPE_LRU_HASH
 #else
-#define NAT_MAP_TYPE BPF_MAP_TYPE_HASH
+# define NAT_MAP_TYPE BPF_MAP_TYPE_HASH
 #endif
+
+#ifdef HAVE_LARGE_INSN_LIMIT
+# define SNAT_COLLISION_RETRIES		128
+#else
+# define SNAT_COLLISION_RETRIES		20
+#endif
+#define SNAT_DETERMINISTIC_RETRIES	6
 
 static __always_inline __be16 __snat_clamp_port_range(__u16 start, __u16 end,
 						      __u16 val)

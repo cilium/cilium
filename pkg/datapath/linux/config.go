@@ -201,9 +201,6 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 	}
 	haveMasquerade := !option.Config.InstallIptRules && option.Config.Masquerade
 	if haveMasquerade || option.Config.EnableNodePort {
-		cDefinesMap["SNAT_COLLISION_RETRIES"] = fmt.Sprintf("%d", nat.CollisionRetriesDefault)
-		cDefinesMap["SNAT_DETERMINISTIC_RETRIES"] = fmt.Sprintf("%d", nat.DeterministicRetriesDefault)
-
 		if option.Config.EnableIPv4 {
 			cDefinesMap["SNAT_MAPPING_IPV4"] = nat.MapNameSnat4Global
 			cDefinesMap["SNAT_MAPPING_IPV4_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
