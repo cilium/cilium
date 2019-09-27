@@ -10,16 +10,8 @@ CLANG ?= $(QUIET) clang
 LLC ?= llc
 
 BPF_TARGETS := bpf-event-test.o elf-demo.o
-TARGETS := $(BPF_TARGETS) perf-event-test unit-test
+TARGETS := $(BPF_TARGETS) unit-test
 all: $(TARGETS)
-
-perf-event-test: perf-event-test.go
-	@$(ECHO_GO)
-	$(QUIET)$(GO) build $(GOBUILD) -o $@ $<
-
-bpf-event-test.o: bpf-event-test.c
-	@$(ECHO_CC)
-	$(CLANG) ${BPF_CC_FLAGS} -c $< -o - | $(LLC) ${BPF_LLC_FLAGS} -o $@
 
 elf-demo.o: elf-demo.c
 	@$(ECHO_CC)
