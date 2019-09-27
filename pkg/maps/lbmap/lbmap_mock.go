@@ -85,6 +85,6 @@ func (m *LBMockMap) DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*load
 	panic("NYI")
 }
 
-func (m *LBMockMap) DumpBackendMapsToUserspace() (map[BackendAddrID]*loadbalancer.LBBackEnd, error) {
+func (m *LBMockMap) DumpBackendMapsToUserspace() ([]*loadbalancer.LBBackEnd, error) {
 	panic("NYI")
 }

@@ -275,9 +275,9 @@ func (*LBBPFMap) DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbal
 }
 
 // DumpBackendMapsToUserspace dumps the backend entries from the BPF maps.
-func (*LBBPFMap) DumpBackendMapsToUserspace() (map[BackendAddrID]*loadbalancer.LBBackEnd, error) {
+func (*LBBPFMap) DumpBackendMapsToUserspace() ([]*loadbalancer.LBBackEnd, error) {
 	backendValueMap := map[loadbalancer.BackendID]BackendValue{}
-	lbBackends := map[BackendAddrID]*loadbalancer.LBBackEnd{}
+	lbBackends := []*loadbalancer.LBBackEnd{}
 
 	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
 		// No need to deep copy the key because we are using the ID which
@@ -306,7 +306,7 @@ func (*LBBPFMap) DumpBackendMapsToUserspace() (map[BackendAddrID]*loadbalancer.L
 		port := backendVal.GetPort()
 		proto := loadbalancer.NONE
 		lbBackend := loadbalancer.NewLBBackEnd(backendID, proto, ip, port)
-		lbBackends[backendVal.BackendAddrID()] = lbBackend
+		lbBackends = append(lbBackends, lbBackend)
 	}
 
 	return lbBackends, nil
