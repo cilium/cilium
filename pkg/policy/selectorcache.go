@@ -544,19 +544,30 @@ func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, identiti
 	fqdnSel.notifyUsers(added, deleted) // disjoint sets, see the comment above
 }
 
+func (sc *SelectorCache) lookupSelectorLocked(key string) identitySelector {
+	if sel, exists := sc.selectors[key]; exists {
+		return sel
+	}
+	return nil
+}
+
 // AddFQDNSelector adds the given api.FQDNSelector in to the selector cache. If
 // an identical EndpointSelector has already been cached, the corresponding
 // CachedSelector is returned, otherwise one is created and added to the cache.
 func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api.FQDNSelector) (cachedSelector CachedSelector, added bool) {
-	sc.mutex.Lock()
-	defer sc.mutex.Unlock()
-
 	key := fqdnSelec.String()
-	fqdnSel, exists := sc.selectors[key]
-	if exists {
-		return fqdnSel, fqdnSel.addUser(user)
-	}
 
+	// If the selector already exists, use it.
+	sc.mutex.Lock()
+	if sel := sc.lookupSelectorLocked(key); sel != nil {
+		sc.mutex.Unlock()
+		return sel, sel.addUser(user)
+	}
+	sc.mutex.Unlock()
+
+	// Create the new selector. Pulling the identities it selects could
+	// cause allocation of new CIDR identities, so we do this while not
+	// holding the 'sc.mutex'.
 	newFQDNSel := &fqdnSelector{
 		selectorManager: selectorManager{
 			key:              key,
@@ -567,15 +578,9 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 		dnsProxy: sc.localIdentityNotifier,
 	}
 
-	// Add the initial user
-	newFQDNSel.users[user] = struct{}{}
-
-	// Make the FQDN subsystem aware of this selector.
+	// Make the FQDN subsystem aware of this selector and fetch identities
+	// that the FQDN subsystem are aware of.
 	ids := newFQDNSel.dnsProxy.RegisterForIdentityUpdates(newFQDNSel.selector)
-	for _, id := range ids {
-		newFQDNSel.cachedSelections[id] = struct{}{}
-	}
-	newFQDNSel.updateSelections()
 
 	// Do not go through the identity cache to see what identities "match" this
 	// selector. This has to be updated via whatever is getting the CIDR identities
@@ -590,9 +595,27 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 	// current selections after adding a selector. This way the
 	// behavior is the same between the two cases here (selector
 	// is already cached, or is a new one).
+
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+
+	// Check whether the selectorCache was updated while 'newFQDNSel' was
+	// being registered without the 'sc.mutex'. If so, use it. Otherwise
+	// we can use the one we just created/configured above.
+	if sel := sc.lookupSelectorLocked(key); sel != nil {
+		// Unregister, discard our local copy.
+		newFQDNSel.dnsProxy.UnregisterForIdentityUpdates(newFQDNSel.selector)
+		return sel, sel.addUser(user)
+	}
+
+	// Configure and add to the cache.
+	for _, id := range ids {
+		newFQDNSel.cachedSelections[id] = struct{}{}
+	}
+	newFQDNSel.updateSelections()
 	sc.selectors[key] = newFQDNSel
 
-	return newFQDNSel, true
+	return newFQDNSel, newFQDNSel.addUser(user)
 }
 
 // FindCachedIdentitySelector finds the given api.EndpointSelector in the
