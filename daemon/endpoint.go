@@ -17,6 +17,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"sync"
 	"time"
 
@@ -58,10 +59,11 @@ func (h *getEndpoint) Handle(params GetEndpointParams) middleware.Responder {
 }
 
 func (d *Daemon) getEndpointList(params GetEndpointParams) []*models.Endpoint {
+	maxGoroutines := runtime.NumCPU()
 	var (
-		epModelsWg, epsAppendWg sync.WaitGroup
-		convertedLabels         labels.Labels
-		resEPs                  []*models.Endpoint
+		epWorkersWg, epsAppendWg sync.WaitGroup
+		convertedLabels          labels.Labels
+		resEPs                   []*models.Endpoint
 	)
 
 	if params.Labels != nil {
@@ -70,17 +72,34 @@ func (d *Daemon) getEndpointList(params GetEndpointParams) []*models.Endpoint {
 	}
 
 	eps := d.endpointManager.GetEndpoints()
-	epModelsCh := make(chan *models.Endpoint, len(eps))
+	if len(eps) < maxGoroutines {
+		maxGoroutines = len(eps)
+	}
+	epsCh := make(chan *endpoint.Endpoint, maxGoroutines)
+	epModelsCh := make(chan *models.Endpoint, maxGoroutines)
 
-	epModelsWg.Add(len(eps))
-	for _, ep := range eps {
-		go func(wg *sync.WaitGroup, epChan chan<- *models.Endpoint, ep *endpoint.Endpoint) {
-			if ep.HasLabels(convertedLabels) {
-				epChan <- ep.GetModel()
+	epWorkersWg.Add(maxGoroutines)
+	for i := 0; i < maxGoroutines; i++ {
+		// Run goroutines to process each endpoint and the corresponding model.
+		// The obtained endpoint model is sent to the endpoint models channel from
+		// where it will be aggregated later.
+		go func(wg *sync.WaitGroup, epModelsChan chan<- *models.Endpoint, epsChan <-chan *endpoint.Endpoint) {
+			for ep := range epsChan {
+				if ep.HasLabels(convertedLabels) {
+					epModelsChan <- ep.GetModel()
+				}
 			}
 			wg.Done()
-		}(&epModelsWg, epModelsCh, ep)
+		}(&epWorkersWg, epModelsCh, epsCh)
 	}
+
+	// Send the endpoints to be aggregated a models to the endpoint channel.
+	go func(epsChan chan<- *endpoint.Endpoint, eps []*endpoint.Endpoint) {
+		for _, ep := range eps {
+			epsChan <- ep
+		}
+		close(epsChan)
+	}(epsCh, eps)
 
 	epsAppendWg.Add(1)
 	// This needs to be done over channels since we might not receive all
@@ -93,7 +112,7 @@ func (d *Daemon) getEndpointList(params GetEndpointParams) []*models.Endpoint {
 		epsAppended.Done()
 	}(&epsAppendWg)
 
-	epModelsWg.Wait()
+	epWorkersWg.Wait()
 	close(epModelsCh)
 	epsAppendWg.Wait()
 
