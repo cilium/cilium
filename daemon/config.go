@@ -115,12 +115,11 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 		PolicyEnforcement: policy.GetPolicyEnabled(),
 	}
 
-	monitorState := d.monitorAgent.State()
 	status := &models.DaemonConfigurationStatus{
 		Addressing:       node.GetNodeAddressing(),
 		K8sConfiguration: k8s.GetKubeconfigPath(),
 		K8sEndpoint:      k8s.GetAPIServerURL(),
-		NodeMonitor:      &monitorState,
+		NodeMonitor:      d.monitorAgent.State(),
 		KvstoreConfiguration: &models.KVstoreConfiguration{
 			Type:    option.Config.KVStore,
 			Options: option.Config.KVStoreOpt,
