@@ -8,10 +8,10 @@
 #include "node_config.h"
 
 #include "lib/common.h"
-#include "lib/conntrack_test.h"
 #include "lib/ipv6.h"
 
 #define SKIP_UNDEF_LPM_LOOKUP_FN
+#include "lib/conntrack_test.h"
 #include "lib/maps.h"
 
 #define htonl bpf_htonl
@@ -106,6 +106,7 @@ int main(int argc, char *argv[])
 	test_lpm_lookup();
 	test_ipv6_addr_clear_suffix();
 	test___ct_update_timeout();
+	test___ct_lookup();
 
 	return 0;
 }
