@@ -733,6 +733,40 @@ func init() {
         }
       }
     },
+    "/ip": {
+      "get": {
+        "description": "Retrieves a list of IPs with known associated information such as\ntheir identities, host addresses, Kubernetes pod names, etc.\nThe list can optionally filtered by a CIDR IP range.\n",
+        "tags": [
+          "policy"
+        ],
+        "summary": "Lists information about known IP addresses",
+        "parameters": [
+          {
+            "$ref": "#/parameters/cidr"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/IPListEntry"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request (error parsing parameters)",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "404": {
+            "description": "No IP cache entries with provided parameters found"
+          }
+        }
+      }
+    },
     "/ipam": {
       "post": {
         "tags": [
@@ -2186,6 +2220,54 @@ func init() {
         },
         "status": {
           "type": "string"
+        }
+      }
+    },
+    "IPListEntry": {
+      "description": "IP entry with metadata",
+      "type": "object",
+      "required": [
+        "cidr",
+        "identity"
+      ],
+      "properties": {
+        "cidr": {
+          "description": "Key of the entry in the form of a CIDR range",
+          "type": "string"
+        },
+        "encryptKey": {
+          "description": "The context ID for the encryption session",
+          "type": "integer"
+        },
+        "hostIP": {
+          "description": "IP address of the host",
+          "type": "string"
+        },
+        "identity": {
+          "description": "Numerical identity assigned to the IP",
+          "type": "integer"
+        },
+        "metadata": {
+          "$ref": "#/definitions/IPListEntryMetadata"
+        }
+      }
+    },
+    "IPListEntryMetadata": {
+      "description": "Additional metadata assigned to an IP list entry",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name assigned to the IP (e.g. Kubernetes pod name)",
+          "type": "string"
+        },
+        "namespace": {
+          "description": "Namespace of the IP (e.g. Kubernetes namespace)",
+          "type": "string"
+        },
+        "source": {
+          "description": "Source of the IP entry and its metadata",
+          "type": "string",
+          "example": "k8s"
         }
       }
     },
@@ -3801,6 +3883,43 @@ func init() {
         }
       }
     },
+    "/ip": {
+      "get": {
+        "description": "Retrieves a list of IPs with known associated information such as\ntheir identities, host addresses, Kubernetes pod names, etc.\nThe list can optionally filtered by a CIDR IP range.\n",
+        "tags": [
+          "policy"
+        ],
+        "summary": "Lists information about known IP addresses",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "A CIDR range of IPs",
+            "name": "cidr",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/IPListEntry"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request (error parsing parameters)",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "404": {
+            "description": "No IP cache entries with provided parameters found"
+          }
+        }
+      }
+    },
     "/ipam": {
       "post": {
         "tags": [
@@ -5311,6 +5430,54 @@ func init() {
         },
         "status": {
           "type": "string"
+        }
+      }
+    },
+    "IPListEntry": {
+      "description": "IP entry with metadata",
+      "type": "object",
+      "required": [
+        "cidr",
+        "identity"
+      ],
+      "properties": {
+        "cidr": {
+          "description": "Key of the entry in the form of a CIDR range",
+          "type": "string"
+        },
+        "encryptKey": {
+          "description": "The context ID for the encryption session",
+          "type": "integer"
+        },
+        "hostIP": {
+          "description": "IP address of the host",
+          "type": "string"
+        },
+        "identity": {
+          "description": "Numerical identity assigned to the IP",
+          "type": "integer"
+        },
+        "metadata": {
+          "$ref": "#/definitions/IPListEntryMetadata"
+        }
+      }
+    },
+    "IPListEntryMetadata": {
+      "description": "Additional metadata assigned to an IP list entry",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name assigned to the IP (e.g. Kubernetes pod name)",
+          "type": "string"
+        },
+        "namespace": {
+          "description": "Namespace of the IP (e.g. Kubernetes namespace)",
+          "type": "string"
+        },
+        "source": {
+          "description": "Source of the IP entry and its metadata",
+          "type": "string",
+          "example": "k8s"
         }
       }
     },

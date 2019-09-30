@@ -40,6 +40,7 @@ daemon/bpf.sha @cilium/bpf
 daemon/datapath.* @cilium/bpf
 daemon/endpoint.* @cilium/endpoint
 daemon/health.* @cilium/health
+daemon/ipcache.* @cilium/ipcache
 daemon/k8s_watcher.* @cilium/kubernetes
 daemon/loadbalancer.* @cilium/loadbalancer
 daemon/metrics.* @cilium/metrics

@@ -182,6 +182,39 @@ func (a *Client) GetFqdnNames(params *GetFqdnNamesParams) (*GetFqdnNamesOK, erro
 }
 
 /*
+GetIP lists information about known IP addresses
+
+Retrieves a list of IPs with known associated information such as
+their identities, host addresses, Kubernetes pod names, etc.
+The list can optionally filtered by a CIDR IP range.
+
+*/
+func (a *Client) GetIP(params *GetIPParams) (*GetIPOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewGetIPParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "GetIP",
+		Method:             "GET",
+		PathPattern:        "/ip",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetIPReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*GetIPOK), nil
+
+}
+
+/*
 GetIdentity retrieves a list of identities that have metadata matching the provided parameters
 
 Retrieves a list of identities that have metadata matching the provided parameters, or all identities if no parameters are provided.
