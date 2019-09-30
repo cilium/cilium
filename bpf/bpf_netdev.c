@@ -228,9 +228,8 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 	dst = (union v6addr *) &ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 #ifdef FROM_HOST
-	if (info == NULL) {
-		/* We have received a packet for which no ipcache entry exists,
-		 * we do not know what to do with this packet, drop it. */
+	if (info == NULL || info->sec_label == WORLD_ID) {
+		/* See IPv4 comment. */
 		return DROP_UNROUTABLE;
 	}
 #endif
@@ -401,9 +400,16 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 #ifdef FROM_HOST
-	if (info == NULL) {
+	if (info == NULL || info->sec_label == WORLD_ID) {
 		/* We have received a packet for which no ipcache entry exists,
-		 * we do not know what to do with this packet, drop it. */
+		 * we do not know what to do with this packet, drop it.
+		 *
+		 * The info == NULL test is soley to satisfy verifier requirements
+		 * as in Cilium case we'll always hit the 0.0.0.0/32 catch-all
+		 * entry. Therefore we need to test for WORLD_ID. It is clearly
+		 * wrong to route a skb to cilium_host for which we don't know
+		 * anything about it as otherwise we'll run into a routing loop.
+		 */
 		return DROP_UNROUTABLE;
 	}
 #endif
