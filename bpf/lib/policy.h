@@ -126,6 +126,17 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 		__sync_fetch_and_add(&policy->packets, 1);
 		goto get_proxy_port;
 	}
+
+	/* Final fallback if allow-all policy is in place. */
+	key.dport = 0;
+	key.protocol = 0;
+	policy = map_lookup_elem(map, &key);
+	if (likely(policy)) {
+		/* FIXME: Need byte counter */
+		__sync_fetch_and_add(&policy->packets, 1);
+		return TC_ACT_OK;
+	}
+
 	return DROP_POLICY;
 get_proxy_port:
 	if (likely(policy)) {
