@@ -208,12 +208,12 @@ func (m *Monitor) perfEventReader(stopCtx context.Context, nPages int) {
 }
 
 // Status returns the current status of the monitor
-func (m *Monitor) Status() models.MonitorStatus {
+func (m *Monitor) Status() *models.MonitorStatus {
 	m.Lock()
 	defer m.Unlock()
 
 	if m.monitorEvents == nil {
-		return models.MonitorStatus{}
+		return nil
 	}
 
 	lost, _, unknown := m.monitorEvents.Stats()
@@ -225,8 +225,7 @@ func (m *Monitor) Status() models.MonitorStatus {
 		Unknown:  int64(unknown),
 	}
 
-	return status
-
+	return &status
 }
 
 // connectionHandler1_2 handles all the incoming connections and sets up the

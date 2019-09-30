@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -107,9 +107,9 @@ func (a *Agent) eventDrainer() {
 }
 
 // State returns the monitor status.
-func (a *Agent) State() models.MonitorStatus {
+func (a *Agent) State() *models.MonitorStatus {
 	if a == nil || a.monitor == nil {
-		return models.MonitorStatus{}
+		return nil
 	}
 
 	return a.monitor.Status()
