@@ -17,6 +17,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -168,6 +169,8 @@ const (
 	AgentNotifyPolicyDeleted
 	AgentNotifyEndpointCreated
 	AgentNotifyEndpointDeleted
+	AgentNotifyIPCacheUpserted
+	AgentNotifyIPCacheDeleted
 )
 
 var notifyTable = map[AgentNotification]string{
@@ -178,6 +181,8 @@ var notifyTable = map[AgentNotification]string{
 	AgentNotifyEndpointCreated:           "Endpoint created",
 	AgentNotifyEndpointDeleted:           "Endpoint deleted",
 	AgentNotifyEndpointRegenerateFail:    "Failed endpoint regeneration",
+	AgentNotifyIPCacheDeleted:            "IPCache entry deleted",
+	AgentNotifyIPCacheUpserted:           "IPCache entry upserted",
 	AgentNotifyPolicyUpdated:             "Policy updated",
 	AgentNotifyPolicyDeleted:             "Policy deleted",
 }
@@ -298,6 +303,39 @@ func EndpointDeleteRepr(e notifications.RegenNotificationInfo) (string, error) {
 		},
 		PodName:   e.GetK8sPodName(),
 		Namespace: e.GetK8sNamespace(),
+	}
+
+	repr, err := json.Marshal(notification)
+
+	return string(repr), err
+}
+
+// IPCacheNotification structures ipcache change notifications
+type IPCacheNotification struct {
+	CIDR        string  `json:"cidr"`
+	Identity    uint32  `json:"id"`
+	OldIdentity *uint32 `json:"old-id,omitempty"`
+
+	HostIP    net.IP `json:"host-ip,omitempty"`
+	OldHostIP net.IP `json:"old-host-ip,omitempty"`
+
+	EncryptKey uint8  `json:"encrypt-key"`
+	Namespace  string `json:"namespace,omitempty"`
+	PodName    string `json:"pod-name,omitempty"`
+}
+
+// IPCacheNotificationRepr returns string representation of monitor notification
+func IPCacheNotificationRepr(cidr string, id uint32, oldID *uint32, hostIP net.IP, oldHostIP net.IP,
+	encryptKey uint8, namespace, podName string) (string, error) {
+	notification := IPCacheNotification{
+		CIDR:        cidr,
+		Identity:    id,
+		OldIdentity: oldID,
+		HostIP:      hostIP,
+		OldHostIP:   oldHostIP,
+		EncryptKey:  encryptKey,
+		Namespace:   namespace,
+		PodName:     podName,
 	}
 
 	repr, err := json.Marshal(notification)
