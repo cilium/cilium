@@ -1419,5 +1419,8 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPI {
 	api.PolicyGetFqdnCacheIDHandler = NewGetFqdnCacheIDHandler(d)
 	api.PolicyGetFqdnNamesHandler = NewGetFqdnNamesHandler(d)
 
+	// /ip/
+	api.PolicyGetIPHandler = NewGetIPHandler()
+
 	return api
 }

@@ -800,6 +800,30 @@ paths:
           description: Invalid request (error parsing parameters)
           schema:
             "$ref": "#/definitions/Error"
+  "/ip":
+    get:
+      summary: Lists information about known IP addresses
+      description: |
+        Retrieves a list of IPs with known associated information such as
+        their identities, host addresses, Kubernetes pod names, etc.
+        The list can optionally filtered by a CIDR IP range.
+      tags:
+      - policy
+      parameters:
+      - "$ref": "#/parameters/cidr"
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: array
+            items:
+              "$ref": "#/definitions/IPListEntry"
+        '400':
+          description: Invalid request (error parsing parameters)
+          schema:
+            "$ref": "#/definitions/Error"
+        '404':
+          description: No IP cache entries with provided parameters found
 parameters:
   endpoint-id:
     name: id
@@ -2155,3 +2179,38 @@ definitions:
       endpoint-id:
         description: The endpoint that made this lookup, or 0 for the agent itself.
         type: integer
+  IPListEntry:
+    description: IP entry with metadata
+    type: object
+    required:
+      - cidr
+      - identity
+    properties:
+      cidr:
+        description: Key of the entry in the form of a CIDR range
+        type: string
+      identity:
+        description: Numerical identity assigned to the IP
+        type: integer
+      hostIP:
+        description: IP address of the host
+        type: string
+      encryptKey:
+        description: The context ID for the encryption session
+        type: integer
+      metadata:
+        "$ref": "#/definitions/IPListEntryMetadata"
+  IPListEntryMetadata:
+    description: Additional metadata assigned to an IP list entry
+    type: object
+    properties:
+      source:
+        description: Source of the IP entry and its metadata
+        type: string
+        example: k8s
+      namespace:
+        description: Namespace of the IP (e.g. Kubernetes namespace)
+        type: string
+      name:
+        description: Name assigned to the IP (e.g. Kubernetes pod name)
+        type: string
