@@ -935,33 +935,33 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 				}
 			}
 
-			// Masquerade all traffic from the host into the
-			// local Cilium cluster range if the source is not
-			// in the cluster range and DNAT has been
-			// applied.  These conditions are met by traffic
-			// redirected via hostports from non-cluster sources.
-			// The SNAT to the cluster address is needed so that
-			// the return traffic from a host proxy (when used) is
-			// routed back via the cilium_host device also
-			// when the source address is originally
-			// outside of the cluster range.
-			//
-			// The following conditions must be met:
-			// * Must be targeted to an IP that IS local
-			// * May not originate from any IP inside of the cluster range
-			// * Must have DNAT applied (k8s hostport, etc.)
+			//// Masquerade all traffic from the host into the
+			//// local Cilium cluster range if the source is not
+			//// in the cluster range and DNAT has been
+			//// applied.  These conditions are met by traffic
+			//// redirected via hostports from non-cluster sources.
+			//// The SNAT to the cluster address is needed so that
+			//// the return traffic from a host proxy (when used) is
+			//// routed back via the cilium_host device also
+			//// when the source address is originally
+			//// outside of the cluster range.
+			////
+			//// The following conditions must be met:
+			//// * Must be targeted to an IP that IS local
+			//// * May not originate from any IP inside of the cluster range
+			//// * Must have DNAT applied (k8s hostport, etc.)
 
-			if err := runProg("iptables", append(
-				m.waitArgs,
-				"-t", "nat",
-				"-A", ciliumPostNatChain,
-				"!", "-s", node.GetIPv4ClusterRange().String(),
-				"-o", localDeliveryInterface,
-				"-m", "conntrack", "--ctstate", "DNAT",
-				"-m", "comment", "--comment", "cilium hostport cluster masquerade",
-				"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()), false); err != nil {
-				return err
-			}
+			//if err := runProg("iptables", append(
+			//	m.waitArgs,
+			//	"-t", "nat",
+			//	"-A", ciliumPostNatChain,
+			//	"!", "-s", node.GetIPv4ClusterRange().String(),
+			//	"-o", localDeliveryInterface,
+			//	"-m", "conntrack", "--ctstate", "DNAT",
+			//	"-m", "comment", "--comment", "cilium hostport cluster masquerade",
+			//	"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()), false); err != nil {
+			//	return err
+			//}
 		}
 	}
 
