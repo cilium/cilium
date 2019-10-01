@@ -138,6 +138,13 @@ func (s *Service) UpsertService(
 	new := false // service is new?
 	ipv6 := frontend.IsIPv6()
 
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.ServiceIP:   frontend.L3n4Addr,
+		logfields.Backends:    backends,
+		logfields.ServiceType: svcType,
+	})
+	scopedLog.Debug("Upserting service")
+
 	backendsCopy := []lb.LBBackEnd{}
 	for _, v := range backends {
 		// TODO(brb) deep copy?
@@ -158,6 +165,9 @@ func (s *Service) UpsertService(
 		}
 		// TODO(brb) defer ReleaseID
 		frontend.ID = addrID.ID
+
+		scopedLog = scopedLog.WithField(logfields.ServiceID, frontend.ID)
+		scopedLog.Debug("Acquired service ID")
 
 		svc = &lb.LBSVC{
 			Sha256:        hash,
@@ -183,6 +193,11 @@ func (s *Service) UpsertService(
 
 	// Add new backends into BPF maps
 	for _, b := range newBackends {
+		scopedLog.WithFields(logrus.Fields{
+			logfields.BackendID: b.ID,
+			logfields.L3n4Addr:  b.L3n4Addr,
+		}).Debug("Adding new backend")
+
 		if err := s.lbmap.AddBackend(uint16(b.ID), b.L3n4Addr.IP, b.L3n4Addr.L4Addr.Port, ipv6); err != nil {
 			return false, lb.ID(0), err
 		}
@@ -203,6 +218,9 @@ func (s *Service) UpsertService(
 
 	// Remove backends not used by any service from BPF maps
 	for _, id := range obsoleteBackendIDs {
+		scopedLog.WithField(logfields.BackendID, id).
+			Debug("Removing obsolete backend")
+
 		if err := s.lbmap.DeleteBackendByID(uint16(id), ipv6); err != nil {
 			log.WithError(err).WithField(logfields.BackendID, id).
 				Warn("Failed to remove backend from maps")
@@ -342,7 +360,7 @@ func (s *Service) restoreBackendsLocked() error {
 		log.WithFields(logrus.Fields{
 			logfields.BackendID: b.ID,
 			logfields.L3n4Addr:  b.L3n4Addr.String(),
-		}).Debug("Restoring backend...")
+		}).Debug("Restoring backend")
 		if err := RestoreBackendID(b.L3n4Addr, b.ID); err != nil {
 			return fmt.Errorf("Unable to restore backend ID %d for %q: %s",
 				b.ID, b.L3n4Addr, err)
@@ -358,6 +376,9 @@ func (s *Service) restoreBackendsLocked() error {
 func (s *Service) deleteOrphanBackends() error {
 	for hash, b := range s.backendByHash {
 		if s.backendRefCount[hash] == 0 {
+			log.WithField(logfields.BackendID, b.ID).
+				Debug("Removing orphan backend")
+
 			DeleteBackendID(b.ID)
 			if err := s.lbmap.DeleteBackendByID(uint16(b.ID), b.L3n4Addr.IsIPv6()); err != nil {
 				return fmt.Errorf("Unable to remove backend %d from map: %s", b.ID, err)
@@ -382,7 +403,7 @@ func (s *Service) restoreServicesLocked() error {
 			logfields.ServiceID: svc.FE.ID,
 			logfields.ServiceIP: svc.FE.L3n4Addr.String(),
 		})
-		scopedLog.Debug("Restoring service...")
+		scopedLog.Debug("Restoring service")
 
 		if _, err := RestoreID(svc.FE.L3n4Addr, uint32(svc.FE.ID)); err != nil {
 			failed++
@@ -413,6 +434,13 @@ func (s *Service) restoreServicesLocked() error {
 func (s *Service) deleteServiceLocked(svc *lb.LBSVC) error {
 	obsoleteBackendIDs := s.deleteBackendsFromCacheLocked(svc)
 
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.ServiceID: svc.FE.ID,
+		logfields.ServiceIP: svc.FE.L3n4Addr,
+		logfields.Backends:  svc.BES,
+	})
+	scopedLog.Debug("Deleting service")
+
 	if err := s.lbmap.DeleteService(svc.FE, len(svc.BES)); err != nil {
 		return err
 	}
@@ -422,6 +450,9 @@ func (s *Service) deleteServiceLocked(svc *lb.LBSVC) error {
 
 	ipv6 := svc.FE.L3n4Addr.IsIPv6()
 	for _, id := range obsoleteBackendIDs {
+		scopedLog.WithField(logfields.BackendID, id).
+			Debug("Deleting obsolete backend")
+
 		if err := s.lbmap.DeleteBackendByID(uint16(id), ipv6); err != nil {
 			return err
 		}
