@@ -389,11 +389,14 @@ func (s *Service) restoreServicesLocked() error {
 			scopedLog.WithError(err).Warning("Unable to restore service ID")
 		}
 
-		for _, backend := range svc.BES {
-			s.backendRefCount.Add(backend.L3n4Addr.SHA256Sum())
+		svc.BackendByHash = map[string]*lb.LBBackEnd{}
+		for j, backend := range svc.BES {
+			hash := backend.L3n4Addr.SHA256Sum()
+			s.backendRefCount.Add(hash)
+			// TODO(brb) move to pkg/loadbalancer.NewBackend
+			svc.BackendByHash[hash] = &svc.BES[j]
 		}
 
-		svc.BackendByHash = map[string]*lb.LBBackEnd{}
 		s.svcByHash[svc.FE.SHA256Sum()] = svcs[i]
 		s.svcByID[svc.FE.ID] = svcs[i]
 		restored++
