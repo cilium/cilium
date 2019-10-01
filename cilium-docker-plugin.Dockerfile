@@ -4,7 +4,7 @@ ADD . /go/src/github.com/cilium/cilium
 WORKDIR /go/src/github.com/cilium/cilium/plugins/cilium-docker
 ARG LOCKDEBUG
 ARG V
-RUN GOOS=linux go build -a -installsuffix cgo -o cilium-docker
+RUN make GOOS=linux LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 EXTRA_GOBUILD_FLAGS="-a -installsuffix cgo"
 RUN strip cilium-docker
 
 FROM scratch
