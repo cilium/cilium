@@ -175,7 +175,7 @@ func (d DummyOwner) LookupRedirectPort(l4 *L4Filter) uint16 {
 
 func bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int, c *C) *Repository {
 	mgr := cache.NewCachingIdentityAllocator(&cache.IdentityAllocatorOwnerMock{})
-	testRepo := NewPolicyRepository(mgr)
+	testRepo := NewPolicyRepository(mgr.GetIdentityCache())
 
 	var wg sync.WaitGroup
 	SetPolicyEnabled(option.DefaultEnforcement)
