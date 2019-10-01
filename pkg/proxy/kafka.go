@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/kafka"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
@@ -514,7 +513,7 @@ func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair, correlati
 
 // UpdateRules is a no-op for kafka redirects, as rules are read directly
 // during request processing.
-func (k *kafkaRedirect) UpdateRules(wg *completion.WaitGroup, l4 *policy.L4Filter) (revert.RevertFunc, error) {
+func (k *kafkaRedirect) UpdateRules(wg *completion.WaitGroup) (revert.RevertFunc, error) {
 	return func() error { return nil }, nil
 }
 
