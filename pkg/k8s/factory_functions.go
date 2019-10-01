@@ -194,12 +194,29 @@ func EqualV2CNP(cnp1, cnp2 *types.SlimCNP) bool {
 		reflect.DeepEqual(cnp1.Specs, cnp2.Specs)
 }
 
+// AnnotationsEqual returns whether the annotation with any key in
+// relevantAnnotations is equal in anno1 and anno2.
+func AnnotationsEqual(relevantAnnotations []string, anno1, anno2 map[string]string) bool {
+	for i := range relevantAnnotations {
+		an := relevantAnnotations[i]
+		if anno1[an] != anno2[an] {
+			return false
+		}
+	}
+	return true
+}
+
 func EqualV1Pod(pod1, pod2 *types.Pod) bool {
 	// We only care about the HostIP, the PodIP and the labels of the pods.
 	if pod1.StatusPodIP != pod2.StatusPodIP ||
 		pod1.StatusHostIP != pod2.StatusHostIP {
 		return false
 	}
+
+	if !AnnotationsEqual([]string{annotation.ProxyVisibility}, pod1.GetAnnotations(), pod2.GetAnnotations()) {
+		return false
+	}
+
 	oldPodLabels := pod1.GetLabels()
 	newPodLabels := pod2.GetLabels()
 	return comparator.MapStringEquals(oldPodLabels, newPodLabels)
