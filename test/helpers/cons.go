@@ -250,6 +250,7 @@ var badLogMessages = map[string][]string{
 	NACKreceived:      nil,
 	RunInitFailed:     {"signal: terminated", "signal: killed"},
 	sizeMismatch:      nil,
+	"DATA RACE":       nil,
 }
 
 var ciliumCLICommands = map[string]string{
