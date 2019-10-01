@@ -739,20 +739,19 @@ func (e *Endpoint) UpdateVisibilityPolicy(anno map[string]string) {
 		err error
 	)
 
-	if anno != nil {
-		if an, ok := anno[annotation.ProxyVisibility]; ok {
-			e.getLogger().Debug("proxy visibility annotation found for pod; creating visibility policy")
-			nvp, err = policy.NewVisibilityPolicy(an)
-			if err != nil {
-				e.getLogger().WithError(err).Warning("unable to parse annotations into visibility policy; disabling visibility policy for endpoint")
-				e.visibilityPolicy = &policy.VisibilityPolicy{
-					Ingress: make(policy.DirectionalVisibilityPolicy),
-					Egress:  make(policy.DirectionalVisibilityPolicy),
-				}
-				return
+	if an, ok := anno[annotation.ProxyVisibility]; ok {
+		e.getLogger().Debug("proxy visibility annotation found for pod; creating visibility policy")
+		nvp, err = policy.NewVisibilityPolicy(an)
+		if err != nil {
+			e.getLogger().WithError(err).Warning("unable to parse annotations into visibility policy; disabling visibility policy for endpoint")
+			e.visibilityPolicy = &policy.VisibilityPolicy{
+				Ingress: make(policy.DirectionalVisibilityPolicy),
+				Egress:  make(policy.DirectionalVisibilityPolicy),
 			}
+			return
 		}
 	}
+
 	e.visibilityPolicy = nvp
 	return
 }
