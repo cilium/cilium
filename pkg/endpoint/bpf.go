@@ -276,61 +276,67 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 		policyEnabled = e.desiredPolicy.EgressPolicyEnabled
 	}
 
-	if !policyEnabled {
-		for _, visMeta := range visPolicy {
-			// Create a redirect for every entry in the visibility policy.
-			if e.hasSidecarProxy && visMeta.Parser == policy.ParserTypeHTTP {
-				continue
-			}
-			var (
-				redirectPort uint16
-				err          error
-				finalizeFunc revert.FinalizeFunc
-				revertFunc   revert.RevertFunc
-			)
-			proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port)
-			redirectPort, err, finalizeFunc, revertFunc = e.proxy.CreateOrUpdateRedirect(visMeta, proxyID, e, proxyWaitGroup)
-			if err != nil {
-				revertStack.Revert() // Ignore errors while reverting. This is best-effort.
-				return err, nil, nil
-			}
-			finalizeList.Append(finalizeFunc)
-			revertStack.Push(revertFunc)
+	// If policy is enabled, do not generate visibility redirects for now.
+	// TODO: generate visibility redirects as well if policy is enabled and
+	// the L4Policy would allow the traffic at L3/L4 for an entry in the
+	// VisibilityPolicy.
+	if policyEnabled {
+		return nil, finalizeList.Finalize, revertStack.Revert
+	}
 
-			if e.realizedRedirects == nil {
-				e.realizedRedirects = make(map[string]uint16)
-			}
-			if _, found := e.realizedRedirects[proxyID]; !found {
-				revertStack.Push(func() error {
-					delete(e.realizedRedirects, proxyID)
-					return nil
-				})
-			}
-			e.realizedRedirects[proxyID] = redirectPort
-
-			desiredRedirects[proxyID] = true
-
-			// Update the endpoint API model to report that Cilium manages a
-			// redirect for that port.
-			e.proxyStatisticsMutex.Lock()
-			proxyStats := e.getProxyStatisticsLocked(proxyID, string(visMeta.Parser), visMeta.Port, visMeta.Ingress)
-			proxyStats.AllocatedProxyPort = int64(redirectPort)
-			e.proxyStatisticsMutex.Unlock()
-
-			updatedStats = append(updatedStats, proxyStats)
-
-			newKey := policy.Key{
-				DestPort:         visMeta.Port,
-				Nexthdr:          uint8(visMeta.Proto),
-				TrafficDirection: direction.Uint8(),
-			}
-
-			e.desiredPolicy.PolicyMapState[newKey] = policy.MapStateEntry{
-				ProxyPort: redirectPort,
-			}
-
-			insertedDesiredMapState[newKey] = struct{}{}
+	for _, visMeta := range visPolicy {
+		// Create a redirect for every entry in the visibility policy.
+		if e.hasSidecarProxy && visMeta.Parser == policy.ParserTypeHTTP {
+			continue
 		}
+		var (
+			redirectPort uint16
+			err          error
+			finalizeFunc revert.FinalizeFunc
+			revertFunc   revert.RevertFunc
+		)
+		proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port)
+		redirectPort, err, finalizeFunc, revertFunc = e.proxy.CreateOrUpdateRedirect(visMeta, proxyID, e, proxyWaitGroup)
+		if err != nil {
+			revertStack.Revert() // Ignore errors while reverting. This is best-effort.
+			return err, nil, nil
+		}
+		finalizeList.Append(finalizeFunc)
+		revertStack.Push(revertFunc)
+
+		if e.realizedRedirects == nil {
+			e.realizedRedirects = make(map[string]uint16)
+		}
+		if _, found := e.realizedRedirects[proxyID]; !found {
+			revertStack.Push(func() error {
+				delete(e.realizedRedirects, proxyID)
+				return nil
+			})
+		}
+		e.realizedRedirects[proxyID] = redirectPort
+
+		desiredRedirects[proxyID] = true
+
+		// Update the endpoint API model to report that Cilium manages a
+		// redirect for that port.
+		e.proxyStatisticsMutex.Lock()
+		proxyStats := e.getProxyStatisticsLocked(proxyID, string(visMeta.Parser), visMeta.Port, visMeta.Ingress)
+		proxyStats.AllocatedProxyPort = int64(redirectPort)
+		e.proxyStatisticsMutex.Unlock()
+
+		updatedStats = append(updatedStats, proxyStats)
+
+		newKey := policy.Key{
+			DestPort:         visMeta.Port,
+			Nexthdr:          uint8(visMeta.Proto),
+			TrafficDirection: direction.Uint8(),
+		}
+
+		e.desiredPolicy.PolicyMapState[newKey] = policy.MapStateEntry{
+			ProxyPort: redirectPort,
+		}
+
+		insertedDesiredMapState[newKey] = struct{}{}
 	}
 
 	revertStack.Push(func() error {
