@@ -145,14 +145,24 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 // writing. On success, returns nil; otherwise, returns an error  indicating the
 // problem that occurred while adding an l7 redirect for the specified policy.
 // Must be called with endpoint.Mutex held.
-func (e *Endpoint) addNewRedirectsFromMap(m policy.L4PolicyMap, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
+func (e *Endpoint) addNewRedirectsFromMap(ingress bool, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
 	if option.Config.DryMode {
 		return nil, nil, nil
 	}
 
-	var finalizeList revert.FinalizeList
-	var revertStack revert.RevertStack
-	var updatedStats []*models.ProxyStatistics
+	var (
+		m            policy.L4PolicyMap
+		finalizeList revert.FinalizeList
+		revertStack  revert.RevertStack
+		updatedStats []*models.ProxyStatistics
+	)
+
+	if ingress {
+		m = e.desiredPolicy.L4Policy.Ingress
+	} else {
+		m = e.desiredPolicy.L4Policy.Egress
+	}
+
 	insertedDesiredMapState := make(map[policy.Key]struct{})
 	updatedDesiredMapState := make(policy.MapState)
 
@@ -217,7 +227,6 @@ func (e *Endpoint) addNewRedirectsFromMap(m policy.L4PolicyMap, desiredRedirects
 
 				e.desiredPolicy.PolicyMapState[keyFromFilter] = policy.MapStateEntry{ProxyPort: redirectPort}
 			}
-
 		}
 	}
 
@@ -242,6 +251,105 @@ func (e *Endpoint) addNewRedirectsFromMap(m policy.L4PolicyMap, desiredRedirects
 	return nil, finalizeList.Finalize, revertStack.Revert
 }
 
+func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
+	var (
+		visPolicy               policy.DirectionalVisibilityPolicy
+		direction               trafficdirection.TrafficDirection
+		policyEnabled           bool
+		finalizeList            revert.FinalizeList
+		revertStack             revert.RevertStack
+		updatedStats            []*models.ProxyStatistics
+		insertedDesiredMapState = make(map[policy.Key]struct{})
+	)
+
+	if e.visibilityPolicy == nil {
+		return nil, finalizeList.Finalize, revertStack.Revert
+	}
+
+	if ingress {
+		visPolicy = e.visibilityPolicy.Ingress
+		direction = trafficdirection.Ingress
+		policyEnabled = e.desiredPolicy.IngressPolicyEnabled
+	} else {
+		visPolicy = e.visibilityPolicy.Egress
+		direction = trafficdirection.Egress
+		policyEnabled = e.desiredPolicy.EgressPolicyEnabled
+	}
+
+	if !policyEnabled {
+		for _, visMeta := range visPolicy {
+			// Create a redirect for every entry in the visibility policy.
+			if !e.hasSidecarProxy || visMeta.Parser != policy.ParserTypeHTTP {
+				var (
+					redirectPort uint16
+					err          error
+					finalizeFunc revert.FinalizeFunc
+					revertFunc   revert.RevertFunc
+				)
+				proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port)
+				redirectPort, err, finalizeFunc, revertFunc = e.proxy.CreateOrUpdateRedirect(visMeta, proxyID, e, proxyWaitGroup)
+				if err != nil {
+					revertStack.Revert() // Ignore errors while reverting. This is best-effort.
+					return err, nil, nil
+				}
+				finalizeList.Append(finalizeFunc)
+				revertStack.Push(revertFunc)
+
+				if e.realizedRedirects == nil {
+					e.realizedRedirects = make(map[string]uint16)
+				}
+				if _, found := e.realizedRedirects[proxyID]; !found {
+					revertStack.Push(func() error {
+						delete(e.realizedRedirects, proxyID)
+						return nil
+					})
+				}
+				e.realizedRedirects[proxyID] = redirectPort
+
+				desiredRedirects[proxyID] = true
+
+				// Update the endpoint API model to report that Cilium manages a
+				// redirect for that port.
+				e.proxyStatisticsMutex.Lock()
+				proxyStats := e.getProxyStatisticsLocked(proxyID, string(visMeta.Parser), visMeta.Port, visMeta.Ingress)
+				proxyStats.AllocatedProxyPort = int64(redirectPort)
+				e.proxyStatisticsMutex.Unlock()
+
+				updatedStats = append(updatedStats, proxyStats)
+
+				newKey := policy.Key{
+					DestPort:         visMeta.Port,
+					Nexthdr:          uint8(visMeta.Proto),
+					TrafficDirection: direction.Uint8(),
+				}
+
+				e.desiredPolicy.PolicyMapState[newKey] = policy.MapStateEntry{
+					ProxyPort: redirectPort,
+				}
+
+				insertedDesiredMapState[newKey] = struct{}{}
+			}
+		}
+	}
+
+	revertStack.Push(func() error {
+		// Restore the proxy stats.
+		e.proxyStatisticsMutex.Lock()
+		for _, stats := range updatedStats {
+			stats.AllocatedProxyPort = 0
+		}
+		e.proxyStatisticsMutex.Unlock()
+
+		// Restore the desired policy map state.
+		for key := range insertedDesiredMapState {
+			delete(e.desiredPolicy.PolicyMapState, key)
+		}
+		return nil
+	})
+
+	return nil, finalizeList.Finalize, revertStack.Revert
+}
+
 // addNewRedirects must be called while holding the endpoint lock for writing.
 // On success, returns nil; otherwise, returns an error indicating the problem
 // that occurred while adding an l7 redirect for the specified policy.
@@ -249,24 +357,46 @@ func (e *Endpoint) addNewRedirectsFromMap(m policy.L4PolicyMap, desiredRedirects
 // required to implement the given L4 policy.
 // Must be called with endpoint.Mutex held.
 func (e *Endpoint) addNewRedirects(m *policy.L4Policy, proxyWaitGroup *completion.WaitGroup) (desiredRedirects map[string]bool, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
+	var (
+		finalizeList revert.FinalizeList
+		revertStack  revert.RevertStack
+		ff           revert.FinalizeFunc
+		rf           revert.RevertFunc
+	)
+
 	desiredRedirects = make(map[string]bool)
-	var finalizeList revert.FinalizeList
-	var revertStack revert.RevertStack
 
-	var ff revert.FinalizeFunc
-	var rf revert.RevertFunc
+	// Ingress redirects.
+	if m != nil && m.HasRedirect() {
+		err, ff, rf = e.addNewRedirectsFromMap(true, desiredRedirects, proxyWaitGroup)
+		if err != nil {
+			return desiredRedirects, fmt.Errorf("unable to allocate ingress redirects: %s", err), nil, nil
+		}
+		finalizeList.Append(ff)
+		revertStack.Push(rf)
+	}
 
-	err, ff, rf = e.addNewRedirectsFromMap(m.Ingress, desiredRedirects, proxyWaitGroup)
+	err, ff, rf = e.addVisibilityRedirects(true, desiredRedirects, proxyWaitGroup)
 	if err != nil {
-		return desiredRedirects, fmt.Errorf("unable to allocate ingress redirects: %s", err), nil, nil
+		return desiredRedirects, fmt.Errorf("unable to allocate ingress visibility redirects: %s", err), nil, nil
 	}
 	finalizeList.Append(ff)
 	revertStack.Push(rf)
 
-	err, ff, rf = e.addNewRedirectsFromMap(m.Egress, desiredRedirects, proxyWaitGroup)
+	// Egress redirects.
+	if m != nil && m.HasRedirect() {
+		err, ff, rf = e.addNewRedirectsFromMap(false, desiredRedirects, proxyWaitGroup)
+		if err != nil {
+			revertStack.Revert() // Ignore errors while reverting. This is best-effort.
+			return desiredRedirects, fmt.Errorf("unable to allocate egress redirects: %s", err), nil, nil
+		}
+		finalizeList.Append(ff)
+		revertStack.Push(rf)
+	}
+
+	err, ff, rf = e.addVisibilityRedirects(false, desiredRedirects, proxyWaitGroup)
 	if err != nil {
-		revertStack.Revert() // Ignore errors while reverting. This is best-effort.
-		return desiredRedirects, fmt.Errorf("unable to allocate egress redirects: %s", err), nil, nil
+		return desiredRedirects, fmt.Errorf("unable to allocate ingress visibility redirects: %s", err), nil, nil
 	}
 	finalizeList.Append(ff)
 	revertStack.Push(rf)
@@ -621,10 +751,12 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 		// Walk the L4Policy to add new redirects and update the desired policy for existing redirects.
 		// Do this before updating the bpf policy maps, so that the proxies are ready when new traffic
 		// is redirected to them.
-		var desiredRedirects map[string]bool
-		var finalizeFunc revert.FinalizeFunc
-		var revertFunc revert.RevertFunc
-		if e.desiredPolicy != nil && e.desiredPolicy.L4Policy != nil && e.desiredPolicy.L4Policy.HasRedirect() {
+		var (
+			desiredRedirects map[string]bool
+			finalizeFunc     revert.FinalizeFunc
+			revertFunc       revert.RevertFunc
+		)
+		if e.desiredPolicy != nil {
 			stats.proxyConfiguration.Start()
 			desiredRedirects, err, finalizeFunc, revertFunc = e.addNewRedirects(e.desiredPolicy.L4Policy, datapathRegenCtxt.proxyWaitGroup)
 			stats.proxyConfiguration.End(err == nil)
