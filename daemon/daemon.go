@@ -331,7 +331,6 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 	d := Daemon{
 		svc:               service.NewService(),
 		k8sSvcCache:       k8s.NewServiceCache(),
-		policy:            policy.NewPolicyRepository(),
 		prefixLengths:     createPrefixLengthCounter(),
 		k8sResourceSynced: map[string]chan struct{}{},
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
@@ -344,7 +343,7 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 	}
 
 	d.identityAllocator = cache.NewCachingIdentityAllocator(&d)
-	d.policy = policy.NewPolicyRepository(d.identityAllocator)
+	d.policy = policy.NewPolicyRepository(d.identityAllocator.GetIdentityCache())
 
 	// Propagate identity allocator down to packages which themselves do not
 	// have types to which we can add an allocator member.
