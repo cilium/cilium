@@ -70,9 +70,12 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 	}
 
 	if ep.K8sPodName != "" && ep.K8sNamespace != "" && k8s.IsEnabled() {
-		_, err := k8s.Client().CoreV1().Pods(ep.K8sNamespace).Get(ep.K8sPodName, meta_v1.GetOptions{})
+		p, err := k8s.Client().CoreV1().Pods(ep.K8sNamespace).Get(ep.K8sPodName, meta_v1.GetOptions{})
 		if err != nil && k8serrors.IsNotFound(err) {
 			return false, fmt.Errorf("kubernetes pod not found")
+		}
+		if err == nil {
+			ep.UpdateVisibilityPolicy(p.Annotations)
 		}
 	}
 

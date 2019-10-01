@@ -95,7 +95,7 @@ func isInjectedWithIstioSidecarProxy(scopedLog *logrus.Entry, pod *corev1.Pod) b
 }
 
 // GetPodLabels returns the labels of a pod
-func GetPodLabels(namespace, podName string) (map[string]string, error) {
+func GetPodLabels(namespace, podName string) (lbls map[string]string, retAnno map[string]string, retErr error) {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sNamespace: namespace,
 		logfields.K8sPodName:   podName,
@@ -104,15 +104,16 @@ func GetPodLabels(namespace, podName string) (map[string]string, error) {
 
 	result, err := Client().CoreV1().Pods(namespace).Get(podName, metav1.GetOptions{})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Also get all labels from the namespace where the pod is running
 	k8sNs, err := Client().CoreV1().Namespaces().Get(namespace, metav1.GetOptions{})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
+	annotations := result.GetAnnotations()
 	k8sLabels := result.GetLabels()
 	if k8sLabels == nil {
 		k8sLabels = map[string]string{}
@@ -139,5 +140,5 @@ func GetPodLabels(namespace, podName string) (map[string]string, error) {
 
 	k8sLabels[k8sConst.PolicyLabelCluster] = option.Config.ClusterName
 
-	return k8sLabels, nil
+	return k8sLabels, annotations, nil
 }

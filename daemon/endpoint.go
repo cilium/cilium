@@ -129,15 +129,15 @@ func NewPutEndpointIDHandler(d *Daemon) PutEndpointIDHandler {
 	return &putEndpointID{d: d}
 }
 
-func fetchK8sLabels(ep *endpoint.Endpoint) (labels.Labels, labels.Labels, error) {
-	lbls, err := k8s.GetPodLabels(ep.GetK8sNamespace(), ep.GetK8sPodName())
+func fetchK8sLabelsAndAnnotations(ep *endpoint.Endpoint) (labels.Labels, labels.Labels, map[string]string, error) {
+	lbls, annotations, err := k8s.GetPodLabels(ep.GetK8sNamespace(), ep.GetK8sPodName())
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	k8sLbls := labels.Map2Labels(lbls, labels.LabelSourceK8s)
 	identityLabels, infoLabels := labels.FilterLabels(k8sLbls)
-	return identityLabels, infoLabels, nil
+	return identityLabels, infoLabels, annotations, nil
 }
 
 func invalidDataError(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
@@ -231,12 +231,13 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	}
 
 	if ep.K8sNamespaceAndPodNameIsSet() && k8s.IsEnabled() {
-		identityLabels, info, err := fetchK8sLabels(ep)
+		identityLabels, info, annotations, err := fetchK8sLabelsAndAnnotations(ep)
 		if err != nil {
 			ep.Logger("api").WithError(err).Warning("Unable to fetch kubernetes labels")
 		} else {
 			addLabels.MergeLabels(identityLabels)
 			infoLabels.MergeLabels(info)
+			ep.UpdateVisibilityPolicy(annotations)
 		}
 	}
 
@@ -264,12 +265,12 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 			mgr.UpdateController(controllerName,
 				controller.ControllerParams{
 					DoFunc: func(ctx context.Context) error {
-						identityLabels, info, err := fetchK8sLabels(ep)
+						identityLabels, info, annotations, err := fetchK8sLabelsAndAnnotations(ep)
 						if err != nil {
 							ep.Logger(controllerName).WithError(err).Warning("Unable to fetch kubernetes labels")
 							return err
 						}
-
+						ep.UpdateVisibilityPolicy(annotations)
 						ep.UpdateLabels(ctx, identityLabels, info, true)
 						close(done)
 						return nil
