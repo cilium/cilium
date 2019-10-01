@@ -381,10 +381,19 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		flowType = accesslog.TypeRequest
 	}
 
-	var serverPort int
+	var epPort, serverPort int
+	_, epPortStr, err := net.SplitHostPort(epIPPort)
+	if err != nil {
+		log.WithError(err).Error("cannot extract source IP from DNS request")
+	} else {
+		if epPort, err = strconv.Atoi(epPortStr); err != nil {
+			log.WithError(err).WithField(logfields.Port, epPortStr).Error("cannot parse source port")
+		}
+	}
+
 	serverIP, serverPortStr, err := net.SplitHostPort(serverAddr)
 	if err != nil {
-		log.WithError(err).Error("cannot extract endpoint IP from DNS request")
+		log.WithError(err).Error("cannot extract destination IP from DNS request")
 	} else {
 		if serverPort, err = strconv.Atoi(serverPortStr); err != nil {
 			log.WithError(err).WithField(logfields.Port, serverPortStr).Error("cannot parse destination port")
@@ -424,6 +433,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 				Labels:       ep.GetLabels(),
 				LabelsSHA256: ep.GetLabelsSHA(),
 				Identity:     uint64(ep.GetIdentity()),
+				Port:         uint16(epPort),
 			}
 
 			// When the server is an endpoint, get all the data for it.
@@ -436,6 +446,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 					Labels:       serverEP.GetLabels(),
 					LabelsSHA256: serverEP.GetLabelsSHA(),
 					Identity:     uint64(serverEP.GetIdentity()),
+					Port:         uint16(serverPort),
 				}
 			} else if serverSecID, exists := ipcache.IPIdentityCache.LookupByIP(serverIP); exists {
 				secID := secIDCache.LookupIdentityByID(serverSecID.ID)
@@ -446,6 +457,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 					Labels:       secID.Labels.GetModel(),
 					LabelsSHA256: secID.GetLabelsSHA256(),
 					Identity:     uint64(serverSecID.ID.Uint32()),
+					Port:         uint16(serverPort),
 				}
 			}
 		},
