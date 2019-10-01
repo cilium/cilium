@@ -271,6 +271,8 @@ type Endpoint struct {
 
 	realizedPolicy *policy.EndpointPolicy
 
+	visibilityPolicy *policy.VisibilityPolicy
+
 	eventQueue *eventqueue.EventQueue
 
 	// DatapathConfiguration is the endpoint's datapath configuration as
