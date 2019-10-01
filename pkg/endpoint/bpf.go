@@ -366,40 +366,28 @@ func (e *Endpoint) addNewRedirects(m *policy.L4Policy, proxyWaitGroup *completio
 
 	desiredRedirects = make(map[string]bool)
 
-	// Ingress redirects.
-	if m != nil && m.HasRedirect() {
-		err, ff, rf = e.addNewRedirectsFromMap(true, desiredRedirects, proxyWaitGroup)
+	for _, ingress := range []bool{true, false} {
+		dirLogStr := "ingress"
+		if !ingress {
+			dirLogStr = "egress"
+		}
+		// Ingress redirects.
+		if m != nil && m.HasRedirect() {
+			err, ff, rf = e.addNewRedirectsFromMap(ingress, desiredRedirects, proxyWaitGroup)
+			if err != nil {
+				return desiredRedirects, fmt.Errorf("unable to allocate %s redirects: %s", dirLogStr, err), nil, nil
+			}
+			finalizeList.Append(ff)
+			revertStack.Push(rf)
+		}
+
+		err, ff, rf = e.addVisibilityRedirects(ingress, desiredRedirects, proxyWaitGroup)
 		if err != nil {
-			return desiredRedirects, fmt.Errorf("unable to allocate ingress redirects: %s", err), nil, nil
+			return desiredRedirects, fmt.Errorf("unable to allocate %s visibility redirects: %s", dirLogStr, err), nil, nil
 		}
 		finalizeList.Append(ff)
 		revertStack.Push(rf)
 	}
-
-	err, ff, rf = e.addVisibilityRedirects(true, desiredRedirects, proxyWaitGroup)
-	if err != nil {
-		return desiredRedirects, fmt.Errorf("unable to allocate ingress visibility redirects: %s", err), nil, nil
-	}
-	finalizeList.Append(ff)
-	revertStack.Push(rf)
-
-	// Egress redirects.
-	if m != nil && m.HasRedirect() {
-		err, ff, rf = e.addNewRedirectsFromMap(false, desiredRedirects, proxyWaitGroup)
-		if err != nil {
-			revertStack.Revert() // Ignore errors while reverting. This is best-effort.
-			return desiredRedirects, fmt.Errorf("unable to allocate egress redirects: %s", err), nil, nil
-		}
-		finalizeList.Append(ff)
-		revertStack.Push(rf)
-	}
-
-	err, ff, rf = e.addVisibilityRedirects(false, desiredRedirects, proxyWaitGroup)
-	if err != nil {
-		return desiredRedirects, fmt.Errorf("unable to allocate ingress visibility redirects: %s", err), nil, nil
-	}
-	finalizeList.Append(ff)
-	revertStack.Push(rf)
 
 	return desiredRedirects, nil, finalizeList.Finalize, func() error {
 		e.getLogger().Debug("Reverting proxy redirect additions")
