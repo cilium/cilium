@@ -33,5 +33,6 @@ func fetchK8sLabels(containerID string, containerLbls map[string]string) (map[st
 	if ns == "" {
 		ns = "default"
 	}
-	return k8s.GetPodLabels(ns, podName)
+	lbls, _, err := k8s.GetPodLabels(ns, podName)
+	return lbls, err
 }
