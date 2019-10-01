@@ -115,6 +115,9 @@ type IdentityAllocatorOwner interface {
 	GetNodeSuffix() string
 }
 
+// IdentityAllocator is any type which is responsible for allocating security
+// identities based of sets of labels, and caching information about identities
+// locally.
 type IdentityAllocator interface {
 	// WaitForInitialGlobalIdentities waits for the initial set of global
 	// security identities to have been received.
