@@ -17,11 +17,13 @@ package loader
 import (
 	"context"
 	"fmt"
+	"net"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command/exec"
+	"golang.org/x/sys/unix"
 
-	"github.com/vishvananda/netlink"
+	"github.com/florianl/go-tc"
 )
 
 const (
@@ -29,26 +31,39 @@ const (
 )
 
 func replaceQdisc(ifName string) error {
-	link, err := netlink.LinkByName(ifName)
+
+	devID, err := net.InterfaceByName(ifName)
 	if err != nil {
 		return err
 	}
-	attrs := netlink.QdiscAttrs{
-		LinkIndex: link.Attrs().Index,
-		Handle:    netlink.MakeHandle(0xffff, 0),
-		Parent:    netlink.HANDLE_CLSACT,
+
+	qdisc := tc.Object{
+		tc.Msg{
+			Family:  unix.AF_UNSPEC,
+			Ifindex: uint32(devID.Index),
+			Handle:  tc.BuildHandle(tc.HandleIngress, 0x0000),
+			Parent:  tc.HandleIngress,
+		},
+		tc.Attribute{
+			Kind: "clsact",
+		},
 	}
 
-	qdisc := &netlink.GenericQdisc{
-		QdiscAttrs: attrs,
-		QdiscType:  "clsact",
+	rtnl, err := tc.Open(&tc.Config{})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := rtnl.Close(); err != nil {
+			log.Debugf("netlink: could not close rtnetlink socket: %v\n", err)
+		}
+	}()
+
+	if err := rtnl.Qdisc().Replace(&qdisc); err != nil {
+		return err
 	}
 
-	if err = netlink.QdiscReplace(qdisc); err != nil {
-		return fmt.Errorf("netlink: Replacing qdisc for %s failed: %s", ifName, err)
-	} else {
-		log.Debugf("netlink: Replacing qdisc for %s succeeded", ifName)
-	}
+	log.Debugf("netlink: Replacing qdisc for %s succeeded", ifName)
 
 	return nil
 }
@@ -132,12 +147,36 @@ func graftDatapath(ctx context.Context, mapPath, objPath, progSec string) error 
 
 // DeleteDatapath filter from the given ifName
 func (l *Loader) DeleteDatapath(ctx context.Context, ifName, direction string) error {
-	args := []string{"filter", "delete", "dev", ifName, direction, "pref", "1", "handle", "1", "bpf"}
-	cmd := exec.CommandContext(ctx, "tc", args...).WithFilters(libbpfFixupMsg)
-	_, err := cmd.CombinedOutput(log, true)
+	rtnl, err := tc.Open(&tc.Config{})
 	if err != nil {
-		return fmt.Errorf("Failed to remove tc filter: %s", err)
+		return err
+	}
+	defer func() {
+		if err := rtnl.Close(); err != nil {
+			log.Debugf("netlink: could not close rtnetlink socket: %v\n", err)
+		}
+	}()
+
+	devID, err := net.InterfaceByName(ifName)
+	if err != nil {
+		return err
 	}
 
-	return nil
+	parent := tc.BuildHandle(tc.HandleIngress, tc.HandleMinIngress)
+	if direction == "egress " {
+		parent = tc.BuildHandle(tc.HandleIngress, tc.HandleMinEgress)
+	}
+
+	return rtnl.Filter().Delete(&tc.Object{
+		tc.Msg{
+			Family:  unix.AF_UNSPEC,
+			Ifindex: uint32(devID.Index),
+			Handle:  1,
+			Parent:  parent,
+			Info:    0x10000,
+		},
+		tc.Attribute{
+			Kind: "bpf",
+		},
+	})
 }

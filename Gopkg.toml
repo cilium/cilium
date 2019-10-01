@@ -597,6 +597,13 @@ required = [
   # main-usage = "kubernetes"
   # on-revision = "same revision set in the dependency list of k8s.io/kubernetes"
 
+[[constraint]]
+  name = "github.com/florianl/go-tc"
+  revision = "ed7f9af34b13511447b67a6a357a679d6d63a0ef"
+
+  # main-usage = "pkg/datapath/loader"
+  # on-revision = ""
+
 [prune]
   non-go = true
   go-tests = true
