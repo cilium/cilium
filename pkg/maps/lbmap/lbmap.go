@@ -52,6 +52,10 @@ func (*LBBPFMap) UpsertService(
 
 	var svcKey ServiceKeyV2
 
+	if svcID == 0 {
+		return fmt.Errorf("Invalid svc ID 0")
+	}
+
 	if ipv6 {
 		svcKey = NewService6KeyV2(svcIP, svcPort, u8proto.ANY, 0)
 	} else {
@@ -61,6 +65,9 @@ func (*LBBPFMap) UpsertService(
 	slot := 1
 	svcVal := svcKey.NewValue().(ServiceValueV2)
 	for _, backendID := range backendIDs {
+		if backendID == 0 {
+			return fmt.Errorf("Invalid backend ID 0")
+		}
 		svcVal.SetBackendID(loadbalancer.BackendID(backendID))
 		svcVal.SetRevNat(int(svcID))
 		svcKey.SetSlave(slot) // TODO(brb) Rename to SetSlot
@@ -104,6 +111,10 @@ func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int) er
 		revNATKey RevNatKey
 	)
 
+	if svc.ID == 0 {
+		return fmt.Errorf("Invalid svc ID 0")
+	}
+
 	if svc.IsIPv6() {
 		svcKey = NewService6KeyV2(svc.IP, svc.Port, u8proto.ANY, 0)
 		revNATKey = NewRevNat6Key(uint16(svc.ID))
@@ -133,6 +144,10 @@ func (*LBBPFMap) AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) error 
 		err     error
 	)
 
+	if id == 0 {
+		return fmt.Errorf("Invalid backend ID 0")
+	}
+
 	if ipv6 {
 		backend, err = NewBackend6(loadbalancer.BackendID(id), ip, port, u8proto.ANY)
 	} else {
@@ -153,6 +168,10 @@ func (*LBBPFMap) AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) error 
 // DeleteBackendByID removes a backend identified with the given ID from a BPF map.
 func (*LBBPFMap) DeleteBackendByID(id uint16, ipv6 bool) error {
 	var key BackendKey
+
+	if id == 0 {
+		return fmt.Errorf("Invalid backend ID 0")
+	}
 
 	if ipv6 {
 		key = NewBackend6Key(loadbalancer.BackendID(id))
