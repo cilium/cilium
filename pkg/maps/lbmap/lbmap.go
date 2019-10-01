@@ -201,9 +201,8 @@ func deleteRevNatLocked(key RevNatKey) error {
 	return key.Map().Delete(key.ToNetwork())
 }
 
-// DumpServiceMapsToUserspaceV2 dumps the services in the same way as
-// DumpServiceMapsToUserspace.
-func (*LBBPFMap) DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC, []error) {
+// DumpServiceMapsToUserspaceV2 dumps the services from the BPF maps.
+func (*LBBPFMap) DumpServiceMapsToUserspaceV2() ([]*loadbalancer.LBSVC, []error) {
 	newSVCMap := loadbalancer.SVCMap{}
 	newSVCList := []*loadbalancer.LBSVC{}
 	errors := []error{}
@@ -284,13 +283,7 @@ func (*LBBPFMap) DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbal
 		newSVCList[i].FE.ID = loadbalancer.ID(idCache[newSVCList[i].FE.String()])
 	}
 
-	// Do the same for the svcMap
-	for key, svc := range newSVCMap {
-		svc.FE.ID = loadbalancer.ID(idCache[svc.FE.String()])
-		newSVCMap[key] = svc
-	}
-
-	return newSVCMap, newSVCList, errors
+	return newSVCList, errors
 }
 
 // DumpBackendMapsToUserspace dumps the backend entries from the BPF maps.
