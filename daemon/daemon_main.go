@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi"
 	"github.com/cilium/cilium/common"
 	_ "github.com/cilium/cilium/pkg/alignchecker"
-	"github.com/cilium/cilium/pkg/aws/eni"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/cleanup"
@@ -676,10 +675,6 @@ func init() {
 	flags.Bool(option.DisableCNPStatusUpdates, false, "Do not send CNP NodeStatus updates to the Kubernetes api-server (recommended to run with `cnp-node-status-gc=false` in cilium-operator)")
 	option.BindEnv(option.DisableCNPStatusUpdates)
 
-	flags.Var(option.NewNamedMapOptions(option.AwsInstanceLimitMapping, &option.Config.AwsInstanceLimitMapping, nil),
-		option.AwsInstanceLimitMapping, "Add or overwrite mappings of AWS instance limit in the form of {\"AWS instance type\": \"Maximum Network Interfaces\",\"IPv4 Addresses per Interface\",\"IPv6 Addresses per Interface\"}. cli example: --aws-instance-limit-mapping=a1.medium=2,4,4 --aws-instance-limit-mapping=a2.somecustomflavor=4,5,6 configmap example: {\"a1.medium\": \"2,4,4\", \"a2.somecustomflavor\": \"4,5,6\"}")
-	option.BindEnv(option.AwsInstanceLimitMapping)
-
 	viper.BindPFlags(flags)
 }
 
@@ -927,10 +922,6 @@ func initEnv(cmd *cobra.Command) {
 
 	if err := cache.AddUserDefinedNumericIdentitySet(option.Config.FixedIdentityMapping); err != nil {
 		log.Fatalf("Invalid fixed identities provided: %s", err)
-	}
-
-	if err := eni.UpdateLimitsFromUserDefinedMappings(option.Config.AwsInstanceLimitMapping); err != nil {
-		log.Fatalf("Parse aws-instance-limit-mapping failed: %s", err)
 	}
 
 	if !option.Config.EnableIPv4 && !option.Config.EnableIPv6 {

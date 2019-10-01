@@ -15,12 +15,6 @@
 
 package eni
 
-import (
-	"fmt"
-	"strconv"
-	"strings"
-)
-
 // Limits specifies the ENI relevant instance limits
 type Limits struct {
 	// Adapters specifies the maximum number of ENIs that can be attached
@@ -35,7 +29,6 @@ type Limits struct {
 }
 
 // limit contains limits for adapter count and addresses
-// The mappings will be updated from agent configuration at bootstrap time
 //
 // Source: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html?shortFooter=true#AvailableIpPerENI
 var limits = map[string]Limits{
@@ -262,34 +255,4 @@ var limits = map[string]Limits{
 func GetLimits(instanceType string) (limit Limits, ok bool) {
 	limit, ok = limits[instanceType]
 	return
-}
-
-// UpdateLimitsFromUserDefinedMappings updates limits from the given map
-func UpdateLimitsFromUserDefinedMappings(m map[string]string) (err error) {
-	for instanceType, limitString := range m {
-		limit, err := parseLimitString(limitString)
-		if err != nil {
-			return err
-		}
-		// Add or overwrite limits
-		limits[instanceType] = limit
-	}
-	return nil
-}
-
-// parseLimitString returns the Limits struct parsed from config string
-func parseLimitString(limitString string) (limit Limits, err error) {
-	intSlice := make([]int, 3)
-	stringSlice := strings.Split(strings.ReplaceAll(limitString, " ", ""), ",")
-	if len(stringSlice) != 3 {
-		return limit, fmt.Errorf("invalid limit value")
-	}
-	for i, s := range stringSlice {
-		intLimit, err := strconv.Atoi(s)
-		if err != nil {
-			return limit, err
-		}
-		intSlice[i] = intLimit
-	}
-	return Limits{intSlice[0], intSlice[1], intSlice[2]}, nil
 }
