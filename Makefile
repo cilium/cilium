@@ -202,7 +202,7 @@ install-container:
 GIT_VERSION: .git
 	echo "$(GIT_VERSION)" >GIT_VERSION
 
-docker-image: clean docker-image-no-clean docker-operator-image
+docker-image: clean docker-image-no-clean docker-operator-image docker-plugin-image
 
 docker-image-no-clean: GIT_VERSION
 	$(CONTAINER_ENGINE_FULL) build \
@@ -226,6 +226,11 @@ docker-operator-image: GIT_VERSION
 	$(CONTAINER_ENGINE_FULL) build --build-arg LOCKDEBUG=${LOCKDEBUG} -f cilium-operator.Dockerfile -t "cilium/operator:$(DOCKER_IMAGE_TAG)" .
 	$(QUIET)echo "Push like this when ready:"
 	$(QUIET)echo "docker push cilium/operator:$(DOCKER_IMAGE_TAG)"
+
+docker-plugin-image: GIT_VERSION
+	$(CONTAINER_ENGINE_FULL) build --build-arg LOCKDEBUG=${LOCKDEUBG} -f cilium-docker-plugin.Dockerfile -t "cilium/docker-plugin:$(DOCKER_IMAGE_TAG)" .
+	$(QUIET)echo "Push like this when ready:"
+	$(QUIET)echo "docker push cilium/docker-plugin:$(DOCKER_IMAGE_TAG)"
 
 docker-image-init:
 	$(QUIET)cd contrib/packaging/docker && ${CONTAINER_ENGINE} build -t "cilium/cilium-init:$(UTC_DATE)" -f Dockerfile.init .
