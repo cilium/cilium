@@ -409,6 +409,64 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 			},
 			want: true,
 		},
+		{
+			name: "Pods with differing proxy-visibility annotations",
+			args: args{
+				o1: &types.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pod1",
+						Labels: map[string]string{
+							"foo": "bar",
+						},
+					},
+					StatusHostIP: "127.0.0.1",
+					StatusPodIP:  "127.0.0.2",
+				},
+				o2: &types.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pod1",
+						Labels: map[string]string{
+							"foo": "bar",
+						},
+						Annotations: map[string]string{
+							annotation.ProxyVisibility: "80/HTTP",
+						},
+					},
+					StatusHostIP: "127.0.0.1",
+					StatusPodIP:  "127.0.0.2",
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Pods with irrelevant annotations",
+			args: args{
+				o1: &types.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pod1",
+						Labels: map[string]string{
+							"foo": "bar",
+						},
+					},
+					StatusHostIP: "127.0.0.1",
+					StatusPodIP:  "127.0.0.2",
+				},
+				o2: &types.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pod1",
+						Labels: map[string]string{
+							"foo": "bar",
+						},
+						Annotations: map[string]string{
+							"useless": "80/HTTP",
+						},
+					},
+					StatusHostIP: "127.0.0.1",
+					StatusPodIP:  "127.0.0.2",
+				},
+			},
+			want: true,
+		},
 	}
 	for _, tt := range tests {
 		got := EqualV1Pod(tt.args.o1, tt.args.o2)
@@ -1503,4 +1561,41 @@ func (s *K8sSuite) Test_ConvertToCiliumEndpoint(c *C) {
 		got := ConvertToCiliumEndpoint(tt.args.obj)
 		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
+}
+
+func (s *K8sSuite) Test_AnnotationsEqual(c *C) {
+	irrelevantAnnoKey := "foo"
+	irrelevantAnnoVal := "bar"
+
+	relevantAnnoKey := annotation.ProxyVisibility
+	relevantAnnoVal1 := "<Ingress/80/TCP/HTTP>"
+	relevantAnnoVal2 := "<Ingress/80/TCP/HTTP>,<Egress/80/TCP/HTTP>"
+
+	// Empty returns true.
+	c.Assert(AnnotationsEqual(nil, map[string]string{}, map[string]string{}), Equals, true)
+
+	c.Assert(AnnotationsEqual(nil,
+		map[string]string{
+			irrelevantAnnoKey: irrelevantAnnoVal,
+			relevantAnnoKey:   relevantAnnoVal1,
+		}, map[string]string{
+			irrelevantAnnoKey: irrelevantAnnoVal,
+			relevantAnnoKey:   relevantAnnoVal2,
+		}), Equals, true)
+
+	// If the relevant annotation isn't in either map, return true.
+	c.Assert(AnnotationsEqual([]string{relevantAnnoKey},
+		map[string]string{
+			irrelevantAnnoKey: irrelevantAnnoVal,
+		}, map[string]string{
+			irrelevantAnnoKey: irrelevantAnnoVal,
+		}), Equals, true)
+
+	c.Assert(AnnotationsEqual([]string{relevantAnnoKey},
+		map[string]string{
+			relevantAnnoKey: relevantAnnoVal1,
+		}, map[string]string{
+			relevantAnnoKey: relevantAnnoVal2,
+		}), Equals, false)
+
 }

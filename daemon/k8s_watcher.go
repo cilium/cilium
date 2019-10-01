@@ -24,8 +24,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -902,7 +905,6 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 										equal = true
 										return
 									}
-
 									serPods.Enqueue(func() error {
 										err := d.updateK8sPodV1(oldPod, newPod)
 										d.K8sEventProcessed(metricPod, metricUpdate, err == nil)
@@ -1549,12 +1551,21 @@ func (d *Daemon) updateK8sPodV1(oldK8sPod, newK8sPod *types.Pod) error {
 
 	// The pod IP can never change, it can only switch from unassigned to
 	// assigned
+	// Process IP updates
 	d.addK8sPodV1(newK8sPod)
 
-	// We only care about label updates
+	// Check annotation updates.
+	oldAnno := oldK8sPod.GetAnnotations()
+	newAnno := newK8sPod.GetAnnotations()
+	annotationsChanged := !k8s.AnnotationsEqual([]string{annotation.ProxyVisibility}, oldAnno, newAnno)
+
+	// Check label updates too.
 	oldPodLabels := oldK8sPod.GetLabels()
 	newPodLabels := newK8sPod.GetLabels()
-	if comparator.MapStringEquals(oldPodLabels, newPodLabels) {
+	labelsChanged := !comparator.MapStringEquals(oldPodLabels, newPodLabels)
+
+	// Nothing changed.
+	if !annotationsChanged && !labelsChanged {
 		return nil
 	}
 
@@ -1566,22 +1577,51 @@ func (d *Daemon) updateK8sPodV1(oldK8sPod, newK8sPod *types.Pod) error {
 		return nil
 	}
 
-	newLabels := labels.Map2Labels(newPodLabels, labels.LabelSourceK8s)
+	switch {
+	case annotationsChanged && labelsChanged:
+		// Update annotations and let identity update handle regeneration.
+		podEP.UpdateVisibilityPolicy(newAnno)
+		return updateEndpointLabels(podEP, oldPodLabels, newPodLabels)
+	case annotationsChanged:
+		//  Update annotations and regenerate.
+		podEP.UpdateVisibilityPolicy(newAnno)
+
+		// No need to log an error if the state transition didn't succeed,
+		// if it didn't succeed that means the endpoint is being deleted, or
+		// another regeneration has already been queued up for this endpoint.
+		stateTransitionSucceeded := podEP.SetState(endpoint.StateWaitingToRegenerate, "annotations updated")
+		if stateTransitionSucceeded {
+			podEP.Regenerate(&regeneration.ExternalRegenerationMetadata{
+				Reason:            "annotations updated",
+				RegenerationLevel: regeneration.RegenerateWithoutDatapath,
+			})
+		}
+		return nil
+	case labelsChanged:
+		return updateEndpointLabels(podEP, oldPodLabels, newPodLabels)
+	default:
+		return nil
+	}
+}
+
+func updateEndpointLabels(ep *endpoint.Endpoint, oldLbls, newLbls map[string]string) error {
+	newLabels := labels.Map2Labels(newLbls, labels.LabelSourceK8s)
 	newIdtyLabels, _ := labels.FilterLabels(newLabels)
-	oldLabels := labels.Map2Labels(oldPodLabels, labels.LabelSourceK8s)
+	oldLabels := labels.Map2Labels(oldLbls, labels.LabelSourceK8s)
 	oldIdtyLabels, _ := labels.FilterLabels(oldLabels)
 
-	err := podEP.ModifyIdentityLabels(newIdtyLabels, oldIdtyLabels)
+	err := ep.ModifyIdentityLabels(newIdtyLabels, oldIdtyLabels)
 	if err != nil {
 		log.WithError(err).Debugf("error while updating endpoint with new labels")
 		return err
 	}
 
 	log.WithFields(logrus.Fields{
-		logfields.EndpointID: podEP.GetID(),
+		logfields.EndpointID: ep.GetID(),
 		logfields.Labels:     logfields.Repr(newIdtyLabels),
-	}).Debug("Update endpoint with new labels")
+	}).Debug("Updated endpoint with new labels")
 	return nil
+
 }
 
 func (d *Daemon) deleteK8sPodV1(pod *types.Pod) error {
