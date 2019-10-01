@@ -15,8 +15,9 @@
 package proxy
 
 import (
-	"github.com/cilium/cilium/pkg/revert"
 	"time"
+
+	"github.com/cilium/cilium/pkg/revert"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/lock"
@@ -27,13 +28,12 @@ import (
 // RedirectImplementation is the generic proxy redirect interface that each
 // proxy redirect type must implement
 type RedirectImplementation interface {
-	// UpdateRules notifies the proxy implementation that the new rules in
-	// parameter l4 are to be applied. The implementation should .Add to the
-	// WaitGroup if the update is asynchronous and the update should not return
-	// until it is complete.
+	// UpdateRules updates the rules for the given proxy redirect.
+	// The implementation should .Add to the WaitGroup if the update is
+	// asynchronous and the update should not return until it is complete.
 	// The returned RevertFunc must be non-nil.
 	// Note: UpdateRules is not called when a redirect is created.
-	UpdateRules(wg *completion.WaitGroup, l4 *policy.L4Filter) (revert.RevertFunc, error)
+	UpdateRules(wg *completion.WaitGroup) (revert.RevertFunc, error)
 
 	// Close closes and cleans up resources associated with the redirect
 	// implementation. The implementation should .Add to the WaitGroup if the
@@ -73,12 +73,9 @@ func newRedirect(localEndpoint logger.EndpointUpdater, listener *ProxyPort, dstP
 // updateRules updates the rules of the redirect, Redirect.mutex must be held
 // 'implementation' is not initialized when this is called the first time.
 // TODO: Replace this with RedirectImplementation UpdateRules method!
-func (r *Redirect) updateRules(l4 *policy.L4Filter) revert.RevertFunc {
+func (r *Redirect) updateRules(p policy.ProxyPolicy) revert.RevertFunc {
 	oldRules := r.rules
-	r.rules = make(policy.L7DataMap, len(l4.L7RulesPerEp))
-	for key, val := range l4.L7RulesPerEp {
-		r.rules[key] = val
-	}
+	r.rules = p.CopyL7RulesPerEndpoint()
 	return func() error {
 		r.mutex.Lock()
 		r.rules = oldRules
