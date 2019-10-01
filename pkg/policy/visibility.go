@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-var annotationRegex = regexp.MustCompile("^((<(Ingress|Egress)/([0-9]{1,6})/(TCP|UDP|ANY)/([A-Za-z]{3,32})>,)+)$")
+var annotationRegex = regexp.MustCompile("`^((<(Ingress|Egress)/([0-9]{1,6})/(TCP|UDP|ANY)/([A-Za-z]{3,32})>)(,(<(Ingress|Egress)/([0-9]{1,6})/(TCP|UDP|ANY)/([A-Za-z]{3,32})>))*)$`")
 
 func validateL7ProtocolWithDirection(dir string, proto L7ParserType) error {
 	switch proto {
@@ -52,10 +52,6 @@ func validateL7ProtocolWithDirection(dir string, proto L7ParserType) error {
 // * if there is a conflict between the state encoded in the annotation (e.g.,
 //   different L7 protocols for the same L4 port / protocol / traffic direction.
 func NewVisibilityPolicy(anno string) (*VisibilityPolicy, error) {
-	// Add a trailing comma so we can match the regex for now.
-	if anno[len(anno)-1] != ',' {
-		anno = anno + ","
-	}
 	if !annotationRegex.MatchString(anno) {
 		return nil, fmt.Errorf("annotation for proxy visibility did not match expected format %s", annotationRegex.String())
 	}
@@ -67,10 +63,6 @@ func NewVisibilityPolicy(anno string) (*VisibilityPolicy, error) {
 
 	anSplit := strings.Split(anno, ",")
 	for i := range anSplit {
-		// Avoid empty string
-		if len(anSplit[i]) == 0 {
-			continue
-		}
 		proxyAnnoSplit := strings.Split(anSplit[i], "/")
 		if len(proxyAnnoSplit) != 4 {
 			err := fmt.Errorf("invalid number of fields (%d) in annotation", len(proxyAnnoSplit))
