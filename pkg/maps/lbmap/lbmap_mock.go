@@ -81,7 +81,7 @@ func (m *LBMockMap) DeleteBackendByID(id uint16, ipv6 bool) error {
 	return nil
 }
 
-func (m *LBMockMap) DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC, []error) {
+func (m *LBMockMap) DumpServiceMapsToUserspaceV2() ([]*loadbalancer.LBSVC, []error) {
 	panic("NYI")
 }
 
