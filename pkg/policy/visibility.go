@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-var annotationRegex = regexp.MustCompile("`^((<(Ingress|Egress)/([0-9]{1,6})/(TCP|UDP|ANY)/([A-Za-z]{3,32})>)(,(<(Ingress|Egress)/([0-9]{1,6})/(TCP|UDP|ANY)/([A-Za-z]{3,32})>))*)$`")
+var annotationRegex = regexp.MustCompile(`^((<(Ingress|Egress)/([0-9]{1,6})/(TCP|UDP|ANY)/([A-Za-z]{3,32})>)(,(<(Ingress|Egress)/([0-9]{1,6})/(TCP|UDP|ANY)/([A-Za-z]{3,32})>))*)$`)
 
 func validateL7ProtocolWithDirection(dir string, proto L7ParserType) error {
 	switch proto {
@@ -61,6 +61,7 @@ func NewVisibilityPolicy(anno string) (*VisibilityPolicy, error) {
 		Egress:  make(DirectionalVisibilityPolicy),
 	}
 
+	// TODO: look into using regex groups.
 	anSplit := strings.Split(anno, ",")
 	for i := range anSplit {
 		proxyAnnoSplit := strings.Split(anSplit[i], "/")
