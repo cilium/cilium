@@ -48,7 +48,7 @@ type LBMap interface {
 	DeleteService(lb.L3n4AddrID, int) error
 	AddBackend(uint16, net.IP, uint16, bool) error
 	DeleteBackendByID(uint16, bool) error
-	DumpServiceMapsToUserspaceV2() (lb.SVCMap, []*lb.LBSVC, []error)
+	DumpServiceMapsToUserspaceV2() ([]*lb.LBSVC, []error)
 	DumpBackendMapsToUserspace() ([]*lb.LBBackEnd, error)
 }
 
@@ -393,7 +393,7 @@ func (s *Service) deleteOrphanBackends() error {
 func (s *Service) restoreServicesLocked() error {
 	failed, restored := 0, 0
 
-	_, svcs, errors := s.lbmap.DumpServiceMapsToUserspaceV2()
+	svcs, errors := s.lbmap.DumpServiceMapsToUserspaceV2()
 	for _, err := range errors {
 		log.WithError(err).Warning("Error occurred while dumping service maps")
 	}
