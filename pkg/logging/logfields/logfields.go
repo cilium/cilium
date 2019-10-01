@@ -192,11 +192,17 @@ const (
 	// ServiceValue is the value of the service in a BPF map
 	ServiceValue = "svcVal"
 
+	// ServiceType is the type of the service
+	ServiceType = "svcType"
+
 	// BackendIDs is the map of backend IDs (lbmap) indexed by backend address
 	BackendIDs = "backendIDs"
 
 	// BackendID is the ID of the backend
 	BackendID = "backendID"
+
+	// Backends is the list of the service backends
+	Backends = "backends"
 
 	// BackendName is the name of the backend
 	BackendName = "backendName"
