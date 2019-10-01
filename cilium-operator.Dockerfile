@@ -4,7 +4,7 @@ ADD . /go/src/github.com/cilium/cilium
 WORKDIR /go/src/github.com/cilium/cilium/operator
 ARG LOCKDEBUG
 ARG V
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o cilium-operator
+RUN make CGO_ENABLED=0 GOOS=linux LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 EXTRA_GOBUILD_FLAGS="-a -installsuffix cgo"
 RUN strip cilium-operator
 
 FROM docker.io/library/alpine:3.9.3 as certs
