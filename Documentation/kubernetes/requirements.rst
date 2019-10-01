@@ -22,6 +22,7 @@ system for this version of Cilium:
 * 1.13
 * 1.14
 * 1.15
+* 1.16
 
 System Requirements
 ===================
