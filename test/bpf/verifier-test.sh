@@ -25,12 +25,16 @@ IGNORED_PROGS="bpf_alignchecker"
 ALL_PROGS="${IGNORED_PROGS} ${CG_PROGS} ${TC_PROGS} ${XDP_PROGS}"
 VERBOSE=false
 
+BPFFS=${BPFFS:-"/sys/fs/bpf"}
+TC=${TC:-"tc"}
+IPROUTE2=${IPROUTE2:-"ip"}
+
 function clean_maps {
-	rm -rf /sys/fs/bpf/tc/globals/*
+	rm -rf $BPFFS/tc/globals/*
 }
 
 function cleanup {
-	ip link del ${DEV} 2>/dev/null || true
+	$IPROUTE2 link del ${DEV} 2>/dev/null || true
 	clean_maps
 }
 
@@ -58,7 +62,7 @@ function load_prog {
 
 function load_tc {
 	for p in ${TC_PROGS}; do
-		load_prog "tc filter replace" "ingress bpf da" ${DIR}/${p}
+		load_prog "$TC filter replace" "ingress bpf da" ${DIR}/${p}
 		clean_maps
 	done
 }
@@ -70,10 +74,10 @@ function load_cg {
 }
 
 function load_xdp {
-	if ip link set help 2>&1 | grep -q xdpgeneric; then
-		ip link set dev ${DEV} xdpgeneric off
+	if $IPROUTE2 link set help 2>&1 | grep -q xdpgeneric; then
+		$IPROUTE2 link set dev ${DEV} xdpgeneric off
 		for p in ${XDP_PROGS}; do
-			load_prog "ip link set" "xdpgeneric" ${DIR}/${p}
+			load_prog "$IPROUTE2 link set" "xdpgeneric" ${DIR}/${p}
 			clean_maps
 		done
 	else
@@ -127,8 +131,8 @@ function main {
 	handle_developers
 
 	trap cleanup EXIT
-	ip link add ${DEV} type dummy
-	tc qdisc replace dev ${DEV} clsact
+	$IPROUTE2 link add ${DEV} type dummy
+	$TC qdisc replace dev ${DEV} clsact
 
 	load_tc
 	load_cg
