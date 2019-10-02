@@ -82,7 +82,7 @@ func (lbbe *Backend) String() string {
 type LBSVC struct {
 	Sha256        string
 	FE            L3n4AddrID
-	BES           []Backend
+	Backends      []Backend
 	BackendByHash map[string]*Backend // sha256 -> backend
 	Type          SVCType
 }
@@ -101,20 +101,20 @@ func (s *LBSVC) GetModel() *models.Service {
 	spec := &models.ServiceSpec{
 		ID:               id,
 		FrontendAddress:  s.FE.GetModel(),
-		BackendAddresses: make([]*models.BackendAddress, len(s.BES)),
+		BackendAddresses: make([]*models.BackendAddress, len(s.Backends)),
 		Flags: &models.ServiceSpecFlags{
 			Type: string(s.Type),
 		},
 	}
 
-	placements := make([]backendPlacement, len(s.BES))
-	for i, be := range s.BES {
+	placements := make([]backendPlacement, len(s.Backends))
+	for i, be := range s.Backends {
 		placements[i] = backendPlacement{pos: i, id: be.ID}
 	}
 	sort.Slice(placements,
 		func(i, j int) bool { return placements[i].id < placements[j].id })
 	for i, placement := range placements {
-		spec.BackendAddresses[i] = s.BES[placement.pos].GetBackendModel()
+		spec.BackendAddresses[i] = s.Backends[placement.pos].GetBackendModel()
 	}
 
 	return &models.Service{
@@ -438,20 +438,20 @@ func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *Backend, beIndex int) *LBSVC {
 			bes[beIndex-1] = *be
 		}
 		lbsvc = LBSVC{
-			FE:  *fe,
-			BES: bes,
+			FE:       *fe,
+			Backends: bes,
 		}
 	} else {
 		var bes []Backend
-		if len(lbsvc.BES) < beIndex {
+		if len(lbsvc.Backends) < beIndex {
 			bes = make([]Backend, beIndex)
-			copy(bes, lbsvc.BES)
-			lbsvc.BES = bes
+			copy(bes, lbsvc.Backends)
+			lbsvc.Backends = bes
 		}
 		if beIndex == 0 {
-			lbsvc.BES = append(lbsvc.BES, *be)
+			lbsvc.Backends = append(lbsvc.Backends, *be)
 		} else {
-			lbsvc.BES[beIndex-1] = *be
+			lbsvc.Backends[beIndex-1] = *be
 		}
 	}
 

@@ -175,7 +175,7 @@ func (s *Service) UpsertService(
 		svc.Type = svcType
 	}
 
-	prevBackendCount := len(svc.BES)
+	prevBackendCount := len(svc.Backends)
 
 	// Update backends cache (handles backend ID allocation / release)
 	newBackends, obsoleteBackendIDs, err := s.updateBackendsCacheLocked(svc, backendsCopy)
@@ -403,11 +403,11 @@ func (s *Service) restoreServicesLocked() error {
 		}
 
 		svc.BackendByHash = map[string]*lb.Backend{}
-		for j, backend := range svc.BES {
+		for j, backend := range svc.Backends {
 			hash := backend.L3n4Addr.SHA256Sum()
 			s.backendRefCount.Add(hash)
 			// TODO(brb) move to pkg/loadbalancer.NewBackend
-			svc.BackendByHash[hash] = &svc.BES[j]
+			svc.BackendByHash[hash] = &svc.Backends[j]
 		}
 
 		// Correct service type will be restored by k8s_watcher after k8s
@@ -433,11 +433,11 @@ func (s *Service) deleteServiceLocked(svc *lb.LBSVC) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.ServiceID: svc.FE.ID,
 		logfields.ServiceIP: svc.FE.L3n4Addr,
-		logfields.Backends:  svc.BES,
+		logfields.Backends:  svc.Backends,
 	})
 	scopedLog.Debug("Deleting service")
 
-	if err := s.lbmap.DeleteService(svc.FE, len(svc.BES)); err != nil {
+	if err := s.lbmap.DeleteService(svc.FE, len(svc.Backends)); err != nil {
 		return err
 	}
 
@@ -505,7 +505,7 @@ func (s *Service) updateBackendsCacheLocked(svc *lb.LBSVC, backends []lb.Backend
 		}
 	}
 
-	svc.BES = backends
+	svc.Backends = backends
 	return newBackends, obsoleteBackendIDs, nil
 }
 
@@ -523,14 +523,14 @@ func (s *Service) deleteBackendsFromCacheLocked(svc *lb.LBSVC) []lb.BackendID {
 }
 
 func deepCopyLBSVC(svc *lb.LBSVC) *lb.LBSVC {
-	backends := make([]lb.Backend, len(svc.BES))
-	for i, backend := range svc.BES {
+	backends := make([]lb.Backend, len(svc.Backends))
+	for i, backend := range svc.Backends {
 		backends[i].L3n4Addr = *backend.DeepCopy()
 		backends[i].ID = backend.ID
 	}
 	return &lb.LBSVC{
-		FE:   *svc.FE.DeepCopy(),
-		BES:  backends,
-		Type: svc.Type,
+		FE:       *svc.FE.DeepCopy(),
+		Backends: backends,
+		Type:     svc.Type,
 	}
 }
