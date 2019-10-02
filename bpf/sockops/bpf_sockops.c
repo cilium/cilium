@@ -101,11 +101,13 @@ static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 	sock_hash_update(skops, &SOCK_OPS_MAP, &key, BPF_NOEXIST);
 }
 
+#ifdef ENABLE_IPV6
 static inline void bpf_sock_ops_ipv6(struct bpf_sock_ops *skops)
 {
 	if (skops->remote_ip4)
 		bpf_sock_ops_ipv4(skops);
 }
+#endif /* ENABLE_IPV6 */
 
 __section("sockops")
 int bpf_sockmap(struct bpf_sock_ops *skops)
@@ -118,10 +120,14 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
 	switch (op) {
 	case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
 	case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
+#ifdef ENABLE_IPV6
 		if (family == AF_INET6)
 			bpf_sock_ops_ipv6(skops);
-		else if (family == AF_INET)
+#endif
+#ifdef ENABLE_IPV4
+		if (family == AF_INET)
 			bpf_sock_ops_ipv4(skops);
+#endif
 		break;
 	default:
 		break;
