@@ -36,7 +36,7 @@ var (
 
 const (
 	// MaxEntries represents the maximum number of endpoints in the map
-	MaxEntries = 65535
+	MaxEntries = 65536
 )
 
 // +k8s:deepcopy-gen=true
