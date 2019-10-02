@@ -165,14 +165,14 @@ func (s *Service) UpsertService(
 			Sha256:        hash,
 			FE:            frontend,
 			BackendByHash: map[string]*lb.LBBackEnd{},
-			NodePort:      svcType == lb.SVCTypeNodePort,
+			Type:          svcType,
 		}
 		s.svcByID[frontend.ID] = svc
 		s.svcByHash[hash] = svc
 	} else {
 		// NOTE: We cannot restore svcType from BPF maps, so just set it
 		//       each time (safe until GH#8700 has been fixed).
-		svc.NodePort = svcType == lb.SVCTypeNodePort
+		svc.Type = svcType
 	}
 
 	prevBackendCount := len(svc.BES)
@@ -410,6 +410,10 @@ func (s *Service) restoreServicesLocked() error {
 			svc.BackendByHash[hash] = &svc.BES[j]
 		}
 
+		// Correct service type will be restored by k8s_watcher after k8s
+		// service cache has been initialized
+		svc.Type = lb.SVCTypeClusterIP
+
 		s.svcByHash[svc.FE.SHA256Sum()] = svcs[i]
 		s.svcByID[svc.FE.ID] = svcs[i]
 		restored++
@@ -525,8 +529,8 @@ func deepCopyLBSVC(svc *lb.LBSVC) *lb.LBSVC {
 		backends[i].ID = backend.ID
 	}
 	return &lb.LBSVC{
-		FE:       *svc.FE.DeepCopy(),
-		BES:      backends,
-		NodePort: svc.NodePort,
+		FE:   *svc.FE.DeepCopy(),
+		BES:  backends,
+		Type: svc.Type,
 	}
 }
