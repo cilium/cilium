@@ -54,11 +54,11 @@ func (m *LBMockMap) UpsertService(id uint16, ip net.IP, port uint16,
 			BackendByHash: nil,
 		}
 	} else {
-		if prevCount != len(svc.BES) {
-			return fmt.Errorf("Invalid backends count: %d vs %d", prevCount, len(svc.BES))
+		if prevCount != len(svc.Backends) {
+			return fmt.Errorf("Invalid backends count: %d vs %d", prevCount, len(svc.Backends))
 		}
 	}
-	svc.BES = backends
+	svc.Backends = backends
 
 	m.ServiceByID[id] = svc
 
@@ -70,7 +70,7 @@ func (m *LBMockMap) DeleteService(addr lb.L3n4AddrID, backendCount int) error {
 	if !found {
 		return fmt.Errorf("Service not found %+v", addr)
 	}
-	if count := len(svc.BES); count != backendCount {
+	if count := len(svc.Backends); count != backendCount {
 		return fmt.Errorf("Invalid backends count: %d vs %d",
 			count, backendCount)
 	}
