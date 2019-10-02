@@ -20,14 +20,11 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/sirupsen/logrus"
 )
 
 // ServiceKey is the interface describing protocol independent key for services map v2.
-//
-// NOTE: ServiceKeyV2.String() output should match output of corresponding ServiceKey.String()!
 type ServiceKeyV2 interface {
 	bpf.MapKey
 
@@ -118,14 +115,8 @@ type BackendValue interface {
 
 // Backend is the interface describing protocol independent backend used by services v2.
 type Backend interface {
-	// Return true if the value is of type IPv6
-	IsIPv6() bool
-
 	// Return the BPF map matching the type
 	Map() *bpf.Map
-
-	// Get backend identifier
-	GetID() loadbalancer.BackendID
 
 	// Get key of the backend entry
 	GetKey() BackendKey
@@ -136,9 +127,6 @@ type Backend interface {
 
 type RevNatKey interface {
 	bpf.MapKey
-
-	// Returns true if the key is of type IPv6
-	IsIPv6() bool
 
 	// Returns the BPF map matching the key type
 	Map() *bpf.Map
@@ -192,14 +180,4 @@ func serviceKeynValuenBackendValue2FEnBE(svcKey ServiceKeyV2, svcValue ServiceVa
 	}
 
 	return feL3n4AddrID, beLBBackEnd
-}
-
-// LBBackEnd2Backend converts the loadbalancer backend type into a backend
-// with a BPF key backing.
-func LBBackEnd2Backend(be loadbalancer.LBBackEnd) (Backend, error) {
-	if be.IsIPv6() {
-		return NewBackend6(loadbalancer.BackendID(be.ID), be.IP, be.Port, u8proto.ANY)
-	}
-
-	return NewBackend4(loadbalancer.BackendID(be.ID), be.IP, be.Port, u8proto.ANY)
 }
