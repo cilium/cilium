@@ -145,6 +145,7 @@ generate-cov:
 	$(QUIET) rm coverage.out coverage-all-tmp.out
 
 unit-tests: start-kvstores
+	$(QUIET) $(MAKE) -C tools/maptool/
 	$(QUIET) $(MAKE) -C test/bpf/
 	test/bpf/unit-test
 	$(QUIET) $(MAKE) -C daemon/ check-bindata
