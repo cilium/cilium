@@ -202,9 +202,9 @@ func deleteRevNatLocked(key RevNatKey) error {
 }
 
 // DumpServiceMapsToUserspaceV2 dumps the services from the BPF maps.
-func (*LBBPFMap) DumpServiceMapsToUserspaceV2() ([]*loadbalancer.LBSVC, []error) {
+func (*LBBPFMap) DumpServiceMapsToUserspaceV2() ([]*loadbalancer.SVC, []error) {
 	newSVCMap := loadbalancer.SVCMap{}
-	newSVCList := []*loadbalancer.LBSVC{}
+	newSVCList := []*loadbalancer.SVC{}
 	errors := []error{}
 	idCache := map[string]loadbalancer.ServiceID{}
 	backendValueMap := map[loadbalancer.BackendID]BackendValue{}

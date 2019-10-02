@@ -40,7 +40,7 @@ type LBMap interface {
 	DeleteService(lb.L3n4AddrID, int) error
 	AddBackend(uint16, net.IP, uint16, bool) error
 	DeleteBackendByID(uint16, bool) error
-	DumpServiceMapsToUserspaceV2() ([]*lb.LBSVC, []error)
+	DumpServiceMapsToUserspaceV2() ([]*lb.SVC, []error)
 	DumpBackendMapsToUserspace() ([]*lb.Backend, error)
 }
 
@@ -51,8 +51,8 @@ type LBMap interface {
 type Service struct {
 	lock.RWMutex
 
-	svcByHash map[string]*lb.LBSVC
-	svcByID   map[lb.ID]*lb.LBSVC
+	svcByHash map[string]*lb.SVC
+	svcByID   map[lb.ID]*lb.SVC
 
 	backendRefCount counter.StringCounter
 	backendByHash   map[string]*lb.Backend
@@ -63,8 +63,8 @@ type Service struct {
 // NewService creates a new instance of the service handler.
 func NewService() *Service {
 	return &Service{
-		svcByHash:       map[string]*lb.LBSVC{},
-		svcByID:         map[lb.ID]*lb.LBSVC{},
+		svcByHash:       map[string]*lb.SVC{},
+		svcByID:         map[lb.ID]*lb.SVC{},
 		backendRefCount: counter.StringCounter{},
 		backendByHash:   map[string]*lb.Backend{},
 		lbmap:           &lbmap.LBBPFMap{},
@@ -161,7 +161,7 @@ func (s *Service) UpsertService(
 		scopedLog = scopedLog.WithField(logfields.ServiceID, frontend.ID)
 		scopedLog.Debug("Acquired service ID")
 
-		svc = &lb.LBSVC{
+		svc = &lb.SVC{
 			Hash:          hash,
 			Frontend:      frontend,
 			BackendByHash: map[string]*lb.Backend{},
@@ -256,7 +256,7 @@ func (s *Service) DeleteService(frontend lb.L3n4Addr) (bool, error) {
 // the given ID.
 //
 // If a service cannot be found, returns false.
-func (s *Service) GetDeepCopyServiceByID(id lb.ServiceID) (*lb.LBSVC, bool) {
+func (s *Service) GetDeepCopyServiceByID(id lb.ServiceID) (*lb.SVC, bool) {
 	s.RLock()
 	defer s.RUnlock()
 
@@ -265,17 +265,17 @@ func (s *Service) GetDeepCopyServiceByID(id lb.ServiceID) (*lb.LBSVC, bool) {
 		return nil, false
 	}
 
-	return deepCopyLBSVC(svc), true
+	return deepCopySVC(svc), true
 }
 
 // GetDeepCopyServices returns a deep-copy of all installed services.
-func (s *Service) GetDeepCopyServices() []*lb.LBSVC {
+func (s *Service) GetDeepCopyServices() []*lb.SVC {
 	s.RLock()
 	defer s.RUnlock()
 
-	svcs := make([]*lb.LBSVC, 0, len(s.svcByHash))
+	svcs := make([]*lb.SVC, 0, len(s.svcByHash))
 	for _, svc := range s.svcByHash {
-		svcs = append(svcs, deepCopyLBSVC(svc))
+		svcs = append(svcs, deepCopySVC(svc))
 	}
 
 	return svcs
@@ -427,7 +427,7 @@ func (s *Service) restoreServicesLocked() error {
 	return nil
 }
 
-func (s *Service) deleteServiceLocked(svc *lb.LBSVC) error {
+func (s *Service) deleteServiceLocked(svc *lb.SVC) error {
 	obsoleteBackendIDs := s.deleteBackendsFromCacheLocked(svc)
 
 	scopedLog := log.WithFields(logrus.Fields{
@@ -462,7 +462,7 @@ func (s *Service) deleteServiceLocked(svc *lb.LBSVC) error {
 	return nil
 }
 
-func (s *Service) updateBackendsCacheLocked(svc *lb.LBSVC, backends []lb.Backend) (
+func (s *Service) updateBackendsCacheLocked(svc *lb.SVC, backends []lb.Backend) (
 	[]lb.Backend, []lb.BackendID, error) {
 
 	obsoleteBackendIDs := []lb.BackendID{}
@@ -509,7 +509,7 @@ func (s *Service) updateBackendsCacheLocked(svc *lb.LBSVC, backends []lb.Backend
 	return newBackends, obsoleteBackendIDs, nil
 }
 
-func (s *Service) deleteBackendsFromCacheLocked(svc *lb.LBSVC) []lb.BackendID {
+func (s *Service) deleteBackendsFromCacheLocked(svc *lb.SVC) []lb.BackendID {
 	obsoleteBackendIDs := []lb.BackendID{}
 
 	for hash, backend := range svc.BackendByHash {
@@ -522,13 +522,13 @@ func (s *Service) deleteBackendsFromCacheLocked(svc *lb.LBSVC) []lb.BackendID {
 	return obsoleteBackendIDs
 }
 
-func deepCopyLBSVC(svc *lb.LBSVC) *lb.LBSVC {
+func deepCopySVC(svc *lb.SVC) *lb.SVC {
 	backends := make([]lb.Backend, len(svc.Backends))
 	for i, backend := range svc.Backends {
 		backends[i].L3n4Addr = *backend.DeepCopy()
 		backends[i].ID = backend.ID
 	}
-	return &lb.LBSVC{
+	return &lb.SVC{
 		Frontend: *svc.Frontend.DeepCopy(),
 		Backends: backends,
 		Type:     svc.Type,
