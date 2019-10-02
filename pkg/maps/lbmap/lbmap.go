@@ -203,7 +203,7 @@ func deleteRevNatLocked(key RevNatKey) error {
 
 // DumpServiceMapsToUserspaceV2 dumps the services from the BPF maps.
 func (*LBBPFMap) DumpServiceMapsToUserspaceV2() ([]*loadbalancer.SVC, []error) {
-	newSVCMap := loadbalancer.SVCMap{}
+	newSVCMap := svcMap{}
 	newSVCList := []*loadbalancer.SVC{}
 	errors := []error{}
 	idCache := map[string]loadbalancer.ServiceID{}
@@ -247,7 +247,7 @@ func (*LBBPFMap) DumpServiceMapsToUserspaceV2() ([]*loadbalancer.SVC, []error) {
 			idCache[fe.String()] = loadbalancer.ServiceID(k)
 		}
 
-		svc := newSVCMap.AddFEnBE(fe, be, svcKey.GetSlave())
+		svc := newSVCMap.addFEnBE(fe, be, svcKey.GetSlave())
 		newSVCList = append(newSVCList, svc)
 	}
 
@@ -363,4 +363,49 @@ func updateServiceEndpointV2(key ServiceKeyV2, value ServiceValueV2) error {
 	}
 
 	return key.Map().Update(key.ToNetwork(), value.ToNetwork())
+}
+
+type svcMap map[string]loadbalancer.SVC
+
+// addFEnBE adds the given 'fe' and 'be' to the svcMap. If 'fe' exists and beIndex is 0,
+// the new 'be' will be appended to the list of existing backends. If beIndex is bigger
+// than the size of existing backends slice, it will be created a new array with size of
+// beIndex and the new 'be' will be inserted on index beIndex-1 of that new array. All
+// remaining be elements will be kept on the same index and, in case the new array is
+// larger than the number of backends, some elements will be empty.
+func (svcs svcMap) addFEnBE(fe *loadbalancer.L3n4AddrID, be *loadbalancer.Backend, beIndex int) *loadbalancer.SVC {
+	hash := fe.Hash()
+
+	var lbsvc loadbalancer.SVC
+	lbsvc, ok := svcs[hash]
+	if !ok {
+		var bes []loadbalancer.Backend
+		if beIndex == 0 {
+			bes = make([]loadbalancer.Backend, 1)
+			bes[0] = *be
+		} else {
+			bes = make([]loadbalancer.Backend, beIndex)
+			bes[beIndex-1] = *be
+		}
+		lbsvc = loadbalancer.SVC{
+			Frontend: *fe,
+			Backends: bes,
+		}
+	} else {
+		var bes []loadbalancer.Backend
+		if len(lbsvc.Backends) < beIndex {
+			bes = make([]loadbalancer.Backend, beIndex)
+			copy(bes, lbsvc.Backends)
+			lbsvc.Backends = bes
+		}
+		if beIndex == 0 {
+			lbsvc.Backends = append(lbsvc.Backends, *be)
+		} else {
+			lbsvc.Backends[beIndex-1] = *be
+		}
+	}
+
+	lbsvc.Hash = hash
+	svcs[hash] = lbsvc
+	return &lbsvc
 }

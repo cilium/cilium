@@ -24,8 +24,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -124,8 +122,6 @@ func (s *SVC) GetModel() *models.Service {
 		},
 	}
 }
-
-type SVCMap map[string]SVC
 
 func NewL4Type(name string) (L4Type, error) {
 	switch strings.ToLower(name) {
@@ -376,52 +372,4 @@ func (l *L3n4AddrID) Equals(o *L3n4AddrID) bool {
 	}
 
 	return true
-}
-
-// AddFEnBE adds the given 'fe' and 'be' to the SVCMap. If 'fe' exists and beIndex is 0,
-// the new 'be' will be appended to the list of existing backends. If beIndex is bigger
-// than the size of existing backends slice, it will be created a new array with size of
-// beIndex and the new 'be' will be inserted on index beIndex-1 of that new array. All
-// remaining be elements will be kept on the same index and, in case the new array is
-// larger than the number of backends, some elements will be empty.
-func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *Backend, beIndex int) *SVC {
-	log.WithFields(logrus.Fields{
-		"frontend":     fe,
-		"backend":      be,
-		"backendIndex": beIndex,
-	}).Debug("adding frontend and backend to SVCMap")
-	sha := fe.Hash()
-
-	var lbsvc SVC
-	lbsvc, ok := svcs[sha]
-	if !ok {
-		var bes []Backend
-		if beIndex == 0 {
-			bes = make([]Backend, 1)
-			bes[0] = *be
-		} else {
-			bes = make([]Backend, beIndex)
-			bes[beIndex-1] = *be
-		}
-		lbsvc = SVC{
-			Frontend: *fe,
-			Backends: bes,
-		}
-	} else {
-		var bes []Backend
-		if len(lbsvc.Backends) < beIndex {
-			bes = make([]Backend, beIndex)
-			copy(bes, lbsvc.Backends)
-			lbsvc.Backends = bes
-		}
-		if beIndex == 0 {
-			lbsvc.Backends = append(lbsvc.Backends, *be)
-		} else {
-			lbsvc.Backends[beIndex-1] = *be
-		}
-	}
-
-	lbsvc.Hash = sha
-	svcs[sha] = lbsvc
-	return &lbsvc
 }
