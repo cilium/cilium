@@ -138,8 +138,8 @@ struct bpf_elf_map __section_maps LB4_REVERSE_NAT_SK_MAP = {
 
 static inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 				      struct lb4_backend *backend,
-				      struct lb4_key_v2 *lkey,
-				      struct lb4_service_v2 *slave_svc)
+				      struct lb4_key *lkey,
+				      struct lb4_service *slave_svc)
 {
 	struct ipv4_revnat_tuple rkey = {};
 	struct ipv4_revnat_entry rval = {};
@@ -158,15 +158,15 @@ static inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 #else
 static inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 				      struct lb4_backend *backend,
-				      struct lb4_key_v2 *lkey,
-				      struct lb4_service_v2 *slave_svc)
+				      struct lb4_key *lkey,
+				      struct lb4_service *slave_svc)
 {
 	return -1;
 }
 #endif /* ENABLE_HOST_SERVICES_UDP */
 
 static inline void sock4_handle_node_port(struct bpf_sock_addr *ctx,
-					  struct lb4_key_v2 *key)
+					  struct lb4_key *key)
 {
 #ifdef ENABLE_NODEPORT
 	struct remote_endpoint_info *info;
@@ -201,22 +201,22 @@ __section("from-sock4")
 int sock4_xlate(struct bpf_sock_addr *ctx)
 {
 	struct lb4_backend *backend;
-	struct lb4_service_v2 *svc;
-	struct lb4_key_v2 key = {
+	struct lb4_service *svc;
+	struct lb4_key key = {
 		.dport		= ctx_get_port(ctx),
 	};
-	struct lb4_service_v2 *slave_svc;
+	struct lb4_service *slave_svc;
 
 	if (!sock_proto_enabled(ctx))
 		return CONNECT_PROCEED;
 
 	sock4_handle_node_port(ctx, &key);
 
-	svc = __lb4_lookup_service_v2(&key);
+	svc = __lb4_lookup_service(&key);
 	if (svc) {
 		key.slave = (sock_local_cookie(ctx) % svc->count) + 1;
 
-		slave_svc = __lb4_lookup_slave_v2(&key);
+		slave_svc = __lb4_lookup_slave(&key);
 		if (!slave_svc) {
 			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_SLAVE);
 			return CONNECT_PROCEED;
@@ -246,20 +246,20 @@ int sock4_xlate(struct bpf_sock_addr *ctx)
 __section("snd-sock4")
 int sock4_xlate_snd(struct bpf_sock_addr *ctx)
 {
-	struct lb4_key_v2 lkey = {
+	struct lb4_key lkey = {
 		.dport		= ctx_get_port(ctx),
 	};
 	struct lb4_backend *backend;
-	struct lb4_service_v2 *svc;
-	struct lb4_service_v2 *slave_svc;
+	struct lb4_service *svc;
+	struct lb4_service *slave_svc;
 
 	sock4_handle_node_port(ctx, &lkey);
 
-	svc = __lb4_lookup_service_v2(&lkey);
+	svc = __lb4_lookup_service(&lkey);
 	if (svc) {
 		lkey.slave = (sock_local_cookie(ctx) % svc->count) + 1;
 
-		slave_svc = __lb4_lookup_slave_v2(&lkey);
+		slave_svc = __lb4_lookup_slave(&lkey);
 		if (!slave_svc) {
 			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_SLAVE);
 			return SENDMSG_PROCEED;
@@ -296,13 +296,13 @@ int sock4_xlate_rcv(struct bpf_sock_addr *ctx)
 
 	rval = map_lookup_elem(&LB4_REVERSE_NAT_SK_MAP, &rkey);
 	if (rval) {
-		struct lb4_service_v2 *svc;
-		struct lb4_key_v2 lkey = {
+		struct lb4_service *svc;
+		struct lb4_key lkey = {
 			.address	= rval->address,
 			.dport		= rval->port,
 		};
 
-		svc = __lb4_lookup_service_v2(&lkey);
+		svc = __lb4_lookup_service(&lkey);
 		if (!svc || svc->rev_nat_index != rval->rev_nat_index) {
 			map_delete_elem(&LB4_REVERSE_NAT_SK_MAP, &rkey);
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);
@@ -343,8 +343,8 @@ struct bpf_elf_map __section_maps LB6_REVERSE_NAT_SK_MAP = {
 
 static inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 				      struct lb6_backend *backend,
-				      struct lb6_key_v2 *lkey,
-				      struct lb6_service_v2 *slave_svc)
+				      struct lb6_key *lkey,
+				      struct lb6_service *slave_svc)
 {
 	struct ipv6_revnat_tuple rkey = {};
 	struct ipv6_revnat_entry rval = {};
@@ -363,8 +363,8 @@ static inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 #else
 static inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 				      struct lb6_backend *backend,
-				      struct lb6_key_v2 *lkey,
-				      struct lb6_service_v2 *slave_svc)
+				      struct lb6_key *lkey,
+				      struct lb6_service *slave_svc)
 {
 	return -1;
 }
@@ -389,7 +389,7 @@ static __always_inline void ctx_set_v6_address(struct bpf_sock_addr *ctx,
 }
 
 static inline void sock6_handle_node_port(struct bpf_sock_addr *ctx,
-					  struct lb6_key_v2 *key)
+					  struct lb6_key *key)
 {
 #ifdef ENABLE_NODEPORT
 	struct remote_endpoint_info *info;
@@ -426,22 +426,22 @@ __section("from-sock6")
 int sock6_xlate(struct bpf_sock_addr *ctx)
 {
 	struct lb6_backend *backend;
-	struct lb6_service_v2 *svc;
-	struct lb6_key_v2 key = {
+	struct lb6_service *svc;
+	struct lb6_key key = {
 		.dport		= ctx_get_port(ctx),
 	};
-	struct lb6_service_v2 *slave_svc;
+	struct lb6_service *slave_svc;
 
 	if (!sock_proto_enabled(ctx))
 		return CONNECT_PROCEED;
 
 	sock6_handle_node_port(ctx, &key);
 
-	svc = __lb6_lookup_service_v2(&key);
+	svc = __lb6_lookup_service(&key);
 	if (svc) {
 		key.slave = (sock_local_cookie(ctx) % svc->count) + 1;
 
-		slave_svc = __lb6_lookup_slave_v2(&key);
+		slave_svc = __lb6_lookup_slave(&key);
 		if (!slave_svc) {
 			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_SLAVE);
 			return CONNECT_PROCEED;
@@ -472,19 +472,19 @@ __section("snd-sock6")
 int sock6_xlate_snd(struct bpf_sock_addr *ctx)
 {
 	struct lb6_backend *backend;
-	struct lb6_service_v2 *svc;
-	struct lb6_key_v2 lkey = {
+	struct lb6_service *svc;
+	struct lb6_key lkey = {
 		.dport		= ctx_get_port(ctx),
 	};
-	struct lb6_service_v2 *slave_svc;
+	struct lb6_service *slave_svc;
 
 	sock6_handle_node_port(ctx, &lkey);
 
-	svc = __lb6_lookup_service_v2(&lkey);
+	svc = __lb6_lookup_service(&lkey);
 	if (svc) {
 		lkey.slave = (sock_local_cookie(ctx) % svc->count) + 1;
 
-		slave_svc = __lb6_lookup_slave_v2(&lkey);
+		slave_svc = __lb6_lookup_slave(&lkey);
 		if (!slave_svc) {
 			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_SLAVE);
 			return CONNECT_PROCEED;
@@ -521,13 +521,13 @@ int sock6_xlate_rcv(struct bpf_sock_addr *ctx)
 
 	rval = map_lookup_elem(&LB6_REVERSE_NAT_SK_MAP, &rkey);
 	if (rval) {
-		struct lb6_service_v2 *svc;
-		struct lb6_key_v2 lkey = {
+		struct lb6_service *svc;
+		struct lb6_key lkey = {
 			.address	= rval->address,
 			.dport		= rval->port,
 		};
 
-		svc = __lb6_lookup_service_v2(&lkey);
+		svc = __lb6_lookup_service(&lkey);
 		if (!svc || svc->rev_nat_index != rval->rev_nat_index) {
 			map_delete_elem(&LB6_REVERSE_NAT_SK_MAP, &rkey);
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);

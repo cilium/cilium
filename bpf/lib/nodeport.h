@@ -226,8 +226,8 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	struct csum_offset csum_off = {};
-	struct lb6_service_v2 *svc;
-	struct lb6_key_v2 key = {};
+	struct lb6_service *svc;
+	struct lb6_key key = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
 	bool backend_local;
@@ -248,7 +248,7 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 
 	l4_off = l3_off + hdrlen;
 
-	ret = lb6_extract_key_v2(skb, &tuple, l4_off, &key, &csum_off, CT_EGRESS);
+	ret = lb6_extract_key(skb, &tuple, l4_off, &key, &csum_off, CT_EGRESS);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNKNOWN_L4)
 			return TC_ACT_OK;
@@ -271,7 +271,7 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 
 	ct_state_new.orig_dport = key.dport;
 
-	if ((svc = lb6_lookup_service_v2(skb, &key)) != NULL) {
+	if ((svc = lb6_lookup_service(skb, &key)) != NULL) {
 		ret = lb6_local(get_ct_map6(&tuple), skb, l3_off, l4_off,
 				&csum_off, &key, &tuple, svc, &ct_state_new);
 		if (IS_ERR(ret))
@@ -596,8 +596,8 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 	struct iphdr *ip4;
 	int ret,  l3_off = ETH_HLEN, l4_off;
 	struct csum_offset csum_off = {};
-	struct lb4_service_v2 *svc;
-	struct lb4_key_v2 key = {};
+	struct lb4_service *svc;
+	struct lb4_key key = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
 	bool backend_local;
@@ -614,7 +614,7 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 
-	ret = lb4_extract_key_v2(skb, &tuple, l4_off, &key, &csum_off, CT_EGRESS);
+	ret = lb4_extract_key(skb, &tuple, l4_off, &key, &csum_off, CT_EGRESS);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNKNOWN_L4)
 			return TC_ACT_OK;
@@ -637,7 +637,7 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 
 	ct_state_new.orig_dport = key.dport;
 
-	if ((svc = lb4_lookup_service_v2(skb, &key)) != NULL) {
+	if ((svc = lb4_lookup_service(skb, &key)) != NULL) {
 		ret = lb4_local(get_ct_map4(&tuple), skb, l3_off, l4_off, &csum_off,
 				&key, &tuple, svc, &ct_state_new, ip4->saddr);
 		if (IS_ERR(ret))

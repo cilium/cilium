@@ -38,10 +38,10 @@
 
 static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 {
-	struct lb4_key_v2 lb4_key = {};
+	struct lb4_key lb4_key = {};
 	__u32 dip4, dport, dstID = 0;
 	struct endpoint_info *exists;
-	struct lb4_service_v2 *svc;
+	struct lb4_service *svc;
 	struct sock_key key = {};
 	int verdict;
 
@@ -50,8 +50,8 @@ static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 	/* If endpoint a service use L4/L3 stack for now. These can be
 	 * pulled in as needed.
 	 */
-	sk_lb4_key_v2(&lb4_key, &key);
-	svc = __lb4_lookup_service_v2(&lb4_key);
+	sk_lb4_key(&lb4_key, &key);
+	svc = __lb4_lookup_service(&lb4_key);
 	if (svc)
 		return;
 

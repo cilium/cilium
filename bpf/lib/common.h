@@ -533,7 +533,7 @@ struct ct_entry {
 	__u32 last_rx_report;
 };
 
-struct lb6_key_v2 {
+struct lb6_key {
 	union v6addr address;	/* Service virtual IPv6 address */
 	__be16 dport;		/* L4 port filter, if unset, all ports apply */
 	__u16 slave;		/* Backend iterator, 0 indicates the master service */
@@ -541,8 +541,8 @@ struct lb6_key_v2 {
 	__u8 pad[3];
 };
 
-/* See lb4_service_v2 comments */
-struct lb6_service_v2 {
+/* See lb4_service comments */
+struct lb6_service {
 	__u32 backend_id;
 	__u16 count;
 	__u16 rev_nat_index;
@@ -562,7 +562,7 @@ struct lb6_reverse_nat {
 	__be16 port;
 } __attribute__((packed));
 
-struct lb4_key_v2 {
+struct lb4_key {
 	__be32 address;		/* Service virtual IPv4 address */
 	__be16 dport;		/* L4 port filter, if unset, all ports apply */
 	__u16 slave;		/* Backend iterator, 0 indicates the master service */
@@ -570,7 +570,7 @@ struct lb4_key_v2 {
 	__u8 pad[3];
 };
 
-struct lb4_service_v2 {
+struct lb4_service {
 	__u32 backend_id;	/* Backend ID in lb4_backends */
 	/* For the master service, count denotes number of service endpoints.
 	 * For service endpoints, zero. (Previously, legacy service ID)
