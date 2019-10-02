@@ -261,7 +261,7 @@ func (s *ServiceCache) UniqueServiceFrontends() FrontendList {
 		for _, p := range svc.Ports {
 			address := loadbalancer.L3n4Addr{
 				IP:     svc.FrontendIP,
-				L4Addr: *p.L4Addr,
+				L4Addr: *p,
 			}
 
 			uniqueFrontends[address.StringWithProtocol()] = struct{}{}
