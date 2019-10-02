@@ -18,11 +18,14 @@ set -eo pipefail
 
 DEV="cilium-probe"
 DIR=$(dirname $0)/../../bpf
-TC_PROGS="bpf_hostdev_ingress bpf_ipsec bpf_lxc bpf_netdev bpf_network bpf_overlay"
-CG_PROGS="bpf_sock sockops/bpf_sockops sockops/bpf_redir"
-XDP_PROGS="bpf_xdp"
+ALL_TC_PROGS="bpf_hostdev_ingress bpf_ipsec bpf_lxc bpf_netdev bpf_network bpf_overlay"
+TC_PROGS=${TC_PROGS:-$ALL_TC_PROGS}
+ALL_CG_PROGS="bpf_sock sockops/bpf_sockops sockops/bpf_redir"
+CG_PROGS=${CG_PROGS:-$ALL_CG_PROGS}
+ALL_XDP_PROGS="bpf_xdp"
+XDP_PROGS=${XDP_PROGS:-$ALL_XDP_PROGS}
 IGNORED_PROGS="bpf_alignchecker"
-ALL_PROGS="${IGNORED_PROGS} ${CG_PROGS} ${TC_PROGS} ${XDP_PROGS}"
+ALL_PROGS="${IGNORED_PROGS} ${ALL_CG_PROGS} ${ALL_TC_PROGS} ${ALL_XDP_PROGS}"
 VERBOSE=false
 
 BPFFS=${BPFFS:-"/sys/fs/bpf"}
@@ -131,8 +134,10 @@ function main {
 	handle_developers
 
 	trap cleanup EXIT
-	$IPROUTE2 link add ${DEV} type dummy
-	$TC qdisc replace dev ${DEV} clsact
+	if [ "$TC_PROGS" != "" ] || [ "$XDP_PROGS" != "" ]; then
+		$IPROUTE2 link add ${DEV} type dummy
+		$TC qdisc replace dev ${DEV} clsact
+	fi
 
 	load_tc
 	load_cg
