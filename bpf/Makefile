@@ -1,6 +1,6 @@
 include ../Makefile.defs
 
-.PHONY: all subdirs $(SUBDIRS) check preprocess assembly install clean
+.PHONY: all subdirs check preprocess assembly install clean
 
 SUBDIRS = sockops
 
@@ -12,7 +12,7 @@ TARGET=cilium-map-migrate
 include ./Makefile.bpf
 
 ifeq ("$(PKG_BUILD)","")
-all: $(BPF) $(TARGET) $(SUBDIRS)
+all: $(BPF) $(TARGET) subdirs
 
 build_all:
 	@$(ECHO_CHECK)/*.c BUILD_PERMUTATIONS=1
@@ -128,8 +128,10 @@ bpf_lxc.o: bpf_lxc.ll
 	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
 
 subdirs: $(SUBDIRS)
-$(SUBDIRS):
-	@$(MAKE) -C $@
+	@echo $(SUBDIRS)
+	$(foreach TARGET,$(SUBDIRS), \
+		$(MAKE) -C $(TARGET))
+
 else
 all: $(TARGET)
 endif
