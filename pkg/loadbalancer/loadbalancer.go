@@ -68,13 +68,13 @@ type BackendID uint16
 // ID is the ID of L3n4Addr endpoint (either service or backend).
 type ID uint32
 
-// LBBackEnd represents load balancer backend.
-type LBBackEnd struct {
+// Backend represents load balancer backend.
+type Backend struct {
 	ID BackendID
 	L3n4Addr
 }
 
-func (lbbe *LBBackEnd) String() string {
+func (lbbe *Backend) String() string {
 	return lbbe.L3n4Addr.String()
 }
 
@@ -82,8 +82,8 @@ func (lbbe *LBBackEnd) String() string {
 type LBSVC struct {
 	Sha256        string
 	FE            L3n4AddrID
-	BES           []LBBackEnd
-	BackendByHash map[string]*LBBackEnd // sha256 -> backend
+	BES           []Backend
+	BackendByHash map[string]*Backend // sha256 -> backend
 	Type          SVCType
 }
 
@@ -246,10 +246,10 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 	return &L3n4Addr{IP: ip, L4Addr: *l4addr}, nil
 }
 
-// NewLBBackEnd creates the LBBackEnd struct instance from given params.
-func NewLBBackEnd(id BackendID, protocol L4Type, ip net.IP, portNumber uint16) *LBBackEnd {
+// NewBackend creates the Backend struct instance from given params.
+func NewBackend(id BackendID, protocol L4Type, ip net.IP, portNumber uint16) *Backend {
 	lbport := NewL4Addr(protocol, portNumber)
-	lbbe := LBBackEnd{
+	lbbe := Backend{
 		ID:       BackendID(id),
 		L3n4Addr: L3n4Addr{IP: ip, L4Addr: *lbport},
 	}
@@ -258,7 +258,7 @@ func NewLBBackEnd(id BackendID, protocol L4Type, ip net.IP, portNumber uint16) *
 	return &lbbe
 }
 
-func NewLBBackEndFromBackendModel(base *models.BackendAddress) (*LBBackEnd, error) {
+func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
 	if base.IP == nil {
 		return nil, fmt.Errorf("missing IP address")
 	}
@@ -270,7 +270,7 @@ func NewLBBackEndFromBackendModel(base *models.BackendAddress) (*LBBackEnd, erro
 		return nil, fmt.Errorf("invalid IP address \"%s\"", *base.IP)
 	}
 
-	return &LBBackEnd{L3n4Addr: L3n4Addr{IP: ip, L4Addr: *l4addr}}, nil
+	return &Backend{L3n4Addr: L3n4Addr{IP: ip, L4Addr: *l4addr}}, nil
 }
 
 func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error) {
@@ -298,7 +298,7 @@ func (a *L3n4Addr) GetModel() *models.FrontendAddress {
 	}
 }
 
-func (b *LBBackEnd) GetBackendModel() *models.BackendAddress {
+func (b *Backend) GetBackendModel() *models.BackendAddress {
 	if b == nil {
 		return nil
 	}
@@ -418,7 +418,7 @@ func (l *L3n4AddrID) Equals(o *L3n4AddrID) bool {
 // beIndex and the new 'be' will be inserted on index beIndex-1 of that new array. All
 // remaining be elements will be kept on the same index and, in case the new array is
 // larger than the number of backends, some elements will be empty.
-func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *LBBackEnd, beIndex int) *LBSVC {
+func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *Backend, beIndex int) *LBSVC {
 	log.WithFields(logrus.Fields{
 		"frontend":     fe,
 		"backend":      be,
@@ -429,12 +429,12 @@ func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *LBBackEnd, beIndex int) *LBSVC {
 	var lbsvc LBSVC
 	lbsvc, ok := svcs[sha]
 	if !ok {
-		var bes []LBBackEnd
+		var bes []Backend
 		if beIndex == 0 {
-			bes = make([]LBBackEnd, 1)
+			bes = make([]Backend, 1)
 			bes[0] = *be
 		} else {
-			bes = make([]LBBackEnd, beIndex)
+			bes = make([]Backend, beIndex)
 			bes[beIndex-1] = *be
 		}
 		lbsvc = LBSVC{
@@ -442,9 +442,9 @@ func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *LBBackEnd, beIndex int) *LBSVC {
 			BES: bes,
 		}
 	} else {
-		var bes []LBBackEnd
+		var bes []Backend
 		if len(lbsvc.BES) < beIndex {
-			bes = make([]LBBackEnd, beIndex)
+			bes = make([]Backend, beIndex)
 			copy(bes, lbsvc.BES)
 			lbsvc.BES = bes
 		}

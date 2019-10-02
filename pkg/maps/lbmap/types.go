@@ -157,13 +157,13 @@ func serviceKey2L3n4AddrV2(svcKey ServiceKeyV2) *loadbalancer.L3n4Addr {
 }
 
 func serviceKeynValuenBackendValue2FEnBE(svcKey ServiceKeyV2, svcValue ServiceValueV2,
-	backendID loadbalancer.BackendID, backend BackendValue) (*loadbalancer.L3n4AddrID, *loadbalancer.LBBackEnd) {
+	backendID loadbalancer.BackendID, backend BackendValue) (*loadbalancer.L3n4AddrID, *loadbalancer.Backend) {
 
 	log.WithFields(logrus.Fields{
 		logfields.ServiceID: svcKey,
 		logfields.Object:    logfields.Repr(svcValue),
 	}).Debug("converting ServiceKey, ServiceValue and Backend to frontend and backend v2")
-	var beLBBackEnd *loadbalancer.LBBackEnd
+	var beBackend *loadbalancer.Backend
 
 	svcID := loadbalancer.ID(svcValue.GetRevNat())
 	feL3n4Addr := serviceKey2L3n4AddrV2(svcKey)
@@ -176,8 +176,8 @@ func serviceKeynValuenBackendValue2FEnBE(svcKey ServiceKeyV2, svcValue ServiceVa
 		beIP := backend.GetAddress()
 		bePort := backend.GetPort()
 		beProto := loadbalancer.NONE
-		beLBBackEnd = loadbalancer.NewLBBackEnd(backendID, beProto, beIP, bePort)
+		beBackend = loadbalancer.NewBackend(backendID, beProto, beIP, bePort)
 	}
 
-	return feL3n4AddrID, beLBBackEnd
+	return feL3n4AddrID, beBackend
 }

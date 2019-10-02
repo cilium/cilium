@@ -22,13 +22,13 @@ import (
 )
 
 type LBMockMap struct {
-	BackendByID map[uint16]*lb.LBBackEnd
+	BackendByID map[uint16]*lb.Backend
 	ServiceByID map[uint16]*lb.LBSVC
 }
 
 func NewLBMockMap() *LBMockMap {
 	return &LBMockMap{
-		BackendByID: map[uint16]*lb.LBBackEnd{},
+		BackendByID: map[uint16]*lb.Backend{},
 		ServiceByID: map[uint16]*lb.LBSVC{},
 	}
 }
@@ -36,7 +36,7 @@ func NewLBMockMap() *LBMockMap {
 func (m *LBMockMap) UpsertService(id uint16, ip net.IP, port uint16,
 	backendIDs []uint16, prevCount int, ipv6 bool) error {
 
-	backends := make([]lb.LBBackEnd, len(backendIDs))
+	backends := make([]lb.Backend, len(backendIDs))
 	for i, backendID := range backendIDs {
 		b, found := m.BackendByID[backendID]
 		if !found {
@@ -85,7 +85,7 @@ func (m *LBMockMap) AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) err
 		return fmt.Errorf("Backend %d already exists", id)
 	}
 
-	m.BackendByID[id] = lb.NewLBBackEnd(lb.BackendID(id), lb.NONE, ip, port)
+	m.BackendByID[id] = lb.NewBackend(lb.BackendID(id), lb.NONE, ip, port)
 
 	return nil
 }
@@ -108,8 +108,8 @@ func (m *LBMockMap) DumpServiceMapsToUserspaceV2() ([]*lb.LBSVC, []error) {
 	return list, nil
 }
 
-func (m *LBMockMap) DumpBackendMapsToUserspace() ([]*lb.LBBackEnd, error) {
-	list := make([]*lb.LBBackEnd, 0, len(m.BackendByID))
+func (m *LBMockMap) DumpBackendMapsToUserspace() ([]*lb.Backend, error) {
+	list := make([]*lb.Backend, 0, len(m.BackendByID))
 	for _, backend := range m.BackendByID {
 		list = append(list, backend)
 	}
