@@ -22,7 +22,7 @@ import (
 )
 
 // ServiceKey is the interface describing protocol independent key for services map v2.
-type ServiceKeyV2 interface {
+type ServiceKey interface {
 	bpf.MapKey
 
 	// Return true if the key is of type IPv6
@@ -43,18 +43,18 @@ type ServiceKeyV2 interface {
 	// Get frontend port
 	GetPort() uint16
 
-	// Returns a RevNatValue matching a ServiceKeyV2
+	// Returns a RevNatValue matching a ServiceKey
 	RevNatValue() RevNatValue
 
 	// Delete entry identified with the key from the matching map
 	MapDelete() error
 
 	// ToNetwork converts fields to network byte order.
-	ToNetwork() ServiceKeyV2
+	ToNetwork() ServiceKey
 }
 
 // ServiceValue is the interface describing protocol independent value for services map v2.
-type ServiceValueV2 interface {
+type ServiceValue interface {
 	bpf.MapValue
 
 	// Set the number of backends
@@ -79,7 +79,7 @@ type ServiceValueV2 interface {
 	RevNatKey() RevNatKey
 
 	// Convert fields to network byte order.
-	ToNetwork() ServiceValueV2
+	ToNetwork() ServiceValue
 }
 
 // BackendKey is the interface describing protocol independent backend key.
@@ -142,7 +142,7 @@ type RevNatValue interface {
 	ToNetwork() RevNatValue
 }
 
-func svcFrontendAndBackends(svcKey ServiceKeyV2, svcValue ServiceValueV2,
+func svcFrontendAndBackends(svcKey ServiceKey, svcValue ServiceValue,
 	backendID loadbalancer.BackendID, backend BackendValue) (*loadbalancer.L3n4AddrID, *loadbalancer.Backend) {
 
 	var beBackend *loadbalancer.Backend

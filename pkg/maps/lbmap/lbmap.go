@@ -50,20 +50,20 @@ func (*LBBPFMap) UpsertService(
 	backendIDs []uint16, prevBackendCount int,
 	ipv6 bool) error {
 
-	var svcKey ServiceKeyV2
+	var svcKey ServiceKey
 
 	if svcID == 0 {
 		return fmt.Errorf("Invalid svc ID 0")
 	}
 
 	if ipv6 {
-		svcKey = NewService6KeyV2(svcIP, svcPort, u8proto.ANY, 0)
+		svcKey = NewService6Key(svcIP, svcPort, u8proto.ANY, 0)
 	} else {
-		svcKey = NewService4KeyV2(svcIP, svcPort, u8proto.ANY, 0)
+		svcKey = NewService4Key(svcIP, svcPort, u8proto.ANY, 0)
 	}
 
 	slot := 1
-	svcVal := svcKey.NewValue().(ServiceValueV2)
+	svcVal := svcKey.NewValue().(ServiceValue)
 	for _, backendID := range backendIDs {
 		if backendID == 0 {
 			return fmt.Errorf("Invalid backend ID 0")
@@ -71,14 +71,14 @@ func (*LBBPFMap) UpsertService(
 		svcVal.SetBackendID(loadbalancer.BackendID(backendID))
 		svcVal.SetRevNat(int(svcID))
 		svcKey.SetSlave(slot) // TODO(brb) Rename to SetSlot
-		if err := updateServiceEndpointV2(svcKey, svcVal); err != nil {
+		if err := updateServiceEndpoint(svcKey, svcVal); err != nil {
 			return fmt.Errorf("Unable to update service entry %+v => %+v: %s",
 				svcKey, svcVal, err)
 		}
 		slot++
 	}
 
-	zeroValue := svcKey.NewValue().(ServiceValueV2)
+	zeroValue := svcKey.NewValue().(ServiceValue)
 	zeroValue.SetRevNat(int(svcID)) // TODO change to uint16
 	revNATKey := zeroValue.RevNatKey()
 	revNATValue := svcKey.RevNatValue()
@@ -86,14 +86,14 @@ func (*LBBPFMap) UpsertService(
 		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %s", revNATKey, revNATValue, err)
 	}
 
-	if err := updateMasterServiceV2(svcKey, len(backendIDs), int(svcID)); err != nil {
+	if err := updateMasterService(svcKey, len(backendIDs), int(svcID)); err != nil {
 		deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %s", svcKey, err)
 	}
 
 	for i := slot; i <= prevBackendCount; i++ {
 		svcKey.SetSlave(i)
-		if err := deleteServiceLockedV2(svcKey); err != nil {
+		if err := deleteServiceLocked(svcKey); err != nil {
 			log.WithFields(logrus.Fields{
 				logfields.ServiceKey: svcKey,
 				logfields.SlaveSlot:  svcKey.GetSlave(),
@@ -107,7 +107,7 @@ func (*LBBPFMap) UpsertService(
 // DeleteService removes given service from a BPF map.
 func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int) error {
 	var (
-		svcKey    ServiceKeyV2
+		svcKey    ServiceKey
 		revNATKey RevNatKey
 	)
 
@@ -116,10 +116,10 @@ func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int) er
 	}
 
 	if svc.IsIPv6() {
-		svcKey = NewService6KeyV2(svc.IP, svc.Port, u8proto.ANY, 0)
+		svcKey = NewService6Key(svc.IP, svc.Port, u8proto.ANY, 0)
 		revNATKey = NewRevNat6Key(uint16(svc.ID))
 	} else {
-		svcKey = NewService4KeyV2(svc.IP, svc.Port, u8proto.ANY, 0)
+		svcKey = NewService4Key(svc.IP, svc.Port, u8proto.ANY, 0)
 		revNATKey = NewRevNat4Key(uint16(svc.ID))
 	}
 
@@ -201,8 +201,8 @@ func deleteRevNatLocked(key RevNatKey) error {
 	return key.Map().Delete(key.ToNetwork())
 }
 
-// DumpServiceMapsToUserspaceV2 dumps the services from the BPF maps.
-func (*LBBPFMap) DumpServiceMapsToUserspaceV2() ([]*loadbalancer.SVC, []error) {
+// DumpServiceMaps dumps the services from the BPF maps.
+func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 	newSVCMap := svcMap{}
 	newSVCList := []*loadbalancer.SVC{}
 	errors := []error{}
@@ -216,8 +216,8 @@ func (*LBBPFMap) DumpServiceMapsToUserspaceV2() ([]*loadbalancer.SVC, []error) {
 	}
 
 	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
-		svcKey := key.DeepCopyMapKey().(ServiceKeyV2)
-		svcValue := value.DeepCopyMapValue().(ServiceValueV2)
+		svcKey := key.DeepCopyMapKey().(ServiceKey)
+		svcValue := value.DeepCopyMapValue().(ServiceValue)
 
 		// Skip master service
 		if svcKey.GetSlave() == 0 {
@@ -279,8 +279,8 @@ func (*LBBPFMap) DumpServiceMapsToUserspaceV2() ([]*loadbalancer.SVC, []error) {
 	return newSVCList, errors
 }
 
-// DumpBackendMapsToUserspace dumps the backend entries from the BPF maps.
-func (*LBBPFMap) DumpBackendMapsToUserspace() ([]*loadbalancer.Backend, error) {
+// DumpBackendMaps dumps the backend entries from the BPF maps.
+func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
 	backendValueMap := map[loadbalancer.BackendID]BackendValue{}
 	lbBackends := []*loadbalancer.Backend{}
 
@@ -317,16 +317,16 @@ func (*LBBPFMap) DumpBackendMapsToUserspace() ([]*loadbalancer.Backend, error) {
 	return lbBackends, nil
 }
 
-func updateMasterServiceV2(fe ServiceKeyV2, nbackends int, revNATID int) error {
+func updateMasterService(fe ServiceKey, nbackends int, revNATID int) error {
 	fe.SetSlave(0)
-	zeroValue := fe.NewValue().(ServiceValueV2)
+	zeroValue := fe.NewValue().(ServiceValue)
 	zeroValue.SetCount(nbackends)
 	zeroValue.SetRevNat(revNATID)
 
-	return updateServiceEndpointV2(fe, zeroValue)
+	return updateServiceEndpoint(fe, zeroValue)
 }
 
-func deleteServiceLockedV2(key ServiceKeyV2) error {
+func deleteServiceLocked(key ServiceKey) error {
 	return key.Map().Delete(key.ToNetwork())
 }
 
@@ -341,7 +341,7 @@ func deleteBackendLocked(key BackendKey) error {
 	return key.Map().Delete(key)
 }
 
-func updateServiceEndpointV2(key ServiceKeyV2, value ServiceValueV2) error {
+func updateServiceEndpoint(key ServiceKey, value ServiceValue) error {
 	log.WithFields(logrus.Fields{
 		logfields.ServiceKey:   key,
 		logfields.ServiceValue: value,
