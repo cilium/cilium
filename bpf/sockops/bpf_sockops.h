@@ -83,7 +83,7 @@ static __always_inline void sk_msg_extract4_key(struct sk_msg_md *msg,
 	key->dport = READ_ONCE(msg->remote_port) >> 16;
 }
 
-static __always_inline void sk_lb4_key_v2(struct lb4_key_v2 *lb4,
+static __always_inline void sk_lb4_key(struct lb4_key *lb4,
 					  struct sock_key *key)
 {
 	/* SK MSG is always egress, so use daddr */
