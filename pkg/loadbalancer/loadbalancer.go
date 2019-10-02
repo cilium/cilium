@@ -78,13 +78,13 @@ func (lbbe *Backend) String() string {
 	return lbbe.L3n4Addr.String()
 }
 
-// LBSVC is essentially used for the REST API.
-type LBSVC struct {
-	Hash          string
-	Frontend      L3n4AddrID
-	Backends      []Backend
-	BackendByHash map[string]*Backend // sha256 -> backend
-	Type          SVCType
+// SVC is a structure for storing service details.
+type SVC struct {
+	Hash          string              // == frontend.Hash()
+	Frontend      L3n4AddrID          // SVC frontend addr and an allocated ID
+	Backends      []Backend           // List of service backends TODO: change to ref
+	BackendByHash map[string]*Backend // Same backends but identified by their hash
+	Type          SVCType             // Service type
 }
 
 type backendPlacement struct {
@@ -92,7 +92,7 @@ type backendPlacement struct {
 	id  BackendID
 }
 
-func (s *LBSVC) GetModel() *models.Service {
+func (s *SVC) GetModel() *models.Service {
 	if s == nil {
 		return nil
 	}
@@ -125,7 +125,7 @@ func (s *LBSVC) GetModel() *models.Service {
 	}
 }
 
-type SVCMap map[string]LBSVC
+type SVCMap map[string]SVC
 
 func NewL4Type(name string) (L4Type, error) {
 	switch strings.ToLower(name) {
@@ -384,7 +384,7 @@ func (l *L3n4AddrID) Equals(o *L3n4AddrID) bool {
 // beIndex and the new 'be' will be inserted on index beIndex-1 of that new array. All
 // remaining be elements will be kept on the same index and, in case the new array is
 // larger than the number of backends, some elements will be empty.
-func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *Backend, beIndex int) *LBSVC {
+func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *Backend, beIndex int) *SVC {
 	log.WithFields(logrus.Fields{
 		"frontend":     fe,
 		"backend":      be,
@@ -392,7 +392,7 @@ func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *Backend, beIndex int) *LBSVC {
 	}).Debug("adding frontend and backend to SVCMap")
 	sha := fe.Hash()
 
-	var lbsvc LBSVC
+	var lbsvc SVC
 	lbsvc, ok := svcs[sha]
 	if !ok {
 		var bes []Backend
@@ -403,7 +403,7 @@ func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *Backend, beIndex int) *LBSVC {
 			bes = make([]Backend, beIndex)
 			bes[beIndex-1] = *be
 		}
-		lbsvc = LBSVC{
+		lbsvc = SVC{
 			Frontend: *fe,
 			Backends: bes,
 		}

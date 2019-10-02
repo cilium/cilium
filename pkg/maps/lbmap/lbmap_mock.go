@@ -23,13 +23,13 @@ import (
 
 type LBMockMap struct {
 	BackendByID map[uint16]*lb.Backend
-	ServiceByID map[uint16]*lb.LBSVC
+	ServiceByID map[uint16]*lb.SVC
 }
 
 func NewLBMockMap() *LBMockMap {
 	return &LBMockMap{
 		BackendByID: map[uint16]*lb.Backend{},
-		ServiceByID: map[uint16]*lb.LBSVC{},
+		ServiceByID: map[uint16]*lb.SVC{},
 	}
 }
 
@@ -48,7 +48,7 @@ func (m *LBMockMap) UpsertService(id uint16, ip net.IP, port uint16,
 	svc, found := m.ServiceByID[id]
 	if !found {
 		frontend := lb.NewL3n4AddrID(lb.NONE, ip, port, lb.ID(id))
-		svc = &lb.LBSVC{
+		svc = &lb.SVC{
 			Hash:          frontend.Hash(),
 			Frontend:      *frontend,
 			BackendByHash: nil,
@@ -100,8 +100,8 @@ func (m *LBMockMap) DeleteBackendByID(id uint16, ipv6 bool) error {
 	return nil
 }
 
-func (m *LBMockMap) DumpServiceMapsToUserspaceV2() ([]*lb.LBSVC, []error) {
-	list := make([]*lb.LBSVC, 0, len(m.ServiceByID))
+func (m *LBMockMap) DumpServiceMapsToUserspaceV2() ([]*lb.SVC, []error) {
+	list := make([]*lb.SVC, 0, len(m.ServiceByID))
 	for _, svc := range m.ServiceByID {
 		list = append(list, svc)
 	}
