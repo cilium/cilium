@@ -11,6 +11,10 @@
 #define htonl bpf_htonl
 #define ntohl bpf_ntohl
 
+/* Declare before lib/conntrack.h or die! */
+static uint32_t __now = 0;
+#define bpf_ktime_get_sec() __now
+
 #include "lib/conntrack_test.h"
 #include "lib/ipv6_test.h"
 
