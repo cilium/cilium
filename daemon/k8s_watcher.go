@@ -47,7 +47,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/serializer"
-	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/spanstat"
 
@@ -1247,7 +1246,7 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 
 		type frontend struct {
 			addr    *loadbalancer.L3n4AddrID
-			svcType service.Type
+			svcType loadbalancer.SVCType
 		}
 
 		frontends := []frontend{}
@@ -1255,13 +1254,13 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 			frontend{
 				addr: loadbalancer.NewL3n4AddrID(fePort.Protocol, svc.FrontendIP,
 					fePort.Port, loadbalancer.ID(fePort.ID)),
-				svcType: service.TypeClusterIP,
+				svcType: loadbalancer.SVCTypeClusterIP,
 			})
 
 		for _, nodePortFE := range svc.NodePorts[fePortName] {
 			frontends = append(frontends, frontend{
 				addr:    nodePortFE,
-				svcType: service.TypeNodePort,
+				svcType: loadbalancer.SVCTypeNodePort,
 			})
 		}
 

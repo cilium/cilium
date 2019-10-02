@@ -60,7 +60,7 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		backends = append(backends, *b)
 	}
 
-	created, id, err := h.svc.UpsertService(frontend, backends, service.TypeClusterIP)
+	created, id, err := h.svc.UpsertService(frontend, backends, loadbalancer.SVCTypeClusterIP)
 	if err == nil && id != frontend.ID {
 		return api.Error(PutServiceIDInvalidFrontendCode,
 			fmt.Errorf("the service provided is already registered with ID %d, please use that ID instead of %d",
