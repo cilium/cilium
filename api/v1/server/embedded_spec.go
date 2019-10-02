@@ -2811,9 +2811,13 @@ func init() {
           "description": "Optional service configuration flags",
           "type": "object",
           "properties": {
-            "node-port": {
-              "description": "Service is of Nodeport type",
-              "type": "boolean"
+            "type": {
+              "description": "Service type",
+              "type": "string",
+              "enum": [
+                "ClusterIP",
+                "NodePort"
+              ]
             }
           }
         },
@@ -6021,9 +6025,13 @@ func init() {
           "description": "Optional service configuration flags",
           "type": "object",
           "properties": {
-            "node-port": {
-              "description": "Service is of Nodeport type",
-              "type": "boolean"
+            "type": {
+              "description": "Service type",
+              "type": "string",
+              "enum": [
+                "ClusterIP",
+                "NodePort"
+              ]
             }
           }
         },

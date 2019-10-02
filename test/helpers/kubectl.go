@@ -2559,7 +2559,7 @@ func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.En
 	var k8sService *v1.Service
 
 	// TODO(brb) validate NodePort services
-	if cSvc.Status.Realized.Flags != nil && cSvc.Status.Realized.Flags.NodePort {
+	if cSvc.Status.Realized.Flags != nil && cSvc.Status.Realized.Flags.Type == "NodePort" {
 		return nil
 	}
 

@@ -6,6 +6,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"strconv"
 
 	strfmt "github.com/go-openapi/strfmt"
@@ -138,12 +139,65 @@ func (m *ServiceSpec) UnmarshalBinary(b []byte) error {
 // swagger:model ServiceSpecFlags
 type ServiceSpecFlags struct {
 
-	// Service is of Nodeport type
-	NodePort bool `json:"node-port,omitempty"`
+	// Service type
+	// Enum: [ClusterIP NodePort]
+	Type string `json:"type,omitempty"`
 }
 
 // Validate validates this service spec flags
 func (m *ServiceSpecFlags) Validate(formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.validateType(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+var serviceSpecFlagsTypeTypePropEnum []interface{}
+
+func init() {
+	var res []string
+	if err := json.Unmarshal([]byte(`["ClusterIP","NodePort"]`), &res); err != nil {
+		panic(err)
+	}
+	for _, v := range res {
+		serviceSpecFlagsTypeTypePropEnum = append(serviceSpecFlagsTypeTypePropEnum, v)
+	}
+}
+
+const (
+
+	// ServiceSpecFlagsTypeClusterIP captures enum value "ClusterIP"
+	ServiceSpecFlagsTypeClusterIP string = "ClusterIP"
+
+	// ServiceSpecFlagsTypeNodePort captures enum value "NodePort"
+	ServiceSpecFlagsTypeNodePort string = "NodePort"
+)
+
+// prop value enum
+func (m *ServiceSpecFlags) validateTypeEnum(path, location string, value string) error {
+	if err := validate.Enum(path, location, value, serviceSpecFlagsTypeTypePropEnum); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *ServiceSpecFlags) validateType(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Type) { // not required
+		return nil
+	}
+
+	// value enum
+	if err := m.validateTypeEnum("flags"+"."+"type", "body", m.Type); err != nil {
+		return err
+	}
+
 	return nil
 }
 
