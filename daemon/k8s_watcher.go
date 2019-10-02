@@ -1253,7 +1253,7 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 		frontends = append(frontends,
 			frontend{
 				addr: loadbalancer.NewL3n4AddrID(fePort.Protocol, svc.FrontendIP,
-					fePort.Port, loadbalancer.ID(fePort.ID)),
+					fePort.Port, loadbalancer.ID(0)),
 				svcType: loadbalancer.SVCTypeClusterIP,
 			})
 
