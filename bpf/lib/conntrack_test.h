@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 // Copyright (c) 2018-2019 Authors of Cilium
 
-/* Declare before lib/conntrack.h or die! */
-static uint32_t __now = 0;
-#define bpf_ktime_get_sec() __now
-
 enum {
 	__TUPLE_EXIST,
 	__TUPLE_NOEXIST,
@@ -24,8 +20,8 @@ static void *__map_lookup_elem(void *map, void *tuple)
 	return NULL;
 }
 #define map_lookup_elem(map, tuple) __map_lookup_elem(map, tuple)
-
 #include "lib/conntrack.h"
+#undef map_lookup_elem
 
 #define REPORT_ALL_FLAGS 0xFF
 #define REPORT_NO_FLAGS 0x0
