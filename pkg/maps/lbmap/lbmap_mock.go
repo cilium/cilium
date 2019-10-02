@@ -100,7 +100,7 @@ func (m *LBMockMap) DeleteBackendByID(id uint16, ipv6 bool) error {
 	return nil
 }
 
-func (m *LBMockMap) DumpServiceMapsToUserspaceV2() ([]*lb.SVC, []error) {
+func (m *LBMockMap) DumpServiceMaps() ([]*lb.SVC, []error) {
 	list := make([]*lb.SVC, 0, len(m.ServiceByID))
 	for _, svc := range m.ServiceByID {
 		list = append(list, svc)
@@ -108,7 +108,7 @@ func (m *LBMockMap) DumpServiceMapsToUserspaceV2() ([]*lb.SVC, []error) {
 	return list, nil
 }
 
-func (m *LBMockMap) DumpBackendMapsToUserspace() ([]*lb.Backend, error) {
+func (m *LBMockMap) DumpBackendMaps() ([]*lb.Backend, error) {
 	list := make([]*lb.Backend, 0, len(m.BackendByID))
 	for _, backend := range m.BackendByID {
 		list = append(list, backend)

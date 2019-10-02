@@ -29,14 +29,14 @@ import (
 var (
 	Service6MapV2 = bpf.NewMap("cilium_lb6_services_v2",
 		bpf.MapTypeHash,
-		&Service6KeyV2{},
-		int(unsafe.Sizeof(Service6KeyV2{})),
-		&Service6ValueV2{},
-		int(unsafe.Sizeof(Service6ValueV2{})),
+		&Service6Key{},
+		int(unsafe.Sizeof(Service6Key{})),
+		&Service6Value{},
+		int(unsafe.Sizeof(Service6Value{})),
 		MaxEntries,
 		0, 0,
 		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
-			svcKey, svcVal := mapKey.(*Service6KeyV2), mapValue.(*Service6ValueV2)
+			svcKey, svcVal := mapKey.(*Service6Key), mapValue.(*Service6Value)
 
 			if _, _, err := bpf.ConvertKeyValue(key, value, svcKey, svcVal); err != nil {
 				return nil, nil, err
@@ -131,10 +131,10 @@ func (v *RevNat6Value) ToNetwork() RevNatValue {
 	return &n
 }
 
-// Service6KeyV2 must match 'struct lb6_key_v2' in "bpf/lib/common.h".
+// Service6Key must match 'struct lb6_key_v2' in "bpf/lib/common.h".
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type Service6KeyV2 struct {
+type Service6Key struct {
 	Address types.IPv6 `align:"address"`
 	Port    uint16     `align:"dport"`
 	Slave   uint16     `align:"slave"`
@@ -142,8 +142,8 @@ type Service6KeyV2 struct {
 	Pad     pad3uint8  `align:"pad"`
 }
 
-func NewService6KeyV2(ip net.IP, port uint16, proto u8proto.U8proto, slave uint16) *Service6KeyV2 {
-	key := Service6KeyV2{
+func NewService6Key(ip net.IP, port uint16, proto u8proto.U8proto, slave uint16) *Service6Key {
+	key := Service6Key{
 		Port:  port,
 		Proto: uint8(proto),
 		Slave: slave,
@@ -154,45 +154,45 @@ func NewService6KeyV2(ip net.IP, port uint16, proto u8proto.U8proto, slave uint1
 	return &key
 }
 
-func (k *Service6KeyV2) String() string {
+func (k *Service6Key) String() string {
 	return fmt.Sprintf("[%s]:%d", k.Address, k.Port)
 }
 
-func (k *Service6KeyV2) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *Service6KeyV2) NewValue() bpf.MapValue    { return &Service6ValueV2{} }
-func (k *Service6KeyV2) IsIPv6() bool              { return true }
-func (k *Service6KeyV2) Map() *bpf.Map             { return Service6MapV2 }
-func (k *Service6KeyV2) SetSlave(slave int)        { k.Slave = uint16(slave) }
-func (k *Service6KeyV2) GetSlave() int             { return int(k.Slave) }
-func (k *Service6KeyV2) GetAddress() net.IP        { return k.Address.IP() }
-func (k *Service6KeyV2) GetPort() uint16           { return k.Port }
-func (k *Service6KeyV2) MapDelete() error          { return k.Map().Delete(k.ToNetwork()) }
+func (k *Service6Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
+func (k *Service6Key) NewValue() bpf.MapValue    { return &Service6Value{} }
+func (k *Service6Key) IsIPv6() bool              { return true }
+func (k *Service6Key) Map() *bpf.Map             { return Service6MapV2 }
+func (k *Service6Key) SetSlave(slave int)        { k.Slave = uint16(slave) }
+func (k *Service6Key) GetSlave() int             { return int(k.Slave) }
+func (k *Service6Key) GetAddress() net.IP        { return k.Address.IP() }
+func (k *Service6Key) GetPort() uint16           { return k.Port }
+func (k *Service6Key) MapDelete() error          { return k.Map().Delete(k.ToNetwork()) }
 
-func (k *Service6KeyV2) RevNatValue() RevNatValue {
+func (k *Service6Key) RevNatValue() RevNatValue {
 	return &RevNat6Value{
 		Address: k.Address,
 		Port:    k.Port,
 	}
 }
 
-func (k *Service6KeyV2) ToNetwork() ServiceKeyV2 {
+func (k *Service6Key) ToNetwork() ServiceKey {
 	n := *k
 	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
 	return &n
 }
 
-// Service6ValueV2 must match 'struct lb6_service_v2' in "bpf/lib/common.h".
+// Service6Value must match 'struct lb6_service_v2' in "bpf/lib/common.h".
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
-type Service6ValueV2 struct {
+type Service6Value struct {
 	BackendID uint32 `align:"backend_id"`
 	Count     uint16 `align:"count"`
 	RevNat    uint16 `align:"rev_nat_index"`
 	Pad       uint32 `align:"pad"`
 }
 
-func NewService6ValueV2(count uint16, backendID loadbalancer.BackendID, revNat uint16) *Service6ValueV2 {
-	svc := Service6ValueV2{
+func NewService6Value(count uint16, backendID loadbalancer.BackendID, revNat uint16) *Service6Value {
+	svc := Service6Value{
 		Count:     count,
 		BackendID: uint32(backendID),
 		RevNat:    revNat,
@@ -201,26 +201,26 @@ func NewService6ValueV2(count uint16, backendID loadbalancer.BackendID, revNat u
 	return &svc
 }
 
-func (s *Service6ValueV2) String() string {
+func (s *Service6Value) String() string {
 	return fmt.Sprintf("%d (%d)", s.BackendID, s.RevNat)
 }
 
-func (s *Service6ValueV2) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
+func (s *Service6Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
 
-func (s *Service6ValueV2) SetCount(count int)   { s.Count = uint16(count) }
-func (s *Service6ValueV2) GetCount() int        { return int(s.Count) }
-func (s *Service6ValueV2) SetRevNat(id int)     { s.RevNat = uint16(id) }
-func (s *Service6ValueV2) GetRevNat() int       { return int(s.RevNat) }
-func (s *Service6ValueV2) RevNatKey() RevNatKey { return &RevNat6Key{s.RevNat} }
+func (s *Service6Value) SetCount(count int)   { s.Count = uint16(count) }
+func (s *Service6Value) GetCount() int        { return int(s.Count) }
+func (s *Service6Value) SetRevNat(id int)     { s.RevNat = uint16(id) }
+func (s *Service6Value) GetRevNat() int       { return int(s.RevNat) }
+func (s *Service6Value) RevNatKey() RevNatKey { return &RevNat6Key{s.RevNat} }
 
-func (s *Service6ValueV2) SetBackendID(id loadbalancer.BackendID) {
+func (s *Service6Value) SetBackendID(id loadbalancer.BackendID) {
 	s.BackendID = uint32(id)
 }
-func (s *Service6ValueV2) GetBackendID() loadbalancer.BackendID {
+func (s *Service6Value) GetBackendID() loadbalancer.BackendID {
 	return loadbalancer.BackendID(s.BackendID)
 }
 
-func (s *Service6ValueV2) ToNetwork() ServiceValueV2 {
+func (s *Service6Value) ToNetwork() ServiceValue {
 	n := *s
 	n.RevNat = byteorder.HostToNetwork(n.RevNat).(uint16)
 	return &n
