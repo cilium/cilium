@@ -41,7 +41,7 @@ type LBMap interface {
 	AddBackend(uint16, net.IP, uint16, bool) error
 	DeleteBackendByID(uint16, bool) error
 	DumpServiceMapsToUserspaceV2() ([]*lb.LBSVC, []error)
-	DumpBackendMapsToUserspace() ([]*lb.LBBackEnd, error)
+	DumpBackendMapsToUserspace() ([]*lb.Backend, error)
 }
 
 // Service is a service handler. Its main responsibility is to reflect
@@ -55,7 +55,7 @@ type Service struct {
 	svcByID   map[lb.ID]*lb.LBSVC
 
 	backendRefCount counter.StringCounter
-	backendByHash   map[string]*lb.LBBackEnd
+	backendByHash   map[string]*lb.Backend
 
 	lbmap LBMap
 }
@@ -66,7 +66,7 @@ func NewService() *Service {
 		svcByHash:       map[string]*lb.LBSVC{},
 		svcByID:         map[lb.ID]*lb.LBSVC{},
 		backendRefCount: counter.StringCounter{},
-		backendByHash:   map[string]*lb.LBBackEnd{},
+		backendByHash:   map[string]*lb.Backend{},
 		lbmap:           &lbmap.LBBPFMap{},
 	}
 }
@@ -121,7 +121,7 @@ func (s *Service) InitMaps(ipv6, ipv4, restore bool) error {
 //
 // TODO(brb) split into multiple smaller functions.
 func (s *Service) UpsertService(
-	frontend lb.L3n4AddrID, backends []lb.LBBackEnd, svcType lb.SVCType) (bool, lb.ID, error) {
+	frontend lb.L3n4AddrID, backends []lb.Backend, svcType lb.SVCType) (bool, lb.ID, error) {
 
 	s.Lock()
 	defer s.Unlock()
@@ -137,7 +137,7 @@ func (s *Service) UpsertService(
 	})
 	scopedLog.Debug("Upserting service")
 
-	backendsCopy := []lb.LBBackEnd{}
+	backendsCopy := []lb.Backend{}
 	for _, v := range backends {
 		// TODO(brb) deep copy?
 		backendsCopy = append(backendsCopy, v)
@@ -164,7 +164,7 @@ func (s *Service) UpsertService(
 		svc = &lb.LBSVC{
 			Sha256:        hash,
 			FE:            frontend,
-			BackendByHash: map[string]*lb.LBBackEnd{},
+			BackendByHash: map[string]*lb.Backend{},
 			Type:          svcType,
 		}
 		s.svcByID[frontend.ID] = svc
@@ -402,7 +402,7 @@ func (s *Service) restoreServicesLocked() error {
 			scopedLog.WithError(err).Warning("Unable to restore service ID")
 		}
 
-		svc.BackendByHash = map[string]*lb.LBBackEnd{}
+		svc.BackendByHash = map[string]*lb.Backend{}
 		for j, backend := range svc.BES {
 			hash := backend.L3n4Addr.SHA256Sum()
 			s.backendRefCount.Add(hash)
@@ -462,11 +462,11 @@ func (s *Service) deleteServiceLocked(svc *lb.LBSVC) error {
 	return nil
 }
 
-func (s *Service) updateBackendsCacheLocked(svc *lb.LBSVC, backends []lb.LBBackEnd) (
-	[]lb.LBBackEnd, []lb.BackendID, error) {
+func (s *Service) updateBackendsCacheLocked(svc *lb.LBSVC, backends []lb.Backend) (
+	[]lb.Backend, []lb.BackendID, error) {
 
 	obsoleteBackendIDs := []lb.BackendID{}
-	newBackends := []lb.LBBackEnd{}
+	newBackends := []lb.Backend{}
 	backendSet := map[string]struct{}{}
 
 	for i, backend := range backends {
@@ -523,7 +523,7 @@ func (s *Service) deleteBackendsFromCacheLocked(svc *lb.LBSVC) []lb.BackendID {
 }
 
 func deepCopyLBSVC(svc *lb.LBSVC) *lb.LBSVC {
-	backends := make([]lb.LBBackEnd, len(svc.BES))
+	backends := make([]lb.Backend, len(svc.BES))
 	for i, backend := range svc.BES {
 		backends[i].L3n4Addr = *backend.DeepCopy()
 		backends[i].ID = backend.ID
