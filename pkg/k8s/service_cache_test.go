@@ -51,29 +51,23 @@ func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 	cache.services = map[ServiceID]*Service{
 		svcID1: {
 			FrontendIP: net.ParseIP("1.1.1.1"),
-			Ports: map[loadbalancer.FEPortName]*loadbalancer.FEPort{
+			Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 				loadbalancer.FEPortName("foo"): {
-					L4Addr: &loadbalancer.L4Addr{
-						Protocol: loadbalancer.TCP,
-						Port:     10,
-					},
+					Protocol: loadbalancer.TCP,
+					Port:     10,
 				},
 				loadbalancer.FEPortName("bar"): {
-					L4Addr: &loadbalancer.L4Addr{
-						Protocol: loadbalancer.TCP,
-						Port:     20,
-					},
+					Protocol: loadbalancer.TCP,
+					Port:     20,
 				},
 			},
 		},
 		svcID2: {
 			FrontendIP: net.ParseIP("2.2.2.2"),
-			Ports: map[loadbalancer.FEPortName]*loadbalancer.FEPort{
+			Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 				loadbalancer.FEPortName("bar"): {
-					L4Addr: &loadbalancer.L4Addr{
-						Protocol: loadbalancer.UDP,
-						Port:     20,
-					},
+					Protocol: loadbalancer.UDP,
+					Port:     20,
 				},
 			},
 		},
