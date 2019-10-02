@@ -1,6 +1,6 @@
 include ../Makefile.defs
 
-SUBDIRS = ring-dump alignchecker
+SUBDIRS = ring-dump alignchecker maptool
 
 all: $(SUBDIRS)
 
