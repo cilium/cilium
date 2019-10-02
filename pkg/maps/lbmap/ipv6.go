@@ -91,7 +91,6 @@ func NewRevNat6Key(value uint16) *RevNat6Key {
 	return &RevNat6Key{value}
 }
 
-func (v *RevNat6Key) IsIPv6() bool              { return true }
 func (v *RevNat6Key) Map() *bpf.Map             { return RevNat6Map }
 func (v *RevNat6Key) NewValue() bpf.MapValue    { return &RevNat6Value{} }
 func (v *RevNat6Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(v) }
@@ -301,8 +300,6 @@ func NewBackend6(id loadbalancer.BackendID, ip net.IP, port uint16, proto u8prot
 	}, nil
 }
 
-func (b *Backend6) IsIPv6() bool                  { return true }
-func (b *Backend6) Map() *bpf.Map                 { return Backend6Map }
-func (b *Backend6) GetID() loadbalancer.BackendID { return b.Key.GetID() }
-func (b *Backend6) GetKey() BackendKey            { return b.Key }
-func (b *Backend6) GetValue() BackendValue        { return b.Value }
+func (b *Backend6) Map() *bpf.Map          { return Backend6Map }
+func (b *Backend6) GetKey() BackendKey     { return b.Key }
+func (b *Backend6) GetValue() BackendValue { return b.Value }
