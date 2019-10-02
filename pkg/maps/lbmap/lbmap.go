@@ -226,19 +226,13 @@ func (*LBBPFMap) DumpServiceMapsToUserspaceV2() ([]*loadbalancer.SVC, []error) {
 
 		backendID := svcValue.GetBackendID()
 
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.BPFMapKey:   svcKey,
-			logfields.BPFMapValue: svcValue,
-		})
-
 		backendValue, found := backendValueMap[backendID]
 		if !found {
 			errors = append(errors, fmt.Errorf("backend %d not found", backendID))
 			return
 		}
 
-		scopedLog.Debug("parsing service mapping v2")
-		fe, be := serviceKeynValuenBackendValue2FEnBE(svcKey, svcValue, backendID, backendValue)
+		fe, be := svcFrontendAndBackends(svcKey, svcValue, backendID, backendValue)
 
 		// Build a cache to map frontend IP to service ID. The master
 		// service key does not have the service ID set so the cache
@@ -276,8 +270,7 @@ func (*LBBPFMap) DumpServiceMapsToUserspaceV2() ([]*loadbalancer.SVC, []error) {
 		}
 	}
 
-	// serviceKeynValue2FEnBE() cannot fill in the service ID reliably as
-	// not all BPF map entries contain the service ID. Do a pass over all
+	// Not all BPF map entries contain the service ID. Do a pass over all
 	// parsed entries and fill in the service ID
 	for i := range newSVCList {
 		newSVCList[i].Frontend.ID = loadbalancer.ID(idCache[newSVCList[i].Frontend.String()])
