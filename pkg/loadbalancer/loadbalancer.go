@@ -169,39 +169,6 @@ func (l *L4Addr) DeepCopy() *L4Addr {
 	}
 }
 
-// FEPort represents a frontend port with its ID and the L4Addr's inheritance.
-type FEPort struct {
-	*L4Addr
-}
-
-// NewFEPort creates a new FEPort with the ID set to 0.
-func NewFEPort(protocol L4Type, portNumber uint16) *FEPort {
-	return &FEPort{L4Addr: NewL4Addr(protocol, portNumber)}
-}
-
-// EqualsIgnoreID returns true if both L4Addr are considered equal without
-// comparing its ID.
-func (f *FEPort) EqualsIgnoreID(o *FEPort) bool {
-	switch {
-	case (f == nil) != (o == nil):
-		return false
-	case (f == nil) && (o == nil):
-		return true
-	}
-	return f.L4Addr.Equals(o.L4Addr)
-}
-
-// Equals returns true if both L4Addr are considered equal.
-func (f *FEPort) Equals(o *FEPort) bool {
-	switch {
-	case (f == nil) != (o == nil):
-		return false
-	case (f == nil) && (o == nil):
-		return true
-	}
-	return f.EqualsIgnoreID(o)
-}
-
 // L3n4Addr is used to store, as an unique L3+L4 address in the KVStore.
 type L3n4Addr struct {
 	IP net.IP

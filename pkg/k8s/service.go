@@ -96,7 +96,7 @@ func ParseService(svc *types.Service) (ServiceID, *Service) {
 	svcInfo.Shared = getAnnotationShared(svc)
 
 	for _, port := range svc.Spec.Ports {
-		p := loadbalancer.NewFEPort(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
+		p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
 		portName := loadbalancer.FEPortName(port.Name)
 		if _, ok := svcInfo.Ports[portName]; !ok {
 			svcInfo.Ports[portName] = p
@@ -193,7 +193,7 @@ type Service struct {
 	// Shared is true when the service should be exposed/shared to other clusters
 	Shared bool
 
-	Ports map[loadbalancer.FEPortName]*loadbalancer.FEPort
+	Ports map[loadbalancer.FEPortName]*loadbalancer.L4Addr
 	// NodePorts stores mapping for port name => NodePort frontend addr string =>
 	// NodePort fronted addr. The string addr => addr indirection is to avoid
 	// storing duplicates.
@@ -245,7 +245,7 @@ func (s *Service) DeepEquals(o *Service) bool {
 			if !ok {
 				return false
 			}
-			if !port.EqualsIgnoreID(oPort) {
+			if !port.Equals(oPort) {
 				return false
 			}
 		}
@@ -283,7 +283,7 @@ func NewService(ip net.IP, headless bool, labels map[string]string, selector map
 	return &Service{
 		FrontendIP: ip,
 		IsHeadless: headless,
-		Ports:      map[loadbalancer.FEPortName]*loadbalancer.FEPort{},
+		Ports:      map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
 		NodePorts:  map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
 		Labels:     labels,
 		Selector:   selector,
@@ -317,7 +317,7 @@ func NewClusterService(id ServiceID, k8sService *Service, k8sEndpoints *Endpoint
 
 	portConfig := service.PortConfiguration{}
 	for portName, port := range k8sService.Ports {
-		portConfig[string(portName)] = port.L4Addr
+		portConfig[string(portName)] = port
 	}
 
 	svc.Frontends = map[string]service.PortConfiguration{}
