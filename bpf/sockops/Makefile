@@ -9,7 +9,9 @@ include ../Makefile.bpf
 SOCKOPS_OPTIONS = \
 	 -DSKIP_DEBUG \
 	 -DHAVE_LPM_MAP_TYPE \
-	 -DHAVE_LRU_MAP_TYPE
+	 -DHAVE_LRU_MAP_TYPE \
+	 -DENABLE_IPV4 \
+	 -DENABLE_IPV6
 
 all: $(BPF)
 
