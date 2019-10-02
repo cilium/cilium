@@ -1023,11 +1023,11 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 	if (redirect_to_proxy(verdict, *reason)) {
 		*proxy_port = verdict;
 		// Trace the packet before its forwarded to proxy
-		send_trace_notify(skb, TRACE_TO_PROXY, src_label, SECLABEL,
+		send_trace_notify4(skb, TRACE_TO_PROXY, src_label, SECLABEL, orig_sip,
 				  0, ifindex, *reason, monitor);
 		return TC_ACT_OK;
 	} else { // Not redirected to host / proxy.
-		send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL,
+		send_trace_notify4(skb, TRACE_TO_LXC, src_label, SECLABEL, orig_sip,
 				  LXC_ID, ifindex, *reason, monitor);
 	}
 
