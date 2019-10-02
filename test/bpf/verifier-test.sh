@@ -33,7 +33,9 @@ TC=${TC:-"tc"}
 IPROUTE2=${IPROUTE2:-"ip"}
 
 function clean_maps {
-	rm -rf $BPFFS/tc/globals/*
+	for f in $BPFFS/tc/globals/test_*; do
+		rm -f $f
+	done
 }
 
 function cleanup {
@@ -92,12 +94,6 @@ function load_xdp {
 function handle_args {
 	if [ $(id -u) -ne 0 ]; then
 		echo "Must be run as root" 1>&2
-		exit 1
-	fi
-
-	if ps cax | grep cilium-agent; then
-		echo "WARNING: This test will conflict with running cilium instances." 1>&2
-		echo "Shut down cilium before continuing." 1>&2
 		exit 1
 	fi
 
