@@ -280,7 +280,7 @@ func (*LBBPFMap) DumpServiceMapsToUserspaceV2() ([]*loadbalancer.LBSVC, []error)
 	// not all BPF map entries contain the service ID. Do a pass over all
 	// parsed entries and fill in the service ID
 	for i := range newSVCList {
-		newSVCList[i].FE.ID = loadbalancer.ID(idCache[newSVCList[i].FE.String()])
+		newSVCList[i].Frontend.ID = loadbalancer.ID(idCache[newSVCList[i].Frontend.String()])
 	}
 
 	return newSVCList, errors

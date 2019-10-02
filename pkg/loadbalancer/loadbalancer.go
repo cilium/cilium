@@ -81,7 +81,7 @@ func (lbbe *Backend) String() string {
 // LBSVC is essentially used for the REST API.
 type LBSVC struct {
 	Sha256        string
-	FE            L3n4AddrID
+	Frontend      L3n4AddrID
 	Backends      []Backend
 	BackendByHash map[string]*Backend // sha256 -> backend
 	Type          SVCType
@@ -97,10 +97,10 @@ func (s *LBSVC) GetModel() *models.Service {
 		return nil
 	}
 
-	id := int64(s.FE.ID)
+	id := int64(s.Frontend.ID)
 	spec := &models.ServiceSpec{
 		ID:               id,
-		FrontendAddress:  s.FE.GetModel(),
+		FrontendAddress:  s.Frontend.GetModel(),
 		BackendAddresses: make([]*models.BackendAddress, len(s.Backends)),
 		Flags: &models.ServiceSpecFlags{
 			Type: string(s.Type),
@@ -404,7 +404,7 @@ func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *Backend, beIndex int) *LBSVC {
 			bes[beIndex-1] = *be
 		}
 		lbsvc = LBSVC{
-			FE:       *fe,
+			Frontend: *fe,
 			Backends: bes,
 		}
 	} else {
