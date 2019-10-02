@@ -64,8 +64,8 @@ func dumpSVC(serviceList map[string][]string) {
 	parseSVCEntry := func(key bpf.MapKey, value bpf.MapValue) {
 		var entry string
 
-		svcKey := key.(lbmap.ServiceKeyV2)
-		svcVal := value.(lbmap.ServiceValueV2)
+		svcKey := key.(lbmap.ServiceKey)
+		svcVal := value.(lbmap.ServiceValue)
 		svc := svcKey.String()
 		revNATID := svcVal.GetRevNat()
 		backendID := svcVal.GetBackendID()

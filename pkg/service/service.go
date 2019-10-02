@@ -40,8 +40,8 @@ type LBMap interface {
 	DeleteService(lb.L3n4AddrID, int) error
 	AddBackend(uint16, net.IP, uint16, bool) error
 	DeleteBackendByID(uint16, bool) error
-	DumpServiceMapsToUserspaceV2() ([]*lb.SVC, []error)
-	DumpBackendMapsToUserspace() ([]*lb.Backend, error)
+	DumpServiceMaps() ([]*lb.SVC, []error)
+	DumpBackendMaps() ([]*lb.Backend, error)
 }
 
 // Service is a service handler. Its main responsibility is to reflect
@@ -343,7 +343,7 @@ func (s *Service) SyncWithK8s(matchSVC func(lb.L3n4Addr) bool) error {
 }
 
 func (s *Service) restoreBackendsLocked() error {
-	backends, err := s.lbmap.DumpBackendMapsToUserspace()
+	backends, err := s.lbmap.DumpBackendMaps()
 	if err != nil {
 		return fmt.Errorf("Unable to dump backend maps: %s", err)
 	}
@@ -385,7 +385,7 @@ func (s *Service) deleteOrphanBackends() error {
 func (s *Service) restoreServicesLocked() error {
 	failed, restored := 0, 0
 
-	svcs, errors := s.lbmap.DumpServiceMapsToUserspaceV2()
+	svcs, errors := s.lbmap.DumpServiceMaps()
 	for _, err := range errors {
 		log.WithError(err).Warning("Error occurred while dumping service maps")
 	}
