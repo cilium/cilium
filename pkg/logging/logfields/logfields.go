@@ -171,8 +171,8 @@ const (
 	// NetNSName is a name of a network namespace
 	NetNSName = "netNSName"
 
-	// SHA is a sha of something
-	SHA = "sha"
+	// Hash is a hash of something
+	Hash = "hash"
 
 	// ServiceName is the orchestration framework name for a service
 	ServiceName = "serviceName"

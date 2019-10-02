@@ -80,7 +80,7 @@ func (lbbe *Backend) String() string {
 
 // LBSVC is essentially used for the REST API.
 type LBSVC struct {
-	Sha256        string
+	Hash          string
 	Frontend      L3n4AddrID
 	Backends      []Backend
 	BackendByHash map[string]*Backend // sha256 -> backend
@@ -311,8 +311,8 @@ func (a *L3n4Addr) DeepCopy() *L3n4Addr {
 	}
 }
 
-// SHA256Sum calculates L3n4Addr's internal SHA256Sum.
-func (a L3n4Addr) SHA256Sum() string {
+// Hash calculates L3n4Addr's internal SHA256Sum.
+func (a L3n4Addr) Hash() string {
 	// FIXME: Remove Protocol's omission once we care about protocols.
 	protoBak := a.Protocol
 	a.Protocol = ""
@@ -390,7 +390,7 @@ func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *Backend, beIndex int) *LBSVC {
 		"backend":      be,
 		"backendIndex": beIndex,
 	}).Debug("adding frontend and backend to SVCMap")
-	sha := fe.SHA256Sum()
+	sha := fe.Hash()
 
 	var lbsvc LBSVC
 	lbsvc, ok := svcs[sha]
@@ -421,7 +421,7 @@ func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *Backend, beIndex int) *LBSVC {
 		}
 	}
 
-	lbsvc.Sha256 = sha
+	lbsvc.Hash = sha
 	svcs[sha] = lbsvc
 	return &lbsvc
 }
