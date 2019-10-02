@@ -27,9 +27,10 @@ import (
 )
 
 var (
-	idU      uint64
-	frontend string
-	backends []string
+	deprecatedAddRev bool // TODO(v1.8+): remove it
+	idU              uint64
+	frontend         string
+	backends         []string
 )
 
 // serviceUpdateCmd represents the service_update command
@@ -44,6 +45,8 @@ var serviceUpdateCmd = &cobra.Command{
 func init() {
 	serviceCmd.AddCommand(serviceUpdateCmd)
 	serviceUpdateCmd.Flags().Uint64VarP(&idU, "id", "", 0, "Identifier")
+	serviceUpdateCmd.Flags().BoolVarP(&deprecatedAddRev, "rev", "", false, "Add reverse translation")
+	serviceUpdateCmd.Flags().MarkDeprecated("rev", "and it is inactive")
 	serviceUpdateCmd.Flags().StringVarP(&frontend, "frontend", "", "", "Frontend address")
 	serviceUpdateCmd.Flags().StringSliceVarP(&backends, "backends", "", []string{}, "Backend address or addresses (<IP:Port>)")
 }
