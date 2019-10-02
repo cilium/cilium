@@ -69,7 +69,7 @@ func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
 	}
 
 	// Should create a new service with two backends
-	created, id1, err := m.svc.UpsertService(frontend1, backends1, TypeNodePort)
+	created, id1, err := m.svc.UpsertService(frontend1, backends1, lb.SVCTypeNodePort)
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, true)
 	c.Assert(id1, Equals, lb.ID(1))
@@ -77,7 +77,7 @@ func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
 	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
 
 	// Should update nothing
-	created, id1, err = m.svc.UpsertService(frontend1, backends1, TypeNodePort)
+	created, id1, err = m.svc.UpsertService(frontend1, backends1, lb.SVCTypeNodePort)
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, false)
 	c.Assert(id1, Equals, lb.ID(1))
@@ -86,7 +86,7 @@ func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
 	// TODO(brb) test that backends are the same
 
 	// Should remove one backend
-	created, id1, err = m.svc.UpsertService(frontend1, backends1[0:1], TypeNodePort)
+	created, id1, err = m.svc.UpsertService(frontend1, backends1[0:1], lb.SVCTypeNodePort)
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, false)
 	c.Assert(id1, Equals, lb.ID(1))
@@ -94,7 +94,7 @@ func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
 	c.Assert(len(m.lbmap.BackendByID), Equals, 1)
 
 	// Should add another service
-	created, id2, err := m.svc.UpsertService(frontend2, backends1, TypeNodePort)
+	created, id2, err := m.svc.UpsertService(frontend2, backends1, lb.SVCTypeNodePort)
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, true)
 	c.Assert(id2, Equals, lb.ID(2))
@@ -110,7 +110,7 @@ func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
 	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
 
 	// Should delete both backends of service
-	created, id2, err = m.svc.UpsertService(frontend2, nil, TypeNodePort)
+	created, id2, err = m.svc.UpsertService(frontend2, nil, lb.SVCTypeNodePort)
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, false)
 	c.Assert(id2, Equals, lb.ID(2))
@@ -126,9 +126,9 @@ func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
 }
 
 func (m *ManagerTestSuite) TestRestoreServices(c *C) {
-	_, id1, err := m.svc.UpsertService(frontend1, backends1, TypeNodePort)
+	_, id1, err := m.svc.UpsertService(frontend1, backends1, lb.SVCTypeNodePort)
 	c.Assert(err, IsNil)
-	_, id2, err := m.svc.UpsertService(frontend2, backends2, TypeClusterIP)
+	_, id2, err := m.svc.UpsertService(frontend2, backends2, lb.SVCTypeClusterIP)
 	c.Assert(err, IsNil)
 	fmt.Println(id1, id2)
 

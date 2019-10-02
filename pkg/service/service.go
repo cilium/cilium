@@ -34,14 +34,6 @@ var (
 	addMetric    = metrics.ServicesCount.WithLabelValues("add")
 )
 
-// Type is a type of a service.
-type Type string
-
-const (
-	TypeClusterIP = Type("ClusterIP")
-	TypeNodePort  = Type("NodePort")
-)
-
 // LBMap is the interface describing methods for manipulating service maps.
 type LBMap interface {
 	UpsertService(uint16, net.IP, uint16, []uint16, int, bool) error
@@ -129,7 +121,7 @@ func (s *Service) InitMaps(ipv6, ipv4, restore bool) error {
 //
 // TODO(brb) split into multiple smaller functions.
 func (s *Service) UpsertService(
-	frontend lb.L3n4AddrID, backends []lb.LBBackEnd, svcType Type) (bool, lb.ID, error) {
+	frontend lb.L3n4AddrID, backends []lb.LBBackEnd, svcType lb.SVCType) (bool, lb.ID, error) {
 
 	s.Lock()
 	defer s.Unlock()
@@ -173,14 +165,14 @@ func (s *Service) UpsertService(
 			Sha256:        hash,
 			FE:            frontend,
 			BackendByHash: map[string]*lb.LBBackEnd{},
-			NodePort:      svcType == TypeNodePort,
+			NodePort:      svcType == lb.SVCTypeNodePort,
 		}
 		s.svcByID[frontend.ID] = svc
 		s.svcByHash[hash] = svc
 	} else {
 		// NOTE: We cannot restore svcType from BPF maps, so just set it
 		//       each time (safe until GH#8700 has been fixed).
-		svc.NodePort = svcType == TypeNodePort
+		svc.NodePort = svcType == lb.SVCTypeNodePort
 	}
 
 	prevBackendCount := len(svc.BES)
