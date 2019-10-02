@@ -123,6 +123,10 @@ type NodeHandler interface {
 	// before NodeAdd() is called for a particular node.
 	NodeUpdate(oldNode, newNode node.Node) error
 
+	// NodeUpdateMap is called to update a node entries non-datapath
+	// fields such as cilium health IP.
+	NodeUpdateMap(newNode node.Node) error
+
 	// NodeDelete is called after a node has been deleted
 	NodeDelete(node node.Node) error
 

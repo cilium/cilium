@@ -176,6 +176,17 @@ func (c *clusterNodesClient) NodeAdd(newNode node.Node) error {
 	return nil
 }
 
+func (c *clusterNodesClient) NodeUpdateMap(newNode node.Node) error {
+	c.Lock()
+	for i, added := range c.NodesAdded {
+		if added.Name == newNode.Fullname() {
+			c.NodesAdded[i] = newNode.GetModel()
+		}
+	}
+	c.Unlock()
+	return nil
+}
+
 func (c *clusterNodesClient) NodeUpdate(oldNode, newNode node.Node) error {
 	c.Lock()
 	c.NodesAdded = append(c.NodesAdded, newNode.GetModel())

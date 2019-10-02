@@ -354,6 +354,11 @@ func (m *Manager) NodeUpdated(n node.Node) {
 			m.Iter(func(nh datapath.NodeHandler) {
 				nh.NodeUpdate(oldNode, entry.node)
 			})
+		} else {
+			// update node here even if entry is owned with new IPs
+			m.Iter(func(nh datapath.NodeHandler) {
+				nh.NodeUpdateMap(entry.node)
+			})
 		}
 		entry.mutex.Unlock()
 	} else {

@@ -420,6 +420,14 @@ func (n *linuxNodeHandler) NodeAdd(newNode node.Node) error {
 	return nil
 }
 
+func (n *linuxNodeHandler) NodeUpdateMap(newNode node.Node) error {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
+	n.nodes[newNode.Identity()] = &newNode
+	return nil
+}
+
 func (n *linuxNodeHandler) NodeUpdate(oldNode, newNode node.Node) error {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
