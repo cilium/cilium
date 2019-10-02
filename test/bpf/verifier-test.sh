@@ -247,17 +247,19 @@ function handle_args {
 	fi
 
 	# If first argument is "-v", always set verbose
-	if [ $# -gt 0 ]; then
-		case "$1" in
+	while [ $# -gt 0 ]; do
+		key="$1"
+
+		case "$key" in
 		-v|--verbose)
 			VERBOSE=true
-			;;
+			shift;;
 		*)
 			echo "Unrecognized argument '$1'" 1>&2
 			exit 1
 			;;
 		esac
-	fi
+	done
 }
 
 function handle_developers {
