@@ -163,7 +163,7 @@ func (s *Service) UpsertService(
 
 		svc = &lb.LBSVC{
 			Sha256:        hash,
-			FE:            frontend,
+			Frontend:      frontend,
 			BackendByHash: map[string]*lb.Backend{},
 			Type:          svcType,
 		}
@@ -201,7 +201,7 @@ func (s *Service) UpsertService(
 		backendIDs[i] = uint16(b.ID)
 	}
 	err = s.lbmap.UpsertService(
-		uint16(svc.FE.ID), svc.FE.L3n4Addr.IP, svc.FE.L3n4Addr.L4Addr.Port,
+		uint16(svc.Frontend.ID), svc.Frontend.L3n4Addr.IP, svc.Frontend.L3n4Addr.L4Addr.Port,
 		backendIDs, prevBackendCount,
 		ipv6)
 	if err != nil {
@@ -225,7 +225,7 @@ func (s *Service) UpsertService(
 		updateMetric.Inc()
 	}
 
-	return new, lb.ID(svc.FE.ID), nil
+	return new, lb.ID(svc.Frontend.ID), nil
 }
 
 // DeleteServiceByID removes a service identified by the given ID.
@@ -326,10 +326,10 @@ func (s *Service) SyncWithK8s(matchSVC func(lb.L3n4Addr) bool) error {
 		}
 		alreadyChecked[hash] = struct{}{}
 
-		if !matchSVC(svc.FE.L3n4Addr) {
+		if !matchSVC(svc.Frontend.L3n4Addr) {
 			log.WithFields(logrus.Fields{
-				logfields.ServiceID: svc.FE.ID,
-				logfields.L3n4Addr:  logfields.Repr(svc.FE.L3n4Addr)}).
+				logfields.ServiceID: svc.Frontend.ID,
+				logfields.L3n4Addr:  logfields.Repr(svc.Frontend.L3n4Addr)}).
 				Warn("Deleting no longer present service")
 
 			if err := s.deleteServiceLocked(svc); err != nil {
@@ -392,12 +392,12 @@ func (s *Service) restoreServicesLocked() error {
 
 	for i, svc := range svcs {
 		scopedLog := log.WithFields(logrus.Fields{
-			logfields.ServiceID: svc.FE.ID,
-			logfields.ServiceIP: svc.FE.L3n4Addr.String(),
+			logfields.ServiceID: svc.Frontend.ID,
+			logfields.ServiceIP: svc.Frontend.L3n4Addr.String(),
 		})
 		scopedLog.Debug("Restoring service")
 
-		if _, err := RestoreID(svc.FE.L3n4Addr, uint32(svc.FE.ID)); err != nil {
+		if _, err := RestoreID(svc.Frontend.L3n4Addr, uint32(svc.Frontend.ID)); err != nil {
 			failed++
 			scopedLog.WithError(err).Warning("Unable to restore service ID")
 		}
@@ -414,8 +414,8 @@ func (s *Service) restoreServicesLocked() error {
 		// service cache has been initialized
 		svc.Type = lb.SVCTypeClusterIP
 
-		s.svcByHash[svc.FE.SHA256Sum()] = svcs[i]
-		s.svcByID[svc.FE.ID] = svcs[i]
+		s.svcByHash[svc.Frontend.SHA256Sum()] = svcs[i]
+		s.svcByID[svc.Frontend.ID] = svcs[i]
 		restored++
 	}
 
@@ -431,20 +431,20 @@ func (s *Service) deleteServiceLocked(svc *lb.LBSVC) error {
 	obsoleteBackendIDs := s.deleteBackendsFromCacheLocked(svc)
 
 	scopedLog := log.WithFields(logrus.Fields{
-		logfields.ServiceID: svc.FE.ID,
-		logfields.ServiceIP: svc.FE.L3n4Addr,
+		logfields.ServiceID: svc.Frontend.ID,
+		logfields.ServiceIP: svc.Frontend.L3n4Addr,
 		logfields.Backends:  svc.Backends,
 	})
 	scopedLog.Debug("Deleting service")
 
-	if err := s.lbmap.DeleteService(svc.FE, len(svc.Backends)); err != nil {
+	if err := s.lbmap.DeleteService(svc.Frontend, len(svc.Backends)); err != nil {
 		return err
 	}
 
 	delete(s.svcByHash, svc.Sha256)
-	delete(s.svcByID, svc.FE.ID)
+	delete(s.svcByID, svc.Frontend.ID)
 
-	ipv6 := svc.FE.L3n4Addr.IsIPv6()
+	ipv6 := svc.Frontend.L3n4Addr.IsIPv6()
 	for _, id := range obsoleteBackendIDs {
 		scopedLog.WithField(logfields.BackendID, id).
 			Debug("Deleting obsolete backend")
@@ -453,8 +453,8 @@ func (s *Service) deleteServiceLocked(svc *lb.LBSVC) error {
 			return err
 		}
 	}
-	if err := DeleteID(uint32(svc.FE.ID)); err != nil {
-		return fmt.Errorf("Unable to release service ID %d: %s", svc.FE.ID, err)
+	if err := DeleteID(uint32(svc.Frontend.ID)); err != nil {
+		return fmt.Errorf("Unable to release service ID %d: %s", svc.Frontend.ID, err)
 	}
 
 	deleteMetric.Inc()
@@ -529,7 +529,7 @@ func deepCopyLBSVC(svc *lb.LBSVC) *lb.LBSVC {
 		backends[i].ID = backend.ID
 	}
 	return &lb.LBSVC{
-		FE:       *svc.FE.DeepCopy(),
+		Frontend: *svc.Frontend.DeepCopy(),
 		Backends: backends,
 		Type:     svc.Type,
 	}

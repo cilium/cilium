@@ -50,7 +50,7 @@ func (m *LBMockMap) UpsertService(id uint16, ip net.IP, port uint16,
 		frontend := lb.NewL3n4AddrID(lb.NONE, ip, port, lb.ID(id))
 		svc = &lb.LBSVC{
 			Sha256:        frontend.SHA256Sum(),
-			FE:            *frontend,
+			Frontend:      *frontend,
 			BackendByHash: nil,
 		}
 	} else {
