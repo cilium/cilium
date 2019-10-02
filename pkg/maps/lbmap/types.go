@@ -19,9 +19,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	"github.com/sirupsen/logrus"
 )
 
 // ServiceKey is the interface describing protocol independent key for services map v2.
@@ -145,31 +142,15 @@ type RevNatValue interface {
 	ToNetwork() RevNatValue
 }
 
-// serviceKey2L3n4Addr converts the given svcKey to a L3n4Addr.
-func serviceKey2L3n4AddrV2(svcKey ServiceKeyV2) *loadbalancer.L3n4Addr {
-	log.WithField(logfields.ServiceID, svcKey).Debug("creating L3n4Addr for ServiceKeyV2")
-
-	feProto := loadbalancer.NONE
-	feIP := svcKey.GetAddress()
-	fePort := svcKey.GetPort()
-
-	return loadbalancer.NewL3n4Addr(feProto, feIP, fePort)
-}
-
-func serviceKeynValuenBackendValue2FEnBE(svcKey ServiceKeyV2, svcValue ServiceValueV2,
+func svcFrontendAndBackends(svcKey ServiceKeyV2, svcValue ServiceValueV2,
 	backendID loadbalancer.BackendID, backend BackendValue) (*loadbalancer.L3n4AddrID, *loadbalancer.Backend) {
 
-	log.WithFields(logrus.Fields{
-		logfields.ServiceID: svcKey,
-		logfields.Object:    logfields.Repr(svcValue),
-	}).Debug("converting ServiceKey, ServiceValue and Backend to frontend and backend v2")
 	var beBackend *loadbalancer.Backend
 
-	svcID := loadbalancer.ID(svcValue.GetRevNat())
-	feL3n4Addr := serviceKey2L3n4AddrV2(svcKey)
+	feL3n4Addr := loadbalancer.NewL3n4Addr(loadbalancer.NONE, svcKey.GetAddress(), svcKey.GetPort())
 	feL3n4AddrID := &loadbalancer.L3n4AddrID{
 		L3n4Addr: *feL3n4Addr,
-		ID:       svcID,
+		ID:       loadbalancer.ID(svcValue.GetRevNat()),
 	}
 
 	if backendID != 0 {
