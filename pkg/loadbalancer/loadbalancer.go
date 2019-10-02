@@ -32,6 +32,14 @@ var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "loadbalancer")
 )
 
+// SVCType is a type of a service.
+type SVCType string
+
+const (
+	SVCTypeClusterIP = SVCType("ClusterIP")
+	SVCTypeNodePort  = SVCType("NodePort")
+)
+
 const (
 	NONE = L4Type("NONE")
 	// TCP type.
