@@ -50,22 +50,22 @@ func (e *ManagerTestSuite) TearDownTest(c *C) {
 var (
 	frontend1 = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.1"), 80, 0)
 	frontend2 = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.2"), 80, 0)
-	backends1 = []lb.LBBackEnd{
-		*lb.NewLBBackEnd(0, lb.TCP, net.ParseIP("10.0.0.1"), 8080),
-		*lb.NewLBBackEnd(0, lb.TCP, net.ParseIP("10.0.0.2"), 8080),
+	backends1 = []lb.Backend{
+		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.1"), 8080),
+		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.2"), 8080),
 	}
-	backends2 = []lb.LBBackEnd{
-		*lb.NewLBBackEnd(0, lb.TCP, net.ParseIP("10.0.0.2"), 8080),
-		*lb.NewLBBackEnd(0, lb.TCP, net.ParseIP("10.0.0.3"), 8080),
+	backends2 = []lb.Backend{
+		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.2"), 8080),
+		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.3"), 8080),
 	}
 )
 
 func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
 	frontend1 := *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.1"), 80, 0)
 	frontend2 := *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.2"), 80, 0)
-	backends1 := []lb.LBBackEnd{
-		*lb.NewLBBackEnd(0, lb.TCP, net.ParseIP("10.0.0.1"), 8080),
-		*lb.NewLBBackEnd(0, lb.TCP, net.ParseIP("10.0.0.2"), 8080),
+	backends1 := []lb.Backend{
+		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.1"), 8080),
+		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.2"), 8080),
 	}
 
 	// Should create a new service with two backends
