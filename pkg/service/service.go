@@ -143,7 +143,7 @@ func (s *Service) UpsertService(
 		backendsCopy = append(backendsCopy, v)
 	}
 
-	hash := frontend.SHA256Sum()
+	hash := frontend.Hash()
 	svc, found := s.svcByHash[hash]
 	if !found {
 		new = true
@@ -162,7 +162,7 @@ func (s *Service) UpsertService(
 		scopedLog.Debug("Acquired service ID")
 
 		svc = &lb.LBSVC{
-			Sha256:        hash,
+			Hash:          hash,
 			Frontend:      frontend,
 			BackendByHash: map[string]*lb.Backend{},
 			Type:          svcType,
@@ -245,7 +245,7 @@ func (s *Service) DeleteService(frontend lb.L3n4Addr) (bool, error) {
 	s.Lock()
 	defer s.Unlock()
 
-	if svc, found := s.svcByHash[frontend.SHA256Sum()]; found {
+	if svc, found := s.svcByHash[frontend.Hash()]; found {
 		return true, s.deleteServiceLocked(svc)
 	}
 
@@ -358,7 +358,7 @@ func (s *Service) restoreBackendsLocked() error {
 				b.ID, b.L3n4Addr, err)
 		}
 
-		hash := b.L3n4Addr.SHA256Sum()
+		hash := b.L3n4Addr.Hash()
 		s.backendByHash[hash] = b
 	}
 
@@ -404,7 +404,7 @@ func (s *Service) restoreServicesLocked() error {
 
 		svc.BackendByHash = map[string]*lb.Backend{}
 		for j, backend := range svc.Backends {
-			hash := backend.L3n4Addr.SHA256Sum()
+			hash := backend.L3n4Addr.Hash()
 			s.backendRefCount.Add(hash)
 			// TODO(brb) move to pkg/loadbalancer.NewBackend
 			svc.BackendByHash[hash] = &svc.Backends[j]
@@ -414,7 +414,7 @@ func (s *Service) restoreServicesLocked() error {
 		// service cache has been initialized
 		svc.Type = lb.SVCTypeClusterIP
 
-		s.svcByHash[svc.Frontend.SHA256Sum()] = svcs[i]
+		s.svcByHash[svc.Frontend.Hash()] = svcs[i]
 		s.svcByID[svc.Frontend.ID] = svcs[i]
 		restored++
 	}
@@ -441,7 +441,7 @@ func (s *Service) deleteServiceLocked(svc *lb.LBSVC) error {
 		return err
 	}
 
-	delete(s.svcByHash, svc.Sha256)
+	delete(s.svcByHash, svc.Hash)
 	delete(s.svcByID, svc.Frontend.ID)
 
 	ipv6 := svc.Frontend.L3n4Addr.IsIPv6()
@@ -470,7 +470,7 @@ func (s *Service) updateBackendsCacheLocked(svc *lb.LBSVC, backends []lb.Backend
 	backendSet := map[string]struct{}{}
 
 	for i, backend := range backends {
-		hash := backend.L3n4Addr.SHA256Sum()
+		hash := backend.L3n4Addr.Hash()
 		backendSet[hash] = struct{}{}
 
 		if b, found := svc.BackendByHash[hash]; !found {

@@ -218,11 +218,11 @@ func gasNewL3n4AddrID(l3n4AddrID *loadbalancer.L3n4AddrID, baseID uint32) error 
 // created for the given l3n4Addr. If baseID is different than 0, it tries to acquire that
 // ID to the l3n4Addr.
 func acquireGlobalID(l3n4Addr loadbalancer.L3n4Addr, baseID uint32) (*loadbalancer.L3n4AddrID, error) {
-	// Retrieve unique SHA256Sum for service
-	sha256Sum := l3n4Addr.SHA256Sum()
-	svcPath := path.Join(common.ServicesKeyPath, sha256Sum)
+	// Retrieve unique hash for service
+	hash := l3n4Addr.Hash()
+	svcPath := path.Join(common.ServicesKeyPath, hash)
 
-	// Lock that sha256Sum
+	// Lock that hash
 	lockKey, err := kvstore.LockPath(context.Background(), svcPath)
 	if err != nil {
 		return nil, err
@@ -294,17 +294,17 @@ func deleteGlobalID(id uint32) error {
 		return nil
 	}
 
-	return deleteL3n4AddrIDBySHA256(l3n4AddrID.SHA256Sum())
+	return deleteL3n4AddrIDByHash(l3n4AddrID.Hash())
 }
 
-// deleteL3n4AddrIDBySHA256 deletes the L3n4AddrID from the kvstore corresponding to the service's
-// sha256Sum.
-func deleteL3n4AddrIDBySHA256(sha256Sum string) error {
-	log.WithField(logfields.SHA, sha256Sum).Debug("deleting L3n4AddrID with SHA256")
-	if sha256Sum == "" {
+// deleteL3n4AddrIDByHash deletes the L3n4AddrID from the kvstore corresponding to the service's
+// hash.
+func deleteL3n4AddrIDByHash(hash string) error {
+	log.WithField(logfields.Hash, hash).Debug("deleting L3n4AddrID with hash")
+	if hash == "" {
 		return nil
 	}
-	svcPath := path.Join(common.ServicesKeyPath, sha256Sum)
+	svcPath := path.Join(common.ServicesKeyPath, hash)
 	// Lock that sha256Sum
 	lockKey, err := kvstore.LockPath(context.Background(), svcPath)
 	if err != nil {
