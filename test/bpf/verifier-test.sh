@@ -123,7 +123,7 @@ function handle_developers {
 }
 
 function main {
-	handle_args
+	handle_args "$@"
 	handle_developers
 
 	trap cleanup EXIT
