@@ -50,23 +50,16 @@ type EPPolicyValue struct{ Fd uint32 }
 var (
 	buildMap sync.Once
 
-	EpPolicyMap = bpf.NewMap(MapName,
-		bpf.MapTypeHashOfMaps,
-		&EndpointKey{},
-		int(unsafe.Sizeof(EndpointKey{})),
-		&EPPolicyValue{},
-		int(unsafe.Sizeof(EPPolicyValue{})),
-		MaxEntries,
-		0,
-		0,
-		bpf.ConvertKeyValue,
-	).WithCache()
+	// EpPolicyMap is the global singleton of the endpoint policy map.
+	EpPolicyMap *bpf.Map
 )
 
-// CreateEPPolicyMap will create both the innerMap (needed for map in map types) and
-// then after BPFFS is mounted create the epPolicyMap. We only create the innerFd once
-// to avoid having multiple inner maps.
-func CreateEPPolicyMap() {
+// CreateWithName creates a new endpoint policy hash of maps for
+// looking up an endpoint's policy map by the endpoint key.
+//
+// The specified mapName allows non-standard map paths to be used, for instance
+// for testing purposes.
+func CreateWithName(mapName string) error {
 	buildMap.Do(func() {
 		fd, err := bpf.CreateMap(bpf.BPF_MAP_TYPE_HASH,
 			uint32(unsafe.Sizeof(policymap.PolicyKey{})),
@@ -79,10 +72,29 @@ func CreateEPPolicyMap() {
 			return
 		}
 
+		EpPolicyMap = bpf.NewMap(mapName,
+			bpf.MapTypeHashOfMaps,
+			&EndpointKey{},
+			int(unsafe.Sizeof(EndpointKey{})),
+			&EPPolicyValue{},
+			int(unsafe.Sizeof(EPPolicyValue{})),
+			MaxEntries,
+			0,
+			0,
+			bpf.ConvertKeyValue,
+		).WithCache()
 		EpPolicyMap.InnerID = uint32(fd)
 	})
 
-	if _, err := EpPolicyMap.OpenOrCreate(); err != nil {
+	_, err := EpPolicyMap.OpenOrCreate()
+	return err
+}
+
+// CreateEPPolicyMap will create both the innerMap (needed for map in map types) and
+// then after BPFFS is mounted create the epPolicyMap. We only create the innerFd once
+// to avoid having multiple inner maps.
+func CreateEPPolicyMap() {
+	if err := CreateWithName(MapName); err != nil {
 		log.WithError(err).Warning("Unable to open or create endpoint policy map")
 	}
 }
