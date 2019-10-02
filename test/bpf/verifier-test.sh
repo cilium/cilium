@@ -28,6 +28,7 @@ XDP_PROGS=${XDP_PROGS:-$ALL_XDP_PROGS}
 IGNORED_PROGS="bpf_alignchecker"
 ALL_PROGS="${IGNORED_PROGS} ${ALL_CG_PROGS} ${ALL_TC_PROGS} ${ALL_XDP_PROGS}"
 VERBOSE=false
+RUN_ALL_TESTS=false
 
 BPFFS=${BPFFS:-"/sys/fs/bpf"}
 TESTMOUNT=$BPFFS/test
@@ -97,7 +98,7 @@ function load_tc {
 
 # $1 - Partial macro to check
 function check_macro {
-	echo $FEATURES | grep -q "$1"
+	$RUN_ALL_TESTS || echo $FEATURES | grep -q "$1"
 }
 
 function cg_prog_type_init {
@@ -245,6 +246,10 @@ function handle_args {
 		key="$1"
 
 		case "$key" in
+		-a|--all)
+			echo "Running all tests even if support detection fails" 1>&2
+			RUN_ALL_TESTS=true
+			shift;;
 		-v|--verbose)
 			VERBOSE=true
 			shift;;
