@@ -84,7 +84,7 @@ type LBSVC struct {
 	FE            L3n4AddrID
 	BES           []LBBackEnd
 	BackendByHash map[string]*LBBackEnd // sha256 -> backend
-	NodePort      bool
+	Type          SVCType
 }
 
 type backendPlacement struct {
@@ -103,7 +103,7 @@ func (s *LBSVC) GetModel() *models.Service {
 		FrontendAddress:  s.FE.GetModel(),
 		BackendAddresses: make([]*models.BackendAddress, len(s.BES)),
 		Flags: &models.ServiceSpecFlags{
-			NodePort: s.NodePort,
+			Type: string(s.Type),
 		},
 	}
 

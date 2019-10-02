@@ -52,7 +52,6 @@ func (m *LBMockMap) UpsertService(id uint16, ip net.IP, port uint16,
 			Sha256:        frontend.SHA256Sum(),
 			FE:            *frontend,
 			BackendByHash: nil,
-			NodePort:      false,
 		}
 	} else {
 		if prevCount != len(svc.BES) {
