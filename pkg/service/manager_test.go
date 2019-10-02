@@ -143,7 +143,7 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 	c.Assert(len(m.svc.backendByHash), Equals, 3)
 	backends := append(backends1, backends2...)
 	for _, b := range backends {
-		_, found := m.svc.backendByHash[b.SHA256Sum()]
+		_, found := m.svc.backendByHash[b.Hash()]
 		c.Assert(found, Equals, true)
 	}
 
