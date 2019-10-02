@@ -29,14 +29,14 @@ import (
 var (
 	Service4MapV2 = bpf.NewMap("cilium_lb4_services_v2",
 		bpf.MapTypeHash,
-		&Service4KeyV2{},
-		int(unsafe.Sizeof(Service4KeyV2{})),
-		&Service4ValueV2{},
-		int(unsafe.Sizeof(Service4ValueV2{})),
+		&Service4Key{},
+		int(unsafe.Sizeof(Service4Key{})),
+		&Service4Value{},
+		int(unsafe.Sizeof(Service4Value{})),
 		MaxEntries,
 		0, 0,
 		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
-			svcKey, svcVal := mapKey.(*Service4KeyV2), mapValue.(*Service4ValueV2)
+			svcKey, svcVal := mapKey.(*Service4Key), mapValue.(*Service4Value)
 
 			if _, _, err := bpf.ConvertKeyValue(key, value, svcKey, svcVal); err != nil {
 				return nil, nil, err
@@ -141,10 +141,10 @@ func (in *pad3uint8) DeepCopyInto(out *pad3uint8) {
 	return
 }
 
-// Service4KeyV2 must match 'struct lb4_key_v2' in "bpf/lib/common.h".
+// Service4Key must match 'struct lb4_key_v2' in "bpf/lib/common.h".
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type Service4KeyV2 struct {
+type Service4Key struct {
 	Address types.IPv4 `align:"address"`
 	Port    uint16     `align:"dport"`
 	Slave   uint16     `align:"slave"`
@@ -152,8 +152,8 @@ type Service4KeyV2 struct {
 	Pad     pad3uint8  `align:"pad"`
 }
 
-func NewService4KeyV2(ip net.IP, port uint16, proto u8proto.U8proto, slave uint16) *Service4KeyV2 {
-	key := Service4KeyV2{
+func NewService4Key(ip net.IP, port uint16, proto u8proto.U8proto, slave uint16) *Service4Key {
+	key := Service4Key{
 		Port:  port,
 		Proto: uint8(proto),
 		Slave: slave,
@@ -164,45 +164,45 @@ func NewService4KeyV2(ip net.IP, port uint16, proto u8proto.U8proto, slave uint1
 	return &key
 }
 
-func (k *Service4KeyV2) String() string {
+func (k *Service4Key) String() string {
 	return fmt.Sprintf("%s:%d", k.Address, k.Port)
 }
 
-func (k *Service4KeyV2) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *Service4KeyV2) NewValue() bpf.MapValue    { return &Service4ValueV2{} }
-func (k *Service4KeyV2) IsIPv6() bool              { return false }
-func (k *Service4KeyV2) Map() *bpf.Map             { return Service4MapV2 }
-func (k *Service4KeyV2) SetSlave(slave int)        { k.Slave = uint16(slave) }
-func (k *Service4KeyV2) GetSlave() int             { return int(k.Slave) }
-func (k *Service4KeyV2) GetAddress() net.IP        { return k.Address.IP() }
-func (k *Service4KeyV2) GetPort() uint16           { return k.Port }
-func (k *Service4KeyV2) MapDelete() error          { return k.Map().Delete(k.ToNetwork()) }
+func (k *Service4Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
+func (k *Service4Key) NewValue() bpf.MapValue    { return &Service4Value{} }
+func (k *Service4Key) IsIPv6() bool              { return false }
+func (k *Service4Key) Map() *bpf.Map             { return Service4MapV2 }
+func (k *Service4Key) SetSlave(slave int)        { k.Slave = uint16(slave) }
+func (k *Service4Key) GetSlave() int             { return int(k.Slave) }
+func (k *Service4Key) GetAddress() net.IP        { return k.Address.IP() }
+func (k *Service4Key) GetPort() uint16           { return k.Port }
+func (k *Service4Key) MapDelete() error          { return k.Map().Delete(k.ToNetwork()) }
 
-func (k *Service4KeyV2) RevNatValue() RevNatValue {
+func (k *Service4Key) RevNatValue() RevNatValue {
 	return &RevNat4Value{
 		Address: k.Address,
 		Port:    k.Port,
 	}
 }
 
-func (k *Service4KeyV2) ToNetwork() ServiceKeyV2 {
+func (k *Service4Key) ToNetwork() ServiceKey {
 	n := *k
 	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
 	return &n
 }
 
-// Service4ValueV2 must match 'struct lb4_service_v2' in "bpf/lib/common.h".
+// Service4Value must match 'struct lb4_service_v2' in "bpf/lib/common.h".
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
-type Service4ValueV2 struct {
+type Service4Value struct {
 	BackendID uint32 `align:"backend_id"`
 	Count     uint16 `align:"count"`
 	RevNat    uint16 `align:"rev_nat_index"`
 	Pad       uint32 `align:"pad"`
 }
 
-func NewService4ValueV2(count uint16, backendID loadbalancer.BackendID, revNat uint16) *Service4ValueV2 {
-	svc := Service4ValueV2{
+func NewService4Value(count uint16, backendID loadbalancer.BackendID, revNat uint16) *Service4Value {
+	svc := Service4Value{
 		BackendID: uint32(backendID),
 		Count:     count,
 		RevNat:    revNat,
@@ -211,26 +211,26 @@ func NewService4ValueV2(count uint16, backendID loadbalancer.BackendID, revNat u
 	return &svc
 }
 
-func (s *Service4ValueV2) String() string {
+func (s *Service4Value) String() string {
 	return fmt.Sprintf("%d (%d)", s.BackendID, s.RevNat)
 }
 
-func (s *Service4ValueV2) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
+func (s *Service4Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
 
-func (s *Service4ValueV2) SetCount(count int)   { s.Count = uint16(count) }
-func (s *Service4ValueV2) GetCount() int        { return int(s.Count) }
-func (s *Service4ValueV2) SetRevNat(id int)     { s.RevNat = uint16(id) }
-func (s *Service4ValueV2) GetRevNat() int       { return int(s.RevNat) }
-func (s *Service4ValueV2) RevNatKey() RevNatKey { return &RevNat4Key{s.RevNat} }
+func (s *Service4Value) SetCount(count int)   { s.Count = uint16(count) }
+func (s *Service4Value) GetCount() int        { return int(s.Count) }
+func (s *Service4Value) SetRevNat(id int)     { s.RevNat = uint16(id) }
+func (s *Service4Value) GetRevNat() int       { return int(s.RevNat) }
+func (s *Service4Value) RevNatKey() RevNatKey { return &RevNat4Key{s.RevNat} }
 
-func (s *Service4ValueV2) SetBackendID(id loadbalancer.BackendID) {
+func (s *Service4Value) SetBackendID(id loadbalancer.BackendID) {
 	s.BackendID = uint32(id)
 }
-func (s *Service4ValueV2) GetBackendID() loadbalancer.BackendID {
+func (s *Service4Value) GetBackendID() loadbalancer.BackendID {
 	return loadbalancer.BackendID(s.BackendID)
 }
 
-func (s *Service4ValueV2) ToNetwork() ServiceValueV2 {
+func (s *Service4Value) ToNetwork() ServiceValue {
 	n := *s
 	n.RevNat = byteorder.HostToNetwork(n.RevNat).(uint16)
 	return &n
