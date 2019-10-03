@@ -204,9 +204,7 @@ func deleteRevNatLocked(key RevNatKey) error {
 // DumpServiceMaps dumps the services from the BPF maps.
 func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 	newSVCMap := svcMap{}
-	newSVCList := []*loadbalancer.SVC{}
 	errors := []error{}
-	idCache := map[string]loadbalancer.ServiceID{}
 	backendValueMap := map[loadbalancer.BackendID]BackendValue{}
 
 	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
@@ -225,7 +223,6 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		}
 
 		backendID := svcValue.GetBackendID()
-
 		backendValue, found := backendValueMap[backendID]
 		if !found {
 			errors = append(errors, fmt.Errorf("backend %d not found", backendID))
@@ -233,16 +230,7 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		}
 
 		fe, be := svcFrontendAndBackends(svcKey, svcValue, backendID, backendValue)
-
-		// Build a cache to map frontend IP to service ID. The master
-		// service key does not have the service ID set so the cache
-		// needs to be built based on backend key entries.
-		if k := svcValue.RevNatKey().GetKey(); k != uint16(0) {
-			idCache[fe.String()] = loadbalancer.ServiceID(k)
-		}
-
-		svc := newSVCMap.addFEnBE(fe, be, svcKey.GetSlave())
-		newSVCList = append(newSVCList, svc)
+		newSVCMap.addFEnBE(fe, be, svcKey.GetSlave())
 	}
 
 	if option.Config.EnableIPv4 {
@@ -270,11 +258,10 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		}
 	}
 
-	// TODO(brb) the statement below is no longer true, remove it
-	// Not all BPF map entries contain the service ID. Do a pass over all
-	// parsed entries and fill in the service ID
-	for i := range newSVCList {
-		newSVCList[i].Frontend.ID = loadbalancer.ID(idCache[newSVCList[i].Frontend.String()])
+	newSVCList := make([]*loadbalancer.SVC, 0, len(newSVCMap))
+	for hash := range newSVCMap {
+		svc := newSVCMap[hash]
+		newSVCList = append(newSVCList, &svc)
 	}
 
 	return newSVCList, errors
@@ -369,8 +356,6 @@ type svcMap map[string]loadbalancer.SVC
 // larger than the number of backends, some elements will be empty.
 func (svcs svcMap) addFEnBE(fe *loadbalancer.L3n4AddrID, be *loadbalancer.Backend, beIndex int) *loadbalancer.SVC {
 	hash := fe.Hash()
-
-	var lbsvc loadbalancer.SVC
 	lbsvc, ok := svcs[hash]
 	if !ok {
 		var bes []loadbalancer.Backend
