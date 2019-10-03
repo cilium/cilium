@@ -270,6 +270,7 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		}
 	}
 
+	// TODO(brb) the statement below is no longer true, remove it
 	// Not all BPF map entries contain the service ID. Do a pass over all
 	// parsed entries and fill in the service ID
 	for i := range newSVCList {
@@ -398,7 +399,6 @@ func (svcs svcMap) addFEnBE(fe *loadbalancer.L3n4AddrID, be *loadbalancer.Backen
 		}
 	}
 
-	lbsvc.Hash = hash
 	svcs[hash] = lbsvc
 	return &lbsvc
 }

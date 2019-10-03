@@ -78,19 +78,17 @@ func (lbbe *Backend) String() string {
 
 // SVC is a structure for storing service details.
 type SVC struct {
-	Hash          string              // == frontend.Hash()
-	Frontend      L3n4AddrID          // SVC frontend addr and an allocated ID
-	Backends      []Backend           // List of service backends TODO: change to ref
-	BackendByHash map[string]*Backend // Same backends but identified by their hash
-	Type          SVCType             // Service type
-}
-
-type backendPlacement struct {
-	pos int
-	id  BackendID
+	Frontend L3n4AddrID // SVC frontend addr and an allocated ID
+	Backends []Backend  // List of service backends
+	Type     SVCType    // Service type
 }
 
 func (s *SVC) GetModel() *models.Service {
+	type backendPlacement struct {
+		pos int
+		id  BackendID
+	}
+
 	if s == nil {
 		return nil
 	}
