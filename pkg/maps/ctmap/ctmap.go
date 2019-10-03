@@ -646,6 +646,7 @@ func calculateInterval(mapType bpf.MapType, prevInterval time.Duration, maxDelet
 		}
 	}
 
+	interval = 10 * time.Second //xxx
 	if interval != prevInterval {
 		log.WithFields(logrus.Fields{
 			"newInterval": interval,
