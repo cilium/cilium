@@ -44,6 +44,29 @@ type LBMap interface {
 	DumpBackendMaps() ([]*lb.Backend, error)
 }
 
+type svcInfo struct {
+	hash          string
+	frontend      lb.L3n4AddrID
+	backends      []lb.Backend
+	backendByHash map[string]*lb.Backend
+	svcType       lb.SVCType
+}
+
+// TODO(brb) constructor?
+
+func (svc *svcInfo) deepCopyToLBSVC() *lb.SVC {
+	backends := make([]lb.Backend, len(svc.backends))
+	for i, backend := range svc.backends {
+		backends[i].L3n4Addr = *backend.DeepCopy()
+		backends[i].ID = backend.ID
+	}
+	return &lb.SVC{
+		Frontend: *svc.frontend.DeepCopy(),
+		Backends: backends,
+		Type:     svc.svcType,
+	}
+}
+
 // Service is a service handler. Its main responsibility is to reflect
 // service-related changes into BPF maps used by datapath BPF programs.
 // The changes can be triggered either by k8s_watcher or directly by
@@ -51,8 +74,8 @@ type LBMap interface {
 type Service struct {
 	lock.RWMutex
 
-	svcByHash map[string]*lb.SVC
-	svcByID   map[lb.ID]*lb.SVC
+	svcByHash map[string]*svcInfo
+	svcByID   map[lb.ID]*svcInfo
 
 	backendRefCount counter.StringCounter
 	backendByHash   map[string]*lb.Backend
@@ -63,8 +86,8 @@ type Service struct {
 // NewService creates a new instance of the service handler.
 func NewService() *Service {
 	return &Service{
-		svcByHash:       map[string]*lb.SVC{},
-		svcByID:         map[lb.ID]*lb.SVC{},
+		svcByHash:       map[string]*svcInfo{},
+		svcByID:         map[lb.ID]*svcInfo{},
 		backendRefCount: counter.StringCounter{},
 		backendByHash:   map[string]*lb.Backend{},
 		lbmap:           &lbmap.LBBPFMap{},
@@ -161,21 +184,21 @@ func (s *Service) UpsertService(
 		scopedLog = scopedLog.WithField(logfields.ServiceID, frontend.ID)
 		scopedLog.Debug("Acquired service ID")
 
-		svc = &lb.SVC{
-			Hash:          hash,
-			Frontend:      frontend,
-			BackendByHash: map[string]*lb.Backend{},
-			Type:          svcType,
+		svc = &svcInfo{
+			hash:          hash,
+			frontend:      frontend,
+			backendByHash: map[string]*lb.Backend{},
+			svcType:       svcType,
 		}
 		s.svcByID[frontend.ID] = svc
 		s.svcByHash[hash] = svc
 	} else {
 		// NOTE: We cannot restore svcType from BPF maps, so just set it
 		//       each time (safe until GH#8700 has been fixed).
-		svc.Type = svcType
+		svc.svcType = svcType
 	}
 
-	prevBackendCount := len(svc.Backends)
+	prevBackendCount := len(svc.backends)
 
 	// Update backends cache (handles backend ID allocation / release)
 	newBackends, obsoleteBackendIDs, err := s.updateBackendsCacheLocked(svc, backendsCopy)
@@ -201,7 +224,7 @@ func (s *Service) UpsertService(
 		backendIDs[i] = uint16(b.ID)
 	}
 	err = s.lbmap.UpsertService(
-		uint16(svc.Frontend.ID), svc.Frontend.L3n4Addr.IP, svc.Frontend.L3n4Addr.L4Addr.Port,
+		uint16(svc.frontend.ID), svc.frontend.L3n4Addr.IP, svc.frontend.L3n4Addr.L4Addr.Port,
 		backendIDs, prevBackendCount,
 		ipv6)
 	if err != nil {
@@ -225,7 +248,7 @@ func (s *Service) UpsertService(
 		updateMetric.Inc()
 	}
 
-	return new, lb.ID(svc.Frontend.ID), nil
+	return new, lb.ID(svc.frontend.ID), nil
 }
 
 // DeleteServiceByID removes a service identified by the given ID.
@@ -265,7 +288,7 @@ func (s *Service) GetDeepCopyServiceByID(id lb.ServiceID) (*lb.SVC, bool) {
 		return nil, false
 	}
 
-	return deepCopySVC(svc), true
+	return svc.deepCopyToLBSVC(), true
 }
 
 // GetDeepCopyServices returns a deep-copy of all installed services.
@@ -275,7 +298,7 @@ func (s *Service) GetDeepCopyServices() []*lb.SVC {
 
 	svcs := make([]*lb.SVC, 0, len(s.svcByHash))
 	for _, svc := range s.svcByHash {
-		svcs = append(svcs, deepCopySVC(svc))
+		svcs = append(svcs, svc.deepCopyToLBSVC())
 	}
 
 	return svcs
@@ -326,10 +349,10 @@ func (s *Service) SyncWithK8s(matchSVC func(lb.L3n4Addr) bool) error {
 		}
 		alreadyChecked[hash] = struct{}{}
 
-		if !matchSVC(svc.Frontend.L3n4Addr) {
+		if !matchSVC(svc.frontend.L3n4Addr) {
 			log.WithFields(logrus.Fields{
-				logfields.ServiceID: svc.Frontend.ID,
-				logfields.L3n4Addr:  logfields.Repr(svc.Frontend.L3n4Addr)}).
+				logfields.ServiceID: svc.frontend.ID,
+				logfields.L3n4Addr:  logfields.Repr(svc.frontend.L3n4Addr)}).
 				Warn("Deleting no longer present service")
 
 			if err := s.deleteServiceLocked(svc); err != nil {
@@ -390,7 +413,7 @@ func (s *Service) restoreServicesLocked() error {
 		log.WithError(err).Warning("Error occurred while dumping service maps")
 	}
 
-	for i, svc := range svcs {
+	for _, svc := range svcs {
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.ServiceID: svc.Frontend.ID,
 			logfields.ServiceIP: svc.Frontend.L3n4Addr.String(),
@@ -402,20 +425,24 @@ func (s *Service) restoreServicesLocked() error {
 			scopedLog.WithError(err).Warning("Unable to restore service ID")
 		}
 
-		svc.BackendByHash = map[string]*lb.Backend{}
+		newSVC := &svcInfo{
+			frontend:      svc.Frontend,
+			backends:      svc.Backends,
+			backendByHash: map[string]*lb.Backend{},
+			// Correct service type will be restored by k8s_watcher after k8s
+			// service cache has been initialized
+			svcType: lb.SVCTypeClusterIP,
+		}
+
 		for j, backend := range svc.Backends {
 			hash := backend.L3n4Addr.Hash()
 			s.backendRefCount.Add(hash)
 			// TODO(brb) move to pkg/loadbalancer.NewBackend
-			svc.BackendByHash[hash] = &svc.Backends[j]
+			newSVC.backendByHash[hash] = &svc.Backends[j]
 		}
 
-		// Correct service type will be restored by k8s_watcher after k8s
-		// service cache has been initialized
-		svc.Type = lb.SVCTypeClusterIP
-
-		s.svcByHash[svc.Frontend.Hash()] = svcs[i]
-		s.svcByID[svc.Frontend.ID] = svcs[i]
+		s.svcByHash[newSVC.frontend.Hash()] = newSVC
+		s.svcByID[newSVC.frontend.ID] = newSVC
 		restored++
 	}
 
@@ -427,24 +454,24 @@ func (s *Service) restoreServicesLocked() error {
 	return nil
 }
 
-func (s *Service) deleteServiceLocked(svc *lb.SVC) error {
+func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	obsoleteBackendIDs := s.deleteBackendsFromCacheLocked(svc)
 
 	scopedLog := log.WithFields(logrus.Fields{
-		logfields.ServiceID: svc.Frontend.ID,
-		logfields.ServiceIP: svc.Frontend.L3n4Addr,
-		logfields.Backends:  svc.Backends,
+		logfields.ServiceID: svc.frontend.ID,
+		logfields.ServiceIP: svc.frontend.L3n4Addr,
+		logfields.Backends:  svc.backends,
 	})
 	scopedLog.Debug("Deleting service")
 
-	if err := s.lbmap.DeleteService(svc.Frontend, len(svc.Backends)); err != nil {
+	if err := s.lbmap.DeleteService(svc.frontend, len(svc.backends)); err != nil {
 		return err
 	}
 
-	delete(s.svcByHash, svc.Hash)
-	delete(s.svcByID, svc.Frontend.ID)
+	delete(s.svcByHash, svc.hash)
+	delete(s.svcByID, svc.frontend.ID)
 
-	ipv6 := svc.Frontend.L3n4Addr.IsIPv6()
+	ipv6 := svc.frontend.L3n4Addr.IsIPv6()
 	for _, id := range obsoleteBackendIDs {
 		scopedLog.WithField(logfields.BackendID, id).
 			Debug("Deleting obsolete backend")
@@ -453,8 +480,8 @@ func (s *Service) deleteServiceLocked(svc *lb.SVC) error {
 			return err
 		}
 	}
-	if err := DeleteID(uint32(svc.Frontend.ID)); err != nil {
-		return fmt.Errorf("Unable to release service ID %d: %s", svc.Frontend.ID, err)
+	if err := DeleteID(uint32(svc.frontend.ID)); err != nil {
+		return fmt.Errorf("Unable to release service ID %d: %s", svc.frontend.ID, err)
 	}
 
 	deleteMetric.Inc()
@@ -462,7 +489,7 @@ func (s *Service) deleteServiceLocked(svc *lb.SVC) error {
 	return nil
 }
 
-func (s *Service) updateBackendsCacheLocked(svc *lb.SVC, backends []lb.Backend) (
+func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []lb.Backend) (
 	[]lb.Backend, []lb.BackendID, error) {
 
 	obsoleteBackendIDs := []lb.BackendID{}
@@ -473,7 +500,7 @@ func (s *Service) updateBackendsCacheLocked(svc *lb.SVC, backends []lb.Backend) 
 		hash := backend.L3n4Addr.Hash()
 		backendSet[hash] = struct{}{}
 
-		if b, found := svc.BackendByHash[hash]; !found {
+		if b, found := svc.backendByHash[hash]; !found {
 			if s.backendRefCount.Add(hash) {
 				id, err := AcquireBackendID(backend.L3n4Addr)
 				if err != nil {
@@ -487,13 +514,13 @@ func (s *Service) updateBackendsCacheLocked(svc *lb.SVC, backends []lb.Backend) 
 			} else {
 				backends[i].ID = s.backendByHash[hash].ID
 			}
-			svc.BackendByHash[hash] = &backends[i]
+			svc.backendByHash[hash] = &backends[i]
 		} else {
 			backends[i].ID = b.ID
 		}
 	}
 
-	for hash, backend := range svc.BackendByHash {
+	for hash, backend := range svc.backendByHash {
 		if _, found := backendSet[hash]; !found {
 			if s.backendRefCount.Delete(hash) {
 				DeleteBackendID(backend.ID)
@@ -501,18 +528,18 @@ func (s *Service) updateBackendsCacheLocked(svc *lb.SVC, backends []lb.Backend) 
 				obsoleteBackendIDs = append(obsoleteBackendIDs, backend.ID)
 			}
 
-			delete(svc.BackendByHash, hash)
+			delete(svc.backendByHash, hash)
 		}
 	}
 
-	svc.Backends = backends
+	svc.backends = backends
 	return newBackends, obsoleteBackendIDs, nil
 }
 
-func (s *Service) deleteBackendsFromCacheLocked(svc *lb.SVC) []lb.BackendID {
+func (s *Service) deleteBackendsFromCacheLocked(svc *svcInfo) []lb.BackendID {
 	obsoleteBackendIDs := []lb.BackendID{}
 
-	for hash, backend := range svc.BackendByHash {
+	for hash, backend := range svc.backendByHash {
 		if s.backendRefCount.Delete(hash) {
 			DeleteBackendID(backend.ID)
 			obsoleteBackendIDs = append(obsoleteBackendIDs, backend.ID)
@@ -520,17 +547,4 @@ func (s *Service) deleteBackendsFromCacheLocked(svc *lb.SVC) []lb.BackendID {
 	}
 
 	return obsoleteBackendIDs
-}
-
-func deepCopySVC(svc *lb.SVC) *lb.SVC {
-	backends := make([]lb.Backend, len(svc.Backends))
-	for i, backend := range svc.Backends {
-		backends[i].L3n4Addr = *backend.DeepCopy()
-		backends[i].ID = backend.ID
-	}
-	return &lb.SVC{
-		Frontend: *svc.Frontend.DeepCopy(),
-		Backends: backends,
-		Type:     svc.Type,
-	}
 }
