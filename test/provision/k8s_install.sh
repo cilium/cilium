@@ -62,7 +62,7 @@ sudo service serial-getty@ttyS0 start
 if [[ -f  "/etc/provision_finished" ]]; then
     sudo dpkg -l | grep kubelet
     echo "provision is finished, recompiling"
-    /tmp/provision/compile.sh
+    #/tmp/provision/compile.sh
     exit 0
 fi
 
@@ -308,7 +308,7 @@ if [[ "${HOST}" == "k8s1" ]]; then
     kubectl -n kube-system delete -f ${PROVISIONSRC}/manifest/dns_deployment.yaml || true
     kubectl -n kube-system apply -f ${PROVISIONSRC}/manifest/dns_deployment.yaml
 
-    $PROVISIONSRC/compile.sh
+    #$PROVISIONSRC/compile.sh
 else
     if [[ "${SKIP_K8S_PROVISION}" == "false" ]]; then
       sudo -E bash -c 'echo "${KUBEADM_ADDR} k8s1" >> /etc/hosts'
@@ -318,7 +318,7 @@ else
       echo "SKIPPING K8S INSTALLATION"
     fi
     sudo systemctl stop etcd
-    docker pull k8s1:5000/cilium/cilium-dev:latest
+    #docker pull k8s1:5000/cilium/cilium-dev:latest
 fi
 
 # Create world network

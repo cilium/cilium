@@ -61,6 +61,23 @@ pipeline {
                }
             }
         }
+        stage('Make Cilium images') {
+            environment {
+                TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
+            }
+            steps {
+                sh 'cd ${TESTDIR}; ./make-images-push-to-local-registry.sh $(./print-node-ip.sh) latest'
+            }
+            post {
+                unsuccessful {
+                    script {
+                        if  (!currentBuild.displayName.contains('fail')) {
+                            currentBuild.displayName = 'building or pushing Cilium images failed ' + currentBuild.displayName
+                        }
+                    }
+                }
+            }
+        }
         stage('Preload vagrant boxes') {
             steps {
                 sh '/usr/local/bin/add_vagrant_box ${WORKSPACE}/${PROJ_PATH}/vagrant_box_defaults.rb'
@@ -207,9 +224,11 @@ pipeline {
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                         NETNEXT="true"
+                        KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
+                        K8S_VERSION="1.11"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig'
+                        sh 'cd ${TESTDIR}; CILIUM_IMAGE=$(./print-node-ip.sh)/cilium/cilium:latest CILIUM_OPERATOR_IMAGE=$(./print-node-ip.sh)/cilium/operator:latest ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true'
                     }
                     post {
                         always {
@@ -217,7 +236,7 @@ pipeline {
                             sh 'cd ${TESTDIR}; ./archive_test_results.sh || true'
                             sh 'cd ${TESTDIR}/..; mv *.zip ${WORKSPACE} || true'
                             sh 'cd ${TESTDIR}; mv *.xml ${WORKSPACE}/${PROJ_PATH}/test || true'
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.11 vagrant destroy -f || true'
+                            sh 'cd ${TESTDIR}; vagrant destroy -f || true'
                         }
                         unsuccessful {
                             script {
@@ -233,9 +252,11 @@ pipeline {
                         TESTED_SUITE="k8s-1.16"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                        KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
+                        K8S_VERSION="1.16"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.16 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig'
+                        sh 'cd ${TESTDIR}; CILIUM_IMAGE=$(./print-node-ip.sh)/cilium/cilium:latest CILIUM_OPERATOR_IMAGE=$(./print-node-ip.sh)/cilium/operator:latest ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true'
                     }
                     post {
                         always {
@@ -243,7 +264,7 @@ pipeline {
                             sh 'cd ${TESTDIR}; ./archive_test_results.sh || true'
                             sh 'cd ${TESTDIR}/..; mv *.zip ${WORKSPACE} || true'
                             sh 'cd ${TESTDIR}; mv *.xml ${WORKSPACE}/${PROJ_PATH}/test || true'
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.16 vagrant destroy -f || true'
+                            sh 'cd ${TESTDIR}; vagrant destroy -f || true'
                         }
                         unsuccessful {
                             script {

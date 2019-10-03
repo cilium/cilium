@@ -13,3 +13,7 @@ echo "getting vagrant kubeconfig from provisioned vagrant cluster"
 
 echo "checking whether kubeconfig works for vagrant cluster"
 kubectl get nodes
+
+echo "adding local docker registry to cluster"
+helm template k8sT/manifests/registry-adder --set IP="$(./print-node-ip.sh)" > registry-adder.yaml
+kubectl apply -f registry-adder.yaml

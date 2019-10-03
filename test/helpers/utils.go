@@ -467,3 +467,8 @@ func RunsOnNetNext() bool {
 func DoesNotRunOnNetNext() bool {
 	return !RunsOnNetNext()
 }
+
+// CiliumDevImage returns cilium docker image name based on cilium.registry option and const CiliumDevImage
+func CiliumDevImage() string {
+	return fmt.Sprintf(ciliumDeveloperImage, config.CiliumTestConfig.Registry)
+}
