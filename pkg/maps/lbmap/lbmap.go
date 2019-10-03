@@ -206,7 +206,6 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 	newSVCMap := svcMap{}
 	newSVCList := []*loadbalancer.SVC{}
 	errors := []error{}
-	idCache := map[string]loadbalancer.ServiceID{}
 	backendValueMap := map[loadbalancer.BackendID]BackendValue{}
 
 	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
@@ -225,7 +224,6 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		}
 
 		backendID := svcValue.GetBackendID()
-
 		backendValue, found := backendValueMap[backendID]
 		if !found {
 			errors = append(errors, fmt.Errorf("backend %d not found", backendID))
@@ -233,14 +231,6 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		}
 
 		fe, be := svcFrontendAndBackends(svcKey, svcValue, backendID, backendValue)
-
-		// Build a cache to map frontend IP to service ID. The master
-		// service key does not have the service ID set so the cache
-		// needs to be built based on backend key entries.
-		if k := svcValue.RevNatKey().GetKey(); k != uint16(0) {
-			idCache[fe.String()] = loadbalancer.ServiceID(k)
-		}
-
 		svc := newSVCMap.addFEnBE(fe, be, svcKey.GetSlave())
 		newSVCList = append(newSVCList, svc)
 	}
@@ -268,13 +258,6 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		if err != nil {
 			errors = append(errors, err)
 		}
-	}
-
-	// TODO(brb) the statement below is no longer true, remove it
-	// Not all BPF map entries contain the service ID. Do a pass over all
-	// parsed entries and fill in the service ID
-	for i := range newSVCList {
-		newSVCList[i].Frontend.ID = loadbalancer.ID(idCache[newSVCList[i].Frontend.String()])
 	}
 
 	return newSVCList, errors
