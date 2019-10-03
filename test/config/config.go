@@ -37,6 +37,7 @@ type CiliumTestConfigType struct {
 	ProvisionK8s        bool
 	Timeout             time.Duration
 	Kubeconfig          string
+	Registry            string
 }
 
 // CiliumTestConfig holds the global configuration of commandline flags
@@ -69,4 +70,5 @@ func (c *CiliumTestConfigType) ParseFlags() {
 		"Specifies timeout for test run")
 	flag.StringVar(&c.Kubeconfig, "cilium.kubeconfig", "",
 		"Kubeconfig to be used for k8s tests")
+	flag.StringVar(&c.Kubeconfig, "cilium.registry", "k8s1:5000", "docker registry hostname for Cilium image")
 }
