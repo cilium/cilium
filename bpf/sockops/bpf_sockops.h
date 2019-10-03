@@ -61,7 +61,7 @@ static __always_inline void sk_extract4_key(struct bpf_sock_ops *ops,
 	key->family = ENDPOINT_KEY_IPV4;
 
 	key->sport = (bpf_ntohl(ops->local_port) >> 16);
-	key->dport = ops->remote_port >> 16;
+	key->dport = READ_ONCE(ops->remote_port) >> 16;
 }
 
 static __always_inline void sk_msg_extract4_key(struct sk_msg_md *msg,
