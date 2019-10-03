@@ -24,11 +24,11 @@ import (
 type gcStats struct {
 	*bpf.DumpStats
 
-	// aliveEntries is the number of scanned entries that are still alive.
-	aliveEntries uint32
+	// AliveEntries is the number of scanned entries that are still alive.
+	AliveEntries uint32
 
-	// deleted is the number of keys deleted
-	deleted uint32
+	// Deleted is the number of keys deleted
+	Deleted uint32
 
 	// family is the address family
 	family gcFamily
@@ -107,8 +107,8 @@ func (s *gcStats) finish() {
 	var status string
 	if s.Completed {
 		status = "completed"
-		metrics.ConntrackGCSize.WithLabelValues(family, proto, metricsAlive).Set(float64(s.aliveEntries))
-		metrics.ConntrackGCSize.WithLabelValues(family, proto, metricsDeleted).Set(float64(s.deleted))
+		metrics.ConntrackGCSize.WithLabelValues(family, proto, metricsAlive).Set(float64(s.AliveEntries))
+		metrics.ConntrackGCSize.WithLabelValues(family, proto, metricsDeleted).Set(float64(s.Deleted))
 	} else {
 		status = "uncompleted"
 		scopedLog := log.WithField("interrupted", s.Interrupted)

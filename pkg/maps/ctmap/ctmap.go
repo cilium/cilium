@@ -190,7 +190,8 @@ type CtEndpoint interface {
 type Map struct {
 	bpf.Map
 
-	mapType MapType
+	mapType          MapType
+	cachedGCInterval time.Duration
 	// define maps to the macro used in the datapath portion for the map
 	// name, for example 'CT_MAP4'.
 	define string
@@ -297,10 +298,10 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 				if err != nil {
 					log.WithError(err).WithField(logfields.Key, currentKey6Global.String()).Error("Unable to delete CT entry")
 				} else {
-					stats.deleted++
+					stats.Deleted++
 				}
 			default:
-				stats.aliveEntries++
+				stats.AliveEntries++
 			}
 		case *CtKey6:
 			currentKey6 := obj
@@ -316,10 +317,10 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 				if err != nil {
 					log.WithError(err).WithField(logfields.Key, currentKey6.String()).Error("Unable to delete CT entry")
 				} else {
-					stats.deleted++
+					stats.Deleted++
 				}
 			default:
-				stats.aliveEntries++
+				stats.AliveEntries++
 			}
 		default:
 			log.Warningf("Encountered unknown type while scanning conntrack table: %v", reflect.TypeOf(key))
@@ -371,10 +372,10 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 				if err != nil {
 					log.WithError(err).WithField(logfields.Key, currentKey4Global.String()).Error("Unable to delete CT entry")
 				} else {
-					stats.deleted++
+					stats.Deleted++
 				}
 			default:
-				stats.aliveEntries++
+				stats.AliveEntries++
 			}
 		case *CtKey4:
 			currentKey4 := obj
@@ -390,10 +391,10 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 				if err != nil {
 					log.WithError(err).WithField(logfields.Key, currentKey4.String()).Error("Unable to delete CT entry")
 				} else {
-					stats.deleted++
+					stats.Deleted++
 				}
 			default:
-				stats.aliveEntries++
+				stats.AliveEntries++
 			}
 		default:
 			log.Warningf("Encountered unknown type while scanning conntrack table: %v", reflect.TypeOf(key))
@@ -428,19 +429,19 @@ func (f *GCFilter) doFiltering(srcIP net.IP, dstIP net.IP, dstPort uint16, nextH
 	return noAction
 }
 
-func doGC(m *Map, filter *GCFilter) int {
+func doGC(m *Map, filter *GCFilter) gcStats {
 	if m.mapType.isIPv6() {
-		return int(doGC6(m, filter).deleted)
+		return doGC6(m, filter)
 	} else if m.mapType.isIPv4() {
-		return int(doGC4(m, filter).deleted)
+		return doGC4(m, filter)
 	}
 	log.Fatalf("Unsupported ct map type: %s", m.mapType.String())
-	return 0
+	return gcStats{}
 }
 
 // GC runs garbage collection for map m with name mapType with the given filter.
 // It returns how many items were deleted from m.
-func GC(m *Map, filter *GCFilter) int {
+func GC(m *Map, filter *GCFilter) gcStats {
 	if filter.RemoveExpired {
 		t, _ := bpf.GetMtime()
 		tsec := t / 1000000000
@@ -453,10 +454,10 @@ func GC(m *Map, filter *GCFilter) int {
 // Flush runs garbage collection for map m with the name mapType, deleting all
 // entries. The specified map must be already opened using bpf.OpenMap().
 func (m *Map) Flush() int {
-	return doGC(m, &GCFilter{
+	return int(doGC(m, &GCFilter{
 		RemoveExpired: true,
 		Time:          MaxTime,
-	})
+	}).Deleted)
 }
 
 // DeleteIfUpgradeNeeded attempts to open the conntrack maps associated with
@@ -591,26 +592,36 @@ func Exists(e CtEndpoint, ipv4, ipv6 bool) bool {
 	return result
 }
 
-var cachedGCInterval time.Duration
-
-// GetInterval returns the interval adjusted based on the deletion ratio of the
-// last run
-func GetInterval(mapType bpf.MapType, maxDeleteRatio float64) (interval time.Duration) {
+// InitInterval returns the default interval which is then further adjusted down
+// through GetInterval in the GC run
+func InitInterval() (interval time.Duration) {
 	if val := option.Config.ConntrackGCInterval; val != time.Duration(0) {
 		interval = val
 		return
 	}
 
-	if interval = cachedGCInterval; interval == time.Duration(0) {
+	return defaults.ConntrackGCMaxLRUInterval
+}
+
+// GetInterval returns the interval adjusted based on the deletion ratio of the
+// last run
+func GetInterval(m *Map, stats gcStats) (interval time.Duration) {
+	if val := option.Config.ConntrackGCInterval; val != time.Duration(0) {
+		interval = val
+		return
+	}
+
+	if interval = m.cachedGCInterval; interval == time.Duration(0) {
 		interval = defaults.ConntrackGCStartingInterval
 	}
 
-	return calculateInterval(mapType, interval, maxDeleteRatio)
+	return calculateInterval(m, interval, stats)
 }
 
-func calculateInterval(mapType bpf.MapType, prevInterval time.Duration, maxDeleteRatio float64) (interval time.Duration) {
+func calculateInterval(m *Map, prevInterval time.Duration, stats gcStats) (interval time.Duration) {
 	interval = prevInterval
 
+	maxDeleteRatio := float64(stats.Deleted) / float64(m.MapInfo.MaxEntries)
 	if maxDeleteRatio == 0.0 {
 		return
 	}
@@ -634,7 +645,7 @@ func calculateInterval(mapType bpf.MapType, prevInterval time.Duration, maxDelet
 		// scan will return a low deletion ratio at first.
 		interval = time.Duration(float64(interval) * 1.5).Round(time.Second)
 
-		switch mapType {
+		switch m.MapInfo.MapType {
 		case bpf.MapTypeLRUHash:
 			if interval > defaults.ConntrackGCMaxLRUInterval {
 				interval = defaults.ConntrackGCMaxLRUInterval
@@ -653,7 +664,6 @@ func calculateInterval(mapType bpf.MapType, prevInterval time.Duration, maxDelet
 		}).Info("Conntrack garbage collector interval recalculated")
 	}
 
-	cachedGCInterval = interval
-
+	m.cachedGCInterval = interval
 	return
 }

@@ -84,7 +84,6 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 // garbage collected and any failures will be logged to the endpoint log.
 // Otherwise it will garbage-collect the global map and use the global log.
 func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) (mapType bpf.MapType, nextWakeup time.Duration) {
-	var maxDeleteRatio float64
 	var maps []*ctmap.Map
 
 	if e == nil {
@@ -92,6 +91,9 @@ func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) (mapTy
 	} else {
 		maps = ctmap.LocalMaps(e, ipv4, ipv6)
 	}
+
+	nextWakeup = ctmap.InitInterval()
+
 	for _, m := range maps {
 		path, err := m.Path()
 		if err == nil {
@@ -112,20 +114,21 @@ func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) (mapTy
 		}
 		defer m.Close()
 
-		mapType = m.MapInfo.MapType
-		deleted := ctmap.GC(m, filter)
-		if deleted > 0 {
-			ratio := float64(deleted) / float64(m.MapInfo.MaxEntries)
-			if ratio > maxDeleteRatio {
-				maxDeleteRatio = ratio
-			}
+		stats := ctmap.GC(m, filter)
+
+		nextWakeupFromGC := ctmap.GetInterval(m, stats)
+		if nextWakeupFromGC < nextWakeup {
+			nextWakeup = nextWakeupFromGC
+		}
+
+		if stats.Deleted > 0 {
 			log.WithFields(logrus.Fields{
 				logfields.Path: path,
-				"count":        deleted,
+				"count":        stats.Deleted,
 			}).Debug("Deleted filtered entries from map")
 		}
 	}
-	nextWakeup = ctmap.GetInterval(mapType, maxDeleteRatio)
+
 	return
 }
 
