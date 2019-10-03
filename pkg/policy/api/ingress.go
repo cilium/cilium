@@ -161,5 +161,5 @@ func (i *IngressRule) GetSourceEndpointSelectorsWithRequirements(requirements []
 // on labels, i.e. either by setting FromEndpoints or FromEntities, or not
 // setting any From field.
 func (i *IngressRule) IsLabelBased() bool {
-	return len(i.FromRequires)+len(i.FromCIDR)+len(i.FromCIDRSet) == 0
+	return len(i.FromRequires) == 0
 }

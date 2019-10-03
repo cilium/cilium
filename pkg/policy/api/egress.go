@@ -203,7 +203,7 @@ func (e *EgressRule) GetDestinationEndpointSelectorsWithRequirements(requirement
 // based on labels, i.e. either by setting ToEndpoints or ToEntities, or not
 // setting any To field.
 func (e *EgressRule) IsLabelBased() bool {
-	return len(e.ToRequires)+len(e.ToCIDR)+len(e.ToCIDRSet)+len(e.ToServices)+len(e.ToFQDNs) == 0
+	return len(e.ToRequires)+len(e.ToServices)+len(e.ToFQDNs) == 0
 }
 
 // RequiresDerivative returns true when the EgressRule contains sections that

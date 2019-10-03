@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -107,4 +107,193 @@ func (s *PolicyAPITestSuite) TestCreateDerivativeWithoutErrorAndNoIPs(c *C) {
 	newRule, err := eg.CreateDerivative()
 	c.Assert(err, IsNil)
 	c.Assert(newRule, checker.DeepEquals, &EgressRule{})
+}
+
+func (s *PolicyAPITestSuite) TestIsLabelBasedEgress(c *C) {
+	type args struct {
+		eg *EgressRule
+	}
+	type wanted struct {
+		isLabelBased bool
+	}
+
+	tests := []struct {
+		name        string
+		setupArgs   func() args
+		setupWanted func() wanted
+	}{
+		{
+			name: "label-based-rule",
+			setupArgs: func() args {
+				return args{
+					eg: &EgressRule{
+						ToEndpoints: []EndpointSelector{
+							{
+								LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
+									"test": "true",
+								},
+								},
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					isLabelBased: true,
+				}
+			},
+		},
+		{
+			name: "cidr-based-rule",
+			setupArgs: func() args {
+				return args{
+					&EgressRule{
+						ToCIDR: CIDRSlice{"192.0.0.0/3"},
+					},
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					isLabelBased: true,
+				}
+			},
+		},
+		{
+			name: "cidrset-based-rule",
+			setupArgs: func() args {
+				return args{
+					&EgressRule{
+						ToCIDRSet: CIDRRuleSlice{
+							{
+								Cidr: "192.0.0.0/3",
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					isLabelBased: true,
+				}
+			},
+		},
+		{
+			name: "rule-with-requirements",
+			setupArgs: func() args {
+				return args{
+					&EgressRule{
+						ToRequires: []EndpointSelector{
+							{
+								LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
+									"test": "true",
+								},
+								},
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					isLabelBased: false,
+				}
+			},
+		},
+		{
+			name: "rule-with-services",
+			setupArgs: func() args {
+
+				svcLabels := map[string]string{
+					"app": "tested-service",
+				}
+				selector := ServiceSelector(NewESFromMatchRequirements(svcLabels, nil))
+				return args{
+					&EgressRule{
+						ToServices: []Service{
+							{
+								K8sServiceSelector: &K8sServiceSelectorNamespace{
+									Selector:  selector,
+									Namespace: "",
+								},
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					isLabelBased: false,
+				}
+			},
+		},
+		{
+			name: "rule-with-fqdn",
+			setupArgs: func() args {
+				return args{
+					&EgressRule{
+						ToFQDNs: FQDNSelectorSlice{
+							{
+								MatchName: "cilium.io",
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					isLabelBased: false,
+				}
+			},
+		},
+		{
+			name: "rule-with-entities",
+			setupArgs: func() args {
+				return args{
+					&EgressRule{
+						ToEntities: EntitySlice{
+							EntityHost,
+						},
+					},
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					isLabelBased: true,
+				}
+			},
+		},
+		{
+			name: "rule-with-no-l3-specification",
+			setupArgs: func() args {
+				return args{
+					&EgressRule{
+						ToPorts: []PortRule{
+							{
+								Ports: []PortProtocol{
+									{
+										Port:     "80",
+										Protocol: ProtoTCP,
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					isLabelBased: true,
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		args := tt.setupArgs()
+		want := tt.setupWanted()
+		c.Assert(args.eg.sanitize(), Equals, nil, Commentf("Test name: %q", tt.name))
+		isLabelBased := args.eg.IsLabelBased()
+		c.Assert(isLabelBased, checker.DeepEquals, want.isLabelBased, Commentf("Test name: %q", tt.name))
+	}
 }
