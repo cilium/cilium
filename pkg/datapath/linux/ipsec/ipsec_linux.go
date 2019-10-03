@@ -370,6 +370,9 @@ func decodeIPSecKey(keyRaw string) (int, []byte, error) {
 	// As we have released the v1.4.0 docs telling the users to write the
 	// k8s secret with the prefix "0x" we have to remove it if it is present,
 	// so we can decode the secret.
+	if keyRaw == "\"\"" {
+		return 0, nil, nil
+	}
 	keyTrimmed := strings.TrimPrefix(keyRaw, "0x")
 	key, err := hex.DecodeString(keyTrimmed)
 	return len(keyTrimmed), key, err
