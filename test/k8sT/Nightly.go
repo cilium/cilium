@@ -384,7 +384,7 @@ var _ = Describe("NightlyExamples", func() {
 				It(fmt.Sprintf("Update Cilium from %s to master", version), func() {
 					var assertUpgradeSuccessful func()
 					assertUpgradeSuccessful, cleanupCallback = InstallAndValidateCiliumUpgrades(
-						kubectl, image, helpers.CiliumDeveloperImage)
+						kubectl, image, helpers.CiliumDevImage())
 					assertUpgradeSuccessful()
 				})
 			}(image)

@@ -2,7 +2,7 @@
 
 pipeline {
     agent {
-        label 'baremetal'
+        label 'registry'//TODO: back to baremetal
     }
 
     environment {
@@ -59,6 +59,23 @@ pipeline {
                        }
                    }
                }
+            }
+        }
+        stage('Make Cilium images') {
+            environment {
+                TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
+            }
+            steps {
+                sh 'cd ${TESTDIR}; ./make-images-push-to-local-registry.sh $(./print-node-ip.sh) latest'
+            }
+            post {
+                unsuccessful {
+                    script {
+                        if  (!currentBuild.displayName.contains('fail')) {
+                            currentBuild.displayName = 'building or pushing Cilium images failed ' + currentBuild.displayName
+                        }
+                    }
+                }
             }
         }
         stage('Preload vagrant boxes') {
@@ -207,9 +224,10 @@ pipeline {
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                         NETNEXT="true"
+                        KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig'
+                        sh 'cd ${TESTDIR}; CILIUM_IMAGE=$(./print-node-ip.sh)/cilium/cilium:latest CILIUM_OPERATOR_IMAGE=$(./print-node-ip.sh)/cilium/operator:latest K8S_VERSION=1.11 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true'
                     }
                     post {
                         always {
@@ -233,9 +251,10 @@ pipeline {
                         TESTED_SUITE="k8s-1.16"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                        KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.16 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig'
+                        sh 'cd ${TESTDIR}; CILIUM_IMAGE=$(./print-node-ip.sh)/cilium/cilium:latest CILIUM_OPERATOR_IMAGE=$(./print-node-ip.sh)/cilium/operator:latest K8S_VERSION=1.16 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true'
                     }
                     post {
                         always {
