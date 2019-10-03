@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/cilium/pkg/checker"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 
@@ -84,6 +85,7 @@ func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
 	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
 	// TODO(brb) test that backends are the same
+	// TODO(brb) check that .backends =~ .backendsByHash
 
 	// Should remove one backend
 	created, id1, err = m.svc.UpsertService(frontend1, backends1[0:1], lb.SVCTypeNodePort)
@@ -149,6 +151,8 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 
 	// Services have been restored too
 	c.Assert(len(m.svc.svcByID), Equals, 2)
-	c.Assert(m.svc.svcByID[id1], Equals, lbmap.ServiceByID[uint16(id1)])
-	c.Assert(m.svc.svcByID[id2], Equals, lbmap.ServiceByID[uint16(id2)])
+	c.Assert(m.svc.svcByID[id1].frontend, checker.DeepEquals, lbmap.ServiceByID[uint16(id1)].Frontend)
+	c.Assert(m.svc.svcByID[id1].backends, checker.DeepEquals, lbmap.ServiceByID[uint16(id1)].Backends)
+	c.Assert(m.svc.svcByID[id2].frontend, checker.DeepEquals, lbmap.ServiceByID[uint16(id2)].Frontend)
+	c.Assert(m.svc.svcByID[id2].backends, checker.DeepEquals, lbmap.ServiceByID[uint16(id2)].Backends)
 }
