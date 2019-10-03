@@ -1182,7 +1182,6 @@
   revision = "d98352740cb2c55f81556b63d4a1ec64c5a319c2"
 
 [[projects]]
-  branch = "master"
   digest = "1:0c3f29eb61ecfa6d5ae34a18480f5488ad03b22d1f20b976bdf4d3f461864620"
   name = "github.com/vishvananda/netlink"
   packages = [
@@ -1550,7 +1549,7 @@
     "storage/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.16.0"
+  revision = "kubernetes-1.16.1"
 
 [[projects]]
   digest = "1:6aab404e4451f049e6c4dfdb102d43fb209b445cdac708f7e74b5e70b41ddd90"
@@ -1565,7 +1564,7 @@
     "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.16.0"
+  revision = "kubernetes-1.16.1"
 
 [[projects]]
   digest = "1:26f6aafe332e6b1639c6c5701c7130e8c146b58afa29c36700f34fab3e20070a"
@@ -1617,10 +1616,10 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.16.0"
+  revision = "kubernetes-1.16.1"
 
 [[projects]]
-  digest = "1:80871e6c8e3ca1a42411eb5fb4ceb8d754b5bdfac9beaee110048e0c0485f7b4"
+  digest = "1:c566f53f2829a9a9081a5ee4d29199b8218f527db97a5b04e38abe11cf153d2f"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -1732,11 +1731,11 @@
     "util/retry",
   ]
   pruneopts = "NUT"
-  revision = "1eab0199a695aa61cb7f970b1d172d14ce2abcb4"
+  revision = "05864f462183111f6c0a2e5e60fbdf585a4834ed"
   source = "https://github.com/cilium/client-go"
 
 [[projects]]
-  digest = "1:1b6fd3650ea50bc09ff7174c152175eeb4459d579585163ecae6ff1d82dee3d4"
+  digest = "1:525d3cb0125d305eaeeeaf3ce4d1cccb06cfbbf6badd5bb02d5de31ade50d9c6"
   name = "k8s.io/code-generator"
   packages = [
     "cmd/client-gen",
@@ -1751,14 +1750,14 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "kubernetes-1.16.0"
+  revision = "kubernetes-1.16.1"
 
 [[projects]]
   digest = "1:5e496d711fa03e4aaf3cab0d7de079634a9465ebf940613b69b34f5cc6513db8"
   name = "k8s.io/cri-api"
   packages = ["pkg/apis/runtime/v1alpha2"]
   pruneopts = "NUT"
-  revision = "kubernetes-1.16.0"
+  revision = "kubernetes-1.16.1"
 
 [[projects]]
   digest = "1:d233b263f74608ab5528c04453935d899a2b9fb0bf02b03d38a4a11f91442a5c"
@@ -1803,7 +1802,7 @@
     "pkg/registry/core/service/ipallocator",
   ]
   pruneopts = "NUT"
-  revision = "v1.16.0"
+  revision = "v1.16.1"
 
 [[projects]]
   digest = "1:99dbf7ef753ca02399778c93a4ed4b689b28668317134ecd1fabeb07be70f354"
