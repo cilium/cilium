@@ -68,6 +68,7 @@ var fqdnListCacheCmd = &cobra.Command{
 }
 
 var fqdnCacheMatchPattern string
+var fqdnEndpointID string
 
 func init() {
 	fqdnCacheCmd.AddCommand(fqdnListCacheCmd)
@@ -80,6 +81,7 @@ func init() {
 	fqdnCleanCacheCmd.Flags().StringVarP(&fqdnCacheMatchPattern, "matchpattern", "p", "", "Delete cache entries with FQDNs that match matchpattern")
 
 	fqdnListCacheCmd.Flags().StringVarP(&fqdnCacheMatchPattern, "matchpattern", "p", "", "List cache entries with FQDN that match matchpattern")
+	fqdnListCacheCmd.Flags().StringVarP(&fqdnEndpointID, "endpoint", "e", "", "List cache entries for a specific endpoint id")
 	command.AddJSONOutput(fqdnListCacheCmd)
 }
 
@@ -106,24 +108,47 @@ func cleanFQDNCache() {
 }
 
 func listFQDNCache() {
-	params := policy.NewGetFqdnCacheParams()
-
-	if fqdnCacheMatchPattern != "" {
-		params.SetMatchpattern(&fqdnCacheMatchPattern)
-	}
-
 	var lookups []*models.DNSLookup = []*models.DNSLookup{}
 
-	result, err := client.Policy.GetFqdnCache(params)
-	if err != nil {
-		switch err := err.(type) {
-		case *policy.GetFqdnCacheNotFound:
-			// print out empty lookups slice
-		default:
-			Fatalf("Error: %s\n", err)
+	if fqdnEndpointID != "" {
+		params := policy.NewGetFqdnCacheIDParams()
+
+		if fqdnCacheMatchPattern != "" {
+			params.SetMatchpattern(&fqdnCacheMatchPattern)
+		}
+
+		if fqdnEndpointID != "" {
+			params.SetID(fqdnEndpointID)
+		}
+		result, err := client.Policy.GetFqdnCacheID(params)
+		if err != nil {
+			switch err := err.(type) {
+			case *policy.GetFqdnCacheIDNotFound:
+				// print out empty lookups slice
+			default:
+				Fatalf("Error: %s\n", err)
+			}
+		} else {
+			lookups = result.Payload
 		}
 	} else {
-		lookups = result.Payload
+		params := policy.NewGetFqdnCacheParams()
+
+		if fqdnCacheMatchPattern != "" {
+			params.SetMatchpattern(&fqdnCacheMatchPattern)
+		}
+
+		result, err := client.Policy.GetFqdnCache(params)
+		if err != nil {
+			switch err := err.(type) {
+			case *policy.GetFqdnCacheNotFound:
+				// print out empty lookups slice
+			default:
+				Fatalf("Error: %s\n", err)
+			}
+		} else {
+			lookups = result.Payload
+		}
 	}
 
 	if command.OutputJSON() {
