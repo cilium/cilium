@@ -76,7 +76,6 @@ function load_prog_dev {
 function load_tc {
 	for p in ${TC_PROGS}; do
 		load_prog_dev "$TC filter replace" "ingress bpf da" ${p}
-		clean_maps
 	done
 }
 
@@ -91,7 +90,6 @@ function load_xdp {
 		$IPROUTE2 link set dev ${DEV} xdpgeneric off
 		for p in ${XDP_PROGS}; do
 			load_prog_dev "$IPROUTE2 link set" "xdpgeneric" ${p}
-			clean_maps
 		done
 	else
 		echo "=> Skipping ${DIR}/bpf_xdp.c."
