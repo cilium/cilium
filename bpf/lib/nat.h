@@ -45,32 +45,18 @@ struct nat_entry {
 
 #define NAT_CONTINUE_XLATE 	0
 #define NAT_PUNT_TO_STACK	1
-
-#ifdef HAVE_LRU_MAP_TYPE
-# define NAT_MAP_TYPE BPF_MAP_TYPE_LRU_HASH
-#else
-# define NAT_MAP_TYPE BPF_MAP_TYPE_HASH
-#endif
+#define NAT_MAP_TYPE		BPF_MAP_TYPE_HASH
 
 #ifdef HAVE_LARGE_INSN_LIMIT
 # define SNAT_COLLISION_RETRIES		128
 #else
 # define SNAT_COLLISION_RETRIES		20
 #endif
-#define SNAT_DETERMINISTIC_RETRIES	6
 
 static __always_inline __be16 __snat_clamp_port_range(__u16 start, __u16 end,
 						      __u16 val)
 {
 	return (val % (__u16)(end - start)) + start;
-}
-
-#define GOLDEN_RATIO_32 0x61C88647
-
-static __always_inline __be16 __snat_hash(__u16 val)
-{
-	/* High bits are more random, so use them. */
-	return ((__u32)val * GOLDEN_RATIO_32) >> 16;
 }
 
 static __always_inline void *__snat_lookup(void *map, void *tuple)
@@ -249,13 +235,9 @@ static __always_inline int snat_v4_new_mapping(struct __sk_buff *skb,
 				return 0;
 		}
 select_port:
-		if (NAT_MAP_TYPE == BPF_MAP_TYPE_LRU_HASH &&
-		    retries < SNAT_DETERMINISTIC_RETRIES)
-			port = __snat_hash(rtuple.dport);
-		else
-			port = get_prandom_u32();
 		port = __snat_clamp_port_range(target->min_port,
-					       target->max_port, port);
+					       target->max_port,
+					       get_prandom_u32());
 		rtuple.dport = ostate->to_sport = bpf_htons(port);
 	}
 
@@ -669,13 +651,9 @@ static __always_inline int snat_v6_new_mapping(struct __sk_buff *skb,
 				return 0;
 		}
 select_port:
-		if (NAT_MAP_TYPE == BPF_MAP_TYPE_LRU_HASH &&
-		    retries < SNAT_DETERMINISTIC_RETRIES)
-			port = __snat_hash(rtuple.dport);
-		else
-			port = get_prandom_u32();
 		port = __snat_clamp_port_range(target->min_port,
-					       target->max_port, port);
+					       target->max_port,
+					       get_prandom_u32());
 		rtuple.dport = ostate->to_sport = bpf_htons(port);
 	}
 
