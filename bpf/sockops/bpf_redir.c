@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2018 Authors of Cilium
+ *  Copyright (C) 2018-2019 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,7 +16,8 @@
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#define SKIP_CALLS_MAP
+#define SKIP_CALLS_MAP 1
+#define SKIP_POLICY_MAP 1
 
 #include <node_config.h>
 #include <bpf/api.h>
