@@ -44,30 +44,38 @@ function cleanup {
 }
 
 function get_section {
-	grep "__section(" $1 | sed 's/__sec[^\"]*\"\([0-9A-Za-z_-]*\).*/\1/'
+	grep "__section(" $DIR/$1 | sed 's/__sec[^\"]*\"\([0-9A-Za-z_-]*\).*/\1/'
 }
 
 function load_prog {
 	loader=$1
+	args=$2
+	name=$3
+
+	echo "=> Loading ${name}..."
+	if $VERBOSE; then
+		# Redirect stderr to stdout to assist caller parsing
+		${loader} $args verbose 2>&1
+	else
+		# Only run verbose mode if loading fails.
+		${loader} $args 2>/dev/null \
+		|| ${loader} $args verbose
+	fi
+}
+
+function load_prog_dev {
+	loader=$1
 	mode=$2
 	prog=$3
 	for section in $(get_section ${prog}.c); do
-		echo "=> Loading ${prog}.c:${section}..."
-		if $VERBOSE; then
-			# Redirect stderr to stdout to assist caller parsing
-			${loader} dev ${DEV} ${mode} obj ${prog}.o \
-				  sec $section verbose 2>&1
-		else
-			# Only run verbose mode if loading fails.
-			${loader} dev ${DEV} ${mode} obj ${prog}.o sec $section 2>/dev/null \
-			|| ${loader} dev ${DEV} ${mode} obj ${prog}.o sec $section verbose
-		fi
+		local args="dev ${DEV} ${mode} obj ${DIR}/${prog}.o sec $section"
+		load_prog "$loader" "$args" "$prog.c:$section"
 	done
 }
 
 function load_tc {
 	for p in ${TC_PROGS}; do
-		load_prog "$TC filter replace" "ingress bpf da" ${DIR}/${p}
+		load_prog_dev "$TC filter replace" "ingress bpf da" ${p}
 		clean_maps
 	done
 }
@@ -82,7 +90,7 @@ function load_xdp {
 	if $IPROUTE2 link set help 2>&1 | grep -q xdpgeneric; then
 		$IPROUTE2 link set dev ${DEV} xdpgeneric off
 		for p in ${XDP_PROGS}; do
-			load_prog "$IPROUTE2 link set" "xdpgeneric" ${DIR}/${p}
+			load_prog_dev "$IPROUTE2 link set" "xdpgeneric" ${p}
 			clean_maps
 		done
 	else
