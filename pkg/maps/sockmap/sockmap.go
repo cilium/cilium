@@ -17,6 +17,7 @@ package sockmap
 import (
 	"fmt"
 	"net"
+	"sync"
 	"unsafe"
 
 	"github.com/cilium/cilium/common/types"
@@ -100,20 +101,36 @@ const (
 )
 
 var (
+	buildMap sync.Once
 	// SockMap represents the BPF map for sockets
-	SockMap = bpf.NewMap(mapName,
-		bpf.MapTypeSockHash,
-		&SockmapKey{},
-		int(unsafe.Sizeof(SockmapKey{})),
-		&SockmapValue{},
-		4,
-		MaxEntries,
-		0, 0,
-		bpf.ConvertKeyValue,
-	)
+	SockMap *bpf.Map
 )
+
+// CreateWithName creates a new sockmap map.
+//
+// The specified mapName allows non-standard map paths to be used, for instance
+// for testing purposes.
+func CreateWithName(name string) error {
+	buildMap.Do(func() {
+		SockMap = bpf.NewMap(name,
+			bpf.MapTypeSockHash,
+			&SockmapKey{},
+			int(unsafe.Sizeof(SockmapKey{})),
+			&SockmapValue{},
+			4,
+			MaxEntries,
+			0, 0,
+			bpf.ConvertKeyValue,
+		)
+	})
+
+	_, err := SockMap.OpenOrCreate()
+	return err
+}
 
 // SockmapCreate will create sockmap map
 func SockmapCreate() {
-	SockMap.OpenOrCreate()
+	if err := CreateWithName(mapName); err != nil {
+		log.WithError(err).Warning("Unable to open or create socket map")
+	}
 }
