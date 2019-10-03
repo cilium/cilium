@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2018 Authors of Cilium
+ *  Copyright (C) 2018-2019 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -19,3 +19,6 @@
 #define SOCK_OPS_MAP cilium_sock_ops
 #endif
 #define SOCKOPS_MAP_SIZE 65535
+#ifndef CALLS_MAP
+#define CALLS_MAP test_cilium_calls
+#endif
