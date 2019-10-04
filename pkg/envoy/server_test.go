@@ -388,10 +388,10 @@ func (s *ServerSuite) TestGetHTTPRule(c *C) {
 }
 
 func (s *ServerSuite) TestGetPortNetworkPolicyRule(c *C) {
-	obtained := getPortNetworkPolicyRule(cachedSelector1, policy.ParserTypeHTTP, L7Rules1)
+	obtained := getPortNetworkPolicyRule(cachedSelector1, L4PolicyMap1["80/TCP"], &L7Rules1)
 	c.Assert(obtained, checker.Equals, ExpectedPortNetworkPolicyRule1)
 
-	obtained = getPortNetworkPolicyRule(cachedSelector2, policy.ParserTypeHTTP, L7Rules2)
+	obtained = getPortNetworkPolicyRule(cachedSelector2, L4PolicyMap2["8080/UDP"], &L7Rules2)
 	c.Assert(obtained, checker.Equals, ExpectedPortNetworkPolicyRule2)
 }
 

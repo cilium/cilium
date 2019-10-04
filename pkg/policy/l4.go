@@ -127,6 +127,20 @@ type L4Filter struct {
 	// and CIDR-based policy.
 	// Holds references to the CachedSelectors, which must be released!
 	CachedSelectors CachedSelectorSlice `json:"l3-selectors,omitempty"`
+	// TerminatingTLS is the TLS context for the connection terminated by
+	// the L7 proxy.  For egress policy this specifies the server-side TLS
+	// parameters to be applied on the connections originated from the local
+	// POD and terminated by the L7 proxy. For ingress policy this specifies
+	// the server-side TLS parameters to be applied on the connections
+	// originated from a remote source and terminated by the L7 proxy.
+	TerminatingTLS *api.TLSContext `json:"terminatingTLS,omitempty"`
+	// OriginatingTLS is the TLS context for the connections originated by
+	// the L7 proxy.  For egress policy this specifies the client-side TLS
+	// parameters for the upstream connection originating from the L7 proxy
+	// to the remote destination. For ingress policy this specifies the
+	// client-side TLS parameters for the connection from the L7 proxy to
+	// the local POD.
+	OriginatingTLS *api.TLSContext `json:"originatingTLS,omitempty"`
 	// L7Parser specifies the L7 protocol parser (optional). If specified as
 	// an empty string, then means that no L7 proxy redirect is performed.
 	L7Parser L7ParserType `json:"-"`
@@ -351,6 +365,8 @@ func createL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, 
 		L7RulesPerEp:     make(L7DataMap),
 		DerivedFromRules: labels.LabelArrayList{ruleLabels},
 		Ingress:          ingress,
+		TerminatingTLS:   rule.TerminatingTLS,
+		OriginatingTLS:   rule.OriginatingTLS,
 	}
 
 	if peerEndpoints.SelectsAllEndpoints() {
