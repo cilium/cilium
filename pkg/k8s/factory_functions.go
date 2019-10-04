@@ -197,8 +197,7 @@ func EqualV2CNP(cnp1, cnp2 *types.SlimCNP) bool {
 // AnnotationsEqual returns whether the annotation with any key in
 // relevantAnnotations is equal in anno1 and anno2.
 func AnnotationsEqual(relevantAnnotations []string, anno1, anno2 map[string]string) bool {
-	for i := range relevantAnnotations {
-		an := relevantAnnotations[i]
+	for _, an := range relevantAnnotations {
 		if anno1[an] != anno2[an] {
 			return false
 		}
