@@ -1577,22 +1577,18 @@ func (d *Daemon) updateK8sPodV1(oldK8sPod, newK8sPod *types.Pod) error {
 		return nil
 	}
 
-	switch {
-	case annotationsChanged && labelsChanged:
-		podEP.UpdateVisibilityPolicy(newAnno)
+	if labelsChanged {
 		err := updateEndpointLabels(podEP, oldPodLabels, newPodLabels)
-		realizePodAnnotationUpdate(podEP)
-		return err
-	case annotationsChanged:
-		//  Update annotations and regenerate.
+		if err != nil {
+			return err
+		}
+	}
+
+	if annotationsChanged {
 		podEP.UpdateVisibilityPolicy(newAnno)
 		realizePodAnnotationUpdate(podEP)
-		return nil
-	case labelsChanged:
-		return updateEndpointLabels(podEP, oldPodLabels, newPodLabels)
-	default:
-		return nil
 	}
+	return nil
 }
 
 func realizePodAnnotationUpdate(podEP *endpoint.Endpoint) {
