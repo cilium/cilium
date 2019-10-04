@@ -371,6 +371,14 @@ func (e *Endpoint) addNewRedirects(m *policy.L4Policy, proxyWaitGroup *completio
 		rf           revert.RevertFunc
 	)
 
+	defer func() {
+		// In case updates partially succeeded, and subsequently failed,
+		// revert.
+		if err != nil {
+			revertStack.Revert()
+		}
+	}()
+
 	desiredRedirects = make(map[string]bool)
 
 	for dirLogStr, ingress := range map[string]bool{"ingress": true, "egress": false} {
