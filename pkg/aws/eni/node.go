@@ -403,7 +403,7 @@ func (n *Node) allocateENI(s *types.Subnet, a *allocatableResources) error {
 // create a new ENI.
 type allocatableResources struct {
 	instanceID          string
-	eni                 *v2.ENI
+	eni                 string
 	subnet              *types.Subnet
 	availableOnSubnet   int
 	limits              Limits
@@ -437,7 +437,7 @@ func (n *Node) determineAllocationAction() (*allocatableResources, error) {
 		limits:     limits,
 		totalENIs:  len(n.enis),
 	}
-	for _, e := range n.enis {
+	for key, e := range n.enis {
 		scopedLog.WithFields(logrus.Fields{
 			fieldEniID:     e.ID,
 			"needIndex":    n.resource.Spec.ENI.FirstInterfaceIndex,
@@ -465,12 +465,12 @@ func (n *Node) determineAllocationAction() (*allocatableResources, error) {
 		maxAllocateOnENI := math.IntMin(availableOnENI, maxAllocate)
 
 		if subnet := n.manager.instancesAPI.GetSubnet(e.Subnet.ID); subnet != nil {
-			if subnet.AvailableAddresses > 0 && a.eni == nil {
+			if subnet.AvailableAddresses > 0 && a.eni == "" {
 				scopedLog.WithFields(logrus.Fields{
 					"subnetID":           e.Subnet.ID,
 					"availableAddresses": subnet.AvailableAddresses,
 				}).Debug("Subnet has IPs available")
-				a.eni = &e
+				a.eni = key
 				a.subnet = subnet
 				a.availableOnSubnet = math.IntMin(subnet.AvailableAddresses, maxAllocateOnENI)
 			}
@@ -487,9 +487,9 @@ func (n *Node) determineAllocationAction() (*allocatableResources, error) {
 		"remainingInterfaces": n.stats.remainingInterfaces,
 	})
 
-	if a.eni != nil {
+	if a.eni != "" {
 		scopedLog = scopedLog.WithFields(logrus.Fields{
-			"selectedENI":          a.eni.ID,
+			"selectedENI":          n.enis[a.eni],
 			"selectedSubnet":       a.subnet.ID,
 			"availableIPsOnSubnet": a.subnet.AvailableAddresses,
 		})
@@ -544,7 +544,7 @@ func (n *Node) resolveIPDeficit() error {
 	scopedLog := n.logger()
 
 	if a.subnet != nil && a.availableOnSubnet > 0 {
-		err := n.manager.ec2API.AssignPrivateIpAddresses(a.eni.ID, int64(a.availableOnSubnet))
+		err := n.manager.ec2API.AssignPrivateIpAddresses(n.enis[a.eni].ID, int64(a.availableOnSubnet))
 		if err == nil {
 			n.manager.metricsAPI.IncENIAllocationAttempt("success", a.subnet.ID)
 			n.manager.metricsAPI.AddIPAllocation(a.subnet.ID, int64(a.availableOnSubnet))
@@ -553,7 +553,7 @@ func (n *Node) resolveIPDeficit() error {
 
 		n.manager.metricsAPI.IncENIAllocationAttempt("ip assignment failed", a.subnet.ID)
 		scopedLog.WithFields(logrus.Fields{
-			fieldEniID:           a.eni.ID,
+			fieldEniID:           n.enis[a.eni].ID,
 			"requestedAddresses": a.availableOnSubnet,
 		}).WithError(err).Warning("Unable to assign additional private IPs to ENI, will create new ENI")
 	}
