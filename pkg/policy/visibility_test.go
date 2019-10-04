@@ -77,4 +77,24 @@ func (ds *PolicyTestSuite) TestVisibilityPolicyCreation(c *C) {
 	vp, err = NewVisibilityPolicy(anno)
 	c.Assert(vp, IsNil)
 	c.Assert(err, Not(IsNil))
+
+	anno = "<Ingress/65536/TCP/HTTP>"
+	vp, err = NewVisibilityPolicy(anno)
+	c.Assert(vp, IsNil)
+	c.Assert(err, Not(IsNil))
+
+	anno = "<Ingress/65535/TCP/HTTP>"
+	vp, err = NewVisibilityPolicy(anno)
+	c.Assert(vp, Not(IsNil))
+	c.Assert(err, IsNil)
+
+	anno = "<Ingress/99999/TCP/HTTP>"
+	vp, err = NewVisibilityPolicy(anno)
+	c.Assert(vp, IsNil)
+	c.Assert(err, Not(IsNil))
+
+	anno = "<Ingress/0/TCP/HTTP>"
+	vp, err = NewVisibilityPolicy(anno)
+	c.Assert(vp, IsNil)
+	c.Assert(err, Not(IsNil))
 }

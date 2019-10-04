@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-var annotationRegex = regexp.MustCompile(`^((<(Ingress|Egress)/([0-9]{1,6})/(TCP|UDP|ANY)/([A-Za-z]{3,32})>)(,(<(Ingress|Egress)/([0-9]{1,6})/(TCP|UDP|ANY)/([A-Za-z]{3,32})>))*)$`)
+var annotationRegex = regexp.MustCompile(`^((<(Ingress|Egress)/([0-9]{1,6})/(TCP|UDP|ANY)/([A-Za-z]{3,32})>)(,(<(Ingress|Egress)/([0-9]{1,5})/(TCP|UDP|ANY)/([A-Za-z]{3,32})>))*)$`)
 
 func validateL7ProtocolWithDirection(dir string, proto L7ParserType) error {
 	switch proto {
@@ -73,11 +73,16 @@ func NewVisibilityPolicy(anno string) (*VisibilityPolicy, error) {
 		// Don't need to validate the content itself, regex already did that.
 		direction := proxyAnnoSplit[0][1:]
 		port := proxyAnnoSplit[1]
-		portInt, err := strconv.Atoi(port)
+
+		portInt, err := strconv.ParseUint(port, 0, 16)
 		if err != nil {
-			err = fmt.Errorf("annotation for proxy visibility did not conform to expected format: %s", err)
-			return nil, err
+			return nil, fmt.Errorf("unable to parse port: %s", err)
 		}
+
+		if portInt == 0 {
+			return nil, fmt.Errorf("port cannot be 0")
+		}
+
 		// Don't need to validate, regex already did that.
 		l4Proto := proxyAnnoSplit[2]
 		u8Prot, err := u8proto.ParseProtocol(l4Proto)
