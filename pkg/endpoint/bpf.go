@@ -382,7 +382,6 @@ func (e *Endpoint) addNewRedirects(m *policy.L4Policy, proxyWaitGroup *completio
 	desiredRedirects = make(map[string]bool)
 
 	for dirLogStr, ingress := range map[string]bool{"ingress": true, "egress": false} {
-		// Ingress redirects.
 		if m != nil && m.HasRedirect() {
 			err, ff, rf = e.addNewRedirectsFromMap(ingress, desiredRedirects, proxyWaitGroup)
 			if err != nil {
