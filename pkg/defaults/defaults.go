@@ -205,11 +205,11 @@ const (
 	ConntrackGCMaxInterval = 30 * time.Minute
 
 	// ConntrackGCMinInterval is the minimum conntrack GC interval
-	ConntrackGCMinInterval = 10 * time.Second
+	ConntrackGCMinInterval = 1 * time.Second
 
 	// ConntrackGCStartingInterval is the default starting interval for
 	// connection tracking garbage collection
-	ConntrackGCStartingInterval = 5 * time.Minute
+	ConntrackGCStartingInterval = 1 * time.Minute
 
 	// PolicyMapEntries is the default number of entries allowed in an
 	// endpoint's policymap, ie the maximum number of peer identities that
