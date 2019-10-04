@@ -33,7 +33,7 @@ func (rules ruleSlice) wildcardL3L4Rules(ingress bool, l4Policy L4PolicyMap, req
 		if ingress {
 			for _, rule := range r.Ingress {
 				// Non-label-based rule. Ignore.
-				if !rule.IsLabelBased() {
+				if !rule.AllowsWildcarding() {
 					continue
 				}
 
@@ -67,7 +67,7 @@ func (rules ruleSlice) wildcardL3L4Rules(ingress bool, l4Policy L4PolicyMap, req
 		} else {
 			for _, rule := range r.Egress {
 				// Non-label-based rule. Ignore.
-				if !rule.IsLabelBased() {
+				if !rule.AllowsWildcarding() {
 					continue
 				}
 

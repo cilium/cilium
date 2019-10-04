@@ -199,10 +199,9 @@ func (e *EgressRule) GetDestinationEndpointSelectorsWithRequirements(requirement
 	return append(res, e.aggregatedSelectors...)
 }
 
-// IsLabelBased returns true whether the L3 destination endpoints are selected
-// based on labels, i.e. either by setting ToEndpoints or ToEntities, or not
-// setting any To field.
-func (e *EgressRule) IsLabelBased() bool {
+// AllowsWildcarding returns true if wildcarding should be performed upon
+//// policy evaluation for the given rule.
+func (e *EgressRule) AllowsWildcarding() bool {
 	return len(e.ToRequires)+len(e.ToServices)+len(e.ToFQDNs) == 0
 }
 
