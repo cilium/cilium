@@ -650,8 +650,7 @@ func createBootstrap(filePath string, name, cluster, version string, xdsSock, eg
 	}
 }
 
-func getPortNetworkPolicyRule(sel policy.CachedSelector, l4 *policy.L4Filter, l7Rules *api.L7Rules) *cilium.PortNetworkPolicyRule {
-	l7Parser := l4.L7Parser
+func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7ParserType, l7Rules *policy.PerEpData) *cilium.PortNetworkPolicyRule {
 	// Optimize the policy if the endpoint selector is a wildcard by
 	// keeping remote policies list empty to match all remote policies.
 	var remotePolicies []uint64
@@ -675,18 +674,18 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, l4 *policy.L4Filter, l7
 	}
 
 	// TODO: Right now the secret data is inline in the 'Name'. MUST implement k8s secret access instead!
-	if l4.TerminatingTLS != nil {
+	if l7Rules.TerminatingTLS != nil {
 		r.DownstreamTlsContext = &cilium.TLSContext{
-			TrustedCa:        l4.TerminatingTLS.TrustedCA.Name,
-			CertificateChain: l4.TerminatingTLS.Certificate.Name,
-			PrivateKey:       l4.TerminatingTLS.PrivateKey.Name,
+			TrustedCa:        l7Rules.TerminatingTLS.TrustedCA.Name,
+			CertificateChain: l7Rules.TerminatingTLS.Certificate.Name,
+			PrivateKey:       l7Rules.TerminatingTLS.PrivateKey.Name,
 		}
 	}
-	if l4.OriginatingTLS != nil {
+	if l7Rules.OriginatingTLS != nil {
 		r.UpstreamTlsContext = &cilium.TLSContext{
-			TrustedCa:        l4.OriginatingTLS.TrustedCA.Name,
-			CertificateChain: l4.OriginatingTLS.Certificate.Name,
-			PrivateKey:       l4.OriginatingTLS.PrivateKey.Name,
+			TrustedCa:        l7Rules.OriginatingTLS.TrustedCA.Name,
+			CertificateChain: l7Rules.OriginatingTLS.Certificate.Name,
+			PrivateKey:       l7Rules.OriginatingTLS.PrivateKey.Name,
 		}
 	}
 
@@ -760,7 +759,7 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool)
 
 		allowAll := false
 		for sel, l7 := range l4.L7RulesPerEp {
-			rule := getPortNetworkPolicyRule(sel, l4, &l7)
+			rule := getPortNetworkPolicyRule(sel, l4.L7Parser, l7)
 			if rule != nil {
 				if len(rule.RemotePolicies) == 0 && rule.L7 == nil {
 					// Got an allow-all rule, which would short-circuit all of

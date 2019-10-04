@@ -92,15 +92,6 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 		existingFilter.mergeCachedSelectors(filterToMerge, selectorCache)
 	}
 
-	if filterToMerge.TerminatingTLS != existingFilter.TerminatingTLS {
-		ctx.PolicyTrace("   Merge conflict: mismatching terminating TLS contexts %v/%v\n", filterToMerge.TerminatingTLS, existingFilter.TerminatingTLS)
-		return fmt.Errorf("cannot merge conflicting terminating TLS contexts (%v/%v)", filterToMerge.TerminatingTLS, existingFilter.TerminatingTLS)
-	}
-	if filterToMerge.OriginatingTLS != existingFilter.OriginatingTLS {
-		ctx.PolicyTrace("   Merge conflict: mismatching originating TLS contexts %v/%v\n", filterToMerge.OriginatingTLS, existingFilter.OriginatingTLS)
-		return fmt.Errorf("cannot merge conflicting originating TLS contexts (%v/%v)", filterToMerge.OriginatingTLS, existingFilter.OriginatingTLS)
-	}
-
 	// Merge the L7-related data from the arguments provided to this function
 	// with the existing L7-related data already in the filter.
 	if filterToMerge.L7Parser != ParserTypeNone {
@@ -114,6 +105,15 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 
 	for cs, newL7Rules := range filterToMerge.L7RulesPerEp {
 		if l7Rules, ok := existingFilter.L7RulesPerEp[cs]; ok {
+			if !newL7Rules.TerminatingTLS.Equal(l7Rules.TerminatingTLS) {
+				ctx.PolicyTrace("   Merge conflict: mismatching terminating TLS contexts %v/%v\n", newL7Rules.TerminatingTLS, l7Rules.TerminatingTLS)
+				return fmt.Errorf("cannot merge conflicting terminating TLS contexts (%v/%v)", newL7Rules.TerminatingTLS, l7Rules.TerminatingTLS)
+			}
+			if !newL7Rules.OriginatingTLS.Equal(l7Rules.OriginatingTLS) {
+				ctx.PolicyTrace("   Merge conflict: mismatching originating TLS contexts %v/%v\n", newL7Rules.OriginatingTLS, l7Rules.OriginatingTLS)
+				return fmt.Errorf("cannot merge conflicting originating TLS contexts (%v/%v)", newL7Rules.OriginatingTLS, l7Rules.OriginatingTLS)
+			}
+
 			switch {
 			case len(newL7Rules.HTTP) > 0:
 				if len(l7Rules.Kafka) > 0 || len(l7Rules.DNS) > 0 || l7Rules.L7Proto != "" {
@@ -122,7 +122,7 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 				}
 
 				for _, newRule := range newL7Rules.HTTP {
-					if !newRule.Exists(l7Rules) {
+					if !newRule.Exists(l7Rules.L7Rules) {
 						l7Rules.HTTP = append(l7Rules.HTTP, newRule)
 					}
 				}
@@ -133,7 +133,7 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 				}
 
 				for _, newRule := range newL7Rules.Kafka {
-					if !newRule.Exists(l7Rules) {
+					if !newRule.Exists(l7Rules.L7Rules) {
 						l7Rules.Kafka = append(l7Rules.Kafka, newRule)
 					}
 				}
@@ -147,7 +147,7 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 				}
 
 				for _, newRule := range newL7Rules.L7 {
-					if !newRule.Exists(l7Rules) {
+					if !newRule.Exists(l7Rules.L7Rules) {
 						l7Rules.L7 = append(l7Rules.L7, newRule)
 					}
 				}
@@ -158,7 +158,7 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 				}
 
 				for _, newRule := range newL7Rules.DNS {
-					if !newRule.Exists(l7Rules) {
+					if !newRule.Exists(l7Rules.L7Rules) {
 						l7Rules.DNS = append(l7Rules.DNS, newRule)
 					}
 				}

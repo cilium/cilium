@@ -83,6 +83,11 @@ type TLSContext struct {
 	TrustedCA K8sSecret `json:"trustedCA,omitempty"`
 }
 
+// Equal returns true if 'a' and 'b' have the same contents.
+func (a *TLSContext) Equal(b *TLSContext) bool {
+	return a == nil && b == nil || a != nil && b != nil && *a == *b
+}
+
 // PortRule is a list of ports/protocol combinations with optional Layer 7
 // rules which must be met.
 type PortRule struct {
