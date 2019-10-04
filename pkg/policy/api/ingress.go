@@ -157,9 +157,8 @@ func (i *IngressRule) GetSourceEndpointSelectorsWithRequirements(requirements []
 	return append(res, i.aggregatedSelectors...)
 }
 
-// IsLabelBased returns true whether the L3 source endpoints are selected based
-// on labels, i.e. either by setting FromEndpoints or FromEntities, or not
-// setting any From field.
-func (i *IngressRule) IsLabelBased() bool {
+// AllowsWildcarding returns true if wildcarding should be performed upon
+// policy evaluation for the given rule.
+func (i *IngressRule) AllowsWildcarding() bool {
 	return len(i.FromRequires) == 0
 }

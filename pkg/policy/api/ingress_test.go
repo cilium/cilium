@@ -161,7 +161,7 @@ func (s *PolicyAPITestSuite) TestIsLabelBasedIngress(c *C) {
 		args := tt.setupArgs()
 		want := tt.setupWanted()
 		c.Assert(args.eg.sanitize(), Equals, nil, Commentf("Test name: %q", tt.name))
-		isLabelBased := args.eg.IsLabelBased()
+		isLabelBased := args.eg.AllowsWildcarding()
 		c.Assert(isLabelBased, checker.DeepEquals, want.isLabelBased, Commentf("Test name: %q", tt.name))
 	}
 }
