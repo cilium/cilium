@@ -20,10 +20,12 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/sirupsen/logrus"
 )
 
@@ -60,6 +62,10 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 
 			if initialScan {
 				close(initialScanComplete)
+				if mapType != bpf.MapTypeLRUHash &&
+					option.Config.ConntrackGCProfile == option.ConntrackGCProfileLazy {
+					option.Config.ConntrackGCProfile = option.ConntrackGCProfileNormal
+				}
 				initialScan = false
 			}
 
@@ -96,6 +102,13 @@ func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) (mapTy
 
 	for _, m := range maps {
 		path, err := m.Path()
+		if m.NextWakeup > filter.Time {
+			nextWakeupFromGC := time.Duration(m.NextWakeup-filter.Time) * time.Second
+			if nextWakeupFromGC < nextWakeup {
+				nextWakeup = nextWakeupFromGC
+			}
+			continue
+		}
 		if err == nil {
 			err = m.Open()
 		}
@@ -129,12 +142,18 @@ func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) (mapTy
 		}
 	}
 
+	if nextWakeup < defaults.ConntrackGCMinInterval {
+		nextWakeup = defaults.ConntrackGCMinInterval
+	}
 	return
 }
 
 func createGCFilter(initialScan bool, restoredEndpoints []*endpoint.Endpoint) *ctmap.GCFilter {
+	t, _ := bpf.GetMtime()
+	tsec := t / 1000000000
 	filter := &ctmap.GCFilter{
 		RemoveExpired: true,
+		Time:          uint32(tsec),
 	}
 
 	// On the initial scan, scrub all IPs from the conntrack table which do

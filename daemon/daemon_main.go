@@ -1033,6 +1033,8 @@ func initEnv(cmd *cobra.Command) {
 			log.WithField(logfields.Device, option.Config.Device).
 				Fatal("BPF masquerade needs external facing device specified")
 		}
+
+		option.Config.ConntrackGCProfile = option.ConntrackGCProfileAggressive
 	}
 
 	if option.Config.EnableNodePort &&
@@ -1044,6 +1046,7 @@ func initEnv(cmd *cobra.Command) {
 		option.Config.EnableHostReachableServices = true
 		option.Config.EnableHostServicesTCP = true
 		option.Config.EnableHostServicesUDP = true
+		option.Config.ConntrackGCProfile = option.ConntrackGCProfileAggressive
 	}
 
 	if option.Config.EnableNodePort && option.Config.Device == "undefined" {
