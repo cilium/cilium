@@ -70,30 +70,30 @@ func runNodeWatcher() error {
 		&v1.Node{},
 		0,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				if n := k8s.CopyObjToV1Node(obj); n != nil {
-					serNodes.Enqueue(func() error {
-						nodeNew := k8s.ParseNode(n, source.Kubernetes)
-						ciliumNodeStore.UpdateKeySync(nodeNew)
-						return nil
-					}, serializer.NoRetry)
-				}
-			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				if oldNode := k8s.CopyObjToV1Node(oldObj); oldNode != nil {
-					if newNode := k8s.CopyObjToV1Node(newObj); newNode != nil {
-						if k8s.EqualV1Node(oldNode, newNode) {
-							return
-						}
-
-						serNodes.Enqueue(func() error {
-							newNode := k8s.ParseNode(newNode, source.Kubernetes)
-							ciliumNodeStore.UpdateKeySync(newNode)
-							return nil
-						}, serializer.NoRetry)
-					}
-				}
-			},
+			//			AddFunc: func(obj interface{}) {
+			//				if n := k8s.CopyObjToV1Node(obj); n != nil {
+			//					serNodes.Enqueue(func() error {
+			//						nodeNew := k8s.ParseNode(n, source.Kubernetes)
+			//						ciliumNodeStore.UpdateKeySync(nodeNew)
+			//						return nil
+			//					}, serializer.NoRetry)
+			//				}
+			//			},
+			//			UpdateFunc: func(oldObj, newObj interface{}) {
+			//				if oldNode := k8s.CopyObjToV1Node(oldObj); oldNode != nil {
+			//					if newNode := k8s.CopyObjToV1Node(newObj); newNode != nil {
+			//						if k8s.EqualV1Node(oldNode, newNode) {
+			//							return
+			//						}
+			//
+			//						serNodes.Enqueue(func() error {
+			//							newNode := k8s.ParseNode(newNode, source.Kubernetes)
+			//							ciliumNodeStore.UpdateKeySync(newNode)
+			//							return nil
+			//						}, serializer.NoRetry)
+			//					}
+			//				}
+			//			},
 			DeleteFunc: func(obj interface{}) {
 				n := k8s.CopyObjToV1Node(obj)
 				if n == nil {
