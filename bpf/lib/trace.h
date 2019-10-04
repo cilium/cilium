@@ -69,36 +69,16 @@ enum {
 #define MONITOR_AGGREGATION TRACE_AGGREGATE_NONE
 #endif
 
-#ifdef TRACE_NOTIFY
-
-struct trace_notify {
-	NOTIFY_COMMON_HDR
-	__u32		len_orig;
-	__u32		len_cap;
-	__u32		src_label;
-	__u32		dst_label;
-	__u16		dst_id;
-	__u8		reason;
-	__u8		pad;
-	__u32		ifindex;
-};
-
 /**
- * send_trace_notify
+ * update_trace_metrics
  * @skb:	socket buffer
  * @obs_point:	observation point (TRACE_*)
- * @src:	source identity
- * @dst:	destination identity
- * @dst_id:	designated destination endpoint ID
- * @ifindex:	designated destination ifindex
  * @reason:	reason for forwarding the packet (TRACE_REASON_*)
- * @monitor:	length of notification to send (0 means don't send)
  *
- * Generate a notification to indicate a packet was forwarded at an observation point.
+ * Update metrics based on a trace event
  */
 static inline void
-send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
-		  __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
+update_trace_metrics(struct __sk_buff *skb, __u8 obs_point, __u8 reason)
 {
 	__u8 encrypted;
 
@@ -130,6 +110,34 @@ send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
 				update_metrics(skb->len, METRIC_INGRESS, REASON_DECRYPT);
 			break;
 	}
+}
+
+#ifdef TRACE_NOTIFY
+
+struct trace_notify {
+	NOTIFY_COMMON_HDR
+	__u32		len_orig;
+	__u32		len_cap;
+	__u32		src_label;
+	__u32		dst_label;
+	__u16		dst_id;
+	__u8		reason;
+	__u8		ipv6:1;
+	__u8		pad:7;
+	__u32		ifindex;
+	union {
+		struct {
+			__be32		orig_ip4;
+			__u32		orig_pad1;
+			__u32		orig_pad2;
+			__u32		orig_pad3;
+		};
+		union v6addr	orig_ip6;
+	};
+};
+
+static inline bool emit_trace_notify(__u8 obs_point, __u32 monitor)
+{
 	if (MONITOR_AGGREGATION >= TRACE_AGGREGATE_RX) {
 		switch (obs_point) {
 		case TRACE_FROM_LXC:
@@ -137,16 +145,30 @@ send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
 		case TRACE_FROM_HOST:
 		case TRACE_FROM_STACK:
 		case TRACE_FROM_OVERLAY:
-			return;
+			return false;
 		default:
 			break;
 		}
 	}
+
 	if (MONITOR_AGGREGATION >= TRACE_AGGREGATE_ACTIVE_CT && !monitor)
+		return false;
+
+	return true;
+}
+
+static inline void
+send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
+		   __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
+{
+	update_trace_metrics(skb, obs_point, reason);
+
+	if (!emit_trace_notify(obs_point, monitor))
 		return;
 
 	if (!monitor)
 		monitor = TRACE_PAYLOAD_LEN;
+
 	uint64_t skb_len = (uint64_t)skb->len, cap_len = min((uint64_t)monitor, (uint64_t)skb_len);
 	uint32_t hash = get_hash_recalc(skb);
 	struct trace_notify msg = {
@@ -160,9 +182,89 @@ send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
 		.dst_label = dst,
 		.dst_id = dst_id,
 		.reason = reason,
+		.ipv6 = 0,
+		.pad = 0,
+		.ifindex = ifindex,
+		.orig_ip4 = 0,
+		.orig_pad1 = 0,
+		.orig_pad2 = 0,
+		.orig_pad3 = 0,
+	};
+	skb_event_output(skb, &EVENTS_MAP,
+			 (cap_len << 32) | BPF_F_CURRENT_CPU,
+			 &msg, sizeof(msg));
+}
+
+static inline void
+send_trace_notify4(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst, __be32 orig_addr,
+		   __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
+{
+	update_trace_metrics(skb, obs_point, reason);
+
+	if (!emit_trace_notify(obs_point, monitor))
+		return;
+
+	if (!monitor)
+		monitor = TRACE_PAYLOAD_LEN;
+
+	uint64_t skb_len = (uint64_t)skb->len, cap_len = min((uint64_t)monitor, (uint64_t)skb_len);
+	uint32_t hash = get_hash_recalc(skb);
+	struct trace_notify msg = {
+		.type = CILIUM_NOTIFY_TRACE,
+		.subtype = obs_point,
+		.source = EVENT_SOURCE,
+		.hash = hash,
+		.len_orig = skb_len,
+		.len_cap = cap_len,
+		.src_label = src,
+		.dst_label = dst,
+		.dst_id = dst_id,
+		.reason = reason,
+		.ipv6 = 0,
+		.pad = 0,
+		.ifindex = ifindex,
+		.orig_ip4 = orig_addr,
+		.orig_pad1 = 0,
+		.orig_pad2 = 0,
+		.orig_pad3 = 0,
+	};
+	skb_event_output(skb, &EVENTS_MAP,
+			 (cap_len << 32) | BPF_F_CURRENT_CPU,
+			 &msg, sizeof(msg));
+}
+
+static inline void
+send_trace_notify6(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst, union v6addr *orig_addr,
+		   __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
+{
+	update_trace_metrics(skb, obs_point, reason);
+
+	if (!emit_trace_notify(obs_point, monitor))
+		return;
+
+	if (!monitor)
+		monitor = TRACE_PAYLOAD_LEN;
+
+	uint64_t skb_len = (uint64_t)skb->len, cap_len = min((uint64_t)monitor, (uint64_t)skb_len);
+	uint32_t hash = get_hash_recalc(skb);
+	struct trace_notify msg = {
+		.type = CILIUM_NOTIFY_TRACE,
+		.subtype = obs_point,
+		.source = EVENT_SOURCE,
+		.hash = hash,
+		.len_orig = skb_len,
+		.len_cap = cap_len,
+		.src_label = src,
+		.dst_label = dst,
+		.dst_id = dst_id,
+		.reason = reason,
+		.ipv6 = 1,
 		.pad = 0,
 		.ifindex = ifindex,
 	};
+
+	ipv6_addr_copy(&msg.orig_ip6, orig_addr);
+
 	skb_event_output(skb, &EVENTS_MAP,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
@@ -170,39 +272,25 @@ send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
 
 #else
 
-static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
-				     __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
+static inline void
+send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
+		  __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
 {
-	__u8 encrypted;
+	update_trace_metrics(skb, obs_point, reason);
+}
 
-	switch (obs_point) {
-		case TRACE_TO_LXC:
-			update_metrics(skb->len, METRIC_INGRESS, REASON_FORWARDED);
-			break;
+static inline void
+send_trace_notify4(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst, __be32 orig_addr,
+		   __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
+{
+	update_trace_metrics(skb, obs_point, reason);
+}
 
-		/* TRACE_FROM_LXC, i.e endpoint-to-endpoint delivery
-		 * is handled separately in ipv*_local_delivery() where we can bump
-		 * an egress forward. It could still be dropped but it would show
-		 * up later as an ingress drop, in that scenario.
-		 *
-		 * TRACE_TO_PROXY is not handled in datapath. This is because we have separate
-		 * L7 proxy "forwarded" and "dropped" (ingress/egress) counters in the proxy layer
-		 * to capture these metrics.
-		 */
-		case TRACE_TO_HOST:
-		case TRACE_TO_STACK:
-		case TRACE_TO_OVERLAY:
-			update_metrics(skb->len, METRIC_EGRESS, REASON_FORWARDED);
-			break;
-		case TRACE_FROM_OVERLAY:
-		case TRACE_FROM_NETWORK:
-			encrypted = reason & TRACE_REASON_ENCRYPTED;
-			if (!encrypted)
-				update_metrics(skb->len, METRIC_INGRESS, REASON_PLAINTEXT);
-			else
-				update_metrics(skb->len, METRIC_INGRESS, REASON_DECRYPT);
-			break;
-	}
+static inline void
+send_trace_notify6(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst, union v6addr *orig_addr,
+		   __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
+{
+	update_trace_metrics(skb, obs_point, reason);
 }
 
 #endif
