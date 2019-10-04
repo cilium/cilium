@@ -1579,28 +1579,32 @@ func (d *Daemon) updateK8sPodV1(oldK8sPod, newK8sPod *types.Pod) error {
 
 	switch {
 	case annotationsChanged && labelsChanged:
-		// Update annotations and let identity update handle regeneration.
 		podEP.UpdateVisibilityPolicy(newAnno)
-		return updateEndpointLabels(podEP, oldPodLabels, newPodLabels)
+		err := updateEndpointLabels(podEP, oldPodLabels, newPodLabels)
+		realizePodAnnotationUpdate(podEP)
+		return err
 	case annotationsChanged:
 		//  Update annotations and regenerate.
 		podEP.UpdateVisibilityPolicy(newAnno)
-
-		// No need to log an error if the state transition didn't succeed,
-		// if it didn't succeed that means the endpoint is being deleted, or
-		// another regeneration has already been queued up for this endpoint.
-		stateTransitionSucceeded := podEP.SetState(endpoint.StateWaitingToRegenerate, "annotations updated")
-		if stateTransitionSucceeded {
-			podEP.Regenerate(&regeneration.ExternalRegenerationMetadata{
-				Reason:            "annotations updated",
-				RegenerationLevel: regeneration.RegenerateWithoutDatapath,
-			})
-		}
+		realizePodAnnotationUpdate(podEP)
 		return nil
 	case labelsChanged:
 		return updateEndpointLabels(podEP, oldPodLabels, newPodLabels)
 	default:
 		return nil
+	}
+}
+
+func realizePodAnnotationUpdate(podEP *endpoint.Endpoint) {
+	// No need to log an error if the state transition didn't succeed,
+	// if it didn't succeed that means the endpoint is being deleted, or
+	// another regeneration has already been queued up for this endpoint.
+	stateTransitionSucceeded := podEP.SetState(endpoint.StateWaitingToRegenerate, "annotations updated")
+	if stateTransitionSucceeded {
+		podEP.Regenerate(&regeneration.ExternalRegenerationMetadata{
+			Reason:            "annotations updated",
+			RegenerationLevel: regeneration.RegenerateWithoutDatapath,
+		})
 	}
 }
 
