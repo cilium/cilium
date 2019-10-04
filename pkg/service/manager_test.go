@@ -17,7 +17,6 @@
 package service
 
 import (
-	"fmt"
 	"net"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -132,7 +131,6 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 	c.Assert(err, IsNil)
 	_, id2, err := m.svc.UpsertService(frontend2, backends2, lb.SVCTypeClusterIP)
 	c.Assert(err, IsNil)
-	fmt.Println(id1, id2)
 
 	// Restart service, but keep the lbmap to restore services from
 	lbmap := m.svc.lbmap.(*lbmap.LBMockMap)
@@ -155,4 +153,37 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 	c.Assert(m.svc.svcByID[id1].backends, checker.DeepEquals, lbmap.ServiceByID[uint16(id1)].Backends)
 	c.Assert(m.svc.svcByID[id2].frontend, checker.DeepEquals, lbmap.ServiceByID[uint16(id2)].Frontend)
 	c.Assert(m.svc.svcByID[id2].backends, checker.DeepEquals, lbmap.ServiceByID[uint16(id2)].Backends)
+}
+
+func (m *ManagerTestSuite) TestSyncWithK8sFinished(c *C) {
+	_, _, err := m.svc.UpsertService(frontend1, backends1, lb.SVCTypeNodePort)
+	c.Assert(err, IsNil)
+	_, _, err = m.svc.UpsertService(frontend2, backends2, lb.SVCTypeClusterIP)
+	c.Assert(err, IsNil)
+	c.Assert(len(m.svc.svcByID), Equals, 2)
+
+	// Restart service, but keep the lbmap to restore services from
+	lbmap := m.svc.lbmap.(*lbmap.LBMockMap)
+	m.svc = NewService()
+	m.svc.lbmap = lbmap
+	err = m.svc.RestoreServices()
+	c.Assert(err, IsNil)
+	c.Assert(len(m.svc.svcByID), Equals, 2)
+
+	// Imitate a situation where svc2 was deleted while we were down.
+	// In real life, the following upsert is called by k8s_watcher during
+	// the sync period of the cilium-agent's k8s service cache which happens
+	// during the initialization of cilium-agent.
+	_, id1, err := m.svc.UpsertService(frontend2, backends2, lb.SVCTypeClusterIP)
+	c.Assert(err, IsNil)
+
+	// cilium-agent finished the initialization, and thus SyncWithK8sFinished
+	// is called
+	err = m.svc.SyncWithK8sFinished()
+	c.Assert(err, IsNil)
+
+	// svc2 should be removed from cilium
+	c.Assert(len(m.svc.svcByID), Equals, 1)
+	_, found := m.svc.svcByID[id1]
+	c.Assert(found, Equals, true)
 }

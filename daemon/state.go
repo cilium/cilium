@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/connector"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -364,11 +363,7 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState) chan struc
 				controller.NewManager().UpdateController("sync-lb-maps-with-k8s-services",
 					controller.ControllerParams{
 						DoFunc: func(ctx context.Context) error {
-							frontends := d.k8sWatcher.K8sSvcCache.UniqueServiceFrontends()
-							matchSVC := func(addr loadbalancer.L3n4Addr) bool {
-								return frontends.LooseMatch(addr)
-							}
-							return d.svc.SyncWithK8s(matchSVC)
+							return d.svc.SyncWithK8sFinished()
 						},
 					},
 				)

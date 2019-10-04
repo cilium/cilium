@@ -45,14 +45,13 @@ type LBMap interface {
 }
 
 type svcInfo struct {
-	hash          string
-	frontend      lb.L3n4AddrID
-	backends      []lb.Backend
-	backendByHash map[string]*lb.Backend
-	svcType       lb.SVCType
+	hash                 string
+	frontend             lb.L3n4AddrID
+	backends             []lb.Backend
+	backendByHash        map[string]*lb.Backend
+	svcType              lb.SVCType
+	restoredFromDatapath bool
 }
-
-// TODO(brb) constructor?
 
 func (svc *svcInfo) deepCopyToLBSVC() *lb.SVC {
 	backends := make([]lb.Backend, len(svc.backends))
@@ -193,9 +192,14 @@ func (s *Service) UpsertService(
 		s.svcByID[frontend.ID] = svc
 		s.svcByHash[hash] = svc
 	} else {
+		// We have heard about the service from k8s, so unset the flag so that
+		// SyncWithK8sFinished() won't consider the service obsolete, and thus
+		// won't remove it.
+		svc.restoredFromDatapath = false
 		// NOTE: We cannot restore svcType from BPF maps, so just set it
 		//       each time (safe until GH#8700 has been fixed).
 		svc.svcType = svcType
+
 	}
 
 	prevBackendCount := len(svc.backends)
@@ -331,25 +335,17 @@ func (s *Service) RestoreServices() error {
 	return nil
 }
 
-// SyncWithK8s removes services which are not present in the given
-// list of services retrieved from the k8s service catch. Due to
-// the circular dependency pkg/k8s -> pkg/service -> pkg/k8s the matching
-// is done via the given callback.
+// SyncWithK8sFinished removes services which we haven't heard about during
+// a sync period of cilium-agent's k8s service cache.
 //
-// Safe to run multiple times.
-func (s *Service) SyncWithK8s(matchSVC func(lb.L3n4Addr) bool) error {
+// The removal is based on an assumption that during the sync period
+// UpsertService() is going to be called for each alive service.
+func (s *Service) SyncWithK8sFinished() error {
 	s.Lock()
 	defer s.Unlock()
 
-	alreadyChecked := map[string]struct{}{}
-
-	for hash, svc := range s.svcByHash {
-		if _, found := alreadyChecked[hash]; found {
-			continue
-		}
-		alreadyChecked[hash] = struct{}{}
-
-		if !matchSVC(svc.frontend.L3n4Addr) {
+	for _, svc := range s.svcByHash {
+		if svc.restoredFromDatapath {
 			log.WithFields(logrus.Fields{
 				logfields.ServiceID: svc.frontend.ID,
 				logfields.L3n4Addr:  logfields.Repr(svc.frontend.L3n4Addr)}).
@@ -359,7 +355,6 @@ func (s *Service) SyncWithK8s(matchSVC func(lb.L3n4Addr) bool) error {
 				return fmt.Errorf("Unable to remove service %+v: %s", svc, err)
 			}
 		}
-
 	}
 
 	return nil
@@ -433,6 +428,11 @@ func (s *Service) restoreServicesLocked() error {
 			// Correct service type will be restored by k8s_watcher after k8s
 			// service cache has been initialized
 			svcType: lb.SVCTypeClusterIP,
+			// Indicate that the svc was restored from the BPF maps, so that
+			// SyncWithK8sFinished() could remove services which were restored
+			// from the maps but not present in the k8sServiceCache (e.g. a svc
+			// was deleted while cilium-agent was down).
+			restoredFromDatapath: true,
 		}
 
 		for j, backend := range svc.Backends {
