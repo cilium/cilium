@@ -17,15 +17,23 @@ package monitor
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 
+	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/monitor/api"
 )
 
 const (
 	// TraceNotifyLen is the amount of packet data provided in a trace notification
-	TraceNotifyLen = 32
+	TraceNotifyLen = 48
 	// TraceReasonEncryptMask is the bit used to indicate encryption or not
 	TraceReasonEncryptMask uint8 = 0x80
+)
+
+const (
+	// TraceNotifyFlagIsIPv6 is set in TraceNotify.Flags when the
+	// notification refers to an IPv6 flow
+	TraceNotifyFlagIsIPv6 uint8 = 1
 )
 
 // TraceNotify is the message format of a trace notification in the BPF ring buffer
@@ -40,8 +48,9 @@ type TraceNotify struct {
 	DstLabel uint32
 	DstID    uint16
 	Reason   uint8
-	Pad      uint8
+	Flags    uint8
 	Ifindex  uint32
+	OrigIP   types.IPv6
 	// data
 }
 
@@ -108,16 +117,25 @@ func (n *TraceNotify) traceSummary() string {
 	}
 }
 
+// OriginalIP returns the original source IP if reverse NAT was performed on
+// the flow
+func (n *TraceNotify) OriginalIP() net.IP {
+	if (n.Flags & TraceNotifyFlagIsIPv6) != 0 {
+		return n.OrigIP[:]
+	}
+	return n.OrigIP[:4]
+}
+
 // DumpInfo prints a summary of the trace messages.
 func (n *TraceNotify) DumpInfo(data []byte) {
 	if n.encryptReason() != "" {
-		fmt.Printf("%s %s flow %#x identity %d->%d state %s ifindex %s: %s\n",
+		fmt.Printf("%s %s flow %#x identity %d->%d state %s ifindex %s orig-ip %s: %s\n",
 			n.traceSummary(), n.encryptReason(), n.Hash, n.SrcLabel, n.DstLabel,
-			n.traceReason(), ifname(int(n.Ifindex)), GetConnectionSummary(data[TraceNotifyLen:]))
+			n.traceReason(), ifname(int(n.Ifindex)), n.OriginalIP().String(), GetConnectionSummary(data[TraceNotifyLen:]))
 	} else {
-		fmt.Printf("%s flow %#x identity %d->%d state %s ifindex %s: %s\n",
+		fmt.Printf("%s flow %#x identity %d->%d state %s ifindex %s orig-ip %s: %s\n",
 			n.traceSummary(), n.Hash, n.SrcLabel, n.DstLabel,
-			n.traceReason(), ifname(int(n.Ifindex)), GetConnectionSummary(data[TraceNotifyLen:]))
+			n.traceReason(), ifname(int(n.Ifindex)), n.OriginalIP().String(), GetConnectionSummary(data[TraceNotifyLen:]))
 	}
 }
 
@@ -133,6 +151,8 @@ func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
 	if n.SrcLabel != 0 || n.DstLabel != 0 {
 		fmt.Printf(", identity %d->%d", n.SrcLabel, n.DstLabel)
 	}
+
+	fmt.Printf(", orig-ip " + n.OriginalIP().String())
 
 	if n.DstID != 0 {
 		fmt.Printf(", to endpoint %d\n", n.DstID)

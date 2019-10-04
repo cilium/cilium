@@ -760,7 +760,7 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason)
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
 	bool skip_ingress_proxy = false;
-	union v6addr orig_dip = {};
+	union v6addr orig_dip, orig_sip;
 	__u32 monitor = 0;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
@@ -772,6 +772,7 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason)
 	ipv6_addr_copy(&tuple.daddr, (union v6addr *) &ip6->daddr);
 	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->saddr);
 	ipv6_addr_copy(&orig_dip, (union v6addr *) &ip6->daddr);
+	ipv6_addr_copy(&orig_sip, (union v6addr *) &ip6->saddr);
 
 	/* If packet is coming from the ingress proxy we have to skip
 	 * redirection to the ingress proxy as we would loop forever. */
@@ -854,11 +855,11 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason)
 
 	if (redirect_to_proxy(verdict, *reason)) {
 		// Trace the packet before its forwarded to proxy
-		send_trace_notify(skb, TRACE_TO_PROXY, src_label, SECLABEL,
+		send_trace_notify6(skb, TRACE_TO_PROXY, src_label, SECLABEL, &orig_sip,
 				  0, ifindex, *reason, monitor);
 		return skb_redirect_to_proxy(skb, verdict);
 	} else { // Not redirected to host / proxy.
-		send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL,
+		send_trace_notify6(skb, TRACE_TO_LXC, src_label, SECLABEL, &orig_sip,
 				  LXC_ID, ifindex, *reason, monitor);
 	}
 
@@ -1043,11 +1044,11 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 	if (redirect_to_proxy(verdict, *reason)) {
 		*proxy_port = verdict;
 		// Trace the packet before its forwarded to proxy
-		send_trace_notify(skb, TRACE_TO_PROXY, src_label, SECLABEL,
+		send_trace_notify4(skb, TRACE_TO_PROXY, src_label, SECLABEL, orig_sip,
 				  0, ifindex, *reason, monitor);
 		return TC_ACT_OK;
 	} else { // Not redirected to host / proxy.
-		send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL,
+		send_trace_notify4(skb, TRACE_TO_LXC, src_label, SECLABEL, orig_sip,
 				  LXC_ID, ifindex, *reason, monitor);
 	}
 
