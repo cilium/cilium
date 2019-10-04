@@ -21,14 +21,24 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
+const (
+	gcStatsGranularity = 16
+)
+
 type gcStats struct {
 	*bpf.DumpStats
 
 	// AliveEntries is the number of scanned entries that are still alive.
 	AliveEntries uint32
 
+	// DyingEntries are those which have the closing timeout, just not reached yet.
+	DyingEntries [gcStatsGranularity]uint32
+
 	// Deleted is the number of keys deleted
 	Deleted uint32
+
+	// Current stats collection time as per monotonic clock
+	CurrTime uint32
 
 	// family is the address family
 	family gcFamily

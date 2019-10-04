@@ -18,10 +18,12 @@ package ctmap
 
 import (
 	"testing"
+	"time"
 	"unsafe"
 
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/u8proto"
 
@@ -37,8 +39,125 @@ func Test(t *testing.T) {
 	TestingT(t)
 }
 
+func (t *CTMapTestSuite) TestCalculateInterval(c *C) {
+	bpf.CheckOrMountFS("", false)
+
+	maps := GlobalMaps(true, false)
+
+	option.Config.ConntrackGCProfile = option.ConntrackGCProfileLazy
+
+	stats := gcStats{
+		AliveEntries: 900000,
+		Deleted:      200000,
+		DyingEntries: [16]uint32{900000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	}
+	c.Assert(calculateInterval(maps[0], time.Minute, stats), Equals, time.Second)
+	stats = gcStats{
+		AliveEntries: 900000,
+		Deleted:      200000,
+		DyingEntries: [16]uint32{0, 900000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	}
+	c.Assert(calculateInterval(maps[0], time.Minute, stats), Equals, 2*time.Second)
+	stats = gcStats{
+		AliveEntries: 900000,
+		Deleted:      200000,
+		DyingEntries: [16]uint32{0, 0, 900000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	}
+	c.Assert(calculateInterval(maps[0], time.Minute, stats), Equals, 4*time.Second)
+	stats = gcStats{
+		AliveEntries: 900000,
+		Deleted:      200000,
+		DyingEntries: [16]uint32{0, 0, 0, 900000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	}
+	c.Assert(calculateInterval(maps[0], time.Minute, stats), Equals, 8*time.Second)
+	stats = gcStats{
+		AliveEntries: 900000,
+		Deleted:      200000,
+		DyingEntries: [16]uint32{0, 0, 0, 0, 900000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	}
+	c.Assert(calculateInterval(maps[0], time.Minute, stats), Equals, 16*time.Second)
+	stats = gcStats{
+		AliveEntries: 900000,
+		Deleted:      200000,
+		DyingEntries: [16]uint32{0, 0, 0, 0, 0, 900000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	}
+	c.Assert(calculateInterval(maps[0], time.Minute, stats), Equals, 32*time.Second)
+	stats = gcStats{
+		AliveEntries: 900000,
+		Deleted:      200000,
+		DyingEntries: [16]uint32{0, 0, 0, 0, 0, 0, 900000, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	}
+	c.Assert(calculateInterval(maps[0], time.Minute, stats), Equals, 64*time.Second)
+	stats = gcStats{
+		AliveEntries: 900000,
+		Deleted:      200000,
+		DyingEntries: [16]uint32{0, 0, 0, 0, 0, 0, 0, 900000, 0, 0, 0, 0, 0, 0, 0, 0},
+	}
+	c.Assert(calculateInterval(maps[0], time.Minute, stats), Equals, 128*time.Second)
+	stats = gcStats{
+		AliveEntries: 900000,
+		Deleted:      200000,
+		DyingEntries: [16]uint32{0, 0, 0, 0, 0, 0, 0, 0, 900000, 0, 0, 0, 0, 0, 0, 0},
+	}
+	c.Assert(calculateInterval(maps[0], time.Minute, stats), Equals, 256*time.Second)
+	stats = gcStats{
+		AliveEntries: 900000,
+		Deleted:      200000,
+		DyingEntries: [16]uint32{0, 0, 0, 0, 0, 0, 0, 0, 0, 900000, 0, 0, 0, 0, 0, 0},
+	}
+	c.Assert(calculateInterval(maps[0], time.Minute, stats), Equals, 512*time.Second)
+	stats = gcStats{
+		AliveEntries: 900000,
+		Deleted:      200000,
+		DyingEntries: [16]uint32{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 900000, 0, 0, 0, 0, 0},
+	}
+	c.Assert(calculateInterval(maps[0], time.Minute, stats), Equals, 1024*time.Second)
+	stats = gcStats{
+		AliveEntries: 900000,
+		Deleted:      200000,
+		DyingEntries: [16]uint32{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 900000, 0, 0, 0, 0},
+	}
+	c.Assert(calculateInterval(maps[0], time.Minute, stats), Equals, 2048*time.Second)
+	stats = gcStats{
+		AliveEntries: 900000,
+		Deleted:      200000,
+		DyingEntries: [16]uint32{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 900000, 0, 0, 0},
+	}
+	c.Assert(calculateInterval(maps[0], time.Minute, stats), Equals, 4096*time.Second)
+	stats = gcStats{
+		AliveEntries: 900000,
+		Deleted:      200000,
+		DyingEntries: [16]uint32{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 900000, 0, 0},
+	}
+	c.Assert(calculateInterval(maps[0], time.Minute, stats), Equals, 8192*time.Second)
+	stats = gcStats{
+		AliveEntries: 900000,
+		Deleted:      200000,
+		DyingEntries: [16]uint32{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 900000, 0},
+	}
+	c.Assert(calculateInterval(maps[0], time.Minute, stats), Equals, 16384*time.Second)
+	stats = gcStats{
+		AliveEntries: 900000,
+		Deleted:      200000,
+		DyingEntries: [16]uint32{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 900000},
+	}
+	c.Assert(calculateInterval(maps[0], time.Minute, stats), Equals, 32768*time.Second)
+	stats = gcStats{
+		AliveEntries: 900000,
+		Deleted:      200000,
+		DyingEntries: [16]uint32{300000, 200000, 100000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	}
+	c.Assert(calculateInterval(maps[0], time.Minute, stats), Equals, 4*time.Second)
+	stats = gcStats{
+		AliveEntries: 0,
+		Deleted:      200000,
+		DyingEntries: [16]uint32{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	}
+	c.Assert(calculateInterval(maps[0], time.Minute, stats), Equals, 90*time.Second)
+}
+
 func (k *CTMapTestSuite) Benchmark_MapUpdate(c *C) {
-	m := NewMap(MapNameTCP4Global+"_test", MapTypeIPv4TCPGlobal)
+	m := NewMap(MapNameTCP4Global+"_test", MapTypeIPv4TCPGlobal, false)
 	_, err := m.OpenOrCreate()
 	defer m.Map.Unpin()
 	c.Assert(err, IsNil)

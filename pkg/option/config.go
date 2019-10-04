@@ -705,6 +705,14 @@ const (
 	NodePortMaxDefault = 32767
 )
 
+const (
+	// ConntrackGCProfileLazy to ConntrackGCProfileAggressive determines how
+	// fast we need to triggr the CT GC.
+	ConntrackGCProfileLazy = iota
+	ConntrackGCProfileNormal
+	ConntrackGCProfileAggressive
+)
+
 // GetTunnelModes returns the list of all tunnel modes
 func GetTunnelModes() string {
 	return fmt.Sprintf("%s, %s, %s", TunnelVXLAN, TunnelGeneve, TunnelDisabled)
@@ -1131,6 +1139,9 @@ type DaemonConfig struct {
 	// ConntrackGCInterval is the connection tracking garbage collection
 	// interval
 	ConntrackGCInterval time.Duration
+
+	// ConntrackGCProfile determines how aggressive the GC needs to operate
+	ConntrackGCProfile int
 
 	// K8sEventHandover enables use of the kvstore to optimize Kubernetes
 	// event handling by listening for k8s events in the operator and
@@ -1786,6 +1797,7 @@ func (c *DaemonConfig) Populate() {
 	} else {
 		c.ConntrackGCInterval = viper.GetDuration(ConntrackGCInterval)
 	}
+	c.ConntrackGCProfile = ConntrackGCProfileLazy
 
 	if c.MonitorQueueSize == 0 {
 		c.MonitorQueueSize = runtime.NumCPU() * defaults.MonitorQueueSizePerCPU

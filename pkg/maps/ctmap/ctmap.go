@@ -22,6 +22,7 @@ import (
 	"net"
 	"os"
 	"reflect"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -190,8 +191,10 @@ type CtEndpoint interface {
 type Map struct {
 	bpf.Map
 
-	mapType          MapType
-	cachedGCInterval time.Duration
+	mapType              MapType
+	cachedGCInterval     time.Duration
+	entryMinTimeoutFixed bool
+	NextWakeup           uint32
 	// define maps to the macro used in the datapath portion for the map
 	// name, for example 'CT_MAP4'.
 	define string
@@ -238,7 +241,7 @@ func (m *Map) DumpEntries() (string, error) {
 }
 
 // NewMap creates a new CT map of the specified type with the specified name.
-func NewMap(mapName string, mapType MapType) *Map {
+func NewMap(mapName string, mapType MapType, mapTimeoutFixed bool) *Map {
 	result := &Map{
 		Map: *bpf.NewMap(mapName,
 			bpf.MapTypeLRUHash,
@@ -250,10 +253,44 @@ func NewMap(mapName string, mapType MapType) *Map {
 			0, 0,
 			mapInfo[mapType].parser,
 		),
-		mapType: mapType,
-		define:  mapInfo[mapType].bpfDefine,
+		mapType:              mapType,
+		define:               mapInfo[mapType].bpfDefine,
+		entryMinTimeoutFixed: mapTimeoutFixed,
 	}
 	return result
+}
+
+// Time to live is placed into stats.DyingEntries such
+// that later on we can derive a heuristic when next to
+// invoke GC.
+//
+// Timespan:           ->  Bucket:
+//
+//      1s ...     1s      0
+//      2s ...     3s      1
+//      4s ...     7s      2
+//      8s ...    15s      3
+//     16s ...    31s      4
+//     32s ...    63s      5
+//     64s ...   127s      6
+//    128s ...   255s      7
+//    256s ...   511s      8
+//    512s ...  1023s      9
+//   1024s ...  2047s     10
+//   2048s ...  4095s     11
+//   4096s ...  8191s     12
+//   8192s ... 16383s     13
+//  16384s ... 32767s     14
+//  32768s ... 65535s     15
+//
+func collectAliveStats(entry *CtEntry, stats *gcStats, currTime uint32) {
+	stats.AliveEntries++
+	deadline := entry.Lifetime - currTime
+	idx := uint(math.Log2(float64(deadline)))
+	if idx >= uint(len(stats.DyingEntries)) {
+		idx = uint(len(stats.DyingEntries)) - 1
+	}
+	stats.DyingEntries[idx]++
 }
 
 func purgeCtEntry6(m *Map, key CtKey, natMap NatMap) error {
@@ -269,6 +306,7 @@ func purgeCtEntry6(m *Map, key CtKey, natMap NatMap) error {
 func doGC6(m *Map, filter *GCFilter) gcStats {
 	natMap := mapInfo[m.mapType].natMap
 	stats := statStartGc(m)
+	stats.CurrTime = filter.Time
 	defer stats.finish()
 
 	if natMap != nil {
@@ -301,7 +339,7 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 					stats.Deleted++
 				}
 			default:
-				stats.AliveEntries++
+				collectAliveStats(entry, &stats, filter.Time)
 			}
 		case *CtKey6:
 			currentKey6 := obj
@@ -320,7 +358,7 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 					stats.Deleted++
 				}
 			default:
-				stats.AliveEntries++
+				collectAliveStats(entry, &stats, filter.Time)
 			}
 		default:
 			log.Warningf("Encountered unknown type while scanning conntrack table: %v", reflect.TypeOf(key))
@@ -344,6 +382,7 @@ func purgeCtEntry4(m *Map, key CtKey, natMap NatMap) error {
 func doGC4(m *Map, filter *GCFilter) gcStats {
 	natMap := mapInfo[m.mapType].natMap
 	stats := statStartGc(m)
+	stats.CurrTime = filter.Time
 	defer stats.finish()
 
 	if natMap != nil {
@@ -375,7 +414,7 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 					stats.Deleted++
 				}
 			default:
-				stats.AliveEntries++
+				collectAliveStats(entry, &stats, filter.Time)
 			}
 		case *CtKey4:
 			currentKey4 := obj
@@ -394,7 +433,7 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 					stats.Deleted++
 				}
 			default:
-				stats.AliveEntries++
+				collectAliveStats(entry, &stats, filter.Time)
 			}
 		default:
 			log.Warningf("Encountered unknown type while scanning conntrack table: %v", reflect.TypeOf(key))
@@ -406,7 +445,7 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 }
 
 func (f *GCFilter) doFiltering(srcIP net.IP, dstIP net.IP, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) (action int) {
-	if f.RemoveExpired && entry.Lifetime < f.Time {
+	if f.RemoveExpired && entry.Lifetime <= f.Time {
 		return deleteEntry
 	}
 
@@ -442,7 +481,7 @@ func doGC(m *Map, filter *GCFilter) gcStats {
 // GC runs garbage collection for map m with name mapType with the given filter.
 // It returns how many items were deleted from m.
 func GC(m *Map, filter *GCFilter) gcStats {
-	if filter.RemoveExpired {
+	if filter.RemoveExpired && filter.Time == 0 {
 		t, _ := bpf.GetMtime()
 		tsec := t / 1000000000
 		filter.Time = uint32(tsec)
@@ -504,25 +543,25 @@ func maps(e CtEndpoint, ipv4, ipv6 bool) []*Map {
 	result := make([]*Map, 0, mapCount)
 	if e == nil {
 		if ipv4 {
-			result = append(result, NewMap(MapNameTCP4Global, MapTypeIPv4TCPGlobal))
-			result = append(result, NewMap(MapNameAny4Global, MapTypeIPv4AnyGlobal))
+			result = append(result, NewMap(MapNameTCP4Global, MapTypeIPv4TCPGlobal, false))
+			result = append(result, NewMap(MapNameAny4Global, MapTypeIPv4AnyGlobal, true))
 		}
 		if ipv6 {
-			result = append(result, NewMap(MapNameTCP6Global, MapTypeIPv6TCPGlobal))
-			result = append(result, NewMap(MapNameAny6Global, MapTypeIPv6AnyGlobal))
+			result = append(result, NewMap(MapNameTCP6Global, MapTypeIPv6TCPGlobal, false))
+			result = append(result, NewMap(MapNameAny6Global, MapTypeIPv6AnyGlobal, true))
 		}
 	} else {
 		if ipv4 {
 			result = append(result, NewMap(bpf.LocalMapName(MapNameTCP4, uint16(e.GetID())),
-				MapTypeIPv4TCPLocal))
+				MapTypeIPv4TCPLocal, false))
 			result = append(result, NewMap(bpf.LocalMapName(MapNameAny4, uint16(e.GetID())),
-				MapTypeIPv4AnyLocal))
+				MapTypeIPv4AnyLocal, true))
 		}
 		if ipv6 {
 			result = append(result, NewMap(bpf.LocalMapName(MapNameTCP6, uint16(e.GetID())),
-				MapTypeIPv6TCPLocal))
+				MapTypeIPv6TCPLocal, false))
 			result = append(result, NewMap(bpf.LocalMapName(MapNameAny6, uint16(e.GetID())),
-				MapTypeIPv6AnyLocal))
+				MapTypeIPv6AnyLocal, true))
 		}
 	}
 	return result
@@ -537,13 +576,19 @@ func LocalMaps(e CtEndpoint, ipv4, ipv6 bool) []*Map {
 	return maps(e, ipv4, ipv6)
 }
 
+var once sync.Once
+var globalMaps []*Map
+
 // GlobalMaps returns a slice of CT maps that are used globally by all
 // endpoints that are not otherwise configured to use their own local maps.
 // If ipv4 or ipv6 are false, the maps for that protocol will not be returned.
 //
 // The returned maps are not yet opened.
 func GlobalMaps(ipv4, ipv6 bool) []*Map {
-	return maps(nil, ipv4, ipv6)
+	once.Do(func() {
+		globalMaps = maps(nil, ipv4, ipv6)
+	})
+	return globalMaps
 }
 
 // NameIsGlobal returns true if the specified filename (basename) denotes a
@@ -592,8 +637,22 @@ func Exists(e CtEndpoint, ipv4, ipv6 bool) bool {
 	return result
 }
 
-// InitInterval returns the default interval which is then further adjusted down
-// through GetInterval in the GC run
+func capToMaxInterval(m *Map, interval time.Duration) time.Duration {
+	switch m.MapInfo.MapType {
+	case bpf.MapTypeLRUHash:
+		if interval > defaults.ConntrackGCMaxLRUInterval {
+			return defaults.ConntrackGCMaxLRUInterval
+		}
+	default:
+		if interval > defaults.ConntrackGCMaxInterval {
+			return defaults.ConntrackGCMaxInterval
+		}
+	}
+	return interval
+}
+
+// InitInterval returns the default interval which is then further adjusted
+// down through GetInterval in the GC run
 func InitInterval() (interval time.Duration) {
 	if val := option.Config.ConntrackGCInterval; val != time.Duration(0) {
 		interval = val
@@ -603,8 +662,7 @@ func InitInterval() (interval time.Duration) {
 	return defaults.ConntrackGCMaxLRUInterval
 }
 
-// GetInterval returns the interval adjusted based on the deletion ratio of the
-// last run
+// GetInterval returns the next wakeup interval for the GC
 func GetInterval(m *Map, stats gcStats) (interval time.Duration) {
 	if val := option.Config.ConntrackGCInterval; val != time.Duration(0) {
 		interval = val
@@ -618,52 +676,84 @@ func GetInterval(m *Map, stats gcStats) (interval time.Duration) {
 	return calculateInterval(m, interval, stats)
 }
 
+func thresholdGC() float64 {
+	switch option.Config.ConntrackGCProfile {
+	case option.ConntrackGCProfileAggressive:
+		return 0.01
+	case option.ConntrackGCProfileNormal:
+		return 0.3
+	case option.ConntrackGCProfileLazy:
+		fallthrough
+	default:
+		return 0.6
+	}
+}
+
 func calculateInterval(m *Map, prevInterval time.Duration, stats gcStats) (interval time.Duration) {
 	interval = prevInterval
+	threshold := thresholdGC()
+	thresholdHit := false
+	sum := uint32(0)
 
-	maxDeleteRatio := float64(stats.Deleted) / float64(m.MapInfo.MaxEntries)
-	if maxDeleteRatio == 0.0 {
-		return
-	}
-
-	switch {
-	case maxDeleteRatio > 0.25:
-		if maxDeleteRatio > 0.9 {
-			maxDeleteRatio = 0.9
-		}
-		// 25%..90% => 1.3x..10x shorter
-		interval = time.Duration(float64(interval) * (1.0 - maxDeleteRatio)).Round(time.Second)
-
-		if interval < defaults.ConntrackGCMinInterval {
-			interval = defaults.ConntrackGCMinInterval
-		}
-
-	case maxDeleteRatio < 0.05:
-		// When less than 5% of entries were deleted, increase the
-		// interval. Use a simple 1.5x multiplier to start growing slowly
-		// as a new node may not be seeing workloads yet and thus the
-		// scan will return a low deletion ratio at first.
-		interval = time.Duration(float64(interval) * 1.5).Round(time.Second)
-
-		switch m.MapInfo.MapType {
-		case bpf.MapTypeLRUHash:
-			if interval > defaults.ConntrackGCMaxLRUInterval {
-				interval = defaults.ConntrackGCMaxLRUInterval
-			}
-		default:
-			if interval > defaults.ConntrackGCMaxInterval {
-				interval = defaults.ConntrackGCMaxInterval
-			}
+	// Step 1:
+	//
+	// We accumulate all entries in the time buckets until they surpass
+	// our GC profile threshold. In the /best/ case, this means the next
+	// GC run for this map would be able to clean up all entries under
+	// this threshold as they have expired.
+	//
+	for i := 0; i < len(stats.DyingEntries); i++ {
+		sum += stats.DyingEntries[i]
+		if float64(sum)/float64(m.MapInfo.MaxEntries) >= threshold {
+			interval = (1 << uint32(i)) * time.Second
+			thresholdHit = true
+			break
 		}
 	}
 
-	if interval != prevInterval {
-		log.WithFields(logrus.Fields{
-			"newInterval": interval,
-			"deleteRatio": maxDeleteRatio,
-		}).Info("Conntrack garbage collector interval recalculated")
+	// Step 2:
+	//
+	// There were not enough entries in the CT table to reach beyond the
+	// given threshold. We can be more lazy next time, therefore increase
+	// the previous interval by a 1.5 multiplier and cap at the default
+	// maximum GC interval.
+	//
+	if interval == prevInterval && !thresholdHit {
+		interval = capToMaxInterval(m, time.Duration(float64(interval)*1.5).Round(time.Second))
+	}
+
+	// Step 3:
+	//
+	// For the cilium_ct_any{4,6}* maps, we have the guarantee that there
+	// are no "dynamic" timeouts compared to the TCP connection teardown,
+	// meaning the minimum timeout is always fixed from this point onwards
+	// and therefore it does not make any sense to wake up at an earlier
+	// point in time. When in aggressive profile for the TCP CT tables, we
+	// cannot wait for that long as there may be many short-lived connections
+	// and NAT needs faster recycle.
+	//
+	if !m.entryMinTimeoutFixed {
+		if option.Config.ConntrackGCProfile == option.ConntrackGCProfileAggressive {
+			intervalMax := (1 << 5) * time.Second
+			if interval > intervalMax {
+				interval = intervalMax
+			}
+		}
 	}
 
 	m.cachedGCInterval = interval
+	m.NextWakeup = stats.CurrTime + uint32(interval.Seconds())
+
+	if interval != prevInterval {
+		path, _ := m.Path()
+		log.WithFields(logrus.Fields{
+			"Path":        path,
+			"Alive":       stats.AliveEntries,
+			"Deleted":     stats.Deleted,
+			"IntervalOld": prevInterval,
+			"IntervalNew": interval,
+		}).Info("Conntrack garbage collector interval recalculated")
+	}
+
 	return
 }
