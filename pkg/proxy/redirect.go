@@ -17,12 +17,11 @@ package proxy
 import (
 	"time"
 
-	"github.com/cilium/cilium/pkg/revert"
-
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
+	"github.com/cilium/cilium/pkg/revert"
 )
 
 // RedirectImplementation is the generic proxy redirect interface that each

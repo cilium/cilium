@@ -82,10 +82,6 @@ func NewVisibilityPolicy(anno string) (*VisibilityPolicy, error) {
 			return nil, fmt.Errorf("unable to parse port: %s", err)
 		}
 
-		if portInt == 0 {
-			return nil, fmt.Errorf("port cannot be 0")
-		}
-
 		// Don't need to validate, regex already did that.
 		l4Proto := proxyAnnoSplit[2]
 		u8Prot, err := u8proto.ParseProtocol(l4Proto)
