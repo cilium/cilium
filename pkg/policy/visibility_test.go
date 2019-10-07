@@ -97,4 +97,16 @@ func (ds *PolicyTestSuite) TestVisibilityPolicyCreation(c *C) {
 	vp, err = NewVisibilityPolicy(anno)
 	c.Assert(vp, IsNil)
 	c.Assert(err, Not(IsNil))
+
+	// Do not allow > 5 digits.
+	anno = "<Ingress/123456/TCP/HTTP"
+	vp, err = NewVisibilityPolicy(anno)
+	c.Assert(vp, IsNil)
+	c.Assert(err, Not(IsNil))
+
+	// Do not allow leading zeroes.
+	anno = "<Ingress/02345/TCP/HTTP"
+	vp, err = NewVisibilityPolicy(anno)
+	c.Assert(vp, IsNil)
+	c.Assert(err, Not(IsNil))
 }

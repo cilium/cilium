@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	singleAnnotationRegex = "<(Ingress|Egress)/([0-9]{1,6})/(TCP|UDP|ANY)/([A-Za-z]{3,32})>"
+	singleAnnotationRegex = "<(Ingress|Egress)/([1-9][0-9]{1,5})/(TCP|UDP|ANY)/([A-Za-z]{3,32})>"
 	annotationRegex       = regexp.MustCompile(fmt.Sprintf(`^((%s)(,(%s))*)$`, singleAnnotationRegex, singleAnnotationRegex))
 )
 
