@@ -22,6 +22,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/connector"
@@ -79,7 +80,7 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 			// object, including annotations in the above API call, update
 			// the Endpoint's visibility policy accordingly so we don't have
 			// to make another API call later.
-			ep.UpdateVisibilityPolicy(p.Annotations)
+			ep.UpdateVisibilityPolicy(p.Annotations[annotation.ProxyVisibility])
 		}
 	}
 

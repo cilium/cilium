@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
@@ -712,12 +711,11 @@ func (e *Endpoint) GetCIDRPrefixLengths() (s6, s4 []int) {
 }
 
 // UpdateVisibilityPolicy updates the visibility policy of this endpoint to
-// reflect the state stored in the proxy visibility annotation, if present,
-// in anno. If no such annotation is present, then the VisibilityPolicy for the
-// Endpoint will be empty, and will have no effect. If the proxy visibility
-// annotation cannot be parsed, an empty visibility policy is assigned to the
-// Endpoint.
-func (e *Endpoint) UpdateVisibilityPolicy(anno map[string]string) {
+// reflect the state stored in the provided proxy visibility annotation. If anno
+// is empty, then the VisibilityPolicy for the Endpoint will be empty, and will
+// have no effect. If the proxy visibility annotation cannot be parsed, an empty
+// visibility policy is assigned to the Endpoint.
+func (e *Endpoint) UpdateVisibilityPolicy(anno string) {
 	if err := e.lockAlive(); err != nil {
 		// If the endpoint is being deleted, we don't need to update its
 		// visibility policy.
@@ -739,9 +737,9 @@ func (e *Endpoint) UpdateVisibilityPolicy(anno map[string]string) {
 		err error
 	)
 
-	if an, ok := anno[annotation.ProxyVisibility]; ok {
-		e.getLogger().Debug("proxy visibility annotation found for pod; creating visibility policy")
-		nvp, err = policy.NewVisibilityPolicy(an)
+	if anno != "" {
+		e.getLogger().Debug("creating visibility policy")
+		nvp, err = policy.NewVisibilityPolicy(anno)
 		if err != nil {
 			e.getLogger().WithError(err).Warning("unable to parse annotations into visibility policy; disabling visibility policy for endpoint")
 			e.visibilityPolicy = &policy.VisibilityPolicy{

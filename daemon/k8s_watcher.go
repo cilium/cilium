@@ -1585,7 +1585,7 @@ func (d *Daemon) updateK8sPodV1(oldK8sPod, newK8sPod *types.Pod) error {
 	}
 
 	if annotationsChanged {
-		podEP.UpdateVisibilityPolicy(newAnno)
+		podEP.UpdateVisibilityPolicy(newAnno[annotation.ProxyVisibility])
 		realizePodAnnotationUpdate(podEP)
 	}
 	return nil

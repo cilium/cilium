@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -237,7 +238,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		} else {
 			addLabels.MergeLabels(identityLabels)
 			infoLabels.MergeLabels(info)
-			ep.UpdateVisibilityPolicy(annotations)
+			ep.UpdateVisibilityPolicy(annotations[annotation.ProxyVisibility])
 		}
 	}
 
@@ -270,7 +271,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 							ep.Logger(controllerName).WithError(err).Warning("Unable to fetch kubernetes labels")
 							return err
 						}
-						ep.UpdateVisibilityPolicy(annotations)
+						ep.UpdateVisibilityPolicy(annotations[annotation.ProxyVisibility])
 						ep.UpdateLabels(ctx, identityLabels, info, true)
 						close(done)
 						return nil

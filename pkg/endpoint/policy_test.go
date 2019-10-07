@@ -17,7 +17,6 @@
 package endpoint
 
 import (
-	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/u8proto"
 	"gopkg.in/check.v1"
@@ -25,12 +24,10 @@ import (
 
 func (s *EndpointSuite) TestUpdateVisibilityPolicy(c *check.C) {
 	ep := NewEndpointWithState(&DummyOwner{repo: policy.NewPolicyRepository()}, nil, 12345, StateReady)
-	ep.UpdateVisibilityPolicy(nil)
+	ep.UpdateVisibilityPolicy("")
 	c.Assert(ep.visibilityPolicy, check.IsNil)
 
-	ep.UpdateVisibilityPolicy(map[string]string{
-		annotation.ProxyVisibility: "<Ingress/80/TCP/HTTP>",
-	})
+	ep.UpdateVisibilityPolicy("<Ingress/80/TCP/HTTP>")
 
 	c.Assert(ep.visibilityPolicy, check.Not(check.Equals), nil)
 	c.Assert(ep.visibilityPolicy.Ingress["80/TCP"], check.DeepEquals, &policy.VisibilityMetadata{
@@ -41,6 +38,6 @@ func (s *EndpointSuite) TestUpdateVisibilityPolicy(c *check.C) {
 	})
 
 	// Check that updating after previously having value works.
-	ep.UpdateVisibilityPolicy(nil)
+	ep.UpdateVisibilityPolicy("")
 	c.Assert(ep.visibilityPolicy, check.IsNil)
 }
