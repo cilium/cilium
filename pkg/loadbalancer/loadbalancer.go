@@ -72,8 +72,15 @@ type Backend struct {
 	L3n4Addr
 }
 
-func (lbbe *Backend) String() string {
-	return lbbe.L3n4Addr.String()
+func (b *Backend) String() string {
+	return b.L3n4Addr.String()
+}
+
+func (b *Backend) DeepCopy() *Backend {
+	return &Backend{
+		ID:       b.ID,
+		L3n4Addr: *b.L3n4Addr.DeepCopy(),
+	}
 }
 
 // SVC is a structure for storing service details.
@@ -209,13 +216,13 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 // NewBackend creates the Backend struct instance from given params.
 func NewBackend(id BackendID, protocol L4Type, ip net.IP, portNumber uint16) *Backend {
 	lbport := NewL4Addr(protocol, portNumber)
-	lbbe := Backend{
+	b := Backend{
 		ID:       BackendID(id),
 		L3n4Addr: L3n4Addr{IP: ip, L4Addr: *lbport},
 	}
-	log.WithField("backend", lbbe).Debug("created new LBBackend")
+	log.WithField("backend", b).Debug("created new LBBackend")
 
-	return &lbbe
+	return &b
 }
 
 func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
