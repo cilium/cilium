@@ -669,6 +669,7 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool)
 	// reference from global identity manager, add add a reference to the new
 	// identity for the endpoint.
 	if newEndpoint {
+		// TODO - GH-9354.
 		identitymanager.Add(identity)
 	} else {
 		identitymanager.RemoveOldAddNew(e.SecurityIdentity, identity)
