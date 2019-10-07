@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/counter"
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
@@ -441,7 +442,8 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 	// FIXME: Make the port range configurable.
 	if option.Config.InstallIptRules {
 		d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
-			option.Config.AccessLog, &d, option.Config.AgentLabels, d.datapath, d.endpointManager)
+			option.Config.AccessLog, &d, option.Config.AgentLabels, d.datapath, d.endpointManager,
+			certificatemanager.NewManager(option.Config.CertDirectory, k8s.Client()))
 	} else {
 		log.Warning("L7 proxies not supported when --install-iptables-rules=\"false\"")
 	}

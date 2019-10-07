@@ -57,35 +57,43 @@ func (p PortProtocol) Covers(other PortProtocol) bool {
 
 // K8sSecret is a reference to a k8s secret.
 type K8sSecret struct {
-	// Namespace is the k8s namespace in which the secret exists. If
-	// namespace is omitted, the namespace of the enclosing rule is assumed.
-	Namespace string `json:"namespace,omitempty"`
+	// Namespace is the k8s namespace in which the secret exists.
+	Namespace string `json:"namespace"`
 
-	// Name is the name of the k8s secret
-	Name string `json:"name,omitempty"`
+	// Name is the name of the k8s secret.
+	Name string `json:"name"`
 }
 
-// TLSContext provides TLS configuration via reference to k8s secrets.
+// Equal returns true if 'a' and 'b' have the same contents.
+func (a *K8sSecret) Equal(b *K8sSecret) bool {
+	return a == nil && b == nil || a != nil && b != nil && *a == *b
+}
+
+// TLSContext provides TLS configuration via reference to either k8s secrets
+// or via filepath. If both are set, directory is given priority over
+// k8sSecrets.
 type TLSContext struct {
-	// Certificate is a chain of certificates presented to the remote party.
-	// If specified for an originating TLS context, then this is used as a
-	// client certificate
-	Certificate K8sSecret `json:"certificate,omitempty"`
+	// K8sSecret is the secret that contains the certificates stored.
+	// Cilium will search in this secret for the following items:
+	//  - 'ca.crt' - Which represents the trusted CA to verify remote source.
+	//  - 'public.crt' - Which represents the public key certificate.
+	//  - 'private.crt' - Which represents the private key certificate.
+	K8sSecret *K8sSecret `json:"k8sSecret,omitempty"`
 
-	// PrivateKey is the private key used to encrypt the TLS messages. This
-	// is the private part of the public/private key pair, corresponding to
-	// the public key in the certificate.
-	PrivateKey K8sSecret `json:"privateKey,omitempty"`
-
-	// TrustedCA is a set of trusted certificate authorities used to verify
-	// the certificate of the remote party. If specified for a terminating
-	// TLS context, then a client certificate is required.
-	TrustedCA K8sSecret `json:"trustedCA,omitempty"`
+	// CertificatesPath is the directory name that contains the certificates.
+	// Cilium will search in this directory for the following files:
+	//  - 'ca.crt' - Which represents the trusted CA to verify remote source.
+	//  - 'public.crt' - Which represents the public key certificate.
+	//  - 'private.crt' - Which represents the private key certificate.
+	CertificatesPath *string `json:"directory,omitempty"`
 }
 
 // Equal returns true if 'a' and 'b' have the same contents.
 func (a *TLSContext) Equal(b *TLSContext) bool {
-	return a == nil && b == nil || a != nil && b != nil && *a == *b
+	return a == nil && b == nil || a != nil && b != nil && a.K8sSecret.Equal(b.K8sSecret) &&
+		(a.CertificatesPath == nil && b.CertificatesPath == nil ||
+		a.CertificatesPath != nil && b.CertificatesPath != nil &&
+		*a.CertificatesPath == *b.CertificatesPath)
 }
 
 // PortRule is a list of ports/protocol combinations with optional Layer 7
@@ -102,6 +110,8 @@ type PortRule struct {
 	// POD and terminated by the L7 proxy. For ingress policy this specifies
 	// the server-side TLS parameters to be applied on the connections
 	// originated from a remote source and terminated by the L7 proxy.
+	//
+	// +optional
 	TerminatingTLS *TLSContext `json:"terminatingTLS,omitempty"`
 
 	// OriginatingTLS is the TLS context for the connections originated by
@@ -110,6 +120,8 @@ type PortRule struct {
 	// to the remote destination. For ingress policy this specifies the
 	// client-side TLS parameters for the connection from the L7 proxy to
 	// the local POD.
+	//
+	// +optional
 	OriginatingTLS *TLSContext `json:"originatingTLS,omitempty"`
 
 	// Rules is a list of additional port level rules which must be met in
