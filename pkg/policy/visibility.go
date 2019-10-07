@@ -77,7 +77,7 @@ func NewVisibilityPolicy(anno string) (*VisibilityPolicy, error) {
 		direction := proxyAnnoSplit[0][1:]
 		port := proxyAnnoSplit[1]
 
-		portInt, err := strconv.ParseUint(port, 0, 16)
+		portInt, err := strconv.ParseUint(port, 10, 16)
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse port: %s", err)
 		}
