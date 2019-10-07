@@ -146,9 +146,10 @@ var _ = Describe("K8sServicesTest", func() {
 			By("testing connectivity via cluster IP %s", clusterIP)
 			monitorStop := kubectl.MonitorStart(helpers.KubeSystemNamespace, ciliumPodK8s1,
 				"cluster-ip-same-node.log")
-			status, err := kubectl.ExecInFirstPod(context.TODO(), helpers.LogGathererNamespace, helpers.LogGathererSelector, helpers.CurlFail("http://%s/", clusterIP))
+			status, err := kubectl.ExecInHostNetNS(context.TODO(), helpers.K8s1,
+				helpers.CurlFail("http://%s/", clusterIP))
 			monitorStop()
-			Expect(err).To(BeNil(), "Cannot run curl in log gatherer")
+			Expect(err).To(BeNil(), "Cannot run curl in host netns")
 
 			status.ExpectSuccess("cannot curl to service IP from host")
 			ciliumPods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
@@ -200,9 +201,8 @@ var _ = Describe("K8sServicesTest", func() {
 			}
 			doRequests := func(url string, count int) {
 				for i := 1; i <= count; i++ {
-
-					res, err := kubectl.ExecInFirstPod(context.TODO(), helpers.LogGathererNamespace, helpers.LogGathererSelector, helpers.CurlFail(url))
-					ExpectWithOffset(1, err).To(BeNil(), "Cannot run curl in log gatherer")
+					res, err := kubectl.ExecInHostNetNS(context.TODO(), helpers.K8s1, helpers.CurlFail(url))
+					ExpectWithOffset(1, err).To(BeNil(), "Cannot run curl in host netns")
 					ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
 						"k8s1 host can not connect to service %q", url)
 				}
@@ -269,7 +269,7 @@ var _ = Describe("K8sServicesTest", func() {
 		})
 
 		SkipContextIf(helpers.DoesNotRunOnNetNext, "Tests NodePort BPF", func() {
-			// TODO(brb) Add with L7 policy test cases after GH#8864 has been merged
+			// TODO(brb) Add with L7 policy test cases after GH#8971 has been fixed
 
 			nativeDev := "enp0s8"
 
