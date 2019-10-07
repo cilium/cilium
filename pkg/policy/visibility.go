@@ -23,7 +23,10 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-var annotationRegex = regexp.MustCompile(`^((<(Ingress|Egress)/([0-9]{1,6})/(TCP|UDP|ANY)/([A-Za-z]{3,32})>)(,(<(Ingress|Egress)/([0-9]{1,5})/(TCP|UDP|ANY)/([A-Za-z]{3,32})>))*)$`)
+var (
+	singleAnnotationRegex = "<(Ingress|Egress)/([0-9]{1,6})/(TCP|UDP|ANY)/([A-Za-z]{3,32})>"
+	annotationRegex       = regexp.MustCompile(fmt.Sprintf(`^((%s)(,(%s))*)$`, singleAnnotationRegex, singleAnnotationRegex))
+)
 
 func validateL7ProtocolWithDirection(dir string, proto L7ParserType) error {
 	switch proto {
