@@ -47,7 +47,7 @@ spec:
             path: /
             port: 80
       nodeSelector:
-        "kubernetes.io/hostname": k8s1
+        "cilium.io/ci-node": k8s1
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -77,7 +77,7 @@ spec:
         args:
           - "1000h"
       nodeSelector:
-        "kubernetes.io/hostname": k8s1
+        "cilium.io/ci-node": k8s1
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -106,4 +106,4 @@ spec:
         ports:
         - containerPort: 80
       nodeSelector:
-        "kubernetes.io/hostname": k8s1
+        "cilium.io/ci-node": k8s1

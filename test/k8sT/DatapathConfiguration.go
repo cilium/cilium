@@ -100,7 +100,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			nodeName := helpers.K8s1
 
 			var err error
-			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, nodeName)
+			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.KubeSystemNamespace, nodeName)
 			Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
 
 			By(fmt.Sprintf("Launching cilium monitor on %q", ciliumPodK8s1))
@@ -172,7 +172,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		validateBPFTunnelMap := func() {
 			By("Checking that BPF tunnels are in place")
-			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+			ciliumPod, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.KubeSystemNamespace, helpers.K8s1)
 			ExpectWithOffset(1, err).Should(BeNil(), "Unable to determine cilium pod on node %s", helpers.K8s1)
 			status := kubectl.CiliumExec(ciliumPod, "cilium bpf tunnel list | wc -l")
 			status.ExpectSuccess()

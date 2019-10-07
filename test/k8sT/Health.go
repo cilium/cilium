@@ -52,7 +52,7 @@ var _ = Describe("K8sHealthTest", func() {
 	})
 
 	getCilium := func(node string) (pod, ip string) {
-		pod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, node)
+		pod, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.KubeSystemNamespace, node)
 		Expect(err).Should(BeNil())
 
 		res, err := kubectl.Get(

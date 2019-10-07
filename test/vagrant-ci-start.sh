@@ -17,3 +17,7 @@ kubectl get nodes
 echo "adding local docker registry to cluster"
 helm template k8sT/manifests/registry-adder --set IP="$(./print-node-ip.sh)" > registry-adder.yaml
 kubectl apply -f registry-adder.yaml
+
+echo "labeling nodes"
+kubectl label node k8s1 cilium.io/ci-node=k8s1
+kubectl label node k8s2 cilium.io/ci-node=k8s2
