@@ -169,7 +169,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	defer cancel()
 	cmp := completion.NewWaitGroup(ctx)
 
-	_, err, _, _ = ep.addNewRedirects(ep.desiredPolicy.L4Policy, cmp)
+	_, err, _, _ = ep.addNewRedirects(cmp)
 	c.Assert(err, check.IsNil)
 	v, ok := ep.desiredPolicy.PolicyMapState[policy.Key{
 		Identity:         0,
@@ -183,7 +183,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	secondAnno := "<Ingress/80/TCP/Kafka>"
 
 	ep.UpdateVisibilityPolicy(secondAnno)
-	d, err, _, _ := ep.addNewRedirects(ep.desiredPolicy.L4Policy, cmp)
+	d, err, _, _ := ep.addNewRedirects(cmp)
 	c.Assert(err, check.IsNil)
 	v, ok = ep.desiredPolicy.PolicyMapState[policy.Key{
 		Identity:         0,
@@ -199,7 +199,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 
 	// Check that multiple values in annotation are handled correctly.
 	ep.UpdateVisibilityPolicy(thirdAnno)
-	_, err, _, _ = ep.addNewRedirects(ep.desiredPolicy.L4Policy, cmp)
+	_, err, _, _ = ep.addNewRedirects(cmp)
 	c.Assert(err, check.IsNil)
 	v, ok = ep.desiredPolicy.PolicyMapState[policy.Key{
 		Identity:         0,
@@ -242,7 +242,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	// Check that all redirects are removed when no visibility policy applies.
 	noAnno := ""
 	ep.UpdateVisibilityPolicy(noAnno)
-	d, err, _, _ = ep.addNewRedirects(ep.desiredPolicy.L4Policy, cmp)
+	d, err, _, _ = ep.addNewRedirects(cmp)
 	c.Assert(err, check.IsNil)
 	ep.removeOldRedirects(d, cmp)
 	c.Assert(len(ep.realizedRedirects), check.Equals, 0)
