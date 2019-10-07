@@ -65,7 +65,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	s.svcCache = k8s.NewServiceCache()
 	identity.InitWellKnownIdentities()
 
-	mgr := cache.NewCachingIdentityAllocator(&cache.IdentityAllocatorOwnerMock{})
+	mgr := cache.NewCachingIdentityAllocator(&testutils.IdentityAllocatorOwnerMock{})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	<-mgr.InitIdentityAllocator(nil, nil)
 	dir, err := ioutil.TempDir("", "multicluster")
@@ -104,6 +104,8 @@ func (s *ClusterMeshServicesTestSuite) TearDownTest(c *C) {
 		s.mesh.Close()
 		s.mesh.conf.RemoteIdentityWatcher.Close()
 	}
+
+
 	os.RemoveAll(s.testDir)
 	kvstore.DeletePrefix("cilium/state/services/v1/" + s.randomName)
 	kvstore.Close()
