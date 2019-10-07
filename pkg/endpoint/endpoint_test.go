@@ -633,7 +633,7 @@ func (s *EndpointSuite) TestEndpointEventQueueDeadlockUponDeletion(c *C) {
 	// Launch endpoint deletion async so that we do not deadlock (which is what
 	// this unit test is designed to test).
 	go func(ch chan struct{}) {
-		errors := ep.Delete(&monitorOwnerDummy{}, &ipReleaserDummy{}, &dummyManager{}, cache.NewCachingIdentityAllocator(&cache.IdentityAllocatorOwnerMock{}), DeleteConfig{})
+		errors := ep.Delete(&monitorOwnerDummy{}, &ipReleaserDummy{}, &dummyManager{}, DeleteConfig{})
 		c.Assert(errors, Not(IsNil))
 		epDelComplete <- struct{}{}
 	}(epDelComplete)
