@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/revert"
+	"github.com/cilium/cilium/pkg/testutils/allocator"
 
 	"github.com/optiopay/kafka"
 	"github.com/optiopay/kafka/proto"
@@ -59,7 +60,7 @@ type proxyTestSuite struct {
 var _ = Suite(&proxyTestSuite{})
 
 func (s *proxyTestSuite) SetUpSuite(c *C) {
-	Allocator = cache.NewCachingIdentityAllocator(&cache.IdentityAllocatorOwnerMock{})
+	Allocator = cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
 	s.repo = policy.NewPolicyRepository(nil)
 }
 
@@ -267,7 +268,7 @@ func (s *proxyTestSuite) TestKafkaRedirect(c *C) {
 
 	// Insert a mock EP to the endpointmanager so that DefaultEndpointInfoRegistry may find
 	// the EP ID by the IP.
-	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &cache.FakeIdentityAllocator{}, uint16(localEndpointMock.GetID()), endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, uint16(localEndpointMock.GetID()), endpoint.StateReady)
 	ipv4, err := addressing.NewCiliumIPv4("127.0.0.1")
 	c.Assert(err, IsNil)
 	ep.IPv4 = ipv4
