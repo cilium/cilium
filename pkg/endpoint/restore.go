@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/identity"
@@ -220,7 +219,7 @@ func (e *Endpoint) restoreIdentity() error {
 			// already in place, it is also correct
 			// to continue using it for the
 			// duration of a grace period.
-			time.Sleep(defaults.IdentityChangeGracePeriod)
+			time.Sleep(option.Config.IdentityChangeGracePeriod)
 		}
 	}
 	// The identity of a freshly restored endpoint is incomplete due to some
