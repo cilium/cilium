@@ -200,6 +200,7 @@ var _ = Describe("K8sServicesTest", func() {
 					net.JoinHostPort(host, fmt.Sprintf("%d", port)))
 			}
 			doRequests := func(url string, count int) {
+				By("Making %d HTTP requests from k8s1 to %q", count, url)
 				for i := 1; i <= count; i++ {
 					res, err := kubectl.ExecInHostNetNS(context.TODO(), helpers.K8s1, helpers.CurlFail(url))
 					ExpectWithOffset(1, err).To(BeNil(), "Cannot run curl in host netns")
@@ -219,15 +220,12 @@ var _ = Describe("K8sServicesTest", func() {
 			// TODO: IPv6
 			count := 10
 			url = getURL("127.0.0.1", data.Spec.Ports[0].NodePort)
-			By("Making %d HTTP requests from k8s1 to %q", count, url)
 			doRequests(url, count)
 
 			url = getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
-			By("Making %d HTTP requests from k8s1 to %q", count, url)
 			doRequests(url, count)
 
 			url = getURL(helpers.K8s2Ip, data.Spec.Ports[0].NodePort)
-			By("Making %d HTTP requests from k8s1 to %q", count, url)
 			doRequests(url, count)
 
 			// From pod via node IPs
@@ -236,9 +234,29 @@ var _ = Describe("K8sServicesTest", func() {
 			url = getURL(helpers.K8s2Ip, data.Spec.Ports[0].NodePort)
 			testHTTPRequest(url)
 
-			// From pod via loopback (host reachable services)
 			if bpfNodePort {
+				// From host via local cilium_host
+				localCiliumHostIPv4, err := kubectl.GetCiliumHostIPv4(context.TODO(), helpers.K8s1)
+				Expect(err).Should(BeNil(), "Cannot retrieve local cilium_host ipv4")
+				url = getURL(localCiliumHostIPv4, data.Spec.Ports[0].NodePort)
+				doRequests(url, count)
+
+				// From host via remote cilium_host
+				remoteCiliumHostIPv4, err := kubectl.GetCiliumHostIPv4(context.TODO(), helpers.K8s2)
+				Expect(err).Should(BeNil(), "Cannot retrieve remote cilium_host ipv4")
+				url = getURL(remoteCiliumHostIPv4, data.Spec.Ports[0].NodePort)
+				doRequests(url, count)
+
+				// From pod via loopback (host reachable services)
 				url = getURL("127.0.0.1", data.Spec.Ports[0].NodePort)
+				testHTTPRequest(url)
+
+				// From pod via local cilium_host
+				url = getURL(localCiliumHostIPv4, data.Spec.Ports[0].NodePort)
+				testHTTPRequest(url)
+
+				// From pod via remote cilium_host
+				url = getURL(remoteCiliumHostIPv4, data.Spec.Ports[0].NodePort)
 				testHTTPRequest(url)
 			}
 		}
