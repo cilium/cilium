@@ -24,9 +24,12 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/controller"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
+	coreV1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 )
@@ -111,4 +114,21 @@ func (k8sCli K8sClient) AnnotateNode(nodeName string, v4CIDR, v6CIDR *cidr.CIDR,
 		})
 
 	return nil
+}
+
+// GetSecrets returns the secrets found in the given namespace and name.
+func (k8sCli K8sClient) GetSecrets(ctx context.Context, ns, name string) (map[string][]byte, error) {
+	result := &coreV1.Secret{}
+	err := k8sCli.CoreV1().RESTClient().Get().
+		Context(ctx).
+		Namespace(ns).
+		Resource("secrets").
+		Name(name).
+		VersionedParams(&v1.GetOptions{}, scheme.ParameterCodec).
+		Do().
+		Into(result)
+	if err != nil {
+		return nil, err
+	}
+	return result.Data, nil
 }
