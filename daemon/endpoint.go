@@ -131,7 +131,7 @@ func NewPutEndpointIDHandler(d *Daemon) PutEndpointIDHandler {
 }
 
 func fetchK8sLabelsAndAnnotations(ep *endpoint.Endpoint) (labels.Labels, labels.Labels, map[string]string, error) {
-	lbls, annotations, err := k8s.GetPodLabels(ep.GetK8sNamespace(), ep.GetK8sPodName())
+	lbls, annotations, err := k8s.GetPodMetadata(ep.GetK8sNamespace(), ep.GetK8sPodName())
 	if err != nil {
 		return nil, nil, nil, err
 	}
