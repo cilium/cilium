@@ -75,6 +75,10 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 			return false, fmt.Errorf("kubernetes pod not found")
 		}
 		if err == nil {
+			// We were able to get the pod. Given that we get the entire pod
+			// object, including annotations in the above API call, update
+			// the Endpoint's visibility policy accordingly so we don't have
+			// to make another API call later.
 			ep.UpdateVisibilityPolicy(p.Annotations)
 		}
 	}
