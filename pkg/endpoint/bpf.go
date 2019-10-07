@@ -382,14 +382,12 @@ func (e *Endpoint) addNewRedirects(m *policy.L4Policy, proxyWaitGroup *completio
 	desiredRedirects = make(map[string]bool)
 
 	for dirLogStr, ingress := range map[string]bool{"ingress": true, "egress": false} {
-		if m != nil && m.HasRedirect() {
-			err, ff, rf = e.addNewRedirectsFromDesiredPolicy(ingress, desiredRedirects, proxyWaitGroup)
-			if err != nil {
-				return desiredRedirects, fmt.Errorf("unable to allocate %s redirects: %s", dirLogStr, err), nil, nil
-			}
-			finalizeList.Append(ff)
-			revertStack.Push(rf)
+		err, ff, rf = e.addNewRedirectsFromDesiredPolicy(ingress, desiredRedirects, proxyWaitGroup)
+		if err != nil {
+			return desiredRedirects, fmt.Errorf("unable to allocate %s redirects: %s", dirLogStr, err), nil, nil
 		}
+		finalizeList.Append(ff)
+		revertStack.Push(rf)
 
 		err, ff, rf = e.addVisibilityRedirects(ingress, desiredRedirects, proxyWaitGroup)
 		if err != nil {
