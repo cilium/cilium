@@ -957,7 +957,7 @@ type DeleteConfig struct {
 // endpoints which failed to be restored. Any cleanup routine of leaveLocked()
 // which depends on kvstore connectivity must be protected by a flag in
 // DeleteConfig and the restore logic must opt-out of it.
-func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, allocator cache.IdentityAllocator, conf DeleteConfig) []error {
+func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf DeleteConfig) []error {
 	errors := []error{}
 
 	if !option.Config.DryMode {
@@ -984,7 +984,7 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, allocator c
 		releaseCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
 		defer cancel()
 
-		_, err := allocator.Release(releaseCtx, e.SecurityIdentity)
+		_, err := e.allocator.Release(releaseCtx, e.SecurityIdentity)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("unable to release identity: %s", err))
 		}
@@ -1956,7 +1956,7 @@ type monitorOwner interface {
 // * cleanup of datapath state (BPF maps, proxy configuration, directories)
 // * releasing IP addresses allocated for the endpoint
 // * releasing of the reference to its allocated security identity
-func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpointManager, allocator cache.IdentityAllocator, conf DeleteConfig) []error {
+func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpointManager, conf DeleteConfig) []error {
 	errs := []error{}
 
 	// Since the endpoint is being deleted, we no longer need to run events
@@ -2023,7 +2023,7 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpoin
 	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
 
-	errs = append(errs, e.leaveLocked(proxyWaitGroup, allocator, conf)...)
+	errs = append(errs, e.leaveLocked(proxyWaitGroup, conf)...)
 	e.unlock()
 
 	err := e.waitForProxyCompletions(proxyWaitGroup)

@@ -447,7 +447,7 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.Delete
 		}
 	}
 
-	return ep.Delete(d, d.ipam, d.endpointManager, d.identityAllocator, conf)
+	return ep.Delete(d, d.ipam, d.endpointManager, conf)
 }
 
 func (d *Daemon) DeleteEndpoint(id string) (int, error) {
