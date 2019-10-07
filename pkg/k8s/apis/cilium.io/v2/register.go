@@ -50,6 +50,9 @@ const (
 	// CNPKindDefinition is the kind name for Cilium Network Policy
 	CNPKindDefinition = "CiliumNetworkPolicy"
 
+	// CNPKindDefinition is the kind name for Cilium Global Network Policy
+	CGNPKindDefinition = "CiliumGlobalNetworkPolicy"
+
 	fqdnNameRegex = `^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])\.?$`
 
 	fqdnPatternRegex = `^(([a-zA-Z0-9\*]|[a-zA-Z0-9\*][a-zA-Z0-9\-\*]*[a-zA-Z0-9\*])\.)*([A-Za-z0-9\*]|[A-Za-z0-9\*][A-Za-z0-9\-\*]*[A-Za-z0-9\*])\.?$`
@@ -122,6 +125,10 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		return err
 	}
 
+	if err := createCGNPCRD(clientset); err != nil {
+		return err
+	}
+
 	if err := createCEPCRD(clientset); err != nil {
 		return err
 	}
@@ -178,6 +185,52 @@ func createCNPCRD(clientset apiextensionsclient.Interface) error {
 				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
 			},
 			Scope:      apiextensionsv1beta1.NamespaceScoped,
+			Validation: &cnpCRV,
+		},
+	}
+
+	return createUpdateCRD(clientset, "CiliumNetworkPolicy/v2", res)
+}
+
+// createCGNPCRD creates and updates the CiliumGlobalNetworkPolicies CRD. It should be called
+// on agent startup but is idempotent and safe to call again.
+func createCGNPCRD(clientset apiextensionsclient.Interface) error {
+	var (
+		// CustomResourceDefinitionSingularName is the singular name of custom resource definition
+		CustomResourceDefinitionSingularName = "ciliumglobalnetworkpolicy"
+
+		// CustomResourceDefinitionPluralName is the plural name of custom resource definition
+		CustomResourceDefinitionPluralName = "ciliumglobalnetworkpolicies"
+
+		// CustomResourceDefinitionShortNames are the abbreviated names to refer to this CRD's instances
+		CustomResourceDefinitionShortNames = []string{"cgnp", "ciliumgnp"}
+
+		// CustomResourceDefinitionKind is the Kind name of custom resource definition
+		CustomResourceDefinitionKind = CGNPKindDefinition
+
+		CRDName = CustomResourceDefinitionPluralName + "." + SchemeGroupVersion.Group
+	)
+
+	res := &apiextensionsv1beta1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: CRDName,
+			Labels: map[string]string{
+				CustomResourceDefinitionSchemaVersionKey: CustomResourceDefinitionSchemaVersion,
+			},
+		},
+		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+			Group:   SchemeGroupVersion.Group,
+			Version: SchemeGroupVersion.Version,
+			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+				Plural:     CustomResourceDefinitionPluralName,
+				Singular:   CustomResourceDefinitionSingularName,
+				ShortNames: CustomResourceDefinitionShortNames,
+				Kind:       CustomResourceDefinitionKind,
+			},
+			Subresources: &apiextensionsv1beta1.CustomResourceSubresources{
+				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
+			},
+			Scope:      apiextensionsv1beta1.ClusterScoped,
 			Validation: &cnpCRV,
 		},
 	}
