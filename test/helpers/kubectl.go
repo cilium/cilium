@@ -1934,6 +1934,17 @@ func (kub *Kubectl) ExecInPods(ctx context.Context, namespace, selector, cmd str
 	return results, nil
 }
 
+// ExecInHostNetNS runs given command in a pod running in a host network namespace
+func (kub *Kubectl) ExecInHostNetNS(ctx context.Context, node, cmd string) (result *CmdRes, err error) {
+	// This is a hack, as we execute the given cmd in the log-gathering pod
+	// which runs in the host netns. Also, the log-gathering pods lack some
+	// packages, e.g. iproute2.
+	selector := fmt.Sprintf("%s --field-selector spec.nodeName=%s",
+		LogGathererSelector, node)
+
+	return kub.ExecInFirstPod(ctx, LogGathererNamespace, selector, cmd)
+}
+
 // DumpCiliumCommandOutput runs a variety of commands (CiliumKubCLICommands) and writes the results to
 // TestResultsPath
 func (kub *Kubectl) DumpCiliumCommandOutput(ctx context.Context, namespace string) {
