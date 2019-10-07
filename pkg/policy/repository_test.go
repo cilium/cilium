@@ -1296,7 +1296,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgress(c *C) {
-	repo := NewPolicyRepository()
+	repo := NewPolicyRepository(nil)
 	repo.selectorCache = testSelectorCache
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
