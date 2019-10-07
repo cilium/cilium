@@ -141,11 +141,11 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 	return e.owner.Datapath().WriteEndpointConfig(f, e)
 }
 
-// addNewRedirectsFromMap must be called while holding the endpoint lock for
+// addNewRedirectsFromDesiredPolicy must be called while holding the endpoint lock for
 // writing. On success, returns nil; otherwise, returns an error  indicating the
 // problem that occurred while adding an l7 redirect for the specified policy.
 // Must be called with endpoint.Mutex held.
-func (e *Endpoint) addNewRedirectsFromMap(ingress bool, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
+func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
 	if option.Config.DryMode {
 		return nil, nil, nil
 	}
@@ -383,7 +383,7 @@ func (e *Endpoint) addNewRedirects(m *policy.L4Policy, proxyWaitGroup *completio
 
 	for dirLogStr, ingress := range map[string]bool{"ingress": true, "egress": false} {
 		if m != nil && m.HasRedirect() {
-			err, ff, rf = e.addNewRedirectsFromMap(ingress, desiredRedirects, proxyWaitGroup)
+			err, ff, rf = e.addNewRedirectsFromDesiredPolicy(ingress, desiredRedirects, proxyWaitGroup)
 			if err != nil {
 				return desiredRedirects, fmt.Errorf("unable to allocate %s redirects: %s", dirLogStr, err), nil, nil
 			}
