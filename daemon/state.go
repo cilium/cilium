@@ -246,7 +246,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 
 	for _, ep := range state.restored {
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
-			if err := ep.RegenerateAfterRestore(d.identityAllocator); err != nil {
+			if err := ep.RegenerateAfterRestore(); err != nil {
 				epRegenerated <- false
 				return
 			}
