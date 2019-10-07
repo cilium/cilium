@@ -19,7 +19,6 @@ package endpoint
 import (
 	"context"
 
-	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/identity"
@@ -161,9 +160,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	c.Assert(err, check.IsNil)
 	ep.SetIdentity(epIdentity, true)
 
-	firstAnno := map[string]string{
-		annotation.ProxyVisibility: "<Ingress/80/TCP/HTTP>",
-	}
+	firstAnno := "<Ingress/80/TCP/HTTP>"
 	ep.UpdateVisibilityPolicy(firstAnno)
 	err = ep.regeneratePolicy()
 	c.Assert(err, check.IsNil)
@@ -183,9 +180,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	c.Assert(ok, check.Equals, true)
 	c.Assert(v.ProxyPort, check.Equals, httpPort)
 
-	secondAnno := map[string]string{
-		annotation.ProxyVisibility: "<Ingress/80/TCP/Kafka>",
-	}
+	secondAnno := "<Ingress/80/TCP/Kafka>"
 
 	ep.UpdateVisibilityPolicy(secondAnno)
 	d, err, _, _ := ep.addNewRedirects(ep.desiredPolicy.L4Policy, cmp)
@@ -200,9 +195,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	// Check that proxyport was updated accordingly.
 	c.Assert(v.ProxyPort, check.Equals, kafkaPort)
 
-	thirdAnno := map[string]string{
-		annotation.ProxyVisibility: "<Ingress/80/TCP/Kafka>,<Egress/80/TCP/HTTP>",
-	}
+	thirdAnno := "<Ingress/80/TCP/Kafka>,<Egress/80/TCP/HTTP>"
 
 	// Check that multiple values in annotation are handled correctly.
 	ep.UpdateVisibilityPolicy(thirdAnno)
@@ -247,7 +240,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	c.Assert(ok, check.Equals, false)
 
 	// Check that all redirects are removed when no visibility policy applies.
-	noAnno := map[string]string{}
+	noAnno := ""
 	ep.UpdateVisibilityPolicy(noAnno)
 	d, err, _, _ = ep.addNewRedirects(ep.desiredPolicy.L4Policy, cmp)
 	c.Assert(err, check.IsNil)
