@@ -56,8 +56,7 @@ type svcInfo struct {
 func (svc *svcInfo) deepCopyToLBSVC() *lb.SVC {
 	backends := make([]lb.Backend, len(svc.backends))
 	for i, backend := range svc.backends {
-		backends[i].L3n4Addr = *backend.DeepCopy()
-		backends[i].ID = backend.ID
+		backends[i] = *backend.DeepCopy()
 	}
 	return &lb.SVC{
 		Frontend: *svc.frontend.DeepCopy(),
@@ -139,18 +138,12 @@ func (s *Service) InitMaps(ipv6, ipv4, restore bool) error {
 
 // UpsertService inserts or updates the given service.
 //
-// Returns true if the service hasn't existed before.
-//
-// TODO(brb) split into multiple smaller functions.
+// The first return value is true if the service hasn't existed before.
 func (s *Service) UpsertService(
 	frontend lb.L3n4AddrID, backends []lb.Backend, svcType lb.SVCType) (bool, lb.ID, error) {
 
 	s.Lock()
 	defer s.Unlock()
-
-	var err error
-	new := false // service is new?
-	ipv6 := frontend.IsIPv6()
 
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.ServiceIP:   frontend.L3n4Addr,
@@ -159,91 +152,31 @@ func (s *Service) UpsertService(
 	})
 	scopedLog.Debug("Upserting service")
 
-	backendsCopy := []lb.Backend{}
-	for _, v := range backends {
-		// TODO(brb) deep copy?
-		backendsCopy = append(backendsCopy, v)
+	// If needed, create svcInfo and allocate service ID
+	svc, new, err := s.createSVCInfoIfNotExist(frontend, svcType)
+	if err != nil {
+		return false, lb.ID(0), err
 	}
-
-	hash := frontend.Hash()
-	svc, found := s.svcByHash[hash]
-	if !found {
-		new = true
-
-		// Allocate service ID for the new service
-		addrID, err := AcquireID(frontend.L3n4Addr, uint32(frontend.ID))
-		if err != nil {
-			return false, lb.ID(0),
-				fmt.Errorf("Unable to allocate service ID %d for %q: %s",
-					frontend.ID, frontend, err)
-		}
-		// TODO(brb) defer ReleaseID
-		frontend.ID = addrID.ID
-
-		scopedLog = scopedLog.WithField(logfields.ServiceID, frontend.ID)
-		scopedLog.Debug("Acquired service ID")
-
-		svc = &svcInfo{
-			hash:          hash,
-			frontend:      frontend,
-			backendByHash: map[string]*lb.Backend{},
-			svcType:       svcType,
-		}
-		s.svcByID[frontend.ID] = svc
-		s.svcByHash[hash] = svc
-	} else {
-		// We have heard about the service from k8s, so unset the flag so that
-		// SyncWithK8sFinished() won't consider the service obsolete, and thus
-		// won't remove it.
-		svc.restoredFromDatapath = false
-		// NOTE: We cannot restore svcType from BPF maps, so just set it
-		//       each time (safe until GH#8700 has been fixed).
-		svc.svcType = svcType
-
-	}
+	// TODO(brb) defer ServiceID release after we have a lbmap "rollback"
+	scopedLog = scopedLog.WithField(logfields.ServiceID, svc.frontend.ID)
+	scopedLog.Debug("Acquired service ID")
 
 	prevBackendCount := len(svc.backends)
+	backendsCopy := []lb.Backend{}
+	for _, b := range backends {
+		backendsCopy = append(backendsCopy, *b.DeepCopy())
+	}
 
-	// Update backends cache (handles backend ID allocation / release)
+	// Update backends cache and allocate/release backend IDs
 	newBackends, obsoleteBackendIDs, err := s.updateBackendsCacheLocked(svc, backendsCopy)
 	if err != nil {
 		return false, lb.ID(0), err
 	}
 
-	// Add new backends into BPF maps
-	for _, b := range newBackends {
-		scopedLog.WithFields(logrus.Fields{
-			logfields.BackendID: b.ID,
-			logfields.L3n4Addr:  b.L3n4Addr,
-		}).Debug("Adding new backend")
-
-		if err := s.lbmap.AddBackend(uint16(b.ID), b.L3n4Addr.IP, b.L3n4Addr.L4Addr.Port, ipv6); err != nil {
-			return false, lb.ID(0), err
-		}
-	}
-
-	// Upsert service entries into BPF maps
-	backendIDs := make([]uint16, len(backendsCopy))
-	for i, b := range backendsCopy {
-		backendIDs[i] = uint16(b.ID)
-	}
-	err = s.lbmap.UpsertService(
-		uint16(svc.frontend.ID), svc.frontend.L3n4Addr.IP, svc.frontend.L3n4Addr.L4Addr.Port,
-		backendIDs, prevBackendCount,
-		ipv6)
-	if err != nil {
+	// Update lbmaps (BPF service maps)
+	if err = s.upsertServiceIntoLBMaps(svc, prevBackendCount, newBackends,
+		obsoleteBackendIDs, scopedLog); err != nil {
 		return false, lb.ID(0), err
-	}
-
-	// Remove backends not used by any service from BPF maps
-	for _, id := range obsoleteBackendIDs {
-		scopedLog.WithField(logfields.BackendID, id).
-			Debug("Removing obsolete backend")
-
-		if err := s.lbmap.DeleteBackendByID(uint16(id), ipv6); err != nil {
-			log.WithError(err).WithField(logfields.BackendID, id).
-				Warn("Failed to remove backend from maps")
-		}
 	}
 
 	if new {
@@ -354,6 +287,89 @@ func (s *Service) SyncWithK8sFinished() error {
 			if err := s.deleteServiceLocked(svc); err != nil {
 				return fmt.Errorf("Unable to remove service %+v: %s", svc, err)
 			}
+		}
+	}
+
+	return nil
+}
+
+func (s *Service) createSVCInfoIfNotExist(frontend lb.L3n4AddrID,
+	svcType lb.SVCType) (*svcInfo, bool, error) {
+
+	hash := frontend.Hash()
+	svc, found := s.svcByHash[hash]
+	if !found {
+		// Allocate service ID for the new service
+		addrID, err := AcquireID(frontend.L3n4Addr, uint32(frontend.ID))
+		if err != nil {
+			return nil, false,
+				fmt.Errorf("Unable to allocate service ID %d for %q: %s",
+					frontend.ID, frontend, err)
+		}
+		frontend.ID = addrID.ID
+
+		svc = &svcInfo{
+			hash:          hash,
+			frontend:      frontend,
+			backendByHash: map[string]*lb.Backend{},
+			svcType:       svcType,
+		}
+		s.svcByID[frontend.ID] = svc
+		s.svcByHash[hash] = svc
+	} else {
+		// NOTE: We cannot restore svcType from BPF maps, so just set it
+		//       each time (safe until GH#8700 has been fixed).
+		svc.svcType = svcType
+		// We have heard about the service from k8s, so unset the flag so that
+		// SyncWithK8sFinished() won't consider the service obsolete, and thus
+		// won't remove it.
+		svc.restoredFromDatapath = false
+	}
+
+	return svc, !found, nil
+}
+
+func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, prevBackendCount int,
+	newBackends []lb.Backend, obsoleteBackendIDs []lb.BackendID,
+	scopedLog *logrus.Entry) error {
+
+	ipv6 := svc.frontend.IsIPv6()
+
+	// Add new backends into BPF maps
+	for _, b := range newBackends {
+		scopedLog.WithFields(logrus.Fields{
+			logfields.BackendID: b.ID,
+			logfields.L3n4Addr:  b.L3n4Addr,
+		}).Debug("Adding new backend")
+
+		if err := s.lbmap.AddBackend(uint16(b.ID), b.L3n4Addr.IP,
+			b.L3n4Addr.L4Addr.Port, ipv6); err != nil {
+			return err
+		}
+	}
+
+	// Upsert service entries into BPF maps
+	backendIDs := make([]uint16, len(svc.backends))
+	for i, b := range svc.backends {
+		backendIDs[i] = uint16(b.ID)
+	}
+	err := s.lbmap.UpsertService(
+		uint16(svc.frontend.ID), svc.frontend.L3n4Addr.IP,
+		svc.frontend.L3n4Addr.L4Addr.Port,
+		backendIDs, prevBackendCount,
+		ipv6)
+	if err != nil {
+		return err
+	}
+
+	// Remove backends not used by any service from BPF maps
+	for _, id := range obsoleteBackendIDs {
+		scopedLog.WithField(logfields.BackendID, id).
+			Debug("Removing obsolete backend")
+
+		if err := s.lbmap.DeleteBackendByID(uint16(id), ipv6); err != nil {
+			log.WithError(err).WithField(logfields.BackendID, id).
+				Warn("Failed to remove backend from maps")
 		}
 	}
 
