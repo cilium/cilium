@@ -65,13 +65,11 @@ func (m *CachingIdentityAllocator) GetIdentityCache() IdentityCache {
 	}
 
 	for key, identity := range identity.ReservedIdentityCache {
-		log.WithField(logfields.Identity, identity.String()).Debug("populating identity cache with reserved identity")
 		cache[key] = identity.Labels.LabelArray()
 	}
 
 	if m.localIdentities != nil {
 		for _, identity := range m.localIdentities.GetIdentities() {
-			log.WithField(logfields.Identity, identity.String()).Debug("populating identity cache with local identity")
 			cache[identity.ID] = identity.Labels.LabelArray()
 		}
 	}
