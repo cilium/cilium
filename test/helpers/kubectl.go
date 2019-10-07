@@ -1945,6 +1945,26 @@ func (kub *Kubectl) ExecInHostNetNS(ctx context.Context, node, cmd string) (resu
 	return kub.ExecInFirstPod(ctx, LogGathererNamespace, selector, cmd)
 }
 
+// GetCiliumHostIPv4 retrieves cilium_host IPv4 addr of the given node.
+func (kub *Kubectl) GetCiliumHostIPv4(ctx context.Context, node string) (string, error) {
+	pod, err := kub.GetCiliumPodOnNode(KubeSystemNamespace, node)
+	if err != nil {
+		return "", fmt.Errorf("unable to retrieve cilium pod: %s", err)
+	}
+
+	cmd := "ip -4 -o a show dev cilium_host | grep -o -e 'inet [0-9.]*' | cut -d' ' -f2"
+	res := kub.ExecPodCmd(KubeSystemNamespace, pod, cmd)
+	if !res.WasSuccessful() {
+		return "", fmt.Errorf("unable to retrieve cilium_host ipv4 addr: %s", res.GetError())
+	}
+	addr := res.SingleOut()
+	if addr == "" {
+		return "", fmt.Errorf("unable to retrieve cilium_host ipv4 addr")
+	}
+
+	return addr, nil
+}
+
 // DumpCiliumCommandOutput runs a variety of commands (CiliumKubCLICommands) and writes the results to
 // TestResultsPath
 func (kub *Kubectl) DumpCiliumCommandOutput(ctx context.Context, namespace string) {
