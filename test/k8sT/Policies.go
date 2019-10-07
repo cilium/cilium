@@ -774,11 +774,11 @@ var _ = Describe("K8sPolicyTest", func() {
 				}
 			})
 
-			BeforeEach(func() {
-
-			})
 			AfterEach(func() {
+				// Remove the proxy visibility annotation - this is done by specifying the annotation followed by a '-'.
 				kubectl.Exec(fmt.Sprintf("%s annotate pod %s -n %s %s-", helpers.KubectlCmd, appPods[helpers.App1], namespaceForTest, annotation.ProxyVisibility))
+				cmd := fmt.Sprintf("%s delete --all cnp,netpol -n %s", helpers.KubectlCmd, namespaceForTest)
+				_ = kubectl.Exec(cmd)
 			})
 
 			checkProxyRedirection := func(app1PodIP string, redirected bool) {
@@ -820,7 +820,6 @@ var _ = Describe("K8sPolicyTest", func() {
 			}
 
 			It("Tests proxy visibility without policy", func() {
-
 				checkProxyRedirection(app1PodIP, false)
 
 				By("Annotating %s with <Ingress/80/TCP/HTTP>", app1Pod)
@@ -835,7 +834,35 @@ var _ = Describe("K8sPolicyTest", func() {
 				Expect(kubectl.CiliumEndpointWaitReady()).To(BeNil())
 
 				checkProxyRedirection(app1PodIP, false)
+			})
 
+			It("Tests proxy visibility interactions with policy lifecycle operations", func() {
+				checkProxyRedirection(app1PodIP, false)
+
+				By("Annotating %s with <Ingress/80/TCP/HTTP>", app1Pod)
+				res := kubectl.Exec(fmt.Sprintf("%s annotate pod %s -n %s %s=\"<Ingress/80/TCP/HTTP>\"", helpers.KubectlCmd, app1Pod, namespaceForTest, annotation.ProxyVisibility))
+				res.ExpectSuccess("annotating pod with proxy visibility annotation failed")
+				Expect(kubectl.CiliumEndpointWaitReady()).To(BeNil())
+
+				checkProxyRedirection(app1PodIP, true)
+
+				By("Importing policy which selects app1; proxy-visibility annotation should be removed")
+
+				_, err := kubectl.CiliumPolicyAction(
+					namespaceForTest, l3Policy, helpers.KubectlApply, helpers.HelperTimeout)
+				Expect(err).Should(BeNil(),
+					"policy %s cannot be applied in %q namespace", l3Policy, namespaceForTest)
+
+				By("Checking that proxy visibility annotation is removed due to policy being added")
+				checkProxyRedirection(app1PodIP, false)
+
+				_, err = kubectl.CiliumPolicyAction(
+					namespaceForTest, l3Policy, helpers.KubectlDelete, helpers.HelperTimeout)
+				Expect(err).Should(BeNil(),
+					"policy %s cannot be deleted in %q namespace", l3Policy, namespaceForTest)
+
+				By("Checking that proxy visibility annotation is re-added after policy is removed")
+				checkProxyRedirection(app1PodIP, true)
 			})
 		})
 
