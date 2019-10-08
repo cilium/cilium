@@ -346,7 +346,7 @@ spec:
               key: tofqdns-pre-cache
               name: cilium-config
               optional: true
-        image: docker.io/cilium/cilium:v1.4.8
+        image: docker.io/cilium/cilium:v1.4.9
         imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
@@ -588,7 +588,7 @@ spec:
               key: AWS_DEFAULT_REGION
               name: cilium-aws
               optional: true
-        image: docker.io/cilium/operator:v1.4.8
+        image: docker.io/cilium/operator:v1.4.9
         imagePullPolicy: IfNotPresent
         name: cilium-operator
         volumeMounts:
