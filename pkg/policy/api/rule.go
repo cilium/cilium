@@ -15,6 +15,8 @@
 package api
 
 import (
+	"reflect"
+
 	"github.com/cilium/cilium/pkg/labels"
 )
 
@@ -65,6 +67,15 @@ type Rule struct {
 // NewRule builds a new rule with no selector and no policy.
 func NewRule() *Rule {
 	return &Rule{}
+}
+
+// DeepEquals returns true if the specified rule is deeply the same.
+func (r *Rule) DeepEquals(r2 *Rule) bool {
+	if reflect.DeepEqual(r, r2) {
+		return true
+	}
+
+	return false
 }
 
 // WithEndpointSelector configures the Rule with the specified selector.

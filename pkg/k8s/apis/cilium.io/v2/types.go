@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -172,8 +172,7 @@ func (r *CiliumNetworkPolicy) SpecEquals(o *CiliumNetworkPolicy) bool {
 	if o == nil {
 		return r == nil
 	}
-	return reflect.DeepEqual(r.Spec, o.Spec) &&
-		reflect.DeepEqual(r.Specs, o.Specs)
+	return r.Spec.DeepEquals(o.Spec) && r.Specs.DeepEquals(o.Specs)
 }
 
 // AnnotationsEquals returns true if ObjectMeta.Annotations of each
