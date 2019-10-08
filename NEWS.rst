@@ -2,6 +2,15 @@
 NEWS
 ******
 
+v1.4.9
+======
+
+::
+
+    Jarno Rajahalme (2):
+          test: Wait for at least one Istio POD to get ready
+          envoy: Update image for Envoy CVEs 2019-10-08
+
 v1.4.8
 ======
 
