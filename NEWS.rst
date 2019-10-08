@@ -2,6 +2,25 @@
 NEWS
 ******
 
+v1.5.9
+======
+
+::
+
+    André Martins (3):
+          test: bump k8s testing versions to 1.13.11, 1.14.7 and 1.15.4
+          go: bump golang to 1.12.10
+          dockerfile.runtime: always run update when building dependencies
+    
+    Ian Vernon (1):
+          loader: remove hash from compileQueue if build fails
+    
+    Jarno Rajahalme (1):
+          envoy: Update image for Envoy CVEs 2019-10-08
+    
+    John Fastabend (1):
+          cilium: encryption, replace Router() IP with CiliumInternal
+
 v1.5.8
 ======
 
