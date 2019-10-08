@@ -2,6 +2,58 @@
 NEWS
 ******
 
+v1.6.3
+======
+
+::
+
+    André Martins (5):
+          go: bump golang to 1.12.10
+          dockerfile.runtime: always run update when building dependencies
+          docs: update k8s supported versions
+          vendor: update to k8s 1.16.1
+          Revert "add PR #82410 patch from kubernetes/kubernetes"
+    
+    Daniel Borkmann (1):
+          bpf: fix cilium_host unroutable check
+    
+    Ian Vernon (1):
+          policy: remove checking of CIDR-based fields from `IsLabelBased` checks
+    
+    Jarno Rajahalme (1):
+          envoy: Update image for Envoy CVEs 2019-10-08
+    
+    Joe Stringer (6):
+          health: Configure sysctl when IPv6 is disabled
+          docs: Simplify microk8s instructions
+          vendor: Bump golang.org/sys/unix library revision
+          policy: Fix up selectorcache locking issue
+          monitor: Fix reporting the monitor status
+          bpf: Fix sockops compile on newer LLVM
+    
+    Julien Balestra (1):
+          kvstore/etcd: always reload keypair
+    
+    Laurent Bernaille (4):
+          Update netlink library (support for output-mark)
+          Use output-mark to use table 200 post-encryption and set different MTU for main/200 tables
+          Do not add policies/states for subnets
+          Fix IP leak on main if
+    
+    Martynas Pumputis (2):
+          sysctl: Get rid of GOOS targets
+          sysctl: Add function to write any param value
+    
+    Michal Rostecki (2):
+          sysctl: Add package for managing kernel parameters
+          k8s/endpointsynchronizer: Do not delete CEP on empty k8s resource names
+    
+    Michi Mutsuzaki (1):
+          daemon: Populate source and destination ports for DNS records
+    
+    Vlad Ungureanu (1):
+          Change kind of daemonset in microk8s-prepull.yml to apps/v1
+    
 v1.6.2
 ======
 
