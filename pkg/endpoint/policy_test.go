@@ -18,12 +18,13 @@ package endpoint
 
 import (
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/testutils/allocator"
 	"github.com/cilium/cilium/pkg/u8proto"
 	"gopkg.in/check.v1"
 )
 
 func (s *EndpointSuite) TestUpdateVisibilityPolicy(c *check.C) {
-	ep := NewEndpointWithState(&DummyOwner{repo: policy.NewPolicyRepository()}, nil, 12345, StateReady)
+	ep := NewEndpointWithState(&DummyOwner{repo: policy.NewPolicyRepository(nil)}, nil, &allocator.FakeIdentityAllocator{}, 12345, StateReady)
 	ep.UpdateVisibilityPolicy("")
 	c.Assert(ep.visibilityPolicy, check.IsNil)
 
