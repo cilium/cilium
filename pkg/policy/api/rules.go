@@ -16,6 +16,7 @@ package api
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 )
 
@@ -34,4 +35,9 @@ func (rs Rules) String() string {
 	}
 
 	return "[" + strings.Join(strRules, ",\n") + "]"
+}
+
+// DeepEquals returns true if the specified rules are deeply the same.
+func (rs Rules) DeepEquals(rs2 Rules) bool {
+	return reflect.DeepEqual(rs, rs2)
 }
