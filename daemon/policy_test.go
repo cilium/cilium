@@ -657,7 +657,7 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 		}
 		qaBarNetworkPolicy = networkPolicies[QAIPv4Addr.String()]
 		return qaBarNetworkPolicy != nil && len(qaBarNetworkPolicy.IngressPerPortPolicies) == 1
-	}, time.Second*1)
+	}, time.Second*5)
 	c.Assert(err, IsNil)
 	c.Assert(qaBarNetworkPolicy.IngressPerPortPolicies[0].Rules, HasLen, 1)
 	c.Assert(qaBarNetworkPolicy.IngressPerPortPolicies[0].Rules[0].RemotePolicies, HasLen, 1)
