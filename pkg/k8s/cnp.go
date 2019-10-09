@@ -324,10 +324,12 @@ func (c *CNPStatusUpdateContext) update(cnp *types.SlimCNP, enforcing, ok bool, 
 
 	ns := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)
 
-	return updateStatusByCapabilities(c.CiliumNPClient, capabilities, cnp, ns, cnp.GetName(), c.NodeName, cnpns)
+	return updateStatusesByCapabilities(c.CiliumNPClient, capabilities, cnp, ns, cnp.GetName(), map[string]cilium_v2.CiliumNetworkPolicyNodeStatus{c.NodeName: cnpns})
 }
 
-func updateStatusByCapabilities(client clientset.Interface, capabilities k8sversion.ServerCapabilities, cnp *types.SlimCNP, ns, name, nodeName string, cnpns cilium_v2.CiliumNetworkPolicyNodeStatus) error {
+// nodeStatuses map will be updated in this function; if non-empty, it will contain
+// the set of node status updates which failed / did not occur.
+func updateStatusesByCapabilities(client clientset.Interface, capabilities k8sversion.ServerCapabilities, cnp *types.SlimCNP, ns, name string, nodeStatuses map[string]cilium_v2.CiliumNetworkPolicyNodeStatus) error {
 	var err error
 	switch {
 	case capabilities.Patch:
@@ -352,9 +354,7 @@ func updateStatusByCapabilities(client clientset.Interface, capabilities k8svers
 				OP:   "add",
 				Path: "/status",
 				Value: cilium_v2.CiliumNetworkPolicyStatus{
-					Nodes: map[string]cilium_v2.CiliumNetworkPolicyNodeStatus{
-						nodeName: cnpns,
-					},
+					Nodes: nodeStatuses,
 				},
 			},
 		}
@@ -366,38 +366,85 @@ func updateStatusByCapabilities(client clientset.Interface, capabilities k8svers
 		}
 
 		_, err = client.CiliumV2().CiliumNetworkPolicies(ns).Patch(name, k8sTypes.JSONPatchType, createStatusAndNodePatchJSON, "status")
+		// If the patch fails it means the "test" from the previous patch
+		// failed so we can safely replace the nodes in the CNP status.
 		if err != nil {
-			// If it fails it means the test from the previous patch failed
-			// so we can safely replace this node in the CNP status.
-			createStatusAndNodePatch := []JSONPatch{
-				{
-					OP:    "replace",
-					Path:  "/status/nodes/" + nodeName,
-					Value: cnpns,
-				},
+			// If there are more than MaxJSONPatchOperations to patch, do
+			// multiple patches until we have removed all nodes from the set to
+			// update.
+			for len(nodeStatuses) != 0 {
+				var (
+					nodeNamesUsed            []string
+					numPatches               int
+					createStatusAndNodePatch []JSONPatch
+				)
+
+				// Reduce reallocations for slices.
+				if len(nodeStatuses) <= MaxJSONPatchOperations {
+					createStatusAndNodePatch = make([]JSONPatch, 0, len(nodeStatuses))
+				} else {
+					createStatusAndNodePatch = make([]JSONPatch, 0, MaxJSONPatchOperations)
+				}
+
+				for nodeName, nodeStatus := range nodeStatuses {
+
+					if numPatches > MaxJSONPatchOperations {
+						break
+					}
+					nodePatch := JSONPatch{
+						OP:    "replace",
+						Path:  "/status/nodes/" + nodeName,
+						Value: nodeStatus,
+					}
+					createStatusAndNodePatch = append(createStatusAndNodePatch, nodePatch)
+					numPatches += 1
+					// Track which names we've used to delete them from the map
+					// if patching succeeds later.
+					nodeNamesUsed = append(nodeNamesUsed, nodeName)
+				}
+				createStatusAndNodePatchJSON, err = json.Marshal(createStatusAndNodePatch)
+				if err != nil {
+					return err
+				}
+				_, err = client.CiliumV2().CiliumNetworkPolicies(ns).Patch(name, k8sTypes.JSONPatchType, createStatusAndNodePatchJSON, "status")
+
+				if err != nil {
+					break
+				}
+
+				// Patch succeeded, we can remove from the set of NodeStatuses
+				// to update.
+				for i := range nodeNamesUsed {
+					delete(nodeStatuses, nodeNamesUsed[i])
+				}
 			}
-			createStatusAndNodePatchJSON, err = json.Marshal(createStatusAndNodePatch)
-			if err != nil {
-				return err
-			}
-			_, err = client.CiliumV2().CiliumNetworkPolicies(ns).Patch(name, k8sTypes.JSONPatchType, createStatusAndNodePatchJSON, "status")
 		}
 	case capabilities.UpdateStatus:
 		if cnp == nil {
 			return fmt.Errorf("cannot update status of nil CNP")
 		}
-		// k8s < 1.13 as minimal support for JSON patch where kube-apiserver
+		// k8s < 1.13 has minimal support for JSON patch where kube-apiserver
 		// can print Error messages and even panic in k8s < 1.10.
-		cnp.SetPolicyStatus(nodeName, cnpns)
+		for nodeName, cnpns := range nodeStatuses {
+			cnp.SetPolicyStatus(nodeName, cnpns)
+		}
 		_, err = client.CiliumV2().CiliumNetworkPolicies(ns).UpdateStatus(cnp.CiliumNetworkPolicy)
 	default:
 		if cnp == nil {
 			return fmt.Errorf("cannot update status of nil CNP")
 		}
-		// k8s < 1.13 as minimal support for JSON patch where kube-apiserver
+		// k8s < 1.13 has minimal support for JSON patch where kube-apiserver
 		// can print Error messages and even panic in k8s < 1.10.
-		cnp.SetPolicyStatus(nodeName, cnpns)
+		for nodeName, cnpns := range nodeStatuses {
+			cnp.SetPolicyStatus(nodeName, cnpns)
+		}
 		_, err = client.CiliumV2().CiliumNetworkPolicies(ns).Update(cnp.CiliumNetworkPolicy)
 	}
-	return err
+	if err != nil {
+		return err
+	}
+	// Updating succeeded - the updated map can be 'emptied' of updates that
+	// we need to propagate.
+	nodeStatuses = map[string]cilium_v2.CiliumNetworkPolicyNodeStatus{}
+	return nil
 }
