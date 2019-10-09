@@ -50,6 +50,9 @@ const (
 	// CNPKindDefinition is the kind name for Cilium Network Policy
 	CNPKindDefinition = "CiliumNetworkPolicy"
 
+	// CCNPKindDefinition is the kind name for Cilium Cluster wide Network Policy
+	CCNPKindDefinition = "CiliumClusterwideNetworkPolicy"
+
 	fqdnNameRegex = `^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])\.?$`
 
 	fqdnPatternRegex = `^(([a-zA-Z0-9\*]|[a-zA-Z0-9\*][a-zA-Z0-9\-\*]*[a-zA-Z0-9\*])\.)*([A-Za-z0-9\*]|[A-Za-z0-9\*][A-Za-z0-9\-\*]*[A-Za-z0-9\*])\.?$`
@@ -102,6 +105,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&CiliumNetworkPolicy{},
 		&CiliumNetworkPolicyList{},
+		&CiliumClusterwideNetworkPolicy{},
+		&CiliumClusterwideNetworkPolicyList{},
 		&CiliumEndpoint{},
 		&CiliumEndpointList{},
 		&CiliumNode{},
@@ -118,6 +123,10 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 // cluster
 func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) error {
 	if err := createCNPCRD(clientset); err != nil {
+		return err
+	}
+
+	if err := createCCNPCRD(clientset); err != nil {
 		return err
 	}
 
@@ -182,6 +191,52 @@ func createCNPCRD(clientset apiextensionsclient.Interface) error {
 	}
 
 	return createUpdateCRD(clientset, "CiliumNetworkPolicy/v2", res)
+}
+
+// createCGNPCRD creates and updates the CiliumGlobalNetworkPolicies CRD. It should be called
+// on agent startup but is idempotent and safe to call again.
+func createCCNPCRD(clientset apiextensionsclient.Interface) error {
+	var (
+		// CustomResourceDefinitionSingularName is the singular name of custom resource definition
+		CustomResourceDefinitionSingularName = "CiliumClusterwideNetworkPolicy"
+
+		// CustomResourceDefinitionPluralName is the plural name of custom resource definition
+		CustomResourceDefinitionPluralName = "ciliumclusterwidenetworkpolicies"
+
+		// CustomResourceDefinitionShortNames are the abbreviated names to refer to this CRD's instances
+		CustomResourceDefinitionShortNames = []string{"ccnp", "ciliumcnp"}
+
+		// CustomResourceDefinitionKind is the Kind name of custom resource definition
+		CustomResourceDefinitionKind = CCNPKindDefinition
+
+		CRDName = CustomResourceDefinitionPluralName + "." + SchemeGroupVersion.Group
+	)
+
+	res := &apiextensionsv1beta1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: CRDName,
+			Labels: map[string]string{
+				CustomResourceDefinitionSchemaVersionKey: CustomResourceDefinitionSchemaVersion,
+			},
+		},
+		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+			Group:   SchemeGroupVersion.Group,
+			Version: SchemeGroupVersion.Version,
+			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+				Plural:     CustomResourceDefinitionPluralName,
+				Singular:   CustomResourceDefinitionSingularName,
+				ShortNames: CustomResourceDefinitionShortNames,
+				Kind:       CustomResourceDefinitionKind,
+			},
+			Subresources: &apiextensionsv1beta1.CustomResourceSubresources{
+				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
+			},
+			Scope:      apiextensionsv1beta1.ClusterScoped,
+			Validation: &cnpCRV,
+		},
+	}
+
+	return createUpdateCRD(clientset, "CiliumClusterwideNetworkPolicy/v2", res)
 }
 
 // createCEPCRD creates and updates the CiliumEndpoint CRD. It should be called
