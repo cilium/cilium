@@ -383,11 +383,17 @@ func updateStatusByCapabilities(client clientset.Interface, capabilities k8svers
 			_, err = client.CiliumV2().CiliumNetworkPolicies(ns).Patch(name, k8sTypes.JSONPatchType, createStatusAndNodePatchJSON, "status")
 		}
 	case capabilities.UpdateStatus:
+		if cnp == nil {
+			return fmt.Errorf("cannot update status of nil CNP")
+		}
 		// k8s < 1.13 as minimal support for JSON patch where kube-apiserver
 		// can print Error messages and even panic in k8s < 1.10.
 		cnp.SetPolicyStatus(nodeName, cnpns)
 		_, err = client.CiliumV2().CiliumNetworkPolicies(ns).UpdateStatus(cnp.CiliumNetworkPolicy)
 	default:
+		if cnp == nil {
+			return fmt.Errorf("cannot update status of nil CNP")
+		}
 		// k8s < 1.13 as minimal support for JSON patch where kube-apiserver
 		// can print Error messages and even panic in k8s < 1.10.
 		cnp.SetPolicyStatus(nodeName, cnpns)
