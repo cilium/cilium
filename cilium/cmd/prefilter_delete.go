@@ -48,7 +48,7 @@ func deleteFilters(cmd *cobra.Command, args []string) {
 			Fatalf("Cannot parse CIDR \"%s\": %s", cidr, err)
 		}
 	}
-	if err := client.DeletePrefilter(spec); err != nil {
+	if _, err := client.DeletePrefilter(spec); err != nil {
 		Fatalf("Cannot delete prefilter: %s", err)
 	} else {
 		fmt.Printf("Deleted %d prefilter entries\n", len(spec.Deny))
