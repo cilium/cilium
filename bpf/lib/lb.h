@@ -22,7 +22,7 @@
  * LB_L3: Enable fallback to L3 LB entries
  *
  * Either LB_L4, LB_L3, or both need to be set to enable forward
- * translation. Reverse translation will awlays occur regardless
+ * translation. Reverse translation will always occur regardless
  * of the settings.
  */
 
