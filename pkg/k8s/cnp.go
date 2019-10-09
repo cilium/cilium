@@ -352,7 +352,7 @@ func (c *CNPStatusUpdateContext) update(m *UpdateMetadata, cnp *types.SlimCNP, e
 	switch m.typ {
 	case K8sAPIServer:
 		ns := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)
-		return updateStatusesByCapabilities(c.CiliumNPClient, capabilities, cnp, ns, cnp.GetName(), map[string]cilium_v2.CiliumNetworkPolicyNodeStatus{c.NodeName: cnpns})
+		return UpdateStatusesByCapabilities(c.CiliumNPClient, capabilities, cnp, ns, cnp.GetName(), map[string]cilium_v2.CiliumNetworkPolicyNodeStatus{c.NodeName: cnpns})
 	case KVStore:
 		marshaledVal, err := json.Marshal(cnpns)
 		if err != nil {
@@ -390,9 +390,11 @@ func createCNPNodeStatus(enforcing, ok bool, cnpError error, rev uint64, annotat
 	}
 }
 
-// nodeStatuses map will be updated in this function; if non-empty, it will contain
-// the set of node status updates which failed / did not occur.
-func updateStatusesByCapabilities(client clientset.Interface, capabilities k8sversion.ServerCapabilities, cnp *types.SlimCNP, ns, name string, nodeStatuses map[string]cilium_v2.CiliumNetworkPolicyNodeStatus) error {
+// UpdateStatusesByCapabilities updates the status for all of the nodes in
+// nodeStatuses for the CNP. Note that the nodeStatuses map will be updated in
+// this function. After this function returns, if non-empty, it will contain the
+// set of node status updates which failed / did not occur.
+func UpdateStatusesByCapabilities(client clientset.Interface, capabilities k8sversion.ServerCapabilities, cnp *types.SlimCNP, ns, name string, nodeStatuses map[string]cilium_v2.CiliumNetworkPolicyNodeStatus) error {
 	var err error
 	switch {
 	case capabilities.Patch:
