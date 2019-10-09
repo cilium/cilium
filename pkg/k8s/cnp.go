@@ -324,10 +324,10 @@ func (c *CNPStatusUpdateContext) update(cnp *types.SlimCNP, enforcing, ok bool, 
 
 	ns := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)
 
-	return updateStatusByCapabilities(capabilities, c, cnp, ns, cnpns)
+	return updateStatusByCapabilities(capabilities, c, cnp, ns, c.NodeName, cnpns)
 }
 
-func updateStatusByCapabilities(capabilities k8sversion.ServerCapabilities, c *CNPStatusUpdateContext, cnp *types.SlimCNP, ns string, cnpns cilium_v2.CiliumNetworkPolicyNodeStatus) error {
+func updateStatusByCapabilities(capabilities k8sversion.ServerCapabilities, c *CNPStatusUpdateContext, cnp *types.SlimCNP, ns, nodeName string, cnpns cilium_v2.CiliumNetworkPolicyNodeStatus) error {
 	var err error
 	switch {
 	case capabilities.Patch:
@@ -353,7 +353,7 @@ func updateStatusByCapabilities(capabilities k8sversion.ServerCapabilities, c *C
 				Path: "/status",
 				Value: cilium_v2.CiliumNetworkPolicyStatus{
 					Nodes: map[string]cilium_v2.CiliumNetworkPolicyNodeStatus{
-						c.NodeName: cnpns,
+						nodeName: cnpns,
 					},
 				},
 			},
@@ -372,7 +372,7 @@ func updateStatusByCapabilities(capabilities k8sversion.ServerCapabilities, c *C
 			createStatusAndNodePatch := []JSONPatch{
 				{
 					OP:    "replace",
-					Path:  "/status/nodes/" + c.NodeName,
+					Path:  "/status/nodes/" + nodeName,
 					Value: cnpns,
 				},
 			}
@@ -385,12 +385,12 @@ func updateStatusByCapabilities(capabilities k8sversion.ServerCapabilities, c *C
 	case capabilities.UpdateStatus:
 		// k8s < 1.13 as minimal support for JSON patch where kube-apiserver
 		// can print Error messages and even panic in k8s < 1.10.
-		cnp.SetPolicyStatus(c.NodeName, cnpns)
+		cnp.SetPolicyStatus(nodeName, cnpns)
 		_, err = c.CiliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).UpdateStatus(cnp.CiliumNetworkPolicy)
 	default:
 		// k8s < 1.13 as minimal support for JSON patch where kube-apiserver
 		// can print Error messages and even panic in k8s < 1.10.
-		cnp.SetPolicyStatus(c.NodeName, cnpns)
+		cnp.SetPolicyStatus(nodeName, cnpns)
 		_, err = c.CiliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Update(cnp.CiliumNetworkPolicy)
 	}
 	return err
