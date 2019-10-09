@@ -88,12 +88,11 @@ func (r *Route) ToIPCommand(dev string) []string {
 func lookupDefaultRoute(family int) (netlink.Route, error) {
 	routes, err := netlink.RouteListFiltered(family, &netlink.Route{Dst: nil}, netlink.RT_FILTER_DST)
 	if err != nil {
-		log.WithError(err).Error("Unable to list direct routes")
-		return netlink.Route{}, err
+		return netlink.Route{}, fmt.Errorf("Unable to list direct routes: %s", err)
 	}
 
 	if len(routes) != 1 {
-		return netlink.Route{}, fmt.Errorf("Multiple default routes found")
+		return netlink.Route{}, fmt.Errorf("Found (%d) default routes", len(routes))
 	}
 
 	log.Debugf("Found default route on node %v", routes[0])
