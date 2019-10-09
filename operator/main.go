@@ -312,6 +312,8 @@ func runOperator(cmd *cobra.Command) {
 	if identityGCInterval != time.Duration(0) {
 		startIdentityGC()
 	}
+
+	go watchForCNPStatusEvents()
 	err := enableCNPWatcher()
 	if err != nil {
 		log.WithError(err).WithField("subsys", "CNPWatcher").Fatal(
