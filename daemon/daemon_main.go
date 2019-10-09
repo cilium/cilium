@@ -1600,6 +1600,7 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPI {
 
 	// /prefilter/
 	api.PrefilterGetPrefilterHandler = NewGetPrefilterHandler(d)
+	api.PrefilterDeletePrefilterHandler = NewDeletePrefilterHandler(d)
 	api.PrefilterPatchPrefilterHandler = NewPatchPrefilterHandler(d)
 
 	// /ipam/{ip}/
