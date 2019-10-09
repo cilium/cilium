@@ -428,7 +428,7 @@ func objCheck(fd int, path string, mapType int, keySize, valueSize, maxEntries, 
 	return false
 }
 
-func OpenOrCreateMap(path string, mapType int, keySize, valueSize, maxEntries, flags uint32, innerID uint32) (int, bool, error) {
+func OpenOrCreateMap(path string, mapType int, keySize, valueSize, maxEntries, flags uint32, innerID uint32, pin bool) (int, bool, error) {
 	var fd int
 
 	redo := false
@@ -471,9 +471,11 @@ recreate:
 			return 0, isNewMap, err
 		}
 
-		err = ObjPin(fd, path)
-		if err != nil {
-			return 0, isNewMap, err
+		if pin {
+			err = ObjPin(fd, path)
+			if err != nil {
+				return 0, isNewMap, err
+			}
 		}
 
 		return fd, isNewMap, nil
