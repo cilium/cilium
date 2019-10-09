@@ -1,0 +1,64 @@
+// Copyright 2019 Authors of Cilium
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package probe
+
+import (
+	"fmt"
+	"unsafe"
+
+	"github.com/cilium/cilium/pkg/bpf"
+)
+
+type probeKey struct {
+	Prefixlen uint32
+	Key       uint32
+}
+
+type probeValue struct {
+	Value uint32
+}
+
+func (p *probeKey) String() string             { return fmt.Sprintf("key=%d", p.Key) }
+func (p *probeKey) GetKeyPtr() unsafe.Pointer  { return unsafe.Pointer(p) }
+func (p *probeKey) NewValue() bpf.MapValue     { return &probeValue{} }
+func (p *probeKey) DeepCopyMapKey() bpf.MapKey { return &probeKey{p.Prefixlen, p.Key} }
+
+func (p *probeValue) String() string                 { return fmt.Sprintf("value=%d", p.Value) }
+func (p *probeValue) GetValuePtr() unsafe.Pointer    { return unsafe.Pointer(p) }
+func (p *probeValue) DeepCopyMapValue() bpf.MapValue { return &probeValue{p.Value} }
+
+// HaveFullLPM tests whether kernel supports fully functioning BPF LPM map
+// with proper bpf.GetNextKey() traversal. Needs 4.16 or higher.
+func HaveFullLPM() bool {
+	m := bpf.NewMap("cilium_test", bpf.MapTypeLPMTrie,
+		&probeKey{}, int(unsafe.Sizeof(probeKey{})),
+		&probeValue{}, int(unsafe.Sizeof(probeValue{})),
+		1, bpf.BPF_F_NO_PREALLOC, 0, bpf.ConvertKeyValue).WithCache()
+	_, err := m.OpenOrCreateUnpinned()
+	defer m.Close()
+	if err != nil {
+		return false
+	}
+	err = bpf.UpdateElement(m.GetFd(), unsafe.Pointer(&probeKey{}),
+		unsafe.Pointer(&probeValue{}), bpf.BPF_ANY)
+	if err != nil {
+		return false
+	}
+	err = bpf.GetNextKey(m.GetFd(), nil, unsafe.Pointer(&probeKey{}))
+	if err != nil {
+		return false
+	}
+	return true
+}
