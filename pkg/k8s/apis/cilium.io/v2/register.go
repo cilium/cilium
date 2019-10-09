@@ -50,7 +50,7 @@ const (
 	// CNPKindDefinition is the kind name for Cilium Network Policy
 	CNPKindDefinition = "CiliumNetworkPolicy"
 
-	// CNPKindDefinition is the kind name for Cilium Global Network Policy
+	// CGNPKindDefinition is the kind name for Cilium Global Network Policy
 	CGNPKindDefinition = "CiliumGlobalNetworkPolicy"
 
 	fqdnNameRegex = `^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])\.?$`
@@ -235,7 +235,7 @@ func createCGNPCRD(clientset apiextensionsclient.Interface) error {
 		},
 	}
 
-	return createUpdateCRD(clientset, "CiliumNetworkPolicy/v2", res)
+	return createUpdateCRD(clientset, "CiliumGlobalNetworkPolicy/v2", res)
 }
 
 // createCEPCRD creates and updates the CiliumEndpoint CRD. It should be called

@@ -269,6 +269,170 @@ type CiliumNetworkPolicyList struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+// CiliumGlobalNetworkPolicy is a Kubernetes third-party resource with an extended version
+// of CiliumNetworkPolicy which is cluster scoped rather than namespace scoped.
+type CiliumGlobalNetworkPolicy struct {
+	// +k8s:openapi-gen=false
+	metav1.TypeMeta `json:",inline"`
+	// +k8s:openapi-gen=false
+	metav1.ObjectMeta `json:"metadata"`
+
+	// Spec is the desired Cilium specific rule specification.
+	Spec *api.Rule `json:"spec,omitempty"`
+
+	// Specs is a list of desired Cilium specific rule specification.
+	Specs api.Rules `json:"specs,omitempty"`
+
+	// Status is the status of the Cilium policy rule
+	// +optional
+	Status CiliumNetworkPolicyStatus `json:"status"`
+}
+
+func (r *CiliumGlobalNetworkPolicy) String() string {
+	result := ""
+	result += fmt.Sprintf("TypeMeta: %s, ", r.TypeMeta.String())
+	result += fmt.Sprintf("ObjectMeta: %s, ", r.ObjectMeta.String())
+	if r.Spec != nil {
+		result += fmt.Sprintf("Spec: %v", *(r.Spec))
+	}
+	if r.Specs != nil {
+		result += fmt.Sprintf("Specs: %v", r.Specs)
+	}
+	result += fmt.Sprintf("Status: %v", r.Status)
+	return result
+}
+
+// GetPolicyStatus returns the CiliumNetworkPolicyNodeStatus corresponding to
+// nodeName in the provided CiliumGlobalNetworkPolicy. If Nodes within the rule's
+// Status is nil, returns an empty CiliumNetworkPolicyNodeStatus.
+func (r *CiliumGlobalNetworkPolicy) GetPolicyStatus(nodeName string) CiliumNetworkPolicyNodeStatus {
+	if r.Status.Nodes == nil {
+		return CiliumNetworkPolicyNodeStatus{}
+	}
+	return r.Status.Nodes[nodeName]
+}
+
+// SetPolicyStatus sets the given policy status for the given nodes' map
+func (r *CiliumGlobalNetworkPolicy) SetPolicyStatus(nodeName string, cnpns CiliumNetworkPolicyNodeStatus) {
+	if r.Status.Nodes == nil {
+		r.Status.Nodes = map[string]CiliumNetworkPolicyNodeStatus{}
+	}
+	r.Status.Nodes[nodeName] = cnpns
+}
+
+// SetDerivedPolicyStatus set the derivative policy status for the given
+// derivative policy name.
+func (r *CiliumGlobalNetworkPolicy) SetDerivedPolicyStatus(derivativePolicyName string, status CiliumNetworkPolicyNodeStatus) {
+	if r.Status.DerivativePolicies == nil {
+		r.Status.DerivativePolicies = map[string]CiliumNetworkPolicyNodeStatus{}
+	}
+	r.Status.DerivativePolicies[derivativePolicyName] = status
+}
+
+// SpecEquals returns true if the spec and specs metadata is the sa
+func (r *CiliumGlobalNetworkPolicy) SpecEquals(o *CiliumGlobalNetworkPolicy) bool {
+	if o == nil {
+		return r == nil
+	}
+	return reflect.DeepEqual(r.Spec, o.Spec) &&
+		reflect.DeepEqual(r.Specs, o.Specs)
+}
+
+// AnnotationsEquals returns true if ObjectMeta.Annotations of each
+// CiliumGlobalNetworkPolicy are equivalent (i.e., they contain equivalent key-value
+// pairs).
+func (r *CiliumGlobalNetworkPolicy) AnnotationsEquals(o *CiliumGlobalNetworkPolicy) bool {
+	if o == nil {
+		return r == nil
+	}
+	return reflect.DeepEqual(r.ObjectMeta.Annotations, o.ObjectMeta.Annotations)
+}
+
+// Parse parses a CiliumGlobalNetworkPolicy and returns a list of cilium policy
+// rules. This is similar to the parse function used in CiliumNetworkPolicy with
+// the only difference that since the CRD is cluster scoped we don't send any namespace
+// here.
+func (r *CiliumGlobalNetworkPolicy) Parse() (api.Rules, error) {
+	if r.ObjectMeta.Name == "" {
+		return nil, fmt.Errorf("CiliumGlobalNetworkPolicy must have name")
+	}
+
+	name := r.ObjectMeta.Name
+	uid := r.ObjectMeta.UID
+
+	retRules := api.Rules{}
+
+	if r.Spec != nil {
+		if err := r.Spec.Sanitize(); err != nil {
+			return nil, fmt.Errorf("Invalid CiliumGlobalNetworkPolicy spec: %s", err)
+
+		}
+		// CiliumGlobalNetworkPolicy is cluster scoped CRD so does not belong to a
+		// particular namespace.
+		cr := k8sCiliumUtils.ParseToCiliumRule("", name, uid, r.Spec)
+		retRules = append(retRules, cr)
+	}
+	if r.Specs != nil {
+		for _, rule := range r.Specs {
+			if err := rule.Sanitize(); err != nil {
+				return nil, fmt.Errorf("Invalid CiliumGlobalNetworkPolicy specs: %s", err)
+
+			}
+			cr := k8sCiliumUtils.ParseToCiliumRule("", name, uid, rule)
+			retRules = append(retRules, cr)
+		}
+	}
+
+	return retRules, nil
+}
+
+// GetControllerName returns the unique name for the controller manager.
+func (r *CiliumGlobalNetworkPolicy) GetControllerName() string {
+	name := r.ObjectMeta.GetName()
+	return fmt.Sprintf("%s (v2 %s)", k8sConst.CtrlPrefixPolicyStatus, name)
+}
+
+// GetIdentityLabels returns all rule labels in the CiliumNetworkPolicy.
+func (r *CiliumGlobalNetworkPolicy) GetIdentityLabels() labels.LabelArray {
+	name := r.ObjectMeta.Name
+	uid := r.ObjectMeta.UID
+	return k8sCiliumUtils.GetPolicyLabels("", name, uid,
+		k8sCiliumUtils.ResourceTypeCiliumNetworkPolicy)
+}
+
+// RequiresDerivative return true if the CNP has any rule that will create a new
+// derivative rule.
+func (r *CiliumGlobalNetworkPolicy) RequiresDerivative() bool {
+	if r.Spec != nil {
+		if r.Spec.RequiresDerivative() {
+			return true
+		}
+	}
+	if r.Specs != nil {
+		for _, rule := range r.Specs {
+			if rule.RequiresDerivative() {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// CiliumGlobalNetworkPolicyList is a list of CiliumGlobalNetworkPolicy objects
+// +k8s:openapi-gen=false
+type CiliumGlobalNetworkPolicyList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	// Items is a list of CiliumGLobalNetworkPolicy
+	Items []CiliumGlobalNetworkPolicy `json:"items"`
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 // CiliumEndpoint is the status of a Cilium policy rule
 // +k8s:openapi-gen=false
 type CiliumEndpoint struct {

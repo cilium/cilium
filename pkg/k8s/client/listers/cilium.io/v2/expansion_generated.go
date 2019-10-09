@@ -24,6 +24,14 @@ type CiliumEndpointListerExpansion interface{}
 // CiliumEndpointNamespaceLister.
 type CiliumEndpointNamespaceListerExpansion interface{}
 
+// CiliumGlobalNetworkPolicyListerExpansion allows custom methods to be added to
+// CiliumGlobalNetworkPolicyLister.
+type CiliumGlobalNetworkPolicyListerExpansion interface{}
+
+// CiliumGlobalNetworkPolicyNamespaceListerExpansion allows custom methods to be added to
+// CiliumGlobalNetworkPolicyNamespaceLister.
+type CiliumGlobalNetworkPolicyNamespaceListerExpansion interface{}
+
 // CiliumIdentityListerExpansion allows custom methods to be added to
 // CiliumIdentityLister.
 type CiliumIdentityListerExpansion interface{}

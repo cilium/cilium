@@ -30,6 +30,10 @@ func (c *FakeCiliumV2) CiliumEndpoints(namespace string) v2.CiliumEndpointInterf
 	return &FakeCiliumEndpoints{c, namespace}
 }
 
+func (c *FakeCiliumV2) CiliumGlobalNetworkPolicies(namespace string) v2.CiliumGlobalNetworkPolicyInterface {
+	return &FakeCiliumGlobalNetworkPolicies{c, namespace}
+}
+
 func (c *FakeCiliumV2) CiliumIdentities() v2.CiliumIdentityInterface {
 	return &FakeCiliumIdentities{c}
 }
