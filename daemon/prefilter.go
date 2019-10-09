@@ -84,3 +84,34 @@ func (h *patchPrefilter) Handle(params PatchPrefilterParams) middleware.Responde
 	}
 	return NewPatchPrefilterOK()
 }
+
+type deletePrefilter struct {
+	d *Daemon
+}
+
+// NewDeletePrefilterHandler returns new patch handler for api
+func NewDeletePrefilterHandler(d *Daemon) DeletePrefilterHandler {
+	return &deletePrefilter{d: d}
+}
+
+func (h *deletePrefilter) Handle(params DeletePrefilterParams) middleware.Responder {
+	var list []net.IPNet
+	spec := params.PrefilterSpec
+	if h.d.preFilter == nil {
+		msg := fmt.Errorf("Prefilter is not enabled in daemon")
+		return api.Error(DeletePrefilterFailureCode, msg)
+	}
+	for _, cidrStr := range spec.Deny {
+		_, cidr, err := net.ParseCIDR(cidrStr)
+		if err != nil {
+			msg := fmt.Errorf("Invalid CIDR string %s", cidrStr)
+			return api.Error(DeletePrefilterInvalidCIDRCode, msg)
+		}
+		list = append(list, *cidr)
+	}
+	err := h.d.preFilter.Delete(spec.Revision, list)
+	if err != nil {
+		return api.Error(DeletePrefilterFailureCode, err)
+	}
+	return NewDeletePrefilterOK()
+}
