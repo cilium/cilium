@@ -304,27 +304,30 @@ func (c *CNPStatusUpdateContext) update(cnp *types.SlimCNP, enforcing, ok bool, 
 	// this as part of the status.
 	delete(annotations, v1.LastAppliedConfigAnnotation)
 
+	cnpns = createCNPNodeStatus(enforcing, ok, cnpError, rev, annotations)
+
+	ns := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)
+
+	return updateStatusesByCapabilities(c.CiliumNPClient, capabilities, cnp, ns, cnp.GetName(), map[string]cilium_v2.CiliumNetworkPolicyNodeStatus{c.NodeName: cnpns})
+}
+
+func createCNPNodeStatus(enforcing, ok bool, cnpError error, rev uint64, annotations map[string]string) cilium_v2.CiliumNetworkPolicyNodeStatus {
 	if cnpError != nil {
-		cnpns = cilium_v2.CiliumNetworkPolicyNodeStatus{
+		return cilium_v2.CiliumNetworkPolicyNodeStatus{
 			Enforcing:   enforcing,
 			Error:       cnpError.Error(),
 			OK:          ok,
 			LastUpdated: cilium_v2.NewTimestamp(),
 			Annotations: annotations,
 		}
-	} else {
-		cnpns = cilium_v2.CiliumNetworkPolicyNodeStatus{
-			Enforcing:   enforcing,
-			Revision:    rev,
-			OK:          ok,
-			LastUpdated: cilium_v2.NewTimestamp(),
-			Annotations: annotations,
-		}
 	}
-
-	ns := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)
-
-	return updateStatusesByCapabilities(c.CiliumNPClient, capabilities, cnp, ns, cnp.GetName(), map[string]cilium_v2.CiliumNetworkPolicyNodeStatus{c.NodeName: cnpns})
+	return cilium_v2.CiliumNetworkPolicyNodeStatus{
+		Enforcing:   enforcing,
+		Revision:    rev,
+		OK:          ok,
+		LastUpdated: cilium_v2.NewTimestamp(),
+		Annotations: annotations,
+	}
 }
 
 // nodeStatuses map will be updated in this function; if non-empty, it will contain
