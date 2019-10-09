@@ -272,7 +272,6 @@ func (c *CNPStatusUpdateContext) update(cnp *types.SlimCNP, enforcing, ok bool, 
 	var (
 		cnpns       cilium_v2.CiliumNetworkPolicyNodeStatus
 		annotations map[string]string
-		err         error
 	)
 
 	capabilities := k8sversion.Capabilities()
@@ -325,6 +324,11 @@ func (c *CNPStatusUpdateContext) update(cnp *types.SlimCNP, enforcing, ok bool, 
 
 	ns := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)
 
+	return updateStatusByCapabilities(capabilities, c, cnp, ns, cnpns)
+}
+
+func updateStatusByCapabilities(capabilities k8sversion.ServerCapabilities, c *CNPStatusUpdateContext, cnp *types.SlimCNP, ns string, cnpns cilium_v2.CiliumNetworkPolicyNodeStatus) error {
+	var err error
 	switch {
 	case capabilities.Patch:
 		// This is a JSON Patch [RFC 6902] used to create the `/status/nodes`
