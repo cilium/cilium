@@ -40,28 +40,11 @@ func (c *Client) PatchPrefilter(spec *models.PrefilterSpec) (*models.Prefilter, 
 }
 
 // DeletePrefilter deletes a list of CIDR prefixes
-func (c *Client) DeletePrefilter(spec *models.PrefilterSpec) error {
-	current, err := c.GetPrefilter()
+func (c *Client) DeletePrefilter(spec *models.PrefilterSpec) (*models.Prefilter, error) {
+	params := prefilter.NewDeletePrefilterParams().WithPrefilterSpec(spec).WithTimeout(api.ClientTimeout)
+	resp, err := c.Prefilter.DeletePrefilter(params)
 	if err != nil {
-		return Hint(err)
+		return nil, Hint(err)
 	}
-
-	deleteSet := map[string]bool{}
-	keepList := []string{}
-	for _, delCIDR := range spec.Deny {
-		deleteSet[delCIDR] = true
-	}
-
-	if current.Status != nil && current.Status.Realized != nil {
-		for _, keepCIDR := range current.Status.Realized.Deny {
-			if !deleteSet[keepCIDR] {
-				keepList = append(keepList, keepCIDR)
-			}
-		}
-	}
-
-	update := current.Status.Realized
-	update.Deny = keepList
-	_, err = c.PatchPrefilter(update)
-	return Hint(err)
+	return resp.Payload, nil
 }
