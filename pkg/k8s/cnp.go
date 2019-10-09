@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
 
 	"github.com/sirupsen/logrus"
@@ -148,7 +149,20 @@ func (c *CNPStatusUpdateContext) prepareUpdate(cnp *types.SlimCNP, scopedLog *lo
 	return
 }
 
-func (c *CNPStatusUpdateContext) updateStatus(cnp *types.SlimCNP, rev uint64, policyImportErr, waitForEPsErr error) (err error) {
+func (c *CNPStatusUpdateContext) updateStatus(ctx context.Context, cnp *types.SlimCNP, rev uint64, policyImportErr, waitForEPsErr error) (err error) {
+	var m *UpdateMetadata
+
+	if option.Config.K8sEventHandover {
+		m = &UpdateMetadata{
+			typ: KVStore,
+			ctx: ctx,
+		}
+	} else {
+		m = &UpdateMetadata{
+			typ: K8sAPIServer,
+		}
+	}
+
 	// Update the status of whether the rule is enforced on this node.  If
 	// we are unable to parse the CNP retrieved from the store, or if
 	// endpoints did not reach the desired policy revision after 30
@@ -157,12 +171,12 @@ func (c *CNPStatusUpdateContext) updateStatus(cnp *types.SlimCNP, rev uint64, po
 		// OK is false here because the policy wasn't imported into
 		// cilium on this node; since it wasn't imported, it also isn't
 		// enforced.
-		err = c.update(&UpdateMetadata{typ: K8sAPIServer}, cnp, false, false, policyImportErr, rev, cnp.Annotations)
+		err = c.update(m, cnp, false, false, policyImportErr, rev, cnp.Annotations)
 	} else {
 		// If the deadline by the above context, then not all endpoints
 		// are enforcing the given policy, and waitForEpsErr will be
 		// non-nil.
-		err = c.update(&UpdateMetadata{typ: K8sAPIServer}, cnp, waitForEPsErr == nil, true, waitForEPsErr, rev, cnp.Annotations)
+		err = c.update(m, cnp, waitForEPsErr == nil, true, waitForEPsErr, rev, cnp.Annotations)
 	}
 
 	return
@@ -225,7 +239,7 @@ retryLoop:
 		// In case of a CNP parse error will update the status in the CNP.
 		serverRule, err = c.prepareUpdate(cnp, scopedLog)
 		if IsErrParse(err) {
-			statusErr := c.updateStatus(serverRule, rev, err, waitForEPsErr)
+			statusErr := c.updateStatus(ctx, serverRule, rev, err, waitForEPsErr)
 			if statusErr != nil {
 				scopedLog.WithError(statusErr).Debug("CNP status for invalid rule cannot be updated")
 			}
@@ -234,7 +248,7 @@ retryLoop:
 			return err
 		}
 
-		err = c.updateStatus(serverRule, rev, policyImportErr, waitForEPsErr)
+		err = c.updateStatus(ctx, serverRule, rev, policyImportErr, waitForEPsErr)
 		scopedLog.WithError(err).WithField("status", serverRule.Status).Debug("CNP status update result from apiserver")
 
 		switch {
@@ -277,6 +291,13 @@ var CNPStatusesPath = path.Join(kvstore.BaseKeyPrefix, "state", "cnpstatuses", "
 
 func formatKeyForKvstore(namespace, name, nodeName string) string {
 	return path.Join(CNPStatusesPath, namespace, name, nodeName)
+}
+
+// DeleteFromKvstore deletes the key corresponding to NodeStatus for this node
+// for cnp from the kvstore.
+func (c *CNPStatusUpdateContext) DeleteFromKvstore(cnp *types.SlimCNP) error {
+	key := formatKeyForKvstore(cnp.Namespace, cnp.Name, node.GetName())
+	return kvstore.Delete(key)
 }
 
 // UpdateMetadata contains information about how the update for the NodeStatus

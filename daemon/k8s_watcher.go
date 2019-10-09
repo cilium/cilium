@@ -1314,6 +1314,12 @@ func (d *Daemon) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient clien
 			DoFunc: func(ctx context.Context) error {
 				return updateContext.UpdateStatus(ctx, cnp, meta.revision, meta.policyImportError)
 			},
+			StopFunc: func(ctx context.Context) error {
+				if option.Config.K8sEventHandover {
+					return updateContext.DeleteFromKvstore(cnp)
+				}
+				return nil
+			},
 		})
 
 }
@@ -1366,6 +1372,12 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ci
 			controller.ControllerParams{
 				DoFunc: func(ctx context.Context) error {
 					return updateContext.UpdateStatus(ctx, cnp, rev, policyImportErr)
+				},
+				StopFunc: func(ctx context.Context) error {
+					if option.Config.K8sEventHandover {
+						return updateContext.DeleteFromKvstore(cnp)
+					}
+					return nil
 				},
 			},
 		)
