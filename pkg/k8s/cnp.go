@@ -324,10 +324,10 @@ func (c *CNPStatusUpdateContext) update(cnp *types.SlimCNP, enforcing, ok bool, 
 
 	ns := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)
 
-	return updateStatusByCapabilities(c.CiliumNPClient, capabilities, cnp, ns, c.NodeName, cnpns)
+	return updateStatusByCapabilities(c.CiliumNPClient, capabilities, cnp, ns, cnp.GetName(), c.NodeName, cnpns)
 }
 
-func updateStatusByCapabilities(client clientset.Interface, capabilities k8sversion.ServerCapabilities, cnp *types.SlimCNP, ns, nodeName string, cnpns cilium_v2.CiliumNetworkPolicyNodeStatus) error {
+func updateStatusByCapabilities(client clientset.Interface, capabilities k8sversion.ServerCapabilities, cnp *types.SlimCNP, ns, name, nodeName string, cnpns cilium_v2.CiliumNetworkPolicyNodeStatus) error {
 	var err error
 	switch {
 	case capabilities.Patch:
@@ -365,7 +365,7 @@ func updateStatusByCapabilities(client clientset.Interface, capabilities k8svers
 			return err
 		}
 
-		_, err = client.CiliumV2().CiliumNetworkPolicies(ns).Patch(cnp.GetName(), k8sTypes.JSONPatchType, createStatusAndNodePatchJSON, "status")
+		_, err = client.CiliumV2().CiliumNetworkPolicies(ns).Patch(name, k8sTypes.JSONPatchType, createStatusAndNodePatchJSON, "status")
 		if err != nil {
 			// If it fails it means the test from the previous patch failed
 			// so we can safely replace this node in the CNP status.
@@ -380,7 +380,7 @@ func updateStatusByCapabilities(client clientset.Interface, capabilities k8svers
 			if err != nil {
 				return err
 			}
-			_, err = client.CiliumV2().CiliumNetworkPolicies(ns).Patch(cnp.GetName(), k8sTypes.JSONPatchType, createStatusAndNodePatchJSON, "status")
+			_, err = client.CiliumV2().CiliumNetworkPolicies(ns).Patch(name, k8sTypes.JSONPatchType, createStatusAndNodePatchJSON, "status")
 		}
 	case capabilities.UpdateStatus:
 		// k8s < 1.13 as minimal support for JSON patch where kube-apiserver
