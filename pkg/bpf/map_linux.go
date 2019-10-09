@@ -414,7 +414,7 @@ func (m *Map) OpenParallel() (bool, error) {
 		}
 	}
 
-	return m.openOrCreate()
+	return m.openOrCreate(true)
 }
 
 // OpenOrCreate attempts to open the Map, or if it does not yet exist, create
@@ -442,10 +442,19 @@ func (m *Map) OpenOrCreate() (bool, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	return m.openOrCreate()
+	return m.openOrCreate(true)
 }
 
-func (m *Map) openOrCreate() (bool, error) {
+// OpenOrCreateUnpinned is similar to OpenOrCreate (see above) but without
+// pinning the map to the file system if it had to be created.
+func (m *Map) OpenOrCreateUnpinned() (bool, error) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	return m.openOrCreate(false)
+}
+
+func (m *Map) openOrCreate(pin bool) (bool, error) {
 	if m.fd != 0 {
 		return false, nil
 	}
@@ -462,7 +471,7 @@ func (m *Map) openOrCreate() (bool, error) {
 
 	mapType := GetMapType(m.MapType)
 	flags := m.Flags | GetPreAllocateMapFlags(mapType)
-	fd, isNew, err := OpenOrCreateMap(m.path, int(mapType), m.KeySize, m.ValueSize, m.MaxEntries, flags, m.InnerID)
+	fd, isNew, err := OpenOrCreateMap(m.path, int(mapType), m.KeySize, m.ValueSize, m.MaxEntries, flags, m.InnerID, pin)
 	if err != nil {
 		return false, err
 	}
