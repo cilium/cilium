@@ -21,6 +21,7 @@ import (
 	"os/exec"
 	"path"
 	"syscall"
+	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/lock"
@@ -277,13 +278,52 @@ func ProbePreFilter(device, mode string) error {
 	return nil
 }
 
+type probeKey struct {
+	Prefixlen uint32
+	Key       uint32
+}
+
+type probeValue struct {
+	Value uint32
+}
+
+func (p *probeKey) String() string             { return fmt.Sprintf("key=%d", p.Key) }
+func (p *probeKey) GetKeyPtr() unsafe.Pointer  { return unsafe.Pointer(p) }
+func (p *probeKey) NewValue() bpf.MapValue     { return &probeValue{} }
+func (p *probeKey) DeepCopyMapKey() bpf.MapKey { return &probeKey{p.Prefixlen, p.Key} }
+
+func (p *probeValue) String() string                 { return fmt.Sprintf("value=%d", p.Value) }
+func (p *probeValue) GetValuePtr() unsafe.Pointer    { return unsafe.Pointer(p) }
+func (p *probeValue) DeepCopyMapValue() bpf.MapValue { return &probeValue{p.Value} }
+
+func ProbePreFilterDyn() bool {
+	m := bpf.NewMap("cilium_test", bpf.MapTypeLPMTrie,
+		&probeKey{}, int(unsafe.Sizeof(probeKey{})),
+		&probeValue{}, int(unsafe.Sizeof(probeValue{})),
+		1, bpf.BPF_F_NO_PREALLOC, 0, bpf.ConvertKeyValue).WithCache()
+	_, err := m.OpenOrCreateUnpinned()
+	defer m.Close()
+	if err != nil {
+		return false
+	}
+	err = bpf.UpdateElement(m.GetFd(), unsafe.Pointer(&probeKey{}),
+		unsafe.Pointer(&probeValue{}), bpf.BPF_ANY)
+	if err != nil {
+		return false
+	}
+	err = bpf.GetNextKey(m.GetFd(), nil, unsafe.Pointer(&probeKey{}))
+	if err != nil {
+		return false
+	}
+	return true
+}
+
 // NewPreFilter returns prefilter handle
 func NewPreFilter() (*PreFilter, error) {
-	// dyn{4,6} officially disabled for now due to missing
-	// dump (get_next_key) from kernel side.
+	haveDyn := ProbePreFilterDyn()
 	c := preFilterConfig{
-		dyn4Enabled: false,
-		dyn6Enabled: false,
+		dyn4Enabled: haveDyn,
+		dyn6Enabled: haveDyn,
 		fix4Enabled: true,
 		fix6Enabled: true,
 	}
