@@ -531,6 +531,8 @@ func UpdateStatusesByCapabilities(client clientset.Interface, capabilities k8sve
 	}
 	// Updating succeeded - the updated map can be 'emptied' of updates that
 	// we need to propagate.
-	nodeStatuses = map[string]cilium_v2.CiliumNetworkPolicyNodeStatus{}
+	for k := range nodeStatuses {
+		delete(nodeStatuses, k)
+	}
 	return nil
 }
