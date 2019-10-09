@@ -324,10 +324,10 @@ func (c *CNPStatusUpdateContext) update(cnp *types.SlimCNP, enforcing, ok bool, 
 
 	ns := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)
 
-	return updateStatusByCapabilities(c.CiliumNPClient, capabilities, c, cnp, ns, c.NodeName, cnpns)
+	return updateStatusByCapabilities(c.CiliumNPClient, capabilities, cnp, ns, c.NodeName, cnpns)
 }
 
-func updateStatusByCapabilities(client clientset.Interface, capabilities k8sversion.ServerCapabilities, c *CNPStatusUpdateContext, cnp *types.SlimCNP, ns, nodeName string, cnpns cilium_v2.CiliumNetworkPolicyNodeStatus) error {
+func updateStatusByCapabilities(client clientset.Interface, capabilities k8sversion.ServerCapabilities, cnp *types.SlimCNP, ns, nodeName string, cnpns cilium_v2.CiliumNetworkPolicyNodeStatus) error {
 	var err error
 	switch {
 	case capabilities.Patch:
