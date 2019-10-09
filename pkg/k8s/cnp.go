@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path"
 	"time"
 
 	"github.com/cilium/cilium/pkg/backoff"
@@ -27,8 +28,10 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/types"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/spanstat"
 
 	"github.com/sirupsen/logrus"
@@ -154,12 +157,12 @@ func (c *CNPStatusUpdateContext) updateStatus(cnp *types.SlimCNP, rev uint64, po
 		// OK is false here because the policy wasn't imported into
 		// cilium on this node; since it wasn't imported, it also isn't
 		// enforced.
-		err = c.update(cnp, false, false, policyImportErr, rev, cnp.Annotations)
+		err = c.update(&UpdateMetadata{typ: K8sAPIServer}, cnp, false, false, policyImportErr, rev, cnp.Annotations)
 	} else {
 		// If the deadline by the above context, then not all endpoints
 		// are enforcing the given policy, and waitForEpsErr will be
 		// non-nil.
-		err = c.update(cnp, waitForEPsErr == nil, true, waitForEPsErr, rev, cnp.Annotations)
+		err = c.update(&UpdateMetadata{typ: K8sAPIServer}, cnp, waitForEPsErr == nil, true, waitForEPsErr, rev, cnp.Annotations)
 	}
 
 	return
@@ -268,11 +271,51 @@ retryLoop:
 	return err
 }
 
-func (c *CNPStatusUpdateContext) update(cnp *types.SlimCNP, enforcing, ok bool, cnpError error, rev uint64, cnpAnnotations map[string]string) error {
+// CNPStatusesPath is the prefix in the kvstore which will contain all keys
+// representing CNPStatus state for all nodes in the cluster.
+var CNPStatusesPath = path.Join(kvstore.BaseKeyPrefix, "state", "cnpstatuses", "v1")
+
+func formatKeyForKvstore(namespace, name, nodeName string) string {
+	return path.Join(CNPStatusesPath, namespace, name, nodeName)
+}
+
+// UpdateMetadata contains information about how the update for the NodeStatus
+// in a CNP will be propagated.
+type UpdateMetadata struct {
+	typ UpdateType
+	ctx context.Context
+}
+
+// UpdateType encodes the type of an update of CNP NodeStatus.
+type UpdateType string
+
+const (
+	// K8sAPIServer specifies that the update for a CNPNodeStatus will be sent
+	// to kube-apiserver.
+	K8sAPIServer = UpdateType("K8sAPIServer")
+
+	// Kvstore specifies that the update for a CNPNodeStatus will be sent
+	// to the kvstore.
+	KVStore = UpdateType("KVStore")
+)
+
+func (c *CNPStatusUpdateContext) update(m *UpdateMetadata, cnp *types.SlimCNP, enforcing, ok bool, cnpError error, rev uint64, cnpAnnotations map[string]string) error {
 	var (
 		cnpns       cilium_v2.CiliumNetworkPolicyNodeStatus
 		annotations map[string]string
 	)
+
+	switch m.typ {
+	case KVStore:
+		select {
+		case <-kvstore.Client().Connected():
+		case <-m.ctx.Done():
+			return m.ctx.Err()
+		}
+	case K8sAPIServer:
+	default:
+		return fmt.Errorf("unknown UpdateType: %s", m.typ)
+	}
 
 	capabilities := k8sversion.Capabilities()
 
@@ -306,9 +349,26 @@ func (c *CNPStatusUpdateContext) update(cnp *types.SlimCNP, enforcing, ok bool, 
 
 	cnpns = createCNPNodeStatus(enforcing, ok, cnpError, rev, annotations)
 
-	ns := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)
+	switch m.typ {
+	case K8sAPIServer:
+		ns := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)
+		return updateStatusesByCapabilities(c.CiliumNPClient, capabilities, cnp, ns, cnp.GetName(), map[string]cilium_v2.CiliumNetworkPolicyNodeStatus{c.NodeName: cnpns})
+	case KVStore:
+		marshaledVal, err := json.Marshal(cnpns)
+		if err != nil {
+			return err
+		}
 
-	return updateStatusesByCapabilities(c.CiliumNPClient, capabilities, cnp, ns, cnp.GetName(), map[string]cilium_v2.CiliumNetworkPolicyNodeStatus{c.NodeName: cnpns})
+		key := formatKeyForKvstore(cnp.Namespace, cnp.Name, node.GetName())
+		log.WithFields(logrus.Fields{
+			"key":   key,
+			"value": marshaledVal,
+		}).Debug("updating CNPStatus in kvstore")
+		_, err = kvstore.Client().UpdateIfDifferent(m.ctx, key, marshaledVal, true)
+		return err
+	default:
+		return fmt.Errorf("unknown K8s")
+	}
 }
 
 func createCNPNodeStatus(enforcing, ok bool, cnpError error, rev uint64, annotations map[string]string) cilium_v2.CiliumNetworkPolicyNodeStatus {

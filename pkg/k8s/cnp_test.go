@@ -322,7 +322,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 	}
 
 	cnpns := wantedCNPS.Nodes["k8s1"]
-	err = updateContext.update(cnp, cnpns.Enforcing, cnpns.OK, err, cnpns.Revision, cnpns.Annotations)
+	err = updateContext.update(&UpdateMetadata{typ: K8sAPIServer}, cnp, cnpns.Enforcing, cnpns.OK, err, cnpns.Revision, cnpns.Annotations)
 	c.Assert(err, IsNil)
 
 	if integrationTest {
@@ -336,7 +336,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 	}
 
 	cnpns = wantedCNPS.Nodes["k8s2"]
-	err = updateContext.update(cnp, cnpns.Enforcing, cnpns.OK, err, cnpns.Revision, cnpns.Annotations)
+	err = updateContext.update(&UpdateMetadata{typ: K8sAPIServer}, cnp, cnpns.Enforcing, cnpns.OK, err, cnpns.Revision, cnpns.Annotations)
 	c.Assert(err, IsNil)
 
 	if integrationTest {
@@ -370,7 +370,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 	}
 
 	cnpns = wantedCNPS.Nodes["k8s1"]
-	err = updateContext.update(cnp, cnpns.Enforcing, cnpns.OK, err, cnpns.Revision, cnpns.Annotations)
+	err = updateContext.update(&UpdateMetadata{typ: K8sAPIServer}, cnp, cnpns.Enforcing, cnpns.OK, err, cnpns.Revision, cnpns.Annotations)
 	c.Assert(err, IsNil)
 
 	if integrationTest {
@@ -600,7 +600,7 @@ func (k *K8sIntegrationSuite) benchmarkUpdateCNPNodeStatus(integrationTest bool,
 					CiliumNPClient: ciliumNPClients[i],
 					NodeName:       "k8s" + strconv.Itoa(i),
 				}
-				err := updateContext.update(cnp, true, true, nil, uint64(i), nil)
+				err := updateContext.update(&UpdateMetadata{typ: K8sAPIServer}, cnp, true, true, nil, uint64(i), nil)
 				c.Assert(err, IsNil)
 				wg.Done()
 			}
