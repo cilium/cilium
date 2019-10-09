@@ -26,6 +26,10 @@ type FakeCiliumV2 struct {
 	*testing.Fake
 }
 
+func (c *FakeCiliumV2) CiliumClusterwideNetworkPolicies() v2.CiliumClusterwideNetworkPolicyInterface {
+	return &FakeCiliumClusterwideNetworkPolicies{c}
+}
+
 func (c *FakeCiliumV2) CiliumEndpoints(namespace string) v2.CiliumEndpointInterface {
 	return &FakeCiliumEndpoints{c, namespace}
 }

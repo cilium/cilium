@@ -16,6 +16,8 @@
 
 package v2
 
+type CiliumClusterwideNetworkPolicyExpansion interface{}
+
 type CiliumEndpointExpansion interface{}
 
 type CiliumIdentityExpansion interface{}
