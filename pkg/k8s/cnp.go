@@ -304,31 +304,17 @@ func (c *CNPStatusUpdateContext) update(cnp *types.SlimCNP, enforcing, ok bool, 
 	// this as part of the status.
 	delete(annotations, v1.LastAppliedConfigAnnotation)
 
-	if cnpError != nil {
-		cnpns = cilium_v2.CiliumNetworkPolicyNodeStatus{
-			Enforcing:   enforcing,
-			Error:       cnpError.Error(),
-			OK:          ok,
-			LastUpdated: cilium_v2.NewTimestamp(),
-			Annotations: annotations,
-		}
-	} else {
-		cnpns = cilium_v2.CiliumNetworkPolicyNodeStatus{
-			Enforcing:   enforcing,
-			Revision:    rev,
-			OK:          ok,
-			LastUpdated: cilium_v2.NewTimestamp(),
-			Annotations: annotations,
-		}
-	}
+	cnpns = cilium_v2.CreateCNPNodeStatus(enforcing, ok, cnpError, rev, annotations)
 
 	ns := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)
 
 	return updateStatusesByCapabilities(c.CiliumNPClient, capabilities, cnp, ns, cnp.GetName(), map[string]cilium_v2.CiliumNetworkPolicyNodeStatus{c.NodeName: cnpns})
 }
 
-// nodeStatuses map will be updated in this function; if non-empty, it will contain
-// the set of node status updates which failed / did not occur.
+// updateStatusesByCapabilities updates the status for all of the nodes in
+// nodeStatuses for the CNP. Note that the nodeStatuses map will be updated in
+// this function. After this function returns, if non-empty, it will contain the
+// set of node status updates which failed / did not occur.
 func updateStatusesByCapabilities(client clientset.Interface, capabilities k8sversion.ServerCapabilities, cnp *types.SlimCNP, ns, name string, nodeStatuses map[string]cilium_v2.CiliumNetworkPolicyNodeStatus) error {
 	var err error
 	switch {
@@ -414,8 +400,8 @@ func updateStatusesByCapabilities(client clientset.Interface, capabilities k8sve
 
 				// Patch succeeded, we can remove from the set of NodeStatuses
 				// to update.
-				for i := range nodeNamesUsed {
-					delete(nodeStatuses, nodeNamesUsed[i])
+				for _, nodeName := range nodeNamesUsed {
+					delete(nodeStatuses, nodeName)
 				}
 			}
 		}
