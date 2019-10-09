@@ -1102,6 +1102,39 @@ func init() {
           }
         }
       },
+      "delete": {
+        "tags": [
+          "prefilter"
+        ],
+        "summary": "Delete list of CIDRs",
+        "parameters": [
+          {
+            "$ref": "#/parameters/prefilter-spec"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted",
+            "schema": {
+              "$ref": "#/definitions/Prefilter"
+            }
+          },
+          "461": {
+            "description": "Invalid CIDR prefix",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "InvalidCIDR"
+          },
+          "500": {
+            "description": "Prefilter delete failed",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      },
       "patch": {
         "tags": [
           "prefilter"
@@ -4285,6 +4318,45 @@ func init() {
           },
           "500": {
             "description": "Prefilter get failed",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "prefilter"
+        ],
+        "summary": "Delete list of CIDRs",
+        "parameters": [
+          {
+            "description": "List of CIDR ranges for filter table",
+            "name": "prefilter-spec",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/PrefilterSpec"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted",
+            "schema": {
+              "$ref": "#/definitions/Prefilter"
+            }
+          },
+          "461": {
+            "description": "Invalid CIDR prefix",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "InvalidCIDR"
+          },
+          "500": {
+            "description": "Prefilter delete failed",
             "schema": {
               "$ref": "#/definitions/Error"
             },

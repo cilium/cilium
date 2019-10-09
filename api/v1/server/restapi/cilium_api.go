@@ -57,6 +57,9 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		PolicyDeletePolicyHandler: policy.DeletePolicyHandlerFunc(func(params policy.DeletePolicyParams) middleware.Responder {
 			return middleware.NotImplemented("operation PolicyDeletePolicy has not yet been implemented")
 		}),
+		PrefilterDeletePrefilterHandler: prefilter.DeletePrefilterHandlerFunc(func(params prefilter.DeletePrefilterParams) middleware.Responder {
+			return middleware.NotImplemented("operation PrefilterDeletePrefilter has not yet been implemented")
+		}),
 		ServiceDeleteServiceIDHandler: service.DeleteServiceIDHandlerFunc(func(params service.DeleteServiceIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation ServiceDeleteServiceID has not yet been implemented")
 		}),
@@ -207,6 +210,8 @@ type CiliumAPI struct {
 	IPAMDeleteIPAMIPHandler ipam.DeleteIPAMIPHandler
 	// PolicyDeletePolicyHandler sets the operation handler for the delete policy operation
 	PolicyDeletePolicyHandler policy.DeletePolicyHandler
+	// PrefilterDeletePrefilterHandler sets the operation handler for the delete prefilter operation
+	PrefilterDeletePrefilterHandler prefilter.DeletePrefilterHandler
 	// ServiceDeleteServiceIDHandler sets the operation handler for the delete service ID operation
 	ServiceDeleteServiceIDHandler service.DeleteServiceIDHandler
 	// DaemonGetClusterNodesHandler sets the operation handler for the get cluster nodes operation
@@ -358,6 +363,10 @@ func (o *CiliumAPI) Validate() error {
 
 	if o.PolicyDeletePolicyHandler == nil {
 		unregistered = append(unregistered, "policy.DeletePolicyHandler")
+	}
+
+	if o.PrefilterDeletePrefilterHandler == nil {
+		unregistered = append(unregistered, "prefilter.DeletePrefilterHandler")
 	}
 
 	if o.ServiceDeleteServiceIDHandler == nil {
@@ -625,6 +634,11 @@ func (o *CiliumAPI) initHandlerCache() {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
 	}
 	o.handlers["DELETE"]["/policy"] = policy.NewDeletePolicy(o.context, o.PolicyDeletePolicyHandler)
+
+	if o.handlers["DELETE"] == nil {
+		o.handlers["DELETE"] = make(map[string]http.Handler)
+	}
+	o.handlers["DELETE"]["/prefilter"] = prefilter.NewDeletePrefilter(o.context, o.PrefilterDeletePrefilterHandler)
 
 	if o.handlers["DELETE"] == nil {
 		o.handlers["DELETE"] = make(map[string]http.Handler)

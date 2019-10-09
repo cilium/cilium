@@ -660,6 +660,27 @@ paths:
           x-go-name: Failure
           schema:
             "$ref": "#/definitions/Error"
+    delete:
+      summary: Delete list of CIDRs
+      tags:
+      - prefilter
+      parameters:
+      - "$ref": "#/parameters/prefilter-spec"
+      responses:
+        '200':
+          description: Deleted
+          schema:
+            "$ref": "#/definitions/Prefilter"
+        '461':
+          description: Invalid CIDR prefix
+          x-go-name: InvalidCIDR
+          schema:
+            "$ref": "#/definitions/Error"
+        '500':
+          description: Prefilter delete failed
+          x-go-name: Failure
+          schema:
+            "$ref": "#/definitions/Error"
   "/debuginfo":
     get:
       summary: Retrieve information about the agent and evironment for debugging

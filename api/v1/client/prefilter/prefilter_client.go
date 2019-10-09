@@ -25,6 +25,34 @@ type Client struct {
 }
 
 /*
+DeletePrefilter deletes list of c ID rs
+*/
+func (a *Client) DeletePrefilter(params *DeletePrefilterParams) (*DeletePrefilterOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewDeletePrefilterParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "DeletePrefilter",
+		Method:             "DELETE",
+		PathPattern:        "/prefilter",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &DeletePrefilterReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*DeletePrefilterOK), nil
+
+}
+
+/*
 GetPrefilter retrieves list of c ID rs
 */
 func (a *Client) GetPrefilter(params *GetPrefilterParams) (*GetPrefilterOK, error) {
