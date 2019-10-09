@@ -63,6 +63,23 @@ pipeline {
                 sh '/usr/local/bin/cleanup || true'
             }
         }
+        stage('Make Cilium images') {
+            environment {
+                TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
+            }
+            steps {
+                sh 'cd ${TESTDIR}; ./make-images-push-to-local-registry.sh $(./print-node-ip.sh) latest'
+            }
+            post {
+                unsuccessful {
+                    script {
+                        if  (!currentBuild.displayName.contains('fail')) {
+                            currentBuild.displayName = 'building or pushing Cilium images failed ' + currentBuild.displayName
+                        }
+                    }
+                }
+            }
+        }
         stage('Preload vagrant boxes') {
             steps {
                 sh '/usr/local/bin/add_vagrant_box ${WORKSPACE}/${PROJ_PATH}/vagrant_box_defaults.rb'
@@ -91,16 +108,18 @@ pipeline {
             parallel {
                 stage('Boot vms 1.12') {
                     environment {
-                        TESTED_SUITE="1.12"
-                        GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
+                        K8S_VERSION="1.12"
+                        GOPATH="${WORKSPACE}/${K8S_VERSION}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                        KUBECONFIG="vagrant-kubeconfig"
                     }
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                         retry(3) {
-                            sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} vagrant destroy k8s1-${TESTED_SUITE} k8s2-${TESTED_SUITE} --force'
-                            sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} vagrant up k8s1-${TESTED_SUITE} k8s2-${TESTED_SUITE} --provision'
+                            dir("${TESTDIR}") {
+                                sh './vagrant-ci-start.sh'
+                            }
                         }
                     }
                     post {
@@ -115,16 +134,18 @@ pipeline {
                 }
                 stage('Boot vms 1.13') {
                     environment {
-                        TESTED_SUITE="1.13"
-                        GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
+                        K8S_VERSION="1.13"
+                        GOPATH="${WORKSPACE}/${K8S_VERSION}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                        KUBECONFIG="vagrant-kubeconfig"
                     }
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                         retry(3) {
-                            sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} vagrant destroy k8s1-${TESTED_SUITE} k8s2-${TESTED_SUITE} --force'
-                            sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} vagrant up k8s1-${TESTED_SUITE} k8s2-${TESTED_SUITE} --provision'
+                            dir("${TESTDIR}") {
+                                sh './vagrant-ci-start.sh'
+                            }
                         }
                     }
                     post {
@@ -149,12 +170,13 @@ pipeline {
             parallel {
                 stage('BDD-Test-k8s-1.12') {
                     environment {
-                        TESTED_SUITE="1.12"
-                        GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
+                        K8S_VERSION="1.12"
+                        GOPATH="${WORKSPACE}/${K8S_VERSION}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                        KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
+                        sh 'cd ${TESTDIR}; CILIUM_IMAGE=$(./print-node-ip.sh)/cilium/cilium:latest CILIUM_OPERATOR_IMAGE=$(./print-node-ip.sh)/cilium/operator:latest ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG}'
                     }
                     post {
                         always {
@@ -175,12 +197,13 @@ pipeline {
                 }
                 stage('BDD-Test-k8s-1.13') {
                     environment {
-                        TESTED_SUITE="1.13"
-                        GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
+                        K8S_VERSION="1.13"
+                        GOPATH="${WORKSPACE}/${K8S_VERSION}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                        KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
+                        sh 'cd ${TESTDIR}; CILIUM_IMAGE=$(./print-node-ip.sh)/cilium/cilium:latest CILIUM_OPERATOR_IMAGE=$(./print-node-ip.sh)/cilium/operator:latest ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG}'
                     }
                     post {
                         always {
@@ -216,16 +239,18 @@ pipeline {
             parallel {
                 stage('Boot vms 1.14') {
                     environment {
-                        TESTED_SUITE="1.14"
-                        GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
+                        K8S_VERSION="1.14"
+                        GOPATH="${WORKSPACE}/${K8S_VERSION}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                        KUBECONFIG="vagrant-kubeconfig"
                     }
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                         retry(3) {
-                            sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} vagrant destroy k8s1-${TESTED_SUITE} k8s2-${TESTED_SUITE} --force'
-                            sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} vagrant up k8s1-${TESTED_SUITE} k8s2-${TESTED_SUITE} --provision'
+                            dir("${TESTDIR}") {
+                                sh './vagrant-ci-start.sh'
+                            }
                         }
                     }
                     post {
@@ -240,16 +265,18 @@ pipeline {
                 }
                 stage('Boot vms 1.15') {
                     environment {
-                        TESTED_SUITE="1.15"
-                        GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
+                        K8S_VERSION="1.15"
+                        GOPATH="${WORKSPACE}/${K8S_VERSION}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                        KUBECONFIG="vagrant-kubeconfig"
                     }
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                         retry(3) {
-                            sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} vagrant destroy k8s1-${TESTED_SUITE} k8s2-${TESTED_SUITE} --force'
-                            sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} vagrant up k8s1-${TESTED_SUITE} k8s2-${TESTED_SUITE} --provision'
+                            dir("${TESTDIR}") {
+                                sh './vagrant-ci-start.sh'
+                            }
                         }
                     }
                     post {
@@ -274,12 +301,13 @@ pipeline {
             parallel {
                 stage('BDD-Test-k8s-1.14') {
                     environment {
-                        TESTED_SUITE="1.14"
-                        GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
+                        K8S_VERSION="1.14"
+                        GOPATH="${WORKSPACE}/${K8S_VERSION}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                        KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
+                        sh 'cd ${TESTDIR}; CILIUM_IMAGE=$(./print-node-ip.sh)/cilium/cilium:latest CILIUM_OPERATOR_IMAGE=$(./print-node-ip.sh)/cilium/operator:latest ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG}'
                     }
                     post {
                         always {
@@ -300,12 +328,13 @@ pipeline {
                 }
                 stage('BDD-Test-k8s-1.15') {
                     environment {
-                        TESTED_SUITE="1.15"
-                        GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
+                        K8S_VERSION="1.15"
+                        GOPATH="${WORKSPACE}/${K8S_VERSION}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                        KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
+                        sh 'cd ${TESTDIR}; CILIUM_IMAGE=$(./print-node-ip.sh)/cilium/cilium:latest CILIUM_OPERATOR_IMAGE=$(./print-node-ip.sh)/cilium/operator:latest ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG}'
                     }
                     post {
                         always {
