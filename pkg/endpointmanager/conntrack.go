@@ -130,7 +130,9 @@ func EnableConntrackGC(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint) 
 				initialScan = false
 			}
 
-			time.Sleep(ctmap.GetInterval(mapType, maxDeleteRatio))
+			select {
+			case <-time.After(ctmap.GetInterval(mapType, maxDeleteRatio)):
+			}
 		}
 	}()
 
