@@ -148,7 +148,7 @@ func (s *ServerSuite) TestRequestAllResources(c *C) {
 	defer cancel()
 
 	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	mutator := NewAckingResourceMutatorWrapper(cache)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
@@ -274,7 +274,7 @@ func (s *ServerSuite) TestAck(c *C) {
 	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	mutator := NewAckingResourceMutatorWrapper(cache)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
@@ -402,7 +402,7 @@ func (s *ServerSuite) TestRequestSomeResources(c *C) {
 	defer cancel()
 
 	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	mutator := NewAckingResourceMutatorWrapper(cache)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
@@ -576,7 +576,7 @@ func (s *ServerSuite) TestUpdateRequestResources(c *C) {
 	defer cancel()
 
 	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	mutator := NewAckingResourceMutatorWrapper(cache)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
@@ -679,7 +679,7 @@ func (s *ServerSuite) TestRequestStaleNonce(c *C) {
 	defer cancel()
 
 	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	mutator := NewAckingResourceMutatorWrapper(cache)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
@@ -819,7 +819,7 @@ func (s *ServerSuite) TestNAck(c *C) {
 	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	mutator := NewAckingResourceMutatorWrapper(cache)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
@@ -962,7 +962,7 @@ func (s *ServerSuite) TestNAckFromTheStart(c *C) {
 	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	mutator := NewAckingResourceMutatorWrapper(cache)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
@@ -1098,7 +1098,7 @@ func (s *ServerSuite) TestRequestHighVersionFromTheStart(c *C) {
 	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	mutator := NewAckingResourceMutatorWrapper(cache)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)

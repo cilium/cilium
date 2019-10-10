@@ -79,7 +79,7 @@ func (s *AckSuite) TestUpsertSingleNode(c *C) {
 
 	// Empty cache is the version 1
 	cache := NewCache()
-	acker := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	acker := NewAckingResourceMutatorWrapper(cache)
 
 	// Create version 2 with resource 0.
 	comp := wg.AddCompletion()
@@ -112,7 +112,7 @@ func (s *AckSuite) TestUpsertMultipleNodes(c *C) {
 
 	// Empty cache is the version 1
 	cache := NewCache()
-	acker := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	acker := NewAckingResourceMutatorWrapper(cache)
 
 	// Create version 2 with resource 0.
 	comp := wg.AddCompletion()
@@ -142,7 +142,7 @@ func (s *AckSuite) TestUpsertMoreRecentVersion(c *C) {
 
 	// Empty cache is the version 1
 	cache := NewCache()
-	acker := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	acker := NewAckingResourceMutatorWrapper(cache)
 
 	// Create version 2 with resource 0.
 	comp := wg.AddCompletion()
@@ -167,7 +167,7 @@ func (s *AckSuite) TestUpsertMoreRecentVersionNack(c *C) {
 
 	// Empty cache is the version 1
 	cache := NewCache()
-	acker := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	acker := NewAckingResourceMutatorWrapper(cache)
 
 	// Create version 2 with resource 0.
 	comp := wg.AddCompletion()
@@ -195,7 +195,7 @@ func (s *AckSuite) TestDeleteSingleNode(c *C) {
 
 	// Empty cache is the version 1
 	cache := NewCache()
-	acker := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	acker := NewAckingResourceMutatorWrapper(cache)
 
 	// Create version 2 with resource 0.
 	comp := wg.AddCompletion()
@@ -231,7 +231,7 @@ func (s *AckSuite) TestDeleteMultipleNodes(c *C) {
 
 	// Empty cache is the version 1
 	cache := NewCache()
-	acker := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	acker := NewAckingResourceMutatorWrapper(cache)
 
 	// Create version 2 with resource 0.
 	comp := wg.AddCompletion()
@@ -266,7 +266,7 @@ func (s *AckSuite) TestRevertInsert(c *C) {
 	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
-	acker := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	acker := NewAckingResourceMutatorWrapper(cache)
 
 	// Create version 1 with resource 0.
 	// Insert.
@@ -303,7 +303,7 @@ func (s *AckSuite) TestRevertUpdate(c *C) {
 	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
-	acker := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	acker := NewAckingResourceMutatorWrapper(cache)
 
 	// Create version 1 with resource 0.
 	// Insert.
@@ -347,7 +347,7 @@ func (s *AckSuite) TestRevertDelete(c *C) {
 	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
-	acker := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	acker := NewAckingResourceMutatorWrapper(cache)
 
 	// Create version 1 with resource 0.
 	// Insert.
