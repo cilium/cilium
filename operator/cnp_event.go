@@ -17,6 +17,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -25,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
@@ -48,7 +50,22 @@ func init() {
 func enableCNPWatcher() error {
 	log.Info("Starting to garbage collect stale CiliumNetworkPolicy status field entries...")
 
-	_, ciliumV2Controller := informer.NewInformer(
+	var (
+		cnpEventStore    cache.Store
+		cnpConverterFunc informer.ConvertFunc
+	)
+	cnpStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+	switch {
+	case k8sversion.Capabilities().Patch:
+		// k8s >= 1.13 does not require a store to update CNP status so
+		// we don't even need to keep the status of a CNP with us.
+		cnpConverterFunc = k8s.ConvertToCNP
+	default:
+		cnpEventStore = cnpStore
+		cnpConverterFunc = k8s.ConvertToCNPWithStatus
+	}
+
+	ciliumV2Controller := informer.NewInformerWithStore(
 		cache.NewListWatchFromClient(k8s.CiliumClient().CiliumV2().RESTClient(),
 			"ciliumnetworkpolicies", v1.NamespaceAll, fields.Everything()),
 		&cilium_v2.CiliumNetworkPolicy{},
@@ -95,9 +112,12 @@ func enableCNPWatcher() error {
 				controllers.RemoveController(fmt.Sprintf("%s/%s", cnp.Namespace, cnp.Name))
 			},
 		},
-		k8s.ConvertToCNP,
+		cnpConverterFunc,
+		cnpEventStore,
 	)
 	go ciliumV2Controller.Run(wait.NeverStop)
+
+	go watchForCNPStatusEvents(cnpStore)
 
 	controller.NewManager().UpdateController("cnp-to-groups",
 		controller.ControllerParams{
@@ -135,7 +155,24 @@ func extractFieldsFromKey(key string) (namespace, name, node string, err error) 
 
 }
 
-func watchForCNPStatusEvents() {
+func getUpdatedCNPFromStore(ciliumStore cache.Store, nameNamespace string) (*types.SlimCNP, error) {
+	serverRuleStore, exists, err := ciliumStore.GetByKey(nameNamespace)
+	if err != nil {
+		return nil, fmt.Errorf("unable to find v2.CiliumNetworkPolicy in local cache: %s", err)
+	}
+	if !exists {
+		return nil, errors.New("v2.CiliumNetworkPolicy does not exist in local cache")
+	}
+
+	serverRule, ok := serverRuleStore.(*types.SlimCNP)
+	if !ok {
+		return nil, errors.New("received object of unknown type from API server, expecting v2.CiliumNetworkPolicy")
+	}
+
+	return serverRule, nil
+}
+
+func watchForCNPStatusEvents(ciliumStore cache.Store) {
 	if !kvstoreEnabled() {
 		log.Info("kvstore disabled, not watching for CNPStatus events from kvstore")
 		return
@@ -192,6 +229,12 @@ restart:
 					ch = make(chan *NodeStatusUpdate, 512)
 					mgr.eventMap[nameNamespace] = ch
 					mgr.mutex.Unlock()
+
+					// Note that the controller below is a closure on this
+					// value. We don't need to worry about synchronizing access
+					// to this map because while its lifecycle is outside of
+					// the controller goroutine, the controller goroutine is
+					// the only goroutine manipulating it.
 					nodeStatusMap := make(map[string]cilium_v2.CiliumNetworkPolicyNodeStatus)
 					controllers.UpdateController(nameNamespace, controller.ControllerParams{
 						DoFunc: func(ctx context.Context) error {
@@ -214,10 +257,27 @@ restart:
 								return nil
 							}
 
+							var (
+								cnp *types.SlimCNP
+								err error
+							)
+
+							switch {
+							// Patching doesn't need us to get the CNP from
+							// the store because we can perform patches without
+							// needing the actual CNP object itself.s
+							case k8sversion.Capabilities().Patch:
+							default:
+								cnp, err = getUpdatedCNPFromStore(ciliumStore, nameNamespace)
+								if err != nil {
+									return err
+								}
+							}
+
 							// Now that we have collected all events for
 							// the given CNP, update the status for all nodes
 							// which have sent us updates.
-							if err := k8s.UpdateStatusesByCapabilities(k8s.CiliumClient(), k8sversion.Capabilities(), nil, namespace, name, nodeStatusMap); err != nil {
+							if err = k8s.UpdateStatusesByCapabilities(k8s.CiliumClient(), k8sversion.Capabilities(), cnp, namespace, name, nodeStatusMap); err != nil {
 								return err
 							}
 
