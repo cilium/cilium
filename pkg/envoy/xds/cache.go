@@ -184,6 +184,23 @@ func (c *Cache) DeleteNode(nodeID string) {
 	delete(c.ackedVersions, nodeID)
 }
 
+// CurrentVersionAcked returns true if all the given nodes have ACKed
+// the current version of the cache
+func (c *Cache) CurrentVersionAcked(nodeIDs []string) (version uint64, acked bool) {
+	for _, node := range nodeIDs {
+		if acked, exists := c.ackedVersions[node]; !exists || acked < c.version {
+			cacheLog := log.WithFields(logrus.Fields{
+				logfields.XDSCachedVersion: c.version,
+				logfields.XDSAckedVersion:  acked,
+				logfields.XDSClientNode:    node,
+			})
+			cacheLog.Debugf("Node has not acked the current cached version yet")
+			return c.version, false
+		}
+	}
+	return c.version, true
+}
+
 func (c *Cache) Delete(typeURL string, resourceName string, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
 	return c.tx(typeURL, nil, []string{resourceName}, force)
 }
@@ -252,6 +269,7 @@ func (c *Cache) GetResources(ctx context.Context, typeURL string, lastVersion ui
 	}
 
 	// Return all resources.
+	// TODO: return nil if no changes since the last version?
 	if len(resourceNames) == 0 {
 		res.ResourceNames = make([]string, 0, len(c.resources))
 		res.Resources = make([]proto.Message, 0, len(c.resources))

@@ -86,6 +86,10 @@ type ResourceMutator interface {
 	// DeleteNode frees resources held for the named node
 	DeleteNode(nodeID string)
 
+	// CurrentVersionAcked returns the current version and true if
+	// all the given nodes have ACKed the current version.
+	CurrentVersionAcked(nodeIDs []string) (version uint64, acked bool)
+
 	// Delete deletes a resource from this set by name.
 	// If force is true and/or the set is actually modified (the resource is
 	// actually deleted), the set's version number is incremented
