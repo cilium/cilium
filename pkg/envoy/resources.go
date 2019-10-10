@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	envoyAPI "github.com/cilium/proxy/go/cilium/api"
-	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
 	"github.com/sirupsen/logrus"
 )
 
@@ -60,7 +59,7 @@ var (
 )
 
 // HandleResourceVersionAck is required to implement ResourceVersionAckObserver.
-func (cache *NPHDSCache) HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string, detail string) {
+func (cache *NPHDSCache) HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, nodeIP string, resourceNames []string, typeURL string, detail string) {
 	// Start caching for IP/ID mappings on the first indication someone wants them
 	observerOnce.Do(func() {
 		ipcache.IPIdentityCache.AddListener(cache)

@@ -19,7 +19,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/lock"
 
-	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
 	"github.com/golang/protobuf/proto"
 )
 
@@ -27,6 +26,9 @@ import (
 // A single version is associated to all the contained resources.
 // The version is monotonically increased for any change to the set.
 type ResourceSource interface {
+	// Ack updates the last seen ACKed version for the node
+	Ack(ackedVersion uint64, nodeIP string)
+
 	// GetResources returns the current version of the resources with the given
 	// names.
 	// If lastVersion is not nil and the resources with the given names haven't
@@ -34,7 +36,7 @@ type ResourceSource interface {
 	// If resourceNames is empty, all resources are returned.
 	// Should not be blocking.
 	GetResources(ctx context.Context, typeURL string, lastVersion uint64,
-		node *envoy_api_v2_core.Node, resourceNames []string) (*VersionedResources, error)
+		nodeIP string, resourceNames []string) (*VersionedResources, error)
 
 	// EnsureVersion increases this resource set's version to be at least the
 	// given version. If the current version is already higher than the
@@ -80,6 +82,9 @@ type ResourceMutator interface {
 	// A call to the returned revert function reverts the effects of this
 	// method call.
 	Upsert(typeURL string, resourceName string, resource proto.Message, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc)
+
+	// DeleteNode frees resources held for the named node
+	DeleteNode(nodeID string)
 
 	// Delete deletes a resource from this set by name.
 	// If force is true and/or the set is actually modified (the resource is
