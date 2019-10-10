@@ -819,7 +819,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				}
 			}
 
-			It("Tests proxy visibility without policy", func() {
+			It("Tests HTTP proxy visibility without policy", func() {
 				checkProxyRedirection(app1PodIP, false)
 
 				By("Annotating %s with <Ingress/80/TCP/HTTP>", app1Pod)
