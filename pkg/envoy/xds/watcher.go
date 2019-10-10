@@ -79,8 +79,8 @@ func (w *ResourceWatcher) HandleNewResourceVersion(typeURL string, version uint6
 
 	if version < w.version {
 		log.WithFields(logrus.Fields{
-			logfields.XDSVersionInfo: version,
-			logfields.XDSTypeURL:     typeURL,
+			logfields.XDSCachedVersion: version,
+			logfields.XDSTypeURL:       typeURL,
 		}).Panicf(fmt.Sprintf("decreasing version number found for resources of type %s: %d < %d",
 			typeURL, version, w.version))
 	}
@@ -104,9 +104,9 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 	defer close(out)
 
 	watchLog := log.WithFields(logrus.Fields{
-		logfields.XDSVersionInfo: lastVersion,
-		logfields.XDSClientNode:  node,
-		logfields.XDSTypeURL:     typeURL,
+		logfields.XDSAckedVersion: lastVersion,
+		logfields.XDSClientNode:   node,
+		logfields.XDSTypeURL:      typeURL,
 	})
 
 	var res *VersionedResources
