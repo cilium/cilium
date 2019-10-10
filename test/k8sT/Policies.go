@@ -732,14 +732,15 @@ var _ = Describe("K8sPolicyTest", func() {
 			var (
 				// track which app1 pod we care about, and its corresponding
 				// cilium pod.
-				app1Pod   string
-				app2Pod   string
-				ciliumPod string
-				nodeName  string
-				//app1EpID        int64
+				app1Pod         string
+				app2Pod         string
+				ciliumPod       string
+				nodeName        string
 				monitorFileName = "monitor-%s.log"
 				appPods         map[string]string
 				app1PodIP       string
+				bindManifest    string
+				worldTarget     = "http://world1.cilium.test"
 			)
 
 			BeforeAll(func() {
@@ -782,13 +783,27 @@ var _ = Describe("K8sPolicyTest", func() {
 						break
 					}
 				}
+
+				By("Applying bind deployment")
+				bindManifest = helpers.ManifestGet(kubectl.BasePath(), "bind_deployment.yaml")
+
+				res := kubectl.Apply(bindManifest)
+				res.ExpectSuccess("Bind config cannot be deployed")
+
+				err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=bind", helpers.HelperTimeout)
+				Expect(err).Should(BeNil(), "Bind app is not ready after timeout")
 			})
 
 			AfterEach(func() {
 				// Remove the proxy visibility annotation - this is done by specifying the annotation followed by a '-'.
 				kubectl.Exec(fmt.Sprintf("%s annotate pod %s -n %s %s-", helpers.KubectlCmd, appPods[helpers.App1], namespaceForTest, annotation.ProxyVisibility))
+				kubectl.Exec(fmt.Sprintf("%s annotate pod %s -n %s %s-", helpers.KubectlCmd, appPods[helpers.App2], namespaceForTest, annotation.ProxyVisibility))
 				cmd := fmt.Sprintf("%s delete --all cnp,netpol -n %s", helpers.KubectlCmd, namespaceForTest)
 				_ = kubectl.Exec(cmd)
+			})
+
+			AfterAll(func() {
+				_ = kubectl.Delete(bindManifest)
 			})
 
 			checkProxyRedirection := func(resource string, redirected bool, parser policy.L7ParserType) {
@@ -828,7 +843,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				// Give time for the monitor to be notified of the proxy flow.
 				time.Sleep(2 * time.Second)
 				monitorStop()
-				ExpectWithOffset(1, res.WasSuccessful()).To(BeTrue(), "%q cannot curl %q", appPods[helpers.App2], resource)
+				res.ExpectSuccess("%q cannot curl %q", appPods[helpers.App2], resource)
 				monitorPath := fmt.Sprintf("%s/%s", helpers.ReportDirectoryPath(), monitorFile)
 				By("Reading the monitor log at %s", monitorPath)
 				monitorOutput, err := ioutil.ReadFile(monitorPath)
@@ -865,7 +880,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			})
 
 			It("Tests DNS proxy visibility without policy", func() {
-				proxyVisibilityTest("http://github.com", app2Pod, "<Egress/53/UDP/DNS>", policy.ParserTypeDNS)
+				proxyVisibilityTest(worldTarget, app2Pod, "<Egress/53/UDP/DNS>", policy.ParserTypeDNS)
 			})
 
 			It("Tests proxy visibility interactions with policy lifecycle operations", func() {
