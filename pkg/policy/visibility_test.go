@@ -17,9 +17,32 @@
 package policy
 
 import (
+	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/u8proto"
 	. "gopkg.in/check.v1"
 )
+
+func (ds *PolicyTestSuite) TestGenerateL7RulesByParser(c *C) {
+	m := generateL7AllowAllRules(ParserTypeHTTP)
+	c.Assert(m, IsNil)
+
+	m = generateL7AllowAllRules(ParserTypeKafka)
+	c.Assert(m, IsNil)
+
+	m = generateL7AllowAllRules(ParserTypeDNS)
+	c.Assert(m, Not(IsNil))
+	c.Assert(len(m), Equals, 1)
+
+	var l7Rules []api.L7Rules
+	for _, v := range m {
+		l7Rules = append(l7Rules, v)
+	}
+
+	// Check that we allow all at L7 for DNS for the one rule we should have
+	// generated.
+	c.Assert(l7Rules[0], checker.DeepEquals, api.L7Rules{DNS: []api.PortRuleDNS{{MatchPattern: "*"}}})
+}
 
 func (ds *PolicyTestSuite) TestVisibilityPolicyCreation(c *C) {
 
