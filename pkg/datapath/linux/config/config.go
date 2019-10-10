@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/signal"
 
 	"github.com/vishvananda/netlink"
 )
@@ -147,6 +148,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	}
 
 	cDefinesMap["EVENTS_MAP"] = "cilium_events"
+	cDefinesMap["SIGNAL_MAP"] = signal.SignalMapName
 	cDefinesMap["POLICY_CALL_MAP"] = policymap.CallMapName
 	cDefinesMap["EP_POLICY_MAP"] = eppolicymap.MapName
 	cDefinesMap["LB6_REVERSE_NAT_MAP"] = "cilium_lb6_reverse_nat"
