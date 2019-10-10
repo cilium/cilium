@@ -20,7 +20,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
-	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
 	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
 )
@@ -41,6 +40,11 @@ type Cache struct {
 	// valid version numbers start at 1, which is the version of a cache
 	// before any modifications have been made
 	version uint64
+
+	// ackedVersions is the last version acked by a node for this cache.
+	// The key is the IPv4 address in string format for an Istio sidecar,
+	// or "127.0.0.1" for the host proxy.
+	ackedVersions map[string]uint64
 }
 
 // cacheKey uniquely identifies a resource.
@@ -69,6 +73,7 @@ func NewCache() *Cache {
 		BaseObservableResourceSource: NewBaseObservableResourceSource(),
 		resources:                    make(map[cacheKey]cacheValue),
 		version:                      1,
+		ackedVersions:                make(map[string]uint64),
 	}
 }
 
@@ -174,6 +179,11 @@ func (c *Cache) Upsert(typeURL string, resourceName string, resource proto.Messa
 	return c.tx(typeURL, map[string]proto.Message{resourceName: resource}, nil, force)
 }
 
+// DeleteNode frees resources held for the named nodes
+func (c *Cache) DeleteNode(nodeID string) {
+	delete(c.ackedVersions, nodeID)
+}
+
 func (c *Cache) Delete(typeURL string, resourceName string, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
 	return c.tx(typeURL, nil, []string{resourceName}, force)
 }
@@ -212,14 +222,27 @@ func (c *Cache) Clear(typeURL string, force bool) (version uint64, updated bool)
 	return c.version, cacheIsUpdated
 }
 
-func (c *Cache) GetResources(ctx context.Context, typeURL string, lastVersion uint64,
-	node *envoy_api_v2_core.Node, resourceNames []string) (*VersionedResources, error) {
+// Ack updates the last seen ACKed version for the node
+func (c *Cache) Ack(ackedVersion uint64, nodeIP string) {
+	// Update the last seen ACKed version if it advances the previously ACKed version.
+	// Version 0 is special as it indicates that we have received the first xDS
+	// resource request from Envoy. Prior to that we do not have a map entry for the
+	// node at all.
+	c.locker.Lock()
+	previouslyAckedVersion, exists := c.ackedVersions[nodeIP]
+	if !exists || ackedVersion > previouslyAckedVersion {
+		c.ackedVersions[nodeIP] = ackedVersion
+	}
+	c.locker.Unlock()
+}
+
+func (c *Cache) GetResources(ctx context.Context, typeURL string, lastVersion uint64, nodeIP string, resourceNames []string) (*VersionedResources, error) {
 	c.locker.RLock()
 	defer c.locker.RUnlock()
 
 	cacheLog := log.WithFields(logrus.Fields{
 		logfields.XDSAckedVersion: lastVersion,
-		logfields.XDSClientNode:   node,
+		logfields.XDSClientNode:   nodeIP,
 		logfields.XDSTypeURL:      typeURL,
 	})
 
@@ -306,7 +329,7 @@ func (c *Cache) EnsureVersion(typeURL string, version uint64) {
 // if available, and returns it. Otherwise, returns nil. If an error occurs while
 // fetching the resource, also returns the error.
 func (c *Cache) Lookup(typeURL string, resourceName string) (proto.Message, error) {
-	res, err := c.GetResources(context.Background(), typeURL, 0, nil, []string{resourceName})
+	res, err := c.GetResources(context.Background(), typeURL, 0, "", []string{resourceName})
 	if err != nil || res == nil || len(res.Resources) == 0 {
 		return nil, err
 	}

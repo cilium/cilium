@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
-	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
 	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
 )
@@ -45,10 +44,10 @@ var (
 // which is called whenever a node acknowledges having applied a version of
 // the resources of a given type.
 type ResourceVersionAckObserver interface {
-	// HandleResourceVersionAck notifies that the node with the given Node ID
+	// HandleResourceVersionAck notifies that the node with the given NodeIP
 	// has acknowledged having applied the resources.
 	// Calls to this function must not block.
-	HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string, detail string)
+	HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, nodeIP string, resourceNames []string, typeURL string, detail string)
 }
 
 // AckingResourceMutatorRevertFunc is a function which reverts the effects of
@@ -210,21 +209,13 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 }
 
 // 'ackVersion' is the last version that was acked. 'nackVersion', if greater than 'nackVersion', is the last version that was NACKed.
-func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string, detail string) {
+func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, nodeIP string, resourceNames []string, typeURL string, detail string) {
 	ackLog := log.WithFields(logrus.Fields{
 		logfields.XDSAckedVersion: ackVersion,
 		logfields.XDSNonce:        nackVersion,
-		logfields.XDSClientNode:   node,
+		logfields.XDSClientNode:   nodeIP,
 		logfields.XDSTypeURL:      typeURL,
 	})
-
-	nodeID, err := IstioNodeToIP(node)
-	if err != nil {
-		// Ignore ACKs from unknown or misconfigured nodes which have invalid
-		// node identifiers.
-		ackLog.WithError(err).Warning("invalid ID in Node identifier; ignoring ACK")
-		return
-	}
 
 	m.locker.Lock()
 	defer m.locker.Unlock()
@@ -243,13 +234,13 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint6
 			if pending.version <= nackVersion {
 				// Get the set of resource names we are still waiting for the node
 				// to ACK.
-				remainingResourceNames, found := pending.remainingNodesResources[nodeID]
+				remainingResourceNames, found := pending.remainingNodesResources[nodeIP]
 				if found {
 					for _, name := range resourceNames {
 						delete(remainingResourceNames, name)
 					}
 					if len(remainingResourceNames) == 0 {
-						delete(pending.remainingNodesResources, nodeID)
+						delete(pending.remainingNodesResources, nodeIP)
 					}
 					if len(pending.remainingNodesResources) == 0 {
 						// Completed. Notify and remove from pending list.

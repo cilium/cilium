@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
-	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
 	"github.com/sirupsen/logrus"
 )
 
@@ -89,6 +88,11 @@ func (w *ResourceWatcher) HandleNewResourceVersion(typeURL string, version uint6
 	w.versionCond.Broadcast()
 }
 
+// Ack updates the last seen ACKed version for the node
+func (w *ResourceWatcher) Ack(ackedVersion uint64, nodeIP string) {
+	w.resourceSet.Ack(ackedVersion, nodeIP)
+}
+
 // WatchResources watches for new versions of specific resources and sends them
 // into the given out channel.
 //
@@ -99,13 +103,13 @@ func (w *ResourceWatcher) HandleNewResourceVersion(typeURL string, version uint6
 // lastVersion is the last version successfully applied by the
 // client; nil if this is the first request for resources.
 // This method call must always close the out channel.
-func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, lastVersion uint64, node *envoy_api_v2_core.Node,
+func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, lastVersion uint64, nodeIP string,
 	resourceNames []string, out chan<- *VersionedResources) {
 	defer close(out)
 
 	watchLog := log.WithFields(logrus.Fields{
 		logfields.XDSAckedVersion: lastVersion,
-		logfields.XDSClientNode:   node,
+		logfields.XDSClientNode:   nodeIP,
 		logfields.XDSTypeURL:      typeURL,
 	})
 
@@ -156,7 +160,7 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 		subCtx, cancel := context.WithTimeout(ctx, w.resourceAccessTimeout)
 		var err error
 		watchLog.Debugf("getting %d resources from set", len(resourceNames))
-		res, err = w.resourceSet.GetResources(subCtx, typeURL, lastVersion, node, resourceNames)
+		res, err = w.resourceSet.GetResources(subCtx, typeURL, lastVersion, nodeIP, resourceNames)
 		cancel()
 
 		if err != nil {
