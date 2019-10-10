@@ -637,6 +637,24 @@ func NewPerCpuEvents(config *PerfEventConfig) (*PerCpuEvents, error) {
 		}
 	}
 
+	if err = e.Unmute(); err != nil {
+		return nil, err
+	}
+
+	return e, nil
+}
+
+// Mute removes the perf event fd(s) from the perf event BPF map. This
+// has the effect that no new events are pushed into the ring buffer.
+func (e *PerCpuEvents) Mute() {
+	for _, event := range e.event {
+		DeleteElement(e.eventMap.fd, unsafe.Pointer(&event.cpu))
+	}
+}
+
+// Unmute adds the perf event fd(s) to the perf event BPF map. This
+// has the effect that events can now be pushed into the ring buffer.
+func (e *PerCpuEvents) Unmute() error {
 	uba := bpfAttrMapOpElem{
 		mapFd: uint32(e.eventMap.fd),
 		flags: uint64(0),
@@ -650,11 +668,11 @@ func NewPerCpuEvents(config *PerfEventConfig) (*PerCpuEvents, error) {
 		uba.key = uint64(uintptr(unsafe.Pointer(&event.cpu)))
 		uba.value = uint64(uintptr(unsafe.Pointer(&event.Fd)))
 		if err := e.eventMap.Update(e.eventMap.fd, ubaPtr, ubaSizeOf); err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return e, nil
+	return nil
 }
 
 func (e *PerCpuEvents) Poll(timeout int) (int, error) {
