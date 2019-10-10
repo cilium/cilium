@@ -28,6 +28,7 @@
 
 #include "common.h"
 #include "drop.h"
+#include "signal.h"
 #include "conntrack.h"
 #include "conntrack_map.h"
 
@@ -54,8 +55,10 @@ struct nat_entry {
 
 #ifdef HAVE_LARGE_INSN_LIMIT
 # define SNAT_COLLISION_RETRIES		128
+# define SNAT_SIGNAL_THRES		64
 #else
 # define SNAT_COLLISION_RETRIES		20
+# define SNAT_SIGNAL_THRES		10
 #endif
 
 static __always_inline __be16 __snat_clamp_port_range(__u16 start, __u16 end,
@@ -200,9 +203,9 @@ static __always_inline int snat_v4_new_mapping(struct __sk_buff *skb,
 					       struct ipv4_nat_entry *ostate,
 					       const struct ipv4_nat_target *target)
 {
+	int ret = DROP_NAT_NO_MAPPING, retries;
 	struct ipv4_nat_entry rstate;
 	struct ipv4_ct_tuple rtuple;
-	int ret, retries;
 	__u16 port;
 
 	__builtin_memset(&rstate, 0, sizeof(rstate));
@@ -234,7 +237,7 @@ static __always_inline int snat_v4_new_mapping(struct __sk_buff *skb,
 
 			ret = snat_v4_update(otuple, ostate, &rtuple, &rstate);
 			if (!ret)
-				return 0;
+				break;
 		}
 
 		port = __snat_clamp_port_range(target->min_port,
@@ -243,7 +246,9 @@ static __always_inline int snat_v4_new_mapping(struct __sk_buff *skb,
 		rtuple.dport = ostate->to_sport = bpf_htons(port);
 	}
 
-	return DROP_NAT_NO_MAPPING;
+	if (retries > SNAT_SIGNAL_THRES)
+		send_signal_nat_fill_up(skb, SIGNAL_NAT_PROTO_V4);
+	return !ret ? 0 : DROP_NAT_NO_MAPPING;
 }
 
 static __always_inline int snat_v4_track_local(struct __sk_buff *skb,
@@ -613,9 +618,9 @@ static __always_inline int snat_v6_new_mapping(struct __sk_buff *skb,
 					       struct ipv6_nat_entry *ostate,
 					       const struct ipv6_nat_target *target)
 {
+	int ret = DROP_NAT_NO_MAPPING, retries;
 	struct ipv6_nat_entry rstate;
 	struct ipv6_ct_tuple rtuple;
-	int ret, retries;
 	__u16 port;
 
 	__builtin_memset(&rstate, 0, sizeof(rstate));
@@ -647,7 +652,7 @@ static __always_inline int snat_v6_new_mapping(struct __sk_buff *skb,
 
 			ret = snat_v6_update(otuple, ostate, &rtuple, &rstate);
 			if (!ret)
-				return 0;
+				break;
 		}
 
 		port = __snat_clamp_port_range(target->min_port,
@@ -656,7 +661,9 @@ static __always_inline int snat_v6_new_mapping(struct __sk_buff *skb,
 		rtuple.dport = ostate->to_sport = bpf_htons(port);
 	}
 
-	return DROP_NAT_NO_MAPPING;
+	if (retries > SNAT_SIGNAL_THRES)
+		send_signal_nat_fill_up(skb, SIGNAL_NAT_PROTO_V6);
+	return !ret ? 0 : DROP_NAT_NO_MAPPING;
 }
 
 static __always_inline int snat_v6_track_local(struct __sk_buff *skb,
