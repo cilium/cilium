@@ -10,3 +10,6 @@ subjects:
 - kind: ServiceAccount
   name: cilium
   namespace: {{ .Release.Namespace }}
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: system:nodes

@@ -277,6 +277,9 @@ subjects:
 - kind: ServiceAccount
   name: cilium
   namespace: kube-system
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: system:nodes
 
 ---
 # Source: cilium/charts/operator/templates/clusterrolebinding.yaml
