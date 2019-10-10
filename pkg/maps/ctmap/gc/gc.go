@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/signal"
 	"github.com/sirupsen/logrus"
 )
 
@@ -44,8 +45,10 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 	)
 
 	go func() {
+		var wakeup = make(chan int)
 		for {
 			var maxDeleteRatio float64
+
 			eps := mgr.GetEndpoints()
 			if len(eps) > 0 || initialScan {
 				mapType, maxDeleteRatio = runGC(nil, ipv4, ipv6, createGCFilter(initialScan, restoredEndpoints))
@@ -61,11 +64,20 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 			if initialScan {
 				close(initialScanComplete)
 				initialScan = false
+				signal.StartSignalListener(wakeup)
+				signal.MuteSignalListener()
 			}
 
+			signal.UnmuteSignalListener()
 			select {
+			case <-wakeup:
+				// Drain current queue since we just woke up anyway.
+				for len(wakeup) > 0 {
+					<-wakeup
+				}
 			case <-time.After(ctmap.GetInterval(mapType, maxDeleteRatio)):
 			}
+			signal.MuteSignalListener()
 		}
 	}()
 
