@@ -287,7 +287,7 @@ retryLoop:
 
 // CNPStatusesPath is the prefix in the kvstore which will contain all keys
 // representing CNPStatus state for all nodes in the cluster.
-var CNPStatusesPath = path.Join(kvstore.BaseKeyPrefix, "state", "cnpstatuses", "v1")
+var CNPStatusesPath = path.Join(kvstore.BaseKeyPrefix, "state", "cnpstatuses", "v2")
 
 func formatKeyForKvstore(namespace, name, nodeName string) string {
 	return path.Join(CNPStatusesPath, namespace, name, nodeName)
