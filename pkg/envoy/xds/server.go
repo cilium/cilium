@@ -121,10 +121,10 @@ func NewServer(resourceTypes map[string]*ResourceTypeConfiguration,
 
 func getXDSRequestFields(req *envoy_api_v2.DiscoveryRequest) logrus.Fields {
 	return logrus.Fields{
-		logfields.XDSVersionInfo: req.GetVersionInfo(),
-		logfields.XDSClientNode:  req.GetNode(),
-		logfields.XDSTypeURL:     req.GetTypeUrl(),
-		logfields.XDSNonce:       req.GetResponseNonce(),
+		logfields.XDSAckedVersion: req.GetVersionInfo(),
+		logfields.XDSClientNode:   req.GetNode(),
+		logfields.XDSTypeURL:      req.GetTypeUrl(),
+		logfields.XDSNonce:        req.GetResponseNonce(),
 	}
 }
 
@@ -377,10 +377,10 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 			resp := recv.Interface().(*VersionedResources)
 
 			responseLog := streamLog.WithFields(logrus.Fields{
-				logfields.XDSVersionInfo: resp.Version,
-				logfields.XDSCanary:      resp.Canary,
-				logfields.XDSTypeURL:     state.typeURL,
-				logfields.XDSNonce:       resp.Version,
+				logfields.XDSCachedVersion: resp.Version,
+				logfields.XDSCanary:        resp.Canary,
+				logfields.XDSTypeURL:       state.typeURL,
+				logfields.XDSNonce:         resp.Version,
 			})
 
 			resources := make([]*any.Any, len(resp.Resources))
