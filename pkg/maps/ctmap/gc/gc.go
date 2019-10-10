@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/signal"
 	"github.com/sirupsen/logrus"
 )
 
@@ -44,8 +45,12 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 	)
 
 	go func() {
+		var wakeup = make(chan int)
+		ipv4Orig := ipv4
+		ipv6Orig := ipv6
 		for {
 			var maxDeleteRatio float64
+
 			eps := mgr.GetEndpoints()
 			if len(eps) > 0 || initialScan {
 				mapType, maxDeleteRatio = runGC(nil, ipv4, ipv6, createGCFilter(initialScan, restoredEndpoints))
@@ -61,11 +66,36 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 			if initialScan {
 				close(initialScanComplete)
 				initialScan = false
+
+				signal.SetupSignalListener()
+				signal.RegisterChannel(signal.SignalNatFillUp, wakeup)
+				signal.MuteChannel(signal.SignalNatFillUp)
 			}
 
+			signal.UnmuteChannel(signal.SignalNatFillUp)
 			select {
+			case x := <-wakeup:
+				ipv4 = false
+				ipv6 = false
+				if x == signal.SignalNatV4 {
+					ipv4 = true
+				} else if x == signal.SignalNatV6 {
+					ipv6 = true
+				}
+				// Drain current queue since we just woke up anyway.
+				for len(wakeup) > 0 {
+					x := <-wakeup
+					if x == signal.SignalNatV4 {
+						ipv4 = true
+					} else if x == signal.SignalNatV6 {
+						ipv6 = true
+					}
+				}
 			case <-time.After(ctmap.GetInterval(mapType, maxDeleteRatio)):
+				ipv4 = ipv4Orig
+				ipv6 = ipv6Orig
 			}
+			signal.MuteChannel(signal.SignalNatFillUp)
 		}
 	}()
 
