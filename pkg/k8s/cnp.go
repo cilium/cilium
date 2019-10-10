@@ -385,10 +385,9 @@ func (c *CNPStatusUpdateContext) update(m *UpdateMetadata, cnp *types.SlimCNP, e
 			"key":   key,
 			"value": marshaledVal,
 		}).Debug("updating CNPStatus in kvstore")
-		_, err = kvstore.Client().UpdateIfDifferent(m.ctx, key, marshaledVal, true)
-		return err
+		return kvstore.Client().Update(m.ctx, key, marshaledVal, true)
 	default:
-		return fmt.Errorf("unknown K8s")
+		return fmt.Errorf("unhandled K8s UpdateType: %s", m.typ)
 	}
 }
 
