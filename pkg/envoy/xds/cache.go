@@ -84,8 +84,8 @@ func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, d
 	newVersion := c.version + 1
 
 	cacheLog := log.WithFields(logrus.Fields{
-		logfields.XDSTypeURL:     typeURL,
-		logfields.XDSVersionInfo: newVersion,
+		logfields.XDSTypeURL:       typeURL,
+		logfields.XDSCachedVersion: newVersion,
 	})
 
 	cacheLog.Debugf("preparing new cache transaction: upserting %d entries, deleting %d entries",
@@ -186,8 +186,8 @@ func (c *Cache) Clear(typeURL string, force bool) (version uint64, updated bool)
 	newVersion := c.version + 1
 
 	cacheLog := log.WithFields(logrus.Fields{
-		logfields.XDSTypeURL:     typeURL,
-		logfields.XDSVersionInfo: newVersion,
+		logfields.XDSTypeURL:       typeURL,
+		logfields.XDSCachedVersion: newVersion,
 	})
 
 	cacheLog.Debug("preparing new cache transaction: deleting all entries")
@@ -218,9 +218,9 @@ func (c *Cache) GetResources(ctx context.Context, typeURL string, lastVersion ui
 	defer c.locker.RUnlock()
 
 	cacheLog := log.WithFields(logrus.Fields{
-		logfields.XDSVersionInfo: lastVersion,
-		logfields.XDSClientNode:  node,
-		logfields.XDSTypeURL:     typeURL,
+		logfields.XDSAckedVersion: lastVersion,
+		logfields.XDSClientNode:   node,
+		logfields.XDSTypeURL:      typeURL,
 	})
 
 	res := &VersionedResources{
@@ -292,8 +292,8 @@ func (c *Cache) EnsureVersion(typeURL string, version uint64) {
 
 	if c.version < version {
 		cacheLog := log.WithFields(logrus.Fields{
-			logfields.XDSTypeURL:     typeURL,
-			logfields.XDSVersionInfo: version,
+			logfields.XDSTypeURL:      typeURL,
+			logfields.XDSAckedVersion: version,
 		})
 		cacheLog.Debug("increasing version to match client and notifying of new version")
 
