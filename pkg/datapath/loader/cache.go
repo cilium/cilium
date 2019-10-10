@@ -53,6 +53,7 @@ var (
 		"cilium_nodeport_neigh", // All nodeport neigh maps
 		"cilium_policy",         // Global
 		"cilium_proxy",          // Global
+		"cilium_signals",        // Global
 		"cilium_snat",           // All SNAT maps
 		"cilium_tunnel",         // Global
 		"from-container",        // Prog name
