@@ -65,7 +65,7 @@ func NewInstance(nodeID string, accessLogger AccessLogger) *Instance {
 	instanceId++
 
 	if nodeID == "" {
-		nodeID = fmt.Sprintf("host~127.0.0.1~libcilium-%d~localdomain", instanceId)
+		nodeID = fmt.Sprintf("host~127.0.0.2~libcilium-%d~localdomain", instanceId)
 	}
 
 	// TODO: Sidecar instance id needs to be different.

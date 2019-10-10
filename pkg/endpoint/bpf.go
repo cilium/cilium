@@ -1040,6 +1040,9 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) e
 	if proxyChanges {
 		// Ignoring the revertFunc; keep all successful changes even if some fail.
 		err, _ = e.updateNetworkPolicy(proxyWaitGroup)
+	} else {
+		// Allow caller to wait for the current network policy to be acked
+		e.useCurrentNetworkPolicy(proxyWaitGroup)
 	}
 
 	return err
