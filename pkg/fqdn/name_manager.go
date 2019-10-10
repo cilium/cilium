@@ -303,8 +303,7 @@ func (n *NameManager) GenerateSelectorUpdates(fqdnSelectors map[api.FQDNSelector
 	n.Lock()
 	defer n.Unlock()
 
-	namesMissingIPs, selectorIPMapping = mapSelectorsToIPs(fqdnSelectors, n.cache)
-	return namesMissingIPs, selectorIPMapping
+	return mapSelectorsToIPs(fqdnSelectors, n.cache)
 }
 
 // updateIPsName will update the IPs for dnsName. It always retains a copy of

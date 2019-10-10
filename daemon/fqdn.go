@@ -95,6 +95,12 @@ func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSel
 }
 
 func (d *Daemon) updateSelectorCacheFQDNs(ctx context.Context, selectors map[policyApi.FQDNSelector][]*identity.Identity, selectorsWithoutIPs []policyApi.FQDNSelector) (wg *sync.WaitGroup) {
+	// There may be nothing to update - in this case, we exit and do not need
+	// to trigger policy updates for all endpoints.
+	if len(selectors) == 0 && len(selectorsWithoutIPs) == 0 {
+		return &sync.WaitGroup{}
+	}
+
 	// Update mapping of selector to set of IPs in selector cache.
 	for selector, identitySlice := range selectors {
 		log.WithFields(logrus.Fields{
@@ -119,11 +125,6 @@ func (d *Daemon) updateSelectorCacheFQDNs(ctx context.Context, selectors map[pol
 		d.policy.GetSelectorCache().RemoveIdentitiesFQDNSelectors(selectorsWithoutIPs)
 	}
 
-	// There may be nothing to update - in this case, we exit and do not need
-	// to trigger policy updates for all endpoints.
-	if len(selectors) == 0 && len(selectorsWithoutIPs) == 0 {
-		return &sync.WaitGroup{}
-	}
 	return d.endpointManager.UpdatePolicyMaps(ctx)
 }
 
