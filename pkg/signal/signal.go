@@ -53,7 +53,7 @@ var (
 		Type:         bpf.PERF_TYPE_SOFTWARE,
 		Config:       bpf.PERF_COUNT_SW_BPF_OUTPUT,
 		SampleType:   bpf.PERF_SAMPLE_RAW,
-		NumPages:     2,
+		NumPages:     1,
 		WakeupEvents: 1,
 	}
 
