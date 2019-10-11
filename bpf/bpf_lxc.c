@@ -555,7 +555,8 @@ ct_recreate4:
 
 	orig_dip = ip4->daddr;
 
-#ifdef ENABLE_ROUTING
+	if (ct_state_new.loopback || ct_state.loopback || is_defined(ENABLE_ROUTING)) {
+//#ifdef ENABLE_ROUTING
 	struct endpoint_info *ep;
 
 	/* Lookup IPv4 address, this will return a match if:
@@ -565,6 +566,7 @@ ct_recreate4:
 	 *    host itself.
 	 */
 	if ((ep = lookup_ip4_endpoint(ip4)) != NULL) {
+#ifdef ENABLE_ROUTING
 		if (ep->flags & ENDPOINT_F_HOST) {
 #ifdef HOST_IFINDEX
 			goto to_host;
@@ -572,10 +574,12 @@ ct_recreate4:
 			return DROP_HOST_UNREACHABLE;
 #endif
 		}
+#endif
 		policy_clear_mark(skb);
 		return ipv4_local_delivery(skb, l3_off, l4_off, SECLABEL, ip4, ep, METRIC_EGRESS);
 	}
-#endif
+//#endif
+	}
 
 #ifdef ENCAP_IFINDEX
 	{
