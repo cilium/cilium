@@ -29,7 +29,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
@@ -1787,7 +1786,7 @@ func (c *DaemonConfig) Populate() {
 		}
 		ctMonitorReportFlags |= flag
 	}
-	c.MonitorAggregationFlags = byteorder.HostToNetwork(ctMonitorReportFlags).(uint16)
+	c.MonitorAggregationFlags = ctMonitorReportFlags
 
 	// Map options
 	if m := viper.GetStringMapString(AwsInstanceLimitMapping); len(m) != 0 {
