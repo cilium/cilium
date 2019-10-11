@@ -681,7 +681,10 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7Parse
 	}
 
 	if l7Rules.TerminatingTLS != nil {
-		ca, public, private, _ := certManager.GetTLSContext(context.TODO(), l7Rules.TerminatingTLS)
+		ca, public, private, err := certManager.GetTLSContext(context.TODO(), l7Rules.TerminatingTLS)
+		if err != nil {
+			log.WithError(err).Warning("Envoy: Error getting Terminating TLS Context, TLS will not work.")
+		}
 		r.DownstreamTlsContext = &cilium.TLSContext{
 			TrustedCa:        ca,
 			CertificateChain: public,
@@ -689,7 +692,10 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7Parse
 		}
 	}
 	if l7Rules.OriginatingTLS != nil {
-		ca, public, private, _ := certManager.GetTLSContext(context.TODO(), l7Rules.OriginatingTLS)
+		ca, public, private, err := certManager.GetTLSContext(context.TODO(), l7Rules.OriginatingTLS)
+		if err != nil {
+			log.WithError(err).Warning("Envoy: Error getting Originating TLS Context, TLS will not work.")
+		}
 		r.UpstreamTlsContext = &cilium.TLSContext{
 			TrustedCa:        ca,
 			CertificateChain: public,

@@ -92,8 +92,8 @@ type TLSContext struct {
 func (a *TLSContext) Equal(b *TLSContext) bool {
 	return a == nil && b == nil || a != nil && b != nil && a.K8sSecret.Equal(b.K8sSecret) &&
 		(a.CertificatesPath == nil && b.CertificatesPath == nil ||
-		a.CertificatesPath != nil && b.CertificatesPath != nil &&
-		*a.CertificatesPath == *b.CertificatesPath)
+			a.CertificatesPath != nil && b.CertificatesPath != nil &&
+				*a.CertificatesPath == *b.CertificatesPath)
 }
 
 // PortRule is a list of ports/protocol combinations with optional Layer 7

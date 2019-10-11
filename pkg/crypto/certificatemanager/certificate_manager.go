@@ -53,14 +53,39 @@ func NewManager(certsRootPath string, k8sClient k8sClient) *Manager {
 func (m *Manager) GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext) (ca, public, private string, err error) {
 	// Give priority to local certificates
 	if tlsCtx.CertificatesPath != nil {
-		caBytes, _ := ioutil.ReadFile(filepath.Join(m.rootPath, caName))
-		publicBytes, _ := ioutil.ReadFile(filepath.Join(m.rootPath, publicName))
-		privateBytes, _ := ioutil.ReadFile(filepath.Join(m.rootPath, privateName))
-		// We have found one of the files, that's all we need!
-		if caBytes != nil || publicBytes != nil || privateBytes != nil {
-			return string(caBytes), string(publicBytes), string(privateBytes), nil
+		var caBytes, publicBytes, privateBytes []byte
+		certPath := filepath.Join(m.rootPath, *tlsCtx.CertificatesPath)
+		files, ioErr := ioutil.ReadDir(certPath)
+		if ioErr != nil {
+			err = fmt.Errorf("Certificates directory %s not found (%s)", certPath, ioErr)
+		} else {
+			for _, file := range files {
+				var path string
+				switch file.Name() {
+				case caName:
+					path = filepath.Join(certPath, caName)
+					caBytes, ioErr = ioutil.ReadFile(path)
+				case publicName:
+					path = filepath.Join(certPath, publicName)
+					publicBytes, ioErr = ioutil.ReadFile(path)
+				case privateName:
+					path = filepath.Join(certPath, privateName)
+					privateBytes, ioErr = ioutil.ReadFile(path)
+				}
+				if ioErr != nil {
+					err = fmt.Errorf("Error reading %s (%s)", path, ioErr)
+				}
+			}
+			if publicBytes != nil && privateBytes == nil ||
+				publicBytes == nil && privateBytes != nil {
+				err = fmt.Errorf("Both %s and %s have to be present if one of them is", publicName, privateName)
+			}
+			// We have found one of the files, that's all we need!
+			if caBytes != nil || publicBytes != nil || privateBytes != nil {
+				return string(caBytes), string(publicBytes), string(privateBytes), nil
+			}
+			err = fmt.Errorf("certificates not found in %s", certPath)
 		}
-		err = fmt.Errorf("certificates not found in %s", m.rootPath)
 	}
 	if tlsCtx.K8sSecret != nil {
 		ns := tlsCtx.K8sSecret.Namespace
