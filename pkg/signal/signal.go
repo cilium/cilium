@@ -78,9 +78,12 @@ func signalReceive(msg *bpf.PerfEventSample, cpu int) {
 }
 
 func signalLost(lost *bpf.PerfEventLost, cpu int) {
+	// Not much we can do here, with the given set of signals it is non-fatal,
+	// so we keep ignoring lost events right now.
 }
 
 func signalError(err *bpf.PerfEvent) {
+	log.Errorf("BUG: Timeout while reading signal perf ring buffer: %s", err.Debug())
 }
 
 // MuteChannel tells to not send any new events to a particular channel
@@ -89,6 +92,10 @@ func MuteChannel(signal int) error {
 	if signal != SignalNatFillUp {
 		return fmt.Errorf("Signal number not supported: %d", signal)
 	}
+	// Right now we only support 1 type of signal, we may extend this in
+	// future. If all signals are muted, then we can simply turn off perf
+	// RB notifications from kernel side, which is much more efficient as
+	// no new message is pushed into the RB.
 	if events != nil {
 		events.Mute()
 	}
@@ -101,6 +108,7 @@ func UnmuteChannel(signal int) error {
 	if signal != SignalNatFillUp {
 		return fmt.Errorf("Signal number not supported: %d", signal)
 	}
+	// See comment in MuteChannel().
 	if events != nil {
 		events.Unmute()
 	}
