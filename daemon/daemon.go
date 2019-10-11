@@ -148,7 +148,7 @@ type Daemon struct {
 	// k8sResourceSynced maps a resource name to a channel. Once the given
 	// resource name is synchronized with k8s, the channel for which that
 	// resource name maps to is closed.
-	k8sResourceSynced map[string]chan struct{}
+	k8sResourceSynced map[string]<-chan struct{}
 
 	// k8sSvcCache is a cache of all Kubernetes services and endpoints
 	k8sSvcCache k8s.ServiceCache
@@ -332,7 +332,7 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 		svc:               service.NewService(),
 		k8sSvcCache:       k8s.NewServiceCache(),
 		prefixLengths:     createPrefixLengthCounter(),
-		k8sResourceSynced: map[string]chan struct{}{},
+		k8sResourceSynced: map[string]<-chan struct{}{},
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationMutex:  new(lock.RWMutex),
 		netConf:           netConf,
