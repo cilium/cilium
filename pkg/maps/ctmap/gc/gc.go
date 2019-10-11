@@ -67,8 +67,8 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 				close(initialScanComplete)
 				initialScan = false
 
-				signal.SetupSignalListener()
 				signal.RegisterChannel(signal.SignalNatFillUp, wakeup)
+				signal.SetupSignalListener()
 				signal.MuteChannel(signal.SignalNatFillUp)
 			}
 
