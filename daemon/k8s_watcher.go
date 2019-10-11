@@ -254,7 +254,14 @@ func init() {
 // received by the informer and processed by controller.
 // Fatally exits if syncing these initial objects fails.
 // If the given stop channel is closed, it does not fatal.
-func (d *Daemon) blockWaitGroupToSyncResources(stop <-chan struct{}, informer cache.Controller, resourceName string) {
+// Once the k8s caches are synced against k8s, k8sCacheSynced is also closed.
+func (d *Daemon) blockWaitGroupToSyncResources(
+	stop <-chan struct{},
+	swg *lock.StoppableWaitGroup,
+	informer cache.Controller,
+	resourceName string,
+) {
+
 	ch := make(chan struct{})
 	d.k8sResourceSyncedMu.Lock()
 	d.k8sResourceSynced[resourceName] = ch
@@ -274,6 +281,8 @@ func (d *Daemon) blockWaitGroupToSyncResources(stop <-chan struct{}, informer ca
 		} else {
 			scopedLog.Debug("cache synced")
 		}
+		swg.Stop()
+		swg.Wait()
 		close(ch)
 	}()
 }
@@ -372,12 +381,23 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 	ciliumNPClient := k8s.CiliumClient()
 
 	serKNPs := serializer.NewFunctionQueue(queueSize)
+	swgKNP := lock.NewStoppableWaitGroup()
+
 	serSvcs := serializer.NewFunctionQueue(queueSize)
+	swgSvcs := lock.NewStoppableWaitGroup()
+
 	serEps := serializer.NewFunctionQueue(queueSize)
+	swgEps := lock.NewStoppableWaitGroup()
+
 	serCNPs := serializer.NewFunctionQueue(queueSize)
+	swgCNPs := lock.NewStoppableWaitGroup()
+
 	serPods := serializer.NewFunctionQueue(queueSize)
+
 	serNodes := serializer.NewFunctionQueue(queueSize)
+
 	serCiliumEndpoints := serializer.NewFunctionQueue(queueSize)
+
 	serNamespaces := serializer.NewFunctionQueue(queueSize)
 
 	_, policyController := informer.NewInformer(
@@ -391,7 +411,9 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 				defer func() { d.K8sEventReceived(metricKNP, metricCreate, valid, equal) }()
 				if k8sNP := k8s.CopyObjToV1NetworkPolicy(obj); k8sNP != nil {
 					valid = true
+					swgKNP.Add()
 					serKNPs.Enqueue(func() error {
+						defer swgKNP.Done()
 						err := d.addK8sNetworkPolicyV1(k8sNP)
 						d.K8sEventProcessed(metricKNP, metricCreate, err == nil)
 						return nil
@@ -409,7 +431,9 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 							return
 						}
 
+						swgKNP.Add()
 						serKNPs.Enqueue(func() error {
+							defer swgKNP.Done()
 							err := d.updateK8sNetworkPolicyV1(oldK8sNP, newK8sNP)
 							d.K8sEventProcessed(metricKNP, metricUpdate, err == nil)
 							return nil
@@ -436,7 +460,9 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 				}
 
 				valid = true
+				swgKNP.Add()
 				serKNPs.Enqueue(func() error {
+					defer swgKNP.Done()
 					err := d.deleteK8sNetworkPolicyV1(k8sNP)
 					d.K8sEventProcessed(metricKNP, metricDelete, err == nil)
 					return nil
@@ -445,7 +471,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 		},
 		k8s.ConvertToNetworkPolicy,
 	)
-	d.blockWaitGroupToSyncResources(wait.NeverStop, policyController, k8sAPIGroupNetworkingV1Core)
+	d.blockWaitGroupToSyncResources(wait.NeverStop, swgKNP, policyController, k8sAPIGroupNetworkingV1Core)
 	go policyController.Run(wait.NeverStop)
 
 	d.k8sAPIGroups.addAPI(k8sAPIGroupNetworkingV1Core)
@@ -461,7 +487,9 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 				defer func() { d.K8sEventReceived(metricService, metricCreate, valid, equal) }()
 				if k8sSvc := k8s.CopyObjToV1Services(obj); k8sSvc != nil {
 					valid = true
+					swgSvcs.Add()
 					serSvcs.Enqueue(func() error {
+						defer swgSvcs.Done()
 						err := d.addK8sServiceV1(k8sSvc)
 						d.K8sEventProcessed(metricService, metricCreate, err == nil)
 						return nil
@@ -479,7 +507,9 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 							return
 						}
 
+						swgSvcs.Add()
 						serSvcs.Enqueue(func() error {
+							defer swgSvcs.Done()
 							err := d.updateK8sServiceV1(oldk8sSvc, newk8sSvc)
 							d.K8sEventProcessed(metricService, metricUpdate, err == nil)
 							return nil
@@ -506,7 +536,9 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 				}
 
 				valid = true
+				swgSvcs.Add()
 				serSvcs.Enqueue(func() error {
+					defer swgSvcs.Done()
 					err := d.deleteK8sServiceV1(k8sSvc)
 					d.K8sEventProcessed(metricService, metricDelete, err == nil)
 					return nil
@@ -515,7 +547,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 		},
 		k8s.ConvertToK8sService,
 	)
-	d.blockWaitGroupToSyncResources(wait.NeverStop, svcController, k8sAPIGroupServiceV1Core)
+	d.blockWaitGroupToSyncResources(wait.NeverStop, swgSvcs, svcController, k8sAPIGroupServiceV1Core)
 	go svcController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupServiceV1Core)
 
@@ -532,7 +564,9 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 				defer func() { d.K8sEventReceived(metricEndpoint, metricCreate, valid, equal) }()
 				if k8sEP := k8s.CopyObjToV1Endpoints(obj); k8sEP != nil {
 					valid = true
+					swgEps.Add()
 					serEps.Enqueue(func() error {
+						defer swgEps.Done()
 						err := d.addK8sEndpointV1(k8sEP)
 						d.K8sEventProcessed(metricEndpoint, metricCreate, err == nil)
 						return nil
@@ -550,7 +584,9 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 							return
 						}
 
+						swgEps.Add()
 						serEps.Enqueue(func() error {
+							defer swgEps.Done()
 							err := d.updateK8sEndpointV1(oldk8sEP, newk8sEP)
 							d.K8sEventProcessed(metricEndpoint, metricUpdate, err == nil)
 							return nil
@@ -576,7 +612,9 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 					}
 				}
 				valid = true
+				swgEps.Add()
 				serEps.Enqueue(func() error {
+					defer swgEps.Done()
 					err := d.deleteK8sEndpointV1(k8sEP)
 					d.K8sEventProcessed(metricEndpoint, metricDelete, err == nil)
 					return nil
@@ -585,7 +623,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 		},
 		k8s.ConvertToK8sEndpoints,
 	)
-	d.blockWaitGroupToSyncResources(wait.NeverStop, endpointController, k8sAPIGroupEndpointV1Core)
+	d.blockWaitGroupToSyncResources(wait.NeverStop, swgEps, endpointController, k8sAPIGroupEndpointV1Core)
 	go endpointController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupEndpointV1Core)
 
@@ -615,7 +653,9 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 				defer func() { d.K8sEventReceived(metricCNP, metricCreate, valid, equal) }()
 				if cnp := k8s.CopyObjToV2CNP(obj); cnp != nil {
 					valid = true
+					swgCNPs.Add()
 					serCNPs.Enqueue(func() error {
+						defer swgCNPs.Done()
 						if cnp.RequiresDerivative() {
 							return nil
 						}
@@ -636,7 +676,9 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 							return
 						}
 
+						swgCNPs.Add()
 						serCNPs.Enqueue(func() error {
+							defer swgCNPs.Done()
 							if newCNP.RequiresDerivative() {
 								return nil
 							}
@@ -666,7 +708,9 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 					}
 				}
 				valid = true
+				swgCNPs.Add()
 				serCNPs.Enqueue(func() error {
+					defer swgCNPs.Done()
 					err := d.deleteCiliumNetworkPolicyV2(cnp)
 					d.K8sEventProcessed(metricCNP, metricDelete, err == nil)
 					return nil
@@ -676,7 +720,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 		cnpConverterFunc,
 		cnpStore,
 	)
-	d.blockWaitGroupToSyncResources(wait.NeverStop, ciliumV2Controller, k8sAPIGroupCiliumNetworkPolicyV2)
+	d.blockWaitGroupToSyncResources(wait.NeverStop, swgCNPs, ciliumV2Controller, k8sAPIGroupCiliumNetworkPolicyV2)
 	go ciliumV2Controller.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupCiliumNetworkPolicyV2)
 
@@ -688,6 +732,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 	go func() {
 		var once sync.Once
 		for {
+			swgNodes := lock.NewStoppableWaitGroup()
 			_, ciliumNodeInformer := informer.NewInformer(
 				cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
 					"ciliumnodes", v1.NamespaceAll, fields.Everything()),
@@ -703,7 +748,9 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 							if n.IsLocal() {
 								return
 							}
+							swgNodes.Add()
 							serNodes.Enqueue(func() error {
+								defer swgNodes.Done()
 								d.nodeDiscovery.Manager.NodeUpdated(n)
 								d.K8sEventProcessed(metricCiliumNode, metricCreate, true)
 								return nil
@@ -719,7 +766,9 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 							if n.IsLocal() {
 								return
 							}
+							swgNodes.Add()
 							serNodes.Enqueue(func() error {
+								defer swgNodes.Done()
 								d.nodeDiscovery.Manager.NodeUpdated(n)
 								d.K8sEventProcessed(metricCiliumNode, metricUpdate, true)
 								return nil
@@ -745,7 +794,9 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 						}
 						valid = true
 						n := node.ParseCiliumNode(ciliumNode)
+						swgNodes.Add()
 						serNodes.Enqueue(func() error {
+							defer swgNodes.Done()
 							d.nodeDiscovery.Manager.NodeDeleted(n)
 							return nil
 						}, serializer.NoRetry)
@@ -756,7 +807,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 			isConnected := make(chan struct{})
 			// once isConnected is closed, it will stop waiting on caches to be
 			// synchronized.
-			d.blockWaitGroupToSyncResources(isConnected, ciliumNodeInformer, k8sAPIGroupCiliumNodeV2)
+			d.blockWaitGroupToSyncResources(isConnected, swgNodes, ciliumNodeInformer, k8sAPIGroupCiliumNodeV2)
 
 			once.Do(func() {
 				// Signalize that we have put node controller in the wait group
@@ -787,6 +838,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 	go func() {
 		var once sync.Once
 		for {
+			swgCiliumEndpoints := lock.NewStoppableWaitGroup()
 			_, ciliumEndpointInformer := informer.NewInformer(
 				cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
 					"ciliumendpoints", v1.NamespaceAll, fields.Everything()),
@@ -799,7 +851,9 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 						if ciliumEndpoint, ok := obj.(*types.CiliumEndpoint); ok {
 							valid = true
 							endpoint := ciliumEndpoint.DeepCopy()
+							swgCiliumEndpoints.Add()
 							serCiliumEndpoints.Enqueue(func() error {
+								defer swgCiliumEndpoints.Done()
 								endpointUpdated(endpoint)
 								d.K8sEventProcessed(metricCiliumEndpoint, metricCreate, true)
 								return nil
@@ -812,7 +866,9 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 						if ciliumEndpoint, ok := newObj.(*types.CiliumEndpoint); ok {
 							valid = true
 							endpoint := ciliumEndpoint.DeepCopy()
+							swgCiliumEndpoints.Add()
 							serCiliumEndpoints.Enqueue(func() error {
+								defer swgCiliumEndpoints.Done()
 								endpointUpdated(endpoint)
 								d.K8sEventProcessed(metricCiliumEndpoint, metricUpdate, true)
 								return nil
@@ -837,7 +893,9 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 							}
 						}
 						valid = true
+						swgCiliumEndpoints.Add()
 						serCiliumEndpoints.Enqueue(func() error {
+							defer swgCiliumEndpoints.Done()
 							endpointDeleted(ciliumEndpoint)
 							return nil
 						}, serializer.NoRetry)
@@ -848,7 +906,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 			isConnected := make(chan struct{})
 			// once isConnected is closed, it will stop waiting on caches to be
 			// synchronized.
-			d.blockWaitGroupToSyncResources(isConnected, ciliumEndpointInformer, k8sAPIGroupCiliumEndpointV2)
+			d.blockWaitGroupToSyncResources(isConnected, swgCiliumEndpoints, ciliumEndpointInformer, k8sAPIGroupCiliumEndpointV2)
 
 			once.Do(func() {
 				// Signalize that we have put node controller in the wait group
@@ -876,6 +934,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 	go func() {
 		var once sync.Once
 		for {
+			swgPods := lock.NewStoppableWaitGroup()
 			createPodController := func(fieldSelector fields.Selector) cache.Controller {
 				_, podController := informer.NewInformer(
 					cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
@@ -888,7 +947,9 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 							defer func() { d.K8sEventReceived(metricPod, metricCreate, valid, equal) }()
 							if pod := k8s.CopyObjToV1Pod(obj); pod != nil {
 								valid = true
+								swgPods.Add()
 								serPods.Enqueue(func() error {
+									defer swgPods.Done()
 									err := d.addK8sPodV1(pod)
 									d.K8sEventProcessed(metricPod, metricCreate, err == nil)
 									return nil
@@ -905,7 +966,9 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 										equal = true
 										return
 									}
+									swgPods.Add()
 									serPods.Enqueue(func() error {
+										defer swgPods.Done()
 										err := d.updateK8sPodV1(oldPod, newPod)
 										d.K8sEventProcessed(metricPod, metricUpdate, err == nil)
 										return nil
@@ -918,7 +981,9 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 							defer func() { d.K8sEventReceived(metricPod, metricDelete, valid, equal) }()
 							if pod := k8s.CopyObjToV1Pod(obj); pod != nil {
 								valid = true
+								swgPods.Add()
 								serPods.Enqueue(func() error {
+									defer swgPods.Done()
 									err := d.deleteK8sPodV1(pod)
 									d.K8sEventProcessed(metricPod, metricDelete, err == nil)
 									return nil
@@ -935,7 +1000,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 			isConnected := make(chan struct{})
 			// once isConnected is closed, it will stop waiting on caches to be
 			// synchronized.
-			d.blockWaitGroupToSyncResources(isConnected, podController, k8sAPIGroupPodV1Core)
+			d.blockWaitGroupToSyncResources(isConnected, swgPods, podController, k8sAPIGroupPodV1Core)
 			once.Do(func() {
 				asyncControllers.Done()
 				d.k8sAPIGroups.addAPI(k8sAPIGroupPodV1Core)
