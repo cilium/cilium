@@ -110,6 +110,12 @@ const (
 	// LabelProtocol marks the L4 protocol (TCP, ANY) for the metric.
 	LabelProtocol = "protocol"
 
+	// LabelSignalType marks the signal name
+	LabelSignalType = "signal"
+
+	// LabelSignalData marks the signal data
+	LabelSignalData = "data"
+
 	// LabelStatus the label from completed task
 	LabelStatus = "status"
 
@@ -296,6 +302,11 @@ var (
 	// ConntrackGCDuration the duration of the conntrack GC process in milliseconds.
 	ConntrackGCDuration = NoOpObserverVec
 
+	// Signals
+
+	// SignalsHandled is the number of signals received.
+	SignalsHandled = NoOpCounterVec
+
 	// Services
 
 	// ServicesCount number of services
@@ -410,6 +421,7 @@ type Configuration struct {
 	ConntrackGCKeyFallbacksEnabled          bool
 	ConntrackGCSizeEnabled                  bool
 	ConntrackGCDurationEnabled              bool
+	SignalsHandledEnabled                   bool
 	ServicesCountEnabled                    bool
 	ErrorsWarningsEnabled                   bool
 	ControllerRunsEnabled                   bool
@@ -462,6 +474,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_key_fallbacks_total":    {},
 		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_entries":                {},
 		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_duration_seconds":       {},
+		Namespace + "_" + SubsystemDatapath + "_signals_handled_total":               {},
 		Namespace + "_services_events_total":                                         {},
 		Namespace + "_errors_warnings_total":                                         {},
 		Namespace + "_controllers_runs_total":                                        {},
@@ -819,6 +832,18 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, ConntrackGCDuration)
 			c.ConntrackGCDurationEnabled = true
+
+		case Namespace + "_" + SubsystemDatapath + "_signals_handled_total":
+			SignalsHandled = prometheus.NewCounterVec(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemDatapath,
+				Name:      "signals_handled_total",
+				Help: "Number of times that the datapath signal handler process was run " +
+					"labeled by signal type, data and completion status",
+			}, []string{LabelSignalType, LabelSignalData, LabelStatus})
+
+			collectors = append(collectors, SignalsHandled)
+			c.SignalsHandledEnabled = true
 
 		case Namespace + "_services_events_total":
 			ServicesCount = prometheus.NewCounterVec(prometheus.CounterOpts{
