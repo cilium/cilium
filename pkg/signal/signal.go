@@ -45,6 +45,16 @@ const (
 	SignalNatV6
 )
 
+// SignalData holds actual data the BPF program sent along with
+// the signal. Can be extended upon need for new signals.
+type SignalData uint32
+
+// SignalMsg is the message we receive from BPF datapath
+type SignalMsg struct {
+	Which uint32
+	Data  SignalData
+}
+
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "signal")
 
@@ -57,14 +67,8 @@ var (
 		WakeupEvents: 1,
 	}
 
-	channels [SignalTypeMax]chan<- int
+	channels [SignalTypeMax]chan<- SignalData
 )
-
-// SignalMsg is the message we receive from BPF datapath
-type SignalMsg struct {
-	Which uint32
-	Data  uint32
-}
 
 func signalReceive(msg *bpf.PerfEventSample, cpu int) {
 	sig := SignalMsg{}
@@ -73,7 +77,7 @@ func signalReceive(msg *bpf.PerfEventSample, cpu int) {
 		return
 	}
 	if channels[sig.Which] != nil {
-		channels[sig.Which] <- int(sig.Data)
+		channels[sig.Which] <- sig.Data
 	}
 }
 
@@ -116,7 +120,7 @@ func UnmuteChannel(signal int) error {
 }
 
 // RegisterChannel registers a go channel for a given signal.
-func RegisterChannel(signal int, ch chan<- int) error {
+func RegisterChannel(signal int, ch chan<- SignalData) error {
 	if signal >= SignalTypeMax {
 		return fmt.Errorf("Signal number not supported: %d", signal)
 	}

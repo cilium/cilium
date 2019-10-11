@@ -111,7 +111,7 @@ func EnableConntrackGC(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint) 
 	)
 
 	go func() {
-		var wakeup = make(chan int)
+		var wakeup = make(chan signal.SignalData)
 		ipv4Orig := ipv4
 		ipv6Orig := ipv6
 		for {
