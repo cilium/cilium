@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 const (
@@ -43,6 +44,7 @@ const (
 	SignalNatV4 = iota
 	// SignalNatV6 denotes NAT IPv6 table
 	SignalNatV6
+	SignalNatMax
 )
 
 // SignalData holds actual data the BPF program sent along with
@@ -70,6 +72,29 @@ var (
 	channels [SignalTypeMax]chan<- SignalData
 )
 
+var (
+	signalName = [SignalTypeMax]string{
+		SignalNatFillUp: "nat_fill_up",
+	}
+
+	signalNatProto = [SignalNatMax]string{
+		SignalNatV4: "ipv4",
+		SignalNatV6: "ipv6",
+	}
+)
+
+func signalCollectMetrics(sig *SignalMsg, signalStatus string) {
+	signalType := ""
+	signalData := ""
+	if sig != nil {
+		signalType = signalName[sig.Which]
+		if sig.Which == SignalNatFillUp {
+			signalData = signalNatProto[sig.Data]
+		}
+	}
+	metrics.SignalsHandled.WithLabelValues(signalType, signalData, signalStatus).Inc()
+}
+
 func signalReceive(msg *bpf.PerfEventSample, cpu int) {
 	sig := SignalMsg{}
 	if err := binary.Read(bytes.NewReader(msg.DataDirect()), byteorder.Native, &sig); err != nil {
@@ -78,15 +103,19 @@ func signalReceive(msg *bpf.PerfEventSample, cpu int) {
 	}
 	if channels[sig.Which] != nil {
 		channels[sig.Which] <- sig.Data
+		signalCollectMetrics(&sig, "received")
 	}
 }
 
 func signalLost(lost *bpf.PerfEventLost, cpu int) {
 	// Not much we can do here, with the given set of signals it is non-fatal,
 	// so we keep ignoring lost events right now.
+	signalCollectMetrics(nil, "lost")
 }
 
 func signalError(err *bpf.PerfEvent) {
+	signalCollectMetrics(nil, "error")
+
 	log.Errorf("BUG: Timeout while reading signal perf ring buffer: %s", err.Debug())
 }
 
