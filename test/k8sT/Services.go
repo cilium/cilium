@@ -40,6 +40,8 @@ var _ = Describe("K8sServicesTest", func() {
 		ciliumPodK8s1          string
 		testDSClient           = "zgroup=testDSClient"
 		testDS                 = "zgroup=testDS"
+		echoServiceName        = "echo"
+		echoPodLabel           = "name=echo"
 	)
 
 	applyPolicy := func(path string) {
@@ -87,8 +89,8 @@ var _ = Describe("K8sServicesTest", func() {
 		kubectl.CloseSSHClient()
 	})
 
-	testHTTPRequest := func(url string) {
-		pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, testDSClient)
+	testHTTPRequest := func(clientPodLabel, url string) {
+		pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, clientPodLabel)
 		ExpectWithOffset(1, err).Should(BeNil(), "cannot retrieve pod names by filter %q", testDSClient)
 		// A DS with client is running in each node. So we try from each node
 		// that can connect to the service.  To make sure that the cross-node
@@ -117,23 +119,28 @@ var _ = Describe("K8sServicesTest", func() {
 	Context("Checks ClusterIP Connectivity", func() {
 
 		var (
-			demoYAML string
+			demoYAML    string
+			echoSVCYAML string
 		)
 
 		BeforeAll(func() {
 
 			demoYAML = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
+			echoSVCYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-svc.yaml")
 		})
 
 		BeforeEach(func() {
 			res := kubectl.Apply(demoYAML)
 			res.ExpectSuccess("unable to apply %s", demoYAML)
+			res = kubectl.Apply(echoSVCYAML)
+			res.ExpectSuccess("unable to apply %s", echoSVCYAML)
 		})
 
 		AfterEach(func() {
 			// Explicitly ignore result of deletion of resources to avoid incomplete
 			// teardown if any step fails.
 			_ = kubectl.Delete(demoYAML)
+			_ = kubectl.Delete(echoSVCYAML)
 		})
 
 		It("Checks service on same node", func() {
@@ -159,6 +166,17 @@ var _ = Describe("K8sServicesTest", func() {
 				service.ExpectSuccess("Cannot retrieve services on cilium Pod")
 				service.ExpectContains(clusterIP, "ClusterIP is not present in the cilium service list")
 			}
+		}, 300)
+
+		It("Checks service accessing itself (hairpin flow)", func() {
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=echo", helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, echoServiceName)
+			Expect(err).Should(BeNil(), "Cannot get service %q ClusterIP", echoServiceName)
+			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
+
+			url := fmt.Sprintf("http://%s/", clusterIP)
+			testHTTPRequest(echoPodLabel, url)
 		}, 300)
 	})
 
@@ -190,7 +208,7 @@ var _ = Describe("K8sServicesTest", func() {
 			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
 
 			url := fmt.Sprintf("http://%s/", clusterIP)
-			testHTTPRequest(url)
+			testHTTPRequest(testDSClient, url)
 		})
 
 		testNodePort := func(bpfNodePort bool) {
@@ -214,7 +232,7 @@ var _ = Describe("K8sServicesTest", func() {
 			err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
 			Expect(err).Should(BeNil(), "Can not retrieve service")
 			url := getURL(data.Spec.ClusterIP, data.Spec.Ports[0].Port)
-			testHTTPRequest(url)
+			testHTTPRequest(testDSClient, url)
 
 			// From host via localhost IP
 			// TODO: IPv6
@@ -230,9 +248,9 @@ var _ = Describe("K8sServicesTest", func() {
 
 			// From pod via node IPs
 			url = getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
-			testHTTPRequest(url)
+			testHTTPRequest(testDSClient, url)
 			url = getURL(helpers.K8s2Ip, data.Spec.Ports[0].NodePort)
-			testHTTPRequest(url)
+			testHTTPRequest(testDSClient, url)
 
 			if bpfNodePort {
 				// From host via local cilium_host
@@ -249,15 +267,15 @@ var _ = Describe("K8sServicesTest", func() {
 
 				// From pod via loopback (host reachable services)
 				url = getURL("127.0.0.1", data.Spec.Ports[0].NodePort)
-				testHTTPRequest(url)
+				testHTTPRequest(testDSClient, url)
 
 				// From pod via local cilium_host
 				url = getURL(localCiliumHostIPv4, data.Spec.Ports[0].NodePort)
-				testHTTPRequest(url)
+				testHTTPRequest(testDSClient, url)
 
 				// From pod via remote cilium_host
 				url = getURL(remoteCiliumHostIPv4, data.Spec.Ports[0].NodePort)
-				testHTTPRequest(url)
+				testHTTPRequest(testDSClient, url)
 			}
 		}
 
