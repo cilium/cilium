@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo
+spec:
+  selector:
+    matchLabels:
+      name: echo
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: echo
+    spec:
+      containers:
+      - name: echo-container
+        image: docker.io/cilium/json-mock:1.1
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - -o
+            - /dev/null
+            - localhost
+        readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - -o
+            - /dev/null
+            - localhost
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+  selector:
+    name: echo
