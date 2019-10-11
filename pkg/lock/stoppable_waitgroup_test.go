@@ -1,0 +1,217 @@
+// Copyright 2019 Authors of Cilium
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// +build !privileged_tests
+
+package lock
+
+import (
+	"math/rand"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	. "gopkg.in/check.v1"
+)
+
+type StoppableWaitGroupSuite struct{}
+
+var _ = Suite(&StoppableWaitGroupSuite{})
+
+func (s *SemaphoredMutexSuite) TestAdd(c *C) {
+	l := NewStoppableWaitGroup()
+
+	l.Add()
+	c.Assert(atomic.LoadInt64(l.i), Equals, int64(1))
+	l.Add()
+	c.Assert(atomic.LoadInt64(l.i), Equals, int64(2))
+	close(l.noopAdd)
+	l.Add()
+	c.Assert(atomic.LoadInt64(l.i), Equals, int64(2))
+}
+
+func (s *SemaphoredMutexSuite) TestDone(c *C) {
+	l := NewStoppableWaitGroup()
+
+	atomic.StoreInt64(l.i, 4)
+	l.Done()
+	c.Assert(atomic.LoadInt64(l.i), Equals, int64(3))
+	l.Done()
+	c.Assert(atomic.LoadInt64(l.i), Equals, int64(2))
+	close(l.noopAdd)
+	select {
+	case _, ok := <-l.noopDone:
+		// channel should not have been closed
+		c.Assert(ok, Equals, true)
+	default:
+	}
+
+	l.Done()
+	c.Assert(atomic.LoadInt64(l.i), Equals, int64(1))
+	select {
+	case _, ok := <-l.noopDone:
+		// channel should not have been closed
+		c.Assert(ok, Equals, true)
+	default:
+	}
+
+	l.Done()
+	c.Assert(atomic.LoadInt64(l.i), Equals, int64(0))
+	select {
+	case _, ok := <-l.noopDone:
+		c.Assert(ok, Equals, false)
+	default:
+		// channel should have been closed
+		c.Assert(false, Equals, true)
+	}
+
+	l.Done()
+	c.Assert(atomic.LoadInt64(l.i), Equals, int64(0))
+}
+
+func (s *SemaphoredMutexSuite) TestStop(c *C) {
+	l := NewStoppableWaitGroup()
+
+	l.Add()
+	c.Assert(atomic.LoadInt64(l.i), Equals, int64(1))
+	l.Add()
+	c.Assert(atomic.LoadInt64(l.i), Equals, int64(2))
+	l.Stop()
+	l.Add()
+	c.Assert(atomic.LoadInt64(l.i), Equals, int64(2))
+}
+
+func (s *SemaphoredMutexSuite) TestWait(c *C) {
+	l := NewStoppableWaitGroup()
+
+	waitClosed := make(chan struct{})
+	go func() {
+		l.Wait()
+		close(waitClosed)
+	}()
+
+	l.Add()
+	c.Assert(atomic.LoadInt64(l.i), Equals, int64(1))
+	l.Add()
+	c.Assert(atomic.LoadInt64(l.i), Equals, int64(2))
+	l.Stop()
+	l.Add()
+	c.Assert(atomic.LoadInt64(l.i), Equals, int64(2))
+
+	l.Done()
+	c.Assert(atomic.LoadInt64(l.i), Equals, int64(1))
+	select {
+	case _, ok := <-waitClosed:
+		// channel should not have been closed
+		c.Assert(ok, Equals, true)
+	default:
+	}
+
+	l.Done()
+	c.Assert(atomic.LoadInt64(l.i), Equals, int64(0))
+	select {
+	case _, ok := <-waitClosed:
+		// channel should have been closed
+		c.Assert(ok, Equals, false)
+	default:
+	}
+
+	l.Done()
+	c.Assert(atomic.LoadInt64(l.i), Equals, int64(0))
+}
+
+func (s *SemaphoredMutexSuite) TestWaitChannel(c *C) {
+	l := NewStoppableWaitGroup()
+
+	l.Add()
+	c.Assert(atomic.LoadInt64(l.i), Equals, int64(1))
+	l.Add()
+	c.Assert(atomic.LoadInt64(l.i), Equals, int64(2))
+	l.Stop()
+	l.Add()
+	c.Assert(atomic.LoadInt64(l.i), Equals, int64(2))
+
+	l.Done()
+	c.Assert(atomic.LoadInt64(l.i), Equals, int64(1))
+	select {
+	case _, ok := <-l.WaitChannel():
+		// channel should not have been closed
+		c.Assert(ok, Equals, true)
+	default:
+	}
+
+	l.Done()
+	c.Assert(atomic.LoadInt64(l.i), Equals, int64(0))
+	select {
+	case _, ok := <-l.WaitChannel():
+		// channel should have been closed
+		c.Assert(ok, Equals, false)
+	default:
+	}
+
+	l.Done()
+	c.Assert(atomic.LoadInt64(l.i), Equals, int64(0))
+}
+
+func (s *SemaphoredMutexSuite) TestParallelism(c *C) {
+	l := NewStoppableWaitGroup()
+
+	rand.Seed(time.Now().Unix())
+	in := make(chan int)
+	stop := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case in <- rand.Intn(1 - 0):
+			case <-stop:
+				close(in)
+				return
+			}
+		}
+	}()
+	adds := int64(0)
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		go func() {
+			wg.Add(1)
+			defer wg.Done()
+			for a := range in {
+				if a == 0 {
+					atomic.AddInt64(&adds, 1)
+					l.Add()
+				} else {
+					l.Done()
+					atomic.AddInt64(&adds, -1)
+				}
+			}
+		}()
+	}
+
+	time.Sleep(time.Duration(rand.Intn(3-0)) * time.Second)
+	close(stop)
+	wg.Wait()
+	add := atomic.LoadInt64(&adds)
+	for ; add != 0; add = atomic.LoadInt64(&adds) {
+		switch {
+		case add < 0:
+			atomic.AddInt64(&adds, 1)
+			l.Add()
+		case add > 0:
+			l.Done()
+			atomic.AddInt64(&adds, -1)
+		}
+	}
+	l.Stop()
+	l.Wait()
+}
