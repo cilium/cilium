@@ -124,7 +124,7 @@
   revision = "97b3e8dcf2b43a2048e16ac6b027f8003e6f32d5"
 
 [[projects]]
-  digest = "1:2b404b091881f73038d4a98ad226e525e48dcb18a5088b313efd19de44916cc2"
+  digest = "1:db9beb8509e85f3d1ede64db3d2b4d8dee5467f75825d70f5f809f0dd8a7ed02"
   name = "github.com/cilium/proxy"
   packages = [
     "go/cilium/api",
@@ -143,7 +143,7 @@
     "go/envoy/type/matcher",
   ]
   pruneopts = "NUT"
-  revision = "b7a919ebdca3d3bbc6aae51357e78e9c603450ae"
+  revision = "f04b4a0ae1863c031c453e390675e3bffb0f084e"
 
 [[projects]]
   digest = "1:e60eba203be0ebc6e9deeb000459ca686e28029cc564e3cf9432faa908c287a7"
@@ -369,12 +369,11 @@
   revision = "d8d4c8cf03d7d036a76d5470553cd8753e522a99"
 
 [[projects]]
-  digest = "1:d67a21c8d55d69afb0ac5b7fb150406a30bf0e607930fd9cf980cca5006a657a"
+  digest = "1:7e37968404518e8f72e645ee42b34b51af62bd254bafc7a87b20122ddf0ca6bf"
   name = "github.com/envoyproxy/protoc-gen-validate"
   packages = ["validate"]
   pruneopts = "NUT"
-  revision = "9eff07ddfcb4001aa1aab280648153f46e1a8ddc"
-  version = "v0.1.0"
+  revision = "2feaabb13a5d697b80fcb938c0ce37b24c9381ee"
 
 [[projects]]
   digest = "1:32598368f409bbee79deb9d43569fcd92b9fb27f39155f5e166b3371217f051f"
