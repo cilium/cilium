@@ -82,6 +82,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	__u8 encrypt_key = 0;
 	__u32 monitor = 0;
 	__u8 reason;
+	bool hairpin_flow = false; // endpoint wants to access itself via service IP
 
 	if (unlikely(!is_valid_lxc_src_ip(ip6)))
 		return DROP_INVALID_SIP;
@@ -117,6 +118,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 				&csum_off, &key, tuple, svc, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
+		hairpin_flow |= ct_state_new.loopback;
 	}
 
 skip_service_lookup:
@@ -227,6 +229,8 @@ ct_recreate6:
 		return DROP_UNKNOWN_CT;
 	}
 
+	hairpin_flow |= ct_state.loopback;
+
 	if (redirect_to_proxy(verdict, reason)) {
 		// Trace the packet before its forwarded to proxy
 		send_trace_notify(skb, TRACE_TO_PROXY, SECLABEL, 0,
@@ -239,28 +243,32 @@ ct_recreate6:
 
 	daddr = (union v6addr *)&ip6->daddr;
 
+	/* See handle_ipv4_from_lxc() re hairpin_flow */
+	if (is_defined(ENABLE_ROUTING) || hairpin_flow) {
+		struct endpoint_info *ep;
+
+		/* Lookup IPv6 address, this will return a match if:
+		 *  - The destination IP address belongs to a local endpoint managed by
+		 *    cilium
+		 *  - The destination IP address is an IP address associated with the
+		 *    host itself.
+		 */
+		if ((ep = lookup_ip6_endpoint(ip6)) != NULL) {
 #ifdef ENABLE_ROUTING
-	struct endpoint_info *ep;
-
-	/* Lookup IPv6 address, this will return a match if:
-	 *  - The destination IP address belongs to a local endpoint managed by
-	 *    cilium
-	 *  - The destination IP address is an IP address associated with the
-	 *    host itself.
-	 */
-	if ((ep = lookup_ip6_endpoint(ip6)) != NULL) {
-		if (ep->flags & ENDPOINT_F_HOST) {
+			if (ep->flags & ENDPOINT_F_HOST) {
 #ifdef HOST_IFINDEX
-			goto to_host;
+				goto to_host;
 #else
-			return DROP_HOST_UNREACHABLE;
+				return DROP_HOST_UNREACHABLE;
 #endif
+			}
+#endif /* ENABLE_ROUTING */
+			policy_clear_mark(skb);
+			return ipv6_local_delivery(skb, l3_off, l4_off, SECLABEL,
+						   ip6, tuple->nexthdr, ep,
+						   METRIC_EGRESS);
 		}
-
-		policy_clear_mark(skb);
-		return ipv6_local_delivery(skb, l3_off, l4_off, SECLABEL, ip6, tuple->nexthdr, ep, METRIC_EGRESS);
 	}
-#endif
 
 	/* The packet goes to a peer not managed by this agent instance */
 #ifdef ENCAP_IFINDEX
@@ -407,6 +415,7 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 	__u8 encrypt_key = 0;
 	__u32 monitor = 0;
 	__u8 reason;
+	bool hairpin_flow = false; // endpoint wants to access itself via service IP
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -435,6 +444,7 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 				&key, &tuple, svc, &ct_state_new, ip4->saddr);
 		if (IS_ERR(ret))
 			return ret;
+		hairpin_flow |= ct_state_new.loopback;
 	}
 
 skip_service_lookup:
@@ -542,6 +552,8 @@ ct_recreate4:
 		return DROP_UNKNOWN_CT;
 	}
 
+	hairpin_flow |= ct_state.loopback;
+
 	if (redirect_to_proxy(verdict, reason)) {
 		// Trace the packet before its forwarded to proxy
 		send_trace_notify(skb, TRACE_TO_PROXY, SECLABEL, 0,
@@ -555,27 +567,35 @@ ct_recreate4:
 
 	orig_dip = ip4->daddr;
 
-#ifdef ENABLE_ROUTING
-	struct endpoint_info *ep;
+	// Allow a hairpin packet to be redirected even if ENABLE_ROUTING is
+	// disabled. Otherwise, the packet will be dropped by the kernel if
+	// it's going to be routed via an interface it came from after it has
+	// been passed to the stack.
+	if (is_defined(ENABLE_ROUTING) || hairpin_flow) {
+		struct endpoint_info *ep;
 
-	/* Lookup IPv4 address, this will return a match if:
-	 *  - The destination IP address belongs to a local endpoint managed by
-	 *    cilium
-	 *  - The destination IP address is an IP address associated with the
-	 *    host itself.
-	 */
-	if ((ep = lookup_ip4_endpoint(ip4)) != NULL) {
-		if (ep->flags & ENDPOINT_F_HOST) {
+		/* Lookup IPv4 address, this will return a match if:
+		 *  - The destination IP address belongs to a local endpoint
+		 *    managed by cilium
+		 *  - The destination IP address is an IP address associated with the
+		 *    host itself
+		 *  - The destination IP address belongs to endpoint itself.
+		 */
+		if ((ep = lookup_ip4_endpoint(ip4)) != NULL) {
+#ifdef ENABLE_ROUTING
+			if (ep->flags & ENDPOINT_F_HOST) {
 #ifdef HOST_IFINDEX
-			goto to_host;
+				goto to_host;
 #else
-			return DROP_HOST_UNREACHABLE;
+				return DROP_HOST_UNREACHABLE;
 #endif
+			}
+#endif /* ENABLE_ROUTING */
+			policy_clear_mark(skb);
+			return ipv4_local_delivery(skb, l3_off, l4_off, SECLABEL,
+						   ip4, ep, METRIC_EGRESS);
 		}
-		policy_clear_mark(skb);
-		return ipv4_local_delivery(skb, l3_off, l4_off, SECLABEL, ip4, ep, METRIC_EGRESS);
 	}
-#endif
 
 #ifdef ENCAP_IFINDEX
 	{
