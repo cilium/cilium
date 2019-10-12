@@ -439,6 +439,11 @@ func (in *ENISpec) DeepCopyInto(out *ENISpec) {
 			(*out)[key] = val
 		}
 	}
+	if in.DeleteOnTermination != nil {
+		in, out := &in.DeleteOnTermination, &out.DeleteOnTermination
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

@@ -767,7 +767,7 @@ type ENISpec struct {
 	// associated instance is terminated
 	//
 	// +optional
-	DeleteOnTermination bool `json:"delete-on-termination,omitempty"`
+	DeleteOnTermination *bool `json:"delete-on-termination,omitempty"`
 }
 
 // IPAMSpec is the IPAM specification of the node

@@ -110,12 +110,13 @@ func newCiliumNode(node, instanceID, instanceType, az, vpcID string, preAllocate
 		ObjectMeta: metav1.ObjectMeta{Name: node, Namespace: "default"},
 		Spec: v2.NodeSpec{
 			ENI: v2.ENISpec{
-				InstanceID:       instanceID,
-				InstanceType:     instanceType,
-				PreAllocate:      preAllocate,
-				MinAllocate:      minAllocate,
-				AvailabilityZone: az,
-				VpcID:            vpcID,
+				InstanceID:          instanceID,
+				InstanceType:        instanceType,
+				DeleteOnTermination: func() *bool { b := true; return &b }(),
+				PreAllocate:         preAllocate,
+				MinAllocate:         minAllocate,
+				AvailabilityZone:    az,
+				VpcID:               vpcID,
 			},
 			IPAM: v2.IPAMSpec{
 				Pool: map[string]v2.AllocationIP{},
