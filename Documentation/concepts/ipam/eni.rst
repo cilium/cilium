@@ -107,7 +107,7 @@ allocation:
 
   If unspecified, no minimum number of IPs is required.
 
-``spec.eni.preallocate``
+``spec.eni.pre-allocate``
   The number of IP addresses that must be available for allocation at all
   times.  It defines the buffer of addresses available immediately without
   requiring for the operator to get involved.
@@ -199,7 +199,7 @@ calculation is performed:
 
 .. code-block:: go
 
-     spec.eni.preallocate - (len(spec.ipam.available) - len(status.ipam.used))
+     spec.eni.pre-allocate - (len(spec.ipam.available) - len(status.ipam.used))
 
 Upon detection of a deficit, the node is added to the list of nodes which
 require IP address allocation. When a deficit is detected using the interval
@@ -240,7 +240,7 @@ ENI:
       min(AvailableOnSubnet, min(AvailableOnENI, NeededAddresses + spec.eni.max-above-watermark))
 
 This means that the number of IPs allocated in a single allocation cycle can be
-less than what is required to fulfill ``spec.eni.preallocate``.
+less than what is required to fulfill ``spec.eni.pre-allocate``.
 
 In order to allocate the IPs, the method ``AssignPrivateIpAddresses`` of the
 EC2 service API is called. When no more ENIs are available meeting the above
