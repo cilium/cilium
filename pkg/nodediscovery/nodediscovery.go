@@ -276,7 +276,6 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource(conf Configuration) {
 
 		nodeResource.Spec.ENI.VpcID = vpcID
 		nodeResource.Spec.ENI.FirstInterfaceIndex = 1
-		nodeResource.Spec.ENI.DeleteOnTermination = true
 		nodeResource.Spec.ENI.PreAllocate = defaults.ENIPreAllocation
 
 		if c := conf.GetNetConf(); c != nil {
