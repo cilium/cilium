@@ -369,10 +369,10 @@ func (n *Node) allocateENI(s *types.Subnet, a *allocatableResources) error {
 
 	scopedLog.Info("Attached ENI to instance")
 
-	if nodeResource.Spec.ENI.DeleteOnTermination {
+	if nodeResource.Spec.ENI.DeleteOnTermination == nil || *nodeResource.Spec.ENI.DeleteOnTermination {
 		// We have an attachment ID from the last API, which lets us mark the
 		// interface as delete on termination
-		err = n.manager.ec2API.ModifyNetworkInterface(eniID, attachmentID, n.resource.Spec.ENI.DeleteOnTermination)
+		err = n.manager.ec2API.ModifyNetworkInterface(eniID, attachmentID, true)
 		if err != nil {
 			delErr := n.manager.ec2API.DeleteNetworkInterface(eniID)
 			if delErr != nil {
