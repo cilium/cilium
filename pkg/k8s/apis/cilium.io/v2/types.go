@@ -764,10 +764,11 @@ type ENISpec struct {
 	AvailabilityZone string `json:"availability-zone,omitempty"`
 
 	// DeleteOnTermination defines that the ENI should be deleted when the
-	// associated instance is terminated
+	// associated instance is terminated. If the parameter is not set the
+	// default behavior is to delete the ENI on instance termination.
 	//
 	// +optional
-	DeleteOnTermination bool `json:"delete-on-termination,omitempty"`
+	DeleteOnTermination *bool `json:"delete-on-termination,omitempty"`
 }
 
 // IPAMSpec is the IPAM specification of the node
