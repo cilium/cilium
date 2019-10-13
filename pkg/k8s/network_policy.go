@@ -57,7 +57,10 @@ func GetPolicyLabelsv1(np *networkingv1.NetworkPolicy) labels.LabelArray {
 		policyName = np.Name
 	}
 
-	ns := k8sUtils.ExtractNamespace(&np.ObjectMeta)
+	// Here we are using ExtractNamespaceOrDefault instead of ExtractNamespace because we know
+	// for sure that the Object is namespace scoped, so if no namespace is provided instead
+	// of assuming that the Object is cluster scoped we return the default namespace.
+	ns := k8sUtils.ExtractNamespaceOrDefault(&np.ObjectMeta)
 
 	return k8sCiliumUtils.GetPolicyLabels(ns, policyName, policyUID, resourceTypeNetworkPolicy)
 }
@@ -132,7 +135,9 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 	ingresses := []api.IngressRule{}
 	egresses := []api.EgressRule{}
 
-	namespace := k8sUtils.ExtractNamespace(&np.ObjectMeta)
+	// Since we know that the object NetworkPolicy is namespace scoped we assign
+	// namespace to default namespace if the field is empty in the object.
+	namespace := k8sUtils.ExtractNamespaceOrDefault(&np.ObjectMeta)
 
 	for _, iRule := range np.Spec.Ingress {
 		fromRules := []api.IngressRule{}
