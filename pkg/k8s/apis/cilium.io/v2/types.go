@@ -291,58 +291,6 @@ type CiliumClusterwideNetworkPolicy struct {
 	CiliumNetworkPolicy
 }
 
-// Parse parses a CiliumClusterwideNetworkPolicy and returns a list of cilium policy
-// rules. This is similar to the parse function used in CiliumNetworkPolicy with
-// the only difference that since the CRD is cluster scoped we don't send any namespace
-// here.
-func (r *CiliumClusterwideNetworkPolicy) Parse() (api.Rules, error) {
-	if r.ObjectMeta.Name == "" {
-		return nil, fmt.Errorf("CiliumClusterwideNetworkPolicy must have name")
-	}
-
-	name := r.ObjectMeta.Name
-	uid := r.ObjectMeta.UID
-
-	retRules := api.Rules{}
-
-	if r.Spec != nil {
-		if err := r.Spec.Sanitize(); err != nil {
-			return nil, fmt.Errorf("Invalid CiliumClusterwideNetworkPolicy spec: %s", err)
-
-		}
-		// CiliumClusterwideNetworkPolicy is cluster scoped CRD so does not belong to a
-		// particular namespace.
-		cr := k8sCiliumUtils.ParseToCiliumRule("", name, uid, r.Spec)
-		retRules = append(retRules, cr)
-	}
-	if r.Specs != nil {
-		for _, rule := range r.Specs {
-			if err := rule.Sanitize(); err != nil {
-				return nil, fmt.Errorf("Invalid CiliumClusterwideNetworkPolicy specs: %s", err)
-
-			}
-			cr := k8sCiliumUtils.ParseToCiliumRule("", name, uid, rule)
-			retRules = append(retRules, cr)
-		}
-	}
-
-	return retRules, nil
-}
-
-// GetControllerName returns the unique name for the controller manager.
-func (r *CiliumClusterwideNetworkPolicy) GetControllerName() string {
-	name := r.ObjectMeta.GetName()
-	return fmt.Sprintf("%s (v2 %s)", k8sConst.CtrlPrefixPolicyStatus, name)
-}
-
-// GetIdentityLabels returns all rule labels in the CiliumNetworkPolicy.
-func (r *CiliumClusterwideNetworkPolicy) GetIdentityLabels() labels.LabelArray {
-	name := r.ObjectMeta.Name
-	uid := r.ObjectMeta.UID
-	return k8sCiliumUtils.GetPolicyLabels("", name, uid,
-		k8sCiliumUtils.ResourceTypeCiliumClusterwideNetworkPolicy)
-}
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CiliumClusterwideNetworkPolicyList is a list of CiliumClusterwideNetworkPolicy objects

@@ -244,6 +244,7 @@ var (
 
 	ciliumRule = append(append([]byte(`{
     "metadata": {
+		"namespace": "default",
         "name": "rule1",
 		"uid": "`+uuidRule+`"
     },
@@ -251,6 +252,7 @@ var (
 }`)...)
 	ciliumRuleList = append(append(append(append([]byte(`{
     "metadata": {
+		"namespace": "default",
         "name": "rule1",
 		"uid": "`+uuidRule+`"
     },
@@ -274,6 +276,7 @@ func (s *CiliumV2Suite) TestParseSpec(c *C) {
 
 	expectedPolicyRule := &CiliumNetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
 			Name: "rule1",
 			UID:  uuidRule,
 		},
@@ -284,6 +287,7 @@ func (s *CiliumV2Suite) TestParseSpec(c *C) {
 
 	expectedPolicyRuleWithLabel := &CiliumNetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
 			Name: "rule1",
 			UID:  uuidRule,
 		},
@@ -341,6 +345,7 @@ func (s *CiliumV2Suite) TestParseRules(c *C) {
 
 	expectedPolicyRuleList := &CiliumNetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
 			Name: "rule1",
 			UID:  uuidRule,
 		},
@@ -351,6 +356,7 @@ func (s *CiliumV2Suite) TestParseRules(c *C) {
 
 	expectedPolicyRuleListWithLabel := &CiliumNetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
 			Name: "rule1",
 			UID:  uuidRule,
 		},
