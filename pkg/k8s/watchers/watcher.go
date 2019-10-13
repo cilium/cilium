@@ -46,19 +46,21 @@ import (
 )
 
 const (
-	k8sAPIGroupCRD                   = "CustomResourceDefinition"
-	k8sAPIGroupNodeV1Core            = "core/v1::Node"
-	k8sAPIGroupNamespaceV1Core       = "core/v1::Namespace"
-	K8sAPIGroupServiceV1Core         = "core/v1::Service"
-	K8sAPIGroupEndpointV1Core        = "core/v1::Endpoint"
-	k8sAPIGroupPodV1Core             = "core/v1::Pods"
-	k8sAPIGroupNetworkingV1Core      = "networking.k8s.io/v1::NetworkPolicy"
-	k8sAPIGroupCiliumNetworkPolicyV2 = "cilium/v2::CiliumNetworkPolicy"
-	k8sAPIGroupCiliumNodeV2          = "cilium/v2::CiliumNode"
-	k8sAPIGroupCiliumEndpointV2      = "cilium/v2::CiliumEndpoint"
-	cacheSyncTimeout                 = 3 * time.Minute
+	k8sAPIGroupCRD                              = "CustomResourceDefinition"
+	k8sAPIGroupNodeV1Core                       = "core/v1::Node"
+	k8sAPIGroupNamespaceV1Core                  = "core/v1::Namespace"
+	K8sAPIGroupServiceV1Core                    = "core/v1::Service"
+	K8sAPIGroupEndpointV1Core                   = "core/v1::Endpoint"
+	k8sAPIGroupPodV1Core                        = "core/v1::Pods"
+	k8sAPIGroupNetworkingV1Core                 = "networking.k8s.io/v1::NetworkPolicy"
+	k8sAPIGroupCiliumNetworkPolicyV2            = "cilium/v2::CiliumNetworkPolicy"
+	k8sAPIGroupCiliumClusterwideNetworkPolicyV2 = "cilium/v2::CiliumClusterwideNetworkPolicy"
+	k8sAPIGroupCiliumNodeV2                     = "cilium/v2::CiliumNode"
+	k8sAPIGroupCiliumEndpointV2                 = "cilium/v2::CiliumEndpoint"
+	cacheSyncTimeout                            = 3 * time.Minute
 
 	metricCNP            = "CiliumNetworkPolicy"
+	metricCCNP           = "CiliumClusterwideNetworkPolicy"
 	metricEndpoint       = "Endpoint"
 	metricKNP            = "NetworkPolicy"
 	metricNS             = "Namespace"
@@ -332,6 +334,8 @@ func (k *K8sWatcher) InitK8sSubsystem() <-chan struct{} {
 			// we are enforcing the correct policies for each endpoint before
 			// restarting.
 			k8sAPIGroupCiliumNetworkPolicyV2,
+
+			k8sAPIGroupCiliumClusterwideNetworkPolicyV2,
 			// We we need to know about all other nodes
 			k8sAPIGroupCiliumNodeV2,
 			// We need all network policies in place before restoring to make sure
@@ -399,6 +403,11 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 	serCNPs := serializer.NewFunctionQueue(queueSize)
 	swgCNPs := lock.NewStoppableWaitGroup()
 	k.ciliumNetworkPoliciesInit(ciliumNPClient, serCNPs, swgCNPs)
+
+	// cilium clusterwide network policy
+	serCCNPs := serializer.NewFunctionQueue(queueSize)
+	swgCCNPs := lock.NewStoppableWaitGroup()
+	k.ciliumClusterwideNetworkPoliciesInit(ciliumNPClient, serCCNPs, swgCCNPs)
 
 	// cilium nodes
 	asyncControllers.Add(1)
