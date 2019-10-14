@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/allocator"
 
@@ -120,6 +121,7 @@ func (s *ClusterMeshServicesTestSuite) expectEvent(c *C, action k8s.CacheAction,
 			c.Errorf("Timeout while waiting for event to be received")
 			return false
 		}
+		defer event.SWG.Done()
 
 		c.Assert(event.Action, Equals, action)
 		c.Assert(event.ID, Equals, id)
@@ -136,6 +138,7 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesGlobal(c *C) {
 	kvstore.Set(s.prepareServiceUpdate("1", "10.0.185.196", "http", "80"))
 	kvstore.Set(s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90"))
 
+	swgSvcs := lock.NewStoppableWaitGroup()
 	k8sSvc := &types.Service{
 		Service: &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -152,7 +155,7 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesGlobal(c *C) {
 		},
 	}
 
-	svcID := s.svcCache.UpdateService(k8sSvc)
+	svcID := s.svcCache.UpdateService(k8sSvc, swgSvcs)
 
 	s.expectEvent(c, k8s.UpdateService, svcID, func(event k8s.ServiceEvent) bool {
 		return event.Endpoints.Backends["10.0.185.196"] != nil &&
@@ -180,12 +183,13 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesGlobal(c *C) {
 		},
 	}
 
-	s.svcCache.UpdateEndpoints(k8sEndpoints)
+	swgEps := lock.NewStoppableWaitGroup()
+	s.svcCache.UpdateEndpoints(k8sEndpoints, swgEps)
 	s.expectEvent(c, k8s.UpdateService, svcID, func(event k8s.ServiceEvent) bool {
 		return event.Endpoints.Backends["30.0.185.196"] != nil
 	})
 
-	s.svcCache.DeleteEndpoints(k8sEndpoints)
+	s.svcCache.DeleteEndpoints(k8sEndpoints, swgEps)
 	s.expectEvent(c, k8s.UpdateService, svcID, func(event k8s.ServiceEvent) bool {
 		return event.Endpoints.Backends["30.0.185.196"] == nil
 	})
@@ -195,6 +199,18 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesGlobal(c *C) {
 
 	kvstore.DeletePrefix("cilium/state/services/v1/" + s.randomName + "2")
 	s.expectEvent(c, k8s.DeleteService, svcID, nil)
+
+	swgSvcs.Stop()
+	c.Assert(testutils.WaitUntil(func() bool {
+		swgSvcs.Wait()
+		return true
+	}, 2*time.Second), IsNil)
+
+	swgEps.Stop()
+	c.Assert(testutils.WaitUntil(func() bool {
+		swgEps.Wait()
+		return true
+	}, 2*time.Second), IsNil)
 }
 
 func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesUpdate(c *C) {
@@ -217,7 +233,8 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesUpdate(c *C) {
 		},
 	}
 
-	svcID := s.svcCache.UpdateService(k8sSvc)
+	swgSvcs := lock.NewStoppableWaitGroup()
+	svcID := s.svcCache.UpdateService(k8sSvc, swgSvcs)
 
 	s.expectEvent(c, k8s.UpdateService, svcID, func(event k8s.ServiceEvent) bool {
 		return event.Endpoints.Backends["10.0.185.196"]["http"].Equals(
@@ -248,6 +265,12 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesUpdate(c *C) {
 
 	s.expectEvent(c, k8s.UpdateService, svcID, nil)
 	s.expectEvent(c, k8s.DeleteService, svcID, nil)
+
+	swgSvcs.Stop()
+	c.Assert(testutils.WaitUntil(func() bool {
+		swgSvcs.Wait()
+		return true
+	}, 2*time.Second), IsNil)
 }
 
 func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesNonGlobal(c *C) {
@@ -268,7 +291,8 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesNonGlobal(c *C) {
 		},
 	}
 
-	s.svcCache.UpdateService(k8sSvc)
+	swgSvcs := lock.NewStoppableWaitGroup()
+	s.svcCache.UpdateService(k8sSvc, swgSvcs)
 
 	time.Sleep(100 * time.Millisecond)
 	select {
@@ -276,4 +300,10 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesNonGlobal(c *C) {
 		c.Errorf("Unexpected service event received: %+v", event)
 	default:
 	}
+
+	swgSvcs.Stop()
+	c.Assert(testutils.WaitUntil(func() bool {
+		swgSvcs.Wait()
+		return true
+	}, 2*time.Second), IsNil)
 }

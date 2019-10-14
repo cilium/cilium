@@ -346,6 +346,14 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState) chan struc
 
 		go func() {
 			if k8s.IsEnabled() {
+				// Also wait for all cluster mesh to be synchronized with the
+				// datapath before proceeding.
+				if option.Config.ClusterID != 0 {
+					err := d.clustermesh.ClustersSynced(context.Background())
+					if err != nil {
+						log.WithError(err).Fatal("timeout while waiting for all clusters to be locally synchronized")
+					}
+				}
 				// Start controller which removes any leftover Kubernetes
 				// services that may have been deleted while Cilium was not
 				// running. Once this controller succeeds, because it has no
