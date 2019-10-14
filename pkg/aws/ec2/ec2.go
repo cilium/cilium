@@ -397,3 +397,29 @@ func (c *Client) AssignPrivateIpAddresses(eniID string, addresses int64) error {
 	c.metricsAPI.ObserveEC2APICall("AssignPrivateIpAddresses", deriveStatus(req.Request, err), sinceStart.Seconds())
 	return err
 }
+
+func (c *Client) TagENI(eniID string, eniTags map[string]string) error {
+	request := ec2.CreateTagsInput{
+		Resources: []string{eniID},
+		Tags:      createAWSTagSlice(eniTags),
+	}
+	c.rateLimit("CreateTags")
+	sinceStart := spanstat.Start()
+	req := c.ec2Client.CreateTagsRequest(&request)
+	_, err := req.Send()
+	c.metricsAPI.ObserveEC2APICall("CreateTags", deriveStatus(req.Request, err), sinceStart.Seconds())
+	return err
+}
+
+func createAWSTagSlice(tags map[string]string) []ec2.Tag {
+	awsTags := make([]ec2.Tag, 0, len(tags))
+	for k, v := range tags {
+		awsTag := ec2.Tag{
+			Key:   aws.String(k),
+			Value: aws.String(v),
+		}
+		awsTags = append(awsTags, awsTag)
+	}
+
+	return awsTags
+}
