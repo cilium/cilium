@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,17 +15,25 @@
 package monitor
 
 import (
+	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"net"
+	"unsafe"
 
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/monitor/api"
 )
 
 const (
-	// TraceNotifyLen is the amount of packet data provided in a trace notification
-	TraceNotifyLen = 48
+	// traceNotifyCommonLen is the minimum length required to determine the version of the TN event.
+	traceNotifyCommonLen = 16
+	// traceNotifyV1Len is the amount of packet data provided in a trace notification v1
+	traceNotifyV1Len = 32
+	// traceNotifyV2Len is the amount of packet data provided in a trace notification v2
+	traceNotifyV2Len = 48
 	// TraceReasonEncryptMask is the bit used to indicate encryption or not
 	TraceReasonEncryptMask uint8 = 0x80
 )
@@ -36,23 +44,45 @@ const (
 	TraceNotifyFlagIsIPv6 uint8 = 1
 )
 
-// TraceNotify is the message format of a trace notification in the BPF ring buffer
-type TraceNotify struct {
+const (
+	TraceNotifyVersion0 = iota
+	TraceNotifyVersion1
+)
+
+// TraceNotifyV0 is the common message format for versions 0 and 1.
+type TraceNotifyV0 struct {
 	Type     uint8
 	ObsPoint uint8
 	Source   uint16
 	Hash     uint32
 	OrigLen  uint32
-	CapLen   uint32
+	CapLen   uint16
+	Version  uint16
 	SrcLabel uint32
 	DstLabel uint32
 	DstID    uint16
 	Reason   uint8
 	Flags    uint8
 	Ifindex  uint32
-	OrigIP   types.IPv6
 	// data
 }
+
+// TraceNotifyV1 is the version 1 message format.
+type TraceNotifyV1 struct {
+	TraceNotifyV0
+	OrigIP types.IPv6
+	// data
+}
+
+// TraceNotify is the message format of a trace notification in the BPF ring buffer
+type TraceNotify TraceNotifyV1
+
+var (
+	traceNotifyLength = map[uint16]uint{
+		TraceNotifyVersion0: 32, // unsafe.Sizeof(&TraceNotifyV0{})
+		TraceNotifyVersion1: 48, // unsafe.Sizeof(&TraceNotifyV1{})
+	}
+)
 
 // Reasons for forwarding a packet.
 const (
@@ -75,6 +105,35 @@ func connState(reason uint8) string {
 		return str
 	}
 	return fmt.Sprintf("%d", reason)
+}
+
+func fetchVersion(data []byte, tn *TraceNotify) (version uint16, err error) {
+	offset := unsafe.Offsetof(tn.Version)
+	length := unsafe.Sizeof(tn.Version)
+	reader := bytes.NewReader(data[offset : offset+length])
+	err = binary.Read(reader, byteorder.Native, &version)
+	return version, err
+}
+
+// DecodeTraceNotify will decode 'data' into the provided TraceNotify structure
+func DecodeTraceNotify(data []byte, tn *TraceNotify) error {
+	if len(data) < traceNotifyCommonLen {
+		return fmt.Errorf("Unknown trace event")
+	}
+
+	version, err := fetchVersion(data, tn)
+	if err != nil {
+		return err
+	}
+	switch version {
+	case TraceNotifyVersion0:
+		err = binary.Read(bytes.NewReader(data), byteorder.Native, &tn.TraceNotifyV0)
+	case TraceNotifyVersion1:
+		err = binary.Read(bytes.NewReader(data), byteorder.Native, tn)
+	default:
+		err = fmt.Errorf("Unrecognized trace event (version %d)", version)
+	}
+	return err
 }
 
 func (n *TraceNotify) encryptReason() string {
@@ -128,14 +187,15 @@ func (n *TraceNotify) OriginalIP() net.IP {
 
 // DumpInfo prints a summary of the trace messages.
 func (n *TraceNotify) DumpInfo(data []byte) {
+	hdrLen := traceNotifyLength[n.Version]
 	if n.encryptReason() != "" {
 		fmt.Printf("%s %s flow %#x identity %d->%d state %s ifindex %s orig-ip %s: %s\n",
 			n.traceSummary(), n.encryptReason(), n.Hash, n.SrcLabel, n.DstLabel,
-			n.traceReason(), ifname(int(n.Ifindex)), n.OriginalIP().String(), GetConnectionSummary(data[TraceNotifyLen:]))
+			n.traceReason(), ifname(int(n.Ifindex)), n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:]))
 	} else {
 		fmt.Printf("%s flow %#x identity %d->%d state %s ifindex %s orig-ip %s: %s\n",
 			n.traceSummary(), n.Hash, n.SrcLabel, n.DstLabel,
-			n.traceReason(), ifname(int(n.Ifindex)), n.OriginalIP().String(), GetConnectionSummary(data[TraceNotifyLen:]))
+			n.traceReason(), ifname(int(n.Ifindex)), n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:]))
 	}
 }
 
@@ -160,16 +220,18 @@ func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
 		fmt.Printf("\n")
 	}
 
-	if n.CapLen > 0 && len(data) > TraceNotifyLen {
-		Dissect(dissect, data[TraceNotifyLen:])
+	hdrLen := traceNotifyLength[n.Version]
+	if n.CapLen > 0 && len(data) > int(hdrLen) {
+		Dissect(dissect, data[hdrLen:])
 	}
 }
 
 func (n *TraceNotify) getJSON(data []byte, cpuPrefix string) (string, error) {
 	v := TraceNotifyToVerbose(n)
 	v.CPUPrefix = cpuPrefix
-	if n.CapLen > 0 && len(data) > TraceNotifyLen {
-		v.Summary = GetDissectSummary(data[TraceNotifyLen:])
+	hdrLen := traceNotifyLength[n.Version]
+	if n.CapLen > 0 && len(data) > int(hdrLen) {
+		v.Summary = GetDissectSummary(data[hdrLen:])
 	}
 
 	ret, err := json.Marshal(v)
