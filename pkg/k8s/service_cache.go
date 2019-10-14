@@ -63,6 +63,10 @@ type ServiceEvent struct {
 
 	// Endpoints is the endpoints structured correlated with the service
 	Endpoints *Endpoints
+
+	// SWG provides a mechanism to detect if a service was synchronized with
+	// the datapath.
+	SWG *lock.StoppableWaitGroup
 }
 
 // ServiceCache is a list of services correlated with the matching endpoints.
@@ -108,7 +112,7 @@ func (s *ServiceCache) GetRandomBackendIP(svcID ServiceID) *loadbalancer.L3n4Add
 // ServiceCache. Returns the ServiceID unless the Kubernetes service could not
 // be parsed and a bool to indicate whether the service was changed in the
 // cache or not.
-func (s *ServiceCache) UpdateService(k8sSvc *types.Service) ServiceID {
+func (s *ServiceCache) UpdateService(k8sSvc *types.Service, swg *lock.StoppableWaitGroup) ServiceID {
 	svcID, newService := ParseService(k8sSvc)
 	if newService == nil {
 		return svcID
@@ -128,11 +132,13 @@ func (s *ServiceCache) UpdateService(k8sSvc *types.Service) ServiceID {
 	// Check if the corresponding Endpoints resource is already available
 	endpoints, serviceReady := s.correlateEndpoints(svcID)
 	if serviceReady {
+		swg.Add()
 		s.Events <- ServiceEvent{
 			Action:    UpdateService,
 			ID:        svcID,
 			Service:   newService,
 			Endpoints: endpoints,
+			SWG:       swg,
 		}
 	}
 
@@ -141,7 +147,7 @@ func (s *ServiceCache) UpdateService(k8sSvc *types.Service) ServiceID {
 
 // DeleteService parses a Kubernetes service and removes it from the
 // ServiceCache
-func (s *ServiceCache) DeleteService(k8sSvc *types.Service) {
+func (s *ServiceCache) DeleteService(k8sSvc *types.Service, swg *lock.StoppableWaitGroup) {
 	svcID := ParseServiceID(k8sSvc)
 
 	s.mutex.Lock()
@@ -152,11 +158,13 @@ func (s *ServiceCache) DeleteService(k8sSvc *types.Service) {
 	delete(s.services, svcID)
 
 	if serviceOK {
+		swg.Add()
 		s.Events <- ServiceEvent{
 			Action:    DeleteService,
 			ID:        svcID,
 			Service:   oldService,
 			Endpoints: endpoints,
+			SWG:       swg,
 		}
 	}
 }
@@ -165,7 +173,7 @@ func (s *ServiceCache) DeleteService(k8sSvc *types.Service) {
 // ServiceCache. Returns the ServiceID unless the Kubernetes endpoints could not
 // be parsed and a bool to indicate whether the endpoints was changed in the
 // cache or not.
-func (s *ServiceCache) UpdateEndpoints(k8sEndpoints *types.Endpoints) (ServiceID, *Endpoints) {
+func (s *ServiceCache) UpdateEndpoints(k8sEndpoints *types.Endpoints, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
 	svcID, newEndpoints := ParseEndpoints(k8sEndpoints)
 
 	s.mutex.Lock()
@@ -183,11 +191,13 @@ func (s *ServiceCache) UpdateEndpoints(k8sEndpoints *types.Endpoints) (ServiceID
 	service, ok := s.services[svcID]
 	endpoints, serviceReady := s.correlateEndpoints(svcID)
 	if ok && serviceReady {
+		swg.Add()
 		s.Events <- ServiceEvent{
 			Action:    UpdateService,
 			ID:        svcID,
 			Service:   service,
 			Endpoints: endpoints,
+			SWG:       swg,
 		}
 	}
 
@@ -196,7 +206,7 @@ func (s *ServiceCache) UpdateEndpoints(k8sEndpoints *types.Endpoints) (ServiceID
 
 // DeleteEndpoints parses a Kubernetes endpoints and removes it from the
 // ServiceCache
-func (s *ServiceCache) DeleteEndpoints(k8sEndpoints *types.Endpoints) ServiceID {
+func (s *ServiceCache) DeleteEndpoints(k8sEndpoints *types.Endpoints, swg *lock.StoppableWaitGroup) ServiceID {
 	svcID := ParseEndpointsID(k8sEndpoints)
 
 	s.mutex.Lock()
@@ -207,11 +217,13 @@ func (s *ServiceCache) DeleteEndpoints(k8sEndpoints *types.Endpoints) ServiceID 
 	endpoints, serviceReady := s.correlateEndpoints(svcID)
 
 	if serviceOK {
+		swg.Add()
 		event := ServiceEvent{
 			Action:    DeleteService,
 			ID:        svcID,
 			Service:   service,
 			Endpoints: endpoints,
+			SWG:       swg,
 		}
 
 		if serviceReady {
@@ -326,7 +338,7 @@ func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 // MergeExternalServiceUpdate merges a cluster service of a remote cluster into
 // the local service cache. The service endpoints are stored as external endpoints
 // and are correlated on demand with local services via correlateEndpoints().
-func (s *ServiceCache) MergeExternalServiceUpdate(service *service.ClusterService) {
+func (s *ServiceCache) MergeExternalServiceUpdate(service *service.ClusterService, swg *lock.StoppableWaitGroup) {
 	id := ServiceID{Name: service.Name, Namespace: service.Namespace}
 	scopedLog := log.WithFields(logrus.Fields{logfields.ServiceName: service.String()})
 
@@ -358,11 +370,13 @@ func (s *ServiceCache) MergeExternalServiceUpdate(service *service.ClusterServic
 	// External endpoints are still tracked but correlation will not happen
 	// until the service is marked as shared.
 	if ok && svc.Shared && serviceReady {
+		swg.Add()
 		s.Events <- ServiceEvent{
 			Action:    UpdateService,
 			ID:        id,
 			Service:   svc,
 			Endpoints: endpoints,
+			SWG:       swg,
 		}
 	}
 }
@@ -371,7 +385,7 @@ func (s *ServiceCache) MergeExternalServiceUpdate(service *service.ClusterServic
 // remote cluster into the local service cache. The service endpoints are
 // stored as external endpoints and are correlated on demand with local
 // services via correlateEndpoints().
-func (s *ServiceCache) MergeExternalServiceDelete(service *service.ClusterService) {
+func (s *ServiceCache) MergeExternalServiceDelete(service *service.ClusterService, swg *lock.StoppableWaitGroup) {
 	scopedLog := log.WithFields(logrus.Fields{logfields.ServiceName: service.String()})
 	id := ServiceID{Name: service.Name, Namespace: service.Namespace}
 
@@ -398,11 +412,13 @@ func (s *ServiceCache) MergeExternalServiceDelete(service *service.ClusterServic
 		// endpoints are still tracked but correlation will not happen
 		// until the service is marked as shared.
 		if ok && svc.Shared {
+			swg.Add()
 			event := ServiceEvent{
 				Action:    UpdateService,
 				ID:        id,
 				Service:   svc,
 				Endpoints: endpoints,
+				SWG:       swg,
 			}
 
 			if !serviceReady {
