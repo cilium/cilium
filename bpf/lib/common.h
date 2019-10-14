@@ -264,7 +264,11 @@ enum {
 #define NOTIFY_CAPTURE_HDR \
 	NOTIFY_COMMON_HDR						\
 	__u32		len_orig;	/* Length of original packet */	\
-	__u32		len_cap;	/* Length of captured bytes */
+	__u16		len_cap;	/* Length of captured bytes */	\
+	__u16		version;	/* Capture header version */
+
+/* Capture notifications version. Must be incremented when format changes. */
+#define NOTIFY_CAPTURE_VER 0
 
 #ifndef TRACE_PAYLOAD_LEN
 #define TRACE_PAYLOAD_LEN 128ULL
