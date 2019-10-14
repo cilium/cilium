@@ -18,7 +18,7 @@ Setting up Cilium in AWS ENI mode
 Create an AWS cluster
 =====================
 
-Setup a Kubernetes on AWS. You can use any method you prefer, bu for the
+Setup a Kubernetes on AWS. You can use any method you prefer, but for the
 simplicity of this tutorial, we are going to use `eksctl
 <https://github.com/weaveworks/eksctl>`_. For more details on how to set up an
 EKS cluster using ``eksctl``, see the section :ref:`k8s_install_eks`.
