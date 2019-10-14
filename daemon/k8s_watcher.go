@@ -490,7 +490,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 					swgSvcs.Add()
 					serSvcs.Enqueue(func() error {
 						defer swgSvcs.Done()
-						err := d.addK8sServiceV1(k8sSvc)
+						err := d.addK8sServiceV1(k8sSvc, swgSvcs)
 						d.K8sEventProcessed(metricService, metricCreate, err == nil)
 						return nil
 					}, serializer.NoRetry)
@@ -510,7 +510,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 						swgSvcs.Add()
 						serSvcs.Enqueue(func() error {
 							defer swgSvcs.Done()
-							err := d.updateK8sServiceV1(oldk8sSvc, newk8sSvc)
+							err := d.updateK8sServiceV1(oldk8sSvc, newk8sSvc, swgSvcs)
 							d.K8sEventProcessed(metricService, metricUpdate, err == nil)
 							return nil
 						}, serializer.NoRetry)
@@ -539,7 +539,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 				swgSvcs.Add()
 				serSvcs.Enqueue(func() error {
 					defer swgSvcs.Done()
-					err := d.deleteK8sServiceV1(k8sSvc)
+					err := d.deleteK8sServiceV1(k8sSvc, swgSvcs)
 					d.K8sEventProcessed(metricService, metricDelete, err == nil)
 					return nil
 				}, serializer.NoRetry)
@@ -567,7 +567,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 					swgEps.Add()
 					serEps.Enqueue(func() error {
 						defer swgEps.Done()
-						err := d.addK8sEndpointV1(k8sEP)
+						err := d.addK8sEndpointV1(k8sEP, swgEps)
 						d.K8sEventProcessed(metricEndpoint, metricCreate, err == nil)
 						return nil
 					}, serializer.NoRetry)
@@ -587,7 +587,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 						swgEps.Add()
 						serEps.Enqueue(func() error {
 							defer swgEps.Done()
-							err := d.updateK8sEndpointV1(oldk8sEP, newk8sEP)
+							err := d.updateK8sEndpointV1(oldk8sEP, newk8sEP, swgEps)
 							d.K8sEventProcessed(metricEndpoint, metricUpdate, err == nil)
 							return nil
 						}, serializer.NoRetry)
@@ -615,7 +615,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 				swgEps.Add()
 				serEps.Enqueue(func() error {
 					defer swgEps.Done()
-					err := d.deleteK8sEndpointV1(k8sEP)
+					err := d.deleteK8sEndpointV1(k8sEP, swgEps)
 					d.K8sEventProcessed(metricEndpoint, metricDelete, err == nil)
 					return nil
 				}, serializer.NoRetry)
@@ -1130,11 +1130,8 @@ func (d *Daemon) deleteK8sNetworkPolicyV1(k8sNP *types.NetworkPolicy) error {
 }
 
 func (d *Daemon) k8sServiceHandler() {
-	for {
-		event, ok := <-d.k8sSvcCache.Events
-		if !ok {
-			return
-		}
+	eventHandler := func(event k8s.ServiceEvent) {
+		defer event.SWG.Done()
 
 		svc := event.Service
 
@@ -1156,7 +1153,7 @@ func (d *Daemon) k8sServiceHandler() {
 			}
 
 			if !svc.IsExternal() {
-				continue
+				return
 			}
 
 			serviceImportMeta, cacheOK := endpointMetadataCache.get(event.ID)
@@ -1186,7 +1183,7 @@ func (d *Daemon) k8sServiceHandler() {
 			}
 
 			if !svc.IsExternal() {
-				continue
+				return
 			}
 
 			endpointMetadataCache.delete(event.ID)
@@ -1202,38 +1199,45 @@ func (d *Daemon) k8sServiceHandler() {
 			}
 		}
 	}
+	for {
+		event, ok := <-d.k8sSvcCache.Events
+		if !ok {
+			return
+		}
+		eventHandler(event)
+	}
 }
 
 func (d *Daemon) runK8sServiceHandler() {
 	go d.k8sServiceHandler()
 }
 
-func (d *Daemon) addK8sServiceV1(svc *types.Service) error {
-	d.k8sSvcCache.UpdateService(svc)
+func (d *Daemon) addK8sServiceV1(svc *types.Service, swg *lock.StoppableWaitGroup) error {
+	d.k8sSvcCache.UpdateService(svc, swg)
 	return nil
 }
 
-func (d *Daemon) updateK8sServiceV1(oldSvc, newSvc *types.Service) error {
-	return d.addK8sServiceV1(newSvc)
+func (d *Daemon) updateK8sServiceV1(oldSvc, newSvc *types.Service, swg *lock.StoppableWaitGroup) error {
+	return d.addK8sServiceV1(newSvc, swg)
 }
 
-func (d *Daemon) deleteK8sServiceV1(svc *types.Service) error {
-	d.k8sSvcCache.DeleteService(svc)
+func (d *Daemon) deleteK8sServiceV1(svc *types.Service, swg *lock.StoppableWaitGroup) error {
+	d.k8sSvcCache.DeleteService(svc, swg)
 	return nil
 }
 
-func (d *Daemon) addK8sEndpointV1(ep *types.Endpoints) error {
-	d.k8sSvcCache.UpdateEndpoints(ep)
+func (d *Daemon) addK8sEndpointV1(ep *types.Endpoints, swg *lock.StoppableWaitGroup) error {
+	d.k8sSvcCache.UpdateEndpoints(ep, swg)
 	return nil
 }
 
-func (d *Daemon) updateK8sEndpointV1(oldEP, newEP *types.Endpoints) error {
-	d.k8sSvcCache.UpdateEndpoints(newEP)
+func (d *Daemon) updateK8sEndpointV1(oldEP, newEP *types.Endpoints, swg *lock.StoppableWaitGroup) error {
+	d.k8sSvcCache.UpdateEndpoints(newEP, swg)
 	return nil
 }
 
-func (d *Daemon) deleteK8sEndpointV1(ep *types.Endpoints) error {
-	d.k8sSvcCache.DeleteEndpoints(ep)
+func (d *Daemon) deleteK8sEndpointV1(ep *types.Endpoints, swg *lock.StoppableWaitGroup) error {
+	d.k8sSvcCache.DeleteEndpoints(ep, swg)
 	return nil
 }
 
