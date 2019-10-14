@@ -159,7 +159,7 @@ Cache of ENIs, Subnets, and VPCs
 
 The operator maintains a list of all EC2 ENIs, VPCs and subnets associated with
 the AWS account in a cache. For this purpose, the operator performs the
-following two EC2 API operations:
+following three EC2 API operations:
 
  * ``DescribeNetworkInterfaces``
  * ``DescribeSubnets``
@@ -279,6 +279,8 @@ The security groups attached to the ENI will be equivalent to
 
      "Cilium-CNI (<EC2 instance ID>)"
 
+If the ENI tagging feature is enabled then the ENI will be tagged with the provided information.
+
 ENI Deletion Policy
 ===================
 
@@ -309,6 +311,10 @@ perform ENI creation and IP allocation:
  * ``AttachNetworkInterface``
  * ``ModifyNetworkInterface``
  * ``AssignPrivateIpAddresses``
+
+ Additionally if the ENI tagging feature is enabled it will require the following EC2 API operation as well:
+
+ * ``CreateTags``
 
 *******
 Metrics
