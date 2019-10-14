@@ -125,6 +125,54 @@ type CtKey interface {
 	GetTupleKey() tuple.TupleKey
 }
 
+// dumpKey writes the contents of key to buffer and returns true if the
+// value for next header in the key is nonzero. Internal function to be
+// used in public methods of key structs.
+func dumpKey(k CtKey, buffer *bytes.Buffer, reverse bool) bool {
+	var addrSource, addrDest string
+
+	if k.GetTupleKey().GetNextHeader() == 0 {
+		return false
+	}
+
+	// Addresses swapped, see issue #5848
+	if reverse {
+		addrSource = k.GetTupleKey().GetDestAddr().IP().String()
+		addrDest = k.GetTupleKey().GetSourceAddr().IP().String()
+	} else {
+		addrSource = k.GetTupleKey().GetSourceAddr().IP().String()
+		addrDest = k.GetTupleKey().GetDestAddr().IP().String()
+	}
+
+	if k.GetFlags()&TUPLE_F_IN != 0 {
+		buffer.WriteString(fmt.Sprintf("%s IN %s:%d -> %s:%d ",
+			k.GetTupleKey().GetNextHeader().String(),
+			addrSource,
+			k.GetTupleKey().GetSourcePort(),
+			addrDest,
+			k.GetTupleKey().GetDestPort()),
+		)
+	} else {
+		buffer.WriteString(fmt.Sprintf("%s OUT %s:%d -> %s:%d ",
+			k.GetTupleKey().GetNextHeader().String(),
+			addrSource,
+			k.GetTupleKey().GetSourcePort(),
+			addrDest,
+			k.GetTupleKey().GetDestPort()),
+		)
+	}
+
+	if k.GetFlags()&TUPLE_F_RELATED != 0 {
+		buffer.WriteString("related ")
+	}
+
+	if k.GetFlags()&TUPLE_F_SERVICE != 0 {
+		buffer.WriteString("service ")
+	}
+
+	return true
+}
+
 // CtKey4 is needed to provide CtEntry type to Lookup values
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
@@ -166,40 +214,7 @@ func (k *CtKey4) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 // Dump writes the contents of key to buffer and returns true if the value for
 // next header in the key is nonzero.
 func (k *CtKey4) Dump(buffer *bytes.Buffer, reverse bool) bool {
-	var addrDest string
-
-	if k.NextHeader == 0 {
-		return false
-	}
-
-	// Addresses swapped, see issue #5848
-	if reverse {
-		addrDest = k.SourceAddr.IP().String()
-	} else {
-		addrDest = k.DestAddr.IP().String()
-	}
-
-	if k.Flags&TUPLE_F_IN != 0 {
-		buffer.WriteString(fmt.Sprintf("%s IN %s %d:%d ",
-			k.NextHeader.String(), addrDest, k.SourcePort,
-			k.DestPort),
-		)
-	} else {
-		buffer.WriteString(fmt.Sprintf("%s OUT %s %d:%d ",
-			k.NextHeader.String(), addrDest, k.DestPort,
-			k.SourcePort),
-		)
-	}
-
-	if k.Flags&TUPLE_F_RELATED != 0 {
-		buffer.WriteString("related ")
-	}
-
-	if k.Flags&TUPLE_F_SERVICE != 0 {
-		buffer.WriteString("service ")
-	}
-
-	return true
+	return dumpKey(k, buffer, reverse)
 }
 
 func (k *CtKey4) GetTupleKey() tuple.TupleKey {
@@ -253,42 +268,7 @@ func (k *CtKey4Global) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 // Dump writes the contents of key to buffer and returns true if the
 // value for next header in the key is nonzero.
 func (k *CtKey4Global) Dump(buffer *bytes.Buffer, reverse bool) bool {
-	var addrSource, addrDest string
-
-	if k.NextHeader == 0 {
-		return false
-	}
-
-	// Addresses swapped, see issue #5848
-	if reverse {
-		addrSource = k.DestAddr.IP().String()
-		addrDest = k.SourceAddr.IP().String()
-	} else {
-		addrSource = k.SourceAddr.IP().String()
-		addrDest = k.DestAddr.IP().String()
-	}
-
-	if k.Flags&TUPLE_F_IN != 0 {
-		buffer.WriteString(fmt.Sprintf("%s IN %s:%d -> %s:%d ",
-			k.NextHeader.String(), addrSource, k.SourcePort,
-			addrDest, k.DestPort),
-		)
-	} else {
-		buffer.WriteString(fmt.Sprintf("%s OUT %s:%d -> %s:%d ",
-			k.NextHeader.String(), addrSource, k.SourcePort,
-			addrDest, k.DestPort),
-		)
-	}
-
-	if k.Flags&TUPLE_F_RELATED != 0 {
-		buffer.WriteString("related ")
-	}
-
-	if k.Flags&TUPLE_F_SERVICE != 0 {
-		buffer.WriteString("service ")
-	}
-
-	return true
+	return dumpKey(k, buffer, reverse)
 }
 
 func (k *CtKey4Global) GetTupleKey() tuple.TupleKey {
@@ -334,40 +314,7 @@ func (k *CtKey6) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 // Dump writes the contents of key to buffer and returns true if the value for
 // next header in the key is nonzero.
 func (k *CtKey6) Dump(buffer *bytes.Buffer, reverse bool) bool {
-	var addrDest string
-
-	if k.NextHeader == 0 {
-		return false
-	}
-
-	// Addresses swapped, see issue #5848
-	if reverse {
-		addrDest = k.SourceAddr.IP().String()
-	} else {
-		addrDest = k.DestAddr.IP().String()
-	}
-
-	if k.Flags&TUPLE_F_IN != 0 {
-		buffer.WriteString(fmt.Sprintf("%s IN %s %d:%d ",
-			k.NextHeader.String(), addrDest, k.SourcePort,
-			k.DestPort),
-		)
-	} else {
-		buffer.WriteString(fmt.Sprintf("%s OUT %s %d:%d ",
-			k.NextHeader.String(), addrDest, k.DestPort,
-			k.SourcePort),
-		)
-	}
-
-	if k.Flags&TUPLE_F_RELATED != 0 {
-		buffer.WriteString("related ")
-	}
-
-	if k.Flags&TUPLE_F_SERVICE != 0 {
-		buffer.WriteString("service ")
-	}
-
-	return true
+	return dumpKey(k, buffer, reverse)
 }
 
 func (k *CtKey6) GetTupleKey() tuple.TupleKey {
@@ -421,42 +368,7 @@ func (k *CtKey6Global) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 // Dump writes the contents of key to buffer and returns true if the
 // value for next header in the key is nonzero.
 func (k *CtKey6Global) Dump(buffer *bytes.Buffer, reverse bool) bool {
-	var addrSource, addrDest string
-
-	if k.NextHeader == 0 {
-		return false
-	}
-
-	// Addresses swapped, see issue #5848
-	if reverse {
-		addrSource = k.DestAddr.IP().String()
-		addrDest = k.SourceAddr.IP().String()
-	} else {
-		addrSource = k.SourceAddr.IP().String()
-		addrDest = k.DestAddr.IP().String()
-	}
-
-	if k.Flags&TUPLE_F_IN != 0 {
-		buffer.WriteString(fmt.Sprintf("%s IN %s:%d -> %s:%d ",
-			k.NextHeader.String(), addrSource, k.SourcePort,
-			addrDest, k.DestPort),
-		)
-	} else {
-		buffer.WriteString(fmt.Sprintf("%s OUT %s:%d -> %s:%d ",
-			k.NextHeader.String(), addrSource, k.SourcePort,
-			addrDest, k.DestPort),
-		)
-	}
-
-	if k.Flags&TUPLE_F_RELATED != 0 {
-		buffer.WriteString("related ")
-	}
-
-	if k.Flags&TUPLE_F_SERVICE != 0 {
-		buffer.WriteString("service ")
-	}
-
-	return true
+	return dumpKey(k, buffer, reverse)
 }
 
 func (k *CtKey6Global) GetTupleKey() tuple.TupleKey {
