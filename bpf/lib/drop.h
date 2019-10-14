@@ -54,6 +54,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_DROP_NOTIFY) int __send_drop_notify
 		.hash = hash,
 		.len_orig = skb_len,
 		.len_cap = cap_len,
+		.version = NOTIFY_CAPTURE_VER,
 		.src_label = skb->cb[0],
 		.dst_label = skb->cb[1],
 		.dst_id = skb->cb[3],
