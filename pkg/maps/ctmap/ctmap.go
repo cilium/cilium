@@ -280,49 +280,29 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 	}
 
 	filterCallback := func(key bpf.MapKey, value bpf.MapValue) {
+		ctkey, ok := key.(CtKey)
+		if !ok {
+			log.Warningf("Encountered unknown type while scanning conntrack table: %v", reflect.TypeOf(key))
+			return
+		}
 		entry := value.(*CtEntry)
 
-		switch obj := key.(type) {
-		case *CtKey6Global:
-			currentKey6Global := obj
-			// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
-			// the destination of the packet received, therefore it's the packet's
-			// destination IP
-			action := filter.doFiltering(currentKey6Global.DestAddr.IP(), currentKey6Global.SourceAddr.IP(), currentKey6Global.SourcePort,
-				uint8(currentKey6Global.NextHeader), currentKey6Global.Flags, entry)
+		// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
+		// the destination of the packet received, therefore it's the packet's
+		// destination IP
+		action := filter.doFiltering(ctkey.GetTupleKey().GetDestAddr().IP(), ctkey.GetTupleKey().GetSourceAddr().IP(), ctkey.GetTupleKey().GetSourcePort(),
+			uint8(ctkey.GetTupleKey().GetNextHeader()), ctkey.GetFlags(), entry)
 
-			switch action {
-			case deleteEntry:
-				err := purgeCtEntry6(m, currentKey6Global, natMap)
-				if err != nil {
-					log.WithError(err).WithField(logfields.Key, currentKey6Global.String()).Error("Unable to delete CT entry")
-				} else {
-					stats.deleted++
-				}
-			default:
-				stats.aliveEntries++
-			}
-		case *CtKey6:
-			currentKey6 := obj
-			// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
-			// the destination of the packet received, therefore it's the packet's
-			// destination IP
-			action := filter.doFiltering(currentKey6.DestAddr.IP(), currentKey6.SourceAddr.IP(), currentKey6.SourcePort,
-				uint8(currentKey6.NextHeader), currentKey6.Flags, entry)
-
-			switch action {
-			case deleteEntry:
-				err := purgeCtEntry6(m, currentKey6, natMap)
-				if err != nil {
-					log.WithError(err).WithField(logfields.Key, currentKey6.String()).Error("Unable to delete CT entry")
-				} else {
-					stats.deleted++
-				}
-			default:
-				stats.aliveEntries++
+		switch action {
+		case deleteEntry:
+			err := purgeCtEntry6(m, ctkey, natMap)
+			if err != nil {
+				log.WithError(err).WithField(logfields.Key, ctkey.String()).Error("Unable to delete CT entry")
+			} else {
+				stats.deleted++
 			}
 		default:
-			log.Warningf("Encountered unknown type while scanning conntrack table: %v", reflect.TypeOf(key))
+			stats.aliveEntries++
 		}
 	}
 	stats.dumpError = m.DumpReliablyWithCallback(filterCallback, stats.DumpStats)
