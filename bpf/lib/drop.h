@@ -37,9 +37,7 @@
 #ifdef DROP_NOTIFY
 
 struct drop_notify {
-	NOTIFY_COMMON_HDR
-	__u32		len_orig;
-	__u32		len_cap;
+	NOTIFY_CAPTURE_HDR
 	__u32		src_label;
 	__u32		dst_label;
 	__u32		dst_id;
