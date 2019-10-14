@@ -125,14 +125,15 @@ type remoteServiceObserver struct {
 	remoteCluster *remoteCluster
 }
 
-// OnUpdate is called when a service in a remote cluster is updated
-func (r *remoteServiceObserver) OnUpdate(key store.Key) {
+type remoteServiceHandler func(*service.ClusterService)
+
+func (r *remoteServiceObserver) processKey(handler remoteServiceHandler, key interface{}) {
 	if svc, ok := key.(*service.ClusterService); ok {
 		scopedLog := log.WithFields(logrus.Fields{logfields.ServiceName: svc.String()})
 		scopedLog.Debugf("Update event of remote service %#v", svc)
 
 		mesh := r.remoteCluster.mesh
-		mesh.globalServices.onUpdate(svc)
+		handler(svc)
 
 		if merger := mesh.conf.ServiceMerger; merger != nil {
 			merger.MergeExternalServiceUpdate(svc)
@@ -144,21 +145,12 @@ func (r *remoteServiceObserver) OnUpdate(key store.Key) {
 	}
 }
 
+// OnUpdate is called when a service in a remote cluster is updated
+func (r *remoteServiceObserver) OnUpdate(key store.Key) {
+	r.processKey(r.remoteCluster.mesh.globalServices.onUpdate, key)
+}
+
 // OnDelete is called when a service in a remote cluster is deleted
 func (r *remoteServiceObserver) OnDelete(key store.NamedKey) {
-	if svc, ok := key.(*service.ClusterService); ok {
-		scopedLog := log.WithFields(logrus.Fields{logfields.ServiceName: svc.String()})
-		scopedLog.Debugf("Update event of remote service %#v", svc)
-
-		mesh := r.remoteCluster.mesh
-		mesh.globalServices.onDelete(svc)
-
-		if merger := mesh.conf.ServiceMerger; merger != nil {
-			merger.MergeExternalServiceDelete(svc)
-		} else {
-			scopedLog.Debugf("Ignoring remote service update. Missing merger function")
-		}
-	} else {
-		log.Warningf("Received unexpected remote service delete object %+v", key)
-	}
+	r.processKey(r.remoteCluster.mesh.globalServices.onDelete, key)
 }
