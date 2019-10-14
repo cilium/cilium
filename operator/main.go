@@ -65,6 +65,7 @@ var (
 	metricsAddress      string
 	eniParallelWorkers  int64
 	enableENI           bool
+	eniTags             = make(map[string]string)
 
 	k8sIdentityGCInterval       time.Duration
 	k8sIdentityHeartbeatTimeout time.Duration
@@ -125,15 +126,16 @@ func init() {
 	option.BindEnv(option.IdentityAllocationMode)
 	flags.DurationVar(&identityGCInterval, "identity-gc-interval", defaults.KVstoreLeaseTTL, "GC interval for security identities")
 	flags.DurationVar(&kvNodeGCInterval, "nodes-gc-interval", time.Minute*2, "GC interval for nodes store in the kvstore")
-	flags.Int64Var(&eniParallelWorkers, "eni-parallel-workers", 50, "Maximum number of parallel workers used by ENI allocator")
+	flags.Int64Var(&eniParallelWorkers, "eni-parallel-workers", defaults.ENIParallelWorkers, "Maximum number of parallel workers used by ENI allocator")
 	flags.String(option.K8sNamespaceName, "", "Name of the Kubernetes namespace in which Cilium Operator is deployed in")
 	flags.MarkHidden(option.K8sNamespaceName)
 	option.BindEnv(option.K8sNamespaceName)
 
 	flags.IntVar(&unmanagedKubeDnsWatcherInterval, "unmanaged-pod-watcher-interval", 15, "Interval to check for unmanaged kube-dns pods (0 to disable)")
 
-	flags.Int(option.AWSClientBurst, 4, "Burst value allowed for the AWS client used by the AWS ENI IPAM")
-	flags.Float64(option.AWSClientQPSLimit, 20.0, "Queries per second limit for the AWS client used by the AWS ENI IPAM")
+	flags.Int(option.AWSClientBurst, defaults.AWSClientBurst, "Burst value allowed for the AWS client used by the AWS ENI IPAM")
+	flags.Float64(option.AWSClientQPSLimit, defaults.AWSClientQPSLimit, "Queries per second limit for the AWS client used by the AWS ENI IPAM")
+	flags.Var(option.NewNamedMapOptions(option.ENITags, &eniTags, nil), option.ENITags, "ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)")
 
 	flags.Float32(option.K8sClientQPSLimit, defaults.K8sClientQPSLimit, "Queries per second limit for the K8s client")
 	flags.Int(option.K8sClientBurst, defaults.K8sClientBurst, "Burst value allowed for the K8s client")
@@ -242,12 +244,13 @@ func runOperator(cmd *cobra.Command) {
 	if enableENI {
 		awsClientQPSLimit := viper.GetFloat64(option.AWSClientQPSLimit)
 		awsClientBurst := viper.GetInt(option.AWSClientBurst)
-		if err := startENIAllocator(awsClientQPSLimit, awsClientBurst); err != nil {
+		if m := viper.GetStringMapString(option.ENITags); len(m) > 0 {
+			eniTags = m
+		}
+		if err := startENIAllocator(awsClientQPSLimit, awsClientBurst, eniTags); err != nil {
 			log.WithError(err).Fatal("Unable to start ENI allocator")
 		}
-	}
 
-	if enableENI {
 		startSynchronizingCiliumNodes()
 	}
 

@@ -51,6 +51,7 @@ type ec2API interface {
 	AttachNetworkInterface(index int64, instanceID, eniID string) (string, error)
 	ModifyNetworkInterface(eniID, attachmentID string, deleteOnTermination bool) error
 	AssignPrivateIpAddresses(eniID string, addresses int64) error
+	TagENI(eniID string, eniTags map[string]string) error
 }
 
 type metricsAPI interface {
@@ -79,10 +80,11 @@ type NodeManager struct {
 	metricsAPI      metricsAPI
 	resyncTrigger   *trigger.Trigger
 	parallelWorkers int64
+	eniTags         map[string]string
 }
 
 // NewNodeManager returns a new NodeManager
-func NewNodeManager(instancesAPI nodeManagerAPI, ec2API ec2API, k8sAPI k8sAPI, metrics metricsAPI, parallelWorkers int64) (*NodeManager, error) {
+func NewNodeManager(instancesAPI nodeManagerAPI, ec2API ec2API, k8sAPI k8sAPI, metrics metricsAPI, parallelWorkers int64, eniTags map[string]string) (*NodeManager, error) {
 	if parallelWorkers < 1 {
 		parallelWorkers = 1
 	}
@@ -94,6 +96,7 @@ func NewNodeManager(instancesAPI nodeManagerAPI, ec2API ec2API, k8sAPI k8sAPI, m
 		k8sAPI:          k8sAPI,
 		metricsAPI:      metrics,
 		parallelWorkers: parallelWorkers,
+		eniTags:         eniTags,
 	}
 
 	resyncTrigger, err := trigger.NewTrigger(trigger.Parameters{
