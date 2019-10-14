@@ -19,7 +19,9 @@ import (
 	"fmt"
 	"unsafe"
 
+	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 const (
@@ -44,6 +46,21 @@ type TupleKey interface {
 
 	// Returns flags containing the direction of the tuple key.
 	GetFlags() uint8
+
+	// GetDestAddr returns the destination IP address.
+	GetDestAddr() types.IP
+
+	// GetSourceAddr returns the source IP address.
+	GetSourceAddr() types.IP
+
+	// GetDestPort returns the destination port.
+	GetDestPort() uint16
+
+	// GetSourcePort returns the source port.
+	GetSourcePort() uint16
+
+	// GetNextHeader returns the next header.
+	GetNextHeader() u8proto.U8proto
 }
 
 type buff256uint8 [256]uint8

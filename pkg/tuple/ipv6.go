@@ -66,6 +66,31 @@ func (k *TupleKey6) GetFlags() uint8 {
 	return k.Flags
 }
 
+// GetDestAddr returns the destination IP address.
+func (k *TupleKey6) GetDestAddr() types.IP {
+	return k.DestAddr
+}
+
+// GetSourceAddr returns the source IP address.
+func (k *TupleKey6) GetSourceAddr() types.IP {
+	return k.SourceAddr
+}
+
+// GetDestPort returns the destination port.
+func (k *TupleKey6) GetDestPort() uint16 {
+	return k.DestPort
+}
+
+// GetSourcePort returns the source port.
+func (k *TupleKey6) GetSourcePort() uint16 {
+	return k.SourcePort
+}
+
+// GetNextHeader returns the next header.
+func (k *TupleKey6) GetNextHeader() u8proto.U8proto {
+	return k.NextHeader
+}
+
 // String returns the tuple's string representation, doh.
 func (k *TupleKey6) String() string {
 	return fmt.Sprintf("[%s]:%d, %d, %d, %d", k.DestAddr, k.SourcePort, k.DestPort, k.NextHeader, k.Flags)
