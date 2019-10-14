@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2018 Authors of Cilium
+ *  Copyright (C) 2016-2019 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -115,9 +115,7 @@ update_trace_metrics(struct __sk_buff *skb, __u8 obs_point, __u8 reason)
 #ifdef TRACE_NOTIFY
 
 struct trace_notify {
-	NOTIFY_COMMON_HDR
-	__u32		len_orig;
-	__u32		len_cap;
+	NOTIFY_CAPTURE_HDR
 	__u32		src_label;
 	__u32		dst_label;
 	__u16		dst_id;

@@ -256,10 +256,15 @@ enum {
 };
 
 #define NOTIFY_COMMON_HDR \
-	__u8		type; \
-	__u8		subtype; \
-	__u16		source; \
+	__u8		type;		\
+	__u8		subtype;	\
+	__u16		source;		\
 	__u32		hash;
+
+#define NOTIFY_CAPTURE_HDR \
+	NOTIFY_COMMON_HDR						\
+	__u32		len_orig;	/* Length of original packet */	\
+	__u32		len_cap;	/* Length of captured bytes */
 
 #ifndef TRACE_PAYLOAD_LEN
 #define TRACE_PAYLOAD_LEN 128ULL

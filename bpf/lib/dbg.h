@@ -192,9 +192,7 @@ static inline void cilium_dbg3(struct __sk_buff *skb, __u8 type, __u32 arg1,
 }
 
 struct debug_capture_msg {
-	NOTIFY_COMMON_HDR
-	__u32		len_orig;
-	__u32		len_cap;
+	NOTIFY_CAPTURE_HDR
 	__u32		arg1;
 	__u32		arg2;
 };
