@@ -302,6 +302,8 @@ var transientChain = customChain{
 	feederArgs: []string{""},
 }
 
+type ruleHandler func(cmd, l4Match, markMatch, mark, port, name string) []string
+
 // IptablesManager manages the iptables-related configuration for Cilium.
 type IptablesManager struct {
 	haveIp6tables   bool
@@ -413,30 +415,6 @@ func (m *IptablesManager) inboundProxyRedirectRule(cmd string) []string {
 		"--set-mark", toProxyMark)
 }
 
-func (m *IptablesManager) iptIngressProxyRule(cmd string, l4proto string, proxyPort uint16, name string) error {
-	// Match
-	port := uint32(byteorder.HostToNetwork(proxyPort).(uint16)) << 16
-	ingressMarkMatch := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy|port)
-	// TPROXY params
-	ingressProxyMark := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy)
-	ingressProxyPort := fmt.Sprintf("%d", proxyPort)
-
-	var err error
-	if option.Config.EnableIPv4 {
-		err = runProg("iptables",
-			m.ingressProxyRule(cmd, l4proto, ingressMarkMatch,
-				ingressProxyMark, ingressProxyPort, name),
-			false)
-	}
-	if err == nil && option.Config.EnableIPv6 {
-		err = runProg("ip6tables",
-			m.ingressProxyRule(cmd, l4proto, ingressMarkMatch,
-				ingressProxyMark, ingressProxyPort, name),
-			false)
-	}
-	return err
-}
-
 func (m *IptablesManager) egressProxyRule(cmd, l4Match, markMatch, mark, port, name string) []string {
 	return append(m.waitArgs,
 		"-t", "mangle",
@@ -449,28 +427,36 @@ func (m *IptablesManager) egressProxyRule(cmd, l4Match, markMatch, mark, port, n
 		"--on-port", port)
 }
 
-func (m *IptablesManager) iptEgressProxyRule(cmd string, l4proto string, proxyPort uint16, name string) error {
+func (m *IptablesManager) iptProxyRule(handler ruleHandler, cmd string, l4proto string, proxyPort uint16, name string) error {
 	// Match
 	port := uint32(byteorder.HostToNetwork(proxyPort).(uint16)) << 16
-	egressMarkMatch := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy|port)
+	markMatch := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy|port)
 	// TPROXY params
-	egressProxyMark := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy)
-	egressProxyPort := fmt.Sprintf("%d", proxyPort)
+	proxyMark := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy)
+	sProxyPort := fmt.Sprintf("%d", proxyPort)
 
 	var err error
 	if option.Config.EnableIPv4 {
 		err = runProg("iptables",
-			m.egressProxyRule(cmd, l4proto, egressMarkMatch,
-				egressProxyMark, egressProxyPort, name),
+			handler(cmd, l4proto, markMatch,
+				proxyMark, sProxyPort, name),
 			false)
 	}
 	if err == nil && option.Config.EnableIPv6 {
 		err = runProg("ip6tables",
-			m.egressProxyRule(cmd, l4proto, egressMarkMatch,
-				egressProxyMark, egressProxyPort, name),
+			handler(cmd, l4proto, markMatch,
+				proxyMark, sProxyPort, name),
 			false)
 	}
 	return err
+}
+
+func (m *IptablesManager) iptIngressProxyRule(cmd string, l4proto string, proxyPort uint16, name string) error {
+	return m.iptProxyRule(m.ingressProxyRule, cmd, l4proto, proxyPort, name)
+}
+
+func (m *IptablesManager) iptEgressProxyRule(cmd string, l4proto string, proxyPort uint16, name string) error {
+	return m.iptProxyRule(m.egressProxyRule, cmd, l4proto, proxyPort, name)
 }
 
 func (m *IptablesManager) installStaticProxyRules() error {
