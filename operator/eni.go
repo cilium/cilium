@@ -92,7 +92,7 @@ func ciliumNodeDeleted(nodeName string) {
 // startENIAllocator kicks of ENI allocation, the initial connection to AWS
 // APIs is done in a blocking manner, given that is successful, a controller is
 // started to manage allocation based on CiliumNode custom resources
-func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int) error {
+func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags map[string]string) error {
 	log.Info("Starting ENI allocator...")
 
 	cfg, err := external.LoadDefaultAWSConfig()
@@ -124,7 +124,7 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int) error {
 		ec2Client = ec2shim.NewClient(ec2.New(cfg), eniMetrics, awsClientQPSLimit, awsClientBurst)
 		log.Info("Connected to EC2 service API")
 		instances = eni.NewInstancesManager(ec2Client, eniMetrics)
-		nodeManager, err = eni.NewNodeManager(instances, ec2Client, &k8sAPI{}, eniMetrics, eniParallelWorkers)
+		nodeManager, err = eni.NewNodeManager(instances, ec2Client, &k8sAPI{}, eniMetrics, eniParallelWorkers, eniTags)
 		if err != nil {
 			return fmt.Errorf("unable to initialize ENI node manager: %s", err)
 		}
@@ -135,7 +135,7 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int) error {
 		ec2Client = ec2shim.NewClient(ec2.New(cfg), noOpMetric, awsClientQPSLimit, awsClientBurst)
 		log.Info("Connected to EC2 service API")
 		instances = eni.NewInstancesManager(ec2Client, noOpMetric)
-		nodeManager, err = eni.NewNodeManager(instances, ec2Client, &k8sAPI{}, noOpMetric, eniParallelWorkers)
+		nodeManager, err = eni.NewNodeManager(instances, ec2Client, &k8sAPI{}, noOpMetric, eniParallelWorkers, eniTags)
 		if err != nil {
 			return fmt.Errorf("unable to initialize ENI node manager: %s", err)
 		}

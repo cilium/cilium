@@ -274,6 +274,15 @@ const (
 	// CiliumNode.Spec.ENI.PreAllocate if no value is set
 	ENIPreAllocation = 8
 
+	// ENIParallelWorkers is the default max number of workers that process ENI operations
+	ENIParallelWorkers = 50
+
+	// AWSClientBurst is the default burst value for the AWS client
+	AWSClientBurst = 4
+
+	// AWSClientQPSLimit is the default QPS limit for the AWS client
+	AWSClientQPSLimit = 20.0
+
 	// AutoCreateCiliumNodeResource enables automatic creation of a
 	// CiliumNode resource for the local node
 	AutoCreateCiliumNodeResource = true

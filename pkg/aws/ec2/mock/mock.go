@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/aws/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/uuid"
 
@@ -40,6 +40,7 @@ const (
 	AttachNetworkInterface
 	ModifyNetworkInterface
 	AssignPrivateIpAddresses
+	TagENI
 	MaxOperation
 )
 
@@ -334,4 +335,18 @@ func (e *API) GetSubnets() (types.SubnetMap, error) {
 		subnets[s.ID] = s
 	}
 	return subnets, nil
+}
+
+func (e *API) TagENI(eniID string, eniTags map[string]string) error {
+	e.rateLimit()
+	e.simulateDelay(TagENI)
+
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+
+	if err, ok := e.errors[TagENI]; ok {
+		return err
+	}
+
+	return nil
 }
