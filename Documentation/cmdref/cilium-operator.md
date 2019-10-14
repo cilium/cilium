@@ -27,6 +27,7 @@ cilium-operator [flags]
   -D, --debug                                  Enable debugging mode
       --enable-metrics                         Enable Prometheus metrics
       --eni-parallel-workers int               Maximum number of parallel workers used by ENI allocator (default 50)
+      --eni-tags map                           ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag) (default map[])
   -h, --help                                   help for cilium-operator
       --identity-allocation-mode string        Method to use for identity allocation (default "kvstore")
       --identity-gc-interval duration          GC interval for security identities (default 15m0s)
