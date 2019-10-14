@@ -268,7 +268,7 @@ enum {
 	__u16		version;	/* Capture header version */
 
 /* Capture notifications version. Must be incremented when format changes. */
-#define NOTIFY_CAPTURE_VER 0
+#define NOTIFY_CAPTURE_VER 1
 
 #ifndef TRACE_PAYLOAD_LEN
 #define TRACE_PAYLOAD_LEN 128ULL
