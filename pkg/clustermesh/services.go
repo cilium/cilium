@@ -27,8 +27,8 @@ import (
 // services. The functions have to merge service updates and deletions with
 // local services to provide a shared view.
 type ServiceMerger interface {
-	MergeExternalServiceUpdate(service *service.ClusterService)
-	MergeExternalServiceDelete(service *service.ClusterService)
+	MergeExternalServiceUpdate(service *service.ClusterService, swg *lock.StoppableWaitGroup)
+	MergeExternalServiceDelete(service *service.ClusterService, swg *lock.StoppableWaitGroup)
 }
 
 type globalService struct {
@@ -123,6 +123,9 @@ func (c *globalServiceCache) onClusterDelete(clusterName string) {
 
 type remoteServiceObserver struct {
 	remoteCluster *remoteCluster
+	// swg provides a mechanism to known when the services were synchronized
+	// with the datapath.
+	swg *lock.StoppableWaitGroup
 }
 
 // OnUpdate is called when a service in a remote cluster is updated
@@ -135,7 +138,8 @@ func (r *remoteServiceObserver) OnUpdate(key store.Key) {
 		mesh.globalServices.onUpdate(svc)
 
 		if merger := mesh.conf.ServiceMerger; merger != nil {
-			merger.MergeExternalServiceUpdate(svc)
+			r.swg.Add()
+			merger.MergeExternalServiceUpdate(svc, r.swg)
 		} else {
 			scopedLog.Debugf("Ignoring remote service update. Missing merger function")
 		}
@@ -154,7 +158,8 @@ func (r *remoteServiceObserver) OnDelete(key store.NamedKey) {
 		mesh.globalServices.onDelete(svc)
 
 		if merger := mesh.conf.ServiceMerger; merger != nil {
-			merger.MergeExternalServiceDelete(svc)
+			r.swg.Add()
+			merger.MergeExternalServiceDelete(svc, r.swg)
 		} else {
 			scopedLog.Debugf("Ignoring remote service update. Missing merger function")
 		}
