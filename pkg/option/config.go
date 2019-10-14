@@ -574,6 +574,9 @@ const (
 	// AWSClientBurst is the burst value allowed for the AWS client used by the AWS ENI IPAM
 	AWSClientBurst = "aws-client-burst"
 
+	// ENITags are the tags that will be added to every ENI created by the AWS ENI IPAM
+	ENITags = "eni-tags"
+
 	// K8sClientQPSLimit is the queries per second limit for the K8s client. Defaults to k8s client defaults.
 	K8sClientQPSLimit = "k8s-client-qps"
 

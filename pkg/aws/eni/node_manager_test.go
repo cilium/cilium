@@ -45,13 +45,14 @@ var (
 	}
 	k8sapi     = &k8sMock{}
 	metricsapi = metricsmock.NewMockMetrics()
+	eniTags    = map[string]string{}
 )
 
 func (e *ENISuite) TestGetNodeNames(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet}, []*types.Vpc{testVpc})
 	instances := NewInstancesManager(ec2api, metricsapi)
 	c.Assert(instances, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(instances, ec2api, k8sapi, metricsapi, 10)
+	mngr, err := NewNodeManager(instances, ec2api, k8sapi, metricsapi, 10, eniTags)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -77,7 +78,7 @@ func (e *ENISuite) TestNodeManagerGet(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet}, []*types.Vpc{testVpc})
 	instances := NewInstancesManager(ec2api, metricsapi)
 	c.Assert(instances, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(instances, ec2api, k8sapi, metricsapi, 10)
+	mngr, err := NewNodeManager(instances, ec2api, k8sapi, metricsapi, 10, eniTags)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -167,7 +168,7 @@ func (e *ENISuite) TestNodeManagerDefaultAllocation(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet}, []*types.Vpc{testVpc})
 	instances := NewInstancesManager(ec2api, metricsapi)
 	c.Assert(instances, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(instances, ec2api, k8sapi, metricsapi, 10)
+	mngr, err := NewNodeManager(instances, ec2api, k8sapi, metricsapi, 10, eniTags)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -200,7 +201,7 @@ func (e *ENISuite) TestNodeManagerMinAllocate20(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet}, []*types.Vpc{testVpc})
 	instances := NewInstancesManager(ec2api, metricsapi)
 	c.Assert(instances, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(instances, ec2api, k8sapi, metricsapi, 10)
+	mngr, err := NewNodeManager(instances, ec2api, k8sapi, metricsapi, 10, eniTags)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -242,7 +243,7 @@ func (e *ENISuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet}, []*types.Vpc{testVpc})
 	instances := NewInstancesManager(ec2api, metricsapi)
 	c.Assert(instances, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(instances, ec2api, k8sapi, metricsapi, 10)
+	mngr, err := NewNodeManager(instances, ec2api, k8sapi, metricsapi, 10, eniTags)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -290,7 +291,7 @@ func (e *ENISuite) TestNodeManagerExceedENICapacity(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet}, []*types.Vpc{testVpc})
 	instances := NewInstancesManager(ec2api, metricsapi)
 	c.Assert(instances, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(instances, ec2api, k8sapi, metricsapi, 10)
+	mngr, err := NewNodeManager(instances, ec2api, k8sapi, metricsapi, 10, eniTags)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -342,7 +343,7 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 	metricsapi := metricsmock.NewMockMetrics()
 	instancesManager := NewInstancesManager(ec2api, metricsapi)
 	instancesManager.Resync()
-	mngr, err := NewNodeManager(instancesManager, ec2api, k8sapi, metricsapi, 10)
+	mngr, err := NewNodeManager(instancesManager, ec2api, k8sapi, metricsapi, 10, eniTags)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -398,7 +399,7 @@ func (e *ENISuite) TestNodeManagerInstanceNotRunning(c *check.C) {
 	metricsMock := metricsmock.NewMockMetrics()
 	instances := NewInstancesManager(ec2api, metricsapi)
 	c.Assert(instances, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(instances, ec2api, k8sapi, metricsMock, 10)
+	mngr, err := NewNodeManager(instances, ec2api, k8sapi, metricsMock, 10, eniTags)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -433,7 +434,7 @@ func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLi
 	ec2api.SetLimiter(rateLimit, burst)
 	instances := NewInstancesManager(ec2api, metricsapi)
 	c.Assert(instances, check.Not(check.IsNil))
-	mngr, err := NewNodeManager(instances, ec2api, k8sapi, metricsapi, workers)
+	mngr, err := NewNodeManager(instances, ec2api, k8sapi, metricsapi, workers, eniTags)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
