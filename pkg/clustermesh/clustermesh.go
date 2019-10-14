@@ -15,6 +15,7 @@
 package clustermesh
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/allocator"
@@ -146,6 +147,7 @@ func (cm *ClusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 		mesh:        cm,
 		changed:     make(chan bool, configNotificationsChannelSize),
 		controllers: controller.NewManager(),
+		swg:         lock.NewStoppableWaitGroup(),
 	}
 }
 
@@ -202,4 +204,24 @@ func (cm *ClusterMesh) NumReadyClusters() int {
 	}
 
 	return nready
+}
+
+// ClustersSynced returns after all clusters were synchronized with the bpf
+// datapath.
+func (cm *ClusterMesh) ClustersSynced(ctx context.Context) error {
+	cm.mutex.RLock()
+	swgs := make([]*lock.StoppableWaitGroup, 0, len(cm.clusters))
+	for _, cluster := range cm.clusters {
+		swgs = append(swgs, cluster.swg)
+	}
+	cm.mutex.RUnlock()
+
+	for _, swg := range swgs {
+		select {
+		case <-swg.WaitChannel():
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	return nil
 }

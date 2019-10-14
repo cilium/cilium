@@ -79,6 +79,8 @@ type remoteCluster struct {
 
 	// backend is the kvstore backend being used
 	backend kvstore.BackendOperations
+
+	swg *lock.StoppableWaitGroup
 }
 
 var (
@@ -181,6 +183,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 					Backend:                 backend,
 					Observer: &remoteServiceObserver{
 						remoteCluster: rc,
+						swg:           rc.swg,
 					},
 				})
 				if err != nil {
@@ -188,6 +191,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 					backend.Close()
 					return err
 				}
+				rc.swg.Stop()
 
 				ipCacheWatcher := ipcache.NewIPIdentityWatcher(backend)
 				go ipCacheWatcher.Watch()

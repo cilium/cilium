@@ -20,9 +20,11 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/serializer"
 	"github.com/cilium/cilium/pkg/service"
 
 	"github.com/sirupsen/logrus"
@@ -41,11 +43,8 @@ var (
 )
 
 func k8sServiceHandler() {
-	for {
-		event, ok := <-k8sSvcCache.Events
-		if !ok {
-			return
-		}
+	serviceHandler := func(event k8s.ServiceEvent) {
+		defer event.SWG.Done()
 
 		svc := k8s.NewClusterService(event.ID, event.Service, event.Endpoints)
 		svc.Cluster = option.Config.ClusterName
@@ -62,7 +61,7 @@ func k8sServiceHandler() {
 		if !event.Service.Shared {
 			// The annotation may have been added, delete an eventual existing service
 			servicesStore.DeleteLocalKey(&svc)
-			continue
+			return
 		}
 
 		switch event.Action {
@@ -72,6 +71,14 @@ func k8sServiceHandler() {
 		case k8s.DeleteService:
 			servicesStore.DeleteLocalKey(&svc)
 		}
+	}
+	for {
+		event, ok := <-k8sSvcCache.Events
+		if !ok {
+			return
+		}
+
+		serviceHandler(event)
 	}
 }
 
@@ -97,6 +104,12 @@ func startSynchronizingServices() {
 		close(readyChan)
 	}()
 
+	serSvcs := serializer.NewFunctionQueue(1024)
+	swgSvcs := lock.NewStoppableWaitGroup()
+
+	serEps := serializer.NewFunctionQueue(1024)
+	swgEps := lock.NewStoppableWaitGroup()
+
 	// Watch for v1.Service changes and push changes into ServiceCache
 	_, svcController := informer.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
@@ -108,7 +121,12 @@ func startSynchronizingServices() {
 				metrics.EventTSK8s.SetToCurrentTime()
 				if k8sSvc := k8s.CopyObjToV1Services(obj); k8sSvc != nil {
 					log.Debugf("Received service addition %+v", k8sSvc)
-					k8sSvcCache.UpdateService(k8sSvc)
+					swgSvcs.Add()
+					serSvcs.Enqueue(func() error {
+						defer swgSvcs.Done()
+						k8sSvcCache.UpdateService(k8sSvc, swgSvcs)
+						return nil
+					}, serializer.NoRetry)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
@@ -120,7 +138,12 @@ func startSynchronizingServices() {
 						}
 
 						log.Debugf("Received service update %+v", newk8sSvc)
-						k8sSvcCache.UpdateService(newk8sSvc)
+						swgSvcs.Add()
+						serSvcs.Enqueue(func() error {
+							defer swgSvcs.Done()
+							k8sSvcCache.UpdateService(newk8sSvc, swgSvcs)
+							return nil
+						}, serializer.NoRetry)
 					}
 				}
 			},
@@ -141,7 +164,12 @@ func startSynchronizingServices() {
 					}
 				}
 				log.Debugf("Received service deletion %+v", k8sSvc)
-				k8sSvcCache.DeleteService(k8sSvc)
+				swgSvcs.Add()
+				serSvcs.Enqueue(func() error {
+					defer swgSvcs.Done()
+					k8sSvcCache.DeleteService(k8sSvc, swgSvcs)
+					return nil
+				}, serializer.NoRetry)
 			},
 		},
 		k8s.ConvertToK8sService,
@@ -162,7 +190,12 @@ func startSynchronizingServices() {
 			AddFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
 				if k8sEP := k8s.CopyObjToV1Endpoints(obj); k8sEP != nil {
-					k8sSvcCache.UpdateEndpoints(k8sEP)
+					swgEps.Add()
+					serEps.Enqueue(func() error {
+						defer swgEps.Done()
+						k8sSvcCache.UpdateEndpoints(k8sEP, swgEps)
+						return nil
+					}, serializer.NoRetry)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
@@ -172,7 +205,12 @@ func startSynchronizingServices() {
 						if k8s.EqualV1Endpoints(oldk8sEP, newk8sEP) {
 							return
 						}
-						k8sSvcCache.UpdateEndpoints(newk8sEP)
+						swgEps.Add()
+						serEps.Enqueue(func() error {
+							defer swgEps.Done()
+							k8sSvcCache.UpdateEndpoints(newk8sEP, swgEps)
+							return nil
+						}, serializer.NoRetry)
 					}
 				}
 			},
@@ -192,7 +230,12 @@ func startSynchronizingServices() {
 						return
 					}
 				}
-				k8sSvcCache.DeleteEndpoints(k8sEP)
+				swgEps.Add()
+				serEps.Enqueue(func() error {
+					defer swgEps.Done()
+					k8sSvcCache.DeleteEndpoints(k8sEP, swgEps)
+					return nil
+				}, serializer.NoRetry)
 			},
 		},
 		k8s.ConvertToK8sEndpoints,
@@ -202,7 +245,12 @@ func startSynchronizingServices() {
 
 	go func() {
 		cache.WaitForCacheSync(wait.NeverStop, svcController.HasSynced)
+		swgSvcs.Stop()
 		cache.WaitForCacheSync(wait.NeverStop, endpointController.HasSynced)
+		swgEps.Stop()
+
+		swgSvcs.Wait()
+		swgEps.Wait()
 		close(k8sSvcCacheSynced)
 	}()
 
