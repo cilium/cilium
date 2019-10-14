@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -117,7 +117,7 @@ func (m *MonitorFormatter) dropEvents(prefix string, data []byte) {
 func (m *MonitorFormatter) traceEvents(prefix string, data []byte) {
 	tn := monitor.TraceNotify{}
 
-	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &tn); err != nil {
+	if err := monitor.DecodeTraceNotify(data, &tn); err != nil {
 		fmt.Printf("Error while parsing trace notification message: %s\n", err)
 	}
 	if m.match(monitorAPI.MessageTypeTrace, tn.Source, tn.DstID) {

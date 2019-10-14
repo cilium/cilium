@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,17 +15,24 @@
 package monitor
 
 import (
+	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"net"
 
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/monitor/api"
 )
 
 const (
-	// TraceNotifyLen is the amount of packet data provided in a trace notification
-	TraceNotifyLen = 48
+	// traceNotifyCommonLen is the minimum length required to determine the version of the TN event.
+	traceNotifyCommonLen = 16
+	// traceNotifyV1Len is the amount of packet data provided in a trace notification v1
+	traceNotifyV1Len = 32
+	// traceNotifyV2Len is the amount of packet data provided in a trace notification v2
+	traceNotifyV2Len = 48
 	// TraceReasonEncryptMask is the bit used to indicate encryption or not
 	TraceReasonEncryptMask uint8 = 0x80
 )
@@ -36,14 +43,17 @@ const (
 	TraceNotifyFlagIsIPv6 uint8 = 1
 )
 
-// TraceNotify is the message format of a trace notification in the BPF ring buffer
-type TraceNotify struct {
+// TraceNotifyV1 is the message format that is common between the v1 trace
+// notifications emitted on Cilium 1.6.x or earlier and the v2 trace on Cilium
+// 1.7.x or later.
+type TraceNotifyV1 struct {
 	Type     uint8
 	ObsPoint uint8
 	Source   uint16
 	Hash     uint32
 	OrigLen  uint32
-	CapLen   uint32
+	CapLen   uint16
+	MetaLen  uint16 // V1 -> traceNotifyV1Len; V2+ -> traceNotifyV2Len
 	SrcLabel uint32
 	DstLabel uint32
 	DstID    uint16
@@ -51,6 +61,13 @@ type TraceNotify struct {
 	Flags    uint8
 	Ifindex  uint32
 	OrigIP   types.IPv6
+	// data
+}
+
+// TraceNotify is the message format of a trace notification in the BPF ring buffer
+type TraceNotify struct {
+	TraceNotifyV1
+	OrigIP types.IPv6
 	// data
 }
 
@@ -77,9 +94,39 @@ func connState(reason uint8) string {
 	return fmt.Sprintf("%d", reason)
 }
 
+// DecodeTraceNotify will decode 'data' into the provided TraceNotify structure
+func DecodeTraceNotify(data []byte, tn *TraceNotify) error {
+	if len(data) < traceNotifyCommonLen {
+		return fmt.Errorf("Unknown trace event")
+	}
+
+	var msgHdrLen uint16
+	// metaLenOffset := unsafe.Offsetof(TraceNotify.MetaLen)
+	metaLenOffset := 14
+	// metaLenSize := unsafe.Sizeof(TraceNotify.MetaLen)
+	metaLenSize := 2
+	metaLen := data[metaLenOffset : metaLenOffset+metaLenSize]
+	err := binary.Read(bytes.NewReader(metaLen), byteorder.Native, &msgHdrLen)
+	if err != nil {
+		return err
+	}
+
+	switch msgHdrLen {
+	// Cilium v1.6 or earlier always reports 0 for the length.
+	case 0, traceNotifyV1Len:
+		err = binary.Read(bytes.NewReader(data), byteorder.Native, &tn.TraceNotifyV1)
+		tn.MetaLen = traceNotifyV1Len
+	case traceNotifyV2Len:
+		err = binary.Read(bytes.NewReader(data), byteorder.Native, tn)
+	default:
+		err = fmt.Errorf("Unrecognized trace event (len %d)", msgHdrLen)
+	}
+	return err
+}
+
 func (n *TraceNotify) encryptReason() string {
 	if (n.Reason & TraceReasonEncryptMask) != 0 {
-		return fmt.Sprintf("encrypted ")
+		return fmt.Sprintf(" encrypted ")
 	}
 	return ""
 }
@@ -131,11 +178,11 @@ func (n *TraceNotify) DumpInfo(data []byte) {
 	if n.encryptReason() != "" {
 		fmt.Printf("%s %s flow %#x identity %d->%d state %s ifindex %s orig-ip %s: %s\n",
 			n.traceSummary(), n.encryptReason(), n.Hash, n.SrcLabel, n.DstLabel,
-			n.traceReason(), ifname(int(n.Ifindex)), n.OriginalIP().String(), GetConnectionSummary(data[TraceNotifyLen:]))
+			n.traceReason(), ifname(int(n.Ifindex)), n.OriginalIP().String(), GetConnectionSummary(data[n.MetaLen:]))
 	} else {
 		fmt.Printf("%s flow %#x identity %d->%d state %s ifindex %s orig-ip %s: %s\n",
 			n.traceSummary(), n.Hash, n.SrcLabel, n.DstLabel,
-			n.traceReason(), ifname(int(n.Ifindex)), n.OriginalIP().String(), GetConnectionSummary(data[TraceNotifyLen:]))
+			n.traceReason(), ifname(int(n.Ifindex)), n.OriginalIP().String(), GetConnectionSummary(data[n.MetaLen:]))
 	}
 }
 
@@ -160,16 +207,16 @@ func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
 		fmt.Printf("\n")
 	}
 
-	if n.CapLen > 0 && len(data) > TraceNotifyLen {
-		Dissect(dissect, data[TraceNotifyLen:])
+	if n.CapLen > 0 && len(data) > int(n.MetaLen) {
+		Dissect(dissect, data[n.MetaLen:])
 	}
 }
 
 func (n *TraceNotify) getJSON(data []byte, cpuPrefix string) (string, error) {
 	v := TraceNotifyToVerbose(n)
 	v.CPUPrefix = cpuPrefix
-	if n.CapLen > 0 && len(data) > TraceNotifyLen {
-		v.Summary = GetDissectSummary(data[TraceNotifyLen:])
+	if n.CapLen > 0 && len(data) > int(n.MetaLen) {
+		v.Summary = GetDissectSummary(data[n.MetaLen:])
 	}
 
 	ret, err := json.Marshal(v)
