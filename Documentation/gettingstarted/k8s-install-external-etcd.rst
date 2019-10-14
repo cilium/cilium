@@ -39,7 +39,7 @@ when to use a kvstore:
 
 .. include:: requirements_intro.rst
 
-Configure the External Etcd
+Configure Cilium
 ===========================
 
 When using an external kvstore, the address of the external kvstore needs to be
@@ -69,7 +69,7 @@ key and certificate of etcd:
 .. code:: bash
 
    kubectl create secret generic -n kube-system cilium-etcd-secrets \
-        --from-file=etcd-client-ca.crt=ca.crt \
+
         --from-file=etcd-client.key=client.key \
         --from-file=etcd-client.crt=client.crt
 
