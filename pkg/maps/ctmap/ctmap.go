@@ -215,7 +215,14 @@ type GCFilter struct {
 
 	// MatchIPs is the list of IPs to remove from the conntrack table
 	MatchIPs map[string]struct{}
+
+	// MatchCB is called, when non-nil, if filtering by ValidIPs and MatchIPs
+	// passes. Returning true keeps the CT entry, and false deletes it.
+	MatchCB MatchCBFunc
 }
+
+// MatchCBFunc is the type used for the MatchCB callback in GCFilter
+type MatchCBFunc func(srcIP, dstIP net.IP, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) bool
 
 // ToString iterates through Map m and writes the values of the ct entries in m
 // to a string.
@@ -288,7 +295,8 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 			// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
 			// the destination of the packet received, therefore it's the packet's
 			// destination IP
-			action := filter.doFiltering(currentKey6Global.DestAddr.IP(), currentKey6Global.SourceAddr.IP(), currentKey6Global.SourcePort,
+			action := filter.doFiltering(currentKey6Global.DestAddr.IP(), currentKey6Global.SourceAddr.IP(),
+				currentKey6Global.DestPort, currentKey6Global.SourcePort,
 				uint8(currentKey6Global.NextHeader), currentKey6Global.Flags, entry)
 
 			switch action {
@@ -307,7 +315,8 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 			// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
 			// the destination of the packet received, therefore it's the packet's
 			// destination IP
-			action := filter.doFiltering(currentKey6.DestAddr.IP(), currentKey6.SourceAddr.IP(), currentKey6.SourcePort,
+			action := filter.doFiltering(currentKey6.DestAddr.IP(), currentKey6.SourceAddr.IP(),
+				currentKey6.DestPort, currentKey6.SourcePort,
 				uint8(currentKey6.NextHeader), currentKey6.Flags, entry)
 
 			switch action {
@@ -362,7 +371,8 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 			// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
 			// the destination of the packet received, therefore it's the packet's
 			// destination IP
-			action := filter.doFiltering(currentKey4Global.DestAddr.IP(), currentKey4Global.SourceAddr.IP(), currentKey4Global.SourcePort,
+			action := filter.doFiltering(currentKey4Global.DestAddr.IP(), currentKey4Global.SourceAddr.IP(),
+				currentKey4Global.DestPort, currentKey4Global.SourcePort,
 				uint8(currentKey4Global.NextHeader), currentKey4Global.Flags, entry)
 
 			switch action {
@@ -381,7 +391,8 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 			// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
 			// the destination of the packet received, therefore it's the packet's
 			// destination IP
-			action := filter.doFiltering(currentKey4.DestAddr.IP(), currentKey4.SourceAddr.IP(), currentKey4.SourcePort,
+			action := filter.doFiltering(currentKey4.DestAddr.IP(), currentKey4.SourceAddr.IP(),
+				currentKey4.DestPort, currentKey4.SourcePort,
 				uint8(currentKey4.NextHeader), currentKey4.Flags, entry)
 
 			switch action {
@@ -404,7 +415,7 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 	return stats
 }
 
-func (f *GCFilter) doFiltering(srcIP net.IP, dstIP net.IP, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) (action int) {
+func (f *GCFilter) doFiltering(srcIP, dstIP net.IP, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) (action int) {
 	if f.RemoveExpired && entry.Lifetime < f.Time {
 		return deleteEntry
 	}
@@ -423,6 +434,10 @@ func (f *GCFilter) doFiltering(srcIP net.IP, dstIP net.IP, dstPort uint16, nextH
 		if srcIPExists || dstIPExists {
 			return deleteEntry
 		}
+	}
+
+	if f.MatchCB != nil && !f.MatchCB(srcIP, dstIP, srcPort, dstPort, nextHdr, flags, entry) {
+		return deleteEntry
 	}
 
 	return noAction
