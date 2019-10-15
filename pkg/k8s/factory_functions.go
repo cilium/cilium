@@ -25,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/cache"
@@ -375,6 +375,34 @@ func ConvertToIngress(obj interface{}) interface{} {
 	}
 }
 
+// ConvertToCCNPWithStatus converts a *cilium_v2.CiliumClusterwideNetworkPolicy
+// into *types.SlimCNP or a cache.DeletedFinalStateUnknown into
+// a cache.DeletedFinalStateUnknown with a *types.SlimCNP in its Obj.
+// If the given obj can't be cast into either *cilium_v2.CiliumClusterwideNetworkPolicy
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
+func ConvertToCCNPWithStatus(obj interface{}) interface{} {
+	switch concreteObj := obj.(type) {
+	case *cilium_v2.CiliumClusterwideNetworkPolicy:
+		return &types.SlimCNP{
+			CiliumNetworkPolicy: &concreteObj.CiliumNetworkPolicy,
+		}
+	case cache.DeletedFinalStateUnknown:
+		cnp, ok := concreteObj.Obj.(*cilium_v2.CiliumClusterwideNetworkPolicy)
+		if !ok {
+			return obj
+		}
+		return cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: &types.SlimCNP{
+				CiliumNetworkPolicy: &cnp.CiliumNetworkPolicy,
+			},
+		}
+
+	default:
+		return obj
+	}
+}
+
 // ConvertToCNPWithStatus converts a *cilium_v2.CiliumNetworkPolicy or a
 // *cilium_v2.CiliumClusterwideNetworkPolicy into a
 // *types.SlimCNP or a cache.DeletedFinalStateUnknown into
@@ -387,39 +415,70 @@ func ConvertToCNPWithStatus(obj interface{}) interface{} {
 		return &types.SlimCNP{
 			CiliumNetworkPolicy: concreteObj,
 		}
-	case *cilium_v2.CiliumClusterwideNetworkPolicy:
-		return &types.SlimCNP{
-			CiliumNetworkPolicy: &concreteObj.CiliumNetworkPolicy,
-		}
 	case cache.DeletedFinalStateUnknown:
-		switch cnp := concreteObj.Obj.(type) {
-		case *cilium_v2.CiliumNetworkPolicy:
-			return cache.DeletedFinalStateUnknown{
-				Key: concreteObj.Key,
-				Obj: &types.SlimCNP{
-					CiliumNetworkPolicy: cnp,
-				},
-			}
-
-		case *cilium_v2.CiliumClusterwideNetworkPolicy:
-			return cache.DeletedFinalStateUnknown{
-				Key: concreteObj.Key,
-				Obj: &types.SlimCNP{
-					CiliumNetworkPolicy: &cnp.CiliumNetworkPolicy,
-				},
-			}
-
-		default:
+		cnp, ok := concreteObj.Obj.(*cilium_v2.CiliumNetworkPolicy)
+		if !ok {
 			return obj
 		}
+		return cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: &types.SlimCNP{
+				CiliumNetworkPolicy: cnp,
+			},
+		}
+	default:
+		return obj
+	}
+}
+
+// ConvertToCCNP converts a *cilium_v2.CiliumClusterwideNetworkPolicy into a
+// *types.SlimCNP without the Status field of the given CNP, or a
+// cache.DeletedFinalStateUnknown into a cache.DeletedFinalStateUnknown with a
+// *types.SlimCNP, also without the Status field of the given CNP, in its Obj.
+// If the given obj can't be cast into either *cilium_v2.CiliumClusterwideNetworkPolicy
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
+// WARNING calling this function will set *all* fields of the given CNP as
+// empty.
+func ConvertToCCNP(obj interface{}) interface{} {
+	switch concreteObj := obj.(type) {
+	case *cilium_v2.CiliumClusterwideNetworkPolicy:
+		cnp := &types.SlimCNP{
+			CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+				TypeMeta:   concreteObj.TypeMeta,
+				ObjectMeta: concreteObj.ObjectMeta,
+				Spec:       concreteObj.Spec,
+				Specs:      concreteObj.Specs,
+			},
+		}
+		*concreteObj = cilium_v2.CiliumClusterwideNetworkPolicy{}
+		return cnp
+
+	case cache.DeletedFinalStateUnknown:
+		cnp, ok := concreteObj.Obj.(*cilium_v2.CiliumClusterwideNetworkPolicy)
+		if !ok {
+			return obj
+		}
+		dfsu := cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					TypeMeta:   cnp.TypeMeta,
+					ObjectMeta: cnp.ObjectMeta,
+					Spec:       cnp.Spec,
+					Specs:      cnp.Specs,
+				},
+			},
+		}
+		*cnp = cilium_v2.CiliumClusterwideNetworkPolicy{}
+		return dfsu
 
 	default:
 		return obj
 	}
 }
 
-// ConvertToCNP converts *cilium_v2.CiliumNetworkPolicy or *cilium_v2.CiliumClusterwideNetworkPolicy
-// into a *types.SlimCNP without the Status field of the given CNP, or a
+// ConvertToCNP converts a *cilium_v2.CiliumNetworkPolicy into a
+// *types.SlimCNP without the Status field of the given CNP, or a
 // cache.DeletedFinalStateUnknown into a cache.DeletedFinalStateUnknown with a
 // *types.SlimCNP, also without the Status field of the given CNP, in its Obj.
 // If the given obj can't be cast into either *cilium_v2.CiliumNetworkPolicy
@@ -439,54 +498,24 @@ func ConvertToCNP(obj interface{}) interface{} {
 		}
 		*concreteObj = cilium_v2.CiliumNetworkPolicy{}
 		return cnp
-
-	case *cilium_v2.CiliumClusterwideNetworkPolicy:
-		cnp := &types.SlimCNP{
-			CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
-				TypeMeta:   concreteObj.TypeMeta,
-				ObjectMeta: concreteObj.ObjectMeta,
-				Spec:       concreteObj.Spec,
-				Specs:      concreteObj.Specs,
-			},
-		}
-		*concreteObj = cilium_v2.CiliumClusterwideNetworkPolicy{}
-		return cnp
-
 	case cache.DeletedFinalStateUnknown:
-		switch cnp := concreteObj.Obj.(type) {
-		case *cilium_v2.CiliumNetworkPolicy:
-			dfsu := cache.DeletedFinalStateUnknown{
-				Key: concreteObj.Key,
-				Obj: &types.SlimCNP{
-					CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
-						TypeMeta:   cnp.TypeMeta,
-						ObjectMeta: cnp.ObjectMeta,
-						Spec:       cnp.Spec,
-						Specs:      cnp.Specs,
-					},
-				},
-			}
-			*cnp = cilium_v2.CiliumNetworkPolicy{}
-			return dfsu
-
-		case *cilium_v2.CiliumClusterwideNetworkPolicy:
-			dfsu := cache.DeletedFinalStateUnknown{
-				Key: concreteObj.Key,
-				Obj: &types.SlimCNP{
-					CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
-						TypeMeta:   cnp.TypeMeta,
-						ObjectMeta: cnp.ObjectMeta,
-						Spec:       cnp.Spec,
-						Specs:      cnp.Specs,
-					},
-				},
-			}
-			*cnp = cilium_v2.CiliumClusterwideNetworkPolicy{}
-			return dfsu
-
-		default:
+		cnp, ok := concreteObj.Obj.(*cilium_v2.CiliumNetworkPolicy)
+		if !ok {
 			return obj
 		}
+		dfsu := cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					TypeMeta:   cnp.TypeMeta,
+					ObjectMeta: cnp.ObjectMeta,
+					Spec:       cnp.Spec,
+					Specs:      cnp.Specs,
+				},
+			},
+		}
+		*cnp = cilium_v2.CiliumNetworkPolicy{}
+		return dfsu
 	default:
 		return obj
 	}

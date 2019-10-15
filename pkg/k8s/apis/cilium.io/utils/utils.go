@@ -255,6 +255,11 @@ func ParseToCiliumRule(namespace, name string, uid types.UID, r *api.Rule) *api.
 // represents the given namespace and name along with a label that specifies
 // these labels were derived from a CiliumNetworkPolicy.
 func ParseToCiliumLabels(namespace, name string, uid types.UID, ruleLbs labels.LabelArray) labels.LabelArray {
-	policyLbls := GetPolicyLabels(namespace, name, uid, ResourceTypeCiliumNetworkPolicy)
+	resourceType := ResourceTypeCiliumNetworkPolicy
+	if namespace == "" {
+		resourceType = ResourceTypeCiliumClusterwideNetworkPolicy
+	}
+
+	policyLbls := GetPolicyLabels(namespace, name, uid, resourceType)
 	return append(policyLbls, ruleLbs...).Sort()
 }
