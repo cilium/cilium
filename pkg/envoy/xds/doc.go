@@ -28,9 +28,9 @@
 // sets, e.g. to support the LDS and RDS protocols:
 //
 //    ldsCache := xds.NewCache()
-//    lds := xds.NewAckingResourceMutatorWrapper(ldsCache, xds.IstioNodeToIP)
+//    lds := xds.NewAckingResourceMutatorWrapper(ldsCache)
 //    rdsCache := xds.NewCache()
-//    rds := xds.NewAckingResourceMutatorWrapper(rdsCache, xds.IstioNodeToIP)
+//    rds := xds.NewAckingResourceMutatorWrapper(rdsCache)
 //
 //    resTypes := map[string]xds.ResourceTypeConfiguration{
 //        "type.googleapis.com/envoy.api.v2.Listener": {ldsCache, lds},
@@ -70,7 +70,7 @@
 //
 //    typeURL := "type.googleapis.com/envoy.api.v2.Listener"
 //    ldsCache := xds.NewCache()
-//    lds := xds.NewAckingResourceMutatorWrapper(ldsCache, IstioNodeToIP)
+//    lds := xds.NewAckingResourceMutatorWrapper(ldsCache)
 //
 //    ctx, cancel := context.WithTimeout(..., 5*time.Second)
 //    wg := completion.NewWaitGroup(ctx)
