@@ -19,7 +19,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/lock"
 
-	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
 	"github.com/golang/protobuf/proto"
 )
 
@@ -34,7 +33,7 @@ type ResourceSource interface {
 	// If resourceNames is empty, all resources are returned.
 	// Should not be blocking.
 	GetResources(ctx context.Context, typeURL string, lastVersion uint64,
-		node *envoy_api_v2_core.Node, resourceNames []string) (*VersionedResources, error)
+		nodeIP string, resourceNames []string) (*VersionedResources, error)
 
 	// EnsureVersion increases this resource set's version to be at least the
 	// given version. If the current version is already higher than the

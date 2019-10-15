@@ -110,8 +110,8 @@ type XDSServer struct {
 	// Envoy proxies.
 	networkPolicyCache *xds.Cache
 
-	// NetworkPolicyMutator wraps networkPolicyCache to publish route
-	// configuration updates to Envoy proxies.
+	// NetworkPolicyMutator wraps networkPolicyCache to publish policy
+	// updates to Envoy proxies.
 	// Exported for testing only!
 	NetworkPolicyMutator xds.AckingResourceMutator
 
@@ -786,36 +786,18 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		policies = append(policies, networkPolicy)
 	}
 
-	if ep.HasSidecarProxy() { // Use sidecar proxy.
-		// If there are no L7 rules, we expect Envoy to NOT be configured with
-		// an L7 filter, in which case we'd never receive an ACK for the policy,
-		// and we'd wait forever.
-		// TODO: Remove this when we implement and inject an Envoy network filter
-		// into every Envoy listener to filter at L3/L4.
-		var hasL7Rules bool
-	Policies:
-		for _, p := range policies {
-			for _, pnp := range p.IngressPerPortPolicies {
-				for _, r := range pnp.Rules {
-					if r.L7 != nil {
-						hasL7Rules = true
-						break Policies
-					}
-				}
-			}
-			for _, pnp := range p.EgressPerPortPolicies {
-				for _, r := range pnp.Rules {
-					if r.L7 != nil {
-						hasL7Rules = true
-						break Policies
-					}
-				}
-			}
+	nodeIDs := make([]string, 0, 1)
+	if ep.HasSidecarProxy() {
+		if ep.GetIPv4Address() == "" {
+			log.Fatal("Envoy: Sidecar proxy has no IPv4 address")
 		}
-		if !hasL7Rules {
-			wg = nil
-		}
-	} else { // Use node proxy.
+		nodeIDs = append(nodeIDs, ep.GetIPv4Address())
+
+		// Istio sidecars have the Cilium bpf metadata filter
+		// statically configured running the NPDS client.
+	} else {
+		nodeIDs = append(nodeIDs, "127.0.0.1")
+
 		// If there are no listeners configured, the local node's Envoy proxy won't
 		// query for network policies and therefore will never ACK them, and we'd
 		// wait forever.
@@ -840,15 +822,6 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		var c *completion.Completion
 		if wg != nil {
 			c = wg.AddCompletionWithCallback(callback)
-		}
-		nodeIDs := make([]string, 0, 1)
-		if ep.HasSidecarProxy() {
-			if ep.GetIPv4Address() == "" {
-				log.Fatal("Envoy: Sidecar proxy has no IPv4 address")
-			}
-			nodeIDs = append(nodeIDs, ep.GetIPv4Address())
-		} else {
-			nodeIDs = append(nodeIDs, "127.0.0.1")
 		}
 		revertFuncs = append(revertFuncs, s.NetworkPolicyMutator.Upsert(NetworkPolicyTypeURL, p.Name, p, nodeIDs, c))
 		revertUpdatedNetworkPolicyEndpoints[p.Name] = s.networkPolicyEndpoints[p.Name]
@@ -888,15 +861,17 @@ func (s *XDSServer) RemoveNetworkPolicy(ep logger.EndpointInfoSource) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if ep.GetIPv6Address() != "" {
-		name := ep.GetIPv6Address()
+	name := ep.GetIPv6Address()
+	if name != "" {
 		s.networkPolicyCache.Delete(NetworkPolicyTypeURL, name, false)
 		delete(s.networkPolicyEndpoints, name)
 	}
-	if ep.GetIPv4Address() != "" {
-		name := ep.GetIPv4Address()
+	name = ep.GetIPv4Address()
+	if name != "" {
 		s.networkPolicyCache.Delete(NetworkPolicyTypeURL, name, false)
 		delete(s.networkPolicyEndpoints, name)
+		// Delete node resources held in the cache for the endpoint (e.g., sidecar)
+		s.NetworkPolicyMutator.DeleteNode(name)
 	}
 }
 
@@ -910,7 +885,7 @@ func (s *XDSServer) RemoveAllNetworkPolicies() {
 // the given names.
 // If resourceNames is empty, all resources are returned.
 func (s *XDSServer) GetNetworkPolicies(resourceNames []string) (map[string]*cilium.NetworkPolicy, error) {
-	resources, err := s.networkPolicyCache.GetResources(context.Background(), NetworkPolicyTypeURL, 0, nil, resourceNames)
+	resources, err := s.networkPolicyCache.GetResources(context.Background(), NetworkPolicyTypeURL, 0, "", resourceNames)
 	if err != nil {
 		return nil, err
 	}
