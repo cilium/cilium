@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/completion"
 	envoy_api_v2 "github.com/cilium/proxy/go/envoy/api/v2"
+	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
@@ -53,6 +54,11 @@ const (
 
 var (
 	DeferredCompletion error = errors.New("Deferred completion")
+	nodes                    = map[string]*envoy_api_v2_core.Node{
+		node0: {Id: "sidecar~10.0.0.0~node0~bar"},
+		node1: {Id: "sidecar~10.0.0.1~node1~bar"},
+		node2: {Id: "sidecar~10.0.0.2~node2~bar"},
+	}
 )
 
 // ResponseMatchesChecker checks that a DiscoveryResponse's fields match the given
