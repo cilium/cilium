@@ -50,9 +50,13 @@ func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 		// or if it is based on specific labels.
 		filter := createL4IngressFilter(eps, false, portrule, tuple, tuple.Protocol, nil, testSelectorCache)
 		c.Assert(len(filter.L7RulesPerEp), Equals, 1)
+		c.Assert(filter.IsEnvoyRedirect(), Equals, true)
+		c.Assert(filter.IsProxylibRedirect(), Equals, false)
 
 		filter = createL4EgressFilter(eps, portrule, tuple, tuple.Protocol, nil, testSelectorCache, nil)
 		c.Assert(len(filter.L7RulesPerEp), Equals, 1)
+		c.Assert(filter.IsEnvoyRedirect(), Equals, true)
+		c.Assert(filter.IsProxylibRedirect(), Equals, false)
 	}
 }
 
@@ -222,4 +226,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 	for i := range expectedIngress {
 		c.Assert(model.Ingress[i].Rule, Equals, expectedIngress[i])
 	}
+
+	c.Assert(policy.HasEnvoyRedirect(), Equals, true)
+	c.Assert(policy.HasProxylibRedirect(), Equals, true)
 }
