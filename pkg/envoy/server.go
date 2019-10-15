@@ -896,12 +896,12 @@ func (s *XDSServer) RemoveNetworkPolicy(ep logger.EndpointInfoSource) {
 
 	name := ep.GetIPv6Address()
 	if name != "" {
-		s.networkPolicyCache.Delete(NetworkPolicyTypeURL, name, false)
+		s.networkPolicyCache.Delete(NetworkPolicyTypeURL, name)
 		delete(s.networkPolicyEndpoints, name)
 	}
 	name = ep.GetIPv4Address()
 	if name != "" {
-		s.networkPolicyCache.Delete(NetworkPolicyTypeURL, name, false)
+		s.networkPolicyCache.Delete(NetworkPolicyTypeURL, name)
 		delete(s.networkPolicyEndpoints, name)
 		// Delete node resources held in the cache for the endpoint (e.g., sidecar)
 		s.NetworkPolicyMutator.DeleteNode(name)
@@ -911,7 +911,7 @@ func (s *XDSServer) RemoveNetworkPolicy(ep logger.EndpointInfoSource) {
 // RemoveAllNetworkPolicies removes all network policies from the set published
 // to L7 proxies.
 func (s *XDSServer) RemoveAllNetworkPolicies() {
-	s.networkPolicyCache.Clear(NetworkPolicyTypeURL, false)
+	s.networkPolicyCache.Clear(NetworkPolicyTypeURL)
 }
 
 // GetNetworkPolicies returns the current version of the network policies with
