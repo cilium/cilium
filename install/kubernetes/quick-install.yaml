@@ -218,6 +218,8 @@ rules:
   resources:
   - ciliumnetworkpolicies
   - ciliumnetworkpolicies/status
+  - ciliumclusterwidenetworkpolicies
+  - ciliumclusterwidenetworkpolicies/status
   - ciliumendpoints
   - ciliumendpoints/status
   - ciliumnodes

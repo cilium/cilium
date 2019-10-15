@@ -38,10 +38,10 @@ func (k *K8sWatcher) ciliumClusterwideNetworkPoliciesInit(ciliumNPClient *k8s.K8
 	case k8sversion.Capabilities().Patch:
 		// k8s >= 1.13 does not require a store to update CNP status so
 		// we don't even need to keep the status of a CNP with us.
-		ccnpConverterFunc = k8s.ConvertToCNP
+		ccnpConverterFunc = k8s.ConvertToCCNP
 	default:
 		ccnpEventStore = ccnpStore
-		ccnpConverterFunc = k8s.ConvertToCNPWithStatus
+		ccnpConverterFunc = k8s.ConvertToCCNPWithStatus
 	}
 
 	ciliumV2ClusterwidePolicyController := informer.NewInformerWithStore(

@@ -198,7 +198,7 @@ func createCNPCRD(clientset apiextensionsclient.Interface) error {
 func createCCNPCRD(clientset apiextensionsclient.Interface) error {
 	var (
 		// CustomResourceDefinitionSingularName is the singular name of custom resource definition
-		CustomResourceDefinitionSingularName = "CiliumClusterwideNetworkPolicy"
+		CustomResourceDefinitionSingularName = "ciliumclusterwidenetworkpolicy"
 
 		// CustomResourceDefinitionPluralName is the plural name of custom resource definition
 		CustomResourceDefinitionPluralName = "ciliumclusterwidenetworkpolicies"

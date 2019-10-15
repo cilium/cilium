@@ -277,8 +277,8 @@ func (s *CiliumV2Suite) TestParseSpec(c *C) {
 	expectedPolicyRule := &CiliumNetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
-			Name: "rule1",
-			UID:  uuidRule,
+			Name:      "rule1",
+			UID:       uuidRule,
 		},
 		Spec: &apiRule,
 	}
@@ -288,8 +288,8 @@ func (s *CiliumV2Suite) TestParseSpec(c *C) {
 	expectedPolicyRuleWithLabel := &CiliumNetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
-			Name: "rule1",
-			UID:  uuidRule,
+			Name:      "rule1",
+			UID:       uuidRule,
 		},
 		Spec: &apiRuleWithLabels,
 	}
@@ -346,8 +346,8 @@ func (s *CiliumV2Suite) TestParseRules(c *C) {
 	expectedPolicyRuleList := &CiliumNetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
-			Name: "rule1",
-			UID:  uuidRule,
+			Name:      "rule1",
+			UID:       uuidRule,
 		},
 		Specs: api.Rules{&apiRule, &apiRule},
 	}
@@ -357,8 +357,8 @@ func (s *CiliumV2Suite) TestParseRules(c *C) {
 	expectedPolicyRuleListWithLabel := &CiliumNetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
-			Name: "rule1",
-			UID:  uuidRule,
+			Name:      "rule1",
+			UID:       uuidRule,
 		},
 		Specs: api.Rules{&apiRuleWithLabels, &apiRuleWithLabels},
 	}
