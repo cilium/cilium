@@ -328,9 +328,8 @@ func (s *ServerSuite) TestAck(c *C) {
 
 	// Create version 2 with resource 0.
 	time.Sleep(CacheUpdateDelay)
-	comp1 := wg.AddCompletion()
-	defer comp1.Complete(DeferredCompletion)
-	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp1)
+	callback1, comp1 := newCompCallback()
+	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
 	c.Assert(comp1, Not(IsCompleted))
 
 	// Expecting a response with that resource.
@@ -341,9 +340,8 @@ func (s *ServerSuite) TestAck(c *C) {
 
 	// Create version 3 with resources 0 and 1.
 	// This time, update the cache before sending the request.
-	comp2 := wg.AddCompletion()
-	defer comp2.Complete(DeferredCompletion)
-	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, comp2)
+	callback2, comp2 := newCompCallback()
+	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, wg, callback2)
 	c.Assert(comp2, Not(IsCompleted))
 
 	// Request the next version of resources.
@@ -874,13 +872,8 @@ func (s *ServerSuite) TestNAck(c *C) {
 
 	// Create version 2 with resource 0.
 	time.Sleep(CacheUpdateDelay)
-
-	callback := func(err error) {
-		log.Info("comp1 callback received with ", err)
-	}
-	comp1 := wg.AddCompletionWithCallback(callback)
-	defer comp1.Complete(DeferredCompletion)
-	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp1)
+	callback1, comp1 := newCompCallback()
+	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
 	c.Assert(comp1, Not(IsCompleted))
 
 	// Expecting a response with that resource.
@@ -906,11 +899,8 @@ func (s *ServerSuite) TestNAck(c *C) {
 
 	// NACK cancelled the wg, create a new one
 	wg = completion.NewWaitGroup(ctx)
-	comp2 := wg.AddCompletionWithCallback(func(err error) {
-		log.Info("comp2 callback received with ", err)
-	})
-	defer comp2.Complete(DeferredCompletion)
-	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, comp2)
+	callback2, comp2 := newCompCallback()
+	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, wg, callback2)
 	c.Assert(comp2, Not(IsCompleted))
 
 	// Version 2 was NACKed by the last request, so comp1 must NOT be completed ever.
@@ -1005,9 +995,8 @@ func (s *ServerSuite) TestNAckFromTheStart(c *C) {
 
 	// Create version 2 with resource 0.
 	time.Sleep(CacheUpdateDelay)
-	comp1 := wg.AddCompletion()
-	defer comp1.Complete(DeferredCompletion)
-	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp1)
+	callback1, comp1 := newCompCallback()
+	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
 	c.Assert(comp1, Not(IsCompleted))
 
 	// Request the next version of resources.
@@ -1050,9 +1039,8 @@ func (s *ServerSuite) TestNAckFromTheStart(c *C) {
 	wg = completion.NewWaitGroup(ctx)
 
 	// Create version 3 with resources 0 and 1.
-	comp2 := wg.AddCompletion()
-	defer comp2.Complete(DeferredCompletion)
-	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, comp2)
+	callback2, comp2 := newCompCallback()
+	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, wg, callback2)
 	c.Assert(comp2, Not(IsCompleted))
 
 	// Expecting a response with both resources.
@@ -1124,9 +1112,8 @@ func (s *ServerSuite) TestRequestHighVersionFromTheStart(c *C) {
 
 	// Create version 2 with resource 0.
 	time.Sleep(CacheUpdateDelay)
-	comp1 := wg.AddCompletion()
-	defer comp1.Complete(DeferredCompletion)
-	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp1)
+	callback1, comp1 := newCompCallback()
+	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
 	c.Assert(comp1, Not(IsCompleted))
 
 	// Request all resources, with a version higher than the version currently
