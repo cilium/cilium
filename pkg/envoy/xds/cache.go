@@ -227,6 +227,7 @@ func (c *Cache) GetResources(ctx context.Context, typeURL string, lastVersion ui
 	}
 
 	// Return all resources.
+	// TODO: return nil if no changes since the last version?
 	if len(resourceNames) == 0 {
 		res.ResourceNames = make([]string, 0, len(c.resources))
 		res.Resources = make([]proto.Message, 0, len(c.resources))

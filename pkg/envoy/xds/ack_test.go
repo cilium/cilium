@@ -80,6 +80,7 @@ func (s *AckSuite) TestUpsertSingleNode(c *C) {
 	defer comp.Complete(nil)
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
 	c.Assert(comp, Not(IsCompleted))
+	c.Assert(acker.ackedVersions, HasLen, 0)
 
 	// Ack the right version, for the right resource, from another node.
 	acker.HandleResourceVersionAck(2, 2, node1, []string{resources[0].Name}, typeURL, "")
@@ -104,6 +105,59 @@ func (s *AckSuite) TestUpsertSingleNode(c *C) {
 	c.Assert(comp, IsCompleted)
 	c.Assert(acker.ackedVersions, HasLen, 2)
 	c.Assert(acker.ackedVersions[node0], Equals, uint64(2))
+}
+
+func (s *AckSuite) TestUseCurrent(c *C) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	wg := completion.NewWaitGroup(ctx)
+
+	// Empty cache is the version 1
+	cache := NewCache()
+	acker := NewAckingResourceMutatorWrapper(cache)
+	c.Assert(acker.ackedVersions, HasLen, 0)
+
+	// Create version 2 with resource 0.
+	comp := wg.AddCompletion()
+	defer comp.Complete(nil)
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
+	c.Assert(comp, Not(IsCompleted))
+	c.Assert(acker.ackedVersions, HasLen, 0)
+	c.Assert(acker.pendingCompletions, HasLen, 1)
+
+	// Ack the right version, for the right resource, from another node.
+	acker.HandleResourceVersionAck(2, 2, node1, []string{resources[0].Name}, typeURL, "")
+	c.Assert(comp, Not(IsCompleted))
+	c.Assert(acker.ackedVersions, HasLen, 1)
+	c.Assert(acker.ackedVersions[node1], Equals, uint64(2))
+	c.Assert(acker.pendingCompletions, HasLen, 1)
+
+	// Use current version, not yet acked
+	acker.UseCurrent(typeURL, []string{node0}, wg)
+	c.Assert(acker.pendingCompletions, HasLen, 2)
+
+	// Ack the right version, for another resource, from the right node.
+	acker.HandleResourceVersionAck(2, 2, node0, []string{resources[1].Name}, typeURL, "")
+	c.Assert(comp, Not(IsCompleted))
+	c.Assert(acker.ackedVersions, HasLen, 2)
+	c.Assert(acker.ackedVersions[node0], Equals, uint64(2))
+	// UseCurrent ignores resource names, so an ack of the same or later version from the right node will complete it
+	c.Assert(acker.pendingCompletions, HasLen, 1)
+
+	// Ack an older version, for the right resource, from the right node.
+	acker.HandleResourceVersionAck(1, 1, node0, []string{resources[0].Name}, typeURL, "")
+	c.Assert(comp, Not(IsCompleted))
+	c.Assert(acker.ackedVersions, HasLen, 2)
+	c.Assert(acker.ackedVersions[node0], Equals, uint64(2))
+	c.Assert(acker.pendingCompletions, HasLen, 1)
+
+	// Ack the right version, for the right resource, from the right node.
+	acker.HandleResourceVersionAck(2, 2, node0, []string{resources[0].Name}, typeURL, "")
+	c.Assert(comp, IsCompleted)
+	c.Assert(acker.ackedVersions, HasLen, 2)
+	c.Assert(acker.ackedVersions[node0], Equals, uint64(2))
+	c.Assert(acker.pendingCompletions, HasLen, 0)
 }
 
 func (s *AckSuite) TestUpsertMultipleNodes(c *C) {

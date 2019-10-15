@@ -438,6 +438,16 @@ func (l4 *L4Filter) IsRedirect() bool {
 	return l4.L7Parser != ParserTypeNone
 }
 
+// IsEnvoyRedirect returns true if the L4 filter contains a port redirected to Envoy
+func (l4 *L4Filter) IsEnvoyRedirect() bool {
+	return l4.IsRedirect() && l4.L7Parser != ParserTypeKafka && l4.L7Parser != ParserTypeDNS
+}
+
+// IsProxylibRedirect returns true if the L4 filter contains a port redirected to Proxylib (via Envoy)
+func (l4 *L4Filter) IsProxylibRedirect() bool {
+	return l4.IsEnvoyRedirect() && l4.L7Parser != ParserTypeHTTP
+}
+
 // MarshalIndent returns the `L4Filter` in indented JSON string.
 func (l4 *L4Filter) MarshalIndent() string {
 	b, err := json.MarshalIndent(l4, "", "  ")
@@ -502,7 +512,28 @@ func (l4 L4PolicyMap) HasRedirect() bool {
 			return true
 		}
 	}
+	return false
+}
 
+// HasEnvoyRedirect returns true if at least one L4 filter contains a port
+// redirection that is forwarded to Envoy
+func (l4 L4PolicyMap) HasEnvoyRedirect() bool {
+	for _, f := range l4 {
+		if f.IsEnvoyRedirect() {
+			return true
+		}
+	}
+	return false
+}
+
+// HasProxylibRedirect returns true if at least one L4 filter contains a port
+// redirection that is forwarded to Proxylib (via Envoy)
+func (l4 L4PolicyMap) HasProxylibRedirect() bool {
+	for _, f := range l4 {
+		if f.IsProxylibRedirect() {
+			return true
+		}
+	}
 	return false
 }
 
@@ -654,6 +685,16 @@ func (l4 *L4PolicyMap) EgressCoversContext(ctx *SearchContext) api.Decision {
 // HasRedirect returns true if the L4 policy contains at least one port redirection
 func (l4 *L4Policy) HasRedirect() bool {
 	return l4 != nil && (l4.Ingress.HasRedirect() || l4.Egress.HasRedirect())
+}
+
+// HasEnvoyRedirect returns true if the L4 policy contains at least one port redirection to Envoy
+func (l4 *L4Policy) HasEnvoyRedirect() bool {
+	return l4 != nil && (l4.Ingress.HasEnvoyRedirect() || l4.Egress.HasEnvoyRedirect())
+}
+
+// HasProxylibRedirect returns true if the L4 policy contains at least one port redirection to Proxylib
+func (l4 *L4Policy) HasProxylibRedirect() bool {
+	return l4 != nil && (l4.Ingress.HasProxylibRedirect() || l4.Egress.HasProxylibRedirect())
 }
 
 // RequiresConntrack returns true if if the L4 configuration requires
