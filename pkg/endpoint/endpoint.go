@@ -687,7 +687,7 @@ func FilterEPDir(dirFiles []os.FileInfo) []string {
 // common.CiliumCHeaderPrefix + common.Version + ":" + endpointBase64
 // Note that the parse'd endpoint's identity is only partially restored. The
 // caller must call `SetIdentity()` to make the returned endpoint's identity useful.
-func parseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
+func parseEndpoint(ctx context.Context, owner regeneration.Owner, strEp string) (*Endpoint, error) {
 	// TODO: Provide a better mechanism to update from old version once we bump
 	// TODO: cilium version.
 	strEpSlice := strings.Split(strEp, ":")
@@ -712,7 +712,7 @@ func parseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
 	ep.controllers = controller.NewManager()
 	ep.regenFailedChan = make(chan struct{}, 1)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	ep.aliveCancel = cancel
 	ep.aliveCtx = ctx
 

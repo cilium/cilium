@@ -17,6 +17,7 @@
 package endpoint
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io/ioutil"
@@ -142,7 +143,7 @@ func (ds *EndpointSuite) TestReadEPsFromDirNames(c *C) {
 			epsNames = append(epsNames, ep.DirectoryPath())
 		}
 	}
-	eps := ReadEPsFromDirNames(ds, tmpDir, epsNames)
+	eps := ReadEPsFromDirNames(context.TODO(), ds, tmpDir, epsNames)
 	c.Assert(len(eps), Equals, len(epsWanted))
 
 	sort.Slice(epsWanted, func(i, j int) bool { return epsWanted[i].ID < epsWanted[j].ID })

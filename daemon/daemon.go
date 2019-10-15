@@ -105,6 +105,8 @@ const (
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
 // monitoring when a LXC starts.
 type Daemon struct {
+	ctx              context.Context
+	cancel           context.CancelFunc
 	buildEndpointSem *semaphore.Weighted
 	l7Proxy          *proxy.Proxy
 	svc              *service.Service
@@ -261,7 +263,7 @@ type rulesManager interface {
 }
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
-func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *endpointRestoreState, error) {
+func NewDaemon(ctx context.Context, dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *endpointRestoreState, error) {
 	var (
 		err           error
 		netConf       *cnitypes.NetConf
@@ -314,7 +316,11 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 	// Must be done before calling policy.NewPolicyRepository() below.
 	identity.InitWellKnownIdentities()
 
+	dCtx, cancel := context.WithCancel(ctx)
+
 	d := Daemon{
+		ctx:              dCtx,
+		cancel:           cancel,
 		svc:              service.NewService(),
 		prefixLengths:    createPrefixLengthCounter(),
 		buildEndpointSem: semaphore.NewWeighted(int64(numWorkerThreads())),
@@ -360,6 +366,14 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 			}
 		})
 	}
+
+	// Ensure that we signal to endpoints that inflight events (e.g.,
+	// regenerations) should be canceled gracefully upon agent termination.
+
+	cleanupFuncs.Add(func() {
+		log.Info("canceling daemon's context")
+		d.cancel()
+	})
 
 	// Open or create BPF maps.
 	bootstrapStats.mapsInit.Start()

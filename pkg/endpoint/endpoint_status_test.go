@@ -49,7 +49,7 @@ type endpointGeneratorSpec struct {
 }
 
 func (s *EndpointSuite) newEndpoint(c *check.C, spec endpointGeneratorSpec) *Endpoint {
-	e, err := NewEndpointFromChangeModel(s, &FakeEndpointProxy{}, s.mgr, &models.EndpointChangeRequest{
+	e, err := NewEndpointFromChangeModel(context.TODO(), s, &FakeEndpointProxy{}, s.mgr, &models.EndpointChangeRequest{
 		Addressing: &models.AddressPair{},
 		ID:         200,
 		Labels: models.Labels{
