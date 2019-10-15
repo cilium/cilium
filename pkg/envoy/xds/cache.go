@@ -75,11 +75,11 @@ func NewCache() *Cache {
 // increases the cache's version number atomically if the cache is actually
 // changed.
 // The version after updating the set is returned.
-func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, deletedNames []string, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
+func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, deletedNames []string) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
 	c.locker.Lock()
 	defer c.locker.Unlock()
 
-	cacheIsUpdated := force
+	cacheIsUpdated := false
 	newVersion := c.version + 1
 
 	cacheLog := log.WithFields(logrus.Fields{
@@ -128,9 +128,6 @@ func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, d
 			v.resource = value
 			c.resources[k] = v
 		}
-		if force {
-			cacheIsUpdated = true
-		}
 	}
 
 	for _, name := range deletedNames {
@@ -148,9 +145,6 @@ func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, d
 			cacheIsUpdated = true
 			delete(c.resources, k)
 		}
-		if force {
-			cacheIsUpdated = true
-		}
 	}
 
 	if cacheIsUpdated {
@@ -158,8 +152,8 @@ func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, d
 		c.version = newVersion
 		c.NotifyNewResourceVersionRLocked(typeURL, c.version)
 
-		revert = func(force bool) (version uint64, updated bool) {
-			version, updated, _ = c.tx(typeURL, revertUpsertedResources, revertDeletedNames, force)
+		revert = func() (version uint64, updated bool) {
+			version, updated, _ = c.tx(typeURL, revertUpsertedResources, revertDeletedNames)
 			return
 		}
 	} else {
@@ -169,19 +163,19 @@ func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, d
 	return c.version, cacheIsUpdated, revert
 }
 
-func (c *Cache) Upsert(typeURL string, resourceName string, resource proto.Message, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
-	return c.tx(typeURL, map[string]proto.Message{resourceName: resource}, nil, force)
+func (c *Cache) Upsert(typeURL string, resourceName string, resource proto.Message) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
+	return c.tx(typeURL, map[string]proto.Message{resourceName: resource}, nil)
 }
 
-func (c *Cache) Delete(typeURL string, resourceName string, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
-	return c.tx(typeURL, nil, []string{resourceName}, force)
+func (c *Cache) Delete(typeURL string, resourceName string) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
+	return c.tx(typeURL, nil, []string{resourceName})
 }
 
-func (c *Cache) Clear(typeURL string, force bool) (version uint64, updated bool) {
+func (c *Cache) Clear(typeURL string) (version uint64, updated bool) {
 	c.locker.Lock()
 	defer c.locker.Unlock()
 
-	cacheIsUpdated := force
+	cacheIsUpdated := false
 	newVersion := c.version + 1
 
 	cacheLog := log.WithFields(logrus.Fields{

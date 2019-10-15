@@ -63,43 +63,43 @@ type VersionedResources struct {
 // ResourceMutatorRevertFunc is a function which reverts the effects of an update on a
 // ResourceMutator.
 // The returned version value is the set's version after update.
-type ResourceMutatorRevertFunc func(force bool) (version uint64, updated bool)
+type ResourceMutatorRevertFunc func() (version uint64, updated bool)
 
 // ResourceMutator provides write access to a versioned set of resources.
 // A single version is associated to all the contained resources.
 // The version is monotonically increased for any change to the set.
 type ResourceMutator interface {
 	// Upsert inserts or updates a resource from this set by name.
-	// If force is true and/or the set is actually modified (the resource is
-	// actually inserted or updated), the set's version number is incremented
-	// atomically and the returned updated value is true.
+	// If the set is modified (the resource is actually inserted or updated),
+	// the set's version number is incremented atomically and the returned
+	// updated value is true.
 	// Otherwise, the version number is not modified and the returned updated
 	// value is false.
 	// The returned version value is the set's version after update.
 	// A call to the returned revert function reverts the effects of this
 	// method call.
-	Upsert(typeURL string, resourceName string, resource proto.Message, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc)
+	Upsert(typeURL string, resourceName string, resource proto.Message) (version uint64, updated bool, revert ResourceMutatorRevertFunc)
 
 	// Delete deletes a resource from this set by name.
-	// If force is true and/or the set is actually modified (the resource is
-	// actually deleted), the set's version number is incremented
-	// atomically and the returned updated value is true.
+	// If the set is modified (the resource is actually deleted), the set's
+	// version number is incremented atomically and the returned updated value
+	// is true.
 	// Otherwise, the version number is not modified and the returned updated
 	// value is false.
 	// The returned version value is the set's version after update.
 	// A call to the returned revert function reverts the effects of this
 	// method call.
-	Delete(typeURL string, resourceName string, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc)
+	Delete(typeURL string, resourceName string) (version uint64, updated bool, revert ResourceMutatorRevertFunc)
 
 	// Clear deletes all the resources of the given type from this set.
-	// If force is true and/or the set is actually modified (at least one
-	// resource is actually deleted), the set's version number is incremented
-	// atomically and the returned updated value is true.
+	// If the set is modified (at least one resource is actually deleted),
+	// the set's version number is incremented atomically and the returned
+	// updated value is true.
 	// Otherwise, the version number is not modified and the returned updated
 	// value is false.
 	// The returned version value is the set's version after update.
 	// This method call cannot be reverted.
-	Clear(typeURL string, force bool) (version uint64, updated bool)
+	Clear(typeURL string) (version uint64, updated bool)
 }
 
 // ResourceSet provides read-write access to a versioned set of resources.

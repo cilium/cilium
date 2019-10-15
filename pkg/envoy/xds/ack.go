@@ -156,7 +156,7 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 
 	var updated bool
 	var revert ResourceMutatorRevertFunc
-	m.version, updated, revert = m.mutator.Upsert(typeURL, resourceName, resource, false)
+	m.version, updated, revert = m.mutator.Upsert(typeURL, resourceName, resource)
 
 	if !updated {
 		if wg != nil {
@@ -190,13 +190,15 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 		m.locker.Lock()
 		defer m.locker.Unlock()
 
-		m.version, _ = revert(true)
+		if revert != nil {
+			m.version, _ = revert()
 
-		if completion != nil {
-			// We don't know whether the revert did an Upsert or a Delete, so as a
-			// best effort, just wait for any ACK for the version and type URL,
-			// and ignore the ACKed resource names, like for a Delete.
-			m.addVersionCompletion(typeURL, m.version, nodeIDs, completion)
+			if completion != nil {
+				// We don't know whether the revert did an Upsert or a Delete, so as a
+				// best effort, just wait for any ACK for the version and type URL,
+				// and ignore the ACKed resource names, like for a Delete.
+				m.addVersionCompletion(typeURL, m.version, nodeIDs, completion)
+			}
 		}
 	}
 }
@@ -247,7 +249,7 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 
 	var updated bool
 	var revert ResourceMutatorRevertFunc
-	m.version, updated, revert = m.mutator.Delete(typeURL, resourceName, false)
+	m.version, updated, revert = m.mutator.Delete(typeURL, resourceName)
 
 	if !updated {
 		if wg != nil {
@@ -272,13 +274,15 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 		m.locker.Lock()
 		defer m.locker.Unlock()
 
-		m.version, _ = revert(true)
+		if revert != nil {
+			m.version, _ = revert()
 
-		if completion != nil {
-			// We don't know whether the revert had any effect at all, so as a
-			// best effort, just wait for any ACK for the version and type URL,
-			// and ignore the ACKed resource names, like for a Delete.
-			m.addVersionCompletion(typeURL, m.version, nodeIDs, completion)
+			if completion != nil {
+				// We don't know whether the revert had any effect at all, so as a
+				// best effort, just wait for any ACK for the version and type URL,
+				// and ignore the ACKed resource names, like for a Delete.
+				m.addVersionCompletion(typeURL, m.version, nodeIDs, completion)
+			}
 		}
 	}
 }
