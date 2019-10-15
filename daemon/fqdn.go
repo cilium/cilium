@@ -30,6 +30,7 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
@@ -38,6 +39,7 @@ import (
 	secIDCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/ctmap/gc"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -164,6 +166,12 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			// cleanup caches for all existing endpoints as well.
 			endpoints := d.endpointManager.GetEndpoints()
 			for _, ep := range endpoints {
+				// Expire all entries that were inserted before the most recent CT GC. This
+				// makes DNSCTHistory a snapshot of the "current" connection set.
+				// Skip this when no GC has occurred.
+				if lastCTGC := gc.GetLastGCTime(); !lastCTGC.Equal(time.Time{}) {
+					namesToClean = append(namesToClean, ep.DNSCTHistory.ForceExpire(lastCTGC, nil)...)
+				}
 				namesToClean = append(namesToClean, ep.DNSHistory.GC()...)
 				namesToClean = append(namesToClean, ep.DNSCTHistory.GC()...)
 			}
@@ -484,8 +492,12 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
 		// This must happen before the NameManager update below, to ensure that
 		// this data is included in the serialized Endpoint object.
+		// We also update DNSCTHistory here. The data will be updated in the next
+		// CT GC run, and this entry discarded. We ensure correctness until then by
+		// using the maximum GC interval.
 		log.WithField(logfields.EndpointID, ep.ID).Debug("Recording DNS lookup in endpoint specific cache")
 		if ep.DNSHistory.Update(lookupTime, qname, responseIPs, int(TTL)) {
+			ep.DNSCTHistory.Update(lookupTime, qname, responseIPs, int(defaults.ConntrackGCMaxLRUInterval.Seconds()))
 			ep.SyncEndpointHeaderFile()
 		}
 
@@ -673,7 +685,7 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 	}
 
 	for _, ep := range endpoints {
-		for _, lookup := range ep.DNSHistory.Dump() {
+		for _, lookup := range append(ep.DNSHistory.Dump(), ep.DNSCTHistory.Dump()...) {
 			if !nameMatcher(lookup.Name) {
 				continue
 			}

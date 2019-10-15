@@ -70,20 +70,41 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 		ipv4Orig := ipv4
 		ipv6Orig := ipv6
 		for {
-			var maxDeleteRatio float64
+			var (
+				maxDeleteRatio float64
+				connections    = make(map[string][]net.IP)
+				matchCB        = func(srcIP net.IP, dstIP net.IP, dstPort uint16, nextHdr, flags uint8, entry *ctmap.CtEntry) bool {
+					// ensure we only look at outbound connections that can be FQDN related
+					if flags != ctmap.TUPLE_F_OUT {
+						return true
+					}
+					connections[srcIP.String()] = append(connections[srcIP.String()], dstIP)
+					return true
+				}
+			)
 
 			eps := mgr.GetEndpoints()
 			if len(eps) > 0 || initialScan {
-				mapType, maxDeleteRatio = runGC(nil, ipv4, ipv6, createGCFilter(initialScan, restoredEndpoints))
+				mapType, maxDeleteRatio = runGC(nil, ipv4, ipv6, createGCFilter(initialScan, restoredEndpoints, matchCB))
 			}
 			for _, e := range eps {
 				if !e.ConntrackLocal() {
 					// Skip because GC was handled above.
 					continue
 				}
-				runGC(e, ipv4, ipv6, &ctmap.GCFilter{RemoveExpired: true})
+				runGC(e, ipv4, ipv6, &ctmap.GCFilter{
+					RemoveExpired: true,
+					MatchCB:       matchCB,
+				})
 			}
 
+			for epIP, dstIPs := range connections {
+				if ep := mgr.LookupIP(net.ParseIP(epIP)); ep != nil {
+					for _, dstIP := range dstIPs {
+						ep.MarkDNSCTEntry(dstIP, ctmap.GetMaxInterval(mapType))
+					}
+				}
+			}
 			setLastGCTime(time.Now())
 
 			if initialScan {
@@ -184,9 +205,10 @@ func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) (mapTy
 	return
 }
 
-func createGCFilter(initialScan bool, restoredEndpoints []*endpoint.Endpoint) *ctmap.GCFilter {
+func createGCFilter(initialScan bool, restoredEndpoints []*endpoint.Endpoint, MatchCB ctmap.MatchCBFunc) *ctmap.GCFilter {
 	filter := &ctmap.GCFilter{
 		RemoveExpired: true,
+		MatchCB:       MatchCB,
 	}
 
 	// On the initial scan, scrub all IPs from the conntrack table which do
