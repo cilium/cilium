@@ -672,6 +672,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 				}
 				if created {
 					e.scrubIPsInConntrackTable()
+					// TODO: update DNSCTHistory here based on ctmap.GC connections
 				}
 			}
 			close(datapathRegenCtxt.ctCleaned)

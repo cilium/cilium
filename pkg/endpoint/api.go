@@ -81,6 +81,7 @@ func NewEndpointFromChangeModel(owner regeneration.Owner, proxy EndpointProxy, a
 		ifIndex:          int(base.InterfaceIndex),
 		OpLabels:         labels.NewOpLabels(),
 		DNSHistory:       fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
+		DNSCTHistory:     fqdn.NewDNSCache(1), // TODO: The real TTLs will need to be set by the CT GC
 		state:            "",
 		status:           NewEndpointStatus(),
 		hasBPFProgram:    make(chan struct{}, 0),

@@ -168,6 +168,13 @@ func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) (mapTy
 
 		mapType = m.MapInfo.MapType
 
+		// TODO: Add a collection of connections here. Then call on ep:
+		// interval :=  needs to come from .Enable :/
+		// TTL := interval
+		//if ep.DNSCTHistory.Update(lookupTime, qname, responseIPs, int(TTL)) {
+		//	ep.SyncEndpointHeaderFile()
+		//}
+
 		deleted := ctmap.GC(m, filter)
 
 		if deleted > 0 {

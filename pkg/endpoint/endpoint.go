@@ -194,6 +194,12 @@ type Endpoint struct {
 	// sure that restores when DNS policy is in there are correct
 	dnsHistoryTrigger *trigger.Trigger
 
+	// DNSCTHistory reflects existing connections of this endpoint to known FQDN
+	// names. It is populated during CT GC but used by the
+	// dns-garbage-collector-job in daemon/fqdn.go. The controller also issues
+	// expire calls on it, keeping it at a reasonable size.
+	DNSCTHistory *fqdn.DNSCache
+
 	// state is the state the endpoint is in. See setState()
 	state string
 
@@ -386,6 +392,7 @@ func NewEndpointWithState(owner regeneration.Owner, proxy EndpointProxy, allocat
 		OpLabels:        pkgLabels.NewOpLabels(),
 		status:          NewEndpointStatus(),
 		DNSHistory:      fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
+		DNSCTHistory:    fqdn.NewDNSCache(1), // TODO: The real TTLs will need to be set by the CT GC
 		state:           state,
 		hasBPFProgram:   make(chan struct{}, 0),
 		controllers:     controller.NewManager(),
