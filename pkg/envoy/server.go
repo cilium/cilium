@@ -758,6 +758,35 @@ func getNetworkPolicy(name string, id identity.NumericIdentity, conntrackName st
 	return p
 }
 
+// return the Envoy proxy node IDs that need to ACK the policy.
+func getNodeIDs(ep logger.EndpointUpdater, policy *policy.L4Policy) []string {
+	nodeIDs := make([]string, 0, 1)
+	if ep.HasSidecarProxy() {
+		// Istio sidecars have the Cilium bpf metadata filter
+		// statically configured running the NPDS client, so
+		// we may unconditionally wait for ACKs from the
+		// sidecars.
+		// Sidecar's IPv4 address is used as the node ID.
+		ipv4 := ep.GetIPv4Address()
+		if ipv4 == "" {
+			log.Error("Envoy: Sidecar proxy has no IPv4 address")
+		} else {
+			nodeIDs = append(nodeIDs, ipv4)
+		}
+	} else {
+		// Host proxy uses "127.0.0.1" as the nodeID
+		nodeIDs = append(nodeIDs, "127.0.0.1")
+	}
+	// Require additional ACK from proxylib if policy has proxylib redirects
+	// Note that if a previous policy had a proxylib redirect and this one does not,
+	// we only wait for the ACK from the main Envoy node ID.
+	if policy.HasProxylibRedirect() {
+		// Proxylib uses "127.0.0.2" as the nodeID
+		nodeIDs = append(nodeIDs, "127.0.0.2")
+	}
+	return nodeIDs
+}
+
 // UpdateNetworkPolicy adds or updates a network policy in the set published
 // to L7 proxies.
 // When the proxy acknowledges the network policy update, it will result in
@@ -786,21 +815,12 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		policies = append(policies, networkPolicy)
 	}
 
-	nodeIDs := make([]string, 0, 1)
-	if ep.HasSidecarProxy() {
-		if ep.GetIPv4Address() == "" {
-			log.Fatal("Envoy: Sidecar proxy has no IPv4 address")
-		}
-		nodeIDs = append(nodeIDs, ep.GetIPv4Address())
+	nodeIDs := getNodeIDs(ep, policy)
 
-		// Istio sidecars have the Cilium bpf metadata filter
-		// statically configured running the NPDS client.
-	} else {
-		nodeIDs = append(nodeIDs, "127.0.0.1")
-
-		// If there are no listeners configured, the local node's Envoy proxy won't
-		// query for network policies and therefore will never ACK them, and we'd
-		// wait forever.
+	// If there are no listeners configured, the local node's Envoy proxy won't
+	// query for network policies and therefore will never ACK them, and we'd
+	// wait forever.
+	if !ep.HasSidecarProxy() {
 		if len(s.listeners) == 0 {
 			wg = nil
 		}
@@ -852,6 +872,23 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 
 		return nil
 	}
+}
+
+// UseCurrentNetworkPolicy inserts a Completion to the WaitGroup if the current network policy has not yet been acked.
+// 'wg' may not be nil.
+func (s *XDSServer) UseCurrentNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy, wg *completion.WaitGroup) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	// If there are no listeners configured, the local node's Envoy proxy won't
+	// query for network policies and therefore will never ACK them, and we'd
+	// wait forever.
+	if !ep.HasSidecarProxy() && len(s.listeners) == 0 {
+		return
+	}
+
+	nodeIDs := getNodeIDs(ep, policy)
+	s.NetworkPolicyMutator.UseCurrent(NetworkPolicyTypeURL, nodeIDs, wg)
 }
 
 // RemoveNetworkPolicy removes network policies relevant to the specified

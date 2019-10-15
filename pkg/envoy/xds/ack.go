@@ -68,6 +68,10 @@ type AckingResourceMutator interface {
 	// method call.
 	Upsert(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, completion *completion.Completion) AckingResourceMutatorRevertFunc
 
+	// UseCurrent inserts a completion that allows the caller to wait for the current
+	// version of the given typeURL to be ACKed.
+	UseCurrent(typeURL string, nodeIDs []string, wg *completion.WaitGroup)
+
 	// DeleteNode frees resources held for the named node
 	DeleteNode(nodeID string)
 
@@ -127,7 +131,9 @@ func NewAckingResourceMutatorWrapper(mutator ResourceMutator) *AckingResourceMut
 	}
 }
 
-func (m *AckingResourceMutatorWrapper) addDeleteCompletion(typeURL string, version uint64, nodeIDs []string, c *completion.Completion) {
+// AddVersionCompletion adds a completion to wait for any ACK for the
+// version and type URL, ignoring the ACKed resource names.
+func (m *AckingResourceMutatorWrapper) addVersionCompletion(typeURL string, version uint64, nodeIDs []string, c *completion.Completion) {
 	comp := &pendingCompletion{
 		version:                 version,
 		typeURL:                 typeURL,
@@ -181,8 +187,21 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 			// We don't know whether the revert did an Upsert or a Delete, so as a
 			// best effort, just wait for any ACK for the version and type URL,
 			// and ignore the ACKed resource names, like for a Delete.
-			m.addDeleteCompletion(typeURL, m.version, nodeIDs, completion)
+			m.addVersionCompletion(typeURL, m.version, nodeIDs, completion)
 		}
+	}
+}
+
+// UseCurrent adds a completion to the WaitGroup if the current
+// version of the cached resource has not been acked yet, allowing the
+// caller to wait for the ACK.
+func (m *AckingResourceMutatorWrapper) UseCurrent(typeURL string, nodeIDs []string, wg *completion.WaitGroup) {
+	m.locker.Lock()
+	defer m.locker.Unlock()
+
+	if !m.currentVersionAcked(nodeIDs) {
+		// Add a completion object for 'version' so that the caller may wait for the N/ACK
+		m.addVersionCompletion(typeURL, m.version, nodeIDs, wg.AddCompletion())
 	}
 }
 
@@ -224,7 +243,7 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 			}).Fatalf("attempt to reuse completion to delete xDS resource: %v", c)
 		}
 
-		m.addDeleteCompletion(typeURL, m.version, nodeIDs, c)
+		m.addVersionCompletion(typeURL, m.version, nodeIDs, c)
 	}
 
 	return func(completion *completion.Completion) {
@@ -237,7 +256,7 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 			// We don't know whether the revert had any effect at all, so as a
 			// best effort, just wait for any ACK for the version and type URL,
 			// and ignore the ACKed resource names, like for a Delete.
-			m.addDeleteCompletion(typeURL, m.version, nodeIDs, completion)
+			m.addVersionCompletion(typeURL, m.version, nodeIDs, completion)
 		}
 	}
 }

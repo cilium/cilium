@@ -59,6 +59,9 @@ var (
 )
 
 // HandleResourceVersionAck is required to implement ResourceVersionAckObserver.
+// We use this to start the IP Cache listener on the first ACK so that we only
+// start the IP Cache listener if there is an Envoy node that uses NPHDS (e.g.,
+// Istio node, or host proxy running on kernel w/o LPM bpf map support).
 func (cache *NPHDSCache) HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, nodeIP string, resourceNames []string, typeURL string, detail string) {
 	// Start caching for IP/ID mappings on the first indication someone wants them
 	observerOnce.Do(func() {
