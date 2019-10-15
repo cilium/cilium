@@ -22,6 +22,8 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy/groups"
 
@@ -30,6 +32,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
+)
+
+var (
+	// cnpStatusUpdateInterval is the amount of time between status updates
+	// being sent to the K8s apiserver for a given CNP.
+	cnpStatusUpdateInterval time.Duration
 )
 
 func init() {
@@ -41,7 +49,37 @@ func init() {
 func enableCNPWatcher() error {
 	log.Info("Starting to garbage collect stale CiliumNetworkPolicy status field entries...")
 
-	_, ciliumV2Controller := informer.NewInformer(
+	var (
+		cnpConverterFunc informer.ConvertFunc
+	)
+	cnpStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+
+	switch {
+	case k8sversion.Capabilities().Patch:
+		// k8s >= 1.13 does not require a store to update CNP status so
+		// we don't even need to keep the status of a CNP with us.
+		cnpConverterFunc = k8s.ConvertToCNP
+	default:
+		cnpConverterFunc = k8s.ConvertToCNPWithStatus
+	}
+
+	cnpSharedStore, err := store.JoinSharedStore(store.Configuration{
+		Prefix: k8s.CNPStatusesPath,
+		KeyCreator: func() store.Key {
+			return &k8s.CNPNSWithMeta{}
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	cnpStatusMgr := k8s.NewCNPStatusEventHandler(cnpSharedStore, cnpStore, cnpStatusUpdateInterval)
+
+	if kvstoreEnabled() {
+		go cnpStatusMgr.WatchForCNPStatusEvents()
+	}
+
+	ciliumV2Controller := informer.NewInformerWithStore(
 		cache.NewListWatchFromClient(k8s.CiliumClient().CiliumV2().RESTClient(),
 			"ciliumnetworkpolicies", v1.NamespaceAll, fields.Everything()),
 		&cilium_v2.CiliumNetworkPolicy{},
@@ -51,6 +89,7 @@ func enableCNPWatcher() error {
 				metrics.EventTSK8s.SetToCurrentTime()
 				if cnp := k8s.CopyObjToV2CNP(obj); cnp != nil {
 					groups.AddDerivativeCNPIfNeeded(cnp.CiliumNetworkPolicy)
+					cnpStatusMgr.StartStatusHandler(cnp)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
@@ -60,7 +99,6 @@ func enableCNPWatcher() error {
 						if k8s.EqualV2CNP(oldCNP, newCNP) {
 							return
 						}
-
 						groups.UpdateDerivativeCNPIfNeeded(newCNP.CiliumNetworkPolicy, oldCNP.CiliumNetworkPolicy)
 					}
 				}
@@ -84,9 +122,11 @@ func enableCNPWatcher() error {
 				// The derivative policy will be deleted by the parent but need
 				// to delete the cnp from the pooling.
 				groups.DeleteDerivativeFromCache(cnp.CiliumNetworkPolicy)
+				cnpStatusMgr.StopStatusHandler(cnp)
 			},
 		},
-		k8s.ConvertToCNP,
+		cnpConverterFunc,
+		cnpStore,
 	)
 	go ciliumV2Controller.Run(wait.NeverStop)
 

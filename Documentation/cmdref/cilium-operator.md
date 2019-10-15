@@ -24,6 +24,7 @@ cilium-operator [flags]
       --cluster-name string                    Name of the cluster (default "default")
       --cnp-node-status-gc                     Enable CiliumNetworkPolicy Status garbage collection for nodes which have been removed from the cluster (default true)
       --cnp-node-status-gc-interval duration   GC interval for nodes which have been removed from the cluster in CiliumNetworkPolicy Status (default 2m0s)
+      --cnp-status-update-interval duration    interval between CNP status updates sent to the k8s-apiserver per-CNP (default 1s)
   -D, --debug                                  Enable debugging mode
       --enable-metrics                         Enable Prometheus metrics
       --eni-parallel-workers int               Maximum number of parallel workers used by ENI allocator (default 50)
