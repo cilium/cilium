@@ -87,11 +87,6 @@ type AckingResourceMutatorWrapper struct {
 	// mutator is the wrapped resource mutator.
 	mutator ResourceMutator
 
-	// nodeToID extracts a string identifier from an Envoy Node identifier in
-	// an ACK notification, which is then compared to nodeIDs passed to Upsert
-	// and Delete.
-	nodeToID NodeToIDFunc
-
 	// locker locks all accesses to pendingCompletions.
 	locker lock.Mutex
 
@@ -113,12 +108,10 @@ type pendingCompletion struct {
 }
 
 // NewAckingResourceMutatorWrapper creates a new AckingResourceMutatorWrapper
-// to wrap the given ResourceMutator. The given NodeToIDFunc is used to extract
-// a string identifier from an Envoy Node identifier.
-func NewAckingResourceMutatorWrapper(mutator ResourceMutator, nodeToID NodeToIDFunc) *AckingResourceMutatorWrapper {
+// to wrap the given ResourceMutator.
+func NewAckingResourceMutatorWrapper(mutator ResourceMutator) *AckingResourceMutatorWrapper {
 	return &AckingResourceMutatorWrapper{
 		mutator:            mutator,
-		nodeToID:           nodeToID,
 		pendingCompletions: make(map[*completion.Completion]*pendingCompletion),
 	}
 }
@@ -225,7 +218,7 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint6
 		logfields.XDSTypeURL:      typeURL,
 	})
 
-	nodeID, err := m.nodeToID(node)
+	nodeID, err := IstioNodeToIP(node)
 	if err != nil {
 		// Ignore ACKs from unknown or misconfigured nodes which have invalid
 		// node identifiers.
