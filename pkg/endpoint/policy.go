@@ -82,6 +82,20 @@ func (e *Endpoint) updateNetworkPolicy(proxyWaitGroup *completion.WaitGroup) (re
 	return e.owner.UpdateNetworkPolicy(e, e.desiredPolicy.L4Policy, proxyWaitGroup)
 }
 
+func (e *Endpoint) useCurrentNetworkPolicy(proxyWaitGroup *completion.WaitGroup) {
+	if e.SecurityIdentity == nil {
+		return
+	}
+
+	// If desired L4Policy is nil then no policy change is needed.
+	if e.desiredPolicy == nil || e.desiredPolicy.L4Policy == nil {
+		return
+	}
+
+	// Wait for the current network policy to be acked
+	e.owner.UpdateNetworkPolicy(e, e.desiredPolicy.L4Policy, proxyWaitGroup)
+}
+
 // setNextPolicyRevision updates the desired policy revision field
 // Must be called with the endpoint lock held for at least reading
 func (e *Endpoint) setNextPolicyRevision(revision uint64) {

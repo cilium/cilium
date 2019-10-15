@@ -974,6 +974,7 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry,
 // ApplyPolicyMapChanges updates the Endpoint's PolicyMap with the changes
 // that have accumulated for the PolicyMap via various outside events (e.g.,
 // identities added / deleted).
+// 'proxyWaitGroup' may not be nil.
 func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) error {
 	if err := e.LockAlive(); err != nil {
 		return err
@@ -988,6 +989,9 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) e
 	if proxyChanges {
 		// Ignoring the revertFunc; keep all successful changes even if some fail.
 		err, _ = e.updateNetworkPolicy(proxyWaitGroup)
+	} else {
+		// Allow caller to wait for the current network policy to be acked
+		e.useCurrentNetworkPolicy(proxyWaitGroup)
 	}
 
 	return err

@@ -633,3 +633,15 @@ func (p *Proxy) UpdateRedirectMetrics() {
 		metrics.ProxyRedirects.WithLabelValues(proto).Set(float64(count))
 	}
 }
+
+// FML Added in backport
+
+// UpdateNetworkPolicy must update the redirect configuration of an endpoint in the proxy
+func (p *Proxy) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
+	return p.XDSServer.UpdateNetworkPolicy(ep, policy, ingressPolicyEnforced, egressPolicyEnforced, wg)
+}
+
+// UseCurrentNetworkPolicy inserts a Completion to the WaitGroup if the current network policy has not yet been acked
+func (p *Proxy) UseCurrentNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy, wg *completion.WaitGroup) {
+	p.XDSServer.UseCurrentNetworkPolicy(ep, policy, wg)
+}
