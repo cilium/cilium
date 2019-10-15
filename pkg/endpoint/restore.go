@@ -40,7 +40,7 @@ import (
 
 // ReadEPsFromDirNames returns a mapping of endpoint ID to endpoint of endpoints
 // from a list of directory names that can possible contain an endpoint.
-func ReadEPsFromDirNames(owner regeneration.Owner, basePath string, eptsDirNames []string) map[uint16]*Endpoint {
+func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, basePath string, eptsDirNames []string) map[uint16]*Endpoint {
 	possibleEPs := map[uint16]*Endpoint{}
 	for _, epDirName := range eptsDirNames {
 		epDir := filepath.Join(basePath, epDirName)
@@ -84,7 +84,7 @@ func ReadEPsFromDirNames(owner regeneration.Owner, basePath string, eptsDirNames
 			scopedLog.WithError(err).Warn("Unable to read the C header file")
 			continue
 		}
-		ep, err := parseEndpoint(owner, strEp)
+		ep, err := parseEndpoint(ctx, owner, strEp)
 		if err != nil {
 			scopedLog.WithError(err).Warn("Unable to parse the C header file")
 			continue

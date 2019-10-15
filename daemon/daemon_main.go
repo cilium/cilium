@@ -1181,7 +1181,7 @@ func runDaemon() {
 	iptablesManager := &iptables.IptablesManager{}
 	iptablesManager.Init()
 
-	d, restoredEndpoints, err := NewDaemon(linuxdatapath.NewDatapath(datapathConfig, iptablesManager), iptablesManager)
+	d, restoredEndpoints, err := NewDaemon(server.ServerCtx, linuxdatapath.NewDatapath(datapathConfig, iptablesManager), iptablesManager)
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating daemon")
 		return
@@ -1280,14 +1280,14 @@ func runDaemon() {
 	bootstrapStats.initAPI.Start()
 	api := d.instantiateAPI()
 
-	server := server.NewServer(api)
-	server.EnabledListeners = []string{"unix"}
-	server.SocketPath = flags.Filename(option.Config.SocketPath)
-	server.ReadTimeout = apiTimeout
-	server.WriteTimeout = apiTimeout
-	defer server.Shutdown()
+	svr := server.NewServer(api)
+	svr.EnabledListeners = []string{"unix"}
+	svr.SocketPath = flags.Filename(option.Config.SocketPath)
+	svr.ReadTimeout = apiTimeout
+	svr.WriteTimeout = apiTimeout
+	defer svr.Shutdown()
 
-	server.ConfigureAPI()
+	svr.ConfigureAPI()
 	bootstrapStats.initAPI.End(true)
 
 	repr, err := monitorAPI.TimeRepr(time.Now())
@@ -1316,7 +1316,7 @@ func runDaemon() {
 	errs := make(chan error, 1)
 
 	go func() {
-		errs <- server.Serve()
+		errs <- svr.Serve()
 	}()
 
 	bootstrapStats.overall.End(true)
