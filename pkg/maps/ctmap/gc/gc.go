@@ -167,7 +167,6 @@ func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) (mapTy
 		defer m.Close()
 
 		mapType = m.MapInfo.MapType
-
 		deleted := ctmap.GC(m, filter)
 
 		if deleted > 0 {

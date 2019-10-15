@@ -165,6 +165,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			endpoints := d.endpointManager.GetEndpoints()
 			for _, ep := range endpoints {
 				namesToClean = append(namesToClean, ep.DNSHistory.GC()...)
+				namesToClean = append(namesToClean, ep.DNSCTHistory.GC()...)
 			}
 
 			namesToClean = fqdn.KeepUniqueNames(namesToClean)
@@ -183,6 +184,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			// that made the request.
 			for _, ep := range endpoints {
 				cfg.Cache.UpdateFromCache(ep.DNSHistory, namesToClean)
+				cfg.Cache.UpdateFromCache(ep.DNSCTHistory, namesToClean)
 			}
 			// Also update from the poller.
 			cfg.Cache.UpdateFromCache(d.dnsPoller.DNSHistory, namesToClean)
@@ -217,6 +219,10 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 		// Upgrades from old ciliums have this nil
 		if restoredEP.DNSHistory != nil {
 			d.dnsNameManager.GetDNSCache().UpdateFromCache(restoredEP.DNSHistory, []string{})
+		}
+		// Upgrades from cilium <1.7 have this nil
+		if restoredEP.DNSCTHistory != nil {
+			d.dnsNameManager.GetDNSCache().UpdateFromCache(restoredEP.DNSCTHistory, []string{})
 		}
 	}
 
@@ -717,6 +723,7 @@ func deleteDNSLookups(globalCache *fqdn.DNSCache, pollerCache *fqdn.DNSCache, en
 	namesToRegen = append(namesToRegen, pollerCache.ForceExpire(expireLookupsBefore, nameMatcher)...)
 	for _, ep := range endpoints {
 		namesToRegen = append(namesToRegen, ep.DNSHistory.ForceExpire(expireLookupsBefore, nameMatcher)...)
+		namesToRegen = append(namesToRegen, ep.DNSCTHistory.ForceExpire(expireLookupsBefore, nameMatcher)...)
 		globalCache.UpdateFromCache(ep.DNSHistory, nil)
 	}
 
