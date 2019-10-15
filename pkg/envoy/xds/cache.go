@@ -157,16 +157,16 @@ func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, d
 		cacheLog.Debug("committing cache transaction and notifying of new version")
 		c.version = newVersion
 		c.NotifyNewResourceVersionRLocked(typeURL, c.version)
+
+		revert = func(force bool) (version uint64, updated bool) {
+			version, updated, _ = c.tx(typeURL, revertUpsertedResources, revertDeletedNames, force)
+			return
+		}
 	} else {
 		cacheLog.Debug("cache unmodified by transaction; aborting")
 	}
 
-	revertFunc := func(force bool) (version uint64, updated bool) {
-		version, updated, _ = c.tx(typeURL, revertUpsertedResources, revertDeletedNames, force)
-		return
-	}
-
-	return c.version, cacheIsUpdated, revertFunc
+	return c.version, cacheIsUpdated, revert
 }
 
 func (c *Cache) Upsert(typeURL string, resourceName string, resource proto.Message, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {

@@ -390,8 +390,8 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint
 		listenerConf.ListenerFilters[0].ConfigType.(*envoy_api_v2_listener.ListenerFilter_Config).Config.Fields["may_use_original_source_address"].GetKind().(*structpb.Value_BoolValue).BoolValue = true
 	}
 
-	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"},
-		wg.AddCompletionWithCallback(func(err error) {
+	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, wg,
+		func(err error) {
 			// listener might have already been removed, so we can't look again
 			// but we still need to complete all the completions in case
 			// someone is still waiting!
@@ -409,7 +409,7 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint
 			}
 			listener.waiters = nil
 			listener.mutex.Unlock()
-		}))
+		})
 	s.mutex.Unlock()
 }
 
@@ -425,7 +425,7 @@ func (s *XDSServer) RemoveListener(name string, wg *completion.WaitGroup) xds.Ac
 		listener.count--
 		if listener.count == 0 {
 			delete(s.listeners, name)
-			listenerRevertFunc = s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg.AddCompletion())
+			listenerRevertFunc = s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg, nil)
 		}
 	} else {
 		// Bail out if this listener does not exist
@@ -839,11 +839,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 				}
 			}
 		}
-		var c *completion.Completion
-		if wg != nil {
-			c = wg.AddCompletionWithCallback(callback)
-		}
-		revertFuncs = append(revertFuncs, s.NetworkPolicyMutator.Upsert(NetworkPolicyTypeURL, p.Name, p, nodeIDs, c))
+		revertFuncs = append(revertFuncs, s.NetworkPolicyMutator.Upsert(NetworkPolicyTypeURL, p.Name, p, nodeIDs, wg, callback))
 		revertUpdatedNetworkPolicyEndpoints[p.Name] = s.networkPolicyEndpoints[p.Name]
 		s.networkPolicyEndpoints[p.Name] = ep
 	}

@@ -36,25 +36,56 @@ const (
 	node2 = "10.0.0.2"
 )
 
+type compCheck struct {
+	err error
+	ch  chan error
+}
+
+func newCompCheck() *compCheck {
+	return &compCheck{
+		ch: make(chan error, 1),
+	}
+}
+
+func (c *compCheck) Err() error {
+	return c.err
+}
+
+// Return a new completion callback that will write the completion error to a channel
+func newCompCallback() (func(error), *compCheck) {
+	comp := newCompCheck()
+	callback := func(err error) {
+		log.WithError(err).Debug("callback called")
+		comp.ch <- err
+		close(comp.ch)
+	}
+	return callback, comp
+}
+
 // IsCompletedChecker checks that a Completion is completed without errors.
 type IsCompletedChecker struct {
 	*CheckerInfo
 }
 
-func (c *IsCompletedChecker) Check(params []interface{}, names []string) (result bool, error string) {
-	comp, ok := params[0].(*completion.Completion)
+func (c *IsCompletedChecker) Check(params []interface{}, names []string) (result bool, err string) {
+	comp, ok := params[0].(*compCheck)
 	if !ok {
-		return false, "completion must be a *completion.Completion"
+		return false, "completion must be a *compCheck"
 	}
 	if comp == nil {
 		return false, "completion is nil"
 	}
 
+	// receive from a closed channel returns nil, so test for a previous error before trying again
+	if comp.err != nil {
+		return false, string(err)
+	}
+
 	select {
-	case <-comp.Completed():
-		return comp.Err() == nil, ""
+	case comp.err = <-comp.ch:
+		return comp.err == nil, string(err)
 	default:
-		return false, ""
+		return false, "not completed yet"
 	}
 }
 
@@ -76,9 +107,8 @@ func (s *AckSuite) TestUpsertSingleNode(c *C) {
 	c.Assert(acker.ackedVersions, HasLen, 0)
 
 	// Create version 2 with resource 0.
-	comp := wg.AddCompletion()
-	defer comp.Complete(nil)
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
+	callback, comp := newCompCallback()
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
 	c.Assert(comp, Not(IsCompleted))
 	c.Assert(acker.ackedVersions, HasLen, 0)
 
@@ -119,9 +149,8 @@ func (s *AckSuite) TestUseCurrent(c *C) {
 	c.Assert(acker.ackedVersions, HasLen, 0)
 
 	// Create version 2 with resource 0.
-	comp := wg.AddCompletion()
-	defer comp.Complete(nil)
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
+	callback, comp := newCompCallback()
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
 	c.Assert(comp, Not(IsCompleted))
 	c.Assert(acker.ackedVersions, HasLen, 0)
 	c.Assert(acker.pendingCompletions, HasLen, 1)
@@ -172,9 +201,8 @@ func (s *AckSuite) TestUpsertMultipleNodes(c *C) {
 	c.Assert(acker.ackedVersions, HasLen, 0)
 
 	// Create version 2 with resource 0.
-	comp := wg.AddCompletion()
-	defer comp.Complete(nil)
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0, node1}, comp)
+	callback, comp := newCompCallback()
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0, node1}, wg, callback)
 	c.Assert(comp, Not(IsCompleted))
 	c.Assert(acker.currentVersionAcked([]string{node0}), Equals, false)
 	c.Assert(acker.currentVersionAcked([]string{node1}), Equals, false)
@@ -217,9 +245,8 @@ func (s *AckSuite) TestUpsertMoreRecentVersion(c *C) {
 	acker := NewAckingResourceMutatorWrapper(cache)
 
 	// Create version 2 with resource 0.
-	comp := wg.AddCompletion()
-	defer comp.Complete(nil)
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
+	callback, comp := newCompCallback()
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
 	c.Assert(comp, Not(IsCompleted))
 
 	// Ack an older version, for the right resource, from the right node.
@@ -242,9 +269,8 @@ func (s *AckSuite) TestUpsertMoreRecentVersionNack(c *C) {
 	acker := NewAckingResourceMutatorWrapper(cache)
 
 	// Create version 2 with resource 0.
-	comp := wg.AddCompletion()
-	defer comp.Complete(nil)
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
+	callback, comp := newCompCallback()
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
 	c.Assert(comp, Not(IsCompleted))
 
 	// Ack an older version, for the right resource, from the right node.
@@ -270,9 +296,8 @@ func (s *AckSuite) TestDeleteSingleNode(c *C) {
 	acker := NewAckingResourceMutatorWrapper(cache)
 
 	// Create version 2 with resource 0.
-	comp := wg.AddCompletion()
-	defer comp.Complete(nil)
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
+	callback, comp := newCompCallback()
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
 	c.Assert(comp, Not(IsCompleted))
 
 	// Ack the right version, for the right resource, from the right node.
@@ -280,9 +305,8 @@ func (s *AckSuite) TestDeleteSingleNode(c *C) {
 	c.Assert(comp, IsCompleted)
 
 	// Create version 3 with no resources.
-	comp = wg.AddCompletion()
-	defer comp.Complete(nil)
-	acker.Delete(typeURL, resources[0].Name, []string{node0}, comp)
+	callback, comp = newCompCallback()
+	acker.Delete(typeURL, resources[0].Name, []string{node0}, wg, callback)
 	c.Assert(comp, Not(IsCompleted))
 
 	// Ack the right version, for another resource, from another node.
@@ -306,9 +330,8 @@ func (s *AckSuite) TestDeleteMultipleNodes(c *C) {
 	acker := NewAckingResourceMutatorWrapper(cache)
 
 	// Create version 2 with resource 0.
-	comp := wg.AddCompletion()
-	defer comp.Complete(nil)
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
+	callback, comp := newCompCallback()
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
 	c.Assert(comp, Not(IsCompleted))
 
 	// Ack the right version, for the right resource, from the right node.
@@ -316,9 +339,8 @@ func (s *AckSuite) TestDeleteMultipleNodes(c *C) {
 	c.Assert(comp, IsCompleted)
 
 	// Create version 3 with no resources.
-	comp = wg.AddCompletion()
-	defer comp.Complete(nil)
-	acker.Delete(typeURL, resources[0].Name, []string{node0, node1}, comp)
+	callback, comp = newCompCallback()
+	acker.Delete(typeURL, resources[0].Name, []string{node0, node1}, wg, callback)
 	c.Assert(comp, Not(IsCompleted))
 
 	// Ack the right version, for another resource, from one of the nodes.
@@ -342,10 +364,10 @@ func (s *AckSuite) TestRevertInsert(c *C) {
 
 	// Create version 1 with resource 0.
 	// Insert.
-	revert := acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, nil)
+	revert := acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, nil, nil)
 
 	// Insert another resource.
-	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, nil)
+	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, nil, nil)
 
 	res, err := cache.Lookup(typeURL, resources[0].Name)
 	c.Assert(err, IsNil)
@@ -379,10 +401,10 @@ func (s *AckSuite) TestRevertUpdate(c *C) {
 
 	// Create version 1 with resource 0.
 	// Insert.
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, nil)
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, nil, nil)
 
 	// Insert another resource.
-	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, nil)
+	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, nil, nil)
 
 	res, err := cache.Lookup(typeURL, resources[0].Name)
 	c.Assert(err, IsNil)
@@ -393,7 +415,7 @@ func (s *AckSuite) TestRevertUpdate(c *C) {
 	c.Assert(res, Equals, resources[2])
 
 	// Update.
-	revert := acker.Upsert(typeURL, resources[0].Name, resources[1], []string{node0}, nil)
+	revert := acker.Upsert(typeURL, resources[0].Name, resources[1], []string{node0}, nil, nil)
 
 	res, err = cache.Lookup(typeURL, resources[0].Name)
 	c.Assert(err, IsNil)
@@ -423,10 +445,10 @@ func (s *AckSuite) TestRevertDelete(c *C) {
 
 	// Create version 1 with resource 0.
 	// Insert.
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, nil)
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, nil, nil)
 
 	// Insert another resource.
-	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, nil)
+	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, nil, nil)
 
 	res, err := cache.Lookup(typeURL, resources[0].Name)
 	c.Assert(err, IsNil)
@@ -437,7 +459,7 @@ func (s *AckSuite) TestRevertDelete(c *C) {
 	c.Assert(res, Equals, resources[2])
 
 	// Delete.
-	revert := acker.Delete(typeURL, resources[0].Name, []string{node0}, nil)
+	revert := acker.Delete(typeURL, resources[0].Name, []string{node0}, nil, nil)
 
 	res, err = cache.Lookup(typeURL, resources[0].Name)
 	c.Assert(err, IsNil)
