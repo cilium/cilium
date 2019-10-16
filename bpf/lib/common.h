@@ -323,6 +323,9 @@ enum {
 #define DROP_ENCAP_PROHIBITED	-170
 #define DROP_INVALID_IDENTITY	-171
 #define DROP_UNKNOWN_SENDER	-172
+#define DROP_NAT_NOT_NEEDED	-173 /* Mapped as drop code, though drop not necessary. */
+
+#define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
 
 /* Cilium metrics reasons for forwarding packets and other stats.
  * If reason is larger than below then this is a drop reason and

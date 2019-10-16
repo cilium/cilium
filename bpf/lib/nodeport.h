@@ -103,6 +103,8 @@ static __always_inline bool nodeport_nat_ipv6_needed(struct __sk_buff *skb,
 		ipv6_addr_copy(&target.addr, (ADDR));				\
 		int ____ret = nodeport_nat_ipv6_needed(skb, (ADDR), (NDIR)) ?	\
 			      snat_v6_process(skb, (NDIR), &target) : TC_ACT_OK;\
+		if (____ret == NAT_PUNT_TO_STACK)				\
+			____ret = TC_ACT_OK;					\
 		____ret;							\
 	})
 
@@ -472,6 +474,8 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __sk_buff *skb,
 		};								\
 		int ____ret = nodeport_nat_ipv4_needed(skb, (ADDR), (NDIR)) ?	\
 			      snat_v4_process(skb, (NDIR), &target) : TC_ACT_OK;\
+		if (____ret == NAT_PUNT_TO_STACK)				\
+			____ret = TC_ACT_OK;					\
 		____ret;							\
 	})
 
