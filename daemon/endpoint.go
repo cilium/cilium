@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
-	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
@@ -184,33 +183,12 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		return invalidDataError(ep, fmt.Errorf("unable to parse endpoint parameters: %s", err))
 	}
 
-	oldEp := d.endpointManager.LookupCiliumID(ep.ID)
-	if oldEp != nil {
-		return invalidDataError(ep, fmt.Errorf("endpoint ID %d already exists", ep.ID))
+	epExists, existingField, err := d.endpointManager.ManagesEndpoint(ep)
+	if err != nil {
+		return invalidDataError(ep, err)
 	}
-
-	oldEp = d.endpointManager.LookupContainerID(ep.GetContainerID())
-	if oldEp != nil {
-		return invalidDataError(ep, fmt.Errorf("endpoint for container %s already exists", ep.GetContainerID()))
-	}
-
-	var checkIDs []string
-
-	if ep.IPv4.IsSet() {
-		checkIDs = append(checkIDs, endpointid.NewID(endpointid.IPv4Prefix, ep.IPv4.String()))
-	}
-
-	if ep.IPv6.IsSet() {
-		checkIDs = append(checkIDs, endpointid.NewID(endpointid.IPv6Prefix, ep.IPv6.String()))
-	}
-
-	for _, id := range checkIDs {
-		oldEp, err := d.endpointManager.Lookup(id)
-		if err != nil {
-			return invalidDataError(ep, err)
-		} else if oldEp != nil {
-			return invalidDataError(ep, fmt.Errorf("IP %s is already in use", id))
-		}
+	if epExists {
+		return invalidDataError(ep, fmt.Errorf("endpoint is already managed by endpointmanager (%s)", existingField))
 	}
 
 	if err = endpoint.APICanModify(ep); err != nil {

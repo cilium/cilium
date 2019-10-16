@@ -183,6 +183,10 @@ func (mgr *EndpointManager) Lookup(id string) (*endpoint.Endpoint, error) {
 	mgr.mutex.RLock()
 	defer mgr.mutex.RUnlock()
 
+	return mgr.lookup(id)
+}
+
+func (mgr *EndpointManager) lookup(id string) (*endpoint.Endpoint, error) {
 	prefix, eid, err := endpointid.Parse(id)
 	if err != nil {
 		return nil, err
@@ -491,4 +495,45 @@ func (mgr *EndpointManager) CallbackForEndpointsAtPolicyRev(ctx context.Context,
 // EndpointExists returns whether the endpoint with id exists.
 func (mgr *EndpointManager) EndpointExists(id uint16) bool {
 	return mgr.LookupCiliumID(id) != nil
+}
+
+// ManagesEndpoint returns whether the endpointmanager is manaaging the specified
+// Endpoint by performing lookups for all identifiers within the Endpoint by
+// which the EndpointManager tracks Endpoints. Returns an error if one of the
+// lookups fails, or a string specifying which field was found within the
+// EndpointManager.
+func (mgr *EndpointManager) ManagesEndpoint(ep *endpoint.Endpoint) (bool, string, error) {
+	mgr.mutex.RLock()
+	defer mgr.mutex.RUnlock()
+
+	oldEp := mgr.lookupCiliumID(ep.ID)
+	if oldEp != nil {
+		return true, fmt.Sprintf("ID: %d", ep.ID), nil
+	}
+
+	oldEp = mgr.lookupContainerID(ep.GetContainerID())
+	if oldEp != nil {
+		return true, fmt.Sprintf("Container ID: %s", ep.GetContainerID()), nil
+	}
+
+	var checkIDs []string
+
+	if ep.IPv4.IsSet() {
+		checkIDs = append(checkIDs, endpointid.NewID(endpointid.IPv4Prefix, ep.IPv4.String()))
+	}
+
+	if ep.IPv6.IsSet() {
+		checkIDs = append(checkIDs, endpointid.NewID(endpointid.IPv6Prefix, ep.IPv6.String()))
+	}
+
+	for _, id := range checkIDs {
+		oldEp, err := mgr.lookup(id)
+		if err != nil {
+			return false, fmt.Sprintf("IP: %s", id), err
+		} else if oldEp != nil {
+			return true, fmt.Sprintf("IP: %s", id), err
+		}
+	}
+
+	return false, "", nil
 }
