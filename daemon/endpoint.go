@@ -18,16 +18,12 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
-	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/api"
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/k8s"
-	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -195,73 +191,9 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		return invalidDataError(ep, err)
 	}
 
-	addLabels := labels.NewLabelsFromModel(epTemplate.Labels)
-	infoLabels := labels.NewLabelsFromModel([]string{})
-
-	if len(addLabels) > 0 {
-		if lbls := addLabels.FindReserved(); lbls != nil {
-			return invalidDataError(ep, fmt.Errorf("not allowed to add reserved labels: %s", lbls))
-		}
-
-		addLabels, _, _ = checkLabels(addLabels, nil)
-		if len(addLabels) == 0 {
-			return invalidDataError(ep, fmt.Errorf("no valid labels provided"))
-		}
-	}
-
-	if ep.K8sNamespaceAndPodNameIsSet() && k8s.IsEnabled() {
-		identityLabels, info, annotations, err := fetchK8sLabelsAndAnnotations(ep)
-		if err != nil {
-			ep.Logger("api").WithError(err).Warning("Unable to fetch kubernetes labels")
-		} else {
-			addLabels.MergeLabels(identityLabels)
-			infoLabels.MergeLabels(info)
-			ep.UpdateVisibilityPolicy(annotations[annotation.ProxyVisibility])
-		}
-	}
-
-	if len(addLabels) == 0 {
-		// If the endpoint has no labels, give the endpoint a special identity with
-		// label reserved:init so we can generate a custom policy for it until we
-		// get its actual identity.
-		addLabels = labels.Labels{
-			labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
-		}
-	}
-
-	// Static pods (mirror pods) might be configured before the apiserver
-	// is available or has received the notification that includes the
-	// static pod's labels. In this case, start a controller to attempt to
-	// resolve the labels.
-	if ep.K8sNamespaceAndPodNameIsSet() && k8s.IsEnabled() {
-		// If there are labels, but no pod namespace then it's
-		// likely that there are no k8s labels at all. Resolve.
-		if _, k8sLabelsConfigured := addLabels[k8sConst.PodNamespaceLabel]; !k8sLabelsConfigured {
-			done := make(chan struct{})
-
-			controllerName := fmt.Sprintf("resolve-labels-%s", ep.GetK8sNamespaceAndPodName())
-			mgr := controller.NewManager()
-			mgr.UpdateController(controllerName,
-				controller.ControllerParams{
-					DoFunc: func(ctx context.Context) error {
-						identityLabels, info, annotations, err := fetchK8sLabelsAndAnnotations(ep)
-						if err != nil {
-							ep.Logger(controllerName).WithError(err).Warning("Unable to fetch kubernetes labels")
-							return err
-						}
-						ep.UpdateVisibilityPolicy(annotations[annotation.ProxyVisibility])
-						ep.UpdateLabels(ctx, identityLabels, info, true)
-						close(done)
-						return nil
-					},
-					RunInterval: 30 * time.Second,
-				},
-			)
-			go func() {
-				<-done
-				mgr.RemoveController(controllerName)
-			}()
-		}
+	addLabels, infoLabels, err := ep.PopulateLabels(epTemplate.Labels, k8s.IsEnabled(), fetchK8sLabelsAndAnnotations)
+	if err != nil {
+		return invalidDataError(ep, err)
 	}
 
 	err = d.endpointManager.AddEndpoint(d, ep, "Create endpoint from API PUT")
@@ -607,16 +539,6 @@ func (h *getEndpointIDHealthz) Handle(params GetEndpointIDHealthzParams) middlew
 	}
 }
 
-func checkLabels(add, del labels.Labels) (addLabels, delLabels labels.Labels, ok bool) {
-	addLabels, _ = labels.FilterLabels(add)
-	delLabels, _ = labels.FilterLabels(del)
-
-	if len(addLabels) == 0 && len(delLabels) == 0 {
-		return nil, nil, false
-	}
-	return addLabels, delLabels, true
-}
-
 // modifyEndpointIdentityLabelsFromAPI adds and deletes the given labels on given endpoint ID.
 // Performs checks for whether the endpoint may be modified by an API call.
 // The received `add` and `del` labels will be filtered with the valid label prefixes.
@@ -625,7 +547,7 @@ func checkLabels(add, del labels.Labels) (addLabels, delLabels labels.Labels, ok
 // endpoint's labels.
 // Returns an HTTP response code and an error msg (or nil on success).
 func (d *Daemon) modifyEndpointIdentityLabelsFromAPI(id string, add, del labels.Labels) (int, error) {
-	addLabels, delLabels, ok := checkLabels(add, del)
+	addLabels, delLabels, ok := labels.CheckLabels(add, del)
 	if !ok {
 		return 0, nil
 	}

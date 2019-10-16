@@ -584,3 +584,13 @@ func generateLabelString(source, key, value string) string {
 func GenerateK8sLabelString(k, v string) string {
 	return generateLabelString(LabelSourceK8s, k, v)
 }
+
+func CheckLabels(add, del Labels) (addLabels, delLabels Labels, ok bool) {
+	addLabels, _ = FilterLabels(add)
+	delLabels, _ = FilterLabels(del)
+
+	if len(addLabels) == 0 && len(delLabels) == 0 {
+		return nil, nil, false
+	}
+	return addLabels, delLabels, true
+}
