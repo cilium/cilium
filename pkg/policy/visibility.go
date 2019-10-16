@@ -89,6 +89,16 @@ func NewVisibilityPolicy(anno string) (*VisibilityPolicy, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid L4 protocol %s", l4Proto)
 		}
+
+		// ANY equates to TCP and UDP in the datapath; the datapath itself does
+		// not support 'Any' protocol paired with a port at L4.
+		var protos []u8proto.U8proto
+		if u8Prot == u8proto.ANY {
+			protos = append(protos, u8proto.TCP)
+			protos = append(protos, u8proto.UDP)
+		} else {
+			protos = append(protos, u8Prot)
+		}
 		// Remove trailing '>'.
 		l7Protocol := L7ParserType(strings.ToLower(proxyAnnoSplit[3][:len(proxyAnnoSplit[3])-1]))
 
@@ -106,21 +116,23 @@ func NewVisibilityPolicy(anno string) (*VisibilityPolicy, error) {
 			ingress = false
 		}
 
-		pp := fmt.Sprintf("%d/%s", portInt, l4Proto)
-		if res, ok := dvp[pp]; ok {
-			if res.Parser != l7Protocol {
-				return nil, fmt.Errorf("duplicate annotations with different L7 protocols %s and %s for %s", res.Parser, l7Protocol, pp)
+		for _, prot := range protos {
+			pp := fmt.Sprintf("%d/%s", portInt, prot.String())
+			if res, ok := dvp[pp]; ok {
+				if res.Parser != l7Protocol {
+					return nil, fmt.Errorf("duplicate annotations with different L7 protocols %s and %s for %s", res.Parser, l7Protocol, pp)
+				}
 			}
-		}
 
-		l7Meta := generateL7AllowAllRules(l7Protocol)
+			l7Meta := generateL7AllowAllRules(l7Protocol)
 
-		dvp[pp] = &VisibilityMetadata{
-			Parser:     l7Protocol,
-			Port:       uint16(portInt),
-			Proto:      u8Prot,
-			Ingress:    ingress,
-			L7Metadata: l7Meta,
+			dvp[pp] = &VisibilityMetadata{
+				Parser:     l7Protocol,
+				Port:       uint16(portInt),
+				Proto:      prot,
+				Ingress:    ingress,
+				L7Metadata: l7Meta,
+			}
 		}
 	}
 
