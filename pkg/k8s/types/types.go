@@ -65,6 +65,7 @@ type Node struct {
 	StatusAddresses []v1.NodeAddress
 	SpecPodCIDR     string
 	SpecPodCIDRs    []string
+	SpecTaints      []v1.Taint
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
