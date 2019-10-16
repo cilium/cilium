@@ -17,10 +17,19 @@
  */
 #include <stdio.h>
 #include <linux/byteorder.h>
+
+/* Ensure declaration of notification event types */
+#define DEBUG
+#define TRACE_NOTIFY
+#define DROP_NOTIFY
+
 #include "node_config.h"
 #include "lib/conntrack.h"
+#include "lib/dbg.h"
+#include "lib/drop.h"
 #include "lib/maps.h"
 #include "lib/nat.h"
+#include "lib/trace.h"
 #include "sockops/bpf_sockops.h"
 
 // DECLARE_STRUCT declares a unique usage of the struct 'x' on the stack.
@@ -60,6 +69,10 @@ int main() {
     DECLARE_STRUCT(policy_entry, iter);
     DECLARE_STRUCT(ipv4_nat_entry, iter);
     DECLARE_STRUCT(ipv6_nat_entry, iter);
+    DECLARE_STRUCT(trace_notify, iter);
+    DECLARE_STRUCT(drop_notify, iter);
+    DECLARE_STRUCT(debug_msg, iter);
+    DECLARE_STRUCT(debug_capture_msg, iter);
 
     return 0;
 }
