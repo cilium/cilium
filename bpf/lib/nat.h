@@ -45,7 +45,6 @@ struct nat_entry {
 };
 
 #define NAT_CONTINUE_XLATE 	0
-#define NAT_PUNT_TO_STACK	1
 
 #ifdef HAVE_LRU_MAP_TYPE
 # define NAT_MAP_TYPE BPF_MAP_TYPE_LRU_HASH
@@ -486,7 +485,7 @@ static __always_inline int snat_v4_process(struct __sk_buff *skb, int dir,
 	};
 
 	if (target->force_range && snat_v4_can_skip(target, &tuple, dir))
-		return TC_ACT_OK;
+		return NAT_PUNT_TO_STACK;
 	ret = snat_v4_handle_mapping(skb, &tuple, &state, &tmp, dir, off, target);
 	if (ret > 0)
 		return TC_ACT_OK;
@@ -898,7 +897,7 @@ static __always_inline int snat_v6_process(struct __sk_buff *skb, int dir,
 	};
 
 	if (target->force_range && snat_v6_can_skip(target, &tuple, dir))
-		return TC_ACT_OK;
+		return NAT_PUNT_TO_STACK;
 	ret = snat_v6_handle_mapping(skb, &tuple, &state, &tmp, dir, off, target);
 	if (ret > 0)
 		return TC_ACT_OK;
