@@ -239,6 +239,21 @@ func EqualV1Node(node1, node2 *types.Node) bool {
 			return false
 		}
 	}
+	if len(node1.SpecTaints) != len(node2.SpecTaints) {
+		return false
+	}
+	for i, taint2 := range node2.SpecTaints {
+		taint1 := node1.SpecTaints[i]
+		if !taint1.MatchTaint(&taint2) {
+			return false
+		}
+		if taint1.Value != taint2.Value {
+			return false
+		}
+		if !taint1.TimeAdded.Equal(taint2.TimeAdded) {
+			return false
+		}
+	}
 	return true
 }
 
@@ -488,6 +503,7 @@ func ConvertToNode(obj interface{}) interface{} {
 			StatusAddresses: concreteObj.Status.Addresses,
 			SpecPodCIDR:     concreteObj.Spec.PodCIDR,
 			SpecPodCIDRs:    concreteObj.Spec.PodCIDRs,
+			SpecTaints:      concreteObj.Spec.Taints,
 		}
 		*concreteObj = v1.Node{}
 		return p
@@ -504,6 +520,7 @@ func ConvertToNode(obj interface{}) interface{} {
 				StatusAddresses: node.Status.Addresses,
 				SpecPodCIDR:     node.Spec.PodCIDR,
 				SpecPodCIDRs:    node.Spec.PodCIDRs,
+				SpecTaints:      node.Spec.Taints,
 			},
 		}
 		*node = v1.Node{}
