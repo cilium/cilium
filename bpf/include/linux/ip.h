@@ -105,6 +105,11 @@ struct iphdr {
 	/*The options start here. */
 };
 
+struct iphdr_with_opt {
+	struct iphdr hdr;
+	__u32 opt;
+};
+
 
 struct ip_auth_hdr {
 	__u8  nexthdr;

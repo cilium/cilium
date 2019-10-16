@@ -390,6 +390,22 @@ int tail_handle_ipv6(struct __sk_buff *skb)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
+
+static __always_inline void set_ipv4_csum(struct iphdr_with_opt *iph)
+{
+	__u16 *iph16 = (__u16 *)iph;
+	__u32 csum;
+	int i;
+
+	iph->hdr.check = 0;
+
+#pragma clang loop unroll(full)
+	for (i = 0, csum = 0; i < sizeof(*iph) >> 1; i++)
+		csum += *iph16++;
+
+	iph->hdr.check = ~((csum & 0xffff) + (csum >> 16));
+}
+
 static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 {
 	struct ipv4_ct_tuple tuple = {};
@@ -554,6 +570,34 @@ ct_recreate4:
 		return DROP_INVALID;
 
 	orig_dip = ip4->daddr;
+
+	__u16 proto;
+	if (!validate_ethertype(skb, &proto)) {
+		return DROP_INVALID;
+	}
+
+	if (proto == bpf_htons(ETH_P_IP)) {
+		struct iphdr v4 = {};
+		struct iphdr_with_opt v4_with_opt = {};
+		if (skb_load_bytes(skb, ETH_HLEN, &v4, sizeof(v4)) < 0)
+			return DROP_INVALID;
+		cilium_dbg(skb, DBG_GENERIC, 111, v4.ihl);
+		v4.ihl += 0x1;
+		v4.tot_len = bpf_htons(bpf_ntohs(v4.tot_len) + 0x4);
+
+		if (skb_adjust_room(skb, 0x4, BPF_ADJ_ROOM_NET, 0))
+			return DROP_INVALID;
+
+		v4_with_opt.hdr = v4;
+		v4_with_opt.opt = bpf_htonl(0x88041234);
+		set_ipv4_csum(&v4_with_opt);
+
+		if (skb_store_bytes(skb, ETH_HLEN, &v4_with_opt, sizeof(v4_with_opt), 0) < 0)
+			return DROP_INVALID;
+
+		if (!revalidate_data(skb, &data, &data_end, &ip4))
+			return DROP_INVALID;
+	}
 
 #ifdef ENABLE_ROUTING
 	struct endpoint_info *ep;
