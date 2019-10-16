@@ -19,6 +19,7 @@ import (
 	"os"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -161,10 +162,10 @@ func listFQDNCache() {
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
 	fmt.Fprintln(w, "Endpoint\tFQDN\tTTL\tExpirationTime\tIPs\t")
 	for _, lookup := range lookups {
-		fmt.Fprintf(w, "%d\t%s\t%d\t%s\t%s\t\n",
+		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t\n",
 			lookup.EndpointID,
 			lookup.Fqdn,
-			lookup.TTL,
+			time.Duration(lookup.TTL)*time.Second,
 			lookup.ExpirationTime.String(),
 			strings.Join(lookup.Ips, ","))
 	}
