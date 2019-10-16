@@ -214,7 +214,7 @@ function write_k8s_install() {
 
     cat <<EOF >> "${filename}"
 # K8s
-k8s_path="/home/vagrant/go/src/github.com/cilium/cilium/examples/kubernetes-ingress/scripts"
+k8s_path="/home/vagrant/go/src/github.com/cilium/cilium/contrib/vagrant/scripts"
 export IPV6_EXT="${IPV6_EXT}"
 export K8S_CLUSTER_CIDR="${k8s_cluster_cidr}"
 export K8S_NODE_CIDR_MASK_SIZE="${k8s_node_cidr_mask_size}"
@@ -255,7 +255,7 @@ EOF
     cat <<EOF > "${filename_2nd_half}"
 #!/usr/bin/env bash
 # K8s installation 2nd half
-k8s_path="/home/vagrant/go/src/github.com/cilium/cilium/examples/kubernetes-ingress/scripts"
+k8s_path="/home/vagrant/go/src/github.com/cilium/cilium/contrib/vagrant/scripts"
 export IPV6_EXT="${IPV6_EXT}"
 export K8S_CLUSTER_CIDR="${k8s_cluster_cidr}"
 export K8S_NODE_CIDR_MASK_SIZE="${k8s_node_cidr_mask_size}"
