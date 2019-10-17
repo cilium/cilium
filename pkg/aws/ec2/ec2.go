@@ -284,9 +284,8 @@ func (c *Client) GetSubnets() (types.SubnetMap, error) {
 		for _, tag := range s.Tags {
 			if *tag.Key == "Name" {
 				subnet.Name = *tag.Value
-			} else {
-				subnet.Tags[*tag.Key] = *tag.Value
 			}
+			subnet.Tags[*tag.Key] = *tag.Value
 		}
 
 		subnets[subnet.ID] = subnet
