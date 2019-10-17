@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package watchers
 
 import (
 	"context"
@@ -44,11 +44,13 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/serializer"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/spanstat"
@@ -67,8 +69,8 @@ const (
 	k8sAPIGroupCRD                   = "CustomResourceDefinition"
 	k8sAPIGroupNodeV1Core            = "core/v1::Node"
 	k8sAPIGroupNamespaceV1Core       = "core/v1::Namespace"
-	k8sAPIGroupServiceV1Core         = "core/v1::Service"
-	k8sAPIGroupEndpointV1Core        = "core/v1::Endpoint"
+	K8sAPIGroupServiceV1Core         = "core/v1::Service"
+	K8sAPIGroupEndpointV1Core        = "core/v1::Endpoint"
 	k8sAPIGroupPodV1Core             = "core/v1::Pods"
 	k8sAPIGroupNetworkingV1Core      = "networking.k8s.io/v1::NetworkPolicy"
 	k8sAPIGroupCiliumNetworkPolicyV2 = "cilium/v2::CiliumNetworkPolicy"
@@ -90,6 +92,8 @@ const (
 )
 
 var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "k8s-watcher")
+
 	k8sCM = controller.NewManager()
 
 	importMetadataCache = ruleImportMetadataCache{
@@ -103,6 +107,77 @@ var (
 
 	errIPCacheOwnedByNonK8s = fmt.Errorf("ipcache entry owned by kvstore or agent")
 )
+
+type endpointManager interface {
+	GetEndpoints() []*endpoint.Endpoint
+	LookupPodName(string) *endpoint.Endpoint
+	WaitForEndpointsAtPolicyRev(ctx context.Context, rev uint64) error
+}
+
+type nodeDiscoverManager interface {
+	NodeDeleted(n node.Node)
+	NodeUpdated(n node.Node)
+	ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration
+}
+
+type policyManager interface {
+	TriggerPolicyUpdates(force bool, reason string)
+	PolicyAdd(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error)
+	PolicyDelete(labels labels.LabelArray) (newRev uint64, err error)
+}
+
+type policyRepository interface {
+	TranslateRules(translator policy.Translator) (*policy.TranslationResult, error)
+}
+
+type svcManager interface {
+	DeleteService(frontend loadbalancer.L3n4Addr) (bool, error)
+	UpsertService(frontend loadbalancer.L3n4AddrID, backends []loadbalancer.Backend, svcType loadbalancer.SVCType) (bool, loadbalancer.ID, error)
+}
+
+type K8sWatcher struct {
+	// k8sResourceSyncedMu protects the k8sResourceSynced map.
+	k8sResourceSyncedMu lock.RWMutex
+
+	// k8sResourceSynced maps a resource name to a channel. Once the given
+	// resource name is synchronized with k8s, the channel for which that
+	// resource name maps to is closed.
+	k8sResourceSynced map[string]<-chan struct{}
+
+	// k8sAPIs is a set of k8s API in use. They are setup in EnableK8sWatcher,
+	// and may be disabled while the agent runs.
+	// This is on this object, instead of a global, because EnableK8sWatcher is
+	// on Daemon.
+	k8sAPIGroups k8sAPIGroupsUsed
+
+	// K8sSvcCache is a cache of all Kubernetes services and endpoints
+	K8sSvcCache k8s.ServiceCache
+
+	endpointManager endpointManager
+
+	nodeDiscoverManager nodeDiscoverManager
+	policyManager       policyManager
+	policyRepository    policyRepository
+	svcManager          svcManager
+}
+
+func NewK8sWatcher(
+	endpointManager endpointManager,
+	nodeDiscoverManager nodeDiscoverManager,
+	policyManager policyManager,
+	policyRepository policyRepository,
+	svcManager svcManager,
+) *K8sWatcher {
+	return &K8sWatcher{
+		k8sResourceSynced:   map[string]<-chan struct{}{},
+		K8sSvcCache:         k8s.NewServiceCache(),
+		endpointManager:     endpointManager,
+		nodeDiscoverManager: nodeDiscoverManager,
+		policyManager:       policyManager,
+		policyRepository:    policyRepository,
+		svcManager:          svcManager,
+	}
+}
 
 // ruleImportMetadataCache maps the unique identifier of a CiliumNetworkPolicy
 // (namespace and name) to metadata about the importing of the rule into the
@@ -249,13 +324,17 @@ func init() {
 	k8s_metrics.Register(k8sMetric, k8sMetric)
 }
 
+func (k *K8sWatcher) GetAPIGroups() []string {
+	return k.k8sAPIGroups.getGroups()
+}
+
 // blockWaitGroupToSyncResources ensures that anything which waits on waitGroup
 // waits until all objects of the specified resource stored in Kubernetes are
 // received by the informer and processed by controller.
 // Fatally exits if syncing these initial objects fails.
 // If the given stop channel is closed, it does not fatal.
 // Once the k8s caches are synced against k8s, k8sCacheSynced is also closed.
-func (d *Daemon) blockWaitGroupToSyncResources(
+func (k *K8sWatcher) blockWaitGroupToSyncResources(
 	stop <-chan struct{},
 	swg *lock.StoppableWaitGroup,
 	informer cache.Controller,
@@ -263,9 +342,9 @@ func (d *Daemon) blockWaitGroupToSyncResources(
 ) {
 
 	ch := make(chan struct{})
-	d.k8sResourceSyncedMu.Lock()
-	d.k8sResourceSynced[resourceName] = ch
-	d.k8sResourceSyncedMu.Unlock()
+	k.k8sResourceSyncedMu.Lock()
+	k.k8sResourceSynced[resourceName] = ch
+	k.k8sResourceSyncedMu.Unlock()
 	go func() {
 		scopedLog := log.WithField("kubernetesResource", resourceName)
 		scopedLog.Debug("waiting for cache to synchronize")
@@ -287,13 +366,13 @@ func (d *Daemon) blockWaitGroupToSyncResources(
 	}()
 }
 
-// waitForCacheSync waits for k8s caches to be synchronized for the given
+// WaitForCacheSync waits for k8s caches to be synchronized for the given
 // resource. Returns once all resourcesNames are synchronized with cilium-agent.
-func (d *Daemon) waitForCacheSync(resourceNames ...string) {
+func (k *K8sWatcher) WaitForCacheSync(resourceNames ...string) {
 	for _, resourceName := range resourceNames {
-		d.k8sResourceSyncedMu.RLock()
-		c, ok := d.k8sResourceSynced[resourceName]
-		d.k8sResourceSyncedMu.RUnlock()
+		k.k8sResourceSyncedMu.RLock()
+		c, ok := k.k8sResourceSynced[resourceName]
+		k.k8sResourceSyncedMu.RUnlock()
 		if !ok {
 			continue
 		}
@@ -301,10 +380,10 @@ func (d *Daemon) waitForCacheSync(resourceNames ...string) {
 	}
 }
 
-// initK8sSubsystem returns a channel for which it will be closed when all
+// InitK8sSubsystem returns a channel for which it will be closed when all
 // caches essential for daemon are synchronized.
-func (d *Daemon) initK8sSubsystem() <-chan struct{} {
-	if err := d.EnableK8sWatcher(option.Config.K8sWatcherQueueSize); err != nil {
+func (k *K8sWatcher) InitK8sSubsystem() <-chan struct{} {
+	if err := k.EnableK8sWatcher(option.Config.K8sWatcherQueueSize); err != nil {
 		log.WithError(err).Fatal("Unable to establish connection to Kubernetes apiserver")
 	}
 
@@ -314,13 +393,13 @@ func (d *Daemon) initK8sSubsystem() <-chan struct{} {
 		log.Info("Waiting until all pre-existing resources related to policy have been received")
 		// Wait only for certain caches, but not all!
 		// We don't wait for nodes synchronization.
-		d.waitForCacheSync(
+		k.WaitForCacheSync(
 			// To perform the service translation and have the BPF LB datapath
 			// with the right service -> backend (k8s endpoints) translation.
-			k8sAPIGroupServiceV1Core,
+			K8sAPIGroupServiceV1Core,
 			// To perform the service translation and have the BPF LB datapath
 			// with the right service -> backend (k8s endpoints) translation.
-			k8sAPIGroupEndpointV1Core,
+			K8sAPIGroupEndpointV1Core,
 			// We need all network policies in place before restoring to make sure
 			// we are enforcing the correct policies for each endpoint before
 			// restarting.
@@ -341,7 +420,7 @@ func (d *Daemon) initK8sSubsystem() <-chan struct{} {
 		// CiliumEndpoint is used to synchronize the ipcache, wait for
 		// it unless it is disabled
 		if !option.Config.DisableCiliumEndpointCRD {
-			d.waitForCacheSync(k8sAPIGroupCiliumEndpointV2)
+			k.WaitForCacheSync(k8sAPIGroupCiliumEndpointV2)
 		}
 		close(cachesSynced)
 	}()
@@ -358,25 +437,17 @@ func (d *Daemon) initK8sSubsystem() <-chan struct{} {
 	return cachesSynced
 }
 
-// K8sEventReceived does metric accounting for each received Kubernetes event
-func (d *Daemon) K8sEventReceived(scope string, action string, valid, equal bool) {
-	metrics.EventTSK8s.SetToCurrentTime()
-	k8smetrics.LastInteraction.Reset()
-
-	metrics.KubernetesEventReceived.WithLabelValues(scope, action, strconv.FormatBool(valid), strconv.FormatBool(equal)).Inc()
-}
-
 // EnableK8sWatcher watches for policy, services and endpoint changes on the Kubernetes
 // api server defined in the receiver's daemon k8sClient.
 // queueSize specifies the queue length used to serialize k8s events.
-func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
+func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 	if !k8s.IsEnabled() {
 		log.Debug("Not enabling k8s event listener because k8s is not enabled")
 		return nil
 	}
 	log.Info("Enabling k8s event listener")
 
-	d.k8sAPIGroups.addAPI(k8sAPIGroupCRD)
+	k.k8sAPIGroups.addAPI(k8sAPIGroupCRD)
 
 	ciliumNPClient := k8s.CiliumClient()
 
@@ -408,21 +479,21 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { d.K8sEventReceived(metricKNP, metricCreate, valid, equal) }()
+				defer func() { k.K8sEventReceived(metricKNP, metricCreate, valid, equal) }()
 				if k8sNP := k8s.CopyObjToV1NetworkPolicy(obj); k8sNP != nil {
 					valid = true
 					swgKNP.Add()
 					serKNPs.Enqueue(func() error {
 						defer swgKNP.Done()
-						err := d.addK8sNetworkPolicyV1(k8sNP)
-						d.K8sEventProcessed(metricKNP, metricCreate, err == nil)
+						err := k.addK8sNetworkPolicyV1(k8sNP)
+						k.K8sEventProcessed(metricKNP, metricCreate, err == nil)
 						return nil
 					}, serializer.NoRetry)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
-				defer func() { d.K8sEventReceived(metricKNP, metricUpdate, valid, equal) }()
+				defer func() { k.K8sEventReceived(metricKNP, metricUpdate, valid, equal) }()
 				if oldK8sNP := k8s.CopyObjToV1NetworkPolicy(oldObj); oldK8sNP != nil {
 					valid = true
 					if newK8sNP := k8s.CopyObjToV1NetworkPolicy(newObj); newK8sNP != nil {
@@ -434,8 +505,8 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 						swgKNP.Add()
 						serKNPs.Enqueue(func() error {
 							defer swgKNP.Done()
-							err := d.updateK8sNetworkPolicyV1(oldK8sNP, newK8sNP)
-							d.K8sEventProcessed(metricKNP, metricUpdate, err == nil)
+							err := k.updateK8sNetworkPolicyV1(oldK8sNP, newK8sNP)
+							k.K8sEventProcessed(metricKNP, metricUpdate, err == nil)
 							return nil
 						}, serializer.NoRetry)
 					}
@@ -443,7 +514,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 			},
 			DeleteFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { d.K8sEventReceived(metricKNP, metricDelete, valid, equal) }()
+				defer func() { k.K8sEventReceived(metricKNP, metricDelete, valid, equal) }()
 				k8sNP := k8s.CopyObjToV1NetworkPolicy(obj)
 				if k8sNP == nil {
 					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -463,18 +534,18 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 				swgKNP.Add()
 				serKNPs.Enqueue(func() error {
 					defer swgKNP.Done()
-					err := d.deleteK8sNetworkPolicyV1(k8sNP)
-					d.K8sEventProcessed(metricKNP, metricDelete, err == nil)
+					err := k.deleteK8sNetworkPolicyV1(k8sNP)
+					k.K8sEventProcessed(metricKNP, metricDelete, err == nil)
 					return nil
 				}, serializer.NoRetry)
 			},
 		},
 		k8s.ConvertToNetworkPolicy,
 	)
-	d.blockWaitGroupToSyncResources(wait.NeverStop, swgKNP, policyController, k8sAPIGroupNetworkingV1Core)
+	k.blockWaitGroupToSyncResources(wait.NeverStop, swgKNP, policyController, k8sAPIGroupNetworkingV1Core)
 	go policyController.Run(wait.NeverStop)
 
-	d.k8sAPIGroups.addAPI(k8sAPIGroupNetworkingV1Core)
+	k.k8sAPIGroups.addAPI(k8sAPIGroupNetworkingV1Core)
 
 	_, svcController := informer.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
@@ -484,21 +555,21 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { d.K8sEventReceived(metricService, metricCreate, valid, equal) }()
+				defer func() { k.K8sEventReceived(metricService, metricCreate, valid, equal) }()
 				if k8sSvc := k8s.CopyObjToV1Services(obj); k8sSvc != nil {
 					valid = true
 					swgSvcs.Add()
 					serSvcs.Enqueue(func() error {
 						defer swgSvcs.Done()
-						err := d.addK8sServiceV1(k8sSvc, swgSvcs)
-						d.K8sEventProcessed(metricService, metricCreate, err == nil)
+						err := k.addK8sServiceV1(k8sSvc, swgSvcs)
+						k.K8sEventProcessed(metricService, metricCreate, err == nil)
 						return nil
 					}, serializer.NoRetry)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
-				defer func() { d.K8sEventReceived(metricService, metricUpdate, valid, equal) }()
+				defer func() { k.K8sEventReceived(metricService, metricUpdate, valid, equal) }()
 				if oldk8sSvc := k8s.CopyObjToV1Services(oldObj); oldk8sSvc != nil {
 					valid = true
 					if newk8sSvc := k8s.CopyObjToV1Services(newObj); newk8sSvc != nil {
@@ -510,8 +581,8 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 						swgSvcs.Add()
 						serSvcs.Enqueue(func() error {
 							defer swgSvcs.Done()
-							err := d.updateK8sServiceV1(oldk8sSvc, newk8sSvc, swgSvcs)
-							d.K8sEventProcessed(metricService, metricUpdate, err == nil)
+							err := k.updateK8sServiceV1(oldk8sSvc, newk8sSvc, swgSvcs)
+							k.K8sEventProcessed(metricService, metricUpdate, err == nil)
 							return nil
 						}, serializer.NoRetry)
 					}
@@ -519,7 +590,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 			},
 			DeleteFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { d.K8sEventReceived(metricService, metricDelete, valid, equal) }()
+				defer func() { k.K8sEventReceived(metricService, metricDelete, valid, equal) }()
 				k8sSvc := k8s.CopyObjToV1Services(obj)
 				if k8sSvc == nil {
 					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -539,17 +610,17 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 				swgSvcs.Add()
 				serSvcs.Enqueue(func() error {
 					defer swgSvcs.Done()
-					err := d.deleteK8sServiceV1(k8sSvc, swgSvcs)
-					d.K8sEventProcessed(metricService, metricDelete, err == nil)
+					err := k.deleteK8sServiceV1(k8sSvc, swgSvcs)
+					k.K8sEventProcessed(metricService, metricDelete, err == nil)
 					return nil
 				}, serializer.NoRetry)
 			},
 		},
 		k8s.ConvertToK8sService,
 	)
-	d.blockWaitGroupToSyncResources(wait.NeverStop, swgSvcs, svcController, k8sAPIGroupServiceV1Core)
+	k.blockWaitGroupToSyncResources(wait.NeverStop, swgSvcs, svcController, K8sAPIGroupServiceV1Core)
 	go svcController.Run(wait.NeverStop)
-	d.k8sAPIGroups.addAPI(k8sAPIGroupServiceV1Core)
+	k.k8sAPIGroups.addAPI(K8sAPIGroupServiceV1Core)
 
 	_, endpointController := informer.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
@@ -561,21 +632,21 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { d.K8sEventReceived(metricEndpoint, metricCreate, valid, equal) }()
+				defer func() { k.K8sEventReceived(metricEndpoint, metricCreate, valid, equal) }()
 				if k8sEP := k8s.CopyObjToV1Endpoints(obj); k8sEP != nil {
 					valid = true
 					swgEps.Add()
 					serEps.Enqueue(func() error {
 						defer swgEps.Done()
-						err := d.addK8sEndpointV1(k8sEP, swgEps)
-						d.K8sEventProcessed(metricEndpoint, metricCreate, err == nil)
+						err := k.addK8sEndpointV1(k8sEP, swgEps)
+						k.K8sEventProcessed(metricEndpoint, metricCreate, err == nil)
 						return nil
 					}, serializer.NoRetry)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
-				defer func() { d.K8sEventReceived(metricEndpoint, metricUpdate, valid, equal) }()
+				defer func() { k.K8sEventReceived(metricEndpoint, metricUpdate, valid, equal) }()
 				if oldk8sEP := k8s.CopyObjToV1Endpoints(oldObj); oldk8sEP != nil {
 					valid = true
 					if newk8sEP := k8s.CopyObjToV1Endpoints(newObj); newk8sEP != nil {
@@ -587,8 +658,8 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 						swgEps.Add()
 						serEps.Enqueue(func() error {
 							defer swgEps.Done()
-							err := d.updateK8sEndpointV1(oldk8sEP, newk8sEP, swgEps)
-							d.K8sEventProcessed(metricEndpoint, metricUpdate, err == nil)
+							err := k.updateK8sEndpointV1(oldk8sEP, newk8sEP, swgEps)
+							k.K8sEventProcessed(metricEndpoint, metricUpdate, err == nil)
 							return nil
 						}, serializer.NoRetry)
 					}
@@ -596,7 +667,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 			},
 			DeleteFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { d.K8sEventReceived(metricEndpoint, metricDelete, valid, equal) }()
+				defer func() { k.K8sEventReceived(metricEndpoint, metricDelete, valid, equal) }()
 				k8sEP := k8s.CopyObjToV1Endpoints(obj)
 				if k8sEP == nil {
 					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -615,17 +686,17 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 				swgEps.Add()
 				serEps.Enqueue(func() error {
 					defer swgEps.Done()
-					err := d.deleteK8sEndpointV1(k8sEP, swgEps)
-					d.K8sEventProcessed(metricEndpoint, metricDelete, err == nil)
+					err := k.deleteK8sEndpointV1(k8sEP, swgEps)
+					k.K8sEventProcessed(metricEndpoint, metricDelete, err == nil)
 					return nil
 				}, serializer.NoRetry)
 			},
 		},
 		k8s.ConvertToK8sEndpoints,
 	)
-	d.blockWaitGroupToSyncResources(wait.NeverStop, swgEps, endpointController, k8sAPIGroupEndpointV1Core)
+	k.blockWaitGroupToSyncResources(wait.NeverStop, swgEps, endpointController, K8sAPIGroupEndpointV1Core)
 	go endpointController.Run(wait.NeverStop)
-	d.k8sAPIGroups.addAPI(k8sAPIGroupEndpointV1Core)
+	k.k8sAPIGroups.addAPI(K8sAPIGroupEndpointV1Core)
 
 	var (
 		cnpEventStore    cache.Store
@@ -650,7 +721,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { d.K8sEventReceived(metricCNP, metricCreate, valid, equal) }()
+				defer func() { k.K8sEventReceived(metricCNP, metricCreate, valid, equal) }()
 				if cnp := k8s.CopyObjToV2CNP(obj); cnp != nil {
 					valid = true
 					swgCNPs.Add()
@@ -659,15 +730,15 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 						if cnp.RequiresDerivative() {
 							return nil
 						}
-						err := d.addCiliumNetworkPolicyV2(ciliumNPClient, cnpEventStore, cnp)
-						d.K8sEventProcessed(metricCNP, metricCreate, err == nil)
+						err := k.addCiliumNetworkPolicyV2(ciliumNPClient, cnpEventStore, cnp)
+						k.K8sEventProcessed(metricCNP, metricCreate, err == nil)
 						return nil
 					}, serializer.NoRetry)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
-				defer func() { d.K8sEventReceived(metricCNP, metricUpdate, valid, equal) }()
+				defer func() { k.K8sEventReceived(metricCNP, metricUpdate, valid, equal) }()
 				if oldCNP := k8s.CopyObjToV2CNP(oldObj); oldCNP != nil {
 					valid = true
 					if newCNP := k8s.CopyObjToV2CNP(newObj); newCNP != nil {
@@ -683,8 +754,8 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 								return nil
 							}
 
-							err := d.updateCiliumNetworkPolicyV2(ciliumNPClient, cnpEventStore, oldCNP, newCNP)
-							d.K8sEventProcessed(metricCNP, metricUpdate, err == nil)
+							err := k.updateCiliumNetworkPolicyV2(ciliumNPClient, cnpEventStore, oldCNP, newCNP)
+							k.K8sEventProcessed(metricCNP, metricUpdate, err == nil)
 							return nil
 						}, serializer.NoRetry)
 					}
@@ -692,7 +763,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 			},
 			DeleteFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { d.K8sEventReceived(metricCNP, metricDelete, valid, equal) }()
+				defer func() { k.K8sEventReceived(metricCNP, metricDelete, valid, equal) }()
 				cnp := k8s.CopyObjToV2CNP(obj)
 				if cnp == nil {
 					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -711,8 +782,8 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 				swgCNPs.Add()
 				serCNPs.Enqueue(func() error {
 					defer swgCNPs.Done()
-					err := d.deleteCiliumNetworkPolicyV2(cnp)
-					d.K8sEventProcessed(metricCNP, metricDelete, err == nil)
+					err := k.deleteCiliumNetworkPolicyV2(cnp)
+					k.K8sEventProcessed(metricCNP, metricDelete, err == nil)
 					return nil
 				}, serializer.NoRetry)
 			},
@@ -720,9 +791,9 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 		cnpConverterFunc,
 		cnpStore,
 	)
-	d.blockWaitGroupToSyncResources(wait.NeverStop, swgCNPs, ciliumV2Controller, k8sAPIGroupCiliumNetworkPolicyV2)
+	k.blockWaitGroupToSyncResources(wait.NeverStop, swgCNPs, ciliumV2Controller, k8sAPIGroupCiliumNetworkPolicyV2)
 	go ciliumV2Controller.Run(wait.NeverStop)
-	d.k8sAPIGroups.addAPI(k8sAPIGroupCiliumNetworkPolicyV2)
+	k.k8sAPIGroups.addAPI(k8sAPIGroupCiliumNetworkPolicyV2)
 
 	asyncControllers := sync.WaitGroup{}
 	asyncControllers.Add(1)
@@ -741,7 +812,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 				cache.ResourceEventHandlerFuncs{
 					AddFunc: func(obj interface{}) {
 						var valid, equal bool
-						defer func() { d.K8sEventReceived(metricCiliumNode, metricCreate, valid, equal) }()
+						defer func() { k.K8sEventReceived(metricCiliumNode, metricCreate, valid, equal) }()
 						if ciliumNode, ok := obj.(*cilium_v2.CiliumNode); ok {
 							valid = true
 							n := node.ParseCiliumNode(ciliumNode)
@@ -751,15 +822,15 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 							swgNodes.Add()
 							serNodes.Enqueue(func() error {
 								defer swgNodes.Done()
-								d.nodeDiscovery.Manager.NodeUpdated(n)
-								d.K8sEventProcessed(metricCiliumNode, metricCreate, true)
+								k.nodeDiscoverManager.NodeUpdated(n)
+								k.K8sEventProcessed(metricCiliumNode, metricCreate, true)
 								return nil
 							}, serializer.NoRetry)
 						}
 					},
 					UpdateFunc: func(oldObj, newObj interface{}) {
 						var valid, equal bool
-						defer func() { d.K8sEventReceived(metricCiliumNode, metricUpdate, valid, equal) }()
+						defer func() { k.K8sEventReceived(metricCiliumNode, metricUpdate, valid, equal) }()
 						if ciliumNode, ok := newObj.(*cilium_v2.CiliumNode); ok {
 							valid = true
 							n := node.ParseCiliumNode(ciliumNode)
@@ -769,15 +840,15 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 							swgNodes.Add()
 							serNodes.Enqueue(func() error {
 								defer swgNodes.Done()
-								d.nodeDiscovery.Manager.NodeUpdated(n)
-								d.K8sEventProcessed(metricCiliumNode, metricUpdate, true)
+								k.nodeDiscoverManager.NodeUpdated(n)
+								k.K8sEventProcessed(metricCiliumNode, metricUpdate, true)
 								return nil
 							}, serializer.NoRetry)
 						}
 					},
 					DeleteFunc: func(obj interface{}) {
 						var valid, equal bool
-						defer func() { d.K8sEventReceived(metricCiliumNode, metricDelete, valid, equal) }()
+						defer func() { k.K8sEventReceived(metricCiliumNode, metricDelete, valid, equal) }()
 						ciliumNode := k8s.CopyObjToCiliumNode(obj)
 						if ciliumNode == nil {
 							deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -797,7 +868,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 						swgNodes.Add()
 						serNodes.Enqueue(func() error {
 							defer swgNodes.Done()
-							d.nodeDiscovery.Manager.NodeDeleted(n)
+							k.nodeDiscoverManager.NodeDeleted(n)
 							return nil
 						}, serializer.NoRetry)
 					},
@@ -807,14 +878,14 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 			isConnected := make(chan struct{})
 			// once isConnected is closed, it will stop waiting on caches to be
 			// synchronized.
-			d.blockWaitGroupToSyncResources(isConnected, swgNodes, ciliumNodeInformer, k8sAPIGroupCiliumNodeV2)
+			k.blockWaitGroupToSyncResources(isConnected, swgNodes, ciliumNodeInformer, k8sAPIGroupCiliumNodeV2)
 
 			once.Do(func() {
 				// Signalize that we have put node controller in the wait group
 				// to sync resources.
 				asyncControllers.Done()
 			})
-			d.k8sAPIGroups.addAPI(k8sAPIGroupCiliumNodeV2)
+			k.k8sAPIGroups.addAPI(k8sAPIGroupCiliumNodeV2)
 			go ciliumNodeInformer.Run(isConnected)
 
 			<-kvstore.Client().Connected()
@@ -822,7 +893,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 
 			log.Info("Connected to key-value store, stopping CiliumNode watcher")
 
-			d.k8sAPIGroups.removeAPI(k8sAPIGroupCiliumNodeV2)
+			k.k8sAPIGroups.removeAPI(k8sAPIGroupCiliumNodeV2)
 			// Create a new node controller when we are disconnected with the
 			// kvstore
 			<-kvstore.Client().Disconnected()
@@ -847,7 +918,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 				cache.ResourceEventHandlerFuncs{
 					AddFunc: func(obj interface{}) {
 						var valid, equal bool
-						defer func() { d.K8sEventReceived(metricCiliumEndpoint, metricCreate, valid, equal) }()
+						defer func() { k.K8sEventReceived(metricCiliumEndpoint, metricCreate, valid, equal) }()
 						if ciliumEndpoint, ok := obj.(*types.CiliumEndpoint); ok {
 							valid = true
 							endpoint := ciliumEndpoint.DeepCopy()
@@ -855,14 +926,14 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 							serCiliumEndpoints.Enqueue(func() error {
 								defer swgCiliumEndpoints.Done()
 								endpointUpdated(endpoint)
-								d.K8sEventProcessed(metricCiliumEndpoint, metricCreate, true)
+								k.K8sEventProcessed(metricCiliumEndpoint, metricCreate, true)
 								return nil
 							}, serializer.NoRetry)
 						}
 					},
 					UpdateFunc: func(oldObj, newObj interface{}) {
 						var valid, equal bool
-						defer func() { d.K8sEventReceived(metricCiliumEndpoint, metricUpdate, valid, equal) }()
+						defer func() { k.K8sEventReceived(metricCiliumEndpoint, metricUpdate, valid, equal) }()
 						if ciliumEndpoint, ok := newObj.(*types.CiliumEndpoint); ok {
 							valid = true
 							endpoint := ciliumEndpoint.DeepCopy()
@@ -870,14 +941,14 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 							serCiliumEndpoints.Enqueue(func() error {
 								defer swgCiliumEndpoints.Done()
 								endpointUpdated(endpoint)
-								d.K8sEventProcessed(metricCiliumEndpoint, metricUpdate, true)
+								k.K8sEventProcessed(metricCiliumEndpoint, metricUpdate, true)
 								return nil
 							}, serializer.NoRetry)
 						}
 					},
 					DeleteFunc: func(obj interface{}) {
 						var valid, equal bool
-						defer func() { d.K8sEventReceived(metricCiliumEndpoint, metricDelete, valid, equal) }()
+						defer func() { k.K8sEventReceived(metricCiliumEndpoint, metricDelete, valid, equal) }()
 						ciliumEndpoint := k8s.CopyObjToCiliumEndpoint(obj)
 						if ciliumEndpoint == nil {
 							deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -906,14 +977,14 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 			isConnected := make(chan struct{})
 			// once isConnected is closed, it will stop waiting on caches to be
 			// synchronized.
-			d.blockWaitGroupToSyncResources(isConnected, swgCiliumEndpoints, ciliumEndpointInformer, k8sAPIGroupCiliumEndpointV2)
+			k.blockWaitGroupToSyncResources(isConnected, swgCiliumEndpoints, ciliumEndpointInformer, k8sAPIGroupCiliumEndpointV2)
 
 			once.Do(func() {
 				// Signalize that we have put node controller in the wait group
 				// to sync resources.
 				asyncControllers.Done()
 			})
-			d.k8sAPIGroups.addAPI(k8sAPIGroupCiliumEndpointV2)
+			k.k8sAPIGroups.addAPI(k8sAPIGroupCiliumEndpointV2)
 			go ciliumEndpointInformer.Run(isConnected)
 
 			<-kvstore.Client().Connected()
@@ -921,7 +992,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 
 			log.Info("Connected to key-value store, stopping CiliumEndpoint watcher")
 
-			d.k8sAPIGroups.removeAPI(k8sAPIGroupCiliumEndpointV2)
+			k.k8sAPIGroups.removeAPI(k8sAPIGroupCiliumEndpointV2)
 			// Create a new node controller when we are disconnected with the
 			// kvstore
 			<-kvstore.Client().Disconnected()
@@ -944,21 +1015,21 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 					cache.ResourceEventHandlerFuncs{
 						AddFunc: func(obj interface{}) {
 							var valid, equal bool
-							defer func() { d.K8sEventReceived(metricPod, metricCreate, valid, equal) }()
+							defer func() { k.K8sEventReceived(metricPod, metricCreate, valid, equal) }()
 							if pod := k8s.CopyObjToV1Pod(obj); pod != nil {
 								valid = true
 								swgPods.Add()
 								serPods.Enqueue(func() error {
 									defer swgPods.Done()
-									err := d.addK8sPodV1(pod)
-									d.K8sEventProcessed(metricPod, metricCreate, err == nil)
+									err := k.addK8sPodV1(pod)
+									k.K8sEventProcessed(metricPod, metricCreate, err == nil)
 									return nil
 								}, serializer.NoRetry)
 							}
 						},
 						UpdateFunc: func(oldObj, newObj interface{}) {
 							var valid, equal bool
-							defer func() { d.K8sEventReceived(metricPod, metricUpdate, valid, equal) }()
+							defer func() { k.K8sEventReceived(metricPod, metricUpdate, valid, equal) }()
 							if oldPod := k8s.CopyObjToV1Pod(oldObj); oldPod != nil {
 								valid = true
 								if newPod := k8s.CopyObjToV1Pod(newObj); newPod != nil {
@@ -969,8 +1040,8 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 									swgPods.Add()
 									serPods.Enqueue(func() error {
 										defer swgPods.Done()
-										err := d.updateK8sPodV1(oldPod, newPod)
-										d.K8sEventProcessed(metricPod, metricUpdate, err == nil)
+										err := k.updateK8sPodV1(oldPod, newPod)
+										k.K8sEventProcessed(metricPod, metricUpdate, err == nil)
 										return nil
 									}, serializer.NoRetry)
 								}
@@ -978,14 +1049,14 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 						},
 						DeleteFunc: func(obj interface{}) {
 							var valid, equal bool
-							defer func() { d.K8sEventReceived(metricPod, metricDelete, valid, equal) }()
+							defer func() { k.K8sEventReceived(metricPod, metricDelete, valid, equal) }()
 							if pod := k8s.CopyObjToV1Pod(obj); pod != nil {
 								valid = true
 								swgPods.Add()
 								serPods.Enqueue(func() error {
 									defer swgPods.Done()
-									err := d.deleteK8sPodV1(pod)
-									d.K8sEventProcessed(metricPod, metricDelete, err == nil)
+									err := k.deleteK8sPodV1(pod)
+									k.K8sEventProcessed(metricPod, metricDelete, err == nil)
 									return nil
 								}, serializer.NoRetry)
 							}
@@ -1000,10 +1071,10 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 			isConnected := make(chan struct{})
 			// once isConnected is closed, it will stop waiting on caches to be
 			// synchronized.
-			d.blockWaitGroupToSyncResources(isConnected, swgPods, podController, k8sAPIGroupPodV1Core)
+			k.blockWaitGroupToSyncResources(isConnected, swgPods, podController, k8sAPIGroupPodV1Core)
 			once.Do(func() {
 				asyncControllers.Done()
-				d.k8sAPIGroups.addAPI(k8sAPIGroupPodV1Core)
+				k.k8sAPIGroups.addAPI(k8sAPIGroupPodV1Core)
 			})
 			go podController.Run(isConnected)
 
@@ -1043,7 +1114,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 			// pods belonging to that namespace are also deleted.
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
-				defer func() { d.K8sEventReceived(metricNS, metricUpdate, valid, equal) }()
+				defer func() { k.K8sEventReceived(metricNS, metricUpdate, valid, equal) }()
 				if oldNS := k8s.CopyObjToV1Namespace(oldObj); oldNS != nil {
 					valid = true
 					if newNS := k8s.CopyObjToV1Namespace(newObj); newNS != nil {
@@ -1053,8 +1124,8 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 						}
 
 						serNamespaces.Enqueue(func() error {
-							err := d.updateK8sV1Namespace(oldNS, newNS)
-							d.K8sEventProcessed(metricNS, metricUpdate, err == nil)
+							err := k.updateK8sV1Namespace(oldNS, newNS)
+							k.K8sEventProcessed(metricNS, metricUpdate, err == nil)
 							return nil
 						}, serializer.NoRetry)
 					}
@@ -1065,14 +1136,14 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 	)
 
 	go namespaceController.Run(wait.NeverStop)
-	d.k8sAPIGroups.addAPI(k8sAPIGroupNamespaceV1Core)
+	k.k8sAPIGroups.addAPI(k8sAPIGroupNamespaceV1Core)
 
 	asyncControllers.Wait()
 
 	return nil
 }
 
-func (d *Daemon) addK8sNetworkPolicyV1(k8sNP *types.NetworkPolicy) error {
+func (k *K8sWatcher) addK8sNetworkPolicyV1(k8sNP *types.NetworkPolicy) error {
 	scopedLog := log.WithField(logfields.K8sAPIVersion, k8sNP.TypeMeta.APIVersion)
 	rules, err := k8s.ParseNetworkPolicy(k8sNP.NetworkPolicy)
 	if err != nil {
@@ -1083,8 +1154,8 @@ func (d *Daemon) addK8sNetworkPolicyV1(k8sNP *types.NetworkPolicy) error {
 	}
 	scopedLog = scopedLog.WithField(logfields.K8sNetworkPolicyName, k8sNP.ObjectMeta.Name)
 
-	opts := AddOptions{Replace: true, Source: metrics.LabelEventSourceK8s}
-	if _, err := d.PolicyAdd(rules, &opts); err != nil {
+	opts := policy.AddOptions{Replace: true, Source: metrics.LabelEventSourceK8s}
+	if _, err := k.policyManager.PolicyAdd(rules, &opts); err != nil {
 		scopedLog.WithError(err).WithFields(logrus.Fields{
 			logfields.CiliumNetworkPolicy: logfields.Repr(rules),
 		}).Error("Unable to add NetworkPolicy rules to policy repository")
@@ -1095,7 +1166,7 @@ func (d *Daemon) addK8sNetworkPolicyV1(k8sNP *types.NetworkPolicy) error {
 	return nil
 }
 
-func (d *Daemon) updateK8sNetworkPolicyV1(oldk8sNP, newk8sNP *types.NetworkPolicy) error {
+func (k *K8sWatcher) updateK8sNetworkPolicyV1(oldk8sNP, newk8sNP *types.NetworkPolicy) error {
 	log.WithFields(logrus.Fields{
 		logfields.K8sAPIVersion:                 oldk8sNP.TypeMeta.APIVersion,
 		logfields.K8sNetworkPolicyName + ".old": oldk8sNP.ObjectMeta.Name,
@@ -1104,10 +1175,10 @@ func (d *Daemon) updateK8sNetworkPolicyV1(oldk8sNP, newk8sNP *types.NetworkPolic
 		logfields.K8sNamespace:                  newk8sNP.ObjectMeta.Namespace,
 	}).Debug("Received policy update")
 
-	return d.addK8sNetworkPolicyV1(newk8sNP)
+	return k.addK8sNetworkPolicyV1(newk8sNP)
 }
 
-func (d *Daemon) deleteK8sNetworkPolicyV1(k8sNP *types.NetworkPolicy) error {
+func (k *K8sWatcher) deleteK8sNetworkPolicyV1(k8sNP *types.NetworkPolicy) error {
 	labels := k8s.GetPolicyLabelsv1(k8sNP.NetworkPolicy)
 
 	if labels == nil {
@@ -1120,7 +1191,7 @@ func (d *Daemon) deleteK8sNetworkPolicyV1(k8sNP *types.NetworkPolicy) error {
 		logfields.K8sAPIVersion:        k8sNP.TypeMeta.APIVersion,
 		logfields.Labels:               logfields.Repr(labels),
 	})
-	if _, err := d.PolicyDelete(labels); err != nil {
+	if _, err := k.policyManager.PolicyDelete(labels); err != nil {
 		scopedLog.WithError(err).Error("Error while deleting k8s NetworkPolicy")
 		return err
 	}
@@ -1129,7 +1200,7 @@ func (d *Daemon) deleteK8sNetworkPolicyV1(k8sNP *types.NetworkPolicy) error {
 	return nil
 }
 
-func (d *Daemon) k8sServiceHandler() {
+func (k *K8sWatcher) k8sServiceHandler() {
 	eventHandler := func(event k8s.ServiceEvent) {
 		defer event.SWG.Done()
 
@@ -1148,7 +1219,7 @@ func (d *Daemon) k8sServiceHandler() {
 
 		switch event.Action {
 		case k8s.UpdateService:
-			if err := d.addK8sSVCs(event.ID, svc, event.Endpoints); err != nil {
+			if err := k.addK8sSVCs(event.ID, svc, event.Endpoints); err != nil {
 				scopedLog.WithError(err).Error("Unable to add/update service to implement k8s event")
 			}
 
@@ -1164,21 +1235,21 @@ func (d *Daemon) k8sServiceHandler() {
 			// select said service.
 			if !cacheOK || (cacheOK && serviceImportMeta.ruleTranslationError != nil) {
 				translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, false, svc.Labels, true)
-				result, err := d.policy.TranslateRules(translator)
+				result, err := k.policyRepository.TranslateRules(translator)
 				endpointMetadataCache.upsert(event.ID, err)
 				if err != nil {
 					log.Errorf("Unable to repopulate egress policies from ToService rules: %v", err)
 					break
 				} else if result.NumToServicesRules > 0 {
 					// Only trigger policy updates if ToServices rules are in effect
-					d.TriggerPolicyUpdates(true, "Kubernetes service endpoint added")
+					k.policyManager.TriggerPolicyUpdates(true, "Kubernetes service endpoint added")
 				}
 			} else if serviceImportMeta.ruleTranslationError == nil {
-				d.TriggerPolicyUpdates(true, "Kubernetes service endpoint updated")
+				k.policyManager.TriggerPolicyUpdates(true, "Kubernetes service endpoint updated")
 			}
 
 		case k8s.DeleteService:
-			if err := d.delK8sSVCs(event.ID, event.Service, event.Endpoints); err != nil {
+			if err := k.delK8sSVCs(event.ID, event.Service, event.Endpoints); err != nil {
 				scopedLog.WithError(err).Error("Unable to delete service to implement k8s event")
 			}
 
@@ -1189,18 +1260,18 @@ func (d *Daemon) k8sServiceHandler() {
 			endpointMetadataCache.delete(event.ID)
 
 			translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, true, svc.Labels, true)
-			result, err := d.policy.TranslateRules(translator)
+			result, err := k.policyRepository.TranslateRules(translator)
 			if err != nil {
 				log.Errorf("Unable to depopulate egress policies from ToService rules: %v", err)
 				break
 			} else if result.NumToServicesRules > 0 {
 				// Only trigger policy updates if ToServices rules are in effect
-				d.TriggerPolicyUpdates(true, "Kubernetes service endpoint deleted")
+				k.policyManager.TriggerPolicyUpdates(true, "Kubernetes service endpoint deleted")
 			}
 		}
 	}
 	for {
-		event, ok := <-d.k8sSvcCache.Events
+		event, ok := <-k.K8sSvcCache.Events
 		if !ok {
 			return
 		}
@@ -1208,40 +1279,40 @@ func (d *Daemon) k8sServiceHandler() {
 	}
 }
 
-func (d *Daemon) runK8sServiceHandler() {
-	go d.k8sServiceHandler()
+func (k *K8sWatcher) RunK8sServiceHandler() {
+	go k.k8sServiceHandler()
 }
 
-func (d *Daemon) addK8sServiceV1(svc *types.Service, swg *lock.StoppableWaitGroup) error {
-	d.k8sSvcCache.UpdateService(svc, swg)
+func (k *K8sWatcher) addK8sServiceV1(svc *types.Service, swg *lock.StoppableWaitGroup) error {
+	k.K8sSvcCache.UpdateService(svc, swg)
 	return nil
 }
 
-func (d *Daemon) updateK8sServiceV1(oldSvc, newSvc *types.Service, swg *lock.StoppableWaitGroup) error {
-	return d.addK8sServiceV1(newSvc, swg)
+func (k *K8sWatcher) updateK8sServiceV1(oldSvc, newSvc *types.Service, swg *lock.StoppableWaitGroup) error {
+	return k.addK8sServiceV1(newSvc, swg)
 }
 
-func (d *Daemon) deleteK8sServiceV1(svc *types.Service, swg *lock.StoppableWaitGroup) error {
-	d.k8sSvcCache.DeleteService(svc, swg)
+func (k *K8sWatcher) deleteK8sServiceV1(svc *types.Service, swg *lock.StoppableWaitGroup) error {
+	k.K8sSvcCache.DeleteService(svc, swg)
 	return nil
 }
 
-func (d *Daemon) addK8sEndpointV1(ep *types.Endpoints, swg *lock.StoppableWaitGroup) error {
-	d.k8sSvcCache.UpdateEndpoints(ep, swg)
+func (k *K8sWatcher) addK8sEndpointV1(ep *types.Endpoints, swg *lock.StoppableWaitGroup) error {
+	k.K8sSvcCache.UpdateEndpoints(ep, swg)
 	return nil
 }
 
-func (d *Daemon) updateK8sEndpointV1(oldEP, newEP *types.Endpoints, swg *lock.StoppableWaitGroup) error {
-	d.k8sSvcCache.UpdateEndpoints(newEP, swg)
+func (k *K8sWatcher) updateK8sEndpointV1(oldEP, newEP *types.Endpoints, swg *lock.StoppableWaitGroup) error {
+	k.K8sSvcCache.UpdateEndpoints(newEP, swg)
 	return nil
 }
 
-func (d *Daemon) deleteK8sEndpointV1(ep *types.Endpoints, swg *lock.StoppableWaitGroup) error {
-	d.k8sSvcCache.DeleteEndpoints(ep, swg)
+func (k *K8sWatcher) deleteK8sEndpointV1(ep *types.Endpoints, swg *lock.StoppableWaitGroup) error {
+	k.K8sSvcCache.DeleteEndpoints(ep, swg)
 	return nil
 }
 
-func (d *Daemon) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s.Endpoints) error {
+func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s.Endpoints) error {
 	// If east-west load balancing is disabled, we should not sync(add or delete)
 	// K8s service to a cilium service.
 	if option.Config.DisableK8sServices {
@@ -1277,7 +1348,7 @@ func (d *Daemon) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s.End
 	}
 
 	for _, fe := range frontends {
-		if found, err := d.svc.DeleteService(*fe); err != nil {
+		if found, err := k.svcManager.DeleteService(*fe); err != nil {
 			scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(fe)).
 				Warn("Error deleting service by frontend")
 		} else if !found {
@@ -1289,7 +1360,7 @@ func (d *Daemon) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s.End
 	return nil
 }
 
-func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8s.Endpoints) error {
+func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8s.Endpoints) error {
 	// If east-west load balancing is disabled, we should not sync(add or delete)
 	// K8s service to a cilium service.
 	if option.Config.DisableK8sServices {
@@ -1345,7 +1416,7 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 		}
 
 		for _, fe := range frontends {
-			if _, _, err := d.svc.UpsertService(*fe.addr, besValues, fe.svcType); err != nil {
+			if _, _, err := k.svcManager.UpsertService(*fe.addr, besValues, fe.svcType); err != nil {
 				scopedLog.WithError(err).Error("Error while inserting service in LB map")
 			}
 		}
@@ -1353,7 +1424,7 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 	return nil
 }
 
-func (d *Daemon) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient clientset.Interface, ciliumV2Store cache.Store, cnp *types.SlimCNP) {
+func (k *K8sWatcher) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient clientset.Interface, ciliumV2Store cache.Store, cnp *types.SlimCNP) {
 
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
@@ -1373,9 +1444,9 @@ func (d *Daemon) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient clien
 		CiliumNPClient:              ciliumNPClient,
 		CiliumV2Store:               ciliumV2Store,
 		NodeName:                    node.GetName(),
-		NodeManager:                 d.nodeDiscovery.Manager,
+		NodeManager:                 k.nodeDiscoverManager,
 		UpdateDuration:              spanstat.Start(),
-		WaitForEndpointsAtPolicyRev: d.endpointManager.WaitForEndpointsAtPolicyRev,
+		WaitForEndpointsAtPolicyRev: k.endpointManager.WaitForEndpointsAtPolicyRev,
 	}
 
 	k8sCM.UpdateController(ctrlName,
@@ -1387,7 +1458,7 @@ func (d *Daemon) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient clien
 
 }
 
-func (d *Daemon) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ciliumV2Store cache.Store, cnp *types.SlimCNP) error {
+func (k *K8sWatcher) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ciliumV2Store cache.Store, cnp *types.SlimCNP) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
@@ -1400,10 +1471,10 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ci
 
 	rules, policyImportErr := cnp.Parse()
 	if policyImportErr == nil {
-		policyImportErr = k8s.PreprocessRules(rules, &d.k8sSvcCache)
+		policyImportErr = k8s.PreprocessRules(rules, &k.K8sSvcCache)
 		// Replace all rules with the same name, namespace and
 		// resourceTypeCiliumNetworkPolicy
-		rev, policyImportErr = d.PolicyAdd(rules, &AddOptions{
+		rev, policyImportErr = k.policyManager.PolicyAdd(rules, &policy.AddOptions{
 			ReplaceWithLabels: cnp.GetIdentityLabels(),
 			Source:            metrics.LabelEventSourceK8s,
 		})
@@ -1425,9 +1496,9 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ci
 			CiliumNPClient:              ciliumNPClient,
 			CiliumV2Store:               ciliumV2Store,
 			NodeName:                    node.GetName(),
-			NodeManager:                 d.nodeDiscovery.Manager,
+			NodeManager:                 k.nodeDiscoverManager,
 			UpdateDuration:              spanstat.Start(),
-			WaitForEndpointsAtPolicyRev: d.endpointManager.WaitForEndpointsAtPolicyRev,
+			WaitForEndpointsAtPolicyRev: k.endpointManager.WaitForEndpointsAtPolicyRev,
 		}
 
 		ctrlName := cnp.GetControllerName()
@@ -1443,7 +1514,7 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ci
 	return policyImportErr
 }
 
-func (d *Daemon) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP) error {
+func (k *K8sWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
@@ -1459,7 +1530,7 @@ func (d *Daemon) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP) error {
 		log.Debugf("Unable to remove controller %s: %s", ctrlName, err)
 	}
 
-	_, err = d.PolicyDelete(cnp.GetIdentityLabels())
+	_, err = k.policyManager.PolicyDelete(cnp.GetIdentityLabels())
 	if err == nil {
 		scopedLog.Info("Deleted CiliumNetworkPolicy")
 	} else {
@@ -1468,7 +1539,7 @@ func (d *Daemon) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP) error {
 	return err
 }
 
-func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface,
+func (k *K8sWatcher) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface,
 	ciliumV2Store cache.Store,
 	oldRuleCpy, newRuleCpy *types.SlimCNP) error {
 
@@ -1515,16 +1586,16 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface,
 						log.Debugf("Unable to remove controller %s: %s", oldCtrlName, err)
 					}
 				}
-				d.updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient, ciliumV2Store, newRuleCpy)
+				k.updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient, ciliumV2Store, newRuleCpy)
 			}
 			return nil
 		}
 	}
 
-	return d.addCiliumNetworkPolicyV2(ciliumNPClient, ciliumV2Store, newRuleCpy)
+	return k.addCiliumNetworkPolicyV2(ciliumNPClient, ciliumV2Store, newRuleCpy)
 }
 
-func (d *Daemon) updatePodHostIP(pod *types.Pod) (bool, error) {
+func (k *K8sWatcher) updatePodHostIP(pod *types.Pod) (bool, error) {
 	if pod.SpecHostNetwork {
 		return true, fmt.Errorf("pod is using host networking")
 	}
@@ -1560,7 +1631,7 @@ func (d *Daemon) updatePodHostIP(pod *types.Pod) (bool, error) {
 	return false, nil
 }
 
-func (d *Daemon) deletePodHostIP(pod *types.Pod) (bool, error) {
+func (k *K8sWatcher) deletePodHostIP(pod *types.Pod) (bool, error) {
 	if pod.SpecHostNetwork {
 		return true, fmt.Errorf("pod is using host networking")
 	}
@@ -1587,7 +1658,7 @@ func (d *Daemon) deletePodHostIP(pod *types.Pod) (bool, error) {
 	return false, nil
 }
 
-func (d *Daemon) addK8sPodV1(pod *types.Pod) error {
+func (k *K8sWatcher) addK8sPodV1(pod *types.Pod) error {
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sPodName:   pod.ObjectMeta.Name,
 		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
@@ -1595,7 +1666,7 @@ func (d *Daemon) addK8sPodV1(pod *types.Pod) error {
 		"hostIP":               pod.StatusHostIP,
 	})
 
-	skipped, err := d.updatePodHostIP(pod)
+	skipped, err := k.updatePodHostIP(pod)
 	switch {
 	case skipped:
 		logger.WithError(err).Debug("Skipped ipcache map update on pod add")
@@ -1613,7 +1684,7 @@ func (d *Daemon) addK8sPodV1(pod *types.Pod) error {
 	return err
 }
 
-func (d *Daemon) updateK8sPodV1(oldK8sPod, newK8sPod *types.Pod) error {
+func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *types.Pod) error {
 	if oldK8sPod == nil || newK8sPod == nil {
 		return nil
 	}
@@ -1621,7 +1692,7 @@ func (d *Daemon) updateK8sPodV1(oldK8sPod, newK8sPod *types.Pod) error {
 	// The pod IP can never change, it can only switch from unassigned to
 	// assigned
 	// Process IP updates
-	d.addK8sPodV1(newK8sPod)
+	k.addK8sPodV1(newK8sPod)
 
 	// Check annotation updates.
 	oldAnno := oldK8sPod.GetAnnotations()
@@ -1640,7 +1711,7 @@ func (d *Daemon) updateK8sPodV1(oldK8sPod, newK8sPod *types.Pod) error {
 
 	podNSName := k8sUtils.GetObjNamespaceName(&newK8sPod.ObjectMeta)
 
-	podEP := d.endpointManager.LookupPodName(podNSName)
+	podEP := k.endpointManager.LookupPodName(podNSName)
 	if podEP == nil {
 		log.WithField("pod", podNSName).Debugf("Endpoint not found running for the given pod")
 		return nil
@@ -1693,7 +1764,7 @@ func updateEndpointLabels(ep *endpoint.Endpoint, oldLbls, newLbls map[string]str
 
 }
 
-func (d *Daemon) deleteK8sPodV1(pod *types.Pod) error {
+func (k *K8sWatcher) deleteK8sPodV1(pod *types.Pod) error {
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sPodName:   pod.ObjectMeta.Name,
 		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
@@ -1701,7 +1772,7 @@ func (d *Daemon) deleteK8sPodV1(pod *types.Pod) error {
 		"hostIP":               pod.StatusHostIP,
 	})
 
-	skipped, err := d.deletePodHostIP(pod)
+	skipped, err := k.deletePodHostIP(pod)
 	switch {
 	case skipped:
 		logger.WithError(err).Debug("Skipped ipcache map delete on pod delete")
@@ -1713,7 +1784,7 @@ func (d *Daemon) deleteK8sPodV1(pod *types.Pod) error {
 	return err
 }
 
-func (d *Daemon) updateK8sV1Namespace(oldNS, newNS *types.Namespace) error {
+func (k *K8sWatcher) updateK8sV1Namespace(oldNS, newNS *types.Namespace) error {
 	if oldNS == nil || newNS == nil {
 		return nil
 	}
@@ -1739,7 +1810,7 @@ func (d *Daemon) updateK8sV1Namespace(oldNS, newNS *types.Namespace) error {
 	oldIdtyLabels, _ := labels.FilterLabels(oldLabels)
 	newIdtyLabels, _ := labels.FilterLabels(newLabels)
 
-	eps := d.endpointManager.GetEndpoints()
+	eps := k.endpointManager.GetEndpoints()
 	failed := false
 	for _, ep := range eps {
 		epNS := ep.GetK8sNamespace()
@@ -1760,13 +1831,21 @@ func (d *Daemon) updateK8sV1Namespace(oldNS, newNS *types.Namespace) error {
 
 // K8sEventProcessed is called to do metrics accounting for each processed
 // Kubernetes event
-func (d *Daemon) K8sEventProcessed(scope string, action string, status bool) {
+func (k *K8sWatcher) K8sEventProcessed(scope string, action string, status bool) {
 	result := "success"
 	if status == false {
 		result = "failed"
 	}
 
 	metrics.KubernetesEventProcessed.WithLabelValues(scope, action, result).Inc()
+}
+
+// K8sEventReceived does metric accounting for each received Kubernetes event
+func (k *K8sWatcher) K8sEventReceived(scope string, action string, valid, equal bool) {
+	metrics.EventTSK8s.SetToCurrentTime()
+	k8smetrics.LastInteraction.Reset()
+
+	metrics.KubernetesEventReceived.WithLabelValues(scope, action, strconv.FormatBool(valid), strconv.FormatBool(equal)).Inc()
 }
 
 func endpointUpdated(endpoint *types.CiliumEndpoint) {

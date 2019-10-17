@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadinfo"
@@ -1131,10 +1132,10 @@ func (d *Daemon) initKVStore() {
 		// up etcd so we can perform the name resolution for etcd-operator
 		// to the service IP as well perform the service -> backend IPs for
 		// that service IP.
-		d.waitForCacheSync(k8sAPIGroupServiceV1Core, k8sAPIGroupEndpointV1Core)
+		d.k8sWatcher.WaitForCacheSync(watchers.K8sAPIGroupServiceV1Core, watchers.K8sAPIGroupEndpointV1Core)
 		log := log.WithField(logfields.LogSubsys, "etcd")
 		goopts.DialOption = []grpc.DialOption{
-			grpc.WithDialer(k8s.CreateCustomDialer(&d.k8sSvcCache, log)),
+			grpc.WithDialer(k8s.CreateCustomDialer(&d.k8sWatcher.K8sSvcCache, log)),
 		}
 	}
 
@@ -1212,7 +1213,7 @@ func runDaemon() {
 	// We need to set up etcd in parallel so we will initialize the k8s
 	// subsystem as well in parallel so caches will start to be synchronized
 	// with k8s.
-	k8sCachesSynced := d.initK8sSubsystem()
+	k8sCachesSynced := d.k8sWatcher.InitK8sSubsystem()
 	if option.Config.KVStore == "" {
 		log.Info("Skipping kvstore configuration")
 	} else {
