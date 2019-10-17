@@ -381,11 +381,9 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 		metrics.PolicyImplementationDelay.WithLabelValues(source).Observe(duration.Seconds())
 	})
 
-	// remove prefixes of replaced rules above. This potentially blocks on the
-	// kvstore and should happen without holding the policy lock. Refcounts have
-	// been incremented above, so any decrements here will be no-ops for CIDRs
-	// that are re-added, and will trigger deletions for those that are no longer
-	// used.
+	// remove prefixes of replaced rules above. Refcounts have been incremented
+	// above, so any decrements here will be no-ops for CIDRs that are re-added,
+	// and will trigger deletions for those that are no longer used.
 	if len(removedPrefixes) > 0 {
 		logger.WithField("prefixes", removedPrefixes).Debug("Decrementing replaced CIDR refcounts when adding rules")
 		ipcache.ReleaseCIDRs(removedPrefixes)
