@@ -16,6 +16,7 @@ package gc
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"time"
 
@@ -34,6 +35,7 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ct-gc")
 // globally exposed on the current node.
 type EndpointManager interface {
 	GetEndpoints() []*endpoint.Endpoint
+	LookupIP(net.IP) *endpoint.Endpoint
 }
 
 // Enable enables the connection tracking garbage collection.
