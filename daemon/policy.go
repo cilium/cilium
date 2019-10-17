@@ -689,20 +689,20 @@ func (h *putPolicy) Handle(params PutPolicyParams) middleware.Responder {
 }
 
 type getPolicy struct {
-	daemon *Daemon
+	repo *policy.Repository
 }
 
-func newGetPolicyHandler(d *Daemon) GetPolicyHandler {
-	return &getPolicy{daemon: d}
+func newGetPolicyHandler(r *policy.Repository) GetPolicyHandler {
+	return &getPolicy{repo: r}
 }
 
 func (h *getPolicy) Handle(params GetPolicyParams) middleware.Responder {
-	d := h.daemon
-	d.policy.Mutex.RLock()
-	defer d.policy.Mutex.RUnlock()
+	repository := h.repo
+	repository.Mutex.RLock()
+	defer repository.Mutex.RUnlock()
 
 	lbls := labels.ParseSelectLabelArrayFromArray(params.Labels)
-	ruleList := d.policy.SearchRLocked(lbls)
+	ruleList := repository.SearchRLocked(lbls)
 
 	// Error if labels have been specified but no entries found, otherwise,
 	// return empty list
@@ -711,7 +711,7 @@ func (h *getPolicy) Handle(params GetPolicyParams) middleware.Responder {
 	}
 
 	policy := &models.Policy{
-		Revision: int64(d.policy.GetRevision()),
+		Revision: int64(repository.GetRevision()),
 		Policy:   policy.JSONMarshalRules(ruleList),
 	}
 	return NewGetPolicyOK().WithPayload(policy)
