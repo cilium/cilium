@@ -3,7 +3,9 @@
 package server
 
 import (
+	"context"
 	"crypto/tls"
+	"net"
 	"net/http"
 
 	errors "github.com/go-openapi/errors"
@@ -251,7 +253,9 @@ func configureAPI(api *restapi.CiliumAPI) http.Handler {
 		})
 	}
 
-	api.ServerShutdown = func() {}
+	api.ServerShutdown = func() {
+		serverCancel()
+	}
 
 	return setupGlobalMiddleware(api.Serve(setupMiddlewares))
 }
@@ -261,11 +265,19 @@ func configureTLS(tlsConfig *tls.Config) {
 	// Make all necessary changes to the TLS configuration here.
 }
 
+var (
+	// ServerCtx and ServerCancel
+	ServerCtx, serverCancel = context.WithCancel(context.Background())
+)
+
 // As soon as server is initialized but not run yet, this function will be called.
 // If you need to modify a config, store server instance to stop it individually later, this is the place.
 // This function can be called multiple times, depending on the number of serving schemes.
 // scheme value will be set accordingly: "http", "https" or "unix"
 func configureServer(s *http.Server, scheme, addr string) {
+	s.BaseContext = func(_ net.Listener) context.Context {
+		return ServerCtx
+	}
 }
 
 // The middleware configuration is for the handler executors. These do not apply to the swagger.json document.
