@@ -578,6 +578,7 @@ int tail_nodeport_nat_ipv4(struct __sk_buff *skb)
 	}
 	ifindex = fib_params.ifindex;
 out_send:
+	//return TC_ACT_OK;
 	return redirect(ifindex, 0);
 drop_err:
 	return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT,

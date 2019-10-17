@@ -556,34 +556,6 @@ ct_recreate4:
 
 	orig_dip = ip4->daddr;
 
-	//__u16 proto;
-	//if (!validate_ethertype(skb, &proto)) {
-	//	return DROP_INVALID;
-	//}
-
-	//if (proto == bpf_htons(ETH_P_IP)) {
-	//	struct iphdr v4 = {};
-	//	struct iphdr_with_opt v4_with_opt = {};
-	//	if (skb_load_bytes(skb, ETH_HLEN, &v4, sizeof(v4)) < 0)
-	//		return DROP_INVALID;
-	//	cilium_dbg(skb, DBG_GENERIC, 111, v4.ihl);
-	//	v4.ihl += 0x1;
-	//	v4.tot_len = bpf_htons(bpf_ntohs(v4.tot_len) + 0x4);
-
-	//	if (skb_adjust_room(skb, 0x4, BPF_ADJ_ROOM_NET, 0))
-	//		return DROP_INVALID;
-
-	//	v4_with_opt.hdr = v4;
-	//	v4_with_opt.opt = bpf_htonl(0x88041234);
-	//	set_ipv4_csum(&v4_with_opt);
-
-	//	if (skb_store_bytes(skb, ETH_HLEN, &v4_with_opt, sizeof(v4_with_opt), 0) < 0)
-	//		return DROP_INVALID;
-
-	//	if (!revalidate_data(skb, &data, &data_end, &ip4))
-	//		return DROP_INVALID;
-	//}
-
 #ifdef ENABLE_ROUTING
 	struct endpoint_info *ep;
 
@@ -1036,6 +1008,15 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 		verdict = 0;
 
 	if (ret == CT_NEW) {
+		if (!revalidate_data(skb, &data, &data_end, &ip4))
+			return DROP_INVALID;
+		if (ip4->ihl == 0x6) {
+			uint32_t opt = 0;
+			if (skb_load_bytes(skb, ETH_HLEN + (0x5 * 4), &opt, sizeof(opt)) < 0)
+				return DROP_INVALID;
+			cilium_dbg(skb, DBG_GENERIC, 666, bpf_ntohl(opt));
+		}
+
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.node_port = ct_state.node_port;
