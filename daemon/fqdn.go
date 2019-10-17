@@ -62,6 +62,9 @@ const (
 	metricErrorProxy   = "proxyErr"
 	metricErrorDenied  = "denied"
 	metricErrorAllow   = "allow"
+
+	dnsSourceLookup     = "lookup"
+	dnsSourceConnection = "connection"
 )
 
 func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, identityAllocator *secIDCache.CachingIdentityAllocator) (map[policyApi.FQDNSelector][]*identity.Identity, error) {
@@ -753,6 +756,7 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 				TTL:            int64(lookup.TTL),
 				ExpirationTime: strfmt.DateTime(lookup.ExpirationTime),
 				EndpointID:     int64(ep.ID),
+				Source:         dnsSourceLookup,
 			})
 		}
 
@@ -774,6 +778,7 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 					TTL:            0,
 					ExpirationTime: strfmt.DateTime(delete.AliveAt),
 					EndpointID:     int64(ep.ID),
+					Source:         dnsSourceConnection,
 				})
 			}
 		}
