@@ -32,6 +32,13 @@ type PrefixLengthCounter struct {
 
 	maxUniquePrefixes4 int
 	maxUniquePrefixes6 int
+
+	listenerLock lock.RWMutex
+	listeners    []prefixCountChangeListener
+}
+
+type prefixCountChangeListener interface {
+	OnPrefixCountChange() error
 }
 
 // NewPrefixLengthCounter returns a new PrefixLengthCounter which limits
@@ -43,6 +50,15 @@ func NewPrefixLengthCounter(maxUniquePrefixes6, maxUniquePrefixes4 int) *PrefixL
 		maxUniquePrefixes4: maxUniquePrefixes4,
 		maxUniquePrefixes6: maxUniquePrefixes6,
 	}
+}
+
+func (p *PrefixLengthCounter) AddListener(listener prefixCountChangeListener) {
+	p.listenerLock.Lock()
+	defer p.listenerLock.Unlock()
+	if p.listeners == nil {
+		p.listeners = make([]prefixCountChangeListener, 0)
+	}
+	p.listeners = append(p.listeners, listener)
 }
 
 // This is a bit ugly, but there's not a great way to define an IPNet without
@@ -95,8 +111,38 @@ func checkLimits(current, newCount, max int) error {
 // number of unique prefix lengths in the counter.
 func (p *PrefixLengthCounter) Add(prefixes []*net.IPNet) (bool, error) {
 	p.Lock()
-	defer p.Unlock()
+	changed, err := p.add(prefixes)
+	p.Unlock()
+	if err != nil {
+		return changed, err
+	}
 
+	// If changed, notify listeners.
+	if changed {
+		errs := p.updateListeners()
+		if len(errs) != 0 {
+			var errStr string
+			for _, er := range errs {
+				errStr = errStr + " " + fmt.Sprintf("%s", er)
+			}
+			err = fmt.Errorf("%s", errStr)
+		}
+	}
+
+	return changed, err
+}
+
+func (p *PrefixLengthCounter) updateListeners() []error {
+	var errs []error
+	p.listenerLock.RLock()
+	defer p.listenerLock.RUnlock()
+	for _, listener := range p.listeners {
+		errs = append(errs, listener.OnPrefixCountChange())
+	}
+	return errs
+}
+
+func (p *PrefixLengthCounter) add(prefixes []*net.IPNet) (bool, error) {
 	// Assemble a map of references that need to be added
 	newV4Counter := p.v4.DeepCopy()
 	newV6Counter := p.v6.DeepCopy()
@@ -139,12 +185,27 @@ func (p *PrefixLengthCounter) Add(prefixes []*net.IPNet) (bool, error) {
 
 // Delete reduces references to prefix lengths in the the specified IPNets from
 // the counter. Returns true if removing references to these prefix lengths
-// would result in a decrese in the total number of unique prefix lengths in
+// would result in a decrease in the total number of unique prefix lengths in
 // the counter.
-func (p *PrefixLengthCounter) Delete(prefixes []*net.IPNet) (changed bool) {
+func (p *PrefixLengthCounter) Delete(prefixes []*net.IPNet, notifyListeners bool) (changed bool, err error) {
 	p.Lock()
+	changed = p.delete(prefixes)
 	defer p.Unlock()
 
+	if changed && notifyListeners {
+		errs := p.updateListeners()
+		if len(errs) != 0 {
+			var errStr string
+			for _, er := range errs {
+				errStr = errStr + " " + fmt.Sprintf("%s", er)
+			}
+			err = fmt.Errorf("%s", errStr)
+		}
+	}
+	return changed, err
+}
+
+func (p *PrefixLengthCounter) delete(prefixes []*net.IPNet) (changed bool) {
 	for _, prefix := range prefixes {
 		ones, bits := prefix.Mask.Size()
 		switch bits {
@@ -158,7 +219,6 @@ func (p *PrefixLengthCounter) Delete(prefixes []*net.IPNet) (changed bool) {
 			}
 		}
 	}
-
 	return changed
 }
 

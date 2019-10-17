@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	bpfIPCache "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
@@ -272,9 +271,10 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 	prefixes := policy.GetCIDRPrefixes(sourceRules)
 	logger.WithField("prefixes", prefixes).Debug("Policy imported via API, found CIDR prefixes...")
 
-	newPrefixLengths, err := d.prefixLengths.Add(prefixes)
+	_, err := d.prefixLengths.Add(prefixes)
 	if err != nil {
 		metrics.PolicyImportErrors.Inc()
+		//_ = d.prefixLengths.Delete(prefixes)
 		logger.WithError(err).WithField("prefixes", prefixes).Warn(
 			"Failed to reference-count prefix lengths in CIDR policy")
 		resChan <- &PolicyAddResult{
@@ -283,25 +283,9 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 		}
 		return
 	}
-	if newPrefixLengths && !bpfIPCache.BackedByLPM() {
-		// Only recompile if configuration has changed.
-		logger.Debug("CIDR policy has changed; recompiling base programs")
-		if err := d.compileBase(); err != nil {
-			_ = d.prefixLengths.Delete(prefixes)
-			metrics.PolicyImportErrors.Inc()
-			err2 := fmt.Errorf("Unable to recompile base programs: %s", err)
-			logger.WithError(err2).WithField("prefixes", prefixes).Warn(
-				"Failed to recompile base programs due to prefix length count change")
-			resChan <- &PolicyAddResult{
-				newRev: 0,
-				err:    api.Error(PutPolicyFailureCode, err),
-			}
-			return
-		}
-	}
 
 	if _, err := ipcache.AllocateCIDRs(prefixes); err != nil {
-		_ = d.prefixLengths.Delete(prefixes)
+		_, _ = d.prefixLengths.Delete(prefixes, false)
 		metrics.PolicyImportErrors.Inc()
 		logger.WithError(err).WithField("prefixes", prefixes).Warn(
 			"Failed to allocate identities for CIDRs during policy add")
@@ -389,7 +373,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 	if len(removedPrefixes) > 0 {
 		logger.WithField("prefixes", removedPrefixes).Debug("Decrementing replaced CIDR refcounts when adding rules")
 		ipcache.ReleaseCIDRs(removedPrefixes)
-		d.prefixLengths.Delete(removedPrefixes)
+		d.prefixLengths.Delete(removedPrefixes, false)
 	}
 
 	logger.WithField(logfields.PolicyRevision, newRev).Info("Policy imported via API, recalculating...")
@@ -592,13 +576,8 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 	log.WithField("prefixes", prefixes).Debug("Policy deleted via API, found prefixes...")
 	ipcache.ReleaseCIDRs(prefixes)
 
-	prefixesChanged := d.prefixLengths.Delete(prefixes)
-	if !bpfIPCache.BackedByLPM() && prefixesChanged {
-		// Only recompile if configuration has changed.
-		log.Debug("CIDR policy has changed; recompiling base programs")
-		if err := d.compileBase(); err != nil {
-			log.WithError(err).Error("Unable to recompile base programs")
-		}
+	if _, err := d.prefixLengths.Delete(prefixes, true); err != nil {
+		log.WithError(err).Error("Error when deleting prefixes")
 	}
 
 	if option.Config.SelectiveRegeneration {

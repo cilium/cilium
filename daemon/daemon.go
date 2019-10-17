@@ -519,6 +519,8 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 		return nil, restoredEndpoints, err
 	}
 
+	d.prefixLengths.AddListener(&d)
+
 	// We can only start monitor agent once cilium_event has been set up.
 	if option.Config.RunMonitorAgent {
 		monitorAgent, err := monitoragent.NewAgent(context.TODO(), defaults.MonitorBufferPages)
@@ -551,6 +553,15 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 	bootstrapStats.fqdn.End(true)
 
 	return &d, restoredEndpoints, nil
+}
+
+func (d *Daemon) OnPrefixCountChange() error {
+	if !ipcachemap.BackedByLPM() {
+		// Only recompile if configuration has changed.
+		log.Debug("CIDR policy has changed; recompiling base programs")
+		return d.compileBase()
+	}
+	return nil
 }
 
 func (d *Daemon) bootstrapClusterMesh(nodeMngr *nodemanager.Manager) {
