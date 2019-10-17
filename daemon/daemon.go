@@ -45,6 +45,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/endpointsynchronizer"
+	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -126,12 +127,6 @@ type Daemon struct {
 	// dnsPoller polls DNS names and sends them to dnsNameManager
 	dnsPoller *fqdn.DNSPoller
 
-	// k8sAPIs is a set of k8s API in use. They are setup in EnableK8sWatcher,
-	// and may be disabled while the agent runs.
-	// This is on this object, instead of a global, because EnableK8sWatcher is
-	// on Daemon.
-	k8sAPIGroups k8sAPIGroupsUsed
-
 	// Used to synchronize generation of daemon's BPF programs and endpoint BPF
 	// programs.
 	compilationMutex *lock.RWMutex
@@ -141,17 +136,6 @@ type Daemon struct {
 	prefixLengths *counter.PrefixLengthCounter
 
 	clustermesh *clustermesh.ClusterMesh
-
-	// k8sResourceSyncedMu protects the k8sResourceSynced map.
-	k8sResourceSyncedMu lock.RWMutex
-
-	// k8sResourceSynced maps a resource name to a channel. Once the given
-	// resource name is synchronized with k8s, the channel for which that
-	// resource name maps to is closed.
-	k8sResourceSynced map[string]<-chan struct{}
-
-	// k8sSvcCache is a cache of all Kubernetes services and endpoints
-	k8sSvcCache k8s.ServiceCache
 
 	mtuConfig     mtu.Configuration
 	policyTrigger *trigger.Trigger
@@ -174,6 +158,8 @@ type Daemon struct {
 	endpointManager *endpointmanager.EndpointManager
 
 	identityAllocator *cache.CachingIdentityAllocator
+
+	k8sWatcher *watchers.K8sWatcher
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -329,17 +315,15 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 	identity.InitWellKnownIdentities()
 
 	d := Daemon{
-		svc:               service.NewService(),
-		k8sSvcCache:       k8s.NewServiceCache(),
-		prefixLengths:     createPrefixLengthCounter(),
-		k8sResourceSynced: map[string]<-chan struct{}{},
-		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
-		compilationMutex:  new(lock.RWMutex),
-		netConf:           netConf,
-		mtuConfig:         mtuConfig,
-		datapath:          dp,
-		nodeDiscovery:     nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig),
-		iptablesManager:   iptablesManager,
+		svc:              service.NewService(),
+		prefixLengths:    createPrefixLengthCounter(),
+		buildEndpointSem: semaphore.NewWeighted(int64(numWorkerThreads())),
+		compilationMutex: new(lock.RWMutex),
+		netConf:          netConf,
+		mtuConfig:        mtuConfig,
+		datapath:         dp,
+		nodeDiscovery:    nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig),
+		iptablesManager:  iptablesManager,
 	}
 
 	d.identityAllocator = cache.NewCachingIdentityAllocator(&d)
@@ -357,6 +341,14 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 		Allocator: d.identityAllocator,
 	})
 	d.endpointManager.InitMetrics()
+
+	d.k8sWatcher = watchers.NewK8sWatcher(
+		d.endpointManager,
+		d.nodeDiscovery.Manager,
+		&d,
+		d.policy,
+		d.svc,
+	)
 
 	bootstrapStats.daemonInit.End(true)
 
@@ -401,13 +393,13 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 	}
 	d.policyTrigger = t
 
-	debug.RegisterStatusObject("k8s-service-cache", &d.k8sSvcCache)
+	debug.RegisterStatusObject("k8s-service-cache", &d.k8sWatcher.K8sSvcCache)
 	debug.RegisterStatusObject("ipam", d.ipam)
 
 	bootstrapStats.k8sInit.Start()
 	k8s.Configure(option.Config.K8sAPIServer, option.Config.K8sKubeConfigPath, defaults.K8sClientQPSLimit, defaults.K8sClientBurst)
 	bootstrapStats.k8sInit.End(true)
-	d.runK8sServiceHandler()
+	d.k8sWatcher.RunK8sServiceHandler()
 	policyApi.InitEntities(option.Config.ClusterName)
 
 	bootstrapStats.workloadsInit.Start()
@@ -564,7 +556,7 @@ func (d *Daemon) bootstrapClusterMesh(nodeMngr *nodemanager.Manager) {
 				Name:                  "clustermesh",
 				ConfigDirectory:       path,
 				NodeKeyCreator:        nodeStore.KeyCreator,
-				ServiceMerger:         &d.k8sSvcCache,
+				ServiceMerger:         &d.k8sWatcher.K8sSvcCache,
 				NodeManager:           nodeMngr,
 				RemoteIdentityWatcher: d.identityAllocator,
 			})

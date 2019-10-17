@@ -104,7 +104,7 @@ func (d *Daemon) getK8sStatus() *models.K8sStatus {
 	k8sStatus := &models.K8sStatus{
 		State:          models.StatusStateOk,
 		Msg:            version,
-		K8sAPIVersions: d.k8sAPIGroups.getGroups(),
+		K8sAPIVersions: d.k8sWatcher.GetAPIGroups(),
 	}
 
 	return k8sStatus
