@@ -451,6 +451,7 @@ static inline void __inline__ set_encrypt_key_cb(struct __sk_buff *skb, __u8 key
 #define TC_INDEX_F_SKIP_INGRESS_PROXY	1
 #define TC_INDEX_F_SKIP_EGRESS_PROXY	2
 #define TC_INDEX_F_SKIP_NODEPORT	4
+#define TC_INDEX_F_SKIP_RECIRCULATION	8
 
 /* skb->cb[] usage: */
 enum {
