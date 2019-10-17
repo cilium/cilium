@@ -56,7 +56,7 @@ const (
 	k8sAPIGroupCiliumNetworkPolicyV2 = "cilium/v2::CiliumNetworkPolicy"
 	k8sAPIGroupCiliumNodeV2          = "cilium/v2::CiliumNode"
 	k8sAPIGroupCiliumEndpointV2      = "cilium/v2::CiliumEndpoint"
-	cacheSyncTimeout                 = time.Duration(3 * time.Minute)
+	cacheSyncTimeout                 = 3 * time.Minute
 
 	metricCNP            = "CiliumNetworkPolicy"
 	metricEndpoint       = "Endpoint"
@@ -378,45 +378,45 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 	k.k8sAPIGroups.addAPI(k8sAPIGroupCRD)
 
 	ciliumNPClient := k8s.CiliumClient()
+	asyncControllers := &sync.WaitGroup{}
 
+	// kubernetes network policies
 	serKNPs := serializer.NewFunctionQueue(queueSize)
 	swgKNP := lock.NewStoppableWaitGroup()
-
-	serSvcs := serializer.NewFunctionQueue(queueSize)
-	swgSvcs := lock.NewStoppableWaitGroup()
-
-	serEps := serializer.NewFunctionQueue(queueSize)
-	swgEps := lock.NewStoppableWaitGroup()
-
-	serCNPs := serializer.NewFunctionQueue(queueSize)
-	swgCNPs := lock.NewStoppableWaitGroup()
-
-	serPods := serializer.NewFunctionQueue(queueSize)
-
-	serNodes := serializer.NewFunctionQueue(queueSize)
-
-	serCiliumEndpoints := serializer.NewFunctionQueue(queueSize)
-
-	serNamespaces := serializer.NewFunctionQueue(queueSize)
-
 	k.networkPoliciesInit(k8s.Client(), serKNPs, swgKNP)
 
+	// kubernetes services
+	serSvcs := serializer.NewFunctionQueue(queueSize)
+	swgSvcs := lock.NewStoppableWaitGroup()
 	k.servicesInit(k8s.Client(), serSvcs, swgSvcs)
 
+	// kubernetes endpoints
+	serEps := serializer.NewFunctionQueue(queueSize)
+	swgEps := lock.NewStoppableWaitGroup()
 	k.endpointsInit(k8s.Client(), serEps, swgEps)
 
+	// cilium network policies
+	serCNPs := serializer.NewFunctionQueue(queueSize)
+	swgCNPs := lock.NewStoppableWaitGroup()
 	k.ciliumNetworkPoliciesInit(ciliumNPClient, serCNPs, swgCNPs)
 
-	asyncControllers := &sync.WaitGroup{}
+	// cilium nodes
 	asyncControllers.Add(1)
+	serNodes := serializer.NewFunctionQueue(queueSize)
 	go k.ciliumNodeInit(ciliumNPClient, serNodes, asyncControllers)
 
+	// cilium endpoints
 	asyncControllers.Add(1)
+	serCiliumEndpoints := serializer.NewFunctionQueue(queueSize)
 	go k.ciliumEndpointsInit(ciliumNPClient, serCiliumEndpoints, asyncControllers)
 
+	// kubernetes pods
 	asyncControllers.Add(1)
+	serPods := serializer.NewFunctionQueue(queueSize)
 	go k.podsInit(k8s.Client(), serPods, asyncControllers)
 
+	// kubernetes namespaces
+	serNamespaces := serializer.NewFunctionQueue(queueSize)
 	go k.namespacesInit(k8s.Client(), serNamespaces)
 
 	asyncControllers.Wait()
