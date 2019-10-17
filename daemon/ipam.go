@@ -343,6 +343,6 @@ func (d *Daemon) bootstrapIPAM() {
 	d.ipam = ipam.NewIPAM(d.datapath.LocalNodeAddressing(), ipam.Configuration{
 		EnableIPv4: option.Config.EnableIPv4,
 		EnableIPv6: option.Config.EnableIPv6,
-	}, d)
+	}, d, d.k8sWatcher)
 	bootstrapStats.ipam.End(true)
 }

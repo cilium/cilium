@@ -74,7 +74,7 @@ type nodeStore struct {
 
 // newNodeStore initializes a new store which reflects the CiliumNode custom
 // resource of the specified node name
-func newNodeStore(nodeName string, owner Owner) *nodeStore {
+func newNodeStore(nodeName string, owner Owner, k8sEventReg K8sEventRegister) *nodeStore {
 	log.WithField(fieldName, nodeName).Info("Subscribed to CiliumNode custom resource")
 
 	store := &nodeStore{
@@ -107,22 +107,22 @@ func newNodeStore(nodeName string, owner Owner) *nodeStore {
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
-				defer func() { owner.K8sEventReceived("CiliumNode", "create", valid, equal) }()
+				defer func() { k8sEventReg.K8sEventReceived("CiliumNode", "create", valid, equal) }()
 				if node, ok := obj.(*ciliumv2.CiliumNode); ok {
 					valid = true
 					store.updateLocalNodeResource(node.DeepCopy())
-					owner.K8sEventProcessed("CiliumNode", "create", true)
+					k8sEventReg.K8sEventProcessed("CiliumNode", "create", true)
 				} else {
 					log.Warningf("Unknown CiliumNode object type %s received: %+v", reflect.TypeOf(obj), obj)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
-				defer func() { owner.K8sEventReceived("CiliumNode", "update", valid, equal) }()
+				defer func() { k8sEventReg.K8sEventReceived("CiliumNode", "update", valid, equal) }()
 				if node, ok := newObj.(*ciliumv2.CiliumNode); ok {
 					valid = true
 					store.updateLocalNodeResource(node.DeepCopy())
-					owner.K8sEventProcessed("CiliumNode", "update", true)
+					k8sEventReg.K8sEventProcessed("CiliumNode", "update", true)
 				} else {
 					log.Warningf("Unknown CiliumNode object type %s received: %+v", reflect.TypeOf(newObj), newObj)
 				}
@@ -134,8 +134,8 @@ func newNodeStore(nodeName string, owner Owner) *nodeStore {
 				// matching the local node name has been
 				// removed. No attempt to cast is required.
 				store.deleteLocalNodeResource()
-				owner.K8sEventProcessed("CiliumNode", "delete", true)
-				owner.K8sEventReceived("CiliumNode", "delete", true, false)
+				k8sEventReg.K8sEventProcessed("CiliumNode", "delete", true)
+				k8sEventReg.K8sEventReceived("CiliumNode", "delete", true, false)
 			},
 		},
 		func(obj interface{}) interface{} {
@@ -389,9 +389,9 @@ type crdAllocator struct {
 }
 
 // newCRDAllocator creates a new CRD-backed IP allocator
-func newCRDAllocator(family Family, owner Owner) Allocator {
+func newCRDAllocator(family Family, owner Owner, k8sEventReg K8sEventRegister) Allocator {
 	initNodeStore.Do(func() {
-		sharedNodeStore = newNodeStore(node.GetName(), owner)
+		sharedNodeStore = newNodeStore(node.GetName(), owner, k8sEventReg)
 	})
 
 	allocator := &crdAllocator{

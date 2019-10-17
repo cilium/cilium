@@ -33,7 +33,7 @@ func (o *ownerMock) UpdateCiliumNodeResource()                                  
 
 func (s *IPAMSuite) TestAllocatedIPDump(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true}, &ownerMock{})
+	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true}, &ownerMock{}, &ownerMock{})
 
 	ipv4 := fakeAddressing.IPv4().AllocationCIDR().IP
 	ipv6 := fakeAddressing.IPv6().AllocationCIDR().IP
