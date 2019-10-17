@@ -691,11 +691,34 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 		return ret;
 	}
 
-	if (!revalidate_data(skb, &data, &data_end, &ip4))
-		return DROP_INVALID;
 	if (skb_load_bytes(skb, ETH_HLEN, &v4, sizeof(v4)) < 0)
 		return DROP_INVALID;
-	cilium_dbg(skb, DBG_GENERIC, 222, v4.ihl);
+	v4.ihl += 0x1;
+	v4.tot_len = bpf_htons(bpf_ntohs(v4.tot_len) + 0x4);
+	//cilium_dbg(skb, DBG_GENERIC, 222, v4.ihl);
+
+	if (skb_adjust_room(skb, 0x4, BPF_ADJ_ROOM_NET, 0))
+		return DROP_INVALID;
+
+	struct iphdr_with_opt v4_with_opt = {};
+	v4_with_opt.hdr = v4;
+	v4_with_opt.opt = bpf_htonl(0x88041234);
+	set_ipv4_csum(&v4_with_opt);
+
+	uint32_t opt = v4_with_opt.opt;
+
+	v4 = v4_with_opt.hdr;
+	if (skb_store_bytes(skb, ETH_HLEN, &v4, sizeof(v4), 0) < 0)
+		return DROP_INVALID;
+	if (skb_store_bytes(skb, ETH_HLEN + sizeof(v4), &opt, sizeof(opt), 0) < 0)
+		return DROP_INVALID;
+
+	//if (skb_store_bytes(skb, ETH_HLEN, &v4_with_opt, sizeof(v4_with_opt), 0) < 0)
+	//	return DROP_INVALID;
+
+
+	//if (!revalidate_data(skb, &data, &data_end, &ip4))
+	//	return DROP_INVALID;
 
 	if (!backend_local) {
 		skb->cb[CB_NAT] = NAT_DIR_EGRESS;

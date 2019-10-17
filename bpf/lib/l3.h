@@ -174,4 +174,21 @@ static inline __u8 __inline__ get_min_encrypt_key(__u8 peer_key)
 	return local_key < peer_key ? local_key : peer_key;
 }
 
+#ifdef ENABLE_IPV4
+static __always_inline void set_ipv4_csum(struct iphdr_with_opt *iph)
+{
+	__u16 *iph16 = (__u16 *)iph;
+	__u32 csum;
+	int i;
+
+	iph->hdr.check = 0;
+
+#pragma clang loop unroll(full)
+	for (i = 0, csum = 0; i < sizeof(*iph) >> 1; i++)
+		csum += *iph16++;
+
+	iph->hdr.check = ~((csum & 0xffff) + (csum >> 16));
+}
+#endif
+
 #endif
