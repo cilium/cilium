@@ -364,7 +364,7 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState) chan struc
 				controller.NewManager().UpdateController("sync-lb-maps-with-k8s-services",
 					controller.ControllerParams{
 						DoFunc: func(ctx context.Context) error {
-							frontends := d.k8sSvcCache.UniqueServiceFrontends()
+							frontends := d.k8sWatcher.K8sSvcCache.UniqueServiceFrontends()
 							matchSVC := func(addr loadbalancer.L3n4Addr) bool {
 								return frontends.LooseMatch(addr)
 							}

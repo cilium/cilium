@@ -59,6 +59,13 @@ type Configuration struct {
 
 // Owner is the interface the owner of an IPAM allocator has to implement
 type Owner interface {
+	// UpdateCiliumNodeResource is called to create/update the CiliumNode
+	// resource. The function must block until the custom resource has been
+	// created.
+	UpdateCiliumNodeResource()
+}
+
+type K8sEventRegister interface {
 	// K8sEventReceived is called to do metrics accounting for received
 	// Kubernetes events
 	K8sEventReceived(scope string, action string, valid, equal bool)
@@ -66,15 +73,10 @@ type Owner interface {
 	// K8sEventProcessed is called to do metrics accounting for each processed
 	// Kubernetes event
 	K8sEventProcessed(scope string, action string, status bool)
-
-	// UpdateCiliumNodeResource is called to create/update the CiliumNode
-	// resource. The function must block until the custom resource has been
-	// created.
-	UpdateCiliumNodeResource()
 }
 
 // NewIPAM returns a new IP address manager
-func NewIPAM(nodeAddressing datapath.NodeAddressing, c Configuration, owner Owner) *IPAM {
+func NewIPAM(nodeAddressing datapath.NodeAddressing, c Configuration, owner Owner, k8sEventReg K8sEventRegister) *IPAM {
 	ipam := &IPAM{
 		nodeAddressing: nodeAddressing,
 		config:         c,
@@ -101,11 +103,11 @@ func NewIPAM(nodeAddressing datapath.NodeAddressing, c Configuration, owner Owne
 	case option.IPAMCRD, option.IPAMENI:
 		log.Info("Initializing CRD-based IPAM")
 		if c.EnableIPv6 {
-			ipam.IPv6Allocator = newCRDAllocator(IPv6, owner)
+			ipam.IPv6Allocator = newCRDAllocator(IPv6, owner, k8sEventReg)
 		}
 
 		if c.EnableIPv4 {
-			ipam.IPv4Allocator = newCRDAllocator(IPv4, owner)
+			ipam.IPv4Allocator = newCRDAllocator(IPv4, owner, k8sEventReg)
 		}
 	default:
 		log.Fatalf("Unknown IPAM backend %s", option.Config.IPAM)
