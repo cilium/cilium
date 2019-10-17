@@ -412,7 +412,6 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 		// function will return.
 
 		r := &PolicyReactionEvent{
-			d:                 d,
 			wg:                &policySelectionWG,
 			epsToBumpRevision: endpointsToBumpRevision,
 			endpointsToRegen:  endpointsToRegen,
@@ -439,7 +438,6 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 // to a policy repository for a daemon. This currently consists of endpoint
 // regenerations / policy revision incrementing for a given endpoint.
 type PolicyReactionEvent struct {
-	d                 *Daemon
 	wg                *sync.WaitGroup
 	epsToBumpRevision *policy.EndpointSet
 	endpointsToRegen  *policy.EndpointSet
@@ -451,14 +449,14 @@ func (r *PolicyReactionEvent) Handle(res chan interface{}) {
 	// Wait until we have calculated which endpoints need to be selected
 	// across multiple goroutines.
 	r.wg.Wait()
-	r.d.ReactToRuleUpdates(r.epsToBumpRevision, r.endpointsToRegen, r.newRev)
+	reactToRuleUpdates(r.epsToBumpRevision, r.endpointsToRegen, r.newRev)
 }
 
-// ReactToRuleUpdates does the following:
+// reactToRuleUpdates does the following:
 // * regenerate all endpoints in epsToRegen
 // * bump the policy revision of all endpoints not in epsToRegen, but which are
 //   in allEps, to revision rev.
-func (d *Daemon) ReactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.EndpointSet, rev uint64) {
+func reactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.EndpointSet, rev uint64) {
 	var enqueueWaitGroup sync.WaitGroup
 
 	// Bump revision of endpoints which don't need to be regenerated.
@@ -601,7 +599,6 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 
 	if option.Config.SelectiveRegeneration {
 		r := &PolicyReactionEvent{
-			d:                 d,
 			wg:                &policySelectionWG,
 			epsToBumpRevision: epsToBumpRevision,
 			endpointsToRegen:  endpointsToRegen,
