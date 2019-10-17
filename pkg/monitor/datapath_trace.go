@@ -185,9 +185,17 @@ func (n *TraceNotify) OriginalIP() net.IP {
 	return n.OrigIP[:4]
 }
 
+// DataOffset returns the offset from the beginning of TraceNotify where the
+// trace notify data begins.
+//
+// Returns zero for invalid or unknown TraceNotify messages.
+func (n *TraceNotify) DataOffset() uint {
+	return traceNotifyLength[n.Version]
+}
+
 // DumpInfo prints a summary of the trace messages.
 func (n *TraceNotify) DumpInfo(data []byte) {
-	hdrLen := traceNotifyLength[n.Version]
+	hdrLen := n.DataOffset()
 	if n.encryptReason() != "" {
 		fmt.Printf("%s %s flow %#x identity %d->%d state %s ifindex %s orig-ip %s: %s\n",
 			n.traceSummary(), n.encryptReason(), n.Hash, n.SrcLabel, n.DstLabel,
@@ -220,7 +228,7 @@ func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
 		fmt.Printf("\n")
 	}
 
-	hdrLen := traceNotifyLength[n.Version]
+	hdrLen := n.DataOffset()
 	if n.CapLen > 0 && len(data) > int(hdrLen) {
 		Dissect(dissect, data[hdrLen:])
 	}
@@ -229,7 +237,7 @@ func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
 func (n *TraceNotify) getJSON(data []byte, cpuPrefix string) (string, error) {
 	v := TraceNotifyToVerbose(n)
 	v.CPUPrefix = cpuPrefix
-	hdrLen := traceNotifyLength[n.Version]
+	hdrLen := n.DataOffset()
 	if n.CapLen > 0 && len(data) > int(hdrLen) {
 		v.Summary = GetDissectSummary(data[hdrLen:])
 	}
