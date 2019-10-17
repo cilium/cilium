@@ -96,7 +96,7 @@ static __always_inline bool nodeport_nat_ipv6_needed(struct __sk_buff *skb,
 #define NODEPORT_DO_NAT_IPV6(ADDR, NDIR)					\
 	({									\
 		struct ipv6_nat_target target = {				\
-			.min_port = NODEPORT_PORT_MAX_NAT + 1,			\
+			.min_port = NODEPORT_PORT_MIN_NAT,			\
 			.max_port = 65535,					\
 			.force_range = true,					\
 		};								\
@@ -420,7 +420,12 @@ static inline int rev_nodeport_lb6(struct __sk_buff *skb, int *ifindex,
 			if (eth_store_saddr(skb, fib_params.smac, 0) < 0)
 				return DROP_WRITE_ERROR;
 		}
-
+	} else {
+		if (!(skb->tc_index & TC_INDEX_F_SKIP_RECIRCULATION)) {
+			skb->tc_index |= TC_INDEX_F_SKIP_NODEPORT;
+			ep_tail_call(skb, CILIUM_CALL_IPV6_FROM_LXC);
+			return DROP_MISSED_TAIL_CALL;
+		}
 	}
 
 	return TC_ACT_OK;
@@ -463,7 +468,7 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __sk_buff *skb,
 #define NODEPORT_DO_NAT_IPV4(ADDR, NDIR)					\
 	({									\
 		struct ipv4_nat_target target = {				\
-			.min_port = NODEPORT_PORT_MAX_NAT + 1,			\
+			.min_port = NODEPORT_PORT_MIN_NAT,			\
 			.max_port = 65535,					\
 			.addr = (ADDR),						\
 			.force_range = true,					\
@@ -786,6 +791,12 @@ static inline int rev_nodeport_lb4(struct __sk_buff *skb, int *ifindex,
 			return DROP_WRITE_ERROR;
 		    if (eth_store_saddr(skb, fib_params.smac, 0) < 0)
 			return DROP_WRITE_ERROR;
+		}
+	} else {
+		if (!(skb->tc_index & TC_INDEX_F_SKIP_RECIRCULATION)) {
+			skb->tc_index |= TC_INDEX_F_SKIP_NODEPORT;
+			ep_tail_call(skb, CILIUM_CALL_IPV4_FROM_LXC);
+			return DROP_MISSED_TAIL_CALL;
 		}
 	}
 

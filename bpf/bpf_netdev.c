@@ -605,15 +605,6 @@ static __always_inline int do_netdev(struct __sk_buff *skb, __u16 proto)
 	bpf_clear_cb(skb);
 	bpf_clear_nodeport(skb);
 
-#ifdef ENABLE_NODEPORT
-	ret = nodeport_nat_rev(skb, false);
-	if (IS_ERR(ret) &&
-	    ret != DROP_NAT_NO_MAPPING &&
-	    ret != DROP_NAT_UNSUPP_PROTO)
-		return send_drop_notify_error(skb, identity, ret,
-					      TC_ACT_OK, METRIC_INGRESS);
-#endif
-
 #ifdef FROM_HOST
 	if (1) {
 
