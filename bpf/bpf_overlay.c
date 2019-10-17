@@ -268,14 +268,6 @@ int from_overlay(struct __sk_buff *skb)
 		goto out;
 	}
 
-#ifdef ENABLE_NODEPORT
-	ret = nodeport_nat_rev(skb, true);
-	if (IS_ERR(ret) &&
-	    ret != DROP_NAT_NO_MAPPING &&
-	    ret != DROP_NAT_UNSUPP_PROTO)
-		goto out;
-#endif
-
 #ifdef ENABLE_IPSEC
 	if ((skb->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT) {
 		send_trace_notify(skb, TRACE_FROM_OVERLAY, get_identity(skb), 0, 0,
