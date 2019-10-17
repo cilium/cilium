@@ -594,6 +594,7 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
+	struct iphdr v4 = {};
 	int ret,  l3_off = ETH_HLEN, l4_off;
 	struct csum_offset csum_off = {};
 	struct lb4_service *svc;
@@ -689,6 +690,12 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 	if (ret < 0) {
 		return ret;
 	}
+
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
+		return DROP_INVALID;
+	if (skb_load_bytes(skb, ETH_HLEN, &v4, sizeof(v4)) < 0)
+		return DROP_INVALID;
+	cilium_dbg(skb, DBG_GENERIC, 222, v4.ihl);
 
 	if (!backend_local) {
 		skb->cb[CB_NAT] = NAT_DIR_EGRESS;
