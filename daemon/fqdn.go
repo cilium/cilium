@@ -685,32 +685,38 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 	}
 
 	for _, ep := range endpoints {
-		for _, lookup := range append(ep.DNSHistory.Dump(), ep.DNSCTHistory.Dump()...) {
-			if !nameMatcher(lookup.Name) {
-				continue
-			}
+		for name, db := range map[string]*fqdn.DNSCache{
+			"lookup":     ep.DNSHistory,
+			"connection": ep.DNSCTHistory,
+		} {
+			for _, lookup := range db.Dump() {
+				if !nameMatcher(lookup.Name) {
+					continue
+				}
 
-			// The API model needs strings
-			IPStrings := make([]string, 0, len(lookup.IPs))
+				// The API model needs strings
+				IPStrings := make([]string, 0, len(lookup.IPs))
 
-			// only proceed if any IP matches the cidr selector
-			anIPMatches := false
-			for _, ip := range lookup.IPs {
-				anIPMatches = anIPMatches || cidrMatcher(ip)
-				IPStrings = append(IPStrings, ip.String())
-			}
-			if !anIPMatches {
-				continue
-			}
+				// only proceed if any IP matches the cidr selector
+				anIPMatches := false
+				for _, ip := range lookup.IPs {
+					anIPMatches = anIPMatches || cidrMatcher(ip)
+					IPStrings = append(IPStrings, ip.String())
+				}
+				if !anIPMatches {
+					continue
+				}
 
-			lookups = append(lookups, &models.DNSLookup{
-				Fqdn:           lookup.Name,
-				Ips:            IPStrings,
-				LookupTime:     strfmt.DateTime(lookup.LookupTime),
-				TTL:            int64(lookup.TTL),
-				ExpirationTime: strfmt.DateTime(lookup.ExpirationTime),
-				EndpointID:     int64(ep.ID),
-			})
+				lookups = append(lookups, &models.DNSLookup{
+					Fqdn:           lookup.Name,
+					Ips:            IPStrings,
+					LookupTime:     strfmt.DateTime(lookup.LookupTime),
+					TTL:            int64(lookup.TTL),
+					ExpirationTime: strfmt.DateTime(lookup.ExpirationTime),
+					EndpointID:     int64(ep.ID),
+					Source:         name,
+				})
+			}
 		}
 	}
 

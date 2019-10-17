@@ -160,10 +160,11 @@ func listFQDNCache() {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "Endpoint\tFQDN\tTTL\tExpirationTime\tIPs\t")
+	fmt.Fprintln(w, "Endpoint\tSource\tFQDN\tTTL\tExpirationTime\tIPs\t")
 	for _, lookup := range lookups {
-		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t\n",
+		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\t\n",
 			lookup.EndpointID,
+			lookup.Source,
 			lookup.Fqdn,
 			time.Duration(lookup.TTL)*time.Second,
 			lookup.ExpirationTime.String(),
