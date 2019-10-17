@@ -1590,6 +1590,10 @@ func init() {
           "type": "string",
           "format": "date-time"
         },
+        "source": {
+          "description": "The reason this FQDN IP association exists. Either a DNS lookup or an ongoing connection to an IP that was created by a DNS lookup.",
+          "type": "string"
+        },
         "ttl": {
           "description": "The TTL in the DNS response",
           "type": "integer"
@@ -4842,6 +4846,10 @@ func init() {
           "description": "The absolute time when this data was recieved",
           "type": "string",
           "format": "date-time"
+        },
+        "source": {
+          "description": "The reason this FQDN IP association exists. Either a DNS lookup or an ongoing connection to an IP that was created by a DNS lookup.",
+          "type": "string"
         },
         "ttl": {
           "description": "The TTL in the DNS response",
