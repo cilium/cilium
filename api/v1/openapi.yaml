@@ -2203,6 +2203,9 @@ definitions:
       endpoint-id:
         description: The endpoint that made this lookup, or 0 for the agent itself.
         type: integer
+      source:
+        description: The reason this FQDN IP association exists. Either a DNS lookup or an ongoing connection to an IP that was created by a DNS lookup.
+        type: string
   IPListEntry:
     description: IP entry with metadata
     type: object
