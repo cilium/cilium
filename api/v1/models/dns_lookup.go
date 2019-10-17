@@ -34,6 +34,9 @@ type DNSLookup struct {
 	// Format: date-time
 	LookupTime strfmt.DateTime `json:"lookup-time,omitempty"`
 
+	// The reason this FQDN IP association exists. Either a DNS lookup or an ongoing connection to an IP that was created by a DNS lookup.
+	Source string `json:"source,omitempty"`
+
 	// The TTL in the DNS response
 	TTL int64 `json:"ttl,omitempty"`
 }
