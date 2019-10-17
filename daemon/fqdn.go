@@ -62,6 +62,9 @@ const (
 	metricErrorProxy   = "proxyErr"
 	metricErrorDenied  = "denied"
 	metricErrorAllow   = "allow"
+
+	dnsSourceLookup     = "lookup"
+	dnsSourceConnection = "connection"
 )
 
 func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, identityAllocator *secIDCache.CachingIdentityAllocator) (map[policyApi.FQDNSelector][]*identity.Identity, error) {
@@ -713,6 +716,7 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 	}
 
 	for _, ep := range endpoints {
+		// TODO: Include toDelete entries here?
 		for _, lookup := range ep.DNSHistory.Dump() {
 			if !nameMatcher(lookup.Name) {
 				continue
@@ -738,7 +742,31 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 				TTL:            int64(lookup.TTL),
 				ExpirationTime: strfmt.DateTime(lookup.ExpirationTime),
 				EndpointID:     int64(ep.ID),
+				Source:         dnsSourceLookup,
 			})
+
+			for _, delete := range ep.DNSDeletes.DumpActive() {
+				// only proceed if any IP matches the cidr selector
+				if !cidrMatcher(delete.IP) {
+					continue
+				}
+
+				for _, name := range delete.Names {
+					if !nameMatcher(name) {
+						continue
+					}
+
+					lookups = append(lookups, &models.DNSLookup{
+						Fqdn:           lookup.Name,
+						Ips:            []string{delete.IP.String()},
+						LookupTime:     strfmt.DateTime(lookup.LookupTime),
+						TTL:            int64(lookup.TTL),
+						ExpirationTime: strfmt.DateTime(lookup.ExpirationTime),
+						EndpointID:     int64(ep.ID),
+						Source:         dnsSourceConnection,
+					})
+				}
+			}
 		}
 
 		for _, delete := range ep.DNSDeletes.DumpActive() {
@@ -759,6 +787,7 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 					TTL:            0,
 					ExpirationTime: strfmt.DateTime(delete.ActiveAt),
 					EndpointID:     int64(ep.ID),
+					Source:         dnsSourceConnection,
 				})
 			}
 		}
