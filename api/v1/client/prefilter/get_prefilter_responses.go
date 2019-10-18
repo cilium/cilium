@@ -24,14 +24,12 @@ type GetPrefilterReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *GetPrefilterReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewGetPrefilterOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 500:
 		result := NewGetPrefilterFailure()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -61,6 +59,10 @@ func (o *GetPrefilterOK) Error() string {
 	return fmt.Sprintf("[GET /prefilter][%d] getPrefilterOK  %+v", 200, o.Payload)
 }
 
+func (o *GetPrefilterOK) GetPayload() *models.Prefilter {
+	return o.Payload
+}
+
 func (o *GetPrefilterOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	o.Payload = new(models.Prefilter)
@@ -88,6 +90,10 @@ type GetPrefilterFailure struct {
 
 func (o *GetPrefilterFailure) Error() string {
 	return fmt.Sprintf("[GET /prefilter][%d] getPrefilterFailure  %+v", 500, o.Payload)
+}
+
+func (o *GetPrefilterFailure) GetPayload() models.Error {
+	return o.Payload
 }
 
 func (o *GetPrefilterFailure) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

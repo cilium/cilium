@@ -24,14 +24,12 @@ type GetEndpointIDConfigReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *GetEndpointIDConfigReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewGetEndpointIDConfigOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 404:
 		result := NewGetEndpointIDConfigNotFound()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -59,6 +57,10 @@ type GetEndpointIDConfigOK struct {
 
 func (o *GetEndpointIDConfigOK) Error() string {
 	return fmt.Sprintf("[GET /endpoint/{id}/config][%d] getEndpointIdConfigOK  %+v", 200, o.Payload)
+}
+
+func (o *GetEndpointIDConfigOK) GetPayload() *models.EndpointConfigurationStatus {
+	return o.Payload
 }
 
 func (o *GetEndpointIDConfigOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

@@ -24,14 +24,12 @@ type GetEndpointIDLabelsReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *GetEndpointIDLabelsReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewGetEndpointIDLabelsOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 404:
 		result := NewGetEndpointIDLabelsNotFound()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -59,6 +57,10 @@ type GetEndpointIDLabelsOK struct {
 
 func (o *GetEndpointIDLabelsOK) Error() string {
 	return fmt.Sprintf("[GET /endpoint/{id}/labels][%d] getEndpointIdLabelsOK  %+v", 200, o.Payload)
+}
+
+func (o *GetEndpointIDLabelsOK) GetPayload() *models.LabelConfiguration {
+	return o.Payload
 }
 
 func (o *GetEndpointIDLabelsOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

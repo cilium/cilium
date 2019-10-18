@@ -24,21 +24,18 @@ type GetFqdnCacheReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *GetFqdnCacheReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewGetFqdnCacheOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 400:
 		result := NewGetFqdnCacheBadRequest()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return nil, result
-
 	case 404:
 		result := NewGetFqdnCacheNotFound()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -68,6 +65,10 @@ func (o *GetFqdnCacheOK) Error() string {
 	return fmt.Sprintf("[GET /fqdn/cache][%d] getFqdnCacheOK  %+v", 200, o.Payload)
 }
 
+func (o *GetFqdnCacheOK) GetPayload() []*models.DNSLookup {
+	return o.Payload
+}
+
 func (o *GetFqdnCacheOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	// response payload
@@ -93,6 +94,10 @@ type GetFqdnCacheBadRequest struct {
 
 func (o *GetFqdnCacheBadRequest) Error() string {
 	return fmt.Sprintf("[GET /fqdn/cache][%d] getFqdnCacheBadRequest  %+v", 400, o.Payload)
+}
+
+func (o *GetFqdnCacheBadRequest) GetPayload() models.Error {
+	return o.Payload
 }
 
 func (o *GetFqdnCacheBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

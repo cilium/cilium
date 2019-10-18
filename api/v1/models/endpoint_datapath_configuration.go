@@ -17,7 +17,7 @@ type EndpointDatapathConfiguration struct {
 
 	// Indicates that IPAM is done external to Cilium. This will prevent the IP from being released and re-allocation of the IP address is skipped on restore.
 	//
-	ExternalIPAM bool `json:"external-ipam,omitempty"`
+	ExternalIpam bool `json:"external-ipam,omitempty"`
 
 	// Installs a route in the Linux routing table pointing to the device of the endpoint's interface.
 	//

@@ -6,6 +6,8 @@ package endpoint
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"fmt"
+
 	"github.com/go-openapi/runtime"
 
 	strfmt "github.com/go-openapi/strfmt"
@@ -65,8 +67,9 @@ func (a *Client) DeleteEndpointID(params *DeleteEndpointIDParams) (*DeleteEndpoi
 	case *DeleteEndpointIDErrors:
 		return nil, value, nil
 	}
-	return nil, nil, nil
-
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for endpoint: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -96,8 +99,14 @@ func (a *Client) GetEndpoint(params *GetEndpointParams) (*GetEndpointOK, error) 
 	if err != nil {
 		return nil, err
 	}
-	return result.(*GetEndpointOK), nil
-
+	success, ok := result.(*GetEndpointOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetEndpoint: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -127,8 +136,14 @@ func (a *Client) GetEndpointID(params *GetEndpointIDParams) (*GetEndpointIDOK, e
 	if err != nil {
 		return nil, err
 	}
-	return result.(*GetEndpointIDOK), nil
-
+	success, ok := result.(*GetEndpointIDOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetEndpointID: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -158,8 +173,14 @@ func (a *Client) GetEndpointIDConfig(params *GetEndpointIDConfigParams) (*GetEnd
 	if err != nil {
 		return nil, err
 	}
-	return result.(*GetEndpointIDConfigOK), nil
-
+	success, ok := result.(*GetEndpointIDConfigOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetEndpointIDConfig: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -186,8 +207,14 @@ func (a *Client) GetEndpointIDHealthz(params *GetEndpointIDHealthzParams) (*GetE
 	if err != nil {
 		return nil, err
 	}
-	return result.(*GetEndpointIDHealthzOK), nil
-
+	success, ok := result.(*GetEndpointIDHealthzOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetEndpointIDHealthz: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -214,8 +241,14 @@ func (a *Client) GetEndpointIDLabels(params *GetEndpointIDLabelsParams) (*GetEnd
 	if err != nil {
 		return nil, err
 	}
-	return result.(*GetEndpointIDLabelsOK), nil
-
+	success, ok := result.(*GetEndpointIDLabelsOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetEndpointIDLabels: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -242,8 +275,14 @@ func (a *Client) GetEndpointIDLog(params *GetEndpointIDLogParams) (*GetEndpointI
 	if err != nil {
 		return nil, err
 	}
-	return result.(*GetEndpointIDLogOK), nil
-
+	success, ok := result.(*GetEndpointIDLogOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetEndpointIDLog: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -273,8 +312,14 @@ func (a *Client) PatchEndpointID(params *PatchEndpointIDParams) (*PatchEndpointI
 	if err != nil {
 		return nil, err
 	}
-	return result.(*PatchEndpointIDOK), nil
-
+	success, ok := result.(*PatchEndpointIDOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for PatchEndpointID: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -305,8 +350,14 @@ func (a *Client) PatchEndpointIDConfig(params *PatchEndpointIDConfigParams) (*Pa
 	if err != nil {
 		return nil, err
 	}
-	return result.(*PatchEndpointIDConfigOK), nil
-
+	success, ok := result.(*PatchEndpointIDConfigOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for PatchEndpointIDConfig: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -337,8 +388,14 @@ func (a *Client) PatchEndpointIDLabels(params *PatchEndpointIDLabelsParams) (*Pa
 	if err != nil {
 		return nil, err
 	}
-	return result.(*PatchEndpointIDLabelsOK), nil
-
+	success, ok := result.(*PatchEndpointIDLabelsOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for PatchEndpointIDLabels: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -368,8 +425,14 @@ func (a *Client) PutEndpointID(params *PutEndpointIDParams) (*PutEndpointIDCreat
 	if err != nil {
 		return nil, err
 	}
-	return result.(*PutEndpointIDCreated), nil
-
+	success, ok := result.(*PutEndpointIDCreated)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for PutEndpointID: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 // SetTransport changes the transport on the client

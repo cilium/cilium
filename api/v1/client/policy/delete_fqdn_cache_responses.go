@@ -24,14 +24,12 @@ type DeleteFqdnCacheReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *DeleteFqdnCacheReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewDeleteFqdnCacheOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 400:
 		result := NewDeleteFqdnCacheBadRequest()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -80,6 +78,10 @@ type DeleteFqdnCacheBadRequest struct {
 
 func (o *DeleteFqdnCacheBadRequest) Error() string {
 	return fmt.Sprintf("[DELETE /fqdn/cache][%d] deleteFqdnCacheBadRequest  %+v", 400, o.Payload)
+}
+
+func (o *DeleteFqdnCacheBadRequest) GetPayload() models.Error {
+	return o.Payload
 }
 
 func (o *DeleteFqdnCacheBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

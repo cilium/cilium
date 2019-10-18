@@ -16,18 +16,18 @@ import (
 	strfmt "github.com/go-openapi/strfmt"
 )
 
-// NewPostIPAMParams creates a new PostIPAMParams object
+// NewPostIpamParams creates a new PostIpamParams object
 // no default values defined in spec.
-func NewPostIPAMParams() PostIPAMParams {
+func NewPostIpamParams() PostIpamParams {
 
-	return PostIPAMParams{}
+	return PostIpamParams{}
 }
 
-// PostIPAMParams contains all the bound params for the post IP a m operation
+// PostIpamParams contains all the bound params for the post ipam operation
 // typically these are obtained from a http.Request
 //
-// swagger:parameters PostIPAM
-type PostIPAMParams struct {
+// swagger:parameters PostIpam
+type PostIpamParams struct {
 
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
@@ -45,8 +45,8 @@ type PostIPAMParams struct {
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
 // for simple values it will use straight method calls.
 //
-// To ensure default values, the struct must have been initialized with NewPostIPAMParams() beforehand.
-func (o *PostIPAMParams) BindRequest(r *http.Request, route *middleware.MatchedRoute) error {
+// To ensure default values, the struct must have been initialized with NewPostIpamParams() beforehand.
+func (o *PostIpamParams) BindRequest(r *http.Request, route *middleware.MatchedRoute) error {
 	var res []error
 
 	o.HTTPRequest = r
@@ -70,7 +70,7 @@ func (o *PostIPAMParams) BindRequest(r *http.Request, route *middleware.MatchedR
 }
 
 // bindFamily binds and validates parameter Family from query.
-func (o *PostIPAMParams) bindFamily(rawData []string, hasKey bool, formats strfmt.Registry) error {
+func (o *PostIpamParams) bindFamily(rawData []string, hasKey bool, formats strfmt.Registry) error {
 	var raw string
 	if len(rawData) > 0 {
 		raw = rawData[len(rawData)-1]
@@ -92,7 +92,7 @@ func (o *PostIPAMParams) bindFamily(rawData []string, hasKey bool, formats strfm
 }
 
 // validateFamily carries on validations for parameter Family
-func (o *PostIPAMParams) validateFamily(formats strfmt.Registry) error {
+func (o *PostIpamParams) validateFamily(formats strfmt.Registry) error {
 
 	if err := validate.Enum("family", "query", *o.Family, []interface{}{"ipv4", "ipv6"}); err != nil {
 		return err
@@ -102,7 +102,7 @@ func (o *PostIPAMParams) validateFamily(formats strfmt.Registry) error {
 }
 
 // bindOwner binds and validates parameter Owner from query.
-func (o *PostIPAMParams) bindOwner(rawData []string, hasKey bool, formats strfmt.Registry) error {
+func (o *PostIpamParams) bindOwner(rawData []string, hasKey bool, formats strfmt.Registry) error {
 	var raw string
 	if len(rawData) > 0 {
 		raw = rawData[len(rawData)-1]

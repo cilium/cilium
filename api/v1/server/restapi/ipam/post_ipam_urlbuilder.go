@@ -9,14 +9,12 @@ import (
 	"errors"
 	"net/url"
 	golangswaggerpaths "path"
-	"strings"
 )
 
-// PostIPAMIPURL generates an URL for the post IP a m IP operation
-type PostIPAMIPURL struct {
-	IP string
-
-	Owner *string
+// PostIpamURL generates an URL for the post ipam operation
+type PostIpamURL struct {
+	Family *string
+	Owner  *string
 
 	_basePath string
 	// avoid unkeyed usage
@@ -26,7 +24,7 @@ type PostIPAMIPURL struct {
 // WithBasePath sets the base path for this url builder, only required when it's different from the
 // base path specified in the swagger spec.
 // When the value of the base path is an empty string
-func (o *PostIPAMIPURL) WithBasePath(bp string) *PostIPAMIPURL {
+func (o *PostIpamURL) WithBasePath(bp string) *PostIpamURL {
 	o.SetBasePath(bp)
 	return o
 }
@@ -34,22 +32,15 @@ func (o *PostIPAMIPURL) WithBasePath(bp string) *PostIPAMIPURL {
 // SetBasePath sets the base path for this url builder, only required when it's different from the
 // base path specified in the swagger spec.
 // When the value of the base path is an empty string
-func (o *PostIPAMIPURL) SetBasePath(bp string) {
+func (o *PostIpamURL) SetBasePath(bp string) {
 	o._basePath = bp
 }
 
 // Build a url path and query string
-func (o *PostIPAMIPURL) Build() (*url.URL, error) {
+func (o *PostIpamURL) Build() (*url.URL, error) {
 	var _result url.URL
 
-	var _path = "/ipam/{ip}"
-
-	ip := o.IP
-	if ip != "" {
-		_path = strings.Replace(_path, "{ip}", ip, -1)
-	} else {
-		return nil, errors.New("ip is required on PostIPAMIPURL")
-	}
+	var _path = "/ipam"
 
 	_basePath := o._basePath
 	if _basePath == "" {
@@ -59,12 +50,20 @@ func (o *PostIPAMIPURL) Build() (*url.URL, error) {
 
 	qs := make(url.Values)
 
-	var owner string
-	if o.Owner != nil {
-		owner = *o.Owner
+	var familyQ string
+	if o.Family != nil {
+		familyQ = *o.Family
 	}
-	if owner != "" {
-		qs.Set("owner", owner)
+	if familyQ != "" {
+		qs.Set("family", familyQ)
+	}
+
+	var ownerQ string
+	if o.Owner != nil {
+		ownerQ = *o.Owner
+	}
+	if ownerQ != "" {
+		qs.Set("owner", ownerQ)
 	}
 
 	_result.RawQuery = qs.Encode()
@@ -73,7 +72,7 @@ func (o *PostIPAMIPURL) Build() (*url.URL, error) {
 }
 
 // Must is a helper function to panic when the url builder returns an error
-func (o *PostIPAMIPURL) Must(u *url.URL, err error) *url.URL {
+func (o *PostIpamURL) Must(u *url.URL, err error) *url.URL {
 	if err != nil {
 		panic(err)
 	}
@@ -84,17 +83,17 @@ func (o *PostIPAMIPURL) Must(u *url.URL, err error) *url.URL {
 }
 
 // String returns the string representation of the path with query string
-func (o *PostIPAMIPURL) String() string {
+func (o *PostIpamURL) String() string {
 	return o.Must(o.Build()).String()
 }
 
 // BuildFull builds a full url with scheme, host, path and query string
-func (o *PostIPAMIPURL) BuildFull(scheme, host string) (*url.URL, error) {
+func (o *PostIpamURL) BuildFull(scheme, host string) (*url.URL, error) {
 	if scheme == "" {
-		return nil, errors.New("scheme is required for a full url on PostIPAMIPURL")
+		return nil, errors.New("scheme is required for a full url on PostIpamURL")
 	}
 	if host == "" {
-		return nil, errors.New("host is required for a full url on PostIPAMIPURL")
+		return nil, errors.New("host is required for a full url on PostIpamURL")
 	}
 
 	base, err := o.Build()
@@ -108,6 +107,6 @@ func (o *PostIPAMIPURL) BuildFull(scheme, host string) (*url.URL, error) {
 }
 
 // StringFull returns the string representation of a complete url
-func (o *PostIPAMIPURL) StringFull(scheme, host string) string {
+func (o *PostIpamURL) StringFull(scheme, host string) string {
 	return o.Must(o.BuildFull(scheme, host)).String()
 }

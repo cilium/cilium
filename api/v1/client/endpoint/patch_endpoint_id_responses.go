@@ -24,28 +24,24 @@ type PatchEndpointIDReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *PatchEndpointIDReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewPatchEndpointIDOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 400:
 		result := NewPatchEndpointIDInvalid()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return nil, result
-
 	case 404:
 		result := NewPatchEndpointIDNotFound()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return nil, result
-
 	case 500:
 		result := NewPatchEndpointIDFailed()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -96,6 +92,10 @@ func (o *PatchEndpointIDInvalid) Error() string {
 	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdInvalid  %+v", 400, o.Payload)
 }
 
+func (o *PatchEndpointIDInvalid) GetPayload() models.Error {
+	return o.Payload
+}
+
 func (o *PatchEndpointIDInvalid) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	// response payload
@@ -142,6 +142,10 @@ type PatchEndpointIDFailed struct {
 
 func (o *PatchEndpointIDFailed) Error() string {
 	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdFailed  %+v", 500, o.Payload)
+}
+
+func (o *PatchEndpointIDFailed) GetPayload() models.Error {
+	return o.Payload
 }
 
 func (o *PatchEndpointIDFailed) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

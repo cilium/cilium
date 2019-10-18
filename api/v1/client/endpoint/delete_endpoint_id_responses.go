@@ -24,28 +24,24 @@ type DeleteEndpointIDReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *DeleteEndpointIDReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewDeleteEndpointIDOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 206:
 		result := NewDeleteEndpointIDErrors()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 400:
 		result := NewDeleteEndpointIDInvalid()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return nil, result
-
 	case 404:
 		result := NewDeleteEndpointIDNotFound()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -96,6 +92,10 @@ func (o *DeleteEndpointIDErrors) Error() string {
 	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdErrors  %+v", 206, o.Payload)
 }
 
+func (o *DeleteEndpointIDErrors) GetPayload() int64 {
+	return o.Payload
+}
+
 func (o *DeleteEndpointIDErrors) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	// response payload
@@ -123,6 +123,10 @@ type DeleteEndpointIDInvalid struct {
 
 func (o *DeleteEndpointIDInvalid) Error() string {
 	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdInvalid  %+v", 400, o.Payload)
+}
+
+func (o *DeleteEndpointIDInvalid) GetPayload() models.Error {
+	return o.Payload
 }
 
 func (o *DeleteEndpointIDInvalid) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

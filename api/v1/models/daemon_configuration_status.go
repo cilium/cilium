@@ -32,7 +32,7 @@ type DaemonConfigurationStatus struct {
 	Immutable ConfigurationMap `json:"immutable,omitempty"`
 
 	// Configured IPAM mode
-	IPAMMode string `json:"ipam-mode,omitempty"`
+	IpamMode string `json:"ipam-mode,omitempty"`
 
 	// ipvlan configuration
 	IpvlanConfiguration *IpvlanConfiguration `json:"ipvlanConfiguration,omitempty"`

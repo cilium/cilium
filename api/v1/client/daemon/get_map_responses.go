@@ -24,7 +24,6 @@ type GetMapReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *GetMapReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewGetMapOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -52,6 +51,10 @@ type GetMapOK struct {
 
 func (o *GetMapOK) Error() string {
 	return fmt.Sprintf("[GET /map][%d] getMapOK  %+v", 200, o.Payload)
+}
+
+func (o *GetMapOK) GetPayload() *models.BPFMapList {
+	return o.Payload
 }
 
 func (o *GetMapOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

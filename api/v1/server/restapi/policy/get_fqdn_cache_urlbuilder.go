@@ -50,20 +50,20 @@ func (o *GetFqdnCacheURL) Build() (*url.URL, error) {
 
 	qs := make(url.Values)
 
-	var cidr string
+	var cidrQ string
 	if o.Cidr != nil {
-		cidr = *o.Cidr
+		cidrQ = *o.Cidr
 	}
-	if cidr != "" {
-		qs.Set("cidr", cidr)
+	if cidrQ != "" {
+		qs.Set("cidr", cidrQ)
 	}
 
-	var matchpattern string
+	var matchpatternQ string
 	if o.Matchpattern != nil {
-		matchpattern = *o.Matchpattern
+		matchpatternQ = *o.Matchpattern
 	}
-	if matchpattern != "" {
-		qs.Set("matchpattern", matchpattern)
+	if matchpatternQ != "" {
+		qs.Set("matchpattern", matchpatternQ)
 	}
 
 	_result.RawQuery = qs.Encode()

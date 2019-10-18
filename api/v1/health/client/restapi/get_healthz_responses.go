@@ -24,14 +24,12 @@ type GetHealthzReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *GetHealthzReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewGetHealthzOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 500:
 		result := NewGetHealthzFailed()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -61,6 +59,10 @@ func (o *GetHealthzOK) Error() string {
 	return fmt.Sprintf("[GET /healthz][%d] getHealthzOK  %+v", 200, o.Payload)
 }
 
+func (o *GetHealthzOK) GetPayload() *models.HealthResponse {
+	return o.Payload
+}
+
 func (o *GetHealthzOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	o.Payload = new(models.HealthResponse)
@@ -88,6 +90,10 @@ type GetHealthzFailed struct {
 
 func (o *GetHealthzFailed) Error() string {
 	return fmt.Sprintf("[GET /healthz][%d] getHealthzFailed  %+v", 500, o.Payload)
+}
+
+func (o *GetHealthzFailed) GetPayload() models.Error {
+	return o.Payload
 }
 
 func (o *GetHealthzFailed) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

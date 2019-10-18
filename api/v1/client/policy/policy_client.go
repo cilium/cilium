@@ -6,6 +6,8 @@ package policy
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"fmt"
+
 	"github.com/go-openapi/runtime"
 
 	strfmt "github.com/go-openapi/strfmt"
@@ -53,8 +55,14 @@ func (a *Client) DeleteFqdnCache(params *DeleteFqdnCacheParams) (*DeleteFqdnCach
 	if err != nil {
 		return nil, err
 	}
-	return result.(*DeleteFqdnCacheOK), nil
-
+	success, ok := result.(*DeleteFqdnCacheOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for DeleteFqdnCache: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -81,8 +89,14 @@ func (a *Client) DeletePolicy(params *DeletePolicyParams) (*DeletePolicyOK, erro
 	if err != nil {
 		return nil, err
 	}
-	return result.(*DeletePolicyOK), nil
-
+	success, ok := result.(*DeletePolicyOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for DeletePolicy: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -113,8 +127,14 @@ func (a *Client) GetFqdnCache(params *GetFqdnCacheParams) (*GetFqdnCacheOK, erro
 	if err != nil {
 		return nil, err
 	}
-	return result.(*GetFqdnCacheOK), nil
-
+	success, ok := result.(*GetFqdnCacheOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetFqdnCache: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -145,8 +165,14 @@ func (a *Client) GetFqdnCacheID(params *GetFqdnCacheIDParams) (*GetFqdnCacheIDOK
 	if err != nil {
 		return nil, err
 	}
-	return result.(*GetFqdnCacheIDOK), nil
-
+	success, ok := result.(*GetFqdnCacheIDOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetFqdnCacheID: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -177,8 +203,14 @@ func (a *Client) GetFqdnNames(params *GetFqdnNamesParams) (*GetFqdnNamesOK, erro
 	if err != nil {
 		return nil, err
 	}
-	return result.(*GetFqdnNamesOK), nil
-
+	success, ok := result.(*GetFqdnNamesOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetFqdnNames: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -210,8 +242,14 @@ func (a *Client) GetIP(params *GetIPParams) (*GetIPOK, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result.(*GetIPOK), nil
-
+	success, ok := result.(*GetIPOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetIP: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -241,8 +279,14 @@ func (a *Client) GetIdentity(params *GetIdentityParams) (*GetIdentityOK, error) 
 	if err != nil {
 		return nil, err
 	}
-	return result.(*GetIdentityOK), nil
-
+	success, ok := result.(*GetIdentityOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetIdentity: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -269,8 +313,14 @@ func (a *Client) GetIdentityEndpoints(params *GetIdentityEndpointsParams) (*GetI
 	if err != nil {
 		return nil, err
 	}
-	return result.(*GetIdentityEndpointsOK), nil
-
+	success, ok := result.(*GetIdentityEndpointsOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetIdentityEndpoints: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -297,8 +347,14 @@ func (a *Client) GetIdentityID(params *GetIdentityIDParams) (*GetIdentityIDOK, e
 	if err != nil {
 		return nil, err
 	}
-	return result.(*GetIdentityIDOK), nil
-
+	success, ok := result.(*GetIdentityIDOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetIdentityID: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -328,8 +384,14 @@ func (a *Client) GetPolicy(params *GetPolicyParams) (*GetPolicyOK, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result.(*GetPolicyOK), nil
-
+	success, ok := result.(*GetPolicyOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetPolicy: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -356,8 +418,14 @@ func (a *Client) GetPolicyResolve(params *GetPolicyResolveParams) (*GetPolicyRes
 	if err != nil {
 		return nil, err
 	}
-	return result.(*GetPolicyResolveOK), nil
-
+	success, ok := result.(*GetPolicyResolveOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetPolicyResolve: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -384,8 +452,14 @@ func (a *Client) GetPolicySelectors(params *GetPolicySelectorsParams) (*GetPolic
 	if err != nil {
 		return nil, err
 	}
-	return result.(*GetPolicySelectorsOK), nil
-
+	success, ok := result.(*GetPolicySelectorsOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetPolicySelectors: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -412,8 +486,14 @@ func (a *Client) PutPolicy(params *PutPolicyParams) (*PutPolicyOK, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result.(*PutPolicyOK), nil
-
+	success, ok := result.(*PutPolicyOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for PutPolicy: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 // SetTransport changes the transport on the client

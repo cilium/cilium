@@ -24,21 +24,18 @@ type PatchEndpointIDLabelsReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *PatchEndpointIDLabelsReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewPatchEndpointIDLabelsOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 404:
 		result := NewPatchEndpointIDLabelsNotFound()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return nil, result
-
 	case 500:
 		result := NewPatchEndpointIDLabelsUpdateFailed()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -108,6 +105,10 @@ type PatchEndpointIDLabelsUpdateFailed struct {
 
 func (o *PatchEndpointIDLabelsUpdateFailed) Error() string {
 	return fmt.Sprintf("[PATCH /endpoint/{id}/labels][%d] patchEndpointIdLabelsUpdateFailed  %+v", 500, o.Payload)
+}
+
+func (o *PatchEndpointIDLabelsUpdateFailed) GetPayload() models.Error {
+	return o.Payload
 }
 
 func (o *PatchEndpointIDLabelsUpdateFailed) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

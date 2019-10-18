@@ -37,7 +37,7 @@ type StatusResponse struct {
 	Controllers ControllerStatuses `json:"controllers,omitempty"`
 
 	// Status of IP address management
-	IPAM *IPAMStatus `json:"ipam,omitempty"`
+	Ipam *IPAMStatus `json:"ipam,omitempty"`
 
 	// Status of Kubernetes integration
 	Kubernetes *K8sStatus `json:"kubernetes,omitempty"`
@@ -75,7 +75,7 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 		res = append(res, err)
 	}
 
-	if err := m.validateIPAM(formats); err != nil {
+	if err := m.validateIpam(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -175,14 +175,14 @@ func (m *StatusResponse) validateControllers(formats strfmt.Registry) error {
 	return nil
 }
 
-func (m *StatusResponse) validateIPAM(formats strfmt.Registry) error {
+func (m *StatusResponse) validateIpam(formats strfmt.Registry) error {
 
-	if swag.IsZero(m.IPAM) { // not required
+	if swag.IsZero(m.Ipam) { // not required
 		return nil
 	}
 
-	if m.IPAM != nil {
-		if err := m.IPAM.Validate(formats); err != nil {
+	if m.Ipam != nil {
+		if err := m.Ipam.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("ipam")
 			}

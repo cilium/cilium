@@ -24,7 +24,6 @@ type GetClusterNodesReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *GetClusterNodesReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewGetClusterNodesOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -52,6 +51,10 @@ type GetClusterNodesOK struct {
 
 func (o *GetClusterNodesOK) Error() string {
 	return fmt.Sprintf("[GET /cluster/nodes][%d] getClusterNodesOK  %+v", 200, o.Payload)
+}
+
+func (o *GetClusterNodesOK) GetPayload() *models.ClusterNodeStatus {
+	return o.Payload
 }
 
 func (o *GetClusterNodesOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
