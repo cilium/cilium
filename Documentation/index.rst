@@ -84,12 +84,12 @@ The documentation is divided into the following sections:
    community
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: For Developers
 
-   contributing/contributing
+   contributing/development/index
    contributing/release
-   contributing/ci
+   contributing/testing/index
    bpf
    api
 
