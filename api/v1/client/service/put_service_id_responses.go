@@ -24,35 +24,30 @@ type PutServiceIDReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *PutServiceIDReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewPutServiceIDOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 201:
 		result := NewPutServiceIDCreated()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 460:
 		result := NewPutServiceIDInvalidFrontend()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return nil, result
-
 	case 461:
 		result := NewPutServiceIDInvalidBackend()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return nil, result
-
 	case 500:
 		result := NewPutServiceIDFailure()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -124,6 +119,10 @@ func (o *PutServiceIDInvalidFrontend) Error() string {
 	return fmt.Sprintf("[PUT /service/{id}][%d] putServiceIdInvalidFrontend  %+v", 460, o.Payload)
 }
 
+func (o *PutServiceIDInvalidFrontend) GetPayload() models.Error {
+	return o.Payload
+}
+
 func (o *PutServiceIDInvalidFrontend) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	// response payload
@@ -151,6 +150,10 @@ func (o *PutServiceIDInvalidBackend) Error() string {
 	return fmt.Sprintf("[PUT /service/{id}][%d] putServiceIdInvalidBackend  %+v", 461, o.Payload)
 }
 
+func (o *PutServiceIDInvalidBackend) GetPayload() models.Error {
+	return o.Payload
+}
+
 func (o *PutServiceIDInvalidBackend) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	// response payload
@@ -176,6 +179,10 @@ type PutServiceIDFailure struct {
 
 func (o *PutServiceIDFailure) Error() string {
 	return fmt.Sprintf("[PUT /service/{id}][%d] putServiceIdFailure  %+v", 500, o.Payload)
+}
+
+func (o *PutServiceIDFailure) GetPayload() models.Error {
+	return o.Payload
 }
 
 func (o *PutServiceIDFailure) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

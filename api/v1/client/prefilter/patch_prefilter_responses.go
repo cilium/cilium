@@ -24,21 +24,18 @@ type PatchPrefilterReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *PatchPrefilterReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewPatchPrefilterOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 461:
 		result := NewPatchPrefilterInvalidCIDR()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return nil, result
-
 	case 500:
 		result := NewPatchPrefilterFailure()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -66,6 +63,10 @@ type PatchPrefilterOK struct {
 
 func (o *PatchPrefilterOK) Error() string {
 	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterOK  %+v", 200, o.Payload)
+}
+
+func (o *PatchPrefilterOK) GetPayload() *models.Prefilter {
+	return o.Payload
 }
 
 func (o *PatchPrefilterOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -97,6 +98,10 @@ func (o *PatchPrefilterInvalidCIDR) Error() string {
 	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterInvalidCIdR  %+v", 461, o.Payload)
 }
 
+func (o *PatchPrefilterInvalidCIDR) GetPayload() models.Error {
+	return o.Payload
+}
+
 func (o *PatchPrefilterInvalidCIDR) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	// response payload
@@ -122,6 +127,10 @@ type PatchPrefilterFailure struct {
 
 func (o *PatchPrefilterFailure) Error() string {
 	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterFailure  %+v", 500, o.Payload)
+}
+
+func (o *PatchPrefilterFailure) GetPayload() models.Error {
+	return o.Payload
 }
 
 func (o *PatchPrefilterFailure) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

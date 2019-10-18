@@ -24,21 +24,18 @@ type GetEndpointIDLogReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *GetEndpointIDLogReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewGetEndpointIDLogOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 400:
 		result := NewGetEndpointIDLogInvalid()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return nil, result
-
 	case 404:
 		result := NewGetEndpointIDLogNotFound()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -66,6 +63,10 @@ type GetEndpointIDLogOK struct {
 
 func (o *GetEndpointIDLogOK) Error() string {
 	return fmt.Sprintf("[GET /endpoint/{id}/log][%d] getEndpointIdLogOK  %+v", 200, o.Payload)
+}
+
+func (o *GetEndpointIDLogOK) GetPayload() models.EndpointStatusLog {
+	return o.Payload
 }
 
 func (o *GetEndpointIDLogOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

@@ -24,7 +24,6 @@ type GetPolicyResolveReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *GetPolicyResolveReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewGetPolicyResolveOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -52,6 +51,10 @@ type GetPolicyResolveOK struct {
 
 func (o *GetPolicyResolveOK) Error() string {
 	return fmt.Sprintf("[GET /policy/resolve][%d] getPolicyResolveOK  %+v", 200, o.Payload)
+}
+
+func (o *GetPolicyResolveOK) GetPayload() *models.PolicyTraceResult {
+	return o.Payload
 }
 
 func (o *GetPolicyResolveOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

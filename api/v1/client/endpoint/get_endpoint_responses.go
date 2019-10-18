@@ -24,14 +24,12 @@ type GetEndpointReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *GetEndpointReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewGetEndpointOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 404:
 		result := NewGetEndpointNotFound()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -59,6 +57,10 @@ type GetEndpointOK struct {
 
 func (o *GetEndpointOK) Error() string {
 	return fmt.Sprintf("[GET /endpoint][%d] getEndpointOK  %+v", 200, o.Payload)
+}
+
+func (o *GetEndpointOK) GetPayload() []*models.Endpoint {
+	return o.Payload
 }
 
 func (o *GetEndpointOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

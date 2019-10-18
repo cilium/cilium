@@ -49,12 +49,12 @@ func (o *GetIPURL) Build() (*url.URL, error) {
 
 	qs := make(url.Values)
 
-	var cidr string
+	var cidrQ string
 	if o.Cidr != nil {
-		cidr = *o.Cidr
+		cidrQ = *o.Cidr
 	}
-	if cidr != "" {
-		qs.Set("cidr", cidr)
+	if cidrQ != "" {
+		qs.Set("cidr", cidrQ)
 	}
 
 	_result.RawQuery = qs.Encode()

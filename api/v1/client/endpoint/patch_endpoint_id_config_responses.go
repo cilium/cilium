@@ -24,28 +24,24 @@ type PatchEndpointIDConfigReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *PatchEndpointIDConfigReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewPatchEndpointIDConfigOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 400:
 		result := NewPatchEndpointIDConfigInvalid()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return nil, result
-
 	case 404:
 		result := NewPatchEndpointIDConfigNotFound()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return nil, result
-
 	case 500:
 		result := NewPatchEndpointIDConfigFailed()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -136,6 +132,10 @@ type PatchEndpointIDConfigFailed struct {
 
 func (o *PatchEndpointIDConfigFailed) Error() string {
 	return fmt.Sprintf("[PATCH /endpoint/{id}/config][%d] patchEndpointIdConfigFailed  %+v", 500, o.Payload)
+}
+
+func (o *PatchEndpointIDConfigFailed) GetPayload() models.Error {
+	return o.Payload
 }
 
 func (o *PatchEndpointIDConfigFailed) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

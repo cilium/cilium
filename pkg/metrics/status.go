@@ -111,19 +111,19 @@ func (s *statusCollector) Collect(ch chan<- prometheus.Metric) {
 		float64(controllersFailing),
 	)
 
-	if statusResponse.Payload.IPAM != nil {
+	if statusResponse.Payload.Ipam != nil {
 		// Address count
 		ch <- prometheus.MustNewConstMetric(
 			s.ipAddressesDesc,
 			prometheus.GaugeValue,
-			float64(len(statusResponse.Payload.IPAM.IPV4)),
+			float64(len(statusResponse.Payload.Ipam.IPV4)),
 			"ipv4",
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			s.ipAddressesDesc,
 			prometheus.GaugeValue,
-			float64(len(statusResponse.Payload.IPAM.IPV6)),
+			float64(len(statusResponse.Payload.Ipam.IPV6)),
 			"ipv6",
 		)
 	}

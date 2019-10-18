@@ -24,28 +24,24 @@ type DeletePolicyReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *DeletePolicyReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewDeletePolicyOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 400:
 		result := NewDeletePolicyInvalid()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return nil, result
-
 	case 404:
 		result := NewDeletePolicyNotFound()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return nil, result
-
 	case 500:
 		result := NewDeletePolicyFailure()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -75,6 +71,10 @@ func (o *DeletePolicyOK) Error() string {
 	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyOK  %+v", 200, o.Payload)
 }
 
+func (o *DeletePolicyOK) GetPayload() *models.Policy {
+	return o.Payload
+}
+
 func (o *DeletePolicyOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	o.Payload = new(models.Policy)
@@ -102,6 +102,10 @@ type DeletePolicyInvalid struct {
 
 func (o *DeletePolicyInvalid) Error() string {
 	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyInvalid  %+v", 400, o.Payload)
+}
+
+func (o *DeletePolicyInvalid) GetPayload() models.Error {
+	return o.Payload
 }
 
 func (o *DeletePolicyInvalid) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -150,6 +154,10 @@ type DeletePolicyFailure struct {
 
 func (o *DeletePolicyFailure) Error() string {
 	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyFailure  %+v", 500, o.Payload)
+}
+
+func (o *DeletePolicyFailure) GetPayload() models.Error {
+	return o.Payload
 }
 
 func (o *DeletePolicyFailure) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

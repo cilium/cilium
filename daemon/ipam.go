@@ -38,17 +38,17 @@ type postIPAM struct {
 }
 
 // NewPostIPAMHandler creates a new postIPAM from the daemon.
-func NewPostIPAMHandler(d *Daemon) ipamapi.PostIPAMHandler {
+func NewPostIPAMHandler(d *Daemon) ipamapi.PostIpamHandler {
 	return &postIPAM{daemon: d}
 }
 
 // Handle incoming requests address allocation requests for the daemon.
-func (h *postIPAM) Handle(params ipamapi.PostIPAMParams) middleware.Responder {
+func (h *postIPAM) Handle(params ipamapi.PostIpamParams) middleware.Responder {
 	family := strings.ToLower(swag.StringValue(params.Family))
 	owner := swag.StringValue(params.Owner)
 	ipv4Result, ipv6Result, err := h.daemon.ipam.AllocateNext(family, owner)
 	if err != nil {
-		return api.Error(ipamapi.PostIPAMFailureCode, err)
+		return api.Error(ipamapi.PostIpamFailureCode, err)
 	}
 
 	resp := &models.IPAMResponse{
@@ -76,7 +76,7 @@ func (h *postIPAM) Handle(params ipamapi.PostIPAMParams) middleware.Responder {
 		}
 	}
 
-	return ipamapi.NewPostIPAMCreated().WithPayload(resp)
+	return ipamapi.NewPostIpamCreated().WithPayload(resp)
 }
 
 type postIPAMIP struct {
@@ -84,20 +84,20 @@ type postIPAMIP struct {
 }
 
 // NewPostIPAMIPHandler creates a new postIPAM from the daemon.
-func NewPostIPAMIPHandler(d *Daemon) ipamapi.PostIPAMIPHandler {
+func NewPostIPAMIPHandler(d *Daemon) ipamapi.PostIpamIPHandler {
 	return &postIPAMIP{
 		daemon: d,
 	}
 }
 
 // Handle incoming requests address allocation requests for the daemon.
-func (h *postIPAMIP) Handle(params ipamapi.PostIPAMIPParams) middleware.Responder {
+func (h *postIPAMIP) Handle(params ipamapi.PostIpamIPParams) middleware.Responder {
 	owner := swag.StringValue(params.Owner)
 	if err := h.daemon.ipam.AllocateIPString(params.IP, owner); err != nil {
-		return api.Error(ipamapi.PostIPAMIPFailureCode, err)
+		return api.Error(ipamapi.PostIpamIPFailureCode, err)
 	}
 
-	return ipamapi.NewPostIPAMIPOK()
+	return ipamapi.NewPostIpamIPOK()
 }
 
 type deleteIPAMIP struct {
@@ -105,16 +105,16 @@ type deleteIPAMIP struct {
 }
 
 // NewDeleteIPAMIPHandler handle incoming requests to delete addresses.
-func NewDeleteIPAMIPHandler(d *Daemon) ipamapi.DeleteIPAMIPHandler {
+func NewDeleteIPAMIPHandler(d *Daemon) ipamapi.DeleteIpamIPHandler {
 	return &deleteIPAMIP{daemon: d}
 }
 
-func (h *deleteIPAMIP) Handle(params ipamapi.DeleteIPAMIPParams) middleware.Responder {
+func (h *deleteIPAMIP) Handle(params ipamapi.DeleteIpamIPParams) middleware.Responder {
 	if err := h.daemon.ipam.ReleaseIPString(params.IP); err != nil {
-		return api.Error(ipamapi.DeleteIPAMIPFailureCode, err)
+		return api.Error(ipamapi.DeleteIpamIPFailureCode, err)
 	}
 
-	return ipamapi.NewDeleteIPAMIPOK()
+	return ipamapi.NewDeleteIpamIPOK()
 }
 
 // DumpIPAM dumps in the form of a map, the list of

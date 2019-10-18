@@ -24,21 +24,18 @@ type PatchConfigReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *PatchConfigReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewPatchConfigOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 400:
 		result := NewPatchConfigBadRequest()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return nil, result
-
 	case 500:
 		result := NewPatchConfigFailure()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -89,6 +86,10 @@ func (o *PatchConfigBadRequest) Error() string {
 	return fmt.Sprintf("[PATCH /config][%d] patchConfigBadRequest  %+v", 400, o.Payload)
 }
 
+func (o *PatchConfigBadRequest) GetPayload() models.Error {
+	return o.Payload
+}
+
 func (o *PatchConfigBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	// response payload
@@ -114,6 +115,10 @@ type PatchConfigFailure struct {
 
 func (o *PatchConfigFailure) Error() string {
 	return fmt.Sprintf("[PATCH /config][%d] patchConfigFailure  %+v", 500, o.Payload)
+}
+
+func (o *PatchConfigFailure) GetPayload() models.Error {
+	return o.Payload
 }
 
 func (o *PatchConfigFailure) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

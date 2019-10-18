@@ -49,12 +49,12 @@ func (o *DeleteFqdnCacheURL) Build() (*url.URL, error) {
 
 	qs := make(url.Values)
 
-	var matchpattern string
+	var matchpatternQ string
 	if o.Matchpattern != nil {
-		matchpattern = *o.Matchpattern
+		matchpatternQ = *o.Matchpattern
 	}
-	if matchpattern != "" {
-		qs.Set("matchpattern", matchpattern)
+	if matchpatternQ != "" {
+		qs.Set("matchpattern", matchpatternQ)
 	}
 
 	_result.RawQuery = qs.Encode()

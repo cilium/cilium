@@ -439,403 +439,307 @@ func init() {
         }
       }
     },
+    "allocationMap": {
+      "description": "Map of allocated IPs\n",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "clusterStatus": {
+      "description": "Status of cluster",
+      "properties": {
+        "ciliumHealth": {
+          "$ref": "#/definitions/status"
+        },
+        "nodes": {
+          "description": "List of known nodes",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/nodeElement"
+          }
+        },
+        "self": {
+          "description": "Name of local node (if available)",
+          "type": "string"
+        }
+      }
+    },
+    "controllerStatus": {
+      "description": "Status of a controller",
+      "type": "object",
+      "properties": {
+        "configuration": {
+          "description": "Configuration of controller",
+          "type": "object",
+          "properties": {
+            "error-retry": {
+              "description": "Retry on error",
+              "type": "boolean"
+            },
+            "error-retry-base": {
+              "description": "Base error retry back-off time",
+              "type": "string",
+              "format": "duration"
+            },
+            "interval": {
+              "description": "Regular synchronization interval",
+              "type": "string",
+              "format": "duration"
+            }
+          }
+        },
+        "name": {
+          "description": "Name of controller",
+          "type": "string"
+        },
+        "status": {
+          "description": "Current status of controller",
+          "type": "object",
+          "properties": {
+            "consecutive-failure-count": {
+              "description": "Number of consecutive errors since last success",
+              "type": "integer"
+            },
+            "failure-count": {
+              "description": "Total number of failed runs",
+              "type": "integer"
+            },
+            "last-failure-msg": {
+              "description": "Error message of last failed run",
+              "type": "string"
+            },
+            "last-failure-timestamp": {
+              "description": "Timestamp of last error",
+              "type": "string",
+              "format": "date-time"
+            },
+            "last-success-timestamp": {
+              "description": "Timestamp of last success",
+              "type": "string",
+              "format": "date-time"
+            },
+            "success-count": {
+              "description": "Total number of successful runs",
+              "type": "integer"
+            }
+          }
+        },
+        "uuid": {
+          "description": "UUID of controller",
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "controllerStatuses": {
+      "description": "Collection of controller statuses",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/controllerStatus"
+      }
+    },
     "error": {
       "type": "string"
+    },
+    "ipAMStatus": {
+      "description": "Status of IP address management",
+      "properties": {
+        "allocations": {
+          "$ref": "#/definitions/allocationMap"
+        },
+        "ipv4": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ipv6": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "type": "string"
+        }
+      }
+    },
+    "k8sStatus": {
+      "description": "Status of Kubernetes integration",
+      "type": "object",
+      "properties": {
+        "k8s-api-versions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "msg": {
+          "description": "Human readable status/error/warning message",
+          "type": "string"
+        },
+        "state": {
+          "description": "State the component is in",
+          "type": "string",
+          "enum": [
+            "Ok",
+            "Warning",
+            "Failure",
+            "Disabled"
+          ]
+        }
+      }
+    },
+    "monitorStatus": {
+      "description": "Status of the node monitor",
+      "properties": {
+        "cpus": {
+          "description": "Number of CPUs to listen on for events.",
+          "type": "integer"
+        },
+        "lost": {
+          "description": "Number of samples lost by perf.",
+          "type": "integer"
+        },
+        "npages": {
+          "description": "Number of pages used for the perf ring buffer.",
+          "type": "integer"
+        },
+        "pagesize": {
+          "description": "Pages size used for the perf ring buffer.",
+          "type": "integer"
+        },
+        "unknown": {
+          "description": "Number of unknown samples.",
+          "type": "integer"
+        }
+      }
+    },
+    "nodeAddressing": {
+      "description": "Addressing information of a node for all address families",
+      "type": "object",
+      "properties": {
+        "ipv4": {
+          "$ref": "#/definitions/nodeAddressingElement"
+        },
+        "ipv6": {
+          "$ref": "#/definitions/nodeAddressingElement"
+        }
+      }
+    },
+    "nodeAddressingElement": {
+      "description": "Addressing information",
+      "type": "object",
+      "properties": {
+        "address-type": {
+          "description": "Node address type, one of HostName, ExternalIP or InternalIP",
+          "type": "string"
+        },
+        "alloc-range": {
+          "description": "Address pool to be used for local endpoints",
+          "type": "string"
+        },
+        "enabled": {
+          "description": "True if address family is enabled",
+          "type": "boolean"
+        },
+        "ip": {
+          "description": "IP address of node",
+          "type": "string"
+        }
+      }
+    },
+    "nodeElement": {
+      "description": "Known node in the cluster",
+      "properties": {
+        "health-endpoint-address": {
+          "$ref": "#/definitions/nodeAddressing"
+        },
+        "name": {
+          "description": "Name of the node including the cluster association. This is typically\n\u003cclustername\u003e/\u003chostname\u003e.\n",
+          "type": "string"
+        },
+        "primary-address": {
+          "$ref": "#/definitions/nodeAddressing"
+        },
+        "secondary-addresses": {
+          "description": "Alternative addresses assigned to the node",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/nodeAddressingElement"
+          }
+        }
+      }
+    },
+    "proxyStatus": {
+      "description": "Status of proxy",
+      "type": "object",
+      "properties": {
+        "ip": {
+          "description": "IP address that the proxy listens on",
+          "type": "string"
+        },
+        "port-range": {
+          "description": "Port range used for proxying",
+          "type": "string"
+        }
+      }
+    },
+    "status": {
+      "description": "Status of an individual component",
+      "type": "object",
+      "properties": {
+        "msg": {
+          "description": "Human readable status/error/warning message",
+          "type": "string"
+        },
+        "state": {
+          "description": "State the component is in",
+          "type": "string",
+          "enum": [
+            "Ok",
+            "Warning",
+            "Failure",
+            "Disabled"
+          ]
+        }
+      }
     },
     "statusResponse": {
       "description": "Health and status information of daemon",
       "type": "object",
       "properties": {
         "cilium": {
-          "description": "Status of an individual component",
-          "type": "object",
-          "properties": {
-            "msg": {
-              "description": "Human readable status/error/warning message",
-              "type": "string"
-            },
-            "state": {
-              "description": "State the component is in",
-              "type": "string",
-              "enum": [
-                "Ok",
-                "Warning",
-                "Failure",
-                "Disabled"
-              ]
-            }
-          }
+          "$ref": "#/definitions/status"
+        },
+        "client-id": {
+          "description": "When supported by the API, this client ID should be used by the\nclient when making another request to the server.\nSee for example \"/cluster/nodes\".\n",
+          "type": "integer"
         },
         "cluster": {
-          "description": "Status of cluster",
-          "properties": {
-            "ciliumHealth": {
-              "description": "Status of an individual component",
-              "type": "object",
-              "properties": {
-                "msg": {
-                  "description": "Human readable status/error/warning message",
-                  "type": "string"
-                },
-                "state": {
-                  "description": "State the component is in",
-                  "type": "string",
-                  "enum": [
-                    "Ok",
-                    "Warning",
-                    "Failure",
-                    "Disabled"
-                  ]
-                }
-              }
-            },
-            "nodes": {
-              "description": "List of known nodes",
-              "type": "array",
-              "items": {
-                "description": "Known node in the cluster",
-                "properties": {
-                  "health-endpoint-address": {
-                    "description": "Addressing information of a node for all address families",
-                    "type": "object",
-                    "properties": {
-                      "ipv4": {
-                        "description": "Addressing information",
-                        "type": "object",
-                        "properties": {
-                          "address-type": {
-                            "description": "Node address type, one of HostName, ExternalIP or InternalIP",
-                            "type": "string"
-                          },
-                          "alloc-range": {
-                            "description": "Address pool to be used for local endpoints",
-                            "type": "string"
-                          },
-                          "enabled": {
-                            "description": "True if address family is enabled",
-                            "type": "boolean"
-                          },
-                          "ip": {
-                            "description": "IP address of node",
-                            "type": "string"
-                          }
-                        }
-                      },
-                      "ipv6": {
-                        "description": "Addressing information",
-                        "type": "object",
-                        "properties": {
-                          "address-type": {
-                            "description": "Node address type, one of HostName, ExternalIP or InternalIP",
-                            "type": "string"
-                          },
-                          "alloc-range": {
-                            "description": "Address pool to be used for local endpoints",
-                            "type": "string"
-                          },
-                          "enabled": {
-                            "description": "True if address family is enabled",
-                            "type": "boolean"
-                          },
-                          "ip": {
-                            "description": "IP address of node",
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "name": {
-                    "description": "Name of the node including the cluster association. This is typically\n\u003cclustername\u003e/\u003chostname\u003e.\n",
-                    "type": "string"
-                  },
-                  "primary-address": {
-                    "description": "Addressing information of a node for all address families",
-                    "type": "object",
-                    "properties": {
-                      "ipv4": {
-                        "description": "Addressing information",
-                        "type": "object",
-                        "properties": {
-                          "address-type": {
-                            "description": "Node address type, one of HostName, ExternalIP or InternalIP",
-                            "type": "string"
-                          },
-                          "alloc-range": {
-                            "description": "Address pool to be used for local endpoints",
-                            "type": "string"
-                          },
-                          "enabled": {
-                            "description": "True if address family is enabled",
-                            "type": "boolean"
-                          },
-                          "ip": {
-                            "description": "IP address of node",
-                            "type": "string"
-                          }
-                        }
-                      },
-                      "ipv6": {
-                        "description": "Addressing information",
-                        "type": "object",
-                        "properties": {
-                          "address-type": {
-                            "description": "Node address type, one of HostName, ExternalIP or InternalIP",
-                            "type": "string"
-                          },
-                          "alloc-range": {
-                            "description": "Address pool to be used for local endpoints",
-                            "type": "string"
-                          },
-                          "enabled": {
-                            "description": "True if address family is enabled",
-                            "type": "boolean"
-                          },
-                          "ip": {
-                            "description": "IP address of node",
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "secondary-addresses": {
-                    "description": "Alternative addresses assigned to the node",
-                    "type": "array",
-                    "items": {
-                      "description": "Addressing information",
-                      "type": "object",
-                      "properties": {
-                        "address-type": {
-                          "description": "Node address type, one of HostName, ExternalIP or InternalIP",
-                          "type": "string"
-                        },
-                        "alloc-range": {
-                          "description": "Address pool to be used for local endpoints",
-                          "type": "string"
-                        },
-                        "enabled": {
-                          "description": "True if address family is enabled",
-                          "type": "boolean"
-                        },
-                        "ip": {
-                          "description": "IP address of node",
-                          "type": "string"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            },
-            "self": {
-              "description": "Name of local node (if available)",
-              "type": "string"
-            }
-          }
+          "$ref": "#/definitions/clusterStatus"
         },
         "container-runtime": {
-          "description": "Status of an individual component",
-          "type": "object",
-          "properties": {
-            "msg": {
-              "description": "Human readable status/error/warning message",
-              "type": "string"
-            },
-            "state": {
-              "description": "State the component is in",
-              "type": "string",
-              "enum": [
-                "Ok",
-                "Warning",
-                "Failure",
-                "Disabled"
-              ]
-            }
-          }
+          "$ref": "#/definitions/status"
         },
         "controllers": {
-          "description": "Collection of controller statuses",
-          "type": "array",
-          "items": {
-            "description": "Status of a controller",
-            "type": "object",
-            "properties": {
-              "configuration": {
-                "description": "Configuration of controller",
-                "type": "object",
-                "properties": {
-                  "error-retry": {
-                    "description": "Retry on error",
-                    "type": "boolean"
-                  },
-                  "error-retry-base": {
-                    "description": "Base error retry back-off time",
-                    "type": "string",
-                    "format": "duration"
-                  },
-                  "interval": {
-                    "description": "Regular synchronization interval",
-                    "type": "string",
-                    "format": "duration"
-                  }
-                }
-              },
-              "name": {
-                "description": "Name of controller",
-                "type": "string"
-              },
-              "status": {
-                "description": "Current status of controller",
-                "type": "object",
-                "properties": {
-                  "consecutive-failure-count": {
-                    "description": "Number of consecutive errors since last success",
-                    "type": "integer"
-                  },
-                  "failure-count": {
-                    "description": "Total number of failed runs",
-                    "type": "integer"
-                  },
-                  "last-failure-msg": {
-                    "description": "Error message of last failed run",
-                    "type": "string"
-                  },
-                  "last-failure-timestamp": {
-                    "description": "Timestamp of last error",
-                    "type": "string",
-                    "format": "date-time"
-                  },
-                  "last-success-timestamp": {
-                    "description": "Timestamp of last success",
-                    "type": "string",
-                    "format": "date-time"
-                  },
-                  "success-count": {
-                    "description": "Total number of successful runs",
-                    "type": "integer"
-                  }
-                }
-              },
-              "uuid": {
-                "description": "UUID of controller",
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          }
+          "$ref": "#/definitions/controllerStatuses"
         },
         "ipam": {
-          "description": "Status of IP address management",
-          "properties": {
-            "allocations": {
-              "description": "Map of allocated IPs\n",
-              "type": "object",
-              "additionalProperties": {
-                "type": "string"
-              }
-            },
-            "ipv4": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "ipv6": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "status": {
-              "type": "string"
-            }
-          }
+          "$ref": "#/definitions/ipAMStatus"
         },
         "kubernetes": {
-          "description": "Status of Kubernetes integration",
-          "type": "object",
-          "properties": {
-            "k8s-api-versions": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "msg": {
-              "description": "Human readable status/error/warning message",
-              "type": "string"
-            },
-            "state": {
-              "description": "State the component is in",
-              "type": "string",
-              "enum": [
-                "Ok",
-                "Warning",
-                "Failure",
-                "Disabled"
-              ]
-            }
-          }
+          "$ref": "#/definitions/k8sStatus"
         },
         "kvstore": {
-          "description": "Status of an individual component",
-          "type": "object",
-          "properties": {
-            "msg": {
-              "description": "Human readable status/error/warning message",
-              "type": "string"
-            },
-            "state": {
-              "description": "State the component is in",
-              "type": "string",
-              "enum": [
-                "Ok",
-                "Warning",
-                "Failure",
-                "Disabled"
-              ]
-            }
-          }
+          "$ref": "#/definitions/status"
         },
         "nodeMonitor": {
-          "description": "Status of the node monitor",
-          "properties": {
-            "cpus": {
-              "description": "Number of CPUs to listen on for events.",
-              "type": "integer"
-            },
-            "lost": {
-              "description": "Number of samples lost by perf.",
-              "type": "integer"
-            },
-            "npages": {
-              "description": "Number of pages used for the perf ring buffer.",
-              "type": "integer"
-            },
-            "pagesize": {
-              "description": "Pages size used for the perf ring buffer.",
-              "type": "integer"
-            },
-            "unknown": {
-              "description": "Number of unknown samples.",
-              "type": "integer"
-            }
-          }
+          "$ref": "#/definitions/monitorStatus"
         },
         "proxy": {
-          "description": "Status of proxy",
-          "type": "object",
-          "properties": {
-            "ip": {
-              "description": "IP address that the proxy listens on",
-              "type": "string"
-            },
-            "port-range": {
-              "description": "Port range used for proxying",
-              "type": "string"
-            }
-          }
+          "$ref": "#/definitions/proxyStatus"
         },
         "stale": {
           "description": "List of stale information in the status",

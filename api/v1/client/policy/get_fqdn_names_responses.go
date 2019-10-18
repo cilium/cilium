@@ -24,14 +24,12 @@ type GetFqdnNamesReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *GetFqdnNamesReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewGetFqdnNamesOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 400:
 		result := NewGetFqdnNamesBadRequest()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -61,6 +59,10 @@ func (o *GetFqdnNamesOK) Error() string {
 	return fmt.Sprintf("[GET /fqdn/names][%d] getFqdnNamesOK  %+v", 200, o.Payload)
 }
 
+func (o *GetFqdnNamesOK) GetPayload() *models.NameManager {
+	return o.Payload
+}
+
 func (o *GetFqdnNamesOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	o.Payload = new(models.NameManager)
@@ -88,6 +90,10 @@ type GetFqdnNamesBadRequest struct {
 
 func (o *GetFqdnNamesBadRequest) Error() string {
 	return fmt.Sprintf("[GET /fqdn/names][%d] getFqdnNamesBadRequest  %+v", 400, o.Payload)
+}
+
+func (o *GetFqdnNamesBadRequest) GetPayload() models.Error {
+	return o.Payload
 }
 
 func (o *GetFqdnNamesBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

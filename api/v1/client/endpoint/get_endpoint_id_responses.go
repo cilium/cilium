@@ -24,21 +24,18 @@ type GetEndpointIDReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *GetEndpointIDReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewGetEndpointIDOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 400:
 		result := NewGetEndpointIDInvalid()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return nil, result
-
 	case 404:
 		result := NewGetEndpointIDNotFound()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -68,6 +65,10 @@ func (o *GetEndpointIDOK) Error() string {
 	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdOK  %+v", 200, o.Payload)
 }
 
+func (o *GetEndpointIDOK) GetPayload() *models.Endpoint {
+	return o.Payload
+}
+
 func (o *GetEndpointIDOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	o.Payload = new(models.Endpoint)
@@ -95,6 +96,10 @@ type GetEndpointIDInvalid struct {
 
 func (o *GetEndpointIDInvalid) Error() string {
 	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdInvalid  %+v", 400, o.Payload)
+}
+
+func (o *GetEndpointIDInvalid) GetPayload() models.Error {
+	return o.Payload
 }
 
 func (o *GetEndpointIDInvalid) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

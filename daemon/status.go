@@ -500,7 +500,7 @@ func (d *Daemon) startStatusCollector() {
 				// IPAMStatus has no way to show errors
 				if status.Err == nil {
 					if s, ok := status.Data.(*models.IPAMStatus); ok {
-						d.statusResponse.IPAM = s
+						d.statusResponse.Ipam = s
 					}
 				}
 			},

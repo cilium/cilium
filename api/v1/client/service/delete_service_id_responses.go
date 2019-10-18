@@ -24,21 +24,18 @@ type DeleteServiceIDReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *DeleteServiceIDReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewDeleteServiceIDOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 404:
 		result := NewDeleteServiceIDNotFound()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return nil, result
-
 	case 500:
 		result := NewDeleteServiceIDFailure()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -108,6 +105,10 @@ type DeleteServiceIDFailure struct {
 
 func (o *DeleteServiceIDFailure) Error() string {
 	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdFailure  %+v", 500, o.Payload)
+}
+
+func (o *DeleteServiceIDFailure) GetPayload() models.Error {
+	return o.Payload
 }
 
 func (o *DeleteServiceIDFailure) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

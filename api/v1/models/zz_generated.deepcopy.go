@@ -292,8 +292,8 @@ func (in *StatusResponse) DeepCopyInto(out *StatusResponse) {
 			}
 		}
 	}
-	if in.IPAM != nil {
-		in, out := &in.IPAM, &out.IPAM
+	if in.Ipam != nil {
+		in, out := &in.Ipam, &out.Ipam
 		*out = new(IPAMStatus)
 		(*in).DeepCopyInto(*out)
 	}

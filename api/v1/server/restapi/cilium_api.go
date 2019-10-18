@@ -51,8 +51,8 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		PolicyDeleteFqdnCacheHandler: policy.DeleteFqdnCacheHandlerFunc(func(params policy.DeleteFqdnCacheParams) middleware.Responder {
 			return middleware.NotImplemented("operation PolicyDeleteFqdnCache has not yet been implemented")
 		}),
-		IPAMDeleteIPAMIPHandler: ipam.DeleteIPAMIPHandlerFunc(func(params ipam.DeleteIPAMIPParams) middleware.Responder {
-			return middleware.NotImplemented("operation IPAMDeleteIPAMIP has not yet been implemented")
+		IpamDeleteIpamIPHandler: ipam.DeleteIpamIPHandlerFunc(func(params ipam.DeleteIpamIPParams) middleware.Responder {
+			return middleware.NotImplemented("operation IpamDeleteIpamIP has not yet been implemented")
 		}),
 		PolicyDeletePolicyHandler: policy.DeletePolicyHandlerFunc(func(params policy.DeletePolicyParams) middleware.Responder {
 			return middleware.NotImplemented("operation PolicyDeletePolicy has not yet been implemented")
@@ -156,11 +156,11 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		PrefilterPatchPrefilterHandler: prefilter.PatchPrefilterHandlerFunc(func(params prefilter.PatchPrefilterParams) middleware.Responder {
 			return middleware.NotImplemented("operation PrefilterPatchPrefilter has not yet been implemented")
 		}),
-		IPAMPostIPAMHandler: ipam.PostIPAMHandlerFunc(func(params ipam.PostIPAMParams) middleware.Responder {
-			return middleware.NotImplemented("operation IPAMPostIPAM has not yet been implemented")
+		IpamPostIpamHandler: ipam.PostIpamHandlerFunc(func(params ipam.PostIpamParams) middleware.Responder {
+			return middleware.NotImplemented("operation IpamPostIpam has not yet been implemented")
 		}),
-		IPAMPostIPAMIPHandler: ipam.PostIPAMIPHandlerFunc(func(params ipam.PostIPAMIPParams) middleware.Responder {
-			return middleware.NotImplemented("operation IPAMPostIPAMIP has not yet been implemented")
+		IpamPostIpamIPHandler: ipam.PostIpamIPHandlerFunc(func(params ipam.PostIpamIPParams) middleware.Responder {
+			return middleware.NotImplemented("operation IpamPostIpamIP has not yet been implemented")
 		}),
 		EndpointPutEndpointIDHandler: endpoint.PutEndpointIDHandlerFunc(func(params endpoint.PutEndpointIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation EndpointPutEndpointID has not yet been implemented")
@@ -206,8 +206,8 @@ type CiliumAPI struct {
 	EndpointDeleteEndpointIDHandler endpoint.DeleteEndpointIDHandler
 	// PolicyDeleteFqdnCacheHandler sets the operation handler for the delete fqdn cache operation
 	PolicyDeleteFqdnCacheHandler policy.DeleteFqdnCacheHandler
-	// IPAMDeleteIPAMIPHandler sets the operation handler for the delete IP a m IP operation
-	IPAMDeleteIPAMIPHandler ipam.DeleteIPAMIPHandler
+	// IpamDeleteIpamIPHandler sets the operation handler for the delete ipam IP operation
+	IpamDeleteIpamIPHandler ipam.DeleteIpamIPHandler
 	// PolicyDeletePolicyHandler sets the operation handler for the delete policy operation
 	PolicyDeletePolicyHandler policy.DeletePolicyHandler
 	// PrefilterDeletePrefilterHandler sets the operation handler for the delete prefilter operation
@@ -276,10 +276,10 @@ type CiliumAPI struct {
 	EndpointPatchEndpointIDLabelsHandler endpoint.PatchEndpointIDLabelsHandler
 	// PrefilterPatchPrefilterHandler sets the operation handler for the patch prefilter operation
 	PrefilterPatchPrefilterHandler prefilter.PatchPrefilterHandler
-	// IPAMPostIPAMHandler sets the operation handler for the post IP a m operation
-	IPAMPostIPAMHandler ipam.PostIPAMHandler
-	// IPAMPostIPAMIPHandler sets the operation handler for the post IP a m IP operation
-	IPAMPostIPAMIPHandler ipam.PostIPAMIPHandler
+	// IpamPostIpamHandler sets the operation handler for the post ipam operation
+	IpamPostIpamHandler ipam.PostIpamHandler
+	// IpamPostIpamIPHandler sets the operation handler for the post ipam IP operation
+	IpamPostIpamIPHandler ipam.PostIpamIPHandler
 	// EndpointPutEndpointIDHandler sets the operation handler for the put endpoint ID operation
 	EndpointPutEndpointIDHandler endpoint.PutEndpointIDHandler
 	// PolicyPutPolicyHandler sets the operation handler for the put policy operation
@@ -357,8 +357,8 @@ func (o *CiliumAPI) Validate() error {
 		unregistered = append(unregistered, "policy.DeleteFqdnCacheHandler")
 	}
 
-	if o.IPAMDeleteIPAMIPHandler == nil {
-		unregistered = append(unregistered, "ipam.DeleteIPAMIPHandler")
+	if o.IpamDeleteIpamIPHandler == nil {
+		unregistered = append(unregistered, "ipam.DeleteIpamIPHandler")
 	}
 
 	if o.PolicyDeletePolicyHandler == nil {
@@ -497,12 +497,12 @@ func (o *CiliumAPI) Validate() error {
 		unregistered = append(unregistered, "prefilter.PatchPrefilterHandler")
 	}
 
-	if o.IPAMPostIPAMHandler == nil {
-		unregistered = append(unregistered, "ipam.PostIPAMHandler")
+	if o.IpamPostIpamHandler == nil {
+		unregistered = append(unregistered, "ipam.PostIpamHandler")
 	}
 
-	if o.IPAMPostIPAMIPHandler == nil {
-		unregistered = append(unregistered, "ipam.PostIPAMIPHandler")
+	if o.IpamPostIpamIPHandler == nil {
+		unregistered = append(unregistered, "ipam.PostIpamIPHandler")
 	}
 
 	if o.EndpointPutEndpointIDHandler == nil {
@@ -628,7 +628,7 @@ func (o *CiliumAPI) initHandlerCache() {
 	if o.handlers["DELETE"] == nil {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
 	}
-	o.handlers["DELETE"]["/ipam/{ip}"] = ipam.NewDeleteIPAMIP(o.context, o.IPAMDeleteIPAMIPHandler)
+	o.handlers["DELETE"]["/ipam/{ip}"] = ipam.NewDeleteIpamIP(o.context, o.IpamDeleteIpamIPHandler)
 
 	if o.handlers["DELETE"] == nil {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
@@ -803,12 +803,12 @@ func (o *CiliumAPI) initHandlerCache() {
 	if o.handlers["POST"] == nil {
 		o.handlers["POST"] = make(map[string]http.Handler)
 	}
-	o.handlers["POST"]["/ipam"] = ipam.NewPostIPAM(o.context, o.IPAMPostIPAMHandler)
+	o.handlers["POST"]["/ipam"] = ipam.NewPostIpam(o.context, o.IpamPostIpamHandler)
 
 	if o.handlers["POST"] == nil {
 		o.handlers["POST"] = make(map[string]http.Handler)
 	}
-	o.handlers["POST"]["/ipam/{ip}"] = ipam.NewPostIPAMIP(o.context, o.IPAMPostIPAMIPHandler)
+	o.handlers["POST"]["/ipam/{ip}"] = ipam.NewPostIpamIP(o.context, o.IpamPostIpamIPHandler)
 
 	if o.handlers["PUT"] == nil {
 		o.handlers["PUT"] = make(map[string]http.Handler)
