@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -29,7 +30,25 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ct-gc")
+var (
+	log            = logging.DefaultLogger.WithField(logfields.LogSubsys, "ct-gc")
+	lastGCTime     time.Time
+	lastGCTimeLock lock.Mutex
+)
+
+// GetLastGCTime is the last time a CT GC ended. If it has not run, the value
+// is time.Time{} (1970 epoch).
+func GetLastGCTime() time.Time {
+	lastGCTimeLock.Lock()
+	defer lastGCTimeLock.Unlock()
+	return lastGCTime
+}
+
+func setLastGCTime(t time.Time) {
+	lastGCTimeLock.Lock()
+	defer lastGCTimeLock.Unlock()
+	lastGCTime = t
+}
 
 // EndpointManager is any type which returns the list of Endpoints which are
 // globally exposed on the current node.
@@ -64,6 +83,8 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 				}
 				runGC(e, ipv4, ipv6, &ctmap.GCFilter{RemoveExpired: true})
 			}
+
+			setLastGCTime(time.Now())
 
 			if initialScan {
 				close(initialScanComplete)

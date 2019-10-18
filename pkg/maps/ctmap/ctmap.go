@@ -643,16 +643,8 @@ func calculateInterval(mapType bpf.MapType, prevInterval time.Duration, maxDelet
 		// as a new node may not be seeing workloads yet and thus the
 		// scan will return a low deletion ratio at first.
 		interval = time.Duration(float64(interval) * 1.5).Round(time.Second)
-
-		switch mapType {
-		case bpf.MapTypeLRUHash:
-			if interval > defaults.ConntrackGCMaxLRUInterval {
-				interval = defaults.ConntrackGCMaxLRUInterval
-			}
-		default:
-			if interval > defaults.ConntrackGCMaxInterval {
-				interval = defaults.ConntrackGCMaxInterval
-			}
+		if maxInterval := GetMaxInterval(mapType); interval > maxInterval {
+			interval = maxInterval
 		}
 	}
 
@@ -666,4 +658,13 @@ func calculateInterval(mapType bpf.MapType, prevInterval time.Duration, maxDelet
 	cachedGCInterval = interval
 
 	return
+}
+
+func GetMaxInterval(mapType bpf.MapType) (interval time.Duration) {
+	switch mapType {
+	case bpf.MapTypeLRUHash:
+		return defaults.ConntrackGCMaxLRUInterval
+	default:
+		return defaults.ConntrackGCMaxInterval
+	}
 }
