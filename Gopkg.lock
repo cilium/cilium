@@ -1555,7 +1555,7 @@
     "storage/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.16.1"
+  revision = "kubernetes-1.16.2"
 
 [[projects]]
   digest = "1:6aab404e4451f049e6c4dfdb102d43fb209b445cdac708f7e74b5e70b41ddd90"
@@ -1570,10 +1570,10 @@
     "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.16.1"
+  revision = "kubernetes-1.16.2"
 
 [[projects]]
-  digest = "1:26f6aafe332e6b1639c6c5701c7130e8c146b58afa29c36700f34fab3e20070a"
+  digest = "1:5d7c5239b2cecf625a9b8c5e2837ebe66193ff412723ea998832ea6d0d86b7b9"
   name = "k8s.io/apimachinery"
   packages = [
     "pkg/api/equality",
@@ -1622,7 +1622,7 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.16.1"
+  revision = "kubernetes-1.16.2"
 
 [[projects]]
   digest = "1:c566f53f2829a9a9081a5ee4d29199b8218f527db97a5b04e38abe11cf153d2f"
@@ -1737,11 +1737,11 @@
     "util/retry",
   ]
   pruneopts = "NUT"
-  revision = "05864f462183111f6c0a2e5e60fbdf585a4834ed"
+  revision = "6e3dcac6fbe46613c51dda7f4f8835b7a35cd2ff"
   source = "https://github.com/cilium/client-go"
 
 [[projects]]
-  digest = "1:525d3cb0125d305eaeeeaf3ce4d1cccb06cfbbf6badd5bb02d5de31ade50d9c6"
+  digest = "1:a6aa236db5d07dff9ea1160ef316b17e131d2b1b2ad7d177431206bf389d241e"
   name = "k8s.io/code-generator"
   packages = [
     "cmd/client-gen",
@@ -1756,14 +1756,14 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "kubernetes-1.16.1"
+  revision = "kubernetes-1.16.2"
 
 [[projects]]
   digest = "1:5e496d711fa03e4aaf3cab0d7de079634a9465ebf940613b69b34f5cc6513db8"
   name = "k8s.io/cri-api"
   packages = ["pkg/apis/runtime/v1alpha2"]
   pruneopts = "NUT"
-  revision = "kubernetes-1.16.1"
+  revision = "kubernetes-1.16.2"
 
 [[projects]]
   digest = "1:d233b263f74608ab5528c04453935d899a2b9fb0bf02b03d38a4a11f91442a5c"
@@ -1808,7 +1808,7 @@
     "pkg/registry/core/service/ipallocator",
   ]
   pruneopts = "NUT"
-  revision = "v1.16.1"
+  revision = "v1.16.2"
 
 [[projects]]
   digest = "1:99dbf7ef753ca02399778c93a4ed4b689b28668317134ecd1fabeb07be70f354"
