@@ -1047,15 +1047,53 @@ var (
 		},
 	}
 
-	SecretHeader = map[string]apiextensionsv1beta1.JSONSchemaProps{
+	HeaderValue = map[string]apiextensionsv1beta1.JSONSchemaProps{
 		"name": {
 			Description: "Name identifies the header.",
 			Type:        "string",
 		},
 		"secret": {
-			Description: "Secret refers to a k8s secret that contains the value to be matched against.",
+			Description: "Secret refers to a k8s secret that contains the required value. ",
 			Type:        "object",
 			Properties:  K8sSecret,
+		},
+		"value": {
+			Description: "Value contains the required value. If both Secret and Value are specified, " +
+				"the Secret takes precedence, if it exists; i.e., the Value will only be used if " +
+				"the Secret cannot be found or accessed.",
+			Type:       "object",
+			Properties: K8sSecret,
+		},
+	}
+
+	HeaderMatch = map[string]apiextensionsv1beta1.JSONSchemaProps{
+		"name": {
+			Description: "Name identifies the header.",
+			Type:        "string",
+		},
+		"secret": {
+			Description: "Secret refers to a k8s secret that contains the value that must be present in the request.",
+			Type:        "object",
+			Properties:  K8sSecret,
+		},
+		"value": {
+			Description: "Value containst the header value that must be present in the request. If both Secret " +
+				"and Value are specified, " +
+				"the Secret takes precedence, if it exists; i.e., the Value will only be used if " +
+				"the Secret cannot be found or accessed.",
+			Type:       "object",
+			Properties: K8sSecret,
+		},
+		"regex": {
+			Description: "Regex specifies a regex for the GoogleRE2 engine that must match the whole value.",
+			Type:        "string",
+		},
+		"regexLimit": {
+			Description: "RegexLimit controls the maximum generated regex program " +
+				"complexity. If the limit is exceeded the regex fails to " +
+				"compile and the policy setup fails. Defaults to the Envoy " +
+				"default of 100.",
+			Type: "string",
 		},
 	}
 
@@ -1068,15 +1106,28 @@ var (
 			"characters disallowed from the conventional \"path\" part of a URL as defined by " +
 			"RFC 3986.",
 		Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-			"secretHeaders": {
-				Description: "SecretHeaders is a list of HTTP headers which must be present and match " +
-					"against the given k8s secret values. If omitted or empty, requests are allowed " +
-					"regardless of headers present.",
+			"matchHeaders": {
+				Description: "MatchHeaders is a list of HTTP headers which must be present and match " +
+					"against the given or referenced values or expressions. If omitted or empty, " +
+					"requests are allowed regardless of headers present.",
 				Type: "array",
 				Items: &apiextensionsv1beta1.JSONSchemaPropsOrArray{
 					Schema: &apiextensionsv1beta1.JSONSchemaProps{
 						Type:       "object",
-						Properties: SecretHeader,
+						Properties: HeaderMatch,
+					},
+				},
+			},
+			"imposeHeaders": {
+				Description: "ImposeHeaders is a list of HTTP headers with values that will be placed " +
+					"into the request, if all the other match requirements are met, and if not " +
+					"already present. Missing header or incorrect value will " +
+					"not cause a drop, but will be noted in the generated access log message.",
+				Type: "array",
+				Items: &apiextensionsv1beta1.JSONSchemaPropsOrArray{
+					Schema: &apiextensionsv1beta1.JSONSchemaProps{
+						Type:       "object",
+						Properties: HeaderValue,
 					},
 				},
 			},

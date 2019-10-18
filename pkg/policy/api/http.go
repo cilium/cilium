@@ -16,15 +16,44 @@ package api
 
 import "regexp"
 
-// SecretHeader specifies a matching requirement of a named header
-// field to a secret value
-type SecretHeader struct {
+// HeaderValue specifies a value requirement of a named header
+// field. The value can be an inline string or a k8s secret value.  If
+// none of the optional fields is present, then the value is
+// considered to be an empty string.
+type HeaderValue struct {
 	// Name identifies the header
 	Name string `json:"name,omitempty"`
 
 	// Secret refers to a k8s secret that contains the value to be matched against.
 	// The secret must only contain one entry.
+	// If the referred secret does not exist, the match will fail.
+	//
+	// +optional
 	Secret *K8sSecret `json:"secret,omitempty"`
+
+	// Value matches the exact value of the header.
+	//
+	// +optional
+	Value string `json:"value,omitempty"`
+}
+
+// HeaderMatch extends the HeaderValue for matching requirement of a
+// named header field against an immediate string, a secret value, or
+// a regex.  If none of the optional fields is present, then the
+// header value is not matched, only presence of the header is enough.
+type HeaderMatch struct {
+	HeaderValue
+
+	// Regex specifies a regex for the GoogleRE2 engine that must match the whole value.
+	//
+	// +optional
+	Regex string `json:"regex,omitempty"`
+
+	// RegexLimit controls the maximum generated regex program
+	// complexity. If the limit is exceeded the regex fails to
+	// compile and the policy setup fails. Defaults to the Envoy
+	// default of 100.
+	RegexLimit uint32 `json:"regexLimit,omitempty"`
 }
 
 // PortRuleHTTP is a list of HTTP protocol constraints. All fields are
@@ -66,16 +95,26 @@ type PortRuleHTTP struct {
 	// request. If omitted or empty, requests are allowed regardless of
 	// headers present.
 	//
+	// Deprecated: Use MatchHeaders instead.
+	//
 	// +optional
 	Headers []string `json:"headers,omitempty"`
 
-	// SecretHeaders is a list of HTTP headers which must be
-	// present and match against the given k8s secret values. If
-	// omitted or empty, requests are allowed regardless of
-	// headers present.
+	// MatchHeaders is a list of HTTP headers which must be
+	// present and match against the given k8s secret values.
 	//
 	// +optional
-	SecretHeaders []*SecretHeader `json:"secretHeaders,omitempty"`
+	MatchHeaders []*HeaderMatch `json:"matchHeaders,omitempty"`
+
+	// ImposeHeaders is a list of HTTP headers which will be
+	// placed into request headers, if all the other match
+	// requirements are met, and if not already present with the
+	// given value. A missing or incorrect value will not cause
+	// the request to be dropped, but access log messages will
+	// note if a header needed to be imposed.
+	//
+	// +optional
+	ImposeHeaders []*HeaderValue `json:"imposeHeaders,omitempty"`
 }
 
 // Sanitize sanitizes HTTP rules. It ensures that the path and method fields
