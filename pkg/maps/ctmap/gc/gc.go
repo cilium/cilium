@@ -72,13 +72,14 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 		for {
 			var (
 				maxDeleteRatio float64
-				connections    = make(map[string][]net.IP)
 				matchCB        = func(srcIP net.IP, dstIP net.IP, dstPort uint16, nextHdr, flags uint8, entry *ctmap.CtEntry) bool {
 					// ensure we only look at outbound connections that can be FQDN related
 					if flags != ctmap.TUPLE_F_OUT {
 						return true
 					}
-					connections[srcIP.String()] = append(connections[srcIP.String()], dstIP)
+					if ep := mgr.LookupIP(srcIP); ep != nil {
+						ep.MarkDNSCTEntry(dstIP, ctmap.GetMaxInterval(mapType))
+					}
 					return true
 				}
 			)
@@ -98,13 +99,6 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 				})
 			}
 
-			for epIP, dstIPs := range connections {
-				if ep := mgr.LookupIP(net.ParseIP(epIP)); ep != nil {
-					for _, dstIP := range dstIPs {
-						ep.MarkDNSCTEntry(dstIP, ctmap.GetMaxInterval(mapType))
-					}
-				}
-			}
 			setLastGCTime(time.Now())
 
 			if initialScan {
