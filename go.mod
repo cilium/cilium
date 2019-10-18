@@ -577,7 +577,7 @@ replace (
 	k8s.io/apimachinery => k8s.io/kubernetes/staging/src/k8s.io/apimachinery v0.0.0-20191012044237-c97fe5036ef3
 	k8s.io/apiserver => k8s.io/kubernetes/staging/src/k8s.io/apiserver v0.0.0-20191012044237-c97fe5036ef3
 	k8s.io/cli-runtime => k8s.io/kubernetes/staging/src/k8s.io/cli-runtime v0.0.0-20191012044237-c97fe5036ef3
-	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20191003081940-05864f462183
+	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20191018120418-6e3dcac6fbe4
 	k8s.io/cloud-provider => k8s.io/kubernetes/staging/src/k8s.io/cloud-provider v0.0.0-20191012044237-c97fe5036ef3
 	k8s.io/cluster-bootstrap => k8s.io/kubernetes/staging/src/k8s.io/cluster-bootstrap v0.0.0-20191012044237-c97fe5036ef3
 	k8s.io/code-generator => k8s.io/kubernetes/staging/src/k8s.io/code-generator v0.0.0-20191012044237-c97fe5036ef3

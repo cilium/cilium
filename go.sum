@@ -83,8 +83,8 @@ github.com/checkpoint-restore/go-criu v0.0.0-20190109184317-bdb7599cd87b/go.mod 
 github.com/cheekybits/genny v0.0.0-20170328200008-9127e812e1e9/go.mod h1:+tQajlRqAUrPI7DOSpB0XAqZYtQakVtB7wXkRAgjxjQ=
 github.com/cilium/arping v1.0.1-0.20190728065459-c5eaf8d7a710 h1:htVjkajqUYy6JmLMGlZYxfZ4urQq7rDvgUfmSJX7fSg=
 github.com/cilium/arping v1.0.1-0.20190728065459-c5eaf8d7a710/go.mod h1:ohfPr9hSb4vRsw5UEjCs3OoWD38U0z8EfSgZPbIe/+M=
-github.com/cilium/client-go v0.0.0-20191003081940-05864f462183 h1:UedDPNe3Jaq7t4zutT5vuOVavITum13mz1f6YEvC/ro=
-github.com/cilium/client-go v0.0.0-20191003081940-05864f462183/go.mod h1:UBFA5lo8nEOepaxS9koNccX/38rYMI3pa1EA1gaFZNg=
+github.com/cilium/client-go v0.0.0-20191018120418-6e3dcac6fbe4 h1:RZsAMXYtqblkV3HNmdzGwX7YHsbXoqSEokRoBLX1W/Q=
+github.com/cilium/client-go v0.0.0-20191018120418-6e3dcac6fbe4/go.mod h1:hrwktSwYGI4JK+TJA3dMaFyyvHVi/aLarVHpbs8bgCU=
 github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3 h1:wenYMyWJ08dgEUUj0Ija8qdK/V9vL3ThAD5sjOYlFlg=
 github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3/go.mod h1:cXN7jgo+gsGlNvQ7Vqu2ELdc3f7i7PPgupHqSkLzzBo=
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b h1:+bsFX/WOMIoaayXVyRem1awcpz3icz/HoL8Dxg/m6a4=
