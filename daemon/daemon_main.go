@@ -59,7 +59,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/version"
-	"github.com/cilium/cilium/pkg/workloads"
 
 	"github.com/go-openapi/loads"
 	gops "github.com/google/gops/agent"
@@ -241,10 +240,12 @@ func init() {
 
 	flags.StringSlice(option.ContainerRuntime, option.ContainerRuntimeAuto, `Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" )`)
 	option.BindEnv(option.ContainerRuntime)
+	flags.MarkDeprecated(option.ContainerRuntime, "This option is no longer supported and will be removed in v1.8")
 
-	flags.Var(option.NewNamedMapOptions(option.ContainerRuntimeEndpoint, &option.Config.ContainerRuntimeEndpoint, nil),
-		option.ContainerRuntimeEndpoint, `Container runtime(s) endpoint(s). (default: `+workloads.GetDefaultEPOptsStringWithPrefix("--container-runtime-endpoint=")+`)`)
+	flags.Var(option.NewNamedMapOptions(option.ContainerRuntimeEndpoint, &map[string]string{}, nil),
+		option.ContainerRuntimeEndpoint, `Container runtime(s) endpoint(s).`)
 	option.BindEnv(option.ContainerRuntimeEndpoint)
+	flags.MarkDeprecated(option.ContainerRuntimeEndpoint, "This option is no longer supported and will be removed in v1.8")
 
 	flags.BoolP(option.DebugArg, "D", false, "Enable debugging mode")
 	option.BindEnv(option.DebugArg)
@@ -322,9 +323,6 @@ func init() {
 	flags.Bool(option.DeprecatedEnableLegacyServices, false, "Enable legacy (prior-v1.5) services")
 	flags.MarkDeprecated(option.DeprecatedEnableLegacyServices, "this option is deprecated as of v1.6")
 	option.BindEnv(option.DeprecatedEnableLegacyServices)
-
-	flags.StringP(option.Docker, "e", workloads.GetRuntimeDefaultOpt(workloads.Docker, "endpoint"), "Path to docker runtime socket (DEPRECATED: use container-runtime-endpoint instead)")
-	option.BindEnv(option.Docker)
 
 	flags.Bool(option.EnableAutoDirectRoutingName, defaults.EnableAutoDirectRouting, "Enable automatic L2 routing between nodes")
 	option.BindEnv(option.EnableAutoDirectRoutingName)
@@ -576,6 +574,7 @@ func init() {
 		fmt.Sprintf("Installs a BPF program to allow for policy enforcement in already running containers managed by Flannel."+
 			" Require Cilium to be running in the hostPID."))
 	option.BindEnv(option.FlannelManageExistingContainers)
+	flags.MarkDeprecated(option.FlannelManageExistingContainers, "This option is no longer supported and will be removed in v1.8")
 
 	flags.Bool(option.PProf, false, "Enable serving the pprof debugging API")
 	option.BindEnv(option.PProf)
@@ -973,10 +972,6 @@ func initEnv(cmd *cobra.Command) {
 				log.Warn("Running Cilium in flannel mode requires IPv6 mode be 'false'. Disabling IPv6 mode")
 				option.Config.EnableIPv6 = false
 			}
-			if option.Config.FlannelManageExistingContainers && !option.Config.WorkloadsEnabled() {
-				log.Warnf("Managing existing flannel containers with Cilium requires container workloads. Changing %s to %q", option.ContainerRuntime, "auto")
-				option.Config.Workloads = option.ContainerRuntimeAuto
-			}
 		}
 	case option.DatapathModeIpvlan:
 		if option.Config.Tunnel != "" && option.Config.Tunnel != option.TunnelDisabled {
@@ -1249,10 +1244,6 @@ func runDaemon() {
 		if err != nil {
 			log.WithError(err).WithField("device", option.Config.FlannelMasterDevice).Fatal("Unable to set internal IPv4")
 		}
-		if option.Config.FlannelManageExistingContainers {
-			log.Info("Searching for existing containers...")
-			d.attachExistingInfraContainers()
-		}
 	}
 
 	if !option.Config.DryMode {
@@ -1268,17 +1259,6 @@ func runDaemon() {
 			ms.CollectStaleMapGarbage()
 			ms.RemoveDisabledMaps()
 		}()
-	}
-
-	// The workload event listener *must* be enabled *after* restored endpoints
-	// are added into the endpoint manager; otherwise, updates to important
-	// endpoint metadata, such as Kubernetes pod name and namespace, will not
-	// be performed on the endpoint.
-	eventsCh, err := workloads.EnableEventListener()
-	if err != nil {
-		log.WithError(err).Fatal("Error while enabling workload event watcher")
-	} else {
-		d.workloadsEventsCh = eventsCh
 	}
 
 	bootstrapStats.healthCheck.Start()

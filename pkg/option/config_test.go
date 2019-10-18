@@ -202,29 +202,6 @@ func (s *OptionSuite) TestReadDirConfig(c *C) {
 	}
 }
 
-func (s *OptionSuite) TestWorkloadsEnabled(c *C) {
-	type testDefinition struct {
-		config   *DaemonConfig
-		expected bool
-	}
-
-	tests := []testDefinition{
-		{&DaemonConfig{Workloads: []string{}}, false},
-		{&DaemonConfig{Workloads: []string{"none"}}, false},
-		{&DaemonConfig{Workloads: []string{"none"}}, false},
-		{&DaemonConfig{Workloads: []string{"docker", "none"}}, false},
-		{&DaemonConfig{Workloads: []string{"docker"}}, true},
-		{&DaemonConfig{Workloads: []string{"docker", "crio"}}, true},
-		{&DaemonConfig{Workloads: []string{"docker", "nonefalse"}}, true},
-	}
-
-	for _, test := range tests {
-		if test.config.WorkloadsEnabled() != test.expected {
-			c.Errorf("%#v != %#v", test.config.Workloads, test.expected)
-		}
-	}
-}
-
 func (s *OptionSuite) TestBindEnv(c *C) {
 	optName1 := "foo-bar"
 	os.Setenv("LEGACY_FOO_BAR", "legacy")

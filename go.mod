@@ -18,20 +18,11 @@ require (
 	github.com/census-instrumentation/opencensus-proto v0.2.1 // indirect
 	github.com/cilium/arping v1.0.1-0.20190728065459-c5eaf8d7a710
 	github.com/cilium/proxy v0.0.0-20191103190817-c6d564bb0863
-	github.com/containerd/cgroups v0.0.0-20190717030353-c4b9ac5c7601 // indirect
-	github.com/containerd/containerd v1.3.0
-	github.com/containerd/continuity v0.0.0-20190827140505-75bee3e2ccb6 // indirect
-	github.com/containerd/cri v1.11.1-0.20190729065224-f0a677e76f68
-	github.com/containerd/fifo v0.0.0-20190816180239-bda0ff6ed73c // indirect
-	github.com/containerd/ttrpc v0.0.0-20190828172938-92c8520ef9f8 // indirect
-	github.com/containerd/typeurl v0.0.0-20190911142611-5eb25027c9fd
 	github.com/containernetworking/cni v0.7.1
 	github.com/containernetworking/plugins v0.8.2
 	github.com/coreos/go-systemd v0.0.0-20190719114852-fd7a80b32e1f // indirect
 	github.com/davecgh/go-spew v1.1.1
-	github.com/docker/docker v0.7.3-0.20190327010347-be7ac8be2ae0
 	github.com/docker/go-connections v0.4.0 // indirect
-	github.com/docker/go-events v0.0.0-20190806004212-e31b211e4f1c // indirect
 	github.com/docker/libnetwork v0.0.0-20190128195551-d8d4c8cf03d7
 	github.com/envoyproxy/protoc-gen-validate v0.1.0 // indirect
 	github.com/evanphx/json-patch v4.5.0+incompatible // indirect
@@ -45,7 +36,6 @@ require (
 	github.com/go-openapi/strfmt v0.19.3
 	github.com/go-openapi/swag v0.19.5
 	github.com/go-openapi/validate v0.19.3
-	github.com/gogo/googleapis v1.3.0 // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/protobuf v1.3.2
 	github.com/golang/snappy v0.0.1 // indirect
@@ -76,7 +66,6 @@ require (
 	github.com/onsi/ginkgo v1.10.2
 	github.com/onsi/gomega v1.7.0
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
-	github.com/opencontainers/runtime-spec v1.0.1 // indirect
 	github.com/optiopay/kafka v0.0.0-20180809090225-01ce283b732b
 	github.com/pborman/uuid v1.2.0
 	github.com/pelletier/go-toml v1.5.0 // indirect
@@ -92,7 +81,6 @@ require (
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.4.0
-	github.com/syndtr/gocapability v0.0.0-20180916011248-d98352740cb2 // indirect
 	github.com/vishvananda/netlink v1.0.1-0.20191111102915-47ae870a10ed
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20190911215424-9ed5f76dc03b
 	go.mongodb.org/mongo-driver v1.1.2 // indirect
@@ -116,7 +104,6 @@ require (
 	k8s.io/apimachinery v0.0.0
 	k8s.io/client-go v8.0.0+incompatible
 	k8s.io/code-generator v0.0.0
-	k8s.io/cri-api v0.0.0
 	k8s.io/klog v0.4.0
 	k8s.io/kubernetes v1.16.2
 	sigs.k8s.io/yaml v1.1.0
@@ -199,13 +186,12 @@ replace (
 	github.com/container-storage-interface/spec => github.com/container-storage-interface/spec v1.1.0
 	github.com/containerd/cgroups => github.com/containerd/cgroups v0.0.0-20190717030353-c4b9ac5c7601
 	github.com/containerd/console => github.com/containerd/console v0.0.0-20170925154832-84eeaae905fa
-	github.com/containerd/containerd => github.com/containerd/containerd v1.3.0
-	github.com/containerd/continuity => github.com/containerd/continuity v0.0.0-20190827140505-75bee3e2ccb6
+	github.com/containerd/containerd => github.com/containerd/containerd v1.0.2
+	github.com/containerd/continuity => github.com/containerd/continuity v0.0.0-20181203112020-004b46473808
 	github.com/containerd/cri => github.com/containerd/cri v1.11.1-0.20190729065224-f0a677e76f68
 	github.com/containerd/fifo => github.com/containerd/fifo v0.0.0-20190816180239-bda0ff6ed73c
-	github.com/containerd/go-cni => github.com/containerd/go-cni v0.0.0-20190904155053-d20b7eebc7ee
 	github.com/containerd/ttrpc => github.com/containerd/ttrpc v0.0.0-20190828172938-92c8520ef9f8
-	github.com/containerd/typeurl => github.com/containerd/typeurl v0.0.0-20190911142611-5eb25027c9fd
+	github.com/containerd/typeurl => github.com/containerd/typeurl v0.0.0-20190228175220-2a93cfde8c20
 	github.com/containernetworking/cni => github.com/containernetworking/cni v0.7.1
 	github.com/containernetworking/plugins => github.com/containernetworking/plugins v0.8.2
 	github.com/coredns/coredns => github.com/coredns/coredns v1.1.2
@@ -237,7 +223,6 @@ replace (
 	github.com/docker/distribution => github.com/docker/distribution v2.7.1-0.20190205005809-0d3efadf0154+incompatible
 	github.com/docker/docker => github.com/docker/docker v0.7.3-0.20190327010347-be7ac8be2ae0
 	github.com/docker/go-connections => github.com/docker/go-connections v0.4.0
-	github.com/docker/go-events => github.com/docker/go-events v0.0.0-20190806004212-e31b211e4f1c
 	github.com/docker/go-units => github.com/docker/go-units v0.4.0
 	github.com/docker/libkv => github.com/docker/libkv v0.2.1
 	github.com/docker/libnetwork => github.com/docker/libnetwork v0.0.0-20190128195551-d8d4c8cf03d7
@@ -285,7 +270,7 @@ replace (
 	github.com/go-test/deep => github.com/go-test/deep v1.0.2
 	github.com/gocql/gocql => github.com/gocql/gocql v0.0.0-20180617115710-e06f8c1bcd78
 	github.com/godbus/dbus => github.com/godbus/dbus v4.1.0+incompatible
-	github.com/gogo/googleapis => github.com/gogo/googleapis v1.3.0
+	github.com/gogo/googleapis => github.com/gogo/googleapis v1.1.0
 	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.1
 	github.com/golang/glog => github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache => github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef
@@ -446,7 +431,7 @@ replace (
 	github.com/opencontainers/go-digest => github.com/opencontainers/go-digest v1.0.0-rc1
 	github.com/opencontainers/image-spec => github.com/opencontainers/image-spec v1.0.1
 	github.com/opencontainers/runc => github.com/opencontainers/runc v1.0.0-rc2.0.20190611121236-6cc515888830
-	github.com/opencontainers/runtime-spec => github.com/opencontainers/runtime-spec v1.0.1
+	github.com/opencontainers/runtime-spec => github.com/opencontainers/runtime-spec v1.0.0
 	github.com/opencontainers/selinux => github.com/opencontainers/selinux v1.2.2
 	github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
 	github.com/ory/dockertest => github.com/ory/dockertest v3.3.4+incompatible
@@ -501,7 +486,7 @@ replace (
 	github.com/storageos/go-api => github.com/storageos/go-api v0.0.0-20180912212459-343b3eff91fc
 	github.com/stretchr/objx => github.com/stretchr/objx v0.2.0
 	github.com/stretchr/testify => github.com/stretchr/testify v1.4.0
-	github.com/syndtr/gocapability => github.com/syndtr/gocapability v0.0.0-20180916011248-d98352740cb2
+	github.com/syndtr/gocapability => github.com/syndtr/gocapability v0.0.0-20160928074757-e7cb7fa329f4
 	github.com/tchap/go-patricia => github.com/tchap/go-patricia v2.3.0+incompatible
 	github.com/tent/http-link-go => github.com/tent/http-link-go v0.0.0-20130702225549-ac974c61c2f9
 	github.com/thecodeteam/goscaleio => github.com/thecodeteam/goscaleio v0.1.0

@@ -277,12 +277,21 @@ IMPORTANT: Changes required before upgrading to 1.7.0
     key-file: '/var/lib/cilium/etcd-client.key'
     cert-file: '/var/lib/cilium/etcd-client.crt'
 
+* Due to the removal of external libraries to connect to container runtimes,
+  Cilium no longer supports the option ``flannel-manage-existing-containers``.
+  Cilium will still support integration with Flannel for new containers
+  provisioned but not for containers already running in Flannel. The options
+  ``container-runtime`` and ``container-runtime-endpoint`` will not have any
+  effect and the flag removal is scheduled for v1.8.0
+
 Removed options
 ~~~~~~~~~~~~~~~~~~
 
 * ``lb``: The ``--lb`` feature has been removed. If you need load-balancing on
   a particular device, consider using :ref:`nodeport`.
 
+* ``docker`` and ``e``: This flags has been removed as Cilium no longer requires
+  container runtime integrations to manage containers' networks.
 
 .. _1.6_upgrade_notes:
 

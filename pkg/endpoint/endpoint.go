@@ -2114,7 +2114,7 @@ func (e *Endpoint) GetProxyInfoByFields() (uint64, string, string, []string, str
 // * if the endpoint has a sidecar proxy, it waits for the endpoint's BPF
 // program to be generated for the first time.
 // * otherwise, waits for the endpoint to complete its first full regeneration.
-func (e *Endpoint) RegenerateAfterCreation(ctx context.Context, endpointStartFunc func(), syncBuild bool) error {
+func (e *Endpoint) RegenerateAfterCreation(ctx context.Context, syncBuild bool) error {
 	if err := e.lockAlive(); err != nil {
 		return fmt.Errorf("endpoint was deleted while processing the request")
 	}
@@ -2143,10 +2143,6 @@ func (e *Endpoint) RegenerateAfterCreation(ctx context.Context, endpointStartFun
 			Reason:        "Initial build on endpoint creation",
 			ParentContext: ctx,
 		})
-	}
-
-	if endpointStartFunc != nil {
-		endpointStartFunc()
 	}
 
 	// Wait for endpoint to be in "ready" state if specified in API call.

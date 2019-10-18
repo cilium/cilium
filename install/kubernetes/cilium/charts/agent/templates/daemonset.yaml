@@ -146,17 +146,6 @@ spec:
           name: cni-path
         - mountPath: {{ .Values.global.cni.hostConfDirMountPath }}
           name: etc-cni-netd
-{{- if or (eq .Values.global.containerRuntime.integration "docker") (eq .Values.global.containerRuntime.integration "auto") }}
-        - mountPath: /var/run/docker.sock
-          name: docker-socket
-          readOnly: true
-{{- else if eq .Values.global.containerRuntime.integration "crio" }}
-        - mountPath: /var/run/crio/crio.sock
-          name: crio-socket
-{{- else if eq .Values.global.containerRuntime.integration "containerd" }}
-        - mountPath: /var/run/containerd/containerd.sock
-          name: containerd-socket
-{{- end }}
 {{- if .Values.global.etcd.enabled }}
         - mountPath: /var/lib/etcd-config
           name: etcd-config-path
@@ -199,11 +188,6 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
 {{- end }}
       hostNetwork: true
-{{- if .Values.global.flannel.manageExistingContainers }}
-      # Enable host PID namespace to allow the flannel integration to attach to
-      # existing containers
-      hostPID: true
-{{- end }}
       initContainers:
 {{- if and .Values.global.nodeinit.enabled (not (eq .Values.global.nodeinit.bootstrapFile "")) }}
       - name: wait-for-node-init
@@ -283,32 +267,6 @@ spec:
           path: /sys/fs/bpf
           type: DirectoryOrCreate
         name: bpf-maps
-{{- end }}
-{{- if not (eq .Values.global.containerRuntime.integration "none") }}
-      # To read container runtime events from the node
-      - hostPath:
-{{- if .Values.global.containerRuntime.socketPath }}
-          path: {{ .Values.global.containerRuntime.socketPath }}
-{{- end }}
-{{- end }}
-{{- if or (eq .Values.global.containerRuntime.integration "docker") (eq .Values.global.containerRuntime.integration "auto") }}
-{{- if not (.Values.global.containerRuntime.socketPath) }}
-          path: /var/run/docker.sock
-{{- end }}
-          type: Socket
-        name: docker-socket
-{{- else if eq .Values.global.containerRuntime.integration "crio" }}
-{{- if not (.Values.global.containerRuntime.socketPath) }}
-          path: /var/run/crio/crio.sock
-{{- end }}
-          type: Socket
-        name: crio-socket
-{{- else if eq .Values.global.containerRuntime.integration "containerd" }}
-{{- if not (.Values.global.containerRuntime.socketPath) }}
-          path: /var/run/containerd/containerd.sock
-{{- end }}
-          type: Socket
-        name: containerd-socket
 {{- end }}
       # To install cilium cni plugin in the host
       - hostPath:
