@@ -248,10 +248,6 @@ global:
     # managed pods when the Cilium pod is terminated
     uninstallOnExit: false
 
-    # manageExistingContainers enables attachment of Cilium to existing flannel
-    # managed pods when Cilium starts
-    manageExistingContainers: false
-
   # ipvlan is the IPVLAN configuration
   ipvlan:
     # enabled enables use of the IPVLAN datapath

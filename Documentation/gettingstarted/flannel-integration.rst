@@ -64,12 +64,6 @@ itself when the Cilium pod is stopped.
 If the Flannel bridge has a different name than ``cni0``, you must specify
 the name by setting ``global.flannel.masterDevice=...``.
 
-*Optional step:*
-If your cluster has already pods being managed by Flannel, there is also
-an option available that allows Cilium to start managing those pods without
-requiring to restart them. To enable this functionality you need to set the
-value ``global.flannel.manageExistingContainers=true``
-
 Once you have changed the ConfigMap accordingly, you can deploy Cilium.
 
 .. parsed-literal::

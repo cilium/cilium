@@ -185,12 +185,6 @@ data:
   # be kept in the interfaces unless this option is set to "true".
   flannel-uninstall-on-exit: "{{ .Values.global.flannel.uninstallOnExit}}"
 
-  # Installs a BPF program to allow for policy enforcement in already running
-  # containers managed by Flannel.
-  # NOTE: This requires Cilium DaemonSet to be running in the hostPID.
-  # To run in this mode in Kubernetes change the value of the hostPID from
-  # false to true. Can be found under the path `spec.spec.hostPID`
-  flannel-manage-existing-containers: "{{ .Values.global.flannel.manageExistingContainers }}"
 {{- end }}
 
 {{- if .Values.global.l7Proxy }}
@@ -233,27 +227,6 @@ data:
   #  - portmap (Enables HostPort support for Cilium)
   cni-chaining-mode: {{ .Values.global.cni.chainingMode }}
 {{- end }}
-
-  # Enable fetching of container-runtime specific metadata
-  #
-  # By default, the Kubernetes pod and namespace labels are retrieved and
-  # associated with endpoints for identification purposes. By integrating
-  # with the container runtime, container runtime specific labels can be
-  # retrieved, such labels will be prefixed with container:
-  #
-  # CAUTION: The container runtime labels can include information such as pod
-  # annotations which may result in each pod being associated a unique set of
-  # labels which can result in excessive security identities being allocated.
-  # Please review the labels filter when enabling container runtime labels.
-  #
-  # Supported values:
-  # - containerd
-  # - crio
-  # - docker
-  # - none
-  # - auto (automatically detect the container runtime)
-  #
-  container-runtime: {{ .Values.global.containerRuntime.integration }}
 
   masquerade: {{ .Values.global.masquerade | quote }}
 {{- if .Values.global.egressMasqueradeInterfaces }}

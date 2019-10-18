@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/endpoint/connector"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/fqdn"
@@ -69,7 +68,6 @@ import (
 	"github.com/cilium/cilium/pkg/sockops"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/trigger"
-	"github.com/cilium/cilium/pkg/workloads"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 
 	"github.com/sirupsen/logrus"
@@ -91,8 +89,6 @@ type Daemon struct {
 	svc              *service.Service
 	policy           *policy.Repository
 	preFilter        *prefilter.PreFilter
-	// Only used for CRI-O since it does not support events.
-	workloadsEventsCh chan<- *workloads.EventMessage
 
 	statusCollectMutex lock.RWMutex
 	statusResponse     models.StatusResponse
@@ -391,10 +387,6 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	d.k8sWatcher.RunK8sServiceHandler()
 	policyApi.InitEntities(option.Config.ClusterName)
 
-	bootstrapStats.workloadsInit.Start()
-	workloads.Init(&d)
-	bootstrapStats.workloadsInit.End(true)
-
 	bootstrapStats.cleanup.Start()
 	err = clearCiliumVeths()
 	bootstrapStats.cleanup.EndError(err)
@@ -425,10 +417,6 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	}
 
 	d.bootstrapIPAM()
-
-	if err := d.bootstrapWorkloads(); err != nil {
-		return nil, nil, err
-	}
 
 	// Start the proxy before we restore endpoints so that we can inject the
 	// daemon's proxy into each endpoint.
@@ -559,40 +547,6 @@ func (d *Daemon) bootstrapClusterMesh(nodeMngr *nodemanager.Manager) {
 	bootstrapStats.clusterMeshInit.End(true)
 }
 
-func (d *Daemon) bootstrapWorkloads() error {
-	if option.Config.WorkloadsEnabled() {
-		bootstrapStats.workloadsInit.Start()
-		// workaround for to use the values of the deprecated dockerEndpoint
-		// variable if it is set with a different value than defaults.
-		defaultDockerEndpoint := workloads.GetRuntimeDefaultOpt(workloads.Docker, "endpoint")
-		if defaultDockerEndpoint != option.Config.DockerEndpoint {
-			option.Config.ContainerRuntimeEndpoint[string(workloads.Docker)] = option.Config.DockerEndpoint
-			log.Warn(`"docker" flag is deprecated.` +
-				`Please use "--container-runtime-endpoint=docker=` + defaultDockerEndpoint + `" instead`)
-		}
-
-		opts := make(map[workloads.WorkloadRuntimeType]map[string]string)
-		for rt, ep := range option.Config.ContainerRuntimeEndpoint {
-			opts[workloads.WorkloadRuntimeType(rt)] = make(map[string]string)
-			opts[workloads.WorkloadRuntimeType(rt)][workloads.EpOpt] = ep
-		}
-		if opts[workloads.Docker] == nil {
-			opts[workloads.Docker] = make(map[string]string)
-		}
-		opts[workloads.Docker][workloads.DatapathModeOpt] = option.Config.DatapathMode
-
-		// Workloads must be initialized after IPAM has started as it requires
-		// to allocate IPs.
-		if err := workloads.Setup(d.ipam, d.endpointManager, option.Config.Workloads, opts); err != nil {
-			return fmt.Errorf("unable to setup workload: %s", err)
-		}
-
-		log.Infof("Container runtime options set: %s", workloads.GetRuntimeOptions())
-		bootstrapStats.workloadsInit.End(true)
-	}
-	return nil
-}
-
 // Close shuts down a daemon
 func (d *Daemon) Close() {
 	if d.policyTrigger != nil {
@@ -601,35 +555,6 @@ func (d *Daemon) Close() {
 	d.nodeDiscovery.Close()
 }
 
-func (d *Daemon) attachExistingInfraContainers() {
-	m, err := workloads.Client().GetAllInfraContainersPID()
-	if err != nil {
-		log.WithError(err).Error("Unable to get all infra containers PIDs")
-		return
-	}
-	log.Debugf("Containers found %+v", m)
-	for containerID, pid := range m {
-		epModel, err := connector.DeriveEndpointFrom(option.Config.FlannelMasterDevice, containerID, pid)
-		if err != nil {
-			log.WithError(err).WithField(logfields.ContainerID, containerID).
-				Warning("Unable to derive endpoint from existing infra container")
-			continue
-		}
-		log.Debugf("Adding endpoint %+v", epModel)
-		ep, _, err := d.createEndpoint(d.ctx, epModel)
-		if err != nil {
-			log.WithError(err).WithField(logfields.ContainerID, containerID).
-				Warning("Unable to attach existing infra container")
-			continue
-		}
-		log.WithFields(logrus.Fields{
-			logfields.ContainerID: epModel.ContainerID,
-			logfields.EndpointID:  ep.ID,
-		}).Info("Attached BPF program to existing container")
-	}
-}
-
-// TriggerReloadWithoutCompile causes all BPF programs and maps to be reloaded,
 // without recompiling the datapath logic for each endpoint. It first attempts
 // to recompile the base programs, and if this fails returns an error. If base
 // program load is successful, it subsequently triggers regeneration of all

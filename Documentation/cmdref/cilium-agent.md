@@ -43,8 +43,6 @@ cilium-agent [flags]
       --config string                                         Configuration file (default "$HOME/ciliumd.yaml")
       --config-dir string                                     Configuration directory that contains a file for each option
       --conntrack-gc-interval duration                        Overwrite the connection-tracking garbage collection interval
-      --container-runtime strings                             Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" ) (default [auto])
-      --container-runtime-endpoint map                        Container runtime(s) endpoint(s). (default: --container-runtime-endpoint=containerd=/var/run/containerd/containerd.sock, --container-runtime-endpoint=crio=/var/run/crio/crio.sock, --container-runtime-endpoint=docker=unix:///var/run/docker.sock) (default map[])
       --datapath-mode string                                  Datapath mode name (default "veth")
   -D, --debug                                                 Enable debugging mode
       --debug-verbose strings                                 List of enabled verbose debug groups
@@ -53,7 +51,6 @@ cilium-agent [flags]
       --disable-conntrack                                     Disable connection tracking
       --disable-endpoint-crd                                  Disable use of CiliumEndpoint CRD
       --disable-k8s-services                                  Disable east-west K8s load balancing by cilium
-  -e, --docker string                                         Path to docker runtime socket (DEPRECATED: use container-runtime-endpoint instead) (default "unix:///var/run/docker.sock")
       --egress-masquerade-interfaces string                   Limit egress masquerading to interface selector
       --enable-endpoint-health-checking                       Enable connectivity health checking between virtual endpoints (default true)
       --enable-endpoint-routes                                Use per endpoint routes instead of routing via cilium_host
@@ -75,7 +72,6 @@ cilium-agent [flags]
       --envoy-log string                                      Path to a separate Envoy log file, if any
       --exclude-local-address strings                         Exclude CIDR from being recognized as local address
       --fixed-identity-mapping map                            Key-value for the fixed identity mapping which allows to use reserved label for fixed identities (default map[])
-      --flannel-manage-existing-containers                    Installs a BPF program to allow for policy enforcement in already running containers managed by Flannel. Require Cilium to be running in the hostPID.
       --flannel-master-device string                          Installs a BPF program to allow for policy enforcement in the given network interface. Allows to run Cilium on top of other CNI plugins that provide networking, e.g. flannel, where for flannel, this value should be set with 'cni0'. [EXPERIMENTAL]
       --flannel-uninstall-on-exit                             When used along the flannel-master-device flag, it cleans up all BPF programs installed when Cilium agent is terminated.
       --force-local-policy-eval-at-source                     Force policy evaluation of all local communication at the source endpoint (default true)

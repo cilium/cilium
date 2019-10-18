@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/workloads"
 
 	"github.com/go-openapi/runtime/middleware"
 )
@@ -301,17 +300,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to pin datapath maps: %s", err))
 	}
 
-	cfunc := func() {
-		// Only used for CRI-O since it does not support events.
-		if d.workloadsEventsCh != nil && ep.GetContainerID() != "" {
-			d.workloadsEventsCh <- &workloads.EventMessage{
-				WorkloadID: ep.GetContainerID(),
-				EventType:  workloads.EventTypeStart,
-			}
-		}
-	}
-
-	if err := ep.RegenerateAfterCreation(ctx, cfunc, epTemplate.SyncBuildEndpoint); err != nil {
+	if err := ep.RegenerateAfterCreation(ctx, epTemplate.SyncBuildEndpoint); err != nil {
 		return d.errorDuringCreation(ep, err)
 	}
 	return ep, 0, nil
@@ -434,15 +423,6 @@ func (d *Daemon) NotifyMonitorDeleted(ep *endpoint.Endpoint) {
 // Specific users such as the cilium-health EP may choose not to release the IP
 // when deleting the endpoint. Most users should pass true for releaseIP.
 func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
-
-	// Only used for CRI-O since it does not support events.
-	if d.workloadsEventsCh != nil && ep.GetContainerID() != "" {
-		d.workloadsEventsCh <- &workloads.EventMessage{
-			WorkloadID: ep.GetContainerID(),
-			EventType:  workloads.EventTypeDelete,
-		}
-	}
-
 	return ep.Delete(d, d.ipam, d.endpointManager, conf)
 }
 
