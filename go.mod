@@ -60,7 +60,7 @@ require (
 	github.com/hashicorp/go-immutable-radix v1.1.0
 	github.com/hashicorp/go-msgpack v0.5.5 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.1 // indirect
-	github.com/hashicorp/go-version v1.2.0
+	github.com/hashicorp/go-version v0.0.0-20171129150820-4fe82ae3040f
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
 	github.com/hashicorp/memberlist v0.1.5 // indirect
 	github.com/hashicorp/serf v0.8.5 // indirect
@@ -344,7 +344,7 @@ replace (
 	github.com/hashicorp/go-sockaddr => github.com/hashicorp/go-sockaddr v1.0.0
 	github.com/hashicorp/go-syslog => github.com/hashicorp/go-syslog v1.0.0
 	github.com/hashicorp/go-uuid => github.com/hashicorp/go-uuid v1.0.1
-	github.com/hashicorp/go-version => github.com/hashicorp/go-version v1.2.0
+	github.com/hashicorp/go-version => github.com/hashicorp/go-version v0.0.0-20171129150820-4fe82ae3040f
 	github.com/hashicorp/go.net => github.com/hashicorp/go.net v0.0.1
 	github.com/hashicorp/golang-lru => github.com/hashicorp/golang-lru v0.5.3
 	github.com/hashicorp/hcl => github.com/hashicorp/hcl v1.0.0
