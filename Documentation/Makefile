@@ -21,7 +21,7 @@ SPELLING_LIST = spelling_wordlist.txt
 help:
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
-CONTRIB_DOCS_PATH = Documentation/contributing/contributing.rst
+CONTRIB_DOCS_PATH = Documentation/contributing/development/dev_setup.rst
 REQUIRED_GO_VERSION = $(shell cat ../GO_VERSION)
 
 check-go-version:
