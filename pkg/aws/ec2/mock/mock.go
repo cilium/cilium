@@ -341,8 +341,8 @@ func (e *API) TagENI(eniID string, eniTags map[string]string) error {
 	e.rateLimit()
 	e.simulateDelay(TagENI)
 
-	e.mutex.Lock()
-	defer e.mutex.Unlock()
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
 
 	if err, ok := e.errors[TagENI]; ok {
 		return err
