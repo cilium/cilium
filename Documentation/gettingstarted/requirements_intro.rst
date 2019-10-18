@@ -6,7 +6,6 @@ Make sure your Kubernetes environment is meeting the requirements:
 * Kubernetes >= 1.9
 * Linux kernel >= 4.9
 * Kubernetes in CNI mode
-* Key-Value store etcd >= 3.1.0 or consul >= 0.6.4
 * Mounted BPF filesystem mounted on all worker nodes
 * Recommended: Enable PodCIDR allocation (``--allocate-node-cidrs``) in the ``kube-controller-manager`` (recommended)
 
