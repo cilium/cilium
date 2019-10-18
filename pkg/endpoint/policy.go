@@ -578,6 +578,9 @@ func (e *Endpoint) startRegenerationFailureHandler() {
 				// context to a controller (e.g., endpoint.aliveCtx)?
 				ParentContext: ctx,
 				Reason:        reasonRegenRetry,
+				// Completely rewrite the endpoint - we don't know the nature
+				// of the failure, simply that something failed.
+				RegenerationLevel: regeneration.RegenerateWithDatapathRewrite,
 			}
 			if success := <-e.Regenerate(r); success {
 				return nil
