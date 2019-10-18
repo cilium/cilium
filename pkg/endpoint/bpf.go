@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -921,7 +922,17 @@ func (e *Endpoint) garbageCollectConntrack(filter *ctmap.GCFilter) {
 		}
 		defer m.Close()
 
+		// Wrap any older MatchCB in order to extract CT entries for use with toFQDNs DNSHistory/DNSCTHistory.
+		oldMatchCB := filter.MatchCB
+		filter.MatchCB = func(srcIP net.IP, dstIP net.IP, dstPort uint16, nextHdr, flags uint8, entry *ctmap.CtEntry) bool {
+			e.MarkDNSCTEntry(dstIP, ctmap.GetMaxInterval(m.MapInfo.MapType))
+			if oldMatchCB != nil {
+				return oldMatchCB(srcIP, dstIP, dstPort, nextHdr, flags, entry)
+			}
+			return true
+		}
 		ctmap.GC(m, filter)
+		e.DNSCTHistory.ForceExpire(time.Now(), nil)
 	}
 }
 
