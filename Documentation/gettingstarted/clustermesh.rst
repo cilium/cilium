@@ -235,7 +235,7 @@ chapter into all of your clusters:
 
 .. code:: bash
 
-    kubectl apply -f clustermesh.yaml
+    kubectl -n kube-system apply -f clustermesh.yaml
 
 2. Restart the cilium-agent in all clusters so it picks up the new cluster
    name, cluster id and mounts the ``cilium-clustermesh`` secret. Cilium will

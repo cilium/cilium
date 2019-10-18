@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/uuid"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -731,13 +732,15 @@ var _ = Describe("K8sPolicyTest", func() {
 			var (
 				// track which app1 pod we care about, and its corresponding
 				// cilium pod.
-				app1Pod   string
-				ciliumPod string
-				nodeName  string
-				//app1EpID        int64
+				app1Pod         string
+				app2Pod         string
+				ciliumPod       string
+				nodeName        string
 				monitorFileName = "monitor-%s.log"
 				appPods         map[string]string
 				app1PodIP       string
+				bindManifest    string
+				worldTarget     = "http://world1.cilium.test"
 			)
 
 			BeforeAll(func() {
@@ -749,6 +752,14 @@ var _ = Describe("K8sPolicyTest", func() {
 				for k, v := range podsNodes {
 					app1Pod = k
 					nodeName = v
+					break
+				}
+
+				podsNodes, err = kubectl.GetPodsNodes(namespaceForTest, "-l id=app2")
+				Expect(err).To(BeNil(), "error getting pod->node mapping")
+				Expect(len(podsNodes)).To(Equal(1))
+				for k := range podsNodes {
+					app2Pod = k
 					break
 				}
 
@@ -772,20 +783,51 @@ var _ = Describe("K8sPolicyTest", func() {
 						break
 					}
 				}
+
+				By("Applying bind deployment")
+				bindManifest = helpers.ManifestGet(kubectl.BasePath(), "bind_deployment.yaml")
+
+				res := kubectl.Apply(bindManifest)
+				res.ExpectSuccess("Bind config cannot be deployed")
+
+				err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=bind", helpers.HelperTimeout)
+				Expect(err).Should(BeNil(), "Bind app is not ready after timeout")
 			})
 
 			AfterEach(func() {
 				// Remove the proxy visibility annotation - this is done by specifying the annotation followed by a '-'.
 				kubectl.Exec(fmt.Sprintf("%s annotate pod %s -n %s %s-", helpers.KubectlCmd, appPods[helpers.App1], namespaceForTest, annotation.ProxyVisibility))
+				kubectl.Exec(fmt.Sprintf("%s annotate pod %s -n %s %s-", helpers.KubectlCmd, appPods[helpers.App2], namespaceForTest, annotation.ProxyVisibility))
 				cmd := fmt.Sprintf("%s delete --all cnp,netpol -n %s", helpers.KubectlCmd, namespaceForTest)
 				_ = kubectl.Exec(cmd)
 			})
 
-			checkProxyRedirection := func(app1PodIP string, redirected bool) {
-				var not = " "
+			AfterAll(func() {
+				_ = kubectl.Delete(bindManifest)
+			})
+
+			checkProxyRedirection := func(resource string, redirected bool, parser policy.L7ParserType) {
+				var (
+					not     = " "
+					re      *regexp.Regexp
+					curlCmd string
+				)
 
 				if !redirected {
 					not = " not "
+				}
+
+				switch parser {
+				case policy.ParserTypeDNS:
+					reStr := fmt.Sprintf("Request dns from.*Forwarded DNS Query:.*")
+					re = regexp.MustCompile(reStr)
+					curlCmd = helpers.CurlFail(resource)
+				case policy.ParserTypeHTTP:
+					reStr := fmt.Sprintf("verdict Forwarded GET http://%s/public", resource)
+					re = regexp.MustCompile(reStr)
+					curlCmd = helpers.CurlFail(fmt.Sprintf("http://%s/public", resource))
+				default:
+					Fail(fmt.Sprintf("invalid parser type for proxy visibility: %s", parser))
 				}
 
 				monitorFile := fmt.Sprintf(monitorFileName, uuid.NewUUID().String())
@@ -795,22 +837,19 @@ var _ = Describe("K8sPolicyTest", func() {
 
 				// Let the monitor get started since it is started in the background.
 				time.Sleep(2 * time.Second)
-				curlCmd := helpers.CurlFail(fmt.Sprintf("http://%s/public", app1PodIP))
 				res := kubectl.ExecPodCmd(
 					namespaceForTest, appPods[helpers.App2],
 					curlCmd)
 				// Give time for the monitor to be notified of the proxy flow.
 				time.Sleep(2 * time.Second)
 				monitorStop()
-				ExpectWithOffset(1, res.WasSuccessful()).To(BeTrue(), "%q cannot curl %q", appPods[helpers.App2], app1PodIP)
+				res.ExpectSuccess("%q cannot curl %q", appPods[helpers.App2], resource)
 				monitorPath := fmt.Sprintf("%s/%s", helpers.ReportDirectoryPath(), monitorFile)
 				By("Reading the monitor log at %s", monitorPath)
 				monitorOutput, err := ioutil.ReadFile(monitorPath)
 				ExpectWithOffset(1, err).To(BeNil(), "Could not read monitor log")
 
 				By("Checking that aforementioned traffic was%sredirected to the proxy", not)
-				reStr := fmt.Sprintf("verdict Forwarded GET http://%s/public", app1PodIP)
-				re := regexp.MustCompile(reStr)
 				out := re.Find(monitorOutput)
 				if redirected {
 					ExpectWithOffset(1, out).ToNot(BeNil(), "traffic was not redirected to the proxy when it should have been")
@@ -819,32 +858,40 @@ var _ = Describe("K8sPolicyTest", func() {
 				}
 			}
 
-			It("Tests proxy visibility without policy", func() {
-				checkProxyRedirection(app1PodIP, false)
+			proxyVisibilityTest := func(resource, podToAnnotate, anno string, parserType policy.L7ParserType) {
+				checkProxyRedirection(resource, false, parserType)
 
-				By("Annotating %s with <Ingress/80/TCP/HTTP>", app1Pod)
-				res := kubectl.Exec(fmt.Sprintf("%s annotate pod %s -n %s %s=\"<Ingress/80/TCP/HTTP>\"", helpers.KubectlCmd, app1Pod, namespaceForTest, annotation.ProxyVisibility))
+				By("Annotating %s with %s", podToAnnotate, anno)
+				res := kubectl.Exec(fmt.Sprintf("%s annotate pod %s -n %s %s=\"%s\"", helpers.KubectlCmd, podToAnnotate, namespaceForTest, annotation.ProxyVisibility, anno))
 				res.ExpectSuccess("annotating pod with proxy visibility annotation failed")
 				Expect(kubectl.CiliumEndpointWaitReady()).To(BeNil())
 
-				checkProxyRedirection(app1PodIP, true)
+				checkProxyRedirection(resource, true, parserType)
 
-				By("Removing proxy visibility annotation on %s", app1Pod)
-				kubectl.Exec(fmt.Sprintf("%s annotate pod %s -n %s %s-", helpers.KubectlCmd, app1Pod, namespaceForTest, annotation.ProxyVisibility)).ExpectSuccess()
+				By("Removing proxy visibility annotation on %s", podToAnnotate)
+				kubectl.Exec(fmt.Sprintf("%s annotate pod %s -n %s %s-", helpers.KubectlCmd, podToAnnotate, namespaceForTest, annotation.ProxyVisibility)).ExpectSuccess()
 				Expect(kubectl.CiliumEndpointWaitReady()).To(BeNil())
 
-				checkProxyRedirection(app1PodIP, false)
+				checkProxyRedirection(resource, false, parserType)
+			}
+
+			It("Tests HTTP proxy visibility without policy", func() {
+				proxyVisibilityTest(app1PodIP, app1Pod, "<Ingress/80/TCP/HTTP>", policy.ParserTypeHTTP)
+			})
+
+			It("Tests DNS proxy visibility without policy", func() {
+				proxyVisibilityTest(worldTarget, app2Pod, "<Egress/53/UDP/DNS>", policy.ParserTypeDNS)
 			})
 
 			It("Tests proxy visibility interactions with policy lifecycle operations", func() {
-				checkProxyRedirection(app1PodIP, false)
+				checkProxyRedirection(app1PodIP, false, policy.ParserTypeHTTP)
 
 				By("Annotating %s with <Ingress/80/TCP/HTTP>", app1Pod)
 				res := kubectl.Exec(fmt.Sprintf("%s annotate pod %s -n %s %s=\"<Ingress/80/TCP/HTTP>\"", helpers.KubectlCmd, app1Pod, namespaceForTest, annotation.ProxyVisibility))
 				res.ExpectSuccess("annotating pod with proxy visibility annotation failed")
 				Expect(kubectl.CiliumEndpointWaitReady()).To(BeNil())
 
-				checkProxyRedirection(app1PodIP, true)
+				checkProxyRedirection(app1PodIP, true, policy.ParserTypeHTTP)
 
 				By("Importing policy which selects app1; proxy-visibility annotation should be removed")
 
@@ -854,7 +901,7 @@ var _ = Describe("K8sPolicyTest", func() {
 					"policy %s cannot be applied in %q namespace", l3Policy, namespaceForTest)
 
 				By("Checking that proxy visibility annotation is removed due to policy being added")
-				checkProxyRedirection(app1PodIP, false)
+				checkProxyRedirection(app1PodIP, false, policy.ParserTypeHTTP)
 
 				_, err = kubectl.CiliumPolicyAction(
 					namespaceForTest, l3Policy, helpers.KubectlDelete, helpers.HelperTimeout)
@@ -862,7 +909,7 @@ var _ = Describe("K8sPolicyTest", func() {
 					"policy %s cannot be deleted in %q namespace", l3Policy, namespaceForTest)
 
 				By("Checking that proxy visibility annotation is re-added after policy is removed")
-				checkProxyRedirection(app1PodIP, true)
+				checkProxyRedirection(app1PodIP, true, policy.ParserTypeHTTP)
 			})
 		})
 

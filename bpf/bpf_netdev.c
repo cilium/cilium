@@ -519,7 +519,7 @@ static __always_inline int do_netdev_encrypt_fib(struct __sk_buff *skb, int *enc
 	}
 
 	fib_params.family = AF_INET;
-	fib_params.ifindex = ENCRYPT_IFACE;
+	fib_params.ifindex = *encrypt_iface;
 
 	fib_params.ipv4_src = iphdr->saddr;
 	fib_params.ipv4_dst = iphdr->daddr;

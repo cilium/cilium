@@ -92,7 +92,7 @@ func (d *Daemon) initHealth() {
 				d.cleanupHealthEndpoint()
 				return err
 			},
-			RunInterval: 30 * time.Second,
+			RunInterval: 60 * time.Second,
 		},
 	)
 

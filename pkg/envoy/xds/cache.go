@@ -20,7 +20,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
-	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
 	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
 )
@@ -76,16 +75,16 @@ func NewCache() *Cache {
 // increases the cache's version number atomically if the cache is actually
 // changed.
 // The version after updating the set is returned.
-func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, deletedNames []string, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
+func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, deletedNames []string) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
 	c.locker.Lock()
 	defer c.locker.Unlock()
 
-	cacheIsUpdated := force
+	cacheIsUpdated := false
 	newVersion := c.version + 1
 
 	cacheLog := log.WithFields(logrus.Fields{
-		logfields.XDSTypeURL:     typeURL,
-		logfields.XDSVersionInfo: newVersion,
+		logfields.XDSTypeURL:       typeURL,
+		logfields.XDSCachedVersion: newVersion,
 	})
 
 	cacheLog.Debugf("preparing new cache transaction: upserting %d entries, deleting %d entries",
@@ -129,9 +128,6 @@ func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, d
 			v.resource = value
 			c.resources[k] = v
 		}
-		if force {
-			cacheIsUpdated = true
-		}
 	}
 
 	for _, name := range deletedNames {
@@ -149,45 +145,42 @@ func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, d
 			cacheIsUpdated = true
 			delete(c.resources, k)
 		}
-		if force {
-			cacheIsUpdated = true
-		}
 	}
 
 	if cacheIsUpdated {
 		cacheLog.Debug("committing cache transaction and notifying of new version")
 		c.version = newVersion
 		c.NotifyNewResourceVersionRLocked(typeURL, c.version)
+
+		revert = func() (version uint64, updated bool) {
+			version, updated, _ = c.tx(typeURL, revertUpsertedResources, revertDeletedNames)
+			return
+		}
 	} else {
 		cacheLog.Debug("cache unmodified by transaction; aborting")
 	}
 
-	revertFunc := func(force bool) (version uint64, updated bool) {
-		version, updated, _ = c.tx(typeURL, revertUpsertedResources, revertDeletedNames, force)
-		return
-	}
-
-	return c.version, cacheIsUpdated, revertFunc
+	return c.version, cacheIsUpdated, revert
 }
 
-func (c *Cache) Upsert(typeURL string, resourceName string, resource proto.Message, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
-	return c.tx(typeURL, map[string]proto.Message{resourceName: resource}, nil, force)
+func (c *Cache) Upsert(typeURL string, resourceName string, resource proto.Message) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
+	return c.tx(typeURL, map[string]proto.Message{resourceName: resource}, nil)
 }
 
-func (c *Cache) Delete(typeURL string, resourceName string, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
-	return c.tx(typeURL, nil, []string{resourceName}, force)
+func (c *Cache) Delete(typeURL string, resourceName string) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
+	return c.tx(typeURL, nil, []string{resourceName})
 }
 
-func (c *Cache) Clear(typeURL string, force bool) (version uint64, updated bool) {
+func (c *Cache) Clear(typeURL string) (version uint64, updated bool) {
 	c.locker.Lock()
 	defer c.locker.Unlock()
 
-	cacheIsUpdated := force
+	cacheIsUpdated := false
 	newVersion := c.version + 1
 
 	cacheLog := log.WithFields(logrus.Fields{
-		logfields.XDSTypeURL:     typeURL,
-		logfields.XDSVersionInfo: newVersion,
+		logfields.XDSTypeURL:       typeURL,
+		logfields.XDSCachedVersion: newVersion,
 	})
 
 	cacheLog.Debug("preparing new cache transaction: deleting all entries")
@@ -212,15 +205,14 @@ func (c *Cache) Clear(typeURL string, force bool) (version uint64, updated bool)
 	return c.version, cacheIsUpdated
 }
 
-func (c *Cache) GetResources(ctx context.Context, typeURL string, lastVersion uint64,
-	node *envoy_api_v2_core.Node, resourceNames []string) (*VersionedResources, error) {
+func (c *Cache) GetResources(ctx context.Context, typeURL string, lastVersion uint64, nodeIP string, resourceNames []string) (*VersionedResources, error) {
 	c.locker.RLock()
 	defer c.locker.RUnlock()
 
 	cacheLog := log.WithFields(logrus.Fields{
-		logfields.XDSVersionInfo: lastVersion,
-		logfields.XDSClientNode:  node,
-		logfields.XDSTypeURL:     typeURL,
+		logfields.XDSAckedVersion: lastVersion,
+		logfields.XDSClientNode:   nodeIP,
+		logfields.XDSTypeURL:      typeURL,
 	})
 
 	res := &VersionedResources{
@@ -229,6 +221,7 @@ func (c *Cache) GetResources(ctx context.Context, typeURL string, lastVersion ui
 	}
 
 	// Return all resources.
+	// TODO: return nil if no changes since the last version?
 	if len(resourceNames) == 0 {
 		res.ResourceNames = make([]string, 0, len(c.resources))
 		res.Resources = make([]proto.Message, 0, len(c.resources))
@@ -292,8 +285,8 @@ func (c *Cache) EnsureVersion(typeURL string, version uint64) {
 
 	if c.version < version {
 		cacheLog := log.WithFields(logrus.Fields{
-			logfields.XDSTypeURL:     typeURL,
-			logfields.XDSVersionInfo: version,
+			logfields.XDSTypeURL:      typeURL,
+			logfields.XDSAckedVersion: version,
 		})
 		cacheLog.Debug("increasing version to match client and notifying of new version")
 
@@ -306,7 +299,7 @@ func (c *Cache) EnsureVersion(typeURL string, version uint64) {
 // if available, and returns it. Otherwise, returns nil. If an error occurs while
 // fetching the resource, also returns the error.
 func (c *Cache) Lookup(typeURL string, resourceName string) (proto.Message, error) {
-	res, err := c.GetResources(context.Background(), typeURL, 0, nil, []string{resourceName})
+	res, err := c.GetResources(context.Background(), typeURL, 0, "", []string{resourceName})
 	if err != nil || res == nil || len(res.Resources) == 0 {
 		return nil, err
 	}

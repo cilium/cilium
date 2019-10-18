@@ -224,6 +224,13 @@ func (in *Node) DeepCopyInto(out *Node) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.SpecTaints != nil {
+		in, out := &in.SpecTaints, &out.SpecTaints
+		*out = make([]v1.Taint, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	return
 }
 

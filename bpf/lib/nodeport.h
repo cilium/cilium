@@ -103,6 +103,8 @@ static __always_inline bool nodeport_nat_ipv6_needed(struct __sk_buff *skb,
 		ipv6_addr_copy(&target.addr, (ADDR));				\
 		int ____ret = nodeport_nat_ipv6_needed(skb, (ADDR), (NDIR)) ?	\
 			      snat_v6_process(skb, (NDIR), &target) : TC_ACT_OK;\
+		if (____ret == NAT_PUNT_TO_STACK)				\
+			____ret = TC_ACT_OK;					\
 		____ret;							\
 	})
 
@@ -259,14 +261,10 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 	service_port = bpf_ntohs(key.dport);
 	if (service_port < NODEPORT_PORT_MIN ||
 	    service_port > NODEPORT_PORT_MAX) {
-		if (service_port >= NODEPORT_PORT_MIN_NAT &&
-		    service_port <= NODEPORT_PORT_MAX_NAT) {
-			skb->cb[CB_NAT] = NAT_DIR_INGRESS;
-			skb->cb[CB_SRC_IDENTITY] = src_identity;
-			ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_NAT);
-			return DROP_MISSED_TAIL_CALL;
-		}
-		return TC_ACT_OK;
+		skb->cb[CB_NAT] = NAT_DIR_INGRESS;
+		skb->cb[CB_SRC_IDENTITY] = src_identity;
+		ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_NAT);
+		return DROP_MISSED_TAIL_CALL;
 	}
 
 	ct_state_new.orig_dport = key.dport;
@@ -472,6 +470,8 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __sk_buff *skb,
 		};								\
 		int ____ret = nodeport_nat_ipv4_needed(skb, (ADDR), (NDIR)) ?	\
 			      snat_v4_process(skb, (NDIR), &target) : TC_ACT_OK;\
+		if (____ret == NAT_PUNT_TO_STACK)				\
+			____ret = TC_ACT_OK;					\
 		____ret;							\
 	})
 
@@ -625,14 +625,10 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 	service_port = bpf_ntohs(key.dport);
 	if (service_port < NODEPORT_PORT_MIN ||
 	    service_port > NODEPORT_PORT_MAX) {
-		if (service_port >= NODEPORT_PORT_MIN_NAT &&
-		    service_port <= NODEPORT_PORT_MAX_NAT) {
-			skb->cb[CB_NAT] = NAT_DIR_INGRESS;
-			skb->cb[CB_SRC_IDENTITY] = src_identity;
-			ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
-			return DROP_MISSED_TAIL_CALL;
-		}
-		return TC_ACT_OK;
+		skb->cb[CB_NAT] = NAT_DIR_INGRESS;
+		skb->cb[CB_SRC_IDENTITY] = src_identity;
+		ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
+		return DROP_MISSED_TAIL_CALL;
 	}
 
 	ct_state_new.orig_dport = key.dport;

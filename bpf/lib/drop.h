@@ -37,9 +37,7 @@
 #ifdef DROP_NOTIFY
 
 struct drop_notify {
-	NOTIFY_COMMON_HDR
-	__u32		len_orig;
-	__u32		len_cap;
+	NOTIFY_CAPTURE_HDR
 	__u32		src_label;
 	__u32		dst_label;
 	__u32		dst_id;
@@ -56,6 +54,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_DROP_NOTIFY) int __send_drop_notify
 		.hash = hash,
 		.len_orig = skb_len,
 		.len_cap = cap_len,
+		.version = NOTIFY_CAPTURE_VER,
 		.src_label = skb->cb[0],
 		.dst_label = skb->cb[1],
 		.dst_id = skb->cb[3],

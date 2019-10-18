@@ -17,9 +17,32 @@
 package policy
 
 import (
+	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/u8proto"
 	. "gopkg.in/check.v1"
 )
+
+func (ds *PolicyTestSuite) TestGenerateL7RulesByParser(c *C) {
+	m := generateL7AllowAllRules(ParserTypeHTTP)
+	c.Assert(m, IsNil)
+
+	m = generateL7AllowAllRules(ParserTypeKafka)
+	c.Assert(m, IsNil)
+
+	m = generateL7AllowAllRules(ParserTypeDNS)
+	c.Assert(m, Not(IsNil))
+	c.Assert(len(m), Equals, 1)
+
+	var l7Rules []api.L7Rules
+	for _, v := range m {
+		l7Rules = append(l7Rules, v)
+	}
+
+	// Check that we allow all at L7 for DNS for the one rule we should have
+	// generated.
+	c.Assert(l7Rules[0], checker.DeepEquals, api.L7Rules{DNS: []api.PortRuleDNS{{MatchPattern: "*"}}})
+}
 
 func (ds *PolicyTestSuite) TestVisibilityPolicyCreation(c *C) {
 
@@ -109,4 +132,16 @@ func (ds *PolicyTestSuite) TestVisibilityPolicyCreation(c *C) {
 	vp, err = NewVisibilityPolicy(anno)
 	c.Assert(vp, IsNil)
 	c.Assert(err, Not(IsNil))
+
+	anno = "<Egress/53/ANY/DNS>"
+	vp, err = NewVisibilityPolicy(anno)
+	c.Assert(err, IsNil)
+	c.Assert(len(vp.Egress), checker.Equals, 2)
+	udp, ok := vp.Egress["53/UDP"]
+	c.Assert(ok, Equals, true)
+	c.Assert(udp.Proto, Equals, u8proto.UDP)
+	tcp, ok := vp.Egress["53/TCP"]
+	c.Assert(tcp.Proto, Equals, u8proto.TCP)
+	c.Assert(ok, Equals, true)
+
 }

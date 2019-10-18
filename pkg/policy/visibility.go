@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -88,6 +89,16 @@ func NewVisibilityPolicy(anno string) (*VisibilityPolicy, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid L4 protocol %s", l4Proto)
 		}
+
+		// ANY equates to TCP and UDP in the datapath; the datapath itself does
+		// not support 'Any' protocol paired with a port at L4.
+		var protos []u8proto.U8proto
+		if u8Prot == u8proto.ANY {
+			protos = append(protos, u8proto.TCP)
+			protos = append(protos, u8proto.UDP)
+		} else {
+			protos = append(protos, u8Prot)
+		}
 		// Remove trailing '>'.
 		l7Protocol := L7ParserType(strings.ToLower(proxyAnnoSplit[3][:len(proxyAnnoSplit[3])-1]))
 
@@ -105,21 +116,45 @@ func NewVisibilityPolicy(anno string) (*VisibilityPolicy, error) {
 			ingress = false
 		}
 
-		pp := fmt.Sprintf("%d/%s", portInt, l4Proto)
-		if res, ok := dvp[pp]; ok {
-			if res.Parser != l7Protocol {
-				return nil, fmt.Errorf("duplicate annotations with different L7 protocols %s and %s for %s", res.Parser, l7Protocol, pp)
+		for _, prot := range protos {
+			pp := fmt.Sprintf("%d/%s", portInt, prot.String())
+			if res, ok := dvp[pp]; ok {
+				if res.Parser != l7Protocol {
+					return nil, fmt.Errorf("duplicate annotations with different L7 protocols %s and %s for %s", res.Parser, l7Protocol, pp)
+				}
 			}
-		}
-		dvp[pp] = &VisibilityMetadata{
-			Parser:  l7Protocol,
-			Port:    uint16(portInt),
-			Proto:   u8Prot,
-			Ingress: ingress,
+
+			l7Meta := generateL7AllowAllRules(l7Protocol)
+
+			dvp[pp] = &VisibilityMetadata{
+				Parser:     l7Protocol,
+				Port:       uint16(portInt),
+				Proto:      prot,
+				Ingress:    ingress,
+				L7Metadata: l7Meta,
+			}
 		}
 	}
 
 	return nvp, nil
+}
+
+func generateL7AllowAllRules(parser L7ParserType) L7DataMap {
+	var m L7DataMap
+	switch parser {
+	case ParserTypeDNS:
+		m = L7DataMap{}
+		// Create an entry to explicitly allow all at L7 for DNS.
+		emptyL3Selector := &labelIdentitySelector{}
+		m[emptyL3Selector] = api.L7Rules{
+			DNS: []api.PortRuleDNS{
+				{
+					MatchPattern: "*",
+				},
+			},
+		}
+	}
+	return m
 }
 
 // VisibilityMetadata encodes state about what type of traffic should be
@@ -140,6 +175,11 @@ type VisibilityMetadata struct {
 	// Ingress specifies whether ingress traffic at the given L4 port / protocol
 	// should be redirected to the proxy.
 	Ingress bool
+
+	// L7Metadata encodes optional information what is allowed at L7 for
+	// visibility. Some specific protocol parsers do not need this set for
+	// allowing of traffic (e.g., HTTP), but some do (e.g., DNS).
+	L7Metadata L7DataMap
 }
 
 // DirectionalVisibilityPolicy is a mapping of VisibilityMetadata keyed by
@@ -156,8 +196,12 @@ type VisibilityPolicy struct {
 	Egress  DirectionalVisibilityPolicy
 }
 
-// CopyL7RulesPerEndpoint does nothing.
+// CopyL7RulesPerEndpoint returns a shallow copy of the L7Metadata of the
+// L4Filter.
 func (v *VisibilityMetadata) CopyL7RulesPerEndpoint() L7DataMap {
+	if v.L7Metadata != nil {
+		return v.L7Metadata.ShallowCopy()
+	}
 	return nil
 }
 

@@ -17,6 +17,7 @@
 package npds
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 	"time"
@@ -56,7 +57,11 @@ var resources = []*cilium.NetworkPolicy{
 
 // UpsertNetworkPolicy must only be used for testing!
 func (cs *ClientSuite) UpsertNetworkPolicy(c *C, s *envoy.XDSServer, p *cilium.NetworkPolicy) {
-	comp := completion.NewCompletion(nil, func(err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	wg := completion.NewWaitGroup(ctx)
+
+	callback := func(err error) {
 		if err == nil {
 			log.Debug("ACK Callback called")
 			cs.acks++
@@ -64,9 +69,9 @@ func (cs *ClientSuite) UpsertNetworkPolicy(c *C, s *envoy.XDSServer, p *cilium.N
 			log.Debug("NACK Callback called")
 			cs.nacks++
 		}
-	})
+	}
 
-	s.NetworkPolicyMutator.Upsert(envoy.NetworkPolicyTypeURL, p.Name, p, []string{"127.0.0.1"}, comp)
+	s.NetworkPolicyMutator.Upsert(envoy.NetworkPolicyTypeURL, p.Name, p, []string{"127.0.0.1"}, wg, callback)
 }
 
 type updater struct{}

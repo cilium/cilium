@@ -56,6 +56,10 @@ var (
 	// with a response nonce that is not a positive integer.
 	ErrInvalidResponseNonce = errors.New("invalid response nonce info")
 
+	// ErrInvalidNodeFormat is the error returned when receiving a request
+	// with a node that is not a formatted correctly.
+	ErrInvalidNodeFormat = errors.New("invalid node format")
+
 	// ErrResourceWatch is the error returned whenever an internal error
 	// occurs while waiting for new versions of resources.
 	ErrResourceWatch = errors.New("resource watch failed")
@@ -121,10 +125,10 @@ func NewServer(resourceTypes map[string]*ResourceTypeConfiguration,
 
 func getXDSRequestFields(req *envoy_api_v2.DiscoveryRequest) logrus.Fields {
 	return logrus.Fields{
-		logfields.XDSVersionInfo: req.GetVersionInfo(),
-		logfields.XDSClientNode:  req.GetNode(),
-		logfields.XDSTypeURL:     req.GetTypeUrl(),
-		logfields.XDSNonce:       req.GetResponseNonce(),
+		logfields.XDSAckedVersion: req.GetVersionInfo(),
+		logfields.XDSClientNode:   req.GetNode(),
+		logfields.XDSTypeURL:      req.GetTypeUrl(),
+		logfields.XDSNonce:        req.GetResponseNonce(),
 	}
 }
 
@@ -309,13 +313,19 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 			}
 
 			index, exists := typeIndexes[typeURL]
-
 			if !exists {
 				requestLog.Error("unknown type URL in xDS request")
 				return ErrUnknownTypeURL
 			}
 
 			state := &typeStates[index]
+			watcher := s.watchers[typeURL]
+
+			nodeIP, err := IstioNodeToIP(req.GetNode())
+			if err != nil {
+				requestLog.WithError(err).Error("invalid Node in xDS request")
+				return ErrInvalidNodeFormat
+			}
 
 			// Response nonce is always the same as the response version.
 			// Request version indicates the last acked version. If the
@@ -324,10 +334,9 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 			// the versions from that to and including the nonce are nacked.
 			if versionInfo <= nonce {
 				ackObserver := s.ackObservers[typeURL]
-				// ACK versions up to the received versionInfo
 				if ackObserver != nil {
 					requestLog.Debug("notifying observers of ACKs")
-					ackObserver.HandleResourceVersionAck(versionInfo, nonce, req.GetNode(), state.resourceNames, typeURL, detail)
+					ackObserver.HandleResourceVersionAck(versionInfo, nonce, nodeIP, state.resourceNames, typeURL, detail)
 				} else {
 					requestLog.Debug("ACK received but no observers are waiting for ACKs")
 				}
@@ -354,8 +363,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				state.pendingWatchCancel = cancel
 
 				requestLog.Debugf("starting watch on %d resources", len(req.GetResourceNames()))
-				go s.watchers[typeURL].WatchResources(ctx, typeURL, versionInfo,
-					req.GetNode(), req.GetResourceNames(), respCh)
+				go watcher.WatchResources(ctx, typeURL, versionInfo, nodeIP, req.GetResourceNames(), respCh)
 			} else {
 				requestLog.Debug("received invalid nonce in xDS request; ignoring request")
 			}
@@ -377,10 +385,10 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 			resp := recv.Interface().(*VersionedResources)
 
 			responseLog := streamLog.WithFields(logrus.Fields{
-				logfields.XDSVersionInfo: resp.Version,
-				logfields.XDSCanary:      resp.Canary,
-				logfields.XDSTypeURL:     state.typeURL,
-				logfields.XDSNonce:       resp.Version,
+				logfields.XDSCachedVersion: resp.Version,
+				logfields.XDSCanary:        resp.Canary,
+				logfields.XDSTypeURL:       state.typeURL,
+				logfields.XDSNonce:         resp.Version,
 			})
 
 			resources := make([]*any.Any, len(resp.Resources))

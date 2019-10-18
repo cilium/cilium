@@ -17,6 +17,8 @@
 package k8s
 
 import (
+	"time"
+
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/checker"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -601,6 +603,105 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 				},
 			},
 			want: true,
+		},
+		{
+			name: "Nodes with the same taints and different specs should return true because he don't care about the spec",
+			args: args{
+				o1: &types.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Node1",
+					},
+					SpecTaints: []core_v1.Taint{
+						{
+							Key:    "key",
+							Value:  "value",
+							Effect: "no-effect",
+						},
+					},
+					SpecPodCIDR: "192.168.0.0/10",
+				},
+				o2: &types.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Node1",
+					},
+					SpecTaints: []core_v1.Taint{
+						{
+							Key:    "key",
+							Value:  "value",
+							Effect: "no-effect",
+						},
+					},
+					SpecPodCIDR: "127.0.0.1/10",
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Nodes with the same taints and different specs should return true because he don't care about the spec",
+			args: args{
+				o1: &types.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Node1",
+					},
+					SpecTaints: []core_v1.Taint{
+						{
+							Key:       "key",
+							Value:     "value",
+							Effect:    "no-effect",
+							TimeAdded: func() *metav1.Time { return &metav1.Time{Time: time.Unix(1, 1)} }(),
+						},
+					},
+					SpecPodCIDR: "192.168.0.0/10",
+				},
+				o2: &types.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Node1",
+					},
+					SpecTaints: []core_v1.Taint{
+						{
+							Key:       "key",
+							Value:     "value",
+							Effect:    "no-effect",
+							TimeAdded: func() *metav1.Time { return &metav1.Time{Time: time.Unix(1, 1)} }(),
+						},
+					},
+					SpecPodCIDR: "127.0.0.1/10",
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Nodes with the different taints and different specs should return true because he don't care about the spec",
+			args: args{
+				o1: &types.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Node1",
+					},
+					SpecTaints: []core_v1.Taint{
+						{
+							Key:    "key",
+							Value:  "value",
+							Effect: "no-effect",
+						},
+					},
+					SpecPodCIDR: "192.168.0.0/10",
+				},
+				o2: &types.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "Node1",
+					},
+					SpecTaints: []core_v1.Taint{
+						{
+							Key:       "key",
+							Value:     "value",
+							Effect:    "no-effect",
+							TimeAdded: func() *metav1.Time { return &metav1.Time{Time: time.Unix(1, 1)} }(),
+						},
+					},
+					SpecPodCIDR: "127.0.0.1/10",
+				},
+			},
+			want: false,
 		},
 	}
 	for _, tt := range tests {

@@ -256,10 +256,19 @@ enum {
 };
 
 #define NOTIFY_COMMON_HDR \
-	__u8		type; \
-	__u8		subtype; \
-	__u16		source; \
+	__u8		type;		\
+	__u8		subtype;	\
+	__u16		source;		\
 	__u32		hash;
+
+#define NOTIFY_CAPTURE_HDR \
+	NOTIFY_COMMON_HDR						\
+	__u32		len_orig;	/* Length of original packet */	\
+	__u16		len_cap;	/* Length of captured bytes */	\
+	__u16		version;	/* Capture header version */
+
+/* Capture notifications version. Must be incremented when format changes. */
+#define NOTIFY_CAPTURE_VER 1
 
 #ifndef TRACE_PAYLOAD_LEN
 #define TRACE_PAYLOAD_LEN 128ULL
@@ -323,6 +332,9 @@ enum {
 #define DROP_ENCAP_PROHIBITED	-170
 #define DROP_INVALID_IDENTITY	-171
 #define DROP_UNKNOWN_SENDER	-172
+#define DROP_NAT_NOT_NEEDED	-173 /* Mapped as drop code, though drop not necessary. */
+
+#define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
 
 /* Cilium metrics reasons for forwarding packets and other stats.
  * If reason is larger than below then this is a drop reason and

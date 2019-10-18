@@ -110,8 +110,8 @@ type XDSServer struct {
 	// Envoy proxies.
 	networkPolicyCache *xds.Cache
 
-	// NetworkPolicyMutator wraps networkPolicyCache to publish route
-	// configuration updates to Envoy proxies.
+	// NetworkPolicyMutator wraps networkPolicyCache to publish policy
+	// updates to Envoy proxies.
 	// Exported for testing only!
 	NetworkPolicyMutator xds.AckingResourceMutator
 
@@ -152,14 +152,14 @@ func StartXDSServer(stateDir string) *XDSServer {
 	}
 
 	ldsCache := xds.NewCache()
-	ldsMutator := xds.NewAckingResourceMutatorWrapper(ldsCache, xds.IstioNodeToIP)
+	ldsMutator := xds.NewAckingResourceMutatorWrapper(ldsCache)
 	ldsConfig := &xds.ResourceTypeConfiguration{
 		Source:      ldsCache,
 		AckObserver: ldsMutator,
 	}
 
 	npdsCache := xds.NewCache()
-	npdsMutator := xds.NewAckingResourceMutatorWrapper(npdsCache, xds.IstioNodeToIP)
+	npdsMutator := xds.NewAckingResourceMutatorWrapper(npdsCache)
 	npdsConfig := &xds.ResourceTypeConfiguration{
 		Source:      npdsCache,
 		AckObserver: npdsMutator,
@@ -390,8 +390,8 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint
 		listenerConf.ListenerFilters[0].ConfigType.(*envoy_api_v2_listener.ListenerFilter_Config).Config.Fields["may_use_original_source_address"].GetKind().(*structpb.Value_BoolValue).BoolValue = true
 	}
 
-	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"},
-		wg.AddCompletionWithCallback(func(err error) {
+	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, wg,
+		func(err error) {
 			// listener might have already been removed, so we can't look again
 			// but we still need to complete all the completions in case
 			// someone is still waiting!
@@ -409,7 +409,7 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint
 			}
 			listener.waiters = nil
 			listener.mutex.Unlock()
-		}))
+		})
 	s.mutex.Unlock()
 }
 
@@ -425,7 +425,7 @@ func (s *XDSServer) RemoveListener(name string, wg *completion.WaitGroup) xds.Ac
 		listener.count--
 		if listener.count == 0 {
 			delete(s.listeners, name)
-			listenerRevertFunc = s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg.AddCompletion())
+			listenerRevertFunc = s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg, nil)
 		}
 	} else {
 		// Bail out if this listener does not exist
@@ -758,6 +758,35 @@ func getNetworkPolicy(name string, id identity.NumericIdentity, conntrackName st
 	return p
 }
 
+// return the Envoy proxy node IDs that need to ACK the policy.
+func getNodeIDs(ep logger.EndpointUpdater, policy *policy.L4Policy) []string {
+	nodeIDs := make([]string, 0, 1)
+	if ep.HasSidecarProxy() {
+		// Istio sidecars have the Cilium bpf metadata filter
+		// statically configured running the NPDS client, so
+		// we may unconditionally wait for ACKs from the
+		// sidecars.
+		// Sidecar's IPv4 address is used as the node ID.
+		ipv4 := ep.GetIPv4Address()
+		if ipv4 == "" {
+			log.Error("Envoy: Sidecar proxy has no IPv4 address")
+		} else {
+			nodeIDs = append(nodeIDs, ipv4)
+		}
+	} else {
+		// Host proxy uses "127.0.0.1" as the nodeID
+		nodeIDs = append(nodeIDs, "127.0.0.1")
+	}
+	// Require additional ACK from proxylib if policy has proxylib redirects
+	// Note that if a previous policy had a proxylib redirect and this one does not,
+	// we only wait for the ACK from the main Envoy node ID.
+	if policy.HasProxylibRedirect() {
+		// Proxylib uses "127.0.0.2" as the nodeID
+		nodeIDs = append(nodeIDs, "127.0.0.2")
+	}
+	return nodeIDs
+}
+
 // UpdateNetworkPolicy adds or updates a network policy in the set published
 // to L7 proxies.
 // When the proxy acknowledges the network policy update, it will result in
@@ -786,39 +815,12 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		policies = append(policies, networkPolicy)
 	}
 
-	if ep.HasSidecarProxy() { // Use sidecar proxy.
-		// If there are no L7 rules, we expect Envoy to NOT be configured with
-		// an L7 filter, in which case we'd never receive an ACK for the policy,
-		// and we'd wait forever.
-		// TODO: Remove this when we implement and inject an Envoy network filter
-		// into every Envoy listener to filter at L3/L4.
-		var hasL7Rules bool
-	Policies:
-		for _, p := range policies {
-			for _, pnp := range p.IngressPerPortPolicies {
-				for _, r := range pnp.Rules {
-					if r.L7 != nil {
-						hasL7Rules = true
-						break Policies
-					}
-				}
-			}
-			for _, pnp := range p.EgressPerPortPolicies {
-				for _, r := range pnp.Rules {
-					if r.L7 != nil {
-						hasL7Rules = true
-						break Policies
-					}
-				}
-			}
-		}
-		if !hasL7Rules {
-			wg = nil
-		}
-	} else { // Use node proxy.
-		// If there are no listeners configured, the local node's Envoy proxy won't
-		// query for network policies and therefore will never ACK them, and we'd
-		// wait forever.
+	nodeIDs := getNodeIDs(ep, policy)
+
+	// If there are no listeners configured, the local node's Envoy proxy won't
+	// query for network policies and therefore will never ACK them, and we'd
+	// wait forever.
+	if !ep.HasSidecarProxy() {
 		if len(s.listeners) == 0 {
 			wg = nil
 		}
@@ -837,20 +839,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 				}
 			}
 		}
-		var c *completion.Completion
-		if wg != nil {
-			c = wg.AddCompletionWithCallback(callback)
-		}
-		nodeIDs := make([]string, 0, 1)
-		if ep.HasSidecarProxy() {
-			if ep.GetIPv4Address() == "" {
-				log.Fatal("Envoy: Sidecar proxy has no IPv4 address")
-			}
-			nodeIDs = append(nodeIDs, ep.GetIPv4Address())
-		} else {
-			nodeIDs = append(nodeIDs, "127.0.0.1")
-		}
-		revertFuncs = append(revertFuncs, s.NetworkPolicyMutator.Upsert(NetworkPolicyTypeURL, p.Name, p, nodeIDs, c))
+		revertFuncs = append(revertFuncs, s.NetworkPolicyMutator.Upsert(NetworkPolicyTypeURL, p.Name, p, nodeIDs, wg, callback))
 		revertUpdatedNetworkPolicyEndpoints[p.Name] = s.networkPolicyEndpoints[p.Name]
 		s.networkPolicyEndpoints[p.Name] = ep
 	}
@@ -881,6 +870,23 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 	}
 }
 
+// UseCurrentNetworkPolicy inserts a Completion to the WaitGroup if the current network policy has not yet been acked.
+// 'wg' may not be nil.
+func (s *XDSServer) UseCurrentNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy, wg *completion.WaitGroup) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	// If there are no listeners configured, the local node's Envoy proxy won't
+	// query for network policies and therefore will never ACK them, and we'd
+	// wait forever.
+	if !ep.HasSidecarProxy() && len(s.listeners) == 0 {
+		return
+	}
+
+	nodeIDs := getNodeIDs(ep, policy)
+	s.NetworkPolicyMutator.UseCurrent(NetworkPolicyTypeURL, nodeIDs, wg)
+}
+
 // RemoveNetworkPolicy removes network policies relevant to the specified
 // endpoint from the set published to L7 proxies, and stops listening for
 // acks for policies on this endpoint.
@@ -888,29 +894,31 @@ func (s *XDSServer) RemoveNetworkPolicy(ep logger.EndpointInfoSource) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if ep.GetIPv6Address() != "" {
-		name := ep.GetIPv6Address()
-		s.networkPolicyCache.Delete(NetworkPolicyTypeURL, name, false)
+	name := ep.GetIPv6Address()
+	if name != "" {
+		s.networkPolicyCache.Delete(NetworkPolicyTypeURL, name)
 		delete(s.networkPolicyEndpoints, name)
 	}
-	if ep.GetIPv4Address() != "" {
-		name := ep.GetIPv4Address()
-		s.networkPolicyCache.Delete(NetworkPolicyTypeURL, name, false)
+	name = ep.GetIPv4Address()
+	if name != "" {
+		s.networkPolicyCache.Delete(NetworkPolicyTypeURL, name)
 		delete(s.networkPolicyEndpoints, name)
+		// Delete node resources held in the cache for the endpoint (e.g., sidecar)
+		s.NetworkPolicyMutator.DeleteNode(name)
 	}
 }
 
 // RemoveAllNetworkPolicies removes all network policies from the set published
 // to L7 proxies.
 func (s *XDSServer) RemoveAllNetworkPolicies() {
-	s.networkPolicyCache.Clear(NetworkPolicyTypeURL, false)
+	s.networkPolicyCache.Clear(NetworkPolicyTypeURL)
 }
 
 // GetNetworkPolicies returns the current version of the network policies with
 // the given names.
 // If resourceNames is empty, all resources are returned.
 func (s *XDSServer) GetNetworkPolicies(resourceNames []string) (map[string]*cilium.NetworkPolicy, error) {
-	resources, err := s.networkPolicyCache.GetResources(context.Background(), NetworkPolicyTypeURL, 0, nil, resourceNames)
+	resources, err := s.networkPolicyCache.GetResources(context.Background(), NetworkPolicyTypeURL, 0, "", resourceNames)
 	if err != nil {
 		return nil, err
 	}

@@ -277,8 +277,11 @@ const (
 	// XDSStreamID is the ID of an xDS request stream.
 	XDSStreamID = "xdsStreamID"
 
-	// XDSVersionInfo is the version info of an xDS resource.
-	XDSVersionInfo = "xdsVersionInfo"
+	// XDSAckedVersion is the version of an xDS resource acked by Envoy.
+	XDSAckedVersion = "xdsAckedVersion"
+
+	// XDSCachedVersion is the version of an xDS resource currently in cache.
+	XDSCachedVersion = "xdsCachedVersion"
 
 	// XDSTypeURL is the URL that identifies an xDS resource type.
 	XDSTypeURL = "xdsTypeURL"

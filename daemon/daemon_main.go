@@ -1013,7 +1013,7 @@ func initEnv(cmd *cobra.Command) {
 	if option.Config.EnableIPSec && option.Config.Tunnel == option.TunnelDisabled && option.Config.EncryptInterface == "" {
 		link, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
 		if err != nil {
-			log.Fatal("Ipsec enabled without tunneling but option \"encrypt-interface\" not set and unable to get link for default interface ")
+			log.WithError(err).Fatal("Ipsec default interface lookup failed, consider \"encrypt-interface\" to manually configure interface.", err)
 		}
 		option.Config.EncryptInterface = link
 	}
@@ -1048,7 +1048,7 @@ func initEnv(cmd *cobra.Command) {
 	if option.Config.EnableNodePort && option.Config.Device == "undefined" {
 		device, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
 		if err != nil {
-			log.Fatal("BPF NodePort's external facing device could not be determined. Use --device to specify.")
+			log.WithError(err).Fatal("BPF NodePort's external facing device could not be determined. Use --device to specify.")
 		}
 		log.WithField(logfields.Interface, device).
 			Info("Using auto-derived device for BPF node port")

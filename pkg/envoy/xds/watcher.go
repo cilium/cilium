@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
-	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
 	"github.com/sirupsen/logrus"
 )
 
@@ -79,8 +78,8 @@ func (w *ResourceWatcher) HandleNewResourceVersion(typeURL string, version uint6
 
 	if version < w.version {
 		log.WithFields(logrus.Fields{
-			logfields.XDSVersionInfo: version,
-			logfields.XDSTypeURL:     typeURL,
+			logfields.XDSCachedVersion: version,
+			logfields.XDSTypeURL:       typeURL,
 		}).Panicf(fmt.Sprintf("decreasing version number found for resources of type %s: %d < %d",
 			typeURL, version, w.version))
 	}
@@ -99,14 +98,14 @@ func (w *ResourceWatcher) HandleNewResourceVersion(typeURL string, version uint6
 // lastVersion is the last version successfully applied by the
 // client; nil if this is the first request for resources.
 // This method call must always close the out channel.
-func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, lastVersion uint64, node *envoy_api_v2_core.Node,
+func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, lastVersion uint64, nodeIP string,
 	resourceNames []string, out chan<- *VersionedResources) {
 	defer close(out)
 
 	watchLog := log.WithFields(logrus.Fields{
-		logfields.XDSVersionInfo: lastVersion,
-		logfields.XDSClientNode:  node,
-		logfields.XDSTypeURL:     typeURL,
+		logfields.XDSAckedVersion: lastVersion,
+		logfields.XDSClientNode:   nodeIP,
+		logfields.XDSTypeURL:      typeURL,
 	})
 
 	var res *VersionedResources
@@ -156,7 +155,7 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 		subCtx, cancel := context.WithTimeout(ctx, w.resourceAccessTimeout)
 		var err error
 		watchLog.Debugf("getting %d resources from set", len(resourceNames))
-		res, err = w.resourceSet.GetResources(subCtx, typeURL, lastVersion, node, resourceNames)
+		res, err = w.resourceSet.GetResources(subCtx, typeURL, lastVersion, nodeIP, resourceNames)
 		cancel()
 
 		if err != nil {

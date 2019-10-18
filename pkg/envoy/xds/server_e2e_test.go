@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/completion"
 	envoy_api_v2 "github.com/cilium/proxy/go/envoy/api/v2"
+	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
@@ -53,6 +54,11 @@ const (
 
 var (
 	DeferredCompletion error = errors.New("Deferred completion")
+	nodes                    = map[string]*envoy_api_v2_core.Node{
+		node0: {Id: "sidecar~10.0.0.0~node0~bar"},
+		node1: {Id: "sidecar~10.0.0.1~node1~bar"},
+		node2: {Id: "sidecar~10.0.0.2~node2~bar"},
+	}
 )
 
 // ResponseMatchesChecker checks that a DiscoveryResponse's fields match the given
@@ -148,7 +154,7 @@ func (s *ServerSuite) TestRequestAllResources(c *C) {
 	defer cancel()
 
 	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	mutator := NewAckingResourceMutatorWrapper(cache)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
@@ -196,7 +202,7 @@ func (s *ServerSuite) TestRequestAllResources(c *C) {
 
 	// Create version 2 with resource 0.
 	time.Sleep(CacheUpdateDelay)
-	v, mod, _ = cache.Upsert(typeURL, resources[0].Name, resources[0], false)
+	v, mod, _ = cache.Upsert(typeURL, resources[0].Name, resources[0])
 	c.Assert(v, Equals, uint64(2))
 	c.Assert(mod, Equals, true)
 
@@ -208,7 +214,7 @@ func (s *ServerSuite) TestRequestAllResources(c *C) {
 
 	// Create version 3 with resources 0 and 1.
 	// This time, update the cache before sending the request.
-	v, mod, _ = cache.Upsert(typeURL, resources[1].Name, resources[1], false)
+	v, mod, _ = cache.Upsert(typeURL, resources[1].Name, resources[1])
 	c.Assert(v, Equals, uint64(3))
 	c.Assert(mod, Equals, true)
 
@@ -242,7 +248,7 @@ func (s *ServerSuite) TestRequestAllResources(c *C) {
 
 	// Create version 4 with resource 1.
 	time.Sleep(CacheUpdateDelay)
-	v, mod, _ = cache.Delete(typeURL, resources[0].Name, false)
+	v, mod, _ = cache.Delete(typeURL, resources[0].Name)
 	c.Assert(v, Equals, uint64(4))
 	c.Assert(mod, Equals, true)
 
@@ -274,7 +280,7 @@ func (s *ServerSuite) TestAck(c *C) {
 	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	mutator := NewAckingResourceMutatorWrapper(cache)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
@@ -322,9 +328,8 @@ func (s *ServerSuite) TestAck(c *C) {
 
 	// Create version 2 with resource 0.
 	time.Sleep(CacheUpdateDelay)
-	comp1 := wg.AddCompletion()
-	defer comp1.Complete(DeferredCompletion)
-	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp1)
+	callback1, comp1 := newCompCallback()
+	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
 	c.Assert(comp1, Not(IsCompleted))
 
 	// Expecting a response with that resource.
@@ -335,9 +340,8 @@ func (s *ServerSuite) TestAck(c *C) {
 
 	// Create version 3 with resources 0 and 1.
 	// This time, update the cache before sending the request.
-	comp2 := wg.AddCompletion()
-	defer comp2.Complete(DeferredCompletion)
-	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, comp2)
+	callback2, comp2 := newCompCallback()
+	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, wg, callback2)
 	c.Assert(comp2, Not(IsCompleted))
 
 	// Request the next version of resources.
@@ -402,7 +406,7 @@ func (s *ServerSuite) TestRequestSomeResources(c *C) {
 	defer cancel()
 
 	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	mutator := NewAckingResourceMutatorWrapper(cache)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
@@ -450,7 +454,7 @@ func (s *ServerSuite) TestRequestSomeResources(c *C) {
 
 	// Create version 2 with resource 0.
 	time.Sleep(CacheUpdateDelay)
-	v, mod, _ = cache.Upsert(typeURL, resources[0].Name, resources[0], false)
+	v, mod, _ = cache.Upsert(typeURL, resources[0].Name, resources[0])
 	c.Assert(v, Equals, uint64(2))
 	c.Assert(mod, Equals, true)
 
@@ -462,7 +466,7 @@ func (s *ServerSuite) TestRequestSomeResources(c *C) {
 
 	// Create version 3 with resource 0 and 1.
 	// This time, update the cache before sending the request.
-	v, mod, _ = cache.Upsert(typeURL, resources[1].Name, resources[1], false)
+	v, mod, _ = cache.Upsert(typeURL, resources[1].Name, resources[1])
 	c.Assert(v, Equals, uint64(3))
 	c.Assert(mod, Equals, true)
 
@@ -496,7 +500,7 @@ func (s *ServerSuite) TestRequestSomeResources(c *C) {
 
 	// Create version 4 with resources 0, 1 and 2.
 	time.Sleep(CacheUpdateDelay)
-	v, mod, _ = cache.Upsert(typeURL, resources[2].Name, resources[2], false)
+	v, mod, _ = cache.Upsert(typeURL, resources[2].Name, resources[2])
 	c.Assert(v, Equals, uint64(4))
 	c.Assert(mod, Equals, true)
 
@@ -519,7 +523,7 @@ func (s *ServerSuite) TestRequestSomeResources(c *C) {
 
 	// Create version 5 with resources 1 and 2.
 	time.Sleep(CacheUpdateDelay)
-	v, mod, _ = cache.Delete(typeURL, resources[0].Name, false)
+	v, mod, _ = cache.Delete(typeURL, resources[0].Name)
 	c.Assert(v, Equals, uint64(5))
 	c.Assert(mod, Equals, true)
 
@@ -528,12 +532,12 @@ func (s *ServerSuite) TestRequestSomeResources(c *C) {
 
 	// Updating resource 2 with the exact same value won't increase the version
 	// number. Remain at version 5.
-	v, mod, _ = cache.Upsert(typeURL, resources[2].Name, resources[2], false)
+	v, mod, _ = cache.Upsert(typeURL, resources[2].Name, resources[2])
 	c.Assert(v, Equals, uint64(5))
 	c.Assert(mod, Equals, false)
 
 	// Create version 6 with resource 1.
-	v, mod, _ = cache.Delete(typeURL, resources[1].Name, false)
+	v, mod, _ = cache.Delete(typeURL, resources[1].Name)
 	c.Assert(v, Equals, uint64(6))
 	c.Assert(mod, Equals, true)
 
@@ -576,7 +580,7 @@ func (s *ServerSuite) TestUpdateRequestResources(c *C) {
 	defer cancel()
 
 	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	mutator := NewAckingResourceMutatorWrapper(cache)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
@@ -599,7 +603,7 @@ func (s *ServerSuite) TestUpdateRequestResources(c *C) {
 	v, mod, _ = cache.tx(typeURL, map[string]proto.Message{
 		resources[0].Name: resources[0],
 		resources[1].Name: resources[1],
-	}, nil, false)
+	}, nil)
 	c.Assert(v, Equals, uint64(2))
 	c.Assert(mod, Equals, true)
 
@@ -633,7 +637,7 @@ func (s *ServerSuite) TestUpdateRequestResources(c *C) {
 
 	// Create version 3 with resource 0, 1 and 2.
 	time.Sleep(CacheUpdateDelay)
-	v, mod, _ = cache.Upsert(typeURL, resources[2].Name, resources[2], false)
+	v, mod, _ = cache.Upsert(typeURL, resources[2].Name, resources[2])
 	c.Assert(v, Equals, uint64(3))
 	c.Assert(mod, Equals, true)
 
@@ -679,7 +683,7 @@ func (s *ServerSuite) TestRequestStaleNonce(c *C) {
 	defer cancel()
 
 	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	mutator := NewAckingResourceMutatorWrapper(cache)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
@@ -727,7 +731,7 @@ func (s *ServerSuite) TestRequestStaleNonce(c *C) {
 
 	// Create version 2 with resource 0.
 	time.Sleep(CacheUpdateDelay)
-	v, mod, _ = cache.Upsert(typeURL, resources[0].Name, resources[0], false)
+	v, mod, _ = cache.Upsert(typeURL, resources[0].Name, resources[0])
 	c.Assert(v, Equals, uint64(2))
 	c.Assert(mod, Equals, true)
 
@@ -739,7 +743,7 @@ func (s *ServerSuite) TestRequestStaleNonce(c *C) {
 
 	// Create version 3 with resources 0 and 1.
 	// This time, update the cache before sending the request.
-	v, mod, _ = cache.Upsert(typeURL, resources[1].Name, resources[1], false)
+	v, mod, _ = cache.Upsert(typeURL, resources[1].Name, resources[1])
 	c.Assert(v, Equals, uint64(3))
 	c.Assert(mod, Equals, true)
 
@@ -787,7 +791,7 @@ func (s *ServerSuite) TestRequestStaleNonce(c *C) {
 
 	// Create version 4 with resource 1.
 	time.Sleep(CacheUpdateDelay)
-	v, mod, _ = cache.Delete(typeURL, resources[0].Name, false)
+	v, mod, _ = cache.Delete(typeURL, resources[0].Name)
 	c.Assert(v, Equals, uint64(4))
 	c.Assert(mod, Equals, true)
 
@@ -819,7 +823,7 @@ func (s *ServerSuite) TestNAck(c *C) {
 	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	mutator := NewAckingResourceMutatorWrapper(cache)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
@@ -868,13 +872,8 @@ func (s *ServerSuite) TestNAck(c *C) {
 
 	// Create version 2 with resource 0.
 	time.Sleep(CacheUpdateDelay)
-
-	callback := func(err error) {
-		log.Info("comp1 callback received with ", err)
-	}
-	comp1 := wg.AddCompletionWithCallback(callback)
-	defer comp1.Complete(DeferredCompletion)
-	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp1)
+	callback1, comp1 := newCompCallback()
+	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
 	c.Assert(comp1, Not(IsCompleted))
 
 	// Expecting a response with that resource.
@@ -900,11 +899,8 @@ func (s *ServerSuite) TestNAck(c *C) {
 
 	// NACK cancelled the wg, create a new one
 	wg = completion.NewWaitGroup(ctx)
-	comp2 := wg.AddCompletionWithCallback(func(err error) {
-		log.Info("comp2 callback received with ", err)
-	})
-	defer comp2.Complete(DeferredCompletion)
-	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, comp2)
+	callback2, comp2 := newCompCallback()
+	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, wg, callback2)
 	c.Assert(comp2, Not(IsCompleted))
 
 	// Version 2 was NACKed by the last request, so comp1 must NOT be completed ever.
@@ -962,7 +958,7 @@ func (s *ServerSuite) TestNAckFromTheStart(c *C) {
 	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	mutator := NewAckingResourceMutatorWrapper(cache)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
@@ -999,9 +995,8 @@ func (s *ServerSuite) TestNAckFromTheStart(c *C) {
 
 	// Create version 2 with resource 0.
 	time.Sleep(CacheUpdateDelay)
-	comp1 := wg.AddCompletion()
-	defer comp1.Complete(DeferredCompletion)
-	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp1)
+	callback1, comp1 := newCompCallback()
+	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
 	c.Assert(comp1, Not(IsCompleted))
 
 	// Request the next version of resources.
@@ -1044,9 +1039,8 @@ func (s *ServerSuite) TestNAckFromTheStart(c *C) {
 	wg = completion.NewWaitGroup(ctx)
 
 	// Create version 3 with resources 0 and 1.
-	comp2 := wg.AddCompletion()
-	defer comp2.Complete(DeferredCompletion)
-	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, comp2)
+	callback2, comp2 := newCompCallback()
+	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, wg, callback2)
 	c.Assert(comp2, Not(IsCompleted))
 
 	// Expecting a response with both resources.
@@ -1098,7 +1092,7 @@ func (s *ServerSuite) TestRequestHighVersionFromTheStart(c *C) {
 	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
-	mutator := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+	mutator := NewAckingResourceMutatorWrapper(cache)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
@@ -1118,9 +1112,8 @@ func (s *ServerSuite) TestRequestHighVersionFromTheStart(c *C) {
 
 	// Create version 2 with resource 0.
 	time.Sleep(CacheUpdateDelay)
-	comp1 := wg.AddCompletion()
-	defer comp1.Complete(DeferredCompletion)
-	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp1)
+	callback1, comp1 := newCompCallback()
+	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback1)
 	c.Assert(comp1, Not(IsCompleted))
 
 	// Request all resources, with a version higher than the version currently

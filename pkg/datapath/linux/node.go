@@ -444,6 +444,8 @@ func upsertIPsecLog(err error, spec string, loc, rem *net.IPNet, spi uint8) {
 	})
 	if err != nil {
 		scopedLog.WithError(err).Error("IPsec enable failed")
+	} else {
+		scopedLog.Debug("IPsec enable succeeded")
 	}
 }
 
