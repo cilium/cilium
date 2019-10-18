@@ -24,21 +24,18 @@ type DeletePrefilterReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *DeletePrefilterReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewDeletePrefilterOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 461:
 		result := NewDeletePrefilterInvalidCIDR()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return nil, result
-
 	case 500:
 		result := NewDeletePrefilterFailure()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -66,6 +63,10 @@ type DeletePrefilterOK struct {
 
 func (o *DeletePrefilterOK) Error() string {
 	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterOK  %+v", 200, o.Payload)
+}
+
+func (o *DeletePrefilterOK) GetPayload() *models.Prefilter {
+	return o.Payload
 }
 
 func (o *DeletePrefilterOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -97,6 +98,10 @@ func (o *DeletePrefilterInvalidCIDR) Error() string {
 	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterInvalidCIdR  %+v", 461, o.Payload)
 }
 
+func (o *DeletePrefilterInvalidCIDR) GetPayload() models.Error {
+	return o.Payload
+}
+
 func (o *DeletePrefilterInvalidCIDR) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	// response payload
@@ -122,6 +127,10 @@ type DeletePrefilterFailure struct {
 
 func (o *DeletePrefilterFailure) Error() string {
 	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterFailure  %+v", 500, o.Payload)
+}
+
+func (o *DeletePrefilterFailure) GetPayload() models.Error {
+	return o.Payload
 }
 
 func (o *DeletePrefilterFailure) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

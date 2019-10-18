@@ -67,7 +67,7 @@ func New(transport runtime.ClientTransport, formats strfmt.Registry) *Cilium {
 
 	cli.Endpoint = endpoint.New(transport, formats)
 
-	cli.IPAM = ipam.New(transport, formats)
+	cli.Ipam = ipam.New(transport, formats)
 
 	cli.Metrics = metrics.New(transport, formats)
 
@@ -125,7 +125,7 @@ type Cilium struct {
 
 	Endpoint *endpoint.Client
 
-	IPAM *ipam.Client
+	Ipam *ipam.Client
 
 	Metrics *metrics.Client
 
@@ -146,7 +146,7 @@ func (c *Cilium) SetTransport(transport runtime.ClientTransport) {
 
 	c.Endpoint.SetTransport(transport)
 
-	c.IPAM.SetTransport(transport)
+	c.Ipam.SetTransport(transport)
 
 	c.Metrics.SetTransport(transport)
 

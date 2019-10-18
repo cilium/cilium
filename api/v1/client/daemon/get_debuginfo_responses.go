@@ -24,14 +24,12 @@ type GetDebuginfoReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *GetDebuginfoReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewGetDebuginfoOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 500:
 		result := NewGetDebuginfoFailure()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -61,6 +59,10 @@ func (o *GetDebuginfoOK) Error() string {
 	return fmt.Sprintf("[GET /debuginfo][%d] getDebuginfoOK  %+v", 200, o.Payload)
 }
 
+func (o *GetDebuginfoOK) GetPayload() *models.DebugInfo {
+	return o.Payload
+}
+
 func (o *GetDebuginfoOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	o.Payload = new(models.DebugInfo)
@@ -88,6 +90,10 @@ type GetDebuginfoFailure struct {
 
 func (o *GetDebuginfoFailure) Error() string {
 	return fmt.Sprintf("[GET /debuginfo][%d] getDebuginfoFailure  %+v", 500, o.Payload)
+}
+
+func (o *GetDebuginfoFailure) GetPayload() models.Error {
+	return o.Payload
 }
 
 func (o *GetDebuginfoFailure) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

@@ -24,28 +24,24 @@ type GetIdentityReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *GetIdentityReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewGetIdentityOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 404:
 		result := NewGetIdentityNotFound()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return nil, result
-
 	case 520:
 		result := NewGetIdentityUnreachable()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return nil, result
-
 	case 521:
 		result := NewGetIdentityInvalidStorageFormat()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -73,6 +69,10 @@ type GetIdentityOK struct {
 
 func (o *GetIdentityOK) Error() string {
 	return fmt.Sprintf("[GET /identity][%d] getIdentityOK  %+v", 200, o.Payload)
+}
+
+func (o *GetIdentityOK) GetPayload() []*models.Identity {
+	return o.Payload
 }
 
 func (o *GetIdentityOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -123,6 +123,10 @@ func (o *GetIdentityUnreachable) Error() string {
 	return fmt.Sprintf("[GET /identity][%d] getIdentityUnreachable  %+v", 520, o.Payload)
 }
 
+func (o *GetIdentityUnreachable) GetPayload() models.Error {
+	return o.Payload
+}
+
 func (o *GetIdentityUnreachable) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	// response payload
@@ -148,6 +152,10 @@ type GetIdentityInvalidStorageFormat struct {
 
 func (o *GetIdentityInvalidStorageFormat) Error() string {
 	return fmt.Sprintf("[GET /identity][%d] getIdentityInvalidStorageFormat  %+v", 521, o.Payload)
+}
+
+func (o *GetIdentityInvalidStorageFormat) GetPayload() models.Error {
+	return o.Payload
 }
 
 func (o *GetIdentityInvalidStorageFormat) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

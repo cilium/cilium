@@ -24,28 +24,24 @@ type PutPolicyReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *PutPolicyReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewPutPolicyOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 400:
 		result := NewPutPolicyInvalidPolicy()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return nil, result
-
 	case 460:
 		result := NewPutPolicyInvalidPath()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return nil, result
-
 	case 500:
 		result := NewPutPolicyFailure()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -73,6 +69,10 @@ type PutPolicyOK struct {
 
 func (o *PutPolicyOK) Error() string {
 	return fmt.Sprintf("[PUT /policy][%d] putPolicyOK  %+v", 200, o.Payload)
+}
+
+func (o *PutPolicyOK) GetPayload() *models.Policy {
+	return o.Payload
 }
 
 func (o *PutPolicyOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
@@ -104,6 +104,10 @@ func (o *PutPolicyInvalidPolicy) Error() string {
 	return fmt.Sprintf("[PUT /policy][%d] putPolicyInvalidPolicy  %+v", 400, o.Payload)
 }
 
+func (o *PutPolicyInvalidPolicy) GetPayload() models.Error {
+	return o.Payload
+}
+
 func (o *PutPolicyInvalidPolicy) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	// response payload
@@ -131,6 +135,10 @@ func (o *PutPolicyInvalidPath) Error() string {
 	return fmt.Sprintf("[PUT /policy][%d] putPolicyInvalidPath  %+v", 460, o.Payload)
 }
 
+func (o *PutPolicyInvalidPath) GetPayload() models.Error {
+	return o.Payload
+}
+
 func (o *PutPolicyInvalidPath) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	// response payload
@@ -156,6 +164,10 @@ type PutPolicyFailure struct {
 
 func (o *PutPolicyFailure) Error() string {
 	return fmt.Sprintf("[PUT /policy][%d] putPolicyFailure  %+v", 500, o.Payload)
+}
+
+func (o *PutPolicyFailure) GetPayload() models.Error {
+	return o.Payload
 }
 
 func (o *PutPolicyFailure) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

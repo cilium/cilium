@@ -1408,9 +1408,9 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPI {
 	api.PrefilterPatchPrefilterHandler = NewPatchPrefilterHandler(d)
 
 	// /ipam/{ip}/
-	api.IPAMPostIPAMHandler = NewPostIPAMHandler(d)
-	api.IPAMPostIPAMIPHandler = NewPostIPAMIPHandler(d)
-	api.IPAMDeleteIPAMIPHandler = NewDeleteIPAMIPHandler(d)
+	api.IpamPostIpamHandler = NewPostIPAMHandler(d)
+	api.IpamPostIpamIPHandler = NewPostIPAMIPHandler(d)
+	api.IpamDeleteIpamIPHandler = NewDeleteIPAMIPHandler(d)
 
 	// /debuginfo
 	api.DaemonGetDebuginfoHandler = NewGetDebugInfoHandler(d)

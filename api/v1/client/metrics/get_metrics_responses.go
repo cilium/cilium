@@ -24,14 +24,12 @@ type GetMetricsReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *GetMetricsReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewGetMetricsOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 500:
 		result := NewGetMetricsInternalServerError()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -59,6 +57,10 @@ type GetMetricsOK struct {
 
 func (o *GetMetricsOK) Error() string {
 	return fmt.Sprintf("[GET /metrics/][%d] getMetricsOK  %+v", 200, o.Payload)
+}
+
+func (o *GetMetricsOK) GetPayload() []*models.Metric {
+	return o.Payload
 }
 
 func (o *GetMetricsOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

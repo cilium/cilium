@@ -24,14 +24,12 @@ type GetMapNameReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *GetMapNameReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewGetMapNameOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 404:
 		result := NewGetMapNameNotFound()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -59,6 +57,10 @@ type GetMapNameOK struct {
 
 func (o *GetMapNameOK) Error() string {
 	return fmt.Sprintf("[GET /map/{name}][%d] getMapNameOK  %+v", 200, o.Payload)
+}
+
+func (o *GetMapNameOK) GetPayload() *models.BPFMap {
+	return o.Payload
 }
 
 func (o *GetMapNameOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

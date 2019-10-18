@@ -24,14 +24,12 @@ type PutStatusProbeReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *PutStatusProbeReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewPutStatusProbeOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 500:
 		result := NewPutStatusProbeFailed()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -61,6 +59,10 @@ func (o *PutStatusProbeOK) Error() string {
 	return fmt.Sprintf("[PUT /status/probe][%d] putStatusProbeOK  %+v", 200, o.Payload)
 }
 
+func (o *PutStatusProbeOK) GetPayload() *models.HealthStatusResponse {
+	return o.Payload
+}
+
 func (o *PutStatusProbeOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	o.Payload = new(models.HealthStatusResponse)
@@ -88,6 +90,10 @@ type PutStatusProbeFailed struct {
 
 func (o *PutStatusProbeFailed) Error() string {
 	return fmt.Sprintf("[PUT /status/probe][%d] putStatusProbeFailed  %+v", 500, o.Payload)
+}
+
+func (o *PutStatusProbeFailed) GetPayload() models.Error {
+	return o.Payload
 }
 
 func (o *PutStatusProbeFailed) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

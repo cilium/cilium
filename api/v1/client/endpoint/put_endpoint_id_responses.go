@@ -24,28 +24,24 @@ type PutEndpointIDReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *PutEndpointIDReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 201:
 		result := NewPutEndpointIDCreated()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 400:
 		result := NewPutEndpointIDInvalid()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return nil, result
-
 	case 409:
 		result := NewPutEndpointIDExists()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return nil, result
-
 	case 500:
 		result := NewPutEndpointIDFailed()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -96,6 +92,10 @@ func (o *PutEndpointIDInvalid) Error() string {
 	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdInvalid  %+v", 400, o.Payload)
 }
 
+func (o *PutEndpointIDInvalid) GetPayload() models.Error {
+	return o.Payload
+}
+
 func (o *PutEndpointIDInvalid) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	// response payload
@@ -142,6 +142,10 @@ type PutEndpointIDFailed struct {
 
 func (o *PutEndpointIDFailed) Error() string {
 	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdFailed  %+v", 500, o.Payload)
+}
+
+func (o *PutEndpointIDFailed) GetPayload() models.Error {
+	return o.Payload
 }
 
 func (o *PutEndpointIDFailed) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

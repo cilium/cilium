@@ -27,7 +27,7 @@ const (
 
 // IPAMAllocate allocates an IP address out of address family specific pool.
 func (c *Client) IPAMAllocate(family, owner string) (*models.IPAMResponse, error) {
-	params := ipam.NewPostIPAMParams().WithTimeout(api.ClientTimeout)
+	params := ipam.NewPostIpamParams().WithTimeout(api.ClientTimeout)
 
 	if family != "" {
 		params.SetFamily(&family)
@@ -37,7 +37,7 @@ func (c *Client) IPAMAllocate(family, owner string) (*models.IPAMResponse, error
 		params.SetOwner(&owner)
 	}
 
-	resp, err := c.IPAM.PostIPAM(params)
+	resp, err := c.Ipam.PostIpam(params)
 	if err != nil {
 		return nil, Hint(err)
 	}
@@ -46,14 +46,14 @@ func (c *Client) IPAMAllocate(family, owner string) (*models.IPAMResponse, error
 
 // IPAMAllocateIP tries to allocate a particular IP address.
 func (c *Client) IPAMAllocateIP(ip, owner string) error {
-	params := ipam.NewPostIPAMIPParams().WithIP(ip).WithOwner(&owner).WithTimeout(api.ClientTimeout)
-	_, err := c.IPAM.PostIPAMIP(params)
+	params := ipam.NewPostIpamIPParams().WithIP(ip).WithOwner(&owner).WithTimeout(api.ClientTimeout)
+	_, err := c.Ipam.PostIpamIP(params)
 	return Hint(err)
 }
 
 // IPAMReleaseIP releases a IP address back to the pool.
 func (c *Client) IPAMReleaseIP(ip string) error {
-	params := ipam.NewDeleteIPAMIPParams().WithIP(ip).WithTimeout(api.ClientTimeout)
-	_, err := c.IPAM.DeleteIPAMIP(params)
+	params := ipam.NewDeleteIpamIPParams().WithIP(ip).WithTimeout(api.ClientTimeout)
+	_, err := c.Ipam.DeleteIpamIP(params)
 	return Hint(err)
 }

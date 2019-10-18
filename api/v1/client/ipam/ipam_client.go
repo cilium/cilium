@@ -6,6 +6,8 @@ package ipam
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"fmt"
+
 	"github.com/go-openapi/runtime"
 
 	strfmt "github.com/go-openapi/strfmt"
@@ -25,87 +27,105 @@ type Client struct {
 }
 
 /*
-DeleteIPAMIP releases an allocated IP address
+DeleteIpamIP releases an allocated IP address
 */
-func (a *Client) DeleteIPAMIP(params *DeleteIPAMIPParams) (*DeleteIPAMIPOK, error) {
+func (a *Client) DeleteIpamIP(params *DeleteIpamIPParams) (*DeleteIpamIPOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
-		params = NewDeleteIPAMIPParams()
+		params = NewDeleteIpamIPParams()
 	}
 
 	result, err := a.transport.Submit(&runtime.ClientOperation{
-		ID:                 "DeleteIPAMIP",
+		ID:                 "DeleteIpamIP",
 		Method:             "DELETE",
 		PathPattern:        "/ipam/{ip}",
 		ProducesMediaTypes: []string{"application/json"},
 		ConsumesMediaTypes: []string{"application/json"},
 		Schemes:            []string{"http"},
 		Params:             params,
-		Reader:             &DeleteIPAMIPReader{formats: a.formats},
+		Reader:             &DeleteIpamIPReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return result.(*DeleteIPAMIPOK), nil
-
+	success, ok := result.(*DeleteIpamIPOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for DeleteIpamIP: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
-PostIPAM allocates an IP address
+PostIpam allocates an IP address
 */
-func (a *Client) PostIPAM(params *PostIPAMParams) (*PostIPAMCreated, error) {
+func (a *Client) PostIpam(params *PostIpamParams) (*PostIpamCreated, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
-		params = NewPostIPAMParams()
+		params = NewPostIpamParams()
 	}
 
 	result, err := a.transport.Submit(&runtime.ClientOperation{
-		ID:                 "PostIPAM",
+		ID:                 "PostIpam",
 		Method:             "POST",
 		PathPattern:        "/ipam",
 		ProducesMediaTypes: []string{"application/json"},
 		ConsumesMediaTypes: []string{"application/json"},
 		Schemes:            []string{"http"},
 		Params:             params,
-		Reader:             &PostIPAMReader{formats: a.formats},
+		Reader:             &PostIpamReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return result.(*PostIPAMCreated), nil
-
+	success, ok := result.(*PostIpamCreated)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for PostIpam: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
-PostIPAMIP allocates an IP address
+PostIpamIP allocates an IP address
 */
-func (a *Client) PostIPAMIP(params *PostIPAMIPParams) (*PostIPAMIPOK, error) {
+func (a *Client) PostIpamIP(params *PostIpamIPParams) (*PostIpamIPOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
-		params = NewPostIPAMIPParams()
+		params = NewPostIpamIPParams()
 	}
 
 	result, err := a.transport.Submit(&runtime.ClientOperation{
-		ID:                 "PostIPAMIP",
+		ID:                 "PostIpamIP",
 		Method:             "POST",
 		PathPattern:        "/ipam/{ip}",
 		ProducesMediaTypes: []string{"application/json"},
 		ConsumesMediaTypes: []string{"application/json"},
 		Schemes:            []string{"http"},
 		Params:             params,
-		Reader:             &PostIPAMIPReader{formats: a.formats},
+		Reader:             &PostIpamIPReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return result.(*PostIPAMIPOK), nil
-
+	success, ok := result.(*PostIpamIPOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for PostIpamIP: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 // SetTransport changes the transport on the client

@@ -12,8 +12,8 @@ import (
 	"strings"
 )
 
-// DeleteIPAMIPURL generates an URL for the delete IP a m IP operation
-type DeleteIPAMIPURL struct {
+// DeleteIpamIPURL generates an URL for the delete ipam IP operation
+type DeleteIpamIPURL struct {
 	IP string
 
 	_basePath string
@@ -24,7 +24,7 @@ type DeleteIPAMIPURL struct {
 // WithBasePath sets the base path for this url builder, only required when it's different from the
 // base path specified in the swagger spec.
 // When the value of the base path is an empty string
-func (o *DeleteIPAMIPURL) WithBasePath(bp string) *DeleteIPAMIPURL {
+func (o *DeleteIpamIPURL) WithBasePath(bp string) *DeleteIpamIPURL {
 	o.SetBasePath(bp)
 	return o
 }
@@ -32,12 +32,12 @@ func (o *DeleteIPAMIPURL) WithBasePath(bp string) *DeleteIPAMIPURL {
 // SetBasePath sets the base path for this url builder, only required when it's different from the
 // base path specified in the swagger spec.
 // When the value of the base path is an empty string
-func (o *DeleteIPAMIPURL) SetBasePath(bp string) {
+func (o *DeleteIpamIPURL) SetBasePath(bp string) {
 	o._basePath = bp
 }
 
 // Build a url path and query string
-func (o *DeleteIPAMIPURL) Build() (*url.URL, error) {
+func (o *DeleteIpamIPURL) Build() (*url.URL, error) {
 	var _result url.URL
 
 	var _path = "/ipam/{ip}"
@@ -46,7 +46,7 @@ func (o *DeleteIPAMIPURL) Build() (*url.URL, error) {
 	if ip != "" {
 		_path = strings.Replace(_path, "{ip}", ip, -1)
 	} else {
-		return nil, errors.New("ip is required on DeleteIPAMIPURL")
+		return nil, errors.New("ip is required on DeleteIpamIPURL")
 	}
 
 	_basePath := o._basePath
@@ -59,7 +59,7 @@ func (o *DeleteIPAMIPURL) Build() (*url.URL, error) {
 }
 
 // Must is a helper function to panic when the url builder returns an error
-func (o *DeleteIPAMIPURL) Must(u *url.URL, err error) *url.URL {
+func (o *DeleteIpamIPURL) Must(u *url.URL, err error) *url.URL {
 	if err != nil {
 		panic(err)
 	}
@@ -70,17 +70,17 @@ func (o *DeleteIPAMIPURL) Must(u *url.URL, err error) *url.URL {
 }
 
 // String returns the string representation of the path with query string
-func (o *DeleteIPAMIPURL) String() string {
+func (o *DeleteIpamIPURL) String() string {
 	return o.Must(o.Build()).String()
 }
 
 // BuildFull builds a full url with scheme, host, path and query string
-func (o *DeleteIPAMIPURL) BuildFull(scheme, host string) (*url.URL, error) {
+func (o *DeleteIpamIPURL) BuildFull(scheme, host string) (*url.URL, error) {
 	if scheme == "" {
-		return nil, errors.New("scheme is required for a full url on DeleteIPAMIPURL")
+		return nil, errors.New("scheme is required for a full url on DeleteIpamIPURL")
 	}
 	if host == "" {
-		return nil, errors.New("host is required for a full url on DeleteIPAMIPURL")
+		return nil, errors.New("host is required for a full url on DeleteIpamIPURL")
 	}
 
 	base, err := o.Build()
@@ -94,6 +94,6 @@ func (o *DeleteIPAMIPURL) BuildFull(scheme, host string) (*url.URL, error) {
 }
 
 // StringFull returns the string representation of a complete url
-func (o *DeleteIPAMIPURL) StringFull(scheme, host string) string {
+func (o *DeleteIpamIPURL) StringFull(scheme, host string) string {
 	return o.Must(o.BuildFull(scheme, host)).String()
 }

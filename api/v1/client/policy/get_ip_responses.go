@@ -24,21 +24,18 @@ type GetIPReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *GetIPReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewGetIPOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 400:
 		result := NewGetIPBadRequest()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return nil, result
-
 	case 404:
 		result := NewGetIPNotFound()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -68,6 +65,10 @@ func (o *GetIPOK) Error() string {
 	return fmt.Sprintf("[GET /ip][%d] getIpOK  %+v", 200, o.Payload)
 }
 
+func (o *GetIPOK) GetPayload() []*models.IPListEntry {
+	return o.Payload
+}
+
 func (o *GetIPOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	// response payload
@@ -93,6 +94,10 @@ type GetIPBadRequest struct {
 
 func (o *GetIPBadRequest) Error() string {
 	return fmt.Sprintf("[GET /ip][%d] getIpBadRequest  %+v", 400, o.Payload)
+}
+
+func (o *GetIPBadRequest) GetPayload() models.Error {
+	return o.Payload
 }
 
 func (o *GetIPBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

@@ -24,14 +24,12 @@ type GetIdentityEndpointsReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *GetIdentityEndpointsReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-
 	case 200:
 		result := NewGetIdentityEndpointsOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
 		return result, nil
-
 	case 404:
 		result := NewGetIdentityEndpointsNotFound()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -59,6 +57,10 @@ type GetIdentityEndpointsOK struct {
 
 func (o *GetIdentityEndpointsOK) Error() string {
 	return fmt.Sprintf("[GET /identity/endpoints][%d] getIdentityEndpointsOK  %+v", 200, o.Payload)
+}
+
+func (o *GetIdentityEndpointsOK) GetPayload() []*models.IdentityEndpoints {
+	return o.Payload
 }
 
 func (o *GetIdentityEndpointsOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {

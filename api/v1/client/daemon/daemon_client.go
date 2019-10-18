@@ -6,6 +6,8 @@ package daemon
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"fmt"
+
 	"github.com/go-openapi/runtime"
 
 	strfmt "github.com/go-openapi/strfmt"
@@ -48,8 +50,14 @@ func (a *Client) GetClusterNodes(params *GetClusterNodesParams) (*GetClusterNode
 	if err != nil {
 		return nil, err
 	}
-	return result.(*GetClusterNodesOK), nil
-
+	success, ok := result.(*GetClusterNodesOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetClusterNodes: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -79,8 +87,14 @@ func (a *Client) GetConfig(params *GetConfigParams) (*GetConfigOK, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result.(*GetConfigOK), nil
-
+	success, ok := result.(*GetConfigOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetConfig: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -107,8 +121,14 @@ func (a *Client) GetDebuginfo(params *GetDebuginfoParams) (*GetDebuginfoOK, erro
 	if err != nil {
 		return nil, err
 	}
-	return result.(*GetDebuginfoOK), nil
-
+	success, ok := result.(*GetDebuginfoOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetDebuginfo: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -140,8 +160,14 @@ func (a *Client) GetHealthz(params *GetHealthzParams) (*GetHealthzOK, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result.(*GetHealthzOK), nil
-
+	success, ok := result.(*GetHealthzOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetHealthz: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -168,8 +194,14 @@ func (a *Client) GetMap(params *GetMapParams) (*GetMapOK, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result.(*GetMapOK), nil
-
+	success, ok := result.(*GetMapOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetMap: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -196,8 +228,14 @@ func (a *Client) GetMapName(params *GetMapNameParams) (*GetMapNameOK, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result.(*GetMapNameOK), nil
-
+	success, ok := result.(*GetMapNameOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetMapName: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -229,8 +267,14 @@ func (a *Client) PatchConfig(params *PatchConfigParams) (*PatchConfigOK, error) 
 	if err != nil {
 		return nil, err
 	}
-	return result.(*PatchConfigOK), nil
-
+	success, ok := result.(*PatchConfigOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for PatchConfig: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 // SetTransport changes the transport on the client
