@@ -92,6 +92,42 @@ as part of each pull-request, but that Cilium still supports.
 
 It also runs a variety of tests against Envoy to ensure that proxy functionality is working correctly.
 
+.. _packer_ci:
+
+Packer-CI-Build
+^^^^^^^^^^^^^^^
+
+As part of Cilium development, we use a custom base box with a bunch of
+pre-installed libraries and tools that we need to enhance our daily workflow.
+That base box is built with `Packer <https://www.packer.io/>`_ and it is hosted
+in the `packer-ci-build
+<https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/>`_ GitHub
+repository.
+
+New versions of this box can be created via `Jenkins Packer Build
+<https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/>`_, where
+new builds of the image will be pushed to  `Vagrant Cloud
+<https://app.vagrantup.com/cilium>`_ . The version of the image corresponds to
+the `BUILD_ID <https://qa.nuxeo.org/jenkins/pipeline-syntax/globals#env>`_
+environment variable in the Jenkins job. That version ID will be used in Cilium
+`Vagrantfiles
+<https://github.com/cilium/cilium/blob/master/test/Vagrantfile#L10>`_.
+
+Changes to this image are made via contributions to the packer-ci-build
+repository. Authorized GitHub users can trigger builds with a GitHub comment on
+the PR containing the trigger phrase ``build-me-please``. In case that a new box
+needs to be rebased with a different branch than master, authorized developers
+can run the build with custom parameters. To use a different Cilium branch in
+the `job <https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/>`_ go
+to *Build with parameters* and a base branch can be set as the user needs.
+
+This box will need to be updated when a new developer needs a new dependency
+that is not installed in the current version of the box, or if a dependency that
+is cached within the box becomes stale.
+
+Make sure that you update vagrant box versions in `test Vagrantfile <https://github.com/cilium/cilium/blob/master/test/Vagrantfile>`__
+and `root Vagrantfile <https://github.com/cilium/cilium/blob/master/Vagrantfile>`__ after new box is built and tested.
+
 .. _trigger_phrases:
 
 Triggering Pull-Request Builds With Jenkins
