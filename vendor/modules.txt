@@ -313,7 +313,7 @@ github.com/hashicorp/go-cleanhttp
 github.com/hashicorp/go-immutable-radix
 # github.com/hashicorp/go-rootcerts v1.0.1 => github.com/hashicorp/go-rootcerts v1.0.1
 github.com/hashicorp/go-rootcerts
-# github.com/hashicorp/go-version v1.2.0 => github.com/hashicorp/go-version v1.2.0
+# github.com/hashicorp/go-version v0.0.0-20171129150820-4fe82ae3040f => github.com/hashicorp/go-version v0.0.0-20171129150820-4fe82ae3040f
 github.com/hashicorp/go-version
 # github.com/hashicorp/golang-lru v0.5.3 => github.com/hashicorp/golang-lru v0.5.3
 github.com/hashicorp/golang-lru
