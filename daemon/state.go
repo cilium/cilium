@@ -33,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/workloads"
 
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -86,10 +85,6 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 
 	if err := ep.ValidateConnectorPlumbing(connector.CheckLink); err != nil {
 		return false, err
-	}
-
-	if option.Config.WorkloadsEnabled() && !workloads.IsRunning(ep) {
-		return false, fmt.Errorf("no workload could be associated with endpoint")
 	}
 
 	if !ep.DatapathConfiguration.ExternalIPAM {
@@ -368,10 +363,6 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState) chan struc
 		}()
 	} else {
 		log.Info("State restore is disabled. Existing endpoints on node are ignored")
-		// We need to read all docker containers so we know we won't
-		// going to allocate the same IP addresses and we will ignore
-		// these containers from reading.
-		workloads.IgnoreRunningWorkloads()
 
 		// No restore happened, end parallel map mode immediately
 		endParallelMapMode()

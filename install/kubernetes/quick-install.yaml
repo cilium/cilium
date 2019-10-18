@@ -35,6 +35,18 @@ data:
   # that will be seen in monitor output.
   monitor-aggregation: medium
 
+  # The monitor aggregation interval governs the typical time between monitor
+  # notification events for each allowed connection.
+  #
+  # Only effective when monitor aggregation is set to "medium" or higher.
+  monitor-aggregation-interval: 5s
+
+  # The monitor aggregation flags determine which TCP flags which, upon the
+  # first observation, cause monitor notifications to be generated.
+  #
+  # Only effective when monitor aggregation is set to "medium" or higher.
+  monitor-aggregation-flags: all
+
   # ct-global-max-entries-* specifies the maximum number of connections
   # supported across all endpoints, split by protocol: tcp or other. One pair
   # of maps uses these values for IPv4 connections, and another pair of maps
@@ -104,27 +116,6 @@ data:
 
   # wait-bpf-mount makes init container wait until bpf filesystem is mounted
   wait-bpf-mount: "false"
-
-  # Enable fetching of container-runtime specific metadata
-  #
-  # By default, the Kubernetes pod and namespace labels are retrieved and
-  # associated with endpoints for identification purposes. By integrating
-  # with the container runtime, container runtime specific labels can be
-  # retrieved, such labels will be prefixed with container:
-  #
-  # CAUTION: The container runtime labels can include information such as pod
-  # annotations which may result in each pod being associated a unique set of
-  # labels which can result in excessive security identities being allocated.
-  # Please review the labels filter when enabling container runtime labels.
-  #
-  # Supported values:
-  # - containerd
-  # - crio
-  # - docker
-  # - none
-  # - auto (automatically detect the container runtime)
-  #
-  container-runtime: none
 
   masquerade: "true"
 
@@ -463,6 +454,7 @@ spec:
         - mountPath: /var/run/cilium
           name: cilium-run
       restartPolicy: Always
+      priorityClassName: system-node-critical
       serviceAccount: cilium
       serviceAccountName: cilium
       terminationGracePeriodSeconds: 1

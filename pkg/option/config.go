@@ -106,9 +106,11 @@ const (
 	// ContainerRuntime sets the container runtime(s) used by Cilium
 	// { containerd | crio | docker | none | auto } ( "auto" uses the container
 	// runtime found in the order: "docker", "containerd", "crio" )
+	// Deprecated
 	ContainerRuntime = "container-runtime"
 
 	// ContainerRuntimeEndpoint set the container runtime(s) endpoint(s)
+	// Deprecated
 	ContainerRuntimeEndpoint = "container-runtime-endpoint"
 
 	// DebugArg is the argument enables debugging mode
@@ -283,6 +285,7 @@ const (
 	// FlannelManageExistingContainers sets if Cilium should install the BPF
 	// programs on already running interfaces created by flannel. Require
 	// Cilium to be running in the hostPID.
+	// Deprecated
 	FlannelManageExistingContainers = "flannel-manage-existing-containers"
 
 	// PProf enables serving the pprof debugging API
@@ -784,7 +787,6 @@ type DaemonConfig struct {
 	HostV6Addr       net.IP     // Host v6 address of the snooping device
 	EncryptInterface string     // Set with name of network facing interface to encrypt
 	EncryptNode      bool       // Set to true for encrypting node IP traffic
-	Workloads        []string   // List of Workloads set by the user to used by cilium.
 
 	Ipvlan IpvlanConfig // Ipvlan related configuration
 
@@ -983,7 +985,6 @@ type DaemonConfig struct {
 	BPFCompileDebug               string
 	ConfigFile                    string
 	ConfigDir                     string
-	ContainerRuntimeEndpoint      map[string]string
 	Debug                         bool
 	DebugVerbose                  []string
 	DisableConntrack              bool
@@ -1072,11 +1073,6 @@ type DaemonConfig struct {
 	// FlannelUninstallOnExit removes the BPF programs that were installed by
 	// Cilium on all interfaces created by the flannel.
 	FlannelUninstallOnExit bool
-
-	// FlannelManageExistingContainers sets if Cilium should install the BPF
-	// programs on already running interfaces created by flannel. Require
-	// Cilium to be running in the hostPID.
-	FlannelManageExistingContainers bool
 
 	// EnableAutoDirectRouting enables installation of direct routes to
 	// other nodes when available
@@ -1251,7 +1247,6 @@ var (
 		KVstoreConnectivityTimeout:   defaults.KVstoreConnectivityTimeout,
 		IPAllocationTimeout:          defaults.IPAllocationTimeout,
 		IdentityChangeGracePeriod:    defaults.IdentityChangeGracePeriod,
-		ContainerRuntimeEndpoint:     make(map[string]string),
 		FixedIdentityMapping:         make(map[string]string),
 		KVStoreOpt:                   make(map[string]string),
 		LogOpt:                       make(map[string]string),
@@ -1310,17 +1305,6 @@ func (c *DaemonConfig) GetNodeConfigPath() string {
 // GetGlobalsDir returns the path for the globals directory.
 func (c *DaemonConfig) GetGlobalsDir() string {
 	return filepath.Join(c.StateDir, "globals")
-}
-
-// WorkloadsEnabled returns true if any workload runtimes are enabled
-func (c *DaemonConfig) WorkloadsEnabled() bool {
-	for _, w := range c.Workloads {
-		if w == "none" {
-			return false
-		}
-	}
-
-	return len(c.Workloads) > 0
 }
 
 // AlwaysAllowLocalhost returns true if the daemon has the option set that
@@ -1642,7 +1626,6 @@ func (c *DaemonConfig) Populate() {
 	c.NAT46Range = viper.GetString(NAT46Range)
 	c.FlannelMasterDevice = viper.GetString(FlannelMasterDevice)
 	c.FlannelUninstallOnExit = viper.GetBool(FlannelUninstallOnExit)
-	c.FlannelManageExistingContainers = viper.GetBool(FlannelManageExistingContainers)
 	c.PolicyMapMaxEntries = viper.GetInt(PolicyMapEntriesName)
 	c.PProf = viper.GetBool(PProf)
 	c.PreAllocateMaps = viper.GetBool(PreAllocateMapsName)
@@ -1660,7 +1643,6 @@ func (c *DaemonConfig) Populate() {
 	c.TracePayloadlen = viper.GetInt(TracePayloadlen)
 	c.Tunnel = viper.GetString(TunnelName)
 	c.Version = viper.GetString(Version)
-	c.Workloads = viper.GetStringSlice(ContainerRuntime)
 	c.WriteCNIConfigurationWhenReady = viper.GetString(WriteCNIConfigurationWhenReady)
 	c.PolicyTriggerInterval = viper.GetDuration(PolicyTriggerInterval)
 	c.CTMapEntriesTimeoutTCP = viper.GetDuration(CTMapEntriesTimeoutTCPName)
@@ -1763,10 +1745,6 @@ func (c *DaemonConfig) Populate() {
 	// Map options
 	if m := viper.GetStringMapString(AwsInstanceLimitMapping); len(m) != 0 {
 		c.AwsInstanceLimitMapping = m
-	}
-
-	if m := viper.GetStringMapString(ContainerRuntimeEndpoint); len(m) != 0 {
-		c.ContainerRuntimeEndpoint = m
 	}
 
 	if m := viper.GetStringMapString(FixedIdentityMapping); len(m) != 0 {

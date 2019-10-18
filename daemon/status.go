@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/status"
-	"github.com/cilium/cilium/pkg/workloads"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
@@ -415,28 +414,6 @@ func (d *Daemon) startStatusCollector() {
 				d.statusResponse.Kvstore = &models.Status{
 					State: state,
 					Msg:   msg,
-				}
-			},
-		},
-		{
-			Name: "container-runtime",
-			Probe: func(ctx context.Context) (interface{}, error) {
-				return workloads.Status(), nil
-			},
-			OnStatusUpdate: func(status status.Status) {
-				d.statusCollectMutex.Lock()
-				defer d.statusCollectMutex.Unlock()
-
-				if status.Err != nil {
-					d.statusResponse.ContainerRuntime = &models.Status{
-						State: models.StatusStateFailure,
-						Msg:   status.Err.Error(),
-					}
-					return
-				}
-
-				if s, ok := status.Data.(*models.Status); ok {
-					d.statusResponse.ContainerRuntime = s
 				}
 			},
 		},
