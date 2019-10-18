@@ -1491,7 +1491,7 @@
     "storage/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.15.3"
+  revision = "kubernetes-1.15.5"
 
 [[projects]]
   digest = "1:e53c720ac9b16d35cbc40bbb07582c24f1a89557b89fe35328f539e5fa1a34d8"
@@ -1505,10 +1505,10 @@
     "pkg/features",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.15.3"
+  revision = "kubernetes-1.15.5"
 
 [[projects]]
-  digest = "1:fa17ab617911e9fdcd3eccb05e815ce02d6fe3b8a113d00d63001b507862250e"
+  digest = "1:663df0b9180509fb3e71a7a9b9cf380d025b29b06a4cfca0a6679510a76f25eb"
   name = "k8s.io/apimachinery"
   packages = [
     "pkg/api/errors",
@@ -1556,7 +1556,7 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.15.3"
+  revision = "kubernetes-1.15.5"
 
 [[projects]]
   digest = "1:2e3f244d6f43f038d3fa4450be13ca29574df19f32f64f358a75c24770d5f002"
@@ -1566,7 +1566,7 @@
     "pkg/util/feature",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.15.3"
+  revision = "kubernetes-1.15.5"
 
 [[projects]]
   digest = "1:810f2bd2036993645a6ea789ce05425fd48259e2c1ab920ba7fcb88e90e6467f"
@@ -1677,7 +1677,7 @@
     "util/retry",
   ]
   pruneopts = "NUT"
-  revision = "d946203e8cddbb59e4cce706cc672a1cd65bad56"
+  revision = "5858d5fddcf97474bd1801b42628dda83dc1f671"
   source = "https://github.com/cilium/client-go"
 
 [[projects]]
@@ -1696,7 +1696,7 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "kubernetes-1.15.3"
+  revision = "kubernetes-1.15.5"
 
 [[projects]]
   branch = "master"
@@ -1711,7 +1711,7 @@
   name = "k8s.io/cri-api"
   packages = ["pkg/apis/runtime/v1alpha2"]
   pruneopts = "NUT"
-  revision = "kubernetes-1.15.3"
+  revision = "kubernetes-1.15.5"
 
 [[projects]]
   digest = "1:61024ed77a53ac618effed55043bf6a9afbdeb64136bd6a5b0c992d4c0363766"
@@ -1757,7 +1757,7 @@
     "pkg/registry/core/service/ipallocator",
   ]
   pruneopts = "NUT"
-  revision = "v1.15.3"
+  revision = "v1.15.5"
 
 [[projects]]
   branch = "master"
