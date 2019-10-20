@@ -521,8 +521,12 @@ func (c *DNSCache) removeReverse(ip string, entry *cacheEntry) {
 // ForceExpire is used to clear entries from the cache before their TTL is
 // over. This operation does not keep previous guarantees that, for each IP,
 // the most recent lookup to provide that IP is used.
-// Note that all parameters must match, if provided. `time.Time{}` is
-// considered not-provided for time parameters.
+// Note that all parameters must match, if provided. `time.Time{}` is the
+// match-all time parameter.
+// For example:
+//   ForceExpire(time.Time{}, 'cilium.io') expires all entries for cilium.io.
+//   ForceExpire(time.Now(), 'cilium.io') expires all entries for cilium.io
+//   that expired before the current time.
 // expireLookupsBefore requires a lookup to have a LookupTime before it in
 // order to remove it.
 // nameMatch will remove any DNS names that match.
@@ -640,5 +644,252 @@ func (c *DNSCache) UnmarshalJSON(raw []byte) error {
 		c.updateWithEntry(newLookup)
 	}
 
+	return nil
+}
+
+// DNSZombieMapping is an IP that has expired or been evicted from a DNS cache.
+// It records the DNS name and IP, along with other bookkeeping timestamps that
+// help determine when it can be finally deleted. Zombies are dead when
+// they are not marked alive by CT GC.
+type DNSZombieMapping struct {
+	// Names is the list of names that had DNS lookups with this IP. These may
+	// derive from unrelated DNS lookups. The list is maintained de-duplicated.
+	Names []string `json:"names,omitempty"`
+
+	// IP is an address that is pending for delete but may be in-use by a
+	// connection.
+	IP net.IP `json:"ip,omitempty"`
+
+	// AliveAt is the last time this IP was marked alive via
+	// DNSZombieMappings.MarkAlive.
+	// When AliveAt is later than DNSZombieMappings.lastCTGCUpdate the zombie is
+	// considered alive.
+	AliveAt time.Time `json:"alive-at,omitempty"`
+
+	// DeletePendingAt is the time at which this IP was most-recently scheduled
+	// for deletion. This can be updated if an IP expires from the DNS caches
+	// multiple times.
+	// When DNSZombieMappings.lastCTGCUpdate is earlier than DeletePendingAt a
+	// zombie is alive.
+	DeletePendingAt time.Time `json:"delete-pending-at,omitempty"`
+}
+
+// DeepCopy returns a copy of zombie that does not share any internal pointers
+// or fields
+func (zombie *DNSZombieMapping) DeepCopy() *DNSZombieMapping {
+	return &DNSZombieMapping{
+		Names:           append([]string{}, zombie.Names...),
+		IP:              zombie.IP,
+		DeletePendingAt: zombie.DeletePendingAt,
+		AliveAt:         zombie.AliveAt,
+	}
+}
+
+// DNSZombieMappings collects DNS Name->IP mappings that may be inactive and
+// evicted, and so may be deleted. They are periodically marked alive by the CT
+// GC goroutine. When .GC is called, alive and dead zombies are returned,
+// allowing us to skip deleting an IP from the global DNS cache to avoid
+// breaking connections that outlast the DNS TTL.
+type DNSZombieMappings struct {
+	lock.Mutex
+	deletes        map[string]*DNSZombieMapping // map[ip]toDelete
+	lastCTGCUpdate time.Time
+}
+
+// NewDNSZombieMappings constructs a DNSZombieMappings that is read to use
+func NewDNSZombieMappings() *DNSZombieMappings {
+	return &DNSZombieMappings{
+		deletes: make(map[string]*DNSZombieMapping),
+	}
+}
+
+// Upsert enqueues the ip -> qname as a possible deletion
+// updatedExisting is true when an earlier enqueue existed and was updated
+func (zombies *DNSZombieMappings) Upsert(now time.Time, ipStr string, qname ...string) (updatedExisting bool) {
+	zombies.Lock()
+	defer zombies.Unlock()
+
+	zombie, updatedExisting := zombies.deletes[ipStr]
+	if !updatedExisting {
+		zombie = &DNSZombieMapping{}
+		zombies.deletes[ipStr] = zombie
+	}
+
+	zombie.Names = KeepUniqueNames(append(zombie.Names, qname...))
+	zombie.IP = net.ParseIP(ipStr)
+	zombie.DeletePendingAt = now
+
+	return updatedExisting
+}
+
+// isAlive returns true when a CT GC has completed without marking this zombie
+// alive. This occurs when:
+//  DeletePendingAt <= lastCTGCUpdate (i.e. CT GC has not happened yet), or
+//  AliveAt is not 0 and AliveAt >= lastCTGCUpdate (i.e it is marked by the CT GC run)
+func (zombies *DNSZombieMappings) isAlive(zombie *DNSZombieMapping) bool {
+	// These are opposite because there is no BeforeEquals with time.Time :/
+	return !(zombies.lastCTGCUpdate.After(zombie.DeletePendingAt) && zombies.lastCTGCUpdate.After(zombie.AliveAt))
+}
+
+// GC returns alive and dead DNSZombieMapping entries. This removes dead
+// zombies interally, and repeated calls will return different data.
+// Zombies are alive if they have been marked alive (with MarkAlive). When
+// SetCTGCTime is called and an zombie not marked alive, it becomes dead.
+// Calling Upsert on a dead zombie will make it alive again.
+func (zombies *DNSZombieMappings) GC() (alive, dead []*DNSZombieMapping) {
+	zombies.Lock()
+	defer zombies.Unlock()
+
+	// Collect zombies we can delete
+	for _, zombie := range zombies.deletes {
+		if zombies.isAlive(zombie) {
+			alive = append(alive, zombie.DeepCopy())
+		} else {
+			// Emit the actual object here since we will no longer update it
+			dead = append(dead, zombie)
+		}
+	}
+
+	// Delete the zombies we collected above from the internal map
+	for _, zombie := range dead {
+		delete(zombies.deletes, zombie.IP.String())
+	}
+
+	return alive, dead
+}
+
+// MarkAlive makes an zombie alive and not dead. When now is later than the
+// time set with SetCTGCTime the zombie remains alive.
+func (zombies *DNSZombieMappings) MarkAlive(now time.Time, ip net.IP) {
+	zombies.Lock()
+	defer zombies.Unlock()
+
+	if zombie, exists := zombies.deletes[ip.String()]; exists {
+		zombie.AliveAt = now
+	}
+}
+
+// SetCTGCTime marks the start of the most recent CT GC. This must be set after
+// all MarkAlive calls complete to avoid a race between the DNS garbage
+// collector and the CT GC. This would occur when a DNS zombie that has not
+// been visited by the CT GC run is seen by a concurrent DNS garbage collector
+// run, and then deleted.
+// When now is later than an alive timestamp, set with MarkAlive, the zombie is
+// no longer alive. Thus, this call acts as a gating function for what data is
+// returned by GC.
+func (zombies *DNSZombieMappings) SetCTGCTime(now time.Time) {
+	zombies.lastCTGCUpdate = now
+}
+
+// ForceExpire is used to clear zombies irrespective of their alive status.
+// Only zombies with DeletePendingAt times before expireLookupBefore are
+// considered for deletion. Each name in an zombie is matched against
+// nameMatcher (nil is match all) and when an zombie no longer has any valid
+// names will it be removed outright.
+// Note that all parameters must match, if provided. `time.Time{}` is the
+// match-all time parameter.
+// expireLookupsBefore requires an zombie to have been enqueued before the
+// specified time in order to remove it.
+// For example:
+//   ForceExpire(time.Time{}, 'cilium.io') expires all entries for cilium.io.
+//   ForceExpire(time.Now(), 'cilium.io') expires all entries for cilium.io
+//   that expired before the current time.
+// nameMatch will remove that specific DNS name from zombies that include it,
+// deleting it when no DNS names remain.
+func (zombies *DNSZombieMappings) ForceExpire(expireLookupsBefore time.Time, nameMatch *regexp.Regexp) (namesAffected []string) {
+	zombies.Lock()
+	defer zombies.Unlock()
+
+	var toDelete []*DNSZombieMapping
+
+	for _, zombie := range zombies.deletes {
+		// Do not expire zombies that were enqueued after expireLookupsBefore, but
+		// only if the value is non-zero
+		if !expireLookupsBefore.IsZero() && zombie.DeletePendingAt.After(expireLookupsBefore) {
+			continue
+		}
+
+		// A zombie has multiple names, collect the ones that should remain (i.e.
+		// do not match nameMatch)
+		var newNames []string
+		for _, name := range zombie.Names {
+			if nameMatch != nil && !nameMatch.MatchString(name) {
+				newNames = append(newNames, name)
+			} else {
+				namesAffected = append(namesAffected, name)
+			}
+		}
+		zombie.Names = newNames
+
+		// Delete the zombie outright if no names remain
+		if len(zombie.Names) == 0 {
+			toDelete = append(toDelete, zombie)
+		}
+	}
+
+	// Delete the zombies that are now empty
+	for _, zombie := range toDelete {
+		delete(zombies.deletes, zombie.IP.String())
+	}
+
+	return namesAffected
+}
+
+// DumpAlive returns copies of still-alive zombies
+func (zombies *DNSZombieMappings) DumpAlive() (alive []*DNSZombieMapping) {
+	zombies.Lock()
+	defer zombies.Unlock()
+
+	for _, zombie := range zombies.deletes {
+		if !zombies.isAlive(zombie) {
+			continue
+		}
+
+		alive = append(alive, zombie.DeepCopy())
+	}
+
+	return alive
+}
+
+// MarshalJSON encodes DNSZombieMappings into JSON. Only the DNSZombieMapping
+// entries are encoded.
+func (zombies *DNSZombieMappings) MarshalJSON() ([]byte, error) {
+	// This hackery avoids exposing DNSZombieMappings.deletes as a public field.
+	// The JSON package cannot serialize private fields so we have to make a
+	// proxy type here.
+	aux := struct {
+		Deletes map[string]*DNSZombieMapping `json:"deletes,omitempty"`
+	}{
+		Deletes: zombies.deletes,
+	}
+
+	return json.Marshal(aux)
+}
+
+// UnmarshalJSON rebuilds a DNSZombieMappings from serialized JSON. It resets
+// the AliveAt timestamps, requiring a CT GC cycle to occur before any zombies
+// are deleted (by not being marked alive).
+// Note: This is destructive to any currect data
+func (zombies *DNSZombieMappings) UnmarshalJSON(raw []byte) error {
+	zombies.Lock()
+	defer zombies.Unlock()
+
+	// This hackery avoids exposing DNSZombieMappings.deletes as a public field.
+	// The JSON package cannot deserialize private fields so we have to make a
+	// proxy type here.
+	aux := struct {
+		Deletes map[string]*DNSZombieMapping `json:"deletes,omitempty"`
+	}{
+		Deletes: zombies.deletes,
+	}
+	if err := json.Unmarshal(raw, &aux); err != nil {
+		return err
+	}
+	zombies.deletes = aux.Deletes
+
+	// Reset the alive time to ensure no deletes happen until we run CT GC again
+	for _, zombie := range zombies.deletes {
+		zombie.AliveAt = time.Time{}
+	}
 	return nil
 }

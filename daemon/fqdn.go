@@ -697,6 +697,28 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 				EndpointID:     int64(ep.ID),
 			})
 		}
+
+		for _, delete := range ep.DNSZombies.DumpAlive() {
+			// only proceed if any IP matches the cidr selector
+			if !cidrMatcher(delete.IP) {
+				continue
+			}
+
+			for _, name := range delete.Names {
+				if !nameMatcher(name) {
+					continue
+				}
+
+				lookups = append(lookups, &models.DNSLookup{
+					Fqdn:           name,
+					Ips:            []string{delete.IP.String()},
+					LookupTime:     strfmt.DateTime(delete.AliveAt),
+					TTL:            0,
+					ExpirationTime: strfmt.DateTime(delete.AliveAt),
+					EndpointID:     int64(ep.ID),
+				})
+			}
+		}
 	}
 
 	return lookups, nil
@@ -721,6 +743,18 @@ func deleteDNSLookups(globalCache *fqdn.DNSCache, pollerCache *fqdn.DNSCache, en
 	for _, ep := range endpoints {
 		namesToRegen = append(namesToRegen, ep.DNSHistory.ForceExpire(expireLookupsBefore, nameMatcher)...)
 		globalCache.UpdateFromCache(ep.DNSHistory, nil)
+
+		namesToRegen = append(namesToRegen, ep.DNSZombies.ForceExpire(expireLookupsBefore, nameMatcher)...)
+		activeConnections := fqdn.NewDNSCache(0)
+		zombies, _ := ep.DNSZombies.GC()
+		lookupTime := time.Now()
+		for _, zombie := range zombies {
+			namesToRegen = append(namesToRegen, zombie.Names...)
+			for _, name := range zombie.Names {
+				activeConnections.Update(lookupTime, name, []net.IP{zombie.IP}, 0)
+			}
+		}
+		globalCache.UpdateFromCache(activeConnections, nil)
 	}
 
 	return namesToRegen, nil
