@@ -204,12 +204,6 @@ func (c *DNSCache) updateWithEntry(entry *cacheEntry) bool {
 		changed = true
 	}
 
-	// When lookupTime is much earlier than time.Now(), we may not expire all
-	// entries that should be expired, leaving more work for .Lookup.
-	if c.removeExpired(entries, time.Now(), time.Time{}) {
-		changed = true
-	}
-
 	if c.perHostLimit > 0 && len(entries) > c.perHostLimit {
 		c.overLimit[entry.Name] = true
 	}
@@ -236,10 +230,8 @@ func (c *DNSCache) addNameToCleanup(entry *cacheEntry) {
 // cleanupExpiredEntries cleans all the expired entries from the lastTime that
 // runs to the give time. It will lock the struct until retrieves all the data.
 // It returns the list of names that need to be deleted from the policies.
-func (c *DNSCache) cleanupExpiredEntries(expires time.Time) ([]string, time.Time) {
+func (c *DNSCache) cleanupExpiredEntries(expires time.Time) (affectedNames []string, removed map[string][]*cacheEntry) {
 	timediff := int(expires.Sub(c.lastCleanup).Seconds())
-	startTime := c.lastCleanup
-	expiredEntries := []string{}
 	for i := 0; i < int(timediff); i++ {
 		expiredTime := c.lastCleanup.Add(time.Second)
 		key := expiredTime.Unix()
@@ -248,35 +240,35 @@ func (c *DNSCache) cleanupExpiredEntries(expires time.Time) ([]string, time.Time
 		if !exists {
 			continue
 		}
-		expiredEntries = append(expiredEntries, entries...)
+		affectedNames = append(affectedNames, entries...)
 		delete(c.cleanup, key)
 	}
 
-	result := []string{}
-	for _, name := range KeepUniqueNames(expiredEntries) {
+	affectedNames = KeepUniqueNames(affectedNames)
+	removed = make(map[string][]*cacheEntry)
+	for _, name := range affectedNames {
 		if entries, exists := c.forward[name]; exists {
-			if !c.removeExpired(entries, c.lastCleanup, time.Time{}) {
-				continue
+			for ip, entry := range c.removeExpired(entries, c.lastCleanup, time.Time{}) {
+				removed[ip] = append(removed[ip], entry)
 			}
-			result = append(result, name)
 		}
 	}
-	return result, startTime
+	return affectedNames, removed
 }
 
 // cleanupOverLimitEntries returns the names that has reached the max number of
 // IP per host. Internally the function sort the entries by the expiration
 // time.
-func (c *DNSCache) cleanupOverLimitEntries() []string {
+func (c *DNSCache) cleanupOverLimitEntries() (affectedNames []string, removed map[string][]*cacheEntry) {
 	type IPEntry struct {
 		ip    string
 		entry *cacheEntry
 	}
-	affectedNames := []string{}
+	removed = make(map[string][]*cacheEntry)
 
 	// For global cache the limit maybe is not used at all.
 	if c.perHostLimit == 0 {
-		return affectedNames
+		return affectedNames, nil
 	}
 
 	for dnsName := range c.overLimit {
@@ -301,21 +293,37 @@ func (c *DNSCache) cleanupOverLimitEntries() []string {
 			key := sortedEntries[i]
 			delete(entries, key.ip)
 			c.removeReverse(key.ip, key.entry)
+			removed[key.ip] = append(removed[key.ip], key.entry)
 		}
 		affectedNames = append(affectedNames, dnsName)
 	}
 	c.overLimit = map[string]bool{}
-	return affectedNames
+	return affectedNames, removed
 }
 
 // GC garbage collector function that clean expired entries and return the
 // entries that are deleted.
-func (c *DNSCache) GC() []string {
+func (c *DNSCache) GC(deferredDeletes *DNSPendingDeletes) (affectedNames []string) {
 	c.Lock()
-	expiredEntries, _ := c.cleanupExpiredEntries(time.Now())
-	overLimitEntries := c.cleanupOverLimitEntries()
+	expiredNames, expiredEntries := c.cleanupExpiredEntries(time.Now())
+	overLimitNames, overLimitEntries := c.cleanupOverLimitEntries()
 	c.Unlock()
-	return KeepUniqueNames(append(expiredEntries, overLimitEntries...))
+
+	if deferredDeletes != nil {
+		mapFunc := func(ip string, entries []*cacheEntry) {
+			for _, entry := range entries {
+				deferredDeletes.WantToDelete(ip, entry.Name)
+			}
+		}
+		for ip, entry := range expiredEntries {
+			mapFunc(ip, entry)
+		}
+		for ip, entry := range overLimitEntries {
+			mapFunc(ip, entry)
+		}
+	}
+
+	return KeepUniqueNames(append(expiredNames, overLimitNames...))
 }
 
 // UpdateFromCache is a utility function that allows updating a DNSCache
@@ -475,12 +483,13 @@ func (c *DNSCache) updateWithEntryIPs(entries ipEntries, entry *cacheEntry) bool
 // clearing functions like ForceExpire, and does not maintain the cache's
 // guarantees.
 // This needs a write lock
-func (c *DNSCache) removeExpired(entries ipEntries, now time.Time, expireLookupsBefore time.Time) (removed bool) {
+func (c *DNSCache) removeExpired(entries ipEntries, now time.Time, expireLookupsBefore time.Time) (removed ipEntries) {
+	removed = make(ipEntries)
 	for ip, entry := range entries {
 		if entry == nil || entry.isExpiredBy(now) || entry.LookupTime.Before(expireLookupsBefore) {
 			delete(entries, ip)
 			c.removeReverse(ip, entry)
-			removed = true
+			removed[ip] = entry
 		}
 	}
 
@@ -537,9 +546,8 @@ func (c *DNSCache) ForceExpire(expireLookupsBefore time.Time, nameMatch *regexp.
 		// because LookupTime must be before ExpirationTime.
 		// The second expireLookupsBefore actually matches lookup times, and will
 		// delete the entries completely.
-		nameNeedsRegen := c.removeExpired(entries, expireLookupsBefore, expireLookupsBefore)
-		if nameNeedsRegen {
-			namesAffected = append(namesAffected, name)
+		for _, entry := range c.removeExpired(entries, expireLookupsBefore, expireLookupsBefore) {
+			namesAffected = append(namesAffected, entry.Name)
 		}
 	}
 
@@ -566,9 +574,8 @@ func (c *DNSCache) forceExpireByNames(expireLookupsBefore time.Time, names []str
 		// because LookupTime must be before ExpirationTime.
 		// The second expireLookupsBefore actually matches lookup times, and will
 		// delete the entries completely.
-		nameNeedsRegen := c.removeExpired(entries, expireLookupsBefore, expireLookupsBefore)
-		if nameNeedsRegen {
-			namesAffected = append(namesAffected, name)
+		for _, entry := range c.removeExpired(entries, expireLookupsBefore, expireLookupsBefore) {
+			namesAffected = append(namesAffected, entry.Name)
 		}
 	}
 
@@ -642,5 +649,186 @@ func (c *DNSCache) UnmarshalJSON(raw []byte) error {
 		c.updateWithEntry(newLookup)
 	}
 
+	return nil
+}
+
+type DNSPendingDelete struct {
+	Names           []string  `json:"names,omitempty"`
+	IP              net.IP    `json:"ip,omitempty"`
+	ActiveAt        time.Time `json:"active-at,omitempty"`
+	DeletePendingAt time.Time `json:"delete-pending-at,omitempty"`
+}
+
+type DNSPendingDeletes struct {
+	lock.Mutex
+	deletes        map[string]*DNSPendingDelete `json:"deletes,omitempty"` // map[ip]toDelete
+	lastCTGCUpdate time.Time
+}
+
+func NewDNSPendingDeletes() *DNSPendingDeletes {
+	return &DNSPendingDeletes{
+		deletes: make(map[string]*DNSPendingDelete),
+	}
+}
+
+// WantToDelete enqueues the ip -> qname as a possible deletion
+// updatedExisting is true when an earlier enqueue existed and was updated
+func (d *DNSPendingDeletes) WantToDelete(ipStr string, qname ...string) (updatedExisting bool) {
+	d.Lock()
+	defer d.Unlock()
+
+	entry, updatedExisting := d.deletes[ipStr]
+	if !updatedExisting {
+		entry = &DNSPendingDelete{}
+		d.deletes[ipStr] = entry
+	}
+
+	entry.Names = append(entry.Names, qname...)
+	entry.IP = net.ParseIP(ipStr)
+	entry.DeletePendingAt = time.Now()
+
+	return updatedExisting
+}
+
+// Delete after it is seen by CT GC, DeletePendingAt < lastCTGCUpdate, and the ActiveTime is 0 or no longer current, ActiveAt < lastCTGCUpdate
+func (d *DNSPendingDeletes) canDelete(del *DNSPendingDelete) bool {
+	return d.lastCTGCUpdate.After(del.DeletePendingAt) && d.lastCTGCUpdate.After(del.ActiveAt)
+}
+
+func (d *DNSPendingDeletes) GC() (active, deletable []*DNSPendingDelete) {
+	d.Lock()
+	defer d.Unlock()
+
+	// Collect entries we can delete
+perIP:
+	for _, del := range d.deletes {
+		cpy := &DNSPendingDelete{
+			IP:              del.IP,
+			DeletePendingAt: del.DeletePendingAt,
+			ActiveAt:        del.ActiveAt,
+		}
+		cpy.Names = append(cpy.Names, del.Names...)
+
+		if !d.canDelete(cpy) {
+			active = append(active, cpy)
+			continue perIP
+		}
+		deletable = append(deletable, cpy)
+	}
+
+	// Delete the entries we collected above
+	for _, del := range deletable {
+		delete(d.deletes, del.IP.String())
+	}
+
+	return active, deletable
+}
+
+func (d *DNSPendingDeletes) MarkActive(ip net.IP, now time.Time) {
+	d.Lock()
+	defer d.Unlock()
+
+	entry, exists := d.deletes[ip.String()]
+	if !exists {
+		return
+	}
+	entry.ActiveAt = now
+}
+
+func (d *DNSPendingDeletes) SetCTGCTime(now time.Time) {
+	d.lastCTGCUpdate = now
+}
+
+// ForceExpire is used to clear entries irrespective of their active status (or
+// them being updated at all). Only entries with DeletePendingAt times before
+// expireLookupBefore are considered. Each name in an entry is matched against
+// nameMatcher (nil is match all) and when an entry no longer has any valid
+// names will it be removed outright.
+// Note that all parameters must match, if provided. `time.Time{}` is
+// considered not-provided for time parameters.
+// expireLookupsBefore requires an entry to have been enqueued before the
+// specified time in order to remove it.
+// nameMatch will remove any DNS names that match.
+func (d *DNSPendingDeletes) ForceExpire(expireLookupsBefore time.Time, nameMatch *regexp.Regexp) (namesAffected []string) {
+	d.Lock()
+	defer d.Unlock()
+
+	var toDelete []*DNSPendingDelete
+
+	for _, entry := range d.deletes {
+		// Do not expire entries that were enqueued after expireLookupsBefore, but
+		// only if the value is non-zero
+		if !expireLookupsBefore.Equal(time.Time{}) && entry.DeletePendingAt.After(expireLookupsBefore) {
+			continue
+		}
+
+		// An entry has multiple names, collect the ones that should remain (i.e.
+		// do not match nameMatch)
+		var newNames []string
+		for _, name := range entry.Names {
+			if nameMatch != nil && !nameMatch.MatchString(name) {
+				newNames = append(newNames, name)
+			} else {
+				namesAffected = append(namesAffected, name)
+			}
+		}
+		entry.Names = newNames
+
+		// Delete the entry outright if no names remain
+		if len(entry.Names) == 0 {
+			toDelete = append(toDelete, entry)
+		}
+	}
+
+	// Delete the entries that are now empty
+	for _, entry := range toDelete {
+		delete(d.deletes, entry.IP.String())
+	}
+
+	return namesAffected
+}
+
+// DumpActive returns copies of still-active delete entries
+func (d *DNSPendingDeletes) DumpActive() (active []*DNSPendingDelete) {
+	d.Lock()
+	defer d.Unlock()
+
+	for _, del := range d.deletes {
+		if d.canDelete(del) {
+			continue
+		}
+
+		cpy := &DNSPendingDelete{
+			IP:              del.IP,
+			DeletePendingAt: del.DeletePendingAt,
+			ActiveAt:        del.ActiveAt,
+		}
+		cpy.Names = append(cpy.Names, del.Names...)
+
+		active = append(active, cpy)
+	}
+
+	return active
+}
+
+// UnmarshalJSON rebuilds a DNSPendingDeletes from serialized JSON. It resets
+// the ActiveAt timestamps, requiring a CT GC cycle to occur before any entries
+// are deleted (by not being marked active).
+// Note: This is destructive to any currect data
+func (d *DNSPendingDeletes) UnmarshalJSON(raw []byte) error {
+	// Avoid a recursive loop on UnmarshalJSON with the alias type
+	type jsonAlias DNSPendingDeletes
+	aux := (*jsonAlias)(d)
+	if err := json.Unmarshal(raw, aux); err != nil {
+		return err
+	}
+
+	d.Lock()
+	defer d.Unlock()
+
+	// Reset the active time to ensure no deletes happen until we run GC again
+	for _, del := range d.deletes {
+		del.ActiveAt = time.Time{}
+	}
 	return nil
 }
