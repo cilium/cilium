@@ -599,3 +599,125 @@ func (ds *DNSCacheTestSuite) TestOverlimitAfterDeleteForwardEntry(c *C) {
 	dnsCache.overLimit["test.com"] = true
 	c.Assert(dnsCache.cleanupOverLimitEntries(), checker.DeepEquals, []string{})
 }
+
+func assertZombiesContain(c *C, zombies []*DNSZombieMapping, mappings map[string][]string) {
+	c.Assert(zombies, HasLen, len(mappings), Commentf("Different number of zombies than expected: %+v", zombies))
+
+	for _, zombie := range zombies {
+		names, exists := mappings[zombie.IP.String()]
+		c.Assert(exists, Equals, true, Commentf("Missing expected zombie"))
+
+		sort.Strings(zombie.Names)
+		sort.Strings(names)
+
+		c.Assert(zombie.Names, HasLen, len(names))
+		for i := range zombie.Names {
+			c.Assert(zombie.Names[i], Equals, names[i], Commentf("Unexpected name in zombie names list"))
+		}
+	}
+}
+
+func (ds *DNSCacheTestSuite) TestZombiesGC(c *C) {
+	now := time.Now()
+	zombies := NewDNSZombieMappings()
+
+	zombies.Upsert(now, "1.1.1.1", "test.com")
+	zombies.Upsert(now, "2.2.2.2", "somethingelse.com")
+
+	// Without any MarkAlive or SetCTGCTime, all entries remain alive
+	alive, dead := zombies.GC()
+	c.Assert(dead, HasLen, 0)
+	assertZombiesContain(c, alive, map[string][]string{
+		"1.1.1.1": {"test.com"},
+		"2.2.2.2": {"somethingelse.com"},
+	})
+
+	// Adding another name to 1.1.1.1 keeps it alive and adds the name to the
+	// zombie
+	zombies.Upsert(now, "1.1.1.1", "anotherthing.com")
+	alive, dead = zombies.GC()
+	c.Assert(dead, HasLen, 0)
+	assertZombiesContain(c, alive, map[string][]string{
+		"1.1.1.1": {"test.com", "anotherthing.com"},
+		"2.2.2.2": {"somethingelse.com"},
+	})
+
+	// Cause 1.1.1.1 to die by not marking it alive before the second GC
+	//zombies.MarkAlive(now, net.ParseIP("1.1.1.1"))
+	now = now.Add(time.Second)
+	zombies.MarkAlive(now, net.ParseIP("2.2.2.2"))
+	zombies.SetCTGCTime(now)
+
+	// alive should contain 2.2.2.2 -> somethingelse.com
+	// dead should contain 1.1.1.1 -> anotherthing.com, test.com
+	alive, dead = zombies.GC()
+	assertZombiesContain(c, alive, map[string][]string{
+		"2.2.2.2": {"somethingelse.com"},
+	})
+	assertZombiesContain(c, dead, map[string][]string{
+		"1.1.1.1": {"test.com", "anotherthing.com"},
+	})
+
+	// A second GC call only returns alive entries
+	alive, dead = zombies.GC()
+	c.Assert(dead, HasLen, 0)
+	c.Assert(alive, HasLen, 1)
+
+	// Update 2.2.2.2 with a new DNS name. It remains alive.
+	// Add 1.1.1.1 again. It is alive.
+	zombies.Upsert(now, "2.2.2.2", "thelastthing.com")
+	zombies.Upsert(now, "1.1.1.1", "onemorething.com")
+
+	alive, dead = zombies.GC()
+	c.Assert(dead, HasLen, 0)
+	assertZombiesContain(c, alive, map[string][]string{
+		"1.1.1.1": {"onemorething.com"},
+		"2.2.2.2": {"somethingelse.com", "thelastthing.com"},
+	})
+
+	// Cause all zombies to die
+	now = now.Add(time.Second)
+	zombies.SetCTGCTime(now)
+	alive, dead = zombies.GC()
+	c.Assert(alive, HasLen, 0)
+	assertZombiesContain(c, dead, map[string][]string{
+		"1.1.1.1": {"onemorething.com"},
+		"2.2.2.2": {"somethingelse.com", "thelastthing.com"},
+	})
+}
+
+func (ds *DNSCacheTestSuite) TestZombiesForceExpire(c *C) {
+	now := time.Now()
+	zombies := NewDNSZombieMappings()
+
+	zombies.Upsert(now, "1.1.1.1", "test.com", "anothertest.com")
+	zombies.Upsert(now, "2.2.2.2", "somethingelse.com")
+
+	// Without any MarkAlive or SetCTGCTime, all entries remain alive
+	alive, dead := zombies.GC()
+	c.Assert(dead, HasLen, 0)
+	c.Assert(alive, HasLen, 2)
+
+	// Expire only 1 name on 1 zombie
+	nameMatch, err := regexp.Compile("^test.com$")
+	c.Assert(err, IsNil)
+	zombies.ForceExpire(time.Time{}, nameMatch)
+
+	alive, dead = zombies.GC()
+	c.Assert(dead, HasLen, 0)
+	assertZombiesContain(c, alive, map[string][]string{
+		"1.1.1.1": {"anothertest.com"},
+		"2.2.2.2": {"somethingelse.com"},
+	})
+
+	// Expire the last name on a zombie. It will be deleted and not returned in a
+	// GC
+	nameMatch, err = regexp.Compile("^anothertest.com$")
+	c.Assert(err, IsNil)
+	zombies.ForceExpire(time.Time{}, nameMatch)
+	alive, dead = zombies.GC()
+	c.Assert(dead, HasLen, 0)
+	assertZombiesContain(c, alive, map[string][]string{
+		"2.2.2.2": {"somethingelse.com"},
+	})
+}
