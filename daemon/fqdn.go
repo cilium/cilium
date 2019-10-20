@@ -743,6 +743,9 @@ func deleteDNSLookups(globalCache *fqdn.DNSCache, pollerCache *fqdn.DNSCache, en
 		namesToRegen = append(namesToRegen, ep.DNSHistory.ForceExpire(expireLookupsBefore, nameMatcher)...)
 		namesToRegen = append(namesToRegen, ep.DNSCTHistory.ForceExpire(expireLookupsBefore, nameMatcher)...)
 		globalCache.UpdateFromCache(ep.DNSHistory, nil)
+		if err := ep.SyncEndpointHeaderFile(); err != nil {
+			ep.Logger("fqdn").Warn("Error triggering endpoint sync to disk. This will be retried at the next regeneration")
+		}
 	}
 
 	return namesToRegen, nil

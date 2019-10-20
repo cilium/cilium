@@ -62,7 +62,7 @@ func (e *Endpoint) MarkDNSCTEntry(dstIP net.IP, TTL time.Duration) {
 			logfields.DNSName: qname,
 			logfields.IPAddr:  dstIP,
 		}).Debug("Updating ep DNS CT cache with qname->IP")
-		e.DNSCTHistory.Update(lookupTime, qname, []net.IP{dstIP}, int(TTL))
+		e.DNSCTHistory.Update(lookupTime, qname, []net.IP{dstIP}, int(TTL.Seconds()))
 	}
 
 	e.SyncEndpointHeaderFile()

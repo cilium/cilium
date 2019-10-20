@@ -931,8 +931,9 @@ func (e *Endpoint) garbageCollectConntrack(filter *ctmap.GCFilter) {
 			}
 			return true
 		}
+		now := time.Now()
 		ctmap.GC(m, filter)
-		e.DNSCTHistory.ForceExpire(time.Now(), nil)
+		e.DNSCTHistory.ForceExpire(now, nil)
 	}
 }
 
