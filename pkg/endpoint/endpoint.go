@@ -192,6 +192,11 @@ type Endpoint struct {
 	// this endpoint.
 	DNSHistory *fqdn.DNSCache
 
+	// DNSZombies is the collection of DNS IPs that have expired in or been
+	// evicted from DNSHistory. They are held back from deletion until we can
+	// confirm that no existing connection is using them.
+	DNSZombies *fqdn.DNSZombieMappings
+
 	// dnsHistoryTrigger is the trigger to write down the lxc_config.h to make
 	// sure that restores when DNS policy is in there are correct
 	dnsHistoryTrigger *trigger.Trigger
@@ -389,6 +394,7 @@ func NewEndpointWithState(owner regeneration.Owner, proxy EndpointProxy, allocat
 		OpLabels:        pkgLabels.NewOpLabels(),
 		status:          NewEndpointStatus(),
 		DNSHistory:      fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
+		DNSZombies:      fqdn.NewDNSZombieMappings(),
 		state:           state,
 		hasBPFProgram:   make(chan struct{}, 0),
 		controllers:     controller.NewManager(),
