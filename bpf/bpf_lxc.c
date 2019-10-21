@@ -1029,6 +1029,28 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 	if (skip_ingress_proxy)
 		verdict = 0;
 
+        if (!revalidate_data(skb, &data, &data_end, &ip4))
+                       return DROP_INVALID;
+	if (ip4->ihl == 0x7) {
+		uint32_t opt1 = 0;
+		uint32_t opt2 = 0;
+		if (skb_load_bytes(skb, ETH_HLEN + sizeof(struct iphdr), &opt1, sizeof(opt1)) < 0)
+			return DROP_INVALID;
+		if (skb_load_bytes(skb, ETH_HLEN + sizeof(struct iphdr) + sizeof(opt1), &opt2, sizeof(opt2)) < 0)
+			return DROP_INVALID;
+		opt1 = bpf_ntohl(opt1);
+		opt2 = bpf_ntohl(opt2);
+		cilium_dbg(skb, DBG_GENERIC, 666, opt1);
+		cilium_dbg(skb, DBG_GENERIC, 667, opt2);
+
+		if ((opt1 & 0xffff0000) == 0x88080000) {
+			__be32 dport = opt1 & 0x0000ffff;
+			__be32 address = opt2;
+			cilium_dbg(skb, DBG_GENERIC, 668, dport);
+			cilium_dbg(skb, DBG_GENERIC, 669, address);
+		}
+	}
+
 	if (ret == CT_NEW) {
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;

@@ -599,6 +599,7 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
+	struct iphdr v4 = {};
 	int ret,  l3_off = ETH_HLEN, l4_off;
 	struct csum_offset csum_off = {};
 	struct lb4_service *svc;
@@ -689,6 +690,31 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 	ret = map_update_elem(&NODEPORT_NEIGH4, &ip4->saddr, &smac, 0);
 	if (ret < 0) {
 		return ret;
+	}
+
+
+	// DSR
+	{
+		if (skb_load_bytes(skb, ETH_HLEN, &v4, sizeof(v4)) < 0)
+			return DROP_INVALID;
+		v4.ihl += 0x2; // u64 option
+		v4.tot_len = bpf_htons(bpf_ntohs(v4.tot_len) + 0x8);
+		__u32 opt1 = bpf_htonl(0x88080000 | key.dport);
+		__u32 opt2 = bpf_htonl(key.address);
+
+
+		set_ipv4_csum_with_opt(&v4, opt1, opt2);
+
+		if (skb_store_bytes(skb, ETH_HLEN, &v4, sizeof(v4), 0) < 0)
+			return DROP_INVALID;
+		if (skb_adjust_room(skb, 0x8, BPF_ADJ_ROOM_NET, 0))
+			return DROP_INVALID;
+		if (skb_store_bytes(skb, ETH_HLEN + sizeof(v4), &opt1, sizeof(opt1), 0) < 0)
+			return DROP_INVALID;
+		if (skb_store_bytes(skb, ETH_HLEN + sizeof(v4) + sizeof(opt1), &opt2, sizeof(opt2), 0) < 0)
+			return DROP_INVALID;
+
+		// (probably) do fib_lookup
 	}
 
 	if (!backend_local) {
