@@ -34,13 +34,13 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
 
-	client "github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/clientv3/concurrency"
-	clientyaml "github.com/coreos/etcd/clientv3/yaml"
-	v3rpcErrors "github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
-	"github.com/coreos/etcd/pkg/tlsutil"
 	"github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
+	client "go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/clientv3/concurrency"
+	clientyaml "go.etcd.io/etcd/clientv3/yaml"
+	v3rpcErrors "go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
+	"go.etcd.io/etcd/pkg/tlsutil"
 	ctx "golang.org/x/net/context"
 	"golang.org/x/time/rate"
 	"sigs.k8s.io/yaml"
@@ -1437,7 +1437,7 @@ func newConfig(fpath string) (*client.Config, error) {
 	return cfg, nil
 }
 
-// copy of the internal structure in github.com/coreos/etcd/clientv3/yaml so we
+// copy of the internal structure in github.com/etcd-io/etcd/clientv3/yaml so we
 // can still use the `ca-file` field for one more release.
 type yamlConfig struct {
 	client.Config

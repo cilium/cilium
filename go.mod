@@ -26,7 +26,6 @@ require (
 	github.com/containerd/typeurl v0.0.0-20190911142611-5eb25027c9fd
 	github.com/containernetworking/cni v0.7.1
 	github.com/containernetworking/plugins v0.8.2
-	github.com/coreos/etcd v3.3.17+incompatible
 	github.com/coreos/go-systemd v0.0.0-20190719114852-fd7a80b32e1f // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/docker v0.7.3-0.20190327010347-be7ac8be2ae0
@@ -54,8 +53,6 @@ require (
 	github.com/google/gops v0.3.6
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/gorilla/mux v1.7.3
-	github.com/grpc-ecosystem/go-grpc-middleware v1.0.1-0.20190118093823-f849b5445de4 // indirect
-	github.com/grpc-ecosystem/grpc-gateway v1.9.5 // indirect
 	github.com/hashicorp/consul/api v1.2.0
 	github.com/hashicorp/go-immutable-radix v1.1.0
 	github.com/hashicorp/go-msgpack v0.5.5 // indirect
@@ -98,6 +95,7 @@ require (
 	github.com/syndtr/gocapability v0.0.0-20180916011248-d98352740cb2 // indirect
 	github.com/vishvananda/netlink v1.0.1-0.20190924205746-ac5f4df04742
 	github.com/vishvananda/netns v0.0.0-20190625233234-7109fa855b0f // indirect
+	go.etcd.io/etcd v0.5.0-alpha.5.0.20190911215424-9ed5f76dc03b
 	go.mongodb.org/mongo-driver v1.1.2 // indirect
 	go.uber.org/multierr v1.2.0 // indirect
 	golang.org/x/crypto v0.0.0-20190820162420-60c769a6c586
@@ -214,7 +212,7 @@ replace (
 	github.com/coredns/coredns => github.com/coredns/coredns v1.1.2
 	github.com/coredns/corefile-migration => github.com/coredns/corefile-migration v1.0.2
 	github.com/coreos/bbolt => github.com/coreos/bbolt v1.3.2
-	github.com/coreos/etcd => github.com/coreos/etcd v3.3.17+incompatible
+	github.com/coreos/etcd => github.com/coreos/etcd v3.3.15+incompatible
 	github.com/coreos/go-iptables => github.com/coreos/go-iptables v0.4.2
 	github.com/coreos/go-oidc => github.com/coreos/go-oidc v2.1.0+incompatible
 	github.com/coreos/go-semver => github.com/coreos/go-semver v0.3.0
@@ -253,7 +251,7 @@ replace (
 	github.com/emicklei/go-restful => github.com/emicklei/go-restful v2.9.5+incompatible
 	github.com/envoyproxy/go-control-plane => github.com/envoyproxy/go-control-plane v0.8.0
 	github.com/envoyproxy/protoc-gen-validate => github.com/envoyproxy/protoc-gen-validate v0.1.0
-	github.com/etcd-io/etcd => github.com/etcd-io/etcd v3.3.17+incompatible
+	github.com/etcd-io/etcd => go.etcd.io/etcd v0.5.0-alpha.5.0.20190911215424-9ed5f76dc03b
 	github.com/euank/go-kmsg-parser => github.com/euank/go-kmsg-parser v2.0.0+incompatible
 	github.com/evanphx/json-patch => github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/exponent-io/jsonpath => github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d
@@ -522,6 +520,7 @@ replace (
 	github.com/xlab/treeprint => github.com/xlab/treeprint v0.0.0-20180616005107-d6fb6747feb6
 	github.com/xordataexchange/crypt => github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77
 	go.etcd.io/bbolt => go.etcd.io/bbolt v1.3.2
+	go.etcd.io/etcd => go.etcd.io/etcd v0.5.0-alpha.5.0.20190911215424-9ed5f76dc03b
 	go.mongodb.org/mongo-driver => go.mongodb.org/mongo-driver v1.1.2
 	go.opencensus.io => go.opencensus.io v0.21.0
 	go.uber.org/atomic => go.uber.org/atomic v1.4.0
