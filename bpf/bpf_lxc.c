@@ -1054,12 +1054,17 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 			cilium_dbg(skb, DBG_GENERIC, 668, dport);
 			cilium_dbg(skb, DBG_GENERIC, 669, address);
 			dsr = true;
+			if (ret == CT_NEW) {
+				if (snat_v4_set_egress(skb, address, dport) < 0) {
+					return DROP_INVALID;
+				}
+			}
 		}
 	}
 
 	if (ret == CT_NEW) {
-		// TODO(brb) create NAT entry
 		if (dsr) {
+			// TODO(brb) create NAT entry here instead
 		}
 
 		ct_state_new.orig_dport = tuple.dport;
