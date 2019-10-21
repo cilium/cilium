@@ -31,7 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
-	go_version "github.com/hashicorp/go-version"
+	go_version "github.com/blang/semver"
 	"github.com/mattn/go-shellwords"
 )
 
@@ -54,8 +54,8 @@ const (
 
 // Minimum iptables versions supporting the -w and -w<seconds> flags
 var (
-	waitMinVersion        = versioncheck.MustCompile(">=v1.4.20")
-	waitSecondsMinVersion = versioncheck.MustCompile(">=v1.4.22")
+	isWaitMinVersion        = versioncheck.MustCompile(">=1.4.20")
+	isWaitSecondsMinVersion = versioncheck.MustCompile(">=1.4.22")
 )
 
 const (
@@ -71,17 +71,17 @@ type customChain struct {
 	ipv6       bool // ip6tables chain in addition to iptables chain
 }
 
-func getVersion(prog string) (*go_version.Version, error) {
+func getVersion(prog string) (go_version.Version, error) {
 	b, err := exec.WithTimeout(defaults.ExecTimeout, prog, "--version").CombinedOutput(log, false)
 	if err != nil {
-		return nil, err
+		return go_version.Version{}, err
 	}
 	v := regexp.MustCompile("v([0-9]+(\\.[0-9]+)+)")
 	vString := v.FindStringSubmatch(string(b))
 	if vString == nil {
-		return nil, fmt.Errorf("no iptables version found in string: %s", string(b))
+		return go_version.Version{}, fmt.Errorf("no iptables version found in string: %s", string(b))
 	}
-	return go_version.NewVersion(vString[1])
+	return versioncheck.Version(vString[1])
 }
 
 func runProg(prog string, args []string, quiet bool) error {
@@ -348,9 +348,9 @@ func (m *IptablesManager) Init() {
 	v, err := getVersion("iptables")
 	if err == nil {
 		switch {
-		case waitSecondsMinVersion.Check(v):
+		case isWaitSecondsMinVersion(v):
 			m.waitArgs = []string{waitString, waitSecondsValue}
-		case waitMinVersion.Check(v):
+		case isWaitMinVersion(v):
 			m.waitArgs = []string{waitString}
 		}
 	}

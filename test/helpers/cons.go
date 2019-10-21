@@ -218,8 +218,8 @@ const (
 var NightlyStableUpgradesFrom = []string{"v1.3"}
 
 var (
-	CiliumV1_5 = versioncheck.MustCompile(">=v1.4.90,<v1.6")
-	CiliumV1_6 = versioncheck.MustCompile(">=v1.5.90,<v1.7")
+	IsCiliumV1_5 = versioncheck.MustCompile(">=1.4.90 <1.6.0")
+	IsCiliumV1_6 = versioncheck.MustCompile(">=1.5.90 <1.7.0")
 )
 
 // CiliumDefaultDSPatch is the default Cilium DaemonSet patch to be used in all tests.
