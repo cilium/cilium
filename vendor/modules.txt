@@ -147,25 +147,6 @@ github.com/containernetworking/cni/pkg/types/current
 github.com/containernetworking/cni/pkg/version
 # github.com/containernetworking/plugins v0.8.2 => github.com/containernetworking/plugins v0.8.2
 github.com/containernetworking/plugins/pkg/ns
-# github.com/coreos/etcd v3.3.17+incompatible => github.com/coreos/etcd v3.3.17+incompatible
-github.com/coreos/etcd/auth/authpb
-github.com/coreos/etcd/clientv3
-github.com/coreos/etcd/clientv3/balancer
-github.com/coreos/etcd/clientv3/balancer/connectivity
-github.com/coreos/etcd/clientv3/balancer/picker
-github.com/coreos/etcd/clientv3/balancer/resolver/endpoint
-github.com/coreos/etcd/clientv3/concurrency
-github.com/coreos/etcd/clientv3/credentials
-github.com/coreos/etcd/clientv3/yaml
-github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes
-github.com/coreos/etcd/etcdserver/etcdserverpb
-github.com/coreos/etcd/mvcc/mvccpb
-github.com/coreos/etcd/pkg/logutil
-github.com/coreos/etcd/pkg/systemd
-github.com/coreos/etcd/pkg/tlsutil
-github.com/coreos/etcd/pkg/types
-github.com/coreos/etcd/raft
-github.com/coreos/etcd/raft/raftpb
 # github.com/coreos/go-systemd v0.0.0-20190719114852-fd7a80b32e1f => github.com/coreos/go-systemd v0.0.0-20190719114852-fd7a80b32e1f
 github.com/coreos/go-systemd/journal
 # github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f => github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f
@@ -494,6 +475,28 @@ github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
 # github.com/vishvananda/netns v0.0.0-20190625233234-7109fa855b0f => github.com/vishvananda/netns v0.0.0-20190625233234-7109fa855b0f
 github.com/vishvananda/netns
+# go.etcd.io/etcd v0.5.0-alpha.5.0.20190911215424-9ed5f76dc03b => go.etcd.io/etcd v0.5.0-alpha.5.0.20190911215424-9ed5f76dc03b
+go.etcd.io/etcd/auth/authpb
+go.etcd.io/etcd/clientv3
+go.etcd.io/etcd/clientv3/balancer
+go.etcd.io/etcd/clientv3/balancer/connectivity
+go.etcd.io/etcd/clientv3/balancer/picker
+go.etcd.io/etcd/clientv3/balancer/resolver/endpoint
+go.etcd.io/etcd/clientv3/concurrency
+go.etcd.io/etcd/clientv3/credentials
+go.etcd.io/etcd/clientv3/yaml
+go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes
+go.etcd.io/etcd/etcdserver/etcdserverpb
+go.etcd.io/etcd/mvcc/mvccpb
+go.etcd.io/etcd/pkg/logutil
+go.etcd.io/etcd/pkg/systemd
+go.etcd.io/etcd/pkg/tlsutil
+go.etcd.io/etcd/pkg/types
+go.etcd.io/etcd/raft
+go.etcd.io/etcd/raft/confchange
+go.etcd.io/etcd/raft/quorum
+go.etcd.io/etcd/raft/raftpb
+go.etcd.io/etcd/raft/tracker
 # go.mongodb.org/mongo-driver v1.1.2 => go.mongodb.org/mongo-driver v1.1.2
 go.mongodb.org/mongo-driver/bson
 go.mongodb.org/mongo-driver/bson/bsoncodec
