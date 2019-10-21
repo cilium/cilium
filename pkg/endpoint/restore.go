@@ -408,6 +408,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		K8sPodName:            e.K8sPodName,
 		K8sNamespace:          e.K8sNamespace,
 		DatapathConfiguration: e.DatapathConfiguration,
+		CgroupPath:            e.cgroup,
 	}
 }
 
@@ -496,6 +497,10 @@ type serializableEndpoint struct {
 	// plugin which performed the plumbing will enable certain datapath
 	// features according to the mode selected.
 	DatapathConfiguration models.EndpointDatapathConfiguration
+
+	// CgroupPath is the fully qualified filesystem path to the cgroup
+	// corresponding to this endpoint.
+	CgroupPath string
 }
 
 // UnmarshalJSON expects that the contents of `raw` are a serializableEndpoint,
@@ -542,4 +547,5 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.K8sNamespace = r.K8sNamespace
 	ep.DatapathConfiguration = r.DatapathConfiguration
 	ep.Options = r.Options
+	ep.cgroup = r.CgroupPath
 }

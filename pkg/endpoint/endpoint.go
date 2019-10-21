@@ -173,6 +173,9 @@ type Endpoint struct {
 	// IPv4 is the IPv4 address of the endpoint
 	IPv4 addressing.CiliumIPv4
 
+	// cgroup is the cgroup (v1 or v2) relative path for this endpoint
+	cgroup string
+
 	// nodeMAC is the MAC of the node (agent). The MAC is different for every endpoint.
 	nodeMAC mac.MAC
 
@@ -348,6 +351,22 @@ func (e *Endpoint) LXCMac() mac.MAC {
 
 func (e *Endpoint) IsHost() bool {
 	return e.isHost
+}
+
+// Cgroup returns the cgroup for this endpoint.
+func (e *Endpoint) Cgroup() string {
+	return e.cgroup
+}
+
+// SetCgroup modifies the cgroup for this endpoint.
+//
+// This is typically configured before the endpoint has an ID allocated, so
+// it cannot apply the corresponding datapath changes. To apply these changes,
+// regeneration is required.
+func (e *Endpoint) SetCgroup(cgroup string) {
+	e.unconditionalLock()
+	defer e.unlock()
+	e.cgroup = cgroup
 }
 
 // closeBPFProgramChannel closes the channel that signals whether the endpoint
@@ -1626,6 +1645,7 @@ func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 					return err
 				}
 				e.SetPod(meta.Pod)
+				e.SetCgroup(meta.Cgroup)
 				e.SetK8sMetadata(meta.ContainerPorts)
 				e.UpdateVisibilityPolicy(func(ns, podName string) (proxyVisibility string, err error) {
 					meta, err := resolveMetadata(ns, podName)

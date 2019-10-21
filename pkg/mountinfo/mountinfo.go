@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ const (
 	// FilesystemType superblock magic numbers for filesystems,
 	// to be used for IsMountFS.
 	FilesystemTypeBPFFS   = unix.BPF_FS_MAGIC
+	FilesystemTypeCgroup1 = unix.CGROUP_SUPER_MAGIC
 	FilesystemTypeCgroup2 = unix.CGROUP2_SUPER_MAGIC
 
 	mountInfoFilepath = "/proc/self/mountinfo"

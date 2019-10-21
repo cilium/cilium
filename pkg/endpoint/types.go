@@ -27,4 +27,5 @@ type Metadata struct {
 	IdentityLabels labels.Labels
 	InfoLabels     labels.Labels
 	Annotations    map[string]string
+	Cgroup         string
 }

@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package cgroups
 import (
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/defaults"
@@ -33,6 +34,12 @@ var (
 
 	// Only mount a single instance
 	cgrpMountOnce sync.Once
+
+	// Only query cgroup mounts once
+	cgrpQueryOnce sync.Once
+
+	// cgroupNetMounts is a map from net_cls/net_prio mount to mount path
+	cgroupNetMounts = make(map[string]string)
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cgroups")
@@ -109,4 +116,45 @@ func CheckOrMountCgrpFS(mapRoot string) {
 			log.Infof("Mounted cgroupv2 filesystem at %s", mapRoot)
 		}
 	})
+}
+
+// getCgroupNetMounts returns a map of cgroup v1 net type to mount path:
+//
+// net_cls -> /path/to/net_cls
+// net_cls,net_prio -> /path/to/net_cls,net_prio
+// net_prio -> /path/to/net_prio
+func getCgroupNetMounts() map[string]string {
+	cgrpQueryOnce.Do(func() {
+		mounts, err := mountinfo.GetMountInfo()
+		if err != nil {
+			log.WithError(err).Warningf("Unable to detect cgroup filesystem mounts")
+			return
+		}
+
+		for _, mount := range mounts {
+			if mount.FilesystemType != "cgroup" {
+				continue
+			}
+
+			opts := strings.Split(mount.SuperOptions, ",")
+			cgroupTypes := ""
+			for _, o := range opts {
+				switch o {
+				case "net_cls":
+				case "net_prio":
+				default:
+					continue
+				}
+				if cgroupTypes == "" {
+					cgroupTypes = o
+				} else {
+					cgroupTypes = fmt.Sprintf("%s,%s", cgroupTypes, o)
+				}
+			}
+			if cgroupTypes != "" {
+				cgroupNetMounts[cgroupTypes] = mount.MountPoint
+			}
+		}
+	})
+	return cgroupNetMounts
 }
