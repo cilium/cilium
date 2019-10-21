@@ -28,28 +28,35 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/versioncheck"
-	"golang.org/x/sys/unix"
 
-	go_version "github.com/hashicorp/go-version"
+	go_version "github.com/blang/semver"
+	"golang.org/x/sys/unix"
+)
+
+const (
+	minKernelVer = "4.8.0"
+	minClangVer  = "3.8.0"
+	recKernelVer = "4.9.0"
+	recClangVer  = "3.9.0"
 )
 
 var (
-	minKernelVer = versioncheck.MustCompile(">= 4.8.0")
-	minClangVer  = versioncheck.MustCompile(">= 3.8.0")
+	isMinKernelVer = versioncheck.MustCompile(">=" + minKernelVer)
+	isMinClangVer  = versioncheck.MustCompile(">=" + minClangVer)
 
-	recKernelVer = versioncheck.MustCompile(">= 4.9.0")
-	recClangVer  = versioncheck.MustCompile(">= 3.9.0")
+	isRecKernelVer = versioncheck.MustCompile(">=" + recKernelVer)
+	isRecClangVer  = versioncheck.MustCompile(">=" + recClangVer)
 
 	// LLVM/clang version which supports `-mattr=dwarfris`
-	dwarfrisClangVer           = versioncheck.MustCompile(">= 7.0.0")
+	isDwarfrisClangVer         = versioncheck.MustCompile(">=7.0.0")
 	canDisableDwarfRelocations bool
 )
 
-func parseKernelVersion(ver string) (*go_version.Version, error) {
+func parseKernelVersion(ver string) (go_version.Version, error) {
 	verStrs := strings.Split(ver, ".")
 	switch {
 	case len(verStrs) < 2:
-		return nil, fmt.Errorf("unable to get kernel version from %q", ver)
+		return go_version.Version{}, fmt.Errorf("unable to get kernel version from %q", ver)
 	case len(verStrs) < 3:
 		verStrs = append(verStrs, "0")
 	}
@@ -64,10 +71,10 @@ func parseKernelVersion(ver string) (*go_version.Version, error) {
 	} else {
 		verStrs[2] = patch
 	}
-	return go_version.NewVersion(strings.Join(verStrs[:3], "."))
+	return versioncheck.Version(strings.Join(verStrs[:3], "."))
 }
 
-func getKernelVersion() (*go_version.Version, error) {
+func getKernelVersion() (go_version.Version, error) {
 	var unameBuf unix.Utsname
 	if err := unix.Uname(&unameBuf); err != nil {
 		log.WithError(err).Fatal("kernel version: NOT OK")
@@ -75,7 +82,7 @@ func getKernelVersion() (*go_version.Version, error) {
 	return parseKernelVersion(string(unameBuf.Release[:]))
 }
 
-func getClangVersion(filePath string) (*go_version.Version, error) {
+func getClangVersion(filePath string) (go_version.Version, error) {
 	verOut, err := exec.Command(filePath, "--version").CombinedOutput()
 	if err != nil {
 		log.WithError(err).Fatal("clang version: NOT OK")
@@ -88,13 +95,13 @@ func getClangVersion(filePath string) (*go_version.Version, error) {
 	// at this point res is []string{"clang", "version", "maj.min.patch"}
 	verStrs := strings.Split(res[2], ".")
 	if len(verStrs) < 3 {
-		return nil, fmt.Errorf("unable to get clang version from %q", string(verOut))
+		return go_version.Version{}, fmt.Errorf("unable to get clang version from %q", string(verOut))
 	}
 	v := strings.Join(verStrs[:3], ".")
 	// Handle Ubuntu versioning by removing the dash and everything after.
 	// F. ex. `4.0.0-1ubuntu1~16 -> 4.0.0` and `3.8.0-2ubuntu4 -> 3.8.0`.
 	v = strings.Split(v, "-")[0]
-	return go_version.NewVersion(v)
+	return versioncheck.Version(v)
 }
 
 func checkBPFLogs(logType string, fatal bool) {
@@ -132,7 +139,7 @@ func checkMinRequirements() {
 	if err != nil {
 		log.WithError(err).Fatal("kernel version: NOT OK")
 	}
-	if !minKernelVer.Check(kernelVersion) {
+	if !isMinKernelVer(kernelVersion) {
 		log.Fatalf("kernel version: NOT OK: minimal supported kernel "+
 			"version is %s; kernel version that is running is: %s", minKernelVer, kernelVersion)
 	}
@@ -150,17 +157,17 @@ func checkMinRequirements() {
 		if err != nil {
 			log.WithError(err).Fatal("clang: NOT OK")
 		}
-		if !minClangVer.Check(clangVersion) {
+		if !isMinClangVer(clangVersion) {
 			log.Fatalf("clang version: NOT OK: minimal supported clang "+
 				"version is %s; clang version that is running is: %s", minClangVer, clangVersion)
 		}
 		//clang >= 3.9 / kernel < 4.9 - does not work
-		if recClangVer.Check(clangVersion) && !recKernelVer.Check(kernelVersion) {
+		if isRecClangVer(clangVersion) && !isRecKernelVer(kernelVersion) {
 			log.Fatalf("clang (%s) and kernel (%s) version: NOT OK: please upgrade "+
 				"your kernel version to at least %s",
 				clangVersion, kernelVersion, recKernelVer)
 		}
-		canDisableDwarfRelocations = dwarfrisClangVer.Check(clangVersion)
+		canDisableDwarfRelocations = isDwarfrisClangVer(clangVersion)
 		log.Infof("clang (%s) and kernel (%s) versions: OK!", clangVersion, kernelVersion)
 	}
 

@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
-	go_version "github.com/hashicorp/go-version"
+	go_version "github.com/blang/semver"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -44,22 +44,28 @@ type ServerCapabilities struct {
 type cachedVersion struct {
 	mutex        lock.RWMutex
 	capabilities ServerCapabilities
-	version      *go_version.Version
+	version      go_version.Version
 }
+
+const (
+	// MinimalVersionConstraint is the minimal version that Cilium supports to
+	// run kubernetes.
+	MinimalVersionConstraint = "1.11.0"
+)
 
 var (
 	cached = cachedVersion{}
 
-	patchConstraint        = versioncheck.MustCompile(">= 1.13.0")
-	updateStatusConstraint = versioncheck.MustCompile(">= 1.11.0")
+	isGEThanPatchConstraint        = versioncheck.MustCompile(">=1.13.0")
+	isGEThanUpdateStatusConstraint = versioncheck.MustCompile(">=1.11.0")
 
-	// MinimalVersionConstraint is the minimal version required to run
+	// isGEThanMinimalVersionConstraint is the minimal version required to run
 	// Cilium
-	MinimalVersionConstraint = versioncheck.MustCompile(">= 1.11.0")
+	isGEThanMinimalVersionConstraint = versioncheck.MustCompile(">=" + MinimalVersionConstraint)
 )
 
 // Version returns the version of the Kubernetes apiserver
-func Version() *go_version.Version {
+func Version() go_version.Version {
 	cached.mutex.RLock()
 	c := cached.version
 	cached.mutex.RUnlock()
@@ -74,20 +80,20 @@ func Capabilities() ServerCapabilities {
 	return c
 }
 
-func updateVersion(version *go_version.Version) {
+func updateVersion(version go_version.Version) {
 	cached.mutex.Lock()
 	defer cached.mutex.Unlock()
 
 	cached.version = version
 
-	cached.capabilities.Patch = patchConstraint.Check(version) || option.Config.K8sForceJSONPatch
-	cached.capabilities.UpdateStatus = updateStatusConstraint.Check(version)
-	cached.capabilities.MinimalVersionMet = MinimalVersionConstraint.Check(version)
+	cached.capabilities.Patch = option.Config.K8sForceJSONPatch || isGEThanPatchConstraint(version)
+	cached.capabilities.UpdateStatus = isGEThanUpdateStatusConstraint(version)
+	cached.capabilities.MinimalVersionMet = isGEThanMinimalVersionConstraint(version)
 }
 
 // Force forces the use of a specific version
 func Force(version string) error {
-	ver, err := go_version.NewVersion(version)
+	ver, err := versioncheck.Version(version)
 	if err != nil {
 		return err
 	}
@@ -107,7 +113,7 @@ func Update(client kubernetes.Interface) error {
 	// Try GitVersion first. In case of error fallback to MajorMinor
 	if sv.GitVersion != "" {
 		// This is a string like "v1.9.0"
-		ver, err := go_version.NewVersion(sv.GitVersion)
+		ver, err := versioncheck.Version(sv.GitVersion)
 		if err == nil {
 			updateVersion(ver)
 			return nil
@@ -115,7 +121,7 @@ func Update(client kubernetes.Interface) error {
 	}
 
 	if sv.Major != "" && sv.Minor != "" {
-		ver, err := go_version.NewVersion(fmt.Sprintf("%s.%s", sv.Major, sv.Minor))
+		ver, err := versioncheck.Version(fmt.Sprintf("%s.%s", sv.Major, sv.Minor))
 		if err == nil {
 			updateVersion(ver)
 			return nil

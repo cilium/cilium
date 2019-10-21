@@ -24,7 +24,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -33,7 +32,7 @@ import (
 	"github.com/cilium/cilium/test/config"
 	"github.com/cilium/cilium/test/ginkgo-ext"
 
-	go_version "github.com/hashicorp/go-version"
+	go_version "github.com/blang/semver"
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -393,28 +392,16 @@ func DNSDeployment(base string) string {
 
 // getK8sSupportedConstraints returns the Kubernetes versions supported by
 // a specific Cilium version.
-func getK8sSupportedConstraints(ciliumVersion string) (go_version.Constraints, error) {
-	cst, err := go_version.NewVersion(ciliumVersion)
+func getK8sSupportedConstraints(ciliumVersion string) (go_version.Range, error) {
+	cst, err := versioncheck.Version(ciliumVersion)
 	if err != nil {
 		return nil, err
 	}
-	// Make pre-releases part of the official release
-	strSegments := make([]string, len(cst.Segments()))
-	if cst.Prerelease() != "" {
-		for i, segment := range cst.Segments() {
-			strSegments[i] = strconv.Itoa(segment)
-		}
-		ciliumVersion = strings.Join(strSegments, ".")
-		cst, err = go_version.NewVersion(ciliumVersion)
-		if err != nil {
-			return nil, err
-		}
-	}
 	switch {
-	case CiliumV1_5.Check(cst):
-		return versioncheck.MustCompile(">= 1.8, <1.16"), nil
-	case CiliumV1_6.Check(cst):
-		return versioncheck.MustCompile(">= 1.8, <1.16"), nil
+	case IsCiliumV1_5(cst):
+		return versioncheck.MustCompile(">=1.8.0 <1.16.0"), nil
+	case IsCiliumV1_6(cst):
+		return versioncheck.MustCompile(">=1.8.0 <1.16.0"), nil
 	default:
 		return nil, fmt.Errorf("unrecognized version '%s'", ciliumVersion)
 	}
@@ -423,7 +410,7 @@ func getK8sSupportedConstraints(ciliumVersion string) (go_version.Constraints, e
 // CanRunK8sVersion returns true if the givel ciliumVersion can run in the given
 // Kubernetes version. If any version is unparsable, an error is returned.
 func CanRunK8sVersion(ciliumVersion, k8sVersionStr string) (bool, error) {
-	k8sVersion, err := go_version.NewVersion(k8sVersionStr)
+	k8sVersion, err := versioncheck.Version(k8sVersionStr)
 	if err != nil {
 		return false, err
 	}
@@ -431,7 +418,7 @@ func CanRunK8sVersion(ciliumVersion, k8sVersionStr string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return constraint.Check(k8sVersion), nil
+	return constraint(k8sVersion), nil
 }
 
 // failIfContainsBadLogMsg makes a test case to fail if any message from

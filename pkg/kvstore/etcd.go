@@ -33,8 +33,9 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
+	"github.com/cilium/cilium/pkg/versioncheck"
 
-	"github.com/hashicorp/go-version"
+	go_version "github.com/blang/semver"
 	"github.com/sirupsen/logrus"
 	client "go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/clientv3/concurrency"
@@ -56,6 +57,8 @@ const (
 
 	// EtcdRateLimitOption specifies maximum kv operations per second
 	EtcdRateLimitOption = "etcd.qps"
+
+	minRequiredVersionStr = ">=3.1.0"
 )
 
 var (
@@ -87,7 +90,7 @@ var (
 	// the etcd server
 	initialConnectionTimeout = 15 * time.Minute
 
-	minRequiredVersion, _ = version.NewConstraint(">= 3.1.0")
+	minRequiredVersion = versioncheck.MustCompile(minRequiredVersionStr)
 
 	// etcdDummyAddress can be overwritten from test invokers using ldflags
 	etcdDummyAddress = "http://127.0.0.1:4002"
@@ -589,16 +592,16 @@ func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error
 	return ec, nil
 }
 
-func getEPVersion(c client.Maintenance, etcdEP string, timeout time.Duration) (*version.Version, error) {
+func getEPVersion(c client.Maintenance, etcdEP string, timeout time.Duration) (go_version.Version, error) {
 	ctxTimeout, cancel := ctx.WithTimeout(ctx.TODO(), timeout)
 	defer cancel()
 	sr, err := c.Status(ctxTimeout, etcdEP)
 	if err != nil {
-		return nil, Hint(err)
+		return go_version.Version{}, Hint(err)
 	}
-	v, err := version.NewVersion(sr.Version)
+	v, err := versioncheck.Version(sr.Version)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing server version %q: %s", sr.Version, Hint(err))
+		return go_version.Version{}, fmt.Errorf("error parsing server version %q: %s", sr.Version, Hint(err))
 	}
 	return v, nil
 }
@@ -617,9 +620,9 @@ func (e *etcdClient) checkMinVersion() error {
 			continue
 		}
 
-		if !minRequiredVersion.Check(v) {
+		if !minRequiredVersion(v) {
 			return fmt.Errorf("minimal etcd version not met in %q, required: %s, found: %s",
-				ep, minRequiredVersion.String(), v.String())
+				ep, minRequiredVersionStr, v.String())
 		}
 
 		e.getLogger().WithFields(logrus.Fields{

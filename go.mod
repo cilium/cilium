@@ -13,6 +13,7 @@ require (
 	github.com/armon/go-metrics v0.0.0-20190430140413-ec5e00d3c878 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
 	github.com/aws/aws-sdk-go-v2 v0.14.0
+	github.com/blang/semver v3.5.0+incompatible
 	github.com/c9s/goprocinfo v0.0.0-20190309065803-0b2ad9ac246b
 	github.com/census-instrumentation/opencensus-proto v0.2.1 // indirect
 	github.com/cilium/arping v1.0.1-0.20190728065459-c5eaf8d7a710
@@ -57,7 +58,6 @@ require (
 	github.com/hashicorp/go-immutable-radix v1.1.0
 	github.com/hashicorp/go-msgpack v0.5.5 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.1 // indirect
-	github.com/hashicorp/go-version v0.0.0-20171129150820-4fe82ae3040f
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
 	github.com/hashicorp/memberlist v0.1.5 // indirect
 	github.com/hashicorp/serf v0.8.5 // indirect
@@ -342,7 +342,7 @@ replace (
 	github.com/hashicorp/go-sockaddr => github.com/hashicorp/go-sockaddr v1.0.0
 	github.com/hashicorp/go-syslog => github.com/hashicorp/go-syslog v1.0.0
 	github.com/hashicorp/go-uuid => github.com/hashicorp/go-uuid v1.0.1
-	github.com/hashicorp/go-version => github.com/hashicorp/go-version v0.0.0-20171129150820-4fe82ae3040f
+	github.com/hashicorp/go-version => github.com/hashicorp/go-version v0.0.0-20170202080759-03c5bf6be031
 	github.com/hashicorp/go.net => github.com/hashicorp/go.net v0.0.1
 	github.com/hashicorp/golang-lru => github.com/hashicorp/golang-lru v0.5.3
 	github.com/hashicorp/hcl => github.com/hashicorp/hcl v1.0.0
