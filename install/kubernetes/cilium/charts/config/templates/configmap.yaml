@@ -313,3 +313,7 @@ data:
 {{- if .Values.global.kubeConfigPath }}
   k8s-kubeconfig-path: {{ .Values.global.kubeConfigPath | quote }}
 {{- end }}
+{{- if.Values.global.chainingMode }}
+  # Chaining mode was enabled, disabling health checking
+  enable-endpoint-health-checking: "false"
+{{- end }}
