@@ -504,6 +504,9 @@ const (
 	// EnableHealthChecking is the name of the EnableHealthChecking option
 	EnableHealthChecking = "enable-health-checking"
 
+	// EnableEndpointHealthChecking is the name of the EnableEndpointHealthChecking option
+	EnableEndpointHealthChecking = "enable-endpoint-health-checking"
+
 	// PolicyQueueSize is the size of the queues utilized by the policy
 	// repository.
 	PolicyQueueSize = "policy-queue-size"
@@ -1089,6 +1092,10 @@ type DaemonConfig struct {
 	// health endpoints
 	EnableHealthChecking bool
 
+	// EnableEndpointHealthChecking enables health checking between virtual
+	// health endpoints
+	EnableEndpointHealthChecking bool
+
 	// KVstoreKeepAliveInterval is the interval in which the lease is being
 	// renewed. This must be set to a value lesser than the LeaseTTL ideally
 	// by a factor of 3.
@@ -1247,6 +1254,7 @@ var (
 		IPv6ClusterAllocCIDRBase:     defaults.IPv6ClusterAllocCIDRBase,
 		EnableHostIPRestore:          defaults.EnableHostIPRestore,
 		EnableHealthChecking:         defaults.EnableHealthChecking,
+		EnableEndpointHealthChecking: defaults.EnableEndpointHealthChecking,
 		EnableIPv4:                   defaults.EnableIPv4,
 		EnableIPv6:                   defaults.EnableIPv6,
 		ToFQDNsMaxIPsPerHost:         defaults.ToFQDNsMaxIPsPerHost,
@@ -1587,6 +1595,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableAutoDirectRouting = viper.GetBool(EnableAutoDirectRoutingName)
 	c.EnableEndpointRoutes = viper.GetBool(EnableEndpointRoutes)
 	c.EnableHealthChecking = viper.GetBool(EnableHealthChecking)
+	c.EnableEndpointHealthChecking = viper.GetBool(EnableEndpointHealthChecking)
 	c.EnablePolicy = strings.ToLower(viper.GetString(EnablePolicy))
 	c.EnableTracing = viper.GetBool(EnableTracing)
 	c.EnableNodePort = viper.GetBool(EnableNodePort)
