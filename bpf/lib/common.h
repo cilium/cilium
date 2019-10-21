@@ -612,7 +612,8 @@ struct ct_state {
 	__u16 loopback:1,
 	      node_port:1,
 	      proxy_redirect:1, // Connection is redirected to a proxy
-	      reserved:13;
+	      dsr:1,
+	      reserved:12;
 	__be16 orig_dport;
 	__be32 addr;
 	__be32 svc_addr;

@@ -964,6 +964,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 	__be32 orig_dip, orig_sip;
 	bool is_fragment = false;
 	__u32 monitor = 0;
+	bool dsr = false;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -1048,13 +1049,19 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 			__be32 address = opt2;
 			cilium_dbg(skb, DBG_GENERIC, 668, dport);
 			cilium_dbg(skb, DBG_GENERIC, 669, address);
+			dsr = true;
 		}
 	}
 
 	if (ret == CT_NEW) {
+		// TODO(brb) create NAT entry
+		if (dsr) {
+		}
+
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.node_port = ct_state.node_port;
+		ct_state.dsr = dsr;
 		ret = ct_create4(get_ct_map4(&tuple), &tuple, skb, CT_INGRESS, &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))
 			return ret;

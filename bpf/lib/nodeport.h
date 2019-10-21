@@ -505,6 +505,7 @@ int tail_nodeport_nat_ipv4(struct __sk_buff *skb)
 	void *data, *data_end;
 	struct iphdr *ip4;
 
+#ifdef TODO_BRB
 	target.addr = IPV4_NODEPORT;
 #ifdef ENCAP_IFINDEX
 	if (dir == NAT_DIR_EGRESS) {
@@ -556,6 +557,8 @@ int tail_nodeport_nat_ipv4(struct __sk_buff *skb)
 	if (ifindex == ENCAP_IFINDEX)
 		goto out_send;
 #endif
+
+#endif /* TODO_BRB */
 	if (!revalidate_data(skb, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
 		goto drop_err;
@@ -694,7 +697,7 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 
 
 	// DSR
-	{
+	if (!backend_local) {
 		if (skb_load_bytes(skb, ETH_HLEN, &v4, sizeof(v4)) < 0)
 			return DROP_INVALID;
 		v4.ihl += 0x2; // u64 option
@@ -714,14 +717,19 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 		if (skb_store_bytes(skb, ETH_HLEN + sizeof(v4) + sizeof(opt1), &opt2, sizeof(opt2), 0) < 0)
 			return DROP_INVALID;
 
-		// (probably) do fib_lookup
+		// do fib_lookup
+		skb->cb[CB_NAT] = NAT_DIR_EGRESS;
+		ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
+		return DROP_MISSED_TAIL_CALL;
 	}
 
+/*
 	if (!backend_local) {
 		skb->cb[CB_NAT] = NAT_DIR_EGRESS;
 		ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
 		return DROP_MISSED_TAIL_CALL;
 	}
+*/
 
 	return TC_ACT_OK;
 }
