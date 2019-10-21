@@ -23,10 +23,6 @@ mechanisms:
   method does not automatically distribute policies to all agents. It is in the
   responsibility of the user to import the policy in all required agents.
 
-.. versionadded:: future
-   Use of the `KVstore to distribute security policies <https://github.com/cilium/cilium/issues/3554>`_
-   is on the roadmap but has not been implemented yet.
-
 .. toctree::
    :maxdepth: 1
    :glob:
