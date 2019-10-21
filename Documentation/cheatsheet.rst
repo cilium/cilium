@@ -379,27 +379,3 @@ resource can be used.
     51796=none
     40355=none
 
-
-Microscope
-----------
-
-Cilium also provides an option to monitor all connections from all Kubernetes
-nodes. `Microscope <https://github.com/cilium/microscope>`_ is a distributed
-monitor that connects to all Cilium instances and retrieves monitor information
-from there.
-
-Cilium also provides the ability to monitor all cilium-managed connections in
-the kubernetes cluster via `Microscope <https://github.com/cilium/microscope>`_.
-It is a distributed monitor that connects to all Cilium instances and retrieves
-monitor information from each node.
-
-Microscope can be installed an run as a pod, the basic usage is the following:
-::
-
-    $ kubectl apply -f
-    https://raw.githubusercontent.com/cilium/microscope/1.1.0/docs/microscope.yaml
-    $ kubectl exec -n kube-system microscope -- microscope -h
-
-
-More information about Cilium Microscope options can be found on the project
-homepage: `cilium/microscope <https://github.com/cilium/microscope>`_
