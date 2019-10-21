@@ -213,9 +213,6 @@ ct_recreate6:
 			ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
 			return DROP_MISSED_TAIL_CALL;
 		}
-		if (ct_state.dsr) {
-			cilium_dbg(skb, DBG_GENERIC, 700, 1);
-		}
 #endif
 		if (ct_state.rev_nat_index) {
 			ret = lb6_rev_nat(skb, l4_off, &csum_off,
@@ -540,6 +537,10 @@ ct_recreate4:
 			skb->tc_index |= TC_INDEX_F_SKIP_RECIRCULATION;
 			ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
 			return DROP_MISSED_TAIL_CALL;
+		}
+		if (ct_state.dsr) {
+			cilium_dbg(skb, DBG_GENERIC, 700, 1);
+			// TODO(brb) do snat_rewrite_egress and return to stack
 		}
 #endif /* ENABLE_NODEPORT */
 
@@ -1064,7 +1065,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.node_port = ct_state.node_port;
-		ct_state.dsr = dsr;
+		ct_state_new.dsr = dsr;
 		ret = ct_create4(get_ct_map4(&tuple), &tuple, skb, CT_INGRESS, &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))
 			return ret;

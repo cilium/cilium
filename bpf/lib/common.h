@@ -531,7 +531,8 @@ struct ct_entry {
 	      seen_non_syn:1,
 	      node_port:1,
 	      proxy_redirect:1, // Connection is redirected to a proxy
-	      reserved:9;
+	      dsr:1,
+	      reserved:8;
 	__u16 rev_nat_index;
 	__u16 backend_id; /* Populated only in v1.6+ BPF code. */
 
