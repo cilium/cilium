@@ -21,7 +21,9 @@ import (
 
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/versioncheck"
 
+	go_version "github.com/blang/semver"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -29,8 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
-
-	"github.com/hashicorp/go-version"
 )
 
 const (
@@ -85,12 +85,11 @@ var (
 	//   aggregatorclientsetscheme.AddToScheme(clientsetscheme.Scheme)
 	AddToScheme = localSchemeBuilder.AddToScheme
 
-	comparableCRDSchemaVersion *version.Version
+	comparableCRDSchemaVersion go_version.Version
 )
 
 func init() {
-	comparableCRDSchemaVersion = version.Must(
-		version.NewVersion(CustomResourceDefinitionSchemaVersion))
+	comparableCRDSchemaVersion = versioncheck.MustVersion(CustomResourceDefinitionSchemaVersion)
 
 	// We only register manually written functions here. The registration of the
 	// generated functions takes place in the generated files. The separation
@@ -440,8 +439,8 @@ func needsUpdate(clusterCRD *apiextensionsv1beta1.CustomResourceDefinition) bool
 		// no schema version detected
 		return true
 	}
-	clusterVersion, err := version.NewVersion(v)
-	if err != nil || clusterVersion.LessThan(comparableCRDSchemaVersion) {
+	clusterVersion, err := versioncheck.Version(v)
+	if err != nil || clusterVersion.LT(comparableCRDSchemaVersion) {
 		// version in cluster is either unparsable or smaller than current version
 		return true
 	}

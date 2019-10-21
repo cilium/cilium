@@ -51,6 +51,8 @@ github.com/aws/aws-sdk-go-v2/service/ec2
 github.com/aws/aws-sdk-go-v2/service/sts
 # github.com/beorn7/perks v1.0.1 => github.com/beorn7/perks v1.0.1
 github.com/beorn7/perks/quantile
+# github.com/blang/semver v3.5.0+incompatible => github.com/blang/semver v3.5.0+incompatible
+github.com/blang/semver
 # github.com/c9s/goprocinfo v0.0.0-20190309065803-0b2ad9ac246b => github.com/c9s/goprocinfo v0.0.0-20190309065803-0b2ad9ac246b
 github.com/c9s/goprocinfo/linux
 # github.com/census-instrumentation/opencensus-proto v0.2.1 => github.com/census-instrumentation/opencensus-proto v0.2.1
@@ -294,8 +296,6 @@ github.com/hashicorp/go-cleanhttp
 github.com/hashicorp/go-immutable-radix
 # github.com/hashicorp/go-rootcerts v1.0.1 => github.com/hashicorp/go-rootcerts v1.0.1
 github.com/hashicorp/go-rootcerts
-# github.com/hashicorp/go-version v0.0.0-20171129150820-4fe82ae3040f => github.com/hashicorp/go-version v0.0.0-20171129150820-4fe82ae3040f
-github.com/hashicorp/go-version
 # github.com/hashicorp/golang-lru v0.5.3 => github.com/hashicorp/golang-lru v0.5.3
 github.com/hashicorp/golang-lru
 github.com/hashicorp/golang-lru/simplelru
