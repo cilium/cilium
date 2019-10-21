@@ -539,8 +539,27 @@ ct_recreate4:
 			return DROP_MISSED_TAIL_CALL;
 		}
 		if (ct_state.dsr) {
-			cilium_dbg(skb, DBG_GENERIC, 700, 1);
+			cilium_dbg(skb, DBG_GENERIC, 700, 0);
+			struct ipv4_nat_entry *entry;
+			entry = snat_v4_lookup(&tuple);
+			cilium_dbg(skb, DBG_GENERIC, 701, tuple.saddr);
+			cilium_dbg(skb, DBG_GENERIC, 702, tuple.daddr);
+			cilium_dbg(skb, DBG_GENERIC, 703, tuple.sport);
+			cilium_dbg(skb, DBG_GENERIC, 704, tuple.dport);
+			cilium_dbg(skb, DBG_GENERIC, 705, tuple.nexthdr);
+			cilium_dbg(skb, DBG_GENERIC, 706, tuple.flags);
+
+			if (entry) {
+				cilium_dbg(skb, DBG_GENERIC, 707, entry->to_saddr);
+				cilium_dbg(skb, DBG_GENERIC, 708, entry->to_saddr);
+
+				int ret1 = snat_v4_rewrite_egress(skb, &tuple, entry, l4_off);
+				if (ret1 != 0) {
+					return ret1;
+				}
+				cilium_dbg(skb, DBG_GENERIC, 700, 2);
 			// TODO(brb) do snat_rewrite_egress and return to stack
+			}
 		}
 #endif /* ENABLE_NODEPORT */
 

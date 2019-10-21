@@ -446,17 +446,15 @@ static __always_inline int snat_v4_set_egress(struct __sk_buff *skb,
 	} l4hdr;
 	__u32 off;
 
-	cilium_dbg(skb, DBG_GENERIC, 800, to_sport);
-
 	build_bug_on(sizeof(struct ipv4_nat_entry) > 64);
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 	tuple.nexthdr = ip4->protocol;
-	tuple.daddr = ip4->daddr;
-	tuple.saddr = ip4->saddr;
-	tuple.flags = NAT_DIR_EGRESS;
+	tuple.saddr = ip4->daddr;
+	tuple.daddr = ip4->saddr;
+	tuple.flags = NAT_DIR_INGRESS;
 	off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
@@ -470,11 +468,16 @@ static __always_inline int snat_v4_set_egress(struct __sk_buff *skb,
 		return DROP_NAT_UNSUPP_PROTO;
 	}
 
-	cilium_dbg(skb, DBG_GENERIC, 801, to_sport);
-
 	state.common.created = bpf_ktime_get_nsec();
 	state.to_saddr = to_saddr;
 	state.to_sport = to_sport;
+
+	cilium_dbg(skb, DBG_GENERIC, 901, tuple.saddr);
+	cilium_dbg(skb, DBG_GENERIC, 902, tuple.daddr);
+	cilium_dbg(skb, DBG_GENERIC, 903, tuple.sport);
+	cilium_dbg(skb, DBG_GENERIC, 904, tuple.dport);
+	cilium_dbg(skb, DBG_GENERIC, 905, tuple.nexthdr);
+	cilium_dbg(skb, DBG_GENERIC, 906, tuple.flags);
 
 	int ret = map_update_elem(&SNAT_MAPPING_IPV4, &tuple, &state, 0);
 	if (!ret)
