@@ -213,6 +213,9 @@ ct_recreate6:
 			ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
 			return DROP_MISSED_TAIL_CALL;
 		}
+		if (ct_state.dsr) {
+			cilium_dbg(skb, DBG_GENERIC, 700, 1);
+		}
 #endif
 		if (ct_state.rev_nat_index) {
 			ret = lb6_rev_nat(skb, l4_off, &csum_off,

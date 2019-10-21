@@ -505,7 +505,6 @@ int tail_nodeport_nat_ipv4(struct __sk_buff *skb)
 	void *data, *data_end;
 	struct iphdr *ip4;
 
-#ifdef TODO_BRB
 	target.addr = IPV4_NODEPORT;
 #ifdef ENCAP_IFINDEX
 	if (dir == NAT_DIR_EGRESS) {
@@ -558,7 +557,6 @@ int tail_nodeport_nat_ipv4(struct __sk_buff *skb)
 		goto out_send;
 #endif
 
-#endif /* TODO_BRB */
 	if (!revalidate_data(skb, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
 		goto drop_err;
@@ -602,7 +600,11 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
+
 	struct iphdr v4 = {};
+	struct bpf_fib_lookup fib_params = {};
+	int ifindex = NATIVE_DEV_IFINDEX;
+
 	int ret,  l3_off = ETH_HLEN, l4_off;
 	struct csum_offset csum_off = {};
 	struct lb4_service *svc;
@@ -717,10 +719,29 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 		if (skb_store_bytes(skb, ETH_HLEN + sizeof(v4) + sizeof(opt1), &opt2, sizeof(opt2), 0) < 0)
 			return DROP_INVALID;
 
-		// do fib_lookup
-		skb->cb[CB_NAT] = NAT_DIR_EGRESS;
-		ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
-		return DROP_MISSED_TAIL_CALL;
+		if (!revalidate_data(skb, &data, &data_end, &ip4))
+			return DROP_INVALID;
+
+		fib_params.family = AF_INET;
+		fib_params.ifindex = NATIVE_DEV_IFINDEX;
+		fib_params.ipv4_src = ip4->saddr;
+		fib_params.ipv4_dst = ip4->daddr;
+
+		ret = fib_lookup(skb, &fib_params, sizeof(fib_params),
+				 BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
+		if (ret != 0) {
+			return DROP_NO_FIB;
+		}
+
+		if (eth_store_daddr(skb, fib_params.dmac, 0) < 0) {
+			return DROP_WRITE_ERROR;
+		}
+		if (eth_store_saddr(skb, fib_params.smac, 0) < 0) {
+			return DROP_WRITE_ERROR;
+		}
+
+		ifindex = fib_params.ifindex;
+		return redirect(ifindex, 0);
 	}
 
 /*
