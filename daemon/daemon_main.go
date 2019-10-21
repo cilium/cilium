@@ -1229,9 +1229,10 @@ func runDaemon() {
 	restoreComplete := d.initRestore(restoredEndpoints)
 
 	if option.Config.IsFlannelMasterDeviceSet() {
-		// health checking is not supported by flannel
-		log.Warnf("Running Cilium in flannel mode doesn't support health checking. Changing %s mode to %t", option.EnableHealthChecking, false)
-		option.Config.EnableHealthChecking = false
+		if option.Config.EnableEndpointHealthChecking {
+			log.Warn("Running Cilium in flannel mode doesn't support endpoint connectivity health checking. Disabling endpoint connectivity health check.")
+			option.Config.EnableEndpointHealthChecking = false
+		}
 
 		err := node.SetInternalIPv4From(option.Config.FlannelMasterDevice)
 		if err != nil {
