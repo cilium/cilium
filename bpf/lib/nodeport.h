@@ -603,7 +603,7 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 
 	struct iphdr v4 = {};
 	struct bpf_fib_lookup fib_params = {};
-	int ifindex = NATIVE_DEV_IFINDEX;
+	union tcp_flags tcp_flags = { .value = 0 };
 
 	int ret,  l3_off = ETH_HLEN, l4_off;
 	struct csum_offset csum_off = {};
@@ -700,8 +700,26 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 
 	// DSR
 	if (!backend_local) {
+		//if (skb_load_bytes(skb, off + 12, &tcp_flags, 2) < 0)
+		//		return DROP_CT_INVALID_HDR;
+
+		//	if (unlikely(tcp_flags.value & (TCP_FLAG_RST|TCP_FLAG_FIN)))
+		//		action = ACTION_CLOSE;
+		//	else
+		//		action = ACTION_CREATE;
+
+
 		if (skb_load_bytes(skb, ETH_HLEN, &v4, sizeof(v4)) < 0)
 			return DROP_INVALID;
+
+		if (v4.protocol == IPPROTO_TCP) {
+			if (skb_load_bytes(skb, ETH_HLEN + sizeof(v4) + 12, &tcp_flags, 2) < 0)
+				return DROP_CT_INVALID_HDR;
+			if (!(tcp_flags.value & (TCP_FLAG_SYN)))
+				goto no_dsr;
+		}
+
+
 		v4.ihl += 0x2; // u64 option
 		v4.tot_len = bpf_htons(bpf_ntohs(v4.tot_len) + 0x8);
 		__u32 opt1 = bpf_htonl(0x88080000 | key.dport);
@@ -721,6 +739,7 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 
 		if (!revalidate_data(skb, &data, &data_end, &ip4))
 			return DROP_INVALID;
+no_dsr:
 
 		fib_params.family = AF_INET;
 		fib_params.ifindex = NATIVE_DEV_IFINDEX;
@@ -740,8 +759,8 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 			return DROP_WRITE_ERROR;
 		}
 
-		ifindex = fib_params.ifindex;
-		return redirect(ifindex, 0);
+		//ifindex = fib_params.ifindex;
+		return redirect(fib_params.ifindex, 0);
 	}
 
 /*
