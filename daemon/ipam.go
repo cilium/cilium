@@ -194,7 +194,7 @@ func (d *Daemon) allocateDatapathIPs(family datapath.NodeAddressingFamily) (rout
 
 func (d *Daemon) allocateHealthIPs() error {
 	bootstrapStats.healthCheck.Start()
-	if option.Config.EnableHealthChecking {
+	if option.Config.EnableEndpointHealthChecking {
 		if option.Config.EnableIPv4 {
 			result, err := d.ipam.AllocateNextFamily(ipam.IPv4, "health")
 			if err != nil {

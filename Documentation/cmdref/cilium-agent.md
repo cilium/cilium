@@ -55,6 +55,7 @@ cilium-agent [flags]
       --disable-k8s-services                                  Disable east-west K8s load balancing by cilium
   -e, --docker string                                         Path to docker runtime socket (DEPRECATED: use container-runtime-endpoint instead) (default "unix:///var/run/docker.sock")
       --egress-masquerade-interfaces string                   Limit egress masquerading to interface selector
+      --enable-endpoint-health-checking                       Enable connectivity health checking between virtual endpoints (default true)
       --enable-endpoint-routes                                Use per endpoint routes instead of routing via cilium_host
       --enable-health-checking                                Enable connectivity health checking (default true)
       --enable-host-reachable-services                        Enable reachability of services for host applications (beta)

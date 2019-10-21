@@ -46,6 +46,11 @@ func (d *Daemon) initHealth() {
 		d.ciliumHealth = ch
 	}
 
+	// If endpoint health checking is disabled, the virtual endpoint does not need to be launched
+	if !option.Config.EnableEndpointHealthChecking {
+		return
+	}
+
 	// Launch the cilium-health-responder as an endpoint, managed by cilium.
 	log.Info("Launching Cilium health endpoint")
 	if k8s.IsEnabled() {

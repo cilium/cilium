@@ -165,6 +165,10 @@ const (
 	// EnableHealthChecking is the default value for EnableHealthChecking
 	EnableHealthChecking = true
 
+	// EnableEndpointHealthChecking is the default value for
+	// EnableEndpointHealthChecking
+	EnableEndpointHealthChecking = true
+
 	// AlignCheckerName is the BPF object name for the alignchecker.
 	AlignCheckerName = "bpf_alignchecker.o"
 
