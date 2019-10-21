@@ -323,7 +323,7 @@ gofmt:
 
 govet:
 	@$(ECHO_CHECK) vetting all GOFILES...
-	$(QUIET)$(GO) vet \
+	$(QUIET) $(GOLIST) $(GO) vet \
     ./api/... \
     ./bugtool/... \
     ./cilium/... \

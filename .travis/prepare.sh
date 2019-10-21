@@ -14,6 +14,7 @@ rm $CLANG_FILE
 NEWPATH="/usr/local/clang/bin"
 export PATH="$NEWPATH:$PATH"
 
-go get github.com/cilium/go-bindata/go-bindata
-go get golang.org/x/tools/cmd/cover
-go get github.com/mattn/goveralls
+# disable go modules to avoid downloading all dependencies when doing go get
+GO111MODULE=off go get github.com/cilium/go-bindata/go-bindata
+GO111MODULE=off go get golang.org/x/tools/cmd/cover
+GO111MODULE=off go get github.com/mattn/goveralls
