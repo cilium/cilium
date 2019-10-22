@@ -466,6 +466,9 @@ func init() {
 	flags.Bool(option.EnableNodePort, false, "Enable NodePort type services by Cilium (beta)")
 	option.BindEnv(option.EnableNodePort)
 
+	flags.Bool(option.EnableDSR, false, "Enable direct server return NodePort BPF (beta)")
+	option.BindEnv(option.EnableDSR)
+
 	flags.StringSlice(option.NodePortRange, []string{fmt.Sprintf("%d", option.NodePortMinDefault), fmt.Sprintf("%d", option.NodePortMaxDefault)}, fmt.Sprintf("Set the min/max NodePort port range"))
 	option.BindEnv(option.NodePortRange)
 
@@ -1069,6 +1072,14 @@ func initEnv(cmd *cobra.Command) {
 				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP6_RECVMSG) != nil) {
 			log.Fatal("BPF host reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer. If you run an older kernel and only need TCP, then specify: --host-reachable-services-protos=tcp")
 		}
+	}
+
+	if option.Config.EnableDSR && !option.Config.EnableNodePort {
+		log.Fatal("DSR can be enabled only for NodePort BPF (--enable-node-port)")
+	}
+
+	if option.Config.EnableDSR && option.Config.EnableIPv6 {
+		log.Fatal("DSR cannot be used with IPv6")
 	}
 
 	// If device has been specified, use it to derive better default
