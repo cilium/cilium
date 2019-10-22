@@ -433,7 +433,7 @@ static __always_inline bool snat_v4_can_skip(const struct ipv4_nat_target *targe
 	return false;
 }
 
-static __always_inline int snat_v4_set_egress(struct __sk_buff *skb,
+static __always_inline int snat_v4_create_dsr(struct __sk_buff *skb,
 					      __be32 to_saddr, __be16 to_sport)
 {
 	void *data, *data_end;
@@ -472,18 +472,9 @@ static __always_inline int snat_v4_set_egress(struct __sk_buff *skb,
 	state.to_saddr = to_saddr;
 	state.to_sport = to_sport;
 
-	cilium_dbg(skb, DBG_GENERIC, 901, tuple.saddr);
-	cilium_dbg(skb, DBG_GENERIC, 902, tuple.daddr);
-	cilium_dbg(skb, DBG_GENERIC, 903, tuple.sport);
-	cilium_dbg(skb, DBG_GENERIC, 904, tuple.dport);
-	cilium_dbg(skb, DBG_GENERIC, 905, tuple.nexthdr);
-	cilium_dbg(skb, DBG_GENERIC, 906, tuple.flags);
-
 	int ret = map_update_elem(&SNAT_MAPPING_IPV4, &tuple, &state, 0);
 	if (!ret)
 		return ret;
-
-	cilium_dbg(skb, DBG_GENERIC, 802, to_sport);
 
 	return TC_ACT_OK;
 }
