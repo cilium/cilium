@@ -591,34 +591,30 @@ drop_err:
 				      METRIC_INGRESS : METRIC_EGRESS);
 }
 
-static inline int set_dsr_opt4(struct __sk_buff *skb, struct iphdr v4, union tcp_flags tcp_flags, __be32 svc_addr, __be32 svc_port)
+static inline int set_dsr_opt4(struct __sk_buff *skb, struct iphdr *ip4, __be32 svc_addr, __be32 svc_port)
 {
-	if (skb_load_bytes(skb, ETH_HLEN, &v4, sizeof(v4)) < 0)
-		return DROP_INVALID;
+	union tcp_flags tcp_flags = { .value = 0 };
 
-	if (v4.protocol == IPPROTO_TCP) {
-		if (skb_load_bytes(skb, ETH_HLEN + sizeof(v4) + 12, &tcp_flags, 2) < 0)
+	if (ip4->protocol == IPPROTO_TCP) {
+		if (skb_load_bytes(skb, ETH_HLEN + sizeof(*ip4) + 12, &tcp_flags, 2) < 0)
 			return DROP_CT_INVALID_HDR;
 		if (!(tcp_flags.value & (TCP_FLAG_SYN)))
 			return 0;
 	}
 
-	v4.ihl += 0x2; // u64 option
-	v4.tot_len = bpf_htons(bpf_ntohs(v4.tot_len) + 0x8);
+	ip4->ihl += 0x2; // u64 option
+	ip4->tot_len = bpf_htons(bpf_ntohs(ip4->tot_len) + 0x8);
 	__u32 opt1 = bpf_htonl(0x88080000 | svc_port);
 	__u32 opt2 = bpf_htonl(svc_addr);
 
-	set_ipv4_csum_with_opt(&v4, opt1, opt2);
+	set_ipv4_csum_with_opt(ip4, opt1, opt2);
 
-	if (skb_store_bytes(skb, ETH_HLEN, &v4, sizeof(v4), 0) < 0)
-		return DROP_INVALID;
 	if (skb_adjust_room(skb, 0x8, BPF_ADJ_ROOM_NET, 0))
 		return DROP_INVALID;
-	if (skb_store_bytes(skb, ETH_HLEN + sizeof(v4), &opt1, sizeof(opt1), 0) < 0)
+	if (skb_store_bytes(skb, ETH_HLEN + sizeof(*ip4), &opt1, sizeof(opt1), 0) < 0)
 		return DROP_INVALID;
-	if (skb_store_bytes(skb, ETH_HLEN + sizeof(v4) + sizeof(opt1), &opt2, sizeof(opt2), 0) < 0)
+	if (skb_store_bytes(skb, ETH_HLEN + sizeof(*ip4) + sizeof(opt1), &opt2, sizeof(opt2), 0) < 0)
 		return DROP_INVALID;
-
 
 	return 0;
 }
@@ -731,40 +727,12 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 
 	if (!backend_local) {
 #ifdef ENABLE_DSR
-		//ret = set_dsr_opt4(skb, v4, tcp_flags, key.address, key.dport);
-		//if (ret != 0)
-		//	return ret;
+		//if (!revalidate_data(skb, &data, &data_end, &ip4))
+		//	return DROP_INVALID;
 
-		__be32 svc_addr = key.address;
-		__be16 svc_port = key.dport;
-
-		if (skb_load_bytes(skb, ETH_HLEN, &v4, sizeof(v4)) < 0)
-			return DROP_INVALID;
-
-		if (v4.protocol == IPPROTO_TCP) {
-			if (skb_load_bytes(skb, ETH_HLEN + sizeof(v4) + 12, &tcp_flags, 2) < 0)
-				return DROP_CT_INVALID_HDR;
-			if (!(tcp_flags.value & (TCP_FLAG_SYN)))
-				goto no_dsr;
-		}
-
-		v4.ihl += 0x2; // u64 option
-		v4.tot_len = bpf_htons(bpf_ntohs(v4.tot_len) + 0x8);
-		__u32 opt1 = bpf_htonl(0x88080000 | svc_port);
-		__u32 opt2 = bpf_htonl(svc_addr);
-
-		set_ipv4_csum_with_opt(&v4, opt1, opt2);
-
-		if (skb_store_bytes(skb, ETH_HLEN, &v4, sizeof(v4), 0) < 0)
-			return DROP_INVALID;
-		if (skb_adjust_room(skb, 0x8, BPF_ADJ_ROOM_NET, 0))
-			return DROP_INVALID;
-		if (skb_store_bytes(skb, ETH_HLEN + sizeof(v4), &opt1, sizeof(opt1), 0) < 0)
-			return DROP_INVALID;
-		if (skb_store_bytes(skb, ETH_HLEN + sizeof(v4) + sizeof(opt1), &opt2, sizeof(opt2), 0) < 0)
-			return DROP_INVALID;
-
-no_dsr:
+		ret = set_dsr_opt4(skb, ip4, key.address, key.dport);
+		if (ret != 0)
+			return ret;
 
 		if (!revalidate_data(skb, &data, &data_end, &ip4))
 			return DROP_INVALID;
