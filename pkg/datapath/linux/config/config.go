@@ -261,6 +261,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EnableIPv6 {
 			cDefinesMap["NODEPORT_NEIGH6"] = "cilium_nodeport_neigh6"
 		}
+
+		if option.Config.EnableDSR {
+			cDefinesMap["ENABLE_DSR"] = "1"
+		}
 	}
 
 	// Since golang maps are unordered, we sort the keys in the map

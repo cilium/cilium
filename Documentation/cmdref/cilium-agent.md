@@ -52,6 +52,7 @@ cilium-agent [flags]
       --disable-endpoint-crd                                  Disable use of CiliumEndpoint CRD
       --disable-k8s-services                                  Disable east-west K8s load balancing by cilium
       --egress-masquerade-interfaces string                   Limit egress masquerading to interface selector
+      --enable-dsr                                            Enable direct server return NodePort BPF (beta)
       --enable-endpoint-health-checking                       Enable connectivity health checking between virtual endpoints (default true)
       --enable-endpoint-routes                                Use per endpoint routes instead of routing via cilium_host
       --enable-health-checking                                Enable connectivity health checking (default true)
