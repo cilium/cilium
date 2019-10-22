@@ -240,6 +240,9 @@ const (
 	// NodePortRange defines a custom range where to look up NodePort services
 	NodePortRange = "node-port-range"
 
+	// EnableDSR enables direct server return for NodePort BPF
+	EnableDSR = "enable-dsr"
+
 	// LibDir enables the directory path to store runtime build environment
 	LibDir = "lib-dir"
 
@@ -1239,6 +1242,9 @@ type DaemonConfig struct {
 	// EnableK8sExternalIPs enables k8s external IPs implementation in BPF
 	EnableK8sExternalIPs bool
 
+	// EnableDSR enables direct server return for NodePort BPF
+	EnableDSR bool
+
 	// NodePortMin is the minimum port address for the NodePort range
 	NodePortMin int
 
@@ -1648,6 +1654,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableRemoteNodeIdentity = viper.GetBool(EnableRemoteNodeIdentity)
 	c.DockerEndpoint = viper.GetString(Docker)
 	c.EnableAutoDirectRouting = viper.GetBool(EnableAutoDirectRoutingName)
+	c.EnableDSR = viper.GetBool(EnableDSR)
 	c.EnableEndpointRoutes = viper.GetBool(EnableEndpointRoutes)
 	c.EnableHealthChecking = viper.GetBool(EnableHealthChecking)
 	c.EnableEndpointHealthChecking = viper.GetBool(EnableEndpointHealthChecking)
