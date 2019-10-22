@@ -668,6 +668,7 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 			return ret;
 	}
 
+#ifndef ENABLE_DSR
 	service_port = bpf_ntohs(key.dport);
 	if (service_port < NODEPORT_PORT_MIN ||
 	    service_port > NODEPORT_PORT_MAX) {
@@ -676,6 +677,7 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 		ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
 		return DROP_MISSED_TAIL_CALL;
 	}
+#endif /* ENABLE_DSR */
 
 	ct_state_new.orig_dport = key.dport;
 
