@@ -523,6 +523,87 @@ static __always_inline int nodeport_nat_ipv4_rev(struct __sk_buff *skb,
 	return NODEPORT_DO_NAT_IPV4(addr, NAT_DIR_INGRESS);
 }
 
+/* Helper function to set the IPv4 option for DSR when a backend is remote.
+ * NOTE: Revalidate data after calling the function.
+ */
+static inline int set_dsr_opt4(struct __sk_buff *skb, struct iphdr *ip4,
+			       __be32 svc_addr, __be32 svc_port)
+{
+	union tcp_flags tcp_flags = { .value = 0 };
+
+	if (ip4->protocol == IPPROTO_TCP) {
+		if (skb_load_bytes(skb, ETH_HLEN + sizeof(*ip4) + 12,
+				   &tcp_flags, 2) < 0)
+			return DROP_CT_INVALID_HDR;
+		// Setting the option is required only for the first packet
+		// (SYN), in the case of TCP, as for further packets of the
+		// same connection a remote node will use a NAT entry to
+		// reverse xlate a reply.
+		if (!(tcp_flags.value & (TCP_FLAG_SYN)))
+			return 0;
+	}
+
+	ip4->ihl += 0x2; // To accommodate u64 option
+	ip4->tot_len = bpf_htons(bpf_ntohs(ip4->tot_len) + 0x8);
+	__u32 opt1 = bpf_htonl(DSR_IPV4_OPT_32 | svc_port);
+	__u32 opt2 = bpf_htonl(svc_addr);
+
+	set_ipv4_csum_with_opt(ip4, opt1, opt2);
+
+	if (skb_adjust_room(skb, 0x8, BPF_ADJ_ROOM_NET, 0))
+		return DROP_INVALID;
+	if (skb_store_bytes(skb, ETH_HLEN + sizeof(*ip4),
+			    &opt1, sizeof(opt1), 0) < 0)
+		return DROP_INVALID;
+	if (skb_store_bytes(skb, ETH_HLEN + sizeof(*ip4) + sizeof(opt1),
+			    &opt2, sizeof(opt2), 0) < 0)
+		return DROP_INVALID;
+
+	return 0;
+}
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_DSR)
+int tail_nodeport_ipv4_dsr(struct __sk_buff *skb)
+{
+	void *data, *data_end;
+	struct iphdr *ip4;
+	struct bpf_fib_lookup fib_params = {};
+	int ret;
+
+	__be16 dport = skb->cb[CB_SVC_PORT];
+	__be32 address = skb->cb[CB_SVC_ADDR_V4];
+
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	ret = set_dsr_opt4(skb, ip4, address, dport);
+	if (ret != 0)
+		return DROP_INVALID;
+
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	fib_params.family = AF_INET;
+	fib_params.ifindex = NATIVE_DEV_IFINDEX;
+	fib_params.ipv4_src = ip4->saddr;
+	fib_params.ipv4_dst = ip4->daddr;
+
+	ret = fib_lookup(skb, &fib_params, sizeof(fib_params),
+			 BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
+	if (ret != 0) {
+		return DROP_NO_FIB;
+	}
+
+	if (eth_store_daddr(skb, fib_params.dmac, 0) < 0) {
+		return DROP_WRITE_ERROR;
+	}
+	if (eth_store_saddr(skb, fib_params.smac, 0) < 0) {
+		return DROP_WRITE_ERROR;
+	}
+
+	return redirect(fib_params.ifindex, 0);
+}
+
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT)
 int tail_nodeport_nat_ipv4(struct __sk_buff *skb)
 {
@@ -590,6 +671,7 @@ int tail_nodeport_nat_ipv4(struct __sk_buff *skb)
 	if (ifindex == ENCAP_IFINDEX)
 		goto out_send;
 #endif
+
 	if (!revalidate_data(skb, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
 		goto drop_err;
@@ -633,6 +715,7 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
+	struct bpf_fib_lookup fib_params = {};
 	int ret,  l3_off = ETH_HLEN, l4_off;
 	struct csum_offset csum_off = {};
 	struct lb4_service *svc;
@@ -660,6 +743,8 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 		else
 			return ret;
 	}
+	service_port = bpf_ntohs(key.dport);
+	ct_state_new.orig_dport = key.dport;
 
 #ifdef ENABLE_EXTERNAL_IP
 	if ((svc = lb4_lookup_service(skb, &key)) != NULL) {
@@ -670,26 +755,30 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 	}
 
 	if (svc == NULL || !svc->external) {
-		service_port = bpf_ntohs(key.dport);
 		if (service_port < NODEPORT_PORT_MIN ||
 		    service_port > NODEPORT_PORT_MAX) {
+# ifdef ENABLE_DSR
+			return TC_ACT_OK;
+# else
                         skb->cb[CB_NAT] = NAT_DIR_INGRESS;
                         skb->cb[CB_SRC_IDENTITY] = src_identity;
                         ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
                         return DROP_MISSED_TAIL_CALL;
+# endif
 		}
 	}
 #else
-	service_port = bpf_ntohs(key.dport);
 	if (service_port < NODEPORT_PORT_MIN ||
-	    service_port > NODEPORT_PORT_MAX) {
-		skb->cb[CB_NAT] = NAT_DIR_INGRESS;
-		skb->cb[CB_SRC_IDENTITY] = src_identity;
-		ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
-		return DROP_MISSED_TAIL_CALL;
+           service_port > NODEPORT_PORT_MAX) {
+# ifdef ENABLE_DSR
+		return TC_ACT_OK;
+# else
+               skb->cb[CB_NAT] = NAT_DIR_INGRESS;
+               skb->cb[CB_SRC_IDENTITY] = src_identity;
+               ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
+               return DROP_MISSED_TAIL_CALL;
+# endif
 	}
-
-	ct_state_new.orig_dport = key.dport;
 
 	if ((svc = lb4_lookup_service(skb, &key)) != NULL) {
 		ret = lb4_local(get_ct_map4(&tuple), skb, l3_off, l4_off, &csum_off,
@@ -756,9 +845,16 @@ redo:
 	}
 
 	if (!backend_local) {
+#ifdef ENABLE_DSR
+		skb->cb[CB_SVC_PORT] = key.dport;
+		skb->cb[CB_SVC_ADDR_V4] = key.address;
+		ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_DSR);
+		return DROP_MISSED_TAIL_CALL;
+#else // Fallback to SNAT
 		skb->cb[CB_NAT] = NAT_DIR_EGRESS;
 		ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
 		return DROP_MISSED_TAIL_CALL;
+#endif /* ENABLE_DSR */
 	}
 
 	return TC_ACT_OK;

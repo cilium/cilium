@@ -174,4 +174,34 @@ static inline __u8 __inline__ get_min_encrypt_key(__u8 peer_key)
 	return local_key < peer_key ? local_key : peer_key;
 }
 
+#ifdef ENABLE_IPV4
+
+static inline void __inline__ set_ipv4_csum_with_opt(struct iphdr *iph,
+						     __u32 opt1, __u32 opt2)
+{
+	__u16 *h;
+	__u32 csum = 0;
+
+	iph->check = 0;
+
+	h = (__u16 *)iph;
+#pragma unroll
+	for (int i = 0; i < sizeof(*iph) >> 1; i++)
+		csum += *h++;
+
+	h = (__u16 *)&opt1;
+#pragma unroll
+	for (int i = 0; i < sizeof(opt1) >> 1; i++)
+		csum += *h++;
+
+	h = (__u16 *)&opt2;
+#pragma unroll
+	for (int i = 0; i < sizeof(opt2) >> 1; i++)
+		csum += *h++;
+
+       iph->check = ~((csum & 0xffff) + (csum >> 16));
+}
+
+#endif /* ENABLE_IPV4 */
+
 #endif

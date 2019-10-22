@@ -162,6 +162,8 @@ static int BPF_FUNC(skb_load_bytes, struct __sk_buff *skb, uint32_t off,
 		    void *to, uint32_t len);
 static int BPF_FUNC(skb_store_bytes, struct __sk_buff *skb, uint32_t off,
 		    const void *from, uint32_t len, uint32_t flags);
+static int BPF_FUNC(skb_adjust_room, struct __sk_buff *skb, int32_t len_diff,
+		    uint32_t mode, uint64_t flags);
 
 static int BPF_FUNC(l3_csum_replace, struct __sk_buff *skb, uint32_t off,
 		    uint32_t from, uint32_t to, uint32_t flags);
