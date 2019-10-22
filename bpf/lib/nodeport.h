@@ -591,6 +591,38 @@ drop_err:
 				      METRIC_INGRESS : METRIC_EGRESS);
 }
 
+static inline int set_dsr_opt4(struct __sk_buff *skb, struct iphdr v4, union tcp_flags tcp_flags, __be32 svc_addr, __be32 svc_port)
+{
+	if (skb_load_bytes(skb, ETH_HLEN, &v4, sizeof(v4)) < 0)
+		return DROP_INVALID;
+
+	if (v4.protocol == IPPROTO_TCP) {
+		if (skb_load_bytes(skb, ETH_HLEN + sizeof(v4) + 12, &tcp_flags, 2) < 0)
+			return DROP_CT_INVALID_HDR;
+		if (!(tcp_flags.value & (TCP_FLAG_SYN)))
+			return 0;
+	}
+
+	v4.ihl += 0x2; // u64 option
+	v4.tot_len = bpf_htons(bpf_ntohs(v4.tot_len) + 0x8);
+	__u32 opt1 = bpf_htonl(0x88080000 | svc_port);
+	__u32 opt2 = bpf_htonl(svc_addr);
+
+	set_ipv4_csum_with_opt(&v4, opt1, opt2);
+
+	if (skb_store_bytes(skb, ETH_HLEN, &v4, sizeof(v4), 0) < 0)
+		return DROP_INVALID;
+	if (skb_adjust_room(skb, 0x8, BPF_ADJ_ROOM_NET, 0))
+		return DROP_INVALID;
+	if (skb_store_bytes(skb, ETH_HLEN + sizeof(v4), &opt1, sizeof(opt1), 0) < 0)
+		return DROP_INVALID;
+	if (skb_store_bytes(skb, ETH_HLEN + sizeof(v4) + sizeof(opt1), &opt2, sizeof(opt2), 0) < 0)
+		return DROP_INVALID;
+
+
+	return 0;
+}
+
 /* Main node-port entry point for host-external ingressing node-port traffic
  * which handles the case of: i) backend is local EP, ii) backend is remote EP,
  * iii) reply from remote backend EP.
@@ -601,8 +633,8 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 	void *data, *data_end;
 	struct iphdr *ip4;
 
-	struct iphdr v4 = {};
 	struct bpf_fib_lookup fib_params = {};
+	struct iphdr v4 = {};
 	union tcp_flags tcp_flags = { .value = 0 };
 
 	int ret,  l3_off = ETH_HLEN, l4_off;
@@ -697,17 +729,14 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 		return ret;
 	}
 
-
-	// DSR
 	if (!backend_local) {
-		//if (skb_load_bytes(skb, off + 12, &tcp_flags, 2) < 0)
-		//		return DROP_CT_INVALID_HDR;
+#ifdef ENABLE_DSR
+		//ret = set_dsr_opt4(skb, v4, tcp_flags, key.address, key.dport);
+		//if (ret != 0)
+		//	return ret;
 
-		//	if (unlikely(tcp_flags.value & (TCP_FLAG_RST|TCP_FLAG_FIN)))
-		//		action = ACTION_CLOSE;
-		//	else
-		//		action = ACTION_CREATE;
-
+		__be32 svc_addr = key.address;
+		__be16 svc_port = key.dport;
 
 		if (skb_load_bytes(skb, ETH_HLEN, &v4, sizeof(v4)) < 0)
 			return DROP_INVALID;
@@ -719,12 +748,10 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 				goto no_dsr;
 		}
 
-
 		v4.ihl += 0x2; // u64 option
 		v4.tot_len = bpf_htons(bpf_ntohs(v4.tot_len) + 0x8);
-		__u32 opt1 = bpf_htonl(0x88080000 | key.dport);
-		__u32 opt2 = bpf_htonl(key.address);
-
+		__u32 opt1 = bpf_htonl(0x88080000 | svc_port);
+		__u32 opt2 = bpf_htonl(svc_addr);
 
 		set_ipv4_csum_with_opt(&v4, opt1, opt2);
 
@@ -737,9 +764,10 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 		if (skb_store_bytes(skb, ETH_HLEN + sizeof(v4) + sizeof(opt1), &opt2, sizeof(opt2), 0) < 0)
 			return DROP_INVALID;
 
+no_dsr:
+
 		if (!revalidate_data(skb, &data, &data_end, &ip4))
 			return DROP_INVALID;
-no_dsr:
 
 		fib_params.family = AF_INET;
 		fib_params.ifindex = NATIVE_DEV_IFINDEX;
@@ -759,17 +787,13 @@ no_dsr:
 			return DROP_WRITE_ERROR;
 		}
 
-		//ifindex = fib_params.ifindex;
 		return redirect(fib_params.ifindex, 0);
-	}
-
-/*
-	if (!backend_local) {
+#else // Fallback to SNAT
 		skb->cb[CB_NAT] = NAT_DIR_EGRESS;
 		ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
 		return DROP_MISSED_TAIL_CALL;
+#endif /* ENABLE_DSR */
 	}
-*/
 
 	return TC_ACT_OK;
 }
