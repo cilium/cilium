@@ -1074,12 +1074,15 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
-	if option.Config.EnableDSR && !option.Config.EnableNodePort {
-		log.Fatal("DSR can be enabled only for NodePort BPF (--enable-node-port)")
-	}
-
-	if option.Config.EnableDSR && option.Config.EnableIPv6 {
-		log.Fatal("DSR cannot be used with IPv6")
+	if option.Config.EnableDSR {
+		switch {
+		case !option.Config.EnableNodePort:
+			log.Fatal("DSR can be enabled only for NodePort BPF (--enable-node-port)")
+		case option.Config.EnableDSR && option.Config.EnableIPv6:
+			log.Fatal("DSR cannot be used with IPv6")
+		case option.Config.Tunnel != option.TunnelDisabled:
+			log.Fatal("DSR cannot be used with tunnel")
+		}
 	}
 
 	// If device has been specified, use it to derive better default
