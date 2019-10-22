@@ -540,26 +540,13 @@ ct_recreate4:
 		}
 # ifdef ENABLE_DSR
 		if (ct_state.dsr) {
-			cilium_dbg(skb, DBG_GENERIC, 700, 0);
 			struct ipv4_nat_entry *entry;
 			entry = snat_v4_lookup(&tuple);
-			cilium_dbg(skb, DBG_GENERIC, 701, tuple.saddr);
-			cilium_dbg(skb, DBG_GENERIC, 702, tuple.daddr);
-			cilium_dbg(skb, DBG_GENERIC, 703, tuple.sport);
-			cilium_dbg(skb, DBG_GENERIC, 704, tuple.dport);
-			cilium_dbg(skb, DBG_GENERIC, 705, tuple.nexthdr);
-			cilium_dbg(skb, DBG_GENERIC, 706, tuple.flags);
-
 			if (entry) {
-				cilium_dbg(skb, DBG_GENERIC, 707, entry->to_saddr);
-				cilium_dbg(skb, DBG_GENERIC, 708, entry->to_saddr);
-
 				int ret1 = snat_v4_rewrite_egress(skb, &tuple, entry, l4_off);
 				if (ret1 != 0) {
 					return ret1;
 				}
-				cilium_dbg(skb, DBG_GENERIC, 700, 2);
-				// TODO(brb) goto pass_to_stack ?
 			}
 		}
 # endif /* ENABLE_DSR */
@@ -1061,20 +1048,17 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 	if (ip4->ihl == 0x7) {
 		uint32_t opt1 = 0;
 		uint32_t opt2 = 0;
-		if (skb_load_bytes(skb, ETH_HLEN + sizeof(struct iphdr), &opt1, sizeof(opt1)) < 0)
+		if (skb_load_bytes(skb, ETH_HLEN + sizeof(struct iphdr),
+				   &opt1, sizeof(opt1)) < 0)
 			return DROP_INVALID;
-		if (skb_load_bytes(skb, ETH_HLEN + sizeof(struct iphdr) + sizeof(opt1), &opt2, sizeof(opt2)) < 0)
+		if (skb_load_bytes(skb, ETH_HLEN + sizeof(struct iphdr) + sizeof(opt1),
+				   &opt2, sizeof(opt2)) < 0)
 			return DROP_INVALID;
 		opt1 = bpf_ntohl(opt1);
 		opt2 = bpf_ntohl(opt2);
-		cilium_dbg(skb, DBG_GENERIC, 666, opt1);
-		cilium_dbg(skb, DBG_GENERIC, 667, opt2);
-
-		if ((opt1 & 0xffff0000) == 0x88080000) {
+		if ((opt1 & 0xffff0000) == DSR_IPV4_OPT_32) {
 			__be32 dport = opt1 & 0x0000ffff;
 			__be32 address = opt2;
-			cilium_dbg(skb, DBG_GENERIC, 668, dport);
-			cilium_dbg(skb, DBG_GENERIC, 669, address);
 			dsr = true;
 			if (ret == CT_NEW) {
 				if (snat_v4_set_egress(skb, address, dport) < 0) {
@@ -1086,8 +1070,6 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 #endif /* ENABLE_DSR */
 
 	if (ret == CT_NEW) {
-		// TODO(brb) create NAT entry here instead
-
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.node_port = ct_state.node_port;

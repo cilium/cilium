@@ -591,29 +591,40 @@ drop_err:
 				      METRIC_INGRESS : METRIC_EGRESS);
 }
 
-static inline int set_dsr_opt4(struct __sk_buff *skb, struct iphdr *ip4, __be32 svc_addr, __be32 svc_port)
+/* Helper function to set the IPv4 option for DSR when a backend is remote.
+ * NOTE: Revalidate data after calling the function.
+ */
+static inline int set_dsr_opt4(struct __sk_buff *skb, struct iphdr *ip4,
+			       __be32 svc_addr, __be32 svc_port)
 {
 	union tcp_flags tcp_flags = { .value = 0 };
 
 	if (ip4->protocol == IPPROTO_TCP) {
-		if (skb_load_bytes(skb, ETH_HLEN + sizeof(*ip4) + 12, &tcp_flags, 2) < 0)
+		if (skb_load_bytes(skb, ETH_HLEN + sizeof(*ip4) + 12,
+				   &tcp_flags, 2) < 0)
 			return DROP_CT_INVALID_HDR;
+		// Setting the option is required only for the first packet
+		// (SYN), in the case of TCP, as for further packets of the
+		// same connection a remote node will use a NAT entry to
+		// reverse xlate a reply.
 		if (!(tcp_flags.value & (TCP_FLAG_SYN)))
 			return 0;
 	}
 
-	ip4->ihl += 0x2; // u64 option
+	ip4->ihl += 0x2; // To accommodate u64 option
 	ip4->tot_len = bpf_htons(bpf_ntohs(ip4->tot_len) + 0x8);
-	__u32 opt1 = bpf_htonl(0x88080000 | svc_port);
+	__u32 opt1 = bpf_htonl(DSR_IPV4_OPT_32 | svc_port);
 	__u32 opt2 = bpf_htonl(svc_addr);
 
 	set_ipv4_csum_with_opt(ip4, opt1, opt2);
 
 	if (skb_adjust_room(skb, 0x8, BPF_ADJ_ROOM_NET, 0))
 		return DROP_INVALID;
-	if (skb_store_bytes(skb, ETH_HLEN + sizeof(*ip4), &opt1, sizeof(opt1), 0) < 0)
+	if (skb_store_bytes(skb, ETH_HLEN + sizeof(*ip4),
+			    &opt1, sizeof(opt1), 0) < 0)
 		return DROP_INVALID;
-	if (skb_store_bytes(skb, ETH_HLEN + sizeof(*ip4) + sizeof(opt1), &opt2, sizeof(opt2), 0) < 0)
+	if (skb_store_bytes(skb, ETH_HLEN + sizeof(*ip4) + sizeof(opt1),
+			    &opt2, sizeof(opt2), 0) < 0)
 		return DROP_INVALID;
 
 	return 0;
@@ -628,11 +639,7 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
-
 	struct bpf_fib_lookup fib_params = {};
-	struct iphdr v4 = {};
-	union tcp_flags tcp_flags = { .value = 0 };
-
 	int ret,  l3_off = ETH_HLEN, l4_off;
 	struct csum_offset csum_off = {};
 	struct lb4_service *svc;
@@ -727,9 +734,6 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 
 	if (!backend_local) {
 #ifdef ENABLE_DSR
-		//if (!revalidate_data(skb, &data, &data_end, &ip4))
-		//	return DROP_INVALID;
-
 		ret = set_dsr_opt4(skb, ip4, key.address, key.dport);
 		if (ret != 0)
 			return ret;
