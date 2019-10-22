@@ -241,6 +241,8 @@ IMPORTANT: Changes required before upgrading to 1.7.0
    Do not upgrade to 1.7.0 before reading the following section and completing
    the required steps.
 
+* Cilium has bumped the minimal kubernetes version supported to v1.11.0.
+
 * If ``kvstore`` is setup with ``etcd`` **and** TLS is enabled, the field name
   ``ca-file`` will have its usage deprecated and will be removed in Cilium v1.8.0.
   The new field name, ``trusted-ca-file``, can be used since Cilium v1.1.0.
