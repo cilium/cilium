@@ -441,6 +441,52 @@ static __always_inline bool snat_v4_can_skip(const struct ipv4_nat_target *targe
 	return false;
 }
 
+static __always_inline int snat_v4_create_dsr(struct __sk_buff *skb,
+					      __be32 to_saddr, __be16 to_sport)
+{
+	void *data, *data_end;
+	struct ipv4_ct_tuple tuple = {};
+	struct ipv4_nat_entry state = {};
+	struct iphdr *ip4;
+	struct {
+		__be16 sport;
+		__be16 dport;
+	} l4hdr;
+	__u32 off;
+
+	build_bug_on(sizeof(struct ipv4_nat_entry) > 64);
+
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	tuple.nexthdr = ip4->protocol;
+	tuple.daddr = ip4->saddr;
+	tuple.saddr = ip4->daddr;
+	tuple.flags = NAT_DIR_EGRESS;
+	off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
+	switch (tuple.nexthdr) {
+	case IPPROTO_TCP:
+	case IPPROTO_UDP:
+		if (skb_load_bytes(skb, off, &l4hdr, sizeof(l4hdr)) < 0)
+			return DROP_INVALID;
+		tuple.dport = l4hdr.sport;
+		tuple.sport = l4hdr.dport;
+		break;
+	default:
+		return DROP_NAT_UNSUPP_PROTO;
+	}
+
+	state.common.created = bpf_ktime_get_nsec();
+	state.to_saddr = to_saddr;
+	state.to_sport = to_sport;
+
+	int ret = map_update_elem(&SNAT_MAPPING_IPV4, &tuple, &state, 0);
+	if (!ret)
+		return ret;
+
+	return TC_ACT_OK;
+}
+
 static __always_inline int snat_v4_process(struct __sk_buff *skb, int dir,
 					   const struct ipv4_nat_target *target)
 {
