@@ -118,6 +118,10 @@ func (k8sCli K8sClient) AnnotateNode(nodeName string, v4CIDR, v6CIDR *cidr.CIDR,
 
 // GetSecrets returns the secrets found in the given namespace and name.
 func (k8sCli K8sClient) GetSecrets(ctx context.Context, ns, name string) (map[string][]byte, error) {
+	if k8sCli.Interface == nil {
+		return nil, fmt.Errorf("GetSecrets: No k8s, cannot access k8s secrets")
+	}
+
 	result := &coreV1.Secret{}
 	err := k8sCli.CoreV1().RESTClient().Get().
 		Context(ctx).
