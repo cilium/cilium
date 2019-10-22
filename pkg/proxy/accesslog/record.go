@@ -219,6 +219,9 @@ type LogRecordHTTP struct {
 
 	// Headers are all HTTP headers present in the request
 	Headers http.Header
+
+	// ImposedHeaders are all HTTP request headers that were modified by the policy
+	ImposedHeaders http.Header
 }
 
 // KafkaTopic contains the topic for requests

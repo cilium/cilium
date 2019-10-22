@@ -528,7 +528,7 @@ func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP) *ci
 		var err error
 		if hdr.Secret != nil {
 			if certManager == nil {
-				err = fmt.Errorf("Nil certManager")
+				err = fmt.Errorf("MatchHeaders: Nil certManager")
 			} else {
 				value, err = certManager.GetSecretString(context.TODO(), hdr.Secret)
 			}
@@ -538,7 +538,7 @@ func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP) *ci
 		if value == "" && hdr.Value != "" {
 			value = hdr.Value
 			if err != nil {
-				log.WithError(err).Debug("Using a default value due to k8s secret not being available")
+				log.WithError(err).Debug("MatchHeaders: Using a default value due to k8s secret not being available")
 				err = nil
 			}
 		}
@@ -580,7 +580,7 @@ func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP) *ci
 		var err error
 		if hdr.Secret != nil {
 			if certManager == nil {
-				err = fmt.Errorf("Nil certManager")
+				err = fmt.Errorf("ImposeHeaders: Nil certManager")
 			} else {
 				value, err = certManager.GetSecretString(context.TODO(), hdr.Secret)
 			}
@@ -589,14 +589,15 @@ func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP) *ci
 		if value == "" && hdr.Value != "" {
 			value = hdr.Value
 			if err != nil {
-				log.WithError(err).Debug("Using a default value due to k8s secret not being available")
+				log.WithError(err).Debug("ImposeHeaders: Using a default value due to k8s secret not being available")
 				err = nil
 			}
 		}
+		log.Debugf("ImposeHeaders: Adding [%s] = %s", hdr.Name, value)
 		imposeHeaders[hdr.Name] = value
 	}
 
-	return &cilium.HttpNetworkPolicyRule{Headers: headers /*, ImposeHeaders: imposeHeaders */}
+	return &cilium.HttpNetworkPolicyRule{Headers: headers, ImposeHeaders: imposeHeaders}
 }
 
 func createBootstrap(filePath string, name, cluster, version string, xdsSock, egressClusterName, ingressClusterName string, adminPath string) {

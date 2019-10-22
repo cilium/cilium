@@ -61,7 +61,7 @@ required = [
 
 [[constraint]]
   name = "github.com/cilium/proxy"
-  revision = "f04b4a0ae1863c031c453e390675e3bffb0f084e"
+  revision = "1e975f0e4d4b2b945f4757f6f2fc859134ae5beb"
 
   # main-usage = "pkg/envoy"
   # on-revision = "no stable releases released"

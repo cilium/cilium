@@ -139,6 +139,21 @@ func (m *HttpLogEntry) Validate() error {
 
 	// no validation rules for Status
 
+	for idx, item := range m.GetImposedHeaders() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HttpLogEntryValidationError{
+					field:  fmt.Sprintf("ImposedHeaders[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
 	return nil
 }
 
