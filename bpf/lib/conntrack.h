@@ -230,6 +230,7 @@ static inline __u8 __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 			ct_state->rev_nat_index = entry->rev_nat_index;
 			ct_state->loopback = entry->lb_loopback;
 			ct_state->node_port = entry->node_port;
+			ct_state->dsr = entry->dsr;
 			ct_state->proxy_redirect = entry->proxy_redirect;
 			/* To support seamless upgrade from an earlier service
 			 * implementation, we store references to the backend
@@ -753,6 +754,7 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 	
 	entry.lb_loopback = ct_state->loopback;
 	entry.node_port = ct_state->node_port;
+	entry.dsr = ct_state->dsr;
 
 	/* We need to store the backend_id (points to a svc v2 endpoint), while
 	 * handling migration for users upgrading from prior releases. where

@@ -554,6 +554,24 @@ ct_recreate4:
 			ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
 			return DROP_MISSED_TAIL_CALL;
 		}
+# ifdef ENABLE_DSR
+		if (ct_state.dsr) {
+			struct ipv4_ct_tuple nat_tup = tuple;
+			struct ipv4_nat_entry *entry;
+
+			nat_tup.flags = NAT_DIR_EGRESS;
+			nat_tup.sport = tuple.dport;
+			nat_tup.dport = tuple.sport;
+			entry = snat_v4_lookup(&nat_tup);
+			if (entry) {
+				ret = snat_v4_rewrite_egress(skb, &nat_tup,
+								  entry, l4_off);
+				if (ret != 0) {
+					return ret;
+				}
+			}
+		}
+# endif /* ENABLE_DSR */
 #endif /* ENABLE_NODEPORT */
 
 		if (ct_state.rev_nat_index) {
@@ -982,6 +1000,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 	__be32 orig_dip, orig_sip;
 	bool is_fragment = false;
 	__u32 monitor = 0;
+	bool dsr = false;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -1048,9 +1067,41 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 		verdict = 0;
 
 	if (ret == CT_NEW) {
+#ifdef ENABLE_DSR
+		// Check whether IPv4 header contains a 64-bit option (IPv4 header
+		// w/o option (5 x 32-bit words) + the DSR option (2 x 32-bit words))
+		if (ip4->ihl == 0x7) {
+			uint32_t opt1 = 0;
+			uint32_t opt2 = 0;
+
+			if (skb_load_bytes(skb, ETH_HLEN + sizeof(struct iphdr),
+					   &opt1, sizeof(opt1)) < 0)
+				return DROP_INVALID;
+			opt1 = bpf_ntohl(opt1);
+
+			if ((opt1 & DSR_IPV4_OPT_MASK) == DSR_IPV4_OPT_32) {
+				if (skb_load_bytes(skb, ETH_HLEN +
+						   sizeof(struct iphdr) +
+						   sizeof(opt1),
+						   &opt2, sizeof(opt2)) < 0)
+					return DROP_INVALID;
+				opt2 = bpf_ntohl(opt2);
+
+				__be32 dport = opt1 & DSR_IPV4_DPORT_MASK;
+				__be32 address = opt2;
+				dsr = true;
+
+				if (snat_v4_create_dsr(skb, address, dport) < 0) {
+					return DROP_INVALID;
+				}
+			}
+		}
+#endif /* ENABLE_DSR */
+
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.node_port = ct_state.node_port;
+		ct_state_new.dsr = dsr;
 		ret = ct_create4(get_ct_map4(&tuple), &tuple, skb, CT_INGRESS, &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))
 			return ret;
