@@ -538,6 +538,7 @@ ct_recreate4:
 			ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
 			return DROP_MISSED_TAIL_CALL;
 		}
+# ifdef ENABLE_DSR
 		if (ct_state.dsr) {
 			cilium_dbg(skb, DBG_GENERIC, 700, 0);
 			struct ipv4_nat_entry *entry;
@@ -558,9 +559,10 @@ ct_recreate4:
 					return ret1;
 				}
 				cilium_dbg(skb, DBG_GENERIC, 700, 2);
-			// TODO(brb) do snat_rewrite_egress and return to stack
+				// TODO(brb) goto pass_to_stack ?
 			}
 		}
+# endif /* ENABLE_DSR */
 #endif /* ENABLE_NODEPORT */
 
 		if (ct_state.rev_nat_index) {
@@ -1055,6 +1057,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 
         if (!revalidate_data(skb, &data, &data_end, &ip4))
                        return DROP_INVALID;
+#ifdef ENABLE_DSR
 	if (ip4->ihl == 0x7) {
 		uint32_t opt1 = 0;
 		uint32_t opt2 = 0;
@@ -1080,11 +1083,10 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 			}
 		}
 	}
+#endif /* ENABLE_DSR */
 
 	if (ret == CT_NEW) {
-		if (dsr) {
-			// TODO(brb) create NAT entry here instead
-		}
+		// TODO(brb) create NAT entry here instead
 
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
