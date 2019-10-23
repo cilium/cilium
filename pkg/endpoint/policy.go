@@ -545,3 +545,9 @@ func (e *Endpoint) setDefaultPolicyConfig() {
 	e.desiredPolicy.IngressPolicyEnabled = alwaysEnforce
 	e.desiredPolicy.EgressPolicyEnabled = alwaysEnforce
 }
+
+// forcePolicyComputation ensures that upon the next policy calculation for this
+// Endpoint, that no short-circuiting of said operation occurs.
+func (e *Endpoint) forcePolicyComputation() {
+	e.forcePolicyCompute = true
+}
