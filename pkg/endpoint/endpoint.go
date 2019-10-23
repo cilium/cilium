@@ -650,18 +650,6 @@ func APICanModify(e *Endpoint) error {
 	return nil
 }
 
-func (e *Endpoint) getIDandLabels() string {
-	e.unconditionalRLock()
-	defer e.runlock()
-
-	labels := ""
-	if e.SecurityIdentity != nil {
-		labels = e.SecurityIdentity.Labels.String()
-	}
-
-	return fmt.Sprintf("%d (%s)", e.ID, labels)
-}
-
 // IPs returns the slice of valid IPs for this endpoint.
 func (e *Endpoint) IPs() []net.IP {
 	ips := []net.IP{}
