@@ -326,29 +326,6 @@ func (e *Endpoint) GetID16() uint16 {
 	return e.ID
 }
 
-// getK8sPodLabels returns all labels that exist in the endpoint and were
-// derived from k8s pod.
-func (e *Endpoint) getK8sPodLabels() pkgLabels.Labels {
-	e.unconditionalRLock()
-	defer e.runlock()
-	allLabels := e.OpLabels.AllLabels()
-	if allLabels == nil {
-		return nil
-	}
-
-	allLabelsFromK8s := allLabels.GetFromSource(pkgLabels.LabelSourceK8s)
-
-	k8sEPPodLabels := pkgLabels.Labels{}
-	for k, v := range allLabelsFromK8s {
-		if !strings.HasPrefix(v.Key, ciliumio.PodNamespaceMetaLabels) &&
-			!strings.HasPrefix(v.Key, ciliumio.PolicyLabelServiceAccount) &&
-			!strings.HasPrefix(v.Key, ciliumio.PodNamespaceLabel) {
-			k8sEPPodLabels[k] = v
-		}
-	}
-	return k8sEPPodLabels
-}
-
 // GetOptions returns the datapath configuration options of the endpoint.
 func (e *Endpoint) GetOptions() *option.IntOptions {
 	return e.Options
