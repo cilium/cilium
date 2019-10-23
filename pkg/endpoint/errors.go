@@ -21,3 +21,24 @@ var (
 	// rlocked because it is currently being removed.
 	ErrNotAlive = errors.New("rlock failed: endpoint is in the process of being removed")
 )
+
+type UpdateValidationError struct {
+	msg string
+}
+
+func (e UpdateValidationError) Error() string { return e.msg }
+
+type UpdateCompilationError struct {
+	msg string
+}
+
+func (e UpdateCompilationError) Error() string { return e.msg }
+
+// UpdateStateChangeError is an error that indicates that updating the state
+// of an endpoint was unsuccessful.
+// Implements error interface.
+type UpdateStateChangeError struct {
+	msg string
+}
+
+func (e UpdateStateChangeError) Error() string { return e.msg }

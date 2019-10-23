@@ -412,27 +412,6 @@ func (e *Endpoint) String() string {
 	return string(b)
 }
 
-type UpdateValidationError struct {
-	msg string
-}
-
-func (e UpdateValidationError) Error() string { return e.msg }
-
-type UpdateCompilationError struct {
-	msg string
-}
-
-func (e UpdateCompilationError) Error() string { return e.msg }
-
-// UpdateStateChangeError is an error that indicates that updating the state
-// of an endpoint was unsuccessful.
-// Implements error interface.
-type UpdateStateChangeError struct {
-	msg string
-}
-
-func (e UpdateStateChangeError) Error() string { return e.msg }
-
 // Update modifies the endpoint options and *always* tries to regenerate the
 // endpoint's program. Returns an error if the provided options are not valid,
 // if there was an issue triggering policy updates for the given endpoint,
