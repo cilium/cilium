@@ -1361,3 +1361,35 @@ func (e *Endpoint) FinishIPVLANInit(netNsPath string) error {
 
 	return nil
 }
+
+// PinDatapathMap retrieves a file descriptor from the map ID from the API call
+// and pins the corresponding map into the BPF file system.
+func (e *Endpoint) PinDatapathMap() error {
+	if err := e.lockAlive(); err != nil {
+		return err
+	}
+	defer e.unlock()
+	return e.pinDatapathMap()
+}
+
+// PinDatapathMap retrieves a file descriptor from the map ID from the API call
+// and pins the corresponding map into the BPF file system.
+func (e *Endpoint) pinDatapathMap() error {
+	if e.datapathMapID == 0 {
+		return nil
+	}
+
+	mapFd, err := bpf.MapFdFromID(e.datapathMapID)
+	if err != nil {
+		return err
+	}
+	defer unix.Close(mapFd)
+
+	err = bpf.ObjPin(mapFd, e.BPFIpvlanMapPath())
+
+	if err == nil {
+		e.isDatapathMapPinned = true
+	}
+
+	return err
+}
