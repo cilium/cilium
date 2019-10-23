@@ -19,8 +19,6 @@ package service
 import (
 	"testing"
 
-	"github.com/cilium/cilium/pkg/kvstore"
-
 	. "gopkg.in/check.v1"
 )
 
@@ -31,40 +29,6 @@ func Test(t *testing.T) {
 
 type ServiceTestSuite struct{}
 
-type ServiceEtcdSuite struct {
-	ServiceTestSuite
-}
-
-var _ = Suite(&ServiceEtcdSuite{})
-
-func (e *ServiceEtcdSuite) SetUpTest(c *C) {
-	EnableGlobalServiceID(true)
-	kvstore.SetupDummy("etcd")
-	kvstore.DeletePrefix(serviceKvstorePrefix)
-}
-
-func (e *ServiceEtcdSuite) TearDownTest(c *C) {
-	kvstore.DeletePrefix(serviceKvstorePrefix)
-	kvstore.Close()
-}
-
-type ServiceConsulSuite struct {
-	ServiceTestSuite
-}
-
-var _ = Suite(&ServiceConsulSuite{})
-
-func (e *ServiceConsulSuite) SetUpTest(c *C) {
-	EnableGlobalServiceID(true)
-	kvstore.SetupDummy("consul")
-	kvstore.DeletePrefix(serviceKvstorePrefix)
-}
-
-func (e *ServiceConsulSuite) TearDownTest(c *C) {
-	kvstore.DeletePrefix(serviceKvstorePrefix)
-	kvstore.Close()
-}
-
 type ServiceLocalSuite struct {
 	ServiceTestSuite
 }
@@ -72,7 +36,6 @@ type ServiceLocalSuite struct {
 var _ = Suite(&ServiceLocalSuite{})
 
 func (e *ServiceLocalSuite) SetUpTest(c *C) {
-	EnableGlobalServiceID(false)
 	serviceIDAlloc.resetLocalID()
 }
 

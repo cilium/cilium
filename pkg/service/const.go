@@ -14,17 +14,7 @@
 
 package service
 
-import (
-	"github.com/cilium/cilium/common"
-)
-
 const (
-	// ServiceIDKeyPath is the base path where the IDs are stored in the kvstore.
-	ServiceIDKeyPath = common.OperationalPath + "/ServicesV2/IDs"
-
-	// LastFreeServiceIDKeyPath is the path where the Last free UUID is stored in the kvstore.
-	LastFreeServiceIDKeyPath = common.OperationalPath + "/ServicesV2/LastUUID"
-
 	// FirstFreeServiceID is the first ID for which the services should be assigned.
 	FirstFreeServiceID = uint32(1)
 
@@ -38,6 +28,4 @@ const (
 	// MaxSetOfBackendID is maximum number of set of backendIDs IDs that can be
 	// stored in the local ID allocator.
 	MaxSetOfBackendID = uint32(0xFFFF)
-
-	serviceKvstorePrefix = common.OperationalPath + "/ServicesV2/"
 )
