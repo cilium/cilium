@@ -869,21 +869,6 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpoin
 	return errs
 }
 
-// GetProxyInfoByFields returns the ID, IPv4 address, IPv6 address, labels,
-// SHA of labels, and identity of the endpoint. Returns an error if the endpoint
-// is in the process of being deleted / has been deleted.
-func (e *Endpoint) GetProxyInfoByFields() (uint64, string, string, []string, string, uint64, error) {
-	// We use unconditional locking here because we explicitly handle state
-	// in which the endpoint is being deleted.
-	e.unconditionalRLock()
-	defer e.runlock()
-	var err error
-	if e.IsDisconnecting() {
-		err = fmt.Errorf("endpoint is in the process of being deleted")
-	}
-	return e.GetID(), e.GetIPv4Address(), e.GetIPv6Address(), e.GetLabels(), e.GetLabelsSHA(), uint64(e.GetIdentity()), err
-}
-
 // RegenerateAfterCreation handles the first regeneration of an endpoint after
 // it is created.
 // After a call to `Regenerate` on the endpoint is made, `endpointStartFunc`
