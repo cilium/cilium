@@ -16,16 +16,20 @@ package endpoint
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/identity"
@@ -34,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/sirupsen/logrus"
 )
@@ -382,4 +387,102 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.K8sNamespace = r.K8sNamespace
 	ep.DatapathConfiguration = r.DatapathConfiguration
 	ep.Options = r.Options
+}
+
+// base64 returns the endpoint in a base64 format.
+func (e *Endpoint) base64() (string, error) {
+	var (
+		jsonBytes []byte
+		err       error
+	)
+
+	jsonBytes, err = json.Marshal(e)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(jsonBytes), nil
+}
+
+// parseBase64ToEndpoint parses the endpoint stored in the given base64 string.
+func parseBase64ToEndpoint(str string, ep *Endpoint) error {
+	jsonBytes, err := base64.StdEncoding.DecodeString(str)
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(jsonBytes, ep); err != nil {
+		return fmt.Errorf("error unmarshaling serializableEndpoint from base64 representation: %s", err)
+	}
+
+	return nil
+}
+
+// FilterEPDir returns a list of directories' names that possible belong to an endpoint.
+func FilterEPDir(dirFiles []os.FileInfo) []string {
+	eptsID := []string{}
+	for _, file := range dirFiles {
+		if file.IsDir() {
+			_, err := strconv.ParseUint(file.Name(), 10, 16)
+			if err == nil || strings.HasSuffix(file.Name(), "_next") || strings.HasSuffix(file.Name(), "_next_fail") {
+				eptsID = append(eptsID, file.Name())
+			}
+		}
+	}
+	return eptsID
+}
+
+// parseEndpoint parses the given strEp which is in the form of:
+// common.CiliumCHeaderPrefix + common.Version + ":" + endpointBase64
+// Note that the parse'd endpoint's identity is only partially restored. The
+// caller must call `SetIdentity()` to make the returned endpoint's identity useful.
+func parseEndpoint(ctx context.Context, owner regeneration.Owner, strEp string) (*Endpoint, error) {
+	// TODO: Provide a better mechanism to update from old version once we bump
+	// TODO: cilium version.
+	strEpSlice := strings.Split(strEp, ":")
+	if len(strEpSlice) != 2 {
+		return nil, fmt.Errorf("invalid format %q. Should contain a single ':'", strEp)
+	}
+	ep := Endpoint{
+		owner: owner,
+	}
+
+	if err := parseBase64ToEndpoint(strEpSlice[1], &ep); err != nil {
+		return nil, fmt.Errorf("failed to parse restored endpoint: %s", err)
+	}
+
+	// Validate the options that were parsed
+	ep.SetDefaultOpts(ep.Options)
+
+	// Initialize fields to values which are non-nil that are not serialized.
+	ep.hasBPFProgram = make(chan struct{}, 0)
+	ep.desiredPolicy = policy.NewEndpointPolicy(owner.GetPolicyRepository())
+	ep.realizedPolicy = ep.desiredPolicy
+	ep.controllers = controller.NewManager()
+	ep.regenFailedChan = make(chan struct{}, 1)
+
+	ctx, cancel := context.WithCancel(ctx)
+	ep.aliveCancel = cancel
+	ep.aliveCtx = ctx
+
+	ep.startRegenerationFailureHandler()
+
+	// We need to check for nil in Status, CurrentStatuses and Log, since in
+	// some use cases, status will be not nil and Cilium will eventually
+	// error/panic if CurrentStatus or Log are not initialized correctly.
+	// Reference issue GH-2477
+	if ep.status == nil || ep.status.CurrentStatuses == nil || ep.status.Log == nil {
+		ep.status = NewEndpointStatus()
+	}
+
+	// Make sure the endpoint has an identity, using the 'init' identity if none.
+	if ep.SecurityIdentity == nil {
+		ep.SecurityIdentity = identity.LookupReservedIdentity(identity.ReservedIdentityInit)
+	}
+	ep.SecurityIdentity.Sanitize()
+
+	ep.UpdateLogger(nil)
+
+	ep.setState(StateRestoring, "Endpoint restoring")
+
+	return &ep, nil
 }
