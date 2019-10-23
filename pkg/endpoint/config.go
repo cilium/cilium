@@ -77,3 +77,18 @@ func (e *Endpoint) SetDefaultOpts(opts *option.IntOptions) {
 	}
 	e.UpdateLogger(nil)
 }
+
+// SetDefaultConfiguration sets the default configuration options for its
+// boolean configuration options and for policy enforcement based off of the
+// global policy enforcement configuration options. If restore is true, then
+// the configuration option to keep endpoint configuration during endpoint
+// restore is checked, and if so, this is a no-op.
+func (e *Endpoint) SetDefaultConfiguration(restore bool) {
+	e.unconditionalLock()
+	defer e.unlock()
+
+	if restore && option.Config.KeepConfig {
+		return
+	}
+	e.setDefaultPolicyConfig()
+}
