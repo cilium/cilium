@@ -14,7 +14,7 @@
 
 // +build !privileged_tests
 
-package main
+package linux
 
 import (
 	"github.com/cilium/cilium/pkg/versioncheck"
@@ -23,7 +23,7 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-func (ds *DaemonSuite) TestParseKernelVersion(c *C) {
+func (s *linuxTestSuite) TestParseKernelVersion(c *C) {
 	mustHaveVersion := func(v string) go_version.Version {
 		ver, err := versioncheck.Version(v)
 		c.Assert(err, IsNil)
