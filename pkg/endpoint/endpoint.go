@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 	"time"
 	"unsafe"
 
@@ -34,10 +33,8 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -45,10 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/monitor/notifications"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/trigger"
-
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -560,49 +554,6 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 	e.getLogger().Info("Removed endpoint")
 
 	return errors
-}
-
-func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
-	e.buildMutex.Lock()
-	defer e.buildMutex.Unlock()
-
-	if err := e.lockAlive(); err != nil {
-		// endpoint was removed in the meanwhile, return
-		return
-	}
-	defer e.unlock()
-
-	if err := e.writeHeaderfile(e.StateDirectoryPath()); err != nil {
-		e.getLogger().WithFields(logrus.Fields{
-			logfields.Reason: reasons,
-		}).WithError(err).Warning("could not sync header file")
-	}
-}
-
-// SyncEndpointHeaderFile it bumps the current DNS History information for the
-// endpoint in the lxc_config.h file.
-func (e *Endpoint) SyncEndpointHeaderFile() error {
-	if err := e.lockAlive(); err != nil {
-		// endpoint was removed in the meanwhile, return
-		return nil
-	}
-	defer e.unlock()
-
-	if e.dnsHistoryTrigger == nil {
-		t, err := trigger.NewTrigger(trigger.Parameters{
-			Name:        "sync_endpoint_header_file",
-			MinInterval: 5 * time.Second,
-			TriggerFunc: func(reasons []string) { e.syncEndpointHeaderFile(reasons) },
-		})
-		if err != nil {
-			return fmt.Errorf(
-				"Sync Endpoint header file trigger for endpoint cannot be activated: %s",
-				err)
-		}
-		e.dnsHistoryTrigger = t
-	}
-	e.dnsHistoryTrigger.Trigger()
-	return nil
 }
 
 type ipReleaser interface {

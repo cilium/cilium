@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/revert"
+	"github.com/cilium/cilium/pkg/trigger"
 	"github.com/cilium/cilium/pkg/version"
 
 	"github.com/sirupsen/logrus"
@@ -1428,4 +1429,47 @@ func (e *Endpoint) HasIpvlanDataPath() bool {
 		return true
 	}
 	return false
+}
+
+func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
+	e.buildMutex.Lock()
+	defer e.buildMutex.Unlock()
+
+	if err := e.lockAlive(); err != nil {
+		// endpoint was removed in the meanwhile, return
+		return
+	}
+	defer e.unlock()
+
+	if err := e.writeHeaderfile(e.StateDirectoryPath()); err != nil {
+		e.getLogger().WithFields(logrus.Fields{
+			logfields.Reason: reasons,
+		}).WithError(err).Warning("could not sync header file")
+	}
+}
+
+// SyncEndpointHeaderFile it bumps the current DNS History information for the
+// endpoint in the lxc_config.h file.
+func (e *Endpoint) SyncEndpointHeaderFile() error {
+	if err := e.lockAlive(); err != nil {
+		// endpoint was removed in the meanwhile, return
+		return nil
+	}
+	defer e.unlock()
+
+	if e.dnsHistoryTrigger == nil {
+		t, err := trigger.NewTrigger(trigger.Parameters{
+			Name:        "sync_endpoint_header_file",
+			MinInterval: 5 * time.Second,
+			TriggerFunc: func(reasons []string) { e.syncEndpointHeaderFile(reasons) },
+		})
+		if err != nil {
+			return fmt.Errorf(
+				"Sync Endpoint header file trigger for endpoint cannot be activated: %s",
+				err)
+		}
+		e.dnsHistoryTrigger = t
+	}
+	e.dnsHistoryTrigger.Trigger()
+	return nil
 }
