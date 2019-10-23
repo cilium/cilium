@@ -22,6 +22,8 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/color"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/sirupsen/logrus"
 )
 
 type StatusCode int
@@ -253,4 +255,46 @@ func (e *EndpointStatus) CurrentStatus() StatusCode {
 
 func (e *EndpointStatus) String() string {
 	return e.CurrentStatus().String()
+}
+
+func (e *Endpoint) LogStatus(typ StatusType, code StatusCode, msg string) {
+	e.unconditionalLock()
+	defer e.unlock()
+	// FIXME GH2323 instead of a mutex we could use a channel to send the status
+	// log message to a single writer?
+	e.logStatusLocked(typ, code, msg)
+}
+
+func (e *Endpoint) LogStatusOK(typ StatusType, msg string) {
+	e.LogStatus(typ, OK, msg)
+}
+
+// LogStatusOKLocked will log an OK message of the given status type with the
+// given msg string.
+// must be called with endpoint.Mutex held
+func (e *Endpoint) LogStatusOKLocked(typ StatusType, msg string) {
+	e.logStatusLocked(typ, OK, msg)
+}
+
+// logStatusLocked logs a status message
+// must be called with endpoint.Mutex held
+func (e *Endpoint) logStatusLocked(typ StatusType, code StatusCode, msg string) {
+	e.status.indexMU.Lock()
+	defer e.status.indexMU.Unlock()
+	sts := &statusLogMsg{
+		Status: Status{
+			Code:  code,
+			Msg:   msg,
+			Type:  typ,
+			State: e.state,
+		},
+		Timestamp: time.Now().UTC(),
+	}
+	e.status.addStatusLog(sts)
+	e.getLogger().WithFields(logrus.Fields{
+		"code":                   sts.Status.Code,
+		"type":                   sts.Status.Type,
+		logfields.EndpointState:  sts.Status.State,
+		logfields.PolicyRevision: e.policyRevision,
+	}).Debug(msg)
 }
