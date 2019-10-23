@@ -16,6 +16,7 @@ package endpoint
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -44,7 +45,7 @@ func (e *Endpoint) SetProxy(p EndpointProxy) {
 // updateProxyRedirect updates the redirect rules in the proxy for a particular
 // endpoint using the provided L4 filter. Returns the allocated proxy port
 func (e *Endpoint) updateProxyRedirect(l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (proxyPort uint16, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
-	if e.proxy == nil {
+	if e.isProxyDisabled() {
 		return 0, fmt.Errorf("can't redirect, proxy disabled"), nil, nil
 	}
 	return e.proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, proxyWaitGroup)
@@ -53,7 +54,7 @@ func (e *Endpoint) updateProxyRedirect(l4 *policy.L4Filter, proxyWaitGroup *comp
 // removeProxyRedirect removes a previously installed proxy redirect for an
 // endpoint.
 func (e *Endpoint) removeProxyRedirect(id string, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
-	if e.proxy == nil {
+	if e.isProxyDisabled() {
 		return nil, nil, nil
 	}
 	log.WithFields(logrus.Fields{
@@ -64,10 +65,14 @@ func (e *Endpoint) removeProxyRedirect(id string, proxyWaitGroup *completion.Wai
 }
 
 func (e *Endpoint) removeNetworkPolicy() {
-	if e.proxy == nil {
+	if e.isProxyDisabled() {
 		return
 	}
 	e.proxy.RemoveNetworkPolicy(e)
+}
+
+func (e *Endpoint) isProxyDisabled() bool {
+	return e.proxy == nil || reflect.ValueOf(e.proxy).IsNil()
 }
 
 // FakeEndpointProxy is a stub proxy used for testing.
