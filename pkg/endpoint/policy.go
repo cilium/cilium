@@ -78,7 +78,7 @@ func (e *Endpoint) updateNetworkPolicy(proxyWaitGroup *completion.WaitGroup) (re
 		return nil, nil
 	}
 
-	if e.proxy == nil {
+	if e.isProxyDisabled() {
 		return fmt.Errorf("can't update network policy, proxy disabled"), nil
 	}
 
