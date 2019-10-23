@@ -49,11 +49,6 @@ const (
 	maxLogs = 256
 )
 
-const (
-	// IpvlanMapName specifies the tail call map for EP on egress used with ipvlan.
-	IpvlanMapName = "cilium_lxc_ipve_"
-)
-
 // compile time interface check
 var _ notifications.RegenNotificationInfo = &Endpoint{}
 

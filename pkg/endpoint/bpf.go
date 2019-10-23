@@ -50,6 +50,9 @@ import (
 const (
 	// EndpointGenerationTimeout specifies timeout for proxy completion context
 	EndpointGenerationTimeout = 330 * time.Second
+
+	// IpvlanMapName specifies the tail call map for EP on egress used with ipvlan.
+	IpvlanMapName = "cilium_lxc_ipve_"
 )
 
 // policyMapPath returns the path to the policy map of endpoint.
