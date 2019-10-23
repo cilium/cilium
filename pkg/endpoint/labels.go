@@ -364,3 +364,28 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 
 	return nil
 }
+
+// GetLabelsSHA returns the SHA of labels
+func (e *Endpoint) GetLabelsSHA() string {
+	if e.SecurityIdentity == nil {
+		return ""
+	}
+
+	return e.SecurityIdentity.GetLabelsSHA256()
+}
+
+// GetOpLabels returns the labels as slice
+func (e *Endpoint) GetOpLabels() []string {
+	e.unconditionalRLock()
+	defer e.runlock()
+	return e.OpLabels.IdentityLabels().GetModel()
+}
+
+// GetLabels returns the labels as slice
+func (e *Endpoint) GetLabels() []string {
+	if e.SecurityIdentity == nil {
+		return []string{}
+	}
+
+	return e.SecurityIdentity.Labels.GetModel()
+}

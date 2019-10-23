@@ -327,15 +327,6 @@ func (e *Endpoint) GetID() uint64 {
 	return uint64(e.ID)
 }
 
-// GetLabels returns the labels as slice
-func (e *Endpoint) GetLabels() []string {
-	if e.SecurityIdentity == nil {
-		return []string{}
-	}
-
-	return e.SecurityIdentity.Labels.GetModel()
-}
-
 // GetSecurityIdentity returns the security identity of the endpoint. It assumes
 // the endpoint's mutex is held.
 func (e *Endpoint) GetSecurityIdentity() (*identity.Identity, error) {
@@ -372,22 +363,6 @@ func (e *Endpoint) getK8sPodLabels() pkgLabels.Labels {
 		}
 	}
 	return k8sEPPodLabels
-}
-
-// GetLabelsSHA returns the SHA of labels
-func (e *Endpoint) GetLabelsSHA() string {
-	if e.SecurityIdentity == nil {
-		return ""
-	}
-
-	return e.SecurityIdentity.GetLabelsSHA256()
-}
-
-// GetOpLabels returns the labels as slice
-func (e *Endpoint) GetOpLabels() []string {
-	e.unconditionalRLock()
-	defer e.runlock()
-	return e.OpLabels.IdentityLabels().GetModel()
 }
 
 // GetOptions returns the datapath configuration options of the endpoint.
