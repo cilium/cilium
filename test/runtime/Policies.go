@@ -48,6 +48,7 @@ const (
 	invalidJSON                     = "invalid.json"
 	multL7PoliciesJSON              = "Policies-l7-multiple.json"
 	policiesL7JSON                  = "Policies-l7-simple.json"
+	imposePoliciesL7JSON            = "Policies-l7-impose.json"
 	policiesL3JSON                  = "Policies-l3-policy.json"
 	policiesL4Json                  = "Policies-l4-policy.json"
 	policiesL3DependentL7EgressJSON = "Policies-l3-dependent-l7-egress.json"
@@ -363,6 +364,16 @@ var _ = Describe("RuntimePolicies", func() {
 		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, true)
 		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, true)
 
+		By("Impose header on Egress, verify on ingress")
+
+		vm.PolicyDelAll()
+		_, err = vm.PolicyImportAndWait(vm.GetFullPath(imposePoliciesL7JSON), helpers.HelperTimeout)
+		Expect(err).Should(BeNil())
+
+		// app2 can connect to public, but no to private
+		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd2, true)
+		connectivityTest(httpRequestsPrivate, helpers.App2, helpers.Httpd2, false)
+		
 		By("Multiple Ingress")
 
 		vm.PolicyDelAll()
