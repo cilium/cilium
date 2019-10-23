@@ -104,6 +104,7 @@ cilium-agent [flags]
       --ipvlan-master-device string                           Device facing external network acting as ipvlan master (default "undefined")
       --k8s-api-server string                                 Kubernetes API server URL
       --k8s-kubeconfig-path string                            Absolute path of the kubernetes kubeconfig file
+      --k8s-namespace string                                  Name of the Kubernetes namespace in which Cilium is deployed in
       --k8s-require-ipv4-pod-cidr                             Require IPv4 PodCIDR to be specified in node resource
       --k8s-require-ipv6-pod-cidr                             Require IPv6 PodCIDR to be specified in node resource
       --k8s-watcher-endpoint-selector string                  K8s endpoint watcher will watch for these k8s endpoints (default "metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager,metadata.name!=etcd-operator,metadata.name!=gcp-controller-manager")
