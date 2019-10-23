@@ -1399,3 +1399,33 @@ func (e *Endpoint) setDatapathMapIDAndPinMap(id int) error {
 	e.datapathMapID = id
 	return e.pinDatapathMap()
 }
+
+// closeBPFProgramChannel closes the channel that signals whether the endpoint
+// has had its BPF program compiled. If the channel is already closed, this is
+// a no-op.
+func (e *Endpoint) closeBPFProgramChannel() {
+	select {
+	case <-e.hasBPFProgram:
+	default:
+		close(e.hasBPFProgram)
+	}
+}
+
+// bpfProgramInstalled returns whether a BPF program has been generated for this
+// endpoint.
+func (e *Endpoint) bpfProgramInstalled() bool {
+	select {
+	case <-e.hasBPFProgram:
+		return true
+	default:
+		return false
+	}
+}
+
+// HasIpvlanDataPath returns whether the daemon is running in ipvlan mode.
+func (e *Endpoint) HasIpvlanDataPath() bool {
+	if e.datapathMapID > 0 {
+		return true
+	}
+	return false
+}
