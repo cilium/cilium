@@ -31,19 +31,15 @@ func Test(t *testing.T) {
 	TestingT(t)
 }
 
-type ServiceTestSuite struct{}
+type IDAllocTestSuite struct{}
 
-type ServiceLocalSuite struct {
-	ServiceTestSuite
-}
+var _ = Suite(&IDAllocTestSuite{})
 
-var _ = Suite(&ServiceLocalSuite{})
-
-func (e *ServiceLocalSuite) SetUpTest(c *C) {
+func (e *IDAllocTestSuite) SetUpTest(c *C) {
 	serviceIDAlloc.resetLocalID()
 }
 
-func (e *ServiceLocalSuite) TearDownTest(c *C) {
+func (e *IDAllocTestSuite) TearDownTest(c *C) {
 	serviceIDAlloc.resetLocalID()
 }
 
@@ -70,7 +66,7 @@ var (
 	}
 )
 
-func (ds *ServiceTestSuite) TestServices(c *C) {
+func (s *IDAllocTestSuite) TestServices(c *C) {
 	var nilL3n4AddrID *loadbalancer.L3n4AddrID
 	// Set up last free ID with zero
 	id, err := getMaxServiceID()
@@ -163,7 +159,7 @@ func (ds *ServiceTestSuite) TestServices(c *C) {
 	c.Assert(gotL3n4AddrID, IsNil)
 }
 
-func (ds *ServiceTestSuite) TestGetMaxServiceID(c *C) {
+func (s *IDAllocTestSuite) TestGetMaxServiceID(c *C) {
 	lastID := uint32(MaxSetOfServiceID - 1)
 
 	err := setIDSpace(lastID, MaxSetOfServiceID)
@@ -174,7 +170,7 @@ func (ds *ServiceTestSuite) TestGetMaxServiceID(c *C) {
 	c.Assert(id, Equals, (MaxSetOfServiceID - 1))
 }
 
-func (ds *ServiceTestSuite) TestBackendID(c *C) {
+func (s *IDAllocTestSuite) TestBackendID(c *C) {
 	firstBackendID := loadbalancer.BackendID(FirstFreeBackendID)
 
 	id1, err := AcquireBackendID(l3n4Addr1)
@@ -194,7 +190,7 @@ func (ds *ServiceTestSuite) TestBackendID(c *C) {
 	c.Assert(existingID1, Equals, id1)
 }
 
-func (ds *ServiceTestSuite) BenchmarkAllocation(c *C) {
+func (s *IDAllocTestSuite) BenchmarkAllocation(c *C) {
 	addr := loadbalancer.L3n4Addr{
 		IP:     net.IPv6loopback,
 		L4Addr: loadbalancer.L4Addr{Port: 0, Protocol: "UDP"},
