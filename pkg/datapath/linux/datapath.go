@@ -53,7 +53,7 @@ func NewDatapath(cfg DatapathConfiguration, ruleManager rulesManager) datapath.D
 		nodeAddressing: NewNodeAddressing(),
 		config:         cfg,
 		ConfigWriter:   &config.HeaderfileWriter{},
-		loader:         &loader.Loader{},
+		loader:         loader.NewLoader(canDisableDwarfRelocations),
 		ruleManager:    ruleManager,
 	}
 
