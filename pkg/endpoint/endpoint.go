@@ -638,18 +638,6 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 	return errors
 }
 
-// IPs returns the slice of valid IPs for this endpoint.
-func (e *Endpoint) IPs() []net.IP {
-	ips := []net.IP{}
-	if e.IPv4.IsSet() {
-		ips = append(ips, e.IPv4.IP())
-	}
-	if e.IPv6.IsSet() {
-		ips = append(ips, e.IPv6.IP())
-	}
-	return ips
-}
-
 func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
 	e.buildMutex.Lock()
 	defer e.buildMutex.Unlock()
