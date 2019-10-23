@@ -27,14 +27,14 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-type ManagerTestSuite struct {
+type ServiceTestSuite struct {
 	svc   *Service
 	lbmap *lbmap.LBMockMap // for accessing public fields
 }
 
-var _ = Suite(&ManagerTestSuite{})
+var _ = Suite(&ServiceTestSuite{})
 
-func (m *ManagerTestSuite) SetUpTest(c *C) {
+func (m *ServiceTestSuite) SetUpTest(c *C) {
 	serviceIDAlloc.resetLocalID()
 	backendIDAlloc.resetLocalID()
 
@@ -43,7 +43,7 @@ func (m *ManagerTestSuite) SetUpTest(c *C) {
 	m.lbmap = m.svc.lbmap.(*lbmap.LBMockMap)
 }
 
-func (e *ManagerTestSuite) TearDownTest(c *C) {
+func (e *ServiceTestSuite) TearDownTest(c *C) {
 	serviceIDAlloc.resetLocalID()
 	backendIDAlloc.resetLocalID()
 }
@@ -61,7 +61,7 @@ var (
 	}
 )
 
-func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
+func (m *ServiceTestSuite) TestUpsertAndDeleteService(c *C) {
 	frontend1 := *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.1"), 80, 0)
 	frontend2 := *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.2"), 80, 0)
 	backends1 := []lb.Backend{
@@ -127,7 +127,7 @@ func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
 	c.Assert(len(m.lbmap.BackendByID), Equals, 0)
 }
 
-func (m *ManagerTestSuite) TestRestoreServices(c *C) {
+func (m *ServiceTestSuite) TestRestoreServices(c *C) {
 	_, id1, err := m.svc.UpsertService(frontend1, backends1, lb.SVCTypeNodePort)
 	c.Assert(err, IsNil)
 	_, id2, err := m.svc.UpsertService(frontend2, backends2, lb.SVCTypeClusterIP)
