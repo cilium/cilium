@@ -119,6 +119,11 @@ func (f *fakeLoader) CallsMapPath(id uint16) string {
 	return ""
 }
 
+// CompileBasePrograms does nothing.
+func (f *fakeLoader) CompileBasePrograms(ctx context.Context, o datapath.BaseProgramOwner, deviceMTU int, iptMgr datapath.RulesManager, p datapath.Proxy, r datapath.RouteReserver) error {
+	return nil
+}
+
 func (f *fakeDatapath) SetupIPVLAN(netNS string) (int, int, error) {
 	return 0, 0, nil
 }

@@ -18,6 +18,8 @@ import (
 	"context"
 
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	"github.com/cilium/cilium/pkg/datapath/prefilter"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 // Loader is an interface to abstract out loading of datapath programs.
@@ -30,4 +32,33 @@ type Loader interface {
 	DeleteDatapath(ctx context.Context, ifName, direction string) error
 	Unload(ep Endpoint)
 	Init(d ConfigWriter, nodeCfg *LocalNodeConfiguration)
+	CompileBasePrograms(ctx context.Context, o BaseProgramOwner, deviceMTU int, iptMgr RulesManager, p Proxy, r RouteReserver) error
+}
+
+// BaseProgramOwner is any type for which a loader is building base programs.
+type BaseProgramOwner interface {
+	DeviceConfiguration
+	GetCompilationLock() *lock.RWMutex
+	Datapath() Datapath
+	LocalConfig() *LocalNodeConfiguration
+	SetPrefilter(pf *prefilter.PreFilter)
+}
+
+// RouteReserver is any type which is responsible for installing local routes.
+type RouteReserver interface {
+	ReserveLocalRoutes()
+}
+
+// Proxy is any type which installs rules related to redirecting traffic to
+// a proxy.
+type Proxy interface {
+	ReinstallRules()
+}
+
+// RulesManager manages iptables rules.
+type RulesManager interface {
+	RemoveRules()
+	InstallRules(ifName string) error
+	TransientRulesStart(ifName string) error
+	TransientRulesEnd(quiet bool)
 }

@@ -866,7 +866,7 @@ func initEnv(cmd *cobra.Command) {
 		scopedLog.Fatalf("Invalid %s value %d", option.MaxCtrlIntervalName, option.Config.MaxControllerInterval)
 	}
 
-	checkMinRequirements()
+	linuxdatapath.CheckMinRequirements()
 
 	if err := pidfile.Write(defaults.PidFilePath); err != nil {
 		log.WithField(logfields.Path, defaults.PidFilePath).WithError(err).Fatal("Failed to create Pidfile")

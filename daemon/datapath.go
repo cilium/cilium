@@ -15,27 +15,19 @@
 package main
 
 import (
-	"bufio"
-	"context"
 	"errors"
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/cgroups"
-	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
-	"github.com/cilium/cilium/pkg/datapath/alignchecker"
 	datapathIpcache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -48,212 +40,14 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/sysctl"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
 
-func (d *Daemon) compileBase() error {
-	var args []string
-	var mode string
-	var ret error
-
-	type setting struct {
-		name      string
-		val       string
-		ignoreErr bool
-	}
-
-	args = make([]string, initArgMax)
-
-	sysSettings := []setting{
-		{"net.core.bpf_jit_enable", "1", true},
-		{"net.ipv4.conf.all.rp_filter", "0", false},
-		{"kernel.unprivileged_bpf_disabled", "1", true},
-	}
-
-	// Lock so that endpoints cannot be built while we are compile base programs.
-	d.compilationMutex.Lock()
-	defer d.compilationMutex.Unlock()
-
-	if err := d.writeNetdevHeader("./"); err != nil {
-		log.WithError(err).Warn("Unable to write netdev header")
-		return err
-	}
-	d.datapath.Loader().Init(d.datapath, &d.nodeDiscovery.LocalConfig)
-
-	scopedLog := log.WithField(logfields.XDPDevice, option.Config.DevicePreFilter)
-	if option.Config.DevicePreFilter != "undefined" {
-		if err := prefilter.ProbePreFilter(option.Config.DevicePreFilter, option.Config.ModePreFilter); err != nil {
-			scopedLog.WithError(err).Warn("Turning off prefilter")
-			option.Config.DevicePreFilter = "undefined"
-		}
-	}
-	if option.Config.DevicePreFilter != "undefined" {
-		if d.preFilter, ret = prefilter.NewPreFilter(); ret != nil {
-			scopedLog.WithError(ret).Warn("Unable to init prefilter")
-			return ret
-		}
-
-		if err := d.writePreFilterHeader("./"); err != nil {
-			scopedLog.WithError(err).Warn("Unable to write prefilter header")
-			return err
-		}
-
-		args[initArgDevicePreFilter] = option.Config.DevicePreFilter
-		args[initArgModePreFilter] = option.Config.ModePreFilter
-	}
-
-	args[initArgLib] = option.Config.BpfDir
-	args[initArgRundir] = option.Config.StateDir
-	args[initArgCgroupRoot] = cgroups.GetCgroupRoot()
-	args[initArgBpffsRoot] = bpf.GetMapRoot()
-
-	if option.Config.EnableIPv4 {
-		args[initArgIPv4NodeIP] = node.GetInternalIPv4().String()
-	} else {
-		args[initArgIPv4NodeIP] = "<nil>"
-	}
-
-	if option.Config.EnableIPv6 {
-		args[initArgIPv6NodeIP] = node.GetIPv6().String()
-		// Docker <17.05 has an issue which causes IPv6 to be disabled in the initns for all
-		// interface (https://github.com/docker/libnetwork/issues/1720)
-		// Enable IPv6 for now
-		sysSettings = append(sysSettings,
-			setting{"net.ipv6.conf.all.disable_ipv6", "0", false})
-	} else {
-		args[initArgIPv6NodeIP] = "<nil>"
-	}
-
-	args[initArgMTU] = fmt.Sprintf("%d", d.mtuConfig.GetDeviceMTU())
-
-	if option.Config.EnableIPSec {
-		args[initArgIPSec] = "true"
-	} else {
-		args[initArgIPSec] = "false"
-	}
-
-	if !option.Config.InstallIptRules && option.Config.Masquerade {
-		args[initArgMasquerade] = "true"
-	} else {
-		args[initArgMasquerade] = "false"
-	}
-
-	if option.Config.EnableHostReachableServices {
-		args[initArgHostReachableServices] = "true"
-		if option.Config.EnableHostServicesUDP {
-			args[initArgHostReachableServicesUDP] = "true"
-		} else {
-			args[initArgHostReachableServicesUDP] = "false"
-		}
-	} else {
-		args[initArgHostReachableServices] = "false"
-		args[initArgHostReachableServicesUDP] = "false"
-	}
-
-	if option.Config.EncryptInterface != "" {
-		args[initArgEncryptInterface] = option.Config.EncryptInterface
-	}
-
-	if option.Config.Device != "undefined" {
-		_, err := netlink.LinkByName(option.Config.Device)
-		if err != nil {
-			log.WithError(err).WithField("device", option.Config.Device).Warn("Link does not exist")
-			return err
-		}
-
-		if option.Config.DatapathMode == option.DatapathModeIpvlan {
-			mode = "ipvlan"
-		} else {
-			mode = "direct"
-		}
-
-		args[initArgMode] = mode
-		if option.Config.EnableNodePort &&
-			strings.ToLower(option.Config.Tunnel) != "disabled" {
-			args[initArgMode] = option.Config.Tunnel
-		}
-		args[initArgDevice] = option.Config.Device
-	} else {
-		args[initArgMode] = option.Config.Tunnel
-
-		if option.Config.IsFlannelMasterDeviceSet() {
-			args[initArgMode] = "flannel"
-			args[initArgDevice] = option.Config.FlannelMasterDevice
-		}
-	}
-
-	if option.Config.EnableEndpointRoutes == true {
-		args[initArgMode] = "routed"
-	}
-
-	if option.Config.EnableNodePort {
-		args[initArgNodePort] = "true"
-	}
-
-	log.Info("Setting up base BPF datapath")
-
-	for _, s := range sysSettings {
-		log.Infof("Setting sysctl %s=%s", s.name, s.val)
-		if err := sysctl.Write(s.name, s.val); err != nil {
-			if !s.ignoreErr {
-				return fmt.Errorf("Failed to sysctl -w %s=%s: %s", s.name, s.val, err)
-			}
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.SysParamName:  s.name,
-				logfields.SysParamValue: s.val,
-			}).Warning("Failed to sysctl -w")
-		}
-	}
-
-	prog := filepath.Join(option.Config.BpfDir, "init.sh")
-	ctx, cancel := context.WithTimeout(d.ctx, defaults.ExecTimeout)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, prog, args...)
-	cmd.Env = bpf.Environment()
-	if _, err := cmd.CombinedOutput(log, true); err != nil {
-		return err
-	}
-
-	if canDisableDwarfRelocations {
-		// Validate alignments of C and Go equivalent structs
-		if err := alignchecker.CheckStructAlignments(defaults.AlignCheckerName); err != nil {
-			log.WithError(err).Fatal("C and Go structs alignment check failed")
-		}
-	} else {
-		log.Warning("Cannot check matching of C and Go common struct alignments due to old LLVM/clang version")
-	}
-
-	if !option.Config.IsFlannelMasterDeviceSet() {
-		d.ipam.ReserveLocalRoutes()
-	}
-
-	if err := d.datapath.Node().NodeConfigurationChanged(d.nodeDiscovery.LocalConfig); err != nil {
-		return err
-	}
-
-	if option.Config.InstallIptRules {
-		if err := d.iptablesManager.TransientRulesStart(option.Config.HostDevice); err != nil {
-			return err
-		}
-	}
-	// Always remove masquerade rule and then re-add it if required
-	d.iptablesManager.RemoveRules()
-	if option.Config.InstallIptRules {
-		err := d.iptablesManager.InstallRules(option.Config.HostDevice)
-		d.iptablesManager.TransientRulesEnd(false)
-		if err != nil {
-			return err
-		}
-	}
-	// Reinstall proxy rules for any running proxies
-	if d.l7Proxy != nil {
-		d.l7Proxy.ReinstallRules()
-	}
-
-	return nil
+// LocalConfig returns the local configuration of the daemon's nodediscovery.
+func (d *Daemon) LocalConfig() *datapath.LocalNodeConfiguration {
+	return &d.nodeDiscovery.LocalConfig
 }
 
 func (d *Daemon) createNodeConfigHeaderfile() error {
@@ -331,40 +125,9 @@ func (d *Daemon) clearCiliumVeths() error {
 	return nil
 }
 
-// Must be called with option.Config.EnablePolicyMU locked.
-func (d *Daemon) writePreFilterHeader(dir string) error {
-	headerPath := filepath.Join(dir, common.PreFilterHeaderFileName)
-	log.WithField(logfields.Path, headerPath).Debug("writing configuration")
-	f, err := os.Create(headerPath)
-	if err != nil {
-		return fmt.Errorf("failed to open file %s for writing: %s", headerPath, err)
-
-	}
-	defer f.Close()
-	fw := bufio.NewWriter(f)
-	fmt.Fprint(fw, "/*\n")
-	fmt.Fprintf(fw, " * XDP device: %s\n", option.Config.DevicePreFilter)
-	fmt.Fprintf(fw, " * XDP mode: %s\n", option.Config.ModePreFilter)
-	fmt.Fprint(fw, " */\n\n")
-	d.preFilter.WriteConfig(fw)
-	return fw.Flush()
-}
-
-func (d *Daemon) writeNetdevHeader(dir string) error {
-	headerPath := filepath.Join(dir, common.NetdevHeaderFileName)
-	log.WithField(logfields.Path, headerPath).Debug("writing configuration")
-
-	f, err := os.Create(headerPath)
-	if err != nil {
-		return fmt.Errorf("failed to open file %s for writing: %s", headerPath, err)
-
-	}
-	defer f.Close()
-
-	if err := d.datapath.WriteNetdevConfig(f, d); err != nil {
-		return err
-	}
-	return nil
+// SetPrefilter sets the preftiler for the given daemon.
+func (d *Daemon) SetPrefilter(preFilter *prefilter.PreFilter) {
+	d.preFilter = preFilter
 }
 
 // EndpointMapManager is a wrapper around an endpointmanager as well as the

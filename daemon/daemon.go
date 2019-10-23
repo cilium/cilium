@@ -81,27 +81,6 @@ const (
 	AutoCIDR = "auto"
 )
 
-const (
-	initArgLib int = iota
-	initArgRundir
-	initArgIPv4NodeIP
-	initArgIPv6NodeIP
-	initArgMode
-	initArgDevice
-	initArgDevicePreFilter
-	initArgModePreFilter
-	initArgMTU
-	initArgIPSec
-	initArgMasquerade
-	initArgEncryptInterface
-	initArgHostReachableServices
-	initArgHostReachableServicesUDP
-	initArgCgroupRoot
-	initArgBpffsRoot
-	initArgNodePort
-	initArgMax
-)
-
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
 // monitoring when a LXC starts.
 type Daemon struct {
@@ -225,7 +204,7 @@ func (d *Daemon) init() error {
 			}
 		}
 
-		if err := d.compileBase(); err != nil {
+		if err := d.Datapath().Loader().CompileBasePrograms(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.iptablesManager, d.l7Proxy, d.ipam); err != nil {
 			return err
 		}
 
@@ -662,7 +641,7 @@ func (d *Daemon) attachExistingInfraContainers() {
 // endpoints may or may not have successfully regenerated.
 func (d *Daemon) TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, error) {
 	log.Debugf("BPF reload triggered from %s", reason)
-	if err := d.compileBase(); err != nil {
+	if err := d.Datapath().Loader().CompileBasePrograms(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.iptablesManager, d.l7Proxy, d.ipam); err != nil {
 		return nil, fmt.Errorf("Unable to recompile base programs from %s: %s", reason, err)
 	}
 
