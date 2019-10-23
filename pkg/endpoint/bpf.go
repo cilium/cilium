@@ -1393,3 +1393,9 @@ func (e *Endpoint) pinDatapathMap() error {
 
 	return err
 }
+
+// setDatapathMapIDAndPinMap modifies the endpoint's datapath map ID
+func (e *Endpoint) setDatapathMapIDAndPinMap(id int) error {
+	e.datapathMapID = id
+	return e.pinDatapathMap()
+}

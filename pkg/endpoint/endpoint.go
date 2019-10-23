@@ -1150,12 +1150,6 @@ func (e *Endpoint) GetDockerNetworkID() string {
 	return e.dockerNetworkID
 }
 
-// setDatapathMapIDAndPinMap modifies the endpoint's datapath map ID
-func (e *Endpoint) setDatapathMapIDAndPinMap(id int) error {
-	e.datapathMapID = id
-	return e.pinDatapathMap()
-}
-
 // OnProxyPolicyUpdate is a callback used to update the Endpoint's
 // proxyPolicyRevision when the specified revision has been applied in the
 // proxy.
