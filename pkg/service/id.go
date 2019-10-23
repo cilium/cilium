@@ -25,10 +25,6 @@ import (
 func AcquireID(l3n4Addr loadbalancer.L3n4Addr, baseID uint32) (*loadbalancer.L3n4AddrID, error) {
 	log.WithField(logfields.L3n4Addr, logfields.Repr(l3n4Addr)).Debug("Resolving service")
 
-	if enableGlobalServiceIDs {
-		return acquireGlobalID(l3n4Addr, baseID)
-	}
-
 	return serviceIDAlloc.acquireLocalID(l3n4Addr, baseID)
 }
 
@@ -36,22 +32,11 @@ func AcquireID(l3n4Addr loadbalancer.L3n4Addr, baseID uint32) (*loadbalancer.L3n
 func RestoreID(l3n4Addr loadbalancer.L3n4Addr, baseID uint32) (*loadbalancer.L3n4AddrID, error) {
 	log.WithField(logfields.L3n4Addr, logfields.Repr(l3n4Addr)).Debug("Restoring service")
 
-	if enableGlobalServiceIDs {
-		// global service IDs do not require to pass in the existing
-		// service ID. The global state will guarantee that the same
-		// service will resolve to the same service ID again.
-		return acquireGlobalID(l3n4Addr, 0)
-	}
-
 	return serviceIDAlloc.acquireLocalID(l3n4Addr, baseID)
 }
 
 // GetID returns the L3n4AddrID that belongs to the given id.
 func GetID(id uint32) (*loadbalancer.L3n4AddrID, error) {
-	if enableGlobalServiceIDs {
-		return getGlobalID(id)
-	}
-
 	return serviceIDAlloc.getLocalID(id)
 }
 
@@ -59,26 +44,14 @@ func GetID(id uint32) (*loadbalancer.L3n4AddrID, error) {
 func DeleteID(id uint32) error {
 	log.WithField(logfields.L3n4AddrID, id).Debug("deleting L3n4Addr by ID")
 
-	if enableGlobalServiceIDs {
-		return deleteGlobalID(id)
-	}
-
 	return serviceIDAlloc.deleteLocalID(id)
 }
 
 func setIDSpace(next, max uint32) error {
-	if enableGlobalServiceIDs {
-		return setGlobalIDSpace(next, max)
-	}
-
 	return serviceIDAlloc.setLocalIDSpace(next, max)
 }
 
 func getMaxServiceID() (uint32, error) {
-	if enableGlobalServiceIDs {
-		return getGlobalMaxServiceID()
-	}
-
 	return serviceIDAlloc.getLocalMaxID()
 }
 
