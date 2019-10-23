@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package linux
 
 import (
 	"fmt"
@@ -74,7 +74,8 @@ func parseKernelVersion(ver string) (go_version.Version, error) {
 	return versioncheck.Version(strings.Join(verStrs[:3], "."))
 }
 
-func getKernelVersion() (go_version.Version, error) {
+// GetKernelVersion returns the version of the Linux kernel running on this host.
+func GetKernelVersion() (go_version.Version, error) {
 	var unameBuf unix.Utsname
 	if err := unix.Uname(&unameBuf); err != nil {
 		log.WithError(err).Fatal("kernel version: NOT OK")
@@ -134,8 +135,8 @@ func checkBPFLogs(logType string, fatal bool) {
 	}
 }
 
-func checkMinRequirements() {
-	kernelVersion, err := getKernelVersion()
+func CheckMinRequirements() {
+	kernelVersion, err := GetKernelVersion()
 	if err != nil {
 		log.WithError(err).Fatal("kernel version: NOT OK")
 	}
