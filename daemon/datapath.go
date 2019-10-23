@@ -209,7 +209,7 @@ func (d *Daemon) compileBase() error {
 	}
 
 	prog := filepath.Join(option.Config.BpfDir, "init.sh")
-	ctx, cancel := context.WithTimeout(context.Background(), defaults.ExecTimeout)
+	ctx, cancel := context.WithTimeout(d.ctx, defaults.ExecTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, prog, args...)
 	cmd.Env = bpf.Environment()
