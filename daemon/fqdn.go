@@ -172,20 +172,19 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 				return nil
 			}
 
-			//Before doing the loop the DNS names to clean will be removed from
-			//cfg.Cache, to make sure that data is persistent across cache.
-			cfg.Cache.ForceExpireByNames(time.Now(), namesToClean)
-
-			// A second loop is needed to update the global cache from the
-			// endpoints cache. Looping this way is generally safe despite not
-			// locking; If a new lookup happens during these updates the new
-			// DNS data will be reinserted from the endpoint.DNSHistory cache
-			// that made the request.
+			// Collect DNS data into the global cache. This aggregates all endpoint
+			// data (and the poller) into one place for use elsewhere.
+			// In the case where a lookup occurs in a race with .ReplaceFromCache the
+			// result is consistent:
+			// - If before, the ReplaceFromCache will use the new data when pulling
+			// in from each EP cache.
+			// - If after, the normal update process occurs after .ReplaceFromCache
+			// releases its locks.
+			caches := []*fqdn.DNSCache{d.dnsPoller.DNSHistory}
 			for _, ep := range endpoints {
-				cfg.Cache.UpdateFromCache(ep.DNSHistory, namesToClean)
+				caches = append(caches, ep.DNSHistory)
 			}
-			// Also update from the poller.
-			cfg.Cache.UpdateFromCache(d.dnsPoller.DNSHistory, namesToClean)
+			cfg.Cache.ReplaceFromCacheByNames(namesToClean, caches...)
 
 			metrics.FQDNGarbageCollectorCleanedTotal.Add(float64(len(namesToClean)))
 			log.WithField(logfields.Controller, dnsGCJobName).Infof(
