@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"os/signal"
 	"sync"
@@ -34,6 +35,8 @@ var (
 	cleanupFuncs = &cleanupFuncList{
 		funcs: make([]func(), 0),
 	}
+
+	sigHandlerCancel context.CancelFunc
 )
 
 type cleanupFuncList struct {
@@ -62,6 +65,8 @@ func registerSigHandler() <-chan struct{} {
 	go func() {
 		for s := range sig {
 			log.WithField("signal", s).Info("Exiting due to signal")
+			log.Debug("canceling context in signal handler")
+			sigHandlerCancel()
 			pidfile.Clean()
 			Clean()
 			cleanupFuncs.Run()

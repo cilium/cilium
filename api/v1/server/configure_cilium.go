@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/api/v1/server/restapi/prefilter"
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 //go:generate swagger generate server --target ../../v1 --name Cilium --spec ../openapi.yaml --api-package restapi --server-package server --default-scheme unix
@@ -254,6 +255,7 @@ func configureAPI(api *restapi.CiliumAPI) http.Handler {
 	}
 
 	api.ServerShutdown = func() {
+		logging.DefaultLogger.Debug("canceling server context")
 		serverCancel()
 	}
 

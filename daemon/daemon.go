@@ -264,6 +264,12 @@ type rulesManager interface {
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
 func NewDaemon(ctx context.Context, dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *endpointRestoreState, error) {
+
+	dCtx, cancel := context.WithCancel(ctx)
+	// Pass the cancel to our signal handler directly so that it's canceled
+	// before we run the cleanup functions (see `cleanup.go` for implementation).
+	sigHandlerCancel = cancel
+
 	var (
 		err           error
 		netConf       *cnitypes.NetConf
@@ -316,8 +322,6 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath, iptablesManager rulesM
 	// Must be done before calling policy.NewPolicyRepository() below.
 	identity.InitWellKnownIdentities()
 
-	dCtx, cancel := context.WithCancel(ctx)
-
 	d := Daemon{
 		ctx:              dCtx,
 		cancel:           cancel,
@@ -366,14 +370,6 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath, iptablesManager rulesM
 			}
 		})
 	}
-
-	// Ensure that we signal to endpoints that inflight events (e.g.,
-	// regenerations) should be canceled gracefully upon agent termination.
-
-	cleanupFuncs.Add(func() {
-		log.Info("canceling daemon's context")
-		d.cancel()
-	})
 
 	// Open or create BPF maps.
 	bootstrapStats.mapsInit.Start()
