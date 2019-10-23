@@ -20,6 +20,7 @@ package endpoint
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"sort"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -36,6 +37,18 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
+
+// APICanModify determines whether API requests from a user are allowed to
+// modify this endpoint.
+func APICanModify(e *Endpoint) error {
+	if e.IsInit() {
+		return nil
+	}
+	if e.OpLabels.OrchestrationIdentity.IsReserved() {
+		return fmt.Errorf("endpoint may not be associated reserved labels")
+	}
+	return nil
+}
 
 // GetLabelsModel returns the labels of the endpoint in their representation
 // for the Cilium API. Returns an error if the Endpoint is being deleted.

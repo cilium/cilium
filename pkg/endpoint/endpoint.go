@@ -638,18 +638,6 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 	return errors
 }
 
-// APICanModify determines whether API requests from a user are allowed to
-// modify this endpoint.
-func APICanModify(e *Endpoint) error {
-	if e.IsInit() {
-		return nil
-	}
-	if e.OpLabels.OrchestrationIdentity.IsReserved() {
-		return fmt.Errorf("endpoint may not be associated reserved labels")
-	}
-	return nil
-}
-
 // IPs returns the slice of valid IPs for this endpoint.
 func (e *Endpoint) IPs() []net.IP {
 	ips := []net.IP{}
