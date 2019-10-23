@@ -55,10 +55,6 @@ const (
 	maxLogs = 256
 )
 
-var (
-	EndpointMutableOptionLibrary = option.GetEndpointMutableOptionLibrary()
-)
-
 const (
 	// IpvlanMapName specifies the tail call map for EP on egress used with ipvlan.
 	IpvlanMapName = "cilium_lxc_ipve_"
@@ -465,68 +461,10 @@ func (e *Endpoint) String() string {
 	return string(b)
 }
 
-// optionChanged is a callback used with pkg/option to apply the options to an
-// endpoint.  Not used for anything at the moment.
-func optionChanged(key string, value option.OptionSetting, data interface{}) {
-}
-
-// applyOptsLocked applies the given options to the endpoint's options and
-// returns true if there were any options changed.
-func (e *Endpoint) applyOptsLocked(opts option.OptionMap) bool {
-	changed := e.Options.ApplyValidated(opts, optionChanged, e) > 0
-	_, exists := opts[option.Debug]
-	if exists && changed {
-		e.UpdateLogger(nil)
-	}
-	return changed
-}
-
 // forcePolicyComputation ensures that upon the next policy calculation for this
 // Endpoint, that no short-circuiting of said operation occurs.
 func (e *Endpoint) forcePolicyComputation() {
 	e.forcePolicyCompute = true
-}
-
-// SetDefaultOpts initializes the endpoint Options and configures the specified
-// options.
-func (e *Endpoint) SetDefaultOpts(opts *option.IntOptions) {
-	if e.Options == nil {
-		e.Options = option.NewIntOptions(&EndpointMutableOptionLibrary)
-	}
-	if e.Options.Library == nil {
-		e.Options.Library = &EndpointMutableOptionLibrary
-	}
-	if e.Options.Opts == nil {
-		e.Options.Opts = option.OptionMap{}
-	}
-
-	if opts != nil {
-		epOptLib := option.GetEndpointMutableOptionLibrary()
-		for k := range epOptLib {
-			e.Options.SetValidated(k, opts.GetValue(k))
-		}
-	}
-	e.UpdateLogger(nil)
-}
-
-// ConntrackLocal determines whether this endpoint is currently using a local
-// table to handle connection tracking (true), or the global table (false).
-func (e *Endpoint) ConntrackLocal() bool {
-	e.unconditionalRLock()
-	defer e.runlock()
-
-	return e.ConntrackLocalLocked()
-}
-
-// ConntrackLocalLocked is the same as ConntrackLocal, but assumes that the
-// endpoint is already locked for reading.
-func (e *Endpoint) ConntrackLocalLocked() bool {
-	if e.SecurityIdentity == nil || e.Options == nil ||
-		!e.Options.IsEnabled(option.ConntrackLocal) {
-		return false
-	}
-
-	return true
 }
 
 func (e *Endpoint) LogStatus(typ StatusType, code StatusCode, msg string) {
