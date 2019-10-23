@@ -18,12 +18,34 @@ package service
 
 import (
 	"net"
+	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 
 	. "gopkg.in/check.v1"
 )
+
+// Hook up gocheck into the "go test" runner.
+func Test(t *testing.T) {
+	TestingT(t)
+}
+
+type ServiceTestSuite struct{}
+
+type ServiceLocalSuite struct {
+	ServiceTestSuite
+}
+
+var _ = Suite(&ServiceLocalSuite{})
+
+func (e *ServiceLocalSuite) SetUpTest(c *C) {
+	serviceIDAlloc.resetLocalID()
+}
+
+func (e *ServiceLocalSuite) TearDownTest(c *C) {
+	serviceIDAlloc.resetLocalID()
+}
 
 var (
 	l3n4Addr1 = loadbalancer.L3n4Addr{
