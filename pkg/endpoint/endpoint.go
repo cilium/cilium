@@ -274,18 +274,6 @@ func (e *Endpoint) LXCMac() mac.MAC {
 	return e.mac
 }
 
-// GetIngressPolicyEnabledLocked returns whether ingress policy enforcement is
-// enabled for endpoint or not. The endpoint's mutex must be held.
-func (e *Endpoint) GetIngressPolicyEnabledLocked() bool {
-	return e.desiredPolicy.IngressPolicyEnabled
-}
-
-// GetEgressPolicyEnabledLocked returns whether egress policy enforcement is
-// enabled for endpoint or not. The endpoint's mutex must be held.
-func (e *Endpoint) GetEgressPolicyEnabledLocked() bool {
-	return e.desiredPolicy.EgressPolicyEnabled
-}
-
 // NewEndpointWithState creates a new endpoint useful for testing purposes
 func NewEndpointWithState(owner regeneration.Owner, proxy EndpointProxy, allocator cache.IdentityAllocator, ID uint16, state string) *Endpoint {
 	ep := &Endpoint{

@@ -551,3 +551,15 @@ func (e *Endpoint) setDefaultPolicyConfig() {
 func (e *Endpoint) forcePolicyComputation() {
 	e.forcePolicyCompute = true
 }
+
+// GetIngressPolicyEnabledLocked returns whether ingress policy enforcement is
+// enabled for endpoint or not. The endpoint's mutex must be held.
+func (e *Endpoint) GetIngressPolicyEnabledLocked() bool {
+	return e.desiredPolicy.IngressPolicyEnabled
+}
+
+// GetEgressPolicyEnabledLocked returns whether egress policy enforcement is
+// enabled for endpoint or not. The endpoint's mutex must be held.
+func (e *Endpoint) GetEgressPolicyEnabledLocked() bool {
+	return e.desiredPolicy.EgressPolicyEnabled
+}
