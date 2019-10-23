@@ -15,10 +15,52 @@
 package endpoint
 
 import (
+	"context"
+	"fmt"
 	"time"
 
+	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/eventqueue"
+	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
+	pkgLabels "github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 )
+
+// NewEndpointWithState creates a new endpoint useful for testing purposes
+func NewEndpointWithState(owner regeneration.Owner, proxy EndpointProxy, allocator cache.IdentityAllocator, ID uint16, state string) *Endpoint {
+	ep := &Endpoint{
+		owner:           owner,
+		proxy:           proxy,
+		ID:              ID,
+		OpLabels:        pkgLabels.NewOpLabels(),
+		status:          NewEndpointStatus(),
+		DNSHistory:      fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
+		state:           state,
+		hasBPFProgram:   make(chan struct{}, 0),
+		controllers:     controller.NewManager(),
+		eventQueue:      eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", ID), option.Config.EndpointQueueSize),
+		desiredPolicy:   policy.NewEndpointPolicy(owner.GetPolicyRepository()),
+		regenFailedChan: make(chan struct{}, 1),
+		allocator:       allocator,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	ep.aliveCancel = cancel
+	ep.aliveCtx = ctx
+	ep.startRegenerationFailureHandler()
+	ep.realizedPolicy = ep.desiredPolicy
+
+	ep.SetDefaultOpts(option.Config.Opts)
+	ep.UpdateLogger(nil)
+
+	ep.eventQueue.Run()
+
+	return ep
+}
 
 // WaitForIdentity waits for up to timeoutDuration amount of time for the
 // endpoint to have an identity. If the timeout is reached, returns nil.
