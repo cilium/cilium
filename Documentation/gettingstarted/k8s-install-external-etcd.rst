@@ -39,7 +39,9 @@ when to use a kvstore:
 
 .. include:: requirements_intro.rst
 
-Configure the External Etcd
+You will also need an external kvstore such as etcd.
+
+Configure Cilium
 ===========================
 
 When using an external kvstore, the address of the external kvstore needs to be
