@@ -16,7 +16,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -361,7 +360,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	if opts != nil {
 		source = opts.Source
 	}
-	d.endpointManager.CallbackForEndpointsAtPolicyRev(context.Background(), newRev, func(now time.Time) {
+	d.endpointManager.CallbackForEndpointsAtPolicyRev(d.ctx, newRev, func(now time.Time) {
 		duration, _ := safetime.TimeSinceSafe(policyAddStartTime, logger)
 		metrics.PolicyImplementationDelay.WithLabelValues(source).Observe(duration.Seconds())
 	})
