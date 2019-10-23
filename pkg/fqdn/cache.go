@@ -329,11 +329,15 @@ func (c *DNSCache) UpdateFromCache(update *DNSCache, namesToUpdate []string) {
 		return
 	}
 
+	c.Lock()
+	defer c.Unlock()
+	c.updateFromCache(update, namesToUpdate)
+}
+
+func (c *DNSCache) updateFromCache(update *DNSCache, namesToUpdate []string) {
 	update.RLock()
 	defer update.RUnlock()
 
-	c.Lock()
-	defer c.Unlock()
 	if len(namesToUpdate) == 0 {
 		for name := range update.forward {
 			namesToUpdate = append(namesToUpdate, name)
@@ -347,6 +351,23 @@ func (c *DNSCache) UpdateFromCache(update *DNSCache, namesToUpdate []string) {
 		for _, newEntry := range newEntries {
 			c.updateWithEntry(newEntry)
 		}
+	}
+}
+
+// ReplaceFromCacheByNames operates as an atomic combination of ForceExpire and
+// multiple UpdateFromCache invocations. The result is to collect all entries
+// for DNS names in namesToUpdate from each DNSCache in updates, replacing the
+// current entries for each of those names.
+func (c *DNSCache) ReplaceFromCacheByNames(namesToUpdate []string, updates ...*DNSCache) {
+	c.Lock()
+	defer c.Unlock()
+
+	// Remove any DNS name in namesToUpdate with a lookup before "now". This
+	// effectively deletes all lookups because we're holding the lock.
+	c.forceExpireByNames(time.Now(), namesToUpdate)
+
+	for _, update := range updates {
+		c.updateFromCache(update, namesToUpdate)
 	}
 }
 
@@ -530,6 +551,11 @@ func (c *DNSCache) ForceExpire(expireLookupsBefore time.Time, nameMatch *regexp.
 func (c *DNSCache) ForceExpireByNames(expireLookupsBefore time.Time, names []string) (namesAffected []string) {
 	c.Lock()
 	defer c.Unlock()
+
+	return c.forceExpireByNames(expireLookupsBefore, names)
+}
+
+func (c *DNSCache) forceExpireByNames(expireLookupsBefore time.Time, names []string) (namesAffected []string) {
 	for _, name := range names {
 		entries, exists := c.forward[name]
 		if !exists {
