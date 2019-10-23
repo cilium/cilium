@@ -637,7 +637,7 @@ func (d *Daemon) attachExistingInfraContainers() {
 			continue
 		}
 		log.Debugf("Adding endpoint %+v", epModel)
-		ep, _, err := d.createEndpoint(context.Background(), epModel)
+		ep, _, err := d.createEndpoint(d.ctx, epModel)
 		if err != nil {
 			log.WithError(err).WithField(logfields.ContainerID, containerID).
 				Warning("Unable to attach existing infra container")
