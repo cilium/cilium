@@ -17,6 +17,7 @@ package endpoint
 import (
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -73,6 +74,42 @@ func (e *Endpoint) removeNetworkPolicy() {
 
 func (e *Endpoint) isProxyDisabled() bool {
 	return e.proxy == nil || reflect.ValueOf(e.proxy).IsNil()
+}
+
+// OnProxyPolicyUpdate is a callback used to update the Endpoint's
+// proxyPolicyRevision when the specified revision has been applied in the
+// proxy.
+func (e *Endpoint) OnProxyPolicyUpdate(revision uint64) {
+	// NOTE: unconditionalLock is used here because this callback has no way of reporting an error
+	e.unconditionalLock()
+	if revision > e.proxyPolicyRevision {
+		e.proxyPolicyRevision = revision
+	}
+	e.unlock()
+}
+
+// waitForProxyCompletions blocks until all proxy changes have been completed.
+// Called with buildMutex held.
+func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
+	if proxyWaitGroup == nil {
+		return nil
+	}
+
+	err := proxyWaitGroup.Context().Err()
+	if err != nil {
+		return fmt.Errorf("context cancelled before waiting for proxy updates: %s", err)
+	}
+
+	start := time.Now()
+
+	e.getLogger().Debug("Waiting for proxy updates to complete...")
+	err = proxyWaitGroup.Wait()
+	if err != nil {
+		return fmt.Errorf("proxy state changes failed: %s", err)
+	}
+	e.getLogger().Debug("Wait time for proxy updates: ", time.Since(start))
+
+	return nil
 }
 
 // FakeEndpointProxy is a stub proxy used for testing.

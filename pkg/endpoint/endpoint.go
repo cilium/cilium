@@ -320,30 +320,6 @@ func (e *Endpoint) GetEgressPolicyEnabledLocked() bool {
 	return e.desiredPolicy.EgressPolicyEnabled
 }
 
-// waitForProxyCompletions blocks until all proxy changes have been completed.
-// Called with buildMutex held.
-func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
-	if proxyWaitGroup == nil {
-		return nil
-	}
-
-	err := proxyWaitGroup.Context().Err()
-	if err != nil {
-		return fmt.Errorf("context cancelled before waiting for proxy updates: %s", err)
-	}
-
-	start := time.Now()
-
-	e.getLogger().Debug("Waiting for proxy updates to complete...")
-	err = proxyWaitGroup.Wait()
-	if err != nil {
-		return fmt.Errorf("proxy state changes failed: %s", err)
-	}
-	e.getLogger().Debug("Wait time for proxy updates: ", time.Since(start))
-
-	return nil
-}
-
 // NewEndpointWithState creates a new endpoint useful for testing purposes
 func NewEndpointWithState(owner regeneration.Owner, proxy EndpointProxy, allocator cache.IdentityAllocator, ID uint16, state string) *Endpoint {
 	ep := &Endpoint{
@@ -829,18 +805,6 @@ func (e *Endpoint) RegenerateWait(reason string) error {
 			" For more info run: 'cilium endpoint get %d'", e.ID)
 	}
 	return nil
-}
-
-// OnProxyPolicyUpdate is a callback used to update the Endpoint's
-// proxyPolicyRevision when the specified revision has been applied in the
-// proxy.
-func (e *Endpoint) OnProxyPolicyUpdate(revision uint64) {
-	// NOTE: unconditionalLock is used here because this callback has no way of reporting an error
-	e.unconditionalLock()
-	if revision > e.proxyPolicyRevision {
-		e.proxyPolicyRevision = revision
-	}
-	e.unlock()
 }
 
 // APICanModify determines whether API requests from a user are allowed to
