@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/revert"
 
 	"github.com/sirupsen/logrus"
@@ -562,4 +563,18 @@ func (e *Endpoint) GetIngressPolicyEnabledLocked() bool {
 // enabled for endpoint or not. The endpoint's mutex must be held.
 func (e *Endpoint) GetEgressPolicyEnabledLocked() bool {
 	return e.desiredPolicy.EgressPolicyEnabled
+}
+
+// Allows is only used for unit testing
+func (e *Endpoint) Allows(id identityPkg.NumericIdentity) bool {
+	e.unconditionalRLock()
+	defer e.runlock()
+
+	keyToLookup := policy.Key{
+		Identity:         uint32(id),
+		TrafficDirection: trafficdirection.Ingress.Uint8(),
+	}
+
+	_, ok := e.desiredPolicy.PolicyMapState[keyToLookup]
+	return ok
 }

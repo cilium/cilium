@@ -401,20 +401,6 @@ func (e *Endpoint) GetIdentity() identity.NumericIdentity {
 	return identity.InvalidIdentity
 }
 
-// Allows is only used for unit testing
-func (e *Endpoint) Allows(id identity.NumericIdentity) bool {
-	e.unconditionalRLock()
-	defer e.runlock()
-
-	keyToLookup := policy.Key{
-		Identity:         uint32(id),
-		TrafficDirection: trafficdirection.Ingress.Uint8(),
-	}
-
-	_, ok := e.desiredPolicy.PolicyMapState[keyToLookup]
-	return ok
-}
-
 // String returns endpoint on a JSON format.
 func (e *Endpoint) String() string {
 	e.unconditionalRLock()
