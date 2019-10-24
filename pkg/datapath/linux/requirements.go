@@ -135,6 +135,8 @@ func checkBPFLogs(logType string, fatal bool) {
 	}
 }
 
+// CheckMinRequirements checks that minimum kernel requirements are met for
+// configuring the BPF datapath. If not, fatally exits.
 func CheckMinRequirements() {
 	kernelVersion, err := GetKernelVersion()
 	if err != nil {
