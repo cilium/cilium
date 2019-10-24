@@ -140,7 +140,7 @@ func (e *Endpoint) restoreIdentity() error {
 	l, _ := labels.FilterLabels(e.OpLabels.AllLabels())
 	e.runlock()
 
-	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
+	allocateCtx, cancel := context.WithTimeout(e.aliveCtx, option.Config.KVstoreConnectivityTimeout)
 	defer cancel()
 	identity, _, err := e.allocator.AllocateIdentity(allocateCtx, l, true)
 
@@ -154,7 +154,7 @@ func (e *Endpoint) restoreIdentity() error {
 	// endpoints that don't have a fixed identity or are
 	// not well known.
 	if !identity.IsFixed() && !identity.IsWellKnown() {
-		identityCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
+		identityCtx, cancel := context.WithTimeout(e.aliveCtx, option.Config.KVstoreConnectivityTimeout)
 		defer cancel()
 
 		err = e.allocator.WaitForInitialGlobalIdentities(identityCtx)

@@ -1503,7 +1503,7 @@ func (e *Endpoint) ModifyIdentityLabels(addLabels, delLabels pkgLabels.Labels) e
 	e.unlock()
 
 	if changed {
-		e.runLabelsResolver(context.Background(), rev, false)
+		e.runLabelsResolver(e.aliveCtx, rev, false)
 	}
 	return nil
 }
@@ -1637,7 +1637,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 	e.runlock()
 	elog.Debug("Resolving identity for labels")
 
-	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
+	allocateCtx, cancel := context.WithTimeout(ctx, option.Config.KVstoreConnectivityTimeout)
 	defer cancel()
 
 	allocatedIdentity, _, err := e.allocator.AllocateIdentity(allocateCtx, newLabels, true)
@@ -1652,7 +1652,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 	// continue even if the parent has given up. Enforce a timeout of two
 	// minutes to avoid blocking forever but give plenty of time to release
 	// the identity.
-	releaseCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	releaseCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
 	releaseNewlyAllocatedIdentity := func() {
