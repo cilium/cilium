@@ -31,6 +31,19 @@ case "$CILIUM_CNI_CHAINING_MODE" in
 	;;
 esac
 
+DISABLE_DEBUG=true
+while test $# -gt 0; do
+  case "$1" in
+    --disable-debug*)
+      DISABLE_DEBUG=`echo $1 | sed -e 's/^[^=]*=//g'`
+      shift
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
 BIN_NAME=cilium-cni
 CNI_DIR=${CNI_DIR:-${HOST_PREFIX}/opt/cni}
 CILIUM_CNI_CONF=${CILIUM_CNI_CONF:-${HOST_PREFIX}/etc/cni/net.d/${CNI_CONF_NAME}}
@@ -86,7 +99,8 @@ case "$CILIUM_CNI_CHAINING_MODE" in
     },
     {
        "name": "cilium",
-       "type": "cilium-cni"
+       "type": "cilium-cni",
+       "disable-debug": ${DISABLE_DEBUG}
     }
   ]
 }
@@ -101,7 +115,8 @@ EOF
   "plugins": [
     {
        "name": "cilium",
-       "type": "cilium-cni"
+       "type": "cilium-cni",
+       "disable-debug": ${DISABLE_DEBUG}
     },
     {
       "type": "portmap",
@@ -130,7 +145,8 @@ EOF
     },
     {
        "name": "cilium",
-       "type": "cilium-cni"
+       "type": "cilium-cni",
+       "disable-debug": ${DISABLE_DEBUG}
     }
   ]
 }
@@ -142,7 +158,8 @@ EOF
 {
   "cniVersion": "0.3.1",
   "name": "cilium",
-  "type": "cilium-cni"
+  "type": "cilium-cni",
+  "disable-debug": ${DISABLE_DEBUG}
 }
 EOF
 	;;
