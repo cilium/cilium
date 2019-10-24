@@ -487,8 +487,10 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	var macAddrStr string
 	if err = netNs.Do(func(_ ns.NetNS) error {
-		if err := sysctl.Disable("net.ipv6.conf.all.disable_ipv6"); err != nil {
-			logger.WithError(err).Warn("unable to enable ipv6 on all interfaces")
+		if ipv6IsEnabled(ipam) {
+			if err := sysctl.Disable("net.ipv6.conf.all.disable_ipv6"); err != nil {
+				logger.WithError(err).Warn("unable to enable ipv6 on all interfaces")
+			}
 		}
 		macAddrStr, err = configureIface(ipam, args.IfName, &state)
 		return err
