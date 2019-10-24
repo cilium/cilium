@@ -105,11 +105,13 @@ func (m *Manager) Subscribe(nh datapath.NodeHandler) {
 	m.nodeHandlers[nh] = struct{}{}
 	m.nodeHandlersMu.Unlock()
 	// Add all nodes already received by the manager.
+	m.mutex.RLock()
 	for _, v := range m.nodes {
 		v.mutex.Lock()
 		nh.NodeAdd(v.node)
 		v.mutex.Unlock()
 	}
+	m.mutex.RUnlock()
 }
 
 // Unsubscribe unsubscribes the given node handler with node events.
