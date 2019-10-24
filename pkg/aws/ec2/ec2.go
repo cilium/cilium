@@ -397,6 +397,21 @@ func (c *Client) AssignPrivateIpAddresses(eniID string, addresses int64) error {
 	return err
 }
 
+// UnassignPrivateIpAddresses unassigns specified IP addresses from ENI
+func (c *Client) UnassignPrivateIpAddresses(eniID string, addresses []string) error {
+	request := ec2.UnassignPrivateIpAddressesInput{
+		NetworkInterfaceId: &eniID,
+		PrivateIpAddresses: addresses,
+	}
+
+	c.rateLimit("UnassignPrivateIpAddresses")
+	sinceStart := spanstat.Start()
+	req := c.ec2Client.UnassignPrivateIpAddressesRequest(&request)
+	_, err := req.Send(context.TODO())
+	c.metricsAPI.ObserveEC2APICall("UnassignPrivateIpAddresses", deriveStatus(req.Request, err), sinceStart.Seconds())
+	return err
+}
+
 // TagENI creates the specified tags on the ENI
 func (c *Client) TagENI(eniID string, eniTags map[string]string) error {
 	request := ec2.CreateTagsInput{

@@ -40,6 +40,7 @@ const (
 	AttachNetworkInterface
 	ModifyNetworkInterface
 	AssignPrivateIpAddresses
+	UnassignPrivateIpAddresses
 	TagENI
 	MaxOperation
 )
@@ -280,6 +281,47 @@ func (e *API) AssignPrivateIpAddresses(eniID string, addresses int64) error {
 				eni.Addresses = append(eni.Addresses, ip.String())
 			}
 			subnet.AvailableAddresses -= int(addresses)
+			return nil
+		}
+	}
+	return fmt.Errorf("Unable to find ENI with ID %s", eniID)
+}
+
+func (e *API) UnassignPrivateIpAddresses(eniID string, addresses []string) error {
+	e.rateLimit()
+	e.simulateDelay(UnassignPrivateIpAddresses)
+
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	if err, ok := e.errors[UnassignPrivateIpAddresses]; ok {
+		return err
+	}
+
+	for _, enis := range e.enis {
+		if eni, ok := enis[eniID]; ok {
+			subnet, ok := e.subnets[eni.Subnet.ID]
+			if !ok {
+				return fmt.Errorf("subnet %s not found", eni.Subnet.ID)
+			}
+
+			releaseMap := make(map[string]int)
+			addressesAfterRelease := []string{}
+			for _, address := range addresses {
+				releaseMap[address] = 0
+			}
+
+			for _, address := range eni.Addresses {
+				_, ok := releaseMap[address]
+				if !ok {
+					addressesAfterRelease = append(addressesAfterRelease, address)
+				} else {
+					ip := net.ParseIP(address)
+					e.allocator.Release(ip)
+					subnet.AvailableAddresses += 1
+				}
+			}
+			eni.Addresses = addressesAfterRelease
 			return nil
 		}
 	}

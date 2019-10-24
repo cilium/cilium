@@ -20,7 +20,7 @@ import (
 	"gopkg.in/check.v1"
 )
 
-type testDef struct {
+type testNeededDef struct {
 	available   int
 	used        int
 	preallocate int
@@ -28,7 +28,16 @@ type testDef struct {
 	result      int
 }
 
-var def = []testDef{
+type testExcessDef struct {
+	available         int
+	used              int
+	preallocate       int
+	minallocate       int
+	maxabovewatermark int
+	result            int
+}
+
+var neededDef = []testNeededDef{
 	{0, 0, 0, 16, 16},
 	{0, 0, 8, 16, 16},
 	{0, 0, 16, 8, 16},
@@ -38,9 +47,27 @@ var def = []testDef{
 	{8, 4, 8, 8, 4},
 }
 
+var excessDef = []testExcessDef{
+	{0, 0, 0, 16, 0, 0},
+	{15, 0, 8, 16, 8, 0},
+	{17, 0, 8, 16, 8, 1},
+	{20, 0, 8, 20, 8, 0},
+	{16, 1, 8, 16, 8, 0},
+	{20, 4, 8, 17, 8, 0},
+	{20, 4, 0, 0, 0, 8},
+	{20, 4, 0, 0, 8, 0},
+}
+
 func (e *ENISuite) TestCalculateNeededIPs(c *check.C) {
-	for _, d := range def {
+	for _, d := range neededDef {
 		result := calculateNeededIPs(d.available, d.used, d.preallocate, d.minallocate)
+		c.Assert(result, check.Equals, d.result)
+	}
+}
+
+func (e *ENISuite) TestCalculateExcessIPs(c *check.C) {
+	for _, d := range excessDef {
+		result := calculateExcessIPs(d.available, d.used, d.preallocate, d.minallocate, d.maxabovewatermark)
 		c.Assert(result, check.Equals, d.result)
 	}
 }
