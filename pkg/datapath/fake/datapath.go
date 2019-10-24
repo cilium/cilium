@@ -111,10 +111,6 @@ func (f *fakeLoader) DeleteDatapath(ctx context.Context, ifName, direction strin
 func (f *fakeLoader) Unload(ep datapath.Endpoint) {
 }
 
-func (f *fakeLoader) Init(d datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration) {
-	panic("implement me")
-}
-
 func (f *fakeLoader) CallsMapPath(id uint16) string {
 	return ""
 }

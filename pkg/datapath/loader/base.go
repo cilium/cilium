@@ -124,7 +124,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	o.GetCompilationLock().Lock()
 	defer o.GetCompilationLock().Unlock()
 
-	l.Init(o.Datapath(), o.LocalConfig())
+	l.init(o.Datapath(), o.LocalConfig())
 
 	if err := l.writeNetdevHeader("./", o); err != nil {
 		log.WithError(err).Warn("Unable to write netdev header")
