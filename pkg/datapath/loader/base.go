@@ -95,8 +95,11 @@ func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
 	return fw.Flush()
 }
 
-// CompileBasePrograms compiles the base programs managed by this loader.
-func (l *Loader) CompileBasePrograms(ctx context.Context, o datapath.BaseProgramOwner, deviceMTU int, iptMgr datapath.RulesManager, p datapath.Proxy, r datapath.RouteReserver) error {
+// Reinitialize (re-)configures the base datapath configuration including global
+// BPF programs, netfilter rule configuration and reserving routes in IPAM for
+// locally detected prefixes. It may be run upon initial Cilium startup, after
+// restore from a previous Cilium run, or during regular Cilium operation.
+func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, deviceMTU int, iptMgr datapath.RulesManager, p datapath.Proxy, r datapath.RouteReserver) error {
 	var args []string
 	var mode string
 	var ret error
