@@ -30,9 +30,10 @@ import (
 // NetConf is the Cilium specific CNI network configuration
 type NetConf struct {
 	cniTypes.NetConf
-	MTU  int              `json:"mtu"`
-	Args Args             `json:"args"`
-	ENI  ciliumv2.ENISpec `json:"eni,omitempty"`
+	MTU         int              `json:"mtu"`
+	Args        Args             `json:"args"`
+	ENI         ciliumv2.ENISpec `json:"eni,omitempty"`
+	EnableDebug bool             `json:"enable-debug"`
 }
 
 // NetConfList is a CNI chaining configuration

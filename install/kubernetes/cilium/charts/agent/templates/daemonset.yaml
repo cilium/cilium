@@ -88,7 +88,8 @@ spec:
           postStart:
             exec:
               command:
-              - /cni-install.sh
+              - "/cni-install.sh"
+              -{{- if .Values.global.debug.enabled }} "--enable-debug=true"{{- else }} "--enable-debug=false"{{- end }}
           preStop:
             exec:
               command:

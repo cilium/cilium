@@ -21,7 +21,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	chainingapi "github.com/cilium/cilium/plugins/cilium-cni/chaining/api"
 
@@ -30,10 +29,6 @@ import (
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
-)
-
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "generic-veth")
 )
 
 type GenericVethChainer struct{}
@@ -84,7 +79,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 		}
 
 		for _, link := range links {
-			log.Debugf("Found interface in container %+v", link.Attrs())
+			pluginCtx.Logger.Debugf("Found interface in container %+v", link.Attrs())
 
 			if link.Type() != "veth" {
 				continue
@@ -201,7 +196,7 @@ func (f *GenericVethChainer) ImplementsDelete() bool {
 func (f *GenericVethChainer) Delete(ctx context.Context, pluginCtx chainingapi.PluginContext) (err error) {
 	id := endpointid.NewID(endpointid.ContainerIdPrefix, pluginCtx.Args.ContainerID)
 	if err := pluginCtx.Client.EndpointDelete(id); err != nil {
-		log.WithError(err).Warning("Errors encountered while deleting endpoint")
+		pluginCtx.Logger.WithError(err).Warning("Errors encountered while deleting endpoint")
 	}
 	return nil
 }

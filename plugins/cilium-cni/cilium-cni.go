@@ -275,8 +275,19 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		c        *client.Client
 		netNs    ns.NetNS
 	)
-
 	logger := log.WithField("eventUUID", uuid.NewUUID())
+
+	n, err = types.LoadNetConf(args.StdinData)
+	if err != nil {
+		// In case of an error is helpful to always print the processing CNI
+		// ADD request.
+		logger.Infof("Processing CNI ADD request %#v", args)
+		err = fmt.Errorf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err)
+		return
+	}
+	if !n.EnableDebug {
+		logger.Logger.SetLevel(logrus.InfoLevel)
+	}
 	logger.Debugf("Processing CNI ADD request %#v", args)
 
 	n, err = types.LoadNetConf(args.StdinData)
@@ -529,12 +540,20 @@ func cmdDel(args *skel.CmdArgs) error {
 	// are guaranteed to be recoverable.
 
 	logger := log.WithField("eventUUID", uuid.NewUUID())
-	logger.Debugf("Processing CNI DEL request %#v", args)
 
 	n, err := types.LoadNetConf(args.StdinData)
 	if err != nil {
+		// In case of an error is helpful to always print the processing CNI
+		// DEL request.
+		logger.Infof("Processing CNI DEL request %#v", args)
+		err = fmt.Errorf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err)
 		return err
 	}
+	if !n.EnableDebug {
+		logger.Logger.SetLevel(logrus.InfoLevel)
+	}
+	logger.Debugf("Processing CNI DEL request %#v", args)
+
 	logger.Debugf("CNI NetConf: %#v", n)
 
 	cniArgs := types.ArgsSpec{}
