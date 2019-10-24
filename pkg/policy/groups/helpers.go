@@ -15,6 +15,7 @@
 package groups
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/k8s"
@@ -42,7 +43,7 @@ func getDerivativeName(cnp *cilium_v2.CiliumNetworkPolicy) string {
 }
 
 // createDerivativeCNP will return a new CNP based on the given rule.
-func createDerivativeCNP(cnp *cilium_v2.CiliumNetworkPolicy) (*cilium_v2.CiliumNetworkPolicy, error) {
+func createDerivativeCNP(ctx context.Context, cnp *cilium_v2.CiliumNetworkPolicy) (*cilium_v2.CiliumNetworkPolicy, error) {
 	// CNP informer may provide a CNP object without APIVersion or Kind.
 	// Setting manually to make sure that the derivative policy works ok.
 	derivativeCNP := &cilium_v2.CiliumNetworkPolicy{
@@ -80,7 +81,7 @@ func createDerivativeCNP(cnp *cilium_v2.CiliumNetworkPolicy) (*cilium_v2.CiliumN
 			derivativeCNP.Specs[i] = rule
 			continue
 		}
-		newRule, err := rule.CreateDerivative()
+		newRule, err := rule.CreateDerivative(ctx)
 		if err != nil {
 			return derivativeCNP, err
 		}

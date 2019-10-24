@@ -15,6 +15,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"sync"
@@ -32,7 +33,7 @@ var (
 
 // GroupProviderFunc is a func that need to be register to be able to
 // register a new provider in the platform.
-type GroupProviderFunc func(*ToGroups) ([]net.IP, error)
+type GroupProviderFunc func(context.Context, *ToGroups) ([]net.IP, error)
 
 // ToGroups structure to store all kinds of new integrations that needs a new
 // derivative policy.
@@ -56,7 +57,7 @@ func RegisterToGroupsProvider(providerName string, callback GroupProviderFunc) {
 
 // GetCidrSet will return the CIDRRule for the rule using the callbacks that
 // are register in the platform.
-func (group *ToGroups) GetCidrSet() ([]CIDRRule, error) {
+func (group *ToGroups) GetCidrSet(ctx context.Context) ([]CIDRRule, error) {
 
 	var ips []net.IP
 	// Get per  provider CIDRSet
@@ -69,7 +70,7 @@ func (group *ToGroups) GetCidrSet() ([]CIDRRule, error) {
 		if !ok {
 			return nil, fmt.Errorf("Provider callback for %s is not a valid instance", AWSProvider)
 		}
-		awsIPs, err := callback(group)
+		awsIPs, err := callback(ctx, group)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"Cannot retrieve data from %s provider: %s",

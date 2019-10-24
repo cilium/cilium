@@ -15,6 +15,8 @@
 package groups
 
 import (
+	"context"
+
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
@@ -35,7 +37,7 @@ func UpdateCNPInformation() {
 		sem <- true
 		go func(cnp *cilium_v2.CiliumNetworkPolicy) {
 			defer func() { <-sem }()
-			addDerivativeCNP(cnp)
+			addDerivativeCNP(context.TODO(), cnp)
 
 		}(cnp)
 	}

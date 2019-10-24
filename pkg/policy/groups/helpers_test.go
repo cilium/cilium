@@ -17,6 +17,7 @@
 package groups
 
 import (
+	"context"
 	"fmt"
 	"net"
 
@@ -82,7 +83,7 @@ func (s *GroupsTestSuite) TestDerivativePoliciesAreDeletedIfNoToGroups(c *C) {
 
 func (s *GroupsTestSuite) TestDerivativePoliciesAreInheritCorrectly(c *C) {
 
-	cb := func(group *api.ToGroups) ([]net.IP, error) {
+	cb := func(ctx context.Context, group *api.ToGroups) ([]net.IP, error) {
 		return []net.IP{net.ParseIP("192.168.1.1")}, nil
 	}
 

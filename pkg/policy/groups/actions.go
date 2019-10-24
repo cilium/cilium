@@ -55,7 +55,7 @@ func AddDerivativeCNPIfNeeded(cnp *cilium_v2.CiliumNetworkPolicy) bool {
 	controllerManager.UpdateController(fmt.Sprintf("add-derivative-cnp-%s", cnp.ObjectMeta.Name),
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				return addDerivativeCNP(cnp)
+				return addDerivativeCNP(ctx, cnp)
 			},
 		})
 	return true
@@ -88,7 +88,7 @@ func UpdateDerivativeCNPIfNeeded(newCNP *cilium_v2.CiliumNetworkPolicy, oldCNP *
 	controllerManager.UpdateController(fmt.Sprintf("CNP-Derivative-update-%s", newCNP.ObjectMeta.Name),
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				return addDerivativeCNP(newCNP)
+				return addDerivativeCNP(ctx, newCNP)
 			},
 		})
 	return true
@@ -126,7 +126,7 @@ func DeleteDerivativeCNP(cnp *cilium_v2.CiliumNetworkPolicy) error {
 	return nil
 }
 
-func addDerivativeCNP(cnp *cilium_v2.CiliumNetworkPolicy) error {
+func addDerivativeCNP(ctx context.Context, cnp *cilium_v2.CiliumNetworkPolicy) error {
 
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
@@ -145,7 +145,7 @@ func addDerivativeCNP(cnp *cilium_v2.CiliumNetworkPolicy) error {
 	// the derivative status in the parent policy  will be updated with the
 	// error.
 	for numAttempts := 0; numAttempts <= maxNumberOfAttempts; numAttempts++ {
-		derivativeCNP, derivativeErr = createDerivativeCNP(cnp)
+		derivativeCNP, derivativeErr = createDerivativeCNP(ctx, cnp)
 		if derivativeErr == nil {
 			break
 		}

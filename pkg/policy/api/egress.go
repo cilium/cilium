@@ -15,6 +15,8 @@
 package api
 
 import (
+	"context"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -215,14 +217,14 @@ func (e *EgressRule) RequiresDerivative() bool {
 // rules that creates a new derivative policy.
 // In the case of ToGroups will call outside using the groups callback and this
 // function can take a bit of time.
-func (e *EgressRule) CreateDerivative() (*EgressRule, error) {
+func (e *EgressRule) CreateDerivative(ctx context.Context) (*EgressRule, error) {
 	newRule := e.DeepCopy()
 	if !e.RequiresDerivative() {
 		return newRule, nil
 	}
 	newRule.ToCIDRSet = CIDRRuleSlice{}
 	for _, group := range e.ToGroups {
-		cidrSet, err := group.GetCidrSet()
+		cidrSet, err := group.GetCidrSet(ctx)
 		if err != nil {
 			return &EgressRule{}, err
 		}
