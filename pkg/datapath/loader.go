@@ -32,7 +32,7 @@ type Loader interface {
 	DeleteDatapath(ctx context.Context, ifName, direction string) error
 	Unload(ep Endpoint)
 	Init(d ConfigWriter, nodeCfg *LocalNodeConfiguration)
-	CompileBasePrograms(ctx context.Context, o BaseProgramOwner, deviceMTU int, iptMgr RulesManager, p Proxy, r RouteReserver) error
+	Reinitialize(ctx context.Context, o BaseProgramOwner, deviceMTU int, iptMgr RulesManager, p Proxy, r RouteReserver) error
 }
 
 // BaseProgramOwner is any type for which a loader is building base programs.
