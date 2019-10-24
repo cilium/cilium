@@ -219,11 +219,11 @@ type GCFilter struct {
 	// EmitCTEntry is called, when non-nil, if filtering by ValidIPs and MatchIPs
 	// passes. It has no impact on CT GC, but can be used to iterate over valid
 	// CT entries.
-	EmitCTEntryCB EmitCTEntryFunc
+	EmitCTEntryCB EmitCTEntryCBFunc
 }
 
-// EmitCTEntryFunc is the type used for the EmitCTEntry callback in GCFilter
-type EmitCTEntryFunc func(srcIP, dstIP net.IP, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry)
+// EmitCTEntryCBFunc is the type used for the EmitCTEntryCB callback in GCFilter
+type EmitCTEntryCBFunc func(srcIP, dstIP net.IP, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry)
 
 // ToString iterates through Map m and writes the values of the ct entries in m
 // to a string.

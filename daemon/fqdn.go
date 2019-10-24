@@ -152,22 +152,63 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 	}
 
 	// Controller to cleanup TTL expired entries from the DNS policies.
+	// dns-garbage-collector-job runs the logic to remove stale or undesired
+	// entries from the DNS caches. This is done for all per-EP DNSCache
+	// instances (ep.DNSHistory) with evictions (whether due to TTL expiry or
+	// overlimit eviction) cascaded into ep.DNSZombies. Data in DNSHistory and
+	// DNSZombies is further collected into the global DNSCache instance. The
+	// data there drives toFQDNs policy via NameManager and ToFQDNs selectors.
+	// DNSCache entries expire data when the TTL elapses and when the entries for
+	// a DNS name are above a limit. The data is then placed into
+	// DNSZombieMappings instances. These rely on the CT GC loop to update
+	// liveness for each to-delete IP. When an IP is not in-use it is finally
+	// deleted from the global DNSCache. Until then, each of these IPs is
+	// inserted into the global cache as a synthetic DNS lookup.
 	dnsGCJobName := "dns-garbage-collector-job"
+	dnsGCJobInterval := 1 * time.Minute
 	controller.NewManager().UpdateController(dnsGCJobName, controller.ControllerParams{
-		RunInterval: 1 * time.Minute,
+		RunInterval: dnsGCJobInterval,
 		DoFunc: func(ctx context.Context) error {
 			var (
 				GCStart      = time.Now()
-				namesToClean = []string{}
+				namesToClean []string
+
+				// activeConnections holds DNSName -> single IP entries that have been
+				// marked active by the CT GC. Since we expire in this controller, we
+				// give these entries 2 cycles of TTL to allow for timing mismatches
+				// with the CT GC.
+				activeConnectionsTTL = int(2 * dnsGCJobInterval.Seconds())
+				activeConnections    = fqdn.NewDNSCache(activeConnectionsTTL)
 			)
 
-			// cleanup poller cache
+			// Cleanup poller cache. We do not defer any expirations for this cache
 			namesToClean = append(namesToClean, d.dnsPoller.DNSHistory.GC(GCStart, nil)...)
 
-			// cleanup caches for all existing endpoints as well.
+			// Cleanup each endpoint cache, deferring deletions via DNSZombies.
 			endpoints := d.endpointManager.GetEndpoints()
 			for _, ep := range endpoints {
-				namesToClean = append(namesToClean, ep.DNSHistory.GC(GCStart, nil)...)
+				namesToClean = append(namesToClean, ep.DNSHistory.GC(GCStart, ep.DNSZombies)...)
+				alive, dead := ep.DNSZombies.GC()
+
+				// Alive zombie need to be added to the global cache as name->IP
+				// entries. We accumulate the names into namesToClean to ensure that
+				// the original full DNS lookup (name -> many IPs) is expired and only
+				// the active connections (name->single IP) are re-added.
+				// Note: Other DNS lookups may also use an active IP. This is fine.
+				lookupTime := time.Now()
+				for _, zombie := range alive {
+					namesToClean = fqdn.KeepUniqueNames(append(namesToClean, zombie.Names...))
+					for _, name := range zombie.Names {
+						activeConnections.Update(lookupTime, name, []net.IP{zombie.IP}, activeConnectionsTTL)
+					}
+				}
+
+				// Dead entries can be deleted outright, without any replacement.
+				// Entries here have been evicted from the DNS cache (via .GC due to
+				// TTL expiration or overlimit) and are no longer active connections.
+				for _, zombie := range dead {
+					namesToClean = fqdn.KeepUniqueNames(append(namesToClean, zombie.Names...))
+				}
 			}
 
 			namesToClean = fqdn.KeepUniqueNames(namesToClean)
@@ -175,15 +216,15 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 				return nil
 			}
 
-			// Collect DNS data into the global cache. This aggregates all endpoint
-			// data (and the poller) into one place for use elsewhere.
+			// Collect DNS data into the global cache. This aggregates all endpoint,
+			// existing connection and poller data into one place for use elsewhere.
 			// In the case where a lookup occurs in a race with .ReplaceFromCache the
 			// result is consistent:
 			// - If before, the ReplaceFromCache will use the new data when pulling
 			// in from each EP cache.
 			// - If after, the normal update process occurs after .ReplaceFromCache
 			// releases its locks.
-			caches := []*fqdn.DNSCache{d.dnsPoller.DNSHistory}
+			caches := []*fqdn.DNSCache{d.dnsPoller.DNSHistory, activeConnections}
 			for _, ep := range endpoints {
 				caches = append(caches, ep.DNSHistory)
 			}
@@ -213,13 +254,30 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 	}
 
 	// Prefill the cache with DNS lookups from restored endpoints. This is needed
-	// to maintain continuity of which IPs are allowed.
+	// to maintain continuity of which IPs are allowed. The GC cascade logic
+	// below mimics the logic found in the dns-garbage-collector controller.
 	// Note: This is TTL aware, and expired data will not be used (e.g. when
 	// restoring after a long delay).
+	globalCache := d.dnsNameManager.GetDNSCache()
+	now := time.Now()
 	for _, restoredEP := range restoredEndpoints.restored {
 		// Upgrades from old ciliums have this nil
 		if restoredEP.DNSHistory != nil {
-			d.dnsNameManager.GetDNSCache().UpdateFromCache(restoredEP.DNSHistory, []string{})
+			globalCache.UpdateFromCache(restoredEP.DNSHistory, []string{})
+			// GC any connections that have expired, but propagate it to the zombies
+			// list. DNSCache.GC can handle a nil DNSZombies parameter. We use the
+			// actual now time because we are checkpointing at restore time.
+			globalCache.GC(now, restoredEP.DNSZombies)
+		}
+
+		if restoredEP.DNSZombies != nil {
+			lookupTime := time.Now()
+			alive, _ := restoredEP.DNSZombies.GC()
+			for _, zombie := range alive {
+				for _, name := range zombie.Names {
+					globalCache.Update(lookupTime, name, []net.IP{zombie.IP}, int(2*dnsGCJobInterval.Seconds()))
+				}
+			}
 		}
 	}
 
