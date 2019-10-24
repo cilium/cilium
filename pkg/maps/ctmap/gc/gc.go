@@ -51,18 +51,47 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 		ipv4Orig := ipv4
 		ipv6Orig := ipv6
 		for {
-			var maxDeleteRatio float64
+			var (
+				maxDeleteRatio float64
+
+				// gcStart and matchCB are used to populate DNSPendingDelete fields on
+				// endpoints. These hold IPs that are deletable in the DNS caches, but
+				// may be in use by connections. Each loop of this GC keeps those
+				// entries alive by touching them in matchCB. We also need to record
+				// the start of each CT GC loop (further below in the goroutine). In
+				// all cases the timestamp used is the start of the GC loop. This
+				// simplifies the logic to determine if a marked connection was marked
+				// in the most recent GC loop or not: if the active timestamp is before
+				// the recorded start of the GC loop then it must mean the next
+				// iteration has completed and it is not in-use.
+				gcStart = time.Now()
+				matchCB = func(srcIP net.IP, dstIP net.IP, dstPort uint16, nextHdr, flags uint8, entry *ctmap.CtEntry) bool {
+					// Ensure we only look at outbound connections that can be FQDN related
+					if flags != ctmap.TUPLE_F_OUT {
+						return true
+					}
+					if ep := mgr.LookupIP(srcIP); ep != nil {
+						ep.MarkDNSCTEntry(dstIP, gcStart)
+					}
+					return true
+				}
+			)
 
 			eps := mgr.GetEndpoints()
 			if len(eps) > 0 || initialScan {
-				mapType, maxDeleteRatio = runGC(nil, ipv4, ipv6, createGCFilter(initialScan, restoredEndpoints))
+				mapType, maxDeleteRatio = runGC(nil, ipv4, ipv6, createGCFilter(initialScan, restoredEndpoints, matchCB))
 			}
 			for _, e := range eps {
 				if !e.ConntrackLocal() {
 					// Skip because GC was handled above.
 					continue
 				}
-				runGC(e, ipv4, ipv6, &ctmap.GCFilter{RemoveExpired: true})
+				runGC(e, ipv4, ipv6, &ctmap.GCFilter{RemoveExpired: true, MatchCB: matchCB})
+			}
+
+			// Mark the CT GC as over in all EP DNSDelete instances
+			for _, e := range eps {
+				e.MarkCTGCTime(gcStart)
 			}
 
 			if initialScan {
@@ -164,9 +193,10 @@ func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) (mapTy
 	return
 }
 
-func createGCFilter(initialScan bool, restoredEndpoints []*endpoint.Endpoint) *ctmap.GCFilter {
+func createGCFilter(initialScan bool, restoredEndpoints []*endpoint.Endpoint, matchCB ctmap.MatchCBFunc) *ctmap.GCFilter {
 	filter := &ctmap.GCFilter{
 		RemoveExpired: true,
+		MatchCB:       matchCB,
 	}
 
 	// On the initial scan, scrub all IPs from the conntrack table which do
