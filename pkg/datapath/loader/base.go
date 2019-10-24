@@ -100,9 +100,11 @@ func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
 // locally detected prefixes. It may be run upon initial Cilium startup, after
 // restore from a previous Cilium run, or during regular Cilium operation.
 func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, deviceMTU int, iptMgr datapath.RulesManager, p datapath.Proxy, r datapath.RouteReserver) error {
-	var args []string
-	var mode string
-	var ret error
+	var (
+		args []string
+		mode string
+		ret  error
+	)
 
 	type setting struct {
 		name      string
