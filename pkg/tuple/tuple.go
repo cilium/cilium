@@ -41,9 +41,6 @@ type TupleKey interface {
 	// ToHost converts fields to host byte order.
 	ToHost() TupleKey
 
-	// Dumps contents of key to buffer. Returns true if successful.
-	Dump(buffer *bytes.Buffer, reverse bool) bool
-
 	// Returns flags containing the direction of the tuple key.
 	GetFlags() uint8
 
@@ -61,6 +58,75 @@ type TupleKey interface {
 
 	// GetNextHeader returns the next header.
 	GetNextHeader() u8proto.U8proto
+}
+
+func Dump(k TupleKey, buffer *bytes.Buffer, reverse bool) bool {
+	var addrDest string
+
+	if k.GetNextHeader() == 0 {
+		return false
+	}
+
+	// Addresses swapped, see issue #5848
+	if reverse {
+		addrDest = k.GetSourceAddr().IP().String()
+	} else {
+		addrDest = k.GetDestAddr().IP().String()
+	}
+
+	if k.GetFlags()&TUPLE_F_IN != 0 {
+		buffer.WriteString(fmt.Sprintf("%s IN %s %d:%d ",
+			k.GetNextHeader().String(), addrDest, k.GetSourcePort(),
+			k.GetDestPort()),
+		)
+	} else {
+		buffer.WriteString(fmt.Sprintf("%s OUT %s %d:%d ",
+			k.GetNextHeader().String(), addrDest, k.GetDestPort(),
+			k.GetSourcePort()),
+		)
+	}
+
+	if k.GetFlags()&TUPLE_F_RELATED != 0 {
+		buffer.WriteString("related ")
+	}
+
+	if k.GetFlags()&TUPLE_F_SERVICE != 0 {
+		buffer.WriteString("service ")
+	}
+
+	return true
+}
+
+// TupleKeyCommon represents the common data for keys for IPv4 and IPv6 entries
+// in the local BPF conntrack map.
+type TupleKeyCommon struct {
+	DestPort   uint16          `align:"dport"`
+	SourcePort uint16          `align:"sport"`
+	NextHeader u8proto.U8proto `align:"nexthdr"`
+	Flags      uint8           `align:"flags"`
+}
+
+// NewValue creates a new bpf.MapValue.
+func (k *TupleKeyCommon) NewValue() bpf.MapValue { return &TupleValStub{} }
+
+// GetFlags returns the tuple's flags.
+func (k *TupleKeyCommon) GetFlags() uint8 {
+	return k.Flags
+}
+
+// GetDestPort returns the destination port.
+func (k *TupleKeyCommon) GetDestPort() uint16 {
+	return k.DestPort
+}
+
+// GetSourcePort returns the source port.
+func (k *TupleKeyCommon) GetSourcePort() uint16 {
+	return k.SourcePort
+}
+
+// GetNextHeader returns the next header.
+func (k *TupleKeyCommon) GetNextHeader() u8proto.U8proto {
+	return k.NextHeader
 }
 
 type buff256uint8 [256]uint8

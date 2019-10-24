@@ -15,14 +15,11 @@
 package tuple
 
 import (
-	"bytes"
 	"fmt"
 	"unsafe"
 
 	"github.com/cilium/cilium/common/types"
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // TupleKey4 represents the key for IPv4 entries in the local BPF conntrack map.
@@ -31,19 +28,13 @@ import (
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type TupleKey4 struct {
-	DestAddr   types.IPv4      `align:"daddr"`
-	SourceAddr types.IPv4      `align:"saddr"`
-	DestPort   uint16          `align:"dport"`
-	SourcePort uint16          `align:"sport"`
-	NextHeader u8proto.U8proto `align:"nexthdr"`
-	Flags      uint8           `align:"flags"`
+	DestAddr   types.IPv4 `align:"daddr"`
+	SourceAddr types.IPv4 `align:"saddr"`
+	TupleKeyCommon
 }
 
 // GetKeyPtr returns the unsafe.Pointer for k.
 func (k *TupleKey4) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
-// NewValue creates a new bpf.MapValue.
-func (k *TupleKey4) NewValue() bpf.MapValue { return &TupleValStub{} }
 
 // ToNetwork converts TupleKey4 ports to network byte order.
 func (k *TupleKey4) ToNetwork() TupleKey {
@@ -61,11 +52,6 @@ func (k *TupleKey4) ToHost() TupleKey {
 	return &n
 }
 
-// GetFlags returns the tuple's flags.
-func (k *TupleKey4) GetFlags() uint8 {
-	return k.Flags
-}
-
 // GetDestAddr returns the destination IP address.
 func (k *TupleKey4) GetDestAddr() types.IP {
 	return k.DestAddr
@@ -76,63 +62,9 @@ func (k *TupleKey4) GetSourceAddr() types.IP {
 	return k.SourceAddr
 }
 
-// GetDestPort returns the destination port.
-func (k *TupleKey4) GetDestPort() uint16 {
-	return k.DestPort
-}
-
-// GetSourcePort returns the source port.
-func (k *TupleKey4) GetSourcePort() uint16 {
-	return k.SourcePort
-}
-
-// GetNextHeader returns the next header.
-func (k *TupleKey4) GetNextHeader() u8proto.U8proto {
-	return k.NextHeader
-}
-
 // String returns the tuple's string representation, doh.
 func (k *TupleKey4) String() string {
 	return fmt.Sprintf("%s:%d, %d, %d, %d", k.DestAddr, k.SourcePort, k.DestPort, k.NextHeader, k.Flags)
-}
-
-// Dump writes the contents of key to buffer and returns true if the value for
-// next header in the key is nonzero.
-func (k TupleKey4) Dump(buffer *bytes.Buffer, reverse bool) bool {
-	var addrDest string
-
-	if k.NextHeader == 0 {
-		return false
-	}
-
-	// Addresses swapped, see issue #5848
-	if reverse {
-		addrDest = k.SourceAddr.IP().String()
-	} else {
-		addrDest = k.DestAddr.IP().String()
-	}
-
-	if k.Flags&TUPLE_F_IN != 0 {
-		buffer.WriteString(fmt.Sprintf("%s IN %s %d:%d ",
-			k.NextHeader.String(), addrDest, k.SourcePort,
-			k.DestPort),
-		)
-	} else {
-		buffer.WriteString(fmt.Sprintf("%s OUT %s %d:%d ",
-			k.NextHeader.String(), addrDest, k.DestPort,
-			k.SourcePort),
-		)
-	}
-
-	if k.Flags&TUPLE_F_RELATED != 0 {
-		buffer.WriteString("related ")
-	}
-
-	if k.Flags&TUPLE_F_SERVICE != 0 {
-		buffer.WriteString("service ")
-	}
-
-	return true
 }
 
 // TupleKey4Global represents the key for IPv4 entries in the global BPF
@@ -173,45 +105,4 @@ func (k *TupleKey4Global) ToHost() TupleKey {
 	return &TupleKey4Global{
 		TupleKey4: *k.TupleKey4.ToHost().(*TupleKey4),
 	}
-}
-
-// Dump writes the contents of key to buffer and returns true if the
-// value for next header in the key is nonzero.
-func (k TupleKey4Global) Dump(buffer *bytes.Buffer, reverse bool) bool {
-	var addrSource, addrDest string
-
-	if k.NextHeader == 0 {
-		return false
-	}
-
-	// Addresses swapped, see issue #5848
-	if reverse {
-		addrSource = k.DestAddr.IP().String()
-		addrDest = k.SourceAddr.IP().String()
-	} else {
-		addrSource = k.SourceAddr.IP().String()
-		addrDest = k.DestAddr.IP().String()
-	}
-
-	if k.Flags&TUPLE_F_IN != 0 {
-		buffer.WriteString(fmt.Sprintf("%s IN %s:%d -> %s:%d ",
-			k.NextHeader.String(), addrSource, k.SourcePort,
-			addrDest, k.DestPort),
-		)
-	} else {
-		buffer.WriteString(fmt.Sprintf("%s OUT %s:%d -> %s:%d ",
-			k.NextHeader.String(), addrSource, k.SourcePort,
-			addrDest, k.DestPort),
-		)
-	}
-
-	if k.Flags&TUPLE_F_RELATED != 0 {
-		buffer.WriteString("related ")
-	}
-
-	if k.Flags&TUPLE_F_SERVICE != 0 {
-		buffer.WriteString("service ")
-	}
-
-	return true
 }

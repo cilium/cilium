@@ -58,7 +58,7 @@ type NatEntry interface {
 	ToHost() NatEntry
 
 	// Dumps the Nat entry as string.
-	Dump(key NatKey, start uint64) string
+	Dump(key tuple.TupleKey, start uint64) string
 }
 
 // NatDumpCreated returns time in seconds when NAT entry was created.
@@ -109,8 +109,8 @@ func (m *Map) DumpEntries() (string, error) {
 
 	nsecStart, _ := bpf.GetMtime()
 	cb := func(k bpf.MapKey, v bpf.MapValue) {
-		key := k.(NatKey)
-		if !key.ToHost().Dump(&buffer, false) {
+		key := k.(tuple.TupleKey)
+		if !tuple.Dump(key.ToHost(), &buffer, false) {
 			return
 		}
 		val := v.(NatEntry)

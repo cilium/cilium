@@ -60,10 +60,12 @@ func createTupleKey(isGlobal bool, remoteAddr, localAddr string, proto u8proto.U
 			key := &CtKey4Global{
 				TupleKey4Global: tuple.TupleKey4Global{
 					TupleKey4: tuple.TupleKey4{
-						SourcePort: uint16(sport),
-						DestPort:   uint16(dport),
-						NextHeader: proto,
-						Flags:      TUPLE_F_OUT,
+						TupleKeyCommon: tuple.TupleKeyCommon{
+							SourcePort: uint16(sport),
+							DestPort:   uint16(dport),
+							NextHeader: proto,
+							Flags:      TUPLE_F_OUT,
+						},
 					},
 				},
 			}
@@ -78,10 +80,12 @@ func createTupleKey(isGlobal bool, remoteAddr, localAddr string, proto u8proto.U
 
 		key := &CtKey4{
 			TupleKey4: tuple.TupleKey4{
-				SourcePort: uint16(sport),
-				DestPort:   uint16(dport),
-				NextHeader: proto,
-				Flags:      TUPLE_F_OUT,
+				TupleKeyCommon: tuple.TupleKeyCommon{
+					SourcePort: uint16(sport),
+					DestPort:   uint16(dport),
+					NextHeader: proto,
+					Flags:      TUPLE_F_OUT,
+				},
 			},
 		}
 		// CTmap has the addresses in the reverse order w.r.t. the original direction
@@ -97,10 +101,12 @@ func createTupleKey(isGlobal bool, remoteAddr, localAddr string, proto u8proto.U
 		key := &CtKey6Global{
 			TupleKey6Global: tuple.TupleKey6Global{
 				TupleKey6: tuple.TupleKey6{
-					SourcePort: uint16(sport),
-					DestPort:   uint16(dport),
-					NextHeader: proto,
-					Flags:      TUPLE_F_OUT,
+					TupleKeyCommon: tuple.TupleKeyCommon{
+						SourcePort: uint16(sport),
+						DestPort:   uint16(dport),
+						NextHeader: proto,
+						Flags:      TUPLE_F_OUT,
+					},
 				},
 			},
 		}
@@ -115,10 +121,12 @@ func createTupleKey(isGlobal bool, remoteAddr, localAddr string, proto u8proto.U
 
 	key := &CtKey6{
 		TupleKey6: tuple.TupleKey6{
-			SourcePort: uint16(sport),
-			DestPort:   uint16(dport),
-			NextHeader: proto,
-			Flags:      TUPLE_F_OUT,
+			TupleKeyCommon: tuple.TupleKeyCommon{
+				SourcePort: uint16(sport),
+				DestPort:   uint16(dport),
+				NextHeader: proto,
+				Flags:      TUPLE_F_OUT,
+			},
 		},
 	}
 	// CTmap has the addresses in the reverse order w.r.t. the original direction

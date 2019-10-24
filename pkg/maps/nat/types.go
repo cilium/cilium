@@ -15,28 +15,11 @@
 package nat
 
 import (
-	"bytes"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/tuple"
 )
-
-type NatKey interface {
-	bpf.MapKey
-
-	// ToNetwork converts fields to network byte order.
-	ToNetwork() NatKey
-
-	// ToHost converts fields to host byte order.
-	ToHost() NatKey
-
-	// Dump contents of key to buffer. Returns true if successful.
-	Dump(buffer *bytes.Buffer, reverse bool) bool
-
-	// GetFlags flags containing the direction of the TupleKey.
-	GetFlags() uint8
-}
 
 // NatKey4 is needed to provide NatEntry type to Lookup values
 // +k8s:deepcopy-gen=true
@@ -53,7 +36,7 @@ func (k *NatKey4) NewValue() bpf.MapValue { return &NatEntry4{} }
 // This is necessary to prevent callers from implicitly converting
 // the NatKey4 type here into a local key type in the nested
 // TupleKey4Global field.
-func (k *NatKey4) ToNetwork() NatKey {
+func (k *NatKey4) ToNetwork() tuple.TupleKey {
 	return &NatKey4{
 		TupleKey4Global: *k.TupleKey4Global.ToNetwork().(*tuple.TupleKey4Global),
 	}
@@ -64,7 +47,7 @@ func (k *NatKey4) ToNetwork() NatKey {
 // This is necessary to prevent callers from implicitly converting
 // the NatKey4 type here into a local key type in the nested
 // TupleKey4Global field.
-func (k *NatKey4) ToHost() NatKey {
+func (k *NatKey4) ToHost() tuple.TupleKey {
 	return &NatKey4{
 		TupleKey4Global: *k.TupleKey4Global.ToHost().(*tuple.TupleKey4Global),
 	}
@@ -88,7 +71,7 @@ func (k *NatKey6) NewValue() bpf.MapValue { return &NatEntry4{} }
 // This is necessary to prevent callers from implicitly converting
 // the NatKey6 type here into a local key type in the nested
 // TupleKey6Global field.
-func (k *NatKey6) ToNetwork() NatKey {
+func (k *NatKey6) ToNetwork() tuple.TupleKey {
 	return &NatKey6{
 		TupleKey6Global: *k.TupleKey6Global.ToNetwork().(*tuple.TupleKey6Global),
 	}
@@ -99,7 +82,7 @@ func (k *NatKey6) ToNetwork() NatKey {
 // This is necessary to prevent callers from implicitly converting
 // the NatKey6 type here into a local key type in the nested
 // TupleKey6Global field.
-func (k *NatKey6) ToHost() NatKey {
+func (k *NatKey6) ToHost() tuple.TupleKey {
 	return &NatKey6{
 		TupleKey6Global: *k.TupleKey6Global.ToHost().(*tuple.TupleKey6Global),
 	}
