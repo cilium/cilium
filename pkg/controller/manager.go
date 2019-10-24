@@ -105,7 +105,11 @@ func (m *Manager) updateController(name string, params ControllerParams) *Contro
 		ctrl.updateParamsLocked(params)
 		ctrl.getLogger().Debug("Starting new controller")
 
-		ctrl.ctxDoFunc, ctrl.cancelDoFunc = context.WithCancel(context.Background())
+		if params.Context == nil {
+			ctrl.ctxDoFunc, ctrl.cancelDoFunc = context.WithCancel(context.Background())
+		} else {
+			ctrl.ctxDoFunc, ctrl.cancelDoFunc = context.WithCancel(params.Context)
+		}
 		m.controllers[ctrl.name] = ctrl
 		m.mutex.Unlock()
 

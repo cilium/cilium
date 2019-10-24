@@ -296,6 +296,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 						return nil
 					},
 					RunInterval: 30 * time.Second,
+					Context:     d.ctx,
 				},
 			)
 			go func() {

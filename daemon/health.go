@@ -98,6 +98,7 @@ func (d *Daemon) initHealth() {
 				return err
 			},
 			RunInterval: 60 * time.Second,
+			Context:     d.ctx,
 		},
 	)
 

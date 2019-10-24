@@ -588,6 +588,7 @@ func (e *Endpoint) startRegenerationFailureHandler() {
 			return fmt.Errorf("regeneration recovery failed")
 		},
 		ErrorRetryBaseDuration: 2 * time.Second,
+		Context:                e.aliveCtx,
 	})
 }
 
@@ -663,6 +664,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 				return nil
 			},
 			RunInterval: 5 * time.Minute,
+			Context:     e.aliveCtx,
 		},
 	)
 }

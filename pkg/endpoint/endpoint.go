@@ -298,6 +298,7 @@ func (e *Endpoint) SetAllocator(allocator cache.IdentityAllocator) {
 // UpdateController updates the controller with the specified name with the
 // provided list of parameters in endpoint's list of controllers.
 func (e *Endpoint) UpdateController(name string, params controller.ControllerParams) {
+	params.Context = e.aliveCtx
 	e.controllers.UpdateController(name, params)
 }
 
@@ -1600,6 +1601,7 @@ func (e *Endpoint) runLabelsResolver(ctx context.Context, myChangeRev int, block
 				}
 			},
 			RunInterval: 5 * time.Minute,
+			Context:     e.aliveCtx,
 		},
 	)
 }

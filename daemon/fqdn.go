@@ -193,6 +193,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			_, err := d.dnsNameManager.ForceGenerateDNS(context.TODO(), namesToClean)
 			return err
 		},
+		Context: d.ctx,
 	})
 
 	// Prefill the cache with the CLI provided pre-cache data. This allows various bridging arrangements during upgrades, or just ensure critical DNS mappings remain.
