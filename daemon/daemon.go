@@ -301,6 +301,8 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath, iptablesManager rulesM
 	// Must be done before calling policy.NewPolicyRepository() below.
 	identity.InitWellKnownIdentities()
 
+	nd := nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig, netConf)
+
 	d := Daemon{
 		ctx:              dCtx,
 		cancel:           cancel,
@@ -311,7 +313,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath, iptablesManager rulesM
 		netConf:          netConf,
 		mtuConfig:        mtuConfig,
 		datapath:         dp,
-		nodeDiscovery:    nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig),
+		nodeDiscovery:    nd,
 		iptablesManager:  iptablesManager,
 	}
 
@@ -481,7 +483,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath, iptablesManager rulesM
 		log.Debug("Annotate k8s node is disabled.")
 	}
 
-	d.nodeDiscovery.StartDiscovery(node.GetName(), &d)
+	d.nodeDiscovery.StartDiscovery(node.GetName())
 
 	// This needs to be done after the node addressing has been configured
 	// as the node address is required as suffix.
@@ -700,16 +702,4 @@ func (d *Daemon) GetNodeSuffix() string {
 	}
 
 	return ip.String()
-}
-
-// GetNetConf returns the CNI configuration that was used to initiate the
-// daemon instance. This may return nil when no configuration is available.
-func (d *Daemon) GetNetConf() *cnitypes.NetConf {
-	return d.netConf
-}
-
-// UpdateCiliumNodeResource implements nodediscovery.Owner to create/update the
-// CiliumNode resource
-func (d *Daemon) UpdateCiliumNodeResource() {
-	d.nodeDiscovery.UpdateCiliumNodeResource(d)
 }
