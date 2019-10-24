@@ -243,19 +243,14 @@ func (p *prober) httpProbe(node string, ip string, port int) *models.Connectivit
 	return result
 }
 
-func (p *prober) runHTTPProbe() {
-	startTime := time.Now()
-	p.Lock()
-	p.start = startTime
-	p.Unlock()
+func (p *prober) getIPsByNode() map[string][]*net.IPAddr {
+	p.RLock()
+	defer p.RUnlock()
 
 	// p.nodes is mapped from all known IPs -> nodes in N:M configuration,
 	// so multiple IPs could refer to the same node. To ensure we only
 	// ping each node once, deduplicate nodes into map of nodeName -> []IP.
-	// When probing below, we won't hold the lock on 'p.nodes' so take
-	// a copy of all of the IPs we need to reference.
 	nodes := make(map[string][]*net.IPAddr)
-	p.RLock()
 	for _, node := range p.nodes {
 		if nodes[node.Name] != nil {
 			// Already handled this node.
@@ -268,9 +263,17 @@ func (p *prober) runHTTPProbe() {
 			}
 		}
 	}
-	p.RUnlock()
 
-	for name, ips := range nodes {
+	return nodes
+}
+
+func (p *prober) runHTTPProbe() {
+	startTime := time.Now()
+	p.Lock()
+	p.start = startTime
+	p.Unlock()
+
+	for name, ips := range p.getIPsByNode() {
 		for _, ip := range ips {
 			scopedLog := log.WithFields(logrus.Fields{
 				logfields.NodeName: name,
