@@ -97,7 +97,7 @@ func listFilterIfs(filter func(netlink.Link) int) (map[int]netlink.Link, error) 
 
 // clearCiliumVeths checks all veths created by cilium and removes all that
 // are considered a leftover from failed attempts to connect the container.
-func (d *Daemon) clearCiliumVeths() error {
+func clearCiliumVeths() error {
 	log.Info("Removing stale endpoint interfaces")
 
 	leftVeths, err := listFilterIfs(func(intf netlink.Link) int {
