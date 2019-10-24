@@ -399,7 +399,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath, iptablesManager rulesM
 	bootstrapStats.workloadsInit.End(true)
 
 	bootstrapStats.cleanup.Start()
-	err = d.clearCiliumVeths()
+	err = clearCiliumVeths()
 	bootstrapStats.cleanup.EndError(err)
 	if err != nil {
 		log.WithError(err).Warning("Unable to clean stale endpoint interfaces")
