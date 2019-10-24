@@ -28,6 +28,7 @@ type prometheusMetrics struct {
 	registry              *prometheus.Registry
 	AllocateEniOps        *prometheus.CounterVec
 	AllocateIpOps         *prometheus.CounterVec
+	ReleaseIpOps          *prometheus.CounterVec
 	IPsAllocated          *prometheus.GaugeVec
 	AvailableENIs         prometheus.Gauge
 	AvailableIPsPerSubnet *prometheus.GaugeVec
@@ -35,7 +36,7 @@ type prometheusMetrics struct {
 	Resync                prometheus.Counter
 	EC2ApiDuration        *prometheus.HistogramVec
 	EC2RateLimit          *prometheus.HistogramVec
-	deficitResolver       *triggerMetrics
+	poolMaintainer        *triggerMetrics
 	k8sSync               *triggerMetrics
 	resync                *triggerMetrics
 }
@@ -59,6 +60,13 @@ func NewPrometheusMetrics(namespace string, registry *prometheus.Registry) *prom
 		Subsystem: eniSubsystem,
 		Name:      "allocation_ops",
 		Help:      "Number of IP allocation operations",
+	}, []string{"subnetId"})
+
+	m.ReleaseIpOps = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: eniSubsystem,
+		Name:      "release_ops",
+		Help:      "Number of IP release operations",
 	}, []string{"subnetId"})
 
 	m.AllocateEniOps = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -110,12 +118,15 @@ func NewPrometheusMetrics(namespace string, registry *prometheus.Registry) *prom
 		Help:      "Duration of EC2 client-side rate limiter blocking",
 	}, []string{"operation"})
 
-	m.deficitResolver = newTriggerMetrics(namespace, "deficit_resolver")
+	// pool_maintainer is a more generic name, but for backward compatibility
+	// of dashboard, keep the metric name deficit_resolver unchanged
+	m.poolMaintainer = newTriggerMetrics(namespace, "deficit_resolver")
 	m.k8sSync = newTriggerMetrics(namespace, "k8s_sync")
 	m.resync = newTriggerMetrics(namespace, "ec2_resync")
 
 	registry.MustRegister(m.IPsAllocated)
 	registry.MustRegister(m.AllocateIpOps)
+	registry.MustRegister(m.ReleaseIpOps)
 	registry.MustRegister(m.AllocateEniOps)
 	registry.MustRegister(m.AvailableENIs)
 	registry.MustRegister(m.AvailableIPsPerSubnet)
@@ -123,15 +134,15 @@ func NewPrometheusMetrics(namespace string, registry *prometheus.Registry) *prom
 	registry.MustRegister(m.Resync)
 	registry.MustRegister(m.EC2ApiDuration)
 	registry.MustRegister(m.EC2RateLimit)
-	m.deficitResolver.register(registry)
+	m.poolMaintainer.register(registry)
 	m.k8sSync.register(registry)
 	m.resync.register(registry)
 
 	return m
 }
 
-func (p *prometheusMetrics) DeficitResolverTrigger() trigger.MetricsObserver {
-	return p.deficitResolver
+func (p *prometheusMetrics) PoolMaintainerTrigger() trigger.MetricsObserver {
+	return p.poolMaintainer
 }
 
 func (p *prometheusMetrics) K8sSyncTrigger() trigger.MetricsObserver {
@@ -148,6 +159,10 @@ func (p *prometheusMetrics) IncENIAllocationAttempt(status, subnetID string) {
 
 func (p *prometheusMetrics) AddIPAllocation(subnetID string, allocated int64) {
 	p.AllocateIpOps.WithLabelValues(subnetID).Add(float64(allocated))
+}
+
+func (p *prometheusMetrics) AddIPRelease(subnetID string, released int64) {
+	p.ReleaseIpOps.WithLabelValues(subnetID).Add(float64(released))
 }
 
 func (p *prometheusMetrics) SetAllocatedIPs(typ string, allocated int) {
