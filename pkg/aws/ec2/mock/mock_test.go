@@ -96,6 +96,10 @@ func (e *MockSuite) TestSetMockError(c *check.C) {
 	err = api.AssignPrivateIpAddresses(context.TODO(), "e-1", 10)
 	c.Assert(err, check.Equals, mockError)
 
+	api.SetMockError(UnassignPrivateIpAddresses, mockError)
+	err = api.UnassignPrivateIpAddresses(context.TODO(), "e-1", []string{"10.0.0.10", "10.0.0.11"})
+	c.Assert(err, check.Equals, mockError)
+
 	api.SetMockError(ModifyNetworkInterface, mockError)
 	err = api.ModifyNetworkInterface(context.TODO(), "e-1", "a-1", true)
 	c.Assert(err, check.Equals, mockError)
@@ -111,6 +115,7 @@ func (e *MockSuite) TestSetDelay(c *check.C) {
 	c.Assert(api.delays[ModifyNetworkInterface], check.Equals, time.Second)
 	c.Assert(api.delays[AttachNetworkInterface], check.Equals, time.Second)
 	c.Assert(api.delays[AssignPrivateIpAddresses], check.Equals, time.Second)
+	c.Assert(api.delays[UnassignPrivateIpAddresses], check.Equals, time.Second)
 }
 
 func (e *MockSuite) TestSetLimiter(c *check.C) {

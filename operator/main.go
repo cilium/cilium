@@ -116,6 +116,8 @@ func init() {
 	flags.Uint16Var(&apiServerPort, "api-server-port", 9234, "Port on which the operator should serve API requests")
 	flags.String(option.IPAM, "", "Backend to use for IPAM")
 	option.BindEnv(option.IPAM)
+	flags.Bool(option.AwsReleaseExcessIps, false, "Enable releasing excess free IP addresses from AWS ENI.")
+	option.BindEnv(option.AwsReleaseExcessIps)
 	flags.BoolVar(&enableMetrics, "enable-metrics", false, "Enable Prometheus metrics")
 	flags.StringVar(&metricsAddress, "metrics-address", ":6942", "Address to serve Prometheus metrics")
 	flags.BoolVar(&synchronizeServices, "synchronize-k8s-services", true, "Synchronize Kubernetes services to kvstore")
@@ -178,6 +180,7 @@ func initConfig() {
 	option.Config.ClusterID = viper.GetInt(option.ClusterIDName)
 	option.Config.DisableCiliumEndpointCRD = viper.GetBool(option.DisableCiliumEndpointCRDName)
 	option.Config.K8sNamespace = viper.GetString(option.K8sNamespaceName)
+	option.Config.AwsReleaseExcessIps = viper.GetBool(option.AwsReleaseExcessIps)
 
 	viper.SetEnvPrefix("cilium")
 	viper.SetConfigName("cilium-operator")

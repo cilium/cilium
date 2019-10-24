@@ -146,7 +146,8 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 
 	// Start an interval based  background resync for safety, it will
 	// synchronize the state regularly and resolve eventual deficit if the
-	// event driven trigger fails
+	// event driven trigger fails, and also release excess IP addresses
+	// if release-excess-ips is enabled
 	go func() {
 		time.Sleep(time.Minute)
 		mngr := controller.NewManager()
@@ -178,12 +179,13 @@ type noOpMetrics struct{}
 // eni metricsAPI interface implementation
 func (m *noOpMetrics) IncENIAllocationAttempt(status, subnetID string)                           {}
 func (m *noOpMetrics) AddIPAllocation(subnetID string, allocated int64)                          {}
+func (m *noOpMetrics) AddIPRelease(subnetID string, released int64)                              {}
 func (m *noOpMetrics) SetAllocatedIPs(typ string, allocated int)                                 {}
 func (m *noOpMetrics) SetAvailableENIs(available int)                                            {}
 func (m *noOpMetrics) SetAvailableIPsPerSubnet(subnetID, availabilityZone string, available int) {}
 func (m *noOpMetrics) SetNodes(category string, nodes int)                                       {}
 func (m *noOpMetrics) IncResyncCount()                                                           {}
-func (m *noOpMetrics) DeficitResolverTrigger() trigger.MetricsObserver {
+func (m *noOpMetrics) PoolMaintainerTrigger() trigger.MetricsObserver {
 	return &noOpMetricsObserver{}
 }
 func (m *noOpMetrics) K8sSyncTrigger() trigger.MetricsObserver {
