@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/math"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"
 
 	"github.com/aws/aws-sdk-go-v2/aws/awserr"
@@ -65,10 +66,10 @@ type Node struct {
 	// when modifying instance state
 	instanceNotRunning bool
 
-	// waitingForAllocation is true when the node is subject to an
-	// allocation which must be performed before another allocation can be
-	// attempted
-	waitingForAllocation bool
+	// waitingForPoolMaintenance is true when the node is subject to an
+	// IP allocation or release which must be performed before another
+	// allocation or release can be attempted
+	waitingForPoolMaintenance bool
 
 	// resyncNeeded is set to the current time when a resync with the EC2
 	// API is required. The timestamp is required to ensure that this is
@@ -83,10 +84,11 @@ type Node struct {
 
 	manager *NodeManager
 
-	// deficitResolver is the trigger used to resolve a deficit of this
-	// node. It ensures that multiple requests to resolve a deficit are
-	// batched together if deficit resolution is still ongoing.
-	deficitResolver *trigger.Trigger
+	// poolMaintainer is the trigger used to assign/unassign
+	// private IP addresses of this node.
+	// It ensures that multiple requests to operate private IPs are
+	// batched together if pool maintenance is still ongoing.
+	poolMaintainer *trigger.Trigger
 
 	// k8sSync is the trigger used to synchronize node information with the
 	// K8s apiserver. The trigger is used to batch multiple updates
@@ -106,6 +108,9 @@ type nodeStatistics struct {
 	// neededIPs is the number of IPs needed to reach the PreAllocate
 	// watermwark
 	neededIPs int
+
+	// excessIPs is the number of free IPs exceeding MaxAboveWatermark
+	excessIPs int
 
 	// remainingInterfaces is the number of ENIs that can either be
 	// allocated or have not yet exhausted the ENI specific quota of
@@ -142,7 +147,15 @@ func (n *Node) getNeededAddresses() int {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
 
-	return n.stats.neededIPs
+	if n.stats.neededIPs > 0 {
+		return n.stats.neededIPs
+	}
+	if option.Config.AwsReleaseExcessIps && n.stats.excessIPs > 0 {
+		// Nodes are sorted by needed addresses, return negative values of excessIPs
+		// so that nodes with IP deficit are resolved first
+		return n.stats.excessIPs * -1
+	}
+	return 0
 }
 
 func calculateNeededIPs(availableIPs, usedIPs, preAllocate, minAllocate int) (neededIPs int) {
@@ -162,6 +175,23 @@ func calculateNeededIPs(availableIPs, usedIPs, preAllocate, minAllocate int) (ne
 	return
 }
 
+func calculateExcessIPs(availableIPs, usedIPs, preAllocate, minAllocate, maxAboveWatermark int) (excessIPs int) {
+	if preAllocate == 0 {
+		preAllocate = defaults.ENIPreAllocation
+	}
+
+	// keep availableIPs above minAllocate
+	if availableIPs <= minAllocate {
+		return 0
+	}
+	excessIPs = availableIPs - usedIPs - preAllocate - maxAboveWatermark
+	if excessIPs < 0 {
+		excessIPs = 0
+	}
+
+	return
+}
+
 func (n *Node) updatedResource(resource *v2.CiliumNode) bool {
 	n.mutex.Lock()
 	// Any modification to the custom resource is seen as a sign that the
@@ -174,8 +204,8 @@ func (n *Node) updatedResource(resource *v2.CiliumNode) bool {
 	n.recalculateLocked()
 	allocationNeeded := n.allocationNeeded()
 	if allocationNeeded {
-		n.waitingForAllocation = true
-		n.deficitResolver.Trigger()
+		n.waitingForPoolMaintenance = true
+		n.poolMaintainer.Trigger()
 	}
 	n.mutex.Unlock()
 
@@ -199,19 +229,26 @@ func (n *Node) recalculateLocked() {
 	n.stats.usedIPs = len(n.resource.Status.IPAM.Used)
 	n.stats.availableIPs = len(n.available)
 	n.stats.neededIPs = calculateNeededIPs(n.stats.availableIPs, n.stats.usedIPs, n.resource.Spec.ENI.PreAllocate, n.resource.Spec.ENI.MinAllocate)
+	n.stats.excessIPs = calculateExcessIPs(n.stats.availableIPs, n.stats.usedIPs, n.resource.Spec.ENI.PreAllocate, n.resource.Spec.ENI.MinAllocate, n.resource.Spec.ENI.MaxAboveWatermark)
 
 	n.loggerLocked().WithFields(logrus.Fields{
-		"available":            n.stats.availableIPs,
-		"used":                 n.stats.usedIPs,
-		"toAlloc":              n.stats.neededIPs,
-		"waitingForAllocation": n.waitingForAllocation,
-		"resyncNeeded":         n.resyncNeeded,
+		"available":                 n.stats.availableIPs,
+		"used":                      n.stats.usedIPs,
+		"toAlloc":                   n.stats.neededIPs,
+		"toRelease":                 n.stats.excessIPs,
+		"waitingForPoolMaintenance": n.waitingForPoolMaintenance,
+		"resyncNeeded":              n.resyncNeeded,
 	}).Debug("Recalculated needed addresses")
 }
 
 // allocationNeeded returns true if this node requires IPs to be allocated
 func (n *Node) allocationNeeded() bool {
-	return !n.waitingForAllocation && n.resyncNeeded.IsZero() && n.stats.neededIPs > 0
+	return !n.waitingForPoolMaintenance && n.resyncNeeded.IsZero() && n.stats.neededIPs > 0
+}
+
+// releaseNeeded returns true if this node requires IPs to be released
+func (n *Node) releaseNeeded() bool {
+	return option.Config.AwsReleaseExcessIps && !n.waitingForPoolMaintenance && n.resyncNeeded.IsZero() && n.stats.excessIPs > 0
 }
 
 // ENIs returns a copy of all ENIs attached to the node
@@ -418,18 +455,12 @@ type allocatableResources struct {
 	limits              Limits
 	remainingInterfaces int
 	totalENIs           int
+	ipsToReleaseOnENI   []string
 }
 
-func (n *Node) determineAllocationAction() (*allocatableResources, error) {
+func (n *Node) determineMaintenanceAction() (*allocatableResources, error) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
-
-	// Validate that the node still requires addresses to be allocated, the
-	// request may have been resolved in the meantime.
-	maxAllocate := n.stats.neededIPs + n.resource.Spec.ENI.MaxAboveWatermark
-	if maxAllocate == 0 {
-		return nil, nil
-	}
 
 	instanceType := n.resource.Spec.ENI.InstanceType
 	limits, ok := GetLimits(instanceType)
@@ -446,6 +477,79 @@ func (n *Node) determineAllocationAction() (*allocatableResources, error) {
 		limits:     limits,
 		totalENIs:  len(n.enis),
 	}
+
+	// Validate that the node still requires addresses to be released, the
+	// request may have been resolved in the meantime.
+	if option.Config.AwsReleaseExcessIps && n.stats.excessIPs > 0 {
+		// Iterate over ENIs on this node, select the ENI with the most
+		// addresses available for release
+		for key, e := range n.enis {
+			scopedLog.WithFields(logrus.Fields{
+				fieldEniID:     e.ID,
+				"needIndex":    n.resource.Spec.ENI.FirstInterfaceIndex,
+				"index":        e.Number,
+				"addressLimit": a.limits.IPv4,
+				"numAddresses": len(e.Addresses),
+			}).Debug("Considering ENI for IP release")
+
+			if e.Number < n.resource.Spec.ENI.FirstInterfaceIndex {
+				continue
+			}
+
+			// Count free IP addresses on this ENI
+			ipsOnENI := n.resource.Status.ENI.ENIs[e.ID].Addresses
+			freeIpsOnENI := []string{}
+			for _, ip := range ipsOnENI {
+				_, ipUsed := n.resource.Status.IPAM.Used[ip]
+				// exclude primary IPs
+				if !ipUsed && ip != e.IP {
+					freeIpsOnENI = append(freeIpsOnENI, ip)
+				}
+			}
+			freeOnENICount := len(freeIpsOnENI)
+
+			if freeOnENICount <= 0 {
+				continue
+			}
+
+			scopedLog.WithFields(logrus.Fields{
+				fieldEniID:       e.ID,
+				"excessIPs":      n.stats.excessIPs,
+				"freeOnENICount": freeOnENICount,
+			}).Debug("ENI has unused IPs that can be released")
+			maxReleaseOnENI := math.IntMin(freeOnENICount, n.stats.excessIPs)
+
+			firstEniWithFreeIpFound := a.ipsToReleaseOnENI == nil
+			eniWithMoreFreeIpsFound := maxReleaseOnENI > len(a.ipsToReleaseOnENI)
+			// Select the ENI with the most addresses available for release
+			if firstEniWithFreeIpFound || eniWithMoreFreeIpsFound {
+				a.eni = key
+				a.subnet = &types.Subnet{ID: e.Subnet.ID}
+				a.ipsToReleaseOnENI = freeIpsOnENI[:maxReleaseOnENI]
+			}
+		}
+
+		if a.ipsToReleaseOnENI != nil {
+			scopedLog = scopedLog.WithFields(logrus.Fields{
+				"available":      n.stats.availableIPs,
+				"used":           n.stats.usedIPs,
+				"excess":         n.stats.excessIPs,
+				"releasing":      a.ipsToReleaseOnENI,
+				"selectedENI":    n.enis[a.eni],
+				"selectedSubnet": a.subnet.ID,
+			})
+			scopedLog.Info("Releasing excess IPs from node")
+		}
+		return a, nil
+	}
+
+	// Validate that the node still requires addresses to be allocated, the
+	// request may have been resolved in the meantime.
+	maxAllocate := n.stats.neededIPs + n.resource.Spec.ENI.MaxAboveWatermark
+	if n.stats.neededIPs == 0 {
+		return nil, nil
+	}
+
 	for key, e := range n.enis {
 		scopedLog.WithFields(logrus.Fields{
 			fieldEniID:     e.ID,
@@ -537,21 +641,37 @@ func (n *Node) prepareENICreation(a *allocatableResources) (*types.Subnet, error
 	return bestSubnet, nil
 }
 
-// allocate attempts to allocate all required IPs to fulfill the needed gap
-// n.neededAddresses. If required, ENIs are created.
-func (n *Node) resolveIPDeficit(ctx context.Context) error {
-	a, err := n.determineAllocationAction()
+// maintainIpPool attempts to allocate or release all required IPs to fulfill
+// the needed gap. If required, ENIs are created.
+func (n *Node) maintainIpPool(ctx context.Context) error {
+	a, err := n.determineMaintenanceAction()
 	if err != nil {
 		return err
 	}
 
-	// Allocation request has already been fulfilled
+	// Maintenance request has already been fulfilled
 	if a == nil {
 		return nil
 	}
 
 	scopedLog := n.logger()
 
+	// Release excess addresses
+	if a.ipsToReleaseOnENI != nil {
+		err := n.manager.ec2API.UnassignPrivateIpAddresses(ctx, n.enis[a.eni].ID, a.ipsToReleaseOnENI)
+		if err == nil {
+			n.manager.metricsAPI.AddIPRelease(a.subnet.ID, int64(a.availableOnSubnet))
+			return nil
+		}
+		n.manager.metricsAPI.IncENIAllocationAttempt("ip unassignment failed", a.subnet.ID)
+		scopedLog.WithFields(logrus.Fields{
+			fieldEniID:           n.enis[a.eni].ID,
+			"releasingAddresses": a.ipsToReleaseOnENI,
+		}).WithError(err).Warning("Unable to unassign private IPs from ENI")
+		return err
+	}
+
+	// Assign needed addresses
 	if a.subnet != nil && a.availableOnSubnet > 0 {
 		err := n.manager.ec2API.AssignPrivateIpAddresses(ctx, n.enis[a.eni].ID, int64(a.availableOnSubnet))
 		if err == nil {
@@ -580,9 +700,9 @@ func (n *Node) resolveIPDeficit(ctx context.Context) error {
 	return n.allocateENI(ctx, bestSubnet, a)
 }
 
-// ResolveIPDeficit attempts to allocate all required IPs to fulfill the needed
-// gap n.neededAddresses. If required, ENIs are created.
-func (n *Node) ResolveIPDeficit(ctx context.Context) error {
+// MaintainIpPool attempts to allocate or release all required IPs to fulfill
+// the needed gap. If required, ENIs are created.
+func (n *Node) MaintainIpPool(ctx context.Context) error {
 	// If the instance is no longer running, don't attempt any deficit
 	// resolution and wait for the custom resource to be updated as a sign
 	// of life.
@@ -593,14 +713,14 @@ func (n *Node) ResolveIPDeficit(ctx context.Context) error {
 	}
 	n.mutex.RUnlock()
 
-	err := n.resolveIPDeficit(ctx)
+	err := n.maintainIpPool(ctx)
 	n.mutex.Lock()
 	if err == nil {
 		n.loggerLocked().Debug("Setting resync needed")
 		n.resyncNeeded = time.Now()
 	}
 	n.recalculateLocked()
-	n.waitingForAllocation = false
+	n.waitingForPoolMaintenance = false
 	n.mutex.Unlock()
 	n.manager.resyncTrigger.Trigger()
 	return err

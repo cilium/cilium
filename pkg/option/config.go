@@ -82,6 +82,11 @@ const (
 	// e.g. {"a1.medium": "2,4,4", "a2.custom2": "4,5,6"}
 	AwsInstanceLimitMapping = "aws-instance-limit-mapping"
 
+	// AwsReleaseExcessIps allows releasing excess free IP addresses from ENI.
+	// Enabling this option reduces waste of IP addresses but may increase
+	// the number of API calls to AWS EC2 service.
+	AwsReleaseExcessIps = "aws-release-excess-ips"
+
 	// BPFRoot is the Path to BPF filesystem
 	BPFRoot = "bpf-root"
 
@@ -1251,6 +1256,11 @@ type DaemonConfig struct {
 	// pkg/aws/eni/limits.go
 	// e.g. {"a1.medium": "2,4,4", "a2.custom2": "4,5,6"}
 	AwsInstanceLimitMapping map[string]string
+
+	// AwsReleaseExcessIps allows releasing excess free IP addresses from ENI.
+	// Enabling this option reduces waste of IP addresses but may increase
+	// the number of API calls to AWS EC2 service.
+	AwsReleaseExcessIps bool
 }
 
 var (
@@ -1870,6 +1880,7 @@ func (c *DaemonConfig) Populate() {
 	c.SelectiveRegeneration = viper.GetBool(SelectiveRegeneration)
 	c.SkipCRDCreation = viper.GetBool(SkipCRDCreation)
 	c.DisableCNPStatusUpdates = viper.GetBool(DisableCNPStatusUpdates)
+	c.AwsReleaseExcessIps = viper.GetBool(AwsReleaseExcessIps)
 }
 
 func sanitizeIntParam(paramName string, paramDefault int) int {
