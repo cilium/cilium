@@ -55,6 +55,7 @@ type NodeDiscovery struct {
 	Registrar   nodestore.NodeRegistrar
 	LocalNode   node.Node
 	Registered  chan struct{}
+	NetConf     *cnitypes.NetConf
 }
 
 func enableLocalNodeRoute() bool {
@@ -62,7 +63,7 @@ func enableLocalNodeRoute() bool {
 }
 
 // NewNodeDiscovery returns a pointer to new node discovery object
-func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration) *NodeDiscovery {
+func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration, netConf *cnitypes.NetConf) *NodeDiscovery {
 	auxPrefixes := []*cidr.CIDR{}
 
 	if option.Config.IPv4ServiceRange != AutoCIDR {
@@ -103,21 +104,14 @@ func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration)
 			Source: source.Local,
 		},
 		Registered: make(chan struct{}),
+		NetConf:    netConf,
 	}
-}
-
-// Configuration is the configuration interface that must be implemented in
-// order to manage node discovery
-type Configuration interface {
-	// GetNetConf must return the CNI configuration as passed in by the
-	// user
-	GetNetConf() *cnitypes.NetConf
 }
 
 // start configures the local node and starts node discovery. This is called on
 // agent startup to configure the local node based on the configuration options
 // passed to the agent. nodeName is the name to be used in the local agent.
-func (n *NodeDiscovery) StartDiscovery(nodeName string, conf Configuration) {
+func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 	n.LocalNode.Name = nodeName
 	n.LocalNode.Cluster = option.Config.ClusterName
 	n.LocalNode.IPAddresses = []node.Address{}
@@ -180,7 +174,7 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string, conf Configuration) {
 	if k8s.IsEnabled() {
 		// Creation or update of the CiliumNode can be done in the
 		// background, nothing depends on the completion of this.
-		go n.UpdateCiliumNodeResource(conf)
+		go n.UpdateCiliumNodeResource()
 	}
 
 	if option.Config.KVStore != "" {
@@ -207,7 +201,7 @@ func (n *NodeDiscovery) Close() {
 
 // UpdateCiliumNodeResource updates the CiliumNode resource representing the
 // local node
-func (n *NodeDiscovery) UpdateCiliumNodeResource(conf Configuration) {
+func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 	if !option.Config.AutoCreateCiliumNodeResource {
 		return
 	}
@@ -278,7 +272,7 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource(conf Configuration) {
 		nodeResource.Spec.ENI.FirstInterfaceIndex = 1
 		nodeResource.Spec.ENI.PreAllocate = defaults.ENIPreAllocation
 
-		if c := conf.GetNetConf(); c != nil {
+		if c := n.NetConf; c != nil {
 			if c.ENI.MinAllocate != 0 {
 				nodeResource.Spec.ENI.MinAllocate = c.ENI.MinAllocate
 			}
