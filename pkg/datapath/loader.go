@@ -31,7 +31,6 @@ type Loader interface {
 	EndpointHash(cfg EndpointConfiguration) (string, error)
 	DeleteDatapath(ctx context.Context, ifName, direction string) error
 	Unload(ep Endpoint)
-	Init(d ConfigWriter, nodeCfg *LocalNodeConfiguration)
 	Reinitialize(ctx context.Context, o BaseProgramOwner, deviceMTU int, iptMgr RulesManager, p Proxy, r RouteReserver) error
 }
 
