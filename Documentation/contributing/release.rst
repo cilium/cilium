@@ -33,8 +33,6 @@ In order to guarantee stable production usage while maintaining a high release
 cadence, the following stable releases will be maintained:
 
 * Stable backports into the last two releases
-* :ref:`lts` release for extended long term backport coverage
-
 
 Backport criteria for X.Y.Z+n
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -52,32 +50,6 @@ release, i.e. what goes into ``v1.0.x``, before ``v1.2.0`` has been released:
 
 - Security relevant fixes
 - Major bugfixes relevant to the correct operation of Cilium
-
-.. _lts:
-
-LTS
-~~~
-
-The group of committers nominates a release to be a long term stable release.
-Such releases are guaranteed to receive backports for major and security
-relevant bugfixes. LTS releases will be declared end of life after 6 months.
-The group of committers will nominate and start supporting a new LTS release
-before the current LTS expires. If for some reason, no release can be declared
-LTS before the current LTS release expires, the current LTS lifetime will be
-extended.
-
-Given the current 6 weeks release cadence, the development teams will aim at
-declaring every 3rd release to be an LTS to guarantee enough time overlap
-between LTS release.
-
-Current LTS releases
-^^^^^^^^^^^^^^^^^^^^
-
-+----------------------+---------------------------+-----------------------+
-| Release              | Original Release Date     | Scheduled End of Life |
-+======================+===========================+=======================+
-| 1.0                  | 2018-04-24                | 2018-10-24            |
-+----------------------+---------------------------+-----------------------+
 
 .. _generic_release_process:
 
