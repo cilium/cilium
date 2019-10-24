@@ -26,6 +26,7 @@ type mockMetrics struct {
 	mutex                 lock.RWMutex
 	allocationAttempts    map[string]int64
 	ipAllocations         map[string]int64
+	ipReleases            map[string]int64
 	allocatedIPs          map[string]int
 	availableENIs         int
 	availableIPsPerSubnet map[string]int
@@ -40,6 +41,7 @@ func NewMockMetrics() *mockMetrics {
 	return &mockMetrics{
 		allocationAttempts:    map[string]int64{},
 		ipAllocations:         map[string]int64{},
+		ipReleases:            map[string]int64{},
 		allocatedIPs:          map[string]int{},
 		nodes:                 map[string]int{},
 		availableIPsPerSubnet: map[string]int{},
@@ -69,6 +71,12 @@ func (m *mockMetrics) IPAllocations(subnetID string) int64 {
 func (m *mockMetrics) AddIPAllocation(subnetID string, allocated int64) {
 	m.mutex.Lock()
 	m.ipAllocations["subnetId="+subnetID] += allocated
+	m.mutex.Unlock()
+}
+
+func (m *mockMetrics) AddIPRelease(subnetID string, released int64) {
+	m.mutex.Lock()
+	m.ipReleases["subnetId="+subnetID] += released
 	m.mutex.Unlock()
 }
 
@@ -150,7 +158,7 @@ func (m *mockMetrics) IncResyncCount() {
 	m.mutex.Unlock()
 }
 
-func (m *mockMetrics) DeficitResolverTrigger() trigger.MetricsObserver {
+func (m *mockMetrics) PoolMaintainerTrigger() trigger.MetricsObserver {
 	return nil
 }
 

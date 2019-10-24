@@ -18,6 +18,7 @@ cilium-operator [flags]
       --api-server-port uint16                 Port on which the operator should serve API requests (default 9234)
       --aws-client-burst int                   Burst value allowed for the AWS client used by the AWS ENI IPAM (default 4)
       --aws-client-qps float                   Queries per second limit for the AWS client used by the AWS ENI IPAM (default 20)
+      --aws-release-excess-ips                 Enable releasing excess free IP addresses from AWS ENI.
       --cilium-endpoint-gc                     Enable CiliumEndpoint garbage collector (default true)
       --cilium-endpoint-gc-interval duration   GC interval for cilium endpoints (default 30m0s)
       --cluster-id int                         Unique identifier of the cluster

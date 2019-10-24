@@ -51,18 +51,20 @@ type ec2API interface {
 	AttachNetworkInterface(ctx context.Context, index int64, instanceID, eniID string) (string, error)
 	ModifyNetworkInterface(ctx context.Context, eniID, attachmentID string, deleteOnTermination bool) error
 	AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int64) error
+	UnassignPrivateIpAddresses(ctx context.Context, eniID string, addresses []string) error
 	TagENI(ctx context.Context, eniID string, eniTags map[string]string) error
 }
 
 type metricsAPI interface {
 	IncENIAllocationAttempt(status, subnetID string)
 	AddIPAllocation(subnetID string, allocated int64)
+	AddIPRelease(subnetID string, released int64)
 	SetAllocatedIPs(typ string, allocated int)
 	SetAvailableENIs(available int)
 	SetAvailableIPsPerSubnet(subnetID string, availabilityZone string, available int)
 	SetNodes(category string, nodes int)
 	IncResyncCount()
-	DeficitResolverTrigger() trigger.MetricsObserver
+	PoolMaintainerTrigger() trigger.MetricsObserver
 	K8sSyncTrigger() trigger.MetricsObserver
 	ResyncTrigger() trigger.MetricsObserver
 }
@@ -142,18 +144,18 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) bool {
 			manager: n,
 		}
 
-		deficitResolver, err := trigger.NewTrigger(trigger.Parameters{
-			Name:            fmt.Sprintf("eni-deficit-resolver-%s", resource.Name),
+		poolMaintainer, err := trigger.NewTrigger(trigger.Parameters{
+			Name:            fmt.Sprintf("eni-pool-maintainer-%s", resource.Name),
 			MinInterval:     10 * time.Millisecond,
-			MetricsObserver: n.metricsAPI.DeficitResolverTrigger(),
+			MetricsObserver: n.metricsAPI.PoolMaintainerTrigger(),
 			TriggerFunc: func(reasons []string) {
-				if err := node.ResolveIPDeficit(context.TODO()); err != nil {
-					node.logger().WithError(err).Warning("Unable to resolve IP deficit of node")
+				if err := node.MaintainIpPool(context.TODO()); err != nil {
+					node.logger().WithError(err).Warning("Unable to maintain ip pool of node")
 				}
 			},
 		})
 		if err != nil {
-			node.logger().WithError(err).Error("Unable to create deficit-resolver trigger")
+			node.logger().WithError(err).Error("Unable to create pool-maintainer trigger")
 			return false
 		}
 
@@ -166,12 +168,12 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) bool {
 			},
 		})
 		if err != nil {
-			deficitResolver.Shutdown()
+			poolMaintainer.Shutdown()
 			node.logger().WithError(err).Error("Unable to create k8s-sync trigger")
 			return false
 		}
 
-		node.deficitResolver = deficitResolver
+		node.poolMaintainer = poolMaintainer
 		node.k8sSync = k8sSync
 		n.nodes[node.name] = node
 
@@ -187,8 +189,8 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) bool {
 func (n *NodeManager) Delete(nodeName string) {
 	n.mutex.Lock()
 	if node, ok := n.nodes[nodeName]; ok {
-		if node.deficitResolver != nil {
-			node.deficitResolver.Shutdown()
+		if node.poolMaintainer != nil {
+			node.poolMaintainer.Shutdown()
 		}
 		if node.k8sSync != nil {
 			node.k8sSync.Shutdown()
@@ -207,9 +209,11 @@ func (n *NodeManager) Get(nodeName string) *Node {
 	return node
 }
 
-// GetNodesByNeededAddresses returns all nodes that require addresses to be
-// allocated, sorted by the number of addresses needed in descending order
-func (n *NodeManager) GetNodesByNeededAddresses() []*Node {
+// GetNodesByIPWatermark returns all nodes that require addresses to be
+// allocated or released, sorted by the number of addresses needed to be operated
+// in descending order. Number of addresses to be released is negative value
+// so that nodes with IP deficit are resolved first
+func (n *NodeManager) GetNodesByIPWatermark() []*Node {
 	n.mutex.RLock()
 	list := make([]*Node, len(n.nodes))
 	index := 0
@@ -220,7 +224,14 @@ func (n *NodeManager) GetNodesByNeededAddresses() []*Node {
 	n.mutex.RUnlock()
 
 	sort.Slice(list, func(i, j int) bool {
-		return list[i].getNeededAddresses() > list[j].getNeededAddresses()
+		valuei := list[i].getNeededAddresses()
+		valuej := list[j].getNeededAddresses()
+		// Number of addresses to be released is negative value,
+		// nodes with more excess addresses are released earlier
+		if valuei < 0 && valuej < 0 {
+			return valuei < valuej
+		}
+		return valuei > valuej
 	})
 
 	return list
@@ -247,9 +258,10 @@ func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncS
 
 	node.recalculateLocked()
 	allocationNeeded := node.allocationNeeded()
-	if allocationNeeded {
-		node.waitingForAllocation = true
-		node.deficitResolver.Trigger()
+	releaseNeeded := node.releaseNeeded()
+	if allocationNeeded || releaseNeeded {
+		node.waitingForPoolMaintenance = true
+		node.poolMaintainer.Trigger()
 	}
 
 	stats.mutex.Lock()
@@ -286,7 +298,7 @@ func (n *NodeManager) Resync(ctx context.Context, syncTime time.Time) {
 	stats := resyncStats{}
 	sem := semaphore.NewWeighted(n.parallelWorkers)
 
-	for _, node := range n.GetNodesByNeededAddresses() {
+	for _, node := range n.GetNodesByIPWatermark() {
 		sem.Acquire(ctx, 1)
 		go func(node *Node, stats *resyncStats) {
 			n.resyncNode(ctx, node, stats, syncTime)
