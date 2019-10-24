@@ -69,6 +69,11 @@ If you intent to release a new minor release, see the
 
 #. Ensure that the necessary backports have been completed and merged. See
    :ref:`backport_process`.
+
+   #. Update GitHub project and create ``vX.Y.Z+1`` project if applicable.
+   #. Update PRs / issues that were added to the ``vX.Y.Z`` project, but didn't
+      make it into this release into the ``vX.Y.Z+1`` project.
+
 #. Checkout the desired stable branch and pull it:
 
    ::
@@ -85,6 +90,11 @@ If you intent to release a new minor release, see the
 #. If this is the first release after creating a new release branch. Adjust the
    image pull policy for all ``.sed`` files in ``install/kubernetes/ciliumm/values.yaml`` from
    ``Always`` to ``IfNotPresent``.
+#. Update Helm chart documentation
+
+   #. Update versions in ``install/kubernetes/quick-install.yaml``
+   #. Update version tag in ``install/kubernetes/cilium/values.yaml``
+
 #. Update the image tag versions in the examples:
 
    ::
@@ -149,6 +159,20 @@ If you intent to release a new minor release, see the
 
        git checkout v1.0; git pull
 
+#. Build the container images and push them
+
+   ::
+
+      DOCKER_IMAGE_TAG=v1.0.3 make docker-image
+      docker push cilium/cilium:v1.0.3
+
+   .. note:
+
+      This step requires you to login with ``docker login`` first and it will
+      require your Docker hub ID to have access to the ``Cilium`` organization.
+      You can alternatively trigger a build on DockerHub directly if you have
+      credentials to do so.
+
 #. Create release tags:
 
    ::
@@ -163,6 +187,12 @@ If you intent to release a new minor release, see the
        which hosts the Cilium documentation, requires the version to be in format
        ``x.y.z`` For more information about how ReadTheDocs does versioning, you can
        read their `Versions Documentation <https://docs.readthedocs.io/en/latest/versions.html>`_.
+
+#. Push the git release tag
+
+   ::
+
+       git push --tags
 
 #. Build the binaries and push it to the release bucket:
 
@@ -181,26 +211,6 @@ If you intent to release a new minor release, see the
        ``AWS_SECRET_ACCESS_KEY``. Ping in the ``#development`` channel on Slack
        if you have no access. It also requires the aws-cli tools to be installed.
 
-#. Build the container images and push them
-
-   ::
-
-      DOCKER_IMAGE_TAG=v1.0.3 make docker-image
-      docker push cilium/cilium:v1.0.3
-
-   .. note:
-
-      This step requires you to login with ``docker login`` first and it will
-      require your Docker hub ID to have access to the ``Cilium`` organization.
-      You can alternatively trigger a build on DockerHub directly if you have
-      credentials to do so.
-
-#. Push the git release tag
-
-   ::
-
-       git push --tags
-
 #. `Create a GitHub release <https://github.com/cilium/cilium/releases/new>`_:
 
    #. Choose the correct target branch, e.g. ``v1.0``
@@ -211,6 +221,17 @@ If you intent to release a new minor release, see the
    #. Fill in the release description:
 
       ::
+
+           Summary of Changes
+           ------------------
+
+           **Important Bug Fixes**
+
+           * Fix dropped packets upon agent bootstrap when iptables rules are installed (@ianvernon)
+
+           **Enhancements**
+
+           **Documentation**
 
            Changes
            -------
@@ -234,6 +255,9 @@ If you intent to release a new minor release, see the
 
    Please reach out on the ``#development`` channel on Slack for assistance with
    this task.
+
+#. Update the ``stable`` tags for ``cilium``, ``cilium-operator``, and
+   ``cilium-docker-plugin`` on DockerHub.
 
 #. Update the external tools and guides to point to the released Cilium version:
 
