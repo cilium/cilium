@@ -16,6 +16,7 @@ package gc
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"time"
 
@@ -49,18 +50,56 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 		ipv4Orig := ipv4
 		ipv6Orig := ipv6
 		for {
-			var maxDeleteRatio float64
+			var (
+				maxDeleteRatio float64
+
+				// epsMap contains an IP -> EP mapping. It is used by EmitCTEntryCB to
+				// avoid doing mgr.LookupIP, which is more expensive.
+				epsMap = make(map[string]*endpoint.Endpoint)
+
+				// gcStart and emitEntryCB are used to populate DNSZombieMapping fields
+				// on endpoints. These hold IPs that are deletable in the DNS caches,
+				// but may be in use by connections. Each loop of this GC keeps those
+				// entries alive by touching them in emitEntryCB. We also need to
+				// record the start of each CT GC loop (further below in the
+				// goroutine). In all cases the timestamp used is the start of the GC
+				// loop. This simplifies the logic to determine if a marked connection
+				// was marked in the most recent GC loop or not: if the active
+				// timestamp is before the recorded start of the GC loop then it must
+				// mean the next iteration has completed and it is not in-use.
+				gcStart = time.Now()
+
+				emitEntryCB = func(srcIP, dstIP net.IP, srcPort, dstPort uint16, nextHdr, flags uint8, entry *ctmap.CtEntry) {
+					// FQDN related connections can only be outbound
+					if flags != ctmap.TUPLE_F_OUT {
+						return
+					}
+					if ep, exists := epsMap[srcIP.String()]; exists {
+						ep.MarkDNSCTEntry(dstIP, gcStart)
+					}
+				}
+			)
 
 			eps := mgr.GetEndpoints()
+			for _, e := range eps {
+				epsMap[e.GetIPv4Address()] = e
+				epsMap[e.GetIPv6Address()] = e
+			}
+
 			if len(eps) > 0 || initialScan {
-				mapType, maxDeleteRatio = runGC(nil, ipv4, ipv6, createGCFilter(initialScan, restoredEndpoints))
+				mapType, maxDeleteRatio = runGC(nil, ipv4, ipv6, createGCFilter(initialScan, restoredEndpoints, emitEntryCB))
 			}
 			for _, e := range eps {
 				if !e.ConntrackLocal() {
 					// Skip because GC was handled above.
 					continue
 				}
-				runGC(e, ipv4, ipv6, &ctmap.GCFilter{RemoveExpired: true})
+				runGC(e, ipv4, ipv6, &ctmap.GCFilter{RemoveExpired: true, EmitCTEntryCB: emitEntryCB})
+			}
+
+			// Mark the CT GC as over in each EP DNSZombies instance
+			for _, e := range eps {
+				e.MarkCTGCTime(gcStart)
 			}
 
 			if initialScan {
@@ -162,9 +201,10 @@ func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) (mapTy
 	return
 }
 
-func createGCFilter(initialScan bool, restoredEndpoints []*endpoint.Endpoint) *ctmap.GCFilter {
+func createGCFilter(initialScan bool, restoredEndpoints []*endpoint.Endpoint, emitEntryCB ctmap.EmitCTEntryCBFunc) *ctmap.GCFilter {
 	filter := &ctmap.GCFilter{
 		RemoveExpired: true,
+		EmitCTEntryCB: emitEntryCB,
 	}
 
 	// On the initial scan, scrub all IPs from the conntrack table which do
