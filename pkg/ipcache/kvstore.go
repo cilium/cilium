@@ -190,15 +190,17 @@ type IPIdentityWatcher struct {
 	stop     chan struct{}
 	synced   chan struct{}
 	stopOnce sync.Once
+	ctx      context.Context
 }
 
 // NewIPIdentityWatcher creates a new IPIdentityWatcher using the specified
 // kvstore backend
-func NewIPIdentityWatcher(backend kvstore.BackendOperations) *IPIdentityWatcher {
+func NewIPIdentityWatcher(ctx context.Context, backend kvstore.BackendOperations) *IPIdentityWatcher {
 	watcher := &IPIdentityWatcher{
 		backend: backend,
 		stop:    make(chan struct{}),
 		synced:  make(chan struct{}),
+		ctx:     ctx,
 	}
 
 	return watcher
@@ -301,7 +303,7 @@ restart:
 
 				if m, ok := globalMap.marshaledIPIDPairs[event.Key]; ok {
 					log.WithField("ip", ip).Warning("Received kvstore delete notification for alive ipcache entry")
-					err := globalMap.store.upsert(context.TODO(), event.Key, string(m), true)
+					err := globalMap.store.upsert(iw.ctx, event.Key, string(m), true)
 					if err != nil {
 						log.WithError(err).WithField("ip", ip).Warning("Unable to re-create alive ipcache entry")
 					}
@@ -342,11 +344,11 @@ var (
 
 // InitIPIdentityWatcher initializes the watcher for ip-identity mapping events
 // in the key-value store.
-func InitIPIdentityWatcher() {
+func InitIPIdentityWatcher(ctx context.Context) {
 	setupIPIdentityWatcher.Do(func() {
 		go func() {
 			log.Info("Starting IP identity watcher")
-			watcher = NewIPIdentityWatcher(kvstore.Client())
+			watcher = NewIPIdentityWatcher(ctx, kvstore.Client())
 			close(initialized)
 			watcher.Watch()
 		}()

@@ -17,6 +17,7 @@
 package store
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -186,9 +187,9 @@ func (s *StoreSuite) TestStoreOperations(c *C) {
 	localKey2 := initTestType("local2")
 	localKey3 := initTestType("local3")
 
-	err = store.UpdateLocalKeySync(&localKey1)
+	err = store.UpdateLocalKeySync(context.TODO(), &localKey1)
 	c.Assert(err, IsNil)
-	err = store.UpdateLocalKeySync(&localKey2)
+	err = store.UpdateLocalKeySync(context.TODO(), &localKey2)
 	c.Assert(err, IsNil)
 
 	// due to the short sync interval, it is possible that multiple updates
@@ -232,9 +233,9 @@ func (s *StoreSuite) TestStorePeriodicSync(c *C) {
 	localKey1 := initTestType("local1")
 	localKey2 := initTestType("local2")
 
-	err = store.UpdateLocalKeySync(&localKey1)
+	err = store.UpdateLocalKeySync(context.TODO(), &localKey1)
 	c.Assert(err, IsNil)
-	err = store.UpdateLocalKeySync(&localKey2)
+	err = store.UpdateLocalKeySync(context.TODO(), &localKey2)
 	c.Assert(err, IsNil)
 
 	c.Assert(expect(func() bool { return localKey1.updated() >= 1 }), IsNil)
@@ -260,7 +261,7 @@ func (s *StoreSuite) TestStoreLocalKeyProtection(c *C) {
 
 	localKey1 := initTestType("local1")
 
-	err = store.UpdateLocalKeySync(&localKey1)
+	err = store.UpdateLocalKeySync(context.TODO(), &localKey1)
 	c.Assert(err, IsNil)
 
 	c.Assert(expect(func() bool { return localKey1.updated() >= 1 }), IsNil)
@@ -283,11 +284,11 @@ func setupStoreCollaboration(c *C, storePrefix, keyPrefix string) *SharedStore {
 	c.Assert(store, Not(IsNil))
 
 	localKey1 := initTestType(keyPrefix + "-local1")
-	err = store.UpdateLocalKeySync(&localKey1)
+	err = store.UpdateLocalKeySync(context.TODO(), &localKey1)
 	c.Assert(err, IsNil)
 
 	localKey2 := initTestType(keyPrefix + "-local2")
-	err = store.UpdateLocalKeySync(&localKey2)
+	err = store.UpdateLocalKeySync(context.TODO(), &localKey2)
 	c.Assert(err, IsNil)
 
 	// wait until local keys was inserted and until the kvstore has confirmed the

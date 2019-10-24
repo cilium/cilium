@@ -44,7 +44,7 @@ func (s *IdentityCacheTestSuite) TestAllocateIdentityReserved(c *C) {
 	}
 
 	mgr := NewCachingIdentityAllocator(newDummyOwner())
-	<-mgr.InitIdentityAllocator(nil, nil)
+	<-mgr.InitIdentityAllocator(context.TODO(), nil, nil)
 
 	c.Assert(identity.IdentityAllocationIsLocal(lbls), Equals, true)
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false)
@@ -228,7 +228,7 @@ func (ias *IdentityAllocatorSuite) TestGetIdentityCache(c *C) {
 	identity.InitWellKnownIdentities()
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	mgr := NewCachingIdentityAllocator(newDummyOwner())
-	<-mgr.InitIdentityAllocator(nil, nil)
+	<-mgr.InitIdentityAllocator(context.TODO(), nil, nil)
 	defer mgr.Close()
 	defer mgr.IdentityAllocator.DeleteAllKeys()
 
@@ -246,7 +246,7 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	identity.InitWellKnownIdentities()
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	mgr := NewCachingIdentityAllocator(owner)
-	<-mgr.InitIdentityAllocator(nil, nil)
+	<-mgr.InitIdentityAllocator(context.TODO(), nil, nil)
 	defer mgr.Close()
 	defer mgr.IdentityAllocator.DeleteAllKeys()
 
@@ -331,7 +331,7 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 	identity.InitWellKnownIdentities()
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	mgr := NewCachingIdentityAllocator(owner)
-	<-mgr.InitIdentityAllocator(nil, nil)
+	<-mgr.InitIdentityAllocator(context.TODO(), nil, nil)
 	defer mgr.Close()
 	defer mgr.IdentityAllocator.DeleteAllKeys()
 

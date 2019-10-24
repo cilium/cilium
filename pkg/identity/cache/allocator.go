@@ -99,6 +99,8 @@ type CachingIdentityAllocator struct {
 	watcher identityWatcher
 
 	owner IdentityAllocatorOwner
+
+	ctx context.Context
 }
 
 // IdentityAllocatorOwner is the interface the owner of an identity allocator
@@ -146,7 +148,7 @@ type IdentityAllocator interface {
 // TODO: identity backends are initialized directly in this function, pulling
 // in dependencies on kvstore and k8s. It would be better to decouple this,
 // since the backends are an interface.
-func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interface, identityStore cache.Store) <-chan struct{} {
+func (m *CachingIdentityAllocator) InitIdentityAllocator(ctx context.Context, client clientset.Interface, identityStore cache.Store) <-chan struct{} {
 	m.setupMutex.Lock()
 	defer m.setupMutex.Unlock()
 
@@ -196,6 +198,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 				Store:    identityStore,
 				Client:   client,
 				KeyType:  GlobalIdentity{},
+				Context:  ctx,
 			})
 			if err != nil {
 				log.WithError(err).Fatal("Unable to initialize Kubernetes CRD backend for identity allocation")
@@ -205,7 +208,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 			log.Fatalf("Unsupported identity allocation mode %s", option.Config.IdentityAllocationMode)
 		}
 
-		a, err := allocator.NewAllocator(GlobalIdentity{}, backend,
+		a, err := allocator.NewAllocator(ctx, GlobalIdentity{}, backend,
 			allocator.WithMax(maxID), allocator.WithMin(minID),
 			allocator.WithEvents(events),
 			allocator.WithMasterKeyProtection(),

@@ -97,7 +97,7 @@ type CacheMutations interface {
 	// master-key protection, if enabled, where the local allocator will recreate
 	// the key->ID association is recreated because the local node is still using
 	// it.
-	OnDelete(id idpool.ID, key AllocatorKey)
+	OnDelete(ctx context.Context, id idpool.ID, key AllocatorKey)
 }
 
 func (c *cache) sendEvent(typ kvstore.EventType, id idpool.ID, key AllocatorKey) {
@@ -150,14 +150,14 @@ func (c *cache) OnModify(id idpool.ID, key AllocatorKey) {
 	c.sendEvent(kvstore.EventTypeModify, id, key)
 }
 
-func (c *cache) OnDelete(id idpool.ID, key AllocatorKey) {
+func (c *cache) OnDelete(ctx context.Context, id idpool.ID, key AllocatorKey) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	a := c.allocator
 	if a.enableMasterKeyProtection {
 		if value := a.localKeys.lookupID(id); value != nil {
-			ctx, cancel := context.WithTimeout(context.TODO(), backendOpTimeout)
+			ctx, cancel := context.WithTimeout(ctx, backendOpTimeout)
 			defer cancel()
 			a.backend.UpdateKey(ctx, id, value, true)
 			return

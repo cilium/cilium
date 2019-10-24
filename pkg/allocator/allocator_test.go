@@ -155,7 +155,7 @@ func (d *dummyBackend) Release(ctx context.Context, key AllocatorKey) error {
 		if k.GetKey() == key.GetKey() {
 			delete(d.identities, id)
 			if d.handler != nil {
-				d.handler.OnDelete(id, k)
+				d.handler.OnDelete(ctx, id, k)
 			}
 			return nil
 		}
@@ -205,7 +205,7 @@ func randomTestName() string {
 func (s *AllocatorSuite) TestSelectID(c *C) {
 	minID, maxID := idpool.ID(1), idpool.ID(5)
 	backend := newDummyBackend()
-	a, err := NewAllocator(TestAllocatorKey(""), backend, WithMin(minID), WithMax(maxID))
+	a, err := NewAllocator(context.TODO(), TestAllocatorKey(""), backend, WithMin(minID), WithMax(maxID))
 	c.Assert(err, IsNil)
 	c.Assert(a, Not(IsNil))
 
@@ -228,7 +228,7 @@ func (s *AllocatorSuite) TestSelectID(c *C) {
 func (s *AllocatorSuite) TestPrefixMask(c *C) {
 	minID, maxID := idpool.ID(1), idpool.ID(5)
 	backend := newDummyBackend()
-	a, err := NewAllocator(TestAllocatorKey(""), backend, WithMin(minID), WithMax(maxID), WithPrefixMask(1<<16))
+	a, err := NewAllocator(context.TODO(), TestAllocatorKey(""), backend, WithMin(minID), WithMax(maxID), WithPrefixMask(1<<16))
 	c.Assert(err, IsNil)
 	c.Assert(a, Not(IsNil))
 
@@ -246,7 +246,7 @@ func (s *AllocatorSuite) TestPrefixMask(c *C) {
 
 func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	backend := newDummyBackend()
-	allocator, err := NewAllocator(TestAllocatorKey(""), backend, WithMax(maxID), WithoutGC())
+	allocator, err := NewAllocator(context.TODO(), TestAllocatorKey(""), backend, WithMax(maxID), WithoutGC())
 	c.Assert(err, IsNil)
 	c.Assert(allocator, Not(IsNil))
 
@@ -288,7 +288,7 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	}
 
 	// Create a 2nd allocator, refill it
-	allocator2, err := NewAllocator(TestAllocatorKey(""), backend, WithMax(maxID), WithoutGC())
+	allocator2, err := NewAllocator(context.TODO(), TestAllocatorKey(""), backend, WithMax(maxID), WithoutGC())
 	c.Assert(err, IsNil)
 	c.Assert(allocator2, Not(IsNil))
 

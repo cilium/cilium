@@ -100,7 +100,7 @@ func (s *EndpointSuite) SetUpTest(c *C) {
 	identity.InitWellKnownIdentities()
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	mgr := cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
-	<-mgr.InitIdentityAllocator(nil, nil)
+	<-mgr.InitIdentityAllocator(context.TODO(), nil, nil)
 	s.mgr = mgr
 }
 

@@ -204,6 +204,7 @@ func initK8s(ctx context.Context) (crdBackend allocator.Backend, crdAllocator *a
 		Store:    nil,
 		Client:   k8s.CiliumClient(),
 		KeyType:  cache.GlobalIdentity{},
+		Context:  context.TODO(),
 	})
 	if err != nil {
 		log.WithError(err).Fatal("Cannot create CRD identity backend")
@@ -216,7 +217,7 @@ func initK8s(ctx context.Context) (crdBackend allocator.Backend, crdAllocator *a
 	//    allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID<<identity.ClusterIDShift)))
 	minID := idpool.ID(identity.MinimalAllocationIdentity)
 	maxID := idpool.ID(identity.MaximumAllocationIdentity)
-	crdAllocator, err = allocator.NewAllocator(cache.GlobalIdentity{}, crdBackend,
+	crdAllocator, err = allocator.NewAllocator(context.TODO(), cache.GlobalIdentity{}, crdBackend,
 		allocator.WithMax(maxID), allocator.WithMin(minID))
 	if err != nil {
 		log.WithError(err).Fatal("Unable to initialize Identity Allocator with CRD backend to allocate identities with already allocated IDs")
@@ -281,7 +282,7 @@ type kvstoreListHandler struct {
 	onListDone func()
 }
 
-func (h kvstoreListHandler) OnListDone()                                       { h.onListDone() }
-func (h kvstoreListHandler) OnAdd(id idpool.ID, key allocator.AllocatorKey)    { h.onAdd(id, key) }
-func (h kvstoreListHandler) OnModify(id idpool.ID, key allocator.AllocatorKey) {}
-func (h kvstoreListHandler) OnDelete(id idpool.ID, key allocator.AllocatorKey) {}
+func (h kvstoreListHandler) OnListDone()                                                            { h.onListDone() }
+func (h kvstoreListHandler) OnAdd(id idpool.ID, key allocator.AllocatorKey)                         { h.onAdd(id, key) }
+func (h kvstoreListHandler) OnModify(id idpool.ID, key allocator.AllocatorKey)                      {}
+func (h kvstoreListHandler) OnDelete(ctx context.Context, id idpool.ID, key allocator.AllocatorKey) {}

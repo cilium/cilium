@@ -111,7 +111,7 @@ func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration,
 // start configures the local node and starts node discovery. This is called on
 // agent startup to configure the local node based on the configuration options
 // passed to the agent. nodeName is the name to be used in the local agent.
-func (n *NodeDiscovery) StartDiscovery(nodeName string) {
+func (n *NodeDiscovery) StartDiscovery(ctx context.Context, nodeName string) {
 	n.LocalNode.Name = nodeName
 	n.LocalNode.Cluster = option.Config.ClusterName
 	n.LocalNode.IPAddresses = []node.Address{}
@@ -153,7 +153,7 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 	go func() {
 		log.Info("Adding local node to cluster")
 		for {
-			if err := n.Registrar.RegisterNode(&n.LocalNode, n.Manager); err != nil {
+			if err := n.Registrar.RegisterNode(ctx, &n.LocalNode, n.Manager); err != nil {
 				log.WithError(err).Error("Unable to initialize local node. Retrying...")
 				time.Sleep(time.Second)
 			} else {
@@ -183,7 +183,7 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 			controller.NewManager().UpdateController("propagating local node change to kv-store",
 				controller.ControllerParams{
 					DoFunc: func(ctx context.Context) error {
-						err := n.Registrar.UpdateLocalKeySync(&n.LocalNode)
+						err := n.Registrar.UpdateLocalKeySync(ctx, &n.LocalNode)
 						if err != nil {
 							log.WithError(err).Error("Unable to propagate local node change to kvstore")
 						}

@@ -75,6 +75,8 @@ type Configuration struct {
 
 	// Observer is the observe that will receive events on key mutations
 	Observer Observer
+
+	Context context.Context
 }
 
 // validate is invoked by JoinSharedStore to validate and complete the
@@ -94,6 +96,10 @@ func (c *Configuration) validate() error {
 
 	if c.Backend == nil {
 		c.Backend = kvstore.Client()
+	}
+
+	if c.Context == nil {
+		c.Context = context.Background()
 	}
 
 	return nil
@@ -503,7 +509,7 @@ func (s *SharedStore) watcher(listDone chan bool) {
 			if localKey := s.lookupLocalKey(keyName); localKey != nil {
 				logger.Warning("Received delete event for local key. Re-creating the key in the kvstore")
 
-				s.syncLocalKey(ctx, localKey)
+				s.syncLocalKey(s.conf.Context, localKey)
 			} else {
 				s.deleteSharedKey(keyName)
 			}

@@ -15,6 +15,7 @@
 package store
 
 import (
+	"context"
 	"path"
 
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -89,7 +90,7 @@ type NodeManager interface {
 }
 
 // RegisterNode registers the local node in the cluster
-func (nr *NodeRegistrar) RegisterNode(n *node.Node, manager NodeManager) error {
+func (nr *NodeRegistrar) RegisterNode(ctx context.Context, n *node.Node, manager NodeManager) error {
 	if option.Config.KVStore == "" {
 		return nil
 	}
@@ -99,13 +100,14 @@ func (nr *NodeRegistrar) RegisterNode(n *node.Node, manager NodeManager) error {
 		Prefix:     NodeStorePrefix,
 		KeyCreator: KeyCreator,
 		Observer:   NewNodeObserver(manager),
+		Context:    ctx,
 	})
 
 	if err != nil {
 		return err
 	}
 
-	if err = store.UpdateLocalKeySync(n); err != nil {
+	if err = store.UpdateLocalKeySync(ctx, n); err != nil {
 		store.Release()
 		return err
 	}
@@ -117,6 +119,6 @@ func (nr *NodeRegistrar) RegisterNode(n *node.Node, manager NodeManager) error {
 
 // UpdateLocalKeySync synchronizes the local key for the node using the
 // SharedStore.
-func (nr *NodeRegistrar) UpdateLocalKeySync(n *node.Node) error {
-	return nr.SharedStore.UpdateLocalKeySync(n)
+func (nr *NodeRegistrar) UpdateLocalKeySync(ctx context.Context, n *node.Node) error {
+	return nr.SharedStore.UpdateLocalKeySync(ctx, n)
 }

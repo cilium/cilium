@@ -17,6 +17,7 @@
 package clustermesh
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"path"
@@ -72,7 +73,7 @@ func (s *ClusterMeshTestSuite) TestWatchConfigDirectory(c *C) {
 
 	mgr := cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	<-mgr.InitIdentityAllocator(nil, nil)
+	<-mgr.InitIdentityAllocator(context.TODO(), nil, nil)
 
 	cm, err := NewClusterMesh(Configuration{
 		Name:                  "test1",

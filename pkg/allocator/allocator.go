@@ -162,6 +162,8 @@ type Allocator struct {
 	// backend is the upstream, shared, backend to which we syncronize local
 	// information
 	backend Backend
+
+	ctx context.Context
 }
 
 // AllocatorOption is the base type for allocator options
@@ -261,7 +263,7 @@ type Backend interface {
 //
 // After creation, IDs can be allocated with Allocate() and released with
 // Release()
-func NewAllocator(typ AllocatorKey, backend Backend, opts ...AllocatorOption) (*Allocator, error) {
+func NewAllocator(ctx context.Context, typ AllocatorKey, backend Backend, opts ...AllocatorOption) (*Allocator, error) {
 	a := &Allocator{
 		keyType:      typ,
 		backend:      backend,
@@ -275,6 +277,7 @@ func NewAllocator(typ AllocatorKey, backend Backend, opts ...AllocatorOption) (*
 			Min:    time.Duration(20) * time.Millisecond,
 			Factor: 2.0,
 		},
+		ctx: ctx,
 	}
 
 	for _, fn := range opts {
@@ -717,7 +720,7 @@ func (a *Allocator) syncLocalKeys() error {
 	ids := a.localKeys.getVerifiedIDs()
 
 	for id, value := range ids {
-		if err := a.backend.UpdateKey(context.TODO(), id, value, false); err != nil {
+		if err := a.backend.UpdateKey(a.ctx, id, value, false); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
 				fieldKey: value,
 				fieldID:  id,

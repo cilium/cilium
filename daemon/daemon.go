@@ -484,14 +484,14 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath, iptablesManager rulesM
 		log.Debug("Annotate k8s node is disabled.")
 	}
 
-	d.nodeDiscovery.StartDiscovery(node.GetName())
+	d.nodeDiscovery.StartDiscovery(d.ctx, node.GetName())
 
 	// This needs to be done after the node addressing has been configured
 	// as the node address is required as suffix.
 	// well known identities have already been initialized above.
 	// Ignore the channel returned by this function, as we want the global
 	// identity allocator to run asynchronously.
-	d.identityAllocator.InitIdentityAllocator(k8s.CiliumClient(), nil)
+	d.identityAllocator.InitIdentityAllocator(d.ctx, k8s.CiliumClient(), nil)
 
 	d.bootstrapClusterMesh(nodeMngr)
 
@@ -505,7 +505,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath, iptablesManager rulesM
 
 	// We can only start monitor agent once cilium_event has been set up.
 	if option.Config.RunMonitorAgent {
-		monitorAgent, err := monitoragent.NewAgent(context.TODO(), defaults.MonitorBufferPages)
+		monitorAgent, err := monitoragent.NewAgent(d.ctx, defaults.MonitorBufferPages)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -518,7 +518,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath, iptablesManager rulesM
 	// Start watcher for endpoint IP --> identity mappings in key-value store.
 	// this needs to be done *after* init() for the daemon in that function,
 	// we populate the IPCache with the host's IP(s).
-	ipcache.InitIPIdentityWatcher()
+	ipcache.InitIPIdentityWatcher(d.ctx)
 	identitymanager.Subscribe(d.policy)
 
 	bootstrapStats.fqdn.Start()

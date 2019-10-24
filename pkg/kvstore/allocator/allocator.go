@@ -101,6 +101,8 @@ type kvstoreBackend struct {
 	deleteInvalidPrefixes bool
 
 	keyType allocator.AllocatorKey
+
+	ctx context.Context
 }
 
 func locklessCapability() bool {
@@ -523,7 +525,7 @@ func (k *kvstoreBackend) ListAndWatch(handler allocator.CacheMutations, stopChan
 					handler.OnModify(id, key)
 
 				case kvstore.EventTypeDelete:
-					handler.OnDelete(id, key)
+					handler.OnDelete(k.ctx, id, key)
 				}
 			}
 

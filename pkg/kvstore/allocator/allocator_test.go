@@ -97,7 +97,7 @@ func (s *AllocatorSuite) BenchmarkAllocate(c *C) {
 	maxID := idpool.ID(256 + c.N)
 	backend, err := NewKVStoreBackend(allocatorName, "a", TestAllocatorKey(""))
 	c.Assert(err, IsNil)
-	a, err := allocator.NewAllocator(TestAllocatorKey(""), backend, allocator.WithMax(maxID))
+	a, err := allocator.NewAllocator(context.TODO(), TestAllocatorKey(""), backend, allocator.WithMax(maxID))
 	c.Assert(err, IsNil)
 	c.Assert(a, Not(IsNil))
 	defer a.DeleteAllKeys()
@@ -117,7 +117,7 @@ func (s *AllocatorSuite) TestGC(c *C) {
 	// FIXME: Did this previousy use allocatorName := randomTestName() ? so TestAllocatorKey(randomeTestName())
 	backend, err := NewKVStoreBackend(allocatorName, "a", TestAllocatorKey(""))
 	c.Assert(err, IsNil)
-	allocator, err := allocator.NewAllocator(TestAllocatorKey(""), backend, allocator.WithMax(maxID), allocator.WithoutGC())
+	allocator, err := allocator.NewAllocator(context.TODO(), TestAllocatorKey(""), backend, allocator.WithMax(maxID), allocator.WithoutGC())
 	c.Assert(err, IsNil)
 	c.Assert(allocator, Not(IsNil))
 	defer allocator.DeleteAllKeys()
@@ -163,7 +163,7 @@ func (s *AllocatorSuite) TestGC(c *C) {
 func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	backend, err := NewKVStoreBackend(allocatorName, "a", TestAllocatorKey(""))
 	c.Assert(err, IsNil)
-	a, err := allocator.NewAllocator(TestAllocatorKey(""), backend,
+	a, err := allocator.NewAllocator(context.TODO(), TestAllocatorKey(""), backend,
 		allocator.WithMax(maxID), allocator.WithoutGC())
 	c.Assert(err, IsNil)
 	c.Assert(a, Not(IsNil))
@@ -192,7 +192,7 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	// Create a 2nd allocator, refill it
 	backend2, err := NewKVStoreBackend(allocatorName, "r", TestAllocatorKey(""))
 	c.Assert(err, IsNil)
-	a2, err := allocator.NewAllocator(TestAllocatorKey(""), backend2,
+	a2, err := allocator.NewAllocator(context.TODO(), TestAllocatorKey(""), backend2,
 		allocator.WithMax(maxID), allocator.WithoutGC())
 	c.Assert(err, IsNil)
 	c.Assert(a2, Not(IsNil))
@@ -250,7 +250,7 @@ func (s *AllocatorSuite) TestKeyToID(c *C) {
 	allocatorName := randomTestName()
 	backend, err := NewKVStoreBackend(allocatorName, "a", TestAllocatorKey(""))
 	c.Assert(err, IsNil)
-	a, err := allocator.NewAllocator(TestAllocatorKey(""), backend)
+	a, err := allocator.NewAllocator(context.TODO(), TestAllocatorKey(""), backend)
 	c.Assert(err, IsNil)
 	c.Assert(a, Not(IsNil))
 
@@ -275,7 +275,7 @@ func testGetNoCache(c *C, maxID idpool.ID, suffix string) {
 	allocatorName := randomTestName()
 	backend, err := NewKVStoreBackend(allocatorName, "a", TestAllocatorKey(""))
 	c.Assert(err, IsNil)
-	allocator, err := allocator.NewAllocator(TestAllocatorKey(""), backend, allocator.WithMax(maxID), allocator.WithoutGC())
+	allocator, err := allocator.NewAllocator(context.TODO(), TestAllocatorKey(""), backend, allocator.WithMax(maxID), allocator.WithoutGC())
 	c.Assert(err, IsNil)
 	c.Assert(allocator, Not(IsNil))
 
@@ -355,7 +355,7 @@ func (s *AllocatorSuite) TestRemoteCache(c *C) {
 	testName := randomTestName()
 	backend, err := NewKVStoreBackend(testName, "a", TestAllocatorKey(""))
 	c.Assert(err, IsNil)
-	a, err := allocator.NewAllocator(TestAllocatorKey(""), backend, allocator.WithMax(idpool.ID(256)))
+	a, err := allocator.NewAllocator(context.TODO(), TestAllocatorKey(""), backend, allocator.WithMax(idpool.ID(256)))
 	c.Assert(err, IsNil)
 	c.Assert(a, Not(IsNil))
 

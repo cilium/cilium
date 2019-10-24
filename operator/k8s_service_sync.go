@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"time"
 
 	"github.com/cilium/cilium/pkg/k8s"
@@ -66,7 +67,7 @@ func k8sServiceHandler() {
 
 		switch event.Action {
 		case k8s.UpdateService:
-			servicesStore.UpdateLocalKeySync(&svc)
+			servicesStore.UpdateLocalKeySync(context.TODO(), &svc)
 
 		case k8s.DeleteService:
 			servicesStore.DeleteLocalKey(&svc)

@@ -55,6 +55,7 @@ type CRDBackendConfiguration struct {
 	Store    cache.Store
 	Client   clientset.Interface
 	KeyType  allocator.AllocatorKey
+	Context  context.Context
 }
 
 type crdBackend struct {
@@ -421,7 +422,7 @@ func (c *crdBackend) ListAndWatch(handler allocator.CacheMutations, stopChan cha
 
 				if identity, ok := obj.(*types.Identity); ok {
 					if id, err := strconv.ParseUint(identity.Name, 10, 64); err == nil {
-						handler.OnDelete(idpool.ID(id), c.KeyType.PutKeyFromMap(identity.SecurityLabels))
+						handler.OnDelete(c.Context, idpool.ID(id), c.KeyType.PutKeyFromMap(identity.SecurityLabels))
 					}
 				} else {
 					log.Debugf("Ignoring unknown delete event %#v", obj)

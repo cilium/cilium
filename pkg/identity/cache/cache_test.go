@@ -17,6 +17,7 @@
 package cache
 
 import (
+	"context"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/identity"
@@ -58,7 +59,7 @@ func (s *IdentityCacheTestSuite) TestLookupReservedIdentity(c *C) {
 	}()
 
 	mgr := NewCachingIdentityAllocator(newDummyOwner())
-	<-mgr.InitIdentityAllocator(nil, nil)
+	<-mgr.InitIdentityAllocator(context.TODO(), nil, nil)
 
 	hostID := identity.GetReservedID("host")
 	c.Assert(mgr.LookupIdentityByID(hostID), Not(IsNil))
