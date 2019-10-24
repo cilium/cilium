@@ -82,6 +82,8 @@ type ControllerParams struct {
 
 	// NoErrorRetry when set to true, disabled retries on errors
 	NoErrorRetry bool
+
+	Context context.Context
 }
 
 // undefinedDoFunc is used when no DoFunc is set. controller.DoFunc is set to this

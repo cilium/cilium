@@ -1248,6 +1248,7 @@ func (e *Endpoint) syncPolicyMapController() {
 				return e.syncPolicyMapWithDump()
 			},
 			RunInterval: 1 * time.Minute,
+			Context:     e.aliveCtx,
 		},
 	)
 }

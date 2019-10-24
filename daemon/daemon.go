@@ -221,6 +221,7 @@ func (d *Daemon) init() error {
 					return d.syncEndpointsAndHostIPs()
 				},
 				RunInterval: time.Minute,
+				Context:     d.ctx,
 			})
 	}
 

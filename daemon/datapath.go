@@ -352,6 +352,7 @@ func (d *Daemon) initMaps() error {
 		controller.ControllerParams{
 			DoFunc:      metricsmap.SyncMetricsMap,
 			RunInterval: 5 * time.Second,
+			Context:     d.ctx,
 		})
 
 	if !option.Config.RestoreState {

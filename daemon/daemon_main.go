@@ -1123,6 +1123,7 @@ func (d *Daemon) initKVStore() {
 				return nil
 			},
 			RunInterval: defaults.KVStoreStaleLockTimeout,
+			Context:     d.ctx,
 		},
 	)
 

@@ -365,6 +365,7 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState) chan struc
 						DoFunc: func(ctx context.Context) error {
 							return d.svc.SyncWithK8sFinished()
 						},
+						Context: d.ctx,
 					},
 				)
 			}
