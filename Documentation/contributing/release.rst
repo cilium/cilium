@@ -14,10 +14,11 @@ This section describes the release cadence and all release related processes.
 Release Cadence
 ~~~~~~~~~~~~~~~
 
-Cilium schedules a minor release every 6 weeks. Each minor release is performed
-by incrementing the ``Y`` in the version format ``X.Y.Z``. The group of
-committers can decide to increment ``X`` instead to mark major milestones in
-which case ``Y`` is reset to 0.
+New versions of Cilium are released based on completion of feature work that has
+been scheduled for that release. Each minor release is performed by incrementing
+the ``Y`` in the version format ``X.Y.Z``. The group of committers can decide to
+increment ``X`` instead to mark major milestones in which case ``Y`` is reset to
+0.
 
 .. _stable_releases:
 
@@ -30,9 +31,7 @@ with the version ``X.Y.Z+1``. Stable releases are regularly released in high
 frequency or on demand to address major incidents.
 
 In order to guarantee stable production usage while maintaining a high release
-cadence, the following stable releases will be maintained:
-
-* Stable backports into the last two releases
+cadence, the most recent three stable releases will be maintained.
 
 Backport criteria for X.Y.Z+n
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -42,8 +41,8 @@ into ``v1.1.x`` before ``v1.2.0`` has been released:
 
 - All bugfixes
 
-Backport criteria for X.Y-1.Z
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Backport criteria for X.Y-1.Z and X.Y-2.Z
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Criteria for the inclusion into the stable release branch of the previous
 release, i.e. what goes into ``v1.0.x``, before ``v1.2.0`` has been released:
