@@ -553,7 +553,9 @@ func (ds *DNSCacheTestSuite) TestOverlimitEntriesWithValidLimit(c *C) {
 	for i := 1; i < limit+2; i++ {
 		cache.Update(now, "test.com", []net.IP{net.ParseIP(fmt.Sprintf("1.1.1.%d", i))}, i)
 	}
-	c.Assert(cache.cleanupOverLimitEntries(), checker.DeepEquals, []string{"test.com"})
+	affectedNames, _ := cache.cleanupOverLimitEntries()
+	c.Assert(affectedNames, checker.DeepEquals, []string{"test.com"})
+
 	c.Assert(cache.Lookup("test.com"), HasLen, limit)
 	c.Assert(cache.LookupIP(net.ParseIP("1.1.1.1")), checker.DeepEquals, []string{"foo.bar"})
 	c.Assert(cache.forward["test.com"]["1.1.1.1"], IsNil)
@@ -568,7 +570,8 @@ func (ds *DNSCacheTestSuite) TestOverlimitEntriesWithoutLimit(c *C) {
 	for i := 0; i < 5; i++ {
 		cache.Update(now, "test.com", []net.IP{net.ParseIP(fmt.Sprintf("1.1.1.%d", i))}, i)
 	}
-	c.Assert(cache.cleanupOverLimitEntries(), checker.DeepEquals, []string{})
+	affectedNames, _ := cache.cleanupOverLimitEntries()
+	c.Assert(len(affectedNames), checker.Equals, 0)
 	c.Assert(cache.Lookup("test.com"), HasLen, 5)
 }
 
@@ -589,7 +592,8 @@ func (ds *DNSCacheTestSuite) TestGCOverlimitAfterTTLCleanup(c *C) {
 	c.Assert(result, checker.DeepEquals, []string{"test.com"})
 
 	// Due all entries are deleted on TTL, the overlimit should return 0 entries.
-	c.Assert(cache.cleanupOverLimitEntries(), checker.DeepEquals, []string{})
+	affectedNames, _ := cache.cleanupOverLimitEntries()
+	c.Assert(len(affectedNames), checker.Equals, 0)
 }
 
 func (ds *DNSCacheTestSuite) TestOverlimitAfterDeleteForwardEntry(c *C) {
@@ -597,7 +601,8 @@ func (ds *DNSCacheTestSuite) TestOverlimitAfterDeleteForwardEntry(c *C) {
 	// CG operation
 	dnsCache := NewDNSCache(0)
 	dnsCache.overLimit["test.com"] = true
-	c.Assert(dnsCache.cleanupOverLimitEntries(), checker.DeepEquals, []string{})
+	affectedNames, _ := dnsCache.cleanupOverLimitEntries()
+	c.Assert(len(affectedNames), checker.Equals, 0)
 }
 
 func assertZombiesContain(c *C, zombies []*DNSZombieMapping, mappings map[string][]string) {
@@ -719,5 +724,37 @@ func (ds *DNSCacheTestSuite) TestZombiesForceExpire(c *C) {
 	c.Assert(dead, HasLen, 0)
 	assertZombiesContain(c, alive, map[string][]string{
 		"2.2.2.2": {"somethingelse.com"},
+	})
+}
+
+func (ds *DNSCacheTestSuite) TestCacheToZombiesGCCascade(c *C) {
+	now := time.Now()
+	cache := NewDNSCache(0)
+	zombies := NewDNSZombieMappings()
+
+	// Add entries that should expire at different times
+	cache.Update(now, "test.com", []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2")}, 3)
+	cache.Update(now, "test.com", []net.IP{net.ParseIP("3.3.3.3")}, 5)
+
+	// Cascade expirations from cache to zombies. The 3.3.3.3 lookup has not expired
+	now = now.Add(4 * time.Second)
+	cache.GC(now, zombies)
+	alive, dead := zombies.GC()
+	c.Assert(dead, HasLen, 0)
+	assertZombiesContain(c, alive, map[string][]string{
+		"1.1.1.1": {"test.com"},
+		"2.2.2.2": {"test.com"},
+	})
+
+	// Cascade expirations from cache to zombies. The 3.3.3.3 lookup has expired
+	// but the older zombies are still alive.
+	now = now.Add(4 * time.Second)
+	cache.GC(now, zombies)
+	alive, dead = zombies.GC()
+	c.Assert(dead, HasLen, 0)
+	assertZombiesContain(c, alive, map[string][]string{
+		"1.1.1.1": {"test.com"},
+		"2.2.2.2": {"test.com"},
+		"3.3.3.3": {"test.com"},
 	})
 }
