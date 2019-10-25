@@ -541,7 +541,7 @@ if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$MODE" = "routed" ] ||
 		POLICY_MAP="cilium_policy_reserved_${ID_WORLD}"
 		COPTS="-DSECLABEL=${ID_WORLD} -DPOLICY_MAP=${POLICY_MAP}"
 		if [ "$NODE_PORT" = "true" ]; then
-			COPTS="${COPTS} -DLB_L3 -DLB_L4 -DNO_REDIRECT"
+			COPTS="${COPTS} -DLB_L3 -DLB_L4"
 		fi
 
 		bpf_load $NATIVE_DEV "$COPTS" "ingress" bpf_netdev.c bpf_netdev.o "from-netdev" $CALLS_MAP
