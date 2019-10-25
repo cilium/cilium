@@ -561,7 +561,9 @@ struct lb6_service {
 	__u32 backend_id;
 	__u16 count;
 	__u16 rev_nat_index;
-	__u32 pad;
+	__u8 k8s_external:1, /* K8s External IPs */
+	     reserved:7;
+	__u8 pad[3];
 };
 
 /* See lb4_backend comments */
@@ -592,7 +594,9 @@ struct lb4_service {
 	 */
 	__u16 count;
 	__u16 rev_nat_index;	/* Reverse NAT ID in lb4_reverse_nat */
-	__u32 pad;
+	__u8 k8s_external:1, /* K8s External IPs */
+	     reserved:7;
+	__u8 pad[3];
 };
 
 struct lb4_backend {

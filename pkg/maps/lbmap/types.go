@@ -69,6 +69,12 @@ type ServiceValue interface {
 	// Get reverse NAT identifier
 	GetRevNat() int
 
+	// Set flags
+	SetFlags(uint8)
+
+	// Get flags
+	GetFlags() uint8
+
 	// Set backend identifier
 	SetBackendID(id loadbalancer.BackendID)
 
