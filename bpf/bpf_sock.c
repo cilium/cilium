@@ -214,6 +214,12 @@ int sock4_xlate(struct bpf_sock_addr *ctx)
 
 	svc = __lb4_lookup_service(&key);
 	if (svc) {
+		// Do not perform service translation for external IPs because
+		// we don't want a k8s service to easily do MITM attacks for
+		// a public IP address.
+		if (svc->k8s_external) {
+			return CONNECT_PROCEED;
+		}
 		key.slave = (sock_local_cookie(ctx) % svc->count) + 1;
 
 		slave_svc = __lb4_lookup_slave(&key);
