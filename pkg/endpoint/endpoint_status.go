@@ -15,6 +15,7 @@
 package endpoint
 
 import (
+	"context"
 	"sort"
 	"strings"
 	"time"
@@ -157,7 +158,7 @@ func updateLabels(allocator cache.IdentityAllocator, allowedIdentityTuple *ciliu
 	// identity, but instead an allow of all identities for
 	// that port.
 	if secID != identity.IdentityUnknown {
-		identity := allocator.LookupIdentityByID(secID)
+		identity := allocator.LookupIdentityByID(context.TODO(), secID)
 		if identity != nil {
 			var l labels.Labels
 			if identity.CIDRLabel != nil {

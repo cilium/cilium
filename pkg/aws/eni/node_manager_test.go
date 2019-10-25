@@ -343,7 +343,7 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 	ec2api := ec2mock.NewAPI(subnets, []*types.Vpc{testVpc})
 	metricsapi := metricsmock.NewMockMetrics()
 	instancesManager := NewInstancesManager(ec2api, metricsapi)
-	instancesManager.Resync()
+	instancesManager.Resync(context.TODO())
 	mngr, err := NewNodeManager(instancesManager, ec2api, k8sapi, metricsapi, 10, eniTags)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))

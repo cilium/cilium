@@ -15,6 +15,7 @@
 package watchers
 
 import (
+	"context"
 	"net"
 	"sync"
 
@@ -118,7 +119,7 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, se
 		k.k8sAPIGroups.addAPI(k8sAPIGroupCiliumEndpointV2)
 		go ciliumEndpointInformer.Run(isConnected)
 
-		<-kvstore.Client().Connected()
+		<-kvstore.Client().Connected(context.TODO())
 		close(isConnected)
 
 		log.Info("Connected to key-value store, stopping CiliumEndpoint watcher")

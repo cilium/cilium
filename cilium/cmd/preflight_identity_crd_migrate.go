@@ -53,7 +53,7 @@ var migrateIdentityCmd = &cobra.Command{
 	numeric identity is already in-use by a different set of labels, a new
 	numeric identity is created.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		migrateIdentities()
+		migrateIdentities(context.TODO())
 	},
 }
 
@@ -73,7 +73,7 @@ var migrateIdentityCmd = &cobra.Command{
 //
 // NOTE: It is assumed that the migration is from k8s to k8s installations. The
 // key labels different when running in non-k8s mode.
-func migrateIdentities() {
+func migrateIdentities(ctx2 context.Context) {
 	// The internal packages log things. Make sure they follow the setup of of
 	// the CLI tool.
 	logging.DefaultLogger.SetFormatter(log.Formatter)
@@ -87,14 +87,14 @@ func migrateIdentities() {
 	option.Config.IdentityAllocationMode = option.IdentityAllocationModeCRD // force CRD mode to make ciliumid
 
 	// Init Identity backends
-	initCtx, initCancel := context.WithTimeout(context.Background(), opTimeout)
-	kvstoreBackend := initKVStore()
+	initCtx, initCancel := context.WithTimeout(ctx2, opTimeout)
+	kvstoreBackend := initKVStore(initCtx)
 
 	crdBackend, crdAllocator := initK8s(initCtx)
 	initCancel()
 
 	log.Info("Listing identities in kvstore")
-	listCtx, listCancel := context.WithTimeout(context.Background(), opTimeout)
+	listCtx, listCancel := context.WithTimeout(ctx2, opTimeout)
 	kvstoreIDs, err := getKVStoreIdentities(listCtx, kvstoreBackend)
 	if err != nil {
 		log.WithError(err).Fatal("Unable to initialize Identity Allocator with CRD backend to allocate identities with already allocated IDs")
@@ -111,7 +111,7 @@ func migrateIdentities() {
 			logfields.IdentityLabels: key.GetKey(),
 		})
 
-		ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
+		ctx, cancel := context.WithTimeout(ctx2, opTimeout)
 		err := crdBackend.AllocateID(ctx, id, key)
 		switch {
 		case err != nil && k8serrors.IsAlreadyExists(err):
@@ -137,7 +137,9 @@ func migrateIdentities() {
 			logfields.IdentityLabels: key.GetKey(),
 		})
 
-		upstreamKey, err := crdBackend.GetByID(id)
+		ctx, cancel := context.WithTimeout(ctx2, opTimeout)
+		upstreamKey, err := crdBackend.GetByID(ctx, id)
+		cancel()
 		scopedLog.Debugf("Looking at upstream key with this ID: %+v", upstreamKey)
 		switch {
 		case err != nil:
@@ -161,7 +163,7 @@ func migrateIdentities() {
 		})
 		scopedLog.Warn("ID is allocated to a different key in CRD. A new ID will be allocated for the this key")
 
-		ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
+		ctx, cancel = context.WithTimeout(context.Background(), opTimeout)
 		defer cancel()
 		newID, actuallyAllocated, err := crdAllocator.Allocate(ctx, key)
 		switch {
@@ -233,9 +235,9 @@ func initK8s(ctx context.Context) (crdBackend allocator.Backend, crdAllocator *a
 
 // initKVStore connects to the kvstore with a allocator.Backend, initialised to
 // find identities at the default cilium paths.
-func initKVStore() (kvstoreBackend allocator.Backend) {
+func initKVStore(ctx context.Context) (kvstoreBackend allocator.Backend) {
 	log.Info("Setting up kvstore client")
-	setupKvstore()
+	setupKvstore(ctx)
 
 	idPath := path.Join(cache.IdentitiesPath, "id")
 	kvstoreBackend, err := kvstoreallocator.NewKVStoreBackend(cache.IdentitiesPath, idPath, cache.GlobalIdentity{})
@@ -252,7 +254,7 @@ func getKVStoreIdentities(ctx context.Context, kvstoreBackend allocator.Backend)
 	identities = make(map[idpool.ID]allocator.AllocatorKey)
 	stopChan := make(chan struct{})
 
-	go kvstoreBackend.ListAndWatch(kvstoreListHandler{
+	go kvstoreBackend.ListAndWatch(context.TODO(), kvstoreListHandler{
 		onAdd: func(id idpool.ID, key allocator.AllocatorKey) {
 			log.Debugf("kvstore listed ID: %+v -> %+v", id, key)
 			identities[id] = key

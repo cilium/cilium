@@ -61,7 +61,7 @@ func k8sServiceHandler() {
 
 		if !event.Service.Shared {
 			// The annotation may have been added, delete an eventual existing service
-			servicesStore.DeleteLocalKey(&svc)
+			servicesStore.DeleteLocalKey(context.TODO(), &svc)
 			return
 		}
 
@@ -70,7 +70,7 @@ func k8sServiceHandler() {
 			servicesStore.UpdateLocalKeySync(context.TODO(), &svc)
 
 		case k8s.DeleteService:
-			servicesStore.DeleteLocalKey(&svc)
+			servicesStore.DeleteLocalKey(context.TODO(), &svc)
 		}
 	}
 	for {

@@ -15,6 +15,9 @@
 package cmd
 
 import (
+	"context"
+	"time"
+
 	"github.com/cilium/cilium/pkg/kvstore"
 
 	"github.com/spf13/cobra"
@@ -25,18 +28,21 @@ var kvstoreDeleteCmd = &cobra.Command{
 	Short:   "Delete a key",
 	Example: "cilium kvstore delete --recursive foo",
 	Run: func(cmd *cobra.Command, args []string) {
-		setupKvstore()
-
 		if len(args) < 1 {
 			Fatalf("Please specify a key or key prefix to delete")
 		}
 
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		setupKvstore(ctx)
+
 		if recursive {
-			if err := kvstore.DeletePrefix(args[0]); err != nil {
+			if err := kvstore.DeletePrefix(ctx, args[0]); err != nil {
 				Fatalf("Unable to delete keys: %s", err)
 			}
 		} else {
-			if err := kvstore.Delete(args[0]); err != nil {
+			if err := kvstore.Delete(ctx, args[0]); err != nil {
 				Fatalf("Unable to delete key: %s", err)
 			}
 		}

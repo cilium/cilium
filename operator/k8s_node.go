@@ -111,7 +111,7 @@ func runNodeWatcher() error {
 				}
 				serNodes.Enqueue(func() error {
 					deletedNode := k8s.ParseNode(n, source.Kubernetes)
-					ciliumNodeStore.DeleteLocalKey(deletedNode)
+					ciliumNodeStore.DeleteLocalKey(context.TODO(), deletedNode)
 					deleteCiliumNode(n.Name)
 					return nil
 				}, serializer.NoRetry)
@@ -154,7 +154,7 @@ func runNodeWatcher() error {
 
 			for _, kvStoreNode := range kvStoreNodes {
 				if strings.HasPrefix(kvStoreNode.GetKeyName(), option.Config.ClusterName) {
-					ciliumNodeStore.DeleteLocalKey(kvStoreNode)
+					ciliumNodeStore.DeleteLocalKey(context.TODO(), kvStoreNode)
 				}
 			}
 

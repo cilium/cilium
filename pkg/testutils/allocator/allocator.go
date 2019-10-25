@@ -50,7 +50,7 @@ func (f *FakeIdentityAllocator) Release(context.Context, *identity.Identity) (re
 
 // LookupIdentityByID returns the identity corresponding to the id if the
 // identity is a reserved identity. Otherwise, returns nil.
-func (f *FakeIdentityAllocator) LookupIdentityByID(id identity.NumericIdentity) *identity.Identity {
+func (f *FakeIdentityAllocator) LookupIdentityByID(ctx context.Context, id identity.NumericIdentity) *identity.Identity {
 	if identity := identity.LookupReservedIdentity(id); identity != nil {
 		return identity
 	}

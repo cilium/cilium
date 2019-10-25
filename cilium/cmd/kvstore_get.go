@@ -15,8 +15,10 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -31,14 +33,17 @@ var kvstoreGetCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		key := ""
 
-		setupKvstore()
-
 		if len(args) > 0 {
 			key = args[0]
 		}
 
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		setupKvstore(ctx)
+
 		if recursive {
-			pairs, err := kvstore.ListPrefix(key)
+			pairs, err := kvstore.ListPrefix(ctx, key)
 			if err != nil {
 				Fatalf("Unable to list keys: %s", err)
 			}
@@ -52,7 +57,7 @@ var kvstoreGetCmd = &cobra.Command{
 				fmt.Printf("%s => %s\n", k, string(v.Data))
 			}
 		} else {
-			val, err := kvstore.Get(key)
+			val, err := kvstore.Get(ctx, key)
 			if err != nil || val == nil {
 				Fatalf("Unable to retrieve key: %s", err)
 			}

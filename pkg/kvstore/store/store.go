@@ -255,11 +255,11 @@ func (s *SharedStore) Release() {
 // Close stops participation with a shared store and removes all keys owned by
 // this node in the kvstore. This stops the controller started by
 // JoinSharedStore().
-func (s *SharedStore) Close() {
+func (s *SharedStore) Close(ctx context.Context) {
 	s.Release()
 
 	for name, key := range s.localKeys {
-		if err := s.backend.Delete(s.keyPath(key)); err != nil {
+		if err := s.backend.Delete(ctx, s.keyPath(key)); err != nil {
 			s.getLogger().WithError(err).Warning("Unable to delete key in kvstore")
 		}
 
@@ -368,7 +368,7 @@ func (s *SharedStore) UpdateKeySync(ctx context.Context, key LocalKey) error {
 }
 
 // DeleteLocalKey removes a key from being synchronized with the kvstore
-func (s *SharedStore) DeleteLocalKey(key NamedKey) {
+func (s *SharedStore) DeleteLocalKey(ctx context.Context, key NamedKey) {
 	name := key.GetKeyName()
 
 	s.mutex.Lock()
@@ -376,7 +376,7 @@ func (s *SharedStore) DeleteLocalKey(key NamedKey) {
 	delete(s.localKeys, name)
 	s.mutex.Unlock()
 
-	err := s.backend.Delete(s.keyPath(key))
+	err := s.backend.Delete(ctx, s.keyPath(key))
 
 	if ok {
 		if err != nil {
@@ -478,7 +478,7 @@ func (s *SharedStore) listAndStartWatcher() error {
 }
 
 func (s *SharedStore) watcher(listDone chan bool) {
-	s.kvstoreWatcher = s.backend.ListAndWatch(s.name+"-watcher", s.conf.Prefix, watcherChanSize)
+	s.kvstoreWatcher = s.backend.ListAndWatch(s.conf.Context, s.name+"-watcher", s.conf.Prefix, watcherChanSize)
 
 	for event := range s.kvstoreWatcher.Events {
 		if event.Typ == kvstore.EventTypeListDone {

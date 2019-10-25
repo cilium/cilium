@@ -179,7 +179,7 @@ func NewAllocatorForGC(backend Backend) *Allocator {
 // nodes.
 type Backend interface {
 	// DeleteAllKeys will delete all keys. It is used in tests.
-	DeleteAllKeys()
+	DeleteAllKeys(ctx context.Context)
 
 	// Encode encodes a key string as required to conform to the key
 	// restrictions of the backend
@@ -228,7 +228,7 @@ type Backend interface {
 
 	// GetByID returns the key associated with this ID, as seen by the Backend.
 	// This may have been created by other agents.
-	GetByID(id idpool.ID) (AllocatorKey, error)
+	GetByID(ctx context.Context, id idpool.ID) (AllocatorKey, error)
 
 	// Lock provides an opaque lock object that can be used, later, to ensure
 	// that the key has not changed since the lock was created. This can be done
@@ -237,14 +237,14 @@ type Backend interface {
 
 	// ListAndWatch begins synchronizing the local Backend instance with its
 	// remote.
-	ListAndWatch(handler CacheMutations, stopChan chan struct{})
+	ListAndWatch(ctx context.Context, handler CacheMutations, stopChan chan struct{})
 
 	// RunGC reaps stale or unused identities within the Backend and makes them
 	// available for reuse. It is used by the cilium-operator and is not invoked
 	// by cilium-agent.
 	// Note: not all Backend implemenations rely on this, such as the kvstore
 	// backends, and may use leases to expire keys.
-	RunGC(staleKeysPrevRound map[string]uint64) (map[string]uint64, error)
+	RunGC(ctx context.Context, staleKeysPrevRound map[string]uint64) (map[string]uint64, error)
 
 	// Status returns a human-readable status of the Backend.
 	Status() (string, error)
@@ -446,7 +446,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		return 0, false, err
 	}
 
-	defer lock.Unlock()
+	defer lock.Unlock(ctx)
 
 	// fetch first key that matches /value/<key> while ignoring the
 	// node suffix
@@ -660,12 +660,12 @@ func (a *Allocator) GetNoCache(ctx context.Context, key AllocatorKey) (idpool.ID
 
 // GetByID returns the key associated with an ID. Returns nil if no key is
 // associated with the ID.
-func (a *Allocator) GetByID(id idpool.ID) (AllocatorKey, error) {
+func (a *Allocator) GetByID(ctx context.Context, id idpool.ID) (AllocatorKey, error) {
 	if key := a.mainCache.getByID(id); key != nil {
 		return key, nil
 	}
 
-	return a.backend.GetByID(id)
+	return a.backend.GetByID(ctx, id)
 }
 
 // Release releases the use of an ID associated with the provided key. After
@@ -700,12 +700,12 @@ func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool
 
 // RunGC scans the kvstore for unused master keys and removes them
 func (a *Allocator) RunGC(staleKeysPrevRound map[string]uint64) (map[string]uint64, error) {
-	return a.backend.RunGC(staleKeysPrevRound)
+	return a.backend.RunGC(a.ctx, staleKeysPrevRound)
 }
 
 // DeleteAllKeys will delete all keys. It is expected to be used in tests.
 func (a *Allocator) DeleteAllKeys() {
-	a.backend.DeleteAllKeys()
+	a.backend.DeleteAllKeys(a.ctx)
 }
 
 // syncLocalKeys checks the kvstore and verifies that a master key exists for

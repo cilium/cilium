@@ -287,7 +287,7 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	// Should still be cached, no new events should have been received.
 	c.Assert(owner.GetIdentity(id1a.ID), checker.DeepEquals, lbls1.LabelArray())
 
-	identity := mgr.LookupIdentityByID(id1b.ID)
+	identity := mgr.LookupIdentityByID(context.TODO(), id1b.ID)
 	c.Assert(identity, Not(IsNil))
 	c.Assert(lbls1, checker.DeepEquals, identity.Labels)
 

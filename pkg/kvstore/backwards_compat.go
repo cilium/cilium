@@ -15,6 +15,8 @@
 package kvstore
 
 import (
+	"context"
+
 	"github.com/cilium/cilium/common"
 )
 
@@ -31,7 +33,7 @@ import (
 //    path must be created which automatically removes the old keys on successful
 //    translation.
 //
-func deleteLegacyPrefixes() {
+func deleteLegacyPrefixes(ctx context.Context) {
 	// Delete all keys in old services prefix
-	DeletePrefix(common.ServicePathV1)
+	DeletePrefix(ctx, common.ServicePathV1)
 }

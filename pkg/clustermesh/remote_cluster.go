@@ -106,14 +106,14 @@ func (rc *remoteCluster) getLogger() *logrus.Entry {
 	})
 }
 
-func (rc *remoteCluster) releaseOldConnection() {
+func (rc *remoteCluster) releaseOldConnection(ctx context.Context) {
 	if rc.ipCacheWatcher != nil {
 		rc.ipCacheWatcher.Close()
 		rc.ipCacheWatcher = nil
 	}
 
 	if rc.remoteNodes != nil {
-		rc.remoteNodes.Close()
+		rc.remoteNodes.Close(ctx)
 		rc.remoteNodes = nil
 	}
 	if rc.remoteIdentityCache != nil {
@@ -121,7 +121,7 @@ func (rc *remoteCluster) releaseOldConnection() {
 		rc.remoteIdentityCache = nil
 	}
 	if rc.remoteServices != nil {
-		rc.remoteServices.Close()
+		rc.remoteServices.Close(ctx)
 		rc.remoteServices = nil
 	}
 	if rc.backend != nil {
@@ -136,11 +136,11 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 			DoFunc: func(ctx context.Context) error {
 				rc.mutex.Lock()
 				if rc.backend != nil {
-					rc.releaseOldConnection()
+					rc.releaseOldConnection(ctx)
 				}
 				rc.mutex.Unlock()
 
-				backend, errChan := kvstore.NewClient(kvstore.EtcdBackendName,
+				backend, errChan := kvstore.NewClient(ctx, kvstore.EtcdBackendName,
 					map[string]string{
 						kvstore.EtcdOptionConfig: rc.configPath,
 					},
@@ -189,7 +189,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 					Context: ctx,
 				})
 				if err != nil {
-					remoteNodes.Close()
+					remoteNodes.Close(ctx)
 					backend.Close()
 					return err
 				}
@@ -214,7 +214,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 			},
 			StopFunc: func(ctx context.Context) error {
 				rc.mutex.Lock()
-				rc.releaseOldConnection()
+				rc.releaseOldConnection(ctx)
 				rc.mutex.Unlock()
 
 				rc.getLogger().Info("All resources of remote cluster cleaned up")

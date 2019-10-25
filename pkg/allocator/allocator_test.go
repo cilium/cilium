@@ -57,7 +57,7 @@ func (d *dummyBackend) Encode(v string) string {
 	return v
 }
 
-func (d *dummyBackend) DeleteAllKeys() {
+func (d *dummyBackend) DeleteAllKeys(ctx context.Context) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 	d.identities = map[idpool.ID]AllocatorKey{}
@@ -101,7 +101,7 @@ func (d *dummyBackend) AcquireReference(ctx context.Context, id idpool.ID, key A
 
 type dummyLock struct{}
 
-func (d *dummyLock) Unlock() error {
+func (d *dummyLock) Unlock(ctx context.Context) error {
 	return nil
 }
 
@@ -139,7 +139,7 @@ func (d *dummyBackend) GetIfLocked(ctx context.Context, key AllocatorKey, lock k
 	return d.Get(ctx, key)
 }
 
-func (d *dummyBackend) GetByID(id idpool.ID) (AllocatorKey, error) {
+func (d *dummyBackend) GetByID(ctx context.Context, id idpool.ID) (AllocatorKey, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 	if key, ok := d.identities[id]; ok {
@@ -163,7 +163,7 @@ func (d *dummyBackend) Release(ctx context.Context, key AllocatorKey) error {
 	return fmt.Errorf("identity does not exist")
 }
 
-func (d *dummyBackend) ListAndWatch(handler CacheMutations, stopChan chan struct{}) {
+func (d *dummyBackend) ListAndWatch(ctx context.Context, handler CacheMutations, stopChan chan struct{}) {
 	d.mutex.Lock()
 	d.handler = handler
 	for id, k := range d.identities {
@@ -174,7 +174,7 @@ func (d *dummyBackend) ListAndWatch(handler CacheMutations, stopChan chan struct
 	<-stopChan
 }
 
-func (d *dummyBackend) RunGC(map[string]uint64) (map[string]uint64, error) {
+func (d *dummyBackend) RunGC(context.Context, map[string]uint64) (map[string]uint64, error) {
 	return nil, nil
 }
 

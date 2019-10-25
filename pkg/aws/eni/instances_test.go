@@ -139,7 +139,7 @@ func (e *ENISuite) TestGetSubnet(c *check.C) {
 	c.Assert(mngr.GetSubnet("subnet-3"), check.IsNil)
 
 	// iteration 1
-	mngr.Resync()
+	mngr.Resync(context.TODO())
 
 	subnet1 := mngr.GetSubnet("subnet-1")
 	c.Assert(subnet1, check.Not(check.IsNil))
@@ -152,7 +152,7 @@ func (e *ENISuite) TestGetSubnet(c *check.C) {
 	c.Assert(mngr.GetSubnet("subnet-3"), check.IsNil)
 
 	// iteration 2
-	mngr.Resync()
+	mngr.Resync(context.TODO())
 
 	subnet1 = mngr.GetSubnet("subnet-1")
 	c.Assert(subnet1, check.Not(check.IsNil))
@@ -172,8 +172,8 @@ func (e *ENISuite) TestFindSubnetByTags(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// iteration 1 + 2
-	mngr.Resync()
-	mngr.Resync()
+	mngr.Resync(context.TODO())
+	mngr.Resync(context.TODO())
 
 	// exact match subnet-1
 	s := mngr.FindSubnetByTags("vpc-1", "us-west-1", types.Tags{"tag1": "tag1"})
@@ -206,13 +206,13 @@ func (e *ENISuite) TestGetENIs(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// iteration 1
-	mngr.Resync()
+	mngr.Resync(context.TODO())
 	c.Assert(len(mngr.GetENIs("i-1")), check.Equals, 1)
 	c.Assert(len(mngr.GetENIs("i-2")), check.Equals, 1)
 	c.Assert(len(mngr.GetENIs("i-unknown")), check.Equals, 0)
 
 	// iteration 2
-	mngr.Resync()
+	mngr.Resync(context.TODO())
 	c.Assert(len(mngr.GetENIs("i-1")), check.Equals, 2)
 	c.Assert(len(mngr.GetENIs("i-2")), check.Equals, 1)
 	c.Assert(len(mngr.GetENIs("i-unknown")), check.Equals, 0)
@@ -223,13 +223,13 @@ func (e *ENISuite) TestGetENI(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// iteration 1
-	mngr.Resync()
+	mngr.Resync(context.TODO())
 	c.Assert(mngr.GetENI("i-1", 0), check.Not(check.IsNil))
 	c.Assert(mngr.GetENI("i-1", 1), check.IsNil)
 	c.Assert(mngr.GetENI("i-2", 0), check.Not(check.IsNil))
 
 	// iteration 2
-	mngr.Resync()
+	mngr.Resync(context.TODO())
 	c.Assert(mngr.GetENI("i-1", 0), check.Not(check.IsNil))
 	c.Assert(mngr.GetENI("i-1", 1), check.Not(check.IsNil))
 	c.Assert(mngr.GetENI("i-2", 0), check.Not(check.IsNil))
