@@ -73,11 +73,6 @@ func (in *Service) DeepCopyInto(out *Service) {
 		*out = make(net.IP, len(*in))
 		copy(*out, *in)
 	}
-	if in.K8sExternalIPs != nil {
-		in, out := &in.K8sExternalIPs, &out.K8sExternalIPs
-		*out = new(Endpoints)
-		(*in).DeepCopyInto(*out)
-	}
 	if in.Ports != nil {
 		in, out := &in.Ports, &out.Ports
 		*out = make(map[loadbalancer.FEPortName]*loadbalancer.L4Addr, len(*in))
