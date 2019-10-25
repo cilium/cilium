@@ -94,8 +94,11 @@ func (s ipEntries) getIPs(now time.Time) []net.IP {
 // For most real-world DNS data, the entry per name remains small because newer
 // lookups replace older ones. Large TTLs may cause entries to grow if many
 // unique IPs are returned in separate lookups.
-// Redundant or expired entries are removed on insert.
-// Lookups check for expired entries.
+// It is critical to run .GC periodically. This cleans up expired entries and
+// steps forward the time used to determine that entries are expired. This
+// means that the Lookup functions may return expired entries until GC is
+// called.
+// Redundant entries are removed on insert.
 type DNSCache struct {
 	lock.RWMutex
 
@@ -108,7 +111,10 @@ type DNSCache struct {
 	// expired in forward, should also be added/removed in reverse.
 	reverse map[string]nameEntries
 
-	// LastCleanup is the last time that the cleanup happens.
+	// LastCleanup is the latest time for which entries have been expired. It is
+	// used as "now" when doing lookups and advanced by calls to .GC
+	// When an entry is added with an expiration time before lastCleanup, it is
+	// set to that value.
 	lastCleanup time.Time
 
 	// cleanup maps the TTL expiration times (in seconds since the epoch) to
@@ -142,9 +148,9 @@ type DNSCache struct {
 // NewDNSCache returns an initialized DNSCache
 func NewDNSCache(minTTL int) *DNSCache {
 	c := &DNSCache{
-		forward:      make(map[string]ipEntries),
-		reverse:      make(map[string]nameEntries),
-		lastCleanup:  time.Now(),
+		forward: make(map[string]ipEntries),
+		reverse: make(map[string]nameEntries),
+		// lastCleanup is populated on the first insert
 		cleanup:      map[int64][]string{},
 		overLimit:    map[string]bool{},
 		perHostLimit: 0,
@@ -204,12 +210,6 @@ func (c *DNSCache) updateWithEntry(entry *cacheEntry) bool {
 		changed = true
 	}
 
-	// When lookupTime is much earlier than time.Now(), we may not expire all
-	// entries that should be expired, leaving more work for .Lookup.
-	if c.removeExpired(entries, time.Now(), time.Time{}) {
-		changed = true
-	}
-
 	if c.perHostLimit > 0 && len(entries) > c.perHostLimit {
 		c.overLimit[entry.Name] = true
 	}
@@ -220,10 +220,8 @@ func (c *DNSCache) updateWithEntry(entry *cacheEntry) bool {
 // delete the entry from the policy when it expires.
 // Need to be called with a write lock
 func (c *DNSCache) addNameToCleanup(entry *cacheEntry) {
-	if entry.ExpirationTime.Before(c.lastCleanup) {
-		// ExpirationTime can be before the lastCleanup don't add that value to
-		// prevent leaks on the map.
-		return
+	if c.lastCleanup.IsZero() || entry.ExpirationTime.Before(c.lastCleanup) {
+		c.lastCleanup = entry.ExpirationTime
 	}
 	expiration := entry.ExpirationTime.Unix()
 	expiredEntries, exists := c.cleanup[expiration]
@@ -233,23 +231,24 @@ func (c *DNSCache) addNameToCleanup(entry *cacheEntry) {
 	c.cleanup[expiration] = append(expiredEntries, entry.Name)
 }
 
-// cleanupExpiredEntries cleans all the expired entries from the lastTime that
-// runs to the give time. It will lock the struct until retrieves all the data.
-// It returns the list of names that need to be deleted from the policies.
+// cleanupExpiredEntries cleans all the expired entries since lastCleanup up to
+// expires, but not including it. lastCleanup is set to expires and later
+// cleanups begin from that time.
+// It returns the list of names that have expired data.
 func (c *DNSCache) cleanupExpiredEntries(expires time.Time) ([]string, time.Time) {
-	timediff := int(expires.Sub(c.lastCleanup).Seconds())
 	startTime := c.lastCleanup
+	if c.lastCleanup.IsZero() {
+		return nil, time.Time{}
+	}
+
 	expiredEntries := []string{}
-	for i := 0; i < int(timediff); i++ {
-		expiredTime := c.lastCleanup.Add(time.Second)
-		key := expiredTime.Unix()
-		c.lastCleanup = expiredTime
-		entries, exists := c.cleanup[key]
-		if !exists {
-			continue
+	for c.lastCleanup.Before(expires) {
+		key := c.lastCleanup.Unix()
+		if entries, exists := c.cleanup[key]; exists {
+			expiredEntries = append(expiredEntries, entries...)
+			delete(c.cleanup, key)
 		}
-		expiredEntries = append(expiredEntries, entries...)
-		delete(c.cleanup, key)
+		c.lastCleanup = c.lastCleanup.Add(time.Second).Truncate(time.Second)
 	}
 
 	result := []string{}
@@ -261,6 +260,7 @@ func (c *DNSCache) cleanupExpiredEntries(expires time.Time) ([]string, time.Time
 			result = append(result, name)
 		}
 	}
+
 	return result, startTime
 }
 
@@ -310,9 +310,9 @@ func (c *DNSCache) cleanupOverLimitEntries() []string {
 
 // GC garbage collector function that clean expired entries and return the
 // entries that are deleted.
-func (c *DNSCache) GC() []string {
+func (c *DNSCache) GC(now time.Time) (affectedNames []string) {
 	c.Lock()
-	expiredEntries, _ := c.cleanupExpiredEntries(time.Now())
+	expiredEntries, _ := c.cleanupExpiredEntries(now)
 	overLimitEntries := c.cleanupOverLimitEntries()
 	c.Unlock()
 	return KeepUniqueNames(append(expiredEntries, overLimitEntries...))
@@ -378,7 +378,7 @@ func (c *DNSCache) Lookup(name string) (ips []net.IP) {
 	c.RLock()
 	defer c.RUnlock()
 
-	return c.lookupByTime(time.Now(), name)
+	return c.lookupByTime(c.lastCleanup, name)
 }
 
 // lookupByTime takes a timestamp for expiration comparisons, and is only
@@ -395,7 +395,7 @@ func (c *DNSCache) lookupByTime(now time.Time, name string) (ips []net.IP) {
 // LookupByRegexp returns all non-expired cache entries that match re as a map
 // of name -> IPs
 func (c *DNSCache) LookupByRegexp(re *regexp.Regexp) (matches map[string][]net.IP) {
-	return c.lookupByRegexpByTime(time.Now(), re)
+	return c.lookupByRegexpByTime(c.lastCleanup, re)
 }
 
 // lookupByRegexpByTime takes a timestamp for expiration comparisons, and is
@@ -425,7 +425,7 @@ func (c *DNSCache) LookupIP(ip net.IP) (names []string) {
 	c.RLock()
 	defer c.RUnlock()
 
-	return c.lookupIPByTime(time.Now(), ip)
+	return c.lookupIPByTime(c.lastCleanup, ip)
 }
 
 // lookupIPByTime takes a timestamp for expiration comparisons, and is
@@ -583,15 +583,11 @@ func (c *DNSCache) Dump() (lookups []*cacheEntry) {
 	c.RLock()
 	defer c.RUnlock()
 
-	now := time.Now()
-
 	// Collect all the still-valid entries
 	lookups = make([]*cacheEntry, 0, len(c.forward))
 	for _, entries := range c.forward {
 		for _, entry := range entries {
-			if !entry.isExpiredBy(now) {
-				lookups = append(lookups, entry)
-			}
+			lookups = append(lookups, entry)
 		}
 	}
 
