@@ -1,3 +1,0 @@
-diff --git a/vendor/k8s.io/code-generator/generate-groups.sh b/vendor/k8s.io/code-generator/generate-groups.sh
-old mode 100644
-new mode 100755
