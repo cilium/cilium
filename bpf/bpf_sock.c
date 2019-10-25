@@ -59,6 +59,13 @@ ctx_get_port(struct bpf_sock_addr *ctx)
 	return (__be16)dport;
 }
 
+static __always_inline __maybe_unused __be32
+ctx_get_ip4(struct bpf_sock_addr *ctx)
+{
+	volatile __u32 ip4 = ctx->user_ip4;
+	return (__be32)ip4;
+}
+
 static __always_inline __maybe_unused
 void ctx_set_port(struct bpf_sock_addr *ctx, __be16 dport)
 {
@@ -204,12 +211,26 @@ int sock4_xlate(struct bpf_sock_addr *ctx)
 	struct lb4_service *svc;
 	struct lb4_key key = {
 		.dport		= ctx_get_port(ctx),
+		.address        = ctx_get_ip4(ctx),
 	};
 	struct lb4_service *slave_svc;
 
 	if (!sock_proto_enabled(ctx))
 		return CONNECT_PROCEED;
 
+	svc = __lb4_lookup_service(&key);
+
+	__u32 port;
+	port = ctx->user_port;
+	if (svc) {
+		// If the node is connecting to a a k8s external IP we don't do
+		// any redirection
+		if (svc->is_k8s_external_ip) {
+			return CONNECT_PROCEED;
+		}
+	}
+
+	key.address = 0;
 	sock4_handle_node_port(ctx, &key);
 
 	svc = __lb4_lookup_service(&key);
