@@ -74,7 +74,7 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 			return false, fmt.Errorf("Kubernetes pod %s/%s does not exist", ep.K8sNamespace, ep.K8sPodName)
 		}
 
-		ep.RunMetadataResolver(d.fetchK8sLabelsAndAnnotations)
+		ep.RunMetadataResolver(d.fetchK8sMetadata)
 	}
 
 	if err := ep.ValidateConnectorPlumbing(connector.CheckLink); err != nil {

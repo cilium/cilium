@@ -1598,7 +1598,7 @@ func (e *Endpoint) APICanModifyConfig(n models.ConfigurationMap) error {
 
 // MetadataResolverCB provides an implementation for resolving the endpoint
 // metadata for an endpoint such as the associated labels and annotations.
-type MetadataResolverCB func(ns, podName string) (pod *slim_corev1.Pod, _ []slim_corev1.ContainerPort, identityLabels labels.Labels, infoLabels labels.Labels, annotations map[string]string, err error)
+type MetadataResolverCB func(ns, podName string) (meta *Metadata, err error)
 
 // RunMetadataResolver starts a controller associated with the received
 // endpoint which will periodically attempt to resolve the metadata for the
@@ -1620,28 +1620,28 @@ func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
 				ns, podName := e.GetK8sNamespace(), e.GetK8sPodName()
-				pod, cp, identityLabels, info, _, err := resolveMetadata(ns, podName)
+				meta, err := resolveMetadata(ns, podName)
 				if err != nil {
 					e.Logger(controllerName).WithError(err).Warning("Unable to fetch kubernetes labels")
 					return err
 				}
-				e.SetPod(pod)
-				e.SetK8sMetadata(cp)
-				e.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
-					_, _, _, _, annotations, err := resolveMetadata(ns, podName)
+				e.SetPod(meta.Pod)
+				e.SetK8sMetadata(meta.ContainerPorts)
+				e.UpdateVisibilityPolicy(func(ns, podName string) (proxyVisibility string, err error) {
+					meta, err := resolveMetadata(ns, podName)
 					if err != nil {
 						return "", err
 					}
-					return annotations[annotation.ProxyVisibility], nil
+					return meta.Annotations[annotation.ProxyVisibility], nil
 				})
 				e.UpdateBandwidthPolicy(func(ns, podName string) (bandwidthEgress string, err error) {
-					_, _, _, _, annotations, err := resolveMetadata(ns, podName)
+					meta, err := resolveMetadata(ns, podName)
 					if err != nil {
 						return "", err
 					}
-					return annotations[bandwidth.EgressBandwidth], nil
+					return meta.Annotations[bandwidth.EgressBandwidth], nil
 				})
-				e.UpdateLabels(ctx, identityLabels, info, true)
+				e.UpdateLabels(ctx, meta.IdentityLabels, meta.InfoLabels, true)
 				close(done)
 				return nil
 			},

@@ -17,8 +17,11 @@ package k8s
 import (
 	"regexp"
 
+	"github.com/cilium/cilium/pkg/endpoint"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -95,7 +98,7 @@ func isInjectedWithIstioSidecarProxy(scopedLog *logrus.Entry, pod *slim_corev1.P
 
 // GetPodMetadata returns the labels and annotations of the pod with the given
 // namespace / name.
-func GetPodMetadata(k8sNs *slim_corev1.Namespace, pod *slim_corev1.Pod) (containerPorts []slim_corev1.ContainerPort, lbls map[string]string, retAnno map[string]string, retErr error) {
+func GetPodMetadata(k8sNs *slim_corev1.Namespace, pod *slim_corev1.Pod) (metadata *endpoint.Metadata, retErr error) {
 	namespace := pod.Namespace
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sNamespace: namespace,
@@ -131,11 +134,21 @@ func GetPodMetadata(k8sNs *slim_corev1.Namespace, pod *slim_corev1.Pod) (contain
 
 	k8sLabels[k8sConst.PolicyLabelCluster] = option.Config.ClusterName
 
+	var containerPorts []slim_corev1.ContainerPort
 	for _, containers := range pod.Spec.Containers {
 		for _, cp := range containers.Ports {
 			containerPorts = append(containerPorts, cp)
 		}
 	}
 
-	return containerPorts, k8sLabels, annotations, nil
+	labels := labels.Map2Labels(k8sLabels, labels.LabelSourceK8s)
+	identityLabels, infoLabels := labelsfilter.Filter(labels)
+
+	return &endpoint.Metadata{
+		Pod:            pod,
+		ContainerPorts: containerPorts,
+		IdentityLabels: identityLabels,
+		InfoLabels:     infoLabels,
+		Annotations:    annotations,
+	}, nil
 }
