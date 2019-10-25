@@ -70,6 +70,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define IPV4_MASK 0xffff
 #define IPV4_GATEWAY 0xfffff50a
 #define IPV4_LOOPBACK 0x1ffff50a
+#define ENABLE_IPT 1
 #ifdef ENABLE_MASQUERADE
 #define SNAT_IPV4_EXTERNAL IPV4_GATEWAY
 #define SNAT_MAPPING_IPV4 cilium_snat_v4_external

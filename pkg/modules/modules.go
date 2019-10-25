@@ -38,16 +38,16 @@ func (m *ModulesManager) Init() error {
 	return nil
 }
 
-// findModules checks whether the given kernel modules are loaded and also
+// FindModules checks whether the given kernel modules are loaded and also
 // returns a slice with names of modules which are not loaded.
-func (m *ModulesManager) findModules(expectedNames ...string) (bool, []string) {
+func (m *ModulesManager) FindModules(expectedNames ...string) (bool, []string) {
 	return set.SliceSubsetOf(expectedNames, m.modulesList)
 }
 
 // FindOrLoadModules checks whether the given kernel modules are loaded and
 // tries to load those which are not.
 func (m *ModulesManager) FindOrLoadModules(expectedNames ...string) error {
-	found, diff := m.findModules(expectedNames...)
+	found, diff := m.FindModules(expectedNames...)
 	if found {
 		return nil
 	}
