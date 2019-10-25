@@ -156,15 +156,18 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 	controller.NewManager().UpdateController(dnsGCJobName, controller.ControllerParams{
 		RunInterval: 1 * time.Minute,
 		DoFunc: func(ctx context.Context) error {
+			var (
+				GCStart      = time.Now()
+				namesToClean = []string{}
+			)
 
-			namesToClean := []string{}
 			// cleanup poller cache
-			namesToClean = append(namesToClean, d.dnsPoller.DNSHistory.GC()...)
+			namesToClean = append(namesToClean, d.dnsPoller.DNSHistory.GC(GCStart)...)
 
 			// cleanup caches for all existing endpoints as well.
 			endpoints := d.endpointManager.GetEndpoints()
 			for _, ep := range endpoints {
-				namesToClean = append(namesToClean, ep.DNSHistory.GC()...)
+				namesToClean = append(namesToClean, ep.DNSHistory.GC(GCStart)...)
 			}
 
 			namesToClean = fqdn.KeepUniqueNames(namesToClean)
