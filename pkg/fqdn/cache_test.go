@@ -569,7 +569,7 @@ func (ds *DNSCacheTestSuite) TestOverlimitEntriesWithoutLimit(c *C) {
 		cache.Update(now, "test.com", []net.IP{net.ParseIP(fmt.Sprintf("1.1.1.%d", i))}, i)
 	}
 	c.Assert(cache.cleanupOverLimitEntries(), checker.DeepEquals, []string{})
-	c.Assert(cache.Lookup("test.com"), HasLen, 4)
+	c.Assert(cache.Lookup("test.com"), HasLen, 5)
 }
 
 func (ds *DNSCacheTestSuite) TestGCOverlimitAfterTTLCleanup(c *C) {
