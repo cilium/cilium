@@ -553,7 +553,9 @@ func (ds *DNSCacheTestSuite) TestOverlimitEntriesWithValidLimit(c *C) {
 	for i := 1; i < limit+2; i++ {
 		cache.Update(now, "test.com", []net.IP{net.ParseIP(fmt.Sprintf("1.1.1.%d", i))}, i)
 	}
-	c.Assert(cache.cleanupOverLimitEntries(), checker.DeepEquals, []string{"test.com"})
+	affectedNames, _ := cache.cleanupOverLimitEntries()
+	c.Assert(affectedNames, checker.DeepEquals, []string{"test.com"})
+
 	c.Assert(cache.Lookup("test.com"), HasLen, limit)
 	c.Assert(cache.LookupIP(net.ParseIP("1.1.1.1")), checker.DeepEquals, []string{"foo.bar"})
 	c.Assert(cache.forward["test.com"]["1.1.1.1"], IsNil)
@@ -568,7 +570,8 @@ func (ds *DNSCacheTestSuite) TestOverlimitEntriesWithoutLimit(c *C) {
 	for i := 0; i < 5; i++ {
 		cache.Update(now, "test.com", []net.IP{net.ParseIP(fmt.Sprintf("1.1.1.%d", i))}, i)
 	}
-	c.Assert(cache.cleanupOverLimitEntries(), checker.DeepEquals, []string{})
+	affectedNames, _ := cache.cleanupOverLimitEntries()
+	c.Assert(len(affectedNames), checker.Equals, 0)
 	c.Assert(cache.Lookup("test.com"), HasLen, 5)
 }
 
@@ -589,7 +592,8 @@ func (ds *DNSCacheTestSuite) TestGCOverlimitAfterTTLCleanup(c *C) {
 	c.Assert(result, checker.DeepEquals, []string{"test.com"})
 
 	// Due all entries are deleted on TTL, the overlimit should return 0 entries.
-	c.Assert(cache.cleanupOverLimitEntries(), checker.DeepEquals, []string{})
+	affectedNames, _ := cache.cleanupOverLimitEntries()
+	c.Assert(len(affectedNames), checker.Equals, 0)
 }
 
 func (ds *DNSCacheTestSuite) TestOverlimitAfterDeleteForwardEntry(c *C) {
@@ -597,5 +601,6 @@ func (ds *DNSCacheTestSuite) TestOverlimitAfterDeleteForwardEntry(c *C) {
 	// CG operation
 	dnsCache := NewDNSCache(0)
 	dnsCache.overLimit["test.com"] = true
-	c.Assert(dnsCache.cleanupOverLimitEntries(), checker.DeepEquals, []string{})
+	affectedNames, _ := dnsCache.cleanupOverLimitEntries()
+	c.Assert(len(affectedNames), checker.Equals, 0)
 }
