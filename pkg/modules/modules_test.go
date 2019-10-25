@@ -122,7 +122,7 @@ func (s *ModulesTestSuite) TestFindModules(c *C) {
 		},
 	}
 	for _, tc := range testCases {
-		found, diff := manager.findModules(tc.modulesToFind...)
+		found, diff := manager.FindModules(tc.modulesToFind...)
 		c.Assert(found, Equals, tc.isSubset)
 		c.Assert(diff, checker.DeepEquals, tc.expectedDiff)
 	}
