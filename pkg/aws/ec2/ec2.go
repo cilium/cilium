@@ -64,23 +64,23 @@ func deriveStatus(req *aws.Request, err error) string {
 	return "OK"
 }
 
-func (c *Client) rateLimit(operation string) {
+func (c *Client) rateLimit(ctx context.Context, operation string) {
 	r := c.limiter.Reserve()
 	if delay := r.Delay(); delay != time.Duration(0) && delay != rate.InfDuration {
 		c.metricsAPI.ObserveEC2RateLimit(operation, delay)
-		c.limiter.Wait(context.TODO())
+		c.limiter.Wait(ctx)
 	}
 }
 
 // describeNetworkInterfaces lists all ENIs
-func (c *Client) describeNetworkInterfaces() ([]ec2.NetworkInterface, error) {
+func (c *Client) describeNetworkInterfaces(ctx context.Context) ([]ec2.NetworkInterface, error) {
 	var (
 		networkInterfaces []ec2.NetworkInterface
 		nextToken         string
 	)
 
 	for {
-		c.rateLimit("DescribeNetworkInterfaces")
+		c.rateLimit(ctx, "DescribeNetworkInterfaces")
 		req := &ec2.DescribeNetworkInterfacesInput{}
 		if nextToken != "" {
 			req.NextToken = &nextToken
@@ -88,7 +88,7 @@ func (c *Client) describeNetworkInterfaces() ([]ec2.NetworkInterface, error) {
 
 		sinceStart := spanstat.Start()
 		listReq := c.ec2Client.DescribeNetworkInterfacesRequest(req)
-		response, err := listReq.Send(context.TODO())
+		response, err := listReq.Send(ctx)
 		c.metricsAPI.ObserveEC2APICall("DescribeNetworkInterfaces", deriveStatus(listReq.Request, err), sinceStart.Seconds())
 		if err != nil {
 			return nil, err
@@ -179,10 +179,10 @@ func parseENI(iface *ec2.NetworkInterface, vpcs types.VpcMap, subnets types.Subn
 
 // GetInstances returns the list of all instances including their ENIs as
 // instanceMap
-func (c *Client) GetInstances(vpcs types.VpcMap, subnets types.SubnetMap) (types.InstanceMap, error) {
+func (c *Client) GetInstances(ctx context.Context, vpcs types.VpcMap, subnets types.SubnetMap) (types.InstanceMap, error) {
 	instances := types.InstanceMap{}
 
-	networkInterfaces, err := c.describeNetworkInterfaces()
+	networkInterfaces, err := c.describeNetworkInterfaces(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -202,15 +202,15 @@ func (c *Client) GetInstances(vpcs types.VpcMap, subnets types.SubnetMap) (types
 }
 
 // describeVpcs lists all VPCs
-func (c *Client) describeVpcs() ([]ec2.Vpc, error) {
+func (c *Client) describeVpcs(ctx context.Context) ([]ec2.Vpc, error) {
 	var vpcs []ec2.Vpc
 
-	c.rateLimit("DescribeVpcs")
+	c.rateLimit(ctx, "DescribeVpcs")
 	req := &ec2.DescribeVpcsInput{}
 
 	sinceStart := spanstat.Start()
 	listReq := c.ec2Client.DescribeVpcsRequest(req)
-	response, err := listReq.Send(context.TODO())
+	response, err := listReq.Send(ctx)
 	c.metricsAPI.ObserveEC2APICall("DescribeVpcs", deriveStatus(listReq.Request, err), sinceStart.Seconds())
 	if err != nil {
 		return nil, err
@@ -222,10 +222,10 @@ func (c *Client) describeVpcs() ([]ec2.Vpc, error) {
 }
 
 // GetVpcs retrieves and returns all Vpcs
-func (c *Client) GetVpcs() (types.VpcMap, error) {
+func (c *Client) GetVpcs(ctx context.Context) (types.VpcMap, error) {
 	vpcs := types.VpcMap{}
 
-	vpcList, err := c.describeVpcs()
+	vpcList, err := c.describeVpcs(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -244,10 +244,10 @@ func (c *Client) GetVpcs() (types.VpcMap, error) {
 }
 
 // describeSubnets lists all subnets
-func (c *Client) describeSubnets() ([]ec2.Subnet, error) {
+func (c *Client) describeSubnets(ctx context.Context) ([]ec2.Subnet, error) {
 	sinceStart := spanstat.Start()
 	listReq := c.ec2Client.DescribeSubnetsRequest(&ec2.DescribeSubnetsInput{})
-	result, err := listReq.Send(context.TODO())
+	result, err := listReq.Send(ctx)
 	c.metricsAPI.ObserveEC2APICall("DescribeSubnets", deriveStatus(listReq.Request, err), sinceStart.Seconds())
 	if err != nil {
 		return nil, err
@@ -257,10 +257,10 @@ func (c *Client) describeSubnets() ([]ec2.Subnet, error) {
 }
 
 // GetSubnets returns all EC2 subnets as a subnetMap
-func (c *Client) GetSubnets() (types.SubnetMap, error) {
+func (c *Client) GetSubnets(ctx context.Context) (types.SubnetMap, error) {
 	subnets := types.SubnetMap{}
 
-	subnetList, err := c.describeSubnets()
+	subnetList, err := c.describeSubnets(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -295,7 +295,7 @@ func (c *Client) GetSubnets() (types.SubnetMap, error) {
 }
 
 // CreateNetworkInterface creates an ENI with the given parameters
-func (c *Client) CreateNetworkInterface(toAllocate int64, subnetID, desc string, groups []string) (string, *v2.ENI, error) {
+func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int64, subnetID, desc string, groups []string) (string, *v2.ENI, error) {
 	createReq := &ec2.CreateNetworkInterfaceInput{
 		Description:                    &desc,
 		SecondaryPrivateIpAddressCount: &toAllocate,
@@ -305,10 +305,10 @@ func (c *Client) CreateNetworkInterface(toAllocate int64, subnetID, desc string,
 		createReq.Groups = append(createReq.Groups, grp)
 	}
 
-	c.rateLimit("CreateNetworkInterface")
+	c.rateLimit(ctx, "CreateNetworkInterface")
 	sinceStart := spanstat.Start()
 	create := c.ec2Client.CreateNetworkInterfaceRequest(createReq)
-	resp, err := create.Send(context.TODO())
+	resp, err := create.Send(ctx)
 	c.metricsAPI.ObserveEC2APICall("CreateNetworkInterfaceRequest", deriveStatus(create.Request, err), sinceStart.Seconds())
 	if err != nil {
 		return "", nil, err
@@ -329,30 +329,30 @@ func (c *Client) CreateNetworkInterface(toAllocate int64, subnetID, desc string,
 }
 
 // DeleteNetworkInterface deletes an ENI with the specified ID
-func (c *Client) DeleteNetworkInterface(eniID string) error {
+func (c *Client) DeleteNetworkInterface(ctx context.Context, eniID string) error {
 	delReq := &ec2.DeleteNetworkInterfaceInput{}
 	delReq.NetworkInterfaceId = &eniID
 
-	c.rateLimit("DeleteNetworkInterface")
+	c.rateLimit(ctx, "DeleteNetworkInterface")
 	sinceStart := spanstat.Start()
 	req := c.ec2Client.DeleteNetworkInterfaceRequest(delReq)
-	_, err := req.Send(context.TODO())
+	_, err := req.Send(ctx)
 	c.metricsAPI.ObserveEC2APICall("DeleteNetworkInterface", deriveStatus(req.Request, err), sinceStart.Seconds())
 	return err
 }
 
 // AttachNetworkInterface attaches a previously created ENI to an instance
-func (c *Client) AttachNetworkInterface(index int64, instanceID, eniID string) (string, error) {
+func (c *Client) AttachNetworkInterface(ctx context.Context, index int64, instanceID, eniID string) (string, error) {
 	attachReq := &ec2.AttachNetworkInterfaceInput{
 		DeviceIndex:        &index,
 		InstanceId:         &instanceID,
 		NetworkInterfaceId: &eniID,
 	}
 
-	c.rateLimit("AttachNetworkInterface")
+	c.rateLimit(ctx, "AttachNetworkInterface")
 	sinceStart := spanstat.Start()
 	attach := c.ec2Client.AttachNetworkInterfaceRequest(attachReq)
-	attachResp, err := attach.Send(context.TODO())
+	attachResp, err := attach.Send(ctx)
 	c.metricsAPI.ObserveEC2APICall("AttachNetworkInterface", deriveStatus(attach.Request, err), sinceStart.Seconds())
 	if err != nil {
 		return "", err
@@ -362,7 +362,7 @@ func (c *Client) AttachNetworkInterface(index int64, instanceID, eniID string) (
 }
 
 // ModifyNetworkInterface modifies the attributes of an ENI
-func (c *Client) ModifyNetworkInterface(eniID, attachmentID string, deleteOnTermination bool) error {
+func (c *Client) ModifyNetworkInterface(ctx context.Context, eniID, attachmentID string, deleteOnTermination bool) error {
 	changes := &ec2.NetworkInterfaceAttachmentChanges{
 		AttachmentId:        &attachmentID,
 		DeleteOnTermination: &deleteOnTermination,
@@ -373,40 +373,40 @@ func (c *Client) ModifyNetworkInterface(eniID, attachmentID string, deleteOnTerm
 		NetworkInterfaceId: &eniID,
 	}
 
-	c.rateLimit("ModifyNetworkInterfaceAttribute")
+	c.rateLimit(ctx, "ModifyNetworkInterfaceAttribute")
 	sinceStart := spanstat.Start()
 	modify := c.ec2Client.ModifyNetworkInterfaceAttributeRequest(modifyReq)
-	_, err := modify.Send(context.TODO())
+	_, err := modify.Send(ctx)
 	c.metricsAPI.ObserveEC2APICall("ModifyNetworkInterface", deriveStatus(modify.Request, err), sinceStart.Seconds())
 	return err
 }
 
 // AssignPrivateIpAddresses assigns the specified number of secondary IP
 // addresses
-func (c *Client) AssignPrivateIpAddresses(eniID string, addresses int64) error {
+func (c *Client) AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int64) error {
 	request := ec2.AssignPrivateIpAddressesInput{
 		NetworkInterfaceId:             &eniID,
 		SecondaryPrivateIpAddressCount: &addresses,
 	}
 
-	c.rateLimit("AssignPrivateIpAddresses")
+	c.rateLimit(ctx, "AssignPrivateIpAddresses")
 	sinceStart := spanstat.Start()
 	req := c.ec2Client.AssignPrivateIpAddressesRequest(&request)
-	_, err := req.Send(context.TODO())
+	_, err := req.Send(ctx)
 	c.metricsAPI.ObserveEC2APICall("AssignPrivateIpAddresses", deriveStatus(req.Request, err), sinceStart.Seconds())
 	return err
 }
 
 // TagENI creates the specified tags on the ENI
-func (c *Client) TagENI(eniID string, eniTags map[string]string) error {
+func (c *Client) TagENI(ctx context.Context, eniID string, eniTags map[string]string) error {
 	request := ec2.CreateTagsInput{
 		Resources: []string{eniID},
 		Tags:      createAWSTagSlice(eniTags),
 	}
-	c.rateLimit("CreateTags")
+	c.rateLimit(ctx, "CreateTags")
 	sinceStart := spanstat.Start()
 	req := c.ec2Client.CreateTagsRequest(&request)
-	_, err := req.Send(context.TODO())
+	_, err := req.Send(ctx)
 	c.metricsAPI.ObserveEC2APICall("CreateTags", deriveStatus(req.Request, err), sinceStart.Seconds())
 	return err
 }

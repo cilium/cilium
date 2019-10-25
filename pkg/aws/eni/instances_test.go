@@ -17,6 +17,8 @@
 package eni
 
 import (
+	"context"
+
 	metricsmock "github.com/cilium/cilium/pkg/aws/eni/metrics/mock"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -29,7 +31,7 @@ type instancesApiMock struct {
 	subnetsIteration   int
 }
 
-func (i *instancesApiMock) GetInstances(vpcs types.VpcMap, subnets types.SubnetMap) (m types.InstanceMap, err error) {
+func (i *instancesApiMock) GetInstances(ctx context.Context, vpcs types.VpcMap, subnets types.SubnetMap) (m types.InstanceMap, err error) {
 	i.instancesIteration++
 
 	m = types.InstanceMap{}
@@ -69,7 +71,7 @@ func (i *instancesApiMock) GetInstances(vpcs types.VpcMap, subnets types.SubnetM
 	return
 }
 
-func (i *instancesApiMock) GetVpcs() (v types.VpcMap, err error) {
+func (i *instancesApiMock) GetVpcs(ctx context.Context) (v types.VpcMap, err error) {
 	v = types.VpcMap{}
 
 	v["vpc-0"] = &types.Vpc{
@@ -85,7 +87,7 @@ func (i *instancesApiMock) GetVpcs() (v types.VpcMap, err error) {
 	return
 }
 
-func (i *instancesApiMock) GetSubnets() (s types.SubnetMap, err error) {
+func (i *instancesApiMock) GetSubnets(ctx context.Context) (s types.SubnetMap, err error) {
 	i.subnetsIteration++
 
 	s = types.SubnetMap{}

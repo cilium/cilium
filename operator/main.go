@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -246,7 +247,7 @@ func runOperator(cmd *cobra.Command) {
 		if m := viper.GetStringMapString(option.ENITags); len(m) > 0 {
 			eniTags = m
 		}
-		if err := startENIAllocator(awsClientQPSLimit, awsClientBurst, eniTags); err != nil {
+		if err := startENIAllocator(context.TODO(), awsClientQPSLimit, awsClientBurst, eniTags); err != nil {
 			log.WithError(err).Fatal("Unable to start ENI allocator")
 		}
 

@@ -92,7 +92,7 @@ func ciliumNodeDeleted(nodeName string) {
 // startENIAllocator kicks of ENI allocation, the initial connection to AWS
 // APIs is done in a blocking manner, given that is successful, a controller is
 // started to manage allocation based on CiliumNode custom resources
-func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags map[string]string) error {
+func startENIAllocator(ctx context.Context, awsClientQPSLimit float64, awsClientBurst int, eniTags map[string]string) error {
 	log.Info("Starting ENI allocator...")
 
 	cfg, err := external.LoadDefaultAWSConfig()
@@ -142,7 +142,7 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 	}
 
 	// Initial blocking synchronization of all ENIs and subnets
-	instances.Resync()
+	instances.Resync(ctx)
 
 	// Start an interval based  background resync for safety, it will
 	// synchronize the state regularly and resolve eventual deficit if the
@@ -153,9 +153,9 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 		mngr.UpdateController("eni-refresh",
 			controller.ControllerParams{
 				RunInterval: time.Minute,
-				DoFunc: func(_ context.Context) error {
-					syncTime := instances.Resync()
-					nodeManager.Resync(syncTime)
+				DoFunc: func(ctx context.Context) error {
+					syncTime := instances.Resync(ctx)
+					nodeManager.Resync(ctx, syncTime)
 					return nil
 				},
 			})

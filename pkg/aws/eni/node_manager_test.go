@@ -17,6 +17,7 @@
 package eni
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -371,7 +372,7 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 	// The above check returns as soon as the address requirements are met.
 	// The metrics may still be oudated, resync all nodes to update
 	// metrics.
-	mngr.Resync(time.Now())
+	mngr.Resync(context.TODO(), time.Now())
 
 	c.Assert(metricsapi.Nodes("total"), check.Equals, numNodes)
 	c.Assert(metricsapi.Nodes("in-deficit"), check.Equals, 0)
