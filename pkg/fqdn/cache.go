@@ -234,49 +234,50 @@ func (c *DNSCache) addNameToCleanup(entry *cacheEntry) {
 // cleanupExpiredEntries cleans all the expired entries since lastCleanup up to
 // expires, but not including it. lastCleanup is set to expires and later
 // cleanups begin from that time.
-// It returns the list of names that have expired data.
-func (c *DNSCache) cleanupExpiredEntries(expires time.Time) ([]string, time.Time) {
-	startTime := c.lastCleanup
+// It returns the list of names that have expired data and a map of removed DNS
+// cache entries, keyed by IP.
+func (c *DNSCache) cleanupExpiredEntries(expires time.Time) (affectedNames []string, removed map[string][]*cacheEntry) {
 	if c.lastCleanup.IsZero() {
-		return nil, time.Time{}
+		return nil, nil
 	}
 
-	expiredEntries := []string{}
+	var toCleanNames []string
 	for c.lastCleanup.Before(expires) {
 		key := c.lastCleanup.Unix()
 		if entries, exists := c.cleanup[key]; exists {
-			expiredEntries = append(expiredEntries, entries...)
+			toCleanNames = append(toCleanNames, entries...)
 			delete(c.cleanup, key)
 		}
 		c.lastCleanup = c.lastCleanup.Add(time.Second).Truncate(time.Second)
 	}
 
-	result := []string{}
-	for _, name := range KeepUniqueNames(expiredEntries) {
+	removed = make(map[string][]*cacheEntry)
+	for _, name := range KeepUniqueNames(toCleanNames) {
 		if entries, exists := c.forward[name]; exists {
-			if !c.removeExpired(entries, c.lastCleanup, time.Time{}) {
-				continue
+			affectedNames = append(affectedNames, name)
+			for ip, entry := range c.removeExpired(entries, c.lastCleanup, time.Time{}) {
+				affectedNames = append(affectedNames, name)
+				removed[ip] = append(removed[ip], entry)
 			}
-			result = append(result, name)
 		}
 	}
 
-	return result, startTime
+	return KeepUniqueNames(affectedNames), removed
 }
 
 // cleanupOverLimitEntries returns the names that has reached the max number of
 // IP per host. Internally the function sort the entries by the expiration
 // time.
-func (c *DNSCache) cleanupOverLimitEntries() []string {
+func (c *DNSCache) cleanupOverLimitEntries() (affectedNames []string, removed map[string][]*cacheEntry) {
 	type IPEntry struct {
 		ip    string
 		entry *cacheEntry
 	}
-	affectedNames := []string{}
+	removed = make(map[string][]*cacheEntry)
 
 	// For global cache the limit maybe is not used at all.
 	if c.perHostLimit == 0 {
-		return affectedNames
+		return affectedNames, nil
 	}
 
 	for dnsName := range c.overLimit {
@@ -301,21 +302,39 @@ func (c *DNSCache) cleanupOverLimitEntries() []string {
 			key := sortedEntries[i]
 			delete(entries, key.ip)
 			c.removeReverse(key.ip, key.entry)
+			removed[key.ip] = append(removed[key.ip], key.entry)
 		}
 		affectedNames = append(affectedNames, dnsName)
 	}
 	c.overLimit = map[string]bool{}
-	return affectedNames
+	return affectedNames, removed
 }
 
-// GC garbage collector function that clean expired entries and return the
-// entries that are deleted.
-func (c *DNSCache) GC(now time.Time) (affectedNames []string) {
+// GC cleans TTL expired entries up to now, and overlimit entries, returning
+// both sets.
+// If zombies is passed in, expired IPs are inserted into it. GC and
+// other management of zombies is left to the caller.
+func (c *DNSCache) GC(now time.Time, zombies *DNSZombieMappings) (affectedNames []string) {
 	c.Lock()
-	expiredEntries, _ := c.cleanupExpiredEntries(now)
-	overLimitEntries := c.cleanupOverLimitEntries()
+	expiredNames, expiredEntries := c.cleanupExpiredEntries(now)
+	overLimitNames, overLimitEntries := c.cleanupOverLimitEntries()
 	c.Unlock()
-	return KeepUniqueNames(append(expiredEntries, overLimitEntries...))
+
+	if zombies != nil {
+		// Iterate over 2 maps
+		for _, m := range []map[string][]*cacheEntry{
+			expiredEntries,
+			overLimitEntries,
+		} {
+			for ipStr, entries := range m {
+				for _, entry := range entries {
+					zombies.Upsert(now, ipStr, entry.Name)
+				}
+			}
+		}
+	}
+
+	return KeepUniqueNames(append(expiredNames, overLimitNames...))
 }
 
 // UpdateFromCache is a utility function that allows updating a DNSCache
@@ -477,12 +496,13 @@ func (c *DNSCache) updateWithEntryIPs(entries ipEntries, entry *cacheEntry) bool
 // clearing functions like ForceExpire, and does not maintain the cache's
 // guarantees.
 // This needs a write lock
-func (c *DNSCache) removeExpired(entries ipEntries, now time.Time, expireLookupsBefore time.Time) (removed bool) {
+func (c *DNSCache) removeExpired(entries ipEntries, now time.Time, expireLookupsBefore time.Time) (removed ipEntries) {
+	removed = make(ipEntries)
 	for ip, entry := range entries {
 		if entry == nil || entry.isExpiredBy(now) || entry.LookupTime.Before(expireLookupsBefore) {
 			delete(entries, ip)
 			c.removeReverse(ip, entry)
-			removed = true
+			removed[ip] = entry
 		}
 	}
 
@@ -543,13 +563,12 @@ func (c *DNSCache) ForceExpire(expireLookupsBefore time.Time, nameMatch *regexp.
 		// because LookupTime must be before ExpirationTime.
 		// The second expireLookupsBefore actually matches lookup times, and will
 		// delete the entries completely.
-		nameNeedsRegen := c.removeExpired(entries, expireLookupsBefore, expireLookupsBefore)
-		if nameNeedsRegen {
-			namesAffected = append(namesAffected, name)
+		for _, entry := range c.removeExpired(entries, expireLookupsBefore, expireLookupsBefore) {
+			namesAffected = append(namesAffected, entry.Name)
 		}
 	}
 
-	return namesAffected
+	return KeepUniqueNames(namesAffected)
 }
 
 // ForceExpireByNames is the same function as ForceExpire but uses the exact
@@ -572,9 +591,8 @@ func (c *DNSCache) forceExpireByNames(expireLookupsBefore time.Time, names []str
 		// because LookupTime must be before ExpirationTime.
 		// The second expireLookupsBefore actually matches lookup times, and will
 		// delete the entries completely.
-		nameNeedsRegen := c.removeExpired(entries, expireLookupsBefore, expireLookupsBefore)
-		if nameNeedsRegen {
-			namesAffected = append(namesAffected, name)
+		for _, entry := range c.removeExpired(entries, expireLookupsBefore, expireLookupsBefore) {
+			namesAffected = append(namesAffected, entry.Name)
 		}
 	}
 

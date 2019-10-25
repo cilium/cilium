@@ -162,12 +162,12 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			)
 
 			// cleanup poller cache
-			namesToClean = append(namesToClean, d.dnsPoller.DNSHistory.GC(GCStart)...)
+			namesToClean = append(namesToClean, d.dnsPoller.DNSHistory.GC(GCStart, nil)...)
 
 			// cleanup caches for all existing endpoints as well.
 			endpoints := d.endpointManager.GetEndpoints()
 			for _, ep := range endpoints {
-				namesToClean = append(namesToClean, ep.DNSHistory.GC(GCStart)...)
+				namesToClean = append(namesToClean, ep.DNSHistory.GC(GCStart, nil)...)
 			}
 
 			namesToClean = fqdn.KeepUniqueNames(namesToClean)
