@@ -188,7 +188,8 @@ type Service6Value struct {
 	BackendID uint32 `align:"backend_id"`
 	Count     uint16 `align:"count"`
 	RevNat    uint16 `align:"rev_nat_index"`
-	Pad       uint32 `align:"pad"`
+	Flags     uint8
+	Pad       pad3uint8 `align:"pad"`
 }
 
 func NewService6Value(count uint16, backendID loadbalancer.BackendID, revNat uint16) *Service6Value {
@@ -202,7 +203,7 @@ func NewService6Value(count uint16, backendID loadbalancer.BackendID, revNat uin
 }
 
 func (s *Service6Value) String() string {
-	return fmt.Sprintf("%d (%d)", s.BackendID, s.RevNat)
+	return fmt.Sprintf("%d (%d) [FLAGS: 0x%x]", s.BackendID, s.RevNat, s.Flags)
 }
 
 func (s *Service6Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
@@ -212,6 +213,8 @@ func (s *Service6Value) GetCount() int        { return int(s.Count) }
 func (s *Service6Value) SetRevNat(id int)     { s.RevNat = uint16(id) }
 func (s *Service6Value) GetRevNat() int       { return int(s.RevNat) }
 func (s *Service6Value) RevNatKey() RevNatKey { return &RevNat6Key{s.RevNat} }
+func (s *Service6Value) SetFlags(flags uint8) { s.Flags = flags }
+func (s *Service6Value) GetFlags() uint8      { return s.Flags }
 
 func (s *Service6Value) SetBackendID(id loadbalancer.BackendID) {
 	s.BackendID = uint32(id)

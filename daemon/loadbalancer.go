@@ -60,7 +60,14 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		backends = append(backends, *b)
 	}
 
-	created, id, err := h.svc.UpsertService(frontend, backends, loadbalancer.SVCTypeClusterIP)
+	var svcType loadbalancer.SVCType
+	switch params.Config.Flags.Type {
+	case models.ServiceSpecFlagsTypeExternalIPs:
+		svcType = loadbalancer.SVCTypExternalIPs
+	default:
+		svcType = loadbalancer.SVCTypeClusterIP
+	}
+	created, id, err := h.svc.UpsertService(frontend, backends, svcType)
 	if err == nil && id != frontend.ID {
 		return api.Error(PutServiceIDInvalidFrontendCode,
 			fmt.Errorf("the service provided is already registered with ID %d, please use that ID instead of %d",
@@ -132,7 +139,6 @@ func (h *getService) Handle(params GetServiceParams) middleware.Responder {
 func getServiceList(svc *service.Service) []*models.Service {
 	svcs := svc.GetDeepCopyServices()
 	list := make([]*models.Service, 0, len(svcs))
-
 	for _, v := range svcs {
 		list = append(list, v.GetModel())
 	}

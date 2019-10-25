@@ -794,7 +794,7 @@ func (s *SSHMeta) ServiceIsSynced(id int) (bool, error) {
 		backendSVC := net.JoinHostPort(
 			*backendAddr.IP,
 			fmt.Sprintf("%d", backendAddr.Port))
-		target := fmt.Sprintf("%s (%d)", backendSVC, id)
+		target := fmt.Sprintf("%s (%d) [FLAGS: 0x0]", backendSVC, id)
 
 		for _, addr := range lb {
 			if addr == target {

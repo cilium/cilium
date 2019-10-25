@@ -34,7 +34,7 @@ func NewLBMockMap() *LBMockMap {
 }
 
 func (m *LBMockMap) UpsertService(id uint16, ip net.IP, port uint16,
-	backendIDs []uint16, prevCount int, ipv6 bool) error {
+	backendIDs []uint16, prevCount int, ipv6 bool, svcType lb.SVCType) error {
 
 	backends := make([]lb.Backend, len(backendIDs))
 	for i, backendID := range backendIDs {

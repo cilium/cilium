@@ -586,12 +586,17 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints
 			svcType loadbalancer.SVCType
 		}
 
+		svcType := loadbalancer.SVCTypeClusterIP
+		if svcID.K8sExternal {
+			svcType = loadbalancer.SVCTypExternalIPs
+		}
+
 		frontends := []frontend{}
 		frontends = append(frontends,
 			frontend{
 				addr: loadbalancer.NewL3n4AddrID(fePort.Protocol, svc.FrontendIP,
 					fePort.Port, loadbalancer.ID(0)),
-				svcType: loadbalancer.SVCTypeClusterIP,
+				svcType: svcType,
 			})
 
 		for _, nodePortFE := range svc.NodePorts[fePortName] {
