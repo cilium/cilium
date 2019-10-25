@@ -38,7 +38,7 @@ const (
 	nodeRetrievalMaxRetries = 15
 )
 
-func waitForNodeInformation(nodeName string) *node.Node {
+func waitForNodeInformation(ctx context.Context, nodeName string) *node.Node {
 	backoff := backoff.Exponential{
 		Min:    time.Duration(200) * time.Millisecond,
 		Factor: 2.0,
@@ -49,7 +49,7 @@ func waitForNodeInformation(nodeName string) *node.Node {
 		n, err := retrieveNodeInformation(nodeName)
 		if err != nil {
 			log.WithError(err).Warning("Waiting for k8s node information")
-			backoff.Wait(context.TODO())
+			backoff.Wait(ctx)
 			continue
 		}
 
@@ -140,7 +140,7 @@ func Init() error {
 		// automatically derived
 		node.SetName(nodeName)
 
-		if n := waitForNodeInformation(nodeName); n != nil {
+		if n := waitForNodeInformation(context.TODO(), nodeName); n != nil {
 			nodeIP4 := n.GetNodeIP(false)
 			nodeIP6 := n.GetNodeIP(true)
 
