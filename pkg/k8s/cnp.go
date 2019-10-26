@@ -473,9 +473,17 @@ func updateStatusesByCapabilities(client clientset.Interface, capabilities k8sve
 			return err
 		}
 
-		_, err = client.CiliumV2().CiliumNetworkPolicies(ns).Patch(name, k8sTypes.JSONPatchType, createStatusAndNodePatchJSON, "status")
 		// If the patch fails it means the "test" from the previous patch
 		// failed so we can safely replace the nodes in the CNP status.
+		// If namespace is empty we understand that the policy corresponds to the clusterwide policy
+		// in that case we need to update the status of ClusterwidePolicies resource and not
+		// CiliumNetworkPolicy
+		if ns == "" {
+			_, err = client.CiliumV2().CiliumClusterwideNetworkPolicies().Patch(name, k8sTypes.JSONPatchType, createStatusAndNodePatchJSON, "status")
+		} else {
+			_, err = client.CiliumV2().CiliumNetworkPolicies(ns).Patch(name, k8sTypes.JSONPatchType, createStatusAndNodePatchJSON, "status")
+		}
+
 		if err != nil {
 			// If there are more than MaxJSONPatchOperations to patch, do
 			// multiple patches until we have removed all nodes from the set to
@@ -514,7 +522,13 @@ func updateStatusesByCapabilities(client clientset.Interface, capabilities k8sve
 				if err != nil {
 					return err
 				}
-				_, err = client.CiliumV2().CiliumNetworkPolicies(ns).Patch(name, k8sTypes.JSONPatchType, createStatusAndNodePatchJSON, "status")
+
+				// Again for clusterwide policy we need to handle the update appropriately.
+				if ns == "" {
+					_, err = client.CiliumV2().CiliumClusterwideNetworkPolicies().Patch(name, k8sTypes.JSONPatchType, createStatusAndNodePatchJSON, "status")
+				} else {
+					_, err = client.CiliumV2().CiliumNetworkPolicies(ns).Patch(name, k8sTypes.JSONPatchType, createStatusAndNodePatchJSON, "status")
+				}
 
 				if err != nil {
 					break
@@ -536,7 +550,16 @@ func updateStatusesByCapabilities(client clientset.Interface, capabilities k8sve
 		for nodeName, cnpns := range nodeStatuses {
 			cnp.SetPolicyStatus(nodeName, cnpns)
 		}
-		_, err = client.CiliumV2().CiliumNetworkPolicies(ns).UpdateStatus(cnp.CiliumNetworkPolicy)
+
+		if ns == "" {
+			cwp := &cilium_v2.CiliumClusterwideNetworkPolicy{
+				CiliumNetworkPolicy: *cnp.CiliumNetworkPolicy,
+			}
+			_, err = client.CiliumV2().CiliumClusterwideNetworkPolicies().Update(cwp)
+		} else {
+			_, err = client.CiliumV2().CiliumNetworkPolicies(ns).UpdateStatus(cnp.CiliumNetworkPolicy)
+		}
+
 	default:
 		if cnp == nil {
 			return fmt.Errorf("cannot update status of nil CNP")
@@ -546,7 +569,15 @@ func updateStatusesByCapabilities(client clientset.Interface, capabilities k8sve
 		for nodeName, cnpns := range nodeStatuses {
 			cnp.SetPolicyStatus(nodeName, cnpns)
 		}
-		_, err = client.CiliumV2().CiliumNetworkPolicies(ns).Update(cnp.CiliumNetworkPolicy)
+
+		if ns == "" {
+			cwp := &cilium_v2.CiliumClusterwideNetworkPolicy{
+				CiliumNetworkPolicy: *cnp.CiliumNetworkPolicy,
+			}
+			_, err = client.CiliumV2().CiliumClusterwideNetworkPolicies().Update(cwp)
+		} else {
+			_, err = client.CiliumV2().CiliumNetworkPolicies(ns).UpdateStatus(cnp.CiliumNetworkPolicy)
+		}
 	}
 	if err != nil {
 		return err
