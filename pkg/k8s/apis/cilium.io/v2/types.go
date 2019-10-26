@@ -247,8 +247,15 @@ func (r *CiliumNetworkPolicy) GetIdentityLabels() labels.LabelArray {
 	namespace := k8sUtils.ExtractNamespace(&r.ObjectMeta)
 	name := r.ObjectMeta.Name
 	uid := r.ObjectMeta.UID
-	return k8sCiliumUtils.GetPolicyLabels(namespace, name, uid,
-		k8sCiliumUtils.ResourceTypeCiliumNetworkPolicy)
+
+	// Even though the struct represents CiliumNetworkPolicy, we use it both for
+	// CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy, so here we check for namespace
+	// to send correct derivedFrom label to get the correct policy labels.
+	derivedFrom := k8sCiliumUtils.ResourceTypeCiliumNetworkPolicy
+	if namespace == "" {
+		derivedFrom = k8sCiliumUtils.ResourceTypeCiliumClusterwideNetworkPolicy
+	}
+	return k8sCiliumUtils.GetPolicyLabels(namespace, name, uid, derivedFrom)
 }
 
 // RequiresDerivative return true if the CNP has any rule that will create a new

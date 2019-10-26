@@ -1278,4 +1278,239 @@ EOF`, k, v)
 		})
 
 	})
+
+	Context("Clusterwide policies", func() {
+		var (
+			demoPath        string
+			demoManifestNS1 string
+			demoManifestNS2 string
+			firstNS         = "first"
+			secondNS        = "second"
+
+			appPodsFirstNS  map[string]string
+			appPodsSecondNS map[string]string
+
+			firstNSclusterIP  string
+			secondNSclusterIP string
+
+			ingressDenyAllPolicy string
+			egressDenyAllPolicy  string
+			allowIngressPolicy   string
+			allowAllPolicy       string
+		)
+
+		BeforeAll(func() {
+			demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
+			egressDenyAllPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-default-deny-egress.yaml")
+			ingressDenyAllPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-default-deny-ingress.yaml")
+			allowIngressPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-update-allow-ingress.yaml")
+			allowAllPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-update-allow-all.yaml")
+
+			demoManifestNS1 = fmt.Sprintf("%s -n %s", demoPath, firstNS)
+			demoManifestNS2 = fmt.Sprintf("%s -n %s", demoPath, secondNS)
+
+			res := kubectl.NamespaceCreate(firstNS)
+			res.ExpectSuccess("unable to create namespace %q", firstNS)
+
+			res = kubectl.Exec(fmt.Sprintf("kubectl label namespaces/%[1]s nslabel=%[1]s", firstNS))
+			res.ExpectSuccess("cannot create namespace labels")
+
+			res = kubectl.NamespaceCreate(secondNS)
+			res.ExpectSuccess("unable to create namespace %q", secondNS)
+
+			res = kubectl.Exec(fmt.Sprintf("kubectl label namespaces/%[1]s nslabel=%[1]s", secondNS))
+			res.ExpectSuccess("cannot create namespace labels")
+
+			res = kubectl.Apply(demoManifestNS1)
+			res.ExpectSuccess("unable to apply demo manifest")
+
+			// Check if the Pods are ready in each namespace before the default configured
+			// timeout.
+			err := kubectl.WaitforPods(firstNS, "-l zgroup=testapp", helpers.HelperTimeout)
+			Expect(err).To(BeNil(),
+				"testapp pods are not ready after timeout in namspace %q", firstNS)
+
+			res = kubectl.Apply(demoManifestNS2)
+			res.ExpectSuccess("unable to apply demo manifest")
+
+			err = kubectl.WaitforPods(secondNS, "-l zgroup=testapp", helpers.HelperTimeout)
+			Expect(err).To(BeNil(),
+				"testapp pods are not ready after timeout in namspace %q", secondNS)
+
+			appPodsFirstNS = helpers.GetAppPods(apps, firstNS, kubectl, "id")
+			appPodsSecondNS = helpers.GetAppPods(apps, secondNS, kubectl, "id")
+
+			firstNSclusterIP, _, err = kubectl.GetServiceHostPort(firstNS, app1Service)
+			Expect(err).To(BeNil(), "Cannot get service on %q namespace", helpers.DefaultNamespace)
+
+			secondNSclusterIP, _, err = kubectl.GetServiceHostPort(secondNS, app1Service)
+			Expect(err).To(BeNil(), "Cannot get service on %q namespace", secondNS)
+
+		})
+
+		AfterAll(func() {
+			_ = kubectl.Delete(demoManifestNS1)
+			_ = kubectl.Delete(demoManifestNS2)
+			_ = kubectl.NamespaceDelete(firstNS)
+			_ = kubectl.NamespaceDelete(secondNS)
+		})
+
+		It("Test clusterwide connectivity with policies", func() {
+			By("Applying Egress deny all clusterwide policy")
+			_, err := kubectl.CiliumClusterwidePolicyAction(
+				egressDenyAllPolicy, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(),
+				"%q Clusterwide Policy cannot be applied", egressDenyAllPolicy)
+
+			res := kubectl.ExecPodCmd(
+				firstNS, appPodsFirstNS[helpers.App2],
+				helpers.CurlFail("http://1.1.1.1/"))
+			res.ExpectFail("Egress connectivity should be denied for pod %q", helpers.App2)
+
+			res = kubectl.ExecPodCmd(
+				secondNS, appPodsSecondNS[helpers.App2],
+				helpers.CurlFail("http://1.1.1.1/"))
+			res.ExpectFail("Egress connectivity should be denied for pod %q in %q namespace", helpers.App2, secondNS)
+
+			res = kubectl.ExecPodCmd(
+				firstNS, appPodsFirstNS[helpers.App3],
+				helpers.Ping("8.8.8.8"))
+			res.ExpectFail("Egress ping connectivity should be denied for pod %q", helpers.App3)
+
+			res = kubectl.ExecPodCmd(
+				secondNS, appPodsSecondNS[helpers.App3],
+				"host kubernetes.default.svc.cluster.local")
+			res.ExpectFail("Egress DNS connectivity should be denied for pod %q", helpers.App3)
+
+			By("Deleting Egress deny all clusterwide policy")
+			_, err = kubectl.CiliumClusterwidePolicyAction(
+				egressDenyAllPolicy, helpers.KubectlDelete, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(),
+				"%q Clusterwide Policy cannot be deleted", egressDenyAllPolicy)
+
+			By("Applying Ingress deny all clusterwide policy")
+			_, err = kubectl.CiliumClusterwidePolicyAction(
+				ingressDenyAllPolicy, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(),
+				"%q Clusterwide Policy cannot be applied", egressDenyAllPolicy)
+
+			// Validate ingress Deny All policy.
+			By("Testing ingress connectivity from %q namespace", firstNS)
+			res = kubectl.ExecPodCmd(
+				firstNS, appPodsFirstNS[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", firstNSclusterIP)))
+			res.ExpectFail("Ingress connectivity should be denied for service in %s namespace", firstNS)
+
+			By("Testing ingress connectivity from %q namespace", secondNS)
+			res = kubectl.ExecPodCmd(
+				secondNS, appPodsSecondNS[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", secondNSclusterIP)))
+			res.ExpectFail("Ingress connectivity should be denied for service in %s namespace", secondNS)
+
+			By("Testing cross namespace connectivity from %q to %q namespace", firstNS, secondNS)
+			res = kubectl.ExecPodCmd(
+				firstNS, appPodsFirstNS[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", secondNSclusterIP)))
+			res.ExpectFail("Ingress connectivity should be denied for service in %s namespace", secondNS)
+
+			By("Testing cross namespace connectivity from %q to %q namespace", secondNS, firstNS)
+			res = kubectl.ExecPodCmd(
+				secondNS, appPodsSecondNS[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", firstNSclusterIP)))
+			res.ExpectFail("Ingress connectivity should be denied for service in %s namespace", firstNS)
+
+			// Apply both ingress deny and egress deny all policies and override the policies with
+			// global allow all policy.
+			By("Applying Egress deny all clusterwide policy")
+			_, err = kubectl.CiliumClusterwidePolicyAction(
+				egressDenyAllPolicy, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(),
+				"%q Clusterwide Policy cannot be applied", egressDenyAllPolicy)
+
+			By("Applying Allow all clusterwide policy over ingress deny all and egress deny all")
+			_, err = kubectl.CiliumClusterwidePolicyAction(
+				allowAllPolicy, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(),
+				"%q Clusterwide Policy cannot be applied", allowAllPolicy)
+
+			By("Testing ingress connectivity from %q namespace", firstNS)
+			res = kubectl.ExecPodCmd(
+				firstNS, appPodsFirstNS[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", firstNSclusterIP)))
+			res.ExpectSuccess("Ingress connectivity should be allowed for service in %s namespace", firstNS)
+
+			By("Testing ingress connectivity from %q namespace", secondNS)
+			res = kubectl.ExecPodCmd(
+				secondNS, appPodsSecondNS[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", secondNSclusterIP)))
+			res.ExpectSuccess("Ingress connectivity should be allowed for service in %s namespace", secondNS)
+
+			By("Testing cross namespace connectivity from %q to %q namespace", firstNS, secondNS)
+			res = kubectl.ExecPodCmd(
+				firstNS, appPodsFirstNS[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", secondNSclusterIP)))
+			res.ExpectSuccess("Ingress connectivity should be allowed for service in %s namespace", secondNS)
+
+			By("Testing cross namespace connectivity from %q to %q namespace", secondNS, firstNS)
+			res = kubectl.ExecPodCmd(
+				secondNS, appPodsSecondNS[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", firstNSclusterIP)))
+			res.ExpectSuccess("Ingress connectivity should be allowed for service in %s namespace", firstNS)
+
+			// Update the ccnp-update policy from allow-all to allow-ingress from app2 to app1.
+			// Checks in this ingress allow policy are
+			// 1. Check allowed ingress from app2.firstNS to app1.firstNS
+			// 2. Check allowed ingress from app2.secondNS to app1.firstNS
+			// 3. Check denied ingress from app3.firstNS to app1.firstNS
+			// 4. Check denied ingress from app3.secondNS to app1.firstNS
+			By("Update allow all policy to allow ingress from a particular app only.")
+			_, err = kubectl.CiliumClusterwidePolicyAction(
+				allowIngressPolicy, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(),
+				"%q Clusterwide Policy cannot be applied", allowIngressPolicy)
+
+			By("Deleting Egress deny all clusterwide policy")
+			_, err = kubectl.CiliumClusterwidePolicyAction(
+				egressDenyAllPolicy, helpers.KubectlDelete, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(),
+				"%q Clusterwide Policy cannot be deleted", egressDenyAllPolicy)
+
+			By("Testing ingress connectivity from %q to %q in %q namespace", helpers.App2, helpers.App1, firstNS)
+			res = kubectl.ExecPodCmd(
+				firstNS, appPodsFirstNS[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", firstNSclusterIP)))
+			res.ExpectSuccess("Ingress connectivity should be allowed for service in %s namespace", firstNS)
+
+			By("Testing ingress connectivity from %q to %q across two namespaces", helpers.App2, helpers.App1)
+			res = kubectl.ExecPodCmd(
+				secondNS, appPodsSecondNS[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", firstNSclusterIP)))
+			res.ExpectSuccess("Ingress connectivity should be allowed for service in %s namespace", firstNS)
+
+			By("Testing ingress connectivity from %q to %q in %q namespace", helpers.App3, helpers.App1, firstNS)
+			res = kubectl.ExecPodCmd(
+				firstNS, appPodsFirstNS[helpers.App3],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", firstNSclusterIP)))
+			res.ExpectFail("Ingress connectivity should be denied for service in %s namespace", firstNS)
+
+			By("Testing ingress connectivity from %q to %q across two namespacess", helpers.App3, helpers.App1)
+			res = kubectl.ExecPodCmd(
+				secondNS, appPodsSecondNS[helpers.App3],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", firstNSclusterIP)))
+			res.ExpectFail("Ingress connectivity should be denied for service in %s namespace", firstNS)
+
+			// Cleanup all tested policies
+			By("Delete allow ingress from particular app policy")
+			_, err = kubectl.CiliumClusterwidePolicyAction(
+				allowIngressPolicy, helpers.KubectlDelete, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(),
+				"%q Clusterwide Policy cannot be deleted", allowIngressPolicy)
+
+			By("Deleting Ingress deny all clusterwide policy")
+			_, err = kubectl.CiliumClusterwidePolicyAction(
+				ingressDenyAllPolicy, helpers.KubectlDelete, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(),
+				"%q Clusterwide Policy cannot be deleted", ingressDenyAllPolicy)
+		})
+	})
 })
