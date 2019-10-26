@@ -159,6 +159,9 @@ const (
 	// DatapathMode is the default value for the datapath mode.
 	DatapathMode = "veth"
 
+	// EnableLocalNodeRoute default value for EnableLocalNodeRoute
+	EnableLocalNodeRoute = true
+
 	// EnableAutoDirectRouting is the default value for EnableAutoDirectRouting
 	EnableAutoDirectRouting = false
 

@@ -619,6 +619,10 @@ const (
 	// DisableCNPStatusUpdates disables updating of CNP NodeStatus in the CNP
 	// CRD.
 	DisableCNPStatusUpdates = "disable-cnp-status-updates"
+
+	// EnableLocalNodeRoute controls installation of the route which points
+	// the allocation prefix of the local node.
+	EnableLocalNodeRoute = "enable-local-node-route"
 )
 
 // Default string arguments
@@ -1087,6 +1091,10 @@ type DaemonConfig struct {
 	// EnableAutoDirectRouting enables installation of direct routes to
 	// other nodes when available
 	EnableAutoDirectRouting bool
+
+	// EnableLocalNodeRoute controls installation of the route which points
+	// the allocation prefix of the local node.
+	EnableLocalNodeRoute bool
 
 	// EnableHealthChecking enables health checking between nodes and
 	// health endpoints
@@ -1596,6 +1604,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableEndpointRoutes = viper.GetBool(EnableEndpointRoutes)
 	c.EnableHealthChecking = viper.GetBool(EnableHealthChecking)
 	c.EnableEndpointHealthChecking = viper.GetBool(EnableEndpointHealthChecking)
+	c.EnableLocalNodeRoute = viper.GetBool(EnableLocalNodeRoute)
 	c.EnablePolicy = strings.ToLower(viper.GetString(EnablePolicy))
 	c.EnableTracing = viper.GetBool(EnableTracing)
 	c.EnableNodePort = viper.GetBool(EnableNodePort)
