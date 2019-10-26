@@ -361,7 +361,14 @@ func (c *CNPStatusUpdateContext) update(cnp *types.SlimCNP, enforcing, ok bool, 
 			return err
 		}
 
-		_, err = c.CiliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Patch(cnp.GetName(), k8sTypes.JSONPatchType, createStatusAndNodePatchJSON, "status")
+		// If namespace is empty we understand that the policy corresponds to the clusterwide policy
+		// we need to update the status of ClusterwidePolicies resource and not CiliumNetworkPolicy
+		if ns == "" {
+			_, err = c.CiliumNPClient.CiliumV2().CiliumClusterwideNetworkPolicies().Patch(cnp.GetName(), k8sTypes.JSONPatchType, createStatusAndNodePatchJSON, "status")
+		} else {
+			_, err = c.CiliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Patch(cnp.GetName(), k8sTypes.JSONPatchType, createStatusAndNodePatchJSON, "status")
+		}
+
 		if err != nil {
 			// If it fails it means the test from the previous patch failed
 			// so we can safely replace this node in the CNP status.
@@ -376,18 +383,37 @@ func (c *CNPStatusUpdateContext) update(cnp *types.SlimCNP, enforcing, ok bool, 
 			if err != nil {
 				return err
 			}
-			_, err = c.CiliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Patch(cnp.GetName(), k8sTypes.JSONPatchType, createStatusAndNodePatchJSON, "status")
+
+			if ns == "" {
+				_, err = c.CiliumNPClient.CiliumV2().CiliumClusterwideNetworkPolicies().Patch(cnp.GetName(), k8sTypes.JSONPatchType, createStatusAndNodePatchJSON, "status")
+			} else {
+				_, err = c.CiliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Patch(cnp.GetName(), k8sTypes.JSONPatchType, createStatusAndNodePatchJSON, "status")
+			}
 		}
 	case capabilities.UpdateStatus:
 		// k8s < 1.13 as minimal support for JSON patch where kube-apiserver
 		// can print Error messages and even panic in k8s < 1.10.
 		cnp.SetPolicyStatus(c.NodeName, cnpns)
-		_, err = c.CiliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).UpdateStatus(cnp.CiliumNetworkPolicy)
+		if ns == "" {
+			cwp := &cilium_v2.CiliumClusterwideNetworkPolicy{
+				CiliumNetworkPolicy: *cnp.CiliumNetworkPolicy,
+			}
+			_, err = c.CiliumNPClient.CiliumV2().CiliumClusterwideNetworkPolicies().Update(cwp)
+		} else {
+			_, err = c.CiliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).UpdateStatus(cnp.CiliumNetworkPolicy)
+		}
 	default:
 		// k8s < 1.13 as minimal support for JSON patch where kube-apiserver
 		// can print Error messages and even panic in k8s < 1.10.
 		cnp.SetPolicyStatus(c.NodeName, cnpns)
-		_, err = c.CiliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Update(cnp.CiliumNetworkPolicy)
+		if ns == "" {
+			cwp := &cilium_v2.CiliumClusterwideNetworkPolicy{
+				CiliumNetworkPolicy: *cnp.CiliumNetworkPolicy,
+			}
+			_, err = c.CiliumNPClient.CiliumV2().CiliumClusterwideNetworkPolicies().Update(cwp)
+		} else {
+			_, err = c.CiliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).UpdateStatus(cnp.CiliumNetworkPolicy)
+		}
 	}
 	return err
 }

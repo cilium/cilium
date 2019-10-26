@@ -33,12 +33,12 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	cnpv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/test/config"
-	"github.com/cilium/cilium/test/ginkgo-ext"
+	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers/logutils"
 
 	"github.com/asaskevich/govalidator"
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -1664,6 +1664,61 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 		knpBody,
 		"cannot change state of Kubernetes network policies correctly; command timed out",
 		&TimeoutConfig{Timeout: timeout})
+	return "", err
+}
+
+// CiliumClusterwidePolicyAction applies a clusterwide policy action as described in action argument. It
+// then wait till timeout Duration for the policy to be applied to all the cilium endpoints.
+func (kub *Kubectl) CiliumClusterwidePolicyAction(filepath string, action ResourceLifeCycleAction, timeout time.Duration) (string, error) {
+	numNodes := kub.GetNumNodes()
+
+	kub.Logger().Infof("Performing %s action on resource '%s'", action, filepath)
+
+	if status := kub.Action(action, filepath); !status.WasSuccessful() {
+		return "", status.GetErr(fmt.Sprintf("Cannot perform '%s' on resource '%s'", action, filepath))
+	}
+
+	if action == KubectlDelete {
+		// Due policy is uninstalled, there is no need to validate that the policy is enforced.
+		return "", nil
+	}
+
+	jqFilter := fmt.Sprintf(
+		`[.items[]|{name:.metadata.name, enforcing: (.status|if has("nodes") then .nodes |to_entries|map_values(.value.enforcing) + [(.|length >= %d)]|all else true end)|tostring, status: has("status")|tostring}]`,
+		numNodes)
+
+	body := func() bool {
+		var data []map[string]string
+		cmd := fmt.Sprintf("%s get ccnp -o json | jq '%s'",
+			KubectlCmd, jqFilter)
+
+		res := kub.ExecShort(cmd)
+		if !res.WasSuccessful() {
+			kub.Logger().WithError(res.GetErr("")).Error("cannot get ccnp status")
+			return false
+
+		}
+
+		err := res.Unmarshal(&data)
+		if err != nil {
+			kub.Logger().WithError(err).Error("Cannot unmarshal json")
+			return false
+		}
+
+		for _, item := range data {
+			if item["enforcing"] != "true" || item["status"] != "true" {
+				kub.Logger().Errorf("Clusterwide policy '%s' is not enforcing yet", item["name"])
+				return false
+			}
+		}
+		return true
+	}
+
+	err := WithTimeout(
+		body,
+		"cannot change state of resource correctly; command timed out",
+		&TimeoutConfig{Timeout: timeout})
+
 	return "", err
 }
 
