@@ -86,6 +86,10 @@ check-build: check-requirements
 checklinks:
 	$(QUIET)$(SPHINXBUILD) -b linkcheck -d "$(BUILDDIR)/doctrees" "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS)
 
+.PHONY: clean
+# Removes build directory
+clean:
+	rm -rf $(BUILDDIR)
 .PHONY: help Makefile ../Makefile.quiet check-requirements cmdref
 
 # Catch-all target: route all unknown targets to Sphinx using the new
