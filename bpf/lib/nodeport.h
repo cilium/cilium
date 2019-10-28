@@ -98,7 +98,6 @@ static __always_inline bool nodeport_nat_ipv6_needed(struct __sk_buff *skb,
 		struct ipv6_nat_target target = {				\
 			.min_port = NODEPORT_PORT_MIN_NAT,			\
 			.max_port = 65535,					\
-			.force_range = true,					\
 		};								\
 		ipv6_addr_copy(&target.addr, (ADDR));				\
 		int ____ret = nodeport_nat_ipv6_needed(skb, (ADDR), (NDIR)) ?	\
@@ -128,7 +127,6 @@ int tail_nodeport_nat_ipv6(struct __sk_buff *skb)
 	struct ipv6_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
-		.force_range = true,
 	};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -471,7 +469,6 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __sk_buff *skb,
 			.min_port = NODEPORT_PORT_MIN_NAT,			\
 			.max_port = 65535,					\
 			.addr = (ADDR),						\
-			.force_range = true,					\
 		};								\
 		int ____ret = nodeport_nat_ipv4_needed(skb, (ADDR), (NDIR)) ?	\
 			      snat_v4_process(skb, (NDIR), &target) : TC_ACT_OK;\
@@ -500,7 +497,6 @@ int tail_nodeport_nat_ipv4(struct __sk_buff *skb)
 	struct ipv4_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
-		.force_range = true,
 	};
 	void *data, *data_end;
 	struct iphdr *ip4;
