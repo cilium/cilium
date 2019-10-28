@@ -111,7 +111,7 @@ func ParseService(svc *types.Service) (ServiceID, *Service) {
 		// would introduce more complexity in already too complex LB codebase,
 		// so for now (until we have refactored the LB code) keep NodePort
 		// frontends in Service.NodePorts.
-		if svc.Spec.Type == v1.ServiceTypeNodePort {
+		if svc.Spec.Type == v1.ServiceTypeNodePort || svc.Spec.Type == v1.ServiceTypeLoadBalancer {
 			if option.Config.EnableNodePort {
 				if _, ok := svcInfo.NodePorts[portName]; !ok {
 					svcInfo.NodePorts[portName] =
