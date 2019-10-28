@@ -72,7 +72,6 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	union macaddr router_mac = NODE_MAC;
 	int ret, verdict, l4_off, hdrlen;
 	struct csum_offset csum_off = {};
-	struct lb6_service *svc;
 	struct lb6_key key = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
@@ -113,13 +112,19 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	 * entry for destination endpoints where we can't encode the state in the
 	 * address.
 	 */
-	if ((svc = lb6_lookup_service(skb, &key)) != NULL) {
-		ret = lb6_local(get_ct_map6(tuple), skb, l3_off, l4_off,
-				&csum_off, &key, tuple, svc, &ct_state_new);
-		if (IS_ERR(ret))
-			return ret;
-		hairpin_flow |= ct_state_new.loopback;
+#ifndef ENABLE_HOST_SERVICES_FULL
+	{
+		struct lb6_service *svc;
+
+		if ((svc = lb6_lookup_service(skb, &key)) != NULL) {
+			ret = lb6_local(get_ct_map6(tuple), skb, l3_off, l4_off,
+					&csum_off, &key, tuple, svc, &ct_state_new);
+			if (IS_ERR(ret))
+				return ret;
+			hairpin_flow |= ct_state_new.loopback;
+		}
 	}
+#endif /* ENABLE_HOST_SERVICES_FULL */
 
 skip_service_lookup:
 	/* The verifier wants to see this assignment here in case the above goto
@@ -407,7 +412,6 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 	struct iphdr *ip4;
 	int ret, verdict, l3_off = ETH_HLEN, l4_off;
 	struct csum_offset csum_off = {};
-	struct lb4_service *svc;
 	struct lb4_key key = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
@@ -440,13 +444,19 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 	}
 
 	ct_state_new.orig_dport = key.dport;
-	if ((svc = lb4_lookup_service(skb, &key)) != NULL) {
-		ret = lb4_local(get_ct_map4(&tuple), skb, l3_off, l4_off, &csum_off,
-				&key, &tuple, svc, &ct_state_new, ip4->saddr);
-		if (IS_ERR(ret))
-			return ret;
-		hairpin_flow |= ct_state_new.loopback;
+#ifndef ENABLE_HOST_SERVICES_FULL
+	{
+		struct lb4_service *svc;
+
+		if ((svc = lb4_lookup_service(skb, &key)) != NULL) {
+			ret = lb4_local(get_ct_map4(&tuple), skb, l3_off, l4_off, &csum_off,
+					&key, &tuple, svc, &ct_state_new, ip4->saddr);
+			if (IS_ERR(ret))
+				return ret;
+			hairpin_flow |= ct_state_new.loopback;
+		}
 	}
+#endif /* ENABLE_HOST_SERVICES_FULL */
 
 skip_service_lookup:
 	/* The verifier wants to see this assignment here in case the above goto
