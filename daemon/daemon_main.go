@@ -332,6 +332,9 @@ func init() {
 	flags.String(option.EnablePolicy, option.DefaultEnforcement, "Enable policy enforcement")
 	option.BindEnv(option.EnablePolicy)
 
+	flags.Bool(option.EnableL7Proxy, true, "Enable L7 proxy for L7 policy enforcement")
+	option.BindEnv(option.EnableL7Proxy)
+
 	flags.Bool(option.EnableTracing, false, "Enable tracing while determining policy (debugging)")
 	option.BindEnv(option.EnableTracing)
 
@@ -1014,6 +1017,10 @@ func initEnv(cmd *cobra.Command) {
 		}
 	default:
 		log.WithField(logfields.DatapathMode, option.Config.DatapathMode).Fatal("Invalid datapath mode")
+	}
+
+	if option.Config.EnableL7Proxy && !option.Config.InstallIptRules {
+		log.Fatal("L7 proxy requires iptables rules (--install-iptables-rules=\"true\")")
 	}
 
 	if option.Config.EnableIPSec && option.Config.Tunnel == option.TunnelDisabled && option.Config.EncryptInterface == "" {

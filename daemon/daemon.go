@@ -433,11 +433,11 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	// daemon's proxy into each endpoint.
 	bootstrapStats.proxyStart.Start()
 	// FIXME: Make the port range configurable.
-	if option.Config.InstallIptRules {
+	if option.Config.EnableL7Proxy {
 		d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
 			option.Config.AccessLog, &d, option.Config.AgentLabels, d.datapath, d.endpointManager)
 	} else {
-		log.Warning("L7 proxies not supported when --install-iptables-rules=\"false\"")
+		log.Info("L7 proxies are disabled")
 	}
 	bootstrapStats.proxyStart.End(true)
 
