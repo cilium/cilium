@@ -277,6 +277,9 @@ func init() {
 	flags.Bool(option.EnableEndpointHealthChecking, defaults.EnableEndpointHealthChecking, "Enable connectivity health checking between virtual endpoints")
 	option.BindEnv(option.EnableEndpointHealthChecking)
 
+	flags.Bool(option.EnableLocalNodeRoute, defaults.EnableLocalNodeRoute, "Enable installation of the route which points the allocation prefix of the local node")
+	option.BindEnv(option.EnableLocalNodeRoute)
+
 	flags.Bool(option.EnableIPv4Name, defaults.EnableIPv4, "Enable IPv4 support")
 	option.BindEnv(option.EnableIPv4Name)
 
