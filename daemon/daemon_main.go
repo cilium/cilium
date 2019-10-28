@@ -1184,7 +1184,7 @@ func runDaemon() {
 	iptablesManager := &iptables.IptablesManager{}
 	iptablesManager.Init()
 
-	d, restoredEndpoints, err := NewDaemon(server.ServerCtx, linuxdatapath.NewDatapath(datapathConfig, iptablesManager), iptablesManager)
+	d, restoredEndpoints, err := NewDaemon(server.ServerCtx, linuxdatapath.NewDatapath(datapathConfig, iptablesManager))
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating daemon")
 		return

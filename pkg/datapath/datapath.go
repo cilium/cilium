@@ -19,6 +19,7 @@ package datapath
 // implementations
 type Datapath interface {
 	ConfigWriter
+	IptablesManager
 
 	// Node must return the handler for node events
 	Node() NodeHandler
@@ -26,19 +27,6 @@ type Datapath interface {
 	// LocalNodeAddressing must return the node addressing implementation
 	// of the local node
 	LocalNodeAddressing() NodeAddressing
-
-	// InstallProxyRules creates the necessary datapath config (e.g., iptables
-	// rules for redirecting host proxy traffic on a specific ProxyPort)
-	InstallProxyRules(proxyPort uint16, ingress bool, name string) error
-
-	// RemoveProxyRules creates the necessary datapath config (e.g., iptables
-	// rules for redirecting host proxy traffic on a specific ProxyPort)
-	RemoveProxyRules(proxyPort uint16, ingress bool, name string) error
-
-	// SupportsOriginalSourceAddr tells if the datapath supports
-	// use of original source addresses in proxy upstream
-	// connections.
-	SupportsOriginalSourceAddr() bool
 
 	// Loader must return the implementation of the loader, which is responsible
 	// for loading, reloading, and compiling datapath programs.
