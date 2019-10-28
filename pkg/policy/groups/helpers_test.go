@@ -17,6 +17,7 @@
 package groups
 
 import (
+	"context"
 	"fmt"
 	"net"
 
@@ -50,7 +51,7 @@ func getSamplePolicy(name, ns string) *cilium_v2.CiliumNetworkPolicy {
 func (s *GroupsTestSuite) TestCorrectDerivativeName(c *C) {
 	name := "test"
 	cnp := getSamplePolicy(name, "testns")
-	DerivativeCNP, err := createDerivativeCNP(cnp)
+	DerivativeCNP, err := createDerivativeCNP(context.TODO(), cnp)
 	c.Assert(err, IsNil)
 	c.Assert(
 		DerivativeCNP.ObjectMeta.Name,
@@ -74,7 +75,7 @@ func (s *GroupsTestSuite) TestDerivativePoliciesAreDeletedIfNoToGroups(c *C) {
 		},
 	}
 
-	DerivativeCNP, err := createDerivativeCNP(cnp)
+	DerivativeCNP, err := createDerivativeCNP(context.TODO(), cnp)
 	c.Assert(err, IsNil)
 	c.Assert(DerivativeCNP.Specs[0].Egress, checker.DeepEquals, cnp.Spec.Egress)
 	c.Assert(len(DerivativeCNP.Specs), Equals, 1)
@@ -82,7 +83,7 @@ func (s *GroupsTestSuite) TestDerivativePoliciesAreDeletedIfNoToGroups(c *C) {
 
 func (s *GroupsTestSuite) TestDerivativePoliciesAreInheritCorrectly(c *C) {
 
-	cb := func(group *api.ToGroups) ([]net.IP, error) {
+	cb := func(ctx context.Context, group *api.ToGroups) ([]net.IP, error) {
 		return []net.IP{net.ParseIP("192.168.1.1")}, nil
 	}
 
@@ -112,7 +113,7 @@ func (s *GroupsTestSuite) TestDerivativePoliciesAreInheritCorrectly(c *C) {
 		},
 	}
 
-	DerivativeCNP, err := createDerivativeCNP(cnp)
+	DerivativeCNP, err := createDerivativeCNP(context.TODO(), cnp)
 	c.Assert(err, IsNil)
 	c.Assert(DerivativeCNP.Spec, IsNil)
 	c.Assert(len(DerivativeCNP.Specs), Equals, 1)
