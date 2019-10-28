@@ -79,7 +79,7 @@ func (k kvstoreImplementation) upsert(ctx context.Context, key string, value str
 
 // release removes the specified key from the kvstore.
 func (k kvstoreImplementation) release(ctx context.Context, key string) error {
-	return kvstore.Delete(key)
+	return kvstore.Delete(ctx, key)
 }
 
 // kvReferenceCounter provides a thin wrapper around the kvstore which adds
@@ -212,7 +212,7 @@ func (iw *IPIdentityWatcher) Watch() {
 
 	var scopedLog *logrus.Entry
 restart:
-	watcher := iw.backend.ListAndWatch("endpointIPWatcher", IPIdentitiesPath, 512)
+	watcher := iw.backend.ListAndWatch(context.TODO(), "endpointIPWatcher", IPIdentitiesPath, 512)
 
 	for {
 		select {

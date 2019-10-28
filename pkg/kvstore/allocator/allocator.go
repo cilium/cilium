@@ -101,6 +101,8 @@ type kvstoreBackend struct {
 	deleteInvalidPrefixes bool
 
 	keyType allocator.AllocatorKey
+
+	ctx context.Context
 }
 
 func locklessCapability() bool {
@@ -140,7 +142,8 @@ func (k *kvstoreBackend) lockPath(ctx context.Context, key string) (*kvstore.Loc
 
 // DeleteAllKeys will delete all keys
 func (k *kvstoreBackend) DeleteAllKeys() {
-	kvstore.DeletePrefix(k.basePrefix)
+	kvstore.DeletePrefix(context.TODO(), k.basePrefix)
+	kvstore.DeletePrefix(context.TODO(), k.basePrefix)
 }
 
 // AllocateID allocates a key->ID mapping in the kvstore.
@@ -217,7 +220,7 @@ func (k *kvstoreBackend) Get(ctx context.Context, key allocator.AllocatorKey) (i
 	//
 	// Only key1 should match
 	prefix := path.Join(k.valuePrefix, kvstore.Encode(key.GetKey()))
-	pairs, err := kvstore.ListPrefix(prefix)
+	pairs, err := kvstore.ListPrefix(ctx, prefix)
 	kvstore.Trace("ListPrefix", err, logrus.Fields{fieldPrefix: prefix, "entries": len(pairs)})
 	if err != nil {
 		return 0, err
@@ -254,7 +257,7 @@ func (k *kvstoreBackend) GetIfLocked(ctx context.Context, key allocator.Allocato
 	//
 	// Only key1 should match
 	prefix := path.Join(k.valuePrefix, kvstore.Encode(key.GetKey()))
-	pairs, err := kvstore.ListPrefixIfLocked(prefix, lock)
+	pairs, err := kvstore.ListPrefixIfLocked(ctx, prefix, lock)
 	kvstore.Trace("ListPrefixLocked", err, logrus.Fields{fieldPrefix: prefix, "entries": len(pairs)})
 	if err != nil {
 		return 0, err
@@ -275,7 +278,7 @@ func (k *kvstoreBackend) GetIfLocked(ctx context.Context, key allocator.Allocato
 // GetByID returns the key associated with an ID. Returns nil if no key is
 // associated with the ID.
 func (k *kvstoreBackend) GetByID(id idpool.ID) (allocator.AllocatorKey, error) {
-	v, err := kvstore.Get(path.Join(k.idPrefix, id.String()))
+	v, err := kvstore.Get(context.TODO(), path.Join(k.idPrefix, id.String()))
 	if err != nil {
 		return nil, err
 	}
@@ -381,7 +384,7 @@ func (k *kvstoreBackend) Release(ctx context.Context, key allocator.AllocatorKey
 
 	// does not need to be deleted with a lock as its protected by the
 	// Allocator.slaveKeysMutex
-	if err := kvstore.Delete(valueKey); err != nil {
+	if err := kvstore.Delete(ctx, valueKey); err != nil {
 		log.WithError(err).WithFields(logrus.Fields{fieldKey: key}).Warning("Ignoring node specific ID")
 		return err
 	}
@@ -398,7 +401,7 @@ func (k *kvstoreBackend) Release(ctx context.Context, key allocator.AllocatorKey
 // RunGC scans the kvstore for unused master keys and removes them
 func (k *kvstoreBackend) RunGC(staleKeysPrevRound map[string]uint64) (map[string]uint64, error) {
 	// fetch list of all /id/ keys
-	allocated, err := kvstore.ListPrefix(k.idPrefix)
+	allocated, err := kvstore.ListPrefix(context.TODO(), k.idPrefix)
 	if err != nil {
 		return nil, fmt.Errorf("list failed: %s", err)
 	}
@@ -411,7 +414,7 @@ func (k *kvstoreBackend) RunGC(staleKeysPrevRound map[string]uint64) (map[string
 		// FIXME: Add DeleteOnZeroCount support
 		// }
 
-		lock, err := k.lockPath(context.Background(), key)
+		lock, err := k.lockPath(context.TODO(), key)
 		if err != nil {
 			log.WithError(err).WithField(fieldKey, key).Warning("allocator garbage collector was unable to lock key")
 			continue
@@ -419,10 +422,10 @@ func (k *kvstoreBackend) RunGC(staleKeysPrevRound map[string]uint64) (map[string
 
 		// fetch list of all /value/<key> keys
 		valueKeyPrefix := path.Join(k.valuePrefix, string(v.Data))
-		pairs, err := kvstore.ListPrefixIfLocked(valueKeyPrefix, lock)
+		pairs, err := kvstore.ListPrefixIfLocked(context.TODO(), valueKeyPrefix, lock)
 		if err != nil {
 			log.WithError(err).WithField(fieldPrefix, valueKeyPrefix).Warning("allocator garbage collector was unable to list keys")
-			lock.Unlock()
+			lock.Unlock(context.TODO())
 			continue
 		}
 
@@ -442,7 +445,7 @@ func (k *kvstoreBackend) RunGC(staleKeysPrevRound map[string]uint64) (map[string
 			})
 			// Only delete if this key was previously marked as to be deleted
 			if modRev, ok := staleKeysPrevRound[key]; ok && modRev == v.ModRevision {
-				if err := kvstore.DeleteIfLocked(key, lock); err != nil {
+				if err := kvstore.DeleteIfLocked(context.TODO(), key, lock); err != nil {
 					scopedLog.WithError(err).Warning("Unable to delete unused allocator master key")
 				} else {
 					scopedLog.Info("Deleted unused allocator master key")
@@ -453,7 +456,7 @@ func (k *kvstoreBackend) RunGC(staleKeysPrevRound map[string]uint64) (map[string
 			}
 		}
 
-		lock.Unlock()
+		lock.Unlock(context.TODO())
 	}
 
 	return staleKeys, nil
@@ -478,7 +481,7 @@ func (k *kvstoreBackend) keyToID(key string) (id idpool.ID, err error) {
 }
 
 func (k *kvstoreBackend) ListAndWatch(handler allocator.CacheMutations, stopChan chan struct{}) {
-	watcher := kvstore.ListAndWatch(k.idPrefix, k.idPrefix, 512)
+	watcher := kvstore.ListAndWatch(context.TODO(), k.idPrefix, k.idPrefix, 512)
 
 	for {
 		select {
@@ -497,7 +500,7 @@ func (k *kvstoreBackend) ListAndWatch(handler allocator.CacheMutations, stopChan
 				log.WithError(err).WithField(fieldKey, event.Key).Warning("Invalid key")
 
 				if k.deleteInvalidPrefixes {
-					kvstore.Delete(event.Key)
+					kvstore.Delete(context.TODO(), event.Key)
 				}
 
 			case id != idpool.NoID:

@@ -43,7 +43,7 @@ var (
 )
 
 type KVLocker interface {
-	Unlock() error
+	Unlock(ctx context.Context) error
 	// Comparator returns an object that should be used by the KVStore to make
 	// sure if the lock is still valid for its client or nil if no such
 	// verification exists.
@@ -158,13 +158,13 @@ func RunLockGC() {
 }
 
 // Unlock unlocks a lock
-func (l *Lock) Unlock() error {
+func (l *Lock) Unlock(ctx context.Context) error {
 	if l == nil {
 		return nil
 	}
 
 	// Unlock kvstore mutex first
-	err := l.kvLock.Unlock()
+	err := l.kvLock.Unlock(ctx)
 	if err != nil {
 		log.WithError(err).WithField("path", l.path).Error("Unable to unlock kvstore lock")
 	}

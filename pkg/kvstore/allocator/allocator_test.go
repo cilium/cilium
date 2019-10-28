@@ -52,7 +52,7 @@ func (e *AllocatorEtcdSuite) SetUpTest(c *C) {
 }
 
 func (e *AllocatorEtcdSuite) TearDownTest(c *C) {
-	kvstore.DeletePrefix(testPrefix)
+	kvstore.DeletePrefix(context.TODO(), testPrefix)
 	kvstore.Close()
 }
 
@@ -67,7 +67,7 @@ func (e *AllocatorConsulSuite) SetUpTest(c *C) {
 }
 
 func (e *AllocatorConsulSuite) TearDownTest(c *C) {
-	kvstore.DeletePrefix(testPrefix)
+	kvstore.DeletePrefix(context.TODO(), testPrefix)
 	kvstore.Close()
 }
 
@@ -218,7 +218,7 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	staleKeysPreviousRound, err = a.RunGC(staleKeysPreviousRound)
 	c.Assert(err, IsNil)
 
-	v, err := kvstore.ListPrefix(path.Join(allocatorName, "id"))
+	v, err := kvstore.ListPrefix(context.TODO(), path.Join(allocatorName, "id"))
 	c.Assert(err, IsNil)
 	c.Assert(len(v), Equals, int(maxID))
 
@@ -233,7 +233,7 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	_, err = a.RunGC(staleKeysPreviousRound)
 	c.Assert(err, IsNil)
 
-	v, err = kvstore.ListPrefix(path.Join(allocatorName, "id"))
+	v, err = kvstore.ListPrefix(context.TODO(), path.Join(allocatorName, "id"))
 	c.Assert(err, IsNil)
 	c.Assert(len(v), Equals, 0)
 

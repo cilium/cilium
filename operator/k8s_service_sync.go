@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"time"
 
 	"github.com/cilium/cilium/pkg/k8s"
@@ -60,16 +61,16 @@ func k8sServiceHandler() {
 
 		if !event.Service.Shared {
 			// The annotation may have been added, delete an eventual existing service
-			servicesStore.DeleteLocalKey(&svc)
+			servicesStore.DeleteLocalKey(context.TODO(), &svc)
 			return
 		}
 
 		switch event.Action {
 		case k8s.UpdateService:
-			servicesStore.UpdateLocalKeySync(&svc)
+			servicesStore.UpdateLocalKeySync(context.TODO(), &svc)
 
 		case k8s.DeleteService:
-			servicesStore.DeleteLocalKey(&svc)
+			servicesStore.DeleteLocalKey(context.TODO(), &svc)
 		}
 	}
 	for {

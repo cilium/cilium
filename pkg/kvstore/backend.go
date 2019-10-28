@@ -92,7 +92,7 @@ type backendModule interface {
 
 	// newClient must initializes the backend and create a new kvstore
 	// client which implements the BackendOperations interface
-	newClient(opts *ExtraOptions) (BackendOperations, chan error)
+	newClient(ctx context.Context, opts *ExtraOptions) (BackendOperations, chan error)
 
 	// createInstance creates a new instance of the module
 	createInstance() backendModule
@@ -128,7 +128,7 @@ func getBackend(name string) backendModule {
 type BackendOperations interface {
 	// Connected returns a channel which is closed whenever the kvstore client
 	// is connected to the kvstore server. (Only implemented for etcd)
-	Connected() <-chan struct{}
+	Connected(ctx context.Context) <-chan struct{}
 
 	// Disconnected returns a channel which is closed whenever the kvstore
 	// client is not connected to the kvstore server. (Only implemented for etcd)
@@ -142,10 +142,10 @@ type BackendOperations interface {
 	LockPath(ctx context.Context, path string) (KVLocker, error)
 
 	// Get returns value of key
-	Get(key string) ([]byte, error)
+	Get(ctx context.Context, key string) ([]byte, error)
 
 	// GetIfLocked returns value of key if the client is still holding the given lock.
-	GetIfLocked(key string, lock KVLocker) ([]byte, error)
+	GetIfLocked(ctx context.Context, key string, lock KVLocker) ([]byte, error)
 
 	// GetPrefix returns the first key which matches the prefix and its value
 	GetPrefix(ctx context.Context, prefix string) (string, []byte, error)
@@ -154,15 +154,15 @@ type BackendOperations interface {
 	GetPrefixIfLocked(ctx context.Context, prefix string, lock KVLocker) (string, []byte, error)
 
 	// Set sets value of key
-	Set(key string, value []byte) error
+	Set(ctx context.Context, key string, value []byte) error
 
 	// Delete deletes a key
-	Delete(key string) error
+	Delete(ctx context.Context, key string) error
 
 	// DeleteIfLocked deletes a key if the client is still holding the given lock.
-	DeleteIfLocked(key string, lock KVLocker) error
+	DeleteIfLocked(ctx context.Context, key string, lock KVLocker) error
 
-	DeletePrefix(path string) error
+	DeletePrefix(ctx context.Context, path string) error
 
 	// Update atomically creates a key or fails if it already exists
 	Update(ctx context.Context, key string, value []byte, lease bool) error
@@ -183,18 +183,18 @@ type BackendOperations interface {
 	CreateOnlyIfLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) (bool, error)
 
 	// CreateIfExists creates a key with the value only if key condKey exists
-	CreateIfExists(condKey, key string, value []byte, lease bool) error
+	CreateIfExists(ctx context.Context, condKey, key string, value []byte, lease bool) error
 
 	// ListPrefix returns a list of keys matching the prefix
-	ListPrefix(prefix string) (KeyValuePairs, error)
+	ListPrefix(ctx context.Context, prefix string) (KeyValuePairs, error)
 
 	// ListPrefixIfLocked returns a list of keys matching the prefix only if the client is still holding the given lock.
-	ListPrefixIfLocked(prefix string, lock KVLocker) (KeyValuePairs, error)
+	ListPrefixIfLocked(ctx context.Context, prefix string, lock KVLocker) (KeyValuePairs, error)
 
 	// Watch starts watching for changes in a prefix. If list is true, the
 	// current keys matching the prefix will be listed and reported as new
 	// keys first.
-	Watch(w *Watcher)
+	Watch(ctx context.Context, w *Watcher)
 
 	// Close closes the kvstore client
 	Close()
@@ -215,5 +215,5 @@ type BackendOperations interface {
 	// anything and is used for logging messages. The Events channel is
 	// created with the specified sizes. Upon every change observed, a
 	// KeyValueEvent will be sent to the Events channel
-	ListAndWatch(name, prefix string, chanSize int) *Watcher
+	ListAndWatch(ctx context.Context, name, prefix string, chanSize int) *Watcher
 }

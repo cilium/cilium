@@ -116,9 +116,9 @@ func (c *consulModule) getConfig() map[string]string {
 	return getOpts(c.opts)
 }
 
-func (c *consulModule) newClient(opts *ExtraOptions) (BackendOperations, chan error) {
+func (c *consulModule) newClient(ctx context.Context, opts *ExtraOptions) (BackendOperations, chan error) {
 	errChan := make(chan error, 1)
-	backend, err := c.connectConsulClient(opts)
+	backend, err := c.connectConsulClient(ctx, opts)
 	if err != nil {
 		errChan <- err
 	}
@@ -126,7 +126,7 @@ func (c *consulModule) newClient(opts *ExtraOptions) (BackendOperations, chan er
 	return backend, errChan
 }
 
-func (c *consulModule) connectConsulClient(opts *ExtraOptions) (BackendOperations, error) {
+func (c *consulModule) connectConsulClient(ctx context.Context, opts *ExtraOptions) (BackendOperations, error) {
 	if c.config == nil {
 		consulAddr, consulAddrSet := c.opts[optAddress]
 		configPathOpt, configPathOptSet := c.opts[consulOptionConfig]
@@ -156,7 +156,7 @@ func (c *consulModule) connectConsulClient(opts *ExtraOptions) (BackendOperation
 		c.config.Address = addr
 
 	}
-	client, err := newConsulClient(c.config, opts)
+	client, err := newConsulClient(ctx, c.config, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +177,7 @@ type consulClient struct {
 	disconnected   chan struct{}
 }
 
-func newConsulClient(config *consulAPI.Config, opts *ExtraOptions) (BackendOperations, error) {
+func newConsulClient(ctx context.Context, config *consulAPI.Config, opts *ExtraOptions) (BackendOperations, error) {
 	var (
 		c   *consulAPI.Client
 		err error
@@ -206,7 +206,7 @@ func newConsulClient(config *consulAPI.Config, opts *ExtraOptions) (BackendOpera
 				err = errors.New("timeout while waiting for leader to be elected")
 			}
 		}
-		boff.Wait(context.TODO())
+		boff.Wait(ctx)
 	}
 
 	if err != nil {
@@ -218,7 +218,8 @@ func newConsulClient(config *consulAPI.Config, opts *ExtraOptions) (BackendOpera
 		Behavior: consulAPI.SessionBehaviorDelete,
 	}
 
-	lease, _, err := c.Session().Create(entry, nil)
+	wo := &consulAPI.WriteOptions{}
+	lease, _, err := c.Session().Create(entry, wo.WithContext(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("unable to create default lease: %s", err)
 	}
@@ -234,7 +235,8 @@ func newConsulClient(config *consulAPI.Config, opts *ExtraOptions) (BackendOpera
 	client.controllers.UpdateController(fmt.Sprintf("consul-lease-keepalive-%p", c),
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				_, _, err := c.Session().Renew(lease, nil)
+				wo := &consulAPI.WriteOptions{}
+				_, _, err := c.Session().Renew(lease, wo.WithContext(ctx))
 				if err != nil {
 					// consider disconnected!
 					client.disconnectedMu.Lock()
@@ -253,6 +255,10 @@ func newConsulClient(config *consulAPI.Config, opts *ExtraOptions) (BackendOpera
 
 type ConsulLocker struct {
 	*consulAPI.Lock
+}
+
+func (cl *ConsulLocker) Unlock(ctx context.Context) error {
+	return cl.Lock.Unlock()
 }
 
 func (cl *ConsulLocker) Comparator() interface{} {
@@ -287,14 +293,16 @@ func (c *consulClient) LockPath(ctx context.Context, path string) (KVLocker, err
 }
 
 // Watch starts watching for changes in a prefix
-func (c *consulClient) Watch(w *Watcher) {
+func (c *consulClient) Watch(ctx context.Context, w *Watcher) {
 	// Last known state of all KVPairs matching the prefix
 	localState := map[string]consulAPI.KVPair{}
 	nextIndex := uint64(0)
 
-	qo := consulAPI.QueryOptions{
+	q := &consulAPI.QueryOptions{
 		WaitTime: time.Second,
 	}
+
+	qo := q.WithContext(ctx)
 
 	for {
 		// Initialize sleep time to a millisecond as we don't
@@ -302,7 +310,7 @@ func (c *consulClient) Watch(w *Watcher) {
 		sleepTime := 1 * time.Millisecond
 
 		qo.WaitIndex = nextIndex
-		pairs, q, err := c.KV().List(w.prefix, &qo)
+		pairs, q, err := c.KV().List(w.prefix, qo)
 		if err != nil {
 			sleepTime = 5 * time.Second
 			Trace("List of Watch failed", err, logrus.Fields{fieldPrefix: w.prefix, fieldWatcher: w.name})
@@ -382,15 +390,15 @@ func (c *consulClient) Watch(w *Watcher) {
 	}
 }
 
-func (c *consulClient) waitForInitLock() <-chan struct{} {
+func (c *consulClient) waitForInitLock(ctx context.Context) <-chan struct{} {
 	initLockSucceeded := make(chan struct{})
 
 	go func() {
 		for {
-			locker, err := c.LockPath(context.TODO(), InitLockPath)
+			locker, err := c.LockPath(ctx, InitLockPath)
 			if err == nil {
 				close(initLockSucceeded)
-				locker.Unlock()
+				locker.Unlock(ctx)
 				log.Info("Distributed lock successful, consul has quorum")
 				return
 			}
@@ -402,19 +410,20 @@ func (c *consulClient) waitForInitLock() <-chan struct{} {
 	return initLockSucceeded
 }
 
-// Connected closes the returned channel when the etcd client is connected.
-func (c *consulClient) Connected() <-chan struct{} {
+// Connected closes the returned channel when the consul client is connected.
+func (c *consulClient) Connected(ctx context.Context) <-chan struct{} {
 	ch := make(chan struct{})
 	go func() {
 		for {
+			qo := &consulAPI.QueryOptions{}
 			// TODO find out if there's a better way to do this for consul
-			_, _, err := c.Session().Info(c.lease, &consulAPI.QueryOptions{})
+			_, _, err := c.Session().Info(c.lease, qo.WithContext(ctx))
 			if err == nil {
 				break
 			}
 			time.Sleep(100 * time.Millisecond)
 		}
-		<-c.waitForInitLock()
+		<-c.waitForInitLock(ctx)
 		close(ch)
 	}()
 	return ch
@@ -434,43 +443,47 @@ func (c *consulClient) Status() (string, error) {
 	return "Consul: " + leader, err
 }
 
-func (c *consulClient) DeletePrefix(path string) error {
+func (c *consulClient) DeletePrefix(ctx context.Context, path string) error {
 	duration := spanstat.Start()
-	_, err := c.Client.KV().DeleteTree(path, nil)
+	wo := &consulAPI.WriteOptions{}
+	_, err := c.Client.KV().DeleteTree(path, wo.WithContext(ctx))
 	increaseMetric(path, metricDelete, "DeletePrefix", duration.EndError(err).Total(), err)
 	return err
 }
 
 // Set sets value of key
-func (c *consulClient) Set(key string, value []byte) error {
+func (c *consulClient) Set(ctx context.Context, key string, value []byte) error {
 	duration := spanstat.Start()
-	_, err := c.KV().Put(&consulAPI.KVPair{Key: key, Value: value}, nil)
+	wo := &consulAPI.WriteOptions{}
+	_, err := c.KV().Put(&consulAPI.KVPair{Key: key, Value: value}, wo.WithContext(ctx))
 	increaseMetric(key, metricSet, "Set", duration.EndError(err).Total(), err)
 	return err
 }
 
 // DeleteIfLocked deletes a key if the client is still holding the given lock.
-func (c *consulClient) DeleteIfLocked(key string, lock KVLocker) error {
-	return c.Delete(key)
+func (c *consulClient) DeleteIfLocked(ctx context.Context, key string, lock KVLocker) error {
+	return c.Delete(ctx, key)
 }
 
 // Delete deletes a key
-func (c *consulClient) Delete(key string) error {
+func (c *consulClient) Delete(ctx context.Context, key string) error {
 	duration := spanstat.Start()
-	_, err := c.KV().Delete(key, nil)
+	wo := &consulAPI.WriteOptions{}
+	_, err := c.KV().Delete(key, wo.WithContext(ctx))
 	increaseMetric(key, metricDelete, "Delete", duration.EndError(err).Total(), err)
 	return err
 }
 
 // GetIfLocked returns value of key if the client is still holding the given lock.
-func (c *consulClient) GetIfLocked(key string, lock KVLocker) ([]byte, error) {
-	return c.Get(key)
+func (c *consulClient) GetIfLocked(ctx context.Context, key string, lock KVLocker) ([]byte, error) {
+	return c.Get(ctx, key)
 }
 
 // Get returns value of key
-func (c *consulClient) Get(key string) ([]byte, error) {
+func (c *consulClient) Get(ctx context.Context, key string) ([]byte, error) {
 	duration := spanstat.Start()
-	pair, _, err := c.KV().Get(key, nil)
+	qo := &consulAPI.QueryOptions{}
+	pair, _, err := c.KV().Get(key, qo.WithContext(ctx))
 	increaseMetric(key, metricRead, "Get", duration.EndError(err).Total(), err)
 	if err != nil {
 		return nil, err
@@ -532,7 +545,8 @@ func (c *consulClient) UpdateIfDifferentIfLocked(ctx context.Context, key string
 // UpdateIfDifferent updates a key if the value is different
 func (c *consulClient) UpdateIfDifferent(ctx context.Context, key string, value []byte, lease bool) (bool, error) {
 	duration := spanstat.Start()
-	getR, _, err := c.KV().Get(key, nil)
+	qo := &consulAPI.QueryOptions{}
+	getR, _, err := c.KV().Get(key, qo.WithContext(ctx))
 	increaseMetric(key, metricRead, "Get", duration.EndError(err).Total(), err)
 	// On error, attempt update blindly
 	if err != nil || getR == nil {
@@ -579,30 +593,30 @@ func (c *consulClient) CreateOnly(ctx context.Context, key string, value []byte,
 }
 
 // createIfExists creates a key with the value only if key condKey exists
-func (c *consulClient) createIfExists(condKey, key string, value []byte, lease bool) error {
+func (c *consulClient) createIfExists(ctx context.Context, condKey, key string, value []byte, lease bool) error {
 	// Consul does not support transactions which would allow to check for
 	// the presence of a conditional key if the key is not the key being
 	// manipulated
 	//
 	// Lock the conditional key to serialize all CreateIfExists() calls
 
-	l, err := LockPath(context.Background(), condKey)
+	l, err := LockPath(ctx, condKey)
 	if err != nil {
 		return fmt.Errorf("unable to lock condKey for CreateIfExists: %s", err)
 	}
 
-	defer l.Unlock()
+	defer l.Unlock(ctx)
 
 	// Create the key if it does not exist
-	if _, err := c.CreateOnly(context.TODO(), key, value, lease); err != nil {
+	if _, err := c.CreateOnly(ctx, key, value, lease); err != nil {
 		return err
 	}
 
 	// Consul does not support transactions which would allow to check for
 	// the presence of another key
-	masterKey, err := c.Get(condKey)
+	masterKey, err := c.Get(ctx, condKey)
 	if err != nil || masterKey == nil {
-		c.Delete(key)
+		c.Delete(ctx, key)
 		return fmt.Errorf("conditional key not present")
 	}
 
@@ -610,22 +624,23 @@ func (c *consulClient) createIfExists(condKey, key string, value []byte, lease b
 }
 
 // CreateIfExists creates a key with the value only if key condKey exists
-func (c *consulClient) CreateIfExists(condKey, key string, value []byte, lease bool) error {
+func (c *consulClient) CreateIfExists(ctx context.Context, condKey, key string, value []byte, lease bool) error {
 	duration := spanstat.Start()
-	err := c.createIfExists(condKey, key, value, lease)
+	err := c.createIfExists(ctx, condKey, key, value, lease)
 	increaseMetric(key, metricSet, "CreateIfExists", duration.EndError(err).Total(), err)
 	return err
 }
 
 // ListPrefixIfLocked returns a list of keys matching the prefix only if the client is still holding the given lock.
-func (c *consulClient) ListPrefixIfLocked(prefix string, lock KVLocker) (KeyValuePairs, error) {
-	return c.ListPrefix(prefix)
+func (c *consulClient) ListPrefixIfLocked(ctx context.Context, prefix string, lock KVLocker) (KeyValuePairs, error) {
+	return c.ListPrefix(ctx, prefix)
 }
 
 // ListPrefix returns a map of matching keys
-func (c *consulClient) ListPrefix(prefix string) (KeyValuePairs, error) {
+func (c *consulClient) ListPrefix(ctx context.Context, prefix string) (KeyValuePairs, error) {
 	duration := spanstat.Start()
-	pairs, _, err := c.KV().List(prefix, nil)
+	qo := &consulAPI.QueryOptions{}
+	pairs, _, err := c.KV().List(prefix, qo.WithContext(ctx))
 	increaseMetric(prefix, metricRead, "ListPrefix", duration.EndError(err).Total(), err)
 	if err != nil {
 		return nil, err
@@ -668,12 +683,12 @@ func (c *consulClient) Decode(in string) ([]byte, error) {
 }
 
 // ListAndWatch implements the BackendOperations.ListAndWatch using consul
-func (c *consulClient) ListAndWatch(name, prefix string, chanSize int) *Watcher {
+func (c *consulClient) ListAndWatch(ctx context.Context, name, prefix string, chanSize int) *Watcher {
 	w := newWatcher(name, prefix, chanSize)
 
 	log.WithField(fieldWatcher, w).Debug("Starting watcher...")
 
-	go c.Watch(w)
+	go c.Watch(ctx, w)
 
 	return w
 }

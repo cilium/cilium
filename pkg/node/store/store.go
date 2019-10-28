@@ -15,6 +15,7 @@
 package store
 
 import (
+	"context"
 	"path"
 
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -105,7 +106,7 @@ func (nr *NodeRegistrar) RegisterNode(n *node.Node, manager NodeManager) error {
 		return err
 	}
 
-	if err = store.UpdateLocalKeySync(n); err != nil {
+	if err = store.UpdateLocalKeySync(context.TODO(), n); err != nil {
 		store.Release()
 		return err
 	}
@@ -118,5 +119,5 @@ func (nr *NodeRegistrar) RegisterNode(n *node.Node, manager NodeManager) error {
 // UpdateLocalKeySync synchronizes the local key for the node using the
 // SharedStore.
 func (nr *NodeRegistrar) UpdateLocalKeySync(n *node.Node) error {
-	return nr.SharedStore.UpdateLocalKeySync(n)
+	return nr.SharedStore.UpdateLocalKeySync(context.TODO(), n)
 }

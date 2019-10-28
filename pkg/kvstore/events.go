@@ -15,6 +15,7 @@
 package kvstore
 
 import (
+	"context"
 	"sync"
 )
 
@@ -109,8 +110,8 @@ func (w *Watcher) String() string {
 //
 // Returns a watcher structure plus a channel that is closed when the initial
 // list operation has been completed
-func ListAndWatch(name, prefix string, chanSize int) *Watcher {
-	return Client().ListAndWatch(name, prefix, chanSize)
+func ListAndWatch(ctx context.Context, name, prefix string, chanSize int) *Watcher {
+	return Client().ListAndWatch(ctx, name, prefix, chanSize)
 }
 
 // Stop stops a watcher previously created and started with Watch()

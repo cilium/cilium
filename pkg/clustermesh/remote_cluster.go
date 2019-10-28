@@ -113,7 +113,7 @@ func (rc *remoteCluster) releaseOldConnection() {
 	}
 
 	if rc.remoteNodes != nil {
-		rc.remoteNodes.Close()
+		rc.remoteNodes.Close(context.TODO())
 		rc.remoteNodes = nil
 	}
 	if rc.remoteIdentityCache != nil {
@@ -121,7 +121,7 @@ func (rc *remoteCluster) releaseOldConnection() {
 		rc.remoteIdentityCache = nil
 	}
 	if rc.remoteServices != nil {
-		rc.remoteServices.Close()
+		rc.remoteServices.Close(context.TODO())
 		rc.remoteServices = nil
 	}
 	if rc.backend != nil {
@@ -140,7 +140,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 				}
 				rc.mutex.Unlock()
 
-				backend, errChan := kvstore.NewClient(kvstore.EtcdBackendName,
+				backend, errChan := kvstore.NewClient(context.TODO(), kvstore.EtcdBackendName,
 					map[string]string{
 						kvstore.EtcdOptionConfig: rc.configPath,
 					},
@@ -187,7 +187,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 					},
 				})
 				if err != nil {
-					remoteNodes.Close()
+					remoteNodes.Close(context.TODO())
 					backend.Close()
 					return err
 				}
