@@ -132,6 +132,9 @@ const (
 	// EnablePolicy enables policy enforcement in the agent.
 	EnablePolicy = "enable-policy"
 
+	// EnableL7Proxy is the name of the option to enable L7 proxy
+	EnableL7Proxy = "enable-l7-proxy"
+
 	// EnableTracing enables tracing mode in the agent.
 	EnableTracing = "enable-tracing"
 
@@ -977,6 +980,9 @@ type DaemonConfig struct {
 	// EnableIPv6 is true when IPv6 is enabled
 	EnableIPv6 bool
 
+	// EnableL7Proxy is the option to enable L7 proxy
+	EnableL7Proxy bool
+
 	// EnableIPSec is true when IPSec is enabled
 	EnableIPSec bool
 
@@ -1606,6 +1612,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableEndpointHealthChecking = viper.GetBool(EnableEndpointHealthChecking)
 	c.EnableLocalNodeRoute = viper.GetBool(EnableLocalNodeRoute)
 	c.EnablePolicy = strings.ToLower(viper.GetString(EnablePolicy))
+	c.EnableL7Proxy = viper.GetBool(EnableL7Proxy)
 	c.EnableTracing = viper.GetBool(EnableTracing)
 	c.EnableNodePort = viper.GetBool(EnableNodePort)
 	c.EncryptInterface = viper.GetString(EncryptInterface)
