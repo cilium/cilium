@@ -16,6 +16,7 @@
 package eni
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -298,7 +299,7 @@ func (n *Node) findNextIndex(index int64) int64 {
 // specified by the ciliumNode. neededAddresses of secondary IPs are assigned
 // to the interface up to the maximum number of addresses as allowed by the
 // ENI.
-func (n *Node) allocateENI(s *types.Subnet, a *allocatableResources) error {
+func (n *Node) allocateENI(ctx context.Context, s *types.Subnet, a *allocatableResources) error {
 	nodeResource := n.ResourceCopy()
 	n.mutex.RLock()
 	securityGroups := n.getSecurityGroups()
@@ -322,7 +323,7 @@ func (n *Node) allocateENI(s *types.Subnet, a *allocatableResources) error {
 	scopedLog.Info("No more IPs available, creating new ENI")
 	n.mutex.RUnlock()
 
-	eniID, eni, err := n.manager.ec2API.CreateNetworkInterface(toAllocate, s.ID, desc, securityGroups)
+	eniID, eni, err := n.manager.ec2API.CreateNetworkInterface(ctx, toAllocate, s.ID, desc, securityGroups)
 	if err != nil {
 		n.manager.metricsAPI.IncENIAllocationAttempt("ENI creation failed", s.ID)
 		return fmt.Errorf("unable to create ENI: %s", err)
@@ -333,7 +334,7 @@ func (n *Node) allocateENI(s *types.Subnet, a *allocatableResources) error {
 
 	var attachmentID string
 	for attachRetries := 0; attachRetries < maxAttachRetries; attachRetries++ {
-		attachmentID, err = n.manager.ec2API.AttachNetworkInterface(index, nodeResource.Spec.ENI.InstanceID, eniID)
+		attachmentID, err = n.manager.ec2API.AttachNetworkInterface(ctx, index, nodeResource.Spec.ENI.InstanceID, eniID)
 
 		// The index is already in use, this can happen if the local
 		// list of ENIs is oudated.  Retry the attachment to avoid
@@ -346,7 +347,7 @@ func (n *Node) allocateENI(s *types.Subnet, a *allocatableResources) error {
 	}
 
 	if err != nil {
-		delErr := n.manager.ec2API.DeleteNetworkInterface(eniID)
+		delErr := n.manager.ec2API.DeleteNetworkInterface(ctx, eniID)
 		if delErr != nil {
 			scopedLog.WithError(delErr).Warning("Unable to undo ENI creation after failure to attach")
 		}
@@ -372,9 +373,9 @@ func (n *Node) allocateENI(s *types.Subnet, a *allocatableResources) error {
 	if nodeResource.Spec.ENI.DeleteOnTermination == nil || *nodeResource.Spec.ENI.DeleteOnTermination {
 		// We have an attachment ID from the last API, which lets us mark the
 		// interface as delete on termination
-		err = n.manager.ec2API.ModifyNetworkInterface(eniID, attachmentID, true)
+		err = n.manager.ec2API.ModifyNetworkInterface(ctx, eniID, attachmentID, true)
 		if err != nil {
-			delErr := n.manager.ec2API.DeleteNetworkInterface(eniID)
+			delErr := n.manager.ec2API.DeleteNetworkInterface(ctx, eniID)
 			if delErr != nil {
 				scopedLog.WithError(delErr).Warning("Unable to undo ENI creation after failure to attach")
 			}
@@ -389,7 +390,7 @@ func (n *Node) allocateENI(s *types.Subnet, a *allocatableResources) error {
 	}
 
 	if len(n.manager.eniTags) != 0 {
-		if err := n.manager.ec2API.TagENI(eniID, n.manager.eniTags); err != nil {
+		if err := n.manager.ec2API.TagENI(ctx, eniID, n.manager.eniTags); err != nil {
 			// treating above as a warn rather than error since it's not mandatory for ENI tagging to succeed
 			// given at this point given that it won't affect IPAM functionality
 			scopedLog.WithError(err).Warning("Unable to tag ENI")
@@ -538,7 +539,7 @@ func (n *Node) prepareENICreation(a *allocatableResources) (*types.Subnet, error
 
 // allocate attempts to allocate all required IPs to fulfill the needed gap
 // n.neededAddresses. If required, ENIs are created.
-func (n *Node) resolveIPDeficit() error {
+func (n *Node) resolveIPDeficit(ctx context.Context) error {
 	a, err := n.determineAllocationAction()
 	if err != nil {
 		return err
@@ -552,7 +553,7 @@ func (n *Node) resolveIPDeficit() error {
 	scopedLog := n.logger()
 
 	if a.subnet != nil && a.availableOnSubnet > 0 {
-		err := n.manager.ec2API.AssignPrivateIpAddresses(n.enis[a.eni].ID, int64(a.availableOnSubnet))
+		err := n.manager.ec2API.AssignPrivateIpAddresses(ctx, n.enis[a.eni].ID, int64(a.availableOnSubnet))
 		if err == nil {
 			n.manager.metricsAPI.IncENIAllocationAttempt("success", a.subnet.ID)
 			n.manager.metricsAPI.AddIPAllocation(a.subnet.ID, int64(a.availableOnSubnet))
@@ -576,12 +577,12 @@ func (n *Node) resolveIPDeficit() error {
 		return nil
 	}
 
-	return n.allocateENI(bestSubnet, a)
+	return n.allocateENI(ctx, bestSubnet, a)
 }
 
 // ResolveIPDeficit attempts to allocate all required IPs to fulfill the needed
 // gap n.neededAddresses. If required, ENIs are created.
-func (n *Node) ResolveIPDeficit() error {
+func (n *Node) ResolveIPDeficit(ctx context.Context) error {
 	// If the instance is no longer running, don't attempt any deficit
 	// resolution and wait for the custom resource to be updated as a sign
 	// of life.
@@ -592,7 +593,7 @@ func (n *Node) ResolveIPDeficit() error {
 	}
 	n.mutex.RUnlock()
 
-	err := n.resolveIPDeficit()
+	err := n.resolveIPDeficit(ctx)
 	n.mutex.Lock()
 	if err == nil {
 		n.loggerLocked().Debug("Setting resync needed")

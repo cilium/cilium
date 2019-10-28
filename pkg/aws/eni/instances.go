@@ -16,6 +16,7 @@
 package eni
 
 import (
+	"context"
 	"time"
 
 	"github.com/cilium/cilium/pkg/aws/types"
@@ -26,9 +27,9 @@ import (
 )
 
 type instanceAPI interface {
-	GetInstances(vpcs types.VpcMap, subnets types.SubnetMap) (types.InstanceMap, error)
-	GetSubnets() (types.SubnetMap, error)
-	GetVpcs() (types.VpcMap, error)
+	GetInstances(ctx context.Context, vpcs types.VpcMap, subnets types.SubnetMap) (types.InstanceMap, error)
+	GetSubnets(ctx context.Context) (types.SubnetMap, error)
+	GetVpcs(ctx context.Context) (types.VpcMap, error)
 }
 
 // instance is the minimal representation of an AWS instance as needed by the
@@ -72,7 +73,7 @@ func (m *InstancesManager) GetSubnet(subnetID string) *types.Subnet {
 // GetSubnets returns all the tracked subnets
 //
 // The returned subnetMap is immutable so it can be safely accessed
-func (m *InstancesManager) GetSubnets() types.SubnetMap {
+func (m *InstancesManager) GetSubnets(ctx context.Context) types.SubnetMap {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
@@ -106,24 +107,24 @@ func (m *InstancesManager) FindSubnetByTags(vpcID, availabilityZone string, requ
 // Resync fetches the list of EC2 instances and subnets and updates the local
 // cache in the instanceManager. It returns the time when the resync has
 // started or time.Time{} if it did not complete.
-func (m *InstancesManager) Resync() time.Time {
+func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 	m.metricsAPI.IncResyncCount()
 
 	resyncStart := time.Now()
 
-	vpcs, err := m.api.GetVpcs()
+	vpcs, err := m.api.GetVpcs(ctx)
 	if err != nil {
 		log.WithError(err).Warning("Unable to synchronize EC2 VPC list")
 		return time.Time{}
 	}
 
-	subnets, err := m.api.GetSubnets()
+	subnets, err := m.api.GetSubnets(ctx)
 	if err != nil {
 		log.WithError(err).Warning("Unable to retrieve EC2 subnets list")
 		return time.Time{}
 	}
 
-	instances, err := m.api.GetInstances(vpcs, subnets)
+	instances, err := m.api.GetInstances(ctx, vpcs, subnets)
 	if err != nil {
 		log.WithError(err).Warning("Unable to synchronize EC2 interface list")
 		return time.Time{}

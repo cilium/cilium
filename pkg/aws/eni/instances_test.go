@@ -17,6 +17,8 @@
 package eni
 
 import (
+	"context"
+
 	metricsmock "github.com/cilium/cilium/pkg/aws/eni/metrics/mock"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -29,7 +31,7 @@ type instancesApiMock struct {
 	subnetsIteration   int
 }
 
-func (i *instancesApiMock) GetInstances(vpcs types.VpcMap, subnets types.SubnetMap) (m types.InstanceMap, err error) {
+func (i *instancesApiMock) GetInstances(ctx context.Context, vpcs types.VpcMap, subnets types.SubnetMap) (m types.InstanceMap, err error) {
 	i.instancesIteration++
 
 	m = types.InstanceMap{}
@@ -69,7 +71,7 @@ func (i *instancesApiMock) GetInstances(vpcs types.VpcMap, subnets types.SubnetM
 	return
 }
 
-func (i *instancesApiMock) GetVpcs() (v types.VpcMap, err error) {
+func (i *instancesApiMock) GetVpcs(ctx context.Context) (v types.VpcMap, err error) {
 	v = types.VpcMap{}
 
 	v["vpc-0"] = &types.Vpc{
@@ -85,7 +87,7 @@ func (i *instancesApiMock) GetVpcs() (v types.VpcMap, err error) {
 	return
 }
 
-func (i *instancesApiMock) GetSubnets() (s types.SubnetMap, err error) {
+func (i *instancesApiMock) GetSubnets(ctx context.Context) (s types.SubnetMap, err error) {
 	i.subnetsIteration++
 
 	s = types.SubnetMap{}
@@ -137,7 +139,7 @@ func (e *ENISuite) TestGetSubnet(c *check.C) {
 	c.Assert(mngr.GetSubnet("subnet-3"), check.IsNil)
 
 	// iteration 1
-	mngr.Resync()
+	mngr.Resync(context.TODO())
 
 	subnet1 := mngr.GetSubnet("subnet-1")
 	c.Assert(subnet1, check.Not(check.IsNil))
@@ -150,7 +152,7 @@ func (e *ENISuite) TestGetSubnet(c *check.C) {
 	c.Assert(mngr.GetSubnet("subnet-3"), check.IsNil)
 
 	// iteration 2
-	mngr.Resync()
+	mngr.Resync(context.TODO())
 
 	subnet1 = mngr.GetSubnet("subnet-1")
 	c.Assert(subnet1, check.Not(check.IsNil))
@@ -170,8 +172,8 @@ func (e *ENISuite) TestFindSubnetByTags(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// iteration 1 + 2
-	mngr.Resync()
-	mngr.Resync()
+	mngr.Resync(context.TODO())
+	mngr.Resync(context.TODO())
 
 	// exact match subnet-1
 	s := mngr.FindSubnetByTags("vpc-1", "us-west-1", types.Tags{"tag1": "tag1"})
@@ -204,13 +206,13 @@ func (e *ENISuite) TestGetENIs(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// iteration 1
-	mngr.Resync()
+	mngr.Resync(context.TODO())
 	c.Assert(len(mngr.GetENIs("i-1")), check.Equals, 1)
 	c.Assert(len(mngr.GetENIs("i-2")), check.Equals, 1)
 	c.Assert(len(mngr.GetENIs("i-unknown")), check.Equals, 0)
 
 	// iteration 2
-	mngr.Resync()
+	mngr.Resync(context.TODO())
 	c.Assert(len(mngr.GetENIs("i-1")), check.Equals, 2)
 	c.Assert(len(mngr.GetENIs("i-2")), check.Equals, 1)
 	c.Assert(len(mngr.GetENIs("i-unknown")), check.Equals, 0)
@@ -221,13 +223,13 @@ func (e *ENISuite) TestGetENI(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// iteration 1
-	mngr.Resync()
+	mngr.Resync(context.TODO())
 	c.Assert(mngr.GetENI("i-1", 0), check.Not(check.IsNil))
 	c.Assert(mngr.GetENI("i-1", 1), check.IsNil)
 	c.Assert(mngr.GetENI("i-2", 0), check.Not(check.IsNil))
 
 	// iteration 2
-	mngr.Resync()
+	mngr.Resync(context.TODO())
 	c.Assert(mngr.GetENI("i-1", 0), check.Not(check.IsNil))
 	c.Assert(mngr.GetENI("i-1", 1), check.Not(check.IsNil))
 	c.Assert(mngr.GetENI("i-2", 0), check.Not(check.IsNil))

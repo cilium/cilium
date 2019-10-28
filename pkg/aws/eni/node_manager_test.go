@@ -17,6 +17,7 @@
 package eni
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -342,7 +343,7 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 	ec2api := ec2mock.NewAPI(subnets, []*types.Vpc{testVpc})
 	metricsapi := metricsmock.NewMockMetrics()
 	instancesManager := NewInstancesManager(ec2api, metricsapi)
-	instancesManager.Resync()
+	instancesManager.Resync(context.TODO())
 	mngr, err := NewNodeManager(instancesManager, ec2api, k8sapi, metricsapi, 10, eniTags)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
@@ -371,7 +372,7 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 	// The above check returns as soon as the address requirements are met.
 	// The metrics may still be oudated, resync all nodes to update
 	// metrics.
-	mngr.Resync(time.Now())
+	mngr.Resync(context.TODO(), time.Now())
 
 	c.Assert(metricsapi.Nodes("total"), check.Equals, numNodes)
 	c.Assert(metricsapi.Nodes("in-deficit"), check.Equals, 0)

@@ -15,6 +15,7 @@
 package mock
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"time"
@@ -142,7 +143,7 @@ func (e *API) simulateDelay(op Operation) {
 	}
 }
 
-func (e *API) CreateNetworkInterface(toAllocate int64, subnetID, desc string, groups []string) (string, *v2.ENI, error) {
+func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int64, subnetID, desc string, groups []string) (string, *v2.ENI, error) {
 	e.rateLimit()
 	e.simulateDelay(CreateNetworkInterface)
 
@@ -186,7 +187,7 @@ func (e *API) CreateNetworkInterface(toAllocate int64, subnetID, desc string, gr
 	return eniID, eni, nil
 }
 
-func (e *API) DeleteNetworkInterface(eniID string) error {
+func (e *API) DeleteNetworkInterface(ctx context.Context, eniID string) error {
 	e.rateLimit()
 	e.simulateDelay(DeleteNetworkInterface)
 
@@ -207,7 +208,7 @@ func (e *API) DeleteNetworkInterface(eniID string) error {
 	return fmt.Errorf("ENI ID %s not found", eniID)
 }
 
-func (e *API) AttachNetworkInterface(index int64, instanceID, eniID string) (string, error) {
+func (e *API) AttachNetworkInterface(ctx context.Context, index int64, instanceID, eniID string) (string, error) {
 	e.rateLimit()
 	e.simulateDelay(AttachNetworkInterface)
 
@@ -236,7 +237,7 @@ func (e *API) AttachNetworkInterface(index int64, instanceID, eniID string) (str
 	return "", nil
 }
 
-func (e *API) ModifyNetworkInterface(eniID, attachmentID string, deleteOnTermination bool) error {
+func (e *API) ModifyNetworkInterface(ctx context.Context, eniID, attachmentID string, deleteOnTermination bool) error {
 	e.rateLimit()
 	e.simulateDelay(ModifyNetworkInterface)
 
@@ -250,7 +251,7 @@ func (e *API) ModifyNetworkInterface(eniID, attachmentID string, deleteOnTermina
 	return nil
 }
 
-func (e *API) AssignPrivateIpAddresses(eniID string, addresses int64) error {
+func (e *API) AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int64) error {
 	e.rateLimit()
 	e.simulateDelay(AssignPrivateIpAddresses)
 
@@ -286,7 +287,7 @@ func (e *API) AssignPrivateIpAddresses(eniID string, addresses int64) error {
 	return fmt.Errorf("Unable to find ENI with ID %s", eniID)
 }
 
-func (e *API) GetInstances(vpcs types.VpcMap, subnets types.SubnetMap) (types.InstanceMap, error) {
+func (e *API) GetInstances(ctx context.Context, vpcs types.VpcMap, subnets types.SubnetMap) (types.InstanceMap, error) {
 	instances := types.InstanceMap{}
 
 	e.mutex.RLock()
@@ -313,7 +314,7 @@ func (e *API) GetInstances(vpcs types.VpcMap, subnets types.SubnetMap) (types.In
 	return instances, nil
 }
 
-func (e *API) GetVpcs() (types.VpcMap, error) {
+func (e *API) GetVpcs(ctx context.Context) (types.VpcMap, error) {
 	vpcs := types.VpcMap{}
 
 	e.mutex.RLock()
@@ -325,7 +326,7 @@ func (e *API) GetVpcs() (types.VpcMap, error) {
 	return vpcs, nil
 }
 
-func (e *API) GetSubnets() (types.SubnetMap, error) {
+func (e *API) GetSubnets(ctx context.Context) (types.SubnetMap, error) {
 	subnets := types.SubnetMap{}
 
 	e.mutex.RLock()
@@ -337,7 +338,7 @@ func (e *API) GetSubnets() (types.SubnetMap, error) {
 	return subnets, nil
 }
 
-func (e *API) TagENI(eniID string, eniTags map[string]string) error {
+func (e *API) TagENI(ctx context.Context, eniID string, eniTags map[string]string) error {
 	e.rateLimit()
 	e.simulateDelay(TagENI)
 
