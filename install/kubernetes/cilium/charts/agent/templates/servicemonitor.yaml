@@ -9,7 +9,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      k8s-app: cilium-agent
+      k8s-app: cilium
   namespaceSelector:
     matchNames:
     - {{ .Release.Namespace }}
