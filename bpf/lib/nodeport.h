@@ -127,6 +127,7 @@ int tail_nodeport_nat_ipv6(struct __sk_buff *skb)
 	struct ipv6_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
+		.src_from_world = true,
 	};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -500,6 +501,7 @@ int tail_nodeport_nat_ipv4(struct __sk_buff *skb)
 	struct ipv4_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
+		.src_from_world = true,
 	};
 	void *data, *data_end;
 	struct iphdr *ip4;
