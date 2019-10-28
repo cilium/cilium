@@ -191,6 +191,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EnableHostServicesUDP {
 			cDefinesMap["ENABLE_HOST_SERVICES_UDP"] = "1"
 		}
+		if option.Config.EnableHostServicesTCP && option.Config.EnableHostServicesUDP {
+			cDefinesMap["ENABLE_HOST_SERVICES_FULL"] = "1"
+		}
 	}
 
 	if option.Config.EncryptInterface != "" {
