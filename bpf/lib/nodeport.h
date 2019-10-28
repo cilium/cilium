@@ -171,7 +171,10 @@ int tail_nodeport_nat_ipv6(struct __sk_buff *skb)
 			ep_tail_call(skb, CILIUM_CALL_IPV6_FROM_LXC);
 			ret = DROP_MISSED_TAIL_CALL;
 		}
-		goto drop_err;
+		if (ret == NAT_PUNT_TO_STACK)
+			ret = TC_ACT_OK;
+		else
+			goto drop_err;
 	}
 
 	skb->mark |= MARK_MAGIC_SNAT_DONE;
@@ -539,7 +542,10 @@ int tail_nodeport_nat_ipv4(struct __sk_buff *skb)
 			ep_tail_call(skb, CILIUM_CALL_IPV4_FROM_LXC);
 			ret = DROP_MISSED_TAIL_CALL;
 		}
-		goto drop_err;
+		if (ret == NAT_PUNT_TO_STACK)
+			ret = TC_ACT_OK;
+		else
+			goto drop_err;
 	}
 
 	skb->mark |= MARK_MAGIC_SNAT_DONE;
