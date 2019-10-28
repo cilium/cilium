@@ -189,6 +189,9 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 		if option.Config.EnableHostServicesUDP {
 			cDefinesMap["ENABLE_HOST_SERVICES_UDP"] = "1"
 		}
+		if option.Config.EnableHostServicesTCP && option.Config.EnableHostServicesUDP {
+			cDefinesMap["ENABLE_HOST_SERVICES_FULL"] = "1"
+		}
 	}
 
 	if option.Config.EncryptInterface != "" {
