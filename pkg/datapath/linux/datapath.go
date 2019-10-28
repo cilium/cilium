@@ -31,30 +31,24 @@ type DatapathConfiguration struct {
 	EncryptInterface string
 }
 
-type rulesManager interface {
-	InstallProxyRules(proxyPort uint16, ingress bool, name string) error
-	RemoveProxyRules(proxyPort uint16, ingress bool, name string) error
-	SupportsOriginalSourceAddr() bool
-}
-
 type linuxDatapath struct {
 	datapath.ConfigWriter
+	datapath.IptablesManager
 	node           datapath.NodeHandler
 	nodeAddressing datapath.NodeAddressing
 	config         DatapathConfiguration
 	configWriter   *config.HeaderfileWriter
 	loader         *loader.Loader
-	ruleManager    rulesManager
 }
 
 // NewDatapath creates a new Linux datapath
-func NewDatapath(cfg DatapathConfiguration, ruleManager rulesManager) datapath.Datapath {
+func NewDatapath(cfg DatapathConfiguration, ruleManager datapath.IptablesManager) datapath.Datapath {
 	dp := &linuxDatapath{
-		nodeAddressing: NewNodeAddressing(),
-		config:         cfg,
-		ConfigWriter:   &config.HeaderfileWriter{},
-		loader:         loader.NewLoader(canDisableDwarfRelocations),
-		ruleManager:    ruleManager,
+		nodeAddressing:  NewNodeAddressing(),
+		config:          cfg,
+		ConfigWriter:    &config.HeaderfileWriter{},
+		loader:          loader.NewLoader(canDisableDwarfRelocations),
+		IptablesManager: ruleManager,
 	}
 
 	dp.node = NewNodeHandler(cfg, dp.nodeAddressing)
@@ -77,18 +71,6 @@ func (l *linuxDatapath) Node() datapath.NodeHandler {
 // node
 func (l *linuxDatapath) LocalNodeAddressing() datapath.NodeAddressing {
 	return l.nodeAddressing
-}
-
-func (l *linuxDatapath) InstallProxyRules(proxyPort uint16, ingress bool, name string) error {
-	return l.ruleManager.InstallProxyRules(proxyPort, ingress, name)
-}
-
-func (l *linuxDatapath) RemoveProxyRules(proxyPort uint16, ingress bool, name string) error {
-	return l.ruleManager.RemoveProxyRules(proxyPort, ingress, name)
-}
-
-func (l *linuxDatapath) SupportsOriginalSourceAddr() bool {
-	return l.ruleManager.SupportsOriginalSourceAddr()
 }
 
 func (l *linuxDatapath) Loader() datapath.Loader {

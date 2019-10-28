@@ -31,7 +31,7 @@ type Loader interface {
 	EndpointHash(cfg EndpointConfiguration) (string, error)
 	DeleteDatapath(ctx context.Context, ifName, direction string) error
 	Unload(ep Endpoint)
-	Reinitialize(ctx context.Context, o BaseProgramOwner, deviceMTU int, iptMgr RulesManager, p Proxy, r RouteReserver) error
+	Reinitialize(ctx context.Context, o BaseProgramOwner, deviceMTU int, iptMgr IptablesManager, p Proxy, r RouteReserver) error
 }
 
 // BaseProgramOwner is any type for which a loader is building base programs.
@@ -54,8 +54,20 @@ type Proxy interface {
 	ReinstallRules()
 }
 
-// RulesManager manages iptables rules.
-type RulesManager interface {
+// IptablesManager manages iptables rules.
+type IptablesManager interface {
+	// InstallProxyRules creates the necessary datapath config (e.g., iptables
+	// rules for redirecting host proxy traffic on a specific ProxyPort)
+	InstallProxyRules(proxyPort uint16, ingress bool, name string) error
+
+	// RemoveProxyRules creates the necessary datapath config (e.g., iptables
+	// rules for redirecting host proxy traffic on a specific ProxyPort)
+	RemoveProxyRules(proxyPort uint16, ingress bool, name string) error
+
+	// SupportsOriginalSourceAddr tells if the datapath supports
+	// use of original source addresses in proxy upstream
+	// connections.
+	SupportsOriginalSourceAddr() bool
 	RemoveRules()
 	InstallRules(ifName string) error
 	TransientRulesStart(ifName string) error
