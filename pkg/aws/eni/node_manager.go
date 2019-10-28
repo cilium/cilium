@@ -39,19 +39,19 @@ type nodeManagerAPI interface {
 	GetENI(instanceID string, index int) *v2.ENI
 	GetENIs(instanceID string) []*v2.ENI
 	GetSubnet(subnetID string) *types.Subnet
-	GetSubnets() types.SubnetMap
+	GetSubnets(ctx context.Context) types.SubnetMap
 	FindSubnetByTags(vpcID, availabilityZone string, required types.Tags) *types.Subnet
-	Resync() time.Time
+	Resync(ctx context.Context) time.Time
 	UpdateENI(instanceID string, eni *v2.ENI)
 }
 
 type ec2API interface {
-	CreateNetworkInterface(toAllocate int64, subnetID, desc string, groups []string) (string, *v2.ENI, error)
-	DeleteNetworkInterface(eniID string) error
-	AttachNetworkInterface(index int64, instanceID, eniID string) (string, error)
-	ModifyNetworkInterface(eniID, attachmentID string, deleteOnTermination bool) error
-	AssignPrivateIpAddresses(eniID string, addresses int64) error
-	TagENI(eniID string, eniTags map[string]string) error
+	CreateNetworkInterface(ctx context.Context, toAllocate int64, subnetID, desc string, groups []string) (string, *v2.ENI, error)
+	DeleteNetworkInterface(ctx context.Context, eniID string) error
+	AttachNetworkInterface(ctx context.Context, index int64, instanceID, eniID string) (string, error)
+	ModifyNetworkInterface(ctx context.Context, eniID, attachmentID string, deleteOnTermination bool) error
+	AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int64) error
+	TagENI(ctx context.Context, eniID string, eniTags map[string]string) error
 }
 
 type metricsAPI interface {
@@ -104,8 +104,8 @@ func NewNodeManager(instancesAPI nodeManagerAPI, ec2API ec2API, k8sAPI k8sAPI, m
 		MinInterval:     10 * time.Millisecond,
 		MetricsObserver: metrics.ResyncTrigger(),
 		TriggerFunc: func(reasons []string) {
-			syncTime := instancesAPI.Resync()
-			mngr.Resync(syncTime)
+			syncTime := instancesAPI.Resync(context.TODO())
+			mngr.Resync(context.TODO(), syncTime)
 		},
 	})
 	if err != nil {
@@ -147,7 +147,7 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) bool {
 			MinInterval:     10 * time.Millisecond,
 			MetricsObserver: n.metricsAPI.DeficitResolverTrigger(),
 			TriggerFunc: func(reasons []string) {
-				if err := node.ResolveIPDeficit(); err != nil {
+				if err := node.ResolveIPDeficit(context.TODO()); err != nil {
 					node.logger().WithError(err).Warning("Unable to resolve IP deficit of node")
 				}
 			},
@@ -237,7 +237,7 @@ type resyncStats struct {
 	nodesInDeficit      int
 }
 
-func (n *NodeManager) resyncNode(node *Node, stats *resyncStats, syncTime time.Time) {
+func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncStats, syncTime time.Time) {
 	node.mutex.Lock()
 
 	if syncTime.After(node.resyncNeeded) {
@@ -268,7 +268,7 @@ func (n *NodeManager) resyncNode(node *Node, stats *resyncStats, syncTime time.T
 		stats.nodesAtCapacity++
 	}
 
-	for subnetID, subnet := range n.instancesAPI.GetSubnets() {
+	for subnetID, subnet := range n.instancesAPI.GetSubnets(ctx) {
 		n.metricsAPI.SetAvailableIPsPerSubnet(subnetID, subnet.AvailabilityZone, subnet.AvailableAddresses)
 	}
 
@@ -282,21 +282,21 @@ func (n *NodeManager) resyncNode(node *Node, stats *resyncStats, syncTime time.T
 // attendance is defined by the number of IPs needed to reach the configured
 // watermarks. Any updates to the node resource are synchronized to the
 // Kubernetes apiserver.
-func (n *NodeManager) Resync(syncTime time.Time) {
+func (n *NodeManager) Resync(ctx context.Context, syncTime time.Time) {
 	stats := resyncStats{}
 	sem := semaphore.NewWeighted(n.parallelWorkers)
 
 	for _, node := range n.GetNodesByNeededAddresses() {
-		sem.Acquire(context.TODO(), 1)
+		sem.Acquire(ctx, 1)
 		go func(node *Node, stats *resyncStats) {
-			n.resyncNode(node, stats, syncTime)
+			n.resyncNode(ctx, node, stats, syncTime)
 			sem.Release(1)
 		}(node, &stats)
 	}
 
 	// Acquire the full semaphore, this requires all go routines to
 	// complete and thus blocks until all nodes are synced
-	sem.Acquire(context.TODO(), n.parallelWorkers)
+	sem.Acquire(ctx, n.parallelWorkers)
 
 	n.metricsAPI.SetAllocatedIPs("used", stats.totalUsed)
 	n.metricsAPI.SetAllocatedIPs("available", stats.totalAvailable)

@@ -142,7 +142,7 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 	}
 
 	// Initial blocking synchronization of all ENIs and subnets
-	instances.Resync()
+	instances.Resync(context.TODO())
 
 	// Start an interval based  background resync for safety, it will
 	// synchronize the state regularly and resolve eventual deficit if the
@@ -153,9 +153,9 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 		mngr.UpdateController("eni-refresh",
 			controller.ControllerParams{
 				RunInterval: time.Minute,
-				DoFunc: func(_ context.Context) error {
-					syncTime := instances.Resync()
-					nodeManager.Resync(syncTime)
+				DoFunc: func(ctx context.Context) error {
+					syncTime := instances.Resync(ctx)
+					nodeManager.Resync(ctx, syncTime)
 					return nil
 				},
 			})

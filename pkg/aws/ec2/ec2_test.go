@@ -17,6 +17,7 @@
 package ec2
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -39,7 +40,7 @@ func (e *Ec2Suite) TestRateLimit(c *check.C) {
 	c.Assert(client, check.Not(check.IsNil))
 
 	for i := 0; i < 10; i++ {
-		client.rateLimit("test")
+		client.rateLimit(context.TODO(), "test")
 	}
 
 	c.Assert(metricsAPI.EC2RateLimit("test"), check.Not(check.DeepEquals), time.Duration(0))

@@ -17,6 +17,7 @@
 package mock
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -38,19 +39,19 @@ func (e *MockSuite) TestMock(c *check.C) {
 	api := NewAPI([]*types.Subnet{{ID: "s-1", AvailableAddresses: 100}}, []*types.Vpc{{ID: "v-1"}})
 	c.Assert(api, check.Not(check.IsNil))
 
-	eniID1, _, err := api.CreateNetworkInterface(8, "s-1", "desc", []string{"sg1", "sg2"})
+	eniID1, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"})
 	c.Assert(err, check.IsNil)
 
-	eniID2, _, err := api.CreateNetworkInterface(8, "s-1", "desc", []string{"sg1", "sg2"})
+	eniID2, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"})
 	c.Assert(err, check.IsNil)
 
-	_, err = api.AttachNetworkInterface(0, "i-1", eniID1)
+	_, err = api.AttachNetworkInterface(context.TODO(), 0, "i-1", eniID1)
 	c.Assert(err, check.IsNil)
 
 	_, ok := api.enis["i-1"][eniID1]
 	c.Assert(ok, check.Equals, true)
 
-	_, err = api.AttachNetworkInterface(1, "i-1", eniID2)
+	_, err = api.AttachNetworkInterface(context.TODO(), 1, "i-1", eniID2)
 	c.Assert(err, check.IsNil)
 
 	_, ok = api.enis["i-1"][eniID1]
@@ -58,13 +59,13 @@ func (e *MockSuite) TestMock(c *check.C) {
 	_, ok = api.enis["i-1"][eniID2]
 	c.Assert(ok, check.Equals, true)
 
-	err = api.DeleteNetworkInterface(eniID1)
+	err = api.DeleteNetworkInterface(context.TODO(), eniID1)
 	c.Assert(err, check.IsNil)
 
-	err = api.DeleteNetworkInterface(eniID1)
+	err = api.DeleteNetworkInterface(context.TODO(), eniID1)
 	c.Assert(err, check.Not(check.IsNil))
 
-	err = api.DeleteNetworkInterface(eniID2)
+	err = api.DeleteNetworkInterface(context.TODO(), eniID2)
 	c.Assert(err, check.IsNil)
 
 	_, ok = api.enis["i-1"][eniID1]
@@ -80,23 +81,23 @@ func (e *MockSuite) TestSetMockError(c *check.C) {
 	mockError := errors.New("error")
 
 	api.SetMockError(CreateNetworkInterface, mockError)
-	_, _, err := api.CreateNetworkInterface(8, "s-1", "desc", []string{"sg1", "sg2"})
+	_, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"})
 	c.Assert(err, check.Equals, mockError)
 
 	api.SetMockError(AttachNetworkInterface, mockError)
-	_, err = api.AttachNetworkInterface(0, "i-1", "e-1")
+	_, err = api.AttachNetworkInterface(context.TODO(), 0, "i-1", "e-1")
 	c.Assert(err, check.Equals, mockError)
 
 	api.SetMockError(DeleteNetworkInterface, mockError)
-	err = api.DeleteNetworkInterface("e-1")
+	err = api.DeleteNetworkInterface(context.TODO(), "e-1")
 	c.Assert(err, check.Equals, mockError)
 
 	api.SetMockError(AssignPrivateIpAddresses, mockError)
-	err = api.AssignPrivateIpAddresses("e-1", 10)
+	err = api.AssignPrivateIpAddresses(context.TODO(), "e-1", 10)
 	c.Assert(err, check.Equals, mockError)
 
 	api.SetMockError(ModifyNetworkInterface, mockError)
-	err = api.ModifyNetworkInterface("e-1", "a-1", true)
+	err = api.ModifyNetworkInterface(context.TODO(), "e-1", "a-1", true)
 	c.Assert(err, check.Equals, mockError)
 }
 
@@ -117,6 +118,6 @@ func (e *MockSuite) TestSetLimiter(c *check.C) {
 	c.Assert(api, check.Not(check.IsNil))
 
 	api.SetLimiter(10.0, 2)
-	_, _, err := api.CreateNetworkInterface(8, "s-1", "desc", []string{"sg1", "sg2"})
+	_, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"})
 	c.Assert(err, check.IsNil)
 }
