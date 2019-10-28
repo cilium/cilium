@@ -108,11 +108,6 @@ struct ipv4_nat_target {
 	__be32 addr;
 	const __u16 min_port; /* host endianess */
 	const __u16 max_port; /* host endianess */
-	/* Tells whether the port mapping /has/ to be clampled into [min_port,max_port]
-	 * range (true) or only in case of collisions (false) where we would first try
-	 * to not mange the port, but only remap to the SNAT IP as an optimization.
-	 */
-	const bool force_range;
 };
 
 #if defined ENABLE_IPV4 && (defined ENABLE_MASQUERADE || defined ENABLE_NODEPORT)
@@ -484,7 +479,7 @@ static __always_inline int snat_v4_process(struct __sk_buff *skb, int dir,
 		return DROP_NAT_UNSUPP_PROTO;
 	};
 
-	if (target->force_range && snat_v4_can_skip(target, &tuple, dir))
+	if (snat_v4_can_skip(target, &tuple, dir))
 		return NAT_PUNT_TO_STACK;
 	ret = snat_v4_handle_mapping(skb, &tuple, &state, &tmp, dir, off, target);
 	if (ret > 0)
@@ -526,7 +521,6 @@ struct ipv6_nat_target {
 	union v6addr addr;
 	const __u16 min_port; /* host endianess */
 	const __u16 max_port; /* host endianess */
-	const bool force_range;
 };
 
 #if defined ENABLE_IPV6 && (defined ENABLE_MASQUERADE || defined ENABLE_NODEPORT)
@@ -896,7 +890,7 @@ static __always_inline int snat_v6_process(struct __sk_buff *skb, int dir,
 		return DROP_NAT_UNSUPP_PROTO;
 	};
 
-	if (target->force_range && snat_v6_can_skip(target, &tuple, dir))
+	if (snat_v6_can_skip(target, &tuple, dir))
 		return NAT_PUNT_TO_STACK;
 	ret = snat_v6_handle_mapping(skb, &tuple, &state, &tmp, dir, off, target);
 	if (ret > 0)
