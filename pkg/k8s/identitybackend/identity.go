@@ -254,7 +254,7 @@ type crdLock struct{}
 
 // Unlock does not unlock a lock object. Locking is not supported with the k8s
 // CRD allocator. It is here to meet interface requirements.
-func (c *crdLock) Unlock() error {
+func (c *crdLock) Unlock(ctx context.Context) error {
 	return nil
 }
 

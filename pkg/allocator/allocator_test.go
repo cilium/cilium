@@ -101,7 +101,7 @@ func (d *dummyBackend) AcquireReference(ctx context.Context, id idpool.ID, key A
 
 type dummyLock struct{}
 
-func (d *dummyLock) Unlock() error {
+func (d *dummyLock) Unlock(ctx context.Context) error {
 	return nil
 }
 

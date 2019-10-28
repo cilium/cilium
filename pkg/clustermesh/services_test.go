@@ -17,6 +17,7 @@
 package clustermesh
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -63,7 +64,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 
 	s.randomName = testutils.RandomRune()
 
-	kvstore.DeletePrefix("cilium/state/services/v1/" + s.randomName)
+	kvstore.DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName)
 	s.svcCache = k8s.NewServiceCache()
 	identity.InitWellKnownIdentities()
 
@@ -108,7 +109,7 @@ func (s *ClusterMeshServicesTestSuite) TearDownTest(c *C) {
 	}
 
 	os.RemoveAll(s.testDir)
-	kvstore.DeletePrefix("cilium/state/services/v1/" + s.randomName)
+	kvstore.DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName)
 	kvstore.Close()
 }
 
@@ -135,8 +136,10 @@ func (s *ClusterMeshServicesTestSuite) expectEvent(c *C, action k8s.CacheAction,
 }
 
 func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesGlobal(c *C) {
-	kvstore.Set(s.prepareServiceUpdate("1", "10.0.185.196", "http", "80"))
-	kvstore.Set(s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90"))
+	k, v := s.prepareServiceUpdate("1", "10.0.185.196", "http", "80")
+	kvstore.Set(context.TODO(), k, v)
+	k, v = s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90")
+	kvstore.Set(context.TODO(), k, v)
 
 	swgSvcs := lock.NewStoppableWaitGroup()
 	k8sSvc := &types.Service{
@@ -194,10 +197,10 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesGlobal(c *C) {
 		return event.Endpoints.Backends["30.0.185.196"] == nil
 	})
 
-	kvstore.DeletePrefix("cilium/state/services/v1/" + s.randomName + "1")
+	kvstore.DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName+"1")
 	s.expectEvent(c, k8s.UpdateService, svcID, nil)
 
-	kvstore.DeletePrefix("cilium/state/services/v1/" + s.randomName + "2")
+	kvstore.DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName+"2")
 	s.expectEvent(c, k8s.DeleteService, svcID, nil)
 
 	swgSvcs.Stop()
@@ -214,8 +217,10 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesGlobal(c *C) {
 }
 
 func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesUpdate(c *C) {
-	kvstore.Set(s.prepareServiceUpdate("1", "10.0.185.196", "http", "80"))
-	kvstore.Set(s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90"))
+	k, v := s.prepareServiceUpdate("1", "10.0.185.196", "http", "80")
+	kvstore.Set(context.TODO(), k, v)
+	k, v = s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90")
+	kvstore.Set(context.TODO(), k, v)
 
 	k8sSvc := &types.Service{
 		Service: &v1.Service{
@@ -243,25 +248,27 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesUpdate(c *C) {
 				loadbalancer.NewL4Addr(loadbalancer.TCP, 90))
 	})
 
-	kvstore.Set(s.prepareServiceUpdate("1", "80.0.185.196", "http", "8080"))
+	k, v = s.prepareServiceUpdate("1", "80.0.185.196", "http", "8080")
+	kvstore.Set(context.TODO(), k, v)
 	s.expectEvent(c, k8s.UpdateService, svcID, func(event k8s.ServiceEvent) bool {
 		return event.Endpoints.Backends["80.0.185.196"] != nil &&
 			event.Endpoints.Backends["20.0.185.196"] != nil
 	})
 
-	kvstore.Set(s.prepareServiceUpdate("2", "90.0.185.196", "http", "8080"))
+	k, v = s.prepareServiceUpdate("2", "90.0.185.196", "http", "8080")
+	kvstore.Set(context.TODO(), k, v)
 	s.expectEvent(c, k8s.UpdateService, svcID, func(event k8s.ServiceEvent) bool {
 		return event.Endpoints.Backends["80.0.185.196"] != nil &&
 			event.Endpoints.Backends["90.0.185.196"] != nil
 	})
 
-	kvstore.DeletePrefix("cilium/state/services/v1/" + s.randomName + "1")
+	kvstore.DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName+"1")
 	// The observer will have a defaults.NodeDeleteDelay time before it receives
 	// the event. For this reason we will trigger the delete events sequentially
 	// and only do the assertion in the end. This way we wait 30seconds for the
 	// test to complete instead of 30+30 seconds.
 	time.Sleep(2 * time.Second)
-	kvstore.DeletePrefix("cilium/state/services/v1/" + s.randomName + "2")
+	kvstore.DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName+"2")
 
 	s.expectEvent(c, k8s.UpdateService, svcID, nil)
 	s.expectEvent(c, k8s.DeleteService, svcID, nil)
@@ -274,8 +281,10 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesUpdate(c *C) {
 }
 
 func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesNonGlobal(c *C) {
-	kvstore.Set(s.prepareServiceUpdate("1", "10.0.185.196", "http", "80"))
-	kvstore.Set(s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90"))
+	k, v := s.prepareServiceUpdate("1", "10.0.185.196", "http", "80")
+	kvstore.Set(context.TODO(), k, v)
+	k, v = s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90")
+	kvstore.Set(context.TODO(), k, v)
 
 	k8sSvc := &types.Service{
 		Service: &v1.Service{
