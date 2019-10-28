@@ -17,6 +17,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net"
 
@@ -46,7 +47,7 @@ func GetCallBackWithRule(ips ...string) GroupProviderFunc {
 		netIPs = append(netIPs, net.ParseIP(ip))
 	}
 
-	cb := func(group *ToGroups) ([]net.IP, error) {
+	cb := func(ctx context.Context, group *ToGroups) ([]net.IP, error) {
 		return netIPs, nil
 	}
 
@@ -60,7 +61,7 @@ func (s *PolicyAPITestSuite) TestGetCIDRSetWithValidValue(c *C) {
 	expectedCidrRule := []CIDRRule{
 		{Cidr: "192.168.1.1/32", ExceptCIDRs: []CIDR{}, Generated: true}}
 	group := GetToGroupsRule()
-	cidr, err := group.GetCidrSet()
+	cidr, err := group.GetCidrSet(context.TODO())
 	c.Assert(cidr, checker.DeepEquals, expectedCidrRule)
 	c.Assert(err, IsNil)
 }
@@ -73,7 +74,7 @@ func (s *PolicyAPITestSuite) TestGetCIDRSetWithMultipleSorted(c *C) {
 		{Cidr: "192.168.10.3/32", ExceptCIDRs: []CIDR{}, Generated: true},
 		{Cidr: "192.168.10.10/32", ExceptCIDRs: []CIDR{}, Generated: true}}
 	group := GetToGroupsRule()
-	cidr, err := group.GetCidrSet()
+	cidr, err := group.GetCidrSet(context.TODO())
 	c.Assert(cidr, checker.DeepEquals, expectedCidrRule)
 	c.Assert(err, IsNil)
 }
@@ -87,19 +88,19 @@ func (s *PolicyAPITestSuite) TestGetCIDRSetWithUniqueCIDRRule(c *C) {
 		{Cidr: "192.168.10.10/32", ExceptCIDRs: []CIDR{}, Generated: true}}
 
 	group := GetToGroupsRule()
-	cidr, err := group.GetCidrSet()
+	cidr, err := group.GetCidrSet(context.TODO())
 	c.Assert(cidr, checker.DeepEquals, cidrRule)
 	c.Assert(err, IsNil)
 }
 
 func (s *PolicyAPITestSuite) TestGetCIDRSetWithError(c *C) {
 
-	cb := func(group *ToGroups) ([]net.IP, error) {
+	cb := func(ctx context.Context, group *ToGroups) ([]net.IP, error) {
 		return []net.IP{}, fmt.Errorf("Invalid credentials")
 	}
 	RegisterToGroupsProvider(AWSProvider, cb)
 	group := GetToGroupsRule()
-	cidr, err := group.GetCidrSet()
+	cidr, err := group.GetCidrSet(context.TODO())
 	c.Assert(cidr, IsNil)
 	c.Assert(err, NotNil)
 
@@ -108,7 +109,7 @@ func (s *PolicyAPITestSuite) TestGetCIDRSetWithError(c *C) {
 func (s *PolicyAPITestSuite) TestWithoutProviderRegister(c *C) {
 	providers.Delete(AWSProvider)
 	group := GetToGroupsRule()
-	cidr, err := group.GetCidrSet()
+	cidr, err := group.GetCidrSet(context.TODO())
 	c.Assert(cidr, IsNil)
 	c.Assert(err, NotNil)
 }

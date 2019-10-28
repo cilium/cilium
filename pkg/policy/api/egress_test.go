@@ -17,6 +17,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net"
 
@@ -50,13 +51,13 @@ func (s *PolicyAPITestSuite) TestCreateDerivativeRuleWithoutToGroups(c *C) {
 			},
 		},
 	}
-	newRule, err := eg.CreateDerivative()
+	newRule, err := eg.CreateDerivative(context.TODO())
 	c.Assert(eg, checker.DeepEquals, newRule)
 	c.Assert(err, IsNil)
 }
 
 func (s *PolicyAPITestSuite) TestCreateDerivativeRuleWithToGroupsWitInvalidRegisterCallback(c *C) {
-	cb := func(group *ToGroups) ([]net.IP, error) {
+	cb := func(ctx context.Context, group *ToGroups) ([]net.IP, error) {
 		return []net.IP{}, fmt.Errorf("Invalid error")
 	}
 	RegisterToGroupsProvider(AWSProvider, cb)
@@ -66,7 +67,7 @@ func (s *PolicyAPITestSuite) TestCreateDerivativeRuleWithToGroupsWitInvalidRegis
 			GetToGroupsRule(),
 		},
 	}
-	_, err := eg.CreateDerivative()
+	_, err := eg.CreateDerivative(context.TODO())
 	c.Assert(err, NotNil)
 }
 
@@ -83,7 +84,7 @@ func (s *PolicyAPITestSuite) TestCreateDerivativeRuleWithToGroupsAndToPorts(c *C
 	// Checking that the derivative rule is working correctly
 	c.Assert(eg.RequiresDerivative(), Equals, true)
 
-	newRule, err := eg.CreateDerivative()
+	newRule, err := eg.CreateDerivative(context.TODO())
 	c.Assert(err, IsNil)
 	c.Assert(len(newRule.ToGroups), Equals, 0)
 	c.Assert(len(newRule.ToCIDRSet), Equals, 1)
@@ -104,7 +105,7 @@ func (s *PolicyAPITestSuite) TestCreateDerivativeWithoutErrorAndNoIPs(c *C) {
 	// Checking that the derivative rule is working correctly
 	c.Assert(eg.RequiresDerivative(), Equals, true)
 
-	newRule, err := eg.CreateDerivative()
+	newRule, err := eg.CreateDerivative(context.TODO())
 	c.Assert(err, IsNil)
 	c.Assert(newRule, checker.DeepEquals, &EgressRule{})
 }
