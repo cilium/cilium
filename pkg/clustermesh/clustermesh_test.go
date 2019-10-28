@@ -17,6 +17,7 @@
 package clustermesh
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -142,7 +143,7 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	for _, rc := range cm.clusters {
 		rc.mutex.RLock()
 		for _, name := range nodeNames {
-			err = rc.remoteNodes.UpdateLocalKeySync(&testNode{Name: name, Cluster: rc.name})
+			err = rc.remoteNodes.UpdateLocalKeySync(context.TODO(), &testNode{Name: name, Cluster: rc.name})
 			c.Assert(err, IsNil)
 		}
 		rc.mutex.RUnlock()

@@ -42,7 +42,6 @@ import (
 	clientyaml "go.etcd.io/etcd/clientv3/yaml"
 	v3rpcErrors "go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
 	"go.etcd.io/etcd/pkg/tlsutil"
-	ctx "golang.org/x/net/context"
 	"golang.org/x/time/rate"
 	"sigs.k8s.io/yaml"
 )
@@ -154,7 +153,7 @@ func (e *etcdModule) getConfig() map[string]string {
 	return getOpts(e.opts)
 }
 
-func (e *etcdModule) newClient(opts *ExtraOptions) (BackendOperations, chan error) {
+func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (BackendOperations, chan error) {
 	errChan := make(chan error, 10)
 
 	endpointsOpt, endpointsSet := e.opts[addrOption]
@@ -219,7 +218,7 @@ func init() {
 // Hint tries to improve the error message displayed to te user.
 func Hint(err error) error {
 	switch err {
-	case ctx.DeadlineExceeded:
+	case context.DeadlineExceeded:
 		return fmt.Errorf("etcd client timeout exceeded")
 	default:
 		return err
@@ -280,8 +279,8 @@ type etcdMutex struct {
 	mutex *concurrency.Mutex
 }
 
-func (e *etcdMutex) Unlock() error {
-	return e.mutex.Unlock(ctx.TODO())
+func (e *etcdMutex) Unlock(ctx context.Context) error {
+	return e.mutex.Unlock(ctx)
 }
 
 func (e *etcdMutex) Comparator() interface{} {
@@ -368,7 +367,7 @@ func (e *etcdClient) waitForInitLock(ctx context.Context) <-chan bool {
 			if err == nil {
 				initLockSucceeded <- true
 				close(initLockSucceeded)
-				locker.Unlock()
+				locker.Unlock(ctx)
 				e.getLogger().Debug("Distributed lock successful, etcd has quorum")
 				return
 			}
@@ -380,8 +379,8 @@ func (e *etcdClient) waitForInitLock(ctx context.Context) <-chan bool {
 	return initLockSucceeded
 }
 
-func (e *etcdClient) isConnectedAndHasQuorum() bool {
-	ctxTimeout, cancel := ctx.WithTimeout(ctx.TODO(), statusCheckTimeout)
+func (e *etcdClient) isConnectedAndHasQuorum(ctx context.Context) bool {
+	ctxTimeout, cancel := context.WithTimeout(ctx, statusCheckTimeout)
 	defer cancel()
 
 	select {
@@ -408,10 +407,10 @@ func (e *etcdClient) isConnectedAndHasQuorum() bool {
 }
 
 // Connected closes the returned channel when the etcd client is connected.
-func (e *etcdClient) Connected() <-chan struct{} {
+func (e *etcdClient) Connected(ctx context.Context) <-chan struct{} {
 	out := make(chan struct{})
 	go func() {
-		for !e.isConnectedAndHasQuorum() {
+		for !e.isConnectedAndHasQuorum(ctx) {
 			time.Sleep(100 * time.Millisecond)
 		}
 		close(out)
@@ -569,7 +568,7 @@ func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error
 		}
 	}()
 
-	go ec.statusChecker()
+	go ec.statusChecker(context.TODO())
 
 	ec.controllers.UpdateController("kvstore-etcd-session-renew",
 		controller.ControllerParams{
@@ -593,7 +592,7 @@ func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error
 }
 
 func getEPVersion(c client.Maintenance, etcdEP string, timeout time.Duration) (go_version.Version, error) {
-	ctxTimeout, cancel := ctx.WithTimeout(ctx.TODO(), timeout)
+	ctxTimeout, cancel := context.WithTimeout(context.TODO(), timeout)
 	defer cancel()
 	sr, err := c.Status(ctxTimeout, etcdEP)
 	if err != nil {
@@ -661,16 +660,16 @@ func (e *etcdClient) LockPath(ctx context.Context, path string) (KVLocker, error
 	return &etcdMutex{mutex: mu}, nil
 }
 
-func (e *etcdClient) DeletePrefix(path string) error {
+func (e *etcdClient) DeletePrefix(ctx context.Context, path string) error {
 	duration := spanstat.Start()
-	e.limiter.Wait(ctx.TODO())
-	_, err := e.client.Delete(ctx.Background(), path, client.WithPrefix())
+	e.limiter.Wait(ctx)
+	_, err := e.client.Delete(ctx, path, client.WithPrefix())
 	increaseMetric(path, metricDelete, "DeletePrefix", duration.EndError(err).Total(), err)
 	return Hint(err)
 }
 
 // Watch starts watching for changes in a prefix
-func (e *etcdClient) Watch(w *Watcher) {
+func (e *etcdClient) Watch(ctx context.Context, w *Watcher) {
 	localCache := watcherCache{}
 	listSignalSent := false
 
@@ -678,12 +677,12 @@ func (e *etcdClient) Watch(w *Watcher) {
 		fieldWatcher: w,
 		fieldPrefix:  w.prefix,
 	})
-	<-e.Connected()
+	<-e.Connected(ctx)
 
 reList:
 	for {
-		e.limiter.Wait(ctx.TODO())
-		res, err := e.client.Get(ctx.Background(), w.prefix, client.WithPrefix(),
+		e.limiter.Wait(ctx)
+		res, err := e.client.Get(ctx, w.prefix, client.WithPrefix(),
 			client.WithSerializable())
 		if err != nil {
 			scopedLog.WithError(Hint(err)).Warn("Unable to list keys before starting watcher")
@@ -742,8 +741,8 @@ reList:
 	recreateWatcher:
 		scopedLog.WithField(fieldRev, nextRev).Debug("Starting to watch a prefix")
 
-		e.limiter.Wait(ctx.TODO())
-		etcdWatch := e.client.Watch(ctx.Background(), w.prefix,
+		e.limiter.Wait(ctx)
+		etcdWatch := e.client.Watch(ctx, w.prefix,
 			client.WithPrefix(), client.WithRev(nextRev))
 		for {
 			select {
@@ -809,8 +808,8 @@ reList:
 	}
 }
 
-func (e *etcdClient) determineEndpointStatus(endpointAddress string) (string, error) {
-	ctxTimeout, cancel := ctx.WithTimeout(ctx.Background(), statusCheckTimeout)
+func (e *etcdClient) determineEndpointStatus(ctx context.Context, endpointAddress string) (string, error) {
+	ctxTimeout, cancel := context.WithTimeout(ctx, statusCheckTimeout)
 	defer cancel()
 
 	e.getLogger().Debugf("Checking status to etcd endpoint %s", endpointAddress)
@@ -829,16 +828,16 @@ func (e *etcdClient) determineEndpointStatus(endpointAddress string) (string, er
 	return str, nil
 }
 
-func (e *etcdClient) statusChecker() {
+func (e *etcdClient) statusChecker(ctx context.Context) {
 	for {
 		newStatus := []string{}
 		ok := 0
 
-		hasQuorum := e.isConnectedAndHasQuorum()
+		hasQuorum := e.isConnectedAndHasQuorum(ctx)
 
 		endpoints := e.client.Endpoints()
 		for _, ep := range endpoints {
-			st, err := e.determineEndpointStatus(ep)
+			st, err := e.determineEndpointStatus(ctx, ep)
 			if err == nil {
 				ok++
 			}
@@ -882,12 +881,12 @@ func (e *etcdClient) Status() (string, error) {
 }
 
 // GetIfLocked returns value of key if the client is still holding the given lock.
-func (e *etcdClient) GetIfLocked(key string, lock KVLocker) ([]byte, error) {
+func (e *etcdClient) GetIfLocked(ctx context.Context, key string, lock KVLocker) ([]byte, error) {
 	duration := spanstat.Start()
-	e.limiter.Wait(ctx.TODO())
+	e.limiter.Wait(ctx)
 	opGet := client.OpGet(key)
 	cmp := lock.Comparator().(client.Cmp)
-	txnReply, err := e.client.Txn(context.Background()).If(cmp).Then(opGet).Commit()
+	txnReply, err := e.client.Txn(ctx).If(cmp).Then(opGet).Commit()
 	if err == nil && !txnReply.Succeeded {
 		err = ErrLockLeaseExpired
 	}
@@ -905,10 +904,10 @@ func (e *etcdClient) GetIfLocked(key string, lock KVLocker) ([]byte, error) {
 }
 
 // Get returns value of key
-func (e *etcdClient) Get(key string) ([]byte, error) {
+func (e *etcdClient) Get(ctx context.Context, key string) ([]byte, error) {
 	duration := spanstat.Start()
-	e.limiter.Wait(ctx.TODO())
-	getR, err := e.client.Get(ctx.Background(), key)
+	e.limiter.Wait(ctx)
+	getR, err := e.client.Get(ctx, key)
 	increaseMetric(key, metricRead, "Get", duration.EndError(err).Total(), err)
 	if err != nil {
 		return nil, Hint(err)
@@ -959,20 +958,20 @@ func (e *etcdClient) GetPrefix(ctx context.Context, prefix string) (string, []by
 }
 
 // Set sets value of key
-func (e *etcdClient) Set(key string, value []byte) error {
+func (e *etcdClient) Set(ctx context.Context, key string, value []byte) error {
 	duration := spanstat.Start()
-	e.limiter.Wait(ctx.TODO())
-	_, err := e.client.Put(ctx.Background(), key, string(value))
+	e.limiter.Wait(ctx)
+	_, err := e.client.Put(ctx, key, string(value))
 	increaseMetric(key, metricSet, "Set", duration.EndError(err).Total(), err)
 	return Hint(err)
 }
 
 // DeleteIfLocked deletes a key if the client is still holding the given lock.
-func (e *etcdClient) DeleteIfLocked(key string, lock KVLocker) error {
+func (e *etcdClient) DeleteIfLocked(ctx context.Context, key string, lock KVLocker) error {
 	duration := spanstat.Start()
 	opDel := client.OpDelete(key)
 	cmp := lock.Comparator().(client.Cmp)
-	txnReply, err := e.client.Txn(context.Background()).If(cmp).Then(opDel).Commit()
+	txnReply, err := e.client.Txn(ctx).If(cmp).Then(opDel).Commit()
 	if err == nil && !txnReply.Succeeded {
 		err = ErrLockLeaseExpired
 	}
@@ -981,10 +980,10 @@ func (e *etcdClient) DeleteIfLocked(key string, lock KVLocker) error {
 }
 
 // Delete deletes a key
-func (e *etcdClient) Delete(key string) error {
+func (e *etcdClient) Delete(ctx context.Context, key string) error {
 	duration := spanstat.Start()
-	e.limiter.Wait(ctx.TODO())
-	_, err := e.client.Delete(ctx.Background(), key)
+	e.limiter.Wait(ctx)
+	_, err := e.client.Delete(ctx, key)
 	increaseMetric(key, metricDelete, "Delete", duration.EndError(err).Total(), err)
 	return Hint(err)
 }
@@ -1018,12 +1017,12 @@ func (e *etcdClient) UpdateIfLocked(ctx context.Context, key string, value []byt
 		leaseID := e.GetSessionLeaseID()
 		opPut := client.OpPut(key, string(value), client.WithLease(leaseID))
 		cmp := lock.Comparator().(client.Cmp)
-		txnReply, err = e.client.Txn(context.Background()).If(cmp).Then(opPut).Commit()
+		txnReply, err = e.client.Txn(ctx).If(cmp).Then(opPut).Commit()
 		e.checkSession(err, leaseID)
 	} else {
 		opPut := client.OpPut(key, string(value))
 		cmp := lock.Comparator().(client.Cmp)
-		txnReply, err = e.client.Txn(context.Background()).If(cmp).Then(opPut).Commit()
+		txnReply, err = e.client.Txn(ctx).If(cmp).Then(opPut).Commit()
 	}
 	if err == nil && !txnReply.Succeeded {
 		err = ErrLockLeaseExpired
@@ -1209,7 +1208,7 @@ func (e *etcdClient) CreateOnly(ctx context.Context, key string, value []byte, l
 }
 
 // CreateIfExists creates a key with the value only if key condKey exists
-func (e *etcdClient) CreateIfExists(condKey, key string, value []byte, lease bool) error {
+func (e *etcdClient) CreateIfExists(ctx context.Context, condKey, key string, value []byte, lease bool) error {
 	duration := spanstat.Start()
 	var leaseID client.LeaseID
 	if lease {
@@ -1218,8 +1217,8 @@ func (e *etcdClient) CreateIfExists(condKey, key string, value []byte, lease boo
 	req := e.createOpPut(key, value, leaseID)
 	cond := client.Compare(client.Version(condKey), "!=", 0)
 
-	e.limiter.Wait(ctx.TODO())
-	txnresp, err := e.client.Txn(ctx.TODO()).If(cond).Then(*req).Commit()
+	e.limiter.Wait(ctx)
+	txnresp, err := e.client.Txn(ctx).If(cond).Then(*req).Commit()
 	increaseMetric(key, metricSet, "CreateIfExists", duration.EndError(err).Total(), err)
 	if err != nil {
 		e.checkSession(err, leaseID)
@@ -1253,12 +1252,12 @@ func (e *etcdClient) CreateIfExists(condKey, key string, value []byte, lease boo
 //}
 
 // ListPrefixIfLocked returns a list of keys matching the prefix only if the client is still holding the given lock.
-func (e *etcdClient) ListPrefixIfLocked(prefix string, lock KVLocker) (KeyValuePairs, error) {
+func (e *etcdClient) ListPrefixIfLocked(ctx context.Context, prefix string, lock KVLocker) (KeyValuePairs, error) {
 	duration := spanstat.Start()
-	e.limiter.Wait(ctx.TODO())
+	e.limiter.Wait(ctx)
 	opGet := client.OpGet(prefix, client.WithPrefix())
 	cmp := lock.Comparator().(client.Cmp)
-	txnReply, err := e.client.Txn(context.Background()).If(cmp).Then(opGet).Commit()
+	txnReply, err := e.client.Txn(ctx).If(cmp).Then(opGet).Commit()
 	if err == nil && !txnReply.Succeeded {
 		err = ErrLockLeaseExpired
 	}
@@ -1281,11 +1280,11 @@ func (e *etcdClient) ListPrefixIfLocked(prefix string, lock KVLocker) (KeyValueP
 }
 
 // ListPrefix returns a map of matching keys
-func (e *etcdClient) ListPrefix(prefix string) (KeyValuePairs, error) {
+func (e *etcdClient) ListPrefix(ctx context.Context, prefix string) (KeyValuePairs, error) {
 	duration := spanstat.Start()
 
-	e.limiter.Wait(ctx.TODO())
-	getR, err := e.client.Get(ctx.Background(), prefix, client.WithPrefix())
+	e.limiter.Wait(ctx)
+	getR, err := e.client.Get(ctx, prefix, client.WithPrefix())
 	increaseMetric(prefix, metricRead, "ListPrefix", duration.EndError(err).Total(), err)
 	if err != nil {
 		return nil, Hint(err)
@@ -1333,12 +1332,12 @@ func (e *etcdClient) Decode(in string) ([]byte, error) {
 }
 
 // ListAndWatch implements the BackendOperations.ListAndWatch using etcd
-func (e *etcdClient) ListAndWatch(name, prefix string, chanSize int) *Watcher {
+func (e *etcdClient) ListAndWatch(ctx context.Context, name, prefix string, chanSize int) *Watcher {
 	w := newWatcher(name, prefix, chanSize)
 
 	e.getLogger().WithField(fieldWatcher, w).Debug("Starting watcher...")
 
-	go e.Watch(w)
+	go e.Watch(ctx, w)
 
 	return w
 }

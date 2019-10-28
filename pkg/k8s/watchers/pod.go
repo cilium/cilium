@@ -15,6 +15,7 @@
 package watchers
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"sync"
@@ -128,7 +129,7 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, serPods *serialize
 		// Replace pod controller by only receiving events from our own
 		// node once we are connected to the kvstore.
 
-		<-kvstore.Client().Connected()
+		<-kvstore.Client().Connected(context.TODO())
 		close(isConnected)
 
 		log.WithField(logfields.Node, node.GetName()).Info("Connected to KVStore, watching for pod events on node")

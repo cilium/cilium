@@ -15,6 +15,7 @@
 package kvstore
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -81,7 +82,7 @@ var (
 	setupOnce sync.Once
 )
 
-func setup(selectedBackend string, opts map[string]string, goOpts *ExtraOptions) error {
+func setup(ctx context.Context, selectedBackend string, opts map[string]string, goOpts *ExtraOptions) error {
 	module := getBackend(selectedBackend)
 	if module == nil {
 		return fmt.Errorf("unknown key-value store type %q. See cilium.link/err-kvstore for details", selectedBackend)
@@ -97,16 +98,16 @@ func setup(selectedBackend string, opts map[string]string, goOpts *ExtraOptions)
 
 	selectedModule = module.getName()
 
-	return initClient(module, goOpts)
+	return initClient(ctx, module, goOpts)
 }
 
 // Setup sets up the key-value store specified in kvStore and configures it
 // with the options provided in opts
-func Setup(selectedBackend string, opts map[string]string, goOpts *ExtraOptions) error {
+func Setup(ctx context.Context, selectedBackend string, opts map[string]string, goOpts *ExtraOptions) error {
 	var err error
 
 	setupOnce.Do(func() {
-		err = setup(selectedBackend, opts, goOpts)
+		err = setup(ctx, selectedBackend, opts, goOpts)
 	})
 
 	return err

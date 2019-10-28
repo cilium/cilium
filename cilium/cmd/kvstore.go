@@ -15,6 +15,8 @@
 package cmd
 
 import (
+	"context"
+
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -56,7 +58,7 @@ func setupKvstore() {
 		}
 	}
 
-	if err := kvstore.Setup(kvStore, kvStoreOpts, nil); err != nil {
+	if err := kvstore.Setup(context.TODO(), kvStore, kvStoreOpts, nil); err != nil {
 		Fatalf("Unable to setup kvstore: %s", err)
 	}
 }

@@ -14,6 +14,8 @@
 
 package kvstore
 
+import "context"
+
 // SetupDummy sets up kvstore for tests
 func SetupDummy(dummyBackend string) {
 	module := getBackend(dummyBackend)
@@ -23,7 +25,7 @@ func SetupDummy(dummyBackend string) {
 
 	module.setConfigDummy()
 
-	if err := initClient(module, nil); err != nil {
+	if err := initClient(context.TODO(), module, nil); err != nil {
 		log.WithError(err).Panic("Unable to initialize kvstore client")
 	}
 }

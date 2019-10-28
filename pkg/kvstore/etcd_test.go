@@ -398,7 +398,7 @@ func (e *EtcdLockedSuite) TestGetIfLocked(c *C) {
 				if err != nil {
 					return err
 				}
-				return args.lock.Unlock()
+				return args.lock.Unlock(context.TODO())
 			},
 		},
 		{
@@ -422,7 +422,7 @@ func (e *EtcdLockedSuite) TestGetIfLocked(c *C) {
 				}
 			},
 			cleanup: func(args args) error {
-				return args.lock.Unlock()
+				return args.lock.Unlock(context.TODO())
 			},
 		},
 		{
@@ -431,7 +431,7 @@ func (e *EtcdLockedSuite) TestGetIfLocked(c *C) {
 				key := randomPath + "foo"
 				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
 				c.Assert(err, IsNil)
-				err = kvlocker.Unlock()
+				err = kvlocker.Unlock(context.TODO())
 				c.Assert(err, IsNil)
 
 				_, err = e.etcdClient.Put(context.Background(), key, "bar")
@@ -458,7 +458,7 @@ func (e *EtcdLockedSuite) TestGetIfLocked(c *C) {
 		c.Log(tt.name)
 		args := tt.setupArgs()
 		want := tt.setupWanted()
-		value, err := Client().GetIfLocked(args.key, args.lock)
+		value, err := Client().GetIfLocked(context.TODO(), args.key, args.lock)
 		c.Assert(err, Equals, want.err)
 		c.Assert(value, checker.DeepEquals, want.value)
 		err = tt.cleanup(args)
@@ -509,7 +509,7 @@ func (e *EtcdLockedSuite) TestGetPrefixIfLocked(c *C) {
 				if err != nil {
 					return err
 				}
-				return args.lock.Unlock()
+				return args.lock.Unlock(context.TODO())
 			},
 		},
 		{
@@ -531,7 +531,7 @@ func (e *EtcdLockedSuite) TestGetPrefixIfLocked(c *C) {
 				}
 			},
 			cleanup: func(args args) error {
-				return args.lock.Unlock()
+				return args.lock.Unlock(context.TODO())
 			},
 		},
 		{
@@ -540,7 +540,7 @@ func (e *EtcdLockedSuite) TestGetPrefixIfLocked(c *C) {
 				key := randomPath + "foo"
 				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
 				c.Assert(err, IsNil)
-				err = kvlocker.Unlock()
+				err = kvlocker.Unlock(context.TODO())
 				c.Assert(err, IsNil)
 				_, err = e.etcdClient.Put(context.Background(), key, "bar")
 				c.Assert(err, IsNil)
@@ -616,7 +616,7 @@ func (e *EtcdLockedSuite) TestDeleteIfLocked(c *C) {
 				c.Assert(err, IsNil)
 				c.Assert(gr.Count, Equals, int64(0))
 
-				return args.lock.Unlock()
+				return args.lock.Unlock(context.TODO())
 			},
 		},
 		{
@@ -647,7 +647,7 @@ func (e *EtcdLockedSuite) TestDeleteIfLocked(c *C) {
 				c.Assert(err, IsNil)
 				c.Assert(gr.Count, Equals, int64(0))
 
-				return args.lock.Unlock()
+				return args.lock.Unlock(context.TODO())
 			},
 		},
 		{
@@ -658,7 +658,7 @@ func (e *EtcdLockedSuite) TestDeleteIfLocked(c *C) {
 				c.Assert(err, IsNil)
 				_, err = e.etcdClient.Put(context.Background(), key, "bar")
 				c.Assert(err, IsNil)
-				err = kvlocker.Unlock()
+				err = kvlocker.Unlock(context.TODO())
 				c.Assert(err, IsNil)
 
 				return args{
@@ -686,7 +686,7 @@ func (e *EtcdLockedSuite) TestDeleteIfLocked(c *C) {
 		c.Log(tt.name)
 		args := tt.setupArgs()
 		want := tt.setupWanted()
-		err := Client().DeleteIfLocked(args.key, args.lock)
+		err := Client().DeleteIfLocked(context.TODO(), args.key, args.lock)
 		c.Assert(err, Equals, want.err)
 		err = tt.cleanup(args)
 		c.Assert(err, IsNil)
@@ -738,7 +738,7 @@ func (e *EtcdLockedSuite) TestUpdateIfLocked(c *C) {
 				c.Assert(gr.Count, Equals, int64(1))
 				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("newbar"))
 
-				return args.lock.Unlock()
+				return args.lock.Unlock(context.TODO())
 			},
 		},
 		{
@@ -770,7 +770,7 @@ func (e *EtcdLockedSuite) TestUpdateIfLocked(c *C) {
 				c.Assert(gr.Count, Equals, int64(1))
 				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("newbar"))
 
-				return args.lock.Unlock()
+				return args.lock.Unlock(context.TODO())
 			},
 		},
 		{
@@ -781,7 +781,7 @@ func (e *EtcdLockedSuite) TestUpdateIfLocked(c *C) {
 				c.Assert(err, IsNil)
 				_, err = e.etcdClient.Put(context.Background(), key, "bar")
 				c.Assert(err, IsNil)
-				err = kvlocker.Unlock()
+				err = kvlocker.Unlock(context.TODO())
 				c.Assert(err, IsNil)
 
 				return args{
@@ -833,7 +833,7 @@ func (e *EtcdLockedSuite) TestUpdateIfLocked(c *C) {
 				c.Assert(gr.Count, Equals, int64(1))
 				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("newbar"))
 
-				return args.lock.Unlock()
+				return args.lock.Unlock(context.TODO())
 			},
 		},
 		{
@@ -866,7 +866,7 @@ func (e *EtcdLockedSuite) TestUpdateIfLocked(c *C) {
 				c.Assert(gr.Count, Equals, int64(1))
 				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("newbar"))
 
-				return args.lock.Unlock()
+				return args.lock.Unlock(context.TODO())
 			},
 		},
 		{
@@ -877,7 +877,7 @@ func (e *EtcdLockedSuite) TestUpdateIfLocked(c *C) {
 				c.Assert(err, IsNil)
 				_, err = e.etcdClient.Put(context.Background(), key, "bar")
 				c.Assert(err, IsNil)
-				err = kvlocker.Unlock()
+				err = kvlocker.Unlock(context.TODO())
 				c.Assert(err, IsNil)
 
 				return args{
@@ -961,7 +961,7 @@ func (e *EtcdLockedSuite) TestUpdateIfDifferentIfLocked(c *C) {
 				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("newbar"))
 				_, err = e.etcdClient.Delete(context.Background(), key)
 				c.Assert(err, IsNil)
-				return args.lock.Unlock()
+				return args.lock.Unlock(context.TODO())
 			},
 		},
 		{
@@ -992,7 +992,7 @@ func (e *EtcdLockedSuite) TestUpdateIfDifferentIfLocked(c *C) {
 				c.Assert(gr.Count, Equals, int64(1))
 				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("bar"))
 
-				return args.lock.Unlock()
+				return args.lock.Unlock(context.TODO())
 			},
 		},
 		{
@@ -1026,7 +1026,7 @@ func (e *EtcdLockedSuite) TestUpdateIfDifferentIfLocked(c *C) {
 				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("newbar"))
 				_, err = e.etcdClient.Delete(context.Background(), key)
 				c.Assert(err, IsNil)
-				return args.lock.Unlock()
+				return args.lock.Unlock(context.TODO())
 			},
 		},
 		{
@@ -1037,7 +1037,7 @@ func (e *EtcdLockedSuite) TestUpdateIfDifferentIfLocked(c *C) {
 				c.Assert(err, IsNil)
 				_, err = e.etcdClient.Put(context.Background(), key, "bar")
 				c.Assert(err, IsNil)
-				err = kvlocker.Unlock()
+				err = kvlocker.Unlock(context.TODO())
 				c.Assert(err, IsNil)
 
 				return args{
@@ -1094,7 +1094,7 @@ func (e *EtcdLockedSuite) TestUpdateIfDifferentIfLocked(c *C) {
 				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("newbar"))
 				_, err = e.etcdClient.Delete(context.Background(), key)
 				c.Assert(err, IsNil)
-				return args.lock.Unlock()
+				return args.lock.Unlock(context.TODO())
 			},
 		},
 		{
@@ -1131,7 +1131,7 @@ func (e *EtcdLockedSuite) TestUpdateIfDifferentIfLocked(c *C) {
 				_, err = e.etcdClient.Delete(context.Background(), key)
 				c.Assert(err, IsNil)
 
-				return args.lock.Unlock()
+				return args.lock.Unlock(context.TODO())
 			},
 		},
 		{
@@ -1165,7 +1165,7 @@ func (e *EtcdLockedSuite) TestUpdateIfDifferentIfLocked(c *C) {
 				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("bar"))
 				_, err = e.etcdClient.Delete(context.Background(), key)
 				c.Assert(err, IsNil)
-				return args.lock.Unlock()
+				return args.lock.Unlock(context.TODO())
 			},
 		},
 		{
@@ -1176,7 +1176,7 @@ func (e *EtcdLockedSuite) TestUpdateIfDifferentIfLocked(c *C) {
 				c.Assert(err, IsNil)
 				_, err = e.etcdClient.Put(context.Background(), key, "bar")
 				c.Assert(err, IsNil)
-				err = kvlocker.Unlock()
+				err = kvlocker.Unlock(context.TODO())
 				c.Assert(err, IsNil)
 
 				return args{
@@ -1261,7 +1261,7 @@ func (e *EtcdLockedSuite) TestCreateOnlyIfLocked(c *C) {
 				c.Assert(gr.Count, Equals, int64(1))
 				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("newbar"))
 
-				return args.lock.Unlock()
+				return args.lock.Unlock(context.TODO())
 			},
 		},
 		{
@@ -1294,7 +1294,7 @@ func (e *EtcdLockedSuite) TestCreateOnlyIfLocked(c *C) {
 				c.Assert(gr.Count, Equals, int64(1))
 				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("bar"))
 
-				return args.lock.Unlock()
+				return args.lock.Unlock(context.TODO())
 			},
 		},
 		{
@@ -1305,7 +1305,7 @@ func (e *EtcdLockedSuite) TestCreateOnlyIfLocked(c *C) {
 				c.Assert(err, IsNil)
 				_, err = e.etcdClient.Delete(context.Background(), key)
 				c.Assert(err, IsNil)
-				err = kvlocker.Unlock()
+				err = kvlocker.Unlock(context.TODO())
 				c.Assert(err, IsNil)
 
 				return args{
@@ -1359,7 +1359,7 @@ func (e *EtcdLockedSuite) TestCreateOnlyIfLocked(c *C) {
 				c.Assert(gr.Count, Equals, int64(1))
 				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("newbar"))
 
-				return args.lock.Unlock()
+				return args.lock.Unlock(context.TODO())
 			},
 		},
 		{
@@ -1393,7 +1393,7 @@ func (e *EtcdLockedSuite) TestCreateOnlyIfLocked(c *C) {
 				c.Assert(gr.Count, Equals, int64(1))
 				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("bar"))
 
-				return args.lock.Unlock()
+				return args.lock.Unlock(context.TODO())
 			},
 		},
 		{
@@ -1404,7 +1404,7 @@ func (e *EtcdLockedSuite) TestCreateOnlyIfLocked(c *C) {
 				c.Assert(err, IsNil)
 				_, err = e.etcdClient.Delete(context.Background(), key)
 				c.Assert(err, IsNil)
-				err = kvlocker.Unlock()
+				err = kvlocker.Unlock(context.TODO())
 				c.Assert(err, IsNil)
 
 				return args{
@@ -1492,7 +1492,7 @@ func (e *EtcdLockedSuite) TestListPrefixIfLocked(c *C) {
 				if err != nil {
 					return err
 				}
-				return args.lock.Unlock()
+				return args.lock.Unlock(context.TODO())
 			},
 		},
 		{
@@ -1515,7 +1515,7 @@ func (e *EtcdLockedSuite) TestListPrefixIfLocked(c *C) {
 				}
 			},
 			cleanup: func(args args) error {
-				return args.lock.Unlock()
+				return args.lock.Unlock(context.TODO())
 			},
 		},
 		{
@@ -1528,7 +1528,7 @@ func (e *EtcdLockedSuite) TestListPrefixIfLocked(c *C) {
 				c.Assert(err, IsNil)
 				_, err = e.etcdClient.Put(context.Background(), key+"1", "bar1")
 				c.Assert(err, IsNil)
-				err = kvlocker.Unlock()
+				err = kvlocker.Unlock(context.TODO())
 				c.Assert(err, IsNil)
 
 				return args{
@@ -1551,7 +1551,7 @@ func (e *EtcdLockedSuite) TestListPrefixIfLocked(c *C) {
 		c.Log(tt.name)
 		args := tt.setupArgs()
 		want := tt.setupWanted()
-		kvPairs, err := Client().ListPrefixIfLocked(args.key, args.lock)
+		kvPairs, err := Client().ListPrefixIfLocked(context.TODO(), args.key, args.lock)
 		c.Assert(err, Equals, want.err)
 		for k, v := range kvPairs {
 			// We don't compare revision of the value because we can't predict

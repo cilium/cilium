@@ -15,6 +15,7 @@
 package kvstore
 
 import (
+	"context"
 	"fmt"
 )
 
@@ -26,9 +27,9 @@ var (
 	defaultClientSet = make(chan struct{})
 )
 
-func initClient(module backendModule, opts *ExtraOptions) error {
+func initClient(ctx context.Context, module backendModule, opts *ExtraOptions) error {
 	scopedLog := log.WithField(fieldKVStoreModule, module.getName())
-	c, errChan := module.newClient(opts)
+	c, errChan := module.newClient(ctx, opts)
 	if c == nil {
 		err := <-errChan
 		scopedLog.WithError(err).Fatal("Unable to create kvstore client")
@@ -47,7 +48,7 @@ func initClient(module backendModule, opts *ExtraOptions) error {
 		if isErr && err != nil {
 			scopedLog.WithError(err).Fatal("Unable to connect to kvstore")
 		}
-		deleteLegacyPrefixes()
+		deleteLegacyPrefixes(ctx)
 	}()
 
 	return nil
@@ -60,7 +61,7 @@ func Client() BackendOperations {
 }
 
 // NewClient returns a new kvstore client based on the configuration
-func NewClient(selectedBackend string, opts map[string]string, options *ExtraOptions) (BackendOperations, chan error) {
+func NewClient(ctx context.Context, selectedBackend string, opts map[string]string, options *ExtraOptions) (BackendOperations, chan error) {
 	// Channel used to report immediate errors, module.newClient will
 	// create and return a different channel, caller doesn't need to know
 	errChan := make(chan error, 1)
@@ -82,5 +83,5 @@ func NewClient(selectedBackend string, opts map[string]string, options *ExtraOpt
 		return nil, errChan
 	}
 
-	return module.newClient(options)
+	return module.newClient(ctx, options)
 }
