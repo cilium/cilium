@@ -193,6 +193,12 @@ data:
   flannel-manage-existing-containers: "{{ .Values.global.flannel.manageExistingContainers }}"
 {{- end }}
 
+{{- if .Values.global.l7Proxy }}
+
+  # Enables L7 proxy for L7 policy enforcement and visibility
+  enable-l7-proxy: {{ .Values.global.l7Proxy.enabled | quote }}
+{{- end }}
+
   # DNS Polling periodically issues a DNS lookup for each `matchName` from
   # cilium-agent. The result is used to regenerate endpoint policy.
   # DNS lookups are repeated with an interval of 5 seconds, and are made for
