@@ -17,6 +17,7 @@
 package cache
 
 import (
+	"context"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/identity"
@@ -61,14 +62,14 @@ func (s *IdentityCacheTestSuite) TestLookupReservedIdentity(c *C) {
 	<-mgr.InitIdentityAllocator(nil, nil)
 
 	hostID := identity.GetReservedID("host")
-	c.Assert(mgr.LookupIdentityByID(hostID), Not(IsNil))
+	c.Assert(mgr.LookupIdentityByID(context.TODO(), hostID), Not(IsNil))
 
 	id := mgr.LookupIdentity(labels.NewLabelsFromModel([]string{"reserved:host"}))
 	c.Assert(id, Not(IsNil))
 	c.Assert(id.ID, Equals, hostID)
 
 	worldID := identity.GetReservedID("world")
-	c.Assert(mgr.LookupIdentityByID(worldID), Not(IsNil))
+	c.Assert(mgr.LookupIdentityByID(context.TODO(), worldID), Not(IsNil))
 
 	id = mgr.LookupIdentity(labels.NewLabelsFromModel([]string{"reserved:world"}))
 	c.Assert(id, Not(IsNil))

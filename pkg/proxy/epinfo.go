@@ -15,6 +15,7 @@
 package proxy
 
 import (
+	"context"
 	"net"
 
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -46,7 +47,7 @@ type EndpointLookup interface {
 type defaultEndpointInfoRegistry struct{}
 
 func (r *defaultEndpointInfoRegistry) FillEndpointIdentityByID(id identity.NumericIdentity, info *accesslog.EndpointInfo) bool {
-	identity := Allocator.LookupIdentityByID(id)
+	identity := Allocator.LookupIdentityByID(context.TODO(), id)
 	if identity == nil {
 		return false
 	}

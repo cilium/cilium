@@ -514,7 +514,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 					Port:         uint16(serverPort),
 				}
 			} else if serverSecID, exists := ipcache.IPIdentityCache.LookupByIP(serverIP); exists {
-				secID := d.identityAllocator.LookupIdentityByID(serverSecID.ID)
+				secID := d.identityAllocator.LookupIdentityByID(d.ctx, serverSecID.ID)
 				// TODO: handle IPv6
 				lr.LogRecord.DestinationEndpoint = accesslog.EndpointInfo{
 					IPv4: serverIP,

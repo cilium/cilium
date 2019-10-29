@@ -66,7 +66,7 @@ func (h *getIdentityID) Handle(params GetIdentityIDParams) middleware.Responder 
 		return NewGetIdentityIDBadRequest()
 	}
 
-	identity := h.c.LookupIdentityByID(nid)
+	identity := h.c.LookupIdentityByID(params.HTTPRequest.Context(), nid)
 	if identity == nil {
 		return NewGetIdentityIDNotFound()
 	}
