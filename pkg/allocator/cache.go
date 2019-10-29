@@ -189,7 +189,7 @@ func (c *cache) start(a *Allocator) waitChan {
 	c.stopWatchWg.Add(1)
 
 	go func() {
-		c.allocator.backend.ListAndWatch(c, c.stopChan)
+		c.allocator.backend.ListAndWatch(context.TODO(), c, c.stopChan)
 		c.stopWatchWg.Done()
 	}()
 

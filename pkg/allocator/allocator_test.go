@@ -163,7 +163,7 @@ func (d *dummyBackend) Release(ctx context.Context, key AllocatorKey) error {
 	return fmt.Errorf("identity does not exist")
 }
 
-func (d *dummyBackend) ListAndWatch(handler CacheMutations, stopChan chan struct{}) {
+func (d *dummyBackend) ListAndWatch(ctx context.Context, handler CacheMutations, stopChan chan struct{}) {
 	d.mutex.Lock()
 	d.handler = handler
 	for id, k := range d.identities {

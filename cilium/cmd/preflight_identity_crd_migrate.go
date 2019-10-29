@@ -253,7 +253,7 @@ func getKVStoreIdentities(ctx context.Context, kvstoreBackend allocator.Backend)
 	identities = make(map[idpool.ID]allocator.AllocatorKey)
 	stopChan := make(chan struct{})
 
-	go kvstoreBackend.ListAndWatch(kvstoreListHandler{
+	go kvstoreBackend.ListAndWatch(ctx, kvstoreListHandler{
 		onAdd: func(id idpool.ID, key allocator.AllocatorKey) {
 			log.Debugf("kvstore listed ID: %+v -> %+v", id, key)
 			identities[id] = key

@@ -390,7 +390,7 @@ func (c *crdBackend) Release(ctx context.Context, key allocator.AllocatorKey) (e
 	return err
 }
 
-func (c *crdBackend) ListAndWatch(handler allocator.CacheMutations, stopChan chan struct{}) {
+func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMutations, stopChan chan struct{}) {
 	c.Store = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 	identityInformer := informer.NewInformerWithStore(
 		cache.NewListWatchFromClient(c.Client.CiliumV2().RESTClient(),
