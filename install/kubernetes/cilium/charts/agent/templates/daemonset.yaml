@@ -3,14 +3,12 @@ kind: DaemonSet
 metadata:
   labels:
     k8s-app: cilium
-    kubernetes.io/cluster-service: "true"
   name: cilium
   namespace: {{ .Release.Namespace }}
 spec:
   selector:
     matchLabels:
       k8s-app: cilium
-      kubernetes.io/cluster-service: "true"
   template:
     metadata:
       annotations:
@@ -26,7 +24,6 @@ spec:
         scheduler.alpha.kubernetes.io/tolerations: '[{"key":"dedicated","operator":"Equal","value":"master","effect":"NoSchedule"}]'
       labels:
         k8s-app: cilium
-        kubernetes.io/cluster-service: "true"
     spec:
       containers:
       - args:
