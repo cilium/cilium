@@ -164,47 +164,29 @@ func resolveIP(n *healthNode, addr *ciliumModels.NodeAddressingElement, proto st
 	return node.Name, ra
 }
 
-// markIPsLocked marks all nodes in the prober for deletion.
-func (p *prober) markIPsLocked(deletedNodes nodeMap) {
-	for ip := range deletedNodes {
-		node, ok := p.nodes[ip]
-		if ok {
-			node.deletionMark = true
-			p.nodes[ip] = node
-		}
-	}
-}
-
-// sweepIPsLocked iterates through nodes in the prober and removes nodes which
-// are marked for deletion.
-func (p *prober) sweepIPsLocked() {
-	for ip, node := range p.nodes {
-		if node.deletionMark {
-			// Remove deleted nodes from:
-			// * Results (accessed from ICMP pinger or TCP prober)
-			// * ICMP pinger
-			// * TCP prober
-			for elem := range node.Addresses() {
-				delete(p.results, ipString(elem.IP))
-				p.RemoveIP(elem.IP) // ICMP pinger
-			}
-			delete(p.nodes, ip) // TCP prober
-		}
-	}
-}
-
 // setNodes sets the list of nodes for the prober, and updates the pinger to
 // start sending pings to all nodes added.
 // 'removed' nodes will be removed from the pinger to stop sending pings to
 // those removed nodes.
 // setNodes will steal references to nodes referenced from 'added', so the
 // caller should not modify them after a call to setNodes.
+// If a node is updated, it will appear in both maps and will be removed then
+// added (potentially with different information).
 func (p *prober) setNodes(added nodeMap, removed nodeMap) {
 	p.Lock()
 	defer p.Unlock()
 
-	// Mark nodes that were removed for deletion.
-	p.markIPsLocked(removed)
+	for ip, n := range removed {
+		// Remove deleted nodes from:
+		// * Results (accessed from ICMP pinger or TCP prober)
+		// * ICMP pinger
+		// * TCP prober
+		for elem := range n.Addresses() {
+			delete(p.results, ipString(elem.IP))
+			p.RemoveIP(elem.IP) // ICMP pinger
+		}
+		delete(p.nodes, ip) // TCP prober
+	}
 
 	for _, n := range added {
 		for elem, primary := range n.Addresses() {
@@ -228,8 +210,6 @@ func (p *prober) setNodes(added nodeMap, removed nodeMap) {
 			p.results[ip].Icmp = result
 		}
 	}
-
-	p.sweepIPsLocked()
 }
 
 func (p *prober) httpProbe(node string, ip string, port int) *models.ConnectivityStatus {
