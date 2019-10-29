@@ -289,7 +289,7 @@ func runOperator(cmd *cobra.Command) {
 			scopedLog.Info("cilium-operator running without service synchronization: automatic etcd service translation disabled")
 		}
 		scopedLog.Info("Connecting to kvstore...")
-		if err := kvstore.Setup(context.TODO(), kvStore, kvStoreOpts, goopts); err != nil {
+		if err := kvstore.Setup(context.TODO(), context.TODO(), kvStore, kvStoreOpts, goopts); err != nil {
 			scopedLog.WithError(err).Fatal("Unable to setup kvstore")
 		}
 

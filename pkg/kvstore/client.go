@@ -27,7 +27,7 @@ var (
 	defaultClientSet = make(chan struct{})
 )
 
-func initClient(ctx context.Context, module backendModule, opts *ExtraOptions) error {
+func initClient(ctx context.Context, module backendModule, opts *ExtraOptions) (BackendOperations, error) {
 	scopedLog := log.WithField(fieldKVStoreModule, module.getName())
 	c, errChan := module.newClient(ctx, opts)
 	if c == nil {
@@ -51,7 +51,7 @@ func initClient(ctx context.Context, module backendModule, opts *ExtraOptions) e
 		deleteLegacyPrefixes(ctx)
 	}()
 
-	return nil
+	return c, nil
 }
 
 // Client returns the global kvstore client or nil if the client is not configured yet
