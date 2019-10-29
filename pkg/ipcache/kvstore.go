@@ -208,11 +208,11 @@ func NewIPIdentityWatcher(backend kvstore.BackendOperations) *IPIdentityWatcher 
 // received from the kvstore, All IPIdentityMappingListener are notified. The
 // function returns when IPIdentityWatcher.Close() is called. The watcher will
 // automatically restart as required.
-func (iw *IPIdentityWatcher) Watch() {
+func (iw *IPIdentityWatcher) Watch(ctx context.Context) {
 
 	var scopedLog *logrus.Entry
 restart:
-	watcher := iw.backend.ListAndWatch(context.TODO(), "endpointIPWatcher", IPIdentitiesPath, 512)
+	watcher := iw.backend.ListAndWatch(ctx, "endpointIPWatcher", IPIdentitiesPath, 512)
 
 	for {
 		select {
@@ -301,7 +301,7 @@ restart:
 
 				if m, ok := globalMap.marshaledIPIDPairs[event.Key]; ok {
 					log.WithField("ip", ip).Warning("Received kvstore delete notification for alive ipcache entry")
-					err := globalMap.store.upsert(context.TODO(), event.Key, string(m), true)
+					err := globalMap.store.upsert(ctx, event.Key, string(m), true)
 					if err != nil {
 						log.WithError(err).WithField("ip", ip).Warning("Unable to re-create alive ipcache entry")
 					}
@@ -315,7 +315,10 @@ restart:
 					IPIdentityCache.Delete(ip, source.KVStore)
 				}
 			}
-
+		case <-ctx.Done():
+			// Stop this identity watcher, we have been signaled to shut down
+			// via context. This will result in iw.stop being closed.
+			iw.Close()
 		case <-iw.stop:
 			// identity watcher was stopped
 			watcher.Stop()
@@ -348,7 +351,7 @@ func InitIPIdentityWatcher() {
 			log.Info("Starting IP identity watcher")
 			watcher = NewIPIdentityWatcher(kvstore.Client())
 			close(initialized)
-			watcher.Watch()
+			watcher.Watch(context.TODO())
 		}()
 	})
 }
