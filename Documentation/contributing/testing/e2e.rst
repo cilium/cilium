@@ -38,8 +38,8 @@ determine which VMs are necessary to run particular tests. All test names
 Running End-To-End Tests
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Running All Tests
-^^^^^^^^^^^^^^^^^
+Running All Ginkgo Tests
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 Running all of the Ginkgo tests may take an hour or longer. To run all the
 ginkgo tests, invoke the make command as follows from the root of the cilium
@@ -47,7 +47,7 @@ repository:
 
 ::
 
-    $ sudo make -C test/
+    $ sudo make -C test/ test
 
 The first time that this is invoked, the testsuite will pull the
 `testing VMs <https://app.vagrantup.com/cilium/boxes/ginkgo>`_ and provision
@@ -234,6 +234,16 @@ If you want to run one specified test, there are a few options:
 
 This will focus on tests prefixed with "Run*", and within that focus, run any
 test that starts with "L7".
+
+Compiling the tests without running them
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To validate that the Go code you've written for testing is correct without
+needing to run the full test, you can build the test directory:
+
+::
+
+	make -C test/ build
 
 Test Reports
 ~~~~~~~~~~~~
