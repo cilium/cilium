@@ -204,7 +204,7 @@ func (c *crdBackend) AcquireReference(ctx context.Context, id idpool.ID, key all
 	return err
 }
 
-func (c *crdBackend) RunGC(staleKeysPrevRound map[string]uint64) (map[string]uint64, error) {
+func (c *crdBackend) RunGC(ctx context.Context, staleKeysPrevRound map[string]uint64) (map[string]uint64, error) {
 	return nil, nil
 }
 

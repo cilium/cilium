@@ -399,9 +399,9 @@ func (k *kvstoreBackend) Release(ctx context.Context, key allocator.AllocatorKey
 }
 
 // RunGC scans the kvstore for unused master keys and removes them
-func (k *kvstoreBackend) RunGC(staleKeysPrevRound map[string]uint64) (map[string]uint64, error) {
+func (k *kvstoreBackend) RunGC(ctx context.Context, staleKeysPrevRound map[string]uint64) (map[string]uint64, error) {
 	// fetch list of all /id/ keys
-	allocated, err := kvstore.ListPrefix(context.TODO(), k.idPrefix)
+	allocated, err := kvstore.ListPrefix(ctx, k.idPrefix)
 	if err != nil {
 		return nil, fmt.Errorf("list failed: %s", err)
 	}
@@ -414,7 +414,7 @@ func (k *kvstoreBackend) RunGC(staleKeysPrevRound map[string]uint64) (map[string
 		// FIXME: Add DeleteOnZeroCount support
 		// }
 
-		lock, err := k.lockPath(context.TODO(), key)
+		lock, err := k.lockPath(ctx, key)
 		if err != nil {
 			log.WithError(err).WithField(fieldKey, key).Warning("allocator garbage collector was unable to lock key")
 			continue
@@ -422,10 +422,10 @@ func (k *kvstoreBackend) RunGC(staleKeysPrevRound map[string]uint64) (map[string
 
 		// fetch list of all /value/<key> keys
 		valueKeyPrefix := path.Join(k.valuePrefix, string(v.Data))
-		pairs, err := kvstore.ListPrefixIfLocked(context.TODO(), valueKeyPrefix, lock)
+		pairs, err := kvstore.ListPrefixIfLocked(ctx, valueKeyPrefix, lock)
 		if err != nil {
 			log.WithError(err).WithField(fieldPrefix, valueKeyPrefix).Warning("allocator garbage collector was unable to list keys")
-			lock.Unlock(context.TODO())
+			lock.Unlock(ctx)
 			continue
 		}
 
@@ -445,7 +445,7 @@ func (k *kvstoreBackend) RunGC(staleKeysPrevRound map[string]uint64) (map[string
 			})
 			// Only delete if this key was previously marked as to be deleted
 			if modRev, ok := staleKeysPrevRound[key]; ok && modRev == v.ModRevision {
-				if err := kvstore.DeleteIfLocked(context.TODO(), key, lock); err != nil {
+				if err := kvstore.DeleteIfLocked(ctx, key, lock); err != nil {
 					scopedLog.WithError(err).Warning("Unable to delete unused allocator master key")
 				} else {
 					scopedLog.Info("Deleted unused allocator master key")
@@ -456,7 +456,7 @@ func (k *kvstoreBackend) RunGC(staleKeysPrevRound map[string]uint64) (map[string
 			}
 		}
 
-		lock.Unlock(context.TODO())
+		lock.Unlock(ctx)
 	}
 
 	return staleKeys, nil

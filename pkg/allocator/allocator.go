@@ -242,7 +242,7 @@ type Backend interface {
 	// by cilium-agent.
 	// Note: not all Backend implemenations rely on this, such as the kvstore
 	// backends, and may use leases to expire keys.
-	RunGC(staleKeysPrevRound map[string]uint64) (map[string]uint64, error)
+	RunGC(ctx context.Context, staleKeysPrevRound map[string]uint64) (map[string]uint64, error)
 
 	// Status returns a human-readable status of the Backend.
 	Status() (string, error)
@@ -697,7 +697,7 @@ func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool
 
 // RunGC scans the kvstore for unused master keys and removes them
 func (a *Allocator) RunGC(staleKeysPrevRound map[string]uint64) (map[string]uint64, error) {
-	return a.backend.RunGC(staleKeysPrevRound)
+	return a.backend.RunGC(context.TODO(), staleKeysPrevRound)
 }
 
 // DeleteAllKeys will delete all keys. It is expected to be used in tests.
