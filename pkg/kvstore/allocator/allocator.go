@@ -277,8 +277,8 @@ func (k *kvstoreBackend) GetIfLocked(ctx context.Context, key allocator.Allocato
 
 // GetByID returns the key associated with an ID. Returns nil if no key is
 // associated with the ID.
-func (k *kvstoreBackend) GetByID(id idpool.ID) (allocator.AllocatorKey, error) {
-	v, err := kvstore.Get(context.TODO(), path.Join(k.idPrefix, id.String()))
+func (k *kvstoreBackend) GetByID(ctx context.Context, id idpool.ID) (allocator.AllocatorKey, error) {
+	v, err := kvstore.Get(ctx, path.Join(k.idPrefix, id.String()))
 	if err != nil {
 		return nil, err
 	}

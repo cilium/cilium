@@ -307,7 +307,7 @@ func (c *crdBackend) GetIfLocked(ctx context.Context, key allocator.AllocatorKey
 // GetByID returns the key associated with an ID. Returns nil if no key is
 // associated with the ID.
 // Note: the lock field is not supported with the k8s CRD allocator.
-func (c *crdBackend) GetByID(id idpool.ID) (allocator.AllocatorKey, error) {
+func (c *crdBackend) GetByID(ctx context.Context, id idpool.ID) (allocator.AllocatorKey, error) {
 	if c.Store == nil {
 		return nil, fmt.Errorf("store is not available yet")
 	}
