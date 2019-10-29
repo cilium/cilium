@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/kvstore"
 	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
 )
 
@@ -32,9 +33,9 @@ var (
 	identityAllocationMode string
 )
 
-func startIdentityGC() {
+func startIdentityGC(kvbackend kvstore.BackendOperations) {
 	log.Infof("Starting security identity garbage collector with %s interval...", identityGCInterval)
-	backend, err := kvstoreallocator.NewKVStoreBackend(cache.IdentitiesPath, "", nil)
+	backend, err := kvstoreallocator.NewKVStoreBackend(kvbackend, cache.IdentitiesPath, "", nil)
 	if err != nil {
 		log.WithError(err).Fatal("Unable to initialize kvstore backend for identity allocation")
 	}

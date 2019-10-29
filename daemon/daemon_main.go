@@ -1145,7 +1145,7 @@ func (d *Daemon) initKVStore() {
 		}
 	}
 
-	if _, err := kvstore.Setup(context.TODO(), option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
+	if err := d.kvbackend.Setup(context.TODO(), option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
 		addrkey := fmt.Sprintf("%s.address", option.Config.KVStore)
 		addr := option.Config.KVStoreOpt[addrkey]
 
@@ -1219,7 +1219,7 @@ func runDaemon() {
 	// We need to set up etcd in parallel so we will initialize the k8s
 	// subsystem as well in parallel so caches will start to be synchronized
 	// with k8s.
-	k8sCachesSynced := d.k8sWatcher.InitK8sSubsystem()
+	k8sCachesSynced := d.k8sWatcher.InitK8sSubsystem(d.kvbackend)
 	if option.Config.KVStore == "" {
 		log.Info("Skipping kvstore configuration")
 	} else {

@@ -83,5 +83,8 @@ func NewClient(ctx context.Context, selectedBackend string, opts map[string]stri
 		return nil, errChan
 	}
 
-	return module.newClient(ctx, options)
+	kv, retErrCh := module.newClient(ctx, options)
+	kvc := NewKVClient()
+	kvc.BackendOperations = kv
+	return kvc, retErrCh
 }

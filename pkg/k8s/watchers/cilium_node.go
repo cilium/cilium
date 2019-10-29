@@ -31,7 +31,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, serNodes *serializer.FunctionQueue, asyncControllers *sync.WaitGroup) {
+func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, kvbackend *kvstore.KVClient, serNodes *serializer.FunctionQueue, asyncControllers *sync.WaitGroup) {
 
 	// CiliumNode objects are used for node discovery until the key-value
 	// store is connected
@@ -122,7 +122,11 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, serNode
 		k.k8sAPIGroups.addAPI(k8sAPIGroupCiliumNodeV2)
 		go ciliumNodeInformer.Run(isConnected)
 
+<<<<<<< HEAD
 		<-kvstore.Client().Connected(context.TODO())
+=======
+		<-kvbackend.Connected()
+>>>>>>> cbf729f08... WIP: reduce invocations of kvstore.Client()
 		close(isConnected)
 
 		log.Info("Connected to key-value store, stopping CiliumNode watcher")
@@ -130,7 +134,7 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, serNode
 		k.k8sAPIGroups.removeAPI(k8sAPIGroupCiliumNodeV2)
 		// Create a new node controller when we are disconnected with the
 		// kvstore
-		<-kvstore.Client().Disconnected()
+		<-kvbackend.Disconnected()
 
 		log.Info("Disconnected from key-value store, restarting CiliumNode watcher")
 	}

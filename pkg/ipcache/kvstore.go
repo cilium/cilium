@@ -342,12 +342,13 @@ var (
 
 // InitIPIdentityWatcher initializes the watcher for ip-identity mapping events
 // in the key-value store.
-func InitIPIdentityWatcher() {
+func InitIPIdentityWatcher(kvbackend *kvstore.KVClient) {
 	setupIPIdentityWatcher.Do(func() {
 		go func() {
 			log.Info("Starting IP identity watcher")
-			watcher = NewIPIdentityWatcher(kvstore.Client())
+			watcher = NewIPIdentityWatcher(kvbackend)
 			close(initialized)
+			<-kvbackend.Connected()
 			watcher.Watch()
 		}()
 	})

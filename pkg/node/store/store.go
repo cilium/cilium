@@ -90,7 +90,7 @@ type NodeManager interface {
 }
 
 // RegisterNode registers the local node in the cluster
-func (nr *NodeRegistrar) RegisterNode(n *node.Node, manager NodeManager) error {
+func (nr *NodeRegistrar) RegisterNode(kvbackend kvstore.BackendOperations, n *node.Node, manager NodeManager) error {
 	if option.Config.KVStore == "" {
 		return nil
 	}
@@ -100,6 +100,7 @@ func (nr *NodeRegistrar) RegisterNode(n *node.Node, manager NodeManager) error {
 		Prefix:     NodeStorePrefix,
 		KeyCreator: KeyCreator,
 		Observer:   NewNodeObserver(manager),
+		Backend:    kvbackend,
 	})
 
 	if err != nil {

@@ -46,6 +46,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/endpointsynchronizer"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -138,6 +139,8 @@ type Daemon struct {
 	identityAllocator *cache.CachingIdentityAllocator
 
 	k8sWatcher *watchers.K8sWatcher
+
+	kvbackend *kvstore.KVClient
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -312,6 +315,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 		mtuConfig:        mtuConfig,
 		datapath:         dp,
 		nodeDiscovery:    nd,
+		kvbackend:        kvstore.NewKVClient(),
 	}
 
 	d.identityAllocator = cache.NewCachingIdentityAllocator(&d)
@@ -480,14 +484,14 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 		log.Debug("Annotate k8s node is disabled.")
 	}
 
-	d.nodeDiscovery.StartDiscovery(node.GetName())
+	d.nodeDiscovery.StartDiscovery(d.kvbackend, node.GetName())
 
 	// This needs to be done after the node addressing has been configured
 	// as the node address is required as suffix.
 	// well known identities have already been initialized above.
 	// Ignore the channel returned by this function, as we want the global
 	// identity allocator to run asynchronously.
-	d.identityAllocator.InitIdentityAllocator(k8s.CiliumClient(), nil)
+	d.identityAllocator.InitIdentityAllocator(d.kvbackend, k8s.CiliumClient(), nil)
 
 	d.bootstrapClusterMesh(nodeMngr)
 
@@ -514,7 +518,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	// Start watcher for endpoint IP --> identity mappings in key-value store.
 	// this needs to be done *after* init() for the daemon in that function,
 	// we populate the IPCache with the host's IP(s).
-	ipcache.InitIPIdentityWatcher()
+	ipcache.InitIPIdentityWatcher(d.kvbackend)
 	identitymanager.Subscribe(d.policy)
 
 	bootstrapStats.fqdn.Start()

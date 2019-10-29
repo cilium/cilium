@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -83,7 +84,7 @@ func k8sServiceHandler() {
 	}
 }
 
-func startSynchronizingServices() {
+func startSynchronizingServices(kvbackend kvstore.BackendOperations) {
 	log.Info("Starting to synchronize k8s services to kvstore...")
 
 	readyChan := make(chan struct{}, 0)
@@ -95,6 +96,7 @@ func startSynchronizingServices() {
 				return &service.ClusterService{}
 			},
 			SynchronizationInterval: 5 * time.Minute,
+			Backend:                 kvbackend,
 		})
 
 		if err != nil {

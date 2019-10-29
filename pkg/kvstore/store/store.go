@@ -95,8 +95,9 @@ func (c *Configuration) validate() error {
 	}
 
 	if c.Backend == nil {
-		c.Backend = kvstore.Client()
+		return fmt.Errorf("Backend must be specified")
 	}
+	<-c.Backend.Connected()
 
 	if c.Context == nil {
 		c.Context = context.Background()

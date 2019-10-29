@@ -36,7 +36,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, serCiliumEndpoints *serializer.FunctionQueue, asyncControllers *sync.WaitGroup) {
+func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, kvbackend *kvstore.KVClient, serCiliumEndpoints *serializer.FunctionQueue, asyncControllers *sync.WaitGroup) {
 	// CiliumEndpoint objects are used for ipcache discovery until the
 	// key-value store is connected
 	var once sync.Once
@@ -119,7 +119,7 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, se
 		k.k8sAPIGroups.addAPI(k8sAPIGroupCiliumEndpointV2)
 		go ciliumEndpointInformer.Run(isConnected)
 
-		<-kvstore.Client().Connected(context.TODO())
+		<-kvbackend.Connected(context.TODO())
 		close(isConnected)
 
 		log.Info("Connected to key-value store, stopping CiliumEndpoint watcher")
@@ -127,7 +127,7 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, se
 		k.k8sAPIGroups.removeAPI(k8sAPIGroupCiliumEndpointV2)
 		// Create a new node controller when we are disconnected with the
 		// kvstore
-		<-kvstore.Client().Disconnected()
+		<-kvbackend.Disconnected()
 
 		log.Info("Disconnected from key-value store, restarting CiliumEndpoint watcher")
 	}

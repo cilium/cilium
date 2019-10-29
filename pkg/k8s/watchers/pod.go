@@ -46,7 +46,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, serPods *serializer.FunctionQueue, asyncControllers *sync.WaitGroup) {
+func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, kvbackend *kvstore.KVClient, serPods *serializer.FunctionQueue, asyncControllers *sync.WaitGroup) {
 	var once sync.Once
 	for {
 		swgPods := lock.NewStoppableWaitGroup()
@@ -129,7 +129,7 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, serPods *serialize
 		// Replace pod controller by only receiving events from our own
 		// node once we are connected to the kvstore.
 
-		<-kvstore.Client().Connected(context.TODO())
+		<-kvbackend.Connected(context.TODO())
 		close(isConnected)
 
 		log.WithField(logfields.Node, node.GetName()).Info("Connected to KVStore, watching for pod events on node")
@@ -140,7 +140,7 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, serPods *serialize
 
 		// Create a new pod controller when we are disconnected with the
 		// kvstore
-		<-kvstore.Client().Disconnected()
+		<-kvbackend.Disconnected()
 		close(isConnected)
 		log.Info("Disconnected from KVStore, watching for pod events all nodes")
 	}

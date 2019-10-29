@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -310,8 +311,8 @@ func (k *K8sWatcher) WaitForCacheSync(resourceNames ...string) {
 
 // InitK8sSubsystem returns a channel for which it will be closed when all
 // caches essential for daemon are synchronized.
-func (k *K8sWatcher) InitK8sSubsystem() <-chan struct{} {
-	if err := k.EnableK8sWatcher(option.Config.K8sWatcherQueueSize); err != nil {
+func (k *K8sWatcher) InitK8sSubsystem(kvbackend *kvstore.KVClient) <-chan struct{} {
+	if err := k.EnableK8sWatcher(kvbackend, option.Config.K8sWatcherQueueSize); err != nil {
 		log.WithError(err).Fatal("Unable to establish connection to Kubernetes apiserver")
 	}
 
@@ -368,7 +369,7 @@ func (k *K8sWatcher) InitK8sSubsystem() <-chan struct{} {
 // EnableK8sWatcher watches for policy, services and endpoint changes on the Kubernetes
 // api server defined in the receiver's daemon k8sClient.
 // queueSize specifies the queue length used to serialize k8s events.
-func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
+func (k *K8sWatcher) EnableK8sWatcher(kvbackend *kvstore.KVClient, queueSize uint) error {
 	if !k8s.IsEnabled() {
 		log.Debug("Not enabling k8s event listener because k8s is not enabled")
 		return nil
@@ -403,17 +404,17 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 	// cilium nodes
 	asyncControllers.Add(1)
 	serNodes := serializer.NewFunctionQueue(queueSize)
-	go k.ciliumNodeInit(ciliumNPClient, serNodes, asyncControllers)
+	go k.ciliumNodeInit(ciliumNPClient, kvbackend, serNodes, asyncControllers)
 
 	// cilium endpoints
 	asyncControllers.Add(1)
 	serCiliumEndpoints := serializer.NewFunctionQueue(queueSize)
-	go k.ciliumEndpointsInit(ciliumNPClient, serCiliumEndpoints, asyncControllers)
+	go k.ciliumEndpointsInit(ciliumNPClient, kvbackend, serCiliumEndpoints, asyncControllers)
 
 	// kubernetes pods
 	asyncControllers.Add(1)
 	serPods := serializer.NewFunctionQueue(queueSize)
-	go k.podsInit(k8s.Client(), serPods, asyncControllers)
+	go k.podsInit(k8s.Client(), kvbackend, serPods, asyncControllers)
 
 	// kubernetes namespaces
 	serNamespaces := serializer.NewFunctionQueue(queueSize)

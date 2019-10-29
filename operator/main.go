@@ -254,9 +254,14 @@ func runOperator(cmd *cobra.Command) {
 		startSynchronizingCiliumNodes()
 	}
 
+	var kvbackend *kvstore.KVClient
+
 	if kvstoreEnabled() {
+
+		kvbackend = kvstore.NewKVClient()
+
 		if synchronizeServices {
-			startSynchronizingServices()
+			startSynchronizingServices(kvbackend)
 		}
 
 		var goopts *kvstore.ExtraOptions
@@ -289,13 +294,13 @@ func runOperator(cmd *cobra.Command) {
 			scopedLog.Info("cilium-operator running without service synchronization: automatic etcd service translation disabled")
 		}
 		scopedLog.Info("Connecting to kvstore...")
-		kvstoreClient, err := kvstore.Setup(context.TODO(), kvStore, kvStoreOpts, goopts)
+		err := kvbackend.Setup(context.TODO(), kvStore, kvStoreOpts, goopts)
 		if err != nil {
 			scopedLog.WithError(err).Fatal("Unable to setup kvstore")
 		}
 
 		if synchronizeNodes {
-			if err := runNodeWatcher(kvstoreClient); err != nil {
+			if err := runNodeWatcher(kvbackend); err != nil {
 				log.WithError(err).Error("Unable to setup node watcher")
 			}
 		}
@@ -314,7 +319,7 @@ func runOperator(cmd *cobra.Command) {
 	}
 
 	if identityGCInterval != time.Duration(0) {
-		startIdentityGC()
+		startIdentityGC(kvbackend)
 	}
 	err := enableCNPWatcher()
 	if err != nil {

@@ -194,7 +194,10 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 				rc.swg.Stop()
 
 				ipCacheWatcher := ipcache.NewIPIdentityWatcher(backend)
-				go ipCacheWatcher.Watch()
+				go func() {
+					<-backend.Connected()
+					ipCacheWatcher.Watch()
+				}()
 
 				remoteIdentityCache := allocator.WatchRemoteIdentities(backend)
 

@@ -118,8 +118,8 @@ func prefixMatchesKey(prefix, key string) bool {
 
 // NewKVStoreBackend creates a pkg/allocator.Backend compatible instance. The
 // specific kvstore used is configured in pkg/kvstore.
-func NewKVStoreBackend(basePath, suffix string, typ allocator.AllocatorKey) (*kvstoreBackend, error) {
-	if kvstore.Client() == nil {
+func NewKVStoreBackend(kvbackend kvstore.BackendOperations, basePath, suffix string, typ allocator.AllocatorKey) (*kvstoreBackend, error) {
+	if kvbackend == nil {
 		return nil, fmt.Errorf("kvstore client not configured")
 	}
 

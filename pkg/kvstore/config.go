@@ -77,6 +77,21 @@ func getOpts(opts backendOptions) map[string]string {
 	return result
 }
 
+type KVClient struct {
+	BackendOperations
+	backendConfigured chan struct{}
+}
+
+func NewKVClient() *KVClient {
+	return &KVClient{backendConfigured: make(chan struct{})}
+}
+
+func (c *KVClient) Connected() <-chan struct{} {
+	// Wait for BackendOperations to be set...
+	<-c.backendConfigured
+	return c.BackendOperations.Connected()
+}
+
 // Setup sets up the key-value store specified in kvStore and configures it
 // with the options provided in opts
 func Setup(ctx context.Context, selectedBackend string, opts map[string]string, goOpts *ExtraOptions) (BackendOperations, error) {
@@ -95,5 +110,42 @@ func Setup(ctx context.Context, selectedBackend string, opts map[string]string, 
 
 	selectedModule = module.getName()
 
-	return initClient(ctx, module, goOpts)
+	kvbackend, err := initClient(ctx, module, goOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	kvc := &KVClient{
+		BackendOperations: kvbackend,
+		backendConfigured: make(chan struct{}),
+	}
+
+	return kvc, nil
+}
+
+func (c *KVClient) Setup(ctx context.Context, selectedBackend string, opts map[string]string, goOpts *ExtraOptions) error {
+	module := getBackend(selectedBackend)
+	if module == nil {
+		return fmt.Errorf("unknown key-value store type %q. See cilium.link/err-kvstore for details", selectedBackend)
+	}
+
+	if err := module.setConfig(opts); err != nil {
+		return err
+	}
+
+	if err := module.setExtraConfig(goOpts); err != nil {
+		return err
+	}
+
+	selectedModule = module.getName()
+
+	kvbackend, err := initClient(ctx, module, goOpts)
+	if err != nil {
+		return err
+	}
+
+	c.BackendOperations = kvbackend
+	close(c.backendConfigured)
+
+	return nil
 }
