@@ -479,8 +479,8 @@ func (k *kvstoreBackend) keyToID(key string) (id idpool.ID, err error) {
 	return idpool.ID(idParsed), nil
 }
 
-func (k *kvstoreBackend) ListAndWatch(handler allocator.CacheMutations, stopChan chan struct{}) {
-	watcher := kvstore.ListAndWatch(context.TODO(), k.idPrefix, k.idPrefix, 512)
+func (k *kvstoreBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMutations, stopChan chan struct{}) {
+	watcher := kvstore.ListAndWatch(ctx, k.idPrefix, k.idPrefix, 512)
 
 	for {
 		select {
@@ -499,7 +499,7 @@ func (k *kvstoreBackend) ListAndWatch(handler allocator.CacheMutations, stopChan
 				log.WithError(err).WithField(fieldKey, event.Key).Warning("Invalid key")
 
 				if k.deleteInvalidPrefixes {
-					kvstore.Delete(context.TODO(), event.Key)
+					kvstore.Delete(ctx, event.Key)
 				}
 
 			case id != idpool.NoID:
