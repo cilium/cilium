@@ -143,7 +143,6 @@ func (k *kvstoreBackend) lockPath(ctx context.Context, key string) (*kvstore.Loc
 // DeleteAllKeys will delete all keys
 func (k *kvstoreBackend) DeleteAllKeys() {
 	kvstore.DeletePrefix(context.TODO(), k.basePrefix)
-	kvstore.DeletePrefix(context.TODO(), k.basePrefix)
 }
 
 // AllocateID allocates a key->ID mapping in the kvstore.
