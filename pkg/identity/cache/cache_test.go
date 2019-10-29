@@ -64,20 +64,20 @@ func (s *IdentityCacheTestSuite) TestLookupReservedIdentity(c *C) {
 	hostID := identity.GetReservedID("host")
 	c.Assert(mgr.LookupIdentityByID(context.TODO(), hostID), Not(IsNil))
 
-	id := mgr.LookupIdentity(labels.NewLabelsFromModel([]string{"reserved:host"}))
+	id := mgr.LookupIdentity(context.TODO(), labels.NewLabelsFromModel([]string{"reserved:host"}))
 	c.Assert(id, Not(IsNil))
 	c.Assert(id.ID, Equals, hostID)
 
 	worldID := identity.GetReservedID("world")
 	c.Assert(mgr.LookupIdentityByID(context.TODO(), worldID), Not(IsNil))
 
-	id = mgr.LookupIdentity(labels.NewLabelsFromModel([]string{"reserved:world"}))
+	id = mgr.LookupIdentity(context.TODO(), labels.NewLabelsFromModel([]string{"reserved:world"}))
 	c.Assert(id, Not(IsNil))
 	c.Assert(id.ID, Equals, worldID)
 
 	identity.InitWellKnownIdentities()
 
-	id = mgr.LookupIdentity(kvstoreLabels)
+	id = mgr.LookupIdentity(context.TODO(), kvstoreLabels)
 	c.Assert(id, Not(IsNil))
 	c.Assert(id.ID, Equals, identity.ReservedCiliumKVStore)
 }
