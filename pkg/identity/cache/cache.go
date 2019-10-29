@@ -252,7 +252,7 @@ func (m *CachingIdentityAllocator) LookupIdentityByID(id identity.NumericIdentit
 		return identity
 	}
 
-	allocatorKey, err := m.IdentityAllocator.GetByID(idpool.ID(id))
+	allocatorKey, err := m.IdentityAllocator.GetByID(context.TODO(), idpool.ID(id))
 	if err != nil {
 		return nil
 	}

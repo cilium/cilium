@@ -147,7 +147,7 @@ func (s *AllocatorSuite) TestGC(c *C) {
 
 	// wait for cache to be updated via delete notification
 	c.Assert(testutils.WaitUntil(func() bool {
-		key, err := allocator.GetByID(shortID)
+		key, err := allocator.GetByID(context.TODO(), shortID)
 		if err != nil {
 			c.Error(err)
 			return false
@@ -155,7 +155,7 @@ func (s *AllocatorSuite) TestGC(c *C) {
 		return key == nil
 	}, 5*time.Second), IsNil)
 
-	key, err := allocator.GetByID(shortID)
+	key, err := allocator.GetByID(context.TODO(), shortID)
 	c.Assert(err, IsNil)
 	c.Assert(key, IsNil)
 }

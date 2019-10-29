@@ -657,12 +657,12 @@ func (a *Allocator) GetNoCache(ctx context.Context, key AllocatorKey) (idpool.ID
 
 // GetByID returns the key associated with an ID. Returns nil if no key is
 // associated with the ID.
-func (a *Allocator) GetByID(id idpool.ID) (AllocatorKey, error) {
+func (a *Allocator) GetByID(ctx context.Context, id idpool.ID) (AllocatorKey, error) {
 	if key := a.mainCache.getByID(id); key != nil {
 		return key, nil
 	}
 
-	return a.backend.GetByID(context.TODO(), id)
+	return a.backend.GetByID(ctx, id)
 }
 
 // Release releases the use of an ID associated with the provided key. After
