@@ -25,19 +25,26 @@ import (
 	"github.com/cilium/cilium/pkg/pidfile"
 )
 
-var (
+var cleaner = &daemonCleanup{
+	cleanUPSig: make(chan struct{}),
+	cleanUPWg:  &sync.WaitGroup{},
+	cleanupFuncs: &cleanupFuncList{
+		funcs: make([]func(), 0),
+	},
+}
+
+type daemonCleanup struct {
+	lock.Mutex
 	// cleanUPSig channel that is closed when the daemon agent should be
 	// terminated.
-	cleanUPSig = make(chan struct{})
+	cleanUPSig chan struct{}
 	// cleanUPWg all cleanup operations will be marked as Done() when completed.
-	cleanUPWg = &sync.WaitGroup{}
+	cleanUPWg *sync.WaitGroup
 
-	cleanupFuncs = &cleanupFuncList{
-		funcs: make([]func(), 0),
-	}
+	cleanupFuncs *cleanupFuncList
 
 	sigHandlerCancel context.CancelFunc
-)
+}
 
 type cleanupFuncList struct {
 	funcs []func()
@@ -58,7 +65,7 @@ func (c *cleanupFuncList) Run() {
 	}
 }
 
-func registerSigHandler() <-chan struct{} {
+func (d *daemonCleanup) registerSigHandler() <-chan struct{} {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGQUIT, syscall.SIGINT, syscall.SIGHUP, syscall.SIGTERM)
 	interrupt := make(chan struct{})
@@ -66,10 +73,14 @@ func registerSigHandler() <-chan struct{} {
 		for s := range sig {
 			log.WithField("signal", s).Info("Exiting due to signal")
 			log.Debug("canceling context in signal handler")
-			sigHandlerCancel()
+			d.Lock()
+			if d.sigHandlerCancel != nil {
+				d.sigHandlerCancel()
+			}
+			d.Unlock()
 			pidfile.Clean()
-			Clean()
-			cleanupFuncs.Run()
+			d.Clean()
+			d.cleanupFuncs.Run()
 			break
 		}
 		close(interrupt)
@@ -78,7 +89,19 @@ func registerSigHandler() <-chan struct{} {
 }
 
 // Clean cleans up everything created by this package.
-func Clean() {
-	close(cleanUPSig)
-	cleanUPWg.Wait()
+func (d *daemonCleanup) Clean() {
+	close(d.cleanUPSig)
+	d.cleanUPWg.Wait()
+}
+
+// SetCancelFunc sets the function which is called when we receive a signal to
+// propagate cancelation down to ongoing operations. If it's already set,
+// it does nothing.
+func (d *daemonCleanup) SetCancelFunc(cfunc context.CancelFunc) {
+	d.Lock()
+	defer d.Unlock()
+	if d.sigHandlerCancel != nil {
+		return
+	}
+	d.sigHandlerCancel = cfunc
 }

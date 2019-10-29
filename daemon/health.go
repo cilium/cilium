@@ -103,7 +103,7 @@ func (d *Daemon) initHealth() {
 	)
 
 	// Make sure to clean up the endpoint namespace when cilium-agent terminates
-	cleanup.DeferTerminationCleanupFunction(cleanUPWg, cleanUPSig, func() {
+	cleanup.DeferTerminationCleanupFunction(cleaner.cleanUPWg, cleaner.cleanUPSig, func() {
 		health.KillEndpoint()
 		health.CleanupEndpoint()
 	})

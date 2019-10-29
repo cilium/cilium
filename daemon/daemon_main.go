@@ -125,7 +125,7 @@ func daemonMain() {
 		fmt.Println(errorString)
 		os.Exit(-1)
 	}
-	interruptCh := registerSigHandler()
+	interruptCh := cleaner.registerSigHandler()
 	if err := RootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(-1)
@@ -1201,7 +1201,7 @@ func runDaemon() {
 	}
 
 	if option.Config.IsFlannelMasterDeviceSet() && option.Config.FlannelUninstallOnExit {
-		cleanup.DeferTerminationCleanupFunction(cleanUPWg, cleanUPSig, func() {
+		cleanup.DeferTerminationCleanupFunction(cleaner.cleanUPWg, cleaner.cleanUPSig, func() {
 			d.compilationMutex.Lock()
 			d.Datapath().Loader().DeleteDatapath(context.Background(), option.FlannelMasterDevice, "egress")
 			d.compilationMutex.Unlock()
