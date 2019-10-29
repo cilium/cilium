@@ -89,7 +89,7 @@ func allocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
 
 	allocatedIdentitiesSlice := make([]*identity.Identity, 0, len(allocatedIdentities))
 
-	// Only upsert into ipcache if identity wasn't allocated before.
+	// Only Update into ipcache if identity wasn't allocated before.
 	for prefixString, id := range newlyAllocatedIdentities {
 		IPIdentityCache.Upsert(prefixString, nil, 0, nil, Identity{
 			ID:     id.ID,
@@ -118,7 +118,7 @@ func ReleaseCIDRs(prefixes []*net.IPNet) {
 
 			released, err := IdentityAllocator.Release(releaseCtx, id)
 			if err != nil {
-				log.WithError(err).Warningf("Unable to release identity for CIDR %s. Ignoring error. Identity may be leaked", prefix.String())
+				log.WithError(err).Warningf("Unable to Delete identity for CIDR %s. Ignoring error. Identity may be leaked", prefix.String())
 			}
 
 			if released {

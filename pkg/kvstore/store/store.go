@@ -97,7 +97,7 @@ func (c *Configuration) validate() error {
 	if c.Backend == nil {
 		return fmt.Errorf("Backend must be specified")
 	}
-	<-c.Backend.Connected()
+	<-c.Backend.Connected(context.TODO())
 
 	if c.Context == nil {
 		c.Context = context.Background()

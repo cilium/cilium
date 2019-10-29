@@ -61,25 +61,25 @@ var (
 type store interface {
 	// update will insert the {key, value} tuple into the underlying
 	// kvstore.
-	upsert(ctx context.Context, key string, value string, lease bool) error
+	Update(ctx context.Context, key string, value []byte, lease bool) error
 
 	// delete will remove the key from the underlying kvstore.
-	release(ctx context.Context, key string) error
+	Delete(ctx context.Context, key string) error
 }
 
 // kvstoreImplementation is a store implementation backed by the kvstore.
 type kvstoreImplementation struct{}
 
-// upsert places the mapping of {key, value} into the kvstore, optionally with
+// Update places the mapping of {key, value} into the kvstore, optionally with
 // a lease.
-func (k kvstoreImplementation) upsert(ctx context.Context, key string, value string, lease bool) error {
-	_, err := kvstore.UpdateIfDifferent(ctx, key, value, lease)
+func (k kvstoreImplementation) Update(ctx context.Context, key string, value []byte, lease bool) error {
+	_, err := kvstore.Client().UpdateIfDifferent(ctx, key, string(value), lease)
 	return err
 }
 
-// release removes the specified key from the kvstore.
-func (k kvstoreImplementation) release(ctx context.Context, key string) error {
-	return kvstore.Delete(ctx, key)
+// Delete removes the specified key from the kvstore.
+func (k kvstoreImplementation) Delete(ctx context.Context, key string) error {
+	return kvstore.Client().Delete(ctx, key)
 }
 
 // kvReferenceCounter provides a thin wrapper around the kvstore which adds
@@ -129,7 +129,7 @@ func UpsertIPToKVStore(ctx context.Context, IP, hostIP net.IP, ID identity.Numer
 		logfields.Modification: Upsert,
 	}).Debug("Upserting IP->ID mapping to kvstore")
 
-	err = globalMap.store.upsert(ctx, ipKey, string(marshaledIPIDPair), true)
+	err = globalMap.store.Update(ctx, ipKey, marshaledIPIDPair, true)
 	if err == nil {
 		globalMap.Lock()
 		globalMap.marshaledIPIDPairs[ipKey] = marshaledIPIDPair
@@ -180,7 +180,7 @@ func DeleteIPFromKVStore(ctx context.Context, ip string) error {
 	globalMap.Lock()
 	delete(globalMap.marshaledIPIDPairs, ipKey)
 	globalMap.Unlock()
-	return globalMap.store.release(ctx, ipKey)
+	return globalMap.store.Delete(ctx, ipKey)
 }
 
 // IPIdentityWatcher is a watcher that will notify when IP<->identity mappings
@@ -243,7 +243,7 @@ restart:
 			//   - Notify the listeners.
 			//   - Otherwise, do not notify listeners.
 			// - If a host is removed, check for an overlapping CIDR
-			//   and if it exists, notify the listeners with an upsert
+			//   and if it exists, notify the listeners with an Update
 			//   for the CIDR's identity
 			// - If any other deletion case, notify listeners of
 			//   the deletion event.
@@ -301,7 +301,7 @@ restart:
 
 				if m, ok := globalMap.marshaledIPIDPairs[event.Key]; ok {
 					log.WithField("ip", ip).Warning("Received kvstore delete notification for alive ipcache entry")
-					err := globalMap.store.upsert(context.TODO(), event.Key, string(m), true)
+					err := globalMap.store.Update(context.TODO(), event.Key, m, true)
 					if err != nil {
 						log.WithError(err).WithField("ip", ip).Warning("Unable to re-create alive ipcache entry")
 					}
@@ -348,7 +348,7 @@ func InitIPIdentityWatcher(kvbackend *kvstore.KVClient) {
 			log.Info("Starting IP identity watcher")
 			watcher = NewIPIdentityWatcher(kvbackend)
 			close(initialized)
-			<-kvbackend.Connected()
+			<-kvbackend.Connected(context.TODO())
 			watcher.Watch()
 		}()
 	})

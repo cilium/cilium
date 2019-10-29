@@ -48,7 +48,7 @@ func initClient(ctx context.Context, module backendModule, opts *ExtraOptions) (
 		if isErr && err != nil {
 			scopedLog.WithError(err).Fatal("Unable to connect to kvstore")
 		}
-		deleteLegacyPrefixes(ctx)
+		deleteLegacyPrefixes(ctx, c)
 	}()
 
 	return c, nil

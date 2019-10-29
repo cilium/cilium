@@ -35,7 +35,7 @@ var kvstoreCmd = &cobra.Command{
 	Short: "Direct access to the kvstore",
 }
 
-func setupKvstore() {
+func setupKvstore() kvstore.BackendOperations {
 	if kvStore == "" || len(kvStoreOpts) == 0 {
 		resp, err := client.ConfigGet()
 		if err != nil {
@@ -58,9 +58,11 @@ func setupKvstore() {
 		}
 	}
 
-	if _, err := kvstore.Setup(context.TODO(), kvStore, kvStoreOpts, nil); err != nil {
+	cli, err := kvstore.Setup(context.TODO(), kvStore, kvStoreOpts, nil)
+	if err != nil {
 		Fatalf("Unable to setup kvstore: %s", err)
 	}
+	return cli
 }
 
 func init() {

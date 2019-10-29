@@ -122,7 +122,7 @@ func (ipc *IPCache) AddListener(listener IPIdentityMappingListener) {
 	// modifying the listeners slice.
 	ipc.mutex.Lock()
 	ipc.listeners = append(ipc.listeners, listener)
-	// We will release the semaphore mutex with UnlockToRLock, *and not Unlock*
+	// We will Delete the semaphore mutex with UnlockToRLock, *and not Unlock*
 	// because want to prevent a race across an Upsert or Delete. By doing this
 	// we are sure no other writers are performing any operation while we are
 	// still reading.
@@ -160,7 +160,7 @@ func (ipc *IPCache) getK8sMetadata(ip string) *K8sMetadata {
 // into the IPCache.
 //
 // Returns false if the entry is not owned by the self declared source, i.e.
-// returns false if the kubernetes layer is trying to upsert an entry now
+// returns false if the kubernetes layer is trying to Update an entry now
 // managed by the kvstore layer. See source.AllowOverwrite() for rules on
 // ownership. hostIP is the location of the given IP. It is optional (may be
 // nil) and is propagated to the listeners. k8sMeta contains Kubernetes-specific
@@ -240,7 +240,7 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 			logfields.IPAddr:   ip,
 			logfields.Identity: newIdentity,
 			logfields.Key:      hostKey,
-		}).Error("Attempt to upsert invalid IP into ipcache layer")
+		}).Error("Attempt to Update invalid IP into ipcache layer")
 		return false
 	}
 

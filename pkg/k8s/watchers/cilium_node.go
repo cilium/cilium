@@ -122,11 +122,7 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, kvbacke
 		k.k8sAPIGroups.addAPI(k8sAPIGroupCiliumNodeV2)
 		go ciliumNodeInformer.Run(isConnected)
 
-<<<<<<< HEAD
-		<-kvstore.Client().Connected(context.TODO())
-=======
-		<-kvbackend.Connected()
->>>>>>> cbf729f08... WIP: reduce invocations of kvstore.Client()
+		<-kvbackend.Connected(context.TODO())
 		close(isConnected)
 
 		log.Info("Connected to key-value store, stopping CiliumNode watcher")

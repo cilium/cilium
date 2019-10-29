@@ -86,10 +86,10 @@ func NewKVClient() *KVClient {
 	return &KVClient{backendConfigured: make(chan struct{})}
 }
 
-func (c *KVClient) Connected() <-chan struct{} {
+func (c *KVClient) Connected(ctx context.Context) <-chan struct{} {
 	// Wait for BackendOperations to be set...
 	<-c.backendConfigured
-	return c.BackendOperations.Connected()
+	return c.BackendOperations.Connected(ctx)
 }
 
 // Setup sets up the key-value store specified in kvStore and configures it

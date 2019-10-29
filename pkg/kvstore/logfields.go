@@ -46,11 +46,11 @@ const (
 	// fieldCondition is the condition that requires to be met
 	fieldCondition = "condition"
 
-	// fieldNumEntries is the number of entries in the result
-	fieldNumEntries = "numEntries"
+	// FieldNumEntries is the number of entries in the result
+	FieldNumEntries = "numEntries"
 
-	// fieldAttachLease is true if the key must be attached to a lease
-	fieldAttachLease = "attachLease"
+	// FieldAttachLease is true if the key must be attached to a lease
+	FieldAttachLease = "attachLease"
 
 	// fieldEtcdEndpoint is the etcd endpoint we talk to
 	fieldEtcdEndpoint = "etcdEndpoint"

@@ -33,7 +33,7 @@ import (
 //    path must be created which automatically removes the old keys on successful
 //    translation.
 //
-func deleteLegacyPrefixes(ctx context.Context) {
+func deleteLegacyPrefixes(ctx context.Context, kvbackend BackendOperations) {
 	// Delete all keys in old services prefix
-	DeletePrefix(ctx, common.ServicePathV1)
+	kvbackend.DeletePrefix(ctx, common.ServicePathV1)
 }
