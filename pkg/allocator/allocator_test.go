@@ -57,7 +57,7 @@ func (d *dummyBackend) Encode(v string) string {
 	return v
 }
 
-func (d *dummyBackend) DeleteAllKeys() {
+func (d *dummyBackend) DeleteAllKeys(ctx context.Context) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 	d.identities = map[idpool.ID]AllocatorKey{}

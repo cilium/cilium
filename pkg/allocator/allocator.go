@@ -177,7 +177,7 @@ func NewAllocatorForGC(backend Backend) *Allocator {
 // nodes.
 type Backend interface {
 	// DeleteAllKeys will delete all keys. It is used in tests.
-	DeleteAllKeys()
+	DeleteAllKeys(ctx context.Context)
 
 	// Encode encodes a key string as required to conform to the key
 	// restrictions of the backend
@@ -702,7 +702,7 @@ func (a *Allocator) RunGC(staleKeysPrevRound map[string]uint64) (map[string]uint
 
 // DeleteAllKeys will delete all keys. It is expected to be used in tests.
 func (a *Allocator) DeleteAllKeys() {
-	a.backend.DeleteAllKeys()
+	a.backend.DeleteAllKeys(context.TODO())
 }
 
 // syncLocalKeys checks the kvstore and verifies that a master key exists for
