@@ -15,12 +15,14 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -111,6 +113,10 @@ func (i *IngressRule) sanitize() error {
 		if l3Members[member] > 0 && len(i.ToPorts) > 0 && !l3DependentL4Support[member] {
 			return fmt.Errorf("Combining %s and ToPorts is not supported yet", member)
 		}
+	}
+
+	if len(l7Members) > 0 && !option.Config.EnableL7Proxy {
+		return errors.New("L7 policy is not supported since L7 proxy is not enabled")
 	}
 	for member := range l7Members {
 		if l7Members[member] > 0 && !l7IngressSupport[member] {
@@ -208,6 +214,10 @@ func (e *EgressRule) sanitize() error {
 		if l3Members[member] > 0 && len(e.ToPorts) > 0 && !l3DependentL4Support[member] {
 			return fmt.Errorf("Combining %s and ToPorts is not supported yet", member)
 		}
+	}
+
+	if len(l7Members) > 0 && !option.Config.EnableL7Proxy {
+		return errors.New("L7 policy is not supported since L7 proxy is not enabled")
 	}
 	for member := range l7Members {
 		if l7Members[member] > 0 && !l7EgressSupport[member] {

@@ -332,7 +332,7 @@ func init() {
 	flags.String(option.EnablePolicy, option.DefaultEnforcement, "Enable policy enforcement")
 	option.BindEnv(option.EnablePolicy)
 
-	flags.Bool(option.EnableL7Proxy, true, "Enable L7 proxy for L7 policy enforcement")
+	flags.Bool(option.EnableL7Proxy, defaults.EnableL7Proxy, "Enable L7 proxy for L7 policy enforcement")
 	option.BindEnv(option.EnableL7Proxy)
 
 	flags.Bool(option.EnableTracing, false, "Enable tracing while determining policy (debugging)")
