@@ -1271,6 +1271,7 @@ var (
 		EnableEndpointHealthChecking: defaults.EnableEndpointHealthChecking,
 		EnableIPv4:                   defaults.EnableIPv4,
 		EnableIPv6:                   defaults.EnableIPv6,
+		EnableL7Proxy:                defaults.EnableL7Proxy,
 		ToFQDNsMaxIPsPerHost:         defaults.ToFQDNsMaxIPsPerHost,
 		KVstorePeriodicSync:          defaults.KVstorePeriodicSync,
 		KVstoreConnectivityTimeout:   defaults.KVstoreConnectivityTimeout,
