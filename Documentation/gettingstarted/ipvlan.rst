@@ -92,6 +92,7 @@ Example ConfigMap extract for ipvlan in pure L3 mode:
      --set global.ipvlan.masterDevice=bond0 \
      --set global.tunnel=disabled \
      --set global.installIptablesRules=false \
+     --set global.l7Proxy.enabled=false \
      --set global.autoDirectNodeRoutes=true \
      > cilium.yaml
 
