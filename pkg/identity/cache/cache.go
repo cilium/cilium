@@ -235,7 +235,7 @@ var unknownIdentity = identity.NewIdentity(identity.IdentityUnknown, labels.Labe
 
 // LookupIdentityByID returns the identity by ID. This function will first
 // search through the local cache and fall back to querying the kvstore.
-func (m *CachingIdentityAllocator) LookupIdentityByID(id identity.NumericIdentity) *identity.Identity {
+func (m *CachingIdentityAllocator) LookupIdentityByID(ctx context.Context, id identity.NumericIdentity) *identity.Identity {
 	if id == identity.IdentityUnknown {
 		return unknownIdentity
 	}
@@ -252,7 +252,7 @@ func (m *CachingIdentityAllocator) LookupIdentityByID(id identity.NumericIdentit
 		return identity
 	}
 
-	allocatorKey, err := m.IdentityAllocator.GetByID(context.TODO(), idpool.ID(id))
+	allocatorKey, err := m.IdentityAllocator.GetByID(ctx, idpool.ID(id))
 	if err != nil {
 		return nil
 	}

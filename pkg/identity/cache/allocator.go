@@ -132,7 +132,7 @@ type IdentityAllocator interface {
 
 	// LookupIdentityByID returns the identity that corresponds to the given
 	// numeric identity.
-	LookupIdentityByID(id identity.NumericIdentity) *identity.Identity
+	LookupIdentityByID(ctx context.Context, id identity.NumericIdentity) *identity.Identity
 }
 
 // InitIdentityAllocator creates the the identity allocator. Only the first
