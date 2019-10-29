@@ -168,7 +168,7 @@ func waitForHostDeviceWhenReady(ifaceName string) error {
 			break
 		}
 		select {
-		case <-cleanUPSig:
+		case <-cleaner.cleanUPSig:
 			return errors.New("clean up signal triggered")
 		default:
 			time.Sleep(time.Second)

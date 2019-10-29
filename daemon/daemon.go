@@ -245,7 +245,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	dCtx, cancel := context.WithCancel(ctx)
 	// Pass the cancel to our signal handler directly so that it's canceled
 	// before we run the cleanup functions (see `cleanup.go` for implementation).
-	sigHandlerCancel = cancel
+	cleaner.SetCancelFunc(cancel)
 
 	var (
 		err           error
@@ -342,7 +342,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 
 	// Cleanup on exit if running in tandem with Flannel.
 	if option.Config.FlannelUninstallOnExit {
-		cleanupFuncs.Add(func() {
+		cleaner.cleanupFuncs.Add(func() {
 			for _, ep := range d.endpointManager.GetEndpoints() {
 				ep.DeleteBPFProgramLocked()
 			}
