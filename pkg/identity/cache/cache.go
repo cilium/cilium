@@ -205,7 +205,7 @@ func (w *identityWatcher) stop() {
 // LookupIdentity looks up the identity by its labels but does not create it.
 // This function will first search through the local cache and fall back to
 // querying the kvstore.
-func (m *CachingIdentityAllocator) LookupIdentity(lbls labels.Labels) *identity.Identity {
+func (m *CachingIdentityAllocator) LookupIdentity(ctx context.Context, lbls labels.Labels) *identity.Identity {
 	if reservedIdentity := identity.LookupReservedIdentityByLabels(lbls); reservedIdentity != nil {
 		return reservedIdentity
 	}
@@ -219,7 +219,7 @@ func (m *CachingIdentityAllocator) LookupIdentity(lbls labels.Labels) *identity.
 	}
 
 	lblArray := lbls.LabelArray()
-	id, err := m.IdentityAllocator.Get(context.TODO(), GlobalIdentity{lblArray})
+	id, err := m.IdentityAllocator.Get(ctx, GlobalIdentity{lblArray})
 	if err != nil {
 		return nil
 	}

@@ -41,7 +41,7 @@ func (h *getIdentity) Handle(params GetIdentityParams) middleware.Responder {
 		// This is in response to "identity list" command
 		identities = h.d.identityAllocator.GetIdentities()
 	} else {
-		identity := h.d.identityAllocator.LookupIdentity(labels.NewLabelsFromModel(params.Labels))
+		identity := h.d.identityAllocator.LookupIdentity(params.HTTPRequest.Context(), labels.NewLabelsFromModel(params.Labels))
 		if identity == nil {
 			return NewGetIdentityIDNotFound()
 		}

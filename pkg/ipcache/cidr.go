@@ -112,7 +112,7 @@ func ReleaseCIDRs(prefixes []*net.IPNet) {
 			continue
 		}
 
-		if id := IdentityAllocator.LookupIdentity(cidr.GetCIDRLabels(prefix)); id != nil {
+		if id := IdentityAllocator.LookupIdentity(context.TODO(), cidr.GetCIDRLabels(prefix)); id != nil {
 			releaseCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
 			defer cancel()
 
