@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,11 +20,6 @@ import (
 
 type healthNode struct {
 	*models.NodeElement
-
-	// During setNodes(), we perform mark-and-sweep to get rid of IPs that
-	// should no longer be probed. If deletionMark is true after the set
-	// of nodes is updated, this node can be removed.
-	deletionMark bool
 }
 
 // NewHealthNode creates a new node structure based on the specified model.
