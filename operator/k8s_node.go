@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/node"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
@@ -51,7 +52,7 @@ var (
 	ciliumCNPNodeStatusGCInterval time.Duration
 )
 
-func runNodeWatcher() error {
+func runNodeWatcher(kvbackend kvstore.BackendOperations) error {
 	log.Info("Starting to synchronize k8s nodes to kvstore...")
 
 	serNodes := serializer.NewFunctionQueue(1024)
@@ -59,6 +60,7 @@ func runNodeWatcher() error {
 	ciliumNodeStore, err := store.JoinSharedStore(store.Configuration{
 		Prefix:     nodeStore.NodeStorePrefix,
 		KeyCreator: nodeStore.KeyCreator,
+		Backend:    kvbackend,
 	})
 	if err != nil {
 		return err
