@@ -226,7 +226,7 @@ type Backend interface {
 
 	// GetByID returns the key associated with this ID, as seen by the Backend.
 	// This may have been created by other agents.
-	GetByID(id idpool.ID) (AllocatorKey, error)
+	GetByID(ctx context.Context, id idpool.ID) (AllocatorKey, error)
 
 	// Lock provides an opaque lock object that can be used, later, to ensure
 	// that the key has not changed since the lock was created. This can be done
@@ -662,7 +662,7 @@ func (a *Allocator) GetByID(id idpool.ID) (AllocatorKey, error) {
 		return key, nil
 	}
 
-	return a.backend.GetByID(id)
+	return a.backend.GetByID(context.TODO(), id)
 }
 
 // Release releases the use of an ID associated with the provided key. After

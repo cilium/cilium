@@ -137,7 +137,9 @@ func migrateIdentities() {
 			logfields.IdentityLabels: key.GetKey(),
 		})
 
-		upstreamKey, err := crdBackend.GetByID(id)
+		getCtx, getCancel := context.WithTimeout(context.TODO(), opTimeout)
+		upstreamKey, err := crdBackend.GetByID(getCtx, id)
+		getCancel()
 		scopedLog.Debugf("Looking at upstream key with this ID: %+v", upstreamKey)
 		switch {
 		case err != nil:

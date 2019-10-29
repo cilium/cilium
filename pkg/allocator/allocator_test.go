@@ -139,7 +139,7 @@ func (d *dummyBackend) GetIfLocked(ctx context.Context, key AllocatorKey, lock k
 	return d.Get(ctx, key)
 }
 
-func (d *dummyBackend) GetByID(id idpool.ID) (AllocatorKey, error) {
+func (d *dummyBackend) GetByID(ctx context.Context, id idpool.ID) (AllocatorKey, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 	if key, ok := d.identities[id]; ok {
