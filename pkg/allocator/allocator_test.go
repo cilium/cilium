@@ -174,7 +174,7 @@ func (d *dummyBackend) ListAndWatch(handler CacheMutations, stopChan chan struct
 	<-stopChan
 }
 
-func (d *dummyBackend) RunGC(map[string]uint64) (map[string]uint64, error) {
+func (d *dummyBackend) RunGC(context.Context, map[string]uint64) (map[string]uint64, error) {
 	return nil, nil
 }
 
