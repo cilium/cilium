@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -129,7 +130,7 @@ func getXDSPath(stateDir string) string {
 }
 
 // StartXDSServer configures and starts the xDS GRPC server.
-func StartXDSServer(stateDir string) *XDSServer {
+func StartXDSServer(stateDir string, ipc *ipcache.IPCache) *XDSServer {
 	xdsPath := getXDSPath(stateDir)
 	accessLogPath := getAccessLogPath(stateDir)
 	denied403body := option.Config.HTTP403Message
@@ -165,9 +166,13 @@ func StartXDSServer(stateDir string) *XDSServer {
 		AckObserver: npdsMutator,
 	}
 
+	// This is the global cache of resources of type NetworkPolicyHosts.
+	// Resources in this cache must have the NetworkPolicyHostsTypeURL type URL.
+	nphc := newNPHDSCache(ipc)
+
 	nphdsConfig := &xds.ResourceTypeConfiguration{
-		Source:      NetworkPolicyHostsCache,
-		AckObserver: &NetworkPolicyHostsCache,
+		Source:      nphc,
+		AckObserver: &nphc,
 	}
 
 	stopServer := startXDSGRPCServer(socketListener, ldsConfig, npdsConfig, nphdsConfig, 5*time.Second)

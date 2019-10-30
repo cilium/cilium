@@ -89,6 +89,16 @@ func NewIPCache() *IPCache {
 	}
 }
 
+// NotifyListenersGC runs `OnIPIdentityCacheGC` for all listeners for this
+// IPCache.
+func (ipc *IPCache) NotifyListenersGC() {
+	ipc.Lock()
+	for _, listener := range ipc.listeners {
+		listener.OnIPIdentityCacheGC()
+	}
+	ipc.Unlock()
+}
+
 // Lock locks the IPCache's mutex.
 func (ipc *IPCache) Lock() {
 	ipc.mutex.Lock()

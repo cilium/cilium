@@ -97,6 +97,8 @@ type Manager struct {
 	// metricDatapathValidations is the prometheus metric to track the
 	// number of datapath node validation calls
 	metricDatapathValidations prometheus.Counter
+
+	ipc *ipcache.IPCache
 }
 
 // Subscribe subscribes the given node handler to node events.
@@ -132,12 +134,13 @@ func (m *Manager) Iter(f func(nh datapath.NodeHandler)) {
 }
 
 // NewManager returns a new node manager
-func NewManager(name string, dp datapath.NodeHandler) (*Manager, error) {
+func NewManager(name string, dp datapath.NodeHandler, ipc *ipcache.IPCache) (*Manager, error) {
 	m := &Manager{
 		name:         name,
 		nodes:        map[node.Identity]*nodeEntry{},
 		nodeHandlers: map[datapath.NodeHandler]struct{}{},
 		closeChan:    make(chan struct{}),
+		ipc:          ipc,
 	}
 	m.Subscribe(dp)
 
@@ -296,7 +299,7 @@ func (m *Manager) NodeUpdated(n node.Node) {
 			continue
 		}
 
-		isOwning := ipcache.IPIdentityCache.Upsert(address.IP.String(), nodeIP, n.EncryptionKey, nil, ipcache.Identity{
+		isOwning := m.ipc.Upsert(address.IP.String(), nodeIP, n.EncryptionKey, nil, ipcache.Identity{
 			ID:     identity.ReservedIdentityHost,
 			Source: n.Source,
 		})
@@ -315,7 +318,7 @@ func (m *Manager) NodeUpdated(n node.Node) {
 				continue
 			}
 
-			isOwning := ipcache.IPIdentityCache.Upsert(address.IP.String(), nodeIP4, n.EncryptionKey, nil, ipcache.Identity{
+			isOwning := m.ipc.Upsert(address.IP.String(), nodeIP4, n.EncryptionKey, nil, ipcache.Identity{
 				ID:     identity.ReservedIdentityHost,
 				Source: n.Source,
 			})
@@ -329,7 +332,7 @@ func (m *Manager) NodeUpdated(n node.Node) {
 		if address == nil {
 			continue
 		}
-		isOwning := ipcache.IPIdentityCache.Upsert(address.String(), n.GetNodeIP(false), n.EncryptionKey, nil, ipcache.Identity{
+		isOwning := m.ipc.Upsert(address.String(), n.GetNodeIP(false), n.EncryptionKey, nil, ipcache.Identity{
 			ID:     identity.ReservedIdentityHealth,
 			Source: n.Source,
 		})
@@ -409,7 +412,7 @@ func (m *Manager) NodeDeleted(n node.Node) {
 	}
 
 	for _, address := range entry.node.IPAddresses {
-		ipcache.IPIdentityCache.Delete(address.IP.String(), n.Source)
+		m.ipc.Delete(address.IP.String(), n.Source)
 	}
 
 	m.metricNumNodes.Dec()

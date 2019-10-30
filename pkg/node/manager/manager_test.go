@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/source"
 
@@ -96,7 +97,7 @@ func (s *managerTestSuite) TestNodeLifecycle(c *check.C) {
 	dp.EnableNodeAddEvent = true
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
-	mngr, err := NewManager("test", dp)
+	mngr, err := NewManager("test", dp, ipcache.NewIPCache())
 	c.Assert(err, check.IsNil)
 
 	n1 := node.Node{Name: "node1", Cluster: "c1"}
@@ -165,7 +166,7 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 	dp.EnableNodeAddEvent = true
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
-	mngr, err := NewManager("test", dp)
+	mngr, err := NewManager("test", dp, ipcache.NewIPCache())
 	c.Assert(err, check.IsNil)
 	defer mngr.Close()
 
@@ -234,7 +235,7 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 }
 
 func (s *managerTestSuite) BenchmarkUpdateAndDeleteCycle(c *check.C) {
-	mngr, err := NewManager("test", fake.NewNodeHandler())
+	mngr, err := NewManager("test", fake.NewNodeHandler(), ipcache.NewIPCache())
 	c.Assert(err, check.IsNil)
 	defer mngr.Close()
 
@@ -252,7 +253,7 @@ func (s *managerTestSuite) BenchmarkUpdateAndDeleteCycle(c *check.C) {
 }
 
 func (s *managerTestSuite) TestClusterSizeDependantInterval(c *check.C) {
-	mngr, err := NewManager("test", fake.NewNodeHandler())
+	mngr, err := NewManager("test", fake.NewNodeHandler(), ipcache.NewIPCache())
 	c.Assert(err, check.IsNil)
 	defer mngr.Close()
 
@@ -277,7 +278,7 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 
 	signalNodeHandler := newSignalNodeHandler()
 	signalNodeHandler.EnableNodeValidateImplementationEvent = true
-	mngr, err := NewManager("test", signalNodeHandler)
+	mngr, err := NewManager("test", signalNodeHandler, ipcache.NewIPCache())
 	c.Assert(err, check.IsNil)
 	defer mngr.Close()
 

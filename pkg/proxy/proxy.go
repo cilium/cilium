@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -113,9 +114,9 @@ type Proxy struct {
 // and access log server.
 func StartProxySupport(minPort uint16, maxPort uint16, stateDir string,
 	accessLogFile string, accessLogNotifier logger.LogRecordNotifier, accessLogMetadata []string,
-	datapathUpdater DatapathUpdater, mgr EndpointLookup) *Proxy {
+	datapathUpdater DatapathUpdater, mgr EndpointLookup, ipc *ipcache.IPCache) *Proxy {
 	endpointManager = mgr
-	xdsServer := envoy.StartXDSServer(stateDir)
+	xdsServer := envoy.StartXDSServer(stateDir, ipc)
 
 	if accessLogFile != "" {
 		if err := logger.OpenLogfile(accessLogFile); err != nil {

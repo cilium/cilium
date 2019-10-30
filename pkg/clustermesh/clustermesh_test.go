@@ -28,6 +28,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
@@ -104,7 +105,7 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 
 	identity.InitWellKnownIdentities()
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	mgr := cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
+	mgr := cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{}, ipcache.NewIPCache())
 	<-mgr.InitIdentityAllocator(nil, nil)
 	defer mgr.Close()
 
@@ -128,6 +129,7 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 		NodeKeyCreator:        testNodeCreator,
 		nodeObserver:          &testObserver{},
 		RemoteIdentityWatcher: mgr,
+		IPC:                   ipcache.NewIPCache(),
 	})
 	c.Assert(err, IsNil)
 	c.Assert(cm, Not(IsNil))
