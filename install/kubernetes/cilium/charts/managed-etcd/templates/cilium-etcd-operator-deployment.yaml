@@ -30,7 +30,7 @@ spec:
         - /usr/bin/cilium-etcd-operator
         env:
         - name: CILIUM_ETCD_OPERATOR_CLUSTER_DOMAIN
-          value: "cluster.local"
+          value: "{{ .Values.global.etcd.clusterDomain }}"
         - name: CILIUM_ETCD_OPERATOR_ETCD_CLUSTER_SIZE
           value: "3"
         - name: CILIUM_ETCD_OPERATOR_NAMESPACE
