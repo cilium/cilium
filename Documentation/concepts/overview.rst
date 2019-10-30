@@ -158,3 +158,5 @@ include:
 
 * Interaction with the AWS API for managing :ref:`ipam_eni`
 
+* Sending ``CiliumNetworkPolicyNodeStatus`` updates from the whole cluster for 
+  each CiliumNetworkPolicy to ``kube-apiserver``
