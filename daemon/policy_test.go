@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"sort"
 	"time"
@@ -961,7 +962,8 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 
 		rules, policyImportErr := args.cnp.Parse()
 		c.Assert(policyImportErr, IsNil)
-		policyImportErr = k8s.PreprocessRules(rules, &ds.d.k8sWatcher.K8sSvcCache)
+		allo := &FakeCIDRIdentityManager{}
+		policyImportErr = k8s.PreprocessRules(rules, &ds.d.k8sWatcher.K8sSvcCache, allo)
 		c.Assert(policyImportErr, IsNil)
 		_, policyImportErr = ds.d.PolicyAdd(rules, &policy.AddOptions{
 			ReplaceWithLabels: args.cnp.GetIdentityLabels(),
@@ -971,4 +973,11 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 
 		c.Assert(args.repo.GetRulesList().Policy, checker.DeepEquals, want.repo.GetRulesList().Policy, Commentf("Test name: %q", tt.name))
 	}
+}
+
+type FakeCIDRIdentityManager struct{}
+
+func (f *FakeCIDRIdentityManager) ReleaseCIDRs(prefixes []*net.IPNet) {}
+func (f *FakeCIDRIdentityManager) AllocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
+	return nil, nil
 }

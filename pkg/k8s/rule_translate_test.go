@@ -17,6 +17,9 @@
 package k8s
 
 import (
+	"net"
+
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/policy"
@@ -65,7 +68,9 @@ func (s *K8sSuite) TestTranslatorDirect(c *C) {
 		Labels: tag1,
 	}
 
-	translator := NewK8sTranslator(serviceInfo, endpointInfo, false, map[string]string{}, false)
+	allo := &FakeCIDRIdentityManager{}
+
+	translator := NewK8sTranslator(serviceInfo, endpointInfo, false, map[string]string{}, false, allo)
 
 	_, _, err := repo.Add(rule1, []policy.Endpoint{})
 	c.Assert(err, IsNil)
@@ -79,7 +84,7 @@ func (s *K8sSuite) TestTranslatorDirect(c *C) {
 	c.Assert(len(rule.ToCIDRSet), Equals, 1)
 	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, epIP+"/32")
 
-	translator = NewK8sTranslator(serviceInfo, endpointInfo, true, map[string]string{}, false)
+	translator = NewK8sTranslator(serviceInfo, endpointInfo, true, map[string]string{}, false, allo)
 	result, err = repo.TranslateRules(translator)
 	c.Assert(result.NumToServicesRules, Equals, 1)
 
@@ -119,7 +124,8 @@ func (s *K8sSuite) TestServiceMatches(c *C) {
 		},
 	}
 
-	translator := NewK8sTranslator(serviceInfo, endpointInfo, false, svcLabels, false)
+	allo := &FakeCIDRIdentityManager{}
+	translator := NewK8sTranslator(serviceInfo, endpointInfo, false, svcLabels, false, allo)
 	c.Assert(translator.serviceMatches(service), Equals, true)
 }
 
@@ -164,7 +170,9 @@ func (s *K8sSuite) TestTranslatorLabels(c *C) {
 		Labels: tag1,
 	}
 
-	translator := NewK8sTranslator(serviceInfo, endpointInfo, false, svcLabels, false)
+	allo := &FakeCIDRIdentityManager{}
+
+	translator := NewK8sTranslator(serviceInfo, endpointInfo, false, svcLabels, false, allo)
 
 	_, _, err := repo.Add(rule1, []policy.Endpoint{})
 	c.Assert(err, IsNil)
@@ -178,7 +186,7 @@ func (s *K8sSuite) TestTranslatorLabels(c *C) {
 	c.Assert(len(rule.ToCIDRSet), Equals, 1)
 	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, epIP+"/32")
 
-	translator = NewK8sTranslator(serviceInfo, endpointInfo, true, svcLabels, false)
+	translator = NewK8sTranslator(serviceInfo, endpointInfo, true, svcLabels, false, allo)
 	result, err = repo.TranslateRules(translator)
 
 	rule = repo.SearchRLocked(tag1)[0].Egress[0]
@@ -204,20 +212,22 @@ func (s *K8sSuite) TestGenerateToCIDRFromEndpoint(c *C) {
 		},
 	}
 
-	err := generateToCidrFromEndpoint(rule, endpointInfo, false)
+	allo := &FakeCIDRIdentityManager{}
+
+	err := generateToCidrFromEndpoint(rule, endpointInfo, false, allo)
 	c.Assert(err, IsNil)
 
 	c.Assert(len(rule.ToCIDRSet), Equals, 1)
 	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, epIP+"/32")
 
 	// second run, to make sure there are no duplicates added
-	err = generateToCidrFromEndpoint(rule, endpointInfo, false)
+	err = generateToCidrFromEndpoint(rule, endpointInfo, false, allo)
 	c.Assert(err, IsNil)
 
 	c.Assert(len(rule.ToCIDRSet), Equals, 1)
 	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, epIP+"/32")
 
-	err = deleteToCidrFromEndpoint(rule, endpointInfo, false)
+	err = deleteToCidrFromEndpoint(rule, endpointInfo, false, allo)
 	c.Assert(err, IsNil)
 	c.Assert(len(rule.ToCIDRSet), Equals, 0)
 }
@@ -271,11 +281,20 @@ func (s *K8sSuite) TestPreprocessRules(c *C) {
 
 	rules := api.Rules{&rule1}
 
-	err := PreprocessRules(rules, &cache)
+	allo := &FakeCIDRIdentityManager{}
+
+	err := PreprocessRules(rules, &cache, allo)
 	c.Assert(err, IsNil)
 
 	c.Assert(len(rule1.Egress[0].ToCIDRSet), Equals, 1)
 	c.Assert(string(rule1.Egress[0].ToCIDRSet[0].Cidr), Equals, epIP+"/32")
+}
+
+type FakeCIDRIdentityManager struct{}
+
+func (f *FakeCIDRIdentityManager) ReleaseCIDRs(prefixes []*net.IPNet) {}
+func (f *FakeCIDRIdentityManager) AllocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
+	return nil, nil
 }
 
 func (s *K8sSuite) TestDontDeleteUserRules(c *C) {
@@ -301,20 +320,22 @@ func (s *K8sSuite) TestDontDeleteUserRules(c *C) {
 		},
 	}
 
-	err := generateToCidrFromEndpoint(rule, endpointInfo, false)
+	allocator := &FakeCIDRIdentityManager{}
+
+	err := generateToCidrFromEndpoint(rule, endpointInfo, false, allocator)
 	c.Assert(err, IsNil)
 
 	c.Assert(len(rule.ToCIDRSet), Equals, 2)
 	c.Assert(string(rule.ToCIDRSet[1].Cidr), Equals, epIP+"/32")
 
 	// second run, to make sure there are no duplicates added
-	err = generateToCidrFromEndpoint(rule, endpointInfo, false)
+	err = generateToCidrFromEndpoint(rule, endpointInfo, false, allocator)
 	c.Assert(err, IsNil)
 
 	c.Assert(len(rule.ToCIDRSet), Equals, 2)
 	c.Assert(string(rule.ToCIDRSet[1].Cidr), Equals, epIP+"/32")
 
-	err = deleteToCidrFromEndpoint(rule, endpointInfo, false)
+	err = deleteToCidrFromEndpoint(rule, endpointInfo, false, allocator)
 	c.Assert(err, IsNil)
 	c.Assert(len(rule.ToCIDRSet), Equals, 1)
 	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, string(userCIDR))

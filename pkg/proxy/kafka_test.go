@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -60,7 +61,7 @@ type proxyTestSuite struct {
 var _ = Suite(&proxyTestSuite{})
 
 func (s *proxyTestSuite) SetUpSuite(c *C) {
-	Allocator = cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
+	Allocator = cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{}, ipcache.NewIPCache())
 	s.repo = policy.NewPolicyRepository(nil)
 }
 

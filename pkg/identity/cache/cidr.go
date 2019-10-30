@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ipcache
+package cache
 
 import (
 	"context"
@@ -20,39 +20,31 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/cidr"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 )
 
-var (
-	// IdentityAllocator is a package-level variable which is used to allocate
-	// identities for CIDRs.
-	// TODO: plumb an allocator in from callers of these functions vs. having
-	// this as a package-level variable.
-	IdentityAllocator *cache.CachingIdentityAllocator
-)
-
 // AllocateCIDRs attempts to allocate identities for a list of CIDRs. If any
 // allocation fails, all allocations are rolled back and the error is returned.
 // When an identity is freshly allocated for a CIDR, it is added to the
 // ipcache.
-func AllocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
-	return allocateCIDRs(prefixes)
+func (m *CachingIdentityAllocator) AllocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
+	return m.allocateCIDRs(prefixes)
 }
 
 // AllocateCIDRsForIPs attempts to allocate identities for a list of CIDRs. If
 // any allocation fails, all allocations are rolled back and the error is
 // returned. When an identity is freshly allocated for a CIDR, it is added to
 // the ipcache.
-func AllocateCIDRsForIPs(prefixes []net.IP) ([]*identity.Identity, error) {
-	return allocateCIDRs(ip.GetCIDRPrefixesFromIPs(prefixes))
+func (m *CachingIdentityAllocator) AllocateCIDRsForIPs(prefixes []net.IP) ([]*identity.Identity, error) {
+	return m.allocateCIDRs(ip.GetCIDRPrefixesFromIPs(prefixes))
 }
 
-func allocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
+func (m *CachingIdentityAllocator) allocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
 	// maintain list of used identities to undo on error
 	var usedIdentities []*identity.Identity
 
@@ -71,9 +63,9 @@ func allocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
 		allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.IPAllocationTimeout)
 		defer cancel()
 
-		id, isNew, err := IdentityAllocator.AllocateIdentity(allocateCtx, cidr.GetCIDRLabels(prefix), false)
+		id, isNew, err := m.AllocateIdentity(allocateCtx, cidr.GetCIDRLabels(prefix), false)
 		if err != nil {
-			IdentityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)
+			m.ReleaseSlice(context.Background(), nil, usedIdentities)
 			return nil, fmt.Errorf("failed to allocate identity for cidr %s: %s", prefixStr, err)
 		}
 
@@ -91,7 +83,7 @@ func allocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
 
 	// Only upsert into ipcache if identity wasn't allocated before.
 	for prefixString, id := range newlyAllocatedIdentities {
-		IPIdentityCache.Upsert(prefixString, nil, 0, nil, Identity{
+		m.ipc.Upsert(prefixString, nil, 0, nil, ipcache.Identity{
 			ID:     id.ID,
 			Source: source.Generated,
 		})
@@ -106,23 +98,23 @@ func allocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
 
 // ReleaseCIDRs releases the identities of a list of CIDRs. When the last use
 // of the identity is released, the ipcache entry is deleted.
-func ReleaseCIDRs(prefixes []*net.IPNet) {
+func (m *CachingIdentityAllocator) ReleaseCIDRs(prefixes []*net.IPNet) {
 	for _, prefix := range prefixes {
 		if prefix == nil {
 			continue
 		}
 
-		if id := IdentityAllocator.LookupIdentity(context.TODO(), cidr.GetCIDRLabels(prefix)); id != nil {
+		if id := m.LookupIdentity(context.TODO(), cidr.GetCIDRLabels(prefix)); id != nil {
 			releaseCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
 			defer cancel()
 
-			released, err := IdentityAllocator.Release(releaseCtx, id)
+			released, err := m.Release(releaseCtx, id)
 			if err != nil {
 				log.WithError(err).Warningf("Unable to release identity for CIDR %s. Ignoring error. Identity may be leaked", prefix.String())
 			}
 
 			if released {
-				IPIdentityCache.Delete(prefix.String(), source.Generated)
+				m.ipc.Delete(prefix.String(), source.Generated)
 			}
 		} else {
 			log.Errorf("Unable to find identity of previously used CIDR %s", prefix.String())

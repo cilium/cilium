@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -175,7 +176,7 @@ func (d DummyOwner) LookupRedirectPort(l4 *L4Filter) uint16 {
 }
 
 func bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int, c *C) *Repository {
-	mgr := cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
+	mgr := cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{}, ipcache.NewIPCache())
 	testRepo := NewPolicyRepository(mgr.GetIdentityCache())
 
 	var wg sync.WaitGroup

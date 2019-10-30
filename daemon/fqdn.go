@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/identity"
 	secIDCache "github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
@@ -84,7 +83,7 @@ func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSel
 			"ips":          selectorIPs,
 		}).Debug("getting identities for IPs associated with FQDNSelector")
 		var currentlyAllocatedIdentities []*identity.Identity
-		if currentlyAllocatedIdentities, err = ipcache.AllocateCIDRsForIPs(selectorIPs); err != nil {
+		if currentlyAllocatedIdentities, err = identityAllocator.AllocateCIDRsForIPs(selectorIPs); err != nil {
 			identityAllocator.ReleaseSlice(context.TODO(), nil, usedIdentities)
 			log.WithError(err).WithField("prefixes", selectorIPs).Warn(
 				"failed to allocate identities for IPs")
@@ -146,7 +145,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 		PollerResponseNotify: d.pollerResponseNotify,
 	}
 
-	rg := fqdn.NewNameManager(cfg)
+	rg := fqdn.NewNameManager(cfg, d.identityAllocator)
 	d.policy.GetSelectorCache().SetLocalIdentityNotifier(rg)
 	d.dnsNameManager = rg
 	d.dnsPoller = fqdn.NewDNSPoller(cfg, d.dnsNameManager)
@@ -513,7 +512,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 					Identity:     uint64(serverEP.GetIdentity()),
 					Port:         uint16(serverPort),
 				}
-			} else if serverSecID, exists := ipcache.IPIdentityCache.LookupByIP(serverIP); exists {
+			} else if serverSecID, exists := d.ipcache.LookupByIP(serverIP); exists {
 				secID := d.identityAllocator.LookupIdentityByID(d.ctx, serverSecID.ID)
 				// TODO: handle IPv6
 				lr.LogRecord.DestinationEndpoint = accesslog.EndpointInfo{

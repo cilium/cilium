@@ -57,7 +57,7 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, se
 						swgCiliumEndpoints.Add()
 						serCiliumEndpoints.Enqueue(func() error {
 							defer swgCiliumEndpoints.Done()
-							endpointUpdated(endpoint)
+							k.endpointUpdated(endpoint)
 							k.K8sEventProcessed(metricCiliumEndpoint, metricCreate, true)
 							return nil
 						}, serializer.NoRetry)
@@ -72,7 +72,7 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, se
 						swgCiliumEndpoints.Add()
 						serCiliumEndpoints.Enqueue(func() error {
 							defer swgCiliumEndpoints.Done()
-							endpointUpdated(endpoint)
+							k.endpointUpdated(endpoint)
 							k.K8sEventProcessed(metricCiliumEndpoint, metricUpdate, true)
 							return nil
 						}, serializer.NoRetry)
@@ -99,7 +99,7 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, se
 					swgCiliumEndpoints.Add()
 					serCiliumEndpoints.Enqueue(func() error {
 						defer swgCiliumEndpoints.Done()
-						endpointDeleted(ciliumEndpoint)
+						k.endpointDeleted(ciliumEndpoint)
 						return nil
 					}, serializer.NoRetry)
 				},
@@ -133,7 +133,7 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, se
 	}
 }
 
-func endpointUpdated(endpoint *types.CiliumEndpoint) {
+func (k *K8sWatcher) endpointUpdated(endpoint *types.CiliumEndpoint) {
 	// default to the standard key
 	encryptionKey := node.GetIPsecKeyIdentity()
 
@@ -167,27 +167,27 @@ func endpointUpdated(endpoint *types.CiliumEndpoint) {
 
 		for _, pair := range endpoint.Networking.Addressing {
 			if pair.IPV4 != "" {
-				ipcache.IPIdentityCache.Upsert(pair.IPV4, nodeIP, encryptionKey, k8sMeta,
+				k.ipc.Upsert(pair.IPV4, nodeIP, encryptionKey, k8sMeta,
 					ipcache.Identity{ID: id, Source: source.CustomResource})
 			}
 
 			if pair.IPV6 != "" {
-				ipcache.IPIdentityCache.Upsert(pair.IPV6, nodeIP, encryptionKey, k8sMeta,
+				k.ipc.Upsert(pair.IPV6, nodeIP, encryptionKey, k8sMeta,
 					ipcache.Identity{ID: id, Source: source.CustomResource})
 			}
 		}
 	}
 }
 
-func endpointDeleted(endpoint *types.CiliumEndpoint) {
+func (k *K8sWatcher) endpointDeleted(endpoint *types.CiliumEndpoint) {
 	if endpoint.Networking != nil {
 		for _, pair := range endpoint.Networking.Addressing {
 			if pair.IPV4 != "" {
-				ipcache.IPIdentityCache.Delete(pair.IPV4, source.CustomResource)
+				k.ipc.Delete(pair.IPV4, source.CustomResource)
 			}
 
 			if pair.IPV6 != "" {
-				ipcache.IPIdentityCache.Delete(pair.IPV6, source.CustomResource)
+				k.ipc.Delete(pair.IPV6, source.CustomResource)
 			}
 		}
 	}

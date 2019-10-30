@@ -27,11 +27,13 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 )
 
-type getIP struct{}
+type getIP struct {
+	ipc *ipcache.IPCache
+}
 
 // NewGetIPHandler for the global IP cache
-func NewGetIPHandler() GetIPHandler {
-	return &getIP{}
+func NewGetIPHandler(ipc *ipcache.IPCache) GetIPHandler {
+	return &getIP{ipc: ipc}
 }
 
 func (h *getIP) Handle(params GetIPParams) middleware.Responder {
@@ -43,9 +45,9 @@ func (h *getIP) Handle(params GetIPParams) middleware.Responder {
 		}
 		listener.cidrFilter = cidrFilter
 	}
-	ipcache.IPIdentityCache.RLock()
-	ipcache.IPIdentityCache.DumpToListenerLocked(listener)
-	ipcache.IPIdentityCache.RUnlock()
+	h.ipc.RLock()
+	h.ipc.DumpToListenerLocked(listener)
+	h.ipc.RUnlock()
 	if len(listener.entries) == 0 {
 		return NewGetIPNotFound()
 	}

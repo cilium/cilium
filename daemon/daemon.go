@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/ipcache/watcher"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/endpointsynchronizer"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
@@ -138,6 +139,8 @@ type Daemon struct {
 	identityAllocator *cache.CachingIdentityAllocator
 
 	k8sWatcher *watchers.K8sWatcher
+
+	ipcache *ipcache.IPCache
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -290,7 +293,8 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 
 	mtuConfig := mtu.NewConfiguration(authKeySize, option.Config.EnableIPSec, option.Config.Tunnel != option.TunnelDisabled, configuredMTU)
 
-	nodeMngr, err := nodemanager.NewManager("all", dp.Node())
+	ipc := ipcache.NewIPCache()
+	nodeMngr, err := nodemanager.NewManager("all", dp.Node(), ipc)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -311,11 +315,11 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 		mtuConfig:        mtuConfig,
 		datapath:         dp,
 		nodeDiscovery:    nd,
+		ipcache:          ipc,
 	}
 
 	d.svc = service.NewService(&d)
-
-	d.identityAllocator = cache.NewCachingIdentityAllocator(&d)
+	d.identityAllocator = cache.NewCachingIdentityAllocator(&d, d.ipcache)
 	d.policy = policy.NewPolicyRepository(d.identityAllocator.GetIdentityCache())
 
 	// Propagate identity allocator down to packages which themselves do not
@@ -323,7 +327,6 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	//
 	// TODO: convert these package level variables to types for easier unit
 	// testing in the future.
-	ipcache.IdentityAllocator = d.identityAllocator
 	proxy.Allocator = d.identityAllocator
 
 	d.endpointManager = endpointmanager.NewEndpointManager(&endpointsynchronizer.EndpointSynchronizer{
@@ -337,6 +340,8 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 		&d,
 		d.policy,
 		d.svc,
+		d.identityAllocator,
+		d.ipcache,
 	)
 
 	bootstrapStats.daemonInit.End(true)
@@ -436,7 +441,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	// FIXME: Make the port range configurable.
 	if option.Config.EnableL7Proxy {
 		d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
-			option.Config.AccessLog, &d, option.Config.AgentLabels, d.datapath, d.endpointManager)
+			option.Config.AccessLog, &d, option.Config.AgentLabels, d.datapath, d.endpointManager, d.ipcache)
 	} else {
 		log.Info("L7 proxies are disabled")
 	}
@@ -515,7 +520,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	// Start watcher for endpoint IP --> identity mappings in key-value store.
 	// this needs to be done *after* init() for the daemon in that function,
 	// we populate the IPCache with the host's IP(s).
-	ipcache.InitIPIdentityWatcher()
+	watcher.InitIPIdentityWatcher(d.ipcache)
 	identitymanager.Subscribe(d.policy)
 
 	bootstrapStats.fqdn.Start()
@@ -548,6 +553,7 @@ func (d *Daemon) bootstrapClusterMesh(nodeMngr *nodemanager.Manager) {
 				ServiceMerger:         &d.k8sWatcher.K8sSvcCache,
 				NodeManager:           nodeMngr,
 				RemoteIdentityWatcher: d.identityAllocator,
+				IPC:                   d.ipcache,
 			})
 			if err != nil {
 				log.WithError(err).Fatal("Unable to initialize ClusterMesh")

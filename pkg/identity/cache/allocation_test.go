@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/idpool"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -43,7 +44,7 @@ func (s *IdentityCacheTestSuite) TestAllocateIdentityReserved(c *C) {
 		labels.IDNameHost: labels.NewLabel(labels.IDNameHost, "", labels.LabelSourceReserved),
 	}
 
-	mgr := NewCachingIdentityAllocator(newDummyOwner())
+	mgr := NewCachingIdentityAllocator(newDummyOwner(), ipcache.NewIPCache())
 	<-mgr.InitIdentityAllocator(nil, nil)
 
 	c.Assert(identity.IdentityAllocationIsLocal(lbls), Equals, true)
@@ -227,7 +228,7 @@ func (ias *IdentityAllocatorSuite) TestEventWatcherBatching(c *C) {
 func (ias *IdentityAllocatorSuite) TestGetIdentityCache(c *C) {
 	identity.InitWellKnownIdentities()
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	mgr := NewCachingIdentityAllocator(newDummyOwner())
+	mgr := NewCachingIdentityAllocator(newDummyOwner(), ipcache.NewIPCache())
 	<-mgr.InitIdentityAllocator(nil, nil)
 	defer mgr.Close()
 	defer mgr.IdentityAllocator.DeleteAllKeys()
@@ -245,7 +246,7 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	owner := newDummyOwner()
 	identity.InitWellKnownIdentities()
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	mgr := NewCachingIdentityAllocator(owner)
+	mgr := NewCachingIdentityAllocator(owner, ipcache.NewIPCache())
 	<-mgr.InitIdentityAllocator(nil, nil)
 	defer mgr.Close()
 	defer mgr.IdentityAllocator.DeleteAllKeys()
@@ -330,7 +331,7 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 	owner := newDummyOwner()
 	identity.InitWellKnownIdentities()
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	mgr := NewCachingIdentityAllocator(owner)
+	mgr := NewCachingIdentityAllocator(owner, ipcache.NewIPCache())
 	<-mgr.InitIdentityAllocator(nil, nil)
 	defer mgr.Close()
 	defer mgr.IdentityAllocator.DeleteAllKeys()

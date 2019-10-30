@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ipcache
+package watcher
 
 import (
 	"context"
@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -126,7 +127,7 @@ func UpsertIPToKVStore(ctx context.Context, IP, hostIP net.IP, ID identity.Numer
 		logfields.IPAddr:       ipIDPair.IP,
 		logfields.Identity:     ipIDPair.ID,
 		logfields.Key:          ipIDPair.Key,
-		logfields.Modification: Upsert,
+		logfields.Modification: ipcache.Upsert,
 	}).Debug("Upserting IP->ID mapping to kvstore")
 
 	err = globalMap.store.upsert(ctx, ipKey, string(marshaledIPIDPair), true)
@@ -183,9 +184,25 @@ func DeleteIPFromKVStore(ctx context.Context, ip string) error {
 	return globalMap.store.release(ctx, ipKey)
 }
 
+// IPCache is an interface hiding the implementation of `pkg/ipcache:IPCache`.
+type IPCache interface {
+	// Upsert inserts the information about the specified IP into the IPCache.
+	// Returns false if the ip is not owned by the specified source in
+	// `newIdentity`.
+	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) bool
+
+	// Delete removes the provided IP-to-security-identity mapping from the IPCache.
+	Delete(IP string, source source.Source)
+
+	// NotifyListenersGC runs `OnIPIdentityCacheGC` for all listeners for this
+	// IPCache.
+	NotifyListenersGC()
+}
+
 // IPIdentityWatcher is a watcher that will notify when IP<->identity mappings
 // change in the kvstore
 type IPIdentityWatcher struct {
+	ipc      IPCache
 	backend  kvstore.BackendOperations
 	stop     chan struct{}
 	synced   chan struct{}
@@ -194,8 +211,9 @@ type IPIdentityWatcher struct {
 
 // NewIPIdentityWatcher creates a new IPIdentityWatcher using the specified
 // kvstore backend
-func NewIPIdentityWatcher(backend kvstore.BackendOperations) *IPIdentityWatcher {
+func NewIPIdentityWatcher(ipc IPCache, backend kvstore.BackendOperations) *IPIdentityWatcher {
 	watcher := &IPIdentityWatcher{
+		ipc:     ipc,
 		backend: backend,
 		stop:    make(chan struct{}),
 		synced:  make(chan struct{}),
@@ -249,11 +267,7 @@ restart:
 			//   the deletion event.
 			switch event.Typ {
 			case kvstore.EventTypeListDone:
-				IPIdentityCache.Lock()
-				for _, listener := range IPIdentityCache.listeners {
-					listener.OnIPIdentityCacheGC()
-				}
-				IPIdentityCache.Unlock()
+				iw.ipc.NotifyListenersGC()
 				close(iw.synced)
 
 			case kvstore.EventTypeCreate, kvstore.EventTypeModify:
@@ -269,15 +283,15 @@ restart:
 					scopedLog.Debug("Ignoring entry with nil IP")
 					continue
 				}
-				var k8sMeta *K8sMetadata
+				var k8sMeta *ipcache.K8sMetadata
 				if ipIDPair.K8sNamespace != "" || ipIDPair.K8sPodName != "" {
-					k8sMeta = &K8sMetadata{
+					k8sMeta = &ipcache.K8sMetadata{
 						Namespace: ipIDPair.K8sNamespace,
 						PodName:   ipIDPair.K8sPodName,
 					}
 				}
 
-				IPIdentityCache.Upsert(ip, ipIDPair.HostIP, ipIDPair.Key, k8sMeta, Identity{
+				iw.ipc.Upsert(ip, ipIDPair.HostIP, ipIDPair.Key, k8sMeta, ipcache.Identity{
 					ID:     ipIDPair.ID,
 					Source: source.KVStore,
 				})
@@ -312,7 +326,7 @@ restart:
 					// The key no longer exists in the
 					// local cache, it is safe to remove
 					// from the datapath ipcache.
-					IPIdentityCache.Delete(ip, source.KVStore)
+					iw.ipc.Delete(ip, source.KVStore)
 				}
 			}
 		case <-ctx.Done():
@@ -345,11 +359,11 @@ var (
 
 // InitIPIdentityWatcher initializes the watcher for ip-identity mapping events
 // in the key-value store.
-func InitIPIdentityWatcher() {
+func InitIPIdentityWatcher(ipc *ipcache.IPCache) {
 	setupIPIdentityWatcher.Do(func() {
 		go func() {
 			log.Info("Starting IP identity watcher")
-			watcher = NewIPIdentityWatcher(kvstore.Client())
+			watcher = NewIPIdentityWatcher(ipc, kvstore.Client())
 			close(initialized)
 			watcher.Watch(context.TODO())
 		}()

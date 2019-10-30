@@ -30,7 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/eventqueue"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
-	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/ipcache/watcher"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -613,7 +613,7 @@ func (e *Endpoint) notifyEndpointRegeneration(err error) {
 // / <global ID Prefix>:<cluster name>:<node name>:<endpoint ID> as a string.
 func (e *Endpoint) FormatGlobalEndpointID() string {
 	localNodeName := node.GetName()
-	metadata := []string{endpointid.CiliumGlobalIdPrefix.String(), ipcache.AddressSpace, localNodeName, strconv.Itoa(int(e.ID))}
+	metadata := []string{endpointid.CiliumGlobalIdPrefix.String(), watcher.AddressSpace, localNodeName, strconv.Itoa(int(e.ID))}
 	return strings.Join(metadata, ":")
 }
 
@@ -650,14 +650,14 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 				// store operations resulting in lock being held for a long time.
 				e.runlock()
 
-				if err := ipcache.UpsertIPToKVStore(ctx, IP, hostIP, ID, key, metadata, k8sNamespace, k8sPodName); err != nil {
+				if err := watcher.UpsertIPToKVStore(ctx, IP, hostIP, ID, key, metadata, k8sNamespace, k8sPodName); err != nil {
 					return fmt.Errorf("unable to add endpoint IP mapping '%s'->'%d': %s", IP.String(), ID, err)
 				}
 				return nil
 			},
 			StopFunc: func(ctx context.Context) error {
 				ip := endpointIP.String()
-				if err := ipcache.DeleteIPFromKVStore(ctx, ip); err != nil {
+				if err := watcher.DeleteIPFromKVStore(ctx, ip); err != nil {
 					return fmt.Errorf("unable to delete endpoint IP '%s' from ipcache: %s", ip, err)
 				}
 				return nil

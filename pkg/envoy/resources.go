@@ -43,20 +43,22 @@ const (
 // Service.
 type NPHDSCache struct {
 	*xds.Cache
+	ipc IPNotifier
 }
 
-func newNPHDSCache() NPHDSCache {
-	return NPHDSCache{Cache: xds.NewCache()}
+func newNPHDSCache(ipc IPNotifier) NPHDSCache {
+	return NPHDSCache{Cache: xds.NewCache(), ipc: ipc}
 }
 
 var (
-	// NetworkPolicyHostsCache is the global cache of resources of type
-	// NetworkPolicyHosts. Resources in this cache must have the
-	// NetworkPolicyHostsTypeURL type URL.
-	NetworkPolicyHostsCache = newNPHDSCache()
-
 	observerOnce = sync.Once{}
 )
+
+// IPNotifier is any type which notifies changes about IPs in the cluster to
+// the specified listener.
+type IPNotifier interface {
+	AddListener(listener ipcache.IPIdentityMappingListener)
+}
 
 // HandleResourceVersionAck is required to implement ResourceVersionAckObserver.
 // We use this to start the IP Cache listener on the first ACK so that we only
@@ -65,7 +67,7 @@ var (
 func (cache *NPHDSCache) HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, nodeIP string, resourceNames []string, typeURL string, detail string) {
 	// Start caching for IP/ID mappings on the first indication someone wants them
 	observerOnce.Do(func() {
-		ipcache.IPIdentityCache.AddListener(cache)
+		cache.ipc.AddListener(cache)
 	})
 }
 

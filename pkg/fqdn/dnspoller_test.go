@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/testutils/allocator"
 	"github.com/miekg/dns"
 
 	. "gopkg.in/check.v1"
@@ -148,7 +149,7 @@ func (ds *FQDNTestSuite) TestNameManagerSelectorHandling(c *C) {
 				},
 			}
 
-			nameManager = NewNameManager(cfg)
+			nameManager = NewNameManager(cfg, &allocator.FakeIdentityAllocator{})
 			poller      = NewDNSPoller(cfg, nameManager)
 		)
 

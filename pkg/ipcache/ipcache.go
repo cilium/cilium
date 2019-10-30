@@ -26,13 +26,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var (
-	// IPIdentityCache caches the mapping of endpoint IPs to their corresponding
-	// security identities across the entire cluster in which this instance of
-	// Cilium is running.
-	IPIdentityCache = NewIPCache()
-)
-
 // Identity is the identity representation of an IP<->Identity cache.
 type Identity struct {
 	// ID is the numeric identity
@@ -87,6 +80,16 @@ func NewIPCache() *IPCache {
 		v4PrefixLengths:   map[int]int{},
 		v6PrefixLengths:   map[int]int{},
 	}
+}
+
+// NotifyListenersGC runs `OnIPIdentityCacheGC` for all listeners for this
+// IPCache.
+func (ipc *IPCache) NotifyListenersGC() {
+	ipc.Lock()
+	for _, listener := range ipc.listeners {
+		listener.OnIPIdentityCacheGC()
+	}
+	ipc.Unlock()
 }
 
 // Lock locks the IPCache's mutex.

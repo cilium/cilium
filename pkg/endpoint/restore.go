@@ -29,7 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/ipcache/watcher"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
@@ -163,7 +163,7 @@ func (e *Endpoint) restoreIdentity() error {
 			return err
 		}
 		if option.Config.KVStore != "" {
-			ipcache.WaitForKVStoreSync()
+			watcher.WaitForKVStoreSync()
 		}
 	}
 
