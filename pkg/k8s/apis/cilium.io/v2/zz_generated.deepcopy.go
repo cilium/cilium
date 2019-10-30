@@ -82,6 +82,7 @@ func (in *AwsVPC) DeepCopy() *AwsVPC {
 func (in *CiliumClusterwideNetworkPolicy) DeepCopyInto(out *CiliumClusterwideNetworkPolicy) {
 	*out = *in
 	in.CiliumNetworkPolicy.DeepCopyInto(&out.CiliumNetworkPolicy)
+	in.Status.DeepCopyInto(&out.Status)
 	return
 }
 

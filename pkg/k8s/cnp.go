@@ -398,7 +398,7 @@ func (c *CNPStatusUpdateContext) update(cnp *types.SlimCNP, enforcing, ok bool, 
 			cwp := &cilium_v2.CiliumClusterwideNetworkPolicy{
 				CiliumNetworkPolicy: *cnp.CiliumNetworkPolicy,
 			}
-			_, err = c.CiliumNPClient.CiliumV2().CiliumClusterwideNetworkPolicies().Update(cwp)
+			_, err = c.CiliumNPClient.CiliumV2().CiliumClusterwideNetworkPolicies().UpdateStatus(cwp)
 		} else {
 			_, err = c.CiliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).UpdateStatus(cnp.CiliumNetworkPolicy)
 		}
@@ -412,7 +412,7 @@ func (c *CNPStatusUpdateContext) update(cnp *types.SlimCNP, enforcing, ok bool, 
 			}
 			_, err = c.CiliumNPClient.CiliumV2().CiliumClusterwideNetworkPolicies().Update(cwp)
 		} else {
-			_, err = c.CiliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).UpdateStatus(cnp.CiliumNetworkPolicy)
+			_, err = c.CiliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Update(cnp.CiliumNetworkPolicy)
 		}
 	}
 	return err

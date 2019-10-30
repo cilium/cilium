@@ -281,6 +281,10 @@ type CiliumNetworkPolicyList struct {
 // of CiliumNetworkPolicy which is cluster scoped rather than namespace scoped.
 type CiliumClusterwideNetworkPolicy struct {
 	CiliumNetworkPolicy
+
+	// Status is the status of the Cilium policy rule
+	// +optional
+	Status CiliumNetworkPolicyStatus `json:"status"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
