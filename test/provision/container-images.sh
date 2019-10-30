@@ -21,8 +21,13 @@ function check_img_list {
 
 function test_images {
   echo "Downloading all container images needed for tests"
-  DOCKER_IMAGES=$(grep -rI "docker.io/.*/.*:.*" test/ | sed -e 's/\"//g' | grep -v "{}"  | sed -e 's/.*docker.io/docker.io/g' |  sort | uniq)
-  QUAY_IMAGES=$(grep -rI "quay.io/.*/.*:.*" test/ | sed -e 's/\"//g' | grep -v "{}" | sed -e 's/.*quay.io/quay.io/g'  | sort | uniq)
+  # Filter out just image names.
+  # grep's -I ignores binary files, -no-filename doesn't print filenames
+  # sed's -n does not print non-matching lines and the `#p` prints only
+  # matching groups. `#` is used as the sed delimiter to avoid escaping `/` in
+  # the regex.
+  DOCKER_IMAGES=$(grep -rI --no-filename "docker.io" test/ | sed -nEe 's#.*(docker.io/[-_a-zA-Z0-9]+/[-_a-zA-Z0-9]+:[-_.a-zA-Z0-9]+)[^-_.a-zA-Z0-9].*#\1#p' | sort | uniq)
+  QUAY_IMAGES=$(grep -rI --no-filename "quay.io" test/     | sed -nEe 's#.*(quay.io/[-_a-zA-Z0-9]+/[-_a-zA-Z0-9]+:[-_.a-zA-Z0-9]+)[^-_.a-zA-Z0-9].*#\1#p'   | sort | uniq)
 
   check_img_list $DOCKER_IMAGES
   check_img_list $QUAY_IMAGES
@@ -35,7 +40,7 @@ function test_images {
 function cilium_images {
   echo "Downloading all images needed to build cilium"
   CILIUM_DOCKERFILES="./Dockerfile ./cilium-operator.Dockerfile ./Dockerfile.builder"
-  CILIUM_IMGS=$(grep -rI "quay.io/.*/.*:.*" $CILIUM_DOCKERFILES | sed -e 's/\"//g' | grep -v "{}" | sed -e 's/.*quay.io/quay.io/g' | sed -e 's/ as.*//g'  | sort | uniq)
+  CILIUM_IMGS=$(grep -rI --no-filename "quay.io" $CILIUM_DOCKERFILES   | sed -nEe 's#.*(quay.io/[-_a-zA-Z0-9]+/[-_a-zA-Z0-9]+:[-_.a-zA-Z0-9]+)[^-_.a-zA-Z0-9].*#\1#p' | sort | uniq)
 
   check_img_list $CILIUM_IMGS
   for p in `jobs -p`; do
