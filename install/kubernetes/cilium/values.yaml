@@ -36,6 +36,9 @@ global:
     # managed turns on managed etcd mode based on the cilium-etcd-operator
     managed: false
 
+    # sets cluster domain for cilium-etcd-operator
+    clusterDomain: cluster.local
+
     # endpoints is the list of etcd endpoints (not needed when using
     # managed=true)
     endpoints:
