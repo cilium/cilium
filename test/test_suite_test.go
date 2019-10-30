@@ -270,6 +270,13 @@ var _ = BeforeAll(func() {
 		}
 		kubectl := helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
+		// Mark nodes so tests can find them
+		if !helpers.IsRunningOnJenkins() {
+			log.Infof("Labeling node with hostnames as labels")
+			kubectl.ExecMiddle("kubectl label node k8s1 cilium.io/ci-node=k8s1")
+			kubectl.ExecMiddle("kubectl label node k8s2 cilium.io/ci-node=k8s2")
+		}
+
 		kubectl.Apply(kubectl.GetFilePath("../examples/kubernetes/addons/prometheus/prometheus.yaml"))
 
 		go kubectl.PprofReport()
