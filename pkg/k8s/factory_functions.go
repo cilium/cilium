@@ -383,19 +383,24 @@ func ConvertToIngress(obj interface{}) interface{} {
 func ConvertToCCNPWithStatus(obj interface{}) interface{} {
 	switch concreteObj := obj.(type) {
 	case *cilium_v2.CiliumClusterwideNetworkPolicy:
-		return &types.SlimCNP{
-			CiliumNetworkPolicy: &concreteObj.CiliumNetworkPolicy,
+		t := &types.SlimCNP{
+			CiliumNetworkPolicy: concreteObj.CiliumNetworkPolicy,
 		}
+		t.Status = concreteObj.Status
+		return t
+
 	case cache.DeletedFinalStateUnknown:
 		cnp, ok := concreteObj.Obj.(*cilium_v2.CiliumClusterwideNetworkPolicy)
 		if !ok {
 			return obj
 		}
+		t := &types.SlimCNP{
+			CiliumNetworkPolicy: cnp.CiliumNetworkPolicy,
+		}
+		t.Status = cnp.Status
 		return cache.DeletedFinalStateUnknown{
 			Key: concreteObj.Key,
-			Obj: &types.SlimCNP{
-				CiliumNetworkPolicy: &cnp.CiliumNetworkPolicy,
-			},
+			Obj: t,
 		}
 
 	default:
