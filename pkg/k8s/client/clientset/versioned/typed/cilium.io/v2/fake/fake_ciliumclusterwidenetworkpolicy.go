@@ -80,6 +80,17 @@ func (c *FakeCiliumClusterwideNetworkPolicies) Update(ciliumClusterwideNetworkPo
 	return obj.(*v2.CiliumClusterwideNetworkPolicy), err
 }
 
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *FakeCiliumClusterwideNetworkPolicies) UpdateStatus(ciliumClusterwideNetworkPolicy *v2.CiliumClusterwideNetworkPolicy) (*v2.CiliumClusterwideNetworkPolicy, error) {
+	obj, err := c.Fake.
+		Invokes(testing.NewRootUpdateSubresourceAction(ciliumclusterwidenetworkpoliciesResource, "status", ciliumClusterwideNetworkPolicy), &v2.CiliumClusterwideNetworkPolicy{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v2.CiliumClusterwideNetworkPolicy), err
+}
+
 // Delete takes name of the ciliumClusterwideNetworkPolicy and deletes it. Returns an error if one occurs.
 func (c *FakeCiliumClusterwideNetworkPolicies) Delete(name string, options *v1.DeleteOptions) error {
 	_, err := c.Fake.
