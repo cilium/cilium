@@ -86,6 +86,23 @@ Key                                                           Value
 
 .. _identity.IPIdentityPair: https://godoc.org/github.com/cilium/cilium/pkg/identity#IPIdentityPair
 
+CiliumNetworkPolicyNodeStatus
+-----------------------------
+
+If handover to Kubernetes is enabled, then each ``cilium-agent`` will propagate
+the  state of whether it has realized a given CNP to the key-value store instead
+of directly writing to ``kube-apiserver``. ``cilium-operator`` will listen for 
+updates to this prefix from the key-value store, and will be the sole updater
+of statuses for CNPs in the cluster.
+
+================================================================ ====================
+Key                                                              Value
+================================================================ ====================
+``cilium/state/cnpstatuses/v2/<UID>/<namespace>/<name>/<node>``  k8s.CNPNSWithMeta_
+================================================================ ====================
+
+.. _k8s.CNPNSWithMeta: https://godoc.org/github.com/cilium/cilium/pkg/k8s#CNPNSWithMeta
+
 Leases
 ======
 
