@@ -73,7 +73,7 @@ type kvstoreImplementation struct{}
 // Update places the mapping of {key, value} into the kvstore, optionally with
 // a lease.
 func (k kvstoreImplementation) Update(ctx context.Context, key string, value []byte, lease bool) error {
-	_, err := kvstore.Client().UpdateIfDifferent(ctx, key, string(value), lease)
+	_, err := kvstore.Client().UpdateIfDifferent(ctx, key, value, lease)
 	return err
 }
 
