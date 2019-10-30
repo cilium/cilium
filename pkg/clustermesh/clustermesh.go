@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
@@ -63,6 +64,8 @@ type Configuration struct {
 	// RemoteIdentityWatcher provides identities that have been allocated on a
 	// remote cluster.
 	RemoteIdentityWatcher RemoteIdentityWatcher
+
+	IPC ipcache.IPCacheInterface
 }
 
 // RemoteIdentityWatcher is any type which provides identities that have been
@@ -171,7 +174,7 @@ func (cm *ClusterMesh) add(name, path string) {
 	log.WithField(fieldClusterName, name).Debug("Remote cluster configuration added")
 
 	if inserted {
-		cluster.onInsert(cm.conf.RemoteIdentityWatcher)
+		cluster.onInsert(cm.conf.RemoteIdentityWatcher, cm.conf.IPC)
 	} else {
 		// signal a change in configuration
 		cluster.changed <- true

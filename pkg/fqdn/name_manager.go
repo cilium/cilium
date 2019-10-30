@@ -23,7 +23,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -57,6 +56,17 @@ type NameManager struct {
 	cache *DNSCache
 
 	bootstrapCompleted bool
+
+	idallocator CIDRIdentityAllocator
+}
+
+// CIDRIdentityAllocator is any type which is responsible for allocating /
+// releasing identities for CIDRs.
+type CIDRIdentityAllocator interface {
+
+	// AllocateCIDRsForIPs allocates identities for the set of IPs corresponding
+	// to the slice of prefixes.
+	AllocateCIDRsForIPs(prefixes []net.IP) ([]*identity.Identity, error)
 }
 
 // GetModel returns the API model of the NameManager.
@@ -129,7 +139,7 @@ func (n *NameManager) RegisterForIdentityUpdates(selector api.FQDNSelector) []id
 		"ips":          selectorIPs,
 	}).Debug("getting identities for IPs associated with FQDNSelector")
 	var currentlyAllocatedIdentities []*identity.Identity
-	if currentlyAllocatedIdentities, err = ipcache.AllocateCIDRsForIPs(selectorIPs); err != nil {
+	if currentlyAllocatedIdentities, err = n.idallocator.AllocateCIDRsForIPs(selectorIPs); err != nil {
 		log.WithError(err).WithField("prefixes", selectorIPs).Warn(
 			"failed to allocate identities for IPs")
 		return nil
@@ -156,7 +166,7 @@ func (n *NameManager) UnregisterForIdentityUpdates(selector api.FQDNSelector) {
 
 // NewNameManager creates an initialized NameManager.
 // When config.Cache is nil, the global fqdn.DefaultDNSCache is used.
-func NewNameManager(config Config) *NameManager {
+func NewNameManager(config Config, idallocator CIDRIdentityAllocator) *NameManager {
 
 	if config.Cache == nil {
 		config.Cache = NewDNSCache(0)
@@ -173,6 +183,7 @@ func NewNameManager(config Config) *NameManager {
 		namesToPoll:  make(map[string]struct{}),
 		allSelectors: make(map[api.FQDNSelector]*regexp.Regexp),
 		cache:        config.Cache,
+		idallocator:  idallocator,
 	}
 
 }

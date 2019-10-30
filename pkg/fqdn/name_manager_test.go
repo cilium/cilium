@@ -22,7 +22,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/testutils/allocator"
 	"github.com/miekg/dns"
 
 	. "gopkg.in/check.v1"
@@ -57,7 +60,7 @@ func (ds *FQDNTestSuite) TestNameManagerCIDRGeneration(c *C) {
 				}
 				return &sync.WaitGroup{}, nil
 			},
-		})
+		}, cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{}, ipcache.NewIPCache()))
 	)
 
 	// add rules
@@ -107,7 +110,7 @@ func (ds *FQDNTestSuite) TestNameManagerMultiIPUpdate(c *C) {
 				}
 				return &sync.WaitGroup{}, nil
 			},
-		})
+		}, cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{}, ipcache.NewIPCache()))
 	)
 
 	// add rules

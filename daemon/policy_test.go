@@ -41,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/testutils"
+	testutilallocator "github.com/cilium/cilium/pkg/testutils/allocator"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
@@ -1237,7 +1238,8 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 
 		rules, policyImportErr := args.cnp.Parse()
 		c.Assert(policyImportErr, IsNil)
-		policyImportErr = k8s.PreprocessRules(rules, &ds.d.k8sWatcher.K8sSvcCache)
+		allo := &testutilallocator.FakeCIDRIdentityAllocator{}
+		policyImportErr = k8s.PreprocessRules(rules, &ds.d.k8sWatcher.K8sSvcCache, allo)
 		c.Assert(policyImportErr, IsNil)
 		_, policyImportErr = ds.d.PolicyAdd(rules, &policy.AddOptions{
 			ReplaceWithLabels: args.cnp.GetIdentityLabels(),

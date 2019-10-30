@@ -205,7 +205,7 @@ func (k *K8sWatcher) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface
 
 	rules, policyImportErr := cnp.Parse()
 	if policyImportErr == nil {
-		policyImportErr = k8s.PreprocessRules(rules, &k.K8sSvcCache)
+		policyImportErr = k8s.PreprocessRules(rules, &k.K8sSvcCache, k.idallocator)
 		// Replace all rules with the same name, namespace and
 		// resourceTypeCiliumNetworkPolicy
 		rev, policyImportErr = k.policyManager.PolicyAdd(rules, &policy.AddOptions{

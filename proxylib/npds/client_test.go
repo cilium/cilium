@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/proxylib/test"
 
 	"github.com/cilium/proxy/go/cilium/api"
@@ -98,7 +99,7 @@ func (s *ClientSuite) TestRequestAllResources(c *C) {
 
 	// Some wait before server is made available
 	time.Sleep(500 * time.Millisecond)
-	xdsServer := envoy.StartXDSServer(test.Tmpdir)
+	xdsServer := envoy.StartXDSServer(test.Tmpdir, ipcache.NewIPCache())
 	time.Sleep(500 * time.Millisecond)
 
 	// Create version 1 with resource 0.

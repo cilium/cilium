@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/allocator"
 
@@ -70,7 +71,7 @@ func (s *ClusterMeshTestSuite) TestWatchConfigDirectory(c *C) {
 	createFile(c, file1)
 	createFile(c, file2)
 
-	mgr := cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
+	mgr := cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{}, ipcache.NewIPCache())
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	<-mgr.InitIdentityAllocator(nil, nil)
 
@@ -79,6 +80,7 @@ func (s *ClusterMeshTestSuite) TestWatchConfigDirectory(c *C) {
 		ConfigDirectory:       dir,
 		NodeKeyCreator:        testNodeCreator,
 		RemoteIdentityWatcher: mgr,
+		IPC:                   ipcache.NewIPCache(),
 	})
 	c.Assert(err, IsNil)
 	c.Assert(cm, Not(IsNil))

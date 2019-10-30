@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -58,7 +59,7 @@ func (s *IdentityCacheTestSuite) TestLookupReservedIdentity(c *C) {
 		option.Config.ClusterName = bak
 	}()
 
-	mgr := NewCachingIdentityAllocator(newDummyOwner())
+	mgr := NewCachingIdentityAllocator(newDummyOwner(), ipcache.NewIPCache())
 	<-mgr.InitIdentityAllocator(nil, nil)
 
 	hostID := identity.GetReservedID("host")

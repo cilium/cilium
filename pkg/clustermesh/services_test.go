@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -68,7 +69,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	s.svcCache = k8s.NewServiceCache()
 	identity.InitWellKnownIdentities()
 
-	mgr := cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
+	mgr := cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{}, ipcache.NewIPCache())
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	<-mgr.InitIdentityAllocator(nil, nil)
 	dir, err := ioutil.TempDir("", "multicluster")
@@ -90,6 +91,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 		nodeObserver:          &testObserver{},
 		ServiceMerger:         &s.svcCache,
 		RemoteIdentityWatcher: mgr,
+		IPC:                   ipcache.NewIPCache(),
 	})
 	c.Assert(err, IsNil)
 	c.Assert(cm, Not(IsNil))

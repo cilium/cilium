@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/ipcache/watcher"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
@@ -72,7 +73,7 @@ type remoteCluster struct {
 
 	// ipCacheWatcher is the watcher that notifies about IP<->identity
 	// changes in the remote cluster
-	ipCacheWatcher *ipcache.IPIdentityWatcher
+	ipCacheWatcher *watcher.IPIdentityWatcher
 
 	// remoteIdentityCache is a locally cached copy of the identity
 	// allocations in the remote cluster
@@ -131,7 +132,7 @@ func (rc *remoteCluster) releaseOldConnection() {
 	}
 }
 
-func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher) {
+func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher, ipc ipcache.IPCacheInterface) {
 	rc.controllers.UpdateController(rc.remoteConnectionControllerName,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
@@ -201,7 +202,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 					return err
 				}
 
-				ipCacheWatcher := ipcache.NewIPIdentityWatcher(backend)
+				ipCacheWatcher := watcher.NewIPIdentityWatcher(ipc, backend)
 				go ipCacheWatcher.Watch(ctx)
 
 				rc.mutex.Lock()
@@ -229,7 +230,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 	)
 }
 
-func (rc *remoteCluster) onInsert(allocator RemoteIdentityWatcher) {
+func (rc *remoteCluster) onInsert(allocator RemoteIdentityWatcher, ipc ipcache.IPCacheInterface) {
 	rc.getLogger().Info("New remote cluster configuration")
 
 	if skipKvstoreConnection {
@@ -237,14 +238,14 @@ func (rc *remoteCluster) onInsert(allocator RemoteIdentityWatcher) {
 	}
 
 	rc.remoteConnectionControllerName = fmt.Sprintf("remote-etcd-%s", rc.name)
-	rc.restartRemoteConnection(allocator)
+	rc.restartRemoteConnection(allocator, ipc)
 
 	go func() {
 		for {
 			val := <-rc.changed
 			if val {
 				rc.getLogger().Info("etcd configuration has changed, re-creating connection")
-				rc.restartRemoteConnection(allocator)
+				rc.restartRemoteConnection(allocator, ipc)
 			} else {
 				rc.getLogger().Info("Closing connection to remote etcd")
 				return

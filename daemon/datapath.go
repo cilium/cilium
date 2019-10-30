@@ -266,7 +266,7 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 
 		// Upsert will not propagate (reserved:foo->ID) mappings across the cluster,
 		// and we specifically don't want to do so.
-		ipcache.IPIdentityCache.Upsert(ipIDPair.PrefixString(), nil, hostKey, nil, ipcache.Identity{
+		d.ipcache.Upsert(ipIDPair.PrefixString(), nil, hostKey, nil, ipcache.Identity{
 			ID:     ipIDPair.ID,
 			Source: source.Local,
 		})
@@ -282,7 +282,7 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 				log.Debugf("Removed outdated host ip %s from endpoint map", hostIP)
 			}
 
-			ipcache.IPIdentityCache.Delete(hostIP, source.Local)
+			d.ipcache.Delete(hostIP, source.Local)
 		}
 	}
 
@@ -342,8 +342,8 @@ func (d *Daemon) initMaps() error {
 	// Set up the list of IPCache listeners in the daemon, to be
 	// used by syncEndpointsAndHostIPs()
 	// xDS cache will be added later by calling AddListener(), but only if necessary.
-	ipcache.IPIdentityCache.SetListeners([]ipcache.IPIdentityMappingListener{
-		datapathIpcache.NewListener(d, d),
+	d.ipcache.SetListeners([]ipcache.IPIdentityMappingListener{
+		datapathIpcache.NewListener(d.ipcache, d, d),
 	})
 
 	// Start the controller for periodic sync of the metrics map with

@@ -57,6 +57,8 @@ type monitorNotify interface {
 // controller launched from OnIPIdentityCacheGC(). However, The listener is not
 // updated after initialization so no locking is provided for access.
 type BPFListener struct {
+	ipc *ipcache.IPCache
+
 	// bpfMap is the BPF map that this listener will update when events are
 	// received from the IPCache.
 	bpfMap *ipcacheMap.Map
@@ -68,8 +70,9 @@ type BPFListener struct {
 	monitorNotify monitorNotify
 }
 
-func newListener(m *ipcacheMap.Map, d datapath, mn monitorNotify) *BPFListener {
+func newListener(ipc *ipcache.IPCache, m *ipcacheMap.Map, d datapath, mn monitorNotify) *BPFListener {
 	return &BPFListener{
+		ipc:           ipc,
 		bpfMap:        m,
 		datapath:      d,
 		monitorNotify: mn,
@@ -77,8 +80,8 @@ func newListener(m *ipcacheMap.Map, d datapath, mn monitorNotify) *BPFListener {
 }
 
 // NewListener returns a new listener to push IPCache entries into BPF maps.
-func NewListener(d datapath, mn monitorNotify) *BPFListener {
-	return newListener(ipcacheMap.IPCache, d, mn)
+func NewListener(ipc *ipcache.IPCache, d datapath, mn monitorNotify) *BPFListener {
+	return newListener(ipc, ipcacheMap.IPCache, d, mn)
 }
 
 func (l *BPFListener) notifyMonitor(modType ipcache.CacheModification,
@@ -196,13 +199,13 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 // do not exist in the in-memory ipcache.
 //
 // Must be called while holding ipcache.IPIdentityCache.Lock for reading.
-func updateStaleEntriesFunction(keysToRemove map[string]*ipcacheMap.Key) bpf.DumpCallback {
+func updateStaleEntriesFunction(ipc *ipcache.IPCache, keysToRemove map[string]*ipcacheMap.Key) bpf.DumpCallback {
 	return func(key bpf.MapKey, _ bpf.MapValue) {
 		k := key.(*ipcacheMap.Key)
 		keyToIP := k.String()
 
 		// Don't RLock as part of the same goroutine.
-		if i, exists := ipcache.IPIdentityCache.LookupByPrefixRLocked(keyToIP); !exists {
+		if i, exists := ipc.LookupByPrefixRLocked(keyToIP); !exists {
 			switch i.Source {
 			case source.KVStore, source.Local:
 				// Cannot delete from map during callback because DumpWithCallback
@@ -264,12 +267,12 @@ func (l *BPFListener) garbageCollect(ctx context.Context) (*sync.WaitGroup, erro
 	// Since controllers run asynchronously, need to make sure
 	// IPIdentityCache is not being updated concurrently while we do
 	// GC;
-	ipcache.IPIdentityCache.RLock()
-	defer ipcache.IPIdentityCache.RUnlock()
+	l.ipc.RLock()
+	defer l.ipc.RUnlock()
 
 	if ipcacheMap.SupportsDelete() {
 		keysToRemove := map[string]*ipcacheMap.Key{}
-		if err := l.bpfMap.DumpWithCallback(updateStaleEntriesFunction(keysToRemove)); err != nil {
+		if err := l.bpfMap.DumpWithCallback(updateStaleEntriesFunction(l.ipc, keysToRemove)); err != nil {
 			return nil, fmt.Errorf("error dumping ipcache BPF map: %s", err)
 		}
 
@@ -289,8 +292,8 @@ func (l *BPFListener) garbageCollect(ctx context.Context) (*sync.WaitGroup, erro
 		if _, err := pendingMap.OpenOrCreate(); err != nil {
 			return nil, fmt.Errorf("Unable to create %s map: %s", pendingMapName, err)
 		}
-		pendingListener := newListener(pendingMap, l.datapath, nil)
-		ipcache.IPIdentityCache.DumpToListenerLocked(pendingListener)
+		pendingListener := newListener(l.ipc, pendingMap, l.datapath, nil)
+		l.ipc.DumpToListenerLocked(pendingListener)
 		err := pendingMap.Close()
 		if err != nil {
 			log.WithError(err).WithField("map-name", pendingMapName).Warning("unable to close map")
