@@ -234,6 +234,10 @@ var _ = BeforeAll(func() {
 			os.Setenv("SKIP_K8S_PROVISION", "true")
 		}
 
+		if config.CiliumTestConfig.Registry == config.DefaultInternalRegistry {
+			os.Setenv("USE_INTERNAL_REGISTRY", "true")
+		}
+
 		// Name for K8s VMs depends on K8s version that is running.
 
 		// Boot / provision VMs if specified by configuration.

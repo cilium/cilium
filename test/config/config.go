@@ -19,6 +19,8 @@ import (
 	"time"
 )
 
+const DefaultInternalRegistry = "k8s1:5000"
+
 // CiliumTestConfigType holds all of the configurable elements of the testsuite
 type CiliumTestConfigType struct {
 	Reprovision bool
@@ -70,5 +72,5 @@ func (c *CiliumTestConfigType) ParseFlags() {
 		"Specifies timeout for test run")
 	flag.StringVar(&c.Kubeconfig, "cilium.kubeconfig", "",
 		"Kubeconfig to be used for k8s tests")
-	flag.StringVar(&c.Registry, "cilium.registry", "k8s1:5000", "docker registry hostname for Cilium image")
+	flag.StringVar(&c.Registry, "cilium.registry", DefaultInternalRegistry, "docker registry hostname for Cilium image")
 }

@@ -207,7 +207,6 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 			environ = append(environ, os.Environ()...)
 		}
 		environ = append(environ, "KUBECONFIG="+config.CiliumTestConfig.Kubeconfig)
-
 		// Create the executor
 		exec := CreateLocalExecutor(environ)
 		exec.logger = log
