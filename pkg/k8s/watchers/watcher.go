@@ -25,6 +25,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/labels"
@@ -38,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/serializer"
+	"github.com/cilium/cilium/pkg/source"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -149,6 +151,14 @@ type K8sWatcher struct {
 	policyManager       policyManager
 	policyRepository    policyRepository
 	svcManager          svcManager
+	idallocator         k8s.CIDRIdentityManager
+	ipc                 IPCache
+}
+
+type IPCache interface {
+	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) bool
+	Delete(IP string, source source.Source)
+	LookupByIP(IP string) (ipcache.Identity, bool)
 }
 
 func NewK8sWatcher(
@@ -157,6 +167,8 @@ func NewK8sWatcher(
 	policyManager policyManager,
 	policyRepository policyRepository,
 	svcManager svcManager,
+	idallocator k8s.CIDRIdentityManager,
+	ipc IPCache,
 ) *K8sWatcher {
 	return &K8sWatcher{
 		k8sResourceSynced:   map[string]<-chan struct{}{},
@@ -166,6 +178,8 @@ func NewK8sWatcher(
 		policyManager:       policyManager,
 		policyRepository:    policyRepository,
 		svcManager:          svcManager,
+		idallocator:         idallocator,
+		ipc:                 ipc,
 	}
 }
 
@@ -458,7 +472,7 @@ func (k *K8sWatcher) k8sServiceHandler() {
 			// corresponding external service for any toServices rules which
 			// select said service.
 			if !cacheOK || (cacheOK && serviceImportMeta.ruleTranslationError != nil) {
-				translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, false, svc.Labels, true)
+				translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, false, svc.Labels, true, k.idallocator)
 				result, err := k.policyRepository.TranslateRules(translator)
 				endpointMetadataCache.upsert(event.ID, err)
 				if err != nil {
@@ -483,7 +497,7 @@ func (k *K8sWatcher) k8sServiceHandler() {
 
 			endpointMetadataCache.delete(event.ID)
 
-			translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, true, svc.Labels, true)
+			translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, true, svc.Labels, true, k.idallocator)
 			result, err := k.policyRepository.TranslateRules(translator)
 			if err != nil {
 				log.Errorf("Unable to depopulate egress policies from ToService rules: %v", err)

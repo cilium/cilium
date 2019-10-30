@@ -297,7 +297,7 @@ func (k *K8sWatcher) updatePodHostIP(pod *types.Pod) (bool, error) {
 	// Initial mapping of podIP <-> hostIP <-> identity. The mapping is
 	// later updated once the allocator has determined the real identity.
 	// If the endpoint remains unmanaged, the identity remains untouched.
-	selfOwned := ipcache.IPIdentityCache.Upsert(pod.StatusPodIP, hostIP, hostKey, k8sMeta, ipcache.Identity{
+	selfOwned := k.ipc.Upsert(pod.StatusPodIP, hostIP, hostKey, k8sMeta, ipcache.Identity{
 		ID:     identity.ReservedIdentityUnmanaged,
 		Source: source.Kubernetes,
 	})
@@ -321,7 +321,7 @@ func (k *K8sWatcher) deletePodHostIP(pod *types.Pod) (bool, error) {
 	// a small race condition exists here as deletion could occur in
 	// parallel based on another event but it doesn't matter as the
 	// identity is going away
-	id, exists := ipcache.IPIdentityCache.LookupByIP(pod.StatusPodIP)
+	id, exists := k.ipc.LookupByIP(pod.StatusPodIP)
 	if !exists {
 		return true, fmt.Errorf("identity for IP does not exist in case")
 	}
@@ -330,7 +330,7 @@ func (k *K8sWatcher) deletePodHostIP(pod *types.Pod) (bool, error) {
 		return true, fmt.Errorf("ipcache entry not owned by kubernetes source")
 	}
 
-	ipcache.IPIdentityCache.Delete(pod.StatusPodIP, source.Kubernetes)
+	k.ipc.Delete(pod.StatusPodIP, source.Kubernetes)
 
 	return false, nil
 }

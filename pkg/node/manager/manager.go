@@ -97,6 +97,8 @@ type Manager struct {
 	// metricDatapathValidations is the prometheus metric to track the
 	// number of datapath node validation calls
 	metricDatapathValidations prometheus.Counter
+
+	ipc IPCache
 }
 
 // Subscribe subscribes the given node handler to node events.
@@ -132,12 +134,13 @@ func (m *Manager) Iter(f func(nh datapath.NodeHandler)) {
 }
 
 // NewManager returns a new node manager
-func NewManager(name string, dp datapath.NodeHandler) (*Manager, error) {
+func NewManager(name string, dp datapath.NodeHandler, ipc IPCache) (*Manager, error) {
 	m := &Manager{
 		name:         name,
 		nodes:        map[node.Identity]*nodeEntry{},
 		nodeHandlers: map[datapath.NodeHandler]struct{}{},
 		closeChan:    make(chan struct{}),
+		ipc:          ipc,
 	}
 	m.Subscribe(dp)
 
@@ -273,6 +276,11 @@ func (m *Manager) backgroundSync() {
 	}
 }
 
+type IPCache interface {
+	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) bool
+	Delete(IP string, source source.Source)
+}
+
 // NodeUpdated is called after the information of a node has been updated. The
 // node in the manager is added or updated if the source is allowed to update
 // the node. If an update or addition has occurred, NodeUpdate() of the datapath
@@ -296,7 +304,7 @@ func (m *Manager) NodeUpdated(n node.Node) {
 			continue
 		}
 
-		isOwning := ipcache.IPIdentityCache.Upsert(address.IP.String(), nodeIP, n.EncryptionKey, nil, ipcache.Identity{
+		isOwning := m.ipc.Upsert(address.IP.String(), nodeIP, n.EncryptionKey, nil, ipcache.Identity{
 			ID:     identity.ReservedIdentityHost,
 			Source: n.Source,
 		})
@@ -315,7 +323,7 @@ func (m *Manager) NodeUpdated(n node.Node) {
 				continue
 			}
 
-			isOwning := ipcache.IPIdentityCache.Upsert(address.IP.String(), nodeIP4, n.EncryptionKey, nil, ipcache.Identity{
+			isOwning := m.ipc.Upsert(address.IP.String(), nodeIP4, n.EncryptionKey, nil, ipcache.Identity{
 				ID:     identity.ReservedIdentityHost,
 				Source: n.Source,
 			})
@@ -329,7 +337,7 @@ func (m *Manager) NodeUpdated(n node.Node) {
 		if address == nil {
 			continue
 		}
-		isOwning := ipcache.IPIdentityCache.Upsert(address.String(), n.GetNodeIP(false), n.EncryptionKey, nil, ipcache.Identity{
+		isOwning := m.ipc.Upsert(address.String(), n.GetNodeIP(false), n.EncryptionKey, nil, ipcache.Identity{
 			ID:     identity.ReservedIdentityHealth,
 			Source: n.Source,
 		})
@@ -409,7 +417,7 @@ func (m *Manager) NodeDeleted(n node.Node) {
 	}
 
 	for _, address := range entry.node.IPAddresses {
-		ipcache.IPIdentityCache.Delete(address.IP.String(), n.Source)
+		m.ipc.Delete(address.IP.String(), n.Source)
 	}
 
 	m.metricNumNodes.Dec()

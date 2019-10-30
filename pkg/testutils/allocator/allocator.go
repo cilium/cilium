@@ -16,6 +16,7 @@ package allocator
 
 import (
 	"context"
+	"net"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -32,6 +33,10 @@ func (i *IdentityAllocatorOwnerMock) GetNodeSuffix() string {
 
 // FakeIdentityAllocator is used as a mock identity allocator for unit tests.
 type FakeIdentityAllocator struct{}
+
+func (f *FakeIdentityAllocator) AllocateCIDRsForIPs(prefixes []net.IP) ([]*identity.Identity, error) {
+	return nil, nil
+}
 
 // WaitForInitialGlobalIdentities does nothing.
 func (f *FakeIdentityAllocator) WaitForInitialGlobalIdentities(context.Context) error {

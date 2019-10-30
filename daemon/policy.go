@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	bpfIPCache "github.com/cilium/cilium/pkg/maps/ipcache"
@@ -284,7 +283,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 		}
 	}
 
-	if _, err := ipcache.AllocateCIDRs(prefixes); err != nil {
+	if _, err := d.identityAllocator.AllocateCIDRs(prefixes); err != nil {
 		_ = d.prefixLengths.Delete(prefixes)
 		metrics.PolicyImportErrors.Inc()
 		logger.WithError(err).WithField("prefixes", prefixes).Warn(
@@ -370,7 +369,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	// and will trigger deletions for those that are no longer used.
 	if len(removedPrefixes) > 0 {
 		logger.WithField("prefixes", removedPrefixes).Debug("Decrementing replaced CIDR refcounts when adding rules")
-		ipcache.ReleaseCIDRs(removedPrefixes)
+		d.identityAllocator.ReleaseCIDRs(removedPrefixes)
 		d.prefixLengths.Delete(removedPrefixes)
 	}
 
@@ -570,7 +569,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 	// not appropriately performing garbage collection.
 	prefixes := policy.GetCIDRPrefixes(rules)
 	log.WithField("prefixes", prefixes).Debug("Policy deleted via API, found prefixes...")
-	ipcache.ReleaseCIDRs(prefixes)
+	d.identityAllocator.ReleaseCIDRs(prefixes)
 
 	prefixesChanged := d.prefixLengths.Delete(prefixes)
 	if !bpfIPCache.BackedByLPM() && prefixesChanged {

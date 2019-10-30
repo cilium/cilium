@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ipcache"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/kvstore"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
@@ -99,7 +100,7 @@ func (s *EndpointSuite) SetUpTest(c *C) {
 	kvstore.SetupDummy("etcd")
 	identity.InitWellKnownIdentities()
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	mgr := cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
+	mgr := cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{}, ipcache.NewIPCache())
 	<-mgr.InitIdentityAllocator(nil, nil)
 	s.mgr = mgr
 }

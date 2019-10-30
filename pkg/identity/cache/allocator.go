@@ -17,11 +17,13 @@ package cache
 import (
 	"context"
 	"fmt"
+	"net"
 	"path"
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/idpool"
+	"github.com/cilium/cilium/pkg/ipcache"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/identitybackend"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -31,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/source"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/tools/cache"
@@ -99,6 +102,13 @@ type CachingIdentityAllocator struct {
 	watcher identityWatcher
 
 	owner IdentityAllocatorOwner
+
+	ipc IPCache
+}
+
+type IPCache interface {
+	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) bool
+	Delete(IP string, source source.Source)
 }
 
 // IdentityAllocatorOwner is the interface the owner of an identity allocator
@@ -235,7 +245,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 
 // NewCachingIdentityAllocator creates a new instance of an
 // CachingIdentityAllocator.
-func NewCachingIdentityAllocator(owner IdentityAllocatorOwner) *CachingIdentityAllocator {
+func NewCachingIdentityAllocator(owner IdentityAllocatorOwner, ipc IPCache) *CachingIdentityAllocator {
 	watcher := identityWatcher{
 		stopChan: make(chan bool),
 		owner:    owner,
@@ -247,6 +257,7 @@ func NewCachingIdentityAllocator(owner IdentityAllocatorOwner) *CachingIdentityA
 		owner:                              owner,
 		identitiesPath:                     IdentitiesPath,
 		watcher:                            watcher,
+		ipc:                                ipc,
 	}
 	return mgr
 }

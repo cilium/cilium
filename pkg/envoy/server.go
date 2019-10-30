@@ -129,7 +129,7 @@ func getXDSPath(stateDir string) string {
 }
 
 // StartXDSServer configures and starts the xDS GRPC server.
-func StartXDSServer(stateDir string) *XDSServer {
+func StartXDSServer(stateDir string, ipc IPNotifier) *XDSServer {
 	xdsPath := getXDSPath(stateDir)
 	accessLogPath := getAccessLogPath(stateDir)
 	denied403body := option.Config.HTTP403Message
@@ -165,9 +165,13 @@ func StartXDSServer(stateDir string) *XDSServer {
 		AckObserver: npdsMutator,
 	}
 
+	// This is the global cache of resources of type NetworkPolicyHosts.
+	// Resources in this cache must have the NetworkPolicyHostsTypeURL type URL.
+	nphc := newNPHDSCache(ipc)
+
 	nphdsConfig := &xds.ResourceTypeConfiguration{
-		Source:      NetworkPolicyHostsCache,
-		AckObserver: &NetworkPolicyHostsCache,
+		Source:      nphc,
+		AckObserver: &nphc,
 	}
 
 	stopServer := startXDSGRPCServer(socketListener, ldsConfig, npdsConfig, nphdsConfig, 5*time.Second)
