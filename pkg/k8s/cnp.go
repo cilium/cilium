@@ -552,10 +552,10 @@ func updateStatusesByCapabilities(client clientset.Interface, capabilities k8sve
 		}
 
 		if ns == "" {
-			cwp := &cilium_v2.CiliumClusterwideNetworkPolicy{
-				CiliumNetworkPolicy: *cnp.CiliumNetworkPolicy,
+			ccnp := &cilium_v2.CiliumClusterwideNetworkPolicy{
+				CiliumNetworkPolicy: cnp.CiliumNetworkPolicy,
 			}
-			_, err = client.CiliumV2().CiliumClusterwideNetworkPolicies().Update(cwp)
+			_, err = client.CiliumV2().CiliumClusterwideNetworkPolicies().UpdateStatus(ccnp)
 		} else {
 			_, err = client.CiliumV2().CiliumNetworkPolicies(ns).UpdateStatus(cnp.CiliumNetworkPolicy)
 		}
@@ -571,12 +571,12 @@ func updateStatusesByCapabilities(client clientset.Interface, capabilities k8sve
 		}
 
 		if ns == "" {
-			cwp := &cilium_v2.CiliumClusterwideNetworkPolicy{
-				CiliumNetworkPolicy: *cnp.CiliumNetworkPolicy,
+			ccnp := &cilium_v2.CiliumClusterwideNetworkPolicy{
+				CiliumNetworkPolicy: cnp.CiliumNetworkPolicy,
 			}
-			_, err = client.CiliumV2().CiliumClusterwideNetworkPolicies().Update(cwp)
+			_, err = client.CiliumV2().CiliumClusterwideNetworkPolicies().Update(ccnp)
 		} else {
-			_, err = client.CiliumV2().CiliumNetworkPolicies(ns).UpdateStatus(cnp.CiliumNetworkPolicy)
+			_, err = client.CiliumV2().CiliumNetworkPolicies(ns).Update(cnp.CiliumNetworkPolicy)
 		}
 	}
 	if err != nil {

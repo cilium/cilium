@@ -63,13 +63,14 @@ func GetPolicyLabels(ns, name string, uid types.UID, derivedFrom string) labels.
 		labels.NewLabel(k8sConst.PolicyLabelName, name, labels.LabelSourceK8s),
 	}
 
+	// For clusterwide policy namespace will be empty.
 	if ns != "" {
-		labelsArr = append(labelsArr, labels.NewLabel(k8sConst.PolicyLabelNamespace, ns, labels.LabelSourceK8s))
+		nsLabel := labels.NewLabel(k8sConst.PolicyLabelNamespace, ns, labels.LabelSourceK8s)
+		labelsArr = append(labelsArr, nsLabel)
 	}
 
-	labelsArr = append(labelsArr, labels.NewLabel(k8sConst.PolicyLabelUID, string(uid), labels.LabelSourceK8s))
-
-	return labelsArr
+	srcLabel := labels.NewLabel(k8sConst.PolicyLabelUID, string(uid), labels.LabelSourceK8s)
+	return append(labelsArr, srcLabel)
 }
 
 // getEndpointSelector converts the provided labelSelector into an EndpointSelector,
