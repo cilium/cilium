@@ -176,8 +176,10 @@ minute. The ICMP connectivity row represents Layer 3 connectivity to the
 networking stack, while the HTTP connectivity row represents connection to an
 instance of the ``cilium-health`` agent running on the host or as an endpoint.
 
-Monitoring Packet Drops
------------------------
+.. _monitor:
+
+Monitoring Datapath State
+-------------------------
 
 Sometimes you may experience broken connectivity, which may be due to a
 number of different causes. A main cause can be unwanted packet drops on
