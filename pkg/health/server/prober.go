@@ -164,6 +164,16 @@ func resolveIP(n *healthNode, addr *ciliumModels.NodeAddressingElement, proto st
 	return node.Name, ra
 }
 
+// RemoveIP removes all traces of the specified IP from the prober, including
+// clearing all cached results, mapping from this IP to a node, and entries in
+// the ICMP and TCP pingers.
+func (p *prober) RemoveIP(ip string) {
+	nodeIP := ipString(ip)
+	delete(p.results, nodeIP)
+	p.Pinger.RemoveIP(ip)   // ICMP pinger
+	delete(p.nodes, nodeIP) // TCP prober
+}
+
 // setNodes sets the list of nodes for the prober, and updates the pinger to
 // start sending pings to all nodes added.
 // 'removed' nodes will be removed from the pinger to stop sending pings to
@@ -176,16 +186,10 @@ func (p *prober) setNodes(added nodeMap, removed nodeMap) {
 	p.Lock()
 	defer p.Unlock()
 
-	for ip, n := range removed {
-		// Remove deleted nodes from:
-		// * Results (accessed from ICMP pinger or TCP prober)
-		// * ICMP pinger
-		// * TCP prober
+	for _, n := range removed {
 		for elem := range n.Addresses() {
-			delete(p.results, ipString(elem.IP))
-			p.RemoveIP(elem.IP) // ICMP pinger
+			p.RemoveIP(elem.IP)
 		}
-		delete(p.nodes, ip) // TCP prober
 	}
 
 	for _, n := range added {
