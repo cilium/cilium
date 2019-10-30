@@ -31,3 +31,4 @@ mechanisms:
    language
    lifecycle
    troubleshooting
+   visibility
