@@ -9,6 +9,7 @@
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 source "${dir}/helpers.bash"
+source "${dir}/cert-gen-helpers.bash"
 
 cache_dir="${dir}/../../../hack/cache"
 k8s_cache_dir="${cache_dir}/k8s/${k8s_version}"
@@ -140,11 +141,20 @@ cp "${certs_dir}/ca-k8s.pem" \
    "${certs_dir}/k8s-nginx.pem" \
    /var/lib/nginx
 
+log "Generating client kubelet and component certificates"
+
+hostname=$(hostname)
+current_path=$(echo $PWD)
+cd "${certs_dir}"
+generate_kubelet_client_certs k8s system:node:${hostname} k8s-kubelet-${hostname}
+generate_k8s_component_certs kubelet ${hostname} kubelet-kubelet-${hostname}
+generate_k8s_component_certs k8s ${hostname} k8s-kube-proxy-${hostname}
+cd "${current_path}"
+
 log "Copying kubelet certificates to /var/lib/kubelet"
 # Copy kube-proxy certificates to /var/lib/kubelet
 sudo mkdir -p /var/lib/kubelet/
 
-hostname=$(hostname)
 cp "${certs_dir}/ca-k8s.pem" \
    "${certs_dir}/ca-kubelet.pem" \
    "${certs_dir}/k8s-kubelet-${hostname}-key.pem" \
@@ -157,7 +167,6 @@ log "Copying kube-proxy certificates to /var/lib/kube-proxy"
 # Copy kube-proxy certificates to /var/lib/kube-proxy
 sudo mkdir -p /var/lib/kube-proxy/
 
-hostname=$(hostname)
 cp "${certs_dir}/ca-k8s.pem" \
    "${certs_dir}/k8s-kube-proxy-${hostname}-key.pem" \
    "${certs_dir}/k8s-kube-proxy-${hostname}.pem" \
