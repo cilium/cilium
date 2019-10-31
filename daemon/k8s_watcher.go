@@ -100,11 +100,6 @@ var (
 		ruleImportMetadataMap: make(map[string]policyImportMetadata),
 	}
 
-	// local cache of Kubernetes Endpoints which relate to external services.
-	endpointMetadataCache = endpointImportMetadataCache{
-		endpointImportMetadataMap: make(map[string]endpointImportMetadata),
-	}
-
 	errIPCacheOwnedByNonK8s = fmt.Errorf("ipcache entry owned by kvstore or agent")
 )
 
@@ -158,43 +153,6 @@ func (r *ruleImportMetadataCache) get(cnp *types.SlimCNP) (policyImportMetadata,
 	policyImportMeta, ok := r.ruleImportMetadataMap[podNSName]
 	r.mutex.RUnlock()
 	return policyImportMeta, ok
-}
-
-// endpointImportMetadataCache maps the unique identifier of a Kubernetes
-// Endpoint (namespace and name) to metadata about whether translation of the
-// rules involving services that the endpoint corresponds to into the
-// agent's policy repository at the time said rule was imported (if any error
-// occurred while importing).
-type endpointImportMetadataCache struct {
-	mutex                     lock.RWMutex
-	endpointImportMetadataMap map[string]endpointImportMetadata
-}
-
-type endpointImportMetadata struct {
-	ruleTranslationError error
-}
-
-func (r *endpointImportMetadataCache) upsert(id k8s.ServiceID, ruleTranslationErr error) {
-	meta := endpointImportMetadata{
-		ruleTranslationError: ruleTranslationErr,
-	}
-
-	r.mutex.Lock()
-	r.endpointImportMetadataMap[id.String()] = meta
-	r.mutex.Unlock()
-}
-
-func (r *endpointImportMetadataCache) delete(id k8s.ServiceID) {
-	r.mutex.Lock()
-	delete(r.endpointImportMetadataMap, id.String())
-	r.mutex.Unlock()
-}
-
-func (r *endpointImportMetadataCache) get(id k8s.ServiceID) (endpointImportMetadata, bool) {
-	r.mutex.RLock()
-	endpointImportMeta, ok := r.endpointImportMetadataMap[id.String()]
-	r.mutex.RUnlock()
-	return endpointImportMeta, ok
 }
 
 // k8sAPIGroupsUsed is a lockable map to hold which k8s API Groups we have
@@ -1170,25 +1128,14 @@ func (d *Daemon) k8sServiceHandler() {
 				continue
 			}
 
-			serviceImportMeta, cacheOK := endpointMetadataCache.get(event.ID)
-
-			// If this is the first time adding this Endpoint, or there was an error
-			// adding it last time, then try to add translate it and its
-			// corresponding external service for any toServices rules which
-			// select said service.
-			if !cacheOK || (cacheOK && serviceImportMeta.ruleTranslationError != nil) {
-				translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, false, svc.Labels, bpfIPCache.IPCache)
-				result, err := d.policy.TranslateRules(translator)
-				endpointMetadataCache.upsert(event.ID, err)
-				if err != nil {
-					log.Errorf("Unable to repopulate egress policies from ToService rules: %v", err)
-					break
-				} else if result.NumToServicesRules > 0 {
-					// Only trigger policy updates if ToServices rules are in effect
-					d.TriggerPolicyUpdates(true, "Kubernetes service endpoint added")
-				}
-			} else if serviceImportMeta.ruleTranslationError == nil {
-				d.TriggerPolicyUpdates(true, "Kubernetes service endpoint updated")
+			translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, false, svc.Labels, bpfIPCache.IPCache)
+			result, err := d.policy.TranslateRules(translator)
+			if err != nil {
+				log.Errorf("Unable to repopulate egress policies from ToService rules: %v", err)
+				break
+			} else if result.NumToServicesRules > 0 {
+				// Only trigger policy updates if ToServices rules are in effect
+				d.TriggerPolicyUpdates(true, "Kubernetes service endpoint added")
 			}
 
 		case k8s.DeleteService, k8s.DeleteIngress:
@@ -1199,8 +1146,6 @@ func (d *Daemon) k8sServiceHandler() {
 			if !svc.IsExternal() {
 				continue
 			}
-
-			endpointMetadataCache.delete(event.ID)
 
 			translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, true, svc.Labels, bpfIPCache.IPCache)
 			result, err := d.policy.TranslateRules(translator)
