@@ -17,6 +17,8 @@ package helpers
 import (
 	"bytes"
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -2736,9 +2738,25 @@ func addrsEqual(addr1, addr2 *models.BackendAddress) bool {
 
 // GenerateNamespaceForTest generates a namespace based off of the current test
 // which is running.
+// Note: Namespaces can only be 63 characters long (to comply with DNS). We
+// ensure that the namespace here is shorter than that, but keep it unique by
+// hashing the complete name.
 func GenerateNamespaceForTest() string {
 	lowered := strings.ToLower(ginkgoext.CurrentGinkgoTestDescription().FullTestText)
-	// K8s namespaces cannot have spaces.
+	// K8s namespaces cannot have spaces or underscores.
 	replaced := strings.Replace(lowered, " ", "", -1)
-	return replaced
+	replaced = strings.Replace(replaced, "_", "", -1)
+
+	if len(replaced) <= 63 {
+		return replaced
+	}
+
+	// We need to shorten the name to <=63 characters
+	// Hash the name, encode it as hex, then put it all together
+	h := md5.Sum(([]byte)(replaced[0:]))
+	hash := hex.EncodeToString(h[:])
+	out := []byte(replaced[:56])
+	out = append(out, []byte("-")...)
+	out = append(out, hash[:6]...)
+	return string(out)
 }
