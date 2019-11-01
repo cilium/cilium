@@ -41,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/labels"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/model"
 	"github.com/cilium/cilium/pkg/lock"
@@ -1831,6 +1832,43 @@ func (e *Endpoint) getIDandLabels() string {
 	}
 
 	return fmt.Sprintf("%d (%s)", e.ID, labels)
+}
+
+// MetadataResolverCB provides an implementation for resolving the endpoint
+// metadata for an endpoint such as the associated labels and annotations.
+type MetadataResolverCB func(*Endpoint) (identityLabels labels.Labels, infoLabels labels.Labels, err error)
+
+// RunMetadataResolver starts a controller associated with the received
+// endpoint which will periodically attempt to resolve the metadata for the
+// endpoint and update the endpoint with the related. It stops resolving after
+// either the first successful metadata resolution or when the endpoint is
+// removed.
+//
+// This assumes that after the initial successful resolution, other mechanisms
+// will handle updates (such as pkg/k8s/watchers informers).
+func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
+	done := make(chan struct{})
+	controllerName := fmt.Sprintf("resolve-labels-%s/%s", e.GetK8sNamespace(), e.GetK8sPodName())
+	go func() {
+		<-done
+		e.controllers.RemoveController(controllerName)
+	}()
+
+	e.controllers.UpdateController(controllerName,
+		controller.ControllerParams{
+			DoFunc: func(ctx context.Context) error {
+				identityLabels, info, err := resolveMetadata(e)
+				if err != nil {
+					e.Logger(controllerName).WithError(err).Warning("Unable to fetch kubernetes labels")
+					return err
+				}
+				e.UpdateLabels(ctx, identityLabels, info, true)
+				close(done)
+				return nil
+			},
+			RunInterval: 30 * time.Second,
+		},
+	)
 }
 
 // ModifyIdentityLabels changes the custom and orchestration identity labels of an endpoint.
