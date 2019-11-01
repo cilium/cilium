@@ -307,7 +307,7 @@ func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node
 	args := []string{"netns", "exec", netNSName, binaryName, "--pidfile", pidfile}
 	cmd.SetTarget(prog)
 	cmd.SetArgs(args)
-	log.Infof("Spawning health endpoint with command %q %q", prog, args)
+	log.Debugf("Spawning health endpoint with command %q %q", prog, args)
 	if err := cmd.Run(); err != nil {
 		return nil, err
 	}
