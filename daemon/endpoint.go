@@ -19,13 +19,11 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
-	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/api"
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -149,6 +147,8 @@ func NewPutEndpointIDHandler(d *Daemon) PutEndpointIDHandler {
 	return &putEndpointID{d: d}
 }
 
+// fetchK8sLabelsAndAnnotations wraps the k8s package to fetch and provide
+// endpoint metadata. It implements endpoint.MetadataResolverCB.
 func fetchK8sLabelsAndAnnotations(ep *endpoint.Endpoint) (labels.Labels, labels.Labels, map[string]string, error) {
 	lbls, annotations, err := k8s.GetPodMetadata(ep.GetK8sNamespace(), ep.GetK8sPodName())
 	if err != nil {
@@ -275,34 +275,10 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	// static pod's labels. In this case, start a controller to attempt to
 	// resolve the labels.
 	if ep.K8sNamespaceAndPodNameIsSet() && k8s.IsEnabled() {
-		// If there are labels, but no pod namespace then it's
+		// If there are labels, but no pod namespace, then it's
 		// likely that there are no k8s labels at all. Resolve.
 		if _, k8sLabelsConfigured := addLabels[k8sConst.PodNamespaceLabel]; !k8sLabelsConfigured {
-			done := make(chan struct{})
-
-			controllerName := fmt.Sprintf("resolve-labels-%s", ep.GetK8sNamespaceAndPodName())
-			mgr := controller.NewManager()
-			mgr.UpdateController(controllerName,
-				controller.ControllerParams{
-					DoFunc: func(ctx context.Context) error {
-						identityLabels, info, annotations, err := fetchK8sLabelsAndAnnotations(ep)
-						if err != nil {
-							ep.Logger(controllerName).WithError(err).Warning("Unable to fetch kubernetes labels")
-							return err
-						}
-						ep.UpdateVisibilityPolicy(annotations[annotation.ProxyVisibility])
-						ep.UpdateLabels(ctx, identityLabels, info, true)
-						close(done)
-						return nil
-					},
-					RunInterval: 30 * time.Second,
-					Context:     d.ctx,
-				},
-			)
-			go func() {
-				<-done
-				mgr.RemoveController(controllerName)
-			}()
+			ep.RunMetadataResolver(fetchK8sLabelsAndAnnotations)
 		}
 	}
 
