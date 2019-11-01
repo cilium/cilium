@@ -1861,7 +1861,7 @@ func (e *Endpoint) ModifyIdentityLabels(addLabels, delLabels pkgLabels.Labels) e
 	e.Unlock()
 
 	if changed {
-		e.runLabelsResolver(context.Background(), rev, false)
+		e.runIdentityResolver(context.Background(), rev, false)
 	}
 	return nil
 }
@@ -1898,7 +1898,7 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, identityLabels, infoLabels 
 	rev := e.replaceIdentityLabels(identityLabels)
 	e.Unlock()
 	if rev != 0 {
-		e.runLabelsResolver(ctx, rev, blocking)
+		e.runIdentityResolver(ctx, rev, blocking)
 	}
 }
 
@@ -1912,8 +1912,11 @@ func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 	return false
 }
 
+// runIdentityResolver resolves the numeric identity for the set of labels that
+// are currently configured on the endpoint.
+//
 // Must be called with e.Mutex NOT held.
-func (e *Endpoint) runLabelsResolver(ctx context.Context, myChangeRev int, blocking bool) {
+func (e *Endpoint) runIdentityResolver(ctx context.Context, myChangeRev int, blocking bool) {
 	if err := e.RLockAlive(); err != nil {
 		// If a labels update and an endpoint delete API request arrive
 		// in quick succession, this could occur; in that case, there's
