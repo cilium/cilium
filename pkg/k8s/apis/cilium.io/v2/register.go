@@ -204,7 +204,7 @@ func createCCNPCRD(clientset apiextensionsclient.Interface) error {
 		CustomResourceDefinitionPluralName = "ciliumclusterwidenetworkpolicies"
 
 		// CustomResourceDefinitionShortNames are the abbreviated names to refer to this CRD's instances
-		CustomResourceDefinitionShortNames = []string{"ccnp", "ciliumcnp"}
+		CustomResourceDefinitionShortNames = []string{"ccnp"}
 
 		// CustomResourceDefinitionKind is the Kind name of custom resource definition
 		CustomResourceDefinitionKind = CCNPKindDefinition

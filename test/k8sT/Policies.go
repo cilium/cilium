@@ -1321,7 +1321,7 @@ EOF`, k, v)
 			res = kubectl.Exec(fmt.Sprintf("kubectl label namespaces/%[1]s nslabel=%[1]s", secondNS))
 			res.ExpectSuccess("cannot create namespace labels")
 
-			res = kubectl.Apply(demoManifestNS1)
+			res = kubectl.ApplyDefault(demoManifestNS1)
 			res.ExpectSuccess("unable to apply demo manifest")
 
 			// Check if the Pods are ready in each namespace before the default configured
@@ -1330,7 +1330,7 @@ EOF`, k, v)
 			Expect(err).To(BeNil(),
 				"testapp pods are not ready after timeout in namspace %q", firstNS)
 
-			res = kubectl.Apply(demoManifestNS2)
+			res = kubectl.ApplyDefault(demoManifestNS2)
 			res.ExpectSuccess("unable to apply demo manifest")
 
 			err = kubectl.WaitforPods(secondNS, "-l zgroup=testapp", helpers.HelperTimeout)
