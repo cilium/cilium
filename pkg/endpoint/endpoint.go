@@ -29,6 +29,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
@@ -39,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/labels"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -1473,6 +1475,45 @@ func (e *Endpoint) getIDandLabels() string {
 	}
 
 	return fmt.Sprintf("%d (%s)", e.ID, labels)
+}
+
+// MetadataResolverCB provides an implementation for resolving the endpoint
+// metadata for an endpoint such as the associated labels and annotations.
+type MetadataResolverCB func(*Endpoint) (identityLabels labels.Labels, infoLabels labels.Labels, annotations map[string]string, err error)
+
+// RunMetadataResolver starts a controller associated with the received
+// endpoint which will periodically attempt to resolve the metadata for the
+// endpoint and update the endpoint with the related. It stops resolving after
+// either the first successful metadata resolution or when the endpoint is
+// removed.
+//
+// This assumes that after the initial successful resolution, other mechanisms
+// will handle updates (such as pkg/k8s/watchers informers).
+func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
+	done := make(chan struct{})
+	controllerName := fmt.Sprintf("resolve-labels-%s", e.GetK8sNamespaceAndPodName())
+	go func() {
+		<-done
+		e.controllers.RemoveController(controllerName)
+	}()
+
+	e.controllers.UpdateController(controllerName,
+		controller.ControllerParams{
+			DoFunc: func(ctx context.Context) error {
+				identityLabels, info, annotations, err := resolveMetadata(e)
+				if err != nil {
+					e.Logger(controllerName).WithError(err).Warning("Unable to fetch kubernetes labels")
+					return err
+				}
+				e.UpdateVisibilityPolicy(annotations[annotation.ProxyVisibility])
+				e.UpdateLabels(ctx, identityLabels, info, true)
+				close(done)
+				return nil
+			},
+			RunInterval: 30 * time.Second,
+			Context:     e.aliveCtx,
+		},
+	)
 }
 
 // ModifyIdentityLabels changes the custom and orchestration identity labels of an endpoint.
