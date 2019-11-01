@@ -226,6 +226,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 				// backoff and the Update* calls returned the current localCEP
 				case err != nil && k8serrors.IsConflict(err):
 					scopedLog.WithError(err).Warn("Cannot update CEP due to a revision conflict. The next controller execution will try again")
+					needInit = true
 					return nil
 
 				// Ensure we re-init when we see a generic error. This will recrate the
