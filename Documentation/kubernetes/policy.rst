@@ -13,7 +13,7 @@ Network Policy
 If you are running Cilium on Kubernetes, you can benefit from Kubernetes
 distributing policies for you. In this mode, Kubernetes is responsible for
 distributing the policies across all nodes and Cilium will automatically apply
-the policies. Two formats are available to configure network policies natively
+the policies. Three formats are available to configure network policies natively
 with Kubernetes:
 
 - The standard `NetworkPolicy` resource which at the time of this writing,
@@ -23,6 +23,11 @@ with Kubernetes:
 - The extended `CiliumNetworkPolicy` format which is available as a
   `CustomResourceDefinition` which supports specification of policies
   at Layers 3-7 for both ingress and egress.
+
+- The `CiliumClusterwideNetworkPolicy` format which is cluster scoped
+  `CustomResourceDefinition` for specifying cluster wide policies to be enforced
+  by Cilium. The specification is same as that of `CiliumNetworkPolicy` with
+  no specified namespace.
 
 It is recommended to only use one of the above policy types at a time to
 minimize unintended effects arising from the interaction between the
@@ -99,3 +104,28 @@ Examples
 
 See :ref:`policy_examples` for a detailed list of example policies.
 
+
+.. _CiliumClusterwideNetworkPolicy:
+
+CiliumClusterwideNetworkPolicy
+==============================
+
+`CiliumClusterwideNetworkPolicy` is same as that of `CiliumNetworkPolicy` with the only
+difference in the scope of the policy. Policies defined by `CiliumClusterwideNetworkPolicy`
+are non namespaced and are cluster scoped. Internally the policy is composed of
+`CiliumNetworkPolicy` itself and thus the effects of this policy specification are also same.
+
+The raw specification of the resource in go looks like this:
+
+.. code-block:: go
+
+        type CiliumClusterwideNetworkPolicy struct {
+                *CiliumNetworkPolicy
+
+                // Status is the status of the Cilium policy rule
+                // +optional
+                // The reason this field exists in this structure is due a bug in the k8s code-generator
+                // that doesn't create a `UpdateStatus` method because the field does not exist in
+                // the structure.
+                Status CiliumNetworkPolicyStatus `json:"status"`
+        }

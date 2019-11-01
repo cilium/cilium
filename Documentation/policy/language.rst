@@ -1228,3 +1228,25 @@ policies to a particular cluster.
 .. only:: epub or latex
 
         .. literalinclude:: ../../examples/policies/kubernetes/clustermesh/cross-cluster-policy.yaml
+
+Clusterwide Policies
+--------------------
+
+`CiliumNetworkPolicy` only allows to bind a policy restricted to a particular namespace. There can be situations
+where one wants to have a cluster scoped effect of the policy, this can be done using cilium's
+`CiliumClusterwideNetworkPolicy` kubernetes custom resource. The specification of the policy is same as that
+of `CiliumNetworkPolicy` with the only difference that it is not namespaced.
+
+In the cluster, this policy will allow ingress traffic from pods matching the label ``name=luke`` from any
+namespace to pods matching the labels ``name=leia`` in any namespace.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/kubernetes/clusterwide/clusterscope-policy.yaml
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/kubernetes/clusterwide/clusterscope-policy.yaml
