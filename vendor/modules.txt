@@ -62,7 +62,7 @@ github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1
 github.com/cespare/xxhash/v2
 # github.com/cilium/arping v1.0.1-0.20190728065459-c5eaf8d7a710 => github.com/cilium/arping v1.0.1-0.20190728065459-c5eaf8d7a710
 github.com/cilium/arping
-# github.com/cilium/proxy v0.0.0-20191011203514-26aba09893bb => github.com/cilium/proxy v0.0.0-20191011203514-26aba09893bb
+# github.com/cilium/proxy v0.0.0-20191103190817-c6d564bb0863 => github.com/cilium/proxy v0.0.0-20191103190817-c6d564bb0863
 github.com/cilium/proxy/go/cilium/api
 github.com/cilium/proxy/go/envoy/api/v2
 github.com/cilium/proxy/go/envoy/api/v2/auth
@@ -72,6 +72,7 @@ github.com/cilium/proxy/go/envoy/api/v2/endpoint
 github.com/cilium/proxy/go/envoy/api/v2/listener
 github.com/cilium/proxy/go/envoy/api/v2/route
 github.com/cilium/proxy/go/envoy/config/bootstrap/v2
+github.com/cilium/proxy/go/envoy/config/listener/v2
 github.com/cilium/proxy/go/envoy/config/metrics/v2
 github.com/cilium/proxy/go/envoy/config/overload/v2alpha
 github.com/cilium/proxy/go/envoy/config/trace/v2
