@@ -536,7 +536,7 @@ func createBootstrap(filePath string, name, cluster, version string, xdsSock, eg
 					ClusterDiscoveryType: &envoy_api_v2.Cluster_Type{Type: envoy_api_v2.Cluster_ORIGINAL_DST},
 					ConnectTimeout:       &duration.Duration{Seconds: connectTimeout, Nanos: 0},
 					CleanupInterval:      &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
-					LbPolicy:             envoy_api_v2.Cluster_ORIGINAL_DST_LB,
+					LbPolicy:             envoy_api_v2.Cluster_CLUSTER_PROVIDED,
 					ProtocolSelection:    envoy_api_v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
 				},
 				{
@@ -544,7 +544,7 @@ func createBootstrap(filePath string, name, cluster, version string, xdsSock, eg
 					ClusterDiscoveryType: &envoy_api_v2.Cluster_Type{Type: envoy_api_v2.Cluster_ORIGINAL_DST},
 					ConnectTimeout:       &duration.Duration{Seconds: connectTimeout, Nanos: 0},
 					CleanupInterval:      &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
-					LbPolicy:             envoy_api_v2.Cluster_ORIGINAL_DST_LB,
+					LbPolicy:             envoy_api_v2.Cluster_CLUSTER_PROVIDED,
 					ProtocolSelection:    envoy_api_v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
 				},
 				{
