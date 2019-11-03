@@ -134,11 +134,13 @@ func (s *accessLogServer) logRecord(localEndpoint logger.EndpointUpdater, pblog 
 	var l7tags logger.LogTag
 	if http := pblog.GetHttp(); http != nil {
 		l7tags = logger.LogTags.HTTP(&accesslog.LogRecordHTTP{
-			Method:   http.Method,
-			Code:     int(http.Status),
-			URL:      ParseURL(http.Scheme, http.Host, http.Path),
-			Protocol: GetProtocol(http.HttpProtocol),
-			Headers:  GetNetHttpHeaders(http.Headers),
+			Method:          http.Method,
+			Code:            int(http.Status),
+			URL:             ParseURL(http.Scheme, http.Host, http.Path),
+			Protocol:        GetProtocol(http.HttpProtocol),
+			Headers:         GetNetHttpHeaders(http.Headers),
+			MissingHeaders:  GetNetHttpHeaders(http.MissingHeaders),
+			RejectedHeaders: GetNetHttpHeaders(http.RejectedHeaders),
 		})
 	} else if l7 := pblog.GetGenericL7(); l7 != nil {
 		l7tags = logger.LogTags.L7(&accesslog.LogRecordL7{
