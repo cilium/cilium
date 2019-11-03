@@ -219,6 +219,12 @@ type LogRecordHTTP struct {
 
 	// Headers are all HTTP headers present in the request
 	Headers http.Header
+
+	// MissingHeaders are HTTP request headers that were deemed missing from the request
+	MissingHeaders http.Header
+
+	// RejectedHeaders are HTTP request headers that were rejected from the request
+	RejectedHeaders http.Header
 }
 
 // KafkaTopic contains the topic for requests
