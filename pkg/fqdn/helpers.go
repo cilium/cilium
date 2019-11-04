@@ -80,13 +80,15 @@ func mapSelectorsToIPs(fqdnSelectors map[api.FQDNSelector]struct{}, cache *DNSCa
 			missing[ToFQDN] = struct{}{}
 
 			for name, ips := range lookupIPs {
-				log.WithFields(logrus.Fields{
-					"DNSName":      name,
-					"IPs":          ips,
-					"matchPattern": ToFQDN.MatchPattern,
-				}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")
-				delete(missing, ToFQDN)
-				ipsSelected = append(ipsSelected, ips...)
+				if len(ips) > 0 {
+					log.WithFields(logrus.Fields{
+						"DNSName":      name,
+						"IPs":          ips,
+						"matchPattern": ToFQDN.MatchPattern,
+					}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")
+					delete(missing, ToFQDN)
+					ipsSelected = append(ipsSelected, ips...)
+				}
 			}
 		}
 
