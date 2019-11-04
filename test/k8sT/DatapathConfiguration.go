@@ -20,6 +20,7 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/cilium/cilium/test/config"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
@@ -66,14 +67,14 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	JustAfterEach(func() {
+		if !(config.CiliumTestConfig.HoldEnvironment && TestFailed()) {
+			// To avoid hitting GH-4384
+			kubectl.DeleteResource("service", "test-nodeport testds-service").ExpectSuccess(
+				"Service is deleted")
+		}
+
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 	})
-
-	cleanService := func() {
-		// To avoid hit GH-4384
-		kubectl.DeleteResource("service", "test-nodeport testds-service").ExpectSuccess(
-			"Service is deleted")
-	}
 
 	deployCilium := func(options []string) {
 		DeployCiliumOptionsAndDNS(kubectl, options)
@@ -193,7 +194,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 			})
 			validateBPFTunnelMap()
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test with IPsec between nodes failed")
-			cleanService()
 		}, 600)
 
 		It("Check connectivity with sockops and VXLAN encapsulation", func() {
@@ -203,7 +203,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 			})
 			validateBPFTunnelMap()
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-			cleanService()
 		}, 600)
 
 		It("Check connectivity with VXLAN encapsulation", func() {
@@ -212,7 +211,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 			})
 			validateBPFTunnelMap()
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-			cleanService()
 		}, 600)
 
 		It("Check connectivity with Geneve encapsulation", func() {
@@ -221,7 +219,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 			})
 			validateBPFTunnelMap()
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-			cleanService()
 		})
 
 		It("Check vxlan connectivity with per endpoint routes", func() {
@@ -231,7 +228,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"--set global.autoDirectNodeRoutes=true",
 			})
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-			cleanService()
 		})
 
 	})
@@ -247,7 +243,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 			deployCilium(directRoutingOptions)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-			cleanService()
 		})
 
 		It("Check direct connectivity with per endpoint routes", func() {
@@ -257,7 +252,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"--set global.endpointRoutes.enabled=true",
 			))
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-			cleanService()
 		})
 	})
 
@@ -272,7 +266,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"--set global.encryption.interface=enp0s8",
 			})
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-			cleanService()
 		})
 	})
 
@@ -286,7 +279,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"--set global.ipv6.enabled=false",
 			})
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-			cleanService()
 		})
 	})
 
@@ -300,7 +292,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"--set global.etcd.managed=true",
 			})
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-			cleanService()
 		})
 	})
 })

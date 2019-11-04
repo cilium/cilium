@@ -250,6 +250,17 @@ func runAllAfterEach(cs *scope, testName string) {
 // already executed for the given test.
 var afterFailedStatus map[string]bool = map[string]bool{}
 
+func testFailed(testName string) bool {
+	hasFailed, _ := afterEachFailed[testName]
+	return ginkgo.CurrentGinkgoTestDescription().Failed || hasFailed
+}
+
+// TestFailed returns true if the current test has failed.
+func TestFailed() bool {
+	testName := ginkgo.CurrentGinkgoTestDescription().FullTestText
+	return testFailed(testName)
+}
+
 // runAllAfterFail runs all the afterFail functions for the given
 // scope and parent scopes. This function make sure that all the `AfterFail`
 // functions are called before AfterEach.
@@ -259,8 +270,7 @@ func runAllAfterFail(cs *scope, testName string) {
 		return
 	}
 
-	hasFailed, _ := afterEachFailed[testName]
-	if (ginkgo.CurrentGinkgoTestDescription().Failed || hasFailed) && len(cs.afterFail) > 0 {
+	if testFailed(testName) && len(cs.afterFail) > 0 {
 		GinkgoPrint("===================== TEST FAILED =====================")
 		for _, body := range cs.afterFail {
 			body()
