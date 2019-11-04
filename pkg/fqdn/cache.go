@@ -408,7 +408,9 @@ func (c *DNSCache) lookupByRegexpByTime(now time.Time, re *regexp.Regexp) (match
 
 	for name, entry := range c.forward {
 		if re.MatchString(name) {
-			matches[name] = append(matches[name], entry.getIPs(now)...)
+			if ips := entry.getIPs(now); len(ips) > 0 {
+				matches[name] = append(matches[name], ips...)
+			}
 		}
 	}
 
