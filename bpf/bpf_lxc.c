@@ -69,7 +69,9 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 				   struct ipv6_ct_tuple *tuple, int l3_off,
 				   struct ipv6hdr *ip6, __u32 *dstID)
 {
+#ifdef ENABLE_ROUTING
 	union macaddr router_mac = NODE_MAC;
+#endif
 	int ret, verdict, l4_off, hdrlen;
 	struct csum_offset csum_off = {};
 	struct lb6_key key = {};
@@ -332,9 +334,11 @@ to_host:
 #endif
 
 pass_to_stack:
+#ifdef ENABLE_ROUTING
 	ret = ipv6_l3(skb, l3_off, NULL, (__u8 *) &router_mac.addr, METRIC_EGRESS);
 	if (unlikely(ret != TC_ACT_OK))
 		return ret;
+#endif
 
 	if (ipv6_store_flowlabel(skb, l3_off, SECLABEL_NB) < 0)
 		return DROP_WRITE_ERROR;
@@ -407,7 +411,9 @@ int tail_handle_ipv6(struct __sk_buff *skb)
 static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 {
 	struct ipv4_ct_tuple tuple = {};
+#ifdef ENABLE_ROUTING
 	union macaddr router_mac = NODE_MAC;
+#endif
 	void *data, *data_end;
 	struct iphdr *ip4;
 	int ret, verdict, l3_off = ETH_HLEN, l4_off;
@@ -656,9 +662,11 @@ to_host:
 #endif
 
 pass_to_stack:
+#ifdef ENABLE_ROUTING
 	ret = ipv4_l3(skb, l3_off, NULL, (__u8 *) &router_mac.addr, ip4);
 	if (unlikely(ret != TC_ACT_OK))
 		return ret;
+#endif
 
 	/* FIXME: We can't store the security context anywhere here so all
 	 * packets to other nodes will look like they come from an outside
