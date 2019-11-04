@@ -126,6 +126,32 @@ var _ = Describe("K8sDatapathConfig", func() {
 			ingressPktCount := 2
 			checkMonitorOutput(monitorOutput, egressPktCount, ingressPktCount)
 		})
+
+		It("Checks that monitor aggregation flags send notifications", func() {
+			deployCilium([]string{
+				"--set global.bpf.monitorAggregation=medium",
+				"--set global.bpf.monitorInterval=60s",
+				"--set global.bpf.monitorFlags=psh",
+				"--set global.debug.enabled=false",
+			})
+			monitorOutput, _ := monitorConnectivityAcrossNodes(kubectl, monitorLog)
+
+			By("Checking the set of TCP notifications received matches expectations")
+			// | TCP Flags | Direction | Report? | Why?
+			// +===========+===========+=========+=====
+			// | SYN       |    ->     |    Y    | monitorAggregation=medium
+			// | SYN / ACK |    <-     |    Y    | monitorAggregation=medium
+			// | ACK       |    ->     |    N    | monitorFlags=(!ACK)
+			// | ACK       |    ...    |    N    | monitorFlags=(!ACK)
+			// | PSH       |    ->     |    Y    | monitorFlags=(PSH)
+			// | PSH       |    <-     |    Y    | monitorFlags=(PSH)
+			// | FIN       |    ->     |    Y    | monitorAggregation=medium
+			// | FIN / ACK |    <-     |    Y    | monitorAggregation=medium
+			// | ACK       |    ->     |    Y    | monitorAggregation=medium
+			egressPktCount := 4
+			ingressPktCount := 3
+			checkMonitorOutput(monitorOutput, egressPktCount, ingressPktCount)
+		})
 	})
 
 	Context("Encapsulation", func() {
