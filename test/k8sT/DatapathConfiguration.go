@@ -98,26 +98,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"--set global.bpf.monitorFlags=syn",
 				"--set global.debug.enabled=false",
 			})
-			// For local single-node testing, configure
-			// requireMultiNode to false and specify the node name.
-			requireMultiNode := true
-			nodeName := helpers.K8s1
-
-			var err error
-			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.KubeSystemNamespace, nodeName)
-			Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
-
-			By(fmt.Sprintf("Launching cilium monitor on %q", ciliumPodK8s1))
-			monitorStop := kubectl.MonitorStart(helpers.KubeSystemNamespace, ciliumPodK8s1, monitorLog)
-			result, targetIP := testPodConnectivityAcrossNodesAndReturnIP(kubectl, requireMultiNode, 1)
-			monitorStop()
-			cleanService()
-			Expect(result).Should(BeTrue(), "Connectivity test between nodes failed")
-
-			monitorPath := fmt.Sprintf("%s/%s", helpers.ReportDirectoryPath(), monitorLog)
-			By("Reading the monitor log at %s", monitorPath)
-			monitorOutput, err := ioutil.ReadFile(monitorPath)
-			Expect(err).To(BeNil(), "Could not read monitor log")
+			monitorOutput, targetIP := monitorConnectivityAcrossNodes(kubectl, monitorLog)
 
 			By("Checking that exactly one ICMP notification in each direction was observed")
 			expEgress := fmt.Sprintf("ICMPv4.*DstIP=%s", targetIP)
@@ -141,31 +122,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 			// | FIN       |    ->     |    Y    | monitorAggregation=medium
 			// | FIN / ACK |    <-     |    Y    | monitorAggregation=medium
 			// | ACK       |    ->     |    Y    | monitorAggregation=medium
-
-			// Multiple connection attempts may be made, we need to
-			// narrow down to the last connection close, then match
-			// the ephemeral port + flags to ensure that the
-			// notifications match the table above.
-			egressTCPExpr := `TCP.*DstPort=80.*FIN=true`
-			egressTCPRegex := regexp.MustCompile(egressTCPExpr)
-			egressTCPMatches := egressTCPRegex.FindAll(monitorOutput, -1)
-			Expect(len(egressTCPMatches)).To(BeNumerically(">", 0), "Could not locate final FIN notification in monitor log")
-			finalMatch := egressTCPMatches[len(egressTCPMatches)-1]
-			portRegex := regexp.MustCompile(`SrcPort=([0-9]*)`)
-			// FindSubmatch should return ["SrcPort=12345" "12345"]
-			portBytes := portRegex.FindSubmatch(finalMatch)[1]
-
-			By("Looking for TCP notifications using the ephemeral port %q", portBytes)
-			port, err := strconv.Atoi(string(portBytes))
-			Expect(err).To(BeNil(), fmt.Sprintf("ephemeral port %q could not be converted to integer", string(portBytes)))
-			expEgress = fmt.Sprintf("SrcPort=%d", port)
-			expEgressRegex = regexp.MustCompile(expEgress)
-			egressMatches = expEgressRegex.FindAllIndex(monitorOutput, -1)
-			Expect(len(egressMatches)).To(Equal(3), "Monitor log contained unexpected number of egress notifications matching %q", expEgress)
-			expIngress = fmt.Sprintf("DstPort=%d", port)
-			expIngressRegex = regexp.MustCompile(expIngress)
-			ingressMatches = expIngressRegex.FindAllIndex(monitorOutput, -1)
-			Expect(len(ingressMatches)).To(Equal(2), "Monitor log contained unexpected number of ingress notifications matching %q", expIngress)
+			egressPktCount := 3
+			ingressPktCount := 2
+			checkMonitorOutput(monitorOutput, egressPktCount, ingressPktCount)
 		})
 	})
 
@@ -360,4 +319,52 @@ func testPodConnectivityAcrossNodesAndReturnIP(kubectl *helpers.Kubectl, require
 	res = kubectl.ExecPodCmd(helpers.DefaultNamespace, srcPod,
 		helpers.CurlFail("http://%s:80/", targetIP))
 	return res.WasSuccessful(), targetIP
+}
+
+func monitorConnectivityAcrossNodes(kubectl *helpers.Kubectl, monitorLog string) (monitorOutput []byte, targetIP string) {
+	// For local single-node testing, configure requireMultiNode to "false"
+	// and add the labels "cilium.io/ci-node: k8s1" to the node.
+	requireMultiNode := true
+
+	ciliumPodK8s1, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.KubeSystemNamespace, helpers.K8s1)
+	ExpectWithOffset(1, err).Should(BeNil(), "Cannot get cilium pod on k8s1")
+
+	By(fmt.Sprintf("Launching cilium monitor on %q", ciliumPodK8s1))
+	monitorStop := kubectl.MonitorStart(helpers.KubeSystemNamespace, ciliumPodK8s1, monitorLog)
+	result, targetIP := testPodConnectivityAcrossNodesAndReturnIP(kubectl, requireMultiNode, 2)
+	monitorStop()
+	ExpectWithOffset(1, result).Should(BeTrue(), "Connectivity test between nodes failed")
+
+	monitorPath := fmt.Sprintf("%s/%s", helpers.ReportDirectoryPath(), monitorLog)
+	By("Reading the monitor log at %s", monitorPath)
+	monitorOutput, err = ioutil.ReadFile(monitorPath)
+	ExpectWithOffset(1, err).To(BeNil(), "Could not read monitor log")
+	return monitorOutput, targetIP
+}
+
+func checkMonitorOutput(monitorOutput []byte, egressPktCount, ingressPktCount int) {
+	// Multiple connection attempts may be made, we need to
+	// narrow down to the last connection close, then match
+	// the ephemeral port + flags to ensure that the
+	// notifications match the table above.
+	egressTCPExpr := `TCP.*DstPort=80.*FIN=true`
+	egressTCPRegex := regexp.MustCompile(egressTCPExpr)
+	egressTCPMatches := egressTCPRegex.FindAll(monitorOutput, -1)
+	ExpectWithOffset(1, len(egressTCPMatches)).To(BeNumerically(">", 0), "Could not locate final FIN notification in monitor log")
+	finalMatch := egressTCPMatches[len(egressTCPMatches)-1]
+	portRegex := regexp.MustCompile(`SrcPort=([0-9]*)`)
+	// FindSubmatch should return ["SrcPort=12345" "12345"]
+	portBytes := portRegex.FindSubmatch(finalMatch)[1]
+
+	By("Looking for TCP notifications using the ephemeral port %q", portBytes)
+	port, err := strconv.Atoi(string(portBytes))
+	ExpectWithOffset(1, err).To(BeNil(), fmt.Sprintf("ephemeral port %q could not be converted to integer", string(portBytes)))
+	expEgress := fmt.Sprintf("SrcPort=%d", port)
+	expEgressRegex := regexp.MustCompile(expEgress)
+	egressMatches := expEgressRegex.FindAllIndex(monitorOutput, -1)
+	ExpectWithOffset(1, len(egressMatches)).To(Equal(egressPktCount), "Monitor log contained unexpected number of egress notifications matching %q", expEgress)
+	expIngress := fmt.Sprintf("DstPort=%d", port)
+	expIngressRegex := regexp.MustCompile(expIngress)
+	ingressMatches := expIngressRegex.FindAllIndex(monitorOutput, -1)
+	ExpectWithOffset(1, len(ingressMatches)).To(Equal(ingressPktCount), "Monitor log contained unexpected number of ingress notifications matching %q", expIngress)
 }
