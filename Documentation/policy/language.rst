@@ -406,8 +406,8 @@ Egress
 toCIDR
   List of destination prefixes/CIDRs that endpoints selected by
   ``endpointSelector`` are allowed to talk to. Note that endpoints which are
-  selected by a ``fromEndpoints`` are automatically allowed to talk to their
-  respective destination endpoints.
+  selected by a ``fromEndpoints`` are automatically allowed to reply back to
+  the respective destination endpoints.
 
 toCIDRSet
   List of destination prefixes/CIDRs that are allowed to talk to all endpoints
