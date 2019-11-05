@@ -85,9 +85,11 @@ func (b *Backend) DeepCopy() *Backend {
 
 // SVC is a structure for storing service details.
 type SVC struct {
-	Frontend L3n4AddrID // SVC frontend addr and an allocated ID
-	Backends []Backend  // List of service backends
-	Type     SVCType    // Service type
+	Frontend  L3n4AddrID // SVC frontend addr and an allocated ID
+	Backends  []Backend  // List of service backends
+	Type      SVCType    // Service type
+	Name      string     // Service name
+	Namespace string     // Service namespace
 }
 
 func (s *SVC) GetModel() *models.Service {
@@ -106,7 +108,9 @@ func (s *SVC) GetModel() *models.Service {
 		FrontendAddress:  s.Frontend.GetModel(),
 		BackendAddresses: make([]*models.BackendAddress, len(s.Backends)),
 		Flags: &models.ServiceSpecFlags{
-			Type: string(s.Type),
+			Type:      string(s.Type),
+			Name:      s.Name,
+			Namespace: s.Namespace,
 		},
 	}
 

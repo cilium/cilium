@@ -117,7 +117,8 @@ type policyRepository interface {
 
 type svcManager interface {
 	DeleteService(frontend loadbalancer.L3n4Addr) (bool, error)
-	UpsertService(frontend loadbalancer.L3n4AddrID, backends []loadbalancer.Backend, svcType loadbalancer.SVCType) (bool, loadbalancer.ID, error)
+	UpsertService(frontend loadbalancer.L3n4AddrID, backends []loadbalancer.Backend,
+		svcType loadbalancer.SVCType, svcName, svcNamespace string) (bool, loadbalancer.ID, error)
 }
 
 type K8sWatcher struct {
@@ -556,7 +557,8 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints
 		}
 
 		for _, fe := range frontends {
-			if _, _, err := k.svcManager.UpsertService(*fe.addr, besValues, fe.svcType); err != nil {
+			if _, _, err := k.svcManager.UpsertService(*fe.addr, besValues,
+				fe.svcType, svcID.Name, svcID.Namespace); err != nil {
 				scopedLog.WithError(err).Error("Error while inserting service in LB map")
 			}
 		}

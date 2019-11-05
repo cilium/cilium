@@ -143,7 +143,8 @@ func (f *fakePolicyRepository) TranslateRules(translator policy.Translator) (*po
 
 type fakeSvcManager struct {
 	OnDeleteService func(frontend loadbalancer.L3n4Addr) (bool, error)
-	OnUpsertService func(frontend loadbalancer.L3n4AddrID, backends []loadbalancer.Backend, svcType loadbalancer.SVCType) (bool, loadbalancer.ID, error)
+	OnUpsertService func(frontend loadbalancer.L3n4AddrID, backends []loadbalancer.Backend,
+		svcType loadbalancer.SVCType, svcName, svcNamespace string) (bool, loadbalancer.ID, error)
 }
 
 func (f *fakeSvcManager) DeleteService(frontend loadbalancer.L3n4Addr) (bool, error) {
@@ -153,11 +154,12 @@ func (f *fakeSvcManager) DeleteService(frontend loadbalancer.L3n4Addr) (bool, er
 	panic("OnDeleteService(loadbalancer.L3n4Addr) (bool, error) was called and is not set!")
 }
 
-func (f *fakeSvcManager) UpsertService(frontend loadbalancer.L3n4AddrID, backends []loadbalancer.Backend, svcType loadbalancer.SVCType) (bool, loadbalancer.ID, error) {
+func (f *fakeSvcManager) UpsertService(frontend loadbalancer.L3n4AddrID, backends []loadbalancer.Backend,
+	svcType loadbalancer.SVCType, svcName, svcNamespace string) (bool, loadbalancer.ID, error) {
 	if f.OnUpsertService != nil {
-		return f.OnUpsertService(frontend, backends, svcType)
+		return f.OnUpsertService(frontend, backends, svcType, svcName, svcNamespace)
 	}
-	panic("OnUpsertService(loadbalancer.L3n4AddrID, []loadbalancer.Backend, loadbalancer.SVCType) (bool, loadbalancer.ID, error) was called and is not set!")
+	panic("OnUpsertService(loadbalancer.L3n4AddrID, []loadbalancer.Backend, loadbalancer.SVCType, string, string) (bool, loadbalancer.ID, error) was called and is not set!")
 }
 
 func (s *K8sWatcherSuite) TestUpdateToServiceEndpointsGH9525(c *C) {
