@@ -54,7 +54,7 @@ var _ = Describe("K8sChaosTest", func() {
 
 	Context("Connectivity demo application", func() {
 		BeforeEach(func() {
-			kubectl.Apply(demoDSPath).ExpectSuccess("DS deployment cannot be applied")
+			kubectl.ApplyDefault(demoDSPath).ExpectSuccess("DS deployment cannot be applied")
 
 			err := kubectl.WaitforPods(
 				helpers.DefaultNamespace, fmt.Sprintf("-l zgroup=testDS"), helpers.HelperTimeout)
@@ -178,7 +178,7 @@ var _ = Describe("K8sChaosTest", func() {
 		)
 
 		BeforeAll(func() {
-			kubectl.Apply(netperfManifest).ExpectSuccess("Netperf cannot be deployed")
+			kubectl.ApplyDefault(netperfManifest).ExpectSuccess("Netperf cannot be deployed")
 
 			err := kubectl.WaitforPods(
 				helpers.DefaultNamespace,
