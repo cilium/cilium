@@ -130,9 +130,9 @@ var _ = Describe("K8sServicesTest", func() {
 		})
 
 		BeforeEach(func() {
-			res := kubectl.Apply(demoYAML)
+			res := kubectl.ApplyDefault(demoYAML)
 			res.ExpectSuccess("unable to apply %s", demoYAML)
-			res = kubectl.Apply(echoSVCYAML)
+			res = kubectl.ApplyDefault(echoSVCYAML)
 			res.ExpectSuccess("unable to apply %s", echoSVCYAML)
 		})
 
@@ -188,7 +188,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 		BeforeAll(func() {
 			demoYAML = helpers.ManifestGet(kubectl.BasePath(), "demo_ds.yaml")
-			res := kubectl.Apply(demoYAML)
+			res := kubectl.ApplyDefault(demoYAML)
 			res.ExpectSuccess("Unable to apply %s", demoYAML)
 		})
 
@@ -377,8 +377,8 @@ var _ = Describe("K8sServicesTest", func() {
 			policyLabeledPath = helpers.ManifestGet(kubectl.BasePath(), "external-policy-labeled.yaml")
 			servicePath = helpers.ManifestGet(kubectl.BasePath(), "external_service.yaml")
 
-			kubectl.Apply(servicePath).ExpectSuccess("cannot install external service")
-			kubectl.Apply(podPath).ExpectSuccess("cannot install pod path")
+			kubectl.ApplyDefault(servicePath).ExpectSuccess("cannot install external service")
+			kubectl.ApplyDefault(podPath).ExpectSuccess("cannot install pod path")
 
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
 			Expect(err).To(BeNil(), "Pods are not ready after timeout")
@@ -431,7 +431,7 @@ var _ = Describe("K8sServicesTest", func() {
 		}
 
 		It("To Services first endpoint creation", func() {
-			res := kubectl.Apply(endpointPath)
+			res := kubectl.ApplyDefault(endpointPath)
 			res.ExpectSuccess()
 
 			applyPolicy(policyPath)
@@ -444,7 +444,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 		It("To Services first policy", func() {
 			applyPolicy(policyPath)
-			res := kubectl.Apply(endpointPath)
+			res := kubectl.ApplyDefault(endpointPath)
 			res.ExpectSuccess()
 
 			validateEgress()
@@ -456,7 +456,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 		It("To Services first endpoint creation match service by labels", func() {
 			By("Creating Kubernetes Endpoint")
-			res := kubectl.Apply(endpointPath)
+			res := kubectl.ApplyDefault(endpointPath)
 			res.ExpectSuccess()
 
 			applyPolicy(policyLabeledPath)
@@ -472,7 +472,7 @@ var _ = Describe("K8sServicesTest", func() {
 			applyPolicy(policyLabeledPath)
 
 			By("Creating Kubernetes Endpoint")
-			res := kubectl.Apply(endpointPath)
+			res := kubectl.ApplyDefault(endpointPath)
 			res.ExpectSuccess()
 
 			validateEgress()

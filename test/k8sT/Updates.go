@@ -186,7 +186,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		Expect(err).To(BeNil(), "Cilium %q was not able to be deployed", oldVersion)
 
 		By("Installing kube-dns")
-		_ = kubectl.Apply(helpers.DNSDeployment(kubectl.BasePath()))
+		_ = kubectl.ApplyDefault(helpers.DNSDeployment(kubectl.BasePath()))
 
 		// Cilium is only ready if kvstore is ready, the kvstore is ready if
 		// kube-dns is running.
@@ -273,7 +273,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 
 		By("Creating some endpoints and L7 policy")
 
-		res := kubectl.Apply(demoPath)
+		res := kubectl.ApplyDefault(demoPath)
 		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "cannot apply dempo application")
 
 		err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
@@ -287,12 +287,12 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 
 		By("Creating service and clients for migration")
 
-		res = kubectl.Apply(migrateSVCServer)
+		res = kubectl.ApplyDefault(migrateSVCServer)
 		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "cannot apply migrate-svc-server")
 		err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l app=migrate-svc-server", timeout)
 		Expect(err).Should(BeNil(), "migrate-svc-server pods are not ready after timeout")
 
-		res = kubectl.Apply(migrateSVCClient)
+		res = kubectl.ApplyDefault(migrateSVCClient)
 		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "cannot apply migrate-svc-client")
 		err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l app=migrate-svc-client", timeout)
 		Expect(err).Should(BeNil(), "migrate-svc-client pods are not ready after timeout")
@@ -335,7 +335,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 			"> cilium-preflight.yaml")
 		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "Unable to generate preflight YAML")
 
-		res = kubectl.Apply("cilium-preflight.yaml")
+		res = kubectl.ApplyDefault("cilium-preflight.yaml")
 		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "Unable to deploy preflight manifest")
 		ExpectCiliumPreFlightInstallReady(kubectl)
 

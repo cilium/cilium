@@ -300,14 +300,14 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 		It("Test TCP Keepalive with L7 Policy", func() {
 			kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 			manifest := helpers.ManifestGet(kubectl.BasePath(), netcatDsManifest)
-			kubectl.Apply(manifest).ExpectSuccess("Cannot apply netcat ds")
+			kubectl.ApplyDefault(manifest).ExpectSuccess("Cannot apply netcat ds")
 			defer kubectl.Delete(manifest)
 			testConnectivity()
 		})
 
 		It("Test TCP Keepalive without L7 Policy", func() {
 			manifest := helpers.ManifestGet(kubectl.BasePath(), netcatDsManifest)
-			kubectl.Apply(manifest).ExpectSuccess("Cannot apply netcat ds")
+			kubectl.ApplyDefault(manifest).ExpectSuccess("Cannot apply netcat ds")
 			defer kubectl.Delete(manifest)
 			kubectl.Exec(fmt.Sprintf(
 				"%s delete --all cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
@@ -376,7 +376,7 @@ var _ = Describe("NightlyExamples", func() {
 		})
 
 		AfterAll(func() {
-			_ = kubectl.Apply(helpers.DNSDeployment(kubectl.BasePath()))
+			_ = kubectl.ApplyDefault(helpers.DNSDeployment(kubectl.BasePath()))
 		})
 
 		for _, image := range helpers.NightlyStableUpgradesFrom {
@@ -419,7 +419,7 @@ var _ = Describe("NightlyExamples", func() {
 			clientPod := "terminal-87"
 
 			By("Testing the example config")
-			kubectl.Apply(AppManifest).ExpectSuccess("cannot install the GRPC application")
+			kubectl.ApplyDefault(AppManifest).ExpectSuccess("cannot install the GRPC application")
 
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=grpcExample", helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
