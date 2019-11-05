@@ -757,18 +757,25 @@ func (kub *Kubectl) Action(action ResourceLifeCycleAction, filePath string, name
 type ApplyOptions struct {
 	FilePath  string
 	Namespace string
+	Force     bool
 }
 
 // Apply applies the Kubernetes manifest located at path filepath.
 func (kub *Kubectl) Apply(options ApplyOptions) *CmdRes {
+	var force string
+	if options.Force {
+		force = "--force=true"
+	} else {
+		force = "--force=false"
+	}
 	if len(options.Namespace) == 0 {
 		kub.logger.Debugf("applying %s", options.FilePath)
 		return kub.ExecMiddle(
-			fmt.Sprintf("%s apply -f %s", KubectlCmd, options.FilePath))
+			fmt.Sprintf("%s apply %s -f %s", KubectlCmd, force, options.FilePath))
 	}
 	kub.logger.Debugf("applying %s in namespace %s", options.FilePath, options.Namespace)
 	return kub.ExecMiddle(
-		fmt.Sprintf("%s apply -f  %s -n %s", KubectlCmd, options.FilePath, options.Namespace))
+		fmt.Sprintf("%s apply %s -f  %s -n %s", KubectlCmd, force, options.FilePath, options.Namespace))
 }
 
 // ApplyDefault applies give filepath with other options set to default
@@ -1078,7 +1085,7 @@ func (kub *Kubectl) ciliumInstallHelm(options []string) error {
 		return err
 	}
 
-	res := kub.ApplyDefault("cilium.yaml")
+	res := kub.Apply(ApplyOptions{FilePath: "cilium.yaml", Force: true})
 	if !res.WasSuccessful() {
 		return res.GetErr("Unable to apply YAML")
 	}
