@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package driver
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -33,6 +34,9 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 
+	apiTypes "github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/events"
+	dockerCliAPI "github.com/docker/docker/client"
 	"github.com/docker/libnetwork/drivers/remote/api"
 	lnTypes "github.com/docker/libnetwork/types"
 	"github.com/gorilla/mux"
@@ -48,12 +52,13 @@ type Driver interface {
 }
 
 type driver struct {
-	mutex       lock.RWMutex
-	client      *client.Client
-	conf        models.DaemonConfigurationStatus
-	routes      []api.StaticRoute
-	gatewayIPv6 string
-	gatewayIPv4 string
+	mutex        lock.RWMutex
+	client       *client.Client
+	dockerClient *dockerCliAPI.Client
+	conf         models.DaemonConfigurationStatus
+	routes       []api.StaticRoute
+	gatewayIPv6  string
+	gatewayIPv4  string
 }
 
 func endpointID(id string) string {
@@ -77,19 +82,28 @@ func newLibnetworkRoute(route route.Route) api.StaticRoute {
 // NewDriver creates and returns a new Driver for the given API URL.
 // If url is nil then use SockPath provided by CILIUM_SOCK
 // or the cilium default SockPath
-func NewDriver(url string) (Driver, error) {
+func NewDriver(ciliumSockPath, dockerHostPath string) (Driver, error) {
 
-	if url == "" {
-		url = client.DefaultSockPath()
+	if ciliumSockPath == "" {
+		ciliumSockPath = client.DefaultSockPath()
 	}
 
-	scopedLog := log.WithField("url", url)
-	c, err := client.NewClient(url)
+	scopedLog := log.WithField("ciliumSockPath", ciliumSockPath)
+	c, err := client.NewClient(ciliumSockPath)
 	if err != nil {
 		scopedLog.WithError(err).Fatal("Error while starting cilium-client")
 	}
 
-	d := &driver{client: c}
+	scopedLog = scopedLog.WithField("dockerHostPath", dockerHostPath)
+	dockerCli, err := dockerCliAPI.NewClientWithOpts(
+		dockerCliAPI.WithVersion("v1.21"),
+		dockerCliAPI.WithHost(dockerHostPath),
+	)
+	if err != nil {
+		scopedLog.WithError(err).Fatal("Error while starting cilium-client")
+	}
+
+	d := &driver{client: c, dockerClient: dockerCli}
 
 	for tries := 0; tries < 24; tries++ {
 		if res, err := c.ConfigGet(); err != nil {

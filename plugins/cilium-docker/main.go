@@ -28,11 +28,12 @@ import (
 )
 
 var (
-	log        = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-docker")
-	pluginPath string
-	driverSock string
-	debug      bool
-	ciliumAPI  string
+	log            = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-docker")
+	pluginPath     string
+	driverSock     string
+	debug          bool
+	ciliumAPI      string
+	dockerHostPath string
 )
 
 // RootCmd represents the base command when called without any subcommands
@@ -54,7 +55,7 @@ connected to a Docker network of type "cilium".`,
 
 		createPluginSock()
 
-		if d, err := driver.NewDriver(ciliumAPI); err != nil {
+		if d, err := driver.NewDriver(ciliumAPI, dockerHostPath); err != nil {
 			log.WithError(err).Fatal("Unable to create cilium-net driver")
 		} else {
 			log.WithField(logfields.Path, driverSock).Info("Listening for events from Docker")
@@ -77,6 +78,7 @@ func init() {
 	flags := RootCmd.PersistentFlags()
 	flags.BoolVarP(&debug, "debug", "D", false, "Enable debug messages")
 	flags.StringVar(&ciliumAPI, "cilium-api", "", "URI to server-side API")
+	flags.StringVar(&dockerHostPath, "docker-host-path", "unix:///var/run/docker.sock", "Docker socket")
 	flags.StringVar(&pluginPath, "docker-plugins", "/run/docker/plugins",
 		"Path to Docker plugins directory")
 }
