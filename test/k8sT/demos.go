@@ -99,10 +99,10 @@ var _ = Describe("K8sDemosTest", func() {
 
 		By("Applying deployments")
 
-		res := kubectl.Apply(deathStarYAMLLink)
+		res := kubectl.ApplyDefault(deathStarYAMLLink)
 		res.ExpectSuccess("unable to apply %s: %s", deathStarYAMLLink, res.CombineOutput())
 
-		res = kubectl.Apply(xwingYAMLLink)
+		res = kubectl.ApplyDefault(xwingYAMLLink)
 		res.ExpectSuccess("unable to apply %s: %s", xwingYAMLLink, res.CombineOutput())
 
 		By("Waiting for pods to be ready")

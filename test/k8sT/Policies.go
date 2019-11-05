@@ -149,7 +149,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		BeforeAll(func() {
 			namespaceForTest = helpers.GenerateNamespaceForTest()
 			kubectl.NamespaceCreate(namespaceForTest).ExpectSuccess("could not create namespace")
-			kubectl.Apply(demoPath, namespaceForTest).ExpectSuccess("could not create resource")
+			kubectl.Apply(helpers.ApplyOptions{FilePath: demoPath, Namespace: namespaceForTest}).ExpectSuccess("could not create resource")
 
 			err := kubectl.WaitforPods(namespaceForTest, "-l zgroup=testapp", helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Test pods are not ready after timeout")
@@ -266,7 +266,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		It("Invalid Policy report status correctly", func() {
 			manifest := helpers.ManifestGet("invalid_cnp.yaml")
 			cnpName := "foo"
-			kubectl.Apply(manifest, namespaceForTest).ExpectSuccess("Cannot apply policy manifest")
+			kubectl.Apply(helpers.ApplyOptions{FilePath: manifest, Namespace: namespaceForTest}).ExpectSuccess("Cannot apply policy manifest")
 
 			body := func() bool {
 				cnp := kubectl.GetCNP(namespaceForTest, cnpName)
@@ -707,7 +707,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		var err error
 
 		BeforeEach(func() {
-			kubectl.Apply(helpers.ManifestGet(deployment))
+			kubectl.ApplyDefault(helpers.ManifestGet(deployment))
 			ciliumPods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
 			Expect(err).To(BeNil(), "cannot retrieve Cilium Pods")
 			Expect(ciliumPods).ShouldNot(BeEmpty(), "cannot retrieve Cilium pods")
@@ -879,10 +879,10 @@ EOF`, k, v)
 			res = kubectl.Exec(fmt.Sprintf("kubectl label namespaces/%[1]s nslabel=%[1]s", secondNS))
 			res.ExpectSuccess("cannot create namespace labels")
 
-			res = kubectl.Apply(demoManifest)
+			res = kubectl.ApplyDefault(demoManifest)
 			res.ExpectSuccess("unable to apply manifest")
 
-			res = kubectl.Apply(demoPath)
+			res = kubectl.ApplyDefault(demoPath)
 			res.ExpectSuccess("unable to apply manifest")
 
 			err := kubectl.WaitforPods(secondNS, "-l zgroup=testapp", helpers.HelperTimeout)
