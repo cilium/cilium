@@ -539,6 +539,13 @@ func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMe
 
 var reasonRegenRetry = "retrying regeneration"
 
+// StartRegenerationFailureHandler is a wrapper of
+// startRegenerationFailureHandler, this function was created for the backports
+// of an upstream commit.
+func (e *Endpoint) StartRegenerationFailureHandler() {
+	e.startRegenerationFailureHandler()
+}
+
 // startRegenerationFailureHandler waits for a build of the Endpoint to fail.
 // Terminates when the given Endpoint is deleted.
 // If a build fails, the controller tries to regenerate the
