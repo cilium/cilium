@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-readonly reset=$(tput sgr0)
+readonly t_reset=$(tput sgr0)
 readonly red=$(tput bold; tput setaf 1)
 readonly green=$(tput bold; tput setaf 2)
 readonly yellow=$(tput bold; tput setaf 3)
@@ -28,15 +28,15 @@ function watchdo
     shift
 
     if [ ! -z "$TESTPKGS" ]; then
-        echo -e "${yellow}Using TESTPKGS=\"$TESTPKGS\" for run.${reset}"
+        echo -e "${yellow}Using TESTPKGS=\"$TESTPKGS\" for run.${t_reset}"
     fi
-    echo -e "${yellow}Running \"$@\" on changes to \"$FILE\" ...${reset}"
+    echo -e "${yellow}Running \"$@\" on changes to \"$FILE\" ...${t_reset}"
     while inotifywait -q -r -e move $FILE; do
         eval "$@";
         if [ $? == 0 ] ; then
-            echo -e "${yellow}$@${reset}: ${green}✔${reset}"
+            echo -e "${yellow}$@${t_reset}: ${green}✔${t_reset}"
         else
-            echo -e "${yellow}$@${reset}: ${red}✘${reset}"
+            echo -e "${yellow}$@${t_reset}: ${red}✘${t_reset}"
         fi
     done
 }
