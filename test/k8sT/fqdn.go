@@ -53,11 +53,11 @@ var _ = Describe("K8sFQDNTest", func() {
 		By("Applying bind deployment")
 		bindManifest = helpers.ManifestGet(kubectl.BasePath(), "bind_deployment.yaml")
 
-		res := kubectl.Apply(bindManifest)
+		res := kubectl.ApplyDefault(bindManifest)
 		res.ExpectSuccess("Bind config cannot be deployed")
 
 		By("Applying demo manifest")
-		res = kubectl.Apply(demoManifest)
+		res = kubectl.ApplyDefault(demoManifest)
 		res.ExpectSuccess("Demo config cannot be deployed")
 
 		err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", helpers.HelperTimeout)

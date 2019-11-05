@@ -43,8 +43,8 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	BeforeEach(func() {
-		kubectl.Apply(demoDSPath).ExpectSuccess("cannot install Demo application")
-		kubectl.Apply(ipsecDSPath).ExpectSuccess("cannot install IPsec keys")
+		kubectl.ApplyDefault(demoDSPath).ExpectSuccess("cannot install Demo application")
+		kubectl.ApplyDefault(ipsecDSPath).ExpectSuccess("cannot install IPsec keys")
 		kubectl.NodeCleanMetadata()
 	})
 

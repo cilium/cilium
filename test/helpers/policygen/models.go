@@ -294,7 +294,7 @@ func (t *Target) CreateApplyManifest(spec *TestSpec, base string) error {
 		t.PortNumber = 80
 		return nil
 	}
-	res := spec.Kub.Apply(manifestPath)
+	res := spec.Kub.ApplyDefault(manifestPath)
 	if !res.WasSuccessful() {
 		return fmt.Errorf("%s", res.CombineOutput())
 	}
@@ -490,7 +490,7 @@ func (t *TestSpec) ApplyManifest(base string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	res := t.Kub.Apply(t.GetManifestsPath(base))
+	res := t.Kub.ApplyDefault(t.GetManifestsPath(base))
 	if !res.WasSuccessful() {
 		return "", fmt.Errorf("%s", res.CombineOutput())
 	}
@@ -701,7 +701,7 @@ func (t *TestSpec) InvalidNetworkPolicyApply(base string) (*cnpv2.CiliumNetworkP
 		return nil, fmt.Errorf("Network policy cannot be written prefix=%s: %s", t.Prefix, err)
 	}
 
-	res := t.Kub.Apply(filepath.Join(base, t.NetworkPolicyName()))
+	res := t.Kub.ApplyDefault(filepath.Join(base, t.NetworkPolicyName()))
 	if !res.WasSuccessful() {
 		return nil, fmt.Errorf("%s", res.CombineOutput())
 	}

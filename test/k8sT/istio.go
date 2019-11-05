@@ -96,7 +96,7 @@ var _ = Describe("K8sIstioTest", func() {
 
 		By("Creating the Istio CRDs")
 
-		res = kubectl.Apply(istioCRDYAMLPath)
+		res = kubectl.ApplyDefault(istioCRDYAMLPath)
 		res.ExpectSuccess("unable to create Istio CRDs")
 
 		By("Waiting for Istio CRDs to be ready")
@@ -106,7 +106,7 @@ var _ = Describe("K8sIstioTest", func() {
 
 		By("Creating the Istio system PODs")
 
-		res = kubectl.Apply(istioYAMLPath)
+		res = kubectl.ApplyDefault(istioYAMLPath)
 		res.ExpectSuccess("unable to create Istio resources")
 	})
 

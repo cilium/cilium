@@ -218,7 +218,7 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 		k.setBasePath()
 	}
 
-	res := k.Apply(filepath.Join(k.BasePath(), manifestsPath, "log-gatherer.yaml"), "kube-system")
+	res := k.Apply(ApplyOptions{FilePath: filepath.Join(k.BasePath(), manifestsPath, "log-gatherer.yaml"), Namespace: "kube-system"})
 	if !res.WasSuccessful() {
 		ginkgoext.Fail(fmt.Sprintf("Cannot connect to k8s cluster, output:\n%s", res.CombineOutput().String()), 1)
 		return nil
@@ -513,7 +513,7 @@ func (kub *Kubectl) MicroscopeStart(microscopeOptions ...string) (error, func() 
 	cmd := fmt.Sprintf("%[1]s -ti -n %[2]s exec %[3]s -- %[4]s",
 		KubectlCmd, KubeSystemNamespace, microscope, microscopeCmdWithTimestamps)
 	microscopePath := ManifestGet(kub.BasePath(), microscopeManifest)
-	_ = kub.Apply(microscopePath)
+	_ = kub.ApplyDefault(microscopePath)
 
 	err := kub.WaitforPods(
 		KubeSystemNamespace,
@@ -845,18 +845,27 @@ func (kub *Kubectl) Action(action ResourceLifeCycleAction, filePath string, name
 	return kub.ExecShort(fmt.Sprintf("%s %s -f %s -n %s", KubectlCmd, action, filePath, namespace[0]))
 }
 
-// Apply applies the Kubernetes manifest located at path filepath.
-func (kub *Kubectl) Apply(filePath string, namespace ...string) *CmdRes {
-	if len(namespace) == 0 {
-		kub.Logger().Debugf("applying %s", filePath)
-		return kub.ExecMiddle(
-			fmt.Sprintf("%s apply -f  %s", KubectlCmd, filePath))
-	}
-	namespaceToApply := namespace[0]
-	kub.Logger().Debugf("applying %s in namespace %s", filePath, namespaceToApply)
-	return kub.ExecMiddle(
-		fmt.Sprintf("%s apply -f  %s -n %s", KubectlCmd, filePath, namespaceToApply))
+// ApplyOptions stores options for kubectl apply command
+type ApplyOptions struct {
+	FilePath  string
+	Namespace string
+}
 
+// Apply applies the Kubernetes manifest located at path filepath.
+func (kub *Kubectl) Apply(options ApplyOptions) *CmdRes {
+	if len(options.Namespace) == 0 {
+		kub.Logger().Debugf("applying %s", options.FilePath)
+		return kub.ExecMiddle(
+			fmt.Sprintf("%s apply -f %s", KubectlCmd, options.FilePath))
+	}
+	kub.Logger().Debugf("applying %s in namespace %s", options.FilePath, options.Namespace)
+	return kub.ExecMiddle(
+		fmt.Sprintf("%s apply -f  %s -n %s", KubectlCmd, options.FilePath, options.Namespace))
+}
+
+// ApplyDefault applies give filepath with other options set to default
+func (kub *Kubectl) ApplyDefault(filePath string) *CmdRes {
+	return kub.Apply(ApplyOptions{FilePath: filePath})
 }
 
 // Create creates the Kubernetes kanifest located at path filepath.
@@ -1086,7 +1095,7 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 			return res.GetErr("Cilium manifest validation fails")
 		}
 
-		res = kub.Apply(original)
+		res = kub.ApplyDefault(original)
 		if !res.WasSuccessful() {
 			debugYaml(original)
 			return res.GetErr("Cannot apply Cilium manifest")
@@ -1106,22 +1115,22 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 		return err
 	}
 
-	cmdRes := kub.Apply(getK8sDescriptor(ciliumEtcdOperatorSA))
+	cmdRes := kub.ApplyDefault(getK8sDescriptor(ciliumEtcdOperatorSA))
 	if !cmdRes.WasSuccessful() {
 		return fmt.Errorf("Unable to deploy descriptor of etcd-operator SA %s: %s", ciliumEtcdOperatorSA, cmdRes.OutputPrettyPrint())
 	}
 
-	cmdRes = kub.Apply(getK8sDescriptor(ciliumEtcdOperatorRBAC))
+	cmdRes = kub.ApplyDefault(getK8sDescriptor(ciliumEtcdOperatorRBAC))
 	if !cmdRes.WasSuccessful() {
 		return fmt.Errorf("Unable to deploy descriptor of etcd-operator RBAC %s: %s", ciliumEtcdOperatorRBAC, cmdRes.OutputPrettyPrint())
 	}
 
-	cmdRes = kub.Apply(getK8sDescriptor(ciliumEtcdOperator))
+	cmdRes = kub.ApplyDefault(getK8sDescriptor(ciliumEtcdOperator))
 	if !cmdRes.WasSuccessful() {
 		return fmt.Errorf("Unable to deploy descriptor of etcd-operator %s: %s", ciliumEtcdOperator, cmdRes.OutputPrettyPrint())
 	}
 
-	_ = kub.Apply(getK8sDescriptor("cilium-operator-sa.yaml"))
+	_ = kub.ApplyDefault(getK8sDescriptor("cilium-operator-sa.yaml"))
 	err := kub.DeployPatch(getK8sDescriptor("cilium-operator.yaml"), getK8sDescriptorPatch("cilium-operator-patch.yaml"))
 	if err != nil {
 		return fmt.Errorf("Unable to deploy descriptor of cilium-operators: %s", err)
@@ -1172,7 +1181,7 @@ func (kub *Kubectl) ciliumInstallHelm(options []string) error {
 		return err
 	}
 
-	res := kub.Apply("cilium.yaml")
+	res := kub.ApplyDefault("cilium.yaml")
 	if !res.WasSuccessful() {
 		return res.GetErr("Unable to apply YAML")
 	}
