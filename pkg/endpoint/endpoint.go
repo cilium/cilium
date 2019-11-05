@@ -1535,6 +1535,17 @@ func (e *Endpoint) ModifyIdentityLabels(addLabels, delLabels pkgLabels.Labels) e
 	}
 
 	var rev int
+	// If the client made a request to modify labels, even if there was
+	// no new labels added or deleted then we can safely remove the init
+	// label. This is a workaround to allow the cilium-docker plugin
+	// to remove endpoints in 'init' state if the containers were not
+	// started with any label.
+	if len(addLabels) == 0 && len(delLabels) == 0 && e.IsInit() {
+		idLabls := e.OpLabels.IdentityLabels()
+		delete(idLabls, pkgLabels.IDNameInit)
+		rev = e.replaceIdentityLabels(idLabls)
+		changed = true
+	}
 	if changed {
 		// Mark with StateWaitingForIdentity, it will be set to
 		// StateWaitingToRegenerate after the identity resolution has been
