@@ -424,7 +424,6 @@ func NewEndpointWithState(owner regeneration.Owner, ID uint16, state string) *En
 		regenFailedChan: make(chan struct{}, 1),
 	}
 
-	ep.startRegenerationFailureHandler()
 	ep.realizedPolicy = ep.desiredPolicy
 
 	ep.SetDefaultOpts(option.Config.Opts)
@@ -463,7 +462,6 @@ func NewEndpointFromChangeModel(owner regeneration.Owner, base *models.EndpointC
 		regenFailedChan:  make(chan struct{}, 1),
 	}
 
-	ep.startRegenerationFailureHandler()
 	ep.realizedPolicy = ep.desiredPolicy
 
 	if base.Mac != "" {
@@ -1089,8 +1087,6 @@ func ParseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
 	ep.realizedPolicy = ep.desiredPolicy
 	ep.controllers = controller.NewManager()
 	ep.regenFailedChan = make(chan struct{}, 1)
-
-	ep.startRegenerationFailureHandler()
 
 	// We need to check for nil in Status, CurrentStatuses and Log, since in
 	// some use cases, status will be not nil and Cilium will eventually
