@@ -95,7 +95,6 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 	ep.aliveCancel = cancel
 	ep.aliveCtx = ctx
 
-	ep.startRegenerationFailureHandler()
 	ep.realizedPolicy = ep.desiredPolicy
 
 	if base.Mac != "" {
