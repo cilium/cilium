@@ -129,7 +129,7 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 			kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 			DeployCiliumAndDNS(kubectl)
 
-			kubectl.Apply(demoPath)
+			kubectl.ApplyDefault(demoPath)
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=kafkaTestApp", helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Kafka Pods are not ready after timeout")
 

@@ -108,9 +108,6 @@ func ExpectCiliumPreFlightInstallReady(vm *helpers.Kubectl) {
 
 // DeployCiliumAndDNS deploys DNS and cilium into the kubernetes cluster
 func DeployCiliumAndDNS(vm *helpers.Kubectl) {
-	By("Installing DNS Deployment")
-	_ = vm.Apply(helpers.DNSDeployment())
-
 	DeployCiliumOptionsAndDNS(vm, []string{})
 }
 
@@ -123,12 +120,12 @@ func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, options []string) {
 	ExpectCiliumRunning(vm)
 
 	By("Installing DNS Deployment")
-	_ = vm.Apply(helpers.DNSDeployment())
+	_ = vm.ApplyDefault(helpers.DNSDeployment())
 
 	switch helpers.GetCurrentIntegration() {
 	case helpers.CIIntegrationFlannel:
 		By("Installing Flannel")
-		vm.Apply(helpers.GetFilePath("../examples/kubernetes/addons/flannel/flannel.yaml"))
+		vm.ApplyDefault(helpers.GetFilePath("../examples/kubernetes/addons/flannel/flannel.yaml"))
 	default:
 	}
 
