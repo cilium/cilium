@@ -170,11 +170,11 @@ func (m *ManagerTestSuite) TestSyncWithK8sFinished(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(m.svc.svcByID), Equals, 2)
 
-	// Imitate a situation where svc2 was deleted while we were down.
+	// Imitate a situation where svc1 was deleted while we were down.
 	// In real life, the following upsert is called by k8s_watcher during
 	// the sync period of the cilium-agent's k8s service cache which happens
 	// during the initialization of cilium-agent.
-	_, id1, err := m.svc.UpsertService(frontend2, backends2, lb.SVCTypeClusterIP)
+	_, id2, err := m.svc.UpsertService(frontend2, backends2, lb.SVCTypeClusterIP)
 	c.Assert(err, IsNil)
 
 	// cilium-agent finished the initialization, and thus SyncWithK8sFinished
@@ -182,8 +182,8 @@ func (m *ManagerTestSuite) TestSyncWithK8sFinished(c *C) {
 	err = m.svc.SyncWithK8sFinished()
 	c.Assert(err, IsNil)
 
-	// svc2 should be removed from cilium
+	// svc1 should be removed from cilium
 	c.Assert(len(m.svc.svcByID), Equals, 1)
-	_, found := m.svc.svcByID[id1]
+	_, found := m.svc.svcByID[id2]
 	c.Assert(found, Equals, true)
 }
