@@ -338,13 +338,13 @@ func describeStruct(ctx *ctx, typ reflect2.Type) *StructDescriptor {
 	for i := 0; i < structType.NumField(); i++ {
 		field := structType.Field(i)
 		tag, hastag := field.Tag().Lookup(ctx.getTagKey())
-		if ctx.onlyTaggedField && !hastag {
+		if ctx.onlyTaggedField && !hastag && !field.Anonymous() {
 			continue
 		}
-		tagParts := strings.Split(tag, ",")
 		if tag == "-" {
 			continue
 		}
+		tagParts := strings.Split(tag, ",")
 		if field.Anonymous() && (tag == "" || tagParts[0] == "") {
 			if field.Type().Kind() == reflect.Struct {
 				structDescriptor := describeStruct(ctx, field.Type())

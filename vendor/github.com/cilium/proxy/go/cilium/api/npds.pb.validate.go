@@ -37,6 +37,9 @@ var (
 	_ = core.SocketAddress_Protocol(0)
 )
 
+// define the regex for a UUID once up-front
+var _npds_uuidPattern = regexp.MustCompile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+
 // Validate checks the field values on NetworkPolicy with the rules defined in
 // the proto definition for this message. If any rules are violated, an error
 // is returned.
@@ -229,6 +232,76 @@ var _ interface {
 	ErrorName() string
 } = PortNetworkPolicyValidationError{}
 
+// Validate checks the field values on TLSContext with the rules defined in the
+// proto definition for this message. If any rules are violated, an error is returned.
+func (m *TLSContext) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for TrustedCa
+
+	// no validation rules for CertificateChain
+
+	// no validation rules for PrivateKey
+
+	return nil
+}
+
+// TLSContextValidationError is the validation error returned by
+// TLSContext.Validate if the designated constraints aren't met.
+type TLSContextValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e TLSContextValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e TLSContextValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e TLSContextValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e TLSContextValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e TLSContextValidationError) ErrorName() string { return "TLSContextValidationError" }
+
+// Error satisfies the builtin error interface
+func (e TLSContextValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sTLSContext.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = TLSContextValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = TLSContextValidationError{}
+
 // Validate checks the field values on PortNetworkPolicyRule with the rules
 // defined in the proto definition for this message. If any rules are
 // violated, an error is returned.
@@ -252,6 +325,26 @@ func (m *PortNetworkPolicyRule) Validate() error {
 		}
 
 		// no validation rules for RemotePolicies[idx]
+	}
+
+	if v, ok := interface{}(m.GetDownstreamTlsContext()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return PortNetworkPolicyRuleValidationError{
+				field:  "DownstreamTlsContext",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if v, ok := interface{}(m.GetUpstreamTlsContext()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return PortNetworkPolicyRuleValidationError{
+				field:  "UpstreamTlsContext",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
 	}
 
 	// no validation rules for L7Proto
@@ -444,6 +537,84 @@ var _ interface {
 	ErrorName() string
 } = HttpNetworkPolicyRulesValidationError{}
 
+// Validate checks the field values on HeaderMatch with the rules defined in
+// the proto definition for this message. If any rules are violated, an error
+// is returned.
+func (m *HeaderMatch) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if len(m.GetName()) < 1 {
+		return HeaderMatchValidationError{
+			field:  "Name",
+			reason: "value length must be at least 1 bytes",
+		}
+	}
+
+	// no validation rules for Value
+
+	// no validation rules for MatchAction
+
+	// no validation rules for MismatchAction
+
+	return nil
+}
+
+// HeaderMatchValidationError is the validation error returned by
+// HeaderMatch.Validate if the designated constraints aren't met.
+type HeaderMatchValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e HeaderMatchValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e HeaderMatchValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e HeaderMatchValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e HeaderMatchValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e HeaderMatchValidationError) ErrorName() string { return "HeaderMatchValidationError" }
+
+// Error satisfies the builtin error interface
+func (e HeaderMatchValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sHeaderMatch.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = HeaderMatchValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = HeaderMatchValidationError{}
+
 // Validate checks the field values on HttpNetworkPolicyRule with the rules
 // defined in the proto definition for this message. If any rules are
 // violated, an error is returned.
@@ -459,6 +630,21 @@ func (m *HttpNetworkPolicyRule) Validate() error {
 			if err := v.Validate(); err != nil {
 				return HttpNetworkPolicyRuleValidationError{
 					field:  fmt.Sprintf("Headers[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	for idx, item := range m.GetHeaderMatches() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HttpNetworkPolicyRuleValidationError{
+					field:  fmt.Sprintf("HeaderMatches[%v]", idx),
 					reason: "embedded message failed validation",
 					cause:  err,
 				}
