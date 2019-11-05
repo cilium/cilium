@@ -407,7 +407,6 @@ func NewEndpointWithState(owner regeneration.Owner, proxy EndpointProxy, allocat
 	ctx, cancel := context.WithCancel(context.Background())
 	ep.aliveCancel = cancel
 	ep.aliveCtx = ctx
-	ep.startRegenerationFailureHandler()
 	ep.realizedPolicy = ep.desiredPolicy
 
 	ep.SetDefaultOpts(option.Config.Opts)
@@ -724,8 +723,6 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, strEp string) 
 	ctx, cancel := context.WithCancel(ctx)
 	ep.aliveCancel = cancel
 	ep.aliveCtx = ctx
-
-	ep.startRegenerationFailureHandler()
 
 	// We need to check for nil in Status, CurrentStatuses and Log, since in
 	// some use cases, status will be not nil and Cilium will eventually
