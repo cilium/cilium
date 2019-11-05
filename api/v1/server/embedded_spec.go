@@ -2848,6 +2848,14 @@ func init() {
           "description": "Optional service configuration flags",
           "type": "object",
           "properties": {
+            "name": {
+              "description": "Service name  (e.g. Kubernetes service name)",
+              "type": "string"
+            },
+            "namespace": {
+              "description": "Service namespace  (e.g. Kubernetes namespace)",
+              "type": "string"
+            },
             "type": {
               "description": "Service type",
               "type": "string",
@@ -6105,6 +6113,14 @@ func init() {
           "description": "Optional service configuration flags",
           "type": "object",
           "properties": {
+            "name": {
+              "description": "Service name  (e.g. Kubernetes service name)",
+              "type": "string"
+            },
+            "namespace": {
+              "description": "Service namespace  (e.g. Kubernetes namespace)",
+              "type": "string"
+            },
             "type": {
               "description": "Service type",
               "type": "string",
