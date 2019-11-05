@@ -137,7 +137,6 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 
 	ep.SetDefaultOpts(option.Config.Opts)
 
-	ep.UpdateLogger(nil)
 	ep.setState(string(base.State), "Endpoint creation")
 
 	return ep, nil
