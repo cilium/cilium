@@ -88,7 +88,7 @@ The documentation is divided into the following sections:
    :caption: For Developers
 
    contributing/development/index
-   contributing/release
+   contributing/release/index
    contributing/testing/index
    bpf
    api
