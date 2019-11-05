@@ -243,7 +243,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 			return invalidDataError(ep, fmt.Errorf("not allowed to add reserved labels: %s", lbls))
 		}
 
-		addLabels, _, _ = checkLabels(addLabels, nil)
+		addLabels, _ = labels.FilterLabels(addLabels)
 		if len(addLabels) == 0 {
 			return invalidDataError(ep, fmt.Errorf("no valid labels provided"))
 		}
@@ -612,16 +612,6 @@ func (h *getEndpointIDHealthz) Handle(params GetEndpointIDHealthzParams) middlew
 	}
 }
 
-func checkLabels(add, del labels.Labels) (addLabels, delLabels labels.Labels, ok bool) {
-	addLabels, _ = labels.FilterLabels(add)
-	delLabels, _ = labels.FilterLabels(del)
-
-	if len(addLabels) == 0 && len(delLabels) == 0 {
-		return nil, nil, false
-	}
-	return addLabels, delLabels, true
-}
-
 // modifyEndpointIdentityLabelsFromAPI adds and deletes the given labels on given endpoint ID.
 // Performs checks for whether the endpoint may be modified by an API call.
 // The received `add` and `del` labels will be filtered with the valid label prefixes.
@@ -630,10 +620,8 @@ func checkLabels(add, del labels.Labels) (addLabels, delLabels labels.Labels, ok
 // endpoint's labels.
 // Returns an HTTP response code and an error msg (or nil on success).
 func (d *Daemon) modifyEndpointIdentityLabelsFromAPI(id string, add, del labels.Labels) (int, error) {
-	addLabels, delLabels, ok := checkLabels(add, del)
-	if !ok {
-		return 0, nil
-	}
+	addLabels, _ := labels.FilterLabels(add)
+	delLabels, _ := labels.FilterLabels(del)
 	if lbls := addLabels.FindReserved(); lbls != nil {
 		return PatchEndpointIDLabelsUpdateFailedCode, fmt.Errorf("Not allowed to add reserved labels: %s", lbls)
 	} else if lbls := delLabels.FindReserved(); lbls != nil {
