@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-readonly  reset=$(tput sgr0)
+readonly t_reset=$(tput sgr0)
 readonly  green=$(tput bold; tput setaf 2)
 readonly yellow=$(tput bold; tput setaf 3)
 readonly   blue=$(tput bold; tput setaf 6)
@@ -23,7 +23,7 @@ readonly ipv6regex='(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:
 
 function desc() {
     maybe_first_prompt
-    echo "$blue# $@$reset"
+    echo "$blue# $@$t_reset"
     prompt
 }
 
@@ -33,12 +33,12 @@ function desc_rate() {
     if [ -n "$DEMO_RUN_FAST" ]; then
       rate=1000
     fi
-    echo "$blue# $@$reset" | pv -qL $rate
+    echo "$blue# $@$t_reset" | pv -qL $rate
     prompt
 }
 
 function prompt() {
-    echo -n "$yellow\$ $reset"
+    echo -n "$yellow\$ $t_reset"
 }
 
 started=""
@@ -59,7 +59,7 @@ function run() {
     if [ -n "$DEMO_RUN_FAST" ]; then
       rate=1000
     fi
-    echo "$green$1$reset" | pv -qL $rate
+    echo "$green$1$t_reset" | pv -qL $rate
     if [ -n "$DEMO_RUN_FAST" ]; then
       sleep 0.5
     fi
