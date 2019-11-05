@@ -19,6 +19,7 @@ cilium service update [flags]
       --frontend string    Frontend address
   -h, --help               help for update
       --id uint            Identifier
+      --k8s-external       Set service as a k8s external IP
 ```
 
 ### Options inherited from parent commands
