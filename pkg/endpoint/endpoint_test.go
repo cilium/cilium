@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/labels"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -72,6 +73,11 @@ var _ = Suite(&suite)
 
 func (s *EndpointSuite) SetUpSuite(c *C) {
 	s.repo = policy.NewPolicyRepository(nil)
+	// GetConfig the default labels prefix filter
+	err := labels.ParseLabelPrefixCfg(nil, "")
+	if err != nil {
+		panic("ParseLabelPrefixCfg() failed")
+	}
 }
 
 func (s *EndpointSuite) GetPolicyRepository() *policy.Repository {
