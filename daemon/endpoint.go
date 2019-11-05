@@ -307,7 +307,11 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 }
 
 func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /endpoint/{id} request")
+	if ep := params.Endpoint; ep != nil {
+		log.WithField("endpoint", logfields.Repr(*ep)).Debug("PUT /endpoint/{id} request")
+	} else {
+		log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /endpoint/{id} request")
+	}
 	epTemplate := params.Endpoint
 
 	ep, code, err := h.d.createEndpoint(params.HTTPRequest.Context(), epTemplate)
@@ -341,6 +345,9 @@ func validPatchTransitionState(state models.EndpointState) bool {
 
 func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Responder {
 	scopedLog := log.WithField(logfields.Params, logfields.Repr(params))
+	if ep := params.Endpoint; ep != nil {
+		scopedLog = scopedLog.WithField("endpoint", logfields.Repr(*ep))
+	}
 	scopedLog.Debug("PATCH /endpoint/{id} request")
 
 	epTemplate := params.Endpoint
