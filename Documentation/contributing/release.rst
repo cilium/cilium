@@ -15,37 +15,38 @@ Release Cadence
 ~~~~~~~~~~~~~~~
 
 New versions of Cilium are released based on completion of feature work that has
-been scheduled for that release. Each minor release is performed by incrementing
-the ``Y`` in the version format ``X.Y.Z``. The group of committers can decide to
-increment ``X`` instead to mark major milestones in which case ``Y`` is reset to
-0.
+been scheduled for that release. Each minor release is performed by
+incrementing the ``Y`` in the version format ``X.Y.Z``.
 
-.. _stable_releases:
+Three stable branches are maintained at a time: One for the most recent minor
+release, and two for the prior two minor releases. For each minor release that
+is currently maintained, the stable branch ``vX.Y`` on github contains the code
+for the next stable release. New micro releases for an existing stable version
+``X.Y.Z`` are published incrementing the ``Z`` in the version format.
 
-Stable releases
-~~~~~~~~~~~~~~~
+New micro releases for stable branches are made periodically to provide
+security and bug fixes, based upon community demand and bugfix severity.
+Potential fixes for an upcoming release are first merged into the ``master``
+branch, then backported to the relevant stable branches using the following
+criteria.
 
-The committers can nominate PRs merged into master as required for backport
-into the stable release branches. Upon necessity, stable releases are published
-with the version ``X.Y.Z+1``. Stable releases are regularly released in high
-frequency or on demand to address major incidents.
+.. _backport_criteria:
 
-In order to guarantee stable production usage while maintaining a high release
-cadence, the most recent three stable releases will be maintained.
+Backport criteria for current minor release
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Backport criteria for X.Y.Z+n
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Criteria for the inclusion into latest stable release branch, i.e. what goes
-into ``v1.1.x`` before ``v1.2.0`` has been released:
+Criteria for inclusion into the next stable release of the current latest
+minor version of Cilium, for example in a ``v1.2.z`` release prior to the
+release of version ``v1.3.0``:
 
 - All bugfixes
 
 Backport criteria for X.Y-1.Z and X.Y-2.Z
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Criteria for the inclusion into the stable release branch of the previous
-release, i.e. what goes into ``v1.0.x``, before ``v1.2.0`` has been released:
+Criteria for the inclusion into the next stable release of the prior two minor
+versions of Cilium, for example in a ``v1.0.z`` or ``v1.1.z`` release prior to
+the release of version ``v1.3.0``:
 
 - Security relevant fixes
 - Major bugfixes relevant to the correct operation of Cilium

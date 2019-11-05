@@ -218,7 +218,7 @@ Pull request review process
 
 #. Validate that bugfixes are marked with ``kind/bug`` and validate whether the
    assessment of backport requirements as requested by the submitter conforms
-   to the :ref:`stable_releases` process.
+   to the :ref:`backport_criteria`.
 
 
    +--------------------------+---------------------------------------------------------------------------+
