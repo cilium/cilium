@@ -50,6 +50,8 @@ type svcInfo struct {
 	backends             []lb.Backend
 	backendByHash        map[string]*lb.Backend
 	svcType              lb.SVCType
+	svcName              string
+	svcNamespace         string
 	restoredFromDatapath bool
 }
 
@@ -59,9 +61,11 @@ func (svc *svcInfo) deepCopyToLBSVC() *lb.SVC {
 		backends[i] = *backend.DeepCopy()
 	}
 	return &lb.SVC{
-		Frontend: *svc.frontend.DeepCopy(),
-		Backends: backends,
-		Type:     svc.svcType,
+		Frontend:  *svc.frontend.DeepCopy(),
+		Backends:  backends,
+		Type:      svc.svcType,
+		Name:      svc.svcName,
+		Namespace: svc.svcNamespace,
 	}
 }
 
@@ -140,20 +144,23 @@ func (s *Service) InitMaps(ipv6, ipv4, restore bool) error {
 //
 // The first return value is true if the service hasn't existed before.
 func (s *Service) UpsertService(
-	frontend lb.L3n4AddrID, backends []lb.Backend, svcType lb.SVCType) (bool, lb.ID, error) {
+	frontend lb.L3n4AddrID, backends []lb.Backend,
+	svcType lb.SVCType, svcName, svcNamespace string) (bool, lb.ID, error) {
 
 	s.Lock()
 	defer s.Unlock()
 
 	scopedLog := log.WithFields(logrus.Fields{
-		logfields.ServiceIP:   frontend.L3n4Addr,
-		logfields.Backends:    backends,
-		logfields.ServiceType: svcType,
+		logfields.ServiceIP:        frontend.L3n4Addr,
+		logfields.Backends:         backends,
+		logfields.ServiceType:      svcType,
+		logfields.ServiceName:      svcName,
+		logfields.ServiceNamespace: svcNamespace,
 	})
 	scopedLog.Debug("Upserting service")
 
 	// If needed, create svcInfo and allocate service ID
-	svc, new, err := s.createSVCInfoIfNotExist(frontend, svcType)
+	svc, new, err := s.createSVCInfoIfNotExist(frontend, svcType, svcName, svcNamespace)
 	if err != nil {
 		return false, lb.ID(0), err
 	}
@@ -294,7 +301,7 @@ func (s *Service) SyncWithK8sFinished() error {
 }
 
 func (s *Service) createSVCInfoIfNotExist(frontend lb.L3n4AddrID,
-	svcType lb.SVCType) (*svcInfo, bool, error) {
+	svcType lb.SVCType, svcName, svcNamespace string) (*svcInfo, bool, error) {
 
 	hash := frontend.Hash()
 	svc, found := s.svcByHash[hash]
@@ -313,6 +320,8 @@ func (s *Service) createSVCInfoIfNotExist(frontend lb.L3n4AddrID,
 			frontend:      frontend,
 			backendByHash: map[string]*lb.Backend{},
 			svcType:       svcType,
+			svcName:       svcName,
+			svcNamespace:  svcNamespace,
 		}
 		s.svcByID[frontend.ID] = svc
 		s.svcByHash[hash] = svc
@@ -320,6 +329,15 @@ func (s *Service) createSVCInfoIfNotExist(frontend lb.L3n4AddrID,
 		// NOTE: We cannot restore svcType from BPF maps, so just set it
 		//       each time (safe until GH#8700 has been fixed).
 		svc.svcType = svcType
+		// Name and namespace are both optional and intended for exposure via
+		// API. They they are not part of any BPF maps and cannot be restored
+		// from datapath.
+		if svcName != "" {
+			svc.svcName = svcName
+		}
+		if svcNamespace != "" {
+			svc.svcNamespace = svcNamespace
+		}
 		// We have heard about the service from k8s, so unset the flag so that
 		// SyncWithK8sFinished() won't consider the service obsolete, and thus
 		// won't remove it.
