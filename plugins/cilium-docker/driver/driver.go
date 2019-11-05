@@ -21,6 +21,7 @@ import (
 	"net"
 	"net/http"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -29,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/endpoint/connector"
 	endpointIDPkg "github.com/cilium/cilium/pkg/endpoint/id"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -129,9 +131,85 @@ func NewDriver(ciliumSockPath, dockerHostPath string) (Driver, error) {
 
 	d.updateRoutes(nil)
 
+	log.Info("Starting docker events watcher")
+
+	go func() {
+		eventsCh, errCh := dockerCli.Events(context.Background(), apiTypes.EventsOptions{})
+		for {
+			select {
+			case err := <-errCh:
+				log.WithError(err).Error("Unable to connect to docker events channel, reconnecting...")
+				time.Sleep(5 * time.Second)
+				eventsCh, errCh = dockerCli.Events(context.Background(), apiTypes.EventsOptions{})
+			case event := <-eventsCh:
+				if event.Type != events.ContainerEventType || event.Action != "start" {
+					break
+				}
+				d.updateCiliumEP(event)
+			}
+		}
+	}()
+
 	log.Infof("Cilium Docker plugin ready")
 
 	return d, nil
+}
+
+func (driver *driver) updateCiliumEP(event events.Message) {
+	log = log.WithFields(logrus.Fields{"event": fmt.Sprintf("%+v", event)})
+	cont, err := driver.dockerClient.ContainerInspect(context.Background(), event.Actor.ID)
+	if err != nil {
+		log.WithFields(
+			logrus.Fields{
+				"container-id": event.Actor.ID,
+			},
+		).WithError(err).Error("Unable to inspect container")
+	}
+	if cont.Config == nil || cont.NetworkSettings == nil {
+		return
+	}
+	var epID string
+	for _, network := range cont.NetworkSettings.Networks {
+		epID = network.EndpointID
+		break
+	}
+	if epID == "" {
+		return
+	}
+	img, _, err := driver.dockerClient.ImageInspectWithRaw(context.Background(), cont.Config.Image)
+	if err != nil {
+		log.WithFields(
+			logrus.Fields{
+				"image-id": cont.Config.Image,
+			},
+		).WithError(err).Error("Unable to inspect image")
+	}
+	lbls := cont.Config.Labels
+	if img.Config != nil && img.Config.Labels != nil {
+		lbls = img.Config.Labels
+		// container labels overwrite image labels
+		for k, v := range cont.Config.Labels {
+			lbls[k] = v
+		}
+	}
+	addLbls := labels.Map2Labels(lbls, labels.LabelSourceContainer).GetModel()
+	ecr := &models.EndpointChangeRequest{
+		ContainerID:   event.Actor.ID,
+		ContainerName: strings.TrimPrefix(cont.Name, "/"),
+		Labels:        addLbls,
+		State:         models.EndpointStateWaitingForIdentity,
+	}
+	err = driver.client.EndpointPatch(endpointID(epID), ecr)
+	if err != nil {
+		log.WithFields(
+			logrus.Fields{
+				"container-id": event.Actor.ID,
+				"endpoint-id":  epID,
+				"labels":       cont.Config.Labels,
+				"error":        err,
+			}).
+			Error("Error while patching the endpoint labels of container")
+	}
 }
 
 func (driver *driver) updateRoutes(addressing *models.NodeAddressing) {
