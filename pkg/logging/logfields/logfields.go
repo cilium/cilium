@@ -177,6 +177,9 @@ const (
 	// ServiceName is the orchestration framework name for a service
 	ServiceName = "serviceName"
 
+	// ServiceNamespace is the orchestration framework namespace of a service name
+	ServiceNamespace = "serviceNamespace"
+
 	// ClusterName is the name of the cluster
 	ClusterName = "clusterName"
 
