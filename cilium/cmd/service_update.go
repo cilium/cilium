@@ -28,6 +28,7 @@ import (
 
 var (
 	deprecatedAddRev bool // TODO(v1.8+): remove it
+	k8sExternalIPs   bool
 	idU              uint64
 	frontend         string
 	backends         []string
@@ -45,6 +46,7 @@ var serviceUpdateCmd = &cobra.Command{
 func init() {
 	serviceCmd.AddCommand(serviceUpdateCmd)
 	serviceUpdateCmd.Flags().Uint64VarP(&idU, "id", "", 0, "Identifier")
+	serviceUpdateCmd.Flags().BoolVarP(&k8sExternalIPs, "k8s-external", "", false, "Set service as a k8s external IP")
 	serviceUpdateCmd.Flags().BoolVarP(&deprecatedAddRev, "rev", "", false, "Add reverse translation")
 	serviceUpdateCmd.Flags().MarkDeprecated("rev", "and it is inactive")
 	serviceUpdateCmd.Flags().StringVarP(&frontend, "frontend", "", "", "Frontend address")
@@ -88,6 +90,10 @@ func updateService(cmd *cobra.Command, args []string) {
 	// to us has no flags set
 	if spec.Flags == nil {
 		spec.Flags = &models.ServiceSpecFlags{}
+	}
+
+	if k8sExternalIPs {
+		spec.Flags = &models.ServiceSpecFlags{Type: models.ServiceSpecFlagsTypeExternalIPs}
 	}
 
 	spec.FrontendAddress = fa
