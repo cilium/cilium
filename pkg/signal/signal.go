@@ -18,14 +18,18 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"runtime"
+	"os"
 	"sync"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	oldBPF "github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/perf"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -60,23 +64,14 @@ type SignalMsg struct {
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "signal")
 
-	config = bpf.PerfEventConfig{
-		MapName:      SignalMapName,
-		Type:         bpf.PERF_TYPE_SOFTWARE,
-		Config:       bpf.PERF_COUNT_SW_BPF_OUTPUT,
-		SampleType:   bpf.PERF_SAMPLE_RAW,
-		NumPages:     1,
-		WakeupEvents: 1,
-	}
-
 	channels [SignalTypeMax]chan<- SignalData
-)
 
-var (
+	once   sync.Once
+	events *perf.Reader
+
 	signalName = [SignalTypeMax]string{
 		SignalNatFillUp: "nat_fill_up",
 	}
-
 	signalNatProto = [SignalNatMax]string{
 		SignalNatV4: "ipv4",
 		SignalNatV6: "ipv6",
@@ -95,9 +90,9 @@ func signalCollectMetrics(sig *SignalMsg, signalStatus string) {
 	metrics.SignalsHandled.WithLabelValues(signalType, signalData, signalStatus).Inc()
 }
 
-func signalReceive(msg *bpf.PerfEventSample, cpu int) {
+func signalReceive(msg *perf.Record) {
 	sig := SignalMsg{}
-	if err := binary.Read(bytes.NewReader(msg.DataDirect()), byteorder.Native, &sig); err != nil {
+	if err := binary.Read(bytes.NewReader(msg.RawSample), byteorder.Native, &sig); err != nil {
 		log.WithError(err).Warningf("Cannot parse signal from BPF datapath")
 		return
 	}
@@ -105,18 +100,6 @@ func signalReceive(msg *bpf.PerfEventSample, cpu int) {
 		channels[sig.Which] <- sig.Data
 		signalCollectMetrics(&sig, "received")
 	}
-}
-
-func signalLost(lost *bpf.PerfEventLost, cpu int) {
-	// Not much we can do here, with the given set of signals it is non-fatal,
-	// so we keep ignoring lost events right now.
-	signalCollectMetrics(nil, "lost")
-}
-
-func signalError(err *bpf.PerfEvent) {
-	signalCollectMetrics(nil, "error")
-
-	log.Errorf("BUG: Timeout while reading signal perf ring buffer: %s", err.Debug())
 }
 
 // MuteChannel tells to not send any new events to a particular channel
@@ -130,7 +113,7 @@ func MuteChannel(signal int) error {
 	// RB notifications from kernel side, which is much more efficient as
 	// no new message is pushed into the RB.
 	if events != nil {
-		events.Mute()
+		events.Pause()
 	}
 	return nil
 }
@@ -143,7 +126,7 @@ func UnmuteChannel(signal int) error {
 	}
 	// See comment in MuteChannel().
 	if events != nil {
-		events.Unmute()
+		events.Resume()
 	}
 	return nil
 }
@@ -161,15 +144,18 @@ func RegisterChannel(signal int, ch chan<- SignalData) error {
 	return nil
 }
 
-var once sync.Once
-var events *bpf.PerCpuEvents
-
 // SetupSignalListener bootstraps signal listener infrastructure.
 func SetupSignalListener() {
 	once.Do(func() {
 		var err error
-		config.NumCpus = runtime.NumCPU()
-		events, err = bpf.NewPerCpuEvents(&config)
+
+		path := oldBPF.MapPath(SignalMapName)
+		signalMap, err := ebpf.LoadPinnedMap(path)
+		if err != nil {
+			log.WithError(err).Warningf("Failed to open signals map")
+			return
+		}
+		events, err = perf.NewReader(signalMap, os.Getpagesize())
 		if err != nil {
 			log.WithError(err).Warningf("Cannot open %s map! Ignoring signals!",
 				SignalMapName)
@@ -179,14 +165,17 @@ func SetupSignalListener() {
 		go func() {
 			log.Info("Datapath signal listener running")
 			for {
-				todo, err := events.Poll(-1)
-				if err != nil {
-					log.WithError(err).Warningf("%s poll error!",
-						SignalMapName)
-					continue
-				}
-				if todo > 0 {
-					events.ReadAll(signalReceive, signalLost, signalError)
+				record, err := events.Read()
+				switch {
+				case err != nil:
+					signalCollectMetrics(nil, "error")
+					log.WithError(err).WithFields(logrus.Fields{
+						logfields.BPFMapName: SignalMapName,
+					}).Errorf("failed to read event")
+				case record.LostSamples > 0:
+					signalCollectMetrics(nil, "lost")
+				default:
+					signalReceive(&record)
 				}
 			}
 		}()
