@@ -1978,6 +1978,12 @@ definitions:
             enum:
             - ClusterIP
             - NodePort
+          name:
+            description: Service name  (e.g. Kubernetes service name)
+            type: string
+          namespace:
+            description: Service namespace  (e.g. Kubernetes namespace)
+            type: string
   ServiceStatus:
     description: Configuration of a service
     type: object

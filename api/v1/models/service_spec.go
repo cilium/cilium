@@ -139,6 +139,12 @@ func (m *ServiceSpec) UnmarshalBinary(b []byte) error {
 // swagger:model ServiceSpecFlags
 type ServiceSpecFlags struct {
 
+	// Service name  (e.g. Kubernetes service name)
+	Name string `json:"name,omitempty"`
+
+	// Service namespace  (e.g. Kubernetes namespace)
+	Namespace string `json:"namespace,omitempty"`
+
 	// Service type
 	// Enum: [ClusterIP NodePort]
 	Type string `json:"type,omitempty"`
