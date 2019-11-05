@@ -152,6 +152,7 @@ func Insert(ep *endpoint.Endpoint) error {
 	ep.UnconditionalRLock()
 	mutex.Lock()
 
+	ep.StartRegenerationFailureHandler()
 	// Now that the endpoint has its ID, it can be created with a name based on
 	// its ID, and its eventqueue can be safely started. Ensure that it is only
 	// started once it is exposed to the endpointmanager so that it will be
