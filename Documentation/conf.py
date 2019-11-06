@@ -34,12 +34,12 @@ import semver
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = ['sphinx.ext.ifconfig',
-    'sphinx.ext.githubpages',
-    'sphinx.ext.extlinks',
-    'sphinxcontrib.openapi',
-    'sphinx_tabs.tabs',
-    'sphinxcontrib.spelling',
-    'versionwarning.extension' ]
+              'sphinx.ext.githubpages',
+              'sphinx.ext.extlinks',
+              'sphinxcontrib.openapi',
+              'sphinx_tabs.tabs',
+              'sphinxcontrib.spelling',
+              'versionwarning.extension']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -50,7 +50,7 @@ templates_path = ['_templates']
 # source_suffix = ['.rst', '.md']
 source_suffix = ['.rst', '.md']
 source_parsers = {
-   '.md': 'recommonmark.parser.CommonMarkParser',
+    '.md': 'recommonmark.parser.CommonMarkParser',
 }
 
 # The master toctree document.
@@ -74,7 +74,7 @@ versionwarning_body_selector = "div.document"
 # Map latest -> master.
 # Map stable -> current version number.
 branch = os.environ.get('READTHEDOCS_VERSION')
-if branch == None or branch == 'latest':
+if branch is None or branch == 'latest':
     branch = 'HEAD'
     archive_name = 'master'
 elif branch == 'stable':
@@ -90,7 +90,7 @@ current_release = release[0:3]
 githubusercontent = 'https://raw.githubusercontent.com/cilium/cilium/'
 scm_web = githubusercontent + branch
 jenkins_branch = 'https://jenkins.cilium.io/view/Cilium-v' + current_release
-archive_filename = archive_name +'.tar.gz'
+archive_filename = archive_name + '.tar.gz'
 archive_link = 'https://github.com/cilium/cilium/archive/' + archive_filename
 archive_name = 'cilium-' + archive_name.strip('v')
 project_link = 'https://github.com/cilium/cilium/projects?query=is:open+' + next_release
@@ -142,7 +142,7 @@ html_theme = "sphinx_rtd_theme"
 html_theme_path = ["_themes/sphinx_rtd_theme", ]
 html_style = "static/css/theme.css"
 html_context = {
-        'release': release
+    'release': release
 }
 
 # Theme options are theme-specific and customize the look and feel of a theme
@@ -154,7 +154,8 @@ html_context = {
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['images', '_static', '_themes/sphinx_rtd_theme/sphinx_rtd_theme']
+html_static_path = ['images', '_static',
+                    '_themes/sphinx_rtd_theme/sphinx_rtd_theme']
 
 # -- Options for HTMLHelp output ------------------------------------------
 
@@ -217,6 +218,7 @@ http_strict_mode = False
 
 # Try as hard as possible to find references
 default_role = 'any'
+
 
 def setup(app):
     app.add_stylesheet('parsed-literal.css')
