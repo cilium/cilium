@@ -755,23 +755,6 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 	}
 
 	if option.Config.EnableIPv4 {
-		// Clear the Kubernetes masquerading mark bit to skip source PAT
-		// performed by kube-proxy for all packets destined for Cilium. Cilium
-		// installs a dedicated rule which does the source PAT to the right
-		// source IP.
-		clearMasqBit := fmt.Sprintf("%#08x/%#08x", 0, linux_defaults.MagicMarkK8sMasq)
-		if err := runProg("iptables", append(
-			m.waitArgs,
-			"-t", "mangle",
-			"-A", ciliumPostMangleChain,
-			"-o", localDeliveryInterface,
-			"-m", "mark", "!", "--mark", matchFromIPSecDecrypt, // Don't match ipsec traffic
-			"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
-			"-m", "comment", "--comment", "cilium: clear masq bit for pkts to "+localDeliveryInterface,
-			"-j", "MARK", "--set-xmark", clearMasqBit), false); err != nil {
-			return err
-		}
-
 		// See kube-proxy comment in TransientRules().
 		if err := runProg("iptables", append(
 			m.waitArgs,
@@ -934,49 +917,6 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 				"-s", "127.0.0.1",
 				"-o", localDeliveryInterface,
 				"-m", "comment", "--comment", "cilium host->cluster from 127.0.0.1 masquerade",
-				"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()), false); err != nil {
-				return err
-			}
-
-			if !option.Config.EnableNodePort {
-				// Masquerade all traffic from a local endpoint that is routed
-				// back to an endpoint on the same node. This happens if a
-				// local endpoint talks to a Kubernetes NodePort or HostPort.
-				if err := runProg("iptables", append(
-					m.waitArgs,
-					"-t", "nat",
-					"-A", ciliumPostNatChain,
-					"-s", node.GetIPv4AllocRange().String(),
-					"-m", "comment", "--comment", "cilium hostport loopback masquerade",
-					"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()), false); err != nil {
-					return err
-				}
-			}
-
-			// Masquerade all traffic from the host into the
-			// local Cilium cluster range if the source is not
-			// in the cluster range and DNAT has been
-			// applied.  These conditions are met by traffic
-			// redirected via hostports from non-cluster sources.
-			// The SNAT to the cluster address is needed so that
-			// the return traffic from a host proxy (when used) is
-			// routed back via the cilium_host device also
-			// when the source address is originally
-			// outside of the cluster range.
-			//
-			// The following conditions must be met:
-			// * Must be targeted to an IP that IS local
-			// * May not originate from any IP inside of the cluster range
-			// * Must have DNAT applied (k8s hostport, etc.)
-
-			if err := runProg("iptables", append(
-				m.waitArgs,
-				"-t", "nat",
-				"-A", ciliumPostNatChain,
-				"!", "-s", node.GetIPv4ClusterRange().String(),
-				"-o", localDeliveryInterface,
-				"-m", "conntrack", "--ctstate", "DNAT",
-				"-m", "comment", "--comment", "cilium hostport cluster masquerade",
 				"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()), false); err != nil {
 				return err
 			}
