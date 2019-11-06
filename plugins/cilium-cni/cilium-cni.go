@@ -51,6 +51,7 @@ import (
 	cniTypesVer "github.com/containernetworking/cni/pkg/types/current"
 	cniVersion "github.com/containernetworking/cni/pkg/version"
 	"github.com/containernetworking/plugins/pkg/ns"
+	gops "github.com/google/gops/agent"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
@@ -77,6 +78,10 @@ type CmdState struct {
 }
 
 func main() {
+	if err := gops.Listen(gops.Options{}); err != nil {
+		log.WithError(err).Warn("Unable to start gops")
+	}
+
 	skel.PluginMain(cmdAdd,
 		nil,
 		cmdDel,
