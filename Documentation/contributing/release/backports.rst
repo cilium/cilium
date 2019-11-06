@@ -42,16 +42,20 @@ Backporting guide
 -----------------
 
 Cilium PRs that are marked with the label ``needs-backport/X.Y`` need to be
-backported to the stable branch ``X.Y``. The following steps summarize
-the process for backporting these PRs.
+backported to the stable branch ``X.Y``. The following steps summarize the
+process for backporting these PRs:
 
-1. Make sure the Github labels are up-to-date, as this process will
-   deal with all commits from PRs that have the ``needs-backport/X.Y`` label
-   set (for a stable release version X.Y). If any PRs contain labels such as
-   ``backport-pending/X.Y``, ensure that the backport for that PR have been
-   merged and if so, change the label to ``backport-done/X.Y``.
+* One-time setup
+* Preparing PRs for backport
+* Cherry-picking commits into a backport branch
+* Posting the PR and updating GitHub labels
 
-2. The scripts referred to below need to be run in Linux, they do not
+.. _backport_setup:
+
+One-time setup
+~~~~~~~~~~~~~~
+
+#. The scripts referred to below need to be run in Linux, they do not
    work on OSX.  You can use the cilium dev VM for this, but you need
    to configure git to have your name and email address to be used in
    the commit messages:
@@ -61,30 +65,66 @@ the process for backporting these PRs.
       $ git config --global user.name "John Doe"
       $ git config --global user.email johndoe@example.com
 
-3. Make sure you have your a GitHub developer access token
+#. Make sure you have your a GitHub developer access token
    available. For details, see `contrib/backporting/README.md
    <https://github.com/cilium/cilium/blob/master/contrib/backporting/README.md>`_
-4. Fetch the repo, e.g., ``git fetch``
-5. Check a new branch for your backports based on the stable branch for that
-   version, e.g., ``git checkout -b pr/v1.0-backport-YY-MM-DD origin/v1.0``
-6. Run the ``check-stable`` script, referring to your Github access
-   token, this will list the commits that need backporting, from the
-   newest to oldest:
+
+#. This guide makes use of several tools to automate the backporting process.
+   The basics require ``bash`` and ``git``, but to automate interactions with
+   github, further tools are required.
+
+   +--------------------------------------------------------------+-----------+---------------------------------------------------------+
+   | Dependency                                                   | Required? | Download Command                                        |
+   +==============================================================+===========+=========================================================+
+   | bash                                                         | Yes       | N/A (OS-specific)                                       |
+   +--------------------------------------------------------------+-----------+---------------------------------------------------------+
+   | git                                                          | Yes       | N/A (OS-specific)                                       |
+   +--------------------------------------------------------------+-----------+---------------------------------------------------------+
+   | python3                                                      | No        | `Python Downloads <https://www.python.org/downloads/>`_ |
+   +--------------------------------------------------------------+-----------+---------------------------------------------------------+
+   | `PyGithub <https://pypi.org/project/PyGithub/>`_             | No        | ``pip3 install PyGithub``                               |
+   +--------------------------------------------------------------+-----------+---------------------------------------------------------+
+   | `Github command-line tools <https://github.com/node-gh/gh>`_ | No        | ``npm install -g gh``                                   |
+   +--------------------------------------------------------------+-----------+---------------------------------------------------------+
+
+Preparation
+~~~~~~~~~~~
+
+Pull requests that are candidates for backports to the X.Y stable release are
+tracked through the following links:
+
+* PRs with the needs-backport/X.Y label (\ |CURRENT_RELEASE|: :github-backport:`GitHub Link<needs-backport>`)
+* PRs with the backport-pending/X.Y label (\ |CURRENT_RELEASE|: :github-backport:`GitHub Link<backport-pending>`)
+* The X.Y GitHub project (\ |NEXT_RELEASE|: :github-project:`GitHub Link<>`)
+
+Make sure that the Github labels are up-to-date, as this process will deal with
+all commits from PRs that have the ``needs-backport/X.Y`` label set (for a
+stable release version X.Y). If any PRs contain labels such as
+``backport-pending/X.Y``, ensure that the backport for that PR have been merged
+and if so, change the label to ``backport-done/X.Y``.
+
+Creating the backports branch
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#. Run ``contrib/backporting/start-backport`` for the release version that
+   you intend to backport PRs for. This will pull the latest repository commits
+   from the Cilium repository (assumed to be the git remote ``origin``), create
+   a new branch, and runs the ``contrib/backporting/check-stable`` script to
+   fetch the full set of PRs to backport.
 
    .. code-block:: bash
 
-      $ GITHUB_TOKEN=xxx contrib/backporting/check-stable 1.0
+      $ GITHUB_TOKEN=xxx contrib/backporting/start-backport 1.0
 
    .. note::
-      ``contrib/backporting/check-stable`` accepts a second argument to
-      specify a path to write a nicely-formatted pull request message to.
-      This can be used alongside
-      `Github command-line tools <https://github.com/node-gh/gh>`__ to
-      send the pull request from the command line in steps 9-10 via
-      ``gh pull-request -b vX.Y -l backport/vX.Y -F <path>``.
 
-7. Cherry-pick the commits using the master git SHAs listed, starting
-   from the oldest (bottom), working your way up and fixing any merge
+      This command will leave behind a file in the current directory with a
+      name based upon the current date in the form ``YYYY-MM-DD.txt`` which
+      contains a prepared backport pull-request description so you don't need
+      to write one yourself.
+
+#. Cherry-pick the commits using the master git SHAs listed, starting
+   from the oldest (top), working your way down and fixing any merge
    conflicts as they appear. Note that for PRs that have multiple
    commits you will want to check that you are cherry-picking oldest
    commits first. The ``cherry-pick`` script accepts multiple arguments,
@@ -98,30 +138,61 @@ the process for backporting these PRs.
       ...
       $ contrib/backporting/cherry-pick <newest-commit-sha>
 
-8. Push your backports branch to cilium repo, e.g., ``git push -u origin pr/v1.0-backports-YY-MM-DD``
-9. In Github, create a new PR from your branch towards the feature
-   branch you are backporting to. Note that by default Github creates
-   PRs against the master branch, so you will need to change it.
-10. Label the new backport PR with the backport label for the stable branch
-    such as ``backport/X.Y`` so that it is easy to find backport PRs later.
-11. Mark all PRs you backported with the backport pending label ``backport-pending/X.Y``
-    and clear the ``needs-backport/vX.Y`` label. This can be via the GitHub
-    interface, or using the backport script ``contrib/backporting/set-labels.py``, e.g.:
+#. (Optional) If there are any commits or pull requests that are tricky or
+   time-consuming to backport, consider reaching out for help on Slack. If the
+   commit does not cherry-pick cleanly, please mention the necessary changes in
+   the pull request description in the next section.
 
-    .. code-block:: bash
+#. Push your backports branch to cilium repo.
 
-        # Set PR 1234's v1.0 backporting labels to pending
-        $ contrib/backporting/set-labels.py 1234 pending 1.0
+   .. code-block:: bash
 
-    .. note::
+      $ git push -u origin
 
-        ``contrib/backporting/set-labels.py`` requires Python 3 and
-        `PyGithub <https://pypi.org/project/PyGithub/>`_ installed.
+Creating the backport pull request
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-12. After the backport PR is merged, mark all backported PRs with
-    ``backport-done/X.Y`` label and clear the ``backport-pending/X.Y`` label(s).
+The backport pull-request may be created via the GitHub web interface, or
+alternatively you can use CLI tools to achieve these steps.
 
-    .. code-block:: bash
+Via GitHub web interface
+^^^^^^^^^^^^^^^^^^^^^^^^
 
-        # Set PR 1234's v1.0 backporting labels to done
-        contrib/backporting/set-labels.py 1234 done 1.0.
+#. Create a new PR from your branch towards the feature branch you are
+   backporting to. Note that by default Github creates PRs against the
+   ``master`` branch, so you will need to change it. The description for the
+   pull request should be based upon the ``YYYY-MM-DD.txt`` file that was
+   generated by the scripts above.
+
+#. Label the new backport PR with the backport label for the stable branch
+   such as ``backport/X.Y`` so that it is easy to find backport PRs later.
+
+#. Mark all PRs you backported with the backport pending label
+   ``backport-pending/X.Y`` and clear the ``needs-backport/vX.Y`` label.
+
+Via command-line tools
+^^^^^^^^^^^^^^^^^^^^^^
+
+These steps require all of the tools described in the :ref:`backport_setup`
+section above. Note that the list of PRs to pass to the ``set-labels.py``
+script are listed at the end of the ``YYYY-MM-DD.txt`` file.
+
+   .. code-block:: bash
+
+      # Create a pull-request on Github
+      $ gh pull-request -b vX.Y -l backport/vX.Y -F YYYY-MM-DD.txt
+      # Set PR 1234's v1.0 backporting labels to pending
+      $ contrib/backporting/set-labels.py 1234 pending 1.0
+
+After the backports are merged
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+After the backport PR is merged, mark all backported PRs with
+``backport-done/X.Y`` label and clear the ``backport-pending/X.Y`` label(s). If
+the backport pull request description was generated using the scripts above,
+then the full command is listed in the pull request description.
+
+.. code-block:: bash
+
+   # Set PR 1234's v1.0 backporting labels to done
+   contrib/backporting/set-labels.py 1234 done 1.0.
