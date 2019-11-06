@@ -25,3 +25,4 @@ sphinx-tabs==1.1.7
 recommonmark==0.4.0
 sphinxcontrib-spelling==4.2.0
 sphinx-version-warning==1.1.2
+semver==2.9.0

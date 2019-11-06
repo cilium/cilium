@@ -7,6 +7,14 @@
 Organization
 ============
 
+Release tracking
+----------------
+
+Feature work for upcoming releases is tracked through GitHub Projects. You can
+view the projects related to the \ |NEXT_RELEASE| release here:
+
+* :github-project:`GitHub release projects<>`
+
 Release Cadence
 ---------------
 
