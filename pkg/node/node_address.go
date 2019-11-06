@@ -235,6 +235,16 @@ func Uninitialize() {
 	ipv6AllocRange = nil
 }
 
+// SetNodePortIPv4 sets the node-port IPv4 address for NAT
+func SetNodePortIPv4(ip net.IP) {
+	ipv4NodePortAddress = ip
+}
+
+// SetNodePortIPv6 sets the node-port IPv6 address for NAT
+func SetNodePortIPv6(ip net.IP) {
+	ipv6NodePortAddress = ip
+}
+
 // GetNodePortIPv4 returns the node-port IPv4 address for NAT
 func GetNodePortIPv4() net.IP {
 	return ipv4NodePortAddress
