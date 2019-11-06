@@ -1,0 +1,39 @@
+#!/bin/bash
+#
+# Copyright 2019 Authors of Cilium
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+source $(dirname $(readlink -ne $BASH_SOURCE))/../release/lib/common.sh
+source $TOOL_LIB_PATH/gitlib.sh
+source $(dirname $(readlink -ne $BASH_SOURCE))/common.sh
+
+# Validate command-line
+common::argc_validate 1
+
+BRANCH="${1:-}"
+if [ "$BRANCH" = "" ]; then
+    BRANCH=$(git symbolic-ref --short HEAD)
+fi
+BRANCH=$(echo "$BRANCH" | sed 's/^v//')
+
+git fetch origin
+if ! git branch -a | grep -q "origin/v$BRANCH$" ; then
+    echo "usage: start-backport <branch version>" 1>&2
+    echo "  (detected branch $BRANCH)" 1>&2
+    common::exit 1
+fi
+
+DATE=$(date --rfc-3339=date)
+git checkout -b pr/v$BRANCH-backport-$DATE origin/v$BRANCH
+contrib/backporting/check-stable $BRANCH $DATE.txt
