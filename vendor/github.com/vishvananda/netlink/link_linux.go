@@ -2919,6 +2919,28 @@ func LinkSetBondSlaveQueueId(link Link, queueId uint16) error {
 	return pkgHandle.LinkSetBondSlaveQueueId(link, queueId)
 }
 
+func vethStatsSerialize(stats ethtoolStats) ([]byte, error) {
+	statsSize := int(unsafe.Sizeof(stats)) + int(stats.nStats)*int(unsafe.Sizeof(uint64(0)))
+	b := make([]byte, 0, statsSize)
+	buf := bytes.NewBuffer(b)
+	err := binary.Write(buf, nl.NativeEndian(), stats)
+	return buf.Bytes()[:statsSize], err
+}
+
+type vethEthtoolStats struct {
+	Cmd    uint32
+	NStats uint32
+	Peer   uint64
+	// Newer kernels have XDP stats in here, but we only care
+	// to extract the peer ifindex here.
+}
+
+func vethStatsDeserialize(b []byte) (vethEthtoolStats, error) {
+	var stats = vethEthtoolStats{}
+	err := binary.Read(bytes.NewReader(b), nl.NativeEndian(), &stats)
+	return stats, err
+}
+
 // VethPeerIndex get veth peer index.
 func VethPeerIndex(link *Veth) (int, error) {
 	fd, err := getSocketUDP()
@@ -2933,16 +2955,28 @@ func VethPeerIndex(link *Veth) (int, error) {
 		return -1, fmt.Errorf("SIOCETHTOOL request for %q failed, errno=%v", link.Attrs().Name, errno)
 	}
 
-	stats := &ethtoolStats{
+	stats := ethtoolStats{
 		cmd:    ETHTOOL_GSTATS,
 		nStats: sSet.data[0],
 	}
-	ifreq.Data = uintptr(unsafe.Pointer(stats))
+
+	buffer, err := vethStatsSerialize(stats)
+	if err != nil {
+		return -1, err
+	}
+
+	ifreq.Data = uintptr(unsafe.Pointer(&buffer[0]))
 	_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), SIOCETHTOOL, uintptr(unsafe.Pointer(ifreq)))
 	if errno != 0 {
 		return -1, fmt.Errorf("SIOCETHTOOL request for %q failed, errno=%v", link.Attrs().Name, errno)
 	}
-	return int(stats.data[0]), nil
+
+	vstats, err := vethStatsDeserialize(buffer)
+	if err != nil {
+		return -1, err
+	}
+
+	return int(vstats.Peer), nil
 }
 
 func parseTuntapData(link Link, data []syscall.NetlinkRouteAttr) {

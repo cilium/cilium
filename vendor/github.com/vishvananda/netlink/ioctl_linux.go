@@ -59,7 +59,7 @@ type ethtoolSset struct {
 type ethtoolStats struct {
 	cmd    uint32
 	nStats uint32
-	data   [1]uint64
+	// Followed by nStats * []uint64.
 }
 
 // newIocltSlaveReq returns filled IfreqSlave with proper interface names
