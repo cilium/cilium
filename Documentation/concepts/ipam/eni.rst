@@ -65,6 +65,10 @@ Configuration
   ``--auto-create-cilium-node-resource`` or  set
   ``auto-create-cilium-node-resource: "true"`` in the ConfigMap.
 
+* If IPs are limited, run the Operator with option
+  ``--aws-release-excess-ips=true``. When enabled, operator checks the number
+  of IPs regularly and attempts to release excess free IPs from ENI.
+
 * It is generally a good idea to enable metrics in the Operator as well with
   the option ``--enable-metrics``. See the section :ref:`install_metrics` for
   additional information how to install and run Prometheus including the
@@ -184,8 +188,8 @@ If this updated caused the custom resource to change, the custom resource is
 updated using the Kubernetes API methods ``Update()`` and/or ``UpdateStatus()``
 if available.
 
-Determination of ENI IP deficits
-================================
+Determination of ENI IP deficits or excess
+==========================================
 
 The operator constantly monitors all nodes and detects deficits in available
 ENI IP addresses. The check to recognize a deficit is performed on two
@@ -194,6 +198,9 @@ occasions:
  * When a ``CiliumNode`` custom resource is updated
  * All nodes are scanned in a regular interval (once per minute)
 
+If ``--aws-release-excess-ips`` is enabled, the check to recognize IP excess
+is performed at the interval based scan.
+
 When determining whether a node has a deficit in IP addresses, the following
 calculation is performed:
 
@@ -201,11 +208,18 @@ calculation is performed:
 
      spec.eni.pre-allocate - (len(spec.ipam.available) - len(status.ipam.used))
 
+For excess IP calculation:
+
+.. code-block:: go
+
+     (len(spec.ipam.available) - len(status.ipam.used)) - (spec.eni.pre-allocate + spec.eni.max-above-watermark)
+
 Upon detection of a deficit, the node is added to the list of nodes which
 require IP address allocation. When a deficit is detected using the interval
 based scan, the allocation order of nodes is determined based on the severity
 of the deficit, i.e. the node with the biggest deficit will be at the front of
-the allocation queue.
+the allocation queue. Nodes that need to release IPs are behind nodes that need
+allocation.
 
 The allocation queue is handled on demand but at most once per second.
 
@@ -245,6 +259,27 @@ less than what is required to fulfill ``spec.eni.pre-allocate``.
 In order to allocate the IPs, the method ``AssignPrivateIpAddresses`` of the
 EC2 service API is called. When no more ENIs are available meeting the above
 criteria, a new ENI is created.
+
+IP Release
+==========
+
+When performing IP release for a node with IP excess, the operator scans
+ENIs attached to the node with an interface index greater than
+``spec.eni.first-interface-index`` and selects an ENI with the most free IPs
+available for release. The following formula is used to determine how many IPs
+are available for release on the ENI:
+
+.. code-block:: go
+
+      min(FreeOnENI, (FreeIPs - spec.eni.pre-allocate - spec.eni.max-above-watermark))
+
+Operator releases IPs from the selected ENI, if there is still excess free IP
+not released, operator will attempt to release in next release cycle.
+
+In order to release the IPs, the method ``UnassignPrivateIpAddresses`` of the
+EC2 service API is called. There is no limit on ENIs per subnet so ENIs are
+remained on the node.
+
 
 ENI Creation
 ============
@@ -316,6 +351,10 @@ perform ENI creation and IP allocation:
 
  * ``CreateTags``
 
+ If release excess IP enabled:
+
+ * ``UnassignPrivateIpAddresses``
+
 *******
 Metrics
 *******
@@ -335,6 +374,13 @@ The following metrics are exposed:
   *Labels:*
 
   * ``subnetId``: Thew AWS subnet ID used for the allocation
+
+``cilium_operator_eni_release_ops``
+  Number of IP release operations
+
+  *Labels:*
+
+  * ``subnetId``: Thew AWS subnet ID which IPs are released
 
 ``cilium_operator_eni_interface_creation_ops``
   Number of ENIs allocated
