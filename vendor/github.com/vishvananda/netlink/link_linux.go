@@ -2933,20 +2933,9 @@ func VethPeerIndex(link *Veth) (int, error) {
 		return -1, fmt.Errorf("SIOCETHTOOL request for %q failed, errno=%v", link.Attrs().Name, errno)
 	}
 
-	gstrings := &ethtoolGstrings{
-		cmd:       ETHTOOL_GSTRINGS,
-		stringSet: ETH_SS_STATS,
-		length:    sSet.data[0],
-	}
-	ifreq.Data = uintptr(unsafe.Pointer(gstrings))
-	_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), SIOCETHTOOL, uintptr(unsafe.Pointer(ifreq)))
-	if errno != 0 {
-		return -1, fmt.Errorf("SIOCETHTOOL request for %q failed, errno=%v", link.Attrs().Name, errno)
-	}
-
 	stats := &ethtoolStats{
 		cmd:    ETHTOOL_GSTATS,
-		nStats: gstrings.length,
+		nStats: sSet.data[0],
 	}
 	ifreq.Data = uintptr(unsafe.Pointer(stats))
 	_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), SIOCETHTOOL, uintptr(unsafe.Pointer(ifreq)))

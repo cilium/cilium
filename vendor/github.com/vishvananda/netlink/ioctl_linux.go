@@ -56,14 +56,6 @@ type ethtoolSset struct {
 	data     [1]uint32
 }
 
-// ethtoolGstrings is string set for data tagging
-type ethtoolGstrings struct {
-	cmd       uint32
-	stringSet uint32
-	length    uint32
-	data      [32]byte
-}
-
 type ethtoolStats struct {
 	cmd    uint32
 	nStats uint32
