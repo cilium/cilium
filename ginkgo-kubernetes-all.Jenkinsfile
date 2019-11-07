@@ -176,7 +176,7 @@ pipeline {
                         KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; CILIUM_IMAGE=$(./print-node-ip.sh)/cilium/cilium:latest CILIUM_OPERATOR_IMAGE=$(./print-node-ip.sh)/cilium/operator:latest ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG}'
+                        sh 'cd ${TESTDIR}; ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG} -cilium.registry=$(./print-node-ip.sh)'
                     }
                     post {
                         always {
@@ -203,7 +203,7 @@ pipeline {
                         KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; CILIUM_IMAGE=$(./print-node-ip.sh)/cilium/cilium:latest CILIUM_OPERATOR_IMAGE=$(./print-node-ip.sh)/cilium/operator:latest ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG}'
+                        sh 'cd ${TESTDIR}; ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG} -cilium.registry=$(./print-node-ip.sh)'
                     }
                     post {
                         always {

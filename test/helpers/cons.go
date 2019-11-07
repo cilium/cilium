@@ -175,7 +175,7 @@ const (
 
 	CiliumStableVersion      = "v1.5"
 	CiliumStableImageVersion = "cilium/cilium:" + CiliumStableVersion
-	ciliumDeveloperImage     = "%s/cilium/cilium:latest"
+	ciliumDeveloperImage     = "%s/cilium/cilium-dev:latest"
 
 	MonitorLogFileName = "monitor.log"
 	microscopeManifest = "microscope.yaml"
