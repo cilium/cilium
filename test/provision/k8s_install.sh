@@ -62,6 +62,7 @@ sudo service serial-getty@ttyS0 start
 if [[ -f  "/etc/provision_finished" ]]; then
     sudo dpkg -l | grep kubelet
     echo "provision is finished, recompiling"
+    $PROVISIONSRC/compile.sh
     exit 0
 fi
 
@@ -244,11 +245,11 @@ case $K8S_VERSION in
             kubelet=${K8S_FULL_VERSION}* \
             kubeadm=${K8S_FULL_VERSION}* \
             kubectl=${K8S_FULL_VERSION}*
-		if [ $? -ne 0 ]; then
-			echo "falling back on binary k8s install"
-			set -e
-			install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}"
-		fi
+        if [ $? -ne 0 ]; then
+            echo "falling back on binary k8s install"
+            set -e
+            install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}"
+        fi
         ;;
 #   "1.16")
 #       install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}"
@@ -307,6 +308,7 @@ if [[ "${HOST}" == "k8s1" ]]; then
     kubectl -n kube-system delete -f ${PROVISIONSRC}/manifest/dns_deployment.yaml || true
     kubectl -n kube-system apply -f ${PROVISIONSRC}/manifest/dns_deployment.yaml
 
+    $PROVISIONSRC/compile.sh
 else
     if [[ "${SKIP_K8S_PROVISION}" == "false" ]]; then
       sudo -E bash -c 'echo "${KUBEADM_ADDR} k8s1" >> /etc/hosts'

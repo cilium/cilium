@@ -230,6 +230,10 @@ var _ = BeforeAll(func() {
 			os.Setenv("CILIUM_OPERATOR_IMAGE", config.CiliumTestConfig.CiliumOperatorImage)
 		}
 
+		if config.CiliumTestConfig.Registry != "" {
+			os.Setenv("CILIUM_REGISTRY", config.CiliumTestConfig.Registry)
+		}
+
 		if config.CiliumTestConfig.ProvisionK8s == false {
 			os.Setenv("SKIP_K8S_PROVISION", "true")
 		}
@@ -265,6 +269,8 @@ var _ = BeforeAll(func() {
 			}
 		}
 		kubectl := helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+
+		kubectl.LabelNodes()
 
 		kubectl.ApplyDefault(kubectl.GetFilePath("../examples/kubernetes/addons/prometheus/prometheus.yaml"))
 
