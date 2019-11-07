@@ -218,13 +218,25 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 		k.setBasePath()
 	}
 
+	// config flags are already parsed here
+	if config.CiliumTestConfig.Registry != "" {
+		defaultHelmOptions["global.registry"] = config.CiliumTestConfig.Registry + "/cilium"
+	}
+
 	res := k.Apply(ApplyOptions{FilePath: filepath.Join(k.BasePath(), manifestsPath, "log-gatherer.yaml"), Namespace: "kube-system"})
+
 	if !res.WasSuccessful() {
 		ginkgoext.Fail(fmt.Sprintf("Cannot connect to k8s cluster, output:\n%s", res.CombineOutput().String()), 1)
 		return nil
 	}
 
 	return k
+}
+
+// LabelNodes labels nodes in vagrant env. If you are running tests on different cluster you need to label your nodes by yourself
+func (kub *Kubectl) LabelNodes() {
+	kub.ExecMiddle(fmt.Sprintf("%s label --overwrite node k8s1 cilium.io/ci-node=k8s1", KubectlCmd))
+	kub.ExecMiddle(fmt.Sprintf("%s label --overwrite node k8s2 cilium.io/ci-node=k8s2", KubectlCmd))
 }
 
 // CepGet returns the endpoint model for the given pod name in the specified

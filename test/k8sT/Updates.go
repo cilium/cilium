@@ -356,7 +356,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 
 		err = helpers.WithTimeout(
 			waitForUpdateImage(newVersion),
-			"Cilium Pods are not updating correctly",
+			fmt.Sprintf("Cilium Pods are not updating correctly to %s", newVersion),
 			&helpers.TimeoutConfig{Timeout: timeout})
 		ExpectWithOffset(1, err).To(BeNil(), "Pods are not updating")
 
