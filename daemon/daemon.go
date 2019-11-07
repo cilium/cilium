@@ -304,7 +304,6 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	d := Daemon{
 		ctx:              dCtx,
 		cancel:           cancel,
-		svc:              service.NewService(),
 		prefixLengths:    createPrefixLengthCounter(),
 		buildEndpointSem: semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationMutex: new(lock.RWMutex),
@@ -313,6 +312,8 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 		datapath:         dp,
 		nodeDiscovery:    nd,
 	}
+
+	d.svc = service.NewService(&d)
 
 	d.identityAllocator = cache.NewCachingIdentityAllocator(&d)
 	d.policy = policy.NewPolicyRepository(d.identityAllocator.GetIdentityCache())
