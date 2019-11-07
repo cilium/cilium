@@ -713,12 +713,14 @@ type DNSZombieMappings struct {
 	lock.Mutex
 	deletes        map[string]*DNSZombieMapping // map[ip]toDelete
 	lastCTGCUpdate time.Time
+	max            int // max allowed zombies
 }
 
 // NewDNSZombieMappings constructs a DNSZombieMappings that is read to use
-func NewDNSZombieMappings() *DNSZombieMappings {
+func NewDNSZombieMappings(max int) *DNSZombieMappings {
 	return &DNSZombieMappings{
 		deletes: make(map[string]*DNSZombieMapping),
+		max:     max,
 	}
 }
 
@@ -755,6 +757,9 @@ func (zombies *DNSZombieMappings) isAlive(zombie *DNSZombieMapping) bool {
 // Zombies are alive if they have been marked alive (with MarkAlive). When
 // SetCTGCTime is called and an zombie not marked alive, it becomes dead.
 // Calling Upsert on a dead zombie will make it alive again.
+// Alive zombies are limited by zombies.max. 0 means no zombies are allowed,
+// disabling the behavior. It is expected to be a large value and is in place
+// to avoid runaway zombie growth when CT GC is at a large interval.
 func (zombies *DNSZombieMappings) GC() (alive, dead []*DNSZombieMapping) {
 	zombies.Lock()
 	defer zombies.Unlock()
@@ -767,6 +772,19 @@ func (zombies *DNSZombieMappings) GC() (alive, dead []*DNSZombieMapping) {
 			// Emit the actual object here since we will no longer update it
 			dead = append(dead, zombie)
 		}
+	}
+
+	// Limit alive zombies to max. This is messy, and will probably break
+	// existing connections. We sort by the oldest created connections, and
+	// tie-break (badly) by the number of DNS names for that IP.
+	overLimit := len(alive) - zombies.max
+	if overLimit > 0 {
+		sort.Slice(alive, func(i, j int) bool {
+			return alive[i].DeletePendingAt.Before(alive[j].DeletePendingAt) &&
+				len(alive[i].Names) < len(alive[j].Names)
+		})
+		dead = append(dead, alive[:overLimit]...)
+		alive = alive[overLimit:]
 	}
 
 	// Delete the zombies we collected above from the internal map

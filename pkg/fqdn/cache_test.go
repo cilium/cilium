@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/defaults"
 	. "gopkg.in/check.v1"
 )
 
@@ -624,7 +625,7 @@ func assertZombiesContain(c *C, zombies []*DNSZombieMapping, mappings map[string
 
 func (ds *DNSCacheTestSuite) TestZombiesGC(c *C) {
 	now := time.Now()
-	zombies := NewDNSZombieMappings()
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes)
 
 	zombies.Upsert(now, "1.1.1.1", "test.com")
 	zombies.Upsert(now, "2.2.2.2", "somethingelse.com")
@@ -693,7 +694,7 @@ func (ds *DNSCacheTestSuite) TestZombiesGC(c *C) {
 
 func (ds *DNSCacheTestSuite) TestZombiesForceExpire(c *C) {
 	now := time.Now()
-	zombies := NewDNSZombieMappings()
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes)
 
 	zombies.Upsert(now, "1.1.1.1", "test.com", "anothertest.com")
 	zombies.Upsert(now, "2.2.2.2", "somethingelse.com")
@@ -768,7 +769,7 @@ func (ds *DNSCacheTestSuite) TestZombiesForceExpire(c *C) {
 func (ds *DNSCacheTestSuite) TestCacheToZombiesGCCascade(c *C) {
 	now := time.Now()
 	cache := NewDNSCache(0)
-	zombies := NewDNSZombieMappings()
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes)
 
 	// Add entries that should expire at different times
 	cache.Update(now, "test.com", []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2")}, 3)
