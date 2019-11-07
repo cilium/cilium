@@ -850,6 +850,9 @@ type ApplyOptions struct {
 	FilePath  string
 	Namespace string
 	Force     bool
+	DryRun    bool
+	Output    string
+	Piped     string
 }
 
 // Apply applies the Kubernetes manifest located at path filepath.
@@ -860,14 +863,28 @@ func (kub *Kubectl) Apply(options ApplyOptions) *CmdRes {
 	} else {
 		force = "--force=false"
 	}
+
+	cmd := fmt.Sprintf("%s apply %s -f %s", KubectlCmd, force, options.FilePath)
+
+	if options.DryRun {
+		cmd = cmd + " --dry-run"
+	}
+
+	if len(options.Output) > 0 {
+		cmd = cmd + " -o " + options.Output
+	}
+
 	if len(options.Namespace) == 0 {
 		kub.Logger().Debugf("applying %s", options.FilePath)
-		return kub.ExecMiddle(
-			fmt.Sprintf("%s apply %s -f %s", KubectlCmd, force, options.FilePath))
+	} else {
+		kub.Logger().Debugf("applying %s in namespace %s", options.FilePath, options.Namespace)
+		cmd = cmd + " -n " + options.Namespace
 	}
-	kub.Logger().Debugf("applying %s in namespace %s", options.FilePath, options.Namespace)
-	return kub.ExecMiddle(
-		fmt.Sprintf("%s apply %s -f  %s -n %s", KubectlCmd, force, options.FilePath, options.Namespace))
+
+	if len(options.Piped) > 0 {
+		cmd = options.Piped + " | " + cmd
+	}
+	return kub.ExecMiddle(cmd)
 }
 
 // ApplyDefault applies give filepath with other options set to default
@@ -1055,9 +1072,13 @@ func (kub *Kubectl) DeployPatch(original, patch string) error {
 		}
 	}
 
-	res = kub.ExecShort(fmt.Sprintf(
-		`%s patch --filename='%s' --patch "$(cat '%s')" --local -o yaml | kubectl apply -f -`,
-		KubectlCmd, original, patch))
+	res = kub.Apply(ApplyOptions{
+		FilePath: "-",
+		Force:    true,
+		Piped: fmt.Sprintf(
+			`%s patch --filename='%s' --patch "$(cat '%s')" --local -o yaml`,
+			KubectlCmd, original, patch),
+	})
 	if !res.WasSuccessful() {
 		debugYaml(original, patch)
 		return res.GetErr("Cilium manifest patch instalation failed")
@@ -1092,11 +1113,18 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 		// debugYaml only dumps the full created yaml file to the test output if
 		// the cilium manifest can not be created correctly.
 		debugYaml := func(original string) {
-			_ = kub.ExecMiddle(fmt.Sprintf("kubectl apply --filename='%s' --dry-run -o yaml", original))
+			kub.Apply(ApplyOptions{
+				FilePath: original,
+				DryRun:   true,
+				Output:   "yaml",
+			})
 		}
 
 		// validation 1st
-		res := kub.ExecMiddle(fmt.Sprintf("kubectl apply --filename='%s' --dry-run", original))
+		res := kub.Apply(ApplyOptions{
+			FilePath: original,
+			DryRun:   true,
+		})
 		if !res.WasSuccessful() {
 			debugYaml(original)
 			return res.GetErr("Cilium manifest validation fails")
