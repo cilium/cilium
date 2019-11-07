@@ -1113,14 +1113,15 @@ func (d *Daemon) k8sServiceHandler() {
 		})
 
 		scopedLog.WithFields(logrus.Fields{
-			"action":    event.Action.String(),
-			"service":   event.Service.String(),
-			"endpoints": event.Endpoints.String(),
+			"action":      event.Action.String(),
+			"service":     event.Service.String(),
+			"old-service": event.OldService.String(),
+			"endpoints":   event.Endpoints.String(),
 		}).Debug("Kubernetes service definition changed")
 
 		switch event.Action {
 		case k8s.UpdateService, k8s.UpdateIngress:
-			if err := d.addK8sSVCs(event.ID, svc, event.Endpoints); err != nil {
+			if err := d.addK8sSVCs(event.ID, event.OldService, svc, event.Endpoints); err != nil {
 				scopedLog.WithError(err).Error("Unable to add/update service to implement k8s event")
 			}
 
@@ -1235,7 +1236,7 @@ func (d *Daemon) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s.End
 			}
 		}
 
-		if err := d.svcDeleteByFrontend(fe); err != nil {
+		if err := d.svcDeleteByFrontend(&fe.L3n4Addr); err != nil {
 			scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(fe)).
 				Warn("Error deleting service by frontend")
 			continue
@@ -1316,26 +1317,11 @@ func genCartesianProduct(
 	return svcs
 }
 
-func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8s.Endpoints) error {
-	// If east-west load balancing is disabled, we should not sync(add or delete)
-	// K8s service to a cilium service.
-	if option.Config.DisableK8sServices {
-		return nil
-	}
-
-	// Headless services do not need any datapath implementation
-	if svc.IsHeadless {
-		return nil
-	}
-
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.K8sSvcName:   svcID.Name,
-		logfields.K8sNamespace: svcID.Namespace,
-	})
-
-	var (
-		svcs []loadbalancer.LBSVC
-	)
+// datapathSVCs returns all services that should be set in the datapath.
+func datapathSVCs(
+	scopedLog *logrus.Entry,
+	svc *k8s.Service,
+	endpoints *k8s.Endpoints) (svcs []loadbalancer.LBSVC) {
 
 	uniqPorts := svc.UniquePorts()
 
@@ -1361,6 +1347,57 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 			}
 			dpSVC := genCartesianProduct(scopedLog, nodePortFE.IP, true, nodePortPorts, endpoints)
 			svcs = append(svcs, dpSVC...)
+		}
+	}
+	return svcs
+}
+
+// hashSVCMap returns a mapping of all frontend's hash to the its corresponded
+// value.
+func hashSVCMap(svcs []loadbalancer.LBSVC) map[string]loadbalancer.L3n4Addr {
+	m := map[string]loadbalancer.L3n4Addr{}
+	for _, svc := range svcs {
+		m[svc.FE.L3n4Addr.SHA256Sum()] = svc.FE.L3n4Addr
+	}
+	return m
+}
+
+func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, endpoints *k8s.Endpoints) error {
+	// If east-west load balancing is disabled, we should not sync(add or delete)
+	// K8s service to a cilium service.
+	if option.Config.DisableK8sServices {
+		return nil
+	}
+
+	// Headless services do not need any datapath implementation
+	if svc.IsHeadless {
+		return nil
+	}
+
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.K8sSvcName:   svcID.Name,
+		logfields.K8sNamespace: svcID.Namespace,
+	})
+
+	svcs := datapathSVCs(scopedLog, svc, endpoints)
+	svcMap := hashSVCMap(svcs)
+
+	if oldSvc != nil {
+		// If we have oldService then we need to detect which frontends
+		// are no longer in the updated service and delete them in the datapath.
+
+		oldSVCs := datapathSVCs(scopedLog, oldSvc, endpoints)
+		oldSVCMap := hashSVCMap(oldSVCs)
+
+		for svcHash, oldSvc := range oldSVCMap {
+			if _, ok := svcMap[svcHash]; !ok {
+				if err := d.svcDeleteByFrontend(&oldSvc); err != nil {
+					scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(oldSvc)).
+						Warn("Error deleting service by frontend")
+				} else {
+					scopedLog.Debugf("# cilium lb delete-service %s %d 0", oldSvc.IP, oldSvc.Port)
+				}
+			}
 		}
 	}
 
