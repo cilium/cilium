@@ -61,6 +61,9 @@ type ServiceEvent struct {
 	// Service is the service structure
 	Service *Service
 
+	// OldService is the service structure
+	OldService *Service
+
 	// Endpoints is the endpoints structured correlated with the service
 	Endpoints *Endpoints
 
@@ -121,7 +124,8 @@ func (s *ServiceCache) UpdateService(k8sSvc *types.Service, swg *lock.StoppableW
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if oldService, ok := s.services[svcID]; ok {
+	oldService, ok := s.services[svcID]
+	if ok {
 		if oldService.DeepEquals(newService) {
 			return svcID
 		}
@@ -134,11 +138,12 @@ func (s *ServiceCache) UpdateService(k8sSvc *types.Service, swg *lock.StoppableW
 	if serviceReady {
 		swg.Add()
 		s.Events <- ServiceEvent{
-			Action:    UpdateService,
-			ID:        svcID,
-			Service:   newService,
-			Endpoints: endpoints,
-			SWG:       swg,
+			Action:     UpdateService,
+			ID:         svcID,
+			Service:    newService,
+			OldService: oldService,
+			Endpoints:  endpoints,
+			SWG:        swg,
 		}
 	}
 
