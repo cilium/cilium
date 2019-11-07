@@ -74,11 +74,16 @@ check-build: check-requirements
 		exit 1; \
 	fi
 	@if [ "$$(wc -l < "$(BUILDDIR)/spelling/output.txt")" -ne "0" ]; then \
+	        echo ""; \
 		echo "Please fix the following spelling mistakes:"; \
 		sed 's/^/* Documentation\//' $(BUILDDIR)/spelling/output.txt; \
-		echo "If the words are not misspelled, add them to Documentation/$(SPELLING_LIST)."; \
+		echo "If the words are not misspelled, run:"; \
+		echo -n "Documentation/update-spelling_wordlist.sh "; \
+		echo "`sed -E 's/^([^:]+:){2} \((.*)\)/\2/g' $(BUILDDIR)/spelling/output.txt | sort -u | tr -d '\r\n' | sed "s/'/\\\\\\\\'/g"`"; \
+		echo ""; \
 		exit 1; \
 	fi
+	#                                                                                                               ^^^^^^ replace FOO'bar with FOO\'bar
 	@rm $@.ok 2>/dev/null
 
 # To use checklinks with `make render-docs`,
