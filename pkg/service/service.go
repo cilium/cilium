@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/metrics"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 
 	"github.com/sirupsen/logrus"
 )
@@ -42,6 +43,11 @@ type LBMap interface {
 	DeleteBackendByID(uint16, bool) error
 	DumpServiceMaps() ([]*lb.SVC, []error)
 	DumpBackendMaps() ([]*lb.Backend, error)
+}
+
+// monitorNotify is used to send update notifications to the monitor
+type monitorNotify interface {
+	SendNotification(typ monitorAPI.AgentNotification, text string) error
 }
 
 type svcInfo struct {
@@ -82,16 +88,19 @@ type Service struct {
 	backendRefCount counter.StringCounter
 	backendByHash   map[string]*lb.Backend
 
+	monitorNotify monitorNotify
+
 	lbmap LBMap
 }
 
 // NewService creates a new instance of the service handler.
-func NewService() *Service {
+func NewService(monitorNotify monitorNotify) *Service {
 	return &Service{
 		svcByHash:       map[string]*svcInfo{},
 		svcByID:         map[lb.ID]*svcInfo{},
 		backendRefCount: counter.StringCounter{},
 		backendByHash:   map[string]*lb.Backend{},
+		monitorNotify:   monitorNotify,
 		lbmap:           &lbmap.LBBPFMap{},
 	}
 }
@@ -191,6 +200,9 @@ func (s *Service) UpsertService(
 	} else {
 		updateMetric.Inc()
 	}
+
+	s.notifyMonitorServiceUpsert(svc.frontend, svc.backends,
+		svc.svcType, svc.svcName, svc.svcNamespace)
 
 	return new, lb.ID(svc.frontend.ID), nil
 }
@@ -519,6 +531,7 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	}
 
 	deleteMetric.Inc()
+	s.notifyMonitorServiceDelete(svc.frontend.ID)
 
 	return nil
 }
@@ -581,4 +594,39 @@ func (s *Service) deleteBackendsFromCacheLocked(svc *svcInfo) []lb.BackendID {
 	}
 
 	return obsoleteBackendIDs
+}
+
+func (s *Service) notifyMonitorServiceUpsert(frontend lb.L3n4AddrID, backends []lb.Backend,
+	svcType lb.SVCType, svcName, svcNamespace string) {
+	if s.monitorNotify == nil {
+		return
+	}
+
+	id := uint32(frontend.ID)
+	fe := monitorAPI.ServiceUpsertNotificationAddr{
+		IP:   frontend.IP,
+		Port: frontend.Port,
+	}
+
+	be := make([]monitorAPI.ServiceUpsertNotificationAddr, 0, len(backends))
+	for _, backend := range backends {
+		b := monitorAPI.ServiceUpsertNotificationAddr{
+			IP:   backend.IP,
+			Port: backend.Port,
+		}
+		be = append(be, b)
+	}
+
+	repr, err := monitorAPI.ServiceUpsertRepr(id, fe, be, string(svcType), svcName, svcNamespace)
+	if err == nil {
+		s.monitorNotify.SendNotification(monitorAPI.AgentNotifyServiceUpserted, repr)
+	}
+}
+
+func (s *Service) notifyMonitorServiceDelete(id lb.ID) {
+	if s.monitorNotify != nil {
+		if repr, err := monitorAPI.ServiceDeleteRepr(uint32(id)); err == nil {
+			s.monitorNotify.SendNotification(monitorAPI.AgentNotifyServiceDeleted, repr)
+		}
+	}
 }
