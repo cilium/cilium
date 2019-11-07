@@ -381,7 +381,7 @@ spec:
             exec:
               command:
               - "/cni-install.sh"
-              - "--enable-debug=true"
+              - "--enable-debug=false"
           preStop:
             exec:
               command:
@@ -473,6 +473,7 @@ spec:
         volumeMounts:
         - mountPath: /sys/fs/bpf
           name: bpf-maps
+          mountPropagation: HostToContainer
         - mountPath: /var/run/cilium
           name: cilium-run
       restartPolicy: Always

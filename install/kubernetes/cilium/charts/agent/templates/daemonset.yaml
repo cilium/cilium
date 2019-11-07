@@ -256,6 +256,8 @@ spec:
 {{- if not (eq .Values.global.containerRuntime.integration "crio") }}
         - mountPath: /sys/fs/bpf
           name: bpf-maps
+{{- /* Required for wait-bpf-mount to work */}}
+          mountPropagation: HostToContainer
 {{- end }}
         - mountPath: /var/run/cilium
           name: cilium-run
