@@ -1025,14 +1025,15 @@ func (d *Daemon) k8sServiceHandler() {
 		})
 
 		scopedLog.WithFields(logrus.Fields{
-			"action":    event.Action.String(),
-			"service":   event.Service.String(),
-			"endpoints": event.Endpoints.String(),
+			"action":      event.Action.String(),
+			"service":     event.Service.String(),
+			"old-service": event.OldService.String(),
+			"endpoints":   event.Endpoints.String(),
 		}).Debug("Kubernetes service definition changed")
 
 		switch event.Action {
 		case k8s.UpdateService, k8s.UpdateIngress:
-			if err := d.addK8sSVCs(event.ID, svc, event.Endpoints); err != nil {
+			if err := d.addK8sSVCs(event.ID, event.OldService, svc, event.Endpoints); err != nil {
 				scopedLog.WithError(err).Error("Unable to add/update service to implement k8s event")
 			}
 
@@ -1216,7 +1217,39 @@ func genCartesianProduct(
 	return svcs
 }
 
-func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8s.Endpoints) error {
+func datapathSVCs(
+	scopedLog *logrus.Entry,
+	svc *k8s.Service,
+	endpoints *k8s.Endpoints) (svcs []loadbalancer.LBSVC) {
+	uniqPorts := svc.UniquePorts()
+
+	clusterIPPorts := map[loadbalancer.FEPortName]*loadbalancer.FEPort{}
+	for fePortName, fePort := range svc.Ports {
+		if !uniqPorts[fePort.Port] {
+			continue
+		}
+
+		uniqPorts[fePort.Port] = false
+		clusterIPPorts[fePortName] = fePort
+	}
+	if svc.FrontendIP != nil {
+		dpSVC := genCartesianProduct(scopedLog, svc.FrontendIP, clusterIPPorts, endpoints)
+		svcs = append(svcs, dpSVC...)
+	}
+	return svcs
+}
+
+// hashSVCMap returns a mapping of all frontend's hash to the its corresponded
+// value.
+func hashSVCMap(svcs []loadbalancer.LBSVC) map[string]loadbalancer.L3n4Addr {
+	m := map[string]loadbalancer.L3n4Addr{}
+	for _, svc := range svcs {
+		m[svc.FE.L3n4Addr.SHA256Sum()] = svc.FE.L3n4Addr
+	}
+	return m
+}
+
+func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, endpoints *k8s.Endpoints) error {
 	// If east-west load balancing is disabled, we should not sync(add or delete)
 	// K8s service to a cilium service.
 	if option.Config.DisableK8sServices {
@@ -1233,25 +1266,28 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 		logfields.K8sNamespace: svcID.Namespace,
 	})
 
-	var (
-		svcs []loadbalancer.LBSVC
-	)
+	svcs := datapathSVCs(scopedLog, svc, endpoints)
+	svcMap := hashSVCMap(svcs)
 
-	uniqPorts := svc.UniquePorts()
+	if oldSvc != nil {
+		// If we have oldService then we need to detect which frontends
+		// are no longer in the updated service and delete them in the datapath.
 
-	clusterIPPorts := map[loadbalancer.FEPortName]*loadbalancer.FEPort{}
-	for fePortName, fePort := range svc.Ports {
-		if !uniqPorts[fePort.Port] {
-			continue
+		oldSVCs := datapathSVCs(scopedLog, oldSvc, endpoints)
+		oldSVCMap := hashSVCMap(oldSVCs)
+
+		for svcHash, oldSvc := range oldSVCMap {
+			if _, ok := svcMap[svcHash]; !ok {
+				if err := d.svcDeleteByFrontend(&oldSvc); err != nil {
+					scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(oldSvc)).
+						Warn("Error deleting service by frontend")
+				} else {
+					scopedLog.Debugf("# cilium lb delete-service %s %d 0", oldSvc.IP, oldSvc.Port)
+				}
+			}
 		}
+	}
 
-		uniqPorts[fePort.Port] = false
-		clusterIPPorts[fePortName] = fePort
-	}
-	if svc.FrontendIP != nil {
-		dpSVC := genCartesianProduct(scopedLog, svc.FrontendIP, clusterIPPorts, endpoints)
-		svcs = append(svcs, dpSVC...)
-	}
 	for _, dpSvc := range svcs {
 		if _, err := d.svcAdd(dpSvc.FE, dpSvc.BES, true); err != nil {
 			scopedLog.WithError(err).Error("Error while inserting service in LB map")
