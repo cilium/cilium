@@ -1252,6 +1252,70 @@ func (d *Daemon) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s.End
 	return nil
 }
 
+func genCartesianProduct(
+	scopedLog *logrus.Entry,
+	fe net.IP,
+	isNodePort bool,
+	ports map[loadbalancer.FEPortName]*loadbalancer.FEPort,
+	bes *k8s.Endpoints,
+) []loadbalancer.LBSVC {
+
+	var svcs []loadbalancer.LBSVC
+
+	for fePortName, fePort := range ports {
+
+		if fePort.ID == 0 {
+			feAddr := loadbalancer.NewL3n4Addr(fePort.Protocol, fe, fePort.Port)
+			feAddrID, err := service.AcquireID(*feAddr, 0)
+			if err != nil {
+				scopedLog.WithError(err).WithFields(logrus.Fields{
+					logfields.ServiceID: fePortName,
+					logfields.IPAddr:    fe,
+					logfields.Port:      fePort.Port,
+					logfields.Protocol:  fePort.Protocol,
+				}).Error("Error while getting a new service ID. Ignoring service...")
+				continue
+			}
+			scopedLog.WithFields(logrus.Fields{
+				logfields.ServiceName: fePortName,
+				logfields.ServiceID:   feAddrID.ID,
+				logfields.Object:      logfields.Repr(fe),
+			}).Debug("Got feAddr ID for service")
+			fePort.ID = loadbalancer.ServiceID(feAddrID.ID)
+		}
+
+		var besValues []loadbalancer.LBBackEnd
+		for ip, portConfiguration := range bes.Backends {
+			if backendPort := portConfiguration[string(fePortName)]; backendPort != nil {
+				besValues = append(besValues, loadbalancer.LBBackEnd{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP:     net.ParseIP(ip),
+						L4Addr: *backendPort,
+					},
+					Weight: 0,
+				})
+			}
+		}
+
+		svcs = append(svcs,
+			loadbalancer.LBSVC{
+				FE: loadbalancer.L3n4AddrID{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: fe,
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: fePort.Protocol,
+							Port:     fePort.Port,
+						},
+					},
+					ID: loadbalancer.ID(fePort.ID),
+				},
+				BES:      besValues,
+				NodePort: isNodePort,
+			})
+	}
+	return svcs
+}
+
 func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8s.Endpoints) error {
 	// If east-west load balancing is disabled, we should not sync(add or delete)
 	// K8s service to a cilium service.
@@ -1269,83 +1333,40 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 		logfields.K8sNamespace: svcID.Namespace,
 	})
 
+	var (
+		svcs []loadbalancer.LBSVC
+	)
+
 	uniqPorts := svc.UniquePorts()
 
+	clusterIPPorts := map[loadbalancer.FEPortName]*loadbalancer.FEPort{}
 	for fePortName, fePort := range svc.Ports {
 		if !uniqPorts[fePort.Port] {
 			continue
 		}
-
 		uniqPorts[fePort.Port] = false
+		clusterIPPorts[fePortName] = fePort
+	}
+	if svc.FrontendIP != nil {
+		dpSVC := genCartesianProduct(scopedLog, svc.FrontendIP, false, clusterIPPorts, endpoints)
+		svcs = append(svcs, dpSVC...)
+	}
 
-		if fePort.ID == 0 {
-			feAddr := loadbalancer.NewL3n4Addr(fePort.Protocol, svc.FrontendIP, fePort.Port)
-			feAddrID, err := service.AcquireID(*feAddr, 0)
-			if err != nil {
-				scopedLog.WithError(err).WithFields(logrus.Fields{
-					logfields.ServiceID: fePortName,
-					logfields.IPAddr:    svc.FrontendIP,
-					logfields.Port:      fePort.Port,
-					logfields.Protocol:  fePort.Protocol,
-				}).Error("Error while getting a new service ID. Ignoring service...")
-				continue
-			}
-			scopedLog.WithFields(logrus.Fields{
-				logfields.ServiceName: fePortName,
-				logfields.ServiceID:   feAddrID.ID,
-				logfields.Object:      logfields.Repr(svc),
-			}).Debug("Got feAddr ID for service")
-			fePort.ID = loadbalancer.ServiceID(feAddrID.ID)
-		}
-
-		type frontend struct {
-			addr     *loadbalancer.L3n4AddrID
-			nodePort bool
-		}
-
-		frontends := []frontend{}
-		frontends = append(frontends,
-			frontend{
-				addr: loadbalancer.NewL3n4AddrID(fePort.Protocol, svc.FrontendIP,
-					fePort.Port, loadbalancer.ID(fePort.ID)),
-				nodePort: false,
-			})
-
+	for fePortName := range clusterIPPorts {
 		for _, nodePortFE := range svc.NodePorts[fePortName] {
-			if nodePortFE.ID == 0 {
-				feAddr := loadbalancer.NewL3n4Addr(nodePortFE.Protocol, nodePortFE.IP, nodePortFE.Port)
-				feAddrID, err := service.AcquireID(*feAddr, 0)
-				if err != nil {
-					scopedLog.WithError(err).WithFields(logrus.Fields{
-						logfields.ServiceID: fePortName,
-						logfields.IPAddr:    nodePortFE.IP,
-						logfields.Port:      nodePortFE.Port,
-						logfields.Protocol:  nodePortFE.Protocol,
-					}).Error("Error while getting a new nodeport service ID. Ignoring service...")
-					continue
-				}
-				nodePortFE.ID = feAddrID.ID
+			nodePortPorts := map[loadbalancer.FEPortName]*loadbalancer.FEPort{
+				fePortName: {
+					L4Addr: &nodePortFE.L4Addr,
+				},
 			}
-			frontends = append(frontends, frontend{
-				addr:     nodePortFE,
-				nodePort: true,
-			})
+			dpSVC := genCartesianProduct(scopedLog, nodePortFE.IP, true, nodePortPorts, endpoints)
+			svcs = append(svcs, dpSVC...)
 		}
+	}
 
-		besValues := []loadbalancer.LBBackEnd{}
-		for ip, portConfiguration := range endpoints.Backends {
-			if backendPort := portConfiguration[string(fePortName)]; backendPort != nil {
-				besValues = append(besValues, loadbalancer.LBBackEnd{
-					L3n4Addr: loadbalancer.L3n4Addr{IP: net.ParseIP(ip), L4Addr: *backendPort},
-					Weight:   0,
-				})
-			}
-		}
-
-		for _, fe := range frontends {
-			if _, err := d.svcAdd(*fe.addr, besValues, true, fe.nodePort); err != nil {
-				scopedLog.WithError(err).Error("Error while inserting service in LB map")
-			}
+	for _, dpSvc := range svcs {
+		if _, err := d.svcAdd(dpSvc.FE, dpSvc.BES, true, dpSvc.NodePort); err != nil {
+			scopedLog.WithError(err).Error("Error while inserting service in LB map")
 		}
 	}
 	return nil
