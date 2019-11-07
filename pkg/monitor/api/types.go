@@ -171,6 +171,8 @@ const (
 	AgentNotifyEndpointDeleted
 	AgentNotifyIPCacheUpserted
 	AgentNotifyIPCacheDeleted
+	AgentNotifyServiceUpserted
+	AgentNotifyServiceDeleted
 )
 
 var notifyTable = map[AgentNotification]string{
@@ -185,6 +187,8 @@ var notifyTable = map[AgentNotification]string{
 	AgentNotifyIPCacheUpserted:           "IPCache entry upserted",
 	AgentNotifyPolicyUpdated:             "Policy updated",
 	AgentNotifyPolicyDeleted:             "Policy deleted",
+	AgentNotifyServiceDeleted:            "Service deleted",
+	AgentNotifyServiceUpserted:           "Service upserted",
 }
 
 func resolveAgentType(t AgentNotification) string {
@@ -352,6 +356,59 @@ type TimeNotification struct {
 func TimeRepr(t time.Time) (string, error) {
 	notification := TimeNotification{
 		Time: t.String(),
+	}
+	repr, err := json.Marshal(notification)
+	return string(repr), err
+}
+
+// ServiceUpsertNotificationAddr is part of ServiceUpsertNotification
+type ServiceUpsertNotificationAddr struct {
+	IP   net.IP `json:"ip"`
+	Port uint16 `json:"port"`
+}
+
+// ServiceUpsertNotification structures service upsert notifications
+type ServiceUpsertNotification struct {
+	ID uint32 `json:"id"`
+
+	Frontend ServiceUpsertNotificationAddr   `json:"frontend-address"`
+	Backends []ServiceUpsertNotificationAddr `json:"backend-addresses"`
+
+	Type      string `json:"type,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,,omitempty"`
+}
+
+// ServiceUpsertRepr returns string representation of monitor notification
+func ServiceUpsertRepr(
+	id uint32,
+	frontend ServiceUpsertNotificationAddr,
+	backends []ServiceUpsertNotificationAddr,
+	svcType, svcName, svcNamespace string,
+) (string, error) {
+	notification := ServiceUpsertNotification{
+		ID:        id,
+		Frontend:  frontend,
+		Backends:  backends,
+		Type:      svcType,
+		Name:      svcName,
+		Namespace: svcNamespace,
+	}
+	repr, err := json.Marshal(notification)
+	return string(repr), err
+}
+
+// ServiceDeleteNotification structures service delete notifications
+type ServiceDeleteNotification struct {
+	ID uint32 `json:"id"`
+}
+
+// ServiceDeleteRepr returns string representation of monitor notification
+func ServiceDeleteRepr(
+	id uint32,
+) (string, error) {
+	notification := ServiceDeleteNotification{
+		ID: id,
 	}
 	repr, err := json.Marshal(notification)
 	return string(repr), err
