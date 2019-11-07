@@ -335,6 +335,10 @@ const (
 	// for each FQDN name in an endpoint's FQDN cache
 	ToFQDNsMaxIPsPerHost = "tofqdns-endpoint-max-ip-per-hostname"
 
+	// ToFQDNsMaxDeferredConnectionDeletes defines the maximum number of IPs to
+	// retain for expired DNS lookups with still-active connections"
+	ToFQDNsMaxDeferredConnectionDeletes = "tofqdns-max-deferred-connection-deletes"
+
 	// ToFQDNsPreCache is a path to a file with DNS cache data to insert into the
 	// global cache on startup.
 	// The file is not re-read after agent start.
@@ -1083,6 +1087,10 @@ type DaemonConfig struct {
 	// for each FQDN name in an endpoint's FQDN cache
 	ToFQDNsMaxIPsPerHost int
 
+	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to retain for
+	// expired DNS lookups with still-active connections
+	ToFQDNsMaxDeferredConnectionDeletes int
+
 	// FQDNRejectResponse is the dns-proxy response for invalid dns-proxy request
 	FQDNRejectResponse string
 
@@ -1723,6 +1731,11 @@ func (c *DaemonConfig) Populate() {
 	c.ToFQDNsEnablePoller = viper.GetBool(ToFQDNsEnablePoller)
 	c.ToFQDNsEnablePollerEvents = viper.GetBool(ToFQDNsEnablePollerEvents)
 	c.ToFQDNsMaxIPsPerHost = viper.GetInt(ToFQDNsMaxIPsPerHost)
+	if maxZombies := viper.GetInt(ToFQDNsMaxDeferredConnectionDeletes); maxZombies >= 0 {
+		c.ToFQDNsMaxDeferredConnectionDeletes = viper.GetInt(ToFQDNsMaxDeferredConnectionDeletes)
+	} else {
+		log.Fatal("tofqdns-max-deferred-connection-deletes must be positive, or 0 to disable deferred connection deletion")
+	}
 	userSetMinTTL := viper.GetInt(ToFQDNsMinTTL)
 	switch {
 	case userSetMinTTL != 0: // set by user
