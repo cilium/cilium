@@ -501,6 +501,46 @@ func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s
 	return nil
 }
 
+func genCartesianProduct(
+	fe net.IP,
+	svcType loadbalancer.SVCType,
+	ports map[loadbalancer.FEPortName]*loadbalancer.L4Addr,
+	bes *k8s.Endpoints,
+) []loadbalancer.SVC {
+
+	var svcs []loadbalancer.SVC
+
+	for fePortName, fePort := range ports {
+		var besValues []loadbalancer.Backend
+		for ip, portConfiguration := range bes.Backends {
+			if backendPort := portConfiguration[string(fePortName)]; backendPort != nil {
+				besValues = append(besValues, loadbalancer.Backend{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP(ip), L4Addr: *backendPort,
+					},
+				})
+			}
+		}
+
+		svcs = append(svcs,
+			loadbalancer.SVC{
+				Frontend: loadbalancer.L3n4AddrID{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: fe,
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: fePort.Protocol,
+							Port:     fePort.Port,
+						},
+					},
+					ID: loadbalancer.ID(0),
+				},
+				Backends: besValues,
+				Type:     svcType,
+			})
+	}
+	return svcs
+}
+
 func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8s.Endpoints) error {
 	// If east-west load balancing is disabled, we should not sync(add or delete)
 	// K8s service to a cilium service.
@@ -518,49 +558,38 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints
 		logfields.K8sNamespace: svcID.Namespace,
 	})
 
+	var (
+		svcs []loadbalancer.SVC
+	)
+
 	uniqPorts := svc.UniquePorts()
 
+	clusterIPPorts := map[loadbalancer.FEPortName]*loadbalancer.L4Addr{}
 	for fePortName, fePort := range svc.Ports {
 		if !uniqPorts[fePort.Port] {
 			continue
 		}
-
 		uniqPorts[fePort.Port] = false
+		clusterIPPorts[fePortName] = fePort
+	}
+	if svc.FrontendIP != nil {
+		dpSVC := genCartesianProduct(svc.FrontendIP, loadbalancer.SVCTypeClusterIP, clusterIPPorts, endpoints)
+		svcs = append(svcs, dpSVC...)
+	}
 
-		type frontend struct {
-			addr    *loadbalancer.L3n4AddrID
-			svcType loadbalancer.SVCType
-		}
-
-		frontends := []frontend{}
-		frontends = append(frontends,
-			frontend{
-				addr: loadbalancer.NewL3n4AddrID(fePort.Protocol, svc.FrontendIP,
-					fePort.Port, loadbalancer.ID(0)),
-				svcType: loadbalancer.SVCTypeClusterIP,
-			})
-
+	for fePortName := range clusterIPPorts {
 		for _, nodePortFE := range svc.NodePorts[fePortName] {
-			frontends = append(frontends, frontend{
-				addr:    nodePortFE,
-				svcType: loadbalancer.SVCTypeNodePort,
-			})
-		}
-
-		besValues := []loadbalancer.Backend{}
-		for ip, portConfiguration := range endpoints.Backends {
-			if backendPort := portConfiguration[string(fePortName)]; backendPort != nil {
-				besValues = append(besValues, loadbalancer.Backend{
-					L3n4Addr: loadbalancer.L3n4Addr{IP: net.ParseIP(ip), L4Addr: *backendPort},
-				})
+			nodePortPorts := map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
+				fePortName: &nodePortFE.L4Addr,
 			}
+			dpSVC := genCartesianProduct(nodePortFE.IP, loadbalancer.SVCTypeNodePort, nodePortPorts, endpoints)
+			svcs = append(svcs, dpSVC...)
 		}
+	}
 
-		for _, fe := range frontends {
-			if _, _, err := k.svcManager.UpsertService(*fe.addr, besValues,
-				fe.svcType, svcID.Name, svcID.Namespace); err != nil {
-				scopedLog.WithError(err).Error("Error while inserting service in LB map")
-			}
+	for _, dpSvc := range svcs {
+		if _, _, err := k.svcManager.UpsertService(dpSvc.Frontend, dpSvc.Backends, dpSvc.Type, svcID.Name, svcID.Namespace); err != nil {
+			scopedLog.WithError(err).Error("Error while inserting service in LB map")
 		}
 	}
 	return nil
