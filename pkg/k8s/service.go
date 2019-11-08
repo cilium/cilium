@@ -75,15 +75,15 @@ func ParseService(svc *types.Service) (ServiceID, *Service) {
 
 	case v1.ServiceTypeExternalName:
 		// External-name services must be ignored
-		return svcID, nil
+		return ServiceID{}, nil
 
 	default:
 		scopedLog.Warn("Ignoring k8s service: unsupported type")
-		return svcID, nil
+		return ServiceID{}, nil
 	}
 
-	if svc.Spec.ClusterIP == "" {
-		return svcID, nil
+	if svc.Spec.ClusterIP == "" && (!option.Config.EnableNodePort || len(svc.Spec.ExternalIPs) == 0) {
+		return ServiceID{}, nil
 	}
 
 	clusterIP := net.ParseIP(svc.Spec.ClusterIP)
@@ -91,7 +91,7 @@ func ParseService(svc *types.Service) (ServiceID, *Service) {
 	if strings.ToLower(svc.Spec.ClusterIP) == "none" {
 		headless = true
 	}
-	svcInfo := NewService(clusterIP, headless, svc.Labels, svc.Spec.Selector)
+	svcInfo := NewService(clusterIP, svc.Spec.ExternalIPs, headless, svc.Labels, svc.Spec.Selector)
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
 	svcInfo.Shared = getAnnotationShared(svc)
 
@@ -199,8 +199,11 @@ type Service struct {
 	// NodePort fronted addr. The string addr => addr indirection is to avoid
 	// storing duplicates.
 	NodePorts map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID
-	Labels    map[string]string
-	Selector  map[string]string
+	// K8sExternalIPs stores mapping of the endpoint in a string format to the
+	// externalIP in net.IP format.
+	K8sExternalIPs map[string]net.IP
+	Labels         map[string]string
+	Selector       map[string]string
 }
 
 // String returns the string representation of a service resource
@@ -274,20 +277,43 @@ func (s *Service) DeepEquals(o *Service) bool {
 				}
 			}
 		}
+
+		for k, v := range s.K8sExternalIPs {
+			vOther, ok := o.K8sExternalIPs[k]
+			if !ok || !v.Equal(vOther) {
+				return false
+			}
+		}
 		return true
 	}
 	return false
 }
 
+func parseExternalIPs(externalIPs []string) map[string]net.IP {
+	m := map[string]net.IP{}
+	for _, externalIP := range externalIPs {
+		ip := net.ParseIP(externalIP)
+		if ip != nil {
+			m[externalIP] = ip
+		}
+	}
+	return m
+}
+
 // NewService returns a new Service with the Ports map initialized.
-func NewService(ip net.IP, headless bool, labels map[string]string, selector map[string]string) *Service {
+func NewService(ip net.IP, externalIPs []string, headless bool, labels map[string]string, selector map[string]string) *Service {
+	var k8sExternalIPs map[string]net.IP
+	if option.Config.EnableNodePort {
+		k8sExternalIPs = parseExternalIPs(externalIPs)
+	}
 	return &Service{
-		FrontendIP: ip,
-		IsHeadless: headless,
-		Ports:      map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
-		NodePorts:  map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
-		Labels:     labels,
-		Selector:   selector,
+		FrontendIP:     ip,
+		IsHeadless:     headless,
+		Ports:          map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
+		NodePorts:      map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
+		K8sExternalIPs: k8sExternalIPs,
+		Labels:         labels,
+		Selector:       selector,
 	}
 }
 

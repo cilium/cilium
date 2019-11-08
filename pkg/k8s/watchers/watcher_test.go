@@ -1693,3 +1693,894 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 	c.Assert(upsert2nd, checker.DeepEquals, upsert2ndWanted)
 	c.Assert(del1st, checker.DeepEquals, del1stWanted)
 }
+
+func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
+	enableNodePortBak := option.Config.EnableNodePort
+	nodePortv4Bak := node.GetNodePortIPv4()
+	nodePortv6Bak := node.GetNodePortIPv6()
+	internalv4Bak := node.GetInternalIPv4()
+	internalv6Bak := node.GetIPv6Router()
+	option.Config.EnableNodePort = true
+	node.SetNodePortIPv4(net.ParseIP("127.1.1.1"))
+	node.SetNodePortIPv6(net.ParseIP("::1"))
+	node.SetInternalIPv4(net.ParseIP("127.1.1.2"))
+	node.SetIPv6Router(net.ParseIP("::2"))
+	defer func() {
+		option.Config.EnableNodePort = enableNodePortBak
+		node.SetNodePortIPv4(nodePortv4Bak)
+		node.SetNodePortIPv6(nodePortv6Bak)
+		node.SetInternalIPv4(internalv4Bak)
+		node.SetIPv6Router(internalv6Bak)
+	}()
+
+	svc1stApply := &types.Service{
+		Service: &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+			},
+			Spec: v1.ServiceSpec{
+				Ports: []v1.ServicePort{
+					{
+						Name:       "port-udp-80",
+						Protocol:   v1.ProtocolUDP,
+						Port:       80,
+						TargetPort: intstr.FromString("port-80-u"),
+						NodePort:   18080,
+					},
+					// FIXME: We don't distinguish about the protocol being used
+					//        so we can't tell if a UDP/80 maps to port 8080/udp
+					//        or if TCP/80 maps to port 8081/TCP
+					// {
+					// 	Name:       "port-tcp-80",
+					// 	Protocol:   v1.ProtocolTCP,
+					// 	Port:       80,
+					// 	TargetPort: intstr.FromString("port-80-t"),
+					//  NodePort:   18080,
+					// },
+					{
+						Name:       "port-tcp-81",
+						Protocol:   v1.ProtocolTCP,
+						Port:       81,
+						TargetPort: intstr.FromInt(81),
+						NodePort:   18081,
+					},
+				},
+				Selector:                 nil,
+				ClusterIP:                "172.0.20.1",
+				Type:                     v1.ServiceTypeNodePort,
+				ExternalIPs:              []string{"127.8.8.8", "127.9.9.9"},
+				SessionAffinity:          "",
+				LoadBalancerIP:           "",
+				LoadBalancerSourceRanges: nil,
+				ExternalName:             "",
+				ExternalTrafficPolicy:    "",
+				HealthCheckNodePort:      0,
+				PublishNotReadyAddresses: false,
+				SessionAffinityConfig:    nil,
+				IPFamily:                 nil,
+			},
+		},
+	}
+
+	svc2ndApply := svc1stApply.DeepCopy()
+	svc2ndApply.Spec.ExternalIPs = []string{"127.8.8.8"}
+
+	ep1stApply := &types.Endpoints{
+		Endpoints: &v1.Endpoints{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+			},
+			Subsets: []v1.EndpointSubset{
+				{
+					Addresses: []v1.EndpointAddress{{IP: "2.2.2.2"}},
+					Ports: []v1.EndpointPort{
+						{
+							Name:     "port-udp-80",
+							Port:     8080,
+							Protocol: v1.ProtocolUDP,
+						},
+						// FIXME: We don't distinguish about the protocol being used
+						//        so we can't tell if a UDP/80 maps to port 8080/udp
+						//        or if TCP/80 maps to port 8081/TCP
+						// {
+						// 	Name:     "port-tcp-80",
+						// 	Protocol: v1.ProtocolTCP,
+						// 	Port:     8081,
+						// },
+						{
+							Name:     "port-tcp-81",
+							Protocol: v1.ProtocolTCP,
+							Port:     8081,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	ep2ndApply := ep1stApply.DeepCopy()
+	ep2ndApply.Subsets[0].Addresses = append(
+		ep2ndApply.Subsets[0].Addresses,
+		v1.EndpointAddress{IP: "3.3.3.3"},
+	)
+
+	clusterIP1 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("172.0.20.1"), 80, 0)
+	// clusterIP2 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("172.0.20.1"), 80, 0)
+	clusterIP3 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("172.0.20.1"), 81, 0)
+
+	upsert1stWanted := map[string]loadbalancer.SVC{
+		clusterIP1.Hash(): {
+			Type:     loadbalancer.SVCTypeClusterIP,
+			Frontend: *clusterIP1,
+			Backends: []loadbalancer.Backend{
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("2.2.2.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.UDP,
+							Port:     8080,
+						},
+					},
+				},
+			},
+		},
+		// FIXME: We don't distinguish about the protocol being used
+		//        so we can't tell if a UDP/80 maps to port 8080/udp
+		//        or if TCP/80 maps to port 8081/TCP
+		// clusterIP2.Hash(): {
+		// 	Type:     loadbalancer.SVCTypeClusterIP,
+		// 	Frontend: *clusterIP2,
+		// 	Backends: []loadbalancer.Backend{
+		// 		{
+		// 			L3n4Addr: loadbalancer.L3n4Addr{
+		// 				IP: net.ParseIP("2.2.2.2"),
+		// 				L4Addr: loadbalancer.L4Addr{
+		// 					Protocol: loadbalancer.TCP,
+		// 					Port:     8081,
+		// 				},
+		// 			},
+		// 		},
+		// 	},
+		// },
+		clusterIP3.Hash(): {
+			Type:     loadbalancer.SVCTypeClusterIP,
+			Frontend: *clusterIP3,
+			Backends: []loadbalancer.Backend{
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("2.2.2.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	externalIP1 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("127.8.8.8"), 80, 0)
+	// externalIP2 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("127.8.8.8"), 80, 0)
+	externalIP3 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("127.8.8.8"), 81, 0)
+	externalIP4 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("127.9.9.9"), 80, 0)
+	// externalIP5 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("127.9.9.9"), 80, 0)
+	externalIP6 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("127.9.9.9"), 81, 0)
+	for _, externalIP := range []*loadbalancer.L3n4AddrID{externalIP1, externalIP4} {
+		upsert1stWanted[externalIP.Hash()] = loadbalancer.SVC{
+			Type:     loadbalancer.SVCTypeExternalIPs,
+			Frontend: *externalIP,
+			Backends: []loadbalancer.Backend{
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("2.2.2.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.UDP,
+							Port:     8080,
+						},
+					},
+				},
+			},
+		}
+	}
+	// for _, externalIP := range []*loadbalancer.L3n4AddrID{externalIP2, externalIP5} {
+	// 	upsert1stWanted[externalIP.Hash()] = loadbalancer.SVC{
+	// 		Type:     loadbalancer.SVCTypeExternalIPs,
+	// 		Frontend: *externalIP,
+	// 		Backends: []loadbalancer.Backend{
+	// 			{
+	// 				L3n4Addr: loadbalancer.L3n4Addr{
+	// 					IP: net.ParseIP("2.2.2.2"),
+	// 					L4Addr: loadbalancer.L4Addr{
+	// 						Protocol: loadbalancer.UDP,
+	// 						Port:     8080,
+	// 					},
+	// 				},
+	// 			},
+	// 		},
+	// 	}
+	// }
+	for _, externalIP := range []*loadbalancer.L3n4AddrID{externalIP3, externalIP6} {
+		upsert1stWanted[externalIP.Hash()] = loadbalancer.SVC{
+			Type:     loadbalancer.SVCTypeExternalIPs,
+			Frontend: *externalIP,
+			Backends: []loadbalancer.Backend{
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("2.2.2.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+				},
+			},
+		}
+	}
+
+	nodePortIPs1 := []*loadbalancer.L3n4AddrID{
+		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("0.0.0.0"), 18080, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, node.GetNodePortIPv4(), 18080, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, node.GetInternalIPv4(), 18080, 0),
+	}
+	for _, nodePort := range nodePortIPs1 {
+		upsert1stWanted[nodePort.Hash()] = loadbalancer.SVC{
+			Type:     loadbalancer.SVCTypeNodePort,
+			Frontend: *nodePort,
+			Backends: []loadbalancer.Backend{
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("2.2.2.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.UDP,
+							Port:     8080,
+						},
+					},
+				},
+			},
+		}
+	}
+	// nodePortIPs2 := []*loadbalancer.L3n4AddrID{
+	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("0.0.0.0"), 18080, 0),
+	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, node.GetNodePortIPv4(), 18080, 0),
+	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, node.GetInternalIPv4(), 18080, 0),
+	// }
+	// for _, nodePort := range nodePortIPs2 {
+	// 	upsert1stWanted[nodePort.Hash()] = loadbalancer.SVC{
+	// 		Type:     loadbalancer.SVCTypeNodePort,
+	// 		Frontend: *nodePort,
+	// 		Backends: []loadbalancer.Backend{
+	// 			{
+	// 				L3n4Addr: loadbalancer.L3n4Addr{
+	// 					IP: net.ParseIP("2.2.2.2"),
+	// 					L4Addr: loadbalancer.L4Addr{
+	// 						Protocol: loadbalancer.TCP,
+	// 						Port:     8081,
+	// 					},
+	// 				},
+	// 			},
+	// 		},
+	// 	}
+	// }
+	nodePortIPs3 := []*loadbalancer.L3n4AddrID{
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("0.0.0.0"), 18081, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, node.GetNodePortIPv4(), 18081, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, node.GetInternalIPv4(), 18081, 0),
+	}
+	for _, nodePort := range nodePortIPs3 {
+		upsert1stWanted[nodePort.Hash()] = loadbalancer.SVC{
+			Type:     loadbalancer.SVCTypeNodePort,
+			Frontend: *nodePort,
+			Backends: []loadbalancer.Backend{
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("2.2.2.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+				},
+			},
+		}
+	}
+
+	upsert2ndWanted := map[string]loadbalancer.SVC{
+		clusterIP1.Hash(): {
+			Type:     loadbalancer.SVCTypeClusterIP,
+			Frontend: *clusterIP1,
+			Backends: []loadbalancer.Backend{
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("2.2.2.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.UDP,
+							Port:     8080,
+						},
+					},
+				},
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("3.3.3.3"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.UDP,
+							Port:     8080,
+						},
+					},
+				},
+			},
+		},
+		// FIXME: We don't distinguish about the protocol being used
+		//        so we can't tell if a UDP/80 maps to port 8080/udp
+		//        or if TCP/80 maps to port 8081/TCP
+		// clusterIP2.Hash(): {
+		// 	Type:     loadbalancer.SVCTypeClusterIP,
+		// 	Frontend: *clusterIP2,
+		// 	Backends: []loadbalancer.Backend{
+		// 		{
+		// 			L3n4Addr: loadbalancer.L3n4Addr{
+		// 				IP: net.ParseIP("2.2.2.2"),
+		// 				L4Addr: loadbalancer.L4Addr{
+		// 					Protocol: loadbalancer.TCP,
+		// 					Port:     8081,
+		// 				},
+		// 			},
+		// 		},
+		// 		{
+		// 			L3n4Addr: loadbalancer.L3n4Addr{
+		// 				IP: net.ParseIP("3.3.3.3"),
+		// 				L4Addr: loadbalancer.L4Addr{
+		// 					Protocol: loadbalancer.TCP,
+		// 					Port:     8081,
+		// 				},
+		// 			},
+		// 		},
+		// 	},
+		// },
+		clusterIP3.Hash(): {
+			Type:     loadbalancer.SVCTypeClusterIP,
+			Frontend: *clusterIP3,
+			Backends: []loadbalancer.Backend{
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("2.2.2.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+				},
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("3.3.3.3"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, externalIP := range []*loadbalancer.L3n4AddrID{externalIP1, externalIP4} {
+		upsert2ndWanted[externalIP.Hash()] = loadbalancer.SVC{
+			Type:     loadbalancer.SVCTypeExternalIPs,
+			Frontend: *externalIP,
+			Backends: []loadbalancer.Backend{
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("2.2.2.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.UDP,
+							Port:     8080,
+						},
+					},
+				},
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("3.3.3.3"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.UDP,
+							Port:     8080,
+						},
+					},
+				},
+			},
+		}
+	}
+	// for _, externalIP := range []*loadbalancer.L3n4AddrID{externalIP2, externalIP5} {
+	// 	upsert2ndWanted[externalIP.Hash()] = loadbalancer.SVC{
+	// 		Type:     loadbalancer.SVCTypeExternalIPs,
+	// 		Frontend: *externalIP,
+	// 		Backends: []loadbalancer.Backend{
+	// 			{
+	// 				L3n4Addr: loadbalancer.L3n4Addr{
+	// 					IP: net.ParseIP("2.2.2.2"),
+	// 					L4Addr: loadbalancer.L4Addr{
+	// 						Protocol: loadbalancer.UDP,
+	// 						Port:     8080,
+	// 					},
+	// 				},
+	// 			},
+	// 			{
+	// 				L3n4Addr: loadbalancer.L3n4Addr{
+	// 					IP: net.ParseIP("3.3.3.3"),
+	// 					L4Addr: loadbalancer.L4Addr{
+	// 						Protocol: loadbalancer.TCP,
+	// 						Port:     8081,
+	// 					},
+	// 				},
+	// 			},
+	// 		},
+	// 	}
+	// }
+	for _, externalIP := range []*loadbalancer.L3n4AddrID{externalIP3, externalIP6} {
+		upsert2ndWanted[externalIP.Hash()] = loadbalancer.SVC{
+			Type:     loadbalancer.SVCTypeExternalIPs,
+			Frontend: *externalIP,
+			Backends: []loadbalancer.Backend{
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("2.2.2.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+				},
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("3.3.3.3"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+				},
+			},
+		}
+	}
+
+	for _, nodePort := range nodePortIPs1 {
+		upsert2ndWanted[nodePort.Hash()] = loadbalancer.SVC{
+			Type:     loadbalancer.SVCTypeNodePort,
+			Frontend: *nodePort,
+			Backends: []loadbalancer.Backend{
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("2.2.2.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.UDP,
+							Port:     8080,
+						},
+					},
+				},
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("3.3.3.3"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.UDP,
+							Port:     8080,
+						},
+					},
+				},
+			},
+		}
+	}
+	// for _, nodePort := range nodePortIPs2 {
+	// 	upsert2ndWanted[nodePort.Hash()] = loadbalancer.SVC{
+	// 		Type:     loadbalancer.SVCTypeNodePort,
+	// 		Frontend: *nodePort,
+	// 		Backends: []loadbalancer.Backend{
+	// 			{
+	// 				L3n4Addr: loadbalancer.L3n4Addr{
+	// 					IP: net.ParseIP("2.2.2.2"),
+	// 					L4Addr: loadbalancer.L4Addr{
+	// 						Protocol: loadbalancer.TCP,
+	// 						Port:     8081,
+	// 					},
+	// 				},
+	// 			},
+	// 			{
+	// 				L3n4Addr: loadbalancer.L3n4Addr{
+	// 					IP: net.ParseIP("3.3.3.3"),
+	// 					L4Addr: loadbalancer.L4Addr{
+	// 						Protocol: loadbalancer.TCP,
+	// 						Port:     8081,
+	// 					},
+	// 				},
+	// 			},
+	// 		},
+	// 	}
+	// }
+	for _, nodePort := range nodePortIPs3 {
+		upsert2ndWanted[nodePort.Hash()] = loadbalancer.SVC{
+			Type:     loadbalancer.SVCTypeNodePort,
+			Frontend: *nodePort,
+			Backends: []loadbalancer.Backend{
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("2.2.2.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+				},
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("3.3.3.3"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+				},
+			},
+		}
+	}
+
+	upsert3rdWanted := map[string]loadbalancer.SVC{
+		clusterIP1.Hash(): {
+			Type:     loadbalancer.SVCTypeClusterIP,
+			Frontend: *clusterIP1,
+			Backends: []loadbalancer.Backend{
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("2.2.2.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.UDP,
+							Port:     8080,
+						},
+					},
+				},
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("3.3.3.3"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.UDP,
+							Port:     8080,
+						},
+					},
+				},
+			},
+		},
+		// FIXME: We don't distinguish about the protocol being used
+		//        so we can't tell if a UDP/80 maps to port 8080/udp
+		//        or if TCP/80 maps to port 8081/TCP
+		// clusterIP2.Hash(): {
+		// 	Type:     loadbalancer.SVCTypeClusterIP,
+		// 	Frontend: *clusterIP2,
+		// 	Backends: []loadbalancer.Backend{
+		// 		{
+		// 			L3n4Addr: loadbalancer.L3n4Addr{
+		// 				IP: net.ParseIP("2.2.2.2"),
+		// 				L4Addr: loadbalancer.L4Addr{
+		// 					Protocol: loadbalancer.TCP,
+		// 					Port:     8081,
+		// 				},
+		// 			},
+		// 		},
+		// 		{
+		// 			L3n4Addr: loadbalancer.L3n4Addr{
+		// 				IP: net.ParseIP("3.3.3.3"),
+		// 				L4Addr: loadbalancer.L4Addr{
+		// 					Protocol: loadbalancer.TCP,
+		// 					Port:     8081,
+		// 				},
+		// 			},
+		// 		},
+		// 	},
+		// },
+		clusterIP3.Hash(): {
+			Type:     loadbalancer.SVCTypeClusterIP,
+			Frontend: *clusterIP3,
+			Backends: []loadbalancer.Backend{
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("2.2.2.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+				},
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("3.3.3.3"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, externalIP := range []*loadbalancer.L3n4AddrID{externalIP1} {
+		upsert3rdWanted[externalIP.Hash()] = loadbalancer.SVC{
+			Type:     loadbalancer.SVCTypeExternalIPs,
+			Frontend: *externalIP,
+			Backends: []loadbalancer.Backend{
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("2.2.2.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.UDP,
+							Port:     8080,
+						},
+					},
+				},
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("3.3.3.3"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.UDP,
+							Port:     8080,
+						},
+					},
+				},
+			},
+		}
+	}
+	// for _, externalIP := range []*loadbalancer.L3n4AddrID{externalIP2} {
+	// 	upsert3rdWanted[externalIP.Hash()] = loadbalancer.SVC{
+	// 		Type:     loadbalancer.SVCTypeExternalIPs,
+	// 		Frontend: *externalIP,
+	// 		Backends: []loadbalancer.Backend{
+	// 			{
+	// 				L3n4Addr: loadbalancer.L3n4Addr{
+	// 					IP: net.ParseIP("2.2.2.2"),
+	// 					L4Addr: loadbalancer.L4Addr{
+	// 						Protocol: loadbalancer.TCP,
+	// 						Port:     8081,
+	// 					},
+	// 				},
+	// 			},
+	// 			{
+	// 				L3n4Addr: loadbalancer.L3n4Addr{
+	// 					IP: net.ParseIP("3.3.3.3"),
+	// 					L4Addr: loadbalancer.L4Addr{
+	// 						Protocol: loadbalancer.TCP,
+	// 						Port:     8081,
+	// 					},
+	// 				},
+	// 			},
+	// 		},
+	// 	}
+	// }
+	for _, externalIP := range []*loadbalancer.L3n4AddrID{externalIP3} {
+		upsert3rdWanted[externalIP.Hash()] = loadbalancer.SVC{
+			Type:     loadbalancer.SVCTypeExternalIPs,
+			Frontend: *externalIP,
+			Backends: []loadbalancer.Backend{
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("2.2.2.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+				},
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("3.3.3.3"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+				},
+			},
+		}
+	}
+
+	for _, nodePort := range nodePortIPs1 {
+		upsert3rdWanted[nodePort.Hash()] = loadbalancer.SVC{
+			Type:     loadbalancer.SVCTypeNodePort,
+			Frontend: *nodePort,
+			Backends: []loadbalancer.Backend{
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("2.2.2.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.UDP,
+							Port:     8080,
+						},
+					},
+				},
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("3.3.3.3"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.UDP,
+							Port:     8080,
+						},
+					},
+				},
+			},
+		}
+	}
+	// for _, nodePort := range nodePortIPs2 {
+	// 	upsert3rdWanted[nodePort.Hash()] = loadbalancer.SVC{
+	// 		Type:     loadbalancer.SVCTypeNodePort,
+	// 		Frontend: *nodePort,
+	// 		Backends: []loadbalancer.Backend{
+	// 			{
+	// 				L3n4Addr: loadbalancer.L3n4Addr{
+	// 					IP: net.ParseIP("2.2.2.2"),
+	// 					L4Addr: loadbalancer.L4Addr{
+	// 						Protocol: loadbalancer.TCP,
+	// 						Port:     8081,
+	// 					},
+	// 				},
+	// 			},
+	// 			{
+	// 				L3n4Addr: loadbalancer.L3n4Addr{
+	// 					IP: net.ParseIP("3.3.3.3"),
+	// 					L4Addr: loadbalancer.L4Addr{
+	// 						Protocol: loadbalancer.TCP,
+	// 						Port:     8081,
+	// 					},
+	// 				},
+	// 			},
+	// 		},
+	// 	}
+	// }
+	for _, nodePort := range nodePortIPs3 {
+		upsert3rdWanted[nodePort.Hash()] = loadbalancer.SVC{
+			Type:     loadbalancer.SVCTypeNodePort,
+			Frontend: *nodePort,
+			Backends: []loadbalancer.Backend{
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("2.2.2.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+				},
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("3.3.3.3"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.TCP,
+							Port:     8081,
+						},
+					},
+				},
+			},
+		}
+	}
+
+	del1stWanted := map[string]struct{}{
+		externalIP4.Hash(): {},
+		// externalIP5.Hash():{},
+		externalIP6.Hash(): {},
+	}
+	del2ndWanted := map[string]struct{}{
+		clusterIP1.Hash(): {},
+		// clusterIP2.Hash(): {},
+		clusterIP3.Hash():  {},
+		externalIP1.Hash(): {},
+		// externalIP2.Hash():{},
+		externalIP3.Hash(): {},
+	}
+	for _, nodePort := range append(nodePortIPs1, nodePortIPs3...) {
+		del2ndWanted[nodePort.Hash()] = struct{}{}
+	}
+
+	upsert1st := map[string]loadbalancer.SVC{}
+	upsert2nd := map[string]loadbalancer.SVC{}
+	upsert3rd := map[string]loadbalancer.SVC{}
+	del1st := map[string]struct{}{}
+	del2nd := map[string]struct{}{}
+
+	policyManager := &fakePolicyManager{
+		OnTriggerPolicyUpdates: func(force bool, reason string) {
+		},
+	}
+	policyRepository := &fakePolicyRepository{
+		OnTranslateRules: func(tr policy.Translator) (result *policy.TranslationResult, e error) {
+			return &policy.TranslationResult{NumToServicesRules: 1}, nil
+		},
+	}
+
+	svcUpsertManagerCalls, svcDeleteManagerCalls := 0, 0
+
+	svcManager := &fakeSvcManager{
+		OnUpsertService: func(
+			fe loadbalancer.L3n4AddrID,
+			bes []loadbalancer.Backend,
+			svcType loadbalancer.SVCType,
+			svcName,
+			namespace string) (
+			b bool,
+			id loadbalancer.ID,
+			e error,
+		) {
+
+			sort.Slice(bes, func(i, j int) bool {
+				return bytes.Compare(bes[i].IP, bes[j].IP) < 0
+			})
+			switch {
+			// 1st update endpoints
+			case svcUpsertManagerCalls < len(upsert1stWanted):
+				upsert1st[fe.Hash()] = loadbalancer.SVC{
+					Frontend: fe,
+					Backends: bes,
+					Type:     svcType,
+				}
+			// 2nd update endpoints
+			case svcUpsertManagerCalls < len(upsert1stWanted)+len(upsert2ndWanted):
+				upsert2nd[fe.Hash()] = loadbalancer.SVC{
+					Frontend: fe,
+					Backends: bes,
+					Type:     svcType,
+				}
+			// 3rd update services
+			case svcUpsertManagerCalls < len(upsert1stWanted)+len(upsert2ndWanted)+len(upsert3rdWanted):
+				upsert3rd[fe.Hash()] = loadbalancer.SVC{
+					Frontend: fe,
+					Backends: bes,
+					Type:     svcType,
+				}
+			}
+			svcUpsertManagerCalls++
+			return false, 0, nil
+		},
+		OnDeleteService: func(fe loadbalancer.L3n4Addr) (b bool, e error) {
+			switch {
+			// 1st update endpoints
+			case svcDeleteManagerCalls < len(del1stWanted):
+				del1st[fe.Hash()] = struct{}{}
+			// 2nd update endpoints
+			case svcDeleteManagerCalls < len(del1stWanted)+len(del2ndWanted):
+				del2nd[fe.Hash()] = struct{}{}
+			}
+			svcDeleteManagerCalls++
+			return true, nil
+		},
+	}
+
+	w := NewK8sWatcher(
+		nil,
+		nil,
+		policyManager,
+		policyRepository,
+		svcManager,
+	)
+	go w.k8sServiceHandler()
+	swg := lock.NewStoppableWaitGroup()
+
+	w.K8sSvcCache.UpdateService(svc1stApply, swg)
+	w.K8sSvcCache.UpdateEndpoints(ep1stApply, swg)
+	// Running a 2nd update should also trigger a new upsert service
+	w.K8sSvcCache.UpdateEndpoints(ep2ndApply, swg)
+	// Running a 3rd update should not trigger anything because the
+	// endpoints are the same
+	w.K8sSvcCache.UpdateEndpoints(ep2ndApply, swg)
+
+	w.K8sSvcCache.UpdateService(svc2ndApply, swg)
+
+	w.K8sSvcCache.DeleteService(svc1stApply, swg)
+
+	swg.Stop()
+	swg.Wait()
+	c.Assert(svcUpsertManagerCalls, Equals, len(upsert1stWanted)+len(upsert2ndWanted)+len(upsert3rdWanted))
+	c.Assert(svcDeleteManagerCalls, Equals, len(del1stWanted)+len(del2ndWanted))
+
+	c.Assert(upsert1st, checker.DeepEquals, upsert1stWanted)
+	c.Assert(upsert2nd, checker.DeepEquals, upsert2ndWanted)
+	c.Assert(upsert3rd, checker.DeepEquals, upsert3rdWanted)
+	c.Assert(del1st, checker.DeepEquals, del1stWanted)
+	c.Assert(del2nd, checker.DeepEquals, del2ndWanted)
+}
