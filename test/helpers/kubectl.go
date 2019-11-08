@@ -1519,6 +1519,8 @@ func (kub *Kubectl) WaitForCiliumInitContainerToFinish() error {
 		}
 		for _, pod := range podList.Items {
 			for _, v := range pod.Status.InitContainerStatuses {
+				v_marshalled, _ := json.Marshal(&v)
+				fmt.Println(string(v_marshalled))
 				if v.State.Terminated.Reason != "Completed" || v.State.Terminated.ExitCode != 0 {
 					kub.Logger().WithFields(logrus.Fields{
 						"podName":      pod.Name,
