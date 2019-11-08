@@ -80,6 +80,9 @@ func enableUnmanagedKubeDNSController() {
 									log.WithError(err).Warningf("Unable to restart pod %s", podID)
 								} else {
 									lastPodRestart[podID] = time.Now()
+
+									// Delete a single pod per iteration to avoid killing all replicas at once
+									return nil
 								}
 
 							}
