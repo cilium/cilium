@@ -131,14 +131,14 @@ func EqualV1Services(svc1, svc2 *types.Service) bool {
 	if strings.ToLower(svc1.Spec.ClusterIP) == "none" {
 		headless = true
 	}
-	si1 := NewService(clusterIP, headless, svc1.Labels, svc1.Spec.Selector)
+	si1 := NewService(clusterIP, svc1.Spec.ExternalIPs, headless, svc1.Labels, svc1.Spec.Selector)
 
 	clusterIP = net.ParseIP(svc2.Spec.ClusterIP)
 	headless = false
 	if strings.ToLower(svc2.Spec.ClusterIP) == "none" {
 		headless = true
 	}
-	si2 := NewService(clusterIP, headless, svc2.Labels, svc2.Spec.Selector)
+	si2 := NewService(clusterIP, svc2.Spec.ExternalIPs, headless, svc2.Labels, svc2.Spec.Selector)
 
 	// Please write all the equalness logic inside the K8sServiceInfo.Equals()
 	// method.
