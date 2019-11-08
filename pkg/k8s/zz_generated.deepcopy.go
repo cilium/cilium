@@ -112,6 +112,21 @@ func (in *Service) DeepCopyInto(out *Service) {
 			(*out)[key] = outVal
 		}
 	}
+	if in.K8sExternalIPs != nil {
+		in, out := &in.K8sExternalIPs, &out.K8sExternalIPs
+		*out = make(map[string]net.IP, len(*in))
+		for key, val := range *in {
+			var outVal []byte
+			if val == nil {
+				(*out)[key] = nil
+			} else {
+				in, out := &val, &outVal
+				*out = make(net.IP, len(*in))
+				copy(*out, *in)
+			}
+			(*out)[key] = outVal
+		}
+	}
 	if in.Labels != nil {
 		in, out := &in.Labels, &out.Labels
 		*out = make(map[string]string, len(*in))

@@ -62,6 +62,8 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 
 	var svcType loadbalancer.SVCType
 	switch params.Config.Flags.Type {
+	case models.ServiceSpecFlagsTypeExternalIPs:
+		svcType = loadbalancer.SVCTypeExternalIPs
 	case models.ServiceSpecFlagsTypeNodePort:
 		svcType = loadbalancer.SVCTypeNodePort
 	default:

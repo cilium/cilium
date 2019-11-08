@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -220,6 +220,93 @@ func TestL3n4AddrID_Equals(t *testing.T) {
 			f := tt.fields
 			if got := f.Equals(tt.args.o); got != tt.want {
 				t.Errorf("L3n4AddrID.Equals() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCreateSvcFlag(t *testing.T) {
+	type args struct {
+		svcTypes []SVCType
+	}
+	tests := []struct {
+		name string
+		args args
+		want ServiceFlags
+	}{
+		{
+			args: args{
+				svcTypes: []SVCType{SVCTypeNodePort},
+			},
+			want: serviceFlagNone,
+		},
+		{
+			args: args{
+				svcTypes: []SVCType{SVCTypeExternalIPs},
+			},
+			want: serviceFlagExternalIPs,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := CreateSvcFlag(tt.args.svcTypes...); got != tt.want {
+				t.Errorf("CreateSvcFlag() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestServiceFlags_IsSvcType(t *testing.T) {
+	type args struct {
+		svcType SVCType
+	}
+	tests := []struct {
+		name string
+		s    ServiceFlags
+		args args
+		want bool
+	}{
+		{
+			args: args{svcType: SVCTypeExternalIPs},
+			s:    serviceFlagExternalIPs,
+			want: true,
+		},
+		{
+			args: args{svcType: SVCTypeNodePort},
+			s:    serviceFlagExternalIPs,
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.s.IsSvcType(tt.args.svcType); got != tt.want {
+				t.Errorf("IsSvcType() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestServiceFlags_String(t *testing.T) {
+	tests := []struct {
+		name string
+		s    ServiceFlags
+		want string
+	}{
+		{
+			name: "Test-1",
+			s:    serviceFlagExternalIPs,
+			want: "ExternalIPs",
+		},
+		{
+			name: "Test-2",
+			s:    serviceFlagNone,
+			want: "NONE",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.s.String(); got != tt.want {
+				t.Errorf("String() = %v, want %v", got, tt.want)
 			}
 		})
 	}

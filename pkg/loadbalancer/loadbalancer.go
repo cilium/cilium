@@ -34,9 +34,56 @@ var (
 type SVCType string
 
 const (
-	SVCTypeClusterIP = SVCType("ClusterIP")
-	SVCTypeNodePort  = SVCType("NodePort")
+	SVCTypeNone        = SVCType("NONE")
+	SVCTypeClusterIP   = SVCType("ClusterIP")
+	SVCTypeNodePort    = SVCType("NodePort")
+	SVCTypeExternalIPs = SVCType("ExternalIPs")
 )
+
+// ServiceFlags is the datapath representation of the service flags that can be
+// used.
+type ServiceFlags uint8
+
+const (
+	serviceFlagNone        = 1<<iota - 1 // 0
+	serviceFlagExternalIPs               // 1
+)
+
+// CreateSvcFlag returns the ServiceFlags for all given SVCTypes.
+func CreateSvcFlag(svcTypes ...SVCType) ServiceFlags {
+	var flags ServiceFlags
+	for _, svcType := range svcTypes {
+		switch svcType {
+		case SVCTypeExternalIPs:
+			flags |= serviceFlagExternalIPs
+		}
+	}
+	return flags
+}
+
+// IsSvcType returns true if the serviceFlags is the given SVCType.
+func (s ServiceFlags) IsSvcType(svcType SVCType) bool {
+	return s&CreateSvcFlag(svcType) != 0
+}
+
+// String returns the string implementation of ServiceFlags.
+func (s ServiceFlags) String() string {
+	var strTypes []string
+	for _, svcType := range []SVCType{SVCTypeExternalIPs} {
+		if s.IsSvcType(svcType) {
+			strTypes = append(strTypes, string(svcType))
+		}
+	}
+	if len(strTypes) != 0 {
+		return strings.Join(strTypes, ", ")
+	}
+	return string(SVCTypeNone)
+}
+
+// UInt8 returns the UInt8 representation of the ServiceFlags.
+func (s ServiceFlags) UInt8() uint8 {
+	return uint8(s)
+}
 
 const (
 	NONE = L4Type("NONE")

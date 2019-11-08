@@ -17,6 +17,7 @@ package lbmap
 import (
 	"fmt"
 	"net"
+	"strconv"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -48,7 +49,7 @@ type LBBPFMap struct{}
 func (*LBBPFMap) UpsertService(
 	svcID uint16, svcIP net.IP, svcPort uint16,
 	backendIDs []uint16, prevBackendCount int,
-	ipv6 bool) error {
+	ipv6 bool, svcType loadbalancer.SVCType) error {
 
 	var svcKey ServiceKey
 
@@ -86,7 +87,7 @@ func (*LBBPFMap) UpsertService(
 		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %s", revNATKey, revNATValue, err)
 	}
 
-	if err := updateMasterService(svcKey, len(backendIDs), int(svcID)); err != nil {
+	if err := updateMasterService(svcKey, len(backendIDs), int(svcID), svcType); err != nil {
 		deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %s", svcKey, err)
 	}
@@ -205,6 +206,7 @@ func deleteRevNatLocked(key RevNatKey) error {
 func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 	newSVCMap := svcMap{}
 	errors := []error{}
+	flagsCache := map[string]loadbalancer.ServiceFlags{}
 	backendValueMap := map[loadbalancer.BackendID]BackendValue{}
 
 	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
@@ -219,6 +221,12 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 
 		// Skip master service
 		if svcKey.GetSlave() == 0 {
+			// Build a cache of flags stored in the value of the master key to
+			// map it later.
+			// FIXME proto is being ignored everywhere in the datapath.
+			addrStr := svcKey.GetAddress().String()
+			portStr := strconv.Itoa(int(svcKey.GetPort()))
+			flagsCache[net.JoinHostPort(addrStr, portStr)] = loadbalancer.ServiceFlags(svcValue.GetFlags())
 			return
 		}
 
@@ -261,6 +269,12 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 	newSVCList := make([]*loadbalancer.SVC, 0, len(newSVCMap))
 	for hash := range newSVCMap {
 		svc := newSVCMap[hash]
+		addrStr := svc.Frontend.IP.String()
+		portStr := strconv.Itoa(int(svc.Frontend.Port))
+		host := net.JoinHostPort(addrStr, portStr)
+		if flagsCache[host].IsSvcType(loadbalancer.SVCTypeExternalIPs) {
+			svc.Type = loadbalancer.SVCTypeExternalIPs
+		}
 		newSVCList = append(newSVCList, &svc)
 	}
 
@@ -305,11 +319,12 @@ func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
 	return lbBackends, nil
 }
 
-func updateMasterService(fe ServiceKey, nbackends int, revNATID int) error {
+func updateMasterService(fe ServiceKey, nbackends int, revNATID int, svcType loadbalancer.SVCType) error {
 	fe.SetSlave(0)
 	zeroValue := fe.NewValue().(ServiceValue)
 	zeroValue.SetCount(nbackends)
 	zeroValue.SetRevNat(revNATID)
+	zeroValue.SetFlags(loadbalancer.CreateSvcFlag(svcType).UInt8())
 
 	return updateServiceEndpoint(fe, zeroValue)
 }
