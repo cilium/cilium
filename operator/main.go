@@ -241,7 +241,7 @@ func runOperator(cmd *cobra.Command) {
 	// etcd from reaching out kube-dns in EKS.
 	if option.Config.DisableCiliumEndpointCRD {
 		log.Infof("KubeDNS unmanaged pods controller disabled as %q option is set to 'disabled' in Cilium ConfigMap", option.DisableCiliumEndpointCRDName)
-	} else {
+	} else if unmanagedKubeDnsWatcherInterval != 0 {
 		enableUnmanagedKubeDNSController()
 	}
 
