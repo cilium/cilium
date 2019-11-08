@@ -1509,7 +1509,10 @@ func (kub *Kubectl) CiliumExecUntilMatch(pod, cmd, substr string) error {
 func (kub *Kubectl) WaitForCiliumInitContainerToFinish() error {
 	body := func() bool {
 		podList := &v1.PodList{}
-		err := kub.GetPods("kube-system", "-l k8s-app=cilium").Unmarshal(podList)
+		p := kub.GetPods("kube-system", "-l k8s-app=cilium")
+		fmt.Println("printing out pods which cause panic")
+		fmt.Println(p.OutputPrettyPrint())
+		err := p.Unmarshal(podList)
 		if err != nil {
 			kub.Logger().Infof("Error while getting PodList: %s", err)
 			return false
@@ -1519,7 +1522,10 @@ func (kub *Kubectl) WaitForCiliumInitContainerToFinish() error {
 		}
 		for _, pod := range podList.Items {
 			for _, v := range pod.Status.InitContainerStatuses {
-				if v.State.Terminated.Reason != "Completed" || v.State.Terminated.ExitCode != 0 {
+				fmt.Println("printing v")
+				vMarshalled, _ := json.Marshal(&v)
+				fmt.Println(string(vMarshalled))
+				if v.State.Terminated != nil && (v.State.Terminated.Reason != "Completed" || v.State.Terminated.ExitCode != 0) {
 					kub.Logger().WithFields(logrus.Fields{
 						"podName":      pod.Name,
 						"currentState": v.State.String(),
