@@ -240,6 +240,9 @@ const (
 	// Tunnel is the tunnel name
 	Tunnel = "tunnel"
 
+	// Selector is a selector of any sort: endpoint, CIDR, toFQDNs
+	Selector = "Selector"
+
 	// EndpointLabelSelector is a selector for Endpoints by label
 	EndpointLabelSelector = "EndpointLabelSelector"
 
