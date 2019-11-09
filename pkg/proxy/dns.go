@@ -15,7 +15,6 @@
 package proxy
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/completion"
@@ -85,7 +84,7 @@ func (dr *dnsRedirect) setRules(wg *completion.WaitGroup, newRules policy.L7Data
 		"remove":             toRemove,
 		logfields.EndpointID: dr.redirect.endpointID,
 	}).Debug("DNS Proxy updating matchNames in allowed list during UpdateRules")
-	DefaultDNSProxy.UpdateAllowed(toAdd, toRemove, fmt.Sprintf("%d", dr.redirect.endpointID))
+	DefaultDNSProxy.UpdateAllowed(dr.redirect.endpointID, newRules)
 	dr.currentRules = copyRules(dr.redirect.rules)
 
 	return nil
@@ -106,17 +105,7 @@ func (dr *dnsRedirect) UpdateRules(wg *completion.WaitGroup) (revert.RevertFunc,
 // Close the redirect.
 func (dr *dnsRedirect) Close(wg *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
 	return func() {
-		for _, rule := range dr.currentRules {
-			for _, dnsRule := range rule.DNS {
-				dnsName := strings.ToLower(dns.Fqdn(dnsRule.MatchName))
-				dnsNameAsRE := matchpattern.ToRegexp(dnsName)
-				DefaultDNSProxy.RemoveAllowed(dnsNameAsRE, fmt.Sprintf("%d", dr.redirect.endpointID))
-
-				dnsPattern := matchpattern.Sanitize(dnsRule.MatchPattern)
-				dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
-				DefaultDNSProxy.RemoveAllowed(dnsPatternAsRE, fmt.Sprintf("%d", dr.redirect.endpointID))
-			}
-		}
+		DefaultDNSProxy.UpdateAllowed(dr.redirect.endpointID, nil)
 		dr.currentRules = nil
 	}, nil
 }

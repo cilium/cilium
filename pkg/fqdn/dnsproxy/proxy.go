@@ -20,16 +20,21 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/fqdn/regexpmap"
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/spanstat"
 
 	"github.com/miekg/dns"
@@ -111,6 +116,8 @@ type DNSProxy struct {
 	// To insert a wildcard ".", use .{1} to indicate a single wildcard character.
 	allowed *regexpmap.RegexpMap
 
+	allowedByID map[uint64]policy.L7DataMap
+
 	// rejectReply is the OPCode send from the DNS-proxy to the endpoint if the
 	// DNS request is invalid
 	rejectReply int
@@ -167,6 +174,7 @@ func StartDNSProxy(address string, port uint16, lookupEPFunc LookupEndpointIDByI
 		NotifyOnDNSMsg:        notifyFunc,
 		lookupTargetDNSServer: lookupTargetDNSServer,
 		allowed:               regexpmap.NewRegexpMap(),
+		allowedByID:           make(map[uint64]policy.L7DataMap),
 		rejectReply:           dns.RcodeRefused,
 	}
 
@@ -223,48 +231,52 @@ func StartDNSProxy(address string, port uint16, lookupEPFunc LookupEndpointIDByI
 	return p, nil
 }
 
-// AddAllowed adds reStr, a regexp, to the DNS lookups the proxy allows.
-func (p *DNSProxy) AddAllowed(reStr, endpointID string) {
-	log.WithField(logfields.DNSName, reStr).Debug("Adding allowed DNS FQDN pattern")
-	p.UpdateAllowed([]string{reStr}, nil, endpointID)
-}
-
-// RemoveAllowed removes reStr from the DNS lookups the proxy allows. It must
-// match the form in AddAllowed exactly (i.e. this isn't removing by regex, but
-// by direct equivalence).
-func (p *DNSProxy) RemoveAllowed(reStr, endpointID string) {
-	log.WithField(logfields.DNSName, reStr).Debug("Removing allowed DNS FQDN pattern")
-	p.UpdateAllowed(nil, []string{reStr}, endpointID)
-}
-
 // UpdateAllowed adds and removes reStr while holding the lock. This is a bit
 // of a hack to ensure atomic updates of rules until we replace the tracking
 // with something better.
-func (p *DNSProxy) UpdateAllowed(reStrToAdd, reStrToRemove []string, endpointID string) {
-	for i := range reStrToAdd {
-		reStrToAdd[i] = prepareNameMatch(reStrToAdd[i])
-	}
-	for i := range reStrToRemove {
-		reStrToRemove[i] = prepareNameMatch(reStrToRemove[i])
-	}
-
+func (p *DNSProxy) UpdateAllowed(endpointID uint64, newRules policy.L7DataMap) {
 	p.Lock()
 	defer p.Unlock()
-	for _, reStr := range reStrToRemove {
-		p.allowed.Remove(reStr, endpointID)
-	}
-	for _, reStr := range reStrToAdd {
-		p.allowed.Add(reStr, endpointID)
-	}
+	// TODO: Add regex precompiles
+	p.allowedByID[endpointID] = newRules
 }
 
 // CheckAllowed checks name against the rules added to the proxy, and only
 // returns true if this endpointID was added (via AddAllowed) previously.
-func (p *DNSProxy) CheckAllowed(name, endpointID string) bool {
-	name = strings.ToLower(name)
+func (p *DNSProxy) CheckAllowed(endpointID uint64, destID identity.NumericIdentity, name string) bool {
+	name = strings.ToLower(dns.Fqdn(name))
 	p.Lock()
 	defer p.Unlock()
-	return p.allowed.LookupContainsValue(name, endpointID)
+
+	epAllow, exists := p.allowedByID[endpointID]
+	if !exists {
+		return false
+	}
+
+	for selector, l7Rules := range epAllow {
+		if !selector.Selects(destID) {
+			return false
+		}
+
+		for _, dnsRule := range l7Rules.DNS {
+			if len(dnsRule.MatchName) > 0 {
+				dnsRuleName := strings.ToLower(dns.Fqdn(dnsRule.MatchName))
+				if name == dnsRuleName {
+					return true
+				}
+			}
+			if len(dnsRule.MatchPattern) > 0 {
+				dnsPattern := matchpattern.Sanitize(dnsRule.MatchPattern)
+				dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
+				re, _ := regexp.Compile(dnsPatternAsRE) // TODO: handle errors
+				if re.MatchString(name) {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
 }
 
 // ServeDNS handles individual DNS requests forwarded to the proxy, and meets
@@ -320,14 +332,33 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		p.sendRefused(scopedLog, w, request)
 		return
 	}
-	scopedLog.WithField("server", targetServerAddr).Debug("Found target server to of DNS request")
+	targetServerIP, _, err := net.SplitHostPort(targetServerAddr)
+	if err != nil {
+		log.WithError(err).Error("cannot extract destination IP from DNS request")
+		stat.Err = fmt.Errorf("Cannot extract destination IP from DNS request", err)
+		stat.ProcessingTime.End(false)
+		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, request, protocol, false, stat)
+		p.sendRefused(scopedLog, w, request)
+		return
+	}
+
+	serverSecID, exists, err := lookupDestIPID(targetServerIP)
+	if !exists {
+		scopedLog.WithError(err).WithField("server", targetServerAddr).Debug("cannot find server ip in ipcache")
+		stat.Err = fmt.Errorf("Cannot find server ip in ipcache", err)
+		stat.ProcessingTime.End(false)
+		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, request, protocol, false, stat)
+		p.sendRefused(scopedLog, w, request)
+		return
+	}
+	scopedLog.WithField("server", targetServerAddr).Debugf("Found target server to of DNS request secID %+v", serverSecID)
 
 	// The allowed check is first because we don't want to use DNS responses that
 	// endpoints are not allowed to see.
 	// Note: The cache doesn't know about the source of the DNS data (yet) and so
 	// it won't enforce any separation between results from different endpoints.
 	// This isn't ideal but we are trusting the DNS responses anyway.
-	if !p.CheckAllowed(qname, ep.StringID()) {
+	if !p.CheckAllowed(uint64(ep.ID), serverSecID.ID, qname) {
 		scopedLog.Debug("Rejecting DNS query from endpoint due to policy")
 		stat.Err = p.sendRefused(scopedLog, w, request)
 		stat.ProcessingTime.End(true)
@@ -388,6 +419,20 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		stat.Err = fmt.Errorf("Cannot forward proxied DNS response: %s", err)
 		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, response, protocol, true, stat)
 	}
+}
+
+func lookupDestIPID(destIPStr string) (SecID ipcache.Identity, exists bool, err error) {
+	maxPrefixLen := 32
+	if ip := net.ParseIP(destIPStr); ip.To4() == nil {
+		maxPrefixLen = 128
+	}
+
+	for i := maxPrefixLen; exists != true && i >= 0; i-- {
+		maskedStr := fmt.Sprintf("%s/%d", destIPStr, i)
+		_, cidr, _ := net.ParseCIDR(maskedStr)
+		SecID, exists = ipcache.IPIdentityCache.LookupByPrefix(cidr.String())
+	}
+	return SecID, exists, nil
 }
 
 // sendRefused creates and sends a REFUSED response for request to w
