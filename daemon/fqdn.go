@@ -300,7 +300,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 	if err != nil {
 		return err
 	}
-	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port, d.lookupEPByIP, d.notifyOnDNSMsg)
+	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port, d.lookupEPByIP, d.lookupSecIDByIP, d.notifyOnDNSMsg)
 	if err == nil {
 		// Increase the ProxyPort reference count so that it will never get released.
 		err = d.l7Proxy.SetProxyPort(listenerName, proxy.DefaultDNSProxy.BindPort)
@@ -391,6 +391,24 @@ func (d *Daemon) lookupEPByIP(endpointIP net.IP) (endpoint *endpoint.Endpoint, e
 	}
 
 	return e, nil
+}
+
+func (d *Daemon) lookupSecIDByIP(ip net.IP) (secID ipcache.Identity, exists bool, err error) {
+	ipv6Prefixes, ipv4Prefixes := d.prefixLengths.ToBPFData()
+	prefixes := ipv4Prefixes
+	if ip.To4() == nil {
+		prefixes = ipv6Prefixes
+	}
+
+	for _, prefixLen := range prefixes {
+		maskedStr := fmt.Sprintf("%s/%d", ip, prefixLen)
+		_, cidr, _ := net.ParseCIDR(maskedStr)
+		secID, exists = ipcache.IPIdentityCache.LookupByPrefix(cidr.String())
+		if exists == true {
+			break
+		}
+	}
+	return secID, exists, nil
 }
 
 // NotifyOnDNSMsg handles DNS data in the daemon by emitting monitor
