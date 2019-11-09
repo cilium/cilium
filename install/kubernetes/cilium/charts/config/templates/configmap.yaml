@@ -56,7 +56,7 @@ data:
   # "cilium-metrics-config" ConfigMap
   # NOTE that this will open the port on ALL nodes where Cilium pods are
   # scheduled.
-  prometheus-serve-addr: ":9090"
+  prometheus-serve-addr: ":{{ .Values.global.prometheus.port }}"
 {{- end }}
 
   # Enable IPv4 addressing. If enabled, all endpoints are allocated an IPv4

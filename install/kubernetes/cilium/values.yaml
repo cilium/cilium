@@ -72,6 +72,7 @@ global:
   # prometheus enables
   prometheus:
     enabled: false
+    port: 9090
     serviceMonitor:
       enabled: false
 

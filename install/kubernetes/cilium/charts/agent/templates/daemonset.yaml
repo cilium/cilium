@@ -15,7 +15,7 @@ spec:
     metadata:
       annotations:
 {{- if and .Values.global.prometheus.enabled (not .Values.global.prometheus.serviceMonitor.enabled) }}
-        prometheus.io/port: "9090"
+        prometheus.io/port: "{{ .Values.global.prometheus.port }}"
         prometheus.io/scrape: "true"
 {{- end }}
         # This annotation plus the CriticalAddonsOnly toleration makes
@@ -112,8 +112,8 @@ spec:
         name: cilium-agent
 {{- if .Values.global.prometheus.enabled }}
         ports:
-        - containerPort: 9090
-          hostPort: 9090
+        - containerPort: {{ .Values.global.prometheus.port }}
+          hostPort: {{ .Values.global.prometheus.port }}
           name: prometheus
           protocol: TCP
 {{- end }}
