@@ -97,6 +97,10 @@ type IPAM struct {
 	allocatorMutex lock.RWMutex
 
 	blacklist IPBlacklist
+
+	// IP address pinning
+	PinnedIPs    []string
+	PinnedOwners []string
 }
 
 // DebugStatus implements debug.StatusObject to provide debug status collection

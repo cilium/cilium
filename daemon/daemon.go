@@ -450,6 +450,8 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	if err != nil {
 		log.WithError(err).Error("Unable to restore existing endpoints")
 	}
+
+	d.ipam.ReservePinnedIPs()
 	bootstrapStats.restore.End(true)
 
 	if err := d.allocateIPs(); err != nil {
