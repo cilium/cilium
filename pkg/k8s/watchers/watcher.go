@@ -39,7 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/serializer"
-	"github.com/cilium/cilium/pkg/source"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -150,24 +149,7 @@ type K8sWatcher struct {
 	policyRepository    policyRepository
 	svcManager          svcManager
 	idallocator         k8s.CIDRIdentityAllocator
-	ipc                 IPCache
-}
-
-// IPCache is an interface hiding the implementation of `pkg/ipcache:IPCache`.
-type IPCache interface {
-	// Upsert inserts the information about the specified IP into the IPCache.
-	// Returns false if the ip is not owned by the specified source in
-	// `newIdentity`.
-	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) bool
-
-	// Delete removes the provided IP-to-security-identity mapping from the IPCache.
-
-	Delete(IP string, source source.Source)
-
-	// LookupByIP returns the corresponding security identity that endpoint IP maps
-	// to within the provided IPCache, as well as if the corresponding entry exists
-	// in the IPCache.
-	LookupByIP(IP string) (ipcache.Identity, bool)
+	ipc                 ipcache.IPCacheInterface
 }
 
 func NewK8sWatcher(
@@ -177,7 +159,7 @@ func NewK8sWatcher(
 	policyRepository policyRepository,
 	svcManager svcManager,
 	idallocator k8s.CIDRIdentityAllocator,
-	ipc IPCache,
+	ipc ipcache.IPCacheInterface,
 ) *K8sWatcher {
 	return &K8sWatcher{
 		k8sResourceSynced:   map[string]<-chan struct{}{},

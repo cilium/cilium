@@ -62,3 +62,10 @@ func (f *FakeIdentityAllocator) LookupIdentityByID(ctx context.Context, id ident
 	}
 	return nil
 }
+
+type FakeCIDRIdentityAllocator struct{}
+
+func (f *FakeCIDRIdentityAllocator) ReleaseCIDRs(prefixes []*net.IPNet) {}
+func (f *FakeCIDRIdentityAllocator) AllocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
+	return nil, nil
+}

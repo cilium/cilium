@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/ipcache/watcher"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -130,7 +131,7 @@ func (rc *remoteCluster) releaseOldConnection() {
 	}
 }
 
-func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher, ipc watcher.IPCache) {
+func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher, ipc ipcache.IPCacheInterface) {
 	rc.controllers.UpdateController(rc.remoteConnectionControllerName,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
@@ -223,7 +224,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 	)
 }
 
-func (rc *remoteCluster) onInsert(allocator RemoteIdentityWatcher, ipc watcher.IPCache) {
+func (rc *remoteCluster) onInsert(allocator RemoteIdentityWatcher, ipc ipcache.IPCacheInterface) {
 	rc.getLogger().Info("New remote cluster configuration")
 
 	if skipKvstoreConnection {

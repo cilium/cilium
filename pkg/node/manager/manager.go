@@ -98,7 +98,7 @@ type Manager struct {
 	// number of datapath node validation calls
 	metricDatapathValidations prometheus.Counter
 
-	ipc IPCache
+	ipc ipcache.IPCacheInterface
 }
 
 // Subscribe subscribes the given node handler to node events.
@@ -134,7 +134,7 @@ func (m *Manager) Iter(f func(nh datapath.NodeHandler)) {
 }
 
 // NewManager returns a new node manager
-func NewManager(name string, dp datapath.NodeHandler, ipc IPCache) (*Manager, error) {
+func NewManager(name string, dp datapath.NodeHandler, ipc ipcache.IPCacheInterface) (*Manager, error) {
 	m := &Manager{
 		name:         name,
 		nodes:        map[node.Identity]*nodeEntry{},
@@ -274,11 +274,6 @@ func (m *Manager) backgroundSync() {
 		case <-time.After(syncInterval):
 		}
 	}
-}
-
-type IPCache interface {
-	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) bool
-	Delete(IP string, source source.Source)
 }
 
 // NodeUpdated is called after the information of a node has been updated. The

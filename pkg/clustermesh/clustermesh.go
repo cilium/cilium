@@ -20,7 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/ipcache/watcher"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
@@ -64,7 +64,7 @@ type Configuration struct {
 	// remote cluster.
 	RemoteIdentityWatcher RemoteIdentityWatcher
 
-	IPC watcher.IPCache
+	IPC ipcache.IPCacheInterface
 }
 
 // RemoteIdentityWatcher is any type which provides identities that have been

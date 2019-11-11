@@ -184,25 +184,10 @@ func DeleteIPFromKVStore(ctx context.Context, ip string) error {
 	return globalMap.store.release(ctx, ipKey)
 }
 
-// IPCache is an interface hiding the implementation of `pkg/ipcache:IPCache`.
-type IPCache interface {
-	// Upsert inserts the information about the specified IP into the IPCache.
-	// Returns false if the ip is not owned by the specified source in
-	// `newIdentity`.
-	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) bool
-
-	// Delete removes the provided IP-to-security-identity mapping from the IPCache.
-	Delete(IP string, source source.Source)
-
-	// NotifyListenersGC runs `OnIPIdentityCacheGC` for all listeners for this
-	// IPCache.
-	NotifyListenersGC()
-}
-
 // IPIdentityWatcher is a watcher that will notify when IP<->identity mappings
 // change in the kvstore
 type IPIdentityWatcher struct {
-	ipc      IPCache
+	ipc      ipcache.IPCacheInterface
 	backend  kvstore.BackendOperations
 	stop     chan struct{}
 	synced   chan struct{}
@@ -211,7 +196,7 @@ type IPIdentityWatcher struct {
 
 // NewIPIdentityWatcher creates a new IPIdentityWatcher using the specified
 // kvstore backend
-func NewIPIdentityWatcher(ipc IPCache, backend kvstore.BackendOperations) *IPIdentityWatcher {
+func NewIPIdentityWatcher(ipc ipcache.IPCacheInterface, backend kvstore.BackendOperations) *IPIdentityWatcher {
 	watcher := &IPIdentityWatcher{
 		ipc:     ipc,
 		backend: backend,
@@ -359,7 +344,7 @@ var (
 
 // InitIPIdentityWatcher initializes the watcher for ip-identity mapping events
 // in the key-value store.
-func InitIPIdentityWatcher(ipc *ipcache.IPCache) {
+func InitIPIdentityWatcher(ipc ipcache.IPCacheInterface) {
 	setupIPIdentityWatcher.Do(func() {
 		go func() {
 			log.Info("Starting IP identity watcher")
