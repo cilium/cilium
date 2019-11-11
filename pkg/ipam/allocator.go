@@ -96,6 +96,33 @@ func (ipam *IPAM) AllocateIPString(ipAddr, owner string) error {
 }
 
 func (ipam *IPAM) allocateNextFamily(family Family, allocator Allocator, owner string) (result *AllocationResult, err error) {
+	if EnableFixedIP && owner != "loopback" && owner != "health" {
+		// Reusing IP if pinned IP found for this Pod.
+		//
+		// Actually we should first determine if this pod belongs to a sts,
+		// since we only pin IP for sts pods.
+		// But the step to determine involves further call to K8S apiserver.
+		// On the other hand, always try to get the pinned IP is safe, and
+		// doesn't rely on apiserver - for non-sts pods it will get nothing,
+		// then allocate a new one - just as expected.
+		r, e := getPinnedIP(owner)
+		if e != nil {
+			result = nil
+			err = e
+			log.Errorf("Get pinned IP for %s failed: %s", owner, err)
+			return
+		}
+
+		if r != nil {
+			result = r
+			err = nil
+			log.Infof("Reusing pinned IP for %s: %s", owner, r.IP)
+			return
+		}
+
+		log.Infof("Pinned IP not found for %s, allocating new one", owner)
+	}
+
 	if allocator == nil {
 		err = fmt.Errorf("%s allocator not available", family)
 		return
@@ -114,6 +141,30 @@ func (ipam *IPAM) allocateNextFamily(family Family, allocator Allocator, owner s
 			}).Debugf("Allocated random IP")
 			ipam.owner[result.IP.String()] = owner
 			metrics.IpamEvent.WithLabelValues(metricAllocate, string(family)).Inc()
+
+			// pin IP to owner (pod) for statefulset
+			if EnableFixedIP && owner != "loopback" && owner != "health" {
+				isSts := false
+				isSts, err = isStsPod(owner)
+				if err != nil {
+					log.Errorf("Determine whether pod %s belongs to a sts "+
+						"failed: %s, skip pinning this IP", owner, err)
+					return
+				}
+
+				if isSts {
+					if err = pinIP(result, owner); err != nil {
+						log.Errorf("Pin IP %v to owner %s failed: %s",
+							result, owner, err)
+						return
+					}
+
+					log.Infof("IP %v pinned to %s", result, owner)
+				} else {
+					log.Infof("Skip IP pinning as %s is not a sts pod", owner)
+				}
+			}
+
 			return
 		}
 
@@ -169,6 +220,46 @@ func (ipam *IPAM) AllocateNext(family, owner string) (ipv4Result, ipv6Result *Al
 
 // ReleaseIP release a IP address.
 func (ipam *IPAM) ReleaseIP(ip net.IP) error {
+	stateFileFound := false
+	if EnableFixedIP {
+		// Unpin IP
+		//
+		// Actually we should only try to unpin IP for sts pods.
+		// But current pin/unpin implementation doesn't keep states in memory.
+		// So at this stage, we could not determine if this is a sts pod with
+		// just IP info. Thus, we try to unpin for every pod. If the state file
+		// is not found, we will just goto the real release IP logic.
+		fullPodName, err := getPodWithPinnedIP(ip)
+		if err != nil {
+			if strings.Contains(err.Error(), "state file not found") {
+				log.Infof("%s: may not be a sts pod, releasing IP", err)
+			} else {
+				// even encountering errors, we should still release this IP
+				stateFileFound = true
+				log.Errorf("Get Pod with pinned IP %s failed: %s, releasing "+
+					"this IP", ip, err)
+			}
+		} else {
+			stateFileFound = true
+
+			deleted, err := isPinnedPodDeleted(fullPodName)
+			if err != nil {
+				log.Errorf("Check sts/pod status from apiserver failed: "+
+					"pod %s, error %s",
+					fullPodName, err)
+				return err
+			}
+
+			if !deleted {
+				log.Infof("Skip to release IP %s as sts/pod still exists in "+
+					"apiserver ", ip)
+				return nil
+			}
+		}
+
+		log.Infof("Releasing IP %s", ip)
+	}
+
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 	family := familyIPv4
@@ -199,6 +290,18 @@ func (ipam *IPAM) ReleaseIP(ip net.IP) error {
 	delete(ipam.owner, ip.String())
 
 	metrics.IpamEvent.WithLabelValues(metricRelease, family).Inc()
+
+	// Unpin IP
+	if EnableFixedIP && stateFileFound {
+		if err := unpinIP(ip); err != nil {
+			log.Errorf("UnpinIP %s failed: %s, you may need to manually "+
+				"delete the state file", ip, err)
+			return err
+		}
+
+		log.Infof("IP %s unpinned", ip)
+	}
+
 	return nil
 }
 

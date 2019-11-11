@@ -16,6 +16,7 @@ package ipam
 
 import (
 	"net"
+	"os"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/datapath"
@@ -111,6 +112,33 @@ func NewIPAM(nodeAddressing datapath.NodeAddressing, c Configuration, owner Owne
 		}
 	default:
 		log.Fatalf("Unknown IPAM backend %s", option.Config.IPAM)
+	}
+
+	// init fixed IP setting for statefulset pods
+	if flag, ok := os.LookupEnv(enableFixedIPEnv); ok {
+		flag = strings.ToLower(flag)
+		switch flag {
+		case "true":
+			EnableFixedIP = true
+		case "false":
+			EnableFixedIP = false
+		default:
+			log.Fatalf("invalid ENV %s=%s, use default setting: true",
+				enableFixedIPEnv, flag)
+		}
+	} else {
+		log.Infof("%s not set, use default: false", enableFixedIPEnv)
+		EnableFixedIP = false
+	}
+
+	if EnableFixedIP {
+		if c.EnableIPv6 {
+			log.Fatalf("%s currently only supports IPv4", enableFixedIPEnv)
+		}
+
+		if err := cleanStaleIPPinnings(ipam); err != nil {
+			log.Errorf("clean stale IP-Pinnings failed: %s", err)
+		}
 	}
 
 	return ipam
