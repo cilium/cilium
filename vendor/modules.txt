@@ -471,10 +471,10 @@ github.com/spf13/pflag
 github.com/spf13/viper
 # github.com/syndtr/gocapability v0.0.0-20180916011248-d98352740cb2 => github.com/syndtr/gocapability v0.0.0-20180916011248-d98352740cb2
 github.com/syndtr/gocapability/capability
-# github.com/vishvananda/netlink v1.0.1-0.20190924205746-ac5f4df04742 => github.com/vishvananda/netlink v1.0.1-0.20190924205746-ac5f4df04742
+# github.com/vishvananda/netlink v1.0.1-0.20191111102915-47ae870a10ed => github.com/cilium/netlink v1.0.1-0.20191111102915-47ae870a10ed
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
-# github.com/vishvananda/netns v0.0.0-20190625233234-7109fa855b0f => github.com/vishvananda/netns v0.0.0-20190625233234-7109fa855b0f
+# github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df => github.com/vishvananda/netns v0.0.0-20190625233234-7109fa855b0f
 github.com/vishvananda/netns
 # go.etcd.io/etcd v0.5.0-alpha.5.0.20190911215424-9ed5f76dc03b => go.etcd.io/etcd v0.5.0-alpha.5.0.20190911215424-9ed5f76dc03b
 go.etcd.io/etcd/auth/authpb

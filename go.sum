@@ -90,6 +90,8 @@ github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3 h1:wenYMyWJ08dgEUUj0I
 github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3/go.mod h1:cXN7jgo+gsGlNvQ7Vqu2ELdc3f7i7PPgupHqSkLzzBo=
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b h1:+bsFX/WOMIoaayXVyRem1awcpz3icz/HoL8Dxg/m6a4=
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b/go.mod h1:ktgizta3CPZBKz5uW272SJyjiro0vn4nOVP7Pk4RopA=
+github.com/cilium/netlink v1.0.1-0.20191111102915-47ae870a10ed h1:GD+ssW0e5SOX8M/+lbIhjaaEARzLuWeRt3myPj5q8YM=
+github.com/cilium/netlink v1.0.1-0.20191111102915-47ae870a10ed/go.mod h1:cTgwzPIzzgDAYoQrMm0EdrjRUBkTqKYppBueQtXaqoE=
 github.com/cilium/proxy v0.0.0-20191103190817-c6d564bb0863 h1:SIWUaRDrtHZr+PQY9dgMY5it8ELWnGmXUrNsAySXyn0=
 github.com/cilium/proxy v0.0.0-20191103190817-c6d564bb0863/go.mod h1:lbRnBzpxwMP5KsTu99cM654ShwTWamyhrF6cCLuYqhE=
 github.com/circonus-labs/circonus-gometrics v2.3.1+incompatible h1:C29Ae4G5GtYyYMm1aztcyj/J5ckgJm2zwdDajFbx1NY=
@@ -502,8 +504,6 @@ github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926/go.mod h1:9ESjWnEqri
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/urfave/cli v1.20.0/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=
 github.com/urfave/negroni v1.0.0/go.mod h1:Meg73S6kFm/4PpbYdq35yYWoCZ9mS/YSx+lKnmiohz4=
-github.com/vishvananda/netlink v1.0.1-0.20190924205746-ac5f4df04742 h1:kOmOYZsgDa9K5a5G/qccmvTEN+puk9mP2/FUzres5Bo=
-github.com/vishvananda/netlink v1.0.1-0.20190924205746-ac5f4df04742/go.mod h1:+SR5DhBJrl6ZM7CoCKvpw5BKroDKQ+PJqOg65H/2ktk=
 github.com/vishvananda/netns v0.0.0-20190625233234-7109fa855b0f h1:nBX3nTcmxEtHSERBJaIo1Qa26VwRaopnZmfDQUXsF4I=
 github.com/vishvananda/netns v0.0.0-20190625233234-7109fa855b0f/go.mod h1:ZjcWmFBXmLKZu9Nxj3WKYEafiSqer2rnvPr0en9UNpI=
 github.com/vmware/govmomi v0.20.1 h1:7b/SeTUB3tER8ZLGLLLH3xcnB2xeuLULXmfPFqPSRZA=
