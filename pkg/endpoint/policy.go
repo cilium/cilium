@@ -766,6 +766,7 @@ func (e *Endpoint) UpdateVisibilityPolicy(anno string) {
 			e.visibilityPolicy = &policy.VisibilityPolicy{
 				Ingress: make(policy.DirectionalVisibilityPolicy),
 				Egress:  make(policy.DirectionalVisibilityPolicy),
+				Error:   err,
 			}
 			return
 		}

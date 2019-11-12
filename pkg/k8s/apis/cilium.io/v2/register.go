@@ -297,6 +297,12 @@ func createCEPCRD(clientset apiextensionsclient.Interface) error {
 					JSONPath:    ".status.policy.egress.enforcing",
 				},
 				{
+					Name:        "Visibility Policy",
+					Type:        "string",
+					Description: "Status of visibility policy in the endpoint",
+					JSONPath:    ".status.visibility-policy-status",
+				},
+				{
 					Name:        "Endpoint State",
 					Type:        "string",
 					Description: "Endpoint current state",
