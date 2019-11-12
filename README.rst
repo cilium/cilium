@@ -219,7 +219,7 @@ Further information about BPF and XDP targeted for developers can be found in
 the `BPF and XDP Reference Guide`_.
 
 To know more about Cilium, it's extensions and use cases around Cilium and BPF
-take a look at `Further Readings <FURTHER_READINGS.md>`_ section.
+take a look at `Further Readings <FURTHER_READINGS.rst>`_ section.
 
 Community
 =========
