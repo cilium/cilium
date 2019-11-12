@@ -194,6 +194,7 @@ type DirectionalVisibilityPolicy map[string]*VisibilityMetadata
 type VisibilityPolicy struct {
 	Ingress DirectionalVisibilityPolicy
 	Egress  DirectionalVisibilityPolicy
+	Error   error
 }
 
 // CopyL7RulesPerEndpoint returns a shallow copy of the L7Metadata of the

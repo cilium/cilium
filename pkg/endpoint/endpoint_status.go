@@ -279,6 +279,19 @@ func (e *Endpoint) getEndpointPolicy() (policy *cilium_v2.EndpointPolicy) {
 	return
 }
 
+func (e *Endpoint) getEndpointVisibilityPolicyStatus() *string {
+	if e.visibilityPolicy == nil {
+		return nil
+	}
+	var str string
+	if e.visibilityPolicy.Error == nil {
+		str = "OK"
+	} else {
+		str = e.visibilityPolicy.Error.Error()
+	}
+	return &str
+}
+
 // GetCiliumEndpointStatus creates a cilium_v2.EndpointStatus of an endpoint.
 // See cilium_v2.EndpointStatus for a detailed explanation of each field.
 func (e *Endpoint) GetCiliumEndpointStatus() *cilium_v2.EndpointStatus {
@@ -294,17 +307,17 @@ func (e *Endpoint) GetCiliumEndpointStatus() *cilium_v2.EndpointStatus {
 	networking := getEndpointNetworking(modelStatus)
 
 	return &cilium_v2.EndpointStatus{
-		ID:                  int64(e.ID),
-		ExternalIdentifiers: modelStatus.ExternalIdentifiers,
-		Controllers:         controllers,
-		Identity:            identity,
-		Log:                 log,
-		Networking:          networking,
-		Health:              modelStatus.Health,
-		State:               string(modelStatus.State),
-		Policy:              e.getEndpointPolicy(),
-		Encryption:          cilium_v2.EncryptionSpec{Key: int(node.GetIPsecKeyIdentity())},
-
+		ID:                     int64(e.ID),
+		ExternalIdentifiers:    modelStatus.ExternalIdentifiers,
+		Controllers:            controllers,
+		Identity:               identity,
+		Log:                    log,
+		Networking:             networking,
+		Health:                 modelStatus.Health,
+		State:                  string(modelStatus.State),
+		Policy:                 e.getEndpointPolicy(),
+		Encryption:             cilium_v2.EncryptionSpec{Key: int(node.GetIPsecKeyIdentity())},
+		VisibilityPolicyStatus: e.getEndpointVisibilityPolicyStatus(),
 		// Scheduled for deprecation in 1.5
 		//
 		// Status is deprecated but we have some users depending on

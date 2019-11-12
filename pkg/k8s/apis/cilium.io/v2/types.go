@@ -369,6 +369,8 @@ type EndpointStatus struct {
 
 	Policy *EndpointPolicy `json:"policy,omitempty"`
 
+	VisibilityPolicyStatus *string `json:"visibility-policy-status,omitempty"`
+
 	// State is the state of the endpoint
 	//
 	// States are:
