@@ -314,7 +314,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	c, err = client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
 	if err != nil {
-		err = fmt.Errorf("unable to connect to Cilium daemon: %s", err)
+		err = fmt.Errorf("unable to connect to Cilium daemon: %s", client.Hint(err))
 		return
 	}
 
@@ -570,7 +570,7 @@ func cmdDel(args *skel.CmdArgs) error {
 	c, err := client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
 	if err != nil {
 		// this error can be recovered from
-		return fmt.Errorf("unable to connect to Cilium daemon: %s", err)
+		return fmt.Errorf("unable to connect to Cilium daemon: %s", client.Hint(err))
 	}
 
 	if chainAction := chainingapi.Lookup(n.Name); chainAction != nil {
