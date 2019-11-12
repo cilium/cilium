@@ -52,9 +52,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		knpAllowIngress      string
 		knpAllowEgress       string
 		cnpMatchExpression   string
-		app1Service          = "app1-service"
-		microscopeErr        error
-		microscopeCancel                        = func() error { return nil }
+		app1Service                             = "app1-service"
 		backgroundCancel     context.CancelFunc = func() { return }
 		backgroundError      error
 		apps                 = []string{helpers.App1, helpers.App2, helpers.App3}
@@ -96,16 +94,12 @@ var _ = Describe("K8sPolicyTest", func() {
 	})
 
 	JustBeforeEach(func() {
-		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
-		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
-
 		backgroundCancel, backgroundError = kubectl.BackgroundReport("uptime")
 		Expect(backgroundError).To(BeNil(), "Cannot start background report process")
 	})
 
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
-		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
 		backgroundCancel()
 	})
 

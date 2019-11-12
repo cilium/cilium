@@ -25,15 +25,13 @@ import (
 
 	"github.com/asaskevich/govalidator"
 	. "github.com/onsi/gomega"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 var _ = Describe("K8sServicesTest", func() {
 	var (
 		kubectl                *helpers.Kubectl
-		serviceName            = "app1-service"
-		microscopeErr          error
-		microscopeCancel                          = func() error { return nil }
+		serviceName                               = "app1-service"
 		backgroundCancel       context.CancelFunc = func() { return }
 		backgroundError        error
 		enableBackgroundReport = true
@@ -67,8 +65,6 @@ var _ = Describe("K8sServicesTest", func() {
 	})
 
 	JustBeforeEach(func() {
-		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
-		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
 		if enableBackgroundReport {
 			backgroundCancel, backgroundError = kubectl.BackgroundReport("uptime")
 			Expect(backgroundError).To(BeNil(), "Cannot start background report process")
@@ -77,7 +73,6 @@ var _ = Describe("K8sServicesTest", func() {
 
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
-		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
 		backgroundCancel()
 	})
 

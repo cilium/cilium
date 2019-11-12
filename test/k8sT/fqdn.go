@@ -27,8 +27,6 @@ import (
 var _ = Describe("K8sFQDNTest", func() {
 	var (
 		kubectl          *helpers.Kubectl
-		microscopeErr    error
-		microscopeCancel                    = func() error { return nil }
 		backgroundCancel context.CancelFunc = func() { return }
 		backgroundError  error
 
@@ -84,15 +82,12 @@ var _ = Describe("K8sFQDNTest", func() {
 	})
 
 	JustBeforeEach(func() {
-		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
-		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
 		backgroundCancel, backgroundError = kubectl.BackgroundReport("uptime")
 		Expect(backgroundError).To(BeNil(), "Cannot start background report process")
 	})
 
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
-		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
 		backgroundCancel()
 	})
 
