@@ -21,6 +21,7 @@ Cheng
 Chewbacca
 Chun
 Cloudflare
+Clusterwide
 DDoS
 DMA'ed
 DNS
@@ -378,6 +379,7 @@ multicore
 multinode
 mysql
 namespace
+namespaced
 namespaces
 nat
 natively
