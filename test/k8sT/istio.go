@@ -70,9 +70,8 @@ var _ = Describe("K8sIstioTest", func() {
 		// do not provide curl.
 		wgetCommand = fmt.Sprintf("wget --tries=2 --connect-timeout %d", helpers.CurlConnectTimeout)
 
-		kubectl          *helpers.Kubectl
-		microscopeCancel = func() error { return nil }
-		uptimeCancel     context.CancelFunc
+		kubectl      *helpers.Kubectl
+		uptimeCancel context.CancelFunc
 
 		teardownTimeout = 10 * time.Minute
 	)
@@ -127,15 +126,11 @@ var _ = Describe("K8sIstioTest", func() {
 
 	JustBeforeEach(func() {
 		var err error
-		err, microscopeCancel = kubectl.MicroscopeStart()
-		Expect(err).To(BeNil(), "Microscope cannot be started")
-
 		uptimeCancel, err = kubectl.BackgroundReport("uptime")
 		Expect(err).To(BeNil(), "Cannot start background report process")
 	})
 
 	JustAfterEach(func() {
-		Expect(microscopeCancel()).To(BeNil(), "Cannot stop microscope")
 		uptimeCancel()
 
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)

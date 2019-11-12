@@ -178,7 +178,6 @@ const (
 	ciliumDeveloperImage     = "%s/cilium/cilium-dev:latest"
 
 	MonitorLogFileName = "monitor.log"
-	microscopeManifest = "microscope.yaml"
 
 	// CiliumTestLog is the filename where the cilium logs that happens during
 	// the test are saved.

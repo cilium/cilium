@@ -56,9 +56,6 @@ const (
 	// https://github.com/kubernetes/dns/blob/80fdd88276adba36a87c4f424b66fdf37cd7c9a8/pkg/dns/dns.go#L53
 	DNSHelperTimeout = 7 * time.Minute
 
-	// EnableMicroscope is true when microscope should be enabled
-	EnableMicroscope = false
-
 	// CIIntegrationFlannel contains the constant to be used when flannel is
 	// used in the CI.
 	CIIntegrationFlannel = "flannel"
@@ -500,70 +497,6 @@ func (kub *Kubectl) GetServiceHostPort(namespace string, service string) (string
 func (kub *Kubectl) Logs(namespace string, pod string) *CmdRes {
 	return kub.Exec(
 		fmt.Sprintf("%s -n %s logs %s", KubectlCmd, namespace, pod))
-}
-
-// MicroscopeStart installs (if it is not installed) a new microscope pod,
-// waits until pod is ready, and runs microscope in background. It returns an
-// error in the case where microscope cannot be installed, or it is not ready after
-// a timeout. It also returns a callback function to stop the monitor and save
-// the output to `helpers.monitorLogFileName` file. Takes an optional list of
-// arguments to pass to mircoscope.
-func (kub *Kubectl) MicroscopeStart(microscopeOptions ...string) (error, func() error) {
-	if !EnableMicroscope {
-		return nil, func() error { return nil }
-	}
-
-	microscope := "microscope"
-	var microscopeCmd string
-	if len(microscopeOptions) == 0 {
-		microscopeCmd = "microscope"
-	} else {
-		microscopeCmd = fmt.Sprintf("%s %s", microscope, strings.Join(microscopeOptions, " "))
-	}
-	var microscopeCmdWithTimestamps = microscopeCmd + "| ts '[%Y-%m-%d %H:%M:%S]'"
-	var cb = func() error { return nil }
-	cmd := fmt.Sprintf("%[1]s -ti -n %[2]s exec %[3]s -- %[4]s",
-		KubectlCmd, KubeSystemNamespace, microscope, microscopeCmdWithTimestamps)
-	microscopePath := ManifestGet(kub.BasePath(), microscopeManifest)
-	_ = kub.ApplyDefault(microscopePath)
-
-	err := kub.WaitforPods(
-		KubeSystemNamespace,
-		fmt.Sprintf("-l k8s-app=%s", microscope),
-		HelperTimeout)
-	if err != nil {
-		return err, cb
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	res := kub.ExecInBackground(ctx, cmd, ExecOptions{SkipLog: true})
-
-	cb = func() error {
-		cancel()
-		<-ctx.Done()
-		testPath, err := CreateReportDirectory()
-		if err != nil {
-			kub.Logger().WithError(err).Errorf(
-				"cannot create test results path '%s'", testPath)
-			return err
-		}
-
-		err = WriteOrAppendToFile(
-			filepath.Join(testPath, MonitorLogFileName),
-			res.CombineOutput().Bytes(),
-			LogPerm)
-		if err != nil {
-			log.WithError(err).Errorf("cannot create monitor log file")
-			return err
-		}
-		res := kub.Exec(fmt.Sprintf("%s -n %s delete pod --grace-period=0 --force microscope", KubectlCmd, KubeSystemNamespace))
-		if !res.WasSuccessful() {
-			return fmt.Errorf("error deleting microscope pod: %s", res.OutputPrettyPrint())
-		}
-		return nil
-	}
-
-	return nil, cb
 }
 
 // MonitorStart runs cilium monitor in the background and dumps the contents
