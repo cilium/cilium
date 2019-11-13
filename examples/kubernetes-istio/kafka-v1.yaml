@@ -59,11 +59,14 @@ specs:
           - apiKey: "offsetfetch"
           - apiKey: "heartbeat"
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: kafka-v1
 spec:
+  selector:
+    matchLabels:
+      app: kafka
   serviceName: kafka
   replicas: 1
   template:
