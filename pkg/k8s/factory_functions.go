@@ -205,10 +205,29 @@ func AnnotationsEqual(relevantAnnotations []string, anno1, anno2 map[string]stri
 	return true
 }
 
+func EqualV1PodContainers(c1, c2 types.PodContainer) bool {
+	if c1.Name != c2.Name ||
+		c1.Image != c2.Image {
+		return false
+	}
+
+	if len(c1.VolumeMountsPaths) != len(c2.VolumeMountsPaths) {
+		return false
+	}
+	for i, vlmMount1 := range c1.VolumeMountsPaths {
+		if vlmMount1 != c2.VolumeMountsPaths[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func EqualV1Pod(pod1, pod2 *types.Pod) bool {
 	// We only care about the HostIP, the PodIP and the labels of the pods.
 	if pod1.StatusPodIP != pod2.StatusPodIP ||
-		pod1.StatusHostIP != pod2.StatusHostIP {
+		pod1.StatusHostIP != pod2.StatusHostIP ||
+		pod1.SpecServiceAccountName != pod2.SpecServiceAccountName ||
+		pod1.SpecHostNetwork != pod2.SpecHostNetwork {
 		return false
 	}
 
@@ -218,7 +237,19 @@ func EqualV1Pod(pod1, pod2 *types.Pod) bool {
 
 	oldPodLabels := pod1.GetLabels()
 	newPodLabels := pod2.GetLabels()
-	return comparator.MapStringEquals(oldPodLabels, newPodLabels)
+	if !comparator.MapStringEquals(oldPodLabels, newPodLabels) {
+		return false
+	}
+
+	if len(pod1.SpecContainers) != len(pod2.SpecContainers) {
+		return false
+	}
+	for i, c1 := range pod1.SpecContainers {
+		if !EqualV1PodContainers(c1, pod2.SpecContainers[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 func EqualV1Node(node1, node2 *types.Node) bool {
@@ -536,6 +567,19 @@ func ConvertToCNP(obj interface{}) interface{} {
 func ConvertToPod(obj interface{}) interface{} {
 	switch concreteObj := obj.(type) {
 	case *v1.Pod:
+		var containers []types.PodContainer
+		for _, c := range concreteObj.Spec.Containers {
+			var vmps []string
+			for _, cvm := range c.VolumeMounts {
+				vmps = append(vmps, cvm.MountPath)
+			}
+			pc := types.PodContainer{
+				Name:              c.Name,
+				Image:             c.Image,
+				VolumeMountsPaths: vmps,
+			}
+			containers = append(containers, pc)
+		}
 		p := &types.Pod{
 			TypeMeta:        concreteObj.TypeMeta,
 			ObjectMeta:      concreteObj.ObjectMeta,
@@ -549,6 +593,19 @@ func ConvertToPod(obj interface{}) interface{} {
 		pod, ok := concreteObj.Obj.(*v1.Pod)
 		if !ok {
 			return obj
+		}
+		var containers []types.PodContainer
+		for _, c := range pod.Spec.Containers {
+			var vmps []string
+			for _, cvm := range c.VolumeMounts {
+				vmps = append(vmps, cvm.MountPath)
+			}
+			pc := types.PodContainer{
+				Name:              c.Name,
+				Image:             c.Image,
+				VolumeMountsPaths: vmps,
+			}
+			containers = append(containers, pc)
 		}
 		dfsu := cache.DeletedFinalStateUnknown{
 			Key: concreteObj.Key,
