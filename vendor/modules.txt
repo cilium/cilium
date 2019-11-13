@@ -378,7 +378,7 @@ github.com/spf13/jwalterweatherman
 github.com/spf13/pflag
 # github.com/spf13/viper v1.4.0 => github.com/spf13/viper v1.4.0
 github.com/spf13/viper
-# github.com/vishvananda/netlink v1.0.1-0.20191111102915-47ae870a10ed => github.com/cilium/netlink v1.0.1-0.20191111102915-47ae870a10ed
+# github.com/vishvananda/netlink v1.0.1-0.20191113183427-d71301a47b60 => github.com/vishvananda/netlink v1.0.1-0.20191113183427-d71301a47b60
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
 # github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df => github.com/vishvananda/netns v0.0.0-20190625233234-7109fa855b0f
