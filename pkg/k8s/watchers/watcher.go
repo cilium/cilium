@@ -131,6 +131,8 @@ type K8sWatcher struct {
 	// resource name is synchronized with k8s, the channel for which that
 	// resource name maps to is closed.
 	k8sResourceSynced map[string]<-chan struct{}
+	// k8sResourceSyncedStopWait contains the result of
+	k8sResourceSyncedStopWait map[string]bool
 
 	// k8sAPIs is a set of k8s API in use. They are setup in EnableK8sWatcher,
 	// and may be disabled while the agent runs.
@@ -147,6 +149,17 @@ type K8sWatcher struct {
 	policyManager       policyManager
 	policyRepository    policyRepository
 	svcManager          svcManager
+
+	// controllersStarted is a channel that is closed when all controllers, i.e.,
+	// k8s watchers have started listening for k8s events.
+	controllersStarted chan struct{}
+
+	podStoreMU lock.RWMutex
+	podStore   cache.Store
+	// podStoreSet is a channel that is closed when the podStore cache is
+	// variable is written for the first time.
+	podStoreSet  chan struct{}
+	podStoreOnce sync.Once
 }
 
 func NewK8sWatcher(
@@ -157,13 +170,16 @@ func NewK8sWatcher(
 	svcManager svcManager,
 ) *K8sWatcher {
 	return &K8sWatcher{
-		k8sResourceSynced:   map[string]<-chan struct{}{},
-		K8sSvcCache:         k8s.NewServiceCache(),
-		endpointManager:     endpointManager,
-		nodeDiscoverManager: nodeDiscoverManager,
-		policyManager:       policyManager,
-		policyRepository:    policyRepository,
-		svcManager:          svcManager,
+		k8sResourceSynced:         map[string]<-chan struct{}{},
+		k8sResourceSyncedStopWait: map[string]bool{},
+		K8sSvcCache:               k8s.NewServiceCache(),
+		endpointManager:           endpointManager,
+		nodeDiscoverManager:       nodeDiscoverManager,
+		policyManager:             policyManager,
+		policyRepository:          policyRepository,
+		svcManager:                svcManager,
+		controllersStarted:        make(chan struct{}),
+		podStoreSet:               make(chan struct{}),
 	}
 }
 
@@ -217,6 +233,12 @@ func (k *K8sWatcher) GetAPIGroups() []string {
 	return k.k8sAPIGroups.getGroups()
 }
 
+func (k *K8sWatcher) cancelWaitGroupToSyncResources(resourceName string) {
+	k.k8sResourceSyncedMu.Lock()
+	delete(k.k8sResourceSynced, resourceName)
+	k.k8sResourceSyncedMu.Unlock()
+}
+
 // blockWaitGroupToSyncResources ensures that anything which waits on waitGroup
 // waits until all objects of the specified resource stored in Kubernetes are
 // received by the informer and processed by controller.
@@ -240,14 +262,26 @@ func (k *K8sWatcher) blockWaitGroupToSyncResources(
 		if ok := cache.WaitForCacheSync(stop, informer.HasSynced); !ok {
 			select {
 			case <-stop:
-				scopedLog.Debug("canceled cache synchronization")
 				// do not fatal if the channel was stopped
+				scopedLog.Debug("canceled cache synchronization")
+				k.k8sResourceSyncedMu.Lock()
+				// Since the wait for cache sync was canceled we need
+				// to mark that k8sResourceSyncedStopWait was canceled and it
+				// should not stop waiting for this resource to be synchronized.
+				k.k8sResourceSyncedStopWait[resourceName] = false
+				k.k8sResourceSyncedMu.Unlock()
 			default:
 				// Fatally exit it resource fails to sync
 				scopedLog.Fatalf("failed to wait for cache to sync")
 			}
 		} else {
 			scopedLog.Debug("cache synced")
+			k.k8sResourceSyncedMu.Lock()
+			// Since the wait for cache sync was not canceled we need
+			// to mark that k8sResourceSyncedStopWait not canceled and it
+			// should stop waiting for this resource to be synchronized.
+			k.k8sResourceSyncedStopWait[resourceName] = true
+			k.k8sResourceSyncedMu.Unlock()
 		}
 		swg.Stop()
 		swg.Wait()
@@ -265,7 +299,25 @@ func (k *K8sWatcher) WaitForCacheSync(resourceNames ...string) {
 		if !ok {
 			continue
 		}
-		<-c
+		for {
+			scopedLog := log.WithField("kubernetesResource", resourceName)
+			<-c
+			k.k8sResourceSyncedMu.RLock()
+			stopWait := k.k8sResourceSyncedStopWait[resourceName]
+			k.k8sResourceSyncedMu.RUnlock()
+			if stopWait {
+				scopedLog.Debug("stopped waiting for caches to be synced")
+				break
+			}
+			scopedLog.Debug("original cache sync operation was aborted, waiting for caches to be synced with a new channel...")
+			time.Sleep(100 * time.Millisecond)
+			k.k8sResourceSyncedMu.RLock()
+			c, ok = k.k8sResourceSynced[resourceName]
+			k.k8sResourceSyncedMu.RUnlock()
+			if !ok {
+				break
+			}
+		}
 	}
 }
 
@@ -388,6 +440,7 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 	go k.namespacesInit(k8s.Client(), serNamespaces)
 
 	asyncControllers.Wait()
+	close(k.controllersStarted)
 
 	return nil
 }

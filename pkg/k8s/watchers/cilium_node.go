@@ -127,6 +127,7 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, serNode
 
 		log.Info("Connected to key-value store, stopping CiliumNode watcher")
 
+		k.cancelWaitGroupToSyncResources(k8sAPIGroupCiliumNodeV2)
 		k.k8sAPIGroups.removeAPI(k8sAPIGroupCiliumNodeV2)
 		// Create a new node controller when we are disconnected with the
 		// kvstore
