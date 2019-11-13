@@ -250,13 +250,20 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	}
 
 	if ep.K8sNamespaceAndPodNameIsSet() && k8s.IsEnabled() {
-		identityLabels, info, annotations, err := fetchK8sLabelsAndAnnotations(ep)
+		identityLabels, info, _, err := fetchK8sLabelsAndAnnotations(ep)
 		if err != nil {
 			ep.Logger("api").WithError(err).Warning("Unable to fetch kubernetes labels")
 		} else {
 			addLabels.MergeLabels(identityLabels)
 			infoLabels.MergeLabels(info)
-			ep.UpdateVisibilityPolicy(annotations[annotation.ProxyVisibility])
+			ep.UpdateVisibilityPolicy(func(ns, podName string) (proxyVisibility string, err error) {
+				p, err := d.k8sWatcher.GetCachedPod(ns, podName)
+				if err != nil {
+					return "", err
+				}
+
+				return p.Annotations[annotation.ProxyVisibility], nil
+			})
 		}
 	}
 

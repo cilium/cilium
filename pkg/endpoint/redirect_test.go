@@ -166,7 +166,9 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	ep.SetIdentity(epIdentity, true)
 
 	firstAnno := "<Ingress/80/TCP/HTTP>"
-	ep.UpdateVisibilityPolicy(firstAnno)
+	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
+		return firstAnno, nil
+	})
 	err = ep.regeneratePolicy()
 	c.Assert(err, check.IsNil)
 
@@ -187,7 +189,9 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 
 	secondAnno := "<Ingress/80/TCP/Kafka>"
 
-	ep.UpdateVisibilityPolicy(secondAnno)
+	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
+		return secondAnno, nil
+	})
 	d, err, _, _ := ep.addNewRedirects(cmp)
 	c.Assert(err, check.IsNil)
 	v, ok = ep.desiredPolicy.PolicyMapState[policy.Key{
@@ -203,7 +207,9 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	thirdAnno := "<Ingress/80/TCP/Kafka>,<Egress/80/TCP/HTTP>"
 
 	// Check that multiple values in annotation are handled correctly.
-	ep.UpdateVisibilityPolicy(thirdAnno)
+	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
+		return thirdAnno, nil
+	})
 	_, err, _, _ = ep.addNewRedirects(cmp)
 	c.Assert(err, check.IsNil)
 	v, ok = ep.desiredPolicy.PolicyMapState[policy.Key{
@@ -246,7 +252,9 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 
 	// Check that all redirects are removed when no visibility policy applies.
 	noAnno := ""
-	ep.UpdateVisibilityPolicy(noAnno)
+	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
+		return noAnno, nil
+	})
 	d, err, _, _ = ep.addNewRedirects(cmp)
 	c.Assert(err, check.IsNil)
 	ep.removeOldRedirects(d, cmp)

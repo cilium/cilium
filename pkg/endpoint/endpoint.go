@@ -1508,12 +1508,18 @@ func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 	e.controllers.UpdateController(controllerName,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				identityLabels, info, annotations, err := resolveMetadata(e)
+				identityLabels, info, _, err := resolveMetadata(e)
 				if err != nil {
 					e.Logger(controllerName).WithError(err).Warning("Unable to fetch kubernetes labels")
 					return err
 				}
-				e.UpdateVisibilityPolicy(annotations[annotation.ProxyVisibility])
+				e.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
+					_, _, annotations, err := resolveMetadata(e)
+					if err != nil {
+						return "", err
+					}
+					return annotations[annotation.ProxyVisibility], nil
+				})
 				e.UpdateLabels(ctx, identityLabels, info, true)
 				close(done)
 				return nil
