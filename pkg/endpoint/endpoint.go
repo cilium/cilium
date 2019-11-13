@@ -1487,7 +1487,7 @@ func (e *Endpoint) getIDandLabels() string {
 
 // MetadataResolverCB provides an implementation for resolving the endpoint
 // metadata for an endpoint such as the associated labels and annotations.
-type MetadataResolverCB func(*Endpoint) (identityLabels labels.Labels, infoLabels labels.Labels, annotations map[string]string, err error)
+type MetadataResolverCB func(ns, podName string) (identityLabels labels.Labels, infoLabels labels.Labels, annotations map[string]string, err error)
 
 // RunMetadataResolver starts a controller associated with the received
 // endpoint which will periodically attempt to resolve the metadata for the
@@ -1508,13 +1508,14 @@ func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 	e.controllers.UpdateController(controllerName,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				identityLabels, info, _, err := resolveMetadata(e)
+				ns, podName := e.GetK8sNamespace(), e.GetK8sPodName()
+				identityLabels, info, _, err := resolveMetadata(ns, podName)
 				if err != nil {
 					e.Logger(controllerName).WithError(err).Warning("Unable to fetch kubernetes labels")
 					return err
 				}
 				e.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
-					_, _, annotations, err := resolveMetadata(e)
+					_, _, annotations, err := resolveMetadata(ns, podName)
 					if err != nil {
 						return "", err
 					}
