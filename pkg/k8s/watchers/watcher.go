@@ -160,6 +160,8 @@ type K8sWatcher struct {
 	// variable is written for the first time.
 	podStoreSet  chan struct{}
 	podStoreOnce sync.Once
+
+	namespaceStore cache.Store
 }
 
 func NewK8sWatcher(
@@ -436,8 +438,9 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 	go k.podsInit(k8s.Client(), serPods, asyncControllers)
 
 	// kubernetes namespaces
+	asyncControllers.Add(1)
 	serNamespaces := serializer.NewFunctionQueue(queueSize)
-	go k.namespacesInit(k8s.Client(), serNamespaces)
+	go k.namespacesInit(k8s.Client(), serNamespaces, asyncControllers)
 
 	asyncControllers.Wait()
 	close(k.controllersStarted)

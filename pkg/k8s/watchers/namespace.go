@@ -16,6 +16,7 @@ package watchers
 
 import (
 	"errors"
+	"sync"
 
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -23,20 +24,25 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/serializer"
 
 	v1 "k8s.io/api/core/v1"
+	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
 
-func (k *K8sWatcher) namespacesInit(k8sClient kubernetes.Interface, serNamespaces *serializer.FunctionQueue) {
+func (k *K8sWatcher) namespacesInit(k8sClient kubernetes.Interface, serNamespaces *serializer.FunctionQueue, asyncControllers *sync.WaitGroup) {
 
-	_, namespaceController := informer.NewInformer(
+	swgNamespaces := lock.NewStoppableWaitGroup()
+	namespaceStore, namespaceController := informer.NewInformer(
 		cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
 			"namespaces", v1.NamespaceAll, fields.Everything()),
 		&v1.Namespace{},
@@ -57,7 +63,9 @@ func (k *K8sWatcher) namespacesInit(k8sClient kubernetes.Interface, serNamespace
 							return
 						}
 
+						swgNamespaces.Add()
 						serNamespaces.Enqueue(func() error {
+							defer swgNamespaces.Done()
 							err := k.updateK8sV1Namespace(oldNS, newNS)
 							k.K8sEventProcessed(metricNS, metricUpdate, err == nil)
 							return nil
@@ -69,8 +77,11 @@ func (k *K8sWatcher) namespacesInit(k8sClient kubernetes.Interface, serNamespace
 		k8s.ConvertToNamespace,
 	)
 
-	namespaceController.Run(wait.NeverStop)
+	k.namespaceStore = namespaceStore
+	k.blockWaitGroupToSyncResources(wait.NeverStop, swgNamespaces, namespaceController, k8sAPIGroupNamespaceV1Core)
 	k.k8sAPIGroups.addAPI(k8sAPIGroupNamespaceV1Core)
+	asyncControllers.Done()
+	namespaceController.Run(wait.NeverStop)
 }
 
 func (k *K8sWatcher) updateK8sV1Namespace(oldNS, newNS *types.Namespace) error {
@@ -116,4 +127,26 @@ func (k *K8sWatcher) updateK8sV1Namespace(oldNS, newNS *types.Namespace) error {
 		return errors.New("unable to update some endpoints with new namespace labels")
 	}
 	return nil
+}
+
+// GetCachedNamespace returns a namespace from the local store.
+func (k *K8sWatcher) GetCachedNamespace(namespace string) (*types.Namespace, error) {
+	<-k.controllersStarted
+	k.WaitForCacheSync(k8sAPIGroupNamespaceV1Core)
+	nsName := &types.Namespace{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: namespace,
+		},
+	}
+	namespaceInterface, exists, err := k.namespaceStore.Get(nsName)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, k8s_errors.NewNotFound(schema.GroupResource{
+			Group:    "core",
+			Resource: "namespace",
+		}, namespace)
+	}
+	return namespaceInterface.(*types.Namespace).DeepCopy(), nil
 }
