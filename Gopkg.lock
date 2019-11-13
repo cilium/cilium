@@ -144,7 +144,7 @@
     "go/envoy/type/matcher",
   ]
   pruneopts = "NUT"
-  revision = "c6d564bb08632a09947bfe224096379df4775ccd"
+  revision = "4c7b379792e67b2cf059cbe6509a6e56f4cda4f4"
 
 [[projects]]
   digest = "1:e60eba203be0ebc6e9deeb000459ca686e28029cc564e3cf9432faa908c287a7"
