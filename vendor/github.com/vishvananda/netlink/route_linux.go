@@ -599,7 +599,7 @@ func (h *Handle) routeHandle(route *Route, req *nl.NetlinkRequest, msg *nl.RtMsg
 			if nh.Encap != nil {
 				buf := make([]byte, 2)
 				native.PutUint16(buf, uint16(nh.Encap.Type()))
-				rtAttrs = append(rtAttrs, nl.NewRtAttr(unix.RTA_ENCAP_TYPE, buf))
+				children = append(children, nl.NewRtAttr(unix.RTA_ENCAP_TYPE, buf))
 				buf, err := nh.Encap.Encode()
 				if err != nil {
 					return err
