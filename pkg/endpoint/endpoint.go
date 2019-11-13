@@ -291,6 +291,9 @@ type Endpoint struct {
 	aliveCtx        context.Context
 	aliveCancel     context.CancelFunc
 	regenFailedChan chan struct{}
+	// exposed is a channel that is closed when the endpoint is exposed in the
+	// endpoint manager.
+	exposed chan struct{}
 
 	allocator cache.IdentityAllocator
 }
@@ -402,6 +405,7 @@ func NewEndpointWithState(owner regeneration.Owner, proxy EndpointProxy, allocat
 		desiredPolicy:   policy.NewEndpointPolicy(owner.GetPolicyRepository()),
 		regenFailedChan: make(chan struct{}, 1),
 		allocator:       allocator,
+		exposed:         make(chan struct{}),
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -719,6 +723,7 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, strEp string) 
 	ep.realizedPolicy = ep.desiredPolicy
 	ep.controllers = controller.NewManager()
 	ep.regenFailedChan = make(chan struct{}, 1)
+	ep.exposed = make(chan struct{})
 
 	ctx, cancel := context.WithCancel(ctx)
 	ep.aliveCancel = cancel
@@ -2237,4 +2242,19 @@ func (e *Endpoint) setDefaultPolicyConfig() {
 	alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
 	e.desiredPolicy.IngressPolicyEnabled = alwaysEnforce
 	e.desiredPolicy.EgressPolicyEnabled = alwaysEnforce
+}
+
+// WaitUntilExposed will return once the endpoint is exposed in the endpoint
+// manager. It returns an error in case the given context expires of if the
+// endpoint is deleted in the meanwhile, i.e., the endpoint's aliveCtx is
+// canceled.
+func (e *Endpoint) WaitUntilExposed(ctx context.Context) error {
+	select {
+	case <-e.exposed:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-e.aliveCtx.Done():
+		return e.aliveCtx.Err()
+	}
 }

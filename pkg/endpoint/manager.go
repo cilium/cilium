@@ -40,6 +40,7 @@ func (e *Endpoint) Expose(mgr endpointManager) error {
 	if err != nil {
 		return err
 	}
+	defer close(e.exposed)
 
 	e.ID = newID
 	e.UpdateLogger(map[string]interface{}{

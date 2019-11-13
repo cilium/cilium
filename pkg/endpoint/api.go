@@ -89,6 +89,7 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 		controllers:      controller.NewManager(),
 		regenFailedChan:  make(chan struct{}, 1),
 		allocator:        allocator,
+		exposed:          make(chan struct{}),
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
