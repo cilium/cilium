@@ -82,7 +82,7 @@ require (
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.4.0
-	github.com/vishvananda/netlink v1.0.1-0.20191111102915-47ae870a10ed
+	github.com/vishvananda/netlink v1.0.1-0.20191113183427-d71301a47b60
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20190911215424-9ed5f76dc03b
 	go.mongodb.org/mongo-driver v1.1.2 // indirect
 	go.uber.org/multierr v1.2.0 // indirect
@@ -497,7 +497,7 @@ replace (
 	github.com/ugorji/go => github.com/ugorji/go v1.1.4
 	github.com/urfave/cli => github.com/urfave/cli v1.20.0
 	github.com/urfave/negroni => github.com/urfave/negroni v1.0.0
-	github.com/vishvananda/netlink => github.com/cilium/netlink v1.0.1-0.20191111102915-47ae870a10ed
+	github.com/vishvananda/netlink => github.com/vishvananda/netlink v1.0.1-0.20191113183427-d71301a47b60
 	github.com/vishvananda/netns => github.com/vishvananda/netns v0.0.0-20190625233234-7109fa855b0f
 	github.com/vmware/govmomi => github.com/vmware/govmomi v0.20.1
 	github.com/xiang90/probing => github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2
