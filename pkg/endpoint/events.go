@@ -17,6 +17,7 @@ package endpoint
 import (
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/sirupsen/logrus"
 )
@@ -111,4 +112,76 @@ func (e *Endpoint) PolicyRevisionBumpEvent(rev uint64) {
 			logfields.EndpointID:     e.ID,
 		}).Errorf("enqueue of EndpointRevisionBumpEvent failed: %s", err)
 	}
+}
+
+// EndpointPolicyVisibilityEvent contains all fields necessary to update the
+// visibility policy.
+type EndpointPolicyVisibilityEvent struct {
+	ep     *Endpoint
+	annoCB AnnotationsResolverCB
+}
+
+// EndpointPolicyVisibilityEventResult contains the results of doing an update
+// of the visibility policy.
+type EndpointPolicyVisibilityEventResult struct {
+	err error
+}
+
+// Handle handles the policy visibility update.
+func (ev *EndpointPolicyVisibilityEvent) Handle(res chan interface{}) {
+	e := ev.ep
+
+	if err := e.lockAlive(); err != nil {
+		// If the endpoint is being deleted, we don't need to update its
+		// visibility policy.
+		res <- &EndpointRegenerationResult{
+			err: nil,
+		}
+		return
+	}
+
+	defer func() {
+		// Ensure that policy computation is performed so that endpoint
+		// desiredPolicy and realizedPolicy pointers are different. This state
+		// is needed to update endpoint policy maps with the policy map state
+		// generated from the visibility policy. This can, and should be more
+		// elegant in the future.
+		e.forcePolicyComputation()
+		e.unlock()
+	}()
+
+	var (
+		nvp *policy.VisibilityPolicy
+		err error
+	)
+
+	proxyVisibility, err := ev.annoCB(e.K8sNamespace, e.K8sPodName)
+	if err != nil {
+		res <- &EndpointRegenerationResult{
+			err: err,
+		}
+		return
+	}
+	if proxyVisibility != "" {
+		e.getLogger().Debug("creating visibility policy")
+		nvp, err = policy.NewVisibilityPolicy(proxyVisibility)
+		if err != nil {
+			e.getLogger().WithError(err).Warning("unable to parse annotations into visibility policy; disabling visibility policy for endpoint")
+			e.visibilityPolicy = &policy.VisibilityPolicy{
+				Ingress: make(policy.DirectionalVisibilityPolicy),
+				Egress:  make(policy.DirectionalVisibilityPolicy),
+				Error:   err,
+			}
+			res <- &EndpointRegenerationResult{
+				err: nil,
+			}
+			return
+		}
+	}
+
+	e.visibilityPolicy = nvp
+	res <- &EndpointRegenerationResult{
+		err: nil,
+	}
+	return
 }

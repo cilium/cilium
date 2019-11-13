@@ -223,7 +223,13 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *types.Pod) error {
 	}
 
 	if annotationsChanged {
-		podEP.UpdateVisibilityPolicy(newAnno[annotation.ProxyVisibility])
+		podEP.UpdateVisibilityPolicy(func(ns, podName string) (proxyVisibility string, err error) {
+			p, err := k.GetCachedPod(ns, podName)
+			if err != nil {
+				return "", nil
+			}
+			return p.Annotations[annotation.ProxyVisibility], nil
+		})
 		realizePodAnnotationUpdate(podEP)
 	}
 	return nil

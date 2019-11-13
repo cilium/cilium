@@ -20,15 +20,20 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/testutils/allocator"
 	"github.com/cilium/cilium/pkg/u8proto"
+
 	"gopkg.in/check.v1"
 )
 
 func (s *EndpointSuite) TestUpdateVisibilityPolicy(c *check.C) {
 	ep := NewEndpointWithState(&DummyOwner{repo: policy.NewPolicyRepository(nil)}, nil, &allocator.FakeIdentityAllocator{}, 12345, StateReady)
-	ep.UpdateVisibilityPolicy("")
+	ep.UpdateVisibilityPolicy(func(_, _ string) (string, error) {
+		return "", nil
+	})
 	c.Assert(ep.visibilityPolicy, check.IsNil)
 
-	ep.UpdateVisibilityPolicy("<Ingress/80/TCP/HTTP>")
+	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
+		return "<Ingress/80/TCP/HTTP>", nil
+	})
 
 	c.Assert(ep.visibilityPolicy, check.Not(check.Equals), nil)
 	c.Assert(ep.visibilityPolicy.Ingress["80/TCP"], check.DeepEquals, &policy.VisibilityMetadata{
@@ -39,6 +44,8 @@ func (s *EndpointSuite) TestUpdateVisibilityPolicy(c *check.C) {
 	})
 
 	// Check that updating after previously having value works.
-	ep.UpdateVisibilityPolicy("")
+	ep.UpdateVisibilityPolicy(func(_, _ string) (string, error) {
+		return "", nil
+	})
 	c.Assert(ep.visibilityPolicy, check.IsNil)
 }

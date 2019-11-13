@@ -731,47 +731,18 @@ func (e *Endpoint) GetCIDRPrefixLengths() (s6, s4 []int) {
 	return e.desiredPolicy.CIDRPolicy.ToBPFData()
 }
 
+// AnnotationsResolverCB provides an implementation for resolving the pod
+// annotations.
+type AnnotationsResolverCB func(ns, podName string) (proxyVisibility string, err error)
+
 // UpdateVisibilityPolicy updates the visibility policy of this endpoint to
 // reflect the state stored in the provided proxy visibility annotation. If anno
 // is empty, then the VisibilityPolicy for the Endpoint will be empty, and will
 // have no effect. If the proxy visibility annotation cannot be parsed, an empty
 // visibility policy is assigned to the Endpoint.
-func (e *Endpoint) UpdateVisibilityPolicy(anno string) {
-	if err := e.lockAlive(); err != nil {
-		// If the endpoint is being deleted, we don't need to update its
-		// visibility policy.
-		return
-	}
-
-	defer func() {
-		// Ensure that policy computation is performed so that endpoint
-		// desiredPolicy and realizedPolicy pointers are different. This state
-		// is needed to update endpoint policy maps with the policy map state
-		// generated from the visibility policy. This can, and should be more
-		// elegant in the future.
-		e.forcePolicyComputation()
-		e.unlock()
-	}()
-
-	var (
-		nvp *policy.VisibilityPolicy
-		err error
-	)
-
-	if anno != "" {
-		e.getLogger().Debug("creating visibility policy")
-		nvp, err = policy.NewVisibilityPolicy(anno)
-		if err != nil {
-			e.getLogger().WithError(err).Warning("unable to parse annotations into visibility policy; disabling visibility policy for endpoint")
-			e.visibilityPolicy = &policy.VisibilityPolicy{
-				Ingress: make(policy.DirectionalVisibilityPolicy),
-				Egress:  make(policy.DirectionalVisibilityPolicy),
-				Error:   err,
-			}
-			return
-		}
-	}
-
-	e.visibilityPolicy = nvp
-	return
+func (e *Endpoint) UpdateVisibilityPolicy(annoCB AnnotationsResolverCB) {
+	e.eventQueue.Enqueue(eventqueue.NewEvent(&EndpointPolicyVisibilityEvent{
+		ep:     e,
+		annoCB: annoCB,
+	}))
 }

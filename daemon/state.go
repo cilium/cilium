@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/connector"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -35,7 +36,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type endpointRestoreState struct {
@@ -69,17 +69,43 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 	}
 
 	if ep.K8sPodName != "" && ep.K8sNamespace != "" && k8s.IsEnabled() {
-		p, err := k8s.Client().CoreV1().Pods(ep.K8sNamespace).Get(ep.K8sPodName, meta_v1.GetOptions{})
-		if err != nil && k8serrors.IsNotFound(err) {
-			return false, fmt.Errorf("kubernetes pod not found")
-		}
-		if err == nil {
+		go func() {
+			_, err = d.k8sWatcher.GetCachedPod(ep.K8sNamespace, ep.K8sPodName)
+			if err != nil && k8serrors.IsNotFound(err) {
+				err := ep.Exposed(context.Background())
+				if err != nil {
+					// If an error has happen it's because the endpoint is not alive
+					return
+				}
+				scopedLog := log.WithFields(logrus.Fields{
+					logfields.EndpointID:   ep.ID,
+					logfields.K8sNamespace: ep.K8sNamespace,
+					logfields.K8sPodName:   ep.K8sPodName,
+				})
+				scopedLog.Warningf("kubernetes pod not found, deleting endpoint from endpoint manager")
+				errs := d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
+					// If the IP is managed by an external IPAM, it does not need to be released
+					NoIPRelease: ep.DatapathConfiguration.ExternalIpam,
+				})
+				for _, err := range errs {
+					scopedLog.WithError(err).Warningf("Error deleting endpoint")
+				}
+				return
+			}
+
 			// We were able to get the pod. Given that we get the entire pod
 			// object, including annotations in the above API call, update
 			// the Endpoint's visibility policy accordingly so we don't have
 			// to make another API call later.
-			ep.UpdateVisibilityPolicy(p.Annotations[annotation.ProxyVisibility])
-		}
+			ep.UpdateVisibilityPolicy(func(ns, podName string) (proxyVisibility string, err error) {
+				p, err := d.k8sWatcher.GetCachedPod(ns, podName)
+				if err != nil {
+					return "", err
+				}
+
+				return p.Annotations[annotation.ProxyVisibility], nil
+			})
+		}()
 	}
 
 	if err := ep.ValidateConnectorPlumbing(connector.CheckLink); err != nil {
