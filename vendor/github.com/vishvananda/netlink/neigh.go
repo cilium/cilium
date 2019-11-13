@@ -17,6 +17,7 @@ type Neigh struct {
 	LLIPAddr     net.IP //Used in the case of NHRP
 	Vlan         int
 	VNI          int
+	MasterIndex  int
 }
 
 // String returns $ip/$hwaddr $label

@@ -519,18 +519,18 @@ func (h *Handle) routeHandle(route *Route, req *nl.NetlinkRequest, msg *nl.RtMsg
 		if err != nil {
 			return err
 		}
-		rtAttrs = append(rtAttrs, nl.NewRtAttr(nl.RTA_NEWDST, buf))
+		rtAttrs = append(rtAttrs, nl.NewRtAttr(unix.RTA_NEWDST, buf))
 	}
 
 	if route.Encap != nil {
 		buf := make([]byte, 2)
 		native.PutUint16(buf, uint16(route.Encap.Type()))
-		rtAttrs = append(rtAttrs, nl.NewRtAttr(nl.RTA_ENCAP_TYPE, buf))
+		rtAttrs = append(rtAttrs, nl.NewRtAttr(unix.RTA_ENCAP_TYPE, buf))
 		buf, err := route.Encap.Encode()
 		if err != nil {
 			return err
 		}
-		rtAttrs = append(rtAttrs, nl.NewRtAttr(nl.RTA_ENCAP, buf))
+		rtAttrs = append(rtAttrs, nl.NewRtAttr(unix.RTA_ENCAP, buf))
 	}
 
 	if route.Src != nil {
@@ -594,17 +594,17 @@ func (h *Handle) routeHandle(route *Route, req *nl.NetlinkRequest, msg *nl.RtMsg
 				if err != nil {
 					return err
 				}
-				children = append(children, nl.NewRtAttr(nl.RTA_NEWDST, buf))
+				children = append(children, nl.NewRtAttr(unix.RTA_NEWDST, buf))
 			}
 			if nh.Encap != nil {
 				buf := make([]byte, 2)
 				native.PutUint16(buf, uint16(nh.Encap.Type()))
-				rtAttrs = append(rtAttrs, nl.NewRtAttr(nl.RTA_ENCAP_TYPE, buf))
+				children = append(children, nl.NewRtAttr(unix.RTA_ENCAP_TYPE, buf))
 				buf, err := nh.Encap.Encode()
 				if err != nil {
 					return err
 				}
-				children = append(children, nl.NewRtAttr(nl.RTA_ENCAP, buf))
+				children = append(children, nl.NewRtAttr(unix.RTA_ENCAP, buf))
 			}
 			rtnh.Children = children
 			buf = append(buf, rtnh.Serialize()...)
@@ -839,7 +839,7 @@ func deserializeRoute(m []byte) (Route, error) {
 					switch attr.Attr.Type {
 					case unix.RTA_GATEWAY:
 						info.Gw = net.IP(attr.Value)
-					case nl.RTA_NEWDST:
+					case unix.RTA_NEWDST:
 						var d Destination
 						switch msg.Family {
 						case nl.FAMILY_MPLS:
@@ -849,9 +849,9 @@ func deserializeRoute(m []byte) (Route, error) {
 							return nil, nil, err
 						}
 						info.NewDst = d
-					case nl.RTA_ENCAP_TYPE:
+					case unix.RTA_ENCAP_TYPE:
 						encapType = attr
-					case nl.RTA_ENCAP:
+					case unix.RTA_ENCAP:
 						encap = attr
 					}
 				}
@@ -880,7 +880,7 @@ func deserializeRoute(m []byte) (Route, error) {
 				route.MultiPath = append(route.MultiPath, info)
 				rest = buf
 			}
-		case nl.RTA_NEWDST:
+		case unix.RTA_NEWDST:
 			var d Destination
 			switch msg.Family {
 			case nl.FAMILY_MPLS:
@@ -890,9 +890,9 @@ func deserializeRoute(m []byte) (Route, error) {
 				return route, err
 			}
 			route.NewDst = d
-		case nl.RTA_ENCAP_TYPE:
+		case unix.RTA_ENCAP_TYPE:
 			encapType = attr
-		case nl.RTA_ENCAP:
+		case unix.RTA_ENCAP:
 			encap = attr
 		case unix.RTA_METRICS:
 			metrics, err := nl.ParseRouteAttr(attr.Value)
@@ -1037,12 +1037,18 @@ func routeSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- RouteUpdate, done <
 	go func() {
 		defer close(ch)
 		for {
-			msgs, err := s.Receive()
+			msgs, from, err := s.Receive()
 			if err != nil {
 				if cberr != nil {
 					cberr(err)
 				}
 				return
+			}
+			if from.Pid != nl.PidKernel {
+				if cberr != nil {
+					cberr(fmt.Errorf("Wrong sender portid %d, expected %d", from.Pid, nl.PidKernel))
+				}
+				continue
 			}
 			for _, m := range msgs {
 				if m.Header.Type == unix.NLMSG_DONE {

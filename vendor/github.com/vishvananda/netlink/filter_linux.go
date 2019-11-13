@@ -3,6 +3,7 @@ package netlink
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"syscall"
@@ -151,8 +152,24 @@ func FilterAdd(filter Filter) error {
 // FilterAdd will add a filter to the system.
 // Equivalent to: `tc filter add $filter`
 func (h *Handle) FilterAdd(filter Filter) error {
+	return h.filterModify(filter, unix.NLM_F_CREATE|unix.NLM_F_EXCL)
+}
+
+// FilterReplace will replace a filter.
+// Equivalent to: `tc filter replace $filter`
+func FilterReplace(filter Filter) error {
+	return pkgHandle.FilterReplace(filter)
+}
+
+// FilterReplace will replace a filter.
+// Equivalent to: `tc filter replace $filter`
+func (h *Handle) FilterReplace(filter Filter) error {
+	return h.filterModify(filter, unix.NLM_F_CREATE)
+}
+
+func (h *Handle) filterModify(filter Filter, flags int) error {
 	native = nl.NativeEndian()
-	req := h.newNetlinkRequest(unix.RTM_NEWTFILTER, unix.NLM_F_CREATE|unix.NLM_F_EXCL|unix.NLM_F_ACK)
+	req := h.newNetlinkRequest(unix.RTM_NEWTFILTER, flags|unix.NLM_F_ACK)
 	base := filter.Attrs()
 	msg := &nl.TcMsg{
 		Family:  nl.FAMILY_ALL,
@@ -611,6 +628,10 @@ func parseBpfData(filter Filter, data []syscall.NetlinkRouteAttr) (bool, error) 
 			if (flags & nl.TCA_BPF_FLAG_ACT_DIRECT) != 0 {
 				bpf.DirectAction = true
 			}
+		case nl.TCA_BPF_ID:
+			bpf.Id = int(native.Uint32(datum.Value[0:4]))
+		case nl.TCA_BPF_TAG:
+			bpf.Tag = hex.EncodeToString(datum.Value[:len(datum.Value)-1])
 		}
 	}
 	return detailed, nil

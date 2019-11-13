@@ -421,7 +421,7 @@ required = [
 
 [[constraint]]
   name = "github.com/vishvananda/netlink"
-  revision = "99a56c251ae6d00ce3d73cf8ee0b9ecb94fe323b"
+  revision = "d71301a47b607450337d920f260f3dc76481298e"
 
   # main-usage = "all over the code"
   # on-revision = "last available commit and there is no stable release"
@@ -449,7 +449,7 @@ required = [
 
 [[override]]
   name = "golang.org/x/sys"
-  revision = "98c5dad5d1a0e8a73845ecc8897d0bd56586511d"
+  revision = "3b5209105503162ded1863c307ac66fec31120dd"
 
   # main-usage = "daemon, pkg/bpf, pkg/maps/ipcache"
   # on-revision = "github.com/shirou/gopsutil uses master so we override it with a particullar commit after v2.18.10 was released"

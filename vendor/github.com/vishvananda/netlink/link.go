@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 )
 
 // Link represents a link device from netlink. Shared link attributes
@@ -44,6 +45,13 @@ type LinkAttrs struct {
 	GSOMaxSize   uint32
 	GSOMaxSegs   uint32
 	Vfs          []VfInfo // virtual functions available on link
+	Group        uint32
+	Slave        LinkSlave
+}
+
+// LinkSlave represents a slave device.
+type LinkSlave interface {
+	SlaveType() string
 }
 
 // VfInfo represents configuration of virtual function
@@ -52,9 +60,11 @@ type VfInfo struct {
 	Mac       net.HardwareAddr
 	Vlan      int
 	Qos       int
-	TxRate    int
+	TxRate    int // IFLA_VF_TX_RATE  Max TxRate
 	Spoofchk  bool
 	LinkState uint32
+	MaxTxRate uint32 // IFLA_VF_RATE Max TxRate
+	MinTxRate uint32 // IFLA_VF_RATE Min TxRate
 }
 
 // LinkOperState represents the values of the IFLA_OPERSTATE link
@@ -396,9 +406,18 @@ const (
 	IPVLAN_MODE_MAX
 )
 
+type IPVlanFlag uint16
+
+const (
+	IPVLAN_FLAG_BRIDGE IPVlanFlag = iota
+	IPVLAN_FLAG_PRIVATE
+	IPVLAN_FLAG_VEPA
+)
+
 type IPVlan struct {
 	LinkAttrs
 	Mode IPVlanMode
+	Flag IPVlanFlag
 }
 
 func (ipvlan *IPVlan) Attrs() *LinkAttrs {
@@ -737,6 +756,67 @@ func (bond *Bond) Type() string {
 	return "bond"
 }
 
+// BondSlaveState represents the values of the IFLA_BOND_SLAVE_STATE bond slave
+// attribute, which contains the state of the bond slave.
+type BondSlaveState uint8
+
+const (
+	BondStateActive = iota // Link is active.
+	BondStateBackup        // Link is backup.
+)
+
+func (s BondSlaveState) String() string {
+	switch s {
+	case BondStateActive:
+		return "ACTIVE"
+	case BondStateBackup:
+		return "BACKUP"
+	default:
+		return strconv.Itoa(int(s))
+	}
+}
+
+// BondSlaveState represents the values of the IFLA_BOND_SLAVE_MII_STATUS bond slave
+// attribute, which contains the status of MII link monitoring
+type BondSlaveMiiStatus uint8
+
+const (
+	BondLinkUp   = iota // link is up and running.
+	BondLinkFail        // link has just gone down.
+	BondLinkDown        // link has been down for too long time.
+	BondLinkBack        // link is going back.
+)
+
+func (s BondSlaveMiiStatus) String() string {
+	switch s {
+	case BondLinkUp:
+		return "UP"
+	case BondLinkFail:
+		return "GOING_DOWN"
+	case BondLinkDown:
+		return "DOWN"
+	case BondLinkBack:
+		return "GOING_BACK"
+	default:
+		return strconv.Itoa(int(s))
+	}
+}
+
+type BondSlave struct {
+	State                  BondSlaveState
+	MiiStatus              BondSlaveMiiStatus
+	LinkFailureCount       uint32
+	PermHardwareAddr       net.HardwareAddr
+	QueueId                uint16
+	AggregatorId           uint16
+	AdActorOperPortState   uint8
+	AdPartnerOperPortState uint16
+}
+
+func (b *BondSlave) SlaveType() string {
+	return "bond"
+}
+
 // Gretap devices must specify LocalIP and RemoteIP on create
 type Gretap struct {
 	LinkAttrs
@@ -789,6 +869,27 @@ func (iptun *Iptun) Attrs() *LinkAttrs {
 
 func (iptun *Iptun) Type() string {
 	return "ipip"
+}
+
+type Ip6tnl struct {
+	LinkAttrs
+	Link       uint32
+	Local      net.IP
+	Remote     net.IP
+	Ttl        uint8
+	Tos        uint8
+	EncapLimit uint8
+	Flags      uint32
+	Proto      uint8
+	FlowInfo   uint32
+}
+
+func (ip6tnl *Ip6tnl) Attrs() *LinkAttrs {
+	return &ip6tnl.LinkAttrs
+}
+
+func (ip6tnl *Ip6tnl) Type() string {
+	return "ip6tnl"
 }
 
 type Sittun struct {
@@ -904,6 +1005,48 @@ func (xfrm *Xfrmi) Attrs() *LinkAttrs {
 
 func (xfrm *Xfrmi) Type() string {
 	return "xfrm"
+}
+
+// IPoIB interface
+
+type IPoIBMode uint16
+
+func (m *IPoIBMode) String() string {
+	str, ok := iPoIBModeToString[*m]
+	if !ok {
+		return fmt.Sprintf("mode(%d)", *m)
+	}
+	return str
+}
+
+const (
+	IPOIB_MODE_DATAGRAM = iota
+	IPOIB_MODE_CONNECTED
+)
+
+var iPoIBModeToString = map[IPoIBMode]string{
+	IPOIB_MODE_DATAGRAM:  "datagram",
+	IPOIB_MODE_CONNECTED: "connected",
+}
+
+var StringToIPoIBMode = map[string]IPoIBMode{
+	"datagram":  IPOIB_MODE_DATAGRAM,
+	"connected": IPOIB_MODE_CONNECTED,
+}
+
+type IPoIB struct {
+	LinkAttrs
+	Pkey   uint16
+	Mode   IPoIBMode
+	Umcast uint16
+}
+
+func (ipoib *IPoIB) Attrs() *LinkAttrs {
+	return &ipoib.LinkAttrs
+}
+
+func (ipoib *IPoIB) Type() string {
+	return "ipoib"
 }
 
 // iproute2 supported devices;
