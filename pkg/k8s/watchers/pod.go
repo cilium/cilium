@@ -41,7 +41,10 @@ import (
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
@@ -50,8 +53,8 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, serPods *serialize
 	var once sync.Once
 	for {
 		swgPods := lock.NewStoppableWaitGroup()
-		createPodController := func(fieldSelector fields.Selector) cache.Controller {
-			_, podController := informer.NewInformer(
+		createPodController := func(fieldSelector fields.Selector) (cache.Store, cache.Controller) {
+			return informer.NewInformer(
 				cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
 					"pods", v1.NamespaceAll, fieldSelector),
 				&v1.Pod{},
@@ -108,9 +111,8 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, serPods *serialize
 				},
 				k8s.ConvertToPod,
 			)
-			return podController
 		}
-		podController := createPodController(fields.Everything())
+		podStore, podController := createPodController(fields.Everything())
 
 		isConnected := make(chan struct{})
 		// once isConnected is closed, it will stop waiting on caches to be
@@ -121,6 +123,13 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, serPods *serialize
 			k.k8sAPIGroups.addAPI(k8sAPIGroupPodV1Core)
 		})
 		go podController.Run(isConnected)
+
+		k.podStoreMU.Lock()
+		k.podStore = podStore
+		k.podStoreMU.Unlock()
+		k.podStoreOnce.Do(func() {
+			close(k.podStoreSet)
+		})
 
 		if !option.Config.K8sEventHandover {
 			return
@@ -134,8 +143,13 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, serPods *serialize
 
 		log.WithField(logfields.Node, node.GetName()).Info("Connected to KVStore, watching for pod events on node")
 		// Only watch for pod events for our node.
-		podController = createPodController(fields.ParseSelectorOrDie("spec.nodeName=" + node.GetName()))
+		podStore, podController = createPodController(fields.ParseSelectorOrDie("spec.nodeName=" + node.GetName()))
 		isConnected = make(chan struct{})
+		k.podStoreMU.Lock()
+		k.podStore = podStore
+		k.podStoreMU.Unlock()
+
+		k.blockWaitGroupToSyncResources(isConnected, swgPods, podController, k8sAPIGroupPodV1Core)
 		go podController.Run(isConnected)
 
 		// Create a new pod controller when we are disconnected with the
@@ -333,4 +347,35 @@ func (k *K8sWatcher) deletePodHostIP(pod *types.Pod) (bool, error) {
 	ipcache.IPIdentityCache.Delete(pod.StatusPodIP, source.Kubernetes)
 
 	return false, nil
+}
+
+// GetCachedPod returns a pod from the local store. Depending if the Cilium
+// agent flag `option.Config.K8sEventHandover` this function might only return
+// local pods.
+// If `option.Config.K8sEventHandover` is:
+//  - true: returns only local pods received by the pod watcher.
+//  - false: returns any pod in the cluster received by the pod watcher.
+func (k *K8sWatcher) GetCachedPod(namespace, name string) (*types.Pod, error) {
+	<-k.controllersStarted
+	k.WaitForCacheSync(k8sAPIGroupPodV1Core)
+	<-k.podStoreSet
+	k.podStoreMU.RLock()
+	defer k.podStoreMU.RUnlock()
+	pName := &types.Pod{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}
+	podInterface, exists, err := k.podStore.Get(pName)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, errors.NewNotFound(schema.GroupResource{
+			Group:    "core",
+			Resource: "pod",
+		}, name)
+	}
+	return podInterface.(*types.Pod).DeepCopy(), nil
 }
