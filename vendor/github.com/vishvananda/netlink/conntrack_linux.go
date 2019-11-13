@@ -22,11 +22,7 @@ const (
 	// https://github.com/torvalds/linux/blob/master/include/uapi/linux/netfilter/nfnetlink.h -> #define NFNL_SUBSYS_CTNETLINK_EXP 2
 	ConntrackExpectTable = 2
 )
-const (
-	// For Parsing Mark
-	TCP_PROTO = 6
-	UDP_PROTO = 17
-)
+
 const (
 	// backward compatibility with golang 1.6 which does not have io.SeekCurrent
 	seekCurrent = 1
@@ -223,6 +219,10 @@ func parseBERaw16(r *bytes.Reader, v *uint16) {
 	binary.Read(r, binary.BigEndian, v)
 }
 
+func parseBERaw32(r *bytes.Reader, v *uint32) {
+	binary.Read(r, binary.BigEndian, v)
+}
+
 func parseBERaw64(r *bytes.Reader, v *uint64) {
 	binary.Read(r, binary.BigEndian, v)
 }
@@ -241,9 +241,13 @@ func parseByteAndPacketCounters(r *bytes.Reader) (bytes, packets uint64) {
 	return
 }
 
+func parseConnectionMark(r *bytes.Reader) (mark uint32) {
+	parseBERaw32(r, &mark)
+	return
+}
+
 func parseRawData(data []byte) *ConntrackFlow {
 	s := &ConntrackFlow{}
-	var proto uint8
 	// First there is the Nfgenmsg header
 	// consume only the family field
 	reader := bytes.NewReader(data)
@@ -263,7 +267,7 @@ func parseRawData(data []byte) *ConntrackFlow {
 			switch t {
 			case nl.CTA_TUPLE_ORIG:
 				if nested, t, _ = parseNfAttrTL(reader); nested && t == nl.CTA_TUPLE_IP {
-					proto = parseIpTuple(reader, &s.Forward)
+					parseIpTuple(reader, &s.Forward)
 				}
 			case nl.CTA_TUPLE_REPLY:
 				if nested, t, _ = parseNfAttrTL(reader); nested && t == nl.CTA_TUPLE_IP {
@@ -277,19 +281,11 @@ func parseRawData(data []byte) *ConntrackFlow {
 			case nl.CTA_COUNTERS_REPLY:
 				s.Reverse.Bytes, s.Reverse.Packets = parseByteAndPacketCounters(reader)
 			}
-		}
-	}
-	if proto == TCP_PROTO {
-		reader.Seek(64, seekCurrent)
-		_, t, _, v := parseNfAttrTLV(reader)
-		if t == nl.CTA_MARK {
-			s.Mark = uint32(v[3])
-		}
-	} else if proto == UDP_PROTO {
-		reader.Seek(16, seekCurrent)
-		_, t, _, v := parseNfAttrTLV(reader)
-		if t == nl.CTA_MARK {
-			s.Mark = uint32(v[3])
+		} else {
+			switch t {
+			case nl.CTA_MARK:
+				s.Mark = parseConnectionMark(reader)
+			}
 		}
 	}
 	return s

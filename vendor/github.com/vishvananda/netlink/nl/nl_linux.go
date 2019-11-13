@@ -21,11 +21,13 @@ const (
 	FAMILY_ALL  = unix.AF_UNSPEC
 	FAMILY_V4   = unix.AF_INET
 	FAMILY_V6   = unix.AF_INET6
-	FAMILY_MPLS = AF_MPLS
+	FAMILY_MPLS = unix.AF_MPLS
 	// Arbitrary set value (greater than default 4k) to allow receiving
 	// from kernel more verbose messages e.g. for statistics,
 	// tc rules or filters, or other more memory requiring data.
 	RECEIVE_BUFFER_SIZE = 65536
+	// Kernel netlink pid
+	PidKernel uint32 = 0
 )
 
 // SupportedNlFamilies contains the list of netlink families this netlink package supports
@@ -420,9 +422,12 @@ func (req *NetlinkRequest) Execute(sockType int, resType uint16) ([][]byte, erro
 
 done:
 	for {
-		msgs, err := s.Receive()
+		msgs, from, err := s.Receive()
 		if err != nil {
 			return nil, err
+		}
+		if from.Pid != PidKernel {
+			return nil, fmt.Errorf("Wrong sender portid %d, expected %d", from.Pid, PidKernel)
 		}
 		for _, m := range msgs {
 			if m.Header.Seq != req.Seq {
@@ -432,7 +437,7 @@ done:
 				return nil, fmt.Errorf("Wrong Seq nr %d, expected %d", m.Header.Seq, req.Seq)
 			}
 			if m.Header.Pid != pid {
-				return nil, fmt.Errorf("Wrong pid %d, expected %d", m.Header.Pid, pid)
+				continue
 			}
 			if m.Header.Type == unix.NLMSG_DONE {
 				break done
@@ -617,22 +622,31 @@ func (s *NetlinkSocket) Send(request *NetlinkRequest) error {
 	return nil
 }
 
-func (s *NetlinkSocket) Receive() ([]syscall.NetlinkMessage, error) {
+func (s *NetlinkSocket) Receive() ([]syscall.NetlinkMessage, *unix.SockaddrNetlink, error) {
 	fd := int(atomic.LoadInt32(&s.fd))
 	if fd < 0 {
-		return nil, fmt.Errorf("Receive called on a closed socket")
+		return nil, nil, fmt.Errorf("Receive called on a closed socket")
 	}
+	var fromAddr *unix.SockaddrNetlink
 	var rb [RECEIVE_BUFFER_SIZE]byte
-	nr, _, err := unix.Recvfrom(fd, rb[:], 0)
+	nr, from, err := unix.Recvfrom(fd, rb[:], 0)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+	fromAddr, ok := from.(*unix.SockaddrNetlink)
+	if !ok {
+		return nil, nil, fmt.Errorf("Error converting to netlink sockaddr")
 	}
 	if nr < unix.NLMSG_HDRLEN {
-		return nil, fmt.Errorf("Got short response from netlink")
+		return nil, nil, fmt.Errorf("Got short response from netlink")
 	}
 	rb2 := make([]byte, nr)
 	copy(rb2, rb[:nr])
-	return syscall.ParseNetlinkMessage(rb2)
+	nl, err := syscall.ParseNetlinkMessage(rb2)
+	if err != nil {
+		return nil, nil, err
+	}
+	return nl, fromAddr, nil
 }
 
 // SetSendTimeout allows to set a send timeout on the socket

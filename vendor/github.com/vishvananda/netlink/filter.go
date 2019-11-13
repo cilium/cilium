@@ -240,6 +240,8 @@ type BpfFilter struct {
 	Fd           int
 	Name         string
 	DirectAction bool
+	Id           int
+	Tag          string
 }
 
 func (filter *BpfFilter) Type() string {

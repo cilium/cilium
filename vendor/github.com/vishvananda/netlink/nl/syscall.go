@@ -42,16 +42,6 @@ const (
 	TCPDIAG_NOCOOKIE    = 0xFFFFFFFF /* TCPDIAG_NOCOOKIE in net/ipv4/tcp_diag.h*/
 )
 
-const (
-	AF_MPLS = 28
-)
-
-const (
-	RTA_NEWDST     = 0x13
-	RTA_ENCAP_TYPE = 0x15
-	RTA_ENCAP      = 0x16
-)
-
 // RTA_ENCAP subtype
 const (
 	MPLS_IPTUNNEL_UNSPEC = iota

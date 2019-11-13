@@ -15,39 +15,62 @@ import (
 const IFA_FLAGS = 0x8
 
 // AddrAdd will add an IP address to a link device.
+//
 // Equivalent to: `ip addr add $addr dev $link`
+//
+// If `addr` is an IPv4 address and the broadcast address is not given, it
+// will be automatically computed based on the IP mask if /30 or larger.
 func AddrAdd(link Link, addr *Addr) error {
 	return pkgHandle.AddrAdd(link, addr)
 }
 
 // AddrAdd will add an IP address to a link device.
+//
 // Equivalent to: `ip addr add $addr dev $link`
+//
+// If `addr` is an IPv4 address and the broadcast address is not given, it
+// will be automatically computed based on the IP mask if /30 or larger.
 func (h *Handle) AddrAdd(link Link, addr *Addr) error {
 	req := h.newNetlinkRequest(unix.RTM_NEWADDR, unix.NLM_F_CREATE|unix.NLM_F_EXCL|unix.NLM_F_ACK)
 	return h.addrHandle(link, addr, req)
 }
 
 // AddrReplace will replace (or, if not present, add) an IP address on a link device.
+//
 // Equivalent to: `ip addr replace $addr dev $link`
+//
+// If `addr` is an IPv4 address and the broadcast address is not given, it
+// will be automatically computed based on the IP mask if /30 or larger.
 func AddrReplace(link Link, addr *Addr) error {
 	return pkgHandle.AddrReplace(link, addr)
 }
 
 // AddrReplace will replace (or, if not present, add) an IP address on a link device.
+//
 // Equivalent to: `ip addr replace $addr dev $link`
+//
+// If `addr` is an IPv4 address and the broadcast address is not given, it
+// will be automatically computed based on the IP mask if /30 or larger.
 func (h *Handle) AddrReplace(link Link, addr *Addr) error {
 	req := h.newNetlinkRequest(unix.RTM_NEWADDR, unix.NLM_F_CREATE|unix.NLM_F_REPLACE|unix.NLM_F_ACK)
 	return h.addrHandle(link, addr, req)
 }
 
 // AddrDel will delete an IP address from a link device.
+//
 // Equivalent to: `ip addr del $addr dev $link`
+//
+// If `addr` is an IPv4 address and the broadcast address is not given, it
+// will be automatically computed based on the IP mask if /30 or larger.
 func AddrDel(link Link, addr *Addr) error {
 	return pkgHandle.AddrDel(link, addr)
 }
 
 // AddrDel will delete an IP address from a link device.
 // Equivalent to: `ip addr del $addr dev $link`
+//
+// If `addr` is an IPv4 address and the broadcast address is not given, it
+// will be automatically computed based on the IP mask if /30 or larger.
 func (h *Handle) AddrDel(link Link, addr *Addr) error {
 	req := h.newNetlinkRequest(unix.RTM_DELADDR, unix.NLM_F_ACK)
 	return h.addrHandle(link, addr, req)
@@ -108,14 +131,20 @@ func (h *Handle) addrHandle(link Link, addr *Addr, req *nl.NetlinkRequest) error
 	}
 
 	if family == FAMILY_V4 {
-		if addr.Broadcast == nil {
+		// Automatically set the broadcast address if it is unset and the
+		// subnet is large enough to sensibly have one (/30 or larger).
+		// See: RFC 3021
+		if addr.Broadcast == nil && prefixlen < 31 {
 			calcBroadcast := make(net.IP, masklen/8)
 			for i := range localAddrData {
 				calcBroadcast[i] = localAddrData[i] | ^mask[i]
 			}
 			addr.Broadcast = calcBroadcast
 		}
-		req.AddData(nl.NewRtAttr(unix.IFA_BROADCAST, addr.Broadcast))
+
+		if addr.Broadcast != nil {
+			req.AddData(nl.NewRtAttr(unix.IFA_BROADCAST, addr.Broadcast))
+		}
 
 		if addr.Label != "" {
 			labelData := nl.NewRtAttr(unix.IFA_LABEL, nl.ZeroTerminated(addr.Label))
@@ -328,10 +357,16 @@ func addrSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- AddrUpdate, done <-c
 	go func() {
 		defer close(ch)
 		for {
-			msgs, err := s.Receive()
+			msgs, from, err := s.Receive()
 			if err != nil {
 				if cberr != nil {
-					cberr(fmt.Errorf("Receive: %v", err))
+					cberr(err)
+				}
+				return
+			}
+			if from.Pid != nl.PidKernel {
+				if cberr != nil {
+					cberr(fmt.Errorf("Wrong sender portid %d, expected %d", from.Pid, nl.PidKernel))
 				}
 				continue
 			}
