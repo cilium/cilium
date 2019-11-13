@@ -78,7 +78,9 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 			// object, including annotations in the above API call, update
 			// the Endpoint's visibility policy accordingly so we don't have
 			// to make another API call later.
-			ep.UpdateVisibilityPolicy(p.Annotations[annotation.ProxyVisibility])
+			ep.UpdateVisibilityPolicy(func(ns, podName string) (proxyVisibility string, err error) {
+				return p.Annotations[annotation.ProxyVisibility], nil
+			})
 		}
 	}
 
