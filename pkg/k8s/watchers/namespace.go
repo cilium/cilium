@@ -36,7 +36,7 @@ import (
 
 func (k *K8sWatcher) namespacesInit(k8sClient kubernetes.Interface, serNamespaces *serializer.FunctionQueue) {
 
-	_, namespaceController := informer.NewInformer(
+	namespaceStore, namespaceController := informer.NewInformer(
 		cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
 			"namespaces", v1.NamespaceAll, fields.Everything()),
 		&v1.Namespace{},
@@ -70,6 +70,7 @@ func (k *K8sWatcher) namespacesInit(k8sClient kubernetes.Interface, serNamespace
 	)
 
 	namespaceController.Run(wait.NeverStop)
+	k.namespaceStore = namespaceStore
 	k.k8sAPIGroups.addAPI(k8sAPIGroupNamespaceV1Core)
 }
 

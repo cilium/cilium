@@ -155,6 +155,8 @@ type K8sWatcher struct {
 	podStore     cache.Store
 	podStoreSet  chan struct{}
 	podStoreOnce sync.Once
+
+	namespaceStore cache.Store
 }
 
 func NewK8sWatcher(
@@ -689,4 +691,20 @@ func (k *K8sWatcher) GetCachedPod(namespace, name string) (*types.Pod, error) {
 		}, name)
 	}
 	return podInterface.(*types.Pod), nil
+}
+
+// GetCachedNamespace returns a namespace from the local store.
+func (k *K8sWatcher) GetCachedNamespace(namespace string) (*types.Namespace, error) {
+	k.WaitForCacheSync(k8sAPIGroupNamespaceV1Core)
+	namespaceInterface, exists, err := k.namespaceStore.Get(namespace)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, errors.NewNotFound(schema.GroupResource{
+			Group:    "core",
+			Resource: "namespace",
+		}, namespace)
+	}
+	return namespaceInterface.(*types.Namespace), nil
 }
