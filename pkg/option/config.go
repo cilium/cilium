@@ -140,6 +140,9 @@ const (
 	// EnablePolicy enables policy enforcement in the agent.
 	EnablePolicy = "enable-policy"
 
+	// EnableK8sExternalIPs enables k8s external IPs feature into Cilium datapath.
+	EnableK8sExternalIPs = "enable-k8s-external-ips"
+
 	// EnableL7Proxy is the name of the option to enable L7 proxy
 	EnableL7Proxy = "enable-l7-proxy"
 
@@ -1210,6 +1213,9 @@ type DaemonConfig struct {
 	// EnableNodePort enables k8s NodePort service implementation in BPF
 	EnableNodePort bool
 
+	// EnableK8sExternalIPs enables k8s external IPs implementation in BPF
+	EnableK8sExternalIPs bool
+
 	// NodePortMin is the minimum port address for the NodePort range
 	NodePortMin int
 
@@ -1609,6 +1615,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableEndpointHealthChecking = viper.GetBool(EnableEndpointHealthChecking)
 	c.EnableLocalNodeRoute = viper.GetBool(EnableLocalNodeRoute)
 	c.EnablePolicy = strings.ToLower(viper.GetString(EnablePolicy))
+	c.EnableK8sExternalIPs = viper.GetBool(EnableK8sExternalIPs)
 	c.EnableL7Proxy = viper.GetBool(EnableL7Proxy)
 	c.EnableTracing = viper.GetBool(EnableTracing)
 	c.EnableNodePort = viper.GetBool(EnableNodePort)

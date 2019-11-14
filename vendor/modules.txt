@@ -46,7 +46,7 @@ github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1
 github.com/cespare/xxhash/v2
 # github.com/cilium/arping v1.0.1-0.20190728065459-c5eaf8d7a710 => github.com/cilium/arping v1.0.1-0.20190728065459-c5eaf8d7a710
 github.com/cilium/arping
-# github.com/cilium/proxy v0.0.0-20191103190817-c6d564bb0863 => github.com/cilium/proxy v0.0.0-20191103190817-c6d564bb0863
+# github.com/cilium/proxy v0.0.0-20191113190709-4c7b379792e6 => github.com/cilium/proxy v0.0.0-20191113190709-4c7b379792e6
 github.com/cilium/proxy/go/cilium/api
 github.com/cilium/proxy/go/envoy/api/v2
 github.com/cilium/proxy/go/envoy/api/v2/auth
@@ -378,7 +378,7 @@ github.com/spf13/jwalterweatherman
 github.com/spf13/pflag
 # github.com/spf13/viper v1.4.0 => github.com/spf13/viper v1.4.0
 github.com/spf13/viper
-# github.com/vishvananda/netlink v1.0.1-0.20191111102915-47ae870a10ed => github.com/cilium/netlink v1.0.1-0.20191111102915-47ae870a10ed
+# github.com/vishvananda/netlink v1.0.1-0.20191113183427-d71301a47b60 => github.com/vishvananda/netlink v1.0.1-0.20191113183427-d71301a47b60
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
 # github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df => github.com/vishvananda/netns v0.0.0-20190625233234-7109fa855b0f

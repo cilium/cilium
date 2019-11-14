@@ -34,9 +34,56 @@ var (
 type SVCType string
 
 const (
-	SVCTypeClusterIP = SVCType("ClusterIP")
-	SVCTypeNodePort  = SVCType("NodePort")
+	SVCTypeNone        = SVCType("NONE")
+	SVCTypeClusterIP   = SVCType("ClusterIP")
+	SVCTypeNodePort    = SVCType("NodePort")
+	SVCTypeExternalIPs = SVCType("ExternalIPs")
 )
+
+// ServiceFlags is the datapath representation of the service flags that can be
+// used.
+type ServiceFlags uint8
+
+const (
+	serviceFlagNone        = 1<<iota - 1 // 0
+	serviceFlagExternalIPs               // 1
+)
+
+// CreateSvcFlag returns the ServiceFlags for all given SVCTypes.
+func CreateSvcFlag(svcTypes ...SVCType) ServiceFlags {
+	var flags ServiceFlags
+	for _, svcType := range svcTypes {
+		switch svcType {
+		case SVCTypeExternalIPs:
+			flags |= serviceFlagExternalIPs
+		}
+	}
+	return flags
+}
+
+// IsSvcType returns true if the serviceFlags is the given SVCType.
+func (s ServiceFlags) IsSvcType(svcType SVCType) bool {
+	return s&CreateSvcFlag(svcType) != 0
+}
+
+// String returns the string implementation of ServiceFlags.
+func (s ServiceFlags) String() string {
+	var strTypes []string
+	for _, svcType := range []SVCType{SVCTypeExternalIPs} {
+		if s.IsSvcType(svcType) {
+			strTypes = append(strTypes, string(svcType))
+		}
+	}
+	if len(strTypes) != 0 {
+		return strings.Join(strTypes, ", ")
+	}
+	return string(SVCTypeNone)
+}
+
+// UInt8 returns the UInt8 representation of the ServiceFlags.
+func (s ServiceFlags) UInt8() uint8 {
+	return uint8(s)
+}
 
 const (
 	NONE = L4Type("NONE")
@@ -74,13 +121,6 @@ type Backend struct {
 
 func (b *Backend) String() string {
 	return b.L3n4Addr.String()
-}
-
-func (b *Backend) DeepCopy() *Backend {
-	return &Backend{
-		ID:       b.ID,
-		L3n4Addr: *b.L3n4Addr.DeepCopy(),
-	}
 }
 
 // SVC is a structure for storing service details.
@@ -345,15 +385,6 @@ type L3n4AddrID struct {
 func NewL3n4AddrID(protocol L4Type, ip net.IP, portNumber uint16, id ID) *L3n4AddrID {
 	l3n4Addr := NewL3n4Addr(protocol, ip, portNumber)
 	return &L3n4AddrID{L3n4Addr: *l3n4Addr, ID: id}
-}
-
-// DeepCopy returns a DeepCopy of the given L3n4AddrID.
-func (l *L3n4AddrID) DeepCopy() *L3n4AddrID {
-	return &L3n4AddrID{
-		L3n4Addr: *l.L3n4Addr.DeepCopy(),
-		ID:       l.ID,
-	}
-
 }
 
 // IsIPv6 returns true if the IP address in L3n4Addr's L3n4AddrID is IPv6 or not.

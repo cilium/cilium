@@ -33,6 +33,7 @@ Dinan
 Dockerfile
 Elasticsearch
 FIt
+Facebook
 Fastabend
 GCE
 Gartrell
@@ -245,6 +246,8 @@ etcd
 ethernet
 ethtool
 extensibility
+externalIPs
+fallback
 fc
 filename
 filenames

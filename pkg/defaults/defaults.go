@@ -133,6 +133,9 @@ const (
 	// EnableL7Proxy is the default value for L7 proxy enablement
 	EnableL7Proxy = true
 
+	// EnableK8sExternalIPs is the default value for k8s externalIPs feature.
+	EnableK8sExternalIPs = true
+
 	// PreAllocateMaps is the default value for BPF map preallocation
 	PreAllocateMaps = true
 

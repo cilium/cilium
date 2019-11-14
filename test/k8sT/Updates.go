@@ -196,11 +196,6 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		ExpectETCDOperatorReady(kubectl)
 		ExpectCiliumOperatorReady(kubectl)
 
-		By("Installing Microscope")
-		microscopeErr, microscopeCancel := kubectl.MicroscopeStart()
-		ExpectWithOffset(1, microscopeErr).To(BeNil(), "Microscope cannot be started")
-		defer microscopeCancel()
-
 		validatedImage := func(image string) {
 			By("Checking that installed image is %q", image)
 

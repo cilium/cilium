@@ -60,6 +60,7 @@ cilium-agent [flags]
       --enable-ipv4                                           Enable IPv4 support (default true)
       --enable-ipv6                                           Enable IPv6 support (default true)
       --enable-k8s-event-handover                             Enable k8s event handover to kvstore for improved scalability
+      --enable-k8s-external-ips                               Enable k8s externalIPs feature (Only enabled in conjunction with enable-node-port) (default true)
       --enable-l7-proxy                                       Enable L7 proxy for L7 policy enforcement (default true)
       --enable-local-node-route                               Enable installation of the route which points the allocation prefix of the local node (default true)
       --enable-node-port                                      Enable NodePort type services by Cilium (beta)

@@ -17,6 +17,8 @@ package helpers
 import (
 	"bytes"
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -55,9 +57,6 @@ const (
 	// The kubedns resyncPeriod is defined at
 	// https://github.com/kubernetes/dns/blob/80fdd88276adba36a87c4f424b66fdf37cd7c9a8/pkg/dns/dns.go#L53
 	DNSHelperTimeout = 7 * time.Minute
-
-	// EnableMicroscope is true when microscope should be enabled
-	EnableMicroscope = false
 
 	// CIIntegrationFlannel contains the constant to be used when flannel is
 	// used in the CI.
@@ -500,70 +499,6 @@ func (kub *Kubectl) GetServiceHostPort(namespace string, service string) (string
 func (kub *Kubectl) Logs(namespace string, pod string) *CmdRes {
 	return kub.Exec(
 		fmt.Sprintf("%s -n %s logs %s", KubectlCmd, namespace, pod))
-}
-
-// MicroscopeStart installs (if it is not installed) a new microscope pod,
-// waits until pod is ready, and runs microscope in background. It returns an
-// error in the case where microscope cannot be installed, or it is not ready after
-// a timeout. It also returns a callback function to stop the monitor and save
-// the output to `helpers.monitorLogFileName` file. Takes an optional list of
-// arguments to pass to mircoscope.
-func (kub *Kubectl) MicroscopeStart(microscopeOptions ...string) (error, func() error) {
-	if !EnableMicroscope {
-		return nil, func() error { return nil }
-	}
-
-	microscope := "microscope"
-	var microscopeCmd string
-	if len(microscopeOptions) == 0 {
-		microscopeCmd = "microscope"
-	} else {
-		microscopeCmd = fmt.Sprintf("%s %s", microscope, strings.Join(microscopeOptions, " "))
-	}
-	var microscopeCmdWithTimestamps = microscopeCmd + "| ts '[%Y-%m-%d %H:%M:%S]'"
-	var cb = func() error { return nil }
-	cmd := fmt.Sprintf("%[1]s -ti -n %[2]s exec %[3]s -- %[4]s",
-		KubectlCmd, KubeSystemNamespace, microscope, microscopeCmdWithTimestamps)
-	microscopePath := ManifestGet(kub.BasePath(), microscopeManifest)
-	_ = kub.ApplyDefault(microscopePath)
-
-	err := kub.WaitforPods(
-		KubeSystemNamespace,
-		fmt.Sprintf("-l k8s-app=%s", microscope),
-		HelperTimeout)
-	if err != nil {
-		return err, cb
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	res := kub.ExecInBackground(ctx, cmd, ExecOptions{SkipLog: true})
-
-	cb = func() error {
-		cancel()
-		<-ctx.Done()
-		testPath, err := CreateReportDirectory()
-		if err != nil {
-			kub.Logger().WithError(err).Errorf(
-				"cannot create test results path '%s'", testPath)
-			return err
-		}
-
-		err = WriteOrAppendToFile(
-			filepath.Join(testPath, MonitorLogFileName),
-			res.CombineOutput().Bytes(),
-			LogPerm)
-		if err != nil {
-			log.WithError(err).Errorf("cannot create monitor log file")
-			return err
-		}
-		res := kub.Exec(fmt.Sprintf("%s -n %s delete pod --grace-period=0 --force microscope", KubectlCmd, KubeSystemNamespace))
-		if !res.WasSuccessful() {
-			return fmt.Errorf("error deleting microscope pod: %s", res.OutputPrettyPrint())
-		}
-		return nil
-	}
-
-	return nil, cb
 }
 
 // MonitorStart runs cilium monitor in the background and dumps the contents
@@ -1531,7 +1466,7 @@ func (kub *Kubectl) WaitForCiliumInitContainerToFinish() error {
 		}
 		for _, pod := range podList.Items {
 			for _, v := range pod.Status.InitContainerStatuses {
-				if v.State.Terminated.Reason != "Completed" || v.State.Terminated.ExitCode != 0 {
+				if v.State.Terminated != nil && (v.State.Terminated.Reason != "Completed" || v.State.Terminated.ExitCode != 0) {
 					kub.Logger().WithFields(logrus.Fields{
 						"podName":      pod.Name,
 						"currentState": v.State.String(),
@@ -2803,9 +2738,25 @@ func addrsEqual(addr1, addr2 *models.BackendAddress) bool {
 
 // GenerateNamespaceForTest generates a namespace based off of the current test
 // which is running.
+// Note: Namespaces can only be 63 characters long (to comply with DNS). We
+// ensure that the namespace here is shorter than that, but keep it unique by
+// hashing the complete name.
 func GenerateNamespaceForTest() string {
 	lowered := strings.ToLower(ginkgoext.CurrentGinkgoTestDescription().FullTestText)
-	// K8s namespaces cannot have spaces.
+	// K8s namespaces cannot have spaces or underscores.
 	replaced := strings.Replace(lowered, " ", "", -1)
-	return replaced
+	replaced = strings.Replace(replaced, "_", "", -1)
+
+	if len(replaced) <= 63 {
+		return replaced
+	}
+
+	// We need to shorten the name to <=63 characters
+	// Hash the name, encode it as hex, then put it all together
+	h := md5.Sum(([]byte)(replaced[0:]))
+	hash := hex.EncodeToString(h[:])
+	out := []byte(replaced[:56])
+	out = append(out, []byte("-")...)
+	out = append(out, hash[:6]...)
+	return string(out)
 }
