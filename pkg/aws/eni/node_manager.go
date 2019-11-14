@@ -296,7 +296,10 @@ func (n *NodeManager) Resync(syncTime time.Time) {
 	sem := semaphore.NewWeighted(n.parallelWorkers)
 
 	for _, node := range n.GetNodesByIPWatermark() {
-		sem.Acquire(context.TODO(), 1)
+		err := sem.Acquire(context.TODO(), 1)
+		if err != nil {
+			continue
+		}
 		go func(node *Node, stats *resyncStats) {
 			n.resyncNode(node, stats, syncTime)
 			sem.Release(1)
