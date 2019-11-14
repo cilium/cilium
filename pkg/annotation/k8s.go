@@ -45,6 +45,10 @@ const (
 	// of the cilium host interface in the node's annotation.
 	CiliumHostIPv6 = Prefix + ".network.ipv6-cilium-host"
 
+	// CiliumEncryptionKey is the annotation name used to store the encryption
+	// key of the cilium host interface in the node's annotation.
+	CiliumEncryptionKey = Prefix + ".network.encryption-key"
+
 	// GlobalService if set to true, marks a service to become a global
 	// service
 	GlobalService = Prefix + "/global-service"
