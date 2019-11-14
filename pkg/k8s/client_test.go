@@ -86,6 +86,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	// IPv6 Node range is not checked because it shouldn't be changed.
 
 	err := k8sCli.AnnotateNode("node1",
+		0,
 		node.GetIPv4AllocRange(),
 		node.GetIPv6NodeRange(),
 		nil,
@@ -157,6 +158,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	c.Assert(node.GetIPv6NodeRange().String(), Equals, "aaaa:aaaa:aaaa:aaaa:beef:beef::/96")
 
 	err = k8sCli.AnnotateNode("node2",
+		0,
 		node.GetIPv4AllocRange(),
 		node.GetIPv6NodeRange(),
 		nil,

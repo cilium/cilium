@@ -279,7 +279,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 		}
 	}
 
-	authKeySize, err := setupIPSec()
+	authKeySize, encryptKeyID, err := setupIPSec()
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to setup encryption: %s", err)
 	}
@@ -458,6 +458,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 		}).Info("Annotating k8s node")
 
 		err := k8s.Client().AnnotateNode(node.GetName(),
+			encryptKeyID,
 			node.GetIPv4AllocRange(), node.GetIPv6NodeRange(),
 			d.nodeDiscovery.LocalNode.IPv4HealthIP, d.nodeDiscovery.LocalNode.IPv6HealthIP,
 			node.GetInternalIPv4(), node.GetIPv6Router())

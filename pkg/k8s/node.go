@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strconv"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -110,11 +111,19 @@ func ParseNode(k8sNode *types.Node, source source.Source) *node.Node {
 	k8sNodeAddHostIP(annotation.CiliumHostIP)
 	k8sNodeAddHostIP(annotation.CiliumHostIPv6)
 
+	encryptKey := uint8(0)
+	if key, ok := k8sNode.Annotations[annotation.CiliumEncryptionKey]; ok {
+		if u, err := strconv.ParseUint(key, 10, 8); err == nil {
+			encryptKey = uint8(u)
+		}
+	}
+
 	newNode := &node.Node{
-		Name:        k8sNode.Name,
-		Cluster:     option.Config.ClusterName,
-		IPAddresses: addrs,
-		Source:      source,
+		Name:          k8sNode.Name,
+		Cluster:       option.Config.ClusterName,
+		IPAddresses:   addrs,
+		Source:        source,
+		EncryptionKey: encryptKey,
 	}
 
 	if len(k8sNode.SpecPodCIDRs) != 0 {
