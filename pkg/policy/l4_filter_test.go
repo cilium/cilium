@@ -806,7 +806,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 		Protocol:        api.ProtoTCP,
 		U8Proto:         6,
 		allowsAllAtL3:   true,
-		CachedSelectors: CachedSelectorSlice{wildcardCachedSelector},
+		CachedSelectors: CachedSelectorSlice{cachedSelectorA, wildcardCachedSelector},
 		L7Parser:        ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
 			cachedSelectorA: api.L7Rules{
@@ -875,7 +875,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 		Protocol:        api.ProtoTCP,
 		U8Proto:         6,
 		allowsAllAtL3:   true,
-		CachedSelectors: CachedSelectorSlice{wildcardCachedSelector},
+		CachedSelectors: CachedSelectorSlice{wildcardCachedSelector, cachedSelectorA},
 		L7Parser:        ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
 			cachedSelectorA: api.L7Rules{
@@ -957,7 +957,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 		Protocol:        api.ProtoTCP,
 		U8Proto:         6,
 		allowsAllAtL3:   true,
-		CachedSelectors: CachedSelectorSlice{wildcardCachedSelector},
+		CachedSelectors: CachedSelectorSlice{cachedSelectorA, wildcardCachedSelector},
 		L7Parser:        ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
 			wildcardCachedSelector: api.L7Rules{
@@ -1035,7 +1035,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 		Protocol:        api.ProtoTCP,
 		U8Proto:         6,
 		allowsAllAtL3:   true,
-		CachedSelectors: CachedSelectorSlice{wildcardCachedSelector},
+		CachedSelectors: CachedSelectorSlice{wildcardCachedSelector, cachedSelectorA},
 		L7Parser:        ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
 			wildcardCachedSelector: api.L7Rules{
