@@ -390,6 +390,7 @@ var (
 	// TriggerPolicyUpdateCallDuration measures the latency and call
 	// duration of policy update triggers
 	TriggerPolicyUpdateCallDuration = NoOpObserverVec
+
 	// VersionMetric labelled by Cilium version
 	VersionMetric = NoOpGaugeVec
 )
@@ -1052,6 +1053,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, TriggerPolicyUpdateCallDuration)
 			c.TriggerPolicyUpdateCallDuration = true
+
 		case Namespace + "_version":
 			VersionMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 				Namespace: Namespace,
