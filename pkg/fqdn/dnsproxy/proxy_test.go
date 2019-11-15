@@ -132,23 +132,27 @@ func serveDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 // Setup identities, ports and endpoint IDs we will need
 var (
-	cacheAllocator         = cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
-	testSelectorCache      = policy.NewSelectorCache(cacheAllocator.GetIdentityCache())
-	dummySelectorCacheUser = &DummySelectorCacheUser{}
-	fooSelector            = api.NewESFromLabels(labels.ParseSelectLabel("k8s:app=test"))
-	cachedFooSelector, _   = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, fooSelector)
+	cacheAllocator          = cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
+	testSelectorCache       = policy.NewSelectorCache(cacheAllocator.GetIdentityCache())
+	dummySelectorCacheUser  = &DummySelectorCacheUser{}
+	DstID1Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst1=test"))
+	cachedDstID1Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, DstID1Selector)
+	DstID2Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst2=test"))
+	cachedDstID2Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, DstID2Selector)
 
-	epID_1  = uint64(111)
-	epID_2  = uint64(222)
-	dstID_1 = identity.NumericIdentity(1001)
-	dstID_2 = identity.NumericIdentity(2002)
+	epID1   = uint64(111)
+	epID2   = uint64(222)
+	epID3   = uint64(333)
+	dstID1  = identity.NumericIdentity(1001)
+	dstID2  = identity.NumericIdentity(2002)
 	dstPort = uint16(53) // Set below when we setup the server!
 )
 
 func (s *DNSProxyTestSuite) SetUpSuite(c *C) {
 	// Add these identities
 	testSelectorCache.UpdateIdentities(cache.IdentityCache{
-		dstID_1: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
+		dstID1: labels.Labels{"Dst1": labels.NewLabel("Dst1", "test", labels.LabelSourceK8s)}.LabelArray(),
+		dstID2: labels.Labels{"Dst2": labels.NewLabel("Dst2", "test", labels.LabelSourceK8s)}.LabelArray(),
 	}, nil)
 
 	s.repo = policy.NewPolicyRepository(nil)
@@ -159,7 +163,7 @@ func (s *DNSProxyTestSuite) SetUpSuite(c *C) {
 	proxy, err := StartDNSProxy("", 0,
 		// LookupEPByIP
 		func(ip net.IP) (*endpoint.Endpoint, error) {
-			return endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, uint16(epID_1), endpoint.StateReady), nil
+			return endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, uint16(epID1), endpoint.StateReady), nil
 		},
 		// LookupSecIDByIP
 		func(ip net.IP) (ipcache.Identity, bool, error) {
@@ -167,12 +171,12 @@ func (s *DNSProxyTestSuite) SetUpSuite(c *C) {
 			switch {
 			case ip.String() == DNSServerListenerAddr.IP.String():
 				ident := ipcache.Identity{
-					ID:     dstID_1,
+					ID:     dstID1,
 					Source: source.Unspec}
 				return ident, true, nil
 			default:
 				ident := ipcache.Identity{
-					ID:     dstID_2,
+					ID:     dstID2,
 					Source: source.Unspec}
 				return ident, true, nil
 			}
@@ -236,16 +240,16 @@ func makeL3L7Rules(selector policy.CachedSelector, matchNames, matchPatterns []s
 func (s *DNSProxyTestSuite) TestRejectFromDifferentEndpoint(c *C) {
 	name := "cilium.io."
 	l7map := policy.L7DataMap{
-		cachedFooSelector: api.L7Rules{
+		cachedDstID1Selector: api.L7Rules{
 			DNS: []api.PortRuleDNS{{MatchName: name}},
 		},
 	}
 	query := name
 
 	// Reject a query from not endpoint 1
-	err := s.proxy.UpdateAllowed(epID_1, dstPort, l7map)
+	err := s.proxy.UpdateAllowed(epID1, dstPort, l7map)
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-	allowed, err := s.proxy.CheckAllowed(epID_2, dstPort, dstID_1, query)
+	allowed, err := s.proxy.CheckAllowed(epID2, dstPort, dstID1, query)
 	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
 	c.Assert(allowed, Equals, false, Commentf("request was not rejected when it should be blocked"))
 }
@@ -253,16 +257,16 @@ func (s *DNSProxyTestSuite) TestRejectFromDifferentEndpoint(c *C) {
 func (s *DNSProxyTestSuite) TestAcceptFromMatchingEndpoint(c *C) {
 	name := "cilium.io."
 	l7map := policy.L7DataMap{
-		cachedFooSelector: api.L7Rules{
+		cachedDstID1Selector: api.L7Rules{
 			DNS: []api.PortRuleDNS{{MatchName: name}},
 		},
 	}
 	query := name
 
 	// accept a query that matches from endpoint1
-	err := s.proxy.UpdateAllowed(epID_1, dstPort, l7map)
+	err := s.proxy.UpdateAllowed(epID1, dstPort, l7map)
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-	allowed, err := s.proxy.CheckAllowed(epID_1, dstPort, dstID_1, query)
+	allowed, err := s.proxy.CheckAllowed(epID1, dstPort, dstID1, query)
 	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 }
@@ -270,16 +274,16 @@ func (s *DNSProxyTestSuite) TestAcceptFromMatchingEndpoint(c *C) {
 func (s *DNSProxyTestSuite) TestAcceptNonRegex(c *C) {
 	name := "simple.io."
 	l7map := policy.L7DataMap{
-		cachedFooSelector: api.L7Rules{
+		cachedDstID1Selector: api.L7Rules{
 			DNS: []api.PortRuleDNS{{MatchName: name}},
 		},
 	}
 	query := name
 
 	// accept a query that matches from endpoint1
-	err := s.proxy.UpdateAllowed(epID_1, dstPort, l7map)
+	err := s.proxy.UpdateAllowed(epID1, dstPort, l7map)
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-	allowed, err := s.proxy.CheckAllowed(epID_1, dstPort, dstID_1, query)
+	allowed, err := s.proxy.CheckAllowed(epID1, dstPort, dstID1, query)
 	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 }
@@ -287,16 +291,16 @@ func (s *DNSProxyTestSuite) TestAcceptNonRegex(c *C) {
 func (s *DNSProxyTestSuite) TestRejectNonRegex(c *C) {
 	name := "cilium.io."
 	l7map := policy.L7DataMap{
-		cachedFooSelector: api.L7Rules{
+		cachedDstID1Selector: api.L7Rules{
 			DNS: []api.PortRuleDNS{{MatchName: name}},
 		},
 	}
 	query := "ciliumXio."
 
 	// reject a query for a non-regex where a . is different (i.e. ensure simple FQDNs treat . as .)
-	err := s.proxy.UpdateAllowed(epID_1, dstPort, l7map)
+	err := s.proxy.UpdateAllowed(epID1, dstPort, l7map)
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-	allowed, err := s.proxy.CheckAllowed(epID_1, dstPort, dstID_1, query)
+	allowed, err := s.proxy.CheckAllowed(epID1, dstPort, dstID1, query)
 	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
 	c.Assert(allowed, Equals, false, Commentf("request was not rejected when it should be blocked"))
 }
@@ -304,15 +308,15 @@ func (s *DNSProxyTestSuite) TestRejectNonRegex(c *C) {
 func (s *DNSProxyTestSuite) TestRejectNonMatchingRefusedResponse(c *C) {
 	name := "cilium.io."
 	l7map := policy.L7DataMap{
-		cachedFooSelector: api.L7Rules{
+		cachedDstID1Selector: api.L7Rules{
 			DNS: []api.PortRuleDNS{{MatchName: name}},
 		},
 	}
 	query := "notcilium.io."
 
-	err := s.proxy.UpdateAllowed(epID_1, dstPort, l7map)
+	err := s.proxy.UpdateAllowed(epID1, dstPort, l7map)
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-	allowed, err := s.proxy.CheckAllowed(epID_1, dstPort, dstID_1, query)
+	allowed, err := s.proxy.CheckAllowed(epID1, dstPort, dstID1, query)
 	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
 	c.Assert(allowed, Equals, false, Commentf("request was not rejected when it should be blocked"))
 
@@ -338,15 +342,15 @@ func (s *DNSProxyTestSuite) TestRespondViaCorrectProtocol(c *C) {
 
 	name := "cilium.io."
 	l7map := policy.L7DataMap{
-		cachedFooSelector: api.L7Rules{
+		cachedDstID1Selector: api.L7Rules{
 			DNS: []api.PortRuleDNS{{MatchName: name}},
 		},
 	}
 	query := name
 
-	err := s.proxy.UpdateAllowed(epID_1, dstPort, l7map)
+	err := s.proxy.UpdateAllowed(epID1, dstPort, l7map)
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-	allowed, err := s.proxy.CheckAllowed(epID_1, dstPort, dstID_1, query)
+	allowed, err := s.proxy.CheckAllowed(epID1, dstPort, dstID1, query)
 	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
@@ -365,15 +369,15 @@ func (s *DNSProxyTestSuite) TestRespondMixedCaseInRequestResponse(c *C) {
 	// vector :( )
 	name := "cilium.io."
 	l7map := policy.L7DataMap{
-		cachedFooSelector: api.L7Rules{
+		cachedDstID1Selector: api.L7Rules{
 			DNS: []api.PortRuleDNS{{MatchName: name}},
 		},
 	}
 	query := "CILIUM.io."
 
-	err := s.proxy.UpdateAllowed(epID_1, dstPort, l7map)
+	err := s.proxy.UpdateAllowed(epID1, dstPort, l7map)
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-	allowed, err := s.proxy.CheckAllowed(epID_1, dstPort, dstID_1, query)
+	allowed, err := s.proxy.CheckAllowed(epID1, dstPort, dstID1, query)
 	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
@@ -394,32 +398,32 @@ func (s *DNSProxyTestSuite) TestRespondMixedCaseInRequestResponse(c *C) {
 func (s *DNSProxyTestSuite) TestCheckAllowedTwiceRemovedOnce(c *C) {
 	name := "cilium.io."
 	l7map := policy.L7DataMap{
-		cachedFooSelector: api.L7Rules{
+		cachedDstID1Selector: api.L7Rules{
 			DNS: []api.PortRuleDNS{{MatchName: name}},
 		},
 	}
 	query := name
 
 	// Add the rule twice
-	err := s.proxy.UpdateAllowed(epID_1, dstPort, l7map)
+	err := s.proxy.UpdateAllowed(epID1, dstPort, l7map)
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-	err = s.proxy.UpdateAllowed(epID_1, dstPort, l7map)
+	err = s.proxy.UpdateAllowed(epID1, dstPort, l7map)
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-	allowed, err := s.proxy.CheckAllowed(epID_1, dstPort, dstID_1, query)
+	allowed, err := s.proxy.CheckAllowed(epID1, dstPort, dstID1, query)
 	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
 	// Delete once, it should reject
-	err = s.proxy.UpdateAllowed(epID_1, dstPort, nil)
+	err = s.proxy.UpdateAllowed(epID1, dstPort, nil)
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-	allowed, err = s.proxy.CheckAllowed(epID_1, dstPort, dstID_1, query)
+	allowed, err = s.proxy.CheckAllowed(epID1, dstPort, dstID1, query)
 	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Delete once, it should reject and not crash
-	err = s.proxy.UpdateAllowed(epID_1, dstPort, nil)
+	err = s.proxy.UpdateAllowed(epID1, dstPort, nil)
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-	allowed, err = s.proxy.CheckAllowed(epID_1, dstPort, dstID_1, query)
+	allowed, err = s.proxy.CheckAllowed(epID1, dstPort, dstID1, query)
 	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 }
@@ -429,102 +433,119 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	// selector in L7DataMap), destination port (set in the redirect itself) and
 	// the DNS name.
 	// The rules approximate:
-	//	+------+--------+---------+----------------+
-	//	| From |   To   | DstPort |    DNSNames    |
-	//	+======+========+=========+================+
-	//	| All  | DstID1 |      53 | *.ubuntu.com   |
-	//	| All  | DstID1 |      53 | aws.amazon.com |
-	//	| All  | DstID2 |      53 | cilium.io      |
-	//	| All  | DstID1 |      54 | example.com    |
-	//	+------+--------+---------+----------------+
+	// +------+--------+---------+----------------+
+	// | From |   To   | DstPort |    DNSNames    |
+	// +======+========+=========+================+
+	// | EP1  | DstID1 |      53 | *.ubuntu.com   |
+	// | EP1  | DstID1 |      53 | aws.amazon.com |
+	// | EP1  | DstID2 |      53 | cilium.io      |
+	// | EP1  | DstID1 |      54 | example.com    |
+	// | EP3  | DstID1 |      53 | example.com    |
+	// +------+--------+---------+----------------+
 	//
 	// Cases:
-	// +------+-------+--------+------+-------------+----------+-------------------------------------+
-	// | Case | From  |   To   | Port |    Query    | Outcome  |               Reason                |
-	// +------+-------+--------+------+-------------+----------+-------------------------------------+
-	// |    1 | EPID1 | DstID1 |   53 | cilium.io   | Allowed  |                                     |
-	// |    2 | EPID1 | DstID1 |   54 | cilium.io   | Rejected | Port 54 only allows example.com     |
-	// |    3 | EPID1 | DstID2 |   53 | cilium.io   | Rejected | DstID2 is not allowed in any policy |
-	// |    4 | EPID1 | DstID1 |   54 | example.com | Allowed  |                                     |
-	// |    5 | EPID2 | DstID1 |   53 | cilium.io   | Rejected | EPID2 is not allowed in any policy  |
-	// +------+-------+--------+------+-------------+----------+-------------------------------------+
+	// +------+-------+--------+------+----------------+----------+----------------------------------------------------------------+
+	// | Case | From  |   To   | Port |     Query      | Outcome  |                             Reason                             |
+	// +------+-------+--------+------+----------------+----------+----------------------------------------------------------------+
+	// |    1 | EPID1 | DstID1 |   53 | www.ubuntu.com | Allowed  |                                                                |
+	// |    2 | EPID1 | DstID1 |   54 | cilium.io      | Rejected | Port 54 only allows example.com                                |
+	// |    3 | EPID1 | DstID2 |   53 | cilium.io      | Allowed  |                                                                |
+	// |    4 | EPID1 | DstID2 |   53 | aws.amazon.com | Rejected | Only cilium.io is allowed with DstID2                          |
+	// |    5 | EPID1 | DstID1 |   54 | example.com    | Allowed  |                                                                |
+	// |    6 | EPID2 | DstID1 |   53 | cilium.io      | Rejected | EPID2 is not allowed as a source by any policy                 |
+	// |    7 | EPID3 | DstID1 |   53 | example.com    | Allowed  |                                                                |
+	// |    8 | EPID3 | DstID1 |   53 | aws.amazon.com | Rejected | EPID3 is only allowed to ask DstID1 on Port 53 for example.com |
+	// |    8 | EPID3 | DstID1 |   54 | example.com    | Rejected | EPID3 is only allowed to ask DstID1 on Port 53 for example.com |
+	// |    9 | EPID3 | DstID2 |   53 | example.com    | Rejected | EPID3 is only allowed to ask DstID1 on Port 53 for example.com |
+	// +------+-------+--------+------+----------------+----------+----------------------------------------------------------------+
 
-	var (
-		rulesPort53 = []policy.L7DataMap{
-			{
-				// Rule
-				//	| All  | DstID1 |      53 | *.ubuntu.com   |
-				cachedFooSelector: api.L7Rules{
-					DNS: []api.PortRuleDNS{
-						{MatchName: "cilium.io."},
-					},
-				},
+	// Setup rules
+	//	| EP1  | DstID1 |      53 | *.ubuntu.com   |
+	//	| EP1  | DstID1 |      53 | aws.amazon.com |
+	//	| EP1  | DstID2 |      53 | cilium.io      |
+	err := s.proxy.UpdateAllowed(epID1, 53, policy.L7DataMap{
+		cachedDstID1Selector: api.L7Rules{
+			DNS: []api.PortRuleDNS{
+				{MatchPattern: "*.ubuntu.com."},
+				{MatchPattern: "aws.amazon.com."},
 			},
-			{
-				// Rule
-				//	| All  | DstID1 |      53 | aws.amazon.com |
-				cachedFooSelector: api.L7Rules{
-					DNS: []api.PortRuleDNS{
-						{MatchName: "aws.amazon.com."},
-					},
-				},
+		},
+		cachedDstID2Selector: api.L7Rules{
+			DNS: []api.PortRuleDNS{
+				{MatchPattern: "cilium.io."},
 			},
-			{
-				// Rule
-				//	| All  | DstID2 |      53 | cilium.io      |
-				cachedFooSelector: api.L7Rules{
-					DNS: []api.PortRuleDNS{
-						{MatchName: "cilium.io."},
-					},
-				},
-			},
-		}
+		},
+	})
+	c.Assert(err, Equals, nil, Commentf("Could not update with port 53 rules"))
 
-		rulesPort54 = []policy.L7DataMap{
-			{
-				// Rule
-				//	| All  | DstID1 |      54 | example.com    |
-				cachedFooSelector: api.L7Rules{
-					DNS: []api.PortRuleDNS{
-						{MatchName: "example.com."},
-					},
-				},
+	//	| EP1  | DstID1 |      54 | example.com    |
+	err = s.proxy.UpdateAllowed(epID1, 54, policy.L7DataMap{
+		cachedDstID1Selector: api.L7Rules{
+			DNS: []api.PortRuleDNS{
+				{MatchPattern: "example.com."},
 			},
-		}
-	)
+		},
+	})
+	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
 
-	// Set rules
-	for _, l7map := range rulesPort53 {
-		err := s.proxy.UpdateAllowed(epID_1, 53, l7map)
-		c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-	}
-	for _, l7map := range rulesPort54 {
-		err := s.proxy.UpdateAllowed(epID_1, 54, l7map)
-		c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-	}
+	// | EP3  | DstID1 |      53 | example.com    |
+	err = s.proxy.UpdateAllowed(epID3, 53, policy.L7DataMap{
+		cachedDstID1Selector: api.L7Rules{
+			DNS: []api.PortRuleDNS{
+				{MatchPattern: "example.com."},
+			},
+		},
+	})
+	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
 
-	// Case 1
-	allowed, err := s.proxy.CheckAllowed(epID_1, 53, dstID_1, "cilium.io")
+	// Test cases
+	// Case 1 | EPID1 | DstID1 |   53 | www.ubuntu.com | Allowed
+	allowed, err := s.proxy.CheckAllowed(epID1, 53, dstID1, "www.ubuntu.com")
 	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
-	// Case 2
-	allowed, err = s.proxy.CheckAllowed(epID_1, 54, dstID_1, "cilium.io")
+	// Case 2 | EPID1 | DstID1 |   54 | cilium.io      | Rejected | Port 54 only allows example.com
+	allowed, err = s.proxy.CheckAllowed(epID1, 54, dstID1, "cilium.io")
 	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
-	// Case 3
-	allowed, err = s.proxy.CheckAllowed(epID_1, 53, dstID_2, "cilium.io")
-	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
-	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
-
-	// Case 4
-	allowed, err = s.proxy.CheckAllowed(epID_1, 54, dstID_1, "example.com")
+	// Case 3 | EPID1 | DstID2 |   53 | cilium.io      | Allowed
+	allowed, err = s.proxy.CheckAllowed(epID1, 53, dstID2, "cilium.io")
 	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
-	// Case 5
-	allowed, err = s.proxy.CheckAllowed(epID_2, 53, dstID_1, "cilium.io")
+	// Case 4 | EPID1 | DstID2 |   53 | aws.amazon.com | Rejected | Only cilium.io is allowed with DstID2
+	allowed, err = s.proxy.CheckAllowed(epID1, 53, dstID2, "aws.amazon.com")
+	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
+
+	// Case 5 | EPID1 | DstID1 |   54 | example.com    | Allowed
+	allowed, err = s.proxy.CheckAllowed(epID1, 54, dstID1, "example.com")
+	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
+
+	// Case 6 | EPID2 | DstID1 |   53 | cilium.io      | Rejected | EPID2 is not allowed as a source by any policy
+	allowed, err = s.proxy.CheckAllowed(epID2, 53, dstID1, "cilium.io")
+	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
+
+	// Case 7 | EPID3 | DstID1 |   53 | example.com    | Allowed
+	allowed, err = s.proxy.CheckAllowed(epID3, 53, dstID1, "example.com")
+	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
+
+	// Case 8 | EPID3 | DstID1 |   53 | aws.amazon.com | Rejected | EPID3 is only allowed to ask DstID1 on Port 53 for example.com
+	allowed, err = s.proxy.CheckAllowed(epID3, 53, dstID1, "aws.amazon.io")
+	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
+
+	// Case 8 | EPID3 | DstID1 |   54 | example.com    | Rejected | EPID3 is only allowed to ask DstID1 on Port 53 for example.com
+	allowed, err = s.proxy.CheckAllowed(epID3, 54, dstID1, "example.com")
+	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
+
+	// Case 9 | EPID3 | DstID2 |   53 | example.com    | Rejected | EPID3 is only allowed to ask DstID1 on Port 53 for example.com
+	allowed, err = s.proxy.CheckAllowed(epID3, 53, dstID2, "example.com")
 	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 }
