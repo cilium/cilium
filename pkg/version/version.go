@@ -18,6 +18,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"strings"
+
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 // CiliumVersion provides a minimal structure to the version string
@@ -57,7 +59,9 @@ func FromString(versionString string) CiliumVersion {
 
 // GetCiliumVersion returns a initialized CiliumVersion structure
 func GetCiliumVersion() CiliumVersion {
-	return FromString(Version)
+	cver := FromString(Version)
+	metrics.VersionMetric.WithLabelValues(cver.Version)
+	return cver
 }
 
 // Base64 returns the version in a base64 format.
