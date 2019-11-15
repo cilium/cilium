@@ -79,18 +79,22 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 		// can now simply select all endpoints.
 		//
 		// Release references held by filterToMerge.CachedSelectors
-		selectorCache.RemoveSelectors(filterToMerge.CachedSelectors, filterToMerge)
-		filterToMerge.CachedSelectors = nil
+		if !filterToMerge.HasL3DependentL7Rules() {
+			selectorCache.RemoveSelectors(filterToMerge.CachedSelectors, filterToMerge)
+			filterToMerge.CachedSelectors = nil
+		}
 	} else {
 		// Case 2: Merge selectors from filterToMerge to the existingFilter.
 		if filterToMerge.AllowsAllAtL3() {
 			// Allowing all, release selectors from existingFilter
-			selectorCache.RemoveSelectors(existingFilter.CachedSelectors, existingFilter)
-			existingFilter.CachedSelectors = nil
+			if !existingFilter.HasL3DependentL7Rules() {
+				selectorCache.RemoveSelectors(existingFilter.CachedSelectors, existingFilter)
+				existingFilter.CachedSelectors = nil
+			}
 			existingFilter.allowsAllAtL3 = true
 		}
-		existingFilter.mergeCachedSelectors(filterToMerge, selectorCache)
 	}
+	existingFilter.mergeCachedSelectors(filterToMerge, selectorCache)
 
 	// Merge the L7-related data from the arguments provided to this function
 	// with the existing L7-related data already in the filter.
