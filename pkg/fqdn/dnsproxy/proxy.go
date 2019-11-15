@@ -322,6 +322,15 @@ func (p *DNSProxy) CheckAllowed(endpointID uint64, destPort uint16, destID ident
 		return false, nil
 	}
 
+	// FIXME: We see cachedSelectors with nil internals, possibly from visibility
+	// rules. These would crash here, so we catch that and allow.
+	defer func() {
+		if r := recover(); r != nil {
+			allowed = true
+			err = nil
+		}
+	}()
+
 	for selector, re := range epAllow {
 		// The port was matched in getPortRulesForID, above.
 		if selector.Selects(destID) && re.MatchString(name) {
