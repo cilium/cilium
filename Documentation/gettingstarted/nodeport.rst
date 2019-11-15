@@ -67,13 +67,13 @@ has come up correctly:
 Limitations
 ###########
 
-    * Both Service's ``externalTrafficPolicy: Local`` and ``healthCheckNodePort``
-      are currently not supported.
+    * Service ``healthCheckNodePort`` is currently not supported.
     * NodePort services are currently exposed through the native device which has
       the default route on the host or a user specified device. In tunneling mode,
       they are additionally exposed through the tunnel interface (``cilium_vxlan``
       or ``cilium_geneve``). Exposing services through multiple native devices
-      will be supported in upcoming Cilium versions.
+      will be supported in upcoming Cilium versions. See `GH issue 9620
+      <https://github.com/cilium/cilium/issues/9620>`_ for additional details.
 
 .. _external-ips:
 
