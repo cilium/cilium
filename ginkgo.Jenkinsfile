@@ -134,6 +134,7 @@ pipeline {
                         NETNEXT="true"
                         K8S_VERSION="1.11"
                         KUBECONFIG="vagrant-kubeconfig"
+                        CILIUM_REGISTRY="localnode" //setting it here so we don't compile Cilium in vagrant nodes (already done on local node registry)
                     }
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
@@ -161,6 +162,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                         K8S_VERSION="1.16"
                         KUBECONFIG="vagrant-kubeconfig"
+                        CILIUM_REGISTRY="localnode" //setting it here so we don't compile Cilium in vagrant nodes (already done on local node registry)
                     }
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
