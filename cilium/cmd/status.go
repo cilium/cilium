@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"text/tabwriter"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
@@ -43,6 +44,7 @@ var (
 	allNodes       bool
 	allRedirects   bool
 	brief          bool
+	timeout        time.Duration
 	healthLines    = 10
 )
 
@@ -55,6 +57,7 @@ func init() {
 	statusCmd.Flags().BoolVar(&allRedirects, "all-redirects", false, "Show all redirects")
 	statusCmd.Flags().BoolVar(&brief, "brief", false, "Only print a one-line status message")
 	statusCmd.Flags().BoolVar(&verbose, "verbose", false, "Equivalent to --all-addresses --all-controllers --all-nodes --all-health")
+	statusCmd.Flags().DurationVar(&timeout, "timeout", 30 * time.Second, "Sets the timeout to use when querying for health")
 	command.AddJSONOutput(statusCmd)
 }
 
@@ -78,7 +81,7 @@ func statusDaemon() {
 	if allHealth {
 		healthLines = 0
 	}
-	params := daemon.NewGetHealthzParams()
+	params := daemon.NewGetHealthzParamsWithTimeout(timeout)
 	params.SetBrief(&brief)
 	if resp, err := client.Daemon.GetHealthz(params); err != nil {
 		if brief {
