@@ -439,3 +439,12 @@ and ``cilium`` CLI:
 We hope you enjoyed the tutorial.  Feel free to play more with the setup, read
 the rest of the documentation, and reach out to us on the `Cilium
 Slack channel <https://cilium.herokuapp.com>`_ with any questions!
+
+Clean-up
+========
+
+.. parsed-literal::
+
+   $ kubectl delete -f \ |SCM_WEB|\/examples/minikube/http-sw-app.yaml
+   $ kubectl delete cnp rule1
+

@@ -323,8 +323,9 @@ Clean Up
 You have now installed Cilium, deployed a demo app, and tested
 L7 Cassandra-aware network security policies.  To clean up, run:
 
-::
+.. parsed-literal::
 
-    $ minikube delete
+   $ kubectl delete -f \ |SCM_WEB|\/examples/kubernetes-cassandra/cass-sw-app.yaml
+   $ kubectl delete cnp secure-empire-cassandra
 
 After this, you can re-run the tutorial from Step 1.
