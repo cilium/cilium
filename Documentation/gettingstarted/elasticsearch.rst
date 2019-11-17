@@ -193,6 +193,7 @@ Clean Up
 
 You have now installed Cilium, deployed a demo app, and finally deployed & tested Elasticsearch-aware network security policies. To clean up, run:
 
-::
+.. parsed-literal::
 
-    $ minikube delete
+   $ kubectl delete -f \ |SCM_WEB|\/examples/kubernetes-es/es-sw-app.yaml
+   $ kubectl delete cnp secure-empire-elasticsearch
