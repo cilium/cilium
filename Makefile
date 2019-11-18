@@ -17,7 +17,7 @@ BPF_FILES ?= $(BPF_FILES_EVAL)
 BPF_SRCFILES := $(subst ../,,$(BPF_FILES))
 
 SWAGGER_VERSION := v0.20.1
-SWAGGER := $(CONTAINER_ENGINE_FULL) run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) -e GOPATH=$(GOPATH) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
+SWAGGER := $(CONTAINER_ENGINE_FULL) run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
 
 COVERPKG_EVAL := $(shell if [ $$(echo "$(TESTPKGS)" | wc -w) -gt 1 ]; then echo "./..."; else echo "$(TESTPKGS)"; fi)
 COVERPKG ?= $(COVERPKG_EVAL)
@@ -455,7 +455,7 @@ update-golang-dockerfiles:
 	$(QUIET) sed -i 's/GO_VERSION .*/GO_VERSION $(GO_VERSION)/g' Dockerfile.builder
 	$(QUIET) for fl in $(shell find . -name "*Dockerfile*") ; do sed -i 's/golang:.* /golang:$(GO_VERSION) as /g' $$fl ; done
 	@echo "Updated go version in Dockerfiles to $(GO_VERSION)"
-	
+
 update-travis-go-version:
 	$(QUIET) sed -e 's/TRAVIS_GO_VERSION/$(GO_VERSION)/g' .travis.yml.tmpl > .travis.yml
 	@echo "Updated go version in .travis.yml to $(GO_VERSION)"
