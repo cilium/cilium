@@ -21,6 +21,7 @@ $CONTAINER_RUNTIME=(ENV['CONTAINER_RUNTIME'] || "docker")
 $CNI_INTEGRATION=(ENV['CNI_INTEGRATION'] || "")
 $CILIUM_IMAGE = ENV['CILIUM_IMAGE'] || ""
 $CILIUM_OPERATOR_IMAGE = ENV['CILIUM_OPERATOR_IMAGE'] || ""
+$PRELOAD_VM = ENV['PRELOAD_VM'] || "false"
 $SKIP_K8S_PROVISION = ENV['SKIP_K8S_PROVISION'] || "false"
 
 # RAM and CPU settings
@@ -116,6 +117,7 @@ Vagrant.configure("2") do |config|
                     "#{$IPv6}", "#{$CONTAINER_RUNTIME}", "#{$CNI_INTEGRATION}"]
                 sh.env = {"CILIUM_IMAGE" => "#{$CILIUM_IMAGE}",
                           "CILIUM_OPERATOR_IMAGE" => "#{$CILIUM_OPERATOR_IMAGE}",
+                          "PRELOAD_VM" => "#{$PRELOAD_VM}",
                           "SKIP_K8S_PROVISION" => "#{$SKIP_K8S_PROVISION}"}
             end
         end
