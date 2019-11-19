@@ -26,6 +26,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	nextDirectorySuffix       = "_next"
+	nextFailedDirectorySuffix = "_next_fail"
+	backupDirectorySuffix     = "_stale"
+)
+
 // DirectoryPath returns the directory name for this endpoint bpf program.
 func (e *Endpoint) DirectoryPath() string {
 	return filepath.Join(".", fmt.Sprintf("%d", e.ID))
@@ -34,7 +40,7 @@ func (e *Endpoint) DirectoryPath() string {
 // FailedDirectoryPath returns the directory name for this endpoint bpf program
 // failed builds.
 func (e *Endpoint) FailedDirectoryPath() string {
-	return filepath.Join(".", fmt.Sprintf("%d%s", e.ID, "_next_fail"))
+	return filepath.Join(".", fmt.Sprintf("%d%s", e.ID, nextFailedDirectorySuffix))
 }
 
 // StateDirectoryPath returns the directory name for this endpoint bpf program.
@@ -45,11 +51,11 @@ func (e *Endpoint) StateDirectoryPath() string {
 // NextDirectoryPath returns the directory name for this endpoint bpf program
 // next bpf builds.
 func (e *Endpoint) NextDirectoryPath() string {
-	return filepath.Join(".", fmt.Sprintf("%d%s", e.ID, "_next"))
+	return filepath.Join(".", fmt.Sprintf("%d%s", e.ID, nextDirectorySuffix))
 }
 
 func (e *Endpoint) backupDirectoryPath() string {
-	return e.DirectoryPath() + "_stale"
+	return e.DirectoryPath() + backupDirectorySuffix
 }
 
 // synchronizeDirectories moves the files related to endpoint BPF program
