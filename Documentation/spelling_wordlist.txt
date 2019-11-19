@@ -179,6 +179,7 @@ boolean
 bpf
 bpftool
 bpftrace
+breakpoint
 browsable
 bugfix
 bugfixes
