@@ -91,13 +91,6 @@ the cluster with the external IP (as destination IP), on the Service port,
 will be routed to one of the Service endpoints. ``externalIPs`` are not managed
 by Kubernetes and are the responsibility of the cluster administrator.
 
-If a service is defined with a ``externalIPs`` that belongs to the host where
-the service translation is being performed, the service translation is executed.
-In other words, if a pod tries to connect to an ``externalIP`` that does not
-belong to the host where it is hosted, the service translation does not occur
-and the traffic is sent to the external IP address without any service
-translation.
-
 Once configured, apply the DaemonSet file to deploy Cilium and verify that it
 has come up correctly:
 
@@ -132,3 +125,16 @@ deployed to see the routing being performed correctly:
     $ ip r a 192.0.2.233 via <node-ip>
     $ curl 192.0.2.233:82
     <html><body><h1>It works!</h1></body></html>
+
+
+Limitations
+###########
+
+Similar to kube-proxy, if a pod on a node attempts to initiate a connection to
+an ``externalIP`` and the external IP is assigned to a node in the cluster, the
+connection to the service will be translated and forwarded to a backend.
+However, if a pod attempts to initiate a connection to an ``externalIP`` which
+does not belong to a node in the cluster, the service will *NOT* be translated.
+Such traffic will be forwarded to the actual remote destination without
+translation. Incoming connections to a node are not affected by this logic and
+will perform service translation for all configured ``externalIP`` services.
