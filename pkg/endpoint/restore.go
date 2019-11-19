@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -41,8 +42,23 @@ import (
 // ReadEPsFromDirNames returns a mapping of endpoint ID to endpoint of endpoints
 // from a list of directory names that can possible contain an endpoint.
 func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, basePath string, eptsDirNames []string) map[uint16]*Endpoint {
+	completeEPDirNames, incompleteEPDirNames := partitionEPDirNamesByRestoreStatus(eptsDirNames)
+
+	if len(incompleteEPDirNames) > 0 {
+		for _, epDirName := range incompleteEPDirNames {
+			scopedLog := log.WithFields(logrus.Fields{
+				logfields.EndpointID: epDirName,
+			})
+			fullDirName := filepath.Join(basePath, epDirName)
+			scopedLog.Warning(fmt.Sprintf("Found incomplete restore directory %s. Removing it...", fullDirName))
+			if err := os.RemoveAll(epDirName); err != nil {
+				scopedLog.WithError(err).Warn(fmt.Sprintf("Error while removing directory %s. Ignoring it...", fullDirName))
+			}
+		}
+	}
+
 	possibleEPs := map[uint16]*Endpoint{}
-	for _, epDirName := range eptsDirNames {
+	for _, epDirName := range completeEPDirNames {
 		epDir := filepath.Join(basePath, epDirName)
 		readDir := func() string {
 			scopedLog := log.WithFields(logrus.Fields{
@@ -100,6 +116,39 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, basePath
 		}
 	}
 	return possibleEPs
+}
+
+// partitionEPDirNamesByRestoreStatus partitions the provided list of directory
+// names that can possibly contain an endpoint, into two lists, containing those
+// names that represent an incomplete endpoint restore and those that do not.
+func partitionEPDirNamesByRestoreStatus(eptsDirNames []string) (complete []string, incomplete []string) {
+	dirNames := make(map[string]struct{})
+	for _, epDirName := range eptsDirNames {
+		dirNames[epDirName] = struct{}{}
+	}
+
+	incompleteSuffixes := []string{nextDirectorySuffix, nextFailedDirectorySuffix}
+	incompleteSet := make(map[string]struct{})
+
+	for _, epDirName := range eptsDirNames {
+		for _, suff := range incompleteSuffixes {
+			if strings.HasSuffix(epDirName, suff) {
+				if _, exists := dirNames[epDirName[:len(epDirName)-len(suff)]]; exists {
+					incompleteSet[epDirName] = struct{}{}
+				}
+			}
+		}
+	}
+
+	for epDirName := range dirNames {
+		if _, exists := incompleteSet[epDirName]; exists {
+			incomplete = append(incomplete, epDirName)
+		} else {
+			complete = append(complete, epDirName)
+		}
+	}
+
+	return
 }
 
 // RegenerateAfterRestore performs the following operations on the specified

@@ -112,7 +112,6 @@ func (ds *EndpointSuite) TestReadEPsFromDirNames(c *C) {
 	os.Chdir(tmpDir)
 	c.Assert(err, IsNil)
 	epsNames := []string{}
-	c.Assert(err, IsNil)
 	for _, ep := range epsWanted {
 		c.Assert(ep, NotNil)
 
@@ -137,7 +136,6 @@ func (ds *EndpointSuite) TestReadEPsFromDirNames(c *C) {
 				ep.nodeMAC = []byte{0x02, 0xff, 0xf2, 0x12, 0xc1, 0xc1}
 				err = ep.writeHeaderfile(failedDir)
 				c.Assert(err, IsNil)
-				epsNames = append(epsNames, ep.DirectoryPath())
 			}
 		default:
 			epsNames = append(epsNames, ep.DirectoryPath())
@@ -164,4 +162,89 @@ func (ds *EndpointSuite) TestReadEPsFromDirNames(c *C) {
 		wanted.status = nil
 		c.Assert(restoredEP.String(), checker.DeepEquals, wanted.String())
 	}
+}
+
+func (ds *EndpointSuite) TestReadEPsFromDirNamesWithRestoreFailure(c *C) {
+	// For this test, the real linux datapath is necessary to properly
+	// serialize config files to disk and test the restore.
+	oldDatapath := ds.datapath
+	defer func() {
+		ds.datapath = oldDatapath
+	}()
+	ds.datapath = linuxDatapath.NewDatapath(linuxDatapath.DatapathConfiguration{}, nil)
+
+	eps, _ := ds.createEndpoints()
+	ep := eps[0]
+	c.Assert(ep, NotNil)
+	tmpDir, err := ioutil.TempDir("", "cilium-tests")
+	defer func() {
+		os.RemoveAll(tmpDir)
+	}()
+
+	os.Chdir(tmpDir)
+	c.Assert(err, IsNil)
+
+	fullDirName := filepath.Join(tmpDir, ep.DirectoryPath())
+	err = os.MkdirAll(fullDirName, 0777)
+	c.Assert(err, IsNil)
+
+	err = ep.writeHeaderfile(fullDirName)
+	c.Assert(err, IsNil)
+
+	nextDir := filepath.Join(tmpDir, ep.NextDirectoryPath())
+	err = os.MkdirAll(nextDir, 0777)
+	c.Assert(err, IsNil)
+
+	// Change endpoint a little bit so we know which endpoint is in
+	// "${EPID}_next" and with one is in the "${EPID}" directory.
+	tmpNodeMAC := ep.nodeMAC
+	ep.nodeMAC = []byte{0x02, 0xff, 0xf2, 0x12, 0xc1, 0xc1}
+	err = ep.writeHeaderfile(nextDir)
+	c.Assert(err, IsNil)
+	ep.nodeMAC = tmpNodeMAC
+
+	epNames := []string{
+		ep.DirectoryPath(), ep.NextDirectoryPath(),
+	}
+
+	epResult := ReadEPsFromDirNames(context.TODO(), ds, tmpDir, epNames)
+	c.Assert(len(epResult), Equals, 1)
+
+	restoredEP := epResult[ep.ID]
+	c.Assert(restoredEP.String(), checker.DeepEquals, ep.String())
+
+	// Check that the directory for failed restore was removed.
+	fileExists := func(fileName string) bool {
+		_, err := os.Stat(fileName)
+		if err == nil {
+			return true
+		}
+		if !os.IsNotExist(err) {
+			c.Assert(err, NotNil)
+		}
+		return false
+	}
+	c.Assert(fileExists(nextDir), checker.Equals, false)
+	c.Assert(fileExists(fullDirName), checker.Equals, true)
+}
+
+func (ds *EndpointSuite) TestPartitionEPDirNamesByRestoreStatus(c *C) {
+	eptsDirNames := []string{
+		"4", "12", "12_next", "3_next", "5_next_fail", "5",
+	}
+	completeWanted := []string{
+		"12", "3_next", "4", "5",
+	}
+	incompleteWanted := []string{
+		"12_next", "5_next_fail",
+	}
+
+	complete, incomplete := partitionEPDirNamesByRestoreStatus(eptsDirNames)
+
+	sort.Strings(complete)
+	sort.Strings(completeWanted)
+	sort.Strings(incomplete)
+	sort.Strings(incompleteWanted)
+	c.Assert(complete, checker.DeepEquals, completeWanted)
+	c.Assert(incomplete, checker.DeepEquals, incompleteWanted)
 }
