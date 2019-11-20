@@ -653,11 +653,11 @@ func (n *linuxNodeHandler) enableIPsec(newNode *node.Node) {
 			}
 		} else {
 			if ciliumInternalIPv6 := newNode.GetCiliumInternalIP(true); ciliumInternalIPv6 != nil {
-				ipsecLocalWildcard := &net.IPNet{IP: net.ParseIP(wildcardIPv6), Mask: net.CIDRMask(0, 0)}
+				ipsecLocal := &net.IPNet{IP: n.nodeAddressing.IPv6().Router(), Mask: net.CIDRMask(0, 0)}
 				ipsecRemote := &net.IPNet{IP: ciliumInternalIPv6, Mask: newNode.IPv6AllocCIDR.Mask}
 				n.replaceNodeIPSecOutRoute(new6Net)
-				spi, err := ipsec.UpsertIPsecEndpoint(ipsecLocalWildcard, ipsecRemote, ipsec.IPSecDirOut, n.nodeConfig.EncryptNode)
-				upsertIPsecLog(err, "IPv6", ipsecLocalWildcard, ipsecRemote, spi)
+				spi, err := ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, ipsec.IPSecDirOut, n.nodeConfig.EncryptNode)
+				upsertIPsecLog(err, "IPv6", ipsecLocal, ipsecRemote, spi)
 			}
 		}
 	}
