@@ -366,6 +366,52 @@ func DeleteIPsecEndpoint(remote *net.IPNet) {
 	ipsecDeleteXfrmPolicy(remote.IP)
 }
 
+func isXfrmPolicyCilium(policy netlink.XfrmPolicy) bool {
+	if policy.Mark.Mask != linux_defaults.RouteMarkMask {
+		return false
+	}
+	if policy.Mark.Value == linux_defaults.RouteMarkDecrypt ||
+		policy.Mark.Value == linux_defaults.RouteMarkEncrypt {
+		return true
+	}
+	return false
+}
+
+func isXfrmStateCilium(state netlink.XfrmState) bool {
+	if state.Mark.Mask != linux_defaults.RouteMarkMask {
+		return false
+	}
+	if state.Mark.Value == linux_defaults.RouteMarkDecrypt ||
+		state.Mark.Value == linux_defaults.RouteMarkEncrypt {
+		return true
+	}
+	return false
+}
+
+// DeleteXfrm remove any remaining XFRM policy or state from tables
+func DeleteXfrm() {
+	xfrmPolicyList, err := netlink.XfrmPolicyList(0)
+	if err == nil {
+		for _, p := range xfrmPolicyList {
+			if isXfrmPolicyCilium(p) {
+				if err := netlink.XfrmPolicyDel(&p); err != nil {
+					log.WithError(err).Warning("deleting xfrm policy failed")
+				}
+			}
+		}
+	}
+	xfrmStateList, err := netlink.XfrmStateList(0)
+	if err == nil {
+		for _, s := range xfrmStateList {
+			if isXfrmStateCilium(s) {
+				if err := netlink.XfrmStateDel(&s); err != nil {
+					log.WithError(err).Warning("deleting old xfrm state failed")
+				}
+			}
+		}
+	}
+}
+
 func decodeIPSecKey(keyRaw string) (int, []byte, error) {
 	// As we have released the v1.4.0 docs telling the users to write the
 	// k8s secret with the prefix "0x" we have to remove it if it is present,

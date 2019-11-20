@@ -1098,6 +1098,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		if err != nil {
 			log.WithError(err).Warning("Cannot cleanup previous encryption rule state.")
 		}
+		ipsec.DeleteXfrm()
 	}
 
 	if newConfig.UseSingleClusterRoute {
