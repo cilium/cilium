@@ -57,7 +57,7 @@ func init() {
 	statusCmd.Flags().BoolVar(&allRedirects, "all-redirects", false, "Show all redirects")
 	statusCmd.Flags().BoolVar(&brief, "brief", false, "Only print a one-line status message")
 	statusCmd.Flags().BoolVar(&verbose, "verbose", false, "Equivalent to --all-addresses --all-controllers --all-nodes --all-health")
-	statusCmd.Flags().DurationVar(&timeout, "timeout", 30 * time.Second, "Sets the timeout to use when querying for health")
+	statusCmd.Flags().DurationVar(&timeout, "timeout", 30*time.Second, "Sets the timeout to use when querying for health")
 	command.AddJSONOutput(statusCmd)
 }
 
