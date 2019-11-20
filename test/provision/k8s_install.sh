@@ -237,7 +237,7 @@ case $K8S_VERSION in
             kubernetes-cni=${KUBERNETES_CNI_VERSION}* \
             kubelet=${K8S_FULL_VERSION}* \
             kubeadm=${K8S_FULL_VERSION}* \
-            kubectl=${K8S_FULL_VERSION}*
+            kubectl="1.16.3"*
         ;;
 #   "1.16")
 #       install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}"
