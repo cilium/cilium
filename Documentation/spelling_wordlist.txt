@@ -179,6 +179,7 @@ boolean
 bpf
 bpftool
 bpftrace
+breakpoint
 browsable
 bugfix
 bugfixes
@@ -396,6 +397,7 @@ newprotoparser
 nfp
 nftables
 nodeX
+observability
 onData
 onwards
 opcodes
