@@ -502,27 +502,43 @@ drop_err:
 	return ret;
 }
 
-static __always_inline int do_netdev_encrypt_fib(struct __sk_buff *skb, int *encrypt_iface)
+static __always_inline int do_netdev_encrypt_fib(struct __sk_buff *skb,
+						 __u16 proto,
+						 int *encrypt_iface)
 {
 	int ret = 0;
 
 #ifdef HAVE_FIB_LOOKUP
 	struct bpf_fib_lookup fib_params = {};
 	void *data, *data_end;
-	struct iphdr *iphdr;
 	__be32 sum;
 	int err;
 
-	if (!revalidate_data(skb, &data, &data_end, &iphdr)) {
-		ret = DROP_INVALID;
-		goto drop_err_fib;
+	if (proto ==  bpf_htons(ETH_P_IP)) {
+		struct iphdr *ip4;
+
+		if (!revalidate_data(skb, &data, &data_end, &ip4)) {
+			ret = DROP_INVALID;
+			goto drop_err_fib;
+		}
+
+		fib_params.family = AF_INET;
+		fib_params.ipv4_src = ip4->saddr;
+		fib_params.ipv4_dst = ip4->daddr;
+	} else {
+		struct ipv6hdr *ip6;
+
+		if (!revalidate_data(skb, &data, &data_end, &ip6)) {
+			ret = DROP_INVALID;
+			goto drop_err_fib;
+		}
+
+		fib_params.family = AF_INET6;
+		ipv6_addr_copy((union v6addr *) &fib_params.ipv6_src, (union v6addr *) &ip6->saddr);
+		ipv6_addr_copy((union v6addr *) &fib_params.ipv6_dst, (union v6addr *) &ip6->daddr);
 	}
 
-	fib_params.family = AF_INET;
 	fib_params.ifindex = *encrypt_iface;
-
-	fib_params.ipv4_src = iphdr->saddr;
-	fib_params.ipv4_dst = iphdr->daddr;
 
 	err = fib_lookup(skb, &fib_params, sizeof(fib_params),
 		    BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
@@ -544,25 +560,24 @@ drop_err_fib:
 	return ret;
 }
 
-static __always_inline int do_netdev_encrypt(struct __sk_buff *skb)
+static __always_inline int do_netdev_encrypt(struct __sk_buff *skb, __u16 proto)
 {
-	int encrypt_iface;
+	int encrypt_iface = 0;
 	int ret = 0;
 
-#ifdef ENCRYPT_NODE
+#if defined(ENCRYPT_NODE) || defined(HAVE_FIB_LOOKUP)
 	encrypt_iface = ENCRYPT_IFACE;
 #endif
-
 	ret = do_netdev_encrypt_pools(skb);
 	if (ret)
 		return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, METRIC_INGRESS);
 
-	ret = do_netdev_encrypt_fib(skb, &encrypt_iface);
+	ret = do_netdev_encrypt_fib(skb, proto, &encrypt_iface);
 	if (ret)
 		return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, METRIC_INGRESS);
 
 	bpf_clear_cb(skb);
-#ifdef ENCRYPT_NODE
+#if defined(ENCRYPT_NODE) || defined(HAVE_FIB_LOOKUP)
 	return redirect(encrypt_iface, 0);
 #else
 	return TC_ACT_OK;
@@ -582,7 +597,7 @@ static __always_inline int do_netdev_encrypt_encap(struct __sk_buff *skb)
 	return __encap_and_redirect_with_nodeid(skb, tunnel_endpoint, seclabel, TRACE_PAYLOAD_LEN);
 }
 
-static __always_inline int do_netdev_encrypt(struct __sk_buff *skb)
+static __always_inline int do_netdev_encrypt(struct __sk_buff *skb, __u16 proto)
 {
 	return do_netdev_encrypt_encap(skb);
 }
@@ -599,7 +614,7 @@ static __always_inline int do_netdev(struct __sk_buff *skb, __u16 proto)
 		__u32 magic = skb->mark & MARK_MAGIC_HOST_MASK;
 
 		if (magic == MARK_MAGIC_ENCRYPT)
-			return do_netdev_encrypt(skb);
+			return do_netdev_encrypt(skb, proto);
 	}
 #endif
 	bpf_clear_cb(skb);
