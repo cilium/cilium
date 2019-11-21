@@ -147,6 +147,12 @@ tooling to provide:
 - Metrics export via Prometheus: Key metrics are exported via Prometheus for
   integration with your existing dashboards.
 
+- Hubble_: An observability platform specifically written for Cilium. It
+  provides service dependency maps, operational monitoring and alerting,
+  and application and security visibility based on flow logs.
+
+.. _Hubble: https://github.com/cilium/hubble/
+
 Integrations
 ------------
 

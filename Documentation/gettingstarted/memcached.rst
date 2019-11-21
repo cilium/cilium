@@ -312,7 +312,8 @@ L7 memcached-aware network security policies.  To clean up, in your main termina
 
 .. parsed-literal::
 
-    $ minikube delete
+   $ kubectl delete -f \ |SCM_WEB|\/examples/kubernetes-memcached/memcd-sw-app.yaml
+   $ kubectl delete cnp secure-fleet
 
 For some handy memcached references, see below:
 

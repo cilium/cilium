@@ -274,8 +274,10 @@ Clean Up
 You have now installed Cilium, deployed a demo app, and tested both
 L7 Kafka-aware network security policies.  To clean up, run:
 
-::
+.. parsed-literal::
 
-    $ minikube delete
+   $ kubectl delete -f \ |SCM_WEB|\/examples/kubernetes-kafka/kafka-sw-app.yaml
+   $ kubectl delete cnp secure-empire-kafka
+
 
 After this, you can re-run the tutorial from Step 1.

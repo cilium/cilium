@@ -243,6 +243,24 @@ IMPORTANT: Changes required before upgrading to 1.7.0
 
 * Cilium has bumped the minimal kubernetes version supported to v1.11.0.
 
+* The ``kubernetes.io/cluster-service`` label has been removed from the Cilium
+  `DaemonSet` selector. Existing users must remove this label from their
+  `DaemonSet` specification to safely upgrade. If action is not taken to make
+  the selector labels consistent with the upgraded YAMLs, then the new
+  `DaemonSet` YAML which is created during upgrade will fail to apply.
+
+  *Highly recommended:*
+
+  The below instructions will remove the ``kubernetes.io/cluster-service``
+  label from the existing `DaemonSet` in the cluster without making any other
+  changes.
+
+  .. code:: bash
+
+     $ kubectl get ds -n kube-system cilium -o yaml > cilium-ds.yaml
+     $ sed -i '/kubernetes.io\/cluster-service: "true"/d' cilium-ds.yaml
+     $ kubectl apply -f cilium-ds.yaml --force
+
 * If ``kvstore`` is setup with ``etcd`` **and** TLS is enabled, the field name
   ``ca-file`` will have its usage deprecated and will be removed in Cilium v1.8.0.
   The new field name, ``trusted-ca-file``, can be used since Cilium v1.1.0.
