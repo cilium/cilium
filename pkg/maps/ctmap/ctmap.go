@@ -27,6 +27,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nat"
@@ -91,6 +92,8 @@ const (
 	metricsAlive   = "alive"
 	metricsDeleted = "deleted"
 )
+
+var globalDeleteLock [MapTypeMax]lock.Mutex
 
 type NatMap interface {
 	Open() error
@@ -335,8 +338,11 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 			log.Warningf("Encountered unknown type while scanning conntrack table: %v", reflect.TypeOf(key))
 		}
 	}
-	stats.dumpError = m.DumpReliablyWithCallback(filterCallback, stats.DumpStats)
 
+	// See doGC4() comment.
+	globalDeleteLock[m.mapType].Lock()
+	stats.dumpError = m.DumpReliablyWithCallback(filterCallback, stats.DumpStats)
+	globalDeleteLock[m.mapType].Unlock()
 	return stats
 }
 
@@ -411,8 +417,12 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 			log.Warningf("Encountered unknown type while scanning conntrack table: %v", reflect.TypeOf(key))
 		}
 	}
-	stats.dumpError = m.DumpReliablyWithCallback(filterCallback, stats.DumpStats)
 
+	// We serialize the deletions in order to avoid forced map walk restarts
+	// when keys are being evicted underneath us from concurrent go routines.
+	globalDeleteLock[m.mapType].Lock()
+	stats.dumpError = m.DumpReliablyWithCallback(filterCallback, stats.DumpStats)
+	globalDeleteLock[m.mapType].Unlock()
 	return stats
 }
 
