@@ -36,7 +36,6 @@ func (e *Endpoint) MarkDNSCTEntry(dstIP net.IP, now time.Time) {
 	}
 
 	e.DNSZombies.MarkAlive(now, dstIP)
-	e.SyncEndpointHeaderFile() // This is behind a rate-limit trigger
 }
 
 // MarkCTGCTime is the START time of a GC run. It is used by the DNS garbage
