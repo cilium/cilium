@@ -267,10 +267,11 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 		// Upgrades from old ciliums have this nil
 		if restoredEP.DNSHistory != nil {
 			globalCache.UpdateFromCache(restoredEP.DNSHistory, []string{})
+
 			// GC any connections that have expired, but propagate it to the zombies
 			// list. DNSCache.GC can handle a nil DNSZombies parameter. We use the
 			// actual now time because we are checkpointing at restore time.
-			globalCache.GC(now, restoredEP.DNSZombies)
+			restoredEP.DNSHistory.GC(now, restoredEP.DNSZombies)
 		}
 
 		if restoredEP.DNSZombies != nil {
