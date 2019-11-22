@@ -561,8 +561,14 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
 		// This must happen before the NameManager update below, to ensure that
 		// this data is included in the serialized Endpoint object.
+		// We also need to add to the cache before we purge any matching zombies
+		// because they are locked separately and we want to keep the allowed IPs
+		// consistent if a regeneration happens between the two steps. If an update
+		// doesn't happen in the case, we play it safe and don't purge the zombie
+		// in case of races.
 		log.WithField(logfields.EndpointID, ep.ID).Debug("Recording DNS lookup in endpoint specific cache")
-		if ep.DNSHistory.Update(lookupTime, qname, responseIPs, int(TTL)) {
+		if updated := ep.DNSHistory.Update(lookupTime, qname, responseIPs, int(TTL)); updated {
+			ep.DNSZombies.ForceExpireByNameIP(lookupTime, qname, responseIPs...)
 			ep.SyncEndpointHeaderFile()
 		}
 
@@ -826,7 +832,7 @@ func deleteDNSLookups(globalCache *fqdn.DNSCache, pollerCache *fqdn.DNSCache, en
 		namesToRegen = append(namesToRegen, ep.DNSHistory.ForceExpire(expireLookupsBefore, nameMatcher)...)
 		globalCache.UpdateFromCache(ep.DNSHistory, nil)
 
-		namesToRegen = append(namesToRegen, ep.DNSZombies.ForceExpire(expireLookupsBefore, nameMatcher)...)
+		namesToRegen = append(namesToRegen, ep.DNSZombies.ForceExpire(expireLookupsBefore, nameMatcher, nil)...)
 		activeConnections := fqdn.NewDNSCache(0)
 		zombies, _ := ep.DNSZombies.GC()
 		lookupTime := time.Now()
