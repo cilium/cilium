@@ -55,11 +55,6 @@ const (
 	// SockPathEnv is the environment variable to overwrite SockPath
 	SockPathEnv = "CILIUM_SOCK"
 
-	// MonitorSockPath1_0 is the path to the UNIX domain socket used to
-	// distribute BPF and agent events to listeners.
-	// This is the 1.0 protocol version.
-	MonitorSockPath1_0 = RuntimePath + "/monitor.sock"
-
 	// MonitorSockPath1_2 is the path to the UNIX domain socket used to
 	// distribute BPF and agent events to listeners.
 	// This is the 1.2 protocol version.
