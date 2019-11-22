@@ -311,6 +311,8 @@ Removed options
 * ``docker`` and ``e``: This flags has been removed as Cilium no longer requires
   container runtime integrations to manage containers' networks.
 
+* All code associated with ``monitor v1.0`` socket handling has been removed.
+
 .. _1.6_upgrade_notes:
 
 1.6 Upgrade Notes

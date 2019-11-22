@@ -102,9 +102,6 @@ func openMonitorSock(path string) (conn net.Conn, version listener.Version, err 
 		conn, err = net.Dial("unix", path)
 		if err == nil {
 			version = listener.Version1_2
-			if strings.HasSuffix(path, "monitor.sock") {
-				version = listener.Version1_0
-			}
 			return conn, version, nil
 		}
 		errors = append(errors, path+": "+err.Error())
@@ -116,13 +113,6 @@ func openMonitorSock(path string) (conn net.Conn, version listener.Version, err 
 		return conn, listener.Version1_2, nil
 	}
 	errors = append(errors, defaults.MonitorSockPath1_2+": "+err.Error())
-
-	// try the 1.1 socket
-	conn, err = net.Dial("unix", defaults.MonitorSockPath1_0)
-	if err == nil {
-		return conn, listener.Version1_0, nil
-	}
-	errors = append(errors, defaults.MonitorSockPath1_0+": "+err.Error())
 
 	return nil, listener.VersionUnsupported, fmt.Errorf("Cannot find or open a supported node-monitor socket. %s", strings.Join(errors, ","))
 }
@@ -161,20 +151,6 @@ type eventParserFunc func() (*payload.Payload, error)
 // appropriate for the monitor API version passed in.
 func getMonitorParser(conn net.Conn, version listener.Version) (parser eventParserFunc, err error) {
 	switch version {
-	case listener.Version1_0:
-		var (
-			meta payload.Meta
-			pl   payload.Payload
-		)
-		// This implements the older API. Always encode a Meta and Payload object,
-		// both with full gob type information
-		return func() (*payload.Payload, error) {
-			if err := payload.ReadMetaPayload(conn, &meta, &pl); err != nil {
-				return nil, err
-			}
-			return &pl, nil
-		}, nil
-
 	case listener.Version1_2:
 		var (
 			pl  payload.Payload
