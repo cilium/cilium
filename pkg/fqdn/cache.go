@@ -22,6 +22,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -814,16 +815,25 @@ func (zombies *DNSZombieMappings) SetCTGCTime(now time.Time) {
 //   that expired before the current time.
 // nameMatch will remove that specific DNS name from zombies that include it,
 // deleting it when no DNS names remain.
-func (zombies *DNSZombieMappings) ForceExpire(expireLookupsBefore time.Time, nameMatch *regexp.Regexp) (namesAffected []string) {
+func (zombies *DNSZombieMappings) ForceExpire(expireLookupsBefore time.Time, nameMatch *regexp.Regexp, cidr *net.IPNet) (namesAffected []string) {
 	zombies.Lock()
 	defer zombies.Unlock()
+	return zombies.forceExpireLocked(expireLookupsBefore, nameMatch, cidr)
 
+}
+
+func (zombies *DNSZombieMappings) forceExpireLocked(expireLookupsBefore time.Time, nameMatch *regexp.Regexp, cidr *net.IPNet) (namesAffected []string) {
 	var toDelete []*DNSZombieMapping
 
 	for _, zombie := range zombies.deletes {
 		// Do not expire zombies that were enqueued after expireLookupsBefore, but
 		// only if the value is non-zero
 		if !expireLookupsBefore.IsZero() && zombie.DeletePendingAt.After(expireLookupsBefore) {
+			continue
+		}
+
+		// If cidr is provided, skip zombies with IPs outside the range
+		if cidr != nil && !cidr.Contains(zombie.IP) {
 			continue
 		}
 
@@ -851,6 +861,27 @@ func (zombies *DNSZombieMappings) ForceExpire(expireLookupsBefore time.Time, nam
 	}
 
 	return namesAffected
+}
+
+// ForceExpireByNameIP wraps ForceExpire to simplify clearing all IPs from a
+// new DNS lookup.
+// The error return is for errors compiling the internal regexp. This should
+// never happen.
+func (zombies *DNSZombieMappings) ForceExpireByNameIP(expireLookupsBefore time.Time, name string, ips ...net.IP) error {
+	reStr := matchpattern.ToRegexp(name)
+	re, err := regexp.Compile(reStr)
+	if err != nil {
+		return err
+	}
+
+	zombies.Lock()
+	defer zombies.Unlock()
+	for _, ip := range ips {
+		cidr := net.IPNet{Mask: net.CIDRMask(len(ip)*8, len(ip)*8)}
+		cidr.IP = ip.Mask(cidr.Mask)
+		zombies.forceExpireLocked(expireLookupsBefore, re, &cidr)
+	}
+	return nil
 }
 
 // DumpAlive returns copies of still-alive zombies

@@ -706,7 +706,7 @@ func (ds *DNSCacheTestSuite) TestZombiesForceExpire(c *C) {
 	// Expire only 1 name on 1 zombie
 	nameMatch, err := regexp.Compile("^test.com$")
 	c.Assert(err, IsNil)
-	zombies.ForceExpire(time.Time{}, nameMatch)
+	zombies.ForceExpire(time.Time{}, nameMatch, nil)
 
 	alive, dead = zombies.GC()
 	c.Assert(dead, HasLen, 0)
@@ -719,12 +719,50 @@ func (ds *DNSCacheTestSuite) TestZombiesForceExpire(c *C) {
 	// GC
 	nameMatch, err = regexp.Compile("^anothertest.com$")
 	c.Assert(err, IsNil)
-	zombies.ForceExpire(time.Time{}, nameMatch)
+	zombies.ForceExpire(time.Time{}, nameMatch, nil)
 	alive, dead = zombies.GC()
 	c.Assert(dead, HasLen, 0)
 	assertZombiesContain(c, alive, map[string][]string{
 		"2.2.2.2": {"somethingelse.com"},
 	})
+
+	// Setup again with 2 names for test.com
+	zombies.Upsert(now, "2.2.2.2", "test.com")
+
+	// Don't expire if the IP doesn't match
+	err = zombies.ForceExpireByNameIP(time.Time{}, "somethingelse.com", net.ParseIP("1.1.1.1"))
+	c.Assert(err, IsNil)
+	alive, dead = zombies.GC()
+	c.Assert(dead, HasLen, 0)
+	assertZombiesContain(c, alive, map[string][]string{
+		"2.2.2.2": {"somethingelse.com", "test.com"},
+	})
+
+	// Expire 1 name for this IP but leave other names
+	err = zombies.ForceExpireByNameIP(time.Time{}, "somethingelse.com", net.ParseIP("2.2.2.2"))
+	c.Assert(err, IsNil)
+	alive, dead = zombies.GC()
+	c.Assert(dead, HasLen, 0)
+	assertZombiesContain(c, alive, map[string][]string{
+		"2.2.2.2": {"test.com"},
+	})
+
+	// Don't remove if the name doesn't match
+	err = zombies.ForceExpireByNameIP(time.Time{}, "blarg.com", net.ParseIP("2.2.2.2"))
+	c.Assert(err, IsNil)
+	alive, dead = zombies.GC()
+	c.Assert(dead, HasLen, 0)
+	assertZombiesContain(c, alive, map[string][]string{
+		"2.2.2.2": {"test.com"},
+	})
+
+	// Clear everything
+	err = zombies.ForceExpireByNameIP(time.Time{}, "test.com", net.ParseIP("2.2.2.2"))
+	c.Assert(err, IsNil)
+	alive, dead = zombies.GC()
+	c.Assert(dead, HasLen, 0)
+	c.Assert(alive, HasLen, 0)
+	assertZombiesContain(c, alive, map[string][]string{})
 }
 
 func (ds *DNSCacheTestSuite) TestCacheToZombiesGCCascade(c *C) {
