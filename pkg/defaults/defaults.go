@@ -90,12 +90,12 @@ const (
 
 	// ToFQDNsMinTTL is the default lower bound for TTLs used with ToFQDNs rules.
 	// This or ToFQDNsMinTTLPoller is used in DaemonConfig.Populate
-	ToFQDNsMinTTL = 604800 // 1 week in seconds
+	ToFQDNsMinTTL = 3600 // 1 hour in seconds
 
 	// ToFQDNsMinTTLPoller is the default lower bound for TTLs used with ToFQDNs
 	// rules when the poller is enabled.
 	// This or ToFQDNsMinTTL is used in DaemonConfig.Populate
-	ToFQDNsMinTTLPoller = 3600 // 1 hour in seconds
+	ToFQDNsMinTTLPoller = 600 // 10 minutes in seconds
 
 	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to maintain
 	// for each FQDN name in an endpoint's FQDN cache
