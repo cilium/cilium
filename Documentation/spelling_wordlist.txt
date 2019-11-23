@@ -381,6 +381,7 @@ mul
 multi
 multicore
 multinode
+musl
 mysql
 namespace
 namespaced
