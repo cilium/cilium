@@ -963,7 +963,7 @@ allowed but connections to the returned IPs are not, as there is no L3
           FQDN must be allowed in their entirety. e.g. A query for
           ``servicename`` that succeeds with
           ``servicename.namespace.svc.cluster.local.`` must have the latter
-          allowed with ``matchName`` or ``matchPattern``.
+          allowed with ``matchName`` or ``matchPattern``. See `Alpine/musl deployments and DNS Refused`_.
 
 .. _DNS Obtaining Data:
 
@@ -1057,6 +1057,27 @@ DNS Polling
           allow DNS queries. This is independent of the source of DNS
           information, whether from polling or the DNS proxy.
 
+
+Alpine/musl deployments and DNS Refused
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Some common container images treat the DNS ``Refused`` response when the `DNS
+Proxy`_ rejects a query as a more general failure. This stops traversal of the
+search list defined in ``/etc/resolv.conf``. It is common for pods to search by
+appending ``.svc.cluster.local.`` to DNS queries. When this occurs, a lookup
+for ``cilium.io`` may first be attempted as
+``cilium.io.namespace.svc.cluster.local.`` and rejected by the proxy. Instead
+of continuing and eventually attempting ``cilium.io.`` alone, the Pod treats
+the DNS lookup is treated as failed.
+
+This can be mitigated with the ``--tofqdns-dns-reject-response-code`` option.
+The default is ``refused`` but ``nameError`` can be selected, causing the proxy
+to return a NXDomain response to refused queries.
+
+A more pod-specific solution is to configure ``ndots`` appropriately for each
+Pod, via ``dnsConfig``, so that the search list is not used for DNS lookups
+that do not need it. See the `Kubernetes documentation <https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-config>`_
+for instructions.
 
 Kubernetes
 ==========
