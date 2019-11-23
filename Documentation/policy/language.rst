@@ -511,43 +511,49 @@ Example
 
 Managing Long-Lived Connections & Minimum DNS Cache Times
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Often, an application may keep a connection open for longer than the configured
-DNS TTL. Without further DNS queries the remote IP used in the long-lived
-connection may expire out of the DNS cache. When this occurs, existing
-connections will become disallowed by policy and will be blocked. In cases
-where an application retries the connection, a new DNS query is issued and the
-IP is added to the policy.
+Often, an application may keep a connection open for longer than the DNS TTL.
+Without further DNS queries the remote IP used in the long-lived connection may
+expire out of the DNS cache. When this occurs, existing connections established
+before the TTL expires will continue to be allowed until they terminate. Unused
+IPs will no longer be allowed, however, even when from the same DNS lookup as
+an in-use IP. This tracking is per-endpoint per-IP and DNS entries in this
+state will be have ``source: connection`` with a single IP listed within the
+``cilium fqdn cache list`` output.
 
-A minimum TTL is used to ensure a lower bound to DNS data expiration, and DNS
-data in the Cilium DNS cache will not expire sooner than this minimum. It
-can be configured with the ``--tofqdns-min-ttl`` CLI option. The value is in
-integer seconds and must be 1 or more. The default is 1 week, or 1 hour when
-`DNS Polling`_ is enabled.
+A minimum TTL is used to ensure a lower time bound to DNS data expiration, and
+IPs allowed by a ``toFQDNs`` rule will be allowed at least this long It can be
+configured with the ``--tofqdns-min-ttl`` CLI option. The value is in integer
+seconds and must be 1 or more. The default is 1 hour, or 10 minutes when `DNS
+Polling`_ is enabled.
 
 Some care needs to be taken when setting ``--tofqdns-min-ttl`` with DNS data
 that returns many distinct IPs over time. A long TTL will keep each IP cached
-long after the related connections may have terminated. Large numbers of IPs
+long after the related connections have terminated. Large numbers of IPs each
 have corresponding Security Identities and too many may slow down Cilium policy
 regeneration. This can be especially pronounced when using `DNS Polling`_ to
-obtain DNS data. In such cases a shorter minimum TTL is recommended, as
-`DNS Polling`_ will recover up-do-date IPs regularly.
-
-.. note:: It is recommended that ``--tofqdns-min-ttl`` be set to the minimum
-          time a connection must be maintained.
+obtain DNS data. In such cases a shorter minimum TTL is recommended, as `DNS
+Polling`_ will recover up-do-date IPs regularly.
 
 Managing Short-Lived Connections & Maximum IPs per FQDN/endpoint
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The minimal TTL for DNS entries in the cache is deliberately long with 1 week
-per default. This is done to accommodate long-lived, persistent connections.  On
-the other end of the spectrum are workloads which perform short-lived
-connections in repetition to FQDNs which are backed by a large number of IP
-addresses (e.g. AWS S3). Such workloads can grow the number of IPs mapping to an
-FQDN quickly. In order to limit the number of IP addresses that map a particular
-FQDN, each FQDN per endpoint has a max capacity of IPs that are being maintained
-(default: 50). Once the capacity is exceeded, the oldest entries are
+The minimum TTL for DNS entries in the cache is deliberately long with 1 hour
+as the default. This is done to accommodate long-lived persistent connections.
+On the other end of the spectrum are workloads that perform short-lived
+connections in repetition to FQDNs that are backed by a large number of IP
+addresses (e.g. AWS S3).
+
+Many short-lived connections can grow the number of IPs mapping to an FQDN
+quickly. In order to limit the number of IP addresses that map a particular
+FQDN, each FQDN has a per-endpoint max capacity of IPs that will be retained
+(default: 50). Once this limit is exceeded, the oldest IP entries are
 automatically expired from the cache. This capacity can be changed using the
 ``--tofqdns-max-ip-per-hostname`` option.
+
+As with long-lived connections above, live connections are not expired until
+they terminate. It is safe to mix long- and short-lived connections from the
+same Pod. IPs above the limit described above will only be removed if unused by
+a connection.
 
 
 
