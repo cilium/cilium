@@ -149,7 +149,7 @@ cilium-agent [flags]
       --tofqdns-enable-poller                                 Enable proactive polling of DNS names in toFQDNs.matchName rules.
       --tofqdns-enable-poller-events                          Emit DNS responses seen by the DNS poller as Monitor events, if the poller is enabled. (default true)
       --tofqdns-endpoint-max-ip-per-hostname int              Maximum number of IPs to maintain per FQDN name for each endpoint (default 50)
-      --tofqdns-min-ttl int                                   The minimum time, in seconds, to use DNS data for toFQDNs policies. (default 3600 when --tofqdns-enable-poller, 604800 otherwise)
+      --tofqdns-min-ttl int                                   The minimum time, in seconds, to use DNS data for toFQDNs policies. (default 600 when --tofqdns-enable-poller, 3600 otherwise)
       --tofqdns-pre-cache string                              DNS cache data at this path is preloaded on agent startup
       --tofqdns-proxy-port int                                Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
       --tofqdns-proxy-response-max-delay duration             The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information. (default 50ms)
