@@ -257,9 +257,7 @@ IMPORTANT: Changes required before upgrading to 1.7.0
 
   .. code:: bash
 
-     $ kubectl get ds -n kube-system cilium -o yaml > cilium-ds.yaml
-     $ sed -i '/kubernetes.io\/cluster-service: "true"/d' cilium-ds.yaml
-     $ kubectl apply -f cilium-ds.yaml --force
+     $ kubectl -n kube-system patch daemonset cilium --type=json -p='[{"op": "remove", "path": "/spec/selector/matchLabels/kubernetes.io~1cluster-service"}]'
 
 * If ``kvstore`` is setup with ``etcd`` **and** TLS is enabled, the field name
   ``ca-file`` will have its usage deprecated and will be removed in Cilium v1.8.0.
