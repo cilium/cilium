@@ -3484,6 +3484,19 @@ attached to one or more tracepoints, collecting further information
 in a map or punting such events to a user space collector through the
 ``bpf_perf_event_output()`` helper, for example.
 
+Tracing pipe
+------------
+
+When a BPF program makes a call to ``bpf_trace_printk()``, the output is sent
+to the kernel tracing pipe. Users may read from this file to consume events
+that are traced to this buffer:
+
+::
+
+   # tail -f /sys/kernel/debug/tracing/trace_pipe
+   ...
+
+
 Miscellaneous
 -------------
 
