@@ -377,7 +377,6 @@ func (k *kvstoreBackend) UpdateKeyIfLocked(ctx context.Context, id idpool.ID, ke
 // not guard against concurrent releases. This is currently guarded by
 // Allocator.slaveKeysMutex when called from pkg/allocator.Allocator.Release.
 func (k *kvstoreBackend) Release(ctx context.Context, key allocator.AllocatorKey) (err error) {
-	log.WithField(fieldKey, key).Info("Releasing key")
 	valueKey := path.Join(k.valuePrefix, kvstore.Encode(key.GetKey()), k.suffix)
 	log.WithField(fieldKey, key).Info("Released last local use of key, invoking global release")
 

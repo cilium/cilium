@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -61,6 +61,8 @@ func newGetIdentityIDHandler(c *cache.CachingIdentityAllocator) GetIdentityIDHan
 }
 
 func (h *getIdentityID) Handle(params GetIdentityIDParams) middleware.Responder {
+	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /identity/<ID> request")
+
 	nid, err := identity.ParseNumericIdentity(params.ID)
 	if err != nil {
 		return NewGetIdentityIDBadRequest()
