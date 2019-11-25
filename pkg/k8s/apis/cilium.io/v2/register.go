@@ -56,6 +56,9 @@ const (
 
 	// CCNPKindDefinition is the kind name for Cilium Cluster wide Network Policy
 	CCNPKindDefinition = "CiliumClusterwideNetworkPolicy"
+
+	// CNKindDefinition is the kind name for Cilium Node
+	CNKindDefinition = "CiliumNode"
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -335,23 +338,99 @@ func createCEPCRD(clientset apiextensionsclient.Interface) error {
 // createNodeCRD creates and updates the CiliumNode CRD. It should be called on
 // agent startup but is idempotent and safe to call again.
 func createNodeCRD(clientset apiextensionsclient.Interface) error {
+	var (
+		// CustomResourceDefinitionSingularName is the singular name of custom resource definition
+		CustomResourceDefinitionSingularName = "ciliumnode"
+
+		// CustomResourceDefinitionPluralName is the plural name of custom resource definition
+		CustomResourceDefinitionPluralName = "ciliumnodes"
+
+		// CustomResourceDefinitionShortNames are the abbreviated names to refer to this CRD's instances
+		CustomResourceDefinitionShortNames = []string{"cn", "ciliumn"}
+
+		// CustomResourceDefinitionKind is the Kind name of custom resource definition
+		CustomResourceDefinitionKind = CNKindDefinition
+
+		CRDName = CustomResourceDefinitionPluralName + "." + SchemeGroupVersion.Group
+	)
+
 	res := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "ciliumnodes." + SchemeGroupVersion.Group,
+			Name: CRDName,
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   SchemeGroupVersion.Group,
 			Version: SchemeGroupVersion.Version,
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:     "ciliumnodes",
-				Singular:   "ciliumnode",
-				ShortNames: []string{"cn"},
-				Kind:       "CiliumNode",
+				Plural:     CustomResourceDefinitionPluralName,
+				Singular:   CustomResourceDefinitionSingularName,
+				ShortNames: CustomResourceDefinitionShortNames,
+				Kind:       CustomResourceDefinitionKind,
 			},
 			Subresources: &apiextensionsv1beta1.CustomResourceSubresources{
 				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
 			},
 			Scope: apiextensionsv1beta1.ClusterScoped,
+			Validation: &apiextensionsv1beta1.CustomResourceValidation{
+				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
+					Description: "CiliumNode represents the k8s node from the view of Cilium.",
+					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+						"spec": {
+							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+								"eni": {
+									Type: "object",
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"min-allocate": {
+											Type:    "integer",
+											Minimum: getFloat64(0),
+											Description: "min-allocate is the minimum number of IPs that will be allocated before" +
+												" the cilium-agent will write the CNI config.",
+										},
+										"pre-allocate": {
+											Type:    "integer",
+											Minimum: getFloat64(0),
+										},
+										"max-above-watermark": {
+											Type:    "integer",
+											Minimum: getFloat64(0),
+										},
+										"first-interface-index": {
+											Type:        "integer",
+											Description: "first-interface-index represents the start EC2 interface index at which the ENI will be attached at.",
+											Minimum:     getFloat64(0),
+										},
+										"security-groups": {
+											Type:        "array",
+											Description: "security-groups represents the list of AWS EC2 security groups which will be attached to the ENI.",
+											Items: &apiextensionsv1beta1.JSONSchemaPropsOrArray{
+												Schema: &apiextensionsv1beta1.JSONSchemaProps{
+													Type: "string",
+												},
+											},
+										},
+										"subnet-tags": {
+											Type:        "object",
+											Description: "subnet-tags represents a filter to narrow down the available subnets in which the ENI will be allocated",
+										},
+										"vpc-id": {
+											Type:        "string",
+											Description: "vpc-id represents the AWS EC2 vpc-id in which the ENI will be allocated.",
+										},
+										"availability-zone": {
+											Type:        "string",
+											Description: "availability-zone represents the AWS availability-zone in which the ENI will be allocated.",
+										},
+										"delete-on-termination": {
+											Type:        "boolean",
+											Description: "delete-on-termination marks the ENI to be deleted when the EC2 instance is terminated.",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 
@@ -514,6 +593,10 @@ func getStr(str string) *string {
 
 func getInt64(i int64) *int64 {
 	return &i
+}
+
+func getFloat64(f float64) *float64 {
+	return &f
 }
 
 var (
