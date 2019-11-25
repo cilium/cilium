@@ -59,7 +59,7 @@ test/*.xml
 tests/cilium-files
 test/test_results
 test/*.json
-test/.vagrant/
+test/.vagrant
 
 # Emacs backup files
 *~

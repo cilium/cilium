@@ -35,3 +35,4 @@ nightly:
 clean:
 	@$(ECHO_CLEAN)
 	-$(QUIET) rm -rf $(TEST_ARTIFACTS)
+	-$(QUIET) rm -f .vagrant/*.box

@@ -57,6 +57,7 @@ test/*_service_manifest.json
 test/*_manifest.yaml
 test/*_policy.json
 test/*.xml
+test/.vagrant
 
 # Emacs backup files
 *~
