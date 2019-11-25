@@ -88,10 +88,10 @@ func (v *VARIANT) Value() interface{} {
 		return v.ToString()
 	case VT_DATE:
 		// VT_DATE type will either return float64 or time.Time.
-		d := uint64(v.Val)
+		d := float64(v.Val)
 		date, err := GetVariantDate(d)
 		if err != nil {
-			return float64(v.Val)
+			return d
 		}
 		return date
 	case VT_UNKNOWN:

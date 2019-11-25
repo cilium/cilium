@@ -359,6 +359,84 @@ pipeline {
                 }
             }
         }
+        stage('Copy code and boot VMs 1.16'){
+
+            options {
+                timeout(time: 60, unit: 'MINUTES')
+            }
+
+            environment {
+                GOPATH="${WORKSPACE}"
+                TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
+            }
+
+            parallel {
+                stage('Boot vms 1.16') {
+                    environment {
+                        K8S_VERSION="1.16"
+                        GOPATH="${WORKSPACE}/${K8S_VERSION}-gopath"
+                        TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                        KUBECONFIG="vagrant-kubeconfig"
+                        CILIUM_REGISTRY="localnode" //setting it here so we don't compile Cilium in vagrant nodes (already done on local node registry)
+                    }
+                    steps {
+                        sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
+                        sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
+                        retry(3) {
+                            dir("${TESTDIR}") {
+                                sh './vagrant-ci-start.sh'
+                            }
+                        }
+                    }
+                    post {
+                        unsuccessful {
+                            script {
+                                if  (!currentBuild.displayName.contains('fail')) {
+                                    currentBuild.displayName = 'K8S 1.16 vm provisioning fail\n' + currentBuild.displayName
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        stage('BDD-Test-k8s-1.16') {
+            environment {
+                CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
+            }
+            options {
+                timeout(time: 100, unit: 'MINUTES')
+            }
+            parallel {
+                stage('BDD-Test-k8s-1.16') {
+                    environment {
+                        K8S_VERSION="1.16"
+                        GOPATH="${WORKSPACE}/${K8S_VERSION}-gopath"
+                        TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                        KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
+                    }
+                    steps {
+                        sh 'cd ${TESTDIR}; ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG} -cilium.registry=$(./print-node-ip.sh)'
+                    }
+                    post {
+                        always {
+                            sh 'cd ${TESTDIR}; ./post_build_agent.sh || true'
+                            sh 'cd ${TESTDIR}; ./archive_test_results.sh || true'
+                            sh 'cd ${TESTDIR}/..; mv *.zip ${WORKSPACE} || true'
+                            sh 'cd ${TESTDIR}; mv *.xml ${WORKSPACE}/${PROJ_PATH}/test || true'
+                            sh 'cd ${TESTDIR}; vagrant destroy -f || true'
+                        }
+                        unsuccessful {
+                            script {
+                                if  (!currentBuild.displayName.contains('fail')) {
+                                    currentBuild.displayName = 'K8s 1.16 tests fail\n' + currentBuild.displayName
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
     post {
         always {

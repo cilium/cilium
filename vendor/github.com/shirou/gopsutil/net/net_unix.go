@@ -63,7 +63,7 @@ func ConnectionsPidWithContext(ctx context.Context, kind string, pid int32) ([]C
 	case "udp6":
 		args = append(args, "6udp")
 	case "unix":
-		args = []string{"-U"}
+		return ret, common.ErrNotImplementedError
 	}
 
 	r, err := common.CallLsofWithContext(ctx, invoke, pid, args...)

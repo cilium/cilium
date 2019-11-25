@@ -9,13 +9,9 @@ import (
 	"strings"
 )
 
-func shellRun(line, dir string) (string, error) {
+func shellRun(line string) (string, error) {
 	shell := os.Getenv("SHELL")
-	cmd := exec.Command(shell, "-c", line)
-	if dir != "" {
-		cmd.Dir = dir
-	}
-	b, err := cmd.Output()
+	b, err := exec.Command(shell, "-c", line).Output()
 	if err != nil {
 		if eerr, ok := err.(*exec.ExitError); ok {
 			b = eerr.Stderr

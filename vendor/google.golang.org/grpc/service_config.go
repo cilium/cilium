@@ -310,14 +310,6 @@ func parseServiceConfig(js string) (*ServiceConfig, error) {
 			}
 			break
 		}
-		if sc.lbConfig == nil {
-			// We had a loadBalancingConfig field but did not encounter a
-			// supported policy.  The config is considered invalid in this
-			// case.
-			err := fmt.Errorf("invalid loadBalancingConfig: no supported policies found")
-			grpclog.Warningf(err.Error())
-			return nil, err
-		}
 	}
 
 	if rsc.MethodConfig == nil {
