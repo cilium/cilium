@@ -402,6 +402,8 @@ func getK8sSupportedConstraints(ciliumVersion string) (go_version.Range, error) 
 		return versioncheck.MustCompile(">=1.8.0 <1.16.0"), nil
 	case IsCiliumV1_6(cst):
 		return versioncheck.MustCompile(">=1.8.0 <1.16.0"), nil
+	case IsCiliumV1_7(cst):
+		return versioncheck.MustCompile(">=1.10.0 <1.17.0"), nil
 	default:
 		return nil, fmt.Errorf("unrecognized version '%s'", ciliumVersion)
 	}

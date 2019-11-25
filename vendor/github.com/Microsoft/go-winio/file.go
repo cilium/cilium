@@ -16,7 +16,6 @@ import (
 //sys createIoCompletionPort(file syscall.Handle, port syscall.Handle, key uintptr, threadCount uint32) (newport syscall.Handle, err error) = CreateIoCompletionPort
 //sys getQueuedCompletionStatus(port syscall.Handle, bytes *uint32, key *uintptr, o **ioOperation, timeout uint32) (err error) = GetQueuedCompletionStatus
 //sys setFileCompletionNotificationModes(h syscall.Handle, flags uint8) (err error) = SetFileCompletionNotificationModes
-//sys wsaGetOverlappedResult(h syscall.Handle, o *syscall.Overlapped, bytes *uint32, wait bool, flags *uint32) (err error) = ws2_32.WSAGetOverlappedResult
 
 type atomicBool int32
 
@@ -80,7 +79,6 @@ type win32File struct {
 	wg            sync.WaitGroup
 	wgLock        sync.RWMutex
 	closing       atomicBool
-	socket        bool
 	readDeadline  deadlineHandler
 	writeDeadline deadlineHandler
 }
@@ -111,13 +109,7 @@ func makeWin32File(h syscall.Handle) (*win32File, error) {
 }
 
 func MakeOpenFile(h syscall.Handle) (io.ReadWriteCloser, error) {
-	// If we return the result of makeWin32File directly, it can result in an
-	// interface-wrapped nil, rather than a nil interface value.
-	f, err := makeWin32File(h)
-	if err != nil {
-		return nil, err
-	}
-	return f, nil
+	return makeWin32File(h)
 }
 
 // closeHandle closes the resources associated with a Win32 handle
@@ -198,10 +190,6 @@ func (f *win32File) asyncIo(c *ioOperation, d *deadlineHandler, bytes uint32, er
 			if f.closing.isSet() {
 				err = ErrFileClosed
 			}
-		} else if err != nil && f.socket {
-			// err is from Win32. Query the overlapped structure to get the winsock error.
-			var bytes, flags uint32
-			err = wsaGetOverlappedResult(f.handle, &c.o, &bytes, false, &flags)
 		}
 	case <-timeout:
 		cancelIoEx(f.handle, &c.o)
@@ -275,10 +263,6 @@ func (f *win32File) SetWriteDeadline(deadline time.Time) error {
 
 func (f *win32File) Flush() error {
 	return syscall.FlushFileBuffers(f.handle)
-}
-
-func (f *win32File) Fd() uintptr {
-	return uintptr(f.handle)
 }
 
 func (d *deadlineHandler) set(deadline time.Time) error {

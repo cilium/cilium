@@ -16,11 +16,14 @@ Kubernetes Version
 The following Kubernetes versions have been tested in the continuous integration
 system for this version of Cilium:
 
+* 1.10
+* 1.11
 * 1.12
 * 1.13
 * 1.14
 * 1.15
 * 1.16
+* 1.17
 
 System Requirements
 ===================

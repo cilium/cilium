@@ -40,7 +40,6 @@ type Parser struct {
 	ParseEnv      bool
 	ParseBacktick bool
 	Position      int
-	Dir           string
 
 	// If ParseEnv is true, use this for getenv.
 	// If nil, use os.Getenv.
@@ -52,7 +51,6 @@ func NewParser() *Parser {
 		ParseEnv:      ParseEnv,
 		ParseBacktick: ParseBacktick,
 		Position:      0,
-		Dir:           "",
 	}
 }
 
@@ -102,11 +100,11 @@ loop:
 			if !singleQuoted && !doubleQuoted && !dollarQuote {
 				if p.ParseBacktick {
 					if backQuote {
-						out, err := shellRun(backtick, p.Dir)
+						out, err := shellRun(backtick)
 						if err != nil {
 							return nil, err
 						}
-						buf = buf[:len(buf)-len(backtick)] + out
+						buf = out
 					}
 					backtick = ""
 					backQuote = !backQuote
@@ -119,11 +117,15 @@ loop:
 			if !singleQuoted && !doubleQuoted && !backQuote {
 				if p.ParseBacktick {
 					if dollarQuote {
-						out, err := shellRun(backtick, p.Dir)
+						out, err := shellRun(backtick)
 						if err != nil {
 							return nil, err
 						}
-						buf = buf[:len(buf)-len(backtick)-2] + out
+						if r == ')' {
+							buf = buf[:len(buf)-len(backtick)-2] + out
+						} else {
+							buf = buf[:len(buf)-len(backtick)-1] + out
+						}
 					}
 					backtick = ""
 					dollarQuote = !dollarQuote
@@ -153,7 +155,7 @@ loop:
 				continue
 			}
 		case ';', '&', '|', '<', '>':
-			if !(escaped || singleQuoted || doubleQuoted || backQuote || dollarQuote) {
+			if !(escaped || singleQuoted || doubleQuoted || backQuote) {
 				if r == '>' && len(buf) > 0 {
 					if c := buf[0]; '0' <= c && c <= '9' {
 						i -= 1

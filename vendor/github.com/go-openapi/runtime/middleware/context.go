@@ -433,8 +433,6 @@ func (c *Context) Authorize(request *http.Request, route *MatchedRoute) (interfa
 		}
 	}
 
-	rCtx = request.Context()
-
 	rCtx = stdContext.WithValue(rCtx, ctxSecurityPrincipal, usr)
 	rCtx = stdContext.WithValue(rCtx, ctxSecurityScopes, route.Authenticator.AllScopes())
 	return usr, request.WithContext(rCtx), nil

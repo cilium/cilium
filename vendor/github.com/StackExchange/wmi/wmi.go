@@ -285,10 +285,6 @@ func (c *Client) loadEntity(dst interface{}, src *ole.IDispatch) (errFieldMismat
 		}
 		defer prop.Clear()
 
-		if prop.VT == 0x1 { //VT_NULL
-			continue
-		}
-
 		switch val := prop.Value().(type) {
 		case int8, int16, int32, int64, int:
 			v := reflect.ValueOf(val).Int()
@@ -387,7 +383,7 @@ func (c *Client) loadEntity(dst interface{}, src *ole.IDispatch) (errFieldMismat
 						}
 						f.Set(fArr)
 					}
-				case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
+				case reflect.Uint8:
 					safeArray := prop.ToArray()
 					if safeArray != nil {
 						arr := safeArray.ToValueArray()
@@ -395,17 +391,6 @@ func (c *Client) loadEntity(dst interface{}, src *ole.IDispatch) (errFieldMismat
 						for i, v := range arr {
 							s := fArr.Index(i)
 							s.SetUint(reflect.ValueOf(v).Uint())
-						}
-						f.Set(fArr)
-					}
-				case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
-					safeArray := prop.ToArray()
-					if safeArray != nil {
-						arr := safeArray.ToValueArray()
-						fArr := reflect.MakeSlice(f.Type(), len(arr), len(arr))
-						for i, v := range arr {
-							s := fArr.Index(i)
-							s.SetInt(reflect.ValueOf(v).Int())
 						}
 						f.Set(fArr)
 					}

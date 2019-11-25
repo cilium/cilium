@@ -7,10 +7,9 @@ This library supports TOML version
 
 [![GoDoc](https://godoc.org/github.com/pelletier/go-toml?status.svg)](http://godoc.org/github.com/pelletier/go-toml)
 [![license](https://img.shields.io/github/license/pelletier/go-toml.svg)](https://github.com/pelletier/go-toml/blob/master/LICENSE)
-[![Build Status](https://dev.azure.com/pelletierthomas/go-toml-ci/_apis/build/status/pelletier.go-toml?branchName=master)](https://dev.azure.com/pelletierthomas/go-toml-ci/_build/latest?definitionId=1&branchName=master)
-[![codecov](https://codecov.io/gh/pelletier/go-toml/branch/master/graph/badge.svg)](https://codecov.io/gh/pelletier/go-toml)
+[![Build Status](https://travis-ci.org/pelletier/go-toml.svg?branch=master)](https://travis-ci.org/pelletier/go-toml)
+[![Coverage Status](https://coveralls.io/repos/github/pelletier/go-toml/badge.svg?branch=master)](https://coveralls.io/github/pelletier/go-toml?branch=master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/pelletier/go-toml)](https://goreportcard.com/report/github.com/pelletier/go-toml)
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fpelletier%2Fgo-toml.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fpelletier%2Fgo-toml?ref=badge_shield)
 
 ## Features
 
@@ -99,30 +98,6 @@ Go-toml provides two handy command line tools:
     go install github.com/pelletier/go-toml/cmd/tomljson
     tomljson --help
     ```
-  
- * `jsontoml`: Reads a JSON file and outputs a TOML representation.
- 
-    ```
-    go install github.com/pelletier/go-toml/cmd/jsontoml
-    jsontoml --help
-    ```
-
-### Docker image
-
-Those tools are also availble as a Docker image from
-[dockerhub](https://hub.docker.com/r/pelletier/go-toml). For example, to
-use `tomljson`:
-
-```
-docker run -v $PWD:/workdir pelletier/go-toml tomljson /workdir/example.toml
-```
-
-Only master (`latest`) and tagged versions are published to dockerhub. You
-can build your own image as usual:
-
-```
-docker build -t go-toml .
-```
 
 ## Contribute
 
@@ -132,7 +107,12 @@ much appreciated!
 
 ### Run tests
 
-`go test ./...`
+You have to make sure two kind of tests run:
+
+1. The Go unit tests
+2. The TOML examples base
+
+You can run both of them using `./test.sh`.
 
 ### Fuzzing
 

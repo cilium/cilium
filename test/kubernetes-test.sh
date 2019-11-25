@@ -52,12 +52,12 @@ test -d kubernetes && rm -rfv kubernetes
 git clone https://github.com/kubernetes/kubernetes.git -b ${KUBERNETES_VERSION} --depth 1
 cd kubernetes
 
-# Kubernetes is only compiling with golang 1.12 for versions <=1.16
+# Kubernetes is only compiling with golang 1.13.4 for versions >=1.17
 sudo rm -fr /usr/local/go
-curl https://dl.google.com/go/go1.12.13.linux-amd64.tar.gz > go1.12.13.linux-amd64.tar.gz
-sudo tar -C /usr/local -xzf go1.12.13.linux-amd64.tar.gz
-make ginkgo
-make WHAT='test/e2e/e2e.test'
+curl https://dl.google.com/go/go1.13.4.linux-amd64.tar.gz > go1.13.4.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.13.4.linux-amd64.tar.gz
+GO111MODULE=off make ginkgo
+GO111MODULE=off make WHAT='test/e2e/e2e.test'
 
 export KUBERNETES_PROVIDER=local
 export KUBECTL_PATH=/usr/bin/kubectl
@@ -65,4 +65,4 @@ export KUBE_MASTER=192.168.36.11
 export KUBE_MASTER_IP=192.168.36.11
 export KUBE_MASTER_URL="https://192.168.36.11:6443"
 
-go run hack/e2e.go -- --test --test_args="--ginkgo.focus=NetworkPolicy --e2e-verify-service-account=false --host ${KUBE_MASTER_URL} --ginkgo.skip=(should.allow.egress.access.to.server.in.CIDR.block)|(should.allow.ingress.access.from.updated.pod)|(named.port)"
+${HOME}/go/bin/kubetest --test --test_args="--ginkgo.focus=NetworkPolicy --e2e-verify-service-account=false --host ${KUBE_MASTER_URL} --ginkgo.skip=(should.allow.egress.access.to.server.in.CIDR.block)|(should.allow.ingress.access.from.updated.pod)|(named.port)"
