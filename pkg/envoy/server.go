@@ -61,9 +61,11 @@ var (
 )
 
 const (
-	egressClusterName  = "egress-cluster"
-	ingressClusterName = "ingress-cluster"
-	EnvoyTimeout       = 300 * time.Second // must be smaller than endpoint.EndpointGenerationTimeout
+	egressClusterName     = "egress-cluster"
+	egressTLSClusterName  = "egress-cluster-tls"
+	ingressClusterName    = "ingress-cluster"
+	ingressTLSClusterName = "ingress-cluster-tls"
+	EnvoyTimeout          = 300 * time.Second // must be smaller than endpoint.EndpointGenerationTimeout
 )
 
 type Listener struct {
@@ -201,6 +203,8 @@ func StartXDSServer(stateDir string) *XDSServer {
 					"bpf_root":                        {Kind: &structpb.Value_StringValue{StringValue: bpf.GetMapRoot()}},
 				}},
 			},
+		}, {
+			Name: "envoy.listener.tls_inspector",
 		}},
 	}
 
@@ -368,11 +372,29 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint
 	// Fill in the listener-specific parts.
 	listenerConf := proto.Clone(s.listenerProto).(*envoy_api_v2.Listener)
 	if kind == policy.ParserTypeHTTP {
-		listenerConf.FilterChains = append(listenerConf.FilterChains, proto.Clone(s.httpFilterChainProto).(*envoy_api_v2_listener.FilterChain))
-		// listenerConf.FilterChains[0].Filters[1].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["http_filters"].GetListValue().Values[0].GetStructValue().Fields["config"].GetStructValue().Fields["policy_name"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: endpointPolicyName}}
-		routes := listenerConf.FilterChains[0].Filters[1].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["route_config"].GetStructValue().Fields["virtual_hosts"].GetListValue().Values[0].GetStructValue().Fields["routes"].GetListValue().Values
+		chain := proto.Clone(s.httpFilterChainProto).(*envoy_api_v2_listener.FilterChain)
+		routes := chain.Filters[1].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["route_config"].GetStructValue().Fields["virtual_hosts"].GetListValue().Values[0].GetStructValue().Fields["routes"].GetListValue().Values
 		routes[0].GetStructValue().Fields["route"].GetStructValue().Fields["cluster"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: clusterName}}
 		routes[1].GetStructValue().Fields["route"].GetStructValue().Fields["cluster"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: clusterName}}
+		listenerConf.FilterChains = append(listenerConf.FilterChains, chain)
+
+		// Add a TLS variant
+		tlsClusterName := egressTLSClusterName
+		if isIngress {
+			tlsClusterName = ingressTLSClusterName
+		}
+
+		chain = proto.Clone(s.httpFilterChainProto).(*envoy_api_v2_listener.FilterChain)
+		chain.FilterChainMatch = &envoy_api_v2_listener.FilterChainMatch{
+			TransportProtocol: "tls",
+		}
+		chain.TransportSocket = &envoy_api_v2_core.TransportSocket{
+			Name: "cilium.tls_wrapper",
+		}
+		routes = chain.Filters[1].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["route_config"].GetStructValue().Fields["virtual_hosts"].GetListValue().Values[0].GetStructValue().Fields["routes"].GetListValue().Values
+		routes[0].GetStructValue().Fields["route"].GetStructValue().Fields["cluster"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: tlsClusterName}}
+		routes[1].GetStructValue().Fields["route"].GetStructValue().Fields["cluster"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: tlsClusterName}}
+		listenerConf.FilterChains = append(listenerConf.FilterChains, chain)
 	} else {
 		listenerConf.FilterChains = append(listenerConf.FilterChains, proto.Clone(s.tcpFilterChainProto).(*envoy_api_v2_listener.FilterChain))
 		// listenerConf.FilterChains[0].Filters[0].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["policy_name"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: endpointPolicyName}}
@@ -540,12 +562,30 @@ func createBootstrap(filePath string, name, cluster, version string, xdsSock, eg
 					ProtocolSelection:    envoy_api_v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
 				},
 				{
+					Name:                 egressTLSClusterName,
+					ClusterDiscoveryType: &envoy_api_v2.Cluster_Type{Type: envoy_api_v2.Cluster_ORIGINAL_DST},
+					ConnectTimeout:       &duration.Duration{Seconds: connectTimeout, Nanos: 0},
+					CleanupInterval:      &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
+					LbPolicy:             envoy_api_v2.Cluster_CLUSTER_PROVIDED,
+					ProtocolSelection:    envoy_api_v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
+					TransportSocket:      &envoy_api_v2_core.TransportSocket{Name: "cilium.tls_wrapper"},
+				},
+				{
 					Name:                 ingressClusterName,
 					ClusterDiscoveryType: &envoy_api_v2.Cluster_Type{Type: envoy_api_v2.Cluster_ORIGINAL_DST},
 					ConnectTimeout:       &duration.Duration{Seconds: connectTimeout, Nanos: 0},
 					CleanupInterval:      &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
 					LbPolicy:             envoy_api_v2.Cluster_CLUSTER_PROVIDED,
 					ProtocolSelection:    envoy_api_v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
+				},
+				{
+					Name:                 ingressTLSClusterName,
+					ClusterDiscoveryType: &envoy_api_v2.Cluster_Type{Type: envoy_api_v2.Cluster_ORIGINAL_DST},
+					ConnectTimeout:       &duration.Duration{Seconds: connectTimeout, Nanos: 0},
+					CleanupInterval:      &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
+					LbPolicy:             envoy_api_v2.Cluster_CLUSTER_PROVIDED,
+					ProtocolSelection:    envoy_api_v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
+					TransportSocket:      &envoy_api_v2_core.TransportSocket{Name: "cilium.tls_wrapper"},
 				},
 				{
 					Name:                 "xds-grpc-cilium",
@@ -610,7 +650,7 @@ func createBootstrap(filePath string, name, cluster, version string, xdsSock, eg
 	}
 }
 
-func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7ParserType, l7Rules api.L7Rules) *cilium.PortNetworkPolicyRule {
+func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7ParserType, l7Rules *policy.PerEpData) *cilium.PortNetworkPolicyRule {
 	// Optimize the policy if the endpoint selector is a wildcard by
 	// keeping remote policies list empty to match all remote policies.
 	var remotePolicies []uint64
@@ -631,6 +671,22 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7Parse
 
 	r := &cilium.PortNetworkPolicyRule{
 		RemotePolicies: remotePolicies,
+	}
+
+	// TODO: Right now the secret data is inline in the 'Name'. MUST implement k8s secret access instead!
+	if l7Rules.TerminatingTLS != nil {
+		r.DownstreamTlsContext = &cilium.TLSContext{
+			TrustedCa:        l7Rules.TerminatingTLS.TrustedCA.Name,
+			CertificateChain: l7Rules.TerminatingTLS.Certificate.Name,
+			PrivateKey:       l7Rules.TerminatingTLS.PrivateKey.Name,
+		}
+	}
+	if l7Rules.OriginatingTLS != nil {
+		r.UpstreamTlsContext = &cilium.TLSContext{
+			TrustedCa:        l7Rules.OriginatingTLS.TrustedCA.Name,
+			CertificateChain: l7Rules.OriginatingTLS.Certificate.Name,
+			PrivateKey:       l7Rules.OriginatingTLS.PrivateKey.Name,
+		}
 	}
 
 	switch l7Parser {

@@ -55,6 +55,39 @@ func (p PortProtocol) Covers(other PortProtocol) bool {
 	return true
 }
 
+// K8sSecret is a reference to a k8s secret.
+type K8sSecret struct {
+	// Namespace is the k8s namespace in which the secret exists. If
+	// namespace is omitted, the namespace of the enclosing rule is assumed.
+	Namespace string `json:"namespace,omitempty"`
+
+	// Name is the name of the k8s secret
+	Name string `json:"name,omitempty"`
+}
+
+// TLSContext provides TLS configuration via reference to k8s secrets.
+type TLSContext struct {
+	// Certificate is a chain of certificates presented to the remote party.
+	// If specified for an originating TLS context, then this is used as a
+	// client certificate
+	Certificate K8sSecret `json:"certificate,omitempty"`
+
+	// PrivateKey is the private key used to encrypt the TLS messages. This
+	// is the private part of the public/private key pair, corresponding to
+	// the public key in the certificate.
+	PrivateKey K8sSecret `json:"privateKey,omitempty"`
+
+	// TrustedCA is a set of trusted certificate authorities used to verify
+	// the certificate of the remote party. If specified for a terminating
+	// TLS context, then a client certificate is required.
+	TrustedCA K8sSecret `json:"trustedCA,omitempty"`
+}
+
+// Equal returns true if 'a' and 'b' have the same contents.
+func (a *TLSContext) Equal(b *TLSContext) bool {
+	return a == nil && b == nil || a != nil && b != nil && *a == *b
+}
+
 // PortRule is a list of ports/protocol combinations with optional Layer 7
 // rules which must be met.
 type PortRule struct {
@@ -62,6 +95,22 @@ type PortRule struct {
 	//
 	// +optional
 	Ports []PortProtocol `json:"ports,omitempty"`
+
+	// TerminatingTLS is the TLS context for the connection terminated by
+	// the L7 proxy.  For egress policy this specifies the server-side TLS
+	// parameters to be applied on the connections originated from the local
+	// POD and terminated by the L7 proxy. For ingress policy this specifies
+	// the server-side TLS parameters to be applied on the connections
+	// originated from a remote source and terminated by the L7 proxy.
+	TerminatingTLS *TLSContext `json:"terminatingTLS,omitempty"`
+
+	// OriginatingTLS is the TLS context for the connections originated by
+	// the L7 proxy.  For egress policy this specifies the client-side TLS
+	// parameters for the upstream connection originating from the L7 proxy
+	// to the remote destination. For ingress policy this specifies the
+	// client-side TLS parameters for the connection from the L7 proxy to
+	// the local POD.
+	OriginatingTLS *TLSContext `json:"originatingTLS,omitempty"`
 
 	// Rules is a list of additional port level rules which must be met in
 	// order for the PortRule to allow the traffic. If omitted or empty,
