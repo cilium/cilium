@@ -326,4 +326,8 @@ const (
 
 	// RestoreV6Addr is used as match for cilium_host v6 (router) address
 	RestoreV6Addr = "cilium.v6.internal.raw "
+
+	// CertsDirectory is the default directory used to find certificates
+	// specified in the L7 policies.
+	CertsDirectory = "/var/run/cilium/certs"
 )

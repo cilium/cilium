@@ -36,6 +36,7 @@ cilium-agent [flags]
       --bpf-nat-global-max int                                Maximum number of entries for the global BPF NAT table (default 841429)
       --bpf-policy-map-max int                                Maximum number of entries in endpoint policy map (per endpoint) (default 16384)
       --bpf-root string                                       Path to BPF filesystem
+      --certificates-directory string                         Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
       --cgroup-root string                                    Path to Cgroup2 filesystem
       --cluster-id int                                        Unique identifier of the cluster
       --cluster-name string                                   Name of the cluster (default "default")
