@@ -3,11 +3,16 @@
 set -e
 
 export K8S_VERSION=${K8S_VERSION:-1.16}
+export K8S_NODES=${K8S_NODES:-1}
 export LOCAL_BOX=k8s-box
 export LOCAL_BOXFILE=/tmp/${LOCAL_BOX}-package.box
 
 echo "destroying vms"
-vagrant destroy k8s1-${K8S_VERSION} k8s2-${K8S_VERSION} --force || true
+for i in $( seq 1 ${K8S_NODES} )
+do
+  vagrant destroy k8s${i}-${K8S_VERSION} --force || true
+done
+
 
 if [[ ! -f ${LOCAL_BOXFILE} ]]; then
   echo "Updating vm image"
@@ -24,8 +29,13 @@ echo "starting vms"
 export SERVER_BOX=$LOCAL_BOX
 export SERVER_VERSION=0
 unset PRELOAD_VM
-vagrant up k8s1-${K8S_VERSION} k8s2-${K8S_VERSION} --provision
+for i in $( seq 1 ${K8S_NODES} )
+do
+  vagrant up k8s${i}-${K8S_VERSION} --provision
+done
 
 echo "labeling nodes"
-vagrant ssh k8s1-${K8S_VERSION} -- kubectl label node k8s1 cilium.io/ci-node=k8s1 --overwrite
-vagrant ssh k8s1-${K8S_VERSION} -- kubectl label node k8s2 cilium.io/ci-node=k8s2 --overwrite
+for i in $( seq 1 ${K8S_NODES} )
+do
+  vagrant ssh k8s1-${K8S_VERSION} -- kubectl label node k8s${i} cilium.io/ci-node=k8s${i} --overwrite
+done
