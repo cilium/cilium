@@ -261,8 +261,9 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 		nodeResource.Spec.HealthAddressing.IPv6 = ip.String()
 	}
 
-	nodeResource.Spec.ENI = ciliumv2.ENISpec{}
 	if option.Config.IPAM == option.IPAMENI {
+		// set ENI field in the node only when the ENI ipam is specified
+		nodeResource.Spec.ENI = ciliumv2.ENISpec{}
 		instanceID, instanceType, availabilityZone, vpcID, err := metadata.GetInstanceMetadata()
 		if err != nil {
 			log.WithError(err).Fatal("Unable to retrieve InstanceID of own EC2 instance")
