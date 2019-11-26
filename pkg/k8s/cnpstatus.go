@@ -116,19 +116,27 @@ type NodeStatusUpdate struct {
 	*cilium_v2.CiliumNetworkPolicyNodeStatus
 }
 
-// WatchForCNPStatusEvents starts a watcher for all CNP status updates from
-// the key-value store.
+// WatchForCNPStatusEvents starts a watcher for all the CNP update from the
+// key-value store.
 func (c *CNPStatusEventHandler) WatchForCNPStatusEvents() {
-
-restart:
 	watcher := kvstore.Client().ListAndWatch(context.TODO(), "cnpStatusWatcher", CNPStatusesPath, 512)
+
+	// Loop and block for the watcher
+	for {
+		c.watchForCNPStatusEvents(watcher)
+	}
+}
+
+// watchForCNPStatusEvents starts responds to the events from the watcher of
+// the key-value store.
+func (c *CNPStatusEventHandler) watchForCNPStatusEvents(watcher *kvstore.Watcher) {
 	for {
 		select {
 		case event, ok := <-watcher.Events:
 			if !ok {
 				log.Debugf("%s closed, restarting watch", watcher.String())
 				time.Sleep(500 * time.Millisecond)
-				goto restart
+				return
 			}
 
 			switch event.Typ {
@@ -153,6 +161,8 @@ restart:
 
 				// Send the update to the corresponding controller for the
 				// CNP which sends all status updates to the K8s apiserver.
+				// If the namespace is empty for the status update then the cnpKey
+				// will correspond to the ccnpKey.
 				cnpKey := generateCNPKey(string(cnpStatusUpdate.UID), cnpStatusUpdate.Namespace, cnpStatusUpdate.Name)
 				updater, ok := c.eventMap.lookup(cnpKey)
 				if !ok {
@@ -189,18 +199,22 @@ restart:
 	}
 }
 
+func (c *CNPStatusEventHandler) stopStatusHandler(cnp *types.SlimCNP, cnpKey, prefix string) {
+	err := kvstore.DeletePrefix(context.TODO(), prefix)
+	if err != nil {
+		log.WithError(err).WithField("prefix", prefix).Warning("error deleting prefix from kvstore")
+	}
+	c.eventMap.delete(cnpKey)
+}
+
 // StopStatusHandler signals that we need to stop managing the sending of
 // status updates to the Kubernetes APIServer for the given CNP. It also cleans
 // up all status updates from the key-value store for this CNP.
 func (c *CNPStatusEventHandler) StopStatusHandler(cnp *types.SlimCNP) {
 	cnpKey := getKeyFromObjectMeta(cnp.ObjectMeta)
 	prefix := path.Join(CNPStatusesPath, cnpKey)
-	err := kvstore.DeletePrefix(context.TODO(), prefix)
-	if err != nil {
-		log.WithError(err).WithField("prefix", prefix).Warning("error deleting prefix from kvstore")
-	}
-	c.eventMap.delete(cnpKey)
 
+	c.stopStatusHandler(cnp, cnpKey, prefix)
 }
 
 func (c *CNPStatusEventHandler) runStatusHandler(cnpKey string, cnp *types.SlimCNP, nodeStatusUpdater *NodeStatusUpdater) {
@@ -285,7 +299,7 @@ func (c *CNPStatusEventHandler) runStatusHandler(cnpKey string, cnp *types.SlimC
 		// needing the actual CNP object itself.
 		case k8sversion.Capabilities().Patch:
 		default:
-			cnp, err = getUpdatedCNPFromStore(c.k8sStore, fmt.Sprintf("%s/%s", namespace, name))
+			cnp, err = getUpdatedCNPFromStore(c.k8sStore, namespace, name)
 			if err != nil {
 				scopedLog.WithError(err).Error("error getting updated cnp from store")
 			}
@@ -313,10 +327,19 @@ func (c *CNPStatusEventHandler) StartStatusHandler(cnp *types.SlimCNP) {
 }
 
 func getKeyFromObjectMeta(t metaV1.ObjectMeta) string {
-	return path.Join(string(t.UID), t.Namespace, t.Name)
+	if t.Namespace != "" {
+		return path.Join(string(t.UID), t.Namespace, t.Name)
+	}
+
+	return path.Join(string(t.UID), t.Name)
 }
 
-func getUpdatedCNPFromStore(ciliumStore cache.Store, nameNamespace string) (*types.SlimCNP, error) {
+func getUpdatedCNPFromStore(ciliumStore cache.Store, namespace, name string) (*types.SlimCNP, error) {
+	nameNamespace := name
+	if namespace != "" {
+		nameNamespace = fmt.Sprintf("%s/%s", namespace, name)
+	}
+
 	serverRuleStore, exists, err := ciliumStore.GetByKey(nameNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("unable to find v2.CiliumNetworkPolicy in local cache: %s", err)
