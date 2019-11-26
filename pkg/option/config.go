@@ -639,6 +639,10 @@ const (
 	// EnableLocalNodeRoute controls installation of the route which points
 	// the allocation prefix of the local node.
 	EnableLocalNodeRoute = "enable-local-node-route"
+
+	// EnableFixedIP supports fixed IP statefulsets
+	// NOTE: this feature needs K8S sticky scheduler enabled
+	EnableFixedIP = "enable-fixed-ip"
 )
 
 // Default string arguments
@@ -1271,6 +1275,10 @@ type DaemonConfig struct {
 	// Enabling this option reduces waste of IP addresses but may increase
 	// the number of API calls to AWS EC2 service.
 	AwsReleaseExcessIps bool
+
+	// EnableFixedIP supports fixed IP statefulsets
+	// NOTE: this feature needs K8S sticky scheduler enabled
+	EnableFixedIP bool
 }
 
 var (
@@ -1306,6 +1314,7 @@ var (
 		IdentityAllocationMode:       IdentityAllocationModeKVstore,
 		AllowICMPFragNeeded:          defaults.AllowICMPFragNeeded,
 		AwsInstanceLimitMapping:      make(map[string]string),
+		EnableFixedIP:                defaults.EnableFixedIP,
 	}
 )
 
@@ -1699,6 +1708,7 @@ func (c *DaemonConfig) Populate() {
 	c.CTMapEntriesTimeoutSVCAny = viper.GetDuration(CTMapEntriesTimeoutSVCAnyName)
 	c.CTMapEntriesTimeoutSYN = viper.GetDuration(CTMapEntriesTimeoutSYNName)
 	c.CTMapEntriesTimeoutFIN = viper.GetDuration(CTMapEntriesTimeoutFINName)
+	c.EnableFixedIP = viper.GetBool(EnableFixedIP)
 
 	if nativeCIDR := viper.GetString(IPv4NativeRoutingCIDR); nativeCIDR != "" {
 		c.ipv4NativeRoutingCIDR = cidr.MustParseCIDR(nativeCIDR)
@@ -1876,6 +1886,10 @@ func (c *DaemonConfig) Populate() {
 	c.SkipCRDCreation = viper.GetBool(SkipCRDCreation)
 	c.DisableCNPStatusUpdates = viper.GetBool(DisableCNPStatusUpdates)
 	c.AwsReleaseExcessIps = viper.GetBool(AwsReleaseExcessIps)
+
+	if c.EnableFixedIP && c.EnableIPv6 {
+		log.Fatalf("%s currently only supports IPv4", EnableFixedIP)
+	}
 }
 
 func sanitizeIntParam(paramName string, paramDefault int) int {

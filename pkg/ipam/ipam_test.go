@@ -106,3 +106,32 @@ func (s *IPAMSuite) TestDeriveFamily(c *C) {
 	c.Assert(DeriveFamily(net.ParseIP("1.1.1.1")), Equals, IPv4)
 	c.Assert(DeriveFamily(net.ParseIP("f00d::1")), Equals, IPv6)
 }
+
+func (s *IPAMSuite) TestExtractIPInfo(c *C) {
+	// normal case
+	filename := "default-web-0:2.2.2.2"
+	owner, ipv4, err := extractIPInfo(filename)
+	c.Assert(owner, Equals, "default-web-0")
+	c.Assert(ipv4, Equals, "2.2.2.2")
+	c.Assert(err, IsNil)
+
+	// file name length too short
+	filename = "b-1:2.2.2.2"
+	owner, ipv4, err = extractIPInfo(filename)
+	c.Assert(err.Error(), Equals, "Filename string too short")
+
+	// item count mismatch
+	filename = "default-web-02.2.2.2"
+	owner, ipv4, err = extractIPInfo(filename)
+	c.Assert(err.Error(), Equals, "Unexpected item count: 1")
+
+	// podname not found in filename
+	filename = ":192.168.255.222"
+	owner, ipv4, err = extractIPInfo(filename)
+	c.Assert(err.Error(), Equals, "Owner not found in filename string")
+
+	// ipv4 not found in filename
+	filename = "customnamespace-web-0:"
+	owner, ipv4, err = extractIPInfo(filename)
+	c.Assert(err.Error(), Equals, "ipv4 not found in filename string")
+}

@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
 )
@@ -96,7 +97,7 @@ func (ipam *IPAM) AllocateIPString(ipAddr, owner string) error {
 }
 
 func (ipam *IPAM) allocateNextFamily(family Family, allocator Allocator, owner string) (result *AllocationResult, err error) {
-	if EnableFixedIP && owner != "loopback" && owner != "health" {
+	if option.Config.EnableFixedIP && owner != "loopback" && owner != "health" {
 		// Reusing IP if pinned IP found for this Pod.
 		//
 		// Actually we should first determine if this pod belongs to a sts,
@@ -107,17 +108,13 @@ func (ipam *IPAM) allocateNextFamily(family Family, allocator Allocator, owner s
 		// then allocate a new one - just as expected.
 		r, e := getPinnedIP(owner)
 		if e != nil {
-			result = nil
-			err = e
 			log.Errorf("Get pinned IP for %s failed: %s", owner, err)
-			return
+			return r, e
 		}
 
 		if r != nil {
-			result = r
-			err = nil
 			log.Infof("Reusing pinned IP for %s: %s", owner, r.IP)
-			return
+			return r, e
 		}
 
 		log.Infof("Pinned IP not found for %s, allocating new one", owner)
@@ -143,8 +140,8 @@ func (ipam *IPAM) allocateNextFamily(family Family, allocator Allocator, owner s
 			metrics.IpamEvent.WithLabelValues(metricAllocate, string(family)).Inc()
 
 			// pin IP to owner (pod) for statefulset
-			if EnableFixedIP && owner != "loopback" && owner != "health" {
-				isSts := false
+			if option.Config.EnableFixedIP && owner != "loopback" && owner != "health" {
+				var isSts bool
 				isSts, err = isStsPod(owner)
 				if err != nil {
 					log.Errorf("Determine whether pod %s belongs to a sts "+
@@ -221,7 +218,7 @@ func (ipam *IPAM) AllocateNext(family, owner string) (ipv4Result, ipv6Result *Al
 // ReleaseIP release a IP address.
 func (ipam *IPAM) ReleaseIP(ip net.IP) error {
 	stateFileFound := false
-	if EnableFixedIP {
+	if option.Config.EnableFixedIP {
 		// Unpin IP
 		//
 		// Actually we should only try to unpin IP for sts pods.
@@ -292,7 +289,7 @@ func (ipam *IPAM) ReleaseIP(ip net.IP) error {
 	metrics.IpamEvent.WithLabelValues(metricRelease, family).Inc()
 
 	// Unpin IP
-	if EnableFixedIP && stateFileFound {
+	if option.Config.EnableFixedIP && stateFileFound {
 		if err := unpinIP(ip); err != nil {
 			log.Errorf("UnpinIP %s failed: %s, you may need to manually "+
 				"delete the state file", ip, err)

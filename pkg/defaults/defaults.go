@@ -326,4 +326,8 @@ const (
 
 	// RestoreV6Addr is used as match for cilium_host v6 (router) address
 	RestoreV6Addr = "cilium.v6.internal.raw "
+
+	// EnableFixedIP supports fixed IP statefulsets
+	// NOTE: this feature needs K8S sticky scheduler enabled
+	EnableFixedIP = false
 )

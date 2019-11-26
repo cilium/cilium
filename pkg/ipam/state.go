@@ -24,19 +24,18 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/node"
 )
 
 // This submodule extends the cilium IPAM by providing a persistent storage
 // for storing IP states.
 // The main purpose is to support fixed IP pods for statefulsets.
 
-// EnableFixedIP flag indicates whether fixed IP is enabled
-var EnableFixedIP bool = true
-
 const (
-	enableFixedIPEnv string = "ENABLE_FIXED_IP"
-	ipamStateDir     string = "/var/lib/ipamstate"
-	minFileNameLen   int    = 9 // format: <ns>-<pod>:<ip>
+	ipamStateDir string = "/var/lib/ipamstate"
+
+	// format: <ns>-<stsName>-<podIndex>:<ip>
+	minFileNameLen int = len("a-b-1:2.2.2.2")
 )
 
 // cleanStaleIPPinnings cleans the stale pinned IP states.
@@ -46,7 +45,7 @@ func cleanStaleIPPinnings(ipam *IPAM) error {
 	pinnedOwners := []string{}
 	log.Infof("Cleaning stale IP pinnings")
 
-	nodeName := os.Getenv(k8s.EnvNodeNameSpec)
+	nodeName := node.GetName()
 	if nodeName == "" {
 		err := fmt.Errorf("Get %s from ENV failed", k8s.EnvNodeNameSpec)
 		log.Errorf("Clean stale IP pinnings failed: %s, skip cleaning", err)
@@ -70,35 +69,20 @@ func cleanStaleIPPinnings(ipam *IPAM) error {
 	sort.Strings(podNames)
 	for _, f := range files {
 		name := f.Name()
-		if len(name) < minFileNameLen {
-			log.Errorf("Clean stale IP pinnings: unknown pin info %s, skip "+
-				"this one", name)
+		sanifiedOwner, ipv4, err := extractIPInfo(name)
+		if err != nil {
+			log.Errorf("extract IP info from filename failed: %s, skip %s",
+				err, name)
 			continue
 		}
 
-		podName := ""
-		for _, pname := range podNames {
-			// TODO: break early as we are sorted slice
-
-			if strings.HasPrefix(name, strings.ReplaceAll(pname, "/", "-")) {
-				podName = pname
+		for _, pod := range podNames {
+			if sanifiedOwner == strings.ReplaceAll(pod, "/", "-") {
+				pinnedOwners = append(pinnedOwners, pod)
+				pinnedIPs = append(pinnedIPs, ipv4)
+				log.Infof("Pod %s exists in k8s, keep file %s", pod, name)
 				break
 			}
-		}
-
-		if podName != "" {
-			items := strings.Split(name, ":")
-			if len(items) != 2 {
-				log.Errorf("Unknown pinning info: %s, skip this one", name)
-				continue
-			}
-
-			// Note: better to read the owner name from file content
-			// replace '-' with '/' is 100% correct for sts?
-			pinnedOwners = append(pinnedOwners, strings.ReplaceAll(items[0], "-", "/"))
-			pinnedIPs = append(pinnedIPs, items[1])
-			log.Infof("Pod %s exists in k8s, keep file %s", podName, name)
-			continue
 		}
 
 		log.Warnf("Pod not exist in k8s, remove file %s", name)
@@ -111,6 +95,28 @@ func cleanStaleIPPinnings(ipam *IPAM) error {
 	ipam.PinnedOwners = pinnedOwners
 	log.Infof("Clean stale IP pinnings successful")
 	return nil
+}
+
+func extractIPInfo(filename string) (string, string, error) {
+	if len(filename) < minFileNameLen {
+		return "", "", fmt.Errorf("Filename string too short")
+	}
+
+	items := strings.Split(filename, ":")
+	if len(items) != 2 {
+		return "", "", fmt.Errorf("Unexpected item count: %d", len(items))
+	}
+
+	sanifiedOwner, ipv4 := items[0], items[1]
+	if sanifiedOwner == "" {
+		return "", "", fmt.Errorf("Owner not found in filename string")
+	}
+
+	if ipv4 == "" {
+		return "", "", fmt.Errorf("ipv4 not found in filename string")
+	}
+
+	return sanifiedOwner, ipv4, nil
 }
 
 func isStsPod(fullPodName string) (bool, error) {
@@ -383,11 +389,6 @@ func isPinnedPodDeleted(pod string) (bool, error) {
 // reserved. This method only serves as a remedy in case the EP restoration
 // process failed.
 func (ipam *IPAM) ReservePinnedIPs() {
-	if !EnableFixedIP {
-		log.Infof("EnableFixedIP unset, skip reserving pinned IPs")
-		return
-	}
-
 	log.Infof("Reserving pinned IPs: %s, %s", ipam.PinnedIPs, ipam.PinnedOwners)
 
 	n1 := len(ipam.PinnedIPs)
