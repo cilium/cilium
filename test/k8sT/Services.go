@@ -237,8 +237,12 @@ var _ = Describe("K8sServicesTest", func() {
 			// From host via localhost IP
 			// TODO: IPv6
 			count := 10
-			url = getURL("127.0.0.1", data.Spec.Ports[0].NodePort)
-			doRequests(url, count)
+
+			// Only test this on non-eks. 127.0.0.1 doesn't seem to work.
+			if integration := helpers.GetCurrentIntegration(); integration != helpers.CIIntegrationEKS {
+				url = getURL("127.0.0.1", data.Spec.Ports[0].NodePort)
+				doRequests(url, count)
+			}
 
 			k8s1Ip, err := kubectl.GetNodeIPByLabel(helpers.K8s1)
 			Expect(err).Should(BeNil(), "Can not retrieve Node IP for "+helpers.K8s1)
@@ -270,9 +274,12 @@ var _ = Describe("K8sServicesTest", func() {
 				url = getURL(remoteCiliumHostIPv4, data.Spec.Ports[0].NodePort)
 				doRequests(url, count)
 
-				// From pod via loopback (host reachable services)
-				url = getURL("127.0.0.1", data.Spec.Ports[0].NodePort)
-				testHTTPRequest(testDSClient, url)
+				// Only test this on non-eks. 127.0.0.1 doesn't seem to work.
+				if integration := helpers.GetCurrentIntegration(); integration != helpers.CIIntegrationEKS {
+					// From pod via loopback (host reachable services)
+					url = getURL("127.0.0.1", data.Spec.Ports[0].NodePort)
+					testHTTPRequest(testDSClient, url)
+				}
 
 				// From pod via local cilium_host
 				url = getURL(localCiliumHostIPv4, data.Spec.Ports[0].NodePort)
