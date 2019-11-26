@@ -1956,6 +1956,9 @@ func (kub *Kubectl) ExecInFirstPod(ctx context.Context, namespace, selector, cmd
 	if err != nil {
 		return nil, err
 	}
+	if len(names) == 0 {
+		return nil, fmt.Errorf("Cannot find pods matching %s to execute %s", selector, cmd)
+	}
 
 	for _, name := range names {
 		command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, name, cmd)
