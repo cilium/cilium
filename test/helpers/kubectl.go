@@ -1946,10 +1946,14 @@ func (kub *Kubectl) GatherCiliumCoreDumps(ctx context.Context, ciliumPod string)
 }
 
 // ExecInFirstPod runs given command in one pod that matches given selector and namespace
+// An error is returned if no pods can be found
 func (kub *Kubectl) ExecInFirstPod(ctx context.Context, namespace, selector, cmd string, options ...ExecOptions) (result *CmdRes, err error) {
 	names, err := kub.GetPodNamesContext(ctx, namespace, selector)
 	if err != nil {
 		return nil, err
+	}
+	if len(names) == 0 {
+		return nil, fmt.Errorf("Cannot find pods matching %s to execute %s", selector, cmd)
 	}
 
 	for _, name := range names {
