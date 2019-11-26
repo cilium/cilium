@@ -2,6 +2,33 @@
 NEWS
 ******
 
+v1.5.10
+=======
+::
+
+    André Martins (12):
+          go: bump golang to 1.12.12
+          update k8s to 1.13.12, 1.14.8 and 1.15.5
+          vendor: update k8s dependencies to 1.15.5
+          pkg/k8s: consider node taints as part of node equalness
+          docs: clarify usage of bpf fs mount
+          k8s/endpointsynchronizer: re-fecth CEP in case of update conflict
+          golang: update to 1.12.13
+          pkg/k8s: fix toServices policy update when service endpoints are modified
+          k8s/watcher: refactor code to generate k8s services
+          pkg/k8s: fix service update bug fix
+          operator: do not rm kube-dns pods if unmanaged-pod-watcher-interval == 0
+          test/provision: update k8s test versions to 1.14.9 and 1.15.6
+
+    Daniel Borkmann (1):
+          vendor: point vishvananda/netlink back to upstream
+
+    Ian Vernon (1):
+          bugtool: add `cilium node list` output
+
+    Joe Stringer (1):
+          docs: Fix clustermesh secrets namespace
+
 v1.5.9
 ======
 
