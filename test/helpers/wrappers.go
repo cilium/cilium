@@ -24,6 +24,14 @@ const (
 	// For more information, consult : http://www.cs.kent.edu/~farrell/dist/ref/Netperf.html
 	TCP_RR = PerfTest("TCP_RR")
 
+	// TCP_STREAM represents a netperf test for TCP throughput performance.
+	// For more information, consult : http://www.cs.kent.edu/~farrell/dist/ref/Netperf.html
+	TCP_STREAM = PerfTest("TCP_STREAM")
+
+	// TCP_STREAM represents a netperf test that connects and sends single request/response
+	// For more information, consult : http://www.cs.kent.edu/~farrell/dist/ref/Netperf.html
+	TCP_CRR = PerfTest("TCP_CRR")
+
 	// UDP_RR represents a netperf test for UDP Request/Response performance.
 	// For more information, consult : http://www.cs.kent.edu/~farrell/dist/ref/Netperf.html
 	UDP_RR = PerfTest("UDP_RR")
@@ -73,8 +81,8 @@ func CurlWithHTTPCode(endpoint string, optionalValues ...interface{}) string {
 
 // Netperf returns the string representing the netperf command to use when testing
 // connectivity between endpoints.
-func Netperf(endpoint string, perfTest PerfTest) string {
-	return fmt.Sprintf("netperf -l 3 -t %s -H %s", perfTest, endpoint)
+func Netperf(endpoint string, perfTest PerfTest, options string) string {
+	return fmt.Sprintf("netperf -l 3 -t %s -H %s %s", perfTest, endpoint, options)
 }
 
 // Netcat returns the string representing the netcat command to the specified
