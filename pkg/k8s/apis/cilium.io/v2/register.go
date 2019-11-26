@@ -373,8 +373,8 @@ func createNodeCRD(clientset apiextensionsclient.Interface) error {
 			Scope: apiextensionsv1beta1.ClusterScoped,
 			Validation: &apiextensionsv1beta1.CustomResourceValidation{
 				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
-					Type:     "object",
-					Required: []string{"spec"},
+					Description: "CiliumNode represents the k8s node from the view of Cilium.",
+					Required:    []string{"spec"},
 					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 						"spec": {
 							Type: "object",
