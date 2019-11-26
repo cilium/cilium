@@ -95,8 +95,8 @@ var runtimeConnectivityTest = func(datapathMode string) func() {
 		Context("Basic Connectivity test", func() {
 
 			BeforeEach(func() {
-				vm.ContainerCreate(helpers.Client, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
-				vm.ContainerCreate(helpers.Server, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
+				vm.ContainerCreate(helpers.Client, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client", "")
+				vm.ContainerCreate(helpers.Server, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server", "")
 				vm.PolicyDelAll()
 				vm.WaitEndpointsReady()
 				err := helpers.WithTimeout(func() bool {
@@ -506,25 +506,25 @@ var runtimeConntrackTest = func(datapathMode string) func() {
 
 				{
 					from:        helpers.Client,
-					to:          helpers.Netperf(serverDockerNetworking[helpers.IPv6], helpers.TCP_RR),
+					to:          helpers.Netperf(serverDockerNetworking[helpers.IPv6], helpers.TCP_RR, ""),
 					destination: helpers.Server,
 					assert:      BeTrue,
 				},
 				{
 					from:        helpers.Client,
-					to:          helpers.Netperf(serverDockerNetworking[helpers.IPv4], helpers.TCP_RR),
+					to:          helpers.Netperf(serverDockerNetworking[helpers.IPv4], helpers.TCP_RR, ""),
 					destination: helpers.Server,
 					assert:      BeTrue,
 				},
 				{
 					from:        helpers.Client,
-					to:          helpers.Netperf(serverDockerNetworking[helpers.IPv6], helpers.UDP_RR),
+					to:          helpers.Netperf(serverDockerNetworking[helpers.IPv6], helpers.UDP_RR, ""),
 					destination: helpers.Server,
 					assert:      BeTrue,
 				},
 				{
 					from:        helpers.Client,
-					to:          helpers.Netperf(serverDockerNetworking[helpers.IPv4], helpers.UDP_RR),
+					to:          helpers.Netperf(serverDockerNetworking[helpers.IPv4], helpers.UDP_RR, ""),
 					destination: helpers.Server,
 					assert:      BeTrue,
 				},
@@ -653,25 +653,25 @@ var runtimeConntrackTest = func(datapathMode string) func() {
 				},
 				{
 					from:        helpers.Client,
-					to:          helpers.Netperf(serverDockerNetworking[helpers.IPv6], helpers.TCP_RR),
+					to:          helpers.Netperf(serverDockerNetworking[helpers.IPv6], helpers.TCP_RR, ""),
 					destination: helpers.Server,
 					assert:      BeTrue,
 				},
 				{
 					from:        helpers.Client,
-					to:          helpers.Netperf(serverDockerNetworking[helpers.IPv4], helpers.TCP_RR),
+					to:          helpers.Netperf(serverDockerNetworking[helpers.IPv4], helpers.TCP_RR, ""),
 					destination: helpers.Server,
 					assert:      BeTrue,
 				},
 				{
 					from:        helpers.Client,
-					to:          helpers.Netperf(serverDockerNetworking[helpers.IPv6], helpers.UDP_RR),
+					to:          helpers.Netperf(serverDockerNetworking[helpers.IPv6], helpers.UDP_RR, ""),
 					destination: helpers.Server,
 					assert:      BeTrue,
 				},
 				{
 					from:        helpers.Client,
-					to:          helpers.Netperf(serverDockerNetworking[helpers.IPv4], helpers.UDP_RR),
+					to:          helpers.Netperf(serverDockerNetworking[helpers.IPv4], helpers.UDP_RR, ""),
 					destination: helpers.Server,
 					assert:      BeTrue,
 				},
