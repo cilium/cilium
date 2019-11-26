@@ -234,6 +234,10 @@ var _ = Describe("K8sServicesTest", func() {
 
 			k8s1Name, err := kubectl.GetNodeNameByLabel(helpers.K8s1)
 			Expect(err).To(BeNil(), "Cannot get node by label")
+			k8s1Ip, err := kubectl.GetNodeIPByLabel(helpers.K8s1)
+			Expect(err).Should(BeNil(), "Can not retrieve Node IP for "+helpers.K8s1)
+			k8s2Ip, err := kubectl.GetNodeIPByLabel(helpers.K8s2)
+			Expect(err).Should(BeNil(), "Can not retrieve Node IP for "+helpers.K8s2)
 
 			// From host via localhost IP
 			// TODO: IPv6
@@ -241,16 +245,16 @@ var _ = Describe("K8sServicesTest", func() {
 			url = getURL("127.0.0.1", data.Spec.Ports[0].NodePort)
 			doRequests(url, count, k8s1Name)
 
-			url = getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
+			url = getURL(k8s1Ip, data.Spec.Ports[0].NodePort)
 			doRequests(url, count, k8s1Name)
 
-			url = getURL(helpers.K8s2Ip, data.Spec.Ports[0].NodePort)
+			url = getURL(k8s2Ip, data.Spec.Ports[0].NodePort)
 			doRequests(url, count, k8s1Name)
 
 			// From pod via node IPs
-			url = getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
+			url = getURL(k8s1Ip, data.Spec.Ports[0].NodePort)
 			testHTTPRequest(testDSClient, url)
-			url = getURL(helpers.K8s2Ip, data.Spec.Ports[0].NodePort)
+			url = getURL(k8s2Ip, data.Spec.Ports[0].NodePort)
 			testHTTPRequest(testDSClient, url)
 
 			if bpfNodePort {
