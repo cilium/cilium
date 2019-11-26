@@ -84,6 +84,11 @@ var _ = Describe("K8sHealthTest", func() {
 		checkIP(cilium2, cilium1IP)
 		checkIP(cilium2, cilium2IP)
 
+		// endpoint probes don't work when chaining
+		if integration := helpers.GetCurrentIntegration(); integration == helpers.CIIntegrationEKS || integration == helpers.CIIntegrationFlannel {
+			return
+		}
+
 		By("checking that `cilium-health --probe` succeeds")
 		healthCmd := fmt.Sprintf("cilium-health status --probe -o json")
 		status := kubectl.CiliumExec(cilium1, healthCmd)
