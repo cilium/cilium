@@ -36,7 +36,7 @@ spec:
         volumeMounts:
         - mountPath: /sys/fs/bpf
           name: bpf-maps
-        - mountPath: /var/log/hostjournal
+        - mountPath: /var/log/journal
           name: journald
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
