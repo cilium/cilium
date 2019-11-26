@@ -46,6 +46,29 @@ transparently redirect traffic to the proxy such that the output of
     -> Request http from 1474 ([k8s:id=app2 k8s:io.kubernetes.pod.namespace=default k8s:appSecond=true k8s:io.cilium.k8s.policy.cluster=default k8s:io.cilium.k8s.policy.serviceaccount=app2-account k8s:zgroup=testapp]) to 244 ([k8s:io.cilium.k8s.policy.cluster=default k8s:io.cilium.k8s.policy.serviceaccount=app1-account k8s:io.kubernetes.pod.namespace=default k8s:zgroup=testapp k8s:id=app1]), identity 30162->42462, verdict Forwarded GET http://app1-service/ => 0
     -> Response http to 1474 ([k8s:zgroup=testapp k8s:id=app2 k8s:io.kubernetes.pod.namespace=default k8s:appSecond=true k8s:io.cilium.k8s.policy.cluster=default k8s:io.cilium.k8s.policy.serviceaccount=app2-account]) from 244 ([k8s:io.cilium.k8s.policy.serviceaccount=app1-account k8s:io.kubernetes.pod.namespace=default k8s:zgroup=testapp k8s:id=app1 k8s:io.cilium.k8s.policy.cluster=default]), identity 30162->42462, verdict Forwarded GET http://app1-service/ => 200
 
+You can check the status of the visibility policy by checking the Cilium
+endpoint of that pod, for example:
+
+::
+
+        $ kubectl get cep -n kube-system
+        NAME                       ENDPOINT ID   IDENTITY ID   INGRESS ENFORCEMENT   EGRESS ENFORCEMENT   VISIBILITY POLICY   ENDPOINT STATE   IPV4           IPV6
+        coredns-7d7f5b7685-wvzwb   1959          104           false                 false                                    ready            10.16.75.193   f00d::a10:0:0:2c77
+        $
+        $ kubectl annotate pod -n kube-system coredns-7d7f5b7685-wvzwb io.cilium.proxy-visibility="<Ingress/53/UDP/DNS>,<Egress/80/TCP/HTTP>"
+        pod/coredns-7d7f5b7685-wvzwb annotated
+        $
+        $ kubectl get cep -n kube-system
+        NAME                       ENDPOINT ID   IDENTITY ID   INGRESS ENFORCEMENT   EGRESS ENFORCEMENT   VISIBILITY POLICY                        ENDPOINT STATE   IPV4           IPV6
+        coredns-7d7f5b7685-wvzwb   1959          104           false                 false                dns not allowed with direction Ingress   ready            10.16.75.193   f00d::a10:0:0:2c77
+        $
+        $ kubectl annotate pod -n kube-system coredns-7d7f5b7685-wvzwb io.cilium.proxy-visibility="<Egress/53/UDP/DNS>,<Egress/80/TCP/HTTP>" --overwrite
+        pod/coredns-7d7f5b7685-wvzwb annotated
+        $
+        $ kubectl get cep -n kube-system
+        NAME                       ENDPOINT ID   IDENTITY ID   INGRESS ENFORCEMENT   EGRESS ENFORCEMENT   VISIBILITY POLICY   ENDPOINT STATE   IPV4           IPV6
+        coredns-7d7f5b7685-wvzwb   1959          104           false                 false                OK                  ready            10.16.75.193   f00d::a10:0:0:2c7
+
 Limitations
 -----------
 
