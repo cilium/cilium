@@ -52,11 +52,13 @@ var _ = Describe("K8sServicesTest", func() {
 	// This is wrapped this way since BeforeAll sets kubectl and we must only
 	// run this after BeforeAll has completed. This happens during the actual
 	// Context/It/By calls.
-	getNodeInfo := func(label string) (nodeName string) {
+	getNodeInfo := func(label string) (nodeName, nodeIP string) {
 		// Nodes are used in testNodePort and testExternalTrafficPolicyLocal below
 		nodeName, err := kubectl.GetNodeNameByLabel(label)
 		Expect(err).To(BeNil(), "Cannot get node by label "+label)
-		return nodeName
+		nodeIP, err = kubectl.GetNodeIPByLabel(label)
+		Expect(err).Should(BeNil(), "Can not retrieve Node IP for "+label)
+		return nodeName, nodeIP
 	}
 
 	BeforeAll(func() {
@@ -159,7 +161,7 @@ var _ = Describe("K8sServicesTest", func() {
 			By("testing connectivity via cluster IP %s", clusterIP)
 			monitorStop := kubectl.MonitorStart(helpers.KubeSystemNamespace, ciliumPodK8s1,
 				"cluster-ip-same-node.log")
-			k8s1Name := getNodeInfo(helpers.K8s1)
+			k8s1Name, _ := getNodeInfo(helpers.K8s1)
 			status, err := kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
 				helpers.CurlFail("http://%s/", clusterIP))
 			monitorStop()
@@ -262,8 +264,8 @@ var _ = Describe("K8sServicesTest", func() {
 
 		testNodePort := func(bpfNodePort bool) {
 			var data v1.Service
-			k8s1Name := getNodeInfo(helpers.K8s1)
-			k8s2Name := getNodeInfo(helpers.K8s1)
+			k8s1Name, k8s1IP := getNodeInfo(helpers.K8s1)
+			k8s2Name, k8s2IP := getNodeInfo(helpers.K8s1)
 
 			waitPodsDs()
 
@@ -278,16 +280,16 @@ var _ = Describe("K8sServicesTest", func() {
 			url = getURL("127.0.0.1", data.Spec.Ports[0].NodePort)
 			doRequests(url, count, k8s1Name)
 
-			url = getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
+			url = getURL(k8s1IP, data.Spec.Ports[0].NodePort)
 			doRequests(url, count, k8s1Name)
 
-			url = getURL(helpers.K8s2Ip, data.Spec.Ports[0].NodePort)
+			url = getURL(k8s2IP, data.Spec.Ports[0].NodePort)
 			doRequests(url, count, k8s1Name)
 
 			// From pod via node IPs
-			url = getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
+			url = getURL(k8s1IP, data.Spec.Ports[0].NodePort)
 			testHTTPRequest(testDSClient, url)
-			url = getURL(helpers.K8s2Ip, data.Spec.Ports[0].NodePort)
+			url = getURL(k8s2IP, data.Spec.Ports[0].NodePort)
 			testHTTPRequest(testDSClient, url)
 
 			if bpfNodePort {
@@ -319,26 +321,26 @@ var _ = Describe("K8sServicesTest", func() {
 
 		testExternalTrafficPolicyLocal := func() {
 			var data v1.Service
-			k8s1Name := getNodeInfo(helpers.K8s1)
-			k8s2Name := getNodeInfo(helpers.K8s1)
+			k8s1Name, k8s1IP := getNodeInfo(helpers.K8s1)
+			k8s2Name, k8s2IP := getNodeInfo(helpers.K8s1)
 
 			// Checks requests are not SNATed when externalTrafficPolicy=Local
 			err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-local").Unmarshal(&data)
 			Expect(err).Should(BeNil(), "Can not retrieve service")
 
 			count := 10
-			url := getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
+			url := getURL(k8s1IP, data.Spec.Ports[0].NodePort)
 			doRequestsFromOutsideClient(url, count, true)
 
 			// Checks that requests to k8s1 succeed, while requests to k8s2 are dropped
 			err = kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-local-k8s1").Unmarshal(&data)
 			Expect(err).Should(BeNil(), "Can not retrieve service")
 
-			url = getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
+			url = getURL(k8s1IP, data.Spec.Ports[0].NodePort)
 			doRequests(url, count, k8s1Name)
 			doRequests(url, count, k8s2Name)
 
-			url = getURL(helpers.K8s2Ip, data.Spec.Ports[0].NodePort)
+			url = getURL(k8s2IP, data.Spec.Ports[0].NodePort)
 			failRequests(url, count, k8s1Name)
 			failRequests(url, count, k8s2Name)
 		}
@@ -456,8 +458,8 @@ var _ = Describe("K8sServicesTest", func() {
 						helpers.DefaultNamespace, "test-lb", 30*time.Second)
 					Expect(err).Should(BeNil(), "Cannot retrieve loadbalancer IP for test-lb")
 
-					k8s1Name := getNodeInfo(helpers.K8s1)
-					k8s2Name := getNodeInfo(helpers.K8s2)
+					k8s1Name, _ := getNodeInfo(helpers.K8s1)
+					k8s2Name, _ := getNodeInfo(helpers.K8s2)
 					doRequestsFromOutsideClient("http://"+lbIP, 10, false)
 					doRequests("http://"+lbIP, 10, k8s1Name)
 					doRequests("http://"+lbIP, 10, k8s2Name)
