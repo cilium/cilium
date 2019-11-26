@@ -490,9 +490,9 @@ func (kub *Kubectl) GetNodeNameByLabel(label string) (string, error) {
 // GetNodeNameByLabelContext returns the names of all nodes with a matching label
 func (kub *Kubectl) GetNodeNameByLabelContext(ctx context.Context, label string) (string, error) {
 	stdout := new(bytes.Buffer)
-	filter := "-o jsonpath='{.items[*].metadata.name}'"
+	filter := `{.items[*].metadata.name}`
 
-	cmd := fmt.Sprintf("%s get nodes -l cilium.io/ci-node=%s %s", KubectlCmd, label, filter)
+	cmd := fmt.Sprintf("%s get nodes -l cilium.io/ci-node=%s -o jsonpath='%s'", KubectlCmd, label, filter)
 
 	// Taking more than 30 seconds to get nodes means that something is wrong.
 	nodeNamesCtx, cancel := context.WithTimeout(ctx, ShortCommandTimeout)
@@ -512,6 +512,29 @@ func (kub *Kubectl) GetNodeNameByLabelContext(ctx context.Context, label string)
 		return ret[0], nil
 	default:
 		return "", fmt.Errorf("multiple matching nodes with label '%v': %v", label, ret)
+	}
+}
+
+// GetNodeIPByLabel returns the IP of the node with cilium.io/ci-node=label.
+// An error is returned if a node cannot be found.
+func (kub *Kubectl) GetNodeIPByLabel(label string) (string, error) {
+	filter := `{@.status.addresses[?(@.type == "InternalIP")].address}`
+	res := kub.ExecShort(fmt.Sprintf("%s get nodes -l cilium.io/ci-node=%s -o jsonpath='%s'",
+		KubectlCmd, label, filter))
+	if !res.WasSuccessful() {
+		return "", fmt.Errorf("cannot retrieve node IP: %s", res.CombineOutput())
+	}
+
+	out := strings.Trim(res.GetStdOut(), "\n")
+	ret := strings.Split(out, " ")
+	switch len(ret) {
+	case 0:
+		return "", fmt.Errorf("no matching node with label '%v'", label)
+	case 1:
+		return "", fmt.Errorf("multiple matching nodes with label '%v': %v", label, ret)
+	default:
+		// Return the first node if we ever end up with two
+		return ret[0], nil
 	}
 }
 
