@@ -512,6 +512,21 @@ func (kub *Kubectl) GetNodeNamesContext(ctx context.Context, label string) ([]st
 	return strings.Split(out, " "), nil
 }
 
+// GetNodeIPs returns a map with the nodes cilium.io/ci-node label as a key and node IP name as value.
+// Only nodes that match the provided filter are returned.
+// An error is returned if the nodes cannot be retrieved correctly
+func (kub *Kubectl) GetNodeIPs(filter string) (map[string]string, error) {
+	// The '.' and '/' are escaped because @.metadata.labels["cilium.io/ci-node"]
+	// returned errors. See https://github.com/kubernetes/kubectl/issues/25
+	jsonFilter := `{range .items[*]}{@.metadata.labels.cilium\.io\/ci-node}{"="}{@.status.addresses[?(@.type == "InternalIP")].address}{"\n"}{end}`
+	res := kub.ExecShort(fmt.Sprintf("%s get nodes -l %s -o jsonpath='%s'",
+		KubectlCmd, filter, jsonFilter))
+	if !res.WasSuccessful() {
+		return nil, fmt.Errorf("cannot retrieve nodes: %s", res.CombineOutput())
+	}
+	return res.KVOutput(), nil
+}
+
 // GetServiceHostPort returns the host and the first port for the given service name.
 // It will return an error if service cannot be retrieved.
 func (kub *Kubectl) GetServiceHostPort(namespace string, service string) (string, int, error) {
