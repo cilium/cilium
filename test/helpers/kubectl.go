@@ -520,6 +520,24 @@ func (kub *Kubectl) GetNodeNameByLabelContext(ctx context.Context, label string)
 	return out, nil
 }
 
+// GetNodeIPByLabel returns the IP of the node with cilium.io/ci-node=label.
+// An error is returned if a node cannot be found.
+func (kub *Kubectl) GetNodeIPByLabel(label string) (string, error) {
+	filter := `{@.items[*].status.addresses[?(@.type == "InternalIP")].address}`
+	res := kub.ExecShort(fmt.Sprintf("%s get nodes -l cilium.io/ci-node=%s -o jsonpath='%s'",
+		KubectlCmd, label, filter))
+	if !res.WasSuccessful() {
+		return "", fmt.Errorf("cannot retrieve node to read IP: %s", res.CombineOutput())
+	}
+
+	out := strings.Trim(res.GetStdOut(), "\n")
+	if len(out) == 0 {
+		return "", fmt.Errorf("no matching node to read IP with label '%v'", label)
+	}
+
+	return out, nil
+}
+
 // GetServiceHostPort returns the host and the first port for the given service name.
 // It will return an error if service cannot be retrieved.
 func (kub *Kubectl) GetServiceHostPort(namespace string, service string) (string, int, error) {
