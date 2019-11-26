@@ -536,6 +536,11 @@ func (kub *Kubectl) MonitorStart(namespace, pod, filename string) func() error {
 // five seconds.
 func (kub *Kubectl) BackgroundReport(commands ...string) (context.CancelFunc, error) {
 	backgroundCtx, cancel := context.WithCancel(context.Background())
+
+	if integration := GetCurrentIntegration(); integration == CIIntegrationEKS {
+		return cancel, nil
+	}
+
 	pods, err := kub.GetCiliumPods(KubeSystemNamespace)
 	if err != nil {
 		return cancel, fmt.Errorf("Cannot retrieve cilium pods: %s", err)
