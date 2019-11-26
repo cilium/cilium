@@ -480,6 +480,38 @@ func (kub *Kubectl) GetPodNamesContext(ctx context.Context, namespace string, la
 	return strings.Split(out, " "), nil
 }
 
+// GetNodeNames returns the names of all nodes with label
+func (kub *Kubectl) GetNodeNames(label string) ([]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+	defer cancel()
+	return kub.GetNodeNamesContext(ctx, label)
+}
+
+// GetNodeNamesContest returns the names of all nodes with label
+func (kub *Kubectl) GetNodeNamesContext(ctx context.Context, label string) ([]string, error) {
+	stdout := new(bytes.Buffer)
+	filter := "-o jsonpath='{.items[*].metadata.name}'"
+
+	cmd := fmt.Sprintf("%s get nodes -l %s %s", KubectlCmd, label, filter)
+
+	// Taking more than 30 seconds to get nodes means that something is wrong.
+	nodeNamesCtx, cancel := context.WithTimeout(ctx, ShortCommandTimeout)
+	defer cancel()
+	err := kub.ExecuteContext(nodeNamesCtx, cmd, stdout, nil)
+
+	if err != nil {
+		return nil, fmt.Errorf(
+			"could not find nodes with label '%v': %s", label, err)
+	}
+
+	out := strings.Trim(stdout.String(), "\n")
+	if len(out) == 0 {
+		return nil, fmt.Errorf(
+			"no matching nodes with label '%v'", label)
+	}
+	return strings.Split(out, " "), nil
+}
+
 // GetServiceHostPort returns the host and the first port for the given service name.
 // It will return an error if service cannot be retrieved.
 func (kub *Kubectl) GetServiceHostPort(namespace string, service string) (string, int, error) {
