@@ -188,6 +188,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			})
 			validateBPFTunnelMap()
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			Expect(testPodConnectivitySameNodes(kubectl)).Should(BeTrue(), "Connectivity test on same node failed")
 		}, 600)
 
 		It("Check connectivity with VXLAN encapsulation", func() {
@@ -238,6 +239,16 @@ var _ = Describe("K8sDatapathConfig", func() {
 			))
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
+
+		It("Check connectivity with sockops and direct routing", func() {
+			// Note if run on kernel without sockops feature is ignored
+			deployCilium([]string{
+				"--set global.sockops.enabled=true",
+			})
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			Expect(testPodConnectivitySameNodes(kubectl)).Should(BeTrue(), "Connectivity test on same node failed")
+		}, 600)
+
 	})
 
 	Context("Transparent encryption DirectRouting", func() {
@@ -282,7 +293,12 @@ var _ = Describe("K8sDatapathConfig", func() {
 })
 
 func testPodConnectivityAcrossNodes(kubectl *helpers.Kubectl) bool {
-	result, _ := testPodConnectivityAcrossNodesAndReturnIP(kubectl, true, 1)
+	result, _ := testPodConnectivityAndReturnIP(kubectl, true, 1)
+	return result
+}
+
+func testPodConnectivitySameNodes(kubectl *helpers.Kubectl) bool {
+	result, _ := testPodConnectivityAndReturnIP(kubectl, false, 1)
 	return result
 }
 
@@ -317,11 +333,21 @@ func fetchPodsWithOffset(kubectl *helpers.Kubectl, name, filter, hostIPAntiAffin
 				helpers.DefaultNamespace,
 				fmt.Sprintf("pod %s -o json", targetPod))
 		}
+	} else if !requireMultiNode && hostIPAntiAffinity != "" {
+		targetHost, err := targetPodJSON.Filter("{.status.hostIP}")
+		ExpectWithOffset(callOffset, err).Should(BeNil(), "Failure to retrieve host of pod %s", targetPod)
+
+		if targetHost.String() != hostIPAntiAffinity {
+			targetPod = pods[1]
+			targetPodJSON = kubectl.Get(
+				helpers.DefaultNamespace,
+				fmt.Sprintf("pod %s -o json", targetPod))
+		}
 	}
 	return targetPod, targetPodJSON
 }
 
-func testPodConnectivityAcrossNodesAndReturnIP(kubectl *helpers.Kubectl, requireMultiNode bool, callOffset int) (bool, string) {
+func testPodConnectivityAndReturnIP(kubectl *helpers.Kubectl, requireMultiNode bool, callOffset int) (bool, string) {
 	callOffset++
 
 	By("Checking pod connectivity between nodes")
@@ -357,7 +383,7 @@ func monitorConnectivityAcrossNodes(kubectl *helpers.Kubectl, monitorLog string)
 
 	By(fmt.Sprintf("Launching cilium monitor on %q", ciliumPodK8s1))
 	monitorStop := kubectl.MonitorStart(helpers.KubeSystemNamespace, ciliumPodK8s1, monitorLog)
-	result, targetIP := testPodConnectivityAcrossNodesAndReturnIP(kubectl, requireMultiNode, 2)
+	result, targetIP := testPodConnectivityAndReturnIP(kubectl, requireMultiNode, 2)
 	monitorStop()
 	ExpectWithOffset(1, result).Should(BeTrue(), "Connectivity test between nodes failed")
 
