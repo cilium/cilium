@@ -288,8 +288,16 @@ func generateCNPKey(uid, namespace, name string) string {
 	return path.Join(uid, namespace, name)
 }
 
+// formatKeyForKvstore formats the key to be used for kvstore, it takes into consideration
+// the namespaced nature of the resource, so if the namespace provided is empty
+// then it assumes that the resource corresponsing to the key is a clusterwide
+// resource.
 func formatKeyForKvstore(uid k8sTypes.UID, namespace, name, nodeName string) string {
-	return path.Join(CNPStatusesPath, string(uid), namespace, name, nodeName)
+	if namespace != "" {
+		return path.Join(CNPStatusesPath, string(uid), namespace, name, nodeName)
+	}
+
+	return path.Join(CCNPStatusesPath, string(uid), name, nodeName)
 }
 
 func (c *CNPStatusUpdateContext) updateViaAPIServer(cnp *types.SlimCNP, enforcing, ok bool, cnpError error, rev uint64, cnpAnnotations map[string]string) error {
@@ -390,6 +398,9 @@ func (c *CNPStatusUpdateContext) updateViaKVStore(ctx context.Context, cnp *type
 		return err
 	}
 
+	// If the namespace is empty it means that the policy is clusterwide policy.
+	// This is then taken care of internally when we try to join the path using
+	// golangs `path.Join`
 	key := formatKeyForKvstore(cnp.UID, cnp.Namespace, cnp.Name, node.GetName())
 	log.WithFields(logrus.Fields{
 		"key":   key,

@@ -355,7 +355,7 @@ LOCAL_IMAGE_TAG=local
 LOCAL_IMAGE=localhost:32000/cilium/cilium:$(LOCAL_IMAGE_TAG)
 microk8s: check-microk8s
 	$(QUIET)$(MAKE) dev-docker-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
-	@echo "  DPLOY image to microk8s ($(LOCAL_IMAGE))"
+	@echo "  DEPLOY image to microk8s ($(LOCAL_IMAGE))"
 	$(CONTAINER_ENGINE_FULL) tag cilium/cilium-dev:$(LOCAL_IMAGE_TAG) $(LOCAL_IMAGE)
 	$(CONTAINER_ENGINE_FULL) push $(LOCAL_IMAGE)
 	$(QUIET)kubectl apply -f contrib/k8s/microk8s-prepull.yaml

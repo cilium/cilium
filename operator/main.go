@@ -334,6 +334,12 @@ func runOperator(cmd *cobra.Command) {
 			"Cannot connect to Kubernetes apiserver ")
 	}
 
+	err = enableCCNPWatcher()
+	if err != nil {
+		log.WithError(err).WithField("subsys", "CCNPWatcher").Fatal(
+			"Cannot connect to Kubernetes apiserver ")
+	}
+
 	log.Info("Initialization complete")
 
 	<-shutdownSignal
