@@ -3,6 +3,7 @@
 set -e
 
 HOST=$(hostname)
+export HELM_VERSION="2.14.2"
 export TOKEN="258062.5d84c017c9b2796c"
 export CILIUM_CONFIG_DIR="/opt/cilium"
 export PROVISIONSRC="/tmp/provision/"
@@ -42,9 +43,9 @@ source ${PROVISIONSRC}/helpers.bash
 sudo bash -c "echo MaxSessions 200 >> /etc/ssh/sshd_config"
 sudo systemctl restart ssh
 
-if [[ "${SKIP_K8S_PROVISION}" == "false" ]]; then
-  retry_function "wget https://get.helm.sh/helm-v2.14.2-linux-amd64.tar.gz"
-  tar xzvf helm-v2.14.2-linux-amd64.tar.gz
+if [[ ! $(helm version | grep ${HELM_VERSION}) ]]; then
+  retry_function "wget https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz"
+  tar xzvf helm-v${HELM_VERSION}-linux-amd64.tar.gz
   mv linux-amd64/helm /usr/local/bin/
 fi
 
@@ -279,7 +280,15 @@ sudo mkdir -p ${CILIUM_CONFIG_DIR}
 sudo cp "$SYSTEMD_SERVICES/$MOUNT_SYSTEMD" /etc/systemd/system/
 sudo systemctl enable $MOUNT_SYSTEMD
 sudo systemctl restart $MOUNT_SYSTEMD
-sudo rm -rfv /var/lib/kubelet
+sudo rm -rfv /var/lib/kubelet || true
+
+if [[ "${PRELOAD_VM}" == "true" ]]; then
+    cd ${SRC_FOLDER}
+    ./test/provision/container-images.sh test_images .
+    ./test/provision/container-images.sh cilium_images .
+    echo "VM preloading is finished, skipping the rest"
+    exit 0
+fi
 
 #check hostname to know if is kubernetes or runtime test
 if [[ "${HOST}" == "k8s1" ]]; then

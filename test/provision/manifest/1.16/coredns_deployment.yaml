@@ -63,6 +63,11 @@ metadata:
       addonmanager.kubernetes.io/mode: EnsureExists
 data:
   Corefile: |
+    cilium.test:53 {
+        forward . 10.96.0.100:53 {
+            max_fails 0
+        }
+    }
     .:53 {
         log
         errors
@@ -74,7 +79,7 @@ data:
             upstream
             fallthrough in-addr.arpa ip6.arpa
         }
-        forward cilium.test 10.96.0.100:53 {
+        forward . /etc/resolv.conf {
             max_fails 0
         }
         prometheus :9153
