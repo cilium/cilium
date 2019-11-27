@@ -20,6 +20,7 @@ cilium-operator [flags]
       --aws-client-qps float                   Queries per second limit for the AWS client used by the AWS ENI IPAM (default 20)
       --aws-instance-limit-mapping map         Add or overwrite mappings of AWS instance limit in the form of {"AWS instance type": "Maximum Network Interfaces","IPv4 Addresses per Interface","IPv6 Addresses per Interface"}. cli example: --aws-instance-limit-mapping=a1.medium=2,4,4 --aws-instance-limit-mapping=a2.somecustomflavor=4,5,6 configmap example: {"a1.medium": "2,4,4", "a2.somecustomflavor": "4,5,6"} (default map[])
       --aws-release-excess-ips                 Enable releasing excess free IP addresses from AWS ENI.
+      --ccnp-node-status-gc                    Enable CiliumClusterwideNetworkPolicy Status garbage collection for nodes which have been removed from the cluster (default true)
       --cilium-endpoint-gc                     Enable CiliumEndpoint garbage collector (default true)
       --cilium-endpoint-gc-interval duration   GC interval for cilium endpoints (default 30m0s)
       --cluster-id int                         Unique identifier of the cluster
