@@ -417,13 +417,76 @@ Example how to run ginkgo using ``dlv``:
 
 	dlv test . -- --ginkgo.focus="Runtime" -ginkgo.v=true --cilium.provision=false
 
+Running End-To-End Tests In Other Environments via kubeconfig
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Running End-To-End Tests In Other Environments
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The end-to-end tests can be run with an arbitrary kubeconfig file. Normally the
+CI will use the kubernetes created via vagrant but this can be overridden with
+``--cilium.kubeconfig``. When used, ginkgo will not start a VM nor compile
+cilium. It will also skip some setup tasks like labeling nodes for testing.
 
-If you want to run tests in a different VM, you can use ``--cilium.SSHConfig`` to
-provide the SSH configuration of the endpoint on which tests will be ran. The
-tests presume the following on the remote instance:
+This mode expects:
+
+- The current directory is ``cilium/test``
+
+- A test focus with ``--focus``. ``--focus="K8s*"`` selects all kubernetes tests.
+
+- Cilium images as full URLs specified with the ``--cilium.image`` and
+  ``--cilium.operator-image`` options, with matching ``CILIUM_IMAGE`` and
+  ``CILIUM_OPERATOR_IMAGE`` environment variables.
+
+- A working kubeconfig with the ``--cilium.kubeconfig`` option
+
+- A populated K8S_VERSION environment variable set to the version of the cluster
+
+- If appropriate, set the ``CNI_INTEGRATION`` environment variable set to one
+  of ``flannel``, ``eks``, ``microk8s`` or ``minikube``. This selects matching
+  configuration overrides for cilium.
+  Leaving this unset for non-matching integrations is also correct.
+  For k8s environments that invoke an authentication agent, such as EKS and
+  ``aws-iam-authenticator``, set ``--cilium.passCLIEnvironment=true``
+
+An example invocation is
+
+::
+
+  CNI_INTEGRATION=eks K8S_VERSION=1.13 CILIUM_IMAGE="quay.io/cilium/cilium:latest" CILIUM_OPERATOR_IMAGE="quay.io/cilium/operator:latest" ginkgo --focus="K8s*" -noColor -- -cilium.provision=false -cilium.kubeconfig=~/.kube/config -cilium.image="quay.io/cilium/cilium:latest" -cilium.operator-image="quay.io/cilium/operator:latest" -cilium.passCLIEnvironment=true
+
+
+AWS EKS (experimental)
+^^^^^^^^^^^^^^^^^^^^^^
+
+Not all tests can succeed on EKS. Many do, however and may be useful.
+
+1- Setup a cluster as in :ref:`k8s_install_eks` or utilize an existing
+cluster.
+
+2- Label 2 nodes for testing with ``cilium.io/ci-node=k8s1`` and
+``cilium.io/ci-node=k8s2``
+
+::
+
+  kubectl label node ip-192-168-6-126.us-west-2.compute.internal cilium.io/ci-node=k8s1
+  kubectl label node ip-192-168-68-145.us-west-2.compute.internal cilium.io/ci-node=k8s2
+
+3- Invoke the tests from ``cilium/test`` with options set as explained in
+`Running End-To-End Tests In Other Environments via kubeconfig`_
+
+::
+
+  CNI_INTEGRATION=eks K8S_VERSION=1.14  ginkgo --focus="K8s*" -noColor -- -cilium.provision=false -cilium.kubeconfig=~/.kube/config -cilium.image="quay.io/cilium/cilium:latest" -cilium.operator-image="quay.io/cilium/operator:latest" -cilium.passCLIEnvironment=true
+
+Be sure to pass ``--cilium.passCLIEnvironment=true`` to allow kubectl to invoke ``aws-iam-authenticator``
+
+.. note:: The kubernetes version varies between AWS regions. Be sure to check with ``kubectl version``
+
+Running End-To-End Tests In Other Environments via SSH
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you want to run tests in an arbitrary environment with SSH access, you can
+use ``--cilium.SSHConfig`` to provide the SSH configuration of the endpoint on
+which tests will be run. The tests presume the following on the remote
+instance:
 
 - Cilium source code is located in the directory ``/home/vagrant/go/src/github.com/cilium/cilium/``.
 - Cilium is installed and running.
