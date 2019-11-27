@@ -92,7 +92,7 @@ static inline __u32 __inline__ __ct_update_timeout(struct ct_entry *entry,
 	__u32 last_report;
 
 #ifdef NEEDS_TIMEOUT
-	entry->lifetime = now + lifetime;
+	WRITE_ONCE(entry->lifetime, now + lifetime);
 #endif
 	if (dir == CT_INGRESS) {
 		accumulated_flags = READ_ONCE(entry->rx_flags_seen);
@@ -187,6 +187,29 @@ static inline void __inline__ ct_reset_closing(struct ct_entry *entry)
 static inline bool __inline__ ct_entry_alive(const struct ct_entry *entry)
 {
 	return !entry->rx_closing || !entry->tx_closing;
+}
+
+/* Helper for holding 2nd service entry alive in nodeport case. */
+static inline bool __ct_entry_keep_alive(void *map, void *tuple)
+{
+	struct ct_entry *entry;
+
+	/* Lookup indicates to LRU that key/value is in use. */
+	if ((entry = map_lookup_elem(map, tuple))) {
+		if (entry->node_port) {
+#ifdef NEEDS_TIMEOUT
+			__u32 lifetime = (entry->seen_non_syn ?
+					  CT_SERVICE_LIFETIME_TCP :
+					  CT_SERVICE_LIFETIME_NONTCP) +
+					 bpf_ktime_get_sec();
+			WRITE_ONCE(entry->lifetime, lifetime);
+#endif
+			if (!ct_entry_alive(entry))
+				ct_reset_closing(entry);
+		}
+		return true;
+	}
+	return false;
 }
 
 static inline __u8 __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
