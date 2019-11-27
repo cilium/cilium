@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/testutils/allocator"
+	"github.com/cilium/proxy/go/cilium/api"
 
 	"github.com/op/go-logging"
 	. "gopkg.in/check.v1"
@@ -68,6 +69,10 @@ func (p *testPolicyContextType) GetSelectorCache() *SelectorCache {
 
 func (p *testPolicyContextType) GetTLSContext(*api.TLSContext) (ca, public, private string, err error) {
 	return "", "", "", fmt.Errorf("Not supported")
+}
+
+func (p *testPolicyContextType) GetEnvoyHTTPRules(*api.L7Rules) *cilium.HttpNetworkPolicyRules {
+	return nil
 }
 
 var testPolicyContext *testPolicyContextType

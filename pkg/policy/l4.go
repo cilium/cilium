@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
+	"github.com/cilium/proxy/go/cilium/api"
 
 	"github.com/sirupsen/logrus"
 )
@@ -81,6 +82,9 @@ type PerEpData struct {
 	// client-side TLS parameters for the connection from the L7 proxy to
 	// the local POD.
 	OriginatingTLS *TLSContext `json:"originatingTLS,omitempty"`
+
+	// Pre-computed HTTP rules with resolved k8s secrets
+	EnvoyHTTPRules *cilium.HttpNetworkPolicyRules `json:"-"`
 
 	api.L7Rules
 }
@@ -467,10 +471,17 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 // the filter is left to be garbage collected.
 func (l4 *L4Filter) detach(selectorCache *SelectorCache) {
 	selectorCache.RemoveSelectors(l4.CachedSelectors, l4)
-	l4.attach(nil)
+	l4.attach(nil, nil)
 }
 
-func (l4 *L4Filter) attach(l4Policy *L4Policy) {
+func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) {
+	// Compute Envoy policies when a policy is ready to be used
+	if ctx != nil {
+		for _, perEpData := range l4.L7RulesPerEp {
+			perEpData.EnvoyHTTPRules = ctx.GetEnvoyHTTPRules(&perEpData.L7Rules)
+		}
+	}
+
 	atomic.StorePointer(&l4.policy, unsafe.Pointer(l4Policy))
 }
 
@@ -576,9 +587,9 @@ func (l4 L4PolicyMap) Detach(selectorCache *SelectorCache) {
 }
 
 // Attach makes all the L4Filters to point back to the L4Policy that contains them.
-func (l4 L4PolicyMap) Attach(l4Policy *L4Policy) {
+func (l4 L4PolicyMap) Attach(ctx PolicyContext, l4Policy *L4Policy) {
 	for _, f := range l4 {
-		f.attach(l4Policy)
+		f.attach(ctx, l4Policy)
 	}
 }
 
@@ -739,9 +750,9 @@ func (l4 *L4Policy) Detach(selectorCache *SelectorCache) {
 
 // Attach makes all the L4Filters to point back to the L4Policy that contains them.
 // This is done before the L4Policy is exposed to concurrent access.
-func (l4 *L4Policy) Attach() {
-	l4.Ingress.Attach(l4)
-	l4.Egress.Attach(l4)
+func (l4 *L4Policy) Attach(ctx PolicyContext) {
+	l4.Ingress.Attach(ctx, l4)
+	l4.Egress.Attach(ctx, l4)
 }
 
 // IngressCoversContext checks if the receiver's ingress L4Policy contains
