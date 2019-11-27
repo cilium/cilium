@@ -28,7 +28,7 @@ const (
 	// For more information, consult : http://www.cs.kent.edu/~farrell/dist/ref/Netperf.html
 	TCP_STREAM = PerfTest("TCP_STREAM")
 
-	// TCP_STREAM represents a netperf test that connects and sends single request/response
+	// TCP_CRR represents a netperf test that connects and sends single request/response
 	// For more information, consult : http://www.cs.kent.edu/~farrell/dist/ref/Netperf.html
 	TCP_CRR = PerfTest("TCP_CRR")
 
@@ -47,6 +47,11 @@ func Ping(endpoint string) string {
 // specified endpoint.
 func Ping6(endpoint string) string {
 	return fmt.Sprintf("ping6 -c %d %s", PingCount, endpoint)
+}
+
+// Wrk runs a standard wrk test for http
+func Wrk(endpoint string) string {
+	return fmt.Sprintf("wrk -t2 -c100 -d30s -R2000 http://%s", endpoint)
 }
 
 // CurlFail returns the string representing the curl command with `-s` and

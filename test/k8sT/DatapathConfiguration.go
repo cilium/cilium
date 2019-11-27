@@ -94,6 +94,32 @@ var _ = Describe("K8sDatapathConfig", func() {
 		Expect(err).To(BeNil(), "cannot get service netperf ip")
 	}
 
+	deployHTTPd := func() {
+		httpManifest := helpers.ManifestGet(kubectl.BasePath(), "http-deployment.yaml")
+		kubectl.ApplyDefault(httpManifest).ExpectSuccess("HTTP cannot be deployed")
+
+		err := kubectl.WaitforPods(
+			helpers.DefaultNamespace,
+			fmt.Sprintf("-l zgroup=http-server"), helpers.HelperTimeout)
+		Expect(err).Should(BeNil(), "Pods are not ready after timeout")
+
+		_, err = kubectl.GetPodsIPs(helpers.DefaultNamespace, "zgroup=http-server")
+		Expect(err).To(BeNil(), "Cannot get pods ips")
+	}
+
+	deployHTTPclients := func() {
+		httpManifest := helpers.ManifestGet(kubectl.BasePath(), "http-clients.yaml")
+		kubectl.ApplyDefault(httpManifest).ExpectSuccess("HTTP clients cannot be deployed")
+
+		err := kubectl.WaitforPods(
+			helpers.DefaultNamespace,
+			fmt.Sprintf("-l zgroup=http-clients"), helpers.HelperTimeout)
+		Expect(err).Should(BeNil(), "Pods are not ready after timeout")
+
+		_, err = kubectl.GetPodsIPs(helpers.DefaultNamespace, "zgroup=http-clients")
+		Expect(err).To(BeNil(), "Cannot get pods ips")
+	}
+
 	deployCilium := func(options []string) {
 		DeployCiliumOptionsAndDNS(kubectl, options)
 
@@ -275,6 +301,18 @@ var _ = Describe("K8sDatapathConfig", func() {
 			"--set global.autoDirectNodeRoutes=true",
 		}
 
+		AfterEach(func() {
+			httpClients := helpers.ManifestGet(kubectl.BasePath(), "http-clients.yaml")
+			httpServers := helpers.ManifestGet(kubectl.BasePath(), "http-deployment.yaml")
+			netperfClients := helpers.ManifestGet(kubectl.BasePath(), "netperf-deployment.yaml")
+
+			kubectl.Delete(netperfClients)
+			kubectl.Delete(httpClients)
+			kubectl.Delete(httpServers)
+
+			ExpectAllPodsTerminated(kubectl)
+		})
+
 		It("Check baseline performance with direct routing TCP_CRR", func() {
 			Skip("Skipping TCP_CRR until fix reaches upstream")
 			deployCilium(directRoutingOptions)
@@ -313,6 +351,19 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodNetperfSameNodes(kubectl, helpers.TCP_STREAM)).Should(BeTrue(), "Connectivity test TCP_STREAM on same node failed")
 		}, 600)
 
+		It("Check baseline http performance with sockops and direct routing", func() {
+			deployCilium(append(directRoutingOptions))
+			deployHTTPclients()
+			deployHTTPd()
+			Expect(testPodHTTPSameNodes(kubectl)).Should(BeTrue(), "HTTP test on same node failed ")
+		}, 600)
+
+		It("Check http performance with sockops and direct routing", func() {
+			deployCilium(append(directRoutingOptions, "--set global.sockops.enabled=true"))
+			deployHTTPclients()
+			deployHTTPd()
+			Expect(testPodHTTPSameNodes(kubectl)).Should(BeTrue(), "HTTP test on same node failed ")
+		}, 600)
 	})
 
 	Context("Transparent encryption DirectRouting", func() {
@@ -440,6 +491,37 @@ func testPodConnectivityAndReturnIP(kubectl *helpers.Kubectl, requireMultiNode b
 	res = kubectl.ExecPodCmd(helpers.DefaultNamespace, srcPod,
 		helpers.CurlFail("http://%s:80/", targetIP))
 	return res.WasSuccessful(), targetIP
+}
+
+func testPodHTTPAcrossNodes(kubectl *helpers.Kubectl) bool {
+	result, _ := testPodHTTP(kubectl, true, 1)
+	return result
+}
+
+func testPodHTTPSameNodes(kubectl *helpers.Kubectl) bool {
+	result, _ := testPodHTTP(kubectl, false, 1)
+	return result
+}
+
+func testPodHTTP(kubectl *helpers.Kubectl, requireMultiNode bool, callOffset int) (bool, string) {
+	callOffset++
+
+	By("Checking pod http")
+	dstPod, dstPodJSON := fetchPodsWithOffset(kubectl, "client", "zgroup=http-server", "", requireMultiNode, callOffset)
+	dstHost, err := dstPodJSON.Filter("{.status.hostIP}")
+	ExpectWithOffset(callOffset, err).Should(BeNil(), "Failure to retrieve host of pod %s", dstPod)
+
+	podIP, err := dstPodJSON.Filter("{.status.podIP}")
+	targetIP := podIP.String()
+
+	srcPod, _ := fetchPodsWithOffset(kubectl, "server", "zgroup=http-client", dstHost.String(), requireMultiNode, callOffset)
+	ExpectWithOffset(callOffset, err).Should(BeNil(), "Failure to retrieve IP of pod %s", srcPod)
+
+	// Netperf benchmark test
+	res := kubectl.ExecPodCmd(helpers.DefaultNamespace, srcPod, helpers.Wrk(targetIP))
+	res.ExpectContains("Requests/sec", "wrk failed")
+	return true, targetIP
+
 }
 
 func testPodNetperf(kubectl *helpers.Kubectl, requireMultiNode bool, callOffset int, test helpers.PerfTest) (bool, string) {
