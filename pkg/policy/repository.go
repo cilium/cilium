@@ -31,6 +31,12 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
+// PolicyContext is an interface policy resolution functions use to access the Repository.
+// This way testing code can run without mocking a full Repository.
+type PolicyContext interface {
+	GetSelectorCache() *SelectorCache
+}
+
 // Repository is a list of policy rules which in combination form the security
 // policy. A policy repository can be
 type Repository struct {
@@ -199,7 +205,7 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, terminatingTLS, originatingTL
 // Note: Only used for policy tracing
 func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (L4PolicyMap, error) {
 
-	result, err := p.rules.resolveL4IngressPolicy(ctx, p.GetRevision(), p.GetSelectorCache())
+	result, err := p.rules.resolveL4IngressPolicy(p, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +224,7 @@ func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (L4PolicyMap, er
 //
 // NOTE: This is only called from unit tests, but from multiple packages.
 func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (L4PolicyMap, error) {
-	result, err := p.rules.resolveL4EgressPolicy(ctx, p.GetRevision(), p.GetSelectorCache())
+	result, err := p.rules.resolveL4EgressPolicy(p, ctx)
 
 	if err != nil {
 		return nil, err
@@ -638,7 +644,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	}
 
 	if ingressEnabled {
-		newL4IngressPolicy, err := matchingRules.resolveL4IngressPolicy(&ingressCtx, p.GetRevision(), p.GetSelectorCache())
+		newL4IngressPolicy, err := matchingRules.resolveL4IngressPolicy(p, &ingressCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -653,7 +659,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	}
 
 	if egressEnabled {
-		newL4EgressPolicy, err := matchingRules.resolveL4EgressPolicy(&egressCtx, p.GetRevision(), p.GetSelectorCache())
+		newL4EgressPolicy, err := matchingRules.resolveL4EgressPolicy(p, &egressCtx)
 		if err != nil {
 			return nil, err
 		}
