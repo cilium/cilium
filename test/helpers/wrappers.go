@@ -49,6 +49,10 @@ func Ping6(endpoint string) string {
 	return fmt.Sprintf("ping6 -c %d %s", PingCount, endpoint)
 }
 
+func Wrk(endpoint string) string {
+	return fmt.Sprintf("wrk -t2 -c100 -d30s -R2000 http://%s", endpoint)
+}
+
 // CurlFail returns the string representing the curl command with `-s` and
 // `--fail` options enabled to curl the specified endpoint.  It takes a
 // variadic optinalValues argument. This is passed on to fmt.Sprintf() and uses
