@@ -2,6 +2,151 @@
 NEWS
 ******
 
+v1.6.4
+======
+
+::
+
+    André Martins (20):
+          pkg/k8s: consider node taints as part of node equalness
+          go: bump golang to 1.12.12
+          update k8s to 1.13.12, 1.14.8, 1.15.5 and 1.16.2
+          vendor: update k8s dependencies to 1.16.2
+          golang: update to 1.12.13
+          pkg/k8s: fix toServices policy update when service endpoints are modified
+          docs: clarify usage of bpf fs mount
+          pkg/policy: show error if user installs a L7 CNP with L7 proxy disabled
+          pkg/endpoint: do not runIPIdentitySync is not running with kvstore
+          k8s/endpointsynchronizer: re-fecth CEP in case of update conflict
+          pkg/endpoint: start RegenerationFailureHandler after assign epID
+          k8s/watcher: refactor code to generate k8s services
+          pkg/k8s: fix service update bug fix
+          operator: do not rm kube-dns pods if unmanaged-pod-watcher-interval == 0
+          aws/eni: do not resync node if semaphore Acquire fails
+          test/provision: update k8s test versions to 1.14.9 and 1.15.6
+          k8s: update k8s to v1.16.3
+          Revert "accesslog: Add support for missing and rejected headers."
+          Revert "Envoy: Use CLUSTER_PROVIDED loadbalancer type."
+          Revert "envoy: Update to release 1.12 with Cilium TLS support"
+
+    Dan Sexton (1):
+          Added chart value for etcd-operator cluster domain
+
+    Daniel Borkmann (31):
+          cilium: add OpenOrCreateUnpinned helper for Cilium maps
+          cilium: probe and enable LPM map in prefilter
+          cilium: add new probe package for BPF kernel feature probes
+          cilium: dump warning when using prefilter but without full lpm support
+          cilium: add prefilter delete method to openapi
+          cilium: re-implement broken delete handler for prefilter
+          bpf, probe: add probe for larger insn/complexity limit
+          bpf, nat: bump collision retries on newer kernels
+          bpf: remove deterministic retries on lru
+          bpf: use random offset in port range and walk from there
+          bpf: let nat signal potential congestion to cilium agent
+          cilium: change CT GC sleep into a wakeup from select timeout
+          cilium: add Mute/Unmute function for perf RB
+          cilium: add signal package for handling BPF datapath signals
+          cilium: one page for signal RB is enough in config
+          cilium: log error to agent log when signal RB has timeout
+          cilium: swap RegisterChannel with SetupSignalListener
+          cilium: change channel type to proper signal.SignalData
+          cilium: add metrics collection for signal package
+          bpf: remap punt to stack so we properly recircle into bpf_netdev
+          bpf: remove optimization to bypass rev-snat as prep for external ip
+          bpf: fix tc-index bitfield wrt skipping nodeport
+          bpf: merge nat handling ranges for bpf nodeport
+          bpf: perform nodeport nat into full port range
+          bpf: enable direct bpf_netdev redirect when !netfilter
+          bpf: compile out bpf_lxc service lookup when host services enabled
+          bpf: remove force_range nat config parameter
+          bpf: fix nodeport insns over limit regressions in netdev/overlay progs
+          bpf: do not error out when punt to stack return from nat
+          bpf: always force egress nat upon nodeport requests
+          vendor: point vishvananda/netlink back to upstream
+
+    Deepesh Pathak (1):
+          cni: fix cni plugin error formatting when agent is not running
+
+    Ian Vernon (2):
+          bugtool: add `cilium node list` output
+          endpoint: regeneration controller runs with `RegenerateWithDatapathRewrite`
+
+    Jaff Cheng (2):
+          eni: Allow selecting subnet by Name tag
+          eni: Allow releasing excess IP addresses via option
+
+    Jarno Rajahalme (11):
+          manager: Wait for policy map changes to be done before waiting for the ACK
+          logfields: Add tag for cached xDS version.
+          envoy: Always use IstioNodeToIP function
+          Envoy: Track last ACKed version per proxy node
+          xds: Allow endpoints to wait for the current policy version to be acked
+          envoy: Do not force Network Policy updates
+          policy: Add unit tests
+          envoy: Remove 'force' argument from cache operations
+          Envoy: Use CLUSTER_PROVIDED loadbalancer type.
+          accesslog: Add support for missing and rejected headers.
+          policy: Keep cached selector references for L3-dependent L7 rules.
+
+    Jean Raby (1):
+          unmanaged kube-dns: Delete one pod per iteration
+
+    Joe Stringer (7):
+          docs: Fix clustermesh secrets namespace
+          endpoint: Clarify naming for identity resolution
+          endpoint: Run labels controller under ep manager
+          health: Fix handling of node update events
+          health: Fix up IP removal from health prober
+          health: Factor out getting the IPs to probe
+          health: Add some basic unit tests for adding nodes
+
+    John Fastabend (3):
+          cilium: bpf, fix undeclared ENCRYP_IFACE
+          cilium: encryption, increase initHealth RunInterval
+          cilium: encryption, better error reporting for multiple default routes
+
+    Laurent Bernaille (4):
+          Don't add route/xfrm state for internal IPs in subnet mode
+          Fix pre-allocate in the ENI documentation
+          Support null encrytion/auth
+          Add ipsec upsert logs in debug mode
+
+    Maciej Kwiek (1):
+          Pin kubectl version in ginkgo vms
+
+    Martynas Pumputis (10):
+          test: Add GetCiliumHostIPv4 helper
+          test: Extend NodePort BPF tests
+          docs: Fix typo
+          test: Add test for loopback service connectivity
+          datapath: Fix hairpin flow when ENABLE_ROUTING is disabled
+          k8s: Provision NodePort services for LoadBalancer
+          daemon: Disable L7 proxy with explicit flag
+          daemon: Enable FQDN proxy if --enable-l7-proxy is set
+          helm: Add global.l7Proxy.enabled param
+          docs: Fix ipvlan iptables-free gsg
+
+    Patrick Mahoney (1):
+          install: fix label used in ServiceMonitor to select cilium-agent
+
+    Ray Bejjani (4):
+          envoy: Update to release 1.12 with Cilium TLS support
+          fqdn: DNSCache LookupByRegex functions don't return empty matches
+          Docs: tofqdns-pre-cache is optional in preflight templates
+          fqdn: L3-aware L7 DNS policy enforcement
+          helm: Fix bug to disable health-checks in chaining mode
+
+    Swaminathan Vasudevan (1):
+          Fix kafka-v1.yaml file for compatibility
+
+    Thomas Graf (5):
+          agent: Add --enable-endpoint-health-checking flag
+          helm: Disable endpoint-health-checking when chaining is enabled
+          flannel: Disable endpoint connectivity health check
+          bpf: Don't perform L3 operation when ENABLE_ROUTING is disabled
+          iptables: Fix incorrect SNAT for externalTrafficPolicy=local
+
 v1.6.3
 ======
 
