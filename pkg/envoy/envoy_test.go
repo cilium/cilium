@@ -84,7 +84,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	log.Debugf("state log directory: %s", stateLogDir)
 
-	xdsServer := StartXDSServer(stateLogDir, nil)
+	xdsServer := StartXDSServer(stateLogDir)
 	defer xdsServer.stop()
 	StartAccessLogServer(stateLogDir, xdsServer, &dummyEndpointInfoRegistry{})
 
@@ -156,7 +156,7 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 
 	log.Debugf("state log directory: %s", stateLogDir)
 
-	xdsServer := StartXDSServer(stateLogDir, nil)
+	xdsServer := StartXDSServer(stateLogDir)
 	defer xdsServer.stop()
 	StartAccessLogServer(stateLogDir, xdsServer, &dummyEndpointInfoRegistry{})
 

@@ -18,6 +18,7 @@ package policy
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -63,6 +64,10 @@ type testPolicyContextType struct{}
 
 func (p *testPolicyContextType) GetSelectorCache() *SelectorCache {
 	return testSelectorCache
+}
+
+func (p *testPolicyContextType) GetTLSContext(*api.TLSContext) (ca, public, private string, err error) {
+	return "", "", "", fmt.Errorf("Not supported")
 }
 
 var testPolicyContext *testPolicyContextType

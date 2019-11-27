@@ -35,6 +35,36 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// TLS context holds the secret values resolved from an 'api.TLSContext'
+type TLSContext struct {
+	TrustedCA        string `json:"trustedCA,omitempty"`
+	CertificateChain string `json:"certificateChain,omitempty"`
+	PrivateKey       string `json:"privateKey,omitempty"`
+}
+
+// Equal returns true if 'a' and 'b' have the same contents.
+func (a *TLSContext) Equal(b *TLSContext) bool {
+	return a == nil && b == nil || a != nil && b != nil && *a == *b
+}
+
+// MarshalJSON marsahls a redacted version of the TLSContext. We want
+// to see which fields are present, but not reveal their values in any
+// logs, etc.
+func (t *TLSContext) MarshalJSON() ([]byte, error) {
+	type tlsContext TLSContext
+	var redacted tlsContext
+	if t.TrustedCA != "" {
+		redacted.TrustedCA = "[redacted]"
+	}
+	if t.CertificateChain != "" {
+		redacted.CertificateChain = "[redacted]"
+	}
+	if t.PrivateKey != "" {
+		redacted.PrivateKey = "[redacted]"
+	}
+	return json.Marshal(&redacted)
+}
+
 type PerEpData struct {
 	// TerminatingTLS is the TLS context for the connection terminated by
 	// the L7 proxy.  For egress policy this specifies the server-side TLS
@@ -42,7 +72,7 @@ type PerEpData struct {
 	// POD and terminated by the L7 proxy. For ingress policy this specifies
 	// the server-side TLS parameters to be applied on the connections
 	// originated from a remote source and terminated by the L7 proxy.
-	TerminatingTLS *api.TLSContext `json:"terminatingTLS,omitempty"`
+	TerminatingTLS *TLSContext `json:"terminatingTLS,omitempty"`
 
 	// OriginatingTLS is the TLS context for the connections originated by
 	// the L7 proxy.  For egress policy this specifies the client-side TLS
@@ -50,7 +80,7 @@ type PerEpData struct {
 	// to the remote destination. For ingress policy this specifies the
 	// client-side TLS parameters for the connection from the L7 proxy to
 	// the local POD.
-	OriginatingTLS *api.TLSContext `json:"originatingTLS,omitempty"`
+	OriginatingTLS *TLSContext `json:"originatingTLS,omitempty"`
 
 	api.L7Rules
 }
@@ -341,7 +371,7 @@ func (l7 L7DataMap) GetRelevantRulesForKafka(nid identity.NumericIdentity) []api
 	return rules
 }
 
-func (l7 L7DataMap) addRulesForEndpoints(rules api.L7Rules, endpoints []CachedSelector, terminatingTLS, originatingTLS *api.TLSContext) {
+func (l7 L7DataMap) addRulesForEndpoints(rules api.L7Rules, endpoints []CachedSelector, terminatingTLS, originatingTLS *TLSContext) {
 	perEpData := &PerEpData{
 		L7Rules:        rules,
 		TerminatingTLS: terminatingTLS,
@@ -349,6 +379,21 @@ func (l7 L7DataMap) addRulesForEndpoints(rules api.L7Rules, endpoints []CachedSe
 	}
 	for _, epsel := range endpoints {
 		l7[epsel] = perEpData
+	}
+}
+
+func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direction string) *TLSContext {
+	if tls == nil {
+		return nil
+	}
+	ca, public, private, err := policyCtx.GetTLSContext(tls)
+	if err != nil {
+		log.WithError(err).Warningf("policy: Error getting %s TLS Context, TLS will not work.", direction)
+	}
+	return &TLSContext{
+		TrustedCA:        ca,
+		CertificateChain: public,
+		PrivateKey:       private,
 	}
 }
 
@@ -384,24 +429,35 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 		l4.cacheFQDNSelectors(fqdns, selectorCache)
 	}
 
-	if protocol == api.ProtoTCP && rule.Rules != nil {
-		switch {
-		case len(rule.Rules.HTTP) > 0:
-			l4.L7Parser = ParserTypeHTTP
-		case len(rule.Rules.Kafka) > 0:
-			l4.L7Parser = ParserTypeKafka
-		case rule.Rules.L7Proto != "":
-			l4.L7Parser = (L7ParserType)(rule.Rules.L7Proto)
-		}
-		if !rule.Rules.IsEmpty() {
-			l4.L7RulesPerEp.addRulesForEndpoints(*rule.Rules, l4.CachedSelectors, rule.TerminatingTLS, rule.OriginatingTLS)
-		}
-	}
+	if rule.Rules != nil {
+		var terminatingTLS *TLSContext
+		var originatingTLS *TLSContext
 
-	// we need this to redirect DNS UDP (or ANY, which is more useful)
-	if !rule.Rules.IsEmpty() && len(rule.Rules.DNS) > 0 {
-		l4.L7Parser = ParserTypeDNS
-		l4.L7RulesPerEp.addRulesForEndpoints(*rule.Rules, l4.CachedSelectors, rule.TerminatingTLS, rule.OriginatingTLS)
+		// Note: No rules -> no TLS
+		if !rule.Rules.IsEmpty() {
+			terminatingTLS = l4.getCerts(policyCtx, rule.TerminatingTLS, "terminating")
+			originatingTLS = l4.getCerts(policyCtx, rule.OriginatingTLS, "originating")
+		}
+
+		if protocol == api.ProtoTCP {
+			switch {
+			case len(rule.Rules.HTTP) > 0:
+				l4.L7Parser = ParserTypeHTTP
+			case len(rule.Rules.Kafka) > 0:
+				l4.L7Parser = ParserTypeKafka
+			case rule.Rules.L7Proto != "":
+				l4.L7Parser = (L7ParserType)(rule.Rules.L7Proto)
+			}
+			if !rule.Rules.IsEmpty() {
+				l4.L7RulesPerEp.addRulesForEndpoints(*rule.Rules, l4.CachedSelectors, terminatingTLS, originatingTLS)
+			}
+		}
+
+		// we need this to redirect DNS UDP (or ANY, which is more useful)
+		if len(rule.Rules.DNS) > 0 {
+			l4.L7Parser = ParserTypeDNS
+			l4.L7RulesPerEp.addRulesForEndpoints(*rule.Rules, l4.CachedSelectors, terminatingTLS, originatingTLS)
+		}
 	}
 
 	return l4

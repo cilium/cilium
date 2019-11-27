@@ -61,7 +61,7 @@ var _ = Suite(&proxyTestSuite{})
 
 func (s *proxyTestSuite) SetUpSuite(c *C) {
 	Allocator = cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
-	s.repo = policy.NewPolicyRepository(nil)
+	s.repo = policy.NewPolicyRepository(nil, nil)
 }
 
 func (s *proxyTestSuite) GetPolicyRepository() *policy.Repository {

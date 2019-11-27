@@ -1374,7 +1374,7 @@ func checkEgress(c *C, repo *Repository, ctx *SearchContext, verdict api.Decisio
 }
 
 func parseAndAddRules(c *C, rules api.Rules) *Repository {
-	repo := NewPolicyRepository(nil)
+	repo := NewPolicyRepository(nil, nil)
 	repo.selectorCache = testSelectorCache
 
 	_, _ = repo.AddList(rules)
