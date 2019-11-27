@@ -318,6 +318,7 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 			return ret;
 		if (backend_local) {
 			ct_flip_tuple_dir6(&tuple);
+redo:
 			ct_state_new.rev_nat_index = 0;
 			ret = ct_create6(get_ct_map6(&tuple), &tuple, skb,
 					 CT_INGRESS, &ct_state_new, false);
@@ -328,6 +329,15 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 
 	case CT_ESTABLISHED:
 	case CT_REPLY:
+		if (backend_local) {
+			ct_flip_tuple_dir6(&tuple);
+			if (!__ct_entry_keep_alive(get_ct_map6(&tuple),
+						   &tuple)) {
+				ct_state_new.src_sec_id = SECLABEL;
+				ct_state_new.node_port = 1;
+				goto redo;
+			}
+		}
 		break;
 
 	default:
@@ -709,6 +719,7 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 			return ret;
 		if (backend_local) {
 			ct_flip_tuple_dir4(&tuple);
+redo:
 			ct_state_new.rev_nat_index = 0;
 			ret = ct_create4(get_ct_map4(&tuple), &tuple, skb,
 					 CT_INGRESS, &ct_state_new, false);
@@ -719,6 +730,15 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 
 	case CT_ESTABLISHED:
 	case CT_REPLY:
+		if (backend_local) {
+			ct_flip_tuple_dir4(&tuple);
+			if (!__ct_entry_keep_alive(get_ct_map4(&tuple),
+						   &tuple)) {
+				ct_state_new.src_sec_id = SECLABEL;
+				ct_state_new.node_port = 1;
+				goto redo;
+			}
+		}
 		break;
 
 	default:
