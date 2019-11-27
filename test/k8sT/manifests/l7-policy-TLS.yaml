@@ -1,0 +1,42 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+description: "L7 policy with TLS"
+metadata:
+  name: "l7-policy-tls"
+spec:
+  endpointSelector:
+    matchLabels:
+      id: app2
+  egress:
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: ANY
+      rules:
+        dns:
+          - matchPattern: "*"
+  - toFQDNs:
+    - matchPattern: "www.lyft.com"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: "TCP"
+      terminatingTLS:
+        secret:
+          namespace: "default"
+          name: "test-server"
+      originatingTLS:
+        secret:
+          namespace: "default"
+          name: "test-client"
+      rules:
+        http:
+        - method: "GET"
+          path: "/privacy"
+          headerMatches:
+          - mismatch: REPLACE
+            name: "User-Agent"
+            secret:
+              namespace: "default"
+              name: "user-agent"
+              value: "user-agent"
