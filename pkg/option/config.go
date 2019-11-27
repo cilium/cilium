@@ -89,6 +89,10 @@ const (
 	// BPFRoot is the Path to BPF filesystem
 	BPFRoot = "bpf-root"
 
+	// CertsDirectory is the root directory used to find out certificates used
+	// in L7 HTTPs policy enforcement.
+	CertsDirectory = "certificates-directory"
+
 	// CGroupRoot is the path to Cgroup2 filesystem
 	CGroupRoot = "cgroup-root"
 
@@ -1271,6 +1275,10 @@ type DaemonConfig struct {
 	// Enabling this option reduces waste of IP addresses but may increase
 	// the number of API calls to AWS EC2 service.
 	AwsReleaseExcessIps bool
+
+	// CertsDirectory is the root directory to be used by cilium to find
+	// certificates locally.
+	CertDirectory string
 }
 
 var (
@@ -1590,6 +1598,7 @@ func (c *DaemonConfig) Populate() {
 	c.CTMapEntriesGlobalAny = viper.GetInt(CTMapEntriesGlobalAnyName)
 	c.NATMapEntriesGlobal = viper.GetInt(NATMapEntriesGlobalName)
 	c.BPFRoot = viper.GetString(BPFRoot)
+	c.CertDirectory = viper.GetString(CertsDirectory)
 	c.CGroupRoot = viper.GetString(CGroupRoot)
 	c.ClusterID = viper.GetInt(ClusterIDName)
 	c.ClusterName = viper.GetString(ClusterName)
