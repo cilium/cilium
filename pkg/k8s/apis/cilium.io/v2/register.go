@@ -1033,7 +1033,8 @@ var (
 	Secret = map[string]apiextensionsv1beta1.JSONSchemaProps{
 		"namespace": {
 			Description: "Namespace is the namespace in which the secret exists. If " +
-				"namespace is omitted, the namespace of the enclosing rule is assumed.",
+				"namespace is omitted, the namespace of the enclosing rule is assumed, " +
+				"or \"\", if none applies.",
 			Type: "string",
 		},
 		"name": {
@@ -1105,6 +1106,45 @@ var (
 		},
 	}
 
+	HeaderMatch = map[string]apiextensionsv1beta1.JSONSchemaProps{
+		"mismatch": {
+			Description: "Mismatch identifies what to do in case there is no match. The " +
+				"default is to drop the request. Otherwise the overall rule is still " +
+				"considered as matching, but the mismatches are logged in the access log.",
+			Type: "string",
+			Enum: []apiextensionsv1beta1.JSON{
+				{
+					Raw: []byte(`"LOG"`),
+				},
+				{
+					Raw: []byte(`"ADD"`),
+				},
+				{
+					Raw: []byte(`"DELETE"`),
+				},
+				{
+					Raw: []byte(`"REPLACE"`),
+				},
+			},
+		},
+		"name": {
+			Description: "Name identifies the header.",
+			Type:        "string",
+		},
+		"secret": {
+			Description: "Secret refers to a secret that contains the value that must be present in the request.",
+			Type:        "object",
+			Properties:  Secret,
+		},
+		"value": {
+			Description: "Value containst the header value that must be present in the request. If both Secret " +
+				"and Value are specified, " +
+				"the Secret takes precedence, if it exists; i.e., the Value will only be used if " +
+				"the Secret cannot be found or accessed.",
+			Type: "string",
+		},
+	}
+
 	PortRuleHTTP = apiextensionsv1beta1.JSONSchemaProps{
 		Description: "PortRuleHTTP is a list of HTTP protocol constraints. All fields are " +
 			"optional, if all fields are empty or missing, the rule does not have any effect." +
@@ -1114,6 +1154,18 @@ var (
 			"characters disallowed from the conventional \"path\" part of a URL as defined by " +
 			"RFC 3986.",
 		Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+			"headerMatches": {
+				Description: "HeaderMatches is a list of HTTP headers which must be present and match " +
+					"against the given or referenced values or expressions. If omitted or empty, " +
+					"requests are allowed regardless of headers present.",
+				Type: "array",
+				Items: &apiextensionsv1beta1.JSONSchemaPropsOrArray{
+					Schema: &apiextensionsv1beta1.JSONSchemaProps{
+						Type:       "object",
+						Properties: HeaderMatch,
+					},
+				},
+			},
 			"headers": {
 				Description: "Headers is a list of HTTP headers which must be present in the " +
 					"request. If omitted or empty, requests are allowed regardless of headers " +

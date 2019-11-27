@@ -294,6 +294,7 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 								L7Rules: api.L7Rules{
 									HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/good"}},
 								},
+								CanShortCircuit: true,
 							},
 						},
 						DerivedFromRules: labels.LabelArrayList{nil},
@@ -389,9 +390,11 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 								L7Rules: api.L7Rules{
 									HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/good"}},
 								},
+								CanShortCircuit: true,
 							},
 							cachedSelectorHost: &PerEpData{
-								L7Rules: api.L7Rules{},
+								L7Rules:         api.L7Rules{},
+								CanShortCircuit: true,
 							},
 						},
 						DerivedFromRules: labels.LabelArrayList{nil},

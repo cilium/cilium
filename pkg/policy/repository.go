@@ -37,6 +37,7 @@ import (
 
 type CertificateManager interface {
 	GetTLSContext(ctx context.Context, tls *api.TLSContext, defaultNs string) (ca, public, private string, err error)
+	GetSecretString(ctx context.Context, secret *api.Secret, defaultNs string) (string, error)
 }
 
 // PolicyContext is an interface policy resolution functions use to access the Repository.
@@ -44,7 +45,7 @@ type CertificateManager interface {
 type PolicyContext interface {
 	GetSelectorCache() *SelectorCache
 	GetTLSContext(tls *api.TLSContext) (ca, public, private string, err error)
-	GetEnvoyHTTPRules(l7Rules *api.L7Rules) *cilium.HttpNetworkPolicyRules
+	GetEnvoyHTTPRules(l7Rules *api.L7Rules) (*cilium.HttpNetworkPolicyRules, bool)
 }
 
 type policyContext struct {
@@ -65,7 +66,7 @@ func (p *policyContext) GetTLSContext(tls *api.TLSContext) (ca, public, private 
 	return p.repo.certManager.GetTLSContext(context.TODO(), tls, p.ns)
 }
 
-func (p *policyContext) GetEnvoyHTTPRules(l7Rules *api.L7Rules) *cilium.HttpNetworkPolicyRules {
+func (p *policyContext) GetEnvoyHTTPRules(l7Rules *api.L7Rules) (*cilium.HttpNetworkPolicyRules, bool) {
 	return p.repo.GetEnvoyHTTPRules(l7Rules, p.ns)
 }
 
@@ -100,7 +101,7 @@ type Repository struct {
 
 	certManager CertificateManager
 
-	getEnvoyHTTPRules func(CertificateManager, *api.L7Rules, string) *cilium.HttpNetworkPolicyRules
+	getEnvoyHTTPRules func(CertificateManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool)
 }
 
 // GetSelectorCache() returns the selector cache used by the Repository
@@ -108,13 +109,13 @@ func (p *Repository) GetSelectorCache() *SelectorCache {
 	return p.selectorCache
 }
 
-func (p *Repository) SetEnvoyRulesFunc(f func(CertificateManager, *api.L7Rules, string) *cilium.HttpNetworkPolicyRules) {
+func (p *Repository) SetEnvoyRulesFunc(f func(CertificateManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool)) {
 	p.getEnvoyHTTPRules = f
 }
 
-func (p *Repository) GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) *cilium.HttpNetworkPolicyRules {
+func (p *Repository) GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool) {
 	if p.getEnvoyHTTPRules == nil {
-		return nil
+		return nil, true
 	}
 	return p.getEnvoyHTTPRules(p.certManager, l7Rules, ns)
 }

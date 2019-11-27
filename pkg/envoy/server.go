@@ -481,9 +481,31 @@ func getL7Rule(l7 *api.PortRuleL7) *cilium.L7NetworkPolicyRule {
 	return rule
 }
 
-func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP, ns string) []*envoy_api_v2_route.HeaderMatcher {
+func getSecretString(certManager policy.CertificateManager, hdr *api.HeaderMatch, ns string) (string, error) {
+	value := ""
+	var err error
+	if hdr.Secret != nil {
+		if certManager == nil {
+			err = fmt.Errorf("HeaderMatches: Nil certManager")
+		} else {
+			value, err = certManager.GetSecretString(context.TODO(), hdr.Secret, ns)
+		}
+	}
+	// Only use Value if secret was not obtained
+	if value == "" && hdr.Value != "" {
+		value = hdr.Value
+		if err != nil {
+			log.WithError(err).Debug("HeaderMatches: Using a default value due to k8s secret not being available")
+			err = nil
+		}
+	}
+
+	return value, err
+}
+
+func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP, ns string) (*cilium.HttpNetworkPolicyRule, bool) {
 	// Count the number of header matches we need
-	cnt := len(h.Headers) + len(h.SecretHeaders)
+	cnt := len(h.Headers) + len(h.HeaderMatches)
 	if h.Path != "" {
 		cnt++
 	}
@@ -522,17 +544,26 @@ func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP, ns 
 				HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_PresentMatch{PresentMatch: true}})
 		}
 	}
-	for _, hdr := range h.SecretHeaders {
-		// Fetch the secret
-		value := ""
-		var err error
-		if certManager == nil {
-			err = fmt.Errorf("Nil certManager")
-		} else {
-			value, err = certManager.GetSecretString(context.TODO(), hdr.Secret, ns)
+
+	headerMatches := make([]*cilium.HeaderMatch, 0, len(h.HeaderMatches))
+	for _, hdr := range h.HeaderMatches {
+		var mismatch_action cilium.HeaderMatch_MismatchAction
+		switch hdr.Mismatch {
+		case api.MismatchActionLog:
+			mismatch_action = cilium.HeaderMatch_CONTINUE_ON_MISMATCH
+		case api.MismatchActionAdd:
+			mismatch_action = cilium.HeaderMatch_ADD_ON_MISMATCH
+		case api.MismatchActionDelete:
+			mismatch_action = cilium.HeaderMatch_DELETE_ON_MISMATCH
+		case api.MismatchActionReplace:
+			mismatch_action = cilium.HeaderMatch_REPLACE_ON_MISMATCH
+		default:
+			mismatch_action = cilium.HeaderMatch_FAIL_ON_MISMATCH
 		}
+		// Fetch the secret
+		value, err := getSecretString(certManager, hdr, ns)
 		if err != nil {
-			log.WithError(err).Warning("Failed fetching Secret, header match will fail")
+			log.WithError(err).Warning("Failed fetching K8s Secret, header match will fail")
 			// Envoy treats an empty exact match value as matching ANY value; adding
 			// InvertMatch: true here will cause this rule to NEVER match.
 			headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: hdr.Name,
@@ -540,8 +571,23 @@ func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP, ns 
 				InvertMatch:          true})
 		} else {
 			// Header presence and matching (literal) value needed.
-			headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: hdr.Name,
-				HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: value}})
+			if mismatch_action == cilium.HeaderMatch_FAIL_ON_MISMATCH {
+				if value != "" {
+					headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: hdr.Name,
+						HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: value}})
+				} else {
+					// Only header presence needed
+					headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: hdr.Name,
+						HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_PresentMatch{PresentMatch: true}})
+				}
+			} else {
+				log.Debugf("HeaderMatches: Adding %s: %s", hdr.Name, value)
+				headerMatches = append(headerMatches, &cilium.HeaderMatch{
+					MismatchAction: mismatch_action,
+					Name:           hdr.Name,
+					Value:          value,
+				})
+			}
 		}
 	}
 	if len(headers) == 0 {
@@ -549,7 +595,13 @@ func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP, ns 
 	} else {
 		SortHeaderMatchers(headers)
 	}
-	return headers
+	if len(headerMatches) == 0 {
+		headerMatches = nil
+	} else {
+		// SortHeaderMatches(headerMatches)
+	}
+
+	return &cilium.HttpNetworkPolicyRule{Headers: headers, HeaderMatches: headerMatches}, len(headerMatches) == 0
 }
 
 func createBootstrap(filePath string, name, cluster, version string, xdsSock, egressClusterName, ingressClusterName string, adminPath string) {
@@ -664,22 +716,27 @@ func getCiliumTLSContext(tls *policy.TLSContext) *cilium.TLSContext {
 	}
 }
 
-func GetEnvoyHTTPRules(certManager policy.CertificateManager, l7Rules *api.L7Rules, ns string) *cilium.HttpNetworkPolicyRules {
+func GetEnvoyHTTPRules(certManager policy.CertificateManager, l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool) {
 	if len(l7Rules.HTTP) > 0 { // Just cautious. This should never be false.
+		canShortCircuit := true
 		httpRules := make([]*cilium.HttpNetworkPolicyRule, 0, len(l7Rules.HTTP))
 		for _, l7 := range l7Rules.HTTP {
-			headers := getHTTPRule(certManager, &l7, ns)
-			httpRules = append(httpRules, &cilium.HttpNetworkPolicyRule{Headers: headers})
+			var cs bool
+			rule, cs := getHTTPRule(certManager, &l7, ns)
+			httpRules = append(httpRules, rule)
+			if !cs {
+				canShortCircuit = false
+			}
 		}
 		SortHTTPNetworkPolicyRules(httpRules)
 		return &cilium.HttpNetworkPolicyRules{
 			HttpRules: httpRules,
-		}
+		}, canShortCircuit
 	}
-	return nil
+	return nil, true
 }
 
-func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7ParserType, l7Rules *policy.PerEpData) *cilium.PortNetworkPolicyRule {
+func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7ParserType, l7Rules *policy.PerEpData) (*cilium.PortNetworkPolicyRule, bool) {
 	// Optimize the policy if the endpoint selector is a wildcard by
 	// keeping remote policies list empty to match all remote policies.
 	var remotePolicies []uint64
@@ -690,7 +747,7 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7Parse
 
 		// No remote policies would match this rule. Discard it.
 		if len(remotePolicies) == 0 {
-			return nil
+			return nil, true
 		}
 
 		sort.Slice(remotePolicies, func(i, j int) bool {
@@ -709,16 +766,22 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7Parse
 		r.UpstreamTlsContext = getCiliumTLSContext(l7Rules.OriginatingTLS)
 	}
 
+	canShortCircuit := true
 	switch l7Parser {
 	case policy.ParserTypeHTTP:
 		// 'r.L7' is an interface which must not be set to a typed 'nil',
 		// so check if we have any rules
 		if len(l7Rules.HTTP) > 0 {
 			// Use L7 rules computed earlier?
+			var httpRules *cilium.HttpNetworkPolicyRules
 			if l7Rules.EnvoyHTTPRules != nil {
-				r.L7 = &cilium.PortNetworkPolicyRule_HttpRules{HttpRules: l7Rules.EnvoyHTTPRules}
+				httpRules = l7Rules.EnvoyHTTPRules
+				canShortCircuit = l7Rules.CanShortCircuit
 			} else {
-				r.L7 = &cilium.PortNetworkPolicyRule_HttpRules{HttpRules: GetEnvoyHTTPRules(nil, &l7Rules.L7Rules, "")}
+				httpRules, canShortCircuit = GetEnvoyHTTPRules(nil, &l7Rules.L7Rules, "")
+			}
+			r.L7 = &cilium.PortNetworkPolicyRule_HttpRules{
+				HttpRules: httpRules,
 			}
 		}
 
@@ -745,7 +808,7 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7Parse
 		}
 	}
 
-	return r
+	return r, canShortCircuit
 }
 
 func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool) []*cilium.PortNetworkPolicy {
@@ -776,20 +839,29 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool)
 		}
 
 		allowAll := false
+		canShortCircuit := true
 		for sel, l7 := range l4.L7RulesPerEp {
-			rule := getPortNetworkPolicyRule(sel, l4.L7Parser, l7)
+			rule, cs := getPortNetworkPolicyRule(sel, l4.L7Parser, l7)
+			log.Debugf("Policy %s: %s can short circuit: %v (canShortCircuit %v)", sel.String(), rule.String(), cs, canShortCircuit)
+			if !cs {
+				canShortCircuit = false
+			}
 			if rule != nil {
 				if len(rule.RemotePolicies) == 0 && rule.L7 == nil {
 					// Got an allow-all rule, which would short-circuit all of
 					// the other rules. Just set no rules, which has the same
 					// effect of allowing all.
 					allowAll = true
-					pnp.Rules = nil
-					break
 				}
 
 				pnp.Rules = append(pnp.Rules, rule)
 			}
+		}
+
+		// Short-circuit rules if a rule allows all and all other rules can be short-circuited
+		if allowAll && canShortCircuit {
+			log.Info("Short circuiting HTTP rules due to rule allowing all and no other rules needing attention")
+			pnp.Rules = nil
 		}
 
 		// No rule for this port matches any remote identity.

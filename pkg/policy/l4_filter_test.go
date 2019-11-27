@@ -71,8 +71,8 @@ func (p *testPolicyContextType) GetTLSContext(*api.TLSContext) (ca, public, priv
 	return "", "", "", fmt.Errorf("Not supported")
 }
 
-func (p *testPolicyContextType) GetEnvoyHTTPRules(*api.L7Rules) *cilium.HttpNetworkPolicyRules {
-	return nil
+func (p *testPolicyContextType) GetEnvoyHTTPRules(*api.L7Rules) (*cilium.HttpNetworkPolicyRules, bool) {
+	return nil, true
 }
 
 var testPolicyContext *testPolicyContextType
