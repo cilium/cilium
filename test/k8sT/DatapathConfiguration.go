@@ -301,6 +301,10 @@ var _ = Describe("K8sDatapathConfig", func() {
 			"--set global.autoDirectNodeRoutes=true",
 		}
 
+		BeforeEach(func() {
+			SkipIfBenchmark()
+		})
+
 		AfterEach(func() {
 			httpClients := helpers.ManifestGet(kubectl.BasePath(), "http-clients.yaml")
 			httpServers := helpers.ManifestGet(kubectl.BasePath(), "http-deployment.yaml")

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cilium/cilium/test/config"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	. "github.com/onsi/gomega"
@@ -135,6 +136,13 @@ func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, options []string) {
 	ExpectCiliumReady(vm)
 	ExpectCiliumOperatorReady(vm)
 	ExpectKubeDNSReady(vm)
+}
+
+// SkipIfBenchmark will skip the test if benchmark is not specified
+func SkipIfBenchmark() {
+	if !config.CiliumTestConfig.Benchmarks {
+		Skip("Benchmarks are skipped, specify -cilium.Benchmarks")
+	}
 }
 
 // SkipIfFlannel will skip the test if it's running over Flannel datapath mode.
