@@ -103,3 +103,6 @@ for ``kube-dns``
     pod "metrics-server-v0.3.1-54699c9cc8-7l5w2" deleted
 
 .. include:: k8s-install-validate.rst
+.. include:: hubble-install.rst
+.. include:: getting-started-next-steps.rst
+

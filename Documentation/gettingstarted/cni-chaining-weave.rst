@@ -82,4 +82,7 @@ Generate the required YAML file and deploy it:
    them.
 
 .. include:: k8s-install-validate.rst
+.. include:: hubble-install.rst
+.. include:: getting-started-next-steps.rst
+
 
