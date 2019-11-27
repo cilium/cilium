@@ -58,13 +58,23 @@ func (e *ENISuite) TestGetNodeNames(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
-	mngr.Update(newCiliumNode("node1", "i-1", "m4.large", "us-west-1", "vpc-1", 0, 0, 0, 0))
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 1, "s-1", "desc", []string{"sg1", "sg2"})
+	c.Assert(err, check.IsNil)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testGetNodeNames-1", eniID1)
+	c.Assert(err, check.IsNil)
+	eniID2, _, err := ec2api.CreateNetworkInterface(context.TODO(), 1, "s-1", "desc", []string{"sg1", "sg2"})
+	c.Assert(err, check.IsNil)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testGetNodeNames-2", eniID2)
+	c.Assert(err, check.IsNil)
+	instances.Resync(context.TODO())
+
+	mngr.Update(newCiliumNode("node1", "i-testGetNodeNames-1", "m4.large", "us-west-1", "vpc-1", 0, 0, 0, 0))
 
 	names := mngr.GetNames()
 	c.Assert(len(names), check.Equals, 1)
 	c.Assert(names[0], check.Equals, "node1")
 
-	mngr.Update(newCiliumNode("node2", "i-2", "m4.large", "us-west-1", "vpc-1", 0, 0, 0, 0))
+	mngr.Update(newCiliumNode("node2", "i-testGetNodeNames-2", "m4.large", "us-west-1", "vpc-1", 0, 0, 0, 0))
 
 	names = mngr.GetNames()
 	c.Assert(len(names), check.Equals, 2)
@@ -84,7 +94,13 @@ func (e *ENISuite) TestNodeManagerGet(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
-	mngr.Update(newCiliumNode("node1", "i-1", "m4.large", "us-west-1", "vpc-1", 0, 0, 0, 0))
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 1, "s-1", "desc", []string{"sg1", "sg2"})
+	c.Assert(err, check.IsNil)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerGet-1", eniID1)
+	c.Assert(err, check.IsNil)
+	instances.Resync(context.TODO())
+
+	mngr.Update(newCiliumNode("node1", "i-testNodeManagerGet-1", "m4.large", "us-west-1", "vpc-1", 0, 0, 0, 0))
 
 	c.Assert(mngr.Get("node1"), check.Not(check.IsNil))
 	c.Assert(mngr.Get("node2"), check.IsNil)
@@ -170,12 +186,17 @@ func (e *ENISuite) TestNodeManagerDefaultAllocation(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet}, []*types.Vpc{testVpc})
 	instances := NewInstancesManager(ec2api, metricsapi)
 	c.Assert(instances, check.Not(check.IsNil))
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 1, "s-1", "desc", []string{"sg1", "sg2"})
+	c.Assert(err, check.IsNil)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerDefaultAllocation-0", eniID1)
+	c.Assert(err, check.IsNil)
+	instances.Resync(context.TODO())
 	mngr, err := NewNodeManager(instances, ec2api, k8sapi, metricsapi, 10, eniTags)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node wait for IPs to become available
-	cn := newCiliumNode("node1", "i-0", "m4.large", "us-west-1", "vpc-1", 0, 0, 0, 0)
+	cn := newCiliumNode("node1", "i-testNodeManagerDefaultAllocation-0", "m4.large", "us-west-1", "vpc-1", 0, 0, 0, 0)
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 
@@ -203,12 +224,17 @@ func (e *ENISuite) TestNodeManagerMinAllocate20(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet}, []*types.Vpc{testVpc})
 	instances := NewInstancesManager(ec2api, metricsapi)
 	c.Assert(instances, check.Not(check.IsNil))
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 1, "s-1", "desc", []string{"sg1", "sg2"})
+	c.Assert(err, check.IsNil)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerMinAllocate20-1", eniID1)
+	c.Assert(err, check.IsNil)
+	instances.Resync(context.TODO())
 	mngr, err := NewNodeManager(instances, ec2api, k8sapi, metricsapi, 10, eniTags)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node wait for IPs to become available
-	cn := newCiliumNode("node2", "i-1", "m5.4xlarge", "us-west-1", "vpc-1", -1, 10, 0, 0)
+	cn := newCiliumNode("node2", "i-testNodeManagerMinAllocate20-1", "m5.4xlarge", "us-west-1", "vpc-1", -1, 10, 0, 0)
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 
@@ -226,7 +252,7 @@ func (e *ENISuite) TestNodeManagerMinAllocate20(c *check.C) {
 	c.Assert(node.stats.usedIPs, check.Equals, 8)
 
 	// Change MinAllocate to 20
-	cn = newCiliumNode("node2", "i-1", "m5.4xlarge", "us-west-1", "vpc-1", 0, 20, 10, 8)
+	cn = newCiliumNode("node2", "i-testNodeManagerMinAllocate20-1", "m5.4xlarge", "us-west-1", "vpc-1", 0, 20, 10, 8)
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 
@@ -245,12 +271,17 @@ func (e *ENISuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet}, []*types.Vpc{testVpc})
 	instances := NewInstancesManager(ec2api, metricsapi)
 	c.Assert(instances, check.Not(check.IsNil))
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 1, "s-1", "desc", []string{"sg1", "sg2"})
+	c.Assert(err, check.IsNil)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerMinAllocateAndPreallocate-1", eniID1)
+	c.Assert(err, check.IsNil)
+	instances.Resync(context.TODO())
 	mngr, err := NewNodeManager(instances, ec2api, k8sapi, metricsapi, 10, eniTags)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node, wait for IPs to become available
-	cn := newCiliumNode("node2", "i-1", "m4.large", "us-west-1", "vpc-1", 1, 10, 0, 0)
+	cn := newCiliumNode("node2", "i-testNodeManagerMinAllocateAndPreallocate-1", "m4.large", "us-west-1", "vpc-1", 1, 10, 0, 0)
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 
@@ -296,6 +327,11 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet}, []*types.Vpc{testVpc})
 	instances := NewInstancesManager(ec2api, metricsapi)
 	c.Assert(instances, check.Not(check.IsNil))
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 1, "s-1", "desc", []string{"sg1", "sg2"})
+	c.Assert(err, check.IsNil)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerReleaseAddress-1", eniID1)
+	c.Assert(err, check.IsNil)
+	instances.Resync(context.TODO())
 	mngr, err := NewNodeManager(instances, ec2api, k8sapi, metricsapi, 10, eniTags)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
@@ -303,7 +339,7 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 	option.Config.AwsReleaseExcessIps = true
 
 	// Announce node, wait for IPs to become available
-	cn := newCiliumNode("node3", "i-3", "m4.xlarge", "us-west-1", "vpc-1", 4, 15, 0, 0)
+	cn := newCiliumNode("node3", "i-testNodeManagerReleaseAddress-1", "m4.xlarge", "us-west-1", "vpc-1", 4, 15, 0, 0)
 	cn.Spec.ENI.MaxAboveWatermark = 4
 	cn.Spec.ENI.FirstInterfaceIndex = 1
 	mngr.Update(cn)
@@ -361,12 +397,17 @@ func (e *ENISuite) TestNodeManagerExceedENICapacity(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet}, []*types.Vpc{testVpc})
 	instances := NewInstancesManager(ec2api, metricsapi)
 	c.Assert(instances, check.Not(check.IsNil))
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 1, "s-1", "desc", []string{"sg1", "sg2"})
+	c.Assert(err, check.IsNil)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerExceedENICapacity-1", eniID1)
+	c.Assert(err, check.IsNil)
+	instances.Resync(context.TODO())
 	mngr, err := NewNodeManager(instances, ec2api, k8sapi, metricsapi, 10, eniTags)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node, wait for IPs to become available
-	cn := newCiliumNode("node2", "i-1", "m4.large", "us-west-1", "vpc-1", 8, 20, 0, 0)
+	cn := newCiliumNode("node2", "i-testNodeManagerExceedENICapacity-1", "m4.large", "us-west-1", "vpc-1", 8, 20, 0, 0)
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 
@@ -404,6 +445,7 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 	)
 
 	subnets := []*types.Subnet{
+		{ID: "mgmt-1", AvailabilityZone: "us-west-1", VpcID: "vpc-1", AvailableAddresses: 100},
 		{ID: "s-1", AvailabilityZone: "us-west-1", VpcID: "vpc-1", AvailableAddresses: 400},
 		{ID: "s-2", AvailabilityZone: "us-west-1", VpcID: "vpc-1", AvailableAddresses: 400},
 		{ID: "s-3", AvailabilityZone: "us-west-1", VpcID: "vpc-1", AvailableAddresses: 400},
@@ -412,7 +454,6 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 	ec2api := ec2mock.NewAPI(subnets, []*types.Vpc{testVpc})
 	metricsapi := metricsmock.NewMockMetrics()
 	instancesManager := NewInstancesManager(ec2api, metricsapi)
-	instancesManager.Resync(context.TODO())
 	mngr, err := NewNodeManager(instancesManager, ec2api, k8sapi, metricsapi, 10, eniTags)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
@@ -420,8 +461,14 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 	state := make([]*nodeState, numNodes)
 
 	for i := range state {
-		s := &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("i-%d", i)}
+		eniID, _, err := ec2api.CreateNetworkInterface(context.TODO(), 1, "mgmt-1", "desc", []string{"sg1", "sg2"})
+		c.Assert(err, check.IsNil)
+		_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, fmt.Sprintf("i-testNodeManagerManyNodes-%d", i), eniID)
+		c.Assert(err, check.IsNil)
+		instancesManager.Resync(context.TODO())
+		s := &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("i-testNodeManagerManyNodes-%d", i)}
 		s.cn = newCiliumNode(s.name, s.instanceName, "m4.large", "us-west-1", "vpc-1", 1, minAllocate, 0, 0)
+		s.cn.Spec.ENI.FirstInterfaceIndex = 1
 		state[i] = s
 		mngr.Update(s.cn)
 	}
@@ -465,16 +512,22 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 // instances which are no longer running
 func (e *ENISuite) TestNodeManagerInstanceNotRunning(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet}, []*types.Vpc{testVpc})
-	ec2api.SetMockError(ec2mock.AttachNetworkInterface, errors.New("foo is not 'running' foo"))
 	metricsMock := metricsmock.NewMockMetrics()
 	instances := NewInstancesManager(ec2api, metricsapi)
 	c.Assert(instances, check.Not(check.IsNil))
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 1, "s-1", "desc", []string{"sg1", "sg2"})
+	c.Assert(err, check.IsNil)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerInstanceNotRunning-0", eniID1)
+	c.Assert(err, check.IsNil)
+	instances.Resync(context.TODO())
 	mngr, err := NewNodeManager(instances, ec2api, k8sapi, metricsMock, 10, eniTags)
+	ec2api.SetMockError(ec2mock.AttachNetworkInterface, errors.New("foo is not 'running' foo"))
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node, ENI attachement will fail
-	cn := newCiliumNode("node1", "i-0", "m4.large", "us-west-1", "vpc-1", 0, 0, 0, 0)
+	cn := newCiliumNode("node1", "i-testNodeManagerInstanceNotRunning-0", "m4.large", "us-west-1", "vpc-1", 0, 0, 0, 0)
+	cn.Spec.ENI.FirstInterfaceIndex = 1
 	mngr.Update(cn)
 
 	// Wait for node to be declared notRunning
@@ -492,6 +545,53 @@ func (e *ENISuite) TestNodeManagerInstanceNotRunning(c *check.C) {
 	c.Assert(node, check.Not(check.IsNil))
 	c.Assert(node.stats.availableIPs, check.Equals, 0)
 	c.Assert(node.stats.usedIPs, check.Equals, 0)
+}
+
+// TestInstanceBeenDeleted verifies that instance deletion is correctly detected
+// and no further action is taken
+//
+// - m4.large (2x ENIs, 2x10 IPs)
+func (e *ENISuite) TestInstanceBeenDeleted(c *check.C) {
+	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet}, []*types.Vpc{testVpc})
+	metricsMock := metricsmock.NewMockMetrics()
+	instances := NewInstancesManager(ec2api, metricsapi)
+	c.Assert(instances, check.Not(check.IsNil))
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 1, "s-1", "desc", []string{"sg1", "sg2"})
+	c.Assert(err, check.IsNil)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testInstanceBeenDeleted-0", eniID1)
+	c.Assert(err, check.IsNil)
+	eniID2, _, err := ec2api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"})
+	c.Assert(err, check.IsNil)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 1, "i-testInstanceBeenDeleted-0", eniID2)
+	c.Assert(err, check.IsNil)
+	instances.Resync(context.TODO())
+	mngr, err := NewNodeManager(instances, ec2api, k8sapi, metricsMock, 10, eniTags)
+	c.Assert(err, check.IsNil)
+	c.Assert(mngr, check.Not(check.IsNil))
+
+	cn := newCiliumNode("node1", "i-testInstanceBeenDeleted-0", "m4.large", "us-west-1", "vpc-1", 0, 0, 0, 0)
+	cn.Spec.ENI.FirstInterfaceIndex = 1
+	mngr.Update(cn)
+	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
+
+	node := mngr.Get("node1")
+	c.Assert(node, check.Not(check.IsNil))
+	c.Assert(node.stats.availableIPs, check.Equals, 8)
+	c.Assert(node.stats.usedIPs, check.Equals, 0)
+
+	// Delete all enis attached to instance, this mocks the operation of
+	// deleting the instance. The deletion should be detected.
+	err = ec2api.DeleteNetworkInterface(context.TODO(), eniID1)
+	c.Assert(err, check.IsNil)
+	err = ec2api.DeleteNetworkInterface(context.TODO(), eniID2)
+	c.Assert(err, check.IsNil)
+	instances.Resync(context.TODO())
+	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
+
+	node = mngr.Get("node1")
+	c.Assert(node, check.Not(check.IsNil))
+	c.Assert(node.stats.neededIPs, check.Equals, 0)
+	c.Assert(node.stats.excessIPs, check.Equals, 0)
 }
 
 func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLimit float64, burst int) {
@@ -512,7 +612,12 @@ func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLi
 
 	c.ResetTimer()
 	for i := range state {
-		s := &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("i-%d", i)}
+		eniID, _, err := ec2api.CreateNetworkInterface(context.TODO(), 1, "s-1", "desc", []string{"sg1", "sg2"})
+		c.Assert(err, check.IsNil)
+		_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, fmt.Sprintf("i-benchmarkAllocWorker-%d", i), eniID)
+		c.Assert(err, check.IsNil)
+		instances.Resync(context.TODO())
+		s := &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("i-benchmarkAllocWorker-%d", i)}
 		s.cn = newCiliumNode(s.name, s.instanceName, "m4.large", "us-west-1", "vpc-1", 1, 10, 0, 0)
 		state[i] = s
 		mngr.Update(s.cn)
