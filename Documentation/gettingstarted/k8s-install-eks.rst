@@ -104,3 +104,6 @@ Scale up the cluster
     [ℹ]  scaling nodegroup, desired capacity from 0 to 2
 
 .. include:: k8s-install-validate.rst
+.. include:: hubble-install.rst
+.. include:: getting-started-next-steps.rst
+
