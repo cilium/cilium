@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/counter"
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
@@ -424,7 +425,8 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	// FIXME: Make the port range configurable.
 	if option.Config.EnableL7Proxy {
 		d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
-			option.Config.AccessLog, &d, option.Config.AgentLabels, d.datapath, d.endpointManager)
+			option.Config.AccessLog, &d, option.Config.AgentLabels, d.datapath, d.endpointManager,
+			certificatemanager.NewManager(option.Config.CertDirectory, k8s.Client()))
 	} else {
 		log.Info("L7 proxies are disabled")
 	}

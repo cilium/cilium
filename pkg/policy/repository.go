@@ -118,7 +118,7 @@ func (state *traceState) trace(rules int, ctx *SearchContext) {
 }
 
 // This belongs to l4.go as this manipulates L4Filters
-func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelectorSlice,
+func wildcardL3L4Rule(proto api.L4Proto, port int, terminatingTLS, originatingTLS *api.TLSContext, endpoints api.EndpointSelectorSlice,
 	ruleLabels labels.LabelArray, l4Policy L4PolicyMap, selectorCache *SelectorCache) {
 	for _, filter := range l4Policy {
 		if proto != filter.Protocol || (port != 0 && port != filter.Port) {
@@ -131,9 +131,12 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 			// Wildcard at L7 all the endpoints allowed at L3 or L4.
 			for _, sel := range endpoints {
 				cs := filter.cacheIdentitySelector(sel, selectorCache)
-				filter.L7RulesPerEp[cs] = api.L7Rules{
-					HTTP: []api.PortRuleHTTP{{}},
-				}
+				filter.L7RulesPerEp[cs] = &PerEpData{
+					TerminatingTLS: terminatingTLS,
+					OriginatingTLS: originatingTLS,
+					L7Rules: api.L7Rules{
+						HTTP: []api.PortRuleHTTP{{}},
+					}}
 			}
 		case ParserTypeKafka:
 			// Wildcard at L7 all the endpoints allowed at L3 or L4.
@@ -141,9 +144,12 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 				rule := api.PortRuleKafka{}
 				rule.Sanitize()
 				cs := filter.cacheIdentitySelector(sel, selectorCache)
-				filter.L7RulesPerEp[cs] = api.L7Rules{
-					Kafka: []api.PortRuleKafka{rule},
-				}
+				filter.L7RulesPerEp[cs] = &PerEpData{
+					TerminatingTLS: terminatingTLS,
+					OriginatingTLS: originatingTLS,
+					L7Rules: api.L7Rules{
+						Kafka: []api.PortRuleKafka{rule},
+					}}
 			}
 		case ParserTypeDNS:
 			// Wildcard at L7 all the endpoints allowed at L3 or L4.
@@ -155,18 +161,24 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 				}
 				rule.Sanitize()
 				cs := filter.cacheIdentitySelector(sel, selectorCache)
-				filter.L7RulesPerEp[cs] = api.L7Rules{
-					DNS: []api.PortRuleDNS{rule},
-				}
+				filter.L7RulesPerEp[cs] = &PerEpData{
+					TerminatingTLS: terminatingTLS,
+					OriginatingTLS: originatingTLS,
+					L7Rules: api.L7Rules{
+						DNS: []api.PortRuleDNS{rule},
+					}}
 			}
 		default:
 			// Wildcard at L7 all the endpoints allowed at L3 or L4.
 			for _, sel := range endpoints {
 				cs := filter.cacheIdentitySelector(sel, selectorCache)
-				filter.L7RulesPerEp[cs] = api.L7Rules{
-					L7Proto: filter.L7Parser.String(),
-					L7:      []api.PortRuleL7{},
-				}
+				filter.L7RulesPerEp[cs] = &PerEpData{
+					TerminatingTLS: terminatingTLS,
+					OriginatingTLS: originatingTLS,
+					L7Rules: api.L7Rules{
+						L7Proto: filter.L7Parser.String(),
+						L7:      []api.PortRuleL7{},
+					}}
 			}
 		}
 		filter.DerivedFromRules = append(filter.DerivedFromRules, ruleLabels)
