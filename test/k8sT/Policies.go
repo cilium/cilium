@@ -166,6 +166,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 		BeforeAll(func() {
 			namespaceForTest = helpers.GenerateNamespaceForTest()
+			kubectl.NamespaceDelete(namespaceForTest)
 			kubectl.NamespaceCreate(namespaceForTest).ExpectSuccess("could not create namespace")
 			kubectl.Apply(helpers.ApplyOptions{FilePath: demoPath, Namespace: namespaceForTest}).ExpectSuccess("could not create resource")
 
@@ -1097,6 +1098,7 @@ EOF`, k, v)
 			l3l4PolicySecondNS = fmt.Sprintf("%s -n %s", l3L4Policy, secondNS)
 			demoManifest = fmt.Sprintf("%s -n %s", demoPath, secondNS)
 
+			kubectl.NamespaceDelete(secondNS)
 			res := kubectl.NamespaceCreate(secondNS)
 			res.ExpectSuccess("unable to create namespace %q", secondNS)
 
@@ -1303,12 +1305,14 @@ EOF`, k, v)
 			demoManifestNS1 = fmt.Sprintf("%s -n %s", demoPath, firstNS)
 			demoManifestNS2 = fmt.Sprintf("%s -n %s", demoPath, secondNS)
 
+			kubectl.NamespaceDelete(firstNS)
 			res := kubectl.NamespaceCreate(firstNS)
 			res.ExpectSuccess("unable to create namespace %q", firstNS)
 
 			res = kubectl.Exec(fmt.Sprintf("kubectl label namespaces/%[1]s nslabel=%[1]s", firstNS))
 			res.ExpectSuccess("cannot create namespace labels")
 
+			kubectl.NamespaceDelete(secondNS)
 			res = kubectl.NamespaceCreate(secondNS)
 			res.ExpectSuccess("unable to create namespace %q", secondNS)
 
