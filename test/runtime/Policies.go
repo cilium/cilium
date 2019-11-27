@@ -33,21 +33,23 @@ import (
 
 const (
 	// Commands
-	ping         = "ping"
-	ping6        = "ping6"
-	http         = "http"
-	http6        = "http6"
-	httpPrivate  = "http_private"
-	http6Private = "http6_private"
-
-	httpPathRewrite  = "http_path_rewrite"
-	http6PathRewrite = "http6_path_rewrite"
+	ping              = "ping"
+	ping6             = "ping6"
+	http              = "http"
+	http6             = "http6"
+	httpPrivate       = "http_private"
+	http6Private      = "http6_private"
+	httpPrivateToken  = "http_private_token"
+	http6PrivateToken = "http6_private_token"
+	httpPathRewrite   = "http_path_rewrite"
+	http6PathRewrite  = "http6_path_rewrite"
 
 	// Policy files
 	policyJSON                      = "policy.json"
 	invalidJSON                     = "invalid.json"
 	multL7PoliciesJSON              = "Policies-l7-multiple.json"
 	policiesL7JSON                  = "Policies-l7-simple.json"
+	imposePoliciesL7JSON            = "Policies-l7-impose.json"
 	policiesL3JSON                  = "Policies-l3-policy.json"
 	policiesL4Json                  = "Policies-l4-policy.json"
 	policiesL3DependentL7EgressJSON = "Policies-l3-dependent-l7-egress.json"
@@ -111,6 +113,7 @@ var _ = Describe("RuntimePolicies", func() {
 	pingRequests := []string{ping, ping6}
 	httpRequestsPublic := []string{http, http6}
 	httpRequestsPrivate := []string{httpPrivate, http6Private}
+	httpRequestsPrivateToken := []string{httpPrivateToken, http6PrivateToken}
 	httpRequestsPathRewrite := []string{httpPathRewrite, http6PathRewrite}
 	httpRequests := append(httpRequestsPublic, httpRequestsPrivate...)
 	httpRequests = append(httpRequests, httpRequestsPathRewrite...)
@@ -141,9 +144,9 @@ var _ = Describe("RuntimePolicies", func() {
 			case ping6:
 				command = helpers.Ping6(srvIP[helpers.IPv6])
 				dst = srvIP[helpers.IPv6]
-			case http, httpPrivate, httpPathRewrite:
+			case http, httpPrivate, httpPrivateToken, httpPathRewrite:
 				dst = srvIP[helpers.IPv4]
-			case http6, http6Private, http6PathRewrite:
+			case http6, http6Private, http6PrivateToken, http6PathRewrite:
 				dst = fmt.Sprintf("[%s]", srvIP[helpers.IPv6])
 			}
 			switch test {
@@ -163,6 +166,12 @@ var _ = Describe("RuntimePolicies", func() {
 			case http6Private:
 				commandName = "curl private IPv6 URL on"
 				command = helpers.CurlFail("http://%s:80/private", dst)
+			case httpPrivateToken:
+				commandName = "curl private IPv4 URL with an access-token 1234-09AB-5678-CDEF on"
+				command = helpers.CurlFail(`--header "Access-Token: 1234-09AB-5678-CDEF" http://%s:80/private`, dst)
+			case http6PrivateToken:
+				commandName = "curl private IPv6 URL with an access-token 1234-09AB-5678-CDEF on"
+				command = helpers.CurlFail(`--header "Access-Token: 1234-09AB-5678-CDEF" http://%s:80/private`, dst)
 			case httpPathRewrite:
 				commandName = "curl path rewrite IPv4 URL on"
 				command = helpers.CurlFail("http://%s:80/public/../private", dst)
@@ -362,6 +371,23 @@ var _ = Describe("RuntimePolicies", func() {
 
 		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, true)
 		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, true)
+
+		By("Impose header on Egress, verify on ingress")
+
+		vm.PolicyDelAll()
+		_, err = vm.PolicyImportAndWait(vm.GetFullPath(imposePoliciesL7JSON), helpers.HelperTimeout)
+		Expect(err).Should(BeNil())
+
+		// app1 can connect to public, but not to private
+		connectivityTest(httpRequestsPublic, helpers.App1, helpers.Httpd1, true)
+		connectivityTest(httpRequestsPrivate, helpers.App1, helpers.Httpd1, false)
+
+		// app1 succeeds if the right access token is used
+		connectivityTest(httpRequestsPrivateToken, helpers.App1, helpers.Httpd1, true)
+
+		// app2 can connect to public, and to private due to access token being inserted at egress
+		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd2, true)
+		connectivityTest(httpRequestsPrivate, helpers.App2, helpers.Httpd2, true)
 
 		By("Multiple Ingress")
 
