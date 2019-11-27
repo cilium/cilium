@@ -215,7 +215,16 @@ func (n *Node) updatedResource(resource *v2.CiliumNode) bool {
 func (n *Node) recalculateLocked() {
 	n.enis = map[string]v2.ENI{}
 	n.available = map[string]v2.AllocationIP{}
-	for _, e := range n.manager.instancesAPI.GetENIs(n.resource.Spec.ENI.InstanceID) {
+	enis := n.manager.instancesAPI.GetENIs(n.resource.Spec.ENI.InstanceID)
+	// An ec2 instance has at least one ENI attached, no ENI found implies instance not found.
+	if len(enis) == 0 {
+		n.loggerLocked().Warning("Instance not found! Please delete corresponding ciliumnode if instance has already been deleted.")
+		// Avoid any further action
+		n.stats.neededIPs = 0
+		n.stats.excessIPs = 0
+		return
+	}
+	for _, e := range enis {
 		n.enis[e.ID] = *e
 
 		if e.Number < n.resource.Spec.ENI.FirstInterfaceIndex {
