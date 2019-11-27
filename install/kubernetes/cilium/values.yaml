@@ -301,3 +301,6 @@ global:
 
   daemon:
     runPath: "/var/run/cilium"
+
+  tls:
+    secretsBackend: local

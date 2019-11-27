@@ -455,6 +455,7 @@ spec:
         - mountPath: /var/run/cilium
           name: cilium-run
       restartPolicy: Always
+      priorityClassName: system-node-critical
       serviceAccount: cilium
       serviceAccountName: cilium
       terminationGracePeriodSeconds: 1
@@ -627,7 +628,6 @@ spec:
           initialDelaySeconds: 60
           periodSeconds: 10
           timeoutSeconds: 3
-
       hostNetwork: true
       restartPolicy: Always
       serviceAccount: cilium-operator
@@ -638,6 +638,7 @@ spec:
 
 ---
 # Source: cilium/charts/agent/templates/svc.yaml
+
 
 ---
 # Source: cilium/charts/operator/templates/servicemonitor.yaml
