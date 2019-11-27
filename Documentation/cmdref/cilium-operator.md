@@ -19,6 +19,7 @@ cilium-operator [flags]
       --aws-client-burst int                   Burst value allowed for the AWS client used by the AWS ENI IPAM (default 4)
       --aws-client-qps float                   Queries per second limit for the AWS client used by the AWS ENI IPAM (default 20)
       --aws-release-excess-ips                 Enable releasing excess free IP addresses from AWS ENI.
+      --ccnp-node-status-gc                    Enable CiliumClusterwideNetworkPolicy Status garbage collection for nodes which have been removed from the cluster (default true)
       --cilium-endpoint-gc                     Enable CiliumEndpoint garbage collector (default true)
       --cilium-endpoint-gc-interval duration   GC interval for cilium endpoints (default 30m0s)
       --cluster-id int                         Unique identifier of the cluster

@@ -565,6 +565,7 @@ func updateStatusesByCapabilities(client clientset.Interface, capabilities k8sve
 		if ns == "" {
 			ccnp := &cilium_v2.CiliumClusterwideNetworkPolicy{
 				CiliumNetworkPolicy: cnp.CiliumNetworkPolicy,
+				Status:              cnp.CiliumNetworkPolicy.Status,
 			}
 			_, err = client.CiliumV2().CiliumClusterwideNetworkPolicies().UpdateStatus(ccnp)
 		} else {
@@ -584,6 +585,7 @@ func updateStatusesByCapabilities(client clientset.Interface, capabilities k8sve
 		if ns == "" {
 			ccnp := &cilium_v2.CiliumClusterwideNetworkPolicy{
 				CiliumNetworkPolicy: cnp.CiliumNetworkPolicy,
+				Status:              cnp.CiliumNetworkPolicy.Status,
 			}
 			_, err = client.CiliumV2().CiliumClusterwideNetworkPolicies().Update(ccnp)
 		} else {
