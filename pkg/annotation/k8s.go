@@ -58,7 +58,7 @@ const (
 	// Setting the annotation SharedService to false while setting
 	// GlobalService to true allows to expose remote endpoints without
 	// sharing local endpoints.
-	SharedService = Prefix + "shared-service"
+	SharedService = Prefix + "/shared-service"
 
 	// ProxyVisibility is the annotation name used to indicate whether proxy
 	// visibility should be enabled for a given pod (i.e., all traffic for the
