@@ -20,7 +20,6 @@ desired CNI chaining configuration:
           "plugins": [
             {
               "type": "azure-vnet",
-              "mode": "transparent",
               "bridge": "azure0",
               "ipam": {
                  "type": "azure-vnet-ipam"
@@ -63,7 +62,6 @@ Generate the required YAML file and deploy it:
 
    helm template cilium \
      --namespace cilium \
-     --set nodeinit.azure=true \
      --set global.cni.chainingMode=generic-veth \
      --set global.cni.customConf=true \
      --set global.nodeinit.enabled=true \
