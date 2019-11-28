@@ -520,6 +520,48 @@ func TestService_Equals(t *testing.T) {
 			want: false,
 		},
 		{
+			name: "external-ip was added",
+			fields: &Service{
+				FrontendIP: net.ParseIP("1.1.1.1"),
+				IsHeadless: false,
+				Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
+					loadbalancer.FEPortName("foo"): {
+						Protocol: loadbalancer.NONE,
+						Port:     1,
+					},
+				},
+				K8sExternalIPs: nil,
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+				Selector: map[string]string{
+					"baz": "foz",
+				},
+			},
+			args: args{
+				o: &Service{
+					FrontendIP: net.ParseIP("1.1.1.1"),
+					IsHeadless: false,
+					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
+						loadbalancer.FEPortName("foo"): {
+							Protocol: loadbalancer.NONE,
+							Port:     1,
+						},
+					},
+					K8sExternalIPs: map[string]net.IP{
+						"2.2.2.2": net.ParseIP("2.2.2.2"),
+					},
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+					Selector: map[string]string{
+						"baz": "foz",
+					},
+				},
+			},
+			want: false,
+		},
+		{
 			name: "both nil",
 			args: args{},
 			want: true,
