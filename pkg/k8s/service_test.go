@@ -53,6 +53,27 @@ func (s *K8sSuite) TestGetAnnotationIncludeExternal(c *check.C) {
 	c.Assert(getAnnotationIncludeExternal(svc), check.Equals, false)
 }
 
+func (s *K8sSuite) TestGetAnnotationShared(c *check.C) {
+	svc := &types.Service{Service: &v1.Service{ObjectMeta: metav1.ObjectMeta{
+		Name: "foo",
+	}}}
+	c.Assert(getAnnotationShared(svc), check.Equals, false)
+	svc = &types.Service{Service: &v1.Service{ObjectMeta: metav1.ObjectMeta{
+		Annotations: map[string]string{"io.cilium/global-service": "true"},
+	}}}
+	c.Assert(getAnnotationShared(svc), check.Equals, true)
+
+	svc = &types.Service{Service: &v1.Service{ObjectMeta: metav1.ObjectMeta{
+		Annotations: map[string]string{"io.cilium/shared-service": "True"},
+	}}}
+	c.Assert(getAnnotationShared(svc), check.Equals, true)
+
+	svc = &types.Service{Service: &v1.Service{ObjectMeta: metav1.ObjectMeta{
+		Annotations: map[string]string{"io.cilium/global-service": "true", "io.cilium/shared-service": "false"},
+	}}}
+	c.Assert(getAnnotationShared(svc), check.Equals, false)
+}
+
 func (s *K8sSuite) TestParseServiceID(c *check.C) {
 	svc := &types.Service{
 		Service: &v1.Service{
