@@ -23,6 +23,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cilium/cilium/pkg/aws/eni"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/k8s"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
@@ -53,20 +54,21 @@ var (
 		},
 	}
 
-	k8sAPIServer        string
-	k8sKubeConfigPath   string
-	kvStore             string
-	kvStoreOpts         = make(map[string]string)
-	apiServerPort       uint16
-	shutdownSignal      = make(chan struct{})
-	synchronizeServices bool
-	enableCepGC         bool
-	synchronizeNodes    bool
-	enableMetrics       bool
-	metricsAddress      string
-	eniParallelWorkers  int64
-	enableENI           bool
-	eniTags             = make(map[string]string)
+	k8sAPIServer            string
+	k8sKubeConfigPath       string
+	kvStore                 string
+	kvStoreOpts             = make(map[string]string)
+	apiServerPort           uint16
+	shutdownSignal          = make(chan struct{})
+	synchronizeServices     bool
+	enableCepGC             bool
+	synchronizeNodes        bool
+	enableMetrics           bool
+	metricsAddress          string
+	eniParallelWorkers      int64
+	enableENI               bool
+	eniTags                 = make(map[string]string)
+	awsInstanceLimitMapping = make(map[string]string)
 
 	k8sIdentityGCInterval       time.Duration
 	k8sIdentityHeartbeatTimeout time.Duration
@@ -138,6 +140,9 @@ func init() {
 	flags.Int(option.AWSClientBurst, defaults.AWSClientBurst, "Burst value allowed for the AWS client used by the AWS ENI IPAM")
 	flags.Float64(option.AWSClientQPSLimit, defaults.AWSClientQPSLimit, "Queries per second limit for the AWS client used by the AWS ENI IPAM")
 	flags.Var(option.NewNamedMapOptions(option.ENITags, &eniTags, nil), option.ENITags, "ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)")
+	flags.Var(option.NewNamedMapOptions(option.AwsInstanceLimitMapping, &awsInstanceLimitMapping, nil),
+		option.AwsInstanceLimitMapping, "Add or overwrite mappings of AWS instance limit in the form of {\"AWS instance type\": \"Maximum Network Interfaces\",\"IPv4 Addresses per Interface\",\"IPv6 Addresses per Interface\"}. cli example: --aws-instance-limit-mapping=a1.medium=2,4,4 --aws-instance-limit-mapping=a2.somecustomflavor=4,5,6 configmap example: {\"a1.medium\": \"2,4,4\", \"a2.somecustomflavor\": \"4,5,6\"}")
+	option.BindEnv(option.AwsInstanceLimitMapping)
 
 	flags.Float32(option.K8sClientQPSLimit, defaults.K8sClientQPSLimit, "Queries per second limit for the K8s client")
 	flags.Int(option.K8sClientBurst, defaults.K8sClientBurst, "Burst value allowed for the K8s client")
@@ -247,6 +252,9 @@ func runOperator(cmd *cobra.Command) {
 
 	enableENI = viper.GetString(option.IPAM) == option.IPAMENI
 	if enableENI {
+		if err := eni.UpdateLimitsFromUserDefinedMappings(awsInstanceLimitMapping); err != nil {
+			log.WithError(err).Fatal("Parse aws-instance-limit-mapping failed")
+		}
 		awsClientQPSLimit := viper.GetFloat64(option.AWSClientQPSLimit)
 		awsClientBurst := viper.GetInt(option.AWSClientBurst)
 		if m := viper.GetStringMapString(option.ENITags); len(m) > 0 {

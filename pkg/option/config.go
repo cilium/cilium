@@ -1305,7 +1305,6 @@ var (
 		AutoCreateCiliumNodeResource: defaults.AutoCreateCiliumNodeResource,
 		IdentityAllocationMode:       IdentityAllocationModeKVstore,
 		AllowICMPFragNeeded:          defaults.AllowICMPFragNeeded,
-		AwsInstanceLimitMapping:      make(map[string]string),
 	}
 )
 
@@ -1791,10 +1790,6 @@ func (c *DaemonConfig) Populate() {
 	c.MonitorAggregationFlags = ctMonitorReportFlags
 
 	// Map options
-	if m := viper.GetStringMapString(AwsInstanceLimitMapping); len(m) != 0 {
-		c.AwsInstanceLimitMapping = m
-	}
-
 	if m := viper.GetStringMapString(FixedIdentityMapping); len(m) != 0 {
 		c.FixedIdentityMapping = m
 	}
