@@ -278,6 +278,10 @@ func (s *Service) DeepEquals(o *Service) bool {
 			}
 		}
 
+		if ((s.K8sExternalIPs == nil) != (o.K8sExternalIPs == nil)) ||
+			len(s.K8sExternalIPs) != len(o.K8sExternalIPs) {
+			return false
+		}
 		for k, v := range s.K8sExternalIPs {
 			vOther, ok := o.K8sExternalIPs[k]
 			if !ok || !v.Equal(vOther) {
