@@ -10,40 +10,48 @@
 Installation on Azure AKS
 *************************
 
-This guide covers installing Cilium into an Azure AKS environment running in
-`Advanced Networking Mode <https://docs.microsoft.com/en-us/azure/aks/concepts-network#azure-cni-advanced-networking>`_ .
+This guide covers installing Cilium into an Azure AKS environment. This guide
+will work when setting up AKS in both `Basic <https://docs.microsoft.com/en-us/azure/aks/concepts-network#kubenet-basic-networking>`_ and `Advanced 
+<https://docs.microsoft.com/en-us/azure/aks/concepts-network#azure-cni-advanced-networking>`_ networking mode.
 
-This is achieved using Cilium CNI chaining, with the Azure CNI plugin as the base CNI plugin and Cilium chaining
-on top to provide L3/L4/L7 visibility and enforcement, as well as other advanced features like transparent encryption.
-
+This is achieved using Cilium in CNI chaining mode, with the Azure CNI plugin
+as the base CNI plugin and Cilium chaining on top to provide L3-L7
+observability, network policy enforcement enforcement, Kubernetes services
+implementation, as well as other advanced features like transparent encryption
+and clustermesh.
 
 Prerequisites
 =============
 
-Ensure that you have the `azure cloud cli
+Ensure that you have the `Azure Cloud CLI 
 <https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest>`_ installed.
 
-To verify, confirm that the following command displays the set of available Kubernetes versions.
+To verify, confirm that the following command displays the set of available
+Kubernetes versions.
 
 .. code:: bash
 
         az aks get-versions -l westus -o table
 
-Create an AKS Cluster in Advanced Networking Mode
-=================================================
+Create an AKS Cluster
+=====================
 
-The full background on creating AKS clusters in advanced networking mode, see `this guide
-<https://docs.microsoft.com/en-us/azure/aks/configure-azure-cni>`_ .
+The full background on creating AKS clusters in advanced networking mode, see
+`this guide <https://docs.microsoft.com/en-us/azure/aks/configure-azure-cni>`_.
+You can use any method to create and deploy an AKS cluster with the exception
+of specifying the Network Policy option. Doing so will still work but will
+result in unwanted iptables rules being installed on all of your nodes.
 
-If you want to us the CLI to create a dedicated set of Azure resources (resource groups, networks, etc.)
-specifically for this tutorial, the following commands (borrowed from the AKS documentation)
-run as a script or manually all in the same terminal are sufficient.
+If you want to us the CLI to create a dedicated set of Azure resources
+(resource groups, networks, etc.) specifically for this tutorial, the following
+commands (borrowed from the AKS documentation) run as a script or manually all
+in the same terminal are sufficient.
 
-It can take 10+ minutes for the final command to be complete indicating that the cluster is ready.
+It can take 10+ minutes for the final command to be complete indicating that
+the cluster is ready.
 
 .. note:: **Do NOT specify the '--network-policy' flag** when creating the cluster,
     as this will cause the Azure CNI plugin to push down unwanted iptables rules:
-
 
 .. code:: bash
 
@@ -96,7 +104,6 @@ It can take 10+ minutes for the final command to be complete indicating that the
             --vnet-subnet-id $SUBNET_ID \
             --service-principal $SP_ID \
             --client-secret $SP_PASSWORD
-
 
 Configure kubectl to Point to Newly Created Cluster
 ===================================================
