@@ -15,9 +15,7 @@
 package k8s
 
 import (
-	"net"
 	"reflect"
-	"strings"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/comparator"
@@ -120,29 +118,22 @@ func EqualV1NetworkPolicy(np1, np2 *types.NetworkPolicy) bool {
 		reflect.DeepEqual(np1.Spec, np2.Spec)
 }
 
-func EqualV1Services(svc1, svc2 *types.Service) bool {
+func EqualV1Services(k8sSVC1, k8sSVC2 *types.Service) bool {
 	// Service annotations are used to mark services as global, shared, etc.
-	if !comparator.MapStringEquals(svc1.GetAnnotations(), svc2.GetAnnotations()) {
+	if !comparator.MapStringEquals(k8sSVC1.GetAnnotations(), k8sSVC2.GetAnnotations()) {
 		return false
 	}
 
-	clusterIP := net.ParseIP(svc1.Spec.ClusterIP)
-	headless := false
-	if strings.ToLower(svc1.Spec.ClusterIP) == "none" {
-		headless = true
-	}
-	si1 := NewService(clusterIP, svc1.Spec.ExternalIPs, headless, svc1.Labels, svc1.Spec.Selector)
+	svcID1, svc1 := ParseService(k8sSVC1)
+	svcID2, svc2 := ParseService(k8sSVC2)
 
-	clusterIP = net.ParseIP(svc2.Spec.ClusterIP)
-	headless = false
-	if strings.ToLower(svc2.Spec.ClusterIP) == "none" {
-		headless = true
+	if svcID1 != svcID2 {
+		return false
 	}
-	si2 := NewService(clusterIP, svc2.Spec.ExternalIPs, headless, svc2.Labels, svc2.Spec.Selector)
 
 	// Please write all the equalness logic inside the K8sServiceInfo.Equals()
 	// method.
-	return si1.DeepEquals(si2)
+	return svc1.DeepEquals(svc2)
 }
 
 func EqualV1Endpoints(ep1, ep2 *types.Endpoints) bool {
