@@ -137,12 +137,12 @@ func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, options []string) {
 	ExpectKubeDNSReady(vm)
 }
 
-// SkipIfFlannel will skip the test if it's running over Flannel datapath mode.
-func SkipIfFlannel() {
-	if helpers.GetCurrentIntegration() == helpers.CIIntegrationFlannel {
+// SkipIfIntegration will skip a test if it's running with any of the specified integration.
+func SkipIfIntegration(integration string) {
+	if helpers.GetCurrentIntegration() == integration {
 		Skip(fmt.Sprintf(
 			"This feature is not supported in Cilium %q mode. Skipping test.",
-			helpers.CIIntegrationFlannel))
+			integration))
 	}
 }
 
