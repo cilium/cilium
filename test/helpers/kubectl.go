@@ -480,6 +480,41 @@ func (kub *Kubectl) GetPodNamesContext(ctx context.Context, namespace string, la
 	return strings.Split(out, " "), nil
 }
 
+// GetNodeNameByLabel returns the names of the node with a matching cilium.io/ci-node label
+func (kub *Kubectl) GetNodeNameByLabel(label string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+	defer cancel()
+	return kub.GetNodeNameByLabelContext(ctx, label)
+}
+
+// GetNodeNameByLabelContext returns the names of all nodes with a matching label
+func (kub *Kubectl) GetNodeNameByLabelContext(ctx context.Context, label string) (string, error) {
+	stdout := new(bytes.Buffer)
+	filter := "-o jsonpath='{.items[*].metadata.name}'"
+
+	cmd := fmt.Sprintf("%s get nodes -l cilium.io/ci-node=%s %s", KubectlCmd, label, filter)
+
+	// Taking more than 30 seconds to get nodes means that something is wrong.
+	nodeNamesCtx, cancel := context.WithTimeout(ctx, ShortCommandTimeout)
+	defer cancel()
+	err := kub.ExecuteContext(nodeNamesCtx, cmd, stdout, nil)
+
+	if err != nil {
+		return "", fmt.Errorf("error finding node with label '%v': %s", label, err)
+	}
+
+	out := strings.Trim(stdout.String(), " \t\r\n")
+	ret := strings.Split(out, " ")
+	switch {
+	case len(ret) == 0, len(out) == 0:
+		return "", fmt.Errorf("no matching node with label '%v'", label)
+	case len(ret) == 1:
+		return ret[0], nil
+	default:
+		return "", fmt.Errorf("multiple matching nodes with label '%v': %v", label, ret)
+	}
+}
+
 // GetServiceHostPort returns the host and the first port for the given service name.
 // It will return an error if service cannot be retrieved.
 func (kub *Kubectl) GetServiceHostPort(namespace string, service string) (string, int, error) {
@@ -2197,15 +2232,10 @@ func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, e
 
 // GetCiliumPodOnNodeWithLabel returns the name of the Cilium pod that is running on node with cilium.io/ci-node label
 func (kub *Kubectl) GetCiliumPodOnNodeWithLabel(namespace string, label string) (string, error) {
-	filter := "-o jsonpath='{.items[0].metadata.name}'"
-
-	res := kub.ExecShort(fmt.Sprintf(
-		"%s -n %s get nodes -l cilium.io/ci-node=%s %s", KubectlCmd, namespace, label, filter))
-	if !res.WasSuccessful() {
-		return "", fmt.Errorf("Unable to get nodes with label '%s'", label)
+	node, err := kub.GetNodeNameByLabel(label)
+	if err != nil {
+		return "", fmt.Errorf("Unable to get nodes with label '%s': %s", label, err)
 	}
-
-	node := res.Output().String()
 
 	return kub.GetCiliumPodOnNode(namespace, node)
 }
