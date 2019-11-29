@@ -200,7 +200,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	Context("Encapsulation", func() {
 		BeforeEach(func() {
-			SkipIfFlannel()
+			SkipIfIntegration(helpers.CIIntegrationFlannel)
 		})
 
 		validateBPFTunnelMap := func() {
@@ -269,14 +269,14 @@ var _ = Describe("K8sDatapathConfig", func() {
 		}
 
 		It("Check connectivity with automatic direct nodes routes", func() {
-			SkipIfFlannel()
+			SkipIfIntegration(helpers.CIIntegrationFlannel)
 
 			deployCilium(directRoutingOptions)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
 
 		It("Check direct connectivity with per endpoint routes", func() {
-			SkipIfFlannel()
+			SkipIfIntegration(helpers.CIIntegrationFlannel)
 
 			deployCilium(append(directRoutingOptions,
 				"--set global.endpointRoutes.enabled=true",
@@ -372,7 +372,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	Context("Transparent encryption DirectRouting", func() {
 		It("Check connectivity with transparent encryption and direct routing", func() {
-			SkipIfFlannel()
+			SkipIfIntegration(helpers.CIIntegrationFlannel)
 
 			deployCilium([]string{
 				"--set global.tunnel=disabled",
@@ -387,7 +387,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 	Context("IPv4Only", func() {
 		It("Check connectivity with IPv6 disabled", func() {
 			// Flannel always disables IPv6, this test is a no-op in that case.
-			SkipIfFlannel()
+			SkipIfIntegration(helpers.CIIntegrationFlannel)
 
 			deployCilium([]string{
 				"--set global.ipv4.enabled=true",

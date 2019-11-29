@@ -165,6 +165,12 @@ func GetCurrentIntegration() string {
 	return ""
 }
 
+// IsIntegration returns true when integration matches the configuration of
+// this test run
+func IsIntegration(integration string) bool {
+	return GetCurrentIntegration() == integration
+}
+
 // Kubectl is a wrapper around an SSHMeta. It is used to run Kubernetes-specific
 // commands on the node which is accessible via the SSH metadata stored in its
 // SSHMeta.
