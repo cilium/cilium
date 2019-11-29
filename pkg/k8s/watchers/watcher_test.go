@@ -576,6 +576,148 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
 	c.Assert(del1st, checker.DeepEquals, del1stWanted)
 }
 
+func (s *K8sWatcherSuite) TestChangeSVCPort(c *C) {
+	k8sSvc := &types.Service{
+		Service: &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+			},
+			Spec: v1.ServiceSpec{
+				Ports: []v1.ServicePort{
+					{
+						Name:       "port-udp-80",
+						Protocol:   v1.ProtocolUDP,
+						Port:       80,
+						TargetPort: intstr.FromString("port-80-u"),
+					},
+				},
+				ClusterIP: "172.0.20.1",
+				Type:      v1.ServiceTypeClusterIP,
+			},
+		},
+	}
+
+	ep1stApply := &types.Endpoints{
+		Endpoints: &v1.Endpoints{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+			},
+			Subsets: []v1.EndpointSubset{
+				{
+					Addresses: []v1.EndpointAddress{{IP: "2.2.2.2"}},
+					Ports: []v1.EndpointPort{
+						{
+							Name:     "port-udp-80",
+							Port:     8080,
+							Protocol: v1.ProtocolUDP,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	lb1 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("172.0.20.1"), 80, 0)
+	lb2 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("172.0.20.1"), 81, 0)
+	upsertsWanted := []loadbalancer.SVC{
+		{
+			Type:     loadbalancer.SVCTypeClusterIP,
+			Frontend: *lb1,
+			Backends: []loadbalancer.Backend{
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("2.2.2.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.UDP,
+							Port:     8080,
+						},
+					},
+				},
+			},
+		},
+		{
+			Type:     loadbalancer.SVCTypeClusterIP,
+			Frontend: *lb2,
+			Backends: []loadbalancer.Backend{
+				{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP("2.2.2.2"),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: loadbalancer.UDP,
+							Port:     8080,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	k8sSvcChanged := k8sSvc.DeepCopy()
+	k8sSvcChanged.Service.Spec.Ports[0].Port = 81
+
+	upserts := []loadbalancer.SVC{}
+
+	policyManager := &fakePolicyManager{
+		OnTriggerPolicyUpdates: func(force bool, reason string) {
+		},
+	}
+	policyRepository := &fakePolicyRepository{
+		OnTranslateRules: func(tr policy.Translator) (result *policy.TranslationResult, e error) {
+			return &policy.TranslationResult{NumToServicesRules: 1}, nil
+		},
+	}
+
+	svcUpsertManagerCalls := 0
+
+	svcManager := &fakeSvcManager{
+		OnUpsertService: func(
+			fe loadbalancer.L3n4AddrID,
+			bes []loadbalancer.Backend,
+			svcType loadbalancer.SVCType,
+			svcName,
+			namespace string) (
+			b bool,
+			id loadbalancer.ID,
+			e error,
+		) {
+			upserts = append(upserts, loadbalancer.SVC{
+				Frontend: fe,
+				Backends: bes,
+				Type:     svcType,
+			})
+			svcUpsertManagerCalls++
+			return false, 0, nil
+		},
+		OnDeleteService: func(fe loadbalancer.L3n4Addr) (b bool, e error) {
+			return false, nil
+		},
+	}
+
+	w := NewK8sWatcher(
+		nil,
+		nil,
+		policyManager,
+		policyRepository,
+		svcManager,
+	)
+	go w.k8sServiceHandler()
+	swg := lock.NewStoppableWaitGroup()
+
+	w.K8sSvcCache.UpdateService(k8sSvc, swg)
+	w.K8sSvcCache.UpdateEndpoints(ep1stApply, swg)
+	w.K8sSvcCache.UpdateService(k8sSvcChanged, swg)
+
+	swg.Stop()
+	swg.Wait()
+	c.Assert(svcUpsertManagerCalls, Equals, 2) // Add and Update events
+	c.Assert(upserts, checker.DeepEquals, upsertsWanted)
+}
+
 func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 	enableNodePortBak := option.Config.EnableNodePort
 	nodePortv4Bak := node.GetNodePortIPv4()
