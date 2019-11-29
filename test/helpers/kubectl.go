@@ -2563,8 +2563,9 @@ func (kub *Kubectl) ciliumServicePreFlightCheck() error {
 				k8sSvc.Spec.ClusterIP == v1.ClusterIPNone {
 				continue
 			}
-			// TODO(brb) check NodePort services
-			if k8sSvc.Spec.Type == v1.ServiceTypeNodePort {
+			// TODO(brb) check NodePort and LoadBalancer services
+			if k8sSvc.Spec.Type == v1.ServiceTypeNodePort ||
+				k8sSvc.Spec.Type == v1.ServiceTypeLoadBalancer {
 				continue
 			}
 			if _, ok := k8sServicesFound[key]; !ok {
@@ -2683,8 +2684,9 @@ func serviceKey(s v1.Service) string {
 func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.Endpoints, k8sServicesFound map[string]bool) error {
 	var k8sService *v1.Service
 
-	// TODO(brb) validate NodePort services
-	if cSvc.Status.Realized.Flags != nil && cSvc.Status.Realized.Flags.Type == "NodePort" {
+	// TODO(brb) validate NodePort and LoadBalancer services
+	if cSvc.Status.Realized.Flags != nil &&
+		(cSvc.Status.Realized.Flags.Type == "NodePort" || cSvc.Status.Realized.Flags.Type == "LoadBalancer") {
 		return nil
 	}
 
