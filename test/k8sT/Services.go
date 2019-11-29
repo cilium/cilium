@@ -148,7 +148,9 @@ var _ = Describe("K8sServicesTest", func() {
 			By("testing connectivity via cluster IP %s", clusterIP)
 			monitorStop := kubectl.MonitorStart(helpers.KubeSystemNamespace, ciliumPodK8s1,
 				"cluster-ip-same-node.log")
-			status, err := kubectl.ExecInHostNetNS(context.TODO(), helpers.K8s1,
+			k8s1Name, err := kubectl.GetNodeNameByLabel(helpers.K8s1)
+			Expect(err).To(BeNil(), "Cannot get node by label")
+			status, err := kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
 				helpers.CurlFail("http://%s/", clusterIP))
 			monitorStop()
 			Expect(err).To(BeNil(), "Cannot run curl in host netns")
@@ -230,17 +232,20 @@ var _ = Describe("K8sServicesTest", func() {
 			url := getURL(data.Spec.ClusterIP, data.Spec.Ports[0].Port)
 			testHTTPRequest(testDSClient, url)
 
+			k8s1Name, err := kubectl.GetNodeNameByLabel(helpers.K8s1)
+			Expect(err).To(BeNil(), "Cannot get node by label")
+
 			// From host via localhost IP
 			// TODO: IPv6
 			count := 10
 			url = getURL("127.0.0.1", data.Spec.Ports[0].NodePort)
-			doRequests(url, count, helpers.K8s1)
+			doRequests(url, count, k8s1Name)
 
 			url = getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
-			doRequests(url, count, helpers.K8s1)
+			doRequests(url, count, k8s1Name)
 
 			url = getURL(helpers.K8s2Ip, data.Spec.Ports[0].NodePort)
-			doRequests(url, count, helpers.K8s1)
+			doRequests(url, count, k8s1Name)
 
 			// From pod via node IPs
 			url = getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
@@ -253,13 +258,13 @@ var _ = Describe("K8sServicesTest", func() {
 				localCiliumHostIPv4, err := kubectl.GetCiliumHostIPv4(context.TODO(), helpers.K8s1)
 				Expect(err).Should(BeNil(), "Cannot retrieve local cilium_host ipv4")
 				url = getURL(localCiliumHostIPv4, data.Spec.Ports[0].NodePort)
-				doRequests(url, count, helpers.K8s1)
+				doRequests(url, count, k8s1Name)
 
 				// From host via remote cilium_host
 				remoteCiliumHostIPv4, err := kubectl.GetCiliumHostIPv4(context.TODO(), helpers.K8s2)
 				Expect(err).Should(BeNil(), "Cannot retrieve remote cilium_host ipv4")
 				url = getURL(remoteCiliumHostIPv4, data.Spec.Ports[0].NodePort)
-				doRequests(url, count, helpers.K8s1)
+				doRequests(url, count, k8s1Name)
 
 				// From pod via loopback (host reachable services)
 				url = getURL("127.0.0.1", data.Spec.Ports[0].NodePort)
@@ -369,8 +374,13 @@ var _ = Describe("K8sServicesTest", func() {
 						helpers.DefaultNamespace, "test-lb", 30*time.Second)
 					Expect(err).Should(BeNil(), "Cannot retrieve loadbalancer IP for test-lb")
 
-					doRequests("http://"+lbIP, 10, helpers.K8s1)
-					doRequests("http://"+lbIP, 10, helpers.K8s2)
+					k8s1Name, err := kubectl.GetNodeNameByLabel(helpers.K8s1)
+					Expect(err).To(BeNil(), "Cannot get node by label")
+					k8s2Name, err := kubectl.GetNodeNameByLabel(helpers.K8s2)
+					Expect(err).To(BeNil(), "Cannot get node by label")
+
+					doRequests("http://"+lbIP, 10, k8s1Name)
+					doRequests("http://"+lbIP, 10, k8s2Name)
 				})
 			})
 		})
