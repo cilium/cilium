@@ -66,6 +66,7 @@ func ParseService(svc *types.Service) (ServiceID, *Service) {
 		logfields.K8sAPIVersion: svc.TypeMeta.APIVersion,
 		logfields.K8sSvcType:    svc.Spec.Type,
 	})
+	var loadBalancerIPs []string
 
 	svcID := ParseServiceID(svc)
 
@@ -91,7 +92,14 @@ func ParseService(svc *types.Service) (ServiceID, *Service) {
 	if strings.ToLower(svc.Spec.ClusterIP) == "none" {
 		headless = true
 	}
-	svcInfo := NewService(clusterIP, svc.Spec.ExternalIPs, headless, svc.Labels, svc.Spec.Selector)
+
+	for _, ip := range svc.Status.LoadBalancer.Ingress {
+		if ip.IP != "" {
+			loadBalancerIPs = append(loadBalancerIPs, ip.IP)
+		}
+	}
+
+	svcInfo := NewService(clusterIP, svc.Spec.ExternalIPs, loadBalancerIPs, headless, svc.Labels, svc.Spec.Selector)
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
 	svcInfo.Shared = getAnnotationShared(svc)
 
@@ -202,8 +210,10 @@ type Service struct {
 	// K8sExternalIPs stores mapping of the endpoint in a string format to the
 	// externalIP in net.IP format.
 	K8sExternalIPs map[string]net.IP
-	Labels         map[string]string
-	Selector       map[string]string
+	// LoadBalancerIPs stores LB IPs assigned to the service (string(IP) => IP).
+	LoadBalancerIPs map[string]net.IP
+	Labels          map[string]string
+	Selector        map[string]string
 }
 
 // String returns the string representation of a service resource
@@ -284,12 +294,23 @@ func (s *Service) DeepEquals(o *Service) bool {
 				return false
 			}
 		}
+
+		if ((s.LoadBalancerIPs == nil) != (o.LoadBalancerIPs == nil)) ||
+			len(s.LoadBalancerIPs) != len(o.LoadBalancerIPs) {
+			return false
+		}
+		for k, v := range s.LoadBalancerIPs {
+			vOther, ok := o.LoadBalancerIPs[k]
+			if !ok || !v.Equal(vOther) {
+				return false
+			}
+		}
 		return true
 	}
 	return false
 }
 
-func parseExternalIPs(externalIPs []string) map[string]net.IP {
+func parseIPs(externalIPs []string) map[string]net.IP {
 	m := map[string]net.IP{}
 	for _, externalIP := range externalIPs {
 		ip := net.ParseIP(externalIP)
@@ -301,19 +322,26 @@ func parseExternalIPs(externalIPs []string) map[string]net.IP {
 }
 
 // NewService returns a new Service with the Ports map initialized.
-func NewService(ip net.IP, externalIPs []string, headless bool, labels map[string]string, selector map[string]string) *Service {
+func NewService(ip net.IP, externalIPs []string, loadBalancerIPs []string, headless bool,
+	labels map[string]string, selector map[string]string) *Service {
+
 	var k8sExternalIPs map[string]net.IP
+	var k8sLoadBalancerIPs map[string]net.IP
+
 	if option.Config.EnableNodePort {
-		k8sExternalIPs = parseExternalIPs(externalIPs)
+		k8sExternalIPs = parseIPs(externalIPs)
+		k8sLoadBalancerIPs = parseIPs(loadBalancerIPs)
 	}
+
 	return &Service{
-		FrontendIP:     ip,
-		IsHeadless:     headless,
-		Ports:          map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
-		NodePorts:      map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
-		K8sExternalIPs: k8sExternalIPs,
-		Labels:         labels,
-		Selector:       selector,
+		FrontendIP:      ip,
+		IsHeadless:      headless,
+		Ports:           map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
+		NodePorts:       map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
+		K8sExternalIPs:  k8sExternalIPs,
+		LoadBalancerIPs: k8sLoadBalancerIPs,
+		Labels:          labels,
+		Selector:        selector,
 	}
 }
 

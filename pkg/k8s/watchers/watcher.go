@@ -556,6 +556,10 @@ func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s
 		for _, k8sExternalIP := range svcInfo.K8sExternalIPs {
 			frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, k8sExternalIP, svcPort.Port))
 		}
+
+		for _, ip := range svcInfo.LoadBalancerIPs {
+			frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, ip, svcPort.Port))
+		}
 	}
 
 	for _, fe := range frontends {
@@ -625,6 +629,10 @@ func datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) (svcs []loadbalanc
 	}
 	if svc.FrontendIP != nil {
 		dpSVC := genCartesianProduct(svc.FrontendIP, loadbalancer.SVCTypeClusterIP, clusterIPPorts, endpoints)
+		svcs = append(svcs, dpSVC...)
+	}
+	for _, ip := range svc.LoadBalancerIPs {
+		dpSVC := genCartesianProduct(ip, loadbalancer.SVCTypeLoadBalancer, clusterIPPorts, endpoints)
 		svcs = append(svcs, dpSVC...)
 	}
 
