@@ -34,10 +34,11 @@ var (
 type SVCType string
 
 const (
-	SVCTypeNone        = SVCType("NONE")
-	SVCTypeClusterIP   = SVCType("ClusterIP")
-	SVCTypeNodePort    = SVCType("NodePort")
-	SVCTypeExternalIPs = SVCType("ExternalIPs")
+	SVCTypeNone         = SVCType("NONE")
+	SVCTypeClusterIP    = SVCType("ClusterIP")
+	SVCTypeNodePort     = SVCType("NodePort")
+	SVCTypeExternalIPs  = SVCType("ExternalIPs")
+	SVCTypeLoadBalancer = SVCType("LoadBalancer")
 )
 
 // ServiceFlags is the datapath representation of the service flags that can be
