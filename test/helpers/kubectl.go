@@ -504,15 +504,11 @@ func (kub *Kubectl) GetNodeNameByLabelContext(ctx context.Context, label string)
 	}
 
 	out := strings.Trim(stdout.String(), " \t\r\n")
-	ret := strings.Split(out, " ")
-	switch {
-	case len(ret) == 0, len(out) == 0:
+	if len(out) == 0 {
 		return "", fmt.Errorf("no matching node with label '%v'", label)
-	case len(ret) == 1:
-		return ret[0], nil
-	default:
-		return "", fmt.Errorf("multiple matching nodes with label '%v': %v", label, ret)
 	}
+
+	return out, nil
 }
 
 // GetNodeIPByLabel returns the IP of the node with cilium.io/ci-node=label.
