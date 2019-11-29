@@ -111,7 +111,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		return func() {}, func() {}
 	}
 
-	SkipIfFlannel()
+	SkipIfIntegration(helpers.CIIntegrationFlannel)
 
 	apps := []string{helpers.App1, helpers.App2, helpers.App3}
 	app1Service := "app1-service"
