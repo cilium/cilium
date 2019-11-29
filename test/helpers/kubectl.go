@@ -526,16 +526,11 @@ func (kub *Kubectl) GetNodeIPByLabel(label string) (string, error) {
 	}
 
 	out := strings.Trim(res.GetStdOut(), "\n")
-	ret := strings.Split(out, " ")
-	switch len(ret) {
-	case 0:
+	if len(out) == 0 {
 		return "", fmt.Errorf("no matching node with label '%v'", label)
-	case 1:
-		return "", fmt.Errorf("multiple matching nodes with label '%v': %v", label, ret)
-	default:
-		// Return the first node if we ever end up with two
-		return ret[0], nil
 	}
+
+	return out, nil
 }
 
 // GetServiceHostPort returns the host and the first port for the given service name.
