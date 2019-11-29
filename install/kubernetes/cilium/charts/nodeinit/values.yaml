@@ -2,6 +2,10 @@
 # managed by Cilium (GKE)
 restartPods: false
 
+# Restart existing pods when initializing the node to force all pods being
+# managed by Cilium (AWS)
+restartPodsEKS: false
+
 # Reconfigure Kubelet to run in CNI mode (GKE)
 reconfigureKubelet: false
 
