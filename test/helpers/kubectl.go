@@ -489,21 +489,16 @@ func (kub *Kubectl) GetNodeNameByLabel(label string) (string, error) {
 
 // GetNodeNameByLabelContext returns the names of all nodes with a matching label
 func (kub *Kubectl) GetNodeNameByLabelContext(ctx context.Context, label string) (string, error) {
-	stdout := new(bytes.Buffer)
 	filter := `{.items[*].metadata.name}`
 
-	cmd := fmt.Sprintf("%s get nodes -l cilium.io/ci-node=%s -o jsonpath='%s'", KubectlCmd, label, filter)
-
-	// Taking more than 30 seconds to get nodes means that something is wrong.
-	nodeNamesCtx, cancel := context.WithTimeout(ctx, ShortCommandTimeout)
-	defer cancel()
-	err := kub.ExecuteContext(nodeNamesCtx, cmd, stdout, nil)
-
-	if err != nil {
-		return "", fmt.Errorf("error finding node with label '%v': %s", label, err)
+	res := kub.ExecShort(fmt.Sprintf("%s get nodes -l cilium.io/ci-node=%s -o jsonpath='%s'",
+		KubectlCmd, label, filter))
+	if !res.WasSuccessful() {
+		return "", fmt.Errorf("cannot retrieve node IP: %s", res.CombineOutput())
 	}
 
-	out := strings.Trim(stdout.String(), " \t\r\n")
+	out := strings.Trim(res.GetStdOut(), "\n")
+
 	if len(out) == 0 {
 		return "", fmt.Errorf("no matching node with label '%v'", label)
 	}
