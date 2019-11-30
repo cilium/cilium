@@ -510,7 +510,7 @@ func (kub *Kubectl) GetNodeNameByLabelContext(ctx context.Context, label string)
 // GetNodeIPByLabel returns the IP of the node with cilium.io/ci-node=label.
 // An error is returned if a node cannot be found.
 func (kub *Kubectl) GetNodeIPByLabel(label string) (string, error) {
-	filter := `{@.status.addresses[?(@.type == "InternalIP")].address}`
+	filter := `{@.items[*].status.addresses[?(@.type == "InternalIP")].address}`
 	res := kub.ExecShort(fmt.Sprintf("%s get nodes -l cilium.io/ci-node=%s -o jsonpath='%s'",
 		KubectlCmd, label, filter))
 	if !res.WasSuccessful() {
