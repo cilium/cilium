@@ -2363,6 +2363,11 @@ func (kub *Kubectl) ciliumControllersPreFlightCheck() error {
 }
 
 func (kub *Kubectl) ciliumHealthPreFlightCheck() error {
+	if integration := GetCurrentIntegration(); integration == CIIntegrationEKS {
+		ginkgoext.By("Skipping cilium-health --probe in EKS")
+		return nil
+	}
+
 	ginkgoext.By("Performing Cilium health check")
 	var nodesFilter = `{.nodes[*].name}`
 	var statusFilter = `{range .nodes[*]}{.name}{"="}{.host.primary-address.http.status}{"\n"}{end}`
