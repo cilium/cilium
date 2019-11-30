@@ -600,6 +600,9 @@ const (
 	// ENITags are the tags that will be added to every ENI created by the AWS ENI IPAM
 	ENITags = "eni-tags"
 
+	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2 API to fill out the instnacetype to adapter limit mapping
+	UpdateEC2AdapterLimitViaAPI = "update-ec2-apdater-limit-via-api"
+
 	// K8sClientQPSLimit is the queries per second limit for the K8s client. Defaults to k8s client defaults.
 	K8sClientQPSLimit = "k8s-client-qps"
 

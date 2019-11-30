@@ -16,9 +16,14 @@
 package eni
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
 // Limits specifies the ENI relevant instance limits
@@ -274,6 +279,50 @@ func UpdateLimitsFromUserDefinedMappings(m map[string]string) (err error) {
 		// Add or overwrite limits
 		limits[instanceType] = limit
 	}
+	return nil
+}
+
+// UpdateLimitsFromEC2API updates limits from the EC2 API
+// via calling https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeInstanceTypes.html
+func UpdateLimitsFromEC2API(ctx context.Context) error {
+	sess := session.Must(session.NewSession())
+
+	ec2Client := ec2.New(sess)
+
+	instanceTypeInfos := []*ec2.InstanceTypeInfo{}
+	describeInstanceTypes := &ec2.DescribeInstanceTypesInput{}
+	describeInstanceTypesResponse, err := ec2Client.DescribeInstanceTypesWithContext(ctx, describeInstanceTypes)
+	if err != nil {
+		return err
+	}
+
+	instanceTypeInfos = append(instanceTypeInfos, describeInstanceTypesResponse.InstanceTypes...)
+
+	for describeInstanceTypesResponse.NextToken != nil {
+		describeInstanceTypes := &ec2.DescribeInstanceTypesInput{
+			NextToken: describeInstanceTypesResponse.NextToken,
+		}
+		describeInstanceTypesResponse, err = ec2Client.DescribeInstanceTypesWithContext(ctx, describeInstanceTypes)
+		if err != nil {
+			return err
+		}
+
+		instanceTypeInfos = append(instanceTypeInfos, describeInstanceTypesResponse.InstanceTypes...)
+	}
+
+	for _, instanceTypeInfo := range instanceTypeInfos {
+		instnaceType := aws.StringValue(instanceTypeInfo.InstanceType)
+		adapterLimit := aws.Int64Value(instanceTypeInfo.NetworkInfo.MaximumNetworkInterfaces)
+		ipv4PerAdapter := aws.Int64Value(instanceTypeInfo.NetworkInfo.Ipv4AddressesPerInterface)
+		ipv6PerAdapter := aws.Int64Value(instanceTypeInfo.NetworkInfo.Ipv6AddressesPerInterface)
+
+		limits[instnaceType] = Limits{
+			Adapters: int(adapterLimit),
+			IPv4:     int(ipv4PerAdapter),
+			IPv6:     int(ipv6PerAdapter),
+		}
+	}
+
 	return nil
 }
 

@@ -143,6 +143,7 @@ func init() {
 	flags.Var(option.NewNamedMapOptions(option.AwsInstanceLimitMapping, &awsInstanceLimitMapping, nil),
 		option.AwsInstanceLimitMapping, "Add or overwrite mappings of AWS instance limit in the form of {\"AWS instance type\": \"Maximum Network Interfaces\",\"IPv4 Addresses per Interface\",\"IPv6 Addresses per Interface\"}. cli example: --aws-instance-limit-mapping=a1.medium=2,4,4 --aws-instance-limit-mapping=a2.somecustomflavor=4,5,6 configmap example: {\"a1.medium\": \"2,4,4\", \"a2.somecustomflavor\": \"4,5,6\"}")
 	option.BindEnv(option.AwsInstanceLimitMapping)
+	flags.Bool(option.UpdateEC2AdapterLimitViaAPI, false, "Use the EC2 API to update the instance type to adapter limits")
 
 	flags.Float32(option.K8sClientQPSLimit, defaults.K8sClientQPSLimit, "Queries per second limit for the K8s client")
 	flags.Int(option.K8sClientBurst, defaults.K8sClientBurst, "Burst value allowed for the K8s client")
@@ -255,6 +256,11 @@ func runOperator(cmd *cobra.Command) {
 	if enableENI {
 		if err := eni.UpdateLimitsFromUserDefinedMappings(awsInstanceLimitMapping); err != nil {
 			log.WithError(err).Fatal("Parse aws-instance-limit-mapping failed")
+		}
+		if viper.GetBool(option.UpdateEC2AdapterLimitViaAPI) {
+			if err := eni.UpdateLimitsFromEC2API(context.TODO()); err != nil {
+				log.WithError(err).Error("Unable to update instance type to adapter limits from EC2 API")
+			}
 		}
 		awsClientQPSLimit := viper.GetFloat64(option.AWSClientQPSLimit)
 		awsClientBurst := viper.GetInt(option.AWSClientBurst)
