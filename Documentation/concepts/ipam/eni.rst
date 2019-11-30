@@ -347,13 +347,28 @@ perform ENI creation and IP allocation:
  * ``ModifyNetworkInterface``
  * ``AssignPrivateIpAddresses``
 
- Additionally if the ENI tagging feature is enabled it will require the following EC2 API operation as well:
+Additionally if the ENI tagging feature is enabled it will require the following EC2 API operation as well:
 
  * ``CreateTags``
 
  If release excess IP enabled:
 
  * ``UnassignPrivateIpAddresses``
+
+*****************************
+EC2 instance types ENI limits
+*****************************
+
+Currently the EC2 Instance ENI limits (adapters per instance + IPv4/IPv6 IPs per adapter) are
+hardcoded in the Cilium codebase for easy out-of-the box deployment and usage.
+
+The limits can be modified via the ``--aws-instance-limit-mapping`` CLI flag on
+the cilium-operator. This allows the user to supply a custom limit.
+
+Additionally the limits can be updated via the EC2 API
+by passing the ``--update-ec2-apdater-limit-via-api`` CLI flag. This will require an additional EC2 IAM permission:
+
+ * ``DescribeInstanceTypes``
 
 *******
 Metrics
