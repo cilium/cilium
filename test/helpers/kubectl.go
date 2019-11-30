@@ -494,13 +494,14 @@ func (kub *Kubectl) GetNodeNameByLabelContext(ctx context.Context, label string)
 	res := kub.ExecShort(fmt.Sprintf("%s get nodes -l cilium.io/ci-node=%s -o jsonpath='%s'",
 		KubectlCmd, label, filter))
 	if !res.WasSuccessful() {
-		return "", fmt.Errorf("cannot retrieve node IP: %s", res.CombineOutput())
+		return "", fmt.Errorf("cannot retrieve node to read name: %s", res.CombineOutput())
 	}
 
-	out := strings.Trim(res.GetStdOut(), "\n")
+	out := strings.Trim(res.CombineOutput().String(), "\n")
 
 	if len(out) == 0 {
-		return "", fmt.Errorf("no matching node with label '%v'", label)
+		res = kub.ExecShort(fmt.Sprintf("%s get nodes  -o yaml", KubectlCmd))
+		return "", fmt.Errorf("no matching node to read name with label '%v' -> %s", label, res.CombineOutput())
 	}
 
 	return out, nil
@@ -513,12 +514,13 @@ func (kub *Kubectl) GetNodeIPByLabel(label string) (string, error) {
 	res := kub.ExecShort(fmt.Sprintf("%s get nodes -l cilium.io/ci-node=%s -o jsonpath='%s'",
 		KubectlCmd, label, filter))
 	if !res.WasSuccessful() {
-		return "", fmt.Errorf("cannot retrieve node IP: %s", res.CombineOutput())
+		return "", fmt.Errorf("cannot retrieve node to read IP: %s", res.CombineOutput())
 	}
 
 	out := strings.Trim(res.GetStdOut(), "\n")
 	if len(out) == 0 {
-		return "", fmt.Errorf("no matching node with label '%v'", label)
+		res = kub.ExecShort(fmt.Sprintf("%s get nodes  -o yaml", KubectlCmd))
+		return "", fmt.Errorf("no matching node to read IP with label '%v' -> %s", label, res.CombineOutput())
 	}
 
 	return out, nil
