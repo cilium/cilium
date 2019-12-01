@@ -7,7 +7,7 @@ pipeline {
 
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
-        GINKGO_TIMEOUT="108m"
+        GINKGO_TIMEOUT="208m"
         TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
         GOPATH="${WORKSPACE}"
         AWS_ACCESS_KEY_ID=credentials('eks-secret-key-id')
@@ -15,7 +15,7 @@ pipeline {
     }
 
     options {
-        timeout(time: 240, unit: 'MINUTES')
+        timeout(time: 340, unit: 'MINUTES')
         timestamps()
         ansiColor('xterm')
     }
@@ -101,7 +101,7 @@ pipeline {
         }
         stage ("BDD-Test-PR"){
             options {
-                timeout(time: 130, unit: 'MINUTES')
+                timeout(time: 230, unit: 'MINUTES')
             }
             environment {
                 FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
