@@ -36,7 +36,7 @@ type MockSuite struct{}
 var _ = check.Suite(&MockSuite{})
 
 func (e *MockSuite) TestMock(c *check.C) {
-	api := NewAPI([]*types.Subnet{{ID: "s-1", AvailableAddresses: 100}}, []*types.Vpc{{ID: "v-1"}})
+	api := NewAPI([]*types.Subnet{{ID: "s-1", AvailableAddresses: 100}}, []*types.Vpc{{ID: "v-1"}}, []*types.SecurityGroup{{ID: "sg-1"}})
 	c.Assert(api, check.Not(check.IsNil))
 
 	eniID1, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"})
@@ -75,7 +75,7 @@ func (e *MockSuite) TestMock(c *check.C) {
 }
 
 func (e *MockSuite) TestSetMockError(c *check.C) {
-	api := NewAPI([]*types.Subnet{}, []*types.Vpc{})
+	api := NewAPI([]*types.Subnet{}, []*types.Vpc{}, []*types.SecurityGroup{})
 	c.Assert(api, check.Not(check.IsNil))
 
 	mockError := errors.New("error")
@@ -106,7 +106,7 @@ func (e *MockSuite) TestSetMockError(c *check.C) {
 }
 
 func (e *MockSuite) TestSetDelay(c *check.C) {
-	api := NewAPI([]*types.Subnet{}, []*types.Vpc{})
+	api := NewAPI([]*types.Subnet{}, []*types.Vpc{}, []*types.SecurityGroup{})
 	c.Assert(api, check.Not(check.IsNil))
 
 	api.SetDelay(AllOperations, time.Second)
@@ -119,7 +119,7 @@ func (e *MockSuite) TestSetDelay(c *check.C) {
 }
 
 func (e *MockSuite) TestSetLimiter(c *check.C) {
-	api := NewAPI([]*types.Subnet{{ID: "s-1", AvailableAddresses: 100}}, []*types.Vpc{{ID: "v-1"}})
+	api := NewAPI([]*types.Subnet{{ID: "s-1", AvailableAddresses: 100}}, []*types.Vpc{{ID: "v-1"}}, []*types.SecurityGroup{{ID: "sg-1"}})
 	c.Assert(api, check.Not(check.IsNil))
 
 	api.SetLimiter(10.0, 2)

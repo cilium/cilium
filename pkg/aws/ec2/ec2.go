@@ -440,3 +440,45 @@ func createAWSTagSlice(tags map[string]string) []ec2.Tag {
 
 	return awsTags
 }
+
+func (c *Client) describeSecurityGroups(ctx context.Context) ([]ec2.SecurityGroup, error) {
+	c.rateLimit(ctx, "DescribeSecurityGroups")
+	sinceStart := spanstat.Start()
+	req := c.ec2Client.DescribeSecurityGroupsRequest(&ec2.DescribeSecurityGroupsInput{})
+	response, err := req.Send(ctx)
+	c.metricsAPI.ObserveEC2APICall("DescribeSecurityGroups", deriveStatus(req.Request, err), sinceStart.Seconds())
+	if err != nil {
+		return []ec2.SecurityGroup{}, err
+	}
+
+	return response.SecurityGroups, nil
+}
+
+// GetSecurityGroups returns all EC2 security groups as a SecurityGroupMap
+func (c *Client) GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, error) {
+	securityGroups := types.SecurityGroupMap{}
+
+	secGroupList, err := c.describeSecurityGroups(ctx)
+	if err != nil {
+		return securityGroups, err
+	}
+
+	for _, secGroup := range secGroupList {
+		id := aws.StringValue(secGroup.GroupId)
+
+		securityGroup := &types.SecurityGroup{
+			ID:    id,
+			VpcID: aws.StringValue(secGroup.VpcId),
+			Tags:  map[string]string{},
+		}
+		for _, tag := range secGroup.Tags {
+			key := aws.StringValue(tag.Key)
+			value := aws.StringValue(tag.Value)
+			securityGroup.Tags[key] = value
+		}
+
+		securityGroups[id] = securityGroup
+	}
+
+	return securityGroups, nil
+}
