@@ -21,14 +21,15 @@ import (
 
 	metricsmock "github.com/cilium/cilium/pkg/aws/eni/metrics/mock"
 	"github.com/cilium/cilium/pkg/aws/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
 	"gopkg.in/check.v1"
 )
 
 type instancesApiMock struct {
-	instancesIteration int
-	subnetsIteration   int
+	instancesIteration       int
+	subnetsIteration         int
+	securityGroupsIterations int
 }
 
 func (i *instancesApiMock) GetInstances(ctx context.Context, vpcs types.VpcMap, subnets types.SubnetMap) (m types.InstanceMap, err error) {
@@ -130,6 +131,46 @@ func (i *instancesApiMock) GetSubnets(ctx context.Context) (s types.SubnetMap, e
 	return
 }
 
+func (i *instancesApiMock) GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, error) {
+	i.securityGroupsIterations++
+
+	groups := types.SecurityGroupMap{}
+
+	groups["sg-1"] = &types.SecurityGroup{
+		ID:    "sg-1",
+		VpcID: "vpc-1",
+		Tags: map[string]string{
+			"k1": "v1",
+		},
+	}
+	groups["sg-2"] = &types.SecurityGroup{
+		ID:    "sg-2",
+		VpcID: "vpc-1",
+		Tags: map[string]string{
+			"k2": "v2",
+		},
+	}
+
+	if i.securityGroupsIterations > 1 {
+		groups["sg-3"] = &types.SecurityGroup{
+			ID:    "sg-3",
+			VpcID: "vpc-1",
+			Tags: map[string]string{
+				"k3": "v3",
+			},
+		}
+		groups["sg-4"] = &types.SecurityGroup{
+			ID:    "sg-4",
+			VpcID: "vpc-1",
+			Tags: map[string]string{
+				"k3": "v3",
+			},
+		}
+	}
+
+	return groups, nil
+}
+
 func (e *ENISuite) TestGetSubnet(c *check.C) {
 	mngr := NewInstancesManager(&instancesApiMock{}, metricsmock.NewMockMetrics())
 	c.Assert(mngr, check.Not(check.IsNil))
@@ -199,6 +240,44 @@ func (e *ENISuite) TestFindSubnetByTags(c *check.C) {
 
 	// invalid tags, no match
 	c.Assert(mngr.FindSubnetByTags("vpc-1", "us-west-1", types.Tags{"tag1": "unknown value"}), check.IsNil)
+}
+
+func (e *ENISuite) TestGetSecurityGroupByTags(c *check.C) {
+	mngr := NewInstancesManager(&instancesApiMock{}, metricsmock.NewMockMetrics())
+	c.Assert(mngr, check.Not(check.IsNil))
+
+	sgGroups := mngr.FindSecurityGroupByTags("vpc-1", map[string]string{
+		"k1": "v1",
+	})
+	c.Assert(sgGroups, check.HasLen, 0)
+
+	// iteration 1
+	mngr.Resync(context.TODO())
+	reqTags := types.Tags{
+		"k1": "v1",
+	}
+	sgGroups = mngr.FindSecurityGroupByTags("vpc-1", reqTags)
+	c.Assert(sgGroups, check.HasLen, 1)
+	c.Assert(sgGroups[0].Tags, check.DeepEquals, reqTags)
+
+	// iteration 2
+	mngr.Resync(context.TODO())
+	reqTags = types.Tags{
+		"k2": "v2",
+	}
+	sgGroups = mngr.FindSecurityGroupByTags("vpc-1", reqTags)
+	c.Assert(sgGroups, check.HasLen, 1)
+	c.Assert(sgGroups[0].Tags, check.DeepEquals, reqTags)
+
+	// iteration 3
+	mngr.Resync(context.TODO())
+	reqTags = types.Tags{
+		"k3": "v3",
+	}
+	sgGroups = mngr.FindSecurityGroupByTags("vpc-1", reqTags)
+	c.Assert(sgGroups, check.HasLen, 2)
+	c.Assert(sgGroups[0].Tags, check.DeepEquals, reqTags)
+	c.Assert(sgGroups[1].Tags, check.DeepEquals, reqTags)
 }
 
 func (e *ENISuite) TestGetENIs(c *check.C) {

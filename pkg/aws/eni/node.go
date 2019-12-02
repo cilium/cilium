@@ -23,7 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/math"
 	"github.com/cilium/cilium/pkg/option"
@@ -290,15 +290,37 @@ func (n *Node) ResourceCopy() *v2.CiliumNode {
 	return n.resource.DeepCopy()
 }
 
-func (n *Node) getSecurityGroups() (securityGroups []string) {
-	// When no security groups are provided, derive them from eth0
-	securityGroups = n.resource.Spec.ENI.SecurityGroups
-	if len(securityGroups) == 0 {
-		if eni := n.manager.instancesAPI.GetENI(n.resource.Spec.ENI.InstanceID, 0); eni != nil {
-			securityGroups = eni.SecurityGroups
+func (n *Node) getSecurityGroupIDs(ctx context.Context) ([]string, error) {
+	// 1. check explicit security groups associations via checking Spec.ENI.SecurityGroups
+	// 2. check if Spec.ENI.SecurityGroupTags is passed and if so filter by those
+	// 3. if 1 and 2 give no results derive the security groups from eth0
+
+	eniSpec := n.resource.Spec.ENI
+	if len(eniSpec.SecurityGroups) > 0 {
+		return eniSpec.SecurityGroups, nil
+	}
+
+	if len(eniSpec.SecurityGroupTags) > 0 {
+		securityGroups := n.manager.instancesAPI.FindSecurityGroupByTags(eniSpec.VpcID, eniSpec.SecurityGroupTags)
+		if len(securityGroups) == 0 {
+			n.loggerLocked().WithFields(logrus.Fields{
+				"vpcID": eniSpec.VpcID,
+				"tags":  eniSpec.SecurityGroupTags,
+			}).Warn("No security groups match required vpc id and tags, using eth0 security groups")
+		} else {
+			groups := make([]string, 0, len(securityGroups))
+			for _, secGroup := range securityGroups {
+				groups = append(groups, secGroup.ID)
+			}
+			return groups, nil
 		}
 	}
-	return
+
+	if eni := n.manager.instancesAPI.GetENI(n.resource.Spec.ENI.InstanceID, 0); eni != nil {
+		return eni.SecurityGroups, nil
+	}
+
+	return nil, fmt.Errorf("failed to get security group ids")
 }
 
 func (n *Node) errorInstanceNotRunning(err error) (notRunning bool) {
@@ -348,9 +370,14 @@ func (n *Node) findNextIndex(index int64) int64 {
 func (n *Node) allocateENI(ctx context.Context, s *types.Subnet, a *allocatableResources) error {
 	nodeResource := n.ResourceCopy()
 	n.mutex.RLock()
-	securityGroups := n.getSecurityGroups()
-	neededAddresses := n.stats.neededIPs
 
+	securityGroupIDs, err := n.getSecurityGroupIDs(ctx)
+	if err != nil {
+		n.mutex.RUnlock()
+		return fmt.Errorf("failed to get security groups for node %s: %s", n.name, err.Error())
+	}
+
+	neededAddresses := n.stats.neededIPs
 	desc := "Cilium-CNI (" + n.resource.Spec.ENI.InstanceID + ")"
 	toAllocate := int64(math.IntMin(neededAddresses+nodeResource.Spec.ENI.MaxAboveWatermark, a.limits.IPv4))
 	// Validate whether request has already been fulfilled in the meantime
@@ -362,14 +389,14 @@ func (n *Node) allocateENI(ctx context.Context, s *types.Subnet, a *allocatableR
 	index := n.findNextIndex(int64(nodeResource.Spec.ENI.FirstInterfaceIndex))
 
 	scopedLog := n.loggerLocked().WithFields(logrus.Fields{
-		"securityGroups": securityGroups,
-		"subnetID":       s.ID,
-		"addresses":      toAllocate,
+		"securityGroupIDs": securityGroupIDs,
+		"subnetID":         s.ID,
+		"addresses":        toAllocate,
 	})
 	scopedLog.Info("No more IPs available, creating new ENI")
 	n.mutex.RUnlock()
 
-	eniID, eni, err := n.manager.ec2API.CreateNetworkInterface(ctx, toAllocate, s.ID, desc, securityGroups)
+	eniID, eni, err := n.manager.ec2API.CreateNetworkInterface(ctx, toAllocate, s.ID, desc, securityGroupIDs)
 	if err != nil {
 		n.manager.metricsAPI.IncENIAllocationAttempt("ENI creation failed", s.ID)
 		return fmt.Errorf("unable to create ENI: %s", err)

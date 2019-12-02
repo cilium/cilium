@@ -41,6 +41,7 @@ type nodeManagerAPI interface {
 	GetSubnet(subnetID string) *types.Subnet
 	GetSubnets(ctx context.Context) types.SubnetMap
 	FindSubnetByTags(vpcID, availabilityZone string, required types.Tags) *types.Subnet
+	FindSecurityGroupByTags(vpcID string, required types.Tags) []*types.SecurityGroup
 	Resync(ctx context.Context) time.Time
 	UpdateENI(instanceID string, eni *v2.ENI)
 }

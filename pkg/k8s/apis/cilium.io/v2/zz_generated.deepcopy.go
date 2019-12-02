@@ -495,6 +495,13 @@ func (in *ENISpec) DeepCopyInto(out *ENISpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.SecurityGroupTags != nil {
+		in, out := &in.SecurityGroupTags, &out.SecurityGroupTags
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	if in.SubnetTags != nil {
 		in, out := &in.SubnetTags, &out.SubnetTags
 		*out = make(map[string]string, len(*in))
