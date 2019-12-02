@@ -23,7 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/math"
 	"github.com/cilium/cilium/pkg/option"
@@ -281,15 +281,30 @@ func (n *Node) ResourceCopy() *v2.CiliumNode {
 	return n.resource.DeepCopy()
 }
 
-func (n *Node) getSecurityGroups() (securityGroups []string) {
-	// When no security groups are provided, derive them from eth0
-	securityGroups = n.resource.Spec.ENI.SecurityGroups
-	if len(securityGroups) == 0 {
-		if eni := n.manager.instancesAPI.GetENI(n.resource.Spec.ENI.InstanceID, 0); eni != nil {
-			securityGroups = eni.SecurityGroups
-		}
+func (n *Node) getSecurityGroups(ctx context.Context) ([]string, error) {
+	// 1. check explicit security groups associations via checking Spec.ENI.SecurityGroups
+	// 2. check if Spec.ENI.SecurityGroupTags is passed and if so filter by those
+	// 3. if 1 and 2 give no results derive the security groups from eth0
+
+	eniSpec := n.resource.Spec.ENI
+	if len(eniSpec.SecurityGroups) > 0 {
+		return eniSpec.SecurityGroups, nil
 	}
-	return
+
+	if len(eniSpec.SecurityGroupTags) > 0 {
+		securityGroups, err := n.manager.ec2API.ListSecurityGroupIDsByTags(ctx, eniSpec.SecurityGroupTags)
+		if err != nil {
+			return []string{}, err
+		}
+
+		return securityGroups, nil
+	}
+
+	if eni := n.manager.instancesAPI.GetENI(n.resource.Spec.ENI.InstanceID, 0); eni != nil {
+		return eni.SecurityGroups, nil
+	}
+
+	return nil, fmt.Errorf("failed to get security groups")
 }
 
 func (n *Node) errorInstanceNotRunning(err error) (notRunning bool) {
@@ -339,9 +354,14 @@ func (n *Node) findNextIndex(index int64) int64 {
 func (n *Node) allocateENI(ctx context.Context, s *types.Subnet, a *allocatableResources) error {
 	nodeResource := n.ResourceCopy()
 	n.mutex.RLock()
-	securityGroups := n.getSecurityGroups()
-	neededAddresses := n.stats.neededIPs
 
+	securityGroups, err := n.getSecurityGroups(ctx)
+	if err != nil {
+		n.mutex.RUnlock()
+		return fmt.Errorf("failed to get security groups for node %s: %s", n.name, err.Error())
+	}
+
+	neededAddresses := n.stats.neededIPs
 	desc := "Cilium-CNI (" + n.resource.Spec.ENI.InstanceID + ")"
 	toAllocate := int64(math.IntMin(neededAddresses+nodeResource.Spec.ENI.MaxAboveWatermark, a.limits.IPv4))
 	// Validate whether request has already been fulfilled in the meantime

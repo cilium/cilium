@@ -53,6 +53,7 @@ type ec2API interface {
 	AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int64) error
 	UnassignPrivateIpAddresses(ctx context.Context, eniID string, addresses []string) error
 	TagENI(ctx context.Context, eniID string, eniTags map[string]string) error
+	ListSecurityGroupIDsByTags(ctx context.Context, securityGroupTags map[string]string) ([]string, error)
 }
 
 type metricsAPI interface {

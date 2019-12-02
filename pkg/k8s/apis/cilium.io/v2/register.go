@@ -408,6 +408,10 @@ func createNodeCRD(clientset apiextensionsclient.Interface) error {
 												},
 											},
 										},
+										"security-group-tags": {
+											Type:        "object",
+											Description: "security-group-tags represents a filter to narrow down the security group ids which will be attached on the allocated ENI",
+										},
 										"subnet-tags": {
 											Type:        "object",
 											Description: "subnet-tags represents a filter to narrow down the available subnets in which the ENI will be allocated",

@@ -440,3 +440,40 @@ func createAWSTagSlice(tags map[string]string) []ec2.Tag {
 
 	return awsTags
 }
+
+func createAWSTagsFilterSlice(tags map[string]string) []ec2.Filter {
+	awsFilters := make([]ec2.Filter, 0, len(tags))
+	for k, v := range tags {
+		awsFilter := ec2.Filter{
+			Name:   aws.String(fmt.Sprintf("tag:%s", k)),
+			Values: []string{v},
+		}
+		awsFilters = append(awsFilters, awsFilter)
+	}
+
+	return awsFilters
+}
+
+func (c *Client) ListSecurityGroupIDsByTags(ctx context.Context, tags map[string]string) ([]string, error) {
+	awsTagsFilter := createAWSTagsFilterSlice(tags)
+	request := ec2.DescribeSecurityGroupsInput{
+		Filters: awsTagsFilter,
+	}
+
+	c.rateLimit(ctx, "DescribeSecurityGroups")
+	sinceStart := spanstat.Start()
+	req := c.ec2Client.DescribeSecurityGroupsRequest(&request)
+	response, err := req.Send(ctx)
+	c.metricsAPI.ObserveEC2APICall("DescribeSecurityGroups", deriveStatus(req.Request, err), sinceStart.Seconds())
+
+	if err != nil {
+		return []string{}, err
+	}
+
+	securityGroupIDs := make([]string, 0, len(response.SecurityGroups))
+	for _, securityGroup := range response.SecurityGroups {
+		securityGroupIDs = append(securityGroupIDs, aws.StringValue(securityGroup.GroupId))
+	}
+
+	return securityGroupIDs, nil
+}
