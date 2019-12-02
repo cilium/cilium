@@ -245,6 +245,8 @@ func (c *Client) GetVpcs(ctx context.Context) (types.VpcMap, error) {
 
 // describeSubnets lists all subnets
 func (c *Client) describeSubnets(ctx context.Context) ([]ec2.Subnet, error) {
+	c.rateLimit(ctx, "DescribeSubnets")
+
 	sinceStart := spanstat.Start()
 	listReq := c.ec2Client.DescribeSubnetsRequest(&ec2.DescribeSubnetsInput{})
 	result, err := listReq.Send(ctx)
