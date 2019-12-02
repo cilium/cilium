@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/cache"
 )
@@ -57,16 +56,6 @@ func CopyObjToV1Endpoints(obj interface{}) *types.Endpoints {
 		return nil
 	}
 	return ep.DeepCopy()
-}
-
-func CopyObjToV1beta1Ingress(obj interface{}) *types.Ingress {
-	ing, ok := obj.(*types.Ingress)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s v1beta1 Ingress")
-		return nil
-	}
-	return ing.DeepCopy()
 }
 
 func CopyObjToV2CNP(obj interface{}) *types.SlimCNP {
@@ -142,23 +131,6 @@ func EqualV1Endpoints(ep1, ep2 *types.Endpoints) bool {
 	return ep1.Name == ep2.Name &&
 		ep1.Namespace == ep2.Namespace &&
 		reflect.DeepEqual(ep1.Subsets, ep2.Subsets)
-}
-
-func EqualV1beta1Ingress(ing1, ing2 *types.Ingress) bool {
-	if ing1.Name != ing2.Name || ing1.Namespace != ing2.Namespace {
-		return false
-	}
-	switch {
-	case (ing1.Spec.Backend == nil) != (ing2.Spec.Backend == nil):
-		return false
-	case (ing1.Spec.Backend == nil) && (ing2.Spec.Backend == nil):
-		return true
-	}
-
-	return ing1.Spec.Backend.ServicePort.IntVal ==
-		ing2.Spec.Backend.ServicePort.IntVal &&
-		ing1.Spec.Backend.ServicePort.StrVal ==
-			ing2.Spec.Backend.ServicePort.StrVal
 }
 
 func EqualV2CNP(cnp1, cnp2 *types.SlimCNP) bool {
@@ -362,34 +334,6 @@ func ConvertToK8sEndpoints(obj interface{}) interface{} {
 			Key: concreteObj.Key,
 			Obj: &types.Endpoints{
 				Endpoints: eps,
-			},
-		}
-	default:
-		return obj
-	}
-}
-
-// ConvertToIngress converts a *v1beta1.Ingress into a
-// *types.Ingress or a cache.DeletedFinalStateUnknown into
-// a cache.DeletedFinalStateUnknown with a *types.Ingress in its Obj.
-// If the given obj can't be cast into either *v1beta1.Ingress
-// nor cache.DeletedFinalStateUnknown, the original obj is returned.
-func ConvertToIngress(obj interface{}) interface{} {
-	// TODO check which fields we really need
-	switch concreteObj := obj.(type) {
-	case *v1beta1.Ingress:
-		return &types.Ingress{
-			Ingress: concreteObj,
-		}
-	case cache.DeletedFinalStateUnknown:
-		ingrss, ok := concreteObj.Obj.(*v1beta1.Ingress)
-		if !ok {
-			return obj
-		}
-		return cache.DeletedFinalStateUnknown{
-			Key: concreteObj.Key,
-			Obj: &types.Ingress{
-				Ingress: ingrss,
 			},
 		}
 	default:
