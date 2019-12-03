@@ -21,14 +21,15 @@ import (
 
 	metricsmock "github.com/cilium/cilium/pkg/aws/eni/metrics/mock"
 	"github.com/cilium/cilium/pkg/aws/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
 	"gopkg.in/check.v1"
 )
 
 type instancesApiMock struct {
-	instancesIteration int
-	subnetsIteration   int
+	instancesIteration       int
+	subnetsIteration         int
+	securityGroupsIterations int
 }
 
 func (i *instancesApiMock) GetInstances(ctx context.Context, vpcs types.VpcMap, subnets types.SubnetMap) (m types.InstanceMap, err error) {
@@ -130,6 +131,48 @@ func (i *instancesApiMock) GetSubnets(ctx context.Context) (s types.SubnetMap, e
 	return
 }
 
+func (i *instancesApiMock) GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, error) {
+	i.securityGroupsIterations++
+
+	groups := types.SecurityGroupMap{}
+
+	// s["subnet-1"] = &types.Subnet{
+	// 	ID:                 "subnet-1",
+	// 	CIDR:               "",
+	// 	AvailableAddresses: 10,
+	// 	VpcID:              "vpc-1",
+	// 	AvailabilityZone:   "us-west-1",
+	// 	Tags: map[string]string{
+	// 		"tag1": "tag1",
+	// 	},
+	// }
+
+	// s["subnet-2"] = &types.Subnet{
+	// 	ID:                 "subnet-2",
+	// 	CIDR:               "",
+	// 	AvailableAddresses: 20,
+	// 	VpcID:              "vpc-2",
+	// 	AvailabilityZone:   "us-east-1",
+	// 	Tags: map[string]string{
+	// 		"tag1": "tag1",
+	// 	},
+	// }
+
+	// if i.subnetsIteration > 1 {
+	// 	s["subnet-3"] = &types.Subnet{
+	// 		ID:                 "subnet-3",
+	// 		CIDR:               "",
+	// 		AvailableAddresses: 0,
+	// 		VpcID:              "vpc-1",
+	// 		AvailabilityZone:   "us-west-1",
+	// 		Tags: map[string]string{
+	// 			"tag2": "tag2",
+	// 		},
+	// 	}
+	// }
+
+	return groups, nil
+}
 func (e *ENISuite) TestGetSubnet(c *check.C) {
 	mngr := NewInstancesManager(&instancesApiMock{}, metricsmock.NewMockMetrics())
 	c.Assert(mngr, check.Not(check.IsNil))

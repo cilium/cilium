@@ -66,6 +66,17 @@ type Vpc struct {
 	PrimaryCIDR string
 }
 
+type SecurityGroup struct {
+	// ID is the SecurityGroup ID
+	ID string
+
+	// VpcID is the VPC ID in which the security group resides
+	VpcID string
+
+	// Tags are the tags of the security group
+	Tags Tags
+}
+
 // instance is the minimal representation of an AWS instance as needed by the
 // ENI allocator
 type instance struct {
@@ -120,3 +131,6 @@ type SubnetMap map[string]*Subnet
 
 // VpcMap indexes AWS VPCs by VPC ID
 type VpcMap map[string]*Vpc
+
+// SecurityGroupMap indexes AWS Security Groups by security group ID
+type SecurityGroupMap map[string]*SecurityGroup

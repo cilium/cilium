@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/aws/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/sirupsen/logrus"
@@ -30,6 +30,7 @@ type instanceAPI interface {
 	GetInstances(ctx context.Context, vpcs types.VpcMap, subnets types.SubnetMap) (types.InstanceMap, error)
 	GetSubnets(ctx context.Context) (types.SubnetMap, error)
 	GetVpcs(ctx context.Context) (types.VpcMap, error)
+	GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, error)
 }
 
 // instance is the minimal representation of an AWS instance as needed by the
@@ -43,12 +44,13 @@ type instance struct {
 // InstancesManager maintains the list of instances. It must be kept up to date
 // by calling resync() regularly.
 type InstancesManager struct {
-	mutex      lock.RWMutex
-	instances  types.InstanceMap
-	subnets    types.SubnetMap
-	vpcs       types.VpcMap
-	api        instanceAPI
-	metricsAPI metricsAPI
+	mutex          lock.RWMutex
+	instances      types.InstanceMap
+	subnets        types.SubnetMap
+	vpcs           types.VpcMap
+	securityGroups types.SecurityGroupMap
+	api            instanceAPI
+	metricsAPI     metricsAPI
 }
 
 // NewInstancesManager returns a new instances manager
@@ -104,6 +106,23 @@ func (m *InstancesManager) FindSubnetByTags(vpcID, availabilityZone string, requ
 	return
 }
 
+// FindSecurityGroupByTags returns the security groups matching VPC ID and all required tags
+//
+// The returned security groups slice is immutable so it can be safely accessed
+func (m *InstancesManager) FindSecurityGroupByTags(vpcID string, required types.Tags) []*types.SecurityGroup {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	securityGroups := []*types.SecurityGroup{}
+	for _, securityGroup := range m.securityGroups {
+		if securityGroup.VpcID == vpcID && securityGroup.Tags.Match(required) {
+			securityGroups = append(securityGroups, securityGroup)
+		}
+	}
+
+	return securityGroups
+}
+
 // Resync fetches the list of EC2 instances and subnets and updates the local
 // cache in the instanceManager. It returns the time when the resync has
 // started or time.Time{} if it did not complete.
@@ -124,6 +143,12 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 		return time.Time{}
 	}
 
+	securityGroups, err := m.api.GetSecurityGroups(ctx)
+	if err != nil {
+		log.WithError(err).Warning("Unable to retrieve EC2 security group list")
+		return time.Time{}
+	}
+
 	instances, err := m.api.GetInstances(ctx, vpcs, subnets)
 	if err != nil {
 		log.WithError(err).Warning("Unable to synchronize EC2 interface list")
@@ -131,15 +156,17 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 	}
 
 	log.WithFields(logrus.Fields{
-		"numENIs":    len(instances),
-		"numVPCs":    len(vpcs),
-		"numSubnets": len(subnets),
+		"numENIs":           len(instances),
+		"numVPCs":           len(vpcs),
+		"numSubnets":        len(subnets),
+		"numSecurityGroups": len(securityGroups),
 	}).Info("Synchronized ENI information")
 
 	m.mutex.Lock()
 	m.instances = instances
 	m.subnets = subnets
 	m.vpcs = vpcs
+	m.securityGroups = securityGroups
 	m.mutex.Unlock()
 
 	return resyncStart

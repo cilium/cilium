@@ -402,6 +402,6 @@ func (e *API) TagENI(ctx context.Context, eniID string, eniTags map[string]strin
 	return nil
 }
 
-func (e *API) ListSecurityGroupIDsByTags(ctx context.Context, securityGroupTags map[string]string) ([]string, error) {
-	return []string{}, nil
+func (e *API) GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, error) {
+	return nil, nil
 }
