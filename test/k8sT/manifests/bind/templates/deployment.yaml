@@ -19,8 +19,8 @@ data:
     @               IN NS server
 
     server.cilium.test. IN A 127.0.0.1
-    world1.cilium.test. IN A 192.168.9.10
-    world2.cilium.test. IN A 192.168.9.11
+    world1.cilium.test. IN A {{ .Values.world1 }}
+    world2.cilium.test. IN A {{ .Values.world2 }}
 
   named.conf: |
     options {
@@ -108,7 +108,7 @@ metadata:
 spec:
   selector:
     zgroup: bind
-  clusterIP: 10.96.0.100
+  {{ if .Values.clusterIP }}clusterIP: {{ .Values.clusterIP }}{{ end }}
   ports:
   - name: dns
     port: 53
