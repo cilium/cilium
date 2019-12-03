@@ -112,11 +112,11 @@ func ExpectCiliumPreFlightInstallReady(vm *helpers.Kubectl) {
 
 // DeployCiliumAndDNS deploys DNS and cilium into the kubernetes cluster
 func DeployCiliumAndDNS(vm *helpers.Kubectl) {
-	DeployCiliumOptionsAndDNS(vm, []string{})
+	DeployCiliumOptionsAndDNS(vm, map[string]string{})
 }
 
 // DeployCiliumOptionsAndDNS deploys DNS and cilium with options into the kubernetes cluster
-func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, options []string) {
+func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, options map[string]string) {
 	By("Installing Cilium")
 	err := vm.CiliumInstall(options)
 	Expect(err).To(BeNil(), "Cilium cannot be installed")
