@@ -430,9 +430,9 @@ var _ = Describe("K8sServicesTest", func() {
 				Context("Tests with vxlan", func() {
 					BeforeAll(func() {
 						deleteCiliumDS(kubectl)
-						DeployCiliumOptionsAndDNS(kubectl, []string{
-							"--set global.nodePort.enabled=true",
-							"--set global.nodePort.device=" + nativeDev,
+						DeployCiliumOptionsAndDNS(kubectl, map[string]string{
+							"global.nodePort.enabled": "true",
+							"global.nodePort.device":  nativeDev,
 						})
 					})
 
@@ -448,11 +448,11 @@ var _ = Describe("K8sServicesTest", func() {
 				Context("Tests with direct routing", func() {
 					BeforeAll(func() {
 						deleteCiliumDS(kubectl)
-						DeployCiliumOptionsAndDNS(kubectl, []string{
-							"--set global.nodePort.enabled=true",
-							"--set global.nodePort.device=" + nativeDev,
-							"--set global.tunnel=disabled",
-							"--set global.autoDirectNodeRoutes=true",
+						DeployCiliumOptionsAndDNS(kubectl, map[string]string{
+							"global.nodePort.enabled":     "true",
+							"global.nodePort.device":      nativeDev,
+							"global.tunnel":               "disabled",
+							"global.autoDirectNodeRoutes": "true",
 						})
 					})
 
@@ -492,12 +492,12 @@ var _ = Describe("K8sServicesTest", func() {
 
 				It("Tests with direct routing and DSR", func() {
 					deleteCiliumDS(kubectl)
-					DeployCiliumOptionsAndDNS(kubectl, []string{
-						"--set global.nodePort.enabled=true",
-						"--set global.nodePort.device=" + nativeDev,
-						"--set global.nodePort.mode=dsr",
-						"--set global.tunnel=disabled",
-						"--set global.autoDirectNodeRoutes=true",
+					DeployCiliumOptionsAndDNS(kubectl, map[string]string{
+						"global.nodePort.enabled":     "true",
+						"global.nodePort.device":      nativeDev,
+						"global.nodePort.mode":        "dsr",
+						"global.tunnel":               "disabled",
+						"global.autoDirectNodeRoutes": "true",
 					})
 
 					var data v1.Service

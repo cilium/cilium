@@ -1309,19 +1309,14 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 	return nil
 }
 
-func addIfNotOverwritten(options []string, field, value string) []string {
-	for _, s := range options {
-		if strings.HasPrefix(s, "--set "+field) {
-			return options
-		}
+func addIfNotOverwritten(options map[string]string, field, value string) map[string]string {
+	if _, ok := options[field]; !ok {
+		options[field] = value
 	}
-
-	options = append(options, "--set "+field+"="+value)
 	return options
 }
 
-func (kub *Kubectl) generateCiliumYaml(options []string, filename string) error {
-
+func (kub *Kubectl) generateCiliumYaml(options map[string]string, filename string) error {
 	for key, value := range defaultHelmOptions {
 		options = addIfNotOverwritten(options, key, value)
 	}
@@ -1357,17 +1352,15 @@ func (kub *Kubectl) generateCiliumYaml(options []string, filename string) error 
 
 	if integration := GetCurrentIntegration(); integration != "" {
 		overrides := helmOverrides[integration]
-		// Appending the options will override earlier options on CLI.
 		for k, v := range overrides {
-			options = append(options, fmt.Sprintf("--set %s=%s", k, v))
+			options[k] = v
 		}
 	}
 
 	// TODO GH-8753: Use helm rendering library instead of shelling out to
 	// helm template
 	helmTemplate := kub.GetFilePath(HelmTemplate)
-	res := kub.ExecMiddle(fmt.Sprintf("helm template %s --namespace=kube-system %s > %s",
-		helmTemplate, strings.Join(options, " "), filename))
+	res := kub.HelmTemplate(helmTemplate, "kube-system", filename, options)
 	if !res.WasSuccessful() {
 		return res.GetErr("Unable to generate YAML")
 	}
@@ -1376,7 +1369,7 @@ func (kub *Kubectl) generateCiliumYaml(options []string, filename string) error 
 }
 
 // ciliumInstallHelm installs Cilium with the Helm options provided.
-func (kub *Kubectl) ciliumInstallHelm(options []string) error {
+func (kub *Kubectl) ciliumInstallHelm(options map[string]string) error {
 	if err := kub.generateCiliumYaml(options, "cilium.yaml"); err != nil {
 		return err
 	}
@@ -1390,7 +1383,7 @@ func (kub *Kubectl) ciliumInstallHelm(options []string) error {
 }
 
 // ciliumUninstallHelm uninstalls Cilium with the Helm options provided.
-func (kub *Kubectl) ciliumUninstallHelm(options []string) error {
+func (kub *Kubectl) ciliumUninstallHelm(options map[string]string) error {
 	if err := kub.generateCiliumYaml(options, "cilium.yaml"); err != nil {
 		return err
 	}
@@ -1404,12 +1397,12 @@ func (kub *Kubectl) ciliumUninstallHelm(options []string) error {
 }
 
 // CiliumInstall installs Cilium with the provided Helm options.
-func (kub *Kubectl) CiliumInstall(options []string) error {
+func (kub *Kubectl) CiliumInstall(options map[string]string) error {
 	return kub.ciliumInstallHelm(options)
 }
 
 // CiliumUninstall uninstalls Cilium with the provided Helm options.
-func (kub *Kubectl) CiliumUninstall(options []string) error {
+func (kub *Kubectl) CiliumUninstall(options map[string]string) error {
 	return kub.ciliumUninstallHelm(options)
 }
 
@@ -2867,6 +2860,19 @@ func (kub *Kubectl) reportMapHost(ctx context.Context, path string, reportCmds m
 			log.WithError(err).Errorf("cannot create test results for command '%s'", cmd)
 		}
 	}
+}
+
+// HelmTemplate renders given helm template. TODO: use go helm library for that
+func (kub *Kubectl) HelmTemplate(chartDir, namespace, filename string, options map[string]string) *CmdRes {
+	optionsString := ""
+
+	for k, v := range options {
+		optionsString += fmt.Sprintf(" --set %s=%s ", k, v)
+	}
+
+	return kub.ExecMiddle("helm template " +
+		chartDir + " " +
+		fmt.Sprintf("--namespace=%s %s > %s", namespace, optionsString, filename))
 }
 
 func serviceKey(s v1.Service) string {

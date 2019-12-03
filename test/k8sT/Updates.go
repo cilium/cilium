@@ -130,8 +130,8 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		ExpectAllPodsTerminated(kubectl)
 
 		// make sure we clean everything up before doing any other test
-		err := kubectl.CiliumInstall([]string{
-			"--set global.cleanState=true",
+		err := kubectl.CiliumInstall(map[string]string{
+			"global.cleanState": "true",
 		})
 
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", newVersion)
@@ -142,7 +142,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 			log.Warningf("Unable to delete CoreDNS deployment: %s", res.OutputPrettyPrint())
 		}
 
-		if err := kubectl.CiliumUninstall([]string{}); err != nil {
+		if err := kubectl.CiliumUninstall(map[string]string{}); err != nil {
 			log.WithError(err).Warning("Unable to uninstall Cilium")
 		}
 	}
@@ -323,14 +323,13 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 
 		By("Install Cilium pre-flight check DaemonSet")
 		helmTemplate := filepath.Join(kubectl.BasePath(), helpers.HelmTemplate)
-		res = kubectl.ExecMiddle("helm template " +
-			helmTemplate + " " +
-			"--namespace=kube-system " +
-			"--set preflight.enabled=true " +
-			"--set agent.enabled=false " +
-			"--set config.enabled=false " +
-			"--set operator.enabled=false " +
-			"> cilium-preflight.yaml")
+		opts := map[string]string{
+			"preflight.enabled": "true ",
+			"agent.enabled":     "false ",
+			"config.enabled":    "false ",
+			"operator.enabled":  "false ",
+		}
+		res = kubectl.HelmTemplate(helmTemplate, "kube-system", "cilium-preflight.yaml", opts)
 		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "Unable to generate preflight YAML")
 
 		res = kubectl.ApplyDefault("cilium-preflight.yaml")
@@ -345,10 +344,10 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		// kvstore-based allocator to CRD-based allocator is not currently
 		// supported at this time.
 		By("Installing Cilium using kvstore-based allocator")
-		err = kubectl.CiliumInstall([]string{
-			"--set global.identityAllocationMode=kvstore",
-			"--set global.etcd.enabled=true",
-			"--set global.etcd.managed=true",
+		err = kubectl.CiliumInstall(map[string]string{
+			"global.identityAllocationMode": "kvstore",
+			"global.etcd.enabled":           "true",
+			"global.etcd.managed":           "true",
 		})
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", newVersion)
 
