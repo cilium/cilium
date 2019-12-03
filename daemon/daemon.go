@@ -292,8 +292,10 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	}
 
 	identity.UpdateReservedIdentitiesMetrics()
-	// Must be done before calling policy.NewPolicyRepository() below.
-	identity.InitWellKnownIdentities()
+	if option.Config.EnableWellKnownIdentities {
+		// Must be done before calling policy.NewPolicyRepository() below.
+		identity.InitWellKnownIdentities()
+	}
 
 	nd := nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig, netConf)
 

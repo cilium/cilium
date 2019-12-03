@@ -301,3 +301,7 @@ global:
 
   daemon:
     runPath: "/var/run/cilium"
+
+  wellKnownIdentities:
+    # enabled enables the use of well-known identities
+    enabled: false

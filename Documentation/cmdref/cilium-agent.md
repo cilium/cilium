@@ -65,6 +65,7 @@ cilium-agent [flags]
       --enable-node-port                                      Enable NodePort type services by Cilium (beta)
       --enable-policy string                                  Enable policy enforcement (default "default")
       --enable-tracing                                        Enable tracing while determining policy (debugging)
+      --enable-well-known-identities                          Enable well-known identities for known Kubernetes components (default true)
       --encrypt-interface string                              Transparent encryption interface
       --encrypt-node                                          Enables encrypting traffic from non-Cilium pods and host networking
       --endpoint-interface-name-prefix string                 Prefix of interface name shared by all endpoints (default "lxc+")

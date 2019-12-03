@@ -296,3 +296,8 @@ data:
   # Chaining mode was enabled, disabling health checking
   enable-endpoint-health-checking: "false"
 {{- end }}
+{{- if or .Values.global.wellKnownIdentities.enabled .Values.global.etcd.managed }}
+  enable-well-known-identities: "true"
+{{- else }}
+  enable-well-known-identities: "false"
+{{- end }}
