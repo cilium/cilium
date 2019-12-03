@@ -120,7 +120,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		Expect(err).To(BeNil(), "Cannot get pods ips")
 	}
 
-	deployCilium := func(options []string) {
+	deployCilium := func(options map[string]string) {
 		DeployCiliumOptionsAndDNS(kubectl, options)
 
 		err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
@@ -136,11 +136,11 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	Context("MonitorAggregation", func() {
 		It("Checks that monitor aggregation restricts notifications", func() {
-			deployCilium([]string{
-				"--set global.bpf.monitorAggregation=medium",
-				"--set global.bpf.monitorInterval=60s",
-				"--set global.bpf.monitorFlags=syn",
-				"--set global.debug.enabled=false",
+			deployCilium(map[string]string{
+				"global.bpf.monitorAggregation": "medium",
+				"global.bpf.monitorInterval":    "60s",
+				"global.bpf.monitorFlags":       "syn",
+				"global.debug.enabled":          "false",
 			})
 			monitorOutput, targetIP := monitorConnectivityAcrossNodes(kubectl, monitorLog)
 
@@ -172,11 +172,11 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 
 		It("Checks that monitor aggregation flags send notifications", func() {
-			deployCilium([]string{
-				"--set global.bpf.monitorAggregation=medium",
-				"--set global.bpf.monitorInterval=60s",
-				"--set global.bpf.monitorFlags=psh",
-				"--set global.debug.enabled=false",
+			deployCilium(map[string]string{
+				"global.bpf.monitorAggregation": "medium",
+				"global.bpf.monitorInterval":    "60s",
+				"global.bpf.monitorFlags":       "psh",
+				"global.debug.enabled":          "false",
 			})
 			monitorOutput, _ := monitorConnectivityAcrossNodes(kubectl, monitorLog)
 
@@ -218,8 +218,8 @@ var _ = Describe("K8sDatapathConfig", func() {
 				return
 			}
 
-			deployCilium([]string{
-				"--set global.encryption.enabled=true",
+			deployCilium(map[string]string{
+				"global.encryption.enabled": "true",
 			})
 			validateBPFTunnelMap()
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test with IPsec between nodes failed")
@@ -227,8 +227,8 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		It("Check connectivity with sockops and VXLAN encapsulation", func() {
 			// Note if run on kernel without sockops feature is ignored
-			deployCilium([]string{
-				"--set global.sockops.enabled=true",
+			deployCilium(map[string]string{
+				"global.sockops.enabled": "true",
 			})
 			validateBPFTunnelMap()
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
@@ -236,16 +236,16 @@ var _ = Describe("K8sDatapathConfig", func() {
 		}, 600)
 
 		It("Check connectivity with VXLAN encapsulation", func() {
-			deployCilium([]string{
-				"--set global.tunnel=vxlan",
+			deployCilium(map[string]string{
+				"global.tunnel": "vxlan",
 			})
 			validateBPFTunnelMap()
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		}, 600)
 
 		It("Check connectivity with Geneve encapsulation", func() {
-			deployCilium([]string{
-				"--set global.tunnel=geneve",
+			deployCilium(map[string]string{
+				"global.tunnel": "geneve",
 			})
 			validateBPFTunnelMap()
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
@@ -254,8 +254,8 @@ var _ = Describe("K8sDatapathConfig", func() {
 		It("Check vxlan connectivity with per endpoint routes", func() {
 			Skip("Encapsulation mode is not supported with per-endpoint routes")
 
-			deployCilium([]string{
-				"--set global.autoDirectNodeRoutes=true",
+			deployCilium(map[string]string{
+				"global.autoDirectNodeRoutes": "true",
 			})
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
@@ -263,9 +263,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	Context("DirectRouting", func() {
-		directRoutingOptions := []string{
-			"--set global.tunnel=disabled",
-			"--set global.autoDirectNodeRoutes=true",
+		directRoutingOptions := map[string]string{
+			"global.tunnel":               "disabled",
+			"global.autoDirectNodeRoutes": "true",
 		}
 
 		It("Check connectivity with automatic direct nodes routes", func() {
@@ -278,16 +278,15 @@ var _ = Describe("K8sDatapathConfig", func() {
 		It("Check direct connectivity with per endpoint routes", func() {
 			SkipIfIntegration(helpers.CIIntegrationFlannel)
 
-			deployCilium(append(directRoutingOptions,
-				"--set global.endpointRoutes.enabled=true",
-			))
+			directRoutingOptions["global.endpointRoutes.enabled"] = "true"
+			deployCilium(directRoutingOptions)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
 
 		It("Check connectivity with sockops and direct routing", func() {
 			// Note if run on kernel without sockops feature is ignored
-			deployCilium([]string{
-				"--set global.sockops.enabled=true",
+			deployCilium(map[string]string{
+				"global.sockops.enabled": "true",
 			})
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			Expect(testPodConnectivitySameNodes(kubectl)).Should(BeTrue(), "Connectivity test on same node failed")
@@ -296,10 +295,17 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	Context("Sockops performance", func() {
-		directRoutingOptions := []string{
-			"--set global.tunnel=disabled",
-			"--set global.autoDirectNodeRoutes=true",
+		directRoutingOptions := map[string]string{
+			"global.tunnel":               "disabled",
+			"global.autoDirectNodeRoutes": "true",
 		}
+
+		sockopsEnabledOptions := map[string]string{}
+		for k, v := range directRoutingOptions {
+			sockopsEnabledOptions[k] = v
+		}
+
+		sockopsEnabledOptions["global.sockops.enabled"] = "true"
 
 		BeforeEach(func() {
 			SkipIfBenchmark()
@@ -338,32 +344,32 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		It("Check performance with sockops and direct routing", func() {
 			Skip("Skipping TCP_CRR until fix reaches upstream")
-			deployCilium(append(directRoutingOptions, "--set global.sockops.enabled=true"))
+			deployCilium(sockopsEnabledOptions)
 			deployNetperf()
 			Expect(testPodNetperfSameNodes(kubectl, helpers.TCP_CRR)).Should(BeTrue(), "Connectivity test TCP_CRR on same node failed")
 		}, 600)
 
 		It("Check performance with sockops and direct routing", func() {
-			deployCilium(append(directRoutingOptions, "--set global.sockops.enabled=true"))
+			deployCilium(sockopsEnabledOptions)
 			deployNetperf()
 			Expect(testPodNetperfSameNodes(kubectl, helpers.TCP_RR)).Should(BeTrue(), "Connectivity test TCP_RR on same node failed")
 		}, 600)
 
 		It("Check performance with sockops and direct routing", func() {
-			deployCilium(append(directRoutingOptions, "--set global.sockops.enabled=true"))
+			deployCilium(sockopsEnabledOptions)
 			deployNetperf()
 			Expect(testPodNetperfSameNodes(kubectl, helpers.TCP_STREAM)).Should(BeTrue(), "Connectivity test TCP_STREAM on same node failed")
 		}, 600)
 
 		It("Check baseline http performance with sockops and direct routing", func() {
-			deployCilium(append(directRoutingOptions))
+			deployCilium(directRoutingOptions)
 			deployHTTPclients()
 			deployHTTPd()
 			Expect(testPodHTTPSameNodes(kubectl)).Should(BeTrue(), "HTTP test on same node failed ")
 		}, 600)
 
 		It("Check http performance with sockops and direct routing", func() {
-			deployCilium(append(directRoutingOptions, "--set global.sockops.enabled=true"))
+			deployCilium(sockopsEnabledOptions)
 			deployHTTPclients()
 			deployHTTPd()
 			Expect(testPodHTTPSameNodes(kubectl)).Should(BeTrue(), "HTTP test on same node failed ")
@@ -374,11 +380,11 @@ var _ = Describe("K8sDatapathConfig", func() {
 		It("Check connectivity with transparent encryption and direct routing", func() {
 			SkipIfIntegration(helpers.CIIntegrationFlannel)
 
-			deployCilium([]string{
-				"--set global.tunnel=disabled",
-				"--set global.autoDirectNodeRoutes=true",
-				"--set global.encryption.enabled=true",
-				"--set global.encryption.interface=enp0s8",
+			deployCilium(map[string]string{
+				"global.tunnel":               "disabled",
+				"global.autoDirectNodeRoutes": "true",
+				"global.encryption.enabled":   "true",
+				"global.encryption.interface": "enp0s8",
 			})
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
@@ -389,9 +395,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 			// Flannel always disables IPv6, this test is a no-op in that case.
 			SkipIfIntegration(helpers.CIIntegrationFlannel)
 
-			deployCilium([]string{
-				"--set global.ipv4.enabled=true",
-				"--set global.ipv6.enabled=false",
+			deployCilium(map[string]string{
+				"global.ipv4.enabled": "true",
+				"global.ipv6.enabled": "false",
 			})
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
@@ -402,9 +408,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 			deleteETCDOperator(kubectl)
 		})
 		It("Check connectivity with managed etcd", func() {
-			deployCilium([]string{
-				"--set global.etcd.enabled=true",
-				"--set global.etcd.managed=true",
+			deployCilium(map[string]string{
+				"global.etcd.enabled": "true",
+				"global.etcd.managed": "true",
 			})
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
