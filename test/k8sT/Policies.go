@@ -90,9 +90,9 @@ var _ = Describe("K8sPolicyTest", func() {
 		cnpMatchExpression = helpers.ManifestGet(kubectl.BasePath(), "cnp-matchexpressions.yaml")
 
 		deleteCiliumDS(kubectl)
-		DeployCiliumOptionsAndDNS(kubectl, []string{
-			"--set global.tls.secretsBackend=k8s",
-			"--set global.debug.verbose=flow",
+		DeployCiliumOptionsAndDNS(kubectl, map[string]string{
+			"global.tls.secretsBackend": "k8s",
+			"global.debug.verbose":      "flow",
 		})
 	})
 

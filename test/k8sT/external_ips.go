@@ -56,7 +56,7 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 	)
 
 	// deploys cilium with the given options.
-	deployCilium := func(options []string) {
+	deployCilium := func(options map[string]string) {
 		DeployCiliumOptionsAndDNS(kubectl, options)
 
 		_, err := kubectl.CiliumNodesWait()
@@ -236,11 +236,11 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 		"DirectRouting", func() {
 			BeforeAll(func() {
 				deleteCiliumDS(kubectl)
-				deployCilium([]string{
-					"--set global.tunnel=disabled",
-					"--set global.autoDirectNodeRoutes=true",
-					"--set global.nodePort.device=" + external_ips.PublicInterfaceName,
-					"--set global.nodePort.enabled=true",
+				deployCilium(map[string]string{
+					"global.tunnel":               "disabled",
+					"global.autoDirectNodeRoutes": "true",
+					"global.nodePort.device":      external_ips.PublicInterfaceName,
+					"global.nodePort.enabled":     "true",
 				})
 			})
 			DescribeTable("From pod running on node-1 to services being backed by a pod running on node-1",
@@ -282,10 +282,10 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 		"VxLANMode", func() {
 			BeforeAll(func() {
 				deleteCiliumDS(kubectl)
-				deployCilium([]string{
-					"--set global.tunnel=vxlan",
-					"--set global.nodePort.device=" + external_ips.PublicInterfaceName,
-					"--set global.nodePort.enabled=true",
+				deployCilium(map[string]string{
+					"global.tunnel":           "vxlan",
+					"global.nodePort.device":  external_ips.PublicInterfaceName,
+					"global.nodePort.enabled": "true",
 				})
 			})
 			DescribeTable("From pod running on node-1 to services being backed by a pod running on node-1",
