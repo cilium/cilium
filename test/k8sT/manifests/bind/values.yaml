@@ -1,0 +1,7 @@
+# Default values for bind.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+world1: 192.168.9.10
+world2: 192.168.9.11
+clusterIP: 10.96.0.100

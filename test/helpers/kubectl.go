@@ -2875,6 +2875,31 @@ func (kub *Kubectl) HelmTemplate(chartDir, namespace, filename string, options m
 		fmt.Sprintf("--namespace=%s %s > %s", namespace, optionsString, filename))
 }
 
+// InitFQDNManifests renders templates for manifests for fqdn tests (they need to know k8s node ips)
+func (kub *Kubectl) InitFQDNManifests() error {
+	options := map[string]string{}
+
+	if IsIntegration(CIIntegrationEKS) {
+		ip1, err := kub.GetNodeIPByLabel("k8s1")
+		if err != nil {
+			return err
+		}
+		ip2, err := kub.GetNodeIPByLabel("k8s2")
+		if err != nil {
+			return err
+		}
+
+		options["world1"] = ip1
+		options["world2"] = ip2
+		options["clusterIP"] = ""
+
+	}
+	manifestRoot := filepath.Join(kub.BasePath(), manifestsPath)
+	res := kub.HelmTemplate(filepath.Join(manifestRoot, "bind"),
+		"kube-system", filepath.Join(manifestRoot, "bind_deployment.yaml"), options)
+	return res.GetErr("rendering bind deployment")
+}
+
 func serviceKey(s v1.Service) string {
 	return s.Namespace + "/" + s.Name
 }
