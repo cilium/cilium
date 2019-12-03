@@ -361,6 +361,13 @@ var _ = Describe("K8sServicesTest", func() {
 
 				AfterAll(func() {
 					_ = kubectl.Delete(metalLB)
+					res := kubectl.Executor.Exec("ip -4 -o a")
+					ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "cannot get ip a")
+					res = kubectl.Executor.Exec("ip -4 -o r")
+					ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "cannot get ip r")
+					res = kubectl.Executor.Exec("ip neigh")
+					ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "cannot get ip neigh")
+
 				})
 
 				It("Connectivity to endpoint via LB", func() {
@@ -376,6 +383,13 @@ var _ = Describe("K8sServicesTest", func() {
 					//			"remote host can not connect to service %q", url)
 					//	}
 					//}
+
+					res := kubectl.Executor.Exec("ip -4 -o a")
+					ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "cannot get ip a")
+					res = kubectl.Executor.Exec("ip -4 -o r")
+					ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "cannot get ip r")
+					res = kubectl.Executor.Exec("ip neigh")
+					ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "cannot get ip neigh")
 
 					ciliumPodK8s1, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.KubeSystemNamespace, helpers.K8s1)
 					Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
