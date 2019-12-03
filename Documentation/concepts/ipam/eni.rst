@@ -136,11 +136,18 @@ allocation:
   If unspecified, this value defaults to 1 which means that ``eth0`` will not
   be used for pod IPs.
 
-``spec.eni.security-groups``
-  The list of security groups to attach to any ENI that is created and attached
-  to the instance.
+``spec.eni.security-group-tags``
+  The list tags which will be used to filter the security groups to
+  attach to any ENI that is created and attached to the instance.
 
-  If unspecified, the security groups of ``eth0`` will be used.
+  If unspecified, the security group ids passed in
+  ``spec.eni.security-groups`` field will be used.
+
+``spec.eni.security-groups``
+  The list of security group ids to attach to any ENI that is created
+  and attached to the instance.
+
+  If unspecified, the security group ids of ``eth0`` will be used.
 
 ``spec.eni.subnet-tags``
   The tags used to select the AWS subnets for IP allocation. This is an
@@ -307,8 +314,17 @@ After determining the subnet and interface index, the ENI is created and
 attached to the EC2 instance using the methods ``CreateNetworkInterface`` and
 ``AttachNetworkInterface`` of the EC2 API.
 
-The security groups attached to the ENI will be equivalent to
-``spec.eni.security-groups``. The description will be in the following format:
+The security group ids attached to the ENI are computed in the following order:
+
+ 1. The field ``spec.eni.security-groups`` is consulted first. If this is set
+    then these will be the security group ids attached to the newly created ENI.
+ 2. The filed ``spec.eni.security-group-tags`` is consulted. If this is set then
+    the operator will list all security groups in the account and will attach to
+    the ENI the ones that match the list of tags passed.
+ 3. Finally if none of the above fields are set then the newly created ENI will
+    inherit the security group ids of ``eth0`` of the machine.
+
+The description will be in the following format:
 
 .. code-block:: go
 
@@ -342,6 +358,7 @@ perform ENI creation and IP allocation:
  * ``DescribeNetworkInterfaces``
  * ``DescribeSubnets``
  * ``DescribeVpcs``
+ * ``DescribeSecurityGroups``
  * ``CreateNetworkInterface``
  * ``AttachNetworkInterface``
  * ``ModifyNetworkInterface``
