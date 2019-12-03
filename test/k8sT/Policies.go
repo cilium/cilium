@@ -85,8 +85,8 @@ var _ = Describe("K8sPolicyTest", func() {
 		knpAllowEgress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-allow-egress.yaml")
 		cnpMatchExpression = helpers.ManifestGet(kubectl.BasePath(), "cnp-matchexpressions.yaml")
 
-		DeployCiliumOptionsAndDNS(kubectl, []string{
-			"--set global.tls.secretsBackend=k8s",
+		DeployCiliumOptionsAndDNS(kubectl, map[string]string{
+			"global.tls.secretsBackend": "k8s",
 		})
 	})
 
