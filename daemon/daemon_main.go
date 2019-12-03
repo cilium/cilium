@@ -338,6 +338,9 @@ func init() {
 	flags.Bool(option.EnableTracing, false, "Enable tracing while determining policy (debugging)")
 	option.BindEnv(option.EnableTracing)
 
+	flags.Bool(option.EnableWellKnownIdentities, defaults.EnableWellKnownIdentities, "Enable well-known identities for known Kubernetes components")
+	option.BindEnv(option.EnableWellKnownIdentities)
+
 	flags.String(option.EnvoyLog, "", "Path to a separate Envoy log file, if any")
 	option.BindEnv(option.EnvoyLog)
 

@@ -122,6 +122,7 @@ data:
   install-iptables-rules: "true"
   auto-direct-node-routes: "false"
   enable-node-port: "false"
+  enable-well-known-identities: "false"
 
 ---
 # Source: cilium/charts/agent/templates/serviceaccount.yaml
@@ -627,7 +628,6 @@ spec:
           initialDelaySeconds: 60
           periodSeconds: 10
           timeoutSeconds: 3
-
       hostNetwork: true
       restartPolicy: Always
       serviceAccount: cilium-operator
@@ -638,6 +638,7 @@ spec:
 
 ---
 # Source: cilium/charts/agent/templates/svc.yaml
+
 
 ---
 # Source: cilium/charts/operator/templates/servicemonitor.yaml

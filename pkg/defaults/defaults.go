@@ -321,4 +321,8 @@ const (
 
 	// RestoreV6Addr is used as match for cilium_host v6 (router) address
 	RestoreV6Addr = "cilium.v6.internal.raw "
+
+	// EnableWellKnownIdentities is enabled by default as this is the
+	// original behavior. New default Helm templates will disable this.
+	EnableWellKnownIdentities = true
 )

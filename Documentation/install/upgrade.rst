@@ -302,6 +302,22 @@ IMPORTANT: Changes required before upgrading to 1.7.0
   ``container-runtime`` and ``container-runtime-endpoint`` will not have any
   effect and the flag removal is scheduled for v1.8.0
 
+New ConfigMap Options
+~~~~~~~~~~~~~~~~~~~~~
+
+  * ``enable-well-known-identities`` has been added to control the
+    initialization of the well-known identities. Well-known identities have
+    initially been added to support the managed etcd concept to allow the etcd
+    operator to bootstrap etcd while Cilium still waited on etcd to become
+    available. Cilium now uses CRDs by default which limits the use of
+    well-known identities to the managed etcd mode. With the addition of this
+    option, well-known identities are disabled by default in all new deployment
+    and only enabled if the Helm option ``etcd.managed=true`` is set. Consider
+    disabling this option if you are not using the etcd operator respectively
+    managed etcd mode to reduce the number of policy identities whitelisted for
+    each endpoint.
+
+
 Removed options
 ~~~~~~~~~~~~~~~~~~
 

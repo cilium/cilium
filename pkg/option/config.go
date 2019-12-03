@@ -639,6 +639,11 @@ const (
 	// EnableLocalNodeRoute controls installation of the route which points
 	// the allocation prefix of the local node.
 	EnableLocalNodeRoute = "enable-local-node-route"
+
+	// EnableWellKnownIdentities enables the use of well-known identities.
+	// This is requires if identiy resolution is required to bring up the
+	// control plane, e.g. when using the managed etcd feature
+	EnableWellKnownIdentities = "enable-well-known-identities"
 )
 
 // Default string arguments
@@ -1271,6 +1276,11 @@ type DaemonConfig struct {
 	// Enabling this option reduces waste of IP addresses but may increase
 	// the number of API calls to AWS EC2 service.
 	AwsReleaseExcessIps bool
+
+	// EnableWellKnownIdentities enables the use of well-known identities.
+	// This is requires if identiy resolution is required to bring up the
+	// control plane, e.g. when using the managed etcd feature
+	EnableWellKnownIdentities bool
 }
 
 var (
@@ -1305,6 +1315,7 @@ var (
 		AutoCreateCiliumNodeResource: defaults.AutoCreateCiliumNodeResource,
 		IdentityAllocationMode:       IdentityAllocationModeKVstore,
 		AllowICMPFragNeeded:          defaults.AllowICMPFragNeeded,
+		EnableWellKnownIdentities:    defaults.EnableEndpointRoutes,
 	}
 )
 
@@ -1601,6 +1612,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableIPv4 = getIPv4Enabled()
 	c.EnableIPv6 = viper.GetBool(EnableIPv6Name)
 	c.EnableIPSec = viper.GetBool(EnableIPSecName)
+	c.EnableWellKnownIdentities = viper.GetBool(EnableWellKnownIdentities)
 	c.EndpointInterfaceNamePrefix = viper.GetString(EndpointInterfaceNamePrefix)
 	c.DevicePreFilter = viper.GetString(PrefilterDevice)
 	c.DisableCiliumEndpointCRD = viper.GetBool(DisableCiliumEndpointCRDName)
