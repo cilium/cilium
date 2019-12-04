@@ -30,22 +30,37 @@ var _ = Describe("K8sFQDNTest", func() {
 		backgroundCancel context.CancelFunc = func() { return }
 		backgroundError  error
 
-		bindManifest = ""
-		demoManifest = ""
+		bindManifest  = ""
+		demoManifest  = ""
+		httpdManifest = ""
 
 		apps    = []string{helpers.App2, helpers.App3}
 		appPods map[string]string
 
 		worldTarget          = "http://world1.cilium.test"
-		worldTargetIP        = "192.168.9.10"
+		worldTargetIP        = "192.168.9.10" //set in BeforeAll if on eks
 		worldInvalidTarget   = "http://world2.cilium.test"
-		worldInvalidTargetIP = "192.168.9.11"
+		worldInvalidTargetIP = "192.168.9.11" //set in BeforeAll if on eks
 	)
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		bindManifest = helpers.ManifestGet(kubectl.BasePath(), "bind_deployment.yaml")
-		demoManifest = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
+
+		if helpers.GetCurrentIntegration() == helpers.CIIntegrationEKS {
+			ip1, err := kubectl.GetNodeIPByLabel("k8s1")
+			Expect(err).Should(BeNil(), "Unable to get k8s1 node ip")
+			ip2, err := kubectl.GetNodeIPByLabel("k8s2")
+			Expect(err).Should(BeNil(), "Unable to get k8s2 node ip")
+			worldTargetIP = ip1
+			worldInvalidTargetIP = ip2
+
+			By("Applying httpd host network pods")
+			httpdManifest = helpers.ManifestGet(kubectl.BasePath(), "fqdn-httpd.yaml")
+
+			res := kubectl.ApplyDefault(httpdManifest)
+			res.ExpectSuccess("httpd server cannot be deployed")
+		}
+
 		DeployCiliumAndDNS(kubectl)
 
 		By("Applying bind deployment")
@@ -55,6 +70,21 @@ var _ = Describe("K8sFQDNTest", func() {
 		res.ExpectSuccess("Bind config cannot be deployed")
 
 		By("Applying demo manifest")
+		if helpers.GetCurrentIntegration() == helpers.CIIntegrationEKS {
+			buf, err := kubectl.Get("default", "service bind").Filter("{$.spec.clusterIP}")
+			Expect(err).Should(BeNil(), "unable to get bind svc ip")
+			bindIP := buf.String()
+
+			kubectl.HelmTemplate(
+				helpers.ManifestGet(kubectl.BasePath(), "demo-fqdn"),
+				"default",
+				helpers.ManifestGet(kubectl.BasePath(), "demo-fqdn.yaml"),
+				map[string]string{"bindIP": bindIP})
+
+			demoManifest = helpers.ManifestGet(kubectl.BasePath(), "demo-fqdn.yaml")
+		} else {
+			demoManifest = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
+		}
 		res = kubectl.ApplyDefault(demoManifest)
 		res.ExpectSuccess("Demo config cannot be deployed")
 
@@ -77,6 +107,7 @@ var _ = Describe("K8sFQDNTest", func() {
 	AfterAll(func() {
 		_ = kubectl.Delete(bindManifest)
 		_ = kubectl.Delete(demoManifest)
+		_ = kubectl.Delete(httpdManifest)
 		ExpectAllPodsTerminated(kubectl)
 		kubectl.CloseSSHClient()
 	})

@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fqdn-httpd
+spec:
+  selector:
+    matchLabels:
+      app: fqdn-httpd
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: fqdn-httpd
+    spec:
+      hostNetwork: true
+      containers:
+      - name: httpd
+        image: docker.io/cilium/demo-httpd:latest
+        ports:
+        - containerPort: 80
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - fqdn-httpd
+            topologyKey: "kubernetes.io/hostname"
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: cilium.io/ci-node
+                operator: In
+                values:
+                - k8s1
+                - k8s2
