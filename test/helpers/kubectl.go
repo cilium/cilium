@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -2901,7 +2902,7 @@ func (kub *Kubectl) HelmTemplate(chartDir, namespace, filename string, options m
 func (kub *Kubectl) InitFQDNManifests() error {
 	options := map[string]string{}
 
-	if IsIntegration(CIIntegrationEKS) {
+	if IsIntegration(CIIntegrationEKS) || IsIntegration(CIIntegrationGKE) {
 		ip1, err := kub.GetNodeIPByLabel("k8s1")
 		if err != nil {
 			return err
@@ -2911,11 +2912,20 @@ func (kub *Kubectl) InitFQDNManifests() error {
 			return err
 		}
 
+		// Hackily infer the service range. The bind clusterIP needs to be known
+		// when creating the testing pods so they use it.
+		svcIP, _, err := kub.GetServiceHostPort(DefaultNamespace, "kubernetes")
+		if err != nil {
+			return err
+		}
+		svcIPParsed := net.ParseIP(svcIP).To4()
+		svcIPParsed[3] = 100
+
 		options["world1"] = ip1
 		options["world2"] = ip2
-		options["clusterIP"] = ""
-
+		options["clusterIP"] = svcIPParsed.String()
 	}
+
 	manifestRoot := filepath.Join(kub.BasePath(), manifestsPath)
 	res := kub.HelmTemplate(filepath.Join(manifestRoot, "bind"),
 		KubeSystemNamespace, filepath.Join(manifestRoot, "bind_deployment.yaml"), options)
