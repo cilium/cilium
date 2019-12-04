@@ -803,7 +803,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				appPods         map[string]string
 				app1PodIP       string
 				bindManifest    string
-				worldTarget     = "http://world1.cilium.test"
+				worldTarget     = "http://vagrant-cache.ci.cilium.io"
 			)
 
 			BeforeAll(func() {

@@ -17,6 +17,7 @@ package k8sTest
 import (
 	"context"
 	"fmt"
+	"net"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -37,6 +38,7 @@ var _ = Describe("K8sFQDNTest", func() {
 		apps    = []string{helpers.App2, helpers.App3}
 		appPods map[string]string
 
+		// These are set differently in BeforeAll on EKS/GKE
 		worldTarget          = "http://world1.cilium.test"
 		worldTargetIP        = "192.168.9.10"
 		worldInvalidTarget   = "http://world2.cilium.test"
@@ -44,6 +46,22 @@ var _ = Describe("K8sFQDNTest", func() {
 	)
 
 	BeforeAll(func() {
+		if helpers.IsIntegration(helpers.CIIntegrationEKS) || helpers.IsIntegration(helpers.CIIntegrationGKE) {
+			worldTarget = "http://vagrant-cache.ci.cilium.io"
+			worldInvalidTarget = "http://jenkins.cilium.io"
+
+			// In case the IPs changed, update them here
+			// worldTargetIP = "147.75.38.95"
+			// worldInvalidTargetIP = "104.198.14.52"
+			addrs, err := net.LookupHost("vagrant-cache.ci.cilium.io")
+			Expect(err).Should(BeNil(), "Error getting IPs for test")
+			worldTargetIP = addrs[0]
+
+			addrs, err = net.LookupHost("jenkins.cilium.io")
+			Expect(err).Should(BeNil(), "Error getting IPs for test")
+			worldInvalidTargetIP = addrs[0]
+		}
+
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		bindManifest = helpers.ManifestGet(kubectl.BasePath(), "bind_deployment.yaml")
 		demoManifest = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
@@ -67,7 +85,6 @@ var _ = Describe("K8sFQDNTest", func() {
 
 		err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=bind", helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), "Bind app is not ready after timeout")
-
 	})
 
 	AfterFailed(func() {
@@ -120,7 +137,7 @@ var _ = Describe("K8sFQDNTest", func() {
 				appPods[helpers.App2], worldTarget)
 
 			By("Testing that connection from %q to %q shouldn't work",
-				appPods[helpers.App2], worldTarget)
+				appPods[helpers.App2], worldInvalidTarget)
 			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
 				helpers.CurlFail(worldInvalidTarget))
@@ -128,7 +145,7 @@ var _ = Describe("K8sFQDNTest", func() {
 				"%q can curl to %q when it should fail", appPods[helpers.App2], worldInvalidTarget)
 
 			By("Testing that connection from %q to %q works",
-				appPods[helpers.App2], worldInvalidTarget)
+				appPods[helpers.App2], worldTargetIP)
 			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
 				helpers.CurlFail(worldTargetIP))
@@ -208,8 +225,8 @@ var _ = Describe("K8sFQDNTest", func() {
 		// To make sure that UUID in multiple specs are plumbed correctly to
 		// Cilium Policy
 		fqdnPolicy := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-multiple-specs.yaml")
-		world1Target := "http://world1.cilium.test"
-		world2Target := "http://world2.cilium.test"
+		world1Target := worldTarget
+		world2Target := worldInvalidTarget
 
 		_, err := kubectl.CiliumPolicyAction(
 			helpers.DefaultNamespace, fqdnPolicy,
