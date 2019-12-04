@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/cilium/cilium/test/config"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
@@ -559,6 +560,8 @@ func monitorConnectivityAcrossNodes(kubectl *helpers.Kubectl, monitorLog string)
 
 	By(fmt.Sprintf("Launching cilium monitor on %q", ciliumPodK8s1))
 	monitorStop := kubectl.MonitorStart(helpers.KubeSystemNamespace, ciliumPodK8s1, monitorLog)
+	By(fmt.Sprintf("Waiting 10s for monitor output to be collected"))
+	time.Sleep(10 * time.Second)
 	result, targetIP := testPodConnectivityAndReturnIP(kubectl, requireMultiNode, 2)
 	monitorStop()
 	ExpectWithOffset(1, result).Should(BeTrue(), "Connectivity test between nodes failed")
