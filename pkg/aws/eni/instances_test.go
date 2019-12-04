@@ -21,6 +21,7 @@ import (
 
 	metricsmock "github.com/cilium/cilium/pkg/aws/eni/metrics/mock"
 	"github.com/cilium/cilium/pkg/aws/types"
+	"github.com/cilium/cilium/pkg/checker"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
 	"gopkg.in/check.v1"
@@ -258,7 +259,7 @@ func (e *ENISuite) TestGetSecurityGroupByTags(c *check.C) {
 	}
 	sgGroups = mngr.FindSecurityGroupByTags("vpc-1", reqTags)
 	c.Assert(sgGroups, check.HasLen, 1)
-	c.Assert(sgGroups[0].Tags, check.DeepEquals, reqTags)
+	c.Assert(sgGroups[0].Tags, checker.DeepEquals, reqTags)
 
 	// iteration 2
 	mngr.Resync(context.TODO())
@@ -267,7 +268,7 @@ func (e *ENISuite) TestGetSecurityGroupByTags(c *check.C) {
 	}
 	sgGroups = mngr.FindSecurityGroupByTags("vpc-1", reqTags)
 	c.Assert(sgGroups, check.HasLen, 1)
-	c.Assert(sgGroups[0].Tags, check.DeepEquals, reqTags)
+	c.Assert(sgGroups[0].Tags, checker.DeepEquals, reqTags)
 
 	// iteration 3
 	mngr.Resync(context.TODO())
@@ -276,8 +277,8 @@ func (e *ENISuite) TestGetSecurityGroupByTags(c *check.C) {
 	}
 	sgGroups = mngr.FindSecurityGroupByTags("vpc-1", reqTags)
 	c.Assert(sgGroups, check.HasLen, 2)
-	c.Assert(sgGroups[0].Tags, check.DeepEquals, reqTags)
-	c.Assert(sgGroups[1].Tags, check.DeepEquals, reqTags)
+	c.Assert(sgGroups[0].Tags, checker.DeepEquals, reqTags)
+	c.Assert(sgGroups[1].Tags, checker.DeepEquals, reqTags)
 }
 
 func (e *ENISuite) TestGetENIs(c *check.C) {
