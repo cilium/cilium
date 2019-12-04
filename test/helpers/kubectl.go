@@ -2849,8 +2849,8 @@ func (kub *Kubectl) InitFQDNManifests() error {
 		options["world1"] = ip1
 		options["world2"] = ip2
 		options["clusterIP"] = ""
-
 	}
+
 	manifestRoot := filepath.Join(kub.BasePath(), manifestsPath)
 	res := kub.HelmTemplate(filepath.Join(manifestRoot, "bind"),
 		"kube-system", filepath.Join(manifestRoot, "bind_deployment.yaml"), options)
