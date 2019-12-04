@@ -25,6 +25,7 @@ import (
 	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
 	metricsmock "github.com/cilium/cilium/pkg/aws/eni/metrics/mock"
 	"github.com/cilium/cilium/pkg/aws/types"
+	"github.com/cilium/cilium/pkg/checker"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -301,7 +302,7 @@ func (e *ENISuite) TestNodeManagerENIWithSGTags(c *check.C) {
 	enis := node.ENIs()
 	delete(enis, eniID1)
 	for _, eni := range enis {
-		c.Assert(eni.SecurityGroups, check.DeepEquals, []string{"sg-1"})
+		c.Assert(eni.SecurityGroups, checker.DeepEquals, []string{"sg-1"})
 	}
 }
 
