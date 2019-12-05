@@ -1,4 +1,4 @@
-FROM docker.io/library/golang:1.12.13 as builder
+FROM docker.io/library/golang:1.12.14 as builder
 LABEL maintainer="maintainer@cilium.io"
 ADD . /go/src/github.com/cilium/cilium
 WORKDIR /go/src/github.com/cilium/cilium/plugins/cilium-docker
