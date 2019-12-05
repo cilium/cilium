@@ -1,0 +1,14 @@
+project: "https://github.com/cilium/cilium/projects/91"
+column: "In progress"
+auto-label:
+  - "kind/backports"
+  - "backport/1.6"
+require-msgs-in-commit:
+  - msg: "Signed-off-by"
+    helper: "https://docs.cilium.io/en/stable/contributing/contributing/#developer-s-certificate-of-origin"
+    set-labels:
+      - "dont-merge/needs-sign-off"
+block-pr-with:
+  labels-set:
+    - regex-label: "dont-merge/.*"
+      helper: "Blocking mergeability of PR as 'dont-merge/.*' labels are set"
