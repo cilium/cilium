@@ -54,8 +54,8 @@ cd kubernetes
 
 # Kubernetes is only compiling with golang 1.12 for versions <=1.16
 sudo rm -fr /usr/local/go
-curl https://dl.google.com/go/go1.12.13.linux-amd64.tar.gz > go1.12.13.linux-amd64.tar.gz
-sudo tar -C /usr/local -xzf go1.12.13.linux-amd64.tar.gz
+curl https://dl.google.com/go/go1.12.14.linux-amd64.tar.gz > go1.12.14.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.12.14.linux-amd64.tar.gz
 make ginkgo
 make WHAT='test/e2e/e2e.test'
 
