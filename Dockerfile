@@ -13,7 +13,7 @@ FROM quay.io/cilium/cilium-envoy:9e8d7bb5e02d6038d6cf0ec3f28bf4019f3c7d79 as cil
 # versions to be built while allowing the new versions to make changes
 # that are not backwards compatible.
 #
-FROM quay.io/cilium/cilium-builder:2019-11-06 as builder
+FROM quay.io/cilium/cilium-builder:2019-12-11 as builder
 LABEL maintainer="maintainer@cilium.io"
 WORKDIR /go/src/github.com/cilium/cilium
 COPY . ./
@@ -37,7 +37,7 @@ RUN make LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 V=$V LIBNETWORK_PLUGIN=$LIBNETWORK_PLU
 # built while allowing the new versions to make changes that are not
 # backwards compatible.
 #
-FROM quay.io/cilium/cilium-runtime:2019-11-06
+FROM quay.io/cilium/cilium-runtime:2019-12-11
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=builder /tmp/install /
 COPY --from=cilium-envoy / /
