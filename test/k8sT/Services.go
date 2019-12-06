@@ -216,6 +216,16 @@ var _ = Describe("K8sServicesTest", func() {
 			}
 		}
 
+		doRequestsFromOutsideClient := func(url string, count int) {
+			ssh := helpers.GetVagrantSSHMeta(helpers.K8s1VMName())
+			By("Making %d HTTP requests from outside cluster to %q", count, url)
+			for i := 1; i <= count; i++ {
+				res := ssh.ContainerExec("client-from-outside", helpers.CurlFail(url))
+				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
+					"Can not connect to service %q from outside cluster", url)
+			}
+		}
+
 		testNodePort := func(bpfNodePort bool) {
 			var data v1.Service
 			getURL := func(host string, port int32) string {
@@ -369,6 +379,7 @@ var _ = Describe("K8sServicesTest", func() {
 						helpers.DefaultNamespace, "test-lb", 30*time.Second)
 					Expect(err).Should(BeNil(), "Cannot retrieve loadbalancer IP for test-lb")
 
+					doRequestsFromOutsideClient("http://"+lbIP, 10)
 					doRequests("http://"+lbIP, 10, helpers.K8s1)
 					doRequests("http://"+lbIP, 10, helpers.K8s2)
 				})
