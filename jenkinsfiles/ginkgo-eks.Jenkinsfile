@@ -134,8 +134,8 @@ pipeline {
     post {
         always {
             cleanWs()
+            sh 'cd ${TESTDIR}/eks; ./release-cluster.sh || true'
             sh '/usr/local/bin/cleanup || true'
         }
     }
 }
-
