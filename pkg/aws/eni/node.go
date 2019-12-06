@@ -379,7 +379,8 @@ func (n *Node) allocateENI(ctx context.Context, s *types.Subnet, a *allocatableR
 
 	neededAddresses := n.stats.neededIPs
 	desc := "Cilium-CNI (" + n.resource.Spec.ENI.InstanceID + ")"
-	toAllocate := int64(math.IntMin(neededAddresses+nodeResource.Spec.ENI.MaxAboveWatermark, a.limits.IPv4))
+	// Must allocate secondary ENI IPs as needed, up to ENI instance limit - 1 (reserve 1 for primary IP)
+	toAllocate := int64(math.IntMin(neededAddresses+nodeResource.Spec.ENI.MaxAboveWatermark, a.limits.IPv4-1))
 	// Validate whether request has already been fulfilled in the meantime
 	if toAllocate == 0 {
 		n.mutex.RUnlock()
