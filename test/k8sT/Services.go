@@ -730,7 +730,7 @@ var _ = Describe("K8sServicesTest", func() {
 	//
 	// })
 
-	Context("Bookinfo Demo", func() {
+	SkipContextIf(func() bool { return helpers.IsIntegration(helpers.CIIntegrationEKS) }, "Bookinfo Demo", func() {
 
 		var (
 			bookinfoV1YAML, bookinfoV2YAML string
