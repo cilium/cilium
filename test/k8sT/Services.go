@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
@@ -216,22 +217,30 @@ var _ = Describe("K8sServicesTest", func() {
 			}
 		}
 
-		doRequestsFromOutsideClient := func(url string, count int) {
+		getURL := func(host string, port int32) string {
+			return fmt.Sprintf("http://%s",
+				net.JoinHostPort(host, fmt.Sprintf("%d", port)))
+		}
+
+		doRequestsFromOutsideClient := func(url string, count int, checkSourceIP bool) {
 			ssh := helpers.GetVagrantSSHMeta(helpers.K8s1VMName())
 			By("Making %d HTTP requests from outside cluster to %q", count, url)
 			for i := 1; i <= count; i++ {
-				res := ssh.ContainerExec("client-from-outside", helpers.CurlFail(url))
+				cmd := helpers.CurlFail(url)
+				if checkSourceIP {
+					cmd += " | grep client_address="
+				}
+				res := ssh.ContainerExec("client-from-outside", cmd)
 				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
 					"Can not connect to service %q from outside cluster", url)
+				if checkSourceIP {
+					Expect(strings.TrimSpace(strings.Split(res.GetStdOut(), "=")[1])).To(Equal("192.168.10.10"))
+				}
 			}
 		}
 
 		testNodePort := func(bpfNodePort bool) {
 			var data v1.Service
-			getURL := func(host string, port int32) string {
-				return fmt.Sprintf("http://%s",
-					net.JoinHostPort(host, fmt.Sprintf("%d", port)))
-			}
 
 			waitPodsDs()
 
@@ -287,6 +296,15 @@ var _ = Describe("K8sServicesTest", func() {
 
 		It("Tests NodePort (kube-proxy)", func() {
 			testNodePort(false)
+		})
+
+		It("Tests NodePort (kube-proxy) with externalTrafficPolicy=Local", func() {
+			var data v1.Service
+			err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-local").Unmarshal(&data)
+			Expect(err).Should(BeNil(), "Can not retrieve service")
+			url := getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
+
+			doRequestsFromOutsideClient(url, 10, true)
 		})
 
 		Context("with L7 policy", func() {
@@ -379,7 +397,7 @@ var _ = Describe("K8sServicesTest", func() {
 						helpers.DefaultNamespace, "test-lb", 30*time.Second)
 					Expect(err).Should(BeNil(), "Cannot retrieve loadbalancer IP for test-lb")
 
-					doRequestsFromOutsideClient("http://"+lbIP, 10)
+					doRequestsFromOutsideClient("http://"+lbIP, 10, false)
 					doRequests("http://"+lbIP, 10, helpers.K8s1)
 					doRequests("http://"+lbIP, 10, helpers.K8s2)
 				})
