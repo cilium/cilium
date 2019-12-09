@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: web
-        image: docker.io/cilium/demo-httpd:latest
+        image: docker.io/cilium/echoserver:1.10
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
@@ -61,6 +61,7 @@ metadata:
 spec:
   ports:
   - port: 80
+    targetPort: 80
   selector:
     zgroup: testDS
 ---
@@ -70,6 +71,21 @@ metadata:
   name: test-nodeport
 spec:
   type: NodePort
+  ports:
+  - port: 10080
+    targetPort: 80
+    protocol: TCP
+    name: http
+  selector:
+    zgroup: testDS
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-nodeport-local
+spec:
+  type: NodePort
+  externalTrafficPolicy: Local
   ports:
   - port: 10080
     targetPort: 80
