@@ -353,7 +353,7 @@ var _ = Describe("K8sServicesTest", func() {
 			testExternalTrafficPolicyLocal()
 		})
 
-		Context("with L7 policy", func() {
+		SkipContextIf(func() bool { return helpers.IsIntegration(helpers.CIIntegrationEKS) }, "with L7 policy", func() {
 			var (
 				demoPolicy string
 			)
