@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,14 +15,12 @@
 package policy
 
 import (
-	"fmt"
 	"net"
 	"sort"
 	"strconv"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 // CIDRPolicyMapRule holds a L3 (CIDR) prefix and the rule labels that allow it.
@@ -198,11 +196,5 @@ func (cp *CIDRPolicy) GetModel() *models.CIDRPolicy {
 
 // Validate returns error if the CIDR policy might lead to code generation failure
 func (cp *CIDRPolicy) Validate() error {
-	if cp == nil {
-		return nil
-	}
-	if l := len(cp.Ingress.IPv6PrefixCount); l > api.MaxCIDRPrefixLengths {
-		return fmt.Errorf("too many ingress CIDR prefix lengths %d/%d", l, api.MaxCIDRPrefixLengths)
-	}
 	return nil
 }

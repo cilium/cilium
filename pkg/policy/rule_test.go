@@ -18,7 +18,6 @@ package policy
 
 import (
 	"bytes"
-	"fmt"
 	"net"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -967,26 +966,6 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 			FromCIDR: []api.CIDR{"10.0.1.0/34"},
 		}},
 	}.Sanitize()
-	c.Assert(err, Not(IsNil))
-}
-
-func (ds *PolicyTestSuite) TestL3PolicyRestrictions(c *C) {
-	// Check rejection of too many prefix lengths
-	cidrs := []api.CIDR{}
-	for i := 1; i < 42; i++ {
-		cidrs = append(cidrs, api.CIDR(fmt.Sprintf("%d::/%d", i, i)))
-	}
-	apiRule2 := api.Rule{
-		EndpointSelector: barSelector,
-		Ingress:          []api.IngressRule{{FromCIDR: cidrs}},
-	}
-	err := apiRule2.Sanitize()
-	c.Assert(err, Not(IsNil))
-	apiRule3 := api.Rule{
-		EndpointSelector: barSelector,
-		Egress:           []api.EgressRule{{ToCIDR: cidrs}},
-	}
-	err = apiRule3.Sanitize()
 	c.Assert(err, Not(IsNil))
 }
 
