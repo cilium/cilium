@@ -288,7 +288,7 @@ var _ = Describe("K8sServicesTest", func() {
 			testNodePort(false)
 		})
 
-		Context("with L7 policy", func() {
+		SkipContextIf(func() bool { return helpers.IsIntegration(helpers.CIIntegrationEKS) }, "with L7 policy", func() {
 			var (
 				demoPolicy string
 			)
