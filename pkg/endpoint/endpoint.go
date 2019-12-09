@@ -397,7 +397,7 @@ func NewEndpointWithState(owner regeneration.Owner, proxy EndpointProxy, allocat
 		OpLabels:        pkgLabels.NewOpLabels(),
 		status:          NewEndpointStatus(),
 		DNSHistory:      fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
-		DNSZombies:      fqdn.NewDNSZombieMappings(),
+		DNSZombies:      fqdn.NewDNSZombieMappings(option.Config.ToFQDNsMaxDeferredConnectionDeletes),
 		state:           state,
 		hasBPFProgram:   make(chan struct{}, 0),
 		controllers:     controller.NewManager(),

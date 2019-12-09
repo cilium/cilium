@@ -191,8 +191,6 @@ var _ = BeforeAll(func() {
 
 	switch scope {
 	case helpers.Runtime:
-		var err error
-
 		// Boot / provision VMs if specified by configuration.
 		if config.CiliumTestConfig.Reprovision {
 			err = helpers.CreateVM(helpers.Runtime)
@@ -242,23 +240,30 @@ var _ = BeforeAll(func() {
 
 		// Boot / provision VMs if specified by configuration.
 		if config.CiliumTestConfig.Reprovision {
+			var nodesInt int
+			nodes := os.Getenv(k8sNodesEnv)
+			if nodes != "" {
+				nodesInt, err = strconv.Atoi(nodes)
+				if err != nil {
+					Fail(fmt.Sprintf("%s value is not a number %q", k8sNodesEnv, nodes))
+				}
+			}
+
 			err = helpers.CreateVM(helpers.K8s1VMName())
 			if err != nil {
 				reportCreateVMFailure(helpers.K8s1VMName(), err)
 			}
 
-			err = helpers.CreateVM(helpers.K8s2VMName())
-			if err != nil {
-				reportCreateVMFailure(helpers.K8s2VMName(), err)
+			if nodesInt != 1 {
+				err = helpers.CreateVM(helpers.K8s2VMName())
+				if err != nil {
+					reportCreateVMFailure(helpers.K8s2VMName(), err)
+				}
 			}
 
 			// For Nightly test we need to have more than two kubernetes nodes. If
 			// the env variable K8S_NODES is present, more nodes will be created.
-			if nodes := os.Getenv(k8sNodesEnv); nodes != "" {
-				nodesInt, err := strconv.Atoi(nodes)
-				if err != nil {
-					Fail(fmt.Sprintf("%s value is not a number %q", k8sNodesEnv, nodes))
-				}
+			if nodesInt > 2 {
 				for i := 3; i <= nodesInt; i++ {
 					vmName := fmt.Sprintf("%s%d-%s", helpers.K8s, i, helpers.GetCurrentK8SEnv())
 					err = helpers.CreateVM(vmName)

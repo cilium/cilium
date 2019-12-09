@@ -494,6 +494,39 @@ func (kub *Kubectl) GetServiceHostPort(namespace string, service string) (string
 	return data.Spec.ClusterIP, int(data.Spec.Ports[0].Port), nil
 }
 
+// GetLoadBalancerIP waits until a loadbalancer IP addr has been assigned for
+// the given service, and then returns the IP addr.
+func (kub *Kubectl) GetLoadBalancerIP(namespace string, service string, timeout time.Duration) (string, error) {
+	var data v1.Service
+
+	body := func() bool {
+		err := kub.Get(namespace, fmt.Sprintf("service %s", service)).Unmarshal(&data)
+		if err != nil {
+			kub.Logger().WithError(err)
+			return false
+		}
+
+		if len(data.Status.LoadBalancer.Ingress) != 0 {
+			return true
+		}
+
+		kub.Logger().WithFields(logrus.Fields{
+			"namespace": namespace,
+			"service":   service,
+		}).Info("GetLoadBalancerIP: loadbalancer IP was not assigned")
+
+		return false
+	}
+
+	err := WithTimeout(body, "could not get service LoadBalancer IP addr",
+		&TimeoutConfig{Timeout: timeout})
+	if err != nil {
+		return "", err
+	}
+
+	return data.Status.LoadBalancer.Ingress[0].IP, nil
+}
+
 // Logs returns a CmdRes with containing the resulting metadata from the
 // execution of `kubectl logs <pod> -n <namespace>`.
 func (kub *Kubectl) Logs(namespace string, pod string) *CmdRes {
@@ -2534,8 +2567,9 @@ func (kub *Kubectl) ciliumServicePreFlightCheck() error {
 				k8sSvc.Spec.ClusterIP == v1.ClusterIPNone {
 				continue
 			}
-			// TODO(brb) check NodePort services
-			if k8sSvc.Spec.Type == v1.ServiceTypeNodePort {
+			// TODO(brb) check NodePort and LoadBalancer services
+			if k8sSvc.Spec.Type == v1.ServiceTypeNodePort ||
+				k8sSvc.Spec.Type == v1.ServiceTypeLoadBalancer {
 				continue
 			}
 			if _, ok := k8sServicesFound[key]; !ok {
@@ -2654,8 +2688,9 @@ func serviceKey(s v1.Service) string {
 func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.Endpoints, k8sServicesFound map[string]bool) error {
 	var k8sService *v1.Service
 
-	// TODO(brb) validate NodePort services
-	if cSvc.Status.Realized.Flags != nil && cSvc.Status.Realized.Flags.Type == "NodePort" {
+	// TODO(brb) validate NodePort and LoadBalancer services
+	if cSvc.Status.Realized.Flags != nil &&
+		(cSvc.Status.Realized.Flags.Type == "NodePort" || cSvc.Status.Realized.Flags.Type == "LoadBalancer") {
 		return nil
 	}
 

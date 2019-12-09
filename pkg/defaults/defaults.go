@@ -96,6 +96,10 @@ const (
 	// for each FQDN name in an endpoint's FQDN cache
 	ToFQDNsMaxIPsPerHost = 50
 
+	// ToFQDNsMaxDeferredConnectionDeletes Maximum number of IPs to retain for
+	// expired DNS lookups with still-active connections
+	ToFQDNsMaxDeferredConnectionDeletes = 10000
+
 	// ToFQDNsPreCache is a path to a file with DNS cache data to insert into the
 	// global cache on startup.
 	// The file is not re-read after agent start.

@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/defaults"
 	. "gopkg.in/check.v1"
 )
 
@@ -624,7 +625,7 @@ func assertZombiesContain(c *C, zombies []*DNSZombieMapping, mappings map[string
 
 func (ds *DNSCacheTestSuite) TestZombiesGC(c *C) {
 	now := time.Now()
-	zombies := NewDNSZombieMappings()
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes)
 
 	zombies.Upsert(now, "1.1.1.1", "test.com")
 	zombies.Upsert(now, "2.2.2.2", "somethingelse.com")
@@ -691,9 +692,67 @@ func (ds *DNSCacheTestSuite) TestZombiesGC(c *C) {
 	})
 }
 
+func (ds *DNSCacheTestSuite) TestZombiesGCDeferredDeletes(c *C) {
+	now := time.Now()
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes)
+
+	zombies.Upsert(now.Add(0*time.Second), "1.1.1.1", "test.com")
+	zombies.Upsert(now.Add(1*time.Second), "2.2.2.2", "somethingelse.com")
+	zombies.Upsert(now.Add(2*time.Second), "3.3.3.3", "onemorething.com")
+
+	// No zombies should be evicted because the limit is high
+	alive, dead := zombies.GC()
+	c.Assert(dead, HasLen, 0)
+	assertZombiesContain(c, alive, map[string][]string{
+		"1.1.1.1": {"test.com"},
+		"2.2.2.2": {"somethingelse.com"},
+		"3.3.3.3": {"onemorething.com"},
+	})
+
+	zombies = NewDNSZombieMappings(2)
+	zombies.Upsert(now.Add(0*time.Second), "1.1.1.1", "test.com")
+
+	// No zombies should be evicted because we are below the limit
+	alive, dead = zombies.GC()
+	c.Assert(dead, HasLen, 0)
+	assertZombiesContain(c, alive, map[string][]string{
+		"1.1.1.1": {"test.com"},
+	})
+
+	// 1.1.1.1 is evicted because it was Upserted earlier in
+	// time, implying an earlier DNS expiry.
+	zombies.Upsert(now.Add(1*time.Second), "2.2.2.2", "somethingelse.com")
+	zombies.Upsert(now.Add(2*time.Second), "3.3.3.3", "onemorething.com")
+	alive, dead = zombies.GC()
+	assertZombiesContain(c, dead, map[string][]string{
+		"1.1.1.1": {"test.com"},
+	})
+	assertZombiesContain(c, alive, map[string][]string{
+		"2.2.2.2": {"somethingelse.com"},
+		"3.3.3.3": {"onemorething.com"},
+	})
+
+	// Only 3.3.3.3 is evicted because it is not marked alive, despite having the
+	// latest insert time.
+	zombies.Upsert(now.Add(0*time.Second), "1.1.1.1", "test.com")
+	gcTime := now.Add(4 * time.Second)
+	zombies.MarkAlive(gcTime, net.ParseIP("1.1.1.1"))
+	zombies.MarkAlive(gcTime, net.ParseIP("2.2.2.2"))
+	zombies.SetCTGCTime(gcTime)
+
+	alive, dead = zombies.GC()
+	assertZombiesContain(c, dead, map[string][]string{
+		"3.3.3.3": {"onemorething.com"},
+	})
+	assertZombiesContain(c, alive, map[string][]string{
+		"2.2.2.2": {"somethingelse.com"},
+		"1.1.1.1": {"test.com"},
+	})
+}
+
 func (ds *DNSCacheTestSuite) TestZombiesForceExpire(c *C) {
 	now := time.Now()
-	zombies := NewDNSZombieMappings()
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes)
 
 	zombies.Upsert(now, "1.1.1.1", "test.com", "anothertest.com")
 	zombies.Upsert(now, "2.2.2.2", "somethingelse.com")
@@ -768,7 +827,7 @@ func (ds *DNSCacheTestSuite) TestZombiesForceExpire(c *C) {
 func (ds *DNSCacheTestSuite) TestCacheToZombiesGCCascade(c *C) {
 	now := time.Now()
 	cache := NewDNSCache(0)
-	zombies := NewDNSZombieMappings()
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes)
 
 	// Add entries that should expire at different times
 	cache.Update(now, "test.com", []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2")}, 3)

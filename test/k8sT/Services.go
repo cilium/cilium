@@ -206,20 +206,21 @@ var _ = Describe("K8sServicesTest", func() {
 			testHTTPRequest(testDSClient, url)
 		})
 
+		doRequests := func(url string, count int, fromPod string) {
+			By("Making %d HTTP requests from %s to %q", count, fromPod, url)
+			for i := 1; i <= count; i++ {
+				res, err := kubectl.ExecInHostNetNS(context.TODO(), fromPod, helpers.CurlFail(url))
+				ExpectWithOffset(1, err).To(BeNil(), "Cannot run curl in host netns")
+				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
+					"%s host can not connect to service %q", fromPod, url)
+			}
+		}
+
 		testNodePort := func(bpfNodePort bool) {
 			var data v1.Service
 			getURL := func(host string, port int32) string {
 				return fmt.Sprintf("http://%s",
 					net.JoinHostPort(host, fmt.Sprintf("%d", port)))
-			}
-			doRequests := func(url string, count int) {
-				By("Making %d HTTP requests from k8s1 to %q", count, url)
-				for i := 1; i <= count; i++ {
-					res, err := kubectl.ExecInHostNetNS(context.TODO(), helpers.K8s1, helpers.CurlFail(url))
-					ExpectWithOffset(1, err).To(BeNil(), "Cannot run curl in host netns")
-					ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
-						"k8s1 host can not connect to service %q", url)
-				}
 			}
 
 			waitPodsDs()
@@ -233,13 +234,13 @@ var _ = Describe("K8sServicesTest", func() {
 			// TODO: IPv6
 			count := 10
 			url = getURL("127.0.0.1", data.Spec.Ports[0].NodePort)
-			doRequests(url, count)
+			doRequests(url, count, helpers.K8s1)
 
 			url = getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
-			doRequests(url, count)
+			doRequests(url, count, helpers.K8s1)
 
 			url = getURL(helpers.K8s2Ip, data.Spec.Ports[0].NodePort)
-			doRequests(url, count)
+			doRequests(url, count, helpers.K8s1)
 
 			// From pod via node IPs
 			url = getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
@@ -252,13 +253,13 @@ var _ = Describe("K8sServicesTest", func() {
 				localCiliumHostIPv4, err := kubectl.GetCiliumHostIPv4(context.TODO(), helpers.K8s1)
 				Expect(err).Should(BeNil(), "Cannot retrieve local cilium_host ipv4")
 				url = getURL(localCiliumHostIPv4, data.Spec.Ports[0].NodePort)
-				doRequests(url, count)
+				doRequests(url, count, helpers.K8s1)
 
 				// From host via remote cilium_host
 				remoteCiliumHostIPv4, err := kubectl.GetCiliumHostIPv4(context.TODO(), helpers.K8s2)
 				Expect(err).Should(BeNil(), "Cannot retrieve remote cilium_host ipv4")
 				url = getURL(remoteCiliumHostIPv4, data.Spec.Ports[0].NodePort)
-				doRequests(url, count)
+				doRequests(url, count, helpers.K8s1)
 
 				// From pod via loopback (host reachable services)
 				url = getURL("127.0.0.1", data.Spec.Ports[0].NodePort)
@@ -345,6 +346,32 @@ var _ = Describe("K8sServicesTest", func() {
 				})
 
 				testNodePort(true)
+			})
+
+			Context("Tests with MetalLB", func() {
+				var (
+					metalLB string
+				)
+
+				BeforeAll(func() {
+					// Will allocate LoadBalancer IPs from 192.168.36.{240-250} range
+					metalLB = helpers.ManifestGet(kubectl.BasePath(), "metallb.yaml")
+					res := kubectl.ApplyDefault(metalLB)
+					res.ExpectSuccess("Unable to apply %s", metalLB)
+				})
+
+				AfterAll(func() {
+					_ = kubectl.Delete(metalLB)
+				})
+
+				It("Connectivity to endpoint via LB", func() {
+					lbIP, err := kubectl.GetLoadBalancerIP(
+						helpers.DefaultNamespace, "test-lb", 30*time.Second)
+					Expect(err).Should(BeNil(), "Cannot retrieve loadbalancer IP for test-lb")
+
+					doRequests("http://"+lbIP, 10, helpers.K8s1)
+					doRequests("http://"+lbIP, 10, helpers.K8s2)
+				})
 			})
 		})
 
