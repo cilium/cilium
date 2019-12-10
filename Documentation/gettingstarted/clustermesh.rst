@@ -68,12 +68,20 @@ argument or ``cluster-id`` ConfigMap option. The value must be between 1 and
 
 Repeat this step for each cluster.
 
+.. note::
+
+   This can also be done by passing ``--set global.cluster.id=<id>`` and
+   ``--set global.cluster.name=<name>`` to ``helm template`` when installing or
+   updating Cilium.
+
 Expose the Cilium etcd to other clusters
 ========================================
 
 The Cilium etcd must be exposed to other clusters. There are many ways to
 achieve this. The method documented in this guide will work with cloud
-providers that implement the Kubernetes ``LoadBalancer`` service type:
+providers that implement the Kubernetes ``LoadBalancer`` service type, as well
+as with services of type ``NodePort`` (assuming that nodes can reach each other
+using their internal IPs):
 
 .. tabs::
   .. group-tab:: GCP
@@ -114,6 +122,23 @@ providers that implement the Kubernetes ``LoadBalancer`` service type:
           etcd_cluster: cilium-etcd
           io.cilium/app: etcd-operator
 
+  .. group-tab:: NodePort
+
+    .. parsed-literal::
+
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: cilium-etcd-external
+      spec:
+        type: NodePort
+        ports:
+        - port: 2379
+        selector:
+          app: etcd
+          etcd_cluster: cilium-etcd
+          io.cilium/app: etcd-operator
+
 The example used here exposes the etcd cluster as managed by
 ``cilium-etcd-operator`` installed by the standard installation instructions as
 an internal service which means that it is only exposed inside of a VPC and not
@@ -136,6 +161,12 @@ service to expose etcd:
     .. parsed-literal::
 
        kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/clustermesh/cilium-etcd-external-service/cilium-etcd-external-eks.yaml
+
+  .. group-tab:: NodePort
+
+    .. parsed-literal::
+
+       kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/clustermesh/cilium-etcd-external-service/cilium-etcd-external-nodeport.yaml
 
 
 .. note::
