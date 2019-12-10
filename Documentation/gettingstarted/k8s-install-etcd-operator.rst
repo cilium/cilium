@@ -181,7 +181,7 @@ disadvantages which can become of relevance as you scale up your clusters:
 * etcd nodes operated by the etcd-operator will not use persistent storage.
   Once the etcd cluster looses quorum, the etcd cluster is automatically
   re-created by the cilium-etcd-operator. Cilium will automatically recover and
-  re-create all state in etcd. This operation can take can couple of seconds
+  re-create all state in etcd. This operation can take couple of seconds
   and may cause minor disruptions as ongoing distributed locks are invalidated
   and security identities have to be re-allocated.
 
