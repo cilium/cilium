@@ -302,6 +302,14 @@ IMPORTANT: Changes required before upgrading to 1.7.0
   ``container-runtime`` and ``container-runtime-endpoint`` will not have any
   effect and the flag removal is scheduled for v1.8.0
 
+* The default ``--tofqdns-min-ttl`` value has been reduced to 1 hour. Specific
+  IPs in DNS entries are no longer expired when in-use by existing connections
+  that are allowed by policy. Prior deployments that used the default value may
+  now experience denied new connections if endpoints reuse DNS data more than 1
+  hour after the initial lookup without making new lookups. Long lived
+  connections that previously outlived DNS entries are now better supported,
+  and will not be disconnected when the corresponding DNS entry expires.
+
 New ConfigMap Options
 ~~~~~~~~~~~~~~~~~~~~~
 
