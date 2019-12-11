@@ -227,7 +227,7 @@ func (n *Node) recalculateLocked() {
 	for _, e := range enis {
 		n.enis[e.ID] = *e
 
-		if e.Number < n.resource.Spec.ENI.FirstInterfaceIndex {
+		if e.Number < *n.resource.Spec.ENI.FirstInterfaceIndex {
 			continue
 		}
 
@@ -386,7 +386,7 @@ func (n *Node) allocateENI(ctx context.Context, s *types.Subnet, a *allocatableR
 		return nil
 	}
 
-	index := n.findNextIndex(int64(nodeResource.Spec.ENI.FirstInterfaceIndex))
+	index := n.findNextIndex(int64(*nodeResource.Spec.ENI.FirstInterfaceIndex))
 
 	scopedLog := n.loggerLocked().WithFields(logrus.Fields{
 		"securityGroupIDs": securityGroupIDs,
@@ -528,7 +528,7 @@ func (n *Node) determineMaintenanceAction() (*allocatableResources, error) {
 				"numAddresses": len(e.Addresses),
 			}).Debug("Considering ENI for IP release")
 
-			if e.Number < n.resource.Spec.ENI.FirstInterfaceIndex {
+			if e.Number < *n.resource.Spec.ENI.FirstInterfaceIndex {
 				continue
 			}
 
@@ -595,7 +595,7 @@ func (n *Node) determineMaintenanceAction() (*allocatableResources, error) {
 			"numAddresses": len(e.Addresses),
 		}).Debug("Considering ENI for allocation")
 
-		if e.Number < n.resource.Spec.ENI.FirstInterfaceIndex {
+		if e.Number < *n.resource.Spec.ENI.FirstInterfaceIndex {
 			continue
 		}
 
