@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/node"
 
 	"github.com/sirupsen/logrus"
 )
@@ -57,6 +58,7 @@ type svcInfo struct {
 	backends             []lb.Backend
 	backendByHash        map[string]*lb.Backend
 	svcType              lb.SVCType
+	svcTrafficPolicy     lb.SVCTrafficPolicy
 	svcName              string
 	svcNamespace         string
 	restoredFromDatapath bool
@@ -68,12 +70,18 @@ func (svc *svcInfo) deepCopyToLBSVC() *lb.SVC {
 		backends[i] = *backend.DeepCopy()
 	}
 	return &lb.SVC{
-		Frontend:  *svc.frontend.DeepCopy(),
-		Backends:  backends,
-		Type:      svc.svcType,
-		Name:      svc.svcName,
-		Namespace: svc.svcNamespace,
+		Frontend:      *svc.frontend.DeepCopy(),
+		Backends:      backends,
+		Type:          svc.svcType,
+		TrafficPolicy: svc.svcTrafficPolicy,
+		Name:          svc.svcName,
+		Namespace:     svc.svcNamespace,
 	}
+}
+
+func (svc *svcInfo) requireNodeLocalBackends() bool {
+	return (svc.svcType == lb.SVCTypeNodePort || svc.svcType == lb.SVCTypeLoadBalancer) &&
+		svc.svcTrafficPolicy == lb.SVCTrafficPolicyLocal
 }
 
 // Service is a service handler. Its main responsibility is to reflect
@@ -154,23 +162,24 @@ func (s *Service) InitMaps(ipv6, ipv4, restore bool) error {
 //
 // The first return value is true if the service hasn't existed before.
 func (s *Service) UpsertService(
-	frontend lb.L3n4AddrID, backends []lb.Backend,
-	svcType lb.SVCType, svcName, svcNamespace string) (bool, lb.ID, error) {
+	frontend lb.L3n4AddrID, backends []lb.Backend, svcType lb.SVCType,
+	svcTrafficPolicy lb.SVCTrafficPolicy, svcName, svcNamespace string) (bool, lb.ID, error) {
 
 	s.Lock()
 	defer s.Unlock()
 
 	scopedLog := log.WithFields(logrus.Fields{
-		logfields.ServiceIP:        frontend.L3n4Addr,
-		logfields.Backends:         backends,
-		logfields.ServiceType:      svcType,
-		logfields.ServiceName:      svcName,
-		logfields.ServiceNamespace: svcNamespace,
+		logfields.ServiceIP:            frontend.L3n4Addr,
+		logfields.Backends:             backends,
+		logfields.ServiceType:          svcType,
+		logfields.ServiceTrafficPolicy: svcTrafficPolicy,
+		logfields.ServiceName:          svcName,
+		logfields.ServiceNamespace:     svcNamespace,
 	})
 	scopedLog.Debug("Upserting service")
 
 	// If needed, create svcInfo and allocate service ID
-	svc, new, err := s.createSVCInfoIfNotExist(frontend, svcType, svcName, svcNamespace)
+	svc, new, err := s.createSVCInfoIfNotExist(frontend, svcType, svcTrafficPolicy, svcName, svcNamespace)
 	if err != nil {
 		return false, lb.ID(0), err
 	}
@@ -178,9 +187,17 @@ func (s *Service) UpsertService(
 	scopedLog = scopedLog.WithField(logfields.ServiceID, svc.frontend.ID)
 	scopedLog.Debug("Acquired service ID")
 
+	onlyLocalBackends := svc.requireNodeLocalBackends()
 	prevBackendCount := len(svc.backends)
+
 	backendsCopy := []lb.Backend{}
 	for _, b := range backends {
+		// Services with trafficPolicy=Local may only use node-local backends.
+		// We implement this by filtering out all backend IPs which are not a
+		// local endpoint.
+		if onlyLocalBackends && len(b.NodeName) > 0 && b.NodeName != node.GetName() {
+			continue
+		}
 		backendsCopy = append(backendsCopy, *b.DeepCopy())
 	}
 
@@ -313,8 +330,12 @@ func (s *Service) SyncWithK8sFinished() error {
 	return nil
 }
 
-func (s *Service) createSVCInfoIfNotExist(frontend lb.L3n4AddrID,
-	svcType lb.SVCType, svcName, svcNamespace string) (*svcInfo, bool, error) {
+func (s *Service) createSVCInfoIfNotExist(
+	frontend lb.L3n4AddrID,
+	svcType lb.SVCType,
+	svcTrafficPolicy lb.SVCTrafficPolicy,
+	svcName, svcNamespace string,
+) (*svcInfo, bool, error) {
 
 	hash := frontend.Hash()
 	svc, found := s.svcByHash[hash]
@@ -329,19 +350,19 @@ func (s *Service) createSVCInfoIfNotExist(frontend lb.L3n4AddrID,
 		frontend.ID = addrID.ID
 
 		svc = &svcInfo{
-			hash:          hash,
-			frontend:      frontend,
-			backendByHash: map[string]*lb.Backend{},
-			svcType:       svcType,
-			svcName:       svcName,
-			svcNamespace:  svcNamespace,
+			hash:             hash,
+			frontend:         frontend,
+			backendByHash:    map[string]*lb.Backend{},
+			svcType:          svcType,
+			svcTrafficPolicy: svcTrafficPolicy,
+			svcName:          svcName,
+			svcNamespace:     svcNamespace,
 		}
 		s.svcByID[frontend.ID] = svc
 		s.svcByHash[hash] = svc
 	} else {
-		// NOTE: We cannot restore svcType from BPF maps, so just set it
-		//       each time (safe until GH#8700 has been fixed).
 		svc.svcType = svcType
+		svc.svcTrafficPolicy = svcTrafficPolicy
 		// Name and namespace are both optional and intended for exposure via
 		// API. They they are not part of any BPF maps and cannot be restored
 		// from datapath.
@@ -481,9 +502,10 @@ func (s *Service) restoreServicesLocked() error {
 			frontend:      svc.Frontend,
 			backends:      svc.Backends,
 			backendByHash: map[string]*lb.Backend{},
-			// Correct service type will be restored by k8s_watcher after k8s
-			// service cache has been initialized
-			svcType: lb.SVCTypeClusterIP,
+			// Correct service type and traffic policy will be restored by
+			// k8s_watcher after k8s service cache has been initialized
+			svcType:          lb.SVCTypeClusterIP,
+			svcTrafficPolicy: lb.SVCTrafficPolicyCluster,
 			// Indicate that the svc was restored from the BPF maps, so that
 			// SyncWithK8sFinished() could remove services which were restored
 			// from the maps but not present in the k8sServiceCache (e.g. a svc

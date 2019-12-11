@@ -35,8 +35,27 @@ import (
 type Endpoints struct {
 	// Backends is a map containing all backend IPs and ports. The key to
 	// the map is the backend IP in string form. The value defines the list
-	// of ports for that backend IP in the form of a PortConfiguration.
-	Backends map[string]service.PortConfiguration
+	// of ports for that backend IP, plus an additional optional node name.
+	Backends map[string]*Backend
+}
+
+// Backend contains all ports and the node name of a given backend
+// +k8s:deepcopy-gen=true
+type Backend struct {
+	Ports    service.PortConfiguration
+	NodeName string
+}
+
+// DeepEquals returns true if both Backends are identical
+func (b *Backend) DeepEquals(o *Backend) bool {
+	switch {
+	case (b == nil) != (o == nil):
+		return false
+	case (b == nil) && (o == nil):
+		return true
+	}
+
+	return b.NodeName == o.NodeName && b.Ports.DeepEquals(o.Ports)
 }
 
 // String returns the string representation of an endpoints resource, with
@@ -47,8 +66,8 @@ func (e *Endpoints) String() string {
 	}
 
 	backends := []string{}
-	for ip, ports := range e.Backends {
-		for _, port := range ports {
+	for ip, be := range e.Backends {
+		for _, port := range be.Ports {
 			backends = append(backends, fmt.Sprintf("%s/%s", net.JoinHostPort(ip, strconv.Itoa(int(port.Port))), port.Protocol))
 		}
 	}
@@ -61,7 +80,7 @@ func (e *Endpoints) String() string {
 // newEndpoints returns a new Endpoints
 func newEndpoints() *Endpoints {
 	return &Endpoints{
-		Backends: map[string]service.PortConfiguration{},
+		Backends: map[string]*Backend{},
 	}
 }
 
@@ -78,13 +97,13 @@ func (e *Endpoints) DeepEquals(o *Endpoints) bool {
 		return false
 	}
 
-	for ip1, ports1 := range e.Backends {
-		ports2, ok := o.Backends[ip1]
+	for ip1, backend1 := range e.Backends {
+		backend2, ok := o.Backends[ip1]
 		if !ok {
 			return false
 		}
 
-		if !ports1.DeepEquals(ports2) {
+		if !backend1.DeepEquals(backend2) {
 			return false
 		}
 	}
@@ -125,13 +144,17 @@ func ParseEndpoints(ep *types.Endpoints) (ServiceID, *Endpoints) {
 		for _, addr := range sub.Addresses {
 			backend, ok := endpoints.Backends[addr.IP]
 			if !ok {
-				backend = service.PortConfiguration{}
+				backend = &Backend{Ports: service.PortConfiguration{}}
 				endpoints.Backends[addr.IP] = backend
+			}
+
+			if addr.NodeName != nil {
+				backend.NodeName = *addr.NodeName
 			}
 
 			for _, port := range sub.Ports {
 				lbPort := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-				backend[port.Name] = lbPort
+				backend.Ports[port.Name] = lbPort
 			}
 		}
 	}

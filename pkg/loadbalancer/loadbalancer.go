@@ -41,6 +41,15 @@ const (
 	SVCTypeLoadBalancer = SVCType("LoadBalancer")
 )
 
+// SVCTrafficPolicy defines which backends are chosen
+type SVCTrafficPolicy string
+
+const (
+	SVCTrafficPolicyNone    = SVCTrafficPolicy("NONE")
+	SVCTrafficPolicyCluster = SVCTrafficPolicy("Cluster")
+	SVCTrafficPolicyLocal   = SVCTrafficPolicy("Local")
+)
+
 // ServiceFlags is the datapath representation of the service flags that can be
 // used.
 type ServiceFlags uint8
@@ -116,7 +125,11 @@ type ID uint32
 
 // Backend represents load balancer backend.
 type Backend struct {
+	// ID of the backend
 	ID BackendID
+	// Node hosting this backend. This is used to determine backends local to
+	// a node.
+	NodeName string
 	L3n4Addr
 }
 
@@ -126,11 +139,12 @@ func (b *Backend) String() string {
 
 // SVC is a structure for storing service details.
 type SVC struct {
-	Frontend  L3n4AddrID // SVC frontend addr and an allocated ID
-	Backends  []Backend  // List of service backends
-	Type      SVCType    // Service type
-	Name      string     // Service name
-	Namespace string     // Service namespace
+	Frontend      L3n4AddrID       // SVC frontend addr and an allocated ID
+	Backends      []Backend        // List of service backends
+	Type          SVCType          // Service type
+	TrafficPolicy SVCTrafficPolicy // Service traffic policy
+	Name          string           // Service name
+	Namespace     string           // Service namespace
 }
 
 func (s *SVC) GetModel() *models.Service {
@@ -149,9 +163,10 @@ func (s *SVC) GetModel() *models.Service {
 		FrontendAddress:  s.Frontend.GetModel(),
 		BackendAddresses: make([]*models.BackendAddress, len(s.Backends)),
 		Flags: &models.ServiceSpecFlags{
-			Type:      string(s.Type),
-			Name:      s.Name,
-			Namespace: s.Namespace,
+			Type:          string(s.Type),
+			TrafficPolicy: string(s.TrafficPolicy),
+			Name:          s.Name,
+			Namespace:     s.Namespace,
 		},
 	}
 
@@ -282,7 +297,7 @@ func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
 		return nil, fmt.Errorf("invalid IP address \"%s\"", *base.IP)
 	}
 
-	return &Backend{L3n4Addr: L3n4Addr{IP: ip, L4Addr: *l4addr}}, nil
+	return &Backend{NodeName: base.NodeName, L3n4Addr: L3n4Addr{IP: ip, L4Addr: *l4addr}}, nil
 }
 
 func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error) {
@@ -317,8 +332,9 @@ func (b *Backend) GetBackendModel() *models.BackendAddress {
 
 	ip := b.IP.String()
 	return &models.BackendAddress{
-		IP:   &ip,
-		Port: b.Port,
+		IP:       &ip,
+		Port:     b.Port,
+		NodeName: b.NodeName,
 	}
 }
 

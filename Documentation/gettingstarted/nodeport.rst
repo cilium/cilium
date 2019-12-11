@@ -67,10 +67,9 @@ has come up correctly:
 Limitations
 ###########
 
-    * Both Service's ``externalTrafficPolicy: Local`` and ``healthCheckNodePort``
-      are currently not supported. See `GH issue 8698
-      <https://github.com/cilium/cilium/issues/8698>`_ and `GH issue 8699
-      <https://github.com/cilium/cilium/issues/8699>`_ for additional details.
+    * Service's ``healthCheckNodePort`` is currently not supported. See 
+      `GH issue 8699 <https://github.com/cilium/cilium/issues/8699>`_ for
+      additional details.
     * NodePort services are currently exposed through the native device which has
       the default route on the host or a user specified device. In tunneling mode,
       they are additionally exposed through the tunnel interface (``cilium_vxlan``

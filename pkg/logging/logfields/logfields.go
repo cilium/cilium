@@ -198,6 +198,9 @@ const (
 	// ServiceType is the type of the service
 	ServiceType = "svcType"
 
+	// ServiceTrafficPolicy is the traffic policy of the service
+	ServiceTrafficPolicy = "svcTrafficPolicy"
+
 	// BackendIDs is the map of backend IDs (lbmap) indexed by backend address
 	BackendIDs = "backendIDs"
 
