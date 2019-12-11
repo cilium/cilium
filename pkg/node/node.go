@@ -306,51 +306,6 @@ func (n *Node) IsLocal() bool {
 	return n != nil && n.Name == GetName() && n.Cluster == getCluster()
 }
 
-// PublicAttrEquals returns true only if the public attributes of both nodes
-// are the same otherwise returns false.
-func (n *Node) PublicAttrEquals(o *Node) bool {
-	if (n == nil) != (o == nil) {
-		return false
-	}
-
-	if n.Name == o.Name &&
-		n.Cluster == o.Cluster &&
-		n.IPv4HealthIP.Equal(o.IPv4HealthIP) &&
-		n.IPv6HealthIP.Equal(o.IPv6HealthIP) &&
-		n.ClusterID == o.ClusterID &&
-		n.Source == o.Source {
-
-		if len(n.IPAddresses) != len(o.IPAddresses) {
-			return false
-		}
-
-		for i := range n.IPAddresses {
-			if (n.IPAddresses[i].Type != o.IPAddresses[i].Type) ||
-				!n.IPAddresses[i].IP.Equal(o.IPAddresses[i].IP) {
-				return false
-			}
-		}
-
-		if (n.IPv4AllocCIDR == nil) != (o.IPv4AllocCIDR == nil) {
-			return false
-		}
-		if n.IPv4AllocCIDR.String() != o.IPv4AllocCIDR.String() {
-			return false
-		}
-
-		if (n.IPv6AllocCIDR == nil) != (o.IPv6AllocCIDR == nil) {
-			return false
-		}
-		if n.IPv6AllocCIDR.String() != o.IPv6AllocCIDR.String() {
-			return false
-		}
-
-		return true
-	}
-
-	return false
-}
-
 // GetKeyNodeName constructs the API name for the given cluster and node name.
 func GetKeyNodeName(cluster, node string) string {
 	// WARNING - STABLE API: Changing the structure of the key may break
