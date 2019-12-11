@@ -1739,10 +1739,9 @@ func (c *DaemonConfig) Populate() {
 	} else {
 		log.Fatal("tofqdns-max-deferred-connection-deletes must be positive, or 0 to disable deferred connection deletion")
 	}
-	userSetMinTTL := viper.GetInt(ToFQDNsMinTTL)
 	switch {
-	case userSetMinTTL != 0: // set by user
-		c.ToFQDNsMinTTL = userSetMinTTL
+	case viper.IsSet(ToFQDNsMinTTL): // set by user
+		c.ToFQDNsMinTTL = viper.GetInt(ToFQDNsMinTTL)
 	case c.ToFQDNsEnablePoller:
 		c.ToFQDNsMinTTL = defaults.ToFQDNsMinTTLPoller
 	default:
