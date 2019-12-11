@@ -795,7 +795,7 @@ type ENISpec struct {
 	// used for IP allocation, eth0 will be ignored for PodIP allocation.
 	//
 	// +optional
-	FirstInterfaceIndex int `json:"first-interface-index,omitempty"`
+	FirstInterfaceIndex *int `json:"first-interface-index,omitempty"`
 
 	// SecurityGroups is the list of security groups to attach to any ENI
 	// that is created and attached to the instance.

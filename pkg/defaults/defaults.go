@@ -286,6 +286,10 @@ const (
 	// CiliumNode.Spec.ENI.PreAllocate if no value is set
 	ENIPreAllocation = 8
 
+	// ENIFirstInterfaceIndex is the default value for
+	// CiliumNode.Spec.ENI.FirstInterfaceIndex if no value is set
+	ENIFirstInterfaceIndex = 1
+
 	// ENIParallelWorkers is the default max number of workers that process ENI operations
 	ENIParallelWorkers = 50
 
