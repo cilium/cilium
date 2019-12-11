@@ -295,14 +295,14 @@ func (n *Node) PublicAttrEquals(o *Node) bool {
 		if (n.IPv4AllocCIDR == nil) != (o.IPv4AllocCIDR == nil) {
 			return false
 		}
-		if n.IPv4AllocCIDR.String() != o.IPv4AllocCIDR.String() {
+		if n.IPv4AllocCIDR != nil && n.IPv4AllocCIDR.String() != o.IPv4AllocCIDR.String() {
 			return false
 		}
 
 		if (n.IPv6AllocCIDR == nil) != (o.IPv6AllocCIDR == nil) {
 			return false
 		}
-		if n.IPv6AllocCIDR.String() != o.IPv6AllocCIDR.String() {
+		if n.IPv6AllocCIDR != nil && n.IPv6AllocCIDR.String() != o.IPv6AllocCIDR.String() {
 			return false
 		}
 
