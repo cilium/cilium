@@ -481,9 +481,9 @@ func getL7Rule(l7 *api.PortRuleL7) *cilium.L7NetworkPolicyRule {
 	return rule
 }
 
-func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP) []*envoy_api_v2_route.HeaderMatcher {
+func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP, ns string) []*envoy_api_v2_route.HeaderMatcher {
 	// Count the number of header matches we need
-	cnt := len(h.Headers)
+	cnt := len(h.Headers) + len(h.SecretHeaders)
 	if h.Path != "" {
 		cnt++
 	}
@@ -520,6 +520,28 @@ func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP) []*
 			// Only header presence needed
 			headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: strs[0],
 				HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_PresentMatch{PresentMatch: true}})
+		}
+	}
+	for _, hdr := range h.SecretHeaders {
+		// Fetch the secret
+		value := ""
+		var err error
+		if certManager == nil {
+			err = fmt.Errorf("Nil certManager")
+		} else {
+			value, err = certManager.GetSecretString(context.TODO(), hdr.Secret, ns)
+		}
+		if err != nil {
+			log.WithError(err).Warning("Failed fetching Secret, header match will fail")
+			// Envoy treats an empty exact match value as matching ANY value; adding
+			// InvertMatch: true here will cause this rule to NEVER match.
+			headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: hdr.Name,
+				HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: ""},
+				InvertMatch:          true})
+		} else {
+			// Header presence and matching (literal) value needed.
+			headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: hdr.Name,
+				HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: value}})
 		}
 	}
 	if len(headers) == 0 {
@@ -642,6 +664,21 @@ func getCiliumTLSContext(tls *policy.TLSContext) *cilium.TLSContext {
 	}
 }
 
+func GetEnvoyHTTPRules(certManager policy.CertificateManager, l7Rules *api.L7Rules, ns string) *cilium.HttpNetworkPolicyRules {
+	if len(l7Rules.HTTP) > 0 { // Just cautious. This should never be false.
+		httpRules := make([]*cilium.HttpNetworkPolicyRule, 0, len(l7Rules.HTTP))
+		for _, l7 := range l7Rules.HTTP {
+			headers := getHTTPRule(certManager, &l7, ns)
+			httpRules = append(httpRules, &cilium.HttpNetworkPolicyRule{Headers: headers})
+		}
+		SortHTTPNetworkPolicyRules(httpRules)
+		return &cilium.HttpNetworkPolicyRules{
+			HttpRules: httpRules,
+		}
+	}
+	return nil
+}
+
 func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7ParserType, l7Rules *policy.PerEpData) *cilium.PortNetworkPolicyRule {
 	// Optimize the policy if the endpoint selector is a wildcard by
 	// keeping remote policies list empty to match all remote policies.
@@ -674,19 +711,17 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7Parse
 
 	switch l7Parser {
 	case policy.ParserTypeHTTP:
-		if len(l7Rules.HTTP) > 0 { // Just cautious. This should never be false.
-			httpRules := make([]*cilium.HttpNetworkPolicyRule, 0, len(l7Rules.HTTP))
-			for _, l7 := range l7Rules.HTTP {
-				headers := getHTTPRule(nil, &l7)
-				httpRules = append(httpRules, &cilium.HttpNetworkPolicyRule{Headers: headers})
-			}
-			SortHTTPNetworkPolicyRules(httpRules)
-			r.L7 = &cilium.PortNetworkPolicyRule_HttpRules{
-				HttpRules: &cilium.HttpNetworkPolicyRules{
-					HttpRules: httpRules,
-				},
+		// 'r.L7' is an interface which must not be set to a typed 'nil',
+		// so check if we have any rules
+		if len(l7Rules.HTTP) > 0 {
+			// Use L7 rules computed earlier?
+			if l7Rules.EnvoyHTTPRules != nil {
+				r.L7 = &cilium.PortNetworkPolicyRule_HttpRules{HttpRules: l7Rules.EnvoyHTTPRules}
+			} else {
+				r.L7 = &cilium.PortNetworkPolicyRule_HttpRules{HttpRules: GetEnvoyHTTPRules(nil, &l7Rules.L7Rules, "")}
 			}
 		}
+
 	case policy.ParserTypeKafka:
 		// TODO: Support Kafka. For now, just ignore any Kafka L7 rule.
 

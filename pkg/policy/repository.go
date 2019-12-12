@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/proxy/go/cilium/api"
 )
 
 type CertificateManager interface {
@@ -43,6 +44,7 @@ type CertificateManager interface {
 type PolicyContext interface {
 	GetSelectorCache() *SelectorCache
 	GetTLSContext(tls *api.TLSContext) (ca, public, private string, err error)
+	GetEnvoyHTTPRules(l7Rules *api.L7Rules) *cilium.HttpNetworkPolicyRules
 }
 
 type policyContext struct {
@@ -61,6 +63,10 @@ func (p *policyContext) GetTLSContext(tls *api.TLSContext) (ca, public, private 
 		return "", "", "", fmt.Errorf("No Certificate Manager set on Policy Repository")
 	}
 	return p.repo.certManager.GetTLSContext(context.TODO(), tls, p.ns)
+}
+
+func (p *policyContext) GetEnvoyHTTPRules(l7Rules *api.L7Rules) *cilium.HttpNetworkPolicyRules {
+	return p.repo.GetEnvoyHTTPRules(l7Rules, p.ns)
 }
 
 // Repository is a list of policy rules which in combination form the security
@@ -93,11 +99,24 @@ type Repository struct {
 	policyCache *PolicyCache
 
 	certManager CertificateManager
+
+	getEnvoyHTTPRules func(CertificateManager, *api.L7Rules, string) *cilium.HttpNetworkPolicyRules
 }
 
 // GetSelectorCache() returns the selector cache used by the Repository
 func (p *Repository) GetSelectorCache() *SelectorCache {
 	return p.selectorCache
+}
+
+func (p *Repository) SetEnvoyRulesFunc(f func(CertificateManager, *api.L7Rules, string) *cilium.HttpNetworkPolicyRules) {
+	p.getEnvoyHTTPRules = f
+}
+
+func (p *Repository) GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) *cilium.HttpNetworkPolicyRules {
+	if p.getEnvoyHTTPRules == nil {
+		return nil
+	}
+	return p.getEnvoyHTTPRules(p.certManager, l7Rules, ns)
 }
 
 // GetPolicyCache() returns the policy cache used by the Repository
@@ -707,7 +726,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	}
 
 	// Make the calculated policy ready for incremental updates
-	calculatedPolicy.Attach()
+	calculatedPolicy.Attach(&policyCtx)
 
 	return calculatedPolicy, nil
 }
