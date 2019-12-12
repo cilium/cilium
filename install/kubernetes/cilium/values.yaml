@@ -305,3 +305,6 @@ global:
   wellKnownIdentities:
     # enabled enables the use of well-known identities
     enabled: false
+
+  tls:
+    secretsBackend: local

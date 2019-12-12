@@ -456,6 +456,7 @@ spec:
         - mountPath: /var/run/cilium
           name: cilium-run
       restartPolicy: Always
+      priorityClassName: system-node-critical
       serviceAccount: cilium
       serviceAccountName: cilium
       terminationGracePeriodSeconds: 1

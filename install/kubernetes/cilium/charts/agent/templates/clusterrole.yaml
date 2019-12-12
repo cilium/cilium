@@ -49,6 +49,14 @@ rules:
   - list
   - watch
   - update
+{{- if eq "k8s" .Values.global.tls.secretsBackend }}
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+{{- end }}
 - apiGroups:
   - cilium.io
   resources:
