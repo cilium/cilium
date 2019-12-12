@@ -71,7 +71,9 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 	}
 	l7map := L7DataMap{
-		wildcardCachedSelector: l7rules,
+		wildcardCachedSelector: &PerEpData{
+			L7Rules: l7rules,
+		},
 	}
 
 	expected := NewL4Policy(0)
@@ -189,8 +191,10 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		CachedSelectors: CachedSelectorSlice{wildcardCachedSelector},
 		L7Parser:        ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
-			wildcardCachedSelector: api.L7Rules{
-				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+			wildcardCachedSelector: &PerEpData{
+				L7Rules: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+				},
 			},
 		},
 		Ingress:          true,
@@ -406,11 +410,15 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 		CachedSelectors: CachedSelectorSlice{wildcardCachedSelector, cachedFooSelector},
 		L7Parser:        ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
-			wildcardCachedSelector: api.L7Rules{
-				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+			wildcardCachedSelector: &PerEpData{
+				L7Rules: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+				},
 			},
-			cachedFooSelector: api.L7Rules{
-				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+			cachedFooSelector: &PerEpData{
+				L7Rules: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+				},
 			},
 		},
 		Ingress:          true,
@@ -471,8 +479,12 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 		Kafka: []api.PortRuleKafka{{Topic: "foo"}},
 	}
 	l7map := L7DataMap{
-		wildcardCachedSelector: l7rules,
-		cachedFooSelector:      l7rules,
+		wildcardCachedSelector: &PerEpData{
+			L7Rules: l7rules,
+		},
+		cachedFooSelector: &PerEpData{
+			L7Rules: l7rules,
+		},
 	}
 
 	expected = L4PolicyMap{"80/TCP": &L4Filter{
@@ -557,8 +569,12 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 
 	// The L3-dependent L7 rules are not merged together.
 	l7map = L7DataMap{
-		cachedFooSelector:      fooRules,
-		wildcardCachedSelector: barRules,
+		cachedFooSelector: &PerEpData{
+			L7Rules: fooRules,
+		},
+		wildcardCachedSelector: &PerEpData{
+			L7Rules: barRules,
+		},
 	}
 	expected = L4PolicyMap{"80/TCP": &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
@@ -633,11 +649,15 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 		CachedSelectors: CachedSelectorSlice{wildcardCachedSelector, cachedFooSelector},
 		L7Parser:        ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
-			wildcardCachedSelector: api.L7Rules{
-				HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}},
+			wildcardCachedSelector: &PerEpData{
+				L7Rules: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}},
+				},
 			},
-			cachedFooSelector: api.L7Rules{
-				HTTP: []api.PortRuleHTTP{{Path: "/private", Method: "GET"}},
+			cachedFooSelector: &PerEpData{
+				L7Rules: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{Path: "/private", Method: "GET"}},
+				},
 			},
 		},
 		Ingress:          false,
@@ -707,11 +727,15 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 		CachedSelectors: CachedSelectorSlice{wildcardCachedSelector, cachedFooSelector},
 		L7Parser:        ParserTypeKafka,
 		L7RulesPerEp: L7DataMap{
-			wildcardCachedSelector: api.L7Rules{
-				Kafka: []api.PortRuleKafka{{Topic: "foo"}},
+			wildcardCachedSelector: &PerEpData{
+				L7Rules: api.L7Rules{
+					Kafka: []api.PortRuleKafka{{Topic: "foo"}},
+				},
 			},
-			cachedFooSelector: api.L7Rules{
-				Kafka: []api.PortRuleKafka{{Topic: "foo"}},
+			cachedFooSelector: &PerEpData{
+				L7Rules: api.L7Rules{
+					Kafka: []api.PortRuleKafka{{Topic: "foo"}},
+				},
 			},
 		},
 		Ingress:          false,
@@ -785,8 +809,12 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 
 	// The l3-dependent l7 rules are not merged together.
 	l7map := L7DataMap{
-		cachedFooSelector:      fooRules,
-		wildcardCachedSelector: barRules,
+		cachedFooSelector: &PerEpData{
+			L7Rules: fooRules,
+		},
+		wildcardCachedSelector: &PerEpData{
+			L7Rules: barRules,
+		},
 	}
 	expected = L4PolicyMap{"80/TCP": &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,

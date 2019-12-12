@@ -238,8 +238,10 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 		CachedSelectors: CachedSelectorSlice{wildcardCachedSelector},
 		L7Parser:        "http",
 		L7RulesPerEp: L7DataMap{
-			wildcardCachedSelector: api.L7Rules{
-				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+			wildcardCachedSelector: &PerEpData{
+				L7Rules: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+				},
 			},
 		},
 		Ingress:          true,
@@ -346,8 +348,10 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(c *C)
 		CachedSelectors: CachedSelectorSlice{wildcardCachedSelector},
 		L7Parser:        ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
-			wildcardCachedSelector: api.L7Rules{
-				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+			wildcardCachedSelector: &PerEpData{
+				L7Rules: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+				},
 			},
 		},
 		Ingress:          true,
@@ -426,8 +430,10 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 		CachedSelectors: CachedSelectorSlice{wildcardCachedSelector},
 		L7Parser:        ParserTypeKafka,
 		L7RulesPerEp: L7DataMap{
-			wildcardCachedSelector: api.L7Rules{
-				Kafka: []api.PortRuleKafka{{Topic: "foo"}},
+			wildcardCachedSelector: &PerEpData{
+				L7Rules: api.L7Rules{
+					Kafka: []api.PortRuleKafka{{Topic: "foo"}},
+				},
 			},
 		},
 		Ingress:          true,
@@ -809,8 +815,10 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 		CachedSelectors: CachedSelectorSlice{cachedSelectorA, wildcardCachedSelector},
 		L7Parser:        ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
-			cachedSelectorA: api.L7Rules{
-				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+			cachedSelectorA: &PerEpData{
+				L7Rules: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+				},
 			},
 		},
 		Ingress:          true,
@@ -878,8 +886,10 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 		CachedSelectors: CachedSelectorSlice{wildcardCachedSelector, cachedSelectorA},
 		L7Parser:        ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
-			cachedSelectorA: api.L7Rules{
-				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+			cachedSelectorA: &PerEpData{
+				L7Rules: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+				},
 			},
 		},
 		Ingress:          true,
@@ -960,11 +970,15 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 		CachedSelectors: CachedSelectorSlice{cachedSelectorA, wildcardCachedSelector},
 		L7Parser:        ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
-			wildcardCachedSelector: api.L7Rules{
-				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+			wildcardCachedSelector: &PerEpData{
+				L7Rules: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+				},
 			},
-			cachedSelectorA: api.L7Rules{
-				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+			cachedSelectorA: &PerEpData{
+				L7Rules: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+				},
 			},
 		},
 		Ingress:          true,
@@ -1038,11 +1052,15 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 		CachedSelectors: CachedSelectorSlice{wildcardCachedSelector, cachedSelectorA},
 		L7Parser:        ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
-			wildcardCachedSelector: api.L7Rules{
-				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+			wildcardCachedSelector: &PerEpData{
+				L7Rules: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+				},
 			},
-			cachedSelectorA: api.L7Rules{
-				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+			cachedSelectorA: &PerEpData{
+				L7Rules: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+				},
 			},
 		},
 		Ingress:          true,
@@ -1224,11 +1242,15 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointsSelectedAllowSameL7(
 		CachedSelectors: CachedSelectorSlice{cachedSelectorA, cachedSelectorC},
 		L7Parser:        ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
-			cachedSelectorC: api.L7Rules{
-				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+			cachedSelectorC: &PerEpData{
+				L7Rules: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+				},
 			},
-			cachedSelectorA: api.L7Rules{
-				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+			cachedSelectorA: &PerEpData{
+				L7Rules: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+				},
 			},
 		},
 		Ingress:          true,
@@ -1369,10 +1391,14 @@ func (ds *PolicyTestSuite) TestAllowingLocalhostShadowsL7(c *C) {
 		CachedSelectors: CachedSelectorSlice{wildcardCachedSelector, cachedSelectorHost},
 		L7Parser:        ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
-			wildcardCachedSelector: api.L7Rules{
-				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+			wildcardCachedSelector: &PerEpData{
+				L7Rules: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+				},
 			},
-			cachedSelectorHost: api.L7Rules{}, // Empty => Allow all
+			cachedSelectorHost: &PerEpData{
+				L7Rules: api.L7Rules{}, // Empty => Allow all
+			},
 		},
 		Ingress:          true,
 		DerivedFromRules: labels.LabelArrayList{nil},

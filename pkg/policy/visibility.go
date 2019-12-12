@@ -146,10 +146,12 @@ func generateL7AllowAllRules(parser L7ParserType) L7DataMap {
 		m = L7DataMap{}
 		// Create an entry to explicitly allow all at L7 for DNS.
 		emptyL3Selector := &labelIdentitySelector{selectorManager: selectorManager{key: wildcardSelectorKey}, selector: api.WildcardEndpointSelector}
-		m[emptyL3Selector] = api.L7Rules{
-			DNS: []api.PortRuleDNS{
-				{
-					MatchPattern: "*",
+		m[emptyL3Selector] = &PerEpData{
+			L7Rules: api.L7Rules{
+				DNS: []api.PortRuleDNS{
+					{
+						MatchPattern: "*",
+					},
 				},
 			},
 		}

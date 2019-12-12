@@ -1117,6 +1117,46 @@ var (
 		},
 	}
 
+	Secret = map[string]apiextensionsv1beta1.JSONSchemaProps{
+		"namespace": {
+			Description: "Namespace is the namespace in which the secret exists. If " +
+				"namespace is omitted, the namespace of the enclosing rule is assumed.",
+			Type: "string",
+		},
+		"name": {
+			Description: "Name is the name of the secret.",
+			Type:        "string",
+		},
+	}
+
+	TLSContext = map[string]apiextensionsv1beta1.JSONSchemaProps{
+		"secret": {
+			Description: "Secret contains the certificates and private key for the TLS context.",
+			Type:        "object",
+			Properties:  Secret,
+		},
+		"certificate": {
+			Description: "Certificate is the file name or secret item name for the certificate chain. " +
+				"If omitted, 'tls.crt' is assumed, if it exists. If given, the item must exist." +
+				"If specified for an originating TLS context, then this is used as a " +
+				"client certificate.",
+			Type: "string",
+		},
+		"privateKey": {
+			Description: "PrivateKey is the file name or secret item name for the private key matching " +
+				"the certificate chain. If omitted, 'tls.key' is assumed, if it exists. " +
+				"If given, the item must exist.",
+			Type: "string",
+		},
+		"trustedCA": {
+			Description: "TrustedCA is the file name or secret item name for the trusted CA used to verify " +
+				"the certificate of the remote party. If specified for a terminating " +
+				"TLS context, then a client certificate is required. " +
+				"If omitted, 'ca.crt' is assumed, if it exists. If given, the item must exist.",
+			Type: "string",
+		},
+	}
+
 	PortRule = apiextensionsv1beta1.JSONSchemaProps{
 		Description: "PortRule is a list of ports/protocol combinations with optional Layer 7 " +
 			"rules which must be met.",
@@ -1127,6 +1167,26 @@ var (
 				Items: &apiextensionsv1beta1.JSONSchemaPropsOrArray{
 					Schema: &PortProtocol,
 				},
+			},
+			"terminatingTLS": {
+				Description: "TerminatingTLS is the TLS context for the connection terminated by " +
+					"the L7 proxy.  For egress policy this specifies the server-side TLS " +
+					"parameters to be applied on the connections originated from the local " +
+					"POD and terminated by the L7 proxy. For ingress policy this specifies " +
+					"the server-side TLS parameters to be applied on the connections " +
+					"originated from a remote source and terminated by the L7 proxy.",
+				Type:       "object",
+				Properties: TLSContext,
+			},
+			"originatingTLS": {
+				Description: "OriginatingTLS is the TLS context for the connections originated by " +
+					"the L7 proxy.  For egress policy this specifies the client-side TLS " +
+					"parameters for the upstream connection originating from the L7 proxy " +
+					"to the remote destination. For ingress policy this specifies the " +
+					"client-side TLS parameters for the connection from the L7 proxy to " +
+					"the local POD.",
+				Type:       "object",
+				Properties: TLSContext,
 			},
 			"rules": L7Rules,
 		},
