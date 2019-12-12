@@ -49,7 +49,7 @@ type EndpointManagerSuite struct {
 var _ = Suite(&EndpointManagerSuite{})
 
 func (s *EndpointManagerSuite) SetUpSuite(c *C) {
-	s.repo = policy.NewPolicyRepository(nil)
+	s.repo = policy.NewPolicyRepository(nil, nil)
 }
 
 func (s *EndpointManagerSuite) GetPolicyRepository() *policy.Repository {
