@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -317,6 +318,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	d.identityAllocator = cache.NewCachingIdentityAllocator(&d)
 	d.policy = policy.NewPolicyRepository(d.identityAllocator.GetIdentityCache(),
 		certificatemanager.NewManager(option.Config.CertDirectory, k8s.Client()))
+	d.policy.SetEnvoyRulesFunc(envoy.GetEnvoyHTTPRules)
 
 	// Propagate identity allocator down to packages which themselves do not
 	// have types to which we can add an allocator member.

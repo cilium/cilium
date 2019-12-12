@@ -383,7 +383,7 @@ var L4Policy2RequiresV2 = &policy.L4Policy{
 }
 
 func (s *ServerSuite) TestGetHTTPRule(c *C) {
-	obtained := getHTTPRule(nil, PortRuleHTTP1)
+	obtained := getHTTPRule(nil, PortRuleHTTP1, "")
 	c.Assert(obtained, checker.Equals, ExpectedHeaders1)
 }
 
