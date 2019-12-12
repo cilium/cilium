@@ -329,4 +329,8 @@ const (
 	// EnableWellKnownIdentities is enabled by default as this is the
 	// original behavior. New default Helm templates will disable this.
 	EnableWellKnownIdentities = true
+
+	// CertsDirectory is the default directory used to find certificates
+	// specified in the L7 policies.
+	CertsDirectory = RuntimePath + "/certs"
 )
