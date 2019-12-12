@@ -95,6 +95,16 @@ func (res *CmdRes) ExpectFail(optionalDescription ...interface{}) bool {
 		CMDSuccess(), optionalDescription...)
 }
 
+// ExpectFailWithError asserts whether res failed to execute with the
+// error output containing the given data.  It accepts an optional
+// parameter that can be used to annotate failure messages.
+func (res *CmdRes) ExpectFailWithError(data string, optionalDescription ...interface{}) bool {
+	return gomega.ExpectWithOffset(1, res).ShouldNot(
+		CMDSuccess(), optionalDescription...) &&
+		gomega.ExpectWithOffset(1, res.GetStdErr()).To(
+			gomega.ContainSubstring(data), optionalDescription...)
+}
+
 // ExpectSuccess asserts whether res executed successfully. It accepts an optional
 // parameter that can be used to annotate failure messages.
 func (res *CmdRes) ExpectSuccess(optionalDescription ...interface{}) bool {

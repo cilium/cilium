@@ -272,6 +272,20 @@ func (kub *Kubectl) GetNumNodes() int {
 	return len(strings.Split(res.SingleOut(), " "))
 }
 
+// CreateSecret is a wrapper around `kubernetes create secret
+// <resourceName>.
+func (kub *Kubectl) CreateSecret(secretType, name, namespace, args string) *CmdRes {
+	kub.Logger().Debug(fmt.Sprintf("creating secret %s in namespace %s", name, namespace))
+	kub.ExecShort(fmt.Sprintf("kubectl delete secret %s %s -n %s", secretType, name, namespace))
+	return kub.ExecShort(fmt.Sprintf("kubectl create secret %s %s -n %s %s", secretType, name, namespace, args))
+}
+
+// CopyFileToPod copies a file to a pod's file-system.
+func (kub *Kubectl) CopyFileToPod(namespace string, pod string, fromFile, toFile string) *CmdRes {
+	kub.Logger().Debug(fmt.Sprintf("copyiong file %s to pod %s/%s:%s", fromFile, namespace, pod, toFile))
+	return kub.Exec(fmt.Sprintf("%s cp %s %s/%s:%s", KubectlCmd, fromFile, namespace, pod, toFile))
+}
+
 // ExecKafkaPodCmd executes shell command with arguments arg in the specified pod residing in the specified
 // namespace. It returns the stdout of the command that was executed.
 // The kafka producer and consumer scripts do not return error if command
@@ -673,6 +687,7 @@ func (kub *Kubectl) NodeCleanMetadata() error {
 // NamespaceCreate creates a new Kubernetes namespace with the given name
 func (kub *Kubectl) NamespaceCreate(name string) *CmdRes {
 	ginkgoext.By("Creating namespace %s", name)
+	kub.ExecShort(fmt.Sprintf("%s delete namespace %s", KubectlCmd, name))
 	return kub.ExecShort(fmt.Sprintf("%s create namespace %s", KubectlCmd, name))
 }
 

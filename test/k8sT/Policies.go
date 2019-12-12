@@ -43,6 +43,11 @@ var _ = Describe("K8sPolicyTest", func() {
 		l3Policy             string
 		l7Policy             string
 		l7PolicyKafka        string
+		l7PolicyTLS          string
+		TLSCaCerts           string
+		TLSCrt               string
+		TLSKey               string
+		TLSCa                string
 		serviceAccountPolicy string
 		knpDenyIngress       string
 		knpDenyEgress        string
@@ -65,6 +70,11 @@ var _ = Describe("K8sPolicyTest", func() {
 		l3Policy = helpers.ManifestGet(kubectl.BasePath(), "l3-l4-policy.yaml")
 		l7Policy = helpers.ManifestGet(kubectl.BasePath(), "l7-policy.yaml")
 		l7PolicyKafka = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-kafka.yaml")
+		l7PolicyTLS = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-TLS.yaml")
+		TLSCaCerts = helpers.ManifestGet(kubectl.BasePath(), "cacert.pem")
+		TLSCrt = helpers.ManifestGet(kubectl.BasePath(), "tls.crt")
+		TLSKey = helpers.ManifestGet(kubectl.BasePath(), "tls.key")
+		TLSCa = helpers.ManifestGet(kubectl.BasePath(), "ca.crt")
 		serviceAccountPolicy = helpers.ManifestGet(kubectl.BasePath(), "service-account.yaml")
 		knpDenyIngress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-deny-ingress.yaml")
 		knpDenyEgress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-deny-egress.yaml")
@@ -75,7 +85,9 @@ var _ = Describe("K8sPolicyTest", func() {
 		knpAllowEgress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-allow-egress.yaml")
 		cnpMatchExpression = helpers.ManifestGet(kubectl.BasePath(), "cnp-matchexpressions.yaml")
 
-		DeployCiliumAndDNS(kubectl)
+		DeployCiliumOptionsAndDNS(kubectl, []string{
+			"--set global.tls.secretsBackend=k8s",
+		})
 	})
 
 	AfterEach(func() {
@@ -280,6 +292,38 @@ var _ = Describe("K8sPolicyTest", func() {
 				helpers.CurlFail("http://%s/private", clusterIP))
 			res.ExpectFail("Unexpected connection from %q to 'http://%s/private'",
 				appPods[helpers.App3], clusterIP)
+		}, 500)
+
+		It("TLS policy", func() {
+			By("Testing L7 Policy with TLS")
+
+			res := kubectl.CreateSecret("generic", "user-agent", "default", "--from-literal=user-agent=CURRL")
+			res.ExpectSuccess("Cannot create secret %s", "user-agent")
+
+			res = kubectl.CreateSecret("generic", "test-client", "default", "--from-file="+TLSCa)
+			res.ExpectSuccess("Cannot create secret %s", "test-client")
+
+			res = kubectl.CreateSecret("tls", "test-server", "default", "--cert="+TLSCrt+" --key="+TLSKey)
+			res.ExpectSuccess("Cannot create secret %s", "test-server")
+
+			res = kubectl.CopyFileToPod(namespaceForTest, appPods[helpers.App2], TLSCaCerts, "/cacert.pem")
+			res.ExpectSuccess("Cannot copy certs to %s", appPods[helpers.App2])
+
+			_, err := kubectl.CiliumPolicyAction(
+				namespaceForTest, l7PolicyTLS, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Cannot install %q policy", l7PolicyTLS)
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App2],
+				helpers.CurlFail("%s https://www.lyft.com:443/privacy", "-v --cacert /cacert.pem"))
+			res.ExpectSuccess("Cannot connect from %q to 'https://www.lyft.com:443/privacy'",
+				appPods[helpers.App2])
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App2],
+				helpers.CurlFail("%s https://www.lyft.com:443/index.html", "-v --cacert /cacert.pem"))
+			res.ExpectFailWithError("403 Forbidden", "Unexpected connection from %q to 'https://www.lyft.com:443/index.html'",
+				appPods[helpers.App2])
 		}, 500)
 
 		It("Invalid Policy report status correctly", func() {
