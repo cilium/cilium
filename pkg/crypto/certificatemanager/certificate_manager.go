@@ -50,7 +50,7 @@ func NewManager(certsRootPath string, k8sClient k8sClient) *Manager {
 
 // GetTLSContext returns a new ca, public and private certificates found based
 // in the given api.TLSContext.
-func (m *Manager) GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, defaultNs string) (ca, public, private string, err error) {
+func (m *Manager) GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, ns string) (ca, public, private string, err error) {
 	var caBytes, publicBytes, privateBytes []byte
 
 	caMustExist := false
@@ -75,7 +75,6 @@ func (m *Manager) GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, def
 	}
 
 	if tlsCtx.Secret != nil {
-		ns := defaultNs
 		if tlsCtx.Secret.Namespace != "" {
 			ns = tlsCtx.Secret.Namespace
 		}
@@ -166,4 +165,32 @@ func (m *Manager) GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, def
 		err = fmt.Errorf("certificates not found in k8s secret %s/%s", ns, name)
 	}
 	return "", "", "", err
+}
+
+// GetSecretString returns a secret string stored in a k8s secret
+func (m *Manager) GetSecretString(ctx context.Context, secret *api.Secret, ns string) (string, error) {
+	if secret == nil {
+		return "", fmt.Errorf("Secret must not be nil")
+	}
+
+	if secret.Namespace != "" {
+		ns = secret.Namespace
+	}
+
+	if secret.Name == "" {
+		return "", fmt.Errorf("Missing Secret name")
+	}
+	name := secret.Name
+	secrets, k8sErr := m.k8sClient.GetSecrets(ctx, ns, name)
+	if k8sErr != nil {
+		return "", k8sErr
+	}
+
+	if len(secrets) == 1 {
+		// get the lone item by looping into the map
+		for _, value := range secrets {
+			return string(value), nil
+		}
+	}
+	return "", fmt.Errorf("Secret %s/%s must have exactly one item", ns, name)
 }
