@@ -151,9 +151,9 @@ var (
 	cachedRequiresV2Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, RequiresV2Selector)
 )
 
-var L7Rules1 = api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2}}
+var L7Rules1 = &policy.PerEpData{L7Rules: api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2}}}
 
-var L7Rules2 = api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1}}
+var L7Rules2 = &policy.PerEpData{L7Rules: api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1}}}
 
 var ExpectedPortNetworkPolicyRule1 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: []uint64{1001, 1002},
@@ -279,7 +279,7 @@ var L4PolicyMap4 = map[string]*policy.L4Filter{
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		L7RulesPerEp: policy.L7DataMap{
-			cachedSelector1: api.L7Rules{},
+			cachedSelector1: &policy.PerEpData{L7Rules: api.L7Rules{}},
 		},
 	},
 }
@@ -290,7 +290,7 @@ var L4PolicyMap5 = map[string]*policy.L4Filter{
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		L7RulesPerEp: policy.L7DataMap{
-			wildcardCachedSelector: api.L7Rules{},
+			wildcardCachedSelector: &policy.PerEpData{L7Rules: api.L7Rules{}},
 		},
 	},
 }
@@ -383,15 +383,15 @@ var L4Policy2RequiresV2 = &policy.L4Policy{
 }
 
 func (s *ServerSuite) TestGetHTTPRule(c *C) {
-	obtained, _ := getHTTPRule(PortRuleHTTP1)
+	obtained := getHTTPRule(nil, PortRuleHTTP1)
 	c.Assert(obtained, checker.Equals, ExpectedHeaders1)
 }
 
 func (s *ServerSuite) TestGetPortNetworkPolicyRule(c *C) {
-	obtained := getPortNetworkPolicyRule(cachedSelector1, L4PolicyMap1["80/TCP"], &L7Rules1)
+	obtained := getPortNetworkPolicyRule(cachedSelector1, policy.ParserTypeHTTP, L7Rules1)
 	c.Assert(obtained, checker.Equals, ExpectedPortNetworkPolicyRule1)
 
-	obtained = getPortNetworkPolicyRule(cachedSelector2, L4PolicyMap2["8080/UDP"], &L7Rules2)
+	obtained = getPortNetworkPolicyRule(cachedSelector2, policy.ParserTypeHTTP, L7Rules2)
 	c.Assert(obtained, checker.Equals, ExpectedPortNetworkPolicyRule2)
 }
 
@@ -496,7 +496,7 @@ var L4PolicyL7 = &policy.L4Policy{
 			Port: 9090, Protocol: api.ProtoTCP,
 			L7Parser: "tester",
 			L7RulesPerEp: policy.L7DataMap{
-				cachedSelector1: api.L7Rules{
+				cachedSelector1: &policy.PerEpData{L7Rules: api.L7Rules{
 					L7Proto: "tester",
 					L7: []api.PortRuleL7{
 						map[string]string{
@@ -506,7 +506,7 @@ var L4PolicyL7 = &policy.L4Policy{
 							"method": "GET",
 							"path":   "/"},
 					},
-				},
+				}},
 			},
 			Ingress: true,
 		},

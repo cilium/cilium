@@ -15,7 +15,9 @@
 package policy
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"sync"
 	"sync/atomic"
 
@@ -23,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -31,10 +34,33 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
+type CertificateManager interface {
+	GetTLSContext(ctx context.Context, tls *api.TLSContext, defaultNs string) (ca, public, private string, err error)
+}
+
 // PolicyContext is an interface policy resolution functions use to access the Repository.
 // This way testing code can run without mocking a full Repository.
 type PolicyContext interface {
 	GetSelectorCache() *SelectorCache
+	GetTLSContext(tls *api.TLSContext) (ca, public, private string, err error)
+}
+
+type policyContext struct {
+	repo *Repository
+	ns   string
+}
+
+// GetSelectorCache() returns the selector cache used by the Repository
+func (p *policyContext) GetSelectorCache() *SelectorCache {
+	return p.repo.GetSelectorCache()
+}
+
+// GetSelectorCache() returns the selector cache used by the Repository
+func (p *policyContext) GetTLSContext(tls *api.TLSContext) (ca, public, private string, err error) {
+	if p.repo.certManager == nil {
+		return "", "", "", fmt.Errorf("No Certificate Manager set on Policy Repository")
+	}
+	return p.repo.certManager.GetTLSContext(context.TODO(), tls, p.ns)
 }
 
 // Repository is a list of policy rules which in combination form the security
@@ -65,6 +91,8 @@ type Repository struct {
 
 	// PolicyCache tracks the selector policies created from this repo
 	policyCache *PolicyCache
+
+	certManager CertificateManager
 }
 
 // GetSelectorCache() returns the selector cache used by the Repository
@@ -78,7 +106,7 @@ func (p *Repository) GetPolicyCache() *PolicyCache {
 }
 
 // NewPolicyRepository creates a new policy repository.
-func NewPolicyRepository(idCache cache.IdentityCache) *Repository {
+func NewPolicyRepository(idCache cache.IdentityCache, certManager CertificateManager) *Repository {
 	repoChangeQueue := eventqueue.NewEventQueueBuffered("repository-change-queue", option.Config.PolicyQueueSize)
 	ruleReactionQueue := eventqueue.NewEventQueueBuffered("repository-reaction-queue", option.Config.PolicyQueueSize)
 	repoChangeQueue.Run()
@@ -90,6 +118,7 @@ func NewPolicyRepository(idCache cache.IdentityCache) *Repository {
 		RepositoryChangeQueue: repoChangeQueue,
 		RuleReactionQueue:     ruleReactionQueue,
 		selectorCache:         selectorCache,
+		certManager:           certManager,
 	}
 	repo.policyCache = NewPolicyCache(repo, true)
 	return repo
@@ -124,7 +153,7 @@ func (state *traceState) trace(rules int, ctx *SearchContext) {
 }
 
 // This belongs to l4.go as this manipulates L4Filters
-func wildcardL3L4Rule(proto api.L4Proto, port int, terminatingTLS, originatingTLS *api.TLSContext, endpoints api.EndpointSelectorSlice,
+func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelectorSlice,
 	ruleLabels labels.LabelArray, l4Policy L4PolicyMap, selectorCache *SelectorCache) {
 	for _, filter := range l4Policy {
 		if proto != filter.Protocol || (port != 0 && port != filter.Port) {
@@ -138,8 +167,6 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, terminatingTLS, originatingTL
 			for _, sel := range endpoints {
 				cs := filter.cacheIdentitySelector(sel, selectorCache)
 				filter.L7RulesPerEp[cs] = &PerEpData{
-					TerminatingTLS: terminatingTLS,
-					OriginatingTLS: originatingTLS,
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{{}},
 					}}
@@ -151,8 +178,6 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, terminatingTLS, originatingTL
 				rule.Sanitize()
 				cs := filter.cacheIdentitySelector(sel, selectorCache)
 				filter.L7RulesPerEp[cs] = &PerEpData{
-					TerminatingTLS: terminatingTLS,
-					OriginatingTLS: originatingTLS,
 					L7Rules: api.L7Rules{
 						Kafka: []api.PortRuleKafka{rule},
 					}}
@@ -168,8 +193,6 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, terminatingTLS, originatingTL
 				rule.Sanitize()
 				cs := filter.cacheIdentitySelector(sel, selectorCache)
 				filter.L7RulesPerEp[cs] = &PerEpData{
-					TerminatingTLS: terminatingTLS,
-					OriginatingTLS: originatingTLS,
 					L7Rules: api.L7Rules{
 						DNS: []api.PortRuleDNS{rule},
 					}}
@@ -179,8 +202,6 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, terminatingTLS, originatingTL
 			for _, sel := range endpoints {
 				cs := filter.cacheIdentitySelector(sel, selectorCache)
 				filter.L7RulesPerEp[cs] = &PerEpData{
-					TerminatingTLS: terminatingTLS,
-					OriginatingTLS: originatingTLS,
 					L7Rules: api.L7Rules{
 						L7Proto: filter.L7Parser.String(),
 						L7:      []api.PortRuleL7{},
@@ -204,8 +225,11 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, terminatingTLS, originatingTL
 //
 // Note: Only used for policy tracing
 func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (L4PolicyMap, error) {
-
-	result, err := p.rules.resolveL4IngressPolicy(p, ctx)
+	policyCtx := policyContext{
+		repo: p,
+		ns:   ctx.To.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
+	}
+	result, err := p.rules.resolveL4IngressPolicy(&policyCtx, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +248,11 @@ func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (L4PolicyMap, er
 //
 // NOTE: This is only called from unit tests, but from multiple packages.
 func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (L4PolicyMap, error) {
-	result, err := p.rules.resolveL4EgressPolicy(p, ctx)
+	policyCtx := policyContext{
+		repo: p,
+		ns:   ctx.From.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
+	}
+	result, err := p.rules.resolveL4EgressPolicy(&policyCtx, ctx)
 
 	if err != nil {
 		return nil, err
@@ -299,11 +327,11 @@ func (p *Repository) AllowsEgressRLocked(ctx *SearchContext) api.Decision {
 
 // SearchRLocked searches the policy repository for rules which match the
 // specified labels and will return an array of all rules which matched.
-func (p *Repository) SearchRLocked(labels labels.LabelArray) api.Rules {
+func (p *Repository) SearchRLocked(lbls labels.LabelArray) api.Rules {
 	result := api.Rules{}
 
 	for _, r := range p.rules {
-		if r.Labels.Contains(labels) {
+		if r.Labels.Contains(lbls) {
 			result = append(result, &r.Rule)
 		}
 	}
@@ -430,14 +458,14 @@ func (r ruleSlice) UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpoints
 // DeleteByLabelsLocked deletes all rules in the policy repository which
 // contain the specified labels. Returns the revision of the policy repository
 // after deleting the rules, as well as now many rules were deleted.
-func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray) (ruleSlice, uint64, int) {
+func (p *Repository) DeleteByLabelsLocked(lbls labels.LabelArray) (ruleSlice, uint64, int) {
 
 	deleted := 0
 	new := p.rules[:0]
 	deletedRules := ruleSlice{}
 
 	for _, r := range p.rules {
-		if !r.Labels.Contains(labels) {
+		if !r.Labels.Contains(lbls) {
 			new = append(new, r)
 		} else {
 			deletedRules = append(deletedRules, r)
@@ -456,10 +484,10 @@ func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray) (ruleSlice, 
 
 // DeleteByLabels deletes all rules in the policy repository which contain the
 // specified labels
-func (p *Repository) DeleteByLabels(labels labels.LabelArray) (uint64, int) {
+func (p *Repository) DeleteByLabels(lbls labels.LabelArray) (uint64, int) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
-	_, rev, numDeleted := p.DeleteByLabelsLocked(labels)
+	_, rev, numDeleted := p.DeleteByLabelsLocked(lbls)
 	return rev, numDeleted
 }
 
@@ -491,11 +519,11 @@ func (p *Repository) GetJSON() string {
 // rule with labels matching the labels in the provided LabelArray.
 //
 // Must be called with p.Mutex held
-func (p *Repository) GetRulesMatching(labels labels.LabelArray) (ingressMatch bool, egressMatch bool) {
+func (p *Repository) GetRulesMatching(lbls labels.LabelArray) (ingressMatch bool, egressMatch bool) {
 	ingressMatch = false
 	egressMatch = false
 	for _, r := range p.rules {
-		rulesMatch := r.EndpointSelector.Matches(labels)
+		rulesMatch := r.EndpointSelector.Matches(lbls)
 		if rulesMatch {
 			if len(r.Ingress) > 0 {
 				ingressMatch = true
@@ -627,14 +655,14 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	calculatedPolicy.IngressPolicyEnabled = ingressEnabled
 	calculatedPolicy.EgressPolicyEnabled = egressEnabled
 
-	labels := securityIdentity.LabelArray
+	lbls := securityIdentity.LabelArray
 	ingressCtx := SearchContext{
-		To:          labels,
+		To:          lbls,
 		rulesSelect: true,
 	}
 
 	egressCtx := SearchContext{
-		From:        labels,
+		From:        lbls,
 		rulesSelect: true,
 	}
 
@@ -643,8 +671,13 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		egressCtx.Trace = TRACE_ENABLED
 	}
 
+	policyCtx := policyContext{
+		repo: p,
+		ns:   lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
+	}
+
 	if ingressEnabled {
-		newL4IngressPolicy, err := matchingRules.resolveL4IngressPolicy(p, &ingressCtx)
+		newL4IngressPolicy, err := matchingRules.resolveL4IngressPolicy(&policyCtx, &ingressCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -659,7 +692,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	}
 
 	if egressEnabled {
-		newL4EgressPolicy, err := matchingRules.resolveL4EgressPolicy(p, &egressCtx)
+		newL4EgressPolicy, err := matchingRules.resolveL4EgressPolicy(&policyCtx, &egressCtx)
 		if err != nil {
 			return nil, err
 		}

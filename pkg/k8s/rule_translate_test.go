@@ -27,7 +27,7 @@ import (
 )
 
 func (s *K8sSuite) TestTranslatorDirect(c *C) {
-	repo := policy.NewPolicyRepository(nil)
+	repo := policy.NewPolicyRepository(nil, nil)
 
 	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
 	serviceInfo := ServiceID{
@@ -124,7 +124,7 @@ func (s *K8sSuite) TestServiceMatches(c *C) {
 }
 
 func (s *K8sSuite) TestTranslatorLabels(c *C) {
-	repo := policy.NewPolicyRepository(nil)
+	repo := policy.NewPolicyRepository(nil, nil)
 	svcLabels := map[string]string{
 		"app": "tested-service",
 	}
