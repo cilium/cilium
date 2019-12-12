@@ -35,7 +35,8 @@ func (h *PortRuleHTTP) Equal(o PortRuleHTTP) bool {
 	if h.Path != o.Path ||
 		h.Method != o.Method ||
 		h.Host != o.Host ||
-		len(h.Headers) != len(o.Headers) {
+		len(h.Headers) != len(o.Headers) ||
+		len(h.HeaderMatches) != len(o.HeaderMatches) {
 		return false
 	}
 
@@ -43,6 +44,25 @@ func (h *PortRuleHTTP) Equal(o PortRuleHTTP) bool {
 		if o.Headers[i] != value {
 			return false
 		}
+	}
+
+	for i, value := range h.HeaderMatches {
+		if !o.HeaderMatches[i].Equal(value) {
+			return false
+		}
+	}
+	return true
+}
+
+// Equal returns true if both HTTP rules are equal
+func (h *HeaderMatch) Equal(o *HeaderMatch) bool {
+	if h.Mismatch != o.Mismatch ||
+		h.Name != o.Name ||
+		h.Value != o.Value ||
+		h.Secret != nil && o.Secret == nil ||
+		h.Secret == nil && o.Secret != nil ||
+		h.Secret != nil && o.Secret != nil && *h.Secret != *o.Secret {
+		return false
 	}
 	return true
 }
