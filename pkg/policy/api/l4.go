@@ -55,6 +55,59 @@ func (p PortProtocol) Covers(other PortProtocol) bool {
 	return true
 }
 
+// Secret is a reference to a secret, backed by k8s or local file system.
+type Secret struct {
+	// Namespace is the namespace in which the secret exists.
+	// Context of use determines the default value if left out (e.g., "default")
+	//
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+
+	// Name is the name of the secret.
+	Name string `json:"name"`
+}
+
+// Equal returns true if 'a' and 'b' have the same contents.
+func (a *Secret) Equal(b *Secret) bool {
+	return a == nil && b == nil || a != nil && b != nil && *a == *b
+}
+
+// TLSContext provides TLS configuration via reference to either k8s secrets
+// or via filepath. If both are set, directory is given priority over
+// k8sSecrets.
+type TLSContext struct {
+	// Secret is the secret that contains the certificates and private key for the TLS context.
+	// By default, Cilium will search in this secret for the following items:
+	//  - 'ca.crt' - Which represents the trusted CA to verify remote source.
+	//  - 'tls.crt' - Which represents the public key certificate.
+	//  - 'tls.key' - Which represents the private key matching the public key certificate.
+	Secret *Secret `json:"secret,omitempty"`
+
+	// TrustedCA is the file name or k8s secret item name for the trusted CA.
+	// If omitted, 'ca.crt' is assumed, if it exists.
+	// If given, the item must exist.
+	TrustedCA string `json:"trustedCA,omitempty"`
+
+	// Certificate is the file name or k8s secret item name for the certificate chain.
+	// If omitted, 'tls.crt' is assumed, if it exists.
+	// If given, the item must exist.
+	Certificate string `json:"certificate,omitempty"`
+
+	// PrivateKey is the file name or k8s secret item name for the private key matching the certificate chain.
+	// If omitted, 'tls.key' is assumed, if it exists.
+	// If given, the item must exist.
+	PrivateKey string `json:"privateKey,omitempty"`
+}
+
+// Equal returns true if 'a' and 'b' have the same contents.
+func (a *TLSContext) Equal(b *TLSContext) bool {
+	return a == nil && b == nil || a != nil && b != nil &&
+		a.Secret.Equal(b.Secret) &&
+		a.TrustedCA == b.TrustedCA &&
+		a.Certificate == b.Certificate &&
+		a.PrivateKey == b.PrivateKey
+}
+
 // PortRule is a list of ports/protocol combinations with optional Layer 7
 // rules which must be met.
 type PortRule struct {
@@ -62,6 +115,26 @@ type PortRule struct {
 	//
 	// +optional
 	Ports []PortProtocol `json:"ports,omitempty"`
+
+	// TerminatingTLS is the TLS context for the connection terminated by
+	// the L7 proxy.  For egress policy this specifies the server-side TLS
+	// parameters to be applied on the connections originated from the local
+	// POD and terminated by the L7 proxy. For ingress policy this specifies
+	// the server-side TLS parameters to be applied on the connections
+	// originated from a remote source and terminated by the L7 proxy.
+	//
+	// +optional
+	TerminatingTLS *TLSContext `json:"terminatingTLS,omitempty"`
+
+	// OriginatingTLS is the TLS context for the connections originated by
+	// the L7 proxy.  For egress policy this specifies the client-side TLS
+	// parameters for the upstream connection originating from the L7 proxy
+	// to the remote destination. For ingress policy this specifies the
+	// client-side TLS parameters for the connection from the L7 proxy to
+	// the local POD.
+	//
+	// +optional
+	OriginatingTLS *TLSContext `json:"originatingTLS,omitempty"`
 
 	// Rules is a list of additional port level rules which must be met in
 	// order for the PortRule to allow the traffic. If omitted or empty,

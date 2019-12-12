@@ -42,8 +42,8 @@ func (rules ruleSlice) wildcardL3L4Rules(ingress bool, l4Policy L4PolicyMap, req
 
 				// L3-only rule.
 				if len(rule.ToPorts) == 0 && len(fromEndpoints) > 0 {
-					wildcardL3L4Rule(api.ProtoTCP, 0, fromEndpoints, ruleLabels, l4Policy, selectorCache)
-					wildcardL3L4Rule(api.ProtoUDP, 0, fromEndpoints, ruleLabels, l4Policy, selectorCache)
+					wildcardL3L4Rule(api.ProtoTCP, 0, nil, nil, fromEndpoints, ruleLabels, l4Policy, selectorCache)
+					wildcardL3L4Rule(api.ProtoUDP, 0, nil, nil, fromEndpoints, ruleLabels, l4Policy, selectorCache)
 				} else {
 					// L4-only or L3-dependent L4 rule.
 					//
@@ -58,7 +58,7 @@ func (rules ruleSlice) wildcardL3L4Rules(ingress bool, l4Policy L4PolicyMap, req
 							for _, p := range toPort.Ports {
 								// Already validated via PortRule.Validate().
 								port, _ := strconv.ParseUint(p.Port, 0, 16)
-								wildcardL3L4Rule(p.Protocol, int(port), fromEndpoints, ruleLabels, l4Policy, selectorCache)
+								wildcardL3L4Rule(p.Protocol, int(port), toPort.TerminatingTLS, toPort.OriginatingTLS, fromEndpoints, ruleLabels, l4Policy, selectorCache)
 							}
 						}
 					}
@@ -76,8 +76,8 @@ func (rules ruleSlice) wildcardL3L4Rules(ingress bool, l4Policy L4PolicyMap, req
 
 				// L3-only rule.
 				if len(rule.ToPorts) == 0 && len(toEndpoints) > 0 {
-					wildcardL3L4Rule(api.ProtoTCP, 0, toEndpoints, ruleLabels, l4Policy, selectorCache)
-					wildcardL3L4Rule(api.ProtoUDP, 0, toEndpoints, ruleLabels, l4Policy, selectorCache)
+					wildcardL3L4Rule(api.ProtoTCP, 0, nil, nil, toEndpoints, ruleLabels, l4Policy, selectorCache)
+					wildcardL3L4Rule(api.ProtoUDP, 0, nil, nil, toEndpoints, ruleLabels, l4Policy, selectorCache)
 				} else {
 					// L4-only or L3-dependent L4 rule.
 					//
@@ -92,7 +92,7 @@ func (rules ruleSlice) wildcardL3L4Rules(ingress bool, l4Policy L4PolicyMap, req
 							for _, p := range toPort.Ports {
 								// Already validated via PortRule.Validate().
 								port, _ := strconv.ParseUint(p.Port, 0, 16)
-								wildcardL3L4Rule(p.Protocol, int(port), toEndpoints, ruleLabels, l4Policy, selectorCache)
+								wildcardL3L4Rule(p.Protocol, int(port), toPort.TerminatingTLS, toPort.OriginatingTLS, toEndpoints, ruleLabels, l4Policy, selectorCache)
 							}
 						}
 					}
