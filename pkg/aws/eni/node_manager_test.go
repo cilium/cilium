@@ -81,13 +81,13 @@ func (e *ENISuite) TestGetNodeNames(c *check.C) {
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
 
-	mngr.Update(newCiliumNode("node1", "i-testGetNodeNames-1", "m4.large", "us-west-1", "vpc-1", 0, 0, 0, 0, 0))
+	mngr.Update(newCiliumNode("node1", "i-testGetNodeNames-1", "m4.large", "us-west-1", "vpc-1", 1, 0, 0))
 
 	names := mngr.GetNames()
 	c.Assert(len(names), check.Equals, 1)
 	c.Assert(names[0], check.Equals, "node1")
 
-	mngr.Update(newCiliumNode("node2", "i-testGetNodeNames-2", "m4.large", "us-west-1", "vpc-1", 0, 0, 0, 0, 0))
+	mngr.Update(newCiliumNode("node2", "i-testGetNodeNames-2", "m4.large", "us-west-1", "vpc-1", 1, 0, 0))
 
 	names = mngr.GetNames()
 	c.Assert(len(names), check.Equals, 2)
@@ -113,7 +113,7 @@ func (e *ENISuite) TestNodeManagerGet(c *check.C) {
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
 
-	mngr.Update(newCiliumNode("node1", "i-testNodeManagerGet-1", "m4.large", "us-west-1", "vpc-1", 0, 0, 0, 0, 0))
+	mngr.Update(newCiliumNode("node1", "i-testNodeManagerGet-1", "m4.large", "us-west-1", "vpc-1", 1, 0, 0))
 
 	c.Assert(mngr.Get("node1"), check.Not(check.IsNil))
 	c.Assert(mngr.Get("node2"), check.IsNil)
@@ -137,16 +137,16 @@ func (k *k8sMock) Get(node string) (*v2.CiliumNode, error) {
 	return &v2.CiliumNode{}, nil
 }
 
-func newCiliumNode(node, instanceID, instanceType, az, vpcID string, firstAllocateIndex, preAllocate, minAllocate, available, used int) *v2.CiliumNode {
+func newCiliumNode(node, instanceID, instanceType, az, vpcID string, firstInterfaceIndex, preAllocate, minAllocate int) *v2.CiliumNode {
 	cn := &v2.CiliumNode{
 		ObjectMeta: metav1.ObjectMeta{Name: node, Namespace: "default"},
 		Spec: v2.NodeSpec{
 			ENI: v2.ENISpec{
 				InstanceID:          instanceID,
 				InstanceType:        instanceType,
+				FirstInterfaceIndex: &firstInterfaceIndex,
 				PreAllocate:         preAllocate,
 				MinAllocate:         minAllocate,
-				FirstInterfaceIndex: &firstAllocateIndex,
 				AvailabilityZone:    az,
 				VpcID:               vpcID,
 			},
@@ -161,21 +161,19 @@ func newCiliumNode(node, instanceID, instanceType, az, vpcID string, firstAlloca
 		},
 	}
 
-	updateCiliumNode(cn, available, used)
-
 	return cn
 }
 
-func newCiliumNodeWithSGTags(node, instanceID, instanceType, az, vpcID string, sgTags map[string]string, firstAllocateIndex, preAllocate, minAllocate, available, used int) *v2.CiliumNode {
+func newCiliumNodeWithSGTags(node, instanceID, instanceType, az, vpcID string, sgTags map[string]string, firstInterfaceIndex, preAllocate, minAllocate int) *v2.CiliumNode {
 	cn := &v2.CiliumNode{
 		ObjectMeta: metav1.ObjectMeta{Name: node, Namespace: "default"},
 		Spec: v2.NodeSpec{
 			ENI: v2.ENISpec{
 				InstanceID:          instanceID,
 				InstanceType:        instanceType,
+				FirstInterfaceIndex: &firstInterfaceIndex,
 				PreAllocate:         preAllocate,
 				MinAllocate:         minAllocate,
-				FirstInterfaceIndex: &firstAllocateIndex,
 				AvailabilityZone:    az,
 				VpcID:               vpcID,
 				SecurityGroupTags:   sgTags,
@@ -190,8 +188,6 @@ func newCiliumNodeWithSGTags(node, instanceID, instanceType, az, vpcID string, s
 			},
 		},
 	}
-
-	updateCiliumNode(cn, available, used)
 
 	return cn
 }
@@ -223,9 +219,10 @@ func reachedAddressesNeeded(mngr *NodeManager, nodeName string, needed int) (suc
 
 // TestNodeManagerDefaultAllocation tests allocation with default parameters
 //
-// - m4.large (2x ENIs, 2x10 IPs)
+// - m5.large (3x ENIs, 2x10 IPs)
 // - MinAllocate 0
-// - PreAllocate 0 (default: 8)
+// - PreAllocate 8
+// - FirstInterfaceIndex 1
 func (e *ENISuite) TestNodeManagerDefaultAllocation(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet}, []*types.Vpc{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api, metricsapi)
@@ -240,7 +237,7 @@ func (e *ENISuite) TestNodeManagerDefaultAllocation(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node wait for IPs to become available
-	cn := newCiliumNode("node1", "i-testNodeManagerDefaultAllocation-0", "m4.large", "us-west-1", "vpc-1", 0, 0, 0, 0, 0)
+	cn := newCiliumNode("node1", "i-testNodeManagerDefaultAllocation-0", "m5.large", "us-west-1", "vpc-1", 1, 8, 0)
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 
@@ -261,9 +258,10 @@ func (e *ENISuite) TestNodeManagerDefaultAllocation(c *check.C) {
 
 // TestNodeManagerENIWithSGTags tests ENI allocation + association with a SG based on tags
 //
-// - m4.large (2x ENIs, 2x10 IPs)
+// - m5.large (3x ENIs, 2x10 IPs)
 // - MinAllocate 0
-// - PreAllocate 0 (default: 8)
+// - PreAllocate 8
+// - FirstInterfaceIndex 1
 func (e *ENISuite) TestNodeManagerENIWithSGTags(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet}, []*types.Vpc{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api, metricsapi)
@@ -281,7 +279,7 @@ func (e *ENISuite) TestNodeManagerENIWithSGTags(c *check.C) {
 	sgTags := map[string]string{
 		"test-sg-1": "yes",
 	}
-	cn := newCiliumNodeWithSGTags("node1", "i-testNodeManagerDefaultAllocation-0", "m4.large", "us-west-1", "vpc-1", sgTags, 0, 0, 0, 0, 0)
+	cn := newCiliumNodeWithSGTags("node1", "i-testNodeManagerDefaultAllocation-0", "m5.large", "us-west-1", "vpc-1", sgTags, 1, 8, 0)
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 
@@ -310,9 +308,10 @@ func (e *ENISuite) TestNodeManagerENIWithSGTags(c *check.C) {
 
 // TestNodeManagerMinAllocate20 tests MinAllocate without PreAllocate
 //
-// - m4.large (2x ENIs, 2x10 IPs)
+// - m5.4xlarge (8x ENIs, 7x30 IPs)
 // - MinAllocate 10
 // - PreAllocate -1
+// - FirstInterfaceIndex 1
 func (e *ENISuite) TestNodeManagerMinAllocate20(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet}, []*types.Vpc{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api, metricsapi)
@@ -327,7 +326,7 @@ func (e *ENISuite) TestNodeManagerMinAllocate20(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node wait for IPs to become available
-	cn := newCiliumNode("node2", "i-testNodeManagerMinAllocate20-1", "m5.4xlarge", "us-west-1", "vpc-1", 0, -1, 10, 0, 0)
+	cn := newCiliumNode("node2", "i-testNodeManagerMinAllocate20-1", "m5.4xlarge", "us-west-1", "vpc-1", 1, -1, 10)
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 
@@ -345,7 +344,8 @@ func (e *ENISuite) TestNodeManagerMinAllocate20(c *check.C) {
 	c.Assert(node.stats.usedIPs, check.Equals, 8)
 
 	// Change MinAllocate to 20
-	cn = newCiliumNode("node2", "i-testNodeManagerMinAllocate20-1", "m5.4xlarge", "us-west-1", "vpc-1", 0, 0, 20, 10, 8)
+	cn = newCiliumNode("node2", "i-testNodeManagerMinAllocate20-1", "m5.4xlarge", "us-west-1", "vpc-1", 1, 0, 20)
+	mngr.Update(updateCiliumNode(cn, 20, 8))
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 
@@ -357,9 +357,10 @@ func (e *ENISuite) TestNodeManagerMinAllocate20(c *check.C) {
 
 // TestNodeManagerMinAllocateAndPreallocate tests MinAllocate in combination with PreAllocate
 //
-// - m4.large (2x ENIs, 2x10 IPs)
+// - m3.large (3x ENIs, 2x10 IPs)
 // - MinAllocate 10
 // - PreAllocate 1
+// - FirstInterfaceIndex 1
 func (e *ENISuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet}, []*types.Vpc{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api, metricsapi)
@@ -374,7 +375,7 @@ func (e *ENISuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node, wait for IPs to become available
-	cn := newCiliumNode("node2", "i-testNodeManagerMinAllocateAndPreallocate-1", "m4.large", "us-west-1", "vpc-1", 0, 1, 10, 0, 0)
+	cn := newCiliumNode("node2", "i-testNodeManagerMinAllocateAndPreallocate-1", "m3.large", "us-west-1", "vpc-1", 1, 1, 10)
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 
@@ -411,7 +412,7 @@ func (e *ENISuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 // TestNodeManagerReleaseAddress tests PreAllocate, MinAllocate and MaxAboveWatermark
 // when release excess IP is enabled
 //
-// - m4.large (4x ENIs, 4x15 IPs)
+// - m4.large (4x ENIs, 3x15 IPs)
 // - MinAllocate 10
 // - PreAllocate 4
 // - MaxAboveWatermark 4
@@ -432,10 +433,8 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 	option.Config.AwsReleaseExcessIps = true
 
 	// Announce node, wait for IPs to become available
-	cn := newCiliumNode("node3", "i-testNodeManagerReleaseAddress-1", "m4.xlarge", "us-west-1", "vpc-1", 0, 4, 10, 0, 0)
+	cn := newCiliumNode("node3", "i-testNodeManagerReleaseAddress-1", "m4.xlarge", "us-west-1", "vpc-1", 1, 4, 10)
 	cn.Spec.ENI.MaxAboveWatermark = 4
-	firstInterfaceIndex := 1
-	cn.Spec.ENI.FirstInterfaceIndex = &firstInterfaceIndex
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
 
@@ -489,9 +488,10 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 
 // TestNodeManagerExceedENICapacity tests exceeding ENI capacity
 //
-// - m4.large (2x ENIs, 2x10 IPs)
+// - m4.xlarge (4x ENIs, 3x15 IPs)
 // - MinAllocate 20
 // - PreAllocate 8
+// - FirstInterfaceIndex 1
 func (e *ENISuite) TestNodeManagerExceedENICapacity(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet}, []*types.Vpc{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api, metricsapi)
@@ -506,7 +506,7 @@ func (e *ENISuite) TestNodeManagerExceedENICapacity(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node, wait for IPs to become available
-	cn := newCiliumNode("node2", "i-testNodeManagerExceedENICapacity-1", "m4.large", "us-west-1", "vpc-1", 0, 8, 20, 0, 0)
+	cn := newCiliumNode("node2", "i-testNodeManagerExceedENICapacity-1", "m4.xlarge", "us-west-1", "vpc-1", 1, 8, 20)
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 
@@ -515,15 +515,15 @@ func (e *ENISuite) TestNodeManagerExceedENICapacity(c *check.C) {
 	c.Assert(node.stats.availableIPs, check.Equals, 20)
 	c.Assert(node.stats.usedIPs, check.Equals, 0)
 
-	// Use 16 out of 20 IPs, we should reach 4 addresses needed but never 0 addresses needed
-	mngr.Update(updateCiliumNode(cn, 20, 16))
+	// Use 56 out of 60 IPs, we should reach 4 addresses needed but never 0 addresses needed
+	mngr.Update(updateCiliumNode(cn, 45, 41))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 4) }, 5*time.Second), check.IsNil)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.Not(check.IsNil))
 
 	node = mngr.Get("node2")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.stats.availableIPs, check.Equals, 20)
-	c.Assert(node.stats.usedIPs, check.Equals, 16)
+	c.Assert(node.stats.availableIPs, check.Equals, 45)
+	c.Assert(node.stats.usedIPs, check.Equals, 41)
 }
 
 type nodeState struct {
@@ -534,9 +534,10 @@ type nodeState struct {
 
 // TestNodeManagerManyNodes tests IP allocation of 100 nodes across 3 subnets
 //
-// - m4.large (2x ENIs, 2x10 IPs)
+// - m4.large (2x ENIs, 1x10 IPs)
 // - MinAllocate 10
 // - PreAllocate 1
+// - FirstInterfaceIndex 1
 func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 	const (
 		numNodes    = 100
@@ -566,9 +567,7 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 		c.Assert(err, check.IsNil)
 		instancesManager.Resync(context.TODO())
 		s := &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("i-testNodeManagerManyNodes-%d", i)}
-		s.cn = newCiliumNode(s.name, s.instanceName, "m4.large", "us-west-1", "vpc-1", 0, 1, minAllocate, 0, 0)
-		firstInterfaceIndex := 1
-		s.cn.Spec.ENI.FirstInterfaceIndex = &firstInterfaceIndex
+		s.cn = newCiliumNode(s.name, s.instanceName, "m4.large", "us-west-1", "vpc-1", 1, 1, minAllocate)
 		state[i] = s
 		mngr.Update(s.cn)
 	}
@@ -626,10 +625,7 @@ func (e *ENISuite) TestNodeManagerInstanceNotRunning(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node, ENI attachement will fail
-	cn := newCiliumNode("node1", "i-testNodeManagerInstanceNotRunning-0", "m4.large", "us-west-1", "vpc-1", 0, 0, 0, 0, 0)
-	firstInterfaceIndex := 1
-	cn.Spec.ENI.FirstInterfaceIndex = &firstInterfaceIndex
-
+	cn := newCiliumNode("node1", "i-testNodeManagerInstanceNotRunning-0", "m4.large", "us-west-1", "vpc-1", 1, 8, 0)
 	mngr.Update(cn)
 
 	// Wait for node to be declared notRunning
@@ -652,7 +648,8 @@ func (e *ENISuite) TestNodeManagerInstanceNotRunning(c *check.C) {
 // TestInstanceBeenDeleted verifies that instance deletion is correctly detected
 // and no further action is taken
 //
-// - m4.large (2x ENIs, 2x10 IPs)
+// - m4.large (2x ENIs, 1x10 IPs)
+// - FirstInterfaceIndex 1
 func (e *ENISuite) TestInstanceBeenDeleted(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet}, []*types.Vpc{testVpc}, testSecurityGroups)
 	metricsMock := metricsmock.NewMockMetrics()
@@ -671,9 +668,7 @@ func (e *ENISuite) TestInstanceBeenDeleted(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
-	cn := newCiliumNode("node1", "i-testInstanceBeenDeleted-0", "m4.large", "us-west-1", "vpc-1", 0, 0, 0, 0, 0)
-	firstInterfaceIndex := 1
-	cn.Spec.ENI.FirstInterfaceIndex = &firstInterfaceIndex
+	cn := newCiliumNode("node1", "i-testInstanceBeenDeleted-0", "m4.large", "us-west-1", "vpc-1", 1, 8, 0)
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 
@@ -688,11 +683,16 @@ func (e *ENISuite) TestInstanceBeenDeleted(c *check.C) {
 	c.Assert(err, check.IsNil)
 	err = ec2api.DeleteNetworkInterface(context.TODO(), eniID2)
 	c.Assert(err, check.IsNil)
+	// Resync instances from mocked AWS
 	instances.Resync(context.TODO())
-	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
+	// Use 2 out of 8 IPs
+	mngr.Update(updateCiliumNode(cn, 8, 2))
+	// Make sure neededIPs are recalculated
+	node.recalculateLocked()
 
-	node = mngr.Get("node1")
-	c.Assert(node, check.Not(check.IsNil))
+	// Instance deletion detected, no allocation happened despite of the IP deficit.
+	c.Assert(node.stats.availableIPs, check.Equals, 8)
+	c.Assert(node.stats.usedIPs, check.Equals, 0)
 	c.Assert(node.stats.neededIPs, check.Equals, 0)
 	c.Assert(node.stats.excessIPs, check.Equals, 0)
 }
@@ -721,7 +721,7 @@ func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLi
 		c.Assert(err, check.IsNil)
 		instances.Resync(context.TODO())
 		s := &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("i-benchmarkAllocWorker-%d", i)}
-		s.cn = newCiliumNode(s.name, s.instanceName, "m4.large", "us-west-1", "vpc-1", 0, 1, 10, 0, 0)
+		s.cn = newCiliumNode(s.name, s.instanceName, "m4.large", "us-west-1", "vpc-1", 1, 1, 10)
 		state[i] = s
 		mngr.Update(s.cn)
 	}
