@@ -10,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/internal/awsutil"
 )
 
-// Contains the parameters for DetachVolume.
 type DetachVolumeInput struct {
 	_ struct{} `type:"structure"`
 

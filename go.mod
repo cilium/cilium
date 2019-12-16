@@ -10,8 +10,7 @@ go 1.13
 require (
 	github.com/armon/go-metrics v0.0.0-20190430140413-ec5e00d3c878 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
-	github.com/aws/aws-sdk-go v1.25.43
-	github.com/aws/aws-sdk-go-v2 v0.14.0
+	github.com/aws/aws-sdk-go-v2 v0.18.0
 	github.com/blang/semver v3.5.0+incompatible
 	github.com/c9s/goprocinfo v0.0.0-20190309065803-0b2ad9ac246b
 	github.com/census-instrumentation/opencensus-proto v0.2.1 // indirect
@@ -143,7 +142,7 @@ replace (
 	github.com/asaskevich/govalidator => github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
 	github.com/auth0/go-jwt-middleware => github.com/auth0/go-jwt-middleware v0.0.0-20170425171159-5493cabe49f7
 	github.com/aws/aws-sdk-go => github.com/aws/aws-sdk-go v1.25.43
-	github.com/aws/aws-sdk-go-v2 => github.com/aws/aws-sdk-go-v2 v0.14.0
+	github.com/aws/aws-sdk-go-v2 => github.com/aws/aws-sdk-go-v2 v0.18.0
 	github.com/bazelbuild/bazel-gazelle => github.com/bazelbuild/bazel-gazelle v0.19.1-0.20191105222053-70208cbdc798
 	github.com/bazelbuild/buildtools => github.com/bazelbuild/buildtools v0.0.0-20190917191645-69366ca98f89
 	github.com/bazelbuild/rules_go => github.com/bazelbuild/rules_go v0.0.0-20190719190356-6dae44dc5cab

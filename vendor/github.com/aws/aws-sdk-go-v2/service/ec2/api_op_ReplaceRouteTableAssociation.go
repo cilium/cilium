@@ -55,6 +55,9 @@ func (s *ReplaceRouteTableAssociationInput) Validate() error {
 type ReplaceRouteTableAssociationOutput struct {
 	_ struct{} `type:"structure"`
 
+	// The state of the association.
+	AssociationState *RouteTableAssociationState `locationName:"associationState" type:"structure"`
+
 	// The ID of the new association.
 	NewAssociationId *string `locationName:"newAssociationId" type:"string"`
 }
@@ -69,15 +72,15 @@ const opReplaceRouteTableAssociation = "ReplaceRouteTableAssociation"
 // ReplaceRouteTableAssociationRequest returns a request value for making API operation for
 // Amazon Elastic Compute Cloud.
 //
-// Changes the route table associated with a given subnet in a VPC. After the
-// operation completes, the subnet uses the routes in the new route table it's
-// associated with. For more information about route tables, see Route Tables
-// (https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html)
+// Changes the route table associated with a given subnet, internet gateway,
+// or virtual private gateway in a VPC. After the operation completes, the subnet
+// or gateway uses the routes in the new route table. For more information about
+// route tables, see Route Tables (https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html)
 // in the Amazon Virtual Private Cloud User Guide.
 //
-// You can also use ReplaceRouteTableAssociation to change which table is the
-// main route table in the VPC. You just specify the main route table's association
-// ID and the route table to be the new main route table.
+// You can also use this operation to change which table is the main route table
+// in the VPC. Specify the main route table's association ID and the route table
+// ID of the new main route table.
 //
 //    // Example sending a request using ReplaceRouteTableAssociationRequest.
 //    req := client.ReplaceRouteTableAssociationRequest(params)

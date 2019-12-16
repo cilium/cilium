@@ -70,8 +70,8 @@ const opModifyInstanceCreditSpecification = "ModifyInstanceCreditSpecification"
 // ModifyInstanceCreditSpecificationRequest returns a request value for making API operation for
 // Amazon Elastic Compute Cloud.
 //
-// Modifies the credit option for CPU usage on a running or stopped T2 or T3
-// instance. The credit options are standard and unlimited.
+// Modifies the credit option for CPU usage on a running or stopped burstable
+// performance instance. The credit options are standard and unlimited.
 //
 // For more information, see Burstable Performance Instances (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances.html)
 // in the Amazon Elastic Compute Cloud User Guide.

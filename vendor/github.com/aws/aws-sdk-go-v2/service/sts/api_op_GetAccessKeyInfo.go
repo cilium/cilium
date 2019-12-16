@@ -15,7 +15,7 @@ type GetAccessKeyInfoInput struct {
 	// The identifier of an access key.
 	//
 	// This parameter allows (through its regex pattern) a string of characters
-	// that can consist of any upper- or lowercased letter or digit.
+	// that can consist of any upper- or lowercase letter or digit.
 	//
 	// AccessKeyId is a required field
 	AccessKeyId *string `min:"16" type:"string" required:"true"`
@@ -77,7 +77,8 @@ const opGetAccessKeyInfo = "GetAccessKeyInfo"
 // pull a credentials report (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_getting-report.html)
 // to learn which IAM user owns the keys. To learn who requested the temporary
 // credentials for an ASIA access key, view the STS events in your CloudTrail
-// logs (https://docs.aws.amazon.com/IAM/latest/UserGuide/cloudtrail-integration.html).
+// logs (https://docs.aws.amazon.com/IAM/latest/UserGuide/cloudtrail-integration.html)
+// in the IAM User Guide.
 //
 // This operation does not indicate the state of the access key. The key might
 // be active, inactive, or deleted. Active keys might not have permissions to

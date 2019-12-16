@@ -49,16 +49,16 @@ type AssumeRoleWithSAMLInput struct {
 	// in the IAM User Guide.
 	//
 	// The plain text that you use for both inline and managed session policies
-	// shouldn't exceed 2048 characters. The JSON policy characters can be any ASCII
+	// can't exceed 2,048 characters. The JSON policy characters can be any ASCII
 	// character from the space character to the end of the valid character list
 	// (\u0020 through \u00FF). It can also include the tab (\u0009), linefeed (\u000A),
 	// and carriage return (\u000D) characters.
 	//
-	// The characters in this parameter count towards the 2048 character session
-	// policy guideline. However, an AWS conversion compresses the session policies
-	// into a packed binary format that has a separate limit. This is the enforced
-	// limit. The PackedPolicySize response element indicates by percentage how
-	// close the policy is to the upper size limit.
+	// An AWS conversion compresses the passed session policies and session tags
+	// into a packed binary format that has a separate limit. Your request can fail
+	// for this limit even if your plain text meets the other requirements. The
+	// PackedPolicySize response element indicates by percentage how close the policies
+	// and tags for your request are to the upper size limit.
 	Policy *string `min:"1" type:"string"`
 
 	// The Amazon Resource Names (ARNs) of the IAM managed policies that you want
@@ -67,15 +67,15 @@ type AssumeRoleWithSAMLInput struct {
 	//
 	// This parameter is optional. You can provide up to 10 managed policy ARNs.
 	// However, the plain text that you use for both inline and managed session
-	// policies shouldn't exceed 2048 characters. For more information about ARNs,
+	// policies can't exceed 2,048 characters. For more information about ARNs,
 	// see Amazon Resource Names (ARNs) and AWS Service Namespaces (https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html)
 	// in the AWS General Reference.
 	//
-	// The characters in this parameter count towards the 2048 character session
-	// policy guideline. However, an AWS conversion compresses the session policies
-	// into a packed binary format that has a separate limit. This is the enforced
-	// limit. The PackedPolicySize response element indicates by percentage how
-	// close the policy is to the upper size limit.
+	// An AWS conversion compresses the passed session policies and session tags
+	// into a packed binary format that has a separate limit. Your request can fail
+	// for this limit even if your plain text meets the other requirements. The
+	// PackedPolicySize response element indicates by percentage how close the policies
+	// and tags for your request are to the upper size limit.
 	//
 	// Passing policies to this operation returns new temporary credentials. The
 	// resulting session's permissions are the intersection of the role's identity-based
@@ -190,9 +190,10 @@ type AssumeRoleWithSAMLOutput struct {
 	// ) )
 	NameQualifier *string `type:"string"`
 
-	// A percentage value that indicates the size of the policy in packed form.
-	// The service rejects any policy with a packed size greater than 100 percent,
-	// which means the policy exceeded the allowed space.
+	// A percentage value that indicates the packed size of the session policies
+	// and session tags combined passed in the request. The request fails if the
+	// packed size is greater than 100 percent, which means the policies and tags
+	// exceeded the allowed space.
 	PackedPolicySize *int64 `type:"integer"`
 
 	// The value of the NameID element in the Subject element of the SAML assertion.
@@ -232,6 +233,8 @@ const opAssumeRoleWithSAML = "AssumeRoleWithSAML"
 // an access key ID, a secret access key, and a security token. Applications
 // can use these temporary security credentials to sign calls to AWS services.
 //
+// Session Duration
+//
 // By default, the temporary security credentials created by AssumeRoleWithSAML
 // last for one hour. However, you can use the optional DurationSeconds parameter
 // to specify the duration of your session. Your role session lasts for the
@@ -247,6 +250,8 @@ const opAssumeRoleWithSAML = "AssumeRoleWithSAML"
 // URL. For more information, see Using IAM Roles (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use.html)
 // in the IAM User Guide.
 //
+// Permissions
+//
 // The temporary security credentials created by AssumeRoleWithSAML can be used
 // to make API calls to any AWS service with the following exception: you cannot
 // call the STS GetFederationToken or GetSessionToken API operations.
@@ -255,7 +260,7 @@ const opAssumeRoleWithSAML = "AssumeRoleWithSAML"
 // to this operation. You can pass a single JSON policy document to use as an
 // inline session policy. You can also specify up to 10 managed policies to
 // use as managed session policies. The plain text that you use for both inline
-// and managed session policies shouldn't exceed 2048 characters. Passing policies
+// and managed session policies can't exceed 2,048 characters. Passing policies
 // to this operation returns new temporary credentials. The resulting session's
 // permissions are the intersection of the role's identity-based policy and
 // the session policies. You can use the role's temporary credentials in subsequent
@@ -265,12 +270,6 @@ const opAssumeRoleWithSAML = "AssumeRoleWithSAML"
 // information, see Session Policies (https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#policies_session)
 // in the IAM User Guide.
 //
-// Before your application can call AssumeRoleWithSAML, you must configure your
-// SAML identity provider (IdP) to issue the claims required by AWS. Additionally,
-// you must use AWS Identity and Access Management (IAM) to create a SAML provider
-// entity in your AWS account that represents your identity provider. You must
-// also create an IAM role that specifies this SAML provider in its trust policy.
-//
 // Calling AssumeRoleWithSAML does not require the use of AWS security credentials.
 // The identity of the caller is validated by using keys in the metadata document
 // that is uploaded for the SAML provider entity for your identity provider.
@@ -278,8 +277,50 @@ const opAssumeRoleWithSAML = "AssumeRoleWithSAML"
 // Calling AssumeRoleWithSAML can result in an entry in your AWS CloudTrail
 // logs. The entry includes the value in the NameID element of the SAML assertion.
 // We recommend that you use a NameIDType that is not associated with any personally
-// identifiable information (PII). For example, you could instead use the Persistent
-// Identifier (urn:oasis:names:tc:SAML:2.0:nameid-format:persistent).
+// identifiable information (PII). For example, you could instead use the persistent
+// identifier (urn:oasis:names:tc:SAML:2.0:nameid-format:persistent).
+//
+// Tags
+//
+// (Optional) You can configure your IdP to pass attributes into your SAML assertion
+// as session tags. Each session tag consists of a key name and an associated
+// value. For more information about session tags, see Passing Session Tags
+// in STS (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_session-tags.html)
+// in the IAM User Guide.
+//
+// You can pass up to 50 session tags. The plain text session tag keys can’t
+// exceed 128 characters and the values can’t exceed 256 characters. For these
+// and additional limits, see IAM and STS Character Limits (https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-limits.html#reference_iam-limits-entity-length)
+// in the IAM User Guide.
+//
+// An AWS conversion compresses the passed session policies and session tags
+// into a packed binary format that has a separate limit. Your request can fail
+// for this limit even if your plain text meets the other requirements. The
+// PackedPolicySize response element indicates by percentage how close the policies
+// and tags for your request are to the upper size limit.
+//
+// You can pass a session tag with the same key as a tag that is attached to
+// the role. When you do, session tags override the role's tags with the same
+// key.
+//
+// An administrator must grant you the permissions necessary to pass session
+// tags. The administrator can also create granular permissions to allow you
+// to pass only specific session tags. For more information, see Tutorial: Using
+// Tags for Attribute-Based Access Control (https://docs.aws.amazon.com/IAM/latest/UserGuide/tutorial_attribute-based-access-control.html)
+// in the IAM User Guide.
+//
+// You can set the session tags as transitive. Transitive tags persist during
+// role chaining. For more information, see Chaining Roles with Session Tags
+// (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_session-tags.html#id_session-tags_role-chaining)
+// in the IAM User Guide.
+//
+// SAML Configuration
+//
+// Before your application can call AssumeRoleWithSAML, you must configure your
+// SAML identity provider (IdP) to issue the claims required by AWS. Additionally,
+// you must use AWS Identity and Access Management (IAM) to create a SAML provider
+// entity in your AWS account that represents your identity provider. You must
+// also create an IAM role that specifies this SAML provider in its trust policy.
 //
 // For more information, see the following resources:
 //

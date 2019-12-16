@@ -23,6 +23,11 @@ type CreateCustomerGatewayInput struct {
 	// The Amazon Resource Name (ARN) for the customer gateway certificate.
 	CertificateArn *string `type:"string"`
 
+	// A name for the customer gateway device.
+	//
+	// Length Constraints: Up to 255 characters.
+	DeviceName *string `type:"string"`
+
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have
 	// the required permissions, the error response is DryRunOperation. Otherwise,
@@ -98,11 +103,10 @@ const opCreateCustomerGateway = "CreateCustomerGateway"
 // For more information, see AWS Site-to-Site VPN (https://docs.aws.amazon.com/vpn/latest/s2svpn/VPC_VPN.html)
 // in the AWS Site-to-Site VPN User Guide.
 //
-// You cannot create more than one customer gateway with the same VPN type,
-// IP address, and BGP ASN parameter values. If you run an identical request
-// more than one time, the first request creates the customer gateway, and subsequent
-// requests return information about the existing customer gateway. The subsequent
-// requests do not create new customer gateway resources.
+// To create more than one customer gateway with the same VPN type, IP address,
+// and BGP ASN, specify a unique device name for each customer gateway. Identical
+// requests return information about the existing customer gateway and do not
+// create new customer gateways.
 //
 //    // Example sending a request using CreateCustomerGatewayRequest.
 //    req := client.CreateCustomerGatewayRequest(params)

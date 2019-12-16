@@ -75,7 +75,7 @@ const opModifyTrafficMirrorFilterNetworkServices = "ModifyTrafficMirrorFilterNet
 // to mirror network services, use RemoveNetworkServices to remove the network
 // services from the Traffic Mirror filter.
 //
-// FFor information about filter rule properties, see Network Services (https://docs.aws.amazon.com/vpc/latest/mirroring/traffic-mirroring-considerations.html#traffic-mirroring-network-services)
+// For information about filter rule properties, see Network Services (https://docs.aws.amazon.com/vpc/latest/mirroring/traffic-mirroring-considerations.html)
 // in the Traffic Mirroring User Guide .
 //
 //    // Example sending a request using ModifyTrafficMirrorFilterNetworkServicesRequest.

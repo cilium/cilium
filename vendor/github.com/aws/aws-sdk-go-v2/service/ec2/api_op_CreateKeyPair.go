@@ -53,7 +53,7 @@ type CreateKeyPairOutput struct {
 	KeyFingerprint *string `locationName:"keyFingerprint" type:"string"`
 
 	// An unencrypted PEM encoded RSA private key.
-	KeyMaterial *string `locationName:"keyMaterial" type:"string"`
+	KeyMaterial *string `locationName:"keyMaterial" type:"string" sensitive:"true"`
 
 	// The name of the key pair.
 	KeyName *string `locationName:"keyName" type:"string"`
