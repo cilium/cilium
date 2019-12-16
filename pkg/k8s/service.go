@@ -93,13 +93,22 @@ func ParseService(svc *types.Service) (ServiceID, *Service) {
 		headless = true
 	}
 
+	var trafficPolicy loadbalancer.SVCTrafficPolicy
+	switch svc.Spec.ExternalTrafficPolicy {
+	case v1.ServiceExternalTrafficPolicyTypeLocal:
+		trafficPolicy = loadbalancer.SVCTrafficPolicyLocal
+	default:
+		trafficPolicy = loadbalancer.SVCTrafficPolicyCluster
+	}
+
 	for _, ip := range svc.Status.LoadBalancer.Ingress {
 		if ip.IP != "" {
 			loadBalancerIPs = append(loadBalancerIPs, ip.IP)
 		}
 	}
 
-	svcInfo := NewService(clusterIP, svc.Spec.ExternalIPs, loadBalancerIPs, headless, svc.Labels, svc.Spec.Selector)
+	svcInfo := NewService(clusterIP, svc.Spec.ExternalIPs, loadBalancerIPs, headless,
+		trafficPolicy, svc.Labels, svc.Spec.Selector)
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
 	svcInfo.Shared = getAnnotationShared(svc)
 
@@ -201,6 +210,10 @@ type Service struct {
 	// Shared is true when the service should be exposed/shared to other clusters
 	Shared bool
 
+	// TrafficPolicy controls how backends are selected. If set to "Local", only
+	// node-local backends are chosen
+	TrafficPolicy loadbalancer.SVCTrafficPolicy
+
 	Ports map[loadbalancer.FEPortName]*loadbalancer.L4Addr
 	// NodePorts stores mapping for port name => NodePort frontend addr string =>
 	// NodePort fronted addr. The string addr => addr indirection is to avoid
@@ -245,6 +258,7 @@ func (s *Service) DeepEquals(o *Service) bool {
 		return true
 	}
 	if s.IsHeadless == o.IsHeadless &&
+		s.TrafficPolicy == o.TrafficPolicy &&
 		s.FrontendIP.Equal(o.FrontendIP) &&
 		comparator.MapStringEquals(s.Labels, o.Labels) &&
 		comparator.MapStringEquals(s.Selector, o.Selector) {
@@ -325,8 +339,9 @@ func parseIPs(externalIPs []string) map[string]net.IP {
 }
 
 // NewService returns a new Service with the Ports map initialized.
-func NewService(ip net.IP, externalIPs []string, loadBalancerIPs []string, headless bool,
-	labels map[string]string, selector map[string]string) *Service {
+func NewService(ip net.IP, externalIPs []string, loadBalancerIPs []string,
+	headless bool, trafficPolicy loadbalancer.SVCTrafficPolicy,
+	labels, selector map[string]string) *Service {
 
 	var k8sExternalIPs map[string]net.IP
 	var k8sLoadBalancerIPs map[string]net.IP
@@ -339,6 +354,7 @@ func NewService(ip net.IP, externalIPs []string, loadBalancerIPs []string, headl
 	return &Service{
 		FrontendIP:      ip,
 		IsHeadless:      headless,
+		TrafficPolicy:   trafficPolicy,
 		Ports:           map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
 		NodePorts:       map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
 		K8sExternalIPs:  k8sExternalIPs,

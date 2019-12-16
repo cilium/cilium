@@ -2860,6 +2860,14 @@ func init() {
               "description": "Service namespace  (e.g. Kubernetes namespace)",
               "type": "string"
             },
+            "trafficPolicy": {
+              "description": "Service traffic policy",
+              "type": "string",
+              "enum": [
+                "Cluster",
+                "Local"
+              ]
+            },
             "type": {
               "description": "Service type",
               "type": "string",
@@ -6129,6 +6137,14 @@ func init() {
             "namespace": {
               "description": "Service namespace  (e.g. Kubernetes namespace)",
               "type": "string"
+            },
+            "trafficPolicy": {
+              "description": "Service traffic policy",
+              "type": "string",
+              "enum": [
+                "Cluster",
+                "Local"
+              ]
             },
             "type": {
               "description": "Service type",
