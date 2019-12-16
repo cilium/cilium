@@ -38,12 +38,23 @@ type AllocateHostsInput struct {
 	// Default: off
 	HostRecovery HostRecovery `type:"string" enum:"true"`
 
-	// Specifies the instance type for which to configure your Dedicated Hosts.
-	// When you specify the instance type, that is the only instance type that you
-	// can launch onto that host.
+	// Specifies the instance family to be supported by the Dedicated Hosts. If
+	// you specify an instance family, the Dedicated Hosts support multiple instance
+	// types within that instance family.
 	//
-	// InstanceType is a required field
-	InstanceType *string `locationName:"instanceType" type:"string" required:"true"`
+	// If you want the Dedicated Hosts to support a specific instance type only,
+	// omit this parameter and specify InstanceType instead. You cannot specify
+	// InstanceFamily and InstanceType in the same request.
+	InstanceFamily *string `type:"string"`
+
+	// Specifies the instance type to be supported by the Dedicated Hosts. If you
+	// specify an instance type, the Dedicated Hosts support instances of the specified
+	// instance type only.
+	//
+	// If you want the Dedicated Hosts to support multiple instance types in a specific
+	// instance family, omit this parameter and specify InstanceFamily instead.
+	// You cannot specify InstanceType and InstanceFamily in the same request.
+	InstanceType *string `locationName:"instanceType" type:"string"`
 
 	// The number of Dedicated Hosts to allocate to your account with these parameters.
 	//
@@ -65,10 +76,6 @@ func (s *AllocateHostsInput) Validate() error {
 
 	if s.AvailabilityZone == nil {
 		invalidParams.Add(aws.NewErrParamRequired("AvailabilityZone"))
-	}
-
-	if s.InstanceType == nil {
-		invalidParams.Add(aws.NewErrParamRequired("InstanceType"))
 	}
 
 	if s.Quantity == nil {
@@ -100,8 +107,9 @@ const opAllocateHosts = "AllocateHosts"
 // AllocateHostsRequest returns a request value for making API operation for
 // Amazon Elastic Compute Cloud.
 //
-// Allocates a Dedicated Host to your account. At a minimum, specify the instance
-// size type, Availability Zone, and quantity of hosts to allocate.
+// Allocates a Dedicated Host to your account. At a minimum, specify the supported
+// instance type or instance family, the Availability Zone in which to allocate
+// the host, and the number of hosts to allocate.
 //
 //    // Example sending a request using AllocateHostsRequest.
 //    req := client.AllocateHostsRequest(params)

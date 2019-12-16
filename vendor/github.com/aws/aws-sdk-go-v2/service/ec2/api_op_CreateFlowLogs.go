@@ -35,7 +35,9 @@ type CreateFlowLogsInput struct {
 	// for LogDestinationType.
 	//
 	// If LogDestinationType is not specified or cloud-watch-logs, specify the Amazon
-	// Resource Name (ARN) of the CloudWatch Logs log group.
+	// Resource Name (ARN) of the CloudWatch Logs log group. For example, to publish
+	// to a log group called my-logs, specify arn:aws:logs:us-east-1:123456789012:log-group:my-logs.
+	// Alternatively, use LogGroupName instead.
 	//
 	// If LogDestinationType is s3, specify the ARN of the Amazon S3 bucket. You
 	// can also specify a subfolder in the bucket. To specify a subfolder in the

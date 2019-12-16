@@ -60,8 +60,10 @@ const opCreateTrafficMirrorFilter = "CreateTrafficMirrorFilter"
 // A Traffic Mirror filter is a set of rules that defines the traffic to mirror.
 //
 // By default, no traffic is mirrored. To mirror traffic, use CreateTrafficMirrorFilterRule
+// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTrafficMirrorFilterRule.htm)
 // to add Traffic Mirror rules to the filter. The rules you add define what
 // traffic gets mirrored. You can also use ModifyTrafficMirrorFilterNetworkServices
+// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyTrafficMirrorFilterNetworkServices.html)
 // to mirror supported network services.
 //
 //    // Example sending a request using CreateTrafficMirrorFilterRequest.

@@ -36,13 +36,13 @@ type RunInstancesInput struct {
 	// in the Amazon Elastic Compute Cloud User Guide.
 	CpuOptions *CpuOptionsRequest `type:"structure"`
 
-	// The credit option for CPU usage of the T2 or T3 instance. Valid values are
-	// standard and unlimited. To change this attribute after launch, use ModifyInstanceCreditSpecification
-	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyInstanceCreditSpecification.html).
+	// The credit option for CPU usage of the burstable performance instance. Valid
+	// values are standard and unlimited. To change this attribute after launch,
+	// use ModifyInstanceCreditSpecification (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyInstanceCreditSpecification.html).
 	// For more information, see Burstable Performance Instances (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances.html)
 	// in the Amazon Elastic Compute Cloud User Guide.
 	//
-	// Default: standard (T2 instances) or unlimited (T3 instances)
+	// Default: standard (T2 instances) or unlimited (T3/T3a instances)
 	CreditSpecification *CreditSpecificationRequest `type:"structure"`
 
 	// If you set this parameter to true, you can't terminate the instance using
@@ -162,6 +162,10 @@ type RunInstancesInput struct {
 	//
 	// MaxCount is a required field
 	MaxCount *int64 `type:"integer" required:"true"`
+
+	// The metadata options for the instance. For more information, see Instance
+	// Metadata and User Data (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html).
+	MetadataOptions *InstanceMetadataOptionsRequest `type:"structure"`
 
 	// The minimum number of instances to launch. If you specify a minimum that
 	// is more instances than Amazon EC2 can launch in the target Availability Zone,
