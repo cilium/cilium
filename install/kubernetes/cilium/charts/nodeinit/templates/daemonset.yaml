@@ -24,7 +24,65 @@ spec:
           imagePullPolicy: IfNotPresent
           securityContext:
             privileged: true
+{{- if .Values.revertReconfigureKubelet }}
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - "nsenter"
+                  - "-t"
+                  - "1"
+                  - "-m"
+                  - "--"
+                  - "/bin/sh"
+                  - "-c"
+                  - |
+                    #!/bin/bash
+
+                    set -o errexit
+                    set -o pipefail
+                    set -o nounset
+
+                    if stat /tmp/node-deinit.cilium.io > /dev/null 2>&1; then
+                      exit 0
+                    fi
+
+                    echo "Waiting on pods to stop..."
+                    if grep -q 'docker' /etc/crictl.yaml; then
+                      # Works for COS, ubuntu
+                      while docker ps | grep -v "node-init" | grep -q "POD_cilium"; do sleep 1; done
+                    else
+                      # COS-beta (with containerd)
+                      while crictl ps | grep -v "node-init" | grep -q "POD_cilium"; do sleep 1; done
+                    fi
+
+                    systemctl disable sys-fs-bpf.mount
+                    systemctl stop sys-fs-bpf.mount
+
+                    if ip link show cilium_host; then
+                      echo "Deleting cilium_host interface..."
+                      ip link del cilium_host
+                    fi
+
+{{- if not (eq .Values.global.nodeinit.bootstrapFile "") }}
+                    rm -f {{ .Values.global.nodeinit.bootstrapFile }}
+{{- end }}
+
+                    rm -f /tmp/node-init.cilium.io
+                    touch /tmp/node-deinit.cilium.io
+
+{{- if .Values.reconfigureKubelet }}
+                    echo "Changing kubelet configuration to --network-plugin=kubenet"
+                    sed -i "s:--network-plugin=cni\ --cni-bin-dir={{ .Values.global.cni.binPath }}:--network-plugin=kubenet:g" /etc/default/kubelet
+                    echo "Restarting kubelet..."
+                    systemctl restart kubelet
+{{- end }}
+
+                    echo "Node de-initialization complete"
+{{- end }}
           env:
+          - name: CHECKPOINT_PATH
+            value: /tmp/node-init.cilium.io
           # STARTUP_SCRIPT is the script run on node bootstrap. Node
           # bootstrapping can be customized in this script.
           - name: STARTUP_SCRIPT
@@ -40,7 +98,7 @@ spec:
                 echo "Mounting BPF filesystem..."
                 mount bpffs /sys/fs/bpf -t bpf
               }
-        
+
               echo "Installing BPF filesystem mount"
               cat >/tmp/sys-fs-bpf.mount <<EOF
               [Unit]
@@ -110,5 +168,9 @@ spec:
 
 {{- if not (eq .Values.global.nodeinit.bootstrapFile "") }}
               date > {{ .Values.global.nodeinit.bootstrapFile }}
+{{- end }}
+
+{{- if .Values.revertReconfigureKubelet }}
+              rm -f /tmp/node-deinit.cilium.io
 {{- end }}
               echo "Node initialization complete"
