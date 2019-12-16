@@ -363,8 +363,12 @@ func (s *ServiceCache) MergeExternalServiceUpdate(service *service.ClusterServic
 	}
 
 	scopedLog.Debugf("Updating backends to %+v", service.Backends)
+	backends := map[string]*Backend{}
+	for ipString, portConfig := range service.Backends {
+		backends[ipString] = &Backend{Ports: portConfig}
+	}
 	externalEndpoints.endpoints[service.Cluster] = &Endpoints{
-		Backends: service.Backends,
+		Backends: backends,
 	}
 
 	svc, ok := s.services[id]

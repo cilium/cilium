@@ -39,11 +39,13 @@ func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 	svcID2 := ServiceID{Name: "svc2", Namespace: "default"}
 
 	endpoints := Endpoints{
-		Backends: map[string]service.PortConfiguration{
-			"3.3.3.3": map[string]*loadbalancer.L4Addr{
-				"port": {
-					Protocol: loadbalancer.TCP,
-					Port:     80,
+		Backends: map[string]*Backend{
+			"3.3.3.3": {
+				Ports: map[string]*loadbalancer.L4Addr{
+					"port": {
+						Protocol: loadbalancer.TCP,
+						Port:     80,
+					},
 				},
 			},
 		},
@@ -384,12 +386,16 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 		c.Assert(event.Action, check.Equals, UpdateService)
 		c.Assert(event.ID, check.Equals, svcID)
 
-		c.Assert(event.Endpoints.Backends["2.2.2.2"], checker.DeepEquals, service.PortConfiguration{
-			"http-test-svc": {Protocol: loadbalancer.TCP, Port: 8080},
+		c.Assert(event.Endpoints.Backends["2.2.2.2"], checker.DeepEquals, &Backend{
+			Ports: service.PortConfiguration{
+				"http-test-svc": {Protocol: loadbalancer.TCP, Port: 8080},
+			},
 		})
 
-		c.Assert(event.Endpoints.Backends["3.3.3.3"], checker.DeepEquals, service.PortConfiguration{
-			"port": {Protocol: loadbalancer.TCP, Port: 80},
+		c.Assert(event.Endpoints.Backends["3.3.3.3"], checker.DeepEquals, &Backend{
+			Ports: service.PortConfiguration{
+				"port": {Protocol: loadbalancer.TCP, Port: 80},
+			},
 		})
 
 		return true
@@ -474,8 +480,10 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 		defer event.SWG.Done()
 		c.Assert(event.Action, check.Equals, UpdateService)
 
-		c.Assert(event.Endpoints.Backends["4.4.4.4"], checker.DeepEquals, service.PortConfiguration{
-			"port": {Protocol: loadbalancer.TCP, Port: 80},
+		c.Assert(event.Endpoints.Backends["4.4.4.4"], checker.DeepEquals, &Backend{
+			Ports: service.PortConfiguration{
+				"port": {Protocol: loadbalancer.TCP, Port: 80},
+			},
 		})
 
 		return true
@@ -507,8 +515,10 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 		defer event.SWG.Done()
 		c.Assert(event.Action, check.Equals, UpdateService)
 		c.Assert(event.ID, check.Equals, svcID)
-		c.Assert(event.Endpoints.Backends["3.3.3.3"], checker.DeepEquals, service.PortConfiguration{
-			"port": {Protocol: loadbalancer.TCP, Port: 80},
+		c.Assert(event.Endpoints.Backends["3.3.3.3"], checker.DeepEquals, &Backend{
+			Ports: service.PortConfiguration{
+				"port": {Protocol: loadbalancer.TCP, Port: 80},
+			},
 		})
 		return true
 	}, 2*time.Second), check.IsNil)

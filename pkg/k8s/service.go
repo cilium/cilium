@@ -382,8 +382,8 @@ func NewClusterService(id ServiceID, k8sService *Service, k8sEndpoints *Endpoint
 	svc.Frontends[k8sService.FrontendIP.String()] = portConfig
 
 	svc.Backends = map[string]service.PortConfiguration{}
-	for ipString, portConfig := range k8sEndpoints.Backends {
-		svc.Backends[ipString] = portConfig
+	for ipString, backend := range k8sEndpoints.Backends {
+		svc.Backends[ipString] = backend.Ports
 	}
 
 	return svc

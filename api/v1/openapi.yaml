@@ -1943,6 +1943,9 @@ definitions:
         description: Layer 4 port number
         type: integer
         format: uint16
+      nodeName:
+        description: Optional name of the node on which this backend runs
+        type: string
   Service:
     description: Collection of endpoints to be served
     type: object
