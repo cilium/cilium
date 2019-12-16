@@ -21,9 +21,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/external"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
 )
 
 // Limits specifies the ENI relevant instance limits
@@ -285,13 +285,17 @@ func UpdateLimitsFromUserDefinedMappings(m map[string]string) (err error) {
 // UpdateLimitsFromEC2API updates limits from the EC2 API
 // via calling https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeInstanceTypes.html
 func UpdateLimitsFromEC2API(ctx context.Context) error {
-	sess := session.Must(session.NewSession())
+	cfg, err := external.LoadDefaultAWSConfig()
+	if err != nil {
+		return fmt.Errorf("unable to load AWS configuration: %s", err)
+	}
 
-	ec2Client := ec2.New(sess)
+	ec2Client := ec2.New(cfg)
 
-	instanceTypeInfos := []*ec2.InstanceTypeInfo{}
+	instanceTypeInfos := []ec2.InstanceTypeInfo{}
 	describeInstanceTypes := &ec2.DescribeInstanceTypesInput{}
-	describeInstanceTypesResponse, err := ec2Client.DescribeInstanceTypesWithContext(ctx, describeInstanceTypes)
+	req := ec2Client.DescribeInstanceTypesRequest(describeInstanceTypes)
+	describeInstanceTypesResponse, err := req.Send(ctx)
 	if err != nil {
 		return err
 	}
@@ -302,7 +306,8 @@ func UpdateLimitsFromEC2API(ctx context.Context) error {
 		describeInstanceTypes := &ec2.DescribeInstanceTypesInput{
 			NextToken: describeInstanceTypesResponse.NextToken,
 		}
-		describeInstanceTypesResponse, err = ec2Client.DescribeInstanceTypesWithContext(ctx, describeInstanceTypes)
+		req = ec2Client.DescribeInstanceTypesRequest(describeInstanceTypes)
+		describeInstanceTypesResponse, err = req.Send(ctx)
 		if err != nil {
 			return err
 		}
@@ -311,12 +316,12 @@ func UpdateLimitsFromEC2API(ctx context.Context) error {
 	}
 
 	for _, instanceTypeInfo := range instanceTypeInfos {
-		instnaceType := aws.StringValue(instanceTypeInfo.InstanceType)
+		instanceType := string(instanceTypeInfo.InstanceType)
 		adapterLimit := aws.Int64Value(instanceTypeInfo.NetworkInfo.MaximumNetworkInterfaces)
 		ipv4PerAdapter := aws.Int64Value(instanceTypeInfo.NetworkInfo.Ipv4AddressesPerInterface)
 		ipv6PerAdapter := aws.Int64Value(instanceTypeInfo.NetworkInfo.Ipv6AddressesPerInterface)
 
-		limits[instnaceType] = Limits{
+		limits[instanceType] = Limits{
 			Adapters: int(adapterLimit),
 			IPv4:     int(ipv4PerAdapter),
 			IPv6:     int(ipv6PerAdapter),
