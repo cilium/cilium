@@ -2,6 +2,48 @@
 NEWS
 ******
 
+v1.6.5
+======
+
+::
+
+   André Martins (4):
+         .github: add github actions to cilium
+         pkg/workloads: sleep 500ms before reconnecting to containerd
+         update golang to 1.12.14
+         Dockerfile runtime: add python3 dependency
+
+   Ifeanyi Ubah (1):
+         pkg/endpoint: delete _next directories during restore
+
+   Jarno Rajahalme (4):
+         envoy: Update to release 1.12 with Cilium TLS support
+         envoy: Update to release 1.12.1
+         Dockerfile: Use Envoy image that always resumes NPDS
+         envoy: Update to 1.12.2
+
+   John Fastabend (1):
+         cilium: encryption bugtool should remove aead, comp and auth-trunk keys
+
+   Maciej Kwiek (4):
+         Add ApplyOptions
+         add Force to Apply and use it in cilium install
+         Move missed kubectl apply calls to `Apply` calls
+         Add nil check for init container terminated state
+
+   Martynas Pumputis (2):
+         k8s: Use ParseService when comparing two services
+         daemon: Decrease log level for svc not found msg
+
+   Sebastian Wicki (1):
+         k8s: Fix typo in io.cilium/shared-service annotation
+
+   Thomas Graf (2):
+         doc: Fix AKS installation guide
+         doc: Disable masquerading in all chaining guides
+
+
+
 v1.6.4
 ======
 
