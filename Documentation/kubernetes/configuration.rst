@@ -359,21 +359,3 @@ Finally, you need to restart the Cilium pod so it can re-mount
 ::
 
     kubectl delete -n kube-system pod -l k8s-app=cilium
-
-Disable container runtime
--------------------------
-
-If you want to run the Cilium agent on a node that will not host any
-application containers, then that node may not have a container runtime
-installed at all. You may still want to run the Cilium agent on the node to
-ensure that local processes on that node can reach application containers on
-other nodes. The default behavior of Cilium on startup when no container
-runtime has been found is to abort startup. To avoid this abort, you can run
-the ``cilium-agent`` with the following option.
-
-.. code:: bash
-
-   helm template cilium \
-     --namespace kube-system \
-     --set global.containerRuntime.integration=none \
-     > cilium.yaml

@@ -14,8 +14,8 @@ Component Overview
 A deployment of Cilium consists of the following components running on each
 Linux container node in the container cluster:
 
-* **Cilium Agent (Daemon):** Userspace daemon that interacts with the container runtime
-  and orchestration systems such as Kubernetes via Plugins to setup networking
+* **Cilium Agent (Daemon):** Userspace daemon that interacts with the
+  orchestration systems such as Kubernetes via Plugins to setup networking
   and security for containers running on the local server.  Provides an API for
   configuring network security policies, extracting network visibility data,
   etc.
@@ -52,7 +52,7 @@ Cilium Agent
 The Cilium agent (cilium-agent) runs on each Linux container host.  At a
 high-level, the agent accepts configuration that describes service-level
 network security and visibility policies.   It then listens to events in the
-container runtime to learn when containers are started or stopped, and it
+orchestration systems to learn when containers are started or stopped, and it
 creates custom BPF programs which the Linux kernel uses to control all network
 access in / out of those containers.  In more detail, the agent:
 
