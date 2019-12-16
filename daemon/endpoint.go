@@ -276,6 +276,8 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		}
 	}
 
+	// The following docs describe the cases where the init identity is used:
+	// http://docs.cilium.io/en/latest/policy/lifecycle/#init-identity
 	if len(addLabels) == 0 {
 		// If the endpoint has no labels, give the endpoint a special identity with
 		// label reserved:init so we can generate a custom policy for it until we
