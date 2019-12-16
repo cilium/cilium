@@ -25,6 +25,9 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/service"
+
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/discovery/v1beta1"
 )
 
 // Endpoints is an abstraction for the Kubernetes endpoints object. Endpoints
@@ -137,6 +140,70 @@ func ParseEndpoints(ep *types.Endpoints) (ServiceID, *Endpoints) {
 	}
 
 	return ParseEndpointsID(ep), endpoints
+}
+
+// ParseEndpointSliceID parses a Kubernetes endpoints slice and returns the
+// ServiceID
+func ParseEndpointSliceID(svc *types.EndpointSlice) ServiceID {
+	return ServiceID{
+		Name:      svc.ObjectMeta.GetLabels()[v1beta1.LabelServiceName],
+		Namespace: svc.ObjectMeta.Namespace,
+	}
+}
+
+// ParseEndpointSlice parses a Kubernetes Endpoints resource
+func ParseEndpointSlice(ep *types.EndpointSlice) (ServiceID, *Endpoints) {
+	endpoints := newEndpoints()
+
+	for _, sub := range ep.Endpoints {
+		// ready indicates that this endpoint is prepared to receive traffic,
+		// according to whatever system is managing the endpoint. A nil value
+		// indicates an unknown state. In most cases consumers should interpret this
+		// unknown state as ready.
+		if sub.Conditions.Ready != nil && !*sub.Conditions.Ready {
+			continue
+		}
+		for _, addr := range sub.Addresses {
+			backend, ok := endpoints.Backends[addr]
+			if !ok {
+				backend = service.PortConfiguration{}
+				endpoints.Backends[addr] = backend
+			}
+
+			for _, port := range ep.Ports {
+				name, lbPort := parseEndpointPort(port)
+				if lbPort == nil {
+					continue
+				}
+				backend[name] = lbPort
+			}
+		}
+	}
+
+	return ParseEndpointSliceID(ep), endpoints
+}
+
+func parseEndpointPort(port v1beta1.EndpointPort) (string, *loadbalancer.L4Addr) {
+	proto := loadbalancer.TCP
+	if port.Protocol != nil {
+		switch *port.Protocol {
+		case v1.ProtocolTCP:
+			proto = loadbalancer.TCP
+		case v1.ProtocolUDP:
+			proto = loadbalancer.UDP
+		default:
+			return "", nil
+		}
+	}
+	if port.Port == nil {
+		return "", nil
+	}
+	var name string
+	if port.Name != nil {
+		name = *port.Name
+	}
+	lbPort := loadbalancer.NewL4Addr(proto, uint16(*port.Port))
+	return name, lbPort
 }
 
 // externalEndpoints is the collection of external endpoints in all remote

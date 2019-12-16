@@ -17,6 +17,8 @@ package k8s
 import (
 	"reflect"
 
+	"k8s.io/api/discovery/v1beta1"
+
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/comparator"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -53,6 +55,16 @@ func CopyObjToV1Endpoints(obj interface{}) *types.Endpoints {
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Endpoints")
+		return nil
+	}
+	return ep.DeepCopy()
+}
+
+func CopyObjToV1EndpointSlice(obj interface{}) *types.EndpointSlice {
+	ep, ok := obj.(*types.EndpointSlice)
+	if !ok {
+		log.WithField(logfields.Object, logfields.Repr(obj)).
+			Warn("Ignoring invalid k8s v1 EndpointsSlice")
 		return nil
 	}
 	return ep.DeepCopy()
@@ -131,6 +143,15 @@ func EqualV1Endpoints(ep1, ep2 *types.Endpoints) bool {
 	return ep1.Name == ep2.Name &&
 		ep1.Namespace == ep2.Namespace &&
 		reflect.DeepEqual(ep1.Subsets, ep2.Subsets)
+}
+
+func EqualV1EndpointSlice(ep1, ep2 *types.EndpointSlice) bool {
+	// We only care about the Name, Namespace and Subsets of a particular
+	// endpoint.
+	return ep1.Name == ep2.Name &&
+		ep1.Namespace == ep2.Namespace &&
+		reflect.DeepEqual(ep1.Endpoints, ep2.Endpoints) &&
+		reflect.DeepEqual(ep1.Ports, ep2.Ports)
 }
 
 func EqualV2CNP(cnp1, cnp2 *types.SlimCNP) bool {
@@ -334,6 +355,34 @@ func ConvertToK8sEndpoints(obj interface{}) interface{} {
 			Key: concreteObj.Key,
 			Obj: &types.Endpoints{
 				Endpoints: eps,
+			},
+		}
+	default:
+		return obj
+	}
+}
+
+// ConvertToK8sEndpointSlice converts a *v1beta1.EndpointSlice into a
+// *types.Endpoints or a cache.DeletedFinalStateUnknown into
+// a cache.DeletedFinalStateUnknown with a *types.Endpoints in its Obj.
+// If the given obj can't be cast into either *v1.Endpoints
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
+func ConvertToK8sEndpointSlice(obj interface{}) interface{} {
+	// TODO check which fields we really need
+	switch concreteObj := obj.(type) {
+	case *v1beta1.EndpointSlice:
+		return &types.EndpointSlice{
+			EndpointSlice: concreteObj,
+		}
+	case cache.DeletedFinalStateUnknown:
+		eps, ok := concreteObj.Obj.(*v1beta1.EndpointSlice)
+		if !ok {
+			return obj
+		}
+		return cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: &types.EndpointSlice{
+				EndpointSlice: eps,
 			},
 		}
 	default:

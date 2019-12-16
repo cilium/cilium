@@ -332,6 +332,9 @@ func init() {
 	flags.Bool(option.EnableK8sExternalIPs, defaults.EnableK8sExternalIPs, fmt.Sprintf("Enable k8s externalIPs feature (Only enabled in conjunction with %s)", option.EnableNodePort))
 	option.BindEnv(option.EnableK8sExternalIPs)
 
+	flags.Bool(option.EnableK8sEndpointSlice, defaults.EnableK8sEndpointSlice, fmt.Sprintf("Enable k8s EndpointSlice feature into Cilium"))
+	option.BindEnv(option.EnableK8sEndpointSlice)
+
 	flags.Bool(option.EnableL7Proxy, defaults.EnableL7Proxy, "Enable L7 proxy for L7 policy enforcement")
 	option.BindEnv(option.EnableL7Proxy)
 

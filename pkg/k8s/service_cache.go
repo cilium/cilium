@@ -241,6 +241,66 @@ func (s *ServiceCache) DeleteEndpoints(k8sEndpoints *types.Endpoints, swg *lock.
 	return svcID
 }
 
+func (s *ServiceCache) UpdateEndpointSlices(epSlice *types.EndpointSlice, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
+	svcID, newEndpoints := ParseEndpointSlice(epSlice)
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if oldEndpointSlice, ok := s.endpoints[svcID]; ok {
+		if oldEndpointSlice.DeepEquals(newEndpoints) {
+			return svcID, newEndpoints
+		}
+	}
+	s.endpoints[svcID] = newEndpoints
+
+	// Check if the corresponding Endpoints resource is already available
+	svc, ok := s.services[svcID]
+	endpoints, serviceReady := s.correlateEndpoints(svcID)
+	if ok && serviceReady {
+		swg.Add()
+		s.Events <- ServiceEvent{
+			Action:    UpdateService,
+			ID:        svcID,
+			Service:   svc,
+			Endpoints: endpoints,
+			SWG:       swg,
+		}
+	}
+
+	return svcID, newEndpoints
+}
+
+func (s *ServiceCache) DeleteEndpointSlices(epSlice *types.EndpointSlice, swg *lock.StoppableWaitGroup) ServiceID {
+	svcID := ParseEndpointSliceID(epSlice)
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	svc, serviceOK := s.services[svcID]
+	delete(s.endpoints, svcID)
+	endpoints, serviceReady := s.correlateEndpoints(svcID)
+
+	if serviceOK {
+		swg.Add()
+		event := ServiceEvent{
+			Action:    DeleteService,
+			ID:        svcID,
+			Service:   svc,
+			Endpoints: endpoints,
+			SWG:       swg,
+		}
+
+		if serviceReady {
+			event.Action = UpdateService
+		}
+
+		s.Events <- event
+	}
+
+	return svcID
+}
+
 // FrontendList is the list of all k8s service frontends
 type FrontendList map[string]struct{}
 
