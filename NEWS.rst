@@ -2,6 +2,29 @@
 NEWS
 ******
 
+v1.5.11
+=======
+
+::
+
+   André Martins (3):
+         .github: add github actions to cilium
+         update golang to 1.12.14
+         Dockerfile runtime: add python3 dependency
+
+   Jarno Rajahalme (8):
+         Envoy: Do not configure policy name
+         envoy: Update to the latest API
+         Dockerfile: Use latest Envoy image
+         envoy: Update image for Envoy CVEs 2019-10-08
+         envoy: Update to release 1.12 with Cilium TLS support
+         envoy: Update to release 1.12.1
+         Dockerfile: Use Envoy image that always resumes NPDS
+         envoy: Update to 1.12.2
+
+   Joe Stringer (1):
+         node: Fix segfault in node equality check
+
 v1.5.10
 =======
 ::
