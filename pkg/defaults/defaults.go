@@ -135,6 +135,9 @@ const (
 	// EnableK8sExternalIPs is the default value for k8s externalIPs feature.
 	EnableK8sExternalIPs = true
 
+	// K8sEnableEndpointSlice is the default value for k8s EndpointSlice feature.
+	K8sEnableEndpointSlice = true
+
 	// PreAllocateMaps is the default value for BPF map preallocation
 	PreAllocateMaps = true
 

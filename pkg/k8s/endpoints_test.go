@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package k8s
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -26,6 +27,7 @@ import (
 
 	"gopkg.in/check.v1"
 	"k8s.io/api/core/v1"
+	"k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -547,4 +549,337 @@ func (s *K8sSuite) TestEndpointsString(c *check.C) {
 
 	_, ep := ParseEndpoints(endpoints)
 	c.Assert(ep.String(), check.Equals, "172.0.0.1:8080/TCP,172.0.0.1:8081/TCP,172.0.0.2:8080/TCP,172.0.0.2:8081/TCP")
+}
+
+func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
+	nodeName := "k8s1"
+
+	type args struct {
+		eps *types.EndpointSlice
+	}
+	tests := []struct {
+		name        string
+		setupArgs   func() args
+		setupWanted func() *Endpoints
+	}{
+		{
+			name: "empty endpoint",
+			setupArgs: func() args {
+				return args{
+					eps: &types.EndpointSlice{
+						EndpointSlice: &v1beta1.EndpointSlice{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "foo",
+								Namespace: "bar",
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() *Endpoints {
+				return newEndpoints()
+			},
+		},
+		{
+			name: "endpoint with an address and port",
+			setupArgs: func() args {
+				return args{
+					eps: &types.EndpointSlice{
+						EndpointSlice: &v1beta1.EndpointSlice{
+							AddressType: v1beta1.AddressTypeIPv4,
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "foo",
+								Namespace: "bar",
+							},
+							Endpoints: []v1beta1.Endpoint{
+								{
+									Addresses: []string{
+										"172.0.0.1",
+									},
+									Topology: map[string]string{
+										"kubernetes.io/hostname": nodeName,
+									},
+								},
+							},
+							Ports: []v1beta1.EndpointPort{
+								{
+									Name:     func() *string { a := "http-test-svc"; return &a }(),
+									Protocol: func() *v1.Protocol { a := v1.ProtocolTCP; return &a }(),
+									Port:     func() *int32 { a := int32(8080); return &a }(),
+								},
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() *Endpoints {
+				svcEP := newEndpoints()
+				svcEP.Backends["172.0.0.1"] = &Backend{
+					Ports: service.PortConfiguration{
+						"http-test-svc": loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+					},
+					NodeName: nodeName,
+				}
+				return svcEP
+			},
+		},
+		{
+			name: "endpoint with an address and 2 ports",
+			setupArgs: func() args {
+				return args{
+					eps: &types.EndpointSlice{
+						EndpointSlice: &v1beta1.EndpointSlice{
+							AddressType: v1beta1.AddressTypeIPv4,
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "foo",
+								Namespace: "bar",
+							},
+							Endpoints: []v1beta1.Endpoint{
+								{
+									Addresses: []string{
+										"172.0.0.1",
+									},
+									Topology: map[string]string{
+										"kubernetes.io/hostname": nodeName,
+									},
+								},
+							},
+							Ports: []v1beta1.EndpointPort{
+								{
+									Name:     func() *string { a := "http-test-svc"; return &a }(),
+									Protocol: func() *v1.Protocol { a := v1.ProtocolTCP; return &a }(),
+									Port:     func() *int32 { a := int32(8080); return &a }(),
+								},
+								{
+									Name:     func() *string { a := "http-test-svc-2"; return &a }(),
+									Protocol: func() *v1.Protocol { a := v1.ProtocolTCP; return &a }(),
+									Port:     func() *int32 { a := int32(8081); return &a }(),
+								},
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() *Endpoints {
+				svcEP := newEndpoints()
+				svcEP.Backends["172.0.0.1"] = &Backend{
+					Ports: service.PortConfiguration{
+						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					},
+					NodeName: nodeName,
+				}
+				return svcEP
+			},
+		},
+		{
+			name: "endpoint with 2 addresses and 2 ports",
+			setupArgs: func() args {
+				return args{
+					eps: &types.EndpointSlice{
+						EndpointSlice: &v1beta1.EndpointSlice{
+							AddressType: v1beta1.AddressTypeIPv4,
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "foo",
+								Namespace: "bar",
+							},
+							Endpoints: []v1beta1.Endpoint{
+								{
+									Addresses: []string{
+										"172.0.0.1",
+									},
+									Topology: map[string]string{
+										"kubernetes.io/hostname": nodeName,
+									},
+								},
+								{
+									Addresses: []string{
+										"172.0.0.2",
+									},
+								},
+							},
+							Ports: []v1beta1.EndpointPort{
+								{
+									Name:     func() *string { a := "http-test-svc"; return &a }(),
+									Protocol: func() *v1.Protocol { a := v1.ProtocolTCP; return &a }(),
+									Port:     func() *int32 { a := int32(8080); return &a }(),
+								},
+								{
+									Name:     func() *string { a := "http-test-svc-2"; return &a }(),
+									Protocol: func() *v1.Protocol { a := v1.ProtocolTCP; return &a }(),
+									Port:     func() *int32 { a := int32(8081); return &a }(),
+								},
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() *Endpoints {
+				svcEP := newEndpoints()
+				svcEP.Backends["172.0.0.1"] = &Backend{
+					Ports: service.PortConfiguration{
+						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					},
+					NodeName: nodeName,
+				}
+				svcEP.Backends["172.0.0.2"] = &Backend{
+					Ports: service.PortConfiguration{
+						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					},
+				}
+				return svcEP
+			},
+		},
+		{
+			name: "endpoint with 2 addresses, 1 address not ready and 2 ports",
+			setupArgs: func() args {
+				return args{
+					eps: &types.EndpointSlice{
+						EndpointSlice: &v1beta1.EndpointSlice{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "foo",
+								Namespace: "bar",
+							},
+							Endpoints: []v1beta1.Endpoint{
+								{
+									Addresses: []string{
+										"172.0.0.1",
+									},
+									Topology: map[string]string{
+										"kubernetes.io/hostname": nodeName,
+									},
+								},
+								{
+									Addresses: []string{
+										"172.0.0.2",
+									},
+								},
+								{
+									Conditions: v1beta1.EndpointConditions{
+										Ready: func() *bool { a := false; return &a }(),
+									},
+									Addresses: []string{
+										"172.0.0.3",
+									},
+								},
+							},
+							Ports: []v1beta1.EndpointPort{
+								{
+									Name:     func() *string { a := "http-test-svc"; return &a }(),
+									Protocol: func() *v1.Protocol { a := v1.ProtocolTCP; return &a }(),
+									Port:     func() *int32 { a := int32(8080); return &a }(),
+								},
+								{
+									Name:     func() *string { a := "http-test-svc-2"; return &a }(),
+									Protocol: func() *v1.Protocol { a := v1.ProtocolTCP; return &a }(),
+									Port:     func() *int32 { a := int32(8081); return &a }(),
+								},
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() *Endpoints {
+				svcEP := newEndpoints()
+				svcEP.Backends["172.0.0.1"] = &Backend{
+					Ports: service.PortConfiguration{
+						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					},
+					NodeName: nodeName,
+				}
+				svcEP.Backends["172.0.0.2"] = &Backend{
+					Ports: service.PortConfiguration{
+						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
+					},
+				}
+				return svcEP
+			},
+		},
+	}
+	for _, tt := range tests {
+		args := tt.setupArgs()
+		want := tt.setupWanted()
+		_, got := ParseEndpointSlice(args.eps)
+		c.Assert(got, checker.DeepEquals, want, check.Commentf("Test name: %q", tt.name))
+	}
+}
+
+func Test_parseEndpointPort(t *testing.T) {
+	type args struct {
+		port v1beta1.EndpointPort
+	}
+	tests := []struct {
+		name     string
+		args     args
+		portName string
+		l4Addr   *loadbalancer.L4Addr
+	}{
+		{
+			name: "tcp-port",
+			args: args{
+				port: v1beta1.EndpointPort{
+					Name:     func() *string { a := "http-test-svc"; return &a }(),
+					Protocol: func() *v1.Protocol { a := v1.ProtocolTCP; return &a }(),
+					Port:     func() *int32 { a := int32(8080); return &a }(),
+				},
+			},
+			portName: "http-test-svc",
+			l4Addr: &loadbalancer.L4Addr{
+				Protocol: loadbalancer.TCP,
+				Port:     8080,
+			},
+		},
+		{
+			name: "udp-port",
+			args: args{
+				port: v1beta1.EndpointPort{
+					Name:     func() *string { a := "http-test-svc"; return &a }(),
+					Protocol: func() *v1.Protocol { a := v1.ProtocolUDP; return &a }(),
+					Port:     func() *int32 { a := int32(8080); return &a }(),
+				},
+			},
+			portName: "http-test-svc",
+			l4Addr: &loadbalancer.L4Addr{
+				Protocol: loadbalancer.UDP,
+				Port:     8080,
+			},
+		},
+		{
+			name: "unset-protocol-should-have-tcp-port",
+			args: args{
+				port: v1beta1.EndpointPort{
+					Name: func() *string { a := "http-test-svc"; return &a }(),
+					Port: func() *int32 { a := int32(8080); return &a }(),
+				},
+			},
+			portName: "http-test-svc",
+			l4Addr: &loadbalancer.L4Addr{
+				Protocol: loadbalancer.TCP,
+				Port:     8080,
+			},
+		},
+		{
+			name: "unset-port-number-should-fail",
+			args: args{
+				port: v1beta1.EndpointPort{
+					Name: func() *string { a := "http-test-svc"; return &a }(),
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotPortName, gotL4Addr := parseEndpointPort(tt.args.port)
+			if gotPortName != tt.portName {
+				t.Errorf("parseEndpointPort() got = %v, want %v", gotPortName, tt.portName)
+			}
+			if !reflect.DeepEqual(gotL4Addr, tt.l4Addr) {
+				t.Errorf("parseEndpointPort() got1 = %v, want %v", gotL4Addr, tt.l4Addr)
+			}
+		})
+	}
 }

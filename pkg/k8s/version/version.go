@@ -39,6 +39,9 @@ type ServerCapabilities struct {
 	// MinimalVersionMet is true when the minimal version of Kubernetes
 	// required to run Cilium has been met
 	MinimalVersionMet bool
+
+	// EndpointSlice is the ability of k8s server to support endpoint slices
+	EndpointSlice bool
 }
 
 type cachedVersion struct {
@@ -62,6 +65,10 @@ var (
 	// isGEThanMinimalVersionConstraint is the minimal version required to run
 	// Cilium
 	isGEThanMinimalVersionConstraint = versioncheck.MustCompile(">=" + MinimalVersionConstraint)
+
+	// isGEThanEndpointSliceConstraint is the minimal version that k8s supports
+	// Endpoint slices
+	isGEThanEndpointSliceConstraint = versioncheck.MustCompile(">=1.17.0")
 )
 
 // Version returns the version of the Kubernetes apiserver
@@ -89,6 +96,7 @@ func updateVersion(version go_version.Version) {
 	cached.capabilities.Patch = option.Config.K8sForceJSONPatch || isGEThanPatchConstraint(version)
 	cached.capabilities.UpdateStatus = isGEThanUpdateStatusConstraint(version)
 	cached.capabilities.MinimalVersionMet = isGEThanMinimalVersionConstraint(version)
+	cached.capabilities.EndpointSlice = isGEThanEndpointSliceConstraint(version)
 }
 
 // Force forces the use of a specific version
