@@ -2,6 +2,25 @@
 NEWS
 ******
 
+v1.4.10
+=======
+
+::
+
+   Ian Vernon (1):
+         bugtool: add `cilium node list` output
+
+   Jarno Rajahalme (8):
+         Envoy: Do not configure policy name
+         envoy: Update to the latest API
+         Dockerfile: Use latest Envoy image
+         envoy: Update image for Envoy CVEs 2019-10-08
+         envoy: Update to release 1.12 with Cilium TLS support
+         envoy: Update to release 1.12.1
+         Dockerfile: Use Envoy image that always resumes NPDS
+         envoy: Update to 1.12.2
+
+
 v1.4.9
 ======
 
