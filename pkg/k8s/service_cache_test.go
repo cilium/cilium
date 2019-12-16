@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import (
 	"gopkg.in/check.v1"
 	. "gopkg.in/check.v1"
 	"k8s.io/api/core/v1"
+	"k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -109,7 +110,79 @@ func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 	c.Assert(frontends.LooseMatch(*frontend), check.Equals, true)
 }
 
-func (s *K8sSuite) TestServiceCache(c *check.C) {
+func (s *K8sSuite) TestServiceCacheEndpoints(c *check.C) {
+	k8sEndpoints := &types.Endpoints{
+		Endpoints: &v1.Endpoints{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+			},
+			Subsets: []v1.EndpointSubset{
+				{
+					Addresses: []v1.EndpointAddress{{IP: "2.2.2.2"}},
+					Ports: []v1.EndpointPort{
+						{
+							Name:     "http-test-svc",
+							Port:     8080,
+							Protocol: v1.ProtocolTCP,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	updateEndpoints := func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup) {
+		svcCache.UpdateEndpoints(k8sEndpoints, swgEps)
+	}
+	deleteEndpoints := func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup) {
+		svcCache.DeleteEndpoints(k8sEndpoints, swgEps)
+	}
+
+	testServiceCache(c, updateEndpoints, deleteEndpoints)
+}
+
+func (s *K8sSuite) TestServiceCacheEndpointSlice(c *check.C) {
+	k8sEndpointSlice := &types.EndpointSlice{
+		EndpointSlice: &v1beta1.EndpointSlice{
+			AddressType: v1beta1.AddressTypeIPv4,
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo-afbh9",
+				Namespace: "bar",
+				Labels: map[string]string{
+					v1beta1.LabelServiceName: "foo",
+				},
+			},
+			Endpoints: []v1beta1.Endpoint{
+				{
+					Addresses: []string{
+						"2.2.2.2",
+					},
+				},
+			},
+			Ports: []v1beta1.EndpointPort{
+				{
+					Name:     func() *string { a := "http-test-svc"; return &a }(),
+					Protocol: func() *v1.Protocol { a := v1.ProtocolTCP; return &a }(),
+					Port:     func() *int32 { a := int32(8080); return &a }(),
+				},
+			},
+		},
+	}
+
+	updateEndpoints := func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup) {
+		svcCache.UpdateEndpointSlices(k8sEndpointSlice, swgEps)
+	}
+	deleteEndpoints := func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup) {
+		svcCache.DeleteEndpointSlices(k8sEndpointSlice, swgEps)
+	}
+
+	testServiceCache(c, updateEndpoints, deleteEndpoints)
+}
+
+func testServiceCache(c *check.C,
+	updateEndpointsCB, deleteEndpointsCB func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup)) {
+
 	svcCache := NewServiceCache()
 
 	k8sSvc := &types.Service{
@@ -142,29 +215,8 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 	default:
 	}
 
-	k8sEndpoints := &types.Endpoints{
-		Endpoints: &v1.Endpoints{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-			},
-			Subsets: []v1.EndpointSubset{
-				{
-					Addresses: []v1.EndpointAddress{{IP: "2.2.2.2"}},
-					Ports: []v1.EndpointPort{
-						{
-							Name:     "http-test-svc",
-							Port:     8080,
-							Protocol: v1.ProtocolTCP,
-						},
-					},
-				},
-			},
-		},
-	}
-
 	swgEps := lock.NewStoppableWaitGroup()
-	svcCache.UpdateEndpoints(k8sEndpoints, swgEps)
+	updateEndpointsCB(&svcCache, swgEps)
 
 	// The service should be ready as both service and endpoints have been
 	// imported
@@ -210,7 +262,7 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 	}, 2*time.Second), check.IsNil)
 
 	// Deleting the endpoints will result in a service delete event
-	svcCache.DeleteEndpoints(k8sEndpoints, swgEps)
+	deleteEndpointsCB(&svcCache, swgEps)
 	c.Assert(testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
 		defer event.SWG.Done()
@@ -224,7 +276,7 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 	c.Assert(endpoints.String(), check.Equals, "")
 
 	// Reinserting the endpoints should re-match with the still existing service
-	svcCache.UpdateEndpoints(k8sEndpoints, swgEps)
+	updateEndpointsCB(&svcCache, swgEps)
 	c.Assert(testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
 		defer event.SWG.Done()
@@ -249,7 +301,7 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 
 	// Deleting the endpoints will not emit an event as the notification
 	// was sent out when the service was deleted.
-	svcCache.DeleteEndpoints(k8sEndpoints, swgEps)
+	deleteEndpointsCB(&svcCache, swgEps)
 	time.Sleep(100 * time.Millisecond)
 	select {
 	case <-svcCache.Events:

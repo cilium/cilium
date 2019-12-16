@@ -15,6 +15,14 @@ rules:
   - watch
   - delete
 - apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - ""
   resources:
   # to automatically read from k8s and import the node's pod CIDR to cilium's

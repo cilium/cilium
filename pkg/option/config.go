@@ -147,6 +147,9 @@ const (
 	// EnableK8sExternalIPs enables k8s external IPs feature into Cilium datapath.
 	EnableK8sExternalIPs = "enable-k8s-external-ips"
 
+	// K8sEnableEndpointSlice enables the k8s EndpointSlice feature into Cilium
+	K8sEnableEndpointSlice = "enable-k8s-endpoint-slice"
+
 	// EnableL7Proxy is the name of the option to enable L7 proxy
 	EnableL7Proxy = "enable-l7-proxy"
 
@@ -1247,6 +1250,10 @@ type DaemonConfig struct {
 	// EnableK8sExternalIPs enables k8s external IPs implementation in BPF
 	EnableK8sExternalIPs bool
 
+	// K8sEnableEndpointSlice enables k8s endpoint slice feature that is used
+	// in kubernetes.
+	K8sEnableK8sEndpointSlice bool
+
 	// NodePortMin is the minimum port address for the NodePort range
 	NodePortMin int
 
@@ -1349,6 +1356,7 @@ var (
 		IdentityAllocationMode:       IdentityAllocationModeKVstore,
 		AllowICMPFragNeeded:          defaults.AllowICMPFragNeeded,
 		EnableWellKnownIdentities:    defaults.EnableEndpointRoutes,
+		K8sEnableK8sEndpointSlice:    defaults.K8sEnableEndpointSlice,
 	}
 )
 
@@ -1687,6 +1695,7 @@ func (c *DaemonConfig) Populate() {
 	c.IPv6Range = viper.GetString(IPv6Range)
 	c.IPv6ServiceRange = viper.GetString(IPv6ServiceRange)
 	c.K8sAPIServer = viper.GetString(K8sAPIServer)
+	c.K8sEnableK8sEndpointSlice = viper.GetBool(K8sEnableEndpointSlice)
 	c.K8sKubeConfigPath = viper.GetString(K8sKubeConfigPath)
 	c.K8sRequireIPv4PodCIDR = viper.GetBool(K8sRequireIPv4PodCIDRName)
 	c.K8sRequireIPv6PodCIDR = viper.GetBool(K8sRequireIPv6PodCIDRName)
