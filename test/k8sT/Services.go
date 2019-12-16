@@ -294,17 +294,21 @@ var _ = Describe("K8sServicesTest", func() {
 			}
 		}
 
-		It("Tests NodePort (kube-proxy)", func() {
-			testNodePort(false)
-		})
-
-		It("Tests NodePort (kube-proxy) with externalTrafficPolicy=Local", func() {
+		testExternalTrafficPolicyLocal := func() {
 			var data v1.Service
 			err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-local").Unmarshal(&data)
 			Expect(err).Should(BeNil(), "Can not retrieve service")
 			url := getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
 
 			doRequestsFromOutsideClient(url, 10, true)
+		}
+
+		It("Tests NodePort (kube-proxy)", func() {
+			testNodePort(false)
+		})
+
+		It("Tests NodePort (kube-proxy) with externalTrafficPolicy=Local", func() {
+			testExternalTrafficPolicyLocal()
 		})
 
 		Context("with L7 policy", func() {
@@ -353,27 +357,42 @@ var _ = Describe("K8sServicesTest", func() {
 				DeployCiliumAndDNS(kubectl)
 			})
 
-			It("Tests with vxlan", func() {
-				deleteCiliumDS(kubectl)
-
-				DeployCiliumOptionsAndDNS(kubectl, []string{
-					"--set global.nodePort.enabled=true",
-					"--set global.nodePort.device=" + nativeDev,
+			Context("Tests with vxlan", func() {
+				BeforeAll(func() {
+					deleteCiliumDS(kubectl)
+					DeployCiliumOptionsAndDNS(kubectl, []string{
+						"--set global.nodePort.enabled=true",
+						"--set global.nodePort.device=" + nativeDev,
+					})
 				})
 
-				testNodePort(true)
+				It("Tests NodePort", func() {
+					testNodePort(true)
+				})
+
+				It("Tests NodePort with externalTrafficPolicy=Local", func() {
+					testExternalTrafficPolicyLocal()
+				})
 			})
 
-			It("Tests with direct routing", func() {
-				deleteCiliumDS(kubectl)
-				DeployCiliumOptionsAndDNS(kubectl, []string{
-					"--set global.nodePort.enabled=true",
-					"--set global.nodePort.device=" + nativeDev,
-					"--set global.tunnel=disabled",
-					"--set global.autoDirectNodeRoutes=true",
+			Context("Tests with direct routing", func() {
+				BeforeAll(func() {
+					deleteCiliumDS(kubectl)
+					DeployCiliumOptionsAndDNS(kubectl, []string{
+						"--set global.nodePort.enabled=true",
+						"--set global.nodePort.device=" + nativeDev,
+						"--set global.tunnel=disabled",
+						"--set global.autoDirectNodeRoutes=true",
+					})
 				})
 
-				testNodePort(true)
+				It("Tests NodePort", func() {
+					testNodePort(true)
+				})
+
+				It("Tests NodePort with externalTrafficPolicy=Local", func() {
+					testExternalTrafficPolicyLocal()
+				})
 			})
 
 			Context("Tests with MetalLB", func() {
