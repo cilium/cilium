@@ -514,28 +514,28 @@ required = [
 
 [[constraint]]
   name = "k8s.io/api"
-  revision = "kubernetes-1.16.3"
+  revision = "kubernetes-1.16.4"
 
   # main-usage = "pkg/k8s"
   # on-revision = ""
 
 [[constraint]]
   name = "k8s.io/apiextensions-apiserver"
-  revision = "kubernetes-1.16.3"
+  revision = "kubernetes-1.16.4"
 
   # main-usage = "pkg/k8s"
   # on-revision = ""
 
 [[override]]
   name = "k8s.io/apiserver"
-  revision = "kubernetes-1.16.3"
+  revision = "kubernetes-1.16.4"
 
   # main-usage = "pkg/k8s"
   # on-revision = ""
 
 [[constraint]]
   name = "k8s.io/apimachinery"
-  revision = "kubernetes-1.16.3"
+  revision = "kubernetes-1.16.4"
 
   # main-usage = "pkg/k8s"
   # on-revision = ""
@@ -557,7 +557,7 @@ required = [
 
 [[constraint]]
   name = "k8s.io/code-generator"
-  revision = "kubernetes-1.16.3"
+  revision = "kubernetes-1.16.4"
 
   # main-usage = "pkg/k8s"
   # on-revision = ""
@@ -571,14 +571,14 @@ required = [
 
 [[constraint]]
   name = "k8s.io/kubernetes"
-  revision = "v1.16.3"
+  revision = "v1.16.4"
 
   # main-usage = "pkg/k8s"
   # on-revision = ""
 
 [[constraint]]
   name = "k8s.io/cri-api"
-  revision = "kubernetes-1.16.3"
+  revision = "kubernetes-1.16.4"
 
   # main-usage = "pkg/workloads"
   # on-revision = ""
