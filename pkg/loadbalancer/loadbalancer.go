@@ -116,7 +116,11 @@ type ID uint32
 
 // Backend represents load balancer backend.
 type Backend struct {
+	// ID of the backend
 	ID BackendID
+	// Node hosting this backend. This is used to determine backends local to
+	// a node.
+	NodeName string
 	L3n4Addr
 }
 
@@ -282,7 +286,7 @@ func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
 		return nil, fmt.Errorf("invalid IP address \"%s\"", *base.IP)
 	}
 
-	return &Backend{L3n4Addr: L3n4Addr{IP: ip, L4Addr: *l4addr}}, nil
+	return &Backend{NodeName: base.NodeName, L3n4Addr: L3n4Addr{IP: ip, L4Addr: *l4addr}}, nil
 }
 
 func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error) {
@@ -317,8 +321,9 @@ func (b *Backend) GetBackendModel() *models.BackendAddress {
 
 	ip := b.IP.String()
 	return &models.BackendAddress{
-		IP:   &ip,
-		Port: b.Port,
+		IP:       &ip,
+		Port:     b.Port,
+		NodeName: b.NodeName,
 	}
 }
 

@@ -1376,6 +1376,10 @@ func init() {
           "description": "Layer 3 address",
           "type": "string"
         },
+        "nodeName": {
+          "description": "Optional name of the node on which this backend runs",
+          "type": "string"
+        },
         "port": {
           "description": "Layer 4 port number",
           "type": "integer",
@@ -4640,6 +4644,10 @@ func init() {
       "properties": {
         "ip": {
           "description": "Layer 3 address",
+          "type": "string"
+        },
+        "nodeName": {
+          "description": "Optional name of the node on which this backend runs",
           "type": "string"
         },
         "port": {
