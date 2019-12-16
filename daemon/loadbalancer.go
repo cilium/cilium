@@ -31,6 +31,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type errSVCNotFound struct {
+	frontend string
+}
+
+func (e *errSVCNotFound) Error() string {
+	return fmt.Sprintf("Service frontend not found: %s", e.frontend)
+}
+
 // addSVC2BPFMap adds the given bpf service to the bpf maps. If addRevNAT is set, adds the
 // RevNAT value (feCilium.L3n4Addr) to the lb's RevNAT map for the given feCilium.ID.
 func (d *Daemon) addSVC2BPFMap(feCilium loadbalancer.L3n4AddrID, feBPF lbmap.ServiceKey,
@@ -244,7 +252,7 @@ func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Respon
 func (d *Daemon) svcDeleteByFrontendLocked(frontend *loadbalancer.L3n4Addr) error {
 	svc, ok := d.loadBalancer.SVCMap[frontend.SHA256Sum()]
 	if !ok {
-		return fmt.Errorf("Service frontend not found %+v", frontend)
+		return &errSVCNotFound{frontend: frontend.String()}
 	}
 	return d.svcDelete(&svc)
 }

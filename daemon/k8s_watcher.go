@@ -1237,8 +1237,13 @@ func (d *Daemon) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s.End
 		}
 
 		if err := d.svcDeleteByFrontend(&fe.L3n4Addr); err != nil {
-			scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(fe)).
-				Warn("Error deleting service by frontend")
+			l := scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(fe))
+			msg := "Error deleting service by frontend"
+			if _, ok := err.(*errSVCNotFound); ok {
+				l.Info(msg)
+			} else {
+				l.Warn(msg)
+			}
 			continue
 		} else {
 			scopedLog.Debugf("# cilium lb delete-service %s %d 0", fe.IP, fe.Port)
