@@ -145,6 +145,10 @@ type ServiceSpecFlags struct {
 	// Service namespace  (e.g. Kubernetes namespace)
 	Namespace string `json:"namespace,omitempty"`
 
+	// Service traffic policy
+	// Enum: [Cluster Local]
+	TrafficPolicy string `json:"trafficPolicy,omitempty"`
+
 	// Service type
 	// Enum: [ClusterIP NodePort ExternalIPs]
 	Type string `json:"type,omitempty"`
@@ -154,6 +158,10 @@ type ServiceSpecFlags struct {
 func (m *ServiceSpecFlags) Validate(formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.validateTrafficPolicy(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.validateType(formats); err != nil {
 		res = append(res, err)
 	}
@@ -161,6 +169,49 @@ func (m *ServiceSpecFlags) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+var serviceSpecFlagsTypeTrafficPolicyPropEnum []interface{}
+
+func init() {
+	var res []string
+	if err := json.Unmarshal([]byte(`["Cluster","Local"]`), &res); err != nil {
+		panic(err)
+	}
+	for _, v := range res {
+		serviceSpecFlagsTypeTrafficPolicyPropEnum = append(serviceSpecFlagsTypeTrafficPolicyPropEnum, v)
+	}
+}
+
+const (
+
+	// ServiceSpecFlagsTrafficPolicyCluster captures enum value "Cluster"
+	ServiceSpecFlagsTrafficPolicyCluster string = "Cluster"
+
+	// ServiceSpecFlagsTrafficPolicyLocal captures enum value "Local"
+	ServiceSpecFlagsTrafficPolicyLocal string = "Local"
+)
+
+// prop value enum
+func (m *ServiceSpecFlags) validateTrafficPolicyEnum(path, location string, value string) error {
+	if err := validate.Enum(path, location, value, serviceSpecFlagsTypeTrafficPolicyPropEnum); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *ServiceSpecFlags) validateTrafficPolicy(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.TrafficPolicy) { // not required
+		return nil
+	}
+
+	// value enum
+	if err := m.validateTrafficPolicyEnum("flags"+"."+"trafficPolicy", "body", m.TrafficPolicy); err != nil {
+		return err
+	}
+
 	return nil
 }
 
