@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/discovery/v1beta1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/cache"
 )
@@ -53,6 +54,16 @@ func CopyObjToV1Endpoints(obj interface{}) *types.Endpoints {
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Endpoints")
+		return nil
+	}
+	return ep.DeepCopy()
+}
+
+func CopyObjToV1EndpointSlice(obj interface{}) *types.EndpointSlice {
+	ep, ok := obj.(*types.EndpointSlice)
+	if !ok {
+		log.WithField(logfields.Object, logfields.Repr(obj)).
+			Warn("Ignoring invalid k8s v1 EndpointSlice")
 		return nil
 	}
 	return ep.DeepCopy()
@@ -131,6 +142,17 @@ func EqualV1Endpoints(ep1, ep2 *types.Endpoints) bool {
 	return ep1.Name == ep2.Name &&
 		ep1.Namespace == ep2.Namespace &&
 		reflect.DeepEqual(ep1.Subsets, ep2.Subsets)
+}
+
+func EqualV1EndpointSlice(ep1, ep2 *types.EndpointSlice) bool {
+	// We only care about the Name, Namespace and Subsets of a particular
+	// endpoint.
+	// AddressType is omitted because it's immutable after EndpointSlice's
+	// creation.
+	return ep1.Name == ep2.Name &&
+		ep1.Namespace == ep2.Namespace &&
+		reflect.DeepEqual(ep1.Endpoints, ep2.Endpoints) &&
+		reflect.DeepEqual(ep1.Ports, ep2.Ports)
 }
 
 func EqualV2CNP(cnp1, cnp2 *types.SlimCNP) bool {
@@ -334,6 +356,34 @@ func ConvertToK8sEndpoints(obj interface{}) interface{} {
 			Key: concreteObj.Key,
 			Obj: &types.Endpoints{
 				Endpoints: eps,
+			},
+		}
+	default:
+		return obj
+	}
+}
+
+// ConvertToK8sEndpointSlice converts a *v1beta1.EndpointSlice into a
+// *types.Endpoints or a cache.DeletedFinalStateUnknown into
+// a cache.DeletedFinalStateUnknown with a *types.Endpoints in its Obj.
+// If the given obj can't be cast into either *v1.Endpoints
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
+func ConvertToK8sEndpointSlice(obj interface{}) interface{} {
+	// TODO check which fields we really need
+	switch concreteObj := obj.(type) {
+	case *v1beta1.EndpointSlice:
+		return &types.EndpointSlice{
+			EndpointSlice: concreteObj,
+		}
+	case cache.DeletedFinalStateUnknown:
+		eps, ok := concreteObj.Obj.(*v1beta1.EndpointSlice)
+		if !ok {
+			return obj
+		}
+		return cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: &types.EndpointSlice{
+				EndpointSlice: eps,
 			},
 		}
 	default:

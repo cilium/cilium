@@ -59,6 +59,7 @@ cilium-agent [flags]
       --enable-ipsec                                          Enable IPSec support
       --enable-ipv4                                           Enable IPv4 support (default true)
       --enable-ipv6                                           Enable IPv6 support (default true)
+      --enable-k8s-endpoint-slice                             Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it (default true)
       --enable-k8s-event-handover                             Enable k8s event handover to kvstore for improved scalability
       --enable-k8s-external-ips                               Enable k8s externalIPs feature (Only enabled in conjunction with enable-node-port) (default true)
       --enable-l7-proxy                                       Enable L7 proxy for L7 policy enforcement (default true)
