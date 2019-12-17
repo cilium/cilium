@@ -105,7 +105,8 @@ rst_epilog = """
 .. |SCM_ARCHIVE_LINK| replace:: \{l}
 .. |CURRENT_RELEASE| replace:: \{c}
 .. |NEXT_RELEASE| replace:: \{n}
-""".format(s=scm_web, b=branch, a=archive_name, f=archive_filename, l=archive_link, c=current_release, n=next_release)
+.. |CHART_RELEASE| replace:: \{h}
+""".format(s=scm_web, b=branch, a=archive_name, f=archive_filename, l=archive_link, c=current_release, n=next_release, h=release)
 
 extlinks = {
     'git-tree': (scm_web + "/%s", ''),
