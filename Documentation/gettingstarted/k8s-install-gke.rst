@@ -62,19 +62,16 @@ Prepare & Deploy Cilium
 
 .. include:: k8s-install-download-release.rst
 
-Generate the required YAML files and deploy them:
+Deploy Cilium release via Helm:
 
-.. code:: bash
+.. parsed-literal::
 
-    helm template cilium \
-      --namespace cilium \
-      --set global.nodeinit.enabled=true \
-      --set nodeinit.reconfigureKubelet=true \
-      --set nodeinit.removeCbrBridge=true \
-      --set global.cni.binPath=/home/kubernetes/bin \
-      > cilium.yaml
-    kubectl create namespace cilium
-    kubectl create -f cilium.yaml
+    helm install cilium |CHART_RELEASE| \\
+      --namespace cilium \\
+      --set global.nodeinit.enabled=true \\
+      --set nodeinit.reconfigureKubelet=true \\
+      --set nodeinit.removeCbrBridge=true \\
+      --set global.cni.binPath=/home/kubernetes/bin
 
 The NodeInit DaemonSet is required to prepare the GKE nodes as nodes are added
 to the cluster. The NodeInit DaemonSet will perform the following actions:
