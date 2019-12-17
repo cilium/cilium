@@ -30,14 +30,13 @@ without ``kube-proxy``.
 
 .. include:: k8s-install-download-release.rst
 
-Generate the required YAML file and deploy it:
+Deploy Cilium release via Helm:
 
-.. code:: bash
+.. parsed-literal::
 
-   helm template cilium \
-     --namespace kube-system \
-     --set global.nodePort.enabled=true \
-     > cilium.yaml
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set global.nodePort.enabled=true
 
 By default, a NodePort service will be accessible via an IP address of a native
 device which has a default route on the host. To change a device, set its name

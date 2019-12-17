@@ -69,15 +69,13 @@ Next, generate the required YAML files and deploy them. Replace ``$API_SERVER_IP
 and ``$API_SERVER_PORT`` with the control-plane node IP address and the kube-apiserver
 port number reported by ``kubeadm init`` (usually it is ``6443``).
 
-.. code:: bash
+.. parsed-literal::
 
-    helm template cilium \
-        --namespace kube-system \
-        --set global.nodePort.enabled=true \
-        --set global.k8sServiceHost=$API_SERVER_IP \
-        --set global.k8sServicePort=$API_SERVER_PORT \
-    > cilium.yaml
-    kubectl apply -f cilium.yaml
+    helm install cilium |CHART_RELEASE| \\
+        --namespace kube-system \\
+        --set global.nodePort.enabled=true \\
+        --set global.k8sServiceHost=$API_SERVER_IP \\
+        --set global.k8sServicePort=$API_SERVER_PORT
 
 This will install Cilium as a CNI plugin with the BPF kube-proxy replacement.
 See :ref:`nodeport` for requirements and configuration options for NodePort
