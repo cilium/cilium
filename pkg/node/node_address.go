@@ -180,19 +180,6 @@ func GetIPv4AllocRange() *cidr.CIDR {
 
 // GetIPv6AllocRange returns the IPv6 allocation prefix of this node
 func GetIPv6AllocRange() *cidr.CIDR {
-	if ipv6AllocRange == nil {
-		return nil
-	}
-
-	mask := net.CIDRMask(defaults.IPv6NodeAllocPrefixLen, 128)
-	return cidr.NewCIDR(&net.IPNet{
-		IP:   ipv6AllocRange.IPNet.IP.Mask(mask),
-		Mask: mask,
-	})
-}
-
-// GetIPv6NodeRange returns the IPv6 allocation prefix of this node
-func GetIPv6NodeRange() *cidr.CIDR {
 	return ipv6AllocRange
 }
 
@@ -257,13 +244,10 @@ func GetNodePortIPv6() net.IP {
 
 // SetIPv6NodeRange sets the IPv6 address pool to be used on this node
 func SetIPv6NodeRange(net *net.IPNet) error {
-	if ones, _ := net.Mask.Size(); ones != defaults.IPv6NodePrefixLen {
-		return fmt.Errorf("prefix length must be /%d", defaults.IPv6NodePrefixLen)
-	}
-
 	copy := *net
 	ipv6AllocRange = cidr.NewCIDR(&copy)
 
+	// TODO(brb) rm error
 	return nil
 }
 

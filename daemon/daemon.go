@@ -452,7 +452,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 		bootstrapStats.k8sInit.Start()
 		log.WithFields(logrus.Fields{
 			logfields.V4Prefix:       node.GetIPv4AllocRange(),
-			logfields.V6Prefix:       node.GetIPv6NodeRange(),
+			logfields.V6Prefix:       node.GetIPv6AllocRange(),
 			logfields.V4HealthIP:     d.nodeDiscovery.LocalNode.IPv4HealthIP,
 			logfields.V6HealthIP:     d.nodeDiscovery.LocalNode.IPv6HealthIP,
 			logfields.V4CiliumHostIP: node.GetInternalIPv4(),
@@ -461,7 +461,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 
 		err := k8s.Client().AnnotateNode(node.GetName(),
 			encryptKeyID,
-			node.GetIPv4AllocRange(), node.GetIPv6NodeRange(),
+			node.GetIPv4AllocRange(), node.GetIPv6AllocRange(),
 			d.nodeDiscovery.LocalNode.IPv4HealthIP, d.nodeDiscovery.LocalNode.IPv6HealthIP,
 			node.GetInternalIPv4(), node.GetIPv6Router())
 		if err != nil {
