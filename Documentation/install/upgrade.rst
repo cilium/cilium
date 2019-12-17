@@ -31,16 +31,29 @@ image. In order to reduce the downtime of the agent, the new image version can
 be pre-pulled. It also verifies that the new image version can be pulled and
 avoids ErrImagePull errors during the rollout.
 
-.. code:: bash
+.. tabs::
+  .. group-tab:: Helm
 
-    helm template cilium \
-      --namespace=kube-system \
-      --set preflight.enabled=true \
-      --set agent.enabled=false \
-      --set config.enabled=false \
-      --set operator.enabled=false \
-      > cilium-preflight.yaml
-    kubectl create cilium-preflight.yaml
+    .. parsed-literal::
+
+      helm install cilium-preflight |CHART_RELEASE| \\
+        --namespace=kube-system \\
+        --set preflight.enabled=true \\
+        --set agent.enabled=false \\
+        --set config.enabled=false \\
+        --set operator.enabled=false
+
+  .. group-tab:: kubectl
+
+    .. parsed-literal::
+
+      helm template |CHART_RELEASE| \\
+        --set preflight.enabled=true \\
+        --set agent.enabled=false \\
+        --set config.enabled=false \\
+        --set operator.enabled=false \\
+        > cilium-preflight.yaml
+      kubectl create cilium-preflight.yaml
 
 After running the cilium-pre-flight.yaml, make sure the number of READY pods
 is the same number of Cilium pods running.
@@ -55,7 +68,16 @@ is the same number of Cilium pods running.
 Once the number of READY pods are the same, you can delete cilium-pre-flight-check
 `DaemonSet` and proceed with the upgrade.
 
-.. code-block:: shell-session
+.. tabs::
+  .. group-tab:: Helm
+
+    .. parsed-literal::
+
+      helm delete cilium-preflight
+
+  .. group-tab:: kubectl
+
+    .. parsed-literal::
 
       kubectl delete -f cilium-preflight.yaml
 
@@ -68,10 +90,19 @@ Micro versions within a particular minor version, e.g. 1.2.x -> 1.2.y, are
 always 100% compatible for both up- and downgrades. Upgrading or downgrading is
 as simple as changing the image tag version in the `DaemonSet` file:
 
-.. code-block:: shell-session
+.. tabs::
+  .. group-tab:: Helm
 
-    kubectl -n kube-system set image daemonset/cilium cilium-agent=docker.io/cilium/cilium:vX.Y.Z
-    kubectl -n kube-system rollout status daemonset/cilium
+    .. parsed-literal::
+
+      helm upgrade cilium cilium/cilium --version X.Y.Z
+
+  .. group-tab:: kubectl
+
+    .. parsed-literal::
+
+      kubectl -n kube-system set image daemonset/cilium cilium-agent=docker.io/cilium/cilium:vX.Y.Z
+      kubectl -n kube-system rollout status daemonset/cilium
 
 Kubernetes will automatically restart all Cilium according to the
 ``UpgradeStrategy`` specified in the `DaemonSet`.
@@ -112,14 +143,24 @@ Kubernetes resources are updated accordingly to version you are upgrading to:
 
 .. include:: ../gettingstarted/k8s-install-download-release.rst
 
-Generate the required YAML file and deploy it:
+Deploy Cilium release via Helm:
 
-.. code:: bash
+.. tabs::
+  .. group-tab:: Helm
 
-   helm template cilium \
-     --namespace kube-system \
-     > cilium.yaml
-   kubectl apply -f cilium.yaml
+    .. parsed-literal::
+
+      helm upgrade cilium |CHART_RELEASE| \\
+        --namespace kube-system
+
+  .. group-tab:: kubectl
+
+    .. parsed-literal::
+
+      helm template |CHART_RELEASE| \\
+        --namespace kube-system \\
+        > cilium.yaml
+      kubectl apply -f cilium.yaml
 
 .. note::
 
@@ -141,15 +182,26 @@ configuration options for each minor version.
 
 .. include:: ../gettingstarted/k8s-install-download-release.rst
 
-Generate the required YAML file and deploy it:
+Deploy Cilium release via Helm:
 
-.. code:: bash
+.. tabs::
+  .. group-tab:: Helm
 
-   helm template cilium \
-     --namespace kube-system \
-     --set config.enabled=false \
-     > cilium.yaml
-   kubectl apply -f cilium.yaml
+    .. parsed-literal::
+
+      helm upgrade cilium |CHART_RELEASE| \\
+        --namespace kube-system \\
+        --set config.enabled=false
+
+  .. group-tab:: kubectl
+
+    .. parsed-literal::
+
+      helm template |CHART_RELEASE| \\
+        --namespace kube-system \\
+        --set config.enabled=false \\
+        > cilium.yaml
+      kubectl apply -f cilium.yaml
 
 .. note::
 
@@ -163,12 +215,21 @@ Step 3: Rolling Back
 ====================
 
 Occasionally, it may be necessary to undo the rollout because a step was missed
-or something went wrong during upgrade. To undo the rollout, change the image
-tag back to the previous version or undo the rollout using ``kubectl``:
+or something went wrong during upgrade. To undo the rollout run:
 
-.. code-block:: shell-session
+.. tabs::
+  .. group-tab:: Helm
 
-    $ kubectl rollout undo daemonset/cilium -n kube-system
+    .. parsed-literal::
+
+      helm history cilium
+      helm rollback cilium [REVISION]
+
+  .. group-tab:: kubectl
+
+    .. parsed-literal::
+
+      kubectl rollout undo daemonset/cilium -n kube-system
 
 This will revert the latest changes to the Cilium ``DaemonSet`` and return
 Cilium to the state it was in prior to the upgrade.
