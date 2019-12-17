@@ -49,15 +49,17 @@ Enable Encryption in Cilium
 
 .. include:: k8s-install-download-release.rst
 
-Generate the required YAML files and deploy them:
+Deploy helm release:
 
-.. code:: bash
+.. parsed-literal::
 
-    helm template cilium \
-      --namespace cilium \
-      --set global.encryption.enabled=true \
-      --set global.encryption.nodeEncryption=false \
-      > cilium.yaml
+    helm install cilium/cilium --version |CHART_RELEASE| \\
+      --namespace cilium \\
+      --set global.encryption.enabled=true \\
+      --set global.encryption.nodeEncryption=false
+
+At this point the Cilium managed nodes will be using IPsec for all traffic. For further
+information on Cilium's transparent encryption, see :ref:`arch_guide`.
 
 Encryption interface
 --------------------
@@ -81,16 +83,6 @@ In order to enable node-to-node encryption, add:
     [...]
     --set global.encryption.enabled=true \
     --set global.encryption.nodeEncryption=true
-
-Deploy Cilium
--------------
-
-.. code:: bash
-
-    kubectl create -f cilium.yaml
-
-At this point the Cilium managed nodes will be using IPsec for all traffic. For further
-information on Cilium's transparent encryption, see :ref:`arch_guide`.
 
 Validate the Setup
 ==================

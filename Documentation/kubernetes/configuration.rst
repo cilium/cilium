@@ -318,12 +318,11 @@ If you want to use CRIO, generate the YAML using:
 
 .. include:: ../gettingstarted/k8s-install-download-release.rst
 
-.. code:: bash
+.. parsed-literal::
 
-   helm template cilium \
-     --namespace kube-system \
-     --set global.containerRuntime.integration=crio \
-     > cilium.yaml
+   helm install cilium/cilium --version |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set global.containerRuntime.integration=crio
 
 Since CRI-O does not automatically detect that a new CNI plugin has been
 installed, you will need to restart the CRI-O daemon for it to pick up the
@@ -361,9 +360,8 @@ other nodes. The default behavior of Cilium on startup when no container
 runtime has been found is to abort startup. To avoid this abort, you can run
 the ``cilium-agent`` with the following option.
 
-.. code:: bash
+.. parsed-literal::
 
-   helm template cilium \
-     --namespace kube-system \
-     --set global.containerRuntime.integration=none \
-     > cilium.yaml
+   helm install cilium/cilium --version |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set global.containerRuntime.integration=none

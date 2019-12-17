@@ -33,14 +33,13 @@ avoids ErrImagePull errors during the rollout.
 
 .. code:: bash
 
-    helm template cilium \
+    helm install cilium/cilium \
+      --name cilium-preflight \
       --namespace=kube-system \
       --set preflight.enabled=true \
       --set agent.enabled=false \
       --set config.enabled=false \
-      --set operator.enabled=false \
-      > cilium-preflight.yaml
-    kubectl create cilium-preflight.yaml
+      --set operator.enabled=false
 
 After running the cilium-pre-flight.yaml, make sure the number of READY pods
 is the same number of Cilium pods running.
@@ -57,7 +56,7 @@ Once the number of READY pods are the same, you can delete cilium-pre-flight-che
 
 .. code-block:: shell-session
 
-      kubectl delete -f cilium-preflight.yaml
+      helm delete cilium-preflight
 
 .. _upgrade_micro:
 
@@ -112,14 +111,12 @@ Kubernetes resources are updated accordingly to version you are upgrading to:
 
 .. include:: ../gettingstarted/k8s-install-download-release.rst
 
-Generate the required YAML file and deploy it:
+Deploy helm release:
 
-.. code:: bash
+.. parsed-literal::
 
-   helm template cilium \
-     --namespace kube-system \
-     > cilium.yaml
-   kubectl apply -f cilium.yaml
+   helm install cilium/cilium --version |CHART_RELEASE| \\
+     --namespace kube-system
 
 .. note::
 
@@ -141,15 +138,13 @@ configuration options for each minor version.
 
 .. include:: ../gettingstarted/k8s-install-download-release.rst
 
-Generate the required YAML file and deploy it:
+Deploy helm release:
 
-.. code:: bash
+.. parsed-literal::
 
-   helm template cilium \
-     --namespace kube-system \
-     --set config.enabled=false \
-     > cilium.yaml
-   kubectl apply -f cilium.yaml
+   helm install cilium/cilium --version |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set config.enabled=false
 
 .. note::
 
