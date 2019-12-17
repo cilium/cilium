@@ -56,20 +56,18 @@ Prepare & Deploy Cilium
 
 .. include:: k8s-install-download-release.rst
 
-Generate the required YAML file and deploy it:
+Deploy Cilium release via Helm:
 
-.. code:: bash
+.. parsed-literal::
 
-   helm template cilium \
-     --namespace cilium \
-     --set global.cni.chainingMode=generic-veth \
-     --set global.cni.customConf=true \
-     --set global.nodeinit.enabled=true \
-     --set global.cni.configMap=cni-configuration \
-     --set global.tunnel=disabled \
-     --set global.masquerade=false \
-     > cilium.yaml
-   kubectl create -f cilium.yaml
+   helm install cilium |CHART_RELEASE| \\
+     --namespace cilium \\
+     --set global.cni.chainingMode=generic-veth \\
+     --set global.cni.customConf=true \\
+     --set global.nodeinit.enabled=true \\
+     --set global.cni.configMap=cni-configuration \\
+     --set global.tunnel=disabled \\
+     --set global.masquerade=false
 
 This will create both the main cilium daemonset, as well as the cilium-node-init daemonset, which handles tasks like mounting the BPF filesystem and updating the
 existing Azure CNI plugin to run in 'transparent' mode.

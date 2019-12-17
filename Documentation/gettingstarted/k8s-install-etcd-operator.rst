@@ -33,16 +33,14 @@ Deploy Cilium + cilium-etcd-operator
 
 .. include:: k8s-install-download-release.rst
 
-Generate the required YAML file and deploy it:
+Deploy Cilium release via Helm:
 
-.. code:: bash
+.. parsed-literal::
 
-   helm template cilium \
-      --namespace kube-system \
-      --set global.etcd.enabled=true \
-      --set global.etcd.managed=true \
-      > cilium.yaml
-   kubectl create -f cilium.yaml
+   helm install cilium |CHART_RELEASE| \\
+      --namespace kube-system \\
+      --set global.etcd.enabled=true \\
+      --set global.etcd.managed=true
 
 
 Validate the Installation

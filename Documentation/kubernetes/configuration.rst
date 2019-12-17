@@ -328,12 +328,11 @@ If you want to use CRIO, generate the YAML using:
 
 .. include:: ../gettingstarted/k8s-install-download-release.rst
 
-.. code:: bash
+.. parsed-literal::
 
-   helm template cilium \
-     --namespace kube-system \
-     --set global.containerRuntime.integration=crio \
-     > cilium.yaml
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set global.containerRuntime.integration=crio
 
 Since CRI-O does not automatically detect that a new CNI plugin has been
 installed, you will need to restart the CRI-O daemon for it to pick up the

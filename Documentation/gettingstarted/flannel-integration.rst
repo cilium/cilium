@@ -49,26 +49,19 @@ Cilium installation
 
 .. include:: k8s-install-download-release.rst
 
-Generate the required YAML file and deploy it:
+Deploy Cilium release via Helm:
 
-.. code:: bash
+.. parsed-literal::
 
-   helm template cilium \
-     --namespace kube-system \
-     --set global.flannel.enabled=true \
-     > cilium.yaml
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set global.flannel.enabled=true
 
 Set ``global.flannel.uninstallOnExit=true`` if you want Cilium to uninstall
 itself when the Cilium pod is stopped.
 
 If the Flannel bridge has a different name than ``cni0``, you must specify
 the name by setting ``global.flannel.masterDevice=...``.
-
-Once you have changed the ConfigMap accordingly, you can deploy Cilium.
-
-.. parsed-literal::
-
-   kubectl create -f cilium.yaml
 
 Cilium might not come up immediately on all nodes, since Flannel only sets up
 the bridge network interface that connects containers with the outside world

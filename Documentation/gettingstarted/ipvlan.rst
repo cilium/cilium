@@ -34,16 +34,15 @@ datapath instead of the default veth-based one.
 
 .. include:: k8s-install-download-release.rst
 
-Generate the required YAML file and deploy it:
+Deploy Cilium release via Helm:
 
-.. code:: bash
+.. parsed-literal::
 
-   helm template cilium \
-     --namespace kube-system \
-     --set global.datapathMode=ipvlan \
-     --set global.ipvlan.masterDevice=eth0 \
-     --set global.tunnel=disabled \
-     > cilium.yaml
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set global.datapathMode=ipvlan \\
+     --set global.ipvlan.masterDevice=eth0 \\
+     --set global.tunnel=disabled
 
 It is required to specify the master ipvlan device which typically points to a
 networking device that is facing the external network. This is done through
@@ -84,53 +83,48 @@ required for BPF-based masquerading.
 
 Example ConfigMap extract for ipvlan in pure L3 mode:
 
-.. code:: bash
+.. parsed-literal::
 
-   helm template ciliumn \
-     --namespace kube-system \
-     --set global.datapathMode=ipvlan \
-     --set global.ipvlan.masterDevice=bond0 \
-     --set global.tunnel=disabled \
-     --set global.installIptablesRules=false \
-     --set global.l7Proxy.enabled=false \
-     --set global.autoDirectNodeRoutes=true \
-     > cilium.yaml
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set global.datapathMode=ipvlan \\
+     --set global.ipvlan.masterDevice=bond0 \\
+     --set global.tunnel=disabled \\
+     --set global.installIptablesRules=false \\
+     --set global.l7Proxy.enabled=false \\
+     --set global.autoDirectNodeRoutes=true
 
 Example ConfigMap extract for ipvlan in L3S mode with iptables
 masquerading all traffic leaving the node:
 
-.. code:: bash
+.. parsed-literal::
 
-   helm template cilium \
-     --namespace kube-system \
-     --set global.datapathMode=ipvlan \
-     --set global.ipvlan.masterDevice=bond0 \
-     --set global.tunnel=disabled \
-     --set global.masquerade=true \
-     --set global.autoDirectNodeRoutes=true \
-     > cilium.yaml
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set global.datapathMode=ipvlan \\
+     --set global.ipvlan.masterDevice=bond0 \\
+     --set global.tunnel=disabled \\
+     --set global.masquerade=true \\
+     --set global.autoDirectNodeRoutes=true
 
 Example ConfigMap extract for ipvlan in L3 mode with more efficient
 BPF-based masquerading instead of iptables-based:
 
-.. code:: bash
+.. parsed-literal::
 
-   helm template cilium \
-     --namespace kube-system \
-     --set global.datapathMode=ipvlan \
-     --set global.ipvlan.masterDevice=bond0 \
-     --set global.tunnel=disabled \
-     --set global.masquerade=true \
-     --set global.installIptablesRules=false \
-     --set global.autoDirectNodeRoutes=true \
-     > cilium.yaml
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set global.datapathMode=ipvlan \\
+     --set global.ipvlan.masterDevice=bond0 \\
+     --set global.tunnel=disabled \\
+     --set global.masquerade=true \\
+     --set global.installIptablesRules=false \\
+     --set global.autoDirectNodeRoutes=true
 
-Apply the DaemonSet file to deploy Cilium and verify that it has
-come up correctly:
+Verify that it has come up correctly:
 
 .. parsed-literal::
 
-    kubectl create -f ./cilium.yaml
     kubectl -n kube-system get pods -l k8s-app=cilium
     NAME                READY     STATUS    RESTARTS   AGE
     cilium-crf7f        1/1       Running   0          10m
