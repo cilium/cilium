@@ -50,16 +50,15 @@ configured in the ConfigMap. Download the base YAML and configure it with
 
 .. include:: k8s-install-download-release.rst
 
-Change the etcd endpoints accordingly:
+Deploy Cilium release via Helm:
 
-.. code:: bash
+.. parsed-literal::
 
-    helm template cilium \
-      --namespace kube-system \
-      --set global.etcd.enabled=true \
-      --set global.etcd.endpoints[0]=http://etcd-endpoint1:2379 \
-      --set global.etcd.endpoints[1]=http://etcd-endpoint2:2379 \
-      > cilium.yaml
+    helm install cilium |CHART_RELEASE| \\
+      --namespace kube-system \\
+      --set global.etcd.enabled=true \\
+      --set global.etcd.endpoints[0]=http://etcd-endpoint1:2379 \\
+      --set global.etcd.endpoints[1]=http://etcd-endpoint2:2379
 
 
 Optional: Configure the SSL certificates
@@ -78,22 +77,14 @@ key and certificate of etcd:
 Adjust the helm template generation to enable SSL for etcd and use https instead
 of http for the etcd endpoint URLs:
 
-.. code:: bash
+.. parsed-literal::
 
-    helm template cilium \
-      --namespace kube-system \
-      --set global.etcd.enabled=true \
-      --set global.etcd.ssl=true \
-      --set global.etcd.endpoints[0]=https://etcd-endpoint1:2379 \
-      --set global.etcd.endpoints[1]=https://etcd-endpoint2:2379 \
-      > cilium.yaml
-
-Deploy Cilium
--------------
-
-.. code:: bash
-
-    kubectl create -f cilium.yaml
+    helm install cilium |CHART_RELEASE| \\
+      --namespace kube-system \\
+      --set global.etcd.enabled=true \\
+      --set global.etcd.ssl=true \\
+      --set global.etcd.endpoints[0]=https://etcd-endpoint1:2379 \\
+      --set global.etcd.endpoints[1]=https://etcd-endpoint2:2379
 
 Validate the Installation
 =========================

@@ -71,7 +71,7 @@ Repeat this step for each cluster.
 .. note::
 
    This can also be done by passing ``--set global.cluster.id=<id>`` and
-   ``--set global.cluster.name=<name>`` to ``helm template`` when installing or
+   ``--set global.cluster.name=<name>`` to ``helm install`` when installing or
    updating Cilium.
 
 Expose the Cilium etcd to other clusters

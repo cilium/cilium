@@ -42,18 +42,16 @@ Prepare & Deploy Cilium
 
 .. include:: k8s-install-download-release.rst
 
-Generate the required YAML file and deploy it:
+Deploy Cilium release via Helm:
 
-.. code:: bash
+.. parsed-literal::
 
-   helm template cilium \
-     --namespace kube-system \
-     --set global.eni=true \
-     --set global.egressMasqueradeInterfaces=eth0 \
-     --set global.tunnel=disabled \
-     --set global.nodeinit.enabled=true \
-     > cilium.yaml
-   kubectl create -f cilium.yaml
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set global.eni=true \\
+     --set global.egressMasqueradeInterfaces=eth0 \\
+     --set global.tunnel=disabled \\
+     --set global.nodeinit.enabled=true
 
 .. note::
 

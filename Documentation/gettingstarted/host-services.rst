@@ -29,25 +29,23 @@ reached from the host namespace.
 
 .. include:: k8s-install-download-release.rst
 
-Generate the required YAML file and deploy it:
+Deploy Cilium release via Helm:
 
-.. code:: bash
+.. parsed-literal::
 
-   helm template cilium \
-     --namespace kube-system \
-     --set global.hostServices.enabled=true \
-     > cilium.yaml
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set global.hostServices.enabled=true
 
 If you can't run 4.19.57 but have 4.17.0 available you can restrict protocol
 support to TCP only:
 
-.. code:: bash
+.. parsed-literal::
 
-   helm template cilium \
-     --namespace kube-system \
-     --set global.hostServices.enabled=true \
-     --set global.hostServices.protocols=tcp \
-     > cilium.yaml
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set global.hostServices.enabled=true \\
+     --set global.hostServices.protocols=tcp
 
 Host-reachable services act transparent to Cilium's lower layer datapath
 in that upon connect system call (TCP, connected UDP) or sendmsg as well
@@ -57,11 +55,10 @@ the application is assuming its connection to the service address, the
 corresponding kernel's socket is actually connected to the backend address
 and therefore no additional lower layer NAT is required.
 
-Deploy Cilium:
+Verify that it has come up correctly:
 
 .. code:: bash
 
-    kubectl create -f cilium.yaml
     kubectl -n kube-system get pods -l k8s-app=cilium
     NAME                READY     STATUS    RESTARTS   AGE
     cilium-crf7f        1/1       Running   0          10m
