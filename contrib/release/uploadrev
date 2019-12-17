@@ -36,11 +36,13 @@ function configure_env() {
   ARCH=${ARCH:-"`uname -m`"}
   DOMAIN=${DOMAIN:-"releases.cilium.io"}
   REMOTE_DIR=${REMOTE_DIR:-"$REV"}
+  CHARTS_REMOTE_DIR=${CHARTS_REMOTE_DIR:-"charts"}
   PREPEND=${PREPEND:-"cilium-$REV/"}
   ZIP_FILE=${ZIP_FILE:-"$REV.zip"}
   TARBALL=${TARBALL:-"$REV.tar.gz"}
   DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
   TARGET_DIR=${TARGET_DIR:-"$DIR/../../_build/`basename $REMOTE_DIR`"}
+  CHARTS_TARGET_DIR=${CHARTS_TARGET_DIR:-"$DIR/../../_charts"}
   CILIUM_SOURCE=${CILIUM_SOURCE:-"$DIR/../../"}
   SKIP_UPLOAD=${SKIP_UPLOAD:-0}
 }
@@ -103,6 +105,13 @@ function copy_binaries() {
   generate_sha_digest_for_binaries
 }
 
+function copy_helm_chart() {
+  mkdir -pv $CHARTS_TARGET_DIR
+  helm package install/kubernetes/cilium/
+  mv cilium-${REV/v/}.tgz $CHARTS_TARGET_DIR
+  curl -f -o $CHARTS_TARGET_DIR/index.yaml http://$DOMAIN/$CHARTS_REMOTE_DIR/index.yaml || true
+  helm repo index $CHARTS_TARGET_DIR --url http://$DOMAIN/$CHARTS_REMOTE_DIR --merge $CHARTS_TARGET_DIR/index.yaml
+}
 
 function upload_all() {
   if [ $SKIP_UPLOAD == 1 ]; then
@@ -111,6 +120,7 @@ function upload_all() {
   fi
   # Upload all files
   aws s3 cp --recursive $TARGET_DIR s3://$DOMAIN/$REMOTE_DIR
+  aws s3 cp --recursive $CHARTS_TARGET_DIR s3://$DOMAIN/$CHARTS_REMOTE_DIR
 }
 
 function print_done() {
@@ -133,6 +143,7 @@ function main() {
   create_dir
   copy_source
   copy_binaries
+  copy_helm_chart
   upload_all
   print_done
 }
