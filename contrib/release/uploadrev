@@ -45,6 +45,13 @@ function configure_env() {
   CHARTS_TARGET_DIR=${CHARTS_TARGET_DIR:-"$DIR/../../_charts/`basename $REMOTE_DIR`"}
   CILIUM_SOURCE=${CILIUM_SOURCE:-"$DIR/../../"}
   SKIP_UPLOAD=${SKIP_UPLOAD:-0}
+
+  SOURCE_VERSION="v$(cat $CILIUM_SOURCE/VERSION)"
+  if [ "$REV" != "$SOURCE_VERSION" ]; then
+      perror "Unexpected version discrepancy between argument ($REV) and filesystem ($SOURCE_VERSION)"
+      perror "Did you mean to specify \$CILIUM_SOURCE(=$(realpath $CILIUM_SOURCE))?"
+      exit 1
+  fi
 }
 
 
