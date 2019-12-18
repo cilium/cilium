@@ -129,6 +129,12 @@ __encap_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint,
 	__u32 node_id;
 	int ret;
 
+	/* When encapsulating, a packet originating from the local host is
+	 * being considered as a packet from a remote node as it is being
+	 * received. */
+	if (seclabel == HOST_ID)
+		seclabel = REMOTE_NODE_ID;
+
 	node_id = bpf_htonl(tunnel_endpoint);
 	key.tunnel_id = seclabel;
 	key.remote_ipv4 = node_id;
