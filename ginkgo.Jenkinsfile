@@ -155,6 +155,37 @@ pipeline {
                         }
                     }
                 }
+                stage('Boot vms K8s-1.17 net-next kubeproxy-free dual-stack') {
+                    environment {
+                        TESTED_SUITE="k8s-1.17-kubeproxy-free"
+                        GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
+                        TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                        NETNEXT="true"
+                        K8S_VERSION="1.17"
+                        KUBEPROXY=0
+                        DUALSTACK=1
+                        KUBECONFIG="vagrant-kubeconfig"
+                        CILIUM_REGISTRY="localnode" //setting it here so we don't compile Cilium in vagrant nodes (already done on local node registry)
+                    }
+                    steps {
+                        sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
+                        sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
+                        retry(3) {
+                            dir("${TESTDIR}") {
+                                sh './vagrant-ci-start.sh'
+                            }
+                        }
+                    }
+                    post {
+                        unsuccessful {
+                            script {
+                                if  (!currentBuild.displayName.contains('fail')) {
+                                    currentBuild.displayName = 'K8s 1.11 net-next vm provisioning fail\n' + currentBuild.displayName
+                                }
+                            }
+                        }
+                    }
+                }
                 stage('Boot vms K8s-1.17') {
                     environment {
                         TESTED_SUITE="k8s-1.17"
@@ -226,6 +257,37 @@ pipeline {
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                         NETNEXT="true"
+                        KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
+                        K8S_VERSION="1.11"
+                    }
+                    steps {
+                        sh 'cd ${TESTDIR}; ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s*/" | sed "s/Runtime.*/NoTests/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh)'
+                    }
+                    post {
+                        always {
+                            sh 'cd ${TESTDIR}; ./post_build_agent.sh || true'
+                            sh 'cd ${TESTDIR}; ./archive_test_results.sh || true'
+                            sh 'cd ${TESTDIR}/..; mv *.zip ${WORKSPACE} || true'
+                            sh 'cd ${TESTDIR}; mv *.xml ${WORKSPACE}/${PROJ_PATH}/test || true'
+                            sh 'cd ${TESTDIR}; vagrant destroy -f || true'
+                        }
+                        unsuccessful {
+                            script {
+                                if  (!currentBuild.displayName.contains('fail')) {
+                                    currentBuild.displayName = 'K8s 1.11-net-next fail\n' + currentBuild.displayName
+                                }
+                            }
+                        }
+                    }
+                }
+                stage('BDD-Test-PR-K8s-1.17-net-next-kubeproxy-free-dual-stack') {
+                    environment {
+                        TESTED_SUITE="k8s-1.17-kubeproxy-free"
+                        GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
+                        TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                        NETNEXT="true"
+                        KUBEPROXY=0
+                        DUALSTACK=1
                         KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
                         K8S_VERSION="1.11"
                     }

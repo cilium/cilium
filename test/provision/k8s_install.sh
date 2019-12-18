@@ -20,8 +20,7 @@ CNI_INTEGRATION=$6
 
 # Kubeadm default parameters
 export KUBEADM_ADDR='192.168.36.11'
-export KUBEADM_POD_NETWORK='10.10.0.0'
-export KUBEADM_POD_CIDR='16'
+export KUBEADM_POD_NETWORK='10.10.0.0/16'
 export KUBEADM_SVC_CIDR='10.96.0.0/12'
 export KUBEADM_CRI_SOCKET="/var/run/dockershim.sock"
 export KUBEADM_SLAVE_OPTIONS=""
@@ -100,7 +99,7 @@ criSocket: "{{ .KUBEADM_CRI_SOCKET }}"
 kubernetesVersion: "v{{ .K8S_FULL_VERSION }}"
 token: "{{ .TOKEN }}"
 networking:
-  podSubnet: "{{ .KUBEADM_POD_NETWORK }}/{{ .KUBEADM_POD_CIDR}}"
+  podSubnet: "{{ .KUBEADM_POD_NETWORK }}"
 controlPlaneEndpoint: "k8s1:6443"
 EOF
 )
@@ -120,7 +119,7 @@ bootstrapTokens:
 kubernetesVersion: "v{{ .K8S_FULL_VERSION }}"
 networking:
   dnsDomain: cluster.local
-  podSubnet: "{{ .KUBEADM_POD_NETWORK }}/{{ .KUBEADM_POD_CIDR}}"
+  podSubnet: "{{ .KUBEADM_POD_NETWORK }}"
   serviceSubnet: "{{ .KUBEADM_SVC_CIDR }}"
 nodeRegistration:
   criSocket: "{{ .KUBEADM_CRI_SOCKET }}"
@@ -150,7 +149,7 @@ kind: ClusterConfiguration
 kubernetesVersion: "v{{ .K8S_FULL_VERSION }}"
 networking:
   dnsDomain: cluster.local
-  podSubnet: "{{ .KUBEADM_POD_NETWORK }}/{{ .KUBEADM_POD_CIDR}}"
+  podSubnet: "{{ .KUBEADM_POD_NETWORK }}"
   serviceSubnet: "{{ .KUBEADM_SVC_CIDR }}"
 controlPlaneEndpoint: "k8s1:6443"
 EOF
@@ -245,6 +244,11 @@ case $K8S_VERSION in
         ;;
 esac
 
+# TODO(brb) enable it
+#if [ "$KUBEPROXY" == "0" ]; then
+#    KUBEADM_OPTIONS="$KUBEADM_OPTIONS --skip-phases=addon/kube-proxy"
+#fi
+
 #Install kubernetes
 set +e
 case $K8S_VERSION in
@@ -276,10 +280,13 @@ case $CONTAINER_RUNTIME in
         echo "Invalid container runtime '${CONTAINER_RUNTIME}'"
 esac
 
-if [ "${IPv6}" -eq "1" ]; then
+if [ "${DUALSTACK}" -eq "1"]; then
+    KUBEADM_POD_NETWORK="${KUBEADM_POD_NETWORK},fd02::/48"
+    KUBEADM_SVC_CIDR="fd03::/112"
+    KUBEADM_OPTIONS="${KUBEADM_OPTIONS} --feature-gates IPv6DualStack=true"
+elif [ "${IPv6}" -eq "1" ]; then
     KUBEADM_ADDR='[fd04::11]'
-    KUBEADM_POD_NETWORK="fd02::"
-    KUBEADM_POD_CIDR="112"
+    KUBEADM_POD_NETWORK="fd02::/112"
     KUBEADM_SVC_CIDR="fd03::/112"
 fi
 
