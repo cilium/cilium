@@ -76,10 +76,12 @@ function copy_binaries_cilium_operator() {
   docker rm -f $SHA
 }
 
+# $1 - target directory
 function generate_sha_digest_for_binaries() {
-  mkdir -p $TARGET_DIR
+  RELDIR="$1"
+  mkdir -p $RELDIR
   # Generate  SHA256 digest
-  cd $TARGET_DIR
+  cd $RELDIR
   for f in *; do
     [ ! -d "$f" ] && sha256sum $f > $f.sha256sum
   done
@@ -102,7 +104,8 @@ function copy_binaries() {
   docker rm -f $SHA
   copy_binaries_cilium_operator
   copy_binaries_cilium_docker
-  generate_sha_digest_for_binaries
+  generate_sha_digest_for_binaries $TARGET_DIR
+  generate_sha_digest_for_binaries $CHARTS_DIR
 }
 
 function copy_helm_chart() {
@@ -129,10 +132,13 @@ function print_done() {
   echo "----------------"
   echo ""
 
-  cd $TARGET_DIR
-  for s in *.sha256sum; do
-    f=$(echo "$s" | sed s/\.sha256sum//)	
-    echo "* [$f](http://$DOMAIN/$REMOTE_DIR/$f) ([$(cat $s | cut -c1-20)](http://$DOMAIN/$REMOTE_DIR/$s))"
+  for RELDIR in $TARGET_DIR $CHARTS_TARGET_DIR; do
+    cd $RELDIR
+    for s in *.sha256sum; do
+      f=$(echo "$s" | sed s/\.sha256sum//)
+      echo "* [$f](http://$DOMAIN/$REMOTE_DIR/$f) ([$(cat $s | cut -c1-20)](http://$DOMAIN/$REMOTE_DIR/$s))"
+    done
+    cd -
   done
   echo "--- end ---"
   echo "`tput setaf 2`DONE`tput sgr0` local files are in $TARGET_DIR."
