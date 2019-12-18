@@ -308,3 +308,6 @@ global:
 
   tls:
     secretsBackend: local
+
+  # remoteNodeIdentity enables use of the remote node identity
+  remoteNodeIdentity: true
