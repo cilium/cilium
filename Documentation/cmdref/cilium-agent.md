@@ -65,6 +65,7 @@ cilium-agent [flags]
       --enable-local-node-route                               Enable installation of the route which points the allocation prefix of the local node (default true)
       --enable-node-port                                      Enable NodePort type services by Cilium (beta)
       --enable-policy string                                  Enable policy enforcement (default "default")
+      --enable-remote-node-identity                           Enable use of remote node identity
       --enable-tracing                                        Enable tracing while determining policy (debugging)
       --enable-well-known-identities                          Enable well-known identities for known Kubernetes components (default true)
       --encrypt-interface string                              Transparent encryption interface
