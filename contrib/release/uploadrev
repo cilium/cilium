@@ -42,7 +42,7 @@ function configure_env() {
   TARBALL=${TARBALL:-"$REV.tar.gz"}
   DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
   TARGET_DIR=${TARGET_DIR:-"$DIR/../../_build/`basename $REMOTE_DIR`"}
-  CHARTS_TARGET_DIR=${CHARTS_TARGET_DIR:-"$DIR/../../_charts"}
+  CHARTS_TARGET_DIR=${CHARTS_TARGET_DIR:-"$DIR/../../_charts/`basename $REMOTE_DIR`"}
   CILIUM_SOURCE=${CILIUM_SOURCE:-"$DIR/../../"}
   SKIP_UPLOAD=${SKIP_UPLOAD:-0}
 }
@@ -110,7 +110,7 @@ function copy_binaries() {
 
 function copy_helm_chart() {
   mkdir -pv $CHARTS_TARGET_DIR
-  helm package install/kubernetes/cilium/
+  helm package $CILIUM_SOURCE/install/kubernetes/cilium/
   mv cilium-${REV/v/}.tgz $CHARTS_TARGET_DIR
   curl -f -o $CHARTS_TARGET_DIR/index.yaml http://$DOMAIN/$CHARTS_REMOTE_DIR/index.yaml || true
   helm repo index $CHARTS_TARGET_DIR --url http://$DOMAIN/$CHARTS_REMOTE_DIR --merge $CHARTS_TARGET_DIR/index.yaml
