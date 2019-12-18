@@ -337,4 +337,7 @@ const (
 	// CertsDirectory is the default directory used to find certificates
 	// specified in the L7 policies.
 	CertsDirectory = RuntimePath + "/certs"
+
+	// EnableRemoteNodeIdentity is the default value for option.EnableRemoteNodeIdentity
+	EnableRemoteNodeIdentity = false
 )

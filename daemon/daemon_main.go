@@ -286,6 +286,9 @@ func init() {
 	flags.Bool(option.EnableIPv6Name, defaults.EnableIPv6, "Enable IPv6 support")
 	option.BindEnv(option.EnableIPv6Name)
 
+	flags.Bool(option.EnableRemoteNodeIdentity, defaults.EnableRemoteNodeIdentity, "Enable use of remote node identity")
+	option.BindEnv(option.EnableRemoteNodeIdentity)
+
 	flags.String(option.EncryptInterface, "", "Transparent encryption interface")
 	option.BindEnv(option.EncryptInterface)
 
