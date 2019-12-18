@@ -239,8 +239,9 @@ var (
 	// ReservedEndpointSelectors map reserved labels to EndpointSelectors
 	// that will match those endpoints.
 	ReservedEndpointSelectors = map[string]EndpointSelector{
-		labels.IDNameHost:  newReservedEndpointSelector(labels.IDNameHost),
-		labels.IDNameWorld: newReservedEndpointSelector(labels.IDNameWorld),
+		labels.IDNameHost:       newReservedEndpointSelector(labels.IDNameHost),
+		labels.IDNameRemoteNode: newReservedEndpointSelector(labels.IDNameRemoteNode),
+		labels.IDNameWorld:      newReservedEndpointSelector(labels.IDNameWorld),
 	}
 )
 
