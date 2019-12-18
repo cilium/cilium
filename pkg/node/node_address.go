@@ -125,8 +125,7 @@ func InitDefaultPrefix(device string) {
 			// The IPv6 allocation should be derived from the IPv4 allocation.
 			ip := ipv4AllocRange.IP
 			v6range := fmt.Sprintf("%s%02x%02x:%02x%02x:0:0/%d",
-				option.Config.IPv6ClusterAllocCIDRBase, ip[0], ip[1], ip[2], ip[3],
-				defaults.IPv6NodePrefixLen)
+				option.Config.IPv6ClusterAllocCIDRBase, ip[0], ip[1], ip[2], ip[3], 96)
 
 			_, ip6net, err := net.ParseCIDR(v6range)
 			if err != nil {
