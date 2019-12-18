@@ -651,6 +651,9 @@ const (
 	// This is requires if identiy resolution is required to bring up the
 	// control plane, e.g. when using the managed etcd feature
 	EnableWellKnownIdentities = "enable-well-known-identities"
+
+	// EnableRemoteNodeIdentity enables use of the remote-node identity
+	EnableRemoteNodeIdentity = "enable-remote-node-identity"
 )
 
 // Default string arguments
@@ -1292,6 +1295,9 @@ type DaemonConfig struct {
 	// This is requires if identiy resolution is required to bring up the
 	// control plane, e.g. when using the managed etcd feature
 	EnableWellKnownIdentities bool
+
+	// EnableRemoteNodeIdentity enables use of the remote-node identity
+	EnableRemoteNodeIdentity bool
 }
 
 var (
@@ -1630,6 +1636,7 @@ func (c *DaemonConfig) Populate() {
 	c.DisableK8sServices = viper.GetBool(DisableK8sServices)
 	c.EgressMasqueradeInterfaces = viper.GetString(EgressMasqueradeInterfaces)
 	c.EnableHostReachableServices = viper.GetBool(EnableHostReachableServices)
+	c.EnableRemoteNodeIdentity = viper.GetBool(EnableRemoteNodeIdentity)
 	c.DockerEndpoint = viper.GetString(Docker)
 	c.EnableAutoDirectRouting = viper.GetBool(EnableAutoDirectRoutingName)
 	c.EnableEndpointRoutes = viper.GetBool(EnableEndpointRoutes)

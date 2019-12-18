@@ -333,4 +333,7 @@ const (
 	// EnableWellKnownIdentities is enabled by default as this is the
 	// original behavior. New default Helm templates will disable this.
 	EnableWellKnownIdentities = true
+
+	// EnableRemoteNodeIdentity is the default value for option.EnableRemoteNodeIdentity
+	EnableRemoteNodeIdentity = false
 )
