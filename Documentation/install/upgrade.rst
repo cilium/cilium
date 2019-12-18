@@ -325,6 +325,21 @@ New ConfigMap Options
     managed etcd mode to reduce the number of policy identities whitelisted for
     each endpoint.
 
+  * ``enable-remote-node-identity`` has been added to enable a new identity
+    for remote cluster nodes. This allows to treat local and remote cluster
+    nodes differently from a policy perspective. The option is enabled by
+    default for new deployments when generated via Helm. The option is disabled
+    for existing cluster to avoid breaking compatibility in case a cluster is
+    using policy rules allowing from host which expect to allow traffic from
+    all cluster nodes.
+
+    Unless you have policy rules allowing from host which expect to allow
+    traffic from all cluster nodes instead of just the local node, it is a good
+    idea to enable this option as you upgrade as it improves the default
+    security posture of your cluster. If you have policy rules matching on host
+    with the intent of allow from all cluster nodes, it is recommended to
+    modify those policy rules to explicitly allow the entity ``remote-node``
+    and then enable this flag as you upgrade.
 
 Removed options
 ~~~~~~~~~~~~~~~~~~

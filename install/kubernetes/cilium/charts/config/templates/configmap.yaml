@@ -301,3 +301,4 @@ data:
 {{- else }}
   enable-well-known-identities: "false"
 {{- end }}
+  enable-remote-node-identity: {{ .Values.global.remoteNodeIdentity | quote }}
