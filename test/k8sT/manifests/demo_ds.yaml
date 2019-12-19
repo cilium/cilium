@@ -54,6 +54,34 @@ spec:
         args:
           - "1000h"
 ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-k8s1
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      zgroup: test-k8s1
+  template:
+    metadata:
+      labels:
+        zgroup: test-k8s1
+    spec:
+      containers:
+      - name: web
+        image: docker.io/cilium/echoserver:1.10
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+      terminationGracePeriodSeconds: 0
+      nodeSelector:
+        "cilium.io/ci-node": k8s1
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -93,6 +121,21 @@ spec:
     name: http
   selector:
     zgroup: testDS
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-nodeport-local-k8s1
+spec:
+  type: NodePort
+  externalTrafficPolicy: Local
+  ports:
+  - port: 10080
+    targetPort: 80
+    protocol: TCP
+    name: http
+  selector:
+    zgroup: test-k8s1
 ---
 apiVersion: v1
 kind: Service

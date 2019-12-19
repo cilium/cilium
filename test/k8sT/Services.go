@@ -217,6 +217,16 @@ var _ = Describe("K8sServicesTest", func() {
 			}
 		}
 
+		failRequests := func(url string, count int, fromPod string) {
+			By("Making %d HTTP requests from %s to %q", count, fromPod, url)
+			for i := 1; i <= count; i++ {
+				res, err := kubectl.ExecInHostNetNS(context.TODO(), fromPod, helpers.CurlFail(url, "--max-time 3"))
+				ExpectWithOffset(1, err).To(BeNil(), "Cannot run curl in host netns")
+				ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
+					"%s host unexpectedly connected to service %q, it should fail", fromPod, url)
+			}
+		}
+
 		getURL := func(host string, port int32) string {
 			return fmt.Sprintf("http://%s",
 				net.JoinHostPort(host, fmt.Sprintf("%d", port)))
@@ -295,12 +305,26 @@ var _ = Describe("K8sServicesTest", func() {
 		}
 
 		testExternalTrafficPolicyLocal := func() {
+			// Checks requests are not SNATed when externalTrafficPolicy=Local
 			var data v1.Service
 			err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-local").Unmarshal(&data)
 			Expect(err).Should(BeNil(), "Can not retrieve service")
-			url := getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
 
-			doRequestsFromOutsideClient(url, 10, true)
+			count := 10
+			url := getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
+			doRequestsFromOutsideClient(url, count, true)
+
+			// Checks that requests to k8s1 succeed, while requests to k8s2 are dropped
+			err = kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-local-k8s1").Unmarshal(&data)
+			Expect(err).Should(BeNil(), "Can not retrieve service")
+
+			url = getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
+			doRequests(url, count, helpers.K8s1)
+			doRequests(url, count, helpers.K8s2)
+
+			url = getURL(helpers.K8s2Ip, data.Spec.Ports[0].NodePort)
+			failRequests(url, count, helpers.K8s1)
+			failRequests(url, count, helpers.K8s2)
 		}
 
 		It("Tests NodePort (kube-proxy)", func() {
