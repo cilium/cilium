@@ -215,7 +215,6 @@ func CheckMinRequirements() {
 
 	checkBPFLogs("bpf_requirements", true)
 	checkBPFLogs("bpf_features", false)
-	bpf.ReadFeatureProbes(featuresFilePath)
 
 	// bpftool checks
 	if !option.Config.DryMode {
@@ -226,5 +225,6 @@ func CheckMinRequirements() {
 		if err := probeManager.SystemConfigProbes(); err != nil {
 			log.WithError(err).Warning("BPF system config check: NOT OK.")
 		}
+		bpf.InitSupportedMapTypes(probeManager.GetSupportedMapTypes())
 	}
 }
