@@ -84,18 +84,27 @@ static inline __u32 finalize_sec_ctx(__u32 secctx, __u32 src_identity)
 
 #ifdef ENABLE_IPV6
 static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *node_ip,
-				   struct ipv6hdr *ip6)
+				   struct ipv6hdr *ip6, __u32 *identity)
 {
 #ifdef FIXED_SRC_SECCTX
-	return FIXED_SRC_SECCTX;
+	*identity = FIXED_SRC_SECCTX;
+	return 0;
 #else
 	if (ipv6_match_prefix_64((union v6addr *) &ip6->saddr, node_ip)) {
 		/* Read initial 4 bytes of header and then extract flowlabel */
 		__u32 *tmp = (__u32 *) ip6;
-		return bpf_ntohl(*tmp & IPV6_FLOWLABEL_MASK);
+		*identity = bpf_ntohl(*tmp & IPV6_FLOWLABEL_MASK);
+
+		/* A remote node will map any HOST_ID source to be presented as
+		 * REMOTE_NODE_ID, therefore any attempt to signal HOST_ID as
+		 * source from a remote node can be droppped. */
+		if (*identity == HOST_ID)
+			return DROP_INVALID_IDENTITY;
+	} else {
+		*identity = WORLD_ID;
 	}
 
-	return WORLD_ID;
+	return 0;
 #endif
 }
 
@@ -106,7 +115,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr *dst;
-	int l4_off, l3_off = ETH_HLEN, hdrlen;
+	int ret, l4_off, l3_off = ETH_HLEN, hdrlen;
 	struct endpoint_info *ep;
 	__u8 nexthdr;
 	__u32 secctx;
@@ -145,7 +154,9 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 #endif
 
 	BPF_V6(node_ip, ROUTER_IP);
-	secctx = derive_sec_ctx(skb, &node_ip, ip6);
+	ret = derive_sec_ctx(skb, &node_ip, ip6, &secctx);
+	if (IS_ERR(ret))
+		return ret;
 
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(src_identity)) {
@@ -193,7 +204,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 	dst = (union v6addr *) &ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
-		int ret = encap_and_redirect_with_nodeid(skb, info->tunnel_endpoint,
+		ret = encap_and_redirect_with_nodeid(skb, info->tunnel_endpoint,
 							 info->key,
 							 secctx, TRACE_PAYLOAD_LEN);
 
@@ -207,7 +218,6 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 			return ret;
 	} else {
 		struct endpoint_key key = {};
-		int ret;
 
 		/* IPv6 lookup key: daddr/96 */
 		dst = (union v6addr *) &ip6->daddr;
