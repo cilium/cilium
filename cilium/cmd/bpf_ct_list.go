@@ -34,6 +34,7 @@ var bpfCtListCmd = &cobra.Command{
 	PreRun:  requireEndpointIDorGlobal,
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf ct list")
+		initSupportedMapTypes()
 		dumpCt(args[0])
 	},
 }

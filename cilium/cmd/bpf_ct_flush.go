@@ -32,6 +32,7 @@ var bpfCtFlushCmd = &cobra.Command{
 	PreRun: requireEndpointIDorGlobal,
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf ct flush")
+		initSupportedMapTypes()
 		flushCt(args[0])
 	},
 }

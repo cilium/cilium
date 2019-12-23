@@ -27,6 +27,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/color"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -365,4 +366,15 @@ func dumpConfig(Opts map[string]string) {
 			fmt.Printf("%-24s %s\n", k, color.Green("Enabled"))
 		}
 	}
+}
+
+// initSupportedMapTypes triggers the BPF feature checks and gets information
+// about supported BPF map types. Not calling that function in BPF CT related
+// commands will lead to nil pointer errors.
+func initSupportedMapTypes() {
+	probeManager, err := probes.NewProbeManager()
+	if err != nil {
+		Fatalf("Cannot run BPF feature checks: %v", err)
+	}
+	bpf.InitSupportedMapTypes(probeManager.GetSupportedMapTypes())
 }
