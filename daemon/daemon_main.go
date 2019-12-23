@@ -1231,6 +1231,16 @@ func runDaemon() {
 		d.initKVStore()
 	}
 
+	controller.NewManager().UpdateController("iptables-manager-controller",
+		controller.ControllerParams{
+			DoFunc: func(ctx context.Context) error {
+				return d.datapath.EnsureRules()
+			},
+
+			RunInterval: defaults.IptablesControllerRunInterval,
+		},
+	)
+
 	// Wait only for certain caches, but not all!
 	// (Check Daemon.initK8sSubsystem() for more info)
 	<-k8sCachesSynced

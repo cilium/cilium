@@ -230,13 +230,6 @@ func createPrefixLengthCounter() *counter.PrefixLengthCounter {
 	return counter.DefaultPrefixLengthCounter(max6, max4)
 }
 
-type rulesManager interface {
-	RemoveRules()
-	InstallRules(ifName string) error
-	TransientRulesStart(ifName string) error
-	TransientRulesEnd(quiet bool)
-}
-
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
 func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 

@@ -337,4 +337,8 @@ const (
 	// CertsDirectory is the default directory used to find certificates
 	// specified in the L7 policies.
 	CertsDirectory = RuntimePath + "/certs"
+
+	// IptablesControllerRunInterval is the default periodic run interval for
+	// iptable manager ensure rules function.
+	IptablesControllerRunInterval = 5 * time.Second
 )

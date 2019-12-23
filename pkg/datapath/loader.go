@@ -56,6 +56,11 @@ type Proxy interface {
 
 // IptablesManager manages iptables rules.
 type IptablesManager interface {
+	// EnsureRules ensures that the Iptables rules that cilium created are
+	// present, if a rule is not present this function will install the required
+	// rule.
+	EnsureRules() error
+
 	// InstallProxyRules creates the necessary datapath config (e.g., iptables
 	// rules for redirecting host proxy traffic on a specific ProxyPort)
 	InstallProxyRules(proxyPort uint16, ingress bool, name string) error
