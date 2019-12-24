@@ -37,19 +37,19 @@ import (
 )
 
 const (
-	ciliumPrefix                = "CILIUM_"
-	ciliumInputChain            = "CILIUM_INPUT"
-	ciliumOutputChain           = "CILIUM_OUTPUT"
-	ciliumOutputRawChain        = "CILIUM_OUTPUT_raw"
-	ciliumPostNatChain          = "CILIUM_POST_nat"
-	ciliumOutputNatChain        = "CILIUM_OUTPUT_nat"
-	ciliumPreNatChain           = "CILIUM_PRE_nat"
-	ciliumPostMangleChain       = "CILIUM_POST_mangle"
-	ciliumPreMangleChain        = "CILIUM_PRE_mangle"
-	ciliumPreRawChain           = "CILIUM_PRE_raw"
-	ciliumForwardChain          = "CILIUM_FORWARD"
-	feederDescription           = "cilium-feeder:"
-	xfrmDescription             = "cilium-xfrm-notrack:"
+	ciliumPrefix          = "CILIUM_"
+	ciliumInputChain      = "CILIUM_INPUT"
+	ciliumOutputChain     = "CILIUM_OUTPUT"
+	ciliumOutputRawChain  = "CILIUM_OUTPUT_raw"
+	ciliumPostNatChain    = "CILIUM_POST_nat"
+	ciliumOutputNatChain  = "CILIUM_OUTPUT_nat"
+	ciliumPreNatChain     = "CILIUM_PRE_nat"
+	ciliumPostMangleChain = "CILIUM_POST_mangle"
+	ciliumPreMangleChain  = "CILIUM_PRE_mangle"
+	ciliumPreRawChain     = "CILIUM_PRE_raw"
+	ciliumForwardChain    = "CILIUM_FORWARD"
+	feederDescription     = "cilium-feeder:"
+	xfrmDescription       = "cilium-xfrm-notrack:"
 )
 
 // Minimum iptables versions supporting the -w and -w<seconds> flags
@@ -62,6 +62,23 @@ const (
 	waitString       = "-w"
 	waitSecondsValue = "5"
 )
+
+type operation string
+
+const (
+	opCreateChain operation = "-N"
+	opFlushChain  operation = "-F"
+	opDeleteChain operation = "-X"
+	opCheckRule   operation = "-C"
+	opInsertRule  operation = "-I"
+	opAppendRule  operation = "-A"
+)
+
+// exitError is the error interface for exec commands.
+type exitError interface {
+	Exited() bool
+	ExitStatus() int
+}
 
 type iptablesRule struct {
 	args            []string
@@ -85,8 +102,6 @@ type customChain struct {
 	hook       string
 	feederArgs []string
 	ipv6       bool // ip6tables chain in addition to iptables chain
-
-	rules []iptablesRule
 }
 
 func getVersion(prog string) (go_version.Version, error) {
@@ -100,11 +115,6 @@ func getVersion(prog string) (go_version.Version, error) {
 		return go_version.Version{}, fmt.Errorf("no iptables version found in string: %s", string(b))
 	}
 	return versioncheck.Version(vString[1])
-}
-
-func runProg(prog string, args []string, quiet bool) error {
-	_, err := exec.WithTimeout(defaults.ExecTimeout, prog, args...).CombinedOutput(log, !quiet)
-	return err
 }
 
 func getFeedRule(name, args string) []string {
@@ -137,18 +147,6 @@ func KernelHasNetfilter() bool {
 	return false
 }
 
-// adds the custom chain to the required table.
-func (c *customChain) add(waitArgs []string) error {
-	var err error
-	if option.Config.EnableIPv4 {
-		err = runProg("iptables", append(waitArgs, "-t", c.table, "-N", c.name), false)
-	}
-	if err == nil && option.Config.EnableIPv6 && c.ipv6 == true {
-		err = runProg("ip6tables", append(waitArgs, "-t", c.table, "-N", c.name), false)
-	}
-	return err
-}
-
 func reverseRule(rule string) ([]string, error) {
 	if strings.HasPrefix(rule, "-A") {
 		// From: -A POSTROUTING -m comment [...]
@@ -165,101 +163,6 @@ func reverseRule(rule string) ([]string, error) {
 	return []string{}, nil
 }
 
-// removeCiliumRules removes the iptable rules in the requested table associated
-// with the chain specified by match.
-func (m *IptablesManager) removeCiliumRules(table, prog, match string) {
-	args := append(m.waitArgs, "-t", table, "-S")
-
-	out, err := exec.WithTimeout(defaults.ExecTimeout, prog, args...).CombinedOutput(log, true)
-	if err != nil {
-		return
-	}
-
-	scanner := bufio.NewScanner(bytes.NewReader(out))
-	for scanner.Scan() {
-		rule := scanner.Text()
-		log.WithField(logfields.Object, logfields.Repr(rule)).Debugf("Considering removing %s rule", prog)
-		if match != ciliumTransientForwardChain && strings.Contains(rule, ciliumTransientForwardChain) {
-			continue
-		}
-
-		// All rules installed by cilium either belong to a chain with
-		// the name CILIUM_ or call a chain with the name CILIUM_:
-		// -A CILIUM_FORWARD -o cilium_host -m comment --comment "cilium: any->cluster on cilium_host forward accept" -j ACCEPT
-		// -A POSTROUTING -m comment --comment "cilium-feeder: CILIUM_POST" -j CILIUM_POST
-		if strings.Contains(rule, match) {
-			reversedRule, err := reverseRule(rule)
-			if err != nil {
-				log.WithError(err).WithField(logfields.Object, rule).Warnf("Unable to parse %s rule into slice. Leaving rule behind.", prog)
-				continue
-			}
-
-			if len(reversedRule) > 0 {
-				deleteRule := append(append(m.waitArgs, "-t", table), reversedRule...)
-				log.WithField(logfields.Object, logfields.Repr(deleteRule)).Debugf("Removing %s rule", prog)
-				err = runProg(prog, deleteRule, true)
-				if err != nil {
-					log.WithError(err).WithField(logfields.Object, rule).Warnf("Unable to delete Cilium %s rule", prog)
-				}
-			}
-		}
-	}
-}
-
-func (c *customChain) remove(waitArgs []string, quiet bool) {
-	if option.Config.EnableIPv4 {
-		prog := "iptables"
-		args := append(waitArgs, "-t", c.table, "-F", c.name)
-		err := runProg(prog, args, true)
-		if err != nil && !quiet {
-			log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to flush Cilium %s chain", prog)
-		}
-
-		args = append(waitArgs, "-t", c.table, "-X", c.name)
-		err = runProg(prog, args, true)
-		if err != nil && !quiet {
-			log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to delete Cilium %s chain", prog)
-		}
-	}
-	if option.Config.EnableIPv6 && c.ipv6 == true {
-		prog := "ip6tables"
-		args := append(waitArgs, "-t", c.table, "-F", c.name)
-		err := runProg(prog, args, true)
-		if err != nil && !quiet {
-			log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to flush Cilium %s chain", prog)
-		}
-
-		args = append(waitArgs, "-t", c.table, "-X", c.name)
-		err = runProg(prog, args, true)
-		if err != nil && !quiet {
-			log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to delete Cilium %s chain", prog)
-		}
-	}
-}
-
-func (c *customChain) installFeeder(waitArgs []string) error {
-	installMode := "-A"
-	if option.Config.PrependIptablesChains {
-		installMode = "-I"
-	}
-
-	for _, feedArgs := range c.feederArgs {
-		if option.Config.EnableIPv4 {
-			err := runProg("iptables", append(append(waitArgs, "-t", c.table, installMode, c.hook), getFeedRule(c.name, feedArgs)...), true)
-			if err != nil {
-				return err
-			}
-		}
-		if option.Config.EnableIPv6 && c.ipv6 == true {
-			err := runProg("ip6tables", append(append(waitArgs, "-t", c.table, installMode, c.hook), getFeedRule(c.name, feedArgs)...), true)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 // Exclude crypto traffic from the filter and nat table rules.
 // This avoids encryption bits and keyID, 0x*d00 for decryption
 // and 0x*e00 for encryption, colliding with existing rules. Needed
@@ -272,7 +175,6 @@ func ciliumAcceptXfrmRules(table, chain string) []iptablesRule {
 	return []iptablesRule{
 		newIptablesRule([]string{
 			"-t", table,
-			"-A", chain,
 			"-m", "mark", "--mark", matchFromIPSecEncrypt,
 			"-m", "comment", "--comment", xfrmComment,
 			"-j", "ACCEPT",
@@ -280,7 +182,6 @@ func ciliumAcceptXfrmRules(table, chain string) []iptablesRule {
 
 		newIptablesRule([]string{
 			"-t", table,
-			"-A", chain,
 			"-m", "mark", "--mark", matchFromIPSecDecrypt,
 			"-m", "comment", "--comment", xfrmComment,
 			"-j", "ACCEPT",
@@ -296,7 +197,6 @@ func ciliumInputChainRules() []iptablesRule {
 		[]iptablesRule{
 			newIptablesRule([]string{
 				"-t", "filter",
-				"-A", ciliumInputChain,
 				// Destination is a local node POD address
 				"!", "-d", node.GetInternalIPv4().String(),
 				"-m", "mark", "--mark", matchToProxy,
@@ -304,6 +204,7 @@ func ciliumInputChainRules() []iptablesRule {
 				"-j", "ACCEPT",
 			}, true, false, false),
 		},
+
 		// CiliumAcceptXfrmRules
 		ciliumAcceptXfrmRules("filter", ciliumInputChain)...,
 	)
@@ -322,7 +223,6 @@ func ciliumOutputChainRules() []iptablesRule {
 		[]iptablesRule{
 			newIptablesRule([]string{
 				"-t", "filter",
-				"-A", ciliumOutputChain,
 				// Return traffic is from a local node POD address
 				"!", "-s", node.GetInternalIPv4().String(),
 				"-m", "mark", "--mark", matchProxyReply,
@@ -353,7 +253,6 @@ func ciliumOutputChainRules() []iptablesRule {
 			// originated from the host.
 			newIptablesRule([]string{
 				"-t", "filter",
-				"-A", ciliumOutputChain,
 				"-m", "mark", "!", "--mark", matchFromIPSecDecrypt, // Don't match ipsec traffic
 				"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
 				"-m", "mark", "!", "--mark", matchFromProxy, // Don't match proxy traffic
@@ -371,7 +270,6 @@ func ciliumOutputRawChainRules() []iptablesRule {
 	return []iptablesRule{
 		newIptablesRule([]string{
 			"-t", "raw",
-			"-A", ciliumOutputRawChain,
 			// Return traffic is from a local node POD address
 			"!", "-s", node.GetInternalIPv4().String(),
 			"-m", "mark", "--mark", matchProxyReply,
@@ -405,7 +303,6 @@ func ciliumPostNatChainRules(m *IptablesManager, ifName string) []iptablesRule {
 		//   * May not be targeted to an IP in the cluster range
 		newIptablesRule([]string{
 			"-t", "nat",
-			"-A", ciliumPostNatChain,
 			"!", "-d", m.remoteSnatDstAddrExclusion(),
 			"-o", option.Config.EgressMasqueradeInterfaces,
 			"-m", "comment", "--comment", "cilium masquerade non-cluster",
@@ -416,7 +313,6 @@ func ciliumPostNatChainRules(m *IptablesManager, ifName string) []iptablesRule {
 
 		newIptablesRule([]string{
 			"-t", "nat",
-			"-A", ciliumPostNatChain,
 			"-s", node.GetIPv4AllocRange().String(),
 			"!", "-d", m.remoteSnatDstAddrExclusion(),
 			"!", "-o", "cilium_+",
@@ -433,7 +329,6 @@ func ciliumPostNatChainRules(m *IptablesManager, ifName string) []iptablesRule {
 		// RETURN fro the chain as it is possible that other rules need to be matched.
 		newIptablesRule([]string{
 			"-t", "nat",
-			"-A", ciliumPostNatChain,
 			"!", "-o", localDeliveryInterface,
 			"-m", "comment", "--comment", "exclude non-" + ifName + " traffic from masquerade",
 			"-j", "RETURN",
@@ -442,7 +337,6 @@ func ciliumPostNatChainRules(m *IptablesManager, ifName string) []iptablesRule {
 		// Exclude proxy return traffic from the masquarade rules
 		newIptablesRule([]string{
 			"-t", "nat",
-			"-A", ciliumPostNatChain,
 			"-m", "mark", "--mark", matchFromProxy, // Don't match proxy (return) traffic
 			"-m", "comment", "--comment", "exclude proxy return traffic from masquarade",
 			"-j", "ACCEPT",
@@ -460,15 +354,14 @@ func ciliumPostNatChainRules(m *IptablesManager, ifName string) []iptablesRule {
 		//   * May not orignate from any IP inside of the cluster range
 		newIptablesRule([]string{
 			"-t", "nat",
-			"-A", ciliumPostNatChain,
 			"!", "-s", node.GetHostMasqueradeIPv4().String(),
 			"!", "-d", node.GetIPv4AllocRange().String(),
 			"-o", "cilium_host",
 			"-m", "comment", "--comment", "cilium host->cluster masquerade",
-			"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()),
+			"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String(),
 		},
-		option.Config.Masquerade && option.Config.Tunnel != option.TunnelDisabled,
-		true, false),
+			option.Config.Masquerade && option.Config.Tunnel != option.TunnelDisabled,
+			true, false),
 
 		// Masquerade all traffic from the host into local
 		// endpoints if the source is 127.0.0.1. This is
@@ -480,7 +373,6 @@ func ciliumPostNatChainRules(m *IptablesManager, ifName string) []iptablesRule {
 		// * Must be from 127.0.0.1
 		newIptablesRule([]string{
 			"-t", "nat",
-			"-A", ciliumPostNatChain,
 			"-s", "127.0.0.1",
 			"-o", localDeliveryInterface,
 			"-m", "comment", "--comment", "cilium host->cluster from 127.0.0.1 masquerade",
@@ -517,7 +409,6 @@ func ciliumPreMangleChainRules() []iptablesRule {
 		// This is for inboundProxyRedirectRule
 		newIptablesRule([]string{
 			"-t", "mangle",
-			"-A", ciliumPreMangleChain,
 			"-m", "socket", "--transparent", "--nowildcard",
 			"-m", "comment", "--comment", "cilium: any->pod redirect proxied traffic to host proxy",
 			"-j", "MARK",
@@ -536,27 +427,26 @@ func ciliumPreRawChainRules() []iptablesRule {
 	return []iptablesRule{
 		newIptablesRule([]string{
 			"-t", "raw",
-			"-A", ciliumPreRawChain,
+			"-m", "mark", "--mark", matchFromIPSecEncrypt,
+			"-m", "comment", "--comment", xfrmDescription,
+			"-j", "NOTRACK",
+		}, option.Config.EnableIPSec, true, false),
+
+		newIptablesRule([]string{
+			"-t", "raw",
+			"-m", "mark", "--mark", matchFromIPSecDecrypt,
+			"-m", "comment", "--comment", xfrmDescription,
+			"-j", "NOTRACK",
+		}, option.Config.EnableIPSec, true, false),
+
+		newIptablesRule([]string{
+			"-t", "raw",
 			// Destination is a local node POD address
 			"!", "-d", node.GetInternalIPv4().String(),
 			"-m", "mark", "--mark", matchToProxy,
 			"-m", "comment", "--comment", "cilium: NOTRACK for proxy traffic",
 			"-j", "NOTRACK",
 		}, true, false, false),
-
-		newIptablesRule([]string{
-			"-t", "raw", "-I", ciliumPreRawChain,
-			"-m", "mark", "--mark", matchFromIPSecDecrypt,
-			"-m", "comment", "--comment", xfrmDescription,
-			"-j", "NOTRACK"
-		}, option.Config.EnableIPSec, true, false),
-
-		newIptablesRule([]string{
-			"-t", "raw", "-I", ciliumPreRawChain,
-			"-m", "mark", "--mark", matchFromIPSecEncrypt,
-			"-m", "comment", "--comment", xfrmDescription,
-			"-j", "NOTRACK"
-		}, option.Config.EnableIPSec, true, false),
 	}
 }
 
@@ -567,21 +457,21 @@ func ciliumForwardChainRules(ifName string) []iptablesRule {
 		ciliumAcceptXfrmRules("filter", ciliumForwardChain),
 
 		newIptablesRule([]string{
-			"-A", ciliumForwardChain,
+			"-t", "filter",
 			"-o", localDeliveryInterface,
 			"-m", "comment", "--comment", "cilium: any->cluster on " + localDeliveryInterface + " forward accept",
 			"-j", "ACCEPT",
 		}, true, true, false),
 
 		newIptablesRule([]string{
-			"-A", ciliumForwardChain,
+			"-t", "filter",
 			"-i", localDeliveryInterface,
 			"-m", "comment", "--comment", "cilium: cluster->any on " + localDeliveryInterface + " forward accept (nodeport)",
 			"-j", "ACCEPT",
 		}, true, true, false),
 
 		newIptablesRule([]string{
-			"-A", ciliumForwardChain,
+			"-t", "filter",
 			"-i", "lxc+",
 			"-m", "comment", "--comment", "cilium: cluster->any on lxc+ forward accept",
 			"-j", "ACCEPT",
@@ -722,13 +612,187 @@ func (m *IptablesManager) Init() {
 	}
 }
 
+func (m *IptablesManager) runProg(prog string, args []string, quiet bool) ([]byte, error) {
+	fullArgs := append(m.waitArgs, args...)
+
+	log.WithField(logfields.IptablesCmd,
+		fmt.Sprintf("%s %v", prog, fullArgs)).Debug("executing iptables")
+	return exec.WithTimeout(defaults.ExecTimeout, prog, args...).CombinedOutput(log, !quiet)
+}
+
+func (m *IptablesManager) ensureChain(c *customChain, prog string) error {
+	fullArgs := []string{string(opCreateChain), string(c.name), "-t", string(c.table)}
+
+	out, err := m.runProg(prog, fullArgs, false)
+
+	if err != nil {
+		if ee, ok := err.(exitError); ok {
+			if ee.Exited() && ee.ExitStatus() == 1 {
+				return nil
+			}
+		}
+		return fmt.Errorf("error creating chain %q: %v: %s", c.name, err, out)
+	}
+	return nil
+}
+
+// ensureChains ensures that the chains that are managed by cilium are present and are associated
+// with the required hooks.
+func (m *IptablesManager) ensureCiliumChains() error {
+	var err error
+	for _, c := range ciliumChains {
+		if option.Config.EnableIPv4 {
+			err = m.ensureChain(&c, "iptables")
+		}
+		if err == nil && option.Config.EnableIPv6 && c.ipv6 == true {
+			err = m.ensureChain(&c, "ip6tables")
+		}
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *IptablesManager) filterEnabledRules(rules []iptablesRule) []iptablesRule {
+	retRules := []iptablesRule{}
+	for _, rule := range rules {
+		if rule.enabled {
+			retRules = append(retRules, rule)
+		}
+	}
+
+	return retRules
+}
+
+func (m *IptablesManager) checkRule(prog, chain string, rule iptablesRule) (bool, error) {
+	checkArgs := append([]string{string(opCheckRule), chain}, rule.args...)
+	out, err := m.runProg(prog, checkArgs, false)
+	if err == nil {
+		return true, nil
+	}
+	if ee, ok := err.(exitError); ok {
+		// If the error code 1 iptables indicates that there is a failure
+		// in the operation as opposed to being malformed commandline.
+		if ee.Exited() && ee.ExitStatus() == 1 {
+			return false, nil
+		}
+	}
+	return false, fmt.Errorf("error chcking rule %v: %v: %s", rule.args, err, out)
+}
+
+func (m *IptablesManager) ensureChainRules(chainName string, rules []iptablesRule) error {
+	for index, rule := range rules {
+		if option.Config.EnableIPv4 {
+			// We first check if the rule exist or not using iptables -C flag
+			exists, err := m.checkRule("iptables", chainName, rule)
+			if err != nil {
+				return err
+			}
+			if !exists {
+				insertArgs := append([]string{string(opInsertRule), chainName, string(index)}, rule.args...)
+				out, err := m.runProg("iptables", insertArgs, false)
+				if err != nil {
+					return fmt.Errorf("error inserting rule: %s : %s", err, out)
+				}
+			}
+		}
+
+		// Also insert ip6tables rule.
+		if !rule.ipv4Only && option.Config.EnableIPv6 {
+			exists, err := m.checkRule("ip6tables", chainName, rule)
+			if err != nil {
+				return err
+			}
+			if !exists {
+				insertArgs := append([]string{string(opInsertRule), chainName, string(index)}, rule.args...)
+				out, err := m.runProg("ip6tables", insertArgs, false)
+				if err != nil {
+					return fmt.Errorf("error inserting rule: %s : %s", err, out)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 // EnsureRules ensures that the iptable rules managed by Cilium are present and are
 // in the right order. If a rule is missing from the chain, cilium reinstall only
 // that particular iptable rule.
 //
 // Insert syntax for iptables is of the following format
 // sudo iptables -I [chain] [rule-number] [rule]
-func (m *IptablesManager) EnsureRules() error {
+func (m *IptablesManager) EnsureRules(ifname string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if err := m.ensureCiliumChains(); err != nil {
+		return err
+	}
+
+	// All the rules must be prepended with the operation to perform on the iptable
+	// rule and then run using an iptable program. Since we are relying on inserts
+	inputChainRules := m.filterEnabledRules(ciliumInputChainRules())
+	err := m.ensureChainRules(ciliumInputChain, inputChainRules)
+	if err != nil {
+		return err
+	}
+
+	outputChainRules := m.filterEnabledRules(ciliumOutputChainRules())
+	err = m.ensureChainRules(ciliumOutputChain, outputChainRules)
+	if err != nil {
+		return err
+	}
+
+	outputRawChainRules := m.filterEnabledRules(ciliumOutputRawChainRules())
+	err = m.ensureChainRules(ciliumOutputRawChain, outputRawChainRules)
+	if err != nil {
+		return err
+	}
+
+	postNatChainRules := m.filterEnabledRules(ciliumPostNatChainRules(m, ifname))
+	err = m.ensureChainRules(ciliumPostNatChain, postNatChainRules)
+	if err != nil {
+		return err
+	}
+
+	outputNatChainRules := m.filterEnabledRules(ciliumOutputNatChainRules())
+	err = m.ensureChainRules(ciliumOutputNatChain, outputNatChainRules)
+	if err != nil {
+		return err
+	}
+
+	preNatChainRules := m.filterEnabledRules(ciliumPreNatChainRules())
+	err = m.ensureChainRules(ciliumPreNatChain, preNatChainRules)
+	if err != nil {
+		return err
+	}
+
+	postMangleChainRules := m.filterEnabledRules(ciliumPostMangleChainRules())
+	err = m.ensureChainRules(ciliumPostMangleChain, postMangleChainRules)
+	if err != nil {
+		return err
+	}
+
+	preMangleChainRules := m.filterEnabledRules(ciliumPreMangleChainRules())
+	err = m.ensureChainRules(ciliumPreMangleChain, preMangleChainRules)
+	if err != nil {
+		return err
+	}
+
+	preRawChainRules := m.filterEnabledRules(ciliumPreRawChainRules())
+	err = m.ensureChainRules(ciliumPreRawChain, preRawChainRules)
+	if err != nil {
+		return err
+	}
+
+	forwardChainRules := m.filterEnabledRules(ciliumForwardChainRules(ifname))
+	err = m.ensureChainRules(ciliumForwardChain, forwardChainRules)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -737,8 +801,75 @@ func (m *IptablesManager) SupportsOriginalSourceAddr() bool {
 	return m.haveSocketMatch
 }
 
+// removeCiliumRules removes the iptable rules in the requested table associated
+// with the chain specified by match.
+func (m *IptablesManager) removeCiliumRules(table, prog, match string) {
+	args := append(m.waitArgs, "-t", table, "-S")
+
+	out, err := exec.WithTimeout(defaults.ExecTimeout, prog, args...).CombinedOutput(log, true)
+	if err != nil {
+		return
+	}
+
+	scanner := bufio.NewScanner(bytes.NewReader(out))
+	for scanner.Scan() {
+		rule := scanner.Text()
+		log.WithField(logfields.Object, logfields.Repr(rule)).Debugf("Considering removing %s rule", prog)
+
+		// All rules installed by cilium either belong to a chain with
+		// the name CILIUM_ or call a chain with the name CILIUM_:
+		// -A CILIUM_FORWARD -o cilium_host -m comment --comment "cilium: any->cluster on cilium_host forward accept" -j ACCEPT
+		// -A POSTROUTING -m comment --comment "cilium-feeder: CILIUM_POST" -j CILIUM_POST
+		if strings.Contains(rule, match) {
+			reversedRule, err := reverseRule(rule)
+			if err != nil {
+				log.WithError(err).WithField(logfields.Object, rule).Warnf("Unable to parse %s rule into slice. Leaving rule behind.", prog)
+				continue
+			}
+
+			if len(reversedRule) > 0 {
+				deleteRule := append([]string{"-t", table}, reversedRule...)
+				log.WithField(logfields.Object, logfields.Repr(deleteRule)).Debugf("Removing %s rule", prog)
+				_, err = m.runProg(prog, deleteRule, true)
+				if err != nil {
+					log.WithError(err).WithField(logfields.Object, rule).Warnf("Unable to delete Cilium %s rule", prog)
+				}
+			}
+		}
+	}
+}
+
+func (m *IptablesManager) removeChain(c *customChain, prog string) {
+	fullFlushArgs := []string{string(opFlushChain), string(c.name), "-t", string(c.table)}
+	fullRemoveArgs := []string{string(opDeleteChain), string(c.name), "-t", string(c.table)}
+
+	_, err := m.runProg(prog, fullFlushArgs, false)
+	if err != nil {
+		log.WithError(err).WithField(logfields.Object, fullFlushArgs).Warnf("Unable to flush Cilium %s chain", prog)
+	}
+
+	_, err = m.runProg(prog, fullRemoveArgs, false)
+	if err != nil {
+		log.WithError(err).WithField(logfields.Object, fullRemoveArgs).Warnf("Unable to delete Cilium %s chain", prog)
+	}
+}
+
+func (m *IptablesManager) removeCiliumChains() {
+	for _, c := range ciliumChains {
+		if option.Config.EnableIPv4 {
+			m.removeChain(&c, "iptables")
+		}
+		if option.Config.EnableIPv6 && c.ipv6 == true {
+			m.removeChain(&c, "ip6tables")
+		}
+	}
+}
+
 // RemoveRules removes iptables rules installed by Cilium.
 func (m *IptablesManager) RemoveRules() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	// Set of tables that have had iptables rules in any Cilium version
 	tables := []string{"nat", "mangle", "raw", "filter"}
 	for _, t := range tables {
@@ -753,21 +884,20 @@ func (m *IptablesManager) RemoveRules() {
 		}
 	}
 
-	for _, c := range ciliumChains {
-		c.remove(m.waitArgs, false)
-	}
+	m.removeCiliumChains()
 }
 
 func (m *IptablesManager) ingressProxyRule(cmd, l4Match, markMatch, mark, port, name string) []string {
-	return append(m.waitArgs,
+	return []string{
 		"-t", "mangle",
 		cmd, ciliumPreMangleChain,
 		"-p", l4Match,
 		"-m", "mark", "--mark", markMatch,
-		"-m", "comment", "--comment", "cilium: TPROXY to host "+name+" proxy",
+		"-m", "comment", "--comment", "cilium: TPROXY to host " + name + " proxy",
 		"-j", "TPROXY",
 		"--tproxy-mark", mark,
-		"--on-port", port)
+		"--on-port", port,
+	}
 }
 
 func (m *IptablesManager) iptIngressProxyRule(cmd string, l4proto string, proxyPort uint16, name string) error {
@@ -779,14 +909,16 @@ func (m *IptablesManager) iptIngressProxyRule(cmd string, l4proto string, proxyP
 	ingressProxyPort := fmt.Sprintf("%d", proxyPort)
 
 	var err error
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if option.Config.EnableIPv4 {
-		err = runProg("iptables",
+		_, err = m.runProg("iptables",
 			m.ingressProxyRule(cmd, l4proto, ingressMarkMatch,
 				ingressProxyMark, ingressProxyPort, name),
 			false)
 	}
 	if err == nil && option.Config.EnableIPv6 {
-		err = runProg("ip6tables",
+		_, err = m.runProg("ip6tables",
 			m.ingressProxyRule(cmd, l4proto, ingressMarkMatch,
 				ingressProxyMark, ingressProxyPort, name),
 			false)
@@ -795,15 +927,16 @@ func (m *IptablesManager) iptIngressProxyRule(cmd string, l4proto string, proxyP
 }
 
 func (m *IptablesManager) egressProxyRule(cmd, l4Match, markMatch, mark, port, name string) []string {
-	return append(m.waitArgs,
+	return []string{
 		"-t", "mangle",
 		cmd, ciliumPreMangleChain,
 		"-p", l4Match,
 		"-m", "mark", "--mark", markMatch,
-		"-m", "comment", "--comment", "cilium: TPROXY to host "+name+" proxy",
+		"-m", "comment", "--comment", "cilium: TPROXY to host " + name + " proxy",
 		"-j", "TPROXY",
 		"--tproxy-mark", mark,
-		"--on-port", port)
+		"--on-port", port,
+	}
 }
 
 func (m *IptablesManager) iptEgressProxyRule(cmd string, l4proto string, proxyPort uint16, name string) error {
@@ -815,14 +948,16 @@ func (m *IptablesManager) iptEgressProxyRule(cmd string, l4proto string, proxyPo
 	egressProxyPort := fmt.Sprintf("%d", proxyPort)
 
 	var err error
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if option.Config.EnableIPv4 {
-		err = runProg("iptables",
+		_, err = m.runProg("iptables",
 			m.egressProxyRule(cmd, l4proto, egressMarkMatch,
 				egressProxyMark, egressProxyPort, name),
 			false)
 	}
 	if err == nil && option.Config.EnableIPv6 {
-		err = runProg("ip6tables",
+		_, err = m.runProg("ip6tables",
 			m.egressProxyRule(cmd, l4proto, egressMarkMatch,
 				egressProxyMark, egressProxyPort, name),
 			false)
@@ -852,10 +987,12 @@ func (m *IptablesManager) iptProxyRules(cmd string, proxyPort uint16, ingress bo
 	return nil
 }
 
+// InstallProxyRules installs cilium proxy iptables rules.
 func (m *IptablesManager) InstallProxyRules(proxyPort uint16, ingress bool, name string) error {
 	return m.iptProxyRules("-A", proxyPort, ingress, name)
 }
 
+// RemoveProxyRules removes the cilium installed iptables rules for proxy.
 func (m *IptablesManager) RemoveProxyRules(proxyPort uint16, ingress bool, name string) error {
 	return m.iptProxyRules("-D", proxyPort, ingress, name)
 }
@@ -881,17 +1018,40 @@ func getDeliveryInterface(ifName string) string {
 	return deliveryInterface
 }
 
+func (m *IptablesManager) installFeeder(c *customChain) error {
+	installMode := "-A"
+	if option.Config.PrependIptablesChains {
+		installMode = "-I"
+	}
+
+	for _, feedArgs := range c.feederArgs {
+		if option.Config.EnableIPv4 {
+			_, err := m.runProg("iptables", append([]string{"-t", c.table, installMode, c.hook},
+				getFeedRule(c.name, feedArgs)...), true)
+			if err != nil {
+				return err
+			}
+		}
+		if option.Config.EnableIPv6 && c.ipv6 == true {
+			_, err := m.runProg("ip6tables", append([]string{"-t", c.table, installMode, c.hook},
+				getFeedRule(c.name, feedArgs)...), true)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // InstallRules installs iptables rules for Cilium in specific use-cases
 // (most specifically, interaction with kube-proxy).
 func (m *IptablesManager) InstallRules(ifName string) error {
-	for _, c := range ciliumChains {
-		if err := c.add(m.waitArgs); err != nil {
-			return fmt.Errorf("cannot add custom chain %s: %s", c.name, err)
-		}
+	if err := m.EnsureRules(ifName); err != nil {
+		return err
 	}
 
 	for _, c := range ciliumChains {
-		if err := c.installFeeder(m.waitArgs); err != nil {
+		if err := m.installFeeder(&c); err != nil {
 			return fmt.Errorf("cannot install feeder rule %s: %s", c.feederArgs, err)
 		}
 	}

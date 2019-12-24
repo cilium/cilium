@@ -1234,7 +1234,7 @@ func runDaemon() {
 	controller.NewManager().UpdateController("iptables-manager-controller",
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				return d.datapath.EnsureRules()
+				return d.datapath.EnsureRules(option.Config.HostDevice)
 			},
 
 			RunInterval: defaults.IptablesControllerRunInterval,

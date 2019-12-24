@@ -68,6 +68,10 @@ func (f *fakeDatapath) WriteEndpointConfig(io.Writer, datapath.EndpointConfigura
 	return nil
 }
 
+func (f *fakeDatapath) EnsureRules(string) error {
+	return nil
+}
+
 func (f *fakeDatapath) InstallProxyRules(uint16, bool, string) error {
 	return nil
 }
@@ -84,12 +88,6 @@ func (f *fakeDatapath) RemoveRules() {}
 
 func (f *fakeDatapath) InstallRules(ifName string) error {
 	return nil
-}
-func (f *fakeDatapath) TransientRulesStart(ifName string) error {
-	return nil
-}
-func (f *fakeDatapath) TransientRulesEnd(quiet bool) {
-	return
 }
 
 func (f *fakeDatapath) Loader() datapath.Loader {

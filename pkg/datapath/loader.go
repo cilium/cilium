@@ -59,7 +59,7 @@ type IptablesManager interface {
 	// EnsureRules ensures that the Iptables rules that cilium created are
 	// present, if a rule is not present this function will install the required
 	// rule.
-	EnsureRules() error
+	EnsureRules(string) error
 
 	// InstallProxyRules creates the necessary datapath config (e.g., iptables
 	// rules for redirecting host proxy traffic on a specific ProxyPort)
@@ -75,6 +75,4 @@ type IptablesManager interface {
 	SupportsOriginalSourceAddr() bool
 	RemoveRules()
 	InstallRules(ifName string) error
-	TransientRulesStart(ifName string) error
-	TransientRulesEnd(quiet bool)
 }

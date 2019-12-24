@@ -285,16 +285,9 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		return err
 	}
 
-	if option.Config.InstallIptRules {
-		if err := iptMgr.TransientRulesStart(option.Config.HostDevice); err != nil {
-			return err
-		}
-	}
-	// Always remove masquerade rule and then re-add it if required
-	iptMgr.RemoveRules()
+	// Ensure that cilium iptables rules are present.
 	if option.Config.InstallIptRules {
 		err := iptMgr.InstallRules(option.Config.HostDevice)
-		iptMgr.TransientRulesEnd(false)
 		if err != nil {
 			return err
 		}

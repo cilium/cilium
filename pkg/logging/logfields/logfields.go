@@ -398,4 +398,7 @@ const (
 
 	// SysParamValue is the value of the kernel parameter (sysctl)
 	SysParamValue = "sysParamValue"
+
+	// IptablesCmd is the iptables command
+	IptablesCmd = "iptablesCmd"
 )
