@@ -275,6 +275,8 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
                         skb->cb[CB_SRC_IDENTITY] = src_identity;
                         ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_NAT);
                         return DROP_MISSED_TAIL_CALL;
+		} else {
+			return TC_ACT_OK;
 		}
 	}
 #else
@@ -676,6 +678,8 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
                         skb->cb[CB_SRC_IDENTITY] = src_identity;
                         ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
                         return DROP_MISSED_TAIL_CALL;
+		} else {
+			return TC_ACT_OK;
 		}
 	}
 #else
