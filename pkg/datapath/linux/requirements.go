@@ -219,11 +219,7 @@ func CheckMinRequirements() {
 
 	// bpftool checks
 	if !option.Config.DryMode {
-		probeManager, err := probes.NewProbeManager()
-		if err != nil {
-			log.WithError(err).Fatal("BPF check: NOT OK.")
-		}
-		if err := probeManager.SystemConfigProbes(); err != nil {
+		if err := probes.ProbeManager.SystemConfigProbes(); err != nil {
 			log.WithError(err).Warning("BPF system config check: NOT OK.")
 		}
 	}
