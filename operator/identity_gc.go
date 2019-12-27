@@ -33,7 +33,7 @@ var (
 )
 
 func startIdentityGC() {
-	log.Infof("Starting security identity garbage collector with %s interval...", identityGCInterval)
+	log.Infof("Starting kvstore identity garbage collector with %s interval...", identityGCInterval)
 	backend, err := kvstoreallocator.NewKVStoreBackend(cache.IdentitiesPath, "", nil)
 	if err != nil {
 		log.WithError(err).Fatal("Unable to initialize kvstore backend for identity allocation")

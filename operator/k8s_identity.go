@@ -59,7 +59,10 @@ func deleteIdentity(identity *types.Identity) error {
 // have no nodes using them (status is empty). This generally means that
 // deletes here are for longer lived identities with no active users.
 func identityGCIteration() {
+	log.Debug("Running CRD identity garbage collector")
+
 	if identityStore == nil {
+		log.Debug("Identity store cache is not ready yet")
 		return
 	}
 
@@ -87,6 +90,8 @@ nextIdentity:
 }
 
 func startCRDIdentityGC() {
+	log.Infof("Starting CRD identity garbage collector with %s interval...", identityGCInterval)
+
 	controller.NewManager().UpdateController("crd-identity-gc",
 		controller.ControllerParams{
 			RunInterval: identityGCInterval,
