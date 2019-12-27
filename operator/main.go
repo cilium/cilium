@@ -320,11 +320,16 @@ func runOperator(cmd *cobra.Command) {
 		}
 	}
 
-	if identityAllocationMode == option.IdentityAllocationModeCRD {
+	switch identityAllocationMode {
+	case option.IdentityAllocationModeCRD:
 		startManagingK8sIdentities()
 
 		if identityGCInterval != time.Duration(0) {
 			go startCRDIdentityGC()
+		}
+	case option.IdentityAllocationModeKVstore:
+		if identityGCInterval != time.Duration(0) {
+			startKvstoreIdentityGC()
 		}
 	}
 
@@ -332,9 +337,6 @@ func runOperator(cmd *cobra.Command) {
 		enableCiliumEndpointSyncGC()
 	}
 
-	if identityGCInterval != time.Duration(0) {
-		startIdentityGC()
-	}
 	err := enableCNPWatcher()
 	if err != nil {
 		log.WithError(err).WithField("subsys", "CNPWatcher").Fatal(

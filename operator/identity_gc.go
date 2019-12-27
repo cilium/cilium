@@ -32,7 +32,7 @@ var (
 	identityAllocationMode string
 )
 
-func startIdentityGC() {
+func startKvstoreIdentityGC() {
 	log.Infof("Starting kvstore identity garbage collector with %s interval...", identityGCInterval)
 	backend, err := kvstoreallocator.NewKVStoreBackend(cache.IdentitiesPath, "", nil)
 	if err != nil {
