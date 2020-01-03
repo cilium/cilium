@@ -1135,6 +1135,9 @@ var (
 			Description: "Secret contains the certificates and private key for the TLS context.",
 			Type:        "object",
 			Properties:  Secret,
+			Required: []string{
+				"name",
+			},
 		},
 		"certificate": {
 			Description: "Certificate is the file name or secret item name for the certificate chain. " +
@@ -1178,6 +1181,9 @@ var (
 					"originated from a remote source and terminated by the L7 proxy.",
 				Type:       "object",
 				Properties: TLSContext,
+				Required: []string{
+					"secret",
+				},
 			},
 			"originatingTLS": {
 				Description: "OriginatingTLS is the TLS context for the connections originated by " +
@@ -1188,6 +1194,9 @@ var (
 					"the local POD.",
 				Type:       "object",
 				Properties: TLSContext,
+				Required: []string{
+					"secret",
+				},
 			},
 			"rules": L7Rules,
 		},
@@ -1222,9 +1231,12 @@ var (
 			Description: "Secret refers to a secret that contains the value that must be present in the request.",
 			Type:        "object",
 			Properties:  Secret,
+			Required: []string{
+				"name",
+			},
 		},
 		"value": {
-			Description: "Value containst the header value that must be present in the request. If both Secret " +
+			Description: "Value contains the header value that must be present in the request. If both Secret " +
 				"and Value are specified, " +
 				"the Secret takes precedence, if it exists; i.e., the Value will only be used if " +
 				"the Secret cannot be found or accessed.",
@@ -1250,6 +1262,9 @@ var (
 					Schema: &apiextensionsv1beta1.JSONSchemaProps{
 						Type:       "object",
 						Properties: HeaderMatch,
+						Required: []string{
+							"name",
+						},
 					},
 				},
 			},
