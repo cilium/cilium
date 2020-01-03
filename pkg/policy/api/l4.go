@@ -105,7 +105,7 @@ type PortRule struct {
 	// TerminatingTLS is the TLS context for the connection terminated by
 	// the L7 proxy.  For egress policy this specifies the server-side TLS
 	// parameters to be applied on the connections originated from the local
-	// POD and terminated by the L7 proxy. For ingress policy this specifies
+	// endpoint and terminated by the L7 proxy. For ingress policy this specifies
 	// the server-side TLS parameters to be applied on the connections
 	// originated from a remote source and terminated by the L7 proxy.
 	//
@@ -117,7 +117,7 @@ type PortRule struct {
 	// parameters for the upstream connection originating from the L7 proxy
 	// to the remote destination. For ingress policy this specifies the
 	// client-side TLS parameters for the connection from the L7 proxy to
-	// the local POD.
+	// the local endpoint.
 	//
 	// +optional
 	OriginatingTLS *TLSContext `json:"originatingTLS,omitempty"`

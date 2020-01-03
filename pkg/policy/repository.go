@@ -43,8 +43,20 @@ type CertificateManager interface {
 // PolicyContext is an interface policy resolution functions use to access the Repository.
 // This way testing code can run without mocking a full Repository.
 type PolicyContext interface {
+	// return the SelectorCache
 	GetSelectorCache() *SelectorCache
+
+	// GetTLSContext resolves the given 'api.TLSContext' into CA
+	// certs and the public and private keys, using secrets from
+	// k8s or from the local file system.
 	GetTLSContext(tls *api.TLSContext) (ca, public, private string, err error)
+
+	// GetEnvoyHTTPRules translates the given 'api.L7Rules' into
+	// the protobuf representation the Envoy can consume. The bool
+	// return parameter tells whether the the rule enforcement can
+	// be short-circuited upon the first allowing rule. This is
+	// false if any of the rules has side-effects, requiring all
+	// such rules being evaluated.
 	GetEnvoyHTTPRules(l7Rules *api.L7Rules) (*cilium.HttpNetworkPolicyRules, bool)
 }
 
