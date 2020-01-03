@@ -87,9 +87,7 @@ func (m *Manager) GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, ns 
 		// Give priority to local certificates
 		certPath := filepath.Join(m.rootPath, ns, name)
 		files, ioErr := ioutil.ReadDir(certPath)
-		if ioErr != nil {
-			err = fmt.Errorf("Certificates directory %s not found (%s)", certPath, ioErr)
-		} else {
+		if ioErr == nil {
 			for _, file := range files {
 				var path string
 				switch file.Name() {
@@ -126,7 +124,6 @@ func (m *Manager) GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, ns 
 			if caBytes != nil || publicBytes != nil || privateBytes != nil {
 				return string(caBytes), string(publicBytes), string(privateBytes), nil
 			}
-			err = fmt.Errorf("certificates not found in %s", certPath)
 		}
 
 		// Look for k8s secrets if not found locally
@@ -158,11 +155,7 @@ func (m *Manager) GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, ns 
 		if caBytes != nil || publicBytes != nil || privateBytes != nil {
 			return ca, public, private, nil
 		}
-		if err != nil {
-			err = fmt.Errorf("certificates not found locally in %s nor in k8s secret %s/%s ", m.rootPath, ns, name)
-			return "", "", "", err
-		}
-		err = fmt.Errorf("certificates not found in k8s secret %s/%s", ns, name)
+		err = fmt.Errorf("certificates not found locally in %s nor in k8s secret %s/%s ", certPath, ns, name)
 	}
 	return "", "", "", err
 }
