@@ -414,6 +414,7 @@ nfp
 nftables
 Nic
 nodeX
+observability
 onData
 ons
 onwards
