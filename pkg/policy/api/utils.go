@@ -54,14 +54,17 @@ func (h *PortRuleHTTP) Equal(o PortRuleHTTP) bool {
 	return true
 }
 
-// Equal returns true if both HTTP rules are equal
+// Equal returns true if both Secrets are equal
+func (a *Secret) Equal(b *Secret) bool {
+	return a == nil && b == nil || a != nil && b != nil && *a == *b
+}
+
+// Equal returns true if both HeaderMatches are equal
 func (h *HeaderMatch) Equal(o *HeaderMatch) bool {
 	if h.Mismatch != o.Mismatch ||
 		h.Name != o.Name ||
 		h.Value != o.Value ||
-		h.Secret != nil && o.Secret == nil ||
-		h.Secret == nil && o.Secret != nil ||
-		h.Secret != nil && o.Secret != nil && *h.Secret != *o.Secret {
+		!h.Secret.Equal(o.Secret) {
 		return false
 	}
 	return true
