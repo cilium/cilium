@@ -194,6 +194,7 @@ cgroup
 ci
 classful
 classid
+cli
 cls
 clustermesh
 cni
@@ -209,7 +210,9 @@ cqlsh
 crd
 createtopic
 cri
+crt
 crypto
+cryptographic
 daemonset
 datacenter
 datapath
@@ -230,6 +233,7 @@ dev
 devel
 disassembly
 discoverable
+distro
 distros
 dns
 dockerhub
@@ -369,6 +373,8 @@ lwt
 macOS
 matchPattern
 mc
+mediabot
+Meetup
 memcache
 memcached
 memcd
@@ -384,6 +390,7 @@ multi
 multicore
 multinode
 musl
+myCA
 mysql
 namespace
 namespaced
@@ -406,6 +413,7 @@ observability
 onData
 onwards
 opcodes
+openssl
 openSUSE
 orchestrator
 pahole
@@ -474,6 +482,9 @@ sig
 skb
 sockmap
 src
+ssl
+stacktrace
+Stacktrace
 stap
 stapbpf
 starfighter
@@ -496,6 +507,8 @@ sudo
 supergalatic
 superset
 svc
+sw
+swapi
 sys
 syscall
 sysctl
@@ -513,6 +526,7 @@ testsuite
 thunderx
 tiefighter
 timestamp
+TLS
 tlsconfig
 toCIDR
 toCIDRSet
@@ -566,6 +580,9 @@ wildcards
 workflow
 workflows
 workspace
+wouldn
+writeable
+www
 xdp
 xfrm
 xml
