@@ -37,7 +37,8 @@ Security Tutorials
    :glob:
 
    http
-   dns 
+   dns
+   tls-visibility
    kafka
    grpc
    elasticsearch
