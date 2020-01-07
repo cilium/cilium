@@ -626,13 +626,9 @@ static __always_inline int snat_v6_new_mapping(struct __sk_buff *skb,
 	rstate.to_dport = otuple->sport;
 
 	ostate->to_saddr = target->addr;
+	ostate->to_sport = otuple->sport;
 
 	snat_v6_swap_tuple(otuple, &rtuple);
-	port = __snat_clamp_port_range(target->min_port,
-				       target->max_port,
-				       get_prandom_u32());
-
-	rtuple.dport = ostate->to_sport = bpf_htons(port);
 	rtuple.daddr = target->addr;
 
 	if (!ipv6_addrcmp(&otuple->saddr, &rtuple.daddr)) {
@@ -653,7 +649,8 @@ static __always_inline int snat_v6_new_mapping(struct __sk_buff *skb,
 
 		port = __snat_clamp_port_range(target->min_port,
 					       target->max_port,
-					       port + 1);
+					       retries ? port + 1 :
+					       get_prandom_u32());
 		rtuple.dport = ostate->to_sport = bpf_htons(port);
 	}
 
