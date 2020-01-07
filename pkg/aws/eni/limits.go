@@ -21,29 +21,18 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/ipam"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 )
 
-// Limits specifies the ENI relevant instance limits
-type Limits struct {
-	// Adapters specifies the maximum number of ENIs that can be attached
-	// to the instance
-	Adapters int
-
-	// IPv4 is the maximum number of IPv4 addresses per ENI
-	IPv4 int
-
-	// IPv6 is the maximum number of IPv6 addresses per ENI
-	IPv6 int
-}
-
 // limit contains limits for adapter count and addresses
 // The mappings will be updated from agent configuration at bootstrap time
 //
 // Source: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html?shortFooter=true#AvailableIpPerENI
-var limits = map[string]Limits{
+var limits = map[string]ipam.Limits{
 	"a1.medium":     {2, 4, 4},
 	"a1.large":      {3, 10, 10},
 	"a1.xlarge":     {4, 15, 15},
@@ -264,7 +253,7 @@ var limits = map[string]Limits{
 }
 
 // GetLimits returns the instance limits of a particular instance type
-func GetLimits(instanceType string) (limit Limits, ok bool) {
+func GetLimits(instanceType string) (limit ipam.Limits, ok bool) {
 	limit, ok = limits[instanceType]
 	return
 }
@@ -321,7 +310,7 @@ func UpdateLimitsFromEC2API(ctx context.Context) error {
 		ipv4PerAdapter := aws.Int64Value(instanceTypeInfo.NetworkInfo.Ipv4AddressesPerInterface)
 		ipv6PerAdapter := aws.Int64Value(instanceTypeInfo.NetworkInfo.Ipv6AddressesPerInterface)
 
-		limits[instanceType] = Limits{
+		limits[instanceType] = ipam.Limits{
 			Adapters: int(adapterLimit),
 			IPv4:     int(ipv4PerAdapter),
 			IPv6:     int(ipv6PerAdapter),
@@ -332,7 +321,7 @@ func UpdateLimitsFromEC2API(ctx context.Context) error {
 }
 
 // parseLimitString returns the Limits struct parsed from config string
-func parseLimitString(limitString string) (limit Limits, err error) {
+func parseLimitString(limitString string) (limit ipam.Limits, err error) {
 	intSlice := make([]int, 3)
 	stringSlice := strings.Split(strings.ReplaceAll(limitString, " ", ""), ",")
 	if len(stringSlice) != 3 {
@@ -345,5 +334,5 @@ func parseLimitString(limitString string) (limit Limits, err error) {
 		}
 		intSlice[i] = intLimit
 	}
-	return Limits{intSlice[0], intSlice[1], intSlice[2]}, nil
+	return ipam.Limits{intSlice[0], intSlice[1], intSlice[2]}, nil
 }
