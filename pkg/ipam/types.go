@@ -111,3 +111,16 @@ func (ipam *IPAM) DebugStatus() string {
 	ipam.allocatorMutex.RUnlock()
 	return str
 }
+
+// Limits specifies the IPAM relevant instance limits
+type Limits struct {
+	// Adapters specifies the maximum number of interfaces that can be
+	// attached to the instance
+	Adapters int
+
+	// IPv4 is the maximum number of IPv4 addresses per adapter/interface
+	IPv4 int
+
+	// IPv6 is the maximum number of IPv6 addresses per adapter/interface
+	IPv6 int
+}
