@@ -3,3 +3,8 @@ image: cilium
 # Specifies the maximum number of Pods that can be unavailable during the
 # update process.
 maxUnavailable: 2
+
+# Enables monitor sidecar container for specified event types
+monitor:
+  enabled: false
+  eventTypes: []
