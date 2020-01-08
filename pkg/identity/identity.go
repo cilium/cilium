@@ -185,13 +185,16 @@ func (pair *IPIdentityPair) PrefixString() string {
 // RequiresGlobalIdentity returns true if the label combination requires a
 // global identity
 func RequiresGlobalIdentity(lbls labels.Labels) bool {
+	needsGlobal := true
+
 	for _, label := range lbls {
 		switch label.Source {
 		case labels.LabelSourceCIDR, labels.LabelSourceReserved:
+			needsGlobal = false
 		default:
 			return true
 		}
 	}
 
-	return false
+	return needsGlobal
 }
