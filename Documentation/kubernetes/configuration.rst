@@ -69,9 +69,19 @@ enabled.
       name: cilium-config
       namespace: kube-system
     data:
+      # The kvstore configuration is used to enable use of a kvstore for state
+      # storage. This can either be provided with an external kvstore or with the
+      # help of cilium-etcd-operator which operates an etcd cluster automatically.
+      kvstore: etcd
+      kvstore-opt: '{"etcd.config": "/var/lib/etcd-config/etcd.config"}'
+
+      # This etcd-config contains the etcd endpoints of your cluster. If you use
+      # TLS please make sure you follow the tutorial in https://cilium.link/etcd-config
+      etcd-config: |-
+        ---
         endpoints:
-        - https://node-1:31079
-        - https://node-2:31079
+          - https://node-1:31079
+          - https://node-2:31079
         #
         # In case you want to use TLS in etcd, uncomment the 'trusted-ca-file' line
         # and create a kubernetes secret by following the tutorial in
