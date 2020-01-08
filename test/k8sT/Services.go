@@ -71,12 +71,12 @@ var _ = Describe("K8sServicesTest", func() {
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		DeployCiliumAndDNS(kubectl, ciliumFilename)
 
-		ciliumPodK8s1, err = kubectl.GetCiliumPodOnNodeWithLabel(helpers.KubeSystemNamespace, helpers.K8s1)
+		ciliumPodK8s1, err = kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s1)
 		Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace,
+		kubectl.CiliumReport(helpers.CiliumNamespace,
 			"cilium service list",
 			"cilium endpoint list")
 	})
@@ -163,7 +163,7 @@ var _ = Describe("K8sServicesTest", func() {
 			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
 
 			By("testing connectivity via cluster IP %s", clusterIP)
-			monitorStop := kubectl.MonitorStart(helpers.KubeSystemNamespace, ciliumPodK8s1,
+			monitorStop := kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPodK8s1,
 				"cluster-ip-same-node.log")
 			k8s1Name, _ := getNodeInfo(helpers.K8s1)
 			status, err := kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
@@ -172,7 +172,7 @@ var _ = Describe("K8sServicesTest", func() {
 			Expect(err).To(BeNil(), "Cannot run curl in host netns")
 
 			status.ExpectSuccess("cannot curl to service IP from host")
-			ciliumPods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
+			ciliumPods, err := kubectl.GetCiliumPods(helpers.CiliumNamespace)
 			Expect(err).To(BeNil(), "Cannot get cilium pods")
 			for _, pod := range ciliumPods {
 				service := kubectl.CiliumExec(pod, "cilium service list")
@@ -418,7 +418,7 @@ var _ = Describe("K8sServicesTest", func() {
 				AfterAll(func() {
 					enableBackgroundReport = true
 					// Remove NodePort programs (GH#8873)
-					pods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
+					pods, err := kubectl.GetCiliumPods(helpers.CiliumNamespace)
 					Expect(err).To(BeNil(), "Cannot retrieve Cilium pods")
 					for _, pod := range pods {
 						ret := kubectl.CiliumExec(pod, "tc filter del dev "+nativeDev+" ingress")
@@ -513,7 +513,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 					// Test whether DSR NAT entries are evicted by GC
 
-					pod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s2)
+					pod, err := kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s2)
 					Expect(err).Should(BeNil(), fmt.Sprintf("Cannot determine cilium pod name"))
 					// "test-nodeport-k8s2" because we want to trigger SNAT with a single request:
 					// client -> k8s1 -> endpoint @ k8s2.
@@ -909,9 +909,9 @@ var _ = Describe("K8sServicesTest", func() {
 
 			By("Checking that policies were correctly imported into Cilium")
 
-			ciliumPodK8s1, err = kubectl.GetCiliumPodOnNodeWithLabel(helpers.KubeSystemNamespace, helpers.K8s1)
+			ciliumPodK8s1, err = kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s1)
 			Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
-			res := kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s1, policyCmd)
+			res := kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPodK8s1, policyCmd)
 			res.ExpectSuccess("Policy %s is not imported", policyCmd)
 
 			By("Validating DNS with Policy loaded")

@@ -141,7 +141,7 @@ var _ = Describe("K8sIstioTest", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace,
+		kubectl.CiliumReport(helpers.CiliumNamespace,
 			"cilium endpoint list",
 			"cilium bpf proxy list")
 	})

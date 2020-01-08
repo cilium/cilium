@@ -38,6 +38,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 	var (
 		kubectl *helpers.Kubectl
+
 		// these are set in BeforeAll()
 		ciliumFilename       string
 		demoPath             string
@@ -103,7 +104,7 @@ var _ = Describe("K8sPolicyTest", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace,
+		kubectl.CiliumReport(helpers.CiliumNamespace,
 			"cilium service list",
 			"cilium endpoint list")
 	})
@@ -193,7 +194,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			err := kubectl.WaitforPods(namespaceForTest, "-l zgroup=testapp", helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Test pods are not ready after timeout")
 
-			ciliumPod, err = kubectl.GetCiliumPodOnNodeWithLabel(helpers.KubeSystemNamespace, helpers.K8s1)
+			ciliumPod, err = kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s1)
 			Expect(err).Should(BeNil(), "cannot get CiliumPod")
 
 			clusterIP, _, err = kubectl.GetServiceHostPort(namespaceForTest, app1Service)
@@ -827,7 +828,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 				Expect(kubectl.WaitforPods("foo", "-l zgroup=testapp", helpers.HelperTimeout)).To(BeNil())
 				var podList v1.PodList
-				err = kubectl.GetPods(namespaceForTest, fmt.Sprintf("-n %s -l k8s-app=cilium --field-selector spec.nodeName=%s", helpers.KubeSystemNamespace, nodeName)).Unmarshal(&podList)
+				err = kubectl.GetPods(namespaceForTest, fmt.Sprintf("-n %s -l k8s-app=cilium --field-selector spec.nodeName=%s", helpers.CiliumNamespace, nodeName)).Unmarshal(&podList)
 				Expect(err).To(BeNil())
 
 				var app1PodModel v1.Pod
@@ -838,7 +839,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				app1PodIP = app1PodModel.Status.PodIP
 				//var app1Ep *models.Endpoint
 				var endpoints []*models.Endpoint
-				err = kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPod, "cilium endpoint list -o json").Unmarshal(&endpoints)
+				err = kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, "cilium endpoint list -o json").Unmarshal(&endpoints)
 				Expect(err).To(BeNil())
 				for _, ep := range endpoints {
 					if ep.Status.Networking.Addressing[0].IPV4 == app1PodIP {
@@ -895,7 +896,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				monitorFile := fmt.Sprintf(monitorFileName, uuid.NewUUID().String())
 
 				By("Starting monitor and generating traffic which should%s redirect to proxy", not)
-				monitorStop := kubectl.MonitorStart(helpers.KubeSystemNamespace, ciliumPod, monitorFile)
+				monitorStop := kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPod, monitorFile)
 
 				// Let the monitor get started since it is started in the background.
 				time.Sleep(2 * time.Second)
@@ -994,7 +995,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 		BeforeEach(func() {
 			kubectl.ApplyDefault(helpers.ManifestGet(kubectl.BasePath(), deployment))
-			ciliumPods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
+			ciliumPods, err := kubectl.GetCiliumPods(helpers.CiliumNamespace)
 			Expect(err).To(BeNil(), "cannot retrieve Cilium Pods")
 			Expect(ciliumPods).ShouldNot(BeEmpty(), "cannot retrieve Cilium pods")
 		})
