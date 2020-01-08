@@ -65,6 +65,8 @@ const (
 	// CIIntegrationEKS contains the constants to be used when running tests on EKS.
 	CIIntegrationEKS = "eks"
 
+	CIIntegrationGKE = "gke"
+
 	// CIIntegrationMicrok8s contains the constant to be used when running tests on microk8s.
 	CIIntegrationMicrok8s = "microk8s"
 
@@ -114,6 +116,14 @@ var (
 		"global.nodeinit.enabled":       "true",
 	}
 
+	gkeHelmOverrides = map[string]string{
+		"global.ipv6.enabled":         "false",
+		"global.nodeinit.enabled":     "true",
+		"nodeinit.reconfigureKubelet": "true",
+		"nodeinit.removeCbrBridge":    "true",
+		"global.cni.binPath":          "/home/kubernetes/bin",
+	}
+
 	microk8sHelmOverrides = map[string]string{
 		"global.cni.confPath":                 "/var/snap/microk8s/current/args/cni-network",
 		"global.cni.binPath":                  "/var/snap/microk8s/current/opt/cni/bin",
@@ -134,6 +144,7 @@ var (
 	helmOverrides = map[string]map[string]string{
 		CIIntegrationFlannel:  flannelHelmOverrides,
 		CIIntegrationEKS:      eksHelmOverrides,
+		CIIntegrationGKE:      gkeHelmOverrides,
 		CIIntegrationMicrok8s: microk8sHelmOverrides,
 		CIIntegrationMinikube: minikubeHelmOverrides,
 	}
