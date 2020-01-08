@@ -245,21 +245,30 @@ var _ = Describe("K8sServicesTest", func() {
 			}
 		}
 
-		doRequestsFromOutsideClient := func(url string, count int, checkSourceIP bool) {
-			ssh := helpers.GetVagrantSSHMeta(helpers.K8s1VMName())
-			By("Making %d HTTP requests from outside cluster to %q", count, url)
-			for i := 1; i <= count; i++ {
-				cmd := helpers.CurlFail(url)
-				if checkSourceIP {
-					cmd += " | grep client_address="
-				}
-				res := ssh.ContainerExec("client-from-outside", cmd)
-				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
-					"Can not connect to service %q from outside cluster", url)
-				if checkSourceIP {
-					Expect(strings.TrimSpace(strings.Split(res.GetStdOut(), "=")[1])).To(Equal("192.168.10.10"))
+		doRequestsFromOutsideClientWithLocalPort :=
+			func(url string, count int, checkSourceIP bool, fromPort int) {
+				var cmd string
+				ssh := helpers.GetVagrantSSHMeta(helpers.K8s1VMName())
+				By("Making %d HTTP requests from outside cluster to %q", count, url)
+				for i := 1; i <= count; i++ {
+					if fromPort == 0 {
+						cmd = helpers.CurlFail(url)
+					} else {
+						cmd = helpers.CurlFail("--local-port %d %s", fromPort, url)
+					}
+					if checkSourceIP {
+						cmd += " | grep client_address="
+					}
+					res := ssh.ContainerExec("client-from-outside", cmd)
+					ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
+						"Can not connect to service %q from outside cluster", url)
+					if checkSourceIP {
+						Expect(strings.TrimSpace(strings.Split(res.GetStdOut(), "=")[1])).To(Equal("192.168.10.10"))
+					}
 				}
 			}
+		doRequestsFromOutsideClient := func(url string, count int, checkSourceIP bool) {
+			doRequestsFromOutsideClientWithLocalPort(url, count, checkSourceIP, 0)
 		}
 
 		testNodePort := func(bpfNodePort bool) {
@@ -479,9 +488,30 @@ var _ = Describe("K8sServicesTest", func() {
 
 				var data v1.Service
 				err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
-				Expect(err).Should(BeNil(), "Can not retrieve service")
+				Expect(err).Should(BeNil(), "Cannot retrieve service")
 				url := getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
 				doRequestsFromOutsideClient(url, 10, true)
+
+				// Test whether DSR NAT entries are evicted by GC
+
+				pod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s2)
+				Expect(err).Should(BeNil(), fmt.Sprintf("Cannot determine cilium pod name"))
+				// "test-nodeport-k8s2" because we want to trigger SNAT with a single request:
+				// client -> k8s1 -> endpoint @ k8s2.
+				err = kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-k8s2").Unmarshal(&data)
+				Expect(err).Should(BeNil(), "Cannot retrieve service")
+				url = getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
+
+				doRequestsFromOutsideClientWithLocalPort(url, 1, true, 64000)
+				res := kubectl.CiliumExec(pod, "cilium bpf nat list | grep 64000")
+				Expect(res.GetStdOut()).ShouldNot(BeEmpty(), "NAT entry was not evicted")
+				res.ExpectSuccess("Unable to list NAT entries")
+				// Flush CT maps to trigger eviction of the NAT entries (simulates CT GC)
+				res = kubectl.CiliumExec(pod, "cilium bpf ct flush global")
+				res.ExpectSuccess("Unable to flush CT maps")
+				res = kubectl.CiliumExec(pod, "cilium bpf nat list | grep 64000")
+				res.ExpectSuccess("Unable to list NAT entries")
+				Expect(res.GetStdOut()).Should(BeEmpty(), "NAT entry was not evicted")
 			})
 		})
 	})
