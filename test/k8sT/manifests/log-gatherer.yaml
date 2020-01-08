@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: log-gatherer
-  namespace: kube-system
   labels:
     k8s-app: cilium-test-logs
 spec:
