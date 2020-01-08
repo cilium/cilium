@@ -37,7 +37,7 @@ var _ = Describe("K8sHealthTest", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace,
+		kubectl.CiliumReport(helpers.CiliumNamespace,
 			"cilium endpoint list")
 	})
 
@@ -54,11 +54,11 @@ var _ = Describe("K8sHealthTest", func() {
 	})
 
 	getCilium := func(node string) (pod, ip string) {
-		pod, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.KubeSystemNamespace, node)
+		pod, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, node)
 		Expect(err).Should(BeNil())
 
 		res, err := kubectl.Get(
-			helpers.KubeSystemNamespace,
+			helpers.CiliumNamespace,
 			fmt.Sprintf("pod %s", pod)).Filter("{.status.podIP}")
 		Expect(err).Should(BeNil())
 		ip = res.String()

@@ -63,7 +63,7 @@ var _ = Describe("K8sUpdates", func() {
 			"deploy", fmt.Sprintf("-n %s kube-dns", helpers.KubeSystemNamespace))
 
 		_ = kubectl.DeleteResource(
-			"deploy", fmt.Sprintf("-n %s cilium-operator", helpers.KubeSystemNamespace))
+			"deploy", fmt.Sprintf("-n %s cilium-operator", helpers.CiliumNamespace))
 		// Sometimes PolicyGen has a lot of pods running around without delete
 		// it. Using this we are sure that we delete before this test start
 		kubectl.Exec(fmt.Sprintf(
@@ -79,7 +79,7 @@ var _ = Describe("K8sUpdates", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace, "cilium endpoint list")
+		kubectl.CiliumReport(helpers.CiliumNamespace, "cilium endpoint list")
 	})
 
 	JustAfterEach(func() {
@@ -153,7 +153,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, ciliumFilename, 
 		By("Deleting Cilium, CoreDNS, and etcd-operator...")
 		// Making sure that we deleted the  cilium ds. No assert
 		// message because maybe is not present
-		if res := kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace)); !res.WasSuccessful() {
+		if res := kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.CiliumNamespace)); !res.WasSuccessful() {
 			log.Warningf("Unable to delete Cilium DaemonSet: %s", res.OutputPrettyPrint())
 		}
 
@@ -180,7 +180,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, ciliumFilename, 
 		)
 		Expect(err).To(BeNil(), "Cilium %q was not able to be deployed", oldVersion)
 
-		err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", longTimeout)
+		err := kubectl.WaitforPods(helpers.CiliumNamespace, "-l k8s-app=cilium", longTimeout)
 		ExpectWithOffset(1, err).Should(BeNil(), "Cleaning state did not complete in time")
 
 		By("Deploying Cilium")
@@ -208,7 +208,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, ciliumFilename, 
 
 			filter := `{.items[*].status.containerStatuses[0].image}`
 			data, err := kubectl.GetPods(
-				helpers.KubeSystemNamespace, "-l k8s-app=cilium").Filter(filter)
+				helpers.CiliumNamespace, "-l k8s-app=cilium").Filter(filter)
 			ExpectWithOffset(1, err).To(BeNil(), "Cannot get cilium pods")
 
 			for _, val := range strings.Split(data.String(), " ") {
@@ -304,14 +304,14 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, ciliumFilename, 
 
 		waitForUpdateImage := func(image string) func() bool {
 			return func() bool {
-				pods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
+				pods, err := kubectl.GetCiliumPods(helpers.CiliumNamespace)
 				if err != nil {
 					return false
 				}
 
 				filter := `{.items[*].status.containerStatuses[0].image}`
 				data, err := kubectl.GetPods(
-					helpers.KubeSystemNamespace, "-l k8s-app=cilium").Filter(filter)
+					helpers.CiliumNamespace, "-l k8s-app=cilium").Filter(filter)
 				if err != nil {
 					return false
 				}
@@ -333,8 +333,9 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, ciliumFilename, 
 			"config.enabled":    "false ",
 			"operator.enabled":  "false ",
 		}
+
 		preflightFile := helpers.TimestampFilename("cilium-preflight.yaml")
-		res = kubectl.HelmTemplate(helmTemplate, "kube-system", preflightFile, opts)
+		res = kubectl.HelmTemplate(helmTemplate, helpers.CiliumNamespace, preflightFile, opts)
 		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "Unable to generate preflight YAML")
 
 		res = kubectl.ApplyDefault("cilium-preflight.yaml")
@@ -363,7 +364,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, ciliumFilename, 
 		ExpectWithOffset(1, err).To(BeNil(), "Pods are not updating")
 
 		err = kubectl.WaitforPods(
-			helpers.KubeSystemNamespace, "-l k8s-app=cilium", timeout)
+			helpers.CiliumNamespace, "-l k8s-app=cilium", timeout)
 		ExpectWithOffset(1, err).Should(BeNil(), "Cilium is not ready after timeout")
 
 		validatedImage(newVersion)
@@ -390,7 +391,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, ciliumFilename, 
 		ExpectWithOffset(1, err).To(BeNil(), "Pods are not updating")
 
 		err = kubectl.WaitforPods(
-			helpers.KubeSystemNamespace, "-l k8s-app=cilium", timeout)
+			helpers.CiliumNamespace, "-l k8s-app=cilium", timeout)
 		ExpectWithOffset(1, err).Should(BeNil(), "Cilium is not ready after timeout")
 
 		validatedImage(oldVersion)

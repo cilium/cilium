@@ -71,7 +71,7 @@ var _ = Describe("K8sFQDNTest", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace,
+		kubectl.CiliumReport(helpers.CiliumNamespace,
 			"cilium service list",
 			"cilium endpoint list")
 	})
@@ -153,7 +153,7 @@ var _ = Describe("K8sFQDNTest", func() {
 		By("Deleting cilium pods")
 
 		res := kubectl.Exec(fmt.Sprintf("%s -n %s delete pods -l k8s-app=cilium",
-			helpers.KubectlCmd, helpers.KubeSystemNamespace))
+			helpers.KubectlCmd, helpers.CiliumNamespace))
 		res.ExpectSuccess()
 
 		By("Testing connectivity when cilium is restoring using IPS without DNS")

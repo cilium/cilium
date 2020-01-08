@@ -41,7 +41,7 @@ var _ = Describe("K8sChaosTest", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace,
+		kubectl.CiliumReport(helpers.CiliumNamespace,
 			"cilium service list",
 			"cilium endpoint list")
 	})
@@ -131,7 +131,7 @@ var _ = Describe("K8sChaosTest", func() {
 
 			By("Deleting cilium pods")
 			res := kubectl.Exec(fmt.Sprintf("%s -n %s delete pods -l k8s-app=cilium",
-				helpers.KubectlCmd, helpers.KubeSystemNamespace))
+				helpers.KubectlCmd, helpers.CiliumNamespace))
 			res.ExpectSuccess()
 
 			ExpectAllPodsTerminated(kubectl)
@@ -146,7 +146,7 @@ var _ = Describe("K8sChaosTest", func() {
 			By("Uninstall cilium pods")
 
 			res = kubectl.DeleteResource(
-				"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
+				"ds", fmt.Sprintf("-n %s cilium", helpers.CiliumNamespace))
 			res.ExpectSuccess("Cilium DS cannot be deleted")
 
 			ExpectAllPodsTerminated(kubectl)
@@ -213,7 +213,7 @@ var _ = Describe("K8sChaosTest", func() {
 			By("Deleting all cilium pods")
 			res := kubectl.Exec(fmt.Sprintf(
 				"%s -n %s delete pods -l %s",
-				helpers.KubectlCmd, helpers.KubeSystemNamespace, ciliumFilter))
+				helpers.KubectlCmd, helpers.CiliumNamespace, ciliumFilter))
 			res.ExpectSuccess("Failed to delete cilium pods")
 
 			By("Waiting cilium pods to terminate")
@@ -221,7 +221,7 @@ var _ = Describe("K8sChaosTest", func() {
 
 			By("Waiting for cilium pods to be ready")
 			err := kubectl.WaitforPods(
-				helpers.KubeSystemNamespace, fmt.Sprintf("-l %s", ciliumFilter), helpers.HelperTimeout)
+				helpers.CiliumNamespace, fmt.Sprintf("-l %s", ciliumFilter), helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
 			err = kubectl.CiliumEndpointWaitReady()

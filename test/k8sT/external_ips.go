@@ -175,7 +175,7 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 		if !helpers.RunsOnNetNext() {
 			return
 		}
-		kubectl.CiliumReport(helpers.KubeSystemNamespace,
+		kubectl.CiliumReport(helpers.CiliumNamespace,
 			"cilium service list",
 			"cilium endpoint list")
 	})
