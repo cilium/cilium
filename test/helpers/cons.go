@@ -148,8 +148,10 @@ const (
 	// actually transfer data.
 	CurlMaxTimeout = 8
 
-	DefaultNamespace    = "default"
-	KubeSystemNamespace = "kube-system"
+	DefaultNamespace       = "default"
+	KubeSystemNamespace    = "kube-system"
+	CiliumNamespaceDefault = KubeSystemNamespace
+	CiliumNamespaceGKE     = "cilium"
 
 	TestResultsPath = "test_results/"
 	RunDir          = "/var/run/cilium"
@@ -203,6 +205,8 @@ const (
 	// HelmTemplate is the location of the Helm templates to install Cilium
 	HelmTemplate = "../install/kubernetes/cilium"
 )
+
+var CiliumNamespace = GetCiliumNamespace(GetCurrentIntegration())
 
 // Re-definitions of stable constants in the API. The re-definition is on
 // purpose to validate these values in the API. They may never change

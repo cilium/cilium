@@ -70,7 +70,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace,
+		kubectl.CiliumReport(helpers.CiliumNamespace,
 			"cilium service list",
 			"cilium endpoint list")
 	})
@@ -126,7 +126,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 		log.WithFields(logrus.Fields{"pod creation time": waitForPodsTime}).Info("")
 
-		ciliumPods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
+		ciliumPods, err := kubectl.GetCiliumPods(helpers.CiliumNamespace)
 		Expect(err).To(BeNil(), "Cannot retrieve cilium pods")
 
 		runtime := b.Time("Endpoint creation", func() {
@@ -331,7 +331,7 @@ var _ = Describe("NightlyExamples", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace,
+		kubectl.CiliumReport(helpers.CiliumNamespace,
 			"cilium service list",
 			"cilium endpoint list")
 	})
@@ -361,7 +361,7 @@ var _ = Describe("NightlyExamples", func() {
 			_ = kubectl.Delete(helpers.DNSDeployment(kubectl.BasePath()))
 
 			_ = kubectl.DeleteResource(
-				"deploy", fmt.Sprintf("-n %s cilium-operator", helpers.KubeSystemNamespace))
+				"deploy", fmt.Sprintf("-n %s cilium-operator", helpers.CiliumNamespace))
 
 			// Delete etcd operator because sometimes when install from
 			// clean-state the quorum is lost.

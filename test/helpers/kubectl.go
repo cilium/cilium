@@ -74,7 +74,7 @@ const (
 	CIIntegrationMinikube = "minikube"
 
 	LogGathererSelector  = "k8s-app=cilium-test-logs"
-	LogGathererNamespace = "kube-system"
+	LogGathererNamespace = "cilium"
 
 	CiliumSelector = "k8s-app=cilium"
 )
@@ -182,6 +182,17 @@ func IsIntegration(integration string) bool {
 	return GetCurrentIntegration() == integration
 }
 
+// GetCiliumNamespace returns the namespace into which cilium should be
+// installed for this integration.
+func GetCiliumNamespace(integration string) string {
+	switch integration {
+	case CIIntegrationGKE:
+		return CiliumNamespaceGKE
+	default:
+		return CiliumNamespaceDefault
+	}
+}
+
 // Kubectl is a wrapper around an SSHMeta. It is used to run Kubernetes-specific
 // commands on the node which is accessible via the SSH metadata stored in its
 // SSHMeta.
@@ -239,7 +250,7 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 		defaultHelmOptions["global.registry"] = config.CiliumTestConfig.Registry + "/cilium"
 	}
 
-	res := k.Apply(ApplyOptions{FilePath: filepath.Join(k.BasePath(), manifestsPath, "log-gatherer.yaml"), Namespace: "kube-system"})
+	res := k.Apply(ApplyOptions{FilePath: filepath.Join(k.BasePath(), manifestsPath, "log-gatherer.yaml"), Namespace: GetCiliumNamespace(GetCurrentIntegration())})
 
 	if !res.WasSuccessful() {
 		ginkgoext.Fail(fmt.Sprintf("Cannot connect to k8s cluster, output:\n%s", res.CombineOutput().String()), 1)
@@ -644,7 +655,7 @@ func (kub *Kubectl) MonitorStart(namespace, pod, filename string) func() error {
 // five seconds.
 func (kub *Kubectl) BackgroundReport(commands ...string) (context.CancelFunc, error) {
 	backgroundCtx, cancel := context.WithCancel(context.Background())
-	pods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	pods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
 	if err != nil {
 		return cancel, fmt.Errorf("Cannot retrieve cilium pods: %s", err)
 	}
@@ -678,12 +689,12 @@ func (kub *Kubectl) PprofReport() {
 	log := kub.Logger().WithField("subsys", "pprofReport")
 
 	retrievePProf := func(pod, testPath string) {
-		res := kub.ExecPodCmd(KubeSystemNamespace, pod, "gops pprof-cpu 1")
+		res := kub.ExecPodCmd(GetCiliumNamespace(GetCurrentIntegration()), pod, "gops pprof-cpu 1")
 		if !res.WasSuccessful() {
 			log.Errorf("cannot execute pprof: %s", res.OutputPrettyPrint())
 			return
 		}
-		files := kub.ExecPodCmd(KubeSystemNamespace, pod, `ls -1 /tmp/`)
+		files := kub.ExecPodCmd(GetCiliumNamespace(GetCurrentIntegration()), pod, `ls -1 /tmp/`)
 		for _, file := range files.ByLines() {
 			if !strings.Contains(file, "profile") {
 				continue
@@ -693,10 +704,10 @@ func (kub *Kubectl) PprofReport() {
 				kub.BasePath(), testPath,
 				fmt.Sprintf("%s-profile-%s.pprof", pod, file))
 			_ = kub.Exec(fmt.Sprintf("%[1]s cp %[2]s/%[3]s:/tmp/%[4]s %[5]s",
-				KubectlCmd, KubeSystemNamespace, pod, file, dest),
+				KubectlCmd, GetCiliumNamespace(GetCurrentIntegration()), pod, file, dest),
 				ExecOptions{SkipLog: true})
 
-			_ = kub.ExecPodCmd(KubeSystemNamespace, pod, fmt.Sprintf(
+			_ = kub.ExecPodCmd(GetCiliumNamespace(GetCurrentIntegration()), pod, fmt.Sprintf(
 				"rm %s", filepath.Join("/tmp/", file)))
 		}
 	}
@@ -711,7 +722,7 @@ func (kub *Kubectl) PprofReport() {
 				return
 			}
 
-			pods, err := kub.GetCiliumPods(KubeSystemNamespace)
+			pods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
 			if err != nil {
 				log.Errorf("cannot get cilium pods")
 			}
@@ -1252,7 +1263,7 @@ func (kub *Kubectl) generateCiliumYaml(options map[string]string, filename strin
 	// TODO GH-8753: Use helm rendering library instead of shelling out to
 	// helm template
 	helmTemplate := kub.GetFilePath(HelmTemplate)
-	res := kub.HelmTemplate(helmTemplate, "kube-system", filename, options)
+	res := kub.HelmTemplate(helmTemplate, GetCiliumNamespace(GetCurrentIntegration()), filename, options)
 	if !res.WasSuccessful() {
 		return res.GetErr("Unable to generate YAML")
 	}
@@ -1266,7 +1277,7 @@ func (kub *Kubectl) ciliumInstallHelm(options map[string]string) error {
 		return err
 	}
 
-	res := kub.Apply(ApplyOptions{FilePath: "cilium.yaml", Force: true})
+	res := kub.Apply(ApplyOptions{FilePath: "cilium.yaml", Force: true, Namespace: GetCiliumNamespace(GetCurrentIntegration())})
 	if !res.WasSuccessful() {
 		return res.GetErr("Unable to apply YAML")
 	}
@@ -1378,7 +1389,7 @@ func (kub *Kubectl) CiliumEndpointsStatus(pod string) map[string]string {
 // are ready. Returns an error if the Cilium pods cannot be retrieved via
 // Kubernetes, or endpoints are not ready after a specified timeout
 func (kub *Kubectl) CiliumEndpointWaitReady() error {
-	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	ciliumPods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
 	if err != nil {
 		kub.Logger().WithError(err).Error("cannot get Cilium pods")
 		return err
@@ -1510,7 +1521,7 @@ func (kub *Kubectl) WaitForCEPIdentity(ns, podName string) error {
 func (kub *Kubectl) CiliumExecContext(ctx context.Context, pod string, cmd string) *CmdRes {
 	limitTimes := 5
 	execute := func() *CmdRes {
-		command := fmt.Sprintf("%s exec -n kube-system %s -- %s", KubectlCmd, pod, cmd)
+		command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, GetCiliumNamespace(GetCurrentIntegration()), pod, cmd)
 		return kub.ExecContext(ctx, command)
 	}
 	var res *CmdRes
@@ -1559,7 +1570,7 @@ func (kub *Kubectl) CiliumExecUntilMatch(pod, cmd, substr string) error {
 func (kub *Kubectl) WaitForCiliumInitContainerToFinish() error {
 	body := func() bool {
 		podList := &v1.PodList{}
-		err := kub.GetPods("kube-system", "-l k8s-app=cilium").Unmarshal(podList)
+		err := kub.GetPods(CiliumNamespace, "-l k8s-app=cilium").Unmarshal(podList)
 		if err != nil {
 			kub.Logger().Infof("Error while getting PodList: %s", err)
 			return false
@@ -1738,7 +1749,7 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 			return true
 		}
 
-		pods, err := kub.GetCiliumPods(KubeSystemNamespace)
+		pods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
 		if err != nil {
 			kub.Logger().WithError(err).Error("cannot retrieve cilium pods")
 			return false
@@ -1872,13 +1883,13 @@ func (kub *Kubectl) EtcdOperatorReport(ctx context.Context, reportCmds map[strin
 		reportCmds = make(map[string]string)
 	}
 
-	pods, err := kub.GetPodNamesContext(ctx, KubeSystemNamespace, "etcd_cluster=cilium-etcd")
+	pods, err := kub.GetPodNamesContext(ctx, GetCiliumNamespace(GetCurrentIntegration()), "etcd_cluster=cilium-etcd")
 	if err != nil {
 		kub.Logger().WithError(err).Error("No etcd pods")
 		return
 	}
 
-	etcdctl := "etcdctl --endpoints=https://%s.cilium-etcd.kube-system.svc:2379 " +
+	etcdctl := "etcdctl --endpoints=https://%s.cilium-etcd.%s.svc:2379 " +
 		"--cert-file /etc/etcdtls/member/peer-tls/peer.crt " +
 		"--key-file /etc/etcdtls/member/peer-tls/peer.key " +
 		"--ca-file /etc/etcdtls/member/peer-tls/peer-ca.crt " +
@@ -1891,9 +1902,9 @@ func (kub *Kubectl) EtcdOperatorReport(ctx context.Context, reportCmds map[strin
 
 	for _, pod := range pods {
 		for cmd, reportFile := range etcdDumpCommands {
-			etcdCmd := fmt.Sprintf(etcdctl, pod, cmd)
+			etcdCmd := fmt.Sprintf(etcdctl, pod, CiliumNamespace, cmd)
 			command := fmt.Sprintf("%s -n %s exec -ti %s -- %s",
-				KubectlCmd, KubeSystemNamespace, pod, etcdCmd)
+				KubectlCmd, GetCiliumNamespace(GetCurrentIntegration()), pod, etcdCmd)
 			reportCmds[command] = fmt.Sprintf(reportFile, pod)
 		}
 	}
@@ -1905,7 +1916,7 @@ func (kub *Kubectl) EtcdOperatorReport(ctx context.Context, reportCmds map[strin
 // - Policy enforcement status by endpoint.
 // - Controller, health, kvstore status.
 func (kub *Kubectl) CiliumCheckReport(ctx context.Context) {
-	pods, _ := kub.GetCiliumPods(KubeSystemNamespace)
+	pods, _ := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
 	fmt.Fprintf(CheckLogs, "Cilium pods: %v\n", pods)
 
 	var policiesFilter = `{range .items[*]}{.metadata.namespace}{"::"}{.metadata.name}{" "}{end}`
@@ -1987,7 +1998,7 @@ func (kub *Kubectl) ValidateNoErrorsInLogs(duration time.Duration) {
 
 	var logs string
 	cmd := fmt.Sprintf("%s -n %s logs --timestamps=true -l k8s-app=cilium --since=%vs",
-		KubectlCmd, KubeSystemNamespace, duration.Seconds())
+		KubectlCmd, GetCiliumNamespace(GetCurrentIntegration()), duration.Seconds())
 	res := kub.ExecContext(ctx, fmt.Sprintf("%s --previous", cmd), ExecOptions{SkipLog: true})
 	if res.WasSuccessful() {
 		logs += res.Output().String()
@@ -2039,7 +2050,7 @@ func (kub *Kubectl) GatherCiliumCoreDumps(ctx context.Context, ciliumPod string)
 		dst := filepath.Join(resultPath, core)
 		src := filepath.Join("/tmp/", core)
 		cmd := fmt.Sprintf("%s -n %s cp %s:%s %s",
-			KubectlCmd, KubeSystemNamespace,
+			KubectlCmd, GetCiliumNamespace(GetCurrentIntegration()),
 			ciliumPod, src, dst)
 		res := kub.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
 		if !res.WasSuccessful() {
@@ -2100,13 +2111,13 @@ func (kub *Kubectl) ExecInHostNetNS(ctx context.Context, node, cmd string) (resu
 
 // GetCiliumHostIPv4 retrieves cilium_host IPv4 addr of the given node.
 func (kub *Kubectl) GetCiliumHostIPv4(ctx context.Context, node string) (string, error) {
-	pod, err := kub.GetCiliumPodOnNode(KubeSystemNamespace, node)
+	pod, err := kub.GetCiliumPodOnNode(GetCiliumNamespace(GetCurrentIntegration()), node)
 	if err != nil {
 		return "", fmt.Errorf("unable to retrieve cilium pod: %s", err)
 	}
 
 	cmd := "ip -4 -o a show dev cilium_host | grep -o -e 'inet [0-9.]*' | cut -d' ' -f2"
-	res := kub.ExecPodCmd(KubeSystemNamespace, pod, cmd)
+	res := kub.ExecPodCmd(GetCiliumNamespace(GetCurrentIntegration()), pod, cmd)
 	if !res.WasSuccessful() {
 		return "", fmt.Errorf("unable to retrieve cilium_host ipv4 addr: %s", res.GetError())
 	}
@@ -2174,7 +2185,7 @@ func (kub *Kubectl) DumpCiliumCommandOutput(ctx context.Context, namespace strin
 				continue
 			}
 			//Remove bugtool artifact, so it'll be not used if any other fail test
-			_ = kub.ExecPodCmdBackground(ctx, KubeSystemNamespace, pod, fmt.Sprintf("rm /tmp/%s", line))
+			_ = kub.ExecPodCmdBackground(ctx, namespace, pod, fmt.Sprintf("rm /tmp/%s", line))
 		}
 
 	}
@@ -2374,7 +2385,7 @@ func (kub *Kubectl) CiliumPreFlightCheck() error {
 
 func (kub *Kubectl) ciliumStatusPreFlightCheck() error {
 	ginkgoext.By("Performing Cilium status preflight check")
-	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	ciliumPods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
 	if err != nil {
 		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
 	}
@@ -2398,7 +2409,7 @@ func (kub *Kubectl) ciliumStatusPreFlightCheck() error {
 func (kub *Kubectl) ciliumControllersPreFlightCheck() error {
 	ginkgoext.By("Performing Cilium controllers preflight check")
 	var controllersFilter = `{range .controllers[*]}{.name}{"="}{.status.consecutive-failure-count}{"\n"}{end}`
-	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	ciliumPods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
 	if err != nil {
 		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
 	}
@@ -2431,7 +2442,7 @@ func (kub *Kubectl) ciliumHealthPreFlightCheck() error {
 	var nodesFilter = `{.nodes[*].name}`
 	var statusFilter = `{range .nodes[*]}{.name}{"="}{.host.primary-address.http.status}{"\n"}{end}`
 
-	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	ciliumPods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
 	if err != nil {
 		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
 	}
@@ -2515,7 +2526,7 @@ func (kub *Kubectl) fillServiceCache() error {
 		return fmt.Errorf("Unable to unmarshal K8s endpoints: %s", err.Error())
 	}
 
-	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	ciliumPods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
 	if err != nil {
 		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
 	}
@@ -2561,7 +2572,7 @@ func (kub *Kubectl) KubeDNSPreFlightCheck() error {
 	if err != nil {
 		return err
 	}
-	return kub.servicePreFlightCheck("kube-dns", "kube-system")
+	return kub.servicePreFlightCheck("kube-dns", KubeSystemNamespace)
 }
 
 // servicePreFlightCheck makes sure that k8s service with given name and
@@ -2667,11 +2678,11 @@ func (kub *Kubectl) ciliumServicePreFlightCheck() error {
 
 // DeleteETCDOperator delete the etcd-operator from the cluster pointed by kub.
 func (kub *Kubectl) DeleteETCDOperator() {
-	if res := kub.ExecShort(fmt.Sprintf("%s -n %s delete crd etcdclusters.etcd.database.coreos.com", KubectlCmd, KubeSystemNamespace)); !res.WasSuccessful() {
+	if res := kub.ExecShort(fmt.Sprintf("%s -n %s delete crd etcdclusters.etcd.database.coreos.com", KubectlCmd, GetCiliumNamespace(GetCurrentIntegration()))); !res.WasSuccessful() {
 		log.Warningf("Unable to delete etcdclusters.etcd.database.coreos.com CRD: %s", res.OutputPrettyPrint())
 	}
 
-	if res := kub.ExecShort(fmt.Sprintf("%s -n %s delete deployment cilium-etcd-operator", KubectlCmd, KubeSystemNamespace)); !res.WasSuccessful() {
+	if res := kub.ExecShort(fmt.Sprintf("%s -n %s delete deployment cilium-etcd-operator", KubectlCmd, GetCiliumNamespace(GetCurrentIntegration()))); !res.WasSuccessful() {
 		log.Warningf("Unable to delete cilium-etcd-operator Deployment: %s", res.OutputPrettyPrint())
 	}
 
@@ -2683,7 +2694,7 @@ func (kub *Kubectl) DeleteETCDOperator() {
 		log.Warningf("Unable to delete cilium-etcd-operator ClusterRole: %s", res.OutputPrettyPrint())
 	}
 
-	if res := kub.ExecShort(fmt.Sprintf("%s -n %s delete serviceaccount cilium-etcd-operator", KubectlCmd, KubeSystemNamespace)); !res.WasSuccessful() {
+	if res := kub.ExecShort(fmt.Sprintf("%s -n %s delete serviceaccount cilium-etcd-operator", KubectlCmd, GetCiliumNamespace(GetCurrentIntegration()))); !res.WasSuccessful() {
 		log.Warningf("Unable to delete cilium-etcd-operator ServiceAccount: %s", res.OutputPrettyPrint())
 	}
 
@@ -2695,7 +2706,7 @@ func (kub *Kubectl) DeleteETCDOperator() {
 		log.Warningf("Unable to delete etcd-operator ClusterRole: %s", res.OutputPrettyPrint())
 	}
 
-	if res := kub.ExecShort(fmt.Sprintf("%s -n %s delete serviceaccount cilium-etcd-sa", KubectlCmd, KubeSystemNamespace)); !res.WasSuccessful() {
+	if res := kub.ExecShort(fmt.Sprintf("%s -n %s delete serviceaccount cilium-etcd-sa", KubectlCmd, GetCiliumNamespace(GetCurrentIntegration()))); !res.WasSuccessful() {
 		log.Warningf("Unable to delete cilium-etcd-sa ServiceAccount: %s", res.OutputPrettyPrint())
 	}
 }
