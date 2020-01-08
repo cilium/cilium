@@ -70,6 +70,13 @@ static __always_inline __be16 __snat_clamp_port_range(__u16 start, __u16 end,
 	return (val % (__u16)(end - start)) + start;
 }
 
+static __always_inline __be16 __snat_try_keep_port(__u16 start, __u16 end,
+						   __u16 val)
+{
+	return val >= start && val <= end ? val :
+	       __snat_clamp_port_range(start, end, get_prandom_u32());
+}
+
 static __always_inline void *__snat_lookup(void *map, void *tuple)
 {
 	return map_lookup_elem(map, tuple);
@@ -214,9 +221,13 @@ static __always_inline int snat_v4_new_mapping(struct __sk_buff *skb,
 	rstate.to_dport = otuple->sport;
 
 	ostate->to_saddr = target->addr;
-	ostate->to_sport = otuple->sport;
 
 	snat_v4_swap_tuple(otuple, &rtuple);
+	port = __snat_try_keep_port(target->min_port,
+				    target->max_port,
+				    bpf_ntohs(otuple->sport));
+
+	rtuple.dport = ostate->to_sport = bpf_htons(port);
 	rtuple.daddr = target->addr;
 
 	if (otuple->saddr == target->addr) {
@@ -628,9 +639,9 @@ static __always_inline int snat_v6_new_mapping(struct __sk_buff *skb,
 	ostate->to_saddr = target->addr;
 
 	snat_v6_swap_tuple(otuple, &rtuple);
-	port = __snat_clamp_port_range(target->min_port,
-				       target->max_port,
-				       get_prandom_u32());
+	port = __snat_try_keep_port(target->min_port,
+				    target->max_port,
+				    bpf_ntohs(otuple->sport));
 
 	rtuple.dport = ostate->to_sport = bpf_htons(port);
 	rtuple.daddr = target->addr;
@@ -653,7 +664,8 @@ static __always_inline int snat_v6_new_mapping(struct __sk_buff *skb,
 
 		port = __snat_clamp_port_range(target->min_port,
 					       target->max_port,
-					       port + 1);
+					       retries ? port + 1 :
+					       get_prandom_u32());
 		rtuple.dport = ostate->to_sport = bpf_htons(port);
 	}
 
