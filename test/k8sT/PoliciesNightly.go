@@ -36,7 +36,7 @@ var _ = Describe("NightlyPolicies", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace,
+		kubectl.CiliumReport(helpers.CiliumNamespace,
 			"cilium endpoint list",
 			"cilium service list")
 	})
