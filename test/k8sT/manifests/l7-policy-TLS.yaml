@@ -16,7 +16,7 @@ spec:
         dns:
           - matchPattern: "*"
   - toFQDNs:
-    - matchPattern: "www.lyft.com"
+    - matchPattern: "swapi.co"
     toPorts:
     - ports:
       - port: "443"
@@ -24,7 +24,7 @@ spec:
       terminatingTLS:
         secret:
           namespace: "default"
-          name: "test-server"
+          name: "swapi-server"
       originatingTLS:
         secret:
           namespace: "default"
@@ -32,7 +32,7 @@ spec:
       rules:
         http:
         - method: "GET"
-          path: "/privacy"
+          path: "/api/planets/1/"
           headerMatches:
           - mismatch: REPLACE
             name: "User-Agent"
