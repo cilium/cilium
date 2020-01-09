@@ -1943,6 +1943,9 @@ definitions:
         description: Layer 4 port number
         type: integer
         format: uint16
+      nodeName:
+        description: Optional name of the node on which this backend runs
+        type: string
   Service:
     description: Collection of endpoints to be served
     type: object
@@ -1979,6 +1982,12 @@ definitions:
             - ClusterIP
             - NodePort
             - ExternalIPs
+          trafficPolicy:
+            description: Service traffic policy
+            type: string
+            enum:
+            - Cluster
+            - Local
           name:
             description: Service name  (e.g. Kubernetes service name)
             type: string

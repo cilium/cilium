@@ -26,6 +26,7 @@ import (
 	"syscall"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/version"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -163,6 +164,9 @@ const (
 
 	// LabelMapName is the label for the BPF map name
 	LabelMapName = "mapName"
+
+	// LabelVersion is the label for the version number
+	LabelVersion = "version"
 )
 
 var (
@@ -387,6 +391,9 @@ var (
 	// TriggerPolicyUpdateCallDuration measures the latency and call
 	// duration of policy update triggers
 	TriggerPolicyUpdateCallDuration = NoOpObserverVec
+
+	// VersionMetric labelled by Cilium version
+	VersionMetric = NoOpGaugeVec
 )
 
 type Configuration struct {
@@ -441,6 +448,7 @@ type Configuration struct {
 	TriggerPolicyUpdateTotal                bool
 	TriggerPolicyUpdateFolds                bool
 	TriggerPolicyUpdateCallDuration         bool
+	VersionMetric                           bool
 }
 
 func DefaultMetrics() map[string]struct{} {
@@ -493,6 +501,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_" + SubsystemTriggers + "_policy_update_total":                 {},
 		Namespace + "_" + SubsystemTriggers + "_policy_update_folds":                 {},
 		Namespace + "_" + SubsystemTriggers + "_policy_update_call_duration_seconds": {},
+		Namespace + "_version":                                                       {},
 	}
 }
 
@@ -1045,6 +1054,18 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, TriggerPolicyUpdateCallDuration)
 			c.TriggerPolicyUpdateCallDuration = true
+
+		case Namespace + "_version":
+			VersionMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Name:      "version",
+				Help:      "Cilium version",
+			}, []string{LabelVersion})
+
+			VersionMetric.WithLabelValues(version.GetCiliumVersion().Version)
+
+			collectors = append(collectors, VersionMetric)
+			c.VersionMetric = true
 		}
 	}
 

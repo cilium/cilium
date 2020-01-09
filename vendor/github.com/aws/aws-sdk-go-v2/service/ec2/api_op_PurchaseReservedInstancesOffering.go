@@ -30,7 +30,8 @@ type PurchaseReservedInstancesOfferingInput struct {
 	// prices.
 	LimitPrice *ReservedInstanceLimitPrice `locationName:"limitPrice" type:"structure"`
 
-	// The time at which to purchase the Reserved Instance.
+	// The time at which to purchase the Reserved Instance, in UTC format (for example,
+	// YYYY-MM-DDTHH:MM:SSZ).
 	PurchaseTime *time.Time `type:"timestamp"`
 
 	// The ID of the Reserved Instance offering to purchase.

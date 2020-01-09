@@ -70,7 +70,7 @@ func (ep *testEP) LookupRedirectPort(l4 *L4Filter) uint16 {
 }
 
 func (s *DistilleryTestSuite) TestCacheManagement(c *C) {
-	repo := NewPolicyRepository(nil)
+	repo := NewPolicyRepository(nil, nil)
 	cache := repo.policyCache
 	identity := ep1.GetSecurityIdentity()
 	c.Assert(ep2.GetSecurityIdentity(), Equals, identity)
@@ -105,7 +105,7 @@ func (s *DistilleryTestSuite) TestCacheManagement(c *C) {
 }
 
 func (s *DistilleryTestSuite) TestCachePopulation(c *C) {
-	repo := NewPolicyRepository(nil)
+	repo := NewPolicyRepository(nil, nil)
 	repo.revision = 42
 	cache := repo.policyCache
 
@@ -272,7 +272,7 @@ type policyDistillery struct {
 
 func newPolicyDistillery(selectorCache *SelectorCache) *policyDistillery {
 	ret := &policyDistillery{
-		Repository: NewPolicyRepository(nil),
+		Repository: NewPolicyRepository(nil, nil),
 	}
 	ret.selectorCache = selectorCache
 	return ret

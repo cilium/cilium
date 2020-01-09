@@ -48,6 +48,7 @@ var (
 	// kvNodeGCInterval duration for which the nodes are GC in the KVStore.
 	kvNodeGCInterval              time.Duration
 	enableCNPNodeStatusGC         bool
+	enableCCNPNodeStatusGC        bool
 	ciliumCNPNodeStatusGCInterval time.Duration
 )
 
@@ -162,30 +163,60 @@ func runNodeWatcher() error {
 		}, serializer.NoRetry)
 	}()
 
-	go func() {
-		if !enableCNPNodeStatusGC {
-			return
-		}
-		parallelRequests := 4
-		removeNodeFromCNP := make(chan func(), 50)
-		for i := 0; i < parallelRequests; i++ {
-			go func() {
-				for f := range removeNodeFromCNP {
-					f()
-				}
-			}()
-		}
-		controller.NewManager().UpdateController("cnp-node-gc",
-			controller.ControllerParams{
-				RunInterval: ciliumCNPNodeStatusGCInterval,
-				DoFunc: func(ctx context.Context) error {
-					lastRun := time.Now().Add(-kvNodeGCInterval)
-					k8sCapabilities := k8sversion.Capabilities()
-					continueID := ""
-					wg := sync.WaitGroup{}
-					defer wg.Wait()
-					kvStoreNodes := ciliumNodeStore.SharedKeysMap()
-					for {
+	if enableCNPNodeStatusGC {
+		go runCNPNodeStatusGC("cnp-node-gc", false, ciliumNodeStore)
+	}
+
+	if enableCCNPNodeStatusGC {
+		go runCNPNodeStatusGC("ccnp-node-gc", true, ciliumNodeStore)
+	}
+
+	return nil
+}
+
+// runCNPNodeStatusGC runs the node status garbage collector for cilium network
+// policies. The policy corresponds to CiliumClusterwideNetworkPolicy if the clusterwide
+// parameter is true and CiliumNetworkPolicy otherwise.
+func runCNPNodeStatusGC(name string, clusterwide bool, ciliumNodeStore *store.SharedStore) {
+	parallelRequests := 4
+	removeNodeFromCNP := make(chan func(), 50)
+	for i := 0; i < parallelRequests; i++ {
+		go func() {
+			for f := range removeNodeFromCNP {
+				f()
+			}
+		}()
+	}
+
+	controller.NewManager().UpdateController(name,
+		controller.ControllerParams{
+			RunInterval: ciliumCNPNodeStatusGCInterval,
+			DoFunc: func(ctx context.Context) error {
+				lastRun := time.Now().Add(-kvNodeGCInterval)
+				k8sCapabilities := k8sversion.Capabilities()
+				continueID := ""
+				wg := sync.WaitGroup{}
+				defer wg.Wait()
+
+				kvStoreNodes := ciliumNodeStore.SharedKeysMap()
+				for {
+					var cnpItemsList []cilium_v2.CiliumNetworkPolicy
+					if clusterwide {
+						ccnpList, err := ciliumK8sClient.CiliumV2().CiliumClusterwideNetworkPolicies().List(meta_v1.ListOptions{
+							Limit:    10,
+							Continue: continueID,
+						})
+						if err != nil {
+							return err
+						}
+
+						cnpItemsList = make([]cilium_v2.CiliumNetworkPolicy, 0)
+						for _, ccnp := range ccnpList.Items {
+							ccnp.CiliumNetworkPolicy.Status = ccnp.Status
+							cnpItemsList = append(cnpItemsList, *ccnp.CiliumNetworkPolicy)
+						}
+						continueID = ccnpList.Continue
+					} else {
 						cnpList, err := ciliumK8sClient.CiliumV2().CiliumNetworkPolicies(core_v1.NamespaceAll).List(meta_v1.ListOptions{
 							Limit:    10,
 							Continue: continueID,
@@ -194,47 +225,49 @@ func runNodeWatcher() error {
 							return err
 						}
 
-						for _, cnp := range cnpList.Items {
-							needsUpdate := false
-							nodesToDelete := map[string]cilium_v2.Timestamp{}
-							for n, status := range cnp.Status.Nodes {
-								kvStoreNodeName := node.GetKeyNodeName(option.Config.ClusterName, n)
-								if _, exists := kvStoreNodes[kvStoreNodeName]; !exists {
-									// To avoid concurrency issues where a is
-									// created and adds its CNP Status before the operator
-									// node watcher receives an event that the node
-									// was created, we will only delete the node
-									// from the CNP Status if the last time it was
-									// update was before the lastRun.
-									if status.LastUpdated.Before(lastRun) {
-										nodesToDelete[n] = status.LastUpdated
-										delete(cnp.Status.Nodes, n)
-										needsUpdate = true
-									}
-								}
-							}
-							if needsUpdate {
-								wg.Add(1)
-								cnpCpy := cnp.DeepCopy()
-								removeNodeFromCNP <- func() {
-									updateCNP(ciliumK8sClient.CiliumV2(), cnpCpy, nodesToDelete, k8sCapabilities)
-									wg.Done()
+						cnpItemsList = cnpList.Items
+						continueID = cnpList.Continue
+					}
+
+					for _, cnp := range cnpItemsList {
+						needsUpdate := false
+						nodesToDelete := map[string]cilium_v2.Timestamp{}
+						for n, status := range cnp.Status.Nodes {
+							kvStoreNodeName := node.GetKeyNodeName(option.Config.ClusterName, n)
+							if _, exists := kvStoreNodes[kvStoreNodeName]; !exists {
+								// To avoid concurrency issues where a is
+								// created and adds its CNP Status before the operator
+								// node watcher receives an event that the node
+								// was created, we will only delete the node
+								// from the CNP Status if the last time it was
+								// update was before the lastRun.
+								if status.LastUpdated.Before(lastRun) {
+									nodesToDelete[n] = status.LastUpdated
+									delete(cnp.Status.Nodes, n)
+									needsUpdate = true
 								}
 							}
 						}
-
-						continueID = cnpList.Continue
-						if continueID == "" {
-							break
+						if needsUpdate {
+							wg.Add(1)
+							cnpCpy := cnp.DeepCopy()
+							removeNodeFromCNP <- func() {
+								updateCNP(ciliumK8sClient.CiliumV2(), cnpCpy, nodesToDelete, k8sCapabilities)
+								wg.Done()
+							}
 						}
 					}
 
-					return nil
-				},
-			})
-	}()
+					// Nothing to continue, break from the loop here
+					if continueID == "" {
+						break
+					}
+				}
 
-	return nil
+				return nil
+			},
+		})
+
 }
 
 func updateCNP(ciliumClient v2.CiliumV2Interface, cnp *cilium_v2.CiliumNetworkPolicy, nodesToDelete map[string]cilium_v2.Timestamp, capabilities k8sversion.ServerCapabilities) {
@@ -242,6 +275,7 @@ func updateCNP(ciliumClient v2.CiliumV2Interface, cnp *cilium_v2.CiliumNetworkPo
 		return
 	}
 
+	var err error
 	ns := utils.ExtractNamespace(&cnp.ObjectMeta)
 
 	switch {
@@ -277,7 +311,13 @@ func updateCNP(ciliumClient v2.CiliumV2Interface, cnp *cilium_v2.CiliumNetworkPo
 				break
 			}
 
-			_, err = ciliumClient.CiliumNetworkPolicies(ns).Patch(cnp.GetName(), types.JSONPatchType, removeStatusNodeJSON, "status")
+			// If the namespace is empty the policy is the clusterwide policy
+			// and not the namespaced CiliumNetworkPolicy.
+			if ns == "" {
+				_, err = ciliumClient.CiliumClusterwideNetworkPolicies().Patch(cnp.GetName(), types.JSONPatchType, removeStatusNodeJSON, "status")
+			} else {
+				_, err = ciliumClient.CiliumNetworkPolicies(ns).Patch(cnp.GetName(), types.JSONPatchType, removeStatusNodeJSON, "status")
+			}
 			if err != nil {
 				// We can leave the errors as debug as the GC happens on a best effort
 				log.WithError(err).Debug("Unable to PATCH")
@@ -292,7 +332,17 @@ func updateCNP(ciliumClient v2.CiliumV2Interface, cnp *cilium_v2.CiliumNetworkPo
 	case capabilities.UpdateStatus:
 		// This should be treat is as best effort, we don't care if the
 		// UpdateStatus fails.
-		_, err := ciliumClient.CiliumNetworkPolicies(ns).UpdateStatus(cnp)
+		// On the basis of the presence of the namespace field in the object, we
+		// update the respective clusterwide or namespaced policy.
+		if ns == "" {
+			ccnp := &cilium_v2.CiliumClusterwideNetworkPolicy{
+				CiliumNetworkPolicy: cnp,
+				Status:              cnp.Status,
+			}
+			_, err = ciliumClient.CiliumClusterwideNetworkPolicies().UpdateStatus(ccnp)
+		} else {
+			_, err = ciliumClient.CiliumNetworkPolicies(ns).UpdateStatus(cnp)
+		}
 		if err != nil {
 			// We can leave the errors as debug as the GC happens on a best effort
 			log.WithError(err).Debug("Unable to UpdateStatus with garbage collected nodes")
@@ -300,7 +350,15 @@ func updateCNP(ciliumClient v2.CiliumV2Interface, cnp *cilium_v2.CiliumNetworkPo
 	default:
 		// This should be treat is as best effort, we don't care if the
 		// Update fails.
-		_, err := ciliumClient.CiliumNetworkPolicies(ns).Update(cnp)
+		if ns == "" {
+			ccnp := &cilium_v2.CiliumClusterwideNetworkPolicy{
+				CiliumNetworkPolicy: cnp,
+				Status:              cnp.Status,
+			}
+			_, err = ciliumClient.CiliumClusterwideNetworkPolicies().Update(ccnp)
+		} else {
+			_, err = ciliumClient.CiliumNetworkPolicies(ns).Update(cnp)
+		}
 		if err != nil {
 			// We can leave the errors as debug as the GC happens on a best effort
 			log.WithError(err).Debug("Unable to Update CNP with garbage collected nodes")

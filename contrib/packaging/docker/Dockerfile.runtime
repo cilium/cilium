@@ -39,7 +39,9 @@ RUN \
 apt-get update && \
 apt-get install -y --no-install-recommends make git curl ca-certificates xz-utils \
 # Additional iproute2 build dependencies
-  gcc git pkg-config bison flex build-essential python3 && \
+  gcc git pkg-config bison flex build-essential \
+# Additional bpftool dependencies
+  python3 && \
 #
 # iproute2
 #
@@ -79,7 +81,7 @@ apt-get clean
 #
 # Go-based tools we need at runtime
 #
-FROM docker.io/library/golang:1.13.4 as runtime-gobuild
+FROM docker.io/library/golang:1.13.5 as runtime-gobuild
 WORKDIR /tmp
 RUN go get -d github.com/google/gops && \
 cd /go/src/github.com/google/gops && \

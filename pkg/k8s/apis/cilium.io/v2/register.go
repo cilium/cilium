@@ -42,7 +42,7 @@ const (
 
 	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
 	// Used to determine if CRD needs to be updated in cluster
-	CustomResourceDefinitionSchemaVersion = "1.15"
+	CustomResourceDefinitionSchemaVersion = "1.16"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
@@ -407,6 +407,10 @@ func createNodeCRD(clientset apiextensionsclient.Interface) error {
 													Type: "string",
 												},
 											},
+										},
+										"security-group-tags": {
+											Type:        "object",
+											Description: "security-group-tags represents a filter to narrow down the security group ids which will be attached on the allocated ENI",
 										},
 										"subnet-tags": {
 											Type:        "object",
@@ -1113,6 +1117,50 @@ var (
 		},
 	}
 
+	Secret = map[string]apiextensionsv1beta1.JSONSchemaProps{
+		"namespace": {
+			Description: "Namespace is the namespace in which the secret exists. If " +
+				"namespace is omitted, the namespace of the enclosing rule is assumed, " +
+				"or \"\", if none applies.",
+			Type: "string",
+		},
+		"name": {
+			Description: "Name is the name of the secret.",
+			Type:        "string",
+		},
+	}
+
+	TLSContext = map[string]apiextensionsv1beta1.JSONSchemaProps{
+		"secret": {
+			Description: "Secret contains the certificates and private key for the TLS context.",
+			Type:        "object",
+			Properties:  Secret,
+			Required: []string{
+				"name",
+			},
+		},
+		"certificate": {
+			Description: "Certificate is the file name or secret item name for the certificate chain. " +
+				"If omitted, 'tls.crt' is assumed, if it exists. If given, the item must exist." +
+				"If specified for an originating TLS context, then this is used as a " +
+				"client certificate.",
+			Type: "string",
+		},
+		"privateKey": {
+			Description: "PrivateKey is the file name or secret item name for the private key matching " +
+				"the certificate chain. If omitted, 'tls.key' is assumed, if it exists. " +
+				"If given, the item must exist.",
+			Type: "string",
+		},
+		"trustedCA": {
+			Description: "TrustedCA is the file name or secret item name for the trusted CA used to verify " +
+				"the certificate of the remote party. If specified for a terminating " +
+				"TLS context, then a client certificate is required. " +
+				"If omitted, 'ca.crt' is assumed, if it exists. If given, the item must exist.",
+			Type: "string",
+		},
+	}
+
 	PortRule = apiextensionsv1beta1.JSONSchemaProps{
 		Description: "PortRule is a list of ports/protocol combinations with optional Layer 7 " +
 			"rules which must be met.",
@@ -1124,7 +1172,75 @@ var (
 					Schema: &PortProtocol,
 				},
 			},
+			"terminatingTLS": {
+				Description: "TerminatingTLS is the TLS context for the connection terminated by " +
+					"the L7 proxy.  For egress policy this specifies the server-side TLS " +
+					"parameters to be applied on the connections originated from the local " +
+					"POD and terminated by the L7 proxy. For ingress policy this specifies " +
+					"the server-side TLS parameters to be applied on the connections " +
+					"originated from a remote source and terminated by the L7 proxy.",
+				Type:       "object",
+				Properties: TLSContext,
+				Required: []string{
+					"secret",
+				},
+			},
+			"originatingTLS": {
+				Description: "OriginatingTLS is the TLS context for the connections originated by " +
+					"the L7 proxy.  For egress policy this specifies the client-side TLS " +
+					"parameters for the upstream connection originating from the L7 proxy " +
+					"to the remote destination. For ingress policy this specifies the " +
+					"client-side TLS parameters for the connection from the L7 proxy to " +
+					"the local POD.",
+				Type:       "object",
+				Properties: TLSContext,
+				Required: []string{
+					"secret",
+				},
+			},
 			"rules": L7Rules,
+		},
+	}
+
+	HeaderMatch = map[string]apiextensionsv1beta1.JSONSchemaProps{
+		"mismatch": {
+			Description: "Mismatch identifies what to do in case there is no match. The " +
+				"default is to drop the request. Otherwise the overall rule is still " +
+				"considered as matching, but the mismatches are logged in the access log.",
+			Type: "string",
+			Enum: []apiextensionsv1beta1.JSON{
+				{
+					Raw: []byte(`"LOG"`),
+				},
+				{
+					Raw: []byte(`"ADD"`),
+				},
+				{
+					Raw: []byte(`"DELETE"`),
+				},
+				{
+					Raw: []byte(`"REPLACE"`),
+				},
+			},
+		},
+		"name": {
+			Description: "Name identifies the header.",
+			Type:        "string",
+		},
+		"secret": {
+			Description: "Secret refers to a secret that contains the value that must be present in the request.",
+			Type:        "object",
+			Properties:  Secret,
+			Required: []string{
+				"name",
+			},
+		},
+		"value": {
+			Description: "Value contains the header value that must be present in the request. If both Secret " +
+				"and Value are specified, " +
+				"the Secret takes precedence, if it exists; i.e., the Value will only be used if " +
+				"the Secret cannot be found or accessed.",
+			Type: "string",
 		},
 	}
 
@@ -1137,6 +1253,21 @@ var (
 			"characters disallowed from the conventional \"path\" part of a URL as defined by " +
 			"RFC 3986.",
 		Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+			"headerMatches": {
+				Description: "HeaderMatches is a list of HTTP headers which must be present and match " +
+					"against the given or referenced values or expressions. If omitted or empty, " +
+					"requests are allowed regardless of headers present.",
+				Type: "array",
+				Items: &apiextensionsv1beta1.JSONSchemaPropsOrArray{
+					Schema: &apiextensionsv1beta1.JSONSchemaProps{
+						Type:       "object",
+						Properties: HeaderMatch,
+						Required: []string{
+							"name",
+						},
+					},
+				},
+			},
 			"headers": {
 				Description: "Headers is a list of HTTP headers which must be present in the " +
 					"request. If omitted or empty, requests are allowed regardless of headers " +

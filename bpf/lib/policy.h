@@ -65,20 +65,21 @@ static inline bool __inline__ inherit_identity_from_host(struct __sk_buff *skb, 
  * reserved identities that are not handed out to endpoints.
  *
  * Specifically, it should return true if the identity is one of these:
- * - IdentityUnknown		(0)
- * - ReservedIdentityHost	(1)
- * - ReservedIdentityWorld	(2)
+ * - IdentityUnknown
+ * - ReservedIdentityHost
+ * - ReservedIdentityWorld
+ * - ReservedIdentityRemoteNode
  *
  * The following identities are given to endpoints so return false for these:
- * - ReservedIdentityUnmanaged  (3)
- * - ReservedIdentityHealth	(4)
- * - ReservedIdentityInit	(5)
+ * - ReservedIdentityUnmanaged
+ * - ReservedIdentityHealth
+ * - ReservedIdentityInit
  *
  * Identities 128 and higher are guaranteed to be generated based on user input.
  */
 static inline bool identity_is_reserved(__u32 identity)
 {
-	return identity < UNMANAGED_ID;
+	return identity < UNMANAGED_ID || identity == REMOTE_NODE_ID;
 }
 
 #ifdef SOCKMAP

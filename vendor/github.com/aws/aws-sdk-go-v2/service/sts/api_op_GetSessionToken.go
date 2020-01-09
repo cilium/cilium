@@ -105,6 +105,8 @@ const opGetSessionToken = "GetSessionToken"
 // and Comparing the AWS STS API operations (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_request.html#stsapi_comparison)
 // in the IAM User Guide.
 //
+// Session Duration
+//
 // The GetSessionToken operation must be called by using the long-term AWS security
 // credentials of the AWS account root user or an IAM user. Credentials that
 // are created by IAM users are valid for the duration that you specify. This
@@ -112,6 +114,8 @@ const opGetSessionToken = "GetSessionToken"
 // seconds (36 hours), with a default of 43,200 seconds (12 hours). Credentials
 // based on account credentials can range from 900 seconds (15 minutes) up to
 // 3,600 seconds (1 hour), with a default of 1 hour.
+//
+// Permissions
 //
 // The temporary security credentials created by GetSessionToken can be used
 // to make API calls to any AWS service with the following exceptions:

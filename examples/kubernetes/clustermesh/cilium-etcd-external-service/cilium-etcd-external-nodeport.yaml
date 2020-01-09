@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cilium-etcd-external
+spec:
+  type: NodePort
+  ports:
+  - port: 2379
+  selector:
+    app: etcd
+    etcd_cluster: cilium-etcd
+    io.cilium/app: etcd-operator

@@ -36,6 +36,9 @@ type CreateFpgaImageInput struct {
 
 	// A name for the AFI.
 	Name *string `type:"string"`
+
+	// The tags to apply to the FPGA image during creation.
+	TagSpecifications []TagSpecification `locationName:"TagSpecification" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation

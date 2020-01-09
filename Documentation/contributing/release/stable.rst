@@ -47,6 +47,7 @@ If you intent to release a new feature release, see the
 #. Update Helm chart documentation
 
    #. Update versions in ``install/kubernetes/quick-install.yaml``
+   #. Update ``version`` and ``appVersion`` in ``install/kubernetes/cilium/Chart.yaml``
    #. Update version tag in ``install/kubernetes/cilium/values.yaml``
 
 #. Update the image tag versions in the examples:

@@ -39,6 +39,12 @@ type CreateVpcInput struct {
 	//
 	// Default: default
 	InstanceTenancy Tenancy `locationName:"instanceTenancy" type:"string" enum:"true"`
+
+	// The name of the location from which we advertise the IPV6 CIDR block. Use
+	// this parameter to limit the address to this location.
+	//
+	// You must set AmazonProvidedIpv6CidrBlock to true to use this parameter.
+	Ipv6CidrBlockNetworkBorderGroup *string `type:"string"`
 }
 
 // String returns the string representation

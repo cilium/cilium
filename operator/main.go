@@ -143,6 +143,7 @@ func init() {
 	flags.Var(option.NewNamedMapOptions(option.AwsInstanceLimitMapping, &awsInstanceLimitMapping, nil),
 		option.AwsInstanceLimitMapping, "Add or overwrite mappings of AWS instance limit in the form of {\"AWS instance type\": \"Maximum Network Interfaces\",\"IPv4 Addresses per Interface\",\"IPv6 Addresses per Interface\"}. cli example: --aws-instance-limit-mapping=a1.medium=2,4,4 --aws-instance-limit-mapping=a2.somecustomflavor=4,5,6 configmap example: {\"a1.medium\": \"2,4,4\", \"a2.somecustomflavor\": \"4,5,6\"}")
 	option.BindEnv(option.AwsInstanceLimitMapping)
+	flags.Bool(option.UpdateEC2AdapterLimitViaAPI, false, "Use the EC2 API to update the instance type to adapter limits")
 
 	flags.Float32(option.K8sClientQPSLimit, defaults.K8sClientQPSLimit, "Queries per second limit for the K8s client")
 	flags.Int(option.K8sClientBurst, defaults.K8sClientBurst, "Burst value allowed for the K8s client")
@@ -156,6 +157,7 @@ func init() {
 	option.BindEnv(option.DisableCiliumEndpointCRDName)
 
 	flags.BoolVar(&enableCNPNodeStatusGC, "cnp-node-status-gc", true, "Enable CiliumNetworkPolicy Status garbage collection for nodes which have been removed from the cluster")
+	flags.BoolVar(&enableCCNPNodeStatusGC, "ccnp-node-status-gc", true, "Enable CiliumClusterwideNetworkPolicy Status garbage collection for nodes which have been removed from the cluster")
 	flags.DurationVar(&ciliumCNPNodeStatusGCInterval, "cnp-node-status-gc-interval", time.Minute*2, "GC interval for nodes which have been removed from the cluster in CiliumNetworkPolicy Status")
 
 	flags.DurationVar(&cnpStatusUpdateInterval, "cnp-status-update-interval", 1*time.Second, "interval between CNP status updates sent to the k8s-apiserver per-CNP")
@@ -255,6 +257,11 @@ func runOperator(cmd *cobra.Command) {
 		if err := eni.UpdateLimitsFromUserDefinedMappings(awsInstanceLimitMapping); err != nil {
 			log.WithError(err).Fatal("Parse aws-instance-limit-mapping failed")
 		}
+		if viper.GetBool(option.UpdateEC2AdapterLimitViaAPI) {
+			if err := eni.UpdateLimitsFromEC2API(context.TODO()); err != nil {
+				log.WithError(err).Error("Unable to update instance type to adapter limits from EC2 API")
+			}
+		}
 		awsClientQPSLimit := viper.GetFloat64(option.AWSClientQPSLimit)
 		awsClientBurst := viper.GetInt(option.AWSClientBurst)
 		if m := viper.GetStringMapString(option.ENITags); len(m) > 0 {
@@ -313,11 +320,16 @@ func runOperator(cmd *cobra.Command) {
 		}
 	}
 
-	if identityAllocationMode == option.IdentityAllocationModeCRD {
+	switch identityAllocationMode {
+	case option.IdentityAllocationModeCRD:
 		startManagingK8sIdentities()
 
 		if identityGCInterval != time.Duration(0) {
 			go startCRDIdentityGC()
+		}
+	case option.IdentityAllocationModeKVstore:
+		if identityGCInterval != time.Duration(0) {
+			startKvstoreIdentityGC()
 		}
 	}
 
@@ -325,12 +337,15 @@ func runOperator(cmd *cobra.Command) {
 		enableCiliumEndpointSyncGC()
 	}
 
-	if identityGCInterval != time.Duration(0) {
-		startIdentityGC()
-	}
 	err := enableCNPWatcher()
 	if err != nil {
 		log.WithError(err).WithField("subsys", "CNPWatcher").Fatal(
+			"Cannot connect to Kubernetes apiserver ")
+	}
+
+	err = enableCCNPWatcher()
+	if err != nil {
+		log.WithError(err).WithField("subsys", "CCNPWatcher").Fatal(
 			"Cannot connect to Kubernetes apiserver ")
 	}
 

@@ -61,7 +61,7 @@ var _ = Suite(&proxyTestSuite{})
 
 func (s *proxyTestSuite) SetUpSuite(c *C) {
 	Allocator = cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
-	s.repo = policy.NewPolicyRepository(nil)
+	s.repo = policy.NewPolicyRepository(nil, nil)
 }
 
 func (s *proxyTestSuite) GetPolicyRepository() *policy.Repository {
@@ -283,9 +283,9 @@ func (s *proxyTestSuite) TestKafkaRedirect(c *C) {
 	r := newRedirect(localEndpointMock, pp, uint16(portInt))
 
 	r.rules = policy.L7DataMap{
-		wildcardCachedSelector: api.L7Rules{
+		wildcardCachedSelector: &policy.PerEpData{L7Rules: api.L7Rules{
 			Kafka: []api.PortRuleKafka{kafkaRule1, kafkaRule2},
-		},
+		}},
 	}
 
 	redir, err := createKafkaRedirect(r, kafkaConfiguration{

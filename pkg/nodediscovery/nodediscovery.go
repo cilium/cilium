@@ -62,6 +62,10 @@ func enableLocalNodeRoute() bool {
 	return option.Config.EnableLocalNodeRoute && !option.Config.IsFlannelMasterDeviceSet() && option.Config.IPAM != option.IPAMENI
 }
 
+func getInt(i int) *int {
+	return &i
+}
+
 // NewNodeDiscovery returns a pointer to new node discovery object
 func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration, netConf *cnitypes.NetConf) *NodeDiscovery {
 	auxPrefixes := []*cidr.CIDR{}
@@ -270,7 +274,7 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 		}
 
 		nodeResource.Spec.ENI.VpcID = vpcID
-		nodeResource.Spec.ENI.FirstInterfaceIndex = 1
+		nodeResource.Spec.ENI.FirstInterfaceIndex = getInt(defaults.ENIFirstInterfaceIndex)
 		nodeResource.Spec.ENI.PreAllocate = defaults.ENIPreAllocation
 
 		if c := n.NetConf; c != nil {
@@ -282,7 +286,7 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 				nodeResource.Spec.ENI.PreAllocate = c.ENI.PreAllocate
 			}
 
-			if c.ENI.FirstInterfaceIndex != 0 {
+			if c.ENI.FirstInterfaceIndex != nil {
 				nodeResource.Spec.ENI.FirstInterfaceIndex = c.ENI.FirstInterfaceIndex
 			}
 

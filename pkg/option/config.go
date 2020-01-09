@@ -89,6 +89,10 @@ const (
 	// BPFRoot is the Path to BPF filesystem
 	BPFRoot = "bpf-root"
 
+	// CertsDirectory is the root directory used to find out certificates used
+	// in L7 HTTPs policy enforcement.
+	CertsDirectory = "certificates-directory"
+
 	// CGroupRoot is the path to Cgroup2 filesystem
 	CGroupRoot = "cgroup-root"
 
@@ -334,6 +338,10 @@ const (
 	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to maintain
 	// for each FQDN name in an endpoint's FQDN cache
 	ToFQDNsMaxIPsPerHost = "tofqdns-endpoint-max-ip-per-hostname"
+
+	// ToFQDNsMaxDeferredConnectionDeletes defines the maximum number of IPs to
+	// retain for expired DNS lookups with still-active connections"
+	ToFQDNsMaxDeferredConnectionDeletes = "tofqdns-max-deferred-connection-deletes"
 
 	// ToFQDNsPreCache is a path to a file with DNS cache data to insert into the
 	// global cache on startup.
@@ -596,6 +604,9 @@ const (
 	// ENITags are the tags that will be added to every ENI created by the AWS ENI IPAM
 	ENITags = "eni-tags"
 
+	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2 API to fill out the instnacetype to adapter limit mapping
+	UpdateEC2AdapterLimitViaAPI = "update-ec2-apdater-limit-via-api"
+
 	// K8sClientQPSLimit is the queries per second limit for the K8s client. Defaults to k8s client defaults.
 	K8sClientQPSLimit = "k8s-client-qps"
 
@@ -644,6 +655,9 @@ const (
 	// This is requires if identiy resolution is required to bring up the
 	// control plane, e.g. when using the managed etcd feature
 	EnableWellKnownIdentities = "enable-well-known-identities"
+
+	// EnableRemoteNodeIdentity enables use of the remote-node identity
+	EnableRemoteNodeIdentity = "enable-remote-node-identity"
 )
 
 // Default string arguments
@@ -1083,6 +1097,10 @@ type DaemonConfig struct {
 	// for each FQDN name in an endpoint's FQDN cache
 	ToFQDNsMaxIPsPerHost int
 
+	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to retain for
+	// expired DNS lookups with still-active connections
+	ToFQDNsMaxDeferredConnectionDeletes int
+
 	// FQDNRejectResponse is the dns-proxy response for invalid dns-proxy request
 	FQDNRejectResponse string
 
@@ -1281,6 +1299,13 @@ type DaemonConfig struct {
 	// This is requires if identiy resolution is required to bring up the
 	// control plane, e.g. when using the managed etcd feature
 	EnableWellKnownIdentities bool
+
+	// CertsDirectory is the root directory to be used by cilium to find
+	// certificates locally.
+	CertDirectory string
+
+	// EnableRemoteNodeIdentity enables use of the remote-node identity
+	EnableRemoteNodeIdentity bool
 }
 
 var (
@@ -1600,6 +1625,7 @@ func (c *DaemonConfig) Populate() {
 	c.CTMapEntriesGlobalAny = viper.GetInt(CTMapEntriesGlobalAnyName)
 	c.NATMapEntriesGlobal = viper.GetInt(NATMapEntriesGlobalName)
 	c.BPFRoot = viper.GetString(BPFRoot)
+	c.CertDirectory = viper.GetString(CertsDirectory)
 	c.CGroupRoot = viper.GetString(CGroupRoot)
 	c.ClusterID = viper.GetInt(ClusterIDName)
 	c.ClusterName = viper.GetString(ClusterName)
@@ -1619,6 +1645,7 @@ func (c *DaemonConfig) Populate() {
 	c.DisableK8sServices = viper.GetBool(DisableK8sServices)
 	c.EgressMasqueradeInterfaces = viper.GetString(EgressMasqueradeInterfaces)
 	c.EnableHostReachableServices = viper.GetBool(EnableHostReachableServices)
+	c.EnableRemoteNodeIdentity = viper.GetBool(EnableRemoteNodeIdentity)
 	c.DockerEndpoint = viper.GetString(Docker)
 	c.EnableAutoDirectRouting = viper.GetBool(EnableAutoDirectRoutingName)
 	c.EnableEndpointRoutes = viper.GetBool(EnableEndpointRoutes)
@@ -1723,10 +1750,14 @@ func (c *DaemonConfig) Populate() {
 	c.ToFQDNsEnablePoller = viper.GetBool(ToFQDNsEnablePoller)
 	c.ToFQDNsEnablePollerEvents = viper.GetBool(ToFQDNsEnablePollerEvents)
 	c.ToFQDNsMaxIPsPerHost = viper.GetInt(ToFQDNsMaxIPsPerHost)
-	userSetMinTTL := viper.GetInt(ToFQDNsMinTTL)
+	if maxZombies := viper.GetInt(ToFQDNsMaxDeferredConnectionDeletes); maxZombies >= 0 {
+		c.ToFQDNsMaxDeferredConnectionDeletes = viper.GetInt(ToFQDNsMaxDeferredConnectionDeletes)
+	} else {
+		log.Fatal("tofqdns-max-deferred-connection-deletes must be positive, or 0 to disable deferred connection deletion")
+	}
 	switch {
-	case userSetMinTTL != 0: // set by user
-		c.ToFQDNsMinTTL = userSetMinTTL
+	case viper.IsSet(ToFQDNsMinTTL): // set by user
+		c.ToFQDNsMinTTL = viper.GetInt(ToFQDNsMinTTL)
 	case c.ToFQDNsEnablePoller:
 		c.ToFQDNsMinTTL = defaults.ToFQDNsMinTTLPoller
 	default:

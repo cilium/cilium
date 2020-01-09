@@ -44,7 +44,7 @@ sudo bash -c "echo MaxSessions 200 >> /etc/ssh/sshd_config"
 sudo systemctl restart ssh
 
 if [[ ! $(helm version | grep ${HELM_VERSION}) ]]; then
-  retry_function "wget https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz"
+  retry_function "wget -nv https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz"
   tar xzvf helm-v${HELM_VERSION}-linux-amd64.tar.gz
   mv linux-amd64/helm /usr/local/bin/
 fi
@@ -237,7 +237,7 @@ case $K8S_VERSION in
         ;;
     "1.17")
         KUBERNETES_CNI_VERSION="0.7.5"
-        K8S_FULL_VERSION="1.17.0-rc.2"
+        K8S_FULL_VERSION="1.17.0"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
@@ -248,7 +248,7 @@ esac
 #Install kubernetes
 set +e
 case $K8S_VERSION in
-    "1.8"|"1.9"|"1.10"|"1.11"|"1.12"|"1.13"|"1.14"|"1.15"|"1.16")
+    "1.8"|"1.9"|"1.10"|"1.11"|"1.12"|"1.13"|"1.14"|"1.15"|"1.16"|"1.17")
         install_k8s_using_packages \
             kubernetes-cni=${KUBERNETES_CNI_VERSION}* \
             kubelet=${K8S_FULL_VERSION}* \
@@ -260,9 +260,9 @@ case $K8S_VERSION in
             install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}"
         fi
         ;;
-   "1.17")
-       install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}"
-       ;;
+#   "1.17")
+#       install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}"
+#       ;;
 esac
 set -e
 
@@ -341,5 +341,20 @@ fi
 docker network create --subnet=192.168.9.0/24 outside
 docker run --net outside --ip 192.168.9.10 --restart=always -d docker.io/cilium/demo-httpd:latest
 docker run --net outside --ip 192.168.9.11 --restart=always -d docker.io/cilium/demo-httpd:latest
+
+if [[ "${HOST}" == "k8s1" ]]; then
+    # To avoid SNAT'ing source IP, we create a network with masquerading disabled.
+    # Also, we install a route on each other node to make it possible a replies from
+    # remote nodes to reach containers attached to the network.
+    docker network create --subnet=192.168.10.0/24 \
+        --opt 'com.docker.network.bridge.enable_ip_masquerade=false' \
+        outside-no-masq
+    # NOTE: when changing "client-from-outside" IP addr, make sure that the IP addr
+    # is changed in the tests (grep for the IP addr).
+    docker run --name client-from-outside --net outside-no-masq --ip 192.168.10.10 \
+        --restart=always -d docker.io/cilium/demo-client:latest
+else
+    sudo ip route add 192.168.10.0/24 via 192.168.36.11 || true
+fi
 
 sudo touch /etc/provision_finished

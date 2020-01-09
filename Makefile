@@ -38,7 +38,7 @@ JOB_BASE_NAME ?= cilium_test
 
 UTC_DATE=$(shell date -u "+%Y-%m-%d")
 
-GO_VERSION := 1.13.4
+GO_VERSION := 1.13.5
 
 # Since there's a bug with NFS or the kernel, the flock syscall hangs the documentation
 # build in the developer VM. For this reason the documentation build is skipped if NFS
@@ -355,7 +355,7 @@ LOCAL_IMAGE_TAG=local
 LOCAL_IMAGE=localhost:32000/cilium/cilium:$(LOCAL_IMAGE_TAG)
 microk8s: check-microk8s
 	$(QUIET)$(MAKE) dev-docker-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
-	@echo "  DPLOY image to microk8s ($(LOCAL_IMAGE))"
+	@echo "  DEPLOY image to microk8s ($(LOCAL_IMAGE))"
 	$(CONTAINER_ENGINE_FULL) tag cilium/cilium-dev:$(LOCAL_IMAGE_TAG) $(LOCAL_IMAGE)
 	$(CONTAINER_ENGINE_FULL) push $(LOCAL_IMAGE)
 	$(QUIET)kubectl apply -f contrib/k8s/microk8s-prepull.yaml

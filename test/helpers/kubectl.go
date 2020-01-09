@@ -165,6 +165,12 @@ func GetCurrentIntegration() string {
 	return ""
 }
 
+// IsIntegration returns true when integration matches the configuration of
+// this test run
+func IsIntegration(integration string) bool {
+	return GetCurrentIntegration() == integration
+}
+
 // Kubectl is a wrapper around an SSHMeta. It is used to run Kubernetes-specific
 // commands on the node which is accessible via the SSH metadata stored in its
 // SSHMeta.
@@ -270,6 +276,20 @@ func (kub *Kubectl) GetNumNodes() int {
 	}
 
 	return len(strings.Split(res.SingleOut(), " "))
+}
+
+// CreateSecret is a wrapper around `kubernetes create secret
+// <resourceName>.
+func (kub *Kubectl) CreateSecret(secretType, name, namespace, args string) *CmdRes {
+	kub.Logger().Debug(fmt.Sprintf("creating secret %s in namespace %s", name, namespace))
+	kub.ExecShort(fmt.Sprintf("kubectl delete secret %s %s -n %s", secretType, name, namespace))
+	return kub.ExecShort(fmt.Sprintf("kubectl create secret %s %s -n %s %s", secretType, name, namespace, args))
+}
+
+// CopyFileToPod copies a file to a pod's file-system.
+func (kub *Kubectl) CopyFileToPod(namespace string, pod string, fromFile, toFile string) *CmdRes {
+	kub.Logger().Debug(fmt.Sprintf("copyiong file %s to pod %s/%s:%s", fromFile, namespace, pod, toFile))
+	return kub.Exec(fmt.Sprintf("%s cp %s %s/%s:%s", KubectlCmd, fromFile, namespace, pod, toFile))
 }
 
 // ExecKafkaPodCmd executes shell command with arguments arg in the specified pod residing in the specified
@@ -480,6 +500,50 @@ func (kub *Kubectl) GetPodNamesContext(ctx context.Context, namespace string, la
 	return strings.Split(out, " "), nil
 }
 
+// GetNodeNameByLabel returns the names of the node with a matching cilium.io/ci-node label
+func (kub *Kubectl) GetNodeNameByLabel(label string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+	defer cancel()
+	return kub.GetNodeNameByLabelContext(ctx, label)
+}
+
+// GetNodeNameByLabelContext returns the names of all nodes with a matching label
+func (kub *Kubectl) GetNodeNameByLabelContext(ctx context.Context, label string) (string, error) {
+	filter := `{.items[*].metadata.name}`
+
+	res := kub.ExecShort(fmt.Sprintf("%s get nodes -l cilium.io/ci-node=%s -o jsonpath='%s'",
+		KubectlCmd, label, filter))
+	if !res.WasSuccessful() {
+		return "", fmt.Errorf("cannot retrieve node to read name: %s", res.CombineOutput())
+	}
+
+	out := strings.Trim(res.GetStdOut(), "\n")
+
+	if len(out) == 0 {
+		return "", fmt.Errorf("no matching node to read name with label '%v'", label)
+	}
+
+	return out, nil
+}
+
+// GetNodeIPByLabel returns the IP of the node with cilium.io/ci-node=label.
+// An error is returned if a node cannot be found.
+func (kub *Kubectl) GetNodeIPByLabel(label string) (string, error) {
+	filter := `{@.items[*].status.addresses[?(@.type == "InternalIP")].address}`
+	res := kub.ExecShort(fmt.Sprintf("%s get nodes -l cilium.io/ci-node=%s -o jsonpath='%s'",
+		KubectlCmd, label, filter))
+	if !res.WasSuccessful() {
+		return "", fmt.Errorf("cannot retrieve node to read IP: %s", res.CombineOutput())
+	}
+
+	out := strings.Trim(res.GetStdOut(), "\n")
+	if len(out) == 0 {
+		return "", fmt.Errorf("no matching node to read IP with label '%v'", label)
+	}
+
+	return out, nil
+}
+
 // GetServiceHostPort returns the host and the first port for the given service name.
 // It will return an error if service cannot be retrieved.
 func (kub *Kubectl) GetServiceHostPort(namespace string, service string) (string, int, error) {
@@ -673,6 +737,7 @@ func (kub *Kubectl) NodeCleanMetadata() error {
 // NamespaceCreate creates a new Kubernetes namespace with the given name
 func (kub *Kubectl) NamespaceCreate(name string) *CmdRes {
 	ginkgoext.By("Creating namespace %s", name)
+	kub.ExecShort(fmt.Sprintf("%s delete namespace %s", KubectlCmd, name))
 	return kub.ExecShort(fmt.Sprintf("%s create namespace %s", KubectlCmd, name))
 }
 
@@ -2225,15 +2290,10 @@ func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, e
 
 // GetCiliumPodOnNodeWithLabel returns the name of the Cilium pod that is running on node with cilium.io/ci-node label
 func (kub *Kubectl) GetCiliumPodOnNodeWithLabel(namespace string, label string) (string, error) {
-	filter := "-o jsonpath='{.items[0].metadata.name}'"
-
-	res := kub.ExecShort(fmt.Sprintf(
-		"%s -n %s get nodes -l cilium.io/ci-node=%s %s", KubectlCmd, namespace, label, filter))
-	if !res.WasSuccessful() {
-		return "", fmt.Errorf("Unable to get nodes with label '%s'", label)
+	node, err := kub.GetNodeNameByLabel(label)
+	if err != nil {
+		return "", fmt.Errorf("Unable to get nodes with label '%s': %s", label, err)
 	}
-
-	node := res.Output().String()
 
 	return kub.GetCiliumPodOnNode(namespace, node)
 }
@@ -2357,6 +2417,11 @@ func (kub *Kubectl) ciliumControllersPreFlightCheck() error {
 }
 
 func (kub *Kubectl) ciliumHealthPreFlightCheck() error {
+	if IsIntegration(CIIntegrationEKS) {
+		ginkgoext.By("Skipping cilium-health --probe in EKS")
+		return nil
+	}
+
 	ginkgoext.By("Performing Cilium health check")
 	var nodesFilter = `{.nodes[*].name}`
 	var statusFilter = `{range .nodes[*]}{.name}{"="}{.host.primary-address.http.status}{"\n"}{end}`

@@ -96,6 +96,10 @@ const (
 	// for each FQDN name in an endpoint's FQDN cache
 	ToFQDNsMaxIPsPerHost = 50
 
+	// ToFQDNsMaxDeferredConnectionDeletes Maximum number of IPs to retain for
+	// expired DNS lookups with still-active connections
+	ToFQDNsMaxDeferredConnectionDeletes = 10000
+
 	// ToFQDNsPreCache is a path to a file with DNS cache data to insert into the
 	// global cache on startup.
 	// The file is not re-read after agent start.
@@ -282,6 +286,10 @@ const (
 	// CiliumNode.Spec.ENI.PreAllocate if no value is set
 	ENIPreAllocation = 8
 
+	// ENIFirstInterfaceIndex is the default value for
+	// CiliumNode.Spec.ENI.FirstInterfaceIndex if no value is set
+	ENIFirstInterfaceIndex = 1
+
 	// ENIParallelWorkers is the default max number of workers that process ENI operations
 	ENIParallelWorkers = 50
 
@@ -325,4 +333,11 @@ const (
 	// EnableWellKnownIdentities is enabled by default as this is the
 	// original behavior. New default Helm templates will disable this.
 	EnableWellKnownIdentities = true
+
+	// CertsDirectory is the default directory used to find certificates
+	// specified in the L7 policies.
+	CertsDirectory = RuntimePath + "/certs"
+
+	// EnableRemoteNodeIdentity is the default value for option.EnableRemoteNodeIdentity
+	EnableRemoteNodeIdentity = false
 )
