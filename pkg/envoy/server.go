@@ -862,7 +862,6 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool)
 		canShortCircuit := true
 		for sel, l7 := range l4.L7RulesPerEp {
 			rule, cs := getPortNetworkPolicyRule(sel, l4.L7Parser, l7)
-			log.Debugf("Policy %s: %s can short circuit: %v (canShortCircuit %v)", sel.String(), rule.String(), cs, canShortCircuit)
 			if !cs {
 				canShortCircuit = false
 			}
