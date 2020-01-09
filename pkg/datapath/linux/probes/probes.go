@@ -82,6 +82,7 @@ type SystemConfig struct {
 	ConfigBpfilter               KernelParam `json:"CONFIG_BPFILTER"`
 	ConfigBpfilterUmh            KernelParam `json:"CONFIG_BPFILTER_UMH"`
 	ConfigTestBpf                KernelParam `json:"CONFIG_TEST_BPF"`
+	ConfigIPMultipleTables       KernelParam `json:"CONFIG_IP_MULTIPLE_TABLES"`
 }
 
 // Features contains BPF feature checks returned by bpftool.
@@ -142,6 +143,10 @@ func (p *ProbeManager) SystemConfigProbes() error {
 	if !config.ConfigHaveEbpfJit.Enabled() {
 		return fmt.Errorf(
 			"CONFIG_HAVE_EBPF_JIT kernel parameter is required")
+	}
+	if !config.ConfigIPMultipleTables.Enabled() {
+		return fmt.Errorf(
+			"CONFIG_IP_MULTIPLE_TABLES kernel parameter is required")
 	}
 	// Optional
 	if !config.ConfigCgroupBpf.Enabled() {
