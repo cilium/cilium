@@ -45,8 +45,8 @@ var _ = Describe("K8sPolicyTest", func() {
 		l7PolicyKafka        string
 		l7PolicyTLS          string
 		TLSCaCerts           string
-		TLSCrt               string
-		TLSKey               string
+		TLSSWapiCrt          string
+		TLSSWapiKey          string
 		TLSCa                string
 		serviceAccountPolicy string
 		knpDenyIngress       string
@@ -72,8 +72,8 @@ var _ = Describe("K8sPolicyTest", func() {
 		l7PolicyKafka = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-kafka.yaml")
 		l7PolicyTLS = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-TLS.yaml")
 		TLSCaCerts = helpers.ManifestGet(kubectl.BasePath(), "testCA.crt")
-		TLSCrt = helpers.ManifestGet(kubectl.BasePath(), "internal-lyft.crt")
-		TLSKey = helpers.ManifestGet(kubectl.BasePath(), "internal-lyft.key")
+		TLSSWapiCrt = helpers.ManifestGet(kubectl.BasePath(), "internal-swapi.crt")
+		TLSSWapiKey = helpers.ManifestGet(kubectl.BasePath(), "internal-swapi.key")
 		TLSCa = helpers.ManifestGet(kubectl.BasePath(), "ca.crt")
 		serviceAccountPolicy = helpers.ManifestGet(kubectl.BasePath(), "service-account.yaml")
 		knpDenyIngress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-deny-ingress.yaml")
@@ -87,6 +87,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 		DeployCiliumOptionsAndDNS(kubectl, []string{
 			"--set global.tls.secretsBackend=k8s",
+			"--set global.debug.verbose=flow",
 		})
 	})
 
@@ -303,8 +304,8 @@ var _ = Describe("K8sPolicyTest", func() {
 			res = kubectl.CreateSecret("generic", "test-client", "default", "--from-file="+TLSCa)
 			res.ExpectSuccess("Cannot create secret %s", "test-client")
 
-			res = kubectl.CreateSecret("tls", "test-server", "default", "--cert="+TLSCrt+" --key="+TLSKey)
-			res.ExpectSuccess("Cannot create secret %s", "test-server")
+			res = kubectl.CreateSecret("tls", "swapi-server", "default", "--cert="+TLSSWapiCrt+" --key="+TLSSWapiKey)
+			res.ExpectSuccess("Cannot create secret %s", "swapi-server")
 
 			res = kubectl.CopyFileToPod(namespaceForTest, appPods[helpers.App2], TLSCaCerts, "/cacert.pem")
 			res.ExpectSuccess("Cannot copy certs to %s", appPods[helpers.App2])
@@ -315,14 +316,14 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			res = kubectl.ExecPodCmd(
 				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlFail("%s https://www.lyft.com:443/privacy", "-v --cacert /cacert.pem"))
-			res.ExpectSuccess("Cannot connect from %q to 'https://www.lyft.com:443/privacy'",
+				helpers.CurlFail("-4 --max-time 15 %s https://swapi.co:443/api/planets/1/", "-v --cacert /cacert.pem"))
+			res.ExpectSuccess("Cannot connect from %q to 'https://swapi.co:443/api/planets/1/'",
 				appPods[helpers.App2])
 
 			res = kubectl.ExecPodCmd(
 				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlFail("%s https://www.lyft.com:443/index.html", "-v --cacert /cacert.pem"))
-			res.ExpectFailWithError("403 Forbidden", "Unexpected connection from %q to 'https://www.lyft.com:443/index.html'",
+				helpers.CurlFail("-4 %s https://swapi.co:443/api/planets/2/", "-v --cacert /cacert.pem"))
+			res.ExpectFailWithError("403 Forbidden", "Unexpected connection from %q to 'https://swapi.co:443/api/planets/2/'",
 				appPods[helpers.App2])
 		}, 500)
 
