@@ -283,6 +283,7 @@ func StartEnvoy(stateDir, logPath string, baseID uint64) *Envoy {
 func newEnvoyLogPiper() io.WriteCloser {
 	reader, writer := io.Pipe()
 	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(nil, 1024*1024)
 	go func() {
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.LogSubsys: "unknown",
