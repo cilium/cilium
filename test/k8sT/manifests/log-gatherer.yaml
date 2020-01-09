@@ -40,7 +40,6 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
       hostPID: true
-      priorityClassName: system-node-critical
       restartPolicy: Always
       serviceAccount: cilium
       serviceAccountName: cilium
