@@ -1048,6 +1048,7 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
+	requestedHostReachableServices := option.Config.EnableHostReachableServices
 	if option.Config.EnableNodePort &&
 		!(option.Config.EnableHostReachableServices &&
 			option.Config.EnableHostServicesTCP && option.Config.EnableHostServicesUDP) {
@@ -1073,7 +1074,14 @@ func initEnv(cmd *cobra.Command) {
 		if option.Config.EnableHostServicesTCP &&
 			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_CONNECT) != nil ||
 				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_CONNECT) != nil) {
-			log.Fatal("BPF host reachable services for TCP needs kernel 4.17.0 or newer.")
+			if !requestedHostReachableServices && option.Config.EnableNodePort {
+				log.Warning("BPF node port requires host reachable services for TCP which needs kernel 4.17.0 or newer. Operating in limited mode without TCP and UDP host reachable services!")
+				option.Config.EnableHostReachableServices = false
+				option.Config.EnableHostServicesTCP = false
+				option.Config.EnableHostServicesUDP = false
+			} else {
+				log.Fatal("BPF host reachable services for TCP needs kernel 4.17.0 or newer.")
+			}
 		}
 		// NOTE: as host-lb is a hard dependency for NodePort BPF, the following
 		//       probe will catch if the fib_lookup helper is missing (< 4.18),
@@ -1081,7 +1089,14 @@ func initEnv(cmd *cobra.Command) {
 		if option.Config.EnableHostServicesUDP &&
 			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP4_RECVMSG) != nil ||
 				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP6_RECVMSG) != nil) {
-			log.Fatal("BPF host reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer. If you run an older kernel and only need TCP, then specify: --host-reachable-services-protos=tcp")
+			if !requestedHostReachableServices && option.Config.EnableNodePort {
+				log.Warning("BPF node port requires host reachable services for UDP which needs kernel 4.19.57, 5.1.16, 5.2.0 or newer. Operating in limited mode without UDP host reachable services!")
+				option.Config.EnableHostReachableServices = true
+				option.Config.EnableHostServicesTCP = true
+				option.Config.EnableHostServicesUDP = false
+			} else {
+				log.Fatal("BPF host reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer. If you run an older kernel and only need TCP, then specify: --host-reachable-services-protos=tcp")
+			}
 		}
 	}
 
