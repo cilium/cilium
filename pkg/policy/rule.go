@@ -108,14 +108,22 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 	}
 
 	for cs, newL7Rules := range filterToMerge.L7RulesPerEp {
+		// skip merging for reserved:none, as it is never
+		// selected, and toFQDN rules currently translate to
+		// reserved:none as an endpoint selector, causing a
+		// merge conflict for different toFQDN destinations
+		// with different TLS contexts.
+		if cs.IsNone() {
+			continue
+		}
 		if l7Rules, ok := existingFilter.L7RulesPerEp[cs]; ok {
 			if !newL7Rules.TerminatingTLS.Equal(l7Rules.TerminatingTLS) {
 				ctx.PolicyTrace("   Merge conflict: mismatching terminating TLS contexts %v/%v\n", newL7Rules.TerminatingTLS, l7Rules.TerminatingTLS)
-				return fmt.Errorf("cannot merge conflicting terminating TLS contexts (%v/%v)", newL7Rules.TerminatingTLS, l7Rules.TerminatingTLS)
+				return fmt.Errorf("cannot merge conflicting terminating TLS contexts for cached selector %s: (%v/%v)", cs.String(), newL7Rules.TerminatingTLS, l7Rules.TerminatingTLS)
 			}
 			if !newL7Rules.OriginatingTLS.Equal(l7Rules.OriginatingTLS) {
 				ctx.PolicyTrace("   Merge conflict: mismatching originating TLS contexts %v/%v\n", newL7Rules.OriginatingTLS, l7Rules.OriginatingTLS)
-				return fmt.Errorf("cannot merge conflicting originating TLS contexts (%v/%v)", newL7Rules.OriginatingTLS, l7Rules.OriginatingTLS)
+				return fmt.Errorf("cannot merge conflicting originating TLS contexts for cached selector %s: (%v/%v)", cs.String(), newL7Rules.OriginatingTLS, l7Rules.OriginatingTLS)
 			}
 
 			switch {

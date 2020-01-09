@@ -47,6 +47,8 @@ var _ = Describe("K8sPolicyTest", func() {
 		TLSCaCerts           string
 		TLSSWapiCrt          string
 		TLSSWapiKey          string
+		TLSLyftCrt           string
+		TLSLyftKey           string
 		TLSCa                string
 		serviceAccountPolicy string
 		knpDenyIngress       string
@@ -74,6 +76,8 @@ var _ = Describe("K8sPolicyTest", func() {
 		TLSCaCerts = helpers.ManifestGet(kubectl.BasePath(), "testCA.crt")
 		TLSSWapiCrt = helpers.ManifestGet(kubectl.BasePath(), "internal-swapi.crt")
 		TLSSWapiKey = helpers.ManifestGet(kubectl.BasePath(), "internal-swapi.key")
+		TLSLyftCrt = helpers.ManifestGet(kubectl.BasePath(), "internal-lyft.crt")
+		TLSLyftKey = helpers.ManifestGet(kubectl.BasePath(), "internal-lyft.key")
 		TLSCa = helpers.ManifestGet(kubectl.BasePath(), "ca.crt")
 		serviceAccountPolicy = helpers.ManifestGet(kubectl.BasePath(), "service-account.yaml")
 		knpDenyIngress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-deny-ingress.yaml")
@@ -307,6 +311,9 @@ var _ = Describe("K8sPolicyTest", func() {
 			res = kubectl.CreateSecret("tls", "swapi-server", "default", "--cert="+TLSSWapiCrt+" --key="+TLSSWapiKey)
 			res.ExpectSuccess("Cannot create secret %s", "swapi-server")
 
+			res = kubectl.CreateSecret("tls", "lyft-server", "default", "--cert="+TLSLyftCrt+" --key="+TLSLyftKey)
+			res.ExpectSuccess("Cannot create secret %s", "lyft-server")
+
 			res = kubectl.CopyFileToPod(namespaceForTest, appPods[helpers.App2], TLSCaCerts, "/cacert.pem")
 			res.ExpectSuccess("Cannot copy certs to %s", appPods[helpers.App2])
 
@@ -324,6 +331,18 @@ var _ = Describe("K8sPolicyTest", func() {
 				namespaceForTest, appPods[helpers.App2],
 				helpers.CurlFail("-4 %s https://swapi.co:443/api/planets/2/", "-v --cacert /cacert.pem"))
 			res.ExpectFailWithError("403 Forbidden", "Unexpected connection from %q to 'https://swapi.co:443/api/planets/2/'",
+				appPods[helpers.App2])
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App2],
+				helpers.CurlFail("-4 %s https://www.lyft.com:443/privacy", "-v --cacert /cacert.pem"))
+			res.ExpectSuccess("Cannot connect from %q to 'https://www.lyft.com:443/privacy'",
+				appPods[helpers.App2])
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App2],
+				helpers.CurlFail("-4 %s https://www.lyft.com:443/private", "-v --cacert /cacert.pem"))
+			res.ExpectFailWithError("403 Forbidden", "Unexpected connection from %q to 'https://www.lyft.com:443/private'",
 				appPods[helpers.App2])
 		}, 500)
 
