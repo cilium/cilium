@@ -12,6 +12,13 @@ import (
 type DescribeAvailabilityZonesInput struct {
 	_ struct{} `type:"structure"`
 
+	// Include all Availability Zones and Local Zones regardless of your opt in
+	// status.
+	//
+	// If you do not use this parameter, the results include only the zones for
+	// the Regions where you have chosen the option to opt in.
+	AllAvailabilityZones *bool `type:"boolean"`
+
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have
 	// the required permissions, the error response is DryRunOperation. Otherwise,
@@ -20,23 +27,31 @@ type DescribeAvailabilityZonesInput struct {
 
 	// The filters.
 	//
-	//    * message - Information about the Availability Zone.
+	//    * group-name - For Availability Zones, use the Region name. For Local
+	//    Zones, use the name of the group associated with the Local Zone (for example,
+	//    us-west-2-lax-1).
 	//
-	//    * region-name - The name of the Region for the Availability Zone (for
-	//    example, us-east-1).
+	//    * message - The Availability Zone or Local Zone message.
 	//
-	//    * state - The state of the Availability Zone (available | information
-	//    | impaired | unavailable).
+	//    * opt-in-status - The opt in status (opted-in, and not-opted-in | opt-in-not-required).
 	//
-	//    * zone-id - The ID of the Availability Zone (for example, use1-az1).
+	//    * region-name - The name of the Region for the Availability Zone or Local
+	//    Zone (for example, us-east-1).
 	//
-	//    * zone-name - The name of the Availability Zone (for example, us-east-1a).
+	//    * state - The state of the Availability Zone or Local Zone (available
+	//    | information | impaired | unavailable).
+	//
+	//    * zone-id - The ID of the Availability Zone (for example, use1-az1) or
+	//    the Local Zone (for example, use usw2-lax1-az1).
+	//
+	//    * zone-name - The name of the Availability Zone (for example, us-east-1a)
+	//    or the Local Zone (for example, use us-west-2-lax-1a).
 	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
 
-	// The IDs of the Availability Zones.
+	// The IDs of the Availability Zones and Local Zones.
 	ZoneIds []string `locationName:"ZoneId" locationNameList:"ZoneId" type:"list"`
 
-	// The names of the Availability Zones.
+	// The names of the Availability Zones and Local Zones.
 	ZoneNames []string `locationName:"ZoneName" locationNameList:"ZoneName" type:"list"`
 }
 
@@ -48,7 +63,7 @@ func (s DescribeAvailabilityZonesInput) String() string {
 type DescribeAvailabilityZonesOutput struct {
 	_ struct{} `type:"structure"`
 
-	// Information about the Availability Zones.
+	// Information about the Availability Zones and Local Zones.
 	AvailabilityZones []AvailabilityZone `locationName:"availabilityZoneInfo" locationNameList:"item" type:"list"`
 }
 
@@ -62,12 +77,13 @@ const opDescribeAvailabilityZones = "DescribeAvailabilityZones"
 // DescribeAvailabilityZonesRequest returns a request value for making API operation for
 // Amazon Elastic Compute Cloud.
 //
-// Describes the Availability Zones that are available to you. The results include
-// zones only for the Region you're currently using. If there is an event impacting
-// an Availability Zone, you can use this request to view the state and any
-// provided message for that Availability Zone.
+// Describes the Availability Zones and Local Zones that are available to you.
+// If there is an event impacting an Availability Zone or Local Zone, you can
+// use this request to view the state and any provided messages for that Availability
+// Zone or Local Zone.
 //
-// For more information, see Regions and Availability Zones (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html)
+// For more information about Availability Zones and Local Zones, see Regions
+// and Availability Zones (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 //
 //    // Example sending a request using DescribeAvailabilityZonesRequest.

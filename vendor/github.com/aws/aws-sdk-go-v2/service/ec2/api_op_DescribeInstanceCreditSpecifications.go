@@ -79,19 +79,19 @@ const opDescribeInstanceCreditSpecifications = "DescribeInstanceCreditSpecificat
 // DescribeInstanceCreditSpecificationsRequest returns a request value for making API operation for
 // Amazon Elastic Compute Cloud.
 //
-// Describes the credit option for CPU usage of the specified T2 or T3 instances.
-// The credit options are standard and unlimited.
+// Describes the credit option for CPU usage of the specified burstable performance
+// instances. The credit options are standard and unlimited.
 //
-// If you do not specify an instance ID, Amazon EC2 returns T2 and T3 instances
-// with the unlimited credit option, as well as instances that were previously
-// configured as T2 or T3 with the unlimited credit option. For example, if
-// you resize a T2 instance, while it is configured as unlimited, to an M4 instance,
-// Amazon EC2 returns the M4 instance.
+// If you do not specify an instance ID, Amazon EC2 returns burstable performance
+// instances with the unlimited credit option, as well as instances that were
+// previously configured as T2, T3, and T3a with the unlimited credit option.
+// For example, if you resize a T2 instance, while it is configured as unlimited,
+// to an M4 instance, Amazon EC2 returns the M4 instance.
 //
 // If you specify one or more instance IDs, Amazon EC2 returns the credit option
 // (standard or unlimited) of those instances. If you specify an instance ID
-// that is not valid, such as an instance that is not a T2 or T3 instance, an
-// error is returned.
+// that is not valid, such as an instance that is not a burstable performance
+// instance, an error is returned.
 //
 // Recently terminated instances might appear in the returned results. This
 // interval is usually less than one hour.

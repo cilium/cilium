@@ -33,9 +33,8 @@ type CreateTrafficMirrorSessionInput struct {
 	// The number of bytes in each packet to mirror. These are bytes after the VXLAN
 	// header. Do not specify this parameter when you want to mirror the entire
 	// packet. To mirror a subset of the packet, set this to the length (in bytes)
-	// that you want to mirror. For example, if you set this value to 1network0,
-	// then the first 100 bytes that meet the filter criteria are copied to the
-	// target.
+	// that you want to mirror. For example, if you set this value to 100, then
+	// the first 100 bytes that meet the filter criteria are copied to the target.
 	//
 	// If you do not want to mirror the entire packet, use the PacketLength parameter
 	// to specify the number of bytes in each packet to mirror.
@@ -132,8 +131,8 @@ const opCreateTrafficMirrorSession = "CreateTrafficMirrorSession"
 // can be in the same VPC, or in a different VPC connected via VPC peering or
 // a transit gateway.
 //
-// By default, no traffic is mirrored. Use CreateTrafficMirrorFilter to create
-// filter rules that specify the traffic to mirror.
+// By default, no traffic is mirrored. Use CreateTrafficMirrorFilter (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTrafficMirrorFilter.htm)
+// to create filter rules that specify the traffic to mirror.
 //
 //    // Example sending a request using CreateTrafficMirrorSessionRequest.
 //    req := client.CreateTrafficMirrorSessionRequest(params)

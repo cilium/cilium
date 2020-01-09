@@ -9,7 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/internal/awsutil"
 )
 
-// Contains the parameters for DescribeVolumeAttribute.
 type DescribeVolumeAttributeInput struct {
 	_ struct{} `type:"structure"`
 
@@ -52,7 +51,6 @@ func (s *DescribeVolumeAttributeInput) Validate() error {
 	return nil
 }
 
-// Contains the output of DescribeVolumeAttribute.
 type DescribeVolumeAttributeOutput struct {
 	_ struct{} `type:"structure"`
 

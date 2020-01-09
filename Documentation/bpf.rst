@@ -181,7 +181,8 @@ architectures in order to perform pointer arithmetics, pass pointers but also pa
 bit values into helper functions, and to allow for 64 bit atomic operations.
 
 The maximum instruction limit per program is restricted to 4096 BPF instructions,
-which, by design, means that any program will terminate quickly. Although the
+which, by design, means that any program will terminate quickly. For kernel newer
+than 5.1 this limit was lifted to 1 million BPF instructions. Although the
 instruction set contains forward as well as backward jumps, the in-kernel BPF
 verifier will forbid loops so that termination is always guaranteed. Since BPF
 programs run inside the kernel, the verifier's job is to make sure that these are

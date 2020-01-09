@@ -57,6 +57,9 @@ type DescribeVpnConnectionsInput struct {
 	//
 	//    * vpn-gateway-id - The ID of a virtual private gateway associated with
 	//    the VPN connection.
+	//
+	//    * transit-gateway-id - The ID of a transit gateway associated with the
+	//    VPN connection.
 	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
 
 	// One or more VPN connection IDs.

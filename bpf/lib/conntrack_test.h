@@ -26,6 +26,16 @@ static void *__map_lookup_elem(void *map, void *tuple)
 #define REPORT_ALL_FLAGS 0xFF
 #define REPORT_NO_FLAGS 0x0
 
+// Advance global (fake) time by one unit.
+void advance_time() {
+	__now = __now + 1;
+}
+
+// Return true IFF 'entry' will expire in 'seconds'.
+bool timeout_in(struct ct_entry *entry, int seconds) {
+        return entry->lifetime == __now + seconds;
+}
+
 static void test___ct_update_timeout()
 {
 	struct ct_entry entry = {};
@@ -75,6 +85,7 @@ static void test___ct_update_timeout()
 static void test___ct_lookup()
 {
 	void *map = __ipv4_map;
+	struct ct_entry *entry = &map[0];
 	struct __sk_buff skb = {};
 	void *tuple = (void *)__TUPLE_EXIST;
 
@@ -90,41 +101,62 @@ static void test___ct_lookup()
 			  &ct_state, true, seen_flags, &monitor);
 	assert(res == CT_ESTABLISHED);
 	assert(monitor == TRACE_PAYLOAD_LEN);
+	assert(timeout_in(entry, CT_SYN_TIMEOUT));
 
-	/* Second with no new flags, no advance in time is not monitored */
+	/* Second packet with the same flags is not monitored; it does reset
+	 * lifetime back to CT_SYN_TIMEOUT. */
+	advance_time();
 	res = __ct_lookup(map, &skb, tuple, ACTION_CREATE, CT_INGRESS,
 			  &ct_state, true, seen_flags, &monitor);
 	assert(res == CT_ESTABLISHED);
 	assert(monitor == 0);
+	assert(timeout_in(entry, CT_SYN_TIMEOUT));
+
+        /* Subsequent non-SYN packets result in a default TCP lifetime */
+	advance_time();
+	seen_flags.value &= ~TCP_FLAG_SYN;
+	res = __ct_lookup(map, &skb, tuple, ACTION_CREATE, CT_INGRESS,
+			  &ct_state, true, seen_flags, &monitor);
+	assert(res == CT_ESTABLISHED);
+	assert(monitor == 0);
+	assert(timeout_in(entry, CT_CONNECTION_LIFETIME_TCP));
 
 	/* Monitor if the connection is closing on one side */
-	/* TODO(GH-9303): Validate entry timeouts */
+	advance_time();
 	seen_flags.value |= TCP_FLAG_FIN;
 	res = __ct_lookup(map, &skb, tuple, ACTION_CLOSE, CT_INGRESS,
 			  &ct_state, true, seen_flags, &monitor);
 	assert(res == CT_ESTABLISHED);
 	assert(monitor == TRACE_PAYLOAD_LEN);
+	assert(timeout_in(entry, CT_CONNECTION_LIFETIME_TCP));
 
 	/* This doesn't automatically trigger monitor for subsequent packets */
+	advance_time();
 	seen_flags.value &= ~TCP_FLAG_FIN;
 	res = __ct_lookup(map, &skb, tuple, ACTION_CREATE, CT_INGRESS,
 			  &ct_state, true, seen_flags, &monitor);
 	assert(res == CT_ESTABLISHED);
 	assert(monitor == 0);
+	assert(timeout_in(entry, CT_CONNECTION_LIFETIME_TCP));
 
-	/* Monitor if the connection is closing on the other side */
-	/* TODO(GH-9303): Validate entry timeouts */
+	/* Monitor if the connection is closing on the other side. This
+	 * second FIN on the other side will reset lifetime to
+	 * CT_CLOSE_TIMEOUT. */
+	advance_time();
 	seen_flags.value |= TCP_FLAG_FIN;
 	res = __ct_lookup(map, &skb, tuple, ACTION_CLOSE, CT_EGRESS,
 			  &ct_state, true, seen_flags, &monitor);
 	assert(res == CT_ESTABLISHED);
 	assert(monitor == TRACE_PAYLOAD_LEN);
+        assert(timeout_in(entry, CT_CLOSE_TIMEOUT));
 
 	/* This doesn't automatically trigger monitor for subsequent packets */
-	/* TODO(GH-9303): Validate entry timeouts */
+	advance_time();
+	monitor = 0;
 	seen_flags.value &= ~TCP_FLAG_FIN;
 	res = __ct_lookup(map, &skb, tuple, ACTION_CREATE, CT_EGRESS,
 			  &ct_state, true, seen_flags, &monitor);
 	assert(res == CT_ESTABLISHED);
 	assert(monitor == 0);
+	assert(timeout_in(entry, CT_CLOSE_TIMEOUT - 1));
 }

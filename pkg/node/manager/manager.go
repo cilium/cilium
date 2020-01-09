@@ -280,24 +280,22 @@ func (m *Manager) backgroundSync() {
 func (m *Manager) NodeUpdated(n node.Node) {
 	log.Debugf("Received node update event from %s: %#v", n.Source, n)
 	nodeIdentity := n.Identity()
-	var nodeIP, nodeIP4 net.IP
 	dpUpdate := true
+	nodeIP := n.GetNodeIP(false)
+
+	remoteHostIdentity := identity.ReservedIdentityHost
+	if option.Config.EnableRemoteNodeIdentity && n.Source != source.Local {
+		remoteHostIdentity = identity.ReservedIdentityRemoteNode
+	}
 
 	for _, address := range n.IPAddresses {
-		// Map the Cilium internal IP to the reachable node IP so it
-		// can be routed via the overlay. Routing via overlay is always
-		// done via public v4 address hence n.GetNodeIP(false).
-		if address.Type == addressing.NodeCiliumInternalIP {
-			nodeIP = n.GetNodeIP(false)
-			if address.IP.To4() != nil {
-				nodeIP4 = nodeIP
-			}
-		} else {
-			continue
+		var tunnelIP net.IP
+		if address.Type == addressing.NodeCiliumInternalIP || option.Config.EncryptNode {
+			tunnelIP = nodeIP
 		}
 
-		isOwning := ipcache.IPIdentityCache.Upsert(address.IP.String(), nodeIP, n.EncryptionKey, nil, ipcache.Identity{
-			ID:     identity.ReservedIdentityHost,
+		isOwning := ipcache.IPIdentityCache.Upsert(address.IP.String(), tunnelIP, n.EncryptionKey, nil, ipcache.Identity{
+			ID:     remoteHostIdentity,
 			Source: n.Source,
 		})
 
@@ -309,27 +307,12 @@ func (m *Manager) NodeUpdated(n node.Node) {
 			dpUpdate = false
 		}
 	}
-	if option.Config.EncryptNode {
-		for _, address := range n.IPAddresses {
-			if address.Type == addressing.NodeCiliumInternalIP {
-				continue
-			}
-
-			isOwning := ipcache.IPIdentityCache.Upsert(address.IP.String(), nodeIP4, n.EncryptionKey, nil, ipcache.Identity{
-				ID:     identity.ReservedIdentityHost,
-				Source: n.Source,
-			})
-			if !isOwning {
-				dpUpdate = false
-			}
-		}
-	}
 
 	for _, address := range []net.IP{n.IPv4HealthIP, n.IPv6HealthIP} {
 		if address == nil {
 			continue
 		}
-		isOwning := ipcache.IPIdentityCache.Upsert(address.String(), n.GetNodeIP(false), n.EncryptionKey, nil, ipcache.Identity{
+		isOwning := ipcache.IPIdentityCache.Upsert(address.String(), nodeIP, n.EncryptionKey, nil, ipcache.Identity{
 			ID:     identity.ReservedIdentityHealth,
 			Source: n.Source,
 		})

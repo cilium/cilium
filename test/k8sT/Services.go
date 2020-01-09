@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
@@ -46,6 +47,18 @@ var _ = Describe("K8sServicesTest", func() {
 		By(fmt.Sprintf("Applying policy %s", path))
 		_, err := kubectl.CiliumPolicyAction(helpers.DefaultNamespace, path, helpers.KubectlApply, helpers.HelperTimeout)
 		ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", path, err))
+	}
+
+	// This is wrapped this way since BeforeAll sets kubectl and we must only
+	// run this after BeforeAll has completed. This happens during the actual
+	// Context/It/By calls.
+	getNodeInfo := func(label string) (nodeName, nodeIP string) {
+		// Nodes are used in testNodePort and testExternalTrafficPolicyLocal below
+		nodeName, err := kubectl.GetNodeNameByLabel(label)
+		Expect(err).To(BeNil(), "Cannot get node by label "+label)
+		nodeIP, err = kubectl.GetNodeIPByLabel(label)
+		Expect(err).Should(BeNil(), "Can not retrieve Node IP for "+label)
+		return nodeName, nodeIP
 	}
 
 	BeforeAll(func() {
@@ -148,7 +161,8 @@ var _ = Describe("K8sServicesTest", func() {
 			By("testing connectivity via cluster IP %s", clusterIP)
 			monitorStop := kubectl.MonitorStart(helpers.KubeSystemNamespace, ciliumPodK8s1,
 				"cluster-ip-same-node.log")
-			status, err := kubectl.ExecInHostNetNS(context.TODO(), helpers.K8s1,
+			k8s1Name, _ := getNodeInfo(helpers.K8s1)
+			status, err := kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
 				helpers.CurlFail("http://%s/", clusterIP))
 			monitorStop()
 			Expect(err).To(BeNil(), "Cannot run curl in host netns")
@@ -216,12 +230,42 @@ var _ = Describe("K8sServicesTest", func() {
 			}
 		}
 
+		failRequests := func(url string, count int, fromPod string) {
+			By("Making %d HTTP requests from %s to %q", count, fromPod, url)
+			for i := 1; i <= count; i++ {
+				res, err := kubectl.ExecInHostNetNS(context.TODO(), fromPod, helpers.CurlFail(url, "--max-time 3"))
+				ExpectWithOffset(1, err).To(BeNil(), "Cannot run curl in host netns")
+				ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
+					"%s host unexpectedly connected to service %q, it should fail", fromPod, url)
+			}
+		}
+
+		getURL := func(host string, port int32) string {
+			return fmt.Sprintf("http://%s",
+				net.JoinHostPort(host, fmt.Sprintf("%d", port)))
+		}
+
+		doRequestsFromOutsideClient := func(url string, count int, checkSourceIP bool) {
+			ssh := helpers.GetVagrantSSHMeta(helpers.K8s1VMName())
+			By("Making %d HTTP requests from outside cluster to %q", count, url)
+			for i := 1; i <= count; i++ {
+				cmd := helpers.CurlFail(url)
+				if checkSourceIP {
+					cmd += " | grep client_address="
+				}
+				res := ssh.ContainerExec("client-from-outside", cmd)
+				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
+					"Can not connect to service %q from outside cluster", url)
+				if checkSourceIP {
+					Expect(strings.TrimSpace(strings.Split(res.GetStdOut(), "=")[1])).To(Equal("192.168.10.10"))
+				}
+			}
+		}
+
 		testNodePort := func(bpfNodePort bool) {
 			var data v1.Service
-			getURL := func(host string, port int32) string {
-				return fmt.Sprintf("http://%s",
-					net.JoinHostPort(host, fmt.Sprintf("%d", port)))
-			}
+			k8s1Name, k8s1IP := getNodeInfo(helpers.K8s1)
+			k8s2Name, k8s2IP := getNodeInfo(helpers.K8s1)
 
 			waitPodsDs()
 
@@ -234,32 +278,32 @@ var _ = Describe("K8sServicesTest", func() {
 			// TODO: IPv6
 			count := 10
 			url = getURL("127.0.0.1", data.Spec.Ports[0].NodePort)
-			doRequests(url, count, helpers.K8s1)
+			doRequests(url, count, k8s1Name)
 
-			url = getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
-			doRequests(url, count, helpers.K8s1)
+			url = getURL(k8s1IP, data.Spec.Ports[0].NodePort)
+			doRequests(url, count, k8s1Name)
 
-			url = getURL(helpers.K8s2Ip, data.Spec.Ports[0].NodePort)
-			doRequests(url, count, helpers.K8s1)
+			url = getURL(k8s2IP, data.Spec.Ports[0].NodePort)
+			doRequests(url, count, k8s1Name)
 
 			// From pod via node IPs
-			url = getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
+			url = getURL(k8s1IP, data.Spec.Ports[0].NodePort)
 			testHTTPRequest(testDSClient, url)
-			url = getURL(helpers.K8s2Ip, data.Spec.Ports[0].NodePort)
+			url = getURL(k8s2IP, data.Spec.Ports[0].NodePort)
 			testHTTPRequest(testDSClient, url)
 
 			if bpfNodePort {
 				// From host via local cilium_host
-				localCiliumHostIPv4, err := kubectl.GetCiliumHostIPv4(context.TODO(), helpers.K8s1)
+				localCiliumHostIPv4, err := kubectl.GetCiliumHostIPv4(context.TODO(), k8s1Name)
 				Expect(err).Should(BeNil(), "Cannot retrieve local cilium_host ipv4")
 				url = getURL(localCiliumHostIPv4, data.Spec.Ports[0].NodePort)
-				doRequests(url, count, helpers.K8s1)
+				doRequests(url, count, k8s1Name)
 
 				// From host via remote cilium_host
-				remoteCiliumHostIPv4, err := kubectl.GetCiliumHostIPv4(context.TODO(), helpers.K8s2)
+				remoteCiliumHostIPv4, err := kubectl.GetCiliumHostIPv4(context.TODO(), k8s2Name)
 				Expect(err).Should(BeNil(), "Cannot retrieve remote cilium_host ipv4")
 				url = getURL(remoteCiliumHostIPv4, data.Spec.Ports[0].NodePort)
-				doRequests(url, count, helpers.K8s1)
+				doRequests(url, count, k8s1Name)
 
 				// From pod via loopback (host reachable services)
 				url = getURL("127.0.0.1", data.Spec.Ports[0].NodePort)
@@ -275,11 +319,41 @@ var _ = Describe("K8sServicesTest", func() {
 			}
 		}
 
+		testExternalTrafficPolicyLocal := func() {
+			var data v1.Service
+			k8s1Name, k8s1IP := getNodeInfo(helpers.K8s1)
+			k8s2Name, k8s2IP := getNodeInfo(helpers.K8s1)
+
+			// Checks requests are not SNATed when externalTrafficPolicy=Local
+			err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-local").Unmarshal(&data)
+			Expect(err).Should(BeNil(), "Can not retrieve service")
+
+			count := 10
+			url := getURL(k8s1IP, data.Spec.Ports[0].NodePort)
+			doRequestsFromOutsideClient(url, count, true)
+
+			// Checks that requests to k8s1 succeed, while requests to k8s2 are dropped
+			err = kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-local-k8s1").Unmarshal(&data)
+			Expect(err).Should(BeNil(), "Can not retrieve service")
+
+			url = getURL(k8s1IP, data.Spec.Ports[0].NodePort)
+			doRequests(url, count, k8s1Name)
+			doRequests(url, count, k8s2Name)
+
+			url = getURL(k8s2IP, data.Spec.Ports[0].NodePort)
+			failRequests(url, count, k8s1Name)
+			failRequests(url, count, k8s2Name)
+		}
+
 		It("Tests NodePort (kube-proxy)", func() {
 			testNodePort(false)
 		})
 
-		Context("with L7 policy", func() {
+		It("Tests NodePort (kube-proxy) with externalTrafficPolicy=Local", func() {
+			testExternalTrafficPolicyLocal()
+		})
+
+		SkipContextIf(func() bool { return helpers.IsIntegration(helpers.CIIntegrationEKS) }, "with L7 policy", func() {
 			var (
 				demoPolicy string
 			)
@@ -325,27 +399,42 @@ var _ = Describe("K8sServicesTest", func() {
 				DeployCiliumAndDNS(kubectl)
 			})
 
-			It("Tests with vxlan", func() {
-				deleteCiliumDS(kubectl)
-
-				DeployCiliumOptionsAndDNS(kubectl, []string{
-					"--set global.nodePort.enabled=true",
-					"--set global.nodePort.device=" + nativeDev,
+			Context("Tests with vxlan", func() {
+				BeforeAll(func() {
+					deleteCiliumDS(kubectl)
+					DeployCiliumOptionsAndDNS(kubectl, []string{
+						"--set global.nodePort.enabled=true",
+						"--set global.nodePort.device=" + nativeDev,
+					})
 				})
 
-				testNodePort(true)
+				It("Tests NodePort", func() {
+					testNodePort(true)
+				})
+
+				It("Tests NodePort with externalTrafficPolicy=Local", func() {
+					testExternalTrafficPolicyLocal()
+				})
 			})
 
-			It("Tests with direct routing", func() {
-				deleteCiliumDS(kubectl)
-				DeployCiliumOptionsAndDNS(kubectl, []string{
-					"--set global.nodePort.enabled=true",
-					"--set global.nodePort.device=" + nativeDev,
-					"--set global.tunnel=disabled",
-					"--set global.autoDirectNodeRoutes=true",
+			Context("Tests with direct routing", func() {
+				BeforeAll(func() {
+					deleteCiliumDS(kubectl)
+					DeployCiliumOptionsAndDNS(kubectl, []string{
+						"--set global.nodePort.enabled=true",
+						"--set global.nodePort.device=" + nativeDev,
+						"--set global.tunnel=disabled",
+						"--set global.autoDirectNodeRoutes=true",
+					})
 				})
 
-				testNodePort(true)
+				It("Tests NodePort", func() {
+					testNodePort(true)
+				})
+
+				It("Tests NodePort with externalTrafficPolicy=Local", func() {
+					testExternalTrafficPolicyLocal()
+				})
 			})
 
 			Context("Tests with MetalLB", func() {
@@ -369,8 +458,11 @@ var _ = Describe("K8sServicesTest", func() {
 						helpers.DefaultNamespace, "test-lb", 30*time.Second)
 					Expect(err).Should(BeNil(), "Cannot retrieve loadbalancer IP for test-lb")
 
-					doRequests("http://"+lbIP, 10, helpers.K8s1)
-					doRequests("http://"+lbIP, 10, helpers.K8s2)
+					k8s1Name, _ := getNodeInfo(helpers.K8s1)
+					k8s2Name, _ := getNodeInfo(helpers.K8s2)
+					doRequestsFromOutsideClient("http://"+lbIP, 10, false)
+					doRequests("http://"+lbIP, 10, k8s1Name)
+					doRequests("http://"+lbIP, 10, k8s2Name)
 				})
 			})
 		})
@@ -638,7 +730,7 @@ var _ = Describe("K8sServicesTest", func() {
 	//
 	// })
 
-	Context("Bookinfo Demo", func() {
+	SkipContextIf(func() bool { return helpers.IsIntegration(helpers.CIIntegrationEKS) }, "Bookinfo Demo", func() {
 
 		var (
 			bookinfoV1YAML, bookinfoV2YAML string

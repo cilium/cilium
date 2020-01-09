@@ -47,18 +47,19 @@ const (
 )
 
 type API struct {
-	mutex      lock.RWMutex
-	unattached map[string]*v2.ENI
-	enis       map[string]eniMap
-	subnets    map[string]*types.Subnet
-	vpcs       map[string]*types.Vpc
-	errors     map[Operation]error
-	delays     map[Operation]time.Duration
-	allocator  *ipallocator.Range
-	limiter    *rate.Limiter
+	mutex          lock.RWMutex
+	unattached     map[string]*v2.ENI
+	enis           map[string]eniMap
+	subnets        map[string]*types.Subnet
+	vpcs           map[string]*types.Vpc
+	securityGroups map[string]*types.SecurityGroup
+	errors         map[Operation]error
+	delays         map[Operation]time.Duration
+	allocator      *ipallocator.Range
+	limiter        *rate.Limiter
 }
 
-func NewAPI(subnets []*types.Subnet, vpcs []*types.Vpc) *API {
+func NewAPI(subnets []*types.Subnet, vpcs []*types.Vpc, securityGroups []*types.SecurityGroup) *API {
 	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
 	cidrRange, err := ipallocator.NewCIDRRange(cidr)
 	if err != nil {
@@ -66,13 +67,14 @@ func NewAPI(subnets []*types.Subnet, vpcs []*types.Vpc) *API {
 	}
 
 	api := &API{
-		unattached: map[string]*v2.ENI{},
-		enis:       map[string]eniMap{},
-		subnets:    map[string]*types.Subnet{},
-		vpcs:       map[string]*types.Vpc{},
-		allocator:  cidrRange,
-		errors:     map[Operation]error{},
-		delays:     map[Operation]time.Duration{},
+		unattached:     map[string]*v2.ENI{},
+		enis:           map[string]eniMap{},
+		subnets:        map[string]*types.Subnet{},
+		vpcs:           map[string]*types.Vpc{},
+		securityGroups: map[string]*types.SecurityGroup{},
+		allocator:      cidrRange,
+		errors:         map[Operation]error{},
+		delays:         map[Operation]time.Duration{},
 	}
 
 	for _, s := range subnets {
@@ -81,6 +83,10 @@ func NewAPI(subnets []*types.Subnet, vpcs []*types.Vpc) *API {
 
 	for _, v := range vpcs {
 		api.vpcs[v.ID] = v
+	}
+
+	for _, sg := range securityGroups {
+		api.securityGroups[sg.ID] = sg
 	}
 
 	return api
@@ -400,4 +406,16 @@ func (e *API) TagENI(ctx context.Context, eniID string, eniTags map[string]strin
 	}
 
 	return nil
+}
+
+func (e *API) GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, error) {
+	securityGroups := types.SecurityGroupMap{}
+
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+
+	for _, sg := range e.securityGroups {
+		securityGroups[sg.ID] = sg
+	}
+	return securityGroups, nil
 }

@@ -12,13 +12,18 @@ import (
 type CreateSubnetInput struct {
 	_ struct{} `type:"structure"`
 
-	// The Availability Zone for the subnet.
+	// The Availability Zone or Local Zone for the subnet.
 	//
 	// Default: AWS selects one for you. If you create more than one subnet in your
-	// VPC, we may not necessarily select a different zone for each subnet.
+	// VPC, we do not necessarily select a different zone for each subnet.
+	//
+	// To create a subnet in a Local Zone, set this value to the Local Zone ID,
+	// for example us-west-2-lax-1a. For information about the Regions that support
+	// Local Zones, see Available Regions (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-available-regions)
+	// in the Amazon Elastic Compute Cloud User Guide.
 	AvailabilityZone *string `type:"string"`
 
-	// The AZ ID of the subnet.
+	// The AZ ID or the Local Zone ID of the subnet.
 	AvailabilityZoneId *string `type:"string"`
 
 	// The IPv4 network range for the subnet, in CIDR notation. For example, 10.0.0.0/24.
@@ -35,6 +40,9 @@ type CreateSubnetInput struct {
 	// The IPv6 network range for the subnet, in CIDR notation. The subnet size
 	// must use a /64 prefix length.
 	Ipv6CidrBlock *string `type:"string"`
+
+	// The Amazon Resource Name (ARN) of the Outpost.
+	OutpostArn *string `type:"string"`
 
 	// The ID of the VPC.
 	//

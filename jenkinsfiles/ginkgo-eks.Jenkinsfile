@@ -59,41 +59,45 @@ pipeline {
                }
             }
         }
-        stage('Make Cilium images') {
-            environment {
-                TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
-            }
-            steps {
-                sh 'cd ${TESTDIR}; ./make-images-push-to-local-registry.sh $(./print-node-ip.sh) latest'
-            }
-            post {
-                unsuccessful {
-                    script {
-                        if  (!currentBuild.displayName.contains('fail')) {
-                            currentBuild.displayName = 'building or pushing Cilium images failed ' + currentBuild.displayName
+        stage('Make Cilium images and prepare eks cluster') {
+            parallel {
+                stage('Make Cilium images') {
+                    environment {
+                        TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
+                    }
+                    steps {
+                        sh 'cd ${TESTDIR}; ./make-images-push-to-local-registry.sh $(./print-node-ip.sh) latest'
+                    }
+                    post {
+                        unsuccessful {
+                            script {
+                                if  (!currentBuild.displayName.contains('fail')) {
+                                    currentBuild.displayName = 'building or pushing Cilium images failed ' + currentBuild.displayName
+                                }
+                            }
                         }
                     }
                 }
-            }
-        }
-        stage ("Select cluster and scale it"){
-            options {
-                timeout(time: 20, unit: 'MINUTES')
-            }
-            environment {
-                FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
-            }
-            steps {
-                dir("${TESTDIR}/eks") {
-                    sh './select-cluster.sh'
-                }
-            }
-            post {
-                unsuccessful {
-                    sh 'cd ${TESTDIR}/eks; ./release-cluster.sh'
-                    script {
-                        if  (!currentBuild.displayName.contains('fail')) {
-                            currentBuild.displayName = 'Scaling cluster failed\n' + currentBuild.displayName
+                stage ("Select cluster and scale it"){
+                    options {
+                        timeout(time: 20, unit: 'MINUTES')
+                    }
+                    environment {
+                        FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
+                    }
+                    steps {
+                        dir("${TESTDIR}/eks") {
+                            sh './select-cluster.sh'
+                        }
+                    }
+                    post {
+                        unsuccessful {
+                            sh 'cd ${TESTDIR}/eks; ./release-cluster.sh'
+                            script {
+                                if  (!currentBuild.displayName.contains('fail')) {
+                                    currentBuild.displayName = 'Scaling cluster failed\n' + currentBuild.displayName
+                                }
+                            }
                         }
                     }
                 }
@@ -133,9 +137,9 @@ pipeline {
   }
     post {
         always {
+            sh 'cd ${TESTDIR}/eks; ./release-cluster.sh || true'
             cleanWs()
             sh '/usr/local/bin/cleanup || true'
         }
     }
 }
-

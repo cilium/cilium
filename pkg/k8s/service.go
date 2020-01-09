@@ -93,13 +93,22 @@ func ParseService(svc *types.Service) (ServiceID, *Service) {
 		headless = true
 	}
 
+	var trafficPolicy loadbalancer.SVCTrafficPolicy
+	switch svc.Spec.ExternalTrafficPolicy {
+	case v1.ServiceExternalTrafficPolicyTypeLocal:
+		trafficPolicy = loadbalancer.SVCTrafficPolicyLocal
+	default:
+		trafficPolicy = loadbalancer.SVCTrafficPolicyCluster
+	}
+
 	for _, ip := range svc.Status.LoadBalancer.Ingress {
 		if ip.IP != "" {
 			loadBalancerIPs = append(loadBalancerIPs, ip.IP)
 		}
 	}
 
-	svcInfo := NewService(clusterIP, svc.Spec.ExternalIPs, loadBalancerIPs, headless, svc.Labels, svc.Spec.Selector)
+	svcInfo := NewService(clusterIP, svc.Spec.ExternalIPs, loadBalancerIPs, headless,
+		trafficPolicy, svc.Labels, svc.Spec.Selector)
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
 	svcInfo.Shared = getAnnotationShared(svc)
 
@@ -129,17 +138,16 @@ func ParseService(svc *types.Service) (ServiceID, *Service) {
 				port := uint16(port.NodePort)
 				id := loadbalancer.ID(0) // will be allocated by k8s_watcher
 
-				// TODO(brb) switch to if-clause when dual stack is supported
-				switch {
-				case option.Config.EnableIPv4 &&
-					clusterIP != nil && !strings.Contains(svc.Spec.ClusterIP, ":"):
+				if option.Config.EnableIPv4 &&
+					clusterIP != nil && !strings.Contains(svc.Spec.ClusterIP, ":") {
 
 					for _, ip := range []net.IP{net.IPv4(0, 0, 0, 0), node.GetNodePortIPv4(), node.GetInternalIPv4()} {
 						nodePortFE := loadbalancer.NewL3n4AddrID(proto, ip, port, id)
 						svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
 					}
-				case option.Config.EnableIPv6 &&
-					clusterIP != nil && strings.Contains(svc.Spec.ClusterIP, ":"):
+				}
+				if option.Config.EnableIPv6 &&
+					clusterIP != nil && strings.Contains(svc.Spec.ClusterIP, ":") {
 
 					for _, ip := range []net.IP{net.IPv6zero, node.GetNodePortIPv6(), node.GetIPv6Router()} {
 						nodePortFE := loadbalancer.NewL3n4AddrID(proto, ip, port, id)
@@ -202,6 +210,10 @@ type Service struct {
 	// Shared is true when the service should be exposed/shared to other clusters
 	Shared bool
 
+	// TrafficPolicy controls how backends are selected. If set to "Local", only
+	// node-local backends are chosen
+	TrafficPolicy loadbalancer.SVCTrafficPolicy
+
 	Ports map[loadbalancer.FEPortName]*loadbalancer.L4Addr
 	// NodePorts stores mapping for port name => NodePort frontend addr string =>
 	// NodePort fronted addr. The string addr => addr indirection is to avoid
@@ -246,6 +258,7 @@ func (s *Service) DeepEquals(o *Service) bool {
 		return true
 	}
 	if s.IsHeadless == o.IsHeadless &&
+		s.TrafficPolicy == o.TrafficPolicy &&
 		s.FrontendIP.Equal(o.FrontendIP) &&
 		comparator.MapStringEquals(s.Labels, o.Labels) &&
 		comparator.MapStringEquals(s.Selector, o.Selector) {
@@ -326,8 +339,9 @@ func parseIPs(externalIPs []string) map[string]net.IP {
 }
 
 // NewService returns a new Service with the Ports map initialized.
-func NewService(ip net.IP, externalIPs []string, loadBalancerIPs []string, headless bool,
-	labels map[string]string, selector map[string]string) *Service {
+func NewService(ip net.IP, externalIPs []string, loadBalancerIPs []string,
+	headless bool, trafficPolicy loadbalancer.SVCTrafficPolicy,
+	labels, selector map[string]string) *Service {
 
 	var k8sExternalIPs map[string]net.IP
 	var k8sLoadBalancerIPs map[string]net.IP
@@ -340,6 +354,7 @@ func NewService(ip net.IP, externalIPs []string, loadBalancerIPs []string, headl
 	return &Service{
 		FrontendIP:      ip,
 		IsHeadless:      headless,
+		TrafficPolicy:   trafficPolicy,
 		Ports:           map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
 		NodePorts:       map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
 		K8sExternalIPs:  k8sExternalIPs,
@@ -383,8 +398,8 @@ func NewClusterService(id ServiceID, k8sService *Service, k8sEndpoints *Endpoint
 	svc.Frontends[k8sService.FrontendIP.String()] = portConfig
 
 	svc.Backends = map[string]service.PortConfiguration{}
-	for ipString, portConfig := range k8sEndpoints.Backends {
-		svc.Backends[ipString] = portConfig
+	for ipString, backend := range k8sEndpoints.Backends {
+		svc.Backends[ipString] = backend.Ports
 	}
 
 	return svc

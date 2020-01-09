@@ -148,8 +148,8 @@ func (f *fakePolicyRepository) TranslateRules(translator policy.Translator) (*po
 
 type fakeSvcManager struct {
 	OnDeleteService func(frontend loadbalancer.L3n4Addr) (bool, error)
-	OnUpsertService func(frontend loadbalancer.L3n4AddrID, backends []loadbalancer.Backend,
-		svcType loadbalancer.SVCType, svcName, svcNamespace string) (bool, loadbalancer.ID, error)
+	OnUpsertService func(frontend loadbalancer.L3n4AddrID, backends []loadbalancer.Backend, svcType loadbalancer.SVCType,
+		svcTrafficPolicy loadbalancer.SVCTrafficPolicy, svcName, svcNamespace string) (bool, loadbalancer.ID, error)
 }
 
 func (f *fakeSvcManager) DeleteService(frontend loadbalancer.L3n4Addr) (bool, error) {
@@ -160,11 +160,11 @@ func (f *fakeSvcManager) DeleteService(frontend loadbalancer.L3n4Addr) (bool, er
 }
 
 func (f *fakeSvcManager) UpsertService(frontend loadbalancer.L3n4AddrID, backends []loadbalancer.Backend,
-	svcType loadbalancer.SVCType, svcName, svcNamespace string) (bool, loadbalancer.ID, error) {
+	svcType loadbalancer.SVCType, svcTrafficPolicy loadbalancer.SVCTrafficPolicy, svcName, svcNamespace string) (bool, loadbalancer.ID, error) {
 	if f.OnUpsertService != nil {
-		return f.OnUpsertService(frontend, backends, svcType, svcName, svcNamespace)
+		return f.OnUpsertService(frontend, backends, svcType, svcTrafficPolicy, svcName, svcNamespace)
 	}
-	panic("OnUpsertService(loadbalancer.L3n4AddrID, []loadbalancer.Backend, loadbalancer.SVCType, string, string) (bool, loadbalancer.ID, error) was called and is not set!")
+	panic("OnUpsertService(loadbalancer.L3n4AddrID, []loadbalancer.Backend, loadbalancer.SVCType, loadbalancer.SVCTrafficPolicy string, string) (bool, loadbalancer.ID, error) was called and is not set!")
 }
 
 func (s *K8sWatcherSuite) TestUpdateToServiceEndpointsGH9525(c *C) {
@@ -511,6 +511,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
 			fe loadbalancer.L3n4AddrID,
 			bes []loadbalancer.Backend,
 			svcType loadbalancer.SVCType,
+			svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
 			svcName,
 			namespace string) (
 			b bool,
@@ -679,6 +680,7 @@ func (s *K8sWatcherSuite) TestChangeSVCPort(c *C) {
 			fe loadbalancer.L3n4AddrID,
 			bes []loadbalancer.Backend,
 			svcType loadbalancer.SVCType,
+			svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
 			svcName,
 			namespace string) (
 			b bool,
@@ -1139,6 +1141,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 			fe loadbalancer.L3n4AddrID,
 			bes []loadbalancer.Backend,
 			svcType loadbalancer.SVCType,
+			svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
 			svcName,
 			namespace string) (
 			b bool,
@@ -1461,6 +1464,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_1(c *C) {
 			fe loadbalancer.L3n4AddrID,
 			bes []loadbalancer.Backend,
 			svcType loadbalancer.SVCType,
+			svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
 			svcName,
 			namespace string) (
 			b bool,
@@ -1775,6 +1779,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 			fe loadbalancer.L3n4AddrID,
 			bes []loadbalancer.Backend,
 			svcType loadbalancer.SVCType,
+			svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
 			svcName,
 			namespace string) (
 			b bool,
@@ -2643,6 +2648,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 			fe loadbalancer.L3n4AddrID,
 			bes []loadbalancer.Backend,
 			svcType loadbalancer.SVCType,
+			svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
 			svcName,
 			namespace string) (
 			b bool,

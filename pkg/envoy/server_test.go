@@ -47,12 +47,18 @@ var PortRuleHTTP1 = &api.PortRuleHTTP{
 	Path:    "/foo",
 	Method:  "GET",
 	Host:    "foo.cilium.io",
-	Headers: []string{"header2 value", "header1"},
+	Headers: []string{"header2: value", "header1"},
 }
 
 var PortRuleHTTP2 = &api.PortRuleHTTP{
 	Path:   "/bar",
 	Method: "PUT",
+}
+
+var PortRuleHTTP2HeaderMatch = &api.PortRuleHTTP{
+	Path:          "/bar",
+	Method:        "PUT",
+	HeaderMatches: []*api.HeaderMatch{{Mismatch: api.MismatchActionReplace, Name: "user-agent", Value: "dummy-agent"}},
 }
 
 var PortRuleHTTP3 = &api.PortRuleHTTP{
@@ -91,6 +97,14 @@ var ExpectedHeaders2 = []*envoy_api_v2_route.HeaderMatcher{
 	{
 		Name:                 ":path",
 		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "/bar"},
+	},
+}
+
+var ExpectedHeaderMatches2 = []*cilium.HeaderMatch{
+	{
+		MismatchAction: cilium.HeaderMatch_REPLACE_ON_MISMATCH,
+		Name:           "user-agent",
+		Value:          "dummy-agent",
 	},
 }
 
@@ -151,9 +165,11 @@ var (
 	cachedRequiresV2Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, RequiresV2Selector)
 )
 
-var L7Rules1 = api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2}}
+var L7Rules1 = &policy.PerEpData{L7Rules: api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2}}}
 
-var L7Rules2 = api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1}}
+var L7Rules1HeaderMatch = &policy.PerEpData{L7Rules: api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2HeaderMatch}}}
+
+var L7Rules2 = &policy.PerEpData{L7Rules: api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1}}}
 
 var ExpectedPortNetworkPolicyRule1 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: []uint64{1001, 1002},
@@ -161,6 +177,18 @@ var ExpectedPortNetworkPolicyRule1 = &cilium.PortNetworkPolicyRule{
 		HttpRules: &cilium.HttpNetworkPolicyRules{
 			HttpRules: []*cilium.HttpNetworkPolicyRule{
 				{Headers: ExpectedHeaders2},
+				{Headers: ExpectedHeaders1},
+			},
+		},
+	},
+}
+
+var ExpectedPortNetworkPolicyRule1HeaderMatch = &cilium.PortNetworkPolicyRule{
+	RemotePolicies: []uint64{1001, 1002},
+	L7: &cilium.PortNetworkPolicyRule_HttpRules{
+		HttpRules: &cilium.HttpNetworkPolicyRules{
+			HttpRules: []*cilium.HttpNetworkPolicyRule{
+				{Headers: ExpectedHeaders2, HeaderMatches: ExpectedHeaderMatches2},
 				{Headers: ExpectedHeaders1},
 			},
 		},
@@ -229,6 +257,17 @@ var L4PolicyMap1 = map[string]*policy.L4Filter{
 	},
 }
 
+var L4PolicyMap1HeaderMatch = map[string]*policy.L4Filter{
+	"80/TCP": {
+		Port:     80,
+		Protocol: api.ProtoTCP,
+		L7Parser: policy.ParserTypeHTTP,
+		L7RulesPerEp: policy.L7DataMap{
+			cachedSelector1: L7Rules1HeaderMatch,
+		},
+	},
+}
+
 var L4PolicyMap1RequiresV2 = map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
@@ -279,7 +318,7 @@ var L4PolicyMap4 = map[string]*policy.L4Filter{
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		L7RulesPerEp: policy.L7DataMap{
-			cachedSelector1: api.L7Rules{},
+			cachedSelector1: &policy.PerEpData{L7Rules: api.L7Rules{}},
 		},
 	},
 }
@@ -290,7 +329,7 @@ var L4PolicyMap5 = map[string]*policy.L4Filter{
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		L7RulesPerEp: policy.L7DataMap{
-			wildcardCachedSelector: api.L7Rules{},
+			wildcardCachedSelector: &policy.PerEpData{L7Rules: api.L7Rules{}},
 		},
 	},
 }
@@ -301,6 +340,16 @@ var ExpectedPerPortPolicies1 = []*cilium.PortNetworkPolicy{
 		Protocol: envoy_api_v2_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{
 			ExpectedPortNetworkPolicyRule1,
+		},
+	},
+}
+
+var ExpectedPerPortPolicies1HeaderMatch = []*cilium.PortNetworkPolicy{
+	{
+		Port:     80,
+		Protocol: envoy_api_v2_core.SocketAddress_TCP,
+		Rules: []*cilium.PortNetworkPolicyRule{
+			ExpectedPortNetworkPolicyRule1HeaderMatch,
 		},
 	},
 }
@@ -383,22 +432,33 @@ var L4Policy2RequiresV2 = &policy.L4Policy{
 }
 
 func (s *ServerSuite) TestGetHTTPRule(c *C) {
-	obtained, _ := getHTTPRule(PortRuleHTTP1)
-	c.Assert(obtained, checker.Equals, ExpectedHeaders1)
+	obtained, canShortCircuit := getHTTPRule(nil, PortRuleHTTP1, "")
+	c.Assert(obtained.Headers, checker.Equals, ExpectedHeaders1)
+	c.Assert(canShortCircuit, checker.Equals, true)
 }
 
 func (s *ServerSuite) TestGetPortNetworkPolicyRule(c *C) {
-	obtained := getPortNetworkPolicyRule(cachedSelector1, policy.ParserTypeHTTP, L7Rules1)
+	obtained, canShortCircuit := getPortNetworkPolicyRule(cachedSelector1, policy.ParserTypeHTTP, L7Rules1)
 	c.Assert(obtained, checker.Equals, ExpectedPortNetworkPolicyRule1)
+	c.Assert(canShortCircuit, checker.Equals, true)
 
-	obtained = getPortNetworkPolicyRule(cachedSelector2, policy.ParserTypeHTTP, L7Rules2)
+	obtained, canShortCircuit = getPortNetworkPolicyRule(cachedSelector1, policy.ParserTypeHTTP, L7Rules1HeaderMatch)
+	c.Assert(obtained, checker.Equals, ExpectedPortNetworkPolicyRule1HeaderMatch)
+	c.Assert(canShortCircuit, checker.Equals, false)
+
+	obtained, canShortCircuit = getPortNetworkPolicyRule(cachedSelector2, policy.ParserTypeHTTP, L7Rules2)
 	c.Assert(obtained, checker.Equals, ExpectedPortNetworkPolicyRule2)
+	c.Assert(canShortCircuit, checker.Equals, true)
 }
 
 func (s *ServerSuite) TestGetDirectionNetworkPolicy(c *C) {
 	// L4+L7
 	obtained := getDirectionNetworkPolicy(L4PolicyMap1, true)
 	c.Assert(obtained, checker.Equals, ExpectedPerPortPolicies1)
+
+	// L4+L7 with header mods
+	obtained = getDirectionNetworkPolicy(L4PolicyMap1HeaderMatch, true)
+	c.Assert(obtained, checker.Equals, ExpectedPerPortPolicies1HeaderMatch)
 
 	// L4+L7
 	obtained = getDirectionNetworkPolicy(L4PolicyMap2, true)
@@ -496,7 +556,7 @@ var L4PolicyL7 = &policy.L4Policy{
 			Port: 9090, Protocol: api.ProtoTCP,
 			L7Parser: "tester",
 			L7RulesPerEp: policy.L7DataMap{
-				cachedSelector1: api.L7Rules{
+				cachedSelector1: &policy.PerEpData{L7Rules: api.L7Rules{
 					L7Proto: "tester",
 					L7: []api.PortRuleL7{
 						map[string]string{
@@ -506,7 +566,7 @@ var L4PolicyL7 = &policy.L4Policy{
 							"method": "GET",
 							"path":   "/"},
 					},
-				},
+				}},
 			},
 			Ingress: true,
 		},

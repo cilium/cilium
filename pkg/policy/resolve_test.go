@@ -176,7 +176,7 @@ func (d DummyOwner) LookupRedirectPort(l4 *L4Filter) uint16 {
 
 func bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int, c *C) *Repository {
 	mgr := cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
-	testRepo := NewPolicyRepository(mgr.GetIdentityCache())
+	testRepo := NewPolicyRepository(mgr.GetIdentityCache(), nil)
 
 	var wg sync.WaitGroup
 	SetPolicyEnabled(option.DefaultEnforcement)
@@ -290,8 +290,11 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 						L7Parser:      ParserTypeHTTP,
 						Ingress:       true,
 						L7RulesPerEp: L7DataMap{
-							wildcardCachedSelector: api.L7Rules{
-								HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/good"}},
+							wildcardCachedSelector: &PerEpData{
+								L7Rules: api.L7Rules{
+									HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/good"}},
+								},
+								CanShortCircuit: true,
 							},
 						},
 						DerivedFromRules: labels.LabelArrayList{nil},
@@ -383,10 +386,16 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 						L7Parser:      ParserTypeHTTP,
 						Ingress:       true,
 						L7RulesPerEp: L7DataMap{
-							wildcardCachedSelector: api.L7Rules{
-								HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/good"}},
+							wildcardCachedSelector: &PerEpData{
+								L7Rules: api.L7Rules{
+									HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/good"}},
+								},
+								CanShortCircuit: true,
 							},
-							cachedSelectorHost: api.L7Rules{},
+							cachedSelectorHost: &PerEpData{
+								L7Rules:         api.L7Rules{},
+								CanShortCircuit: true,
+							},
 						},
 						DerivedFromRules: labels.LabelArrayList{nil},
 					},

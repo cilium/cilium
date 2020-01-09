@@ -61,9 +61,11 @@ var (
 )
 
 const (
-	egressClusterName  = "egress-cluster"
-	ingressClusterName = "ingress-cluster"
-	EnvoyTimeout       = 300 * time.Second // must be smaller than endpoint.EndpointGenerationTimeout
+	egressClusterName     = "egress-cluster"
+	egressTLSClusterName  = "egress-cluster-tls"
+	ingressClusterName    = "ingress-cluster"
+	ingressTLSClusterName = "ingress-cluster-tls"
+	EnvoyTimeout          = 300 * time.Second // must be smaller than endpoint.EndpointGenerationTimeout
 )
 
 type Listener struct {
@@ -201,6 +203,8 @@ func StartXDSServer(stateDir string) *XDSServer {
 					"bpf_root":                        {Kind: &structpb.Value_StringValue{StringValue: bpf.GetMapRoot()}},
 				}},
 			},
+		}, {
+			Name: "envoy.listener.tls_inspector",
 		}},
 	}
 
@@ -368,11 +372,29 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint
 	// Fill in the listener-specific parts.
 	listenerConf := proto.Clone(s.listenerProto).(*envoy_api_v2.Listener)
 	if kind == policy.ParserTypeHTTP {
-		listenerConf.FilterChains = append(listenerConf.FilterChains, proto.Clone(s.httpFilterChainProto).(*envoy_api_v2_listener.FilterChain))
-		// listenerConf.FilterChains[0].Filters[1].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["http_filters"].GetListValue().Values[0].GetStructValue().Fields["config"].GetStructValue().Fields["policy_name"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: endpointPolicyName}}
-		routes := listenerConf.FilterChains[0].Filters[1].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["route_config"].GetStructValue().Fields["virtual_hosts"].GetListValue().Values[0].GetStructValue().Fields["routes"].GetListValue().Values
+		chain := proto.Clone(s.httpFilterChainProto).(*envoy_api_v2_listener.FilterChain)
+		routes := chain.Filters[1].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["route_config"].GetStructValue().Fields["virtual_hosts"].GetListValue().Values[0].GetStructValue().Fields["routes"].GetListValue().Values
 		routes[0].GetStructValue().Fields["route"].GetStructValue().Fields["cluster"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: clusterName}}
 		routes[1].GetStructValue().Fields["route"].GetStructValue().Fields["cluster"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: clusterName}}
+		listenerConf.FilterChains = append(listenerConf.FilterChains, chain)
+
+		// Add a TLS variant
+		tlsClusterName := egressTLSClusterName
+		if isIngress {
+			tlsClusterName = ingressTLSClusterName
+		}
+
+		chain = proto.Clone(s.httpFilterChainProto).(*envoy_api_v2_listener.FilterChain)
+		chain.FilterChainMatch = &envoy_api_v2_listener.FilterChainMatch{
+			TransportProtocol: "tls",
+		}
+		chain.TransportSocket = &envoy_api_v2_core.TransportSocket{
+			Name: "cilium.tls_wrapper",
+		}
+		routes = chain.Filters[1].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["route_config"].GetStructValue().Fields["virtual_hosts"].GetListValue().Values[0].GetStructValue().Fields["routes"].GetListValue().Values
+		routes[0].GetStructValue().Fields["route"].GetStructValue().Fields["cluster"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: tlsClusterName}}
+		routes[1].GetStructValue().Fields["route"].GetStructValue().Fields["cluster"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: tlsClusterName}}
+		listenerConf.FilterChains = append(listenerConf.FilterChains, chain)
 	} else {
 		listenerConf.FilterChains = append(listenerConf.FilterChains, proto.Clone(s.tcpFilterChainProto).(*envoy_api_v2_listener.FilterChain))
 		// listenerConf.FilterChains[0].Filters[0].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["policy_name"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: endpointPolicyName}}
@@ -456,12 +478,34 @@ func getL7Rule(l7 *api.PortRuleL7) *cilium.L7NetworkPolicyRule {
 		rule.Rule[k] = v
 	}
 
-	return rule // No ruleRef
+	return rule
 }
 
-func getHTTPRule(h *api.PortRuleHTTP) (headers []*envoy_api_v2_route.HeaderMatcher, ruleRef string) {
+func getSecretString(certManager policy.CertificateManager, hdr *api.HeaderMatch, ns string) (string, error) {
+	value := ""
+	var err error
+	if hdr.Secret != nil {
+		if certManager == nil {
+			err = fmt.Errorf("HeaderMatches: Nil certManager")
+		} else {
+			value, err = certManager.GetSecretString(context.TODO(), hdr.Secret, ns)
+		}
+	}
+	// Only use Value if secret was not obtained
+	if value == "" && hdr.Value != "" {
+		value = hdr.Value
+		if err != nil {
+			log.WithError(err).Debug("HeaderMatches: Using a default value due to k8s secret not being available")
+			err = nil
+		}
+	}
+
+	return value, err
+}
+
+func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP, ns string) (*cilium.HttpNetworkPolicyRule, bool) {
 	// Count the number of header matches we need
-	cnt := len(h.Headers)
+	cnt := len(h.Headers) + len(h.HeaderMatches)
 	if h.Path != "" {
 		cnt++
 	}
@@ -472,56 +516,100 @@ func getHTTPRule(h *api.PortRuleHTTP) (headers []*envoy_api_v2_route.HeaderMatch
 		cnt++
 	}
 
-	headers = make([]*envoy_api_v2_route.HeaderMatcher, 0, cnt)
+	headers := make([]*envoy_api_v2_route.HeaderMatcher, 0, cnt)
 	if h.Path != "" {
 		headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: ":path",
 			HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: h.Path}})
-		ruleRef = `PathRegexp("` + h.Path + `")`
 	}
 	if h.Method != "" {
 		headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: ":method",
 			HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: h.Method}})
-		if ruleRef != "" {
-			ruleRef += " && "
-		}
-		ruleRef += `MethodRegexp("` + h.Method + `")`
 	}
 
 	if h.Host != "" {
 		headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: ":authority",
 			HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: h.Host}})
-		if ruleRef != "" {
-			ruleRef += " && "
-		}
-		ruleRef += `HostRegexp("` + h.Host + `")`
 	}
 	for _, hdr := range h.Headers {
 		strs := strings.SplitN(hdr, " ", 2)
-		if ruleRef != "" {
-			ruleRef += " && "
-		}
-		ruleRef += `Header("`
 		if len(strs) == 2 {
 			// Remove ':' in "X-Key: true"
 			key := strings.TrimRight(strs[0], ":")
 			// Header presence and matching (literal) value needed.
 			headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: key,
 				HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: strs[1]}})
-			ruleRef += key + `","` + strs[1]
 		} else {
 			// Only header presence needed
 			headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: strs[0],
 				HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_PresentMatch{PresentMatch: true}})
-			ruleRef += strs[0]
 		}
-		ruleRef += `")`
+	}
+
+	headerMatches := make([]*cilium.HeaderMatch, 0, len(h.HeaderMatches))
+	for _, hdr := range h.HeaderMatches {
+		var mismatch_action cilium.HeaderMatch_MismatchAction
+		switch hdr.Mismatch {
+		case api.MismatchActionLog:
+			mismatch_action = cilium.HeaderMatch_CONTINUE_ON_MISMATCH
+		case api.MismatchActionAdd:
+			mismatch_action = cilium.HeaderMatch_ADD_ON_MISMATCH
+		case api.MismatchActionDelete:
+			mismatch_action = cilium.HeaderMatch_DELETE_ON_MISMATCH
+		case api.MismatchActionReplace:
+			mismatch_action = cilium.HeaderMatch_REPLACE_ON_MISMATCH
+		default:
+			mismatch_action = cilium.HeaderMatch_FAIL_ON_MISMATCH
+		}
+		// Fetch the secret
+		value, err := getSecretString(certManager, hdr, ns)
+		if err != nil {
+			log.WithError(err).Warning("Failed fetching K8s Secret, header match will fail")
+			// Envoy treats an empty exact match value as matching ANY value; adding
+			// InvertMatch: true here will cause this rule to NEVER match.
+			headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: hdr.Name,
+				HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: ""},
+				InvertMatch:          true})
+		} else {
+			// Header presence and matching (literal) value needed.
+			if mismatch_action == cilium.HeaderMatch_FAIL_ON_MISMATCH {
+				if value != "" {
+					headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: hdr.Name,
+						HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: value}})
+				} else {
+					// Only header presence needed
+					headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: hdr.Name,
+						HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_PresentMatch{PresentMatch: true}})
+				}
+			} else {
+				log.Debugf("HeaderMatches: Adding %s: %s", hdr.Name, value)
+				headerMatches = append(headerMatches, &cilium.HeaderMatch{
+					MismatchAction: mismatch_action,
+					Name:           hdr.Name,
+					Value:          value,
+				})
+			}
+		}
 	}
 	if len(headers) == 0 {
 		headers = nil
 	} else {
 		SortHeaderMatchers(headers)
 	}
-	return
+	if len(headerMatches) == 0 {
+		headerMatches = nil
+	} else {
+		// Optimally we should sort the headerMatches to avoid
+		// updating the policy if only the order of the rules
+		// has changed. Right now, when 'headerMatches' is a
+		// slice (rather than a map) the order only changes if
+		// the order of the rules in the imported policies
+		// changes, so there is minimal likelihood of
+		// unnecessary policy updates.
+
+		// SortHeaderMatches(headerMatches)
+	}
+
+	return &cilium.HttpNetworkPolicyRule{Headers: headers, HeaderMatches: headerMatches}, len(headerMatches) == 0
 }
 
 func createBootstrap(filePath string, name, cluster, version string, xdsSock, egressClusterName, ingressClusterName string, adminPath string) {
@@ -540,12 +628,30 @@ func createBootstrap(filePath string, name, cluster, version string, xdsSock, eg
 					ProtocolSelection:    envoy_api_v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
 				},
 				{
+					Name:                 egressTLSClusterName,
+					ClusterDiscoveryType: &envoy_api_v2.Cluster_Type{Type: envoy_api_v2.Cluster_ORIGINAL_DST},
+					ConnectTimeout:       &duration.Duration{Seconds: connectTimeout, Nanos: 0},
+					CleanupInterval:      &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
+					LbPolicy:             envoy_api_v2.Cluster_CLUSTER_PROVIDED,
+					ProtocolSelection:    envoy_api_v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
+					TransportSocket:      &envoy_api_v2_core.TransportSocket{Name: "cilium.tls_wrapper"},
+				},
+				{
 					Name:                 ingressClusterName,
 					ClusterDiscoveryType: &envoy_api_v2.Cluster_Type{Type: envoy_api_v2.Cluster_ORIGINAL_DST},
 					ConnectTimeout:       &duration.Duration{Seconds: connectTimeout, Nanos: 0},
 					CleanupInterval:      &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
 					LbPolicy:             envoy_api_v2.Cluster_CLUSTER_PROVIDED,
 					ProtocolSelection:    envoy_api_v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
+				},
+				{
+					Name:                 ingressTLSClusterName,
+					ClusterDiscoveryType: &envoy_api_v2.Cluster_Type{Type: envoy_api_v2.Cluster_ORIGINAL_DST},
+					ConnectTimeout:       &duration.Duration{Seconds: connectTimeout, Nanos: 0},
+					CleanupInterval:      &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
+					LbPolicy:             envoy_api_v2.Cluster_CLUSTER_PROVIDED,
+					ProtocolSelection:    envoy_api_v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
+					TransportSocket:      &envoy_api_v2_core.TransportSocket{Name: "cilium.tls_wrapper"},
 				},
 				{
 					Name:                 "xds-grpc-cilium",
@@ -610,7 +716,39 @@ func createBootstrap(filePath string, name, cluster, version string, xdsSock, eg
 	}
 }
 
-func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7ParserType, l7Rules api.L7Rules) *cilium.PortNetworkPolicyRule {
+func getCiliumTLSContext(tls *policy.TLSContext) *cilium.TLSContext {
+	return &cilium.TLSContext{
+		TrustedCa:        tls.TrustedCA,
+		CertificateChain: tls.CertificateChain,
+		PrivateKey:       tls.PrivateKey,
+	}
+}
+
+func GetEnvoyHTTPRules(certManager policy.CertificateManager, l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool) {
+	if len(l7Rules.HTTP) > 0 { // Just cautious. This should never be false.
+		// Assume none of the rules have side-effects so that rule evaluation can
+		// be stopped as soon as the first allowing rule is found. 'canShortCircuit'
+		// is set to 'false' below if any rules with side effects are encountered,
+		// causing all the applicable rules to be evaluated instead.
+		canShortCircuit := true
+		httpRules := make([]*cilium.HttpNetworkPolicyRule, 0, len(l7Rules.HTTP))
+		for _, l7 := range l7Rules.HTTP {
+			var cs bool
+			rule, cs := getHTTPRule(certManager, &l7, ns)
+			httpRules = append(httpRules, rule)
+			if !cs {
+				canShortCircuit = false
+			}
+		}
+		SortHTTPNetworkPolicyRules(httpRules)
+		return &cilium.HttpNetworkPolicyRules{
+			HttpRules: httpRules,
+		}, canShortCircuit
+	}
+	return nil, true
+}
+
+func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7ParserType, l7Rules *policy.PerEpData) (*cilium.PortNetworkPolicyRule, bool) {
 	// Optimize the policy if the endpoint selector is a wildcard by
 	// keeping remote policies list empty to match all remote policies.
 	var remotePolicies []uint64
@@ -621,7 +759,7 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7Parse
 
 		// No remote policies would match this rule. Discard it.
 		if len(remotePolicies) == 0 {
-			return nil
+			return nil, true
 		}
 
 		sort.Slice(remotePolicies, func(i, j int) bool {
@@ -633,21 +771,36 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7Parse
 		RemotePolicies: remotePolicies,
 	}
 
+	if l7Rules.TerminatingTLS != nil {
+		r.DownstreamTlsContext = getCiliumTLSContext(l7Rules.TerminatingTLS)
+	}
+	if l7Rules.OriginatingTLS != nil {
+		r.UpstreamTlsContext = getCiliumTLSContext(l7Rules.OriginatingTLS)
+	}
+
+	// Assume none of the rules have side-effects so that rule evaluation can
+	// be stopped as soon as the first allowing rule is found. 'canShortCircuit'
+	// is set to 'false' below if any rules with side effects are encountered,
+	// causing all the applicable rules to be evaluated instead.
+	canShortCircuit := true
 	switch l7Parser {
 	case policy.ParserTypeHTTP:
-		if len(l7Rules.HTTP) > 0 { // Just cautious. This should never be false.
-			httpRules := make([]*cilium.HttpNetworkPolicyRule, 0, len(l7Rules.HTTP))
-			for _, l7 := range l7Rules.HTTP {
-				headers, _ := getHTTPRule(&l7)
-				httpRules = append(httpRules, &cilium.HttpNetworkPolicyRule{Headers: headers})
+		// 'r.L7' is an interface which must not be set to a typed 'nil',
+		// so check if we have any rules
+		if len(l7Rules.HTTP) > 0 {
+			// Use L7 rules computed earlier?
+			var httpRules *cilium.HttpNetworkPolicyRules
+			if l7Rules.EnvoyHTTPRules != nil {
+				httpRules = l7Rules.EnvoyHTTPRules
+				canShortCircuit = l7Rules.CanShortCircuit
+			} else {
+				httpRules, canShortCircuit = GetEnvoyHTTPRules(nil, &l7Rules.L7Rules, "")
 			}
-			SortHTTPNetworkPolicyRules(httpRules)
 			r.L7 = &cilium.PortNetworkPolicyRule_HttpRules{
-				HttpRules: &cilium.HttpNetworkPolicyRules{
-					HttpRules: httpRules,
-				},
+				HttpRules: httpRules,
 			}
 		}
+
 	case policy.ParserTypeKafka:
 		// TODO: Support Kafka. For now, just ignore any Kafka L7 rule.
 
@@ -671,7 +824,7 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7Parse
 		}
 	}
 
-	return r
+	return r, canShortCircuit
 }
 
 func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool) []*cilium.PortNetworkPolicy {
@@ -702,20 +855,33 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool)
 		}
 
 		allowAll := false
+		// Assume none of the rules have side-effects so that rule evaluation can
+		// be stopped as soon as the first allowing rule is found. 'canShortCircuit'
+		// is set to 'false' below if any rules with side effects are encountered,
+		// causing all the applicable rules to be evaluated instead.
+		canShortCircuit := true
 		for sel, l7 := range l4.L7RulesPerEp {
-			rule := getPortNetworkPolicyRule(sel, l4.L7Parser, l7)
+			rule, cs := getPortNetworkPolicyRule(sel, l4.L7Parser, l7)
+			log.Debugf("Policy %s: %s can short circuit: %v (canShortCircuit %v)", sel.String(), rule.String(), cs, canShortCircuit)
+			if !cs {
+				canShortCircuit = false
+			}
 			if rule != nil {
 				if len(rule.RemotePolicies) == 0 && rule.L7 == nil {
 					// Got an allow-all rule, which would short-circuit all of
 					// the other rules. Just set no rules, which has the same
 					// effect of allowing all.
 					allowAll = true
-					pnp.Rules = nil
-					break
 				}
 
 				pnp.Rules = append(pnp.Rules, rule)
 			}
+		}
+
+		// Short-circuit rules if a rule allows all and all other rules can be short-circuited
+		if allowAll && canShortCircuit {
+			log.Debug("Short circuiting HTTP rules due to rule allowing all and no other rules needing attention")
+			pnp.Rules = nil
 		}
 
 		// No rule for this port matches any remote identity.

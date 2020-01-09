@@ -251,7 +251,6 @@ func (d *Daemon) allocateIPs() error {
 	log.Infof("  Node-IPv6: %s", node.GetIPv6())
 
 	if option.Config.EnableIPv6 {
-		log.Infof("  IPv6 node prefix: %s", node.GetIPv6NodeRange())
 		log.Infof("  IPv6 allocation prefix: %s", node.GetIPv6AllocRange())
 		log.Infof("  IPv6 router address: %s", node.GetIPv6Router())
 

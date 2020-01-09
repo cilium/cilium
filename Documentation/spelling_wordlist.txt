@@ -197,6 +197,7 @@ classid
 cls
 clustermesh
 cni
+codebase
 conf
 config
 conntrack
@@ -277,6 +278,7 @@ gocheck
 golang
 hairpinned
 hardcode
+hardcoded
 hardcoding
 hashtable
 hashtables

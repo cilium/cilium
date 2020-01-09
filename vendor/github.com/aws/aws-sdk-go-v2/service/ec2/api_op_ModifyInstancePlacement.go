@@ -26,6 +26,9 @@ type ModifyInstancePlacementInput struct {
 	// The ID of the Dedicated Host with which to associate the instance.
 	HostId *string `locationName:"hostId" type:"string"`
 
+	// The ARN of the host resource group in which to place the instance.
+	HostResourceGroupArn *string `type:"string"`
+
 	// The ID of the instance that you are modifying.
 	//
 	// InstanceId is a required field
