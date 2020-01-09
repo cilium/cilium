@@ -48,122 +48,11 @@ func NewManager(certsRootPath string, k8sClient k8sClient) *Manager {
 	}
 }
 
-// GetTLSContext returns a new ca, public and private certificates found based
-// in the given api.TLSContext.
-func (m *Manager) GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, ns string) (ca, public, private string, err error) {
-	var caBytes, publicBytes, privateBytes []byte
-
-	caMustExist := false
-	caName := caDefaultName
-	if tlsCtx.TrustedCA != "" {
-		caName = tlsCtx.TrustedCA
-		caMustExist = true
-	}
-
-	publicMustExist := false
-	publicName := publicDefaultName
-	if tlsCtx.Certificate != "" {
-		publicName = tlsCtx.Certificate
-		publicMustExist = true
-	}
-
-	privateMustExist := false
-	privateName := privateDefaultName
-	if tlsCtx.PrivateKey != "" {
-		privateName = tlsCtx.PrivateKey
-		privateMustExist = true
-	}
-
-	if tlsCtx.Secret != nil {
-		if tlsCtx.Secret.Namespace != "" {
-			ns = tlsCtx.Secret.Namespace
-		}
-		if tlsCtx.Secret.Name == "" {
-			err = fmt.Errorf("Missing Secret name")
-			return "", "", "", err
-		}
-		name := tlsCtx.Secret.Name
-
-		// Give priority to local certificates
-		certPath := filepath.Join(m.rootPath, ns, name)
-		files, ioErr := ioutil.ReadDir(certPath)
-		if ioErr == nil {
-			for _, file := range files {
-				var path string
-				switch file.Name() {
-				case caName:
-					path = filepath.Join(certPath, caName)
-					caBytes, ioErr = ioutil.ReadFile(path)
-				case publicName:
-					privateMustExist = true
-					path = filepath.Join(certPath, publicName)
-					publicBytes, ioErr = ioutil.ReadFile(path)
-				case privateName:
-					publicMustExist = true
-					path = filepath.Join(certPath, privateName)
-					privateBytes, ioErr = ioutil.ReadFile(path)
-				}
-				if ioErr != nil {
-					err = fmt.Errorf("Error reading %s (%s)", path, ioErr)
-				}
-			}
-			// Error out if required files are missing
-			if caMustExist && (caBytes == nil || len(caBytes) == 0) {
-				err = fmt.Errorf("Trusted CA %s cannot be read in %s: %s", caName, certPath, err)
-				return "", "", "", err
-			}
-			if publicMustExist && (publicBytes == nil || len(publicBytes) == 0) {
-				err = fmt.Errorf("Certificate %s cannot be read in %s: %s", publicName, certPath, err)
-				return "", "", "", err
-			}
-			if privateMustExist && (privateBytes == nil || len(privateBytes) == 0) {
-				err = fmt.Errorf("Private key %s cannot be read in %s: %s", privateName, certPath, err)
-				return "", "", "", err
-			}
-			// We have found one of the files, that's all we need!
-			if caBytes != nil || publicBytes != nil || privateBytes != nil {
-				return string(caBytes), string(publicBytes), string(privateBytes), nil
-			}
-		}
-
-		// Look for k8s secrets if not found locally
-		secrets, k8sErr := m.k8sClient.GetSecrets(ctx, ns, name)
-		if k8sErr != nil {
-			return "", "", "", k8sErr
-		}
-		caBytes, ok := secrets[caName]
-		if ok {
-			ca = string(caBytes)
-		} else if caMustExist {
-			err = fmt.Errorf("Trusted CA %s cannot be found in k8s secret %s/%s", caName, ns, name)
-			return "", "", "", err
-		}
-		publicBytes, ok := secrets[publicName]
-		if ok {
-			public = string(publicBytes)
-		} else if publicMustExist {
-			err = fmt.Errorf("Certificate %s cannot be found in k8s secret %s/%s", publicName, ns, name)
-			return "", "", "", err
-		}
-		privateBytes, ok := secrets[privateName]
-		if ok {
-			private = string(privateBytes)
-		} else if privateMustExist {
-			err = fmt.Errorf("Private Key %s cannot be found in k8s secret %s/%s", privateName, ns, name)
-			return "", "", "", err
-		}
-		if caBytes != nil || publicBytes != nil || privateBytes != nil {
-			return ca, public, private, nil
-		}
-		err = fmt.Errorf("certificates not found locally in %s nor in k8s secret %s/%s ", certPath, ns, name)
-	}
-	return "", "", "", err
-}
-
-// GetSecretString returns a secret string stored in a k8s secret
-func (m *Manager) GetSecretString(ctx context.Context, secret *api.Secret, ns string) (string, error) {
+// GetSecrets returns either local or k8s secrets, giving precedence for local secrets if configured.
+// The 'ns' parameter is used as the secret namespace if 'secret.Namespace' is an empty string.
+func (m *Manager) GetSecrets(ctx context.Context, secret *api.Secret, ns string) (string, map[string][]byte, error) {
 	if secret == nil {
-		return "", fmt.Errorf("Secret must not be nil")
+		return "", nil, fmt.Errorf("Secret must not be nil")
 	}
 
 	if secret.Namespace != "" {
@@ -171,12 +60,86 @@ func (m *Manager) GetSecretString(ctx context.Context, secret *api.Secret, ns st
 	}
 
 	if secret.Name == "" {
-		return "", fmt.Errorf("Missing Secret name")
+		return ns, nil, fmt.Errorf("Missing Secret name")
 	}
-	name := secret.Name
-	secrets, k8sErr := m.k8sClient.GetSecrets(ctx, ns, name)
-	if k8sErr != nil {
-		return "", k8sErr
+	nsName := filepath.Join(ns, secret.Name)
+
+	// Give priority to local secrets.
+	// K8s API request is only done if the local secret directory can't be read!
+	certPath := filepath.Join(m.rootPath, nsName)
+	files, ioErr := ioutil.ReadDir(certPath)
+	if ioErr == nil {
+		secrets := make(map[string][]byte, len(files))
+		for _, file := range files {
+			path := filepath.Join(certPath, file.Name())
+			bytes, ioErr := ioutil.ReadFile(path)
+			if ioErr == nil {
+				secrets[file.Name()] = bytes
+			}
+		}
+		// Return the (latest) error only if no secrets were found
+		if len(secrets) == 0 && ioErr != nil {
+			return nsName, nil, ioErr
+		}
+		return nsName, secrets, nil
+	}
+	secrets, err := m.k8sClient.GetSecrets(ctx, ns, secret.Name)
+	return nsName, secrets, err
+}
+
+// GetTLSContext returns a new ca, public and private certificates found based
+// in the given api.TLSContext.
+func (m *Manager) GetTLSContext(ctx context.Context, tlsCtx *api.TLSContext, ns string) (ca, public, private string, err error) {
+	name, secrets, err := m.GetSecrets(ctx, tlsCtx.Secret, ns)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	caName := caDefaultName
+	if tlsCtx.TrustedCA != "" {
+		caName = tlsCtx.TrustedCA
+	}
+	caBytes, ok := secrets[caName]
+	if ok {
+		ca = string(caBytes)
+	} else if tlsCtx.TrustedCA != "" {
+		return "", "", "", fmt.Errorf("Trusted CA %s not found in secret %s", caName, name)
+	}
+
+	publicName := publicDefaultName
+	if tlsCtx.Certificate != "" {
+		publicName = tlsCtx.Certificate
+	}
+	publicBytes, ok := secrets[publicName]
+	if ok {
+		public = string(publicBytes)
+	} else if tlsCtx.Certificate != "" {
+		return "", "", "", fmt.Errorf("Certificate %s not found in secret %s", publicName, name)
+	}
+
+	privateName := privateDefaultName
+	if tlsCtx.PrivateKey != "" {
+		privateName = tlsCtx.PrivateKey
+	}
+	privateBytes, ok := secrets[privateName]
+	if ok {
+		private = string(privateBytes)
+	} else if tlsCtx.PrivateKey != "" {
+		return "", "", "", fmt.Errorf("Private Key %s not found in secret %s", privateName, name)
+	}
+
+	if caBytes == nil && publicBytes == nil && privateBytes == nil {
+		return "", "", "", fmt.Errorf("TLS certificates not found in secret %s ", name)
+	}
+
+	return ca, public, private, nil
+}
+
+// GetSecretString returns a secret string stored in a k8s secret
+func (m *Manager) GetSecretString(ctx context.Context, secret *api.Secret, ns string) (string, error) {
+	name, secrets, err := m.GetSecrets(ctx, secret, ns)
+	if err != nil {
+		return "", err
 	}
 
 	if len(secrets) == 1 {
@@ -185,5 +148,5 @@ func (m *Manager) GetSecretString(ctx context.Context, secret *api.Secret, ns st
 			return string(value), nil
 		}
 	}
-	return "", fmt.Errorf("Secret %s/%s must have exactly one item", ns, name)
+	return "", fmt.Errorf("Secret %s must have exactly one item", name)
 }
