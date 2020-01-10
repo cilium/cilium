@@ -13,6 +13,17 @@ spec:
       labels:
         zgroup: testDS
     spec:
+      # Some tests (e.g. DSR) requires to send requests to testds from a host
+      # which does not run any of its pods. We've chosen k8s3 to be such host.
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: "cilium.io/ci-node"
+                operator: NotIn
+                values:
+                - k8s3
       containers:
       - name: web
         image: docker.io/cilium/echoserver:1.10
