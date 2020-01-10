@@ -58,6 +58,7 @@ const (
 	K8s     = "k8s"
 	K8s1    = "k8s1"
 	K8s2    = "k8s2"
+	K8s3    = "k8s3"
 	Runtime = "runtime"
 
 	Enabled  = "enabled"
