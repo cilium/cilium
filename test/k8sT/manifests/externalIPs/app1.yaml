@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app1
+  namespace: external-ips-test
+  labels:
+    id: app1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      id: app1
+  template:
+    metadata:
+      labels:
+        id: app1
+    spec:
+      terminationGracePeriodSeconds: 0
+      containers:
+      - name: guestbook
+        image: gcr.io/google-samples/gb-frontend:v4
+        ports:
+        - name: http-server
+          containerPort: 80
+      nodeSelector:
+        "cilium.io/ci-node": k8s1

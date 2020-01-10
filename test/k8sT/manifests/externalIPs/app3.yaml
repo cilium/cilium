@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app3
+  namespace: external-ips-test
+  labels:
+    id: app3
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      id: app3
+  template:
+    metadata:
+      labels:
+        id: app3
+    spec:
+      terminationGracePeriodSeconds: 0
+      containers:
+      - name: web
+        image: docker.io/cilium/demo-httpd:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+      nodeSelector:
+        "cilium.io/ci-node": k8s2

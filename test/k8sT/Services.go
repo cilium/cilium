@@ -649,38 +649,10 @@ var _ = Describe("K8sServicesTest", func() {
 
 	// FIXME: to test external IPs one needs to setup a routing to the VMs
 	//        a manual test can be achieved by running
-	//        Disable kube-proxy (not possible with the current CI)
-	//        sudo service kube-proxy stop && sudo su -c 'iptables-save | grep -v KUBE | iptables-restore'
-	//        start cilium with --enable-node-port --device=enp0s9
-	//        kubectl label node k8s1 cilium.io/ci-node=k8s1
-	//        kubectl apply -f test/k8sT/manifests/demo.yaml
-	//        kubectl apply -f test/k8sT/manifests/external-ips-service.yaml
-	//        (outside of the VM add a route for the external IP via the IP
-	//        of the VM where the service is installed)
-	//        $ ip r a 192.0.2.233 via 192.168.34.11
-	//        $ curl 192.0.2.233:82
-	//        <html><body><h1>It works!</h1></body></html>
+	//        checking `test/k8sT/manifests/externalIPs/README.md`
 	//
-	//        Don't forget kubectl label node k8s1 cilium.io/ci-node=k8s1
-	//        Expected behavior inside VMs with kube-proxy
-	//        (make sure the external-ips-port is the same as the one created by node port)
 	//        NOTES: When setting a external-ips-service with a port already allocated, for example 31388
-	//        kube-proxy will not allow it and even print a warning in its logs.
-	//        $ kubectl apply -f examples/misc/guestbook/
-	//        $ kubectl apply -f test/k8sT/manifests/external-ips-service.yaml
-	//
-	//        Expected behavior inside VMs node with kube-proxy
-	// 		  NAME                   TYPE        CLUSTER-IP     EXTERNAL-IP                 PORT(S)        AGE
-	// 	      external-ips-service   ClusterIP   172.20.0.224   192.0.2.233,192.168.34.11   31388/TCP      6s
-	// 	      guestbook-nodeport     NodePort    172.20.0.171   <none>                      82:31388/TCP   6s
-	//
-	//        $ curl 172.20.0.224:31388 # works (shows `<html><body><h1>It works!</h1></body></html>`)
-	//        $ curl 192.0.2.233:31388 # fails has expected because it should not work inside a VM
-	//        $ (outside VM) curl 192.0.2.233:31388 # works (shows `<html><body><h1>It works!</h1></body></html>`)
-	//        $ curl 192.168.34.11:31388 | grep '<title>Guestbook' # returns guestbook because kube-proxy set 31388
-	//            for node-port service first (should have returned same as 192.0.2.233:31388)
-	//        $ curl 127.0.0.1:31388 | grep '<title>Guestbook' # returns guestbook has expected because kube-proxy set 31388 for node-port service first
-	//        $ curl 172.20.0.171:82 | grep '<title>Guestbook' # works as expected
+	//               kube-proxy will not allow it and even print a warning in its logs.
 	//
 	// Context("External IPs services", func() {
 	//
