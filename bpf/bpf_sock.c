@@ -166,8 +166,8 @@ static inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 static inline bool sock4_is_external_ip(struct lb4_service *svc,
 					struct lb4_key *key)
 {
-#ifdef ENABLE_K8S_EXTERNAL_IP
-	if (svc->k8s_external) {
+#ifdef ENABLE_EXTERNAL_IP
+	if (svc->external) {
 		struct remote_endpoint_info *info;
 
 		info = ipcache_lookup4(&IPCACHE_MAP, key->address,
@@ -175,7 +175,7 @@ static inline bool sock4_is_external_ip(struct lb4_service *svc,
 		if (info == NULL || info->sec_label != HOST_ID)
 			return true;
 	}
-#endif /* ENABLE_K8S_EXTERNAL_IP */
+#endif /* ENABLE_EXTERNAL_IP */
 	return false;
 }
 
@@ -442,8 +442,8 @@ static __always_inline void ctx_set_v6_address(struct bpf_sock_addr *ctx,
 static inline bool sock6_is_external_ip(struct lb6_service *svc,
 					struct lb6_key *key)
 {
-#ifdef ENABLE_K8S_EXTERNAL_IP
-	if (svc->k8s_external) {
+#ifdef ENABLE_EXTERNAL_IP
+	if (svc->external) {
 		struct remote_endpoint_info *info;
 
 		info = ipcache_lookup6(&IPCACHE_MAP, &key->address,
@@ -451,7 +451,7 @@ static inline bool sock6_is_external_ip(struct lb6_service *svc,
 		if (info == NULL || info->sec_label != HOST_ID)
 			return true;
 	}
-#endif /* ENABLE_K8S_EXTERNAL_IP */
+#endif /* ENABLE_EXTERNAL_IP */
 	return false;
 }
 
