@@ -165,6 +165,22 @@ static inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 }
 #endif /* ENABLE_HOST_SERVICES_UDP */
 
+static inline bool sock4_is_external_ip(struct lb4_service *svc,
+					struct lb4_key *key)
+{
+#ifdef ENABLE_K8S_EXTERNAL_IP
+	if (svc->k8s_external) {
+		struct remote_endpoint_info *info;
+
+		info = ipcache_lookup4(&IPCACHE_MAP, key->address,
+				       V4_CACHE_KEY_LEN);
+		if (info == NULL || info->sec_label != HOST_ID)
+			return true;
+	}
+#endif /* ENABLE_K8S_EXTERNAL_IP */
+	return false;
+}
+
 static inline void sock4_handle_node_port(struct bpf_sock_addr *ctx,
 					  struct lb4_key *key)
 {
@@ -203,6 +219,7 @@ int sock4_xlate(struct bpf_sock_addr *ctx)
 	struct lb4_backend *backend;
 	struct lb4_service *svc;
 	struct lb4_key key = {
+		.address	= ctx->user_ip4,
 		.dport		= ctx_get_port(ctx),
 	};
 	struct lb4_service *slave_svc;
@@ -210,46 +227,34 @@ int sock4_xlate(struct bpf_sock_addr *ctx)
 	if (!sock_proto_enabled(ctx))
 		return CONNECT_PROCEED;
 
-#ifdef ENABLE_K8S_EXTERNAL_IP  /* ENABLE_K8S_EXTERNAL_IP */
-	/* We need to check if a possible external IP address exists in the
-	 * service map. This is because kubernetes allows to set host IPs as
-	 * externalIPs.
+	/* Initial non-wildcarded lookup handles regular services
+	 * deployed in nodeport range, external ip and partially
+	 * nodeport services. If latter fails, we try wildcarded
+	 * lookup for nodeport services.
 	 */
-	key.address = ctx->user_ip4;
 	svc = __lb4_lookup_service(&key);
-
 	if (!svc) {
 		key.address = 0;
 		key.dport = ctx_get_port(ctx);
-		sock4_handle_node_port(ctx, &key);
-		/* We already performed a lookup where key.address is
-		 * ctx->user_ip4. If it was not found then it is not going to
-		 * be found again.
-		 */
-		if (key.address != ctx->user_ip4) {
-			svc = __lb4_lookup_service(&key);
-		}
-	}
-#else
-	sock4_handle_node_port(ctx, &key);
 
-	svc = __lb4_lookup_service(&key);
-#endif  /* ENABLE_K8S_EXTERNAL_IP */
+		/* We already performed a lookup where key.address
+		 * was ctx->user_ip4. If it was not found then, it
+		 * is not going to be found again.
+		 */
+		sock4_handle_node_port(ctx, &key);
+		if (key.address != ctx->user_ip4)
+			svc = __lb4_lookup_service(&key);
+	}
 
 	if (svc) {
-#ifdef ENABLE_K8S_EXTERNAL_IP  /* ENABLE_K8S_EXTERNAL_IP */
-		/* Do not perform service translation for external IPs that
-		 * are not a local address because we don't want a k8s service
-		 * to easily do MITM attacks for a public IP address. But do the
-		 * service translation if the IP is from the host.
+		/* Do not perform service translation for external IPs
+		 * that are not a local address because we don't want
+		 * a k8s service to easily do MITM attacks for a public
+		 * IP address. But do the service translation if the IP
+		 * is from the host.
 		 */
-		if (svc->k8s_external) {
-			struct remote_endpoint_info *info;
-			info = ipcache_lookup4(&IPCACHE_MAP, key.address, V4_CACHE_KEY_LEN);
-			if (info == NULL || info->sec_label != HOST_ID)
-				return CONNECT_PROCEED;
-		}
-#endif /* ENABLE_K8S_EXTERNAL_IP */
+		if (sock4_is_external_ip(svc, &key))
+			return CONNECT_PROCEED;
 
 		key.slave = (sock_local_cookie(ctx) % svc->count) + 1;
 
@@ -284,52 +289,26 @@ __section("snd-sock4")
 int sock4_xlate_snd(struct bpf_sock_addr *ctx)
 {
 	struct lb4_key lkey = {
+		.address	= ctx->user_ip4,
 		.dport		= ctx_get_port(ctx),
 	};
 	struct lb4_backend *backend;
 	struct lb4_service *svc;
 	struct lb4_service *slave_svc;
 
-#ifdef ENABLE_K8S_EXTERNAL_IP  /* ENABLE_K8S_EXTERNAL_IP */
-	/* We need to check if a possible external IP address exists in the
-	 * service map. This is because kubernetes allows to set host IPs as
-	 * externalIPs.
-	 */
-	lkey.address = ctx->user_ip4;
 	svc = __lb4_lookup_service(&lkey);
-
 	if (!svc) {
 		lkey.address = 0;
 		lkey.dport = ctx_get_port(ctx);
-		sock4_handle_node_port(ctx, &lkey);
-		/* We already performed a lookup where lkey.address is
-		 * ctx->user_ip4. If it was not found then it is not going to
-		 * be found again.
-		 */
-		if (lkey.address != ctx->user_ip4) {
-			svc = __lb4_lookup_service(&lkey);
-		}
-	}
-#else
-	sock4_handle_node_port(ctx, &lkey);
 
-	svc = __lb4_lookup_service(&lkey);
-#endif  /* ENABLE_K8S_EXTERNAL_IP */
+		sock4_handle_node_port(ctx, &lkey);
+		if (lkey.address != ctx->user_ip4)
+			svc = __lb4_lookup_service(&lkey);
+	}
 
 	if (svc) {
-#ifdef ENABLE_K8S_EXTERNAL_IP  /* ENABLE_K8S_EXTERNAL_IP */
-		/* Do not perform service translation for external IPs that
-		 * are not a local address because we don't want a k8s service
-		 * to easily do MITM attacks for a public IP address. But do the
-		 * service translation if the IP is from the host.
-		 */
-		if (svc->k8s_external) {
-			struct remote_endpoint_info *info;
-			info = ipcache_lookup4(&IPCACHE_MAP, lkey.address, V4_CACHE_KEY_LEN);
-			if (info == NULL || info->sec_label != HOST_ID)
-				return CONNECT_PROCEED;
-		}
-#endif /* ENABLE_K8S_EXTERNAL_IP */
+		if (sock4_is_external_ip(svc, &lkey))
+			return SENDMSG_PROCEED;
 
 		lkey.slave = (sock_local_cookie(ctx) % svc->count) + 1;
 
@@ -462,6 +441,22 @@ static __always_inline void ctx_set_v6_address(struct bpf_sock_addr *ctx,
 	ctx->user_ip6[3] = addr->p4;
 }
 
+static inline bool sock6_is_external_ip(struct lb6_service *svc,
+					struct lb6_key *key)
+{
+#ifdef ENABLE_K8S_EXTERNAL_IP
+	if (svc->k8s_external) {
+		struct remote_endpoint_info *info;
+
+		info = ipcache_lookup6(&IPCACHE_MAP, &key->address,
+				       V6_CACHE_KEY_LEN);
+		if (info == NULL || info->sec_label != HOST_ID)
+			return true;
+	}
+#endif /* ENABLE_K8S_EXTERNAL_IP */
+	return false;
+}
+
 static inline void sock6_handle_node_port(struct bpf_sock_addr *ctx,
 					  struct lb6_key *key)
 {
@@ -506,48 +501,24 @@ int sock6_xlate(struct bpf_sock_addr *ctx)
 	};
 	struct lb6_service *slave_svc;
 
-#ifdef ENABLE_K8S_EXTERNAL_IP  /* ENABLE_K8S_EXTERNAL_IP */
-	/* We need to check if a possible external IP address exists in the
-	 * service map. This is because kubernetes allows to set host IPs as
-	 * externalIPs.
-	 */
 	ctx_get_v6_address(ctx, &key.address);
-	svc = __lb6_lookup_service(&key);
 
+	svc = __lb6_lookup_service(&key);
 	if (!svc) {
-		__builtin_memset(&key.address, 0, sizeof(union v6addr));
-		key.dport = ctx_get_port(ctx);
-		sock6_handle_node_port(ctx, &key);
-		/* We already performed a lookup where key.address is
-		 * ctx->user_ip6. If it was not found then it is not going to
-		 * be found again.
-		 */
-		union v6addr user_ip6;
-		ctx_get_v6_address(ctx, &user_ip6);
-		if (ipv6_addrcmp(&key.address, &user_ip6) != 0 ) {
-			svc = __lb6_lookup_service(&key);
-		}
-	}
-#else
-	sock6_handle_node_port(ctx, &key);
+		union v6addr v6_orig = key.address;
 
-	svc = __lb6_lookup_service(&key);
-#endif  /* ENABLE_K8S_EXTERNAL_IP */
+		__builtin_memset(&key.address, 0, sizeof(key.address));
+		key.dport = ctx_get_port(ctx);
+
+		sock6_handle_node_port(ctx, &key);
+		if (ipv6_addrcmp(&key.address, &v6_orig))
+			svc = __lb6_lookup_service(&key);
+	}
 
 	if (svc) {
-#ifdef ENABLE_K8S_EXTERNAL_IP  /* ENABLE_K8S_EXTERNAL_IP */
-		/* Do not perform service translation for external IPs that
-		 * are not a local address because we don't want a k8s service
-		 * to easily do MITM attacks for a public IP address. But do the
-		 * service translation if the IP is from the host.
-		 */
-		if (svc->k8s_external) {
-			struct remote_endpoint_info *info;
-			info = ipcache_lookup6(&IPCACHE_MAP, &key.address, V6_CACHE_KEY_LEN);
-			if (info == NULL || info->sec_label != HOST_ID)
-				return CONNECT_PROCEED;
-		}
-#endif /* ENABLE_K8S_EXTERNAL_IP */
+		if (sock6_is_external_ip(svc, &key))
+			return CONNECT_PROCEED;
+
 		key.slave = (sock_local_cookie(ctx) % svc->count) + 1;
 
 		slave_svc = __lb6_lookup_slave(&key);
@@ -587,48 +558,24 @@ int sock6_xlate_snd(struct bpf_sock_addr *ctx)
 	};
 	struct lb6_service *slave_svc;
 
-#ifdef ENABLE_K8S_EXTERNAL_IP  /* ENABLE_K8S_EXTERNAL_IP */
-	/* We need to check if a possible external IP address exists in the
-	 * service map. This is because kubernetes allows to set host IPs as
-	 * externalIPs.
-	 */
 	ctx_get_v6_address(ctx, &lkey.address);
-	svc = __lb6_lookup_service(&lkey);
 
+	svc = __lb6_lookup_service(&lkey);
 	if (!svc) {
-		__builtin_memset(&lkey.address, 0, sizeof(union v6addr));
-		lkey.dport = ctx_get_port(ctx);
-		sock6_handle_node_port(ctx, &lkey);
-		/* We already performed a lookup where lkey.address is
-		 * ctx->user_ip6. If it was not found then it is not going to
-		 * be found again.
-		 */
-		union v6addr user_ip6;
-		ctx_get_v6_address(ctx, &user_ip6);
-		if (ipv6_addrcmp(&lkey.address, &user_ip6) != 0 ) {
-			svc = __lb6_lookup_service(&lkey);
-		}
-	}
-#else
-	sock6_handle_node_port(ctx, &lkey);
+		union v6addr v6_orig = lkey.address;
 
-	svc = __lb6_lookup_service(&lkey);
-#endif  /* ENABLE_K8S_EXTERNAL_IP */
+		__builtin_memset(&lkey.address, 0, sizeof(lkey.address));
+		lkey.dport = ctx_get_port(ctx);
+
+		sock6_handle_node_port(ctx, &lkey);
+		if (ipv6_addrcmp(&lkey.address, &v6_orig))
+			svc = __lb6_lookup_service(&lkey);
+	}
 
 	if (svc) {
-#ifdef ENABLE_K8S_EXTERNAL_IP  /* ENABLE_K8S_EXTERNAL_IP */
-		/* Do not perform service translation for external IPs that
-		 * are not a local address because we don't want a k8s service
-		 * to easily do MITM attacks for a public IP address. But do the
-		 * service translation if the IP is from the host.
-		 */
-		if (svc->k8s_external) {
-			struct remote_endpoint_info *info;
-			info = ipcache_lookup6(&IPCACHE_MAP, &lkey.address, V6_CACHE_KEY_LEN);
-			if (info == NULL || info->sec_label != HOST_ID)
-				return CONNECT_PROCEED;
-		}
-#endif /* ENABLE_K8S_EXTERNAL_IP */
+		if (sock6_is_external_ip(svc, &lkey))
+			return CONNECT_PROCEED;
+
 		lkey.slave = (sock_local_cookie(ctx) % svc->count) + 1;
 
 		slave_svc = __lb6_lookup_slave(&lkey);
