@@ -499,6 +499,9 @@ int sock6_xlate(struct bpf_sock_addr *ctx)
 	};
 	struct lb6_service *slave_svc;
 
+	if (!sock_proto_enabled(ctx))
+		return SYS_PROCEED;
+
 	ctx_get_v6_address(ctx, &key.address);
 
 	svc = __lb6_lookup_service(&key);
