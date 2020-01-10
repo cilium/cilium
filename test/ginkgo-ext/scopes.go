@@ -558,3 +558,14 @@ func SkipContextIf(condition func() bool, text string, body func()) bool {
 
 	return Context(text, body)
 }
+
+// SkipItIf executes the given body if the given condition is NOT met.
+func SkipItIf(condition func() bool, text string, body func()) bool {
+	if condition() {
+		return It(text, func() {
+			Skip("skipping due to unmet condition")
+		})
+	}
+
+	return It(text, body)
+}

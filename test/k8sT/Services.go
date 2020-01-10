@@ -245,10 +245,9 @@ var _ = Describe("K8sServicesTest", func() {
 			}
 		}
 
-		doRequestsFromOutsideClientWithLocalPort :=
+		doRequestsFromThirdHostWithLocalPort :=
 			func(url string, count int, checkSourceIP bool, fromPort int) {
 				var cmd string
-				ssh := helpers.GetVagrantSSHMeta(helpers.K8s1VMName())
 				By("Making %d HTTP requests from outside cluster to %q", count, url)
 				for i := 1; i <= count; i++ {
 					if fromPort == 0 {
@@ -259,16 +258,18 @@ var _ = Describe("K8sServicesTest", func() {
 					if checkSourceIP {
 						cmd += " | grep client_address="
 					}
-					res := ssh.ContainerExec("client-from-outside", cmd)
+					k8s3Name, k8s3IP := getNodeInfo(helpers.K8s3)
+					res, err := kubectl.ExecInHostNetNS(context.TODO(), k8s3Name, cmd)
+					Expect(err).Should(BeNil(), "Cannot exec in k8s3 host netns")
 					ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
 						"Can not connect to service %q from outside cluster", url)
 					if checkSourceIP {
-						Expect(strings.TrimSpace(strings.Split(res.GetStdOut(), "=")[1])).To(Equal("192.168.10.10"))
+						Expect(strings.TrimSpace(strings.Split(res.GetStdOut(), "=")[1])).To(Equal(k8s3IP))
 					}
 				}
 			}
-		doRequestsFromOutsideClient := func(url string, count int, checkSourceIP bool) {
-			doRequestsFromOutsideClientWithLocalPort(url, count, checkSourceIP, 0)
+		doRequestsFromThirdHost := func(url string, count int, checkSourceIP bool) {
+			doRequestsFromThirdHostWithLocalPort(url, count, checkSourceIP, 0)
 		}
 
 		testNodePort := func(bpfNodePort bool) {
@@ -339,7 +340,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 			count := 10
 			url := getURL(k8s1IP, data.Spec.Ports[0].NodePort)
-			doRequestsFromOutsideClient(url, count, true)
+			doRequestsFromThirdHost(url, count, true)
 
 			// Checks that requests to k8s2 succeed, while requests to k8s1 are dropped
 			err = kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-local-k8s2").Unmarshal(&data)
@@ -358,7 +359,7 @@ var _ = Describe("K8sServicesTest", func() {
 			testNodePort(false)
 		})
 
-		It("Tests NodePort (kube-proxy) with externalTrafficPolicy=Local", func() {
+		SkipItIf(helpers.DoesNotHaveHosts(3), "Tests NodePort (kube-proxy) with externalTrafficPolicy=Local", func() {
 			testExternalTrafficPolicyLocal()
 		})
 
@@ -383,7 +384,7 @@ var _ = Describe("K8sServicesTest", func() {
 			})
 		})
 
-		SkipContextIf(helpers.DoesNotRunOnNetNext, "Tests NodePort BPF", func() {
+		SkipContextIf(func() bool { return helpers.DoesNotRunOnNetNext() || helpers.DoesNotHaveHosts(3)() }, "Tests NodePort BPF", func() {
 			// TODO(brb) Add with L7 policy test cases after GH#8971 has been fixed
 
 			nativeDev := "enp0s8"
@@ -469,7 +470,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 					k8s1Name, _ := getNodeInfo(helpers.K8s1)
 					k8s2Name, _ := getNodeInfo(helpers.K8s2)
-					doRequestsFromOutsideClient("http://"+lbIP, 10, false)
+					doRequestsFromThirdHost("http://"+lbIP, 10, false)
 					doRequests("http://"+lbIP, 10, k8s1Name)
 					doRequests("http://"+lbIP, 10, k8s2Name)
 				})
@@ -489,8 +490,9 @@ var _ = Describe("K8sServicesTest", func() {
 				var data v1.Service
 				err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
 				Expect(err).Should(BeNil(), "Cannot retrieve service")
-				url := getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
-				doRequestsFromOutsideClient(url, 10, true)
+				_, k8s1IP := getNodeInfo(helpers.K8s1)
+				url := getURL(k8s1IP, data.Spec.Ports[0].NodePort)
+				doRequestsFromThirdHost(url, 10, true)
 
 				// Test whether DSR NAT entries are evicted by GC
 
@@ -500,17 +502,20 @@ var _ = Describe("K8sServicesTest", func() {
 				// client -> k8s1 -> endpoint @ k8s2.
 				err = kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-k8s2").Unmarshal(&data)
 				Expect(err).Should(BeNil(), "Cannot retrieve service")
-				url = getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
+				url = getURL(k8s1IP, data.Spec.Ports[0].NodePort)
 
-				doRequestsFromOutsideClientWithLocalPort(url, 1, true, 64000)
+				doRequestsFromThirdHostWithLocalPort(url, 1, true, 64000)
 				res := kubectl.CiliumExec(pod, "cilium bpf nat list | grep 64000")
 				Expect(res.GetStdOut()).ShouldNot(BeEmpty(), "NAT entry was not evicted")
-				res.ExpectSuccess("Unable to list NAT entries")
+				// TODO(brb) Uncomment all "res.ExpectSuccess()" after adding
+				//           IPv6 DSR support (cilium bpf {ct,nat} cmds exit with 1
+				//           due to missing ipv6 maps).
+				// res.ExpectSuccess("Unable to list NAT entries")
 				// Flush CT maps to trigger eviction of the NAT entries (simulates CT GC)
-				res = kubectl.CiliumExec(pod, "cilium bpf ct flush global")
-				res.ExpectSuccess("Unable to flush CT maps")
+				kubectl.CiliumExec(pod, "cilium bpf ct flush global")
+				// res.ExpectSuccess("Unable to flush CT maps")
 				res = kubectl.CiliumExec(pod, "cilium bpf nat list | grep 64000")
-				res.ExpectSuccess("Unable to list NAT entries")
+				//res.ExpectSuccess("Unable to list NAT entries")
 				Expect(res.GetStdOut()).Should(BeEmpty(), "NAT entry was not evicted")
 			})
 		})

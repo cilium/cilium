@@ -342,19 +342,4 @@ docker network create --subnet=192.168.9.0/24 outside
 docker run --net outside --ip 192.168.9.10 --restart=always -d docker.io/cilium/demo-httpd:latest
 docker run --net outside --ip 192.168.9.11 --restart=always -d docker.io/cilium/demo-httpd:latest
 
-if [[ "${HOST}" == "k8s1" ]]; then
-    # To avoid SNAT'ing source IP, we create a network with masquerading disabled.
-    # Also, we install a route on each other node to make it possible a replies from
-    # remote nodes to reach containers attached to the network.
-    docker network create --subnet=192.168.10.0/24 \
-        --opt 'com.docker.network.bridge.enable_ip_masquerade=false' \
-        outside-no-masq
-    # NOTE: when changing "client-from-outside" IP addr, make sure that the IP addr
-    # is changed in the tests (grep for the IP addr).
-    docker run --name client-from-outside --net outside-no-masq --ip 192.168.10.10 \
-        --restart=always -d docker.io/cilium/demo-client:latest
-else
-    sudo ip route add 192.168.10.0/24 via 192.168.36.11 || true
-fi
-
 sudo touch /etc/provision_finished
