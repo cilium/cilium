@@ -33,10 +33,8 @@
 #include "lib/eps.h"
 #include "lib/metrics.h"
 
-#define CONNECT_REJECT	0
-#define CONNECT_PROCEED	1
-#define SENDMSG_PROCEED	CONNECT_PROCEED
-#define RECVMSG_PROCEED	CONNECT_PROCEED
+#define SYS_REJECT	0
+#define SYS_PROCEED	1
 
 static __always_inline __maybe_unused bool is_v4_loopback(__be32 daddr)
 {
@@ -225,7 +223,7 @@ int sock4_xlate(struct bpf_sock_addr *ctx)
 	struct lb4_service *slave_svc;
 
 	if (!sock_proto_enabled(ctx))
-		return CONNECT_PROCEED;
+		return SYS_PROCEED;
 
 	/* Initial non-wildcarded lookup handles regular services
 	 * deployed in nodeport range, external ip and partially
@@ -254,34 +252,34 @@ int sock4_xlate(struct bpf_sock_addr *ctx)
 		 * is from the host.
 		 */
 		if (sock4_is_external_ip(svc, &key))
-			return CONNECT_PROCEED;
+			return SYS_PROCEED;
 
 		key.slave = (sock_local_cookie(ctx) % svc->count) + 1;
 
 		slave_svc = __lb4_lookup_slave(&key);
 		if (!slave_svc) {
 			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_SLAVE);
-			return CONNECT_PROCEED;
+			return SYS_PROCEED;
 		}
 
 		backend = __lb4_lookup_backend(slave_svc->backend_id);
 		if (!backend) {
 			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND);
-			return CONNECT_PROCEED;
+			return SYS_PROCEED;
 		}
 
 		if (ctx->protocol != IPPROTO_TCP &&
 		    sock4_update_revnat(ctx, backend, &key,
 					slave_svc) < 0) {
 			update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
-			return CONNECT_PROCEED;
+			return SYS_PROCEED;
 		}
 
 		ctx->user_ip4	= backend->address;
 		ctx_set_port(ctx, backend->port);
 	}
 
-	return CONNECT_PROCEED;
+	return SYS_PROCEED;
 }
 
 #ifdef ENABLE_HOST_SERVICES_UDP
@@ -308,33 +306,33 @@ int sock4_xlate_snd(struct bpf_sock_addr *ctx)
 
 	if (svc) {
 		if (sock4_is_external_ip(svc, &lkey))
-			return SENDMSG_PROCEED;
+			return SYS_PROCEED;
 
 		lkey.slave = (sock_local_cookie(ctx) % svc->count) + 1;
 
 		slave_svc = __lb4_lookup_slave(&lkey);
 		if (!slave_svc) {
 			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_SLAVE);
-			return SENDMSG_PROCEED;
+			return SYS_PROCEED;
 		}
 
 		backend = __lb4_lookup_backend(slave_svc->backend_id);
 		if (!backend) {
 			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND);
-			return SENDMSG_PROCEED;
+			return SYS_PROCEED;
 		}
 
 		if (sock4_update_revnat(ctx, backend, &lkey,
 					slave_svc) < 0) {
 			update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
-			return SENDMSG_PROCEED;
+			return SYS_PROCEED;
 		}
 
 		ctx->user_ip4 = backend->address;
 		ctx_set_port(ctx, backend->port);
 	}
 
-	return SENDMSG_PROCEED;
+	return SYS_PROCEED;
 }
 
 __section("rcv-sock4")
@@ -359,14 +357,14 @@ int sock4_xlate_rcv(struct bpf_sock_addr *ctx)
 		if (!svc || svc->rev_nat_index != rval->rev_nat_index) {
 			map_delete_elem(&LB4_REVERSE_NAT_SK_MAP, &rkey);
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);
-			return RECVMSG_PROCEED;
+			return SYS_PROCEED;
 		}
 
 		ctx->user_ip4 = rval->address;
 		ctx_set_port(ctx, rval->port);
 	}
 
-	return RECVMSG_PROCEED;
+	return SYS_PROCEED;
 }
 #endif /* ENABLE_HOST_SERVICES_UDP */
 #endif /* ENABLE_IPV4 */
@@ -517,34 +515,34 @@ int sock6_xlate(struct bpf_sock_addr *ctx)
 
 	if (svc) {
 		if (sock6_is_external_ip(svc, &key))
-			return CONNECT_PROCEED;
+			return SYS_PROCEED;
 
 		key.slave = (sock_local_cookie(ctx) % svc->count) + 1;
 
 		slave_svc = __lb6_lookup_slave(&key);
 		if (!slave_svc) {
 			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_SLAVE);
-			return CONNECT_PROCEED;
+			return SYS_PROCEED;
 		}
 
 		backend = __lb6_lookup_backend(slave_svc->backend_id);
 		if (!backend) {
 			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND);
-			return CONNECT_PROCEED;
+			return SYS_PROCEED;
 		}
 
 		if (ctx->protocol != IPPROTO_TCP &&
 		    sock6_update_revnat(ctx, backend, &key,
 				        slave_svc) < 0) {
 			update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
-			return CONNECT_PROCEED;
+			return SYS_PROCEED;
 		}
 
 		ctx_set_v6_address(ctx, &backend->address);
 		ctx_set_port(ctx, backend->port);
 	}
 
-	return CONNECT_PROCEED;
+	return SYS_PROCEED;
 }
 
 #ifdef ENABLE_HOST_SERVICES_UDP
@@ -574,33 +572,33 @@ int sock6_xlate_snd(struct bpf_sock_addr *ctx)
 
 	if (svc) {
 		if (sock6_is_external_ip(svc, &lkey))
-			return CONNECT_PROCEED;
+			return SYS_PROCEED;
 
 		lkey.slave = (sock_local_cookie(ctx) % svc->count) + 1;
 
 		slave_svc = __lb6_lookup_slave(&lkey);
 		if (!slave_svc) {
 			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_SLAVE);
-			return CONNECT_PROCEED;
+			return SYS_PROCEED;
 		}
 
 		backend = __lb6_lookup_backend(slave_svc->backend_id);
 		if (!backend) {
 			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND);
-			return CONNECT_PROCEED;
+			return SYS_PROCEED;
 		}
 
 		if (sock6_update_revnat(ctx, backend, &lkey,
 				        slave_svc) < 0) {
 			update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
-			return CONNECT_PROCEED;
+			return SYS_PROCEED;
 		}
 
 		ctx_set_v6_address(ctx, &backend->address);
 		ctx_set_port(ctx, backend->port);
 	}
 
-	return CONNECT_PROCEED;
+	return SYS_PROCEED;
 }
 
 __section("rcv-sock6")
@@ -625,14 +623,14 @@ int sock6_xlate_rcv(struct bpf_sock_addr *ctx)
 		if (!svc || svc->rev_nat_index != rval->rev_nat_index) {
 			map_delete_elem(&LB6_REVERSE_NAT_SK_MAP, &rkey);
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);
-			return RECVMSG_PROCEED;
+			return SYS_PROCEED;
 		}
 
 		ctx_set_v6_address(ctx, &rval->address);
 		ctx_set_port(ctx, rval->port);
 	}
 
-	return RECVMSG_PROCEED;
+	return SYS_PROCEED;
 }
 #endif /* ENABLE_HOST_SERVICES_UDP */
 #endif /* ENABLE_IPV6 */
