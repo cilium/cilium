@@ -320,6 +320,14 @@ func (kub *Kubectl) ExecPodCmd(namespace string, pod string, cmd string, options
 	return kub.Exec(command, options...)
 }
 
+// ExecPodContainerCmd executes command cmd in the specified container residing
+// in the specified namespace and pod. It returns a pointer to CmdRes with all
+// the output
+func (kub *Kubectl) ExecPodContainerCmd(namespace, pod, container, cmd string, options ...ExecOptions) *CmdRes {
+	command := fmt.Sprintf("%s exec -n %s %s -c %s -- %s", KubectlCmd, namespace, pod, container, cmd)
+	return kub.Exec(command, options...)
+}
+
 // ExecPodCmdContext synchronously executes command cmd in the specified pod residing in the
 // specified namespace. It returns a pointer to CmdRes with all the output.
 func (kub *Kubectl) ExecPodCmdContext(ctx context.Context, namespace string, pod string, cmd string, options ...ExecOptions) *CmdRes {
@@ -410,6 +418,30 @@ func (kub *Kubectl) GetPodsNodes(namespace string, filter string) (map[string]st
 		return nil, fmt.Errorf("cannot retrieve pods: %s", res.CombineOutput())
 	}
 	return res.KVOutput(), nil
+}
+
+// GetSvcIP returns the cluster IP for the given service. If the service
+// does not contain a cluster IP, the function keeps retrying until it has or
+// the context timesout.
+func (kub *Kubectl) GetSvcIP(ctx context.Context, namespace, name string) (string, error) {
+	for {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		default:
+		}
+		jsonFilter := `{.spec.clusterIP}`
+		res := kub.ExecContext(ctx, fmt.Sprintf("%s -n %s get svc %s -o jsonpath='%s'",
+			KubectlCmd, namespace, name, jsonFilter))
+		if !res.WasSuccessful() {
+			return "", fmt.Errorf("cannot retrieve pods: %s", res.CombineOutput())
+		}
+		clusterIP := res.CombineOutput().String()
+		if clusterIP != "" {
+			return clusterIP, nil
+		}
+		time.Sleep(time.Second)
+	}
 }
 
 // GetPodsIPs returns a map with pod name as a key and pod IP name as value. It
@@ -1085,8 +1117,55 @@ func (kub *Kubectl) WaitCleanAllTerminatingPods(timeout time.Duration) error {
 	return err
 }
 
+// DeployPatchStdIn deploys the original kubernetes descriptor with the given patch.
+func (kub *Kubectl) DeployPatchStdIn(original, patch string) error {
+	// debugYaml only dumps the full created yaml file to the test output if
+	// the cilium manifest can not be created correctly.
+	debugYaml := func(original, patch string) {
+		// dry-run is only available since k8s 1.11
+		switch GetCurrentK8SEnv() {
+		case "1.8", "1.9", "1.10":
+			_ = kub.ExecShort(fmt.Sprintf(
+				`%s patch --filename='%s' --patch %s --local -o yaml`,
+				KubectlCmd, original, patch))
+		default:
+			_ = kub.ExecShort(fmt.Sprintf(
+				`%s patch --filename='%s' --patch %s --local --dry-run -o yaml`,
+				KubectlCmd, original, patch))
+		}
+	}
+
+	var res *CmdRes
+	// validation 1st
+	// dry-run is only available since k8s 1.11
+	switch GetCurrentK8SEnv() {
+	case "1.8", "1.9", "1.10":
+	default:
+		res = kub.ExecShort(fmt.Sprintf(
+			`%s patch --filename='%s' --patch %s --local --dry-run`,
+			KubectlCmd, original, patch))
+		if !res.WasSuccessful() {
+			debugYaml(original, patch)
+			return res.GetErr("Cilium patch validation failed")
+		}
+	}
+
+	res = kub.Apply(ApplyOptions{
+		FilePath: "-",
+		Force:    true,
+		Piped: fmt.Sprintf(
+			`%s patch --filename='%s' --patch %s --local -o yaml`,
+			KubectlCmd, original, patch),
+	})
+	if !res.WasSuccessful() {
+		debugYaml(original, patch)
+		return res.GetErr("Cilium manifest patch installation failed")
+	}
+	return nil
+}
+
 // DeployPatch deploys the original kubernetes descriptor with the given patch.
-func (kub *Kubectl) DeployPatch(original, patch string) error {
+func (kub *Kubectl) DeployPatch(original, patchFileName string) error {
 	// debugYaml only dumps the full created yaml file to the test output if
 	// the cilium manifest can not be created correctly.
 	debugYaml := func(original, patch string) {
@@ -1111,9 +1190,9 @@ func (kub *Kubectl) DeployPatch(original, patch string) error {
 	default:
 		res = kub.ExecShort(fmt.Sprintf(
 			`%s patch --filename='%s' --patch "$(cat '%s')" --local --dry-run`,
-			KubectlCmd, original, patch))
+			KubectlCmd, original, patchFileName))
 		if !res.WasSuccessful() {
-			debugYaml(original, patch)
+			debugYaml(original, patchFileName)
 			return res.GetErr("Cilium patch validation failed")
 		}
 	}
@@ -1123,11 +1202,11 @@ func (kub *Kubectl) DeployPatch(original, patch string) error {
 		Force:    true,
 		Piped: fmt.Sprintf(
 			`%s patch --filename='%s' --patch "$(cat '%s')" --local -o yaml`,
-			KubectlCmd, original, patch),
+			KubectlCmd, original, patchFileName),
 	})
 	if !res.WasSuccessful() {
-		debugYaml(original, patch)
-		return res.GetErr("Cilium manifest patch instalation failed")
+		debugYaml(original, patchFileName)
+		return res.GetErr("Cilium manifest patch installation failed")
 	}
 	return nil
 }
@@ -2755,9 +2834,14 @@ func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.En
 	var k8sService *v1.Service
 
 	// TODO(brb) validate NodePort and LoadBalancer services
-	if cSvc.Status.Realized.Flags != nil &&
-		(cSvc.Status.Realized.Flags.Type == "NodePort" || cSvc.Status.Realized.Flags.Type == "LoadBalancer") {
-		return nil
+	if cSvc.Status.Realized.Flags != nil {
+		switch cSvc.Status.Realized.Flags.Type {
+		case models.ServiceSpecFlagsTypeNodePort,
+			models.ServiceSpecFlagsTypeExternalIPs:
+			return nil
+		case "LoadBalancer":
+			return nil
+		}
 	}
 
 	for _, k8sSvc := range k8sSvcs {
