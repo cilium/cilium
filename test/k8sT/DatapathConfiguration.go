@@ -209,7 +209,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			ExpectWithOffset(1, err).Should(BeNil(), "Unable to determine cilium pod on node %s", helpers.K8s1)
 			status := kubectl.CiliumExec(ciliumPod, "cilium bpf tunnel list | wc -l")
 			status.ExpectSuccess()
-			Expect(status.IntOutput()).Should(Equal(3), "Did not find expected number of entries in BPF tunnel map")
+			Expect(status.IntOutput()).Should(Equal((kubectl.GetNumNodes()-1)*2+1), "Did not find expected number of entries in BPF tunnel map")
 		}
 
 		It("Check connectivity with transparent encryption and VXLAN encapsulation", func() {
