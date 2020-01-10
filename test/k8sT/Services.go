@@ -384,141 +384,143 @@ var _ = Describe("K8sServicesTest", func() {
 			})
 		})
 
-		SkipContextIf(func() bool { return helpers.DoesNotRunOnNetNext() || helpers.DoesNotHaveHosts(3)() }, "Tests NodePort BPF", func() {
-			// TODO(brb) Add with L7 policy test cases after GH#8971 has been fixed
+		SkipContextIf(
+			func() bool { return helpers.DoesNotRunOnNetNext() || helpers.DoesNotHaveHosts(3)() },
+			"Tests NodePort BPF", func() {
+				// TODO(brb) Add with L7 policy test cases after GH#8971 has been fixed
 
-			nativeDev := "enp0s8"
-
-			BeforeAll(func() {
-				enableBackgroundReport = false
-			})
-
-			AfterAll(func() {
-				enableBackgroundReport = true
-				// Remove NodePort programs (GH#8873)
-				pods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
-				Expect(err).To(BeNil(), "Cannot retrieve Cilium pods")
-				for _, pod := range pods {
-					ret := kubectl.CiliumExec(pod, "tc filter del dev "+nativeDev+" ingress")
-					Expect(ret.WasSuccessful()).Should(BeTrue(), "Cannot remove ingress bpf_netdev on %s", pod)
-					ret = kubectl.CiliumExec(pod, "tc filter del dev "+nativeDev+" egress")
-					Expect(ret.WasSuccessful()).Should(BeTrue(), "Cannot remove egress bpf_netdev on %s", pod)
-				}
-				deleteCiliumDS(kubectl)
-				// Deploy Cilium as the next test expects it to be up and running
-				DeployCiliumAndDNS(kubectl)
-			})
-
-			Context("Tests with vxlan", func() {
-				BeforeAll(func() {
-					deleteCiliumDS(kubectl)
-					DeployCiliumOptionsAndDNS(kubectl, []string{
-						"--set global.nodePort.enabled=true",
-						"--set global.nodePort.device=" + nativeDev,
-					})
-				})
-
-				It("Tests NodePort", func() {
-					testNodePort(true)
-				})
-
-				It("Tests NodePort with externalTrafficPolicy=Local", func() {
-					testExternalTrafficPolicyLocal()
-				})
-			})
-
-			Context("Tests with direct routing", func() {
-				BeforeAll(func() {
-					deleteCiliumDS(kubectl)
-					DeployCiliumOptionsAndDNS(kubectl, []string{
-						"--set global.nodePort.enabled=true",
-						"--set global.nodePort.device=" + nativeDev,
-						"--set global.tunnel=disabled",
-						"--set global.autoDirectNodeRoutes=true",
-					})
-				})
-
-				It("Tests NodePort", func() {
-					testNodePort(true)
-				})
-
-				It("Tests NodePort with externalTrafficPolicy=Local", func() {
-					testExternalTrafficPolicyLocal()
-				})
-			})
-
-			Context("Tests with MetalLB", func() {
-				var (
-					metalLB string
-				)
+				nativeDev := "enp0s8"
 
 				BeforeAll(func() {
-					// Will allocate LoadBalancer IPs from 192.168.36.{240-250} range
-					metalLB = helpers.ManifestGet(kubectl.BasePath(), "metallb.yaml")
-					res := kubectl.ApplyDefault(metalLB)
-					res.ExpectSuccess("Unable to apply %s", metalLB)
+					enableBackgroundReport = false
 				})
 
 				AfterAll(func() {
-					_ = kubectl.Delete(metalLB)
+					enableBackgroundReport = true
+					// Remove NodePort programs (GH#8873)
+					pods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
+					Expect(err).To(BeNil(), "Cannot retrieve Cilium pods")
+					for _, pod := range pods {
+						ret := kubectl.CiliumExec(pod, "tc filter del dev "+nativeDev+" ingress")
+						Expect(ret.WasSuccessful()).Should(BeTrue(), "Cannot remove ingress bpf_netdev on %s", pod)
+						ret = kubectl.CiliumExec(pod, "tc filter del dev "+nativeDev+" egress")
+						Expect(ret.WasSuccessful()).Should(BeTrue(), "Cannot remove egress bpf_netdev on %s", pod)
+					}
+					deleteCiliumDS(kubectl)
+					// Deploy Cilium as the next test expects it to be up and running
+					DeployCiliumAndDNS(kubectl)
 				})
 
-				It("Connectivity to endpoint via LB", func() {
-					lbIP, err := kubectl.GetLoadBalancerIP(
-						helpers.DefaultNamespace, "test-lb", 30*time.Second)
-					Expect(err).Should(BeNil(), "Cannot retrieve loadbalancer IP for test-lb")
+				Context("Tests with vxlan", func() {
+					BeforeAll(func() {
+						deleteCiliumDS(kubectl)
+						DeployCiliumOptionsAndDNS(kubectl, []string{
+							"--set global.nodePort.enabled=true",
+							"--set global.nodePort.device=" + nativeDev,
+						})
+					})
 
-					k8s1Name, _ := getNodeInfo(helpers.K8s1)
-					k8s2Name, _ := getNodeInfo(helpers.K8s2)
-					doRequestsFromThirdHost("http://"+lbIP, 10, false)
-					doRequests("http://"+lbIP, 10, k8s1Name)
-					doRequests("http://"+lbIP, 10, k8s2Name)
+					It("Tests NodePort", func() {
+						testNodePort(true)
+					})
+
+					It("Tests NodePort with externalTrafficPolicy=Local", func() {
+						testExternalTrafficPolicyLocal()
+					})
+				})
+
+				Context("Tests with direct routing", func() {
+					BeforeAll(func() {
+						deleteCiliumDS(kubectl)
+						DeployCiliumOptionsAndDNS(kubectl, []string{
+							"--set global.nodePort.enabled=true",
+							"--set global.nodePort.device=" + nativeDev,
+							"--set global.tunnel=disabled",
+							"--set global.autoDirectNodeRoutes=true",
+						})
+					})
+
+					It("Tests NodePort", func() {
+						testNodePort(true)
+					})
+
+					It("Tests NodePort with externalTrafficPolicy=Local", func() {
+						testExternalTrafficPolicyLocal()
+					})
+				})
+
+				Context("Tests with MetalLB", func() {
+					var (
+						metalLB string
+					)
+
+					BeforeAll(func() {
+						// Will allocate LoadBalancer IPs from 192.168.36.{240-250} range
+						metalLB = helpers.ManifestGet(kubectl.BasePath(), "metallb.yaml")
+						res := kubectl.ApplyDefault(metalLB)
+						res.ExpectSuccess("Unable to apply %s", metalLB)
+					})
+
+					AfterAll(func() {
+						_ = kubectl.Delete(metalLB)
+					})
+
+					It("Connectivity to endpoint via LB", func() {
+						lbIP, err := kubectl.GetLoadBalancerIP(
+							helpers.DefaultNamespace, "test-lb", 30*time.Second)
+						Expect(err).Should(BeNil(), "Cannot retrieve loadbalancer IP for test-lb")
+
+						k8s1Name, _ := getNodeInfo(helpers.K8s1)
+						k8s2Name, _ := getNodeInfo(helpers.K8s2)
+						doRequestsFromThirdHost("http://"+lbIP, 10, false)
+						doRequests("http://"+lbIP, 10, k8s1Name)
+						doRequests("http://"+lbIP, 10, k8s2Name)
+					})
+				})
+
+				It("Tests with direct routing and DSR", func() {
+					deleteCiliumDS(kubectl)
+					DeployCiliumOptionsAndDNS(kubectl, []string{
+						"--set global.nodePort.enabled=true",
+						"--set global.nodePort.device=" + nativeDev,
+						"--set global.nodePort.dsr=true",
+						"--set global.tunnel=disabled",
+						"--set global.autoDirectNodeRoutes=true",
+						"--set global.ipv6.enabled=false",
+					})
+
+					var data v1.Service
+					err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
+					Expect(err).Should(BeNil(), "Cannot retrieve service")
+					_, k8s1IP := getNodeInfo(helpers.K8s1)
+					url := getURL(k8s1IP, data.Spec.Ports[0].NodePort)
+					doRequestsFromThirdHost(url, 10, true)
+
+					// Test whether DSR NAT entries are evicted by GC
+
+					pod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s2)
+					Expect(err).Should(BeNil(), fmt.Sprintf("Cannot determine cilium pod name"))
+					// "test-nodeport-k8s2" because we want to trigger SNAT with a single request:
+					// client -> k8s1 -> endpoint @ k8s2.
+					err = kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-k8s2").Unmarshal(&data)
+					Expect(err).Should(BeNil(), "Cannot retrieve service")
+					url = getURL(k8s1IP, data.Spec.Ports[0].NodePort)
+
+					doRequestsFromThirdHostWithLocalPort(url, 1, true, 64000)
+					res := kubectl.CiliumExec(pod, "cilium bpf nat list | grep 64000")
+					Expect(res.GetStdOut()).ShouldNot(BeEmpty(), "NAT entry was not evicted")
+					// TODO(brb) Uncomment all "res.ExpectSuccess()" after adding
+					//           IPv6 DSR support (cilium bpf {ct,nat} cmds exit with 1
+					//           due to missing ipv6 maps).
+					// res.ExpectSuccess("Unable to list NAT entries")
+					// Flush CT maps to trigger eviction of the NAT entries (simulates CT GC)
+					kubectl.CiliumExec(pod, "cilium bpf ct flush global")
+					// res.ExpectSuccess("Unable to flush CT maps")
+					res = kubectl.CiliumExec(pod, "cilium bpf nat list | grep 64000")
+					//res.ExpectSuccess("Unable to list NAT entries")
+					Expect(res.GetStdOut()).Should(BeEmpty(), "NAT entry was not evicted")
 				})
 			})
-
-			It("Tests with direct routing and DSR", func() {
-				deleteCiliumDS(kubectl)
-				DeployCiliumOptionsAndDNS(kubectl, []string{
-					"--set global.nodePort.enabled=true",
-					"--set global.nodePort.device=" + nativeDev,
-					"--set global.nodePort.dsr=true",
-					"--set global.tunnel=disabled",
-					"--set global.autoDirectNodeRoutes=true",
-					"--set global.ipv6.enabled=false",
-				})
-
-				var data v1.Service
-				err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
-				Expect(err).Should(BeNil(), "Cannot retrieve service")
-				_, k8s1IP := getNodeInfo(helpers.K8s1)
-				url := getURL(k8s1IP, data.Spec.Ports[0].NodePort)
-				doRequestsFromThirdHost(url, 10, true)
-
-				// Test whether DSR NAT entries are evicted by GC
-
-				pod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s2)
-				Expect(err).Should(BeNil(), fmt.Sprintf("Cannot determine cilium pod name"))
-				// "test-nodeport-k8s2" because we want to trigger SNAT with a single request:
-				// client -> k8s1 -> endpoint @ k8s2.
-				err = kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-k8s2").Unmarshal(&data)
-				Expect(err).Should(BeNil(), "Cannot retrieve service")
-				url = getURL(k8s1IP, data.Spec.Ports[0].NodePort)
-
-				doRequestsFromThirdHostWithLocalPort(url, 1, true, 64000)
-				res := kubectl.CiliumExec(pod, "cilium bpf nat list | grep 64000")
-				Expect(res.GetStdOut()).ShouldNot(BeEmpty(), "NAT entry was not evicted")
-				// TODO(brb) Uncomment all "res.ExpectSuccess()" after adding
-				//           IPv6 DSR support (cilium bpf {ct,nat} cmds exit with 1
-				//           due to missing ipv6 maps).
-				// res.ExpectSuccess("Unable to list NAT entries")
-				// Flush CT maps to trigger eviction of the NAT entries (simulates CT GC)
-				kubectl.CiliumExec(pod, "cilium bpf ct flush global")
-				// res.ExpectSuccess("Unable to flush CT maps")
-				res = kubectl.CiliumExec(pod, "cilium bpf nat list | grep 64000")
-				//res.ExpectSuccess("Unable to list NAT entries")
-				Expect(res.GetStdOut()).Should(BeEmpty(), "NAT entry was not evicted")
-			})
-		})
 	})
 
 	//TODO: Check service with IPV6
