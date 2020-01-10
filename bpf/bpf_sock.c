@@ -172,7 +172,8 @@ static inline bool sock4_is_external_ip(struct lb4_service *svc,
 
 		info = ipcache_lookup4(&IPCACHE_MAP, key->address,
 				       V4_CACHE_KEY_LEN);
-		if (info == NULL || info->sec_label != HOST_ID)
+		if (info == NULL || (info->sec_label != HOST_ID &&
+				     info->sec_label != REMOTE_NODE_ID))
 			return true;
 	}
 #endif /* ENABLE_EXTERNAL_IP */
@@ -193,14 +194,15 @@ static inline void sock4_handle_node_port(struct bpf_sock_addr *ctx,
 		goto out_fill_addr;
 
 	/* When connecting to node port services in our cluster that
-	 * have either HOST_ID or loopback address, we do a wild-card
-	 * lookup with IP of 0.
+	 * have either {REMOTE_NODE,HOST}_ID or loopback address, we
+	 * do a wild-card lookup with IP of 0.
 	 */
 	if (is_v4_loopback(daddr))
 		return;
 
 	info = ipcache_lookup4(&IPCACHE_MAP, daddr, V4_CACHE_KEY_LEN);
-	if (info != NULL && info->sec_label == HOST_ID)
+	if (info != NULL && (info->sec_label == HOST_ID ||
+			     info->sec_label == REMOTE_NODE_ID))
 		return;
 
 	/* For everything else in terms of node port, do a direct lookup. */
@@ -448,7 +450,8 @@ static inline bool sock6_is_external_ip(struct lb6_service *svc,
 
 		info = ipcache_lookup6(&IPCACHE_MAP, &key->address,
 				       V6_CACHE_KEY_LEN);
-		if (info == NULL || info->sec_label != HOST_ID)
+		if (info == NULL || (info->sec_label != HOST_ID &&
+				     info->sec_label != REMOTE_NODE_ID))
 			return true;
 	}
 #endif /* ENABLE_EXTERNAL_IP */
@@ -471,14 +474,15 @@ static inline void sock6_handle_node_port(struct bpf_sock_addr *ctx,
 		goto out_fill_addr;
 
 	/* When connecting to node port services in our cluster that
-	 * have either HOST_ID or loopback address, we do a wild-card
-	 * lookup with IP of 0.
+	 * have either {REMOTE_NODE,HOST}_ID or loopback address, we
+	 * do a wild-card lookup with IP of 0.
 	 */
 	if (is_v6_loopback(&daddr))
 		return;
 
 	info = ipcache_lookup6(&IPCACHE_MAP, &daddr, V6_CACHE_KEY_LEN);
-	if (info != NULL && info->sec_label == HOST_ID)
+	if (info != NULL && (info->sec_label == HOST_ID ||
+			     info->sec_label == REMOTE_NODE_ID))
 		return;
 
 	/* For everything else in terms of node port, do a direct lookup. */
