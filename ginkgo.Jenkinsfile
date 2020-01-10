@@ -133,6 +133,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                         NETNEXT="true"
                         K8S_VERSION="1.11"
+                        K8S_NODES="3"
                         KUBECONFIG="vagrant-kubeconfig"
                         CILIUM_REGISTRY="localnode" //setting it here so we don't compile Cilium in vagrant nodes (already done on local node registry)
                     }

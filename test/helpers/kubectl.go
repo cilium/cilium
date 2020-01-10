@@ -242,6 +242,7 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 func (kub *Kubectl) LabelNodes() {
 	kub.ExecMiddle(fmt.Sprintf("%s label --overwrite node k8s1 cilium.io/ci-node=k8s1", KubectlCmd))
 	kub.ExecMiddle(fmt.Sprintf("%s label --overwrite node k8s2 cilium.io/ci-node=k8s2", KubectlCmd))
+	kub.ExecMiddle(fmt.Sprintf("%s label --overwrite node k8s3 cilium.io/ci-node=k8s3", KubectlCmd))
 }
 
 // CepGet returns the endpoint model for the given pod name in the specified
