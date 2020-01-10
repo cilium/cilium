@@ -414,6 +414,8 @@ spec:
           readOnly: true
         - mountPath: /run/xtables.lock
           name: xtables-lock
+        - mountPath: /boot
+          name: boot
       hostNetwork: true
       initContainers:
       - command:
@@ -488,6 +490,10 @@ spec:
           path: /run/xtables.lock
           type: FileOrCreate
         name: xtables-lock
+        # To probe kernel config
+      - hostPath:
+          path: /boot
+        name: boot
         # To read the clustermesh configuration
       - name: clustermesh-secrets
         secret:
