@@ -259,7 +259,8 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 		else
 			return ret;
 	}
-#ifdef ENABLE_K8S_EXTERNAL_IP  /* ENABLE_K8S_EXTERNAL_IP */
+
+#ifdef ENABLE_EXTERNAL_IP
 	if ((svc = lb6_lookup_service(skb, &key)) != NULL) {
 		ret = lb6_local(get_ct_map6(&tuple), skb, l3_off, l4_off,
 				&csum_off, &key, &tuple, svc, &ct_state_new);
@@ -267,7 +268,7 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 			return ret;
 	}
 
-	if (svc == NULL || !svc->k8s_external) {
+	if (svc == NULL || !svc->external) {
 		service_port = bpf_ntohs(key.dport);
 		if (service_port < NODEPORT_PORT_MIN ||
 		    service_port > NODEPORT_PORT_MAX) {
@@ -297,7 +298,7 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 	} else {
 		return TC_ACT_OK;
 	}
-#endif  /* ENABLE_K8S_EXTERNAL_IP */
+#endif  /* ENABLE_EXTERNAL_IP */
 
 	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, skb, l4_off, CT_EGRESS,
 			 &ct_state, &monitor);
@@ -660,7 +661,7 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 			return ret;
 	}
 
-#ifdef ENABLE_K8S_EXTERNAL_IP  /* ENABLE_K8S_EXTERNAL_IP */
+#ifdef ENABLE_EXTERNAL_IP
 	if ((svc = lb4_lookup_service(skb, &key)) != NULL) {
 		ret = lb4_local(get_ct_map4(&tuple), skb, l3_off, l4_off, &csum_off,
 				&key, &tuple, svc, &ct_state_new, ip4->saddr);
@@ -668,7 +669,7 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 			return ret;
 	}
 
-	if (svc == NULL || !svc->k8s_external) {
+	if (svc == NULL || !svc->external) {
 		service_port = bpf_ntohs(key.dport);
 		if (service_port < NODEPORT_PORT_MIN ||
 		    service_port > NODEPORT_PORT_MAX) {
@@ -698,7 +699,7 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 	} else {
 		return TC_ACT_OK;
 	}
-#endif  /* ENABLE_K8S_EXTERNAL_IP */
+#endif  /* ENABLE_EXTERNAL_IP */
 
 	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, skb, l4_off, CT_EGRESS,
 			 &ct_state, &monitor);

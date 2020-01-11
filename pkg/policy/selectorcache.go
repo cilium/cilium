@@ -49,6 +49,9 @@ type CachedSelector interface {
 	// all endpoints.
 	IsWildcard() bool
 
+	// IsNone returns true if the selector never selects anything
+	IsNone() bool
+
 	// String returns the string representation of this selector.
 	// Used as a map key.
 	String() string
@@ -244,6 +247,8 @@ var (
 	emptySelection []identity.NumericIdentity
 	// wildcardSelectorKey is used to compare if a key is for a wildcard
 	wildcardSelectorKey = api.WildcardEndpointSelector.LabelSelector.String()
+	// noneSelectorKey is used to compare if a key is for "reserved:none"
+	noneSelectorKey = api.EndpointSelectorNone.LabelSelector.String()
 )
 
 type selectorManager struct {
@@ -289,6 +294,11 @@ func (s *selectorManager) Selects(nid identity.NumericIdentity) bool {
 // endpoints.
 func (s *selectorManager) IsWildcard() bool {
 	return s.key == wildcardSelectorKey
+}
+
+// IsNone returns true if the endpoint selector never selects anything.
+func (s *selectorManager) IsNone() bool {
+	return s.key == noneSelectorKey
 }
 
 // String returns the map key for this selector

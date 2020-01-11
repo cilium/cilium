@@ -348,7 +348,7 @@ func (s *Service) createSVCInfoIfNotExist(
 		addrID, err := AcquireID(frontend.L3n4Addr, uint32(frontend.ID))
 		if err != nil {
 			return nil, false,
-				fmt.Errorf("Unable to allocate service ID %d for %q: %s",
+				fmt.Errorf("Unable to allocate service ID %d for %v: %s",
 					frontend.ID, frontend, err)
 		}
 		frontend.ID = addrID.ID

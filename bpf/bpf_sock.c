@@ -166,16 +166,17 @@ static inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 static inline bool sock4_is_external_ip(struct lb4_service *svc,
 					struct lb4_key *key)
 {
-#ifdef ENABLE_K8S_EXTERNAL_IP
-	if (svc->k8s_external) {
+#ifdef ENABLE_EXTERNAL_IP
+	if (svc->external) {
 		struct remote_endpoint_info *info;
 
 		info = ipcache_lookup4(&IPCACHE_MAP, key->address,
 				       V4_CACHE_KEY_LEN);
-		if (info == NULL || info->sec_label != HOST_ID)
+		if (info == NULL || (info->sec_label != HOST_ID &&
+				     info->sec_label != REMOTE_NODE_ID))
 			return true;
 	}
-#endif /* ENABLE_K8S_EXTERNAL_IP */
+#endif /* ENABLE_EXTERNAL_IP */
 	return false;
 }
 
@@ -193,14 +194,15 @@ static inline void sock4_handle_node_port(struct bpf_sock_addr *ctx,
 		goto out_fill_addr;
 
 	/* When connecting to node port services in our cluster that
-	 * have either HOST_ID or loopback address, we do a wild-card
-	 * lookup with IP of 0.
+	 * have either {REMOTE_NODE,HOST}_ID or loopback address, we
+	 * do a wild-card lookup with IP of 0.
 	 */
 	if (is_v4_loopback(daddr))
 		return;
 
 	info = ipcache_lookup4(&IPCACHE_MAP, daddr, V4_CACHE_KEY_LEN);
-	if (info != NULL && info->sec_label == HOST_ID)
+	if (info != NULL && (info->sec_label == HOST_ID ||
+			     info->sec_label == REMOTE_NODE_ID))
 		return;
 
 	/* For everything else in terms of node port, do a direct lookup. */
@@ -442,16 +444,17 @@ static __always_inline void ctx_set_v6_address(struct bpf_sock_addr *ctx,
 static inline bool sock6_is_external_ip(struct lb6_service *svc,
 					struct lb6_key *key)
 {
-#ifdef ENABLE_K8S_EXTERNAL_IP
-	if (svc->k8s_external) {
+#ifdef ENABLE_EXTERNAL_IP
+	if (svc->external) {
 		struct remote_endpoint_info *info;
 
 		info = ipcache_lookup6(&IPCACHE_MAP, &key->address,
 				       V6_CACHE_KEY_LEN);
-		if (info == NULL || info->sec_label != HOST_ID)
+		if (info == NULL || (info->sec_label != HOST_ID &&
+				     info->sec_label != REMOTE_NODE_ID))
 			return true;
 	}
-#endif /* ENABLE_K8S_EXTERNAL_IP */
+#endif /* ENABLE_EXTERNAL_IP */
 	return false;
 }
 
@@ -471,14 +474,15 @@ static inline void sock6_handle_node_port(struct bpf_sock_addr *ctx,
 		goto out_fill_addr;
 
 	/* When connecting to node port services in our cluster that
-	 * have either HOST_ID or loopback address, we do a wild-card
-	 * lookup with IP of 0.
+	 * have either {REMOTE_NODE,HOST}_ID or loopback address, we
+	 * do a wild-card lookup with IP of 0.
 	 */
 	if (is_v6_loopback(&daddr))
 		return;
 
 	info = ipcache_lookup6(&IPCACHE_MAP, &daddr, V6_CACHE_KEY_LEN);
-	if (info != NULL && info->sec_label == HOST_ID)
+	if (info != NULL && (info->sec_label == HOST_ID ||
+			     info->sec_label == REMOTE_NODE_ID))
 		return;
 
 	/* For everything else in terms of node port, do a direct lookup. */
@@ -498,6 +502,9 @@ int sock6_xlate(struct bpf_sock_addr *ctx)
 		.dport		= ctx_get_port(ctx),
 	};
 	struct lb6_service *slave_svc;
+
+	if (!sock_proto_enabled(ctx))
+		return SYS_PROCEED;
 
 	ctx_get_v6_address(ctx, &key.address);
 

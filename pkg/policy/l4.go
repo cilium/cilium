@@ -483,7 +483,6 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) {
 	if ctx != nil {
 		for _, perEpData := range l4.L7RulesPerEp {
 			perEpData.EnvoyHTTPRules, perEpData.CanShortCircuit = ctx.GetEnvoyHTTPRules(&perEpData.L7Rules)
-			log.Debugf("EnvoyHTTPRules: can short circuit: %s: %v", perEpData.EnvoyHTTPRules.String(), perEpData.CanShortCircuit)
 		}
 	}
 
