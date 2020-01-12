@@ -40,6 +40,10 @@ Users (Alphabetically)
       D: Cilium Example User Inc. is using Cilium for scientific purposes
       U: ENI networking, DNS policies, ClusteMesh
       Q: @slacknick1, @slacknick2
+      
+    * N: Adobe, Inc.
+      D: Adobe's Project Ethos uses Cilium for multi-tenant, multi-cloud clusters: https://youtu.be/39FLsSc2P-Y
+      U: L3/L4/L7 policies
 
     * N: Palantir Technologies Inc.
       D: Palantir is using Cilium as their main CNI plugin in AWS (self hosted k8s).
