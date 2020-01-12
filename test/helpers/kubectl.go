@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -2788,10 +2789,19 @@ func (kub *Kubectl) InitFQDNManifests() error {
 			return err
 		}
 
+		svcIP, _, err := kub.GetServiceHostPort(DefaultNamespace, "kubernetes")
+		if err != nil {
+			ginkgoext.GinkgoPrint("FML FAIL %s\n", err)
+			return err
+		}
+		svcIPParsed := net.ParseIP(svcIP).To4()
+		ginkgoext.GinkgoPrint("FML DNS Bind ClusterIP %s->%s\n", svcIP, svcIPParsed)
+		svcIPParsed[3] = 100
+		ginkgoext.GinkgoPrint("FML DNS Bind ClusterIP %s->%s\n", svcIP, svcIPParsed)
+
 		options["world1"] = ip1
 		options["world2"] = ip2
-		options["clusterIP"] = ""
-
+		options["clusterIP"] = svcIPParsed.String()
 	}
 	manifestRoot := filepath.Join(kub.BasePath(), manifestsPath)
 	res := kub.HelmTemplate(filepath.Join(manifestRoot, "bind"),
