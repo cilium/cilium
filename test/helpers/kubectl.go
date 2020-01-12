@@ -2779,7 +2779,8 @@ func (kub *Kubectl) HelmTemplate(chartDir, namespace, filename string, options m
 func (kub *Kubectl) InitFQDNManifests() error {
 	options := map[string]string{}
 
-	if GetCurrentIntegration() == CIIntegrationEKS {
+	if IsIntegration(CIIntegrationEKS) ||
+		IsIntegration(CIIntegrationGKE) {
 		ip1, err := kub.GetNodeIPByLabel("k8s1")
 		if err != nil {
 			return err

@@ -46,7 +46,8 @@ var _ = Describe("K8sFQDNTest", func() {
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		if helpers.GetCurrentIntegration() == helpers.CIIntegrationEKS {
+		if helpers.IsIntegration(helpers.CIIntegrationEKS) ||
+			helpers.IsIntegration(helpers.CIIntegrationGKE) {
 			ip1, err := kubectl.GetNodeIPByLabel("k8s1")
 			Expect(err).Should(BeNil(), "Unable to get k8s1 node ip")
 			ip2, err := kubectl.GetNodeIPByLabel("k8s2")
@@ -70,7 +71,8 @@ var _ = Describe("K8sFQDNTest", func() {
 		res.ExpectSuccess("Bind config cannot be deployed")
 
 		By("Applying demo manifest")
-		if helpers.GetCurrentIntegration() == helpers.CIIntegrationEKS {
+		if helpers.IsIntegration(helpers.CIIntegrationEKS) ||
+			helpers.IsIntegration(helpers.CIIntegrationGKE) {
 			buf, err := kubectl.Get("default", "service bind").Filter("{$.spec.clusterIP}")
 			Expect(err).Should(BeNil(), "unable to get bind svc ip")
 			bindIP := buf.String()
