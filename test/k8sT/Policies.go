@@ -800,7 +800,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				appPods         map[string]string
 				app1PodIP       string
 				bindManifest    string
-				worldTarget     = "http://world1.cilium.test"
+				worldTarget     = "http://fqdn-httpd-svc.default.svc.cluster.local"
 			)
 
 			BeforeAll(func() {
