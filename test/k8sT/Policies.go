@@ -60,6 +60,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		knpAllowIngress      string
 		knpAllowEgress       string
 		cnpMatchExpression   string
+		fqdnHTTPManifest     string
 		app1Service                             = "app1-service"
 		backgroundCancel     context.CancelFunc = func() { return }
 		backgroundError      error
@@ -89,6 +90,11 @@ var _ = Describe("K8sPolicyTest", func() {
 		knpAllowIngress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-allow-ingress.yaml")
 		knpAllowEgress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-allow-egress.yaml")
 		cnpMatchExpression = helpers.ManifestGet(kubectl.BasePath(), "cnp-matchexpressions.yaml")
+		fqdnHTTPManifest = helpers.ManifestGet(kubectl.BasePath(), "fqdn-httpd.yaml")
+
+		By("Applying FQDN httpd world target pods")
+		res := kubectl.ApplyDefault(fqdnHTTPManifest)
+		res.ExpectSuccess("FQDN httpd world target pods cannot be deployed")
 
 		DeployCiliumOptionsAndDNS(kubectl, map[string]string{
 			"global.tls.secretsBackend": "k8s",
@@ -107,6 +113,8 @@ var _ = Describe("K8sPolicyTest", func() {
 	})
 
 	AfterAll(func() {
+
+		_ = kubectl.Delete(fqdnHTTPManifest)
 		ExpectAllPodsTerminated(kubectl)
 		kubectl.CloseSSHClient()
 	})
@@ -800,7 +808,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				appPods         map[string]string
 				app1PodIP       string
 				bindManifest    string
-				worldTarget     = "http://world1.cilium.test"
+				worldTarget     = "http://fqdn-httpd-svc.default.svc.cluster.local"
 			)
 
 			BeforeAll(func() {
