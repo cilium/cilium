@@ -2852,6 +2852,11 @@ func init() {
           "description": "Optional service configuration flags",
           "type": "object",
           "properties": {
+            "healthCheckNodePort": {
+              "description": "Service health check node port",
+              "type": "integer",
+              "format": "uint16"
+            },
             "name": {
               "description": "Service name  (e.g. Kubernetes service name)",
               "type": "string"
@@ -6137,6 +6142,11 @@ func init() {
           "description": "Optional service configuration flags",
           "type": "object",
           "properties": {
+            "healthCheckNodePort": {
+              "description": "Service health check node port",
+              "type": "integer",
+              "format": "uint16"
+            },
             "name": {
               "description": "Service name  (e.g. Kubernetes service name)",
               "type": "string"
