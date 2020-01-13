@@ -93,6 +93,10 @@ func lookupDefaultRoute(family int) (netlink.Route, error) {
 		return netlink.Route{}, fmt.Errorf("Unable to list direct routes: %s", err)
 	}
 
+	if len(routes) == 0 {
+		return netlink.Route{}, fmt.Errorf("Default route not found for family %d", family)
+	}
+
 	for _, route := range routes {
 		if linkIndex != 0 && linkIndex != route.LinkIndex {
 			return netlink.Route{}, fmt.Errorf("Found default routes with different netdev ifindices: %v vs %v",
