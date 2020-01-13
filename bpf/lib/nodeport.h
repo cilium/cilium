@@ -222,6 +222,15 @@ drop_err:
 				      METRIC_INGRESS : METRIC_EGRESS);
 }
 
+static inline bool svc6_is_external_ip(const struct lb6_service *svc)
+{
+#ifdef ENABLE_EXTERNAL_IP
+	return svc->external;
+#else
+	return false;
+#endif
+}
+
 /* See nodeport_lb4(). */
 static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 {
@@ -260,7 +269,6 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 			return ret;
 	}
 
-#ifdef ENABLE_EXTERNAL_IP
 	if ((svc = lb6_lookup_service(skb, &key)) != NULL) {
 		ret = lb6_local(get_ct_map6(&tuple), skb, l3_off, l4_off,
 				&csum_off, &key, &tuple, svc, &ct_state_new);
@@ -268,37 +276,16 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 			return ret;
 	}
 
-	if (svc == NULL || !svc->external) {
+	if (svc == NULL || !svc6_is_external_ip(svc)) {
 		service_port = bpf_ntohs(key.dport);
 		if (service_port < NODEPORT_PORT_MIN ||
 		    service_port > NODEPORT_PORT_MAX) {
-                        skb->cb[CB_NAT] = NAT_DIR_INGRESS;
-                        skb->cb[CB_SRC_IDENTITY] = src_identity;
-                        ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_NAT);
-                        return DROP_MISSED_TAIL_CALL;
+			skb->cb[CB_NAT] = NAT_DIR_INGRESS;
+			skb->cb[CB_SRC_IDENTITY] = src_identity;
+			ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_NAT);
+			return DROP_MISSED_TAIL_CALL;
 		}
 	}
-#else
-	service_port = bpf_ntohs(key.dport);
-	if (service_port < NODEPORT_PORT_MIN ||
-	    service_port > NODEPORT_PORT_MAX) {
-		skb->cb[CB_NAT] = NAT_DIR_INGRESS;
-		skb->cb[CB_SRC_IDENTITY] = src_identity;
-		ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_NAT);
-		return DROP_MISSED_TAIL_CALL;
-	}
-
-	ct_state_new.orig_dport = key.dport;
-
-	if ((svc = lb6_lookup_service(skb, &key)) != NULL) {
-		ret = lb6_local(get_ct_map6(&tuple), skb, l3_off, l4_off,
-				&csum_off, &key, &tuple, svc, &ct_state_new);
-		if (IS_ERR(ret))
-			return ret;
-	} else {
-		return TC_ACT_OK;
-	}
-#endif  /* ENABLE_EXTERNAL_IP */
 
 	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, skb, l4_off, CT_EGRESS,
 			 &ct_state, &monitor);
@@ -624,6 +611,15 @@ drop_err:
 				      METRIC_INGRESS : METRIC_EGRESS);
 }
 
+static inline bool svc4_is_external_ip(const struct lb4_service *svc)
+{
+#ifdef ENABLE_EXTERNAL_IP
+	return svc->external;
+#else
+	return false;
+#endif
+}
+
 /* Main node-port entry point for host-external ingressing node-port traffic
  * which handles the case of: i) backend is local EP, ii) backend is remote EP,
  * iii) reply from remote backend EP.
@@ -661,7 +657,6 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 			return ret;
 	}
 
-#ifdef ENABLE_EXTERNAL_IP
 	if ((svc = lb4_lookup_service(skb, &key)) != NULL) {
 		ret = lb4_local(get_ct_map4(&tuple), skb, l3_off, l4_off, &csum_off,
 				&key, &tuple, svc, &ct_state_new, ip4->saddr);
@@ -669,37 +664,16 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 			return ret;
 	}
 
-	if (svc == NULL || !svc->external) {
+	if (svc == NULL || !svc4_is_external_ip(svc)) {
 		service_port = bpf_ntohs(key.dport);
 		if (service_port < NODEPORT_PORT_MIN ||
 		    service_port > NODEPORT_PORT_MAX) {
-                        skb->cb[CB_NAT] = NAT_DIR_INGRESS;
-                        skb->cb[CB_SRC_IDENTITY] = src_identity;
-                        ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
-                        return DROP_MISSED_TAIL_CALL;
+			skb->cb[CB_NAT] = NAT_DIR_INGRESS;
+			skb->cb[CB_SRC_IDENTITY] = src_identity;
+			ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
+			return DROP_MISSED_TAIL_CALL;
 		}
 	}
-#else
-	service_port = bpf_ntohs(key.dport);
-	if (service_port < NODEPORT_PORT_MIN ||
-	    service_port > NODEPORT_PORT_MAX) {
-		skb->cb[CB_NAT] = NAT_DIR_INGRESS;
-		skb->cb[CB_SRC_IDENTITY] = src_identity;
-		ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
-		return DROP_MISSED_TAIL_CALL;
-	}
-
-	ct_state_new.orig_dport = key.dport;
-
-	if ((svc = lb4_lookup_service(skb, &key)) != NULL) {
-		ret = lb4_local(get_ct_map4(&tuple), skb, l3_off, l4_off, &csum_off,
-		                &key, &tuple, svc, &ct_state_new, ip4->saddr);
-		if (IS_ERR(ret))
-			return ret;
-	} else {
-		return TC_ACT_OK;
-	}
-#endif  /* ENABLE_EXTERNAL_IP */
 
 	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, skb, l4_off, CT_EGRESS,
 			 &ct_state, &monitor);
