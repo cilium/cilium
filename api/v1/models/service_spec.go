@@ -139,6 +139,9 @@ func (m *ServiceSpec) UnmarshalBinary(b []byte) error {
 // swagger:model ServiceSpecFlags
 type ServiceSpecFlags struct {
 
+	// Service health check node port
+	HealthCheckNodePort uint16 `json:"healthCheckNodePort,omitempty"`
+
 	// Service name  (e.g. Kubernetes service name)
 	Name string `json:"name,omitempty"`
 
