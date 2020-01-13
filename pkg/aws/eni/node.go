@@ -180,10 +180,24 @@ func calculateExcessIPs(availableIPs, usedIPs, preAllocate, minAllocate, maxAbov
 		preAllocate = defaults.ENIPreAllocation
 	}
 
-	// keep availableIPs above minAllocate
-	if availableIPs <= minAllocate {
-		return 0
+	// keep availableIPs above minAllocate + maxAboveWatermark as long as
+	// the initial socket of min-allocate + max-above-watermark has not
+	// been used up yet. This is the maximum potential allocation that will
+	// happen on initial bootstrap.  Depending on interface restrictions,
+	// the actual allocation may be below this but we always want to avoid
+	// releasing IPs that have just been allocated.
+	if usedIPs <= (minAllocate + maxAboveWatermark) {
+		if availableIPs <= (minAllocate + maxAboveWatermark) {
+			return 0
+		}
 	}
+
+	// Once above the minimum allocation level, calculate based on
+	// pre-allocation limit with the max-above-watermark limit calculated
+	// in. This is again a best-effort calculation, depending on the
+	// interface restrictions, less than max-above-watermark may have been
+	// allocated but we never want to release IPs that have been allocated
+	// because of max-above-watermark.
 	excessIPs = availableIPs - usedIPs - preAllocate - maxAboveWatermark
 	if excessIPs < 0 {
 		excessIPs = 0

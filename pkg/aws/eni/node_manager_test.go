@@ -412,7 +412,7 @@ func (e *ENISuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 // when release excess IP is enabled
 //
 // - m4.large (4x ENIs, 4x15 IPs)
-// - MinAllocate 15
+// - MinAllocate 10
 // - PreAllocate 4
 // - MaxAboveWatermark 4
 // - FirstInterfaceIndex 1
@@ -432,43 +432,48 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 	option.Config.AwsReleaseExcessIps = true
 
 	// Announce node, wait for IPs to become available
-	cn := newCiliumNode("node3", "i-testNodeManagerReleaseAddress-1", "m4.xlarge", "us-west-1", "vpc-1", 0, 4, 15, 0, 0)
+	cn := newCiliumNode("node3", "i-testNodeManagerReleaseAddress-1", "m4.xlarge", "us-west-1", "vpc-1", 0, 4, 10, 0, 0)
 	cn.Spec.ENI.MaxAboveWatermark = 4
 	firstInterfaceIndex := 1
 	cn.Spec.ENI.FirstInterfaceIndex = &firstInterfaceIndex
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
 
+	// 10 min-allocate + 4 max-above-watermark => 14 IPs must become
+	// available as 14 < 15 (interface limit)
 	node := mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.stats.availableIPs, check.Equals, 15)
+	c.Assert(node.stats.availableIPs, check.Equals, 14)
 	c.Assert(node.stats.usedIPs, check.Equals, 0)
 
-	// Use 11 out of 15 IPs, no additional IPs should be allocated
-	mngr.Update(updateCiliumNode(cn, 15, 11))
+	// Use 11 out of 14 IPs, no additional IPs should be allocated
+	mngr.Update(updateCiliumNode(cn, 14, 11))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
 	c.Assert(node.stats.availableIPs, check.Equals, 15)
 	c.Assert(node.stats.usedIPs, check.Equals, 11)
 
-	// Use 15 out of 15 IPs, PreAllocate 4 + MaxAboveWatermark must kick in and allocate 8 additional IPs
-	mngr.Update(updateCiliumNode(cn, 15, 15))
+	// Use 14 out of 15 IPs, PreAllocate 4 + MaxAboveWatermark must kick in
+	// and allocate 8 additional IPs
+	mngr.Update(updateCiliumNode(cn, 15, 14))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.stats.availableIPs, check.Equals, 23)
-	c.Assert(node.stats.usedIPs, check.Equals, 15)
+	c.Assert(node.stats.availableIPs, check.Equals, 22)
+	c.Assert(node.stats.usedIPs, check.Equals, 14)
 
-	// Free some IPs, 5 excess IPs appears but only be released at interval based resync, so expect timeout here
-	mngr.Update(updateCiliumNode(cn, 23, 10))
+	// Reduce used IPs to 10, this leads to 15 excess IPs but release
+	// occurs at interval based resync, so expect timeout at first
+	mngr.Update(updateCiliumNode(cn, 22, 10))
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 2*time.Second), check.Not(check.IsNil))
 	node = mngr.Get("node3")
 	c.Assert(node, check.Not(check.IsNil))
-	c.Assert(node.stats.availableIPs, check.Equals, 23)
+	c.Assert(node.stats.availableIPs, check.Equals, 22)
 	c.Assert(node.stats.usedIPs, check.Equals, 10)
 
 	// Trigger resync manually, excess IPs should be released
+	// 10 used + 4 pre-allocate + 4 max-above-watermark => 18
 	node = mngr.Get("node3")
 	node.resource.Status.ENI.ENIs = node.enis
 	syncTime := instances.Resync(context.TODO())
