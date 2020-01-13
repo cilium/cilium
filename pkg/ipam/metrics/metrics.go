@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-const eniSubsystem = "eni"
+const ipamSubsystem = "ipam"
 
 type prometheusMetrics struct {
 	registry              *prometheus.Registry
@@ -34,8 +34,6 @@ type prometheusMetrics struct {
 	AvailableIPsPerSubnet *prometheus.GaugeVec
 	Nodes                 *prometheus.GaugeVec
 	Resync                prometheus.Counter
-	EC2ApiDuration        *prometheus.HistogramVec
-	EC2RateLimit          *prometheus.HistogramVec
 	poolMaintainer        *triggerMetrics
 	k8sSync               *triggerMetrics
 	resync                *triggerMetrics
@@ -50,73 +48,59 @@ func NewPrometheusMetrics(namespace string, registry *prometheus.Registry) *prom
 
 	m.IPsAllocated = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: namespace,
-		Subsystem: eniSubsystem,
+		Subsystem: ipamSubsystem,
 		Name:      "ips",
 		Help:      "Number of IPs allocated",
 	}, []string{"type"})
 
 	m.AllocateIpOps = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
-		Subsystem: eniSubsystem,
+		Subsystem: ipamSubsystem,
 		Name:      "allocation_ops",
 		Help:      "Number of IP allocation operations",
 	}, []string{"subnetId"})
 
 	m.ReleaseIpOps = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
-		Subsystem: eniSubsystem,
+		Subsystem: ipamSubsystem,
 		Name:      "release_ops",
 		Help:      "Number of IP release operations",
 	}, []string{"subnetId"})
 
 	m.AllocateEniOps = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
-		Subsystem: eniSubsystem,
+		Subsystem: ipamSubsystem,
 		Name:      "interface_creation_ops",
 		Help:      "Number of ENIs allocated",
 	}, []string{"subnetId", "status"})
 
 	m.AvailableENIs = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: namespace,
-		Subsystem: eniSubsystem,
+		Subsystem: ipamSubsystem,
 		Name:      "available",
 		Help:      "Number of ENIs with addresses available",
 	})
 
 	m.AvailableIPsPerSubnet = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: namespace,
-		Subsystem: eniSubsystem,
+		Subsystem: ipamSubsystem,
 		Name:      "available_ips_per_subnet",
 		Help:      "Number of available IPs per subnet ID",
 	}, []string{"subnetId", "availabilityZone"})
 
 	m.Nodes = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: namespace,
-		Subsystem: eniSubsystem,
+		Subsystem: ipamSubsystem,
 		Name:      "nodes",
 		Help:      "Number of nodes by category { total | in-deficit | at-capacity }",
 	}, []string{"category"})
 
-	m.EC2ApiDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: namespace,
-		Subsystem: eniSubsystem,
-		Name:      "aws_api_duration_seconds",
-		Help:      "Duration of interactions with AWS API",
-	}, []string{"operation", "responseCode"})
-
 	m.Resync = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: namespace,
-		Subsystem: eniSubsystem,
+		Subsystem: ipamSubsystem,
 		Name:      "resync_total",
 		Help:      "Number of resync operations to synchronize AWS EC2 metadata",
 	})
-
-	m.EC2RateLimit = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: namespace,
-		Subsystem: eniSubsystem,
-		Name:      "ec2_rate_limit_duration_seconds",
-		Help:      "Duration of EC2 client-side rate limiter blocking",
-	}, []string{"operation"})
 
 	// pool_maintainer is a more generic name, but for backward compatibility
 	// of dashboard, keep the metric name deficit_resolver unchanged
@@ -132,8 +116,6 @@ func NewPrometheusMetrics(namespace string, registry *prometheus.Registry) *prom
 	registry.MustRegister(m.AvailableIPsPerSubnet)
 	registry.MustRegister(m.Nodes)
 	registry.MustRegister(m.Resync)
-	registry.MustRegister(m.EC2ApiDuration)
-	registry.MustRegister(m.EC2RateLimit)
 	m.poolMaintainer.register(registry)
 	m.k8sSync.register(registry)
 	m.resync.register(registry)
@@ -181,14 +163,6 @@ func (p *prometheusMetrics) SetNodes(label string, nodes int) {
 	p.Nodes.WithLabelValues(label).Set(float64(nodes))
 }
 
-func (p *prometheusMetrics) ObserveEC2APICall(operation, status string, duration float64) {
-	p.EC2ApiDuration.WithLabelValues(operation, status).Observe(duration)
-}
-
-func (p *prometheusMetrics) ObserveEC2RateLimit(operation string, delay time.Duration) {
-	p.EC2RateLimit.WithLabelValues(operation).Observe(delay.Seconds())
-}
-
 func (p *prometheusMetrics) IncResyncCount() {
 	p.Resync.Inc()
 }
@@ -204,25 +178,25 @@ func newTriggerMetrics(namespace, name string) *triggerMetrics {
 	return &triggerMetrics{
 		total: prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: namespace,
-			Subsystem: eniSubsystem,
+			Subsystem: ipamSubsystem,
 			Name:      name + "_queued_total",
 			Help:      "Number of queued triggers",
 		}),
 		folds: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: namespace,
-			Subsystem: eniSubsystem,
+			Subsystem: ipamSubsystem,
 			Name:      name + "_folds",
 			Help:      "Current level of folding",
 		}),
 		callDuration: prometheus.NewHistogram(prometheus.HistogramOpts{
 			Namespace: namespace,
-			Subsystem: eniSubsystem,
+			Subsystem: ipamSubsystem,
 			Name:      name + "_duration_seconds",
 			Help:      "Duration of trigger runs",
 		}),
 		latency: prometheus.NewHistogram(prometheus.HistogramOpts{
 			Namespace: namespace,
-			Subsystem: eniSubsystem,
+			Subsystem: ipamSubsystem,
 			Name:      name + "_latency_seconds",
 			Help:      "Latency between queue and trigger run",
 		}),

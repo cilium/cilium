@@ -14,7 +14,7 @@
 
 // +build !privileged_tests
 
-package eni
+package ipam
 
 import (
 	"gopkg.in/check.v1"
@@ -56,18 +56,18 @@ var excessDef = []testExcessDef{
 	{20, 0, 8, 20, 8, 0},
 	{16, 1, 8, 16, 8, 0},
 	{20, 4, 8, 17, 8, 0},
-	{20, 4, 0, 0, 0, 8},
-	{20, 4, 0, 0, 8, 0},
+	{20, 4, 8, 0, 0, 8},
+	{20, 4, 8, 0, 8, 0},
 }
 
-func (e *ENISuite) TestCalculateNeededIPs(c *check.C) {
+func (e *IPAMSuite) TestCalculateNeededIPs(c *check.C) {
 	for _, d := range neededDef {
 		result := calculateNeededIPs(d.available, d.used, d.preallocate, d.minallocate)
 		c.Assert(result, check.Equals, d.result)
 	}
 }
 
-func (e *ENISuite) TestCalculateExcessIPs(c *check.C) {
+func (e *IPAMSuite) TestCalculateExcessIPs(c *check.C) {
 	for _, d := range excessDef {
 		result := calculateExcessIPs(d.available, d.used, d.preallocate, d.minallocate, d.maxabovewatermark)
 		c.Assert(result, check.Equals, d.result)
