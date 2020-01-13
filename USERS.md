@@ -45,6 +45,11 @@ Users (Alphabetically)
       D: Adobe's Project Ethos uses Cilium for multi-tenant, multi-cloud clusters: https://youtu.be/39FLsSc2P-Y
       U: L3/L4/L7 policies
 
+    * N: Datadog
+      D: Datadog is using Cilium in AWS (self-hosted k8s)
+      U: ENI Networking, Service load-balancing, Encryption
+      Q: @lbernail, @roboll
+
     * N: Palantir Technologies Inc.
       D: Palantir is using Cilium as their main CNI plugin in AWS (self hosted k8s).
       U: ENI networking, L3/L4 policies, FQDN based policy, FQDN filtering
