@@ -2,10 +2,11 @@ Who is using Cilium?
 ====================
 
 Sharing experiences and learning from other users is essential. We are
-frequently asked who is using a particular feature of Cilium to get in contact
-with other users to share experiences and best-practices. While the Slack
-community allows users to get in touch, it can be challenging to find users of
-a particular feature quickly.
+frequently asked who is using a particular feature of Cilium to get in
+contact with other users to share experiences and best-practices. While the
+[Cilium Slack community](https://cilium.herokuapp.com/) allows users to
+get in touch, it can be challenging to find users of a particular feature
+quickly.
 
 The following is a directory of users to help identify users of individual
 features. The users themselves directly maintain the list.
@@ -21,7 +22,15 @@ you about your use of Cilium on Slack, add your Slack nick as well.
     N: Name of user (company or individual)
     D: Description
     U: Usage of features
-    Q: Contacts available for questions
+    L: Link with further information (optional)
+    Q: Contacts available for questions (optional)
+
+Example entry:
+
+    * N: Cilium Example User Inc.
+      D: Cilium Example User Inc. is using Cilium for scientific purposes
+      U: ENI networking, DNS policies, ClusterMesh
+      Q: @slacknick1, @slacknick2
 
 Requirements to be listed
 -------------------------
@@ -34,16 +43,12 @@ Requirements to be listed
    interesting as a large-scale commercial deployment.
 
 Users (Alphabetically)
----------------------
+----------------------
 
-    * N: Cilium Example User Inc.
-      D: Cilium Example User Inc. is using Cilium for scientific purposes
-      U: ENI networking, DNS policies, ClusteMesh
-      Q: @slacknick1, @slacknick2
-      
     * N: Adobe, Inc.
-      D: Adobe's Project Ethos uses Cilium for multi-tenant, multi-cloud clusters: https://youtu.be/39FLsSc2P-Y
+      D: Adobe's Project Ethos uses Cilium for multi-tenant, multi-cloud clusters
       U: L3/L4/L7 policies
+      L: https://youtu.be/39FLsSc2P-Y
 
     * N: Datadog
       D: Datadog is using Cilium in AWS (self-hosted k8s)
