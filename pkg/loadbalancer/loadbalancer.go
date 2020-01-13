@@ -55,8 +55,9 @@ const (
 type ServiceFlags uint8
 
 const (
-	serviceFlagNone        = 1<<iota - 1 // 0
-	serviceFlagExternalIPs               // 1
+	serviceFlagNone        = 0
+	serviceFlagExternalIPs = 1
+	serviceFlagNodePort    = 2
 )
 
 // CreateSvcFlag returns the ServiceFlags for all given SVCTypes.
@@ -66,6 +67,8 @@ func CreateSvcFlag(svcTypes ...SVCType) ServiceFlags {
 		switch svcType {
 		case SVCTypeExternalIPs:
 			flags |= serviceFlagExternalIPs
+		case SVCTypeNodePort:
+			flags |= serviceFlagNodePort
 		}
 	}
 	return flags
@@ -79,7 +82,7 @@ func (s ServiceFlags) IsSvcType(svcType SVCType) bool {
 // String returns the string implementation of ServiceFlags.
 func (s ServiceFlags) String() string {
 	var strTypes []string
-	for _, svcType := range []SVCType{SVCTypeExternalIPs} {
+	for _, svcType := range []SVCType{SVCTypeExternalIPs, SVCTypeNodePort} {
 		if s.IsSvcType(svcType) {
 			strTypes = append(strTypes, string(svcType))
 		}
