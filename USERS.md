@@ -50,3 +50,8 @@ Users (Alphabetically)
       D: Sportradar is using Cilium as their main CNI plugin in AWS (using kops)
       U: L3/L4 policies, Hubble, BPF NodePort, CiliumClusterwideNetworkPolicy
       Q: @Eric Bailey, @Ole Markus
+
+    * N: Datadog
+      D: Datadog is using Cilium in AWS (self-hosted k8s)
+      U: ENI Networking, Service load-balancing, Encryption
+      Q: @lbernail, @roboll
