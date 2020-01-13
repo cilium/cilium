@@ -330,7 +330,10 @@ var _ = Describe("K8sServicesTest", func() {
 
 			count := 10
 			url := getURL(k8s1IP, data.Spec.Ports[0].NodePort)
-			doRequestsFromOutsideClient(url, count, true)
+			// FIXME: Can this happen from log-gatherer?
+			if !helpers.IsIntegration(helpers.CIIntegrationEKS) {
+				doRequestsFromOutsideClient(url, count, true)
+			}
 
 			// Checks that requests to k8s1 succeed, while requests to k8s2 are dropped
 			err = kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-local-k8s1").Unmarshal(&data)
