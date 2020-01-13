@@ -244,6 +244,8 @@ int sock4_xlate(struct bpf_sock_addr *ctx)
 		sock4_handle_node_port(ctx, &key);
 		if (key.address != ctx->user_ip4)
 			svc = __lb4_lookup_service(&key);
+		if (svc && !lb4_svc_is_nodeport(svc))
+			svc = NULL;
 	}
 
 	if (svc) {
@@ -304,6 +306,8 @@ int sock4_xlate_snd(struct bpf_sock_addr *ctx)
 		sock4_handle_node_port(ctx, &lkey);
 		if (lkey.address != ctx->user_ip4)
 			svc = __lb4_lookup_service(&lkey);
+		if (svc && !lb4_svc_is_nodeport(svc))
+			svc = NULL;
 	}
 
 	if (svc) {
@@ -518,6 +522,8 @@ int sock6_xlate(struct bpf_sock_addr *ctx)
 		sock6_handle_node_port(ctx, &key);
 		if (ipv6_addrcmp(&key.address, &v6_orig))
 			svc = __lb6_lookup_service(&key);
+		if (svc && !lb6_svc_is_nodeport(svc))
+			svc = NULL;
 	}
 
 	if (svc) {
@@ -575,6 +581,8 @@ int sock6_xlate_snd(struct bpf_sock_addr *ctx)
 		sock6_handle_node_port(ctx, &lkey);
 		if (ipv6_addrcmp(&lkey.address, &v6_orig))
 			svc = __lb6_lookup_service(&lkey);
+		if (svc && !lb6_svc_is_nodeport(svc))
+			svc = NULL;
 	}
 
 	if (svc) {

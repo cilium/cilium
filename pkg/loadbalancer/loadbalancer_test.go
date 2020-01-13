@@ -236,9 +236,15 @@ func TestCreateSvcFlag(t *testing.T) {
 	}{
 		{
 			args: args{
-				svcTypes: []SVCType{SVCTypeNodePort},
+				svcTypes: []SVCType{SVCTypeClusterIP},
 			},
 			want: serviceFlagNone,
+		},
+		{
+			args: args{
+				svcTypes: []SVCType{SVCTypeNodePort},
+			},
+			want: serviceFlagNodePort,
 		},
 		{
 			args: args{

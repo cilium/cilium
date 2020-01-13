@@ -222,15 +222,6 @@ drop_err:
 				      METRIC_INGRESS : METRIC_EGRESS);
 }
 
-static inline bool svc6_is_external_ip(const struct lb6_service *svc)
-{
-#ifdef ENABLE_EXTERNAL_IP
-	return svc->external;
-#else
-	return false;
-#endif
-}
-
 /* See nodeport_lb4(). */
 static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 {
@@ -276,15 +267,14 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 			return ret;
 	}
 
-	if (svc == NULL || !svc6_is_external_ip(svc)) {
-		service_port = bpf_ntohs(key.dport);
-		if (service_port < NODEPORT_PORT_MIN ||
-		    service_port > NODEPORT_PORT_MAX) {
-			skb->cb[CB_NAT] = NAT_DIR_INGRESS;
-			skb->cb[CB_SRC_IDENTITY] = src_identity;
-			ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_NAT);
-			return DROP_MISSED_TAIL_CALL;
-		}
+	if (!svc || (!lb6_svc_is_external_ip(svc) && !lb6_svc_is_nodeport(svc))) {
+		if (svc)
+			return DROP_IS_CLUSTER_IP;
+
+		skb->cb[CB_NAT] = NAT_DIR_INGRESS;
+		skb->cb[CB_SRC_IDENTITY] = src_identity;
+		ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_NAT);
+		return DROP_MISSED_TAIL_CALL;
 	}
 
 	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, skb, l4_off, CT_EGRESS,
@@ -611,15 +601,6 @@ drop_err:
 				      METRIC_INGRESS : METRIC_EGRESS);
 }
 
-static inline bool svc4_is_external_ip(const struct lb4_service *svc)
-{
-#ifdef ENABLE_EXTERNAL_IP
-	return svc->external;
-#else
-	return false;
-#endif
-}
-
 /* Main node-port entry point for host-external ingressing node-port traffic
  * which handles the case of: i) backend is local EP, ii) backend is remote EP,
  * iii) reply from remote backend EP.
@@ -664,15 +645,14 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 			return ret;
 	}
 
-	if (svc == NULL || !svc4_is_external_ip(svc)) {
-		service_port = bpf_ntohs(key.dport);
-		if (service_port < NODEPORT_PORT_MIN ||
-		    service_port > NODEPORT_PORT_MAX) {
-			skb->cb[CB_NAT] = NAT_DIR_INGRESS;
-			skb->cb[CB_SRC_IDENTITY] = src_identity;
-			ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
-			return DROP_MISSED_TAIL_CALL;
-		}
+	if (!svc || (!lb4_svc_is_external_ip(svc) && !lb4_svc_is_nodeport(svc))) {
+		if (svc)
+			return DROP_IS_CLUSTER_IP;
+
+		skb->cb[CB_NAT] = NAT_DIR_INGRESS;
+		skb->cb[CB_SRC_IDENTITY] = src_identity;
+		ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
+		return DROP_MISSED_TAIL_CALL;
 	}
 
 	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, skb, l4_off, CT_EGRESS,
