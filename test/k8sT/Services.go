@@ -331,7 +331,7 @@ var _ = Describe("K8sServicesTest", func() {
 			count := 10
 			url := getURL(k8s1IP, data.Spec.Ports[0].NodePort)
 			// FIXME: Can this happen from log-gatherer?
-			if !helpers.IsIntegration(helpers.CIIntegrationEKS) {
+			if !(helpers.IsIntegration(helpers.CIIntegrationEKS) || helpers.IsIntegration(helpers.CIIntegrationGKE)) {
 				doRequestsFromOutsideClient(url, count, true)
 			}
 
