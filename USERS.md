@@ -41,6 +41,11 @@ Users (Alphabetically)
       U: ENI networking, DNS policies, ClusteMesh
       Q: @slacknick1, @slacknick2
 
+    * N: Datadog
+      D: Datadog is using Cilium in AWS (self-hosted k8s)
+      U: ENI Networking, Service load-balancing, Encryption
+      Q: @lbernail, @roboll
+
     * N: Palantir Technologies Inc.
       D: Palantir is using Cilium as their main CNI plugin in AWS (self hosted k8s).
       U: ENI networking, L3/L4 policies, FQDN based policy, FQDN filtering
