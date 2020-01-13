@@ -18,6 +18,7 @@ package service
 
 import (
 	"net"
+	"syscall"
 
 	"github.com/cilium/cilium/pkg/checker"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
@@ -39,6 +40,7 @@ func (m *ManagerTestSuite) SetUpTest(c *C) {
 
 	m.svc = NewService(nil)
 	m.svc.lbmap = lbmap.NewLBMockMap()
+	m.svc.syscall = newMockSocket()
 	m.lbmap = m.svc.lbmap.(*lbmap.LBMockMap)
 }
 
@@ -191,4 +193,84 @@ func (m *ManagerTestSuite) TestSyncWithK8sFinished(c *C) {
 	c.Assert(found, Equals, true)
 	c.Assert(m.svc.svcByID[id2].svcName, Equals, "svc2")
 	c.Assert(m.svc.svcByID[id2].svcNamespace, Equals, "ns2")
+}
+
+func (m *ManagerTestSuite) TestBoundPortsNodePort(c *C) {
+	fakeSocket := m.svc.syscall.(*fakeSocket)
+
+	// frontend1/frontend2 share the same NodePort, it must be bound only once
+	_, id1, err := m.svc.UpsertService(frontend1, backends1, lb.SVCTypeNodePort, lb.SVCTrafficPolicyCluster, "", "")
+	c.Assert(err, IsNil)
+	_, id2, err := m.svc.UpsertService(frontend2, backends2, lb.SVCTypeNodePort, lb.SVCTrafficPolicyCluster, "", "")
+	c.Assert(err, IsNil)
+
+	// NodePort should be bound on 0.0.0.0 on both TCP and UDP
+	c.Assert(m.svc.boundPortSockets, HasLen, 2)
+	c.Assert(fakeSocket.isBound(lb.TCP, net.IPv4zero, frontend1.Port), Equals, true)
+	c.Assert(fakeSocket.isBound(lb.UDP, net.IPv4zero, frontend1.Port), Equals, true)
+
+	// Delete reference 1
+	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id1))
+	c.Assert(err, IsNil)
+	c.Assert(found, Equals, true)
+
+	// NodePort should still be bound, since we only deleted one frontend
+	c.Assert(m.svc.boundPortSockets, HasLen, 2)
+	c.Assert(fakeSocket.isBound(lb.TCP, net.IPv4zero, frontend1.Port), Equals, true)
+	c.Assert(fakeSocket.isBound(lb.UDP, net.IPv4zero, frontend1.Port), Equals, true)
+
+	// Delete reference 2
+	found, err = m.svc.DeleteServiceByID(lb.ServiceID(id2))
+	c.Assert(err, IsNil)
+	c.Assert(found, Equals, true)
+
+	// All sockets should be closed
+	c.Assert(m.svc.boundPortSockets, HasLen, 0)
+	c.Assert(fakeSocket.bound, HasLen, 0)
+	c.Assert(fakeSocket.sockets, HasLen, 0)
+
+	// Now the reverse order: We bind the port before upserting the service
+	// (e.g. because a local process could listen on the port already),
+	// therefore upserting the service must fail.
+	fd, err := m.svc.createAndBindSocket(&frontend1.L3n4Addr)
+	c.Assert(err, IsNil)
+	c.Assert(fakeSocket.isBound(lb.TCP, frontend1.IP, frontend1.Port), Equals, true)
+
+	// Upsert must fail with "Address already in use"
+	_, _, err = m.svc.UpsertService(frontend1, backends1, lb.SVCTypeNodePort, lb.SVCTrafficPolicyCluster, "", "")
+	c.Assert(err, ErrorMatches, "*"+syscall.EADDRINUSE.Error()+"*")
+	fakeSocket.Close(fd)
+}
+
+func (m *ManagerTestSuite) TestBoundPortsExternalIP(c *C) {
+	fakeSocket := m.svc.syscall.(*fakeSocket)
+
+	// ExternalIP must bind the an IP only if it belongs to a local interface,
+	// therefore we pretend frontend1.IP is bound to a local interface
+	fakeSocket.addInterfaceAddr(&net.IPNet{
+		IP:   frontend1.IP,
+		Mask: frontend1.IP.DefaultMask(),
+	})
+	_, id1, err := m.svc.UpsertService(frontend1, backends1, lb.SVCTypeExternalIPs, lb.SVCTrafficPolicyCluster, "", "")
+	c.Assert(err, IsNil)
+	_, id2, err := m.svc.UpsertService(frontend2, backends2, lb.SVCTypeExternalIPs, lb.SVCTrafficPolicyCluster, "", "")
+	c.Assert(err, IsNil)
+
+	// Only the frontend1.IP on both TCP and UDP should be bound
+	c.Assert(m.svc.boundPortSockets, HasLen, 2)
+	c.Assert(fakeSocket.isBound(lb.TCP, frontend1.IP, frontend1.Port), Equals, true)
+	c.Assert(fakeSocket.isBound(lb.UDP, frontend1.IP, frontend1.Port), Equals, true)
+
+	// Delete references
+	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id1))
+	c.Assert(err, IsNil)
+	c.Assert(found, Equals, true)
+	found, err = m.svc.DeleteServiceByID(lb.ServiceID(id2))
+	c.Assert(err, IsNil)
+	c.Assert(found, Equals, true)
+
+	// All sockets should be closed again
+	c.Assert(m.svc.boundPortSockets, HasLen, 0)
+	c.Assert(fakeSocket.bound, HasLen, 0)
+	c.Assert(fakeSocket.sockets, HasLen, 0)
 }

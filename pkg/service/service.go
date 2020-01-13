@@ -17,6 +17,7 @@ package service
 import (
 	"fmt"
 	"net"
+	"syscall"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/counter"
@@ -62,6 +63,7 @@ type svcInfo struct {
 	svcName              string
 	svcNamespace         string
 	restoredFromDatapath bool
+	boundPorts           []*lb.L3n4Addr
 }
 
 func (svc *svcInfo) deepCopyToLBSVC() *lb.SVC {
@@ -103,18 +105,29 @@ type Service struct {
 
 	monitorNotify monitorNotify
 
-	lbmap LBMap
+	boundPortRefCount counter.StringCounter
+	boundPortSockets  map[string]int
+
+	lbmap   LBMap
+	syscall socket
 }
 
 // NewService creates a new instance of the service handler.
 func NewService(monitorNotify monitorNotify) *Service {
 	return &Service{
-		svcByHash:       map[string]*svcInfo{},
-		svcByID:         map[lb.ID]*svcInfo{},
+		svcByHash: map[string]*svcInfo{},
+		svcByID:   map[lb.ID]*svcInfo{},
+
 		backendRefCount: counter.StringCounter{},
 		backendByHash:   map[string]*lb.Backend{},
-		monitorNotify:   monitorNotify,
-		lbmap:           &lbmap.LBBPFMap{},
+
+		monitorNotify: monitorNotify,
+
+		boundPortRefCount: counter.StringCounter{},
+		boundPortSockets:  map[string]int{},
+
+		lbmap:   &lbmap.LBBPFMap{},
+		syscall: &nativeSocket{},
 	}
 }
 
@@ -182,6 +195,14 @@ func (s *Service) UpsertService(
 	})
 	scopedLog.Debug("Upserting service")
 
+	// For BPF NodePort services (and ExternalIP services with a local IP),
+	// we bind the port from cilium-agent, to block other processes on the
+	// node from accidentally binding the same port
+	boundPorts, err := s.bindLocalFrontendPorts(frontend.L3n4Addr, svcType)
+	if err != nil {
+		return false, lb.ID(0), fmt.Errorf("failed to bind port for service: %s", err)
+	}
+
 	// If needed, create svcInfo and allocate service ID
 	svc, new, err := s.createSVCInfoIfNotExist(frontend, svcType, svcTrafficPolicy, svcName, svcNamespace)
 	if err != nil {
@@ -190,6 +211,12 @@ func (s *Service) UpsertService(
 	// TODO(brb) defer ServiceID release after we have a lbmap "rollback"
 	scopedLog = scopedLog.WithField(logfields.ServiceID, svc.frontend.ID)
 	scopedLog.Debug("Acquired service ID")
+
+	// Unbind old ports if necessary on service update
+	if !new {
+		s.unbindLocalFrontendPorts(svc.boundPorts)
+	}
+	svc.boundPorts = boundPorts
 
 	onlyLocalBackends := svc.requireNodeLocalBackends()
 	prevBackendCount := len(svc.backends)
@@ -385,6 +412,126 @@ func (s *Service) createSVCInfoIfNotExist(
 	return svc, !found, nil
 }
 
+func (s *Service) createAndBindSocket(addr *lb.L3n4Addr) (fd int, err error) {
+	var family int
+	var sockaddr syscall.Sockaddr
+
+	if ipv4 := addr.IP.To4(); ipv4 != nil {
+		family = syscall.AF_INET
+		sa := syscall.SockaddrInet4{Port: int(addr.Port)}
+		copy(sa.Addr[:], ipv4)
+		sockaddr = &sa
+	} else if ipv6 := addr.IP.To16(); ipv6 != nil {
+		family = syscall.AF_INET6
+		sa := syscall.SockaddrInet6{Port: int(addr.Port)}
+		copy(sa.Addr[:], ipv6)
+		sockaddr = &sa
+	} else {
+		return 0, fmt.Errorf("invalid ip: %s", addr.IP.String())
+	}
+
+	switch addr.Protocol {
+	case lb.UDP:
+		fd, err = s.syscall.Socket(family, syscall.SOCK_DGRAM, 0)
+	case lb.TCP:
+		fd, err = s.syscall.Socket(family, syscall.SOCK_STREAM, 0)
+	default:
+		return 0, fmt.Errorf("unknown protocol: %s", addr.Protocol)
+	}
+
+	if err != nil {
+		return 0, err
+	}
+
+	return fd, s.syscall.Bind(fd, sockaddr)
+}
+
+// isNodeLocalIP returns true if 'ip' is assigned to an interface on the node
+func (s *Service) isNodeLocalIP(ip net.IP) (bool, error) {
+	addrs, err := s.syscall.InterfaceAddrs()
+	if err != nil {
+		return false, err
+	}
+	for _, addr := range addrs {
+		ifaceIP, _, err := net.ParseCIDR(addr.String())
+		if err != nil {
+			return false, err
+		}
+		if ifaceIP.Equal(ip) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// bindLocalFrontendPorts binds the frontend  to a socket. This blocks
+// the port from accidentally being bound by another process on this node.
+// Since NodePort BPF forwards all traffic terminating in that port, we would
+// hijack the traffic for that process, which we don't want.
+// In addition, this function intentionally fails if the port is already bound
+// by another process. Consequently, the the service is not added to the LBMap.
+func (s *Service) bindLocalFrontendPorts(frontend lb.L3n4Addr, svcType lb.SVCType) ([]*lb.L3n4Addr, error) {
+	ip := frontend.IP
+	port := frontend.Port
+
+	switch svcType {
+	case lb.SVCTypeNodePort, lb.SVCTypeLoadBalancer:
+		// NodePort and LoadBalancer services have multiple frontends.
+		// Since we only want bind the port once, make sure we bind the port
+		// to all interfaces.
+		ip = net.IPv4zero
+		if frontend.IsIPv6() {
+			ip = net.IPv6zero
+		}
+	case lb.SVCTypeExternalIPs:
+		// ExternalIP services may only have a node-local frontend if the IP
+		// happens to be actually assigned to a local interface.
+		isLocal, err := s.isNodeLocalIP(frontend.IP)
+		if err != nil {
+			return nil, fmt.Errorf("unable to determine if ExternalIP is local: %s", err)
+		} else if !isLocal {
+			return nil, nil
+		}
+	default:
+		// no ports to bind for this service
+		return nil, nil
+	}
+
+	// FIXME: Because datapath currently cannot distinguish between UDP and TCP
+	// ports, we bind both the UDP and TCP port.
+	boundPorts := make([]*lb.L3n4Addr, 0, 2)
+	boundPorts = append(boundPorts, lb.NewL3n4Addr(lb.TCP, ip, port))
+	boundPorts = append(boundPorts, lb.NewL3n4Addr(lb.UDP, ip, port))
+
+	for _, addr := range boundPorts {
+		hash := addr.StringWithProtocol()
+		// For NodePort services, we will have the same port for multiple
+		// frontends, therefore we reference count the socket.
+		if s.boundPortRefCount.Add(hash) {
+			fd, err := s.createAndBindSocket(addr)
+			if err != nil {
+				delete(s.boundPortRefCount, hash)
+				return nil, err
+			}
+			s.boundPortSockets[hash] = fd
+		}
+	}
+
+	return boundPorts, nil
+}
+
+func (s *Service) unbindLocalFrontendPorts(boundPorts []*lb.L3n4Addr) {
+	for _, addr := range boundPorts {
+		hash := addr.StringWithProtocol()
+		if fd, ok := s.boundPortSockets[hash]; ok {
+			if s.boundPortRefCount.Delete(hash) {
+				s.syscall.Close(fd)
+				delete(s.boundPortSockets, hash)
+			}
+		}
+	}
+}
+
 func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, prevBackendCount int,
 	newBackends []lb.Backend, obsoleteBackendIDs []lb.BackendID,
 	scopedLog *logrus.Entry) error {
@@ -549,6 +696,8 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	if err := s.lbmap.DeleteService(svc.frontend, len(svc.backends)); err != nil {
 		return err
 	}
+
+	s.unbindLocalFrontendPorts(svc.boundPorts)
 
 	delete(s.svcByHash, svc.hash)
 	delete(s.svcByID, svc.frontend.ID)
