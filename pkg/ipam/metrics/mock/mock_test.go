@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package mock
 
 import (
 	"testing"
-	"time"
 
 	"gopkg.in/check.v1"
 )
@@ -34,7 +33,7 @@ var _ = check.Suite(&MockSuite{})
 func (e *MockSuite) TestMock(c *check.C) {
 	api := NewMockMetrics()
 	api.IncAllocationAttempt("foo", "s-1")
-	c.Assert(api.ENIAllocationAttempts("foo", "s-1"), check.Equals, int64(1))
+	c.Assert(api.AllocationAttempts("foo", "s-1"), check.Equals, int64(1))
 	api.AddIPAllocation("s-1", 10)
 	api.AddIPAllocation("s-1", 20)
 	c.Assert(api.IPAllocations("s-1"), check.Equals, int64(30))
@@ -44,11 +43,6 @@ func (e *MockSuite) TestMock(c *check.C) {
 	c.Assert(api.AvailableENIs(), check.Equals, 10)
 	api.SetNodes("at-capacity", 5)
 	c.Assert(api.Nodes("at-capacity"), check.Equals, 5)
-	api.ObserveEC2APICall("DescribeNetworkInterfaces", "success", 2.0)
-	c.Assert(api.EC2APICall("DescribeNetworkInterfaces", "success"), check.Equals, 2.0)
-	api.ObserveEC2RateLimit("DescribeNetworkInterfaces", time.Second)
-	api.ObserveEC2RateLimit("DescribeNetworkInterfaces", time.Second)
-	c.Assert(api.EC2RateLimit("DescribeNetworkInterfaces"), check.Equals, 2*time.Second)
 	api.IncResyncCount()
 	c.Assert(api.ResyncCount(), check.Equals, int64(1))
 }

@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ package mock
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -31,8 +30,6 @@ type mockMetrics struct {
 	availableENIs         int
 	availableIPsPerSubnet map[string]int
 	nodes                 map[string]int
-	ec2ApiCall            map[string]float64
-	ec2RateLimit          map[string]time.Duration
 	resyncCount           int64
 }
 
@@ -45,12 +42,10 @@ func NewMockMetrics() *mockMetrics {
 		allocatedIPs:          map[string]int{},
 		nodes:                 map[string]int{},
 		availableIPsPerSubnet: map[string]int{},
-		ec2ApiCall:            map[string]float64{},
-		ec2RateLimit:          map[string]time.Duration{},
 	}
 }
 
-func (m *mockMetrics) ENIAllocationAttempts(status, subnetID string) int64 {
+func (m *mockMetrics) AllocationAttempts(status, subnetID string) int64 {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	return m.allocationAttempts[fmt.Sprintf("status=%s, subnetId=%s", status, subnetID)]
@@ -113,30 +108,6 @@ func (m *mockMetrics) Nodes(category string) int {
 func (m *mockMetrics) SetNodes(category string, nodes int) {
 	m.mutex.Lock()
 	m.nodes[category] = nodes
-	m.mutex.Unlock()
-}
-
-func (m *mockMetrics) EC2APICall(operation, status string) float64 {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-	return m.ec2ApiCall[fmt.Sprintf("operation=%s, status=%s", operation, status)]
-}
-
-func (m *mockMetrics) ObserveEC2APICall(operation, status string, duration float64) {
-	m.mutex.Lock()
-	m.ec2ApiCall[fmt.Sprintf("operation=%s, status=%s", operation, status)] += duration
-	m.mutex.Unlock()
-}
-
-func (m *mockMetrics) EC2RateLimit(operation string) time.Duration {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-	return m.ec2RateLimit[operation]
-}
-
-func (m *mockMetrics) ObserveEC2RateLimit(operation string, delay time.Duration) {
-	m.mutex.Lock()
-	m.ec2RateLimit[operation] += delay
 	m.mutex.Unlock()
 }
 

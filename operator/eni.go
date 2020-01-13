@@ -24,8 +24,10 @@ import (
 	"github.com/cilium/cilium/pkg/aws/eni"
 	"github.com/cilium/cilium/pkg/aws/eni/metrics"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"
 
 	"github.com/aws/aws-sdk-go-v2/aws/ec2metadata"
@@ -35,7 +37,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var nodeManager *eni.NodeManager
+var nodeManager *ipam.NodeManager
 
 type k8sAPI struct{}
 
@@ -124,8 +126,9 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 		eniMetrics := metrics.NewPrometheusMetrics(metricNamespace, registry)
 		ec2Client = ec2shim.NewClient(ec2.New(cfg), eniMetrics, awsClientQPSLimit, awsClientBurst)
 		log.Info("Connected to EC2 service API")
-		instances = eni.NewInstancesManager(ec2Client, eniMetrics)
-		nodeManager, err = eni.NewNodeManager(instances, ec2Client, &k8sAPI{}, eniMetrics, eniParallelWorkers, eniTags)
+		instances = eni.NewInstancesManager(ec2Client, eniTags)
+		nodeManager, err = ipam.NewNodeManager(instances, &k8sAPI{}, eniMetrics, eniParallelWorkers,
+			option.Config.AwsReleaseExcessIps)
 		if err != nil {
 			return fmt.Errorf("unable to initialize ENI node manager: %s", err)
 		}
@@ -135,8 +138,9 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 		noOpMetric := &noOpMetrics{}
 		ec2Client = ec2shim.NewClient(ec2.New(cfg), noOpMetric, awsClientQPSLimit, awsClientBurst)
 		log.Info("Connected to EC2 service API")
-		instances = eni.NewInstancesManager(ec2Client, noOpMetric)
-		nodeManager, err = eni.NewNodeManager(instances, ec2Client, &k8sAPI{}, noOpMetric, eniParallelWorkers, eniTags)
+		instances = eni.NewInstancesManager(ec2Client, eniTags)
+		nodeManager, err = ipam.NewNodeManager(instances, &k8sAPI{}, noOpMetric, eniParallelWorkers,
+			option.Config.AwsReleaseExcessIps)
 		if err != nil {
 			return fmt.Errorf("unable to initialize ENI node manager: %s", err)
 		}
@@ -178,7 +182,7 @@ func (m *noOpMetricsObserver) QueueEvent(reason string)                         
 type noOpMetrics struct{}
 
 // eni metricsAPI interface implementation
-func (m *noOpMetrics) IncENIAllocationAttempt(status, subnetID string)                           {}
+func (m *noOpMetrics) IncAllocationAttempt(status, subnetID string)                              {}
 func (m *noOpMetrics) AddIPAllocation(subnetID string, allocated int64)                          {}
 func (m *noOpMetrics) AddIPRelease(subnetID string, released int64)                              {}
 func (m *noOpMetrics) SetAllocatedIPs(typ string, allocated int)                                 {}

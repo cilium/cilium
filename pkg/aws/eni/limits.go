@@ -252,8 +252,8 @@ var limits = map[string]ipam.Limits{
 	"z1d.metal":     {Adapters: 15, IPv4: 50, IPv6: 50},
 }
 
-// GetLimits returns the instance limits of a particular instance type
-func GetLimits(instanceType string) (limit ipam.Limits, ok bool) {
+// getLimits returns the instance limits of a particular instance type
+func getLimits(instanceType string) (limit ipam.Limits, ok bool) {
 	limit, ok = limits[instanceType]
 	return
 }

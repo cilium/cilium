@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -768,6 +768,8 @@ type ENISpec struct {
 	// the PreAllocate and MaxAboveWatermark logic takes over to continue
 	// allocating IPs.
 	//
+	// OBSOLETE: This field is obsolete, please use Spec.IPAM.MinAllocate
+	//
 	// +optional
 	MinAllocate int `json:"min-allocate,omitempty"`
 
@@ -775,6 +777,8 @@ type ENISpec struct {
 	// available for allocation in the IPAMspec. It defines the buffer of
 	// addresses available immediately without requiring cilium-operator to
 	// get involved.
+	//
+	// OBSOLETE: This field is obsolete, please use Spec.IPAM.PreAllocate
 	//
 	// +optional
 	PreAllocate int `json:"pre-allocate,omitempty"`
@@ -785,6 +789,9 @@ type ENISpec struct {
 	// allocate IPs, e.g. when a new ENI is allocated, as many secondary
 	// IPs as possible are allocated. Limiting the amount can help reduce
 	// waste of IPs.
+	//
+	// OBSOLETE: This field is obsolete, please use
+	// Spec.IPAM.MaxAboveWatermark
 	//
 	// +optional
 	MaxAboveWatermark int `json:"max-above-watermark,omitempty"`
@@ -844,6 +851,33 @@ type IPAMSpec struct {
 	//
 	// +optional
 	PodCIDRs []string `json:"podCIDRs,omitempty"`
+
+	// MinAllocate is the minimum number of IPs that must be allocated when
+	// the node is first bootstrapped. It defines the minimum base socket
+	// of addresses that must be available. After reaching this watermark,
+	// the PreAllocate and MaxAboveWatermark logic takes over to continue
+	// allocating IPs.
+	//
+	// +optional
+	MinAllocate int `json:"min-allocate,omitempty"`
+
+	// PreAllocate defines the number of IP addresses that must be
+	// available for allocation in the IPAMspec. It defines the buffer of
+	// addresses available immediately without requiring cilium-operator to
+	// get involved.
+	//
+	// +optional
+	PreAllocate int `json:"pre-allocate,omitempty"`
+
+	// MaxAboveWatermark is the maximum number of addresses to allocate
+	// beyond the addresses needed to reach the PreAllocate watermark.
+	// Going above the watermark can help reduce the number of API calls to
+	// allocate IPs, e.g. when a new ENI is allocated, as many secondary
+	// IPs as possible are allocated. Limiting the amount can help reduce
+	// waste of IPs.
+	//
+	// +optional
+	MaxAboveWatermark int `json:"max-above-watermark,omitempty"`
 }
 
 // NodeStatus is the status of a node

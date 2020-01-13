@@ -29,7 +29,7 @@ import (
 	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
 )
 
-type eniMap map[string]*v2.ENI
+type ENIMap map[string]*v2.ENI
 
 // Operation is an EC2 API operation that this mock API supports
 type Operation int
@@ -49,7 +49,7 @@ const (
 type API struct {
 	mutex          lock.RWMutex
 	unattached     map[string]*v2.ENI
-	enis           map[string]eniMap
+	enis           map[string]ENIMap
 	subnets        map[string]*types.Subnet
 	vpcs           map[string]*types.Vpc
 	securityGroups map[string]*types.SecurityGroup
@@ -68,7 +68,7 @@ func NewAPI(subnets []*types.Subnet, vpcs []*types.Vpc, securityGroups []*types.
 
 	api := &API{
 		unattached:     map[string]*v2.ENI{},
-		enis:           map[string]eniMap{},
+		enis:           map[string]ENIMap{},
 		subnets:        map[string]*types.Subnet{},
 		vpcs:           map[string]*types.Vpc{},
 		securityGroups: map[string]*types.SecurityGroup{},
@@ -77,19 +77,36 @@ func NewAPI(subnets []*types.Subnet, vpcs []*types.Vpc, securityGroups []*types.
 		delays:         map[Operation]time.Duration{},
 	}
 
-	for _, s := range subnets {
-		api.subnets[s.ID] = s
-	}
+	api.UpdateSubnets(subnets)
+	api.UpdateSecurityGroups(securityGroups)
 
 	for _, v := range vpcs {
 		api.vpcs[v.ID] = v
 	}
 
-	for _, sg := range securityGroups {
-		api.securityGroups[sg.ID] = sg
-	}
-
 	return api
+}
+
+func (e *API) UpdateSubnets(subnets []*types.Subnet) {
+	e.mutex.Lock()
+	for _, s := range subnets {
+		e.subnets[s.ID] = s
+	}
+	e.mutex.Unlock()
+}
+
+func (e *API) UpdateSecurityGroups(securityGroups []*types.SecurityGroup) {
+	e.mutex.Lock()
+	for _, sg := range securityGroups {
+		e.securityGroups[sg.ID] = sg
+	}
+	e.mutex.Unlock()
+}
+
+func (e *API) UpdateENIs(enis map[string]ENIMap) {
+	e.mutex.Lock()
+	e.enis = enis
+	e.mutex.Unlock()
 }
 
 // SetMockError modifies the mock API to return an error for a particular
@@ -234,7 +251,7 @@ func (e *API) AttachNetworkInterface(ctx context.Context, index int64, instanceI
 	delete(e.unattached, eniID)
 
 	if _, ok := e.enis[instanceID]; !ok {
-		e.enis[instanceID] = eniMap{}
+		e.enis[instanceID] = ENIMap{}
 	}
 
 	eni.Number = int(index)
