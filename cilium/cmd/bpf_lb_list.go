@@ -76,7 +76,7 @@ func dumpSVC(serviceList map[string][]string) {
 			if svcKey.IsIPv6() {
 				ip = "[::]"
 			}
-			entry = fmt.Sprintf("%s:%d (%d) [FLAGS: %s]", ip, 0, revNATID, flags)
+			entry = fmt.Sprintf("%s:%d (%d) [%s]", ip, 0, revNATID, flags)
 		} else if backend, found := backendMap[backendID]; !found {
 			entry = fmt.Sprintf("backend %d not found", backendID)
 		} else {

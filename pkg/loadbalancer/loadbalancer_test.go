@@ -306,7 +306,7 @@ func TestServiceFlags_String(t *testing.T) {
 		{
 			name: "Test-2",
 			s:    serviceFlagNone,
-			want: "NONE",
+			want: "ClusterIP",
 		},
 	}
 	for _, tt := range tests {

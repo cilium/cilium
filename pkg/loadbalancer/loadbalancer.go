@@ -82,15 +82,17 @@ func (s ServiceFlags) IsSvcType(svcType SVCType) bool {
 // String returns the string implementation of ServiceFlags.
 func (s ServiceFlags) String() string {
 	var strTypes []string
+	typeSet := false
 	for _, svcType := range []SVCType{SVCTypeExternalIPs, SVCTypeNodePort} {
 		if s.IsSvcType(svcType) {
 			strTypes = append(strTypes, string(svcType))
+			typeSet = true
 		}
 	}
-	if len(strTypes) != 0 {
-		return strings.Join(strTypes, ", ")
+	if !typeSet {
+		strTypes = append(strTypes, string(SVCTypeClusterIP))
 	}
-	return string(SVCTypeNone)
+	return strings.Join(strTypes, ", ")
 }
 
 // UInt8 returns the UInt8 representation of the ServiceFlags.
