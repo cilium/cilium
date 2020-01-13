@@ -108,7 +108,7 @@ func ParseService(svc *types.Service) (ServiceID, *Service) {
 	}
 
 	svcInfo := NewService(clusterIP, svc.Spec.ExternalIPs, loadBalancerIPs, headless,
-		trafficPolicy, svc.Labels, svc.Spec.Selector)
+		trafficPolicy, uint16(svc.Spec.HealthCheckNodePort), svc.Labels, svc.Spec.Selector)
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
 	svcInfo.Shared = getAnnotationShared(svc)
 
@@ -214,6 +214,12 @@ type Service struct {
 	// node-local backends are chosen
 	TrafficPolicy loadbalancer.SVCTrafficPolicy
 
+	// HealthCheckNodePort defines on which port the node runs a HTTP health
+	// check server which may be used by external loadbalancers to determine
+	// if a node has local backends. This will only have effect if both
+	// LoadBalancerIPs is not empty and TrafficPolicy is SVCTrafficPolicyLocal.
+	HealthCheckNodePort uint16
+
 	Ports map[loadbalancer.FEPortName]*loadbalancer.L4Addr
 	// NodePorts stores mapping for port name => NodePort frontend addr string =>
 	// NodePort fronted addr. The string addr => addr indirection is to avoid
@@ -259,6 +265,7 @@ func (s *Service) DeepEquals(o *Service) bool {
 	}
 	if s.IsHeadless == o.IsHeadless &&
 		s.TrafficPolicy == o.TrafficPolicy &&
+		s.HealthCheckNodePort == o.HealthCheckNodePort &&
 		s.FrontendIP.Equal(o.FrontendIP) &&
 		comparator.MapStringEquals(s.Labels, o.Labels) &&
 		comparator.MapStringEquals(s.Selector, o.Selector) {
@@ -341,7 +348,7 @@ func parseIPs(externalIPs []string) map[string]net.IP {
 // NewService returns a new Service with the Ports map initialized.
 func NewService(ip net.IP, externalIPs []string, loadBalancerIPs []string,
 	headless bool, trafficPolicy loadbalancer.SVCTrafficPolicy,
-	labels, selector map[string]string) *Service {
+	healthCheckNodePort uint16, labels, selector map[string]string) *Service {
 
 	var k8sExternalIPs map[string]net.IP
 	var k8sLoadBalancerIPs map[string]net.IP
@@ -352,15 +359,19 @@ func NewService(ip net.IP, externalIPs []string, loadBalancerIPs []string,
 	}
 
 	return &Service{
-		FrontendIP:      ip,
-		IsHeadless:      headless,
-		TrafficPolicy:   trafficPolicy,
+		FrontendIP: ip,
+
+		IsHeadless:          headless,
+		TrafficPolicy:       trafficPolicy,
+		HealthCheckNodePort: healthCheckNodePort,
+
 		Ports:           map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
 		NodePorts:       map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
 		K8sExternalIPs:  k8sExternalIPs,
 		LoadBalancerIPs: k8sLoadBalancerIPs,
-		Labels:          labels,
-		Selector:        selector,
+
+		Labels:   labels,
+		Selector: selector,
 	}
 }
 
