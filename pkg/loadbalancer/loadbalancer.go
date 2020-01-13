@@ -156,12 +156,13 @@ func (b *Backend) String() string {
 
 // SVC is a structure for storing service details.
 type SVC struct {
-	Frontend      L3n4AddrID       // SVC frontend addr and an allocated ID
-	Backends      []Backend        // List of service backends
-	Type          SVCType          // Service type
-	TrafficPolicy SVCTrafficPolicy // Service traffic policy
-	Name          string           // Service name
-	Namespace     string           // Service namespace
+	Frontend            L3n4AddrID       // SVC frontend addr and an allocated ID
+	Backends            []Backend        // List of service backends
+	Type                SVCType          // Service type
+	TrafficPolicy       SVCTrafficPolicy // Service traffic policy
+	HealthCheckNodePort uint16           // Service health check node port
+	Name                string           // Service name
+	Namespace           string           // Service namespace
 }
 
 func (s *SVC) GetModel() *models.Service {
@@ -180,10 +181,12 @@ func (s *SVC) GetModel() *models.Service {
 		FrontendAddress:  s.Frontend.GetModel(),
 		BackendAddresses: make([]*models.BackendAddress, len(s.Backends)),
 		Flags: &models.ServiceSpecFlags{
-			Type:          string(s.Type),
-			TrafficPolicy: string(s.TrafficPolicy),
-			Name:          s.Name,
-			Namespace:     s.Namespace,
+			Type:                string(s.Type),
+			TrafficPolicy:       string(s.TrafficPolicy),
+			HealthCheckNodePort: s.HealthCheckNodePort,
+
+			Name:      s.Name,
+			Namespace: s.Namespace,
 		},
 	}
 

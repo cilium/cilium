@@ -579,7 +579,6 @@ func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s
 func genCartesianProduct(
 	fe net.IP,
 	svcType loadbalancer.SVCType,
-	svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
 	ports map[loadbalancer.FEPortName]*loadbalancer.L4Addr,
 	bes *k8s.Endpoints,
 ) []loadbalancer.SVC {
@@ -611,9 +610,8 @@ func genCartesianProduct(
 					},
 					ID: loadbalancer.ID(0),
 				},
-				Backends:      besValues,
-				Type:          svcType,
-				TrafficPolicy: svcTrafficPolicy,
+				Backends: besValues,
+				Type:     svcType,
 			})
 	}
 	return svcs
@@ -632,16 +630,16 @@ func datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) (svcs []loadbalanc
 		clusterIPPorts[fePortName] = fePort
 	}
 	if svc.FrontendIP != nil {
-		dpSVC := genCartesianProduct(svc.FrontendIP, loadbalancer.SVCTypeClusterIP, svc.TrafficPolicy, clusterIPPorts, endpoints)
+		dpSVC := genCartesianProduct(svc.FrontendIP, loadbalancer.SVCTypeClusterIP, clusterIPPorts, endpoints)
 		svcs = append(svcs, dpSVC...)
 	}
 	for _, ip := range svc.LoadBalancerIPs {
-		dpSVC := genCartesianProduct(ip, loadbalancer.SVCTypeLoadBalancer, svc.TrafficPolicy, clusterIPPorts, endpoints)
+		dpSVC := genCartesianProduct(ip, loadbalancer.SVCTypeLoadBalancer, clusterIPPorts, endpoints)
 		svcs = append(svcs, dpSVC...)
 	}
 
 	for _, k8sExternalIP := range svc.K8sExternalIPs {
-		dpSVC := genCartesianProduct(k8sExternalIP, loadbalancer.SVCTypeExternalIPs, svc.TrafficPolicy, clusterIPPorts, endpoints)
+		dpSVC := genCartesianProduct(k8sExternalIP, loadbalancer.SVCTypeExternalIPs, clusterIPPorts, endpoints)
 		svcs = append(svcs, dpSVC...)
 	}
 
@@ -650,10 +648,17 @@ func datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) (svcs []loadbalanc
 			nodePortPorts := map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 				fePortName: &nodePortFE.L4Addr,
 			}
-			dpSVC := genCartesianProduct(nodePortFE.IP, loadbalancer.SVCTypeNodePort, svc.TrafficPolicy, nodePortPorts, endpoints)
+			dpSVC := genCartesianProduct(nodePortFE.IP, loadbalancer.SVCTypeNodePort, nodePortPorts, endpoints)
 			svcs = append(svcs, dpSVC...)
 		}
 	}
+
+	// apply common service properties
+	for i := range svcs {
+		svcs[i].TrafficPolicy = svc.TrafficPolicy
+		svcs[i].HealthCheckNodePort = svc.HealthCheckNodePort
+	}
+
 	return svcs
 }
 
