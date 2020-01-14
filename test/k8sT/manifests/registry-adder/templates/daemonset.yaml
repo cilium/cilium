@@ -51,5 +51,5 @@ spec:
       volumes:
       - hostPath:
           path: /etc/docker
-          type: DirectoryOrCreate
+          type: Directory
         name: docker-config
