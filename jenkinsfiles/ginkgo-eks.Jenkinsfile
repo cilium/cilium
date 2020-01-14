@@ -105,7 +105,7 @@ pipeline {
         }
         stage ("BDD-Test-PR"){
             options {
-                timeout(time: 130, unit: 'MINUTES')
+                timeout(time: 250, unit: 'MINUTES')
             }
             environment {
                 FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
