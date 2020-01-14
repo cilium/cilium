@@ -478,6 +478,17 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 
 	d.nodeDiscovery.StartDiscovery(node.GetName())
 
+	// Trigger refresh and update custom resource in the apiserver with all restored endpoints.
+	// Trigger after nodeDiscovery.StartDiscovery to avoid custom resource update conflict.
+	if option.Config.IPAM == option.IPAMCRD || option.Config.IPAM == option.IPAMENI {
+		if option.Config.EnableIPv6 {
+			d.ipam.IPv6Allocator.RestoreFinished()
+		}
+		if option.Config.EnableIPv4 {
+			d.ipam.IPv4Allocator.RestoreFinished()
+		}
+	}
+
 	// This needs to be done after the node addressing has been configured
 	// as the node address is required as suffix.
 	// well known identities have already been initialized above.
