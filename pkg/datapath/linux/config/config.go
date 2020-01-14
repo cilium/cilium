@@ -250,6 +250,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EnableK8sExternalIPs {
 			cDefinesMap["ENABLE_EXTERNAL_IP"] = "1"
 		}
+		if option.Config.EnableNodePortXLR {
+			cDefinesMap["ENABLE_NODEPORT_XLR"] = "1"
+		}
 		cDefinesMap["NODEPORT_PORT_MIN"] = fmt.Sprintf("%d", option.Config.NodePortMin)
 		cDefinesMap["NODEPORT_PORT_MAX"] = fmt.Sprintf("%d", option.Config.NodePortMax)
 		cDefinesMap["NODEPORT_PORT_MIN_NAT"] = fmt.Sprintf("%d", option.Config.NodePortMax+1)
