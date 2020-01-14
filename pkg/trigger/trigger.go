@@ -178,6 +178,13 @@ func (t *Trigger) Trigger() {
 	t.TriggerWithReason("")
 }
 
+// WaitAndTriggerWithReason blocks and waits for the specified signal and invokes
+// TriggerWithReason.
+func (t *Trigger) WaitAndTriggerWithReason(reason string, done chan bool) {
+	<-done
+	t.TriggerWithReason(reason)
+}
+
 // Shutdown stops the trigger mechanism
 func (t *Trigger) Shutdown() {
 	close(t.closeChan)

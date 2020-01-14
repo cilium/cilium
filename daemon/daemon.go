@@ -450,6 +450,16 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 		return nil, nil, err
 	}
 
+	// Trigger refresh and update custom resource in the apiserver with all restored endpoints
+	if option.Config.IPAM == option.IPAMCRD || option.Config.IPAM == option.IPAMENI {
+		if option.Config.EnableIPv6 {
+			d.ipam.IPv6Allocator.RestoreFinished()
+		}
+		if option.Config.EnableIPv4 {
+			d.ipam.IPv4Allocator.RestoreFinished()
+		}
+	}
+
 	// Annotation of the k8s node must happen after discovery of the
 	// PodCIDR range and allocation of the health IPs.
 	if k8s.IsEnabled() && option.Config.AnnotateK8sNode {

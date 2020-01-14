@@ -100,6 +100,48 @@ func (ipam *IPAM) AllocateIP(ip net.IP, owner string) (err error) {
 	return
 }
 
+// AllocateIPWithoutSyncUpstream allocates a IP address without syncing upstream.
+func (ipam *IPAM) AllocateIPWithoutSyncUpstream(ip net.IP, owner string) (err error) {
+	ipam.allocatorMutex.Lock()
+	defer ipam.allocatorMutex.Unlock()
+
+	if ipam.blacklist.Contains(ip) {
+		err = fmt.Errorf("IP %s is blacklisted, owned by %s", ip.String(), owner)
+		return
+	}
+
+	family := familyIPv4
+	if ip.To4() != nil {
+		if ipam.IPv4Allocator == nil {
+			err = ErrIPv4Disabled
+			return
+		}
+
+		if _, err = ipam.IPv4Allocator.AllocateWithoutSyncUpstream(ip, owner); err != nil {
+			return
+		}
+	} else {
+		family = familyIPv6
+		if ipam.IPv6Allocator == nil {
+			err = ErrIPv6Disabled
+			return
+		}
+
+		if _, err = ipam.IPv6Allocator.AllocateWithoutSyncUpstream(ip, owner); err != nil {
+			return
+		}
+	}
+
+	log.WithFields(logrus.Fields{
+		"ip":    ip.String(),
+		"owner": owner,
+	}).Debugf("Allocated specific IP")
+
+	ipam.owner[ip.String()] = owner
+	metrics.IpamEvent.WithLabelValues(metricAllocate, family).Inc()
+	return
+}
+
 // AllocateIPString is identical to AllocateIP but takes a string
 func (ipam *IPAM) AllocateIPString(ipAddr, owner string) error {
 	ip := net.ParseIP(ipAddr)
@@ -139,6 +181,35 @@ func (ipam *IPAM) allocateNextFamily(family Family, allocator Allocator, owner s
 	}
 }
 
+func (ipam *IPAM) allocateNextFamilyWithoutSyncUpstream(family Family, allocator Allocator, owner string) (result *AllocationResult, err error) {
+	if allocator == nil {
+		err = fmt.Errorf("%s allocator not available", family)
+		return
+	}
+
+	for {
+		result, err = allocator.AllocateNextWithoutSyncUpstream(owner)
+		if err != nil {
+			return
+		}
+
+		if !ipam.blacklist.Contains(result.IP) {
+			log.WithFields(logrus.Fields{
+				"ip":    result.IP.String(),
+				"owner": owner,
+			}).Debugf("Allocated random IP")
+			ipam.owner[result.IP.String()] = owner
+			metrics.IpamEvent.WithLabelValues(metricAllocate, string(family)).Inc()
+			return
+		}
+
+		// The allocated IP is blacklisted, do not use it. The
+		// blacklisted IP is now allocated so it won't be allocated in
+		// the next iteration.
+		ipam.owner[result.IP.String()] = fmt.Sprintf("%s (blacklisted)", owner)
+	}
+}
+
 // AllocateNextFamily allocates the next IP of the requested address family
 func (ipam *IPAM) AllocateNextFamily(family Family, owner string) (result *AllocationResult, err error) {
 	ipam.allocatorMutex.Lock()
@@ -149,6 +220,24 @@ func (ipam *IPAM) AllocateNextFamily(family Family, owner string) (result *Alloc
 		result, err = ipam.allocateNextFamily(family, ipam.IPv6Allocator, owner)
 	case IPv4:
 		result, err = ipam.allocateNextFamily(family, ipam.IPv4Allocator, owner)
+
+	default:
+		err = fmt.Errorf("unknown address \"%s\" family requested", family)
+	}
+	return
+}
+
+// AllocateNextFamilyWithoutSyncUpstream allocates the next IP of the requested address family
+// without syncing upstream
+func (ipam *IPAM) AllocateNextFamilyWithoutSyncUpstream(family Family, owner string) (result *AllocationResult, err error) {
+	ipam.allocatorMutex.Lock()
+	defer ipam.allocatorMutex.Unlock()
+
+	switch family {
+	case IPv6:
+		result, err = ipam.allocateNextFamilyWithoutSyncUpstream(family, ipam.IPv6Allocator, owner)
+	case IPv4:
+		result, err = ipam.allocateNextFamilyWithoutSyncUpstream(family, ipam.IPv4Allocator, owner)
 
 	default:
 		err = fmt.Errorf("unknown address \"%s\" family requested", family)
