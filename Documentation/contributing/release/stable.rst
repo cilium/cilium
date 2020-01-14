@@ -12,7 +12,6 @@ Generic Release Process
 This process applies to all releases other than feature releases, this includes:
 
 * Stable releases
-* Release candidates
 
 If you intent to release a new feature release, see the
 :ref:`minor_release_process` section instead.
