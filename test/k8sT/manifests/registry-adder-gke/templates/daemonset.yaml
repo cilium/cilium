@@ -22,13 +22,14 @@ spec:
         # bootstrapping can be customized in this script.
         - name: STARTUP_SCRIPT
           value: |
-            if [ ! -s "/etc/docker/daemon.json" ]; then
-              echo "{}" > /etc/docker/daemon.json
+            if grep -Fxq "{{ .Values.IP }}" /etc/default/docker
+            then
+              echo "found node ip in docker config, skipping docker restart"
+            else
+              sed -i 's;--insecure-registry;--insecure-registry {{ .Values.IP }} --insecure-registry;g' /etc/default/docker
+              systemctl restart docker
             fi
-            cat /etc/docker/daemon.json | cat /etc/docker/daemon.json | jq '. + {"insecure-registries": ["{{ .Values.IP }}"]}' | cat > tmp.json
-            cat tmp.json > /etc/docker/daemon.json
-            pgrep dockerd | xargs kill -SIGHUP
-        image: docker.io/cilium/startup-script:v3
+        image: docker.io/cilium/startup-script:v1
         imagePullPolicy: IfNotPresent
         name: registry-adder
         securityContext:
@@ -38,9 +39,6 @@ spec:
             - SYS_MODULE
             - SYS_ADMIN
           privileged: true
-        volumeMounts:
-        - mountPath: /etc/docker
-          name: docker-config
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
       hostPID: true
@@ -48,8 +46,3 @@ spec:
       terminationGracePeriodSeconds: 1
       tolerations:
       - operator: Exists
-      volumes:
-      - hostPath:
-          path: /etc/docker
-          type: Directory
-        name: docker-config
