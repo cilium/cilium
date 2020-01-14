@@ -172,8 +172,8 @@ static inline bool sock4_is_external_ip(struct lb4_service *svc,
 
 		info = ipcache_lookup4(&IPCACHE_MAP, key->address,
 				       V4_CACHE_KEY_LEN);
-		if (info == NULL || (info->sec_label != HOST_ID &&
-				     info->sec_label != REMOTE_NODE_ID))
+		if (info == NULL || (info->sec_label != HOST_ID
+				     && info->sec_label != REMOTE_NODE_ID))
 			return true;
 	}
 #endif /* ENABLE_EXTERNAL_IP */
@@ -201,9 +201,14 @@ static inline void sock4_handle_node_port(struct bpf_sock_addr *ctx,
 		return;
 
 	info = ipcache_lookup4(&IPCACHE_MAP, daddr, V4_CACHE_KEY_LEN);
-	if (info != NULL && (info->sec_label == HOST_ID ||
-			     info->sec_label == REMOTE_NODE_ID))
+	if (info != NULL && (info->sec_label == HOST_ID
+#ifdef ENABLE_NODEPORT_XLR
+			     || info->sec_label == REMOTE_NODE_ID)) {
+#else
+	)) {
+#endif
 		return;
+	}
 
 	/* For everything else in terms of node port, do a direct lookup. */
 out_fill_addr:
@@ -485,9 +490,14 @@ static inline void sock6_handle_node_port(struct bpf_sock_addr *ctx,
 		return;
 
 	info = ipcache_lookup6(&IPCACHE_MAP, &daddr, V6_CACHE_KEY_LEN);
-	if (info != NULL && (info->sec_label == HOST_ID ||
-			     info->sec_label == REMOTE_NODE_ID))
+	if (info != NULL && (info->sec_label == HOST_ID
+#ifdef ENABLE_NODEPORT_XLR
+			     || info->sec_label == REMOTE_NODE_ID)) {
+#else
+	)) {
+#endif
 		return;
+	}
 
 	/* For everything else in terms of node port, do a direct lookup. */
 out_fill_addr:

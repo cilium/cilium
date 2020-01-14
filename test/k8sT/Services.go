@@ -404,6 +404,7 @@ var _ = Describe("K8sServicesTest", func() {
 					deleteCiliumDS(kubectl)
 					DeployCiliumOptionsAndDNS(kubectl, []string{
 						"--set global.nodePort.enabled=true",
+						"--set global.nodePort.xlr=false",
 						"--set global.nodePort.device=" + nativeDev,
 					})
 				})
@@ -423,6 +424,7 @@ var _ = Describe("K8sServicesTest", func() {
 					DeployCiliumOptionsAndDNS(kubectl, []string{
 						"--set global.nodePort.enabled=true",
 						"--set global.nodePort.device=" + nativeDev,
+						"--set global.nodePort.xlr=false",
 						"--set global.tunnel=disabled",
 						"--set global.autoDirectNodeRoutes=true",
 					})
