@@ -55,6 +55,10 @@ type Allocator interface {
 	// Allocate allocates a specific IP or fails
 	Allocate(ip net.IP, owner string) (*AllocationResult, error)
 
+	// AllocateWithoutSyncUpstream allocates a specific IP without syncing
+	// upstream or fails
+	AllocateWithoutSyncUpstream(ip net.IP, owner string) (*AllocationResult, error)
+
 	// Release releases a previously allocated IP or fails
 	Release(ip net.IP) error
 
@@ -62,11 +66,18 @@ type Allocator interface {
 	// are available
 	AllocateNext(owner string) (*AllocationResult, error)
 
+	// AllocateNextWithoutSyncUpstream allocates the next available IP without syncing
+	// upstream or fails if no more IPs are available
+	AllocateNextWithoutSyncUpstream(owner string) (*AllocationResult, error)
+
 	// Dump returns a map of all allocated IPs with the IP represented as
 	// key in the map. Dump must also provide a status one-liner to
 	// represent the overall status, e.g. number of IPs allocated and
 	// overall health information if available.
 	Dump() (map[string]string, string)
+
+	// RestoreFinished marks the status of restoration as done
+	RestoreFinished()
 }
 
 // IPNetWithOwner is a structure containing a net.IPNet struct with the owner

@@ -76,6 +76,9 @@ type nodeStore struct {
 	// family
 	allocationPoolSize map[Family]int
 
+	// signal for completion of restoration
+	restoreFinished chan bool
+
 	conf Configuration
 }
 
@@ -89,6 +92,7 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 		allocationPoolSize: map[Family]int{},
 		conf:               conf,
 	}
+	store.restoreFinished = make(chan bool)
 	ciliumClient := k8s.CiliumClient()
 
 	t, err := trigger.NewTrigger(trigger.Parameters{
@@ -178,7 +182,12 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 		time.Sleep(5 * time.Second)
 	}
 
-	store.refreshTrigger.TriggerWithReason("initial sync")
+	go func() {
+		// Initial upstream sync must wait for the allocated IPs
+		// to be restored
+		<-store.restoreFinished
+		store.refreshTrigger.TriggerWithReason("initial sync")
+	}()
 
 	return store
 }
@@ -501,6 +510,30 @@ func (a *crdAllocator) Allocate(ip net.IP, owner string) (*AllocationResult, err
 	}
 
 	a.markAllocated(ip, owner, *ipInfo)
+	// Update custom resource to reflect the newly allocated IP.
+	a.store.refreshTrigger.TriggerWithReason(fmt.Sprintf("allocation of IP %s", ip.String()))
+
+	return a.buildAllocationResult(ip, ipInfo)
+}
+
+// AllocateWithoutSyncUpstream will attempt to find the specified IP in the
+// custom resource and allocate it if it is available. If the IP is
+// unavailable or already allocated, an error is returned. The custom resource
+// will not be updated.
+func (a *crdAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string) (*AllocationResult, error) {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	if _, ok := a.allocated[ip.String()]; ok {
+		return nil, fmt.Errorf("IP already in use")
+	}
+
+	ipInfo, err := a.store.allocate(ip)
+	if err != nil {
+		return nil, err
+	}
+
+	a.markAllocated(ip, owner, *ipInfo)
 
 	return a.buildAllocationResult(ip, ipInfo)
 }
@@ -517,23 +550,41 @@ func (a *crdAllocator) Release(ip net.IP) error {
 	}
 
 	delete(a.allocated, ip.String())
+	// Update custom resource to reflect the newly released IP.
 	a.store.refreshTrigger.TriggerWithReason(fmt.Sprintf("release of IP %s", ip.String()))
 
 	return nil
 }
 
-// markAllocated marks a particular IP as allocated and triggers the custom
-// resource update
+// markAllocated marks a particular IP as allocated
 func (a *crdAllocator) markAllocated(ip net.IP, owner string, ipInfo ipamTypes.AllocationIP) {
 	ipInfo.Owner = owner
 	a.allocated[ip.String()] = ipInfo
-	a.store.refreshTrigger.TriggerWithReason(fmt.Sprintf("allocation of IP %s", ip.String()))
 }
 
 // AllocateNext allocates the next available IP as offered by the custom
 // resource or return an error if no IP is available. The custom resource will
 // be updated to reflect the newly allocated IP.
 func (a *crdAllocator) AllocateNext(owner string) (*AllocationResult, error) {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	ip, ipInfo, err := a.store.allocateNext(a.allocated, a.family)
+	if err != nil {
+		return nil, err
+	}
+
+	a.markAllocated(ip, owner, *ipInfo)
+	// Update custom resource to reflect the newly allocated IP.
+	a.store.refreshTrigger.TriggerWithReason(fmt.Sprintf("allocation of IP %s", ip.String()))
+
+	return a.buildAllocationResult(ip, ipInfo)
+}
+
+// AllocateNextWithoutSyncUpstream allocates the next available IP as offered
+// by the custom resource or return an error if no IP is available. The custom
+// resource will not be updated.
+func (a *crdAllocator) AllocateNextWithoutSyncUpstream(owner string) (*AllocationResult, error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -568,4 +619,9 @@ func (a *crdAllocator) Dump() (map[string]string, string) {
 
 	status := fmt.Sprintf("%d/%d allocated", len(allocs), a.totalPoolSize())
 	return allocs, status
+}
+
+// RestoreFinished marks the status of restoration as done
+func (a *crdAllocator) RestoreFinished() {
+	close(a.store.restoreFinished)
 }

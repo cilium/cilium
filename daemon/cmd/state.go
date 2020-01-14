@@ -324,7 +324,7 @@ func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) error {
 	var err error
 
 	if option.Config.EnableIPv6 && ep.IPv6 != nil {
-		err = d.ipam.AllocateIP(ep.IPv6.IP(), ep.HumanStringLocked()+" [restored]")
+		err = d.ipam.AllocateIPWithoutSyncUpstream(ep.IPv6.IP(), ep.HumanStringLocked()+" [restored]")
 		if err != nil {
 			return fmt.Errorf("unable to reallocate %s IPv6 address: %s", ep.IPv6.IP(), err)
 		}
@@ -337,7 +337,7 @@ func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) error {
 	}
 
 	if option.Config.EnableIPv4 && ep.IPv4 != nil {
-		if err = d.ipam.AllocateIP(ep.IPv4.IP(), ep.HumanStringLocked()+" [restored]"); err != nil {
+		if err = d.ipam.AllocateIPWithoutSyncUpstream(ep.IPv4.IP(), ep.HumanStringLocked()+" [restored]"); err != nil {
 			return fmt.Errorf("unable to reallocate %s IPv4 address: %s", ep.IPv4.IP(), err)
 		}
 	}
