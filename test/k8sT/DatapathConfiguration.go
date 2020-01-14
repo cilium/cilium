@@ -46,7 +46,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	BeforeEach(func() {
 		kubectl.ApplyDefault(demoDSPath).ExpectSuccess("cannot install Demo application")
-		kubectl.ApplyDefault(ipsecDSPath).ExpectSuccess("cannot install IPsec keys")
+		kubectl.Apply(helpers.ApplyOptions{FilePath: ipsecDSPath, Namespace: helpers.CiliumNamespace}).ExpectSuccess("cannot install IPsec keys")
 		kubectl.NodeCleanMetadata()
 	})
 
