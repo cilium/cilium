@@ -162,8 +162,8 @@ func ipSecReplacePolicyInFwd(src, dst *net.IPNet, dir netlink.Dir) error {
 
 	policy := ipSecNewPolicy()
 	policy.Dir = dir
-	policy.Src = src
-	policy.Dst = dst
+	policy.Src = &net.IPNet{IP: src.IP.Mask(src.Mask), Mask: src.Mask}
+	policy.Dst = &net.IPNet{IP: dst.IP.Mask(dst.Mask), Mask: dst.Mask}
 	policy.Mark = &netlink.XfrmMark{
 		Value: linux_defaults.RouteMarkDecrypt,
 		Mask:  linux_defaults.IPsecMarkMaskIn,
@@ -173,6 +173,7 @@ func ipSecReplacePolicyInFwd(src, dst *net.IPNet, dir netlink.Dir) error {
 }
 
 func ipSecReplacePolicyOut(src, dst, tmplSrc, tmplDst *net.IPNet, dir IPSecDir) error {
+	// TODO: Remove old policy pointing to target net
 	var spiWide uint32
 
 	key := getIPSecKeys(dst.IP)
@@ -187,9 +188,9 @@ func ipSecReplacePolicyOut(src, dst, tmplSrc, tmplDst *net.IPNet, dir IPSecDir) 
 		wildcardMask := net.IPv4Mask(0, 0, 0, 0)
 		policy.Src = &net.IPNet{IP: wildcardIP, Mask: wildcardMask}
 	} else {
-		policy.Src = src
+		policy.Src = &net.IPNet{IP: src.IP.Mask(src.Mask), Mask: src.Mask}
 	}
-	policy.Dst = dst
+	policy.Dst = &net.IPNet{IP: dst.IP.Mask(dst.Mask), Mask: dst.Mask}
 	policy.Dir = netlink.XFRM_DIR_OUT
 	policy.Mark = &netlink.XfrmMark{
 		Value: ((spiWide << 12) | linux_defaults.RouteMarkEncrypt),
