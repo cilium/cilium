@@ -178,12 +178,6 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 		}
 	}()
 
-	if k8s.IsEnabled() {
-		// Creation or update of the CiliumNode can be done in the
-		// background, nothing depends on the completion of this.
-		go n.UpdateCiliumNodeResource()
-	}
-
 	if option.Config.KVStore != "" {
 		go func() {
 			<-n.Registered
@@ -198,6 +192,12 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 					},
 				})
 		}()
+	}
+
+	if k8s.IsEnabled() {
+		// CRD IPAM endpoint restoration depends on the completion of this
+		// to avoid custom resource update conflicts.
+		n.UpdateCiliumNodeResource()
 	}
 }
 
