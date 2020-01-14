@@ -81,7 +81,7 @@ apt-get clean
 #
 # Go-based tools we need at runtime
 #
-FROM docker.io/library/golang:1.13.5 as runtime-gobuild
+FROM docker.io/library/golang:1.13.6 as runtime-gobuild
 WORKDIR /tmp
 RUN go get -d github.com/google/gops && \
 cd /go/src/github.com/google/gops && \

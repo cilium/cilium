@@ -4,7 +4,7 @@ dist: trusty
 sudo: required
 
 go:
- - 1.13.5
+ - 1.13.6
 
 if: branch = master OR type = pull_request
 
@@ -17,6 +17,6 @@ before_install: ./.travis/prepare.sh
 
 before_script:
   - export PATH=/usr/local/clang/bin:$PATH
-  - export GO=/home/travis/.gimme/versions/go1.13.5.linux.amd64/bin/go
+  - export GO=/home/travis/.gimme/versions/go1.13.6.linux.amd64/bin/go
 
 script: ./.travis/build.sh
