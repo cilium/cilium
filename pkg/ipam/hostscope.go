@@ -43,7 +43,7 @@ func newHostScopeAllocator(n *net.IPNet) Allocator {
 	return a
 }
 
-func (h *hostScopeAllocator) Allocate(ip net.IP, owner string) (*AllocationResult, error) {
+func (h *hostScopeAllocator) Allocate(ip net.IP, owner string, refresh bool) (*AllocationResult, error) {
 	if err := h.allocator.Allocate(ip); err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func (h *hostScopeAllocator) Release(ip net.IP) error {
 	return h.allocator.Release(ip)
 }
 
-func (h *hostScopeAllocator) AllocateNext(owner string) (*AllocationResult, error) {
+func (h *hostScopeAllocator) AllocateNext(owner string, refresh bool) (*AllocationResult, error) {
 	ip, err := h.allocator.AllocateNext()
 	if err != nil {
 		return nil, err
@@ -86,4 +86,9 @@ func (h *hostScopeAllocator) Dump() (map[string]string, string) {
 	status := fmt.Sprintf("%d/%d allocated from %s", len(alloc), maxIPs, h.allocCIDR.String())
 
 	return alloc, status
+}
+
+// This method is merely implementing Allocator interface and is never used
+func (h *hostScopeAllocator) TriggerRefresh(reason string) error {
+	return nil
 }

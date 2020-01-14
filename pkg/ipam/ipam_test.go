@@ -59,7 +59,7 @@ func (s *IPAMSuite) TestLock(c *C) {
 	c.Assert(err, IsNil)
 
 	// Let's allocate the IP first so we can see the tests failing
-	result, err := ipam.IPv4Allocator.Allocate(epipv4.IP(), "test")
+	result, err := ipam.IPv4Allocator.Allocate(epipv4.IP(), "test", true)
 	c.Assert(err, IsNil)
 	c.Assert(result.IP, checker.DeepEquals, epipv4.IP())
 
@@ -76,7 +76,7 @@ func (s *IPAMSuite) TestBlackList(c *C) {
 	nextIP(ipv4)
 
 	ipam.BlacklistIP(ipv4, "test")
-	err := ipam.AllocateIP(ipv4, "test")
+	err := ipam.AllocateIP(ipv4, "test", true)
 	c.Assert(err, Not(IsNil))
 	ipam.ReleaseIP(ipv4)
 
@@ -91,7 +91,7 @@ func (s *IPAMSuite) TestBlackList(c *C) {
 	nextIP(ipv6)
 
 	ipam.BlacklistIP(ipv6, "test")
-	err = ipam.AllocateIP(ipv6, "test")
+	err = ipam.AllocateIP(ipv6, "test", true)
 	c.Assert(err, Not(IsNil))
 	ipam.ReleaseIP(ipv6)
 

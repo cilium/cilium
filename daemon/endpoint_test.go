@@ -31,7 +31,7 @@ import (
 )
 
 func getEPTemplate(c *C, d *Daemon) *models.EndpointChangeRequest {
-	ip4, ip6, err := d.ipam.AllocateNext("", "test")
+	ip4, ip6, err := d.ipam.AllocateNext("", "test", true)
 	c.Assert(err, Equals, nil)
 	c.Assert(ip4, Not(IsNil))
 	c.Assert(ip6, Not(IsNil))

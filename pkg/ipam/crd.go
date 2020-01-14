@@ -170,8 +170,6 @@ func newNodeStore(nodeName string, owner Owner, k8sEventReg K8sEventRegister) *n
 		time.Sleep(5 * time.Second)
 	}
 
-	store.refreshTrigger.TriggerWithReason("initial sync")
-
 	return store
 }
 
@@ -456,7 +454,7 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ciliumv2.Allocat
 // allocate it if it is available. If the IP is unavailable or already
 // allocated, an error is returned. The custom resource will be updated to
 // reflect the newly allocated IP.
-func (a *crdAllocator) Allocate(ip net.IP, owner string) (*AllocationResult, error) {
+func (a *crdAllocator) Allocate(ip net.IP, owner string, refresh bool) (*AllocationResult, error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -469,7 +467,7 @@ func (a *crdAllocator) Allocate(ip net.IP, owner string) (*AllocationResult, err
 		return nil, err
 	}
 
-	a.markAllocated(ip, owner, *ipInfo)
+	a.markAllocated(ip, owner, *ipInfo, refresh)
 
 	return a.buildAllocationResult(ip, ipInfo)
 }
@@ -493,16 +491,18 @@ func (a *crdAllocator) Release(ip net.IP) error {
 
 // markAllocated marks a particular IP as allocated and triggers the custom
 // resource update
-func (a *crdAllocator) markAllocated(ip net.IP, owner string, ipInfo ciliumv2.AllocationIP) {
+func (a *crdAllocator) markAllocated(ip net.IP, owner string, ipInfo ciliumv2.AllocationIP, refresh bool) {
 	ipInfo.Owner = owner
 	a.allocated[ip.String()] = ipInfo
-	a.store.refreshTrigger.TriggerWithReason(fmt.Sprintf("allocation of IP %s", ip.String()))
+	if refresh {
+		a.store.refreshTrigger.TriggerWithReason(fmt.Sprintf("allocation of IP %s", ip.String()))
+	}
 }
 
 // AllocateNext allocates the next available IP as offered by the custom
 // resource or return an error if no IP is available. The custom resource will
 // be updated to reflect the newly allocated IP.
-func (a *crdAllocator) AllocateNext(owner string) (*AllocationResult, error) {
+func (a *crdAllocator) AllocateNext(owner string, refresh bool) (*AllocationResult, error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -511,7 +511,7 @@ func (a *crdAllocator) AllocateNext(owner string) (*AllocationResult, error) {
 		return nil, err
 	}
 
-	a.markAllocated(ip, owner, *ipInfo)
+	a.markAllocated(ip, owner, *ipInfo, refresh)
 
 	return a.buildAllocationResult(ip, ipInfo)
 }
@@ -537,4 +537,12 @@ func (a *crdAllocator) Dump() (map[string]string, string) {
 
 	status := fmt.Sprintf("%d/%d allocated", len(allocs), a.totalPoolSize())
 	return allocs, status
+}
+
+// TriggerRefresh updates the custom resource in the apiserver based on the latest
+// information in the local node store
+func (a *crdAllocator) TriggerRefresh(reason string) error {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
+	return a.store.refreshNode()
 }

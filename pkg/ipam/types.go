@@ -49,20 +49,23 @@ type AllocationResult struct {
 // Allocator is the interface for an IP allocator implementation
 type Allocator interface {
 	// Allocate allocates a specific IP or fails
-	Allocate(ip net.IP, owner string) (*AllocationResult, error)
+	Allocate(ip net.IP, owner string, refresh bool) (*AllocationResult, error)
 
 	// Release releases a previously allocated IP or fails
 	Release(ip net.IP) error
 
 	// AllocateNext allocates the next available IP or fails if no more IPs
 	// are available
-	AllocateNext(owner string) (*AllocationResult, error)
+	AllocateNext(owner string, refresh bool) (*AllocationResult, error)
 
 	// Dump returns a map of all allocated IPs with the IP represented as
 	// key in the map. Dump must also provide a status one-liner to
 	// represent the overall status, e.g. number of IPs allocated and
 	// overall health information if available.
 	Dump() (map[string]string, string)
+
+	// TriggerRefresh updates custom resource with latest local information
+	TriggerRefresh(reason string) error
 }
 
 // IPNetWithOwner is a structure containing a net.IPNet struct with the owner

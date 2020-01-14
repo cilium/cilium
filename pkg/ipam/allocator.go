@@ -44,7 +44,7 @@ var (
 )
 
 // AllocateIP allocates a IP address.
-func (ipam *IPAM) AllocateIP(ip net.IP, owner string) (err error) {
+func (ipam *IPAM) AllocateIP(ip net.IP, owner string, refresh bool) (err error) {
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 
@@ -60,7 +60,7 @@ func (ipam *IPAM) AllocateIP(ip net.IP, owner string) (err error) {
 			return
 		}
 
-		if _, err = ipam.IPv4Allocator.Allocate(ip, owner); err != nil {
+		if _, err = ipam.IPv4Allocator.Allocate(ip, owner, refresh); err != nil {
 			return
 		}
 	} else {
@@ -70,7 +70,7 @@ func (ipam *IPAM) AllocateIP(ip net.IP, owner string) (err error) {
 			return
 		}
 
-		if _, err = ipam.IPv6Allocator.Allocate(ip, owner); err != nil {
+		if _, err = ipam.IPv6Allocator.Allocate(ip, owner, refresh); err != nil {
 			return
 		}
 	}
@@ -92,17 +92,17 @@ func (ipam *IPAM) AllocateIPString(ipAddr, owner string) error {
 		return fmt.Errorf("Invalid IP address: %s", ipAddr)
 	}
 
-	return ipam.AllocateIP(ip, owner)
+	return ipam.AllocateIP(ip, owner, true)
 }
 
-func (ipam *IPAM) allocateNextFamily(family Family, allocator Allocator, owner string) (result *AllocationResult, err error) {
+func (ipam *IPAM) allocateNextFamily(family Family, allocator Allocator, owner string, refresh bool) (result *AllocationResult, err error) {
 	if allocator == nil {
 		err = fmt.Errorf("%s allocator not available", family)
 		return
 	}
 
 	for {
-		result, err = allocator.AllocateNext(owner)
+		result, err = allocator.AllocateNext(owner, refresh)
 		if err != nil {
 			return
 		}
@@ -125,15 +125,15 @@ func (ipam *IPAM) allocateNextFamily(family Family, allocator Allocator, owner s
 }
 
 // AllocateNextFamily allocates the next IP of the requested address family
-func (ipam *IPAM) AllocateNextFamily(family Family, owner string) (result *AllocationResult, err error) {
+func (ipam *IPAM) AllocateNextFamily(family Family, owner string, refresh bool) (result *AllocationResult, err error) {
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 
 	switch family {
 	case IPv6:
-		result, err = ipam.allocateNextFamily(family, ipam.IPv6Allocator, owner)
+		result, err = ipam.allocateNextFamily(family, ipam.IPv6Allocator, owner, refresh)
 	case IPv4:
-		result, err = ipam.allocateNextFamily(family, ipam.IPv4Allocator, owner)
+		result, err = ipam.allocateNextFamily(family, ipam.IPv4Allocator, owner, refresh)
 
 	default:
 		err = fmt.Errorf("unknown address \"%s\" family requested", family)
@@ -145,9 +145,9 @@ func (ipam *IPAM) AllocateNextFamily(family Family, owner string) (result *Alloc
 // configured address pool. If family is set to "ipv4" or "ipv6", then
 // allocation is limited to the specified address family. If the pool has been
 // drained of addresses, an error will be returned.
-func (ipam *IPAM) AllocateNext(family, owner string) (ipv4Result, ipv6Result *AllocationResult, err error) {
+func (ipam *IPAM) AllocateNext(family, owner string, refresh bool) (ipv4Result, ipv6Result *AllocationResult, err error) {
 	if (family == "ipv6" || family == "") && ipam.IPv6Allocator != nil {
-		ipv6Result, err = ipam.AllocateNextFamily(IPv6, owner)
+		ipv6Result, err = ipam.AllocateNextFamily(IPv6, owner, refresh)
 		if err != nil {
 			return
 		}
@@ -155,7 +155,7 @@ func (ipam *IPAM) AllocateNext(family, owner string) (ipv4Result, ipv6Result *Al
 	}
 
 	if (family == "ipv4" || family == "") && ipam.IPv4Allocator != nil {
-		ipv4Result, err = ipam.AllocateNextFamily(IPv4, owner)
+		ipv4Result, err = ipam.AllocateNextFamily(IPv4, owner, refresh)
 		if err != nil {
 			if ipv6Result != nil {
 				ipam.ReleaseIP(ipv6Result.IP)
