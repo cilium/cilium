@@ -64,3 +64,8 @@ Users (Alphabetically)
       D: Sportradar is using Cilium as their main CNI plugin in AWS (using kops)
       U: L3/L4 policies, Hubble, BPF NodePort, CiliumClusterwideNetworkPolicy
       Q: @Eric Bailey, @Ole Markus
+
+    * N: uSwitch
+      D: uSwitch is using Cilium in AWS for all their production clusters (self hosted k8s)
+      U: ClusterMesh, CNI-Chaining (with amazon-vpc-cni-k8s)
+      Q: @jirving
