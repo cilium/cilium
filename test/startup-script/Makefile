@@ -1,4 +1,4 @@
-TAG=v1
+TAG=v3
 IMAGE=docker.io/cilium/startup-script
 
 .PHONY: build push
