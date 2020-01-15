@@ -1311,8 +1311,21 @@ func addIfNotOverwritten(options []string, field, value string) []string {
 }
 
 func (kub *Kubectl) generateCiliumYaml(options []string, filename string) error {
+
 	for key, value := range defaultHelmOptions {
 		options = addIfNotOverwritten(options, key, value)
+	}
+
+	// Do not schedule cilium-agent on k8s3
+	if os.Getenv("K8S_NODES") == "3" {
+		opts := map[string]string{
+			"global.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key":       "cilium.io/ci-node",
+			"global.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator":  "NotIn",
+			"global.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[0]": "k8s3",
+		}
+		for key, value := range opts {
+			options = addIfNotOverwritten(options, key, value)
+		}
 	}
 
 	if integration := GetCurrentIntegration(); integration != "" {

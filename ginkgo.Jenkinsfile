@@ -235,6 +235,7 @@ pipeline {
                         NETNEXT="true"
                         KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
                         K8S_VERSION="1.11"
+                        K8S_NODES="3"
                     }
                     steps {
                         sh 'cd ${TESTDIR}; HOME=${GOPATH} ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s*/" | sed "s/Runtime.*/NoTests/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh)'
