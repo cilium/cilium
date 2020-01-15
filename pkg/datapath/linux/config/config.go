@@ -262,7 +262,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			cDefinesMap["NODEPORT_NEIGH6"] = "cilium_nodeport_neigh6"
 		}
 
-		if option.Config.EnableDSR {
+		if option.Config.NodePortMode == "dsr" {
 			cDefinesMap["ENABLE_DSR"] = "1"
 		}
 	}

@@ -481,8 +481,8 @@ func init() {
 	flags.Bool(option.EnableNodePort, false, "Enable NodePort type services by Cilium (beta)")
 	option.BindEnv(option.EnableNodePort)
 
-	flags.Bool(option.EnableDSR, false, "Enable direct server return NodePort BPF (beta)")
-	option.BindEnv(option.EnableDSR)
+	flags.String(option.NodePortMode, defaults.NodePortMode, "BPF NodePort mode (\"snat\", \"dsr\")")
+	option.BindEnv(option.NodePortMode)
 
 	flags.StringSlice(option.NodePortRange, []string{fmt.Sprintf("%d", option.NodePortMinDefault), fmt.Sprintf("%d", option.NodePortMaxDefault)}, fmt.Sprintf("Set the min/max NodePort port range"))
 	option.BindEnv(option.NodePortRange)
@@ -1088,14 +1088,18 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
-	if option.Config.EnableDSR {
-		switch {
-		case !option.Config.EnableNodePort:
-			log.Fatal("DSR can be enabled only for NodePort BPF (--enable-node-port)")
-		case option.Config.EnableDSR && option.Config.EnableIPv6:
-			log.Fatal("DSR cannot be used with IPv6")
-		case option.Config.Tunnel != option.TunnelDisabled:
-			log.Fatal("DSR cannot be used with tunnel")
+	if option.Config.EnableNodePort {
+		if option.Config.NodePortMode != "dsr" && option.Config.NodePortMode != "snat" {
+			log.Fatalf("Invalid value for --node-port-mode option: %s", option.Config.NodePortMode)
+		}
+
+		if option.Config.NodePortMode == "dsr" {
+			switch {
+			case option.Config.EnableIPv6:
+				log.Fatal("DSR cannot be used with IPv6")
+			case option.Config.Tunnel != option.TunnelDisabled:
+				log.Fatal("DSR cannot be used with tunnel")
+			}
 		}
 	}
 
