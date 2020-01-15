@@ -268,8 +268,8 @@ data:
 {{- if .Values.global.nodePort.device }}
   device: {{ .Values.global.nodePort.device | quote }}
 {{- end }}
-{{- if .Values.global.nodePort.dsr }}
-  enable-dsr: "true"
+{{- if .Values.global.nodePort.mode }}
+  node-port-mode: {{ .Values.global.nodePort.mode | quote }}
 {{- end }}
 
 {{- end }}
