@@ -24,6 +24,10 @@ spec:
       labels:
         k8s-app: cilium
     spec:
+{{- if .Values.global.affinity }}
+      affinity:
+{{ toYaml .Values.global.affinity | indent 8 }}
+{{- end }}
       containers:
       - args:
         - --config-dir=/tmp/cilium/config-map
