@@ -340,4 +340,7 @@ const (
 
 	// EnableRemoteNodeIdentity is the default value for option.EnableRemoteNodeIdentity
 	EnableRemoteNodeIdentity = false
+
+	// NodePortMode is the default value for option.NodePortMode
+	NodePortMode = "snat"
 )

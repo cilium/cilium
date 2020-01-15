@@ -52,7 +52,6 @@ cilium-agent [flags]
       --disable-endpoint-crd                                  Disable use of CiliumEndpoint CRD
       --disable-k8s-services                                  Disable east-west K8s load balancing by cilium
       --egress-masquerade-interfaces string                   Limit egress masquerading to interface selector
-      --enable-dsr                                            Enable direct server return NodePort BPF (beta)
       --enable-endpoint-health-checking                       Enable connectivity health checking between virtual endpoints (default true)
       --enable-endpoint-routes                                Use per endpoint routes instead of routing via cilium_host
       --enable-health-checking                                Enable connectivity health checking (default true)
@@ -131,6 +130,7 @@ cilium-agent [flags]
       --monitor-queue-size int                                Size of the event queue when reading monitor events
       --mtu int                                               Overwrite auto-detected MTU of underlying network
       --nat46-range string                                    IPv6 prefix to map IPv4 addresses to (default "0:0:0:0:0:FFFF::/96")
+      --node-port-mode string                                 BPF NodePort mode ("snat", "dsr") (default "snat")
       --node-port-range strings                               Set the min/max NodePort port range (default [30000,32767])
       --policy-queue-size int                                 size of queues for policy-related events (default 100)
       --pprof                                                 Enable serving the pprof debugging API
