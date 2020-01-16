@@ -136,6 +136,7 @@ func (n *NodeManager) GetNames() (allNodeNames []string) {
 
 // Update is called whenever a CiliumNode resource has been updated in the
 // Kubernetes apiserver
+// 'resource' is deep copied before it is stored.
 func (n *NodeManager) Update(resource *v2.CiliumNode) bool {
 	n.mutex.Lock()
 	node, ok := n.nodes[resource.Name]

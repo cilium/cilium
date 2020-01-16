@@ -42,14 +42,16 @@ func startSynchronizingCiliumNodes() {
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				if node, ok := obj.(*v2.CiliumNode); ok {
-					ciliumNodeUpdated(node.DeepCopy())
+					// node is deep copied before it is stored in pkg/aws/eni
+					ciliumNodeUpdated(node)
 				} else {
 					log.Warningf("Unknown CiliumNode object type %s received: %+v", reflect.TypeOf(obj), obj)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				if node, ok := newObj.(*v2.CiliumNode); ok {
-					ciliumNodeUpdated(node.DeepCopy())
+					// node is deep copied before it is stored in pkg/aws/eni
+					ciliumNodeUpdated(node)
 				} else {
 					log.Warningf("Unknown CiliumNode object type %s received: %+v", reflect.TypeOf(newObj), newObj)
 				}
