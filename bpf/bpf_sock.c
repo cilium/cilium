@@ -117,9 +117,9 @@ __u64 sock_local_cookie(struct bpf_sock_addr *ctx)
 }
 
 static __always_inline __maybe_unused
-bool sock_proto_enabled(const struct bpf_sock_addr *ctx)
+bool sock_proto_enabled(uint32_t proto)
 {
-	switch (ctx->protocol) {
+	switch (proto) {
 #ifdef ENABLE_HOST_SERVICES_TCP
 	case IPPROTO_TCP:
 		return true;
@@ -250,7 +250,7 @@ static __always_inline int __sock4_xlate(struct bpf_sock_addr *ctx,
 	};
 	struct lb4_service *slave_svc;
 
-	if (!sock_proto_enabled(ctx))
+	if (!sock_proto_enabled(ctx->protocol))
 		return -ENOTSUP;
 
 	/* Initial non-wildcarded lookup handles regular services
@@ -587,7 +587,7 @@ static __always_inline int __sock6_xlate(struct bpf_sock_addr *ctx)
 	struct lb6_service *slave_svc;
 	union v6addr v6_orig;
 
-	if (!sock_proto_enabled(ctx))
+	if (!sock_proto_enabled(ctx->protocol))
 		return -ENOTSUP;
 
 	ctx_get_v6_address(ctx, &key.address);
