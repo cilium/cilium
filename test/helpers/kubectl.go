@@ -280,8 +280,13 @@ func (kub *Kubectl) GetNumNodes() int {
 	if !res.WasSuccessful() {
 		return 0
 	}
+	sub := 0
+	// HACK
+	if os.Getenv("K8S_NODES") == "3" {
+		sub = 1
+	}
 
-	return len(strings.Split(res.SingleOut(), " "))
+	return len(strings.Split(res.SingleOut(), " ")) - sub
 }
 
 // CreateSecret is a wrapper around `kubernetes create secret
