@@ -69,3 +69,8 @@ Users (Alphabetically)
       D: uSwitch is using Cilium in AWS for all their production clusters (self hosted k8s)
       U: ClusterMesh, CNI-Chaining (with amazon-vpc-cni-k8s)
       Q: @jirving
+
+    * N: Trip.com
+      D: Trip.com is using Cilium in their production clusters (self-hosted k8s, On-premises and AWS)
+      U: ENI Networking, Service load-balancing, Direct routing (via Bird)
+      Q: @ArthurChiao
