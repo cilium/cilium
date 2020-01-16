@@ -207,6 +207,11 @@ func calculateExcessIPs(availableIPs, usedIPs, preAllocate, minAllocate, maxAbov
 }
 
 func (n *Node) updatedResource(resource *v2.CiliumNode) bool {
+	// Deep copy the resource before storing it. This way we are
+	// not dependent on caller not using the resource after this
+	// call.
+	resource = resource.DeepCopy()
+
 	n.mutex.Lock()
 	// Any modification to the custom resource is seen as a sign that the
 	// instance is alive
