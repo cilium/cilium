@@ -1619,6 +1619,9 @@ func (kub *Kubectl) CiliumNodesWait() (bool, error) {
 		}
 		result := data.KVOutput()
 		for k, v := range result {
+			if os.Getenv("K8S_NODES") == "3" && k == "k8s3" {
+				continue
+			}
 			if v == "" {
 				kub.Logger().Infof("Kubernetes node '%v' does not have Cilium metadata", k)
 				return false
