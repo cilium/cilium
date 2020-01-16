@@ -152,8 +152,8 @@ func newCmdCompletion(out io.Writer) *cobra.Command {
 		Short:   "Output shell completion code",
 		Long:    ``,
 		Example: completionExample,
-		Run: func(cmd *cobra.Command, args []string) {
-			runCompletion(out, cmd, args)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCompletion(out, cmd, args)
 		},
 		ValidArgs: []string{"bash", "zsh"},
 	}
