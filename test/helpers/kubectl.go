@@ -242,11 +242,13 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 func (kub *Kubectl) LabelNodes() {
 	kub.ExecMiddle(fmt.Sprintf("%s label --overwrite node k8s1 cilium.io/ci-node=k8s1", KubectlCmd))
 	kub.ExecMiddle(fmt.Sprintf("%s label --overwrite node k8s2 cilium.io/ci-node=k8s2", KubectlCmd))
-	if os.Getenv("K8S_NODES") == "3" {
-		kub.ExecMiddle(fmt.Sprintf("%s label --overwrite node k8s3 cilium.io/ci-node=k8s3", KubectlCmd))
-		// Prevent scheduling any pods on k8s3 node, as it will be used as an external client
+	kub.ExecMiddle(fmt.Sprintf("%s label --overwrite node k8s3 cilium.io/ci-node=k8s3", KubectlCmd))
+
+	node := os.Getenv("NO_CILIUM_ON_NODE")
+	if node != "" {
+		// Prevent scheduling any pods on the node, as it will be used as an external client
 		// to send requests to k8s{1,2}
-		kub.ExecMiddle(fmt.Sprintf("%s taint nodes k8s3 key=value:NoSchedule", KubectlCmd))
+		kub.ExecMiddle(fmt.Sprintf("%s taint nodes %s key=value:NoSchedule", KubectlCmd, node))
 	}
 }
 
@@ -280,8 +282,12 @@ func (kub *Kubectl) GetNumNodes() int {
 	if !res.WasSuccessful() {
 		return 0
 	}
+	sub := 0
+	if os.Getenv("NO_CILIUM_ON_NODE") != "" {
+		sub = 1
+	}
 
-	return len(strings.Split(res.SingleOut(), " "))
+	return len(strings.Split(res.SingleOut(), " ")) - sub
 }
 
 // CreateSecret is a wrapper around `kubernetes create secret
@@ -1321,12 +1327,12 @@ func (kub *Kubectl) generateCiliumYaml(options []string, filename string) error 
 		options = addIfNotOverwritten(options, key, value)
 	}
 
-	// Do not schedule cilium-agent on k8s3
-	if os.Getenv("K8S_NODES") == "3" {
+	// Do not schedule cilium-agent on the NO_CILIUM_ON_NODE node
+	if node := os.Getenv("NO_CILIUM_ON_NODE"); node != "" {
 		opts := map[string]string{
 			"global.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key":       "cilium.io/ci-node",
 			"global.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator":  "NotIn",
-			"global.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[0]": "k8s3",
+			"global.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[0]": node,
 		}
 		for key, value := range opts {
 			options = addIfNotOverwritten(options, key, value)
@@ -1692,7 +1698,11 @@ func (kub *Kubectl) CiliumNodesWait() (bool, error) {
 			return false
 		}
 		result := data.KVOutput()
+		ignoreNode := os.Getenv("NO_CILIUM_ON_NODE")
 		for k, v := range result {
+			if k == ignoreNode {
+				continue
+			}
 			if v == "" {
 				kub.Logger().Infof("Kubernetes node '%v' does not have Cilium metadata", k)
 				return false
