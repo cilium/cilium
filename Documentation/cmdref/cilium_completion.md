@@ -2,14 +2,14 @@
 
 ## cilium completion
 
-Output shell completion code for bash
+Output shell completion code
 
 ### Synopsis
 
-Output shell completion code for bash
+Output shell completion code
 
 ```
-cilium completion [bash] [flags]
+cilium completion [shell] [flags]
 ```
 
 ### Examples
@@ -35,6 +35,18 @@ cilium completion [bash] [flags]
 	  source '$HOME/.cilium/completion.bash.inc'
 	  " >> $HOME/.bash_profile
 	source $HOME/.bash_profile
+
+
+# Installing zsh completion on Linux/macOS
+## Load the cilium completion code for zsh into the current shell
+	source <(cilium completion zsh)
+## Write zsh completion code to a file and source if from .zshrc
+	cilium completion zsh > ~/.cilium/completion.zsh.inc
+	printf "
+	  # Cilium shell completion
+	  source '$HOME/.cilium/completion.zsh.inc'
+	  " >> $HOME/.zshrc
+	source $HOME/.zshrc
 ```
 
 ### Options

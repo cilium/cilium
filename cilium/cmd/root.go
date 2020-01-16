@@ -131,19 +131,31 @@ var (
 	  # Cilium shell completion
 	  source '$HOME/.cilium/completion.bash.inc'
 	  " >> $HOME/.bash_profile
-	source $HOME/.bash_profile`
+	source $HOME/.bash_profile
+
+
+# Installing zsh completion on Linux/macOS
+## Load the cilium completion code for zsh into the current shell
+	source <(cilium completion zsh)
+## Write zsh completion code to a file and source if from .zshrc
+	cilium completion zsh > ~/.cilium/completion.zsh.inc
+	printf "
+	  # Cilium shell completion
+	  source '$HOME/.cilium/completion.zsh.inc'
+	  " >> $HOME/.zshrc
+	source $HOME/.zshrc`
 )
 
 func newCmdCompletion(out io.Writer) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "completion [bash]",
-		Short:   "Output shell completion code for bash",
+		Use:     "completion [shell]",
+		Short:   "Output shell completion code",
 		Long:    ``,
 		Example: completionExample,
 		Run: func(cmd *cobra.Command, args []string) {
 			runCompletion(out, cmd, args)
 		},
-		ValidArgs: []string{"bash"},
+		ValidArgs: []string{"bash", "zsh"},
 	}
 
 	return cmd
@@ -156,6 +168,16 @@ func runCompletion(out io.Writer, cmd *cobra.Command, args []string) error {
 	if _, err := out.Write([]byte(copyRightHeader)); err != nil {
 		return err
 	}
+	if len(args) == 0 {
+		return cmd.Parent().GenBashCompletion(out)
+	}
 
-	return cmd.Parent().GenBashCompletion(out)
+	switch args[0] {
+	case "bash":
+		return cmd.Parent().GenBashCompletion(out)
+	case "zsh":
+		return cmd.Parent().GenZshCompletion(out)
+	}
+
+	return fmt.Errorf("Unexpected shell: %s.", args[0])
 }
