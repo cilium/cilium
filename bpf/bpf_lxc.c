@@ -1068,6 +1068,9 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 
 	if (ret == CT_NEW) {
 #ifdef ENABLE_DSR
+		if (!revalidate_data(skb, &data, &data_end, &ip4))
+			return DROP_INVALID;
+
 		// Check whether IPv4 header contains a 64-bit option (IPv4 header
 		// w/o option (5 x 32-bit words) + the DSR option (2 x 32-bit words))
 		if (ip4->ihl == 0x7) {
