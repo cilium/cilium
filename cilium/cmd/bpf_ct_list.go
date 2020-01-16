@@ -53,6 +53,7 @@ func dumpCt(eID string) {
 	}
 
 	for _, m := range maps {
+		m := m
 		path, err := m.Path()
 		if err == nil {
 			err = m.Open()

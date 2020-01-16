@@ -48,6 +48,7 @@ func dumpNat() {
 		if m == nil {
 			continue
 		}
+		m := m
 		path, err := m.Path()
 		if err == nil {
 			err = m.Open()

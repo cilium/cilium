@@ -53,8 +53,8 @@ func flushNat() {
 			fmt.Fprintf(os.Stderr, "Unable to open %s: %s", path, err)
 			continue
 		}
-		defer m.Close()
 		entries := m.Flush()
 		fmt.Printf("Flushed %d entries from %s\n", entries, path)
+		m.Close()
 	}
 }
