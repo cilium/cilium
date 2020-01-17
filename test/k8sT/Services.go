@@ -486,7 +486,6 @@ var _ = Describe("K8sServicesTest", func() {
 						"--set global.nodePort.mode=dsr",
 						"--set global.tunnel=disabled",
 						"--set global.autoDirectNodeRoutes=true",
-						"--set global.ipv6.enabled=false",
 					})
 
 					var data v1.Service
@@ -509,15 +508,12 @@ var _ = Describe("K8sServicesTest", func() {
 					doRequestsFromThirdHostWithLocalPort(url, 1, true, 64000)
 					res := kubectl.CiliumExec(pod, "cilium bpf nat list | grep 64000")
 					Expect(res.GetStdOut()).ShouldNot(BeEmpty(), "NAT entry was not evicted")
-					// TODO(brb) Uncomment all "res.ExpectSuccess()" after adding
-					//           IPv6 DSR support (cilium bpf {ct,nat} cmds exit with 1
-					//           due to missing ipv6 maps).
-					// res.ExpectSuccess("Unable to list NAT entries")
+					res.ExpectSuccess("Unable to list NAT entries")
 					// Flush CT maps to trigger eviction of the NAT entries (simulates CT GC)
-					kubectl.CiliumExec(pod, "cilium bpf ct flush global")
-					// res.ExpectSuccess("Unable to flush CT maps")
+					res = kubectl.CiliumExec(pod, "cilium bpf ct flush global")
+					res.ExpectSuccess("Unable to flush CT maps")
 					res = kubectl.CiliumExec(pod, "cilium bpf nat list | grep 64000")
-					//res.ExpectSuccess("Unable to list NAT entries")
+					res.ExpectSuccess("Unable to list NAT entries")
 					Expect(res.GetStdOut()).Should(BeEmpty(), "NAT entry was not evicted")
 				})
 			})

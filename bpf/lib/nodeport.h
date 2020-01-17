@@ -55,6 +55,17 @@ struct bpf_elf_map __section_maps NODEPORT_NEIGH6 = {
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= SNAT_MAPPING_IPV6_SIZE,
 };
+# ifdef ENABLE_DSR
+// The IPv6 extension should be 8-bytes aligned
+struct dst_opt_v6 {
+	__u8 nexthdr;
+	__u8 len;
+	__u8 opt_type;
+	__u8 opt_len;
+	union v6addr addr;
+	__be32 port;
+};
+# endif
 #endif /* ENABLE_IPV6 */
 
 #endif /* ENABLE_NODEPORT */
@@ -117,6 +128,75 @@ static __always_inline int nodeport_nat_ipv6_rev(struct __sk_buff *skb,
 						 union v6addr *addr)
 {
 	return NODEPORT_DO_NAT_IPV6(addr, NAT_DIR_INGRESS);
+}
+
+static inline int set_dsr_ext6(struct __sk_buff *skb, struct ipv6hdr *ip6,
+			       union v6addr *svc_addr, __be32 svc_port)
+{
+	struct dst_opt_v6 opt = {};
+
+	opt.nexthdr = ip6->nexthdr;
+	ip6->nexthdr = NEXTHDR_DEST;
+	ip6->payload_len = bpf_htons(bpf_ntohs(ip6->payload_len) + 24);
+
+	opt.len = DSR_IPV6_EXT_LEN;
+	opt.opt_type = DSR_IPV6_OPT_TYPE;
+	opt.opt_len = DSR_IPV6_OPT_LEN;
+	ipv6_addr_copy(&opt.addr, svc_addr);
+	opt.port = svc_port;
+
+	if (skb_adjust_room(skb, sizeof(opt), BPF_ADJ_ROOM_NET, 0))
+		return DROP_INVALID;
+
+	if (skb_store_bytes(skb, ETH_HLEN + sizeof(*ip6), &opt, sizeof(opt), 0) < 0)
+		return DROP_INVALID;
+
+	return 0;
+}
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_DSR)
+int tail_nodeport_ipv6_dsr(struct __sk_buff *skb)
+{
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	union v6addr addr = {};
+	struct bpf_fib_lookup fib_params = {};
+	int ret;
+
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	__be32 dport = skb->cb[CB_SVC_PORT];
+	addr.p1 = skb->cb[CB_SVC_ADDR_V6_1];
+	addr.p2 = skb->cb[CB_SVC_ADDR_V6_2];
+	addr.p3 = skb->cb[CB_SVC_ADDR_V6_3];
+	addr.p4 = skb->cb[CB_SVC_ADDR_V6_4];
+	ret = set_dsr_ext6(skb, ip6, &addr, dport);
+	if (ret)
+		return ret;
+
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	fib_params.family = AF_INET6;
+	fib_params.ifindex = NATIVE_DEV_IFINDEX;
+	ipv6_addr_copy((union v6addr *) &fib_params.ipv6_src, (union v6addr *) &ip6->saddr);
+	ipv6_addr_copy((union v6addr *) &fib_params.ipv6_dst, (union v6addr *) &ip6->daddr);
+
+	ret = fib_lookup(skb, &fib_params, sizeof(fib_params),
+			 BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
+	if (ret != 0) {
+		return DROP_NO_FIB;
+	}
+
+	if (eth_store_daddr(skb, fib_params.dmac, 0) < 0) {
+		return DROP_WRITE_ERROR;
+	}
+	if (eth_store_saddr(skb, fib_params.smac, 0) < 0) {
+		return DROP_WRITE_ERROR;
+	}
+
+	return redirect(fib_params.ifindex, 0);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT)
@@ -269,11 +349,14 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 	if (!svc || (!lb6_svc_is_external_ip(svc) && !lb6_svc_is_nodeport(svc))) {
 		if (svc)
 			return DROP_IS_CLUSTER_IP;
-
+#ifdef ENABLE_DSR
+		return TC_ACT_OK;
+#else
 		skb->cb[CB_NAT] = NAT_DIR_INGRESS;
 		skb->cb[CB_SRC_IDENTITY] = src_identity;
 		ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_NAT);
 		return DROP_MISSED_TAIL_CALL;
+#endif /* ENABLE_DSR */
 	}
 
 	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, skb, l4_off, CT_EGRESS,
@@ -331,9 +414,19 @@ redo:
 	}
 
 	if (!backend_local) {
+#ifdef ENABLE_DSR
+		skb->cb[CB_SVC_PORT] = key.dport;
+		skb->cb[CB_SVC_ADDR_V6_1] = key.address.p1;
+		skb->cb[CB_SVC_ADDR_V6_2] = key.address.p2;
+		skb->cb[CB_SVC_ADDR_V6_3] = key.address.p3;
+		skb->cb[CB_SVC_ADDR_V6_4] = key.address.p4;
+		ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_DSR);
+		return DROP_MISSED_TAIL_CALL;
+#else
 		skb->cb[CB_NAT] = NAT_DIR_EGRESS;
 		ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_NAT);
 		return DROP_MISSED_TAIL_CALL;
+#endif /* ENABLE_DSR */
 	}
 
 	return TC_ACT_OK;

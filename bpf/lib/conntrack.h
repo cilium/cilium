@@ -667,6 +667,7 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 
 	entry.lb_loopback = ct_state->loopback;
 	entry.node_port = ct_state->node_port;
+	entry.dsr = ct_state->dsr;
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;

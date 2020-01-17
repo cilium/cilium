@@ -220,7 +220,25 @@ ct_recreate6:
 			ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
 			return DROP_MISSED_TAIL_CALL;
 		}
-#endif
+# ifdef ENABLE_DSR
+		if (ct_state.dsr) {
+			struct ipv6_ct_tuple nat_tup = *tuple;
+			struct ipv6_nat_entry *entry;
+
+			nat_tup.flags = NAT_DIR_EGRESS;
+			nat_tup.sport = tuple->dport;
+			nat_tup.dport = tuple->sport;
+			entry = snat_v6_lookup(&nat_tup);
+			if (entry) {
+				ret = snat_v6_rewrite_egress(skb, &nat_tup,
+								  entry, l4_off);
+				if (ret != 0) {
+					return ret;
+				}
+			}
+		}
+# endif /* ENABLE_DSR */
+#endif /* ENABLE_NODEPORT */
 		if (ct_state.rev_nat_index) {
 			ret = lb6_rev_nat(skb, l4_off, &csum_off,
 					  ct_state.rev_nat_index, tuple, 0);
@@ -800,6 +818,7 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason)
 	bool skip_ingress_proxy = false;
 	union v6addr orig_dip, orig_sip;
 	__u32 monitor = 0;
+	bool dsr = false;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -878,9 +897,35 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason)
 		verdict = 0;
 
 	if (ret == CT_NEW) {
+#ifdef ENABLE_DSR
+		struct dst_opt_v6 opt = {};
+
+		if (!revalidate_data(skb, &data, &data_end, &ip6))
+			return DROP_INVALID;
+
+		// TODO(brb) iterate over all extension headers
+		if (ip6->nexthdr == NEXTHDR_DEST) {
+			if (skb_load_bytes(skb, ETH_HLEN + sizeof(*ip6), &opt,
+					   sizeof(opt)) < 0) {
+				return DROP_INVALID;
+			}
+			if (opt.len == DSR_IPV6_EXT_LEN &&
+			    opt.opt_type == DSR_IPV6_OPT_TYPE &&
+			    opt.opt_len == DSR_IPV6_OPT_LEN) {
+				dsr = true;
+
+				if (snat_v6_create_dsr(skb, &opt.addr,
+						       opt.port) < 0) {
+					return DROP_INVALID;
+				}
+			}
+		}
+#endif /* ENABLE_DSR */
+
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.node_port = ct_state.node_port;
+		ct_state_new.dsr = dsr;
 		ret = ct_create6(get_ct_map6(&tuple), &tuple, skb, CT_INGRESS, &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))
 			return ret;

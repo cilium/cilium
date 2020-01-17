@@ -1093,13 +1093,8 @@ func initEnv(cmd *cobra.Command) {
 			log.Fatalf("Invalid value for --node-port-mode option: %s", option.Config.NodePortMode)
 		}
 
-		if option.Config.NodePortMode == "dsr" {
-			switch {
-			case option.Config.EnableIPv6:
-				log.Fatal("DSR cannot be used with IPv6")
-			case option.Config.Tunnel != option.TunnelDisabled:
-				log.Fatal("DSR cannot be used with tunnel")
-			}
+		if option.Config.NodePortMode == "dsr" && option.Config.Tunnel != option.TunnelDisabled {
+			log.Fatal("DSR cannot be used with tunnel")
 		}
 	}
 

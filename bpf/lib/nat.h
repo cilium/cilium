@@ -893,6 +893,60 @@ static __always_inline bool snat_v6_can_skip(const struct ipv6_nat_target *targe
 	return false;
 }
 
+static __always_inline int snat_v6_create_dsr(struct __sk_buff *skb,
+					      union v6addr *to_saddr,
+					      __be16 to_sport)
+{
+	void *data, *data_end;
+	struct ipv6_ct_tuple tuple = {};
+	struct ipv6_nat_entry state = {};
+	struct ipv6hdr *ip6;
+	struct {
+		__be16 sport;
+		__be16 dport;
+	} l4hdr;
+	__u32 off;
+	int hdrlen;
+
+	build_bug_on(sizeof(struct ipv6_nat_entry) > 64);
+
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	tuple.nexthdr = ip6->nexthdr;
+	hdrlen = ipv6_hdrlen(skb, ETH_HLEN, &tuple.nexthdr);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->saddr);
+	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->daddr);
+	tuple.flags = NAT_DIR_EGRESS;
+	off = ((void *)ip6 - data) + hdrlen;
+	switch (tuple.nexthdr) {
+	case IPPROTO_TCP:
+	case IPPROTO_UDP:
+		if (skb_load_bytes(skb, off, &l4hdr, sizeof(l4hdr)) < 0)
+			return DROP_INVALID;
+		tuple.dport = l4hdr.sport;
+		tuple.sport = l4hdr.dport;
+		break;
+	default:
+		// NodePort svc can be reached only via TCP or UDP, so
+		// drop the rest
+		return DROP_NAT_UNSUPP_PROTO;
+	}
+
+	state.common.created = bpf_ktime_get_nsec();
+	ipv6_addr_copy(&state.to_saddr, to_saddr);
+	state.to_sport = to_sport;
+
+	int ret = map_update_elem(&SNAT_MAPPING_IPV6, &tuple, &state, 0);
+	if (ret)
+		return ret;
+
+	return TC_ACT_OK;
+}
+
 static __always_inline int snat_v6_process(struct __sk_buff *skb, int dir,
 					   const struct ipv6_nat_target *target)
 {
