@@ -36,6 +36,7 @@ install:
 ifndef DISABLE_ENVOY_INSTALLATION
 	docker create -ti --name cilium-envoy quay.io/cilium/cilium-envoy:${CILIUM_ENVOY_SHA} bash
 	docker cp cilium-envoy:/usr/bin/cilium-envoy $(BINDIR)/cilium-envoy
+	docker cp cilium-envoy:/usr/bin/cilium-envoy-unstripped $(BINDIR)/cilium-envoy-unstripped
 	docker rm -fv cilium-envoy
 endif
 

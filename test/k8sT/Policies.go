@@ -93,6 +93,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		DeployCiliumOptionsAndDNS(kubectl, []string{
 			"--set global.tls.secretsBackend=k8s",
 			"--set global.debug.verbose=flow",
+			"--set global.proxy.httpRetryTimeout=7",
 		})
 	})
 

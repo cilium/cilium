@@ -1,7 +1,7 @@
 #
 # cilium-envoy from github.com/cilium/proxy
 #
-FROM quay.io/cilium/cilium-envoy:34d22a5c2e2fa07a93f506d56bc22f2f95b96bab as cilium-envoy
+FROM quay.io/cilium/cilium-envoy:8fc8ea91dbe732b3579aab9d942c394e884f333b as cilium-envoy
 
 #
 # Cilium incremental build. Should be fast given builder-deps is up-to-date!
@@ -40,7 +40,8 @@ RUN make LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 V=$V LIBNETWORK_PLUGIN=$LIBNETWORK_PLU
 FROM quay.io/cilium/cilium-runtime:2020-01-14
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=builder /tmp/install /
-COPY --from=cilium-envoy / /
+COPY --from=cilium-envoy /usr/bin/cilium-envoy /usr/bin/cilium-envoy
+COPY --from=cilium-envoy /usr/bin/cilium-envoy-unstripped /usr/bin/cilium-envoy-unstripped
 COPY plugins/cilium-cni/cni-install.sh /cni-install.sh
 COPY plugins/cilium-cni/cni-uninstall.sh /cni-uninstall.sh
 COPY contrib/packaging/docker/init-container.sh /init-container.sh
