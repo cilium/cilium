@@ -90,7 +90,8 @@
 #define CILIUM_CALL_IPV6_NODEPORT_REVNAT	18
 #define CILIUM_CALL_ENCAP_NODEPORT_NAT		19
 #define CILIUM_CALL_IPV4_NODEPORT_DSR		20
-#define CILIUM_CALL_SIZE			21
+#define CILIUM_CALL_IPV6_NODEPORT_DSR		21
+#define CILIUM_CALL_SIZE			22
 
 typedef __u64 mac_t;
 
@@ -397,6 +398,18 @@ enum {
 #define DSR_IPV4_OPT_MASK	0xffff0000
 #define DSR_IPV4_DPORT_MASK	0x0000ffff
 
+/* IPv6 option type of Destination Option used to carry service IPv6 addr and
+ * port for DSR.
+ *
+ * 0b00		- "skip over this option and continue processing the header"
+ *     0	- "Option Data does not change en-route"
+ *      11011   - Unassigned [1]
+ *
+ * [1]:  https://www.iana.org/assignments/ipv6-parameters/ipv6-parameters.xhtml#ipv6-parameters-2
+ */
+#define DSR_IPV6_OPT_TYPE	0x1B
+#define DSR_IPV6_OPT_LEN	0x14	// to store ipv6 addr + port
+#define DSR_IPV6_EXT_LEN	0x2	// = (sizeof(dsr_opt_v6) - 8) / 8
 /**
  * get_identity - returns source identity from the mark field
  */
@@ -472,13 +485,17 @@ static inline void __inline__ set_encrypt_key_cb(struct __sk_buff *skb, __u8 key
 /* skb->cb[] usage: */
 enum {
 	CB_SRC_LABEL,
-#define CB_SVC_PORT	CB_SRC_LABEL	/* Alias, non-overlapping */
+#define	CB_SVC_PORT		CB_SRC_LABEL	/* Alias, non-overlapping */
 	CB_IFINDEX,
-#define	CB_SVC_ADDR_V4	CB_IFINDEX	/* Alias, non-overlapping */
+#define	CB_SVC_ADDR_V4		CB_IFINDEX	/* Alias, non-overlapping */
+#define	CB_SVC_ADDR_V6_1	CB_IFINDEX	/* Alias, non-overlapping */
 	CB_POLICY,
+#define	CB_SVC_ADDR_V6_2	CB_POLICY	/* Alias, non-overlapping */
 	CB_NAT46_STATE,
-#define CB_NAT		CB_NAT46_STATE	/* Alias, non-overlapping */
+#define CB_NAT			CB_NAT46_STATE	/* Alias, non-overlapping */
+#define	CB_SVC_ADDR_V6_3	CB_NAT46_STATE	/* Alias, non-overlapping */
 	CB_CT_STATE,
+#define	CB_SVC_ADDR_V6_4	CB_CT_STATE	/* Alias, non-overlapping */
 };
 
 /* State values for NAT46 */
