@@ -6,15 +6,23 @@ function run_matrix_tests(){
         ports="${3}"
         numeric="${4}"
         headers="${5}"
+        golang="${6}"
         for ipName in ${ips}; do
                 ipNameArr=(${ipName//=/ })
                 hostName=${ipNameArr[0]}
+                ip=${ipNameArr[1]}
+                if [[ -n "${golang}" ]]; then
+                    printf '\t\t"%s": {\n' "${hostName}"
+                fi
                 ip=${ipNameArr[1]}
                 for portName in ${ports}; do
                      portNameArr=(${portName//=/ })
                      protoName=${portNameArr[0]}
                      port=${portNameArr[1]}
-                     if [[ -n "${headers}" ]]; then
+                     if [[ -n "${golang}" ]]; then
+                         printf '\t\t\t"%s": {\n' "${protoName}"
+                         printf '\t\t\t\tdescription: "%s",\n' "${hostName}:${protoName}"
+                     elif [[ -n "${headers}" ]]; then
                              if [[ -n "${numeric}" ]]; then
                                 printf "%s %-22s %s -> " "curl" "${ip}:${port}"
                              else
@@ -23,29 +31,39 @@ function run_matrix_tests(){
                      fi
                      output=$(${cmd} ${ip}:${port} 2>&1);
                      if echo "${output}" | grep -q 'Guestbook' ; then
-                        echo "app1"
+                        result="app1"
                      elif echo "${output}" | grep -q 'Connection refused' ; then
-                        echo "connection refused"
+                        result="connection refused"
                      elif echo "${output}" | grep -q 'No route to host' ; then
-                        echo "No route to host"
+                        result="No route to host"
                      elif echo "${output}" | grep -q "It works!" ; then
-                        echo "app2"
+                        result="app2"
                      elif echo "${output}" | grep -q "Connection timed out" ; then
-                        echo "connection timed out"
+                        result="connection timed out"
                      else
-                        echo "None? ${output}"
+                        result="None? ${output}"
+                     fi
+                     if [[ -n "${golang}" ]]; then
+                        printf '\t\t\t\texpected:    "%s",\n' "${result}"
+                        printf '\t\t\t},\n'
+                     else
+                        echo "${result}"
                      fi
                 done
+                if [[ -n "${golang}" ]]; then
+                     printf '\t\t},\n'
+                fi
         done
 }
 
-while getopts ":g:i:p:c:nHh" opt
+while getopts ":g:i:p:c:nHhG" opt
    do
      case ${opt} in
         i ) ips=${OPTARG};;
         p ) ports=${OPTARG};;
         c ) client_container=${OPTARG};;
         n ) numeric="true";;
+        G ) golang="true";;
         H ) headers="true";;
         g ) namespace=${OPTARG};;
         h ) help="true";;
@@ -69,6 +87,7 @@ if [[ -n "${help}" ]]; then
         echo " -c <containerID> (It executes the curl commands with nsenter inside the given container ID"
         echo " -n (prints the numeric value of the IPs being used instead the names)"
         echo " -H (if set, prints the columns with the description for which the request is being executed to)"
+        echo " -G (if set, prints in golang code)"
         echo " -h (prints this message)"
         exit 0;
 fi
@@ -98,11 +117,22 @@ fi
 
 curl_cmd="curl --connect-timeout 2 -vs"
 
-echo "Running from host"
-run_matrix_tests "${curl_cmd}" "${ips}" "${ports}" "${numeric}" "${headers}"
+if [[ -n "${golang}" ]]; then
+        printf 'package table\n\n'
+        printf 'var (\n'
+        printf '\t// Running from host\n'
+        printf '\texpectedResult = map[string]map[string]struct {\n'
+        printf '\t\tdescription string\n'
+        printf '\t\texpected    string\n'
+        printf '\t}{\n'
+fi
+run_matrix_tests "${curl_cmd}" "${ips}" "${ports}" "${numeric}" "${headers}" "${golang}"
+if [[ -n "${golang}" ]]; then
+        printf '\t}\n)\n'
+fi
 if [[ -n "${client_container}" ]]; then
         PID=$(docker inspect --format '{{.State.Pid}}' ${client_container})
         echo "Running from container ${client_container}"
         cmd="sudo nsenter --target ${PID} --uts --ipc --net --pid"
-        run_matrix_tests "${cmd} ${curl_cmd}" "${ips}" "${ports}" "${numeric}" "${headers}"
+        run_matrix_tests "${cmd} ${curl_cmd}" "${ips}" "${ports}" "${numeric}" "${headers}" "${golang}"
 fi
