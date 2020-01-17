@@ -354,16 +354,6 @@ var ExpectedPerPortPolicies1HeaderMatch = []*cilium.PortNetworkPolicy{
 	},
 }
 
-var ExpectedPerPortPolicies2 = []*cilium.PortNetworkPolicy{
-	{
-		Port:     8080,
-		Protocol: envoy_api_v2_core.SocketAddress_UDP,
-		Rules: []*cilium.PortNetworkPolicyRule{
-			ExpectedPortNetworkPolicyRule2,
-		},
-	},
-}
-
 var ExpectedPerPortPolicies3 = []*cilium.PortNetworkPolicy{
 	{
 		Port:     80,
@@ -453,23 +443,23 @@ func (s *ServerSuite) TestGetPortNetworkPolicyRule(c *C) {
 
 func (s *ServerSuite) TestGetDirectionNetworkPolicy(c *C) {
 	// L4+L7
-	obtained := getDirectionNetworkPolicy(L4PolicyMap1, true)
+	obtained := getDirectionNetworkPolicy(L4PolicyMap1)
 	c.Assert(obtained, checker.Equals, ExpectedPerPortPolicies1)
 
 	// L4+L7 with header mods
-	obtained = getDirectionNetworkPolicy(L4PolicyMap1HeaderMatch, true)
+	obtained = getDirectionNetworkPolicy(L4PolicyMap1HeaderMatch)
 	c.Assert(obtained, checker.Equals, ExpectedPerPortPolicies1HeaderMatch)
 
-	// L4+L7
-	obtained = getDirectionNetworkPolicy(L4PolicyMap2, true)
-	c.Assert(obtained, checker.Equals, ExpectedPerPortPolicies2)
+	// L4+L7 for an unsupported protocol (UDP)
+	obtained = getDirectionNetworkPolicy(L4PolicyMap2)
+	c.Assert(obtained, checker.Equals, []*cilium.PortNetworkPolicy(nil))
 
 	// L4-only
-	obtained = getDirectionNetworkPolicy(L4PolicyMap4, true)
+	obtained = getDirectionNetworkPolicy(L4PolicyMap4)
 	c.Assert(obtained, checker.Equals, ExpectedPerPortPolicies6)
 
 	// L4-only
-	obtained = getDirectionNetworkPolicy(L4PolicyMap5, true)
+	obtained = getDirectionNetworkPolicy(L4PolicyMap5)
 	c.Assert(obtained, checker.Equals, ExpectedPerPortPolicies7)
 }
 
@@ -479,7 +469,6 @@ func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
 		IngressPerPortPolicies: ExpectedPerPortPolicies1,
-		EgressPerPortPolicies:  ExpectedPerPortPolicies2,
 	}
 	c.Assert(obtained, checker.Equals, expected)
 }
@@ -490,7 +479,6 @@ func (s *ServerSuite) TestGetNetworkPolicyWildcard(c *C) {
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
 		IngressPerPortPolicies: ExpectedPerPortPolicies3,
-		EgressPerPortPolicies:  ExpectedPerPortPolicies2,
 	}
 	c.Assert(obtained, checker.Equals, expected)
 }
@@ -501,7 +489,6 @@ func (s *ServerSuite) TestGetNetworkPolicyDeny(c *C) {
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
 		IngressPerPortPolicies: ExpectedPerPortPolicies4RequiresV2,
-		EgressPerPortPolicies:  ExpectedPerPortPolicies2,
 	}
 	c.Assert(obtained, checker.Equals, expected)
 }
@@ -512,7 +499,6 @@ func (s *ServerSuite) TestGetNetworkPolicyWildcardDeny(c *C) {
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
 		IngressPerPortPolicies: ExpectedPerPortPolicies5RequiresV2,
-		EgressPerPortPolicies:  ExpectedPerPortPolicies2,
 	}
 	c.Assert(obtained, checker.Equals, expected)
 }
@@ -531,10 +517,8 @@ func (s *ServerSuite) TestGetNetworkPolicyNil(c *C) {
 func (s *ServerSuite) TestGetNetworkPolicyIngressNotEnforced(c *C) {
 	obtained := getNetworkPolicy(IPv4Addr, Identity, "", L4Policy2, false, true)
 	expected := &cilium.NetworkPolicy{
-		Name:                   IPv4Addr,
-		Policy:                 uint64(Identity),
-		IngressPerPortPolicies: allowAllPortNetworkPolicy,
-		EgressPerPortPolicies:  ExpectedPerPortPolicies2,
+		Name:   IPv4Addr,
+		Policy: uint64(Identity),
 	}
 	c.Assert(obtained, checker.Equals, expected)
 }
@@ -545,7 +529,6 @@ func (s *ServerSuite) TestGetNetworkPolicyEgressNotEnforced(c *C) {
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
 		IngressPerPortPolicies: ExpectedPerPortPolicies5RequiresV2,
-		EgressPerPortPolicies:  allowAllPortNetworkPolicy,
 	}
 	c.Assert(obtained, checker.Equals, expected)
 }

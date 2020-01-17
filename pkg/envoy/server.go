@@ -49,17 +49,6 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 )
 
-var (
-	// allowAllPortNetworkPolicy is a PortNetworkPolicy that allows all traffic
-	// to any L4 port.
-	allowAllPortNetworkPolicy = []*cilium.PortNetworkPolicy{
-		// Allow all TCP traffic to any port.
-		{Protocol: envoy_api_v2_core.SocketAddress_TCP},
-		// Allow all UDP traffic to any port.
-		{Protocol: envoy_api_v2_core.SocketAddress_UDP},
-	}
-)
-
 const (
 	egressClusterName     = "egress-cluster"
 	egressTLSClusterName  = "egress-cluster-tls"
@@ -827,30 +816,17 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7Parse
 	return r, canShortCircuit
 }
 
-func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool) []*cilium.PortNetworkPolicy {
-	if !policyEnforced {
-		// Return an allow-all policy.
-		return allowAllPortNetworkPolicy
-	}
-
-	if len(l4Policy) == 0 {
-		return nil
-	}
-
+func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap) []*cilium.PortNetworkPolicy {
 	PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(l4Policy))
-
 	for _, l4 := range l4Policy {
-		var protocol envoy_api_v2_core.SocketAddress_Protocol
-		switch l4.Protocol {
-		case api.ProtoTCP:
-			protocol = envoy_api_v2_core.SocketAddress_TCP
-		case api.ProtoUDP:
-			protocol = envoy_api_v2_core.SocketAddress_UDP
+		// Only TCP is supported for now.
+		if l4.Protocol != api.ProtoTCP {
+			continue
 		}
 
 		pnp := &cilium.PortNetworkPolicy{
 			Port:     uint32(l4.Port),
-			Protocol: protocol,
+			Protocol: envoy_api_v2_core.SocketAddress_TCP,
 			Rules:    make([]*cilium.PortNetworkPolicyRule, 0, len(l4.L7RulesPerEp)),
 		}
 
@@ -914,10 +890,14 @@ func getNetworkPolicy(name string, id identity.NumericIdentity, conntrackName st
 		ConntrackMapName: conntrackName,
 	}
 
-	// If no policy, deny all traffic. Otherwise, convert the policies for ingress and egress.
+	// Policy is only needed if it exists and policy is enforced.
 	if policy != nil {
-		p.IngressPerPortPolicies = getDirectionNetworkPolicy(policy.Ingress, ingressPolicyEnforced)
-		p.EgressPerPortPolicies = getDirectionNetworkPolicy(policy.Egress, egressPolicyEnforced)
+		if ingressPolicyEnforced {
+			p.IngressPerPortPolicies = getDirectionNetworkPolicy(policy.Ingress)
+		}
+		if egressPolicyEnforced {
+			p.EgressPerPortPolicies = getDirectionNetworkPolicy(policy.Egress)
+		}
 	}
 
 	return p
