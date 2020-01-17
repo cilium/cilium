@@ -51,7 +51,7 @@ github.com/cilium/ebpf/asm
 github.com/cilium/ebpf/internal
 github.com/cilium/ebpf/internal/unix
 github.com/cilium/ebpf/perf
-# github.com/cilium/proxy v0.0.0-20191113190709-4c7b379792e6 => github.com/cilium/proxy v0.0.0-20191113190709-4c7b379792e6
+# github.com/cilium/proxy v0.0.0-20200113183815-49a5658f3054 => github.com/cilium/proxy v0.0.0-20200113183815-49a5658f3054
 github.com/cilium/proxy/go/cilium/api
 github.com/cilium/proxy/go/envoy/api/v2
 github.com/cilium/proxy/go/envoy/api/v2/auth

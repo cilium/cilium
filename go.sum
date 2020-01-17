@@ -95,8 +95,8 @@ github.com/cilium/ebpf v0.0.0-20191113100448-d9fb101ca1fb h1:bQ0NJ9dAB8vsw7ffajB
 github.com/cilium/ebpf v0.0.0-20191113100448-d9fb101ca1fb/go.mod h1:MA5e5Lr8slmEg9bt0VpxxWqJlO4iwu3FBdHUzV7wQVg=
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b h1:+bsFX/WOMIoaayXVyRem1awcpz3icz/HoL8Dxg/m6a4=
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b/go.mod h1:ktgizta3CPZBKz5uW272SJyjiro0vn4nOVP7Pk4RopA=
-github.com/cilium/proxy v0.0.0-20191113190709-4c7b379792e6 h1:G5gUA7taQMy7tt3sl3gdthex1hh/M0yeMExUss+7v8w=
-github.com/cilium/proxy v0.0.0-20191113190709-4c7b379792e6/go.mod h1:lbRnBzpxwMP5KsTu99cM654ShwTWamyhrF6cCLuYqhE=
+github.com/cilium/proxy v0.0.0-20200113183815-49a5658f3054 h1:JGlTunZGoz10eUO7uGWeWqcGaQcSiYiWjigi6iCEw40=
+github.com/cilium/proxy v0.0.0-20200113183815-49a5658f3054/go.mod h1:lbRnBzpxwMP5KsTu99cM654ShwTWamyhrF6cCLuYqhE=
 github.com/circonus-labs/circonus-gometrics v2.3.1+incompatible h1:C29Ae4G5GtYyYMm1aztcyj/J5ckgJm2zwdDajFbx1NY=
 github.com/circonus-labs/circonus-gometrics v2.3.1+incompatible/go.mod h1:nmEj6Dob7S7YxXgwXpfOuvO54S+tGdZdw9fuRZt25Ag=
 github.com/circonus-labs/circonusllhist v0.1.3 h1:TJH+oke8D16535+jHExHj4nQvzlZrj7ug5D7I/orNUA=
