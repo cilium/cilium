@@ -79,6 +79,18 @@ func (s ServiceFlags) IsSvcType(svcType SVCType) bool {
 	return s&CreateSvcFlag(svcType) != 0
 }
 
+// ServiceFlags returns a service type from the flags
+func (s ServiceFlags) SVCType() SVCType {
+	switch {
+	case s&serviceFlagExternalIPs != 0:
+		return SVCTypeExternalIPs
+	case s&serviceFlagNodePort != 0:
+		return SVCTypeNodePort
+	default:
+		return SVCTypeClusterIP
+	}
+}
+
 // String returns the string implementation of ServiceFlags.
 func (s ServiceFlags) String() string {
 	var strTypes []string

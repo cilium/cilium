@@ -276,9 +276,7 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		addrStr := svc.Frontend.IP.String()
 		portStr := strconv.Itoa(int(svc.Frontend.Port))
 		host := net.JoinHostPort(addrStr, portStr)
-		if flagsCache[host].IsSvcType(loadbalancer.SVCTypeExternalIPs) {
-			svc.Type = loadbalancer.SVCTypeExternalIPs
-		}
+		svc.Type = flagsCache[host].SVCType()
 		newSVCList = append(newSVCList, &svc)
 	}
 
