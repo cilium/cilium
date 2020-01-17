@@ -903,6 +903,23 @@ func getNetworkPolicy(name string, id identity.NumericIdentity, conntrackName st
 	return p
 }
 
+// getDuplicateNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
+func getDuplicateNetworkPolicy(name string, id identity.NumericIdentity, conntrackName string, source string,
+	ingressPolicyEnforced, egressPolicyEnforced bool) *cilium.NetworkPolicy {
+	p := &cilium.NetworkPolicy{
+		Name:             name,
+		Policy:           uint64(id),
+		ConntrackMapName: conntrackName,
+	}
+
+	// Policy is only needed if it exists and policy is enforced.
+	if source != "" && (ingressPolicyEnforced || egressPolicyEnforced) {
+		p.PolicyName = source
+	}
+
+	return p
+}
+
 // return the Envoy proxy node IDs that need to ACK the policy.
 func getNodeIDs(ep logger.EndpointUpdater, policy *policy.L4Policy) []string {
 	nodeIDs := make([]string, 0, 1)
@@ -941,23 +958,35 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	// First, validate all policies
-	ips := []string{
-		ep.GetIPv6Address(),
-		ep.GetIPv4Address(),
+	var ips []string
+	// Check IPv4 first, so if both IPv4 & IPv6 exists, we first create the IPv4 policy and then IPv6 by reference
+	ip4 := ep.GetIPv4Address()
+	if ip4 != "" {
+		ips = append(ips, ip4)
 	}
+	ip6 := ep.GetIPv6Address()
+	if ip6 != "" {
+		ips = append(ips, ip6)
+	}
+	if len(ips) == 0 {
+		return fmt.Errorf("Endpoint %d has no IP", ep.GetID()), nil
+	}
+
 	var policies []*cilium.NetworkPolicy
-	for _, ip := range ips {
-		if ip == "" {
-			continue
-		}
-		networkPolicy := getNetworkPolicy(ip, ep.GetIdentity(), ep.ConntrackNameLocked(), policy,
-			ingressPolicyEnforced, egressPolicyEnforced)
-		err := networkPolicy.Validate()
-		if err != nil {
-			return fmt.Errorf("error validating generated NetworkPolicy for %s: %s", ip, err), nil
-		}
-		policies = append(policies, networkPolicy)
+	// Compute and validate the policy
+	networkPolicy := getNetworkPolicy(ips[0], ep.GetIdentity(), ep.ConntrackNameLocked(), policy,
+		ingressPolicyEnforced, egressPolicyEnforced)
+	err := networkPolicy.Validate()
+	if err != nil {
+		return fmt.Errorf("error validating generated NetworkPolicy for %s: %s", ips[0], err), nil
+	}
+	policies = append(policies, networkPolicy)
+
+	// Include the second policy by reference
+	if len(ips) > 1 {
+		policies = append(policies,
+			getDuplicateNetworkPolicy(ips[1], ep.GetIdentity(), ep.ConntrackNameLocked(), ips[0],
+				ingressPolicyEnforced, egressPolicyEnforced))
 	}
 
 	nodeIDs := getNodeIDs(ep, policy)
