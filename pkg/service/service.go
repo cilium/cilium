@@ -506,9 +506,9 @@ func (s *Service) restoreServicesLocked() error {
 			frontend:      svc.Frontend,
 			backends:      svc.Backends,
 			backendByHash: map[string]*lb.Backend{},
-			// Correct service type and traffic policy will be restored by
-			// k8s_watcher after k8s service cache has been initialized
-			svcType:          lb.SVCTypeClusterIP,
+			// Correct traffic policy will be restored by k8s_watcher after k8s
+			// service cache has been initialized
+			svcType:          svc.Type,
 			svcTrafficPolicy: lb.SVCTrafficPolicyCluster,
 			// Indicate that the svc was restored from the BPF maps, so that
 			// SyncWithK8sFinished() could remove services which were restored
