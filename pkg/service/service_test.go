@@ -19,6 +19,9 @@ package service
 import (
 	"net"
 
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/service/healthserver"
+
 	"github.com/cilium/cilium/pkg/checker"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -27,8 +30,9 @@ import (
 )
 
 type ManagerTestSuite struct {
-	svc   *Service
-	lbmap *lbmap.LBMockMap // for accessing public fields
+	svc       *Service
+	lbmap     *lbmap.LBMockMap // for accessing public fields
+	svcHealth *healthserver.MockHealthHTTPServerFactory
 }
 
 var _ = Suite(&ManagerTestSuite{})
@@ -40,6 +44,9 @@ func (m *ManagerTestSuite) SetUpTest(c *C) {
 	m.svc = NewService(nil)
 	m.svc.lbmap = lbmap.NewLBMockMap()
 	m.lbmap = m.svc.lbmap.(*lbmap.LBMockMap)
+
+	m.svcHealth = healthserver.NewMockHealthHTTPServerFactory()
+	m.svc.healthServer = healthserver.WithHealthHTTPServerFactory(m.svcHealth)
 }
 
 func (e *ManagerTestSuite) TearDownTest(c *C) {
@@ -191,4 +198,39 @@ func (m *ManagerTestSuite) TestSyncWithK8sFinished(c *C) {
 	c.Assert(found, Equals, true)
 	c.Assert(m.svc.svcByID[id2].svcName, Equals, "svc2")
 	c.Assert(m.svc.svcByID[id2].svcNamespace, Equals, "ns2")
+}
+
+func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
+	// Create two node-local backends
+	be1 := *lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.1"), 8080)
+	be2 := *lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.2"), 8080)
+
+	// Insert svc1 with local backends
+	be2.NodeName = node.GetName()
+	be1.NodeName = node.GetName()
+	backends1 := []lb.Backend{be1, be2}
+
+	_, id1, err := m.svc.UpsertService(frontend1, backends1, lb.SVCTypeLoadBalancer, lb.SVCTrafficPolicyLocal, 32001, "svc1", "ns1")
+	c.Assert(err, IsNil)
+	c.Assert(m.svcHealth.ServiceByPort(32001).Service.Name, Equals, "svc1")
+	c.Assert(m.svcHealth.ServiceByPort(32001).Service.Namespace, Equals, "ns1")
+	c.Assert(m.svcHealth.ServiceByPort(32001).LocalEndpoints, Equals, len(backends1))
+
+	// Insert svc1 with remote backends
+	be1.NodeName = "remote-node"
+	be2.NodeName = "remote-node"
+	backends1 = []lb.Backend{be1, be2}
+	c.Assert(node.GetName(), Not(Equals), "remote-node")
+
+	new, _, err := m.svc.UpsertService(frontend1, backends1, lb.SVCTypeLoadBalancer, lb.SVCTrafficPolicyLocal, 32001, "svc1", "ns1")
+	c.Assert(err, IsNil)
+	c.Assert(new, Equals, false)
+	c.Assert(m.svcHealth.ServiceByPort(32001).Service.Name, Equals, "svc1")
+	c.Assert(m.svcHealth.ServiceByPort(32001).Service.Namespace, Equals, "ns1")
+	c.Assert(m.svcHealth.ServiceByPort(32001).LocalEndpoints, Equals, 0)
+
+	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id1))
+	c.Assert(err, IsNil)
+	c.Assert(found, Equals, true)
+	c.Assert(m.svcHealth.ServiceByPort(32001), IsNil)
 }
