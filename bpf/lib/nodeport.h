@@ -57,7 +57,7 @@ struct bpf_elf_map __section_maps NODEPORT_NEIGH6 = {
 };
 # ifdef ENABLE_DSR
 // The IPv6 extension should be 8-bytes aligned
-struct dst_opt_v6 {
+struct dsr_opt_v6 {
 	__u8 nexthdr;
 	__u8 len;
 	__u8 opt_type;
@@ -136,7 +136,7 @@ static __always_inline int set_dsr_ext6(struct __sk_buff *skb,
 					struct ipv6hdr *ip6,
 					union v6addr *svc_addr, __be32 svc_port)
 {
-	struct dst_opt_v6 opt = {};
+	struct dsr_opt_v6 opt = {};
 
 	opt.nexthdr = ip6->nexthdr;
 	ip6->nexthdr = NEXTHDR_DEST;
@@ -158,7 +158,7 @@ static __always_inline int set_dsr_ext6(struct __sk_buff *skb,
 }
 
 static __always_inline int find_dsr_v6(struct __sk_buff *skb, __u8 nexthdr,
-				       struct dst_opt_v6 *dsr_opt, bool *found)
+				       struct dsr_opt_v6 *dsr_opt, bool *found)
 {
 	int i, len = sizeof(struct ipv6hdr);
 	struct ipv6_opt_hdr opthdr;
@@ -211,7 +211,7 @@ static __always_inline int handle_dsr_v6(struct __sk_buff *skb, bool *dsr)
 {
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	struct dst_opt_v6 opt = {};
+	struct dsr_opt_v6 opt = {};
 	int ret;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip6))

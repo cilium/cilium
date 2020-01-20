@@ -409,7 +409,7 @@ enum {
  */
 #define DSR_IPV6_OPT_TYPE	0x1B
 #define DSR_IPV6_OPT_LEN	0x14	// to store ipv6 addr + port
-#define DSR_IPV6_EXT_LEN	0x2	// = (sizeof(dst_opt_v6) - 8) / 8
+#define DSR_IPV6_EXT_LEN	0x2	// = (sizeof(dsr_opt_v6) - 8) / 8
 /**
  * get_identity - returns source identity from the mark field
  */
