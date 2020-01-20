@@ -56,6 +56,12 @@ rm $RUNDIR/encap.state 2> /dev/null || true
 # This directory was created by the daemon and contains the per container header file
 DIR="$PWD/globals"
 
+if test "$(uname -m)" = "aarch64" ; then
+	INCLUDEDIR="-I. -I$DIR -I$LIB -I$LIB/include -I/usr/include/aarch64-linux-gnu/"
+else
+	INCLUDEDIR="-I. -I$DIR -I$LIB -I$LIB/include"
+fi
+
 function setup_dev()
 {
 	local -r NAME=$1
@@ -269,7 +275,7 @@ function bpf_compile()
 
 	clang -O2 -g -target bpf -emit-llvm				\
 	      -Wno-address-of-packed-member -Wno-unknown-warning-option	\
-	      -I. -I$DIR -I$LIB -I$LIB/include				\
+	      $INCLUDEDIR						\
 	      -D__NR_CPUS__=$(nproc)					\
 	      -DENABLE_ARP_RESPONDER					\
 	      -DHANDLE_NS						\
