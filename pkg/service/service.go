@@ -53,14 +53,17 @@ type monitorNotify interface {
 }
 
 type svcInfo struct {
-	hash                 string
-	frontend             lb.L3n4AddrID
-	backends             []lb.Backend
-	backendByHash        map[string]*lb.Backend
-	svcType              lb.SVCType
-	svcTrafficPolicy     lb.SVCTrafficPolicy
-	svcName              string
-	svcNamespace         string
+	hash          string
+	frontend      lb.L3n4AddrID
+	backends      []lb.Backend
+	backendByHash map[string]*lb.Backend
+
+	svcType                lb.SVCType
+	svcTrafficPolicy       lb.SVCTrafficPolicy
+	svcHealthCheckNodePort uint16
+	svcName                string
+	svcNamespace           string
+
 	restoredFromDatapath bool
 }
 
@@ -167,23 +170,27 @@ func (s *Service) InitMaps(ipv6, ipv4, restore bool) error {
 // The first return value is true if the service hasn't existed before.
 func (s *Service) UpsertService(
 	frontend lb.L3n4AddrID, backends []lb.Backend, svcType lb.SVCType,
-	svcTrafficPolicy lb.SVCTrafficPolicy, svcName, svcNamespace string) (bool, lb.ID, error) {
+	svcTrafficPolicy lb.SVCTrafficPolicy, svcHealthCheckNodePort uint16,
+	svcName, svcNamespace string) (bool, lb.ID, error) {
 
 	s.Lock()
 	defer s.Unlock()
 
 	scopedLog := log.WithFields(logrus.Fields{
-		logfields.ServiceIP:            frontend.L3n4Addr,
-		logfields.Backends:             backends,
-		logfields.ServiceType:          svcType,
-		logfields.ServiceTrafficPolicy: svcTrafficPolicy,
-		logfields.ServiceName:          svcName,
-		logfields.ServiceNamespace:     svcNamespace,
+		logfields.ServiceIP: frontend.L3n4Addr,
+		logfields.Backends:  backends,
+
+		logfields.ServiceType:                svcType,
+		logfields.ServiceTrafficPolicy:       svcTrafficPolicy,
+		logfields.ServiceHealthCheckNodePort: svcHealthCheckNodePort,
+		logfields.ServiceName:                svcName,
+		logfields.ServiceNamespace:           svcNamespace,
 	})
 	scopedLog.Debug("Upserting service")
 
 	// If needed, create svcInfo and allocate service ID
-	svc, new, err := s.createSVCInfoIfNotExist(frontend, svcType, svcTrafficPolicy, svcName, svcNamespace)
+	svc, new, err := s.createSVCInfoIfNotExist(frontend, svcType, svcTrafficPolicy,
+		svcHealthCheckNodePort, svcName, svcNamespace)
 	if err != nil {
 		return false, lb.ID(0), err
 	}
@@ -338,6 +345,7 @@ func (s *Service) createSVCInfoIfNotExist(
 	frontend lb.L3n4AddrID,
 	svcType lb.SVCType,
 	svcTrafficPolicy lb.SVCTrafficPolicy,
+	svcHealthCheckNodePort uint16,
 	svcName, svcNamespace string,
 ) (*svcInfo, bool, error) {
 
@@ -354,19 +362,23 @@ func (s *Service) createSVCInfoIfNotExist(
 		frontend.ID = addrID.ID
 
 		svc = &svcInfo{
-			hash:             hash,
-			frontend:         frontend,
-			backendByHash:    map[string]*lb.Backend{},
-			svcType:          svcType,
-			svcTrafficPolicy: svcTrafficPolicy,
-			svcName:          svcName,
-			svcNamespace:     svcNamespace,
+			hash:          hash,
+			frontend:      frontend,
+			backendByHash: map[string]*lb.Backend{},
+
+			svcType:      svcType,
+			svcName:      svcName,
+			svcNamespace: svcNamespace,
+
+			svcTrafficPolicy:       svcTrafficPolicy,
+			svcHealthCheckNodePort: svcHealthCheckNodePort,
 		}
 		s.svcByID[frontend.ID] = svc
 		s.svcByHash[hash] = svc
 	} else {
 		svc.svcType = svcType
 		svc.svcTrafficPolicy = svcTrafficPolicy
+		svc.svcHealthCheckNodePort = svcHealthCheckNodePort
 		// Name and namespace are both optional and intended for exposure via
 		// API. They they are not part of any BPF maps and cannot be restored
 		// from datapath.

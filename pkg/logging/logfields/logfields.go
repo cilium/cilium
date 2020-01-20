@@ -198,6 +198,9 @@ const (
 	// ServiceType is the type of the service
 	ServiceType = "svcType"
 
+	// ServiceHealthCheckNodePort is the port on which we serve health checks
+	ServiceHealthCheckNodePort = "svcHealthCheckNodePort"
+
 	// ServiceTrafficPolicy is the traffic policy of the service
 	ServiceTrafficPolicy = "svcTrafficPolicy"
 
