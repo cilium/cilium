@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/service/healthserver"
 
 	"github.com/sirupsen/logrus"
 )
@@ -45,6 +46,12 @@ type LBMap interface {
 	DeleteBackendByID(uint16, bool) error
 	DumpServiceMaps() ([]*lb.SVC, []error)
 	DumpBackendMaps() ([]*lb.Backend, error)
+}
+
+// healthServer is used to manage HealtCheckNodePort listeners
+type healthServer interface {
+	UpsertService(svcID lb.ID, svcNS, svcName string, localEndpoints int, port uint16)
+	DeleteService(svcID lb.ID)
 }
 
 // monitorNotify is used to send update notifications to the monitor
@@ -104,6 +111,7 @@ type Service struct {
 	backendRefCount counter.StringCounter
 	backendByHash   map[string]*lb.Backend
 
+	healthServer  healthServer
 	monitorNotify monitorNotify
 
 	lbmap LBMap
@@ -117,6 +125,7 @@ func NewService(monitorNotify monitorNotify) *Service {
 		backendRefCount: counter.StringCounter{},
 		backendByHash:   map[string]*lb.Backend{},
 		monitorNotify:   monitorNotify,
+		healthServer:    healthserver.New(),
 		lbmap:           &lbmap.LBBPFMap{},
 	}
 }
@@ -223,6 +232,10 @@ func (s *Service) UpsertService(
 		obsoleteBackendIDs, scopedLog); err != nil {
 		return false, lb.ID(0), err
 	}
+
+	localBackendCount := len(backendsCopy)
+	s.healthServer.UpsertService(lb.ID(svc.frontend.ID), svc.svcNamespace, svc.svcName,
+		localBackendCount, svc.svcHealthCheckNodePort)
 
 	if new {
 		addMetric.Inc()
@@ -577,6 +590,8 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	if err := DeleteID(uint32(svc.frontend.ID)); err != nil {
 		return fmt.Errorf("Unable to release service ID %d: %s", svc.frontend.ID, err)
 	}
+
+	s.healthServer.DeleteService(lb.ID(svc.frontend.ID))
 
 	deleteMetric.Inc()
 	s.notifyMonitorServiceDelete(svc.frontend.ID)
