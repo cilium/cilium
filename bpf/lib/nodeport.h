@@ -157,30 +157,73 @@ static __always_inline int set_dsr_ext6(struct __sk_buff *skb,
 	return 0;
 }
 
+static __always_inline int find_dsr_v6(struct __sk_buff *skb, __u8 nexthdr,
+				       struct dsr_opt_v6 *dsr_opt, bool *found)
+{
+	int i, len = sizeof(struct ipv6hdr);
+	struct ipv6_opt_hdr opthdr;
+	__u8 nh = nexthdr;
+
+#pragma unroll
+	for (i = 0; i < IPV6_MAX_HEADERS; i++) {
+		switch (nh) {
+		case NEXTHDR_NONE:
+			return DROP_INVALID_EXTHDR;
+
+		case NEXTHDR_FRAGMENT:
+			return DROP_FRAG_NOSUPPORT;
+
+		case NEXTHDR_HOP:
+		case NEXTHDR_ROUTING:
+		case NEXTHDR_AUTH:
+		case NEXTHDR_DEST:
+			if (skb_load_bytes(skb, ETH_HLEN + len, &opthdr, sizeof(opthdr)) < 0)
+				return DROP_INVALID;
+
+			if (nh == NEXTHDR_DEST && opthdr.hdrlen == DSR_IPV6_EXT_LEN) {
+				if (skb_load_bytes(skb, ETH_HLEN + len, dsr_opt,
+						   sizeof(*dsr_opt)) < 0)
+					return DROP_INVALID;
+				if (dsr_opt->opt_type == DSR_IPV6_OPT_TYPE &&
+				    dsr_opt->opt_len == DSR_IPV6_OPT_LEN) {
+					*found = true;
+					return 0;
+				}
+			}
+
+			nh = opthdr.nexthdr;
+			if (nh == NEXTHDR_AUTH)
+				len += ipv6_authlen(&opthdr);
+			else
+				len += ipv6_optlen(&opthdr);
+			break;
+
+		default:
+			return len;
+		}
+	}
+
+	/* Reached limit of supported extension headers */
+	return DROP_INVALID_EXTHDR;
+}
+
 static __always_inline int handle_dsr_v6(struct __sk_buff *skb, bool *dsr)
 {
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	struct dst_opt_v6 opt = {};
+	struct dsr_opt_v6 opt = {};
+	int ret;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	// TODO(brb) iterate over all extension headers
-	if (ip6->nexthdr == NEXTHDR_DEST) {
-		if (skb_load_bytes(skb, ETH_HLEN + sizeof(*ip6), &opt,
-				   sizeof(opt)) < 0) {
-			return DROP_INVALID;
-		}
-		if (opt.len == DSR_IPV6_EXT_LEN &&
-		    opt.opt_type == DSR_IPV6_OPT_TYPE &&
-		    opt.opt_len == DSR_IPV6_OPT_LEN) {
-			*dsr = true;
+	ret = find_dsr_v6(skb, ip6->nexthdr, &opt, dsr);
+	if (ret != 0)
+		return ret;
 
-			if (snat_v6_create_dsr(skb, &opt.addr,
-					       opt.port) < 0) {
-				return DROP_INVALID;
-			}
+	if (*dsr) {
+		if (snat_v6_create_dsr(skb, &opt.addr, opt.port) < 0) {
+			return DROP_INVALID;
 		}
 	}
 
