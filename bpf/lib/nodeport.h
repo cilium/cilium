@@ -130,8 +130,11 @@ static __always_inline int nodeport_nat_ipv6_rev(struct __sk_buff *skb,
 	return NODEPORT_DO_NAT_IPV6(addr, NAT_DIR_INGRESS);
 }
 
-static inline int set_dsr_ext6(struct __sk_buff *skb, struct ipv6hdr *ip6,
-			       union v6addr *svc_addr, __be32 svc_port)
+# ifdef ENABLE_DSR
+
+static __always_inline int set_dsr_ext6(struct __sk_buff *skb,
+					struct ipv6hdr *ip6,
+					union v6addr *svc_addr, __be32 svc_port)
 {
 	struct dsr_opt_v6 opt = {};
 
@@ -150,6 +153,58 @@ static inline int set_dsr_ext6(struct __sk_buff *skb, struct ipv6hdr *ip6,
 
 	if (skb_store_bytes(skb, ETH_HLEN + sizeof(*ip6), &opt, sizeof(opt), 0) < 0)
 		return DROP_INVALID;
+
+	return 0;
+}
+
+static __always_inline int handle_dsr_v6(struct __sk_buff *skb, bool *dsr)
+{
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	struct dst_opt_v6 opt = {};
+
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	// TODO(brb) iterate over all extension headers
+	if (ip6->nexthdr == NEXTHDR_DEST) {
+		if (skb_load_bytes(skb, ETH_HLEN + sizeof(*ip6), &opt,
+				   sizeof(opt)) < 0) {
+			return DROP_INVALID;
+		}
+		if (opt.len == DSR_IPV6_EXT_LEN &&
+		    opt.opt_type == DSR_IPV6_OPT_TYPE &&
+		    opt.opt_len == DSR_IPV6_OPT_LEN) {
+			*dsr = true;
+
+			if (snat_v6_create_dsr(skb, &opt.addr,
+					       opt.port) < 0) {
+				return DROP_INVALID;
+			}
+		}
+	}
+
+	return 0;
+}
+
+static __always_inline int xlate_dsr_v6(struct __sk_buff *skb,
+					struct ipv6_ct_tuple *tuple,
+					int l4_off)
+{
+	int ret;
+	struct ipv6_ct_tuple nat_tup = *tuple;
+	struct ipv6_nat_entry *entry;
+
+	nat_tup.flags = NAT_DIR_EGRESS;
+	nat_tup.sport = tuple->dport;
+	nat_tup.dport = tuple->sport;
+	entry = snat_v6_lookup(&nat_tup);
+	if (entry) {
+		ret = snat_v6_rewrite_egress(skb, &nat_tup, entry, l4_off);
+		if (ret != 0) {
+			return ret;
+		}
+	}
 
 	return 0;
 }
@@ -198,6 +253,8 @@ int tail_nodeport_ipv6_dsr(struct __sk_buff *skb)
 
 	return redirect(fib_params.ifindex, 0);
 }
+
+# endif /* ENABLE_DSR */
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT)
 int tail_nodeport_nat_ipv6(struct __sk_buff *skb)
@@ -592,11 +649,14 @@ static __always_inline int nodeport_nat_ipv4_rev(struct __sk_buff *skb,
 	return NODEPORT_DO_NAT_IPV4(addr, NAT_DIR_INGRESS);
 }
 
+# ifdef ENABLE_DSR
+
 /* Helper function to set the IPv4 option for DSR when a backend is remote.
  * NOTE: Revalidate data after calling the function.
  */
-static inline int set_dsr_opt4(struct __sk_buff *skb, struct iphdr *ip4,
-			       __be32 svc_addr, __be32 svc_port)
+static __always_inline int set_dsr_opt4(struct __sk_buff *skb,
+					struct iphdr *ip4,
+					__be32 svc_addr, __be32 svc_port)
 {
 	union tcp_flags tcp_flags = { .value = 0 };
 	__be32 sum;
@@ -637,6 +697,68 @@ static inline int set_dsr_opt4(struct __sk_buff *skb, struct iphdr *ip4,
 	if (l3_csum_replace(skb, ETH_HLEN + offsetof(struct iphdr, check),
 	    0, sum, 0) < 0) {
 		return DROP_CSUM_L3;
+	}
+
+	return 0;
+}
+
+static __always_inline int handle_dsr_v4(struct __sk_buff *skb, bool *dsr)
+{
+	void *data, *data_end;
+	struct iphdr *ip4;
+
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	// Check whether IPv4 header contains a 64-bit option (IPv4 header
+	// w/o option (5 x 32-bit words) + the DSR option (2 x 32-bit words))
+	if (ip4->ihl == 0x7) {
+		uint32_t opt1 = 0;
+		uint32_t opt2 = 0;
+
+		if (skb_load_bytes(skb, ETH_HLEN + sizeof(struct iphdr),
+				   &opt1, sizeof(opt1)) < 0)
+			return DROP_INVALID;
+		opt1 = bpf_ntohl(opt1);
+
+		if ((opt1 & DSR_IPV4_OPT_MASK) == DSR_IPV4_OPT_32) {
+			if (skb_load_bytes(skb, ETH_HLEN +
+					   sizeof(struct iphdr) +
+					   sizeof(opt1),
+					   &opt2, sizeof(opt2)) < 0)
+				return DROP_INVALID;
+			opt2 = bpf_ntohl(opt2);
+
+			__be32 dport = opt1 & DSR_IPV4_DPORT_MASK;
+			__be32 address = opt2;
+			*dsr = true;
+
+			if (snat_v4_create_dsr(skb, address, dport) < 0) {
+				return DROP_INVALID;
+			}
+		}
+	}
+
+	return 0;
+}
+
+static __always_inline int xlate_dsr_v4(struct __sk_buff *skb,
+					struct ipv4_ct_tuple *tuple,
+					int l4_off)
+{
+	int ret;
+	struct ipv4_ct_tuple nat_tup = *tuple;
+	struct ipv4_nat_entry *entry;
+
+	nat_tup.flags = NAT_DIR_EGRESS;
+	nat_tup.sport = tuple->dport;
+	nat_tup.dport = tuple->sport;
+	entry = snat_v4_lookup(&nat_tup);
+	if (entry) {
+		ret = snat_v4_rewrite_egress(skb, &nat_tup, entry, l4_off);
+		if (ret != 0) {
+			return ret;
+		}
 	}
 
 	return 0;
@@ -683,6 +805,8 @@ int tail_nodeport_ipv4_dsr(struct __sk_buff *skb)
 
 	return redirect(fib_params.ifindex, 0);
 }
+
+# endif /*ENABLE_DSR */
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT)
 int tail_nodeport_nat_ipv4(struct __sk_buff *skb)
