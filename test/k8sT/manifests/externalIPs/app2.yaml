@@ -26,5 +26,12 @@ spec:
           httpGet:
             path: /
             port: 80
+      - name: curl
+        image: docker.io/curlimages/curl:7.67.0
+        command:
+          - sh
+        args:
+          - -c
+          - "tail -f /dev/null"
       nodeSelector:
         "cilium.io/ci-node": k8s1

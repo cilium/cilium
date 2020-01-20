@@ -1,27 +1,22 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
-  name: app1
+  name: host-client
   namespace: external-ips-test
   labels:
-    id: app1
+    id: host-client
 spec:
-  replicas: 1
   selector:
     matchLabels:
-      id: app1
+      id: host-client
   template:
     metadata:
       labels:
-        id: app1
+        id: host-client
     spec:
+      hostNetwork: true
       terminationGracePeriodSeconds: 0
       containers:
-      - name: guestbook
-        image: gcr.io/google-samples/gb-frontend:v4
-        ports:
-        - name: http-server
-          containerPort: 80
       - name: curl
         image: docker.io/curlimages/curl:7.67.0
         command:
@@ -29,5 +24,3 @@ spec:
         args:
           - -c
           - "tail -f /dev/null"
-      nodeSelector:
-        "cilium.io/ci-node": k8s1
