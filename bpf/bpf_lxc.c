@@ -222,20 +222,9 @@ ct_recreate6:
 		}
 # ifdef ENABLE_DSR
 		if (ct_state.dsr) {
-			struct ipv6_ct_tuple nat_tup = *tuple;
-			struct ipv6_nat_entry *entry;
-
-			nat_tup.flags = NAT_DIR_EGRESS;
-			nat_tup.sport = tuple->dport;
-			nat_tup.dport = tuple->sport;
-			entry = snat_v6_lookup(&nat_tup);
-			if (entry) {
-				ret = snat_v6_rewrite_egress(skb, &nat_tup,
-								  entry, l4_off);
-				if (ret != 0) {
-					return ret;
-				}
-			}
+			ret = xlate_dsr_v6(skb, tuple, l4_off);
+			if (ret != 0)
+				return ret;
 		}
 # endif /* ENABLE_DSR */
 #endif /* ENABLE_NODEPORT */
@@ -574,20 +563,9 @@ ct_recreate4:
 		}
 # ifdef ENABLE_DSR
 		if (ct_state.dsr) {
-			struct ipv4_ct_tuple nat_tup = tuple;
-			struct ipv4_nat_entry *entry;
-
-			nat_tup.flags = NAT_DIR_EGRESS;
-			nat_tup.sport = tuple.dport;
-			nat_tup.dport = tuple.sport;
-			entry = snat_v4_lookup(&nat_tup);
-			if (entry) {
-				ret = snat_v4_rewrite_egress(skb, &nat_tup,
-								  entry, l4_off);
-				if (ret != 0) {
-					return ret;
-				}
-			}
+			ret = xlate_dsr_v4(skb, &tuple, l4_off);
+			if (ret != 0)
+				return ret;
 		}
 # endif /* ENABLE_DSR */
 #endif /* ENABLE_NODEPORT */
@@ -818,7 +796,6 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason)
 	bool skip_ingress_proxy = false;
 	union v6addr orig_dip, orig_sip;
 	__u32 monitor = 0;
-	bool dsr = false;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -898,34 +875,18 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason)
 
 	if (ret == CT_NEW) {
 #ifdef ENABLE_DSR
-		struct dst_opt_v6 opt = {};
+		bool dsr = false;
 
-		if (!revalidate_data(skb, &data, &data_end, &ip6))
-			return DROP_INVALID;
+		ret = handle_dsr_v6(skb, &dsr);
+		if (ret != 0)
+			return ret;
 
-		// TODO(brb) iterate over all extension headers
-		if (ip6->nexthdr == NEXTHDR_DEST) {
-			if (skb_load_bytes(skb, ETH_HLEN + sizeof(*ip6), &opt,
-					   sizeof(opt)) < 0) {
-				return DROP_INVALID;
-			}
-			if (opt.len == DSR_IPV6_EXT_LEN &&
-			    opt.opt_type == DSR_IPV6_OPT_TYPE &&
-			    opt.opt_len == DSR_IPV6_OPT_LEN) {
-				dsr = true;
-
-				if (snat_v6_create_dsr(skb, &opt.addr,
-						       opt.port) < 0) {
-					return DROP_INVALID;
-				}
-			}
-		}
+		ct_state_new.dsr = dsr;
 #endif /* ENABLE_DSR */
 
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.node_port = ct_state.node_port;
-		ct_state_new.dsr = dsr;
 		ret = ct_create6(get_ct_map6(&tuple), &tuple, skb, CT_INGRESS, &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))
 			return ret;
@@ -1045,7 +1006,6 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 	__be32 orig_dip, orig_sip;
 	bool is_fragment = false;
 	__u32 monitor = 0;
-	bool dsr = false;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -1113,43 +1073,18 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 
 	if (ret == CT_NEW) {
 #ifdef ENABLE_DSR
-		if (!revalidate_data(skb, &data, &data_end, &ip4))
-			return DROP_INVALID;
+		bool dsr = false;
 
-		// Check whether IPv4 header contains a 64-bit option (IPv4 header
-		// w/o option (5 x 32-bit words) + the DSR option (2 x 32-bit words))
-		if (ip4->ihl == 0x7) {
-			uint32_t opt1 = 0;
-			uint32_t opt2 = 0;
+		ret = handle_dsr_v4(skb, &dsr);
+		if (ret != 0)
+			return ret;
 
-			if (skb_load_bytes(skb, ETH_HLEN + sizeof(struct iphdr),
-					   &opt1, sizeof(opt1)) < 0)
-				return DROP_INVALID;
-			opt1 = bpf_ntohl(opt1);
-
-			if ((opt1 & DSR_IPV4_OPT_MASK) == DSR_IPV4_OPT_32) {
-				if (skb_load_bytes(skb, ETH_HLEN +
-						   sizeof(struct iphdr) +
-						   sizeof(opt1),
-						   &opt2, sizeof(opt2)) < 0)
-					return DROP_INVALID;
-				opt2 = bpf_ntohl(opt2);
-
-				__be32 dport = opt1 & DSR_IPV4_DPORT_MASK;
-				__be32 address = opt2;
-				dsr = true;
-
-				if (snat_v4_create_dsr(skb, address, dport) < 0) {
-					return DROP_INVALID;
-				}
-			}
-		}
+		ct_state_new.dsr = dsr;
 #endif /* ENABLE_DSR */
 
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.node_port = ct_state.node_port;
-		ct_state_new.dsr = dsr;
 		ret = ct_create4(get_ct_map4(&tuple), &tuple, skb, CT_INGRESS, &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))
 			return ret;
