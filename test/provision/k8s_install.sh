@@ -15,6 +15,9 @@ K8S_VERSION=$3
 IPv6=$4
 CONTAINER_RUNTIME=$5
 CNI_INTEGRATION=$6
+# Pinned to the last version of k8s 1.16 branch so we can do
+# kubectl apply on older k8s test frameworks
+K8S_KUBECTL_APPLY_FORCE="1.16.4"
 
 # Kubeadm default parameters
 export KUBEADM_ADDR='192.168.36.11'
@@ -222,7 +225,7 @@ case $K8S_VERSION in
         ;;
     "1.16")
         KUBERNETES_CNI_VERSION="0.7.5"
-        K8S_FULL_VERSION="1.16.4"
+        K8S_FULL_VERSION="${K8S_KUBECTL_APPLY_FORCE}"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
@@ -237,7 +240,7 @@ case $K8S_VERSION in
             kubernetes-cni=${KUBERNETES_CNI_VERSION}* \
             kubelet=${K8S_FULL_VERSION}* \
             kubeadm=${K8S_FULL_VERSION}* \
-            kubectl="1.16.3"*
+            kubectl=${K8S_KUBECTL_APPLY_FORCE}*
         ;;
 #   "1.16")
 #       install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}"
