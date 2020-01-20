@@ -69,6 +69,31 @@ global:
     # verbose allows additional levels of debug/trace messaging
     #verbose: flow
 
+  # L7 proxy options, which take effect only on traffic that is redirected
+  # to an L7 proxy due to either policy enforcement or visibility
+  # annotation.
+  proxy:
+    # Time after which a non-gRPC HTTP stream is considered failed unless
+    # traffic in the stream has been processed (in seconds);
+    # defaults to 0 (unlimited).
+    #httpIdleTimeout: 0
+
+    # Time after which a forwarded gRPC request is considered failed unless
+    # completed (in seconds). A "grpc-timeout" header may override this with
+    # a shorter value; defaults to 0 (unlimited).
+    #httpMaxGrpcTimeout: 0
+
+    # Time after which a forwarded HTTP request is considered failed unless
+    # completed (in seconds); Use 0 for unlimited (default 3600).
+    #httpRequestTimeout: 3600
+
+    # Number of retries performed after a forwarded request attempt fails (default 3).
+    #httpRetryCount: 3
+
+    # Time (in seconds) after which a forwarded but uncompleted request is retried.
+    # Connection failures are retried immediately. Defaults to 0 (never).
+    #httpRetryTimeout: 0
+
   # prometheus enables
   prometheus:
     enabled: false

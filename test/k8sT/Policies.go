@@ -89,10 +89,20 @@ var _ = Describe("K8sPolicyTest", func() {
 		knpAllowEgress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-allow-egress.yaml")
 		cnpMatchExpression = helpers.ManifestGet(kubectl.BasePath(), "cnp-matchexpressions.yaml")
 
+		// restart Cilium with k8s secrets backend option enabled.
+		// HTTP retries are set to help avoid test flakes due to unresponsive
+		// external servers (e.g., swapi.co).
+		// Some of the HTTP options are not materially significant for the test,
+		// but are included here to have test coverage for setting them via helm.
 		deleteCiliumDS(kubectl)
 		DeployCiliumOptionsAndDNS(kubectl, []string{
 			"--set global.tls.secretsBackend=k8s",
 			"--set global.debug.verbose=flow",
+			"--set global.proxy.httpIdleTimeout=20",    // higher than cURL 18 secs below
+			"--set global.proxy.httpMaxGrpcTimeout=30", // no gRPC in tests here
+			"--set global.proxy.httpRequestTimeout=16", // lower than cURL 18 secs below
+			"--set global.proxy.httpRetryCount=1",      // Retry max 1 time
+			"--set global.proxy.httpRetryTimeout=8",    // Retry if no response in 8 seconds
 		})
 	})
 
@@ -324,7 +334,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			res = kubectl.ExecPodCmd(
 				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlFail("-4 --max-time 15 %s https://swapi.co:443/api/planets/1/", "-v --cacert /cacert.pem"))
+				helpers.CurlFail("-4 --max-time 18 %s https://swapi.co:443/api/planets/1/", "-v --cacert /cacert.pem"))
 			res.ExpectSuccess("Cannot connect from %q to 'https://swapi.co:443/api/planets/1/'",
 				appPods[helpers.App2])
 

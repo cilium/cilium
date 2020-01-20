@@ -49,6 +49,26 @@ data:
   debug-verbose: "{{ .Values.global.debug.verbose }}"
 {{- end }}
 
+{{- if .Values.global.proxy.httpIdleTimeout }}
+  http-idle-timeout: "{{ .Values.global.proxy.httpIdleTimeout }}"
+{{- end }}
+
+{{- if .Values.global.proxy.httpMaxGrpcTimeout }}
+  http-max-grpc-timeout: "{{ .Values.global.proxy.httpMaxGrpcTimeout }}"
+{{- end }}
+
+{{- if .Values.global.proxy.httpRequestTimeout }}
+  http-request-timeout: "{{ .Values.global.proxy.httpRequestTimeout }}"
+{{- end }}
+
+{{- if .Values.global.proxy.httpRetryCount }}
+  http-retry-count: "{{ .Values.global.proxy.httpRetryCount }}"
+{{- end }}
+
+{{- if .Values.global.proxy.httpRetryTimeout }}
+  http-retry-timeout: "{{ .Values.global.proxy.httpRetryTimeout }}"
+{{- end }}
+
 {{- if .Values.global.prometheus.enabled }}
   # If you want metrics enabled in all of your Cilium agents, set the port for
   # which the Cilium agents will have their metrics exposed.
