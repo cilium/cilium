@@ -17,6 +17,7 @@
 package ipam
 
 import (
+	"net"
 	"testing"
 
 	"github.com/cilium/cilium/common/addressing"
@@ -62,4 +63,30 @@ func (s *IPAMSuite) TestLock(c *C) {
 
 	err = ipam.IPv4Allocator.Release(epipv4.IP())
 	c.Assert(err, IsNil)
+}
+
+func (s *IPAMSuite) TestOwnerRelease(c *C) {
+	fakeAddressing := fake.NewNodeAddressing()
+	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true})
+
+	// force copy of first possible IP in allocation range
+	ipv4 := net.ParseIP(fakeAddressing.IPv4().AllocationCIDR().IP.String())
+	nextIP(ipv4)
+	err := ipam.AllocateIP(ipv4, "default/test")
+	c.Assert(err, IsNil)
+
+	ipv6 := net.ParseIP(fakeAddressing.IPv6().AllocationCIDR().IP.String())
+	nextIP(ipv6)
+	err = ipam.AllocateIP(ipv6, "default/test")
+	c.Assert(err, IsNil)
+
+	// unknown owner, must fail
+	err = ipam.ReleaseIPString("default/test2")
+	c.Assert(err, Not(IsNil))
+	// 1st release by correct owner, must succeed
+	err = ipam.ReleaseIPString("default/test")
+	c.Assert(err, IsNil)
+	// 2nd release by owner, must now fail
+	err = ipam.ReleaseIPString("default/test")
+	c.Assert(err, Not(IsNil))
 }
