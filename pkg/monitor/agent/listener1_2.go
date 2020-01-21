@@ -17,6 +17,7 @@ package agent
 import (
 	"encoding/gob"
 	"net"
+	"sync"
 
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/monitor/payload"
@@ -29,6 +30,8 @@ type listenerv1_2 struct {
 	conn      net.Conn
 	queue     chan *payload.Payload
 	cleanupFn func(listener.MonitorListener)
+	// Used to prevent queue from getting closed multiple times.
+	once sync.Once
 }
 
 func newListenerv1_2(c net.Conn, queueSize int, cleanupFn func(listener.MonitorListener)) *listenerv1_2 {
@@ -55,7 +58,7 @@ func (ml *listenerv1_2) Enqueue(pl *payload.Payload) {
 // intended to be a goroutine.
 func (ml *listenerv1_2) drainQueue() {
 	defer func() {
-		ml.conn.Close()
+		ml.Close()
 		ml.cleanupFn(ml)
 	}()
 
@@ -77,4 +80,12 @@ func (ml *listenerv1_2) drainQueue() {
 
 func (ml *listenerv1_2) Version() listener.Version {
 	return listener.Version1_2
+}
+
+// Close closes the underlying socket and payload queue.
+func (ml *listenerv1_2) Close() {
+	ml.once.Do(func() {
+		ml.conn.Close()
+		close(ml.queue)
+	})
 }
