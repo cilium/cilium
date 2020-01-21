@@ -347,11 +347,11 @@ var _ = Describe("K8sServicesTest", func() {
 			err = kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-local-k8s2").Unmarshal(&data)
 			Expect(err).Should(BeNil(), "Can not retrieve service")
 
-			url = getURL(k8s1IP, data.Spec.Ports[0].NodePort)
+			url = getURL(k8s2IP, data.Spec.Ports[0].NodePort)
 			doRequests(url, count, k8s1Name)
 			doRequests(url, count, k8s2Name)
 
-			url = getURL(k8s2IP, data.Spec.Ports[0].NodePort)
+			url = getURL(k8s1IP, data.Spec.Ports[0].NodePort)
 			failRequests(url, count, k8s1Name)
 			failRequests(url, count, k8s2Name)
 		}
