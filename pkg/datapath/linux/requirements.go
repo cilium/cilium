@@ -187,7 +187,7 @@ func CheckMinRequirements() {
 		}
 		hardwarename, err := loader.GetHardwareName()
 		if err != nil {
-			log.WithError(err).Fatal("Get machine hardware name error!")
+			log.WithError(err).Error("Get machine hardware name error!")
 		} else {
 			if strings.Contains(hardwarename, "x86_64") {
 				// /usr/include/gnu/stubs-32.h is installed by 'glibc-devel.i686' in fedora
@@ -200,7 +200,12 @@ func CheckMinRequirements() {
 				if _, err := os.Stat("/usr/include/sys/cdefs.h"); os.IsNotExist(err) {
 					log.Fatal("linking environment: NOT OK, please make sure you have 'libc6-dev-i386' in your ubuntu system")
 				}
-				log.Info("linking environment: OK!")
+				log.Info("x86_64 linking environment: OK!")
+			} else if strings.Contains(hardwarename, "aarch64") {
+				if _, err := os.Stat("/usr/include/aarch64-linux-gnu/gnu/stubs.h"); os.IsNotExist(err) {
+					log.Fatal("linking environment: NOT OK, please make sure you have 'libc6-dev'")
+				}
+				log.Info("aarch64 linking environment: OK!")
 			}
 		}
 	}

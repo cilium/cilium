@@ -199,7 +199,7 @@ func GetHardwareName() (string, error) {
 	var unameBuf unix.Utsname
 	err := unix.Uname(&unameBuf)
 	if err != nil {
-		log.WithError(err).Fatal("Get machine hardware name error!")
+		return "", fmt.Errorf("unable to get system information")
 	}
 
 	return string(unameBuf.Machine[:]), err
