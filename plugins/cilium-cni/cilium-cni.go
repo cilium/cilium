@@ -636,13 +636,20 @@ func cmdDel(args *skel.CmdArgs) error {
 	// Note about when to return errors: kubelet will retry the deletion
 	// for a long time. Therefore, only return an error for errors which
 	// are guaranteed to be recoverable.
-	log.WithField("args", args).Debug("Processing CNI DEL request")
+	logger := log.WithField("eventUUID", uuid.NewUUID())
+	logger.WithField("args", args).Debug("Processing CNI DEL request")
 
 	c, err := client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
 	if err != nil {
 		// this error can be recovered from
 		return fmt.Errorf("unable to connect to Cilium daemon: %s", err)
 	}
+	cniArgs := cniArgsSpec{}
+	if err = cniTypes.LoadArgs(args.Args, &cniArgs); err != nil {
+		err = fmt.Errorf("unable to extract CNI arguments: %s", err)
+		return err
+	}
+	logger.Debugf("CNI Args: %#v", cniArgs)
 
 	id := endpointid.NewID(endpointid.ContainerIdPrefix, args.ContainerID)
 	if err := c.EndpointDelete(id); err != nil {
@@ -660,6 +667,20 @@ func cmdDel(args *skel.CmdArgs) error {
 			if clientError.Recoverable() {
 				return err
 			}
+		}
+
+		// Endpoint deletion has failed. We can't be sure whether the
+		// CNI ADD was interrupted in between the IP allocation and the
+		// endpoint creation. In order to guarantee to never leak IP
+		// addresses, delete any IP addresses associated with the pod
+		// being deleted. This task is only done manually on endpoint
+		// delete failure as all IPs of an endpoint are released when
+		// the endpoint is deleted.
+		log.Info("Releasing IPs manually due to inability to delete endpoint")
+		podName := string(cniArgs.K8S_POD_NAMESPACE) + "/" + string(cniArgs.K8S_POD_NAME)
+		err = c.IPAMReleaseIP(podName)
+		if err != nil {
+			log.WithError(err).WithField("pod", podName).Warning("Unable to manually release IPs of pod")
 		}
 	}
 
