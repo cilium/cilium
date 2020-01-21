@@ -245,6 +245,10 @@ case $K8S_VERSION in
         ;;
 esac
 
+if [ "$KUBEPROXY" == "0" ]; then
+    KUBEADM_OPTIONS="$KUBEADM_OPTIONS --skip-phases=addon/kube-proxy"
+fi
+
 #Install kubernetes
 set +e
 case $K8S_VERSION in

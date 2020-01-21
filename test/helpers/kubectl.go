@@ -1260,6 +1260,19 @@ func (kub *Kubectl) generateCiliumYaml(options []string, filename string) error 
 		}
 	}
 
+	// TODO(brb) fixme
+	if os.Getenv("KUBEPROXY") == "0" {
+		opts := map[string]string{
+			"global.nodePort.device":  "enp0s8",
+			"global.nodePort.enabled": "true",
+			"global.k8sServiceHost":   "192.168.36.11",
+			"global.k8sServicePort":   "6443",
+		}
+		for key, value := range opts {
+			options = addIfNotOverwritten(options, key, value)
+		}
+	}
+
 	if integration := GetCurrentIntegration(); integration != "" {
 		overrides := helmOverrides[integration]
 		// Appending the options will override earlier options on CLI.
