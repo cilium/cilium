@@ -703,4 +703,21 @@ static inline int redirect_peer(int ifindex, uint32_t flags)
 #endif /* ENABLE_HOST_REDIRECT */
 }
 
+/* Few basic errno codes as we don't want to include errno.h. */
+#ifndef ENOTSUP
+# define ENOTSUP	95
 #endif
+#ifndef ENXIO
+# define ENXIO		6
+#endif
+#ifndef EPERM
+# define EPERM		1
+#endif
+#ifndef ENOENT
+# define ENOENT		2
+#endif
+#ifndef ENOMEM
+# define ENOMEM		12
+#endif
+
+#endif /* __LIB_COMMON_H_ */
