@@ -489,11 +489,7 @@ var _ = Describe("K8sServicesTest", func() {
 							helpers.DefaultNamespace, "test-lb", 30*time.Second)
 						Expect(err).Should(BeNil(), "Cannot retrieve loadbalancer IP for test-lb")
 
-						k8s1Name, _ := getNodeInfo(helpers.K8s1)
-						k8s2Name, _ := getNodeInfo(helpers.K8s2)
 						doRequestsFromThirdHost("http://"+lbIP, 10, false)
-						doRequests("http://"+lbIP, 10, k8s1Name)
-						doRequests("http://"+lbIP, 10, k8s2Name)
 					})
 				})
 
