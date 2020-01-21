@@ -253,6 +253,12 @@ case $K8S_VERSION in
         ;;
 esac
 
+# TODO(brb) Enable after we switch k8s vsn in the kubeproxy-free job to >= v1.16
+#           (skipping the kube-proxy phase).
+#if [ "$KUBEPROXY" == "0" ]; then
+#    KUBEADM_OPTIONS="$KUBEADM_OPTIONS --skip-phases=addon/kube-proxy"
+#fi
+
 #Install kubernetes
 set +e
 case $K8S_VERSION in
@@ -317,6 +323,11 @@ if [[ "${HOST}" == "k8s1" ]]; then
       sudo sed -i "s/${KUBEADM_ADDR}/k8s1/" /etc/kubernetes/admin.conf
       sudo cp -i /etc/kubernetes/admin.conf /root/.kube/config
       sudo chown root:root /root/.kube/config
+
+      if [[ "${KUBEPROXY}" == "0" ]]; then
+          kubectl -n kube-system delete ds kube-proxy
+          iptables-restore <(iptables-save | grep -v KUBE)
+      fi
 
       sudo -u vagrant mkdir -p /home/vagrant/.kube
       sudo cp -fi /etc/kubernetes/admin.conf /home/vagrant/.kube/config
