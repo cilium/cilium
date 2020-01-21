@@ -1339,6 +1339,23 @@ func (kub *Kubectl) generateCiliumYaml(options []string, filename string) error 
 		}
 	}
 
+	if os.Getenv("KUBEPROXY") == "0" {
+		nodeIP, err := kub.GetNodeIPByLabel(K8s1)
+		if err != nil {
+			return fmt.Errorf("Cannot retrieve Node IP for k8s1: %s", err)
+		}
+
+		opts := map[string]string{
+			"global.nodePort.device":  "enp0s8",
+			"global.nodePort.enabled": "true",
+			"global.k8sServiceHost":   nodeIP,
+			"global.k8sServicePort":   "6443",
+		}
+		for key, value := range opts {
+			options = addIfNotOverwritten(options, key, value)
+		}
+	}
+
 	if integration := GetCurrentIntegration(); integration != "" {
 		overrides := helmOverrides[integration]
 		// Appending the options will override earlier options on CLI.
