@@ -62,7 +62,7 @@ for the delete ipam IP operation typically these are written to a http.Request
 type DeleteIpamIPParams struct {
 
 	/*IP
-	  IP address
+	  IP address or owner name
 
 	*/
 	IP string
