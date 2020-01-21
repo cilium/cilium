@@ -432,9 +432,9 @@ function set_vagrant_env(){
     if [[ -n "${NFS}" ]]; then
         echo "# NFS enabled. don't forget to enable this ports on your host"
         echo "# before starting the VMs in order to have nfs working"
-        echo "# iptables -I INPUT -p udp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 111 -j ACCEPT"
-        echo "# iptables -I INPUT -p udp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 2049 -j ACCEPT"
-        echo "# iptables -I INPUT -p udp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 20048 -j ACCEPT"
+        echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 111 -j ACCEPT"
+        echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 2049 -j ACCEPT"
+        echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 20048 -j ACCEPT"
     fi
 
     temp=$(printf " %s" "${ipv6_public_workers_addrs[@]}")

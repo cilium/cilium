@@ -48,7 +48,7 @@ On Freeze date
        git commit
        git push
 
-#. Follow the :ref:`generic_release_process` to release ``v1.2.0-rc1``.
+#. Follow the :ref:`release_candidate_process` to release ``v1.2.0-rc1``.
 
 #. Create the following GitHub labels:
 

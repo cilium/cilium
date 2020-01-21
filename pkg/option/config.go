@@ -237,6 +237,10 @@ const (
 	// EnableNodePort enables NodePort services implemented by Cilium in BPF
 	EnableNodePort = "enable-node-port"
 
+	// NodePortMode indicates in which mode NodePort implementation should run
+	// ("snat" or "dsr")
+	NodePortMode = "node-port-mode"
+
 	// NodePortRange defines a custom range where to look up NodePort services
 	NodePortRange = "node-port-range"
 
@@ -1236,6 +1240,10 @@ type DaemonConfig struct {
 	// EnableNodePort enables k8s NodePort service implementation in BPF
 	EnableNodePort bool
 
+	// NodePortMode indicates in which mode NodePort implementation should run
+	// ("snat" or "dsr")
+	NodePortMode string
+
 	// EnableK8sExternalIPs enables k8s external IPs implementation in BPF
 	EnableK8sExternalIPs bool
 
@@ -1657,6 +1665,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableL7Proxy = viper.GetBool(EnableL7Proxy)
 	c.EnableTracing = viper.GetBool(EnableTracing)
 	c.EnableNodePort = viper.GetBool(EnableNodePort)
+	c.NodePortMode = viper.GetString(NodePortMode)
 	c.EncryptInterface = viper.GetString(EncryptInterface)
 	c.EncryptNode = viper.GetBool(EncryptNode)
 	c.EnvoyLogPath = viper.GetString(EnvoyLog)

@@ -62,7 +62,8 @@ func init() {
 	flags.StringP("host", "H", "", "URI to server-side API")
 	viper.BindPFlags(flags)
 	rootCmd.AddCommand(newCmdCompletion(os.Stdout))
-	rootCmd.SetOutput(os.Stderr)
+	rootCmd.SetOut(os.Stderr)
+	rootCmd.SetErr(os.Stderr)
 }
 
 // initConfig reads in config file and ENV variables if set.

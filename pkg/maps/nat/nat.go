@@ -220,11 +220,42 @@ func deleteMapping6(m *Map, ctKey *tuple.TupleKey6Global) error {
 	return nil
 }
 
+// Expects ingress tuple
+func deleteSwappedMapping4(m *Map, ctKey *tuple.TupleKey4Global) error {
+	key := NatKey4{TupleKey4Global: *ctKey}
+	// Because of #5848, we need to reverse only ports
+	port := key.SourcePort
+	key.SourcePort = key.DestPort
+	key.DestPort = port
+	key.Flags = tuple.TUPLE_F_OUT
+	m.Delete(&key)
+
+	return nil
+}
+
+// Expects ingress tuple
+func deleteSwappedMapping6(m *Map, ctKey *tuple.TupleKey6Global) error {
+	key := NatKey6{TupleKey6Global: *ctKey}
+	// Because of #5848, we need to reverse only ports
+	port := key.SourcePort
+	key.SourcePort = key.DestPort
+	key.DestPort = port
+	key.Flags = tuple.TUPLE_F_OUT
+	m.Delete(&key)
+
+	return nil
+}
+
 // DeleteMapping removes a NAT mapping from the global NAT table.
 func (m *Map) DeleteMapping(key tuple.TupleKey) error {
 	if key.GetFlags()&tuple.TUPLE_F_IN != 0 {
-		return nil
+		if m.v4 {
+			// To delete NAT entries created by DSR
+			return deleteSwappedMapping4(m, key.(*tuple.TupleKey4Global))
+		}
+		return deleteSwappedMapping6(m, key.(*tuple.TupleKey6Global))
 	}
+
 	if m.v4 {
 		return deleteMapping4(m, key.(*tuple.TupleKey4Global))
 	}

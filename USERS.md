@@ -60,6 +60,11 @@ Users (Alphabetically)
       U: ENI networking, L3/L4 policies, FQDN based policy, FQDN filtering
       Q: ungureanuvladvictor
 
+    * N: Rapyuta Robotics.
+      D: Rapyuta is using cilium as their main CNI plugin. (self hosted k8s)
+      U: CiliumNetworkPolicy, Hubble, Service Load Balancing.
+      Q: @Gowtham
+
     * N: Sportradar
       D: Sportradar is using Cilium as their main CNI plugin in AWS (using kops)
       U: L3/L4 policies, Hubble, BPF NodePort, CiliumClusterwideNetworkPolicy
@@ -69,3 +74,8 @@ Users (Alphabetically)
       D: uSwitch is using Cilium in AWS for all their production clusters (self hosted k8s)
       U: ClusterMesh, CNI-Chaining (with amazon-vpc-cni-k8s)
       Q: @jirving
+
+    * N: Trip.com
+      D: Trip.com is using Cilium in their production clusters (self-hosted k8s, On-premises and AWS)
+      U: ENI Networking, Service load-balancing, Direct routing (via Bird)
+      Q: @ArthurChiao

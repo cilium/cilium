@@ -398,6 +398,8 @@ netfilter
 newproto
 newprotoparser
 nfp
+nfs
+nfsd
 nftables
 nodeX
 observability
@@ -541,6 +543,7 @@ uuid
 vCPUs
 validator
 verifier
+vers
 versa
 versioning
 veth

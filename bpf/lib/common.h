@@ -89,7 +89,9 @@
 #define CILIUM_CALL_IPV4_NODEPORT_REVNAT	17
 #define CILIUM_CALL_IPV6_NODEPORT_REVNAT	18
 #define CILIUM_CALL_ENCAP_NODEPORT_NAT		19
-#define CILIUM_CALL_SIZE			20
+#define CILIUM_CALL_IPV4_NODEPORT_DSR		20
+#define CILIUM_CALL_IPV6_NODEPORT_DSR		21
+#define CILIUM_CALL_SIZE			22
 
 typedef __u64 mac_t;
 
@@ -382,6 +384,32 @@ enum {
 
 #define MARK_MAGIC_SNAT_DONE		0x0500
 
+/* IPv4 option used to carry service addr and port for DSR. Lower 16bits set to
+ * zero so that they can be OR'd with service port.
+ *
+ * Copy = 1 (option is copied to each fragment)
+ * Class = 0 (control option)
+ * Number = 26 (not used according to [1])
+ * Len = 8 (option type (1) + option len (1) + addr (4) + port (2))
+ *
+ * [1]: https://www.iana.org/assignments/ip-parameters/ip-parameters.xhtml
+ * */
+#define DSR_IPV4_OPT_32		0x9a080000
+#define DSR_IPV4_OPT_MASK	0xffff0000
+#define DSR_IPV4_DPORT_MASK	0x0000ffff
+
+/* IPv6 option type of Destination Option used to carry service IPv6 addr and
+ * port for DSR.
+ *
+ * 0b00		- "skip over this option and continue processing the header"
+ *     0	- "Option Data does not change en-route"
+ *      11011   - Unassigned [1]
+ *
+ * [1]:  https://www.iana.org/assignments/ipv6-parameters/ipv6-parameters.xhtml#ipv6-parameters-2
+ */
+#define DSR_IPV6_OPT_TYPE	0x1B
+#define DSR_IPV6_OPT_LEN	0x14	// to store ipv6 addr + port
+#define DSR_IPV6_EXT_LEN	0x2	// = (sizeof(dsr_opt_v6) - 8) / 8
 /**
  * get_identity - returns source identity from the mark field
  */
@@ -457,11 +485,17 @@ static inline void __inline__ set_encrypt_key_cb(struct __sk_buff *skb, __u8 key
 /* skb->cb[] usage: */
 enum {
 	CB_SRC_LABEL,
+#define	CB_SVC_PORT		CB_SRC_LABEL	/* Alias, non-overlapping */
 	CB_IFINDEX,
+#define	CB_SVC_ADDR_V4		CB_IFINDEX	/* Alias, non-overlapping */
+#define	CB_SVC_ADDR_V6_1	CB_IFINDEX	/* Alias, non-overlapping */
 	CB_POLICY,
+#define	CB_SVC_ADDR_V6_2	CB_POLICY	/* Alias, non-overlapping */
 	CB_NAT46_STATE,
-#define CB_NAT		CB_NAT46_STATE	/* Alias, non-overlapping */
+#define CB_NAT			CB_NAT46_STATE	/* Alias, non-overlapping */
+#define	CB_SVC_ADDR_V6_3	CB_NAT46_STATE	/* Alias, non-overlapping */
 	CB_CT_STATE,
+#define	CB_SVC_ADDR_V6_4	CB_CT_STATE	/* Alias, non-overlapping */
 };
 
 /* State values for NAT46 */
@@ -532,7 +566,8 @@ struct ct_entry {
 	      seen_non_syn:1,
 	      node_port:1,
 	      proxy_redirect:1, // Connection is redirected to a proxy
-	      reserved:9;
+	      dsr:1,
+	      reserved:8;
 	__u16 rev_nat_index;
 	__u16 backend_id; /* Populated only in v1.6+ BPF code. */
 
@@ -619,7 +654,8 @@ struct ct_state {
 	__u16 loopback:1,
 	      node_port:1,
 	      proxy_redirect:1, // Connection is redirected to a proxy
-	      reserved:13;
+	      dsr:1,
+	      reserved:12;
 	__be16 orig_dport;
 	__be32 addr;
 	__be32 svc_addr;

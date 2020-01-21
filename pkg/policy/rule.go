@@ -197,21 +197,22 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 // translated into L7 wildcards (ie, traffic will be forwarded to the
 // proxy for endpoints matching those labels, but the proxy will allow
 // all such traffic).
-func mergeIngressPortProto(policyCtx PolicyContext, ctx *SearchContext, endpoints api.EndpointSelectorSlice, hostWildcardL7 bool, r api.PortRule, p api.PortProtocol,
-	proto api.L4Proto, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
-	selectorCache := policyCtx.GetSelectorCache()
+func mergeIngressPortProto(policyCtx PolicyContext, ctx *SearchContext, endpoints api.EndpointSelectorSlice, hostWildcardL7 bool,
+	r api.PortRule, p api.PortProtocol, proto api.L4Proto, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
+	// Create a new L4Filter
+	filterToMerge, err := createL4IngressFilter(policyCtx, endpoints, hostWildcardL7, r, p, proto, ruleLabels)
+	if err != nil {
+		return 0, err
+	}
 
 	key := p.Port + "/" + string(proto)
 	existingFilter, ok := resMap[key]
 	if !ok {
-		resMap[key] = createL4IngressFilter(policyCtx, endpoints, hostWildcardL7, r, p, proto, ruleLabels)
+		resMap[key] = filterToMerge
 		return 1, nil
 	}
 
-	// Create a new L4Filter based off of the arguments provided to this function
-	// for merging with the filter which is already in the policy map.
-	filterToMerge := createL4IngressFilter(policyCtx, endpoints, hostWildcardL7, r, p, proto, ruleLabels)
-
+	selectorCache := policyCtx.GetSelectorCache()
 	if err := mergePortProto(ctx, existingFilter, filterToMerge, selectorCache); err != nil {
 		filterToMerge.detach(selectorCache)
 		return 0, err
@@ -586,19 +587,20 @@ func mergeEgress(policyCtx PolicyContext, ctx *SearchContext, toEndpoints api.En
 // L4PolicyMap for the specified port-protocol tuple, it returns an error.
 func mergeEgressPortProto(policyCtx PolicyContext, ctx *SearchContext, endpoints api.EndpointSelectorSlice, r api.PortRule, p api.PortProtocol,
 	proto api.L4Proto, ruleLabels labels.LabelArray, resMap L4PolicyMap, fqdns api.FQDNSelectorSlice) (int, error) {
-	selectorCache := policyCtx.GetSelectorCache()
+	// Create a new L4Filter
+	filterToMerge, err := createL4EgressFilter(policyCtx, endpoints, r, p, proto, ruleLabels, fqdns)
+	if err != nil {
+		return 0, err
+	}
 
 	key := p.Port + "/" + string(proto)
 	existingFilter, ok := resMap[key]
 	if !ok {
-		resMap[key] = createL4EgressFilter(policyCtx, endpoints, r, p, proto, ruleLabels, fqdns)
+		resMap[key] = filterToMerge
 		return 1, nil
 	}
 
-	// Create a new L4Filter based off of the arguments provided to this function
-	// for merging with the filter which is already in the policy map.
-	filterToMerge := createL4EgressFilter(policyCtx, endpoints, r, p, proto, ruleLabels, fqdns)
-
+	selectorCache := policyCtx.GetSelectorCache()
 	if err := mergePortProto(ctx, existingFilter, filterToMerge, selectorCache); err != nil {
 		filterToMerge.detach(selectorCache)
 		return 0, err

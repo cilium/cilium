@@ -213,7 +213,7 @@ case $K8S_VERSION in
         ;;
     "1.14")
         KUBERNETES_CNI_VERSION="0.7.5"
-        K8S_FULL_VERSION="1.14.9"
+        K8S_FULL_VERSION="1.14.10"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
@@ -221,7 +221,7 @@ case $K8S_VERSION in
         ;;
     "1.15")
         KUBERNETES_CNI_VERSION="0.7.5"
-        K8S_FULL_VERSION="1.15.6"
+        K8S_FULL_VERSION="1.15.7"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
@@ -229,7 +229,7 @@ case $K8S_VERSION in
         ;;
     "1.16")
         KUBERNETES_CNI_VERSION="0.7.5"
-        K8S_FULL_VERSION="1.16.3"
+        K8S_FULL_VERSION="1.16.4"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
@@ -237,7 +237,7 @@ case $K8S_VERSION in
         ;;
     "1.17")
         KUBERNETES_CNI_VERSION="0.7.5"
-        K8S_FULL_VERSION="1.17.0"
+        K8S_FULL_VERSION="1.17.1"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
@@ -341,20 +341,5 @@ fi
 docker network create --subnet=192.168.9.0/24 outside
 docker run --net outside --ip 192.168.9.10 --restart=always -d docker.io/cilium/demo-httpd:latest
 docker run --net outside --ip 192.168.9.11 --restart=always -d docker.io/cilium/demo-httpd:latest
-
-if [[ "${HOST}" == "k8s1" ]]; then
-    # To avoid SNAT'ing source IP, we create a network with masquerading disabled.
-    # Also, we install a route on each other node to make it possible a replies from
-    # remote nodes to reach containers attached to the network.
-    docker network create --subnet=192.168.10.0/24 \
-        --opt 'com.docker.network.bridge.enable_ip_masquerade=false' \
-        outside-no-masq
-    # NOTE: when changing "client-from-outside" IP addr, make sure that the IP addr
-    # is changed in the tests (grep for the IP addr).
-    docker run --name client-from-outside --net outside-no-masq --ip 192.168.10.10 \
-        --restart=always -d docker.io/cilium/demo-client:latest
-else
-    sudo ip route add 192.168.10.0/24 via 192.168.36.11 || true
-fi
 
 sudo touch /etc/provision_finished

@@ -24,6 +24,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -455,6 +456,18 @@ func RunsOnNetNext() bool {
 // DoesNotRunOnNetNext is the inverse function of RunsOnNetNext.
 func DoesNotRunOnNetNext() bool {
 	return !RunsOnNetNext()
+}
+
+// DoesNotHaveHosts returns a function which returns true if a CI job
+// has less VMs than the given count.
+func DoesNotHaveHosts(count int) func() bool {
+	return func() bool {
+		if c, err := strconv.Atoi(os.Getenv("K8S_NODES")); err != nil {
+			return true
+		} else {
+			return c < count
+		}
+	}
 }
 
 // CiliumDevImage returns cilium docker image name based on cilium.registry option and const CiliumDevImage

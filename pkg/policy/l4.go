@@ -390,19 +390,40 @@ func (l7 L7DataMap) addRulesForEndpoints(rules api.L7Rules, endpoints []CachedSe
 	}
 }
 
-func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direction string) *TLSContext {
+type TLSDirection string
+
+const (
+	TerminatingTLS TLSDirection = "terminating"
+	OriginatingTLS TLSDirection = "originating"
+)
+
+func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direction TLSDirection) (*TLSContext, error) {
 	if tls == nil {
-		return nil
+		return nil, nil
 	}
 	ca, public, private, err := policyCtx.GetTLSContext(tls)
 	if err != nil {
-		log.WithError(err).Warningf("policy: Error getting %s TLS Context, TLS will not work.", direction)
+		log.WithError(err).Warningf("policy: Error getting %s TLS Context.", direction)
+		return nil, err
 	}
+	switch direction {
+	case TerminatingTLS:
+		if public == "" || private == "" {
+			return nil, fmt.Errorf("Terminating TLS context is missing certs.")
+		}
+	case OriginatingTLS:
+		if ca == "" {
+			return nil, fmt.Errorf("Originating TLS context is missing CA certs.")
+		}
+	default:
+		return nil, fmt.Errorf("invalid TLS direction: %s", direction)
+	}
+
 	return &TLSContext{
 		TrustedCA:        ca,
 		CertificateChain: public,
 		PrivateKey:       private,
-	}
+	}, nil
 }
 
 // createL4Filter creates a filter for L4 policy that applies to the specified
@@ -411,7 +432,7 @@ func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direc
 // rules via the `rule` parameter.
 // Not called with an empty peerEndpoints.
 func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, port api.PortProtocol,
-	protocol api.L4Proto, ruleLabels labels.LabelArray, ingress bool, fqdns api.FQDNSelectorSlice) *L4Filter {
+	protocol api.L4Proto, ruleLabels labels.LabelArray, ingress bool, fqdns api.FQDNSelectorSlice) (*L4Filter, error) {
 	selectorCache := policyCtx.GetSelectorCache()
 
 	// already validated via PortRule.Validate()
@@ -443,8 +464,15 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 
 		// Note: No rules -> no TLS
 		if !rule.Rules.IsEmpty() {
-			terminatingTLS = l4.getCerts(policyCtx, rule.TerminatingTLS, "terminating")
-			originatingTLS = l4.getCerts(policyCtx, rule.OriginatingTLS, "originating")
+			var err error
+			terminatingTLS, err = l4.getCerts(policyCtx, rule.TerminatingTLS, TerminatingTLS)
+			if err != nil {
+				return nil, err
+			}
+			originatingTLS, err = l4.getCerts(policyCtx, rule.OriginatingTLS, OriginatingTLS)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		if protocol == api.ProtoTCP {
@@ -468,7 +496,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 		}
 	}
 
-	return l4
+	return l4, nil
 }
 
 // detach releases the references held in the L4Filter and must be called before
@@ -497,9 +525,12 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) {
 // hostWildcardL7 determines if L7 traffic from Host should be
 // wildcarded (in the relevant daemon mode).
 func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSelectorSlice, hostWildcardL7 bool, rule api.PortRule, port api.PortProtocol,
-	protocol api.L4Proto, ruleLabels labels.LabelArray) *L4Filter {
+	protocol api.L4Proto, ruleLabels labels.LabelArray) (*L4Filter, error) {
 
-	filter := createL4Filter(policyCtx, fromEndpoints, rule, port, protocol, ruleLabels, true, nil)
+	filter, err := createL4Filter(policyCtx, fromEndpoints, rule, port, protocol, ruleLabels, true, nil)
+	if err != nil {
+		return nil, err
+	}
 
 	// If the filter would apply L7 rules for the Host, when we should accept everything from host,
 	// then wildcard Host at L7.
@@ -513,7 +544,7 @@ func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSe
 		}
 	}
 
-	return filter
+	return filter, nil
 }
 
 // createL4EgressFilter creates a filter for L4 policy that applies to the
@@ -521,7 +552,7 @@ func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSe
 // to the original rules that the filter is derived from. This filter may be
 // associated with a series of L7 rules via the `rule` parameter.
 func createL4EgressFilter(policyCtx PolicyContext, toEndpoints api.EndpointSelectorSlice, rule api.PortRule, port api.PortProtocol,
-	protocol api.L4Proto, ruleLabels labels.LabelArray, fqdns api.FQDNSelectorSlice) *L4Filter {
+	protocol api.L4Proto, ruleLabels labels.LabelArray, fqdns api.FQDNSelectorSlice) (*L4Filter, error) {
 
 	return createL4Filter(policyCtx, toEndpoints, rule, port, protocol, ruleLabels, false, fqdns)
 }
