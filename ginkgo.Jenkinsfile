@@ -126,7 +126,7 @@ pipeline {
                         }
                     }
                 }
-                stage('Boot vms K8s-1.11 net-next') {
+                stage('Boot vms K8s-1.11 net-next kubeproxy-free') {
                     environment {
                         TESTED_SUITE="k8s-1.11"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
@@ -135,6 +135,7 @@ pipeline {
                         K8S_VERSION="1.11"
                         K8S_NODES="3"
                         NO_CILIUM_ON_NODE="k8s3"
+                        KUBEPROXY="0"
                         KUBECONFIG="vagrant-kubeconfig"
                         CILIUM_REGISTRY="localnode" //setting it here so we don't compile Cilium in vagrant nodes (already done on local node registry)
                     }
@@ -222,7 +223,7 @@ pipeline {
                         }
                     }
                 }
-                stage('BDD-Test-PR-K8s-1.11-net-next') {
+                stage('BDD-Test-PR-K8s-1.11-net-next-kubeproxy-free') {
                     environment {
                         TESTED_SUITE="k8s-1.11"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
@@ -231,6 +232,7 @@ pipeline {
                         KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
                         K8S_VERSION="1.11"
                         K8S_NODES="3"
+                        KUBEPROXY="0"
                         NO_CILIUM_ON_NODE="k8s3"
                     }
                     steps {
