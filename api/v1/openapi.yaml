@@ -404,7 +404,7 @@ paths:
       tags:
       - ipam
       parameters:
-      - "$ref": "#/parameters/ipam-ip"
+      - "$ref": "#/parameters/ipam-release-arg"
       responses:
         '200':
           description: Success
@@ -823,6 +823,12 @@ parameters:
   ipam-ip:
     name: ip
     description: IP address
+    in: path
+    required: true
+    type: string
+  ipam-release-arg:
+    name: ip
+    description: IP address or owner name
     in: path
     required: true
     type: string
