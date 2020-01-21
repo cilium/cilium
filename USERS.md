@@ -60,6 +60,11 @@ Users (Alphabetically)
       U: ENI networking, L3/L4 policies, FQDN based policy, FQDN filtering
       Q: ungureanuvladvictor
 
+    * N: Rapyuta Robotics.
+      D: Rapyuta is using cilium as their main CNI plugin. (self hosted k8s)
+      U: CiliumNetworkPolicy, Hubble, Service Load Balancing.
+      Q: @Gowtham
+
     * N: Sportradar
       D: Sportradar is using Cilium as their main CNI plugin in AWS (using kops)
       U: L3/L4 policies, Hubble, BPF NodePort, CiliumClusterwideNetworkPolicy
