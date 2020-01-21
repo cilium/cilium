@@ -76,7 +76,7 @@ Vagrant.configure("2") do |config|
                 vb.cpus = $CPU
                 vb.memory = $MEMORY
                 if "k8s#{i}" == $NO_CILIUM_ON_NODE
-                  vb.memory /= 2
+                  vb.memory = $MEMORY / 2
                 end
                 vb.linked_clone = true
                 vb.default_nic_type = "virtio"
