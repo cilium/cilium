@@ -26,10 +26,11 @@ import (
 func CheckStructAlignments(path string) error {
 	// Validate alignments of C and Go equivalent structs
 	toCheck := map[string][]reflect.Type{
-		"trace_notify":      {reflect.TypeOf(monitor.TraceNotify{})},
-		"drop_notify":       {reflect.TypeOf(monitor.DropNotify{})},
-		"debug_msg":         {reflect.TypeOf(monitor.DebugMsg{})},
-		"debug_capture_msg": {reflect.TypeOf(monitor.DebugCapture{})},
+		"trace_notify":          {reflect.TypeOf(monitor.TraceNotify{})},
+		"drop_notify":           {reflect.TypeOf(monitor.DropNotify{})},
+		"debug_msg":             {reflect.TypeOf(monitor.DebugMsg{})},
+		"debug_capture_msg":     {reflect.TypeOf(monitor.DebugCapture{})},
+		"policy_verdict_notify": {reflect.TypeOf(monitor.PolicyVerdictNotify{})},
 	}
 	return check.CheckStructAlignments(path, toCheck)
 }

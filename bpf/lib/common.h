@@ -248,6 +248,19 @@ struct metrics_value {
      __u64	bytes;
 };
 
+enum {
+	POLICY_INGRESS = 1,
+	POLICY_EGRESS = 2,
+};
+
+
+enum {
+        POLICY_MATCH_NONE = 0,
+        POLICY_MATCH_L3_ONLY = 1,
+        POLICY_MATCH_L3_L4 = 2,
+        POLICY_MATCH_L4_ONLY = 3,
+        POLICY_MATCH_ALL = 4,
+};
 
 enum {
 	CILIUM_NOTIFY_UNSPEC,
@@ -255,6 +268,7 @@ enum {
 	CILIUM_NOTIFY_DBG_MSG,
 	CILIUM_NOTIFY_DBG_CAPTURE,
 	CILIUM_NOTIFY_TRACE,
+	CILIUM_NOTIFY_POLICY_VERDICT,
 };
 
 #define NOTIFY_COMMON_HDR \
