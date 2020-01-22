@@ -15,12 +15,13 @@ cilium service update [flags]
 ### Options
 
 ```
-      --backends strings   Backend address or addresses (<IP:Port>)
-      --frontend string    Frontend address
-  -h, --help               help for update
-      --id uint            Identifier
-      --k8s-external       Set service as a k8s ExternalIPs
-      --k8s-node-port      Set service as a k8s NodePort
+      --backends strings            Backend address or addresses (<IP:Port>)
+      --frontend string             Frontend address
+  -h, --help                        help for update
+      --id uint                     Identifier
+      --k8s-external                Set service as a k8s ExternalIPs
+      --k8s-node-port               Set service as a k8s NodePort
+      --k8s-traffic-policy string   Set service with k8s externalTrafficPolicy as {Local,Cluster} (default "Cluster")
 ```
 
 ### Options inherited from parent commands

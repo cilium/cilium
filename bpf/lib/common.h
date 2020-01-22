@@ -599,7 +599,8 @@ struct lb6_service {
 	__u16 rev_nat_index;
 	__u8 external:1,	/* K8s External IPs */
 	     nodeport:1,	/* K8s NodePort service */
-	     reserved:6;
+	     local_scope:1,	/* K8s externalTrafficPolicy=Local */
+	     reserved:5;
 	__u8 pad[3];
 };
 
@@ -633,7 +634,8 @@ struct lb4_service {
 	__u16 rev_nat_index;	/* Reverse NAT ID in lb4_reverse_nat */
 	__u8 external:1,	/* K8s External IPs */
 	     nodeport:1,	/* K8s NodePort service */
-	     reserved:6;
+	     local_scope:1,	/* K8s externalTrafficPolicy=Local */
+	     reserved:5;
 	__u8 pad[3];
 };
 

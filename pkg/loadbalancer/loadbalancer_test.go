@@ -228,6 +228,7 @@ func TestL3n4AddrID_Equals(t *testing.T) {
 func TestCreateSvcFlag(t *testing.T) {
 	type args struct {
 		svcTypes []SVCType
+		svcLocal bool
 	}
 	tests := []struct {
 		name string
@@ -237,25 +238,49 @@ func TestCreateSvcFlag(t *testing.T) {
 		{
 			args: args{
 				svcTypes: []SVCType{SVCTypeClusterIP},
+				svcLocal: false,
 			},
 			want: serviceFlagNone,
 		},
 		{
 			args: args{
 				svcTypes: []SVCType{SVCTypeNodePort},
+				svcLocal: false,
 			},
 			want: serviceFlagNodePort,
 		},
 		{
 			args: args{
 				svcTypes: []SVCType{SVCTypeExternalIPs},
+				svcLocal: false,
 			},
 			want: serviceFlagExternalIPs,
+		},
+		{
+			args: args{
+				svcTypes: []SVCType{SVCTypeClusterIP},
+				svcLocal: true,
+			},
+			want: serviceFlagNone | serviceFlagLocalScope,
+		},
+		{
+			args: args{
+				svcTypes: []SVCType{SVCTypeNodePort},
+				svcLocal: true,
+			},
+			want: serviceFlagNodePort | serviceFlagLocalScope,
+		},
+		{
+			args: args{
+				svcTypes: []SVCType{SVCTypeExternalIPs},
+				svcLocal: true,
+			},
+			want: serviceFlagExternalIPs | serviceFlagLocalScope,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := CreateSvcFlag(tt.args.svcTypes...); got != tt.want {
+			if got := CreateSvcFlag(tt.args.svcLocal, tt.args.svcTypes...); got != tt.want {
 				t.Errorf("CreateSvcFlag() = %v, want %v", got, tt.want)
 			}
 		})
@@ -264,7 +289,8 @@ func TestCreateSvcFlag(t *testing.T) {
 
 func TestServiceFlags_IsSvcType(t *testing.T) {
 	type args struct {
-		svcType SVCType
+		svcType  SVCType
+		svcLocal bool
 	}
 	tests := []struct {
 		name string
@@ -273,19 +299,41 @@ func TestServiceFlags_IsSvcType(t *testing.T) {
 		want bool
 	}{
 		{
-			args: args{svcType: SVCTypeExternalIPs},
+			args: args{
+				svcType:  SVCTypeExternalIPs,
+				svcLocal: false,
+			},
 			s:    serviceFlagExternalIPs,
 			want: true,
 		},
 		{
-			args: args{svcType: SVCTypeNodePort},
+			args: args{
+				svcType:  SVCTypeNodePort,
+				svcLocal: false,
+			},
 			s:    serviceFlagExternalIPs,
+			want: false,
+		},
+		{
+			args: args{
+				svcType:  SVCTypeExternalIPs,
+				svcLocal: true,
+			},
+			s:    serviceFlagExternalIPs | serviceFlagLocalScope,
+			want: true,
+		},
+		{
+			args: args{
+				svcType:  SVCTypeNodePort,
+				svcLocal: true,
+			},
+			s:    serviceFlagExternalIPs | serviceFlagLocalScope,
 			want: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.s.IsSvcType(tt.args.svcType); got != tt.want {
+			if got := tt.s.IsSvcType(tt.args.svcLocal, tt.args.svcType); got != tt.want {
 				t.Errorf("IsSvcType() = %v, want %v", got, tt.want)
 			}
 		})
@@ -307,6 +355,16 @@ func TestServiceFlags_String(t *testing.T) {
 			name: "Test-2",
 			s:    serviceFlagNone,
 			want: "ClusterIP",
+		},
+		{
+			name: "Test-3",
+			s:    serviceFlagNodePort | serviceFlagLocalScope,
+			want: "NodePort, Local",
+		},
+		{
+			name: "Test-4",
+			s:    serviceFlagExternalIPs | serviceFlagLocalScope,
+			want: "ExternalIPs, Local",
 		},
 	}
 	for _, tt := range tests {

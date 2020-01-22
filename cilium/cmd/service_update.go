@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -30,6 +31,7 @@ var (
 	deprecatedAddRev bool // TODO(v1.8+): remove it
 	k8sExternalIPs   bool
 	k8sNodePort      bool
+	k8sTrafficPolicy string
 	idU              uint64
 	frontend         string
 	backends         []string
@@ -49,6 +51,7 @@ func init() {
 	serviceUpdateCmd.Flags().Uint64VarP(&idU, "id", "", 0, "Identifier")
 	serviceUpdateCmd.Flags().BoolVarP(&k8sExternalIPs, "k8s-external", "", false, "Set service as a k8s ExternalIPs")
 	serviceUpdateCmd.Flags().BoolVarP(&k8sNodePort, "k8s-node-port", "", false, "Set service as a k8s NodePort")
+	serviceUpdateCmd.Flags().StringVarP(&k8sTrafficPolicy, "k8s-traffic-policy", "", "Cluster", "Set service with k8s externalTrafficPolicy as {Local,Cluster}")
 	serviceUpdateCmd.Flags().BoolVarP(&deprecatedAddRev, "rev", "", false, "Add reverse translation")
 	serviceUpdateCmd.Flags().MarkDeprecated("rev", "and it is inactive")
 	serviceUpdateCmd.Flags().StringVarP(&frontend, "frontend", "", "", "Frontend address")
@@ -102,6 +105,12 @@ func updateService(cmd *cobra.Command, args []string) {
 		spec.Flags = &models.ServiceSpecFlags{Type: models.ServiceSpecFlagsTypeNodePort}
 	} else {
 		spec.Flags = &models.ServiceSpecFlags{Type: models.ServiceSpecFlagsTypeClusterIP}
+	}
+
+	if strings.ToLower(k8sTrafficPolicy) == "local" {
+		spec.Flags.TrafficPolicy = models.ServiceSpecFlagsTrafficPolicyLocal
+	} else {
+		spec.Flags.TrafficPolicy = models.ServiceSpecFlagsTrafficPolicyCluster
 	}
 
 	spec.FrontendAddress = fa
