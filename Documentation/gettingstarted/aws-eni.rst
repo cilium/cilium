@@ -86,7 +86,6 @@ Scale up the cluster
 .. include:: hubble-install.rst
 .. include:: getting-started-next-steps.rst
 
-
 .. _eni_limitations:
 
 Limitations
@@ -96,3 +95,17 @@ Limitations
 * When applying L7 policies at egress, the source identity context is lost as
   it is currently not carried in the packet. This means that traffic will look
   like it is coming from outside of the cluster to the receiving pod.
+
+Troubleshooting
+===============
+
+Make sure to disable DHCP on ENIs
+---------------------------------
+
+Cilium will use both the primary and secondary IP addresses assigned to ENIs.
+Use of the primary IP address optimizes the number of IPs available to pods but
+can conflict with a DHCP agent running on the node and assigning the primary IP
+of the ENI to the interface of the node. A common scenario where this happens
+is if ``NetworkManager`` is running on the node and automatically performing
+DHCP on all network interfaces of the VM. Be sure to disable DHCP on any ENIs
+that get attached to the node or disable ``NetworkManager`` entirely.
