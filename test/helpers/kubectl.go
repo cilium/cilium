@@ -2834,9 +2834,14 @@ func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.En
 	var k8sService *v1.Service
 
 	// TODO(brb) validate NodePort and LoadBalancer services
-	if cSvc.Status.Realized.Flags != nil &&
-		(cSvc.Status.Realized.Flags.Type == "NodePort" || cSvc.Status.Realized.Flags.Type == "LoadBalancer") {
-		return nil
+	if cSvc.Status.Realized.Flags != nil {
+		switch cSvc.Status.Realized.Flags.Type {
+		case models.ServiceSpecFlagsTypeNodePort,
+			models.ServiceSpecFlagsTypeExternalIPs:
+			return nil
+		case "LoadBalancer":
+			return nil
+		}
 	}
 
 	for _, k8sSvc := range k8sSvcs {

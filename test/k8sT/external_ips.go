@@ -92,6 +92,11 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 	}
 
 	BeforeAll(func() {
+		if !helpers.RunsOnNetNext() {
+			Skip("Skipping test because it is not running with the net-next kernel")
+			return
+		}
+
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		DeployCiliumAndDNS(kubectl)
 
@@ -167,12 +172,20 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 	})
 
 	AfterFailed(func() {
+		if !helpers.RunsOnNetNext() {
+			Skip("Skipping test because it is not running with the net-next kernel")
+			return
+		}
 		kubectl.CiliumReport(helpers.KubeSystemNamespace,
 			"cilium service list",
 			"cilium endpoint list")
 	})
 
 	AfterAll(func() {
+		if !helpers.RunsOnNetNext() {
+			Skip("Skipping test because it is not running with the net-next kernel")
+			return
+		}
 		_ = kubectl.NamespaceDelete(namespaceTest)
 		ExpectAllPodsTerminated(kubectl)
 		kubectl.CloseSSHClient()
@@ -218,97 +231,96 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 		}
 	}
 
-	Context("DirectRouting", func() {
-		BeforeAll(func() {
-			if !helpers.RunsOnNetNext() {
-				Skip("Skipping test because it is not running with the net-next kernel")
-				return
-			}
-			deleteCiliumDS(kubectl)
-			deployCilium([]string{
-				"--set global.tunnel=disabled",
-				"--set global.nodePort.device=" + external_ips.PublicInterfaceName,
-				"--set global.nodePort.enabled=true",
+	SkipContextIf(
+		func() bool { return helpers.DoesNotRunOnNetNext() },
+		"DirectRouting", func() {
+			BeforeAll(func() {
+				deleteCiliumDS(kubectl)
+				deployCilium([]string{
+					"--set global.tunnel=disabled",
+					"--set global.autoDirectNodeRoutes=true",
+					"--set global.nodePort.device=" + external_ips.PublicInterfaceName,
+					"--set global.nodePort.enabled=true",
+				})
 			})
-		})
-		DescribeTable("From pod running on node-1 to services being backed by a pod running on node-1",
-			func(ipName, ip, port, expected, skipReason string) {
-				testFunc(podNode1)(ipName, ip, port, expected, skipReason)
-			},
-			getTableEntries(external_ips.ExpectedResultFromPodInNode1)...,
-		)
-		DescribeTable("From host running on node-1 to services being backed by a pod running on node-1",
-			func(ipName, ip, port, expected, skipReason string) {
-				testFunc(hostNetworkPodNode1)(ipName, ip, port, expected, skipReason)
-			},
-			getTableEntries(external_ips.ExpectedResultFromNode1)...,
-		)
-		DescribeTable("From pod running on node-2 to services being backed by a pod running on node-1",
-			func(ipName, ip, port, expected, skipReason string) {
-				testFunc(podNode2)(ipName, ip, port, expected, skipReason)
-			},
-			getTableEntries(external_ips.ExpectedResultFromPodInNode2)...,
-		)
-		DescribeTable("From host running on node-2 to services being backed by a pod running on node-1",
-			func(ipName, ip, port, expected, skipReason string) {
-				testFunc(hostNetworkPodNode2)(ipName, ip, port, expected, skipReason)
-			},
-			getTableEntries(external_ips.ExpectedResultFromNode2)...,
-		)
-		// TODO: Enable me once the 3rd VM is added to the CI
-		// DescribeTable("From host running on node-3 to services being backed by a pod running on node-1",
-		// 	func(ipName, ip, port, expected, skipReason string) {
-		// 		testFunc(hostNetworkPodNode3)(ipName, ip, port, expected, skipReason)
-		// 	},
-		// 	getTableEntries(external_ips.ExpectedResultFromNode2)...,
-		// )
-	})
+			DescribeTable("From pod running on node-1 to services being backed by a pod running on node-1",
+				func(ipName, ip, port, expected, skipReason string) {
+					testFunc(podNode1)(ipName, ip, port, expected, skipReason)
+				},
+				getTableEntries(external_ips.ExpectedResultFromPodInNode1)...,
+			)
+			DescribeTable("From host running on node-1 to services being backed by a pod running on node-1",
+				func(ipName, ip, port, expected, skipReason string) {
+					testFunc(hostNetworkPodNode1)(ipName, ip, port, expected, skipReason)
+				},
+				getTableEntries(external_ips.ExpectedResultFromNode1)...,
+			)
+			DescribeTable("From pod running on node-2 to services being backed by a pod running on node-1",
+				func(ipName, ip, port, expected, skipReason string) {
+					testFunc(podNode2)(ipName, ip, port, expected, skipReason)
+				},
+				getTableEntries(external_ips.ExpectedResultFromPodInNode2)...,
+			)
+			DescribeTable("From host running on node-2 to services being backed by a pod running on node-1",
+				func(ipName, ip, port, expected, skipReason string) {
+					testFunc(hostNetworkPodNode2)(ipName, ip, port, expected, skipReason)
+				},
+				getTableEntries(external_ips.ExpectedResultFromNode2)...,
+			)
+			// TODO: Enable me once the 3rd VM is added to the CI
+			// DescribeTable("From host running on node-3 to services being backed by a pod running on node-1",
+			// 	func(ipName, ip, port, expected, skipReason string) {
+			// 		testFunc(hostNetworkPodNode3)(ipName, ip, port, expected, skipReason)
+			// 	},
+			// 	getTableEntries(external_ips.ExpectedResultFromNode2)...,
+			// )
+		},
+	)
 
-	Context("VxLANMode", func() {
-		BeforeAll(func() {
-			if !helpers.RunsOnNetNext() {
-				Skip("Skipping test because it is not running with the net-next kernel")
-				return
-			}
-			deleteCiliumDS(kubectl)
-			deployCilium([]string{
-				"--set global.tunnel=vxlan",
-				"--set global.nodePort.device=" + external_ips.PublicInterfaceName,
-				"--set global.nodePort.enabled=true",
+	SkipContextIf(
+		func() bool { return helpers.DoesNotRunOnNetNext() },
+		"VxLANMode", func() {
+			BeforeAll(func() {
+				deleteCiliumDS(kubectl)
+				deployCilium([]string{
+					"--set global.tunnel=vxlan",
+					"--set global.nodePort.device=" + external_ips.PublicInterfaceName,
+					"--set global.nodePort.enabled=true",
+				})
 			})
-		})
-		DescribeTable("From pod running on node-1 to services being backed by a pod running on node-1",
-			func(ipName, ip, port, expected, skipReason string) {
-				testFunc(podNode1)(ipName, ip, port, expected, skipReason)
-			},
-			getTableEntries(external_ips.ExpectedResultFromPodInNode1)...,
-		)
-		DescribeTable("From host running on node-1 to services being backed by a pod running on node-1",
-			func(ipName, ip, port, expected, skipReason string) {
-				testFunc(hostNetworkPodNode1)(ipName, ip, port, expected, skipReason)
-			},
-			getTableEntries(external_ips.ExpectedResultFromNode1)...,
-		)
-		DescribeTable("From pod running on node-2 to services being backed by a pod running on node-1",
-			func(ipName, ip, port, expected, skipReason string) {
-				testFunc(podNode2)(ipName, ip, port, expected, skipReason)
-			},
-			getTableEntries(external_ips.ExpectedResultFromPodInNode2)...,
-		)
-		DescribeTable("From host running on node-2 to services being backed by a pod running on node-1",
-			func(ipName, ip, port, expected, skipReason string) {
-				testFunc(hostNetworkPodNode2)(ipName, ip, port, expected, skipReason)
-			},
-			getTableEntries(external_ips.ExpectedResultFromNode2)...,
-		)
-		// TODO: Enable me once the 3rd VM is added to the CI
-		// DescribeTable("From host running on node-3 to services being backed by a pod running on node-1",
-		// 	func(ipName, ip, port, expected, skipReason string) {
-		// 		testFunc(hostNetworkPodNode3)(ipName, ip, port, expected, skipReason)
-		// 	},
-		// 	getTableEntries(external_ips.ExpectedResultFromNode2)...,
-		// )
-	})
+			DescribeTable("From pod running on node-1 to services being backed by a pod running on node-1",
+				func(ipName, ip, port, expected, skipReason string) {
+					testFunc(podNode1)(ipName, ip, port, expected, skipReason)
+				},
+				getTableEntries(external_ips.ExpectedResultFromPodInNode1)...,
+			)
+			DescribeTable("From host running on node-1 to services being backed by a pod running on node-1",
+				func(ipName, ip, port, expected, skipReason string) {
+					testFunc(hostNetworkPodNode1)(ipName, ip, port, expected, skipReason)
+				},
+				getTableEntries(external_ips.ExpectedResultFromNode1)...,
+			)
+			DescribeTable("From pod running on node-2 to services being backed by a pod running on node-1",
+				func(ipName, ip, port, expected, skipReason string) {
+					testFunc(podNode2)(ipName, ip, port, expected, skipReason)
+				},
+				getTableEntries(external_ips.ExpectedResultFromPodInNode2)...,
+			)
+			DescribeTable("From host running on node-2 to services being backed by a pod running on node-1",
+				func(ipName, ip, port, expected, skipReason string) {
+					testFunc(hostNetworkPodNode2)(ipName, ip, port, expected, skipReason)
+				},
+				getTableEntries(external_ips.ExpectedResultFromNode2)...,
+			)
+			// TODO: Enable me once the 3rd VM is added to the CI
+			// DescribeTable("From host running on node-3 to services being backed by a pod running on node-1",
+			// 	func(ipName, ip, port, expected, skipReason string) {
+			// 		testFunc(hostNetworkPodNode3)(ipName, ip, port, expected, skipReason)
+			// 	},
+			// 	getTableEntries(external_ips.ExpectedResultFromNode2)...,
+			// )
+		},
+	)
 })
 
 func getTableEntries(expectedResult map[string]map[string]external_ips.EntryTestArgs) []TableEntry {
