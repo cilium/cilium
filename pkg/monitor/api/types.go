@@ -29,10 +29,21 @@ import (
 const (
 	// 0-128 are reserved for BPF datapath events
 	MessageTypeUnspec = iota
+
+	// MessageTypeDrop is a BPF datapath notification carrying a DropNotify
 	MessageTypeDrop
+
+	// MessageTypeDebug is a BPF datapath notification carrying a DebugMsg
 	MessageTypeDebug
+
+	// MessageTypeCapture is a BPF datapath notification carrying a DebugCapture
 	MessageTypeCapture
+
+	// MessageTypeTrace is a BPF datapath notification carrying a TraceNotify
 	MessageTypeTrace
+
+	// MessageTypeCapture is a BPF datapath notification carrying a PolicyVerdictNotify
+	MessageTypePolicyVerdict
 
 	// 129-255 are reserved for agent level events
 
@@ -44,12 +55,13 @@ const (
 )
 
 const (
-	MessageTypeNameDrop    = "drop"
-	MessageTypeNameDebug   = "debug"
-	MessageTypeNameCapture = "capture"
-	MessageTypeNameTrace   = "trace"
-	MessageTypeNameL7      = "l7"
-	MessageTypeNameAgent   = "agent"
+	MessageTypeNameDrop          = "drop"
+	MessageTypeNameDebug         = "debug"
+	MessageTypeNameCapture       = "capture"
+	MessageTypeNameTrace         = "trace"
+	MessageTypeNameL7            = "l7"
+	MessageTypeNameAgent         = "agent"
+	MessageTypeNamePolicyVerdict = "policy-verdict"
 )
 
 type MessageTypeFilter []int
@@ -57,12 +69,13 @@ type MessageTypeFilter []int
 var (
 	// MessageTypeNames is a map of all type names
 	MessageTypeNames = map[string]int{
-		MessageTypeNameDrop:    MessageTypeDrop,
-		MessageTypeNameDebug:   MessageTypeDebug,
-		MessageTypeNameCapture: MessageTypeCapture,
-		MessageTypeNameTrace:   MessageTypeTrace,
-		MessageTypeNameL7:      MessageTypeAccessLog,
-		MessageTypeNameAgent:   MessageTypeAgent,
+		MessageTypeNameDrop:          MessageTypeDrop,
+		MessageTypeNameDebug:         MessageTypeDebug,
+		MessageTypeNameCapture:       MessageTypeCapture,
+		MessageTypeNameTrace:         MessageTypeTrace,
+		MessageTypeNameL7:            MessageTypeAccessLog,
+		MessageTypeNameAgent:         MessageTypeAgent,
+		MessageTypeNamePolicyVerdict: MessageTypePolicyVerdict,
 	}
 )
 

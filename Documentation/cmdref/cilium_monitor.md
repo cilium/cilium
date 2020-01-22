@@ -10,6 +10,7 @@ The monitor displays notifications and events emitted by the BPF
 programs attached to endpoints and devices. This includes:
   * Dropped packet notifications
   * Captured packet traces
+  * Policy verdict notifications
   * Debugging information
 
 ```
