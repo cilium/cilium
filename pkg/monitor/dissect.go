@@ -39,6 +39,15 @@ type parserCache struct {
 	decoded []gopacket.LayerType
 }
 
+// FlowInfo is the 5-tuple for a flow
+type FlowInfo struct {
+	SrcIP   net.IP
+	DstIP   net.IP
+	SrcPort uint16
+	DstPort uint16
+	Proto   string
+}
+
 var (
 	cache       *parserCache
 	dissectLock lock.Mutex
@@ -89,6 +98,41 @@ func getTCPInfo() string {
 	}
 
 	return info
+}
+
+// GetFlowInfo returns the 5-tuple flow info from data
+func GetFlowInfo(data []byte) *FlowInfo {
+	dissectLock.Lock()
+	defer dissectLock.Unlock()
+
+	initParser()
+	parser.DecodeLayers(data, &cache.decoded)
+
+	f := FlowInfo{}
+
+	for _, typ := range cache.decoded {
+		switch typ {
+		case layers.LayerTypeIPv4:
+			f.SrcIP, f.DstIP = cache.ip4.SrcIP, cache.ip4.DstIP
+		case layers.LayerTypeIPv6:
+			f.SrcIP, f.DstIP = cache.ip6.SrcIP, cache.ip6.DstIP
+		case layers.LayerTypeTCP:
+			f.Proto = "tcp"
+			f.SrcPort, f.DstPort = uint16(cache.tcp.SrcPort), uint16(cache.tcp.DstPort)
+		case layers.LayerTypeUDP:
+			f.Proto = "udp"
+			f.SrcPort, f.DstPort = uint16(cache.udp.SrcPort), uint16(cache.udp.DstPort)
+		case layers.LayerTypeIPSecAH:
+			f.Proto = "IPsecAH"
+		case layers.LayerTypeIPSecESP:
+			f.Proto = "IPsecESP"
+		case layers.LayerTypeICMPv4:
+			f.Proto = "icmp"
+		case layers.LayerTypeICMPv6:
+			f.Proto = "icmp"
+		}
+	}
+	return &f
 }
 
 // GetConnectionSummary decodes the data into layers and returns a connection

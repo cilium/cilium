@@ -133,6 +133,18 @@ func (m *MonitorFormatter) traceEvents(prefix string, data []byte) {
 	}
 }
 
+func (m *MonitorFormatter) policyEvents(prefix string, data []byte) {
+	pn := monitor.PolicyNotify{}
+
+	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &pn); err != nil {
+		fmt.Printf("Error while parsing policy notification message: %s\n", err)
+	}
+
+	if m.match(monitorAPI.MessageTypePolicy, pn.Source, uint16(pn.RemoteLabel)) {
+		pn.DumpInfo(data)
+	}
+}
+
 // debugEvents prints out all the debug messages.
 func (m *MonitorFormatter) debugEvents(prefix string, data []byte) {
 	dm := monitor.DebugMsg{}
@@ -232,6 +244,8 @@ func (m *MonitorFormatter) FormatSample(data []byte, cpu int) {
 		m.logRecordEvents(prefix, data)
 	case monitorAPI.MessageTypeAgent:
 		m.agentEvents(prefix, data)
+	case monitorAPI.MessageTypePolicy:
+		m.policyEvents(prefix, data)
 	default:
 		fmt.Printf("%s Unknown event: %+v\n", prefix, data)
 	}
