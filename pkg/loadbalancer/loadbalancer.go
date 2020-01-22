@@ -58,10 +58,11 @@ const (
 	serviceFlagNone        = 0
 	serviceFlagExternalIPs = 1
 	serviceFlagNodePort    = 2
+	serviceFlagLocalScope  = 4
 )
 
 // CreateSvcFlag returns the ServiceFlags for all given SVCTypes.
-func CreateSvcFlag(svcTypes ...SVCType) ServiceFlags {
+func CreateSvcFlag(svcLocal bool, svcTypes ...SVCType) ServiceFlags {
 	var flags ServiceFlags
 	for _, svcType := range svcTypes {
 		switch svcType {
@@ -71,15 +72,18 @@ func CreateSvcFlag(svcTypes ...SVCType) ServiceFlags {
 			flags |= serviceFlagNodePort
 		}
 	}
+	if svcLocal {
+		flags |= serviceFlagLocalScope
+	}
 	return flags
 }
 
 // IsSvcType returns true if the serviceFlags is the given SVCType.
-func (s ServiceFlags) IsSvcType(svcType SVCType) bool {
-	return s&CreateSvcFlag(svcType) != 0
+func (s ServiceFlags) IsSvcType(svcLocal bool, svcType SVCType) bool {
+	return s != 0 && (s&CreateSvcFlag(svcLocal, svcType) == s)
 }
 
-// ServiceFlags returns a service type from the flags
+// SVCType returns a service type from the flags
 func (s ServiceFlags) SVCType() SVCType {
 	switch {
 	case s&serviceFlagExternalIPs != 0:
@@ -91,18 +95,32 @@ func (s ServiceFlags) SVCType() SVCType {
 	}
 }
 
+// SVCTrafficPolicy returns a service traffic policy from the flags
+func (s ServiceFlags) SVCTrafficPolicy() SVCTrafficPolicy {
+	switch {
+	case s&serviceFlagLocalScope != 0:
+		return SVCTrafficPolicyLocal
+	default:
+		return SVCTrafficPolicyCluster
+	}
+}
+
 // String returns the string implementation of ServiceFlags.
 func (s ServiceFlags) String() string {
 	var strTypes []string
 	typeSet := false
+	sType := s & (serviceFlagExternalIPs | serviceFlagNodePort)
 	for _, svcType := range []SVCType{SVCTypeExternalIPs, SVCTypeNodePort} {
-		if s.IsSvcType(svcType) {
+		if sType.IsSvcType(false, svcType) {
 			strTypes = append(strTypes, string(svcType))
 			typeSet = true
 		}
 	}
 	if !typeSet {
 		strTypes = append(strTypes, string(SVCTypeClusterIP))
+	}
+	if s&serviceFlagLocalScope != 0 {
+		strTypes = append(strTypes, string(SVCTrafficPolicyLocal))
 	}
 	return strings.Join(strTypes, ", ")
 }

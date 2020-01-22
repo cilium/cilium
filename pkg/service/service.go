@@ -40,7 +40,7 @@ var (
 
 // LBMap is the interface describing methods for manipulating service maps.
 type LBMap interface {
-	UpsertService(uint16, net.IP, uint16, []uint16, int, bool, lb.SVCType) error
+	UpsertService(uint16, net.IP, uint16, []uint16, int, bool, lb.SVCType, bool) error
 	DeleteService(lb.L3n4AddrID, int) error
 	AddBackend(uint16, net.IP, uint16, bool) error
 	DeleteBackendByID(uint16, bool) error
@@ -447,7 +447,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, prevBackendCount int,
 		uint16(svc.frontend.ID), svc.frontend.L3n4Addr.IP,
 		svc.frontend.L3n4Addr.L4Addr.Port,
 		backendIDs, prevBackendCount,
-		ipv6, svcType)
+		ipv6, svcType, svc.requireNodeLocalBackends())
 	if err != nil {
 		return err
 	}
@@ -534,7 +534,7 @@ func (s *Service) restoreServicesLocked() error {
 			// Correct traffic policy will be restored by k8s_watcher after k8s
 			// service cache has been initialized
 			svcType:          svc.Type,
-			svcTrafficPolicy: lb.SVCTrafficPolicyCluster,
+			svcTrafficPolicy: svc.TrafficPolicy,
 			// Indicate that the svc was restored from the BPF maps, so that
 			// SyncWithK8sFinished() could remove services which were restored
 			// from the maps but not present in the k8sServiceCache (e.g. a svc
