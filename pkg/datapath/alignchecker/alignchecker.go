@@ -69,10 +69,11 @@ func CheckStructAlignments(path string) error {
 			reflect.TypeOf(eppolicymap.EndpointKey{}),
 			reflect.TypeOf(tunnel.TunnelEndpoint{}),
 		},
-		"trace_notify":      {reflect.TypeOf(monitor.TraceNotify{})},
-		"drop_notify":       {reflect.TypeOf(monitor.DropNotify{})},
-		"debug_msg":         {reflect.TypeOf(monitor.DebugMsg{})},
-		"debug_capture_msg": {reflect.TypeOf(monitor.DebugCapture{})},
+		"trace_notify":          {reflect.TypeOf(monitor.TraceNotify{})},
+		"drop_notify":           {reflect.TypeOf(monitor.DropNotify{})},
+		"debug_msg":             {reflect.TypeOf(monitor.DebugMsg{})},
+		"debug_capture_msg":     {reflect.TypeOf(monitor.DebugCapture{})},
+		"policy_verdict_notify": {reflect.TypeOf(monitor.PolicyVerdictNotify{})},
 	}
 	return check.CheckStructAlignments(path, toCheck)
 }

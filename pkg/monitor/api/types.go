@@ -29,10 +29,26 @@ import (
 const (
 	// 0-128 are reserved for BPF datapath events
 	MessageTypeUnspec = iota
+
+	// MessageTypeDrop is a BPF datapath notification carrying a DropNotify
+	// which corresponds to drop_notify defined in bpf/lib/drop.h
 	MessageTypeDrop
+
+	// MessageTypeDebug is a BPF datapath notification carrying a DebugMsg
+	// which corresponds to debug_msg defined in bpf/lib/dbg.h
 	MessageTypeDebug
+
+	// MessageTypeCapture is a BPF datapath notification carrying a DebugCapture
+	// which corresponds to debug_capture_msg defined in bpf/lib/dbg.h
 	MessageTypeCapture
+
+	// MessageTypeTrace is a BPF datapath notification carrying a TraceNotify
+	// which corresponds to trace_notify defined in bpf/lib/trace.h
 	MessageTypeTrace
+
+	// MessageTypePolicyVerdict is a BPF datapath notification carrying a PolicyVerdictNotify
+	// which corresponds to policy_verdict_notify defined in bpf/lib/policy_log.h
+	MessageTypePolicyVerdict
 
 	// 129-255 are reserved for agent level events
 
@@ -44,12 +60,13 @@ const (
 )
 
 const (
-	MessageTypeNameDrop    = "drop"
-	MessageTypeNameDebug   = "debug"
-	MessageTypeNameCapture = "capture"
-	MessageTypeNameTrace   = "trace"
-	MessageTypeNameL7      = "l7"
-	MessageTypeNameAgent   = "agent"
+	MessageTypeNameDrop          = "drop"
+	MessageTypeNameDebug         = "debug"
+	MessageTypeNameCapture       = "capture"
+	MessageTypeNameTrace         = "trace"
+	MessageTypeNameL7            = "l7"
+	MessageTypeNameAgent         = "agent"
+	MessageTypeNamePolicyVerdict = "policy-verdict"
 )
 
 type MessageTypeFilter []int
@@ -57,12 +74,13 @@ type MessageTypeFilter []int
 var (
 	// MessageTypeNames is a map of all type names
 	MessageTypeNames = map[string]int{
-		MessageTypeNameDrop:    MessageTypeDrop,
-		MessageTypeNameDebug:   MessageTypeDebug,
-		MessageTypeNameCapture: MessageTypeCapture,
-		MessageTypeNameTrace:   MessageTypeTrace,
-		MessageTypeNameL7:      MessageTypeAccessLog,
-		MessageTypeNameAgent:   MessageTypeAgent,
+		MessageTypeNameDrop:          MessageTypeDrop,
+		MessageTypeNameDebug:         MessageTypeDebug,
+		MessageTypeNameCapture:       MessageTypeCapture,
+		MessageTypeNameTrace:         MessageTypeTrace,
+		MessageTypeNameL7:            MessageTypeAccessLog,
+		MessageTypeNameAgent:         MessageTypeAgent,
+		MessageTypeNamePolicyVerdict: MessageTypePolicyVerdict,
 	}
 )
 

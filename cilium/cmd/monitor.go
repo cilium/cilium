@@ -48,6 +48,7 @@ var (
 programs attached to endpoints and devices. This includes:
   * Dropped packet notifications
   * Captured packet traces
+  * Policy verdict notifications
   * Debugging information`,
 		Run: func(cmd *cobra.Command, args []string) {
 			runMonitor(args)
