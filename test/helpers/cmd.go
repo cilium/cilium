@@ -151,7 +151,7 @@ func (res *CmdRes) CombineOutput() *bytes.Buffer {
 
 // IntOutput returns the stdout of res as an integer
 func (res *CmdRes) IntOutput() (int, error) {
-	return strconv.Atoi(strings.Trim(res.stdout.String(), "\n\r"))
+	return strconv.Atoi(strings.TrimSpace(res.stdout.String()))
 }
 
 // FindResults filters res's stdout using the provided JSONPath filter. It
