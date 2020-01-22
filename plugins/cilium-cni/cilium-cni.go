@@ -318,7 +318,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		return
 	}
 
-	if len(n.NetConf.RawPrevResult) != 0 {
+	if len(n.NetConf.RawPrevResult) != 0 && n.Name != chainingapi.DefaultConfigName {
 		if chainAction := chainingapi.Lookup(n.Name); chainAction != nil {
 			var (
 				res *cniTypesVer.Result
@@ -573,22 +573,24 @@ func cmdDel(args *skel.CmdArgs) error {
 		return fmt.Errorf("unable to connect to Cilium daemon: %s", client.Hint(err))
 	}
 
-	if chainAction := chainingapi.Lookup(n.Name); chainAction != nil {
-		var (
-			ctx = chainingapi.PluginContext{
-				Logger:  logger,
-				Args:    args,
-				CniArgs: cniArgs,
-				NetConf: n,
-				Client:  c,
-			}
-		)
+	if n.Name != chainingapi.DefaultConfigName {
+		if chainAction := chainingapi.Lookup(n.Name); chainAction != nil {
+			var (
+				ctx = chainingapi.PluginContext{
+					Logger:  logger,
+					Args:    args,
+					CniArgs: cniArgs,
+					NetConf: n,
+					Client:  c,
+				}
+			)
 
-		if chainAction.ImplementsDelete() {
-			return chainAction.Delete(context.TODO(), ctx)
+			if chainAction.ImplementsDelete() {
+				return chainAction.Delete(context.TODO(), ctx)
+			}
+		} else {
+			logger.Warnf("Unknown CNI chaining configuration name '%s'", n.Name)
 		}
-	} else {
-		logger.Warnf("Unknown CNI chaining configuration name '%s'", n.Name)
 	}
 
 	id := endpointid.NewID(endpointid.ContainerIdPrefix, args.ContainerID)
