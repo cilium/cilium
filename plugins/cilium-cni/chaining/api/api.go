@@ -32,6 +32,12 @@ var (
 	mutex           lock.RWMutex
 )
 
+const (
+	// DefaultConfigName is the name used by default in the standard CNI
+	// configuration
+	DefaultConfigName = "cilium"
+)
+
 // PluginContext is the context given to chaining plugins
 type PluginContext struct {
 	Logger  *logrus.Entry
@@ -65,6 +71,10 @@ type ChainingPlugin interface {
 func Register(name string, p ChainingPlugin) error {
 	mutex.Lock()
 	defer mutex.Unlock()
+
+	if name == DefaultConfigName {
+		return fmt.Errorf("invalid chain name. '%s' is reserved", DefaultConfigName)
+	}
 
 	if _, ok := chainingPlugins[name]; ok {
 		return fmt.Errorf("chaining plugin with name %s already exists", name)
