@@ -56,4 +56,7 @@ func (a *APISuite) TestRegistration(c *check.C) {
 
 	err = Register("foo", &pluginTest{})
 	c.Assert(err, check.Not(check.IsNil))
+
+	err = Register(DefaultConfigName, &pluginTest{})
+	c.Assert(err, check.Not(check.IsNil))
 }
