@@ -78,4 +78,5 @@ Users (Alphabetically)
     * N: Trip.com
       D: Trip.com is using Cilium in their production clusters (self-hosted k8s, On-premises and AWS)
       U: ENI Networking, Service load-balancing, Direct routing (via Bird)
+      L: https://ctripcloud.github.io/cilium/network/2020/01/19/trip-first-step-towards-cloud-native-networking.html
       Q: @ArthurChiao
