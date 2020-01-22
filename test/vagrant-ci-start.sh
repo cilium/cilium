@@ -18,6 +18,12 @@ echo "getting vagrant kubeconfig from provisioned vagrant cluster"
 ./get-vagrant-kubeconfig.sh > vagrant-kubeconfig
 
 echo "checking whether kubeconfig works for vagrant cluster"
+
+NEXT_WAIT_TIME=0
+until kubectl get nodes || [ $NEXT_WAIT_TIME -eq 12 ]; do
+   ((NEXT_WAIT_TIME++))
+   sleep 5
+done
 kubectl get nodes
 
 echo "adding local docker registry to cluster"
