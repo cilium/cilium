@@ -4793,6 +4793,11 @@ The following (incomplete) list includes blog posts around BPF, XDP and related 
      Marek Majkowski,
      https://blog.cloudflare.com/bpf-the-forgotten-bytecode/
 
+Books
+-----
+
+BPF Performance Tools (Gregg, Addison Wesley, 2019)
+
 Talks
 -----
 
