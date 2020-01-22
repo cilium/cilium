@@ -259,6 +259,15 @@ enum {
 	POLICY_EGRESS = 2,
 };
 
+
+enum {
+        POLICY_MATCH_NONE = 0,
+        POLICY_MATCH_L3 = 1,
+        POLICY_MATCH_L4 = 2,
+        POLICY_MATCH_L4_ALL = 3,
+        POLICY_MATCH_ALL = 4,
+};
+
 enum {
 	CILIUM_NOTIFY_UNSPEC,
 	CILIUM_NOTIFY_DROP,

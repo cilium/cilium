@@ -34,14 +34,15 @@ struct policy_log_notify {
 	NOTIFY_CAPTURE_HDR
 	__u32	remote_label;
 	__u8	action;
+	__u8	match_type;
 	__u8	dir:2,
 		ipv6:1,
 		pad:5;
-	__u16	pads;
+	__u8	pad1;
 };
 
 static inline void
-send_policy_notify4(struct __sk_buff *skb, __u32 remote_label, __u8 dir, __u8 action)
+send_policy_notify4(struct __sk_buff *skb, __u32 remote_label, __u8 dir, __u8 action, __u8 match_type)
 {
 	uint64_t skb_len = (uint64_t)skb->len, cap_len = min((uint64_t)TRACE_PAYLOAD_LEN, (uint64_t)skb_len);
 	uint32_t hash = get_hash_recalc(skb);
@@ -53,10 +54,11 @@ send_policy_notify4(struct __sk_buff *skb, __u32 remote_label, __u8 dir, __u8 ac
 		.len_cap = cap_len,
 		.remote_label = remote_label,
 		.action = action,
+		.match_type = match_type,
 		.dir = dir,
 		.ipv6 = 0,
 		.pad = 0,
-		.pads = 0,
+		.pad1 = 0,
 	};
 	skb_event_output(skb, &EVENTS_MAP,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,

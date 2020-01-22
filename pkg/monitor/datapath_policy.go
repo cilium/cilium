@@ -22,12 +22,19 @@ const (
 	// PolicyNotifyLen is the amount of packet data provided in a Policy notification
 	PolicyNotifyLen = 24
 
+	// Needs to be consistent with that's defined in data plane
 	PolicyNotifyFlagIsIPv6    = 0x4
 	PolicyNotifyFlagDirection = 0x3
 	PolicyIngress             = 1
 	PolicyEgress              = 2
 	PolicyActionAllow         = 1
 	PolicyActionDeny          = 2
+
+	PolicyMatchNone  = 0
+	PolicyMatchL3    = 1
+	PolicyMatchL4    = 2
+	PolicyMatchL4All = 3
+	PolicyMatchAll   = 4
 )
 
 // DropNotify is the message format of a drop notification in the BPF ring buffer
@@ -41,8 +48,9 @@ type PolicyNotify struct {
 	Version     uint16
 	RemoteLabel uint32
 	Action      uint8
+	MatchType   uint8
 	Flags       uint8
-	Pads        uint16
+	Pad         uint8
 	// data
 }
 
@@ -61,9 +69,26 @@ func GetPolicyActionString(action uint8) string {
 	return "unknown"
 }
 
-// DumpInfo prints a summary of the policy notify messages.
+func GetPolicyMatchingTypeString(matchType uint8) string {
+	switch matchType {
+	case PolicyMatchL3:
+		return "L3"
+	case PolicyMatchL4:
+		return "L4"
+	case PolicyMatchL4All:
+		return "L4-all"
+	case PolicyMatchAll:
+		return "all"
+	case PolicyMatchNone:
+		return "none"
+
+	}
+	return "unknown"
+}
+
+// DumpInfo prints a summary of the drop messages.
 func (n *PolicyNotify) DumpInfo(data []byte) {
-	fmt.Printf("Policy log: flow %#x local EP ID %d, remote ID %d, ingress %v (flags %x), action %s, %s\n",
+	fmt.Printf("Policy log: flow %#x local EP ID %d, remote ID %d, ingress %v (flags %x), action %s, matching_type %s %s\n",
 		n.Hash, n.Source, n.RemoteLabel, n.IsTrafficIngress(), n.Flags, GetPolicyActionString(n.Action),
-		GetConnectionSummary(data[PolicyNotifyLen:]))
+		GetPolicyMatchingTypeString(n.MatchType), GetConnectionSummary(data[PolicyNotifyLen:]))
 }
