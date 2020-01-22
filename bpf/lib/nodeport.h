@@ -199,7 +199,7 @@ static __always_inline int find_dsr_v6(struct __sk_buff *skb, __u8 nexthdr,
 			break;
 
 		default:
-			return len;
+			return 0;
 		}
 	}
 
