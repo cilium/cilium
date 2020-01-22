@@ -2,6 +2,7 @@ package k8sTest
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -89,12 +90,13 @@ var _ = Describe("K8sUpdates", func() {
 		ExpectAllPodsTerminated(kubectl)
 	})
 
-	It("Tests upgrade and downgrade from a Cilium stable image to master", func() {
-		var assertUpgradeSuccessful func()
-		assertUpgradeSuccessful, cleanupCallback =
-			InstallAndValidateCiliumUpgrades(kubectl, helpers.CiliumStableVersion, helpers.CiliumDevImage())
-		assertUpgradeSuccessful()
-	})
+	SkipItIf(func() bool { return os.Getenv("NO_CILIUM_ON_NODE") != "" },
+		"Tests upgrade and downgrade from a Cilium stable image to master", func() {
+			var assertUpgradeSuccessful func()
+			assertUpgradeSuccessful, cleanupCallback =
+				InstallAndValidateCiliumUpgrades(kubectl, helpers.CiliumStableVersion, helpers.CiliumDevImage())
+			assertUpgradeSuccessful()
+		})
 })
 
 // InstallAndValidateCiliumUpgrades installs and tests if the oldVersion can be
