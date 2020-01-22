@@ -157,7 +157,7 @@ account(struct __sk_buff *skb, struct policy_entry *policy)
 
 static inline int __inline__
 __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
-		    __u16 dport, __u8 proto, int dir, bool is_fragment)
+		    __u16 dport, __u8 proto, int dir, bool is_fragment, __u8 *match_type)
 {
 #ifdef ALLOW_ICMP_FRAG_NEEDED
 	// When ALLOW_ICMP_FRAG_NEEDED is defined we allow all packets
@@ -197,6 +197,7 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 				    dport << 16 | proto);
 
 			account(skb, policy);
+			*match_type = POLICY_MATCH_L4;
 			goto get_proxy_port;
 		}
 	}
@@ -207,6 +208,7 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {
 		account(skb, policy);
+		*match_type = POLICY_MATCH_L3;
 		return TC_ACT_OK;
 	}
 
@@ -217,6 +219,7 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 		policy = map_lookup_elem(map, &key);
 		if (likely(policy)) {
 			account(skb, policy);
+			*match_type = POLICY_MATCH_L4_ALL;
 			goto get_proxy_port;
 		}
 		key.dport = 0;
@@ -228,6 +231,7 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 	policy = map_lookup_elem(map, &key);
 	if (policy) {
 		account(skb, policy);
+		*match_type = POLICY_MATCH_ALL;
 		return TC_ACT_OK;
 	}
 
@@ -259,12 +263,12 @@ allow:
  */
 static inline int __inline__
 policy_can_access_ingress(struct __sk_buff *skb, __u32 src_identity,
-			  __u16 dport, __u8 proto, bool is_fragment)
+			  __u16 dport, __u8 proto, bool is_fragment, __u8 *match_type)
 {
 	int ret;
 
 	ret = __policy_can_access(&POLICY_MAP, skb, src_identity, dport,
-				      proto, CT_INGRESS, is_fragment);
+				      proto, CT_INGRESS, is_fragment, match_type);
 	if (ret >= TC_ACT_OK)
 		return ret;
 
@@ -289,7 +293,7 @@ is_encap(struct __sk_buff *skb, __u16 dport, __u8 proto)
 #endif
 
 static inline int __inline__
-policy_can_egress(struct __sk_buff *skb, __u32 identity, __u16 dport, __u8 proto)
+policy_can_egress(struct __sk_buff *skb, __u32 identity, __u16 dport, __u8 proto, __u8 *match_type)
 {
 #ifdef ENCAP_IFINDEX
 	if (is_encap(skb, dport, proto))
@@ -297,7 +301,7 @@ policy_can_egress(struct __sk_buff *skb, __u32 identity, __u16 dport, __u8 proto
 #endif
 
 	int ret = __policy_can_access(&POLICY_MAP, skb, identity, dport, proto,
-				      CT_EGRESS, false);
+				      CT_EGRESS, false, match_type);
 	if (ret >= 0)
 		return ret;
 
@@ -312,16 +316,16 @@ policy_can_egress(struct __sk_buff *skb, __u32 identity, __u16 dport, __u8 proto
 
 static inline int policy_can_egress6(struct __sk_buff *skb,
 				     struct ipv6_ct_tuple *tuple,
-				     __u32 identity)
+				     __u32 identity, __u8 *match_type)
 {
-	return policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr);
+	return policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr, match_type);
 }
 
 static inline int policy_can_egress4(struct __sk_buff *skb,
 				     struct ipv4_ct_tuple *tuple,
-				     __u32 identity)
+				     __u32 identity, __u8 *match_type)
 {
-	return policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr);
+	return policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr, match_type);
 }
 
 /**
