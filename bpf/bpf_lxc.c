@@ -51,6 +51,7 @@
 #include "lib/encap.h"
 #include "lib/nat.h"
 #include "lib/nodeport.h"
+#include "lib/policy_log.h"
 
 #if defined ENABLE_ARP_PASSTHROUGH && defined ENABLE_ARP_RESPONDER
 #error "Either ENABLE_ARP_PASSTHROUGH or ENABLE_ARP_RESPONDER can be defined"
@@ -521,6 +522,14 @@ skip_service_lookup:
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, perform the CIDR policy check. */
 	verdict = policy_can_egress4(skb, &tuple, *dstID);
+
+#ifdef POLICY_NOTIFY
+	if (ret == CT_NEW) {
+		send_policy_notify4(skb, *dstID, POLICY_EGRESS,
+					(verdict < 0)?POLICY_ACTION_DENY:POLICY_ACTION_ALLOW);
+	}
+#endif
+
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0)
 		return verdict;
 
@@ -1062,6 +1071,13 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 	verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
 					    tuple.nexthdr,
 					    is_fragment);
+
+#ifdef POLICY_NOTIFY
+	if (ret == CT_NEW) {
+		send_policy_notify4(skb, src_label, POLICY_INGRESS,
+			(verdict < 0)?POLICY_ACTION_DENY:POLICY_ACTION_ALLOW);
+	}
+#endif
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
