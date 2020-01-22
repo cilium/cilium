@@ -33,6 +33,7 @@ const (
 	MessageTypeDebug
 	MessageTypeCapture
 	MessageTypeTrace
+	MessageTypePolicy
 
 	// 129-255 are reserved for agent level events
 
@@ -50,6 +51,7 @@ const (
 	MessageTypeNameTrace   = "trace"
 	MessageTypeNameL7      = "l7"
 	MessageTypeNameAgent   = "agent"
+	MessageTypeNamePolicy  = "policy"
 )
 
 type MessageTypeFilter []int
@@ -63,6 +65,7 @@ var (
 		MessageTypeNameTrace:   MessageTypeTrace,
 		MessageTypeNameL7:      MessageTypeAccessLog,
 		MessageTypeNameAgent:   MessageTypeAgent,
+		MessageTypeNamePolicy:  MessageTypePolicy,
 	}
 )
 

@@ -51,6 +51,7 @@
 #include "lib/encap.h"
 #include "lib/nat.h"
 #include "lib/nodeport.h"
+#include "lib/policy_log.h"
 
 #if defined ENABLE_ARP_PASSTHROUGH && defined ENABLE_ARP_RESPONDER
 #error "Either ENABLE_ARP_PASSTHROUGH or ENABLE_ARP_RESPONDER can be defined"
@@ -84,6 +85,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	__u32 monitor = 0;
 	__u8 reason;
 	bool hairpin_flow = false; // endpoint wants to access itself via service IP
+	__u8 policy_match_type = POLICY_MATCH_NONE;
 
 	if (unlikely(!is_valid_lxc_src_ip(ip6)))
 		return DROP_INVALID_SIP;
@@ -182,7 +184,7 @@ skip_service_lookup:
 	/* If the packet is in the establishing direction and it's destined
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, perform the CIDR policy check. */
-	verdict = policy_can_egress6(skb, tuple, *dstID);
+	verdict = policy_can_egress6(skb, tuple, *dstID, &policy_match_type);
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0)
 		return verdict;
 
@@ -434,6 +436,7 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 	__u32 monitor = 0;
 	__u8 reason;
 	bool hairpin_flow = false; // endpoint wants to access itself via service IP
+	__u8 policy_match_type = POLICY_MATCH_NONE;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -520,7 +523,15 @@ skip_service_lookup:
 	/* If the packet is in the establishing direction and it's destined
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, perform the CIDR policy check. */
-	verdict = policy_can_egress4(skb, &tuple, *dstID);
+	verdict = policy_can_egress4(skb, &tuple, *dstID, &policy_match_type);
+
+#ifdef POLICY_NOTIFY
+	if (ret == CT_NEW) {
+		send_policy_notify4(skb, *dstID, POLICY_EGRESS,
+					(verdict < 0)?POLICY_ACTION_DENY:POLICY_ACTION_ALLOW, policy_match_type);
+	}
+#endif
+
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0)
 		return verdict;
 
@@ -796,6 +807,7 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason)
 	bool skip_ingress_proxy = false;
 	union v6addr orig_dip, orig_sip;
 	__u32 monitor = 0;
+	__u8 policy_match_type = POLICY_MATCH_NONE;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -863,7 +875,7 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason)
 	}
 
 	verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
-			tuple.nexthdr, false);
+			tuple.nexthdr, false, &policy_match_type);
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
@@ -1006,6 +1018,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 	__be32 orig_dip, orig_sip;
 	bool is_fragment = false;
 	__u32 monitor = 0;
+	__u8 policy_match_type = POLICY_MATCH_NONE;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -1061,7 +1074,14 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 
 	verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
 					    tuple.nexthdr,
-					    is_fragment);
+					    is_fragment, &policy_match_type);
+
+#ifdef POLICY_NOTIFY
+	if (ret == CT_NEW) {
+		send_policy_notify4(skb, src_label, POLICY_INGRESS,
+			(verdict < 0)?POLICY_ACTION_DENY:POLICY_ACTION_ALLOW, policy_match_type);
+	}
+#endif
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
