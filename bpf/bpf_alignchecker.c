@@ -20,6 +20,7 @@
 #define DEBUG
 #define TRACE_NOTIFY
 #define DROP_NOTIFY
+#define POLICY_VERDICT_NOTIFY
 
 #include "node_config.h"
 #include "lib/conntrack.h"
@@ -29,6 +30,7 @@
 #include "lib/maps.h"
 #include "lib/nat.h"
 #include "lib/trace.h"
+#include "lib/policy_log.h"
 #include "sockops/bpf_sockops.h"
 
 // DECLARE_STRUCT declares a unique usage of the struct 'x' on the stack.
@@ -70,6 +72,7 @@ int main() {
     DECLARE_STRUCT(ipv6_nat_entry, iter);
     DECLARE_STRUCT(trace_notify, iter);
     DECLARE_STRUCT(drop_notify, iter);
+    DECLARE_STRUCT(policy_verdict_notify, iter);
     DECLARE_STRUCT(debug_msg, iter);
     DECLARE_STRUCT(debug_capture_msg, iter);
 
