@@ -132,6 +132,7 @@ pipeline {
                     environment {
                         TESTED_SUITE="k8s-1.11"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
+                        HOME="${GOPATH}"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                         NETNEXT="true"
                         K8S_VERSION="1.11"
@@ -164,6 +165,7 @@ pipeline {
                     environment {
                         TESTED_SUITE="k8s-1.17"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
+                        HOME="${GOPATH}"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                         K8S_VERSION="1.17"
                         KUBECONFIG="vagrant-kubeconfig"
@@ -231,6 +233,7 @@ pipeline {
                     environment {
                         TESTED_SUITE="k8s-1.11"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
+                        HOME="${GOPATH}"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                         NETNEXT="true"
                         KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
@@ -260,6 +263,7 @@ pipeline {
                     environment {
                         TESTED_SUITE="k8s-1.17"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
+                        HOME="${GOPATH}"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                         KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
                         K8S_VERSION="1.17"
