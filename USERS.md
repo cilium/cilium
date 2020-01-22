@@ -50,6 +50,12 @@ Users (Alphabetically)
       U: L3/L4/L7 policies
       L: https://youtu.be/39FLsSc2P-Y
 
+    * N: CENGN - Centre of Excellence in Next Generation Networks
+      D: CENGN is using Cilium in multiple clusters including production and development clusters (self-hosted k8s, On-premises)
+      U: L3/L4/L7 network policies, Monitoring via Prometheus metrics & Hubble
+      L: https://www.youtube.com/watch?v=yXm7yZE2rk4
+      Q: @rmaika @mohahmed13
+
     * N: Datadog
       D: Datadog is using Cilium in AWS (self-hosted k8s)
       U: ENI Networking, Service load-balancing, Encryption
