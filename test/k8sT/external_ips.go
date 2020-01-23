@@ -93,7 +93,6 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 
 	BeforeAll(func() {
 		if !helpers.RunsOnNetNext() {
-			Skip("Skipping test because it is not running with the net-next kernel")
 			return
 		}
 
@@ -173,14 +172,12 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 
 	BeforeEach(func() {
 		if !helpers.RunsOnNetNext() {
-			Skip("Skipping test because it is not running with the net-next kernel")
 			return
 		}
 	})
 
 	AfterFailed(func() {
 		if !helpers.RunsOnNetNext() {
-			Skip("Skipping test because it is not running with the net-next kernel")
 			return
 		}
 		kubectl.CiliumReport(helpers.KubeSystemNamespace,
@@ -190,7 +187,6 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 
 	AfterAll(func() {
 		if !helpers.RunsOnNetNext() {
-			Skip("Skipping test because it is not running with the net-next kernel")
 			return
 		}
 		_ = kubectl.NamespaceDelete(namespaceTest)
