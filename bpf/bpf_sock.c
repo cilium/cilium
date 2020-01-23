@@ -206,36 +206,37 @@ static __always_inline bool sock4_skip_xlate(struct lb4_service *svc,
 	return false;
 }
 
-static __always_inline void sock4_handle_node_port(struct bpf_sock_addr *ctx,
-						   struct lb4_key *key)
+static __always_inline
+struct lb4_service *sock4_nodeport_wildcard_lookup(struct lb4_key *key,
+						   const bool include_remote_hosts)
 {
 #ifdef ENABLE_NODEPORT
 	struct remote_endpoint_info *info;
-	__be32 daddr = ctx->user_ip4;
 	__u16 service_port;
 
 	service_port = bpf_ntohs(key->dport);
 	if (service_port < NODEPORT_PORT_MIN ||
 	    service_port > NODEPORT_PORT_MAX)
-		goto out_fill_addr;
+		return NULL;
 
 	/* When connecting to node port services in our cluster that
 	 * have either {REMOTE_NODE,HOST}_ID or loopback address, we
 	 * do a wild-card lookup with IP of 0.
 	 */
-	if (is_v4_loopback(daddr))
-		return;
+	if (is_v4_loopback(key->address))
+		goto wildcard_lookup;
 
-	info = ipcache_lookup4(&IPCACHE_MAP, daddr, V4_CACHE_KEY_LEN);
+	info = ipcache_lookup4(&IPCACHE_MAP, key->address, V4_CACHE_KEY_LEN);
 	if (info != NULL && (info->sec_label == HOST_ID ||
-			     info->sec_label == REMOTE_NODE_ID))
-		return;
+	    (include_remote_hosts && info->sec_label == REMOTE_NODE_ID)))
+		goto wildcard_lookup;
 
-	/* For everything else in terms of node port, do a direct lookup. */
-out_fill_addr:
-	key->address = daddr;
+	return NULL;
+wildcard_lookup:
+	key->address = 0;
+	return __lb4_lookup_service(key);
 #else
-	key->address = ctx->user_ip4;
+	return NULL;
 #endif /* ENABLE_NODEPORT */
 }
 
@@ -260,16 +261,9 @@ static __always_inline int __sock4_xlate(struct bpf_sock_addr *ctx,
 	 */
 	svc = __lb4_lookup_service(&key);
 	if (!svc) {
-		key.address = 0;
 		key.dport = ctx_get_port(ctx);
 
-		/* We already performed a lookup where key.address
-		 * was ctx->user_ip4. If it was not found then, it
-		 * is not going to be found again.
-		 */
-		sock4_handle_node_port(ctx, &key);
-		if (key.address != ctx->user_ip4)
-			svc = __lb4_lookup_service(&key);
+		svc = sock4_nodeport_wildcard_lookup(&key, true);
 		if (svc && !lb4_svc_is_nodeport(svc))
 			svc = NULL;
 	}
@@ -319,6 +313,48 @@ int sock4_xlate(struct bpf_sock_addr *ctx)
 	return SYS_PROCEED;
 }
 
+#if defined(ENABLE_NODEPORT) || defined(ENABLE_EXTERNAL_IP)
+static __always_inline int __sock4_post_bind(struct bpf_sock *ctx)
+{
+	struct lb4_service *svc;
+	struct lb4_key key = {
+		.address	= ctx->src_ip4,
+		.dport		= bpf_htons(ctx->src_port),
+	};
+
+	if (!sock_proto_enabled(ctx->protocol))
+		return 0;
+
+	svc = __lb4_lookup_service(&key);
+	if (!svc) {
+		/* Perform a wildcard lookup for the case where the caller tries
+		 * to bind to loopback or an address with host identity
+		 * (without remote hosts).
+		 */
+		key.dport = bpf_htons(ctx->src_port);
+		svc = sock4_nodeport_wildcard_lookup(&key, false);
+	}
+
+	/* If the sockaddr of this socket overlaps with a NodePort
+	 * or ExternalIP service. We must reject this bind() call
+	 * to avoid accidentally hijacking its traffic.
+	 */
+	if (svc && (lb4_svc_is_nodeport(svc) || lb4_svc_is_external_ip(svc)))
+		return -EADDRINUSE;
+
+	return 0;
+}
+
+__section("post-bind-sock4")
+int sock4_post_bind(struct bpf_sock *ctx)
+{
+	if (__sock4_post_bind(ctx) < 0)
+		return SYS_REJECT;
+
+	return SYS_PROCEED;
+}
+#endif /* ENABLE_NODEPORT || ENABLE_EXTERNAL_IP */
+
 #ifdef ENABLE_HOST_SERVICES_UDP
 static __always_inline int __sock4_xlate_snd(struct bpf_sock_addr *ctx,
 					     struct bpf_sock_addr *ctx_full)
@@ -333,12 +369,8 @@ static __always_inline int __sock4_xlate_snd(struct bpf_sock_addr *ctx,
 
 	svc = __lb4_lookup_service(&lkey);
 	if (!svc) {
-		lkey.address = 0;
 		lkey.dport = ctx_get_port(ctx);
-
-		sock4_handle_node_port(ctx, &lkey);
-		if (lkey.address != ctx->user_ip4)
-			svc = __lb4_lookup_service(&lkey);
+		svc = sock4_nodeport_wildcard_lookup(&lkey, true);
 		if (svc && !lb4_svc_is_nodeport(svc))
 			svc = NULL;
 	}
@@ -484,6 +516,17 @@ static __always_inline void ctx_get_v6_address(struct bpf_sock_addr *ctx,
 	addr->p4 = ctx->user_ip6[3];
 }
 
+#ifdef ENABLE_NODEPORT
+static __always_inline void ctx_get_v6_src_address(struct bpf_sock *ctx,
+					       union v6addr *addr)
+{
+	addr->p1 = ctx->src_ip6[0];
+	addr->p2 = ctx->src_ip6[1];
+	addr->p3 = ctx->src_ip6[2];
+	addr->p4 = ctx->src_ip6[3];
+}
+#endif /* ENABLE_NODEPORT */
+
 static __always_inline void ctx_set_v6_address(struct bpf_sock_addr *ctx,
 					       union v6addr *addr)
 {
@@ -513,38 +556,37 @@ static __always_inline bool sock6_skip_xlate(struct lb6_service *svc,
 	return false;
 }
 
-static __always_inline void sock6_handle_node_port(struct bpf_sock_addr *ctx,
-						   struct lb6_key *key)
+static __always_inline
+struct lb6_service *sock6_nodeport_wildcard_lookup(struct lb6_key *key,
+						   bool include_remote_hosts)
 {
 #ifdef ENABLE_NODEPORT
 	struct remote_endpoint_info *info;
-	union v6addr daddr;
 	__u16 service_port;
-
-	ctx_get_v6_address(ctx, &daddr);
 
 	service_port = bpf_ntohs(key->dport);
 	if (service_port < NODEPORT_PORT_MIN ||
 	    service_port > NODEPORT_PORT_MAX)
-		goto out_fill_addr;
+		return NULL;
 
 	/* When connecting to node port services in our cluster that
 	 * have either {REMOTE_NODE,HOST}_ID or loopback address, we
 	 * do a wild-card lookup with IP of 0.
 	 */
-	if (is_v6_loopback(&daddr))
-		return;
+	if (is_v6_loopback(&key->address))
+		goto wildcard_lookup;
 
-	info = ipcache_lookup6(&IPCACHE_MAP, &daddr, V6_CACHE_KEY_LEN);
+	info = ipcache_lookup6(&IPCACHE_MAP, &key->address, V6_CACHE_KEY_LEN);
 	if (info != NULL && (info->sec_label == HOST_ID ||
-			     info->sec_label == REMOTE_NODE_ID))
-		return;
+	    (include_remote_hosts && info->sec_label == REMOTE_NODE_ID)))
+		goto wildcard_lookup;
 
-	/* For everything else in terms of node port, do a direct lookup. */
-out_fill_addr:
-	key->address = daddr;
+	return NULL;
+wildcard_lookup:
+	__builtin_memset(&key->address, 0, sizeof(key->address));
+	return __lb6_lookup_service(key);
 #else
-	ctx_get_v6_address(ctx, &key->address);
+	return NULL;
 #endif /* ENABLE_NODEPORT */
 }
 
@@ -577,6 +619,66 @@ static __always_inline int sock6_xlate_v4_in_v6(struct bpf_sock_addr *ctx)
 	return -ENXIO;
 }
 
+#if defined(ENABLE_NODEPORT) || defined(ENABLE_EXTERNAL_IP)
+static __always_inline int sock6_post_bind_v4_in_v6(struct bpf_sock *ctx)
+{
+#ifdef ENABLE_IPV4
+	struct bpf_sock fake_ctx;
+	union v6addr addr6;
+
+	ctx_get_v6_src_address(ctx, &addr6);
+	if (!is_v4_in_v6(&addr6))
+		return 0;
+
+	__builtin_memset(&fake_ctx, 0, sizeof(fake_ctx));
+	fake_ctx.protocol = ctx->protocol;
+	fake_ctx.src_ip4  = addr6.p4;
+	fake_ctx.src_port = ctx->src_port;
+
+	return __sock4_post_bind(&fake_ctx);
+#endif /* ENABLE_IPV4 */
+	return 0;
+}
+
+static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
+{
+	struct lb6_service *svc;
+	struct lb6_key key = {
+		.dport		= bpf_htons(ctx->src_port),
+	};
+
+	if (!sock_proto_enabled(ctx->protocol))
+		return 0;
+
+	ctx_get_v6_src_address(ctx, &key.address);
+
+	svc = __lb6_lookup_service(&key);
+	if (!svc) {
+		key.dport = bpf_htons(ctx->src_port);
+		svc = sock6_nodeport_wildcard_lookup(&key, false);
+		if (!svc)
+			return sock6_post_bind_v4_in_v6(ctx);
+	}
+
+	if (svc && (lb6_svc_is_nodeport(svc) || lb6_svc_is_external_ip(svc))) {
+		return -EADDRINUSE;
+	}
+
+	return 0;
+}
+
+
+__section("post-bind-sock6")
+int sock6_post_bind(struct bpf_sock *ctx)
+{
+	if (__sock6_post_bind(ctx) < 0)
+		return SYS_REJECT;
+
+	return SYS_PROCEED;
+}
+
+#endif /* ENABLE_NODEPORT || ENABLE_EXTERNAL_IP */
+
 static __always_inline int __sock6_xlate(struct bpf_sock_addr *ctx)
 {
 	struct lb6_backend *backend;
@@ -595,12 +697,9 @@ static __always_inline int __sock6_xlate(struct bpf_sock_addr *ctx)
 
 	svc = __lb6_lookup_service(&key);
 	if (!svc) {
-		__builtin_memset(&key.address, 0, sizeof(key.address));
 		key.dport = ctx_get_port(ctx);
 
-		sock6_handle_node_port(ctx, &key);
-		if (ipv6_addrcmp(&key.address, &v6_orig))
-			svc = __lb6_lookup_service(&key);
+		svc = sock6_nodeport_wildcard_lookup(&key, true);
 		if (svc && !lb6_svc_is_nodeport(svc))
 			svc = NULL;
 		else if (!svc)
@@ -691,12 +790,9 @@ static __always_inline int __sock6_xlate_snd(struct bpf_sock_addr *ctx)
 
 	svc = __lb6_lookup_service(&lkey);
 	if (!svc) {
-		__builtin_memset(&lkey.address, 0, sizeof(lkey.address));
 		lkey.dport = ctx_get_port(ctx);
 
-		sock6_handle_node_port(ctx, &lkey);
-		if (ipv6_addrcmp(&lkey.address, &v6_orig))
-			svc = __lb6_lookup_service(&lkey);
+		svc = sock6_nodeport_wildcard_lookup(&lkey, true);
 		if (svc && !lb6_svc_is_nodeport(svc))
 			svc = NULL;
 		else if (!svc)
