@@ -1098,6 +1098,10 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
+	if option.Config.EnableNodePort && option.Config.EnableIPSec {
+		log.Fatal("IPSec cannot be used with NodePort BPF")
+	}
+
 	// If device has been specified, use it to derive better default
 	// allocation prefixes
 	if option.Config.Device != "undefined" {
