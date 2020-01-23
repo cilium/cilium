@@ -223,9 +223,7 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 					Skip(skipReason)
 					return
 				}
-				// TODO @brb, once the kube-proxy free is merged in master
-				// we can uncomment this
-				// Expect(got).ToNot(Equal(expected), "It seems this test is disabled but your changes have fix this test case")
+				Expect(got).ToNot(Equal(expected), "It seems this test is disabled but your changes have fix this test case")
 				return
 			}
 			Expect(got).To(Equal(expected), cmd.GetCmd())
