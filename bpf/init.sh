@@ -516,8 +516,7 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	echo "#define ENCAP_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
 
 	CALLS_MAP="cilium_calls_overlay_${ID_WORLD}"
-	POLICY_MAP="cilium_policy_reserved_${ID_WORLD}"
-	COPTS="-DSECLABEL=${ID_WORLD} -DPOLICY_MAP=${POLICY_MAP}"
+	COPTS="-DSECLABEL=${ID_WORLD}"
 	if [ "$NODE_PORT" = "true" ]; then
 		COPTS="${COPTS} -DLB_L3 -DLB_L4"
 	fi
@@ -538,8 +537,7 @@ if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$MODE" = "routed" ] ||
 		fi
 
 		CALLS_MAP=cilium_calls_netdev_${ID_WORLD}
-		POLICY_MAP="cilium_policy_reserved_${ID_WORLD}"
-		COPTS="-DSECLABEL=${ID_WORLD} -DPOLICY_MAP=${POLICY_MAP}"
+		COPTS="-DSECLABEL=${ID_WORLD}"
 		if [ "$NODE_PORT" = "true" ]; then
 			COPTS="${COPTS} -DLB_L3 -DLB_L4"
 		fi
@@ -601,8 +599,7 @@ fi
 
 # bpf_host.o requires to see an updated node_config.h which includes ENCAP_IFINDEX
 CALLS_MAP="cilium_calls_netdev_ns_${ID_HOST}"
-POLICY_MAP="cilium_policy_reserved_${ID_HOST}"
-COPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID_HOST} -DSECLABEL=${ID_HOST} -DPOLICY_MAP=${POLICY_MAP}"
+COPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID_HOST} -DSECLABEL=${ID_HOST}"
 if [ "$MODE" == "ipvlan" ]; then
 	COPTS+=" -DENABLE_EXTRA_HOST_DEV"
 fi

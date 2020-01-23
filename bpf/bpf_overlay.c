@@ -35,7 +35,7 @@
 #include "lib/trace.h"
 #include "lib/l3.h"
 #include "lib/drop.h"
-#include "lib/policy.h"
+#include "lib/identity.h"
 #include "lib/nodeport.h"
 
 #ifdef ENABLE_IPV6
