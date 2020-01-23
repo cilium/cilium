@@ -446,7 +446,8 @@ func (s *BPFPrivilegedTestSuite) TestCheckAndUpgrade(c *C) {
 	defer upgradeMap.Close()
 
 	// Exactly the same MapInfo so it won't be upgraded.
-	upgrade := upgradeMap.CheckAndUpgrade(&upgradeMap.MapInfo)
+	upgrade, err := upgradeMap.CheckAndUpgrade(&upgradeMap.MapInfo)
+	c.Assert(err, IsNil)
 	c.Assert(upgrade, Equals, false)
 
 	// preallocMap unsets BPF_F_NO_PREALLOC so upgrade is needed.
@@ -461,7 +462,8 @@ func (s *BPFPrivilegedTestSuite) TestCheckAndUpgrade(c *C) {
 		0,
 		0,
 		ConvertKeyValue).WithCache()
-	upgrade = upgradeMap.CheckAndUpgrade(&preallocMap.MapInfo)
+	upgrade, err = upgradeMap.CheckAndUpgrade(&preallocMap.MapInfo)
+	c.Assert(err, IsNil)
 	c.Assert(upgrade, Equals, true)
 	DisableMapPreAllocation()
 }
