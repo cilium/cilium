@@ -820,25 +820,6 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason)
 	l4_off = ETH_HLEN + hdrlen;
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
-	/* derive reverse NAT index and zero it. */
-	ct_state_new.rev_nat_index = ip6->daddr.s6_addr32[3] & 0xFFFF;
-	if (ct_state_new.rev_nat_index) {
-		union v6addr dip;
-
-		ipv6_addr_copy(&dip, (union v6addr *) &ip6->daddr);
-		dip.p4 &= ~0xFFFF;
-		ret = ipv6_store_daddr(skb, dip.addr, ETH_HLEN);
-		if (IS_ERR(ret))
-			return DROP_WRITE_ERROR;
-
-		if (csum_off.offset) {
-			__u32 zero_nat = 0;
-			__be32 sum = csum_diff(&ct_state_new.rev_nat_index, 4, &zero_nat, 4, 0);
-			if (csum_l4_replace(skb, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
-				return DROP_CSUM_L4;
-		}
-	}
-
 	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, skb, l4_off, CT_INGRESS,
 			 &ct_state, &monitor);
 	if (ret < 0)
