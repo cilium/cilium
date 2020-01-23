@@ -721,5 +721,8 @@ static inline int redirect_peer(int ifindex, uint32_t flags)
 #ifndef ENOMEM
 # define ENOMEM		12
 #endif
+#ifndef EADDRINUSE
+# define EADDRINUSE		98
+#endif
 
 #endif /* __LIB_COMMON_H_ */
