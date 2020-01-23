@@ -23,7 +23,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -215,7 +214,6 @@ func CheckMinRequirements() {
 
 	checkBPFLogs("bpf_requirements", true)
 	checkBPFLogs("bpf_features", false)
-	bpf.ReadFeatureProbes(featuresFilePath)
 
 	// bpftool checks
 	if !option.Config.DryMode {
