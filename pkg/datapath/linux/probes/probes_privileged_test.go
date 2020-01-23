@@ -38,3 +38,11 @@ func (s *ProbesPrivTestSuite) TestSystemConfigProbes(c *C) {
 	err = pm.SystemConfigProbes()
 	c.Assert(err, IsNil)
 }
+
+func (s *ProbesPrivTestSuite) TestMapTypes(c *C) {
+	pm, err := NewProbeManager()
+	c.Assert(err, IsNil)
+
+	mapTypes := pm.GetMapTypes()
+	c.Assert(mapTypes, NotNil)
+}
