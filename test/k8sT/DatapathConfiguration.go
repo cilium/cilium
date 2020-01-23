@@ -217,6 +217,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				Skip("Skipping test because it is not running with the net-next kernel")
 				return
 			}
+			SkipItIfNoKubeProxy()
 
 			deployCilium([]string{
 				"--set global.encryption.enabled=true",
@@ -373,6 +374,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 	Context("Transparent encryption DirectRouting", func() {
 		It("Check connectivity with transparent encryption and direct routing", func() {
 			SkipIfIntegration(helpers.CIIntegrationFlannel)
+			SkipItIfNoKubeProxy()
 
 			deployCilium([]string{
 				"--set global.tunnel=disabled",
