@@ -89,7 +89,7 @@ func (d *dummyBackend) AcquireReference(ctx context.Context, id idpool.ID, key A
 	defer d.mutex.Unlock()
 
 	if _, ok := d.identities[id]; !ok {
-		return fmt.Errorf("identity does not exist")
+		return fmt.Errorf("identity does not exist1")
 	}
 
 	if d.handler != nil {
@@ -160,7 +160,7 @@ func (d *dummyBackend) Release(ctx context.Context, key AllocatorKey) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("identity does not exist")
+	return fmt.Errorf("identity does not exist2")
 }
 
 func (d *dummyBackend) ListAndWatch(ctx context.Context, handler CacheMutations, stopChan chan struct{}) {
@@ -292,7 +292,7 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	c.Assert(err, IsNil)
 	c.Assert(allocator2, Not(IsNil))
 
-	// allocate all IDs again using the same set of keys, refcnt should go to 2
+	// allocate all IDs again using the same set of keys, refcnt should go to 1
 	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
 		id, new, err := allocator2.Allocate(context.Background(), key)
@@ -306,12 +306,14 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 		// refcnt in the 2nd allocator is 1
 		c.Assert(localKey.refcnt, Equals, uint64(1))
 
-		allocator2.Release(context.Background(), key)
+		_, err = allocator2.Release(context.Background(), key)
+		c.Assert(err, IsNil)
 	}
 
 	// release 2nd reference of all IDs
 	for i := idpool.ID(1); i <= maxID; i++ {
-		allocator.Release(context.Background(), TestAllocatorKey(fmt.Sprintf("key%04d", i)))
+		_, err = allocator.Release(context.Background(), TestAllocatorKey(fmt.Sprintf("key%04d", i)))
+		c.Assert(err, IsNil)
 	}
 
 	// refcnt should be back to 1
@@ -325,7 +327,8 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 
 	// release final reference of all IDs
 	for i := idpool.ID(1); i <= maxID; i++ {
-		allocator.Release(context.Background(), TestAllocatorKey(fmt.Sprintf("key%04d", i)))
+		_, err = allocator.Release(context.Background(), TestAllocatorKey(fmt.Sprintf("key%04d", i)))
+		c.Assert(err, IsNil)
 	}
 
 	for i := idpool.ID(1); i <= maxID; i++ {
