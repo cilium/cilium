@@ -245,6 +245,14 @@ var _ = Describe("K8sServicesTest", func() {
 			}
 		}
 
+		failBind := func(addr string, port int32, fromPod string) {
+			By("Trying to bind NodePort addr %q:%d on %s", addr, port, fromPod)
+			res, err := kubectl.ExecInHostNetNS(context.TODO(), fromPod, helpers.PythonBind(addr, uint16(port)))
+			ExpectWithOffset(1, err).To(BeNil(), "Cannot run python in host netns")
+			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
+				"%s host unexpectedly was able to bind on %q:%d, it should fail", fromPod, addr, port)
+		}
+
 		doRequestsFromThirdHostWithLocalPort :=
 			func(url string, count int, checkSourceIP bool, fromPort int) {
 				var cmd string
@@ -326,6 +334,14 @@ var _ = Describe("K8sServicesTest", func() {
 				// From pod via remote cilium_host
 				url = getURL(remoteCiliumHostIPv4, data.Spec.Ports[0].NodePort)
 				testHTTPRequest(testDSClient, url)
+
+				// Ensure the NodePort cannot be bound from any redirected address
+				failBind(localCiliumHostIPv4, data.Spec.Ports[0].NodePort, k8s1Name)
+				failBind("127.0.0.1", data.Spec.Ports[0].NodePort, k8s1Name)
+				failBind("", data.Spec.Ports[0].NodePort, k8s1Name)
+
+				failBind("::ffff:127.0.0.1", data.Spec.Ports[0].NodePort, k8s1Name)
+				failBind("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[0].NodePort, k8s1Name)
 			}
 		}
 

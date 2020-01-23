@@ -14,7 +14,10 @@
 
 package helpers
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // PerfTest represents a type of test to run when running `netperf`.
 type PerfTest string
@@ -98,4 +101,18 @@ func Netcat(endpoint string, optionalValues ...interface{}) string {
 		endpoint = fmt.Sprintf(endpoint, optionalValues...)
 	}
 	return fmt.Sprintf("nc -w 4 %s", endpoint)
+}
+
+// PythonBind returns the string representing a python3 command which will try
+// to bind a socket on the given address and port. Python is available in the
+// log-gatherer pod.
+func PythonBind(addr string, port uint16) string {
+	family := "socket.AF_INET"
+	if strings.Contains(addr, ":") {
+		family = "socket.AF_INET6"
+	}
+
+	return fmt.Sprintf(
+		`/usr/bin/python3 -c 'import socket; socket.socket(family=%s).bind((%q, %d))`,
+		family, addr, port)
 }
