@@ -71,7 +71,6 @@ const (
 	// CIIntegrationMicrok8s is the value to set CNI_INTEGRATION when running with minikube.
 	CIIntegrationMinikube = "minikube"
 
-	LogGathererSelector  = "k8s-app=cilium-test-logs"
 	LogGathererNamespace = "kube-system"
 
 	CiliumSelector = "k8s-app=cilium"
@@ -1054,18 +1053,18 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 		// an IP of the pod itself, not ClusterIPNone, which is what Kubernetes
 		// shows as the IP for the service for headless services.
 		if serviceIP == v1.ClusterIPNone {
-			res, err := kub.ExecInFirstPod(ctx, LogGathererNamespace, LogGathererSelector, fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP))
+			res, err := kub.ExecInFirstPod(ctx, LogGathererNamespace, logGathererSelector(false), fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP))
 			if err != nil {
 				logger.Debugf("failed to run dig in log-gatherer pod")
 				return false
 			}
-			kub.ExecInFirstPod(ctx, LogGathererNamespace, LogGathererSelector, fmt.Sprintf(digCMDFallback, serviceNameWithNamespace, dnsClusterIP))
+			kub.ExecInFirstPod(ctx, LogGathererNamespace, logGathererSelector(false), fmt.Sprintf(digCMDFallback, serviceNameWithNamespace, dnsClusterIP))
 
 			return res.WasSuccessful()
 		}
 		log.Debugf("service is not headless; checking whether IP retrieved from DNS matches the IP for the service stored in Kubernetes")
 
-		res, err := kub.ExecInFirstPod(ctx, LogGathererNamespace, LogGathererSelector, fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP))
+		res, err := kub.ExecInFirstPod(ctx, LogGathererNamespace, logGathererSelector(false), fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP))
 		if err != nil {
 			logger.Debugf("failed to run dig in log-gatherer pod")
 			return false
@@ -1083,7 +1082,7 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 		// name to resolve via DNS.
 		if !strings.Contains(serviceIPFromDNS, serviceIP) {
 			logger.Debugf("service IP retrieved from DNS (%s) does not match the IP for the service stored in Kubernetes (%s)", serviceIPFromDNS, serviceIP)
-			kub.ExecInFirstPod(ctx, LogGathererNamespace, LogGathererSelector, fmt.Sprintf(digCMDFallback, serviceNameWithNamespace, dnsClusterIP))
+			kub.ExecInFirstPod(ctx, LogGathererNamespace, logGathererSelector(false), fmt.Sprintf(digCMDFallback, serviceNameWithNamespace, dnsClusterIP))
 			return false
 		}
 		logger.Debugf("service IP retrieved from DNS (%s) matches the IP for the service stored in Kubernetes (%s)", serviceIPFromDNS, serviceIP)
@@ -2213,7 +2212,7 @@ func (kub *Kubectl) ExecInHostNetNS(ctx context.Context, node, cmd string) (resu
 	// which runs in the host netns. Also, the log-gathering pods lack some
 	// packages, e.g. iproute2.
 	selector := fmt.Sprintf("%s --field-selector spec.nodeName=%s",
-		LogGathererSelector, node)
+		logGathererSelector(true), node)
 
 	return kub.ExecInFirstPod(ctx, LogGathererNamespace, selector, cmd)
 }
@@ -2368,7 +2367,7 @@ func (kub *Kubectl) GatherLogs(ctx context.Context) {
 		"ps aux":                            "ps.log",
 	}
 
-	kub.reportMapContext(ctx, testPath, reportCmds, LogGathererNamespace, LogGathererSelector)
+	kub.reportMapContext(ctx, testPath, reportCmds, LogGathererNamespace, logGathererSelector(false))
 }
 
 // GeneratePodLogGatheringCommands generates the commands to gather logs for
@@ -2993,4 +2992,23 @@ func GenerateNamespaceForTest() string {
 	out = append(out, []byte("-")...)
 	out = append(out, hash[:6]...)
 	return string(out)
+}
+
+// logGathererSelector returns selector for log-gatherer pods which run on each
+// node in a host netns.
+//
+// If NO_CILIUM_ON_NODE is non empty and allNodes is not set, then the returned
+// selector will exclude log-gatherer running on the NO_CILIUM_ON_NODE node.
+func logGathererSelector(allNodes bool) string {
+	selector := "k8s-app=cilium-test-logs"
+
+	if allNodes {
+		return selector
+	}
+
+	if nodeName := os.Getenv("NO_CILIUM_ON_NODE"); nodeName != "" {
+		selector = fmt.Sprintf("%s --field-selector='spec.nodeName!=%s'", selector, nodeName)
+	}
+
+	return selector
 }
