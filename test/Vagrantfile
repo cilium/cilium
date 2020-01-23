@@ -25,8 +25,8 @@ $PRELOAD_VM = ENV['PRELOAD_VM'] || "false"
 $SKIP_K8S_PROVISION = ENV['SKIP_K8S_PROVISION'] || "false"
 
 # RAM and CPU settings
-$MEMORY = (ENV['MEMORY'] || "4096").to_i
-$CPU = (ENV['CPUS'] || "2").to_i
+$MEMORY = (ENV['VM_MEMORY'] || "4096").to_i
+$CPU = (ENV['VM_CPUS'] || "2").to_i
 
 if ENV['NETNEXT'] == "true"
     $SERVER_BOX = $NETNEXT_SERVER_BOX

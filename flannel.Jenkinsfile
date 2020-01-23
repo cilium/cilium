@@ -8,7 +8,7 @@ pipeline {
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
         TESTDIR = "${WORKSPACE}/${PROJ_PATH}/"
-        MEMORY = "4096"
+        VM_MEMORY = "4096"
         SERVER_BOX = "cilium/ubuntu"
         NETNEXT=setIfLabel("ci/net-next", "true", "false")
         CNI_INTEGRATION="flannel"
