@@ -76,6 +76,7 @@ Limitations
       or ``cilium_geneve``). Exposing services through multiple native devices
       will be supported in upcoming Cilium versions. See `GH issue 9620
       <https://github.com/cilium/cilium/issues/9620>`_ for additional details.
+    * NodePort BPF cannot currently be used with :ref:`encryption`.
 
 .. _external-ips:
 
