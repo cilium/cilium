@@ -33,9 +33,9 @@ export 'IPV6_INTERNAL_CIDR'=${IPV4+"FD01::"}
 #   worker 1: FD02::1:0:0/96
 export 'CILIUM_IPV6_NODE_CIDR'=${CILIUM_IPV6_NODE_CIDR:-"FD02::"}
 # VM memory
-export 'VM_MEMORY'=${MEMORY:-4096}
+export 'VM_MEMORY'=${VM_MEMORY:-4096}
 # Number of CPUs
-export 'VM_CPUS'=${CPUS:-2}
+export 'VM_CPUS'=${VM_CPUS:-2}
 # VM_BASENAME tag is only set if K8S option is active
 export 'VM_BASENAME'="runtime"
 export 'VM_BASENAME'=${K8S+"k8s"}
