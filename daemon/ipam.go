@@ -329,9 +329,7 @@ func (d *Daemon) bootstrapIPAM() {
 			log.WithError(err).WithField(logfields.V6Prefix, option.Config.IPv6Range).Fatal("Invalid IPv6 allocation prefix")
 		}
 
-		if err := node.SetIPv6NodeRange(net); err != nil {
-			log.WithError(err).WithField(logfields.V6Prefix, net).Fatal("Invalid per node IPv6 allocation prefix")
-		}
+		node.SetIPv6NodeRange(net)
 	}
 
 	if err := node.AutoComplete(); err != nil {

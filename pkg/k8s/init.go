@@ -106,12 +106,7 @@ func useNodeCIDR(n *node.Node) {
 		node.SetIPv4AllocRange(n.IPv4AllocCIDR)
 	}
 	if n.IPv6AllocCIDR != nil && option.Config.EnableIPv6 {
-		if err := node.SetIPv6NodeRange(n.IPv6AllocCIDR.IPNet); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.Node:     n.Name,
-				logfields.V6Prefix: n.IPv6AllocCIDR,
-			}).Warn("k8s: Can't use IPv6 CIDR range from k8s")
-		}
+		node.SetIPv6NodeRange(n.IPv6AllocCIDR.IPNet)
 	}
 }
 

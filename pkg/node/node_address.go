@@ -242,12 +242,9 @@ func GetNodePortIPv6() net.IP {
 }
 
 // SetIPv6NodeRange sets the IPv6 address pool to be used on this node
-func SetIPv6NodeRange(net *net.IPNet) error {
+func SetIPv6NodeRange(net *net.IPNet) {
 	copy := *net
 	ipv6AllocRange = cidr.NewCIDR(&copy)
-
-	// TODO(brb) rm error
-	return nil
 }
 
 // AutoComplete completes the parts of addressing that can be auto derived
