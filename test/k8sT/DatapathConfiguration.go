@@ -281,6 +281,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 			deployCilium(append(directRoutingOptions,
 				"--set global.endpointRoutes.enabled=true",
+				"--set global.ipv6.enabled=false",
 			))
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
