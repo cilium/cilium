@@ -171,6 +171,13 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 		setClusterIPOf("svc-e-node-port")
 	})
 
+	BeforeEach(func() {
+		if !helpers.RunsOnNetNext() {
+			Skip("Skipping test because it is not running with the net-next kernel")
+			return
+		}
+	})
+
 	AfterFailed(func() {
 		if !helpers.RunsOnNetNext() {
 			Skip("Skipping test because it is not running with the net-next kernel")
