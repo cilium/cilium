@@ -144,6 +144,12 @@ bootstrapTokens:
   - authentication
 nodeRegistration:
   criSocket: "{{ .KUBEADM_CRI_SOCKET }}"
+controllerManager:
+  extraArgs:
+    "feature-gates": "{{ .CONTROLLER_FEATURE_GATES }}"
+apiServer:
+  extraArgs:
+    "feature-gates": "{{ .API_SERVER_FEATURE_GATES }}"
 ---
 apiVersion: kubeadm.k8s.io/v1beta1
 kind: ClusterConfiguration
@@ -242,6 +248,8 @@ case $K8S_VERSION in
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         KUBEADM_CONFIG="${KUBEADM_CONFIG_ALPHA3}"
+        CONTROLLER_FEATURE_GATES="EndpointSlice=true"
+        API_SERVER_FEATURE_GATES="EndpointSlice=true"
         ;;
 esac
 
