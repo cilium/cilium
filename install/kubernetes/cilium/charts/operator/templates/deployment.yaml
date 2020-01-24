@@ -38,6 +38,7 @@ spec:
 {{- if .Values.global.kubeConfigPath }}
         - --k8s-kubeconfig-path={{ .Values.global.kubeConfigPath }}
 {{- end }}
+        - --synchronize-k8s-nodes={{ .Values.synchronizeK8sNodes }}
         command:
         - cilium-operator
         env:
