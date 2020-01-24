@@ -271,6 +271,11 @@ func (c *CNPStatusEventHandler) runStatusHandler(cnpKey string, cnp *types.SlimC
 					return
 				}
 				nodeStatusMap[ev.node] = *ev.CiliumNetworkPolicyNodeStatus
+				// If limit was set to nil then we can brake this
+				// for loop as soon we have a CNPNS update from the kvstore.
+				if limit == nil {
+					break Loop
+				}
 			}
 		}
 
