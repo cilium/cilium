@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 
@@ -55,14 +54,4 @@ func (c *CCNPStatusEventHandler) WatchForCCNPStatusEvents() {
 	for {
 		c.watchForCNPStatusEvents(watcher)
 	}
-}
-
-// StopStatusHandler signals that we need to stop managing the sending of
-// status updates to the Kubernetes APIServer for the given CCNP. It also cleans
-// up all status updates from the key-value store for this CCNP.
-func (c *CCNPStatusEventHandler) StopStatusHandler(cnp *types.SlimCNP) {
-	cnpKey := getKeyFromObjectMeta(cnp.ObjectMeta)
-	prefix := path.Join(CCNPStatusesPath, cnpKey)
-
-	c.stopStatusHandler(cnp, cnpKey, prefix)
 }

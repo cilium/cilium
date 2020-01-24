@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,9 +30,9 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/sirupsen/logrus"
 
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/sirupsen/logrus"
+	k8sTypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -163,7 +163,7 @@ func (c *CNPStatusEventHandler) watchForCNPStatusEvents(watcher *kvstore.Watcher
 				// CNP which sends all status updates to the K8s apiserver.
 				// If the namespace is empty for the status update then the cnpKey
 				// will correspond to the ccnpKey.
-				cnpKey := generateCNPKey(string(cnpStatusUpdate.UID), cnpStatusUpdate.Namespace, cnpStatusUpdate.Name)
+				cnpKey := getKeyFromObject(cnpStatusUpdate)
 				updater, ok := c.eventMap.lookup(cnpKey)
 				if !ok {
 					log.WithField("cnp", cnpKey).Debug("received event from kvstore for cnp for which we do not have any updater goroutine")
@@ -199,22 +199,17 @@ func (c *CNPStatusEventHandler) watchForCNPStatusEvents(watcher *kvstore.Watcher
 	}
 }
 
-func (c *CNPStatusEventHandler) stopStatusHandler(cnp *types.SlimCNP, cnpKey, prefix string) {
+// StopStatusHandler signals that we need to stop managing the sending of
+// status updates to the Kubernetes APIServer for the given CNP. It also cleans
+// up all status updates from the key-value store for this CNP.
+func (c *CNPStatusEventHandler) StopStatusHandler(cnp *types.SlimCNP) {
+	cnpKey := getKeyFromObject(cnp.GetObjectMeta())
+	prefix := formatKeyForKvstore(cnp.GetObjectMeta())
 	err := kvstore.DeletePrefix(context.TODO(), prefix)
 	if err != nil {
 		log.WithError(err).WithField("prefix", prefix).Warning("error deleting prefix from kvstore")
 	}
 	c.eventMap.delete(cnpKey)
-}
-
-// StopStatusHandler signals that we need to stop managing the sending of
-// status updates to the Kubernetes APIServer for the given CNP. It also cleans
-// up all status updates from the key-value store for this CNP.
-func (c *CNPStatusEventHandler) StopStatusHandler(cnp *types.SlimCNP) {
-	cnpKey := getKeyFromObjectMeta(cnp.ObjectMeta)
-	prefix := path.Join(CNPStatusesPath, cnpKey)
-
-	c.stopStatusHandler(cnp, cnpKey, prefix)
 }
 
 func (c *CNPStatusEventHandler) runStatusHandler(cnpKey string, cnp *types.SlimCNP, nodeStatusUpdater *NodeStatusUpdater) {
@@ -318,7 +313,7 @@ func (c *CNPStatusEventHandler) runStatusHandler(cnpKey string, cnp *types.SlimC
 // given CNP to the Kubernetes APIserver. If a status handler has already been
 // started, it is a no-op.
 func (c *CNPStatusEventHandler) StartStatusHandler(cnp *types.SlimCNP) {
-	cnpKey := generateCNPKey(string(cnp.UID), cnp.Namespace, cnp.Name)
+	cnpKey := getKeyFromObject(cnp.GetObjectMeta())
 	nodeStatusUpdater, ok := c.eventMap.createIfNotExist(cnpKey)
 	if ok {
 		return
@@ -326,12 +321,17 @@ func (c *CNPStatusEventHandler) StartStatusHandler(cnp *types.SlimCNP) {
 	go c.runStatusHandler(cnpKey, cnp, nodeStatusUpdater)
 }
 
-func getKeyFromObjectMeta(t metaV1.ObjectMeta) string {
-	if t.Namespace != "" {
-		return path.Join(string(t.UID), t.Namespace, t.Name)
-	}
+type K8sMetaObject interface {
+	GetUID() k8sTypes.UID
+	GetNamespace() string
+	GetName() string
+}
 
-	return path.Join(string(t.UID), t.Name)
+func getKeyFromObject(t K8sMetaObject) string {
+	if ns := t.GetNamespace(); ns != "" {
+		return path.Join(string(t.GetUID()), ns, t.GetName())
+	}
+	return path.Join(string(t.GetUID()), t.GetName())
 }
 
 func getUpdatedCNPFromStore(ciliumStore cache.Store, namespace, name string) (*types.SlimCNP, error) {
