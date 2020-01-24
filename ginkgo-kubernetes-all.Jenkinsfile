@@ -118,10 +118,8 @@ pipeline {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                         retry(3) {
-                            timeout(time: 20, unit: 'MINUTES'){
-                                dir("${TESTDIR}") {
-                                    sh './vagrant-ci-start.sh'
-                                }
+                            dir("${TESTDIR}") {
+                                sh './vagrant-ci-start.sh'
                             }
                         }
                     }
@@ -147,10 +145,8 @@ pipeline {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                         retry(3) {
-                            timeout(time: 20, unit: 'MINUTES'){
-                                dir("${TESTDIR}") {
-                                    sh './vagrant-ci-start.sh'
-                                }
+                            dir("${TESTDIR}") {
+                                sh './vagrant-ci-start.sh'
                             }
                         }
                     }
@@ -255,10 +251,8 @@ pipeline {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                         retry(3) {
-                            timeout(time: 20, unit: 'MINUTES'){
-                                dir("${TESTDIR}") {
-                                    sh './vagrant-ci-start.sh'
-                                }
+                            dir("${TESTDIR}") {
+                                sh './vagrant-ci-start.sh'
                             }
                         }
                     }
@@ -284,10 +278,8 @@ pipeline {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                         retry(3) {
-                            timeout(time: 20, unit: 'MINUTES'){
-                                dir("${TESTDIR}") {
-                                    sh './vagrant-ci-start.sh'
-                                }
+                            dir("${TESTDIR}") {
+                                sh './vagrant-ci-start.sh'
                             }
                         }
                     }
@@ -391,10 +383,8 @@ pipeline {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                         retry(3) {
-                            timeout(time: 20, unit: 'MINUTES'){
-                                dir("${TESTDIR}") {
-                                    sh './vagrant-ci-start.sh'
-                                }
+                            dir("${TESTDIR}") {
+                                sh './vagrant-ci-start.sh'
                             }
                         }
                     }

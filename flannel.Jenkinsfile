@@ -59,12 +59,10 @@ pipeline {
             }
             steps {
                 retry(3){
-                    timeout(time: 20, unit: 'MINUTES'){
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant destroy --force'
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant destroy --force'
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up --no-provision'
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant up --no-provision'
-                    }
+                    sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant destroy --force'
+                    sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant destroy --force'
+                    sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up --no-provision'
+                    sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant up --no-provision'
                 }
             }
         }
