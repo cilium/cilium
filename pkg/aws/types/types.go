@@ -15,56 +15,9 @@
 package types
 
 import (
+	"github.com/cilium/cilium/pkg/ipam"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
-
-// Tags implements generic key value tags used by AWS
-type Tags map[string]string
-
-// Match returns true if the required tags are all found
-func (t Tags) Match(required Tags) bool {
-	for k, neededvalue := range required {
-		haveValue, ok := t[k]
-		if !ok || (ok && neededvalue != haveValue) {
-			return false
-		}
-	}
-	return true
-}
-
-// Subnet is a representation of an AWS subnet
-type Subnet struct {
-	// ID is the subnet ID
-	ID string
-
-	// Name is the subnet name
-	Name string
-
-	// CIDR is the CIDR associated with the subnet
-	CIDR string
-
-	// AvailabilityZone is the availability zone of the subnet
-	AvailabilityZone string
-
-	// VpcID is the VPC the subnet is in
-	VpcID string
-
-	// AvailableAddresses is the number of addresses available for
-	// allocation
-	AvailableAddresses int
-
-	// Tags is the tags of the subnet
-	Tags Tags
-}
-
-// Vpc is the representation of an AWS VPC
-type Vpc struct {
-	// ID is the VPC ID
-	ID string
-
-	// PrimaryCIDR is the primary IPv4 CIDR
-	PrimaryCIDR string
-}
 
 // SecurityGroup is the representation of an AWS Security Group
 type SecurityGroup struct {
@@ -75,7 +28,7 @@ type SecurityGroup struct {
 	VpcID string
 
 	// Tags are the tags of the security group
-	Tags Tags
+	Tags ipam.Tags
 }
 
 // instance is the minimal representation of an AWS instance as needed by the
@@ -126,12 +79,6 @@ func (m InstanceMap) Get(instanceID string) (enis []*v2.ENI) {
 
 	return
 }
-
-// SubnetMap indexes AWS subnets by subnet ID
-type SubnetMap map[string]*Subnet
-
-// VpcMap indexes AWS VPCs by VPC ID
-type VpcMap map[string]*Vpc
 
 // SecurityGroupMap indexes AWS Security Groups by security group ID
 type SecurityGroupMap map[string]*SecurityGroup

@@ -22,18 +22,19 @@ import (
 	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/ipam"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
 	"gopkg.in/check.v1"
 )
 
 var (
-	subnets = []*types.Subnet{
+	subnets = []*ipam.Subnet{
 		{
 			ID:                 "subnet-1",
 			CIDR:               "",
 			AvailableAddresses: 10,
-			VpcID:              "vpc-1",
+			VirtualNetworkID:   "vpc-1",
 			AvailabilityZone:   "us-west-1",
 			Tags: map[string]string{
 				"tag1": "tag1",
@@ -43,7 +44,7 @@ var (
 			ID:                 "subnet-2",
 			CIDR:               "",
 			AvailableAddresses: 20,
-			VpcID:              "vpc-2",
+			VirtualNetworkID:   "vpc-2",
 			AvailabilityZone:   "us-east-1",
 			Tags: map[string]string{
 				"tag1": "tag1",
@@ -51,12 +52,12 @@ var (
 		},
 	}
 
-	subnets2 = []*types.Subnet{
+	subnets2 = []*ipam.Subnet{
 		{
 			ID:                 "subnet-1",
 			CIDR:               "",
 			AvailableAddresses: 10,
-			VpcID:              "vpc-1",
+			VirtualNetworkID:   "vpc-1",
 			AvailabilityZone:   "us-west-1",
 			Tags: map[string]string{
 				"tag1": "tag1",
@@ -66,7 +67,7 @@ var (
 			ID:                 "subnet-2",
 			CIDR:               "",
 			AvailableAddresses: 20,
-			VpcID:              "vpc-2",
+			VirtualNetworkID:   "vpc-2",
 			AvailabilityZone:   "us-east-1",
 			Tags: map[string]string{
 				"tag1": "tag1",
@@ -76,7 +77,7 @@ var (
 			ID:                 "subnet-3",
 			CIDR:               "",
 			AvailableAddresses: 0,
-			VpcID:              "vpc-1",
+			VirtualNetworkID:   "vpc-1",
 			AvailabilityZone:   "us-west-1",
 			Tags: map[string]string{
 				"tag2": "tag2",
@@ -84,7 +85,7 @@ var (
 		},
 	}
 
-	vpcs = []*types.Vpc{
+	vpcs = []*ipam.VirtualNetwork{
 		{
 			ID:          "vpc-0",
 			PrimaryCIDR: "1.1.0.0/16",
@@ -252,29 +253,29 @@ func (e *ENISuite) TestFindSubnetByTags(c *check.C) {
 	iteration2(api, mngr)
 
 	// exact match subnet-1
-	s := mngr.FindSubnetByTags("vpc-1", "us-west-1", types.Tags{"tag1": "tag1"})
+	s := mngr.FindSubnetByTags("vpc-1", "us-west-1", ipam.Tags{"tag1": "tag1"})
 	c.Assert(s.ID, check.Equals, "subnet-1")
 
 	// exact match subnet-2
-	s = mngr.FindSubnetByTags("vpc-2", "us-east-1", types.Tags{"tag1": "tag1"})
+	s = mngr.FindSubnetByTags("vpc-2", "us-east-1", ipam.Tags{"tag1": "tag1"})
 	c.Assert(s.ID, check.Equals, "subnet-2")
 
 	// exact match subnet-3
-	s = mngr.FindSubnetByTags("vpc-1", "us-west-1", types.Tags{"tag2": "tag2"})
+	s = mngr.FindSubnetByTags("vpc-1", "us-west-1", ipam.Tags{"tag2": "tag2"})
 	c.Assert(s.ID, check.Equals, "subnet-3")
 
 	// both subnet-1 and subnet-3 match, subnet-1 has more addresses
-	s = mngr.FindSubnetByTags("vpc-1", "us-west-1", types.Tags{})
+	s = mngr.FindSubnetByTags("vpc-1", "us-west-1", ipam.Tags{})
 	c.Assert(s.ID, check.Equals, "subnet-1")
 
 	// invalid vpc, no match
-	c.Assert(mngr.FindSubnetByTags("vpc-unknown", "us-west-1", types.Tags{"tag1": "tag1"}), check.IsNil)
+	c.Assert(mngr.FindSubnetByTags("vpc-unknown", "us-west-1", ipam.Tags{"tag1": "tag1"}), check.IsNil)
 
 	// invalid AZ, no match
-	c.Assert(mngr.FindSubnetByTags("vpc-1", "us-west-unknown", types.Tags{"tag1": "tag1"}), check.IsNil)
+	c.Assert(mngr.FindSubnetByTags("vpc-1", "us-west-unknown", ipam.Tags{"tag1": "tag1"}), check.IsNil)
 
 	// invalid tags, no match
-	c.Assert(mngr.FindSubnetByTags("vpc-1", "us-west-1", types.Tags{"tag1": "unknown value"}), check.IsNil)
+	c.Assert(mngr.FindSubnetByTags("vpc-1", "us-west-1", ipam.Tags{"tag1": "unknown value"}), check.IsNil)
 }
 
 func (e *ENISuite) TestGetSecurityGroupByTags(c *check.C) {
@@ -290,7 +291,7 @@ func (e *ENISuite) TestGetSecurityGroupByTags(c *check.C) {
 	c.Assert(sgGroups, check.HasLen, 0)
 
 	iteration1(api, mngr)
-	reqTags := types.Tags{
+	reqTags := ipam.Tags{
 		"k1": "v1",
 	}
 	sgGroups = mngr.FindSecurityGroupByTags("vpc-1", reqTags)
@@ -298,7 +299,7 @@ func (e *ENISuite) TestGetSecurityGroupByTags(c *check.C) {
 	c.Assert(sgGroups[0].Tags, checker.DeepEquals, reqTags)
 
 	iteration2(api, mngr)
-	reqTags = types.Tags{
+	reqTags = ipam.Tags{
 		"k2": "v2",
 	}
 	sgGroups = mngr.FindSecurityGroupByTags("vpc-1", reqTags)
@@ -307,7 +308,7 @@ func (e *ENISuite) TestGetSecurityGroupByTags(c *check.C) {
 
 	// iteration 3
 	mngr.Resync(context.TODO())
-	reqTags = types.Tags{
+	reqTags = ipam.Tags{
 		"k3": "v3",
 	}
 	sgGroups = mngr.FindSecurityGroupByTags("vpc-1", reqTags)

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/aws/types"
+	"github.com/cilium/cilium/pkg/ipam"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/uuid"
@@ -50,8 +51,8 @@ type API struct {
 	mutex          lock.RWMutex
 	unattached     map[string]*v2.ENI
 	enis           map[string]ENIMap
-	subnets        map[string]*types.Subnet
-	vpcs           map[string]*types.Vpc
+	subnets        map[string]*ipam.Subnet
+	vpcs           map[string]*ipam.VirtualNetwork
 	securityGroups map[string]*types.SecurityGroup
 	errors         map[Operation]error
 	delays         map[Operation]time.Duration
@@ -59,7 +60,7 @@ type API struct {
 	limiter        *rate.Limiter
 }
 
-func NewAPI(subnets []*types.Subnet, vpcs []*types.Vpc, securityGroups []*types.SecurityGroup) *API {
+func NewAPI(subnets []*ipam.Subnet, vpcs []*ipam.VirtualNetwork, securityGroups []*types.SecurityGroup) *API {
 	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
 	cidrRange, err := ipallocator.NewCIDRRange(cidr)
 	if err != nil {
@@ -69,8 +70,8 @@ func NewAPI(subnets []*types.Subnet, vpcs []*types.Vpc, securityGroups []*types.
 	api := &API{
 		unattached:     map[string]*v2.ENI{},
 		enis:           map[string]ENIMap{},
-		subnets:        map[string]*types.Subnet{},
-		vpcs:           map[string]*types.Vpc{},
+		subnets:        map[string]*ipam.Subnet{},
+		vpcs:           map[string]*ipam.VirtualNetwork{},
 		securityGroups: map[string]*types.SecurityGroup{},
 		allocator:      cidrRange,
 		errors:         map[Operation]error{},
@@ -87,7 +88,7 @@ func NewAPI(subnets []*types.Subnet, vpcs []*types.Vpc, securityGroups []*types.
 	return api
 }
 
-func (e *API) UpdateSubnets(subnets []*types.Subnet) {
+func (e *API) UpdateSubnets(subnets []*ipam.Subnet) {
 	e.mutex.Lock()
 	for _, s := range subnets {
 		e.subnets[s.ID] = s
@@ -360,7 +361,7 @@ func (e *API) UnassignPrivateIpAddresses(ctx context.Context, eniID string, addr
 	return fmt.Errorf("Unable to find ENI with ID %s", eniID)
 }
 
-func (e *API) GetInstances(ctx context.Context, vpcs types.VpcMap, subnets types.SubnetMap) (types.InstanceMap, error) {
+func (e *API) GetInstances(ctx context.Context, vpcs ipam.VirtualNetworkMap, subnets ipam.SubnetMap) (types.InstanceMap, error) {
 	instances := types.InstanceMap{}
 
 	e.mutex.RLock()
@@ -387,8 +388,8 @@ func (e *API) GetInstances(ctx context.Context, vpcs types.VpcMap, subnets types
 	return instances, nil
 }
 
-func (e *API) GetVpcs(ctx context.Context) (types.VpcMap, error) {
-	vpcs := types.VpcMap{}
+func (e *API) GetVpcs(ctx context.Context) (ipam.VirtualNetworkMap, error) {
+	vpcs := ipam.VirtualNetworkMap{}
 
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
@@ -399,8 +400,8 @@ func (e *API) GetVpcs(ctx context.Context) (types.VpcMap, error) {
 	return vpcs, nil
 }
 
-func (e *API) GetSubnets(ctx context.Context) (types.SubnetMap, error) {
-	subnets := types.SubnetMap{}
+func (e *API) GetSubnets(ctx context.Context) (ipam.SubnetMap, error) {
+	subnets := ipam.SubnetMap{}
 
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
