@@ -56,8 +56,8 @@ spec:
                       while crictl ps | grep -v "node-init" | grep -q "POD_cilium"; do sleep 1; done
                     fi
 
-                    systemctl disable sys-fs-bpf.mount
-                    systemctl stop sys-fs-bpf.mount
+                    systemctl disable sys-fs-bpf.mount || true
+                    systemctl stop sys-fs-bpf.mount || true
 
                     if ip link show cilium_host; then
                       echo "Deleting cilium_host interface..."
@@ -97,37 +97,38 @@ spec:
                 # Mount the filesystem until next reboot
                 echo "Mounting BPF filesystem..."
                 mount bpffs /sys/fs/bpf -t bpf
-              }
 
-              echo "Installing BPF filesystem mount"
-              cat >/tmp/sys-fs-bpf.mount <<EOF
-              [Unit]
-              Description=Mount BPF filesystem (Cilium)
-              Documentation=http://docs.cilium.io/
-              DefaultDependencies=no
-              Before=local-fs.target umount.target
-              After=swap.target
+                # Configure systemd to mount after next boot
+                echo "Installing BPF filesystem mount"
+                cat >/tmp/sys-fs-bpf.mount <<EOF
+                [Unit]
+                Description=Mount BPF filesystem (Cilium)
+                Documentation=http://docs.cilium.io/
+                DefaultDependencies=no
+                Before=local-fs.target umount.target
+                After=swap.target
 
-              [Mount]
-              What=bpffs
-              Where=/sys/fs/bpf
-              Type=bpf
+                [Mount]
+                What=bpffs
+                Where=/sys/fs/bpf
+                Type=bpf
 
-              [Install]
-              WantedBy=multi-user.target
+                [Install]
+                WantedBy=multi-user.target
               EOF
 
-              if [ -d "/etc/systemd/system/" ]; then
-                mv /tmp/sys-fs-bpf.mount /etc/systemd/system/
-                echo "Installed sys-fs-bpf.mount to /etc/systemd/system/"
-              elif [ -d "/lib/systemd/system/" ]; then
-                mv /tmp/sys-fs-bpf.mount /lib/systemd/system/
-                echo "Installed sys-fs-bpf.mount to /lib/systemd/system/"
-              fi
+                if [ -d "/etc/systemd/system/" ]; then
+                  mv /tmp/sys-fs-bpf.mount /etc/systemd/system/
+                  echo "Installed sys-fs-bpf.mount to /etc/systemd/system/"
+                elif [ -d "/lib/systemd/system/" ]; then
+                  mv /tmp/sys-fs-bpf.mount /lib/systemd/system/
+                  echo "Installed sys-fs-bpf.mount to /lib/systemd/system/"
+                fi
 
-              # Ensure that filesystem gets mounted on next reboot
-              systemctl enable sys-fs-bpf.mount
-              systemctl start sys-fs-bpf.mount
+                # Ensure that filesystem gets mounted on next reboot
+                systemctl enable sys-fs-bpf.mount
+                systemctl start sys-fs-bpf.mount
+              }
 
               echo "Link information:"
               ip link
