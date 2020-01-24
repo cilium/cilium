@@ -124,6 +124,7 @@ data:
   enable-node-port: "false"
   enable-well-known-identities: "false"
   enable-remote-node-identity: "true"
+
 ---
 # Source: cilium/charts/agent/templates/serviceaccount.yaml
 apiVersion: v1
@@ -131,6 +132,7 @@ kind: ServiceAccount
 metadata:
   name: cilium
   namespace: kube-system
+
 ---
 # Source: cilium/charts/operator/templates/serviceaccount.yaml
 apiVersion: v1
@@ -138,6 +140,7 @@ kind: ServiceAccount
 metadata:
   name: cilium-operator
   namespace: kube-system
+
 ---
 # Source: cilium/charts/agent/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -214,6 +217,7 @@ rules:
   - ciliumidentities/status
   verbs:
   - '*'
+
 ---
 # Source: cilium/charts/operator/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -271,6 +275,7 @@ rules:
   - ciliumidentities/status
   verbs:
   - '*'
+
 ---
 # Source: cilium/charts/agent/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -285,6 +290,7 @@ subjects:
 - kind: ServiceAccount
   name: cilium
   namespace: kube-system
+
 ---
 # Source: cilium/charts/operator/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -299,6 +305,7 @@ subjects:
 - kind: ServiceAccount
   name: cilium-operator
   namespace: kube-system
+
 ---
 # Source: cilium/charts/agent/templates/daemonset.yaml
 apiVersion: apps/v1
@@ -518,6 +525,7 @@ spec:
     rollingUpdate:
       maxUnavailable: 2
     type: RollingUpdate
+
 ---
 # Source: cilium/charts/operator/templates/deployment.yaml
 apiVersion: apps/v1
@@ -550,6 +558,7 @@ spec:
       - args:
         - --debug=$(CILIUM_DEBUG)
         - --identity-allocation-mode=$(CILIUM_IDENTITY_ALLOCATION_MODE)
+        - --synchronize-k8s-nodes=true
         command:
         - cilium-operator
         env:
@@ -644,3 +653,17 @@ spec:
       restartPolicy: Always
       serviceAccount: cilium-operator
       serviceAccountName: cilium-operator
+
+---
+# Source: cilium/charts/agent/templates/servicemonitor.yaml
+
+---
+# Source: cilium/charts/agent/templates/svc.yaml
+
+
+---
+# Source: cilium/charts/operator/templates/servicemonitor.yaml
+
+---
+# Source: cilium/charts/operator/templates/svc.yaml
+
