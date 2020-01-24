@@ -27,7 +27,7 @@ import (
 
 var (
 	log          = logging.DefaultLogger.WithField(logfields.LogSubsys, "probes")
-	once         *sync.Once
+	once         sync.Once
 	probeManager *ProbeManager
 )
 
