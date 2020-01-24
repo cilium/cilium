@@ -369,9 +369,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 			url = getURL(k8s1IP, data.Spec.Ports[0].NodePort)
 			failRequests(url, count, k8s1Name)
-			// FIXME after adding externalTafficPolicy=local flag to BPF maps
-			doRequests(url, count, k8s2Name)
-			//failRequests(url, count, k8s2Name)
+			failRequests(url, count, k8s2Name)
 		}
 
 		It("Tests NodePort (kube-proxy)", func() {
