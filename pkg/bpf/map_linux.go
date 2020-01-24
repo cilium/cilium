@@ -433,10 +433,6 @@ func (m *Map) OpenParallel() (bool, error) {
 // the "longest prefix match" behaviour on top of the hash maps, for example
 // via LPM_LOOKUP_FN() (see bpf/lib/maps.h).
 //
-// To detect map type support properly, this function must be called after
-// a call to ReadFeatureProbes(); failure to do so will result in LPM or LRU
-// map types being unconditionally opened as hash maps.
-//
 // Returns whether the map was deleted and recreated, or an optional error.
 func (m *Map) OpenOrCreate() (bool, error) {
 	m.lock.Lock()
