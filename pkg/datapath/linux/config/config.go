@@ -274,6 +274,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		ctmap.WriteBPFMacros(fw, nil)
 	}
 
+	if option.Config.PolicyAuditMode {
+		cDefinesMap["POLICY_AUDIT_MODE"] = "1"
+	}
+
 	// Since golang maps are unordered, we sort the keys in the map
 	// to get a consistent writtern format to the writer. This maintains
 	// the consistency when we try to calculate hash for a datapath after

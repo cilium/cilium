@@ -354,3 +354,8 @@ global:
   # psp creates and binds PodSecurityPolicies for the components that require it
   psp:
     enabled: false
+
+  # enables non-drop mode for installed policies. In audit mode
+  # packets affected by policies will not be dropped. Policy related
+  # decisions can be checked via the poicy verdict messages.
+  policyAuditMode: false
