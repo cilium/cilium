@@ -44,14 +44,6 @@ type EC2API interface {
 	TagENI(ctx context.Context, eniID string, eniTags map[string]string) error
 }
 
-// instance is the minimal representation of an AWS instance as needed by the
-// ENI allocator
-type instance struct {
-	// enis is a map of all ENIs attached to the instance indexed by the
-	// ENI ID
-	enis map[string]*v2.ENI
-}
-
 // InstancesManager maintains the list of instances. It must be kept up to date
 // by calling resync() regularly.
 type InstancesManager struct {
