@@ -32,9 +32,7 @@ type ProbesPrivTestSuite struct{}
 var _ = Suite(&ProbesPrivTestSuite{})
 
 func (s *ProbesPrivTestSuite) TestSystemConfigProbes(c *C) {
-	pm, err := NewProbeManager()
-	c.Assert(err, IsNil)
-
+	pm := NewProbeManager()
 	err = pm.SystemConfigProbes()
 	c.Assert(err, IsNil)
 }
