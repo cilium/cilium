@@ -662,6 +662,9 @@ const (
 
 	// EnableRemoteNodeIdentity enables use of the remote-node identity
 	EnableRemoteNodeIdentity = "enable-remote-node-identity"
+
+	// PolicyAuditModeArg argument enables policy audit mode.
+	PolicyAuditModeArg = "policy-audit-mode"
 )
 
 // Default string arguments
@@ -1314,6 +1317,11 @@ type DaemonConfig struct {
 
 	// EnableRemoteNodeIdentity enables use of the remote-node identity
 	EnableRemoteNodeIdentity bool
+
+	// PolicyAuditMode enables non-drop mode for installed policies. In
+	// audit mode packets affected by policies will not be dropped,
+	// audit notifications generated instead.
+	PolicyAuditMode bool
 }
 
 var (
@@ -1746,6 +1754,7 @@ func (c *DaemonConfig) Populate() {
 	c.CTMapEntriesTimeoutSVCAny = viper.GetDuration(CTMapEntriesTimeoutSVCAnyName)
 	c.CTMapEntriesTimeoutSYN = viper.GetDuration(CTMapEntriesTimeoutSYNName)
 	c.CTMapEntriesTimeoutFIN = viper.GetDuration(CTMapEntriesTimeoutFINName)
+	c.PolicyAuditMode = viper.GetBool(PolicyAuditModeArg)
 
 	if nativeCIDR := viper.GetString(IPv4NativeRoutingCIDR); nativeCIDR != "" {
 		c.ipv4NativeRoutingCIDR = cidr.MustParseCIDR(nativeCIDR)

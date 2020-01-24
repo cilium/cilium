@@ -1480,6 +1480,78 @@ var _ = Describe("RuntimePolicies", func() {
 				"Unexpected reply traffic to endpoint")
 		})
 	})
+	Context("Init Policy Default Audit Test", func() {
+		BeforeEach(func() {
+			vm.ContainerRm(initContainer)
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
+		})
+
+		AfterEach(func() {
+			vm.ContainerRm(initContainer).ExpectSuccess("Container initContainer cannot be deleted")
+		})
+
+		It("Init Ingress Policy Default Audit Test", func() {
+			By("Enabling policy audit mode")
+			res := vm.ExecCilium("config PolicyAuditMode=Enabled")
+			res.ExpectSuccess("unable to change daemon configuration")
+
+			By("Starting cilium monitor in background")
+			ctx, cancel := context.WithCancel(context.Background())
+			monitorRes := vm.ExecInBackground(ctx, "cilium monitor --type drop --type trace --type audit")
+			defer cancel()
+
+			By("Creating an endpoint")
+			res = vm.ContainerCreate(initContainer, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l somelabel")
+			res.ExpectSuccess("Failed to create container")
+
+			endpoints, err := vm.GetAllEndpointsIds()
+			Expect(err).Should(BeNil(), "Unable to get IDs of endpoints")
+			endpointID, exists := endpoints[initContainer]
+			Expect(exists).To(BeTrue(), "Expected endpoint ID to exist for %s", initContainer)
+			ingressEpModel := vm.EndpointGet(endpointID)
+			Expect(ingressEpModel).NotTo(BeNil(), "nil model returned for endpoint %s", endpointID)
+
+			endpointIP := ingressEpModel.Status.Networking.Addressing[0]
+
+			By("Testing ingress with ping from host to endpoint")
+			res = vm.Exec(helpers.Ping(endpointIP.IPV4))
+			res.ExpectSuccess("Not able to ping endpoint with no ingress policy")
+
+			By("Testing cilium monitor output")
+			err = monitorRes.WaitUntilMatch("xx audit (Policy denied")
+			Expect(err).To(BeNil(), "Default audit on ingress failed")
+			monitorRes.ExpectContains(fmt.Sprintf("-> endpoint %s ", endpointID), "No ingress traffic to endpoint")
+		})
+
+		It("Init Egress Policy Default Audit Test", func() {
+			hostIP := "10.0.2.15"
+
+			By("Enabling policy audit mode")
+			res := vm.ExecCilium("config PolicyAuditMode=Enabled")
+			res.ExpectSuccess("unable to change daemon configuration")
+
+			By("Starting cilium monitor in background")
+			ctx, cancel := context.WithCancel(context.Background())
+			monitorRes := vm.ExecInBackground(ctx, "cilium monitor --type drop --type trace --type audit")
+			defer cancel()
+
+			By("Creating an endpoint")
+			res = vm.ContainerCreate(initContainer, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l somelabel", "ping", hostIP)
+			res.ExpectSuccess("Failed to create container")
+
+			endpoints, err := vm.GetAllEndpointsIds()
+			Expect(err).To(BeNil(), "Unable to get IDs of endpoints")
+			endpointID, exists := endpoints[initContainer]
+			Expect(exists).To(BeTrue(), "Expected endpoint ID to exist for %s", initContainer)
+			egressEpModel := vm.EndpointGet(endpointID)
+			Expect(egressEpModel).NotTo(BeNil(), "nil model returned for endpoint %s", endpointID)
+
+			By("Testing cilium monitor output")
+			err = monitorRes.WaitUntilMatch("xx audit (Policy denied")
+			Expect(err).To(BeNil(), "Default audit on egress failed")
+			monitorRes.ExpectContains(fmt.Sprintf("-> endpoint %s ", endpointID), "No reply traffic to endpoint")
+		})
+	})
 	Context("Init Policy Test", func() {
 		BeforeEach(func() {
 			vm.ContainerRm(initContainer)

@@ -17,6 +17,7 @@ package monitor
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/monitor/api"
 )
@@ -41,17 +42,19 @@ type DropNotify struct {
 	// data
 }
 
-// DumpInfo prints a summary of the drop messages.
-func (n *DropNotify) DumpInfo(data []byte) {
-	fmt.Printf("xx drop (%s) flow %#x to endpoint %d, identity %d->%d: %s\n",
-		api.DropReason(n.SubType), n.Hash, n.DstID, n.SrcLabel, n.DstLabel,
+// DumpInfo prints a summary of the drop messages. verb defines action
+// behind the drop message: "drop", "audit" etc.
+func (n *DropNotify) DumpInfo(data []byte, verb string) {
+	fmt.Printf("xx %s (%s) flow %#x to endpoint %d, identity %d->%d: %s\n",
+		verb, api.DropReason(n.SubType), n.Hash, n.DstID, n.SrcLabel, n.DstLabel,
 		GetConnectionSummary(data[DropNotifyLen:]))
 }
 
-// DumpVerbose prints the drop notification in human readable form
-func (n *DropNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
-	fmt.Printf("%s MARK %#x FROM %d DROP: %d bytes, reason %s",
-		prefix, n.Hash, n.Source, n.OrigLen, api.DropReason(n.SubType))
+// DumpVerbose prints the drop notification in human readable
+// form. verb defines action behind the drop message: "drop", "audit" etc.
+func (n *DropNotify) DumpVerbose(dissect bool, data []byte, prefix, verb string) {
+	fmt.Printf("%s MARK %#x FROM %d %s: %d bytes, reason %s",
+		prefix, n.Hash, n.Source, strings.ToUpper(verb), n.OrigLen, api.DropReason(n.SubType))
 
 	if n.SrcLabel != 0 || n.DstLabel != 0 {
 		fmt.Printf(", identity %d->%d", n.SrcLabel, n.DstLabel)

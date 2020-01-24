@@ -305,3 +305,4 @@ data:
   enable-well-known-identities: "false"
 {{- end }}
   enable-remote-node-identity: {{ .Values.global.remoteNodeIdentity | quote }}
+  policy-audit-mode: {{ .Values.global.policyAuditMode | quote }}

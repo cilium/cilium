@@ -94,7 +94,7 @@ func (m *MonitorFormatter) match(messageType int, src uint16, dst uint16) bool {
 }
 
 // dropEvents prints out all the received drop notifications.
-func (m *MonitorFormatter) dropEvents(prefix string, data []byte) {
+func (m *MonitorFormatter) dropEvents(prefix, verb string, data []byte) {
 	dn := monitor.DropNotify{}
 
 	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &dn); err != nil {
@@ -103,12 +103,12 @@ func (m *MonitorFormatter) dropEvents(prefix string, data []byte) {
 	if m.match(monitorAPI.MessageTypeDrop, dn.Source, uint16(dn.DstID)) {
 		switch m.Verbosity {
 		case INFO:
-			dn.DumpInfo(data)
+			dn.DumpInfo(data, verb)
 		case JSON:
 			dn.DumpJSON(data, prefix)
 		default:
 			fmt.Println(msgSeparator)
-			dn.DumpVerbose(!m.Hex, data, prefix)
+			dn.DumpVerbose(!m.Hex, data, prefix, verb)
 		}
 	}
 }
@@ -221,7 +221,7 @@ func (m *MonitorFormatter) FormatSample(data []byte, cpu int) {
 
 	switch messageType {
 	case monitorAPI.MessageTypeDrop:
-		m.dropEvents(prefix, data)
+		m.dropEvents(prefix, "drop", data)
 	case monitorAPI.MessageTypeDebug:
 		m.debugEvents(prefix, data)
 	case monitorAPI.MessageTypeCapture:
@@ -232,6 +232,8 @@ func (m *MonitorFormatter) FormatSample(data []byte, cpu int) {
 		m.logRecordEvents(prefix, data)
 	case monitorAPI.MessageTypeAgent:
 		m.agentEvents(prefix, data)
+	case monitorAPI.MessageTypeAudit:
+		m.dropEvents(prefix, "audit", data)
 	default:
 		fmt.Printf("%s Unknown event: %+v\n", prefix, data)
 	}

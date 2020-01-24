@@ -27,6 +27,8 @@ const (
 	DebugLB             = "DebugLB"
 	DropNotify          = "DropNotification"
 	TraceNotify         = "TraceNotification"
+	AuditNotify         = "AuditNotification"
+	PolicyAuditMode     = "PolicyAuditMode"
 	MonitorAggregation  = "MonitorAggregationLevel"
 	NAT46               = "NAT46"
 	AlwaysEnforce       = "always"
@@ -76,6 +78,16 @@ var (
 	specTraceNotify = Option{
 		Define:      "TRACE_NOTIFY",
 		Description: "Enable trace notifications",
+	}
+
+	specAuditNotify = Option{
+		Define:      "AUDIT_NOTIFY",
+		Description: "Enable audit notifications",
+	}
+
+	specPolicyAuditMode = Option{
+		Define:      "POLICY_AUDIT_MODE",
+		Description: "Enable audit mode for policies",
 	}
 
 	specMonitorAggregation = Option{

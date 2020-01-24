@@ -20,6 +20,7 @@
 
 #include <linux/icmp.h>
 
+#include "audit.h"
 #include "drop.h"
 #include "dbg.h"
 #include "eps.h"
@@ -213,6 +214,13 @@ policy_can_access_ingress(struct __sk_buff *skb, __u32 src_identity,
 
 	cilium_dbg(skb, DBG_POLICY_DENIED, src_identity, SECLABEL);
 
+#ifdef POLICY_AUDIT_MODE
+	if (IS_ERR(ret)) {
+		send_audit_notify(skb, src_identity, SECLABEL, 0, ret, METRIC_INGRESS);
+		ret = TC_ACT_OK;
+	}
+#endif
+
 #ifdef IGNORE_DROP
 	ret = TC_ACT_OK;
 #endif
@@ -245,6 +253,13 @@ policy_can_egress(struct __sk_buff *skb, __u32 identity, __u16 dport, __u8 proto
 		return ret;
 
 	cilium_dbg(skb, DBG_POLICY_DENIED, SECLABEL, identity);
+
+#ifdef POLICY_AUDIT_MODE
+	if (IS_ERR(ret)) {
+		send_audit_notify(skb, SECLABEL, identity, 0, ret, METRIC_EGRESS);
+		ret = TC_ACT_OK;
+	}
+#endif
 
 #ifdef IGNORE_DROP
 	ret = TC_ACT_OK;

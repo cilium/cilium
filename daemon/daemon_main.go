@@ -931,6 +931,7 @@ func initEnv(cmd *cobra.Command) {
 	option.Config.Opts.SetBool(option.DebugLB, option.Config.Debug)
 	option.Config.Opts.SetBool(option.DropNotify, true)
 	option.Config.Opts.SetBool(option.TraceNotify, true)
+	option.Config.Opts.SetBool(option.AuditNotify, true)
 	option.Config.Opts.SetBool(option.PolicyTracing, option.Config.EnableTracing)
 	option.Config.Opts.SetBool(option.Conntrack, !option.Config.DisableConntrack)
 	option.Config.Opts.SetBool(option.ConntrackAccounting, !option.Config.DisableConntrack)

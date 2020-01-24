@@ -33,6 +33,8 @@ var (
 		DebugLB:             &specDebugLB,
 		DropNotify:          &specDropNotify,
 		TraceNotify:         &specTraceNotify,
+		AuditNotify:         &specAuditNotify,
+		PolicyAuditMode:     &specPolicyAuditMode,
 		MonitorAggregation:  &specMonitorAggregation,
 		NAT46:               &specNAT46,
 	}
