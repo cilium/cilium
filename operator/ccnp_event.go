@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -48,6 +48,7 @@ func enableCCNPWatcher() error {
 
 	var (
 		ccnpConverterFunc informer.ConvertFunc
+		ccnpStatusMgr     *k8s.CCNPStatusEventHandler
 	)
 	ccnpStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 
@@ -60,19 +61,19 @@ func enableCCNPWatcher() error {
 		ccnpConverterFunc = k8s.ConvertToCCNPWithStatus
 	}
 
-	ccnpSharedStore, err := store.JoinSharedStore(store.Configuration{
-		Prefix: k8s.CCNPStatusesPath,
-		KeyCreator: func() store.Key {
-			return &k8s.CNPNSWithMeta{}
-		},
-	})
-	if err != nil {
-		return err
-	}
-
-	ccnpStatusMgr := k8s.NewCCNPStatusEventHandler(ccnpSharedStore, ccnpStore, ccnpStatusUpdateInterval)
-
 	if kvstoreEnabled() {
+		ccnpSharedStore, err := store.JoinSharedStore(store.Configuration{
+			Prefix: k8s.CCNPStatusesPath,
+			KeyCreator: func() store.Key {
+				return &k8s.CNPNSWithMeta{}
+			},
+		})
+		if err != nil {
+			return err
+		}
+
+		ccnpStatusMgr = k8s.NewCCNPStatusEventHandler(ccnpSharedStore, ccnpStore, ccnpStatusUpdateInterval)
+
 		go ccnpStatusMgr.WatchForCCNPStatusEvents()
 	}
 
@@ -86,7 +87,9 @@ func enableCCNPWatcher() error {
 				metrics.EventTSK8s.SetToCurrentTime()
 				if cnp := k8s.CopyObjToV2CNP(obj); cnp != nil {
 					groups.AddDerivativeCNPIfNeeded(cnp.CiliumNetworkPolicy)
-					ccnpStatusMgr.StartStatusHandler(cnp)
+					if kvstoreEnabled() {
+						ccnpStatusMgr.StartStatusHandler(cnp)
+					}
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
@@ -119,7 +122,9 @@ func enableCCNPWatcher() error {
 				// The derivative policy will be deleted by the parent but need
 				// to delete the cnp from the pooling.
 				groups.DeleteDerivativeFromCache(cnp.CiliumNetworkPolicy)
-				ccnpStatusMgr.StopStatusHandler(cnp)
+				if kvstoreEnabled() {
+					ccnpStatusMgr.StopStatusHandler(cnp)
+				}
 			},
 		},
 		ccnpConverterFunc,
