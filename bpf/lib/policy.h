@@ -189,8 +189,10 @@ policy_can_access_ingress(struct __ctx_buff *ctx, __u32 src_identity,
 
 	cilium_dbg(ctx, DBG_POLICY_DENIED, src_identity, SECLABEL);
 
-#ifdef IGNORE_DROP
-	ret = CTX_ACT_OK;
+#ifdef POLICY_AUDIT_MODE
+	if (IS_ERR(ret)) {
+		ret = CTX_ACT_OK;
+	}
 #endif
 
 	return ret;
@@ -223,8 +225,10 @@ policy_can_egress(struct __ctx_buff *ctx, __u32 identity, __u16 dport, __u8 prot
 
 	cilium_dbg(ctx, DBG_POLICY_DENIED, SECLABEL, identity);
 
-#ifdef IGNORE_DROP
-	ret = CTX_ACT_OK;
+#ifdef POLICY_AUDIT_MODE
+	if (IS_ERR(ret)) {
+		ret = CTX_ACT_OK;
+	}
 #endif
 
 	return ret;

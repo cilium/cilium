@@ -1410,64 +1410,108 @@ var _ = Describe("RuntimePolicies", func() {
 			vm.ContainerRm(initContainer).ExpectSuccess("Container initContainer cannot be deleted")
 		})
 
-		It("Init Ingress Policy Default Drop Test", func() {
-			By("Starting cilium monitor in background")
-			ctx, cancel := context.WithCancel(context.Background())
-			monitorRes := vm.ExecInBackground(ctx, "cilium monitor --type drop --type trace")
-			defer cancel()
-
-			By("Creating an endpoint")
-			res := vm.ContainerCreate(initContainer, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l somelabel")
+		createEndpoint := func(cmdArgs ...string) (endpointID string, endpointIP *models.AddressPair) {
+			res := vm.ContainerCreate(initContainer, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l somelabel", cmdArgs...)
 			res.ExpectSuccess("Failed to create container")
 
 			endpoints, err := vm.GetAllEndpointsIds()
 			Expect(err).Should(BeNil(), "Unable to get IDs of endpoints")
-			endpointID, exists := endpoints[initContainer]
+			var exists bool
+			endpointID, exists = endpoints[initContainer]
 			Expect(exists).To(BeTrue(), "Expected endpoint ID to exist for %s", initContainer)
 			ingressEpModel := vm.EndpointGet(endpointID)
 			Expect(ingressEpModel).NotTo(BeNil(), "nil model returned for endpoint %s", endpointID)
 
-			endpointIP := ingressEpModel.Status.Networking.Addressing[0]
+			endpointIP = ingressEpModel.Status.Networking.Addressing[0]
+			return
+		}
+
+		It("tests ingress", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			By("Starting cilium monitor in background")
+			monitorRes := vm.ExecInBackground(ctx, "cilium monitor --type drop --type trace")
+			defer cancel()
+
+			By("Creating an endpoint")
+			endpointID, endpointIP := createEndpoint()
 
 			// Normally, we start pinging fast enough that the endpoint still has identity "init" / 5,
 			// and we continue pinging as the endpoint changes its identity for label "somelabel".
 			// So these pings will be dropped by the policies for both identity 5 and the new identity
 			// for label "somelabel".
 			By("Testing ingress with ping from host to endpoint")
-			res = vm.Exec(helpers.Ping(endpointIP.IPV4))
+			res := vm.Exec(helpers.Ping(endpointIP.IPV4))
 			res.ExpectFail("Unexpectedly able to ping endpoint with no ingress policy")
 
 			By("Testing cilium monitor output")
-			err = monitorRes.WaitUntilMatch("xx drop (Policy denied")
+			err := monitorRes.WaitUntilMatch("xx drop (Policy denied")
 			Expect(err).To(BeNil(), "Default drop on ingress failed")
 			monitorRes.ExpectDoesNotContain(fmt.Sprintf("-> endpoint %s ", endpointID),
 				"Unexpected ingress traffic to endpoint")
 		})
 
-		It("Init Egress Policy Default Drop Test", func() {
-			hostIP := "10.0.2.15"
-
+		It("tests egress", func() {
 			By("Starting cilium monitor in background")
 			ctx, cancel := context.WithCancel(context.Background())
 			monitorRes := vm.ExecInBackground(ctx, "cilium monitor --type drop --type trace")
 			defer cancel()
 
 			By("Creating an endpoint")
-			res := vm.ContainerCreate(initContainer, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l somelabel", "ping", hostIP)
-			res.ExpectSuccess("Failed to create container")
-
-			endpoints, err := vm.GetAllEndpointsIds()
-			Expect(err).To(BeNil(), "Unable to get IDs of endpoints")
-			endpointID, exists := endpoints[initContainer]
-			Expect(exists).To(BeTrue(), "Expected endpoint ID to exist for %s", initContainer)
-			egressEpModel := vm.EndpointGet(endpointID)
-			Expect(egressEpModel).NotTo(BeNil(), "nil model returned for endpoint %s", endpointID)
+			endpointID, _ := createEndpoint("ping", "10.0.2.15")
 
 			By("Testing cilium monitor output")
-			err = monitorRes.WaitUntilMatch("xx drop (Policy denied")
+			err := monitorRes.WaitUntilMatch("xx drop (Policy denied")
 			Expect(err).To(BeNil(), "Default drop on egress failed")
 			monitorRes.ExpectDoesNotContain(fmt.Sprintf("-> endpoint %s ", endpointID),
 				"Unexpected reply traffic to endpoint")
+		})
+
+		Context("With PolicyAuditMode", func() {
+			BeforeEach(func() {
+				vm.ExecCilium("config PolicyAuditMode=Enabled").ExpectSuccess("unable to change daemon configuration")
+			})
+
+			It("tests ingress", func() {
+				ctx, cancel := context.WithCancel(context.Background())
+				By("Starting cilium monitor in background")
+				monitorRes := vm.ExecInBackground(ctx, "cilium monitor --type drop --type trace --type policy-verdict")
+				defer cancel()
+
+				By("Creating an endpoint")
+				endpointID, endpointIP := createEndpoint()
+
+				By("Testing ingress with ping from host to endpoint")
+				res := vm.Exec(helpers.Ping(endpointIP.IPV4))
+				res.ExpectSuccess("Not able to ping endpoint with no ingress policy")
+
+				By("Testing cilium monitor output")
+				err := monitorRes.WaitUntilMatch("Policy verdict log")
+				Expect(err).To(BeNil(), "Default policy verdict on ingress failed")
+				monitorRes.ExpectContains(
+					fmt.Sprintf("local EP ID %s, remote ID 1, dst port 0, proto 1, ingress true, action allow", endpointID),
+					"No ingress policy log record",
+				)
+				monitorRes.ExpectContains(fmt.Sprintf("-> endpoint %s ", endpointID), "No ingress traffic to endpoint")
+			})
+
+			It("tests egress", func() {
+				By("Starting cilium monitor in background")
+				ctx, cancel := context.WithCancel(context.Background())
+				monitorRes := vm.ExecInBackground(ctx, "cilium monitor --type drop --type trace --type policy-verdict")
+				defer cancel()
+
+				By("Creating an endpoint")
+				endpointID, _ := createEndpoint("ping", "10.0.2.15")
+
+				By("Testing cilium monitor output")
+				err := monitorRes.WaitUntilMatch("Policy verdict log")
+				Expect(err).To(BeNil(), "Default policy verdict on egress failed")
+				monitorRes.ExpectContains(
+					fmt.Sprintf("ID %s, remote ID 1, dst port 0, proto 1, ingress false, action allow", endpointID),
+					"No egress policy log record",
+				)
+				monitorRes.ExpectContains(fmt.Sprintf("-> endpoint %s ", endpointID), "No reply traffic to endpoint")
+			})
 		})
 	})
 	Context("Init Policy Test", func() {

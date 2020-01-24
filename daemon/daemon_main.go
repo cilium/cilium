@@ -721,6 +721,9 @@ func init() {
 	flags.Bool(option.DisableCNPStatusUpdates, false, `Do not send CNP NodeStatus updates to the Kubernetes api-server (recommended to run with "cnp-node-status-gc=false" in cilium-operator)`)
 	option.BindEnv(option.DisableCNPStatusUpdates)
 
+	flags.Bool(option.PolicyAuditModeArg, false, "Enable policy audit (non-drop) mode")
+	option.BindEnv(option.PolicyAuditModeArg)
+
 	viper.BindPFlags(flags)
 }
 
@@ -893,6 +896,7 @@ func initEnv(cmd *cobra.Command) {
 	option.Config.Opts.SetBool(option.Conntrack, !option.Config.DisableConntrack)
 	option.Config.Opts.SetBool(option.ConntrackAccounting, !option.Config.DisableConntrack)
 	option.Config.Opts.SetBool(option.ConntrackLocal, false)
+	option.Config.Opts.SetBool(option.PolicyAuditMode, option.Config.PolicyAuditMode)
 
 	monitorAggregationLevel, err := option.ParseMonitorAggregationLevel(option.Config.MonitorAggregation)
 	if err != nil {

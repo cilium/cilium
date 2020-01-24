@@ -34,6 +34,7 @@ var (
 		DropNotify:          &specDropNotify,
 		TraceNotify:         &specTraceNotify,
 		PolicyVerdictNotify: &specPolicyVerdictNotify,
+		PolicyAuditMode:     &specPolicyAuditMode,
 		MonitorAggregation:  &specMonitorAggregation,
 		NAT46:               &specNAT46,
 	}

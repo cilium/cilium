@@ -132,6 +132,7 @@ cilium-agent [flags]
       --nat46-range string                            IPv6 prefix to map IPv4 addresses to (default "0:0:0:0:0:FFFF::/96")
       --node-port-mode string                         BPF NodePort mode ("snat", "dsr", "hybrid") (default "hybrid")
       --node-port-range strings                       Set the min/max NodePort port range (default [30000,32767])
+      --policy-audit-mode                             Enable policy audit (non-drop) mode
       --policy-queue-size int                         size of queues for policy-related events (default 100)
       --pprof                                         Enable serving the pprof debugging API
       --preallocate-bpf-maps                          Enable BPF map pre-allocation (default true)

@@ -750,6 +750,9 @@ const (
 
 	// AzureResourceGroup is the resource group of the nodes used for the cluster
 	AzureResourceGroup = "azure-resource-group"
+
+	// PolicyAuditModeArg argument enables policy audit mode.
+	PolicyAuditModeArg = "policy-audit-mode"
 )
 
 // Default string arguments
@@ -1517,6 +1520,11 @@ type DaemonConfig struct {
 
 	// AzureResourceGroup is the resource group of the nodes used for the cluster
 	AzureResourceGroup string
+
+	// PolicyAuditMode enables non-drop mode for installed policies. In
+	// audit mode packets affected by policies will not be dropped.
+	// Policy related decisions can be checked via the poicy verdict messages.
+	PolicyAuditMode bool
 }
 
 var (
@@ -1973,6 +1981,7 @@ func (c *DaemonConfig) Populate() {
 	c.CTMapEntriesTimeoutSVCAny = viper.GetDuration(CTMapEntriesTimeoutSVCAnyName)
 	c.CTMapEntriesTimeoutSYN = viper.GetDuration(CTMapEntriesTimeoutSYNName)
 	c.CTMapEntriesTimeoutFIN = viper.GetDuration(CTMapEntriesTimeoutFINName)
+	c.PolicyAuditMode = viper.GetBool(PolicyAuditModeArg)
 
 	if nativeCIDR := viper.GetString(IPv4NativeRoutingCIDR); nativeCIDR != "" {
 		c.ipv4NativeRoutingCIDR = cidr.MustParseCIDR(nativeCIDR)
