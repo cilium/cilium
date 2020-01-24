@@ -17,6 +17,7 @@ package probes
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -25,7 +26,9 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "probes")
+	log          = logging.DefaultLogger.WithField(logfields.LogSubsys, "probes")
+	once         *sync.Once
+	probeManager *ProbeManager
 )
 
 // KernelParam is a type based on string which represents CONFIG_* kernel
@@ -96,18 +99,22 @@ type ProbeManager struct {
 
 // NewProbeManager returns a new instance of ProbeManager - a manager of BPF
 // feature checks.
-func NewProbeManager() (*ProbeManager, error) {
-	var features Features
-	out, err := exec.WithTimeout(
-		defaults.ExecTimeout, "bpftool", "-j", "feature").CombinedOutput(
-		log, true)
-	if err != nil {
-		return nil, fmt.Errorf("could not run bpftool: %s", err)
+func NewProbeManager() *ProbeManager {
+	newProbeManager := func() {
+		var features Features
+		out, err := exec.WithTimeout(
+			defaults.ExecTimeout, "bpftool", "-j", "feature").CombinedOutput(
+			log, true)
+		if err != nil {
+			log.WithError(err).Fatal("could not run bpftool")
+		}
+		if err := json.Unmarshal(out, &features); err != nil {
+			log.WithError(err).Fatal("could not parse bpftool output")
+		}
+		probeManager = &ProbeManager{features: features}
 	}
-	if err := json.Unmarshal(out, &features); err != nil {
-		return nil, fmt.Errorf("could not parse bpftool output: %s", err)
-	}
-	return &ProbeManager{features: features}, nil
+	once.Do(newProbeManager)
+	return probeManager
 }
 
 // SystemConfigProbes performs a check of kernel configuration parameters. It
