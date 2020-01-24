@@ -1,1 +1,2 @@
 image: operator
+synchronizeK8sNodes: true
