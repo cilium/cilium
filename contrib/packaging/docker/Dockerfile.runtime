@@ -7,8 +7,15 @@ apt-get upgrade -y && \
 #
 # Prepackaged Cilium runtime dependencies
 #
+dpkgArch="$(dpkg --print-architecture)"; \
+case "${dpkgArch##*-}" in \
+  arm64) libcdev="" ;; \
+  amd64) libcdev="libc6-dev-i386" ;; \
+  i386) libcdev="libc6-dev-i386" ;; \
+  *) libcdev="" ;; \
+esac; \
 apt-get install -y --no-install-recommends \
-    gpg gpg-agent libelf-dev libmnl-dev libc6-dev-i386 iptables libgcc-5-dev \
+    gpg gpg-agent libelf-dev libmnl-dev ${libcdev} iptables libgcc-5-dev \
     bash-completion binutils binutils-dev ca-certificates clang-7 llvm-7 kmod && \
 apt-get purge --auto-remove && \
 apt-get clean && \
@@ -41,35 +48,37 @@ apt-get install -y --no-install-recommends make git curl ca-certificates xz-util
 # Additional iproute2 build dependencies
   gcc git pkg-config bison flex build-essential \
 # Additional bpftool dependencies
-  python3 && \
+  python3
 #
 # iproute2
 #
+RUN \
 git clone --depth 1 -b static-data https://github.com/cilium/iproute2.git iproute2 && \
 cd iproute2 && \
 ./configure && \
 make -j `getconf _NPROCESSORS_ONLN` && \
 strip tc/tc && \
-strip ip/ip && \
-cd .. && \
+strip ip/ip
 #
 # bpftool
 #
+RUN \
 git clone --depth 1 -b master git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git && \
 cd linux/tools/bpf/bpftool/ && \
 make -j `getconf _NPROCESSORS_ONLN` && \
-strip bpftool && \
-cd ../../../../ && \
-#
-# bpf-map
-#
-curl -SsL https://github.com/cilium/bpf-map/releases/download/v1.0/bpf-map -o bpf-map && \
-chmod +x bpf-map && \
-strip bpf-map && \
+strip bpftool
 #
 # cni/loopback
 #
-curl -sS -L https://github.com/containernetworking/plugins/releases/download/v0.7.5/cni-plugins-amd64-v0.7.5.tgz -o cni.tar.gz && \
+RUN \
+dpkgArch="$(dpkg --print-architecture)"; \
+case "${dpkgArch##*-}" in \
+  amd64) arch="amd64" ;; \
+  arm64) arch="arm64" ;; \
+  armhf) arch="arm" ;; \
+  i386) arch="amd64" ;; \
+esac; \
+curl -sS -L https://github.com/containernetworking/plugins/releases/download/v0.7.5/cni-plugins-${arch}-v0.7.5.tgz -o cni.tar.gz && \
 tar -xvf cni.tar.gz ./loopback && \
 strip -s ./loopback && \
 #
@@ -88,6 +97,12 @@ cd /go/src/github.com/google/gops && \
 git checkout -b v0.3.6 v0.3.6 && \
 go install && \
 strip /go/bin/gops
+#
+# bpf-map
+#
+RUN go get -d github.com/cilium/bpf-map && \
+cd /go/src/github.com/cilium/bpf-map && \
+go build && strip bpf-map
 
 #
 # Stripped cilium runtime base image
@@ -97,7 +112,7 @@ LABEL maintainer="maintainer@cilium.io"
 WORKDIR /bin
 COPY --from=runtime-build /tmp/iproute2/tc/tc /tmp/iproute2/ip/ip ./
 COPY --from=runtime-build /tmp/linux/tools/bpf/bpftool/bpftool ./
-COPY --from=runtime-build /tmp/bpf-map ./
+COPY --from=runtime-gobuild /go/src/github.com/cilium/bpf-map ./
 COPY --from=runtime-gobuild /go/bin/gops ./
 WORKDIR /cni
 COPY --from=runtime-build /tmp/loopback ./
