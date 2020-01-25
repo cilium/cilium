@@ -7,6 +7,13 @@ apt-get upgrade -y && \
 #
 # Prepackaged Cilium runtime dependencies
 #
+dpkgArch="$(dpkg --print-architecture)"; \
+case "${dpkgArch##*-}" in \
+  arm64) libcdev="" ;; \
+  amd64) libcdev="libc6-dev-i386" ;; \
+  i386) libcdev="libc6-dev-i386" ;; \
+  *) libcdev="" ;; \
+esac; \
 apt-get install -y --no-install-recommends \
 # Additional iproute2 runtime dependencies
     libelf1 libmnl0 \
@@ -48,10 +55,10 @@ cd iproute2 && \
 make -j `getconf _NPROCESSORS_ONLN` && \
 strip tc/tc && \
 strip ip/ip && \
-cd .. && \
 #
 # clang/llvm image with only BPF backend
 #
+cd /tmp && \
 git clone -b master https://github.com/llvm/llvm-project.git llvm && \
 mkdir -p llvm/llvm/build/install && \
 cd llvm/ && \
@@ -63,19 +70,26 @@ strip bin/clang && \
 strip bin/llc && \
 cp bin/clang /usr/bin/clang && \
 cp bin/llc /usr/bin/llc && \
-cd ../../../ && \
 #
 # bpftool
 #
+cd /tmp && \
 git clone --depth 1 -b master git://git.kernel.org/pub/scm/linux/kernel/git/bpf/bpf-next.git linux && \
 cd linux/tools/bpf/bpftool/ && \
 make -j `getconf _NPROCESSORS_ONLN` && \
 strip bpftool && \
-cd ../../../../ && \
 #
 # cni/loopback
 #
-curl -sS -L https://github.com/containernetworking/plugins/releases/download/v0.7.5/cni-plugins-amd64-v0.7.5.tgz -o cni.tar.gz && \
+cd /tmp && \
+dpkgArch="$(dpkg --print-architecture)"; \
+case "${dpkgArch##*-}" in \
+  amd64) arch="amd64" ;; \
+  arm64) arch="arm64" ;; \
+  armhf) arch="arm" ;; \
+  i386) arch="amd64" ;; \
+esac; \
+curl -sS -L https://github.com/containernetworking/plugins/releases/download/v0.7.5/cni-plugins-${arch}-v0.7.5.tgz -o cni.tar.gz && \
 tar -xvf cni.tar.gz ./loopback && \
 strip -s ./loopback && \
 #
@@ -102,8 +116,17 @@ RUN go get -d github.com/google/gops && \
 cd /go/src/github.com/google/gops && \
 git checkout -b v0.3.6 v0.3.6 && \
 go install && \
-strip /go/bin/gops
-
+strip /go/bin/gops && \
+#
+# bpf-map
+#
+mkdir -p /go/src/github.com/cilium && \
+  cd /go/src/github.com/cilium && \
+  curl -L https://github.com/cilium/bpf-map/archive/v1.0.tar.gz -o bpfmap.tar.gz && \
+  tar -xzf bpfmap.tar.gz && \
+  cd bpf-map-1.0 && \
+  go build && \
+  strip bpf-map-1.0
 #
 # Stripped cilium runtime base image
 #
@@ -113,6 +136,7 @@ WORKDIR /bin
 COPY --from=runtime-build /tmp/iproute2/tc/tc /tmp/iproute2/ip/ip ./
 COPY --from=runtime-build /tmp/linux/tools/bpf/bpftool/bpftool ./
 COPY --from=runtime-build /tmp/llvm/llvm/build/bin/clang /tmp/llvm/llvm/build/bin/llc ./
+COPY --from=runtime-gobuild /go/src/github.com/cilium/bpf-map-1.0/bpf-map-1.0 ./bpf-map
 COPY --from=runtime-gobuild /go/bin/gops ./
 WORKDIR /cni
 COPY --from=runtime-build /tmp/loopback ./
