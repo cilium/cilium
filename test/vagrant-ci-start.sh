@@ -9,6 +9,9 @@ for i in $(seq 1 $K8S_NODES); do
     vagrant destroy k8s${i}-${K8S_VERSION} --force
 done
 
+echo "boxes available on the node"
+vagrant box list
+
 echo "starting vms"
 for i in $(seq 1 $K8S_NODES); do
     vagrant up k8s${i}-${K8S_VERSION} --provision
@@ -24,6 +27,8 @@ until kubectl get nodes || [ $NEXT_WAIT_TIME -eq 12 ]; do
    ((NEXT_WAIT_TIME++))
    sleep 5
 done
+
+export HOME=${GOPATH}
 kubectl get nodes
 
 echo "adding local docker registry to cluster"
