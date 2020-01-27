@@ -19,6 +19,7 @@ package bpf
 import (
 	"fmt"
 	"os"
+	"sync"
 	"testing"
 	"unsafe"
 
@@ -382,6 +383,74 @@ func (s *BPFPrivilegedTestSuite) TestDump(c *C) {
 		"key=105": {"value=205"},
 		"key=106": {"value=206"},
 	})
+}
+
+func (s *BPFPrivilegedTestSuite) TestDumpReliablyWithCallback(c *C) {
+	for k, v := range map[uint32]uint32{1: 1, 105: 205, 106: 206} {
+		err := testMap.Update(&TestKey{Key: k}, &TestValue{Value: v})
+		c.Assert(err, IsNil)
+	}
+	// start a goroutine that continuously updates the map
+	started := make(chan struct{}, 1)
+	done := make(chan struct{}, 1)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		started <- struct{}{}
+		for i := uint32(0); ; i++ {
+			select {
+			case <-done:
+				return
+			default:
+				if i%2 == 0 {
+					if i != 106 { // we don't want to modify initial map values
+						err := testMap.Update(&TestKey{Key: i}, &TestValue{Value: i + 100})
+						// avoid assert to ensure we call wg.Done
+						c.Check(err, IsNil)
+					}
+				} else {
+					k := i - 1
+					if k != 106 { // we don't want to modify initial map values
+						err := testMap.Delete(&TestKey{Key: k})
+						// avoid assert to ensure we call wg.Done
+						c.Check(err, IsNil)
+					}
+				}
+			}
+		}
+	}()
+	<-started // wait until the routine has started to start the actual tests
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 100; i++ {
+			dump := map[string]string{}
+			customCb := func(key MapKey, value MapValue) {
+				switch key.String() {
+				case "key=1", "key=105", "key=106":
+					dump[key.String()] = "custom-" + value.String()
+				default:
+					// do nothing, these are dummy entries whose sole purpose
+					// is to modify the map while being iterated
+				}
+			}
+			ds := NewDumpStats(testMap)
+			if err := testMap.DumpReliablyWithCallback(customCb, ds); err != nil {
+				// avoid Assert to ensure the done signal is sent
+				c.Check(err.Error(), Equals, fmt.Sprintf("dump incomplete: maxBacktrack=%d reached", 4*ds.MaxEntries))
+			} else {
+				// avoid Assert to ensure the done signal is sent
+				c.Check(dump, checker.DeepEquals, map[string]string{
+					"key=1":   "custom-value=1",
+					"key=105": "custom-value=205",
+					"key=106": "custom-value=206",
+				})
+			}
+		}
+		done <- struct{}{}
+	}()
+	wg.Wait()
 }
 
 func (s *BPFPrivilegedTestSuite) TestDeleteAll(c *C) {

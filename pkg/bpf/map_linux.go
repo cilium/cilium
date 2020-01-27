@@ -626,8 +626,8 @@ func (m *Map) DumpWithCallbackIfExists(cb DumpCallback) error {
 // additional tracking of the current and recently seen keys, so that if an
 // element is removed from the underlying kernel map during the dump, the dump
 // can continue from a recently seen key rather than restarting from scratch.
-// In addition, it caps the maximum number of map entry iterations by the
-// maximum size of the map.
+// In addition, it caps the maximum number of map entry iterations at 4 times
+// the maximum map size. If this limit is reached, an error is returned.
 //
 // The caller must provide a callback for handling each entry, and a stats
 // object initialized via a call to NewDumpStats().
@@ -647,12 +647,14 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 		return err
 	}
 
-	err := GetFirstKey(m.fd, unsafe.Pointer(&currentKey[0]))
-	if err != nil {
-		// Map is empty, nothing to clean up.
+	if err := GetFirstKey(m.fd, unsafe.Pointer(&currentKey[0])); err != nil {
 		stats.Lookup = 1
-		stats.Completed = true
-		return nil
+		if err == io.EOF {
+			// map is empty, nothing to clean up.
+			stats.Completed = true
+			return nil
+		}
+		return err
 	}
 
 	mk := m.MapKey.DeepCopyMapKey()
@@ -675,16 +677,26 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 	bpfNextKeyPtr := uintptr(unsafe.Pointer(&bpfNextKey))
 	bpfNextKeySize := unsafe.Sizeof(bpfNextKey)
 
-	for stats.Lookup = 1; stats.Lookup <= stats.MaxEntries; stats.Lookup++ {
-		// currentKey was returned by GetNextKey() so we know it existed in the map, but it may have been
-		// deleted by a concurrent map operation. If currentKey is no longer in the map, nextKey will be
-		// the first key in the map again. Use the nextKey only if we still find currentKey in the Lookup()
-		// after the GetNextKey() call, this way we know nextKey is NOT the first key in the map.
-		nextKeyValid := GetNextKeyFromPointers(m.fd, bpfNextKeyPtr, bpfNextKeySize)
+	// maxBacktrack is an upper bound limit to prevent backtracking forever
+	// when iterating over the map's elements (the map might be concurrently
+	// updated while being iterated)
+	maxBacktrack := 4 * stats.MaxEntries
+
+	// this loop stops when all elements have been iterated
+	// (GetNextKeyFromPointers returns io.EOF) OR, in order to avoid hanging if
+	// the map is continuously updated, when maxBacktrack has been reached
+	for ; stats.LookupFailed < maxBacktrack; stats.Lookup++ {
+		// currentKey was returned by GetFirstKey()/GetNextKeyFromPointers()
+		// so we know it existed in the map, but it may have been deleted by a
+		// concurrent map operation. If currentKey is no longer in the map,
+		// nextKey will be the first key in the map again. Use the nextKey only
+		// if we still find currentKey in the Lookup() after the
+		// GetNextKeyFromPointers() call, this way we know nextKey is NOT the
+		// first key in the map.
+		nextKeyErr := GetNextKeyFromPointers(m.fd, bpfNextKeyPtr, bpfNextKeySize)
 		err := LookupElementFromPointers(m.fd, bpfCurrentKeyPtr, bpfCurrentKeySize)
 		if err != nil {
 			stats.LookupFailed++
-
 			// Restarting from a invalid key starts the iteration again from the beginning.
 			// If we have a previously found key, try to restart from there instead
 			if prevKeyValid {
@@ -694,8 +706,9 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 				prevKeyValid = false
 				stats.KeyFallback++
 			} else {
-				// Depending on exactly when currentKey was deleted from the map, nextKey may be the actual
-				// keyelement after the deleted one, or the first element in the map.
+				// Depending on exactly when currentKey was deleted from the
+				// map, nextKey may be the actual key element after the deleted
+				// one, or the first element in the map.
 				copy(currentKey, nextKey)
 				stats.Interrupted++
 			}
@@ -712,18 +725,21 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 			cb(mk, mv)
 		}
 
-		if nextKeyValid != nil {
-			stats.Completed = true
-			break
+		if nextKeyErr != nil {
+			if nextKeyErr == io.EOF {
+				stats.Completed = true
+				return nil // end of map, we're done iterating
+			}
+			return nextKeyErr
 		}
+
 		// remember the last found key
 		copy(prevKey, currentKey)
 		prevKeyValid = true
 		// continue from the next key
 		copy(currentKey, nextKey)
 	}
-
-	return nil
+	return fmt.Errorf("dump incomplete: maxBacktrack=%d reached", maxBacktrack)
 }
 
 // Dump returns the map (type map[string][]string) which contains all
