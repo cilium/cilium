@@ -130,7 +130,6 @@ pipeline {
                     environment {
                         TESTED_SUITE="k8s-1.11"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
-                        HOME="${GOPATH}"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                         NETNEXT="true"
                         K8S_VERSION="1.11"
@@ -161,7 +160,6 @@ pipeline {
                     environment {
                         TESTED_SUITE="k8s-1.17"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
-                        HOME="${GOPATH}"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                         K8S_VERSION="1.17"
                         KUBECONFIG="vagrant-kubeconfig"
@@ -227,14 +225,13 @@ pipeline {
                     environment {
                         TESTED_SUITE="k8s-1.11"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
-                        HOME="${GOPATH}"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                         NETNEXT="true"
                         KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
                         K8S_VERSION="1.11"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s*/" | sed "s/Runtime.*/NoTests/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh)'
+                        sh 'cd ${TESTDIR}; HOME=${GOPATH} ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s*/" | sed "s/Runtime.*/NoTests/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh)'
                     }
                     post {
                         always {
@@ -257,13 +254,12 @@ pipeline {
                     environment {
                         TESTED_SUITE="k8s-1.17"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
-                        HOME="${GOPATH}"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                         KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
                         K8S_VERSION="1.17"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s*/" | sed "s/Runtime.*/NoTests/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true -cilium.registry=$(print-node-ip.sh)'
+                        sh 'cd ${TESTDIR}; HOME=${GOPATH} ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s*/" | sed "s/Runtime.*/NoTests/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true -cilium.registry=$(print-node-ip.sh)'
                     }
                     post {
                         always {
