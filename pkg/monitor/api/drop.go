@@ -36,7 +36,7 @@ var errors = map[uint8]string{
 	130: "Invalid source mac",      // Unused
 	131: "Invalid destination mac", // Unused
 	132: "Invalid source ip",
-	133: "Policy denied (L3)",
+	133: "Policy denied",
 	134: "Invalid packet",
 	135: "CT: Truncated or invalid header",
 	136: "CT: Missing TCP ACK flag", // Unused
@@ -62,10 +62,8 @@ var errors = map[uint8]string{
 	156: "Invalid IPv6 extension header",
 	157: "IP fragmentation not supported",
 	158: "Service backend not found",
-	159: "Policy denied (L4)", // Unused
 	160: "No tunnel/encapsulation endpoint (datapath BUG!)",
 	161: "Failed to insert into proxymap", // Unused
-	162: "Policy denied (CIDR)",           // Unused
 	163: "Unknown connection tracking state",
 	164: "Local host is unreachable",
 	165: "No configuration available to perform policy decision", // Unused

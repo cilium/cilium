@@ -1523,7 +1523,7 @@ var _ = Describe("RuntimePolicies", func() {
 			By("Testing cilium monitor output")
 			err = monitorRes.WaitUntilMatchRegexp(fmt.Sprintf(`-> endpoint %s flow [^ ]+ identity 1->`, endpointID))
 			Expect(err).To(BeNil(), "Allow on ingress failed")
-			monitorRes.ExpectDoesNotMatchRegexp(fmt.Sprintf(`xx drop \(Policy denied \([^)]+\)\) flow [^ ]+ to endpoint %s, identity 1->[^0]`, endpointID), "Unexpected drop")
+			monitorRes.ExpectDoesNotMatchRegexp(fmt.Sprintf(`xx drop \(Policy denied\) flow [^ ]+ to endpoint %s, identity 1->[^0]`, endpointID), "Unexpected drop")
 		})
 
 		It("Init Egress Policy Test", func() {
@@ -1548,7 +1548,7 @@ var _ = Describe("RuntimePolicies", func() {
 			By("Testing cilium monitor output")
 			err = monitorRes.WaitUntilMatchRegexp(fmt.Sprintf(`-> endpoint %s flow [^ ]+ identity 1->`, endpointID))
 			Expect(err).To(BeNil(), "Allow on egress failed")
-			monitorRes.ExpectDoesNotMatchRegexp(fmt.Sprintf(`xx drop \(Policy denied \([^)]+\)\) flow [^ ]+ to endpoint %s, identity 1->[^0]`, endpointID), "Unexpected drop")
+			monitorRes.ExpectDoesNotMatchRegexp(fmt.Sprintf(`xx drop \(Policy denied\) flow [^ ]+ to endpoint %s, identity 1->[^0]`, endpointID), "Unexpected drop")
 		})
 	})
 
