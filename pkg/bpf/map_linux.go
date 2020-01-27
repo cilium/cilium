@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"reflect"
@@ -550,7 +551,10 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 	}
 
 	if err := GetFirstKey(m.fd, unsafe.Pointer(&nextKey[0])); err != nil {
-		return nil
+		if err == io.EOF {
+			return nil
+		}
+		return err
 	}
 
 	mk := m.MapKey.DeepCopyMapKey()
@@ -590,12 +594,13 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 
 		copy(key, nextKey)
 
-		err = GetNextKeyFromPointers(m.fd, bpfCurrentKeyPtr, bpfCurrentKeySize)
-		if err != nil {
-			break
+		if err := GetNextKeyFromPointers(m.fd, bpfCurrentKeyPtr, bpfCurrentKeySize); err != nil {
+			if err == io.EOF { // end of map, we're done iterating
+				return nil
+			}
+			return err
 		}
 	}
-	return nil
 }
 
 // DumpWithCallbackIfExists is similar to DumpWithCallback, but returns earlier
@@ -895,7 +900,10 @@ func (m *Map) DeleteAll() error {
 
 	for {
 		if err := GetFirstKey(m.fd, unsafe.Pointer(&nextKey[0])); err != nil {
-			break
+			if err == io.EOF {
+				return nil
+			}
+			return err
 		}
 
 		err := DeleteElement(m.fd, unsafe.Pointer(&nextKey[0]))
@@ -911,8 +919,6 @@ func (m *Map) DeleteAll() error {
 			return err
 		}
 	}
-
-	return nil
 }
 
 // GetNextKey returns the next key in the Map after key.
