@@ -18,6 +18,7 @@ package bpf
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -206,7 +207,8 @@ func DeleteElement(fd int, key unsafe.Pointer) error {
 	return nil
 }
 
-// GetNextKeyFromPointers stores, in nextKey, the next key after the key of the map in fd.
+// GetNextKeyFromPointers stores, in nextKey, the next key after the key of the
+// map in fd. When there are no more keys, io.EOF is returned.
 func GetNextKeyFromPointers(fd int, structPtr, sizeOfStruct uintptr) error {
 
 	var duration *spanstat.SpanStat
@@ -221,6 +223,12 @@ func GetNextKeyFromPointers(fd int, structPtr, sizeOfStruct uintptr) error {
 	)
 	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
 		metrics.BPFSyscallDuration.WithLabelValues(metricOpGetNextKey, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
+	}
+
+	// BPF_MAP_GET_NEXT_KEY returns ENOENT when all keys have been iterated
+	// translate that to io.EOF to signify there are no next keys
+	if err == syscall.ENOENT {
+		return io.EOF
 	}
 
 	if ret != 0 || err != 0 {
@@ -242,7 +250,8 @@ func GetNextKey(fd int, key, nextKey unsafe.Pointer) error {
 	return GetNextKeyFromPointers(fd, uintptr(unsafe.Pointer(&uba)), unsafe.Sizeof(uba))
 }
 
-// GetFirstKey fetches the first key in the map.
+// GetFirstKey fetches the first key in the map. If there are no keys in the
+// map, io.EOF is returned.
 func GetFirstKey(fd int, nextKey unsafe.Pointer) error {
 	uba := bpfAttrMapOpElem{
 		mapFd: uint32(fd),
