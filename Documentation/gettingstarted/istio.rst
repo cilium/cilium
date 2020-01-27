@@ -31,15 +31,21 @@ Step 2: Install Istio
 
 Install the `Helm client <https://docs.helm.sh/using_helm/#installing-helm>`_.
 
-Download `Istio version 1.2.5
-<https://github.com/istio/istio/releases/tag/1.2.5>`_:
+Download `Istio version 1.4.3
+<https://github.com/istio/istio/releases/tag/1.4.3>`_:
 
 ::
 
-   export ISTIO_VERSION=1.2.5
+   export ISTIO_VERSION=1.4.3
    curl -L https://git.io/getLatestIstio | sh -
    export ISTIO_HOME=`pwd`/istio-${ISTIO_VERSION}
    export PATH="$PATH:${ISTIO_HOME}/bin"
+
+.. note::
+
+   Istio 1.4 has been tested with Kubernetes releases 1.13, 1.14,
+   1.15. Cilium integration has also been tested with Kubernetes
+   releases 1.16, and 1.17.
 
 Create a copy of Istio's Helm charts in order to customize them:
 
@@ -87,9 +93,26 @@ Cilium agent for policy configuration:
 Create an Istio deployment spec, which configures the Cilium-specific variant
 of Pilot, and disables unused services:
 
-::
+.. tabs::
+  .. group-tab:: Helm 2
 
-    helm template istio-cilium-helm --name istio --namespace istio-system \
+    .. parsed-literal::
+
+     helm template istio-cilium-helm --name istio --namespace istio-system \
+        --set pilot.image=docker.io/cilium/istio_pilot:${ISTIO_VERSION} \
+        --set sidecarInjectorWebhook.enabled=false \
+        --set global.controlPlaneSecurityEnabled=true \
+        --set global.mtls.enabled=true \
+        --set global.proxy.image=docker.io/cilium/istio_proxy:${ISTIO_VERSION} \
+        --set ingress.enabled=false \
+        --set egressgateway.enabled=false \
+        > istio-cilium.yaml
+
+  .. group-tab:: Helm 3
+
+    .. parsed-literal::
+
+     helm template istio istio-cilium-helm --namespace istio-system \
         --set pilot.image=docker.io/cilium/istio_pilot:${ISTIO_VERSION} \
         --set sidecarInjectorWebhook.enabled=false \
         --set global.controlPlaneSecurityEnabled=true \
@@ -101,10 +124,20 @@ of Pilot, and disables unused services:
 
 Deploy Istio onto Kubernetes:
 
-::
+.. tabs::
+  .. group-tab:: Helm 2
 
-    kubectl create namespace istio-system
-    helm template ${ISTIO_HOME}/install/kubernetes/helm/istio-init --name istio-init --namespace istio-system | kubectl apply -f -
+    .. parsed-literal::
+
+     kubectl create namespace istio-system
+     helm template ${ISTIO_HOME}/install/kubernetes/helm/istio-init --name istio-init --namespace istio-system | kubectl apply -f -
+
+  .. group-tab:: Helm 3
+
+    .. parsed-literal::
+
+     kubectl create namespace istio-system
+     helm template istio-init ${ISTIO_HOME}/install/kubernetes/helm/istio-init --namespace istio-system | kubectl apply -f -
 
 Verify that 23 Istio CRDs have been created:
 
@@ -194,21 +227,6 @@ Check the progress of the deployment (every service should have an
     details-v1       1/1     1            1           12s
     productpage-v1   1/1     1            1           13s
     reviews-v1       1/1     1            1           12s
-
-Once all the pods are available, verify that the application works by
-making a query from reviews pod to the productpage:
-
-.. note::
-
-   'sudo' here is needed to cause the curl connection to be forwarded
-   to the proxy. Without it the connection is considered as coming
-   from the proxy itself, causing the destination proxy to close the
-   connection on (missing) TLS handshake failure.
-
-::
-
-    kubectl exec -it $(kubectl get pod -l app=reviews -o jsonpath='{.items[0].metadata.name}') -c istio-proxy -- sudo curl productpage:9080/productpage | grep "<title>.*</title>"
-        <title>Simple Bookstore App</title>
 
 .. only:: not (epub or latex or html)
 
