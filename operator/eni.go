@@ -37,61 +37,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var nodeManager *ipam.NodeManager
-
-type k8sAPI struct{}
-
-func (k *k8sAPI) Get(node string) (*v2.CiliumNode, error) {
-	return ciliumK8sClient.CiliumV2().CiliumNodes().Get(node, metav1.GetOptions{})
-}
-
-func (k *k8sAPI) UpdateStatus(node, origNode *v2.CiliumNode) (*v2.CiliumNode, error) {
-	// If k8s supports status as a sub-resource, then we need to update the status separately
-	k8sCapabilities := k8sversion.Capabilities()
-	switch {
-	case k8sCapabilities.UpdateStatus:
-		if !reflect.DeepEqual(origNode.Status, node.Status) {
-			return ciliumK8sClient.CiliumV2().CiliumNodes().UpdateStatus(node)
-		}
-	default:
-		if !reflect.DeepEqual(origNode.Status, node.Status) {
-			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(node)
-		}
-	}
-
-	return nil, nil
-}
-
-func (k *k8sAPI) Update(node, origNode *v2.CiliumNode) (*v2.CiliumNode, error) {
-	// If k8s supports status as a sub-resource, then we need to update the status separately
-	k8sCapabilities := k8sversion.Capabilities()
-	switch {
-	case k8sCapabilities.UpdateStatus:
-		if !reflect.DeepEqual(origNode.Spec, node.Spec) {
-			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(node)
-		}
-	default:
-		if !reflect.DeepEqual(origNode, node) {
-			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(node)
-		}
-	}
-
-	return nil, nil
-}
-
-func ciliumNodeUpdated(resource *v2.CiliumNode) {
-	if nodeManager != nil {
-		// resource is deep copied before it is stored in pkg/aws/eni
-		nodeManager.Update(resource)
-	}
-}
-
-func ciliumNodeDeleted(nodeName string) {
-	if nodeManager != nil {
-		nodeManager.Delete(nodeName)
-	}
-}
-
 // startENIAllocator kicks of ENI allocation, the initial connection to AWS
 // APIs is done in a blocking manner, given that is successful, a controller is
 // started to manage allocation based on CiliumNode custom resources

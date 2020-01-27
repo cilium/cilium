@@ -599,6 +599,10 @@ const (
 	// IPAMENI is the value to select the AWS ENI IPAM plugin for option.IPAM
 	IPAMENI = "eni"
 
+	// IPAMAzure is the value to select the Azure IPAM plugin for
+	// option.IPAM
+	IPAMAzure = "azure"
+
 	// AWSClientQPSLimit is the queries per second limit for the AWS client used by AWS ENI IPAM
 	AWSClientQPSLimit = "aws-client-qps"
 

@@ -887,6 +887,11 @@ type NodeStatus struct {
 	// +optional
 	ENI ENIStatus `json:"eni,omitempty"`
 
+	// Azure is the Azure specific status of the node
+	//
+	// +optional
+	Azure AzureStatus `json:"azure,omitempty"`
+
 	// IPAM is the IPAM status of the node
 	//
 	// +optional
@@ -1006,6 +1011,41 @@ type AwsVPC struct {
 
 	// CIDRs is the list of CIDR ranges associated with the VPC
 	CIDRs []string `json:"cidrs,omitempty"`
+}
+
+// AzureStatus is the status of Azure addressing of the node
+type AzureStatus struct {
+	// Interfaces is the list of interfaces on the node
+	//
+	// +optional
+	Interfaces map[string]AzureInterface `json:"enis,omitempty"`
+}
+
+// AzureInterface represents an Azure Interface
+type AzureInterface struct {
+	// ID is the identifier
+	//
+	// +optional
+	ID string `json:"id,omitempty"`
+
+	// MAC is the mac address
+	//
+	// +optional
+	MAC string `json:"mac,omitempty"`
+
+	// State is the provisioning state
+	//
+	// +optional
+	State string `json:"state,omitempty"`
+
+	// Addresses is the list of all IPs associated with the ENI, including
+	// all secondary addresses
+	//
+	// +optional
+	Addresses []string `json:"addresses,omitempty"`
+
+	// SecurityGroup is the security group associated with the interface
+	SecurityGroup string `json:"security-group,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
