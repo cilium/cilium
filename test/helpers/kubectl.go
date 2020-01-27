@@ -1345,7 +1345,7 @@ func (kub *Kubectl) generateCiliumYaml(options []string, filename string) error 
 		}
 
 		opts := map[string]string{
-			"global.nodePort.device":  "enp0s8",
+			"global.nodePort.device":  PrivateIface,
 			"global.nodePort.enabled": "true",
 			"global.k8sServiceHost":   nodeIP,
 			"global.k8sServicePort":   "6443",
