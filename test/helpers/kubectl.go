@@ -243,7 +243,7 @@ func (kub *Kubectl) LabelNodes() {
 	kub.ExecMiddle(fmt.Sprintf("%s label --overwrite node k8s2 cilium.io/ci-node=k8s2", KubectlCmd))
 	kub.ExecMiddle(fmt.Sprintf("%s label --overwrite node k8s3 cilium.io/ci-node=k8s3", KubectlCmd))
 
-	node := os.Getenv("NO_CILIUM_ON_NODE")
+	node := GetNodeWithoutCilium()
 	if node != "" {
 		// Prevent scheduling any pods on the node, as it will be used as an external client
 		// to send requests to k8s{1,2}
@@ -282,7 +282,7 @@ func (kub *Kubectl) GetNumCiliumNodes() int {
 		return 0
 	}
 	sub := 0
-	if os.Getenv("NO_CILIUM_ON_NODE") != "" {
+	if ExistNodeWithoutCilium() {
 		sub = 1
 	}
 
@@ -1327,7 +1327,7 @@ func (kub *Kubectl) generateCiliumYaml(options []string, filename string) error 
 	}
 
 	// Do not schedule cilium-agent on the NO_CILIUM_ON_NODE node
-	if node := os.Getenv("NO_CILIUM_ON_NODE"); node != "" {
+	if node := GetNodeWithoutCilium(); node != "" {
 		opts := map[string]string{
 			"global.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key":       "cilium.io/ci-node",
 			"global.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator":  "NotIn",
@@ -1338,7 +1338,7 @@ func (kub *Kubectl) generateCiliumYaml(options []string, filename string) error 
 		}
 	}
 
-	if os.Getenv("KUBEPROXY") == "0" {
+	if !RunsWithKubeProxy() {
 		nodeIP, err := kub.GetNodeIPByLabel(K8s1)
 		if err != nil {
 			return fmt.Errorf("Cannot retrieve Node IP for k8s1: %s", err)
@@ -1714,7 +1714,7 @@ func (kub *Kubectl) CiliumNodesWait() (bool, error) {
 			return false
 		}
 		result := data.KVOutput()
-		ignoreNode := os.Getenv("NO_CILIUM_ON_NODE")
+		ignoreNode := GetNodeWithoutCilium()
 		for k, v := range result {
 			if k == ignoreNode {
 				continue
@@ -3006,7 +3006,7 @@ func logGathererSelector(allNodes bool) string {
 		return selector
 	}
 
-	if nodeName := os.Getenv("NO_CILIUM_ON_NODE"); nodeName != "" {
+	if nodeName := GetNodeWithoutCilium(); nodeName != "" {
 		selector = fmt.Sprintf("%s --field-selector='spec.nodeName!=%s'", selector, nodeName)
 	}
 
