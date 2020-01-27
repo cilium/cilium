@@ -398,7 +398,7 @@ func (c *consulClient) waitForInitLock(ctx context.Context) <-chan struct{} {
 			locker, err := c.LockPath(ctx, InitLockPath)
 			if err == nil {
 				close(initLockSucceeded)
-				locker.Unlock(ctx)
+				locker.Unlock(context.Background())
 				log.Info("Distributed lock successful, consul has quorum")
 				return
 			}
@@ -605,7 +605,7 @@ func (c *consulClient) createIfExists(ctx context.Context, condKey, key string, 
 		return fmt.Errorf("unable to lock condKey for CreateIfExists: %s", err)
 	}
 
-	defer l.Unlock(ctx)
+	defer l.Unlock(context.Background())
 
 	// Create the key if it does not exist
 	if _, err := c.CreateOnly(ctx, key, value, lease); err != nil {

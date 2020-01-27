@@ -423,7 +423,7 @@ func (k *kvstoreBackend) RunGC(ctx context.Context, staleKeysPrevRound map[strin
 		pairs, err := kvstore.ListPrefixIfLocked(ctx, valueKeyPrefix, lock)
 		if err != nil {
 			log.WithError(err).WithField(fieldPrefix, valueKeyPrefix).Warning("allocator garbage collector was unable to list keys")
-			lock.Unlock(ctx)
+			lock.Unlock(context.Background())
 			continue
 		}
 
@@ -454,7 +454,7 @@ func (k *kvstoreBackend) RunGC(ctx context.Context, staleKeysPrevRound map[strin
 			}
 		}
 
-		lock.Unlock(ctx)
+		lock.Unlock(context.Background())
 	}
 
 	return staleKeys, nil
