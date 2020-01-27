@@ -17,7 +17,6 @@ package k8sTest
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
 	"regexp"
 	"strconv"
 
@@ -410,7 +409,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"--set global.etcd.enabled=true",
 				"--set global.etcd.managed=true",
 			}
-			if os.Getenv("NO_CILIUM_ON_NODE") != "" {
+			if helpers.ExistNodeWithoutCilium() {
 				opts = append(opts, "--set operator.synchronizeK8sNodes=false")
 			}
 			deployCilium(opts)
