@@ -397,8 +397,8 @@ func (c *consulClient) waitForInitLock(ctx context.Context) <-chan struct{} {
 		for {
 			locker, err := c.LockPath(ctx, InitLockPath)
 			if err == nil {
-				close(initLockSucceeded)
 				locker.Unlock(context.Background())
+				close(initLockSucceeded)
 				log.Info("Distributed lock successful, consul has quorum")
 				return
 			}
