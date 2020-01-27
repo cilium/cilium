@@ -112,8 +112,10 @@ pipeline {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                         retry(3) {
-                            sh 'cd ${TESTDIR}; vagrant destroy runtime --force'
-                            sh 'cd ${TESTDIR}; vagrant up runtime --provision'
+                            timeout(time: 20, unit: 'MINUTES'){
+                                sh 'cd ${TESTDIR}; vagrant destroy runtime --force'
+                                sh 'cd ${TESTDIR}; vagrant up runtime --provision'
+                            }
                         }
                     }
                     post {
@@ -141,8 +143,10 @@ pipeline {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                         retry(3) {
-                            dir("${TESTDIR}") {
-                                sh './vagrant-ci-start.sh'
+                            timeout(time: 20, unit: 'MINUTES'){
+                                dir("${TESTDIR}") {
+                                    sh './vagrant-ci-start.sh'
+                                }
                             }
                         }
                     }
@@ -169,8 +173,10 @@ pipeline {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                         retry(3) {
-                            dir("${TESTDIR}") {
-                                sh './vagrant-ci-start.sh'
+                            timeout(time: 20, unit: 'MINUTES'){
+                                dir("${TESTDIR}") {
+                                    sh './vagrant-ci-start.sh'
+                                }
                             }
                         }
                     }
