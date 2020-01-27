@@ -164,3 +164,18 @@ spec:
     name: http
   selector:
     zgroup: testDS
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-lb-local-k8s2
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  selector:
+    zgroup: test-k8s2

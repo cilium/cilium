@@ -257,6 +257,18 @@ var _ = Describe("K8sServicesTest", func() {
 				"%s host unexpectedly was able to bind on %q:%d, it should fail", fromPod, addr, port)
 		}
 
+		doRequestsExpectingHTTPCode := func(url string, count int, expectedCode string, fromPod string) {
+			By("Making %d HTTP requests from %s to %q, expecting HTTP %s", count, fromPod, url, expectedCode)
+			for i := 1; i <= count; i++ {
+				res, err := kubectl.ExecInHostNetNS(context.TODO(), fromPod, helpers.CurlWithHTTPCode(url))
+				ExpectWithOffset(1, err).To(BeNil(), "Cannot run curl in host netns")
+				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
+					"%s host can not connect to service %q", fromPod, url)
+				res.ExpectContains(expectedCode, "Request from %s to %q returned HTTP Code %q, expected %q",
+					fromPod, url, res.Output(), expectedCode)
+			}
+		}
+
 		doRequestsFromThirdHostWithLocalPort :=
 			func(url string, count int, checkSourceIP bool, fromPort int) {
 				var cmd string
@@ -375,6 +387,28 @@ var _ = Describe("K8sServicesTest", func() {
 			failRequests(url, count, k8s2Name)
 		}
 
+		testHealthCheckNodePort := func() {
+			var data v1.Service
+			k8s1Name, k8s1IP := getNodeInfo(helpers.K8s1)
+			k8s2Name, k8s2IP := getNodeInfo(helpers.K8s2)
+
+			// Service with HealthCheckNodePort that only has backends on k8s2
+			err := kubectl.Get(helpers.DefaultNamespace, "service test-lb-local-k8s2").Unmarshal(&data)
+			Expect(err).Should(BeNil(), "Can not retrieve service")
+
+			count := 10
+
+			// Checks that requests to k8s2 return 200
+			url := getURL(k8s2IP, data.Spec.HealthCheckNodePort)
+			doRequestsExpectingHTTPCode(url, count, "200", k8s1Name)
+			doRequestsExpectingHTTPCode(url, count, "200", k8s2Name)
+
+			// Checks that requests to k8s1 return 503 Service Unavailable
+			url = getURL(k8s1IP, data.Spec.HealthCheckNodePort)
+			doRequestsExpectingHTTPCode(url, count, "503", k8s1Name)
+			doRequestsExpectingHTTPCode(url, count, "503", k8s2Name)
+		}
+
 		It("Tests NodePort (kube-proxy)", func() {
 			testNodePort(false)
 		})
@@ -447,6 +481,10 @@ var _ = Describe("K8sServicesTest", func() {
 					It("Tests NodePort with externalTrafficPolicy=Local", func() {
 						testExternalTrafficPolicyLocal()
 					})
+
+					It("Tests HealthCheckNodePort", func() {
+						testHealthCheckNodePort()
+					})
 				})
 
 				Context("Tests with direct routing", func() {
@@ -466,6 +504,10 @@ var _ = Describe("K8sServicesTest", func() {
 
 					It("Tests NodePort with externalTrafficPolicy=Local", func() {
 						testExternalTrafficPolicyLocal()
+					})
+
+					It("Tests HealthCheckNodePort", func() {
+						testHealthCheckNodePort()
 					})
 				})
 
