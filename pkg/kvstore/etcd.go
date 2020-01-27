@@ -367,7 +367,7 @@ func (e *etcdClient) waitForInitLock(ctx context.Context) <-chan bool {
 			if err == nil {
 				initLockSucceeded <- true
 				close(initLockSucceeded)
-				locker.Unlock(ctx)
+				locker.Unlock(context.Background())
 				e.getLogger().Debug("Distributed lock successful, etcd has quorum")
 				return
 			}

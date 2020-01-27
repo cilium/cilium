@@ -443,7 +443,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		return 0, false, err
 	}
 
-	defer lock.Unlock(ctx)
+	defer lock.Unlock(context.Background())
 
 	// fetch first key that matches /value/<key> while ignoring the
 	// node suffix
