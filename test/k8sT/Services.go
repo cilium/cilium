@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 	"strings"
 	"time"
 
@@ -267,7 +266,7 @@ var _ = Describe("K8sServicesTest", func() {
 					if checkSourceIP {
 						cmd += " | grep client_address="
 					}
-					clientNodeName, clientIP := getNodeInfo(os.Getenv("NO_CILIUM_ON_NODE"))
+					clientNodeName, clientIP := getNodeInfo(helpers.GetNodeWithoutCilium())
 					res, err := kubectl.ExecInHostNetNS(context.TODO(), clientNodeName, cmd)
 					Expect(err).Should(BeNil(), "Cannot exec in k8s3 host netns")
 					ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),

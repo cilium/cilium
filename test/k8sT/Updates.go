@@ -2,7 +2,6 @@ package k8sTest
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -92,7 +91,7 @@ var _ = Describe("K8sUpdates", func() {
 
 	// FIXME don't skip once stable becomes v1.6 (v1.5 doesn't implement the kube-proxy
 	// replacement)
-	SkipItIf(func() bool { return os.Getenv("KUBEPROXY") == "0" },
+	SkipItIf(func() bool { return !helpers.RunsWithKubeProxy() },
 		"Tests upgrade and downgrade from a Cilium stable image to master", func() {
 			var assertUpgradeSuccessful func()
 			assertUpgradeSuccessful, cleanupCallback =

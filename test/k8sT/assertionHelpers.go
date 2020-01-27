@@ -17,7 +17,6 @@ package k8sTest
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/cilium/cilium/test/config"
@@ -159,7 +158,7 @@ func SkipIfIntegration(integration string) {
 // SkipItIfNoKubeProxy will skip It if kube-proxy is disabled (= NodePort BPF is
 // enabled)
 func SkipItIfNoKubeProxy() {
-	if os.Getenv("KUBEPROXY") == "0" {
+	if !helpers.RunsWithKubeProxy() {
 		Skip("kube-proxy is disabled (NodePort BPF is enabled). Skipping test.")
 	}
 }
