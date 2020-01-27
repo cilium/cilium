@@ -27,6 +27,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/ip"
 
+	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
 
@@ -184,6 +185,15 @@ func getCiliumHostIPsFromNetDev(devName string) (ipv4GW, ipv6Router net.IP) {
 			}
 		}
 	}
+
+	if ipv4GW != nil || ipv6Router != nil {
+		log.WithFields(logrus.Fields{
+			"ipv4":   ipv4GW,
+			"ipv6":   ipv6Router,
+			"device": devName,
+		}).Info("Restored router address from device")
+	}
+
 	return ipv4GW, ipv6Router
 }
 

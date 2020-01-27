@@ -29,6 +29,8 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -255,12 +257,10 @@ func AutoComplete() error {
 		ipv4GW, ipv6Router := getCiliumHostIPs()
 
 		if ipv4GW != nil && option.Config.EnableIPv4 {
-			log.Infof("Restored IPv4 internal node IP: %s", ipv4GW.String())
 			SetInternalIPv4(ipv4GW)
 		}
 
 		if ipv6Router != nil && option.Config.EnableIPv6 {
-			log.Infof("Restored IPv6 router IP: %s", ipv6Router.String())
 			SetIPv6Router(ipv6Router)
 		}
 	}
@@ -433,7 +433,12 @@ func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
 func getCiliumHostIPs() (ipv4GW, ipv6Router net.IP) {
 	nodeConfig := option.Config.GetNodeConfigPath()
 	ipv4GW, ipv6Router = getCiliumHostIPsFromFile(nodeConfig)
-	if ipv4GW != nil {
+	if ipv4GW != nil || ipv6Router != nil {
+		log.WithFields(logrus.Fields{
+			"ipv4": ipv4GW,
+			"ipv6": ipv6Router,
+			"file": nodeConfig,
+		}).Info("Restored router address from node_config")
 		return ipv4GW, ipv6Router
 	}
 	return getCiliumHostIPsFromNetDev(option.Config.HostDevice)
