@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -298,6 +298,8 @@ func runOperator(cmd *cobra.Command) {
 				log.WithError(err).Error("Unable to setup node watcher")
 			}
 		}
+
+		startKvstoreWatchdog()
 	}
 
 	if identityAllocationMode == option.IdentityAllocationModeCRD {
