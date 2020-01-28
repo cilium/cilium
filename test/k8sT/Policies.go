@@ -802,7 +802,6 @@ var _ = Describe("K8sPolicyTest", func() {
 				monitorFileName = "monitor-%s.log"
 				appPods         map[string]string
 				app1PodIP       string
-				bindManifest    string
 				worldTarget     = "http://vagrant-cache.ci.cilium.io"
 			)
 
@@ -846,15 +845,6 @@ var _ = Describe("K8sPolicyTest", func() {
 						break
 					}
 				}
-
-				By("Applying bind deployment")
-				bindManifest = helpers.ManifestGet(kubectl.BasePath(), "bind_deployment.yaml")
-
-				res := kubectl.ApplyDefault(bindManifest)
-				res.ExpectSuccess("Bind config cannot be deployed")
-
-				err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=bind", helpers.HelperTimeout)
-				Expect(err).Should(BeNil(), "Bind app is not ready after timeout")
 			})
 
 			AfterEach(func() {
@@ -863,10 +853,6 @@ var _ = Describe("K8sPolicyTest", func() {
 				kubectl.Exec(fmt.Sprintf("%s annotate pod %s -n %s %s-", helpers.KubectlCmd, appPods[helpers.App2], namespaceForTest, annotation.ProxyVisibility))
 				cmd := fmt.Sprintf("%s delete --all cnp,netpol -n %s", helpers.KubectlCmd, namespaceForTest)
 				_ = kubectl.Exec(cmd)
-			})
-
-			AfterAll(func() {
-				_ = kubectl.Delete(bindManifest)
 			})
 
 			checkProxyRedirection := func(resource string, redirected bool, parser policy.L7ParserType) {
