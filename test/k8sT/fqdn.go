@@ -31,54 +31,39 @@ var _ = Describe("K8sFQDNTest", func() {
 		backgroundCancel context.CancelFunc = func() { return }
 		backgroundError  error
 
-		bindManifest   = ""
 		demoManifest   = ""
 		ciliumFilename string
 
 		apps    = []string{helpers.App2, helpers.App3}
 		appPods map[string]string
 
-		// These are set differently in BeforeAll on EKS/GKE
-		worldTarget          = "http://world1.cilium.test"
-		worldTargetIP        = "192.168.9.10"
-		worldInvalidTarget   = "http://world2.cilium.test"
-		worldInvalidTargetIP = "192.168.9.11"
+		// The IPs are updated in BeforeAll
+		worldTarget          = "http://vagrant-cache.ci.cilium.io"
+		worldTargetIP        = "147.75.38.95"
+		worldInvalidTarget   = "http://jenkins.cilium.io"
+		worldInvalidTargetIP = "104.198.14.52"
 	)
 
 	BeforeAll(func() {
-		if helpers.IsIntegration(helpers.CIIntegrationEKS) || helpers.IsIntegration(helpers.CIIntegrationGKE) {
-			worldTarget = "http://vagrant-cache.ci.cilium.io"
-			worldInvalidTarget = "http://jenkins.cilium.io"
+		// In case the IPs changed, update them here
+		addrs, err := net.LookupHost("vagrant-cache.ci.cilium.io")
+		Expect(err).Should(BeNil(), "Error getting IPs for test")
+		worldTargetIP = addrs[0]
 
-			// In case the IPs changed, update them here
-			// worldTargetIP = "147.75.38.95"
-			// worldInvalidTargetIP = "104.198.14.52"
-			addrs, err := net.LookupHost("vagrant-cache.ci.cilium.io")
-			Expect(err).Should(BeNil(), "Error getting IPs for test")
-			worldTargetIP = addrs[0]
-
-			addrs, err = net.LookupHost("jenkins.cilium.io")
-			Expect(err).Should(BeNil(), "Error getting IPs for test")
-			worldInvalidTargetIP = addrs[0]
-		}
+		addrs, err = net.LookupHost("jenkins.cilium.io")
+		Expect(err).Should(BeNil(), "Error getting IPs for test")
+		worldInvalidTargetIP = addrs[0]
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		bindManifest = helpers.ManifestGet(kubectl.BasePath(), "bind_deployment.yaml")
 		demoManifest = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		DeployCiliumAndDNS(kubectl, ciliumFilename)
 
-		By("Applying bind deployment")
-		bindManifest = helpers.ManifestGet(kubectl.BasePath(), "bind_deployment.yaml")
-
-		res := kubectl.ApplyDefault(bindManifest)
-		res.ExpectSuccess("Bind config cannot be deployed")
-
 		By("Applying demo manifest")
-		res = kubectl.ApplyDefault(demoManifest)
+		res := kubectl.ApplyDefault(demoManifest)
 		res.ExpectSuccess("Demo config cannot be deployed")
 
-		err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", helpers.HelperTimeout)
+		err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), "Testapp is not ready after timeout")
 
 		appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
@@ -94,7 +79,6 @@ var _ = Describe("K8sFQDNTest", func() {
 	})
 
 	AfterAll(func() {
-		_ = kubectl.Delete(bindManifest)
 		_ = kubectl.Delete(demoManifest)
 		ExpectAllPodsTerminated(kubectl)
 		kubectl.CloseSSHClient()
