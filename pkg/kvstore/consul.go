@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,10 +37,10 @@ import (
 const (
 	consulName = "consul"
 
-	// optAddress is the string representing the key mapping to the value of the
+	// ConsulAddrOption is the string representing the key mapping to the value of the
 	// address for Consul.
-	optAddress         = "consul.address"
-	consulOptionConfig = "consul.tlsconfig"
+	ConsulAddrOption   = "consul.address"
+	ConsulOptionConfig = "consul.tlsconfig"
 
 	// maxLockRetries is the number of retries attempted when acquiring a lock
 	maxLockRetries = 10
@@ -68,14 +68,22 @@ func init() {
 func newConsulModule() backendModule {
 	return &consulModule{
 		opts: backendOptions{
-			optAddress: &backendOption{
+			ConsulAddrOption: &backendOption{
 				description: "Addresses of consul cluster",
 			},
-			consulOptionConfig: &backendOption{
+			ConsulOptionConfig: &backendOption{
 				description: "Path to consul tls configuration file",
 			},
 		},
 	}
+}
+
+func ConsulDummyAddress() string {
+	return consulDummyAddress
+}
+
+func ConsulDummyConfigFile() string {
+	return consulDummyConfigFile
 }
 
 func (c *consulModule) createInstance() backendModule {
@@ -127,14 +135,14 @@ func (c *consulModule) newClient(opts *ExtraOptions) (BackendOperations, chan er
 
 func (c *consulModule) connectConsulClient(opts *ExtraOptions) (BackendOperations, error) {
 	if c.config == nil {
-		consulAddr, consulAddrSet := c.opts[optAddress]
-		configPathOpt, configPathOptSet := c.opts[consulOptionConfig]
+		consulAddr, consulAddrSet := c.opts[ConsulAddrOption]
+		configPathOpt, configPathOptSet := c.opts[ConsulOptionConfig]
 		if !consulAddrSet {
-			return nil, fmt.Errorf("invalid consul configuration, please specify %s option", optAddress)
+			return nil, fmt.Errorf("invalid consul configuration, please specify %s option", ConsulAddrOption)
 		}
 
 		if consulAddr.value == "" {
-			return nil, fmt.Errorf("invalid consul configuration, please specify %s option", optAddress)
+			return nil, fmt.Errorf("invalid consul configuration, please specify %s option", ConsulAddrOption)
 		}
 
 		addr := consulAddr.value
@@ -635,6 +643,7 @@ func (c *consulClient) ListPrefix(prefix string) (KeyValuePairs, error) {
 		p[pairs[i].Key] = Value{
 			Data:        pairs[i].Value,
 			ModRevision: pairs[i].ModifyIndex,
+			SessionID:   pairs[i].Session,
 		}
 	}
 

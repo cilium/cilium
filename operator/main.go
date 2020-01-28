@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -154,6 +154,8 @@ func runOperator(cmd *cobra.Command) {
 			"address": kvStoreOpts[fmt.Sprintf("%s.address", kvStore)],
 		}).Fatal("Unable to setup kvstore")
 	}
+
+	startKvstoreWatchdog()
 
 	k8s.Configure(k8sAPIServer, k8sKubeConfigPath)
 	if err := k8s.Init(); err != nil {
