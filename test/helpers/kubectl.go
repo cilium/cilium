@@ -649,6 +649,20 @@ func (kub *Kubectl) MonitorStart(namespace, pod, filename string) func() error {
 	res := kub.ExecInBackground(ctx, cmd, ExecOptions{SkipLog: true})
 
 	cb := func() error {
+		oldLen := 0
+		length := 1
+	Timeout:
+		for oldLen != length {
+			select {
+			case <-time.After(1 * time.Minute):
+				break Timeout
+			default:
+				oldLen = len(res.GetStdOut())
+				time.Sleep(10 * time.Second)
+				length = len(res.GetStdOut())
+			}
+		}
+
 		cancel()
 		<-ctx.Done()
 		testPath, err := CreateReportDirectory()
@@ -667,6 +681,13 @@ func (kub *Kubectl) MonitorStart(namespace, pod, filename string) func() error {
 			return err
 		}
 		return nil
+	}
+
+	startIndicator := "Press Ctrl-C to quit"
+
+	// wait until monitor started
+	for !strings.Contains(res.GetStdOut(), startIndicator) {
+		time.Sleep(time.Second)
 	}
 
 	return cb
