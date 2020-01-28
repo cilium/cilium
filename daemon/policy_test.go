@@ -34,9 +34,13 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/testutils"
 
-	"github.com/cilium/proxy/go/cilium/api"
+	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
 	envoy_api_v2_route "github.com/cilium/proxy/go/envoy/api/v2/route"
+	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher"
+
+	"github.com/golang/protobuf/ptypes/wrappers"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -85,18 +89,31 @@ var (
 			},
 		},
 	}
+	googleRe2 = &envoy_type_matcher.RegexMatcher_GoogleRe2{
+		GoogleRe2: &envoy_type_matcher.RegexMatcher_GoogleRE2{
+			MaxProgramSize: &wrappers.UInt32Value{Value: 100}, // Envoy default
+		}}
+
 	PNPAllowGETbar = cilium.PortNetworkPolicyRule_HttpRules{
 		HttpRules: &cilium.HttpNetworkPolicyRules{
 			HttpRules: []*cilium.HttpNetworkPolicyRule{
 				{
 					Headers: []*envoy_api_v2_route.HeaderMatcher{
 						{
-							Name:                 ":method",
-							HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "GET"},
+							Name: ":method",
+							HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_SafeRegexMatch{
+								SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
+									EngineType: googleRe2,
+									Regex:      "GET",
+								}},
 						},
 						{
-							Name:                 ":path",
-							HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "/bar"},
+							Name: ":path",
+							HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_SafeRegexMatch{
+								SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
+									EngineType: googleRe2,
+									Regex:      "/bar",
+								}},
 						},
 					},
 				},
