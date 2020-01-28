@@ -79,7 +79,7 @@ var _ = Describe("K8sIstioTest", func() {
 	BeforeAll(func() {
 		k8sVersion := helpers.GetCurrentK8SEnv()
 		switch k8sVersion {
-		case "1.7", "1.8", "1.9", "1.10", "1.11", "1.12":
+		case "1.7", "1.8", "1.9", "1.10", "1.11", "1.12", "1.13":
 			Skip(fmt.Sprintf("Istio 1.4.3 doesn't support K8S %s", k8sVersion))
 		}
 

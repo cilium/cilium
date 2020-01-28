@@ -43,9 +43,12 @@ Download `Istio version 1.4.3
 
 .. note::
 
-   Istio 1.4 has been tested with Kubernetes releases 1.13, 1.14,
-   1.15. Cilium integration has also been tested with Kubernetes
-   releases 1.16, and 1.17.
+   Cilium integration, as presented in this Getting Started Guide, has
+   been tested with Kubernetes releases 1.14, 1.15, 1.16, and
+   1.17. Note that this does *not* work with K8s 1.13, and that Istio
+   1.4 has *not* been officially tested with Kubernetes releases 1.16,
+   1.17.
+
 
 Create a copy of Istio's Helm charts in order to customize them:
 
