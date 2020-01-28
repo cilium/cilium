@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -202,6 +202,10 @@ func (c *crdBackend) AcquireReference(ctx context.Context, id idpool.ID, key all
 
 	_, err = identityOps.Update(identityCopy.CiliumIdentity)
 	return err
+}
+
+func (c *crdBackend) RunLocksGC(_ context.Context, _ map[string]kvstore.Value) (map[string]kvstore.Value, error) {
+	return nil, nil
 }
 
 func (c *crdBackend) RunGC(ctx context.Context, staleKeysPrevRound map[string]uint64) (map[string]uint64, error) {
