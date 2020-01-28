@@ -36,7 +36,8 @@ var _ = Describe("K8sUpdates", func() {
 	// 9 - re install cilium:latest image for remaining tests.
 
 	var (
-		kubectl *helpers.Kubectl
+		kubectl        *helpers.Kubectl
+		ciliumFilename string
 
 		cleanupCallback = func() { return }
 	)
@@ -44,6 +45,7 @@ var _ = Describe("K8sUpdates", func() {
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
+		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
 		l7Policy = helpers.ManifestGet(kubectl.BasePath(), "l7-policy.yaml")
 		migrateSVCClient = helpers.ManifestGet(kubectl.BasePath(), "migrate-svc-client.yaml")
@@ -95,7 +97,7 @@ var _ = Describe("K8sUpdates", func() {
 		"Tests upgrade and downgrade from a Cilium stable image to master", func() {
 			var assertUpgradeSuccessful func()
 			assertUpgradeSuccessful, cleanupCallback =
-				InstallAndValidateCiliumUpgrades(kubectl, helpers.CiliumStableVersion, helpers.CiliumDevImage())
+				InstallAndValidateCiliumUpgrades(kubectl, ciliumFilename, helpers.CiliumStableVersion, helpers.CiliumDevImage())
 			assertUpgradeSuccessful()
 		})
 })
@@ -104,7 +106,7 @@ var _ = Describe("K8sUpdates", func() {
 // upgrade to the newVersion and if the newVersion can be downgraded to the
 // oldVersion.  It returns two callbacks, the first one is the assertfunction
 // that need to run, and the second one are the cleanup actions
-func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newVersion string) (func(), func()) {
+func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, ciliumFilename, oldVersion, newVersion string) (func(), func()) {
 	canRun, err := helpers.CanRunK8sVersion(oldVersion, helpers.GetCurrentK8SEnv())
 	ExpectWithOffset(1, err).To(BeNil(), "Unable to get k8s constraints for %s", oldVersion)
 	if !canRun {
@@ -130,7 +132,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		ExpectAllPodsTerminated(kubectl)
 
 		// make sure we clean everything up before doing any other test
-		err := kubectl.CiliumInstall(map[string]string{
+		err := kubectl.CiliumInstall(ciliumFilename, map[string]string{
 			"global.cleanState": "true",
 		})
 
@@ -142,7 +144,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 			log.Warningf("Unable to delete CoreDNS deployment: %s", res.OutputPrettyPrint())
 		}
 
-		if err := kubectl.CiliumUninstall(map[string]string{}); err != nil {
+		if err := kubectl.CiliumUninstall(ciliumFilename, map[string]string{}); err != nil {
 			log.WithError(err).Warning("Unable to uninstall Cilium")
 		}
 	}
@@ -171,6 +173,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 
 		By("Cleaning Cilium state")
 		err = kubectl.CiliumInstallVersion(
+			ciliumFilename,
 			"cilium-ds-clean-only.yaml",
 			"cilium-cm-patch-clean-cilium-state.yaml",
 			oldVersion,
@@ -182,6 +185,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 
 		By("Deploying Cilium")
 		err = kubectl.CiliumInstallVersion(
+			ciliumFilename,
 			helpers.CiliumDefaultDSPatch,
 			"cilium-cm-patch.yaml",
 			oldVersion,
@@ -329,7 +333,8 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 			"config.enabled":    "false ",
 			"operator.enabled":  "false ",
 		}
-		res = kubectl.HelmTemplate(helmTemplate, "kube-system", "cilium-preflight.yaml", opts)
+		preflightFile := helpers.TimestampFilename("cilium-preflight.yaml")
+		res = kubectl.HelmTemplate(helmTemplate, "kube-system", preflightFile, opts)
 		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "Unable to generate preflight YAML")
 
 		res = kubectl.ApplyDefault("cilium-preflight.yaml")
@@ -338,13 +343,13 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 
 		// Once they are installed we can remove it
 		By("Removing Cilium pre-flight check DaemonSet")
-		kubectl.Delete("cilium-preflight.yaml")
+		kubectl.Delete(preflightFile)
 
 		// Need to run using the kvstore-based allocator because upgrading from
 		// kvstore-based allocator to CRD-based allocator is not currently
 		// supported at this time.
 		By("Installing Cilium using kvstore-based allocator")
-		err = kubectl.CiliumInstall(map[string]string{
+		err = kubectl.CiliumInstall(ciliumFilename, map[string]string{
 			"global.identityAllocationMode": "kvstore",
 			"global.etcd.enabled":           "true",
 			"global.etcd.managed":           "true",
@@ -371,6 +376,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		By("Downgrading cilium to %s image", oldVersion)
 
 		err = kubectl.CiliumInstallVersion(
+			ciliumFilename,
 			helpers.CiliumDefaultDSPatch,
 			helpers.CiliumConfigMapPatch,
 			oldVersion,

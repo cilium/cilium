@@ -26,12 +26,14 @@ import (
 var _ = Describe("K8sHealthTest", func() {
 
 	var (
-		kubectl *helpers.Kubectl
+		kubectl        *helpers.Kubectl
+		ciliumFilename string
 	)
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		DeployCiliumAndDNS(kubectl)
+		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
+		DeployCiliumAndDNS(kubectl, ciliumFilename)
 	})
 
 	AfterFailed(func() {

@@ -31,7 +31,9 @@ import (
 
 var _ = Describe("K8sServicesTest", func() {
 	var (
-		kubectl                *helpers.Kubectl
+		kubectl *helpers.Kubectl
+
+		ciliumFilename         string
 		serviceName                               = "app1-service"
 		backgroundCancel       context.CancelFunc = func() { return }
 		backgroundError        error
@@ -65,7 +67,9 @@ var _ = Describe("K8sServicesTest", func() {
 		var err error
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		DeployCiliumAndDNS(kubectl)
+
+		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
+		DeployCiliumAndDNS(kubectl, ciliumFilename)
 
 		ciliumPodK8s1, err = kubectl.GetCiliumPodOnNodeWithLabel(helpers.KubeSystemNamespace, helpers.K8s1)
 		Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
@@ -424,13 +428,13 @@ var _ = Describe("K8sServicesTest", func() {
 					}
 					deleteCiliumDS(kubectl)
 					// Deploy Cilium as the next test expects it to be up and running
-					DeployCiliumAndDNS(kubectl)
+					DeployCiliumAndDNS(kubectl, ciliumFilename)
 				})
 
 				Context("Tests with vxlan", func() {
 					BeforeAll(func() {
 						deleteCiliumDS(kubectl)
-						DeployCiliumOptionsAndDNS(kubectl, map[string]string{
+						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 							"global.nodePort.enabled": "true",
 							"global.nodePort.device":  nativeDev,
 						})
@@ -448,7 +452,7 @@ var _ = Describe("K8sServicesTest", func() {
 				Context("Tests with direct routing", func() {
 					BeforeAll(func() {
 						deleteCiliumDS(kubectl)
-						DeployCiliumOptionsAndDNS(kubectl, map[string]string{
+						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 							"global.nodePort.enabled":     "true",
 							"global.nodePort.device":      nativeDev,
 							"global.tunnel":               "disabled",
@@ -492,7 +496,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 				It("Tests with direct routing and DSR", func() {
 					deleteCiliumDS(kubectl)
-					DeployCiliumOptionsAndDNS(kubectl, map[string]string{
+					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 						"global.nodePort.enabled":     "true",
 						"global.nodePort.device":      nativeDev,
 						"global.nodePort.mode":        "dsr",

@@ -30,8 +30,9 @@ var _ = Describe("K8sFQDNTest", func() {
 		backgroundCancel context.CancelFunc = func() { return }
 		backgroundError  error
 
-		bindManifest = ""
-		demoManifest = ""
+		bindManifest   = ""
+		demoManifest   = ""
+		ciliumFilename string
 
 		apps    = []string{helpers.App2, helpers.App3}
 		appPods map[string]string
@@ -46,7 +47,8 @@ var _ = Describe("K8sFQDNTest", func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		bindManifest = helpers.ManifestGet(kubectl.BasePath(), "bind_deployment.yaml")
 		demoManifest = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
-		DeployCiliumAndDNS(kubectl)
+		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
+		DeployCiliumAndDNS(kubectl, ciliumFilename)
 
 		By("Applying bind deployment")
 		bindManifest = helpers.ManifestGet(kubectl.BasePath(), "bind_deployment.yaml")

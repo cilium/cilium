@@ -27,15 +27,17 @@ import (
 var _ = Describe("K8sChaosTest", func() {
 
 	var (
-		kubectl       *helpers.Kubectl
-		demoDSPath    string
-		testDSService = "testds-service"
+		kubectl        *helpers.Kubectl
+		demoDSPath     string
+		ciliumFilename string
+		testDSService  = "testds-service"
 	)
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		demoDSPath = helpers.ManifestGet(kubectl.BasePath(), "demo_ds.yaml")
-		DeployCiliumAndDNS(kubectl)
+		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
+		DeployCiliumAndDNS(kubectl, ciliumFilename)
 	})
 
 	AfterFailed(func() {
@@ -154,7 +156,8 @@ var _ = Describe("K8sChaosTest", func() {
 
 			By("Install cilium pods")
 
-			err = kubectl.CiliumInstall(map[string]string{})
+			ciliumFilename := helpers.TimestampFilename("cilium.yaml")
+			err = kubectl.CiliumInstall(ciliumFilename, map[string]string{})
 			Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 			ExpectCiliumReady(kubectl)
