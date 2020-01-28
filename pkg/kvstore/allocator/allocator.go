@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -394,6 +394,48 @@ func (k *kvstoreBackend) Release(ctx context.Context, key allocator.AllocatorKey
 	// }
 
 	return nil
+}
+
+// RunLocksGC scans the kvstore for unused locks and removes them
+func (k *kvstoreBackend) RunLocksGC(ctx context.Context, staleKeysPrevRound map[string]kvstore.Value) (map[string]kvstore.Value, error) {
+	// fetch list of all /../locks keys
+	allocated, err := kvstore.ListPrefix(ctx, k.lockPrefix)
+	if err != nil {
+		return nil, fmt.Errorf("list failed: %s", err)
+	}
+
+	staleKeys := map[string]kvstore.Value{}
+
+	// iterate over /../locks
+	for key, v := range allocated {
+		scopedLog := log.WithFields(logrus.Fields{
+			fieldKey:     key,
+			fieldLeaseID: fmt.Sprintf("%x", v.LeaseID),
+		})
+		// Only delete if this key was previously marked as to be deleted
+		if modRev, ok := staleKeysPrevRound[key]; ok &&
+			modRev.ModRevision == v.ModRevision &&
+			modRev.LeaseID == v.LeaseID &&
+			modRev.SessionID == v.SessionID {
+			if err := kvstore.Delete(ctx, key); err != nil {
+				scopedLog.WithError(err).
+					Warning("Unable to unlocked distributed lock due client staleness." +
+						" Please check the connectivity between the KVStore and the client with that lease ID.")
+			} else {
+				scopedLog.Warning("Forcefully unlocked distributed lock due client staleness." +
+					" Please check the connectivity between the KVStore and the client with that lease ID.")
+			}
+		} else {
+			// If the key was not found mark it to be delete in the next RunGC
+			staleKeys[key] = kvstore.Value{
+				ModRevision: v.ModRevision,
+				LeaseID:     v.LeaseID,
+				SessionID:   v.SessionID,
+			}
+		}
+	}
+
+	return staleKeys, nil
 }
 
 // RunGC scans the kvstore for unused master keys and removes them

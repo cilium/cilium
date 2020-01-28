@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -243,6 +243,12 @@ type Backend interface {
 	// Note: not all Backend implemenations rely on this, such as the kvstore
 	// backends, and may use leases to expire keys.
 	RunGC(ctx context.Context, staleKeysPrevRound map[string]uint64) (map[string]uint64, error)
+
+	// RunLocksGC reaps stale or unused locks within the Backend. It is used by
+	// the cilium-operator and is not invoked by cilium-agent.
+	// Note: not all Backend implementations rely on this, such as the kvstore
+	// backends, and may use leases to expire keys.
+	RunLocksGC(ctx context.Context, staleKeysPrevRound map[string]kvstore.Value) (map[string]kvstore.Value, error)
 
 	// Status returns a human-readable status of the Backend.
 	Status() (string, error)
@@ -698,6 +704,11 @@ func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool
 // RunGC scans the kvstore for unused master keys and removes them
 func (a *Allocator) RunGC(staleKeysPrevRound map[string]uint64) (map[string]uint64, error) {
 	return a.backend.RunGC(context.TODO(), staleKeysPrevRound)
+}
+
+// RunLocksGC scans the kvstore for stale locks and removes them
+func (a *Allocator) RunLocksGC(staleLocksPrevRound map[string]kvstore.Value) (map[string]kvstore.Value, error) {
+	return a.backend.RunLocksGC(context.TODO(), staleLocksPrevRound)
 }
 
 // DeleteAllKeys will delete all keys. It is expected to be used in tests.
