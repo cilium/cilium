@@ -37,6 +37,7 @@ const (
 var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 	var (
 		kubectl             *helpers.Kubectl
+		ciliumFilename      string
 		podNode1            string
 		podNode2            string
 		hostNetworkPodNode1 string
@@ -57,7 +58,7 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 
 	// deploys cilium with the given options.
 	deployCilium := func(options map[string]string) {
-		DeployCiliumOptionsAndDNS(kubectl, options)
+		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
 
 		_, err := kubectl.CiliumNodesWait()
 		ExpectWithOffset(1, err).Should(BeNil(), "Failure while waiting for k8s nodes to be annotated by Cilium")
@@ -95,9 +96,9 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 		if !helpers.RunsOnNetNext() {
 			return
 		}
-
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		DeployCiliumAndDNS(kubectl)
+		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
+		DeployCiliumAndDNS(kubectl, ciliumFilename)
 
 		// create namespace used for this test
 		res := kubectl.NamespaceCreate(namespaceTest)

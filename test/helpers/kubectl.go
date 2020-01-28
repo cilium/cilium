@@ -1230,7 +1230,7 @@ func (kub *Kubectl) DeployPatch(original, patchFileName string) error {
 // descriptor, found by getK8sDescriptor.
 // Returns an error if any patch or if any original descriptors files were not
 // found.
-func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescriptor, getK8sDescriptorPatch func(filename string) string) error {
+func (kub *Kubectl) ciliumInstall(ciliumFilename, dsPatchName, cmPatchName string, getK8sDescriptor, getK8sDescriptorPatch func(filename string) string) error {
 	cmPathname := getK8sDescriptor("cilium-cm.yaml")
 	if cmPathname == "" {
 		return fmt.Errorf("Cilium ConfigMap descriptor not found")
@@ -1369,12 +1369,12 @@ func (kub *Kubectl) generateCiliumYaml(options map[string]string, filename strin
 }
 
 // ciliumInstallHelm installs Cilium with the Helm options provided.
-func (kub *Kubectl) ciliumInstallHelm(options map[string]string) error {
-	if err := kub.generateCiliumYaml(options, "cilium.yaml"); err != nil {
+func (kub *Kubectl) ciliumInstallHelm(filename string, options map[string]string) error {
+	if err := kub.generateCiliumYaml(options, filename); err != nil {
 		return err
 	}
 
-	res := kub.Apply(ApplyOptions{FilePath: "cilium.yaml", Force: true})
+	res := kub.Apply(ApplyOptions{FilePath: filename, Force: true})
 	if !res.WasSuccessful() {
 		return res.GetErr("Unable to apply YAML")
 	}
@@ -1383,12 +1383,12 @@ func (kub *Kubectl) ciliumInstallHelm(options map[string]string) error {
 }
 
 // ciliumUninstallHelm uninstalls Cilium with the Helm options provided.
-func (kub *Kubectl) ciliumUninstallHelm(options map[string]string) error {
-	if err := kub.generateCiliumYaml(options, "cilium.yaml"); err != nil {
+func (kub *Kubectl) ciliumUninstallHelm(filename string, options map[string]string) error {
+	if err := kub.generateCiliumYaml(options, filename); err != nil {
 		return err
 	}
 
-	res := kub.Delete("cilium.yaml")
+	res := kub.Delete(filename)
 	if !res.WasSuccessful() {
 		return res.GetErr("Unable to delete YAML")
 	}
@@ -1397,13 +1397,13 @@ func (kub *Kubectl) ciliumUninstallHelm(options map[string]string) error {
 }
 
 // CiliumInstall installs Cilium with the provided Helm options.
-func (kub *Kubectl) CiliumInstall(options map[string]string) error {
-	return kub.ciliumInstallHelm(options)
+func (kub *Kubectl) CiliumInstall(filename string, options map[string]string) error {
+	return kub.ciliumInstallHelm(filename, options)
 }
 
 // CiliumUninstall uninstalls Cilium with the provided Helm options.
-func (kub *Kubectl) CiliumUninstall(options map[string]string) error {
-	return kub.ciliumUninstallHelm(options)
+func (kub *Kubectl) CiliumUninstall(filename string, options map[string]string) error {
+	return kub.ciliumUninstallHelm(filename, options)
 }
 
 // CiliumInstallVersion installs all Cilium descriptors into kubernetes for
@@ -1414,7 +1414,7 @@ func (kub *Kubectl) CiliumUninstall(options map[string]string) error {
 // original Cilium ConfigMap descriptor of that given Cilium Version tag.
 // Returns an error if any patch or if any original descriptors files were not
 // found.
-func (kub *Kubectl) CiliumInstallVersion(dsPatchName, cmPatchName, versionTag string) error {
+func (kub *Kubectl) CiliumInstallVersion(ciliumFilename, dsPatchName, cmPatchName, versionTag string) error {
 	getK8sDescriptorPatch := func(filename string) string {
 		// try dependent Cilium, k8s and integration version patch file
 		ginkgoVersionedPath := filepath.Join(manifestsPath, versionTag, GetCurrentK8SEnv(), GetCurrentIntegration(), filename)
@@ -1451,7 +1451,7 @@ func (kub *Kubectl) CiliumInstallVersion(dsPatchName, cmPatchName, versionTag st
 	getK8sDescriptor := func(filename string) string {
 		return fmt.Sprintf("https://raw.githubusercontent.com/cilium/cilium/%s/examples/kubernetes/%s/%s", versionTag, GetCurrentK8SEnv(), filename)
 	}
-	return kub.ciliumInstall(dsPatchName, cmPatchName, getK8sDescriptor, getK8sDescriptorPatch)
+	return kub.ciliumInstall(ciliumFilename, dsPatchName, cmPatchName, getK8sDescriptor, getK8sDescriptorPatch)
 }
 
 // GetCiliumPods returns a list of all Cilium pods in the specified namespace,
@@ -2998,6 +2998,19 @@ func GenerateNamespaceForTest() string {
 	out = append(out, []byte("-")...)
 	out = append(out, hash[:6]...)
 	return string(out)
+}
+
+// TimestampFilename appends a "timestamp" to the name. The goal is to make this
+// name unique to avoid collisions in tests. The nanosecond precision should be
+// more than enough for that.
+func TimestampFilename(name string) string {
+	// Split the name, then reassemble it so we can generate
+	// filename-abcdef.extension
+	parts := strings.Split(name, ".")
+	extension := parts[len(parts)-1]
+	filename := strings.Join(parts[:len(parts)-1], "")
+
+	return fmt.Sprintf("%s-%x.%s", filename, time.Now().UnixNano(), extension)
 }
 
 // logGathererSelector returns selector for log-gatherer pods which run on each

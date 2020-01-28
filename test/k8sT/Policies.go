@@ -39,6 +39,7 @@ var _ = Describe("K8sPolicyTest", func() {
 	var (
 		kubectl *helpers.Kubectl
 		// these are set in BeforeAll()
+		ciliumFilename       string
 		demoPath             string
 		l3Policy             string
 		l7Policy             string
@@ -68,6 +69,7 @@ var _ = Describe("K8sPolicyTest", func() {
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
+		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
 		l3Policy = helpers.ManifestGet(kubectl.BasePath(), "l3-l4-policy.yaml")
 		l7Policy = helpers.ManifestGet(kubectl.BasePath(), "l7-policy.yaml")
@@ -90,7 +92,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		cnpMatchExpression = helpers.ManifestGet(kubectl.BasePath(), "cnp-matchexpressions.yaml")
 
 		deleteCiliumDS(kubectl)
-		DeployCiliumOptionsAndDNS(kubectl, map[string]string{
+		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 			"global.tls.secretsBackend": "k8s",
 			"global.debug.verbose":      "flow",
 		})

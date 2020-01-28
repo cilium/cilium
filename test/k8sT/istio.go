@@ -74,6 +74,8 @@ var _ = Describe("K8sIstioTest", func() {
 		uptimeCancel context.CancelFunc
 
 		teardownTimeout = 10 * time.Minute
+
+		ciliumFilename string
 	)
 
 	BeforeAll(func() {
@@ -87,7 +89,9 @@ var _ = Describe("K8sIstioTest", func() {
 
 		istioCRDYAMLPath = helpers.ManifestGet(kubectl.BasePath(), "istio-crds.yaml")
 		istioYAMLPath = helpers.ManifestGet(kubectl.BasePath(), "istio-cilium.yaml")
-		DeployCiliumAndDNS(kubectl)
+
+		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
+		DeployCiliumAndDNS(kubectl, ciliumFilename)
 
 		By("Creating the istio-system namespace")
 		res := kubectl.NamespaceCreate(istioSystemNamespace)

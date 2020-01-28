@@ -33,11 +33,13 @@ var _ = Describe("K8sDatapathConfig", func() {
 	var demoDSPath string
 	var ipsecDSPath string
 	var monitorLog = "monitor-aggregation.log"
+	var ciliumFilename string
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		demoDSPath = helpers.ManifestGet(kubectl.BasePath(), "demo_ds.yaml")
 		ipsecDSPath = helpers.ManifestGet(kubectl.BasePath(), "ipsec_ds.yaml")
+		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 
 		deleteCiliumDS(kubectl)
 	})
@@ -121,7 +123,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 	}
 
 	deployCilium := func(options map[string]string) {
-		DeployCiliumOptionsAndDNS(kubectl, options)
+		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
 
 		err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
 		ExpectWithOffset(1, err).Should(BeNil(), "Pods are not ready after timeout")

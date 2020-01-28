@@ -29,10 +29,12 @@ var _ = Describe("NightlyPolicies", func() {
 
 	var kubectl *helpers.Kubectl
 	var timeout = 10 * time.Minute
+	var ciliumFilename string
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		DeployCiliumAndDNS(kubectl)
+		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
+		DeployCiliumAndDNS(kubectl, ciliumFilename)
 	})
 
 	AfterFailed(func() {
