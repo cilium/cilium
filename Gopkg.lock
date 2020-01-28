@@ -124,7 +124,7 @@
   revision = "97b3e8dcf2b43a2048e16ac6b027f8003e6f32d5"
 
 [[projects]]
-  digest = "1:49751b8df549538414105cd52e596c130b2916fe7da7c82502276874d864b985"
+  digest = "1:010d43edabcdd3324dcaa842044cf693c53d6a3093e2ebdb9c96cea0575efb52"
   name = "github.com/cilium/proxy"
   packages = [
     "go/cilium/api",
@@ -136,6 +136,9 @@
     "go/envoy/api/v2/listener",
     "go/envoy/api/v2/route",
     "go/envoy/config/bootstrap/v2",
+    "go/envoy/config/filter/accesslog/v2",
+    "go/envoy/config/filter/network/http_connection_manager/v2",
+    "go/envoy/config/filter/network/tcp_proxy/v2",
     "go/envoy/config/listener/v2",
     "go/envoy/config/metrics/v2",
     "go/envoy/config/overload/v2alpha",
@@ -1850,6 +1853,9 @@
     "github.com/cilium/proxy/go/envoy/api/v2/listener",
     "github.com/cilium/proxy/go/envoy/api/v2/route",
     "github.com/cilium/proxy/go/envoy/config/bootstrap/v2",
+    "github.com/cilium/proxy/go/envoy/config/filter/network/http_connection_manager/v2",
+    "github.com/cilium/proxy/go/envoy/config/filter/network/tcp_proxy/v2",
+    "github.com/cilium/proxy/go/envoy/type/matcher",
     "github.com/containerd/containerd",
     "github.com/containerd/containerd/api/events",
     "github.com/containerd/containerd/events",
@@ -1883,9 +1889,9 @@
     "github.com/go-openapi/swag",
     "github.com/go-openapi/validate",
     "github.com/golang/protobuf/proto",
+    "github.com/golang/protobuf/ptypes",
     "github.com/golang/protobuf/ptypes/any",
     "github.com/golang/protobuf/ptypes/duration",
-    "github.com/golang/protobuf/ptypes/struct",
     "github.com/golang/protobuf/ptypes/wrappers",
     "github.com/google/go-cmp/cmp",
     "github.com/google/gopacket",
