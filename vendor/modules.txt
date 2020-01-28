@@ -61,6 +61,9 @@ github.com/cilium/proxy/go/envoy/api/v2/endpoint
 github.com/cilium/proxy/go/envoy/api/v2/listener
 github.com/cilium/proxy/go/envoy/api/v2/route
 github.com/cilium/proxy/go/envoy/config/bootstrap/v2
+github.com/cilium/proxy/go/envoy/config/filter/accesslog/v2
+github.com/cilium/proxy/go/envoy/config/filter/network/http_connection_manager/v2
+github.com/cilium/proxy/go/envoy/config/filter/network/tcp_proxy/v2
 github.com/cilium/proxy/go/envoy/config/listener/v2
 github.com/cilium/proxy/go/envoy/config/metrics/v2
 github.com/cilium/proxy/go/envoy/config/overload/v2alpha

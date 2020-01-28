@@ -27,6 +27,10 @@ import (
 	"github.com/cilium/proxy/go/cilium/api"
 	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
 	envoy_api_v2_route "github.com/cilium/proxy/go/envoy/api/v2/route"
+	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher"
+
+	"github.com/golang/protobuf/ptypes/wrappers"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -66,18 +70,35 @@ var PortRuleHTTP3 = &api.PortRuleHTTP{
 	Method: "GET",
 }
 
+var googleRe2 = &envoy_type_matcher.RegexMatcher_GoogleRe2{
+	GoogleRe2: &envoy_type_matcher.RegexMatcher_GoogleRE2{
+		MaxProgramSize: &wrappers.UInt32Value{Value: 100}, // Envoy default
+	}}
+
 var ExpectedHeaders1 = []*envoy_api_v2_route.HeaderMatcher{
 	{
-		Name:                 ":authority",
-		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "foo.cilium.io"},
+		Name: ":authority",
+		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_SafeRegexMatch{
+			SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
+				EngineType: googleRe2,
+				Regex:      "foo.cilium.io",
+			}},
 	},
 	{
-		Name:                 ":method",
-		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "GET"},
+		Name: ":method",
+		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_SafeRegexMatch{
+			SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
+				EngineType: googleRe2,
+				Regex:      "GET",
+			}},
 	},
 	{
-		Name:                 ":path",
-		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "/foo"},
+		Name: ":path",
+		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_SafeRegexMatch{
+			SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
+				EngineType: googleRe2,
+				Regex:      "/foo",
+			}},
 	},
 	{
 		Name:                 "header1",
@@ -91,12 +112,20 @@ var ExpectedHeaders1 = []*envoy_api_v2_route.HeaderMatcher{
 
 var ExpectedHeaders2 = []*envoy_api_v2_route.HeaderMatcher{
 	{
-		Name:                 ":method",
-		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "PUT"},
+		Name: ":method",
+		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_SafeRegexMatch{
+			SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
+				EngineType: googleRe2,
+				Regex:      "PUT",
+			}},
 	},
 	{
-		Name:                 ":path",
-		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "/bar"},
+		Name: ":path",
+		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_SafeRegexMatch{
+			SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
+				EngineType: googleRe2,
+				Regex:      "/bar",
+			}},
 	},
 }
 
@@ -110,12 +139,20 @@ var ExpectedHeaderMatches2 = []*cilium.HeaderMatch{
 
 var ExpectedHeaders3 = []*envoy_api_v2_route.HeaderMatcher{
 	{
-		Name:                 ":method",
-		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "GET"},
+		Name: ":method",
+		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_SafeRegexMatch{
+			SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
+				EngineType: googleRe2,
+				Regex:      "GET",
+			}},
 	},
 	{
-		Name:                 ":path",
-		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "/bar"},
+		Name: ":path",
+		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_SafeRegexMatch{
+			SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
+				EngineType: googleRe2,
+				Regex:      "/bar",
+			}},
 	},
 }
 
