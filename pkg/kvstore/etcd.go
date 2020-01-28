@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ const (
 	// EtcdBackendName is the backend name for etcd
 	EtcdBackendName = "etcd"
 
-	addrOption           = "etcd.address"
+	EtcdAddrOption       = "etcd.address"
 	isEtcdOperatorOption = "etcd.operator"
 	EtcdOptionConfig     = "etcd.config"
 
@@ -107,7 +107,7 @@ func newEtcdModule() backendModule {
 			isEtcdOperatorOption: &backendOption{
 				description: "if the configuration is setting up an etcd-operator",
 			},
-			addrOption: &backendOption{
+			EtcdAddrOption: &backendOption{
 				description: "Addresses of etcd cluster",
 			},
 			EtcdOptionConfig: &backendOption{
@@ -156,7 +156,7 @@ func (e *etcdModule) getConfig() map[string]string {
 func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (BackendOperations, chan error) {
 	errChan := make(chan error, 10)
 
-	endpointsOpt, endpointsSet := e.opts[addrOption]
+	endpointsOpt, endpointsSet := e.opts[EtcdAddrOption]
 	configPathOpt, configSet := e.opts[EtcdOptionConfig]
 
 	rateLimitOpt, rateLimitSet := e.opts[EtcdRateLimitOption]
@@ -173,14 +173,14 @@ func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (Backend
 	}
 	if e.config == nil {
 		if !endpointsSet && !configSet {
-			errChan <- fmt.Errorf("invalid etcd configuration, %s or %s must be specified", EtcdOptionConfig, addrOption)
+			errChan <- fmt.Errorf("invalid etcd configuration, %s or %s must be specified", EtcdOptionConfig, EtcdAddrOption)
 			close(errChan)
 			return nil, errChan
 		}
 
 		if endpointsOpt.value == "" && configPath == "" {
 			errChan <- fmt.Errorf("invalid etcd configuration, %s or %s must be specified",
-				EtcdOptionConfig, addrOption)
+				EtcdOptionConfig, EtcdAddrOption)
 			close(errChan)
 			return nil, errChan
 		}
@@ -1295,6 +1295,7 @@ func (e *etcdClient) ListPrefix(ctx context.Context, prefix string) (KeyValuePai
 		pairs[string(getR.Kvs[i].Key)] = Value{
 			Data:        getR.Kvs[i].Value,
 			ModRevision: uint64(getR.Kvs[i].ModRevision),
+			LeaseID:     getR.Kvs[i].Lease,
 		}
 
 	}
@@ -1366,7 +1367,7 @@ func IsEtcdOperator(selectedBackend string, opts map[string]string, k8sNamespace
 			names[1] == k8sNamespace
 	}
 
-	fqdn := opts[addrOption]
+	fqdn := opts[EtcdAddrOption]
 	if len(fqdn) != 0 {
 		return fqdnIsEtcdOperator(fqdn)
 	}
