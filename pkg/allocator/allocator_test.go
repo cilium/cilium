@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -172,6 +172,10 @@ func (d *dummyBackend) ListAndWatch(handler CacheMutations, stopChan chan struct
 	d.mutex.Unlock()
 	d.handler.OnListDone()
 	<-stopChan
+}
+
+func (d *dummyBackend) RunLocksGC(map[string]kvstore.Value) (map[string]kvstore.Value, error) {
+	return nil, nil
 }
 
 func (d *dummyBackend) RunGC(map[string]uint64) (map[string]uint64, error) {
