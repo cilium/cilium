@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,7 +38,9 @@ func Test(t *testing.T) {
 	TestingT(t)
 }
 
-type AllocatorSuite struct{}
+type AllocatorSuite struct {
+	backend string
+}
 
 type AllocatorEtcdSuite struct {
 	AllocatorSuite
@@ -47,6 +49,7 @@ type AllocatorEtcdSuite struct {
 var _ = Suite(&AllocatorEtcdSuite{})
 
 func (e *AllocatorEtcdSuite) SetUpTest(c *C) {
+	e.backend = "etcd"
 	kvstore.SetupDummy("etcd")
 }
 
@@ -62,6 +65,7 @@ type AllocatorConsulSuite struct {
 var _ = Suite(&AllocatorConsulSuite{})
 
 func (e *AllocatorConsulSuite) SetUpTest(c *C) {
+	e.backend = "consul"
 	kvstore.SetupDummy("consul")
 }
 
@@ -140,6 +144,117 @@ func (s *AllocatorSuite) BenchmarkAllocate(c *C) {
 	}
 	c.StopTimer()
 
+}
+
+func (s *AllocatorSuite) TestRunLocksGC(c *C) {
+	allocatorName := randomTestName()
+	maxID := idpool.ID(256 + c.N)
+	allocator, err := NewAllocator(allocatorName, TestType(""), WithMax(maxID), WithSuffix("a"), WithoutGC())
+	c.Assert(err, IsNil)
+	shortKey := TestType("1;")
+	var (
+		lock1, lock2 kvstore.KVLocker
+		gotLock1     = make(chan struct{})
+		gotLock2     = make(chan struct{})
+	)
+	go func() {
+		var (
+			err error
+		)
+		lock1, err = kvstore.LockPath(context.Background(), allocatorName+"/locks/"+shortKey.GetKey())
+		c.Assert(err, IsNil)
+		close(gotLock1)
+		var client kvstore.BackendOperations
+		switch s.backend {
+		case "etcd":
+			client, _ = kvstore.NewClient(
+				s.backend,
+				map[string]string{
+					kvstore.EtcdAddrOption: kvstore.EtcdDummyAddress(),
+				},
+				nil,
+			)
+		case "consul":
+			client, _ = kvstore.NewClient(
+				s.backend,
+				map[string]string{
+					kvstore.ConsulAddrOption:   kvstore.ConsulDummyAddress(),
+					kvstore.ConsulOptionConfig: kvstore.ConsulDummyConfigFile(),
+				},
+				nil,
+			)
+		}
+		lock2, err = client.LockPath(context.Background(), allocatorName+"/locks/"+shortKey.GetKey())
+		c.Assert(err, IsNil)
+		close(gotLock2)
+	}()
+	staleLocks := map[string]kvstore.Value{}
+	staleLocks, err = allocator.RunLocksGC(staleLocks)
+	c.Assert(err, IsNil)
+	c.Assert(len(staleLocks), Equals, 0)
+
+	// Wait until lock1 is gotten.
+	c.Assert(testutils.WaitUntil(func() bool {
+		select {
+		case <-gotLock1:
+			return true
+		default:
+			return false
+		}
+	}, 5*time.Second), IsNil)
+
+	// wait until client2, in line 187, tries to grab the lock.
+	// We can't detect when that actually happen so we have to assume it will
+	// happen within one second.
+	time.Sleep(time.Second)
+
+	// Check which locks are stale, it should be lock1 and lock2
+	staleLocks, err = allocator.RunLocksGC(staleLocks)
+	c.Assert(err, IsNil)
+	c.Assert(len(staleLocks), Equals, 2)
+
+	var (
+		oldestRev     uint64
+		oldestLeaseID int64
+		sessionID     string
+	)
+	// Stale locks contains 2 locks, which is expected but we only want to GC
+	// the oldest one so we can unlock all the remaining clients waiting to hold
+	// the lock.
+	for _, v := range staleLocks {
+		if v.ModRevision < oldestRev {
+			oldestRev = v.ModRevision
+			oldestLeaseID = v.LeaseID
+			sessionID = v.SessionID
+		}
+	}
+	staleLocks[allocatorName+"/locks/"+shortKey.GetKey()] = kvstore.Value{
+		ModRevision: oldestRev,
+		LeaseID:     oldestLeaseID,
+		SessionID:   sessionID,
+	}
+
+	// GC lock1 because it's the oldest lock being held.
+	staleLocks, err = allocator.RunLocksGC(staleLocks)
+	c.Assert(err, IsNil)
+	c.Assert(len(staleLocks), Equals, 0)
+
+	// Wait until lock2 is gotten as it should have happen since we have
+	// GC lock1.
+	c.Assert(testutils.WaitUntil(func() bool {
+		select {
+		case <-gotLock2:
+			return true
+		default:
+			return false
+		}
+	}, 10*time.Second), IsNil)
+
+	// Unlock lock1 because we still hold the local locks.
+	err = lock1.Unlock()
+	c.Assert(err, IsNil)
+	err = lock2.Unlock()
+	c.Assert(err, IsNil)
 }
 
 func (s *AllocatorSuite) TestGC(c *C) {
