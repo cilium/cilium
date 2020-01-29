@@ -481,6 +481,9 @@ func init() {
 	flags.StringSlice(option.Labels, []string{}, "List of label prefixes used to determine identity of an endpoint")
 	option.BindEnv(option.Labels)
 
+	flags.Bool(option.EnableKubeProxyFree, false, "Enable kube-proxy replacement in Cilium datapath (BPF)")
+	option.BindEnv(option.EnableKubeProxyFree)
+
 	flags.Bool(option.EnableNodePort, false, "Enable NodePort type services by Cilium (beta)")
 	option.BindEnv(option.EnableNodePort)
 

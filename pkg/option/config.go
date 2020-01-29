@@ -237,6 +237,9 @@ const (
 	// LabelPrefixFile is the valid label prefixes file path
 	LabelPrefixFile = "label-prefix-file"
 
+	// EnableKubeProxyFree enables kube-proxy replacement in datapath
+	EnableKubeProxyFree = "enable-kube-proxy-free"
+
 	// EnableNodePort enables NodePort services implemented by Cilium in BPF
 	EnableNodePort = "enable-node-port"
 
@@ -1240,6 +1243,9 @@ type DaemonConfig struct {
 	// running and able to schedule endpoints.
 	WriteCNIConfigurationWhenReady string
 
+	// EnableKubeProxyFree enables kube-proxy replacement in datapath
+	EnableKubeProxyFree bool
+
 	// EnableNodePort enables k8s NodePort service implementation in BPF
 	EnableNodePort bool
 
@@ -1672,6 +1678,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableExternalIPs = viper.GetBool(EnableExternalIPs)
 	c.EnableL7Proxy = viper.GetBool(EnableL7Proxy)
 	c.EnableTracing = viper.GetBool(EnableTracing)
+	c.EnableKubeProxyFree = viper.GetBool(EnableKubeProxyFree)
 	c.EnableNodePort = viper.GetBool(EnableNodePort)
 	c.NodePortMode = viper.GetString(NodePortMode)
 	c.EncryptInterface = viper.GetString(EncryptInterface)
