@@ -1360,17 +1360,16 @@ func SplitK8sServiceURL(address string) (string, string, error) {
 		fmt.Errorf("invalid service name. expecting <protocol://><name>.<namespace>[optional], got: %s", address)
 }
 
-// IsEtcdOperator returns true if the configuration is setting up an
-// etcd-operator and false otherwise.
-func IsEtcdOperator(selectedBackend string, opts map[string]string, k8sNamespace string) bool {
+// IsEtcdOperator returns the service name if the configuration is setting up an
+// etcd-operator. If the configuration explicitly states it is configured
+// to connect to an etcd operator, e.g. with etcd.operator=true, the returned
+// service name is the first found within the configuration specified.
+func IsEtcdOperator(selectedBackend string, opts map[string]string, k8sNamespace string) (string, bool) {
 	if selectedBackend != EtcdBackendName {
-		return false
+		return "", false
 	}
 
-	isEtcdOperator := opts[isEtcdOperatorOption]
-	if strings.ToLower(isEtcdOperator) == "true" {
-		return true
-	}
+	isEtcdOperator := strings.ToLower(opts[isEtcdOperatorOption]) == "true"
 
 	fqdnIsEtcdOperator := func(address string) bool {
 		svcName, ns, err := SplitK8sServiceURL(address)
@@ -1381,31 +1380,34 @@ func IsEtcdOperator(selectedBackend string, opts map[string]string, k8sNamespace
 
 	fqdn := opts[EtcdAddrOption]
 	if len(fqdn) != 0 {
-		return fqdnIsEtcdOperator(fqdn)
+		if fqdnIsEtcdOperator(fqdn) || isEtcdOperator {
+			return fqdn, true
+		}
+		return "", false
 	}
 
 	bm := newEtcdModule()
 	err := bm.setConfig(opts)
 	if err != nil {
-		return false
+		return "", false
 	}
 	etcdConfig := bm.getConfig()[EtcdOptionConfig]
 	if len(etcdConfig) == 0 {
-		return false
+		return "", false
 	}
 
 	cfg, err := newConfig(etcdConfig)
 	if err != nil {
 		log.WithError(err).Error("Unable to read etcd configuration.")
-		return false
+		return "", false
 	}
 	for _, endpoint := range cfg.Endpoints {
-		if fqdnIsEtcdOperator(endpoint) {
-			return true
+		if fqdnIsEtcdOperator(endpoint) || isEtcdOperator {
+			return endpoint, true
 		}
 	}
 
-	return false
+	return "", false
 }
 
 // newConfig is a wrapper of clientyaml.NewConfig. Since etcd has deprecated
