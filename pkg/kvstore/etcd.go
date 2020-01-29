@@ -1343,6 +1343,23 @@ func (e *etcdClient) ListAndWatch(ctx context.Context, name, prefix string, chan
 	return w
 }
 
+// SplitK8sServiceURL returns the service name and namespace for the given address.
+// If the given address is not parseable or it is not the format
+// '<protocol>://><name>.<namespace>[optional]', returns an error.
+func SplitK8sServiceURL(address string) (string, string, error) {
+	u, err := url.Parse(address)
+	if err != nil {
+		return "", "", err
+	}
+	// typical service name "cilium-etcd-client.kube-system.svc"
+	names := strings.Split(u.Hostname(), ".")
+	if len(names) >= 2 {
+		return names[0], names[1], nil
+	}
+	return "", "",
+		fmt.Errorf("invalid service name. expecting <protocol://><name>.<namespace>[optional], got: %s", address)
+}
+
 // IsEtcdOperator returns true if the configuration is setting up an
 // etcd-operator and false otherwise.
 func IsEtcdOperator(selectedBackend string, opts map[string]string, k8sNamespace string) bool {
@@ -1356,15 +1373,10 @@ func IsEtcdOperator(selectedBackend string, opts map[string]string, k8sNamespace
 	}
 
 	fqdnIsEtcdOperator := func(address string) bool {
-		u, err := url.Parse(address)
-		if err != nil {
-			return false
-		}
-		// typical service name "cilium-etcd-client.kube-system.svc"
-		names := strings.Split(u.Hostname(), ".")
-		return len(names) >= 2 &&
-			names[0] == "cilium-etcd-client" &&
-			names[1] == k8sNamespace
+		svcName, ns, err := SplitK8sServiceURL(address)
+		return err == nil &&
+			svcName == "cilium-etcd-client" &&
+			ns == k8sNamespace
 	}
 
 	fqdn := opts[EtcdAddrOption]
