@@ -54,6 +54,7 @@ cilium-agent [flags]
       --egress-masquerade-interfaces string                   Limit egress masquerading to interface selector
       --enable-endpoint-health-checking                       Enable connectivity health checking between virtual endpoints (default true)
       --enable-endpoint-routes                                Use per endpoint routes instead of routing via cilium_host
+      --enable-external-ips                                   Enable k8s service externalIPs feature (requires enabling enable-node-port) (default true)
       --enable-health-checking                                Enable connectivity health checking (default true)
       --enable-host-reachable-services                        Enable reachability of services for host applications (beta)
       --enable-ipsec                                          Enable IPSec support
@@ -61,7 +62,6 @@ cilium-agent [flags]
       --enable-ipv6                                           Enable IPv6 support (default true)
       --enable-k8s-endpoint-slice                             Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it (default true)
       --enable-k8s-event-handover                             Enable k8s event handover to kvstore for improved scalability
-      --enable-k8s-external-ips                               Enable k8s externalIPs feature (Only enabled in conjunction with enable-node-port) (default true)
       --enable-l7-proxy                                       Enable L7 proxy for L7 policy enforcement (default true)
       --enable-local-node-route                               Enable installation of the route which points the allocation prefix of the local node (default true)
       --enable-node-port                                      Enable NodePort type services by Cilium (beta)

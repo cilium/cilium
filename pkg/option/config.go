@@ -144,8 +144,8 @@ const (
 	// EnablePolicy enables policy enforcement in the agent.
 	EnablePolicy = "enable-policy"
 
-	// EnableK8sExternalIPs enables k8s external IPs feature into Cilium datapath.
-	EnableK8sExternalIPs = "enable-k8s-external-ips"
+	// EnableExternalIPs enables implementation of k8s services with externalIPs in datapath
+	EnableExternalIPs = "enable-external-ips"
 
 	// K8sEnableEndpointSlice enables the k8s EndpointSlice feature into Cilium
 	K8sEnableEndpointSlice = "enable-k8s-endpoint-slice"
@@ -1247,8 +1247,8 @@ type DaemonConfig struct {
 	// ("snat" or "dsr")
 	NodePortMode string
 
-	// EnableK8sExternalIPs enables k8s external IPs implementation in BPF
-	EnableK8sExternalIPs bool
+	// EnableExternalIPs enables implementation of k8s services with externalIPs in datapath
+	EnableExternalIPs bool
 
 	// K8sEnableEndpointSlice enables k8s endpoint slice feature that is used
 	// in kubernetes.
@@ -1669,7 +1669,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableEndpointHealthChecking = viper.GetBool(EnableEndpointHealthChecking)
 	c.EnableLocalNodeRoute = viper.GetBool(EnableLocalNodeRoute)
 	c.EnablePolicy = strings.ToLower(viper.GetString(EnablePolicy))
-	c.EnableK8sExternalIPs = viper.GetBool(EnableK8sExternalIPs)
+	c.EnableExternalIPs = viper.GetBool(EnableExternalIPs)
 	c.EnableL7Proxy = viper.GetBool(EnableL7Proxy)
 	c.EnableTracing = viper.GetBool(EnableTracing)
 	c.EnableNodePort = viper.GetBool(EnableNodePort)
