@@ -97,8 +97,8 @@ func NewServiceCache() ServiceCache {
 	}
 }
 
-// GetRandomBackendIP returns a random L3n4Addr that is backing the given Service ID.
-func (s *ServiceCache) GetRandomBackendIP(svcID ServiceID) *loadbalancer.L3n4Addr {
+// GetServiceIP returns a random L3n4Addr that is backing the given Service ID.
+func (s *ServiceCache) GetServiceIP(svcID ServiceID) *loadbalancer.L3n4Addr {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	svc := s.services[svcID]
