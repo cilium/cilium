@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -1410,7 +1411,16 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPI {
 }
 
 func initKubeProxyFreeOptions() {
-	if option.Config.EnableNodePort &&
+	if option.Config.EnableKubeProxyFree {
+		option.Config.EnableNodePort = true
+		option.Config.EnableHostReachableServices = true
+		option.Config.EnableHostServicesTCP = true
+		option.Config.EnableHostServicesUDP = true
+	}
+
+	strict := !option.Config.EnableKubeProxyFree
+
+	if strict && option.Config.EnableNodePort &&
 		!(option.Config.EnableHostReachableServices &&
 			option.Config.EnableHostServicesTCP && option.Config.EnableHostServicesUDP) {
 		// We enable host reachable services in order to allow
@@ -1421,6 +1431,46 @@ func initKubeProxyFreeOptions() {
 		option.Config.EnableHostServicesUDP = true
 	}
 
+	if option.Config.EnableHostReachableServices {
+		if option.Config.EnableHostServicesTCP &&
+			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_CONNECT) != nil ||
+				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_CONNECT) != nil) {
+			if strict {
+				log.Fatal("BPF host reachable services for TCP needs kernel 4.17.0 or newer.")
+			} else {
+				log.Warn("BPF host reachable services for TCP needs kernel 4.17.0 or newer. Disabling the feature.")
+				option.Config.EnableHostServicesTCP = false
+			}
+		}
+		if option.Config.EnableHostServicesUDP &&
+			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP4_RECVMSG) != nil ||
+				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP6_RECVMSG) != nil) {
+			if strict {
+				log.Fatal("BPF host reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer. If you run an older kernel and only need TCP, then specify: --host-reachable-services-protos=tcp")
+			} else {
+				log.Warn("BPF host reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer. Disabling the feature.")
+				option.Config.EnableHostServicesUDP = false
+			}
+		}
+	}
+
+	if option.Config.EnableNodePort {
+		found := false
+		if h := probes.NewProbeManager().GetHelpers("sched_act"); h != nil {
+			if _, ok := h["bpf_fib_lookup"]; ok {
+				found = true
+			}
+		}
+		if !found {
+			if strict {
+				log.Fatal("BPF NodePort services needs kernel 4.17.0 or newer")
+			} else {
+				log.Warn("BPF NodePort services needs kernel 4.17.0 or newer. Disabling the feature.")
+				option.Config.EnableNodePort = false
+			}
+		}
+	}
+
 	if option.Config.EnableNodePort && option.Config.Device == "undefined" {
 		device, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
 		if err != nil {
@@ -1429,22 +1479,6 @@ func initKubeProxyFreeOptions() {
 		log.WithField(logfields.Interface, device).
 			Info("Using auto-derived device for BPF node port")
 		option.Config.Device = device
-	}
-
-	if option.Config.EnableHostReachableServices {
-		if option.Config.EnableHostServicesTCP &&
-			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_CONNECT) != nil ||
-				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_CONNECT) != nil) {
-			log.Fatal("BPF host reachable services for TCP needs kernel 4.17.0 or newer.")
-		}
-		// NOTE: as host-lb is a hard dependency for NodePort BPF, the following
-		//       probe will catch if the fib_lookup helper is missing (< 4.18),
-		//       which is another hard dependency for NodePort BPF.
-		if option.Config.EnableHostServicesUDP &&
-			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP4_RECVMSG) != nil ||
-				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP6_RECVMSG) != nil) {
-			log.Fatal("BPF host reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer. If you run an older kernel and only need TCP, then specify: --host-reachable-services-protos=tcp")
-		}
 	}
 
 	if option.Config.EnableNodePort {
