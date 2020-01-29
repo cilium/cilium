@@ -657,9 +657,12 @@ func (kub *Kubectl) MonitorStart(namespace, pod, filename string) func() error {
 			case <-time.After(1 * time.Minute):
 				break Timeout
 			default:
-				oldLen = len(res.GetStdOut())
+				out := res.GetStdOut()
+				oldLen = len(out)
+				fmt.Println("oldlen", oldLen)
 				time.Sleep(10 * time.Second)
 				length = len(res.GetStdOut())
+				fmt.Println("length", length)
 			}
 		}
 
@@ -681,13 +684,6 @@ func (kub *Kubectl) MonitorStart(namespace, pod, filename string) func() error {
 			return err
 		}
 		return nil
-	}
-
-	startIndicator := "Press Ctrl-C to quit"
-
-	// wait until monitor started
-	for !strings.Contains(res.GetStdOut(), startIndicator) {
-		time.Sleep(time.Second)
 	}
 
 	return cb

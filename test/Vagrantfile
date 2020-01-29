@@ -2,6 +2,12 @@
 # vi: set ft=ruby
 Vagrant.require_version ">= 2.2.0"
 
+class VagrantPlugins::ProviderVirtualBox::Action::Network
+  def dhcp_server_matches_config?(dhcp_server, config)
+    true
+  end
+end
+
 # The source of truth for vagrant box versions.
 # Sets SERVER_BOX, SERVER_VERSION, NETNEXT_SERVER_BOXET and NEXT_SERVER_VERSION
 # Accepts overrides from env variables

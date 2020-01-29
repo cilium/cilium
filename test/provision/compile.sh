@@ -26,9 +26,9 @@ cd ${GOPATH}/src/github.com/cilium/cilium
 if echo $(hostname) | grep "k8s" -q;
 then
     # Only need to build on one host, since we can pull from the other host.
-    if [[ "$(hostname)" == "k8s1" ]]; then
+    if [[ "$(hostname)" == "k8s1" && "${CILIUM_REGISTRY}" == "" ]]; then
       ./test/provision/container-images.sh cilium_images .
-	  if [[ "${CILIUM_IMAGE}" == "" && "${CILIUM_OPERATOR_IMAGE}" == "" && "${CILIUM_REGISTRY}" == "" ]]; then
+	  if [[ "${CILIUM_IMAGE}" == "" && "${CILIUM_OPERATOR_IMAGE}" == "" ]]; then
         echo "building cilium/cilium container image..."
         make LOCKDEBUG=1 docker-image-no-clean
 
