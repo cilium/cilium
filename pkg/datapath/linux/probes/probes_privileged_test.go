@@ -42,3 +42,9 @@ func (s *ProbesPrivTestSuite) TestMapTypes(c *C) {
 	mapTypes := pm.GetMapTypes()
 	c.Assert(mapTypes, NotNil)
 }
+
+func (s *ProbesPrivTestSuite) TestHelpers(c *C) {
+	pm := NewProbeManager()
+	_, ok := pm.GetHelpers("sched_act")["bpf_map_lookup_elem"]
+	c.Assert(ok, Equals, true)
+}
