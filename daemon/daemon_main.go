@@ -1055,60 +1055,7 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
-	if option.Config.EnableNodePort &&
-		!(option.Config.EnableHostReachableServices &&
-			option.Config.EnableHostServicesTCP && option.Config.EnableHostServicesUDP) {
-		// We enable host reachable services in order to allow
-		// access to node port services from the host.
-		log.Info("Auto-enabling host reachable services for UDP and TCP as required by BPF NodePort.")
-		option.Config.EnableHostReachableServices = true
-		option.Config.EnableHostServicesTCP = true
-		option.Config.EnableHostServicesUDP = true
-	}
-
-	if option.Config.EnableNodePort && option.Config.Device == "undefined" {
-		device, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
-		if err != nil {
-			log.WithError(err).Fatal("BPF NodePort's external facing device could not be determined. Use --device to specify.")
-		}
-		log.WithField(logfields.Interface, device).
-			Info("Using auto-derived device for BPF node port")
-		option.Config.Device = device
-	}
-
-	if option.Config.EnableHostReachableServices {
-		// Try to auto-load IPv6 module if it hasn't been done yet as there can
-		// be v4-in-v6 connections even if the agent has v6 support disabled.
-		probe.HaveIPv6Support()
-
-		if option.Config.EnableHostServicesTCP &&
-			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_CONNECT) != nil ||
-				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_CONNECT) != nil) {
-			log.Fatal("BPF host reachable services for TCP needs kernel 4.17.0 or newer.")
-		}
-		// NOTE: as host-lb is a hard dependency for NodePort BPF, the following
-		//       probe will catch if the fib_lookup helper is missing (< 4.18),
-		//       which is another hard dependency for NodePort BPF.
-		if option.Config.EnableHostServicesUDP &&
-			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP4_RECVMSG) != nil ||
-				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP6_RECVMSG) != nil) {
-			log.Fatal("BPF host reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer. If you run an older kernel and only need TCP, then specify: --host-reachable-services-protos=tcp")
-		}
-	}
-
-	if option.Config.EnableNodePort {
-		if option.Config.NodePortMode != "dsr" && option.Config.NodePortMode != "snat" {
-			log.Fatalf("Invalid value for --node-port-mode option: %s", option.Config.NodePortMode)
-		}
-
-		if option.Config.NodePortMode == "dsr" && option.Config.Tunnel != option.TunnelDisabled {
-			log.Fatal("DSR cannot be used with tunnel")
-		}
-	}
-
-	if option.Config.EnableNodePort && option.Config.EnableIPSec {
-		log.Fatal("IPSec cannot be used with NodePort BPF")
-	}
+	initKubeProxyFreeOptions()
 
 	// If device has been specified, use it to derive better default
 	// allocation prefixes
@@ -1459,4 +1406,58 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPI {
 	api.PolicyGetIPHandler = NewGetIPHandler()
 
 	return api
+}
+
+func initKubeProxyFreeOptions() {
+	if option.Config.EnableNodePort &&
+		!(option.Config.EnableHostReachableServices &&
+			option.Config.EnableHostServicesTCP && option.Config.EnableHostServicesUDP) {
+		// We enable host reachable services in order to allow
+		// access to node port services from the host.
+		log.Info("Auto-enabling host reachable services for UDP and TCP as required by BPF NodePort.")
+		option.Config.EnableHostReachableServices = true
+		option.Config.EnableHostServicesTCP = true
+		option.Config.EnableHostServicesUDP = true
+	}
+
+	if option.Config.EnableNodePort && option.Config.Device == "undefined" {
+		device, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
+		if err != nil {
+			log.WithError(err).Fatal("BPF NodePort's external facing device could not be determined. Use --device to specify.")
+		}
+		log.WithField(logfields.Interface, device).
+			Info("Using auto-derived device for BPF node port")
+		option.Config.Device = device
+	}
+
+	if option.Config.EnableHostReachableServices {
+		// Try to auto-load IPv6 module if it hasn't been done yet as there can
+		// be v4-in-v6 connections even if the agent has v6 support disabled.
+		probe.HaveIPv6Support()
+
+		if option.Config.EnableHostServicesTCP &&
+			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_CONNECT) != nil ||
+				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_CONNECT) != nil) {
+			log.Fatal("BPF host reachable services for TCP needs kernel 4.17.0 or newer.")
+		}
+		if option.Config.EnableHostServicesUDP &&
+			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP4_RECVMSG) != nil ||
+				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP6_RECVMSG) != nil) {
+			log.Fatal("BPF host reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer. If you run an older kernel and only need TCP, then specify: --host-reachable-services-protos=tcp")
+		}
+	}
+
+	if option.Config.EnableNodePort {
+		if option.Config.NodePortMode != "dsr" && option.Config.NodePortMode != "snat" {
+			log.Fatalf("Invalid value for --node-port-mode option: %s", option.Config.NodePortMode)
+		}
+
+		if option.Config.NodePortMode == "dsr" && option.Config.Tunnel != option.TunnelDisabled {
+			log.Fatal("DSR cannot be used with tunnel")
+		}
+	}
+
+	if option.Config.EnableNodePort && option.Config.EnableIPSec {
+		log.Fatal("IPSec cannot be used with NodePort BPF")
+	}
 }
