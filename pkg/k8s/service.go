@@ -416,14 +416,14 @@ func NewClusterService(id ServiceID, k8sService *Service, k8sEndpoints *Endpoint
 	return svc
 }
 
-type BackendIPGetter interface {
-	GetRandomBackendIP(svcID ServiceID) *loadbalancer.L3n4Addr
+type ServiceIPGetter interface {
+	GetServiceIP(svcID ServiceID) *loadbalancer.L3n4Addr
 }
 
-// CreateCustomDialer returns a custom dialer that picks a random backend IP,
-// from the given BackendIPGetter, if the address the used to dial is a k8s
+// CreateCustomDialer returns a custom dialer that picks the service IP,
+// from the given ServiceIPGetter, if the address the used to dial is a k8s
 // service.
-func CreateCustomDialer(b BackendIPGetter, log *logrus.Entry) func(s string, duration time.Duration) (conn net.Conn, e error) {
+func CreateCustomDialer(b ServiceIPGetter, log *logrus.Entry) func(s string, duration time.Duration) (conn net.Conn, e error) {
 	return func(s string, duration time.Duration) (conn net.Conn, e error) {
 		// If the service is available, do the service translation to
 		// the service IP. Otherwise dial with the original service
@@ -432,9 +432,9 @@ func CreateCustomDialer(b BackendIPGetter, log *logrus.Entry) func(s string, dur
 		if err == nil {
 			svc := ParseServiceIDFrom(u.Host)
 			if svc != nil {
-				backendIP := b.GetRandomBackendIP(*svc)
-				if backendIP != nil {
-					s = backendIP.String()
+				svcIP := b.GetServiceIP(*svc)
+				if svcIP != nil {
+					s = svcIP.String()
 				}
 			} else {
 				log.Debug("Service not found")
