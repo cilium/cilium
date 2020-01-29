@@ -290,7 +290,8 @@ func runOperator(cmd *cobra.Command) {
 			// If K8s is enabled we can do the service translation automagically by
 			// looking at services from k8s and retrieve the service IP from that.
 			// This makes cilium to not depend on kube dns to interact with etcd
-			if k8s.IsEnabled() && kvstore.IsEtcdOperator(kvStore, kvStoreOpts, option.Config.K8sNamespace) {
+			_, isETCDOperator := kvstore.IsEtcdOperator(kvStore, kvStoreOpts, option.Config.K8sNamespace)
+			if k8s.IsEnabled() && isETCDOperator {
 				// Wait services and endpoints cache are synced with k8s before setting
 				// up etcd so we can perform the name resolution for etcd-operator
 				// to the service IP as well perform the service -> backend IPs for
