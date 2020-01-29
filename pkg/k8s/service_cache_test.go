@@ -576,7 +576,7 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 	}, 2*time.Second), check.IsNil)
 
 	k8sSvcID, _ := ParseService(k8sSvc)
-	addresses := svcCache.GetRandomBackendIP(k8sSvcID)
+	addresses := svcCache.GetServiceIP(k8sSvcID)
 	c.Assert(addresses, checker.DeepEquals, loadbalancer.NewL3n4Addr(loadbalancer.TCP, net.ParseIP("127.0.0.1"), 80))
 
 	swgSvcs.Stop()
