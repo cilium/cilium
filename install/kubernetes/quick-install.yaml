@@ -118,6 +118,7 @@ data:
   wait-bpf-mount: "false"
 
   masquerade: "true"
+  enable-kube-proxy-free: "true"
 
   install-iptables-rules: "true"
   auto-direct-node-routes: "false"

@@ -244,6 +244,10 @@ data:
 {{- end }}
 {{- end }}
 
+{{- if.Values.global.kubeProxyFree }}
+  enable-kube-proxy-free: "true"
+{{- end }}
+
 {{- if .Values.global.hostServices.enabled }}
   enable-host-reachable-services: "true"
 {{- if ne .Values.global.hostServices.protocols "tcp,udp" }}

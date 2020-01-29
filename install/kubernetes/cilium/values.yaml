@@ -217,6 +217,9 @@ global:
     # interface is the interface to use for encryption
     # interface: eth0
 
+  # kubeProxyFree enables datapath features which implement kube-proxy functionality
+  kubeProxyFree: true
+
   # hostServices is the configuration for host-facing load-balancing
   hostServices:
     # enabled enables host-facing load-balancing
