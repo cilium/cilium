@@ -115,10 +115,13 @@ type MapTypes struct {
 	HaveStackMapType               bool `json:"have_stack_map_type"`
 }
 
+type Helpers map[string][]string
+
 // Features contains BPF feature checks returned by bpftool.
 type Features struct {
 	SystemConfig `json:"system_config"`
 	MapTypes     `json:"map_types"`
+	Helpers      `json:"helpers"`
 }
 
 // ProbeManager is a manager of BPF feature checks.
@@ -198,4 +201,20 @@ func (p *ProbeManager) SystemConfigProbes() error {
 // GetMapTypes returns information about supported BPF map types.
 func (p *ProbeManager) GetMapTypes() *MapTypes {
 	return &p.features.MapTypes
+}
+
+// GetHelpers returns information about available BPF helpers for the given
+// program type.
+// If program type is not found, returns nil.
+func (p *ProbeManager) GetHelpers(prog string) map[string]struct{} {
+	for p, helpers := range p.features.Helpers {
+		if prog+"_available_helpers" == p {
+			ret := map[string]struct{}{}
+			for _, h := range helpers {
+				ret[h] = struct{}{}
+			}
+			return ret
+		}
+	}
+	return nil
 }
