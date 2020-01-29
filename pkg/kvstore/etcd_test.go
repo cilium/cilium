@@ -201,22 +201,23 @@ endpoints:
 		k8sNamespace string
 	}
 	tests := []struct {
-		args args
-		want bool
+		args        args
+		wantSvcName string
+		wantBool    bool
 	}{
 		{
 			args: args{
 				backend: consulName,
 			},
 			// it is not etcd
-			want: false,
+			wantBool: false,
 		},
 		{
 			args: args{
 				backend: EtcdBackendName,
 			},
 			// misses configuration
-			want: false,
+			wantBool: false,
 		},
 		{
 			args: args{
@@ -226,8 +227,9 @@ endpoints:
 				},
 				k8sNamespace: "kube-system",
 			},
+			wantSvcName: "http://cilium-etcd-client.kube-system.svc",
 			// everything valid
-			want: true,
+			wantBool: true,
 		},
 		{
 			args: args{
@@ -238,7 +240,7 @@ endpoints:
 				k8sNamespace: "kube-system",
 			},
 			// domain name misses protocol
-			want: false,
+			wantBool: false,
 		},
 		{
 			args: args{
@@ -248,7 +250,7 @@ endpoints:
 				k8sNamespace: "kube-system",
 			},
 			// backend not specified
-			want: false,
+			wantBool: false,
 		},
 		{
 			args: args{
@@ -258,8 +260,9 @@ endpoints:
 				},
 				k8sNamespace: "kube-system",
 			},
+			wantSvcName: "https://cilium-etcd-client.kube-system.svc:2379",
 			// config file with everything setup
-			want: true,
+			wantBool: true,
 		},
 		{
 			args: args{
@@ -270,7 +273,8 @@ endpoints:
 				},
 				k8sNamespace: "kube-system",
 			},
-			want: true,
+			wantSvcName: "foo-bar.kube-system.svc",
+			wantBool:    true,
 		},
 		{
 			args: args{
@@ -281,7 +285,7 @@ endpoints:
 				},
 				k8sNamespace: "kube-system",
 			},
-			want: false,
+			wantBool: false,
 		},
 		{
 			args: args{
@@ -291,7 +295,7 @@ endpoints:
 				},
 				k8sNamespace: "kube-system",
 			},
-			want: false,
+			wantBool: false,
 		},
 		{
 			args: args{
@@ -302,7 +306,7 @@ endpoints:
 				},
 				k8sNamespace: "kube-system",
 			},
-			want: false,
+			wantBool: false,
 		},
 		{
 			args: args{
@@ -313,7 +317,8 @@ endpoints:
 				},
 				k8sNamespace: "kube-system",
 			},
-			want: true,
+			wantSvcName: "https://cilium-etcd-client.kube-system.svc",
+			wantBool:    true,
 		},
 		{
 			args: args{
@@ -324,13 +329,15 @@ endpoints:
 				},
 				k8sNamespace: "kube-system",
 			},
+			wantSvcName: "https://cilium-etcd-client.kube-system.svc:2379",
 			// config file with everything setup
-			want: true,
+			wantBool: true,
 		},
 	}
 	for i, tt := range tests {
-		got := IsEtcdOperator(tt.args.backend, tt.args.opts, tt.args.k8sNamespace)
-		c.Assert(got, Equals, tt.want, Commentf("Test %d", i))
+		gotSvcName, gotBool := IsEtcdOperator(tt.args.backend, tt.args.opts, tt.args.k8sNamespace)
+		c.Assert(gotBool, Equals, tt.wantBool, Commentf("Test %d", i))
+		c.Assert(gotSvcName, Equals, tt.wantSvcName, Commentf("Test %d", i))
 	}
 }
 
