@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import (
 	"io"
 	"io/ioutil"
 	"path"
+	"testing"
 	"time"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -1562,5 +1563,75 @@ func (e *EtcdLockedSuite) TestListPrefixIfLocked(c *C) {
 		}
 		err = tt.cleanup(args)
 		c.Assert(err, IsNil)
+	}
+}
+
+func TestGetSvcNamespace(t *testing.T) {
+	type args struct {
+		address string
+	}
+	tests := []struct {
+		name          string
+		args          args
+		wantSvcName   string
+		wantNamespace string
+		wantErr       bool
+	}{
+		{
+			name: "test-1",
+			args: args{
+				address: "http://foo.bar.something",
+			},
+			wantSvcName:   "foo",
+			wantNamespace: "bar",
+			wantErr:       false,
+		},
+		{
+			name: "test-2",
+			args: args{
+				address: "http://foo.bar",
+			},
+			wantSvcName:   "foo",
+			wantNamespace: "bar",
+			wantErr:       false,
+		},
+		{
+			name: "test-3",
+			args: args{
+				address: "http://foo",
+			},
+			wantErr: true,
+		},
+		{
+			name: "test-4",
+			args: args{
+				address: "http://foo.bar:5679/",
+			},
+			wantSvcName:   "foo",
+			wantNamespace: "bar",
+			wantErr:       false,
+		},
+		{
+			name: "test-5",
+			args: args{
+				address: "http://foo:2379",
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, got1, err := SplitK8sServiceURL(tt.args.address)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("SplitK8sServiceURL() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.wantSvcName {
+				t.Errorf("SplitK8sServiceURL() got = %v, want %v", got, tt.wantSvcName)
+			}
+			if got1 != tt.wantNamespace {
+				t.Errorf("SplitK8sServiceURL() got1 = %v, want %v", got1, tt.wantNamespace)
+			}
+		})
 	}
 }
