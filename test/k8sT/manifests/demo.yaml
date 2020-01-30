@@ -14,7 +14,12 @@ metadata:
   name: app1-service
 spec:
   ports:
-  - port: 80
+  - name: http
+    port: 80
+    protocol: TCP
+  - name: tftp
+    port: 69
+    protocol: UDP
   selector:
     id: app1
 ---
@@ -46,6 +51,12 @@ spec:
           httpGet:
             path: /
             port: 80
+      - name: udp
+        image: docker.io/cilium/echoserver-udp:v2020.01.30
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 69
+          protocol: UDP
       nodeSelector:
         "cilium.io/ci-node": k8s1
 ---

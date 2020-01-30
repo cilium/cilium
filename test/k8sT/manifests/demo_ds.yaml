@@ -23,6 +23,12 @@ spec:
           httpGet:
             path: /
             port: 80
+      - name: udp
+        image: docker.io/cilium/echoserver-udp:v2020.01.30
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 69
+          protocol: UDP
       terminationGracePeriodSeconds: 0
       tolerations:
       - effect: NoSchedule
@@ -78,6 +84,12 @@ spec:
           httpGet:
             path: /
             port: 80
+      - name: udp
+        image: docker.io/cilium/echoserver-udp:v2020.01.30
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 69
+          protocol: UDP
       terminationGracePeriodSeconds: 0
       nodeSelector:
         "cilium.io/ci-node": k8s2
@@ -88,8 +100,14 @@ metadata:
   name: testds-service
 spec:
   ports:
-  - port: 80
+  - name: http
+    port: 80
     targetPort: 80
+    protocol: TCP
+  - name: tftp
+    port: 69
+    targetPort: 69
+    protocol: UDP
   selector:
     zgroup: testDS
 ---
@@ -104,6 +122,10 @@ spec:
     targetPort: 80
     protocol: TCP
     name: http
+  - port: 10069
+    targetPort: 69
+    protocol: UDP
+    name: tftp
   selector:
     zgroup: testDS
 ---
@@ -119,6 +141,10 @@ spec:
     targetPort: 80
     protocol: TCP
     name: http
+  - port: 10069
+    targetPort: 69
+    protocol: UDP
+    name: tftp
   selector:
     zgroup: testDS
 ---
@@ -134,6 +160,10 @@ spec:
     targetPort: 80
     protocol: TCP
     name: http
+  - port: 10069
+    targetPort: 69
+    protocol: UDP
+    name: tftp
   selector:
     zgroup: test-k8s2
 ---
@@ -148,6 +178,10 @@ spec:
     targetPort: 80
     protocol: TCP
     name: http
+  - port: 10069
+    targetPort: 69
+    protocol: UDP
+    name: tftp
   selector:
     zgroup: test-k8s2
 ---
