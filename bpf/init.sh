@@ -400,8 +400,6 @@ function encap_fail()
 	exit 1
 }
 
-$LIB/run_probes.sh $LIB $RUNDIR
-
 # Base device setup
 case "${MODE}" in
 	"flannel")
