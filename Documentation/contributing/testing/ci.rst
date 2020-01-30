@@ -115,6 +115,11 @@ is cached within the box becomes stale.
 Make sure that you update vagrant box versions in `test Vagrantfile <https://github.com/cilium/cilium/blob/master/test/Vagrantfile>`__
 and `root Vagrantfile <https://github.com/cilium/cilium/blob/master/Vagrantfile>`__ after new box is built and tested.
 
+Once you change the image versions locally, create a branch named
+``pr/update-packer-ci-build`` and open a PR ``github.com/cilium/cilium``.
+It is important that you use that branch name so the VM images are cached into
+packet.net before the branch is merged.
+
 .. _trigger_phrases:
 
 Triggering Pull-Request Builds With Jenkins
