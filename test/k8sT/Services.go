@@ -41,6 +41,7 @@ var _ = Describe("K8sServicesTest", func() {
 		ciliumPodK8s1          string
 		testDSClient           = "zgroup=testDSClient"
 		testDS                 = "zgroup=testDS"
+		testDSK8s2             = "zgroup=test-k8s2"
 		echoServiceName        = "echo"
 		echoPodLabel           = "name=echo"
 	)
@@ -121,7 +122,7 @@ var _ = Describe("K8sServicesTest", func() {
 	}
 
 	waitPodsDs := func() {
-		groups := []string{testDS, testDSClient}
+		groups := []string{testDS, testDSClient, testDSK8s2}
 		for _, pod := range groups {
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", pod), helpers.HelperTimeout)
 			ExpectWithOffset(1, err).Should(BeNil())
