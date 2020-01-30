@@ -267,9 +267,10 @@ var _ = Describe("K8sServicesTest", func() {
 			}
 		}
 
-		failBind := func(addr string, port int32, fromPod string) {
+		failBind := func(addr string, port int32, proto, fromPod string) {
 			By("Trying to bind NodePort addr %q:%d on %s", addr, port, fromPod)
-			res, err := kubectl.ExecInHostNetNS(context.TODO(), fromPod, helpers.PythonBind(addr, uint16(port)))
+			res, err := kubectl.ExecInHostNetNS(context.TODO(), fromPod,
+				helpers.PythonBind(addr, uint16(port), proto))
 			ExpectWithOffset(1, err).To(BeNil(), "Cannot run python in host netns")
 			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
 				"%s host unexpectedly was able to bind on %q:%d, it should fail", fromPod, addr, port)
@@ -380,12 +381,17 @@ var _ = Describe("K8sServicesTest", func() {
 				testCurlRequest(testDSClient, tftpURL)
 
 				// Ensure the NodePort cannot be bound from any redirected address
-				failBind(localCiliumHostIPv4, data.Spec.Ports[0].NodePort, k8s1Name)
-				failBind("127.0.0.1", data.Spec.Ports[0].NodePort, k8s1Name)
-				failBind("", data.Spec.Ports[0].NodePort, k8s1Name)
+				failBind(localCiliumHostIPv4, data.Spec.Ports[0].NodePort, "tcp", k8s1Name)
+				failBind(localCiliumHostIPv4, data.Spec.Ports[1].NodePort, "udp", k8s1Name)
+				failBind("127.0.0.1", data.Spec.Ports[0].NodePort, "tcp", k8s1Name)
+				failBind("127.0.0.1", data.Spec.Ports[1].NodePort, "udp", k8s1Name)
+				failBind("", data.Spec.Ports[0].NodePort, "tcp", k8s1Name)
+				failBind("", data.Spec.Ports[1].NodePort, "udp", k8s1Name)
 
-				failBind("::ffff:127.0.0.1", data.Spec.Ports[0].NodePort, k8s1Name)
-				failBind("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[0].NodePort, k8s1Name)
+				failBind("::ffff:127.0.0.1", data.Spec.Ports[0].NodePort, "tcp", k8s1Name)
+				failBind("::ffff:127.0.0.1", data.Spec.Ports[1].NodePort, "udp", k8s1Name)
+				failBind("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[0].NodePort, "tcp", k8s1Name)
+				failBind("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[1].NodePort, "udp", k8s1Name)
 			}
 		}
 
