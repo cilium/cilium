@@ -15,14 +15,20 @@
 package probes
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -214,6 +220,63 @@ func (p *ProbeManager) GetHelpers(prog string) map[string]struct{} {
 			}
 			return ret
 		}
+	}
+	return nil
+}
+
+// writeHeaders executes bpftool to generate BPF feature C macros and then
+// writes them to the given writer.
+func (p *ProbeManager) writeHeaders(featuresFile io.Writer) error {
+	cmd := exec.WithTimeout(
+		defaults.ExecTimeout, "bpftool", "feature", "probe", "macros")
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf(
+			"could not initialize stdout pipe for bpftool: %s", err)
+	}
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf(
+			"could not initialize stderr pipe for bpftool: %s", err)
+	}
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("could not start bpftool: %s", err)
+	}
+
+	writer := bufio.NewWriter(featuresFile)
+	defer writer.Flush()
+
+	go io.Copy(writer, stdoutPipe)
+	if err := cmd.Wait(); err != nil {
+		stderr, err := ioutil.ReadAll(stderrPipe)
+		if err != nil {
+			return fmt.Errorf(
+				"bpftool did not run succesfully and stdout could not be read: %s",
+				err)
+		}
+		return fmt.Errorf("bpftool did not run successfully: %s: %s",
+			err, stderr)
+	}
+	return nil
+}
+
+// CreateHeadersFile creates a C header file with macros indicating which BPF
+// features are available in the kernel.
+func (p *ProbeManager) CreateHeadersFile() error {
+	globalsDir := option.Config.GetGlobalsDir()
+	if err := os.MkdirAll(globalsDir, defaults.StateDirRights); err != nil && os.IsExist(err) {
+		return fmt.Errorf("Could not create runtime directory %s", globalsDir)
+	}
+	featuresFilePath := filepath.Join(globalsDir, "bpf_features.h")
+	featuresFile, err := os.Create(featuresFilePath)
+	if err != nil {
+		return fmt.Errorf("could not create features header file %s: %s",
+			featuresFilePath, err)
+	}
+	defer featuresFile.Close()
+
+	if err := p.writeHeaders(featuresFile); err != nil {
+		return err
 	}
 	return nil
 }
