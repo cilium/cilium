@@ -106,13 +106,22 @@ func Netcat(endpoint string, optionalValues ...interface{}) string {
 // PythonBind returns the string representing a python3 command which will try
 // to bind a socket on the given address and port. Python is available in the
 // log-gatherer pod.
-func PythonBind(addr string, port uint16) string {
-	family := "socket.AF_INET"
+func PythonBind(addr string, port uint16, proto string) string {
+	var opts []string
 	if strings.Contains(addr, ":") {
-		family = "socket.AF_INET6"
+		opts = append(opts, "family=socket.AF_INET6")
+	} else {
+		opts = append(opts, "family=socket.AF_INET")
+	}
+
+	switch strings.ToLower(proto) {
+	case "tcp":
+		opts = append(opts, "type=socket.SOCK_STREAM")
+	case "udp":
+		opts = append(opts, "type=socket.SOCK_DGRAM")
 	}
 
 	return fmt.Sprintf(
-		`/usr/bin/python3 -c 'import socket; socket.socket(family=%s).bind((%q, %d))`,
-		family, addr, port)
+		`/usr/bin/python3 -c 'import socket; socket.socket(%s).bind((%q, %d))`,
+		strings.Join(opts, ", "), addr, port)
 }
