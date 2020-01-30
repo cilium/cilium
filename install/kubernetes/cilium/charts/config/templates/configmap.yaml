@@ -260,6 +260,9 @@ data:
 
   install-iptables-rules: {{ .Values.global.installIptablesRules | quote }}
   auto-direct-node-routes: {{ .Values.global.autoDirectNodeRoutes | quote }}
+{{- if .Values.global.kubeProxyReplacement }}
+  kube-proxy-replacement:  {{ .Values.global.kubeProxyReplacement | quote }}
+{{- end}}
 {{- if .Values.global.nodePort }}
   enable-node-port: {{ .Values.global.nodePort.enabled | quote }}
 {{- if .Values.global.nodePort.range }}
