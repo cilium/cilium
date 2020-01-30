@@ -15,14 +15,22 @@
 package probes
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
+
+	"github.com/pkg/errors"
 )
 
 var (
@@ -214,6 +222,72 @@ func (p *ProbeManager) GetHelpers(prog string) map[string]struct{} {
 			}
 			return ret
 		}
+	}
+	return nil
+}
+
+// writeHeaders executes bpftool to generate BPF feature C macros and then
+// writes them to the given writer.
+func (p *ProbeManager) writeHeaders(featuresFile io.Writer) error {
+	cmd := exec.WithTimeout(
+		defaults.ExecTimeout, "bpftool", "feature", "probe", "macros")
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return errors.Wrap(err,
+			"could not initialize stdout pipe for bpftool feature probe")
+	}
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return errors.Wrap(err,
+			"could not initialize stderr pipe for bpftool feature probe")
+	}
+	if err := cmd.Start(); err != nil {
+		return errors.Wrap(err,
+			"could not start bpftool for bpftool feature probe")
+	}
+
+	writer := bufio.NewWriter(featuresFile)
+	defer writer.Flush()
+
+	io.WriteString(writer, "#ifndef BPF_FEATURES_H_\n")
+	io.WriteString(writer, "#define BPF_FEATURES_H_\n\n")
+
+	go io.Copy(writer, stdoutPipe)
+	if err := cmd.Wait(); err != nil {
+		stderr, err := ioutil.ReadAll(stderrPipe)
+		if err != nil {
+			return errors.Wrap(err,
+				"reading from bpftool feature probe stderr pipe failed")
+		}
+		return errors.Wrapf(err,
+			"bpftool feature probe did not run successfully: %s",
+			stderr)
+	}
+
+	io.WriteString(writer, "#endif /* BPF_FEATURES_H_ */\n")
+
+	return nil
+}
+
+// CreateHeadersFile creates a C header file with macros indicating which BPF
+// features are available in the kernel.
+func (p *ProbeManager) CreateHeadersFile() error {
+	globalsDir := option.Config.GetGlobalsDir()
+	if err := os.MkdirAll(globalsDir, defaults.StateDirRights); err != nil {
+		return errors.Wrapf(err, "could not create runtime directory %s",
+			globalsDir)
+	}
+	featuresFilePath := filepath.Join(globalsDir, "bpf_features.h")
+	featuresFile, err := os.Create(featuresFilePath)
+	if err != nil {
+		return errors.Wrapf(err,
+			"could not create features header file %s",
+			featuresFilePath)
+	}
+	defer featuresFile.Close()
+
+	if err := p.writeHeaders(featuresFile); err != nil {
+		return err
 	}
 	return nil
 }
