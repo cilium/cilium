@@ -198,3 +198,17 @@ spec:
     name: http
   selector:
     zgroup: testDS
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-lb-udp
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 69
+    targetPort: 69
+    protocol: UDP
+    name: tftp
+  selector:
+    zgroup: testDS
