@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -481,6 +482,15 @@ func init() {
 
 	flags.StringSlice(option.Labels, []string{}, "List of label prefixes used to determine identity of an endpoint")
 	option.BindEnv(option.Labels)
+
+	flags.String(option.KubeProxyReplacement, option.KubeProxyReplacementPartial, fmt.Sprintf(
+		"auto-enable available features for kube-proxy replacement (%q), "+
+			"or enable only selected features (will panic if any selected feature cannot be enabled) (%q) "+
+			"or enable all features (will panic if any feature cannot be enabled) (%q), "+
+			"or completely disable it (ignores any selected feature) (%q)",
+		option.KubeProxyReplacementProbe, option.KubeProxyReplacementPartial,
+		option.KubeProxyReplacementStrict, option.KubeProxyReplacementDisabled))
+	option.BindEnv(option.KubeProxyReplacement)
 
 	flags.Bool(option.EnableNodePort, false, "Enable NodePort type services by Cilium (beta)")
 	option.BindEnv(option.EnableNodePort)
@@ -1055,7 +1065,7 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
-	initKubeProxyFreeOptions()
+	initKubeProxyReplacementOptions()
 
 	// If device has been specified, use it to derive better default
 	// allocation prefixes
@@ -1408,26 +1418,103 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPI {
 	return api
 }
 
-func initKubeProxyFreeOptions() {
-	if option.Config.EnableNodePort &&
-		!(option.Config.EnableHostReachableServices &&
-			option.Config.EnableHostServicesTCP && option.Config.EnableHostServicesUDP) {
-		// We enable host reachable services in order to allow
-		// access to node port services from the host.
-		log.Info("Auto-enabling host reachable services for UDP and TCP as required by BPF NodePort.")
+func initKubeProxyReplacementOptions() {
+	if option.Config.KubeProxyReplacement != option.KubeProxyReplacementStrict &&
+		option.Config.KubeProxyReplacement != option.KubeProxyReplacementPartial &&
+		option.Config.KubeProxyReplacement != option.KubeProxyReplacementProbe &&
+		option.Config.KubeProxyReplacement != option.KubeProxyReplacementDisabled {
+		log.Fatalf("Invalid value for --%s: %s", option.KubeProxyReplacement, option.Config.KubeProxyReplacement)
+	}
+
+	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementDisabled {
+		log.Infof("Auto-disabling %q, %q, %q features", option.EnableNodePort,
+			option.EnableExternalIPs, option.EnableHostReachableServices)
+
+		option.Config.EnableNodePort = false
+		option.Config.EnableExternalIPs = false
+		option.Config.EnableHostReachableServices = false
+		option.Config.EnableHostServicesTCP = false
+		option.Config.EnableHostServicesUDP = false
+		option.Config.DisableK8sServices = true
+
+		return
+	}
+
+	// strict denotes to panic if any to-be enabled feature cannot be enabled
+	strict := option.Config.KubeProxyReplacement != option.KubeProxyReplacementProbe
+
+	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementProbe ||
+		option.Config.KubeProxyReplacement == option.KubeProxyReplacementStrict {
+
+		log.Infof("Auto-enabling %q, %q, %q features", option.EnableNodePort,
+			option.EnableExternalIPs, option.EnableHostReachableServices)
+
+		option.Config.EnableNodePort = true
+		option.Config.EnableExternalIPs = true
 		option.Config.EnableHostReachableServices = true
 		option.Config.EnableHostServicesTCP = true
 		option.Config.EnableHostServicesUDP = true
+		option.Config.DisableK8sServices = false
+	}
+
+	if option.Config.EnableNodePort {
+		if option.Config.EnableIPSec {
+			msg := "IPSec cannot be used with NodePort BPF."
+			if strict {
+				log.Fatal(msg)
+			} else {
+				option.Config.EnableNodePort = false
+				option.Config.EnableExternalIPs = false
+				log.Warn(msg + " Disabling the feature.")
+			}
+		}
+
+		if option.Config.NodePortMode != "dsr" && option.Config.NodePortMode != "snat" {
+			log.Fatalf("Invalid value for --%s: %s", option.NodePortMode, option.Config.NodePortMode)
+		}
+
+		if option.Config.NodePortMode == "dsr" && option.Config.Tunnel != option.TunnelDisabled {
+			// Currently, DSR does not work in the tunnel mode. Once it's fixed,
+			// the constraint can be removed.
+			log.Fatal("DSR cannot be used with tunnel")
+		}
+	}
+
+	if option.Config.EnableNodePort {
+		found := false
+		if h := probes.NewProbeManager().GetHelpers("sched_act"); h != nil {
+			if _, ok := h["bpf_fib_lookup"]; ok {
+				found = true
+			}
+		}
+		if !found {
+			msg := "BPF NodePort services needs kernel 4.17.0 or newer."
+			if strict {
+				log.Fatal(msg)
+			} else {
+				log.Warn(msg + " Disabling the feature.")
+				option.Config.EnableNodePort = false
+				option.Config.EnableExternalIPs = false
+			}
+		}
 	}
 
 	if option.Config.EnableNodePort && option.Config.Device == "undefined" {
 		device, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
 		if err != nil {
-			log.WithError(err).Fatal("BPF NodePort's external facing device could not be determined. Use --device to specify.")
+			msg := "BPF NodePort's external facing device could not be determined. Use --device to specify."
+			if strict {
+				log.WithError(err).Fatal(msg)
+			} else {
+				log.WithError(err).Warn(msg + " Disabling BPF NodePort feature.")
+				option.Config.EnableNodePort = false
+				option.Config.EnableExternalIPs = false
+			}
+		} else {
+			log.WithField(logfields.Interface, device).
+				Info("Using auto-derived device for BPF node port")
+			option.Config.Device = device
 		}
-		log.WithField(logfields.Interface, device).
-			Info("Using auto-derived device for BPF node port")
-		option.Config.Device = device
 	}
 
 	if option.Config.EnableHostReachableServices {
@@ -1438,26 +1525,27 @@ func initKubeProxyFreeOptions() {
 		if option.Config.EnableHostServicesTCP &&
 			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_CONNECT) != nil ||
 				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_CONNECT) != nil) {
-			log.Fatal("BPF host reachable services for TCP needs kernel 4.17.0 or newer.")
+			msg := "BPF host reachable services for TCP needs kernel 4.17.0 or newer."
+			if strict {
+				log.Fatal(msg)
+			} else {
+				option.Config.EnableHostServicesTCP = false
+				log.Warn(msg + " Disabling the feature.")
+			}
 		}
 		if option.Config.EnableHostServicesUDP &&
 			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP4_RECVMSG) != nil ||
 				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP6_RECVMSG) != nil) {
-			log.Fatal("BPF host reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer. If you run an older kernel and only need TCP, then specify: --host-reachable-services-protos=tcp")
+			msg := "BPF host reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer. If you run an older kernel and only need TCP, then specify: --host-reachable-services-protos=tcp"
+			if strict {
+				log.Fatal(msg)
+			} else {
+				option.Config.EnableHostServicesUDP = false
+				log.Warn(msg + " Disabling the feature.")
+			}
 		}
-	}
-
-	if option.Config.EnableNodePort {
-		if option.Config.NodePortMode != "dsr" && option.Config.NodePortMode != "snat" {
-			log.Fatalf("Invalid value for --node-port-mode option: %s", option.Config.NodePortMode)
+		if !option.Config.EnableHostServicesTCP && !option.Config.EnableHostServicesUDP {
+			option.Config.EnableHostReachableServices = false
 		}
-
-		if option.Config.NodePortMode == "dsr" && option.Config.Tunnel != option.TunnelDisabled {
-			log.Fatal("DSR cannot be used with tunnel")
-		}
-	}
-
-	if option.Config.EnableNodePort && option.Config.EnableIPSec {
-		log.Fatal("IPSec cannot be used with NodePort BPF")
 	}
 }

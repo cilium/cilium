@@ -113,6 +113,7 @@ cilium-agent [flags]
       --k8s-watcher-queue-size uint                           Queue size used to serialize each k8s event type (default 1024)
       --keep-bpf-templates                                    Do not restore BPF template files from binary
       --keep-config                                           When restoring state, keeps containers' configuration in place
+      --kube-proxy-replacement string                         auto-enable available features for kube-proxy replacement ("probe"), or enable only selected features (will panic if any selected feature cannot be enabled) ("partial") or enable all features (will panic if any feature cannot be enabled) ("strict"), or completely disable it (ignores any selected feature) ("disabled") (default "partial")
       --kvstore string                                        Key-value store type
       --kvstore-connectivity-timeout duration                 Time after which an incomplete kvstore operation  is considered failed (default 2m0s)
       --kvstore-opt map                                       Key-value store options (default map[])
