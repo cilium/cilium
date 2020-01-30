@@ -225,6 +225,9 @@ global:
     # protocols is the list of protocols to support
     protocols: tcp,udp
 
+  # kubeProxyReplacement enables kube-proxy replacement in Cilium BPF datapath
+  kubeProxyReplacement: "probe"
+
   # nodePort is the nodeport configuration
   nodePort:
     # enabled enables NodePort functionality

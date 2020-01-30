@@ -121,6 +121,7 @@ data:
 
   install-iptables-rules: "true"
   auto-direct-node-routes: "false"
+  kube-proxy-replacement:  "probe"
   enable-node-port: "false"
   enable-well-known-identities: "false"
   enable-remote-node-identity: "true"
