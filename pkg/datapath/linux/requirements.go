@@ -203,23 +203,15 @@ func CheckMinRequirements() {
 	if _, err := os.Stat(option.Config.BpfDir); os.IsNotExist(err) {
 		log.WithError(err).Fatalf("BPF template directory: NOT OK. Please run 'make install-bpf'")
 	}
-	probeScript := filepath.Join(option.Config.BpfDir, "run_probes.sh")
-	if err := exec.Command(probeScript, option.Config.BpfDir, option.Config.StateDir).Run(); err != nil {
-		log.WithError(err).Fatal("BPF Verifier: NOT OK. Unable to run checker for bpf_features")
-	}
-	featuresFilePath := filepath.Join(globalsDir, "bpf_features.h")
-	if _, err := os.Stat(featuresFilePath); os.IsNotExist(err) {
-		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("BPF Verifier: NOT OK. Unable to read bpf_features.h")
-	}
-
-	checkBPFLogs("bpf_requirements", true)
-	checkBPFLogs("bpf_features", false)
 
 	// bpftool checks
 	if !option.Config.DryMode {
 		probeManager := probes.NewProbeManager()
 		if err := probeManager.SystemConfigProbes(); err != nil {
 			log.WithError(err).Warning("BPF system config check: NOT OK.")
+		}
+		if err := probeManager.CreateHeadersFile(); err != nil {
+			log.WithError(err).Fatal("BPF check: NOT OK.")
 		}
 	}
 }
