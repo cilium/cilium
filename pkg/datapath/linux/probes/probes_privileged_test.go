@@ -17,6 +17,8 @@
 package probes
 
 import (
+	"bufio"
+	"bytes"
 	"testing"
 
 	. "gopkg.in/check.v1"
@@ -47,4 +49,27 @@ func (s *ProbesPrivTestSuite) TestHelpers(c *C) {
 	pm := NewProbeManager()
 	_, ok := pm.GetHelpers("sched_act")["bpf_map_lookup_elem"]
 	c.Assert(ok, Equals, true)
+}
+
+func (s *ProbesPrivTestSuite) TestWriteHeaders(c *C) {
+	var buf bytes.Buffer
+
+	expectedPatterns := []string{
+		"#ifndef BPF_FEATURES_H_",
+		"#define BPF_FEATURES_H_",
+		"#define HAVE_BPF_SYSCALL",
+		"#define HAVE.*PROG_TYPE",
+		"#define HAVE.*MAP_TYPE",
+		"#define HAVE.*HELPER",
+		"#endif /* BPF_FEATURES_H_ */",
+	}
+
+	writer := bufio.NewWriter(&buf)
+	pm := NewProbeManager()
+	pm.writeHeaders(writer)
+	content := buf.String()
+
+	for _, pattern := range expectedPatterns {
+		c.Assert(content, Matches, pattern)
+	}
 }
