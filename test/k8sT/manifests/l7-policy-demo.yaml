@@ -15,3 +15,7 @@ spec:
       rules:
         http:
         - {}
+    - ports:
+      # we allow tftp traffic to bypass the proxy
+      - port: "69"
+        protocol: UDP
