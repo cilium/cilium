@@ -157,7 +157,7 @@ func (s *AllocatorSuite) TestRunLocksGC(c *C) {
 				nil,
 			)
 		}
-		lock2, err = client.LockPath(context.Background(), allocatorName+"/locks/"+shortKey.GetKey())
+		lock2, err = client.LockPath(context.Background(), allocatorName+"/locks/"+kvstore.Encode(shortKey.GetKey()))
 		c.Assert(err, IsNil)
 		close(gotLock2)
 	}()
@@ -184,7 +184,14 @@ func (s *AllocatorSuite) TestRunLocksGC(c *C) {
 	// Check which locks are stale, it should be lock1 and lock2
 	staleLocks, err = allocator.RunLocksGC(context.Background(), staleLocks)
 	c.Assert(err, IsNil)
-	c.Assert(len(staleLocks), Equals, 2)
+	switch s.backend {
+	case "consul":
+		// Contrary to etcd, consul does not create a lock in the kvstore
+		// if a lock is already being held.
+		c.Assert(len(staleLocks), Equals, 1)
+	case "etcd":
+		c.Assert(len(staleLocks), Equals, 2)
+	}
 
 	var (
 		oldestRev     uint64
