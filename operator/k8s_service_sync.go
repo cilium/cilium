@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -368,4 +369,25 @@ func endpointSlicesInit(k8sClient kubernetes.Interface, serEps *serializer.Funct
 	close(ecr)
 
 	return nil, false
+}
+
+// serviceGetter is a wrapper for 2 k8sCaches, its intention is for
+// `shortCutK8sCache` to be used until `k8sSvcCacheSynced` is closed, for which
+// `k8sCache` is started to be used.
+type serviceGetter struct {
+	shortCutK8sCache k8s.ServiceIPGetter
+	k8sCache         k8s.ServiceIPGetter
+}
+
+// GetServiceIP returns the result of GetServiceIP for `s.shortCutK8sCache`
+// until `k8sSvcCacheSynced` is closed. This is helpful as we can have a
+// shortcut of `s.k8sCache` since we can pre-populate `s.shortCutK8sCache` with
+// the entries that we need until `s.k8sCache` is synchronized with kubernetes.
+func (s *serviceGetter) GetServiceIP(svcID k8s.ServiceID) *loadbalancer.L3n4Addr {
+	select {
+	case <-k8sSvcCacheSynced:
+		return s.k8sCache.GetServiceIP(svcID)
+	default:
+		return s.shortCutK8sCache.GetServiceIP(svcID)
+	}
 }

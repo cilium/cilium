@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/k8s"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging"
@@ -40,6 +41,8 @@ import (
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
 )
 
@@ -290,22 +293,54 @@ func runOperator(cmd *cobra.Command) {
 			// If K8s is enabled we can do the service translation automagically by
 			// looking at services from k8s and retrieve the service IP from that.
 			// This makes cilium to not depend on kube dns to interact with etcd
-			_, isETCDOperator := kvstore.IsEtcdOperator(kvStore, kvStoreOpts, option.Config.K8sNamespace)
-			if k8s.IsEnabled() && isETCDOperator {
-				// Wait services and endpoints cache are synced with k8s before setting
-				// up etcd so we can perform the name resolution for etcd-operator
-				// to the service IP as well perform the service -> backend IPs for
-				// that service IP.
+			if k8s.IsEnabled() {
+				svcURL, isETCDOperator := kvstore.IsEtcdOperator(kvStore, kvStoreOpts, option.Config.K8sNamespace)
+				if isETCDOperator {
+					scopedLog.Info("cilium-operator running with service synchronization: automatic etcd service translation enabled")
 
-				scopedLog.Info("cilium-operator running with service synchronization: automatic etcd service translation enabled")
-				log := log.WithField(logfields.LogSubsys, "etcd")
-				scopedLog.Info("Waiting for all services to be synced with kubernetes before connecting to etcd")
-				<-k8sSvcCacheSynced
-				scopedLog.Info("Kubernetes services synced")
-				goopts = &kvstore.ExtraOptions{
-					DialOption: []grpc.DialOption{
-						grpc.WithDialer(k8s.CreateCustomDialer(&k8sSvcCache, log)),
-					},
+					svcGetter := k8s.ServiceIPGetter(&k8sSvcCache)
+
+					name, namespace, err := kvstore.SplitK8sServiceURL(svcURL)
+					if err != nil {
+						// If we couldn't derive the name/namespace for the given
+						// svcURL log the error so the user can see it.
+						// k8s.CreateCustomDialer won't be able to derive
+						// the name/namespace as well so it does not matter that
+						// we wait for all services to be synchronized with k8s.
+						scopedLog.WithError(err).WithFields(logrus.Fields{
+							"url": svcURL,
+						}).Error("Unable to derive service name from given url")
+					} else {
+						scopedLog.WithFields(logrus.Fields{
+							logfields.ServiceName:      name,
+							logfields.ServiceNamespace: namespace,
+						}).Info("Retrieving service spec from k8s to perform automatic etcd service translation")
+						k8sSvc, err := k8s.Client().CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
+						switch {
+						case err == nil:
+							// Create another service cache that contains the
+							// k8s service for etcd. As soon the k8s caches are
+							// synced, this hijack will stop happening.
+							sc := k8s.NewServiceCache()
+							sc.UpdateService(&types.Service{Service: k8sSvc}, nil)
+							svcGetter = &serviceGetter{
+								shortCutK8sCache: &sc,
+								k8sCache:         &k8sSvcCache,
+							}
+							break
+						case errors.IsNotFound(err):
+							scopedLog.Error("Service not found in k8s")
+						default:
+							scopedLog.Warning("Unable to get service spec from k8s, this might cause network disruptions with etcd")
+						}
+					}
+
+					log := log.WithField(logfields.LogSubsys, "etcd")
+					goopts = &kvstore.ExtraOptions{
+						DialOption: []grpc.DialOption{
+							grpc.WithDialer(k8s.CreateCustomDialer(svcGetter, log)),
+						},
+					}
 				}
 			}
 		} else {
