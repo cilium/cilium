@@ -590,6 +590,7 @@ func monitorConnectivityAcrossNodes(kubectl *helpers.Kubectl, monitorLog string)
 	monitorStop()
 	ExpectWithOffset(1, result).Should(BeTrue(), "Connectivity test between nodes failed")
 
+	time.Sleep(30 * time.Second)
 	monitorPath := fmt.Sprintf("%s/%s", helpers.ReportDirectoryPath(), monitorLog)
 	By("Reading the monitor log at %s", monitorPath)
 	monitorOutput, err = ioutil.ReadFile(monitorPath)
