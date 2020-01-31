@@ -338,7 +338,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, ciliumFilename, 
 		res = kubectl.HelmTemplate(helmTemplate, helpers.CiliumNamespace, preflightFile, opts)
 		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "Unable to generate preflight YAML")
 
-		res = kubectl.ApplyDefault("cilium-preflight.yaml")
+		res = kubectl.ApplyDefault(preflightFile)
 		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "Unable to deploy preflight manifest")
 		ExpectCiliumPreFlightInstallReady(kubectl)
 
