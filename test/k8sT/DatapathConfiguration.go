@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/cilium/cilium/test/config"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
@@ -150,13 +151,23 @@ var _ = Describe("K8sDatapathConfig", func() {
 			By("Checking that exactly one ICMP notification in each direction was observed")
 			expEgress := fmt.Sprintf("ICMPv4.*DstIP=%s", targetIP)
 			expEgressRegex := regexp.MustCompile(expEgress)
-			egressMatches := expEgressRegex.FindAllIndex(monitorOutput, -1)
-			Expect(len(egressMatches)).To(Equal(1), "Monitor log contained unexpected number of egress notifications matching %q", expEgress)
+
+			Eventually(func() int {
+				egressMatches := expEgressRegex.FindAllIndex(monitorOutput, -1)
+				monitorOutput, targetIP = monitorConnectivityAcrossNodes(kubectl, monitorLog)
+				return len(egressMatches)
+			}, time.Minute, 2*time.Second).Should(Equal(1), "Monitor log contained unexpected number of egress notifications matching %q", expEgress)
+			//Expect(len(egressMatches)).To(Equal(1), "Monitor log contained unexpected number of egress notifications matching %q", expEgress)
 
 			expIngress := fmt.Sprintf("ICMPv4.*SrcIP=%s", targetIP)
 			expIngressRegex := regexp.MustCompile(expIngress)
-			ingressMatches := expIngressRegex.FindAllIndex(monitorOutput, -1)
-			Expect(len(ingressMatches)).To(Equal(1), "Monitor log contained unexpected number of ingress notifications matching %q", expIngress)
+
+			Eventually(func() int {
+				ingressMatches := expIngressRegex.FindAllIndex(monitorOutput, -1)
+				monitorOutput, targetIP = monitorConnectivityAcrossNodes(kubectl, monitorLog)
+				return len(ingressMatches)
+			}, time.Minute, 2*time.Second).Should(Equal(1), "Monitor log contained unexpected number of ingress notifications matching %q", expIngress)
+			//Expect(len(ingressMatches)).To(Equal(1), "Monitor log contained unexpected number of ingress notifications matching %q", expIngress)
 
 			By("Checking the set of TCP notifications received matches expectations")
 			// | TCP Flags | Direction | Report? | Why?
