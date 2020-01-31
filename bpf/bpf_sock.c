@@ -455,7 +455,7 @@ int sock4_xlate_rcv(struct bpf_sock_addr *ctx)
 #endif /* ENABLE_HOST_SERVICES_UDP */
 #endif /* ENABLE_IPV4 */
 
-#ifdef ENABLE_IPV6
+#if defined(ENABLE_IPV6) || defined(ENABLE_IPV4)
 #ifdef ENABLE_HOST_SERVICES_UDP
 struct ipv6_revnat_tuple {
 	__u64 cookie;
@@ -905,6 +905,6 @@ int sock6_xlate_rcv(struct bpf_sock_addr *ctx)
 	return SYS_PROCEED;
 }
 #endif /* ENABLE_HOST_SERVICES_UDP */
-#endif /* ENABLE_IPV6 */
+#endif /* ENABLE_IPV6 || ENABLE_IPV4 */
 
 BPF_LICENSE("GPL");

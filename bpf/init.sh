@@ -568,7 +568,7 @@ if [ "$HOSTLB" = "true" ]; then
 
 	CALLS_MAP="cilium_calls_lb"
 	COPTS="-DLB_L3 -DLB_L4"
-	if [ "$IP6_HOST" != "<nil>" ]; then
+	if [ "$IP6_HOST" != "<nil>" ] || [ "$IP4_HOST" != "<nil>" ]; then
 		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sock post_bind6 post-bind-sock6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect6 from-sock6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		if [ "$HOSTLB_UDP" = "true" ]; then
