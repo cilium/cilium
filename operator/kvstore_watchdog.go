@@ -39,16 +39,27 @@ func keyPathFromLockPath(k string) string {
 
 // getOldestLeases returns the value that has the smaller revision for each
 // 'path'. A 'path' shares the same common prefix for different locks.
-func getOldestLeases(m map[string]kvstore.Value) map[string]kvstore.Value {
-	oldestLeases := map[string]kvstore.Value{}
-	oldestPaths := map[string]kvstore.Value{}
-	for k, v := range m {
-		commonPath := keyPathFromLockPath(k)
-		oldestLease, ok := oldestPaths[commonPath]
-		if !ok || v.ModRevision < oldestLease.ModRevision {
-			oldestPaths[commonPath] = v
-			oldestLeases[k] = v
+func getOldestLeases(lockPaths map[string]kvstore.Value) map[string]kvstore.Value {
+	type LockValue struct {
+		kvstore.Value
+		keyPath string
+	}
+	oldestPaths := map[string]LockValue{}
+	for lockPath, v := range lockPaths {
+		keyPath := keyPathFromLockPath(lockPath)
+		oldestKeyPath, ok := oldestPaths[keyPath]
+		if !ok || v.ModRevision < oldestKeyPath.ModRevision {
+			// Store the oldest common path
+			oldestPaths[keyPath] = LockValue{
+				keyPath: lockPath,
+				Value:   v,
+			}
 		}
+	}
+	oldestLeases := map[string]kvstore.Value{}
+	for _, v := range oldestPaths {
+		// Retrieve the oldest lock path
+		oldestLeases[v.keyPath] = v.Value
 	}
 	return oldestLeases
 }

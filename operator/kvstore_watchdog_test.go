@@ -58,10 +58,25 @@ func Test_getOldestLeases(t *testing.T) {
 						ModRevision: 3,
 						LeaseID:     3,
 					},
-					"foo/baz/4": {
+					"foo/bar/4": {
 						Data:        nil,
 						ModRevision: 4,
 						LeaseID:     4,
+					},
+					"foo/bar/5": {
+						Data:        nil,
+						ModRevision: 5,
+						LeaseID:     5,
+					},
+					"foo/baz/6": {
+						Data:        nil,
+						ModRevision: 6,
+						LeaseID:     6,
+					},
+					"foo/bbz/7": {
+						Data:        nil,
+						ModRevision: 3,
+						LeaseID:     3,
 					},
 				},
 			},
@@ -71,10 +86,15 @@ func Test_getOldestLeases(t *testing.T) {
 					ModRevision: 1,
 					LeaseID:     1,
 				},
-				"foo/baz/4": {
+				"foo/baz/6": {
 					Data:        nil,
-					ModRevision: 4,
-					LeaseID:     4,
+					ModRevision: 6,
+					LeaseID:     6,
+				},
+				"foo/bbz/7": {
+					Data:        nil,
+					ModRevision: 3,
+					LeaseID:     3,
 				},
 			},
 		},
