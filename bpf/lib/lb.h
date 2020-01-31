@@ -537,6 +537,26 @@ drop_no_service:
 	tuple->flags = flags;
 	return DROP_NO_SERVICE;
 }
+#else
+/* Stubs for v4-in-v6 socket cgroup hook case when only v4 is enabled to avoid
+ * additional map management.
+ */
+static inline
+struct lb6_service *__lb6_lookup_service(struct lb6_key *key)
+{
+	return NULL;
+}
+
+static inline
+struct lb6_service *__lb6_lookup_slave(struct lb6_key *key)
+{
+	return NULL;
+}
+
+static inline struct lb6_backend *__lb6_lookup_backend(__u16 backend_id)
+{
+	return NULL;
+}
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
