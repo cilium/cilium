@@ -152,6 +152,12 @@ func (s *AllocatorSuite) TestRunLocksGC(c *C) {
 	allocator, err := NewAllocator(allocatorName, TestType(""), WithMax(maxID), WithSuffix("a"), WithoutGC())
 	c.Assert(err, IsNil)
 	shortKey := TestType("1;")
+
+	staleLocks := map[string]kvstore.Value{}
+	staleLocks, err = allocator.RunLocksGC(staleLocks)
+	c.Assert(err, IsNil)
+	c.Assert(len(staleLocks), Equals, 0)
+
 	var (
 		lock1, lock2 kvstore.KVLocker
 		gotLock1     = make(chan struct{})
@@ -188,10 +194,6 @@ func (s *AllocatorSuite) TestRunLocksGC(c *C) {
 		c.Assert(err, IsNil)
 		close(gotLock2)
 	}()
-	staleLocks := map[string]kvstore.Value{}
-	staleLocks, err = allocator.RunLocksGC(staleLocks)
-	c.Assert(err, IsNil)
-	c.Assert(len(staleLocks), Equals, 0)
 
 	// Wait until lock1 is gotten.
 	c.Assert(testutils.WaitUntil(func() bool {
