@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -368,4 +369,19 @@ func endpointSlicesInit(k8sClient kubernetes.Interface, serEps *serializer.Funct
 	close(ecr)
 
 	return nil, false
+}
+
+// serviceGetter is used to hijack the main k8sCache until it is synchronized.
+type serviceGetter struct {
+	shortCutK8sCache k8s.ServiceIPGetter
+	k8sCache         k8s.ServiceIPGetter
+}
+
+func (s *serviceGetter) GetServiceIP(svcID k8s.ServiceID) *loadbalancer.L3n4Addr {
+	select {
+	case <-k8sSvcCacheSynced:
+		return s.k8sCache.GetServiceIP(svcID)
+	default:
+		return s.shortCutK8sCache.GetServiceIP(svcID)
+	}
 }
