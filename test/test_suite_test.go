@@ -279,12 +279,6 @@ var _ = BeforeAll(func() {
 
 		kubectl.ApplyDefault(kubectl.GetFilePath("../examples/kubernetes/addons/prometheus/prometheus.yaml"))
 
-		err := kubectl.InitFQDNManifests()
-		if err != nil {
-			ginkgoext.Fail(fmt.Sprintf(
-				"Failed to init fqdn manifests: %s", err.Error()), 1)
-		}
-
 		go kubectl.PprofReport()
 	}
 	return

@@ -13,7 +13,7 @@ specs:
         dns:
         - matchPattern: "*"
   - toFQDNs:
-    - matchPattern: "world1.cilium.test"
+    - matchPattern: "vagrant-cache.ci.cilium.io"
   endpointSelector:
     matchLabels:
       id: app2
@@ -26,7 +26,7 @@ specs:
         dns:
         - matchPattern: "*"
   - toFQDNs:
-    - matchPattern: "world2.cilium.test"
+    - matchPattern: "jenkins.cilium.io"
   endpointSelector:
     matchLabels:
       id: app3
