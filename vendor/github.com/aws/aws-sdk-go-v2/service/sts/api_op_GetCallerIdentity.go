@@ -55,7 +55,8 @@ const opGetCallerIdentity = "GetCallerIdentity"
 // sts:GetCallerIdentity action, you can still perform this operation. Permissions
 // are not required because the same information is returned when an IAM user
 // or role is denied access. To view an example response, see I Am Not Authorized
-// to Perform: iam:DeleteVirtualMFADevice (https://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_general.html#troubleshoot_general_access-denied-delete-mfa).
+// to Perform: iam:DeleteVirtualMFADevice (https://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_general.html#troubleshoot_general_access-denied-delete-mfa)
+// in the IAM User Guide.
 //
 //    // Example sending a request using GetCallerIdentityRequest.
 //    req := client.GetCallerIdentityRequest(params)

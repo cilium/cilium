@@ -44,7 +44,7 @@ sudo bash -c "echo MaxSessions 200 >> /etc/ssh/sshd_config"
 sudo systemctl restart ssh
 
 if [[ ! $(helm version | grep ${HELM_VERSION}) ]]; then
-  retry_function "wget https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz"
+  retry_function "wget -nv https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz"
   tar xzvf helm-v${HELM_VERSION}-linux-amd64.tar.gz
   mv linux-amd64/helm /usr/local/bin/
 fi
@@ -144,6 +144,12 @@ bootstrapTokens:
   - authentication
 nodeRegistration:
   criSocket: "{{ .KUBEADM_CRI_SOCKET }}"
+controllerManager:
+  extraArgs:
+    "feature-gates": "{{ .CONTROLLER_FEATURE_GATES }}"
+apiServer:
+  extraArgs:
+    "feature-gates": "{{ .API_SERVER_FEATURE_GATES }}"
 ---
 apiVersion: kubeadm.k8s.io/v1beta1
 kind: ClusterConfiguration
@@ -213,7 +219,7 @@ case $K8S_VERSION in
         ;;
     "1.14")
         KUBERNETES_CNI_VERSION="0.7.5"
-        K8S_FULL_VERSION="1.14.9"
+        K8S_FULL_VERSION="1.14.10"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
@@ -221,7 +227,7 @@ case $K8S_VERSION in
         ;;
     "1.15")
         KUBERNETES_CNI_VERSION="0.7.5"
-        K8S_FULL_VERSION="1.15.6"
+        K8S_FULL_VERSION="1.15.7"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
@@ -229,7 +235,7 @@ case $K8S_VERSION in
         ;;
     "1.16")
         KUBERNETES_CNI_VERSION="0.7.5"
-        K8S_FULL_VERSION="1.16.3"
+        K8S_FULL_VERSION="1.16.4"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
@@ -237,18 +243,26 @@ case $K8S_VERSION in
         ;;
     "1.17")
         KUBERNETES_CNI_VERSION="0.7.5"
-        K8S_FULL_VERSION="1.17.0-rc.1"
+        K8S_FULL_VERSION="1.17.1"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         KUBEADM_CONFIG="${KUBEADM_CONFIG_ALPHA3}"
+        CONTROLLER_FEATURE_GATES="EndpointSlice=true"
+        API_SERVER_FEATURE_GATES="EndpointSlice=true"
         ;;
 esac
+
+# TODO(brb) Enable after we switch k8s vsn in the kubeproxy-free job to >= v1.16
+#           (skipping the kube-proxy phase).
+#if [ "$KUBEPROXY" == "0" ]; then
+#    KUBEADM_OPTIONS="$KUBEADM_OPTIONS --skip-phases=addon/kube-proxy"
+#fi
 
 #Install kubernetes
 set +e
 case $K8S_VERSION in
-    "1.8"|"1.9"|"1.10"|"1.11"|"1.12"|"1.13"|"1.14"|"1.15"|"1.16")
+    "1.8"|"1.9"|"1.10"|"1.11"|"1.12"|"1.13"|"1.14"|"1.15"|"1.16"|"1.17")
         install_k8s_using_packages \
             kubernetes-cni=${KUBERNETES_CNI_VERSION}* \
             kubelet=${K8S_FULL_VERSION}* \
@@ -260,9 +274,9 @@ case $K8S_VERSION in
             install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}"
         fi
         ;;
-   "1.17")
-       install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}"
-       ;;
+#   "1.17")
+#       install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}"
+#       ;;
 esac
 set -e
 
@@ -309,6 +323,11 @@ if [[ "${HOST}" == "k8s1" ]]; then
       sudo sed -i "s/${KUBEADM_ADDR}/k8s1/" /etc/kubernetes/admin.conf
       sudo cp -i /etc/kubernetes/admin.conf /root/.kube/config
       sudo chown root:root /root/.kube/config
+
+      if [[ "${KUBEPROXY}" == "0" ]]; then
+          kubectl -n kube-system delete ds kube-proxy
+          iptables-restore <(iptables-save | grep -v KUBE)
+      fi
 
       sudo -u vagrant mkdir -p /home/vagrant/.kube
       sudo cp -fi /etc/kubernetes/admin.conf /home/vagrant/.kube/config

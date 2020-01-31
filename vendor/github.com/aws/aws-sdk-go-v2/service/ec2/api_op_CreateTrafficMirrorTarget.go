@@ -71,7 +71,8 @@ const opCreateTrafficMirrorTarget = "CreateTrafficMirrorTarget"
 //
 // A Traffic Mirror target can be a network interface, or a Network Load Balancer.
 //
-// To use the target in a Traffic Mirror session, use CreateTrafficMirrorSession.
+// To use the target in a Traffic Mirror session, use CreateTrafficMirrorSession
+// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTrafficMirrorSession.htm).
 //
 //    // Example sending a request using CreateTrafficMirrorTargetRequest.
 //    req := client.CreateTrafficMirrorTargetRequest(params)

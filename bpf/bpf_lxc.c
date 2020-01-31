@@ -42,6 +42,7 @@
 #include "lib/l3.h"
 #include "lib/lxc.h"
 #include "lib/nat46.h"
+#include "lib/identity.h"
 #include "lib/policy.h"
 #include "lib/lb.h"
 #include "lib/drop.h"
@@ -114,7 +115,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	 * entry for destination endpoints where we can't encode the state in the
 	 * address.
 	 */
-#ifndef ENABLE_HOST_SERVICES_FULL
+#if !defined(ENABLE_HOST_SERVICES_FULL) || defined(ENABLE_EXTERNAL_IP)
 	{
 		struct lb6_service *svc;
 
@@ -126,7 +127,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 			hairpin_flow |= ct_state_new.loopback;
 		}
 	}
-#endif /* ENABLE_HOST_SERVICES_FULL */
+#endif
 
 skip_service_lookup:
 	/* The verifier wants to see this assignment here in case the above goto
@@ -220,7 +221,14 @@ ct_recreate6:
 			ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
 			return DROP_MISSED_TAIL_CALL;
 		}
-#endif
+# ifdef ENABLE_DSR
+		if (ct_state.dsr) {
+			ret = xlate_dsr_v6(skb, tuple, l4_off);
+			if (ret != 0)
+				return ret;
+		}
+# endif /* ENABLE_DSR */
+#endif /* ENABLE_NODEPORT */
 		if (ct_state.rev_nat_index) {
 			ret = lb6_rev_nat(skb, l4_off, &csum_off,
 					  ct_state.rev_nat_index, tuple, 0);
@@ -450,7 +458,7 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 	}
 
 	ct_state_new.orig_dport = key.dport;
-#ifndef ENABLE_HOST_SERVICES_FULL
+#if !defined(ENABLE_HOST_SERVICES_FULL) || defined(ENABLE_EXTERNAL_IP)
 	{
 		struct lb4_service *svc;
 
@@ -462,7 +470,7 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 			hairpin_flow |= ct_state_new.loopback;
 		}
 	}
-#endif /* ENABLE_HOST_SERVICES_FULL */
+#endif
 
 skip_service_lookup:
 	/* The verifier wants to see this assignment here in case the above goto
@@ -554,6 +562,13 @@ ct_recreate4:
 			ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
 			return DROP_MISSED_TAIL_CALL;
 		}
+# ifdef ENABLE_DSR
+		if (ct_state.dsr) {
+			ret = xlate_dsr_v4(skb, &tuple, l4_off);
+			if (ret != 0)
+				return ret;
+		}
+# endif /* ENABLE_DSR */
 #endif /* ENABLE_NODEPORT */
 
 		if (ct_state.rev_nat_index) {
@@ -805,25 +820,6 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason)
 	l4_off = ETH_HLEN + hdrlen;
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
-	/* derive reverse NAT index and zero it. */
-	ct_state_new.rev_nat_index = ip6->daddr.s6_addr32[3] & 0xFFFF;
-	if (ct_state_new.rev_nat_index) {
-		union v6addr dip;
-
-		ipv6_addr_copy(&dip, (union v6addr *) &ip6->daddr);
-		dip.p4 &= ~0xFFFF;
-		ret = ipv6_store_daddr(skb, dip.addr, ETH_HLEN);
-		if (IS_ERR(ret))
-			return DROP_WRITE_ERROR;
-
-		if (csum_off.offset) {
-			__u32 zero_nat = 0;
-			__be32 sum = csum_diff(&ct_state_new.rev_nat_index, 4, &zero_nat, 4, 0);
-			if (csum_l4_replace(skb, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
-				return DROP_CSUM_L4;
-		}
-	}
-
 	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, skb, l4_off, CT_INGRESS,
 			 &ct_state, &monitor);
 	if (ret < 0)
@@ -860,6 +856,16 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason)
 		verdict = 0;
 
 	if (ret == CT_NEW) {
+#ifdef ENABLE_DSR
+		bool dsr = false;
+
+		ret = handle_dsr_v6(skb, &dsr);
+		if (ret != 0)
+			return ret;
+
+		ct_state_new.dsr = dsr;
+#endif /* ENABLE_DSR */
+
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.node_port = ct_state.node_port;
@@ -1048,6 +1054,16 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 		verdict = 0;
 
 	if (ret == CT_NEW) {
+#ifdef ENABLE_DSR
+		bool dsr = false;
+
+		ret = handle_dsr_v4(skb, &dsr);
+		if (ret != 0)
+			return ret;
+
+		ct_state_new.dsr = dsr;
+#endif /* ENABLE_DSR */
+
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.node_port = ct_state.node_port;

@@ -17,6 +17,7 @@
 package ip
 
 import (
+	"math/big"
 	"math/rand"
 	"net"
 	"sort"
@@ -37,20 +38,21 @@ func Test(t *testing.T) {
 }
 
 func (s *IPTestSuite) TestCountIPs(c *C) {
-	tests := map[string]int{
-		"192.168.0.1/32": 1,
-		"192.168.0.1/31": 1,
-		"192.168.0.1/30": 3,
-		"192.168.0.1/24": 255,
-		"192.168.0.1/16": 65535,
-		"::1/128":        1,
-		"::1/120":        255,
+	tests := map[string]*big.Int{
+		"192.168.0.1/32": big.NewInt(1),
+		"192.168.0.1/31": big.NewInt(1),
+		"192.168.0.1/30": big.NewInt(3),
+		"192.168.0.1/24": big.NewInt(255),
+		"192.168.0.1/16": big.NewInt(65535),
+		"::1/128":        big.NewInt(1),
+		"::1/120":        big.NewInt(255),
+		"fd02:1::/32":    big.NewInt(0).Sub(big.NewInt(2).Exp(big.NewInt(2), big.NewInt(96), nil), big.NewInt(1)),
 	}
 	for cidr, nIPs := range tests {
 		_, ipnet, err := net.ParseCIDR(cidr)
 		c.Assert(err, IsNil)
 		count := CountIPsInCIDR(ipnet)
-		c.Assert(count, Equals, nIPs)
+		c.Assert(count, checker.DeepEquals, nIPs)
 	}
 }
 

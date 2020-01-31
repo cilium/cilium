@@ -77,12 +77,21 @@ type Address struct {
 	// VPC.
 	AssociationId *string `locationName:"associationId" type:"string"`
 
+	// The customer-owned IP address.
+	CustomerOwnedIp *string `locationName:"customerOwnedIp" type:"string"`
+
+	// The ID of the customer-owned address pool.
+	CustomerOwnedIpv4Pool *string `locationName:"customerOwnedIpv4Pool" type:"string"`
+
 	// Indicates whether this Elastic IP address is for use with instances in EC2-Classic
 	// (standard) or instances in a VPC (vpc).
 	Domain DomainType `locationName:"domain" type:"string" enum:"true"`
 
 	// The ID of the instance that the address is associated with (if any).
 	InstanceId *string `locationName:"instanceId" type:"string"`
+
+	// The name of the location from which the IP address is advertised.
+	NetworkBorderGroup *string `locationName:"networkBorderGroup" type:"string"`
 
 	// The ID of the network interface.
 	NetworkInterfaceId *string `locationName:"networkInterfaceId" type:"string"`
@@ -226,23 +235,37 @@ func (s AuthorizationRule) String() string {
 	return awsutil.Prettify(s)
 }
 
-// Describes an Availability Zone.
+// Describes an Availability Zone or Local Zone.
 type AvailabilityZone struct {
 	_ struct{} `type:"structure"`
 
-	// Any messages about the Availability Zone.
+	// For Availability Zones, this parameter has the same value as the Region name.
+	//
+	// For Local Zones, the name of the associated group, for example us-west-2-lax-1.
+	GroupName *string `locationName:"groupName" type:"string"`
+
+	// Any messages about the Availability Zone or Local Zone.
 	Messages []AvailabilityZoneMessage `locationName:"messageSet" locationNameList:"item" type:"list"`
+
+	// The name of the location from which the address is advertised.
+	NetworkBorderGroup *string `locationName:"networkBorderGroup" type:"string"`
+
+	// For Availability Zones, this parameter always has the value of opt-in-not-required.
+	//
+	// For Local Zones, this parameter is the opt in status. The possible values
+	// are opted-in, and not-opted-in.
+	OptInStatus AvailabilityZoneOptInStatus `locationName:"optInStatus" type:"string" enum:"true"`
 
 	// The name of the Region.
 	RegionName *string `locationName:"regionName" type:"string"`
 
-	// The state of the Availability Zone.
+	// The state of the Availability Zone or Local Zone.
 	State AvailabilityZoneState `locationName:"zoneState" type:"string" enum:"true"`
 
-	// The ID of the Availability Zone.
+	// The ID of the Availability Zone or Local Zone.
 	ZoneId *string `locationName:"zoneId" type:"string"`
 
-	// The name of the Availability Zone.
+	// The name of the Availability Zone or Local Zone.
 	ZoneName *string `locationName:"zoneName" type:"string"`
 }
 
@@ -251,11 +274,11 @@ func (s AvailabilityZone) String() string {
 	return awsutil.Prettify(s)
 }
 
-// Describes a message about an Availability Zone.
+// Describes a message about an Availability Zone or Local Zone.
 type AvailabilityZoneMessage struct {
 	_ struct{} `type:"structure"`
 
-	// The message about the Availability Zone.
+	// The message about the Availability Zone or Local Zone.
 	Message *string `locationName:"message" type:"string"`
 }
 
@@ -264,14 +287,19 @@ func (s AvailabilityZoneMessage) String() string {
 	return awsutil.Prettify(s)
 }
 
-// The capacity information for instances launched onto the Dedicated Host.
+// The capacity information for instances that can be launched onto the Dedicated
+// Host.
 type AvailableCapacity struct {
 	_ struct{} `type:"structure"`
 
-	// The total number of instances supported by the Dedicated Host.
+	// The number of instances that can be launched onto the Dedicated Host depending
+	// on the host's available capacity. For Dedicated Hosts that support multiple
+	// instance types, this parameter represents the number of instances for each
+	// instance size that is supported on the host.
 	AvailableInstanceCapacity []InstanceCapacity `locationName:"availableInstanceCapacity" locationNameList:"item" type:"list"`
 
-	// The number of vCPUs available on the Dedicated Host.
+	// The number of vCPUs available for launching instances onto the Dedicated
+	// Host.
 	AvailableVCpus *int64 `locationName:"availableVCpus" type:"integer"`
 }
 
@@ -849,6 +877,50 @@ func (s *ClassicLoadBalancersConfig) Validate() error {
 	return nil
 }
 
+// Describes address usage for a customer-owned address pool.
+type CoipAddressUsage struct {
+	_ struct{} `type:"structure"`
+
+	// The allocation ID of the address.
+	AllocationId *string `locationName:"allocationId" type:"string"`
+
+	// The AWS account ID.
+	AwsAccountId *string `locationName:"awsAccountId" type:"string"`
+
+	// The AWS service.
+	AwsService *string `locationName:"awsService" type:"string"`
+
+	// The customer-owned IP address.
+	CoIp *string `locationName:"coIp" type:"string"`
+}
+
+// String returns the string representation
+func (s CoipAddressUsage) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes a customer-owned address pool.
+type CoipPool struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the local gateway route table.
+	LocalGatewayRouteTableId *string `locationName:"localGatewayRouteTableId" type:"string"`
+
+	// The address ranges of the address pool.
+	PoolCidrs []string `locationName:"poolCidrSet" locationNameList:"item" type:"list"`
+
+	// The ID of the address pool.
+	PoolId *string `locationName:"poolId" type:"string"`
+
+	// The tags.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
+}
+
+// String returns the string representation
+func (s CoipPool) String() string {
+	return awsutil.Prettify(s)
+}
+
 // Describes the client connection logging options for the Client VPN endpoint.
 type ConnectionLogOptions struct {
 	_ struct{} `type:"structure"`
@@ -1154,6 +1226,9 @@ type CustomerGateway struct {
 	// The ID of the customer gateway.
 	CustomerGatewayId *string `locationName:"customerGatewayId" type:"string"`
 
+	// The name of customer gateway device.
+	DeviceName *string `locationName:"deviceName" type:"string"`
+
 	// The Internet-routable IP address of the customer gateway's outside interface.
 	IpAddress *string `locationName:"ipAddress" type:"string"`
 
@@ -1304,6 +1379,55 @@ func (s DeleteQueuedReservedInstancesError) String() string {
 	return awsutil.Prettify(s)
 }
 
+// Describes fast snapshot restores for a snapshot.
+type DescribeFastSnapshotRestoreSuccessItem struct {
+	_ struct{} `type:"structure"`
+
+	// The Availability Zone.
+	AvailabilityZone *string `locationName:"availabilityZone" type:"string"`
+
+	// The time at which fast snapshot restores entered the disabled state.
+	DisabledTime *time.Time `locationName:"disabledTime" type:"timestamp"`
+
+	// The time at which fast snapshot restores entered the disabling state.
+	DisablingTime *time.Time `locationName:"disablingTime" type:"timestamp"`
+
+	// The time at which fast snapshot restores entered the enabled state.
+	EnabledTime *time.Time `locationName:"enabledTime" type:"timestamp"`
+
+	// The time at which fast snapshot restores entered the enabling state.
+	EnablingTime *time.Time `locationName:"enablingTime" type:"timestamp"`
+
+	// The time at which fast snapshot restores entered the optimizing state.
+	OptimizingTime *time.Time `locationName:"optimizingTime" type:"timestamp"`
+
+	// The alias of the snapshot owner.
+	OwnerAlias *string `locationName:"ownerAlias" type:"string"`
+
+	// The ID of the AWS account that owns the snapshot.
+	OwnerId *string `locationName:"ownerId" type:"string"`
+
+	// The ID of the snapshot.
+	SnapshotId *string `locationName:"snapshotId" type:"string"`
+
+	// The state of fast snapshot restores.
+	State FastSnapshotRestoreStateCode `locationName:"state" type:"string" enum:"true"`
+
+	// The reason for the state transition. The possible values are as follows:
+	//
+	//    * Client.UserInitiated - The state successfully transitioned to enabling
+	//    or disabling.
+	//
+	//    * Client.UserInitiated - Lifecycle state transition - The state successfully
+	//    transitioned to optimizing, enabled, or disabled.
+	StateTransitionReason *string `locationName:"stateTransitionReason" type:"string"`
+}
+
+// String returns the string representation
+func (s DescribeFastSnapshotRestoreSuccessItem) String() string {
+	return awsutil.Prettify(s)
+}
+
 // Describes the instances that could not be launched by the fleet.
 type DescribeFleetError struct {
 	_ struct{} `type:"structure"`
@@ -1420,6 +1544,105 @@ type DirectoryServiceAuthenticationRequest struct {
 
 // String returns the string representation
 func (s DirectoryServiceAuthenticationRequest) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Contains information about the errors that occurred when disabling fast snapshot
+// restores.
+type DisableFastSnapshotRestoreErrorItem struct {
+	_ struct{} `type:"structure"`
+
+	// The errors.
+	FastSnapshotRestoreStateErrors []DisableFastSnapshotRestoreStateErrorItem `locationName:"fastSnapshotRestoreStateErrorSet" locationNameList:"item" type:"list"`
+
+	// The ID of the snapshot.
+	SnapshotId *string `locationName:"snapshotId" type:"string"`
+}
+
+// String returns the string representation
+func (s DisableFastSnapshotRestoreErrorItem) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes an error that occurred when disabling fast snapshot restores.
+type DisableFastSnapshotRestoreStateError struct {
+	_ struct{} `type:"structure"`
+
+	// The error code.
+	Code *string `locationName:"code" type:"string"`
+
+	// The error message.
+	Message *string `locationName:"message" type:"string"`
+}
+
+// String returns the string representation
+func (s DisableFastSnapshotRestoreStateError) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Contains information about an error that occurred when disabling fast snapshot
+// restores.
+type DisableFastSnapshotRestoreStateErrorItem struct {
+	_ struct{} `type:"structure"`
+
+	// The Availability Zone.
+	AvailabilityZone *string `locationName:"availabilityZone" type:"string"`
+
+	// The error.
+	Error *DisableFastSnapshotRestoreStateError `locationName:"error" type:"structure"`
+}
+
+// String returns the string representation
+func (s DisableFastSnapshotRestoreStateErrorItem) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes fast snapshot restores that were successfully disabled.
+type DisableFastSnapshotRestoreSuccessItem struct {
+	_ struct{} `type:"structure"`
+
+	// The Availability Zone.
+	AvailabilityZone *string `locationName:"availabilityZone" type:"string"`
+
+	// The time at which fast snapshot restores entered the disabled state.
+	DisabledTime *time.Time `locationName:"disabledTime" type:"timestamp"`
+
+	// The time at which fast snapshot restores entered the disabling state.
+	DisablingTime *time.Time `locationName:"disablingTime" type:"timestamp"`
+
+	// The time at which fast snapshot restores entered the enabled state.
+	EnabledTime *time.Time `locationName:"enabledTime" type:"timestamp"`
+
+	// The time at which fast snapshot restores entered the enabling state.
+	EnablingTime *time.Time `locationName:"enablingTime" type:"timestamp"`
+
+	// The time at which fast snapshot restores entered the optimizing state.
+	OptimizingTime *time.Time `locationName:"optimizingTime" type:"timestamp"`
+
+	// The alias of the snapshot owner.
+	OwnerAlias *string `locationName:"ownerAlias" type:"string"`
+
+	// The ID of the AWS account that owns the snapshot.
+	OwnerId *string `locationName:"ownerId" type:"string"`
+
+	// The ID of the snapshot.
+	SnapshotId *string `locationName:"snapshotId" type:"string"`
+
+	// The state of fast snapshot restores for the snapshot.
+	State FastSnapshotRestoreStateCode `locationName:"state" type:"string" enum:"true"`
+
+	// The reason for the state transition. The possible values are as follows:
+	//
+	//    * Client.UserInitiated - The state successfully transitioned to enabling
+	//    or disabling.
+	//
+	//    * Client.UserInitiated - Lifecycle state transition - The state successfully
+	//    transitioned to optimizing, enabled, or disabled.
+	StateTransitionReason *string `locationName:"stateTransitionReason" type:"string"`
+}
+
+// String returns the string representation
+func (s DisableFastSnapshotRestoreSuccessItem) String() string {
 	return awsutil.Prettify(s)
 }
 
@@ -1560,6 +1783,25 @@ func (s DiskImageVolumeDescription) String() string {
 	return awsutil.Prettify(s)
 }
 
+// Describes the disk.
+type DiskInfo struct {
+	_ struct{} `type:"structure"`
+
+	// The number of disks with this configuration.
+	Count *int64 `locationName:"count" type:"integer"`
+
+	// The size of the disk in GiB.
+	SizeInGB *int64 `locationName:"sizeInGB" type:"long"`
+
+	// The type of disk.
+	Type DiskType `locationName:"type" type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s DiskInfo) String() string {
+	return awsutil.Prettify(s)
+}
+
 // Describes a DNS entry.
 type DnsEntry struct {
 	_ struct{} `type:"structure"`
@@ -1669,6 +1911,24 @@ type EbsBlockDevice struct {
 
 // String returns the string representation
 func (s EbsBlockDevice) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the Amazon EBS features supported by the instance type.
+type EbsInfo struct {
+	_ struct{} `type:"structure"`
+
+	// Indicates that the instance type is Amazon EBS-optimized. For more information,
+	// see Amazon EBS-Optimized Instances (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSOptimized.html)
+	// in Amazon EC2 User Guide for Linux Instances.
+	EbsOptimizedSupport EbsOptimizedSupport `locationName:"ebsOptimizedSupport" type:"string" enum:"true"`
+
+	// Indicates whether Amazon EBS encryption is supported.
+	EncryptionSupport EbsEncryptionSupport `locationName:"encryptionSupport" type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s EbsInfo) String() string {
 	return awsutil.Prettify(s)
 }
 
@@ -1837,8 +2097,13 @@ func (s ElasticGpus) String() string {
 type ElasticInferenceAccelerator struct {
 	_ struct{} `type:"structure"`
 
-	// The type of elastic inference accelerator. The possible values are eia1.small,
-	// eia1.medium, and eia1.large.
+	// The number of elastic inference accelerators of given type to be attached
+	// to the instance. Only positive values allowed. If not specified defaults
+	// to 1.
+	Count *int64 `min:"1" type:"integer"`
+
+	// The type of elastic inference accelerator. The possible values are eia1.medium,
+	// eia1.large, and eia1.xlarge.
 	//
 	// Type is a required field
 	Type *string `type:"string" required:"true"`
@@ -1852,6 +2117,9 @@ func (s ElasticInferenceAccelerator) String() string {
 // Validate inspects the fields of the type to determine if they are valid.
 func (s *ElasticInferenceAccelerator) Validate() error {
 	invalidParams := aws.ErrInvalidParams{Context: "ElasticInferenceAccelerator"}
+	if s.Count != nil && *s.Count < 1 {
+		invalidParams.Add(aws.NewErrParamMinValue("Count", 1))
+	}
 
 	if s.Type == nil {
 		invalidParams.Add(aws.NewErrParamRequired("Type"))
@@ -1883,6 +2151,105 @@ type ElasticInferenceAcceleratorAssociation struct {
 
 // String returns the string representation
 func (s ElasticInferenceAcceleratorAssociation) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Contains information about the errors that occurred when enabling fast snapshot
+// restores.
+type EnableFastSnapshotRestoreErrorItem struct {
+	_ struct{} `type:"structure"`
+
+	// The errors.
+	FastSnapshotRestoreStateErrors []EnableFastSnapshotRestoreStateErrorItem `locationName:"fastSnapshotRestoreStateErrorSet" locationNameList:"item" type:"list"`
+
+	// The ID of the snapshot.
+	SnapshotId *string `locationName:"snapshotId" type:"string"`
+}
+
+// String returns the string representation
+func (s EnableFastSnapshotRestoreErrorItem) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes an error that occurred when enabling fast snapshot restores.
+type EnableFastSnapshotRestoreStateError struct {
+	_ struct{} `type:"structure"`
+
+	// The error code.
+	Code *string `locationName:"code" type:"string"`
+
+	// The error message.
+	Message *string `locationName:"message" type:"string"`
+}
+
+// String returns the string representation
+func (s EnableFastSnapshotRestoreStateError) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Contains information about an error that occurred when enabling fast snapshot
+// restores.
+type EnableFastSnapshotRestoreStateErrorItem struct {
+	_ struct{} `type:"structure"`
+
+	// The Availability Zone.
+	AvailabilityZone *string `locationName:"availabilityZone" type:"string"`
+
+	// The error.
+	Error *EnableFastSnapshotRestoreStateError `locationName:"error" type:"structure"`
+}
+
+// String returns the string representation
+func (s EnableFastSnapshotRestoreStateErrorItem) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes fast snapshot restores that were successfully enabled.
+type EnableFastSnapshotRestoreSuccessItem struct {
+	_ struct{} `type:"structure"`
+
+	// The Availability Zone.
+	AvailabilityZone *string `locationName:"availabilityZone" type:"string"`
+
+	// The time at which fast snapshot restores entered the disabled state.
+	DisabledTime *time.Time `locationName:"disabledTime" type:"timestamp"`
+
+	// The time at which fast snapshot restores entered the disabling state.
+	DisablingTime *time.Time `locationName:"disablingTime" type:"timestamp"`
+
+	// The time at which fast snapshot restores entered the enabled state.
+	EnabledTime *time.Time `locationName:"enabledTime" type:"timestamp"`
+
+	// The time at which fast snapshot restores entered the enabling state.
+	EnablingTime *time.Time `locationName:"enablingTime" type:"timestamp"`
+
+	// The time at which fast snapshot restores entered the optimizing state.
+	OptimizingTime *time.Time `locationName:"optimizingTime" type:"timestamp"`
+
+	// The alias of the snapshot owner.
+	OwnerAlias *string `locationName:"ownerAlias" type:"string"`
+
+	// The ID of the AWS account that owns the snapshot.
+	OwnerId *string `locationName:"ownerId" type:"string"`
+
+	// The ID of the snapshot.
+	SnapshotId *string `locationName:"snapshotId" type:"string"`
+
+	// The state of fast snapshot restores.
+	State FastSnapshotRestoreStateCode `locationName:"state" type:"string" enum:"true"`
+
+	// The reason for the state transition. The possible values are as follows:
+	//
+	//    * Client.UserInitiated - The state successfully transitioned to enabling
+	//    or disabling.
+	//
+	//    * Client.UserInitiated - Lifecycle state transition - The state successfully
+	//    transitioned to optimizing, enabled, or disabled.
+	StateTransitionReason *string `locationName:"stateTransitionReason" type:"string"`
+}
+
+// String returns the string representation
+func (s EnableFastSnapshotRestoreSuccessItem) String() string {
 	return awsutil.Prettify(s)
 }
 
@@ -2525,6 +2892,41 @@ func (s FlowLog) String() string {
 	return awsutil.Prettify(s)
 }
 
+// Describes the FPGA accelerator for the instance type.
+type FpgaDeviceInfo struct {
+	_ struct{} `type:"structure"`
+
+	// The count of FPGA accelerators for the instance type.
+	Count *int64 `locationName:"count" type:"integer"`
+
+	// The manufacturer of the FPGA accelerator.
+	Manufacturer *string `locationName:"manufacturer" type:"string"`
+
+	// Describes the memory for the FPGA accelerator for the instance type.
+	MemoryInfo *FpgaDeviceMemoryInfo `locationName:"memoryInfo" type:"structure"`
+
+	// The name of the FPGA accelerator.
+	Name *string `locationName:"name" type:"string"`
+}
+
+// String returns the string representation
+func (s FpgaDeviceInfo) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the memory for the FPGA accelerator for the instance type.
+type FpgaDeviceMemoryInfo struct {
+	_ struct{} `type:"structure"`
+
+	// The size (in MiB) for the memory available to the FPGA accelerator.
+	SizeInMiB *int64 `locationName:"sizeInMiB" type:"integer"`
+}
+
+// String returns the string representation
+func (s FpgaDeviceMemoryInfo) String() string {
+	return awsutil.Prettify(s)
+}
+
 // Describes an Amazon FPGA image (AFI).
 type FpgaImage struct {
 	_ struct{} `type:"structure"`
@@ -2630,6 +3032,73 @@ func (s FpgaImageState) String() string {
 	return awsutil.Prettify(s)
 }
 
+// Describes the FPGAs for the instance type.
+type FpgaInfo struct {
+	_ struct{} `type:"structure"`
+
+	// Describes the FPGAs for the instance type.
+	Fpgas []FpgaDeviceInfo `locationName:"fpgas" locationNameList:"item" type:"list"`
+
+	// The total memory of all FPGA accelerators for the instance type.
+	TotalFpgaMemoryInMiB *int64 `locationName:"totalFpgaMemoryInMiB" type:"integer"`
+}
+
+// String returns the string representation
+func (s FpgaInfo) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the GPU accelerators for the instance type.
+type GpuDeviceInfo struct {
+	_ struct{} `type:"structure"`
+
+	// The number of GPUs for the instance type.
+	Count *int64 `locationName:"count" type:"integer"`
+
+	// The manufacturer of the GPU accelerator.
+	Manufacturer *string `locationName:"manufacturer" type:"string"`
+
+	// Describes the memory available to the GPU accelerator.
+	MemoryInfo *GpuDeviceMemoryInfo `locationName:"memoryInfo" type:"structure"`
+
+	// The name of the GPU accelerator.
+	Name *string `locationName:"name" type:"string"`
+}
+
+// String returns the string representation
+func (s GpuDeviceInfo) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the memory available to the GPU accelerator.
+type GpuDeviceMemoryInfo struct {
+	_ struct{} `type:"structure"`
+
+	// The size (in MiB) for the memory available to the GPU accelerator.
+	SizeInMiB *int64 `locationName:"sizeInMiB" type:"integer"`
+}
+
+// String returns the string representation
+func (s GpuDeviceMemoryInfo) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the GPU accelerators for the instance type.
+type GpuInfo struct {
+	_ struct{} `type:"structure"`
+
+	// Describes the GPU accelerators for the instance type.
+	Gpus []GpuDeviceInfo `locationName:"gpus" locationNameList:"item" type:"list"`
+
+	// The total size of the memory for the GPU accelerators for the instance type.
+	TotalGpuMemoryInMiB *int64 `locationName:"totalGpuMemoryInMiB" type:"integer"`
+}
+
+// String returns the string representation
+func (s GpuInfo) String() string {
+	return awsutil.Prettify(s)
+}
+
 // Describes a security group.
 type GroupIdentifier struct {
 	_ struct{} `type:"structure"`
@@ -2648,8 +3117,7 @@ func (s GroupIdentifier) String() string {
 
 // Indicates whether your instance is configured for hibernation. This parameter
 // is valid only if the instance meets the hibernation prerequisites (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html#hibernating-prerequisites).
-// Hibernation is currently supported only for Amazon Linux. For more information,
-// see Hibernate Your Instance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html)
+// For more information, see Hibernate Your Instance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 type HibernationOptions struct {
 	_ struct{} `type:"structure"`
@@ -2666,8 +3134,7 @@ func (s HibernationOptions) String() string {
 
 // Indicates whether your instance is configured for hibernation. This parameter
 // is valid only if the instance meets the hibernation prerequisites (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html#hibernating-prerequisites).
-// Hibernation is currently supported only for Amazon Linux. For more information,
-// see Hibernate Your Instance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html)
+// For more information, see Hibernate Your Instance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 type HibernationOptionsRequest struct {
 	_ struct{} `type:"structure"`
@@ -2737,13 +3204,23 @@ type Host struct {
 	// The time that the Dedicated Host was allocated.
 	AllocationTime *time.Time `locationName:"allocationTime" type:"timestamp"`
 
+	// Indicates whether the Dedicated Host supports multiple instance types of
+	// the same instance family, or a specific instance type only. one indicates
+	// that the Dedicated Host supports multiple instance types in the instance
+	// family. off indicates that the Dedicated Host supports a single instance
+	// type only.
+	AllowsMultipleInstanceTypes AllowsMultipleInstanceTypes `locationName:"allowsMultipleInstanceTypes" type:"string" enum:"true"`
+
 	// Whether auto-placement is on or off.
 	AutoPlacement AutoPlacement `locationName:"autoPlacement" type:"string" enum:"true"`
 
 	// The Availability Zone of the Dedicated Host.
 	AvailabilityZone *string `locationName:"availabilityZone" type:"string"`
 
-	// The number of new instances that can be launched onto the Dedicated Host.
+	// The ID of the Availability Zone in which the Dedicated Host is allocated.
+	AvailabilityZoneId *string `locationName:"availabilityZoneId" type:"string"`
+
+	// Information about the instances running on the Dedicated Host.
 	AvailableCapacity *AvailableCapacity `locationName:"availableCapacity" type:"structure"`
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency
@@ -2767,6 +3244,13 @@ type Host struct {
 	// The IDs and instance type that are currently running on the Dedicated Host.
 	Instances []HostInstance `locationName:"instances" locationNameList:"item" type:"list"`
 
+	// Indicates whether the Dedicated Host is in a host resource group. If memberOfServiceLinkedResourceGroup
+	// is true, the host is in a host resource group; otherwise, it is not.
+	MemberOfServiceLinkedResourceGroup *bool `locationName:"memberOfServiceLinkedResourceGroup" type:"boolean"`
+
+	// The ID of the AWS account that owns the Dedicated Host.
+	OwnerId *string `locationName:"ownerId" type:"string"`
+
 	// The time that the Dedicated Host was released.
 	ReleaseTime *time.Time `locationName:"releaseTime" type:"timestamp"`
 
@@ -2786,11 +3270,14 @@ func (s Host) String() string {
 type HostInstance struct {
 	_ struct{} `type:"structure"`
 
-	// the IDs of instances that are running on the Dedicated Host.
+	// The ID of instance that is running on the Dedicated Host.
 	InstanceId *string `locationName:"instanceId" type:"string"`
 
-	// The instance type size (for example, m3.medium) of the running instance.
+	// The instance type (for example, m3.medium) of the running instance.
 	InstanceType *string `locationName:"instanceType" type:"string"`
+
+	// The ID of the AWS account that owns the instance.
+	OwnerId *string `locationName:"ownerId" type:"string"`
 }
 
 // String returns the string representation
@@ -2829,20 +3316,24 @@ func (s HostOffering) String() string {
 	return awsutil.Prettify(s)
 }
 
-// Describes properties of a Dedicated Host.
+// Describes the properties of a Dedicated Host.
 type HostProperties struct {
 	_ struct{} `type:"structure"`
 
 	// The number of cores on the Dedicated Host.
 	Cores *int64 `locationName:"cores" type:"integer"`
 
-	// The instance type size that the Dedicated Host supports (for example, m3.medium).
+	// The instance family supported by the Dedicated Host. For example, m5.
+	InstanceFamily *string `locationName:"instanceFamily" type:"string"`
+
+	// The instance type supported by the Dedicated Host. For example, m5.large.
+	// If the host supports multiple instance types, no instanceType is returned.
 	InstanceType *string `locationName:"instanceType" type:"string"`
 
 	// The number of sockets on the Dedicated Host.
 	Sockets *int64 `locationName:"sockets" type:"integer"`
 
-	// The number of vCPUs on the Dedicated Host.
+	// The total number of vCPUs on the Dedicated Host.
 	TotalVCpus *int64 `locationName:"totalVCpus" type:"integer"`
 }
 
@@ -3149,6 +3640,32 @@ func (s ImageDiskContainer) String() string {
 	return awsutil.Prettify(s)
 }
 
+// The request information of license configurations.
+type ImportImageLicenseConfigurationRequest struct {
+	_ struct{} `type:"structure"`
+
+	// The ARN of a license configuration.
+	LicenseConfigurationArn *string `type:"string"`
+}
+
+// String returns the string representation
+func (s ImportImageLicenseConfigurationRequest) String() string {
+	return awsutil.Prettify(s)
+}
+
+// The response information of license configurations.
+type ImportImageLicenseConfigurationResponse struct {
+	_ struct{} `type:"structure"`
+
+	// The ARN of a license configuration.
+	LicenseConfigurationArn *string `locationName:"licenseConfigurationArn" type:"string"`
+}
+
+// String returns the string representation
+func (s ImportImageLicenseConfigurationResponse) String() string {
+	return awsutil.Prettify(s)
+}
+
 // Describes an import image task.
 type ImportImageTask struct {
 	_ struct{} `type:"structure"`
@@ -3178,6 +3695,9 @@ type ImportImageTask struct {
 	// The identifier for the AWS Key Management Service (AWS KMS) customer master
 	// key (CMK) that was used to create the encrypted image.
 	KmsKeyId *string `locationName:"kmsKeyId" type:"string"`
+
+	// The ARNs of the license configurations associated to the import image task.
+	LicenseSpecifications []ImportImageLicenseConfigurationResponse `locationName:"licenseSpecifications" locationNameList:"item" type:"list"`
 
 	// The license type of the virtual machine.
 	LicenseType *string `locationName:"licenseType" type:"string"`
@@ -3241,7 +3761,7 @@ type ImportInstanceLaunchSpecification struct {
 	SubnetId *string `locationName:"subnetId" type:"string"`
 
 	// The Base64-encoded user data to make available to the instance.
-	UserData *UserData `locationName:"userData" type:"structure"`
+	UserData *UserData `locationName:"userData" type:"structure" sensitive:"true"`
 }
 
 // String returns the string representation
@@ -3346,6 +3866,38 @@ func (s ImportVolumeTaskDetails) String() string {
 	return awsutil.Prettify(s)
 }
 
+// Describes the Inference accelerators for the instance type.
+type InferenceAcceleratorInfo struct {
+	_ struct{} `type:"structure"`
+
+	// Describes the Inference accelerators for the instance type.
+	Accelerators []InferenceDeviceInfo `locationName:"accelerators" type:"list"`
+}
+
+// String returns the string representation
+func (s InferenceAcceleratorInfo) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the Inference accelerators for the instance type.
+type InferenceDeviceInfo struct {
+	_ struct{} `type:"structure"`
+
+	// The number of Inference accelerators for the instance type.
+	Count *int64 `locationName:"count" type:"integer"`
+
+	// The manufacturer of the Inference accelerator.
+	Manufacturer *string `locationName:"manufacturer" type:"string"`
+
+	// The name of the Inference accelerator.
+	Name *string `locationName:"name" type:"string"`
+}
+
+// String returns the string representation
+func (s InferenceDeviceInfo) String() string {
+	return awsutil.Prettify(s)
+}
+
 // Describes an instance.
 type Instance struct {
 	_ struct{} `type:"structure"`
@@ -3422,11 +3974,17 @@ type Instance struct {
 	// The license configurations.
 	Licenses []LicenseConfiguration `locationName:"licenseSet" locationNameList:"item" type:"list"`
 
+	// The metadata options for the instance.
+	MetadataOptions *InstanceMetadataOptionsResponse `locationName:"metadataOptions" type:"structure"`
+
 	// The monitoring for the instance.
 	Monitoring *Monitoring `locationName:"monitoring" type:"structure"`
 
 	// [EC2-VPC] The network interfaces for the instance.
 	NetworkInterfaces []InstanceNetworkInterface `locationName:"networkInterfaceSet" locationNameList:"item" type:"list"`
+
+	// The Amazon Resource Name (ARN) of the Outpost.
+	OutpostArn *string `locationName:"outpostArn" type:"string"`
 
 	// The location where the instance launched, if applicable.
 	Placement *Placement `locationName:"placement" type:"structure"`
@@ -3553,17 +4111,20 @@ func (s InstanceBlockDeviceMappingSpecification) String() string {
 	return awsutil.Prettify(s)
 }
 
-// Information about the instance type that the Dedicated Host supports.
+// Information about the number of instances that can be launched onto the Dedicated
+// Host.
 type InstanceCapacity struct {
 	_ struct{} `type:"structure"`
 
-	// The number of instances that can still be launched onto the Dedicated Host.
+	// The number of instances that can be launched onto the Dedicated Host based
+	// on the host's available capacity.
 	AvailableCapacity *int64 `locationName:"availableCapacity" type:"integer"`
 
-	// The instance type size supported by the Dedicated Host.
+	// The instance type supported by the Dedicated Host.
 	InstanceType *string `locationName:"instanceType" type:"string"`
 
-	// The total number of instances that can be launched onto the Dedicated Host.
+	// The total number of instances that can be launched onto the Dedicated Host
+	// if there are no instances running on it.
 	TotalCapacity *int64 `locationName:"totalCapacity" type:"integer"`
 }
 
@@ -3588,7 +4149,7 @@ func (s InstanceCount) String() string {
 	return awsutil.Prettify(s)
 }
 
-// Describes the credit option for CPU usage of a T2 or T3 instance.
+// Describes the credit option for CPU usage of a burstable performance instance.
 type InstanceCreditSpecification struct {
 	_ struct{} `type:"structure"`
 
@@ -3605,7 +4166,7 @@ func (s InstanceCreditSpecification) String() string {
 	return awsutil.Prettify(s)
 }
 
-// Describes the credit option for CPU usage of a T2 or T3 instance.
+// Describes the credit option for CPU usage of a burstable performance instance.
 type InstanceCreditSpecificationRequest struct {
 	_ struct{} `type:"structure"`
 
@@ -3635,6 +4196,24 @@ type InstanceExportDetails struct {
 
 // String returns the string representation
 func (s InstanceExportDetails) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the default credit option for CPU usage of a burstable performance
+// instance family.
+type InstanceFamilyCreditSpecification struct {
+	_ struct{} `type:"structure"`
+
+	// The default credit option for CPU usage of the instance family. Valid values
+	// are standard and unlimited.
+	CpuCredits *string `locationName:"cpuCredits" type:"string"`
+
+	// The instance family.
+	InstanceFamily UnlimitedSupportedInstanceFamily `locationName:"instanceFamily" type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s InstanceFamilyCreditSpecification) String() string {
 	return awsutil.Prettify(s)
 }
 
@@ -3677,6 +4256,94 @@ type InstanceMarketOptionsRequest struct {
 
 // String returns the string representation
 func (s InstanceMarketOptionsRequest) String() string {
+	return awsutil.Prettify(s)
+}
+
+// The metadata options for the instance.
+type InstanceMetadataOptionsRequest struct {
+	_ struct{} `type:"structure"`
+
+	// This parameter enables or disables the HTTP metadata endpoint on your instances.
+	// If the parameter is not specified, the default state is enabled.
+	//
+	// If you specify a value of disabled, you will not be able to access your instance
+	// metadata.
+	HttpEndpoint InstanceMetadataEndpointState `type:"string" enum:"true"`
+
+	// The desired HTTP PUT response hop limit for instance metadata requests. The
+	// larger the number, the further instance metadata requests can travel.
+	//
+	// Default: 1
+	//
+	// Possible values: Integers from 1 to 64
+	HttpPutResponseHopLimit *int64 `type:"integer"`
+
+	// The state of token usage for your instance metadata requests. If the parameter
+	// is not specified in the request, the default state is optional.
+	//
+	// If the state is optional, you can choose to retrieve instance metadata with
+	// or without a signed token header on your request. If you retrieve the IAM
+	// role credentials without a token, the version 1.0 role credentials are returned.
+	// If you retrieve the IAM role credentials using a valid signed token, the
+	// version 2.0 role credentials are returned.
+	//
+	// If the state is required, you must send a signed token header with any instance
+	// metadata retrieval requests. In this state, retrieving the IAM role credentials
+	// always returns the version 2.0 credentials; the version 1.0 credentials are
+	// not available.
+	HttpTokens HttpTokensState `type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s InstanceMetadataOptionsRequest) String() string {
+	return awsutil.Prettify(s)
+}
+
+// The metadata options for the instance.
+type InstanceMetadataOptionsResponse struct {
+	_ struct{} `type:"structure"`
+
+	// This parameter enables or disables the HTTP metadata endpoint on your instances.
+	// If the parameter is not specified, the default state is enabled.
+	//
+	// If you specify a value of disabled, you will not be able to access your instance
+	// metadata.
+	HttpEndpoint InstanceMetadataEndpointState `locationName:"httpEndpoint" type:"string" enum:"true"`
+
+	// The desired HTTP PUT response hop limit for instance metadata requests. The
+	// larger the number, the further instance metadata requests can travel.
+	//
+	// Default: 1
+	//
+	// Possible values: Integers from 1 to 64
+	HttpPutResponseHopLimit *int64 `locationName:"httpPutResponseHopLimit" type:"integer"`
+
+	// The state of token usage for your instance metadata requests. If the parameter
+	// is not specified in the request, the default state is optional.
+	//
+	// If the state is optional, you can choose to retrieve instance metadata with
+	// or without a signed token header on your request. If you retrieve the IAM
+	// role credentials without a token, the version 1.0 role credentials are returned.
+	// If you retrieve the IAM role credentials using a valid signed token, the
+	// version 2.0 role credentials are returned.
+	//
+	// If the state is required, you must send a signed token header with any instance
+	// metadata retrieval requests. In this state, retrieving the IAM role credential
+	// always returns the version 2.0 credentials; the version 1.0 credentials are
+	// not available.
+	HttpTokens HttpTokensState `locationName:"httpTokens" type:"string" enum:"true"`
+
+	// The state of the metadata option changes.
+	//
+	// pending - The metadata options are being updated and the instance is not
+	// ready to process metadata traffic with the new selection.
+	//
+	// applied - The metadata options have been successfully applied on the instance.
+	State InstanceMetadataOptionsState `locationName:"state" type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s InstanceMetadataOptionsResponse) String() string {
 	return awsutil.Prettify(s)
 }
 
@@ -4007,6 +4674,9 @@ type InstanceStatus struct {
 	// such as impaired reachability.
 	InstanceStatus *InstanceStatusSummary `locationName:"instanceStatus" type:"structure"`
 
+	// The Amazon Resource Name (ARN) of the Outpost.
+	OutpostArn *string `locationName:"outpostArn" type:"string"`
+
 	// Reports impaired functionality that stems from issues related to the systems
 	// that support an instance, such as hardware failures and network connectivity
 	// problems.
@@ -4083,6 +4753,121 @@ type InstanceStatusSummary struct {
 
 // String returns the string representation
 func (s InstanceStatusSummary) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the disks that are available for the instance type.
+type InstanceStorageInfo struct {
+	_ struct{} `type:"structure"`
+
+	// Array describing the disks that are available for the instance type.
+	Disks []DiskInfo `locationName:"disks" locationNameList:"item" type:"list"`
+
+	// The total size of the disks, in GiB.
+	TotalSizeInGB *int64 `locationName:"totalSizeInGB" type:"long"`
+}
+
+// String returns the string representation
+func (s InstanceStorageInfo) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the instance type.
+type InstanceTypeInfo struct {
+	_ struct{} `type:"structure"`
+
+	// Indicates whether auto recovery is supported.
+	AutoRecoverySupported *bool `locationName:"autoRecoverySupported" type:"boolean"`
+
+	// Indicates whether the instance is bare metal.
+	BareMetal *bool `locationName:"bareMetal" type:"boolean"`
+
+	// Indicates whether the instance type is a burstable performance instance type.
+	BurstablePerformanceSupported *bool `locationName:"burstablePerformanceSupported" type:"boolean"`
+
+	// Indicates whether the instance type is a current generation.
+	CurrentGeneration *bool `locationName:"currentGeneration" type:"boolean"`
+
+	// Indicates whether Dedicated Hosts are supported on the instance type.
+	DedicatedHostsSupported *bool `locationName:"dedicatedHostsSupported" type:"boolean"`
+
+	// Describes the Amazon EBS settings for the instance type.
+	EbsInfo *EbsInfo `locationName:"ebsInfo" type:"structure"`
+
+	// Describes the FPGA accelerator settings for the instance type.
+	FpgaInfo *FpgaInfo `locationName:"fpgaInfo" type:"structure"`
+
+	// Indicates whether the instance type is eligible for the free tier.
+	FreeTierEligible *bool `locationName:"freeTierEligible" type:"boolean"`
+
+	// Describes the GPU accelerator settings for the instance type.
+	GpuInfo *GpuInfo `locationName:"gpuInfo" type:"structure"`
+
+	// Indicates whether On-Demand hibernation is supported.
+	HibernationSupported *bool `locationName:"hibernationSupported" type:"boolean"`
+
+	// Indicates the hypervisor used for the instance type.
+	Hypervisor InstanceTypeHypervisor `locationName:"hypervisor" type:"string" enum:"true"`
+
+	// Describes the Inference accelerator settings for the instance type.
+	InferenceAcceleratorInfo *InferenceAcceleratorInfo `locationName:"inferenceAcceleratorInfo" type:"structure"`
+
+	// Describes the disks for the instance type.
+	InstanceStorageInfo *InstanceStorageInfo `locationName:"instanceStorageInfo" type:"structure"`
+
+	// Indicates whether instance storage is supported.
+	InstanceStorageSupported *bool `locationName:"instanceStorageSupported" type:"boolean"`
+
+	// The instance type. For more information, see Instance Types (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html)
+	// in the Amazon Elastic Compute Cloud User Guide.
+	InstanceType InstanceType `locationName:"instanceType" type:"string" enum:"true"`
+
+	// Describes the memory for the instance type.
+	MemoryInfo *MemoryInfo `locationName:"memoryInfo" type:"structure"`
+
+	// Describes the network settings for the instance type.
+	NetworkInfo *NetworkInfo `locationName:"networkInfo" type:"structure"`
+
+	// Describes the placement group settings for the instance type.
+	PlacementGroupInfo *PlacementGroupInfo `locationName:"placementGroupInfo" type:"structure"`
+
+	// Describes the processor.
+	ProcessorInfo *ProcessorInfo `locationName:"processorInfo" type:"structure"`
+
+	// Indicates the supported root devices.
+	SupportedRootDevices []RootDeviceType `locationName:"supportedRootDevices" locationNameList:"item" type:"list"`
+
+	// Indicates whether the instance type is offered for spot or On-Demand.
+	SupportedUsageClasses []UsageClassType `locationName:"supportedUsageClasses" locationNameList:"item" type:"list"`
+
+	// Describes the vCPU configurations for the instance type.
+	VCpuInfo *VCpuInfo `locationName:"vCpuInfo" type:"structure"`
+}
+
+// String returns the string representation
+func (s InstanceTypeInfo) String() string {
+	return awsutil.Prettify(s)
+}
+
+// The instance types offered.
+type InstanceTypeOffering struct {
+	_ struct{} `type:"structure"`
+
+	// The instance type. For more information, see Instance Types (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html)
+	// in the Amazon Elastic Compute Cloud User Guide.
+	InstanceType InstanceType `locationName:"instanceType" type:"string" enum:"true"`
+
+	// The identifier for the location. This depends on the location type. For example,
+	// if the location type is region, the location is the Region code (for example,
+	// us-east-2.)
+	Location *string `locationName:"location" type:"string"`
+
+	// The location type.
+	LocationType LocationType `locationName:"locationType" type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s InstanceTypeOffering) String() string {
 	return awsutil.Prettify(s)
 }
 
@@ -4654,6 +5439,11 @@ func (s LaunchTemplateEbsBlockDeviceRequest) String() string {
 type LaunchTemplateElasticInferenceAccelerator struct {
 	_ struct{} `type:"structure"`
 
+	// The number of elastic inference accelerators of given type to be attached
+	// to the instance. Only positive values allowed. If not specified defaults
+	// to 1.
+	Count *int64 `min:"1" type:"integer"`
+
 	// The type of elastic inference accelerator. The possible values are eia1.medium,
 	// eia1.large, and eia1.xlarge.
 	//
@@ -4669,6 +5459,9 @@ func (s LaunchTemplateElasticInferenceAccelerator) String() string {
 // Validate inspects the fields of the type to determine if they are valid.
 func (s *LaunchTemplateElasticInferenceAccelerator) Validate() error {
 	invalidParams := aws.ErrInvalidParams{Context: "LaunchTemplateElasticInferenceAccelerator"}
+	if s.Count != nil && *s.Count < 1 {
+		invalidParams.Add(aws.NewErrParamMinValue("Count", 1))
+	}
 
 	if s.Type == nil {
 		invalidParams.Add(aws.NewErrParamRequired("Type"))
@@ -4683,6 +5476,11 @@ func (s *LaunchTemplateElasticInferenceAccelerator) Validate() error {
 // Describes an elastic inference accelerator.
 type LaunchTemplateElasticInferenceAcceleratorResponse struct {
 	_ struct{} `type:"structure"`
+
+	// The number of elastic inference accelerators of given type to be attached
+	// to the instance. Only positive values allowed. If not specified defaults
+	// to 1.
+	Count *int64 `locationName:"count" type:"integer"`
 
 	// The type of elastic inference accelerator. The possible values are eia1.medium,
 	// eia1.large, and eia1.xlarge.
@@ -4710,7 +5508,6 @@ func (s LaunchTemplateHibernationOptions) String() string {
 
 // Indicates whether the instance is configured for hibernation. This parameter
 // is valid only if the instance meets the hibernation prerequisites (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html#hibernating-prerequisites).
-// Hibernation is currently supported only for Amazon Linux.
 type LaunchTemplateHibernationOptionsRequest struct {
 	_ struct{} `type:"structure"`
 
@@ -4972,6 +5769,9 @@ type LaunchTemplatePlacement struct {
 	// The ID of the Dedicated Host for the instance.
 	HostId *string `locationName:"hostId" type:"string"`
 
+	// The ARN of the host resource group in which to launch the instances.
+	HostResourceGroupArn *string `locationName:"hostResourceGroupArn" type:"string"`
+
 	// Reserved for future use.
 	SpreadDomain *string `locationName:"spreadDomain" type:"string"`
 
@@ -5000,6 +5800,11 @@ type LaunchTemplatePlacementRequest struct {
 
 	// The ID of the Dedicated Host for the instance.
 	HostId *string `type:"string"`
+
+	// The ARN of the host resource group in which to launch the instances. If you
+	// specify a host resource group ARN, omit the Tenancy parameter or set it to
+	// host.
+	HostResourceGroupArn *string `type:"string"`
 
 	// Reserved for future use.
 	SpreadDomain *string `type:"string"`
@@ -5301,6 +6106,190 @@ type LoadPermissionRequest struct {
 
 // String returns the string representation
 func (s LoadPermissionRequest) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes a local gateway.
+type LocalGateway struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the local gateway.
+	LocalGatewayId *string `locationName:"localGatewayId" type:"string"`
+
+	// The Amazon Resource Name (ARN) of the Outpost.
+	OutpostArn *string `locationName:"outpostArn" type:"string"`
+
+	// The ID of the AWS account ID that owns the local gateway.
+	OwnerId *string `locationName:"ownerId" type:"string"`
+
+	// The state of the local gateway.
+	State *string `locationName:"state" type:"string"`
+}
+
+// String returns the string representation
+func (s LocalGateway) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes a route for a local gateway route table.
+type LocalGatewayRoute struct {
+	_ struct{} `type:"structure"`
+
+	// The CIDR block used for destination matches.
+	DestinationCidrBlock *string `locationName:"destinationCidrBlock" type:"string"`
+
+	// The ID of the local gateway route table.
+	LocalGatewayRouteTableId *string `locationName:"localGatewayRouteTableId" type:"string"`
+
+	// The ID of the virtual interface group.
+	LocalGatewayVirtualInterfaceGroupId *string `locationName:"localGatewayVirtualInterfaceGroupId" type:"string"`
+
+	// The state of the route.
+	State LocalGatewayRouteState `locationName:"state" type:"string" enum:"true"`
+
+	// The route type.
+	Type LocalGatewayRouteType `locationName:"type" type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s LocalGatewayRoute) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes a local gateway route table.
+type LocalGatewayRouteTable struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the local gateway.
+	LocalGatewayId *string `locationName:"localGatewayId" type:"string"`
+
+	// The ID of the local gateway route table.
+	LocalGatewayRouteTableId *string `locationName:"localGatewayRouteTableId" type:"string"`
+
+	// The Amazon Resource Name (ARN) of the Outpost.
+	OutpostArn *string `locationName:"outpostArn" type:"string"`
+
+	// The state of the local gateway route table.
+	State *string `locationName:"state" type:"string"`
+}
+
+// String returns the string representation
+func (s LocalGatewayRouteTable) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes an association between a local gateway route table and a virtual
+// interface group.
+type LocalGatewayRouteTableVirtualInterfaceGroupAssociation struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the local gateway.
+	LocalGatewayId *string `locationName:"localGatewayId" type:"string"`
+
+	// The ID of the local gateway route table.
+	LocalGatewayRouteTableId *string `locationName:"localGatewayRouteTableId" type:"string"`
+
+	// The ID of the association.
+	LocalGatewayRouteTableVirtualInterfaceGroupAssociationId *string `locationName:"localGatewayRouteTableVirtualInterfaceGroupAssociationId" type:"string"`
+
+	// The ID of the virtual interface group.
+	LocalGatewayVirtualInterfaceGroupId *string `locationName:"localGatewayVirtualInterfaceGroupId" type:"string"`
+
+	// The state of the association.
+	State *string `locationName:"state" type:"string"`
+}
+
+// String returns the string representation
+func (s LocalGatewayRouteTableVirtualInterfaceGroupAssociation) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes an association between a local gateway route table and a VPC.
+type LocalGatewayRouteTableVpcAssociation struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the local gateway.
+	LocalGatewayId *string `locationName:"localGatewayId" type:"string"`
+
+	// The ID of the local gateway route table.
+	LocalGatewayRouteTableId *string `locationName:"localGatewayRouteTableId" type:"string"`
+
+	// The ID of the association.
+	LocalGatewayRouteTableVpcAssociationId *string `locationName:"localGatewayRouteTableVpcAssociationId" type:"string"`
+
+	// The state of the association.
+	State *string `locationName:"state" type:"string"`
+
+	// The ID of the VPC.
+	VpcId *string `locationName:"vpcId" type:"string"`
+}
+
+// String returns the string representation
+func (s LocalGatewayRouteTableVpcAssociation) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes a local gateway virtual interface.
+type LocalGatewayVirtualInterface struct {
+	_ struct{} `type:"structure"`
+
+	// The local address.
+	LocalAddress *string `locationName:"localAddress" type:"string"`
+
+	// The Border Gateway Protocol (BGP) Autonomous System Number (ASN) of the local
+	// gateway.
+	LocalBgpAsn *int64 `locationName:"localBgpAsn" type:"integer"`
+
+	// The ID of the local gateway.
+	LocalGatewayId *string `locationName:"localGatewayId" type:"string"`
+
+	// The ID of the virtual interface.
+	LocalGatewayVirtualInterfaceId *string `locationName:"localGatewayVirtualInterfaceId" type:"string"`
+
+	// The peer address.
+	PeerAddress *string `locationName:"peerAddress" type:"string"`
+
+	// The peer BGP ASN.
+	PeerBgpAsn *int64 `locationName:"peerBgpAsn" type:"integer"`
+
+	// The ID of the VLAN.
+	Vlan *int64 `locationName:"vlan" type:"integer"`
+}
+
+// String returns the string representation
+func (s LocalGatewayVirtualInterface) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes a local gateway virtual interface group.
+type LocalGatewayVirtualInterfaceGroup struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the local gateway.
+	LocalGatewayId *string `locationName:"localGatewayId" type:"string"`
+
+	// The ID of the virtual interface group.
+	LocalGatewayVirtualInterfaceGroupId *string `locationName:"localGatewayVirtualInterfaceGroupId" type:"string"`
+
+	// The IDs of the virtual interfaces.
+	LocalGatewayVirtualInterfaceIds []string `locationName:"localGatewayVirtualInterfaceIdSet" locationNameList:"item" type:"list"`
+}
+
+// String returns the string representation
+func (s LocalGatewayVirtualInterfaceGroup) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the memory for the instance type.
+type MemoryInfo struct {
+	_ struct{} `type:"structure"`
+
+	// Size of the memory, in MiB.
+	SizeInMiB *int64 `locationName:"sizeInMiB" type:"long"`
+}
+
+// String returns the string representation
+func (s MemoryInfo) String() string {
 	return awsutil.Prettify(s)
 }
 
@@ -5670,6 +6659,34 @@ func (s NetworkAclEntry) String() string {
 	return awsutil.Prettify(s)
 }
 
+// Describes the networking features of the instance type.
+type NetworkInfo struct {
+	_ struct{} `type:"structure"`
+
+	// Indicates whether Elastic Network Adapter (ENA) is supported.
+	EnaSupport EnaSupport `locationName:"enaSupport" type:"string" enum:"true"`
+
+	// The maximum number of IPv4 addresses per network interface.
+	Ipv4AddressesPerInterface *int64 `locationName:"ipv4AddressesPerInterface" type:"integer"`
+
+	// The maximum number of IPv6 addresses per network interface.
+	Ipv6AddressesPerInterface *int64 `locationName:"ipv6AddressesPerInterface" type:"integer"`
+
+	// Indicates whether IPv6 is supported.
+	Ipv6Supported *bool `locationName:"ipv6Supported" type:"boolean"`
+
+	// The maximum number of network interfaces for the instance type.
+	MaximumNetworkInterfaces *int64 `locationName:"maximumNetworkInterfaces" type:"integer"`
+
+	// Describes the network performance.
+	NetworkPerformance *string `locationName:"networkPerformance" type:"string"`
+}
+
+// String returns the string representation
+func (s NetworkInfo) String() string {
+	return awsutil.Prettify(s)
+}
+
 // Describes a network interface.
 type NetworkInterface struct {
 	_ struct{} `type:"structure"`
@@ -5701,6 +6718,9 @@ type NetworkInterface struct {
 
 	// The ID of the network interface.
 	NetworkInterfaceId *string `locationName:"networkInterfaceId" type:"string"`
+
+	// The Amazon Resource Name (ARN) of the Outpost.
+	OutpostArn *string `locationName:"outpostArn" type:"string"`
 
 	// The AWS account ID of the owner of the network interface.
 	OwnerId *string `locationName:"ownerId" type:"string"`
@@ -5999,6 +7019,22 @@ func (s PciId) String() string {
 	return awsutil.Prettify(s)
 }
 
+// The status of the transit gateway peering attachment.
+type PeeringAttachmentStatus struct {
+	_ struct{} `type:"structure"`
+
+	// The status code.
+	Code *string `locationName:"code" type:"string"`
+
+	// The status message, if applicable.
+	Message *string `locationName:"message" type:"string"`
+}
+
+// String returns the string representation
+func (s PeeringAttachmentStatus) String() string {
+	return awsutil.Prettify(s)
+}
+
 // Describes the VPC peering connection options.
 type PeeringConnectionOptions struct {
 	_ struct{} `type:"structure"`
@@ -6040,6 +7076,25 @@ type PeeringConnectionOptionsRequest struct {
 
 // String returns the string representation
 func (s PeeringConnectionOptionsRequest) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Information about the transit gateway in the peering attachment.
+type PeeringTgwInfo struct {
+	_ struct{} `type:"structure"`
+
+	// The AWS account ID of the owner of the transit gateway.
+	OwnerId *string `locationName:"ownerId" type:"string"`
+
+	// The Region of the transit gateway.
+	Region *string `locationName:"region" type:"string"`
+
+	// The ID of the transit gateway.
+	TransitGatewayId *string `locationName:"transitGatewayId" type:"string"`
+}
+
+// String returns the string representation
+func (s PeeringTgwInfo) String() string {
 	return awsutil.Prettify(s)
 }
 
@@ -6222,6 +7277,11 @@ type Placement struct {
 	// is not supported for the ImportInstance command.
 	HostId *string `locationName:"hostId" type:"string"`
 
+	// The ARN of the host resource group in which to launch the instances. If you
+	// specify a host resource group ARN, omit the Tenancy parameter or set it to
+	// host.
+	HostResourceGroupArn *string `locationName:"hostResourceGroupArn" type:"string"`
+
 	// The number of the partition the instance is in. Valid only if the placement
 	// group strategy is set to partition.
 	PartitionNumber *int64 `locationName:"partitionNumber" type:"integer"`
@@ -6259,6 +7319,19 @@ type PlacementGroup struct {
 
 // String returns the string representation
 func (s PlacementGroup) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the placement group support of the instance type.
+type PlacementGroupInfo struct {
+	_ struct{} `type:"structure"`
+
+	// A list of supported placement groups types.
+	SupportedStrategies []PlacementGroupStrategy `locationName:"supportedStrategies" locationNameList:"item" type:"list"`
+}
+
+// String returns the string representation
+func (s PlacementGroupInfo) String() string {
 	return awsutil.Prettify(s)
 }
 
@@ -6430,6 +7503,22 @@ type PrivateIpAddressSpecification struct {
 
 // String returns the string representation
 func (s PrivateIpAddressSpecification) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the processor used by the instance type.
+type ProcessorInfo struct {
+	_ struct{} `type:"structure"`
+
+	// A list of architectures supported by the instance type.
+	SupportedArchitectures []ArchitectureType `locationName:"supportedArchitectures" locationNameList:"item" type:"list"`
+
+	// The speed of the processor, in GHz.
+	SustainedClockSpeedInGhz *float64 `locationName:"sustainedClockSpeedInGhz" type:"double"`
+}
+
+// String returns the string representation
+func (s ProcessorInfo) String() string {
 	return awsutil.Prettify(s)
 }
 
@@ -6706,8 +7795,7 @@ type RequestLaunchTemplateData struct {
 
 	// Indicates whether an instance is enabled for hibernation. This parameter
 	// is valid only if the instance meets the hibernation prerequisites (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html#hibernating-prerequisites).
-	// Hibernation is currently supported only for Amazon Linux. For more information,
-	// see Hibernate Your Instance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html)
+	// For more information, see Hibernate Your Instance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html)
 	// in the Amazon Elastic Compute Cloud User Guide.
 	HibernationOptions *LaunchTemplateHibernationOptionsRequest `type:"structure"`
 
@@ -7394,6 +8482,9 @@ type Route struct {
 	// The AWS account ID of the owner of the instance.
 	InstanceOwnerId *string `locationName:"instanceOwnerId" type:"string"`
 
+	// The ID of the local gateway.
+	LocalGatewayId *string `locationName:"localGatewayId" type:"string"`
+
 	// The ID of a NAT gateway.
 	NatGatewayId *string `locationName:"natGatewayId" type:"string"`
 
@@ -7431,7 +8522,7 @@ func (s Route) String() string {
 type RouteTable struct {
 	_ struct{} `type:"structure"`
 
-	// The associations between the route table and one or more subnets.
+	// The associations between the route table and one or more subnets or a gateway.
 	Associations []RouteTableAssociation `locationName:"associationSet" locationNameList:"item" type:"list"`
 
 	// The ID of the AWS account that owns the route table.
@@ -7458,14 +8549,20 @@ func (s RouteTable) String() string {
 	return awsutil.Prettify(s)
 }
 
-// Describes an association between a route table and a subnet.
+// Describes an association between a route table and a subnet or gateway.
 type RouteTableAssociation struct {
 	_ struct{} `type:"structure"`
+
+	// The state of the association.
+	AssociationState *RouteTableAssociationState `locationName:"associationState" type:"structure"`
+
+	// The ID of the internet gateway or virtual private gateway.
+	GatewayId *string `locationName:"gatewayId" type:"string"`
 
 	// Indicates whether this is the main route table.
 	Main *bool `locationName:"main" type:"boolean"`
 
-	// The ID of the association between a route table and a subnet.
+	// The ID of the association.
 	RouteTableAssociationId *string `locationName:"routeTableAssociationId" type:"string"`
 
 	// The ID of the route table.
@@ -7477,6 +8574,23 @@ type RouteTableAssociation struct {
 
 // String returns the string representation
 func (s RouteTableAssociation) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the state of an association between a route table and a subnet
+// or gateway.
+type RouteTableAssociationState struct {
+	_ struct{} `type:"structure"`
+
+	// The state of the association.
+	State RouteTableAssociationStateCode `locationName:"state" type:"string" enum:"true"`
+
+	// The status message, if applicable.
+	StatusMessage *string `locationName:"statusMessage" type:"string"`
+}
+
+// String returns the string representation
+func (s RouteTableAssociationState) String() string {
 	return awsutil.Prettify(s)
 }
 
@@ -8966,14 +10080,14 @@ type SpotOptions struct {
 	// Indicates how to allocate the target Spot Instance capacity across the Spot
 	// Instance pools specified by the EC2 Fleet.
 	//
-	// If the allocation strategy is lowestPrice, EC2 Fleet launches instances from
-	// the Spot Instance pools with the lowest price. This is the default allocation
+	// If the allocation strategy is lowest-price, EC2 Fleet launches instances
+	// from the Spot Instance pools with the lowest price. This is the default allocation
 	// strategy.
 	//
 	// If the allocation strategy is diversified, EC2 Fleet launches instances from
 	// all the Spot Instance pools that you specify.
 	//
-	// If the allocation strategy is capacityOptimized, EC2 Fleet launches instances
+	// If the allocation strategy is capacity-optimized, EC2 Fleet launches instances
 	// from Spot Instance pools with optimal capacity for the number of instances
 	// that are launching.
 	AllocationStrategy SpotAllocationStrategy `locationName:"allocationStrategy" type:"string" enum:"true"`
@@ -8982,7 +10096,7 @@ type SpotOptions struct {
 	InstanceInterruptionBehavior SpotInstanceInterruptionBehavior `locationName:"instanceInterruptionBehavior" type:"string" enum:"true"`
 
 	// The number of Spot pools across which to allocate your target Spot capacity.
-	// Valid only when AllocationStrategy is set to lowestPrice. EC2 Fleet selects
+	// Valid only when AllocationStrategy is set to lowest-price. EC2 Fleet selects
 	// the cheapest Spot pools and evenly allocates your target Spot capacity across
 	// the number of Spot pools that you specify.
 	InstancePoolsToUseCount *int64 `locationName:"instancePoolsToUseCount" type:"integer"`
@@ -9015,14 +10129,14 @@ type SpotOptionsRequest struct {
 	// Indicates how to allocate the target Spot Instance capacity across the Spot
 	// Instance pools specified by the EC2 Fleet.
 	//
-	// If the allocation strategy is lowestPrice, EC2 Fleet launches instances from
-	// the Spot Instance pools with the lowest price. This is the default allocation
+	// If the allocation strategy is lowest-price, EC2 Fleet launches instances
+	// from the Spot Instance pools with the lowest price. This is the default allocation
 	// strategy.
 	//
 	// If the allocation strategy is diversified, EC2 Fleet launches instances from
 	// all the Spot Instance pools that you specify.
 	//
-	// If the allocation strategy is capacityOptimized, EC2 Fleet launches instances
+	// If the allocation strategy is capacity-optimized, EC2 Fleet launches instances
 	// from Spot Instance pools with optimal capacity for the number of instances
 	// that are launching.
 	AllocationStrategy SpotAllocationStrategy `type:"string" enum:"true"`
@@ -9282,6 +10396,9 @@ type Subnet struct {
 	// address.
 	MapPublicIpOnLaunch *bool `locationName:"mapPublicIpOnLaunch" type:"boolean"`
 
+	// The Amazon Resource Name (ARN) of the Outpost.
+	OutpostArn *string `locationName:"outpostArn" type:"string"`
+
 	// The ID of the AWS account that owns the subnet.
 	OwnerId *string `locationName:"ownerId" type:"string"`
 
@@ -9303,6 +10420,22 @@ type Subnet struct {
 
 // String returns the string representation
 func (s Subnet) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the subnet association with the transit gateway multicast domain.
+type SubnetAssociation struct {
+	_ struct{} `type:"structure"`
+
+	// The state of the subnet association.
+	State TransitGatewayMulitcastDomainAssociationState `locationName:"state" type:"string" enum:"true"`
+
+	// The ID of the subnet.
+	SubnetId *string `locationName:"subnetId" type:"string"`
+}
+
+// String returns the string representation
+func (s SubnetAssociation) String() string {
 	return awsutil.Prettify(s)
 }
 
@@ -9341,8 +10474,8 @@ func (s SubnetIpv6CidrBlockAssociation) String() string {
 	return awsutil.Prettify(s)
 }
 
-// Describes the T2 or T3 instance whose credit option for CPU usage was successfully
-// modified.
+// Describes the burstable performance instance whose credit option for CPU
+// usage was successfully modified.
 type SuccessfulInstanceCreditSpecificationItem struct {
 	_ struct{} `type:"structure"`
 
@@ -9418,10 +10551,11 @@ type TagSpecification struct {
 
 	// The type of resource to tag. Currently, the resource types that support tagging
 	// on creation are: capacity-reservation | client-vpn-endpoint | dedicated-host
-	// | fleet | instance | launch-template | snapshot | transit-gateway | transit-gateway-attachment
+	// | fleet | fpga-image | instance | launch-template | snapshot | traffic-mirror-filter
+	// | traffic-mirror-session | traffic-mirror-target | transit-gateway | transit-gateway-attachment
 	// | transit-gateway-route-table | volume.
 	//
-	// To tag a resource after it has been created, see CreateTags.
+	// To tag a resource after it has been created, see CreateTags (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTags.html).
 	ResourceType ResourceType `locationName:"resourceType" type:"string" enum:"true"`
 
 	// The tags to apply to the resource.
@@ -9997,6 +11131,195 @@ func (s TransitGatewayAttachmentPropagation) String() string {
 	return awsutil.Prettify(s)
 }
 
+// Describes the deregistered transit gateway multicast group members.
+type TransitGatewayMulticastDeregisteredGroupMembers struct {
+	_ struct{} `type:"structure"`
+
+	// The network interface IDs of the deregistered members.
+	DeregisteredNetworkInterfaceIds []string `locationName:"deregisteredNetworkInterfaceIds" locationNameList:"item" type:"list"`
+
+	// The IP address assigned to the transit gateway multicast group.
+	GroupIpAddress *string `locationName:"groupIpAddress" type:"string"`
+
+	// The ID of the transit gateway multicast domain.
+	TransitGatewayMulticastDomainId *string `locationName:"transitGatewayMulticastDomainId" type:"string"`
+}
+
+// String returns the string representation
+func (s TransitGatewayMulticastDeregisteredGroupMembers) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the deregistered transit gateway multicast group sources.
+type TransitGatewayMulticastDeregisteredGroupSources struct {
+	_ struct{} `type:"structure"`
+
+	// The network interface IDs of the non-registered members.
+	DeregisteredNetworkInterfaceIds []string `locationName:"deregisteredNetworkInterfaceIds" locationNameList:"item" type:"list"`
+
+	// The IP address assigned to the transit gateway multicast group.
+	GroupIpAddress *string `locationName:"groupIpAddress" type:"string"`
+
+	// The ID of the transit gateway multicast domain.
+	TransitGatewayMulticastDomainId *string `locationName:"transitGatewayMulticastDomainId" type:"string"`
+}
+
+// String returns the string representation
+func (s TransitGatewayMulticastDeregisteredGroupSources) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the transit gateway multicast domain.
+type TransitGatewayMulticastDomain struct {
+	_ struct{} `type:"structure"`
+
+	// The time the transit gateway multicast domain was created.
+	CreationTime *time.Time `locationName:"creationTime" type:"timestamp"`
+
+	// The state of the transit gateway multicast domain.
+	State TransitGatewayMulticastDomainState `locationName:"state" type:"string" enum:"true"`
+
+	// The tags for the transit gateway multicast domain.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
+
+	// The ID of the transit gateway.
+	TransitGatewayId *string `locationName:"transitGatewayId" type:"string"`
+
+	// The ID of the transit gateway multicast domain.
+	TransitGatewayMulticastDomainId *string `locationName:"transitGatewayMulticastDomainId" type:"string"`
+}
+
+// String returns the string representation
+func (s TransitGatewayMulticastDomain) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the resources associated with the transit gateway multicast domain.
+type TransitGatewayMulticastDomainAssociation struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the resource.
+	ResourceId *string `locationName:"resourceId" type:"string"`
+
+	// The type of resource, for example a VPC attachment.
+	ResourceType TransitGatewayAttachmentResourceType `locationName:"resourceType" type:"string" enum:"true"`
+
+	// The subnet associated with the transit gateway multicast domain.
+	Subnet *SubnetAssociation `locationName:"subnet" type:"structure"`
+
+	// The ID of the transit gateway attachment.
+	TransitGatewayAttachmentId *string `locationName:"transitGatewayAttachmentId" type:"string"`
+}
+
+// String returns the string representation
+func (s TransitGatewayMulticastDomainAssociation) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the multicast domain associations.
+type TransitGatewayMulticastDomainAssociations struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the resource.
+	ResourceId *string `locationName:"resourceId" type:"string"`
+
+	// The type of resource, for example a VPC attachment.
+	ResourceType TransitGatewayAttachmentResourceType `locationName:"resourceType" type:"string" enum:"true"`
+
+	// The subnets associated with the multicast domain.
+	Subnets []SubnetAssociation `locationName:"subnets" locationNameList:"item" type:"list"`
+
+	// The ID of the transit gateway attachment.
+	TransitGatewayAttachmentId *string `locationName:"transitGatewayAttachmentId" type:"string"`
+
+	// The ID of the transit gateway multicast domain.
+	TransitGatewayMulticastDomainId *string `locationName:"transitGatewayMulticastDomainId" type:"string"`
+}
+
+// String returns the string representation
+func (s TransitGatewayMulticastDomainAssociations) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the transit gateway multicast group resources.
+type TransitGatewayMulticastGroup struct {
+	_ struct{} `type:"structure"`
+
+	// The IP address assigned to the transit gateway multicast group.
+	GroupIpAddress *string `locationName:"groupIpAddress" type:"string"`
+
+	// Indicates that the resource is a transit gateway multicast group member.
+	GroupMember *bool `locationName:"groupMember" type:"boolean"`
+
+	// Indicates that the resource is a transit gateway multicast group member.
+	GroupSource *bool `locationName:"groupSource" type:"boolean"`
+
+	// The member type (for example, static).
+	MemberType MembershipType `locationName:"memberType" type:"string" enum:"true"`
+
+	// The ID of the transit gateway attachment.
+	NetworkInterfaceId *string `locationName:"networkInterfaceId" type:"string"`
+
+	// The ID of the resource.
+	ResourceId *string `locationName:"resourceId" type:"string"`
+
+	// The type of resource, for example a VPC attachment.
+	ResourceType TransitGatewayAttachmentResourceType `locationName:"resourceType" type:"string" enum:"true"`
+
+	// The source type.
+	SourceType MembershipType `locationName:"sourceType" type:"string" enum:"true"`
+
+	// The ID of the subnet.
+	SubnetId *string `locationName:"subnetId" type:"string"`
+
+	// The ID of the transit gateway attachment.
+	TransitGatewayAttachmentId *string `locationName:"transitGatewayAttachmentId" type:"string"`
+}
+
+// String returns the string representation
+func (s TransitGatewayMulticastGroup) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the registered transit gateway multicast group members.
+type TransitGatewayMulticastRegisteredGroupMembers struct {
+	_ struct{} `type:"structure"`
+
+	// The IP address assigned to the transit gateway multicast group.
+	GroupIpAddress *string `locationName:"groupIpAddress" type:"string"`
+
+	// The ID of the registered network interfaces.
+	RegisteredNetworkInterfaceIds []string `locationName:"registeredNetworkInterfaceIds" locationNameList:"item" type:"list"`
+
+	// The ID of the transit gateway multicast domain.
+	TransitGatewayMulticastDomainId *string `locationName:"transitGatewayMulticastDomainId" type:"string"`
+}
+
+// String returns the string representation
+func (s TransitGatewayMulticastRegisteredGroupMembers) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the members registered with the transit gateway multicast group.
+type TransitGatewayMulticastRegisteredGroupSources struct {
+	_ struct{} `type:"structure"`
+
+	// The IP address assigned to the transit gateway multicast group.
+	GroupIpAddress *string `locationName:"groupIpAddress" type:"string"`
+
+	// The IDs of the network interfaces members registered with the transit gateway
+	// multicast group.
+	RegisteredNetworkInterfaceIds []string `locationName:"registeredNetworkInterfaceIds" locationNameList:"item" type:"list"`
+
+	// The ID of the transit gateway multicast domain.
+	TransitGatewayMulticastDomainId *string `locationName:"transitGatewayMulticastDomainId" type:"string"`
+}
+
+// String returns the string representation
+func (s TransitGatewayMulticastRegisteredGroupSources) String() string {
+	return awsutil.Prettify(s)
+}
+
 // Describes the options for a transit gateway.
 type TransitGatewayOptions struct {
 	_ struct{} `type:"structure"`
@@ -10023,6 +11346,9 @@ type TransitGatewayOptions struct {
 	// Indicates whether DNS support is enabled.
 	DnsSupport DnsSupportValue `locationName:"dnsSupport" type:"string" enum:"true"`
 
+	// Indicates whether multicast is enabled on the transit gateway
+	MulticastSupport MulticastSupportValue `locationName:"multicastSupport" type:"string" enum:"true"`
+
 	// The ID of the default propagation route table.
 	PropagationDefaultRouteTableId *string `locationName:"propagationDefaultRouteTableId" type:"string"`
 
@@ -10032,6 +11358,37 @@ type TransitGatewayOptions struct {
 
 // String returns the string representation
 func (s TransitGatewayOptions) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the transit gateway peering attachment.
+type TransitGatewayPeeringAttachment struct {
+	_ struct{} `type:"structure"`
+
+	// Information about the accepter transit gateway.
+	AccepterTgwInfo *PeeringTgwInfo `locationName:"accepterTgwInfo" type:"structure"`
+
+	// The time the transit gateway peering attachment was created.
+	CreationTime *time.Time `locationName:"creationTime" type:"timestamp"`
+
+	// Information about the requester transit gateway.
+	RequesterTgwInfo *PeeringTgwInfo `locationName:"requesterTgwInfo" type:"structure"`
+
+	// The state of the transit gateway peering attachment.
+	State TransitGatewayAttachmentState `locationName:"state" type:"string" enum:"true"`
+
+	// The status of the transit gateway peering attachment.
+	Status *PeeringAttachmentStatus `locationName:"status" type:"structure"`
+
+	// The tags for the transit gateway peering attachment.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
+
+	// The ID of the transit gateway peering attachment.
+	TransitGatewayAttachmentId *string `locationName:"transitGatewayAttachmentId" type:"string"`
+}
+
+// String returns the string representation
+func (s TransitGatewayPeeringAttachment) String() string {
 	return awsutil.Prettify(s)
 }
 
@@ -10083,6 +11440,9 @@ type TransitGatewayRequestOptions struct {
 
 	// Enable or disable DNS support.
 	DnsSupport DnsSupportValue `type:"string" enum:"true"`
+
+	// Indicates whether multicast is enabled on the transit gateway
+	MulticastSupport MulticastSupportValue `type:"string" enum:"true"`
 
 	// Enable or disable Equal Cost Multipath Protocol support.
 	VpnEcmpSupport VpnEcmpSupportValue `type:"string" enum:"true"`
@@ -10327,13 +11687,13 @@ func (s TunnelOption) String() string {
 	return awsutil.Prettify(s)
 }
 
-// Describes the T2 or T3 instance whose credit option for CPU usage was not
-// modified.
+// Describes the burstable performance instance whose credit option for CPU
+// usage was not modified.
 type UnsuccessfulInstanceCreditSpecificationItem struct {
 	_ struct{} `type:"structure"`
 
-	// The applicable error for the T2 or T3 instance whose credit option for CPU
-	// usage was not modified.
+	// The applicable error for the burstable performance instance whose credit
+	// option for CPU usage was not modified.
 	Error *UnsuccessfulInstanceCreditSpecificationItemError `locationName:"error" type:"structure"`
 
 	// The ID of the instance.
@@ -10345,8 +11705,8 @@ func (s UnsuccessfulInstanceCreditSpecificationItem) String() string {
 	return awsutil.Prettify(s)
 }
 
-// Information about the error for the T2 or T3 instance whose credit option
-// for CPU usage was not modified.
+// Information about the error for the burstable performance instance whose
+// credit option for CPU usage was not modified.
 type UnsuccessfulInstanceCreditSpecificationItemError struct {
 	_ struct{} `type:"structure"`
 
@@ -10429,7 +11789,7 @@ func (s UserBucketDetails) String() string {
 
 // Describes the user data for an instance.
 type UserData struct {
-	_ struct{} `type:"structure"`
+	_ struct{} `type:"structure" sensitive:"true"`
 
 	// The user data. If you are using an AWS SDK or command line tool, Base64-encoding
 	// is performed for you, and you can load the text from a file. Otherwise, you
@@ -10489,6 +11849,33 @@ func (s UserIdGroupPair) String() string {
 	return awsutil.Prettify(s)
 }
 
+// Describes the vCPU configurations for the instance type.
+type VCpuInfo struct {
+	_ struct{} `type:"structure"`
+
+	// The default number of cores for the instance type.
+	DefaultCores *int64 `locationName:"defaultCores" type:"integer"`
+
+	// The default number of threads per core for the instance type.
+	DefaultThreadsPerCore *int64 `locationName:"defaultThreadsPerCore" type:"integer"`
+
+	// The default number of vCPUs for the instance type.
+	DefaultVCpus *int64 `locationName:"defaultVCpus" type:"integer"`
+
+	// List of the valid number of cores that can be configured for the instance
+	// type.
+	ValidCores []int64 `locationName:"validCores" locationNameList:"item" type:"list"`
+
+	// List of the valid number of threads per core that can be configured for the
+	// instance type.
+	ValidThreadsPerCore []int64 `locationName:"validThreadsPerCore" locationNameList:"item" type:"list"`
+}
+
+// String returns the string representation
+func (s VCpuInfo) String() string {
+	return awsutil.Prettify(s)
+}
+
 // Describes telemetry for a VPN tunnel.
 type VgwTelemetry struct {
 	_ struct{} `type:"structure"`
@@ -10534,6 +11921,9 @@ type Volume struct {
 	// Indicates whether the volume is encrypted.
 	Encrypted *bool `locationName:"encrypted" type:"boolean"`
 
+	// Indicates whether the volume was created using fast snapshot restore.
+	FastRestored *bool `locationName:"fastRestored" type:"boolean"`
+
 	// The number of I/O operations per second (IOPS) that the volume supports.
 	// For Provisioned IOPS SSD volumes, this represents the number of IOPS that
 	// are provisioned for the volume. For General Purpose SSD volumes, this represents
@@ -10555,6 +11945,9 @@ type Volume struct {
 	// customer master key (CMK) that was used to protect the volume encryption
 	// key for the volume.
 	KmsKeyId *string `locationName:"kmsKeyId" type:"string"`
+
+	// The Amazon Resource Name (ARN) of the Outpost.
+	OutpostArn *string `locationName:"outpostArn" type:"string"`
 
 	// The size of the volume, in GiBs.
 	Size *int64 `locationName:"size" type:"integer"`
@@ -10779,6 +12172,9 @@ type VolumeStatusItem struct {
 
 	// A list of events associated with the volume.
 	Events []VolumeStatusEvent `locationName:"eventsSet" locationNameList:"item" type:"list"`
+
+	// The Amazon Resource Name (ARN) of the Outpost.
+	OutpostArn *string `locationName:"outpostArn" type:"string"`
 
 	// The volume ID.
 	VolumeId *string `locationName:"volumeId" type:"string"`
@@ -11006,6 +12402,9 @@ type VpcIpv6CidrBlockAssociation struct {
 
 	// Information about the state of the CIDR block.
 	Ipv6CidrBlockState *VpcCidrBlockState `locationName:"ipv6CidrBlockState" type:"structure"`
+
+	// The name of the location from which we advertise the IPV6 CIDR block.
+	NetworkBorderGroup *string `locationName:"networkBorderGroup" type:"string"`
 }
 
 // String returns the string representation
@@ -11232,6 +12631,9 @@ func (s VpnConnection) String() string {
 type VpnConnectionOptions struct {
 	_ struct{} `type:"structure"`
 
+	// Indicates whether acceleration is enabled for the VPN connection.
+	EnableAcceleration *bool `locationName:"enableAcceleration" type:"boolean"`
+
 	// Indicates whether the VPN connection uses static routes only. Static routes
 	// must be used for devices that don't support BGP.
 	StaticRoutesOnly *bool `locationName:"staticRoutesOnly" type:"boolean"`
@@ -11248,6 +12650,11 @@ func (s VpnConnectionOptions) String() string {
 // Describes VPN connection options.
 type VpnConnectionOptionsSpecification struct {
 	_ struct{} `type:"structure"`
+
+	// Indicate whether to enable acceleration for the VPN connection.
+	//
+	// Default: false
+	EnableAcceleration *bool `type:"boolean"`
 
 	// Indicate whether the VPN connection uses static routes only. If you are creating
 	// a VPN connection for a device that does not support BGP, you must specify

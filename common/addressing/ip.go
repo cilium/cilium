@@ -32,10 +32,7 @@ type CiliumIP interface {
 
 type CiliumIPv6 []byte
 
-// NewCiliumIPv6 returns a IPv6 if the given `address` is:
-// - An IPv6 address.
-// - Node ID, bits from 112 to 120, must be different than 0
-// - Endpoint ID, bits from 120 to 128, must be equal to 0
+// NewCiliumIPv6 returns a IPv6 if the given `address` is an IPv6 address.
 func NewCiliumIPv6(address string) (CiliumIPv6, error) {
 	ip, _, err := net.ParseCIDR(address)
 	if err != nil {

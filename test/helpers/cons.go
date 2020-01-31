@@ -57,9 +57,8 @@ const (
 	// VM / Test suite constants.
 	K8s     = "k8s"
 	K8s1    = "k8s1"
-	K8s1Ip  = "192.168.36.11"
 	K8s2    = "k8s2"
-	K8s2Ip  = "192.168.36.12"
+	K8s3    = "k8s3"
 	Runtime = "runtime"
 
 	Enabled  = "enabled"
@@ -150,8 +149,10 @@ const (
 	// actually transfer data.
 	CurlMaxTimeout = 8
 
-	DefaultNamespace    = "default"
-	KubeSystemNamespace = "kube-system"
+	DefaultNamespace       = "default"
+	KubeSystemNamespace    = "kube-system"
+	CiliumNamespaceDefault = KubeSystemNamespace
+	CiliumNamespaceGKE     = "cilium"
 
 	TestResultsPath = "test_results/"
 	RunDir          = "/var/run/cilium"
@@ -194,6 +195,11 @@ const (
 	// DockerBridgeIP is the IP on the docker0 bridge
 	DockerBridgeIP = "172.17.0.1"
 
+	// PrivateIface is the name of interface which is used to communicate with
+	// other cluster nodes
+	// FIXME Determine dynamically the iface
+	PrivateIface = "enp0s8"
+
 	// Logs messages that should not be in the cilium logs.
 	panicMessage      = "panic:"
 	deadLockHeader    = "POTENTIAL DEADLOCK:"       // from github.com/sasha-s/go-deadlock/deadlock.go:header
@@ -204,6 +210,16 @@ const (
 
 	// HelmTemplate is the location of the Helm templates to install Cilium
 	HelmTemplate = "../install/kubernetes/cilium"
+)
+
+var (
+	// CiliumNamespace is where cilium should run. In some deployments this cannot
+	// be kube-system.
+	CiliumNamespace = GetCiliumNamespace(GetCurrentIntegration())
+
+	// LogGathererNamespace is where log-gatherer should run. It follows cilium
+	// for simplicity.
+	LogGathererNamespace = CiliumNamespace
 )
 
 // Re-definitions of stable constants in the API. The re-definition is on

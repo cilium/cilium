@@ -26,6 +26,5 @@
 #define HANDLE_NS
 #define FROM_HOST
 #define ENCAP_IFINDEX 1
-#define POLICY_MAP cilium_policy_foo
 #define SECLABEL 2
 #define SECLABEL_NB 0xfffff

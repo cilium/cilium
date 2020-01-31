@@ -33,10 +33,8 @@
 #include "lib/eps.h"
 #include "lib/metrics.h"
 
-#define CONNECT_REJECT	0
-#define CONNECT_PROCEED	1
-#define SENDMSG_PROCEED	CONNECT_PROCEED
-#define RECVMSG_PROCEED	CONNECT_PROCEED
+#define SYS_REJECT	0
+#define SYS_PROCEED	1
 
 static __always_inline __maybe_unused bool is_v4_loopback(__be32 daddr)
 {
@@ -49,6 +47,29 @@ static __always_inline __maybe_unused bool is_v6_loopback(union v6addr *daddr)
 	/* Check for ::1/128, RFC4291. */
 	union v6addr loopback = { .addr[15] = 1, };
 	return ipv6_addrcmp(&loopback, daddr) == 0;
+}
+
+static __always_inline __maybe_unused bool is_v4_in_v6(union v6addr *daddr)
+{
+	/* Check for ::FFFF:<IPv4 address>. */
+	union v6addr dprobe  = {
+		.addr[10] = 0xff,
+		.addr[11] = 0xff,
+	};
+	union v6addr dmasked = {
+		.d1 = daddr->d1,
+	};
+	dmasked.p3 = daddr->p3;
+	return ipv6_addrcmp(&dprobe, &dmasked) == 0;
+}
+
+static __always_inline __maybe_unused void build_v4_in_v6(union v6addr *daddr,
+							  __be32 v4)
+{
+	__builtin_memset(daddr, 0, sizeof(*daddr));
+	daddr->addr[10] = 0xff;
+	daddr->addr[11] = 0xff;
+	daddr->p4 = v4;
 }
 
 /* Hack due to missing narrow ctx access. */
@@ -96,9 +117,9 @@ __u64 sock_local_cookie(struct bpf_sock_addr *ctx)
 }
 
 static __always_inline __maybe_unused
-bool sock_proto_enabled(const struct bpf_sock_addr *ctx)
+bool sock_proto_enabled(uint32_t proto)
 {
-	switch (ctx->protocol) {
+	switch (proto) {
 #ifdef ENABLE_HOST_SERVICES_TCP
 	case IPPROTO_TCP:
 		return true;
@@ -136,10 +157,10 @@ struct bpf_elf_map __section_maps LB4_REVERSE_NAT_SK_MAP = {
 	.max_elem	= 256 * 1024,
 };
 
-static inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
-				      struct lb4_backend *backend,
-				      struct lb4_key *lkey,
-				      struct lb4_service *slave_svc)
+static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
+					       struct lb4_backend *backend,
+					       struct lb4_key *lkey,
+					       struct lb4_service *slave_svc)
 {
 	struct ipv4_revnat_tuple rkey = {};
 	struct ipv4_revnat_entry rval = {};
@@ -156,214 +177,248 @@ static inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 			       &rval, 0);
 }
 #else
-static inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
-				      struct lb4_backend *backend,
-				      struct lb4_key *lkey,
-				      struct lb4_service *slave_svc)
+static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
+					       struct lb4_backend *backend,
+					       struct lb4_key *lkey,
+					       struct lb4_service *slave_svc)
 {
 	return -1;
 }
 #endif /* ENABLE_HOST_SERVICES_UDP */
 
-static inline void sock4_handle_node_port(struct bpf_sock_addr *ctx,
-					  struct lb4_key *key)
+static __always_inline bool sock4_skip_xlate(struct lb4_service *svc,
+					     __be32 address)
+{
+	if (is_v4_loopback(address))
+		return false;
+	if (svc->local_scope || lb4_svc_is_external_ip(svc)) {
+		struct remote_endpoint_info *info;
+
+		info = ipcache_lookup4(&IPCACHE_MAP, address,
+				       V4_CACHE_KEY_LEN);
+		if (info == NULL ||
+		     (svc->local_scope && info->sec_label != HOST_ID) ||
+		    (!svc->local_scope && info->sec_label != HOST_ID &&
+					  info->sec_label != REMOTE_NODE_ID))
+			return true;
+	}
+
+	return false;
+}
+
+static __always_inline
+struct lb4_service *sock4_nodeport_wildcard_lookup(struct lb4_key *key,
+						   const bool include_remote_hosts)
 {
 #ifdef ENABLE_NODEPORT
 	struct remote_endpoint_info *info;
-	__be32 daddr = ctx->user_ip4;
 	__u16 service_port;
 
 	service_port = bpf_ntohs(key->dport);
 	if (service_port < NODEPORT_PORT_MIN ||
 	    service_port > NODEPORT_PORT_MAX)
-		goto out_fill_addr;
+		return NULL;
 
 	/* When connecting to node port services in our cluster that
-	 * have either HOST_ID or loopback address, we do a wild-card
-	 * lookup with IP of 0.
+	 * have either {REMOTE_NODE,HOST}_ID or loopback address, we
+	 * do a wild-card lookup with IP of 0.
 	 */
-	if (is_v4_loopback(daddr))
-		return;
+	if (is_v4_loopback(key->address))
+		goto wildcard_lookup;
 
-	info = ipcache_lookup4(&IPCACHE_MAP, daddr, V4_CACHE_KEY_LEN);
-	if (info != NULL && info->sec_label == HOST_ID)
-		return;
+	info = ipcache_lookup4(&IPCACHE_MAP, key->address, V4_CACHE_KEY_LEN);
+	if (info != NULL && (info->sec_label == HOST_ID ||
+	    (include_remote_hosts && info->sec_label == REMOTE_NODE_ID)))
+		goto wildcard_lookup;
 
-	/* For everything else in terms of node port, do a direct lookup. */
-out_fill_addr:
-	key->address = daddr;
+	return NULL;
+wildcard_lookup:
+	key->address = 0;
+	return __lb4_lookup_service(key);
 #else
-	key->address = ctx->user_ip4;
+	return NULL;
 #endif /* ENABLE_NODEPORT */
+}
+
+static __always_inline int __sock4_xlate(struct bpf_sock_addr *ctx,
+					 struct bpf_sock_addr *ctx_full)
+{
+	struct lb4_backend *backend;
+	struct lb4_service *svc;
+	struct lb4_key key = {
+		.address	= ctx->user_ip4,
+		.dport		= ctx_get_port(ctx),
+	};
+	struct lb4_service *slave_svc;
+
+	if (!sock_proto_enabled(ctx->protocol))
+		return -ENOTSUP;
+
+	/* Initial non-wildcarded lookup handles regular services
+	 * deployed in nodeport range, external ip and partially
+	 * nodeport services. If latter fails, we try wildcarded
+	 * lookup for nodeport services.
+	 */
+	svc = __lb4_lookup_service(&key);
+	if (!svc) {
+		key.dport = ctx_get_port(ctx);
+
+		svc = sock4_nodeport_wildcard_lookup(&key, true);
+		if (svc && !lb4_svc_is_nodeport(svc))
+			svc = NULL;
+	}
+	if (!svc)
+		return -ENXIO;
+
+	/* Do not perform service translation for external IPs
+	 * that are not a local address because we don't want
+	 * a k8s service to easily do MITM attacks for a public
+	 * IP address. But do the service translation if the IP
+	 * is from the host.
+	 */
+	if (sock4_skip_xlate(svc, ctx->user_ip4))
+		return -EPERM;
+
+	key.slave = (sock_local_cookie(ctx_full) % svc->count) + 1;
+
+	slave_svc = __lb4_lookup_slave(&key);
+	if (!slave_svc) {
+		update_metrics(0, METRIC_EGRESS, REASON_LB_NO_SLAVE);
+		return -ENOENT;
+	}
+
+	backend = __lb4_lookup_backend(slave_svc->backend_id);
+	if (!backend) {
+		update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND);
+		return -ENOENT;
+	}
+
+	if (ctx->protocol != IPPROTO_TCP &&
+	    sock4_update_revnat(ctx_full, backend, &key,
+				slave_svc) < 0) {
+		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
+		return -ENOMEM;
+	}
+
+	ctx->user_ip4	= backend->address;
+	ctx_set_port(ctx, backend->port);
+
+	return 0;
 }
 
 __section("from-sock4")
 int sock4_xlate(struct bpf_sock_addr *ctx)
 {
-	struct lb4_backend *backend;
-	struct lb4_service *svc;
-	struct lb4_key key = {
-		.dport		= ctx_get_port(ctx),
-	};
-	struct lb4_service *slave_svc;
-
-	if (!sock_proto_enabled(ctx))
-		return CONNECT_PROCEED;
-
-#ifdef ENABLE_K8S_EXTERNAL_IP  /* ENABLE_K8S_EXTERNAL_IP */
-	/* We need to check if a possible external IP address exists in the
-	 * service map. This is because kubernetes allows to set host IPs as
-	 * externalIPs.
-	 */
-	key.address = ctx->user_ip4;
-	svc = __lb4_lookup_service(&key);
-
-	if (!svc) {
-		key.address = 0;
-		key.dport = ctx_get_port(ctx);
-		sock4_handle_node_port(ctx, &key);
-		/* We already performed a lookup where key.address is
-		 * ctx->user_ip4. If it was not found then it is not going to
-		 * be found again.
-		 */
-		if (key.address != ctx->user_ip4) {
-			svc = __lb4_lookup_service(&key);
-		}
-	}
-#else
-	sock4_handle_node_port(ctx, &key);
-
-	svc = __lb4_lookup_service(&key);
-#endif  /* ENABLE_K8S_EXTERNAL_IP */
-
-	if (svc) {
-#ifdef ENABLE_K8S_EXTERNAL_IP  /* ENABLE_K8S_EXTERNAL_IP */
-		/* Do not perform service translation for external IPs that
-		 * are not a local address because we don't want a k8s service
-		 * to easily do MITM attacks for a public IP address. But do the
-		 * service translation if the IP is from the host.
-		 */
-		if (svc->k8s_external) {
-			struct remote_endpoint_info *info;
-			info = ipcache_lookup4(&IPCACHE_MAP, key.address, V4_CACHE_KEY_LEN);
-			if (info == NULL || info->sec_label != HOST_ID)
-				return CONNECT_PROCEED;
-		}
-#endif /* ENABLE_K8S_EXTERNAL_IP */
-
-		key.slave = (sock_local_cookie(ctx) % svc->count) + 1;
-
-		slave_svc = __lb4_lookup_slave(&key);
-		if (!slave_svc) {
-			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_SLAVE);
-			return CONNECT_PROCEED;
-		}
-
-		backend = __lb4_lookup_backend(slave_svc->backend_id);
-		if (!backend) {
-			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND);
-			return CONNECT_PROCEED;
-		}
-
-		if (ctx->protocol != IPPROTO_TCP &&
-		    sock4_update_revnat(ctx, backend, &key,
-					slave_svc) < 0) {
-			update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
-			return CONNECT_PROCEED;
-		}
-
-		ctx->user_ip4	= backend->address;
-		ctx_set_port(ctx, backend->port);
-	}
-
-	return CONNECT_PROCEED;
+	__sock4_xlate(ctx, ctx);
+	return SYS_PROCEED;
 }
 
+#if defined(ENABLE_NODEPORT) || defined(ENABLE_EXTERNAL_IP)
+static __always_inline int __sock4_post_bind(struct bpf_sock *ctx)
+{
+	struct lb4_service *svc;
+	struct lb4_key key = {
+		.address	= ctx->src_ip4,
+		.dport		= bpf_htons(ctx->src_port),
+	};
+
+	if (!sock_proto_enabled(ctx->protocol))
+		return 0;
+
+	svc = __lb4_lookup_service(&key);
+	if (!svc) {
+		/* Perform a wildcard lookup for the case where the caller tries
+		 * to bind to loopback or an address with host identity
+		 * (without remote hosts).
+		 */
+		key.dport = bpf_htons(ctx->src_port);
+		svc = sock4_nodeport_wildcard_lookup(&key, false);
+	}
+
+	/* If the sockaddr of this socket overlaps with a NodePort
+	 * or ExternalIP service. We must reject this bind() call
+	 * to avoid accidentally hijacking its traffic.
+	 */
+	if (svc && (lb4_svc_is_nodeport(svc) || lb4_svc_is_external_ip(svc)))
+		return -EADDRINUSE;
+
+	return 0;
+}
+
+__section("post-bind-sock4")
+int sock4_post_bind(struct bpf_sock *ctx)
+{
+	if (__sock4_post_bind(ctx) < 0)
+		return SYS_REJECT;
+
+	return SYS_PROCEED;
+}
+#endif /* ENABLE_NODEPORT || ENABLE_EXTERNAL_IP */
+
 #ifdef ENABLE_HOST_SERVICES_UDP
+static __always_inline int __sock4_xlate_snd(struct bpf_sock_addr *ctx,
+					     struct bpf_sock_addr *ctx_full)
+{
+	struct lb4_key lkey = {
+		.address	= ctx->user_ip4,
+		.dport		= ctx_get_port(ctx),
+	};
+	struct lb4_backend *backend;
+	struct lb4_service *svc;
+	struct lb4_service *slave_svc;
+
+	svc = __lb4_lookup_service(&lkey);
+	if (!svc) {
+		lkey.dport = ctx_get_port(ctx);
+		svc = sock4_nodeport_wildcard_lookup(&lkey, true);
+		if (svc && !lb4_svc_is_nodeport(svc))
+			svc = NULL;
+	}
+	if (!svc)
+		return -ENXIO;
+
+	if (sock4_skip_xlate(svc, ctx->user_ip4))
+		return -EPERM;
+
+	lkey.slave = (sock_local_cookie(ctx_full) % svc->count) + 1;
+
+	slave_svc = __lb4_lookup_slave(&lkey);
+	if (!slave_svc) {
+		update_metrics(0, METRIC_EGRESS, REASON_LB_NO_SLAVE);
+		return -ENOENT;
+	}
+
+	backend = __lb4_lookup_backend(slave_svc->backend_id);
+	if (!backend) {
+		update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND);
+		return -ENOENT;
+	}
+
+	if (sock4_update_revnat(ctx_full, backend, &lkey,
+				slave_svc) < 0) {
+		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
+		return -ENOMEM;
+	}
+
+	ctx->user_ip4 = backend->address;
+	ctx_set_port(ctx, backend->port);
+
+	return 0;
+}
+
 __section("snd-sock4")
 int sock4_xlate_snd(struct bpf_sock_addr *ctx)
 {
-	struct lb4_key lkey = {
-		.dport		= ctx_get_port(ctx),
-	};
-	struct lb4_backend *backend;
-	struct lb4_service *svc;
-	struct lb4_service *slave_svc;
-
-#ifdef ENABLE_K8S_EXTERNAL_IP  /* ENABLE_K8S_EXTERNAL_IP */
-	/* We need to check if a possible external IP address exists in the
-	 * service map. This is because kubernetes allows to set host IPs as
-	 * externalIPs.
-	 */
-	lkey.address = ctx->user_ip4;
-	svc = __lb4_lookup_service(&lkey);
-
-	if (!svc) {
-		lkey.address = 0;
-		lkey.dport = ctx_get_port(ctx);
-		sock4_handle_node_port(ctx, &lkey);
-		/* We already performed a lookup where lkey.address is
-		 * ctx->user_ip4. If it was not found then it is not going to
-		 * be found again.
-		 */
-		if (lkey.address != ctx->user_ip4) {
-			svc = __lb4_lookup_service(&lkey);
-		}
-	}
-#else
-	sock4_handle_node_port(ctx, &lkey);
-
-	svc = __lb4_lookup_service(&lkey);
-#endif  /* ENABLE_K8S_EXTERNAL_IP */
-
-	if (svc) {
-#ifdef ENABLE_K8S_EXTERNAL_IP  /* ENABLE_K8S_EXTERNAL_IP */
-		/* Do not perform service translation for external IPs that
-		 * are not a local address because we don't want a k8s service
-		 * to easily do MITM attacks for a public IP address. But do the
-		 * service translation if the IP is from the host.
-		 */
-		if (svc->k8s_external) {
-			struct remote_endpoint_info *info;
-			info = ipcache_lookup4(&IPCACHE_MAP, lkey.address, V4_CACHE_KEY_LEN);
-			if (info == NULL || info->sec_label != HOST_ID)
-				return CONNECT_PROCEED;
-		}
-#endif /* ENABLE_K8S_EXTERNAL_IP */
-
-		lkey.slave = (sock_local_cookie(ctx) % svc->count) + 1;
-
-		slave_svc = __lb4_lookup_slave(&lkey);
-		if (!slave_svc) {
-			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_SLAVE);
-			return SENDMSG_PROCEED;
-		}
-
-		backend = __lb4_lookup_backend(slave_svc->backend_id);
-		if (!backend) {
-			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND);
-			return SENDMSG_PROCEED;
-		}
-
-		if (sock4_update_revnat(ctx, backend, &lkey,
-					slave_svc) < 0) {
-			update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
-			return SENDMSG_PROCEED;
-		}
-
-		ctx->user_ip4 = backend->address;
-		ctx_set_port(ctx, backend->port);
-	}
-
-	return SENDMSG_PROCEED;
+	__sock4_xlate_snd(ctx, ctx);
+	return SYS_PROCEED;
 }
 
-__section("rcv-sock4")
-int sock4_xlate_rcv(struct bpf_sock_addr *ctx)
+static __always_inline int __sock4_xlate_rcv(struct bpf_sock_addr *ctx,
+					     struct bpf_sock_addr *ctx_full)
 {
 	struct ipv4_revnat_entry *rval;
 	struct ipv4_revnat_tuple rkey = {
-		.cookie		= sock_local_cookie(ctx),
+		.cookie		= sock_local_cookie(ctx_full),
 		.address	= ctx->user_ip4,
 		.port		= ctx_get_port(ctx),
 	};
@@ -380,14 +435,22 @@ int sock4_xlate_rcv(struct bpf_sock_addr *ctx)
 		if (!svc || svc->rev_nat_index != rval->rev_nat_index) {
 			map_delete_elem(&LB4_REVERSE_NAT_SK_MAP, &rkey);
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);
-			return RECVMSG_PROCEED;
+			return -ENOENT;
 		}
 
 		ctx->user_ip4 = rval->address;
 		ctx_set_port(ctx, rval->port);
+		return 0;
 	}
 
-	return RECVMSG_PROCEED;
+	return -ENXIO;
+}
+
+__section("rcv-sock4")
+int sock4_xlate_rcv(struct bpf_sock_addr *ctx)
+{
+	__sock4_xlate_rcv(ctx, ctx);
+	return SYS_PROCEED;
 }
 #endif /* ENABLE_HOST_SERVICES_UDP */
 #endif /* ENABLE_IPV4 */
@@ -415,10 +478,10 @@ struct bpf_elf_map __section_maps LB6_REVERSE_NAT_SK_MAP = {
 	.max_elem	= 256 * 1024,
 };
 
-static inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
-				      struct lb6_backend *backend,
-				      struct lb6_key *lkey,
-				      struct lb6_service *slave_svc)
+static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
+					       struct lb6_backend *backend,
+					       struct lb6_key *lkey,
+					       struct lb6_service *slave_svc)
 {
 	struct ipv6_revnat_tuple rkey = {};
 	struct ipv6_revnat_entry rval = {};
@@ -435,10 +498,10 @@ static inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 			       &rval, 0);
 }
 #else
-static inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
-				      struct lb6_backend *backend,
-				      struct lb6_key *lkey,
-				      struct lb6_service *slave_svc)
+static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
+					       struct lb6_backend *backend,
+					       struct lb6_key *lkey,
+					       struct lb6_service *slave_svc)
 {
 	return -1;
 }
@@ -453,6 +516,17 @@ static __always_inline void ctx_get_v6_address(struct bpf_sock_addr *ctx,
 	addr->p4 = ctx->user_ip6[3];
 }
 
+#ifdef ENABLE_NODEPORT
+static __always_inline void ctx_get_v6_src_address(struct bpf_sock *ctx,
+					       union v6addr *addr)
+{
+	addr->p1 = ctx->src_ip6[0];
+	addr->p2 = ctx->src_ip6[1];
+	addr->p3 = ctx->src_ip6[2];
+	addr->p4 = ctx->src_ip6[3];
+}
+#endif /* ENABLE_NODEPORT */
+
 static __always_inline void ctx_set_v6_address(struct bpf_sock_addr *ctx,
 					       union v6addr *addr)
 {
@@ -462,42 +536,150 @@ static __always_inline void ctx_set_v6_address(struct bpf_sock_addr *ctx,
 	ctx->user_ip6[3] = addr->p4;
 }
 
-static inline void sock6_handle_node_port(struct bpf_sock_addr *ctx,
-					  struct lb6_key *key)
+static __always_inline bool sock6_skip_xlate(struct lb6_service *svc,
+					     union v6addr *address)
+{
+	if (is_v6_loopback(address))
+		return false;
+	if (svc->local_scope || lb6_svc_is_external_ip(svc)) {
+		struct remote_endpoint_info *info;
+
+		info = ipcache_lookup6(&IPCACHE_MAP, address,
+				       V6_CACHE_KEY_LEN);
+		if (info == NULL ||
+		     (svc->local_scope && info->sec_label != HOST_ID) ||
+		    (!svc->local_scope && info->sec_label != HOST_ID &&
+					  info->sec_label != REMOTE_NODE_ID))
+			return true;
+	}
+
+	return false;
+}
+
+static __always_inline
+struct lb6_service *sock6_nodeport_wildcard_lookup(struct lb6_key *key,
+						   bool include_remote_hosts)
 {
 #ifdef ENABLE_NODEPORT
 	struct remote_endpoint_info *info;
-	union v6addr daddr;
 	__u16 service_port;
-
-	ctx_get_v6_address(ctx, &daddr);
 
 	service_port = bpf_ntohs(key->dport);
 	if (service_port < NODEPORT_PORT_MIN ||
 	    service_port > NODEPORT_PORT_MAX)
-		goto out_fill_addr;
+		return NULL;
 
 	/* When connecting to node port services in our cluster that
-	 * have either HOST_ID or loopback address, we do a wild-card
-	 * lookup with IP of 0.
+	 * have either {REMOTE_NODE,HOST}_ID or loopback address, we
+	 * do a wild-card lookup with IP of 0.
 	 */
-	if (is_v6_loopback(&daddr))
-		return;
+	if (is_v6_loopback(&key->address))
+		goto wildcard_lookup;
 
-	info = ipcache_lookup6(&IPCACHE_MAP, &daddr, V6_CACHE_KEY_LEN);
-	if (info != NULL && info->sec_label == HOST_ID)
-		return;
+	info = ipcache_lookup6(&IPCACHE_MAP, &key->address, V6_CACHE_KEY_LEN);
+	if (info != NULL && (info->sec_label == HOST_ID ||
+	    (include_remote_hosts && info->sec_label == REMOTE_NODE_ID)))
+		goto wildcard_lookup;
 
-	/* For everything else in terms of node port, do a direct lookup. */
-out_fill_addr:
-	key->address = daddr;
+	return NULL;
+wildcard_lookup:
+	__builtin_memset(&key->address, 0, sizeof(key->address));
+	return __lb6_lookup_service(key);
 #else
-	ctx_get_v6_address(ctx, &key->address);
+	return NULL;
 #endif /* ENABLE_NODEPORT */
 }
 
-__section("from-sock6")
-int sock6_xlate(struct bpf_sock_addr *ctx)
+static __always_inline int sock6_xlate_v4_in_v6(struct bpf_sock_addr *ctx)
+{
+#ifdef ENABLE_IPV4
+	struct bpf_sock_addr fake_ctx;
+	union v6addr addr6;
+	int ret;
+
+	ctx_get_v6_address(ctx, &addr6);
+	if (!is_v4_in_v6(&addr6))
+		return -ENXIO;
+
+	__builtin_memset(&fake_ctx, 0, sizeof(fake_ctx));
+	fake_ctx.protocol  = ctx->protocol;
+	fake_ctx.user_ip4  = addr6.p4;
+	fake_ctx.user_port = ctx_get_port(ctx);
+
+	ret = __sock4_xlate(&fake_ctx, ctx);
+	if (ret < 0)
+		return ret;
+
+	build_v4_in_v6(&addr6, fake_ctx.user_ip4);
+	ctx_set_v6_address(ctx, &addr6);
+	ctx_set_port(ctx, fake_ctx.user_port);
+
+	return 0;
+#endif /* ENABLE_IPV4 */
+	return -ENXIO;
+}
+
+#if defined(ENABLE_NODEPORT) || defined(ENABLE_EXTERNAL_IP)
+static __always_inline int sock6_post_bind_v4_in_v6(struct bpf_sock *ctx)
+{
+#ifdef ENABLE_IPV4
+	struct bpf_sock fake_ctx;
+	union v6addr addr6;
+
+	ctx_get_v6_src_address(ctx, &addr6);
+	if (!is_v4_in_v6(&addr6))
+		return 0;
+
+	__builtin_memset(&fake_ctx, 0, sizeof(fake_ctx));
+	fake_ctx.protocol = ctx->protocol;
+	fake_ctx.src_ip4  = addr6.p4;
+	fake_ctx.src_port = ctx->src_port;
+
+	return __sock4_post_bind(&fake_ctx);
+#endif /* ENABLE_IPV4 */
+	return 0;
+}
+
+static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
+{
+	struct lb6_service *svc;
+	struct lb6_key key = {
+		.dport		= bpf_htons(ctx->src_port),
+	};
+
+	if (!sock_proto_enabled(ctx->protocol))
+		return 0;
+
+	ctx_get_v6_src_address(ctx, &key.address);
+
+	svc = __lb6_lookup_service(&key);
+	if (!svc) {
+		key.dport = bpf_htons(ctx->src_port);
+		svc = sock6_nodeport_wildcard_lookup(&key, false);
+		if (!svc)
+			return sock6_post_bind_v4_in_v6(ctx);
+	}
+
+	if (svc && (lb6_svc_is_nodeport(svc) || lb6_svc_is_external_ip(svc))) {
+		return -EADDRINUSE;
+	}
+
+	return 0;
+}
+
+
+__section("post-bind-sock6")
+int sock6_post_bind(struct bpf_sock *ctx)
+{
+	if (__sock6_post_bind(ctx) < 0)
+		return SYS_REJECT;
+
+	return SYS_PROCEED;
+}
+
+#endif /* ENABLE_NODEPORT || ENABLE_EXTERNAL_IP */
+
+static __always_inline int __sock6_xlate(struct bpf_sock_addr *ctx)
 {
 	struct lb6_backend *backend;
 	struct lb6_service *svc;
@@ -505,80 +687,95 @@ int sock6_xlate(struct bpf_sock_addr *ctx)
 		.dport		= ctx_get_port(ctx),
 	};
 	struct lb6_service *slave_svc;
+	union v6addr v6_orig;
 
-#ifdef ENABLE_K8S_EXTERNAL_IP  /* ENABLE_K8S_EXTERNAL_IP */
-	/* We need to check if a possible external IP address exists in the
-	 * service map. This is because kubernetes allows to set host IPs as
-	 * externalIPs.
-	 */
+	if (!sock_proto_enabled(ctx->protocol))
+		return -ENOTSUP;
+
 	ctx_get_v6_address(ctx, &key.address);
-	svc = __lb6_lookup_service(&key);
+	v6_orig = key.address;
 
+	svc = __lb6_lookup_service(&key);
 	if (!svc) {
-		__builtin_memset(&key.address, 0, sizeof(union v6addr));
 		key.dport = ctx_get_port(ctx);
-		sock6_handle_node_port(ctx, &key);
-		/* We already performed a lookup where key.address is
-		 * ctx->user_ip6. If it was not found then it is not going to
-		 * be found again.
-		 */
-		union v6addr user_ip6;
-		ctx_get_v6_address(ctx, &user_ip6);
-		if (ipv6_addrcmp(&key.address, &user_ip6) != 0 ) {
-			svc = __lb6_lookup_service(&key);
-		}
+
+		svc = sock6_nodeport_wildcard_lookup(&key, true);
+		if (svc && !lb6_svc_is_nodeport(svc))
+			svc = NULL;
+		else if (!svc)
+			return sock6_xlate_v4_in_v6(ctx);
 	}
-#else
-	sock6_handle_node_port(ctx, &key);
+	if (!svc)
+		return -ENXIO;
 
-	svc = __lb6_lookup_service(&key);
-#endif  /* ENABLE_K8S_EXTERNAL_IP */
+	if (sock6_skip_xlate(svc, &v6_orig))
+		return -EPERM;
 
-	if (svc) {
-#ifdef ENABLE_K8S_EXTERNAL_IP  /* ENABLE_K8S_EXTERNAL_IP */
-		/* Do not perform service translation for external IPs that
-		 * are not a local address because we don't want a k8s service
-		 * to easily do MITM attacks for a public IP address. But do the
-		 * service translation if the IP is from the host.
-		 */
-		if (svc->k8s_external) {
-			struct remote_endpoint_info *info;
-			info = ipcache_lookup6(&IPCACHE_MAP, &key.address, V6_CACHE_KEY_LEN);
-			if (info == NULL || info->sec_label != HOST_ID)
-				return CONNECT_PROCEED;
-		}
-#endif /* ENABLE_K8S_EXTERNAL_IP */
-		key.slave = (sock_local_cookie(ctx) % svc->count) + 1;
+	key.slave = (sock_local_cookie(ctx) % svc->count) + 1;
 
-		slave_svc = __lb6_lookup_slave(&key);
-		if (!slave_svc) {
-			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_SLAVE);
-			return CONNECT_PROCEED;
-		}
-
-		backend = __lb6_lookup_backend(slave_svc->backend_id);
-		if (!backend) {
-			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND);
-			return CONNECT_PROCEED;
-		}
-
-		if (ctx->protocol != IPPROTO_TCP &&
-		    sock6_update_revnat(ctx, backend, &key,
-				        slave_svc) < 0) {
-			update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
-			return CONNECT_PROCEED;
-		}
-
-		ctx_set_v6_address(ctx, &backend->address);
-		ctx_set_port(ctx, backend->port);
+	slave_svc = __lb6_lookup_slave(&key);
+	if (!slave_svc) {
+		update_metrics(0, METRIC_EGRESS, REASON_LB_NO_SLAVE);
+		return -ENOENT;
 	}
 
-	return CONNECT_PROCEED;
+	backend = __lb6_lookup_backend(slave_svc->backend_id);
+	if (!backend) {
+		update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND);
+		return -ENOENT;
+	}
+
+	if (ctx->protocol != IPPROTO_TCP &&
+	    sock6_update_revnat(ctx, backend, &key,
+			        slave_svc) < 0) {
+		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
+		return -ENOMEM;
+	}
+
+	ctx_set_v6_address(ctx, &backend->address);
+	ctx_set_port(ctx, backend->port);
+
+	return 0;
+}
+
+__section("from-sock6")
+int sock6_xlate(struct bpf_sock_addr *ctx)
+{
+	__sock6_xlate(ctx);
+	return SYS_PROCEED;
 }
 
 #ifdef ENABLE_HOST_SERVICES_UDP
-__section("snd-sock6")
-int sock6_xlate_snd(struct bpf_sock_addr *ctx)
+static __always_inline int sock6_xlate_snd_v4_in_v6(struct bpf_sock_addr *ctx)
+{
+#ifdef ENABLE_IPV4
+	struct bpf_sock_addr fake_ctx;
+	union v6addr addr6;
+	int ret;
+
+	ctx_get_v6_address(ctx, &addr6);
+	if (!is_v4_in_v6(&addr6))
+		return -ENXIO;
+
+	__builtin_memset(&fake_ctx, 0, sizeof(fake_ctx));
+	fake_ctx.protocol  = ctx->protocol;
+	fake_ctx.user_ip4  = addr6.p4;
+	fake_ctx.user_port = ctx_get_port(ctx);
+
+	ret = __sock4_xlate_snd(&fake_ctx, ctx);
+	if (ret < 0)
+		return ret;
+
+	build_v4_in_v6(&addr6, fake_ctx.user_ip4);
+	ctx_set_v6_address(ctx, &addr6);
+	ctx_set_port(ctx, fake_ctx.user_port);
+
+	return 0;
+#endif /* ENABLE_IPV4 */
+	return -ENXIO;
+}
+
+static __always_inline int __sock6_xlate_snd(struct bpf_sock_addr *ctx)
 {
 	struct lb6_backend *backend;
 	struct lb6_service *svc;
@@ -586,78 +783,90 @@ int sock6_xlate_snd(struct bpf_sock_addr *ctx)
 		.dport		= ctx_get_port(ctx),
 	};
 	struct lb6_service *slave_svc;
+	union v6addr v6_orig;
 
-#ifdef ENABLE_K8S_EXTERNAL_IP  /* ENABLE_K8S_EXTERNAL_IP */
-	/* We need to check if a possible external IP address exists in the
-	 * service map. This is because kubernetes allows to set host IPs as
-	 * externalIPs.
-	 */
 	ctx_get_v6_address(ctx, &lkey.address);
-	svc = __lb6_lookup_service(&lkey);
+	v6_orig = lkey.address;
 
+	svc = __lb6_lookup_service(&lkey);
 	if (!svc) {
-		__builtin_memset(&lkey.address, 0, sizeof(union v6addr));
 		lkey.dport = ctx_get_port(ctx);
-		sock6_handle_node_port(ctx, &lkey);
-		/* We already performed a lookup where lkey.address is
-		 * ctx->user_ip6. If it was not found then it is not going to
-		 * be found again.
-		 */
-		union v6addr user_ip6;
-		ctx_get_v6_address(ctx, &user_ip6);
-		if (ipv6_addrcmp(&lkey.address, &user_ip6) != 0 ) {
-			svc = __lb6_lookup_service(&lkey);
-		}
+
+		svc = sock6_nodeport_wildcard_lookup(&lkey, true);
+		if (svc && !lb6_svc_is_nodeport(svc))
+			svc = NULL;
+		else if (!svc)
+			return sock6_xlate_snd_v4_in_v6(ctx);
 	}
-#else
-	sock6_handle_node_port(ctx, &lkey);
+	if (!svc)
+		return -ENXIO;
 
-	svc = __lb6_lookup_service(&lkey);
-#endif  /* ENABLE_K8S_EXTERNAL_IP */
+	if (sock6_skip_xlate(svc, &v6_orig))
+		return -EPERM;
 
-	if (svc) {
-#ifdef ENABLE_K8S_EXTERNAL_IP  /* ENABLE_K8S_EXTERNAL_IP */
-		/* Do not perform service translation for external IPs that
-		 * are not a local address because we don't want a k8s service
-		 * to easily do MITM attacks for a public IP address. But do the
-		 * service translation if the IP is from the host.
-		 */
-		if (svc->k8s_external) {
-			struct remote_endpoint_info *info;
-			info = ipcache_lookup6(&IPCACHE_MAP, &lkey.address, V6_CACHE_KEY_LEN);
-			if (info == NULL || info->sec_label != HOST_ID)
-				return CONNECT_PROCEED;
-		}
-#endif /* ENABLE_K8S_EXTERNAL_IP */
-		lkey.slave = (sock_local_cookie(ctx) % svc->count) + 1;
+	lkey.slave = (sock_local_cookie(ctx) % svc->count) + 1;
 
-		slave_svc = __lb6_lookup_slave(&lkey);
-		if (!slave_svc) {
-			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_SLAVE);
-			return CONNECT_PROCEED;
-		}
-
-		backend = __lb6_lookup_backend(slave_svc->backend_id);
-		if (!backend) {
-			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND);
-			return CONNECT_PROCEED;
-		}
-
-		if (sock6_update_revnat(ctx, backend, &lkey,
-				        slave_svc) < 0) {
-			update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
-			return CONNECT_PROCEED;
-		}
-
-		ctx_set_v6_address(ctx, &backend->address);
-		ctx_set_port(ctx, backend->port);
+	slave_svc = __lb6_lookup_slave(&lkey);
+	if (!slave_svc) {
+		update_metrics(0, METRIC_EGRESS, REASON_LB_NO_SLAVE);
+		return -ENOENT;
 	}
 
-	return CONNECT_PROCEED;
+	backend = __lb6_lookup_backend(slave_svc->backend_id);
+	if (!backend) {
+		update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND);
+		return -ENOENT;
+	}
+
+	if (sock6_update_revnat(ctx, backend, &lkey,
+			        slave_svc) < 0) {
+		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
+		return -ENOMEM;
+	}
+
+	ctx_set_v6_address(ctx, &backend->address);
+	ctx_set_port(ctx, backend->port);
+
+	return 0;
 }
 
-__section("rcv-sock6")
-int sock6_xlate_rcv(struct bpf_sock_addr *ctx)
+__section("snd-sock6")
+static __always_inline int sock6_xlate_snd(struct bpf_sock_addr *ctx)
+{
+	__sock6_xlate_snd(ctx);
+	return SYS_PROCEED;
+}
+
+static __always_inline int sock6_xlate_rcv_v4_in_v6(struct bpf_sock_addr *ctx)
+{
+#ifdef ENABLE_IPV4
+	struct bpf_sock_addr fake_ctx;
+	union v6addr addr6;
+	int ret;
+
+	ctx_get_v6_address(ctx, &addr6);
+	if (!is_v4_in_v6(&addr6))
+		return -ENXIO;
+
+	__builtin_memset(&fake_ctx, 0, sizeof(fake_ctx));
+	fake_ctx.protocol  = ctx->protocol;
+	fake_ctx.user_ip4  = addr6.p4;
+	fake_ctx.user_port = ctx_get_port(ctx);
+
+	ret = __sock4_xlate_rcv(&fake_ctx, ctx);
+	if (ret < 0)
+		return ret;
+
+	build_v4_in_v6(&addr6, fake_ctx.user_ip4);
+	ctx_set_v6_address(ctx, &addr6);
+	ctx_set_port(ctx, fake_ctx.user_port);
+
+	return 0;
+#endif /* ENABLE_IPV4 */
+	return -ENXIO;
+}
+
+static __always_inline int __sock6_xlate_rcv(struct bpf_sock_addr *ctx)
 {
 	struct ipv6_revnat_tuple rkey = {};
 	struct ipv6_revnat_entry *rval;
@@ -678,14 +887,22 @@ int sock6_xlate_rcv(struct bpf_sock_addr *ctx)
 		if (!svc || svc->rev_nat_index != rval->rev_nat_index) {
 			map_delete_elem(&LB6_REVERSE_NAT_SK_MAP, &rkey);
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);
-			return RECVMSG_PROCEED;
+			return -ENOENT;
 		}
 
 		ctx_set_v6_address(ctx, &rval->address);
 		ctx_set_port(ctx, rval->port);
+		return 0;
 	}
 
-	return RECVMSG_PROCEED;
+	return sock6_xlate_rcv_v4_in_v6(ctx);
+}
+
+__section("rcv-sock6")
+int sock6_xlate_rcv(struct bpf_sock_addr *ctx)
+{
+	__sock6_xlate_rcv(ctx);
+	return SYS_PROCEED;
 }
 #endif /* ENABLE_HOST_SERVICES_UDP */
 #endif /* ENABLE_IPV6 */

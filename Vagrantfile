@@ -109,17 +109,6 @@ end
 ENV["LC_ALL"] = "en_US.UTF-8"
 ENV["LC_CTYPE"] = "en_US.UTF-8"
 
-# We need this workaround since kube-proxy is not aware of multiple network
-# interfaces. If we send a packet to a service IP that packet is sent
-# to the default route, because the service IP is unknown by the linux routing
-# table, with the source IP of the interface in the default routing table, even
-# though the service IP should be routed to a different interface.
-# This particular workaround is only needed for cilium, running on a pod on host
-# network namespace, to reach out kube-api-server.
-$kube_proxy_workaround = <<SCRIPT
-sudo iptables -t nat -A POSTROUTING -o enp0s8 ! -s 192.168.34.12 -j MASQUERADE
-SCRIPT
-
 Vagrant.configure(2) do |config|
     config.vm.provision "bootstrap", type: "shell", inline: $bootstrap
     config.vm.provision "build", type: "shell", run: "always", privileged: false, inline: $build
@@ -138,47 +127,6 @@ Vagrant.configure(2) do |config|
         config.vm.box_version = $SERVER_VERSION
         vb.memory = ENV['VM_MEMORY'].to_i
         vb.cpus = ENV['VM_CPUS'].to_i
-        if ENV["NFS"] then
-            mount_type = "nfs"
-            # Don't forget to enable this ports on your host before starting the VM
-            # in order to have nfs working
-            # iptables -I INPUT -p udp -s 192.168.34.0/24 --dport 111 -j ACCEPT
-            # iptables -I INPUT -p udp -s 192.168.34.0/24 --dport 2049 -j ACCEPT
-            # iptables -I INPUT -p udp -s 192.168.34.0/24 --dport 20048 -j ACCEPT
-        else
-            mount_type = ""
-        end
-        config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium', type: mount_type
-        if ENV['USER_MOUNTS'] then
-            # Allow multiple mounts divided by commas
-            ENV['USER_MOUNTS'].split(",").each do |mnt|
-                # Split "<to>=<from>"
-                user_mount = mnt.split("=", 2)
-                # Only one element, assume a path relative to home directories in both ends
-                if user_mount.length == 1 then
-                    user_mount_to = "/home/vagrant/" + user_mount[0]
-                    user_mount_from = "~/" + user_mount[0]
-                else
-                    user_mount_to = user_mount[0]
-                    # Remove "~/" prefix if any.
-                    if user_mount_to.start_with?('~/') then
-                        user_mount_to[0..1] = ''
-                    end
-                    # Add home directory prefix for non-absolute paths
-                    if !user_mount_to.start_with?('/') then
-                        user_mount_to = "/home/vagrant/" + user_mount_to
-                    end
-                    user_mount_from = user_mount[1]
-                    # Add home prefix for host for any path in the project directory
-                    # as it is already mounted.
-                    if !user_mount_from.start_with?('/', '.', '~') then
-                        user_mount_from = "~/" + user_mount_from
-                    end
-                end
-                puts "Mounting host directory #{user_mount_from} as #{user_mount_to}"
-                config.vm.synced_folder "#{user_mount_from}", "#{user_mount_to}", type: mount_type
-            end
-        end
     end
 
     master_vm_name = "#{$vm_base_name}1#{$build_id_name}"
@@ -281,6 +229,51 @@ Vagrant.configure(2) do |config|
                         privileged: true,
                         path: k8sinstall
                 end
+            end
+        end
+    end
+    if ENV["NFS"] then
+        config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium', type: "nfs", nfs_udp: false
+        # Don't forget to enable this ports on your host before starting the VM
+        # in order to have nfs working
+        # iptables -I INPUT -p tcp -s 192.168.34.0/24 --dport 111 -j ACCEPT
+        # iptables -I INPUT -p tcp -s 192.168.34.0/24 --dport 2049 -j ACCEPT
+        # iptables -I INPUT -p tcp -s 192.168.34.0/24 --dport 20048 -j ACCEPT
+    else
+        mount_type = ""
+        config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium', type: mount_type
+    end
+
+    if ENV['USER_MOUNTS'] then
+        # Allow multiple mounts divided by commas
+        ENV['USER_MOUNTS'].split(",").each do |mnt|
+            # Split "<to>=<from>"
+            user_mount = mnt.split("=", 2)
+            # Only one element, assume a path relative to home directories in both ends
+            if user_mount.length == 1 then
+                user_mount_to = "/home/vagrant/" + user_mount[0]
+                user_mount_from = "~/" + user_mount[0]
+            else
+                user_mount_to = user_mount[0]
+                # Remove "~/" prefix if any.
+                if user_mount_to.start_with?('~/') then
+                    user_mount_to[0..1] = ''
+                end
+                # Add home directory prefix for non-absolute paths
+                if !user_mount_to.start_with?('/') then
+                    user_mount_to = "/home/vagrant/" + user_mount_to
+                end
+                user_mount_from = user_mount[1]
+                # Add home prefix for host for any path in the project directory
+                # as it is already mounted.
+                if !user_mount_from.start_with?('/', '.', '~') then
+                    user_mount_from = "~/" + user_mount_from
+                end
+            end
+            if ENV["NFS"] then
+                config.vm.synced_folder "#{user_mount_from}", "#{user_mount_to}", type: "nfs", nfs_udp: false
+            else
+                config.vm.synced_folder "#{user_mount_from}", "#{user_mount_to}", type: mount_type
             end
         end
     end

@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -284,12 +284,20 @@ retryLoop:
 // representing CNPStatus state for all nodes in the cluster.
 var CNPStatusesPath = path.Join(kvstore.BaseKeyPrefix, "state", "cnpstatuses", "v2")
 
-func generateCNPKey(uid, namespace, name string) string {
-	return path.Join(uid, namespace, name)
+// formatKeyNodeForKvstore formats the key to be used for kvstore, it takes into
+// consideration the namespaced nature of the resource, so if the namespace
+// provided is empty then it assumes that the resource corresponding to the key
+// is a clusterwide resource.
+func formatKeyNodeForKvstore(o K8sMetaObject, nodeName string) string {
+	return path.Join(formatKeyForKvstore(o), nodeName)
 }
 
-func formatKeyForKvstore(uid k8sTypes.UID, namespace, name, nodeName string) string {
-	return path.Join(CNPStatusesPath, string(uid), namespace, name, nodeName)
+func formatKeyForKvstore(o K8sMetaObject) string {
+	if o.GetNamespace() != "" {
+		return path.Join(CNPStatusesPath, getKeyFromObject(o))
+	}
+
+	return path.Join(CCNPStatusesPath, getKeyFromObject(o))
 }
 
 func (c *CNPStatusUpdateContext) updateViaAPIServer(cnp *types.SlimCNP, enforcing, ok bool, cnpError error, rev uint64, cnpAnnotations map[string]string) error {
@@ -390,7 +398,10 @@ func (c *CNPStatusUpdateContext) updateViaKVStore(ctx context.Context, cnp *type
 		return err
 	}
 
-	key := formatKeyForKvstore(cnp.UID, cnp.Namespace, cnp.Name, node.GetName())
+	// If the namespace is empty it means that the policy is clusterwide policy.
+	// This is then taken care of internally when we try to join the path using
+	// golangs `path.Join`
+	key := formatKeyNodeForKvstore(cnp.GetObjectMeta(), node.GetName())
 	log.WithFields(logrus.Fields{
 		"key":   key,
 		"value": marshaledVal,
@@ -413,7 +424,7 @@ type CNPNSWithMeta struct {
 // GetKeyName returns the uniquely identifying information of this CNPNSWithMeta
 // as a string for use as a key in a map.
 func (c *CNPNSWithMeta) GetKeyName() string {
-	return path.Join(generateCNPKey(string(c.UID), c.Namespace, c.Name), c.Node)
+	return path.Join(getKeyFromObject(c), c.Node)
 }
 
 // Marshal marshals the CNPNSWithMeta into JSON form.
@@ -431,6 +442,18 @@ func (c *CNPNSWithMeta) Unmarshal(data []byte) error {
 	*c = newCNPNS
 
 	return nil
+}
+
+func (c CNPNSWithMeta) GetUID() k8sTypes.UID {
+	return c.UID
+}
+
+func (c CNPNSWithMeta) GetNamespace() string {
+	return c.Namespace
+}
+
+func (c CNPNSWithMeta) GetName() string {
+	return c.Name
 }
 
 // updateStatusesByCapabilities updates the status for all of the nodes in
@@ -554,6 +577,7 @@ func updateStatusesByCapabilities(client clientset.Interface, capabilities k8sve
 		if ns == "" {
 			ccnp := &cilium_v2.CiliumClusterwideNetworkPolicy{
 				CiliumNetworkPolicy: cnp.CiliumNetworkPolicy,
+				Status:              cnp.CiliumNetworkPolicy.Status,
 			}
 			_, err = client.CiliumV2().CiliumClusterwideNetworkPolicies().UpdateStatus(ccnp)
 		} else {
@@ -573,6 +597,7 @@ func updateStatusesByCapabilities(client clientset.Interface, capabilities k8sve
 		if ns == "" {
 			ccnp := &cilium_v2.CiliumClusterwideNetworkPolicy{
 				CiliumNetworkPolicy: cnp.CiliumNetworkPolicy,
+				Status:              cnp.CiliumNetworkPolicy.Status,
 			}
 			_, err = client.CiliumV2().CiliumClusterwideNetworkPolicies().Update(ccnp)
 		} else {

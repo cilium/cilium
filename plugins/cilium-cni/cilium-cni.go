@@ -318,7 +318,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		return
 	}
 
-	if len(n.NetConf.RawPrevResult) != 0 {
+	if len(n.NetConf.RawPrevResult) != 0 && n.Name != chainingapi.DefaultConfigName {
 		if chainAction := chainingapi.Lookup(n.Name); chainAction != nil {
 			var (
 				res *cniTypesVer.Result
@@ -573,22 +573,24 @@ func cmdDel(args *skel.CmdArgs) error {
 		return fmt.Errorf("unable to connect to Cilium daemon: %s", client.Hint(err))
 	}
 
-	if chainAction := chainingapi.Lookup(n.Name); chainAction != nil {
-		var (
-			ctx = chainingapi.PluginContext{
-				Logger:  logger,
-				Args:    args,
-				CniArgs: cniArgs,
-				NetConf: n,
-				Client:  c,
-			}
-		)
+	if n.Name != chainingapi.DefaultConfigName {
+		if chainAction := chainingapi.Lookup(n.Name); chainAction != nil {
+			var (
+				ctx = chainingapi.PluginContext{
+					Logger:  logger,
+					Args:    args,
+					CniArgs: cniArgs,
+					NetConf: n,
+					Client:  c,
+				}
+			)
 
-		if chainAction.ImplementsDelete() {
-			return chainAction.Delete(context.TODO(), ctx)
+			if chainAction.ImplementsDelete() {
+				return chainAction.Delete(context.TODO(), ctx)
+			}
+		} else {
+			logger.Warnf("Unknown CNI chaining configuration name '%s'", n.Name)
 		}
-	} else {
-		logger.Warnf("Unknown CNI chaining configuration name '%s'", n.Name)
 	}
 
 	id := endpointid.NewID(endpointid.ContainerIdPrefix, args.ContainerID)
@@ -600,6 +602,20 @@ func cmdDel(args *skel.CmdArgs) error {
 		//                         the endpoint is always deleted though, no
 		//                         need to retry
 		log.WithError(err).Warning("Errors encountered while deleting endpoint")
+
+		// Endpoint deletion has failed. We can't be sure whether the
+		// CNI ADD was interrupted in between the IP allocation and the
+		// endpoint creation. In order to guarantee to never leak IP
+		// addresses, delete any IP addresses associated with the pod
+		// being deleted. This task is only done manually on endpoint
+		// delete failure as all IPs of an endpoint are released when
+		// the endpoint is deleted.
+		log.Info("Releasing IPs manually due to inability to delete endpoint")
+		podName := string(cniArgs.K8S_POD_NAMESPACE) + "/" + string(cniArgs.K8S_POD_NAME)
+		err = c.IPAMReleaseIP(podName)
+		if err != nil {
+			log.WithError(err).WithField("pod", podName).Warning("Unable to manually release IPs of pod")
+		}
 	}
 
 	netNs, err := ns.GetNS(args.Netns)

@@ -34,8 +34,9 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 		backgroundError  error
 
 		// these two are set in BeforeAll
-		l7Policy string
-		demoPath string
+		l7Policy       string
+		demoPath       string
+		ciliumFilename string
 
 		kafkaApp            = "kafka"
 		backupApp           = "empire-backup"
@@ -56,7 +57,7 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 	)
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace,
+		kubectl.CiliumReport(helpers.CiliumNamespace,
 			"cilium service list",
 			"cilium endpoint list")
 	})
@@ -128,7 +129,8 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 			l7Policy = helpers.ManifestGet(kubectl.BasePath(), "kafka-sw-security-policy.yaml")
 			demoPath = helpers.ManifestGet(kubectl.BasePath(), "kafka-sw-app.yaml")
 
-			DeployCiliumAndDNS(kubectl)
+			ciliumFilename = helpers.TimestampFilename("cilium.yaml")
+			DeployCiliumAndDNS(kubectl, ciliumFilename)
 
 			kubectl.ApplyDefault(demoPath)
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=kafkaTestApp", helpers.HelperTimeout)

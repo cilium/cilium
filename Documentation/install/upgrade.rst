@@ -12,8 +12,9 @@ Upgrade Guide
 
 .. _upgrade_general:
 
-This upgrade guide is intended for Cilium running on Kubernetes. If you have
-questions, feel free to ping us on the `Slack channel`.
+This upgrade guide is intended for Cilium running on Kubernetes. Helm
+commands in this guide use helm3 syntax. If you have questions, feel
+free to ping us on the `Slack channel`.
 
 .. warning::
 
@@ -31,16 +32,29 @@ image. In order to reduce the downtime of the agent, the new image version can
 be pre-pulled. It also verifies that the new image version can be pulled and
 avoids ErrImagePull errors during the rollout.
 
-.. code:: bash
+.. tabs::
+  .. group-tab:: kubectl
 
-    helm template cilium \
-      --namespace=kube-system \
-      --set preflight.enabled=true \
-      --set agent.enabled=false \
-      --set config.enabled=false \
-      --set operator.enabled=false \
-      > cilium-preflight.yaml
-    kubectl create cilium-preflight.yaml
+    .. parsed-literal::
+
+      helm template |CHART_RELEASE| \\
+        --set preflight.enabled=true \\
+        --set agent.enabled=false \\
+        --set config.enabled=false \\
+        --set operator.enabled=false \\
+        > cilium-preflight.yaml
+      kubectl create cilium-preflight.yaml
+
+  .. group-tab:: Helm
+
+    .. parsed-literal::
+
+      helm install cilium-preflight |CHART_RELEASE| \\
+        --namespace=kube-system \\
+        --set preflight.enabled=true \\
+        --set agent.enabled=false \\
+        --set config.enabled=false \\
+        --set operator.enabled=false
 
 After running the cilium-pre-flight.yaml, make sure the number of READY pods
 is the same number of Cilium pods running.
@@ -55,9 +69,18 @@ is the same number of Cilium pods running.
 Once the number of READY pods are the same, you can delete cilium-pre-flight-check
 `DaemonSet` and proceed with the upgrade.
 
-.. code-block:: shell-session
+.. tabs::
+  .. group-tab:: kubectl
+
+    .. parsed-literal::
 
       kubectl delete -f cilium-preflight.yaml
+
+  .. group-tab:: Helm
+
+    .. parsed-literal::
+
+      helm delete cilium-preflight --namespace=kube-system
 
 .. _upgrade_micro:
 
@@ -68,10 +91,19 @@ Micro versions within a particular minor version, e.g. 1.2.x -> 1.2.y, are
 always 100% compatible for both up- and downgrades. Upgrading or downgrading is
 as simple as changing the image tag version in the `DaemonSet` file:
 
-.. code-block:: shell-session
+.. tabs::
+  .. group-tab:: kubectl
 
-    kubectl -n kube-system set image daemonset/cilium cilium-agent=docker.io/cilium/cilium:vX.Y.Z
-    kubectl -n kube-system rollout status daemonset/cilium
+    .. parsed-literal::
+
+      kubectl -n kube-system set image daemonset/cilium cilium-agent=docker.io/cilium/cilium:vX.Y.Z
+      kubectl -n kube-system rollout status daemonset/cilium
+
+  .. group-tab:: Helm
+
+    .. parsed-literal::
+
+      helm upgrade cilium cilium/cilium --version X.Y.Z --reuse-values --namespace=kube-system
 
 Kubernetes will automatically restart all Cilium according to the
 ``UpgradeStrategy`` specified in the `DaemonSet`.
@@ -112,14 +144,25 @@ Kubernetes resources are updated accordingly to version you are upgrading to:
 
 .. include:: ../gettingstarted/k8s-install-download-release.rst
 
-Generate the required YAML file and deploy it:
+.. tabs::
+  .. group-tab:: kubectl
 
-.. code:: bash
+    Generate the required YAML file and deploy it:
 
-   helm template cilium \
-     --namespace kube-system \
-     > cilium.yaml
-   kubectl apply -f cilium.yaml
+    .. parsed-literal::
+
+      helm template |CHART_RELEASE| \\
+        --namespace kube-system \\
+        > cilium.yaml
+      kubectl apply -f cilium.yaml
+
+  .. group-tab:: Helm
+
+    Deploy Cilium release via Helm:
+
+    .. parsed-literal::
+
+      helm upgrade cilium |CHART_RELEASE| --namespace=kube-system
 
 .. note::
 
@@ -141,15 +184,28 @@ configuration options for each minor version.
 
 .. include:: ../gettingstarted/k8s-install-download-release.rst
 
-Generate the required YAML file and deploy it:
+.. tabs::
+  .. group-tab:: kubectl
 
-.. code:: bash
+    Generate the required YAML file and deploy it:
 
-   helm template cilium \
-     --namespace kube-system \
-     --set config.enabled=false \
-     > cilium.yaml
-   kubectl apply -f cilium.yaml
+    .. parsed-literal::
+
+      helm template |CHART_RELEASE| \\
+        --namespace kube-system \\
+        --set config.enabled=false \\
+        > cilium.yaml
+      kubectl apply -f cilium.yaml
+
+  .. group-tab:: Helm
+
+    Deploy Cilium release via Helm:
+
+    .. parsed-literal::
+
+      helm upgrade cilium |CHART_RELEASE| \\
+        --namespace=kube-system \\
+        --set config.enabled=false
 
 .. note::
 
@@ -163,12 +219,21 @@ Step 3: Rolling Back
 ====================
 
 Occasionally, it may be necessary to undo the rollout because a step was missed
-or something went wrong during upgrade. To undo the rollout, change the image
-tag back to the previous version or undo the rollout using ``kubectl``:
+or something went wrong during upgrade. To undo the rollout run:
 
-.. code-block:: shell-session
+.. tabs::
+  .. group-tab:: kubectl
 
-    $ kubectl rollout undo daemonset/cilium -n kube-system
+    .. parsed-literal::
+
+      kubectl rollout undo daemonset/cilium -n kube-system
+
+  .. group-tab:: Helm
+
+    .. parsed-literal::
+
+      helm history cilium --namespace=kube-system
+      helm rollback cilium [REVISION] --namespace=kube-system
 
 This will revert the latest changes to the Cilium ``DaemonSet`` and return
 Cilium to the state it was in prior to the upgrade.
@@ -301,6 +366,45 @@ IMPORTANT: Changes required before upgrading to 1.7.0
   provisioned but not for containers already running in Flannel. The options
   ``container-runtime`` and ``container-runtime-endpoint`` will not have any
   effect and the flag removal is scheduled for v1.8.0
+
+* The default ``--tofqdns-min-ttl`` value has been reduced to 1 hour. Specific
+  IPs in DNS entries are no longer expired when in-use by existing connections
+  that are allowed by policy. Prior deployments that used the default value may
+  now experience denied new connections if endpoints reuse DNS data more than 1
+  hour after the initial lookup without making new lookups. Long lived
+  connections that previously outlived DNS entries are now better supported,
+  and will not be disconnected when the corresponding DNS entry expires.
+
+New ConfigMap Options
+~~~~~~~~~~~~~~~~~~~~~
+
+  * ``enable-well-known-identities`` has been added to control the
+    initialization of the well-known identities. Well-known identities have
+    initially been added to support the managed etcd concept to allow the etcd
+    operator to bootstrap etcd while Cilium still waited on etcd to become
+    available. Cilium now uses CRDs by default which limits the use of
+    well-known identities to the managed etcd mode. With the addition of this
+    option, well-known identities are disabled by default in all new deployment
+    and only enabled if the Helm option ``etcd.managed=true`` is set. Consider
+    disabling this option if you are not using the etcd operator respectively
+    managed etcd mode to reduce the number of policy identities whitelisted for
+    each endpoint.
+
+  * ``enable-remote-node-identity`` has been added to enable a new identity
+    for remote cluster nodes. This allows to treat local and remote cluster
+    nodes differently from a policy perspective. The option is enabled by
+    default for new deployments when generated via Helm. The option is disabled
+    for existing cluster to avoid breaking compatibility in case a cluster is
+    using policy rules allowing from host which expect to allow traffic from
+    all cluster nodes.
+
+    Unless you have policy rules allowing from host which expect to allow
+    traffic from all cluster nodes instead of just the local node, it is a good
+    idea to enable this option as you upgrade as it improves the default
+    security posture of your cluster. If you have policy rules matching on host
+    with the intent of allow from all cluster nodes, it is recommended to
+    modify those policy rules to explicitly allow the entity ``remote-node``
+    and then enable this flag as you upgrade.
 
 Removed options
 ~~~~~~~~~~~~~~~~~~

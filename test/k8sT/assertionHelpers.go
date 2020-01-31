@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cilium/cilium/test/config"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	. "github.com/onsi/gomega"
@@ -42,7 +43,7 @@ func ExpectKubeDNSReady(vm *helpers.Kubectl) {
 // ExpectCiliumReady is a wrapper around helpers/WaitForPods. It asserts that
 // the error returned by that function is nil.
 func ExpectCiliumReady(vm *helpers.Kubectl) {
-	err := vm.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", longTimeout)
+	err := vm.WaitforPods(helpers.CiliumNamespace, "-l k8s-app=cilium", longTimeout)
 	ExpectWithOffset(1, err).Should(BeNil(), "cilium was not able to get into ready state")
 
 	err = vm.CiliumPreFlightCheck()
@@ -53,14 +54,14 @@ func ExpectCiliumReady(vm *helpers.Kubectl) {
 // the error returned by that function is nil.
 func ExpectCiliumOperatorReady(vm *helpers.Kubectl) {
 	By("Waiting for cilium-operator to be ready")
-	err := vm.WaitforPods(helpers.KubeSystemNamespace, "-l name=cilium-operator", longTimeout)
+	err := vm.WaitforPods(helpers.CiliumNamespace, "-l name=cilium-operator", longTimeout)
 	ExpectWithOffset(1, err).Should(BeNil(), "Cilium operator was not able to get into ready state")
 }
 
 // ExpectCiliumRunning is a wrapper around helpers/WaitForNPods. It
 // asserts the cilium pods are running on all nodes (but not yet ready!).
 func ExpectCiliumRunning(vm *helpers.Kubectl) {
-	err := vm.WaitforNPodsRunning(helpers.KubeSystemNamespace, "-l k8s-app=cilium", vm.GetNumNodes(), longTimeout)
+	err := vm.WaitforNPodsRunning(helpers.CiliumNamespace, "-l k8s-app=cilium", vm.GetNumCiliumNodes(), longTimeout)
 	ExpectWithOffset(1, err).Should(BeNil(), "cilium was not able to get into ready state")
 
 }
@@ -82,12 +83,12 @@ func ExpectETCDOperatorReady(vm *helpers.Kubectl) {
 	// new one is not created yet.
 	By("Waiting for all etcd-operator pods to be ready")
 
-	err := vm.WaitforNPods(helpers.KubeSystemNamespace, "-l io.cilium/app=etcd-operator", 5, longTimeout)
+	err := vm.WaitforNPods(helpers.CiliumNamespace, "-l io.cilium/app=etcd-operator", 5, longTimeout)
 	warningMessage := ""
 	if err != nil {
 		res := vm.Exec(fmt.Sprintf(
 			"%s -n %s get pods -l io.cilium/app=etcd-operator",
-			helpers.KubectlCmd, helpers.KubeSystemNamespace))
+			helpers.KubectlCmd, helpers.CiliumNamespace))
 		warningMessage = res.Output().String()
 	}
 	Expect(err).To(BeNil(), "etcd-operator is not ready after timeout, pods status:\n %s", warningMessage)
@@ -98,26 +99,26 @@ func ExpectETCDOperatorReady(vm *helpers.Kubectl) {
 func ExpectCiliumPreFlightInstallReady(vm *helpers.Kubectl) {
 	By("Waiting for all cilium pre-flight pods to be ready")
 
-	err := vm.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium-pre-flight-check", longTimeout)
+	err := vm.WaitforPods(helpers.CiliumNamespace, "-l k8s-app=cilium-pre-flight-check", longTimeout)
 	warningMessage := ""
 	if err != nil {
 		res := vm.Exec(fmt.Sprintf(
 			"%s -n %s get pods -l k8s-app=cilium-pre-flight-check",
-			helpers.KubectlCmd, helpers.KubeSystemNamespace))
+			helpers.KubectlCmd, helpers.CiliumNamespace))
 		warningMessage = res.Output().String()
 	}
 	Expect(err).To(BeNil(), "cilium pre-flight check is not ready after timeout, pods status:\n %s", warningMessage)
 }
 
 // DeployCiliumAndDNS deploys DNS and cilium into the kubernetes cluster
-func DeployCiliumAndDNS(vm *helpers.Kubectl) {
-	DeployCiliumOptionsAndDNS(vm, []string{})
+func DeployCiliumAndDNS(vm *helpers.Kubectl, ciliumFilename string) {
+	DeployCiliumOptionsAndDNS(vm, ciliumFilename, map[string]string{})
 }
 
 // DeployCiliumOptionsAndDNS deploys DNS and cilium with options into the kubernetes cluster
-func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, options []string) {
+func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, ciliumFilename string, options map[string]string) {
 	By("Installing Cilium")
-	err := vm.CiliumInstall(options)
+	err := vm.CiliumInstall(ciliumFilename, options)
 	Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 	ExpectCiliumRunning(vm)
@@ -137,27 +138,44 @@ func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, options []string) {
 	ExpectKubeDNSReady(vm)
 }
 
-// SkipIfFlannel will skip the test if it's running over Flannel datapath mode.
-func SkipIfFlannel() {
-	if helpers.GetCurrentIntegration() == helpers.CIIntegrationFlannel {
+// SkipIfBenchmark will skip the test if benchmark is not specified
+func SkipIfBenchmark() {
+	if !config.CiliumTestConfig.Benchmarks {
+		Skip("Benchmarks are skipped, specify -cilium.Benchmarks")
+	}
+}
+
+// SkipIfIntegration will skip a test if it's running with any of the specified
+// integration.
+func SkipIfIntegration(integration string) {
+	if helpers.IsIntegration(integration) {
 		Skip(fmt.Sprintf(
 			"This feature is not supported in Cilium %q mode. Skipping test.",
-			helpers.CIIntegrationFlannel))
+			integration))
+	}
+}
+
+// SkipItIfNoKubeProxy will skip It if kube-proxy is disabled (= NodePort BPF is
+// enabled)
+func SkipItIfNoKubeProxy() {
+	if !helpers.RunsWithKubeProxy() {
+		Skip("kube-proxy is disabled (NodePort BPF is enabled). Skipping test.")
 	}
 }
 
 func deleteCiliumDS(kubectl *helpers.Kubectl) {
 	// Do not assert on success in AfterEach intentionally to avoid
 	// incomplete teardown.
-	_ = kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
+
+	_ = kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.CiliumNamespace))
 	Expect(waitToDeleteCilium(kubectl, logger)).To(BeNil(), "timed out deleting Cilium pods")
 }
 
 func deleteETCDOperator(kubectl *helpers.Kubectl) {
 	// Do not assert on success in AfterEach intentionally to avoid
 	// incomplete teardown.
-	_ = kubectl.DeleteResource("deploy", fmt.Sprintf("-n %s -l io.cilium/app=etcd-operator", helpers.KubeSystemNamespace))
-	_ = kubectl.DeleteResource("pod", fmt.Sprintf("-n %s -l io.cilium/app=etcd-operator", helpers.KubeSystemNamespace))
+	_ = kubectl.DeleteResource("deploy", fmt.Sprintf("-n %s -l io.cilium/app=etcd-operator", helpers.CiliumNamespace))
+	_ = kubectl.DeleteResource("pod", fmt.Sprintf("-n %s -l io.cilium/app=etcd-operator", helpers.CiliumNamespace))
 	_ = kubectl.WaitCleanAllTerminatingPods(helpers.HelperTimeout)
 }
 
@@ -179,7 +197,7 @@ func waitToDeleteCilium(kubectl *helpers.Kubectl, logger *logrus.Entry) error {
 		default:
 		}
 
-		pods, err = kubectl.GetCiliumPodsContext(ctx, helpers.KubeSystemNamespace)
+		pods, err = kubectl.GetCiliumPodsContext(ctx, helpers.CiliumNamespace)
 		status := len(pods)
 		logger.Infof("Cilium pods terminating '%d' err='%v' pods='%v'", status, err, pods)
 		if status == 0 {

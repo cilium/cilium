@@ -109,6 +109,7 @@ func (t *CNITypesSuite) TestReadCNIConfENIWithPlugins(c *check.C) {
   ]
 }
 `
+	firstInterfaceIndex := 1
 	netConf1 := NetConf{
 		NetConf: cnitypes.NetConf{
 			CNIVersion: "0.3.1",
@@ -116,7 +117,7 @@ func (t *CNITypesSuite) TestReadCNIConfENIWithPlugins(c *check.C) {
 		},
 		ENI: ciliumv2.ENISpec{
 			PreAllocate:         5,
-			FirstInterfaceIndex: 1,
+			FirstInterfaceIndex: &firstInterfaceIndex,
 			SecurityGroups:      []string{"sg-xxx"},
 			SubnetTags: map[string]string{
 				"foo": "true",
@@ -145,6 +146,7 @@ func (t *CNITypesSuite) TestReadCNIConfENI(c *check.C) {
   }
 }
 `
+	firstInterfaceIndex := 2
 	netConf1 := NetConf{
 		NetConf: cnitypes.NetConf{
 			Name: "cilium",
@@ -153,7 +155,7 @@ func (t *CNITypesSuite) TestReadCNIConfENI(c *check.C) {
 		ENI: ciliumv2.ENISpec{
 			InstanceType:        "m4.xlarge",
 			PreAllocate:         16,
-			FirstInterfaceIndex: 2,
+			FirstInterfaceIndex: &firstInterfaceIndex,
 			SecurityGroups:      []string{"sg1", "sg2"},
 			SubnetTags: map[string]string{
 				"key1": "val1",

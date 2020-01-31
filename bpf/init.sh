@@ -516,8 +516,7 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	echo "#define ENCAP_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
 
 	CALLS_MAP="cilium_calls_overlay_${ID_WORLD}"
-	POLICY_MAP="cilium_policy_reserved_${ID_WORLD}"
-	COPTS="-DSECLABEL=${ID_WORLD} -DPOLICY_MAP=${POLICY_MAP}"
+	COPTS="-DSECLABEL=${ID_WORLD}"
 	if [ "$NODE_PORT" = "true" ]; then
 		COPTS="${COPTS} -DLB_L3 -DLB_L4"
 	fi
@@ -538,8 +537,7 @@ if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$MODE" = "routed" ] ||
 		fi
 
 		CALLS_MAP=cilium_calls_netdev_${ID_WORLD}
-		POLICY_MAP="cilium_policy_reserved_${ID_WORLD}"
-		COPTS="-DSECLABEL=${ID_WORLD} -DPOLICY_MAP=${POLICY_MAP}"
+		COPTS="-DSECLABEL=${ID_WORLD}"
 		if [ "$NODE_PORT" = "true" ]; then
 			COPTS="${COPTS} -DLB_L3 -DLB_L4"
 		fi
@@ -571,6 +569,7 @@ if [ "$HOSTLB" = "true" ]; then
 	CALLS_MAP="cilium_calls_lb"
 	COPTS="-DLB_L3 -DLB_L4"
 	if [ "$IP6_HOST" != "<nil>" ]; then
+		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sock post_bind6 post-bind-sock6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect6 from-sock6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		if [ "$HOSTLB_UDP" = "true" ]; then
 			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg6 snd-sock6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
@@ -581,6 +580,7 @@ if [ "$HOSTLB" = "true" ]; then
 		fi
 	fi
 	if [ "$IP4_HOST" != "<nil>" ]; then
+		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sock post_bind4 post-bind-sock4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect4 from-sock4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		if [ "$HOSTLB_UDP" = "true" ]; then
 			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg4 snd-sock4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
@@ -591,6 +591,8 @@ if [ "$HOSTLB" = "true" ]; then
 		fi
 	fi
 else
+	bpf_clear_cgroups $CGROUP_ROOT post_bind4
+	bpf_clear_cgroups $CGROUP_ROOT post_bind6
 	bpf_clear_cgroups $CGROUP_ROOT connect4
 	bpf_clear_cgroups $CGROUP_ROOT connect6
 	bpf_clear_cgroups $CGROUP_ROOT sendmsg4
@@ -601,8 +603,7 @@ fi
 
 # bpf_host.o requires to see an updated node_config.h which includes ENCAP_IFINDEX
 CALLS_MAP="cilium_calls_netdev_ns_${ID_HOST}"
-POLICY_MAP="cilium_policy_reserved_${ID_HOST}"
-COPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID_HOST} -DSECLABEL=${ID_HOST} -DPOLICY_MAP=${POLICY_MAP}"
+COPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID_HOST} -DSECLABEL=${ID_HOST}"
 if [ "$MODE" == "ipvlan" ]; then
 	COPTS+=" -DENABLE_EXTRA_HOST_DEV"
 fi

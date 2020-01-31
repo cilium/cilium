@@ -58,7 +58,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Cilium'
-copyright = u'2017-2019, Cilium Authors'
+copyright = u'2017-2020, Cilium Authors'
 author = u'Cilium Authors'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -77,11 +77,16 @@ branch = os.environ.get('READTHEDOCS_VERSION')
 if branch is None or branch == 'latest':
     branch = 'HEAD'
     archive_name = 'master'
+    chart_release = './cilium'
 elif branch == 'stable':
     branch = release
     archive_name = release
+    chart_release = 'cilium/cilium --version ' + release
+    tags.add('stable')
 else:
     archive_name = branch
+    chart_release = 'cilium/cilium --version ' + release
+    tags.add('stable')
 relinfo = semver.parse_version_info(release)
 next_release = '%d.%d' % (relinfo.major, relinfo.minor)
 if relinfo.patch == 90:
@@ -105,7 +110,8 @@ rst_epilog = """
 .. |SCM_ARCHIVE_LINK| replace:: \{l}
 .. |CURRENT_RELEASE| replace:: \{c}
 .. |NEXT_RELEASE| replace:: \{n}
-""".format(s=scm_web, b=branch, a=archive_name, f=archive_filename, l=archive_link, c=current_release, n=next_release)
+.. |CHART_RELEASE| replace:: \{h}
+""".format(s=scm_web, b=branch, a=archive_name, f=archive_filename, l=archive_link, c=current_release, n=next_release, h=chart_release)
 
 extlinks = {
     'git-tree': (scm_web + "/%s", ''),

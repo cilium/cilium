@@ -122,6 +122,8 @@ data:
   install-iptables-rules: "true"
   auto-direct-node-routes: "false"
   enable-node-port: "false"
+  enable-well-known-identities: "false"
+  enable-remote-node-identity: "true"
 
 ---
 # Source: cilium/charts/agent/templates/serviceaccount.yaml
@@ -150,6 +152,14 @@ rules:
   - networking.k8s.io
   resources:
   - networkpolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
   verbs:
   - get
   - list
@@ -227,6 +237,14 @@ rules:
   - watch
   - delete
 - apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - ""
   resources:
   # to automatically read from k8s and import the node's pod CIDR to cilium's
@@ -247,6 +265,8 @@ rules:
   resources:
   - ciliumnetworkpolicies
   - ciliumnetworkpolicies/status
+  - ciliumclusterwidenetworkpolicies
+  - ciliumclusterwidenetworkpolicies/status
   - ciliumendpoints
   - ciliumendpoints/status
   - ciliumnodes
@@ -455,6 +475,7 @@ spec:
         - mountPath: /var/run/cilium
           name: cilium-run
       restartPolicy: Always
+      priorityClassName: system-node-critical
       serviceAccount: cilium
       serviceAccountName: cilium
       terminationGracePeriodSeconds: 1
@@ -537,6 +558,7 @@ spec:
       - args:
         - --debug=$(CILIUM_DEBUG)
         - --identity-allocation-mode=$(CILIUM_IDENTITY_ALLOCATION_MODE)
+        - --synchronize-k8s-nodes=true
         command:
         - cilium-operator
         env:
@@ -627,7 +649,6 @@ spec:
           initialDelaySeconds: 60
           periodSeconds: 10
           timeoutSeconds: 3
-
       hostNetwork: true
       restartPolicy: Always
       serviceAccount: cilium-operator
@@ -638,6 +659,7 @@ spec:
 
 ---
 # Source: cilium/charts/agent/templates/svc.yaml
+
 
 ---
 # Source: cilium/charts/operator/templates/servicemonitor.yaml

@@ -928,7 +928,7 @@ INITSYSTEM=SYSTEMD`
 			monitorCMD.Reset()
 			res = vm.ContainerExec(helpers.App1, curlCmd)
 			res.ExpectFail("Can access to %q when should not (No DNS request to allow the IP)", world1Target)
-			monitorCMD.ExpectContains("xx drop (Policy denied (L3))")
+			monitorCMD.ExpectContains("xx drop (Policy denied)")
 
 			By("Testing connectivity to %q", world1Target)
 			res = vm.ContainerExec(helpers.App1, helpers.CurlFail(world1Target))
@@ -994,7 +994,7 @@ INITSYSTEM=SYSTEMD`
 			monitorCMD.Reset()
 			res = vm.ContainerExec(helpers.App1, curlCmd)
 			res.ExpectFail("Can access to %q when should not (No DNS request to allow the IP)", world1Target)
-			monitorCMD.ExpectContains("xx drop (Policy denied (L3))")
+			monitorCMD.ExpectContains("xx drop (Policy denied)")
 
 			By("Testing connectivity to %q", world1Target)
 			monitorCMD.Reset()

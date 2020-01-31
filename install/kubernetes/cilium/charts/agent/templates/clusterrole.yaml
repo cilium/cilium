@@ -12,6 +12,14 @@ rules:
   - list
   - watch
 - apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - ""
   resources:
   - namespaces
@@ -49,6 +57,14 @@ rules:
   - list
   - watch
   - update
+{{- if eq "k8s" .Values.global.tls.secretsBackend }}
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+{{- end }}
 - apiGroups:
   - cilium.io
   resources:

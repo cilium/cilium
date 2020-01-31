@@ -268,6 +268,9 @@ data:
 {{- if .Values.global.nodePort.device }}
   device: {{ .Values.global.nodePort.device | quote }}
 {{- end }}
+{{- if .Values.global.nodePort.mode }}
+  node-port-mode: {{ .Values.global.nodePort.mode | quote }}
+{{- end }}
 
 {{- end }}
 {{- if and .Values.global.pprof .Values.global.pprof.enabled }}
@@ -296,3 +299,9 @@ data:
   # Chaining mode was enabled, disabling health checking
   enable-endpoint-health-checking: "false"
 {{- end }}
+{{- if or .Values.global.wellKnownIdentities.enabled .Values.global.etcd.managed }}
+  enable-well-known-identities: "true"
+{{- else }}
+  enable-well-known-identities: "false"
+{{- end }}
+  enable-remote-node-identity: {{ .Values.global.remoteNodeIdentity | quote }}

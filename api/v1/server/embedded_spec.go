@@ -844,7 +844,7 @@ func init() {
         "summary": "Release an allocated IP address",
         "parameters": [
           {
-            "$ref": "#/parameters/ipam-ip"
+            "$ref": "#/parameters/ipam-release-arg"
           }
         ],
         "responses": {
@@ -1374,6 +1374,10 @@ func init() {
       "properties": {
         "ip": {
           "description": "Layer 3 address",
+          "type": "string"
+        },
+        "nodeName": {
+          "description": "Optional name of the node on which this backend runs",
           "type": "string"
         },
         "port": {
@@ -2848,6 +2852,11 @@ func init() {
           "description": "Optional service configuration flags",
           "type": "object",
           "properties": {
+            "healthCheckNodePort": {
+              "description": "Service health check node port",
+              "type": "integer",
+              "format": "uint16"
+            },
             "name": {
               "description": "Service name  (e.g. Kubernetes service name)",
               "type": "string"
@@ -2855,6 +2864,14 @@ func init() {
             "namespace": {
               "description": "Service namespace  (e.g. Kubernetes namespace)",
               "type": "string"
+            },
+            "trafficPolicy": {
+              "description": "Service traffic policy",
+              "type": "string",
+              "enum": [
+                "Cluster",
+                "Local"
+              ]
             },
             "type": {
               "description": "Service type",
@@ -3050,6 +3067,13 @@ func init() {
       "type": "string",
       "name": "owner",
       "in": "query"
+    },
+    "ipam-release-arg": {
+      "type": "string",
+      "description": "IP address or owner name",
+      "name": "ip",
+      "in": "path",
+      "required": true
     },
     "labels": {
       "description": "List of labels\n",
@@ -4062,7 +4086,7 @@ func init() {
         "parameters": [
           {
             "type": "string",
-            "description": "IP address",
+            "description": "IP address or owner name",
             "name": "ip",
             "in": "path",
             "required": true
@@ -4640,6 +4664,10 @@ func init() {
       "properties": {
         "ip": {
           "description": "Layer 3 address",
+          "type": "string"
+        },
+        "nodeName": {
+          "description": "Optional name of the node on which this backend runs",
           "type": "string"
         },
         "port": {
@@ -6114,6 +6142,11 @@ func init() {
           "description": "Optional service configuration flags",
           "type": "object",
           "properties": {
+            "healthCheckNodePort": {
+              "description": "Service health check node port",
+              "type": "integer",
+              "format": "uint16"
+            },
             "name": {
               "description": "Service name  (e.g. Kubernetes service name)",
               "type": "string"
@@ -6121,6 +6154,14 @@ func init() {
             "namespace": {
               "description": "Service namespace  (e.g. Kubernetes namespace)",
               "type": "string"
+            },
+            "trafficPolicy": {
+              "description": "Service traffic policy",
+              "type": "string",
+              "enum": [
+                "Cluster",
+                "Local"
+              ]
             },
             "type": {
               "description": "Service type",
@@ -6316,6 +6357,13 @@ func init() {
       "type": "string",
       "name": "owner",
       "in": "query"
+    },
+    "ipam-release-arg": {
+      "type": "string",
+      "description": "IP address or owner name",
+      "name": "ip",
+      "in": "path",
+      "required": true
     },
     "labels": {
       "description": "List of labels\n",

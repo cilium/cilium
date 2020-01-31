@@ -315,6 +315,8 @@ func (c *DNSCache) cleanupOverLimitEntries() (affectedNames []string, removed ma
 // both sets.
 // If zombies is passed in, expired IPs are inserted into it. GC and
 // other management of zombies is left to the caller.
+// Note: zombies use the original lookup's ExpirationTime for DeletePendingAt,
+// not the now parameter. This allows better ordering in zombie GC.
 func (c *DNSCache) GC(now time.Time, zombies *DNSZombieMappings) (affectedNames []string) {
 	c.Lock()
 	expiredNames, expiredEntries := c.cleanupExpiredEntries(now)
@@ -329,7 +331,7 @@ func (c *DNSCache) GC(now time.Time, zombies *DNSZombieMappings) (affectedNames 
 		} {
 			for ipStr, entries := range m {
 				for _, entry := range entries {
-					zombies.Upsert(now, ipStr, entry.Name)
+					zombies.Upsert(entry.ExpirationTime, ipStr, entry.Name)
 				}
 			}
 		}
@@ -670,6 +672,15 @@ func (c *DNSCache) UnmarshalJSON(raw []byte) error {
 // It records the DNS name and IP, along with other bookkeeping timestamps that
 // help determine when it can be finally deleted. Zombies are dead when
 // they are not marked alive by CT GC.
+// Special handling exists when the count of zombies is large. Overlimit
+// zombies are deleted in GC with the following preferences (this is cumulative
+// and in order of precedence):
+// - Zombies with zero AliveAt are evicted before those with a non-zero value
+//   (i.e. known connections marked by CT GC are evicted last)
+// - Zombies with an earlier DeletePendingAtTime are evicted first.
+//   Note: Upsert sets DeletePendingAt on every update, thus making GC prefer
+//   to evict IPs with less DNS churn on them.
+// - Zombies with the lowest count of DNS names in them are evicted first
 type DNSZombieMapping struct {
 	// Names is the list of names that had DNS lookups with this IP. These may
 	// derive from unrelated DNS lookups. The list is maintained de-duplicated.
@@ -713,12 +724,14 @@ type DNSZombieMappings struct {
 	lock.Mutex
 	deletes        map[string]*DNSZombieMapping // map[ip]toDelete
 	lastCTGCUpdate time.Time
+	max            int // max allowed zombies
 }
 
 // NewDNSZombieMappings constructs a DNSZombieMappings that is read to use
-func NewDNSZombieMappings() *DNSZombieMappings {
+func NewDNSZombieMappings(max int) *DNSZombieMappings {
 	return &DNSZombieMappings{
 		deletes: make(map[string]*DNSZombieMapping),
+		max:     max,
 	}
 }
 
@@ -755,6 +768,9 @@ func (zombies *DNSZombieMappings) isAlive(zombie *DNSZombieMapping) bool {
 // Zombies are alive if they have been marked alive (with MarkAlive). When
 // SetCTGCTime is called and an zombie not marked alive, it becomes dead.
 // Calling Upsert on a dead zombie will make it alive again.
+// Alive zombies are limited by zombies.max. 0 means no zombies are allowed,
+// disabling the behavior. It is expected to be a large value and is in place
+// to avoid runaway zombie growth when CT GC is at a large interval.
 func (zombies *DNSZombieMappings) GC() (alive, dead []*DNSZombieMapping) {
 	zombies.Lock()
 	defer zombies.Unlock()
@@ -766,6 +782,24 @@ func (zombies *DNSZombieMappings) GC() (alive, dead []*DNSZombieMapping) {
 		} else {
 			// Emit the actual object here since we will no longer update it
 			dead = append(dead, zombie)
+		}
+	}
+
+	// Limit alive zombies to max. This is messy, and will break some existing
+	// connections. We sort by whether the connection is marked alive or not, the
+	// oldest created connections, and tie-break by the number of DNS names for
+	// that IP.
+	overLimit := len(alive) - zombies.max
+	if overLimit > 0 {
+		sort.Slice(alive, func(i, j int) bool {
+			return alive[i].AliveAt.Before(alive[j].AliveAt) ||
+				alive[i].DeletePendingAt.Before(alive[j].DeletePendingAt) ||
+				len(alive[i].Names) < len(alive[j].Names)
+		})
+		dead = append(dead, alive[:overLimit]...)
+		alive = alive[overLimit:]
+		if dead[len(dead)-1].AliveAt.IsZero() {
+			log.Warning("Evicting expired DNS cache entries that may be in-use. This may cause recently created connections to be disconnected. Raise --tofqdns-max-deferred-connection-deletes to mitigate this.")
 		}
 	}
 

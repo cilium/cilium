@@ -88,8 +88,8 @@ pipeline {
             environment {
                 K8S_NODES=4
                 K8S_VERSION=1.12
-                MEMORY=4096
-                CPU=4
+                VM_MEMORY=4096
+                VM_CPUS=4
                 FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
             }
 

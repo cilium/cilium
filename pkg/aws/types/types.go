@@ -15,7 +15,7 @@
 package types
 
 import (
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
 // Tags implements generic key value tags used by AWS
@@ -64,6 +64,18 @@ type Vpc struct {
 
 	// PrimaryCIDR is the primary IPv4 CIDR
 	PrimaryCIDR string
+}
+
+// SecurityGroup is the representation of an AWS Security Group
+type SecurityGroup struct {
+	// ID is the SecurityGroup ID
+	ID string
+
+	// VpcID is the VPC ID in which the security group resides
+	VpcID string
+
+	// Tags are the tags of the security group
+	Tags Tags
 }
 
 // instance is the minimal representation of an AWS instance as needed by the
@@ -120,3 +132,6 @@ type SubnetMap map[string]*Subnet
 
 // VpcMap indexes AWS VPCs by VPC ID
 type VpcMap map[string]*Vpc
+
+// SecurityGroupMap indexes AWS Security Groups by security group ID
+type SecurityGroupMap map[string]*SecurityGroup

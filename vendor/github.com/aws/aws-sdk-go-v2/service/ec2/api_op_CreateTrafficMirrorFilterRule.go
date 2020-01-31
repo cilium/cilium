@@ -128,7 +128,7 @@ const opCreateTrafficMirrorFilterRule = "CreateTrafficMirrorFilterRule"
 // CreateTrafficMirrorFilterRuleRequest returns a request value for making API operation for
 // Amazon Elastic Compute Cloud.
 //
-// Creates a Traffic Mirror rule.
+// Creates a Traffic Mirror filter rule.
 //
 // A Traffic Mirror rule defines the Traffic Mirror source traffic to mirror.
 //

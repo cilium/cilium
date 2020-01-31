@@ -21,6 +21,9 @@ type BackendAddress struct {
 	// Required: true
 	IP *string `json:"ip"`
 
+	// Optional name of the node on which this backend runs
+	NodeName string `json:"nodeName,omitempty"`
+
 	// Layer 4 port number
 	Port uint16 `json:"port,omitempty"`
 }

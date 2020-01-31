@@ -242,9 +242,11 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesUpdate(c *C) {
 	svcID := s.svcCache.UpdateService(k8sSvc, swgSvcs)
 
 	s.expectEvent(c, k8s.UpdateService, svcID, func(event k8s.ServiceEvent) bool {
-		return event.Endpoints.Backends["10.0.185.196"]["http"].Equals(
-			loadbalancer.NewL4Addr(loadbalancer.TCP, 80)) &&
-			event.Endpoints.Backends["20.0.185.196"]["http2"].Equals(
+		return event.Endpoints.Backends["10.0.185.196"] != nil &&
+			event.Endpoints.Backends["10.0.185.196"].Ports["http"].Equals(
+				loadbalancer.NewL4Addr(loadbalancer.TCP, 80)) &&
+			event.Endpoints.Backends["20.0.185.196"] != nil &&
+			event.Endpoints.Backends["20.0.185.196"].Ports["http2"].Equals(
 				loadbalancer.NewL4Addr(loadbalancer.TCP, 90))
 	})
 

@@ -148,23 +148,19 @@ type RevNatValue interface {
 	ToNetwork() RevNatValue
 }
 
-func svcFrontendAndBackends(svcKey ServiceKey, svcValue ServiceValue,
-	backendID loadbalancer.BackendID, backend BackendValue) (*loadbalancer.L3n4AddrID, *loadbalancer.Backend) {
-
-	var beBackend *loadbalancer.Backend
-
+func svcFrontend(svcKey ServiceKey, svcValue ServiceValue) *loadbalancer.L3n4AddrID {
 	feL3n4Addr := loadbalancer.NewL3n4Addr(loadbalancer.NONE, svcKey.GetAddress(), svcKey.GetPort())
 	feL3n4AddrID := &loadbalancer.L3n4AddrID{
 		L3n4Addr: *feL3n4Addr,
 		ID:       loadbalancer.ID(svcValue.GetRevNat()),
 	}
+	return feL3n4AddrID
+}
 
-	if backendID != 0 {
-		beIP := backend.GetAddress()
-		bePort := backend.GetPort()
-		beProto := loadbalancer.NONE
-		beBackend = loadbalancer.NewBackend(backendID, beProto, beIP, bePort)
-	}
-
-	return feL3n4AddrID, beBackend
+func svcBackend(backendID loadbalancer.BackendID, backend BackendValue) *loadbalancer.Backend {
+	beIP := backend.GetAddress()
+	bePort := backend.GetPort()
+	beProto := loadbalancer.NONE
+	beBackend := loadbalancer.NewBackend(backendID, beProto, beIP, bePort)
+	return beBackend
 }

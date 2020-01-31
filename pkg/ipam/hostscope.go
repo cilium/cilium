@@ -83,7 +83,7 @@ func (h *hostScopeAllocator) Dump() (map[string]string, string) {
 	}
 
 	maxIPs := ip.CountIPsInCIDR(h.allocCIDR)
-	status := fmt.Sprintf("%d/%d allocated from %s", len(alloc), maxIPs, h.allocCIDR.String())
+	status := fmt.Sprintf("%d/%s allocated from %s", len(alloc), maxIPs.String(), h.allocCIDR.String())
 
 	return alloc, status
 }

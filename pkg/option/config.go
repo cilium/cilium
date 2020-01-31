@@ -89,6 +89,10 @@ const (
 	// BPFRoot is the Path to BPF filesystem
 	BPFRoot = "bpf-root"
 
+	// CertsDirectory is the root directory used to find out certificates used
+	// in L7 HTTPs policy enforcement.
+	CertsDirectory = "certificates-directory"
+
 	// CGroupRoot is the path to Cgroup2 filesystem
 	CGroupRoot = "cgroup-root"
 
@@ -142,6 +146,9 @@ const (
 
 	// EnableK8sExternalIPs enables k8s external IPs feature into Cilium datapath.
 	EnableK8sExternalIPs = "enable-k8s-external-ips"
+
+	// K8sEnableEndpointSlice enables the k8s EndpointSlice feature into Cilium
+	K8sEnableEndpointSlice = "enable-k8s-endpoint-slice"
 
 	// EnableL7Proxy is the name of the option to enable L7 proxy
 	EnableL7Proxy = "enable-l7-proxy"
@@ -232,6 +239,10 @@ const (
 
 	// EnableNodePort enables NodePort services implemented by Cilium in BPF
 	EnableNodePort = "enable-node-port"
+
+	// NodePortMode indicates in which mode NodePort implementation should run
+	// ("snat" or "dsr")
+	NodePortMode = "node-port-mode"
 
 	// NodePortRange defines a custom range where to look up NodePort services
 	NodePortRange = "node-port-range"
@@ -334,6 +345,10 @@ const (
 	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to maintain
 	// for each FQDN name in an endpoint's FQDN cache
 	ToFQDNsMaxIPsPerHost = "tofqdns-endpoint-max-ip-per-hostname"
+
+	// ToFQDNsMaxDeferredConnectionDeletes defines the maximum number of IPs to
+	// retain for expired DNS lookups with still-active connections"
+	ToFQDNsMaxDeferredConnectionDeletes = "tofqdns-max-deferred-connection-deletes"
 
 	// ToFQDNsPreCache is a path to a file with DNS cache data to insert into the
 	// global cache on startup.
@@ -596,6 +611,9 @@ const (
 	// ENITags are the tags that will be added to every ENI created by the AWS ENI IPAM
 	ENITags = "eni-tags"
 
+	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2 API to fill out the instnacetype to adapter limit mapping
+	UpdateEC2AdapterLimitViaAPI = "update-ec2-apdater-limit-via-api"
+
 	// K8sClientQPSLimit is the queries per second limit for the K8s client. Defaults to k8s client defaults.
 	K8sClientQPSLimit = "k8s-client-qps"
 
@@ -639,6 +657,14 @@ const (
 	// EnableLocalNodeRoute controls installation of the route which points
 	// the allocation prefix of the local node.
 	EnableLocalNodeRoute = "enable-local-node-route"
+
+	// EnableWellKnownIdentities enables the use of well-known identities.
+	// This is requires if identiy resolution is required to bring up the
+	// control plane, e.g. when using the managed etcd feature
+	EnableWellKnownIdentities = "enable-well-known-identities"
+
+	// EnableRemoteNodeIdentity enables use of the remote-node identity
+	EnableRemoteNodeIdentity = "enable-remote-node-identity"
 )
 
 // Default string arguments
@@ -1078,6 +1104,10 @@ type DaemonConfig struct {
 	// for each FQDN name in an endpoint's FQDN cache
 	ToFQDNsMaxIPsPerHost int
 
+	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to retain for
+	// expired DNS lookups with still-active connections
+	ToFQDNsMaxDeferredConnectionDeletes int
+
 	// FQDNRejectResponse is the dns-proxy response for invalid dns-proxy request
 	FQDNRejectResponse string
 
@@ -1213,8 +1243,16 @@ type DaemonConfig struct {
 	// EnableNodePort enables k8s NodePort service implementation in BPF
 	EnableNodePort bool
 
+	// NodePortMode indicates in which mode NodePort implementation should run
+	// ("snat" or "dsr")
+	NodePortMode string
+
 	// EnableK8sExternalIPs enables k8s external IPs implementation in BPF
 	EnableK8sExternalIPs bool
+
+	// K8sEnableEndpointSlice enables k8s endpoint slice feature that is used
+	// in kubernetes.
+	K8sEnableK8sEndpointSlice bool
 
 	// NodePortMin is the minimum port address for the NodePort range
 	NodePortMin int
@@ -1271,6 +1309,18 @@ type DaemonConfig struct {
 	// Enabling this option reduces waste of IP addresses but may increase
 	// the number of API calls to AWS EC2 service.
 	AwsReleaseExcessIps bool
+
+	// EnableWellKnownIdentities enables the use of well-known identities.
+	// This is requires if identiy resolution is required to bring up the
+	// control plane, e.g. when using the managed etcd feature
+	EnableWellKnownIdentities bool
+
+	// CertsDirectory is the root directory to be used by cilium to find
+	// certificates locally.
+	CertDirectory string
+
+	// EnableRemoteNodeIdentity enables use of the remote-node identity
+	EnableRemoteNodeIdentity bool
 }
 
 var (
@@ -1305,7 +1355,8 @@ var (
 		AutoCreateCiliumNodeResource: defaults.AutoCreateCiliumNodeResource,
 		IdentityAllocationMode:       IdentityAllocationModeKVstore,
 		AllowICMPFragNeeded:          defaults.AllowICMPFragNeeded,
-		AwsInstanceLimitMapping:      make(map[string]string),
+		EnableWellKnownIdentities:    defaults.EnableEndpointRoutes,
+		K8sEnableK8sEndpointSlice:    defaults.K8sEnableEndpointSlice,
 	}
 )
 
@@ -1590,6 +1641,7 @@ func (c *DaemonConfig) Populate() {
 	c.CTMapEntriesGlobalAny = viper.GetInt(CTMapEntriesGlobalAnyName)
 	c.NATMapEntriesGlobal = viper.GetInt(NATMapEntriesGlobalName)
 	c.BPFRoot = viper.GetString(BPFRoot)
+	c.CertDirectory = viper.GetString(CertsDirectory)
 	c.CGroupRoot = viper.GetString(CGroupRoot)
 	c.ClusterID = viper.GetInt(ClusterIDName)
 	c.ClusterName = viper.GetString(ClusterName)
@@ -1602,12 +1654,14 @@ func (c *DaemonConfig) Populate() {
 	c.EnableIPv4 = getIPv4Enabled()
 	c.EnableIPv6 = viper.GetBool(EnableIPv6Name)
 	c.EnableIPSec = viper.GetBool(EnableIPSecName)
+	c.EnableWellKnownIdentities = viper.GetBool(EnableWellKnownIdentities)
 	c.EndpointInterfaceNamePrefix = viper.GetString(EndpointInterfaceNamePrefix)
 	c.DevicePreFilter = viper.GetString(PrefilterDevice)
 	c.DisableCiliumEndpointCRD = viper.GetBool(DisableCiliumEndpointCRDName)
 	c.DisableK8sServices = viper.GetBool(DisableK8sServices)
 	c.EgressMasqueradeInterfaces = viper.GetString(EgressMasqueradeInterfaces)
 	c.EnableHostReachableServices = viper.GetBool(EnableHostReachableServices)
+	c.EnableRemoteNodeIdentity = viper.GetBool(EnableRemoteNodeIdentity)
 	c.DockerEndpoint = viper.GetString(Docker)
 	c.EnableAutoDirectRouting = viper.GetBool(EnableAutoDirectRoutingName)
 	c.EnableEndpointRoutes = viper.GetBool(EnableEndpointRoutes)
@@ -1619,6 +1673,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableL7Proxy = viper.GetBool(EnableL7Proxy)
 	c.EnableTracing = viper.GetBool(EnableTracing)
 	c.EnableNodePort = viper.GetBool(EnableNodePort)
+	c.NodePortMode = viper.GetString(NodePortMode)
 	c.EncryptInterface = viper.GetString(EncryptInterface)
 	c.EncryptNode = viper.GetBool(EncryptNode)
 	c.EnvoyLogPath = viper.GetString(EnvoyLog)
@@ -1640,6 +1695,7 @@ func (c *DaemonConfig) Populate() {
 	c.IPv6Range = viper.GetString(IPv6Range)
 	c.IPv6ServiceRange = viper.GetString(IPv6ServiceRange)
 	c.K8sAPIServer = viper.GetString(K8sAPIServer)
+	c.K8sEnableK8sEndpointSlice = viper.GetBool(K8sEnableEndpointSlice)
 	c.K8sKubeConfigPath = viper.GetString(K8sKubeConfigPath)
 	c.K8sRequireIPv4PodCIDR = viper.GetBool(K8sRequireIPv4PodCIDRName)
 	c.K8sRequireIPv6PodCIDR = viper.GetBool(K8sRequireIPv6PodCIDRName)
@@ -1712,10 +1768,14 @@ func (c *DaemonConfig) Populate() {
 	c.ToFQDNsEnablePoller = viper.GetBool(ToFQDNsEnablePoller)
 	c.ToFQDNsEnablePollerEvents = viper.GetBool(ToFQDNsEnablePollerEvents)
 	c.ToFQDNsMaxIPsPerHost = viper.GetInt(ToFQDNsMaxIPsPerHost)
-	userSetMinTTL := viper.GetInt(ToFQDNsMinTTL)
+	if maxZombies := viper.GetInt(ToFQDNsMaxDeferredConnectionDeletes); maxZombies >= 0 {
+		c.ToFQDNsMaxDeferredConnectionDeletes = viper.GetInt(ToFQDNsMaxDeferredConnectionDeletes)
+	} else {
+		log.Fatal("tofqdns-max-deferred-connection-deletes must be positive, or 0 to disable deferred connection deletion")
+	}
 	switch {
-	case userSetMinTTL != 0: // set by user
-		c.ToFQDNsMinTTL = userSetMinTTL
+	case viper.IsSet(ToFQDNsMinTTL): // set by user
+		c.ToFQDNsMinTTL = viper.GetInt(ToFQDNsMinTTL)
 	case c.ToFQDNsEnablePoller:
 		c.ToFQDNsMinTTL = defaults.ToFQDNsMinTTLPoller
 	default:
@@ -1791,10 +1851,6 @@ func (c *DaemonConfig) Populate() {
 	c.MonitorAggregationFlags = ctMonitorReportFlags
 
 	// Map options
-	if m := viper.GetStringMapString(AwsInstanceLimitMapping); len(m) != 0 {
-		c.AwsInstanceLimitMapping = m
-	}
-
 	if m := viper.GetStringMapString(FixedIdentityMapping); len(m) != 0 {
 		c.FixedIdentityMapping = m
 	}

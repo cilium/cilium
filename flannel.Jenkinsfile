@@ -8,7 +8,7 @@ pipeline {
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
         TESTDIR = "${WORKSPACE}/${PROJ_PATH}/"
-        MEMORY = "4096"
+        VM_MEMORY = "4096"
         SERVER_BOX = "cilium/ubuntu"
         NETNEXT=setIfLabel("ci/net-next", "true", "false")
         CNI_INTEGRATION="flannel"
@@ -59,10 +59,12 @@ pipeline {
             }
             steps {
                 retry(3){
-                    sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant destroy --force'
-                    sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant destroy --force'
-                    sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up --no-provision'
-                    sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant up --no-provision'
+                    timeout(time: 20, unit: 'MINUTES'){
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant destroy --force'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant destroy --force'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up --no-provision'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant up --no-provision'
+                    }
                 }
             }
         }

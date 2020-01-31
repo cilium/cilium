@@ -22,7 +22,6 @@ cilium-agent [flags]
       --annotate-k8s-node                                     Annotate Kubernetes node (default true)
       --auto-create-cilium-node-resource                      Automatically create CiliumNode resource for own node on startup (default true)
       --auto-direct-node-routes                               Enable automatic L2 routing between nodes
-      --aws-instance-limit-mapping map                        Add or overwrite mappings of AWS instance limit in the form of {"AWS instance type": "Maximum Network Interfaces","IPv4 Addresses per Interface","IPv6 Addresses per Interface"}. cli example: --aws-instance-limit-mapping=a1.medium=2,4,4 --aws-instance-limit-mapping=a2.somecustomflavor=4,5,6 configmap example: {"a1.medium": "2,4,4", "a2.somecustomflavor": "4,5,6"} (default map[])
       --blacklist-conflicting-routes                          Don't blacklist IP allocations conflicting with local non-cilium routes (default true)
       --bpf-compile-debug                                     Enable debugging of the BPF compilation process
       --bpf-ct-global-any-max int                             Maximum number of entries in non-TCP CT table (default 262144)
@@ -36,6 +35,7 @@ cilium-agent [flags]
       --bpf-nat-global-max int                                Maximum number of entries for the global BPF NAT table (default 841429)
       --bpf-policy-map-max int                                Maximum number of entries in endpoint policy map (per endpoint) (default 16384)
       --bpf-root string                                       Path to BPF filesystem
+      --certificates-directory string                         Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
       --cgroup-root string                                    Path to Cgroup2 filesystem
       --cluster-id int                                        Unique identifier of the cluster
       --cluster-name string                                   Name of the cluster (default "default")
@@ -59,13 +59,16 @@ cilium-agent [flags]
       --enable-ipsec                                          Enable IPSec support
       --enable-ipv4                                           Enable IPv4 support (default true)
       --enable-ipv6                                           Enable IPv6 support (default true)
+      --enable-k8s-endpoint-slice                             Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it (default true)
       --enable-k8s-event-handover                             Enable k8s event handover to kvstore for improved scalability
       --enable-k8s-external-ips                               Enable k8s externalIPs feature (Only enabled in conjunction with enable-node-port) (default true)
       --enable-l7-proxy                                       Enable L7 proxy for L7 policy enforcement (default true)
       --enable-local-node-route                               Enable installation of the route which points the allocation prefix of the local node (default true)
       --enable-node-port                                      Enable NodePort type services by Cilium (beta)
       --enable-policy string                                  Enable policy enforcement (default "default")
+      --enable-remote-node-identity                           Enable use of remote node identity
       --enable-tracing                                        Enable tracing while determining policy (debugging)
+      --enable-well-known-identities                          Enable well-known identities for known Kubernetes components (default true)
       --encrypt-interface string                              Transparent encryption interface
       --encrypt-node                                          Enables encrypting traffic from non-Cilium pods and host networking
       --endpoint-interface-name-prefix string                 Prefix of interface name shared by all endpoints (default "lxc+")
@@ -98,7 +101,7 @@ cilium-agent [flags]
       --ipv6-cluster-alloc-cidr string                        IPv6 /64 CIDR used to allocate per node endpoint /96 CIDR (default "f00d::/64")
       --ipv6-node string                                      IPv6 address of node (default "auto")
       --ipv6-pod-subnets strings                              List of IPv6 pod subnets to preconfigure for encryption
-      --ipv6-range string                                     Per-node IPv6 endpoint prefix, must be /96, e.g. fd02:1:1::/96 (default "auto")
+      --ipv6-range string                                     Per-node IPv6 endpoint prefix, e.g. fd02:1:1::/96 (default "auto")
       --ipv6-service-range string                             Kubernetes IPv6 services CIDR if not inside cluster prefix (default "auto")
       --ipvlan-master-device string                           Device facing external network acting as ipvlan master (default "undefined")
       --k8s-api-server string                                 Kubernetes API server URL
@@ -128,6 +131,7 @@ cilium-agent [flags]
       --monitor-queue-size int                                Size of the event queue when reading monitor events
       --mtu int                                               Overwrite auto-detected MTU of underlying network
       --nat46-range string                                    IPv6 prefix to map IPv4 addresses to (default "0:0:0:0:0:FFFF::/96")
+      --node-port-mode string                                 BPF NodePort mode ("snat", "dsr") (default "snat")
       --node-port-range strings                               Set the min/max NodePort port range (default [30000,32767])
       --policy-queue-size int                                 size of queues for policy-related events (default 100)
       --pprof                                                 Enable serving the pprof debugging API
@@ -149,10 +153,11 @@ cilium-agent [flags]
       --tofqdns-enable-poller                                 Enable proactive polling of DNS names in toFQDNs.matchName rules.
       --tofqdns-enable-poller-events                          Emit DNS responses seen by the DNS poller as Monitor events, if the poller is enabled. (default true)
       --tofqdns-endpoint-max-ip-per-hostname int              Maximum number of IPs to maintain per FQDN name for each endpoint (default 50)
+      --tofqdns-max-deferred-connection-deletes int           Maximum number of IPs to retain for expired DNS lookups with still-active connections (default 10000)
       --tofqdns-min-ttl int                                   The minimum time, in seconds, to use DNS data for toFQDNs policies. (default 600 when --tofqdns-enable-poller, 3600 otherwise)
       --tofqdns-pre-cache string                              DNS cache data at this path is preloaded on agent startup
       --tofqdns-proxy-port int                                Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
-      --tofqdns-proxy-response-max-delay duration             The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information. (default 50ms)
+      --tofqdns-proxy-response-max-delay duration             The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information. (default 100ms)
       --trace-payloadlen int                                  Length of payload to capture when tracing (default 128)
   -t, --tunnel string                                         Tunnel mode {vxlan, geneve, disabled} (default "vxlan" for the "veth" datapath mode)
       --version                                               Print version information

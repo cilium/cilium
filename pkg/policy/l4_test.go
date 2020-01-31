@@ -48,15 +48,50 @@ func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
-		filter := createL4IngressFilter(eps, false, portrule, tuple, tuple.Protocol, nil, testSelectorCache)
+		filter, err := createL4IngressFilter(testPolicyContext, eps, false, portrule, tuple, tuple.Protocol, nil)
+		c.Assert(err, IsNil)
 		c.Assert(len(filter.L7RulesPerEp), Equals, 1)
 		c.Assert(filter.IsEnvoyRedirect(), Equals, true)
 		c.Assert(filter.IsProxylibRedirect(), Equals, false)
 
-		filter = createL4EgressFilter(eps, portrule, tuple, tuple.Protocol, nil, testSelectorCache, nil)
+		filter, err = createL4EgressFilter(testPolicyContext, eps, portrule, tuple, tuple.Protocol, nil, nil)
+		c.Assert(err, IsNil)
 		c.Assert(len(filter.L7RulesPerEp), Equals, 1)
 		c.Assert(filter.IsEnvoyRedirect(), Equals, true)
 		c.Assert(filter.IsProxylibRedirect(), Equals, false)
+	}
+}
+
+func (s *PolicyTestSuite) TestCreateL4FilterMissingSecret(c *C) {
+	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
+	portrule := api.PortRule{
+		Ports: []api.PortProtocol{tuple},
+		TerminatingTLS: &api.TLSContext{
+			Secret: &api.Secret{
+				Name: "notExisting",
+			},
+		},
+		Rules: &api.L7Rules{
+			HTTP: []api.PortRuleHTTP{
+				{Path: "/public", Method: "GET"},
+			},
+		},
+	}
+	selectors := []api.EndpointSelector{
+		api.NewESFromLabels(),
+		api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+	}
+
+	for _, selector := range selectors {
+		eps := []api.EndpointSelector{selector}
+		// Regardless of ingress/egress, we should end up with
+		// a single L7 rule whether the selector is wildcarded
+		// or if it is based on specific labels.
+		_, err := createL4IngressFilter(testPolicyContext, eps, false, portrule, tuple, tuple.Protocol, nil)
+		c.Assert(err, Not(IsNil))
+
+		_, err = createL4EgressFilter(testPolicyContext, eps, portrule, tuple, tuple.Protocol, nil, nil)
+		c.Assert(err, Not(IsNil))
 	}
 }
 
@@ -85,8 +120,10 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 				CachedSelectors: CachedSelectorSlice{cachedFooSelector},
 				L7Parser:        "http",
 				L7RulesPerEp: L7DataMap{
-					cachedFooSelector: api.L7Rules{
-						HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+					cachedFooSelector: &PerEpData{
+						L7Rules: api.L7Rules{
+							HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+						},
 					},
 				},
 				Ingress: true,
@@ -96,15 +133,17 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 				CachedSelectors: CachedSelectorSlice{cachedFooSelector},
 				L7Parser:        "tester",
 				L7RulesPerEp: L7DataMap{
-					cachedFooSelector: api.L7Rules{
-						L7Proto: "tester",
-						L7: []api.PortRuleL7{
-							map[string]string{
-								"method": "PUT",
-								"path":   "/"},
-							map[string]string{
-								"method": "GET",
-								"path":   "/"},
+					cachedFooSelector: &PerEpData{
+						L7Rules: api.L7Rules{
+							L7Proto: "tester",
+							L7: []api.PortRuleL7{
+								map[string]string{
+									"method": "PUT",
+									"path":   "/"},
+								map[string]string{
+									"method": "GET",
+									"path":   "/"},
+							},
 						},
 					},
 				},
@@ -115,14 +154,18 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 				CachedSelectors: CachedSelectorSlice{cachedFooSelector},
 				L7Parser:        "http",
 				L7RulesPerEp: L7DataMap{
-					cachedFooSelector: api.L7Rules{
-						HTTP: []api.PortRuleHTTP{
-							{Path: "/", Method: "GET"},
-							{Path: "/bar", Method: "GET"},
+					cachedFooSelector: &PerEpData{
+						L7Rules: api.L7Rules{
+							HTTP: []api.PortRuleHTTP{
+								{Path: "/", Method: "GET"},
+								{Path: "/bar", Method: "GET"},
+							},
 						},
 					},
-					wildcardCachedSelector: api.L7Rules{
-						HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+					wildcardCachedSelector: &PerEpData{
+						L7Rules: api.L7Rules{
+							HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+						},
 					},
 				},
 				Ingress: true,

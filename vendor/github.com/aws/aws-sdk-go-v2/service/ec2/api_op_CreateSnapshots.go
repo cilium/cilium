@@ -18,9 +18,10 @@ type CreateSnapshotsInput struct {
 	// A description propagated to every snapshot specified by the instance.
 	Description *string `type:"string"`
 
-	// Checks whether you have the required permissions for the action without actually
-	// making the request. Provides an error response. If you have the required
-	// permissions, the error response is DryRunOperation. Otherwise, it is UnauthorizedOperation.
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
 	DryRun *bool `type:"boolean"`
 
 	// The instance to specify which volumes should be included in the snapshots.
@@ -71,7 +72,7 @@ const opCreateSnapshots = "CreateSnapshots"
 // Creates crash-consistent snapshots of multiple EBS volumes and stores the
 // data in S3. Volumes are chosen by specifying an instance. Any attached volumes
 // will produce one snapshot each that is crash-consistent across the instance.
-// Boot volumes can be excluded by changing the paramaters.
+// Boot volumes can be excluded by changing the parameters.
 //
 //    // Example sending a request using CreateSnapshotsRequest.
 //    req := client.CreateSnapshotsRequest(params)

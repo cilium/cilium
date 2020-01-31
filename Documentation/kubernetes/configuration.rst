@@ -69,9 +69,19 @@ enabled.
       name: cilium-config
       namespace: kube-system
     data:
+      # The kvstore configuration is used to enable use of a kvstore for state
+      # storage. This can either be provided with an external kvstore or with the
+      # help of cilium-etcd-operator which operates an etcd cluster automatically.
+      kvstore: etcd
+      kvstore-opt: '{"etcd.config": "/var/lib/etcd-config/etcd.config"}'
+
+      # This etcd-config contains the etcd endpoints of your cluster. If you use
+      # TLS please make sure you follow the tutorial in https://cilium.link/etcd-config
+      etcd-config: |-
+        ---
         endpoints:
-        - https://node-1:31079
-        - https://node-2:31079
+          - https://node-1:31079
+          - https://node-2:31079
         #
         # In case you want to use TLS in etcd, uncomment the 'trusted-ca-file' line
         # and create a kubernetes secret by following the tutorial in
@@ -318,12 +328,11 @@ If you want to use CRIO, generate the YAML using:
 
 .. include:: ../gettingstarted/k8s-install-download-release.rst
 
-.. code:: bash
+.. parsed-literal::
 
-   helm template cilium \
-     --namespace kube-system \
-     --set global.containerRuntime.integration=crio \
-     > cilium.yaml
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set global.containerRuntime.integration=crio
 
 Since CRI-O does not automatically detect that a new CNI plugin has been
 installed, you will need to restart the CRI-O daemon for it to pick up the
@@ -349,21 +358,3 @@ Finally, you need to restart the Cilium pod so it can re-mount
 ::
 
     kubectl delete -n kube-system pod -l k8s-app=cilium
-
-Disable container runtime
--------------------------
-
-If you want to run the Cilium agent on a node that will not host any
-application containers, then that node may not have a container runtime
-installed at all. You may still want to run the Cilium agent on the node to
-ensure that local processes on that node can reach application containers on
-other nodes. The default behavior of Cilium on startup when no container
-runtime has been found is to abort startup. To avoid this abort, you can run
-the ``cilium-agent`` with the following option.
-
-.. code:: bash
-
-   helm template cilium \
-     --namespace kube-system \
-     --set global.containerRuntime.integration=none \
-     > cilium.yaml

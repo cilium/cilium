@@ -88,7 +88,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	err := k8sCli.AnnotateNode("node1",
 		0,
 		node.GetIPv4AllocRange(),
-		node.GetIPv6NodeRange(),
+		node.GetIPv6AllocRange(),
 		nil,
 		nil,
 		net.ParseIP("10.254.0.1"),
@@ -155,12 +155,12 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	// We use the node's annotation for the IPv4 and the PodCIDR for the
 	// IPv6.
 	c.Assert(node.GetIPv4AllocRange().String(), Equals, "10.254.0.0/16")
-	c.Assert(node.GetIPv6NodeRange().String(), Equals, "aaaa:aaaa:aaaa:aaaa:beef:beef::/96")
+	c.Assert(node.GetIPv6AllocRange().String(), Equals, "aaaa:aaaa:aaaa:aaaa:beef:beef::/96")
 
 	err = k8sCli.AnnotateNode("node2",
 		0,
 		node.GetIPv4AllocRange(),
-		node.GetIPv6NodeRange(),
+		node.GetIPv6AllocRange(),
 		nil,
 		nil,
 		net.ParseIP("10.254.0.1"),

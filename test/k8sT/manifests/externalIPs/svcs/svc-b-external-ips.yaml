@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-b-external-ips
+  namespace: external-ips-test
+  labels:
+    id: app1
+spec:
+  selector:
+    id: app1
+  externalIPs:
+    - 192.0.2.233
+    - 192.168.34.11
+    - 192.168.33.11
+  ports:
+    - protocol: TCP
+      port: 30002
+      targetPort: 80

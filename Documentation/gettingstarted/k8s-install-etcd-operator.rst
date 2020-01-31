@@ -33,16 +33,14 @@ Deploy Cilium + cilium-etcd-operator
 
 .. include:: k8s-install-download-release.rst
 
-Generate the required YAML file and deploy it:
+Deploy Cilium release via Helm:
 
-.. code:: bash
+.. parsed-literal::
 
-   helm template cilium \
-      --namespace kube-system \
-      --set global.etcd.enabled=true \
-      --set global.etcd.managed=true \
-      > cilium.yaml
-   kubectl create -f cilium.yaml
+   helm install cilium |CHART_RELEASE| \\
+      --namespace kube-system \\
+      --set global.etcd.enabled=true \\
+      --set global.etcd.managed=true
 
 
 Validate the Installation
@@ -181,7 +179,7 @@ disadvantages which can become of relevance as you scale up your clusters:
 * etcd nodes operated by the etcd-operator will not use persistent storage.
   Once the etcd cluster looses quorum, the etcd cluster is automatically
   re-created by the cilium-etcd-operator. Cilium will automatically recover and
-  re-create all state in etcd. This operation can take can couple of seconds
+  re-create all state in etcd. This operation can take couple of seconds
   and may cause minor disruptions as ongoing distributed locks are invalidated
   and security identities have to be re-allocated.
 

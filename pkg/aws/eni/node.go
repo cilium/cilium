@@ -23,7 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/math"
 	"github.com/cilium/cilium/pkg/option"
@@ -180,10 +180,24 @@ func calculateExcessIPs(availableIPs, usedIPs, preAllocate, minAllocate, maxAbov
 		preAllocate = defaults.ENIPreAllocation
 	}
 
-	// keep availableIPs above minAllocate
-	if availableIPs <= minAllocate {
-		return 0
+	// keep availableIPs above minAllocate + maxAboveWatermark as long as
+	// the initial socket of min-allocate + max-above-watermark has not
+	// been used up yet. This is the maximum potential allocation that will
+	// happen on initial bootstrap.  Depending on interface restrictions,
+	// the actual allocation may be below this but we always want to avoid
+	// releasing IPs that have just been allocated.
+	if usedIPs <= (minAllocate + maxAboveWatermark) {
+		if availableIPs <= (minAllocate + maxAboveWatermark) {
+			return 0
+		}
 	}
+
+	// Once above the minimum allocation level, calculate based on
+	// pre-allocation limit with the max-above-watermark limit calculated
+	// in. This is again a best-effort calculation, depending on the
+	// interface restrictions, less than max-above-watermark may have been
+	// allocated but we never want to release IPs that have been allocated
+	// because of max-above-watermark.
 	excessIPs = availableIPs - usedIPs - preAllocate - maxAboveWatermark
 	if excessIPs < 0 {
 		excessIPs = 0
@@ -193,6 +207,11 @@ func calculateExcessIPs(availableIPs, usedIPs, preAllocate, minAllocate, maxAbov
 }
 
 func (n *Node) updatedResource(resource *v2.CiliumNode) bool {
+	// Deep copy the resource before storing it. This way we are
+	// not dependent on caller not using the resource after this
+	// call.
+	resource = resource.DeepCopy()
+
 	n.mutex.Lock()
 	// Any modification to the custom resource is seen as a sign that the
 	// instance is alive
@@ -215,10 +234,19 @@ func (n *Node) updatedResource(resource *v2.CiliumNode) bool {
 func (n *Node) recalculateLocked() {
 	n.enis = map[string]v2.ENI{}
 	n.available = map[string]v2.AllocationIP{}
-	for _, e := range n.manager.instancesAPI.GetENIs(n.resource.Spec.ENI.InstanceID) {
+	enis := n.manager.instancesAPI.GetENIs(n.resource.Spec.ENI.InstanceID)
+	// An ec2 instance has at least one ENI attached, no ENI found implies instance not found.
+	if len(enis) == 0 {
+		n.loggerLocked().Warning("Instance not found! Please delete corresponding ciliumnode if instance has already been deleted.")
+		// Avoid any further action
+		n.stats.neededIPs = 0
+		n.stats.excessIPs = 0
+		return
+	}
+	for _, e := range enis {
 		n.enis[e.ID] = *e
 
-		if e.Number < n.resource.Spec.ENI.FirstInterfaceIndex {
+		if e.Number < *n.resource.Spec.ENI.FirstInterfaceIndex {
 			continue
 		}
 
@@ -281,15 +309,37 @@ func (n *Node) ResourceCopy() *v2.CiliumNode {
 	return n.resource.DeepCopy()
 }
 
-func (n *Node) getSecurityGroups() (securityGroups []string) {
-	// When no security groups are provided, derive them from eth0
-	securityGroups = n.resource.Spec.ENI.SecurityGroups
-	if len(securityGroups) == 0 {
-		if eni := n.manager.instancesAPI.GetENI(n.resource.Spec.ENI.InstanceID, 0); eni != nil {
-			securityGroups = eni.SecurityGroups
+func (n *Node) getSecurityGroupIDs(ctx context.Context) ([]string, error) {
+	// 1. check explicit security groups associations via checking Spec.ENI.SecurityGroups
+	// 2. check if Spec.ENI.SecurityGroupTags is passed and if so filter by those
+	// 3. if 1 and 2 give no results derive the security groups from eth0
+
+	eniSpec := n.resource.Spec.ENI
+	if len(eniSpec.SecurityGroups) > 0 {
+		return eniSpec.SecurityGroups, nil
+	}
+
+	if len(eniSpec.SecurityGroupTags) > 0 {
+		securityGroups := n.manager.instancesAPI.FindSecurityGroupByTags(eniSpec.VpcID, eniSpec.SecurityGroupTags)
+		if len(securityGroups) == 0 {
+			n.loggerLocked().WithFields(logrus.Fields{
+				"vpcID": eniSpec.VpcID,
+				"tags":  eniSpec.SecurityGroupTags,
+			}).Warn("No security groups match required vpc id and tags, using eth0 security groups")
+		} else {
+			groups := make([]string, 0, len(securityGroups))
+			for _, secGroup := range securityGroups {
+				groups = append(groups, secGroup.ID)
+			}
+			return groups, nil
 		}
 	}
-	return
+
+	if eni := n.manager.instancesAPI.GetENI(n.resource.Spec.ENI.InstanceID, 0); eni != nil {
+		return eni.SecurityGroups, nil
+	}
+
+	return nil, fmt.Errorf("failed to get security group ids")
 }
 
 func (n *Node) errorInstanceNotRunning(err error) (notRunning bool) {
@@ -339,28 +389,34 @@ func (n *Node) findNextIndex(index int64) int64 {
 func (n *Node) allocateENI(ctx context.Context, s *types.Subnet, a *allocatableResources) error {
 	nodeResource := n.ResourceCopy()
 	n.mutex.RLock()
-	securityGroups := n.getSecurityGroups()
-	neededAddresses := n.stats.neededIPs
 
+	securityGroupIDs, err := n.getSecurityGroupIDs(ctx)
+	if err != nil {
+		n.mutex.RUnlock()
+		return fmt.Errorf("failed to get security groups for node %s: %s", n.name, err.Error())
+	}
+
+	neededAddresses := n.stats.neededIPs
 	desc := "Cilium-CNI (" + n.resource.Spec.ENI.InstanceID + ")"
-	toAllocate := int64(math.IntMin(neededAddresses+nodeResource.Spec.ENI.MaxAboveWatermark, a.limits.IPv4))
+	// Must allocate secondary ENI IPs as needed, up to ENI instance limit - 1 (reserve 1 for primary IP)
+	toAllocate := int64(math.IntMin(neededAddresses+nodeResource.Spec.ENI.MaxAboveWatermark, a.limits.IPv4-1))
 	// Validate whether request has already been fulfilled in the meantime
 	if toAllocate == 0 {
 		n.mutex.RUnlock()
 		return nil
 	}
 
-	index := n.findNextIndex(int64(nodeResource.Spec.ENI.FirstInterfaceIndex))
+	index := n.findNextIndex(int64(*nodeResource.Spec.ENI.FirstInterfaceIndex))
 
 	scopedLog := n.loggerLocked().WithFields(logrus.Fields{
-		"securityGroups": securityGroups,
-		"subnetID":       s.ID,
-		"addresses":      toAllocate,
+		"securityGroupIDs": securityGroupIDs,
+		"subnetID":         s.ID,
+		"addresses":        toAllocate,
 	})
 	scopedLog.Info("No more IPs available, creating new ENI")
 	n.mutex.RUnlock()
 
-	eniID, eni, err := n.manager.ec2API.CreateNetworkInterface(ctx, toAllocate, s.ID, desc, securityGroups)
+	eniID, eni, err := n.manager.ec2API.CreateNetworkInterface(ctx, toAllocate, s.ID, desc, securityGroupIDs)
 	if err != nil {
 		n.manager.metricsAPI.IncENIAllocationAttempt("ENI creation failed", s.ID)
 		return fmt.Errorf("unable to create ENI: %s", err)
@@ -492,7 +548,7 @@ func (n *Node) determineMaintenanceAction() (*allocatableResources, error) {
 				"numAddresses": len(e.Addresses),
 			}).Debug("Considering ENI for IP release")
 
-			if e.Number < n.resource.Spec.ENI.FirstInterfaceIndex {
+			if e.Number < *n.resource.Spec.ENI.FirstInterfaceIndex {
 				continue
 			}
 
@@ -559,7 +615,7 @@ func (n *Node) determineMaintenanceAction() (*allocatableResources, error) {
 			"numAddresses": len(e.Addresses),
 		}).Debug("Considering ENI for allocation")
 
-		if e.Number < n.resource.Spec.ENI.FirstInterfaceIndex {
+		if e.Number < *n.resource.Spec.ENI.FirstInterfaceIndex {
 			continue
 		}
 

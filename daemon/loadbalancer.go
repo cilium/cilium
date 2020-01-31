@@ -70,13 +70,24 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		svcType = loadbalancer.SVCTypeClusterIP
 	}
 
+	var svcTrafficPolicy loadbalancer.SVCTrafficPolicy
+	switch params.Config.Flags.TrafficPolicy {
+	case models.ServiceSpecFlagsTrafficPolicyLocal:
+		svcTrafficPolicy = loadbalancer.SVCTrafficPolicyLocal
+	default:
+		svcTrafficPolicy = loadbalancer.SVCTrafficPolicyCluster
+	}
+
+	svcHealthCheckNodePort := params.Config.Flags.HealthCheckNodePort
+
 	var svcName, svcNamespace string
 	if params.Config.Flags != nil {
 		svcName = params.Config.Flags.Name
 		svcNamespace = params.Config.Flags.Namespace
 	}
 
-	created, id, err := h.svc.UpsertService(frontend, backends, svcType, svcName, svcNamespace)
+	created, id, err := h.svc.UpsertService(frontend, backends, svcType, svcTrafficPolicy,
+		svcHealthCheckNodePort, svcName, svcNamespace)
 	if err == nil && id != frontend.ID {
 		return api.Error(PutServiceIDInvalidFrontendCode,
 			fmt.Errorf("the service provided is already registered with ID %d, please use that ID instead of %d",

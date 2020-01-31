@@ -19,12 +19,6 @@ import (
 )
 
 const (
-	// IPv6NodeAllocPrefixLen is the length of the prefix used for allocation per node
-	IPv6NodeAllocPrefixLen = 112
-
-	// IPv6NodePrefixLen is the length used to allocate container IPv6 addresses from.
-	IPv6NodePrefixLen = 96
-
 	// DefaultIPv4Prefix is the prefix for all the IPv4 addresses.
 	// %d is substituted with the last byte of first global IPv4 address
 	// configured on the system.

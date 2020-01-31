@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cilium/cilium/pkg/aws/eni"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/k8s"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
@@ -53,20 +54,21 @@ var (
 		},
 	}
 
-	k8sAPIServer        string
-	k8sKubeConfigPath   string
-	kvStore             string
-	kvStoreOpts         = make(map[string]string)
-	apiServerPort       uint16
-	shutdownSignal      = make(chan struct{})
-	synchronizeServices bool
-	enableCepGC         bool
-	synchronizeNodes    bool
-	enableMetrics       bool
-	metricsAddress      string
-	eniParallelWorkers  int64
-	enableENI           bool
-	eniTags             = make(map[string]string)
+	k8sAPIServer            string
+	k8sKubeConfigPath       string
+	kvStore                 string
+	kvStoreOpts             = make(map[string]string)
+	apiServerPort           uint16
+	shutdownSignal          = make(chan struct{})
+	synchronizeServices     bool
+	enableCepGC             bool
+	synchronizeNodes        bool
+	enableMetrics           bool
+	metricsAddress          string
+	eniParallelWorkers      int64
+	enableENI               bool
+	eniTags                 = make(map[string]string)
+	awsInstanceLimitMapping = make(map[string]string)
 
 	k8sIdentityGCInterval       time.Duration
 	k8sIdentityHeartbeatTimeout time.Duration
@@ -132,12 +134,18 @@ func init() {
 	flags.Int64Var(&eniParallelWorkers, "eni-parallel-workers", defaults.ENIParallelWorkers, "Maximum number of parallel workers used by ENI allocator")
 	flags.String(option.K8sNamespaceName, "", "Name of the Kubernetes namespace in which Cilium Operator is deployed in")
 	option.BindEnv(option.K8sNamespaceName)
+	flags.Bool(option.K8sEnableEndpointSlice, defaults.K8sEnableEndpointSlice, fmt.Sprintf("Enables k8s EndpointSlice feature into Cilium-Operator if the k8s cluster supports it"))
+	option.BindEnv(option.K8sEnableEndpointSlice)
 
 	flags.IntVar(&unmanagedKubeDnsWatcherInterval, "unmanaged-pod-watcher-interval", 15, "Interval to check for unmanaged kube-dns pods (0 to disable)")
 
 	flags.Int(option.AWSClientBurst, defaults.AWSClientBurst, "Burst value allowed for the AWS client used by the AWS ENI IPAM")
 	flags.Float64(option.AWSClientQPSLimit, defaults.AWSClientQPSLimit, "Queries per second limit for the AWS client used by the AWS ENI IPAM")
 	flags.Var(option.NewNamedMapOptions(option.ENITags, &eniTags, nil), option.ENITags, "ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)")
+	flags.Var(option.NewNamedMapOptions(option.AwsInstanceLimitMapping, &awsInstanceLimitMapping, nil),
+		option.AwsInstanceLimitMapping, "Add or overwrite mappings of AWS instance limit in the form of {\"AWS instance type\": \"Maximum Network Interfaces\",\"IPv4 Addresses per Interface\",\"IPv6 Addresses per Interface\"}. cli example: --aws-instance-limit-mapping=a1.medium=2,4,4 --aws-instance-limit-mapping=a2.somecustomflavor=4,5,6 configmap example: {\"a1.medium\": \"2,4,4\", \"a2.somecustomflavor\": \"4,5,6\"}")
+	option.BindEnv(option.AwsInstanceLimitMapping)
+	flags.Bool(option.UpdateEC2AdapterLimitViaAPI, false, "Use the EC2 API to update the instance type to adapter limits")
 
 	flags.Float32(option.K8sClientQPSLimit, defaults.K8sClientQPSLimit, "Queries per second limit for the K8s client")
 	flags.Int(option.K8sClientBurst, defaults.K8sClientBurst, "Burst value allowed for the K8s client")
@@ -151,6 +159,7 @@ func init() {
 	option.BindEnv(option.DisableCiliumEndpointCRDName)
 
 	flags.BoolVar(&enableCNPNodeStatusGC, "cnp-node-status-gc", true, "Enable CiliumNetworkPolicy Status garbage collection for nodes which have been removed from the cluster")
+	flags.BoolVar(&enableCCNPNodeStatusGC, "ccnp-node-status-gc", true, "Enable CiliumClusterwideNetworkPolicy Status garbage collection for nodes which have been removed from the cluster")
 	flags.DurationVar(&ciliumCNPNodeStatusGCInterval, "cnp-node-status-gc-interval", time.Minute*2, "GC interval for nodes which have been removed from the cluster in CiliumNetworkPolicy Status")
 
 	flags.DurationVar(&cnpStatusUpdateInterval, "cnp-status-update-interval", 1*time.Second, "interval between CNP status updates sent to the k8s-apiserver per-CNP")
@@ -247,6 +256,14 @@ func runOperator(cmd *cobra.Command) {
 
 	enableENI = viper.GetString(option.IPAM) == option.IPAMENI
 	if enableENI {
+		if err := eni.UpdateLimitsFromUserDefinedMappings(awsInstanceLimitMapping); err != nil {
+			log.WithError(err).Fatal("Parse aws-instance-limit-mapping failed")
+		}
+		if viper.GetBool(option.UpdateEC2AdapterLimitViaAPI) {
+			if err := eni.UpdateLimitsFromEC2API(context.TODO()); err != nil {
+				log.WithError(err).Error("Unable to update instance type to adapter limits from EC2 API")
+			}
+		}
 		awsClientQPSLimit := viper.GetFloat64(option.AWSClientQPSLimit)
 		awsClientBurst := viper.GetInt(option.AWSClientBurst)
 		if m := viper.GetStringMapString(option.ENITags); len(m) > 0 {
@@ -303,13 +320,20 @@ func runOperator(cmd *cobra.Command) {
 				log.WithError(err).Error("Unable to setup node watcher")
 			}
 		}
+
+		startKvstoreWatchdog()
 	}
 
-	if identityAllocationMode == option.IdentityAllocationModeCRD {
+	switch identityAllocationMode {
+	case option.IdentityAllocationModeCRD:
 		startManagingK8sIdentities()
 
 		if identityGCInterval != time.Duration(0) {
 			go startCRDIdentityGC()
+		}
+	case option.IdentityAllocationModeKVstore:
+		if identityGCInterval != time.Duration(0) {
+			startKvstoreIdentityGC()
 		}
 	}
 
@@ -317,12 +341,15 @@ func runOperator(cmd *cobra.Command) {
 		enableCiliumEndpointSyncGC()
 	}
 
-	if identityGCInterval != time.Duration(0) {
-		startIdentityGC()
-	}
 	err := enableCNPWatcher()
 	if err != nil {
 		log.WithError(err).WithField("subsys", "CNPWatcher").Fatal(
+			"Cannot connect to Kubernetes apiserver ")
+	}
+
+	err = enableCCNPWatcher()
+	if err != nil {
+		log.WithError(err).WithField("subsys", "CCNPWatcher").Fatal(
 			"Cannot connect to Kubernetes apiserver ")
 	}
 

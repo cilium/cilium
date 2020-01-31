@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,6 +51,7 @@ func enableCNPWatcher() error {
 
 	var (
 		cnpConverterFunc informer.ConvertFunc
+		cnpStatusMgr     *k8s.CNPStatusEventHandler
 	)
 	cnpStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 
@@ -63,19 +64,19 @@ func enableCNPWatcher() error {
 		cnpConverterFunc = k8s.ConvertToCNPWithStatus
 	}
 
-	cnpSharedStore, err := store.JoinSharedStore(store.Configuration{
-		Prefix: k8s.CNPStatusesPath,
-		KeyCreator: func() store.Key {
-			return &k8s.CNPNSWithMeta{}
-		},
-	})
-	if err != nil {
-		return err
-	}
-
-	cnpStatusMgr := k8s.NewCNPStatusEventHandler(cnpSharedStore, cnpStore, cnpStatusUpdateInterval)
-
 	if kvstoreEnabled() {
+		cnpSharedStore, err := store.JoinSharedStore(store.Configuration{
+			Prefix: k8s.CNPStatusesPath,
+			KeyCreator: func() store.Key {
+				return &k8s.CNPNSWithMeta{}
+			},
+		})
+		if err != nil {
+			return err
+		}
+
+		cnpStatusMgr = k8s.NewCNPStatusEventHandler(cnpSharedStore, cnpStore, cnpStatusUpdateInterval)
+
 		go cnpStatusMgr.WatchForCNPStatusEvents()
 	}
 
@@ -89,7 +90,9 @@ func enableCNPWatcher() error {
 				metrics.EventTSK8s.SetToCurrentTime()
 				if cnp := k8s.CopyObjToV2CNP(obj); cnp != nil {
 					groups.AddDerivativeCNPIfNeeded(cnp.CiliumNetworkPolicy)
-					cnpStatusMgr.StartStatusHandler(cnp)
+					if kvstoreEnabled() {
+						cnpStatusMgr.StartStatusHandler(cnp)
+					}
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
@@ -122,7 +125,9 @@ func enableCNPWatcher() error {
 				// The derivative policy will be deleted by the parent but need
 				// to delete the cnp from the pooling.
 				groups.DeleteDerivativeFromCache(cnp.CiliumNetworkPolicy)
-				cnpStatusMgr.StopStatusHandler(cnp)
+				if kvstoreEnabled() {
+					cnpStatusMgr.StopStatusHandler(cnp)
+				}
 			},
 		},
 		cnpConverterFunc,

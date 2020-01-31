@@ -79,6 +79,7 @@ func (k *k8sAPI) Update(node, origNode *v2.CiliumNode) (*v2.CiliumNode, error) {
 
 func ciliumNodeUpdated(resource *v2.CiliumNode) {
 	if nodeManager != nil {
+		// resource is deep copied before it is stored in pkg/aws/eni
 		nodeManager.Update(resource)
 	}
 }

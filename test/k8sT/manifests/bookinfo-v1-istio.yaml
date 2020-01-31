@@ -45,10 +45,15 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"6eaa5f3d0263084f01d97d7d17e5e117af881e8e850f9ce60fd9a9d7b1735c3f","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/interceptionMode: TPROXY
+        sidecar.istio.io/status: '{"version":"4f56cb98d6f61d0239441bcbc858009ac38a43a765332950a948ca6fd2bc9cef","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        traffic.sidecar.istio.io/excludeInboundPorts: "15020"
+        traffic.sidecar.istio.io/includeInboundPorts: "9080"
+        traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
       creationTimestamp: null
       labels:
         app: details
+        security.istio.io/tlsMode: istio
         track: stable
         version: v1
         zgroup: bookinfo
@@ -98,6 +103,13 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        - name: ISTIO_META_POD_PORTS
+          value: |-
+            [
+                {"containerPort":9080}
+            ]
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
@@ -106,6 +118,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -114,6 +130,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: SDS_ENABLED
+          value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: TPROXY
         - name: ISTIO_META_INCLUDE_INBOUND_PORTS
@@ -121,7 +139,11 @@ spec:
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"details","track":"stable","version":"v1","zgroup":"bookinfo"}
-        image: docker.io/cilium/istio_proxy:1.2.5
+        - name: ISTIO_META_WORKLOAD_NAME
+          value: details-v1
+        - name: ISTIO_META_OWNER
+          value: kubernetes://apis/apps/v1/namespaces/default/deployments/details-v1
+        image: docker.io/cilium/istio_proxy:1.4.3
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -143,11 +165,17 @@ spec:
             cpu: 100m
             memory: 128Mi
         securityContext:
+          allowPrivilegeEscalation: false
           capabilities:
             add:
             - NET_ADMIN
+            drop:
+            - ALL
+          privileged: false
           readOnlyRootFilesystem: true
           runAsGroup: 1337
+          runAsNonRoot: false
+          runAsUser: 0
         volumeMounts:
         - mountPath: /var/run/cilium
           name: cilium-unix-sock-dir
@@ -167,9 +195,12 @@ spec:
         imagePullPolicy: IfNotPresent
         name: sleep
         resources: {}
-      - args:
+      - command:
+        - istio-iptables
         - -p
         - "15001"
+        - -z
+        - "15006"
         - -u
         - "1337"
         - -m
@@ -179,10 +210,10 @@ spec:
         - -x
         - ""
         - -b
-        - "9080"
+        - '*'
         - -d
         - "15020"
-        image: docker.io/istio/proxy_init:1.2.5
+        image: docker.io/istio/proxyv2:1.4.3
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
@@ -193,9 +224,16 @@ spec:
             cpu: 10m
             memory: 10Mi
         securityContext:
+          allowPrivilegeEscalation: false
           capabilities:
             add:
             - NET_ADMIN
+            - NET_RAW
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: false
+          runAsGroup: 0
           runAsNonRoot: false
           runAsUser: 0
       terminationGracePeriodSeconds: 0
@@ -245,10 +283,15 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"6eaa5f3d0263084f01d97d7d17e5e117af881e8e850f9ce60fd9a9d7b1735c3f","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/interceptionMode: TPROXY
+        sidecar.istio.io/status: '{"version":"4f56cb98d6f61d0239441bcbc858009ac38a43a765332950a948ca6fd2bc9cef","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        traffic.sidecar.istio.io/excludeInboundPorts: "15020"
+        traffic.sidecar.istio.io/includeInboundPorts: "9080"
+        traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
       creationTimestamp: null
       labels:
         app: reviews
+        security.istio.io/tlsMode: istio
         track: stable
         version: v1
         zgroup: bookinfo
@@ -298,6 +341,13 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        - name: ISTIO_META_POD_PORTS
+          value: |-
+            [
+                {"containerPort":9080}
+            ]
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
@@ -306,6 +356,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -314,6 +368,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: SDS_ENABLED
+          value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: TPROXY
         - name: ISTIO_META_INCLUDE_INBOUND_PORTS
@@ -321,7 +377,11 @@ spec:
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"reviews","track":"stable","version":"v1","zgroup":"bookinfo"}
-        image: docker.io/cilium/istio_proxy:1.2.5
+        - name: ISTIO_META_WORKLOAD_NAME
+          value: reviews-v1
+        - name: ISTIO_META_OWNER
+          value: kubernetes://apis/apps/v1/namespaces/default/deployments/reviews-v1
+        image: docker.io/cilium/istio_proxy:1.4.3
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -343,11 +403,17 @@ spec:
             cpu: 100m
             memory: 128Mi
         securityContext:
+          allowPrivilegeEscalation: false
           capabilities:
             add:
             - NET_ADMIN
+            drop:
+            - ALL
+          privileged: false
           readOnlyRootFilesystem: true
           runAsGroup: 1337
+          runAsNonRoot: false
+          runAsUser: 0
         volumeMounts:
         - mountPath: /var/run/cilium
           name: cilium-unix-sock-dir
@@ -367,9 +433,12 @@ spec:
         imagePullPolicy: IfNotPresent
         name: sleep
         resources: {}
-      - args:
+      - command:
+        - istio-iptables
         - -p
         - "15001"
+        - -z
+        - "15006"
         - -u
         - "1337"
         - -m
@@ -379,10 +448,10 @@ spec:
         - -x
         - ""
         - -b
-        - "9080"
+        - '*'
         - -d
         - "15020"
-        image: docker.io/istio/proxy_init:1.2.5
+        image: docker.io/istio/proxyv2:1.4.3
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
@@ -393,9 +462,16 @@ spec:
             cpu: 10m
             memory: 10Mi
         securityContext:
+          allowPrivilegeEscalation: false
           capabilities:
             add:
             - NET_ADMIN
+            - NET_RAW
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: false
+          runAsGroup: 0
           runAsNonRoot: false
           runAsUser: 0
       terminationGracePeriodSeconds: 0
@@ -445,10 +521,15 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"6eaa5f3d0263084f01d97d7d17e5e117af881e8e850f9ce60fd9a9d7b1735c3f","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/interceptionMode: TPROXY
+        sidecar.istio.io/status: '{"version":"4f56cb98d6f61d0239441bcbc858009ac38a43a765332950a948ca6fd2bc9cef","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        traffic.sidecar.istio.io/excludeInboundPorts: "15020"
+        traffic.sidecar.istio.io/includeInboundPorts: "9080"
+        traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
       creationTimestamp: null
       labels:
         app: productpage
+        security.istio.io/tlsMode: istio
         track: stable
         version: v1
         zgroup: bookinfo
@@ -498,6 +579,13 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        - name: ISTIO_META_POD_PORTS
+          value: |-
+            [
+                {"containerPort":9080}
+            ]
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
@@ -506,6 +594,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -514,6 +606,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: SDS_ENABLED
+          value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: TPROXY
         - name: ISTIO_META_INCLUDE_INBOUND_PORTS
@@ -521,7 +615,11 @@ spec:
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"productpage","track":"stable","version":"v1","zgroup":"bookinfo"}
-        image: docker.io/cilium/istio_proxy:1.2.5
+        - name: ISTIO_META_WORKLOAD_NAME
+          value: productpage-v1
+        - name: ISTIO_META_OWNER
+          value: kubernetes://apis/apps/v1/namespaces/default/deployments/productpage-v1
+        image: docker.io/cilium/istio_proxy:1.4.3
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -543,11 +641,17 @@ spec:
             cpu: 100m
             memory: 128Mi
         securityContext:
+          allowPrivilegeEscalation: false
           capabilities:
             add:
             - NET_ADMIN
+            drop:
+            - ALL
+          privileged: false
           readOnlyRootFilesystem: true
           runAsGroup: 1337
+          runAsNonRoot: false
+          runAsUser: 0
         volumeMounts:
         - mountPath: /var/run/cilium
           name: cilium-unix-sock-dir
@@ -567,9 +671,12 @@ spec:
         imagePullPolicy: IfNotPresent
         name: sleep
         resources: {}
-      - args:
+      - command:
+        - istio-iptables
         - -p
         - "15001"
+        - -z
+        - "15006"
         - -u
         - "1337"
         - -m
@@ -579,10 +686,10 @@ spec:
         - -x
         - ""
         - -b
-        - "9080"
+        - '*'
         - -d
         - "15020"
-        image: docker.io/istio/proxy_init:1.2.5
+        image: docker.io/istio/proxyv2:1.4.3
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
@@ -593,9 +700,16 @@ spec:
             cpu: 10m
             memory: 10Mi
         securityContext:
+          allowPrivilegeEscalation: false
           capabilities:
             add:
             - NET_ADMIN
+            - NET_RAW
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: false
+          runAsGroup: 0
           runAsNonRoot: false
           runAsUser: 0
       terminationGracePeriodSeconds: 0

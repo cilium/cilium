@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// This tests the Istio 1.2.5 integration, following the configuration
+// This tests the Istio 1.4.3 integration, following the configuration
 // instructions specified in the Istio Getting Started Guide in
 // Documentation/gettingstarted/istio.rst.
 // Changes to the Getting Started Guide may require re-generating or copying
@@ -44,12 +44,12 @@ var _ = Describe("K8sIstioTest", func() {
 
 		// istioCRDYAMLPath is the file generated from istio-init during a
 		// step in Documentation/gettingstarted/istio.rst to setup
-		// Istio 1.2.5. In the GSG the file is directly piped to kubectl.
+		// Istio 1.4.3. In the GSG the file is directly piped to kubectl.
 		istioCRDYAMLPath = ""
 
 		// istioYAMLPath is the istio-cilium.yaml file generated following the
 		// instructions in Documentation/gettingstarted/istio.rst to setup
-		// Istio 1.2.5. mTLS is enabled.
+		// Istio 1.4.3. mTLS is enabled.
 		istioYAMLPath = ""
 
 		// istioServiceNames is the subset of Istio services in the Istio
@@ -74,20 +74,24 @@ var _ = Describe("K8sIstioTest", func() {
 		uptimeCancel context.CancelFunc
 
 		teardownTimeout = 10 * time.Minute
+
+		ciliumFilename string
 	)
 
 	BeforeAll(func() {
 		k8sVersion := helpers.GetCurrentK8SEnv()
 		switch k8sVersion {
-		case "1.7", "1.8", "1.9":
-			Skip(fmt.Sprintf("Istio doesn't support K8S %s", k8sVersion))
+		case "1.7", "1.8", "1.9", "1.10", "1.11", "1.12", "1.13":
+			Skip(fmt.Sprintf("Istio 1.4.3 doesn't support K8S %s", k8sVersion))
 		}
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		istioCRDYAMLPath = helpers.ManifestGet(kubectl.BasePath(), "istio-crds.yaml")
 		istioYAMLPath = helpers.ManifestGet(kubectl.BasePath(), "istio-cilium.yaml")
-		DeployCiliumAndDNS(kubectl)
+
+		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
+		DeployCiliumAndDNS(kubectl, ciliumFilename)
 
 		By("Creating the istio-system namespace")
 		res := kubectl.NamespaceCreate(istioSystemNamespace)
@@ -137,7 +141,7 @@ var _ = Describe("K8sIstioTest", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace,
+		kubectl.CiliumReport(helpers.CiliumNamespace,
 			"cilium endpoint list",
 			"cilium bpf proxy list")
 	})

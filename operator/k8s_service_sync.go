@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,11 @@ package main
 
 import (
 	"context"
+	"sync"
 	"time"
+
+	"k8s.io/api/discovery/v1beta1"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
@@ -178,9 +182,47 @@ func startSynchronizingServices() {
 
 	go svcController.Run(wait.NeverStop)
 
+	var (
+		endpointController cache.Controller
+	)
+
+	// We only enable either "Endpoints" or "EndpointSlice"
+	switch {
+	case k8s.SupportsEndpointSlice():
+		var endpointSliceEnabled bool
+		endpointController, endpointSliceEnabled = endpointSlicesInit(k8s.Client(), serEps, swgEps)
+		// the cluster has endpoint slices so we should not check for v1.Endpoints
+		if endpointSliceEnabled {
+			break
+		}
+		fallthrough
+	default:
+		endpointController = endpointsInit(k8s.Client(), serEps, swgEps)
+		go endpointController.Run(wait.NeverStop)
+	}
+
+	go func() {
+		cache.WaitForCacheSync(wait.NeverStop, svcController.HasSynced)
+		swgSvcs.Stop()
+		cache.WaitForCacheSync(wait.NeverStop, endpointController.HasSynced)
+		swgEps.Stop()
+
+		swgSvcs.Wait()
+		swgEps.Wait()
+		close(k8sSvcCacheSynced)
+	}()
+
+	go func() {
+		<-readyChan
+		log.Info("Starting to synchronize Kubernetes services to kvstore")
+		k8sServiceHandler()
+	}()
+}
+
+func endpointsInit(k8sClient kubernetes.Interface, serEps *serializer.FunctionQueue, swgEps *lock.StoppableWaitGroup) cache.Controller {
 	// Watch for v1.Endpoints changes and push changes into ServiceCache
 	_, endpointController := informer.NewInformer(
-		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
+		cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
 			"endpoints", v1.NamespaceAll,
 			// Don't get any events from kubernetes endpoints.
 			fields.ParseSelectorOrDie("metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager"),
@@ -241,23 +283,89 @@ func startSynchronizingServices() {
 		},
 		k8s.ConvertToK8sEndpoints,
 	)
+	return endpointController
+}
 
-	go endpointController.Run(wait.NeverStop)
+func endpointSlicesInit(k8sClient kubernetes.Interface, serEps *serializer.FunctionQueue, swgEps *lock.StoppableWaitGroup) (cache.Controller, bool) {
+	var (
+		hasEndpointSlices = make(chan struct{})
+		once              sync.Once
+	)
 
-	go func() {
-		cache.WaitForCacheSync(wait.NeverStop, svcController.HasSynced)
-		swgSvcs.Stop()
-		cache.WaitForCacheSync(wait.NeverStop, endpointController.HasSynced)
-		swgEps.Stop()
+	_, endpointController := informer.NewInformer(
+		cache.NewListWatchFromClient(k8sClient.DiscoveryV1beta1().RESTClient(),
+			"endpointslices", v1.NamespaceAll, fields.Everything()),
+		&v1beta1.EndpointSlice{},
+		0,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				once.Do(func() {
+					// signalize that we have received an endpoint slice
+					// so it means the cluster has endpoint slices enabled.
+					close(hasEndpointSlices)
+				})
+				metrics.EventTSK8s.SetToCurrentTime()
+				if k8sEP := k8s.CopyObjToV1EndpointSlice(obj); k8sEP != nil {
+					swgEps.Add()
+					serEps.Enqueue(func() error {
+						defer swgEps.Done()
+						k8sSvcCache.UpdateEndpointSlices(k8sEP, swgEps)
+						return nil
+					}, serializer.NoRetry)
+				}
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				metrics.EventTSK8s.SetToCurrentTime()
+				if oldk8sEP := k8s.CopyObjToV1EndpointSlice(oldObj); oldk8sEP != nil {
+					if newk8sEP := k8s.CopyObjToV1EndpointSlice(newObj); newk8sEP != nil {
+						if k8s.EqualV1EndpointSlice(oldk8sEP, newk8sEP) {
+							return
+						}
+						swgEps.Add()
+						serEps.Enqueue(func() error {
+							defer swgEps.Done()
+							k8sSvcCache.UpdateEndpointSlices(newk8sEP, swgEps)
+							return nil
+						}, serializer.NoRetry)
+					}
+				}
+			},
+			DeleteFunc: func(obj interface{}) {
+				metrics.EventTSK8s.SetToCurrentTime()
+				k8sEP := k8s.CopyObjToV1EndpointSlice(obj)
+				if k8sEP == nil {
+					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+					if !ok {
+						return
+					}
+					// Delete was not observed by the watcher but is
+					// removed from kube-apiserver. This is the last
+					// known state and the object no longer exists.
+					k8sEP = k8s.CopyObjToV1EndpointSlice(deletedObj.Obj)
+					if k8sEP == nil {
+						return
+					}
+				}
+				swgEps.Add()
+				serEps.Enqueue(func() error {
+					defer swgEps.Done()
+					k8sSvcCache.DeleteEndpointSlices(k8sEP, swgEps)
+					return nil
+				}, serializer.NoRetry)
+			},
+		},
+		k8s.ConvertToK8sEndpointSlice,
+	)
+	ecr := make(chan struct{})
+	go endpointController.Run(ecr)
 
-		swgSvcs.Wait()
-		swgEps.Wait()
-		close(k8sSvcCacheSynced)
-	}()
+	if k8s.HasEndpointSlice(hasEndpointSlices, endpointController) {
+		return endpointController, true
+	}
 
-	go func() {
-		<-readyChan
-		log.Info("Starting to synchronize Kubernetes services to kvstore")
-		k8sServiceHandler()
-	}()
+	// K8s is not running with endpoint slices enabled, stop the endpoint slice
+	// controller to avoid watching for unnecessary stuff in k8s.
+	close(ecr)
+
+	return nil, false
 }

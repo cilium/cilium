@@ -2,17 +2,17 @@
 
 set -e
 
-export K8S_VERSION=${K8S_VERSION:-1.16}
-export K8S_NODES=${K8S_NODES:-1}
+export K8S_VERSION=${K8S_VERSION:-1.17}
+export K8S_NODES=${K8S_NODES:-2}
 export LOCAL_BOX=k8s-box
 export LOCAL_BOXFILE=./.vagrant/${LOCAL_BOX}-package.box
 
 echo "destroying vms"
-for i in $( seq 1 ${K8S_NODES} )
+i=1
+while vagrant destroy k8s${i}-${K8S_VERSION} --force 2>/dev/null
 do
-  vagrant destroy k8s${i}-${K8S_VERSION} --force || true
+  (( i++ ))
 done
-
 
 if [[ ! -f ${LOCAL_BOXFILE} ]]; then
   echo "Updating vm image"

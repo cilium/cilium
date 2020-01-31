@@ -45,14 +45,23 @@ a change in identity, policy, or configuration.
 An endpoint transitions into the ``disconnecting`` state when it is
 being deleted, regardless of its current state.
 
-In some environments, notably Docker and Kubernetes, Cilium can't
-determine the labels of an endpoint immediately when the endpoint is
-created, and therefore can't allocate an identity for the endpoint at
-that point.  Until the endpoint's labels are known, Cilium temporarily
-associates a special single label ``reserved:init`` to the endpoint.
-When the endpoint's labels become known, Cilium then replaces that
-special label with the endpoint's labels and allocates a proper
-identity to the endpoint.
+.. _init_identity:
+
+Init Identity
+-------------
+
+In some situations, Cilium can't determine the labels of an endpoint
+immediately when the endpoint is created, and therefore can't allocate an
+identity for the endpoint at that point.  Until the endpoint's labels are
+known, Cilium temporarily associates a special single label ``reserved:init``
+to the endpoint. When the endpoint's labels become known, Cilium then replaces
+that special label with the endpoint's labels and allocates a proper identity
+to the endpoint.
+
+This may occur during endpoint creation in the following cases:
+* Running Cilium with docker via libnetwork
+* With Kubernetes when the Kubernetes API server is not available
+* In etcd or consul mode when the corresponding kvstore is not available
 
 To allow traffic to/from endpoints while they are initializing, you
 can create policy rules that select the ``reserved:init`` label,

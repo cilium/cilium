@@ -24,6 +24,10 @@ spec:
       labels:
         k8s-app: cilium
     spec:
+{{- if .Values.global.affinity }}
+      affinity:
+{{ toYaml .Values.global.affinity | indent 8 }}
+{{- end }}
       containers:
       - args:
         - --config-dir=/tmp/cilium/config-map
@@ -179,6 +183,24 @@ spec:
           name: kube-config
           readOnly: true
 {{- end}}
+{{- if .Values.monitor.enabled }}
+      - name: cilium-monitor
+        command: ["cilium"]
+        args:
+        - monitor
+{{- range $type := .Values.monitor.eventTypes }}
+        - --type={{ $type }}
+{{- end }}
+{{- if contains "/" .Values.image }}
+        image: "{{ .Values.image }}"
+{{- else }}
+        image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+{{- end }}
+        imagePullPolicy: {{ .Values.global.pullPolicy }}
+        volumeMounts:
+        - mountPath: /var/run/cilium
+          name: cilium-run
+{{- end }}
 {{- if .Values.global.etcd.managed }}
       # In managed etcd mode, Cilium must be able to resolve the DNS name of
       # the etcd service

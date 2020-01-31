@@ -236,6 +236,9 @@ global:
     # device is the name of the device handling NodePort requests
     # device:
 
+    # dsr enables direct server return for NodePort services
+    dsr: false
+
   # flannel is the flannel specific configuration
   flannel:
     # enabled enables the flannel integration
@@ -301,3 +304,13 @@ global:
 
   daemon:
     runPath: "/var/run/cilium"
+
+  wellKnownIdentities:
+    # enabled enables the use of well-known identities
+    enabled: false
+
+  tls:
+    secretsBackend: local
+
+  # remoteNodeIdentity enables use of the remote node identity
+  remoteNodeIdentity: true

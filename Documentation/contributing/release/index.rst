@@ -21,4 +21,5 @@ upcoming stable releases.
    organization
    backports
    stable
+   rc
    feature

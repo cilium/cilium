@@ -292,8 +292,12 @@ by the selected endpoints.
 The following entities are defined:
 
 host
-    The host entity includes all cluster nodes. This also includes all
-    containers running in host networking mode.
+    The host entity includes the local host. This also includes all
+    containers running in host networking mode on the local host.
+remote-node
+    Any node in any of the connected clusters other than the local host. This
+    also includes all containers running in host-networking mode on remote
+    nodes. (Requires the option ``enable-remote-node-identity`` to be enabled)
 cluster
     Cluster is the logical group of all network endpoints inside of the local
     cluster. This includes all Cilium-managed endpoints of the local cluster.
@@ -382,6 +386,11 @@ will apply to traffic where one side of the connection is:
 * A network endpoint outside the cluster
 * The host network namespace where the pod is running.
 * Within the cluster prefix but the IP's networking is not provided by Cilium.
+
+Conversely, CIDR rules do not apply to traffic where both sides of the
+connection are either managed by Cilium or use an IP belonging to a node in the
+cluster (including host networking pods). This traffic may be allowed using
+labels, services or entities -based policies as described above.
 
 .. note::
 

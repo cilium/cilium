@@ -37,6 +37,9 @@ type CreateRouteInput struct {
 	// an instance ID unless exactly one network interface is attached.
 	InstanceId *string `locationName:"instanceId" type:"string"`
 
+	// The ID of the local gateway.
+	LocalGatewayId *string `type:"string"`
+
 	// [IPv4 traffic only] The ID of a NAT gateway.
 	NatGatewayId *string `locationName:"natGatewayId" type:"string"`
 
@@ -95,7 +98,7 @@ const opCreateRoute = "CreateRoute"
 //
 // You must specify one of the following targets: internet gateway or virtual
 // private gateway, NAT instance, NAT gateway, VPC peering connection, network
-// interface, or egress-only internet gateway.
+// interface, egress-only internet gateway, or transit gateway.
 //
 // When determining how to route traffic, we use the route with the most specific
 // match. For example, traffic is destined for the IPv4 address 192.0.2.3, and

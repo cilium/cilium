@@ -27,8 +27,6 @@ import (
 
 const (
 	maxPorts = 40
-	// MaxCIDRPrefixLengths is used to prevent compile failures at runtime.
-	MaxCIDRPrefixLengths = 40
 )
 
 type exists struct{}
@@ -166,12 +164,6 @@ func (i *IngressRule) sanitize() error {
 		}
 	}
 
-	// FIXME GH-1781 count coalesced CIDRs and restrict the number of
-	// prefix lengths based on the CIDRSet exclusions.
-	if l := len(prefixLengths); l > MaxCIDRPrefixLengths {
-		return fmt.Errorf("too many ingress CIDR prefix lengths %d/%d", l, MaxCIDRPrefixLengths)
-	}
-
 	i.SetAggregatedSelectors()
 
 	return nil
@@ -271,12 +263,6 @@ func (e *EgressRule) sanitize() error {
 		if err != nil {
 			return err
 		}
-	}
-
-	// FIXME GH-1781 count coalesced CIDRs and restrict the number of
-	// prefix lengths based on the CIDRSet exclusions.
-	if l := len(prefixLengths); l > MaxCIDRPrefixLengths {
-		return fmt.Errorf("too many egress CIDR prefix lengths %d/%d", l, MaxCIDRPrefixLengths)
 	}
 
 	e.SetAggregatedSelectors()

@@ -39,6 +39,7 @@ var (
 var _ = Describe("NightlyEpsMeasurement", func() {
 
 	var kubectl *helpers.Kubectl
+	var ciliumFilename string
 
 	endpointCount := 45
 	endpointsTimeout := endpointTimeout * time.Duration(endpointCount)
@@ -49,7 +50,8 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		vagrantManifestPath = path.Join(kubectl.BasePath(), manifestPath)
-		DeployCiliumAndDNS(kubectl)
+		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
+		DeployCiliumAndDNS(kubectl, ciliumFilename)
 	})
 	deleteAll := func() {
 		ctx, cancel := context.WithTimeout(context.Background(), endpointsTimeout)
@@ -70,7 +72,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace,
+		kubectl.CiliumReport(helpers.CiliumNamespace,
 			"cilium service list",
 			"cilium endpoint list")
 	})
@@ -126,7 +128,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 		log.WithFields(logrus.Fields{"pod creation time": waitForPodsTime}).Info("")
 
-		ciliumPods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
+		ciliumPods, err := kubectl.GetCiliumPods(helpers.CiliumNamespace)
 		Expect(err).To(BeNil(), "Cannot retrieve cilium pods")
 
 		runtime := b.Time("Endpoint creation", func() {
@@ -321,6 +323,7 @@ var _ = Describe("NightlyExamples", func() {
 	var kubectl *helpers.Kubectl
 	var demoPath string
 	var l3Policy, l7Policy string
+	var ciliumFilename string
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
@@ -328,10 +331,11 @@ var _ = Describe("NightlyExamples", func() {
 		demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
 		l3Policy = helpers.ManifestGet(kubectl.BasePath(), "l3-l4-policy.yaml")
 		l7Policy = helpers.ManifestGet(kubectl.BasePath(), "l7-policy.yaml")
+		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace,
+		kubectl.CiliumReport(helpers.CiliumNamespace,
 			"cilium service list",
 			"cilium endpoint list")
 	})
@@ -361,7 +365,7 @@ var _ = Describe("NightlyExamples", func() {
 			_ = kubectl.Delete(helpers.DNSDeployment(kubectl.BasePath()))
 
 			_ = kubectl.DeleteResource(
-				"deploy", fmt.Sprintf("-n %s cilium-operator", helpers.KubeSystemNamespace))
+				"deploy", fmt.Sprintf("-n %s cilium-operator", helpers.CiliumNamespace))
 
 			// Delete etcd operator because sometimes when install from
 			// clean-state the quorum is lost.
@@ -384,7 +388,7 @@ var _ = Describe("NightlyExamples", func() {
 				It(fmt.Sprintf("Update Cilium from %s to master", version), func() {
 					var assertUpgradeSuccessful func()
 					assertUpgradeSuccessful, cleanupCallback = InstallAndValidateCiliumUpgrades(
-						kubectl, image, helpers.CiliumDevImage())
+						kubectl, ciliumFilename, image, helpers.CiliumDevImage())
 					assertUpgradeSuccessful()
 				})
 			}(image)
@@ -405,7 +409,8 @@ var _ = Describe("NightlyExamples", func() {
 			AppManifest = kubectl.GetFilePath(GRPCManifest)
 			PolicyManifest = kubectl.GetFilePath(GRPCPolicy)
 
-			DeployCiliumAndDNS(kubectl)
+			ciliumFilename = helpers.TimestampFilename("cilium.yaml")
+			DeployCiliumAndDNS(kubectl, ciliumFilename)
 		})
 
 		AfterAll(func() {

@@ -26,16 +26,18 @@ import (
 var _ = Describe("K8sHealthTest", func() {
 
 	var (
-		kubectl *helpers.Kubectl
+		kubectl        *helpers.Kubectl
+		ciliumFilename string
 	)
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		DeployCiliumAndDNS(kubectl)
+		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
+		DeployCiliumAndDNS(kubectl, ciliumFilename)
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace,
+		kubectl.CiliumReport(helpers.CiliumNamespace,
 			"cilium endpoint list")
 	})
 
@@ -52,11 +54,11 @@ var _ = Describe("K8sHealthTest", func() {
 	})
 
 	getCilium := func(node string) (pod, ip string) {
-		pod, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.KubeSystemNamespace, node)
+		pod, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, node)
 		Expect(err).Should(BeNil())
 
 		res, err := kubectl.Get(
-			helpers.KubeSystemNamespace,
+			helpers.CiliumNamespace,
 			fmt.Sprintf("pod %s", pod)).Filter("{.status.podIP}")
 		Expect(err).Should(BeNil())
 		ip = res.String()
@@ -73,7 +75,8 @@ var _ = Describe("K8sHealthTest", func() {
 	}
 
 	It("checks cilium-health status between nodes", func() {
-		SkipIfFlannel()
+		SkipIfIntegration(helpers.CIIntegrationFlannel)
+		SkipIfIntegration(helpers.CIIntegrationEKS)
 
 		cilium1, cilium1IP := getCilium(helpers.K8s1)
 		cilium2, cilium2IP := getCilium(helpers.K8s2)

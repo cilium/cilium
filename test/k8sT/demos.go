@@ -38,7 +38,8 @@ func getStarWarsResourceLink(file string) string {
 var _ = Describe("K8sDemosTest", func() {
 
 	var (
-		kubectl *helpers.Kubectl
+		kubectl        *helpers.Kubectl
+		ciliumFilename string
 
 		backgroundCancel context.CancelFunc = func() { return }
 		backgroundError  error
@@ -50,11 +51,12 @@ var _ = Describe("K8sDemosTest", func() {
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		DeployCiliumAndDNS(kubectl)
+		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
+		DeployCiliumAndDNS(kubectl, ciliumFilename)
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace,
+		kubectl.CiliumReport(helpers.CiliumNamespace,
 			"cilium endpoint list",
 			"cilium service list")
 	})

@@ -14,7 +14,10 @@
 
 package helpers
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // PerfTest represents a type of test to run when running `netperf`.
 type PerfTest string
@@ -23,6 +26,14 @@ const (
 	// TCP_RR represents a netperf test for TCP Request/Response performance.
 	// For more information, consult : http://www.cs.kent.edu/~farrell/dist/ref/Netperf.html
 	TCP_RR = PerfTest("TCP_RR")
+
+	// TCP_STREAM represents a netperf test for TCP throughput performance.
+	// For more information, consult : http://www.cs.kent.edu/~farrell/dist/ref/Netperf.html
+	TCP_STREAM = PerfTest("TCP_STREAM")
+
+	// TCP_CRR represents a netperf test that connects and sends single request/response
+	// For more information, consult : http://www.cs.kent.edu/~farrell/dist/ref/Netperf.html
+	TCP_CRR = PerfTest("TCP_CRR")
 
 	// UDP_RR represents a netperf test for UDP Request/Response performance.
 	// For more information, consult : http://www.cs.kent.edu/~farrell/dist/ref/Netperf.html
@@ -39,6 +50,11 @@ func Ping(endpoint string) string {
 // specified endpoint.
 func Ping6(endpoint string) string {
 	return fmt.Sprintf("ping6 -c %d %s", PingCount, endpoint)
+}
+
+// Wrk runs a standard wrk test for http
+func Wrk(endpoint string) string {
+	return fmt.Sprintf("wrk -t2 -c100 -d30s -R2000 http://%s", endpoint)
 }
 
 // CurlFail returns the string representing the curl command with `-s` and
@@ -73,8 +89,8 @@ func CurlWithHTTPCode(endpoint string, optionalValues ...interface{}) string {
 
 // Netperf returns the string representing the netperf command to use when testing
 // connectivity between endpoints.
-func Netperf(endpoint string, perfTest PerfTest) string {
-	return fmt.Sprintf("netperf -l 3 -t %s -H %s", perfTest, endpoint)
+func Netperf(endpoint string, perfTest PerfTest, options string) string {
+	return fmt.Sprintf("netperf -l 3 -t %s -H %s %s", perfTest, endpoint, options)
 }
 
 // Netcat returns the string representing the netcat command to the specified
@@ -85,4 +101,18 @@ func Netcat(endpoint string, optionalValues ...interface{}) string {
 		endpoint = fmt.Sprintf(endpoint, optionalValues...)
 	}
 	return fmt.Sprintf("nc -w 4 %s", endpoint)
+}
+
+// PythonBind returns the string representing a python3 command which will try
+// to bind a socket on the given address and port. Python is available in the
+// log-gatherer pod.
+func PythonBind(addr string, port uint16) string {
+	family := "socket.AF_INET"
+	if strings.Contains(addr, ":") {
+		family = "socket.AF_INET6"
+	}
+
+	return fmt.Sprintf(
+		`/usr/bin/python3 -c 'import socket; socket.socket(family=%s).bind((%q, %d))`,
+		family, addr, port)
 }

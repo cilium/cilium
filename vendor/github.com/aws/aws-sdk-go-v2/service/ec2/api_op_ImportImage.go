@@ -76,6 +76,9 @@ type ImportImageInput struct {
 	// The specified CMK must exist in the Region that the AMI is being copied to.
 	KmsKeyId *string `type:"string"`
 
+	// The ARNs of the license configurations.
+	LicenseSpecifications []ImportImageLicenseConfigurationRequest `locationNameList:"item" type:"list"`
+
 	// The license type to be used for the Amazon Machine Image (AMI) after importing.
 	//
 	// By default, we detect the source-system operating system (OS) and apply the
@@ -127,6 +130,9 @@ type ImportImageOutput struct {
 	// The identifier for the AWS Key Management Service (AWS KMS) customer master
 	// key (CMK) that was used to create the encrypted AMI.
 	KmsKeyId *string `locationName:"kmsKeyId" type:"string"`
+
+	// The ARNs of the license configurations.
+	LicenseSpecifications []ImportImageLicenseConfigurationResponse `locationName:"licenseSpecifications" locationNameList:"item" type:"list"`
 
 	// The license type of the virtual machine.
 	LicenseType *string `locationName:"licenseType" type:"string"`

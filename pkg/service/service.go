@@ -26,6 +26,8 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/service/healthserver"
 
 	"github.com/sirupsen/logrus"
 )
@@ -38,12 +40,18 @@ var (
 
 // LBMap is the interface describing methods for manipulating service maps.
 type LBMap interface {
-	UpsertService(uint16, net.IP, uint16, []uint16, int, bool, lb.SVCType) error
+	UpsertService(uint16, net.IP, uint16, []uint16, int, bool, lb.SVCType, bool) error
 	DeleteService(lb.L3n4AddrID, int) error
 	AddBackend(uint16, net.IP, uint16, bool) error
 	DeleteBackendByID(uint16, bool) error
 	DumpServiceMaps() ([]*lb.SVC, []error)
 	DumpBackendMaps() ([]*lb.Backend, error)
+}
+
+// healthServer is used to manage HealtCheckNodePort listeners
+type healthServer interface {
+	UpsertService(svcID lb.ID, svcNS, svcName string, localEndpoints int, port uint16)
+	DeleteService(svcID lb.ID)
 }
 
 // monitorNotify is used to send update notifications to the monitor
@@ -52,13 +60,17 @@ type monitorNotify interface {
 }
 
 type svcInfo struct {
-	hash                 string
-	frontend             lb.L3n4AddrID
-	backends             []lb.Backend
-	backendByHash        map[string]*lb.Backend
-	svcType              lb.SVCType
-	svcName              string
-	svcNamespace         string
+	hash          string
+	frontend      lb.L3n4AddrID
+	backends      []lb.Backend
+	backendByHash map[string]*lb.Backend
+
+	svcType                lb.SVCType
+	svcTrafficPolicy       lb.SVCTrafficPolicy
+	svcHealthCheckNodePort uint16
+	svcName                string
+	svcNamespace           string
+
 	restoredFromDatapath bool
 }
 
@@ -68,11 +80,21 @@ func (svc *svcInfo) deepCopyToLBSVC() *lb.SVC {
 		backends[i] = *backend.DeepCopy()
 	}
 	return &lb.SVC{
-		Frontend:  *svc.frontend.DeepCopy(),
-		Backends:  backends,
-		Type:      svc.svcType,
-		Name:      svc.svcName,
-		Namespace: svc.svcNamespace,
+		Frontend:      *svc.frontend.DeepCopy(),
+		Backends:      backends,
+		Type:          svc.svcType,
+		TrafficPolicy: svc.svcTrafficPolicy,
+		Name:          svc.svcName,
+		Namespace:     svc.svcNamespace,
+	}
+}
+
+func (svc *svcInfo) requireNodeLocalBackends() bool {
+	switch svc.svcType {
+	case lb.SVCTypeNodePort, lb.SVCTypeLoadBalancer, lb.SVCTypeExternalIPs:
+		return svc.svcTrafficPolicy == lb.SVCTrafficPolicyLocal
+	default:
+		return false
 	}
 }
 
@@ -89,6 +111,7 @@ type Service struct {
 	backendRefCount counter.StringCounter
 	backendByHash   map[string]*lb.Backend
 
+	healthServer  healthServer
 	monitorNotify monitorNotify
 
 	lbmap LBMap
@@ -102,6 +125,7 @@ func NewService(monitorNotify monitorNotify) *Service {
 		backendRefCount: counter.StringCounter{},
 		backendByHash:   map[string]*lb.Backend{},
 		monitorNotify:   monitorNotify,
+		healthServer:    healthserver.New(),
 		lbmap:           &lbmap.LBBPFMap{},
 	}
 }
@@ -154,23 +178,28 @@ func (s *Service) InitMaps(ipv6, ipv4, restore bool) error {
 //
 // The first return value is true if the service hasn't existed before.
 func (s *Service) UpsertService(
-	frontend lb.L3n4AddrID, backends []lb.Backend,
-	svcType lb.SVCType, svcName, svcNamespace string) (bool, lb.ID, error) {
+	frontend lb.L3n4AddrID, backends []lb.Backend, svcType lb.SVCType,
+	svcTrafficPolicy lb.SVCTrafficPolicy, svcHealthCheckNodePort uint16,
+	svcName, svcNamespace string) (bool, lb.ID, error) {
 
 	s.Lock()
 	defer s.Unlock()
 
 	scopedLog := log.WithFields(logrus.Fields{
-		logfields.ServiceIP:        frontend.L3n4Addr,
-		logfields.Backends:         backends,
-		logfields.ServiceType:      svcType,
-		logfields.ServiceName:      svcName,
-		logfields.ServiceNamespace: svcNamespace,
+		logfields.ServiceIP: frontend.L3n4Addr,
+		logfields.Backends:  backends,
+
+		logfields.ServiceType:                svcType,
+		logfields.ServiceTrafficPolicy:       svcTrafficPolicy,
+		logfields.ServiceHealthCheckNodePort: svcHealthCheckNodePort,
+		logfields.ServiceName:                svcName,
+		logfields.ServiceNamespace:           svcNamespace,
 	})
 	scopedLog.Debug("Upserting service")
 
 	// If needed, create svcInfo and allocate service ID
-	svc, new, err := s.createSVCInfoIfNotExist(frontend, svcType, svcName, svcNamespace)
+	svc, new, err := s.createSVCInfoIfNotExist(frontend, svcType, svcTrafficPolicy,
+		svcHealthCheckNodePort, svcName, svcNamespace)
 	if err != nil {
 		return false, lb.ID(0), err
 	}
@@ -178,9 +207,17 @@ func (s *Service) UpsertService(
 	scopedLog = scopedLog.WithField(logfields.ServiceID, svc.frontend.ID)
 	scopedLog.Debug("Acquired service ID")
 
+	onlyLocalBackends := svc.requireNodeLocalBackends()
 	prevBackendCount := len(svc.backends)
+
 	backendsCopy := []lb.Backend{}
 	for _, b := range backends {
+		// Services with trafficPolicy=Local may only use node-local backends.
+		// We implement this by filtering out all backend IPs which are not a
+		// local endpoint.
+		if onlyLocalBackends && len(b.NodeName) > 0 && b.NodeName != node.GetName() {
+			continue
+		}
 		backendsCopy = append(backendsCopy, *b.DeepCopy())
 	}
 
@@ -196,6 +233,10 @@ func (s *Service) UpsertService(
 		return false, lb.ID(0), err
 	}
 
+	localBackendCount := len(backendsCopy)
+	s.healthServer.UpsertService(lb.ID(svc.frontend.ID), svc.svcNamespace, svc.svcName,
+		localBackendCount, svc.svcHealthCheckNodePort)
+
 	if new {
 		addMetric.Inc()
 	} else {
@@ -203,7 +244,7 @@ func (s *Service) UpsertService(
 	}
 
 	s.notifyMonitorServiceUpsert(svc.frontend, svc.backends,
-		svc.svcType, svc.svcName, svc.svcNamespace)
+		svc.svcType, svc.svcTrafficPolicy, svc.svcName, svc.svcNamespace)
 
 	return new, lb.ID(svc.frontend.ID), nil
 }
@@ -313,8 +354,13 @@ func (s *Service) SyncWithK8sFinished() error {
 	return nil
 }
 
-func (s *Service) createSVCInfoIfNotExist(frontend lb.L3n4AddrID,
-	svcType lb.SVCType, svcName, svcNamespace string) (*svcInfo, bool, error) {
+func (s *Service) createSVCInfoIfNotExist(
+	frontend lb.L3n4AddrID,
+	svcType lb.SVCType,
+	svcTrafficPolicy lb.SVCTrafficPolicy,
+	svcHealthCheckNodePort uint16,
+	svcName, svcNamespace string,
+) (*svcInfo, bool, error) {
 
 	hash := frontend.Hash()
 	svc, found := s.svcByHash[hash]
@@ -323,7 +369,7 @@ func (s *Service) createSVCInfoIfNotExist(frontend lb.L3n4AddrID,
 		addrID, err := AcquireID(frontend.L3n4Addr, uint32(frontend.ID))
 		if err != nil {
 			return nil, false,
-				fmt.Errorf("Unable to allocate service ID %d for %q: %s",
+				fmt.Errorf("Unable to allocate service ID %d for %v: %s",
 					frontend.ID, frontend, err)
 		}
 		frontend.ID = addrID.ID
@@ -332,16 +378,20 @@ func (s *Service) createSVCInfoIfNotExist(frontend lb.L3n4AddrID,
 			hash:          hash,
 			frontend:      frontend,
 			backendByHash: map[string]*lb.Backend{},
-			svcType:       svcType,
-			svcName:       svcName,
-			svcNamespace:  svcNamespace,
+
+			svcType:      svcType,
+			svcName:      svcName,
+			svcNamespace: svcNamespace,
+
+			svcTrafficPolicy:       svcTrafficPolicy,
+			svcHealthCheckNodePort: svcHealthCheckNodePort,
 		}
 		s.svcByID[frontend.ID] = svc
 		s.svcByHash[hash] = svc
 	} else {
-		// NOTE: We cannot restore svcType from BPF maps, so just set it
-		//       each time (safe until GH#8700 has been fixed).
 		svc.svcType = svcType
+		svc.svcTrafficPolicy = svcTrafficPolicy
+		svc.svcHealthCheckNodePort = svcHealthCheckNodePort
 		// Name and namespace are both optional and intended for exposure via
 		// API. They they are not part of any BPF maps and cannot be restored
 		// from datapath.
@@ -384,11 +434,20 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, prevBackendCount int,
 	for i, b := range svc.backends {
 		backendIDs[i] = uint16(b.ID)
 	}
+
+	svcType := svc.svcType
+	// SVC of LoadBalancer type is identical to ExternalIP. However, currently
+	// datapath does not support the LoadBalancer type, only ExternalIP. So,
+	// for now set the ExternalIP type.
+	if svcType == lb.SVCTypeLoadBalancer {
+		svcType = lb.SVCTypeExternalIPs
+	}
+
 	err := s.lbmap.UpsertService(
 		uint16(svc.frontend.ID), svc.frontend.L3n4Addr.IP,
 		svc.frontend.L3n4Addr.L4Addr.Port,
 		backendIDs, prevBackendCount,
-		ipv6, svc.svcType)
+		ipv6, svcType, svc.requireNodeLocalBackends())
 	if err != nil {
 		return err
 	}
@@ -472,9 +531,10 @@ func (s *Service) restoreServicesLocked() error {
 			frontend:      svc.Frontend,
 			backends:      svc.Backends,
 			backendByHash: map[string]*lb.Backend{},
-			// Correct service type will be restored by k8s_watcher after k8s
+			// Correct traffic policy will be restored by k8s_watcher after k8s
 			// service cache has been initialized
-			svcType: lb.SVCTypeClusterIP,
+			svcType:          svc.Type,
+			svcTrafficPolicy: svc.TrafficPolicy,
 			// Indicate that the svc was restored from the BPF maps, so that
 			// SyncWithK8sFinished() could remove services which were restored
 			// from the maps but not present in the k8sServiceCache (e.g. a svc
@@ -530,6 +590,8 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	if err := DeleteID(uint32(svc.frontend.ID)); err != nil {
 		return fmt.Errorf("Unable to release service ID %d: %s", svc.frontend.ID, err)
 	}
+
+	s.healthServer.DeleteService(lb.ID(svc.frontend.ID))
 
 	deleteMetric.Inc()
 	s.notifyMonitorServiceDelete(svc.frontend.ID)
@@ -598,7 +660,7 @@ func (s *Service) deleteBackendsFromCacheLocked(svc *svcInfo) []lb.BackendID {
 }
 
 func (s *Service) notifyMonitorServiceUpsert(frontend lb.L3n4AddrID, backends []lb.Backend,
-	svcType lb.SVCType, svcName, svcNamespace string) {
+	svcType lb.SVCType, svcTrafficPolicy lb.SVCTrafficPolicy, svcName, svcNamespace string) {
 	if s.monitorNotify == nil {
 		return
 	}
@@ -618,7 +680,7 @@ func (s *Service) notifyMonitorServiceUpsert(frontend lb.L3n4AddrID, backends []
 		be = append(be, b)
 	}
 
-	repr, err := monitorAPI.ServiceUpsertRepr(id, fe, be, string(svcType), svcName, svcNamespace)
+	repr, err := monitorAPI.ServiceUpsertRepr(id, fe, be, string(svcType), string(svcTrafficPolicy), svcName, svcNamespace)
 	if err == nil {
 		s.monitorNotify.SendNotification(monitorAPI.AgentNotifyServiceUpserted, repr)
 	}

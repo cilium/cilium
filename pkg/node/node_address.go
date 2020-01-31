@@ -29,6 +29,8 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -125,8 +127,7 @@ func InitDefaultPrefix(device string) {
 			// The IPv6 allocation should be derived from the IPv4 allocation.
 			ip := ipv4AllocRange.IP
 			v6range := fmt.Sprintf("%s%02x%02x:%02x%02x:0:0/%d",
-				option.Config.IPv6ClusterAllocCIDRBase, ip[0], ip[1], ip[2], ip[3],
-				defaults.IPv6NodePrefixLen)
+				option.Config.IPv6ClusterAllocCIDRBase, ip[0], ip[1], ip[2], ip[3], 96)
 
 			_, ip6net, err := net.ParseCIDR(v6range)
 			if err != nil {
@@ -180,19 +181,6 @@ func GetIPv4AllocRange() *cidr.CIDR {
 
 // GetIPv6AllocRange returns the IPv6 allocation prefix of this node
 func GetIPv6AllocRange() *cidr.CIDR {
-	if ipv6AllocRange == nil {
-		return nil
-	}
-
-	mask := net.CIDRMask(defaults.IPv6NodeAllocPrefixLen, 128)
-	return cidr.NewCIDR(&net.IPNet{
-		IP:   ipv6AllocRange.IPNet.IP.Mask(mask),
-		Mask: mask,
-	})
-}
-
-// GetIPv6NodeRange returns the IPv6 allocation prefix of this node
-func GetIPv6NodeRange() *cidr.CIDR {
 	return ipv6AllocRange
 }
 
@@ -256,15 +244,9 @@ func GetNodePortIPv6() net.IP {
 }
 
 // SetIPv6NodeRange sets the IPv6 address pool to be used on this node
-func SetIPv6NodeRange(net *net.IPNet) error {
-	if ones, _ := net.Mask.Size(); ones != defaults.IPv6NodePrefixLen {
-		return fmt.Errorf("prefix length must be /%d", defaults.IPv6NodePrefixLen)
-	}
-
+func SetIPv6NodeRange(net *net.IPNet) {
 	copy := *net
 	ipv6AllocRange = cidr.NewCIDR(&copy)
-
-	return nil
 }
 
 // AutoComplete completes the parts of addressing that can be auto derived
@@ -275,12 +257,10 @@ func AutoComplete() error {
 		ipv4GW, ipv6Router := getCiliumHostIPs()
 
 		if ipv4GW != nil && option.Config.EnableIPv4 {
-			log.Infof("Restored IPv4 internal node IP: %s", ipv4GW.String())
 			SetInternalIPv4(ipv4GW)
 		}
 
 		if ipv6Router != nil && option.Config.EnableIPv6 {
-			log.Infof("Restored IPv6 router IP: %s", ipv6Router.String())
 			SetIPv6Router(ipv6Router)
 		}
 	}
@@ -453,7 +433,12 @@ func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
 func getCiliumHostIPs() (ipv4GW, ipv6Router net.IP) {
 	nodeConfig := option.Config.GetNodeConfigPath()
 	ipv4GW, ipv6Router = getCiliumHostIPsFromFile(nodeConfig)
-	if ipv4GW != nil {
+	if ipv4GW != nil || ipv6Router != nil {
+		log.WithFields(logrus.Fields{
+			"ipv4": ipv4GW,
+			"ipv6": ipv6Router,
+			"file": nodeConfig,
+		}).Info("Restored router address from node_config")
 		return ipv4GW, ipv6Router
 	}
 	return getCiliumHostIPsFromNetDev(option.Config.HostDevice)

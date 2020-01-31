@@ -28,7 +28,7 @@ spec:
             cat /etc/docker/daemon.json | cat /etc/docker/daemon.json | jq '. + {"insecure-registries": ["{{ .Values.IP }}"]}' | cat > tmp.json
             cat tmp.json > /etc/docker/daemon.json
             pgrep dockerd | xargs kill -SIGHUP
-        image: gcr.io/google-containers/startup-script:v1
+        image: docker.io/cilium/startup-script:v3
         imagePullPolicy: IfNotPresent
         name: registry-adder
         securityContext:
@@ -51,5 +51,5 @@ spec:
       volumes:
       - hostPath:
           path: /etc/docker
-          type: DirectoryOrCreate
+          type: Directory
         name: docker-config

@@ -103,6 +103,42 @@ struct bpf_elf_map __section_maps LB4_BACKEND_MAP = {
 #define cilium_dbg_lb(a, b, c, d)
 #endif
 
+static inline bool lb4_svc_is_nodeport(const struct lb4_service *svc)
+{
+#ifdef ENABLE_NODEPORT
+	return svc->nodeport;
+#else
+	return false;
+#endif /* ENABLE_NODEPORT */
+}
+
+static inline bool lb6_svc_is_nodeport(const struct lb6_service *svc)
+{
+#ifdef ENABLE_NODEPORT
+	return svc->nodeport;
+#else
+	return false;
+#endif /* ENABLE_NODEPORT */
+}
+
+static inline bool lb4_svc_is_external_ip(const struct lb4_service *svc)
+{
+#ifdef ENABLE_EXTERNAL_IP
+	return svc->external;
+#else
+	return false;
+#endif
+}
+
+static inline bool lb6_svc_is_external_ip(const struct lb6_service *svc)
+{
+#ifdef ENABLE_EXTERNAL_IP
+	return svc->external;
+#else
+	return false;
+#endif
+}
+
 static inline int lb6_select_slave(__u16 count)
 {
 	/* Slave 0 is reserved for the master slot */

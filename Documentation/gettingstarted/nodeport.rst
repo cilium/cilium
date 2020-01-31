@@ -30,14 +30,13 @@ without ``kube-proxy``.
 
 .. include:: k8s-install-download-release.rst
 
-Generate the required YAML file and deploy it:
+Deploy Cilium release via Helm:
 
-.. code:: bash
+.. parsed-literal::
 
-   helm template cilium \
-     --namespace kube-system \
-     --set global.nodePort.enabled=true \
-     > cilium.yaml
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set global.nodePort.enabled=true
 
 By default, a NodePort service will be accessible via an IP address of a native
 device which has a default route on the host. To change a device, set its name
@@ -67,13 +66,16 @@ has come up correctly:
 Limitations
 ###########
 
-    * Service ``healthCheckNodePort`` is currently not supported.
+    * Service's ``healthCheckNodePort`` is currently not supported. See
+      `GH issue 8699 <https://github.com/cilium/cilium/issues/8699>`_ for
+      additional details.
     * NodePort services are currently exposed through the native device which has
       the default route on the host or a user specified device. In tunneling mode,
       they are additionally exposed through the tunnel interface (``cilium_vxlan``
       or ``cilium_geneve``). Exposing services through multiple native devices
       will be supported in upcoming Cilium versions. See `GH issue 9620
       <https://github.com/cilium/cilium/issues/9620>`_ for additional details.
+    * NodePort BPF cannot currently be used with :ref:`encryption`.
 
 .. _external-ips:
 

@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
 	"k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/discovery/v1beta1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -39,8 +39,8 @@ type Endpoints struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type Ingress struct {
-	*v1beta1.Ingress
+type EndpointSlice struct {
+	*v1beta1.EndpointSlice
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

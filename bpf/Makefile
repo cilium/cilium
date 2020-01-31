@@ -4,8 +4,8 @@ include ../Makefile.defs
 
 SUBDIRS = sockops
 
-BPF_SIMPLE = bpf_netdev.o bpf_xdp.o bpf_ipsec.o bpf_network.o bpf_alignchecker.o bpf_hostdev_ingress.o
-BPF = bpf_lxc.o bpf_overlay.o bpf_sock.o $(BPF_SIMPLE)
+BPF_SIMPLE = bpf_xdp.o bpf_ipsec.o bpf_network.o bpf_alignchecker.o bpf_hostdev_ingress.o
+BPF = bpf_lxc.o bpf_overlay.o bpf_sock.o bpf_netdev.o $(BPF_SIMPLE)
 
 TARGET=cilium-map-migrate
 
@@ -46,13 +46,13 @@ LB_OPTIONS = \
 	-DENABLE_IPV4:-DENABLE_IPV6:-DLB_L3:-DLB_L4:-DENABLE_HOST_SERVICES_TCP:-DENABLE_NODEPORT \
 	-DENABLE_IPV4:-DENABLE_IPV6:-DLB_L3:-DLB_L4:-DENABLE_HOST_SERVICES_UDP:-DENABLE_HOST_SERVICES_TCP \
 	-DENABLE_IPV4:-DENABLE_IPV6:-DLB_L3:-DLB_L4:-DENABLE_HOST_SERVICES_UDP:-DENABLE_HOST_SERVICES_TCP:-DENABLE_NODEPORT \
-	-DENABLE_IPV4:-DENABLE_IPV6:-DLB_L3:-DLB_L4:-DENABLE_HOST_SERVICES_UDP:-DENABLE_HOST_SERVICES_TCP:-DENABLE_NODEPORT:-DENABLE_K8S_EXTERNAL_IP
+	-DENABLE_IPV4:-DENABLE_IPV6:-DLB_L3:-DLB_L4:-DENABLE_HOST_SERVICES_UDP:-DENABLE_HOST_SERVICES_TCP:-DENABLE_NODEPORT:-DENABLE_EXTERNAL_IP
 
 # These options are intended to max out the BPF program complexity. it is load
 # tested as well.
 MAX_LB_OPTIONS = -DENABLE_IPV4 -DENABLE_IPV6 -DLB_L3 -DLB_L4 \
 	-DENABLE_HOST_SERVICES_TCP -DENABLE_HOST_SERVICES_TCP -DENABLE_NODEPORT \
-	-DENABLE_K8S_EXTERNAL_IP
+	-DENABLE_EXTERNAL_IP
 
 bpf_sock.ll: bpf_sock.c $(LIB)
 	$(QUIET) set -e; \
@@ -90,6 +90,27 @@ bpf_overlay.ll: bpf_overlay.c $(LIB)
 	$(QUIET) ${CLANG} ${MAX_OVERLAY_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
 
 bpf_overlay.o: bpf_overlay.ll
+	@$(ECHO_CC)
+	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
+
+NETDEV_OPTIONS = $(LB_OPTIONS) \
+	-DENABLE_IPV4:-DENABLE_IPV6:-DLB_L3:-DLB_L4:-DENABLE_HOST_SERVICES_UDP:-DENABLE_HOST_SERVICES_TCP:-DENABLE_NODEPORT:-DENABLE_EXTERNAL_IP:-DENABLE_MASQUERADE \
+	-DENABLE_IPV4:-DENABLE_IPV6:-DLB_L3:-DLB_L4:-DENABLE_HOST_SERVICES_UDP:-DENABLE_HOST_SERVICES_TCP:-DENABLE_NODEPORT:-DENABLE_EXTERNAL_IP:-DENABLE_DSR
+
+MAX_NETDEV_OPTIONS = $(MAX_LB_OPTIONS) -DENABLE_DSR
+
+bpf_netdev.ll: bpf_netdev.c $(LIB)
+	$(QUIET) set -e; \
+	if [ $(BUILD_PERMUTATIONS) != "" ]; then \
+		$(foreach OPTS,$(NETDEV_OPTIONS), \
+			$(ECHO_CC) " [$(subst :,$(space),$(OPTS))]"; \
+			${CLANG} $(subst :,$(space),$(OPTS)) ${CLANG_FLAGS} -c $< -o $@; \
+			${LLC} ${LLC_FLAGS} -o /dev/null $@; ) \
+	fi
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${MAX_NETDEV_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
+
+bpf_netdev.o: bpf_netdev.ll
 	@$(ECHO_CC)
 	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
 

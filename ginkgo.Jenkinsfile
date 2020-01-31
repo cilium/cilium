@@ -7,7 +7,7 @@ pipeline {
 
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
-        MEMORY = "4096"
+        VM_MEMORY = "4096"
         SERVER_BOX = "cilium/ubuntu"
         NETNEXT=setIfLabel("ci/net-next", "true", "false")
         GINKGO_TIMEOUT="108m"
@@ -112,8 +112,10 @@ pipeline {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                         retry(3) {
-                            sh 'cd ${TESTDIR}; vagrant destroy runtime --force'
-                            sh 'cd ${TESTDIR}; vagrant up runtime --provision'
+                            timeout(time: 20, unit: 'MINUTES'){
+                                sh 'cd ${TESTDIR}; vagrant destroy runtime --force'
+                                sh 'cd ${TESTDIR}; vagrant up runtime --provision'
+                            }
                         }
                     }
                     post {
@@ -126,22 +128,27 @@ pipeline {
                         }
                     }
                 }
-                stage('Boot vms K8s-1.11 net-next') {
+                stage('Boot vms K8s-1.11 net-next kubeproxy-free') {
                     environment {
                         TESTED_SUITE="k8s-1.11"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                         NETNEXT="true"
                         K8S_VERSION="1.11"
+                        K8S_NODES="3"
+                        NO_CILIUM_ON_NODE="k8s3"
+                        KUBEPROXY="0"
                         KUBECONFIG="vagrant-kubeconfig"
-                        CILIUM_REGISTRY="localnode" //setting it here so we don't compile Cilium in vagrant nodes (already done on local node registry)
+                         //setting it here so we don't compile Cilium in vagrant nodes (already done on local node registry)
                     }
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                         retry(3) {
-                            dir("${TESTDIR}") {
-                                sh './vagrant-ci-start.sh'
+                            timeout(time: 30, unit: 'MINUTES'){
+                                dir("${TESTDIR}") {
+                                    sh 'CILIUM_REGISTRY="$(./print-node-ip)" ./vagrant-ci-start.sh'
+                                }
                             }
                         }
                     }
@@ -162,14 +169,15 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                         K8S_VERSION="1.17"
                         KUBECONFIG="vagrant-kubeconfig"
-                        CILIUM_REGISTRY="localnode" //setting it here so we don't compile Cilium in vagrant nodes (already done on local node registry)
                     }
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                         retry(3) {
-                            dir("${TESTDIR}") {
-                                sh './vagrant-ci-start.sh'
+                            timeout(time: 20, unit: 'MINUTES'){
+                                dir("${TESTDIR}") {
+                                    sh 'CILIUM_REGISTRY="$(./print-node-ip)" ./vagrant-ci-start.sh'
+                                }
                             }
                         }
                     }
@@ -220,7 +228,7 @@ pipeline {
                         }
                     }
                 }
-                stage('BDD-Test-PR-K8s-1.11-net-next') {
+                stage('BDD-Test-PR-K8s-1.11-net-next-kubeproxy-free') {
                     environment {
                         TESTED_SUITE="k8s-1.11"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
@@ -228,9 +236,12 @@ pipeline {
                         NETNEXT="true"
                         KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
                         K8S_VERSION="1.11"
+                        K8S_NODES="3"
+                        KUBEPROXY="0"
+                        NO_CILIUM_ON_NODE="k8s3"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s*/" | sed "s/Runtime.*/NoTests/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh)'
+                        sh 'cd ${TESTDIR}; HOME=${GOPATH} ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s*/" | sed "s/Runtime.*/NoTests/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh)'
                     }
                     post {
                         always {
@@ -258,7 +269,7 @@ pipeline {
                         K8S_VERSION="1.17"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s*/" | sed "s/Runtime.*/NoTests/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true -cilium.registry=$(print-node-ip.sh)'
+                        sh 'cd ${TESTDIR}; HOME=${GOPATH} ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s*/" | sed "s/Runtime.*/NoTests/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true -cilium.registry=$(print-node-ip.sh)'
                     }
                     post {
                         always {

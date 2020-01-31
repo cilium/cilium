@@ -19,6 +19,9 @@ package bpf
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
+	"sync"
 	"testing"
 	"unsafe"
 
@@ -382,6 +385,95 @@ func (s *BPFPrivilegedTestSuite) TestDump(c *C) {
 		"key=105": {"value=205"},
 		"key=106": {"value=206"},
 	})
+}
+
+func (s *BPFPrivilegedTestSuite) TestDumpReliablyWithCallback(c *C) {
+	maxEntries := uint32(256)
+	m := NewMap("cilium_dump_test",
+		MapTypeHash,
+		&TestKey{},
+		int(unsafe.Sizeof(TestKey{})),
+		&TestValue{},
+		int(unsafe.Sizeof(TestValue{})),
+		int(maxEntries),
+		BPF_F_NO_PREALLOC,
+		0,
+		ConvertKeyValue,
+	).WithCache()
+	_, err := m.OpenOrCreate()
+	c.Assert(err, IsNil)
+	defer func() {
+		path, _ := m.Path()
+		os.Remove(path)
+	}()
+	defer m.Close()
+
+	for i := uint32(4); i < maxEntries; i++ {
+		err := m.Update(&TestKey{Key: i}, &TestValue{Value: i + 100})
+		c.Check(err, IsNil) // we want to run the deferred calls
+	}
+	// start a goroutine that continuously updates the map
+	started := make(chan struct{}, 1)
+	done := make(chan struct{}, 1)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		started <- struct{}{}
+		for {
+			for i := uint32(0); i < 4; i++ {
+				if i < 3 {
+					err := m.Update(&TestKey{Key: i}, &TestValue{Value: i + 100})
+					// avoid assert to ensure we call wg.Done
+					c.Check(err, IsNil)
+				}
+				if i > 0 {
+					err := m.Delete(&TestKey{Key: i - 1})
+					// avoid assert to ensure we call wg.Done
+					c.Check(err, IsNil)
+				}
+			}
+			select {
+			case <-done:
+				return
+			default:
+			}
+		}
+	}()
+	<-started // wait until the routine has started to start the actual tests
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		expect := map[string]string{}
+		for i := uint32(4); i < maxEntries; i++ {
+			expect[fmt.Sprintf("key=%d", i)] = fmt.Sprintf("custom-value=%d", i+100)
+		}
+		for i := 0; i < 100; i++ {
+			dump := map[string]string{}
+			customCb := func(key MapKey, value MapValue) {
+				k, err := strconv.ParseUint(strings.TrimPrefix(key.String(), "key="), 10, 32)
+				c.Check(err, IsNil)
+				if uint32(k) >= 4 {
+					dump[key.String()] = "custom-" + value.String()
+				}
+			}
+			ds := NewDumpStats(m)
+			if i == 0 {
+				// artificially trigger MaxLookupError as max lookup is based
+				// on ds.MaxEntries
+				ds.MaxEntries = 1
+			}
+			if err := m.DumpReliablyWithCallback(customCb, ds); err != nil {
+				// avoid Assert to ensure the done signal is sent
+				c.Check(err, Equals, ErrMaxLookup)
+			} else {
+				// avoid Assert to ensure the done signal is sent
+				c.Check(dump, checker.DeepEquals, expect)
+			}
+		}
+		done <- struct{}{}
+	}()
+	wg.Wait()
 }
 
 func (s *BPFPrivilegedTestSuite) TestDeleteAll(c *C) {

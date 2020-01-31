@@ -89,7 +89,9 @@
 #define CILIUM_CALL_IPV4_NODEPORT_REVNAT	17
 #define CILIUM_CALL_IPV6_NODEPORT_REVNAT	18
 #define CILIUM_CALL_ENCAP_NODEPORT_NAT		19
-#define CILIUM_CALL_SIZE			20
+#define CILIUM_CALL_IPV4_NODEPORT_DSR		20
+#define CILIUM_CALL_IPV6_NODEPORT_DSR		21
+#define CILIUM_CALL_SIZE			22
 
 typedef __u64 mac_t;
 
@@ -289,15 +291,15 @@ enum {
  * These also serve as drop reasons for metrics,
  * where reason > 0 corresponds to -(DROP_*)
  */
-#define DROP_INVALID_SMAC	-130 /* unused */
-#define DROP_INVALID_DMAC	-131 /* unused */
+#define DROP_UNUSED1		-130 /* unused */
+#define DROP_UNUSED2		-131 /* unused */
 #define DROP_INVALID_SIP	-132
 #define DROP_POLICY		-133
 #define DROP_INVALID		-134
 #define DROP_CT_INVALID_HDR	-135
-#define DROP_CT_MISSING_ACK	-136 /* unused */
+#define DROP_UNUSED3		-136 /* unused */
 #define DROP_CT_UNKNOWN_PROTO	-137
-#define DROP_CT_CANT_CREATE_	-138 /* unused */
+#define DROP_UNUSED4		-138 /* unused */
 #define DROP_UNKNOWN_L3		-139
 #define DROP_MISSED_TAIL_CALL	-140
 #define DROP_WRITE_ERROR	-141
@@ -307,21 +309,21 @@ enum {
 #define DROP_UNKNOWN_ICMP6_CODE	-145
 #define DROP_UNKNOWN_ICMP6_TYPE	-146
 #define DROP_NO_TUNNEL_KEY	-147
-#define DROP_NO_TUNNEL_OPT_	-148 /* unused */
-#define DROP_INVALID_GENEVE_	-149 /* unused */
+#define DROP_UNUSED5		-148 /* unused */
+#define DROP_UNUSED6		-149 /* unused */
 #define DROP_UNKNOWN_TARGET	-150
 #define DROP_UNROUTABLE		-151
-#define DROP_NO_LXC		-152 /* unused */
+#define DROP_UNUSED7		-152 /* unused */
 #define DROP_CSUM_L3		-153
 #define DROP_CSUM_L4		-154
 #define DROP_CT_CREATE_FAILED	-155
 #define DROP_INVALID_EXTHDR	-156
 #define DROP_FRAG_NOSUPPORT	-157
 #define DROP_NO_SERVICE		-158
-#define DROP_POLICY_L4		-159 /* unused */
+#define DROP_UNUSED8		-159 /* unused */
 #define DROP_NO_TUNNEL_ENDPOINT -160
-#define DROP_PROXYMAP_CREATE_FAILED_	-161 /* unused */
-#define DROP_POLICY_CIDR		-162 /* unused */
+#define DROP_UNUSED9		-161 /* unused */
+#define DROP_UNUSED10		-162 /* unused */
 #define DROP_UNKNOWN_CT			-163
 #define DROP_HOST_UNREACHABLE		-164
 #define DROP_NO_CONFIG		-165
@@ -333,6 +335,7 @@ enum {
 #define DROP_INVALID_IDENTITY	-171
 #define DROP_UNKNOWN_SENDER	-172
 #define DROP_NAT_NOT_NEEDED	-173 /* Mapped as drop code, though drop not necessary. */
+#define DROP_IS_CLUSTER_IP	-174
 
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
 
@@ -381,6 +384,32 @@ enum {
 
 #define MARK_MAGIC_SNAT_DONE		0x0500
 
+/* IPv4 option used to carry service addr and port for DSR. Lower 16bits set to
+ * zero so that they can be OR'd with service port.
+ *
+ * Copy = 1 (option is copied to each fragment)
+ * Class = 0 (control option)
+ * Number = 26 (not used according to [1])
+ * Len = 8 (option type (1) + option len (1) + addr (4) + port (2))
+ *
+ * [1]: https://www.iana.org/assignments/ip-parameters/ip-parameters.xhtml
+ * */
+#define DSR_IPV4_OPT_32		0x9a080000
+#define DSR_IPV4_OPT_MASK	0xffff0000
+#define DSR_IPV4_DPORT_MASK	0x0000ffff
+
+/* IPv6 option type of Destination Option used to carry service IPv6 addr and
+ * port for DSR.
+ *
+ * 0b00		- "skip over this option and continue processing the header"
+ *     0	- "Option Data does not change en-route"
+ *      11011   - Unassigned [1]
+ *
+ * [1]:  https://www.iana.org/assignments/ipv6-parameters/ipv6-parameters.xhtml#ipv6-parameters-2
+ */
+#define DSR_IPV6_OPT_TYPE	0x1B
+#define DSR_IPV6_OPT_LEN	0x14	// to store ipv6 addr + port
+#define DSR_IPV6_EXT_LEN	0x2	// = (sizeof(dsr_opt_v6) - 8) / 8
 /**
  * get_identity - returns source identity from the mark field
  */
@@ -456,11 +485,17 @@ static inline void __inline__ set_encrypt_key_cb(struct __sk_buff *skb, __u8 key
 /* skb->cb[] usage: */
 enum {
 	CB_SRC_LABEL,
+#define	CB_SVC_PORT		CB_SRC_LABEL	/* Alias, non-overlapping */
 	CB_IFINDEX,
+#define	CB_SVC_ADDR_V4		CB_IFINDEX	/* Alias, non-overlapping */
+#define	CB_SVC_ADDR_V6_1	CB_IFINDEX	/* Alias, non-overlapping */
 	CB_POLICY,
+#define	CB_SVC_ADDR_V6_2	CB_POLICY	/* Alias, non-overlapping */
 	CB_NAT46_STATE,
-#define CB_NAT		CB_NAT46_STATE	/* Alias, non-overlapping */
+#define CB_NAT			CB_NAT46_STATE	/* Alias, non-overlapping */
+#define	CB_SVC_ADDR_V6_3	CB_NAT46_STATE	/* Alias, non-overlapping */
 	CB_CT_STATE,
+#define	CB_SVC_ADDR_V6_4	CB_CT_STATE	/* Alias, non-overlapping */
 };
 
 /* State values for NAT46 */
@@ -531,7 +566,8 @@ struct ct_entry {
 	      seen_non_syn:1,
 	      node_port:1,
 	      proxy_redirect:1, // Connection is redirected to a proxy
-	      reserved:9;
+	      dsr:1,
+	      reserved:8;
 	__u16 rev_nat_index;
 	__u16 backend_id; /* Populated only in v1.6+ BPF code. */
 
@@ -561,8 +597,10 @@ struct lb6_service {
 	__u32 backend_id;
 	__u16 count;
 	__u16 rev_nat_index;
-	__u8 k8s_external:1, /* K8s External IPs */
-	     reserved:7;
+	__u8 external:1,	/* K8s External IPs */
+	     nodeport:1,	/* K8s NodePort service */
+	     local_scope:1,	/* K8s externalTrafficPolicy=Local */
+	     reserved:5;
 	__u8 pad[3];
 };
 
@@ -594,8 +632,10 @@ struct lb4_service {
 	 */
 	__u16 count;
 	__u16 rev_nat_index;	/* Reverse NAT ID in lb4_reverse_nat */
-	__u8 k8s_external:1, /* K8s External IPs */
-	     reserved:7;
+	__u8 external:1,	/* K8s External IPs */
+	     nodeport:1,	/* K8s NodePort service */
+	     local_scope:1,	/* K8s externalTrafficPolicy=Local */
+	     reserved:5;
 	__u8 pad[3];
 };
 
@@ -616,7 +656,8 @@ struct ct_state {
 	__u16 loopback:1,
 	      node_port:1,
 	      proxy_redirect:1, // Connection is redirected to a proxy
-	      reserved:13;
+	      dsr:1,
+	      reserved:12;
 	__be16 orig_dport;
 	__be32 addr;
 	__be32 svc_addr;
@@ -664,4 +705,24 @@ static inline int redirect_peer(int ifindex, uint32_t flags)
 #endif /* ENABLE_HOST_REDIRECT */
 }
 
+/* Few basic errno codes as we don't want to include errno.h. */
+#ifndef ENOTSUP
+# define ENOTSUP	95
 #endif
+#ifndef ENXIO
+# define ENXIO		6
+#endif
+#ifndef EPERM
+# define EPERM		1
+#endif
+#ifndef ENOENT
+# define ENOENT		2
+#endif
+#ifndef ENOMEM
+# define ENOMEM		12
+#endif
+#ifndef EADDRINUSE
+# define EADDRINUSE		98
+#endif
+
+#endif /* __LIB_COMMON_H_ */

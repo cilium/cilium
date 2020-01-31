@@ -106,3 +106,29 @@ func (s *IPAMSuite) TestDeriveFamily(c *C) {
 	c.Assert(DeriveFamily(net.ParseIP("1.1.1.1")), Equals, IPv4)
 	c.Assert(DeriveFamily(net.ParseIP("f00d::1")), Equals, IPv6)
 }
+
+func (s *IPAMSuite) TestOwnerRelease(c *C) {
+	fakeAddressing := fake.NewNodeAddressing()
+	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true}, &ownerMock{}, &ownerMock{})
+
+	// force copy of first possible IP in allocation range
+	ipv4 := net.ParseIP(fakeAddressing.IPv4().AllocationCIDR().IP.String())
+	nextIP(ipv4)
+	err := ipam.AllocateIP(ipv4, "default/test")
+	c.Assert(err, IsNil)
+
+	ipv6 := net.ParseIP(fakeAddressing.IPv6().AllocationCIDR().IP.String())
+	nextIP(ipv6)
+	err = ipam.AllocateIP(ipv6, "default/test")
+	c.Assert(err, IsNil)
+
+	// unknown owner, must fail
+	err = ipam.ReleaseIPString("default/test2")
+	c.Assert(err, Not(IsNil))
+	// 1st release by correct owner, must succeed
+	err = ipam.ReleaseIPString("default/test")
+	c.Assert(err, IsNil)
+	// 2nd release by owner, must now fail
+	err = ipam.ReleaseIPString("default/test")
+	c.Assert(err, Not(IsNil))
+}

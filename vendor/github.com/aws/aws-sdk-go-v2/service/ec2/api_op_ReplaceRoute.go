@@ -37,6 +37,12 @@ type ReplaceRouteInput struct {
 	// The ID of a NAT instance in your VPC.
 	InstanceId *string `locationName:"instanceId" type:"string"`
 
+	// The ID of the local gateway.
+	LocalGatewayId *string `type:"string"`
+
+	// Specifies whether to reset the local route to its default target (local).
+	LocalTarget *bool `type:"boolean"`
+
 	// [IPv4 traffic only] The ID of a NAT gateway.
 	NatGatewayId *string `locationName:"natGatewayId" type:"string"`
 
@@ -89,9 +95,9 @@ const opReplaceRoute = "ReplaceRoute"
 // Amazon Elastic Compute Cloud.
 //
 // Replaces an existing route within a route table in a VPC. You must provide
-// only one of the following: internet gateway or virtual private gateway, NAT
-// instance, NAT gateway, VPC peering connection, network interface, or egress-only
-// internet gateway.
+// only one of the following: internet gateway, virtual private gateway, NAT
+// instance, NAT gateway, VPC peering connection, network interface, egress-only
+// internet gateway, or transit gateway.
 //
 // For more information, see Route Tables (https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html)
 // in the Amazon Virtual Private Cloud User Guide.

@@ -49,7 +49,7 @@ type LBBPFMap struct{}
 func (*LBBPFMap) UpsertService(
 	svcID uint16, svcIP net.IP, svcPort uint16,
 	backendIDs []uint16, prevBackendCount int,
-	ipv6 bool, svcType loadbalancer.SVCType) error {
+	ipv6 bool, svcType loadbalancer.SVCType, svcLocal bool) error {
 
 	var svcKey ServiceKey
 
@@ -87,7 +87,7 @@ func (*LBBPFMap) UpsertService(
 		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %s", revNATKey, revNATValue, err)
 	}
 
-	if err := updateMasterService(svcKey, len(backendIDs), int(svcID), svcType); err != nil {
+	if err := updateMasterService(svcKey, len(backendIDs), int(svcID), svcType, svcLocal); err != nil {
 		deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %s", svcKey, err)
 	}
@@ -219,7 +219,9 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		svcKey := key.DeepCopyMapKey().(ServiceKey)
 		svcValue := value.DeepCopyMapValue().(ServiceValue)
 
-		// Skip master service
+		fe := svcFrontend(svcKey, svcValue)
+
+		// Create master entry in case there are no backends.
 		if svcKey.GetSlave() == 0 {
 			// Build a cache of flags stored in the value of the master key to
 			// map it later.
@@ -227,6 +229,8 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 			addrStr := svcKey.GetAddress().String()
 			portStr := strconv.Itoa(int(svcKey.GetPort()))
 			flagsCache[net.JoinHostPort(addrStr, portStr)] = loadbalancer.ServiceFlags(svcValue.GetFlags())
+
+			newSVCMap.addFE(fe)
 			return
 		}
 
@@ -237,7 +241,7 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 			return
 		}
 
-		fe, be := svcFrontendAndBackends(svcKey, svcValue, backendID, backendValue)
+		be := svcBackend(backendID, backendValue)
 		newSVCMap.addFEnBE(fe, be, svcKey.GetSlave())
 	}
 
@@ -272,9 +276,8 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		addrStr := svc.Frontend.IP.String()
 		portStr := strconv.Itoa(int(svc.Frontend.Port))
 		host := net.JoinHostPort(addrStr, portStr)
-		if flagsCache[host].IsSvcType(loadbalancer.SVCTypeExternalIPs) {
-			svc.Type = loadbalancer.SVCTypeExternalIPs
-		}
+		svc.Type = flagsCache[host].SVCType()
+		svc.TrafficPolicy = flagsCache[host].SVCTrafficPolicy()
 		newSVCList = append(newSVCList, &svc)
 	}
 
@@ -319,12 +322,12 @@ func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
 	return lbBackends, nil
 }
 
-func updateMasterService(fe ServiceKey, nbackends int, revNATID int, svcType loadbalancer.SVCType) error {
+func updateMasterService(fe ServiceKey, nbackends int, revNATID int, svcType loadbalancer.SVCType, svcLocal bool) error {
 	fe.SetSlave(0)
 	zeroValue := fe.NewValue().(ServiceValue)
 	zeroValue.SetCount(nbackends)
 	zeroValue.SetRevNat(revNATID)
-	zeroValue.SetFlags(loadbalancer.CreateSvcFlag(svcType).UInt8())
+	zeroValue.SetFlags(loadbalancer.CreateSvcFlag(svcLocal, svcType).UInt8())
 
 	return updateServiceEndpoint(fe, zeroValue)
 }
@@ -362,6 +365,19 @@ func updateServiceEndpoint(key ServiceKey, value ServiceValue) error {
 }
 
 type svcMap map[string]loadbalancer.SVC
+
+// addFE adds the give 'fe' to the svcMap without any backends. If it does not
+// yet exist, an entry is created. Otherwise, the existing entry is left
+// unchanged.
+func (svcs svcMap) addFE(fe *loadbalancer.L3n4AddrID) *loadbalancer.SVC {
+	hash := fe.Hash()
+	lbsvc, ok := svcs[hash]
+	if !ok {
+		lbsvc = loadbalancer.SVC{Frontend: *fe}
+		svcs[hash] = lbsvc
+	}
+	return &lbsvc
+}
 
 // addFEnBE adds the given 'fe' and 'be' to the svcMap. If 'fe' exists and beIndex is 0,
 // the new 'be' will be appended to the list of existing backends. If beIndex is bigger

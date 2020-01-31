@@ -95,6 +95,16 @@ func (res *CmdRes) ExpectFail(optionalDescription ...interface{}) bool {
 		CMDSuccess(), optionalDescription...)
 }
 
+// ExpectFailWithError asserts whether res failed to execute with the
+// error output containing the given data.  It accepts an optional
+// parameter that can be used to annotate failure messages.
+func (res *CmdRes) ExpectFailWithError(data string, optionalDescription ...interface{}) bool {
+	return gomega.ExpectWithOffset(1, res).ShouldNot(
+		CMDSuccess(), optionalDescription...) &&
+		gomega.ExpectWithOffset(1, res.GetStdErr()).To(
+			gomega.ContainSubstring(data), optionalDescription...)
+}
+
 // ExpectSuccess asserts whether res executed successfully. It accepts an optional
 // parameter that can be used to annotate failure messages.
 func (res *CmdRes) ExpectSuccess(optionalDescription ...interface{}) bool {
@@ -141,7 +151,7 @@ func (res *CmdRes) CombineOutput() *bytes.Buffer {
 
 // IntOutput returns the stdout of res as an integer
 func (res *CmdRes) IntOutput() (int, error) {
-	return strconv.Atoi(strings.Trim(res.stdout.String(), "\n\r"))
+	return strconv.Atoi(strings.TrimSpace(res.stdout.String()))
 }
 
 // FindResults filters res's stdout using the provided JSONPath filter. It

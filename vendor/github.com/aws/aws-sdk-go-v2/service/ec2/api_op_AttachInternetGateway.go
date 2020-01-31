@@ -68,9 +68,10 @@ const opAttachInternetGateway = "AttachInternetGateway"
 // AttachInternetGatewayRequest returns a request value for making API operation for
 // Amazon Elastic Compute Cloud.
 //
-// Attaches an internet gateway to a VPC, enabling connectivity between the
-// internet and the VPC. For more information about your VPC and internet gateway,
-// see the Amazon Virtual Private Cloud User Guide (https://docs.aws.amazon.com/vpc/latest/userguide/).
+// Attaches an internet gateway or a virtual private gateway to a VPC, enabling
+// connectivity between the internet and the VPC. For more information about
+// your VPC and internet gateway, see the Amazon Virtual Private Cloud User
+// Guide (https://docs.aws.amazon.com/vpc/latest/userguide/).
 //
 //    // Example sending a request using AttachInternetGatewayRequest.
 //    req := client.AttachInternetGatewayRequest(params)
