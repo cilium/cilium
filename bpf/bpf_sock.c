@@ -80,6 +80,13 @@ ctx_get_port(struct bpf_sock_addr *ctx)
 	return (__be16)dport;
 }
 
+static __always_inline __maybe_unused __be16
+ctx_src_port(struct bpf_sock *ctx)
+{
+	volatile __u32 sport = ctx->src_port;
+	return (__be16)bpf_htons(sport);
+}
+
 static __always_inline __maybe_unused
 void ctx_set_port(struct bpf_sock_addr *ctx, __be16 dport)
 {
@@ -319,7 +326,7 @@ static __always_inline int __sock4_post_bind(struct bpf_sock *ctx)
 	struct lb4_service *svc;
 	struct lb4_key key = {
 		.address	= ctx->src_ip4,
-		.dport		= bpf_htons(ctx->src_port),
+		.dport		= ctx_src_port(ctx),
 	};
 
 	if (!sock_proto_enabled(ctx->protocol))
@@ -331,7 +338,7 @@ static __always_inline int __sock4_post_bind(struct bpf_sock *ctx)
 		 * to bind to loopback or an address with host identity
 		 * (without remote hosts).
 		 */
-		key.dport = bpf_htons(ctx->src_port);
+		key.dport = ctx_src_port(ctx);
 		svc = sock4_nodeport_wildcard_lookup(&key, false);
 	}
 
@@ -644,7 +651,7 @@ static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
 {
 	struct lb6_service *svc;
 	struct lb6_key key = {
-		.dport		= bpf_htons(ctx->src_port),
+		.dport		= ctx_src_port(ctx),
 	};
 
 	if (!sock_proto_enabled(ctx->protocol))
@@ -654,7 +661,7 @@ static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
 
 	svc = __lb6_lookup_service(&key);
 	if (!svc) {
-		key.dport = bpf_htons(ctx->src_port);
+		key.dport = ctx_src_port(ctx);
 		svc = sock6_nodeport_wildcard_lookup(&key, false);
 		if (!svc)
 			return sock6_post_bind_v4_in_v6(ctx);
