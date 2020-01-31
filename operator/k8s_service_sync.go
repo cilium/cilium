@@ -205,12 +205,12 @@ func startSynchronizingServices() {
 	go func() {
 		cache.WaitForCacheSync(wait.NeverStop, svcController.HasSynced)
 		swgSvcs.Stop()
+		swgSvcs.Wait()
+		close(k8sSvcCacheSynced)
+
 		cache.WaitForCacheSync(wait.NeverStop, endpointController.HasSynced)
 		swgEps.Stop()
-
-		swgSvcs.Wait()
 		swgEps.Wait()
-		close(k8sSvcCacheSynced)
 	}()
 
 	go func() {
