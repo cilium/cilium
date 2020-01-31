@@ -101,20 +101,20 @@ spec:
                 # Configure systemd to mount after next boot
                 echo "Installing BPF filesystem mount"
                 cat >/tmp/sys-fs-bpf.mount <<EOF
-                [Unit]
-                Description=Mount BPF filesystem (Cilium)
-                Documentation=http://docs.cilium.io/
-                DefaultDependencies=no
-                Before=local-fs.target umount.target
-                After=swap.target
+              [Unit]
+              Description=Mount BPF filesystem (Cilium)
+              Documentation=http://docs.cilium.io/
+              DefaultDependencies=no
+              Before=local-fs.target umount.target
+              After=swap.target
 
-                [Mount]
-                What=bpffs
-                Where=/sys/fs/bpf
-                Type=bpf
+              [Mount]
+              What=bpffs
+              Where=/sys/fs/bpf
+              Type=bpf
 
-                [Install]
-                WantedBy=multi-user.target
+              [Install]
+              WantedBy=multi-user.target
               EOF
 
                 if [ -d "/etc/systemd/system/" ]; then
