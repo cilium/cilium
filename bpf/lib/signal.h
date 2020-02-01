@@ -46,13 +46,13 @@ struct signal_msg {
 	};
 };
 
-static inline void send_signal(struct __sk_buff *skb, struct signal_msg *msg)
+static __always_inline void send_signal(struct __sk_buff *skb, struct signal_msg *msg)
 {
 	skb_event_output(skb, &SIGNAL_MAP, BPF_F_CURRENT_CPU,
 			 msg, sizeof(*msg));
 }
 
-static inline void send_signal_nat_fill_up(struct __sk_buff *skb, __u32 proto)
+static __always_inline __maybe_unused void send_signal_nat_fill_up(struct __sk_buff *skb, __u32 proto)
 {
 	struct signal_msg msg = {
 		.signal_nr	= SIGNAL_NAT_FILL_UP,

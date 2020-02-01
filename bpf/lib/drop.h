@@ -88,8 +88,8 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_DROP_NOTIFY) int __send_drop_notify
  *
  * NOTE: This is terminal function and will cause the BPF program to exit
  */
-static inline int send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,
-				   __u32 dst_id, int reason, int exitcode, __u8 direction)
+static __always_inline int send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,
+                                            __u32 dst_id, int reason, int exitcode, __u8 direction)
 {
 	skb->cb[0] = src;
 	skb->cb[1] = dst;
@@ -106,8 +106,8 @@ static inline int send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,
 
 #else
 
-static inline int send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,
-				   __u32 dst_id, int reason, int exitcode, __u8 direction)
+static __always_inline int send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,
+                                            __u32 dst_id, int reason, int exitcode, __u8 direction)
 {
 	update_metrics(skb->len, direction, -reason);
 	return exitcode;
@@ -115,8 +115,8 @@ static inline int send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,
 
 #endif
 
-static inline int send_drop_notify_error(struct __sk_buff *skb, __u32 src, int error,
-                                         int exitcode, __u8 direction)
+static __always_inline __maybe_unused int
+send_drop_notify_error(struct __sk_buff *skb, __u32 src, int error, int exitcode, __u8 direction)
 {
 	return send_drop_notify(skb, src, 0, 0, error, exitcode, direction);
 }

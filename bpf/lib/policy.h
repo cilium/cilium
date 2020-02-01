@@ -244,16 +244,14 @@ policy_can_egress(struct __sk_buff *skb, __u32 identity, __u16 dport, __u8 proto
 	return ret;
 }
 
-static inline int policy_can_egress6(struct __sk_buff *skb,
-				     struct ipv6_ct_tuple *tuple,
-				     __u32 identity, __u8 *match_type)
+static __always_inline __maybe_unused int
+policy_can_egress6(struct __sk_buff *skb, struct ipv6_ct_tuple *tuple, __u32 identity, __u8 *match_type)
 {
 	return policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr, match_type);
 }
 
-static inline int policy_can_egress4(struct __sk_buff *skb,
-				     struct ipv4_ct_tuple *tuple,
-				     __u32 identity, __u8 *match_type)
+static __always_inline __maybe_unused int
+policy_can_egress4(struct __sk_buff *skb, struct ipv4_ct_tuple *tuple, __u32 identity, __u8 *match_type)
 {
 	return policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr, match_type);
 }
@@ -265,12 +263,12 @@ static inline int policy_can_egress4(struct __sk_buff *skb,
  * Will cause the packet to ignore the policy enforcement layer and
  * be considered accepted despite of the policy outcome.
  */
-static inline void policy_mark_skip(struct __sk_buff *skb)
+static __always_inline __maybe_unused void policy_mark_skip(struct __sk_buff *skb)
 {
 	skb->cb[CB_POLICY] = 1;
 }
 
-static inline void policy_clear_mark(struct __sk_buff *skb)
+static __always_inline __maybe_unused void policy_clear_mark(struct __sk_buff *skb)
 {
 	skb->cb[CB_POLICY] = 0;
 }
@@ -279,11 +277,11 @@ static inline void policy_clear_mark(struct __sk_buff *skb)
 #else
 
 
-static inline void policy_mark_skip(struct __sk_buff *skb)
+static __always_inline void policy_mark_skip(struct __sk_buff *skb)
 {
 }
 
-static inline void policy_clear_mark(struct __sk_buff *skb)
+static __always_inline void policy_clear_mark(struct __sk_buff *skb)
 {
 }
 

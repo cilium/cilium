@@ -31,7 +31,7 @@
 #define TEMPLATE_LXC_ID 0xffff
 
 #ifndef DISABLE_SIP_VERIFICATION
-static inline int is_valid_lxc_src_ip(struct ipv6hdr *ip6)
+static __always_inline __maybe_unused int is_valid_lxc_src_ip(struct ipv6hdr *ip6)
 {
 #ifdef ENABLE_IPV6
 	union v6addr valid = {};
@@ -44,7 +44,7 @@ static inline int is_valid_lxc_src_ip(struct ipv6hdr *ip6)
 #endif
 }
 
-static inline int is_valid_lxc_src_ipv4(struct iphdr *ip4)
+static __always_inline __maybe_unused int is_valid_lxc_src_ipv4(struct iphdr *ip4)
 {
 #ifdef ENABLE_IPV4
 	return ip4->saddr == LXC_IPV4;
@@ -54,12 +54,12 @@ static inline int is_valid_lxc_src_ipv4(struct iphdr *ip4)
 #endif
 }
 #else
-static inline int is_valid_lxc_src_ip(struct ipv6hdr *ip6)
+static __always_inline int is_valid_lxc_src_ip(struct ipv6hdr *ip6)
 {
 	return 1;
 }
 
-static inline int is_valid_lxc_src_ipv4(struct iphdr *ip4)
+static __always_inline int is_valid_lxc_src_ipv4(struct iphdr *ip4)
 {
 	return 1;
 }

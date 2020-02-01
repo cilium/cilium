@@ -71,9 +71,9 @@ static inline int __inline__ ipv4_l3(struct __sk_buff *skb, int l3_off,
 }
 
 #ifdef ENABLE_IPV6
-static inline int ipv6_local_delivery(struct __sk_buff *skb, int l3_off, int l4_off,
-				      __u32 seclabel, struct ipv6hdr *ip6, __u8 nexthdr,
-				      struct endpoint_info *ep, __u8 direction)
+static __always_inline int ipv6_local_delivery(struct __sk_buff *skb, int l3_off, int l4_off,
+                                               __u32 seclabel, struct ipv6hdr *ip6, __u8 nexthdr,
+                                               struct endpoint_info *ep, __u8 direction)
 {
 	int ret;
 

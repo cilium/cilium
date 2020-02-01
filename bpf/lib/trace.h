@@ -77,7 +77,7 @@ enum {
  *
  * Update metrics based on a trace event
  */
-static inline void
+static __always_inline void
 update_trace_metrics(struct __sk_buff *skb, __u8 obs_point, __u8 reason)
 {
 	__u8 encrypted;
@@ -134,7 +134,7 @@ struct trace_notify {
 	};
 };
 
-static inline bool emit_trace_notify(__u8 obs_point, __u32 monitor)
+static __always_inline bool emit_trace_notify(__u8 obs_point, __u32 monitor)
 {
 	if (MONITOR_AGGREGATION >= TRACE_AGGREGATE_RX) {
 		switch (obs_point) {
@@ -155,9 +155,9 @@ static inline bool emit_trace_notify(__u8 obs_point, __u32 monitor)
 	return true;
 }
 
-static inline void
+static __always_inline __maybe_unused void
 send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
-		   __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
+                  __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
 {
 	update_trace_metrics(skb, obs_point, reason);
 
@@ -194,7 +194,7 @@ send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
 			 &msg, sizeof(msg));
 }
 
-static inline void
+static __always_inline __maybe_unused void
 send_trace_notify4(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst, __be32 orig_addr,
 		   __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
 {
@@ -233,7 +233,7 @@ send_trace_notify4(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst, 
 			 &msg, sizeof(msg));
 }
 
-static inline void
+static __always_inline __maybe_unused void
 send_trace_notify6(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst, union v6addr *orig_addr,
 		   __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
 {
@@ -273,21 +273,21 @@ send_trace_notify6(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst, 
 
 #else
 
-static inline void
+static __always_inline void
 send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
 		  __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
 {
 	update_trace_metrics(skb, obs_point, reason);
 }
 
-static inline void
+static __always_inline __maybe_unused void
 send_trace_notify4(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst, __be32 orig_addr,
 		   __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
 {
 	update_trace_metrics(skb, obs_point, reason);
 }
 
-static inline void
+static __always_inline __maybe_unused void
 send_trace_notify6(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst, union v6addr *orig_addr,
 		   __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
 {

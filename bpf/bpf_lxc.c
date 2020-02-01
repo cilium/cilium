@@ -56,7 +56,7 @@
 #endif
 
 #if defined ENABLE_IPV4 || defined ENABLE_IPV6
-static inline bool redirect_to_proxy(int verdict, __u8 dir)
+static __always_inline bool redirect_to_proxy(int verdict, __u8 dir)
 {
 	return is_defined(ENABLE_HOST_REDIRECT) && verdict > 0 &&
 	       (dir == CT_NEW || dir == CT_ESTABLISHED);
@@ -64,9 +64,9 @@ static inline bool redirect_to_proxy(int verdict, __u8 dir)
 #endif
 
 #ifdef ENABLE_IPV6
-static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
-				   struct ipv6_ct_tuple *tuple, int l3_off,
-				   struct ipv6hdr *ip6, __u32 *dstID)
+static __always_inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
+                                            struct ipv6_ct_tuple *tuple, int l3_off,
+                                            struct ipv6hdr *ip6, __u32 *dstID)
 {
 #ifdef ENABLE_ROUTING
 	union macaddr router_mac = NODE_MAC;
@@ -422,7 +422,7 @@ int tail_handle_ipv6(struct __sk_buff *skb)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
+static __always_inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 {
 	struct ipv4_ct_tuple tuple = {};
 #ifdef ENABLE_ROUTING

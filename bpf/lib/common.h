@@ -109,7 +109,7 @@ union v6addr {
         __u8 addr[16];
 } __attribute__((packed));
 
-static inline bool validate_ethertype(struct __sk_buff *skb, __u16 *proto)
+static __always_inline __maybe_unused bool validate_ethertype(struct __sk_buff *skb, __u16 *proto)
 {
 	void *data = (void *) (long) skb->data;
 	void *data_end = (void *) (long) skb->data_end;
@@ -126,7 +126,7 @@ static inline bool validate_ethertype(struct __sk_buff *skb, __u16 *proto)
 	return true;
 }
 
-static inline bool __revalidate_data(struct __sk_buff *skb, void **data_,
+static __always_inline __maybe_unused bool __revalidate_data(struct __sk_buff *skb, void **data_,
 				     void **data_end_, void **l3,
 				     const size_t l3_len, const bool pull)
 {
@@ -688,13 +688,13 @@ struct ct_state {
  * help relax the verifier to avoid reaching complexity limits on older
  * kernels.
  */
-static inline void relax_verifier(void)
+static __always_inline __maybe_unused void relax_verifier(void)
 {
 	int foo = 0;
 	csum_diff(0, 0, &foo, 1, 0);
 }
 
-static inline int redirect_self(struct __sk_buff *skb)
+static __always_inline __maybe_unused int redirect_self(struct __sk_buff *skb)
 {
 	/* Looping back the packet into the originating netns. In
 	 * case of veth, it's xmit'ing into the hosts' veth device
@@ -709,7 +709,7 @@ static inline int redirect_self(struct __sk_buff *skb)
 #endif
 }
 
-static inline int redirect_peer(int ifindex, __u32 flags)
+static __always_inline __maybe_unused int redirect_peer(int ifindex, __u32 flags)
 {
 	/* If our datapath has proper redirect support, we make use
 	 * of it here, otherwise we terminate tc processing by letting

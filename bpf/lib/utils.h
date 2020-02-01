@@ -36,7 +36,7 @@
 	_x > _y ? _x : _y;	\
 })
 
-static inline void bpf_barrier(void)
+static __always_inline __maybe_unused void bpf_barrier(void)
 {
 	/* Workaround to avoid verifier complaint:
 	 * "dereference of modified ctx ptr R5 off=48+0, ctx+const is allowed, ctx+const+const is not"
@@ -62,7 +62,7 @@ static inline void bpf_barrier(void)
 #endif
 
 /* Clear CB values */
-static inline void bpf_clear_cb(struct __sk_buff *skb)
+static __always_inline __maybe_unused void bpf_clear_cb(struct __sk_buff *skb)
 {
 	__u32 zero = 0;
 	skb->cb[0] = zero;
@@ -75,12 +75,12 @@ static inline void bpf_clear_cb(struct __sk_buff *skb)
 #define NSEC_PER_SEC	1000000000UL
 
 /* Monotonic clock, scalar format. */
-static inline __u64 bpf_ktime_get_nsec(void)
+static __always_inline __u64 bpf_ktime_get_nsec(void)
 {
 	return ktime_get_ns();
 }
 
-static inline __u32 bpf_ktime_get_sec(void)
+static __always_inline __maybe_unused __u32 bpf_ktime_get_sec(void)
 {
 	/* Ignores remainder subtraction as we'd do in
 	 * ns_to_timespec(), but good enough here.

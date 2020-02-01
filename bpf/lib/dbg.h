@@ -18,6 +18,8 @@
 #ifndef __LIB_DBG__
 #define __LIB_DBG__
 
+#include <bpf/api.h>
+
 /* Trace types */
 enum {
 	DBG_UNSPEC,
@@ -159,7 +161,7 @@ struct debug_msg {
 	__u32		arg3;
 };
 
-static inline void cilium_dbg(struct __sk_buff *skb, __u8 type, __u32 arg1, __u32 arg2)
+static __always_inline __maybe_unused void cilium_dbg(struct __sk_buff *skb, __u8 type, __u32 arg1, __u32 arg2)
 {
 	__u32 hash = get_hash_recalc(skb);
 	struct debug_msg msg = {
@@ -174,8 +176,8 @@ static inline void cilium_dbg(struct __sk_buff *skb, __u8 type, __u32 arg1, __u3
 	skb_event_output(skb, &EVENTS_MAP, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
 }
 
-static inline void cilium_dbg3(struct __sk_buff *skb, __u8 type, __u32 arg1,
-			       __u32 arg2, __u32 arg3)
+static __always_inline __maybe_unused void cilium_dbg3(struct __sk_buff *skb, __u8 type, __u32 arg1,
+                                                       __u32 arg2, __u32 arg3)
 {
 	__u32 hash = get_hash_recalc(skb);
 	struct debug_msg msg = {
@@ -197,7 +199,7 @@ struct debug_capture_msg {
 	__u32		arg2;
 };
 
-static inline void cilium_dbg_capture2(struct __sk_buff *skb, __u8 type, __u32 arg1, __u32 arg2)
+static __always_inline void cilium_dbg_capture2(struct __sk_buff *skb, __u8 type, __u32 arg1, __u32 arg2)
 {
 	__u64 skb_len = (__u64)skb->len, cap_len = min((__u64)TRACE_PAYLOAD_LEN, (__u64)skb_len);
 	__u32 hash = get_hash_recalc(skb);
@@ -218,7 +220,7 @@ static inline void cilium_dbg_capture2(struct __sk_buff *skb, __u8 type, __u32 a
 			 &msg, sizeof(msg));
 }
 
-static inline void cilium_dbg_capture(struct __sk_buff *skb, __u8 type, __u32 arg1)
+static __always_inline __maybe_unused void cilium_dbg_capture(struct __sk_buff *skb, __u8 type, __u32 arg1)
 {
 	cilium_dbg_capture2(skb, type, arg1, 0);
 }
@@ -228,20 +230,20 @@ static inline void cilium_dbg_capture(struct __sk_buff *skb, __u8 type, __u32 ar
 # define printk(fmt, ...)					\
 		do { } while (0)
 
-static inline void cilium_dbg(struct __sk_buff *skb, __u8 type, __u32 arg1, __u32 arg2)
+static __always_inline void cilium_dbg(struct __sk_buff *skb, __u8 type, __u32 arg1, __u32 arg2)
 {
 }
 
-static inline void cilium_dbg3(struct __sk_buff *skb, __u8 type, __u32 arg1,
-			       __u32 arg2, __u32 arg3)
+static __always_inline void cilium_dbg3(struct __sk_buff *skb, __u8 type, __u32 arg1,
+                                          __u32 arg2, __u32 arg3)
 {
 }
 
-static inline void cilium_dbg_capture(struct __sk_buff *skb, __u8 type, __u32 arg1)
+static __always_inline __maybe_unused void cilium_dbg_capture(struct __sk_buff *skb, __u8 type, __u32 arg1)
 {
 }
 
-static inline void cilium_dbg_capture2(struct __sk_buff *skb, __u8 type, __u32 arg1, __u32 arg2)
+static __always_inline __maybe_unused void cilium_dbg_capture2(struct __sk_buff *skb, __u8 type, __u32 arg1, __u32 arg2)
 {
 }
 

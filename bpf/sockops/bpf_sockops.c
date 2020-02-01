@@ -63,7 +63,7 @@ static __always_inline bool redirect_to_proxy(int verdict)
 	return verdict > 0;
 }
 
-static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
+static __always_inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 {
 	struct lb4_key lb4_key = {};
 	__u32 dip4, dport, dstID = 0;
@@ -129,7 +129,7 @@ static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 }
 
 #ifdef ENABLE_IPV6
-static inline void bpf_sock_ops_ipv6(struct bpf_sock_ops *skops)
+static __always_inline void bpf_sock_ops_ipv6(struct bpf_sock_ops *skops)
 {
 	if (skops->remote_ip4)
 		bpf_sock_ops_ipv4(skops);

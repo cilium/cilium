@@ -18,16 +18,18 @@
 #ifndef __LIB_IPV4__
 #define __LIB_IPV4__
 
+#include <bpf/api.h>
+
 #include <linux/ip.h>
 
 #include "dbg.h"
 
-static inline int ipv4_load_daddr(struct __sk_buff *skb, int off, __u32 *dst)
+static __always_inline __maybe_unused int ipv4_load_daddr(struct __sk_buff *skb, int off, __u32 *dst)
 {
 	return skb_load_bytes(skb, off + offsetof(struct iphdr, daddr), dst, 4);
 }
 
-static inline int ipv4_dec_ttl(struct __sk_buff *skb, int off, struct iphdr *ip4)
+static __always_inline __maybe_unused int ipv4_dec_ttl(struct __sk_buff *skb, int off, struct iphdr *ip4)
 {
 	__u8 new_ttl, ttl = ip4->ttl;
 
@@ -42,12 +44,12 @@ static inline int ipv4_dec_ttl(struct __sk_buff *skb, int off, struct iphdr *ip4
 	return 0;
 }
 
-static inline int ipv4_hdrlen(struct iphdr *ip4)
+static __always_inline __maybe_unused int ipv4_hdrlen(struct iphdr *ip4)
 {
 	return ip4->ihl * 4;
 }
 
-static inline bool ipv4_is_fragment(struct iphdr *ip4)
+static __always_inline __maybe_unused bool ipv4_is_fragment(struct iphdr *ip4)
 {
 	// The frag_off portion of the header consists of:
 	//

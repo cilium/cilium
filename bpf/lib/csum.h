@@ -19,6 +19,8 @@
 #ifndef __LIB_CSUM_H_
 #define __LIB_CSUM_H_
 
+#include <bpf/api.h>
+
 #include <linux/tcp.h>
 #include <linux/udp.h>
 #include <linux/icmpv6.h>
@@ -42,7 +44,7 @@ struct csum_offset
  * For unknown L4 protocols or L4 protocols which do not have a checksum
  * field, off is initialied to 0.
  */
-static inline void csum_l4_offset_and_flags(__u8 nexthdr, struct csum_offset *off)
+static __always_inline __maybe_unused void csum_l4_offset_and_flags(__u8 nexthdr, struct csum_offset *off)
 {
 	switch (nexthdr) {
 	case IPPROTO_TCP:
@@ -72,8 +74,8 @@ static inline void csum_l4_offset_and_flags(__u8 nexthdr, struct csum_offset *of
  * @arg to	To value or a csum diff
  * @arg flags	Additional flags to be passed to l4_csum_replace()
  */
-static inline int csum_l4_replace(struct __sk_buff *skb, int l4_off, struct csum_offset *csum,
-				  __be32 from, __be32 to, int flags)
+static __always_inline int csum_l4_replace(struct __sk_buff *skb, int l4_off, struct csum_offset *csum,
+                                           __be32 from, __be32 to, int flags)
 {
 	return l4_csum_replace(skb, l4_off + csum->offset, from, to, flags | csum->flags);
 }

@@ -49,7 +49,7 @@
 #include "lib/nodeport.h"
 
 #if defined FROM_HOST && (defined ENABLE_IPV4 || defined ENABLE_IPV6)
-static inline int rewrite_dmac_to_host(struct __sk_buff *skb, __u32 src_identity)
+static __always_inline int rewrite_dmac_to_host(struct __sk_buff *skb, __u32 src_identity)
 {
 	/* When attached to cilium_host, we rewrite the DMAC to the mac of
 	 * cilium_host (peer) to ensure the packet is being considered to be
@@ -65,7 +65,7 @@ static inline int rewrite_dmac_to_host(struct __sk_buff *skb, __u32 src_identity
 #endif
 
 #if defined ENABLE_IPV4 || defined ENABLE_IPV6
-static inline __u32 finalize_sec_ctx(__u32 secctx, __u32 src_identity)
+static __always_inline __u32 finalize_sec_ctx(__u32 secctx, __u32 src_identity)
 {
 #ifdef ENABLE_SECCTX_FROM_IPCACHE
 	/* If we could not derive the secctx from the packet itself but
@@ -80,8 +80,8 @@ static inline __u32 finalize_sec_ctx(__u32 secctx, __u32 src_identity)
 #endif
 
 #ifdef ENABLE_IPV6
-static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *node_ip,
-				   struct ipv6hdr *ip6, __u32 *identity)
+static __always_inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *node_ip,
+                                            struct ipv6hdr *ip6, __u32 *identity)
 {
 #ifdef FIXED_SRC_SECCTX
 	*identity = FIXED_SRC_SECCTX;
@@ -105,7 +105,7 @@ static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *no
 #endif
 }
 
-static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
+static __always_inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 {
 	struct remote_endpoint_info *info = NULL;
 	union v6addr node_ip = { };
@@ -270,7 +270,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC) int tail_handle_ipv6
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-static inline __u32 derive_ipv4_sec_ctx(struct __sk_buff *skb, struct iphdr *ip4)
+static __always_inline __u32 derive_ipv4_sec_ctx(struct __sk_buff *skb, struct iphdr *ip4)
 {
 #ifdef FIXED_SRC_SECCTX
 	return FIXED_SRC_SECCTX;
@@ -279,7 +279,7 @@ static inline __u32 derive_ipv4_sec_ctx(struct __sk_buff *skb, struct iphdr *ip4
 #endif
 }
 
-static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
+static __always_inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 {
 	struct remote_endpoint_info *info = NULL;
 	struct ipv4_ct_tuple tuple = {};

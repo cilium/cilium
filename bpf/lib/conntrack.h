@@ -44,7 +44,7 @@ enum {
  * dir:     Ideally we would only consider responses, but requests are likely
  *          to be small anyway.
  * */
-static inline bool conn_is_dns(__u16 dport)
+static __always_inline bool conn_is_dns(__u16 dport)
 {
 	if (dport == bpf_htons(53)) {
 		relax_verifier();
@@ -190,7 +190,7 @@ static inline bool __inline__ ct_entry_alive(const struct ct_entry *entry)
 }
 
 /* Helper for holding 2nd service entry alive in nodeport case. */
-static inline bool __ct_entry_keep_alive(void *map, void *tuple)
+static __always_inline __maybe_unused bool __ct_entry_keep_alive(void *map, void *tuple)
 {
 	struct ct_entry *entry;
 
@@ -482,9 +482,9 @@ static inline void __inline__ ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
 	ct_flip_tuple_dir4(tuple);
 }
 
-static inline void ct4_cilium_dbg_tuple(struct __sk_buff *skb, __u8 type,
-					  const struct ipv4_ct_tuple *tuple,
-					  __u32 rev_nat_index, int dir)
+static __always_inline __maybe_unused void
+ct4_cilium_dbg_tuple(struct __sk_buff *skb, __u8 type, const struct ipv4_ct_tuple *tuple,
+                     __u32 rev_nat_index, int dir)
 {
 	__be32 addr = (dir == CT_INGRESS) ? tuple->saddr : tuple->daddr;
 	cilium_dbg(skb, type, addr, rev_nat_index);

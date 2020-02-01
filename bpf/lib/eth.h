@@ -18,6 +18,8 @@
 #ifndef __LIB_ETH__
 #define __LIB_ETH__
 
+#include <bpf/api.h>
+
 #include <linux/if_ether.h>
 
 #ifndef ETH_HLEN
@@ -36,7 +38,7 @@ union macaddr {
 	__u8 addr[6];
 };
 
-static inline int eth_addrcmp(const union macaddr *a, const union macaddr *b)
+static __always_inline int eth_addrcmp(const union macaddr *a, const union macaddr *b)
 {
 	int tmp;
 
@@ -47,7 +49,7 @@ static inline int eth_addrcmp(const union macaddr *a, const union macaddr *b)
 	return tmp;
 }
 
-static inline int eth_is_bcast(const union macaddr *a)
+static __always_inline __maybe_unused int eth_is_bcast(const union macaddr *a)
 {
 	union macaddr bcast;
 
@@ -60,22 +62,22 @@ static inline int eth_is_bcast(const union macaddr *a)
 		return 0;
 }
 
-static inline int eth_load_saddr(struct __sk_buff *skb, __u8 *mac, int off)
+static __always_inline __maybe_unused int eth_load_saddr(struct __sk_buff *skb, __u8 *mac, int off)
 {
 	return skb_load_bytes(skb, off + ETH_ALEN, mac, ETH_ALEN);
 }
 
-static inline int eth_store_saddr(struct __sk_buff *skb, __u8 *mac, int off)
+static __always_inline __maybe_unused int eth_store_saddr(struct __sk_buff *skb, __u8 *mac, int off)
 {
 	return skb_store_bytes(skb, off + ETH_ALEN, mac, ETH_ALEN, 0);
 }
 
-static inline int eth_load_daddr(struct __sk_buff *skb, __u8 *mac, int off)
+static __always_inline __maybe_unused int eth_load_daddr(struct __sk_buff *skb, __u8 *mac, int off)
 {
 	return skb_load_bytes(skb, off, mac, ETH_ALEN);
 }
 
-static inline int eth_store_daddr(struct __sk_buff *skb, __u8 *mac, int off)
+static __always_inline __maybe_unused int eth_store_daddr(struct __sk_buff *skb, __u8 *mac, int off)
 {
 	return skb_store_bytes(skb, off, mac, ETH_ALEN, 0);
 }

@@ -18,6 +18,8 @@
 #ifndef __LIB_IDENTITY_H_
 #define __LIB_IDENTITY_H_
 
+#include <bpf/api.h>
+
 #include "drop.h"
 #include "dbg.h"
 
@@ -38,7 +40,7 @@
  *
  * Identities 128 and higher are guaranteed to be generated based on user input.
  */
-static inline bool identity_is_reserved(__u32 identity)
+static __always_inline __maybe_unused bool identity_is_reserved(__u32 identity)
 {
 	return identity < UNMANAGED_ID || identity == REMOTE_NODE_ID;
 }
