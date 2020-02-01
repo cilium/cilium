@@ -684,8 +684,6 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		IngressPolicyEnabled: ingressEnabled,
 		EgressPolicyEnabled:  egressEnabled,
 	}
-	calculatedPolicy.IngressPolicyEnabled = ingressEnabled
-	calculatedPolicy.EgressPolicyEnabled = egressEnabled
 
 	lbls := securityIdentity.LabelArray
 	ingressCtx := SearchContext{
