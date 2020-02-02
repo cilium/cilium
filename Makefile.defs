@@ -80,7 +80,7 @@ ifneq ($(LOCKDEBUG),)
 endif
 
 # Container engine
-CONTAINER_ENGINE?=docker
+export CONTAINER_ENGINE?=docker
 CONTAINER_ENGINE_FULL=$(QUIET)$(CONTAINER_ENGINE)
 
 ifeq ($(shell uname -m),aarch64)
