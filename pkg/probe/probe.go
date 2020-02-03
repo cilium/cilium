@@ -16,6 +16,7 @@ package probe
 
 import (
 	"fmt"
+	"syscall"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -60,5 +61,17 @@ func HaveFullLPM() bool {
 	if err != nil {
 		return false
 	}
+	return true
+}
+
+// HaveIPv6Support tests whether kernel can open an IPv6 socket. This will
+// also implicitly auto-load IPv6 kernel module if available and not yet
+// loaded.
+func HaveIPv6Support() bool {
+	fd, err := syscall.Socket(syscall.AF_INET6, syscall.SOCK_STREAM, 0)
+	if err == syscall.EAFNOSUPPORT || err == syscall.EPROTONOSUPPORT {
+		return false
+	}
+	syscall.Close(fd)
 	return true
 }
