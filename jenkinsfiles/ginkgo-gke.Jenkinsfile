@@ -118,7 +118,7 @@ pipeline {
             }
             steps {
                 dir("${TESTDIR}"){
-                    sh 'CILIUM_IMAGE=$(./print-node-ip.sh)/cilium/cilium:latest CILIUM_OPERATOR_IMAGE=$(./print-node-ip.sh)/cilium/operator:latest ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s*/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/gke/gke-kubeconfig -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh)'
+                    sh 'K8S_VERSION=$(${TESTDIR}/gke/get-cluster-version.sh) CILIUM_IMAGE=$(./print-node-ip.sh)/cilium/cilium:latest CILIUM_OPERATOR_IMAGE=$(./print-node-ip.sh)/cilium/operator:latest ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s*/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/gke/gke-kubeconfig -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh)'
                 }
             }
             post {

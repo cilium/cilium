@@ -26,6 +26,7 @@ while [ $locked -ne 0 ]; do
 done
 
 echo "lock acquired on cluster $cluster"
+# cluster-name is used in get-cluster-version.sh, which runs after this in CI.
 echo $cluster > cluster-name
 
 echo "creating cilium ns"
