@@ -115,6 +115,7 @@ pipeline {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
                 KUBECONFIG="${TESTDIR}/gke/gke-kubeconfig"
                 CNI_INTEGRATION="gke"
+                K8S_VERSION="${sh(script:'get-cluster-name.sh', returnStdout: true)}"
             }
             steps {
                 dir("${TESTDIR}"){
