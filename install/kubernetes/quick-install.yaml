@@ -131,7 +131,6 @@ data:
   install-iptables-rules: "true"
   auto-direct-node-routes: "false"
   enable-node-port: "false"
-
 ---
 # Source: cilium/charts/agent/templates/serviceaccount.yaml
 apiVersion: v1
@@ -139,7 +138,6 @@ kind: ServiceAccount
 metadata:
   name: cilium
   namespace: kube-system
-
 ---
 # Source: cilium/charts/operator/templates/serviceaccount.yaml
 apiVersion: v1
@@ -147,7 +145,6 @@ kind: ServiceAccount
 metadata:
   name: cilium-operator
   namespace: kube-system
-
 ---
 # Source: cilium/charts/agent/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -223,7 +220,6 @@ rules:
   - ciliumidentities/status
   verbs:
   - '*'
-
 ---
 # Source: cilium/charts/operator/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -271,7 +267,6 @@ rules:
   - ciliumidentities/status
   verbs:
   - '*'
-
 ---
 # Source: cilium/charts/agent/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -286,7 +281,6 @@ subjects:
 - kind: ServiceAccount
   name: cilium
   namespace: kube-system
-
 ---
 # Source: cilium/charts/operator/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -301,7 +295,6 @@ subjects:
 - kind: ServiceAccount
   name: cilium-operator
   namespace: kube-system
-
 ---
 # Source: cilium/charts/agent/templates/daemonset.yaml
 apiVersion: apps/v1
@@ -372,7 +365,7 @@ spec:
               key: custom-cni-conf
               name: cilium-config
               optional: true
-        image: "docker.io/cilium/cilium:v1.6.5"
+        image: "docker.io/cilium/cilium:v1.6.6"
         imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
@@ -459,7 +452,7 @@ spec:
               key: wait-bpf-mount
               name: cilium-config
               optional: true
-        image: "docker.io/cilium/cilium:v1.6.5"
+        image: "docker.io/cilium/cilium:v1.6.6"
         imagePullPolicy: IfNotPresent
         name: clean-cilium-state
         securityContext:
@@ -522,7 +515,6 @@ spec:
     rollingUpdate:
       maxUnavailable: 2
     type: RollingUpdate
-
 ---
 # Source: cilium/charts/operator/templates/deployment.yaml
 apiVersion: apps/v1
@@ -634,7 +626,7 @@ spec:
               key: identity-allocation-mode
               name: cilium-config
               optional: true
-        image: "docker.io/cilium/operator:v1.6.5"
+        image: "docker.io/cilium/operator:v1.6.6"
         imagePullPolicy: IfNotPresent
         name: cilium-operator
         livenessProbe:
@@ -650,16 +642,3 @@ spec:
       restartPolicy: Always
       serviceAccount: cilium-operator
       serviceAccountName: cilium-operator
-
----
-# Source: cilium/charts/agent/templates/servicemonitor.yaml
-
----
-# Source: cilium/charts/agent/templates/svc.yaml
-
----
-# Source: cilium/charts/operator/templates/servicemonitor.yaml
-
----
-# Source: cilium/charts/operator/templates/svc.yaml
-
