@@ -71,26 +71,6 @@ If you intent to release a new feature release, see the
        names, and correct them accordingly.
 
 
-#. Generate the ``NEWS.rst`` addition based off of the prior release tag
-   (e.g., if you are generating the ``NEWS.rst`` for v1.0.3):
-
-   ::
-
-       git shortlog v1.0.2.. > add-to-NEWS.rst
-
-#. Add a new section to ``NEWS.rst``:
-
-    ::
-
-        v1.0.3
-        ======
-
-        ::
-
-            <<contents of add-to-NEWS.rst>>
-            [...]
-            <<end of add-to-NEWS.rst>>
-
 #. Generate the release notes by running the instructions provided in github.com/cilium/release
 
 #. Add the generated release notes in the ``CHANGELOG.md`` file
