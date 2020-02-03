@@ -201,7 +201,7 @@ if [[ ${#stable_prs[@]} > 0 ]]; then
   echo "$ for pr in ${stable_prs[@]}; do contrib/backporting/set-labels.py \$pr pending ${STABLE_BRANCH}; done"
   if [[ ! -z $SUMMARY_LOG ]]; then
     echo -e "\nOnce this PR is merged, you can update the PR labels via:" >> $SUMMARY_LOG
-    echo "\`\`\`" >> $SUMMARY_LOG
+    echo "\`\`\`upstream-prs" >> $SUMMARY_LOG
     echo "$ for pr in ${stable_prs[@]}; do contrib/backporting/set-labels.py \$pr done ${STABLE_BRANCH}; done" >> $SUMMARY_LOG
     echo "\`\`\`" >> $SUMMARY_LOG
   fi
