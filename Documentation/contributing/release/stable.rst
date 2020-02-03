@@ -91,6 +91,10 @@ If you intent to release a new feature release, see the
             [...]
             <<end of add-to-NEWS.rst>>
 
+#. Generate the release notes by running the instructions provided in github.com/cilium/release
+
+#. Add the generated release notes in the ``CHANGELOG.md`` file
+
 #. Add all modified files using ``git add`` and create a pull request with the
    title ``Prepare for release v1.0.3``. Add the backport label to the PR which
    corresponds to the branch for which the release is being performed, e.g.
