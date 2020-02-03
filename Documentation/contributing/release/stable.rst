@@ -41,7 +41,7 @@ If you intent to release a new feature release, see the
 
 #. Update the ``VERSION`` file to represent ``X.Y.Z+1``
 #. If this is the first release after creating a new release branch. Adjust the
-   image pull policy for all ``.sed`` files in ``install/kubernetes/ciliumm/values.yaml`` from
+   image pull policy for all ``.sed`` files in ``install/kubernetes/cilium/values.yaml`` from
    ``Always`` to ``IfNotPresent``.
 #. Update Helm chart documentation
 
