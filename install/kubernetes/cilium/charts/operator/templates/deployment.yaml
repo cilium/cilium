@@ -77,6 +77,26 @@ spec:
         - name: KUBERNETES_SERVICE_PORT
           value: {{ .Values.global.k8sServicePort | quote }}
 {{- end }}
+{{- if .Values.global.azure.subscriptionID }}
+        - name: AZURE_SUBSCRIPTION_ID
+          value: {{ .Values.global.azure.subscriptionID }}
+{{- end }}
+{{- if .Values.global.azure.tenantID }}
+        - name: AZURE_TENANT_ID
+          value: {{ .Values.global.azure.tenantID }}
+{{- end }}
+{{- if .Values.global.azure.resourceGroup }}
+        - name: AZURE_RESOURCE_GROUP
+          value: {{ .Values.global.azure.resourceGroup }}
+{{- end }}
+{{- if .Values.global.azure.clientID }}
+        - name: AZURE_CLIENT_ID
+          value: {{ .Values.global.azure.clientID }}
+{{- end }}
+{{- if .Values.global.azure.clientSecret }}
+        - name: AZURE_CLIENT_SECRET
+          value: {{ .Values.global.azure.clientSecret }}
+{{- end }}
 {{- if contains "/" .Values.image }}
         image: "{{ .Values.image }}"
 {{- else }}

@@ -18,4 +18,5 @@ Cilium supports multiple different address management modes:
 
    hostscope
    crd
+   azure
    eni
