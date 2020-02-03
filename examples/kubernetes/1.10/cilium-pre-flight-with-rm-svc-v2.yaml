@@ -33,7 +33,7 @@ spec:
           args:
           - "hello"
         - name: rm-cilium-svc-v2
-          image: docker.io/cilium/cilium:v1.5.11
+          image: docker.io/cilium/cilium:v1.5.12
           imagePullPolicy: IfNotPresent
           command: ["/bin/bash"]
           args:
@@ -43,7 +43,7 @@ spec:
           - mountPath: /sys/fs/bpf
             name: bpf-maps
       containers:
-        - image: docker.io/cilium/cilium:v1.5.11
+        - image: docker.io/cilium/cilium:v1.5.12
           imagePullPolicy: IfNotPresent
           name: cilium-pre-flight-check
           command: ["/bin/sh"]
