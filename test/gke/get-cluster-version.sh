@@ -7,9 +7,10 @@
 set -e
 
 zone=europe-west4-a
-export KUBECONFIG=gke-kubeconfig
 
 
-CLUSTER_NAME=$(cat cluster-name)
-K8S_VERSION=$(gcloud container clusters list --filter "name:${CLUSTER_NAME}" | awk '{print $3}' | grep -v MASTER_VERSION | sed -E 's/([0-9]+\.[0-9]+)\..*/\1/'
+CLUSTER_NAME=$(cat ${TESTDIR}/gke/cluster-name)
+ls ${TESTDIR}/gke/
+ls .
+K8S_VERSION=$(gcloud container clusters list --filter "name:${CLUSTER_NAME}" | awk '{print $3}' | grep -v MASTER_VERSION | sed -E 's/([0-9]+\.[0-9]+)\..*/\1/')
 echo ${K8S_VERSION}

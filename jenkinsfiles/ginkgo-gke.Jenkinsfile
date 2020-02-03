@@ -115,11 +115,10 @@ pipeline {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
                 KUBECONFIG="${TESTDIR}/gke/gke-kubeconfig"
                 CNI_INTEGRATION="gke"
-                K8S_VERSION="${sh(script:'get-cluster-name.sh', returnStdout: true)}"
             }
             steps {
                 dir("${TESTDIR}"){
-                    sh 'env; CILIUM_IMAGE=$(./print-node-ip.sh)/cilium/cilium:latest CILIUM_OPERATOR_IMAGE=$(./print-node-ip.sh)/cilium/operator:latest ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s*/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/gke/gke-kubeconfig -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh)'
+                    sh 'env; K8S_VERSION=$(${TESTDIR}/gke/get-cluster-version.sh) CILIUM_IMAGE=$(./print-node-ip.sh)/cilium/cilium:latest CILIUM_OPERATOR_IMAGE=$(./print-node-ip.sh)/cilium/operator:latest ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s*/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/gke/gke-kubeconfig -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh)'
                 }
             }
             post {
