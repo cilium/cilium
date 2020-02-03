@@ -181,6 +181,14 @@ data:
   blacklist-conflicting-routes: "false"
 {{- end }}
 
+{{- if .Values.global.azure.enabled }}
+  ipam: "azure"
+  enable-endpoint-routes: "true"
+  auto-create-cilium-node-resource: "true"
+  blacklist-conflicting-routes: "false"
+  enable-local-node-route: "false"
+{{- end }}
+
 {{- if .Values.global.flannel.enabled }}
   # Interface to be used when running Cilium on top of a CNI plugin.
   # For flannel, use "cni0"

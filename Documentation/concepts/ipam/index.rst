@@ -33,4 +33,5 @@ Address Management Modes
 
    hostscope
    crd
+   azure
    eni

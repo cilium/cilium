@@ -308,6 +308,14 @@ global:
   # ENI mode configures the options required to run with ENI
   eni: false
 
+  azure:
+    enabled: false
+    #resourceGroup: group1
+    #subscriptionID: 00000000-0000-0000-0000-000000000000
+    #tenantID: 00000000-0000-0000-0000-000000000000
+    #clientID: 00000000-0000-0000-0000-000000000000
+    #clientSecret: 00000000-0000-0000-0000-000000000000
+
   # cleanState instructs the cilium-agent DaemonSet to clean all state in the
   # initContainer
   #

@@ -20,3 +20,4 @@ working out of the box as well.
    k8s-install-eks
    k8s-install-gke
    k8s-install-aks
+   k8s-install-azure
