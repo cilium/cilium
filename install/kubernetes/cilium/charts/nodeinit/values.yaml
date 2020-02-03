@@ -1,5 +1,5 @@
 # Restart existing pods when initializing the node to force all pods being
-# managed by Cilium (GKE)
+# managed by Cilium (GKE, EKS)
 restartPods: false
 
 # Reconfigure Kubelet to run in CNI mode (GKE)
