@@ -1362,10 +1362,10 @@ func (kub *Kubectl) generateCiliumYaml(options map[string]string, filename strin
 		}
 
 		opts := map[string]string{
-			"global.nodePort.device":  PrivateIface,
-			"global.nodePort.enabled": "true",
-			"global.k8sServiceHost":   nodeIP,
-			"global.k8sServicePort":   "6443",
+			"global.kubeProxyReplacement": "strict",
+			"global.nodePort.device":      PrivateIface,
+			"global.k8sServiceHost":       nodeIP,
+			"global.k8sServicePort":       "6443",
 		}
 		for key, value := range opts {
 			options = addIfNotOverwritten(options, key, value)
