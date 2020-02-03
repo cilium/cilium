@@ -229,7 +229,7 @@ spec:
               optional: true
         - name: CILIUM_CLUSTERMESH_CONFIG
           value: /var/lib/cilium/clustermesh/
-        image: docker.io/cilium/cilium:v1.5.11
+        image: docker.io/cilium/cilium:v1.5.12
         imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
@@ -495,7 +495,7 @@ spec:
               key: AWS_DEFAULT_REGION
               name: cilium-aws
               optional: true
-        image: docker.io/cilium/operator:v1.5.11
+        image: docker.io/cilium/operator:v1.5.12
         imagePullPolicy: IfNotPresent
         name: cilium-operator
         livenessProbe:

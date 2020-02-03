@@ -2,6 +2,32 @@
 NEWS
 ******
 
+v1.5.12
+=======
+
+::
+
+   André Martins (8):
+         .github: rename github-actions file
+         .github: remove github actions integration
+         golang: update to 1.12.15
+         golang: update to 1.12.16
+         garbage collect stale distributed locks
+         operator: fix getOldestLeases logic
+         kvstore/allocator: fix GCLocks unit tests
+         kvstore/allocator: test for stale locks before acquiring lock
+
+   Daniel Borkmann (1):
+         identity: require global identity for empty labels
+
+   Michal Rostecki (2):
+         sysctl: Add package for managing kernel parameters
+         daemon: Enable IP forwarding on start
+
+   Thomas Graf (2):
+         ipam: Add ability to release IPs by owner name
+         cni: Release IP even when endpoint deletion fails
+
 v1.5.11
 =======
 

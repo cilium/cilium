@@ -67,7 +67,7 @@ spec:
               optional: true
         - name: CILIUM_CLUSTERMESH_CONFIG
           value: /var/lib/cilium/clustermesh/
-        image: docker.io/cilium/cilium:v1.5.11
+        image: docker.io/cilium/cilium:v1.5.12
         imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
