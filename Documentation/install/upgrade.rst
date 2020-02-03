@@ -406,6 +406,18 @@ New ConfigMap Options
     modify those policy rules to explicitly allow the entity ``remote-node``
     and then enable this flag as you upgrade.
 
+  * ``kube-proxy-replacement`` has been added to control which features should
+    be enabled for the kube-proxy BPF replacement. The option is set to
+    ``probe`` by default for new deployments when generated via Helm. This
+    makes cilium-agent to probe for each feature support in a kernel, and
+    to enable only supported features. When the option is not set via Helm,
+    cilium-agent defaults to ``partial``. This makes ``cilium-agent`` to
+    enable only those features which user has explicitly enabled in their
+    ConfigMap. See :ref:`kubeproxy-free` for more option values.
+
+    For users who previously were running with ``nodePort.enabled=true`` it is
+    recommended to set the option to ``strict`` before upgrading.
+
 Removed options
 ~~~~~~~~~~~~~~~~~~
 
