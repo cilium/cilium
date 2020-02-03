@@ -96,7 +96,6 @@ pipeline {
                     }
                     post {
                         unsuccessful {
-                            sh 'cd ${TESTDIR}/gke; ./release-cluster.sh'
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
                                     currentBuild.displayName = 'Scaling cluster failed\n' + currentBuild.displayName
@@ -124,7 +123,6 @@ pipeline {
             }
             post {
                 always {
-                    sh 'cd ${TESTDIR}/gke; ./release-cluster.sh'
                     sh 'cd ${TESTDIR}; ./archive_test_results_eks.sh || true'
                     archiveArtifacts artifacts: 'src/github.com/cilium/cilium/*.zip'
                     junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'src/github.com/cilium/cilium/test/*.xml'
