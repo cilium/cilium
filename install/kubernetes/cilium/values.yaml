@@ -23,7 +23,7 @@ global:
   registry: docker.io/cilium
 
   # tag is the container image tag to use
-  tag: v1.6.5
+  tag: v1.6.6
 
   # pullPolicy is the container image pull policy
   pullPolicy: IfNotPresent

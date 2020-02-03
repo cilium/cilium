@@ -2,6 +2,47 @@
 NEWS
 ******
 
+v1.6.6
+======
+
+::
+
+   André Martins (12):
+         .github: rename github-actions file
+         .github: remove github actions integration
+         golang: update to 1.12.15
+         update k8s test versions to 1.14.10, 1.15.7 and 1.16.4
+         updating k8s to 1.16.4
+         test: fix k8s upstream testing
+         golang: update to 1.12.16
+         garbage collect stale distributed locks
+         operator: fix getOldestLeases logic
+         kvstore/allocator: fix GCLocks unit tests
+         kvstore/allocator: test for stale locks before acquiring lock
+         nodeinit/templates: fix indentation of sys-fs-bpf
+
+   Daniel Borkmann (1):
+         identity: require global identity for empty labels
+
+   Joe Stringer (3):
+         .github: Update actions to v1.6.6 project
+         install: Update the chart versions
+         helm: Make nodeinit systemd mountpoint conditional
+
+   Michal Rostecki (1):
+         daemon: Enable IP forwarding on start
+
+   Thomas Graf (4):
+         cni: Fix noisy warning "Unknown CNI chaining configuration"
+         eni: Fix releases of excess IPs
+         ipam: Add ability to release IPs by owner name
+         cni: Release IP even when endpoint deletion fails
+
+   Vlad Ungureanu (1):
+         Add missing words to spelling_wordlist
+
+
+
 v1.6.5
 ======
 
