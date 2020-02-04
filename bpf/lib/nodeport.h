@@ -101,7 +101,6 @@ static __always_inline bool nodeport_nat_ipv6_needed(struct __sk_buff *skb,
 		return !ipv6_addrcmp((union v6addr *)&ip6->saddr, addr);
 	else
 		return !ipv6_addrcmp((union v6addr *)&ip6->daddr, addr);
-	return false;
 }
 
 #define NODEPORT_DO_NAT_IPV6(ADDR, NDIR)					\
@@ -663,7 +662,6 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __sk_buff *skb,
 		return ip4->saddr == addr;
 	else
 		return ip4->daddr == addr;
-	return false;
 }
 
 #define NODEPORT_DO_NAT_IPV4(ADDR, NDIR)					\
