@@ -75,6 +75,11 @@ If you intent to release a new feature release, see the
 
 #. Add the generated release notes in the ``CHANGELOG.md`` file
 
+#. Create a new project named "X.Y.Z+1" to automatically track the backports
+   for that particular release. `Direct Link: <https://github.com/cilium/cilium/projects/new>`_
+
+#. Update the project URL for the respective release in file ``.github/cilium-actions.yml``
+
 #. Add all modified files using ``git add`` and create a pull request with the
    title ``Prepare for release v1.0.3``. Add the backport label to the PR which
    corresponds to the branch for which the release is being performed, e.g.
@@ -162,6 +167,9 @@ If you intent to release a new feature release, see the
 #. Announce the release in the ``#general`` channel on Slack
 
 #. Update the ``README.rst#stable-releases`` section from the Cilium master branch
+
+#. Update the ``.github/cilium-actions.yml`` with the project created for the
+   upcoming release.
 
 #. Bump the version of Cilium used in the Cilium upgrade tests to use the new release
 

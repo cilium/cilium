@@ -19,12 +19,12 @@ On Freeze date
 
    ::
 
-       git checkout master; git pull
+       git checkout master; git pull origin master
        git checkout -b v1.2
        git push
 
 #. Protect the branch using the GitHub UI to disallow direct push and require
-   merging via PRs with proper reviews.
+   merging via PRs with proper reviews. `Direct link <https://github.com/cilium/cilium/settings/branches>`_
 
 #. Replace the contents of the ``CODEOWNERS`` file with the following to reduce
    code reviews to essential approvals:
@@ -38,6 +38,14 @@ On Freeze date
         pkg/policy/api/ @cilium/api
         pkg/proxy/accesslog @cilium/api
 
+#. Create a new project named "X.Y.Z" to automatically track the backports
+   for that particular release. `Direct Link: <https://github.com/cilium/cilium/projects/new>`_
+
+#. Copy the ``.github/cilium-actions.yml`` from the previous release ``vX.Y-1``
+   change the contents to be relevant for the release ``vX.Y`` and set the
+   ``project:`` to be the generated link created by the previous step. The link
+   should be something like: ``https://github.com/cilium/cilium/projects/NNN``
+
 #. Commit changes, open a pull request against the new ``v1.2`` branch, and get
    the pull request merged
 
@@ -48,14 +56,43 @@ On Freeze date
        git commit
        git push
 
-#. Follow the :ref:`release_candidate_process` to release ``v1.2.0-rc1``.
-
 #. Create the following GitHub labels:
 
    #. ``backport-pending/1.2``
    #. ``backport-done/1.2``
    #. ``backport/1.2``
    #. ``needs-backport/1.2``
+
+
+#. Checkout to master and update the ``.github/cilium-actions.yml`` to have
+   all the necessary configurations for the backport of the new ``vX.Y`` branch.
+
+   ::
+
+       git checkout -b pr/master-cilium-actions-update origin/master
+       # modify .github/cilium-actions.yml
+       git add .github/cilium-actions.yml
+       git commit
+       git push
+
+#. Continue with the next step only after the previous steps are merged into
+   master.
+
+#. Mark all open PRs with ``needs-backport/x.y`` that have the milestone ``x.y``
+
+#. Change the VERSION file to contain the next ``rc`` version. For example,
+   if we are branching v1.2 and still in the RC phase we need to change the
+   VERSION file to contain the ``v1.2.0-rcX``
+
+#. Set the branch as "Active" and the "Privacy Level" to "Private" in the
+   readthedocs Admin page. (Replace ``v1.2`` with the right branch)
+   ``https://readthedocs.org/dashboard/cilium/version/v1.2``
+
+#. Since this is the first release being made from a new branch, please
+   follow the :ref:`generic_release_process` to release ``v1.2.0-rc1``.
+
+#. Alert in the testing channel that a new jenkins job needs to be created for
+   this new branch.
 
 #. Prepare the master branch for the next development cycle:
 
