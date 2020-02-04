@@ -4,6 +4,7 @@ off on commits in the Cilium repository:
 Adrien Trouillaud                       adrienjt@users.noreply.github.com
 Alban Crequy                            alban@kinvolk.io
 Alexander Alemayhu                      alexander@alemayhu.com
+Alexandre Perrin                        alex@kaworu.ch
 Alexei Starovoitov                      alexei.starovoitov@gmail.com
 Amey Bhide                              amey@covalent.io
 Amre Shakimov                           amre@covalent.io
@@ -13,6 +14,7 @@ Andrey Voronkov                         voronkovaa@gmail.com
 Anit Gandhi                             anitgandhi@gmail.com
 Archana Shinde                          archana.m.shinde@intel.com
 Arika Chen                              eaglesora@gmail.com
+ArthurChiao                             arthurchiao@hotmail.com
 Arthur Evstifeev                        aevstifeev@gitlab.com
 Arvind Soni                             arvind@covalent.io
 Ashray Jain                             ashrayjain@users.noreply.github.com
@@ -56,6 +58,7 @@ Fulvio Risso                            fulvio.risso@polito.it
 George Kontridze                        gkontridze@plaid.com
 Gianluca Arbezzano                      gianarb92@gmail.com
 Glib Smaga                              code@gsmaga.com
+Gowtham S                               gowtham.sundara@rapyuta-robotics.com
 Hui Kong                                hui.kong@qunar.com
 Hunter Massey                           hmassey@tradestation.com
 Ian Vernon                              ian@cilium.io
@@ -75,6 +78,7 @@ John Fastabend                          john.fastabend@gmail.com
 Jomen Xiao                              jomenxiao@gmail.com
 Jonathan Davies                         jpds@protonmail.com
 Jon Davies                              jpds@protonmail.com
+Joseph-Irving                           joseph.irving500@gmail.com
 Julien Balestra                         julien.balestra@datadoghq.com
 Julien Kassar                           github@kassisol.com
 Junli Ou                                oujunli306@gmail.com
@@ -94,6 +98,7 @@ Marcin Skarbek                          git@skarbek.name
 Marius Gerling                          marius.gerling@uniberg.com
 Mark deVilliers                         markdevilliers@gmail.com
 Martin Charles                          martincharles07@gmail.com
+Martin Koppehel                         martin.koppehel@st.ovgu.de
 Martynas Pumputis                       m@lambda.lt
 Matthew Gumport                         me@gum.pt
 Matt Layher                             mdlayher@gmail.com
@@ -102,6 +107,7 @@ Michael Schubert                        michael@kinvolk.io
 Michael Vorburger                       vorburger@redhat.com
 Michal Rostecki                         mrostecki@opensuse.org
 Michi Mutsuzaki                         michi@isovalent.com
+Moh Ahmed                               moh.ahmed@cengn.ca
 Moritz Johner                           beller.moritz@googlemail.com
 Moshe Immerman                          moshe.immerman@vitalitygroup.com
 Nathan Taylor                           ntaylor1781@gmail.com
@@ -111,6 +117,7 @@ Patrick Mahoney                         pmahoney@greenkeytech.com
 Paweł Prażak                            pawelprazak@users.noreply.github.com
 Peiqi Shi                               uestc.shi@gmail.com
 Peter Slovak                            slovak.peto@gmail.com
+Philipp Gniewosz                        philipp.gniewosz@adesso.de
 Pierre-Yves Aillet                      pyaillet@users.noreply.github.com
 Raghu Gyambavantha                      raghug@bld-ml-loan4.olympus.f5net.com
 Rajat Jindal                            rajatjindal83@gmail.com
@@ -139,7 +146,9 @@ Thomas Bachman                          tbachman@yahoo.com
 Thomas Graf                             thomas@cilium.io
 Timo Reimann                            ttr314@googlemail.com
 Tobias Klauser                          tklauser@distanz.ch
+Tom Hadlaw                              thomas.hadlaw@hootsuite.com
 Tony Lambiris                           tony@criticalstack.com
+Tony Lu                                 tonylu@linux.alibaba.com
 Trevor Roberts Jr                       Trevor.Roberts.Jr@gmail.com
 Umesh Keerthy B S                       umesh.freelance@gmail.com
 Valas Valancius                         valas@google.com

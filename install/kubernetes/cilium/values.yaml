@@ -23,10 +23,10 @@ global:
   registry: docker.io/cilium
 
   # tag is the container image tag to use
-  tag: latest
+  tag: v1.7.0-rc3
 
   # pullPolicy is the container image pull policy
-  pullPolicy: Always
+  pullPolicy: IfNotPresent
 
   # etcd is the etcd configuration
   etcd:
