@@ -486,6 +486,11 @@ func ExistNodeWithoutCilium() bool {
 	return GetNodeWithoutCilium() != ""
 }
 
+// DoesNotExistNodeWithoutCilium is the complement function of ExistNodeWithoutCilium
+func DoesNotExistNodeWithoutCilium() bool {
+	return !ExistNodeWithoutCilium()
+}
+
 // GetNodeWithoutCilium returns a name of a node which does not run cilium.
 func GetNodeWithoutCilium() string {
 	return os.Getenv("NO_CILIUM_ON_NODE")

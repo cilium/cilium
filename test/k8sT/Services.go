@@ -486,7 +486,7 @@ var _ = Describe("K8sServicesTest", func() {
 			})
 
 		SkipContextIf(
-			func() bool { return helpers.DoesNotRunOnNetNext() || helpers.DoesNotHaveHosts(3)() },
+			helpers.DoesNotRunOnNetNext,
 			"Tests NodePort BPF", func() {
 				// TODO(brb) Add with L7 policy test cases after GH#8971 has been fixed
 
@@ -558,7 +558,7 @@ var _ = Describe("K8sServicesTest", func() {
 					})
 				})
 
-				Context("Tests with MetalLB", func() {
+				SkipContextIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with MetalLB", func() {
 					var (
 						metalLB string
 					)
@@ -583,7 +583,7 @@ var _ = Describe("K8sServicesTest", func() {
 					})
 				})
 
-				It("Tests with direct routing and DSR", func() {
+				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with direct routing and DSR", func() {
 					deleteCiliumDS(kubectl)
 					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 						"global.nodePort.enabled":     "true",
