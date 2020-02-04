@@ -226,6 +226,11 @@ data:
   #  - flannel
   #  - portmap (Enables HostPort support for Cilium)
   cni-chaining-mode: {{ .Values.global.cni.chainingMode }}
+
+  # Disable the PodCIDR route to the cilium_host interface as it is not
+  # required. While chaining, it is the responsibility of the underlying plugin
+  # to enable routing.
+  enable-local-node-route: "false"
 {{- end }}
 
   masquerade: {{ .Values.global.masquerade | quote }}
