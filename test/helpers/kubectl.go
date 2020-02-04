@@ -1396,11 +1396,48 @@ func (kub *Kubectl) ciliumInstallHelm(filename string, options map[string]string
 		return err
 	}
 
+	// Remove cilium DS to ensure that new instances of cilium-agent are started
+	// for the newly generated ConfigMap. Otherwise, the CM changes will stay
+	// inactive until each cilium-agent has been restarted.
+	_ = kub.DeleteResource("ds", fmt.Sprintf("-n %s cilium", GetCiliumNamespace(GetCurrentIntegration())))
+	if err := kub.waitToDeleteCilium(); err != nil {
+		return err
+	}
+
 	res := kub.Apply(ApplyOptions{FilePath: filename, Force: true, Namespace: GetCiliumNamespace(GetCurrentIntegration())})
 	if !res.WasSuccessful() {
 		return res.GetErr("Unable to apply YAML")
 	}
 
+	return nil
+}
+
+func (kub *Kubectl) waitToDeleteCilium() error {
+	var (
+		pods []string
+		err  error
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), HelperTimeout)
+	defer cancel()
+
+	status := 1
+	for status > 0 {
+
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timed out waiting to delete Cilium: pods still remaining: %s", pods)
+		default:
+		}
+
+		pods, err = kub.GetCiliumPodsContext(ctx, GetCiliumNamespace(GetCurrentIntegration()))
+		status := len(pods)
+		kub.Logger().Infof("Cilium pods terminating '%d' err='%v' pods='%v'", status, err, pods)
+		if status == 0 {
+			return nil
+		}
+		time.Sleep(1 * time.Second)
+	}
 	return nil
 }
 
