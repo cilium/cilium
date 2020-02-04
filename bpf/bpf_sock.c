@@ -74,7 +74,7 @@ static __always_inline __maybe_unused void build_v4_in_v6(union v6addr *daddr,
 
 /* Hack due to missing narrow ctx access. */
 static __always_inline __maybe_unused __be16
-ctx_get_port(struct bpf_sock_addr *ctx)
+ctx_dst_port(struct bpf_sock_addr *ctx)
 {
 	volatile __u32 dport = ctx->user_port;
 	return (__be16)dport;
@@ -254,7 +254,7 @@ static __always_inline int __sock4_xlate(struct bpf_sock_addr *ctx,
 	struct lb4_service *svc;
 	struct lb4_key key = {
 		.address	= ctx->user_ip4,
-		.dport		= ctx_get_port(ctx),
+		.dport		= ctx_dst_port(ctx),
 	};
 	struct lb4_service *slave_svc;
 
@@ -268,7 +268,7 @@ static __always_inline int __sock4_xlate(struct bpf_sock_addr *ctx,
 	 */
 	svc = __lb4_lookup_service(&key);
 	if (!svc) {
-		key.dport = ctx_get_port(ctx);
+		key.dport = ctx_dst_port(ctx);
 
 		svc = sock4_nodeport_wildcard_lookup(&key, true);
 		if (svc && !lb4_svc_is_nodeport(svc))
@@ -368,7 +368,7 @@ static __always_inline int __sock4_xlate_snd(struct bpf_sock_addr *ctx,
 {
 	struct lb4_key lkey = {
 		.address	= ctx->user_ip4,
-		.dport		= ctx_get_port(ctx),
+		.dport		= ctx_dst_port(ctx),
 	};
 	struct lb4_backend *backend;
 	struct lb4_service *svc;
@@ -376,7 +376,7 @@ static __always_inline int __sock4_xlate_snd(struct bpf_sock_addr *ctx,
 
 	svc = __lb4_lookup_service(&lkey);
 	if (!svc) {
-		lkey.dport = ctx_get_port(ctx);
+		lkey.dport = ctx_dst_port(ctx);
 		svc = sock4_nodeport_wildcard_lookup(&lkey, true);
 		if (svc && !lb4_svc_is_nodeport(svc))
 			svc = NULL;
@@ -427,7 +427,7 @@ static __always_inline int __sock4_xlate_rcv(struct bpf_sock_addr *ctx,
 	struct ipv4_revnat_tuple rkey = {
 		.cookie		= sock_local_cookie(ctx_full),
 		.address	= ctx->user_ip4,
-		.port		= ctx_get_port(ctx),
+		.port		= ctx_dst_port(ctx),
 	};
 
 	rval = map_lookup_elem(&LB4_REVERSE_NAT_SK_MAP, &rkey);
@@ -611,7 +611,7 @@ static __always_inline int sock6_xlate_v4_in_v6(struct bpf_sock_addr *ctx)
 	__builtin_memset(&fake_ctx, 0, sizeof(fake_ctx));
 	fake_ctx.protocol  = ctx->protocol;
 	fake_ctx.user_ip4  = addr6.p4;
-	fake_ctx.user_port = ctx_get_port(ctx);
+	fake_ctx.user_port = ctx_dst_port(ctx);
 
 	ret = __sock4_xlate(&fake_ctx, ctx);
 	if (ret < 0)
@@ -691,7 +691,7 @@ static __always_inline int __sock6_xlate(struct bpf_sock_addr *ctx)
 	struct lb6_backend *backend;
 	struct lb6_service *svc;
 	struct lb6_key key = {
-		.dport		= ctx_get_port(ctx),
+		.dport		= ctx_dst_port(ctx),
 	};
 	struct lb6_service *slave_svc;
 	union v6addr v6_orig;
@@ -704,7 +704,7 @@ static __always_inline int __sock6_xlate(struct bpf_sock_addr *ctx)
 
 	svc = __lb6_lookup_service(&key);
 	if (!svc) {
-		key.dport = ctx_get_port(ctx);
+		key.dport = ctx_dst_port(ctx);
 
 		svc = sock6_nodeport_wildcard_lookup(&key, true);
 		if (svc && !lb6_svc_is_nodeport(svc))
@@ -767,7 +767,7 @@ static __always_inline int sock6_xlate_snd_v4_in_v6(struct bpf_sock_addr *ctx)
 	__builtin_memset(&fake_ctx, 0, sizeof(fake_ctx));
 	fake_ctx.protocol  = ctx->protocol;
 	fake_ctx.user_ip4  = addr6.p4;
-	fake_ctx.user_port = ctx_get_port(ctx);
+	fake_ctx.user_port = ctx_dst_port(ctx);
 
 	ret = __sock4_xlate_snd(&fake_ctx, ctx);
 	if (ret < 0)
@@ -787,7 +787,7 @@ static __always_inline int __sock6_xlate_snd(struct bpf_sock_addr *ctx)
 	struct lb6_backend *backend;
 	struct lb6_service *svc;
 	struct lb6_key lkey = {
-		.dport		= ctx_get_port(ctx),
+		.dport		= ctx_dst_port(ctx),
 	};
 	struct lb6_service *slave_svc;
 	union v6addr v6_orig;
@@ -797,7 +797,7 @@ static __always_inline int __sock6_xlate_snd(struct bpf_sock_addr *ctx)
 
 	svc = __lb6_lookup_service(&lkey);
 	if (!svc) {
-		lkey.dport = ctx_get_port(ctx);
+		lkey.dport = ctx_dst_port(ctx);
 
 		svc = sock6_nodeport_wildcard_lookup(&lkey, true);
 		if (svc && !lb6_svc_is_nodeport(svc))
@@ -858,7 +858,7 @@ static __always_inline int sock6_xlate_rcv_v4_in_v6(struct bpf_sock_addr *ctx)
 	__builtin_memset(&fake_ctx, 0, sizeof(fake_ctx));
 	fake_ctx.protocol  = ctx->protocol;
 	fake_ctx.user_ip4  = addr6.p4;
-	fake_ctx.user_port = ctx_get_port(ctx);
+	fake_ctx.user_port = ctx_dst_port(ctx);
 
 	ret = __sock4_xlate_rcv(&fake_ctx, ctx);
 	if (ret < 0)
@@ -879,7 +879,7 @@ static __always_inline int __sock6_xlate_rcv(struct bpf_sock_addr *ctx)
 	struct ipv6_revnat_entry *rval;
 
 	rkey.cookie = sock_local_cookie(ctx);
-	rkey.port = ctx_get_port(ctx);
+	rkey.port = ctx_dst_port(ctx);
 	ctx_get_v6_address(ctx, &rkey.address);
 
 	rval = map_lookup_elem(&LB6_REVERSE_NAT_SK_MAP, &rkey);
