@@ -66,6 +66,7 @@ Deploy Cilium release via Helm:
 
 .. parsed-literal::
 
+    kubectl create namespace cilium
     helm install cilium |CHART_RELEASE| \\
       --namespace cilium \\
       --set global.nodeinit.enabled=true \\
