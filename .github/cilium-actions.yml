@@ -1,4 +1,4 @@
-project: "https://github.com/cilium/cilium/projects/80"
+project: "https://github.com/cilium/cilium/projects/93"
 column: "In progress"
 move-to-projects-for-labels-xored:
   v1.7:
