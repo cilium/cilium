@@ -167,9 +167,10 @@ var _ = Describe("K8sPolicyTest", func() {
 					"ICMP egress connectivity to 8.8.8.8 from pod %q", pod)
 
 				By("DNS lookup of kubernetes.default.svc.cluster.local")
+				// -R3 retry 3 times, -N1 ndots set to 1, -t A only lookup A records
 				res = kubectl.ExecPodCmd(
 					namespaceForTest, pod,
-					"host -v kubernetes.default.svc.cluster.local")
+					"host -v -R3 -N1 -t A kubernetes.default.svc.cluster.local.")
 
 				// kube-dns is always whitelisted so this should always work
 				ExpectWithOffset(1, res).To(getMatcher(expectWorldSuccess || expectClusterSuccess),
@@ -615,9 +616,10 @@ var _ = Describe("K8sPolicyTest", func() {
 					helpers.Ping("8.8.8.8"))
 				res.ExpectSuccess("Egress ping connectivity should be allowed for pod %q", pod)
 
+				// -R3 retry 3 times, -N1 ndots set to 1, -t A only lookup A records
 				res = kubectl.ExecPodCmd(
 					namespaceForTest, pod,
-					"host kubernetes.default.svc.cluster.local")
+					"host -v -R3 -N1 -t A kubernetes.default.svc.cluster.local.")
 				res.ExpectSuccess("Egress DNS connectivity should be allowed for pod %q", pod)
 			}
 		})
