@@ -453,7 +453,7 @@ func RunsOnNetNext() bool {
 	return os.Getenv("NETNEXT") == "true"
 }
 
-// DoesNotRunOnNetNext is the inverse function of RunsOnNetNext.
+// DoesNotRunOnNetNext is the complement function of RunsOnNetNext.
 func DoesNotRunOnNetNext() bool {
 	return !RunsOnNetNext()
 }
@@ -473,6 +473,11 @@ func DoesNotHaveHosts(count int) func() bool {
 // RunsWithKubeProxy returns true if cilium runs together with k8s' kube-proxy.
 func RunsWithKubeProxy() bool {
 	return os.Getenv("KUBEPROXY") != "0"
+}
+
+// RunsWithoutKubeProxy is the complement function of RunsWithKubeProxy.
+func RunsWithoutKubeProxy() bool {
+	return !RunsWithKubeProxy()
 }
 
 // ExistNodeWithoutCilium returns true if there is a node in a cluster which does

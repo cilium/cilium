@@ -451,34 +451,39 @@ var _ = Describe("K8sServicesTest", func() {
 			doRequestsExpectingHTTPCode(url, count, "503", k8s2Name)
 		}
 
-		It("Tests NodePort (kube-proxy)", func() {
+		SkipItIf(helpers.RunsWithoutKubeProxy, "Tests NodePort (kube-proxy)", func() {
 			testNodePort(false)
 		})
 
-		SkipItIf(helpers.DoesNotHaveHosts(3), "Tests NodePort (kube-proxy) with externalTrafficPolicy=Local", func() {
+		SkipItIf(helpers.RunsWithoutKubeProxy, "Tests NodePort (kube-proxy) with externalTrafficPolicy=Local", func() {
 			testExternalTrafficPolicyLocal()
 		})
 
-		SkipContextIf(func() bool { return helpers.IsIntegration(helpers.CIIntegrationEKS) }, "with L7 policy", func() {
-			var (
-				demoPolicy string
-			)
+		SkipContextIf(
+			func() bool {
+				return helpers.IsIntegration(helpers.CIIntegrationEKS) ||
+					helpers.RunsWithoutKubeProxy()
+			},
+			"with L7 policy", func() {
+				var (
+					demoPolicy string
+				)
 
-			BeforeAll(func() {
-				demoPolicy = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-demo.yaml")
-			})
+				BeforeAll(func() {
+					demoPolicy = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-demo.yaml")
+				})
 
-			AfterAll(func() {
-				// Explicitly ignore result of deletion of resources to avoid incomplete
-				// teardown if any step fails.
-				_ = kubectl.Delete(demoPolicy)
-			})
+				AfterAll(func() {
+					// Explicitly ignore result of deletion of resources to avoid incomplete
+					// teardown if any step fails.
+					_ = kubectl.Delete(demoPolicy)
+				})
 
-			It("Tests NodePort with L7 Policy", func() {
-				applyPolicy(demoPolicy)
-				testNodePort(false)
+				It("Tests NodePort with L7 Policy", func() {
+					applyPolicy(demoPolicy)
+					testNodePort(false)
+				})
 			})
-		})
 
 		SkipContextIf(
 			func() bool { return helpers.DoesNotRunOnNetNext() || helpers.DoesNotHaveHosts(3)() },
