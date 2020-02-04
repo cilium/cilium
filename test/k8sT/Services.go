@@ -395,7 +395,11 @@ var _ = Describe("K8sServicesTest", func() {
 		}
 
 		testExternalTrafficPolicyLocal := func() {
-			var data v1.Service
+			var (
+				data v1.Service
+				url  string
+			)
+
 			k8s1Name, k8s1IP := getNodeInfo(helpers.K8s1)
 			k8s2Name, k8s2IP := getNodeInfo(helpers.K8s2)
 
@@ -404,8 +408,13 @@ var _ = Describe("K8sServicesTest", func() {
 			Expect(err).Should(BeNil(), "Can not retrieve service")
 
 			count := 10
-			url := getURL(k8s1IP, data.Spec.Ports[0].NodePort)
-			doRequestsFromThirdHost(url, count, true)
+
+			if helpers.ExistNodeWithoutCilium() {
+				url = getURL(k8s1IP, data.Spec.Ports[0].NodePort)
+				doRequestsFromThirdHost(url, count, true)
+			} else {
+				GinkgoPrint("Skipping externalTrafficPolicy=Local test from external node")
+			}
 
 			// Checks that requests to k8s2 succeed, while requests to k8s1 are dropped
 			err = kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-local-k8s2").Unmarshal(&data)
