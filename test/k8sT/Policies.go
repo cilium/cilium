@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -323,43 +322,29 @@ var _ = Describe("K8sPolicyTest", func() {
 				namespaceForTest, l7PolicyTLS, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot install %q policy", l7PolicyTLS)
 
-			timeoutConfig := &helpers.TimeoutConfig{Timeout: 30 * time.Second}
-			helpers.WithTimeout(func() bool {
-				res := kubectl.ExecPodCmd(
-					namespaceForTest, appPods[helpers.App2],
-					helpers.CurlFail("-4 --max-time 15 %s https://swapi.co:443/api/planets/1/", "-v --cacert /cacert.pem"))
-				return res.WasSuccessful()
-			}, fmt.Sprintf("Cannot connect from %q to 'https://swapi.co:443/api/planets/1/'",
-				appPods[helpers.App2]), timeoutConfig)
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App2],
+				helpers.CurlFail("--retry 5 -4 --max-time 15 %s https://swapi.co:443/api/planets/1/", "-v --cacert /cacert.pem"))
+			res.ExpectSuccess("Cannot connect from %q to 'https://swapi.co:443/api/planets/1/'",
+				appPods[helpers.App2])
 
-			helpers.WithTimeout(func() bool {
-				res := kubectl.ExecPodCmd(
-					namespaceForTest, appPods[helpers.App2],
-					helpers.CurlFail("-4 %s https://swapi.co:443/api/planets/2/", "-v --cacert /cacert.pem"))
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App2],
+				helpers.CurlFail("--retry 5 -4 %s https://swapi.co:443/api/planets/2/", "-v --cacert /cacert.pem"))
+			res.ExpectFailWithError("403 Forbidden", "Unexpected connection from %q to 'https://swapi.co:443/api/planets/2/'",
+				appPods[helpers.App2])
 
-				return !res.WasSuccessful() || !strings.Contains(res.GetStdErr(), "403 Forbidden")
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App2],
+				helpers.CurlFail("--retry 5 -4 %s https://www.lyft.com:443/privacy", "-v --cacert /cacert.pem"))
+			res.ExpectSuccess("Cannot connect from %q to 'https://www.lyft.com:443/privacy'",
+				appPods[helpers.App2])
 
-			}, fmt.Sprintf("Unexpected connection from %q to 'https://swapi.co:443/api/planets/2/'",
-				appPods[helpers.App2]), timeoutConfig)
-
-			helpers.WithTimeout(func() bool {
-				res := kubectl.ExecPodCmd(
-					namespaceForTest, appPods[helpers.App2],
-					helpers.CurlFail("-4 %s https://www.lyft.com:443/privacy", "-v --cacert /cacert.pem"))
-
-				return res.WasSuccessful()
-
-			}, fmt.Sprintf("Cannot connect from %q to 'https://www.lyft.com:443/privacy'",
-				appPods[helpers.App2]), timeoutConfig)
-
-			helpers.WithTimeout(func() bool {
-				res := kubectl.ExecPodCmd(
-					namespaceForTest, appPods[helpers.App2],
-					helpers.CurlFail("-4 %s https://www.lyft.com:443/private", "-v --cacert /cacert.pem"))
-
-				return !res.WasSuccessful() || !strings.Contains(res.GetStdErr(), "403 Forbidden")
-			}, fmt.Sprintf("Unexpected connection from %q to 'https://www.lyft.com:443/private'",
-				appPods[helpers.App2]), timeoutConfig)
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App2],
+				helpers.CurlFail("--retry 5 -4 %s https://www.lyft.com:443/private", "-v --cacert /cacert.pem"))
+			res.ExpectFailWithError("403 Forbidden", "Unexpected connection from %q to 'https://www.lyft.com:443/private'",
+				appPods[helpers.App2])
 		}, 500)
 
 		It("Invalid Policy report status correctly", func() {
