@@ -1956,6 +1956,10 @@ func init() {
           "description": "Docker network ID",
           "type": "string"
         },
+        "namespace": {
+          "description": "K8s namespace for this endpoint",
+          "type": "string"
+        },
         "pod-name": {
           "description": "K8s pod for this endpoint",
           "type": "string"
@@ -5244,6 +5248,10 @@ func init() {
         },
         "docker-network-id": {
           "description": "Docker network ID",
+          "type": "string"
+        },
+        "namespace": {
+          "description": "K8s namespace for this endpoint",
           "type": "string"
         },
         "pod-name": {
