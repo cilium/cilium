@@ -1487,6 +1487,9 @@ definitions:
       pod-name:
         description: K8s pod for this endpoint
         type: string
+      namespace:
+        description: K8s namespace for this endpoint
+        type: string
   Labels:
     description: Set of labels
     type: array

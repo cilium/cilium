@@ -27,6 +27,9 @@ type EndpointIdentifiers struct {
 	// Docker network ID
 	DockerNetworkID string `json:"docker-network-id,omitempty"`
 
+	// K8s namespace for this endpoint
+	Namespace string `json:"namespace,omitempty"`
+
 	// K8s pod for this endpoint
 	PodName string `json:"pod-name,omitempty"`
 }
