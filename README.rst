@@ -29,11 +29,9 @@ along with their latest minor release, corresponding image pull tags and their
 release notes:
 
 +-------------------------------------------------------+------------+-------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
-| `v1.6 <https://github.com/cilium/cilium/tree/v1.6>`__ | 2019-12-17 | ``docker.io/cilium/cilium:v1.6.5``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.6.5>`__  | `General Announcement <https://cilium.io/blog/2019/08/20/cilium-16>`__ |
+| `v1.6 <https://github.com/cilium/cilium/tree/v1.6>`__ | 2020-02-03 | ``docker.io/cilium/cilium:v1.6.6``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.6.6>`__  | `General Announcement <https://cilium.io/blog/2019/08/20/cilium-16>`__ |
 +-------------------------------------------------------+------------+-------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
-| `v1.5 <https://github.com/cilium/cilium/tree/v1.5>`__ | 2019-12-17 | ``docker.io/cilium/cilium:v1.5.11`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.5.11>`__ | `General Announcement <https://cilium.io/blog/2019/04/24/cilium-15>`__ |
-+-------------------------------------------------------+------------+-------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
-| `v1.4 <https://github.com/cilium/cilium/tree/v1.4>`__ | 2019-12-17 | ``docker.io/cilium/cilium:v1.4.10`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.4.10>`_  | `General Announcement <https://cilium.io/blog/2019/02/12/cilium-14>`__ |
+| `v1.5 <https://github.com/cilium/cilium/tree/v1.5>`__ | 2020-02-03 | ``docker.io/cilium/cilium:v1.5.12`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.5.12>`__ | `General Announcement <https://cilium.io/blog/2019/04/24/cilium-15>`__ |
 +-------------------------------------------------------+------------+-------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
 
 Functionality Overview
