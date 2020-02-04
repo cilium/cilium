@@ -360,30 +360,23 @@ func lookupRule(spec Rule, family int) (bool, error) {
 // ReplaceRule add or replace rule in the routing table using a mark to indicate
 // table. Used with BPF datapath to set mark and direct packets to route table.
 func ReplaceRule(spec Rule) error {
-	exists, err := lookupRule(spec, netlink.FAMILY_V4)
-	if err != nil {
-		return err
-	}
-	if exists == true {
-		return nil
-	}
 	return replaceRule(spec, netlink.FAMILY_V4)
 }
 
 // ReplaceRuleIPv6 add or replace IPv6 rule in the routing table using a mark to
 // indicate table.
 func ReplaceRuleIPv6(spec Rule) error {
-	exists, err := lookupRule(spec, netlink.FAMILY_V6)
+	return replaceRule(spec, netlink.FAMILY_V6)
+}
+
+func replaceRule(spec Rule, family int) error {
+	exists, err := lookupRule(spec, family)
 	if err != nil {
 		return err
 	}
 	if exists == true {
 		return nil
 	}
-	return replaceRule(spec, netlink.FAMILY_V6)
-}
-
-func replaceRule(spec Rule, family int) error {
 	rule := netlink.NewRule()
 	rule.Mark = spec.Mark
 	rule.Mask = spec.Mask
@@ -397,19 +390,15 @@ func replaceRule(spec Rule, family int) error {
 
 // DeleteRule delete a mark based rule from the routing table.
 func DeleteRule(spec Rule) error {
-	rule := netlink.NewRule()
-	rule.Mark = spec.Mark
-	rule.Mask = spec.Mask
-	rule.Table = spec.Table
-	rule.Priority = spec.Priority
-	rule.Src = spec.From
-	rule.Dst = spec.To
-	rule.Family = netlink.FAMILY_V4
-	return netlink.RuleDel(rule)
+	return deleteRule(spec, netlink.FAMILY_V4)
 }
 
 // DeleteRuleIPv6 delete a mark based IPv6 rule from the routing table.
 func DeleteRuleIPv6(spec Rule) error {
+	return deleteRule(spec, netlink.FAMILY_V6)
+}
+
+func deleteRule(spec Rule, family int) error {
 	rule := netlink.NewRule()
 	rule.Mark = spec.Mark
 	rule.Mask = spec.Mask
@@ -417,6 +406,6 @@ func DeleteRuleIPv6(spec Rule) error {
 	rule.Priority = spec.Priority
 	rule.Src = spec.From
 	rule.Dst = spec.To
-	rule.Family = netlink.FAMILY_V6
+	rule.Family = family
 	return netlink.RuleDel(rule)
 }
