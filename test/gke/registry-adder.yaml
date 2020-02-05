@@ -1,0 +1,55 @@
+---
+# Source: registry-adder/templates/daemonset.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  namespace: kube-system
+  name: release-name-registry-adder
+  labels:
+    app.kubernetes.io/name: registry-adder
+    helm.sh/chart: registry-adder-0.1.0
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "1.0"
+    app.kubernetes.io/managed-by: Tiller
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: registry-adder
+      app.kubernetes.io/instance: release-name
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: registry-adder
+        app.kubernetes.io/instance: release-name
+    spec:
+      containers:
+      - env:
+        # STARTUP_SCRIPT is the script run on node bootstrap. Node
+        # bootstrapping can be customized in this script.
+        - name: STARTUP_SCRIPT
+          value: |
+            if grep -Fxq "1.1.1.1" /etc/default/docker
+            then
+              echo "found node ip in docker config, skipping docker restart"
+            else
+              sed -i 's;--insecure-registry;--insecure-registry 1.1.1.1 --insecure-registry;g' /etc/default/docker
+              systemctl restart docker
+            fi
+        image: docker.io/cilium/startup-script:v1
+        imagePullPolicy: IfNotPresent
+        name: registry-adder
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+            - SYS_MODULE
+            - SYS_ADMIN
+          privileged: true
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      hostPID: true
+      priorityClassName: system-node-critical
+      terminationGracePeriodSeconds: 1
+      tolerations:
+      - operator: Exists
+
