@@ -110,6 +110,14 @@ func NewDeleteIPAMIPHandler(d *Daemon) ipamapi.DeleteIpamIPHandler {
 }
 
 func (h *deleteIPAMIP) Handle(params ipamapi.DeleteIpamIPParams) middleware.Responder {
+	// Release of an IP that is in use is not allowed
+	if ep := h.daemon.endpointManager.LookupIPv4(params.IP); ep != nil {
+		return api.Error(ipamapi.DeleteIpamIPFailureCode, fmt.Errorf("IP is in use by endpoint %d", ep.ID))
+	}
+	if ep := h.daemon.endpointManager.LookupIPv6(params.IP); ep != nil {
+		return api.Error(ipamapi.DeleteIpamIPFailureCode, fmt.Errorf("IP is in use by endpoint %d", ep.ID))
+	}
+
 	if err := h.daemon.ipam.ReleaseIPString(params.IP); err != nil {
 		return api.Error(ipamapi.DeleteIpamIPFailureCode, err)
 	}
