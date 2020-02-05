@@ -1525,6 +1525,9 @@ definitions:
       kubernetes:
         description: Status of Kubernetes integration
         "$ref": "#/definitions/K8sStatus"
+      kube-proxy-replacement:
+        description: Status of kube-proxy replacement
+        "$ref": "#/definitions/KubeProxyReplacement"
       ipam:
         description: Status of IP address management
         "$ref": "#/definitions/IPAMStatus"
@@ -1588,6 +1591,31 @@ definitions:
       msg:
         type: string
         description: Human readable status/error/warning message
+  KubeProxyReplacementFeatures:
+    description: kube-proxy replacement features
+    type: string
+    enum:
+    - NodePort
+    - HostReachableServicesTCP
+    - HostReachableServicesUDP
+    - ExternalIPs
+  KubeProxyReplacement:
+    description: Status of kube-proxy replacement
+    type: object
+    properties:
+      mode:
+        type: string
+        description: kube-proxy replacement mode
+        enum:
+        - Disabled
+        - Strict
+        - Probe
+        - Partial
+      features:
+        type: array
+        description: Enabled features
+        items:
+          "$ref": "#/definitions/KubeProxyReplacementFeatures"
   AllocationMap:
     description: |
       Map of allocated IPs
