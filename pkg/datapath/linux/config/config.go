@@ -185,6 +185,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENCRYPT_NODE"] = "1"
 	}
 
+	if !option.Config.DisableK8sServices {
+		cDefinesMap["ENABLE_SERVICES"] = "1"
+	}
+
 	if option.Config.EnableHostReachableServices {
 		if option.Config.EnableHostServicesTCP {
 			cDefinesMap["ENABLE_HOST_SERVICES_TCP"] = "1"
@@ -195,6 +199,28 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EnableHostServicesTCP && option.Config.EnableHostServicesUDP {
 			cDefinesMap["ENABLE_HOST_SERVICES_FULL"] = "1"
 		}
+	}
+
+	if option.Config.EnableNodePort {
+		cDefinesMap["ENABLE_NODEPORT"] = "1"
+
+		if option.Config.EnableIPv4 {
+			cDefinesMap["NODEPORT_NEIGH4"] = "cilium_nodeport_neigh4"
+		}
+		if option.Config.EnableIPv6 {
+			cDefinesMap["NODEPORT_NEIGH6"] = "cilium_nodeport_neigh6"
+		}
+		if option.Config.NodePortMode == "dsr" {
+			cDefinesMap["ENABLE_DSR"] = "1"
+		}
+		if option.Config.EnableExternalIPs {
+			cDefinesMap["ENABLE_EXTERNAL_IP"] = "1"
+		}
+
+		cDefinesMap["NODEPORT_PORT_MIN"] = fmt.Sprintf("%d", option.Config.NodePortMin)
+		cDefinesMap["NODEPORT_PORT_MAX"] = fmt.Sprintf("%d", option.Config.NodePortMax)
+		cDefinesMap["NODEPORT_PORT_MIN_NAT"] = fmt.Sprintf("%d", option.Config.NodePortMax+1)
+		cDefinesMap["NODEPORT_PORT_MAX_NAT"] = "65535"
 	}
 
 	if option.Config.EncryptInterface != "" {
@@ -243,28 +269,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	if (!option.Config.InstallIptRules && option.Config.Masquerade) || option.Config.EnableNodePort {
 		ctmap.WriteBPFMacros(fw, nil)
-	}
-
-	if option.Config.EnableNodePort {
-		cDefinesMap["ENABLE_NODEPORT"] = "1"
-		if option.Config.EnableExternalIPs {
-			cDefinesMap["ENABLE_EXTERNAL_IP"] = "1"
-		}
-		cDefinesMap["NODEPORT_PORT_MIN"] = fmt.Sprintf("%d", option.Config.NodePortMin)
-		cDefinesMap["NODEPORT_PORT_MAX"] = fmt.Sprintf("%d", option.Config.NodePortMax)
-		cDefinesMap["NODEPORT_PORT_MIN_NAT"] = fmt.Sprintf("%d", option.Config.NodePortMax+1)
-		cDefinesMap["NODEPORT_PORT_MAX_NAT"] = "65535"
-
-		if option.Config.EnableIPv4 {
-			cDefinesMap["NODEPORT_NEIGH4"] = "cilium_nodeport_neigh4"
-		}
-		if option.Config.EnableIPv6 {
-			cDefinesMap["NODEPORT_NEIGH6"] = "cilium_nodeport_neigh6"
-		}
-
-		if option.Config.NodePortMode == "dsr" {
-			cDefinesMap["ENABLE_DSR"] = "1"
-		}
 	}
 
 	// Since golang maps are unordered, we sort the keys in the map
