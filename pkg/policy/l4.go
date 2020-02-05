@@ -256,64 +256,59 @@ func (l4 *L4Filter) HasL3DependentL7Rules() bool {
 	return false
 }
 
-// ToKeys converts filter into a list of Keys.
-func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection) []Key {
-	keysToAdd := []Key{}
+// ToMapState converts filter into a map of MapState entries with two possible values:
+// - NoRedirectEntry (ProxyPort = 0): No proxy redirection is needed for this key
+// - RedirectEntry (ProxyPort = 1): Proxy redirection is required for this key,
+//                                  caller must replace the ProxyPort with the actual
+//                                  listening port number.
+func (l4 *L4Filter) ToMapState(direction trafficdirection.TrafficDirection) MapState {
 	port := uint16(l4.Port)
 	proto := uint8(l4.U8Proto)
 
-	if l4.AllowsAllAtL3() {
-		if l4.Port == 0 {
-			// Allow-all
-			log.WithFields(logrus.Fields{
-				logfields.TrafficDirection: direction,
-			}).Debug("ToKeys: allow all")
-
-			keyToAdd := Key{
-				DestPort:         0,
-				Nexthdr:          0,
-				TrafficDirection: direction.Uint8(),
-			}
-			keysToAdd = append(keysToAdd, keyToAdd)
-		} else {
-			// L4 allow
-			log.WithFields(logrus.Fields{
-				logfields.Port:             port,
-				logfields.Protocol:         proto,
-				logfields.TrafficDirection: direction,
-			}).Debug("ToKeys: L4 allow all")
-
-			keyToAdd := Key{
-				Identity: 0,
-				// NOTE: Port is in host byte-order!
-				DestPort:         port,
-				Nexthdr:          proto,
-				TrafficDirection: direction.Uint8(),
-			}
-			keysToAdd = append(keysToAdd, keyToAdd)
-		}
-		if !l4.HasL3DependentL7Rules() {
-			return keysToAdd
-		} // else we need to calculate all L3-dependent L4 peers below.
+	keysToAdd := MapState{}
+	keyToAdd := Key{
+		Identity:         0,    // Set in the loop below (if not wildcard)
+		DestPort:         port, // NOTE: Port is in host byte-order!
+		Nexthdr:          proto,
+		TrafficDirection: direction.Uint8(),
 	}
 
-	for cs := range l4.L7RulesPerSelector {
+	for cs, l7 := range l4.L7RulesPerSelector {
+		entry := NoRedirectEntry
+		if l7 != nil {
+			entry = RedirectEntry
+		}
+
+		if cs.IsWildcard() {
+			keyToAdd.Identity = 0
+			keysToAdd[keyToAdd] = entry
+
+			if port == 0 {
+				// Allow-all
+				log.WithFields(logrus.Fields{
+					logfields.TrafficDirection: direction,
+				}).Debug("ToKeys: allow all")
+			} else {
+				// L4 allow
+				log.WithFields(logrus.Fields{
+					logfields.Port:             port,
+					logfields.Protocol:         proto,
+					logfields.TrafficDirection: direction,
+				}).Debug("ToKeys: L4 allow all")
+			}
+			continue
+		}
+
 		identities := cs.GetSelections()
 		log.WithFields(logrus.Fields{
 			logfields.TrafficDirection: direction,
 			logfields.EndpointSelector: cs,
 			logfields.PolicyID:         identities,
 		}).Debug("ToKeys: Allowed remote IDs")
+
 		for _, id := range identities {
-			srcID := id.Uint32()
-			keyToAdd := Key{
-				Identity: srcID,
-				// NOTE: Port is in host byte-order!
-				DestPort:         port,
-				Nexthdr:          proto,
-				TrafficDirection: direction.Uint8(),
-			}
-			keysToAdd = append(keysToAdd, keyToAdd)
+			keyToAdd.Identity = id.Uint32()
+			keysToAdd[keyToAdd] = entry
 		}
 	}
 
@@ -333,8 +328,9 @@ func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, selections
 		logfields.DeletedPolicyID:  deleted,
 	}).Debug("identities selected by L4Filter updated")
 
-	// Skip updates on filter that wildcards L3.
-	// This logic mirrors the one in ToKeys().
+	// Skip updates on filter that wildcards L3 and has no L3 dependent L7 rules.
+	// In this case the L3 identities are being wildcarded, so we do not need to
+	// enumerate them.
 	if l4.AllowsAllAtL3() && !l4.HasL3DependentL7Rules() {
 		return
 	}
@@ -349,7 +345,8 @@ func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, selections
 		if l4.Ingress {
 			direction = trafficdirection.Ingress
 		}
-		l4Policy.AccumulateMapChanges(added, deleted, uint16(l4.Port), uint8(l4.U8Proto), direction)
+		l4Policy.AccumulateMapChanges(added, deleted, uint16(l4.Port), uint8(l4.U8Proto), direction,
+			l4.L7RulesPerSelector[selector] != nil)
 	}
 }
 
@@ -790,10 +787,10 @@ func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
 // The caller is responsible for making sure the same identity is not
 // present in both 'adds' and 'deletes'.
 func (l4 *L4Policy) AccumulateMapChanges(adds, deletes []identity.NumericIdentity,
-	port uint16, proto uint8, direction trafficdirection.TrafficDirection) {
+	port uint16, proto uint8, direction trafficdirection.TrafficDirection, redirect bool) {
 	l4.mutex.RLock()
 	for epPolicy := range l4.users {
-		epPolicy.PolicyMapChanges.AccumulateMapChanges(adds, deletes, port, proto, direction)
+		epPolicy.PolicyMapChanges.AccumulateMapChanges(adds, deletes, port, proto, direction, redirect)
 	}
 	l4.mutex.RUnlock()
 }

@@ -94,8 +94,8 @@ func (epd *PerEpData) appendL7WildcardRules(ctx *SearchContext) *PerEpData {
 }
 
 func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter, selectorCache *SelectorCache) error {
-	// Merge the L7-related data from the arguments provided to this function
-	// with the existing L7-related data already in the filter.
+	// Merge the L7-related data from the filter to merge
+	// with the L7-related data already in the existing filter.
 	if filterToMerge.L7Parser != ParserTypeNone {
 		if existingFilter.L7Parser == ParserTypeNone {
 			existingFilter.L7Parser = filterToMerge.L7Parser
@@ -110,6 +110,8 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 	}
 
 	for cs, newL7Rules := range filterToMerge.L7RulesPerSelector {
+		// 'cs' will be merged or moved (see below), either way it needs
+		// to be removed from the map it is in now.
 		delete(filterToMerge.L7RulesPerSelector, cs)
 
 		if l7Rules, ok := existingFilter.L7RulesPerSelector[cs]; ok {
@@ -129,8 +131,8 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 				continue // identical rules need no merging
 			}
 
-			// nil L7 rules wildcard L7. When merging with a non-nil rule, the nil must be expanded to actual
-			// wildcard rule for the specific L7
+			// nil L7 rules wildcard L7. When merging with a non-nil rule, the nil must be expanded
+			// to an actual wildcard rule for the specific L7
 			if l7Rules == nil && newL7Rules != nil {
 				existingFilter.L7RulesPerSelector[cs] = newL7Rules.appendL7WildcardRules(ctx)
 				continue
@@ -212,6 +214,7 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 			existingFilter.L7RulesPerSelector[cs] = newL7Rules
 		}
 	}
+
 	return nil
 }
 
