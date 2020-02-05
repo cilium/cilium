@@ -15,6 +15,7 @@
 package ipcache
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -181,21 +182,23 @@ func NewMap(name string) *Map {
 // If "overwrite" is true, then if delete is not supported the entry's value
 // will be overwritten with zeroes to signify that it's an invalid entry.
 func (m *Map) delete(k bpf.MapKey, overwrite bool) (bool, error) {
-	// Older kernels do not support deletion of LPM map entries so zero out
-	// the entry instead of attempting a deletion
-	err, errno := m.DeleteWithErrno(k)
-	if errno == unix.ENOSYS {
+	err := m.Delete(k)
+	var errno unix.Errno
+	if ok := errors.As(err, &errno); ok && errno == unix.ENOSYS {
 		if overwrite {
+			// Older kernels do not support deletion of LPM map entries so zero out
+			// the entry instead of attempting a deletion
 			return false, m.Update(k, &RemoteEndpointInfo{})
 		}
 		return false, nil
 	}
-
 	return true, err
 }
 
-// Delete removes a key from the ipcache BPF map
-func (m *Map) Delete(k bpf.MapKey) error {
+// DeleteWithOverwrite removes a key from the ipcache BPF map.
+// If delete is not supported, the entry's value will be overwritten with
+// zeroes to signify that it's an invalid entry.
+func (m *Map) DeleteWithOverwrite(k bpf.MapKey) error {
 	_, err := m.delete(k, true)
 	return err
 }

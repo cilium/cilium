@@ -177,7 +177,7 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 			}).Warning("unable to update bpf map")
 		}
 	case ipcache.Delete:
-		err := l.bpfMap.Delete(&key)
+		err := l.bpfMap.DeleteWithOverwrite(&key)
 		if err != nil {
 			scopedLog.WithError(err).WithFields(logrus.Fields{
 				"key":                  key.String(),
@@ -278,7 +278,7 @@ func (l *BPFListener) garbageCollect(ctx context.Context) (*sync.WaitGroup, erro
 		for _, k := range keysToRemove {
 			log.WithFields(logrus.Fields{logfields.BPFMapKey: k}).
 				Debug("deleting from ipcache BPF map")
-			if err := l.bpfMap.Delete(k); err != nil {
+			if err := l.bpfMap.DeleteWithOverwrite(k); err != nil {
 				return nil, fmt.Errorf("error deleting key %s from ipcache BPF map: %s", k, err)
 			}
 		}
