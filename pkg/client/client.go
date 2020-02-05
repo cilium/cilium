@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -355,8 +355,21 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 	}
 
 	if sr.Proxy != nil {
-		fmt.Fprintf(w, "Proxy Status:\tOK, ip %s, port-range %s\n",
-			sr.Proxy.IP, sr.Proxy.PortRange)
+		fmt.Fprintf(w, "Proxy Status:\tOK, ip %s, %d redirects active on ports %s\n",
+			sr.Proxy.IP, sr.Proxy.TotalRedirects, sr.Proxy.PortRange)
+		if allRedirects && sr.Proxy.TotalRedirects > 0 {
+			out := make([]string, 0, len(sr.Proxy.Redirects)+1)
+			for _, r := range sr.Proxy.Redirects {
+				out = append(out, fmt.Sprintf("  %s\t%s\t%d\n", r.Proxy, r.Name, r.ProxyPort))
+			}
+			tab := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
+			fmt.Fprint(tab, "  Protocol\tRedirect\tProxy Port\n")
+			sort.Strings(out)
+			for _, s := range out {
+				fmt.Fprint(tab, s)
+			}
+			tab.Flush()
+		}
 	} else {
 		fmt.Fprintf(w, "Proxy Status:\tNo managed proxy redirect\n")
 	}
