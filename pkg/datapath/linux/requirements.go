@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/versioncheck"
 
 	go_version "github.com/blang/semver"
+	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
 
@@ -145,6 +146,12 @@ func CheckMinRequirements() {
 	if !isMinKernelVer(kernelVersion) {
 		log.Fatalf("kernel version: NOT OK: minimal supported kernel "+
 			"version is %s; kernel version that is running is: %s", minKernelVer, kernelVersion)
+	}
+
+	_, err = netlink.RuleList(netlink.FAMILY_V4)
+	if err == unix.EAFNOSUPPORT {
+		log.WithError(err).Error("Policy routing:NOT OK. " +
+			"Please enable kernel configuration item CONFIG_IP_MULTIPLE_TABLES")
 	}
 
 	if option.Config.EnableIPv6 {
