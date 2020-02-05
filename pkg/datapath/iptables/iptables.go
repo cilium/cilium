@@ -34,6 +34,7 @@ import (
 
 	go_version "github.com/blang/semver"
 	"github.com/mattn/go-shellwords"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 const (
@@ -56,6 +57,7 @@ const (
 var (
 	isWaitMinVersion        = versioncheck.MustCompile(">=1.4.20")
 	isWaitSecondsMinVersion = versioncheck.MustCompile(">=1.4.22")
+	hexnumRE                = regexp.MustCompile("0x0+([0-9])")
 )
 
 const (
@@ -656,7 +658,7 @@ func (m *IptablesManager) ensureCiliumChains() error {
 	return nil
 }
 
-func (m *IptablesManager) filterEnabledRules(rules []iptablesRule) []iptablesRule {
+func (m *IptablesManager) filterRuleSet(rules []iptablesRule) []iptablesRule {
 	retRules := []iptablesRule{}
 	for _, rule := range rules {
 		if rule.enabled {
@@ -683,37 +685,122 @@ func (m *IptablesManager) checkRule(prog, chain string, rule iptablesRule) (bool
 	return false, fmt.Errorf("error chcking rule %v: %v: %s", rule.args, err, out)
 }
 
-func (m *IptablesManager) ensureChainRules(chainName string, rules []iptablesRule) error {
-	for index, rule := range rules {
-		if option.Config.EnableIPv4 {
-			// We first check if the rule exist or not using iptables -C flag
-			exists, err := m.checkRule("iptables", chainName, rule)
+func (m *IptablesManager) ensureIptRules(prog, table, chain string, rules []iptablesRule) error {
+	rulesCount := len(rules)
+	if rulesCount == 0 {
+		return nil
+	}
+
+	curRuleIndex := 0
+	var ruleArgsCopy []string
+	for i := range rules[curRuleIndex].args {
+		tmpField := strings.Trim(rules[curRuleIndex].args[i], "\"")
+		tmpField = hexnumRE.ReplaceAllString(tmpField, "0x$1")
+		ruleArgsCopy = append(ruleArgsCopy, strings.Fields(tmpField)...)
+	}
+	ruleArgset := sets.NewString(ruleArgsCopy...)
+
+	// Collect output from ipables-save command so that we can cross verify the rules that
+	// exists.
+	// We are not using iptables -C flag because we also want to preserve the order or the rules
+	// which won't be possible with -C as there is possibly no way of knowing what position
+	// a rule exists in.
+	args := append(m.waitArgs, "-t", table, "-S")
+
+	out, err := exec.WithTimeout(defaults.ExecTimeout, prog, args...).CombinedOutput(log, true)
+	if err != nil {
+		return fmt.Errorf("error while getting iptables save output: %s", err)
+	}
+
+	iptablesSaveOutput := strings.Split(string(out), "\n")
+	existingRulesCount := len(iptablesSaveOutput)
+
+	idx := 0
+	for idx < existingRulesCount {
+		line := iptablesSaveOutput[idx]
+		// First check if this corresponds to an insert rule of cilium in the correct chain
+		// name we are trying to ensure.
+		// If not move on to the next line.
+		if !strings.HasPrefix(line, fmt.Sprintf("%s %s", string(opInsertRule), chain)) {
+			idx++
+			continue
+		}
+
+		if curRuleIndex >= rulesCount {
+			// We have ensured all the rules, delete all unnecessery rules
+			reversedRule, err := reverseRule(line)
 			if err != nil {
-				return err
-			}
-			if !exists {
-				insertArgs := append([]string{string(opInsertRule), chainName, string(index)}, rule.args...)
-				out, err := m.runProg("iptables", insertArgs, false)
+				log.WithError(err).WithField(logfields.Object, line).Warnf("Unable to parse %s rule into slice. Leaving rule behind.", prog)
+			} else if len(reversedRule) > 0 {
+				deleteRule := append([]string{"-t", table}, reversedRule...)
+				log.WithField(logfields.Object, logfields.Repr(deleteRule)).Debugf("Removing %s rule", prog)
+				_, err = m.runProg(prog, deleteRule, true)
 				if err != nil {
-					return fmt.Errorf("error inserting rule: %s : %s", err, out)
+					log.WithError(err).WithField(logfields.Object, line).Warnf("Unable to delete Cilium %s rule", prog)
 				}
+			}
+
+			idx++
+			continue
+		}
+
+		// Iptables has inconsistent quoting rules for comments.
+		// Just remove all quotes.
+		var fields = strings.Fields(line)
+		for i := range fields {
+			fields[i] = strings.Trim(fields[i], "\"")
+			fields[i] = hexnumRE.ReplaceAllString(fields[i], "0x$1")
+		}
+
+		// From https://github.com/kubernetes/kubernetes/blob/master/pkg/util/iptables/iptables.go
+		// TODO: This misses reorderings e.g. "-x foo ! -y bar" will match "! -x foo -y bar"
+		if sets.NewString(fields...).IsSuperset(ruleArgset) {
+			// This means that the rule exists and is at the right position as we are iterating from
+			// top to down for the rules.
+			curRuleIndex++
+			idx++
+
+			// Process the next rule in the list.
+			var argsCopy []string
+			for i := range rules[curRuleIndex].args {
+				tmpField := strings.Trim(rules[curRuleIndex].args[i], "\"")
+				tmpField = hexnumRE.ReplaceAllString(tmpField, "0x$1")
+				argsCopy = append(argsCopy, strings.Fields(tmpField)...)
+			}
+			ruleArgset = sets.NewString(argsCopy...)
+		} else {
+			// Insert the rule we are currently working in the ruleset to ensure.
+			insertArgs := append([]string{string(opInsertRule), chain, string(curRuleIndex)}, rules[curRuleIndex].args...)
+			out, err := m.runProg("iptables", insertArgs, false)
+			if err != nil {
+				return fmt.Errorf("error inserting rule: %s : %s", err, out)
+			}
+
+			curRuleIndex++
+		}
+	}
+
+	return nil
+}
+
+func (m *IptablesManager) ensureChainRules(table, chainName string, rules []iptablesRule) error {
+	if option.Config.EnableIPv4 {
+		err := m.ensureIptRules("iptables", table, chainName, rules)
+		if err != nil {
+			return err
+		}
+	}
+
+	if option.Config.EnableIPv6 {
+		var ipv6EnabledRules []iptablesRule
+
+		for _, rule := range rules {
+			if !rule.ipv4Only {
+				ipv6EnabledRules = append(ipv6EnabledRules, rule)
 			}
 		}
 
-		// Also insert ip6tables rule.
-		if !rule.ipv4Only && option.Config.EnableIPv6 {
-			exists, err := m.checkRule("ip6tables", chainName, rule)
-			if err != nil {
-				return err
-			}
-			if !exists {
-				insertArgs := append([]string{string(opInsertRule), chainName, string(index)}, rule.args...)
-				out, err := m.runProg("ip6tables", insertArgs, false)
-				if err != nil {
-					return fmt.Errorf("error inserting rule: %s : %s", err, out)
-				}
-			}
-		}
+		return m.ensureIptRules("ip6tables", table, chainName, ipv6EnabledRules)
 	}
 
 	return nil
@@ -734,62 +821,62 @@ func (m *IptablesManager) EnsureRules(ifname string) error {
 
 	// All the rules must be prepended with the operation to perform on the iptable
 	// rule and then run using an iptable program. Since we are relying on inserts
-	inputChainRules := m.filterEnabledRules(ciliumInputChainRules())
-	err := m.ensureChainRules(ciliumInputChain, inputChainRules)
+	inputChainRules := m.filterRuleSet(ciliumInputChainRules())
+	err := m.ensureChainRules("filter", ciliumInputChain, inputChainRules)
 	if err != nil {
 		return err
 	}
 
-	outputChainRules := m.filterEnabledRules(ciliumOutputChainRules())
-	err = m.ensureChainRules(ciliumOutputChain, outputChainRules)
+	outputChainRules := m.filterRuleSet(ciliumOutputChainRules())
+	err = m.ensureChainRules("filter", ciliumOutputChain, outputChainRules)
 	if err != nil {
 		return err
 	}
 
-	outputRawChainRules := m.filterEnabledRules(ciliumOutputRawChainRules())
-	err = m.ensureChainRules(ciliumOutputRawChain, outputRawChainRules)
+	outputRawChainRules := m.filterRuleSet(ciliumOutputRawChainRules())
+	err = m.ensureChainRules("raw", ciliumOutputRawChain, outputRawChainRules)
 	if err != nil {
 		return err
 	}
 
-	postNatChainRules := m.filterEnabledRules(ciliumPostNatChainRules(m, ifname))
-	err = m.ensureChainRules(ciliumPostNatChain, postNatChainRules)
+	postNatChainRules := m.filterRuleSet(ciliumPostNatChainRules(m, ifname))
+	err = m.ensureChainRules("nat", ciliumPostNatChain, postNatChainRules)
 	if err != nil {
 		return err
 	}
 
-	outputNatChainRules := m.filterEnabledRules(ciliumOutputNatChainRules())
-	err = m.ensureChainRules(ciliumOutputNatChain, outputNatChainRules)
+	outputNatChainRules := m.filterRuleSet(ciliumOutputNatChainRules())
+	err = m.ensureChainRules("nat", ciliumOutputNatChain, outputNatChainRules)
 	if err != nil {
 		return err
 	}
 
-	preNatChainRules := m.filterEnabledRules(ciliumPreNatChainRules())
-	err = m.ensureChainRules(ciliumPreNatChain, preNatChainRules)
+	preNatChainRules := m.filterRuleSet(ciliumPreNatChainRules())
+	err = m.ensureChainRules("nat", ciliumPreNatChain, preNatChainRules)
 	if err != nil {
 		return err
 	}
 
-	postMangleChainRules := m.filterEnabledRules(ciliumPostMangleChainRules())
-	err = m.ensureChainRules(ciliumPostMangleChain, postMangleChainRules)
+	postMangleChainRules := m.filterRuleSet(ciliumPostMangleChainRules())
+	err = m.ensureChainRules("mangle", ciliumPostMangleChain, postMangleChainRules)
 	if err != nil {
 		return err
 	}
 
-	preMangleChainRules := m.filterEnabledRules(ciliumPreMangleChainRules())
-	err = m.ensureChainRules(ciliumPreMangleChain, preMangleChainRules)
+	preMangleChainRules := m.filterRuleSet(ciliumPreMangleChainRules())
+	err = m.ensureChainRules("mangle", ciliumPreMangleChain, preMangleChainRules)
 	if err != nil {
 		return err
 	}
 
-	preRawChainRules := m.filterEnabledRules(ciliumPreRawChainRules())
-	err = m.ensureChainRules(ciliumPreRawChain, preRawChainRules)
+	preRawChainRules := m.filterRuleSet(ciliumPreRawChainRules())
+	err = m.ensureChainRules("raw", ciliumPreRawChain, preRawChainRules)
 	if err != nil {
 		return err
 	}
 
-	forwardChainRules := m.filterEnabledRules(ciliumForwardChainRules(ifname))
-	err = m.ensureChainRules(ciliumForwardChain, forwardChainRules)
+	forwardChainRules := m.filterRuleSet(ciliumForwardChainRules(ifname))
+	err = m.ensureChainRules("filter", ciliumForwardChain, forwardChainRules)
 	if err != nil {
 		return err
 	}
