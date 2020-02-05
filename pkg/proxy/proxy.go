@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -616,11 +616,27 @@ func ChangeLogLevel(level logrus.Level) {
 func (p *Proxy) GetStatusModel() *models.ProxyStatus {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
+	proxyPortsMutex.Lock()
+	defer proxyPortsMutex.Unlock()
 
-	return &models.ProxyStatus{
-		IP:        node.GetInternalIPv4().String(),
-		PortRange: fmt.Sprintf("%d-%d", p.rangeMin, p.rangeMax),
+	result := &models.ProxyStatus{
+		IP:             node.GetInternalIPv4().String(),
+		PortRange:      fmt.Sprintf("%d-%d", p.rangeMin, p.rangeMax),
+		TotalRedirects: int64(len(p.redirects)),
 	}
+	for _, pp := range proxyPorts {
+		if pp.nRedirects > 0 {
+			result.TotalPorts++
+		}
+	}
+	for name, redirect := range p.redirects {
+		result.Redirects = append(result.Redirects, &models.ProxyRedirect{
+			Name:      name,
+			Proxy:     redirect.listener.name,
+			ProxyPort: int64(redirect.listener.rulesPort),
+		})
+	}
+	return result
 }
 
 // UpdateRedirectMetrics updates the redirect metrics per application protocol
