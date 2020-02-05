@@ -6,17 +6,12 @@
 
 .. _host-services:
 
-******************************
-Host-Reachable Services (beta)
-******************************
+***********************
+Host-Reachable Services
+***********************
 
-This guide explains how to configure Cilium to enable services to be
-reached from the host namespace.
-
-.. note::
-
-    This is a beta feature. Please provide feedback and file a GitHub issue if
-    you experience any problems.
+This guide explains how to configure Cilium to enable services to be reached
+from the host namespace in addition to pod namespaces.
 
 .. note::
 
@@ -72,4 +67,7 @@ Limitations
       a BPF hook for rewriting sock addresses before copying them into
       user space in which case the application will see the backend address
       instead of the service address. This limitation will be resolved in
-      future kernels.
+      future kernels. The missing getpeername(2) hook is known to not work
+      in combination with libceph deployments.
+      See `GH issue 9974 <https://github.com/cilium/cilium/issues/9974>`_
+      for further updates.
