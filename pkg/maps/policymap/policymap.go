@@ -17,7 +17,6 @@ package policymap
 import (
 	"bytes"
 	"fmt"
-	"syscall"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -199,9 +198,9 @@ func (pm *PolicyMap) Exists(id uint32, dport uint16, proto u8proto.U8proto, traf
 
 // DeleteKey deletes the key-value pair from the given PolicyMap with PolicyKey
 // k. Returns an error if deletion from the PolicyMap fails.
-func (pm *PolicyMap) DeleteKeyWithErrno(key PolicyKey) (error, syscall.Errno) {
+func (pm *PolicyMap) DeleteKey(key PolicyKey) error {
 	k := key.ToNetwork()
-	return pm.Map.DeleteWithErrno(&k)
+	return pm.Map.Delete(&k)
 }
 
 // Delete removes an entry from the PolicyMap for identity `id`

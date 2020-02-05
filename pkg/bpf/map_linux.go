@@ -26,7 +26,6 @@ import (
 	"path"
 	"reflect"
 	"sync"
-	"syscall"
 	"time"
 	"unsafe"
 
@@ -855,34 +854,25 @@ func (m *Map) deleteCacheEntry(key MapKey, err error) {
 	}
 }
 
-func (m *Map) DeleteWithErrno(key MapKey) (error, syscall.Errno) {
-	var (
-		err   error
-		errno syscall.Errno
-	)
-
+// Delete deletes the map entry corresponding to the given key.
+func (m *Map) Delete(key MapKey) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
+	var err error
 	defer m.deleteCacheEntry(key, err)
 
 	if err = m.Open(); err != nil {
-		return err, 0
+		return err
 	}
 
-	_, errno = deleteElement(m.fd, key.GetKeyPtr())
+	_, errno := deleteElement(m.fd, key.GetKeyPtr())
 	if option.Config.MetricsConfig.BPFMapOps {
 		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpDelete, metrics.Errno2Outcome(errno)).Inc()
 	}
 	if errno != 0 {
-		err = fmt.Errorf("Unable to delete element from map %s: %s", m.name, errno.Error())
+		err = fmt.Errorf("unable to delete element %s from map %s: %w", key, m.name, errno)
 	}
-
-	return err, errno
-}
-
-func (m *Map) Delete(key MapKey) error {
-	err, _ := m.DeleteWithErrno(key)
 	return err
 }
 
