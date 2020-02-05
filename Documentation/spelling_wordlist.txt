@@ -127,6 +127,7 @@ Suricata
 Suricate
 Syscall
 TCP
+TLS
 Terraform
 Tierney
 Toolchain
@@ -349,6 +350,7 @@ kvstore
 leia
 libbpf
 libc
+libceph
 libdw
 libelf
 libnetwork
@@ -374,7 +376,6 @@ macOS
 matchPattern
 mc
 mediabot
-Meetup
 memcache
 memcached
 memcd
@@ -413,8 +414,8 @@ observability
 onData
 onwards
 opcodes
-openssl
 openSUSE
+openssl
 orchestrator
 pahole
 parserfactory
@@ -485,7 +486,6 @@ sockmap
 src
 ssl
 stacktrace
-Stacktrace
 stap
 stapbpf
 starfighter
@@ -527,7 +527,6 @@ testsuite
 thunderx
 tiefighter
 timestamp
-TLS
 tlsconfig
 toCIDR
 toCIDRSet
