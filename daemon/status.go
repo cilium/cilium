@@ -109,6 +109,44 @@ func (d *Daemon) getK8sStatus() *models.K8sStatus {
 	return k8sStatus
 }
 
+func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
+	if !k8s.IsEnabled() {
+		return &models.KubeProxyReplacement{Mode: models.KubeProxyReplacementModeDisabled}
+	}
+
+	var mode string
+	switch option.Config.KubeProxyReplacement {
+	case option.KubeProxyReplacementStrict:
+		mode = models.KubeProxyReplacementModeStrict
+	case option.KubeProxyReplacementPartial:
+		mode = models.KubeProxyReplacementModePartial
+	case option.KubeProxyReplacementProbe:
+		mode = models.KubeProxyReplacementModeProbe
+	case option.KubeProxyReplacementDisabled:
+		mode = models.KubeProxyReplacementModeDisabled
+	}
+
+	features := []models.KubeProxyReplacementFeatures{}
+	if option.Config.EnableNodePort {
+		features = append(features, models.KubeProxyReplacementFeaturesNodePort)
+	}
+	if option.Config.EnableExternalIPs {
+		features = append(features, models.KubeProxyReplacementFeaturesExternalIPs)
+	}
+	if option.Config.EnableHostServicesTCP {
+		features = append(features, models.KubeProxyReplacementFeaturesHostReachableServicesTCP)
+	}
+	if option.Config.EnableHostServicesUDP {
+		features = append(features, models.KubeProxyReplacementFeaturesHostReachableServicesUDP)
+	}
+
+	return &models.KubeProxyReplacement{
+		Mode:     mode,
+		Features: features,
+	}
+
+}
+
 type getHealthz struct {
 	daemon *Daemon
 }
@@ -592,6 +630,13 @@ func (d *Daemon) startStatusCollector() {
 				}
 			},
 		},
+	}
+
+	if k8s.IsEnabled() {
+		// kube-proxy replacement configuration does not change after
+		// initKubeProxyReplacementOptions() has been executed, so it's fine to
+		// statically set the field here.
+		d.statusResponse.KubeProxyReplacement = d.getKubeProxyReplacementStatus()
 	}
 
 	d.statusCollector = status.NewCollector(probes, status.Config{})
