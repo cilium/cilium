@@ -115,7 +115,8 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	 * entry for destination endpoints where we can't encode the state in the
 	 * address.
 	 */
-#if !defined(ENABLE_HOST_SERVICES_FULL) || defined(ENABLE_EXTERNAL_IP)
+#ifdef ENABLE_SERVICES
+# if !defined(ENABLE_HOST_SERVICES_FULL) || defined(ENABLE_EXTERNAL_IP)
 	{
 		struct lb6_service *svc;
 
@@ -127,7 +128,8 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 			hairpin_flow |= ct_state_new.loopback;
 		}
 	}
-#endif
+# endif /* !ENABLE_HOST_SERVICES_FULL || ENABLE_EXTERNAL_IP*/
+#endif /* ENABLE_SERVICES */
 
 skip_service_lookup:
 	/* The verifier wants to see this assignment here in case the above goto
@@ -458,7 +460,8 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 	}
 
 	ct_state_new.orig_dport = key.dport;
-#if !defined(ENABLE_HOST_SERVICES_FULL) || defined(ENABLE_EXTERNAL_IP)
+#ifdef ENABLE_SERVICES
+# if !defined(ENABLE_HOST_SERVICES_FULL) || defined(ENABLE_EXTERNAL_IP)
 	{
 		struct lb4_service *svc;
 
@@ -470,7 +473,8 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 			hairpin_flow |= ct_state_new.loopback;
 		}
 	}
-#endif
+# endif /* !ENABLE_HOST_SERVICES_FULL || ENABLE_EXTERNAL_IP */
+#endif /* ENABLE_SERVICES */
 
 skip_service_lookup:
 	/* The verifier wants to see this assignment here in case the above goto
