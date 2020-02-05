@@ -1426,6 +1426,10 @@ func initKubeProxyReplacementOptions() {
 		log.Fatalf("Invalid value for --%s: %s", option.KubeProxyReplacement, option.Config.KubeProxyReplacement)
 	}
 
+	if option.Config.DisableK8sServices {
+		option.Config.KubeProxyReplacement = option.KubeProxyReplacementDisabled
+	}
+
 	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementDisabled {
 		log.Infof("Auto-disabling %q, %q, %q features", option.EnableNodePort,
 			option.EnableExternalIPs, option.EnableHostReachableServices)
