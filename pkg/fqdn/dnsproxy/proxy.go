@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/spanstat"
 
 	"github.com/miekg/dns"
@@ -149,6 +150,9 @@ func (allow perEPAllow) setPortRulesForID(endpointID uint64, destPort uint16, ne
 
 	newRE := make(cachedSelectorREEntry)
 	for selector, l7Rules := range newRules {
+		if l7Rules == nil {
+			l7Rules = &policy.PerEpData{L7Rules: api.L7Rules{DNS: []api.PortRuleDNS{{MatchPattern: "*"}}}}
+		}
 		reStrings := make([]string, 0, len(l7Rules.DNS))
 		for _, dnsRule := range l7Rules.DNS {
 			if len(dnsRule.MatchName) > 0 {
