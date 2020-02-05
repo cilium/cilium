@@ -59,7 +59,6 @@ Advanced Networking
    ipvlan
    encryption
    host-services
-   nodeport
    kubeproxy-free
    kata-gce
    ipam
