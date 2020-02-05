@@ -236,7 +236,6 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 		func() bool { return helpers.DoesNotRunOnNetNext() },
 		"DirectRouting", func() {
 			BeforeAll(func() {
-				deleteCiliumDS(kubectl)
 				deployCilium(map[string]string{
 					"global.tunnel":               "disabled",
 					"global.autoDirectNodeRoutes": "true",
@@ -282,7 +281,6 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 		func() bool { return helpers.DoesNotRunOnNetNext() },
 		"VxLANMode", func() {
 			BeforeAll(func() {
-				deleteCiliumDS(kubectl)
 				deployCilium(map[string]string{
 					"global.tunnel":           "vxlan",
 					"global.nodePort.device":  external_ips.PublicInterfaceName,

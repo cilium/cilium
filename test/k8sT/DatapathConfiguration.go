@@ -40,8 +40,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 		demoDSPath = helpers.ManifestGet(kubectl.BasePath(), "demo_ds.yaml")
 		ipsecDSPath = helpers.ManifestGet(kubectl.BasePath(), "ipsec_ds.yaml")
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
-
-		deleteCiliumDS(kubectl)
 	})
 
 	BeforeEach(func() {
@@ -54,8 +52,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 		kubectl.Delete(demoDSPath)
 		kubectl.Delete(ipsecDSPath)
 		ExpectAllPodsTerminated(kubectl)
-
-		deleteCiliumDS(kubectl)
 	})
 
 	AfterFailed(func() {
