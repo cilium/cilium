@@ -775,6 +775,11 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7Parse
 		RemotePolicies: remotePolicies,
 	}
 
+	if l7Rules == nil {
+		// L3/L4 only rule, everything in L7 is allowed
+		return r, true
+	}
+
 	if l7Rules.TerminatingTLS != nil {
 		r.DownstreamTlsContext = getCiliumTLSContext(l7Rules.TerminatingTLS)
 	}
@@ -855,7 +860,7 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool)
 		pnp := &cilium.PortNetworkPolicy{
 			Port:     uint32(l4.Port),
 			Protocol: protocol,
-			Rules:    make([]*cilium.PortNetworkPolicyRule, 0, len(l4.L7RulesPerEp)),
+			Rules:    make([]*cilium.PortNetworkPolicyRule, 0, len(l4.L7RulesPerSelector)),
 		}
 
 		allowAll := false
@@ -864,7 +869,7 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool)
 		// is set to 'false' below if any rules with side effects are encountered,
 		// causing all the applicable rules to be evaluated instead.
 		canShortCircuit := true
-		for sel, l7 := range l4.L7RulesPerEp {
+		for sel, l7 := range l4.L7RulesPerSelector {
 			rule, cs := getPortNetworkPolicyRule(sel, l4.L7Parser, l7)
 			if !cs {
 				canShortCircuit = false

@@ -550,4 +550,32 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	allowed, err = s.proxy.CheckAllowed(epID3, 53, dstID2, "example.com")
 	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
+
+	// | EP3  | DstID1 |      53 | *    |
+	err = s.proxy.UpdateAllowed(epID3, 53, policy.L7DataMap{
+		cachedDstID1Selector: &policy.PerEpData{
+			L7Rules: api.L7Rules{
+				DNS: []api.PortRuleDNS{
+					{MatchPattern: "*"},
+				},
+			},
+		},
+	})
+	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
+
+	// Case 10 | EPID3 | DstID1 |   53 | example.com    | Allowed due to wildcard match pattern
+	allowed, err = s.proxy.CheckAllowed(epID3, 53, dstID1, "example.com")
+	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
+
+	// | EP3  | DstID1 |      53 | nil  |
+	err = s.proxy.UpdateAllowed(epID3, 53, policy.L7DataMap{
+		cachedDstID1Selector: nil,
+	})
+	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
+
+	// Case 11 | EPID3 | DstID1 |   53 | example.com    | Allowed due to a nil rule
+	allowed, err = s.proxy.CheckAllowed(epID3, 53, dstID1, "example.com")
+	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 }

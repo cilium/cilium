@@ -288,7 +288,7 @@ var L4PolicyMap1 = map[string]*policy.L4Filter{
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		L7Parser: policy.ParserTypeHTTP,
-		L7RulesPerEp: policy.L7DataMap{
+		L7RulesPerSelector: policy.L7DataMap{
 			cachedSelector1: L7Rules1,
 		},
 	},
@@ -299,7 +299,7 @@ var L4PolicyMap1HeaderMatch = map[string]*policy.L4Filter{
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		L7Parser: policy.ParserTypeHTTP,
-		L7RulesPerEp: policy.L7DataMap{
+		L7RulesPerSelector: policy.L7DataMap{
 			cachedSelector1: L7Rules1HeaderMatch,
 		},
 	},
@@ -310,7 +310,7 @@ var L4PolicyMap1RequiresV2 = map[string]*policy.L4Filter{
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		L7Parser: policy.ParserTypeHTTP,
-		L7RulesPerEp: policy.L7DataMap{
+		L7RulesPerSelector: policy.L7DataMap{
 			cachedRequiresV2Selector1: L7Rules1,
 		},
 	},
@@ -321,7 +321,7 @@ var L4PolicyMap2 = map[string]*policy.L4Filter{
 		Port:     8080,
 		Protocol: api.ProtoUDP,
 		L7Parser: policy.ParserTypeHTTP,
-		L7RulesPerEp: policy.L7DataMap{
+		L7RulesPerSelector: policy.L7DataMap{
 			cachedSelector2: L7Rules2,
 		},
 	},
@@ -332,7 +332,7 @@ var L4PolicyMap3 = map[string]*policy.L4Filter{
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		L7Parser: policy.ParserTypeHTTP,
-		L7RulesPerEp: policy.L7DataMap{
+		L7RulesPerSelector: policy.L7DataMap{
 			wildcardCachedSelector: L7Rules1,
 		},
 	},
@@ -343,7 +343,7 @@ var L4PolicyMap3RequiresV2 = map[string]*policy.L4Filter{
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		L7Parser: policy.ParserTypeHTTP,
-		L7RulesPerEp: policy.L7DataMap{
+		L7RulesPerSelector: policy.L7DataMap{
 			cachedRequiresV2Selector: L7Rules1,
 		},
 	},
@@ -354,7 +354,7 @@ var L4PolicyMap4 = map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
-		L7RulesPerEp: policy.L7DataMap{
+		L7RulesPerSelector: policy.L7DataMap{
 			cachedSelector1: &policy.PerEpData{L7Rules: api.L7Rules{}},
 		},
 	},
@@ -365,7 +365,7 @@ var L4PolicyMap5 = map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
-		L7RulesPerEp: policy.L7DataMap{
+		L7RulesPerSelector: policy.L7DataMap{
 			wildcardCachedSelector: &policy.PerEpData{L7Rules: api.L7Rules{}},
 		},
 	},
@@ -592,7 +592,7 @@ var L4PolicyL7 = &policy.L4Policy{
 		"9090/TCP": {
 			Port: 9090, Protocol: api.ProtoTCP,
 			L7Parser: "tester",
-			L7RulesPerEp: policy.L7DataMap{
+			L7RulesPerSelector: policy.L7DataMap{
 				cachedSelector1: &policy.PerEpData{L7Rules: api.L7Rules{
 					L7Proto: "tester",
 					L7: []api.PortRuleL7{
