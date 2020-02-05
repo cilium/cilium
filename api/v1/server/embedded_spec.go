@@ -2757,6 +2757,24 @@ func init() {
         }
       }
     },
+    "ProxyRedirect": {
+      "description": "Configured proxy redirection state",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name of the proxy redirect",
+          "type": "string"
+        },
+        "proxy": {
+          "description": "Name of the proxy this redirect points to",
+          "type": "string"
+        },
+        "proxy-port": {
+          "description": "Host port that this redirect points to",
+          "type": "integer"
+        }
+      }
+    },
     "ProxyStatistics": {
       "description": "Statistics of a set of proxy redirects for an endpoint",
       "type": "object",
@@ -2798,6 +2816,21 @@ func init() {
         "port-range": {
           "description": "Port range used for proxying",
           "type": "string"
+        },
+        "redirects": {
+          "description": "Detailed description of configured redirects",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ProxyRedirect"
+          }
+        },
+        "total-ports": {
+          "description": "Total number of listening proxy ports",
+          "type": "integer"
+        },
+        "total-redirects": {
+          "description": "Total number of ports configured to redirect to proxies",
+          "type": "integer"
         }
       }
     },
@@ -6084,6 +6117,24 @@ func init() {
         }
       }
     },
+    "ProxyRedirect": {
+      "description": "Configured proxy redirection state",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name of the proxy redirect",
+          "type": "string"
+        },
+        "proxy": {
+          "description": "Name of the proxy this redirect points to",
+          "type": "string"
+        },
+        "proxy-port": {
+          "description": "Host port that this redirect points to",
+          "type": "integer"
+        }
+      }
+    },
     "ProxyStatistics": {
       "description": "Statistics of a set of proxy redirects for an endpoint",
       "type": "object",
@@ -6125,6 +6176,21 @@ func init() {
         "port-range": {
           "description": "Port range used for proxying",
           "type": "string"
+        },
+        "redirects": {
+          "description": "Detailed description of configured redirects",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ProxyRedirect"
+          }
+        },
+        "total-ports": {
+          "description": "Total number of listening proxy ports",
+          "type": "integer"
+        },
+        "total-redirects": {
+          "description": "Total number of ports configured to redirect to proxies",
+          "type": "integer"
         }
       }
     },
