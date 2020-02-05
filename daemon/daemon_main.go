@@ -1556,5 +1556,12 @@ func initKubeProxyReplacementOptions() {
 		if !option.Config.EnableHostServicesTCP && !option.Config.EnableHostServicesUDP {
 			option.Config.EnableHostReachableServices = false
 		}
+	} else {
+		option.Config.EnableHostServicesTCP = false
+		option.Config.EnableHostServicesUDP = false
+	}
+
+	if !option.Config.EnableNodePort {
+		option.Config.EnableExternalIPs = false
 	}
 }
