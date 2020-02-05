@@ -159,4 +159,12 @@ static void test___ct_lookup()
 	assert(res == CT_ESTABLISHED);
 	assert(monitor == 0);
 	assert(timeout_in(entry, CT_CLOSE_TIMEOUT - 1));
+
+	/* Label connection as new if the tuple wasn't previously tracked */
+	tuple = (void *)__TUPLE_NOEXIST;
+	seen_flags.value = TCP_FLAG_SYN;
+	res = __ct_lookup(map, &skb, tuple, ACTION_CREATE, CT_INGRESS,
+			  &ct_state, true, seen_flags, &monitor);
+	assert(res == CT_NEW);
+	assert(monitor == TRACE_PAYLOAD_LEN);
 }
