@@ -15,10 +15,12 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -48,15 +50,20 @@ var (
 	cleanAll bool
 	cleanBPF bool
 	force    bool
+	runPath  string
 )
 
 const (
-	allFlagName   = "all-state"
-	bpfFlagName   = "bpf-state"
-	forceFlagName = "force"
+	allFlagName     = "all-state"
+	bpfFlagName     = "bpf-state"
+	forceFlagName   = "force"
+	runPathFlagName = "run-path"
 
 	cleanCiliumEnvVar = "CLEAN_CILIUM_STATE"
 	cleanBpfEnvVar    = "CLEAN_CILIUM_BPF_STATE"
+
+	tcFilterParentIngress = 0xfffffff2
+	tcFilterParentEgress  = 0xfffffff3
 )
 
 const (
@@ -125,9 +132,10 @@ func (c bpfCleanup) cleanupFuncs() []cleanupFunc {
 
 // ciliumCleanup represents cleanup actions for non-BPF state.
 type ciliumCleanup struct {
-	routes map[int]netlink.Route
-	links  map[int]netlink.Link
-	netNSs []string
+	routes    map[int]netlink.Route
+	links     map[int]netlink.Link
+	tcFilters map[string][]*netlink.BpfFilter
+	netNSs    []string
 }
 
 func newCiliumCleanup() ciliumCleanup {
@@ -141,7 +149,18 @@ func newCiliumCleanup() ciliumCleanup {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 	}
 
-	return ciliumCleanup{routes, links, netNSs}
+	tcFilters := map[string][]*netlink.BpfFilter{}
+	if link, err := getNodePortNativeDev(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+	} else if link != nil {
+		if filters, err := getTCFilters(*link); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		} else if len(filters) != 0 {
+			tcFilters[(*link).Attrs().Name] = filters
+		}
+	}
+
+	return ciliumCleanup{routes, links, tcFilters, netNSs}
 }
 
 func (c ciliumCleanup) whatWillBeRemoved() []string {
@@ -169,6 +188,14 @@ func (c ciliumCleanup) whatWillBeRemoved() []string {
 		toBeRemoved = append(toBeRemoved, section)
 	}
 
+	if len(c.tcFilters) > 0 {
+		section := "tc filters\n"
+		for linkName, f := range c.tcFilters {
+			section += fmt.Sprintf("%s %v\n", linkName, f)
+		}
+		toBeRemoved = append(toBeRemoved, section)
+	}
+
 	if len(c.netNSs) > 0 {
 		section := "network namespaces\n"
 		for _, n := range c.netNSs {
@@ -189,12 +216,17 @@ func (c ciliumCleanup) cleanupFuncs() []cleanupFunc {
 		return removeNamedNetNSs(c.netNSs)
 	}
 
+	cleanupTCFilters := func() error {
+		return removeTCFilters(c.tcFilters)
+	}
+
 	return []cleanupFunc{
 		unmountCgroup,
 		removeDirs,
 		removeCNI,
 		cleanupRoutesAndLinks,
 		cleanupNamedNetNSs,
+		cleanupTCFilters,
 	}
 }
 
@@ -409,5 +441,90 @@ func removeNamedNetNSs(netNSs []string) error {
 		}
 		fmt.Printf("removed network namespace %s\n", n)
 	}
+	return nil
+}
+
+func getTCFilters(link netlink.Link) ([]*netlink.BpfFilter, error) {
+	allFilters := []*netlink.BpfFilter{}
+
+	for _, parent := range []uint32{tcFilterParentIngress, tcFilterParentEgress} {
+		filters, err := netlink.FilterList(link, parent)
+		if err != nil {
+			return nil, err
+		}
+		for _, f := range filters {
+			if bpfFilter, ok := f.(*netlink.BpfFilter); ok {
+				allFilters = append(allFilters, bpfFilter)
+			}
+		}
+	}
+
+	return allFilters, nil
+}
+
+func getNodePortNativeDev() (*netlink.Link, error) {
+	var nativeDev *netlink.Link
+
+	path := filepath.Join(defaults.RuntimePath, defaults.StateDir, "globals/node_config.h")
+	f, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	defer f.Close()
+
+	nodePortFound := false
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+
+		switch {
+		case line == "#define ENABLE_NODEPORT 1":
+			nodePortFound = true
+		case strings.HasPrefix(line, "#define NATIVE_DEV_IFINDEX"):
+			tmp := strings.Split(line, " ")
+			if len(tmp) < 3 {
+				return nil, fmt.Errorf("Cannot determine ifindex with %q", line)
+			}
+			index, err := strconv.Atoi(tmp[2])
+			if err != nil {
+				return nil, fmt.Errorf("Invalid ifindex %q: %s", tmp[2], err)
+			}
+			link, err := netlink.LinkByIndex(index)
+			if err != nil {
+				if _, ok := err.(netlink.LinkNotFoundError); ok {
+					// Link not found, just ignore as no tc filter to remove here
+					return nil, nil
+				}
+				return nil, err
+			}
+			nativeDev = &link
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	if nodePortFound {
+		return nativeDev, nil
+	}
+
+	return nil, nil
+}
+
+func removeTCFilters(linkAndFilters map[string][]*netlink.BpfFilter) error {
+	for name, filters := range linkAndFilters {
+		for _, f := range filters {
+			if err := netlink.FilterDel(f); err != nil {
+				return err
+			}
+			fmt.Printf("removed tc filter %v of %s\n", f, name)
+		}
+	}
+
 	return nil
 }
