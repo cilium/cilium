@@ -190,14 +190,17 @@ and ports to enable NFS.
 .. note::
 
    Make sure your host NFS configuration is setup to use tcp:
-   # cat /etc/nfs.conf
-   ...
-   [nfsd]
-   # grace-time=90
-   tcp=y
-   # vers2=n
-   # vers3=y
-   ...
+
+   .. code-block:: none
+
+      # cat /etc/nfs.conf
+      ...
+      [nfsd]
+      # grace-time=90
+      tcp=y
+      # vers2=n
+      # vers3=y
+      ...
 
 If for some reason, running of the provisioning script fails, you should bring the VM down before trying again:
 
