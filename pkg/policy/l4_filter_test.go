@@ -260,7 +260,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 		U8Proto:  6,
 		L7Parser: "http",
 		L7RulesPerSelector: L7DataMap{
-			wildcardCachedSelector: &PerEpData{
+			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
 				},
@@ -368,7 +368,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(c *C)
 		U8Proto:  6,
 		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
-			wildcardCachedSelector: &PerEpData{
+			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -448,7 +448,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 		U8Proto:  6,
 		L7Parser: ParserTypeKafka,
 		L7RulesPerSelector: L7DataMap{
-			wildcardCachedSelector: &PerEpData{
+			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					Kafka: []api.PortRuleKafka{{Topic: "foo"}},
 				},
@@ -722,7 +722,7 @@ func (ds *PolicyTestSuite) TestMergeTLSPolicies(c *C) {
 		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
 			cachedSelectorA: nil,
-			cachedSelectorC: &PerEpData{
+			cachedSelectorC: &PerSelectorPolicy{
 				TerminatingTLS: &TLSContext{
 					CertificateChain: "fake public cert",
 					PrivateKey:       "fake private key",
@@ -920,7 +920,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: nil,
-			cachedSelectorA: &PerEpData{
+			cachedSelectorA: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -990,7 +990,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: nil,
-			cachedSelectorA: &PerEpData{
+			cachedSelectorA: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -1072,12 +1072,12 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 		U8Proto:  6,
 		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
-			wildcardCachedSelector: &PerEpData{
+			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
 			},
-			cachedSelectorA: &PerEpData{
+			cachedSelectorA: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -1151,12 +1151,12 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 		U8Proto:  6,
 		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
-			wildcardCachedSelector: &PerEpData{
+			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
 			},
-			cachedSelectorA: &PerEpData{
+			cachedSelectorA: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -1341,12 +1341,12 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointsSelectedAllowSameL7(
 		U8Proto:  6,
 		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
-			cachedSelectorC: &PerEpData{
+			cachedSelectorC: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
 			},
-			cachedSelectorA: &PerEpData{
+			cachedSelectorA: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -1490,7 +1490,7 @@ func (ds *PolicyTestSuite) TestAllowingLocalhostShadowsL7(c *C) {
 		U8Proto:  6,
 		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
-			wildcardCachedSelector: &PerEpData{
+			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},

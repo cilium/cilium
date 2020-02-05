@@ -67,7 +67,7 @@ func (t *TLSContext) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&redacted)
 }
 
-type PerEpData struct {
+type PerSelectorPolicy struct {
 	// TerminatingTLS is the TLS context for the connection terminated by
 	// the L7 proxy.  For egress policy this specifies the server-side TLS
 	// parameters to be applied on the connections originated from the local
@@ -96,7 +96,7 @@ type PerEpData struct {
 }
 
 // Equal returns true if 'a' and 'b' represent the same L7 Rules
-func (a *PerEpData) Equal(b *PerEpData) bool {
+func (a *PerSelectorPolicy) Equal(b *PerSelectorPolicy) bool {
 	return a == nil && b == nil || a != nil && b != nil &&
 		a.TerminatingTLS.Equal(b.TerminatingTLS) &&
 		a.OriginatingTLS.Equal(b.OriginatingTLS) &&
@@ -104,7 +104,7 @@ func (a *PerEpData) Equal(b *PerEpData) bool {
 }
 
 // L7DataMap contains a map of L7 rules per endpoint where key is a CachedSelector
-type L7DataMap map[CachedSelector]*PerEpData
+type L7DataMap map[CachedSelector]*PerSelectorPolicy
 
 func (l7 L7DataMap) MarshalJSON() ([]byte, error) {
 	if len(l7) == 0 {
@@ -359,7 +359,7 @@ func (l7 L7DataMap) GetRelevantRulesForKafka(nid identity.NumericIdentity) []api
 	for cs, r := range l7 {
 		if cs.IsWildcard() || cs.Selects(nid) {
 			if r == nil {
-				r = &PerEpData{L7Rules: api.L7Rules{Kafka: []api.PortRuleKafka{}}}
+				r = &PerSelectorPolicy{L7Rules: api.L7Rules{Kafka: []api.PortRuleKafka{}}}
 			}
 			rules = append(rules, r.Kafka...)
 		}
@@ -369,7 +369,7 @@ func (l7 L7DataMap) GetRelevantRulesForKafka(nid identity.NumericIdentity) []api
 
 // add L7 rules for all endpoints in the L7DataMap
 func (l7 L7DataMap) addRulesForEndpoints(rules api.L7Rules, terminatingTLS, originatingTLS *TLSContext) {
-	perEpData := &PerEpData{
+	perEpData := &PerSelectorPolicy{
 		L7Rules:        rules,
 		TerminatingTLS: terminatingTLS,
 		OriginatingTLS: originatingTLS,
