@@ -243,6 +243,15 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 			sort.Strings(sr.Kubernetes.K8sAPIVersions)
 			fmt.Fprintf(w, "Kubernetes APIs:\t[\"%s\"]\n", strings.Join(sr.Kubernetes.K8sAPIVersions, "\", \""))
 		}
+		if sr.KubeProxyReplacement != nil {
+			features := make([]string, 0, len(sr.KubeProxyReplacement.Features))
+			for _, f := range sr.KubeProxyReplacement.Features {
+				features = append(features, string(f))
+			}
+			fmt.Fprintf(w, "KubeProxyReplacement:\t%s\t[%s]\n",
+				sr.KubeProxyReplacement.Mode,
+				strings.Join([]string(features), ", "))
+		}
 	}
 	if sr.Cilium != nil {
 		fmt.Fprintf(w, "Cilium:\t%s\t%s\n", sr.Cilium.State, sr.Cilium.Msg)
