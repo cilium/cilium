@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -110,6 +111,14 @@ func NewDeleteIPAMIPHandler(d *Daemon) ipamapi.DeleteIPAMIPHandler {
 }
 
 func (h *deleteIPAMIP) Handle(params ipamapi.DeleteIPAMIPParams) middleware.Responder {
+	// Release of an IP that is in use is not allowed
+	if ep := endpointmanager.LookupIPv4(params.IP); ep != nil {
+		return api.Error(ipamapi.DeleteIPAMIPFailureCode, fmt.Errorf("IP is in use by endpoint %d", ep.ID))
+	}
+	if ep := endpointmanager.LookupIPv6(params.IP); ep != nil {
+		return api.Error(ipamapi.DeleteIPAMIPFailureCode, fmt.Errorf("IP is in use by endpoint %d", ep.ID))
+	}
+
 	if err := h.daemon.ipam.ReleaseIPString(params.IP); err != nil {
 		return api.Error(ipamapi.DeleteIPAMIPFailureCode, err)
 	}
