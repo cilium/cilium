@@ -185,11 +185,6 @@ type L4Filter struct {
 	Protocol api.L4Proto `json:"protocol"`
 	// U8Proto is the Protocol in numeric format, or 0 for NONE
 	U8Proto u8proto.U8proto `json:"-"`
-	// allowsAllAtL3 indicates whether this filter allows all traffic at L3.
-	// This can be determined by checking whether 'Endpoints' contains
-	// 'wildcardCachedSelector', but caching this information instead is
-	// much more performant.
-	allowsAllAtL3 bool
 	// L7RulesPerSelector is a list of L7 rules per endpoint passed to the L7 proxy.
 	// nil values represent cached selectors that have no L7 restriction.
 	// Holds references to the cached selectors, which must be released!
@@ -239,24 +234,7 @@ func (l4 *L4Filter) GetPort() uint16 {
 	return uint16(l4.Port)
 }
 
-// AllowsAllAtL3 returns whether this L4Filter applies to all endpoints at L3.
-func (l4 *L4Filter) AllowsAllAtL3() bool {
-	return l4.allowsAllAtL3
-}
-
-// HasL3DependentL7Rules returns true if this L4Filter is created from rules
-// that require an L3 match as well as specific L7 rules.
-func (l4 *L4Filter) HasL3DependentL7Rules() bool {
-	for cs, l7 := range l4.L7RulesPerSelector {
-		// If L3 is wildcarded, this filter corresponds to L4-only rule(s).
-		if l7 != nil && !cs.IsWildcard() {
-			return true
-		}
-	}
-	return false
-}
-
-// ToMapState converts filter into a map of MapState entries with two possible values:
+// ToMapState converts filter into a MapState with two possible values:
 // - NoRedirectEntry (ProxyPort = 0): No proxy redirection is needed for this key
 // - RedirectEntry (ProxyPort = 1): Proxy redirection is required for this key,
 //                                  caller must replace the ProxyPort with the actual
@@ -328,10 +306,10 @@ func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, selections
 		logfields.DeletedPolicyID:  deleted,
 	}).Debug("identities selected by L4Filter updated")
 
-	// Skip updates on filter that wildcards L3 and has no L3 dependent L7 rules.
-	// In this case the L3 identities are being wildcarded, so we do not need to
-	// enumerate them.
-	if l4.AllowsAllAtL3() && !l4.HasL3DependentL7Rules() {
+	// Skip updates on wildcard selectors, as datapath and L7
+	// proxies do not need enumeration of all ids for L3 wildcard.
+	// This mirrors the per-selector logic in ToMapState().
+	if selector.IsWildcard() {
 		return
 	}
 
@@ -466,7 +444,6 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 
 	if peerEndpoints.SelectsAllEndpoints() {
 		l4.cacheIdentitySelector(api.WildcardEndpointSelector, selectorCache)
-		l4.allowsAllAtL3 = true
 	} else {
 		l4.cacheIdentitySelectors(peerEndpoints, selectorCache)
 		l4.cacheFQDNSelectors(fqdns, selectorCache)
@@ -617,13 +594,12 @@ func (l4 *L4Filter) String() string {
 
 // Note: Only used for policy tracing
 func (l4 *L4Filter) matchesLabels(labels labels.LabelArray) bool {
-	if l4.AllowsAllAtL3() {
-		return true
-	} else if len(labels) == 0 {
-		return false
-	}
-
 	for sel := range l4.L7RulesPerSelector {
+		if sel.IsWildcard() {
+			return true
+		} else if len(labels) == 0 {
+			return false
+		}
 		// slow, but OK for tracing
 		if idSel, ok := sel.(*labelIdentitySelector); ok && idSel.xxxMatches(labels) {
 			return true

@@ -255,11 +255,10 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 	// just set the expected set of L7 rules below to include this to match
 	// the current implementation.
 	expected := L4PolicyMap{"80/TCP": &L4Filter{
-		Port:          80,
-		Protocol:      api.ProtoTCP,
-		U8Proto:       6,
-		allowsAllAtL3: true,
-		L7Parser:      "http",
+		Port:     80,
+		Protocol: api.ProtoTCP,
+		U8Proto:  6,
+		L7Parser: "http",
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: &PerEpData{
 				L7Rules: api.L7Rules{
@@ -364,11 +363,10 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(c *C)
 		}}
 
 	expected := L4PolicyMap{"80/TCP": &L4Filter{
-		Port:          80,
-		Protocol:      api.ProtoTCP,
-		U8Proto:       6,
-		allowsAllAtL3: true,
-		L7Parser:      ParserTypeHTTP,
+		Port:     80,
+		Protocol: api.ProtoTCP,
+		U8Proto:  6,
+		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: &PerEpData{
 				L7Rules: api.L7Rules{
@@ -445,11 +443,10 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 	c.Log(buffer)
 
 	expected := L4PolicyMap{"9092/TCP": &L4Filter{
-		Port:          9092,
-		Protocol:      api.ProtoTCP,
-		U8Proto:       6,
-		allowsAllAtL3: true,
-		L7Parser:      ParserTypeKafka,
+		Port:     9092,
+		Protocol: api.ProtoTCP,
+		U8Proto:  6,
+		L7Parser: ParserTypeKafka,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: &PerEpData{
 				L7Rules: api.L7Rules{
@@ -719,11 +716,10 @@ func (ds *PolicyTestSuite) TestMergeTLSPolicies(c *C) {
 	c.Assert(res, Not(IsNil))
 
 	expected := L4PolicyMap{"443/TCP": &L4Filter{
-		Port:          443,
-		Protocol:      api.ProtoTCP,
-		U8Proto:       6,
-		allowsAllAtL3: false,
-		L7Parser:      ParserTypeHTTP,
+		Port:     443,
+		Protocol: api.ProtoTCP,
+		U8Proto:  6,
+		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
 			cachedSelectorA: nil,
 			cachedSelectorC: &PerEpData{
@@ -749,7 +745,6 @@ func (ds *PolicyTestSuite) TestMergeTLSPolicies(c *C) {
 
 	l4Filter := res["443/TCP"]
 	c.Assert(l4Filter, Not(IsNil))
-	c.Assert(l4Filter.allowsAllAtL3, Equals, false)
 	c.Assert(l4Filter.L7Parser, Equals, ParserTypeHTTP)
 	log.Infof("res: %v", res)
 }
@@ -788,11 +783,10 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 	c.Log(buffer)
 
 	expected := L4PolicyMap{"80/TCP": &L4Filter{
-		Port:          80,
-		Protocol:      api.ProtoTCP,
-		U8Proto:       6,
-		allowsAllAtL3: true,
-		L7Parser:      ParserTypeNone,
+		Port:     80,
+		Protocol: api.ProtoTCP,
+		U8Proto:  6,
+		L7Parser: ParserTypeNone,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: nil,
 			cachedSelectorA:        nil,
@@ -848,11 +842,10 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 	c.Log(buffer)
 
 	expected = L4PolicyMap{"80/TCP": &L4Filter{
-		Port:          80,
-		Protocol:      api.ProtoTCP,
-		U8Proto:       6,
-		allowsAllAtL3: true,
-		L7Parser:      ParserTypeNone,
+		Port:     80,
+		Protocol: api.ProtoTCP,
+		U8Proto:  6,
+		L7Parser: ParserTypeNone,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: nil,
 			cachedSelectorA:        nil,
@@ -921,11 +914,10 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 	c.Log(buffer)
 
 	expected := L4PolicyMap{"80/TCP": &L4Filter{
-		Port:          80,
-		Protocol:      api.ProtoTCP,
-		U8Proto:       6,
-		allowsAllAtL3: true,
-		L7Parser:      ParserTypeHTTP,
+		Port:     80,
+		Protocol: api.ProtoTCP,
+		U8Proto:  6,
+		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: nil,
 			cachedSelectorA: &PerEpData{
@@ -992,11 +984,10 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 	c.Log(buffer)
 
 	expected = L4PolicyMap{"80/TCP": &L4Filter{
-		Port:          80,
-		Protocol:      api.ProtoTCP,
-		U8Proto:       6,
-		allowsAllAtL3: true,
-		L7Parser:      ParserTypeHTTP,
+		Port:     80,
+		Protocol: api.ProtoTCP,
+		U8Proto:  6,
+		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: nil,
 			cachedSelectorA: &PerEpData{
@@ -1076,11 +1067,10 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 	c.Log(buffer)
 
 	expected := L4PolicyMap{"80/TCP": &L4Filter{
-		Port:          80,
-		Protocol:      api.ProtoTCP,
-		U8Proto:       6,
-		allowsAllAtL3: true,
-		L7Parser:      ParserTypeHTTP,
+		Port:     80,
+		Protocol: api.ProtoTCP,
+		U8Proto:  6,
+		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: &PerEpData{
 				L7Rules: api.L7Rules{
@@ -1156,11 +1146,10 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 	ctxToA.Logging = logging.NewLogBackend(buffer, "", 0)
 
 	expected = L4PolicyMap{"80/TCP": &L4Filter{
-		Port:          80,
-		Protocol:      api.ProtoTCP,
-		U8Proto:       6,
-		allowsAllAtL3: true,
-		L7Parser:      ParserTypeHTTP,
+		Port:     80,
+		Protocol: api.ProtoTCP,
+		U8Proto:  6,
+		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: &PerEpData{
 				L7Rules: api.L7Rules{
@@ -1496,11 +1485,10 @@ func (ds *PolicyTestSuite) TestAllowingLocalhostShadowsL7(c *C) {
 	ctxToA.Logging = logging.NewLogBackend(buffer, "", 0)
 
 	expected := L4PolicyMap{"80/TCP": &L4Filter{
-		Port:          80,
-		Protocol:      api.ProtoTCP,
-		U8Proto:       6,
-		allowsAllAtL3: true,
-		L7Parser:      ParserTypeHTTP,
+		Port:     80,
+		Protocol: api.ProtoTCP,
+		U8Proto:  6,
+		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: &PerEpData{
 				L7Rules: api.L7Rules{
@@ -1564,7 +1552,6 @@ func (ds *PolicyTestSuite) TestEntitiesL3(c *C) {
 			wildcardCachedSelector: nil,
 		},
 		Ingress:          false,
-		allowsAllAtL3:    true,
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 

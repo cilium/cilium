@@ -284,12 +284,11 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 				Revision: repo.GetRevision(),
 				Ingress: L4PolicyMap{
 					"80/TCP": {
-						Port:          80,
-						Protocol:      api.ProtoTCP,
-						U8Proto:       0x6,
-						allowsAllAtL3: true,
-						L7Parser:      ParserTypeHTTP,
-						Ingress:       true,
+						Port:     80,
+						Protocol: api.ProtoTCP,
+						U8Proto:  0x6,
+						L7Parser: ParserTypeHTTP,
+						Ingress:  true,
 						L7RulesPerSelector: L7DataMap{
 							wildcardCachedSelector: &PerEpData{
 								L7Rules: api.L7Rules{
@@ -376,12 +375,11 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 				Revision: repo.GetRevision(),
 				Ingress: L4PolicyMap{
 					"80/TCP": {
-						Port:          80,
-						Protocol:      api.ProtoTCP,
-						U8Proto:       0x6,
-						allowsAllAtL3: true,
-						L7Parser:      ParserTypeHTTP,
-						Ingress:       true,
+						Port:     80,
+						Protocol: api.ProtoTCP,
+						U8Proto:  0x6,
+						L7Parser: ParserTypeHTTP,
+						Ingress:  true,
 						L7RulesPerSelector: L7DataMap{
 							wildcardCachedSelector: &PerEpData{
 								L7Rules: api.L7Rules{
@@ -455,12 +453,11 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 				Revision: repo.GetRevision(),
 				Ingress: L4PolicyMap{
 					"80/TCP": {
-						Port:          80,
-						Protocol:      api.ProtoTCP,
-						U8Proto:       0x6,
-						allowsAllAtL3: true,
-						L7Parser:      ParserTypeNone,
-						Ingress:       true,
+						Port:     80,
+						Protocol: api.ProtoTCP,
+						U8Proto:  0x6,
+						L7Parser: ParserTypeNone,
+						Ingress:  true,
 						L7RulesPerSelector: L7DataMap{
 							wildcardCachedSelector: nil,
 						},
@@ -574,12 +571,11 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 				Revision: repo.GetRevision(),
 				Ingress: L4PolicyMap{
 					"80/TCP": {
-						Port:          80,
-						Protocol:      api.ProtoTCP,
-						U8Proto:       0x6,
-						allowsAllAtL3: false,
-						L7Parser:      ParserTypeNone,
-						Ingress:       true,
+						Port:     80,
+						Protocol: api.ProtoTCP,
+						U8Proto:  0x6,
+						L7Parser: ParserTypeNone,
+						Ingress:  true,
 						L7RulesPerSelector: L7DataMap{
 							cachedSelectorWorld: nil,
 							cachedSelectorTest:  nil,
