@@ -39,6 +39,9 @@ type StatusResponse struct {
 	// Status of IP address management
 	Ipam *IPAMStatus `json:"ipam,omitempty"`
 
+	// Status of kube-proxy replacement
+	KubeProxyReplacement *KubeProxyReplacement `json:"kube-proxy-replacement,omitempty"`
+
 	// Status of Kubernetes integration
 	Kubernetes *K8sStatus `json:"kubernetes,omitempty"`
 
@@ -76,6 +79,10 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateIpam(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateKubeProxyReplacement(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -185,6 +192,24 @@ func (m *StatusResponse) validateIpam(formats strfmt.Registry) error {
 		if err := m.Ipam.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("ipam")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) validateKubeProxyReplacement(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.KubeProxyReplacement) { // not required
+		return nil
+	}
+
+	if m.KubeProxyReplacement != nil {
+		if err := m.KubeProxyReplacement.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("kube-proxy-replacement")
 			}
 			return err
 		}

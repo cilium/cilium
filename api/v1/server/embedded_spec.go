@@ -2404,6 +2404,39 @@ func init() {
         }
       }
     },
+    "KubeProxyReplacement": {
+      "description": "Status of kube-proxy replacement",
+      "type": "object",
+      "properties": {
+        "features": {
+          "description": "Enabled features",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/KubeProxyReplacementFeatures"
+          }
+        },
+        "mode": {
+          "description": "kube-proxy replacement mode",
+          "type": "string",
+          "enum": [
+            "Disabled",
+            "Strict",
+            "Probe",
+            "Partial"
+          ]
+        }
+      }
+    },
+    "KubeProxyReplacementFeatures": {
+      "description": "kube-proxy replacement features",
+      "type": "string",
+      "enum": [
+        "NodePort",
+        "HostReachableServicesTCP",
+        "HostReachableServicesUDP",
+        "ExternalIPs"
+      ]
+    },
     "L4Policy": {
       "description": "L4 endpoint policy",
       "type": "object",
@@ -2950,6 +2983,10 @@ func init() {
         "ipam": {
           "description": "Status of IP address management",
           "$ref": "#/definitions/IPAMStatus"
+        },
+        "kube-proxy-replacement": {
+          "description": "Status of kube-proxy replacement",
+          "$ref": "#/definitions/KubeProxyReplacement"
         },
         "kubernetes": {
           "description": "Status of Kubernetes integration",
@@ -5694,6 +5731,39 @@ func init() {
         }
       }
     },
+    "KubeProxyReplacement": {
+      "description": "Status of kube-proxy replacement",
+      "type": "object",
+      "properties": {
+        "features": {
+          "description": "Enabled features",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/KubeProxyReplacementFeatures"
+          }
+        },
+        "mode": {
+          "description": "kube-proxy replacement mode",
+          "type": "string",
+          "enum": [
+            "Disabled",
+            "Strict",
+            "Probe",
+            "Partial"
+          ]
+        }
+      }
+    },
+    "KubeProxyReplacementFeatures": {
+      "description": "kube-proxy replacement features",
+      "type": "string",
+      "enum": [
+        "NodePort",
+        "HostReachableServicesTCP",
+        "HostReachableServicesUDP",
+        "ExternalIPs"
+      ]
+    },
     "L4Policy": {
       "description": "L4 endpoint policy",
       "type": "object",
@@ -6240,6 +6310,10 @@ func init() {
         "ipam": {
           "description": "Status of IP address management",
           "$ref": "#/definitions/IPAMStatus"
+        },
+        "kube-proxy-replacement": {
+          "description": "Status of kube-proxy replacement",
+          "$ref": "#/definitions/KubeProxyReplacement"
         },
         "kubernetes": {
           "description": "Status of Kubernetes integration",
