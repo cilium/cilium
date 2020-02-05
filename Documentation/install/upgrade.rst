@@ -422,7 +422,7 @@ Removed options
 ~~~~~~~~~~~~~~~~~~
 
 * ``lb``: The ``--lb`` feature has been removed. If you need load-balancing on
-  a particular device, consider using :ref:`nodeport`.
+  a particular device, consider using :ref:`kubeproxy-free`.
 
 * ``docker`` and ``e``: This flags has been removed as Cilium no longer requires
   container runtime integrations to manage containers' networks.
