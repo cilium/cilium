@@ -94,8 +94,8 @@ func (epd *PerEpData) appendL7WildcardRules(ctx *SearchContext) *PerEpData {
 }
 
 func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter, selectorCache *SelectorCache) error {
-	// Merge the L7-related data from the arguments provided to this function
-	// with the existing L7-related data already in the filter.
+	// Merge the L7-related data from the filter to merge
+	// with the L7-related data already in the existing filter.
 	if filterToMerge.L7Parser != ParserTypeNone {
 		if existingFilter.L7Parser == ParserTypeNone {
 			existingFilter.L7Parser = filterToMerge.L7Parser
@@ -212,6 +212,7 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 			existingFilter.L7RulesPerSelector[cs] = newL7Rules
 		}
 	}
+
 	return nil
 }
 

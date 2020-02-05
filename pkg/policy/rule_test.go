@@ -151,6 +151,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 			Ingress: []api.IngressRule{
 				{
+					// Note that this allows all on 80, so the result should wildcard HTTP
 					ToPorts: []api.PortRule{{
 						Ports: []api.PortProtocol{
 							{Port: "80", Protocol: api.ProtoTCP},
@@ -192,7 +193,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: &PerEpData{
 				L7Rules: api.L7Rules{
-					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
 				},
 			},
 		},
@@ -219,9 +220,16 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	ingressState = traceState{}
 	egressState = traceState{}
 	res = NewL4Policy(0)
-	res.Ingress, err = rule2.resolveIngressPolicy(testPolicyContext, toBar, &ingressState, L4PolicyMap{}, nil)
+
+	buffer := new(bytes.Buffer)
+	ctx := SearchContext{To: labels.ParseSelectLabelArray("bar"), Trace: TRACE_VERBOSE}
+	ctx.Logging = logging.NewLogBackend(buffer, "", 0)
+
+	res.Ingress, err = rule2.resolveIngressPolicy(testPolicyContext, &ctx, &ingressState, L4PolicyMap{}, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res.Ingress, Not(IsNil))
+
+	c.Log(buffer)
 
 	res.Egress, err = rule2.resolveEgressPolicy(testPolicyContext, fromBar, &egressState, L4PolicyMap{}, nil)
 	c.Assert(err, IsNil)
@@ -418,7 +426,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: &PerEpData{
 				L7Rules: api.L7Rules{
-					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
 				},
 			},
 			cachedFooSelector: &PerEpData{
@@ -654,7 +662,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: &PerEpData{
 				L7Rules: api.L7Rules{
-					HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}},
+					HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}, {}},
 				},
 			},
 			cachedFooSelector: &PerEpData{
@@ -731,7 +739,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: &PerEpData{
 				L7Rules: api.L7Rules{
-					Kafka: []api.PortRuleKafka{{Topic: "foo"}},
+					Kafka: []api.PortRuleKafka{{Topic: "foo"}, {}},
 				},
 			},
 			cachedFooSelector: &PerEpData{
@@ -1455,7 +1463,7 @@ func (ds *PolicyTestSuite) TestIngressL4AllowAll(c *C) {
 	c.Assert(filter.Ingress, Equals, true)
 
 	c.Assert(len(filter.L7RulesPerSelector), Equals, 1)
-	c.Assert(filter.L7RulesPerSelector[wildcardCachedSelector], checker.Equals, nil)
+	c.Assert(filter.L7RulesPerSelector[wildcardCachedSelector], IsNil)
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 }
 
@@ -1524,7 +1532,7 @@ func (ds *PolicyTestSuite) TestEgressL4AllowAll(c *C) {
 	c.Assert(filter.Ingress, Equals, false)
 
 	c.Assert(len(filter.L7RulesPerSelector), Equals, 1)
-	c.Assert(filter.L7RulesPerSelector[wildcardCachedSelector], checker.Equals, nil)
+	c.Assert(filter.L7RulesPerSelector[wildcardCachedSelector], IsNil)
 	l4EgressPolicy.Detach(repo.GetSelectorCache())
 }
 
@@ -1717,7 +1725,6 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
-				FromEndpoints: []api.EndpointSelector{endpointSelectorC},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
 						{Port: "80", Protocol: api.ProtoTCP},
@@ -1738,6 +1745,21 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 			},
 		},
 	}})
+
+	expected := &L4Filter{
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+		allowsAllAtL3: true,
+		L7Parser:      "http",
+		L7RulesPerSelector: L7DataMap{
+			wildcardCachedSelector: &PerEpData{
+				L7Rules: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
+				},
+			},
+		},
+		Ingress:          true,
+		DerivedFromRules: labels.LabelArrayList{nil, nil},
+	}
 
 	buffer := new(bytes.Buffer)
 	ctx := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
@@ -1753,12 +1775,10 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 	c.Assert(filter.Port, Equals, 80)
 	c.Assert(filter.Ingress, Equals, true)
 
-	c.Assert(len(filter.L7RulesPerSelector), Equals, 2)
-	c.Assert(filter.L7RulesPerSelector[cachedSelectorC], Not(IsNil))
-	c.Assert(filter.L7RulesPerSelector[wildcardCachedSelector], IsNil)
-
+	c.Assert(len(filter.L7RulesPerSelector), Equals, 1)
+	c.Assert(filter.L7RulesPerSelector[wildcardCachedSelector], Not(IsNil))
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
-	c.Assert(len(filter.L7RulesPerSelector), Equals, 2)
+	c.Assert(filter, checker.Equals, expected)
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 
 	// Test the reverse order as well; ensure that we check both conditions
@@ -1776,7 +1796,6 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 				}},
 			},
 			{
-				FromEndpoints: []api.EndpointSelector{endpointSelectorC},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
 						{Port: "80", Protocol: api.ProtoTCP},
@@ -1805,12 +1824,10 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 	c.Assert(filter.Port, Equals, 80)
 	c.Assert(filter.Ingress, Equals, true)
 
-	c.Assert(len(filter.L7RulesPerSelector), Equals, 2)
-	c.Assert(filter.L7RulesPerSelector[wildcardCachedSelector], IsNil)
-	c.Assert(filter.L7RulesPerSelector[cachedSelectorC], Not(IsNil))
-
+	c.Assert(len(filter.L7RulesPerSelector), Equals, 1)
+	c.Assert(filter.L7RulesPerSelector[wildcardCachedSelector], Not(IsNil))
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
-	c.Assert(len(filter.L7RulesPerSelector), Equals, 2)
+	c.Assert(filter, checker.Equals, expected)
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 
 	// Second, test the explicit allow at L3.
@@ -1818,7 +1835,6 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
-				FromEndpoints: []api.EndpointSelector{endpointSelectorC},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
 						{Port: "80", Protocol: api.ProtoTCP},
@@ -1855,9 +1871,9 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 	c.Assert(filter.Port, Equals, 80)
 	c.Assert(filter.Ingress, Equals, true)
 
-	c.Assert(len(filter.L7RulesPerSelector), Equals, 2)
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
-	c.Assert(len(filter.L7RulesPerSelector), Equals, 2)
+	c.Assert(len(filter.L7RulesPerSelector), Equals, 1)
+	c.Assert(filter, checker.Equals, expected)
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 
 	// Test the reverse order as well; ensure that we check both conditions
@@ -1876,7 +1892,6 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 				}},
 			},
 			{
-				FromEndpoints: []api.EndpointSelector{endpointSelectorC},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
 						{Port: "80", Protocol: api.ProtoTCP},
@@ -1905,10 +1920,9 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 	c.Assert(filter.Port, Equals, 80)
 	c.Assert(filter.Ingress, Equals, true)
 
-	c.Assert(len(filter.L7RulesPerSelector), Equals, 2)
-
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
-	c.Assert(len(filter.L7RulesPerSelector), Equals, 2)
+	c.Assert(len(filter.L7RulesPerSelector), Equals, 1)
+	c.Assert(filter, checker.Equals, expected)
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 }
 
@@ -1969,6 +1983,21 @@ func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
 	c.Assert(len(filter.L7RulesPerSelector), Equals, 2)
+	c.Assert(filter, checker.Equals, &L4Filter{
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+		allowsAllAtL3: true,
+		L7Parser:      "http",
+		L7RulesPerSelector: L7DataMap{
+			cachedSelectorC: nil,
+			wildcardCachedSelector: &PerEpData{
+				L7Rules: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+				},
+			},
+		},
+		Ingress:          true,
+		DerivedFromRules: labels.LabelArrayList{nil, nil},
+	})
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 
 	repo = parseAndAddRules(c, api.Rules{&api.Rule{
@@ -2011,12 +2040,26 @@ func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
 	c.Assert(filter.Port, Equals, 80)
 	c.Assert(filter.Ingress, Equals, true)
 
+	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
 	c.Assert(len(filter.L7RulesPerSelector), Equals, 2)
 	c.Assert(filter.L7RulesPerSelector[wildcardCachedSelector], Not(IsNil))
 	c.Assert(filter.L7RulesPerSelector[cachedSelectorC], IsNil)
+	c.Assert(filter, checker.Equals, &L4Filter{
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+		allowsAllAtL3: true,
+		L7Parser:      "http",
+		L7RulesPerSelector: L7DataMap{
+			cachedSelectorC: nil,
+			wildcardCachedSelector: &PerEpData{
+				L7Rules: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+				},
+			},
+		},
+		Ingress:          true,
+		DerivedFromRules: labels.LabelArrayList{nil, nil},
+	})
 
-	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
-	c.Assert(len(filter.L7RulesPerSelector), Equals, 2)
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 }
 

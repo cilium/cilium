@@ -184,66 +184,6 @@ func (state *traceState) trace(rules int, ctx *SearchContext) {
 	}
 }
 
-// This belongs to l4.go as this manipulates L4Filters
-func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelectorSlice,
-	ruleLabels labels.LabelArray, l4Policy L4PolicyMap, selectorCache *SelectorCache) {
-	for _, filter := range l4Policy {
-		if proto != filter.Protocol || (port != 0 && port != filter.Port) {
-			continue
-		}
-		switch filter.L7Parser {
-		case ParserTypeNone:
-			continue
-		case ParserTypeHTTP:
-			// Wildcard at L7 all the endpoints allowed at L3 or L4.
-			for _, sel := range endpoints {
-				cs := filter.cacheIdentitySelector(sel, selectorCache)
-				filter.L7RulesPerSelector[cs] = &PerEpData{
-					L7Rules: api.L7Rules{
-						HTTP: []api.PortRuleHTTP{{}},
-					}}
-			}
-		case ParserTypeKafka:
-			// Wildcard at L7 all the endpoints allowed at L3 or L4.
-			for _, sel := range endpoints {
-				rule := api.PortRuleKafka{}
-				rule.Sanitize()
-				cs := filter.cacheIdentitySelector(sel, selectorCache)
-				filter.L7RulesPerSelector[cs] = &PerEpData{
-					L7Rules: api.L7Rules{
-						Kafka: []api.PortRuleKafka{rule},
-					}}
-			}
-		case ParserTypeDNS:
-			// Wildcard at L7 all the endpoints allowed at L3 or L4.
-			for _, sel := range endpoints {
-				// Wildcarding at L7 for DNS is specified via allowing all via
-				// MatchPattern!
-				rule := api.PortRuleDNS{
-					MatchPattern: "*",
-				}
-				rule.Sanitize()
-				cs := filter.cacheIdentitySelector(sel, selectorCache)
-				filter.L7RulesPerSelector[cs] = &PerEpData{
-					L7Rules: api.L7Rules{
-						DNS: []api.PortRuleDNS{rule},
-					}}
-			}
-		default:
-			// Wildcard at L7 all the endpoints allowed at L3 or L4.
-			for _, sel := range endpoints {
-				cs := filter.cacheIdentitySelector(sel, selectorCache)
-				filter.L7RulesPerSelector[cs] = &PerEpData{
-					L7Rules: api.L7Rules{
-						L7Proto: filter.L7Parser.String(),
-						L7:      []api.PortRuleL7{},
-					}}
-			}
-		}
-		filter.DerivedFromRules = append(filter.DerivedFromRules, ruleLabels)
-	}
-}
-
 // ResolveL4IngressPolicy resolves the L4 ingress policy for a set of endpoints
 // by searching the policy repository for `PortRule` rules that are attached to
 // a `Rule` where the EndpointSelector matches `ctx.To`. `ctx.From` takes no effect and

@@ -171,6 +171,9 @@ func GenerateCIDRRules(numRules int) api.Rules {
 type DummyOwner struct{}
 
 func (d DummyOwner) LookupRedirectPort(l4 *L4Filter) uint16 {
+	if l4.IsRedirect() {
+		return 42
+	}
 	return 0
 }
 
@@ -385,10 +388,7 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 								},
 								CanShortCircuit: true,
 							},
-							cachedSelectorHost: &PerEpData{
-								L7Rules:         api.L7Rules{},
-								CanShortCircuit: true,
-							},
+							cachedSelectorHost: nil,
 						},
 						DerivedFromRules: labels.LabelArrayList{nil},
 					},
