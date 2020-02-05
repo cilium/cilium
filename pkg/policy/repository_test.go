@@ -672,7 +672,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 			L7Parser: ParserTypeKafka,
 			Ingress:  true,
 			L7RulesPerSelector: L7DataMap{
-				cachedSelectorBar2: &PerEpData{
+				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						Kafka: []api.PortRuleKafka{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
 					},
@@ -687,7 +687,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 			L7Parser: ParserTypeHTTP,
 			Ingress:  true,
 			L7RulesPerSelector: L7DataMap{
-				cachedSelectorBar2: &PerEpData{
+				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{httpRule.Ingress[0].ToPorts[0].Rules.HTTP[0]},
 					},
@@ -702,7 +702,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 			L7Parser: L7ParserType("tester"),
 			Ingress:  true,
 			L7RulesPerSelector: L7DataMap{
-				cachedSelectorBar2: &PerEpData{
+				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						L7Proto: "tester",
 						L7:      []api.PortRuleL7{l7Rule.Ingress[0].ToPorts[0].Rules.L7[0]},
@@ -829,7 +829,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 			Ingress:  true,
 			L7RulesPerSelector: L7DataMap{
 				cachedSelectorBar1: nil,
-				cachedSelectorBar2: &PerEpData{
+				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{httpRule.Ingress[0].ToPorts[0].Rules.HTTP[0]},
 					},
@@ -845,7 +845,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 			Ingress:  true,
 			L7RulesPerSelector: L7DataMap{
 				cachedSelectorBar1: nil,
-				cachedSelectorBar2: &PerEpData{
+				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						Kafka: []api.PortRuleKafka{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
 					},
@@ -1102,7 +1102,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 			L7Parser: ParserTypeDNS,
 			Ingress:  false,
 			L7RulesPerSelector: L7DataMap{
-				cachedSelectorBar2: &PerEpData{
+				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						DNS: []api.PortRuleDNS{dnsRule.Egress[0].ToPorts[0].Rules.DNS[0]},
 					},
@@ -1117,7 +1117,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 			L7Parser: ParserTypeHTTP,
 			Ingress:  false,
 			L7RulesPerSelector: L7DataMap{
-				cachedSelectorBar2: &PerEpData{
+				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{httpRule.Egress[0].ToPorts[0].Rules.HTTP[0]},
 					},
@@ -1260,7 +1260,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 			Ingress:  false,
 			L7RulesPerSelector: L7DataMap{
 				cachedSelectorBar1: nil,
-				cachedSelectorBar2: &PerEpData{
+				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{httpRule.Egress[0].ToPorts[0].Rules.HTTP[0]},
 					},
@@ -1276,7 +1276,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 			Ingress:  false,
 			L7RulesPerSelector: L7DataMap{
 				cachedSelectorBar1: nil,
-				cachedSelectorBar2: &PerEpData{
+				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						DNS: []api.PortRuleDNS{dnsRule.Egress[0].ToPorts[0].Rules.DNS[0]},
 					},
@@ -1373,7 +1373,7 @@ func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgress(c *C) {
 			L7Parser: ParserTypeHTTP,
 			Ingress:  false,
 			L7RulesPerSelector: L7DataMap{
-				cachedSelectors[0]: &PerEpData{
+				cachedSelectors[0]: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{{
 							Headers: []string{"X-My-Header: true"},
@@ -1507,7 +1507,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 			L7Parser: ParserTypeKafka,
 			Ingress:  true,
 			L7RulesPerSelector: L7DataMap{
-				cachedSelectorBar2: &PerEpData{
+				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						Kafka: []api.PortRuleKafka{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
 					},
@@ -1522,7 +1522,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 			L7Parser: ParserTypeHTTP,
 			Ingress:  true,
 			L7RulesPerSelector: L7DataMap{
-				cachedSelectorBar2: &PerEpData{
+				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{httpRule.Ingress[0].ToPorts[0].Rules.HTTP[0]},
 					},
@@ -1639,7 +1639,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 			L7Parser: ParserTypeDNS,
 			Ingress:  false,
 			L7RulesPerSelector: L7DataMap{
-				cachedSelectorBar2: &PerEpData{
+				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						DNS: []api.PortRuleDNS{dnsRule.Egress[0].ToPorts[0].Rules.DNS[0]},
 					},
@@ -1654,7 +1654,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 			L7Parser: ParserTypeHTTP,
 			Ingress:  false,
 			L7RulesPerSelector: L7DataMap{
-				cachedSelectorBar2: &PerEpData{
+				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{httpRule.Egress[0].ToPorts[0].Rules.HTTP[0]},
 					},
@@ -1770,7 +1770,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
-			cachedSelectorApp2: &PerEpData{
+			cachedSelectorApp2: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/"}, {}},
 				},
