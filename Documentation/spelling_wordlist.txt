@@ -411,6 +411,7 @@ nfp
 nfs
 nfsd
 nftables
+nginx
 nodeX
 observability
 onData
