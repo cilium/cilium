@@ -20,8 +20,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -39,8 +37,6 @@ var (
 		n := node.Node{}
 		return &n
 	}
-
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "node-store")
 )
 
 // NodeObserver implements the store.Observer interface and delegates update

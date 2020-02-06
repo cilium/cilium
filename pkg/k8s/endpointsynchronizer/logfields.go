@@ -14,18 +14,8 @@
 
 package endpointsynchronizer
 
-import (
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-)
-
 // logging field definitions
 const (
 	// subsysEndpointSync is the value for logfields.LogSubsys
 	subsysEndpointSync = "endpointsynchronizer"
-)
-
-var (
-	// log is the endpointsynchronizer package logger object.
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsysEndpointSync)
 )
