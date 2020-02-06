@@ -1591,31 +1591,48 @@ definitions:
       msg:
         type: string
         description: Human readable status/error/warning message
-  KubeProxyReplacementFeatures:
-    description: kube-proxy replacement features
-    type: string
-    enum:
-    - NodePort
-    - HostReachableServicesTCP
-    - HostReachableServicesUDP
-    - ExternalIPs
   KubeProxyReplacement:
     description: Status of kube-proxy replacement
     type: object
     properties:
       mode:
         type: string
-        description: kube-proxy replacement mode
         enum:
         - Disabled
         - Strict
         - Probe
         - Partial
       features:
-        type: array
-        description: Enabled features
-        items:
-          "$ref": "#/definitions/KubeProxyReplacementFeatures"
+        type: object
+        properties:
+          nodePort:
+            type: object
+            properties:
+              enabled:
+                type: boolean
+              mode:
+                type: string
+                enum:
+                - SNAT
+                - DSR
+              portMin:
+                type: integer
+              portMax:
+                type: integer
+          externalIPs:
+            type: object
+            properties:
+              enabled:
+                type: boolean
+          hostReachableServices:
+            type: object
+            properties:
+              enabled:
+                type: boolean
+              protocols:
+                type: array
+                items:
+                  type: string
   AllocationMap:
     description: |
       Map of allocated IPs

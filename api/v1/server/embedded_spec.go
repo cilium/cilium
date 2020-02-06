@@ -2409,14 +2409,54 @@ func init() {
       "type": "object",
       "properties": {
         "features": {
-          "description": "Enabled features",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/KubeProxyReplacementFeatures"
+          "type": "object",
+          "properties": {
+            "externalIPs": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "hostReachableServices": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "protocols": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "nodePort": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "SNAT",
+                    "DSR"
+                  ]
+                },
+                "portMax": {
+                  "type": "integer"
+                },
+                "portMin": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "mode": {
-          "description": "kube-proxy replacement mode",
           "type": "string",
           "enum": [
             "Disabled",
@@ -2426,16 +2466,6 @@ func init() {
           ]
         }
       }
-    },
-    "KubeProxyReplacementFeatures": {
-      "description": "kube-proxy replacement features",
-      "type": "string",
-      "enum": [
-        "NodePort",
-        "HostReachableServicesTCP",
-        "HostReachableServicesUDP",
-        "ExternalIPs"
-      ]
     },
     "L4Policy": {
       "description": "L4 endpoint policy",
@@ -5736,14 +5766,54 @@ func init() {
       "type": "object",
       "properties": {
         "features": {
-          "description": "Enabled features",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/KubeProxyReplacementFeatures"
+          "type": "object",
+          "properties": {
+            "externalIPs": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "hostReachableServices": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "protocols": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "nodePort": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "SNAT",
+                    "DSR"
+                  ]
+                },
+                "portMax": {
+                  "type": "integer"
+                },
+                "portMin": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "mode": {
-          "description": "kube-proxy replacement mode",
           "type": "string",
           "enum": [
             "Disabled",
@@ -5753,16 +5823,6 @@ func init() {
           ]
         }
       }
-    },
-    "KubeProxyReplacementFeatures": {
-      "description": "kube-proxy replacement features",
-      "type": "string",
-      "enum": [
-        "NodePort",
-        "HostReachableServicesTCP",
-        "HostReachableServicesUDP",
-        "ExternalIPs"
-      ]
     },
     "L4Policy": {
       "description": "L4 endpoint policy",
