@@ -20,8 +20,6 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // EncryptKey is the context ID for the encryption session
@@ -63,8 +61,6 @@ func newEncryptKey(key uint32) *EncryptKey {
 		key: key,
 	}
 }
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "encryptMap")
 
 const (
 	// MapName name of map used to pin map for datapath

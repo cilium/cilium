@@ -21,14 +21,10 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/monitor/payload"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "monitor-format")
 
 // Verbosity levels for formatting output.
 type Verbosity uint8

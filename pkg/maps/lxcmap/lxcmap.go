@@ -21,12 +21,8 @@ import (
 
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-lxc")
 
 const (
 	MapName = "cilium_lxc"
