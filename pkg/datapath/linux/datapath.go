@@ -37,18 +37,17 @@ type linuxDatapath struct {
 	node           datapath.NodeHandler
 	nodeAddressing datapath.NodeAddressing
 	config         DatapathConfiguration
-	configWriter   *config.HeaderfileWriter
 	loader         *loader.Loader
 }
 
 // NewDatapath creates a new Linux datapath
 func NewDatapath(cfg DatapathConfiguration, ruleManager datapath.IptablesManager) datapath.Datapath {
 	dp := &linuxDatapath{
+		ConfigWriter:    &config.HeaderfileWriter{},
+		IptablesManager: ruleManager,
 		nodeAddressing:  NewNodeAddressing(),
 		config:          cfg,
-		ConfigWriter:    &config.HeaderfileWriter{},
 		loader:          loader.NewLoader(canDisableDwarfRelocations),
-		IptablesManager: ruleManager,
 	}
 
 	dp.node = NewNodeHandler(cfg, dp.nodeAddressing)
