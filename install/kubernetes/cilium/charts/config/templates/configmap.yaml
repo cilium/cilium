@@ -248,26 +248,27 @@ data:
   encrypt-node: {{ .Values.global.encryption.nodeEncryption | quote }}
 {{- end }}
 {{- end }}
-
-{{- if .Values.global.hostServices.enabled }}
-  enable-host-reachable-services: "true"
-{{- if ne .Values.global.hostServices.protocols "tcp,udp" }}
-  host-reachable-services-protos: {{ .Values.global.hostServices.protocols }}
-{{- end }}
-{{- end }}
-
 {{- if .Values.global.datapathMode }}
 {{- if eq .Values.global.datapathMode "ipvlan" }}
   datapath-mode: ipvlan
   ipvlan-master-device: {{ .Values.global.ipvlan.masterDevice }}
 {{- end }}
 {{- end }}
-
   install-iptables-rules: {{ .Values.global.installIptablesRules | quote }}
   auto-direct-node-routes: {{ .Values.global.autoDirectNodeRoutes | quote }}
+
 {{- if .Values.global.kubeProxyReplacement }}
   kube-proxy-replacement:  {{ .Values.global.kubeProxyReplacement | quote }}
 {{- end}}
+{{- if .Values.global.hostServices }}
+  enable-host-reachable-services: {{ .Values.global.hostServices.enabled | quote }}
+{{- if ne .Values.global.hostServices.protocols "tcp,udp" }}
+  host-reachable-services-protos: {{ .Values.global.hostServices.protocols }}
+{{- end }}
+{{- end }}
+{{- if .Values.global.externalIPs }}
+  enable-external-ips: {{ .Values.global.externalIPs.enabled | quote }}
+{{- end }}
 {{- if .Values.global.nodePort }}
   enable-node-port: {{ .Values.global.nodePort.enabled | quote }}
 {{- if .Values.global.nodePort.range }}
@@ -279,8 +280,8 @@ data:
 {{- if .Values.global.nodePort.mode }}
   node-port-mode: {{ .Values.global.nodePort.mode | quote }}
 {{- end }}
-
 {{- end }}
+
 {{- if and .Values.global.pprof .Values.global.pprof.enabled }}
   pprof: {{ .Values.global.pprof.enabled | quote }}
 {{- end }}
