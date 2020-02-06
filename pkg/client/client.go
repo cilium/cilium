@@ -244,13 +244,24 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 			fmt.Fprintf(w, "Kubernetes APIs:\t[\"%s\"]\n", strings.Join(sr.Kubernetes.K8sAPIVersions, "\", \""))
 		}
 		if sr.KubeProxyReplacement != nil {
-			features := make([]string, 0, len(sr.KubeProxyReplacement.Features))
-			for _, f := range sr.KubeProxyReplacement.Features {
-				features = append(features, string(f))
+			features := []string{}
+
+			if np := sr.KubeProxyReplacement.Features.NodePort; np.Enabled {
+				features = append(features,
+					fmt.Sprintf("NodePort (%s, %d-%d)", np.Mode, np.PortMin, np.PortMax))
 			}
+
+			if sr.KubeProxyReplacement.Features.ExternalIPs.Enabled {
+				features = append(features, "ExternalIPs")
+			}
+
+			if hs := sr.KubeProxyReplacement.Features.HostReachableServices; hs.Enabled {
+				features = append(features, fmt.Sprintf("HostReachableServices (%s)",
+					strings.Join(hs.Protocols, ", ")))
+			}
+
 			fmt.Fprintf(w, "KubeProxyReplacement:\t%s\t[%s]\n",
-				sr.KubeProxyReplacement.Mode,
-				strings.Join([]string(features), ", "))
+				sr.KubeProxyReplacement.Mode, strings.Join(features, ", "))
 		}
 	}
 	if sr.Cilium != nil {
