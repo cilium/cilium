@@ -24,9 +24,13 @@ Stable Releases
 
 The Cilium community maintains minor stable releases for the last three major
 Cilium versions. Older Cilium stable versions from major releases prior to that
-are considered EOL. Listed below are the actively maintained release branches
-along with their latest minor release, corresponding image pull tags and their
-release notes:
+are considered EOL.
+
+For upgrades to new major releases please consult the `Cilium Upgrade Guide
+<https://docs.cilium.io/en/stable/install/upgrade/>`_.
+
+Listed below are the actively maintained release branches along with their latest
+minor release, corresponding image pull tags and their release notes:
 
 +-------------------------------------------------------+------------+-------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
 | `v1.6 <https://github.com/cilium/cilium/tree/v1.6>`__ | 2020-02-03 | ``docker.io/cilium/cilium:v1.6.6``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.6.6>`__  | `General Announcement <https://cilium.io/blog/2019/08/20/cilium-16>`__ |
