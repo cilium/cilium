@@ -220,6 +220,7 @@ datapath
 datastore
 datastream
 datastreams
+de
 deathstar
 debuginfo
 decapsulate
@@ -297,6 +298,7 @@ hypervisors
 iam
 ie
 incrementing
+ingressing
 init
 inlined
 inlines
@@ -476,6 +478,7 @@ seccomp
 selftest
 selftests
 sendmsg
+sessionAffinity
 setrlimit
 sfc
 sg
