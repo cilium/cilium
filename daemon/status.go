@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -126,18 +127,30 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		mode = models.KubeProxyReplacementModeDisabled
 	}
 
-	features := []models.KubeProxyReplacementFeatures{}
+	features := &models.KubeProxyReplacementFeatures{
+		NodePort:              &models.KubeProxyReplacementFeaturesNodePort{},
+		ExternalIPs:           &models.KubeProxyReplacementFeaturesExternalIPs{},
+		HostReachableServices: &models.KubeProxyReplacementFeaturesHostReachableServices{},
+	}
 	if option.Config.EnableNodePort {
-		features = append(features, models.KubeProxyReplacementFeaturesNodePort)
+		features.NodePort.Enabled = true
+		features.NodePort.Mode = strings.ToUpper(option.Config.NodePortMode)
+		features.NodePort.PortMin = int64(option.Config.NodePortMin)
+		features.NodePort.PortMax = int64(option.Config.NodePortMax)
 	}
 	if option.Config.EnableExternalIPs {
-		features = append(features, models.KubeProxyReplacementFeaturesExternalIPs)
+		features.ExternalIPs.Enabled = true
 	}
 	if option.Config.EnableHostServicesTCP {
-		features = append(features, models.KubeProxyReplacementFeaturesHostReachableServicesTCP)
-	}
-	if option.Config.EnableHostServicesUDP {
-		features = append(features, models.KubeProxyReplacementFeaturesHostReachableServicesUDP)
+		features.HostReachableServices.Enabled = true
+		protocols := []string{}
+		if option.Config.EnableHostServicesTCP {
+			protocols = append(protocols, "TCP")
+		}
+		if option.Config.EnableHostServicesUDP {
+			protocols = append(protocols, "UDP")
+		}
+		features.HostReachableServices.Protocols = protocols
 	}
 
 	return &models.KubeProxyReplacement{
