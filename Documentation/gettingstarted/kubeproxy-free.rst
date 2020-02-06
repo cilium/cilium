@@ -20,7 +20,7 @@ For installing ``kubeadm`` and for more provisioning options please refer to
 .. note::
 
    Cilium's kube-proxy replacement depends on the :ref:`host-services` feature,
-   therefore a v4.19.57, v5.1.16, v5.2.0 or more recent Linux kernel is required!
+   therefore a v4.19.57, v5.1.16, v5.2.0 or more recent Linux kernel is required.
    We recommend a v5.3 or more recent Linux kernel as Cilium can perform additional
    optimizations in its kube-proxy replacement implementation.
 
@@ -103,7 +103,7 @@ is ready to operate:
 
     kubectl -n kube-system get pods -l k8s-app=cilium
     NAME                READY     STATUS    RESTARTS   AGE
-    cilium-crf7f        1/1       Running   0          10m
+    cilium-fmh8d        1/1       Running   0          10m
     cilium-mkcmb        1/1       Running   0          10m
 
 Note, in above helm configuration the ``kubeProxyReplacement`` has been set to
@@ -122,17 +122,125 @@ that we do not rely on a (non-existing) fallback.
 Cilium's BPF kube-proxy replacement is supported in direct routing as well as in
 tunneling mode.
 
-Direct Server Return (DSR) and other NodePort Settings
-######################################################
+Validate the Setup
+##################
 
-When running Cilium's BPF kube-proxy replacement, by default, a NodePort or
-ExternalIPs service will be accessible through the IP address of a native device
-which has the default route on the host. To change the device, set its name in
-the ``global.nodePort.device`` helm option.
+After deploying Cilium with above Quick-Start guide, we can first validate that
+the Cilium agent is running in the desired mode:
 
-In addition, thanks to the :ref:`host-services` feature, the NodePort service can
-be accessed by default from a host or a Pod within a cluster via it's public,
-cilium_host device or loopback address, e.g. ``127.0.0.1:NODE_PORT``.
+.. parsed-literal::
+
+    kubectl exec -it -n kube-system cilium-fmh8d -- cilium status | grep KubeProxyReplacement
+    KubeProxyReplacement:   Strict   [NodePort (SNAT, 30000-32767), ExternalIPs, HostReachableServices (TCP, UDP)]
+
+As a next, optional step, we deploy nginx pods, create a new NodePort service and
+validate that Cilium installed the service correctly.
+
+The following yaml is used for the backend pods:
+
+.. parsed-literal::
+
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: my-nginx
+    spec:
+      selector:
+        matchLabels:
+          run: my-nginx
+      replicas: 2
+      template:
+        metadata:
+          labels:
+            run: my-nginx
+        spec:
+          containers:
+          - name: my-nginx
+            image: nginx
+            ports:
+            - containerPort: 80
+
+Verify that the nginx pods are up and running:
+
+.. parsed-literal::
+
+    kubectl get pods -l run=my-nginx -o wide
+    NAME                        READY   STATUS    RESTARTS   AGE   IP             NODE   NOMINATED NODE   READINESS GATES
+    my-nginx-756fb87568-gmp8c   1/1     Running   0          62m   10.217.0.149   apoc   <none>           <none>
+    my-nginx-756fb87568-n5scv   1/1     Running   0          62m   10.217.0.107   apoc   <none>           <none>
+
+In the next step, we create a NodePort service for the two instances:
+
+.. parsed-literal::
+
+    kubectl expose deployment my-nginx --type=NodePort --port=80
+    service/my-nginx exposed
+
+Verify that the NodePort service has been created:
+
+.. parsed-literal::
+
+    kubectl get svc my-nginx
+    NAME       TYPE       CLUSTER-IP       EXTERNAL-IP   PORT(S)        AGE
+    my-nginx   NodePort   10.104.239.135   <none>        80:31940/TCP   24m
+
+With the help of the ``cilium service list`` command, we can validate that
+Cilium's BPF kube-proxy replacement created the new NodePort service under
+port ``31940``:
+
+.. parsed-literal::
+
+    kubectl exec -it -n kube-system cilium-fmh8d -- cilium service list
+    ID   Frontend               Service Type   Backend                    
+    [...]
+    4    10.104.239.135:80      ClusterIP      1 => 10.217.0.107:80       
+                                               2 => 10.217.0.149:80       
+    5    10.217.0.181:31940     NodePort       1 => 10.217.0.107:80       
+                                               2 => 10.217.0.149:80       
+    6    0.0.0.0:31940          NodePort       1 => 10.217.0.107:80       
+                                               2 => 10.217.0.149:80       
+    7    192.168.178.29:31940   NodePort       1 => 10.217.0.107:80       
+                                               2 => 10.217.0.149:80       
+
+At the same time we can inspect through ``iptables`` in the host namespace
+that no ``iptables`` rule for the service is present:
+
+.. parsed-literal::
+
+    iptables-save | grep KUBE-SVC
+    [ empty line ]
+
+Last but not least, a simple ``curl`` test shows connectivity for the exposed
+NodePort port ``31940`` as well as for the ClusterIP:
+
+.. parsed-literal::
+
+    curl 127.0.0.1:31940
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <title>Welcome to nginx!</title>
+    [....]
+
+.. parsed-literal::
+
+    curl 10.104.239.135:80
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <title>Welcome to nginx!</title>
+    [....]
+
+As can be seen, the Cilium's BPF kube-proxy replacement is set up correctly.
+
+Advanced Configuration
+######################
+
+This section covers a few advanced configuration modes for the kube-proxy replacement
+that go beyond the above Quick-Start guide and are entirely optional.
+
+Direct Server Return (DSR)
+**************************
 
 By default, Cilium's BPF NodePort implementation operates in SNAT mode. That is,
 when node-external traffic arrives and the node determines that the backend for
@@ -146,12 +254,14 @@ This setting can be changed through the ``global.nodePort.mode`` helm option to
 ``dsr`` in order to let Cilium's BPF NodePort implementation operate in DSR mode.
 In this mode, the backends reply directly to the external client without taking
 the extra hop, meaning, backends reply by using the service IP/port as a source.
-Another advantage is that while in the SNAT mode a client's source IP address is not
-preserved, in the DSR mode it is. Given a specific backend can be used by multiple
-services, the backends need to be made aware of the service IP/port which they need
-to reply with. Therefore, Cilium encodes this information as an IPv4 option or IPv6
-extension header at the cost of advertising a lower MTU. For TCP services, Cilium
-only encodes the service IP/port for the SYN packet.
+
+Another advantage in DSR mode is that the client's source IP is preserved, so policy
+can match on it at the backend node. In the SNAT mode this is not possible.
+Given a specific backend can be used by multiple services, the backends need to be
+made aware of the service IP/port which they need to reply with. Therefore, Cilium
+encodes this information as an IPv4 option or IPv6 extension header at the cost of
+advertising a lower MTU. For TCP services, Cilium only encodes the service IP/port
+for the SYN packet.
 
 Above helm example configuration in a kube-proxy-free environment with DSR enabled
 would look as follows:
@@ -165,12 +275,24 @@ would look as follows:
         --set global.k8sServiceHost=API_SERVER_IP \\
         --set global.k8sServicePort=API_SERVER_PORT
 
+NodePort Device and Range
+*************************
+
+When running Cilium's BPF kube-proxy replacement, by default, a NodePort or
+ExternalIPs service will be accessible through the IP address of a native device
+which has the default route on the host. To change the device, set its name in
+the ``global.nodePort.device`` helm option.
+
+In addition, thanks to the :ref:`host-services` feature, the NodePort service can
+be accessed by default from a host or a Pod within a cluster via it's public,
+cilium_host device or loopback address, e.g. ``127.0.0.1:NODE_PORT``.
+
 If ``kube-apiserver`` was configured to use a non-default NodePort port range,
 then the same range must be passed to Cilium via the ``global.nodePort.range``
 option.
 
-kube-proxy Replacement Modes
-############################
+kube-proxy Hybrid Modes
+***********************
 
 Cilium's BPF kube-proxy replacement can be configured in several modes, i.e. it can
 replace kube-proxy entirely or it can co-exist with kube-proxy on the system if the
@@ -222,8 +344,9 @@ This section therefore elaborates on the various ``global.kubeProxyReplacement``
         --set global.k8sServiceHost=API_SERVER_IP \\
         --set global.k8sServicePort=API_SERVER_PORT
 
-  The following helm setup below would be equivalent to Cilium service handling in v1.5 in a
-  kube-proxy environment, that is, serving ClusterIP for pods:
+  The following helm setup below would be equivalent to the default Cilium service
+  handling in v1.6 or earlier in a kube-proxy environment, that is, serving ClusterIP
+  for pods:
 
   .. parsed-literal::
 
@@ -262,24 +385,12 @@ new deployments.
 For existing Cilium deployments in version v1.6 or prior, please consult the :ref:`1.7_upgrade_notes`.
 
 The current Cilium kube-proxy replacement mode can also be introspected through the
-``cilium status`` CLI command. See the ``KubeProxyReplacement`` section below:
+``cilium status`` CLI command:
 
 .. parsed-literal::
 
-    kubectl exec -it -n kube-system cilium-xxxx -- cilium status
-    KVStore:                Ok   Disabled
-    Kubernetes:             Ok   1.17 (v1.17.2) [linux/amd64]
-    Kubernetes APIs:        ["CustomResourceDefinition", "cilium/v2::CiliumClusterwideNetworkPolicy", "cilium/v2::CiliumEndpoint", "cilium/v2::CiliumNetworkPolicy", "cilium/v2::CiliumNode", "core/v1::Endpoint", "core/v1::Namespace", "core/v1::Pods", "core/v1::Service", "networking.k8s.io/v1::NetworkPolicy"]
+    kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep KubeProxyReplacement
     KubeProxyReplacement:   Strict   [NodePort (SNAT, 30000-32767), ExternalIPs, HostReachableServices (TCP, UDP)]
-    Cilium:                 Ok   OK
-    NodeMonitor:            Disabled
-    Cilium health daemon:   Ok
-    IPAM:                   IPv4: 4/65535 allocated from 10.1.0.0/16,
-    Controller Status:      17/17 healthy
-    Proxy Status:           OK, ip 10.1.28.236, port-range 10000-20000
-    Cluster health:       0/1 reachable   (2020-02-05T14:02:54+01:00)
-      Name                IP              Reachable   Endpoints reachable
-        ceuse (localhost)   10.5.57.1       true        false
 
 Limitations
 ###########
