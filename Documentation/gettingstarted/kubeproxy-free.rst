@@ -21,6 +21,8 @@ For installing ``kubeadm`` and for more provisioning options please refer to
 
    Cilium's kube-proxy replacement depends on the :ref:`host-services` feature,
    therefore a v4.19.57, v5.1.16, v5.2.0 or more recent Linux kernel is required!
+   We recommend a v5.3 or more recent Linux kernel as Cilium can perform additional
+   optimizations in its kube-proxy replacement implementation.
 
    Note that v5.0.y kernels do not have the fix required to run the kube-proxy
    replacement since at this point in time the v5.0.y stable kernel is end-of-life
@@ -115,17 +117,50 @@ to optimize Kubernetes services. Given we've used kubeadm to explicitly deploy
 a kube-proxy-free setup, the ``strict`` mode has been used instead to ensure
 that we do not rely on a (non-existing) fallback.
 
+Cilium's BPF kube-proxy replacement is supported in direct routing as well as in
+tunneling mode.
+
+Direct Server Return (DSR) and other NodePort Settings
+######################################################
+
 When running Cilium's BPF kube-proxy replacement, by default, a NodePort or
 ExternalIPs service will be accessible through the IP address of a native device
 which has the default route on the host. To change the device, set its name in
 the ``global.nodePort.device`` helm option.
 
 In addition, thanks to the :ref:`host-services` feature, the NodePort service can
-be accessed from a host or a Pod within a cluster via it's public, cilium_host
-device or loopback address, e.g. ``127.0.0.1:NODE_PORT``.
+be accessed by default from a host or a Pod within a cluster via it's public,
+cilium_host device or loopback address, e.g. ``127.0.0.1:NODE_PORT``.
 
-Cilium's BPF kube-proxy replacement is supported in direct routing as well as in
-tunneling mode.
+By default, Cilium's BPF NodePort implementation operates in SNAT mode. That is,
+when node-external traffic arrives and the node determines that the backend for
+the NodePort or ExternalIPs service is at a remote node, then the node is redirecting
+the request to the remote backend on its behalf by performing SNAT. This does not
+require any additional MTU changes at the cost that replies from the backend need
+to make the extra hop back that node in order to perform the reverse SNAT translation
+there before returning the packet directly to the external client.
+
+This setting can be changed through the ``global.nodePort.mode`` helm option to
+``dsr`` in order to let Cilium's BPF NodePort implementation operate in DSR mode.
+In this mode, the backends reply directly to the external client without taking
+the extra hop, meaning, backends reply by using the service IP/port as a source.
+Given a specific backend can be used by multiple services, the backends need to
+be made aware of the service IP/port which they need to reply with. Therefore,
+Cilium encodes this information as an IPv4 option or IPv6 extension header at the
+cost of advertising a lower MTU. For TCP services, Cilium only encodes the service
+IP/port for the SYN packet.
+
+Above helm example configuration in a kube-proxy-free environment with DSR enabled
+would look as follows:
+
+.. parsed-literal::
+
+    helm install cilium |CHART_RELEASE| \\
+        --namespace kube-system \\
+        --set global.kubeProxyReplacement=strict \\
+        --set global.nodePort.mode=dsr \\
+        --set global.k8sServiceHost=API_SERVER_IP \\
+        --set global.k8sServicePort=API_SERVER_PORT
 
 If ``kube-apiserver`` was configured to use a non-default NodePort port range,
 then the same range must be passed to Cilium via the ``global.nodePort.range``
@@ -162,7 +197,7 @@ This section therefore elaborates on the various ``global.kubeProxyReplacement``
   where Cilium partially replaces and optimizes kube-proxy functionality. As opposed to
   ``probe`` which checks the underlying kernel for available BPF features and automatically
   disables components responsible for the BPF kube-proxy replacement when kernel support
-  is missing, the ``partial`` option requies the user to manually specify which components
+  is missing, the ``partial`` option requires the user to manually specify which components
   for the BPF kube-proxy replacement should be used. Similarly to ``strict`` mode, the
   Cilium agent will bail out on start-up with an error message if the underlying kernel
   requirements are not met. For fine-grained configuration, ``global.hostServices.enabled``,
@@ -251,9 +286,15 @@ Limitations
       mode, they are additionally exposed through the tunnel interface (``cilium_vxlan``
       or ``cilium_geneve``). Exposing services through multiple native devices will be
       supported in upcoming Cilium versions. See `GH issue 9620
-      <https://github.com/cilium/cilium/issues/9620>`_ for additional details.
+      <https://github.com/cilium/cilium/issues/9620>`__ for additional details.
     * Cilium's BPF kube-proxy replacement currently cannot be used with :ref:`encryption`.
     * Cilium's BPF kube-proxy replacement relies upon the :ref:`host-services` feature
       which uses BPF cgroup hooks to implement the service translation. The getpeername(2)
       hook is currently missing which will be addressed for newer kernels. It is known
       to currently not work with libceph deployments.
+    * Cilium in general currently does not support IP de-/fragmentation. This also includes
+      the BPF kube-proxy replacement. Meaning, while the first packet with L4 header will
+      reach the backend, all subsequent packets will not due to service lookup failing.
+      This will be addressed via `GH issue 10076 <https://github.com/cilium/cilium/issues/10076>`__.
+    * Kubernetes Service sessionAffinity is currently not implemented.
+      This will be addressed via `GH issue 9076 <https://github.com/cilium/cilium/issues/9076>`__.
