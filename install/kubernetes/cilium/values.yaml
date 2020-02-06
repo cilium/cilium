@@ -217,18 +217,18 @@ global:
     # interface is the interface to use for encryption
     # interface: eth0
 
-  # hostServices is the configuration for host-facing load-balancing
+  # kubeProxyReplacement enables kube-proxy replacement in Cilium BPF datapath
+  kubeProxyReplacement: "probe"
+
+  # hostServices is the configuration for ClusterIP service handling in host namespace
   hostServices:
-    # enabled enables host-facing load-balancing
+    # enabled enables host reachable functionality
     enabled: false
 
     # protocols is the list of protocols to support
     protocols: tcp,udp
 
-  # kubeProxyReplacement enables kube-proxy replacement in Cilium BPF datapath
-  kubeProxyReplacement: "probe"
-
-  # nodePort is the nodeport configuration
+  # nodePort is the configuration for NodePort service handling
   nodePort:
     # enabled enables NodePort functionality
     enabled: false
@@ -241,6 +241,11 @@ global:
 
     # dsr enables direct server return for NodePort services
     dsr: false
+
+  # externalIPs is the configuration for ExternalIPs service handling
+  externalIPs:
+    # enabled enables ExternalIPs functionality
+    enabled: false
 
   # flannel is the flannel specific configuration
   flannel:

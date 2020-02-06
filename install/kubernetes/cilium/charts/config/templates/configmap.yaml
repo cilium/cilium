@@ -256,6 +256,10 @@ data:
 {{- end }}
 {{- end }}
 
+{{- if .Values.global.externalIPs.enabled }}
+  enable-external-ips: "true"
+{{- end }}
+
 {{- if .Values.global.datapathMode }}
 {{- if eq .Values.global.datapathMode "ipvlan" }}
   datapath-mode: ipvlan
