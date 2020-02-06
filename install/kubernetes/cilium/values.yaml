@@ -104,7 +104,7 @@ global:
     # chainingMode enables chaining on top of other CNI plugins. Possible
     # values:
     #  - none
-    #  - generic-verth
+    #  - generic-veth
     #  - aws-cni
     #  - portmap
     chainingMode: none
