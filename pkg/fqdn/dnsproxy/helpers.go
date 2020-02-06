@@ -17,30 +17,9 @@ package dnsproxy
 import (
 	"fmt"
 	"net"
-	"strings"
 
 	"github.com/miekg/dns"
 )
-
-// prepareNameMatch ensures that a name is an anchored regexp and that names
-// with only "." (aka not a regexp) escape the "." so it does not match any
-// character. DNS expects lowercase lookups (ignoring the highest ascii bit)
-// and we mimic this by lowercasing the name here, and lookups later.
-// Note: The trailing "." in a FQDN is assumed, and isn't added here.
-func prepareNameMatch(name string) string {
-	name = strings.ToLower(name) // lowercase it
-
-	// anchor it
-	out := make([]string, 0, 3)
-	if !strings.HasPrefix(name, "^") {
-		out = append(out, "^")
-	}
-	out = append(out, name)
-	if !strings.HasSuffix(name, "$") {
-		out = append(out, "$")
-	}
-	return strings.Join(out, "")
-}
 
 // lookupTargetDNSServer finds the intended DNS target server for a specific
 // request (passed in via ServeDNS). The IP:port combination is
