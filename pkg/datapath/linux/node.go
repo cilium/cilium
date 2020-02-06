@@ -215,19 +215,6 @@ func installDirectRoute(CIDR *cidr.CIDR, nodeIP net.IP) (routeSpec *netlink.Rout
 	return
 }
 
-func (n *linuxNodeHandler) lookupDirectRoute(CIDR *cidr.CIDR, nodeIP net.IP) ([]netlink.Route, error) {
-	routeSpec, err := createDirectRouteSpec(CIDR, nodeIP)
-	if err != nil {
-		return nil, err
-	}
-
-	family := netlink.FAMILY_V4
-	if nodeIP.To4() == nil {
-		family = netlink.FAMILY_V6
-	}
-	return netlink.RouteListFiltered(family, routeSpec, netlink.RT_FILTER_DST|netlink.RT_FILTER_GW|netlink.RT_FILTER_OIF)
-}
-
 func (n *linuxNodeHandler) updateDirectRoute(oldCIDR, newCIDR *cidr.CIDR, oldIP, newIP net.IP, firstAddition, directRouteEnabled bool) error {
 	if !directRouteEnabled {
 		// When the protocol family is disabled, the initial node addition will
