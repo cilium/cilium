@@ -25,7 +25,6 @@ import (
 	"os"
 	"path"
 	"reflect"
-	"sync"
 	"time"
 	"unsafe"
 
@@ -98,7 +97,6 @@ type Map struct {
 	fd   int
 	name string
 	path string
-	once sync.Once
 	lock lock.RWMutex
 
 	// inParallelMode is true when the Map is currently being run in
