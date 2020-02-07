@@ -123,6 +123,7 @@ var _ = Describe("K8sIstioTest", func() {
 		By("Deleting the istio-system namespace")
 		_ = kubectl.NamespaceDelete(istioSystemNamespace)
 
+		kubectl.DeleteCiliumDS()
 		kubectl.WaitCleanAllTerminatingPods(teardownTimeout)
 
 		kubectl.CloseSSHClient()

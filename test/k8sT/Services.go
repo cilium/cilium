@@ -99,6 +99,8 @@ var _ = Describe("K8sServicesTest", func() {
 	})
 
 	AfterAll(func() {
+		kubectl.DeleteCiliumDS()
+		ExpectAllPodsTerminated(kubectl)
 		kubectl.CloseSSHClient()
 	})
 
@@ -581,14 +583,12 @@ var _ = Describe("K8sServicesTest", func() {
 						ret = kubectl.CiliumExec(pod, "tc filter del dev "+nativeDev+" egress")
 						Expect(ret.WasSuccessful()).Should(BeTrue(), "Cannot remove egress bpf_netdev on %s", pod)
 					}
-					deleteCiliumDS(kubectl)
 					// Deploy Cilium as the next test expects it to be up and running
 					DeployCiliumAndDNS(kubectl, ciliumFilename)
 				})
 
 				Context("Tests with vxlan", func() {
 					BeforeAll(func() {
-						deleteCiliumDS(kubectl)
 						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 							"global.nodePort.enabled": "true",
 							"global.nodePort.device":  nativeDev,
@@ -610,7 +610,6 @@ var _ = Describe("K8sServicesTest", func() {
 
 				Context("Tests with direct routing", func() {
 					BeforeAll(func() {
-						deleteCiliumDS(kubectl)
 						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 							"global.nodePort.enabled":     "true",
 							"global.nodePort.device":      nativeDev,
@@ -658,7 +657,6 @@ var _ = Describe("K8sServicesTest", func() {
 				})
 
 				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with direct routing and DSR", func() {
-					deleteCiliumDS(kubectl)
 					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 						"global.nodePort.enabled":     "true",
 						"global.nodePort.device":      nativeDev,
