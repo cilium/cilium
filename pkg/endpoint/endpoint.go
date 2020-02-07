@@ -1473,18 +1473,6 @@ func APICanModify(e *Endpoint) error {
 	return nil
 }
 
-func (e *Endpoint) getIDandLabels() string {
-	e.unconditionalRLock()
-	defer e.runlock()
-
-	labels := ""
-	if e.SecurityIdentity != nil {
-		labels = e.SecurityIdentity.Labels.String()
-	}
-
-	return fmt.Sprintf("%d (%s)", e.ID, labels)
-}
-
 // MetadataResolverCB provides an implementation for resolving the endpoint
 // metadata for an endpoint such as the associated labels and annotations.
 type MetadataResolverCB func(ns, podName string) (identityLabels labels.Labels, infoLabels labels.Labels, annotations map[string]string, err error)
