@@ -33,14 +33,6 @@ type instanceAPI interface {
 	GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, error)
 }
 
-// instance is the minimal representation of an AWS instance as needed by the
-// ENI allocator
-type instance struct {
-	// enis is a map of all ENIs attached to the instance indexed by the
-	// ENI ID
-	enis map[string]*v2.ENI
-}
-
 // InstancesManager maintains the list of instances. It must be kept up to date
 // by calling resync() regularly.
 type InstancesManager struct {
