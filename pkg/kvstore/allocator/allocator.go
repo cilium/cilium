@@ -20,7 +20,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/idpool"
@@ -33,16 +32,6 @@ import (
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "kvstorebackend")
-)
-
-const (
-	// maxAllocAttempts is the number of attempted allocation requests
-	// performed before failing.
-	maxAllocAttempts = 16
-
-	// listTimeout is the time to wait for the initial list operation to
-	// succeed when creating a new allocator
-	listTimeout = 3 * time.Minute
 )
 
 // kvstoreBackend is an implentaton of pkg/allocator.Backend. It store
@@ -103,8 +92,6 @@ type kvstoreBackend struct {
 	backend kvstore.BackendOperations
 
 	keyType allocator.AllocatorKey
-
-	ctx context.Context
 }
 
 func locklessCapability(backend kvstore.BackendOperations) bool {
