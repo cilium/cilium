@@ -47,10 +47,6 @@ func (r *Route) LogFields() logrus.Fields {
 	}
 }
 
-func (r *Route) getLogger() *logrus.Entry {
-	return log.WithFields(r.LogFields())
-}
-
 // ByMask is used to sort an array of routes by mask, narrow first.
 type ByMask []Route
 
