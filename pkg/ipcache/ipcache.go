@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -455,5 +455,5 @@ func (m *K8sMetadata) Equal(o *K8sMetadata) bool {
 		return false
 	}
 
-	return m.Namespace == o.Namespace && m.PodName == m.PodName
+	return m.Namespace == o.Namespace && m.PodName == o.PodName
 }
