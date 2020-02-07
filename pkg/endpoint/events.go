@@ -121,12 +121,6 @@ type EndpointPolicyVisibilityEvent struct {
 	annoCB AnnotationsResolverCB
 }
 
-// EndpointPolicyVisibilityEventResult contains the results of doing an update
-// of the visibility policy.
-type EndpointPolicyVisibilityEventResult struct {
-	err error
-}
-
 // Handle handles the policy visibility update.
 func (ev *EndpointPolicyVisibilityEvent) Handle(res chan interface{}) {
 	e := ev.ep
