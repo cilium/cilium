@@ -4,13 +4,13 @@ set -e
 
 locked=1
 
-zone=europe-west4-a
+zone=us-west1-a
 export KUBECONFIG=gke-kubeconfig
 
 while [ $locked -ne 0 ]; do
     rm gke-kubeconfig || true
     echo "selecting random cluster"
-    cluster=$(gcloud container clusters list --zone europe-west4-a | grep cilium-ci | sort -R | head -n 1 | awk '{print $1}')
+    cluster=$(gcloud container clusters list --zone $zone | grep cilium-ci | sort -R | head -n 1 | awk '{print $1}')
 
     echo "getting kubeconfig for $cluster"
     gcloud container clusters get-credentials --zone $zone $cluster
