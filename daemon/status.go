@@ -168,14 +168,6 @@ func NewGetHealthzHandler(d *Daemon) GetHealthzHandler {
 	return &getHealthz{daemon: d}
 }
 
-func checkLocks(d *Daemon) {
-	// Try to acquire a couple of global locks to have the status API fail
-	// in case of a deadlock on these locks
-
-	option.Config.ConfigPatchMutex.Lock()
-	option.Config.ConfigPatchMutex.Unlock()
-}
-
 func (d *Daemon) getNodeStatus() *models.ClusterStatus {
 	clusterStatus := models.ClusterStatus{
 		Self: d.nodeDiscovery.LocalNode.Fullname(),
