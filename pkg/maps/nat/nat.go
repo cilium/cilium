@@ -40,8 +40,6 @@ const (
 	MinPortSnatDefault = 1024
 	// MaxPortSnatDefault represents default max port from range.
 	MaxPortSnatDefault = 65535
-
-	mapCount = 2
 )
 
 // Map represents a NAT map.
