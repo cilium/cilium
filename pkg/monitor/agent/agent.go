@@ -60,7 +60,6 @@ func buildServer(path string) (net.Listener, error) {
 // in non-BPF events.
 type Agent struct {
 	mutex     lock.Mutex
-	lost      uint64
 	server1_2 net.Listener
 	monitor   *Monitor
 	queue     chan payload.Payload

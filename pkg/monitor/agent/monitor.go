@@ -35,10 +35,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const (
-	pollTimeout = 5000
-)
-
 var (
 	eventsMapName = "cilium_events"
 )
