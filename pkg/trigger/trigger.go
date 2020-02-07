@@ -21,10 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 )
 
-const (
-	metricLabelReason = "reason"
-)
-
 // MetricsObserver is the interface a metrics collector has to implement in
 // order to collect trigger metrics
 type MetricsObserver interface {
