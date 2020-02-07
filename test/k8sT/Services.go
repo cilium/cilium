@@ -574,15 +574,8 @@ var _ = Describe("K8sServicesTest", func() {
 
 				AfterAll(func() {
 					enableBackgroundReport = true
-					// Remove NodePort programs (GH#8873)
-					pods, err := kubectl.GetCiliumPods(helpers.CiliumNamespace)
-					Expect(err).To(BeNil(), "Cannot retrieve Cilium pods")
-					for _, pod := range pods {
-						ret := kubectl.CiliumExec(pod, "tc filter del dev "+nativeDev+" ingress")
-						Expect(ret.WasSuccessful()).Should(BeTrue(), "Cannot remove ingress bpf_netdev on %s", pod)
-						ret = kubectl.CiliumExec(pod, "tc filter del dev "+nativeDev+" egress")
-						Expect(ret.WasSuccessful()).Should(BeTrue(), "Cannot remove egress bpf_netdev on %s", pod)
-					}
+					kubectl.DeleteCiliumDS()
+					ExpectAllPodsTerminated(kubectl)
 					// Deploy Cilium as the next test expects it to be up and running
 					DeployCiliumAndDNS(kubectl, ciliumFilename)
 				})
