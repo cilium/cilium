@@ -270,7 +270,7 @@ The current Cilium kube-proxy replacement mode can also be introspected through 
     KVStore:                Ok   Disabled
     Kubernetes:             Ok   1.17 (v1.17.2) [linux/amd64]
     Kubernetes APIs:        ["CustomResourceDefinition", "cilium/v2::CiliumClusterwideNetworkPolicy", "cilium/v2::CiliumEndpoint", "cilium/v2::CiliumNetworkPolicy", "cilium/v2::CiliumNode", "core/v1::Endpoint", "core/v1::Namespace", "core/v1::Pods", "core/v1::Service", "networking.k8s.io/v1::NetworkPolicy"]
-    KubeProxyReplacement:   Strict   [NodePort, ExternalIPs, HostReachableServicesTCP, HostReachableServicesUDP]
+    KubeProxyReplacement:   Strict   [NodePort (SNAT, 30000-32767), ExternalIPs, HostReachableServices (TCP, UDP)]
     Cilium:                 Ok   OK
     NodeMonitor:            Disabled
     Cilium health daemon:   Ok
