@@ -95,6 +95,11 @@ var (
 		Use:   "cilium-agent",
 		Short: "Run the cilium agent",
 		Run: func(cmd *cobra.Command, args []string) {
+			cmdRefDir := viper.GetString(option.CMDRef)
+			if cmdRefDir != "" {
+				genMarkdown(cmd, cmdRefDir)
+				os.Exit(0)
+			}
 			bootstrapStats.earlyInit.Start()
 			initEnv(cmd)
 			bootstrapStats.earlyInit.End(true)
@@ -748,7 +753,7 @@ func initConfig() {
 		os.Exit(0)
 	}
 
-	if option.Config.CMDRefDir != "" {
+	if viper.GetString(option.CMDRef) != "" {
 		return
 	}
 
@@ -801,10 +806,6 @@ func initEnv(cmd *cobra.Command) {
 
 	// Logging should always be bootstrapped first. Do not add any code above this!
 	logging.SetupLogging(option.Config.LogDriver, option.Config.LogOpt, "cilium-agent", option.Config.Debug)
-
-	if option.Config.CMDRefDir != "" {
-		genMarkdown(cmd)
-	}
 
 	option.LogRegisteredOptions(log)
 

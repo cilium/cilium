@@ -1104,7 +1104,6 @@ type DaemonConfig struct {
 	Version                string
 	PProf                  bool
 	PrometheusServeAddr    string
-	CMDRefDir              string
 	ToFQDNsMinTTL          int
 
 	// ToFQDNsProxyPort is the user-configured global, shared, DNS listen port used
@@ -1950,7 +1949,6 @@ func (c *DaemonConfig) Populate() {
 	c.K8sNamespace = viper.GetString(K8sNamespaceName)
 	c.MaxControllerInterval = viper.GetInt(MaxCtrlIntervalName)
 	c.SidecarHTTPProxy = viper.GetBool(SidecarHTTPProxy)
-	c.CMDRefDir = viper.GetString(CMDRef)
 	c.PolicyQueueSize = sanitizeIntParam(PolicyQueueSize, defaults.PolicyQueueSize)
 	c.EndpointQueueSize = sanitizeIntParam(EndpointQueueSize, defaults.EndpointQueueSize)
 	c.SelectiveRegeneration = viper.GetBool(SelectiveRegeneration)
