@@ -16,7 +16,6 @@ package eppolicymap
 
 import (
 	"fmt"
-	"net"
 	"sync"
 	"unsafe"
 
@@ -108,13 +107,6 @@ func (v *EPPolicyValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) 
 
 // NewValue returns a new empty instance of the Endpoint Policy fd
 func (k EndpointKey) NewValue() bpf.MapValue { return &EPPolicyValue{} }
-
-// newEndpointKey return a new key from the IP address.
-func newEndpointKey(ip net.IP) *EndpointKey {
-	return &EndpointKey{
-		EndpointKey: bpf.NewEndpointKey(ip),
-	}
-}
 
 func writeEndpoint(keys []*lxcmap.EndpointKey, fd int) error {
 	if option.Config.SockopsEnable == false {
