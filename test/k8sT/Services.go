@@ -599,6 +599,29 @@ var _ = Describe("K8sServicesTest", func() {
 						testNodePort(true)
 					})
 
+					SkipContextIf(
+						func() bool { return helpers.IsIntegration(helpers.CIIntegrationEKS) },
+						"with L7 policy", func() {
+							var (
+								demoPolicy string
+							)
+
+							BeforeAll(func() {
+								demoPolicy = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-demo.yaml")
+							})
+
+							AfterAll(func() {
+								// Explicitly ignore result of deletion of resources to avoid incomplete
+								// teardown if any step fails.
+								_ = kubectl.Delete(demoPolicy)
+							})
+
+							It("Tests NodePort with L7 Policy", func() {
+								applyPolicy(demoPolicy)
+								testNodePort(true)
+							})
+						})
+
 					It("Tests NodePort with externalTrafficPolicy=Local", func() {
 						testExternalTrafficPolicyLocal()
 					})
@@ -622,6 +645,29 @@ var _ = Describe("K8sServicesTest", func() {
 					It("Tests NodePort", func() {
 						testNodePort(true)
 					})
+
+					SkipContextIf(
+						func() bool { return helpers.IsIntegration(helpers.CIIntegrationEKS) },
+						"with L7 policy", func() {
+							var (
+								demoPolicy string
+							)
+
+							BeforeAll(func() {
+								demoPolicy = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-demo.yaml")
+							})
+
+							AfterAll(func() {
+								// Explicitly ignore result of deletion of resources to avoid incomplete
+								// teardown if any step fails.
+								_ = kubectl.Delete(demoPolicy)
+							})
+
+							It("Tests NodePort with L7 Policy", func() {
+								applyPolicy(demoPolicy)
+								testNodePort(true)
+							})
+						})
 
 					It("Tests NodePort with externalTrafficPolicy=Local", func() {
 						testExternalTrafficPolicyLocal()
