@@ -5,6 +5,8 @@ metadata:
   name: cilium-agent
   {{- if .Values.global.prometheus.serviceMonitor.namespace }}
   namespace: {{ .Values.global.prometheus.serviceMonitor.namespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
   {{- end }}
 spec:
   selector:
