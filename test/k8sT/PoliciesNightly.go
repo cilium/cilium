@@ -52,6 +52,7 @@ var _ = Describe("NightlyPolicies", func() {
 		kubectl.Exec(fmt.Sprintf(
 			"%s delete pods,svc,cnp -n %s -l test=policygen",
 			helpers.KubectlCmd, helpers.DefaultNamespace))
+		kubectl.DeleteCiliumDS()
 		err := kubectl.WaitCleanAllTerminatingPods(timeout)
 		Expect(err).To(BeNil(), "Cannot clean pods during timeout")
 		kubectl.CloseSSHClient()

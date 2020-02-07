@@ -1391,6 +1391,8 @@ func (kub *Kubectl) generateCiliumYaml(options map[string]string, filename strin
 }
 
 // ciliumInstallHelm installs Cilium with the Helm options provided.
+//
+// The method Deletes cilium DS before the installation.
 func (kub *Kubectl) ciliumInstallHelm(filename string, options map[string]string) error {
 	if err := kub.generateCiliumYaml(options, filename); err != nil {
 		return err
@@ -1399,8 +1401,7 @@ func (kub *Kubectl) ciliumInstallHelm(filename string, options map[string]string
 	// Remove cilium DS to ensure that new instances of cilium-agent are started
 	// for the newly generated ConfigMap. Otherwise, the CM changes will stay
 	// inactive until each cilium-agent has been restarted.
-	_ = kub.DeleteResource("ds", fmt.Sprintf("-n %s cilium", GetCiliumNamespace(GetCurrentIntegration())))
-	if err := kub.waitToDeleteCilium(); err != nil {
+	if err := kub.DeleteCiliumDS(); err != nil {
 		return err
 	}
 
@@ -1410,6 +1411,14 @@ func (kub *Kubectl) ciliumInstallHelm(filename string, options map[string]string
 	}
 
 	return nil
+}
+
+func (kub *Kubectl) DeleteCiliumDS() error {
+	// Do not assert on success in AfterEach intentionally to avoid
+	// incomplete teardown.
+
+	_ = kub.DeleteResource("ds", fmt.Sprintf("-n %s cilium", GetCiliumNamespace(GetCurrentIntegration())))
+	return kub.waitToDeleteCilium()
 }
 
 func (kub *Kubectl) waitToDeleteCilium() error {
