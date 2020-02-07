@@ -67,6 +67,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	}
 	AfterAll(func() {
 		deleteAll()
+		kubectl.DeleteCiliumDS()
 		ExpectAllPodsTerminated(kubectl)
 		kubectl.CloseSSHClient()
 	})
