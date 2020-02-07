@@ -121,11 +121,6 @@ func releaseIP(client *client.Client, ip string) {
 	}
 }
 
-func releaseIPs(client *client.Client, addr *models.AddressPair) {
-	releaseIP(client, addr.IPV6)
-	releaseIP(client, addr.IPV4)
-}
-
 func addIPConfigToLink(ip addressing.CiliumIP, routes []route.Route, link netlink.Link, ifName string) error {
 	log.WithFields(logrus.Fields{
 		logfields.IPAddr:    ip,
