@@ -34,8 +34,6 @@ const (
 	familyIPv6     = "ipv6"
 )
 
-type owner string
-
 // Error definitions
 var (
 	// ErrIPv4Disabled is returned when IPv4 allocation is disabled
