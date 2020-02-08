@@ -58,7 +58,8 @@ func (r *rule) String() string {
 	return fmt.Sprintf("%v", r.EndpointSelector)
 }
 
-func (epd *PerSelectorPolicy) appendL7WildcardRules(ctx *SearchContext) *PerSelectorPolicy {
+func (epd *PerSelectorPolicy) appendL7WildcardRule(ctx *SearchContext) *PerSelectorPolicy {
+	// Wildcard rule only needs to be appended if some rules already exist
 	switch {
 	case len(epd.L7Rules.HTTP) > 0:
 		rule := api.PortRuleHTTP{}
@@ -68,7 +69,6 @@ func (epd *PerSelectorPolicy) appendL7WildcardRules(ctx *SearchContext) *PerSele
 		} else {
 			ctx.PolicyTrace("   Merging HTTP wildcard rule, equal rule already exists: %+v\n", rule)
 		}
-
 	case len(epd.L7Rules.Kafka) > 0:
 		rule := api.PortRuleKafka{}
 		rule.Sanitize()
@@ -88,6 +88,14 @@ func (epd *PerSelectorPolicy) appendL7WildcardRules(ctx *SearchContext) *PerSele
 			epd.L7Rules.DNS = append(epd.L7Rules.DNS, rule)
 		} else {
 			ctx.PolicyTrace("   Merging DNS wildcard rule, equal rule already exists: %+v\n", rule)
+		}
+	case epd.L7Rules.L7Proto != "" && len(epd.L7Rules.L7) > 0:
+		rule := api.PortRuleL7{}
+		if !rule.Exists(epd.L7Rules) {
+			ctx.PolicyTrace("   Merging L7 wildcard rule: %+v\n", rule)
+			epd.L7Rules.L7 = append(epd.L7Rules.L7, rule)
+		} else {
+			ctx.PolicyTrace("   Merging L7 wildcard rule, equal rule already exists: %+v\n", rule)
 		}
 	}
 	return epd
@@ -130,11 +138,11 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 			// nil L7 rules wildcard L7. When merging with a non-nil rule, the nil must be expanded
 			// to an actual wildcard rule for the specific L7
 			if l7Rules == nil && newL7Rules != nil {
-				existingFilter.L7RulesPerSelector[cs] = newL7Rules.appendL7WildcardRules(ctx)
+				existingFilter.L7RulesPerSelector[cs] = newL7Rules.appendL7WildcardRule(ctx)
 				continue
 			}
 			if l7Rules != nil && newL7Rules == nil {
-				existingFilter.L7RulesPerSelector[cs] = l7Rules.appendL7WildcardRules(ctx)
+				existingFilter.L7RulesPerSelector[cs] = l7Rules.appendL7WildcardRule(ctx)
 				continue
 			}
 
