@@ -211,12 +211,12 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		ExpectWithOffset(1, cmd).To(helpers.CMDSuccess(), "Unable to install helm repository")
 
 		By("Cleaning Cilium state")
-		cleanupCiliumState("cilium/cilium", oldHelmChartVersion)
+		cleanupCiliumState(filepath.Join(kubectl.BasePath(), "../test/cilium-1.6-dev.tgz"), oldHelmChartVersion)
 
 		By("Deploying Cilium %s", oldHelmChartVersion)
 		cmd, err = kubectl.RunHelm(
 			"install",
-			"cilium/cilium",
+			filepath.Join(kubectl.BasePath(), "../test/cilium-1.6-dev.tgz"),
 			"cilium",
 			oldHelmChartVersion,
 			helpers.CiliumNamespace,
