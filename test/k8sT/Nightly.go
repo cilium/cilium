@@ -384,15 +384,20 @@ var _ = Describe("NightlyExamples", func() {
 			_ = kubectl.ApplyDefault(helpers.DNSDeployment(kubectl.BasePath()))
 		})
 
-		for _, image := range helpers.NightlyStableUpgradesFrom {
-			func(version string) {
-				It(fmt.Sprintf("Update Cilium from %s to master", version), func() {
+		for imageVersion, chartVersion := range helpers.NightlyStableUpgradesFrom {
+			func(imageVersion, chartVersion string) {
+				It(fmt.Sprintf("Update Cilium from %s to master", imageVersion), func() {
 					var assertUpgradeSuccessful func()
 					assertUpgradeSuccessful, cleanupCallback = InstallAndValidateCiliumUpgrades(
-						kubectl, ciliumFilename, image, helpers.CiliumDevImage())
+						kubectl,
+						imageVersion,
+						chartVersion,
+						helpers.CiliumLatestHelmChartVersion,
+						helpers.CiliumLatestImageVersion,
+					)
 					assertUpgradeSuccessful()
 				})
-			}(image)
+			}(imageVersion, chartVersion)
 		}
 	})
 
