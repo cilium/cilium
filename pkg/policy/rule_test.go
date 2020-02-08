@@ -1734,6 +1734,28 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 					},
 				}},
 			},
+			{
+				FromEndpoints: []api.EndpointSelector{endpointSelectorC},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "7000", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						L7Proto: "testparser",
+						L7: []api.PortRuleL7{
+							{"Key": "Value"},
+						},
+					},
+				}},
+			},
+			{
+				FromEndpoints: []api.EndpointSelector{endpointSelectorC},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "7000", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
 		},
 	}})
 
@@ -1771,6 +1793,33 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 	c.Assert(filter.L7RulesPerSelector[wildcardCachedSelector], IsNil)
 	c.Assert(filter, checker.Equals, expected)
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
+
+	expectedL7 := &L4Filter{
+		Port: 7000, Protocol: api.ProtoTCP, U8Proto: 6,
+		L7Parser: "testparser",
+		L7RulesPerSelector: L7DataMap{
+			cachedSelectorC: &PerSelectorPolicy{
+				L7Rules: api.L7Rules{
+					L7Proto: "testparser",
+					L7:      []api.PortRuleL7{{"Key": "Value"}, {}},
+				},
+			},
+		},
+		Ingress:          true,
+		DerivedFromRules: labels.LabelArrayList{nil, nil},
+	}
+
+	filterL7, ok := l4IngressPolicy["7000/TCP"]
+	c.Assert(ok, Equals, true)
+	c.Assert(filterL7.Port, Equals, 7000)
+	c.Assert(filterL7.Ingress, Equals, true)
+
+	c.Assert(len(filterL7.L7RulesPerSelector), Equals, 1)
+	c.Assert(filterL7.L7RulesPerSelector[cachedSelectorC], Not(IsNil))
+	c.Assert(filterL7.L7RulesPerSelector[wildcardCachedSelector], IsNil)
+	c.Assert(filterL7, checker.Equals, expectedL7)
+	c.Assert(filterL7.L7Parser, Equals, L7ParserType("testparser"))
+
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 
 	// Test the reverse order as well; ensure that we check both conditions
@@ -1780,6 +1829,28 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 	repo = parseAndAddRules(c, api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
+			{
+				FromEndpoints: []api.EndpointSelector{endpointSelectorC},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "7000", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+			{
+				FromEndpoints: []api.EndpointSelector{endpointSelectorC},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "7000", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						L7Proto: "testparser",
+						L7: []api.PortRuleL7{
+							{"Key": "Value"},
+						},
+					},
+				}},
+			},
 			{
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
@@ -1822,6 +1893,18 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 	c.Assert(filter.L7RulesPerSelector[cachedSelectorC], Not(IsNil))
 	c.Assert(filter, checker.Equals, expected)
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
+
+	filterL7, ok = l4IngressPolicy["7000/TCP"]
+	c.Assert(ok, Equals, true)
+	c.Assert(filterL7.Port, Equals, 7000)
+	c.Assert(filterL7.Ingress, Equals, true)
+
+	c.Assert(len(filterL7.L7RulesPerSelector), Equals, 1)
+	c.Assert(filterL7.L7RulesPerSelector[cachedSelectorC], Not(IsNil))
+	c.Assert(filterL7.L7RulesPerSelector[wildcardCachedSelector], IsNil)
+	c.Assert(filterL7, checker.Equals, expectedL7)
+	c.Assert(filterL7.L7Parser, Equals, L7ParserType("testparser"))
+
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 
 	// Second, test the explicit allow at L3.
