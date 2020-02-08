@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1338,7 +1338,7 @@ func addIfNotOverwritten(options map[string]string, field, value string) map[str
 	return options
 }
 
-func (kub *Kubectl) generateCiliumYaml(options map[string]string, filename string) error {
+func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 	for key, value := range defaultHelmOptions {
 		options = addIfNotOverwritten(options, key, value)
 	}
@@ -1378,36 +1378,20 @@ func (kub *Kubectl) generateCiliumYaml(options map[string]string, filename strin
 			options[k] = v
 		}
 	}
+	return nil
+}
 
+func (kub *Kubectl) generateCiliumYaml(options map[string]string, filename string) error {
+	err := kub.overwriteHelmOptions(options)
+	if err != nil {
+		return err
+	}
 	// TODO GH-8753: Use helm rendering library instead of shelling out to
 	// helm template
 	helmTemplate := kub.GetFilePath(HelmTemplate)
 	res := kub.HelmTemplate(helmTemplate, GetCiliumNamespace(GetCurrentIntegration()), filename, options)
 	if !res.WasSuccessful() {
 		return res.GetErr("Unable to generate YAML")
-	}
-
-	return nil
-}
-
-// ciliumInstallHelm installs Cilium with the Helm options provided.
-//
-// The method Deletes cilium DS before the installation.
-func (kub *Kubectl) ciliumInstallHelm(filename string, options map[string]string) error {
-	if err := kub.generateCiliumYaml(options, filename); err != nil {
-		return err
-	}
-
-	// Remove cilium DS to ensure that new instances of cilium-agent are started
-	// for the newly generated ConfigMap. Otherwise, the CM changes will stay
-	// inactive until each cilium-agent has been restarted.
-	if err := kub.DeleteCiliumDS(); err != nil {
-		return err
-	}
-
-	res := kub.Apply(ApplyOptions{FilePath: filename, Force: true, Namespace: GetCiliumNamespace(GetCurrentIntegration())})
-	if !res.WasSuccessful() {
-		return res.GetErr("Unable to apply YAML")
 	}
 
 	return nil
@@ -1466,7 +1450,41 @@ func (kub *Kubectl) ciliumUninstallHelm(filename string, options map[string]stri
 
 // CiliumInstall installs Cilium with the provided Helm options.
 func (kub *Kubectl) CiliumInstall(filename string, options map[string]string) error {
-	return kub.ciliumInstallHelm(filename, options)
+	if err := kub.generateCiliumYaml(options, filename); err != nil {
+		return err
+	}
+
+	// Remove cilium DS to ensure that new instances of cilium-agent are started
+	// for the newly generated ConfigMap. Otherwise, the CM changes will stay
+	// inactive until each cilium-agent has been restarted.
+	if err := kub.DeleteCiliumDS(); err != nil {
+		return err
+	}
+
+	res := kub.Apply(ApplyOptions{FilePath: filename, Force: true, Namespace: GetCiliumNamespace(GetCurrentIntegration())})
+	if !res.WasSuccessful() {
+		return res.GetErr("Unable to apply YAML")
+	}
+
+	return nil
+}
+
+// RunHelm runs the helm command with the given options.
+func (kub *Kubectl) RunHelm(action, repo, helmName, version, namespace string, options map[string]string) (*CmdRes, error) {
+	err := kub.overwriteHelmOptions(options)
+	if err != nil {
+		return nil, err
+	}
+	optionsString := ""
+
+	for k, v := range options {
+		optionsString += fmt.Sprintf(" --set %s=%s ", k, v)
+	}
+
+	return kub.ExecMiddle(fmt.Sprintf("helm %s %s %s "+
+		"--version=%s "+
+		"--namespace=%s "+
+		"%s", action, helmName, repo, version, namespace, optionsString)), nil
 }
 
 // CiliumUninstall uninstalls Cilium with the provided Helm options.
@@ -2928,6 +2946,11 @@ func (kub *Kubectl) reportMapHost(ctx context.Context, path string, reportCmds m
 			log.WithError(err).Errorf("cannot create test results for command '%s'", cmd)
 		}
 	}
+}
+
+// HelmAddCiliumRepo installs the repository that contain Cilium helm charts.
+func (kub *Kubectl) HelmAddCiliumRepo() *CmdRes {
+	return kub.ExecMiddle("helm repo add cilium https://helm.cilium.io")
 }
 
 // HelmTemplate renders given helm template. TODO: use go helm library for that
