@@ -71,7 +71,7 @@ func (c *CiliumTestConfigType) ParseFlags() {
 		"Specifies timeout for test run")
 	flag.StringVar(&c.Kubeconfig, "cilium.kubeconfig", "",
 		"Kubeconfig to be used for k8s tests")
-	flag.StringVar(&c.Registry, "cilium.registry", "", "docker registry hostname for Cilium image")
+	flag.StringVar(&c.Registry, "cilium.registry", "k8s1:5000", "docker registry hostname for Cilium image")
 	flag.BoolVar(&c.Benchmarks, "cilium.benchmarks", false,
 		"Specifies benchmark tests should be run which may increase test time")
 }
