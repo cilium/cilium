@@ -5,6 +5,8 @@ agent:
   # uninstall Cilium as it will stop Cilium from starting and create artifacts
   # in the node.
   sleepAfterInit: false
+  # Keep the deprecated selector labels when deploying Cilium DaemonSet
+  keepDeprecatedLabels: false
 
 # Include the cilium-config ConfigMap
 config:
