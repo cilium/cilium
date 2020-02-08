@@ -283,8 +283,22 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool
 // * Assembly
 // * Object compiled with debug symbols
 func compileDatapath(ctx context.Context, dirs *directoryInfo, debug bool, logger *logrus.Entry) error {
-	// TODO: Consider logging kernel/clang versions here too
 	scopedLog := logger.WithField(logfields.Debug, debug)
+
+	versionCmd := exec.CommandContext(ctx, compiler, "--version")
+	compilerVersion, err := versionCmd.CombinedOutput(scopedLog, debug)
+	if err != nil {
+		return err
+	}
+	versionCmd = exec.CommandContext(ctx, linker, "--version")
+	linkerVersion, err := versionCmd.CombinedOutput(scopedLog, debug)
+	if err != nil {
+		return err
+	}
+	scopedLog.WithFields(logrus.Fields{
+		compiler: string(compilerVersion),
+		linker:   string(linkerVersion),
+	}).Debug("Compiling datapath")
 
 	// Write out assembly and preprocessing files for debugging purposes
 	if debug {
