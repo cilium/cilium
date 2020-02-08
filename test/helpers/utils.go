@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Authors of Cilium
+// Copyright 2017-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -402,9 +402,11 @@ func getK8sSupportedConstraints(ciliumVersion string) (go_version.Range, error) 
 	case IsCiliumV1_5(cst):
 		return versioncheck.MustCompile(">=1.8.0 <1.16.0"), nil
 	case IsCiliumV1_6(cst):
-		return versioncheck.MustCompile(">=1.8.0 <1.16.0"), nil
+		return versioncheck.MustCompile(">=1.8.0 <1.18.0"), nil
 	case IsCiliumV1_7(cst):
-		return versioncheck.MustCompile(">=1.10.0 <1.17.0"), nil
+		return versioncheck.MustCompile(">=1.10.0 <1.18.0"), nil
+	case IsCiliumV1_8(cst):
+		return versioncheck.MustCompile(">=1.10.0 <1.19.0"), nil
 	default:
 		return nil, fmt.Errorf("unrecognized version '%s'", ciliumVersion)
 	}

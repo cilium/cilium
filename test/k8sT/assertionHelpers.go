@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -71,27 +71,6 @@ func ExpectCiliumRunning(vm *helpers.Kubectl) {
 func ExpectAllPodsTerminated(vm *helpers.Kubectl) {
 	err := vm.WaitCleanAllTerminatingPods(helpers.HelperTimeout)
 	ExpectWithOffset(1, err).To(BeNil(), "terminating containers are not deleted after timeout")
-}
-
-// ExpectETCDOperatorReady is a wrapper around helpers/WaitForNPods. It asserts
-// the error returned by that function is nil.
-func ExpectETCDOperatorReady(vm *helpers.Kubectl) {
-	// Etcd operator creates 5 nodes (1 cilium-etcd-operator + 1 etcd-operator + 3 etcd nodes),
-	// the new pods are added when the previous is ready,
-	// so we need to wait until 5 pods are in ready state.
-	// This is to avoid cases where a few pods are ready, but the
-	// new one is not created yet.
-	By("Waiting for all etcd-operator pods to be ready")
-
-	err := vm.WaitforNPods(helpers.CiliumNamespace, "-l io.cilium/app=etcd-operator", 5, longTimeout)
-	warningMessage := ""
-	if err != nil {
-		res := vm.Exec(fmt.Sprintf(
-			"%s -n %s get pods -l io.cilium/app=etcd-operator",
-			helpers.KubectlCmd, helpers.CiliumNamespace))
-		warningMessage = res.Output().String()
-	}
-	Expect(err).To(BeNil(), "etcd-operator is not ready after timeout, pods status:\n %s", warningMessage)
 }
 
 // ExpectCiliumPreFlightInstallReady is a wrapper around helpers/WaitForNPods.
