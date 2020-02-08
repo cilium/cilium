@@ -3,12 +3,18 @@ kind: DaemonSet
 metadata:
   labels:
     k8s-app: cilium
+{{- if .Values.keepDeprecatedLabels }}
+    kubernetes.io/cluster-service: "true"
+{{- end }}
   name: cilium
   namespace: {{ .Release.Namespace }}
 spec:
   selector:
     matchLabels:
       k8s-app: cilium
+{{- if .Values.keepDeprecatedLabels }}
+      kubernetes.io/cluster-service: "true"
+{{- end }}
   template:
     metadata:
       annotations:
@@ -23,6 +29,9 @@ spec:
         scheduler.alpha.kubernetes.io/critical-pod: ""
       labels:
         k8s-app: cilium
+{{- if .Values.keepDeprecatedLabels }}
+        kubernetes.io/cluster-service: "true"
+{{- end }}
     spec:
 {{- if .Values.global.affinity }}
       affinity:
