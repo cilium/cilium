@@ -29,10 +29,48 @@ spec:
 {{ toYaml .Values.global.affinity | indent 8 }}
 {{- end }}
       containers:
+{{- if .Values.global.sleepAfterInit }}
+      - command: [ "/bin/bash", "-c", "--" ]
+        args: [ "while true; do sleep 30; done;" ]
+        livenessProbe:
+          exec:
+            command:
+            - "true"
+        readinessProbe:
+          exec:
+            command:
+            - "true"
+{{- else }}
       - args:
         - --config-dir=/tmp/cilium/config-map
         command:
         - cilium-agent
+        livenessProbe:
+          exec:
+            command:
+            - cilium
+            - status
+            - --brief
+          failureThreshold: 10
+          # The initial delay for the liveness probe is intentionally large to
+          # avoid an endless kill & restart cycle if in the event that the initial
+          # bootstrapping takes longer than expected.
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            command:
+            - cilium
+            - status
+            - --brief
+          failureThreshold: 3
+          initialDelaySeconds: 5
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 5
+{{- end }}
         env:
         - name: K8S_NODE_NAME
           valueFrom:
@@ -96,20 +134,6 @@ spec:
               command:
               - /cni-uninstall.sh
 {{- end }}
-        livenessProbe:
-          exec:
-            command:
-            - cilium
-            - status
-            - --brief
-          failureThreshold: 10
-          # The initial delay for the liveness probe is intentionally large to
-          # avoid an endless kill & restart cycle if in the event that the initial
-          # bootstrapping takes longer than expected.
-          initialDelaySeconds: 120
-          periodSeconds: 30
-          successThreshold: 1
-          timeoutSeconds: 5
         name: cilium-agent
 {{- if .Values.global.prometheus.enabled }}
         ports:
@@ -118,17 +142,6 @@ spec:
           name: prometheus
           protocol: TCP
 {{- end }}
-        readinessProbe:
-          exec:
-            command:
-            - cilium
-            - status
-            - --brief
-          failureThreshold: 3
-          initialDelaySeconds: 5
-          periodSeconds: 30
-          successThreshold: 1
-          timeoutSeconds: 5
         securityContext:
           capabilities:
             add:
