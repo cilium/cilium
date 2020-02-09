@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-to-a
+spec:
+  selector:
+    matchLabels:
+      name: pod-to-a
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: pod-to-a
+    spec:
+      containers:
+      - name: pod-to-a-container
+        image: docker.io/cilium/json-mock:1.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command: ["curl", "-sS", "-o", "/dev/null", "echo-a"]
