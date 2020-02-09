@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-b
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+  selector:
+    name: echo-b
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo-b
+spec:
+  selector:
+    matchLabels:
+      name: echo-b
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: echo-b
+    spec:
+      containers:
+      - name: echo-container
+        image: docker.io/cilium/json-mock:1.0
+        imagePullPolicy: IfNotPresent
+        readinessProbe:
+          exec:
+            command: ["curl", "-sS", "-o", "/dev/null", "localhost"]

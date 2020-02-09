@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-to-a-fqdn-allow-google-cnp
+spec:
+  selector:
+    matchLabels:
+      name: pod-to-a-fqdn-allow-google-cnp
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: pod-to-a-fqdn-allow-google-cnp
+    spec:
+      containers:
+      - name: pod-to-a-fqdn-allow-google-cnp-container
+        image: docker.io/cilium/json-mock:1.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command: ["bash", "-c", "curl -sS --connect-timeout 5 -o /dev/null www.google.com"]
+        readinessProbe:
+          exec:
+            command: ["bash", "-c", "curl -sS --connect-timeout 5 -o /dev/null www.google.com"]
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "pod-to-a-fqdn-allow-google-cnp"
+spec:
+  endpointSelector:
+    matchLabels:
+      name: pod-to-a-fqdn-allow-google-cnp
+  egress:
+  - toEndpoints:
+    - matchLabels:
+       "k8s:io.kubernetes.pod.namespace": kube-system
+       "k8s:k8s-app": kube-dns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: ANY
+      rules:
+        dns:
+        - matchPattern: "*"
+  - toFQDNs:
+    - matchPattern: "*.google.com"
