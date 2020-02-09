@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-to-b-multi-node
+spec:
+  selector:
+    matchLabels:
+      name: pod-to-b-multi-node
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: pod-to-b-multi-node
+    spec:
+      containers:
+      - name: pod-to-b-multi-node-container
+        image: docker.io/cilium/json-mock:1.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command: ["curl", "-sS", "-o", "/dev/null", "echo-b"]
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-b
+            topologyKey: "kubernetes.io/hostname"
