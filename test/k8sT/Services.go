@@ -59,7 +59,7 @@ var _ = Describe("K8sServicesTest", func() {
 		// Nodes are used in testNodePort and testExternalTrafficPolicyLocal below
 		nodeName, err := kubectl.GetNodeNameByLabel(label)
 		Expect(err).To(BeNil(), "Cannot get node by label "+label)
-		nodeIP, err = kubectl.GetNodeIPByLabel(label)
+		nodeIP, err = kubectl.GetNodeIPByLabel(label, false)
 		Expect(err).Should(BeNil(), "Can not retrieve Node IP for "+label)
 		return nodeName, nodeIP
 	}
@@ -677,8 +677,6 @@ var _ = Describe("K8sServicesTest", func() {
 			helpers.DoesNotRunOnNetNext,
 			"Tests NodePort BPF", func() {
 				// TODO(brb) Add with L7 policy test cases after GH#8971 has been fixed
-
-				nativeDev := "enp0s8"
 
 				BeforeAll(func() {
 					enableBackgroundReport = false
