@@ -79,17 +79,20 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	expected := NewL4Policy(0)
 	expected.Ingress["80/TCP"] = &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+		wildcard: wildcardCachedSelector,
 		L7Parser: "http", L7RulesPerSelector: l7map, Ingress: true,
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}
 	expected.Ingress["8080/TCP"] = &L4Filter{
 		Port: 8080, Protocol: api.ProtoTCP, U8Proto: 6,
+		wildcard: wildcardCachedSelector,
 		L7Parser: "http", L7RulesPerSelector: l7map, Ingress: true,
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}
 
 	expected.Egress["3000/TCP"] = &L4Filter{
 		Port: 3000, Protocol: api.ProtoTCP, U8Proto: 6, Ingress: false,
+		wildcard: wildcardCachedSelector,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: nil,
 		},
@@ -97,6 +100,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	}
 	expected.Egress["3000/UDP"] = &L4Filter{
 		Port: 3000, Protocol: api.ProtoUDP, U8Proto: 17, Ingress: false,
+		wildcard: wildcardCachedSelector,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: nil,
 		},
@@ -184,6 +188,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
+		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{
@@ -197,6 +202,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	}
 	expected.Egress["3000/TCP"] = &L4Filter{
 		Port: 3000, Protocol: api.ProtoTCP, U8Proto: 6, Ingress: false,
+		wildcard: wildcardCachedSelector,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: nil,
 		},
@@ -204,6 +210,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	}
 	expected.Egress["3000/UDP"] = &L4Filter{
 		Port: 3000, Protocol: api.ProtoUDP, U8Proto: 17, Ingress: false,
+		wildcard: wildcardCachedSelector,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: nil,
 		},
@@ -415,6 +422,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
+		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{
@@ -496,6 +504,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 
 	expected = L4PolicyMap{"80/TCP": &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+		wildcard: wildcardCachedSelector,
 		L7Parser: "kafka", L7RulesPerSelector: l7map, Ingress: true,
 		DerivedFromRules: labels.LabelArrayList{nil, nil},
 	}}
@@ -583,6 +592,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	}
 	expected = L4PolicyMap{"80/TCP": &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+		wildcard: wildcardCachedSelector,
 		L7Parser: "kafka", L7RulesPerSelector: l7map, Ingress: true,
 		DerivedFromRules: labels.LabelArrayList{nil, nil},
 	}}
@@ -649,6 +659,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 
 	expected := L4PolicyMap{"80/TCP": &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{
@@ -726,6 +737,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 
 	expected = L4PolicyMap{"9092/TCP": &L4Filter{
 		Port: 9092, Protocol: api.ProtoTCP, U8Proto: 6,
+		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeKafka,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{
@@ -819,6 +831,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	}
 	expected = L4PolicyMap{"80/TCP": &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+		wildcard: wildcardCachedSelector,
 		L7Parser: "kafka", L7RulesPerSelector: l7map, Ingress: false,
 		DerivedFromRules: labels.LabelArrayList{nil, nil},
 	}}
@@ -1761,6 +1774,7 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 
 	expected := &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+		wildcard: wildcardCachedSelector,
 		L7Parser: "http",
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: nil,
@@ -2064,6 +2078,7 @@ func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
 	c.Assert(len(filter.L7RulesPerSelector), Equals, 2)
 	c.Assert(filter, checker.Equals, &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+		wildcard: wildcardCachedSelector,
 		L7Parser: "http",
 		L7RulesPerSelector: L7DataMap{
 			cachedSelectorC: nil,
@@ -2124,6 +2139,7 @@ func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
 	c.Assert(filter.L7RulesPerSelector[cachedSelectorC], IsNil)
 	c.Assert(filter, checker.Equals, &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+		wildcard: wildcardCachedSelector,
 		L7Parser: "http",
 		L7RulesPerSelector: L7DataMap{
 			cachedSelectorC: nil,
