@@ -667,13 +667,11 @@ static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
 			return sock6_post_bind_v4_in_v6(ctx);
 	}
 
-	if (svc && (lb6_svc_is_nodeport(svc) || lb6_svc_is_external_ip(svc))) {
+	if (svc && (lb6_svc_is_nodeport(svc) || lb6_svc_is_external_ip(svc)))
 		return -EADDRINUSE;
-	}
 
 	return 0;
 }
-
 
 __section("post-bind-sock6")
 int sock6_post_bind(struct bpf_sock *ctx)
@@ -683,7 +681,6 @@ int sock6_post_bind(struct bpf_sock *ctx)
 
 	return SYS_PROCEED;
 }
-
 #endif /* ENABLE_NODEPORT || ENABLE_EXTERNAL_IP */
 
 static __always_inline int __sock6_xlate(struct bpf_sock_addr *ctx)
