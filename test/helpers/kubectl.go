@@ -1568,6 +1568,16 @@ func (kub *Kubectl) CiliumEndpointsStatus(pod string) map[string]string {
 		"cilium endpoint list -o jsonpath='%s'", filter)).KVOutput()
 }
 
+// CiliumEndpointIPv6 returns the IPv6 address of each endpoint which matches
+// the given endpoint selector.
+func (kub *Kubectl) CiliumEndpointIPv6(pod string, endpoint string) map[string]string {
+	filter := `{range [*]}{@.status.external-identifiers.pod-name}{"="}{@.status.networking.addressing[*].ipv6}{"\n"}{end}`
+	ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+	defer cancel()
+	return kub.CiliumExecContext(ctx, pod, fmt.Sprintf(
+		"cilium endpoint get %s -o jsonpath='%s'", endpoint, filter)).KVOutput()
+}
+
 // CiliumEndpointWaitReady waits until all endpoints managed by all Cilium pod
 // are ready. Returns an error if the Cilium pods cannot be retrieved via
 // Kubernetes, or endpoints are not ready after a specified timeout
