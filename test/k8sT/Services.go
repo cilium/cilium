@@ -392,7 +392,10 @@ var _ = Describe("K8sServicesTest", func() {
 					ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
 						"Can not connect to service %q from outside cluster", url)
 					if checkSourceIP {
-						Expect(strings.TrimSpace(strings.Split(res.GetStdOut(), "=")[1])).To(Equal(clientIP))
+						// Parse the IPs to avoid issues with 4-in-6 formats
+						sourceIP := net.ParseIP(strings.TrimSpace(strings.Split(res.GetStdOut(), "=")[1]))
+						clientIP := net.ParseIP(clientIP)
+						Expect(sourceIP).To(Equal(clientIP))
 					}
 				}
 			}
