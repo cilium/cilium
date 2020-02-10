@@ -729,30 +729,30 @@ var _ = Describe("K8sServicesTest", func() {
 					It("Tests HealthCheckNodePort", func() {
 						testHealthCheckNodePort()
 					})
-				})
 
-				SkipContextIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with MetalLB", func() {
-					var (
-						metalLB string
-					)
+					SkipContextIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with MetalLB", func() {
+						var (
+							metalLB string
+						)
 
-					BeforeAll(func() {
-						// Will allocate LoadBalancer IPs from 192.168.36.{240-250} range
-						metalLB = helpers.ManifestGet(kubectl.BasePath(), "metallb.yaml")
-						res := kubectl.ApplyDefault(metalLB)
-						res.ExpectSuccess("Unable to apply %s", metalLB)
-					})
+						BeforeAll(func() {
+							// Will allocate LoadBalancer IPs from 192.168.36.{240-250} range
+							metalLB = helpers.ManifestGet(kubectl.BasePath(), "metallb.yaml")
+							res := kubectl.ApplyDefault(metalLB)
+							res.ExpectSuccess("Unable to apply %s", metalLB)
+						})
 
-					AfterAll(func() {
-						_ = kubectl.Delete(metalLB)
-					})
+						AfterAll(func() {
+							_ = kubectl.Delete(metalLB)
+						})
 
-					It("Connectivity to endpoint via LB", func() {
-						lbIP, err := kubectl.GetLoadBalancerIP(
-							helpers.DefaultNamespace, "test-lb", 30*time.Second)
-						Expect(err).Should(BeNil(), "Cannot retrieve loadbalancer IP for test-lb")
+						It("Connectivity to endpoint via LB", func() {
+							lbIP, err := kubectl.GetLoadBalancerIP(
+								helpers.DefaultNamespace, "test-lb", 30*time.Second)
+							Expect(err).Should(BeNil(), "Cannot retrieve loadbalancer IP for test-lb")
 
-						doRequestsFromThirdHost("http://"+lbIP, 10, false)
+							doRequestsFromThirdHost("http://"+lbIP, 10, false)
+						})
 					})
 				})
 
