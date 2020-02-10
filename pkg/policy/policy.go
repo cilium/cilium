@@ -17,14 +17,13 @@ package policy
 import (
 	"fmt"
 	"io"
+	stdlog "log"
 	"strconv"
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
-
-	"github.com/op/go-logging"
 )
 
 type Tracing int
@@ -48,7 +47,7 @@ func (s *SearchContext) PolicyTrace(format string, a ...interface{}) {
 		if s.Logging != nil {
 			format = "%-" + s.CallDepth() + "s" + format
 			a = append([]interface{}{""}, a...)
-			s.Logging.Logger.Printf(format, a...)
+			s.Logging.Printf(format, a...)
 		}
 	}
 }
@@ -60,7 +59,7 @@ func (s *SearchContext) PolicyTraceVerbose(format string, a ...interface{}) {
 	case TRACE_VERBOSE:
 		log.Debugf(format, a...)
 		if s.Logging != nil {
-			s.Logging.Logger.Printf(format, a...)
+			s.Logging.Printf(format, a...)
 		}
 	}
 }
@@ -69,7 +68,7 @@ func (s *SearchContext) PolicyTraceVerbose(format string, a ...interface{}) {
 type SearchContext struct {
 	Trace   Tracing
 	Depth   int
-	Logging *logging.LogBackend
+	Logging *stdlog.Logger
 	From    labels.LabelArray
 	To      labels.LabelArray
 	DPorts  []*models.Port
@@ -109,7 +108,7 @@ func (s *SearchContext) CallDepth() string {
 // logging set to write to 'log'.
 func (s *SearchContext) WithLogger(log io.Writer) *SearchContext {
 	result := *s
-	result.Logging = logging.NewLogBackend(log, "", 0)
+	result.Logging = stdlog.New(log, "", 0)
 	if result.Trace == TRACE_DISABLED {
 		result.Trace = TRACE_ENABLED
 	}
