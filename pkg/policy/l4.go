@@ -256,7 +256,28 @@ func (l4 *L4Filter) ToMapState(direction trafficdirection.TrafficDirection) MapS
 		TrafficDirection: direction.Uint8(),
 	}
 
+	// find the L7 rules for the wildcard entry, if any
+	var wildcardL7Policy *PerSelectorPolicy
+	if l4.wildcard != nil {
+		wildcardL7Policy = l4.L7RulesPerSelector[l4.wildcard]
+	}
+
 	for cs, l7 := range l4.L7RulesPerSelector {
+		// Skip generating L3/L4 keys if L4-only key (for the same L4 port and
+		// protocol) has the same effect w.r.t. redirecting to the proxy or not,
+		// considering that L3/L4 key should redirect if L4-only key does. In
+		// summary, if have both L3/L4 and L4-only keys:
+		//
+		// L3/L4        L4-only      Skip generating L3/L4 key
+		// redirect     no redirect  no   (this case tested below)
+		// no redirect  no redirect  yes  (same effect)
+		// redirect     redirect     yes  (same effect)
+		// no redirect  redirect     yes  (must redirect if L4-only redirects)
+		//
+		// have wildcard?        this is a L3L4 key?  not the "no" case?
+		if l4.wildcard != nil && cs != l4.wildcard && !(l7 != nil && wildcardL7Policy == nil) {
+			continue
+		}
 		entry := NoRedirectEntry
 		if l7 != nil {
 			entry = redirectEntry
