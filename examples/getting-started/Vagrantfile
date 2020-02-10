@@ -3,14 +3,9 @@
 
 Vagrant.require_version ">= 2.0.0"
 
-# Note: Cilium version must remain pinned to a v1.4 branch version.
-#
-# We do not have binary packages for iproute2 with BPF templating support
-# so if we change this version without otherwise providing those packages
-# then this GSG VM will break!
-cilium_version = (ENV['CILIUM_VERSION'] || "v1.4.1")
-cilium_opts = (ENV['CILIUM_OPTS'] || "--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 -t vxlan")
-cilium_tag = (ENV['CILIUM_TAG'] || "v1.4.1")
+cilium_version = (ENV['CILIUM_VERSION'] || "v1.6.6")
+cilium_opts = (ENV['CILIUM_OPTS'] || "--enable-ipv6=false --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 -t vxlan")
+cilium_tag = (ENV['CILIUM_TAG'] || "v1.6.6")
 
 # This runs only once when vagrant box is provisioned for the first time
 $bootstrap = <<SCRIPT
@@ -19,8 +14,9 @@ curl -sS -L "https://github.com/docker/compose/releases/download/1.23.2/docker-c
 chmod +x /usr/local/bin/docker-compose
 
 # install cilium client
-curl -sS -L "http://releases.cilium.io/#{cilium_version}/cilium-x86_64" -o /usr/local/bin/cilium
-chmod +x /usr/local/bin/cilium
+cid=$(docker create docker.io/cilium/cilium:#{cilium_version})
+docker cp "${cid}:/usr/bin/cilium" /usr/local/bin/cilium
+docker rm -f ${cid}
 
 # Store specified tag and options for docker-compose so we can rerun easily
 cat > /home/vagrant/cilium/examples/getting-started/.env <<EOF
