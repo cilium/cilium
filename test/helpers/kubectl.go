@@ -2814,6 +2814,43 @@ CILIUM_SERVICES:
 	return validateCiliumSvcLB(*ciliumService, ciliumLB)
 }
 
+// CiliumServiceAdd adds the given service on a 'pod' running Cilium
+func (kub *Kubectl) CiliumServiceAdd(pod string, id int64, frontend string, backends []string, svcType, trafficPolicy string) error {
+	var opts []string
+	switch strings.ToLower(svcType) {
+	case "nodeport":
+		opts = append(opts, "--k8s-node-port")
+	case "externalip":
+		opts = append(opts, "--k8s-external")
+	case "clusterip":
+		// this is the default
+	default:
+		return fmt.Errorf("invalid service type: %q", svcType)
+	}
+
+	trafficPolicy = strings.Title(strings.ToLower(trafficPolicy))
+	switch trafficPolicy {
+	case "Cluster", "Local":
+		opts = append(opts, "--k8s-traffic-policy "+trafficPolicy)
+	default:
+		return fmt.Errorf("invalid traffic policy: %q", svcType)
+	}
+
+	optsStr := strings.Join(opts, " ")
+	backendsStr := strings.Join(backends, ",")
+	ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+	defer cancel()
+	return kub.CiliumExecContext(ctx, pod, fmt.Sprintf("cilium service update --id %d --frontend %q --backends %q %s",
+		id, frontend, backendsStr, optsStr)).GetErr("cilium service update")
+}
+
+// CiliumServiceDel deletes the service with 'id' on a 'pod' running Cilium
+func (kub *Kubectl) CiliumServiceDel(pod string, id int64) error {
+	ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+	defer cancel()
+	return kub.CiliumExecContext(ctx, pod, fmt.Sprintf("cilium service delete %d", id)).GetErr("cilium service delete")
+}
+
 // ciliumServicePreFlightCheck checks that k8s service is plumbed correctly
 func (kub *Kubectl) ciliumServicePreFlightCheck() error {
 	ginkgoext.By("Performing Cilium service preflight check")
