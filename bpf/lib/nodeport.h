@@ -505,7 +505,7 @@ redo:
 
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
-	if (eth_load_saddr(skb, &smac.addr, 0) < 0)
+	if (eth_load_saddr(skb, smac.addr, 0) < 0)
 		return DROP_INVALID;
 	ret = map_update_elem(&NODEPORT_NEIGH6, &ip6->saddr, &smac, 0);
 	if (ret < 0) {
@@ -599,9 +599,9 @@ static inline int rev_nodeport_lb6(struct __sk_buff *skb, int *ifindex,
 
 		dmac = map_lookup_elem(&NODEPORT_NEIGH6, &tuple.daddr);
 		if (dmac) {
-			if (eth_store_daddr(skb, &dmac->addr, 0) < 0)
+			if (eth_store_daddr(skb, dmac->addr, 0) < 0)
 				return DROP_WRITE_ERROR;
-			if (eth_store_saddr(skb, &mac->addr, 0) < 0)
+			if (eth_store_saddr(skb, mac->addr, 0) < 0)
 				return DROP_WRITE_ERROR;
 		} else {
 			fib_params.family = AF_INET6;
@@ -1054,7 +1054,7 @@ redo:
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
-	if (eth_load_saddr(skb, &smac.addr, 0) < 0)
+	if (eth_load_saddr(skb, smac.addr, 0) < 0)
 		return DROP_INVALID;
 	ret = map_update_elem(&NODEPORT_NEIGH4, &ip4->saddr, &smac, 0);
 	if (ret < 0) {
@@ -1148,9 +1148,9 @@ static inline int rev_nodeport_lb4(struct __sk_buff *skb, int *ifindex,
 
 		dmac = map_lookup_elem(&NODEPORT_NEIGH4, &ip4->daddr);
 		if (dmac) {
-		    if (eth_store_daddr(skb, &dmac->addr, 0) < 0)
+		    if (eth_store_daddr(skb, dmac->addr, 0) < 0)
 			return DROP_WRITE_ERROR;
-		    if (eth_store_saddr(skb, &mac->addr, 0) < 0)
+		    if (eth_store_saddr(skb, mac->addr, 0) < 0)
 			return DROP_WRITE_ERROR;
 		} else {
 		    fib_params.family = AF_INET;
