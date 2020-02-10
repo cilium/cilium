@@ -618,7 +618,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 							It("Tests NodePort with L7 Policy", func() {
 								applyPolicy(demoPolicy)
-								testNodePort(true)
+								testNodePort(false)
 							})
 						})
 
@@ -665,7 +665,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 							It("Tests NodePort with L7 Policy", func() {
 								applyPolicy(demoPolicy)
-								testNodePort(true)
+								testNodePort(false)
 							})
 						})
 
