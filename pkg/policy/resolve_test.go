@@ -287,6 +287,7 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 						Port:     80,
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
+						wildcard: wildcardCachedSelector,
 						L7Parser: ParserTypeHTTP,
 						Ingress:  true,
 						L7RulesPerSelector: L7DataMap{
@@ -378,6 +379,7 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 						Port:     80,
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
+						wildcard: wildcardCachedSelector,
 						L7Parser: ParserTypeHTTP,
 						Ingress:  true,
 						L7RulesPerSelector: L7DataMap{
@@ -456,6 +458,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 						Port:     80,
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
+						wildcard: wildcardCachedSelector,
 						L7Parser: ParserTypeNone,
 						Ingress:  true,
 						L7RulesPerSelector: L7DataMap{

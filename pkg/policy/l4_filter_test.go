@@ -253,6 +253,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
+		wildcard: wildcardCachedSelector,
 		L7Parser: "http",
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{
@@ -361,6 +362,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(c *C)
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
+		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{
@@ -441,6 +443,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 		Port:     9092,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
+		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeKafka,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{
@@ -715,6 +718,7 @@ func (ds *PolicyTestSuite) TestMergeTLSPolicies(c *C) {
 		Port:     443,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
+		wildcard: nil,
 		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
 			cachedSelectorA: nil, // no proxy redirect
@@ -782,6 +786,7 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
+		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeNone,
 		L7RulesPerSelector: L7DataMap{
 			cachedSelectorA:        nil,
@@ -841,6 +846,7 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
+		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeNone,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: nil,
@@ -913,6 +919,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
+		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: nil,
@@ -983,6 +990,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
+		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: nil,
@@ -1066,6 +1074,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
+		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{
@@ -1145,6 +1154,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
+		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{
@@ -1335,6 +1345,7 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointsSelectedAllowSameL7(
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
+		wildcard: nil,
 		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
 			cachedSelectorC: &PerSelectorPolicy{
@@ -1410,6 +1421,7 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointSelectedAllowAllL7(c 
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
+		wildcard: nil,
 		L7Parser: ParserTypeNone,
 		L7RulesPerSelector: L7DataMap{
 			cachedSelectorA: nil,
@@ -1484,6 +1496,7 @@ func (ds *PolicyTestSuite) TestAllowingLocalhostShadowsL7(c *C) {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
+		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{
@@ -1543,6 +1556,7 @@ func (ds *PolicyTestSuite) TestEntitiesL3(c *C) {
 		Port:     0,
 		Protocol: api.ProtoAny,
 		U8Proto:  0,
+		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeNone,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: nil,

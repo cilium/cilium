@@ -185,6 +185,8 @@ type L4Filter struct {
 	Protocol api.L4Proto `json:"protocol"`
 	// U8Proto is the Protocol in numeric format, or 0 for NONE
 	U8Proto u8proto.U8proto `json:"-"`
+	// wildcard is the cached selector representing a wildcard in this filter, if any.
+	wildcard CachedSelector
 	// L7RulesPerSelector is a list of L7 rules per endpoint passed to the L7 proxy.
 	// nil values represent cached selectors that have no L7 restriction.
 	// Holds references to the cached selectors, which must be released!
@@ -446,7 +448,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 	}
 
 	if peerEndpoints.SelectsAllEndpoints() {
-		l4.cacheIdentitySelector(api.WildcardEndpointSelector, selectorCache)
+		l4.wildcard = l4.cacheIdentitySelector(api.WildcardEndpointSelector, selectorCache)
 	} else {
 		l4.cacheIdentitySelectors(peerEndpoints, selectorCache)
 		l4.cacheFQDNSelectors(fqdns, selectorCache)
@@ -595,12 +597,13 @@ func (l4 *L4Filter) String() string {
 
 // Note: Only used for policy tracing
 func (l4 *L4Filter) matchesLabels(labels labels.LabelArray) bool {
+	if l4.wildcard != nil {
+		return true
+	} else if len(labels) == 0 {
+		return false
+	}
+
 	for sel := range l4.L7RulesPerSelector {
-		if sel.IsWildcard() {
-			return true
-		} else if len(labels) == 0 {
-			return false
-		}
 		// slow, but OK for tracing
 		if idSel, ok := sel.(*labelIdentitySelector); ok && idSel.xxxMatches(labels) {
 			return true

@@ -216,6 +216,10 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 
 			// Move L7 rules over.
 			existingFilter.L7RulesPerSelector[cs] = newL7Rules
+
+			if cs.IsWildcard() {
+				existingFilter.wildcard = cs
+			}
 		}
 	}
 
