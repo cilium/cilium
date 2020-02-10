@@ -15,7 +15,7 @@ cilium endpoint config <endpoint id> [<option>=(enable|disable) ...] [flags]
 ### Examples
 
 ```
-endpoint config 5421 DropNotification=false TraceNotification=false
+endpoint config 5421 DropNotification=false TraceNotification=false PolicyVerdictNotification=true
 ```
 
 ### Options

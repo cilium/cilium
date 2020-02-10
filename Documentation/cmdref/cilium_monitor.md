@@ -27,7 +27,7 @@ cilium monitor [flags]
       --monitor-socket string   Configure monitor socket path
       --related-to []uint16     Filter by either source or destination endpoint id
       --to []uint16             Filter by destination endpoint id
-  -t, --type []string           Filter by event types [agent capture debug drop l7 trace]
+  -t, --type []string           Filter by event types [agent capture debug drop l7 policy-verdict trace]
   -v, --verbose                 Enable verbose output
 ```
 
