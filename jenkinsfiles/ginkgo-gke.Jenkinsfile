@@ -11,6 +11,7 @@ pipeline {
         TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
         GOPATH="${WORKSPACE}"
         GKE_KEY=credentials('gke-key')
+        GKE_ZONE="us-west1-a"
     }
 
     options {
