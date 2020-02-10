@@ -104,6 +104,37 @@ var _ = Describe("K8sServicesTest", func() {
 		kubectl.CloseSSHClient()
 	})
 
+	ciliumIPv6Backends := func(label string, port string) (backends []string) {
+		ciliumPods, err := kubectl.GetCiliumPods(helpers.CiliumNamespace)
+		Expect(err).To(BeNil(), "Cannot get cilium pods")
+		for _, pod := range ciliumPods {
+			endpointIPs := kubectl.CiliumEndpointIPv6(pod, label)
+			for _, ip := range endpointIPs {
+				backends = append(backends, net.JoinHostPort(ip, port))
+			}
+		}
+		Expect(backends).To(Not(BeEmpty()), "Cannot find any IPv6 backends")
+		return backends
+	}
+
+	ciliumAddService := func(id int64, frontend string, backends []string, svcType, trafficPolicy string) {
+		ciliumPods, err := kubectl.GetCiliumPods(helpers.CiliumNamespace)
+		Expect(err).To(BeNil(), "Cannot get cilium pods")
+		for _, pod := range ciliumPods {
+			err := kubectl.CiliumServiceAdd(pod, id, frontend, backends, svcType, trafficPolicy)
+			Expect(err).To(BeNil(), "Failed to add cilium service")
+		}
+	}
+
+	ciliumDelService := func(id int64) {
+		ciliumPods, err := kubectl.GetCiliumPods(helpers.CiliumNamespace)
+		Expect(err).To(BeNil(), "Cannot get cilium pods")
+		for _, pod := range ciliumPods {
+			// ignore result so tear down still continues on failures
+			_ = kubectl.CiliumServiceDel(pod, id)
+		}
+	}
+
 	testCurlRequest := func(clientPodLabel, url string) {
 		pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, clientPodLabel)
 		ExpectWithOffset(1, err).Should(BeNil(), "cannot retrieve pod names by filter %q", testDSClient)
@@ -201,6 +232,58 @@ var _ = Describe("K8sServicesTest", func() {
 			url = fmt.Sprintf("tftp://%s/hello", clusterIP)
 			testCurlRequest(echoPodLabel, url)
 		}, 300)
+
+		SkipContextIf(helpers.RunsWithKubeProxy, "IPv6 Connectivity", func() {
+			// Because the deployed K8s does not have dual-stack mode enabled,
+			// we install the Cilium service rules manually via Cilium CLI.
+
+			demoClusterIPv6 := "fd03::100"
+			echoClusterIPv6 := "fd03::200"
+
+			BeforeEach(func() {
+				// Installs the IPv6 equivalent of app1-service (demo.yaml)
+				err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l id=app1", helpers.HelperTimeout)
+				Expect(err).Should(BeNil())
+				httpBackends := ciliumIPv6Backends("-l k8s:id=app1", "80")
+				ciliumAddService(10080, net.JoinHostPort(demoClusterIPv6, "80"), httpBackends, "ClusterIP", "Cluster")
+				tftpBackends := ciliumIPv6Backends("-l k8s:id=app1", "69")
+				ciliumAddService(10069, net.JoinHostPort(demoClusterIPv6, "69"), tftpBackends, "ClusterIP", "Cluster")
+				// Installs the IPv6 equivalent of echo (echo-svc.yaml)
+				err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=echo", helpers.HelperTimeout)
+				Expect(err).Should(BeNil())
+				httpBackends = ciliumIPv6Backends("-l k8s:name=echo", "80")
+				ciliumAddService(20080, net.JoinHostPort(echoClusterIPv6, "80"), httpBackends, "ClusterIP", "Cluster")
+				tftpBackends = ciliumIPv6Backends("-l k8s:name=echo", "69")
+				ciliumAddService(20069, net.JoinHostPort(echoClusterIPv6, "69"), tftpBackends, "ClusterIP", "Cluster")
+			})
+
+			AfterEach(func() {
+				ciliumDelService(10080)
+				ciliumDelService(10069)
+				ciliumDelService(20080)
+				ciliumDelService(20069)
+			})
+
+			It("Checks service on same node", func() {
+				k8s1Name, _ := getNodeInfo(helpers.K8s1)
+				status, err := kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
+					helpers.CurlFail(`"http://[%s]/"`, demoClusterIPv6))
+				Expect(err).To(BeNil(), "Cannot run curl in host netns")
+				status.ExpectSuccess("cannot curl to service IP from host")
+
+				status, err = kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
+					helpers.CurlFail(`"tftp://[%s]/hello"`, demoClusterIPv6))
+				Expect(err).To(BeNil(), "Cannot run curl in host netns")
+				status.ExpectSuccess("cannot curl to service IP from host")
+			})
+
+			It("Checks service accessing itself (hairpin flow)", func() {
+				url := fmt.Sprintf(`"http://[%s]/"`, echoClusterIPv6)
+				testCurlRequest(echoPodLabel, url)
+				url = fmt.Sprintf(`"tftp://[%s]/hello"`, echoClusterIPv6)
+				testCurlRequest(echoPodLabel, url)
+			})
+		})
 	})
 
 	Context("Checks service across nodes", func() {
