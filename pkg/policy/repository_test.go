@@ -19,6 +19,7 @@ package policy
 import (
 	"bytes"
 	"fmt"
+	stdlog "log"
 	"testing"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -29,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 
-	logging "github.com/op/go-logging"
 	. "gopkg.in/check.v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -537,7 +537,7 @@ func (ds *PolicyTestSuite) TestAllowsEgress(c *C) {
 	ctx := &SearchContext{
 		To:      labels.ParseSelectLabelArray("foo", "groupB"),
 		From:    labels.ParseSelectLabelArray("bar", "groupA"),
-		Logging: logging.NewLogBackend(buffer, "", 0),
+		Logging: stdlog.New(buffer, "", 0),
 		Trace:   TRACE_VERBOSE,
 	}
 	verdict := repo.AllowsEgressRLocked(ctx)
@@ -1836,7 +1836,7 @@ func (repo *Repository) checkTrace(c *C, ctx *SearchContext, trace string,
 	expectedVerdict api.Decision) {
 
 	buffer := new(bytes.Buffer)
-	ctx.Logging = logging.NewLogBackend(buffer, "", 0)
+	ctx.Logging = stdlog.New(buffer, "", 0)
 
 	repo.Mutex.RLock()
 	verdict := repo.AllowsIngressRLocked(ctx)

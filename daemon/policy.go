@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	stdlog "log"
 	"net"
 	"strings"
 	"sync"
@@ -43,7 +44,6 @@ import (
 	"github.com/cilium/cilium/pkg/uuid"
 
 	"github.com/go-openapi/runtime/middleware"
-	"github.com/op/go-logging"
 )
 
 type policyTriggerMetrics struct{}
@@ -144,7 +144,7 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 			Trace:   policy.TRACE_ENABLED,
 			To:      labels.NewSelectLabelArrayFromModel(ctx.To.Labels),
 			DPorts:  ctx.To.Dports,
-			Logging: logging.NewLogBackend(buffer, "", 0),
+			Logging: stdlog.New(buffer, "", 0),
 		}
 		if ctx.Verbose {
 			searchCtx.Trace = policy.TRACE_VERBOSE
@@ -166,7 +166,7 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 	ctx := params.TraceSelector
 	ingressSearchCtx := policy.SearchContext{
 		Trace:   policy.TRACE_ENABLED,
-		Logging: logging.NewLogBackend(ingressBuffer, "", 0),
+		Logging: stdlog.New(ingressBuffer, "", 0),
 		From:    labels.NewSelectLabelArrayFromModel(ctx.From.Labels),
 		To:      labels.NewSelectLabelArrayFromModel(ctx.To.Labels),
 		DPorts:  ctx.To.Dports,
@@ -177,7 +177,7 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 
 	egressBuffer := new(bytes.Buffer)
 	egressSearchCtx := ingressSearchCtx
-	egressSearchCtx.Logging = logging.NewLogBackend(egressBuffer, "", 0)
+	egressSearchCtx.Logging = stdlog.New(egressBuffer, "", 0)
 
 	ingressVerdict := policyAPI.Allowed
 	egressVerdict := policyAPI.Allowed

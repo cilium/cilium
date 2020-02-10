@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	stdlog "log"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -30,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/testutils"
 
-	logging "github.com/op/go-logging"
 	. "gopkg.in/check.v1"
 )
 
@@ -304,7 +304,7 @@ func (d *policyDistillery) distillPolicy(epLabels labels.LabelArray) (MapState, 
 		To:    epLabels,
 		Trace: TRACE_VERBOSE,
 	}
-	ingressL4.Logging = logging.NewLogBackend(d.log, "", 0)
+	ingressL4.Logging = stdlog.New(d.log, "", 0)
 	io.WriteString(d.log, fmt.Sprintf("[distill] Evaluating L4 -> %s", epLabels))
 	l4IngressPolicy, err := d.Repository.ResolveL4IngressPolicy(&ingressL4)
 	if err != nil {
