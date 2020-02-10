@@ -20,12 +20,12 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"sync"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/modules"
 	"github.com/cilium/cilium/pkg/node"
@@ -561,7 +561,7 @@ type IptablesManager struct {
 	haveSocketMatch bool
 	waitArgs        []string
 
-	mu sync.Mutex
+	mu lock.Mutex
 }
 
 // Init initializes the iptables manager and checks for iptables kernel modules
@@ -813,6 +813,8 @@ func (m *IptablesManager) ensureChainRules(table, chainName string, rules []ipta
 // Insert syntax for iptables is of the following format
 // sudo iptables -I [chain] [rule-number] [rule]
 func (m *IptablesManager) EnsureRules(ifname string) error {
+
+	fmt.Println("************************* Ensuring Rules")
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if err := m.ensureCiliumChains(); err != nil {
