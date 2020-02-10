@@ -186,6 +186,10 @@ type L4Filter struct {
 	// U8Proto is the Protocol in numeric format, or 0 for NONE
 	U8Proto u8proto.U8proto `json:"-"`
 	// wildcard is the cached selector representing a wildcard in this filter, if any.
+	// This is nil the wildcard selector in not in 'L7RulesPerSelector'.
+	// When the wildcard selector is in 'L7RulesPerSelector' this is set to that
+	// same selector, which can then be used as a map key to find the corresponding
+	// L4-only L7 policy (which can be nil).
 	wildcard CachedSelector
 	// L7RulesPerSelector is a list of L7 rules per endpoint passed to the L7 proxy.
 	// nil values represent cached selectors that have no L7 restriction.
@@ -269,6 +273,8 @@ func (l4 *L4Filter) ToMapState(direction trafficdirection.TrafficDirection) MapS
 		// summary, if have both L3/L4 and L4-only keys:
 		//
 		// L3/L4        L4-only      Skip generating L3/L4 key
+		// redirect     none         no
+		// no redirect  none         no
 		// redirect     no redirect  no   (this case tested below)
 		// no redirect  no redirect  yes  (same effect)
 		// redirect     redirect     yes  (same effect)
@@ -276,6 +282,13 @@ func (l4 *L4Filter) ToMapState(direction trafficdirection.TrafficDirection) MapS
 		//
 		// have wildcard?        this is a L3L4 key?  not the "no" case?
 		if l4.wildcard != nil && cs != l4.wildcard && !(l7 != nil && wildcardL7Policy == nil) {
+			log.WithFields(logrus.Fields{
+				logfields.EndpointSelector: cs,
+				logfields.PolicyID:         cs.GetSelections(),
+				logfields.Port:             port,
+				logfields.Protocol:         proto,
+				logfields.TrafficDirection: direction,
+			}).Debug("ToMapState: Skipping L3/L4 key due to existing L4-only key")
 			continue
 		}
 		entry := NoRedirectEntry
@@ -291,14 +304,14 @@ func (l4 *L4Filter) ToMapState(direction trafficdirection.TrafficDirection) MapS
 				// Allow-all
 				log.WithFields(logrus.Fields{
 					logfields.TrafficDirection: direction,
-				}).Debug("ToKeys: allow all")
+				}).Debug("ToMapState: allow all")
 			} else {
 				// L4 allow
 				log.WithFields(logrus.Fields{
 					logfields.Port:             port,
 					logfields.Protocol:         proto,
 					logfields.TrafficDirection: direction,
-				}).Debug("ToKeys: L4 allow all")
+				}).Debug("ToMapState: L4 allow all")
 			}
 			continue
 		}
@@ -308,7 +321,7 @@ func (l4 *L4Filter) ToMapState(direction trafficdirection.TrafficDirection) MapS
 			logfields.TrafficDirection: direction,
 			logfields.EndpointSelector: cs,
 			logfields.PolicyID:         identities,
-		}).Debug("ToKeys: Allowed remote IDs")
+		}).Debug("ToMapState: Allowed remote IDs")
 
 		for _, id := range identities {
 			keyToAdd.Identity = id.Uint32()
