@@ -320,6 +320,32 @@ var _ = Describe("K8sServicesTest", func() {
 			testCurlRequest(testDSClient, url)
 		})
 
+		SkipContextIf(helpers.RunsWithKubeProxy, "IPv6 Connectivity", func() {
+			testDSIPv6 := "fd03::310"
+
+			BeforeAll(func() {
+				// Install rules for testds-service (demo_ds.yaml)
+				waitPodsDs()
+				httpBackends := ciliumIPv6Backends("-l k8s:zgroup=testDS", "80")
+				ciliumAddService(31080, net.JoinHostPort(testDSIPv6, "80"), httpBackends, "ClusterIP", "Cluster")
+				tftpBackends := ciliumIPv6Backends("-l k8s:zgroup=testDS", "69")
+				ciliumAddService(31069, net.JoinHostPort(testDSIPv6, "69"), tftpBackends, "ClusterIP", "Cluster")
+			})
+
+			AfterAll(func() {
+				ciliumDelService(31080)
+				ciliumDelService(31069)
+			})
+
+			It("Checks ClusterIP Connectivity", func() {
+				url := fmt.Sprintf(`"http://[%s]/"`, testDSIPv6)
+				testCurlRequest(testDSClient, url)
+
+				url = fmt.Sprintf(`"tftp://[%s]/hello"`, testDSIPv6)
+				testCurlRequest(testDSClient, url)
+			})
+		})
+
 		getHTTPLink := func(host string, port int32) string {
 			return fmt.Sprintf("http://%s",
 				net.JoinHostPort(host, fmt.Sprintf("%d", port)))
