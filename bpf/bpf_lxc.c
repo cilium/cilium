@@ -789,7 +789,7 @@ out:
 
 #ifdef ENABLE_IPV6
 static inline int __inline__
-ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason)
+ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, __u16 *proxy_port)
 {
 	struct ipv6_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -835,8 +835,11 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason)
 	// Do not redirect again if the packet is coming from the egress proxy.
 	if ((ret == CT_REPLY || ret == CT_RELATED) && ct_state.proxy_redirect &&
 	    !tc_index_skip_egress_proxy(skb)) {
-		// Stack will do a socket match and deliver locally
-		return skb_redirect_to_proxy(skb, 0);
+		// This is a reply, the proxy port does not need to be embedded
+		// into skb->mark and *proxy_port can be left unset.
+		send_trace_notify6(skb, TRACE_TO_PROXY, src_label, SECLABEL, &orig_sip,
+				  0, ifindex, 0, monitor);
+		return POLICY_ACT_PROXY_REDIRECT;
 	}
 
 	if (unlikely(ct_state.rev_nat_index)) {
@@ -884,10 +887,10 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason)
 		return DROP_INVALID;
 
 	if (redirect_to_proxy(verdict, *reason)) {
-		// Trace the packet before its forwarded to proxy
+		*proxy_port = verdict;
 		send_trace_notify6(skb, TRACE_TO_PROXY, src_label, SECLABEL, &orig_sip,
 				  0, ifindex, *reason, monitor);
-		return skb_redirect_to_proxy(skb, verdict);
+		return POLICY_ACT_PROXY_REDIRECT;
 	} else { // Not redirected to host / proxy.
 		send_trace_notify6(skb, TRACE_TO_LXC, src_label, SECLABEL, &orig_sip,
 				  LXC_ID, ifindex, *reason, monitor);
@@ -905,11 +908,15 @@ int tail_ipv6_policy(struct __sk_buff *skb)
 {
 	int ret, ifindex = skb->cb[CB_IFINDEX];
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
+	__u16 proxy_port = 0;
 	__u8 reason = 0;
 
 
 	skb->cb[CB_SRC_LABEL] = 0;
-	ret = ipv6_policy(skb, ifindex, src_label, &reason);
+	ret = ipv6_policy(skb, ifindex, src_label, &reason, &proxy_port);
+
+	if (ret == POLICY_ACT_PROXY_REDIRECT)
+		ret = skb_redirect_to_proxy(skb, proxy_port);
 
 	if (IS_ERR(ret))
 		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
@@ -925,6 +932,7 @@ int tail_ipv6_to_endpoint(struct __sk_buff *skb)
 	__u32 src_identity = skb->cb[CB_SRC_LABEL];
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
+	__u16 proxy_port = 0;
 	__u8 reason;
 	int ret;
 
@@ -965,7 +973,10 @@ int tail_ipv6_to_endpoint(struct __sk_buff *skb)
 #endif
 
 	skb->cb[CB_SRC_LABEL] = 0;
-	ret = ipv6_policy(skb, 0, src_identity, &reason);
+	ret = ipv6_policy(skb, 0, src_identity, &reason, &proxy_port);
+
+	if (ret == POLICY_ACT_PROXY_REDIRECT)
+		ret = skb_redirect_to_proxy_hairpin(skb, proxy_port);
 
 out:
 	if (IS_ERR(ret))
@@ -1023,8 +1034,11 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 	// Do not redirect again if the packet is coming from the egress proxy.
 	if ((ret == CT_REPLY || ret == CT_RELATED) && ct_state.proxy_redirect &&
 	    !tc_index_skip_egress_proxy(skb)) {
-		// Stack will do a socket match and deliver locally
-		return skb_redirect_to_proxy(skb, 0);
+		// This is a reply, the proxy port does not need to be embedded
+		// into skb->mark and *proxy_port can be left unset.
+		send_trace_notify4(skb, TRACE_TO_PROXY, src_label, SECLABEL, orig_sip,
+				  0, ifindex, 0, monitor);
+		return POLICY_ACT_PROXY_REDIRECT;
 	}
 
 #ifdef ENABLE_NAT46
@@ -1083,10 +1097,9 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 
 	if (redirect_to_proxy(verdict, *reason)) {
 		*proxy_port = verdict;
-		// Trace the packet before its forwarded to proxy
 		send_trace_notify4(skb, TRACE_TO_PROXY, src_label, SECLABEL, orig_sip,
 				  0, ifindex, *reason, monitor);
-		return TC_ACT_OK;
+		return POLICY_ACT_PROXY_REDIRECT;
 	} else { // Not redirected to host / proxy.
 		send_trace_notify4(skb, TRACE_TO_LXC, src_label, SECLABEL, orig_sip,
 				  LXC_ID, ifindex, *reason, monitor);
@@ -1109,13 +1122,13 @@ int tail_ipv4_policy(struct __sk_buff *skb)
 
 	skb->cb[CB_SRC_LABEL] = 0;
 	ret = ipv4_policy(skb, ifindex, src_label, &reason, &proxy_port);
+
+	if (ret == POLICY_ACT_PROXY_REDIRECT)
+		ret = skb_redirect_to_proxy(skb, proxy_port);
+
 	if (IS_ERR(ret))
 		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
 					ret, TC_ACT_SHOT, METRIC_INGRESS);
-
-	if (proxy_port != 0) {
-		ret = skb_redirect_to_proxy(skb, proxy_port);
-	}
 
 	skb->cb[0] = skb->mark; // essential for proxy ingress, see bpf_ipsec.c
 	return ret;
@@ -1169,9 +1182,8 @@ int tail_ipv4_to_endpoint(struct __sk_buff *skb)
 	skb->cb[CB_SRC_LABEL] = 0;
 	ret = ipv4_policy(skb, 0, src_identity, &reason, &proxy_port);
 
-	if (proxy_port != 0) {
+	if (ret == POLICY_ACT_PROXY_REDIRECT)
 		ret = skb_redirect_to_proxy_hairpin(skb, proxy_port);
-	}
 
 out:
 	if (IS_ERR(ret))
