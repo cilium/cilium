@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -206,7 +206,7 @@ func (m *Map) DeleteWithOverwrite(k bpf.MapKey) error {
 // GetMaxPrefixLengths determines how many unique prefix lengths are supported
 // simultaneously based on the underlying BPF map type in use.
 func (m *Map) GetMaxPrefixLengths() (ipv6, ipv4 int) {
-	if IPCache.MapType == bpf.BPF_MAP_TYPE_LPM_TRIE {
+	if BackedByLPM() {
 		return net.IPv6len*8 + 1, net.IPv4len*8 + 1
 	}
 	return maxPrefixLengths6, maxPrefixLengths4

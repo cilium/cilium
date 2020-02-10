@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
-	"github.com/cilium/cilium/pkg/maps/ipcache"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -317,7 +316,7 @@ func (h *HeaderfileWriter) writeNetdevConfig(w io.Writer, cfg datapath.DeviceCon
 
 	// In case the Linux kernel doesn't support LPM map type, pass the set
 	// of prefix length for the datapath to lookup the map.
-	if ipcache.IPCache.MapType != bpf.BPF_MAP_TYPE_LPM_TRIE {
+	if !ipcachemap.BackedByLPM() {
 		ipcachePrefixes6, ipcachePrefixes4 := cfg.GetCIDRPrefixLengths()
 
 		fmt.Fprint(w, "#define IPCACHE6_PREFIXES ")
