@@ -198,11 +198,6 @@ const (
 	// DockerBridgeIP is the IP on the docker0 bridge
 	DockerBridgeIP = "172.17.0.1"
 
-	// PrivateIface is the name of interface which is used to communicate with
-	// other cluster nodes
-	// FIXME Determine dynamically the iface
-	PrivateIface = "enp0s8"
-
 	// Logs messages that should not be in the cilium logs.
 	panicMessage      = "panic:"
 	deadLockHeader    = "POTENTIAL DEADLOCK:"       // from github.com/sasha-s/go-deadlock/deadlock.go:header

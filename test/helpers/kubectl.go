@@ -593,8 +593,12 @@ func (kub *Kubectl) GetNodeNameByLabelContext(ctx context.Context, label string)
 
 // GetNodeIPByLabel returns the IP of the node with cilium.io/ci-node=label.
 // An error is returned if a node cannot be found.
-func (kub *Kubectl) GetNodeIPByLabel(label string) (string, error) {
-	filter := `{@.items[*].status.addresses[?(@.type == "InternalIP")].address}`
+func (kub *Kubectl) GetNodeIPByLabel(label string, external bool) (string, error) {
+	ipType := "InternalIP"
+	if external {
+		ipType = "ExternalIP"
+	}
+	filter := `{@.items[*].status.addresses[?(@.type == "` + ipType + `")].address}`
 	res := kub.ExecShort(fmt.Sprintf("%s get nodes -l cilium.io/ci-node=%s -o jsonpath='%s'",
 		KubectlCmd, label, filter))
 	if !res.WasSuccessful() {
@@ -607,6 +611,30 @@ func (kub *Kubectl) GetNodeIPByLabel(label string) (string, error) {
 	}
 
 	return out, nil
+}
+
+func (kub *Kubectl) getIfaceByIPAddr(label string, ipAddr string) (string, error) {
+	nodeName, err := kub.GetNodeNameByLabel(label)
+	if err != nil {
+		return "", fmt.Errorf("Cannot get node by label %q", label)
+	}
+
+	cmd := fmt.Sprintf(
+		`ip -j a s  | jq -r '.[] | select(.addr_info[] | .local == "%s") | .ifname'`,
+		ipAddr)
+	res, err := kub.ExecInHostNetNS(context.TODO(), nodeName, cmd)
+	if err != nil {
+		return "", fmt.Errorf("Failed to exec %q cmd on %q node", cmd, nodeName)
+	}
+	if !res.WasSuccessful() {
+		return "", fmt.Errorf("Failed to exec %q cmd on %q node", cmd, nodeName)
+	}
+	iface := strings.Trim(res.GetStdOut(), "\n")
+	if len(iface) == 0 {
+		return "", fmt.Errorf("No iface with %s addr on %q node", ipAddr, nodeName)
+	}
+
+	return iface, nil
 }
 
 // GetServiceHostPort returns the host and the first port for the given service name.
@@ -1356,14 +1384,19 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 	}
 
 	if !RunsWithKubeProxy() {
-		nodeIP, err := kub.GetNodeIPByLabel(K8s1)
+		nodeIP, err := kub.GetNodeIPByLabel(K8s1, false)
 		if err != nil {
 			return fmt.Errorf("Cannot retrieve Node IP for k8s1: %s", err)
 		}
 
+		privateIface, err := kub.GetPrivateIface()
+		if err != nil {
+			return err
+		}
+
 		opts := map[string]string{
 			"global.kubeProxyReplacement": "strict",
-			"global.nodePort.device":      PrivateIface,
+			"global.nodePort.device":      privateIface,
 			"global.k8sServiceHost":       nodeIP,
 			"global.k8sServicePort":       "6443",
 		}
@@ -1395,6 +1428,34 @@ func (kub *Kubectl) generateCiliumYaml(options map[string]string, filename strin
 	}
 
 	return nil
+}
+
+// GetPrivateIface returns an interface name of a netdev which has InternalIP
+// addr.
+// Assumes that all nodes have identical interfaces.
+func (kub *Kubectl) GetPrivateIface() (string, error) {
+	ipAddr, err := kub.GetNodeIPByLabel(K8s1, false)
+	if err != nil {
+		return "", err
+	} else if ipAddr == "" {
+		return "", fmt.Errorf("%s does not have InternalIP", K8s1)
+	}
+
+	return kub.getIfaceByIPAddr(K8s1, ipAddr)
+}
+
+// GetPublicIface returns an interface name of a netdev which has ExternalIP
+// addr.
+// Assumes that all nodes have identical interfaces.
+func (kub *Kubectl) GetPublicIface() (string, error) {
+	ipAddr, err := kub.GetNodeIPByLabel(K8s1, true)
+	if err != nil {
+		return "", err
+	} else if ipAddr == "" {
+		return "", fmt.Errorf("%s does not have ExternalIP", K8s1)
+	}
+
+	return kub.getIfaceByIPAddr(K8s1, ipAddr)
 }
 
 func (kub *Kubectl) DeleteCiliumDS() error {
