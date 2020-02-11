@@ -17,7 +17,6 @@
 package policymap
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -106,6 +105,5 @@ func (pm *PolicyMapTestSuite) TestDeleteNonexistentKey(c *C) {
 	err := testMap.Map.Delete(&key)
 	c.Assert(err, Not(IsNil))
 	var errno unix.Errno
-	c.Assert(errors.As(err, &errno), Equals, true)
 	c.Assert(errno, Equals, unix.ENOENT)
 }

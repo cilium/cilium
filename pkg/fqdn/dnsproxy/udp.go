@@ -34,7 +34,7 @@ import (
 
 // This is the required size of the OOB buffer to pass to ReadMsgUDP.
 var udpOOBSize = func() int {
-	var hdr syscall.Cmsghdr
+	var hdr unix.Cmsghdr
 	var addr unix.RawSockaddrInet6
 	return int(unsafe.Sizeof(hdr) + unsafe.Sizeof(addr))
 }()
@@ -97,10 +97,10 @@ func listenConfig(mark int, ipv4, ipv6 bool) *net.ListenConfig {
 			err := c.Control(func(fd uintptr) {
 				opErr = transparentSetsockopt(int(fd), ipv4, ipv6)
 				if opErr == nil && mark != 0 {
-					opErr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, mark)
+					opErr = unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_MARK, mark)
 				}
 				if opErr == nil {
-					opErr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+					opErr = unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEADDR, 1)
 				}
 			})
 			if err != nil {
@@ -233,14 +233,14 @@ func (s *sessionUDP) WriteResponse(b []byte) (int, error) {
 
 // parseDstFromOOB takes oob data and returns the destination IP.
 func parseDstFromOOB(oob []byte) (*net.UDPAddr, error) {
-	msgs, err := syscall.ParseSocketControlMessage(oob)
+	msgs, err := unix.ParseSocketControlMessage(oob)
 	if err != nil {
 		return nil, fmt.Errorf("parsing socket control message: %s", err)
 	}
 
 	for _, msg := range msgs {
 		if msg.Header.Level == unix.SOL_IP && msg.Header.Type == unix.IP_ORIGDSTADDR {
-			pp := &syscall.RawSockaddrInet4{}
+			pp := &unix.RawSockaddrInet4{}
 			// Address family is in native byte order
 			family := *(*uint16)(unsafe.Pointer(&msg.Data[unsafe.Offsetof(pp.Family)]))
 			if family != unix.AF_INET {
@@ -257,7 +257,7 @@ func parseDstFromOOB(oob []byte) (*net.UDPAddr, error) {
 			return laddr, nil
 		}
 		if msg.Header.Level == unix.SOL_IPV6 && msg.Header.Type == unix.IPV6_ORIGDSTADDR {
-			pp := &syscall.RawSockaddrInet6{}
+			pp := &unix.RawSockaddrInet6{}
 			// Address family is in native byte order
 			family := *(*uint16)(unsafe.Pointer(&msg.Data[unsafe.Offsetof(pp.Family)]))
 			if family != unix.AF_INET6 {

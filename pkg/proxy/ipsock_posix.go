@@ -8,12 +8,13 @@ package proxy
 
 import (
 	"net"
-	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
-func ipToSockaddr(family int, ip net.IP, port int, zone string) (syscall.Sockaddr, error) {
+func ipToSockaddr(family int, ip net.IP, port int, zone string) (unix.Sockaddr, error) {
 	switch family {
-	case syscall.AF_INET:
+	case unix.AF_INET:
 		if len(ip) == 0 {
 			ip = net.IPv4zero
 		}
@@ -21,10 +22,10 @@ func ipToSockaddr(family int, ip net.IP, port int, zone string) (syscall.Sockadd
 		if ip4 == nil {
 			return nil, &net.AddrError{Err: "non-IPv4 address", Addr: ip.String()}
 		}
-		sa := &syscall.SockaddrInet4{Port: port}
+		sa := &unix.SockaddrInet4{Port: port}
 		copy(sa.Addr[:], ip4)
 		return sa, nil
-	case syscall.AF_INET6:
+	case unix.AF_INET6:
 		// In general, an IP wildcard address, which is either
 		// "0.0.0.0" or "::", means the entire IP addressing
 		// space. For some historical reason, it is used to
@@ -44,7 +45,7 @@ func ipToSockaddr(family int, ip net.IP, port int, zone string) (syscall.Sockadd
 		if ip6 == nil {
 			return nil, &net.AddrError{Err: "non-IPv6 address", Addr: ip.String()}
 		}
-		sa := &syscall.SockaddrInet6{Port: port, ZoneId: 0}
+		sa := &unix.SockaddrInet6{Port: port, ZoneId: 0}
 		copy(sa.Addr[:], ip6)
 		return sa, nil
 	}
