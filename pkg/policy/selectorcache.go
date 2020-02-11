@@ -97,17 +97,6 @@ func (s CachedSelectorSlice) SelectsAllEndpoints() bool {
 	return false
 }
 
-// Insert in a sorted order? Returns true if inserted, false if cs was already in
-func (s *CachedSelectorSlice) Insert(cs CachedSelector) bool {
-	for _, selector := range *s {
-		if selector == cs {
-			return false
-		}
-	}
-	*s = append(*s, cs)
-	return true
-}
-
 // CachedSelectionUser inserts selectors into the cache and gets update
 // callbacks whenever the set of selected numeric identities change for
 // the CachedSelectors pushed by it.
