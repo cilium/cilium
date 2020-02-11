@@ -253,7 +253,7 @@ var (
 // combineL4L7 returns a new PortRule that refers to the specified l4 ports and
 // l7 rules.
 func combineL4L7(l4 []api.PortRule, l7 *api.L7Rules) []api.PortRule {
-	result := make([]api.PortRule, len(l4))
+	result := make([]api.PortRule, 0, len(l4))
 	for _, pr := range l4 {
 		result = append(result, api.PortRule{
 			Ports: pr.Ports,
