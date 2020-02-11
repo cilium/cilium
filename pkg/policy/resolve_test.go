@@ -171,6 +171,10 @@ func GenerateCIDRRules(numRules int) api.Rules {
 type DummyOwner struct{}
 
 func (d DummyOwner) LookupRedirectPort(l4 *L4Filter) uint16 {
+	// Return a fake non-0 listening port number for redirect filters.
+	if l4.IsRedirect() {
+		return 4242
+	}
 	return 0
 }
 
