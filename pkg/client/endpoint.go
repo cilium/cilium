@@ -143,9 +143,7 @@ func (c *Client) EndpointLabelsPatch(id string, toAdd, toDelete models.Labels) e
 	}
 	for _, lbl := range toDelete {
 		lblParsed := labels.ParseLabel(lbl)
-		if _, found := userLbl[lblParsed.Key]; found {
-			delete(userLbl, lblParsed.Key)
-		}
+		delete(userLbl, lblParsed.Key)
 	}
 	currentCfg.Spec.User = userLbl.GetModel()
 
