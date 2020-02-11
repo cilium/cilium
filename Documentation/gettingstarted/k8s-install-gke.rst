@@ -87,7 +87,7 @@ You might also want to pass the ``--set global.restartPods`` switch to the
 node to force all pods to be managed by Cilium.
 
 .. include:: k8s-install-restart-pods.rst
-.. include:: k8s-install-validate.rst
+.. include:: k8s-install-gke-validate.rst
 .. include:: hubble-install.rst
 .. include:: getting-started-next-steps.rst
 
