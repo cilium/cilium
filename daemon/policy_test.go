@@ -35,6 +35,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -428,6 +429,100 @@ func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
 						RemotePolicies: nil,
+						L7:             &PNPAllowAll,
+					},
+					{
+						RemotePolicies: []uint64{uint64(qaFooSecLblsCtx.ID)},
+						L7:             &PNPAllowGETbar,
+					},
+				},
+			},
+		},
+		EgressPerPortPolicies: []*cilium.PortNetworkPolicy{ // Allow-all policy.
+			{Protocol: envoy_api_v2_core.SocketAddress_TCP},
+			{Protocol: envoy_api_v2_core.SocketAddress_UDP},
+		},
+	}
+	c.Assert(qaBarNetworkPolicy, checker.Equals, expectedNetworkPolicy)
+}
+
+func (ds *DaemonSuite) TestL3_dependent_L7(c *C) {
+	logging.ConfigureLogLevel(true) // Use 'true' for debugging
+	defer logging.ConfigureLogLevel(false)
+
+	// Prepare the identities necessary for testing
+	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
+	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true)
+	c.Assert(err, Equals, nil)
+	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx)
+	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
+	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true)
+	c.Assert(err, Equals, nil)
+	defer ds.d.identityAllocator.Release(context.Background(), qaFooSecLblsCtx)
+	qaJoeLbls := labels.Labels{lblJoe.Key: lblJoe, lblQA.Key: lblQA}
+	qaJoeSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaJoeLbls, true)
+	c.Assert(err, Equals, nil)
+	defer ds.d.identityAllocator.Release(context.Background(), qaJoeSecLblsCtx)
+
+	rules := api.Rules{
+		{
+			EndpointSelector: api.NewESFromLabels(lblBar),
+			Ingress: []api.IngressRule{
+				{
+					FromEndpoints: []api.EndpointSelector{
+						api.NewESFromLabels(lblFoo),
+					},
+					ToPorts: []api.PortRule{
+						// Allow Port 80 GET /bar
+						CNPAllowGETbar,
+					},
+				},
+			},
+		},
+		{
+			EndpointSelector: api.NewESFromLabels(lblBar),
+			Ingress: []api.IngressRule{
+				{
+					FromEndpoints: []api.EndpointSelector{
+						api.NewESFromLabels(lblJoe),
+					},
+				},
+			},
+		},
+	}
+
+	ds.d.l7Proxy.RemoveAllNetworkPolicies()
+
+	_, err = ds.d.PolicyAdd(rules, nil)
+	c.Assert(err, Equals, nil)
+
+	// Prepare endpoints
+	cleanup, err := prepareEndpointDirs()
+	c.Assert(err, Equals, nil)
+	defer cleanup()
+
+	e := ds.prepareEndpoint(c, qaBarSecLblsCtx, true)
+	c.Assert(e.Allows(qaBarSecLblsCtx.ID), Equals, false)
+	c.Assert(e.Allows(qaFooSecLblsCtx.ID), Equals, false)
+	c.Assert(e.Allows(qaJoeSecLblsCtx.ID), Equals, true)
+
+	// Check that both policies have been updated in the xDS cache for the L7
+	// proxies.
+	networkPolicies := ds.getXDSNetworkPolicies(c, nil)
+	c.Assert(networkPolicies, HasLen, 2)
+
+	qaBarNetworkPolicy := networkPolicies[QAIPv4Addr.String()]
+	expectedNetworkPolicy := &cilium.NetworkPolicy{
+		Name:             QAIPv4Addr.String(),
+		Policy:           uint64(qaBarSecLblsCtx.ID),
+		ConntrackMapName: "global",
+		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
+			{
+				Port:     80,
+				Protocol: envoy_api_v2_core.SocketAddress_TCP,
+				Rules: []*cilium.PortNetworkPolicyRule{
+					{
+						RemotePolicies: []uint64{uint64(qaJoeSecLblsCtx.ID)},
 						L7:             &PNPAllowAll,
 					},
 					{
