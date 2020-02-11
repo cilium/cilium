@@ -87,6 +87,9 @@ const (
 	// L4PolicyID is the identifier of a L4 Policy
 	L4PolicyID = "PolicyID.L4"
 
+	// IsRedirect is a boolean for if the entry is a redirect or not
+	IsRedirect = "IsRedirect"
+
 	// DNSName is a FQDN or not fully qualified name intended for DNS lookups
 	DNSName = "dnsName"
 

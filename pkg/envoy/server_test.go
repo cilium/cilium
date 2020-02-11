@@ -317,9 +317,9 @@ var L4PolicyMap1RequiresV2 = map[string]*policy.L4Filter{
 }
 
 var L4PolicyMap2 = map[string]*policy.L4Filter{
-	"8080/UDP": {
+	"8080/TCP": {
 		Port:     8080,
-		Protocol: api.ProtoUDP,
+		Protocol: api.ProtoTCP,
 		L7Parser: policy.ParserTypeHTTP,
 		L7RulesPerSelector: policy.L7DataMap{
 			cachedSelector2: L7Rules2,
@@ -328,7 +328,7 @@ var L4PolicyMap2 = map[string]*policy.L4Filter{
 }
 
 var L4PolicyMap3 = map[string]*policy.L4Filter{
-	"80/UDP": {
+	"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		L7Parser: policy.ParserTypeHTTP,
@@ -339,7 +339,7 @@ var L4PolicyMap3 = map[string]*policy.L4Filter{
 }
 
 var L4PolicyMap3RequiresV2 = map[string]*policy.L4Filter{
-	"80/UDP": {
+	"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		L7Parser: policy.ParserTypeHTTP,
@@ -394,7 +394,7 @@ var ExpectedPerPortPolicies1HeaderMatch = []*cilium.PortNetworkPolicy{
 var ExpectedPerPortPolicies2 = []*cilium.PortNetworkPolicy{
 	{
 		Port:     8080,
-		Protocol: envoy_api_v2_core.SocketAddress_UDP,
+		Protocol: envoy_api_v2_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{
 			ExpectedPortNetworkPolicyRule2,
 		},
