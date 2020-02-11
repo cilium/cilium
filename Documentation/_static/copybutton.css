@@ -2,6 +2,10 @@ div.code-wrapper {
   position: relative !important;
 }
 
+.section > div.code-wrapper {
+  margin-bottom: 24px !important;
+}
+
 div.code-wrapper pre {
   padding-top: 25px !important;
 }
