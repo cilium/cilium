@@ -58,7 +58,7 @@ func (r *rule) String() string {
 	return fmt.Sprintf("%v", r.EndpointSelector)
 }
 
-func (epd *PerEpData) appendL7WildcardRules(ctx *SearchContext) *PerEpData {
+func (epd *PerSelectorPolicy) appendL7WildcardRules(ctx *SearchContext) *PerSelectorPolicy {
 	switch {
 	case len(epd.L7Rules.HTTP) > 0:
 		rule := api.PortRuleHTTP{}
