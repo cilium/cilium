@@ -141,7 +141,7 @@ type eventStatistics struct {
 	durationStat spanstat.SpanStat
 
 	// waitConsumeOffQueue shows how long it took for the event to be consumed
-	// off of the queue.
+	// plus the time it the event waited in the queue.
 	waitConsumeOffQueue spanstat.SpanStat
 }
 
@@ -210,9 +210,9 @@ func (q *EventQueue) Enqueue(ev *Event) (<-chan interface{}, error) {
 		// event is processed, then it will be cancelled.
 
 		ev.stats.waitEnqueue.Start()
+		ev.stats.waitConsumeOffQueue.Start()
 		q.events <- ev
 		ev.stats.waitEnqueue.End(true)
-		ev.stats.waitConsumeOffQueue.Start()
 		return ev.eventResults, nil
 	}
 }
