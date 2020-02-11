@@ -28,18 +28,6 @@ import (
 	"github.com/onsi/gomega/types"
 )
 
-func runOnNetNextOnly(f func()) func() {
-	if helpers.RunsOnNetNext() {
-		return f
-	}
-	return func() {}
-}
-
-var _ = Describe("RuntimeConnectivityInIpvlanModeTest", runOnNetNextOnly(runtimeConnectivityTest("ipvlan")))
-
-// TODO(brb) Either create a dummy netdev or determine the master device at runtime
-const ipvlanMasterDevice = "enp0s8"
-
 var runtimeConnectivityTest = func(datapathMode string) func() {
 	return func() {
 		var (
@@ -49,14 +37,6 @@ var runtimeConnectivityTest = func(datapathMode string) func() {
 
 		BeforeAll(func() {
 			vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
-
-			if datapathMode == "ipvlan" {
-				vm.SetUpCiliumInIpvlanMode(ipvlanMasterDevice)
-				// cilium-docker has to be restarted because the datapath mode
-				// has changed
-				vm.Exec("sudo systemctl restart cilium-docker")
-			}
-
 			ExpectCiliumReady(vm)
 		})
 
@@ -65,11 +45,6 @@ var runtimeConnectivityTest = func(datapathMode string) func() {
 		})
 
 		AfterAll(func() {
-			// Restore the datapath mode and cilium-docker
-			if datapathMode == "ipvlan" {
-				vm.SetUpCilium()
-				vm.Exec("sudo systemctl restart cilium-docker")
-			}
 			vm.CloseSSHClient()
 		})
 
@@ -199,9 +174,6 @@ var runtimeConnectivityTest = func(datapathMode string) func() {
 			}, 300)
 
 			It("Test NAT46 connectivity between containers", func() {
-				if datapathMode == "ipvlan" {
-					Skip("NAT64 is not implemented in the ipvlan mode")
-				}
 				endpoints, err := vm.GetEndpointsIds()
 				Expect(err).Should(BeNil(), "could not get endpoint IDs")
 
@@ -348,7 +320,6 @@ var runtimeConnectivityTest = func(datapathMode string) func() {
 }
 
 var _ = Describe("RuntimeConntrackInVethModeTest", runtimeConntrackTest("veth"))
-var _ = Describe("RuntimeConntrackInIpvlanModeTest", runOnNetNextOnly(runtimeConntrackTest("ipvlan")))
 
 var runtimeConntrackTest = func(datapathMode string) func() {
 	return func() {
@@ -370,25 +341,12 @@ var runtimeConntrackTest = func(datapathMode string) func() {
 
 		BeforeAll(func() {
 			vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
-
-			if datapathMode == "ipvlan" {
-				vm.SetUpCiliumInIpvlanMode(ipvlanMasterDevice)
-				// cilium-docker has to be restarted because the datapath mode
-				// has changed
-				vm.Exec("sudo systemctl restart cilium-docker")
-			}
-
 			ExpectCiliumReady(vm)
 
 			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
 		})
 
 		AfterAll(func() {
-			// Restore the datapath mode and cilium-docker
-			if datapathMode == "ipvlan" {
-				vm.SetUpCilium()
-				vm.Exec("sudo systemctl restart cilium-docker")
-			}
 			vm.CloseSSHClient()
 		})
 
