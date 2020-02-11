@@ -21,11 +21,12 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"syscall"
 
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/mountinfo"
+
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -154,7 +155,7 @@ func mountFS(printWarning bool) error {
 		return fmt.Errorf("%s is a file which is not a directory", mapRoot)
 	}
 
-	if err := syscall.Mount(mapRoot, mapRoot, "bpf", 0, ""); err != nil {
+	if err := unix.Mount(mapRoot, mapRoot, "bpf", 0, ""); err != nil {
 		return fmt.Errorf("failed to mount %s: %s", mapRoot, err)
 	}
 	return nil

@@ -16,10 +16,11 @@ package probe
 
 import (
 	"fmt"
-	"syscall"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+
+	"golang.org/x/sys/unix"
 )
 
 type probeKey struct {
@@ -68,10 +69,10 @@ func HaveFullLPM() bool {
 // also implicitly auto-load IPv6 kernel module if available and not yet
 // loaded.
 func HaveIPv6Support() bool {
-	fd, err := syscall.Socket(syscall.AF_INET6, syscall.SOCK_STREAM, 0)
-	if err == syscall.EAFNOSUPPORT || err == syscall.EPROTONOSUPPORT {
+	fd, err := unix.Socket(unix.AF_INET6, unix.SOCK_STREAM, 0)
+	if err == unix.EAFNOSUPPORT || err == unix.EPROTONOSUPPORT {
 		return false
 	}
-	syscall.Close(fd)
+	unix.Close(fd)
 	return true
 }

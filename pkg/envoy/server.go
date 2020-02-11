@@ -23,7 +23,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -52,6 +51,7 @@ import (
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -363,8 +363,8 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint
 		Transparent: &wrappers.BoolValue{Value: true},
 		SocketOptions: []*envoy_api_v2_core.SocketOption{{
 			Description: "Listener socket mark",
-			Level:       syscall.SOL_SOCKET,
-			Name:        syscall.SO_MARK,
+			Level:       unix.SOL_SOCKET,
+			Name:        unix.SO_MARK,
 			Value:       &envoy_api_v2_core.SocketOption_IntValue{IntValue: socketMark},
 			State:       envoy_api_v2_core.SocketOption_STATE_PREBIND,
 		}},

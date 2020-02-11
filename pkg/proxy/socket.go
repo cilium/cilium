@@ -19,7 +19,6 @@ import (
 	"net"
 	"os"
 	"sync"
-	"syscall"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -62,25 +61,25 @@ func listenSocket(address string, mark int, transparent bool) (*proxySocket, err
 		return nil, err
 	}
 
-	family := syscall.AF_INET
+	family := unix.AF_INET
 	if addr.IP.To4() == nil {
-		family = syscall.AF_INET6
+		family = unix.AF_INET6
 	}
 
-	fd, err := syscall.Socket(family, syscall.SOCK_STREAM, 0)
+	fd, err := unix.Socket(family, unix.SOCK_STREAM, 0)
 	if err != nil {
 		return nil, err
 	}
 
-	if err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1); err != nil {
+	if err = unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_REUSEADDR, 1); err != nil {
 		return nil, fmt.Errorf("unable to set SO_REUSEADDR socket option: %s", err)
 	}
 
 	if transparent {
-		if family == syscall.AF_INET {
-			err = syscall.SetsockoptInt(fd, unix.SOL_IP, unix.IP_TRANSPARENT, 1)
+		if family == unix.AF_INET {
+			err = unix.SetsockoptInt(fd, unix.SOL_IP, unix.IP_TRANSPARENT, 1)
 		} else {
-			err = syscall.SetsockoptInt(fd, unix.SOL_IPV6, unix.IPV6_TRANSPARENT, 1)
+			err = unix.SetsockoptInt(fd, unix.SOL_IPV6, unix.IPV6_TRANSPARENT, 1)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("unable to set SO_TRANSPARENT socket option: %s", err)
@@ -93,17 +92,17 @@ func listenSocket(address string, mark int, transparent bool) (*proxySocket, err
 
 	sockAddr, err := ipToSockaddr(family, addr.IP, addr.Port, addr.Zone)
 	if err != nil {
-		syscall.Close(fd)
+		unix.Close(fd)
 		return nil, err
 	}
 
-	if err := syscall.Bind(fd, sockAddr); err != nil {
-		syscall.Close(fd)
+	if err := unix.Bind(fd, sockAddr); err != nil {
+		unix.Close(fd)
 		return nil, err
 	}
 
-	if err := syscall.Listen(fd, 128); err != nil {
-		syscall.Close(fd)
+	if err := unix.Listen(fd, 128); err != nil {
+		unix.Close(fd)
 		return nil, err
 	}
 
@@ -464,9 +463,8 @@ func setFdMark(fd, mark int) {
 	})
 	flowdebug.Log(scopedLog, "Setting packet marker of socket")
 
-	err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, mark)
+	err := unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_MARK, mark)
 	if err != nil {
-
 		scopedLog.WithError(err).Warn("Unable to set SO_MARK")
 	}
 }

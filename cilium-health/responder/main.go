@@ -19,12 +19,12 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"syscall"
 
 	"github.com/cilium/cilium/pkg/health/probe/responder"
 	"github.com/cilium/cilium/pkg/pidfile"
 
 	flag "github.com/spf13/pflag"
+	"golang.org/x/sys/unix"
 )
 
 func cancelOnSignal(cancel context.CancelFunc, sig ...os.Signal) {
@@ -47,7 +47,7 @@ func main() {
 
 	// Shutdown gracefully to halt server and remove pidfile
 	ctx, cancel := context.WithCancel(context.Background())
-	cancelOnSignal(cancel, syscall.SIGINT, syscall.SIGHUP, syscall.SIGTERM, syscall.SIGQUIT)
+	cancelOnSignal(cancel, unix.SIGINT, unix.SIGHUP, unix.SIGTERM, unix.SIGQUIT)
 
 	srv := responder.NewServer(listen)
 	defer srv.Shutdown()
