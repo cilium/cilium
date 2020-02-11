@@ -13,7 +13,7 @@ Installation on Google GKE
 GKE Requirements
 ================
 
-1. Install the Google Cloud SDK (``gcloud``) see [Installing Google Cloud SDK](https://cloud.google.com/sdk/install)
+1. Install the Google Cloud SDK (``gcloud``) see `Installing Google Cloud SDK <https://cloud.google.com/sdk/install>`_.
 
 2. Create a project or use an existing one
 
