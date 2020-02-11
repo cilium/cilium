@@ -21,7 +21,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"syscall"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -972,7 +971,7 @@ func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool, had
 	// is better to not error out if somebody else has deleted the map entry in the
 	// meanwhile.
 	err, errno := e.policyMap.DeleteKeyWithErrno(policymapKey)
-	if err != nil && errno != syscall.ENOENT {
+	if err != nil && errno != unix.ENOENT {
 		e.getLogger().WithError(err).WithField(logfields.BPFMapKey, policymapKey).Error("Failed to delete PolicyMap key")
 		return false
 	}

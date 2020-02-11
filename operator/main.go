@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/cilium/cilium/pkg/aws/eni"
@@ -34,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
+	"golang.org/x/sys/unix"
 
 	gops "github.com/google/gops/agent"
 	"github.com/sirupsen/logrus"
@@ -82,7 +82,7 @@ var (
 
 func main() {
 	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(signals, unix.SIGINT, unix.SIGTERM)
 
 	go func() {
 		<-signals

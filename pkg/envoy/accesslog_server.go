@@ -20,16 +20,16 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 
-	"github.com/cilium/proxy/go/cilium/api"
+	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 func getAccessLogPath(stateDir string) string {
@@ -102,7 +102,7 @@ func (s *accessLogServer) accessLogger(conn *net.UnixConn) {
 			}
 			break
 		}
-		if flags&syscall.MSG_TRUNC != 0 {
+		if flags&unix.MSG_TRUNC != 0 {
 			log.Warning("Envoy: Discarded truncated access log message")
 			continue
 		}

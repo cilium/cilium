@@ -22,7 +22,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -30,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
+	"golang.org/x/sys/unix"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -323,7 +323,7 @@ func unmountCgroup() error {
 	}
 
 	log.Info("Trying to unmount ", cgroupRoot)
-	if err := syscall.Unmount(cgroupRoot, syscall.MNT_FORCE); err != nil {
+	if err := unix.Unmount(cgroupRoot, unix.MNT_FORCE); err != nil {
 		return fmt.Errorf("Failed to unmount %s: %s", cgroupRoot, err)
 	}
 	return nil

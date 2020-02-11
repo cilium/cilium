@@ -26,7 +26,6 @@ import (
 	"path"
 	"reflect"
 	"sync"
-	"syscall"
 	"time"
 	"unsafe"
 
@@ -855,10 +854,10 @@ func (m *Map) deleteCacheEntry(key MapKey, err error) {
 	}
 }
 
-func (m *Map) DeleteWithErrno(key MapKey) (error, syscall.Errno) {
+func (m *Map) DeleteWithErrno(key MapKey) (error, unix.Errno) {
 	var (
 		err   error
-		errno syscall.Errno
+		errno unix.Errno
 	)
 
 	m.lock.Lock()

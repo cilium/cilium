@@ -26,16 +26,16 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/cilium/test/config"
-	"github.com/cilium/cilium/test/ginkgo-ext"
+	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 
 	go_version "github.com/blang/semver"
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"golang.org/x/sys/unix"
 )
 
 func init() {
@@ -219,14 +219,14 @@ func GetAppPods(apps []string, namespace string, kubectl *Kubectl, appFmt string
 // directly from test code to assist troubleshooting and test development.
 func HoldEnvironment(description ...string) {
 	test := ginkgo.CurrentGinkgoTestDescription()
-	pid := syscall.Getpid()
+	pid := unix.Getpid()
 
 	fmt.Fprintf(os.Stdout, "\n---\n%s", test.FullTestText)
 	fmt.Fprintf(os.Stdout, "\nat %s:%d", test.FileName, test.LineNumber)
 	fmt.Fprintf(os.Stdout, "\n\n%s", description)
 	fmt.Fprintf(os.Stdout, "\n\nPausing test for debug, use vagrant to access test setup.")
 	fmt.Fprintf(os.Stdout, "\nRun \"kill -SIGCONT %d\" to continue.\n", pid)
-	syscall.Kill(pid, syscall.SIGSTOP)
+	unix.Kill(pid, unix.SIGSTOP)
 }
 
 // Fail is a Ginkgo failure handler which raises a SIGSTOP for the test process

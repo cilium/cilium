@@ -23,7 +23,6 @@ package metrics
 
 import (
 	"net/http"
-	"syscall"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/version"
@@ -31,6 +30,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -1197,8 +1197,8 @@ func Error2Outcome(err error) string {
 	return LabelValueOutcomeSuccess
 }
 
-// Errno2Outcome converts a syscall.Errno to LabelOutcome
-func Errno2Outcome(errno syscall.Errno) string {
+// Errno2Outcome converts a unix.Errno to LabelOutcome
+func Errno2Outcome(errno unix.Errno) string {
 	if errno != 0 {
 		return LabelValueOutcomeFail
 	}

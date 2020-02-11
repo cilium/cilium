@@ -19,7 +19,6 @@ package policymap
 import (
 	"fmt"
 	"os"
-	"syscall"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -27,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 
+	"golang.org/x/sys/unix"
 	. "gopkg.in/check.v1"
 )
 
@@ -100,5 +100,5 @@ func (pm *PolicyMapTestSuite) TestDeleteNonexistentKey(c *C) {
 	key := newKey(27, 80, u8proto.ANY, trafficdirection.Ingress)
 	err, errno := testMap.Map.DeleteWithErrno(&key)
 	c.Assert(err, Not(IsNil))
-	c.Assert(errno, Equals, syscall.ENOENT)
+	c.Assert(errno, Equals, unix.ENOENT)
 }
