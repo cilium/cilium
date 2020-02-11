@@ -14,7 +14,8 @@ spec:
     spec:
       containers:
       - name: pod-to-a-allowed-cnp-container
-        image: docker.io/cilium/json-mock:1.0
+        image: docker.io/byrnedo/alpine-curl:0.1.8
+        command: ["/bin/ash", "-c", "sleep 1000000000"]
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
