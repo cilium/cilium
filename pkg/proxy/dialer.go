@@ -18,8 +18,9 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"syscall"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 // ProxyKeepAlivePeriod is the time used for sending periodic keepalives on
@@ -46,12 +47,12 @@ func ciliumDialer(identity int, network, address string) (net.Conn, error) {
 		return nil, fmt.Errorf("unable resolve address %s/%s: %s", network, address, err)
 	}
 
-	family := syscall.AF_INET
+	family := unix.AF_INET
 	if addr.IP.To4() == nil {
-		family = syscall.AF_INET6
+		family = unix.AF_INET6
 	}
 
-	fd, err := syscall.Socket(family, syscall.SOCK_STREAM, 0)
+	fd, err := unix.Socket(family, unix.SOCK_STREAM, 0)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create socket: %s", err)
 	}
@@ -74,12 +75,12 @@ func ciliumDialer(identity int, network, address string) (net.Conn, error) {
 		return nil, fmt.Errorf("unable to create sockaddr: %s", err)
 	}
 
-	if err := syscall.SetNonblock(fd, false); err != nil {
+	if err := unix.SetNonblock(fd, false); err != nil {
 		c.Close()
 		return nil, fmt.Errorf("unable to put socket in blocking mode: %s", err)
 	}
 
-	if err := syscall.Connect(fd, sockAddr); err != nil {
+	if err := unix.Connect(fd, sockAddr); err != nil {
 		c.Close()
 		return nil, fmt.Errorf("unable to connect: %s", err)
 	}

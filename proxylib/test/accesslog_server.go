@@ -21,12 +21,13 @@ import (
 	"path/filepath"
 	"strings"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/cilium/proxy/go/cilium/api"
+
 	"github.com/golang/protobuf/proto"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 type AccessLogServer struct {
@@ -142,7 +143,7 @@ func (s *AccessLogServer) accessLogger(conn *net.UnixConn) {
 			}
 			break
 		}
-		if flags&syscall.MSG_TRUNC != 0 {
+		if flags&unix.MSG_TRUNC != 0 {
 			log.Warning("Discarded truncated access log message")
 			continue
 		}

@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"syscall"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
@@ -34,6 +33,7 @@ import (
 	"github.com/cilium/arping"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -877,14 +877,14 @@ func (n *linuxNodeHandler) removeEncryptRules() error {
 
 	rule.Mark = linux_defaults.RouteMarkDecrypt
 	if err := route.DeleteRuleIPv6(rule); err != nil {
-		if !os.IsNotExist(err) && err != syscall.EAFNOSUPPORT {
+		if !os.IsNotExist(err) && err != unix.EAFNOSUPPORT {
 			return fmt.Errorf("Delete previous IPv6 decrypt rule failed: %s", err)
 		}
 	}
 
 	rule.Mark = linux_defaults.RouteMarkEncrypt
 	if err := route.DeleteRuleIPv6(rule); err != nil {
-		if !os.IsNotExist(err) && err != syscall.EAFNOSUPPORT {
+		if !os.IsNotExist(err) && err != unix.EAFNOSUPPORT {
 			return fmt.Errorf("Delete previous IPv6 encrypt rule failed: %s", err)
 		}
 	}

@@ -18,7 +18,6 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 
@@ -29,6 +28,7 @@ import (
   {{ if .UsePFlags }}flag "github.com/spf13/pflag"
   {{ end -}}
   "golang.org/x/net/netutil"
+  "golang.org/x/sys/unix"
 
   {{ range .DefaultImports }}{{ printf "%q" . }}
   {{ end }}
@@ -634,5 +634,5 @@ func handleInterrupt(once *sync.Once, s *Server) {
 }
 
 func signalNotify(interrupt chan<- os.Signal) {
-	signal.Notify(interrupt, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(interrupt, unix.SIGINT, unix.SIGTERM)
 }
