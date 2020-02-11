@@ -151,7 +151,7 @@ func (allow perEPAllow) setPortRulesForID(endpointID uint64, destPort uint16, ne
 	newRE := make(cachedSelectorREEntry)
 	for selector, l7Rules := range newRules {
 		if l7Rules == nil {
-			l7Rules = &policy.PerEpData{L7Rules: api.L7Rules{DNS: []api.PortRuleDNS{{MatchPattern: "*"}}}}
+			l7Rules = &policy.PerSelectorPolicy{L7Rules: api.L7Rules{DNS: []api.PortRuleDNS{{MatchPattern: "*"}}}}
 		}
 		reStrings := make([]string, 0, len(l7Rules.DNS))
 		for _, dnsRule := range l7Rules.DNS {
