@@ -9,6 +9,18 @@ spec:
   selector:
     name: echo-b
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-b-headless
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - port: 80
+  selector:
+    name: echo-b
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
