@@ -67,15 +67,26 @@ type MapStateEntry struct {
 	// The proxy port, in host byte order.
 	// If 0 (default), there is no proxy redirection for the corresponding
 	// Key.
+	// Values less than 1024 may be used for internal purposes, but are never used
+	// as actual proxy listening port numbers.
 	ProxyPort uint16
 }
+
+// NoRedirectEntry is a special MapStateEntry used to signify that the
+// entry is not redirecting to a proxy.
+var NoRedirectEntry = MapStateEntry{ProxyPort: 0}
+
+// RedirectEntry is a special MapStateEntry used to signify that the
+// entry must redirect to a proxy. The special value (1) will be
+// replaced with the actual proxy listening port number before the
+// entry is added to the actual bpf map.
+var RedirectEntry = MapStateEntry{ProxyPort: 1}
 
 // DetermineAllowLocalhostIngress determines whether communication should be allowed
 // from the localhost. It inserts the Key corresponding to the localhost in
 // the desiredPolicyKeys if the localhost is allowed to communicate with the
 // endpoint.
 func (keys MapState) DetermineAllowLocalhostIngress(l4Policy *L4Policy) {
-
 	if option.Config.AlwaysAllowLocalhost() {
 		keys[localHostKey] = MapStateEntry{}
 	}
@@ -124,7 +135,7 @@ type MapChanges struct {
 // cases where an identity is first added and then deleted, or first
 // deleted and then added.
 func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdentity,
-	port uint16, proto uint8, direction trafficdirection.TrafficDirection) {
+	port uint16, proto uint8, direction trafficdirection.TrafficDirection, redirect bool) {
 	key := Key{
 		// The actual identity is set in the loops below
 		Identity: 0,
@@ -133,8 +144,9 @@ func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdent
 		Nexthdr:          proto,
 		TrafficDirection: direction.Uint8(),
 	}
-	value := MapStateEntry{
-		ProxyPort: 0, // Will be updated by the caller when applicable
+	var value MapStateEntry // defaults to ProxyPort 0 == no redirect
+	if redirect {
+		value = RedirectEntry // Special entry to mark the need for redirection
 	}
 
 	if option.Config.Debug {
@@ -144,6 +156,7 @@ func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdent
 			logfields.Port:             port,
 			logfields.Protocol:         proto,
 			logfields.TrafficDirection: direction,
+			logfields.IsRedirect:       redirect,
 		}).Debug("AccumulateMapChanges")
 	}
 
