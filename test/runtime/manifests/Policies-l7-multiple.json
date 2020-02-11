@@ -26,6 +26,30 @@
             {"matchLabels":{"reserved:host":""}},
             {"matchLabels":{"id.app2":""}}
         ]
+    },{
+        "fromEndpoints": [
+            {"matchLabels":{"reserved:host":""}},
+            {"matchLabels":{"id.app1":""}}
+        ],
+        "toPorts": [{
+            "ports": [
+                {"port": "80", "protocol": "tcp"}
+	    ]
+        }]	
+    }, {
+        "fromEndpoints": [
+            {"matchLabels":{"reserved:host":""}},
+            {"matchLabels":{"id.app1":""}}
+        ],
+        "toPorts": [{
+            "ports": [
+                {"port": "80", "protocol": "tcp"}
+	    ],
+            "rules": {
+                "HTTP": [
+                    {"method": "GET", "path": "/private"}]
+            }
+        }]	
     }]
 },
 {
