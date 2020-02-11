@@ -66,9 +66,7 @@ func (k Key) IsEgress() bool {
 type MapStateEntry struct {
 	// The proxy port, in host byte order.
 	// If 0 (default), there is no proxy redirection for the corresponding
-	// Key.
-	// Values less than 1024 may be used for internal purposes, but are never used
-	// as actual proxy listening port numbers.
+	// Key. Any other value signifies proxy redirection.
 	ProxyPort uint16
 }
 
@@ -76,11 +74,11 @@ type MapStateEntry struct {
 // entry is not redirecting to a proxy.
 var NoRedirectEntry = MapStateEntry{ProxyPort: 0}
 
-// RedirectEntry is a special MapStateEntry used to signify that the
-// entry must redirect to a proxy. The special value (1) will be
-// replaced with the actual proxy listening port number before the
-// entry is added to the actual bpf map.
-var RedirectEntry = MapStateEntry{ProxyPort: 1}
+// redirectEntry is a MapStateEntry used to signify that the entry
+// must redirect to a proxy. Any non-zero value would do, as the
+// callers replace this with the actual proxy listening port number
+// before the entry is added to the actual bpf map.
+var redirectEntry = MapStateEntry{ProxyPort: 1}
 
 // RedirectPreferredInsert inserts a new entry giving priority to L7-redirects by
 // not overwriting a L7-redirect entry with a non-redirect entry
@@ -160,7 +158,7 @@ func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdent
 	}
 	var value MapStateEntry // defaults to ProxyPort 0 == no redirect
 	if redirect {
-		value = RedirectEntry // Special entry to mark the need for redirection
+		value = redirectEntry // Special entry to mark the need for redirection
 	}
 
 	if option.Config.Debug {
