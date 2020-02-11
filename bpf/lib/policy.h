@@ -42,14 +42,25 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 	};
 
 	if (!map)
-		return 0;
+		return TC_ACT_OK;
 
+	/* Start with L3/L4 lookup. */
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {
 		/* FIXME: Need byte counter */
 		__sync_fetch_and_add(&policy->packets, 1);
-		goto get_proxy_port;
+		return policy->proxy_port;
 	}
+
+	/* L4-only lookup. */
+	key.sec_label = 0;
+	policy = map_lookup_elem(map, &key);
+	if (likely(policy)) {
+		/* FIXME: Need byte counter */
+		__sync_fetch_and_add(&policy->packets, 1);
+		return policy->proxy_port;
+	}
+	key.sec_label = identity;
 
 	/* If L4 policy check misses, fall back to L3. */
 	key.dport = 0;
@@ -61,19 +72,8 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 		return TC_ACT_OK;
 	}
 
-	key.sec_label = 0;
-	key.dport = dport;
-	key.protocol = proto;
-	policy = map_lookup_elem(map, &key);
-	if (likely(policy)) {
-		/* FIXME: Use per cpu counters */
-		__sync_fetch_and_add(&policy->packets, 1);
-		goto get_proxy_port;
-	}
-
 	/* Final fallback if allow-all policy is in place. */
-	key.dport = 0;
-	key.protocol = 0;
+	key.sec_label = 0;
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {
 		/* FIXME: Need byte counter */
@@ -82,11 +82,6 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 	}
 
 	return DROP_POLICY;
-get_proxy_port:
-	if (likely(policy)) {
-		return policy->proxy_port;
-	}
-	return TC_ACT_OK;
 }
 #else
 
@@ -133,15 +128,26 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 		.pad = 0,
 	};
 
+	/* L4 lookup can't be done on fragments. */
 	if (!is_fragment) {
+		/* Start with L3/L4 lookup. */
 		policy = map_lookup_elem(map, &key);
 		if (likely(policy)) {
 			cilium_dbg3(skb, DBG_L4_CREATE, identity, SECLABEL,
 				    dport << 16 | proto);
 
 			account(skb, policy);
-			goto get_proxy_port;
+			return policy->proxy_port;
 		}
+
+		/* L4-only lookup. */
+		key.sec_label = 0;
+		policy = map_lookup_elem(map, &key);
+		if (likely(policy)) {
+			account(skb, policy);
+			return policy->proxy_port;
+		}
+		key.sec_label = identity;
 	}
 
 	/* If L4 policy check misses, fall back to L3. */
@@ -153,19 +159,6 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 		return TC_ACT_OK;
 	}
 
-	if (!is_fragment) {
-		key.sec_label = 0;
-		key.dport = dport;
-		key.protocol = proto;
-		policy = map_lookup_elem(map, &key);
-		if (likely(policy)) {
-			account(skb, policy);
-			goto get_proxy_port;
-		}
-		key.dport = 0;
-		key.protocol = 0;
-	}
-
 	/* Final fallback if allow-all policy is in place. */
 	key.sec_label = 0;
 	policy = map_lookup_elem(map, &key);
@@ -175,17 +168,11 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 	}
 
 	if (skb->cb[CB_POLICY])
-		goto allow;
+		return TC_ACT_OK;
 
 	if (is_fragment)
 		return DROP_FRAG_NOSUPPORT;
 	return DROP_POLICY;
-get_proxy_port:
-	if (likely(policy)) {
-		return policy->proxy_port;
-	}
-allow:
-	return TC_ACT_OK;
 }
 
 /**
