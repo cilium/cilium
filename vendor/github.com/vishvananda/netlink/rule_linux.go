@@ -1,6 +1,7 @@
 package netlink
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 
@@ -54,6 +55,9 @@ func ruleHandle(rule *Rule, req *nl.NetlinkRequest) error {
 	}
 	if rule.Table >= 0 && rule.Table < 256 {
 		msg.Table = uint8(rule.Table)
+	}
+	if rule.Tos != 0 {
+		msg.Tos = uint8(rule.Tos)
 	}
 
 	var dstFamily uint8
@@ -150,6 +154,16 @@ func ruleHandle(rule *Rule, req *nl.NetlinkRequest) error {
 		req.AddData(nl.NewRtAttr(nl.FRA_GOTO, b))
 	}
 
+	if rule.Dport != nil {
+		b := rule.Dport.toRtAttrData()
+		req.AddData(nl.NewRtAttr(nl.FRA_DPORT_RANGE, b))
+	}
+
+	if rule.Sport != nil {
+		b := rule.Sport.toRtAttrData()
+		req.AddData(nl.NewRtAttr(nl.FRA_SPORT_RANGE, b))
+	}
+
 	_, err := req.Execute(unix.NETLINK_ROUTE, 0)
 	return err
 }
@@ -184,6 +198,7 @@ func (h *Handle) RuleList(family int) ([]Rule, error) {
 		rule := NewRule()
 
 		rule.Invert = msg.Flags&FibRuleInvert > 0
+		rule.Tos = uint(msg.Tos)
 
 		for j := range attrs {
 			switch attrs[j].Attr.Type {
@@ -225,10 +240,21 @@ func (h *Handle) RuleList(family int) ([]Rule, error) {
 				rule.Goto = int(native.Uint32(attrs[j].Value[0:4]))
 			case nl.FRA_PRIORITY:
 				rule.Priority = int(native.Uint32(attrs[j].Value[0:4]))
+			case nl.FRA_DPORT_RANGE:
+				rule.Dport = NewRulePortRange(native.Uint16(attrs[j].Value[0:2]), native.Uint16(attrs[j].Value[2:4]))
+			case nl.FRA_SPORT_RANGE:
+				rule.Sport = NewRulePortRange(native.Uint16(attrs[j].Value[0:2]), native.Uint16(attrs[j].Value[2:4]))
 			}
 		}
 		res = append(res, *rule)
 	}
 
 	return res, nil
+}
+
+func (pr *RulePortRange) toRtAttrData() []byte {
+	b := [][]byte{make([]byte, 2), make([]byte, 2)}
+	native.PutUint16(b[0], pr.Start)
+	native.PutUint16(b[1], pr.End)
+	return bytes.Join(b, []byte{})
 }

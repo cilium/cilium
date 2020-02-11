@@ -681,7 +681,7 @@ func (h *Handle) LinkSetVfGUID(link Link, vf int, vfGuid net.HardwareAddr, guidT
 	var guid uint64
 
 	buf := bytes.NewBuffer(vfGuid)
-	err = binary.Read(buf, binary.LittleEndian, &guid)
+	err = binary.Read(buf, binary.BigEndian, &guid)
 	if err != nil {
 		return err
 	}
@@ -1515,8 +1515,8 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 	}
 	var (
 		link      Link
-		stats32   []byte
-		stats64   []byte
+		stats32   *LinkStatistics32
+		stats64   *LinkStatistics64
 		linkType  string
 		linkSlave LinkSlave
 		slaveType string
@@ -1669,9 +1669,15 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 		case unix.IFLA_IFALIAS:
 			base.Alias = string(attr.Value[:len(attr.Value)-1])
 		case unix.IFLA_STATS:
-			stats32 = attr.Value[:]
+			stats32 = new(LinkStatistics32)
+			if err := binary.Read(bytes.NewBuffer(attr.Value[:]), nl.NativeEndian(), stats32); err != nil {
+				return nil, err
+			}
 		case unix.IFLA_STATS64:
-			stats64 = attr.Value[:]
+			stats64 = new(LinkStatistics64)
+			if err := binary.Read(bytes.NewBuffer(attr.Value[:]), nl.NativeEndian(), stats64); err != nil {
+				return nil, err
+			}
 		case unix.IFLA_XDP:
 			xdp, err := parseLinkXdp(attr.Value[:])
 			if err != nil {
@@ -1716,9 +1722,9 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 	}
 
 	if stats64 != nil {
-		base.Statistics = parseLinkStats64(stats64)
+		base.Statistics = (*LinkStatistics)(stats64)
 	} else if stats32 != nil {
-		base.Statistics = parseLinkStats32(stats32)
+		base.Statistics = (*LinkStatistics)(stats32.to64())
 	}
 
 	// Links that don't have IFLA_INFO_KIND are hardware devices
@@ -2110,7 +2116,11 @@ func parseVxlanData(link Link, data []syscall.NetlinkRouteAttr) {
 		case nl.IFLA_VXLAN_GBP:
 			vxlan.GBP = true
 		case nl.IFLA_VXLAN_FLOWBASED:
-			vxlan.FlowBased = int8(datum.Value[0]) != 0
+			// NOTE(vish): Apparently this message can be sent with no value.
+			//             Unclear if the others  be sent that way as well.
+			if len(datum.Value) > 0 {
+				vxlan.FlowBased = int8(datum.Value[0]) != 0
+			}
 		case nl.IFLA_VXLAN_AGEING:
 			vxlan.Age = int(native.Uint32(datum.Value[0:4]))
 			vxlan.NoAge = vxlan.Age == 0
@@ -2483,14 +2493,6 @@ func parseGretunData(link Link, data []syscall.NetlinkRouteAttr) {
 	}
 }
 
-func parseLinkStats32(data []byte) *LinkStatistics {
-	return (*LinkStatistics)((*LinkStatistics32)(unsafe.Pointer(&data[0:SizeofLinkStats32][0])).to64())
-}
-
-func parseLinkStats64(data []byte) *LinkStatistics {
-	return (*LinkStatistics)((*LinkStatistics64)(unsafe.Pointer(&data[0:SizeofLinkStats64][0])))
-}
-
 func addXdpAttrs(xdp *LinkXdp, req *nl.NetlinkRequest) {
 	attrs := nl.NewRtAttr(unix.IFLA_XDP|unix.NLA_F_NESTED, nil)
 	b := make([]byte, 4)
@@ -2515,7 +2517,8 @@ func parseLinkXdp(data []byte) (*LinkXdp, error) {
 		case nl.IFLA_XDP_FD:
 			xdp.Fd = int(native.Uint32(attr.Value[0:4]))
 		case nl.IFLA_XDP_ATTACHED:
-			xdp.Attached = attr.Value[0] != 0
+			xdp.AttachMode = uint32(attr.Value[0])
+			xdp.Attached = xdp.AttachMode != 0
 		case nl.IFLA_XDP_FLAGS:
 			xdp.Flags = native.Uint32(attr.Value[0:4])
 		case nl.IFLA_XDP_PROG_ID:
