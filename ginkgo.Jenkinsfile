@@ -10,11 +10,11 @@ pipeline {
         VM_MEMORY = "4096"
         SERVER_BOX = "cilium/ubuntu"
         NETNEXT=setIfLabel("ci/net-next", "true", "false")
-        GINKGO_TIMEOUT="108m"
+        GINKGO_TIMEOUT="300m"
     }
 
     options {
-        timeout(time: 240, unit: 'MINUTES')
+        timeout(time: 300, unit: 'MINUTES')
         timestamps()
         ansiColor('xterm')
     }
@@ -22,7 +22,7 @@ pipeline {
     stages {
         stage('Checkout') {
             options {
-                timeout(time: 20, unit: 'MINUTES')
+                timeout(time: 30, unit: 'MINUTES')
             }
 
             steps {
@@ -39,7 +39,7 @@ pipeline {
         }
         stage('Precheck') {
             options {
-                timeout(time: 20, unit: 'MINUTES')
+                timeout(time: 30, unit: 'MINUTES')
             }
 
             environment {
@@ -94,7 +94,7 @@ pipeline {
         }
         stage ("Copy code and boot vms"){
             options {
-                timeout(time: 60, unit: 'MINUTES')
+                timeout(time: 120, unit: 'MINUTES')
             }
 
             environment {
@@ -112,7 +112,7 @@ pipeline {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                         retry(3) {
-                            timeout(time: 20, unit: 'MINUTES'){
+                            timeout(time: 30, unit: 'MINUTES'){
                                 sh 'cd ${TESTDIR}; vagrant destroy runtime --force'
                                 sh 'cd ${TESTDIR}; vagrant up runtime --provision'
                             }
@@ -145,7 +145,7 @@ pipeline {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                         retry(3) {
-                            timeout(time: 30, unit: 'MINUTES'){
+                            timeout(time: 45, unit: 'MINUTES'){
                                 dir("${TESTDIR}") {
                                     sh 'CILIUM_REGISTRY="$(./print-node-ip)" ./vagrant-ci-start.sh'
                                 }
@@ -174,7 +174,7 @@ pipeline {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                         retry(3) {
-                            timeout(time: 20, unit: 'MINUTES'){
+                            timeout(time: 45, unit: 'MINUTES'){
                                 dir("${TESTDIR}") {
                                     sh 'CILIUM_REGISTRY="$(./print-node-ip)" ./vagrant-ci-start.sh'
                                 }
@@ -195,7 +195,7 @@ pipeline {
         }
         stage ("BDD-Test-PR"){
             options {
-                timeout(time: 110, unit: 'MINUTES')
+                timeout(time: 130, unit: 'MINUTES')
             }
             environment {
                 FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
