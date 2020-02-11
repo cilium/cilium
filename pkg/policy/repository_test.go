@@ -986,10 +986,9 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
 
 	expectedPolicy := L4PolicyMap{
 		"0/ANY": &L4Filter{
-			Port:          0,
-			Protocol:      "ANY",
-			U8Proto:       0x0,
-			allowsAllAtL3: false,
+			Port:     0,
+			Protocol: "ANY",
+			U8Proto:  0x0,
 			L7RulesPerSelector: L7DataMap{
 				expectedCachedSelector2: nil,
 			},
@@ -1127,11 +1126,10 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 			DerivedFromRules: labels.LabelArrayList{labelsHTTP},
 		},
 		"0/ANY": {
-			Port:          0,
-			Protocol:      "ANY",
-			U8Proto:       0x0,
-			allowsAllAtL3: false,
-			L7Parser:      "",
+			Port:     0,
+			Protocol: "ANY",
+			U8Proto:  0x0,
+			L7Parser: "",
 			L7RulesPerSelector: L7DataMap{
 				cachedSelectorBar1: nil,
 			},
@@ -1492,11 +1490,10 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 
 	expectedPolicy := L4PolicyMap{
 		"0/ANY": {
-			Port:          0,
-			Protocol:      "ANY",
-			U8Proto:       0x0,
-			allowsAllAtL3: false,
-			L7Parser:      "",
+			Port:     0,
+			Protocol: "ANY",
+			U8Proto:  0x0,
+			L7Parser: "",
 			L7RulesPerSelector: L7DataMap{
 				cachedSelectorWorld: nil,
 			},
@@ -1625,11 +1622,10 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 
 	expectedPolicy := L4PolicyMap{
 		"0/ANY": {
-			Port:          0,
-			Protocol:      "ANY",
-			U8Proto:       0x0,
-			allowsAllAtL3: false,
-			L7Parser:      "",
+			Port:     0,
+			Protocol: "ANY",
+			U8Proto:  0x0,
+			L7Parser: "",
 			L7RulesPerSelector: L7DataMap{
 				cachedSelectorWorld: nil,
 			},
