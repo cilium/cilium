@@ -19,10 +19,11 @@ import (
 	"os"
 	"os/signal"
 	"sync"
-	"syscall"
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/pidfile"
+
+	"golang.org/x/sys/unix"
 )
 
 var cleaner = &daemonCleanup{
@@ -67,7 +68,7 @@ func (c *cleanupFuncList) Run() {
 
 func (d *daemonCleanup) registerSigHandler() <-chan struct{} {
 	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGQUIT, syscall.SIGINT, syscall.SIGHUP, syscall.SIGTERM)
+	signal.Notify(sig, unix.SIGQUIT, unix.SIGINT, unix.SIGHUP, unix.SIGTERM)
 	interrupt := make(chan struct{})
 	go func() {
 		for s := range sig {

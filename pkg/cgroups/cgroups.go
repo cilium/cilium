@@ -18,12 +18,13 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"syscall"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mountinfo"
+
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -61,7 +62,7 @@ func mountCgroup() error {
 		return fmt.Errorf("%s is a file which is not a directory", cgroupRoot)
 	}
 
-	if err := syscall.Mount("none", cgroupRoot, mountinfo.FilesystemTypeCgroup2, 0, ""); err != nil {
+	if err := unix.Mount("none", cgroupRoot, mountinfo.FilesystemTypeCgroup2, 0, ""); err != nil {
 		return fmt.Errorf("failed to mount %s: %s", cgroupRoot, err)
 	}
 

@@ -22,7 +22,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"syscall"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -184,7 +183,7 @@ func LookupElement(fd int, key, value unsafe.Pointer) error {
 	return ret
 }
 
-func deleteElement(fd int, key unsafe.Pointer) (uintptr, syscall.Errno) {
+func deleteElement(fd int, key unsafe.Pointer) (uintptr, unix.Errno) {
 	uba := bpfAttrMapOpElem{
 		mapFd: uint32(fd),
 		key:   uint64(uintptr(key)),
@@ -239,7 +238,7 @@ func GetNextKeyFromPointers(fd int, structPtr unsafe.Pointer, sizeOfStruct uintp
 
 	// BPF_MAP_GET_NEXT_KEY returns ENOENT when all keys have been iterated
 	// translate that to io.EOF to signify there are no next keys
-	if err == syscall.ENOENT {
+	if err == unix.ENOENT {
 		return io.EOF
 	}
 
@@ -289,11 +288,10 @@ type bpfAttrObjOp struct {
 
 // ObjPin stores the map's fd in pathname.
 func ObjPin(fd int, pathname string) error {
-	pathStr, err := syscall.BytePtrFromString(pathname)
+	pathStr, err := unix.BytePtrFromString(pathname)
 	if err != nil {
 		return fmt.Errorf("Unable to convert pathname %q to byte pointer: %w", pathname, err)
 	}
-
 	uba := bpfAttrObjOp{
 		pathname: uint64(uintptr(unsafe.Pointer(pathStr))),
 		fd:       uint32(fd),
@@ -325,11 +323,10 @@ func ObjPin(fd int, pathname string) error {
 
 // ObjGet reads the pathname and returns the map's fd read.
 func ObjGet(pathname string) (int, error) {
-	pathStr, err := syscall.BytePtrFromString(pathname)
+	pathStr, err := unix.BytePtrFromString(pathname)
 	if err != nil {
 		return 0, fmt.Errorf("Unable to convert pathname %q to byte pointer: %w", pathname, err)
 	}
-
 	uba := bpfAttrObjOp{
 		pathname: uint64(uintptr(unsafe.Pointer(pathStr))),
 	}
@@ -628,7 +625,7 @@ func TestDummyProg(progType ProgType, attachType uint32) error {
 		ret, _, errno := unix.Syscall(unix.SYS_BPF, BPF_PROG_ATTACH,
 			uintptr(unsafe.Pointer(&bpfAttr)),
 			unsafe.Sizeof(bpfAttr))
-		if int(ret) < 0 && errno != syscall.EBADF {
+		if int(ret) < 0 && errno != unix.EBADF {
 			return errno
 		}
 		return nil

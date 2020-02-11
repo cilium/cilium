@@ -20,7 +20,6 @@ import (
 	"net"
 	"os/exec"
 	"path"
-	"syscall"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/lock"
@@ -28,6 +27,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/probe"
+
+	"golang.org/x/sys/unix"
 )
 
 type preFilterMapType int
@@ -269,7 +270,7 @@ func ProbePreFilter(device, mode string) error {
 	}
 	if err := cmd.Wait(); err != nil {
 		if exiterr, ok := err.(*exec.ExitError); ok {
-			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+			if status, ok := exiterr.Sys().(unix.WaitStatus); ok {
 				switch status.ExitStatus() {
 				case 2:
 					return fmt.Errorf("Mode %s not supported on device %s", mode, device)
