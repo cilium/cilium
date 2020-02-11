@@ -1,27 +1,29 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: pod-to-b-intra-node
+  name: host-to-b-multi-node-clusterip
 spec:
   selector:
     matchLabels:
-      name: pod-to-b-intra-node
+      name: host-to-b-multi-node-clusterip
   replicas: 1
   template:
     metadata:
       labels:
-        name: pod-to-b-intra-node
+        name: host-to-b-multi-node-clusterip
     spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       containers:
-      - name: pod-to-b-intra-node-container
+      - name: host-to-b-multi-node-container
+        imagePullPolicy: IfNotPresent
         image: docker.io/byrnedo/alpine-curl:0.1.8
         command: ["/bin/ash", "-c", "sleep 1000000000"]
-        imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
             command: ["curl", "-sS", "-o", "/dev/null", "echo-b"]
       affinity:
-        podAffinity:
+        podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchExpressions:
