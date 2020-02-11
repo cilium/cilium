@@ -177,9 +177,9 @@ const (
 	// CiliumStableHelmChartVersion should be the chart version that points
 	// to the v1.X branch
 	CiliumStableHelmChartVersion = "1.6-dev"
-	CiliumStableVersion          = "1.6"
+	CiliumStableVersion          = "v1.6"
 	CiliumLatestHelmChartVersion = "1.7.90"
-	CiliumLatestImageVersion     = "cilium/cilium-dev:latest"
+	CiliumLatestImageVersion     = "latest"
 
 	MonitorLogFileName = "monitor.log"
 
