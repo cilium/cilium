@@ -144,12 +144,18 @@ var (
 	cachedDstID1Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, DstID1Selector)
 	DstID2Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst2=test"))
 	cachedDstID2Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, DstID2Selector)
+	DstID3Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst3=test"))
+	cachedDstID3Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, DstID3Selector)
+	DstID4Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst4=test"))
+	cachedDstID4Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, DstID4Selector)
 
 	epID1   = uint64(111)
 	epID2   = uint64(222)
 	epID3   = uint64(333)
 	dstID1  = identity.NumericIdentity(1001)
 	dstID2  = identity.NumericIdentity(2002)
+	dstID3  = identity.NumericIdentity(3003)
+	dstID4  = identity.NumericIdentity(4004)
 	dstPort = uint16(53) // Set below when we setup the server!
 )
 
@@ -158,6 +164,8 @@ func (s *DNSProxyTestSuite) SetUpSuite(c *C) {
 	testSelectorCache.UpdateIdentities(cache.IdentityCache{
 		dstID1: labels.Labels{"Dst1": labels.NewLabel("Dst1", "test", labels.LabelSourceK8s)}.LabelArray(),
 		dstID2: labels.Labels{"Dst2": labels.NewLabel("Dst2", "test", labels.LabelSourceK8s)}.LabelArray(),
+		dstID3: labels.Labels{"Dst3": labels.NewLabel("Dst3", "test", labels.LabelSourceK8s)}.LabelArray(),
+		dstID4: labels.Labels{"Dst4": labels.NewLabel("Dst4", "test", labels.LabelSourceK8s)}.LabelArray(),
 	}, nil)
 
 	s.repo = policy.NewPolicyRepository(nil, nil)
@@ -435,6 +443,8 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	// | EP1  | DstID2 |      53 | cilium.io      |
 	// | EP1  | DstID1 |      54 | example.com    |
 	// | EP3  | DstID1 |      53 | example.com    |
+	// | EP3  | DstID3 |      53 | *              |
+	// | EP3  | DstID4 |      53 | nil            |
 	// +------+--------+---------+----------------+
 	//
 	// Cases:
@@ -451,6 +461,8 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	// |    8 | EPID3 | DstID1 |   53 | aws.amazon.com | Rejected | EPID3 is only allowed to ask DstID1 on Port 53 for example.com |
 	// |    8 | EPID3 | DstID1 |   54 | example.com    | Rejected | EPID3 is only allowed to ask DstID1 on Port 53 for example.com |
 	// |    9 | EPID3 | DstID2 |   53 | example.com    | Rejected | EPID3 is only allowed to ask DstID1 on Port 53 for example.com |
+	// |   10 | EPID3 | DstID3 |   53 | example.com    | Allowed  | Allowed due to wildcard match pattern                          |
+	// |   11 | EPID3 | DstID4 |   53 | example.com    | Allowed  | Allowed due to a nil rule                                      |
 	// +------+-------+--------+------+----------------+----------+----------------------------------------------------------------+
 
 	// Setup rules
@@ -489,6 +501,8 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
 
 	// | EP3  | DstID1 |      53 | example.com    |
+	// | EP3  | DstID3 |      53 | *              |
+	// | EP3  | DstID4 |      53 | nil            |
 	err = s.proxy.UpdateAllowed(epID3, 53, policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
 			L7Rules: api.L7Rules{
@@ -497,6 +511,14 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 				},
 			},
 		},
+		cachedDstID3Selector: &policy.PerSelectorPolicy{
+			L7Rules: api.L7Rules{
+				DNS: []api.PortRuleDNS{
+					{MatchPattern: "*"},
+				},
+			},
+		},
+		cachedDstID4Selector: nil,
 	})
 	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
 
@@ -551,31 +573,13 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
-	// | EP3  | DstID1 |      53 | *    |
-	err = s.proxy.UpdateAllowed(epID3, 53, policy.L7DataMap{
-		cachedDstID1Selector: &policy.PerSelectorPolicy{
-			L7Rules: api.L7Rules{
-				DNS: []api.PortRuleDNS{
-					{MatchPattern: "*"},
-				},
-			},
-		},
-	})
-	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-
-	// Case 10 | EPID3 | DstID1 |   53 | example.com    | Allowed due to wildcard match pattern
-	allowed, err = s.proxy.CheckAllowed(epID3, 53, dstID1, "example.com")
+	// Case 10 | EPID3 | DstID3 |   53 | example.com    | Allowed due to wildcard match pattern
+	allowed, err = s.proxy.CheckAllowed(epID3, 53, dstID3, "example.com")
 	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
-	// | EP3  | DstID1 |      53 | nil  |
-	err = s.proxy.UpdateAllowed(epID3, 53, policy.L7DataMap{
-		cachedDstID1Selector: nil,
-	})
-	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
-
-	// Case 11 | EPID3 | DstID1 |   53 | example.com    | Allowed due to a nil rule
-	allowed, err = s.proxy.CheckAllowed(epID3, 53, dstID1, "example.com")
+	// Case 11 | EPID3 | DstID4 |   53 | example.com    | Allowed due to a nil rule
+	allowed, err = s.proxy.CheckAllowed(epID3, 53, dstID4, "example.com")
 	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 }
