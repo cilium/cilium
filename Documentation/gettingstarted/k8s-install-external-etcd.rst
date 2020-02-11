@@ -39,7 +39,7 @@ when to use a kvstore:
 
 .. include:: requirements_intro.rst
 
-You will also need an external kvstore such as etcd.
+You will also need an external etcd version 3.1.0 or higher
 
 Configure Cilium
 ===========================
