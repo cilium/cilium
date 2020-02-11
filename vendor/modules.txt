@@ -390,7 +390,7 @@ github.com/spf13/pflag
 github.com/spf13/viper
 # github.com/subosito/gotenv v1.2.0 => github.com/subosito/gotenv v1.2.0
 github.com/subosito/gotenv
-# github.com/vishvananda/netlink v1.0.1-0.20191113183427-d71301a47b60 => github.com/vishvananda/netlink v1.0.1-0.20191113183427-d71301a47b60
+# github.com/vishvananda/netlink v1.1.1-0.20200210222539-bfba8e4149db => github.com/vishvananda/netlink v1.1.1-0.20200210222539-bfba8e4149db
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
 # github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df => github.com/vishvananda/netns v0.0.0-20190625233234-7109fa855b0f
@@ -471,7 +471,7 @@ golang.org/x/oauth2
 golang.org/x/oauth2/internal
 # golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e => golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.0.0-20191022100944-742c48ecaeb7 => golang.org/x/sys v0.0.0-20190813064441-fde4db37ae7a
+# golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5 => golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
 golang.org/x/sys/cpu
 golang.org/x/sys/unix
 golang.org/x/sys/windows
