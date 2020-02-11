@@ -71,7 +71,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 	}
 	l7map := L7DataMap{
-		wildcardCachedSelector: &PerEpData{
+		wildcardCachedSelector: &PerSelectorPolicy{
 			L7Rules: l7rules,
 		},
 	}
@@ -186,7 +186,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		U8Proto:  6,
 		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
-			wildcardCachedSelector: &PerEpData{
+			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
 				},
@@ -417,12 +417,12 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 		U8Proto:  6,
 		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
-			wildcardCachedSelector: &PerEpData{
+			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
 				},
 			},
-			cachedFooSelector: &PerEpData{
+			cachedFooSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -486,10 +486,10 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 		Kafka: []api.PortRuleKafka{{Topic: "foo"}},
 	}
 	l7map := L7DataMap{
-		wildcardCachedSelector: &PerEpData{
+		wildcardCachedSelector: &PerSelectorPolicy{
 			L7Rules: l7rules,
 		},
-		cachedFooSelector: &PerEpData{
+		cachedFooSelector: &PerSelectorPolicy{
 			L7Rules: l7rules,
 		},
 	}
@@ -574,10 +574,10 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 
 	// The L3-dependent L7 rules are not merged together.
 	l7map = L7DataMap{
-		cachedFooSelector: &PerEpData{
+		cachedFooSelector: &PerSelectorPolicy{
 			L7Rules: fooRules,
 		},
-		wildcardCachedSelector: &PerEpData{
+		wildcardCachedSelector: &PerSelectorPolicy{
 			L7Rules: barRules,
 		},
 	}
@@ -651,12 +651,12 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		L7Parser: ParserTypeHTTP,
 		L7RulesPerSelector: L7DataMap{
-			wildcardCachedSelector: &PerEpData{
+			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}, {}},
 				},
 			},
-			cachedFooSelector: &PerEpData{
+			cachedFooSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/private", Method: "GET"}},
 				},
@@ -728,12 +728,12 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 		Port: 9092, Protocol: api.ProtoTCP, U8Proto: 6,
 		L7Parser: ParserTypeKafka,
 		L7RulesPerSelector: L7DataMap{
-			wildcardCachedSelector: &PerEpData{
+			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					Kafka: []api.PortRuleKafka{{Topic: "foo"}, {}},
 				},
 			},
-			cachedFooSelector: &PerEpData{
+			cachedFooSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					Kafka: []api.PortRuleKafka{{Topic: "foo"}},
 				},
@@ -810,10 +810,10 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 
 	// The l3-dependent l7 rules are not merged together.
 	l7map := L7DataMap{
-		cachedFooSelector: &PerEpData{
+		cachedFooSelector: &PerSelectorPolicy{
 			L7Rules: fooRules,
 		},
-		wildcardCachedSelector: &PerEpData{
+		wildcardCachedSelector: &PerSelectorPolicy{
 			L7Rules: barRules,
 		},
 	}
@@ -1742,7 +1742,7 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 		L7Parser: "http",
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: nil,
-			cachedSelectorC: &PerEpData{
+			cachedSelectorC: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -1984,7 +1984,7 @@ func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
 		L7Parser: "http",
 		L7RulesPerSelector: L7DataMap{
 			cachedSelectorC: nil,
-			wildcardCachedSelector: &PerEpData{
+			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -2045,7 +2045,7 @@ func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
 		L7Parser: "http",
 		L7RulesPerSelector: L7DataMap{
 			cachedSelectorC: nil,
-			wildcardCachedSelector: &PerEpData{
+			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},

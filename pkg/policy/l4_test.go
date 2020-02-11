@@ -119,7 +119,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 				Port: 80, Protocol: api.ProtoTCP,
 				L7Parser: "http",
 				L7RulesPerSelector: L7DataMap{
-					cachedFooSelector: &PerEpData{
+					cachedFooSelector: &PerSelectorPolicy{
 						L7Rules: api.L7Rules{
 							HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 						},
@@ -131,7 +131,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 				Port: 9090, Protocol: api.ProtoTCP,
 				L7Parser: "tester",
 				L7RulesPerSelector: L7DataMap{
-					cachedFooSelector: &PerEpData{
+					cachedFooSelector: &PerSelectorPolicy{
 						L7Rules: api.L7Rules{
 							L7Proto: "tester",
 							L7: []api.PortRuleL7{
@@ -151,7 +151,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 				Port: 8080, Protocol: api.ProtoTCP,
 				L7Parser: "http",
 				L7RulesPerSelector: L7DataMap{
-					cachedFooSelector: &PerEpData{
+					cachedFooSelector: &PerSelectorPolicy{
 						L7Rules: api.L7Rules{
 							HTTP: []api.PortRuleHTTP{
 								{Path: "/", Method: "GET"},
@@ -159,7 +159,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 							},
 						},
 					},
-					wildcardCachedSelector: &PerEpData{
+					wildcardCachedSelector: &PerSelectorPolicy{
 						L7Rules: api.L7Rules{
 							HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 						},
