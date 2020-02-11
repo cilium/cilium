@@ -1,3 +1,11 @@
+Limitations
+===========
+
+* Due to the architecture of the Azure CNI plugin, Layer 7 network policies and
+  visibility including FQDN policies are currently not supported in this
+  chaining mode.  The upcoming native Azure IPAM mode will support all L7
+  network policies.
+
 Create an AKS + Cilium CNI configuration
 ========================================
 
