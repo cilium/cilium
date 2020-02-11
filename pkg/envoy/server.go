@@ -851,7 +851,7 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 		}
 
 		if l7 != nil {
-			log.Warning("Wildcard L4 L7DataMap has L7 rules!")
+			log.Warningf("L3-only rule for selector %v surprisingly has L7 rules (%v)!", sel, *l7)
 		}
 	}
 
@@ -912,7 +912,7 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool)
 		canShortCircuit := true
 
 		if l4.Port == 0 {
-			// Wildcard L4 rule, must generate L7 allow-all in case there are other
+			// L3-only rule, must generate L7 allow-all in case there are other
 			// port-specific rules. Otherwise traffic from allowed remotes could be dropped.
 			rule := getWildcardNetworkPolicyRule(l4.L7RulesPerSelector)
 			if rule != nil {

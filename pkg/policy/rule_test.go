@@ -1989,7 +1989,6 @@ func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
 			},
-			cachedSelectorC: nil,
 		},
 		Ingress:          true,
 		DerivedFromRules: labels.LabelArrayList{nil, nil},

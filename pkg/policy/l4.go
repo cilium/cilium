@@ -236,9 +236,9 @@ func (l4 *L4Filter) GetPort() uint16 {
 
 // ToMapState converts filter into a MapState with two possible values:
 // - NoRedirectEntry (ProxyPort = 0): No proxy redirection is needed for this key
-// - RedirectEntry (ProxyPort = 1): Proxy redirection is required for this key,
-//                                  caller must replace the ProxyPort with the actual
-//                                  listening port number.
+// - Entry with any other port #: Proxy redirection is required for this key,
+//                                caller must replace the ProxyPort with the actual
+//                                listening port number.
 // Note: It is possible for two selectors to select the same security ID.
 // To give priority for L7 redirection (e.g., for visibility purposes), we use
 // RedirectPreferredInsert() instead of directly inserting the value to the map.
@@ -257,7 +257,7 @@ func (l4 *L4Filter) ToMapState(direction trafficdirection.TrafficDirection) MapS
 	for cs, l7 := range l4.L7RulesPerSelector {
 		entry := NoRedirectEntry
 		if l7 != nil {
-			entry = RedirectEntry
+			entry = redirectEntry
 		}
 
 		if cs.IsWildcard() {
@@ -493,12 +493,10 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 	return l4, nil
 }
 
-func (l4 *L4Filter) removeSelectors(selectorCache *SelectorCache, all bool) {
+func (l4 *L4Filter) removeSelectors(selectorCache *SelectorCache) {
 	selectors := make(CachedSelectorSlice, 0, len(l4.L7RulesPerSelector))
-	for cs, l7 := range l4.L7RulesPerSelector {
-		if all || l7 == nil {
-			selectors = append(selectors, cs)
-		}
+	for cs := range l4.L7RulesPerSelector {
+		selectors = append(selectors, cs)
 	}
 	selectorCache.RemoveSelectors(selectors, l4)
 }
@@ -506,7 +504,7 @@ func (l4 *L4Filter) removeSelectors(selectorCache *SelectorCache, all bool) {
 // detach releases the references held in the L4Filter and must be called before
 // the filter is left to be garbage collected.
 func (l4 *L4Filter) detach(selectorCache *SelectorCache) {
-	l4.removeSelectors(selectorCache, true)
+	l4.removeSelectors(selectorCache)
 	l4.attach(nil, nil)
 }
 
