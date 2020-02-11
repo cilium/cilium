@@ -6,9 +6,9 @@
 
 .. _encryption:
 
-*****************************
-Transparent Encryption (beta)
-*****************************
+************************************
+Transparent Encryption (stable/beta)
+************************************
 
 This guide explains how to configure Cilium to use IPsec based transparent
 encryption using Kubernetes secrets to distribute the IPsec keys. After this
@@ -19,8 +19,9 @@ keys may be manually distributed but that is not shown here.
 
 .. note::
 
-    This is a beta feature. Please provide feedback and file a GitHub issue
-    if you experience any problems.
+    The encryption feature is stable in combination with the direct-routing and
+    ENI datapath mode. In combination with encapsulation/tunneling, the feature
+    is still in beta phase.
 
 Generate & import the PSK
 =========================
