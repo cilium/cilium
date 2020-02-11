@@ -82,6 +82,20 @@ var NoRedirectEntry = MapStateEntry{ProxyPort: 0}
 // entry is added to the actual bpf map.
 var RedirectEntry = MapStateEntry{ProxyPort: 1}
 
+// RedirectPreferredInsert inserts a new entry giving priority to L7-redirects by
+// not overwriting a L7-redirect entry with a non-redirect entry
+func (keys MapState) RedirectPreferredInsert(key Key, entry MapStateEntry) {
+	if entry == NoRedirectEntry {
+		if _, ok := keys[key]; ok {
+			// Key already exist, keep the existing entry so that
+			// a redirect entry is never overwritten by a non-redirect
+			// entry
+			return
+		}
+	}
+	keys[key] = entry
+}
+
 // DetermineAllowLocalhostIngress determines whether communication should be allowed
 // from the localhost. It inserts the Key corresponding to the localhost in
 // the desiredPolicyKeys if the localhost is allowed to communicate with the
@@ -167,7 +181,9 @@ func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdent
 		}
 		for _, id := range adds {
 			key.Identity = id.Uint32()
-			mc.adds[key] = value
+			// insert but do not allow NoRedirectEntry to overwrite a redirect entry
+			mc.adds.RedirectPreferredInsert(key, value)
+
 			// Remove a potential previously deleted key
 			if mc.deletes != nil {
 				delete(mc.deletes, key)
@@ -190,9 +206,9 @@ func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdent
 	mc.mutex.Unlock()
 }
 
-// ConsumeMapChanges transfers the changes from MapChanges to the caller.
+// consumeMapChanges transfers the changes from MapChanges to the caller.
 // May return nil maps.
-func (mc *MapChanges) ConsumeMapChanges() (adds, deletes MapState) {
+func (mc *MapChanges) consumeMapChanges() (adds, deletes MapState) {
 	mc.mutex.Lock()
 	adds = mc.adds
 	mc.adds = nil

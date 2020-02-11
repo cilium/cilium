@@ -239,6 +239,9 @@ func (l4 *L4Filter) GetPort() uint16 {
 // - RedirectEntry (ProxyPort = 1): Proxy redirection is required for this key,
 //                                  caller must replace the ProxyPort with the actual
 //                                  listening port number.
+// Note: It is possible for two selectors to select the same security ID.
+// To give priority for L7 redirection (e.g., for visibility purposes), we use
+// RedirectPreferredInsert() instead of directly inserting the value to the map.
 func (l4 *L4Filter) ToMapState(direction trafficdirection.TrafficDirection) MapState {
 	port := uint16(l4.Port)
 	proto := uint8(l4.U8Proto)
@@ -259,7 +262,7 @@ func (l4 *L4Filter) ToMapState(direction trafficdirection.TrafficDirection) MapS
 
 		if cs.IsWildcard() {
 			keyToAdd.Identity = 0
-			keysToAdd[keyToAdd] = entry
+			keysToAdd.RedirectPreferredInsert(keyToAdd, entry)
 
 			if port == 0 {
 				// Allow-all
@@ -286,7 +289,7 @@ func (l4 *L4Filter) ToMapState(direction trafficdirection.TrafficDirection) MapS
 
 		for _, id := range identities {
 			keyToAdd.Identity = id.Uint32()
-			keysToAdd[keyToAdd] = entry
+			keysToAdd.RedirectPreferredInsert(keyToAdd, entry)
 		}
 	}
 
@@ -766,7 +769,7 @@ func (l4 *L4Policy) AccumulateMapChanges(adds, deletes []identity.NumericIdentit
 	port uint16, proto uint8, direction trafficdirection.TrafficDirection, redirect bool) {
 	l4.mutex.RLock()
 	for epPolicy := range l4.users {
-		epPolicy.PolicyMapChanges.AccumulateMapChanges(adds, deletes, port, proto, direction, redirect)
+		epPolicy.policyMapChanges.AccumulateMapChanges(adds, deletes, port, proto, direction, redirect)
 	}
 	l4.mutex.RUnlock()
 }
