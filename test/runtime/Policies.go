@@ -395,13 +395,17 @@ var _ = Describe("RuntimePolicies", func() {
 		_, err = vm.PolicyImportAndWait(vm.GetFullPath(multL7PoliciesJSON), helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
 
-		//APP1 can connnect to public, but no to private
+		//APP1 can connect to public, but no to private
 
 		connectivityTest(httpRequestsPublic, helpers.App1, helpers.Httpd1, true)
 		connectivityTest(httpRequestsPrivate, helpers.App1, helpers.Httpd1, false)
 
 		//App2 can't connect
 		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd1, false)
+
+		By("Multiple Ingress rules on same port")
+		// app1 can connect to /public on httpd2
+		connectivityTest(httpRequestsPublic, helpers.App1, helpers.Httpd2, true)
 
 		By("Multiple Egress")
 		// app2 can connect to /public, but not to /private
