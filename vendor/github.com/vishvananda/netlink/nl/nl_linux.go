@@ -440,11 +440,6 @@ done:
 				continue
 			}
 			if m.Header.Type == unix.NLMSG_DONE {
-				native := NativeEndian()
-				error := int32(native.Uint32(m.Data[0:4]))
-				if error < 0 {
-					return nil, syscall.Errno(-error)
-				}
 				break done
 			}
 			if m.Header.Type == unix.NLMSG_ERROR {
