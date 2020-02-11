@@ -74,7 +74,8 @@ Deploy Cilium release via Helm:
       --set global.nodeinit.enabled=true \\
       --set nodeinit.reconfigureKubelet=true \\
       --set nodeinit.removeCbrBridge=true \\
-      --set global.cni.binPath=/home/kubernetes/bin
+      --set global.cni.binPath=/home/kubernetes/bin \\
+      --set global.restartPods
 
 The NodeInit DaemonSet is required to prepare the GKE nodes as nodes are added
 to the cluster. The NodeInit DaemonSet will perform the following actions:
@@ -82,11 +83,10 @@ to the cluster. The NodeInit DaemonSet will perform the following actions:
 * Reconfigure kubelet to run in CNI mode
 * Mount the BPF filesystem
 
-You might also want to pass the ``--set global.restartPods`` switch to the
-``helm`` command above. This will restart existing pods when initializing the
-node to force all pods to be managed by Cilium.
+The ``--set global.restartPods`` switch in the ``helm`` command above restarts
+existing pods when initializing the node. This will ensure all pods are managed
+by Cilium.
 
-.. include:: k8s-install-restart-pods.rst
 .. include:: k8s-install-validate.rst
 .. include:: hubble-install.rst
 .. include:: getting-started-next-steps.rst
