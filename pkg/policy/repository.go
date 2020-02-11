@@ -198,7 +198,7 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 			// Wildcard at L7 all the endpoints allowed at L3 or L4.
 			for _, sel := range endpoints {
 				cs := filter.cacheIdentitySelector(sel, selectorCache)
-				filter.L7RulesPerEp[cs] = &PerEpData{
+				filter.L7RulesPerSelector[cs] = &PerEpData{
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{{}},
 					}}
@@ -209,7 +209,7 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 				rule := api.PortRuleKafka{}
 				rule.Sanitize()
 				cs := filter.cacheIdentitySelector(sel, selectorCache)
-				filter.L7RulesPerEp[cs] = &PerEpData{
+				filter.L7RulesPerSelector[cs] = &PerEpData{
 					L7Rules: api.L7Rules{
 						Kafka: []api.PortRuleKafka{rule},
 					}}
@@ -224,7 +224,7 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 				}
 				rule.Sanitize()
 				cs := filter.cacheIdentitySelector(sel, selectorCache)
-				filter.L7RulesPerEp[cs] = &PerEpData{
+				filter.L7RulesPerSelector[cs] = &PerEpData{
 					L7Rules: api.L7Rules{
 						DNS: []api.PortRuleDNS{rule},
 					}}
@@ -233,7 +233,7 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 			// Wildcard at L7 all the endpoints allowed at L3 or L4.
 			for _, sel := range endpoints {
 				cs := filter.cacheIdentitySelector(sel, selectorCache)
-				filter.L7RulesPerEp[cs] = &PerEpData{
+				filter.L7RulesPerSelector[cs] = &PerEpData{
 					L7Rules: api.L7Rules{
 						L7Proto: filter.L7Parser.String(),
 						L7:      []api.PortRuleL7{},
