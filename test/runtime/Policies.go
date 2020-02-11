@@ -528,31 +528,17 @@ var _ = Describe("RuntimePolicies", func() {
 
 		connectivityTest(httpRequestsPublic, helpers.App3, helpers.Httpd2, true)
 
-		// Since policy allows connectivity on L3 from app3 to httpd2, we expect:
-		// * two more requests to get received by the proxy because even though
-		// only L3 policy applies for connectivity from app3 to httpd2, because
-		// app3 has L7 policy applied to it, all traffic goes through the proxy.
-		// * two more requests to get forwarded by the proxy because policy allows
-		// app3 to talk to httpd2.
-		// * no increase in requests denied by the proxy.
-		// * two more corresponding responses forwarded / received to the aforementioned requests due to policy
-		// allowing connectivity via http / http6.
-		checkProxyStatistics(app3EndpointID, 4, 6, 2, 4, 4)
+		// Since policy allows connectivity on L3 from app3 to httpd2, and such
+		// packets are not forwarded to the proxy, we expect no changes in proxy
+		// stats.
+		checkProxyStatistics(app3EndpointID, 2, 4, 2, 2, 2)
 
 		connectivityTest(httpRequestsPrivate, helpers.App3, helpers.Httpd2, true)
 
-		// Since policy allows connectivity on L3 from app3 to httpd2, we expect:
-		// * two more requests to get received by the proxy because even though
-		// only L3 policy applies for connectivity from app3 to httpd2, because
-		// app3 has L7 policy applied to it, all traffic goes through the proxy.
-		// * two more requests to get forwarded by the proxy because policy allows
-		// app3 to talk to httpd2, even though it's restricted on L7 for connectivity
-		// to httpd1 from app3. This is what tests L3-dependent L7 policy is applied
-		// correctly.
-		// * no increase in requests denied by the proxy.
-		// * two more corresponding responses forwarded / received to the aforementioned requests due to policy
-		// allowing connectivity via http / http6.
-		checkProxyStatistics(app3EndpointID, 6, 8, 2, 6, 6)
+		// Since policy allows connectivity on L3 from app3 to httpd2, and such
+		// packets are not forwarded to the proxy, we expect no changes in proxy
+		// stats.
+		checkProxyStatistics(app3EndpointID, 2, 4, 2, 2, 2)
 	})
 
 	It("Checks CIDR L3 Policy", func() {
