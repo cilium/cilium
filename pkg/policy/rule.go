@@ -58,44 +58,42 @@ func (r *rule) String() string {
 	return fmt.Sprintf("%v", r.EndpointSelector)
 }
 
-func (l4 *L4Filter) mergeCachedSelectors(from *L4Filter, selectorCache *SelectorCache) {
-	for _, cs := range from.CachedSelectors {
-		if l4.CachedSelectors.Insert(cs) {
-			// Update selector owner to the existingFilter
-			selectorCache.ChangeUser(cs, from, l4)
+func (epd *PerEpData) appendL7WildcardRules(ctx *SearchContext) *PerEpData {
+	switch {
+	case len(epd.L7Rules.HTTP) > 0:
+		rule := api.PortRuleHTTP{}
+		if !rule.Exists(epd.L7Rules) {
+			ctx.PolicyTrace("   Merging HTTP wildcard rule: %+v\n", rule)
+			epd.L7Rules.HTTP = append(epd.L7Rules.HTTP, rule)
 		} else {
-			// selector was already in existingFilter.CachedSelectors, release
-			selectorCache.RemoveSelector(cs, from)
+			ctx.PolicyTrace("   Merging HTTP wildcard rule, equal rule already exists: %+v\n", rule)
+		}
+
+	case len(epd.L7Rules.Kafka) > 0:
+		rule := api.PortRuleKafka{}
+		rule.Sanitize()
+		if !rule.Exists(epd.L7Rules) {
+			ctx.PolicyTrace("   Merging Kafka wildcard rule: %+v\n", rule)
+			epd.L7Rules.Kafka = append(epd.L7Rules.Kafka, rule)
+		} else {
+			ctx.PolicyTrace("   Merging Kafka wildcard rule, equal rule already exists: %+v\n", rule)
+		}
+	case len(epd.L7Rules.DNS) > 0:
+		// Wildcarding at L7 for DNS is specified via allowing all via
+		// MatchPattern!
+		rule := api.PortRuleDNS{MatchPattern: "*"}
+		rule.Sanitize()
+		if !rule.Exists(epd.L7Rules) {
+			ctx.PolicyTrace("   Merging DNS wildcard rule: %+v\n", rule)
+			epd.L7Rules.DNS = append(epd.L7Rules.DNS, rule)
+		} else {
+			ctx.PolicyTrace("   Merging DNS wildcard rule, equal rule already exists: %+v\n", rule)
 		}
 	}
-	from.CachedSelectors = nil
+	return epd
 }
 
 func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter, selectorCache *SelectorCache) error {
-	// Handle cases where filter we are merging new rule with, new rule itself
-	// allows all traffic on L3, or both rules allow all traffic on L3.
-	if existingFilter.AllowsAllAtL3() {
-		// Case 1: existing filter selects all endpoints, which means that this filter
-		// can now simply select all endpoints.
-		//
-		// Release references held by filterToMerge.CachedSelectors
-		if !filterToMerge.HasL3DependentL7Rules() {
-			selectorCache.RemoveSelectors(filterToMerge.CachedSelectors, filterToMerge)
-			filterToMerge.CachedSelectors = nil
-		}
-	} else {
-		// Case 2: Merge selectors from filterToMerge to the existingFilter.
-		if filterToMerge.AllowsAllAtL3() {
-			// Allowing all, release selectors from existingFilter
-			if !existingFilter.HasL3DependentL7Rules() {
-				selectorCache.RemoveSelectors(existingFilter.CachedSelectors, existingFilter)
-				existingFilter.CachedSelectors = nil
-			}
-			existingFilter.allowsAllAtL3 = true
-		}
-	}
-	existingFilter.mergeCachedSelectors(filterToMerge, selectorCache)
-
 	// Merge the L7-related data from the arguments provided to this function
 	// with the existing L7-related data already in the filter.
 	if filterToMerge.L7Parser != ParserTypeNone {
@@ -107,16 +105,43 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 		}
 	}
 
-	for cs, newL7Rules := range filterToMerge.L7RulesPerEp {
-		// skip merging for reserved:none, as it is never
-		// selected, and toFQDN rules currently translate to
-		// reserved:none as an endpoint selector, causing a
-		// merge conflict for different toFQDN destinations
-		// with different TLS contexts.
-		if cs.IsNone() {
-			continue
-		}
-		if l7Rules, ok := existingFilter.L7RulesPerEp[cs]; ok {
+	if filterToMerge.AllowsAllAtL3() {
+		existingFilter.allowsAllAtL3 = true
+	}
+
+	for cs, newL7Rules := range filterToMerge.L7RulesPerSelector {
+		delete(filterToMerge.L7RulesPerSelector, cs)
+
+		if l7Rules, ok := existingFilter.L7RulesPerSelector[cs]; ok {
+			// existing filter already has 'cs', release and merge L7 rules
+			selectorCache.RemoveSelector(cs, filterToMerge)
+
+			// skip merging for reserved:none, as it is never
+			// selected, and toFQDN rules currently translate to
+			// reserved:none as an endpoint selector, causing a
+			// merge conflict for different toFQDN destinations
+			// with different TLS contexts.
+			if cs.IsNone() {
+				continue
+			}
+
+			if l7Rules.Equal(newL7Rules) {
+				continue // identical rules need no merging
+			}
+
+			// nil L7 rules wildcard L7. When merging with a non-nil rule, the nil must be expanded to actual
+			// wildcard rule for the specific L7
+			if l7Rules == nil && newL7Rules != nil {
+				existingFilter.L7RulesPerSelector[cs] = newL7Rules.appendL7WildcardRules(ctx)
+				continue
+			}
+			if l7Rules != nil && newL7Rules == nil {
+				existingFilter.L7RulesPerSelector[cs] = l7Rules.appendL7WildcardRules(ctx)
+				continue
+			}
+
+			// Merge two non-identical sets of non-nil rules
+
 			if !newL7Rules.TerminatingTLS.Equal(l7Rules.TerminatingTLS) {
 				ctx.PolicyTrace("   Merge conflict: mismatching terminating TLS contexts %v/%v\n", newL7Rules.TerminatingTLS, l7Rules.TerminatingTLS)
 				return fmt.Errorf("cannot merge conflicting terminating TLS contexts for cached selector %s: (%v/%v)", cs.String(), newL7Rules.TerminatingTLS, l7Rules.TerminatingTLS)
@@ -178,9 +203,13 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 			default:
 				ctx.PolicyTrace("   No L7 rules to merge.\n")
 			}
-			existingFilter.L7RulesPerEp[cs] = l7Rules
-		} else {
-			existingFilter.L7RulesPerEp[cs] = newL7Rules
+			existingFilter.L7RulesPerSelector[cs] = l7Rules
+		} else { // 'cs' is not in the existing filter yet
+			// Update selector owner to the existing filter
+			selectorCache.ChangeUser(cs, filterToMerge, existingFilter)
+
+			// Move L7 rules over.
+			existingFilter.L7RulesPerSelector[cs] = newL7Rules
 		}
 	}
 	return nil

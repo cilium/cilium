@@ -280,16 +280,13 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 				Revision: repo.GetRevision(),
 				Ingress: L4PolicyMap{
 					"80/TCP": {
-						Port:     80,
-						Protocol: api.ProtoTCP,
-						U8Proto:  0x6,
-						CachedSelectors: CachedSelectorSlice{
-							wildcardCachedSelector,
-						},
+						Port:          80,
+						Protocol:      api.ProtoTCP,
+						U8Proto:       0x6,
 						allowsAllAtL3: true,
 						L7Parser:      ParserTypeHTTP,
 						Ingress:       true,
-						L7RulesPerEp: L7DataMap{
+						L7RulesPerSelector: L7DataMap{
 							wildcardCachedSelector: &PerEpData{
 								L7Rules: api.L7Rules{
 									HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/good"}},
@@ -375,27 +372,20 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 				Revision: repo.GetRevision(),
 				Ingress: L4PolicyMap{
 					"80/TCP": {
-						Port:     80,
-						Protocol: api.ProtoTCP,
-						U8Proto:  0x6,
-						CachedSelectors: CachedSelectorSlice{
-							wildcardCachedSelector,
-							cachedSelectorHost,
-						},
+						Port:          80,
+						Protocol:      api.ProtoTCP,
+						U8Proto:       0x6,
 						allowsAllAtL3: true,
 						L7Parser:      ParserTypeHTTP,
 						Ingress:       true,
-						L7RulesPerEp: L7DataMap{
+						L7RulesPerSelector: L7DataMap{
 							wildcardCachedSelector: &PerEpData{
 								L7Rules: api.L7Rules{
 									HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/good"}},
 								},
 								CanShortCircuit: true,
 							},
-							cachedSelectorHost: &PerEpData{
-								L7Rules:         api.L7Rules{},
-								CanShortCircuit: true,
-							},
+							cachedSelectorHost: nil,
 						},
 						DerivedFromRules: labels.LabelArrayList{nil},
 					},
@@ -461,16 +451,15 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 				Revision: repo.GetRevision(),
 				Ingress: L4PolicyMap{
 					"80/TCP": {
-						Port:     80,
-						Protocol: api.ProtoTCP,
-						U8Proto:  0x6,
-						CachedSelectors: CachedSelectorSlice{
-							wildcardCachedSelector,
+						Port:          80,
+						Protocol:      api.ProtoTCP,
+						U8Proto:       0x6,
+						allowsAllAtL3: true,
+						L7Parser:      ParserTypeNone,
+						Ingress:       true,
+						L7RulesPerSelector: L7DataMap{
+							wildcardCachedSelector: nil,
 						},
-						allowsAllAtL3:    true,
-						L7Parser:         ParserTypeNone,
-						Ingress:          true,
-						L7RulesPerEp:     L7DataMap{},
 						DerivedFromRules: labels.LabelArrayList{nil},
 					},
 				},
@@ -581,17 +570,16 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 				Revision: repo.GetRevision(),
 				Ingress: L4PolicyMap{
 					"80/TCP": {
-						Port:     80,
-						Protocol: api.ProtoTCP,
-						U8Proto:  0x6,
-						CachedSelectors: CachedSelectorSlice{
-							cachedSelectorWorld,
-							cachedSelectorTest,
+						Port:          80,
+						Protocol:      api.ProtoTCP,
+						U8Proto:       0x6,
+						allowsAllAtL3: false,
+						L7Parser:      ParserTypeNone,
+						Ingress:       true,
+						L7RulesPerSelector: L7DataMap{
+							cachedSelectorWorld: nil,
+							cachedSelectorTest:  nil,
 						},
-						allowsAllAtL3:    false,
-						L7Parser:         ParserTypeNone,
-						Ingress:          true,
-						L7RulesPerEp:     L7DataMap{},
 						DerivedFromRules: labels.LabelArrayList{nil, nil},
 					},
 				},
