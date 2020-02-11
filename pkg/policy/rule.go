@@ -105,10 +105,6 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 		}
 	}
 
-	if filterToMerge.AllowsAllAtL3() {
-		existingFilter.allowsAllAtL3 = true
-	}
-
 	for cs, newL7Rules := range filterToMerge.L7RulesPerSelector {
 		// 'cs' will be merged or moved (see below), either way it needs
 		// to be removed from the map it is in now.
