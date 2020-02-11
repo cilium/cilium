@@ -1062,7 +1062,7 @@ func (e *Endpoint) applyPolicyMapChanges() (proxyChanges bool, err error) {
 	//  collected on the newly computed desired policy, which is
 	//  not fully realized yet. This is why we get the map changes
 	//  from the desired policy here.
-	adds, deletes := e.desiredPolicy.PolicyMapChanges.ConsumeMapChanges()
+	adds, deletes := e.desiredPolicy.ConsumeMapChanges()
 
 	for keyToAdd, entry := range adds {
 		// Keep the existing proxy port, if any

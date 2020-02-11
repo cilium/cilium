@@ -482,8 +482,8 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 		identity.NumericIdentity(192): labels.ParseSelectLabelArray("id=resolve_test_1"),
 	}
 	testSelectorCache.UpdateIdentities(added1, nil)
-	c.Assert(policy.PolicyMapChanges.adds, HasLen, 0)
-	c.Assert(policy.PolicyMapChanges.deletes, HasLen, 0)
+	c.Assert(policy.policyMapChanges.adds, HasLen, 0)
+	c.Assert(policy.policyMapChanges.deletes, HasLen, 0)
 
 	// Have to remove circular reference before testing to avoid an infinite loop
 	policy.selectorPolicy.Detach()
@@ -547,15 +547,15 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 		identity.NumericIdentity(194): labels.ParseSelectLabelArray("id=resolve_test_1", "num=3"),
 	}
 	testSelectorCache.UpdateIdentities(added1, nil)
-	c.Assert(policy.PolicyMapChanges.adds, HasLen, 3)
-	c.Assert(policy.PolicyMapChanges.deletes, HasLen, 0)
+	c.Assert(policy.policyMapChanges.adds, HasLen, 3)
+	c.Assert(policy.policyMapChanges.deletes, HasLen, 0)
 
 	deleted1 := cache.IdentityCache{
 		identity.NumericIdentity(193): labels.ParseSelectLabelArray("id=resolve_test_1", "num=2"),
 	}
 	testSelectorCache.UpdateIdentities(nil, deleted1)
-	c.Assert(policy.PolicyMapChanges.adds, HasLen, 2)
-	c.Assert(policy.PolicyMapChanges.deletes, HasLen, 1)
+	c.Assert(policy.policyMapChanges.adds, HasLen, 2)
+	c.Assert(policy.policyMapChanges.deletes, HasLen, 1)
 
 	cachedSelectorWorld := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorld])
 	c.Assert(cachedSelectorWorld, Not(IsNil))
@@ -594,7 +594,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 			{TrafficDirection: trafficdirection.Egress.Uint8()}:                          {},
 			{Identity: uint32(identity.ReservedIdentityWorld), DestPort: 80, Nexthdr: 6}: {},
 		},
-		PolicyMapChanges: MapChanges{
+		policyMapChanges: MapChanges{
 			adds: MapState{
 				{Identity: 192, DestPort: 80, Nexthdr: 6}: {},
 				{Identity: 194, DestPort: 80, Nexthdr: 6}: {},
@@ -614,10 +614,10 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 
 	c.Assert(policy, checker.Equals, &expectedEndpointPolicy)
 
-	adds, deletes := policy.PolicyMapChanges.ConsumeMapChanges()
+	adds, deletes := policy.ConsumeMapChanges()
 	// maps on the policy got cleared
-	c.Assert(policy.PolicyMapChanges.adds, IsNil)
-	c.Assert(policy.PolicyMapChanges.deletes, IsNil)
+	c.Assert(policy.policyMapChanges.adds, IsNil)
+	c.Assert(policy.policyMapChanges.deletes, IsNil)
 
 	c.Assert(adds, checker.Equals, MapState{
 		{Identity: 192, DestPort: 80, Nexthdr: 6}: {},

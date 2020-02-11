@@ -66,8 +66,8 @@ type EndpointPolicy struct {
 	// All fields within the Key and the proxy port must be in host byte-order.
 	PolicyMapState MapState
 
-	// PolicyMapChanges collects pending changes to the PolicyMapState
-	PolicyMapChanges MapChanges
+	// policyMapChanges collects pending changes to the PolicyMapState
+	policyMapChanges MapChanges
 
 	// PolicyOwner describes any type which consumes this EndpointPolicy object.
 	PolicyOwner PolicyOwner
@@ -125,10 +125,10 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner) *EndpointPolicy 
 	// computeDesiredL4PolicyMapEntires() call finishes may
 	// already be applied to the PolicyMapState, specifically:
 	//
-	// - PolicyMapChanges may contain an addition of an entry that
+	// - policyMapChanges may contain an addition of an entry that
 	//   is already added to the PolicyMapState
 	//
-	// - PolicyMapChanges may congtain a deletion of an entry that
+	// - policyMapChanges may congtain a deletion of an entry that
 	//   has already been deleted from PolicyMapState
 	p.insertUser(calculatedPolicy)
 
@@ -170,6 +170,15 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(l4PolicyMap L4Policy
 			p.PolicyMapState[keyFromFilter] = entry
 		}
 	}
+}
+
+// ConsumeMapChanges transfers the changes from MapChanges to the caller,
+// locking the selector cache to make sure concurrent identity updates
+// have completed.
+func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes MapState) {
+	p.selectorPolicy.SelectorCache.mutex.Lock()
+	defer p.selectorPolicy.SelectorCache.mutex.Unlock()
+	return p.policyMapChanges.consumeMapChanges()
 }
 
 // NewEndpointPolicy returns an empty EndpointPolicy stub.
