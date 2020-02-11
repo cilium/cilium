@@ -72,6 +72,10 @@ func LinkSetXdpFd(link Link, fd int) error {
 	return ErrNotImplemented
 }
 
+func LinkSetXdpFdWithFlags(link Link, fd, flags int) error {
+	return ErrNotImplemented
+}
+
 func LinkSetARPOff(link Link) error {
 	return ErrNotImplemented
 }

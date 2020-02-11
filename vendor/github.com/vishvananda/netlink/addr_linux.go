@@ -11,9 +11,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// IFA_FLAGS is a u32 attribute.
-const IFA_FLAGS = 0x8
-
 // AddrAdd will add an IP address to a link device.
 //
 // Equivalent to: `ip addr add $addr dev $link`
@@ -125,7 +122,7 @@ func (h *Handle) addrHandle(link Link, addr *Addr, req *nl.NetlinkRequest) error
 		} else {
 			b := make([]byte, 4)
 			native.PutUint32(b, uint32(addr.Flags))
-			flagsData := nl.NewRtAttr(IFA_FLAGS, b)
+			flagsData := nl.NewRtAttr(unix.IFA_FLAGS, b)
 			req.AddData(flagsData)
 		}
 	}
@@ -156,10 +153,10 @@ func (h *Handle) addrHandle(link Link, addr *Addr, req *nl.NetlinkRequest) error
 	// value should be "forever". To compensate for that, only add the attributes if at least one of the values is
 	// non-zero, which means the caller has explicitly set them
 	if addr.ValidLft > 0 || addr.PreferedLft > 0 {
-		cachedata := nl.IfaCacheInfo{
-			IfaValid:    uint32(addr.ValidLft),
-			IfaPrefered: uint32(addr.PreferedLft),
-		}
+		cachedata := nl.IfaCacheInfo{unix.IfaCacheinfo{
+			Valid:    uint32(addr.ValidLft),
+			Prefered: uint32(addr.PreferedLft),
+		}}
 		req.AddData(nl.NewRtAttr(unix.IFA_CACHEINFO, cachedata.Serialize()))
 	}
 
@@ -254,12 +251,12 @@ func parseAddr(m []byte) (addr Addr, family, index int, err error) {
 			addr.Broadcast = attr.Value
 		case unix.IFA_LABEL:
 			addr.Label = string(attr.Value[:len(attr.Value)-1])
-		case IFA_FLAGS:
+		case unix.IFA_FLAGS:
 			addr.Flags = int(native.Uint32(attr.Value[0:4]))
-		case nl.IFA_CACHEINFO:
+		case unix.IFA_CACHEINFO:
 			ci := nl.DeserializeIfaCacheInfo(attr.Value)
-			addr.PreferedLft = int(ci.IfaPrefered)
-			addr.ValidLft = int(ci.IfaValid)
+			addr.PreferedLft = int(ci.Prefered)
+			addr.ValidLft = int(ci.Valid)
 		}
 	}
 

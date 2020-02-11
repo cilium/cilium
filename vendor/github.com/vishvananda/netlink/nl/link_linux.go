@@ -478,6 +478,14 @@ const (
 	IFLA_XDP_MAX      = IFLA_XDP_PROG_ID
 )
 
+// XDP program attach mode (used as dump value for IFLA_XDP_ATTACHED)
+const (
+	XDP_ATTACHED_NONE = iota
+	XDP_ATTACHED_DRV
+	XDP_ATTACHED_SKB
+	XDP_ATTACHED_HW
+)
+
 const (
 	IFLA_IPTUN_UNSPEC = iota
 	IFLA_IPTUN_LINK

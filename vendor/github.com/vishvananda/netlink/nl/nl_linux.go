@@ -439,10 +439,7 @@ done:
 			if m.Header.Pid != pid {
 				continue
 			}
-			if m.Header.Type == unix.NLMSG_DONE {
-				break done
-			}
-			if m.Header.Type == unix.NLMSG_ERROR {
+			if m.Header.Type == unix.NLMSG_DONE || m.Header.Type == unix.NLMSG_ERROR {
 				native := NativeEndian()
 				error := int32(native.Uint32(m.Data[0:4]))
 				if error == 0 {

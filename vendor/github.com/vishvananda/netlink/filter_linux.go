@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net"
 	"syscall"
 
 	"github.com/vishvananda/netlink/nl"
@@ -429,6 +430,53 @@ func EncodeActions(attr *nl.RtAttr, actions []Action) error {
 			}
 			toTcGen(action.Attrs(), &mirred.TcGen)
 			aopts.AddRtAttr(nl.TCA_MIRRED_PARMS, mirred.Serialize())
+		case *TunnelKeyAction:
+			table := attr.AddRtAttr(tabIndex, nil)
+			tabIndex++
+			table.AddRtAttr(nl.TCA_ACT_KIND, nl.ZeroTerminated("tunnel_key"))
+			aopts := table.AddRtAttr(nl.TCA_ACT_OPTIONS, nil)
+			tun := nl.TcTunnelKey{
+				Action: int32(action.Action),
+			}
+			toTcGen(action.Attrs(), &tun.TcGen)
+			aopts.AddRtAttr(nl.TCA_TUNNEL_KEY_PARMS, tun.Serialize())
+			if action.Action == TCA_TUNNEL_KEY_SET {
+				aopts.AddRtAttr(nl.TCA_TUNNEL_KEY_ENC_KEY_ID, htonl(action.KeyID))
+				if v4 := action.SrcAddr.To4(); v4 != nil {
+					aopts.AddRtAttr(nl.TCA_TUNNEL_KEY_ENC_IPV4_SRC, v4[:])
+				} else if v6 := action.SrcAddr.To16(); v6 != nil {
+					aopts.AddRtAttr(nl.TCA_TUNNEL_KEY_ENC_IPV6_SRC, v6[:])
+				} else {
+					return fmt.Errorf("invalid src addr %s for tunnel_key action", action.SrcAddr)
+				}
+				if v4 := action.DstAddr.To4(); v4 != nil {
+					aopts.AddRtAttr(nl.TCA_TUNNEL_KEY_ENC_IPV4_DST, v4[:])
+				} else if v6 := action.DstAddr.To16(); v6 != nil {
+					aopts.AddRtAttr(nl.TCA_TUNNEL_KEY_ENC_IPV6_DST, v6[:])
+				} else {
+					return fmt.Errorf("invalid dst addr %s for tunnel_key action", action.DstAddr)
+				}
+			}
+		case *SkbEditAction:
+			table := attr.AddRtAttr(tabIndex, nil)
+			tabIndex++
+			table.AddRtAttr(nl.TCA_ACT_KIND, nl.ZeroTerminated("skbedit"))
+			aopts := table.AddRtAttr(nl.TCA_ACT_OPTIONS, nil)
+			skbedit := nl.TcSkbEdit{}
+			toTcGen(action.Attrs(), &skbedit.TcGen)
+			aopts.AddRtAttr(nl.TCA_SKBEDIT_PARMS, skbedit.Serialize())
+			if action.QueueMapping != nil {
+				aopts.AddRtAttr(nl.TCA_SKBEDIT_QUEUE_MAPPING, nl.Uint16Attr(*action.QueueMapping))
+			}
+			if action.Priority != nil {
+				aopts.AddRtAttr(nl.TCA_SKBEDIT_PRIORITY, nl.Uint32Attr(*action.Priority))
+			}
+			if action.PType != nil {
+				aopts.AddRtAttr(nl.TCA_SKBEDIT_PTYPE, nl.Uint16Attr(*action.PType))
+			}
+			if action.Mark != nil {
+				aopts.AddRtAttr(nl.TCA_SKBEDIT_MARK, nl.Uint32Attr(*action.Mark))
+			}
 		case *ConnmarkAction:
 			table := attr.AddRtAttr(tabIndex, nil)
 			tabIndex++
@@ -486,6 +534,10 @@ func parseActions(tables []syscall.NetlinkRouteAttr) ([]Action, error) {
 					action = &ConnmarkAction{}
 				case "gact":
 					action = &GenericAction{}
+				case "tunnel_key":
+					action = &TunnelKeyAction{}
+				case "skbedit":
+					action = &SkbEditAction{}
 				default:
 					break nextattr
 				}
@@ -504,6 +556,41 @@ func parseActions(tables []syscall.NetlinkRouteAttr) ([]Action, error) {
 							toAttrs(&mirred.TcGen, action.Attrs())
 							action.(*MirredAction).Ifindex = int(mirred.Ifindex)
 							action.(*MirredAction).MirredAction = MirredAct(mirred.Eaction)
+						}
+					case "tunnel_key":
+						switch adatum.Attr.Type {
+						case nl.TCA_TUNNEL_KEY_PARMS:
+							tun := *nl.DeserializeTunnelKey(adatum.Value)
+							action.(*TunnelKeyAction).ActionAttrs = ActionAttrs{}
+							toAttrs(&tun.TcGen, action.Attrs())
+							action.(*TunnelKeyAction).Action = TunnelKeyAct(tun.Action)
+						case nl.TCA_TUNNEL_KEY_ENC_KEY_ID:
+							action.(*TunnelKeyAction).KeyID = networkOrder.Uint32(adatum.Value[0:4])
+						case nl.TCA_TUNNEL_KEY_ENC_IPV6_SRC:
+						case nl.TCA_TUNNEL_KEY_ENC_IPV4_SRC:
+							action.(*TunnelKeyAction).SrcAddr = net.IP(adatum.Value[:])
+						case nl.TCA_TUNNEL_KEY_ENC_IPV6_DST:
+						case nl.TCA_TUNNEL_KEY_ENC_IPV4_DST:
+							action.(*TunnelKeyAction).DstAddr = net.IP(adatum.Value[:])
+						}
+					case "skbedit":
+						switch adatum.Attr.Type {
+						case nl.TCA_SKBEDIT_PARMS:
+							skbedit := *nl.DeserializeSkbEdit(adatum.Value)
+							action.(*SkbEditAction).ActionAttrs = ActionAttrs{}
+							toAttrs(&skbedit.TcGen, action.Attrs())
+						case nl.TCA_SKBEDIT_MARK:
+							mark := native.Uint32(adatum.Value[0:4])
+							action.(*SkbEditAction).Mark = &mark
+						case nl.TCA_SKBEDIT_PRIORITY:
+							priority := native.Uint32(adatum.Value[0:4])
+							action.(*SkbEditAction).Priority = &priority
+						case nl.TCA_SKBEDIT_PTYPE:
+							ptype := native.Uint16(adatum.Value[0:2])
+							action.(*SkbEditAction).PType = &ptype
+						case nl.TCA_SKBEDIT_QUEUE_MAPPING:
+							mapping := native.Uint16(adatum.Value[0:2])
+							action.(*SkbEditAction).QueueMapping = &mapping
 						}
 					case "bpf":
 						switch adatum.Attr.Type {
