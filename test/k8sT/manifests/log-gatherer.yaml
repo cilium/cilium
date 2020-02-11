@@ -1,3 +1,11 @@
+# ServiceAccount=cilium, which log-gatherer depends on, is created by
+# ciliumInstallHelm(). However, ciliumInstallHelm() depends on log-gatherer to
+# dynamically determine private / public ifaces. So, create it here as well.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cilium
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
