@@ -215,6 +215,16 @@ func (m *Map) supportsDelete() bool {
 		invalidEntry := &Key{}
 		m.deleteSupport, _ = m.delete(invalidEntry, false)
 		log.Debugf("Detected IPCache delete operation support: %t", m.deleteSupport)
+
+		// In addition to delete support, ability to dump the map is
+		// also required in order to run the garbage collector which
+		// will iterate over the map and delete entries.
+		if m.deleteSupport {
+			err := m.Dump(map[string][]string{})
+			m.deleteSupport = err == nil
+			log.Debugf("Detected IPCache dump operation support: %t", m.deleteSupport)
+		}
+
 		if !m.deleteSupport {
 			log.Infof("Periodic IPCache map swap will occur due to lack of kernel support for LPM delete operation. Upgrade to Linux 4.15 or higher to avoid this.")
 		}
