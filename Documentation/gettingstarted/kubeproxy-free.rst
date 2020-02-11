@@ -254,6 +254,7 @@ This setting can be changed through the ``global.nodePort.mode`` helm option to
 ``dsr`` in order to let Cilium's BPF NodePort implementation operate in DSR mode.
 In this mode, the backends reply directly to the external client without taking
 the extra hop, meaning, backends reply by using the service IP/port as a source.
+DSR currently requires Cilium to be deployed in :ref:`arch_direct_routing`.
 
 Another advantage in DSR mode is that the client's source IP is preserved, so policy
 can match on it at the backend node. In the SNAT mode this is not possible.
@@ -270,6 +271,7 @@ would look as follows:
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
+        --set global.tunnel=disabled \\
         --set global.kubeProxyReplacement=strict \\
         --set global.nodePort.mode=dsr \\
         --set global.k8sServiceHost=API_SERVER_IP \\
