@@ -128,7 +128,7 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner) *EndpointPolicy 
 	// - policyMapChanges may contain an addition of an entry that
 	//   is already added to the PolicyMapState
 	//
-	// - policyMapChanges may congtain a deletion of an entry that
+	// - policyMapChanges may contain a deletion of an entry that
 	//   has already been deleted from PolicyMapState
 	p.insertUser(calculatedPolicy)
 

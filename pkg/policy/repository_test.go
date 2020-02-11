@@ -1250,7 +1250,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 	c.Assert(err, IsNil)
 
 	// Bar1 should not be forwarded to the proxy, but if it is (e.g., for visibility),
-	// the L3/L4 allow should pass it without a L7 wildcard.
+	// the L3/L4 allow should pass it without an explicit L7 wildcard.
 	expectedPolicy := L4PolicyMap{
 		"80/TCP": {
 			Port:     80,
