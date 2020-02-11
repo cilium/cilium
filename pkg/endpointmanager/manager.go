@@ -290,7 +290,7 @@ func releaseID(ep *endpoint.Endpoint) {
 		// While endpoint is disconnecting, ID is already available in ID cache.
 		//
 		// Avoid irritating warning messages.
-		state := ep.GetStateLocked()
+		state := ep.GetState()
 		if state != endpoint.StateRestoring && state != endpoint.StateDisconnecting {
 			log.WithError(err).WithField("state", state).Warning("Unable to release endpoint ID")
 		}
