@@ -18,7 +18,9 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	sysexec "os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -76,24 +78,20 @@ const (
 	opAppendRule  operation = "-A"
 )
 
-// exitError is the error interface for exec commands.
-type exitError interface {
-	Exited() bool
-	ExitStatus() int
-}
-
 type iptablesRule struct {
 	args            []string
 	enabled         bool
-	ipv4Only        bool
+	ipv4            bool
+	ipv6            bool
 	needSocketMatch bool
 }
 
-func newIptablesRule(args []string, enabled, ipv4Only, needSocketMatch bool) iptablesRule {
+func newIptablesRule(args []string, enabled, ipv4, ipv6, needSocketMatch bool) iptablesRule {
 	return iptablesRule{
 		args,
 		enabled,
-		ipv4Only,
+		ipv4,
+		ipv6,
 		needSocketMatch,
 	}
 }
@@ -180,14 +178,14 @@ func ciliumAcceptXfrmRules(table, chain string) []iptablesRule {
 			"-m", "mark", "--mark", matchFromIPSecEncrypt,
 			"-m", "comment", "--comment", xfrmComment,
 			"-j", "ACCEPT",
-		}, option.Config.EnableIPSec, true, false),
+		}, option.Config.EnableIPSec, true, false, false),
 
 		newIptablesRule([]string{
 			"-t", table,
 			"-m", "mark", "--mark", matchFromIPSecDecrypt,
 			"-m", "comment", "--comment", xfrmComment,
 			"-j", "ACCEPT",
-		}, option.Config.EnableIPSec, true, false),
+		}, option.Config.EnableIPSec, true, false, false),
 	}
 }
 
@@ -204,7 +202,15 @@ func ciliumInputChainRules() []iptablesRule {
 				"-m", "mark", "--mark", matchToProxy,
 				"-m", "comment", "--comment", "cilium: ACCEPT for proxy traffic",
 				"-j", "ACCEPT",
-			}, true, false, false),
+			}, true, true, false, false),
+			newIptablesRule([]string{
+				"-t", "filter",
+				// Destination is a local node POD address
+				"!", "-d", node.GetIPv6().String(),
+				"-m", "mark", "--mark", matchToProxy,
+				"-m", "comment", "--comment", "cilium: ACCEPT for proxy traffic",
+				"-j", "ACCEPT",
+			}, true, false, true, false),
 		},
 
 		// CiliumAcceptXfrmRules
@@ -230,7 +236,15 @@ func ciliumOutputChainRules() []iptablesRule {
 				"-m", "mark", "--mark", matchProxyReply,
 				"-m", "comment", "--comment", "cilium: ACCEPT for proxy return traffic",
 				"-j", "ACCEPT",
-			}, true, false, false),
+			}, true, true, false, false),
+			newIptablesRule([]string{
+				"-t", "filter",
+				// Return traffic is from a local node POD address
+				"!", "-s", node.GetIPv6().String(),
+				"-m", "mark", "--mark", matchProxyReply,
+				"-m", "comment", "--comment", "cilium: ACCEPT for proxy return traffic",
+				"-j", "ACCEPT",
+			}, true, false, true, false),
 		},
 
 		append(
@@ -260,7 +274,7 @@ func ciliumOutputChainRules() []iptablesRule {
 				"-m", "mark", "!", "--mark", matchFromProxy, // Don't match proxy traffic
 				"-m", "comment", "--comment", "cilium: host->any mark as from host",
 				"-j", "MARK", "--set-xmark", markAsFromHost,
-			}, true, true, false),
+			}, true, true, false, false),
 		)...,
 	)
 }
@@ -277,7 +291,15 @@ func ciliumOutputRawChainRules() []iptablesRule {
 			"-m", "mark", "--mark", matchProxyReply,
 			"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
 			"-j", "NOTRACK",
-		}, true, false, false),
+		}, true, true, false, false),
+		newIptablesRule([]string{
+			"-t", "raw",
+			// Return traffic is from a local node POD address
+			"!", "-s", node.GetIPv6().String(),
+			"-m", "mark", "--mark", matchProxyReply,
+			"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
+			"-j", "NOTRACK",
+		}, true, false, true, false),
 	}
 }
 
@@ -311,7 +333,7 @@ func ciliumPostNatChainRules(m *IptablesManager, ifName string) []iptablesRule {
 			"-j", "MASQUERADE",
 		},
 			option.Config.Masquerade && option.Config.EgressMasqueradeInterfaces != "",
-			true, false),
+			true, false, false),
 
 		newIptablesRule([]string{
 			"-t", "nat",
@@ -322,7 +344,7 @@ func ciliumPostNatChainRules(m *IptablesManager, ifName string) []iptablesRule {
 			"-j", "MASQUERADE",
 		},
 			option.Config.Masquerade && option.Config.EgressMasqueradeInterfaces == "",
-			true, false),
+			true, false, false),
 
 		// The following rules exclude traffic from the remaining rules in this chain.
 		// If any of these rules match, none of the remaining rules in this chain
@@ -334,7 +356,7 @@ func ciliumPostNatChainRules(m *IptablesManager, ifName string) []iptablesRule {
 			"!", "-o", localDeliveryInterface,
 			"-m", "comment", "--comment", "exclude non-" + ifName + " traffic from masquerade",
 			"-j", "RETURN",
-		}, option.Config.Masquerade, true, false),
+		}, option.Config.Masquerade, true, false, false),
 
 		// Exclude proxy return traffic from the masquarade rules
 		newIptablesRule([]string{
@@ -342,7 +364,7 @@ func ciliumPostNatChainRules(m *IptablesManager, ifName string) []iptablesRule {
 			"-m", "mark", "--mark", matchFromProxy, // Don't match proxy (return) traffic
 			"-m", "comment", "--comment", "exclude proxy return traffic from masquarade",
 			"-j", "ACCEPT",
-		}, option.Config.Masquerade, true, false),
+		}, option.Config.Masquerade, true, false, false),
 
 		// Masquerade all traffic from the host into the ifName
 		// interface if the source is not the internal IP
@@ -363,7 +385,7 @@ func ciliumPostNatChainRules(m *IptablesManager, ifName string) []iptablesRule {
 			"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String(),
 		},
 			option.Config.Masquerade && option.Config.Tunnel != option.TunnelDisabled,
-			true, false),
+			true, false, false),
 
 		// Masquerade all traffic from the host into local
 		// endpoints if the source is 127.0.0.1. This is
@@ -379,7 +401,7 @@ func ciliumPostNatChainRules(m *IptablesManager, ifName string) []iptablesRule {
 			"-o", localDeliveryInterface,
 			"-m", "comment", "--comment", "cilium host->cluster from 127.0.0.1 masquerade",
 			"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String(),
-		}, option.Config.Masquerade, true, false),
+		}, option.Config.Masquerade, true, false, false),
 	)
 }
 
@@ -415,7 +437,7 @@ func ciliumPreMangleChainRules() []iptablesRule {
 			"-m", "comment", "--comment", "cilium: any->pod redirect proxied traffic to host proxy",
 			"-j", "MARK",
 			"--set-mark", toProxyMark,
-		}, true, false, true),
+		}, true, true, true, true),
 	}
 }
 
@@ -432,14 +454,14 @@ func ciliumPreRawChainRules() []iptablesRule {
 			"-m", "mark", "--mark", matchFromIPSecEncrypt,
 			"-m", "comment", "--comment", xfrmDescription,
 			"-j", "NOTRACK",
-		}, option.Config.EnableIPSec, true, false),
+		}, option.Config.EnableIPSec, true, false, false),
 
 		newIptablesRule([]string{
 			"-t", "raw",
 			"-m", "mark", "--mark", matchFromIPSecDecrypt,
 			"-m", "comment", "--comment", xfrmDescription,
 			"-j", "NOTRACK",
-		}, option.Config.EnableIPSec, true, false),
+		}, option.Config.EnableIPSec, true, false, false),
 
 		newIptablesRule([]string{
 			"-t", "raw",
@@ -448,7 +470,15 @@ func ciliumPreRawChainRules() []iptablesRule {
 			"-m", "mark", "--mark", matchToProxy,
 			"-m", "comment", "--comment", "cilium: NOTRACK for proxy traffic",
 			"-j", "NOTRACK",
-		}, true, false, false),
+		}, true, true, false, false),
+		newIptablesRule([]string{
+			"-t", "raw",
+			// Destination is a local node POD address
+			"!", "-d", node.GetIPv6().String(),
+			"-m", "mark", "--mark", matchToProxy,
+			"-m", "comment", "--comment", "cilium: NOTRACK for proxy traffic",
+			"-j", "NOTRACK",
+		}, true, false, true, false),
 	}
 }
 
@@ -463,21 +493,21 @@ func ciliumForwardChainRules(ifName string) []iptablesRule {
 			"-o", localDeliveryInterface,
 			"-m", "comment", "--comment", "cilium: any->cluster on " + localDeliveryInterface + " forward accept",
 			"-j", "ACCEPT",
-		}, true, true, false),
+		}, true, true, false, false),
 
 		newIptablesRule([]string{
 			"-t", "filter",
 			"-i", localDeliveryInterface,
 			"-m", "comment", "--comment", "cilium: cluster->any on " + localDeliveryInterface + " forward accept (nodeport)",
 			"-j", "ACCEPT",
-		}, true, true, false),
+		}, true, true, false, false),
 
 		newIptablesRule([]string{
 			"-t", "filter",
 			"-i", "lxc+",
 			"-m", "comment", "--comment", "cilium: cluster->any on lxc+ forward accept",
 			"-j", "ACCEPT",
-		}, true, true, false),
+		}, true, true, false, false),
 	)
 }
 
@@ -625,11 +655,11 @@ func (m *IptablesManager) runProg(prog string, args []string, quiet bool) ([]byt
 func (m *IptablesManager) ensureChain(c *customChain, prog string) error {
 	fullArgs := []string{string(opCreateChain), string(c.name), "-t", string(c.table)}
 
-	out, err := m.runProg(prog, fullArgs, false)
+	out, err := m.runProg(prog, fullArgs, true)
 
 	if err != nil {
-		if ee, ok := err.(exitError); ok {
-			if ee.Exited() && ee.ExitStatus() == 1 {
+		if ee, ok := err.(*sysexec.ExitError); ok {
+			if ee.ExitCode() == 1 {
 				return nil
 			}
 		}
@@ -669,22 +699,6 @@ func (m *IptablesManager) filterRuleSet(rules []iptablesRule) []iptablesRule {
 	return retRules
 }
 
-func (m *IptablesManager) checkRule(prog, chain string, rule iptablesRule) (bool, error) {
-	checkArgs := append([]string{string(opCheckRule), chain}, rule.args...)
-	out, err := m.runProg(prog, checkArgs, false)
-	if err == nil {
-		return true, nil
-	}
-	if ee, ok := err.(exitError); ok {
-		// If the error code 1 iptables indicates that there is a failure
-		// in the operation as opposed to being malformed commandline.
-		if ee.Exited() && ee.ExitStatus() == 1 {
-			return false, nil
-		}
-	}
-	return false, fmt.Errorf("error chcking rule %v: %v: %s", rule.args, err, out)
-}
-
 func (m *IptablesManager) ensureIptRules(prog, table, chain string, rules []iptablesRule) error {
 	rulesCount := len(rules)
 	if rulesCount == 0 {
@@ -693,8 +707,10 @@ func (m *IptablesManager) ensureIptRules(prog, table, chain string, rules []ipta
 
 	curRuleIndex := 0
 	var ruleArgsCopy []string
-	for i := range rules[curRuleIndex].args {
-		tmpField := strings.Trim(rules[curRuleIndex].args[i], "\"")
+	// Exclude the -t [TABLE NAME] part from the arg set.
+	tmpArgs := rules[curRuleIndex].args[2:]
+	for i := range tmpArgs {
+		tmpField := strings.Trim(tmpArgs[i], "\"")
 		tmpField = hexnumRE.ReplaceAllString(tmpField, "0x$1")
 		ruleArgsCopy = append(ruleArgsCopy, strings.Fields(tmpField)...)
 	}
@@ -705,7 +721,7 @@ func (m *IptablesManager) ensureIptRules(prog, table, chain string, rules []ipta
 	// We are not using iptables -C flag because we also want to preserve the order or the rules
 	// which won't be possible with -C as there is possibly no way of knowing what position
 	// a rule exists in.
-	args := append(m.waitArgs, "-t", table, "-S")
+	args := append(m.waitArgs, "-t", table, "-S", chain)
 
 	out, err := exec.WithTimeout(defaults.ExecTimeout, prog, args...).CombinedOutput(log, true)
 	if err != nil {
@@ -718,15 +734,28 @@ func (m *IptablesManager) ensureIptRules(prog, table, chain string, rules []ipta
 	idx := 0
 	for idx < existingRulesCount {
 		line := iptablesSaveOutput[idx]
+
 		// First check if this corresponds to an insert rule of cilium in the correct chain
 		// name we are trying to ensure.
 		// If not move on to the next line.
-		if !strings.HasPrefix(line, fmt.Sprintf("%s %s", string(opInsertRule), chain)) {
-			idx++
-			continue
+		if !strings.Contains(line, fmt.Sprintf("%s %s", string(opInsertRule), chain)) &&
+			!strings.Contains(line, fmt.Sprintf("%s %s", string(opAppendRule), chain)) {
+
+			if idx < existingRulesCount-1 {
+				idx++
+				continue
+			}
+
+			line = ""
 		}
 
 		if curRuleIndex >= rulesCount {
+			if line == "" {
+				idx++
+				continue
+			}
+
+			fmt.Printf("Deleting rule: %v\n", line)
 			// We have ensured all the rules, delete all unnecessery rules
 			reversedRule, err := reverseRule(line)
 			if err != nil {
@@ -747,31 +776,46 @@ func (m *IptablesManager) ensureIptRules(prog, table, chain string, rules []ipta
 		// Iptables has inconsistent quoting rules for comments.
 		// Just remove all quotes.
 		var fields = strings.Fields(line)
+		if len(fields) > 2 {
+			fields = fields[2:]
+		}
 		for i := range fields {
 			fields[i] = strings.Trim(fields[i], "\"")
 			fields[i] = hexnumRE.ReplaceAllString(fields[i], "0x$1")
 		}
+
+		fmt.Println("Rule Arg Set: ", ruleArgset)
+		fmt.Println("Line String notation: ", sets.NewString(fields...))
 
 		// From https://github.com/kubernetes/kubernetes/blob/master/pkg/util/iptables/iptables.go
 		// TODO: This misses reorderings e.g. "-x foo ! -y bar" will match "! -x foo -y bar"
 		if sets.NewString(fields...).IsSuperset(ruleArgset) {
 			// This means that the rule exists and is at the right position as we are iterating from
 			// top to down for the rules.
+			fmt.Printf("This is a correct rule: %v\n", line)
 			curRuleIndex++
 			idx++
 
+			if curRuleIndex >= rulesCount {
+				continue
+			}
+
 			// Process the next rule in the list.
 			var argsCopy []string
-			for i := range rules[curRuleIndex].args {
-				tmpField := strings.Trim(rules[curRuleIndex].args[i], "\"")
+			tmpArgs := rules[curRuleIndex].args[2:]
+			for i := range tmpArgs {
+				tmpField := strings.Trim(tmpArgs[i], "\"")
 				tmpField = hexnumRE.ReplaceAllString(tmpField, "0x$1")
 				argsCopy = append(argsCopy, strings.Fields(tmpField)...)
 			}
 			ruleArgset = sets.NewString(argsCopy...)
 		} else {
 			// Insert the rule we are currently working in the ruleset to ensure.
-			insertArgs := append([]string{string(opInsertRule), chain, string(curRuleIndex)}, rules[curRuleIndex].args...)
-			out, err := m.runProg("iptables", insertArgs, false)
+			fmt.Printf("%v Does not correspond to the required rule, inserting the correct rule\n", line)
+			insertArgs := append([]string{string(opInsertRule), chain, strconv.Itoa(curRuleIndex + 1)}, rules[curRuleIndex].args...)
+
+			fmt.Printf("Inserting rule: %v", insertArgs)
+			out, err := m.runProg(prog, insertArgs, false)
 			if err != nil {
 				return fmt.Errorf("error inserting rule: %s : %s", err, out)
 			}
@@ -784,8 +828,15 @@ func (m *IptablesManager) ensureIptRules(prog, table, chain string, rules []ipta
 }
 
 func (m *IptablesManager) ensureChainRules(table, chainName string, rules []iptablesRule) error {
+	fmt.Printf("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& Inside Ensure chain rules: %s\n", chainName)
 	if option.Config.EnableIPv4 {
-		err := m.ensureIptRules("iptables", table, chainName, rules)
+		var ipv4EnabledRules []iptablesRule
+		for _, rule := range rules {
+			if rule.ipv4 {
+				ipv4EnabledRules = append(ipv4EnabledRules, rule)
+			}
+		}
+		err := m.ensureIptRules("iptables", table, chainName, ipv4EnabledRules)
 		if err != nil {
 			return err
 		}
@@ -795,7 +846,7 @@ func (m *IptablesManager) ensureChainRules(table, chainName string, rules []ipta
 		var ipv6EnabledRules []iptablesRule
 
 		for _, rule := range rules {
-			if !rule.ipv4Only {
+			if rule.ipv6 {
 				ipv6EnabledRules = append(ipv6EnabledRules, rule)
 			}
 		}
@@ -813,7 +864,6 @@ func (m *IptablesManager) ensureChainRules(table, chainName string, rules []ipta
 // Insert syntax for iptables is of the following format
 // sudo iptables -I [chain] [rule-number] [rule]
 func (m *IptablesManager) EnsureRules(ifname string) error {
-
 	fmt.Println("************************* Ensuring Rules")
 	m.mu.Lock()
 	defer m.mu.Unlock()
