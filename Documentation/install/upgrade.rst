@@ -296,7 +296,7 @@ Annotations:
 1.8 Upgrade Notes
 -----------------
 
-.. _1.8_upgrade_notes:
+.. _1.8_required_changes:
 
 IMPORTANT: Changes required before upgrading to 1.8.0
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -319,6 +319,13 @@ IMPORTANT: Changes required before upgrading to 1.8.0
 
   .. note:: The ENI IPAM mode automatically derives the native routing CIDR so
             no action is required.
+
+Deprecated options
+~~~~~~~~~~~~~~~~~~
+
+* ``keep-bpf-templates``: This option no longer has any effect due to the BPF
+  assets not being compiled into the cilium-agent binary anymore. The option is
+  deprecated and will be removed in v1.9.
 
 .. _1.7_upgrade_notes:
 
