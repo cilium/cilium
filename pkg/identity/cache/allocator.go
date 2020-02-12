@@ -91,6 +91,8 @@ var (
 	setupMutex lock.Mutex
 
 	watcher identityWatcher
+
+	identityAllocatorOwner IdentityAllocatorOwner
 )
 
 // IdentityAllocatorOwner is the interface the owner of an identity allocator
@@ -141,6 +143,8 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner, client clientset.Interf
 	// NewAllocator() as it will emit events while filling the
 	// initial cache
 	watcher.watch(owner, events)
+
+	identityAllocatorOwner = owner
 
 	// Asynchronously set up the global identity allocator since it connects
 	// to the kvstore.
@@ -389,7 +393,17 @@ func ReleaseSlice(ctx context.Context, owner IdentityAllocatorOwner, identities 
 
 // WatchRemoteIdentities starts watching for identities in another kvstore and
 // syncs all identities to the local identity cache.
-func WatchRemoteIdentities(backend kvstore.BackendOperations) *allocator.RemoteCache {
+func WatchRemoteIdentities(backend kvstore.BackendOperations) (*allocator.RemoteCache, error) {
 	<-GlobalIdentityAllocatorInitialized
-	return IdentityAllocator.WatchRemoteKVStore(backend, IdentitiesPath)
+
+	remoteAllocatorBackend, err := kvstoreallocator.NewKVStoreBackend(IdentitiesPath, identityAllocatorOwner.GetNodeSuffix(), GlobalIdentity{}, backend)
+	if err != nil {
+		return nil, fmt.Errorf("Error setting up remote allocator backend: %s", err)
+	}
+
+	remoteAlloc, err := allocator.NewAllocator(GlobalIdentity{}, remoteAllocatorBackend)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to initialize remote Identity Allocator: %s", err)
+	}
+	return IdentityAllocator.WatchRemoteKVStore(remoteAlloc), nil
 }

@@ -17,7 +17,9 @@ package clustermesh
 import (
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
@@ -55,6 +57,21 @@ type Configuration struct {
 	NodeManager *nodemanager.Manager
 
 	nodeObserver store.Observer
+
+	// RemoteIdentityWatcher provides identities that have been allocated on a
+	// remote cluster.
+	RemoteIdentityWatcher RemoteIdentityWatcher
+}
+
+// RemoteIdentityWatcher is any type which provides identities that have been
+// allocated on a remote cluster.
+type RemoteIdentityWatcher interface {
+	// WatchRemoteIdentities starts watching for identities in another kvstore and
+	// syncs all identities to the local identity cache.
+	WatchRemoteIdentities(backend kvstore.BackendOperations) (*allocator.RemoteCache, error)
+
+	// Close stops the watcher.
+	Close()
 }
 
 // NodeObserver returns the node store observer of the configuration

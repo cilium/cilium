@@ -190,10 +190,15 @@ func (rc *remoteCluster) restartRemoteConnection() {
 					return err
 				}
 
+				remoteIdentityCache, err := cache.WatchRemoteIdentities(backend)
+				if err != nil {
+					remoteNodes.Close()
+					backend.Close()
+					return err
+				}
+
 				ipCacheWatcher := ipcache.NewIPIdentityWatcher(backend)
 				go ipCacheWatcher.Watch()
-
-				remoteIdentityCache := cache.WatchRemoteIdentities(backend)
 
 				rc.mutex.Lock()
 				rc.remoteNodes = remoteNodes

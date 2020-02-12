@@ -519,7 +519,11 @@ func (s *AllocatorSuite) TestRemoteCache(c *C) {
 	}
 
 	// watch the prefix in the same kvstore via a 2nd watcher
-	rc := a.WatchRemoteKVStore(kvstore.Client(), testName)
+	backend2, err := NewKVStoreBackend(testName, "a", TestAllocatorKey(""), kvstore.Client())
+	c.Assert(err, IsNil)
+	a2, err := allocator.NewAllocator(TestAllocatorKey(""), backend2, allocator.WithMax(idpool.ID(256)))
+	c.Assert(err, IsNil)
+	rc := a.WatchRemoteKVStore(a2)
 	c.Assert(rc, Not(IsNil))
 
 	// wait for remote cache to be populated
