@@ -68,6 +68,13 @@ Vagrant.configure("2") do |config|
             sh.path = "./provision/runtime_install.sh"
             sh.env = {}
         end
+        # NOTE(mrostecki): Temporary hack until either:
+        # 1) https://github.com/cilium/packer-ci-build/pull/187 gets merged.
+        # 2) `bpftool feature filter_in/filter_out` gets upstreamed.
+        server.vm.provision "shell" do |sh|
+            sh.path = "./provision/bpftool.sh"
+            sh.env = {}
+        end
     end
 
     (1..$K8S_NODES).each do |i|
