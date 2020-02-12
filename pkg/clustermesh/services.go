@@ -121,6 +121,14 @@ func (c *globalServiceCache) onClusterDelete(clusterName string) {
 	c.mutex.Unlock()
 }
 
+// size returns the number of global services in the cache
+func (c *globalServiceCache) size() (num int) {
+	c.mutex.RLock()
+	num = len(c.byName)
+	c.mutex.RUnlock()
+	return
+}
+
 type remoteServiceObserver struct {
 	remoteCluster *remoteCluster
 	// swg provides a mechanism to known when the services were synchronized

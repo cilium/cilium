@@ -643,6 +643,25 @@ func (d *Daemon) startStatusCollector() {
 				}
 			},
 		},
+		{
+			Name: "clustermesh",
+			Probe: func(ctx context.Context) (interface{}, error) {
+				if d.clustermesh == nil {
+					return nil, nil
+				}
+				return d.clustermesh.Status(), nil
+			},
+			OnStatusUpdate: func(status status.Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if status.Err == nil {
+					if s, ok := status.Data.(*models.ClusterMeshStatus); ok {
+						d.statusResponse.ClusterMesh = s
+					}
+				}
+			},
+		},
 	}
 
 	if k8s.IsEnabled() {
