@@ -305,7 +305,7 @@ func NewAllocator(typ AllocatorKey, backend Backend, opts ...AllocatorOption) (*
 
 	a.idPool = idpool.NewIDPool(a.min, a.max)
 
-	a.initialListDone = a.mainCache.start(a)
+	a.initialListDone = a.mainCache.start()
 	if !a.disableGC {
 		go func() {
 			select {
@@ -786,17 +786,17 @@ type RemoteCache struct {
 // kvstore will be maintained in the RemoteCache structure returned and will
 // start being reported in the identities returned by the ForeachCache()
 // function.
-func (a *Allocator) WatchRemoteKVStore(backend kvstore.BackendOperations, prefix string) *RemoteCache {
+func (a *Allocator) WatchRemoteKVStore(remoteAlloc *Allocator) *RemoteCache {
 	rc := &RemoteCache{
-		cache:     newCache(a),
-		allocator: a,
+		cache:     newCache(remoteAlloc),
+		allocator: remoteAlloc,
 	}
 
 	a.remoteCachesMutex.Lock()
 	a.remoteCaches[rc] = struct{}{}
 	a.remoteCachesMutex.Unlock()
 
-	rc.cache.start(a)
+	rc.cache.start()
 
 	return rc
 }
