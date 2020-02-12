@@ -237,3 +237,9 @@ func (c *cache) insert(key AllocatorKey, val idpool.ID) {
 	c.nextKeyCache[c.allocator.encodeKey(key)] = val
 	c.mutex.Unlock()
 }
+
+func (c *cache) numEntries() int {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	return len(c.nextCache)
+}
