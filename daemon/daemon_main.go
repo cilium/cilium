@@ -453,6 +453,7 @@ func init() {
 
 	flags.Bool(option.KeepBPFTemplates, false, "Do not restore BPF template files from binary")
 	option.BindEnv(option.KeepBPFTemplates)
+	flags.MarkDeprecated(option.KeepBPFTemplates, "This option is no longer supported and will be removed in v1.9")
 
 	flags.String(option.KVStore, "", "Key-value store type")
 	option.BindEnv(option.KVStore)

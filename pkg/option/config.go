@@ -223,6 +223,8 @@ const (
 	KeepConfig = "keep-config"
 
 	// KeepBPFTemplates do not restore BPF template files from binary
+	// Deprecated: This option is no longer available since cilium-agent does
+	//             not include the BPF templates anymore.
 	KeepBPFTemplates = "keep-bpf-templates"
 
 	// KVStore key-value store type

@@ -111,7 +111,6 @@ cilium-agent [flags]
       --k8s-require-ipv6-pod-cidr                             Require IPv6 PodCIDR to be specified in node resource
       --k8s-watcher-endpoint-selector string                  K8s endpoint watcher will watch for these k8s endpoints (default "metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager,metadata.name!=etcd-operator,metadata.name!=gcp-controller-manager")
       --k8s-watcher-queue-size uint                           Queue size used to serialize each k8s event type (default 1024)
-      --keep-bpf-templates                                    Do not restore BPF template files from binary
       --keep-config                                           When restoring state, keeps containers' configuration in place
       --kube-proxy-replacement string                         auto-enable available features for kube-proxy replacement ("probe"), or enable only selected features (will panic if any selected feature cannot be enabled) ("partial") or enable all features (will panic if any feature cannot be enabled) ("strict"), or completely disable it (ignores any selected feature) ("disabled") (default "partial")
       --kvstore string                                        Key-value store type
