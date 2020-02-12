@@ -566,7 +566,7 @@ func openMap(path string) (*EventMap, error) {
 }
 
 func (e *EventMap) Update(fd int, ubaPtr, sizeOf uintptr) error {
-	return UpdateElementFromPointers(e.fd, ubaPtr, sizeOf)
+	return UpdateElementFromPointers(e.fd, unsafe.Pointer(&ubaPtr), sizeOf)
 }
 
 func (e *EventMap) Close() {

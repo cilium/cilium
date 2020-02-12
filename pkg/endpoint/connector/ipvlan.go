@@ -17,6 +17,7 @@ package connector
 import (
 	"fmt"
 	"math"
+	"runtime"
 	"unsafe"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -67,6 +68,9 @@ func loadEntryProg(mapFd int) (int, error) {
 	fd, _, errno := unix.Syscall(unix.SYS_BPF, 5, /* BPF_PROG_LOAD */
 		uintptr(unsafe.Pointer(&bpfAttr)),
 		unsafe.Sizeof(bpfAttr))
+	runtime.KeepAlive(&insns)
+	runtime.KeepAlive(&license)
+	runtime.KeepAlive(&bpfAttr)
 	if errno != 0 {
 		return 0, errno
 	}
@@ -107,6 +111,7 @@ func createTailCallMap() (int, int, error) {
 	fd, _, errno := unix.Syscall(unix.SYS_BPF, 0, /* BPF_MAP_CREATE */
 		uintptr(unsafe.Pointer(&bpfAttr)),
 		unsafe.Sizeof(bpfAttr))
+	runtime.KeepAlive(&bpfAttr)
 	if int(fd) < 0 || errno != 0 {
 		return 0, 0, errno
 	}
@@ -125,6 +130,8 @@ func createTailCallMap() (int, int, error) {
 	ret, _, errno := unix.Syscall(unix.SYS_BPF, 15, /* BPF_OBJ_GET_INFO_BY_FD */
 		uintptr(unsafe.Pointer(&bpfAttr2)),
 		unsafe.Sizeof(bpfAttr2))
+	runtime.KeepAlive(&info)
+	runtime.KeepAlive(&bpfAttr2)
 	if ret != 0 || errno != 0 {
 		unix.Close(int(fd))
 		return 0, 0, errno
