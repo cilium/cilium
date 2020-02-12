@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/identitybackend"
+	"github.com/cilium/cilium/pkg/kvstore"
 	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -239,7 +240,7 @@ func initKVStore(ctx context.Context) (kvstoreBackend allocator.Backend) {
 	setupKvstore(ctx)
 
 	idPath := path.Join(cache.IdentitiesPath, "id")
-	kvstoreBackend, err := kvstoreallocator.NewKVStoreBackend(cache.IdentitiesPath, idPath, cache.GlobalIdentity{})
+	kvstoreBackend, err := kvstoreallocator.NewKVStoreBackend(cache.IdentitiesPath, idPath, cache.GlobalIdentity{}, kvstore.Client())
 	if err != nil {
 		log.WithError(err).Fatal("Cannot create kvstore identity backend")
 	}
