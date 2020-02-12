@@ -7,7 +7,6 @@ SOURCES := $(shell find ../api ../daemon ../common ../pkg cmd . \( -name '*.go' 
 $(TARGET): $(SOURCES)
 	@$(ECHO_GO)
 	$(QUIET)$(GO) build $(GOBUILD) -o $(TARGET)
-	strip $(TARGET)
 
 all: $(TARGET)
 
