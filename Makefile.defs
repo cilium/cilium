@@ -33,6 +33,15 @@ endif
 BUILD = $(VERSION) $(GIT_VERSION) $(shell $(GO) version)
 GOLDFLAGS = -X "github.com/cilium/cilium/pkg/version.Version=$(BUILD)"
 
+ifeq ($(NOSTRIP),)
+	# Note: these options will not remove annotations needed for stack
+	# traces, so panic backtraces will still be readable.
+	#
+	# -w: Omit the DWARF symbol table.
+	# -s: Omit the symbol table and debug information.
+	GOLDFLAGS += -s -w
+endif
+
 CILIUM_ENVOY_SHA=$(shell grep -o "FROM.*cilium/cilium-envoy:[0-9a-fA-F]*" $(ROOT_DIR)/Dockerfile | cut -d : -f 2)
 GOLDFLAGS += -X "github.com/cilium/cilium/pkg/envoy.RequiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"
 
