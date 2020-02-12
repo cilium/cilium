@@ -38,7 +38,7 @@ JOB_BASE_NAME ?= cilium_test
 
 UTC_DATE=$(shell date -u "+%Y-%m-%d")
 
-GO_VERSION := 1.13.10
+GO_VERSION := $(shell cat GO_VERSION)
 
 # Since there's a bug with NFS or the kernel, the flock syscall hangs the documentation
 # build in the developer VM. For this reason the documentation build is skipped if NFS
@@ -449,7 +449,7 @@ postcheck: build
 minikube:
 	$(QUIET) contrib/scripts/minikube.sh
 
-update-golang: update-golang-dockerfiles update-travis-go-version
+update-golang: update-golang-dockerfiles update-travis-go-version update-test-go-version
 
 update-golang-dockerfiles:
 	$(QUIET) sed -i 's/GO_VERSION .*/GO_VERSION $(GO_VERSION)/g' Dockerfile.builder
@@ -459,6 +459,11 @@ update-golang-dockerfiles:
 update-travis-go-version:
 	$(QUIET) sed -e 's/TRAVIS_GO_VERSION/$(GO_VERSION)/g' .travis.yml.tmpl > .travis.yml
 	@echo "Updated go version in .travis.yml to $(GO_VERSION)"
+
+update-test-go-version:
+	$(QUIET) sed -i 's/GO_VERSION=.*/GO_VERSION="$(GO_VERSION)"/g' test/kubernetes-test.sh
+	$(QUIET) sed -i 's/GOLANG_VERSION=.*/GOLANG_VERSION="$(GO_VERSION)"/g' test/packet/scripts/install.sh
+	@echo "Updated go version in test scripts to $(GO_VERSION)"
 
 .PHONY: force generate-api generate-health-api install
 force :;
