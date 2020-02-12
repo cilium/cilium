@@ -66,7 +66,7 @@ func getOldestLeases(lockPaths map[string]kvstore.Value) map[string]kvstore.Valu
 
 func startKvstoreWatchdog() {
 	log.Infof("Starting kvstore watchdog with %s interval...", defaults.LockLeaseTTL)
-	backend, err := kvstoreallocator.NewKVStoreBackend(cache.IdentitiesPath, "", nil)
+	backend, err := kvstoreallocator.NewKVStoreBackend(cache.IdentitiesPath, "", nil, kvstore.Client())
 	if err != nil {
 		log.WithError(err).Fatal("Unable to initialize kvstore backend for identity garbage collection")
 	}
