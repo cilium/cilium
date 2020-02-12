@@ -17,6 +17,7 @@ import (
 
 // KubeProxyReplacement Status of kube-proxy replacement
 // swagger:model KubeProxyReplacement
+// +k8s:deepcopy-gen=true
 type KubeProxyReplacement struct {
 
 	// features
@@ -132,6 +133,7 @@ func (m *KubeProxyReplacement) UnmarshalBinary(b []byte) error {
 
 // KubeProxyReplacementFeatures kube proxy replacement features
 // swagger:model KubeProxyReplacementFeatures
+// +k8s:deepcopy-gen=true
 type KubeProxyReplacementFeatures struct {
 
 	// external i ps
@@ -240,6 +242,7 @@ func (m *KubeProxyReplacementFeatures) UnmarshalBinary(b []byte) error {
 
 // KubeProxyReplacementFeaturesExternalIPs kube proxy replacement features external i ps
 // swagger:model KubeProxyReplacementFeaturesExternalIPs
+// +k8s:deepcopy-gen=true
 type KubeProxyReplacementFeaturesExternalIPs struct {
 
 	// enabled
@@ -271,6 +274,7 @@ func (m *KubeProxyReplacementFeaturesExternalIPs) UnmarshalBinary(b []byte) erro
 
 // KubeProxyReplacementFeaturesHostReachableServices kube proxy replacement features host reachable services
 // swagger:model KubeProxyReplacementFeaturesHostReachableServices
+// +k8s:deepcopy-gen=true
 type KubeProxyReplacementFeaturesHostReachableServices struct {
 
 	// enabled
@@ -305,6 +309,7 @@ func (m *KubeProxyReplacementFeaturesHostReachableServices) UnmarshalBinary(b []
 
 // KubeProxyReplacementFeaturesNodePort kube proxy replacement features node port
 // swagger:model KubeProxyReplacementFeaturesNodePort
+// +k8s:deepcopy-gen=true
 type KubeProxyReplacementFeaturesNodePort struct {
 
 	// enabled
