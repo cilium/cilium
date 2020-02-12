@@ -437,5 +437,16 @@ func (m *CachingIdentityAllocator) ReleaseSlice(ctx context.Context, owner Ident
 // syncs all identities to the local identity cache.
 func (m *CachingIdentityAllocator) WatchRemoteIdentities(backend kvstore.BackendOperations) *allocator.RemoteCache {
 	<-m.globalIdentityAllocatorInitialized
-	return m.IdentityAllocator.WatchRemoteKVStore(backend, m.identitiesPath)
+
+	remoteAllocatorBackend, err := kvstoreallocator.NewKVStoreBackend(m.identitiesPath, m.owner.GetNodeSuffix(), GlobalIdentity{}, backend)
+	if err != nil {
+		log.WithError(err).WithField(logfields.BackendName, backend).Error("Error setting up remote allocator backend")
+	}
+
+	remoteAlloc, err := allocator.NewAllocator(GlobalIdentity{}, remoteAllocatorBackend)
+	if err != nil {
+		log.WithError(err).Errorf("Unable to initialize remote Identity Allocator")
+	}
+
+	return m.IdentityAllocator.WatchRemoteKVStore(remoteAlloc)
 }
