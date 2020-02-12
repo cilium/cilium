@@ -801,6 +801,15 @@ func (a *Allocator) WatchRemoteKVStore(backend kvstore.BackendOperations, prefix
 	return rc
 }
 
+// NumEntries returns the number of entries in the remote cache
+func (rc *RemoteCache) NumEntries() int {
+	if rc == nil {
+		return 0
+	}
+
+	return rc.cache.numEntries()
+}
+
 // Close stops watching for identities in the kvstore associated with the
 // remote cache and will clear the local cache.
 func (rc *RemoteCache) Close() {

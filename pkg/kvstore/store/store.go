@@ -328,6 +328,17 @@ func (s *SharedStore) lookupLocalKey(name string) LocalKey {
 	return nil
 }
 
+// NumEntries returns the number of entries in the store
+func (s *SharedStore) NumEntries() int {
+	if s == nil {
+		return 0
+	}
+
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return len(s.sharedKeys)
+}
+
 // SharedKeysMap returns a copy of the SharedKeysMap, the returned map can
 // be safely modified but the values of the map represent the actual data
 // stored in the internal SharedStore SharedKeys map.
