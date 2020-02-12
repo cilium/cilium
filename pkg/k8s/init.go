@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 // Package k8s abstracts all Kubernetes specific behaviour
 package k8s
 
@@ -113,12 +112,26 @@ func useNodeCIDR(n *node.Node) {
 // Init initializes the Kubernetes package. It is required to call Configure()
 // beforehand.
 func Init() error {
-	if err := createDefaultClient(); err != nil {
+	closeAllDefaultClientConns, err := createDefaultClient()
+	if err != nil {
 		return fmt.Errorf("unable to create k8s client: %s", err)
 	}
 
-	if err := createDefaultCiliumClient(); err != nil {
+	closeAllCiliumClientConns, err := createDefaultCiliumClient()
+	if err != nil {
 		return fmt.Errorf("unable to create cilium k8s client: %s", err)
+	}
+
+	heartbeatClient, closeAllHeartbeatClientConns, err := createHeartbeatClient()
+	if err != nil {
+		return fmt.Errorf("unable to create heartbeat k8s client: %s", err)
+	}
+	if option.Config.EnableK8sHeartbeat {
+		runHeartbeat([]func(){
+			closeAllDefaultClientConns,
+			closeAllCiliumClientConns,
+			closeAllHeartbeatClientConns,
+		}, heartbeatClient, make(chan struct{}))
 	}
 
 	if err := k8sversion.Update(Client()); err != nil {

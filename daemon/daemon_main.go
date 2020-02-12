@@ -712,6 +712,11 @@ func init() {
 	option.BindEnv(option.PolicyTriggerInterval)
 
 	flags.Bool(option.DisableCNPStatusUpdates, false, "Do not send CNP NodeStatus updates to the Kubernetes api-server (recommended to run with `cnp-node-status-gc=false` in cilium-operator)")
+
+	flags.Bool(option.EnableK8sHeartbeat, true, "Run periodic heartbeat against apiserver which resets all open connection after timeout")
+
+	flags.Duration(option.K8sHeartbeatTimeout, 30*time.Second, "Timeout for k8s heartbeat")
+
 	option.BindEnv(option.DisableCNPStatusUpdates)
 
 	viper.BindPFlags(flags)
