@@ -26,7 +26,7 @@ Download the kube-router DaemonSet template:
 
 .. code:: bash
 
-    curl -LO https://raw.githubusercontent.com/cloudnativelabs/kube-router/v0.2.0-beta.7/daemonset/generic-kuberouter-only-advertise-routes.yaml
+    curl -LO https://raw.githubusercontent.com/cloudnativelabs/kube-router/v0.4.0/daemonset/generic-kuberouter-only-advertise-routes.yaml
 
 Open the file ``generic-kuberouter-only-advertise-routes.yaml`` and edit the
 ``args:`` section. The following arguments are **requried** to be set to
@@ -34,11 +34,11 @@ exactly these values:
 
 .. code:: bash
 
-    - --run-router=true
-    - --run-firewall=false
-    - --run-service-proxy=false
-    - --enable-cni=false
-    - --enable-pod-egress=false
+    - "--run-router=true"
+    - "--run-firewall=false"
+    - "--run-service-proxy=false"
+    - "--enable-cni=false"
+    - "--enable-pod-egress=false"
 
 The following arguments are **optional** and may be set according to your
 needs.  For the purpose of keeping this guide simple, the following values are
@@ -49,11 +49,11 @@ for more information.
 
 .. code:: bash
 
-    - --enable-ibgp=true
-    - --enable-overlay=true
-    - --advertise-cluster-ip=true
-    - --advertise-external-ip=true
-    - --advertise-loadbalancer-ip=true
+    - "--enable-ibgp=true"
+    - "--enable-overlay=true"
+    - "--advertise-cluster-ip=true"
+    - "--advertise-external-ip=true"
+    - "--advertise-loadbalancer-ip=true"
 
 The following arguments are **optional** and should be set if you want BGP peering
 with an external router. This is useful if you want externally routable Kubernetes
@@ -62,9 +62,9 @@ whatever IPs and ASNs are configured on your external router.
 
 .. code:: bash
 
-    - --cluster-asn=65001
-    - --peer-router-ips=10.0.0.1,10.0.2
-    - --peer-router-asns=65000,65000
+    - "--cluster-asn=65001"
+    - "--peer-router-ips=10.0.0.1,10.0.2"
+    - "--peer-router-asns=65000,65000"
 
 Apply the DaemonSet file to deploy kube-router and verify it has come up
 correctly:
@@ -146,14 +146,16 @@ You can test connectivity by deploying the following connectivity checker pods:
 
     $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/connectivity-check/connectivity-check.yaml
     $ kubectl get pods
-    NAME                    READY     STATUS    RESTARTS   AGE
-    echo-7d9f9564df-2vbpw   1/1       Running   0          26m
-    echo-7d9f9564df-ff8xh   1/1       Running   0          26m
-    echo-7d9f9564df-pnbgc   1/1       Running   0          26m
-    echo-7d9f9564df-sbrxh   1/1       Running   0          26m
-    echo-7d9f9564df-wzfrc   1/1       Running   0          26m
-    probe-8689f6579-7l7w7   1/1       Running   0          27m
-    probe-8689f6579-fvqp8   1/1       Running   0          27m
-    probe-8689f6579-lvjlh   1/1       Running   0          27m
-    probe-8689f6579-m26g8   1/1       Running   0          27m
-    probe-8689f6579-tzbjk   1/1       Running   0          27m
+    NAME                                                    READY   STATUS    RESTARTS   AGE
+    echo-a-dd67f6b4b-s62jl                                  1/1     Running   0          2m15s
+    echo-b-55d8dbd74f-t8jwk                                 1/1     Running   0          2m15s
+    host-to-b-multi-node-clusterip-686f99995d-tn6kq         1/1     Running   0          2m15s
+    host-to-b-multi-node-headless-bdbc856d-9zv4x            1/1     Running   0          2m15s
+    pod-to-a-766584ffff-wh2s8                               1/1     Running   0          2m15s
+    pod-to-a-allowed-cnp-5899c44899-f9tdv                   1/1     Running   0          2m15s
+    pod-to-a-external-1111-55c488465-7sd55                  1/1     Running   0          2m14s
+    pod-to-a-l3-denied-cnp-856998c977-j9dhs                 1/1     Running   0          2m15s
+    pod-to-b-intra-node-7b6cbc6c56-hqz7r                    1/1     Running   0          2m15s
+    pod-to-b-multi-node-clusterip-77c8446b6d-qc8ch          1/1     Running   0          2m15s
+    pod-to-b-multi-node-headless-854b65674d-9zlp8           1/1     Running   0          2m15s
+    pod-to-external-fqdn-allow-google-cnp-bb9597947-bc85q   1/1     Running   0          2m14s
