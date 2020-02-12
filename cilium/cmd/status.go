@@ -43,6 +43,7 @@ var (
 	allHealth      bool
 	allNodes       bool
 	allRedirects   bool
+	allClusters    bool
 	brief          bool
 	timeout        time.Duration
 	healthLines    = 10
@@ -55,6 +56,7 @@ func init() {
 	statusCmd.Flags().BoolVar(&allHealth, "all-health", false, "Show all health status, not just failing")
 	statusCmd.Flags().BoolVar(&allNodes, "all-nodes", false, "Show all nodes, not just localhost")
 	statusCmd.Flags().BoolVar(&allRedirects, "all-redirects", false, "Show all redirects")
+	statusCmd.Flags().BoolVar(&allClusters, "all-clusters", false, "Show all clusters")
 	statusCmd.Flags().BoolVar(&brief, "brief", false, "Only print a one-line status message")
 	statusCmd.Flags().BoolVar(&verbose, "verbose", false, "Equivalent to --all-addresses --all-controllers --all-nodes --all-health")
 	statusCmd.Flags().DurationVar(&timeout, "timeout", 30*time.Second, "Sets the timeout to use when querying for health")
@@ -77,6 +79,7 @@ func statusDaemon() {
 		allHealth = true
 		allNodes = true
 		allRedirects = true
+		allClusters = true
 	}
 	if allHealth {
 		healthLines = 0
@@ -103,7 +106,7 @@ func statusDaemon() {
 	} else {
 		sr := resp.Payload
 		w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
-		pkg.FormatStatusResponse(w, sr, allAddresses, allControllers, allNodes, allRedirects)
+		pkg.FormatStatusResponse(w, sr, allAddresses, allControllers, allNodes, allRedirects, allClusters)
 		w.Flush()
 
 		if isUnhealthy(sr) {

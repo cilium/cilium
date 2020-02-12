@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -224,4 +225,20 @@ func (cm *ClusterMesh) ClustersSynced(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// Status returns the status of the ClusterMesh subsystem
+func (cm *ClusterMesh) Status() (status *models.ClusterMeshStatus) {
+	cm.mutex.RLock()
+	defer cm.mutex.RUnlock()
+
+	status = &models.ClusterMeshStatus{
+		NumGlobalServices: int64(cm.globalServices.size()),
+	}
+
+	for _, cm := range cm.clusters {
+		status.Clusters = append(status.Clusters, cm.status())
+	}
+
+	return
 }

@@ -1422,6 +1422,22 @@ func init() {
         }
       }
     },
+    "ClusterMeshStatus": {
+      "description": "Status of ClusterMesh",
+      "properties": {
+        "clusters": {
+          "description": "List of remote clusters",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RemoteCluster"
+          }
+        },
+        "num-global-services": {
+          "description": "Number of global services",
+          "type": "integer"
+        }
+      }
+    },
     "ClusterNodeStatus": {
       "description": "Status of cluster",
       "properties": {
@@ -2864,6 +2880,35 @@ func init() {
         }
       }
     },
+    "RemoteCluster": {
+      "description": "Status of remote cluster",
+      "properties": {
+        "name": {
+          "description": "Name of the cluster",
+          "type": "string"
+        },
+        "num-identities": {
+          "description": "Number of identities in the cluster",
+          "type": "integer"
+        },
+        "num-nodes": {
+          "description": "Number of nodes in the cluster",
+          "type": "integer"
+        },
+        "num-shared-services": {
+          "description": "Number of services in the cluster",
+          "type": "integer"
+        },
+        "ready": {
+          "description": "Indicates readiness of the remote cluser",
+          "type": "boolean"
+        },
+        "status": {
+          "description": "Status of the control plane",
+          "type": "string"
+        }
+      }
+    },
     "RequestResponseStatistics": {
       "description": "Statistics of a proxy redirect",
       "type": "object",
@@ -3034,6 +3079,10 @@ func init() {
         "cluster": {
           "description": "Status of cluster",
           "$ref": "#/definitions/ClusterStatus"
+        },
+        "cluster-mesh": {
+          "description": "Status of ClusterMesh",
+          "$ref": "#/definitions/ClusterMeshStatus"
         },
         "container-runtime": {
           "description": "Status of local container runtime",
@@ -4812,6 +4861,22 @@ func init() {
         }
       }
     },
+    "ClusterMeshStatus": {
+      "description": "Status of ClusterMesh",
+      "properties": {
+        "clusters": {
+          "description": "List of remote clusters",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RemoteCluster"
+          }
+        },
+        "num-global-services": {
+          "description": "Number of global services",
+          "type": "integer"
+        }
+      }
+    },
     "ClusterNodeStatus": {
       "description": "Status of cluster",
       "properties": {
@@ -6254,6 +6319,35 @@ func init() {
         }
       }
     },
+    "RemoteCluster": {
+      "description": "Status of remote cluster",
+      "properties": {
+        "name": {
+          "description": "Name of the cluster",
+          "type": "string"
+        },
+        "num-identities": {
+          "description": "Number of identities in the cluster",
+          "type": "integer"
+        },
+        "num-nodes": {
+          "description": "Number of nodes in the cluster",
+          "type": "integer"
+        },
+        "num-shared-services": {
+          "description": "Number of services in the cluster",
+          "type": "integer"
+        },
+        "ready": {
+          "description": "Indicates readiness of the remote cluser",
+          "type": "boolean"
+        },
+        "status": {
+          "description": "Status of the control plane",
+          "type": "string"
+        }
+      }
+    },
     "RequestResponseStatistics": {
       "description": "Statistics of a proxy redirect",
       "type": "object",
@@ -6424,6 +6518,10 @@ func init() {
         "cluster": {
           "description": "Status of cluster",
           "$ref": "#/definitions/ClusterStatus"
+        },
+        "cluster-mesh": {
+          "description": "Status of ClusterMesh",
+          "$ref": "#/definitions/ClusterMeshStatus"
         },
         "container-runtime": {
           "description": "Status of local container runtime",
