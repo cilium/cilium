@@ -70,7 +70,7 @@ type Configuration struct {
 type RemoteIdentityWatcher interface {
 	// WatchRemoteIdentities starts watching for identities in another kvstore and
 	// syncs all identities to the local identity cache.
-	WatchRemoteIdentities(backend kvstore.BackendOperations) *allocator.RemoteCache
+	WatchRemoteIdentities(backend kvstore.BackendOperations) (*allocator.RemoteCache, error)
 
 	// Close stops the watcher.
 	Close()
