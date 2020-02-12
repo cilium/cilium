@@ -156,7 +156,7 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner, client clientset.Interf
 		switch option.Config.IdentityAllocationMode {
 		case option.IdentityAllocationModeKVstore:
 			log.Debug("Identity allocation backed by KVStore")
-			backend, err = kvstoreallocator.NewKVStoreBackend(IdentitiesPath, owner.GetNodeSuffix(), GlobalIdentity{})
+			backend, err = kvstoreallocator.NewKVStoreBackend(IdentitiesPath, owner.GetNodeSuffix(), GlobalIdentity{}, kvstore.Client())
 			if err != nil {
 				log.WithError(err).Fatal("Unable to initialize kvstore backend for identity allocation")
 			}
