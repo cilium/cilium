@@ -566,7 +566,7 @@ func openMap(path string) (*EventMap, error) {
 	}, nil
 }
 
-func (e *EventMap) Update(fd int, ubaPtr, sizeOf uintptr) error {
+func (e *EventMap) Update(fd int, ubaPtr unsafe.Pointer, sizeOf uintptr) error {
 	return UpdateElementFromPointers(e.fd, ubaPtr, sizeOf)
 }
 
@@ -660,7 +660,7 @@ func (e *PerCpuEvents) Unmute() error {
 		mapFd: uint32(e.eventMap.fd),
 		flags: uint64(0),
 	}
-	ubaPtr := uintptr(unsafe.Pointer(&uba))
+	ubaPtr := unsafe.Pointer(&uba)
 	ubaSizeOf := unsafe.Sizeof(uba)
 
 	for _, event := range e.event {
