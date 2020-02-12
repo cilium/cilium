@@ -177,6 +177,9 @@ func init() {
 	flags.MarkHidden(option.CMDRef)
 	option.BindEnv(option.CMDRef)
 
+	flags.Duration(option.K8sHeartbeatTimeout, 30*time.Second, "Timeout for k8s heartbeat")
+	option.BindEnv(option.K8sHeartbeatTimeout)
+
 	viper.BindPFlags(flags)
 
 	// Make sure that klog logging variables are initialized so that we can
