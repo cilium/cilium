@@ -133,8 +133,10 @@ func NewProbeManager() *ProbeManager {
 	newProbeManager := func() {
 		var features Features
 		out, err := exec.WithTimeout(
-			defaults.ExecTimeout, "bpftool", "-j", "feature").CombinedOutput(
-			log, true)
+			defaults.ExecTimeout, "bpftool", "-j", "feature",
+			"probe", "filter_out",
+			"\\(trace\\|write_user\\)",
+		).CombinedOutput(log, true)
 		if err != nil {
 			log.WithError(err).Fatal("could not run bpftool")
 		}
