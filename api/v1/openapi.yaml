@@ -1556,7 +1556,9 @@ definitions:
           client when making another request to the server.
           See for example "/cluster/nodes".
         type: integer
-
+      cluster-mesh:
+        description: Status of ClusterMesh
+        "$ref": "#/definitions/ClusterMeshStatus"
   Status:
     description: Status of an individual component
     type: object
@@ -1687,6 +1689,38 @@ definitions:
       client-id:
         description: ID that should be used by the client to receive a diff from the previous request
         type: integer
+  ClusterMeshStatus:
+    description: Status of ClusterMesh
+    properties:
+      clusters:
+        description: List of remote clusters
+        type: array
+        items:
+          "$ref": "#/definitions/RemoteCluster"
+      num-global-services:
+        description: Number of global services
+        type: integer
+  RemoteCluster:
+    description: Status of remote cluster
+    properties:
+      name:
+        description: Name of the cluster
+        type: string
+      ready:
+        description: Indicates readiness of the remote cluser
+        type: boolean
+      num-nodes:
+        description: Number of nodes in the cluster
+        type: integer
+      num-shared-services:
+        description: Number of services in the cluster
+        type: integer
+      num-identities:
+        description: Number of identities in the cluster
+        type: integer
+      status:
+        description: Status of the control plane
+        type: string
   MonitorStatus:
     description: Status of the node monitor
     properties:

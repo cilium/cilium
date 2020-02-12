@@ -20,6 +20,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -263,6 +264,10 @@ func (rc *remoteCluster) isReady() bool {
 	rc.mutex.RLock()
 	defer rc.mutex.RUnlock()
 
+	return rc.isReadyLocked()
+}
+
+func (rc *remoteCluster) isReadyLocked() bool {
 	return rc.backend != nil && rc.remoteNodes != nil && rc.ipCacheWatcher != nil
 }
 
@@ -270,15 +275,9 @@ func (rc *remoteCluster) status() *models.RemoteCluster {
 	rc.mutex.RLock()
 	defer rc.mutex.RUnlock()
 
-	// This can happen when the controller in restartRemoteConnection is waiting
-	// for the first connection to succeed.
-	var backendStatus = "Backend not initialized"
-	if rc.backend != nil {
-		var backendError error
-		backendStatus, backendError = rc.backend.Status()
-		if backendError != nil {
-			backendStatus = backendError.Error()
-		}
+	backendStatus, backendError := rc.backend.Status()
+	if backendError != nil {
+		backendStatus = backendError.Error()
 	}
 
 	return &models.RemoteCluster{

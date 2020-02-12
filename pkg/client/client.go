@@ -223,13 +223,30 @@ func FormatStatusResponseBrief(w io.Writer, sr *models.StatusResponse) {
 	}
 }
 
+func clusterReadiness(cluster *models.RemoteCluster) string {
+	if !cluster.Ready {
+		return "not-ready"
+	}
+	return "ready"
+}
+
+func numReadyClusters(clustermesh *models.ClusterMeshStatus) int {
+	numReady := 0
+	for _, cluster := range clustermesh.Clusters {
+		if cluster.Ready {
+			numReady++
+		}
+	}
+	return numReady
+}
+
 // FormatStatusResponse writes a StatusResponse as a string to the writer.
 //
 // The parameters 'allAddresses', 'allControllers', 'allNodes', respectively,
 // cause all details about that aspect of the status to be printed to the
 // terminal. For each of these, if they are false then only a summary will be
 // printed, with perhaps some detail if there are errors.
-func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, allControllers, allNodes, allRedirects bool) {
+func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, allControllers, allNodes, allRedirects, allClusters bool) {
 	if sr.Kvstore != nil {
 		fmt.Fprintf(w, "KVStore:\t%s\t%s\n", sr.Kvstore.State, sr.Kvstore.Msg)
 	}
@@ -311,6 +328,20 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 			sort.Strings(out)
 			for _, line := range out {
 				fmt.Fprintln(w, line)
+			}
+		}
+	}
+
+	if sr.ClusterMesh != nil {
+		fmt.Fprintf(w, "ClusterMesh:\t%d/%d clusters ready, %d global-services\n",
+			numReadyClusters(sr.ClusterMesh), len(sr.ClusterMesh.Clusters), sr.ClusterMesh.NumGlobalServices)
+
+		for _, cluster := range sr.ClusterMesh.Clusters {
+			if allClusters || !cluster.Ready {
+				fmt.Fprintf(w, "   %s: %s, %d nodes, %d identities, %d services\n",
+					cluster.Name, clusterReadiness(cluster), cluster.NumNodes,
+					cluster.NumIdentities, cluster.NumSharedServices)
+				fmt.Fprintf(w, "   └  %s\n", cluster.Status)
 			}
 		}
 	}
