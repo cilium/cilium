@@ -105,7 +105,7 @@ func (s *ClusterMeshServicesTestSuite) TearDownTest(c *C) {
 
 	os.RemoveAll(s.testDir)
 	kvstore.Client().DeletePrefix("cilium/state/services/v1/" + s.randomName)
-	kvstore.Client.Close()
+	kvstore.Client().Close()
 }
 
 func (s *ClusterMeshServicesTestSuite) expectEvent(c *C, action k8s.CacheAction, id k8s.ServiceID, fn func(event k8s.ServiceEvent) bool) {
