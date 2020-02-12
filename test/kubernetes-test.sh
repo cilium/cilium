@@ -53,10 +53,10 @@ git clone https://github.com/kubernetes/kubernetes.git -b ${KUBERNETES_VERSION} 
 cd kubernetes
 
 # Kubernetes is only compiling with golang 1.13.4 for versions >=1.17
-GO_VERSION="1.13.9"
+GO_VERSION="1.13.10"
 sudo rm -fr /usr/local/go
-curl https://dl.google.com/go/go1.13.9.linux-amd64.tar.gz > go1.13.9.linux-amd64.tar.gz
-sudo tar -C /usr/local -xzf go1.13.9.linux-amd64.tar.gz
+curl -LO https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz
 GO111MODULE=off make ginkgo
 GO111MODULE=off make WHAT='test/e2e/e2e.test'
 
