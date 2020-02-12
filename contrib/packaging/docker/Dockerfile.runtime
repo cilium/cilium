@@ -55,7 +55,7 @@ cd .. && \
 #
 # bpftool
 #
-git clone --depth 1 -b master git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git && \
+git clone --depth 1 -b bpftool https://github.com/cilium/linux.git && \
 cd linux/tools/bpf/bpftool/ && \
 make -j `getconf _NPROCESSORS_ONLN` && \
 strip bpftool && \
