@@ -1,6 +1,60 @@
 # Changelog
 
-# v1.7.0-rc3
+## v1.7.0-rc4
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* cilium cleanup removes previously installed NodePort BPF programs (Backport PR #10072, Upstream PR #10063, @brb)
+* Getting started guide to TLS-visibility (Backport PR #10072, Upstream PR #9808, @danwent)
+* daemon: Add KubeProxyReplacement to cilium status cmd (Backport PR #10072, Upstream PR #10059, @brb)
+* add option to hold cilium agent after init container (Backport PR #10132, Upstream PR #10101, @aanm)
+* daemon,cli: Improve kube-proxy-replacement status (Backport PR #10132, Upstream PR #10083, @brb)
+* Add more detailed proxy redirects status to `cilium status` (Backport PR #10132, Upstream PR #10082, @joestringer)
+* ServiceMonitor should default to release namespace (Backport PR #10132, Upstream PR #10088, @dsexton)
+* Documentation: Switch EKS documentation to default to ENI (Backport PR #10132, Upstream PR #10126, @tgraf)
+* kubernetes: Updated connectivity check (Backport PR #10153, Upstream PR #10104, @tgraf)
+* On-demand policy wildcarding (Backport PR #10153, Upstream PR #10054, @jrajahalme)
+
+**Bugfixes:**
+* kubernetes: Disable LocalNodeRoute while chaining (Backport PR #10072, Upstream PR #10057, @tgraf)
+* ipam: Protect release from releasing alive IP (Backport PR #10072, Upstream PR #10066, @tgraf)
+* ipcache: Add probe to check for dump capability to support delete (Backport PR #10153, Upstream PR #10144, @tgraf)
+* bpf: Fix proxy redirection for egress programs (Backport PR #10153, Upstream PR #10113, @tgraf)
+
+**CI Changes:**
+* tests: test nodeport connectivity via v4-in-v6 sockets (Backport PR #10072, Upstream PR #10053, @borkmann)
+* test/K8sServices: Add Tests for UDP connectivity (Backport PR #10072, Upstream PR #9997, @gandro)
+* [CI] add release name to helm template calls (Backport PR #10072, Upstream PR #10062, @nebril)
+* test: Improve skipping of k8sT/Services.go tests (Backport PR #10072, Upstream PR #10047, @brb)
+* CI: PolicyTest toEntities All (Backport PR #10072, Upstream PR #10051, @raybejjani)
+* test: Remove cilium DS before installing a new one (Backport PR #10132, Upstream PR #10039, @brb)
+* [CI] Fix path to print-node-ip script in jenkinsfile (Backport PR #10132, Upstream PR #10112, @nebril)
+* test: Add Kubernetes Service CI tests for IPv6 (Backport PR #10153, Upstream PR #10115, @gandro)
+* Fix upgrade guide for v1.7 and replicate it in a CI test (Backport PR #10153, Upstream PR #9993, @aanm)
+
+**Misc Changes:**
+* bpf: compile out service lookup entirely on kubeProxyReplacement=disa… (Backport PR #10072, Upstream PR #10060, @borkmann)
+* docs: revamp kube-proxy-free gsg (Backport PR #10072, Upstream PR #10069, @borkmann)
+* docs: document kube-proxy replacement modes (Backport PR #10072, Upstream PR #10073, @borkmann)
+* CI: Add test for healthCheckNodePort in NodePort BPF (Backport PR #10072, Upstream PR #9977, @gandro)
+* doc: update instructions about restarting pods after deployment (Backport PR #10072, Upstream PR #10028, @Rolinh)
+* policy: clean a duplicated code (Backport PR #10072, Upstream PR #10016, @zhiyuan0x)
+* ipcache: Fix ipcache pod IP update (Backport PR #10132, Upstream PR #10098, @joestringer)
+* improve kernel probe for host reachable services and fix compile warns (Backport PR #10132, Upstream PR #10111, @borkmann)
+* bpf, sock: fix post-bind-sock{4,6} not found in ELF file (Backport PR #10132, Upstream PR #10124, @borkmann)
+* bpf: Remove bpf_netdev.o from previously used devices (Backport PR #10132, Upstream PR #10087, @brb)
+* docs: add setup validation howto to kube-proxy-free guide (Backport PR #10132, Upstream PR #10086, @borkmann)
+* docs: fixed padding after code blocks (Backport PR #10153, Upstream PR #10143, @geakstr)
+* doc: Mark encryption as stable for direct-routing and ENI mode (Backport PR #10153, Upstream PR #10142, @tgraf)
+* doc: Document L7 limitation in azure-cni chaining mode (Backport PR #10153, Upstream PR #10131, @tgraf)
+* docs: Mention direct routing mode requirement for DSR (Backport PR #10153, Upstream PR #10149, @gandro)
+* Extend coverage of connectivity test (Backport PR #10153, Upstream PR #10141, @tgraf)
+* Add required etcd version for external etcd guide (Backport PR #10153, Upstream PR #10147, @nebril)
+
+
+## v1.7.0-rc3
 
 Summary of Changes
 ------------------
