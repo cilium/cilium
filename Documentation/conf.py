@@ -70,6 +70,9 @@ release = open("../VERSION", "r").read().strip()
 # Used by version warning
 versionwarning_body_selector = "div.document"
 
+# The version of Go used to compile Cilium
+go_release = open("../GO_VERSION", "r").read().strip()
+
 # Fetch the docs version from an environment variable.
 # Map latest -> master.
 # Map stable -> current version number.
@@ -111,7 +114,8 @@ rst_epilog = """
 .. |CURRENT_RELEASE| replace:: \{c}
 .. |NEXT_RELEASE| replace:: \{n}
 .. |CHART_RELEASE| replace:: \{h}
-""".format(s=scm_web, b=branch, a=archive_name, f=archive_filename, l=archive_link, c=current_release, n=next_release, h=chart_release)
+.. |GO_RELEASE| replace:: \{g}
+""".format(s=scm_web, b=branch, a=archive_name, f=archive_filename, l=archive_link, c=current_release, n=next_release, h=chart_release, g=go_release)
 
 extlinks = {
     'git-tree': (scm_web + "/%s", ''),
