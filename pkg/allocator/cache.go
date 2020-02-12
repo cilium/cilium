@@ -176,7 +176,7 @@ func (c *cache) OnDelete(id idpool.ID, key AllocatorKey) {
 
 // start requests a LIST operation from the kvstore and starts watching the
 // prefix in a go subroutine.
-func (c *cache) start(a *Allocator) waitChan {
+func (c *cache) start() waitChan {
 	c.listDone = make(waitChan)
 
 	c.mutex.Lock()
