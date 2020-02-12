@@ -18,12 +18,14 @@ package k8s
 import (
 	goerrors "errors"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +33,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/connrotation"
 )
 
 var (
@@ -105,11 +108,50 @@ func CreateConfig() (*rest.Config, error) {
 	return createConfig(GetAPIServerURL(), GetKubeconfigPath(), GetQPS(), GetBurst())
 }
 
+func setDialer(config *rest.Config) func() {
+	context := (&net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}).DialContext
+	dialer := connrotation.NewDialer(context)
+	config.Dial = dialer.DialContext
+	return dialer.CloseAll
+}
+
+func runHeartbeat(closeAllConns []func(), stop chan struct{}) error {
+	timeout := option.Config.K8sHeartbeatTimeout
+	go wait.Until(func() {
+		done := make(chan error)
+		go func() {
+			_, err := k8sCli.Interface.CoreV1().Namespaces().Get("kube-system", metav1.GetOptions{})
+			if err != nil {
+				done <- err
+			}
+
+			close(done)
+		}()
+
+		select {
+		case err := <-done:
+			if err != nil {
+				log.WithError(err).Warn("There was an error from heartbeat request")
+			}
+		case <-time.After(timeout):
+			log.Warn("Heartbeat timed out, restarting client connections")
+			for _, fn := range closeAllConns {
+				fn()
+			}
+		}
+	}, timeout, stop)
+	return nil
+}
+
 // CreateClient creates a new client to access the Kubernetes API
-func CreateClient(config *rest.Config) (*kubernetes.Clientset, error) {
+func CreateClient(config *rest.Config) (*kubernetes.Clientset, func(), error) {
+	closeAllConns := setDialer(config)
 	cs, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	stop := make(chan struct{})
 	timeout := time.NewTimer(time.Minute)
@@ -132,11 +174,11 @@ func CreateClient(config *rest.Config) (*kubernetes.Clientset, error) {
 	if err == nil {
 		log.Info("Connected to apiserver")
 	}
-	return cs, err
+	return cs, closeAllConns, err
 }
 
 // isConnReady returns the err for the kube-system namespace get
-func isConnReady(c *kubernetes.Clientset) error {
+func isConnReady(c kubernetes.Interface) error {
 	_, err := c.CoreV1().Namespaces().Get("kube-system", metav1.GetOptions{})
 	return err
 }
@@ -146,21 +188,21 @@ func Client() *K8sClient {
 	return k8sCli
 }
 
-func createDefaultClient() error {
+func createDefaultClient() (func(), error) {
 	restConfig, err := CreateConfig()
 	if err != nil {
-		return fmt.Errorf("unable to create k8s client rest configuration: %s", err)
+		return nil, fmt.Errorf("unable to create k8s client rest configuration: %s", err)
 	}
 	restConfig.ContentConfig.ContentType = `application/vnd.kubernetes.protobuf`
 
-	createdK8sClient, err := CreateClient(restConfig)
+	createdK8sClient, closeAllConns, err := CreateClient(restConfig)
 	if err != nil {
-		return fmt.Errorf("unable to create k8s client: %s", err)
+		return nil, fmt.Errorf("unable to create k8s client: %s", err)
 	}
 
 	k8sCli.Interface = createdK8sClient
 
-	return nil
+	return closeAllConns, nil
 }
 
 // CiliumClient returns the default Cilium Kubernetes client.
@@ -168,18 +210,19 @@ func CiliumClient() *K8sCiliumClient {
 	return k8sCiliumCli
 }
 
-func createDefaultCiliumClient() error {
+func createDefaultCiliumClient() (func(), error) {
 	restConfig, err := CreateConfig()
 	if err != nil {
-		return fmt.Errorf("unable to create k8s client rest configuration: %s", err)
+		return nil, fmt.Errorf("unable to create k8s client rest configuration: %s", err)
 	}
 
+	closeAllConns := setDialer(restConfig)
 	createdCiliumK8sClient, err := clientset.NewForConfig(restConfig)
 	if err != nil {
-		return fmt.Errorf("unable to create k8s client: %s", err)
+		return nil, fmt.Errorf("unable to create k8s client: %s", err)
 	}
 
 	k8sCiliumCli.Interface = createdCiliumK8sClient
 
-	return nil
+	return closeAllConns, nil
 }
