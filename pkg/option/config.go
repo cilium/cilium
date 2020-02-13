@@ -16,6 +16,7 @@ package option
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -1827,22 +1828,9 @@ func (c *DaemonConfig) Populate() {
 	}
 	c.IPv6PodSubnets = subnets
 
-	nodePortRange := viper.GetStringSlice(NodePortRange)
-	if len(nodePortRange) > 0 {
-		if len(nodePortRange) != 2 {
-			log.Fatal("Unable to parse min/max port for NodePort range!")
-		}
-		c.NodePortMin, err = strconv.Atoi(nodePortRange[0])
-		if err != nil {
-			log.WithError(err).Fatal("Unable to parse min port value for NodePort range!")
-		}
-		c.NodePortMax, err = strconv.Atoi(nodePortRange[1])
-		if err != nil {
-			log.WithError(err).Fatal("Unable to parse max port value for NodePort range!")
-		}
-		if c.NodePortMax <= c.NodePortMin {
-			log.Fatal("NodePort range min port must be smaller than max port!")
-		}
+	err = c.populateNodePortRange()
+	if err != nil {
+		log.WithError(err).Fatal("NodePortRange can not be parsed.")
 	}
 
 	hostServicesProtos := viper.GetStringSlice(HostReachableServicesProtos)
@@ -1955,6 +1943,30 @@ func (c *DaemonConfig) Populate() {
 	c.SkipCRDCreation = viper.GetBool(SkipCRDCreation)
 	c.DisableCNPStatusUpdates = viper.GetBool(DisableCNPStatusUpdates)
 	c.AwsReleaseExcessIps = viper.GetBool(AwsReleaseExcessIps)
+}
+
+func (c *DaemonConfig) populateNodePortRange() error {
+	nodePortRange := viper.GetStringSlice(NodePortRange)
+	if len(nodePortRange) > 0 {
+		if len(nodePortRange) != 2 {
+			return errors.New("Unable to parse min/max port for NodePort range!")
+		}
+
+		var err error
+
+		c.NodePortMin, err = strconv.Atoi(nodePortRange[0])
+		if err != nil {
+			return fmt.Errorf("Unable to parse min port value for NodePort range: %s", err.Error())
+		}
+		c.NodePortMax, err = strconv.Atoi(nodePortRange[1])
+		if err != nil {
+			return fmt.Errorf("Unable to parse max port value for NodePort range: %s", err.Error())
+		}
+		if c.NodePortMax <= c.NodePortMin {
+			return errors.New("NodePort range min port must be smaller than max port!")
+		}
+	}
+	return nil
 }
 
 func sanitizeIntParam(paramName string, paramDefault int) int {
