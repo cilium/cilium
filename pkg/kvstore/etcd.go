@@ -660,10 +660,12 @@ func (e *etcdClient) LockPath(ctx context.Context, path string) (KVLocker, error
 	return &etcdMutex{mutex: mu}, nil
 }
 
-func (e *etcdClient) DeletePrefix(ctx context.Context, path string) error {
+func (e *etcdClient) DeletePrefix(ctx context.Context, path string) (err error) {
+	defer func() { Trace("DeletePrefix", err, logrus.Fields{fieldPrefix: path}) }()
+
 	duration := spanstat.Start()
 	e.limiter.Wait(ctx)
-	_, err := e.client.Delete(ctx, path, client.WithPrefix())
+	_, err = e.client.Delete(ctx, path, client.WithPrefix())
 	increaseMetric(path, metricDelete, "DeletePrefix", duration.EndError(err).Total(), err)
 	return Hint(err)
 }
@@ -881,7 +883,9 @@ func (e *etcdClient) Status() (string, error) {
 }
 
 // GetIfLocked returns value of key if the client is still holding the given lock.
-func (e *etcdClient) GetIfLocked(ctx context.Context, key string, lock KVLocker) ([]byte, error) {
+func (e *etcdClient) GetIfLocked(ctx context.Context, key string, lock KVLocker) (bv []byte, err error) {
+	defer func() { Trace("GetIfLocked", err, logrus.Fields{fieldKey: key, fieldValue: string(bv)}) }()
+
 	duration := spanstat.Start()
 	e.limiter.Wait(ctx)
 	opGet := client.OpGet(key)
@@ -904,7 +908,9 @@ func (e *etcdClient) GetIfLocked(ctx context.Context, key string, lock KVLocker)
 }
 
 // Get returns value of key
-func (e *etcdClient) Get(ctx context.Context, key string) ([]byte, error) {
+func (e *etcdClient) Get(ctx context.Context, key string) (bv []byte, err error) {
+	defer func() { Trace("Get", err, logrus.Fields{fieldKey: key, fieldValue: string(bv)}) }()
+
 	duration := spanstat.Start()
 	e.limiter.Wait(ctx)
 	getR, err := e.client.Get(ctx, key)
@@ -920,7 +926,11 @@ func (e *etcdClient) Get(ctx context.Context, key string) ([]byte, error) {
 }
 
 // GetPrefixIfLocked returns the first key which matches the prefix and its value if the client is still holding the given lock.
-func (e *etcdClient) GetPrefixIfLocked(ctx context.Context, prefix string, lock KVLocker) (string, []byte, error) {
+func (e *etcdClient) GetPrefixIfLocked(ctx context.Context, prefix string, lock KVLocker) (k string, bv []byte, err error) {
+	defer func() {
+		Trace("GetPrefixIfLocked", err, logrus.Fields{fieldPrefix: prefix, fieldKey: k, fieldValue: string(bv)})
+	}()
+
 	duration := spanstat.Start()
 	e.limiter.Wait(ctx)
 	opGet := client.OpGet(prefix, client.WithPrefix(), client.WithLimit(1))
@@ -942,7 +952,11 @@ func (e *etcdClient) GetPrefixIfLocked(ctx context.Context, prefix string, lock 
 }
 
 // GetPrefix returns the first key which matches the prefix and its value
-func (e *etcdClient) GetPrefix(ctx context.Context, prefix string) (string, []byte, error) {
+func (e *etcdClient) GetPrefix(ctx context.Context, prefix string) (k string, bv []byte, err error) {
+	defer func() {
+		Trace("GetPrefix", err, logrus.Fields{fieldPrefix: prefix, fieldKey: k, fieldValue: string(bv)})
+	}()
+
 	duration := spanstat.Start()
 	e.limiter.Wait(ctx)
 	getR, err := e.client.Get(ctx, prefix, client.WithPrefix(), client.WithLimit(1))
@@ -958,16 +972,20 @@ func (e *etcdClient) GetPrefix(ctx context.Context, prefix string) (string, []by
 }
 
 // Set sets value of key
-func (e *etcdClient) Set(ctx context.Context, key string, value []byte) error {
+func (e *etcdClient) Set(ctx context.Context, key string, value []byte) (err error) {
+	defer func() { Trace("Set", err, logrus.Fields{fieldKey: key, fieldValue: string(value)}) }()
+
 	duration := spanstat.Start()
 	e.limiter.Wait(ctx)
-	_, err := e.client.Put(ctx, key, string(value))
+	_, err = e.client.Put(ctx, key, string(value))
 	increaseMetric(key, metricSet, "Set", duration.EndError(err).Total(), err)
 	return Hint(err)
 }
 
 // DeleteIfLocked deletes a key if the client is still holding the given lock.
-func (e *etcdClient) DeleteIfLocked(ctx context.Context, key string, lock KVLocker) error {
+func (e *etcdClient) DeleteIfLocked(ctx context.Context, key string, lock KVLocker) (err error) {
+	defer func() { Trace("DeleteIfLocked", err, logrus.Fields{fieldKey: key}) }()
+
 	duration := spanstat.Start()
 	opDel := client.OpDelete(key)
 	cmp := lock.Comparator().(client.Cmp)
@@ -980,10 +998,12 @@ func (e *etcdClient) DeleteIfLocked(ctx context.Context, key string, lock KVLock
 }
 
 // Delete deletes a key
-func (e *etcdClient) Delete(ctx context.Context, key string) error {
+func (e *etcdClient) Delete(ctx context.Context, key string) (err error) {
+	defer func() { Trace("Delete", err, logrus.Fields{fieldKey: key}) }()
+
 	duration := spanstat.Start()
 	e.limiter.Wait(ctx)
-	_, err := e.client.Delete(ctx, key)
+	_, err = e.client.Delete(ctx, key)
 	increaseMetric(key, metricDelete, "Delete", duration.EndError(err).Total(), err)
 	return Hint(err)
 }
@@ -1032,7 +1052,9 @@ func (e *etcdClient) UpdateIfLocked(ctx context.Context, key string, value []byt
 }
 
 // Update creates or updates a key
-func (e *etcdClient) Update(ctx context.Context, key string, value []byte, lease bool) error {
+func (e *etcdClient) Update(ctx context.Context, key string, value []byte, lease bool) (err error) {
+	defer Trace("Update", err, logrus.Fields{fieldKey: key, fieldValue: string(value), fieldAttachLease: lease})
+
 	select {
 	case <-e.firstSession:
 	case <-ctx.Done():
@@ -1051,13 +1073,17 @@ func (e *etcdClient) Update(ctx context.Context, key string, value []byte, lease
 
 	duration := spanstat.Start()
 	e.limiter.Wait(ctx)
-	_, err := e.client.Put(ctx, key, string(value))
+	_, err = e.client.Put(ctx, key, string(value))
 	increaseMetric(key, metricSet, "Update", duration.EndError(err).Total(), err)
 	return Hint(err)
 }
 
 // UpdateIfDifferentIfLocked updates a key if the value is different and if the client is still holding the given lock.
-func (e *etcdClient) UpdateIfDifferentIfLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) (bool, error) {
+func (e *etcdClient) UpdateIfDifferentIfLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) (recreated bool, err error) {
+	defer func() {
+		Trace("UpdateIfDifferentIfLocked", err, logrus.Fields{fieldKey: key, fieldValue: value, fieldAttachLease: lease, "recreated": recreated})
+	}()
+
 	select {
 	case <-e.firstSession:
 	case <-ctx.Done():
@@ -1101,7 +1127,11 @@ func (e *etcdClient) UpdateIfDifferentIfLocked(ctx context.Context, key string, 
 }
 
 // UpdateIfDifferent updates a key if the value is different
-func (e *etcdClient) UpdateIfDifferent(ctx context.Context, key string, value []byte, lease bool) (bool, error) {
+func (e *etcdClient) UpdateIfDifferent(ctx context.Context, key string, value []byte, lease bool) (recreated bool, err error) {
+	defer func() {
+		Trace("UpdateIfDifferent", err, logrus.Fields{fieldKey: key, fieldValue: value, fieldAttachLease: lease, "recreated": recreated})
+	}()
+
 	select {
 	case <-e.firstSession:
 	case <-ctx.Done():
@@ -1133,7 +1163,11 @@ func (e *etcdClient) UpdateIfDifferent(ctx context.Context, key string, value []
 }
 
 // CreateOnlyIfLocked atomically creates a key if the client is still holding the given lock or fails if it already exists
-func (e *etcdClient) CreateOnlyIfLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) (bool, error) {
+func (e *etcdClient) CreateOnlyIfLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) (success bool, err error) {
+	defer func() {
+		Trace("CreateOnlyIfLocked", err, logrus.Fields{fieldKey: key, fieldValue: value, fieldAttachLease: lease, "success": success})
+	}()
+
 	duration := spanstat.Start()
 	var leaseID client.LeaseID
 	if lease {
@@ -1187,7 +1221,11 @@ func (e *etcdClient) CreateOnlyIfLocked(ctx context.Context, key string, value [
 }
 
 // CreateOnly creates a key with the value and will fail if the key already exists
-func (e *etcdClient) CreateOnly(ctx context.Context, key string, value []byte, lease bool) (bool, error) {
+func (e *etcdClient) CreateOnly(ctx context.Context, key string, value []byte, lease bool) (success bool, err error) {
+	defer func() {
+		Trace("CreateOnly", err, logrus.Fields{fieldKey: key, fieldValue: value, fieldAttachLease: lease, "success": success})
+	}()
+
 	duration := spanstat.Start()
 	var leaseID client.LeaseID
 	if lease {
@@ -1208,7 +1246,11 @@ func (e *etcdClient) CreateOnly(ctx context.Context, key string, value []byte, l
 }
 
 // CreateIfExists creates a key with the value only if key condKey exists
-func (e *etcdClient) CreateIfExists(ctx context.Context, condKey, key string, value []byte, lease bool) error {
+func (e *etcdClient) CreateIfExists(ctx context.Context, condKey, key string, value []byte, lease bool) (err error) {
+	defer func() {
+		Trace("CreateIfExists", err, logrus.Fields{fieldKey: key, fieldValue: string(value), fieldCondition: condKey, fieldAttachLease: lease})
+	}()
+
 	duration := spanstat.Start()
 	var leaseID client.LeaseID
 	if lease {
@@ -1252,7 +1294,9 @@ func (e *etcdClient) CreateIfExists(ctx context.Context, condKey, key string, va
 //}
 
 // ListPrefixIfLocked returns a list of keys matching the prefix only if the client is still holding the given lock.
-func (e *etcdClient) ListPrefixIfLocked(ctx context.Context, prefix string, lock KVLocker) (KeyValuePairs, error) {
+func (e *etcdClient) ListPrefixIfLocked(ctx context.Context, prefix string, lock KVLocker) (v KeyValuePairs, err error) {
+	defer func() { Trace("ListPrefixIfLocked", err, logrus.Fields{fieldPrefix: prefix, fieldNumEntries: len(v)}) }()
+
 	duration := spanstat.Start()
 	e.limiter.Wait(ctx)
 	opGet := client.OpGet(prefix, client.WithPrefix())
@@ -1280,7 +1324,9 @@ func (e *etcdClient) ListPrefixIfLocked(ctx context.Context, prefix string, lock
 }
 
 // ListPrefix returns a map of matching keys
-func (e *etcdClient) ListPrefix(ctx context.Context, prefix string) (KeyValuePairs, error) {
+func (e *etcdClient) ListPrefix(ctx context.Context, prefix string) (v KeyValuePairs, err error) {
+	defer func() { Trace("ListPrefix", err, logrus.Fields{fieldPrefix: prefix, fieldNumEntries: len(v)}) }()
+
 	duration := spanstat.Start()
 
 	e.limiter.Wait(ctx)
@@ -1323,12 +1369,14 @@ func (e *etcdClient) GetCapabilities() Capabilities {
 }
 
 // Encode encodes a binary slice into a character set that the backend supports
-func (e *etcdClient) Encode(in []byte) string {
+func (e *etcdClient) Encode(in []byte) (out string) {
+	defer func() { Trace("Encode", nil, logrus.Fields{"in": in, "out": out}) }()
 	return string(in)
 }
 
 // Decode decodes a key previously encoded back into the original binary slice
-func (e *etcdClient) Decode(in string) ([]byte, error) {
+func (e *etcdClient) Decode(in string) (out []byte, err error) {
+	defer func() { Trace("Decode", err, logrus.Fields{"in": in, "out": out}) }()
 	return []byte(in), nil
 }
 
