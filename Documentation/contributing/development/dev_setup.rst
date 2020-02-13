@@ -28,7 +28,7 @@ contribute to Cilium:
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
 |  libelf-devel                                                                    | latest                   | N/A (OS-specific)                                                             |
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
-| `go <https://golang.org/dl/>`_                                                   | 1.13.7                   | N/A (OS-specific)                                                             |
+| `go <https://golang.org/dl/>`_                                                   | 1.13.8                   | N/A (OS-specific)                                                             |
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
 | `go-bindata <https://github.com/cilium/go-bindata>`_                             | ``a0ff2567cfb``          | ``go get -u github.com/cilium/go-bindata/...``                                |
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
@@ -63,6 +63,7 @@ Finally, in order to build the documentation, you should have Sphinx installed:
 You should start with the `gs_guide`, which walks you through the set-up, such
 as installing Vagrant, getting the Cilium sources, and going through some
 Cilium basics.
+
 
 
 Vagrant Setup
