@@ -36,7 +36,7 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-var (
+const (
 	wildcardIPv4 = "0.0.0.0"
 	wildcardIPv6 = "0::0"
 )
