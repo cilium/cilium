@@ -1947,11 +1947,8 @@ func (c *DaemonConfig) Populate() {
 
 func (c *DaemonConfig) populateNodePortRange() error {
 	nodePortRange := viper.GetStringSlice(NodePortRange)
-	if len(nodePortRange) > 0 {
-		if len(nodePortRange) != 2 {
-			return errors.New("Unable to parse min/max port for NodePort range!")
-		}
-
+	switch len(nodePortRange) {
+	case 2:
 		var err error
 
 		c.NodePortMin, err = strconv.Atoi(nodePortRange[0])
@@ -1965,7 +1962,12 @@ func (c *DaemonConfig) populateNodePortRange() error {
 		if c.NodePortMax <= c.NodePortMin {
 			return errors.New("NodePort range min port must be smaller than max port!")
 		}
+	case 0:
+		log.Warning("NodePort range was set but is empty.")
+	default:
+		return errors.New("Unable to parse min/max port value for NodePort range!")
 	}
+
 	return nil
 }
 
