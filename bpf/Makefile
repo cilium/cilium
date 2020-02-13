@@ -20,8 +20,8 @@ $(BPF_SIMPLE): %.o: %.ll
 	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
 
 # Hack to get make to replace : with a space
-space :=
-space += 
+null :=
+space := ${null} ${null}
 
 # The following option combinations are compile tested
 LB_OPTIONS = \
