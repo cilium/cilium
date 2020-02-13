@@ -723,9 +723,9 @@ func init() {
 	viper.BindPFlags(flags)
 }
 
-// RestoreExecPermissions restores file permissions to 0740 of all files inside
+// restoreExecPermissions restores file permissions to 0740 of all files inside
 // `searchDir` with the given regex `patterns`.
-func RestoreExecPermissions(searchDir string, patterns ...string) error {
+func restoreExecPermissions(searchDir string, patterns ...string) error {
 	fileList := []string{}
 	err := filepath.Walk(searchDir, func(path string, f os.FileInfo, err error) error {
 		for _, pattern := range patterns {
@@ -882,20 +882,11 @@ func initEnv(cmd *cobra.Command) {
 	if err := os.MkdirAll(option.Config.LibDir, defaults.RuntimePathRights); err != nil {
 		scopedLog.WithError(err).Fatal("Could not create library directory")
 	}
-	if !option.Config.KeepTemplates {
-		// We need to remove the old probes here as otherwise stale .t tests could
-		// still reside from newer Cilium versions which might break downgrade.
-		if err := os.RemoveAll(filepath.Join(option.Config.BpfDir, "/probes/")); err != nil {
-			scopedLog.WithError(err).Fatal("Could not delete old probes from library directory")
-		}
-		if err := RestoreAssets(option.Config.LibDir, defaults.BpfDir); err != nil {
-			scopedLog.WithError(err).Fatal("Unable to restore agent assets")
-		}
-		// Restore permissions of executable files
-		if err := RestoreExecPermissions(option.Config.LibDir, `.*\.sh`); err != nil {
-			scopedLog.WithError(err).Fatal("Unable to restore agent assets")
-		}
+	// Restore permissions of executable files
+	if err := restoreExecPermissions(option.Config.LibDir, `.*\.sh`); err != nil {
+		scopedLog.WithError(err).Fatal("Unable to restore agent asset permissions")
 	}
+
 	if option.Config.MaxControllerInterval < 0 {
 		scopedLog.Fatalf("Invalid %s value %d", option.MaxCtrlIntervalName, option.Config.MaxControllerInterval)
 	}
