@@ -116,8 +116,8 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	ds.d = d
 
-	kvstore.DeletePrefix(context.TODO(), common.OperationalPath)
-	kvstore.DeletePrefix(context.TODO(), kvstore.BaseKeyPrefix)
+	kvstore.Client().DeletePrefix(context.TODO(), common.OperationalPath)
+	kvstore.Client().DeletePrefix(context.TODO(), kvstore.BaseKeyPrefix)
 
 	ds.OnGetPolicyRepository = nil
 	ds.OnQueueEndpointBuild = nil
@@ -136,8 +136,8 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 	}
 
 	if ds.kvstoreInit {
-		kvstore.DeletePrefix(context.TODO(), common.OperationalPath)
-		kvstore.DeletePrefix(context.TODO(), kvstore.BaseKeyPrefix)
+		kvstore.Client().DeletePrefix(context.TODO(), common.OperationalPath)
+		kvstore.Client().DeletePrefix(context.TODO(), kvstore.BaseKeyPrefix)
 	}
 
 	// Restore the policy enforcement mode.

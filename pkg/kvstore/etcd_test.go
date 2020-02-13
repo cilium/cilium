@@ -43,7 +43,7 @@ func (e *EtcdSuite) SetUpTest(c *C) {
 }
 
 func (e *EtcdSuite) TearDownTest(c *C) {
-	Close()
+	Client().Close()
 }
 
 type MaintenanceMocker struct {
@@ -362,7 +362,7 @@ func (e *EtcdLockedSuite) SetUpSuite(c *C) {
 func (e *EtcdLockedSuite) TearDownSuite(c *C) {
 	err := e.etcdClient.Close()
 	c.Assert(err, IsNil)
-	Close()
+	Client().Close()
 }
 
 func (e *EtcdLockedSuite) TestGetIfLocked(c *C) {
