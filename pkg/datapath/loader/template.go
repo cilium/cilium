@@ -29,14 +29,19 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 )
 
-var (
-	TemplateSecurityID = identity.ReservedIdentityWorld
-	TemplateLxcID      = uint16(65535)
-	TemplateMAC        = mac.MAC([]byte{0x02, 0x00, 0x60, 0x0D, 0xF0, 0x0D})
-	TemplateIPv4       = []byte{192, 0, 2, 3}
-	TemplateIPv6       = []byte{0x20, 0x01, 0xdb, 0x8, 0x0b, 0xad, 0xca, 0xfe, 0x60, 0x0d, 0xbe, 0xe2, 0x0b, 0xad, 0xca, 0xfe}
+const (
+	CallsMapName = "cilium_calls_"
 
-	CallsMapName   = "cilium_calls_"
+	templateSecurityID = identity.ReservedIdentityWorld
+	templateLxcID      = uint16(65535)
+)
+
+var (
+	templateIPv4 = []byte{192, 0, 2, 3}
+	templateIPv6 = []byte{0x20, 0x01, 0xdb, 0x8, 0x0b, 0xad, 0xca, 0xfe, 0x60, 0x0d, 0xbe, 0xe2, 0x0b, 0xad, 0xca, 0xfe}
+
+	templateMAC = mac.MAC([]byte{0x02, 0x00, 0x60, 0x0D, 0xF0, 0x0D})
+
 	elfMapPrefixes = []string{
 		policymap.MapName,
 		CallsMapName,
@@ -77,7 +82,7 @@ type templateCfg struct {
 // means that the calling code must approprately substitute the ID in the ELF
 // prior to load, or it will fail with a relatively obvious error.
 func (t *templateCfg) GetID() uint64 {
-	return uint64(TemplateLxcID)
+	return uint64(templateLxcID)
 }
 
 // StringID returns the string form of the ID returned by GetID().
@@ -89,19 +94,19 @@ func (t *templateCfg) StringID() string {
 // ever some weird bug that causes the template value here to be used, it will
 // be in the least privileged security context.
 func (t *templateCfg) GetIdentity() identity.NumericIdentity {
-	return TemplateSecurityID
+	return templateSecurityID
 }
 
 // GetNodeMAC returns a well-known dummy MAC address which may be later
 // substituted in the ELF.
 func (t *templateCfg) GetNodeMAC() mac.MAC {
-	return TemplateMAC
+	return templateMAC
 }
 
 // IPv4Address always returns an IP in the documentation prefix (RFC5737) as
 // a nonsense address that should typically not be routable.
 func (t *templateCfg) IPv4Address() addressing.CiliumIPv4 {
-	return addressing.CiliumIPv4(TemplateIPv4)
+	return addressing.CiliumIPv4(templateIPv4)
 }
 
 // IPv6Address returns an IP in the documentation prefix (RFC3849) to ensure
@@ -109,7 +114,7 @@ func (t *templateCfg) IPv4Address() addressing.CiliumIPv4 {
 // described in the structure definition. This can't be guaranteed while using
 // a more appropriate prefix such as the discard prefix (RFC6666).
 func (t *templateCfg) IPv6Address() addressing.CiliumIPv6 {
-	return addressing.CiliumIPv6(TemplateIPv6)
+	return addressing.CiliumIPv6(templateIPv6)
 }
 
 // wrap takes an endpoint configuration and optional stats tracker and wraps
@@ -134,19 +139,19 @@ func elfMapSubstitutions(ep datapath.Endpoint) map[string]string {
 
 	epID := uint16(ep.GetID())
 	for _, name := range elfMapPrefixes {
-		templateStr := bpf.LocalMapName(name, TemplateLxcID)
+		templateStr := bpf.LocalMapName(name, templateLxcID)
 		desiredStr := bpf.LocalMapName(name, epID)
 		result[templateStr] = desiredStr
 	}
 	if ep.ConntrackLocalLocked() {
 		for _, name := range elfCtMapPrefixes {
-			templateStr := bpf.LocalMapName(name, TemplateLxcID)
+			templateStr := bpf.LocalMapName(name, templateLxcID)
 			desiredStr := bpf.LocalMapName(name, epID)
 			result[templateStr] = desiredStr
 		}
 	}
 
-	result[policymap.CallString(TemplateLxcID)] = policymap.CallString(epID)
+	result[policymap.CallString(templateLxcID)] = policymap.CallString(epID)
 	return result
 }
 
