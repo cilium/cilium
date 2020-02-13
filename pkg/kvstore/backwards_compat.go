@@ -33,5 +33,5 @@ import (
 //
 func deleteLegacyPrefixes() {
 	// Delete all keys in old services prefix
-	DeletePrefix(common.ServicePathV1)
+	Client().DeletePrefix(common.ServicePathV1)
 }

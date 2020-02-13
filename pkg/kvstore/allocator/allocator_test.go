@@ -55,8 +55,8 @@ func (e *AllocatorEtcdSuite) SetUpTest(c *C) {
 }
 
 func (e *AllocatorEtcdSuite) TearDownTest(c *C) {
-	kvstore.DeletePrefix(testPrefix)
-	kvstore.Close()
+	kvstore.Client().DeletePrefix(testPrefix)
+	kvstore.Client().Close()
 }
 
 type AllocatorConsulSuite struct {
@@ -71,8 +71,8 @@ func (e *AllocatorConsulSuite) SetUpTest(c *C) {
 }
 
 func (e *AllocatorConsulSuite) TearDownTest(c *C) {
-	kvstore.DeletePrefix(testPrefix)
-	kvstore.Close()
+	kvstore.Client().DeletePrefix(testPrefix)
+	kvstore.Client().Close()
 }
 
 //FIXME: this should be named better, it implements pkg/allocator.Backend
@@ -162,7 +162,7 @@ func (s *AllocatorSuite) TestRunLocksGC(c *C) {
 				nil,
 			)
 		}
-		lock2, err = client.LockPath(context.Background(), allocatorName+"/locks/"+kvstore.Encode([]byte(shortKey.GetKey())))
+		lock2, err = client.LockPath(context.Background(), allocatorName+"/locks/"+kvstore.Client().Encode([]byte(shortKey.GetKey())))
 		c.Assert(err, IsNil)
 		close(gotLock2)
 	}()
@@ -346,7 +346,7 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	staleKeysPreviousRound, err = a.RunGC(staleKeysPreviousRound)
 	c.Assert(err, IsNil)
 
-	v, err := kvstore.ListPrefix(path.Join(allocatorName, "id"))
+	v, err := kvstore.Client().ListPrefix(path.Join(allocatorName, "id"))
 	c.Assert(err, IsNil)
 	c.Assert(len(v), Equals, int(maxID))
 
@@ -361,7 +361,7 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	_, err = a.RunGC(staleKeysPreviousRound)
 	c.Assert(err, IsNil)
 
-	v, err = kvstore.ListPrefix(path.Join(allocatorName, "id"))
+	v, err = kvstore.Client().ListPrefix(path.Join(allocatorName, "id"))
 	c.Assert(err, IsNil)
 	c.Assert(len(v), Equals, 0)
 
