@@ -34,8 +34,8 @@ type BaseTests struct{}
 func (s *BaseTests) TestLock(c *C) {
 	prefix := "locktest/"
 
-	DeletePrefix(prefix)
-	defer DeletePrefix(prefix)
+	Client().DeletePrefix(prefix)
+	defer Client().DeletePrefix(prefix)
 
 	for i := 0; i < 10; i++ {
 		lock, err := LockPath(context.Background(), fmt.Sprintf("%sfoo/%d", prefix, i))
@@ -57,49 +57,49 @@ func (s *BaseTests) TestGetSet(c *C) {
 	prefix := "unit-test/"
 	maxID := 256
 
-	DeletePrefix(prefix)
-	defer DeletePrefix(prefix)
+	Client().DeletePrefix(prefix)
+	defer Client().DeletePrefix(prefix)
 
-	key, val, err := GetPrefix(context.Background(), prefix)
+	key, val, err := Client().GetPrefix(context.Background(), prefix)
 	c.Assert(err, IsNil)
 	c.Assert(val, IsNil)
 	c.Assert(key, Equals, "")
 
 	for i := 0; i < maxID; i++ {
-		val, err = Get(testKey(prefix, i))
+		val, err = Client().Get(testKey(prefix, i))
 		c.Assert(err, IsNil)
 		c.Assert(val, IsNil)
 
-		key, val, err = GetPrefix(context.Background(), testKey(prefix, i))
+		key, val, err = Client().GetPrefix(context.Background(), testKey(prefix, i))
 		c.Assert(err, IsNil)
 		c.Assert(val, IsNil)
 		c.Assert(key, Equals, "")
 
-		c.Assert(Set(testKey(prefix, i), testValue(i)), IsNil)
+		c.Assert(Client().Set(testKey(prefix, i), testValue(i)), IsNil)
 
-		val, err = Get(testKey(prefix, i))
+		val, err = Client().Get(testKey(prefix, i))
 		c.Assert(err, IsNil)
 		c.Assert(val, checker.DeepEquals, testValue(i))
 
-		val, err = Get(testKey(prefix, i))
+		val, err = Client().Get(testKey(prefix, i))
 		c.Assert(err, IsNil)
 		c.Assert(val, checker.DeepEquals, testValue(i))
 	}
 
 	for i := 0; i < maxID; i++ {
-		c.Assert(Delete(testKey(prefix, i)), IsNil)
+		c.Assert(Client().Delete(testKey(prefix, i)), IsNil)
 
-		val, err = Get(testKey(prefix, i))
+		val, err = Client().Get(testKey(prefix, i))
 		c.Assert(err, IsNil)
 		c.Assert(val, IsNil)
 
-		key, val, err = GetPrefix(context.Background(), testKey(prefix, i))
+		key, val, err = Client().GetPrefix(context.Background(), testKey(prefix, i))
 		c.Assert(err, IsNil)
 		c.Assert(val, IsNil)
 		c.Assert(key, Equals, "")
 	}
 
-	key, val, err = GetPrefix(context.Background(), prefix)
+	key, val, err = Client().GetPrefix(context.Background(), prefix)
 	c.Assert(err, IsNil)
 	c.Assert(val, IsNil)
 	c.Assert(key, Equals, "")
@@ -108,10 +108,10 @@ func (s *BaseTests) TestGetSet(c *C) {
 func (s *BaseTests) TestGetPrefix(c *C) {
 	prefix := "unit-test/"
 
-	DeletePrefix(prefix)
-	defer DeletePrefix(prefix)
+	Client().DeletePrefix(prefix)
+	defer Client().DeletePrefix(prefix)
 
-	key, val, err := GetPrefix(context.Background(), prefix)
+	key, val, err := Client().GetPrefix(context.Background(), prefix)
 	c.Assert(err, IsNil)
 	c.Assert(val, IsNil)
 	c.Assert(key, Equals, "")
@@ -120,9 +120,9 @@ func (s *BaseTests) TestGetPrefix(c *C) {
 	labelsLong := "foo;/;bar;"
 	labelsShort := "foo;/"
 	testKey := fmt.Sprintf("%s%s/%010d", prefix, labelsLong, 0)
-	c.Assert(Update(context.Background(), testKey, testValue(0), true), IsNil)
+	c.Assert(Client().Update(context.Background(), testKey, []byte(testValue(0)), true), IsNil)
 
-	val, err = Get(testKey)
+	val, err = Client().Get(testKey)
 	c.Assert(err, IsNil)
 	c.Assert(val, checker.DeepEquals, testValue(0))
 
@@ -132,7 +132,7 @@ func (s *BaseTests) TestGetPrefix(c *C) {
 		fmt.Sprintf("%s%s", prefix, labelsShort),
 	}
 	for _, p := range prefixes {
-		key, val, err = GetPrefix(context.Background(), p)
+		key, val, err = Client().GetPrefix(context.Background(), p)
 		c.Assert(err, IsNil)
 		c.Assert(val, checker.DeepEquals, testValue(0))
 		c.Assert(key, Equals, testKey)
@@ -141,52 +141,52 @@ func (s *BaseTests) TestGetPrefix(c *C) {
 
 func (s *BaseTests) BenchmarkGet(c *C) {
 	prefix := "unit-test/"
-	DeletePrefix(prefix)
-	defer DeletePrefix(prefix)
+	Client().DeletePrefix(prefix)
+	defer Client().DeletePrefix(prefix)
 
 	key := testKey(prefix, 1)
-	c.Assert(Set(key, testValue(100)), IsNil)
+	c.Assert(Client().Set(key, testValue(100)), IsNil)
 
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
-		Get(key)
+		Client().Get(key)
 	}
 }
 
 func (s *BaseTests) BenchmarkSet(c *C) {
 	prefix := "unit-test/"
-	DeletePrefix(prefix)
-	defer DeletePrefix(prefix)
+	Client().DeletePrefix(prefix)
+	defer Client().DeletePrefix(prefix)
 
 	key, val := testKey(prefix, 1), testValue(100)
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
-		Set(key, val)
+		Client().Set(key, val)
 	}
 }
 
 func (s *BaseTests) TestUpdate(c *C) {
 	prefix := "unit-test/"
 
-	DeletePrefix(prefix)
-	defer DeletePrefix(prefix)
+	Client().DeletePrefix(prefix)
+	defer Client().DeletePrefix(prefix)
 
-	key, val, err := GetPrefix(context.Background(), prefix)
+	key, val, err := Client().GetPrefix(context.Background(), prefix)
 	c.Assert(err, IsNil)
 	c.Assert(val, IsNil)
 	c.Assert(key, Equals, "")
 
 	// create
-	c.Assert(Update(context.Background(), testKey(prefix, 0), testValue(0), true), IsNil)
+	c.Assert(Client().Update(context.Background(), testKey(prefix, 0), []byte(testValue(0)), true), IsNil)
 
-	val, err = Get(testKey(prefix, 0))
+	val, err = Client().Get(testKey(prefix, 0))
 	c.Assert(err, IsNil)
 	c.Assert(val, checker.DeepEquals, testValue(0))
 
 	// update
-	c.Assert(Update(context.Background(), testKey(prefix, 0), testValue(0), true), IsNil)
+	c.Assert(Client().Update(context.Background(), testKey(prefix, 0), []byte(testValue(0)), true), IsNil)
 
-	val, err = Get(testKey(prefix, 0))
+	val, err = Client().Get(testKey(prefix, 0))
 	c.Assert(err, IsNil)
 	c.Assert(val, checker.DeepEquals, testValue(0))
 }
@@ -194,41 +194,41 @@ func (s *BaseTests) TestUpdate(c *C) {
 func (s *BaseTests) TestCreateOnly(c *C) {
 	prefix := "unit-test/"
 
-	DeletePrefix(prefix)
-	defer DeletePrefix(prefix)
+	Client().DeletePrefix(prefix)
+	defer Client().DeletePrefix(prefix)
 
-	key, val, err := GetPrefix(context.Background(), prefix)
+	key, val, err := Client().GetPrefix(context.Background(), prefix)
 	c.Assert(err, IsNil)
 	c.Assert(val, IsNil)
 	c.Assert(key, Equals, "")
 
-	success, err := CreateOnly(context.Background(), testKey(prefix, 0), testValue(0), false)
+	success, err := Client().CreateOnly(context.Background(), testKey(prefix, 0), []byte(testValue(0)), false)
 	c.Assert(err, IsNil)
 	c.Assert(success, Equals, true)
 
-	val, err = Get(testKey(prefix, 0))
+	val, err = Client().Get(testKey(prefix, 0))
 	c.Assert(err, IsNil)
 	c.Assert(val, checker.DeepEquals, testValue(0))
 
-	success, err = CreateOnly(context.Background(), testKey(prefix, 0), testValue(1), false)
+	success, err = Client().CreateOnly(context.Background(), testKey(prefix, 0), []byte(testValue(1)), false)
 	c.Assert(err, IsNil)
 	c.Assert(success, Equals, false)
 
-	val, err = Get(testKey(prefix, 0))
+	val, err = Client().Get(testKey(prefix, 0))
 	c.Assert(err, IsNil)
 	c.Assert(val, checker.DeepEquals, testValue(0))
 
 	// key 1 does not exist so CreateIfExists should fail
-	c.Assert(CreateIfExists(testKey(prefix, 1), testKey(prefix, 2), testValue(2), false), Not(IsNil))
+	c.Assert(Client().CreateIfExists(testKey(prefix, 1), testKey(prefix, 2), testValue(2), false), Not(IsNil))
 
-	val, err = Get(testKey(prefix, 2))
+	val, err = Client().Get(testKey(prefix, 2))
 	c.Assert(err, IsNil)
 	c.Assert(val, IsNil)
 
 	// key 0 exists so CreateIfExists should succeed
-	c.Assert(CreateIfExists(testKey(prefix, 0), testKey(prefix, 2), testValue(2), false), IsNil)
+	c.Assert(Client().CreateIfExists(testKey(prefix, 0), testKey(prefix, 2), testValue(2), false), IsNil)
 
-	val, err = Get(testKey(prefix, 2))
+	val, err = Client().Get(testKey(prefix, 2))
 	c.Assert(err, IsNil)
 	c.Assert(val, checker.DeepEquals, testValue(2))
 }
@@ -255,10 +255,10 @@ func (s *BaseTests) TestListAndWatch(c *C) {
 	key1, key2 := "foo2/key1", "foo2/key2"
 	val1, val2 := []byte("val1"), []byte("val2")
 
-	DeletePrefix("foo2/")
-	defer DeletePrefix("foo2/")
+	Client().DeletePrefix("foo2/")
+	defer Client().DeletePrefix("foo2/")
 
-	success, err := CreateOnly(context.Background(), key1, val1, false)
+	success, err := Client().CreateOnly(context.Background(), key1, []byte(val1), false)
 	c.Assert(err, IsNil)
 	c.Assert(success, Equals, true)
 
@@ -268,25 +268,25 @@ func (s *BaseTests) TestListAndWatch(c *C) {
 	expectEvent(c, w, EventTypeCreate, key1, val1)
 	expectEvent(c, w, EventTypeListDone, "", []byte{})
 
-	success, err = CreateOnly(context.Background(), key2, val2, false)
+	success, err = Client().CreateOnly(context.Background(), key2, []byte(val2), false)
 	c.Assert(err, IsNil)
 	c.Assert(success, Equals, true)
 	expectEvent(c, w, EventTypeCreate, key2, val2)
 
-	err = Delete(key1)
+	err = Client().Delete(key1)
 	c.Assert(err, IsNil)
 	expectEvent(c, w, EventTypeDelete, key1, val1)
 
-	success, err = CreateOnly(context.Background(), key1, val1, false)
+	success, err = Client().CreateOnly(context.Background(), key1, []byte(val1), false)
 	c.Assert(err, IsNil)
 	c.Assert(success, Equals, true)
 	expectEvent(c, w, EventTypeCreate, key1, val1)
 
-	err = Delete(key1)
+	err = Client().Delete(key1)
 	c.Assert(err, IsNil)
 	expectEvent(c, w, EventTypeDelete, key1, val1)
 
-	err = Delete(key2)
+	err = Client().Delete(key2)
 	c.Assert(err, IsNil)
 	expectEvent(c, w, EventTypeDelete, key2, val2)
 
