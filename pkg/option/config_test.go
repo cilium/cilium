@@ -22,6 +22,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	flag "github.com/spf13/pflag"
@@ -226,4 +227,173 @@ func (s *OptionSuite) TestLocalAddressExclusion(c *C) {
 	c.Assert(d.IsExcludedLocalAddress(net.ParseIP("3.3.3.1")), Equals, true)
 	c.Assert(d.IsExcludedLocalAddress(net.ParseIP("f00d::1")), Equals, true)
 	c.Assert(d.IsExcludedLocalAddress(net.ParseIP("f00d::2")), Equals, false)
+}
+
+func Test_populateNodePortRange(t *testing.T) {
+	type want struct {
+		wantMin int
+		wantMax int
+		wantErr bool
+	}
+	tests := []struct {
+		name       string
+		want       want
+		preTestRun func()
+	}{
+		{
+			name: "NodePortRange is valid",
+			want: want{
+				wantMin: 23,
+				wantMax: 24,
+				wantErr: false,
+			},
+			preTestRun: func() {
+				viper.Reset()
+				viper.Set(NodePortRange, []string{"23", "24"})
+			},
+		},
+		{
+			name: "NodePortRange not set in viper",
+			want: want{
+				wantMin: NodePortMinDefault,
+				wantMax: NodePortMaxDefault,
+				wantErr: false,
+			},
+			preTestRun: func() {
+				viper.Reset()
+
+				fs := flag.NewFlagSet(NodePortRange, flag.ContinueOnError)
+				fs.StringSlice(
+					NodePortRange,
+					[]string{
+						fmt.Sprintf("%d", NodePortMinDefault),
+						fmt.Sprintf("%d", NodePortMaxDefault),
+					},
+					"")
+
+				BindEnv(NodePortRange)
+				viper.BindPFlags(fs)
+			},
+		},
+		{
+			name: "NodePortMin greater than NodePortMax",
+			want: want{
+				wantMin: 666,
+				wantMax: 555,
+				wantErr: true,
+			},
+			preTestRun: func() {
+				viper.Reset()
+				viper.Set(NodePortRange, []string{"666", "555"})
+			},
+		},
+		{
+			name: "NodePortMin equal NodePortMax",
+			want: want{
+				wantMin: 666,
+				wantMax: 666,
+				wantErr: true,
+			},
+			preTestRun: func() {
+				viper.Reset()
+				viper.Set(NodePortRange, []string{"666", "666"})
+			},
+		},
+		{
+			name: "NodePortMin not a number",
+			want: want{
+				wantMin: 0,
+				wantMax: 0,
+				wantErr: true,
+			},
+			preTestRun: func() {
+				viper.Reset()
+				viper.Set(NodePortRange, []string{"aaa", "0"})
+			},
+		},
+		{
+			name: "NodePortMax not a number",
+			want: want{
+				wantMin: 1024,
+				wantMax: 0,
+				wantErr: true,
+			},
+			preTestRun: func() {
+				viper.Reset()
+				viper.Set(NodePortRange, []string{"1024", "aaa"})
+			},
+		},
+		{
+			name: "NodePortRange slice length not equal 2",
+			want: want{
+				wantMin: 0,
+				wantMax: 0,
+				wantErr: true,
+			},
+			preTestRun: func() {
+				viper.Reset()
+
+				delete(RegisteredOptions, NodePortRange)
+
+				fs := flag.NewFlagSet(NodePortRange, flag.ContinueOnError)
+				fs.StringSlice(
+					NodePortRange,
+					[]string{
+						fmt.Sprintf("%d", NodePortMinDefault),
+						fmt.Sprintf("%d", NodePortMaxDefault),
+					},
+					"")
+
+				BindEnv(NodePortRange)
+				viper.BindPFlags(fs)
+
+				viper.Set(NodePortRange, []string{"1024"})
+			},
+		},
+		{
+			name: "NodePortRange passed as empty",
+			want: want{
+				wantMin: 0,
+				wantMax: 0,
+				wantErr: true,
+			},
+			preTestRun: func() {
+				viper.Reset()
+
+				delete(RegisteredOptions, NodePortRange)
+
+				fs := flag.NewFlagSet(NodePortRange, flag.ContinueOnError)
+				fs.StringSlice(
+					NodePortRange,
+					[]string{
+						fmt.Sprintf("%d", NodePortMinDefault),
+						fmt.Sprintf("%d", NodePortMaxDefault),
+					},
+					"")
+
+				BindEnv(NodePortRange)
+				viper.BindPFlags(fs)
+
+				viper.Set(NodePortRange, []string{})
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.preTestRun()
+
+			d := &DaemonConfig{}
+			err := d.populateNodePortRange()
+
+			got := want{
+				wantMin: d.NodePortMin,
+				wantMax: d.NodePortMax,
+				wantErr: err != nil,
+			}
+
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("DaemonConfig.populateNodePortRange = got %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
