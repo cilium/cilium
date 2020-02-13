@@ -13,7 +13,7 @@ Installation on Google GKE
 GKE Requirements
 ================
 
-1. Install the Google Cloud SDK (``gcloud``) see [Installing Google Cloud SDK](https://cloud.google.com/sdk/install)
+1. Install the Google Cloud SDK (``gcloud``) see `Installing Google Cloud SDK <https://cloud.google.com/sdk/install>`_.
 
 2. Create a project or use an existing one
 
@@ -66,6 +66,10 @@ Prepare & Deploy Cilium
 
 Deploy Cilium release via Helm:
 
+If you are ready to restart existing pods when initializing the node, you can
+also pass the ``--set global.restartPods`` flag to the ``helm`` command
+below. This will ensure all pods are managed by Cilium.
+
 .. parsed-literal::
 
     kubectl create namespace cilium
@@ -82,12 +86,8 @@ to the cluster. The NodeInit DaemonSet will perform the following actions:
 * Reconfigure kubelet to run in CNI mode
 * Mount the BPF filesystem
 
-You might also want to pass the ``--set global.restartPods`` switch to the
-``helm`` command above. This will restart existing pods when initializing the
-node to force all pods to be managed by Cilium.
-
 .. include:: k8s-install-restart-pods.rst
-.. include:: k8s-install-validate.rst
+.. include:: k8s-install-gke-validate.rst
 .. include:: hubble-install.rst
 .. include:: getting-started-next-steps.rst
 

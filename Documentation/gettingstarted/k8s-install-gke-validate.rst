@@ -5,7 +5,7 @@ You can monitor as Cilium and all required components are being installed:
 
 .. parsed-literal::
 
-    kubectl -n kube-system get pods --watch
+    kubectl -n cilium get pods --watch
     NAME                                    READY   STATUS              RESTARTS   AGE
     cilium-operator-cb4578bc5-q52qk         0/1     Pending             0          8s
     cilium-s8w5m                            0/1     PodInitializing     0          7s

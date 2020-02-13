@@ -1,12 +1,9 @@
 Restart remaining pods
 ======================
 
-Once Cilium is up and running, pods in the ``kube-system`` namespace need to be
-restarted to ensure that they can be managed by Cilium.
-
-If the  flag ``--set global.restartPods=true`` was provided to the ``helm``
-command during the deployment step, nothing should be required. Otherwise, they
-need to be restarted manually:
+If you did not use the ``--set global.restartPods=true`` flag above, you will
+need to restart pods in the ``kube-system`` namespace manually at a later time,
+to ensure they can be managed by Cilium:
 
 ::
 
