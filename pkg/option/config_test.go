@@ -351,11 +351,12 @@ func Test_populateNodePortRange(t *testing.T) {
 			},
 		},
 		{
+			// We simply just want to warn the user in this case.
 			name: "NodePortRange passed as empty",
 			want: want{
 				wantMin: 0,
 				wantMax: 0,
-				wantErr: true,
+				wantErr: false,
 			},
 			preTestRun: func() {
 				viper.Reset()
@@ -365,10 +366,7 @@ func Test_populateNodePortRange(t *testing.T) {
 				fs := flag.NewFlagSet(NodePortRange, flag.ContinueOnError)
 				fs.StringSlice(
 					NodePortRange,
-					[]string{
-						fmt.Sprintf("%d", NodePortMinDefault),
-						fmt.Sprintf("%d", NodePortMaxDefault),
-					},
+					[]string{}, // Explicity has no defaults.
 					"")
 
 				BindEnv(NodePortRange)
