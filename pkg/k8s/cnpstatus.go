@@ -205,7 +205,7 @@ func (c *CNPStatusEventHandler) watchForCNPStatusEvents(watcher *kvstore.Watcher
 func (c *CNPStatusEventHandler) StopStatusHandler(cnp *types.SlimCNP) {
 	cnpKey := getKeyFromObject(cnp.GetObjectMeta())
 	prefix := formatKeyForKvstore(cnp.GetObjectMeta())
-	err := kvstore.DeletePrefix(context.TODO(), prefix)
+	err := kvstore.Client().DeletePrefix(context.TODO(), prefix)
 	if err != nil {
 		log.WithError(err).WithField("prefix", prefix).Warning("error deleting prefix from kvstore")
 	}

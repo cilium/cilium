@@ -73,13 +73,13 @@ type kvstoreImplementation struct{}
 // upsert places the mapping of {key, value} into the kvstore, optionally with
 // a lease.
 func (k kvstoreImplementation) upsert(ctx context.Context, key string, value string, lease bool) error {
-	_, err := kvstore.UpdateIfDifferent(ctx, key, value, lease)
+	_, err := kvstore.Client().UpdateIfDifferent(ctx, key, []byte(value), lease)
 	return err
 }
 
 // release removes the specified key from the kvstore.
 func (k kvstoreImplementation) release(ctx context.Context, key string) error {
-	return kvstore.Delete(ctx, key)
+	return kvstore.Client().Delete(ctx, key)
 }
 
 // kvReferenceCounter provides a thin wrapper around the kvstore which adds
