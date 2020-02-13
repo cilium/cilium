@@ -36,7 +36,7 @@ var kvstoreDeleteCmd = &cobra.Command{
 				Fatalf("Unable to delete keys: %s", err)
 			}
 		} else {
-			if err := kvstore.Delete(args[0]); err != nil {
+			if err := kvstore.Client().Delete(args[0]); err != nil {
 				Fatalf("Unable to delete key: %s", err)
 			}
 		}

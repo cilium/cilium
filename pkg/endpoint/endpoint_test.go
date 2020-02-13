@@ -119,7 +119,7 @@ func (s *EndpointSuite) SetUpTest(c *C) {
 
 func (s *EndpointSuite) TearDownTest(c *C) {
 	cache.Close()
-	kvstore.Close()
+	kvstore.Client().Close()
 }
 
 func (s *EndpointSuite) TestEndpointStatus(c *C) {
