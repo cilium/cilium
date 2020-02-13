@@ -52,8 +52,8 @@ func (e *StoreEtcdSuite) SetUpTest(c *C) {
 }
 
 func (e *StoreEtcdSuite) TearDownTest(c *C) {
-	kvstore.DeletePrefix(testPrefix)
-	kvstore.Close()
+	kvstore.Client().DeletePrefix(testPrefix)
+	kvstore.Client().Close()
 }
 
 type StoreConsulSuite struct {
@@ -67,8 +67,8 @@ func (e *StoreConsulSuite) SetUpTest(c *C) {
 }
 
 func (e *StoreConsulSuite) TearDownTest(c *C) {
-	kvstore.DeletePrefix(testPrefix)
-	kvstore.Close()
+	kvstore.Client().DeletePrefix(testPrefix)
+	kvstore.Client().Close()
 	time.Sleep(defaults.NodeDeleteDelay + 5*time.Second)
 }
 
@@ -265,9 +265,9 @@ func (s *StoreSuite) TestStoreLocalKeyProtection(c *C) {
 
 	c.Assert(expect(func() bool { return localKey1.updated() >= 1 }), IsNil)
 	// delete all keys
-	kvstore.DeletePrefix(store.conf.Prefix)
+	kvstore.Client().DeletePrefix(store.conf.Prefix)
 	c.Assert(expect(func() bool {
-		v, err := kvstore.Get(store.keyPath(&localKey1))
+		v, err := kvstore.Client().Get(store.keyPath(&localKey1))
 		return err == nil && string(v) != ""
 	}), IsNil)
 }
