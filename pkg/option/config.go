@@ -1828,9 +1828,11 @@ func (c *DaemonConfig) Populate() {
 	}
 	c.IPv6PodSubnets = subnets
 
-	nodePortRangeIsSet := viper.IsSet(NodePortRange)
 	nodePortRange := viper.GetStringSlice(NodePortRange)
-	if nodePortRangeIsSet && len(nodePortRange) == 2 {
+	if len(nodePortRange) > 0 {
+		if len(nodePortRange) != 2 {
+			log.Fatal("Unable to parse min/max port for NodePort range!")
+		}
 		c.NodePortMin, err = strconv.Atoi(nodePortRange[0])
 		if err != nil {
 			log.WithError(err).Fatal("Unable to parse min port value for NodePort range!")
@@ -1842,8 +1844,6 @@ func (c *DaemonConfig) Populate() {
 		if c.NodePortMax <= c.NodePortMin {
 			log.Fatal("NodePort range min port must be smaller than max port!")
 		}
-	} else if nodePortRangeIsSet {
-		log.Fatal("Unable to parse min/max port for NodePort range!")
 	}
 
 	hostServicesProtos := viper.GetStringSlice(HostReachableServicesProtos)
