@@ -1964,7 +1964,12 @@ func (c *DaemonConfig) populateNodePortRange() error {
 			return errors.New("NodePort range min port must be smaller than max port!")
 		}
 	} else {
-		return errors.New("Unable to parse min/max port value for NodePort range!")
+		// TODO(ctz): This check allows NodePortRange to be passed as explicity
+		// empty, which the pkg/envoy_test.go expects. Should that be the case
+		// or does pkg/envoy_test.go need to be modified?
+		if len(nodePortRange) != 0 {
+			return errors.New("Unable to parse min/max port value for NodePort range!")
+		}
 	}
 
 	return nil

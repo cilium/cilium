@@ -351,11 +351,14 @@ func Test_populateNodePortRange(t *testing.T) {
 			},
 		},
 		{
+			// TODO(ctz): pkg/envoy_test.go expects NodePortRange to be an
+			// empty slice. Should that be the case or does pkg/envoy_test.go
+			// need to be modified?
 			name: "NodePortRange passed as empty",
 			want: want{
 				wantMin: 0,
 				wantMax: 0,
-				wantErr: true,
+				wantErr: false,
 			},
 			preTestRun: func() {
 				viper.Reset()
@@ -365,10 +368,7 @@ func Test_populateNodePortRange(t *testing.T) {
 				fs := flag.NewFlagSet(NodePortRange, flag.ContinueOnError)
 				fs.StringSlice(
 					NodePortRange,
-					[]string{
-						fmt.Sprintf("%d", NodePortMinDefault),
-						fmt.Sprintf("%d", NodePortMaxDefault),
-					},
+					[]string{}, // Explicity has no defaults.
 					"")
 
 				BindEnv(NodePortRange)
