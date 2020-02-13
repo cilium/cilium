@@ -39,6 +39,15 @@ const (
 	outputObject   = OutputType("obj")
 	outputAssembly = OutputType("asm")
 	outputSource   = OutputType("c")
+
+	compiler = "clang"
+	linker   = "llc"
+
+	endpointPrefix   = "bpf_lxc"
+	endpointProg     = endpointPrefix + "." + string(outputSource)
+	endpointObj      = endpointPrefix + ".o"
+	endpointObjDebug = endpointPrefix + ".dbg.o"
+	endpointAsm      = endpointPrefix + string(outputAssembly)
 )
 
 // progInfo describes a program to be compiled with the expected output format
@@ -64,18 +73,10 @@ type directoryInfo struct {
 }
 
 var (
-	compiler       = "clang"
-	linker         = "llc"
 	standardCFlags = []string{"-O2", "-target", "bpf",
 		fmt.Sprintf("-D__NR_CPUS__=%d", runtime.NumCPU()),
 		"-Wno-address-of-packed-member", "-Wno-unknown-warning-option"}
 	standardLDFlags = []string{"-march=bpf", "-mcpu=probe"}
-
-	endpointPrefix   = "bpf_lxc"
-	endpointProg     = fmt.Sprintf("%s.%s", endpointPrefix, outputSource)
-	endpointObj      = fmt.Sprintf("%s.o", endpointPrefix)
-	endpointObjDebug = fmt.Sprintf("%s.dbg.o", endpointPrefix)
-	endpointAsm      = fmt.Sprintf("%s.%s", endpointPrefix, outputAssembly)
 
 	// testIncludes allows the unit tests to inject additional include
 	// paths into the compile command at test time. It is usually nil.

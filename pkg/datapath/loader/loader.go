@@ -36,18 +36,17 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-var (
-	Subsystem = "datapath-loader"
-	log       = logging.DefaultLogger.WithField(logfields.LogSubsys, Subsystem)
-)
-
 const (
+	Subsystem = "datapath-loader"
+
 	symbolFromEndpoint = "from-container"
 	symbolToEndpoint   = "to-container"
 
 	dirIngress = "ingress"
 	dirEgress  = "egress"
 )
+
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, Subsystem)
 
 // Loader is a wrapper structure around operations related to compiling,
 // loading, and reloading datapath programs.
