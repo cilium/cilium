@@ -29,7 +29,7 @@ ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/.git),)
 else
 	GIT_VERSION = $(shell cat $(ROOT_DIR)/GIT_VERSION)
 endif
-BUILD = $(VERSION) $(GIT_VERSION) $(shell go version)
+BUILD = $(VERSION) $(GIT_VERSION) $(shell $(GO) version)
 GOLDFLAGS = -X "github.com/cilium/cilium/pkg/version.Version=$(BUILD)"
 
 CILIUM_ENVOY_SHA=$(shell grep -o "FROM.*cilium/cilium-envoy:[0-9a-fA-F]*" $(ROOT_DIR)/Dockerfile | cut -d : -f 2)
@@ -51,9 +51,9 @@ ifeq ($(GO111MODULE),on)
     GOCLEAN ?= -mod=vendor
 endif
 # Compile with '-mod=vendor' if go >= 1.13
-GO_MAJOR_VERSION_GE_1 := $(shell expr `go version | grep -E 'go[0-9]{1}+' -o | sed 's/go//g'` \>= 1)
+GO_MAJOR_VERSION_GE_1 := $(shell expr `$(GO) version | grep -E 'go[0-9]{1}+' -o | sed 's/go//g'` \>= 1)
 ifeq ($(GO_MAJOR_VERSION_GE_1),1)
-    GO_MINOR_VERSION_GE_13 := $(shell expr `go version | grep -E 'go[^ ]+' -o | sed 's/go1.//g'` \>= 13)
+    GO_MINOR_VERSION_GE_13 := $(shell expr `$(GO) version | grep -E 'go[^ ]+' -o | sed 's/go1.//g'` \>= 13)
     ifeq ($(GO_MINOR_VERSION_GE_13),1)
         GOFLAGS ?= -mod=vendor
         GOCLEAN ?= -mod=vendor
