@@ -178,9 +178,11 @@ clean-tags:
 	@$(ECHO_CLEAN) tags
 	@-rm -f cscope.out cscope.in.out cscope.po.out cscope.files tags
 
+cscope.files: $(GOLANG_SRCFILES) $(BPF_SRCFILES)
+	@echo $(GOLANG_SRCFILES) $(BPF_SRCFILES) | sed 's/ /\n/g' | sort > cscope.files
+
 tags: $(GOLANG_SRCFILES) $(BPF_SRCFILES) cscope.files
-	ctags $(GOLANG_SRCFILES) $(BPF_SRCFILES)
-	@ echo $(GOLANG_SRCFILES) $(BPF_SRCFILES) | sed 's/ /\n/g' | sort > cscope.files
+	@ctags $(GOLANG_SRCFILES) $(BPF_SRCFILES)
 	cscope -R -b -q
 
 clean-container:
