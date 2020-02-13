@@ -10,6 +10,7 @@ BINDIR?=$(PREFIX)/bin
 CNIBINDIR?=/opt/cni/bin
 CNICONFDIR?=/etc/cni/net.d
 LIBDIR?=$(PREFIX)/lib
+LOCALSTATEDIR?=/var
 RUNDIR?=/var/run
 CONFDIR?=/etc
 
@@ -34,7 +35,13 @@ GOLDFLAGS = -X "github.com/cilium/cilium/pkg/version.Version=$(BUILD)"
 
 CILIUM_ENVOY_SHA=$(shell grep -o "FROM.*cilium/cilium-envoy:[0-9a-fA-F]*" $(ROOT_DIR)/Dockerfile | cut -d : -f 2)
 GOLDFLAGS += -X "github.com/cilium/cilium/pkg/envoy.RequiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"
-GOLDFLAGS += -X "github.com/cilium/cilium/pkg/datapath/loader.DatapathSHA=$(GO_BINDATA_SHA1SUM)"
+
+BPF_FILES_EVAL := $(shell git ls-files $(ROOT_DIR)/bpf/ | grep -v .gitignore | tr "\n" ' ')
+BPF_FILES ?= $(BPF_FILES_EVAL)
+BPF_SRCFILES := $(subst ../,,$(BPF_FILES))
+
+CILIUM_DATAPATH_SHA=$(shell cat $(BPF_FILES) | sha1sum | awk '{print $$1}')
+GOLDFLAGS += -X "github.com/cilium/cilium/pkg/datapath/loader.DatapathSHA=$(CILIUM_DATAPATH_SHA)"
 
 # Set DOCKER_IMAGE_TAG with "latest" by default
 ifeq ($(DOCKER_IMAGE_TAG),)

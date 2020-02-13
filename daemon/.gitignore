@@ -1,5 +1,3 @@
-bindata.go
-
 cilium
 cilium-agent
 cilium-node-monitor

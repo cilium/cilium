@@ -13,7 +13,7 @@ FROM quay.io/cilium/cilium-envoy:c31482c3e49670980c05cafc914320f7949b266f as cil
 # versions to be built while allowing the new versions to make changes
 # that are not backwards compatible.
 #
-FROM quay.io/cilium/cilium-builder:2020-02-13 as builder
+FROM quay.io/cilium/cilium-builder:2020-02-19 as builder
 LABEL maintainer="maintainer@cilium.io"
 WORKDIR /go/src/github.com/cilium/cilium
 COPY . ./

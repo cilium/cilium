@@ -36,7 +36,6 @@ contrib/packaging/deb/ @eloycoto
 contrib/packaging/docker/ @aanm @ianvernon
 contrib/vagrant @cilium/ci
 daemon/ @cilium/agent
-daemon/bpf.sha @cilium/bpf
 daemon/datapath.* @cilium/bpf
 daemon/endpoint.* @cilium/endpoint
 daemon/health.* @cilium/health

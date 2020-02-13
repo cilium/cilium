@@ -81,34 +81,4 @@ function relative() {
     done
 }
 
-# Continue rebasing and progressively update the daemon/bpf.sha each time there
-# is a merge conflict for it. If there are merge conflicts in other files, it
-# will stop rebasing and return for user input.
-#
-# Expected usage:
-#   $ git rebase origin/master
-#   <Merge failure on daemon/bpf.sha>
-#   $ rebase-bindata
-#   <For each conflict, your editor opens to review the commit. Save & exit>
-function rebase-bindata
-{
-    (
-        local dir
-        if ! git rebase --show-current-patch ; then
-            return
-        fi
-        set -x
-        while ! git rebase --continue ; do
-            dir=$(cd $(dirname ${BASH_SOURCE})/../.. && pwd)
-            $dir/contrib/scripts/fix-sha.sh
-            git add daemon/bpf.sha
-            if [ $(git diff --diff-filter=U | wc -l) -ne 0 ]; then
-                echo "Files that need manual merge:"
-                git diff --name-only --diff-filter=U
-                break
-            fi
-        done
-    )
-}
-
 trap "echo" EXIT

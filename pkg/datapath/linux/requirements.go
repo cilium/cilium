@@ -203,6 +203,9 @@ func CheckMinRequirements() {
 	if err := os.Chdir(option.Config.LibDir); err != nil {
 		log.WithError(err).WithField(logfields.Path, option.Config.LibDir).Fatal("Could not change to runtime directory")
 	}
+	if _, err := os.Stat(option.Config.BpfDir); os.IsNotExist(err) {
+		log.WithError(err).Fatalf("BPF template directory: NOT OK. Please run 'make install-bpf'")
+	}
 	probeScript := filepath.Join(option.Config.BpfDir, "run_probes.sh")
 	if err := exec.Command(probeScript, option.Config.BpfDir, option.Config.StateDir).Run(); err != nil {
 		log.WithError(err).Fatal("BPF Verifier: NOT OK. Unable to run checker for bpf_features")

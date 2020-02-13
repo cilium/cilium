@@ -1,5 +1,4 @@
 include Makefile.defs
-include daemon/bpf.sha
 
 SUBDIRS_CILIUM_CONTAINER := proxylib envoy plugins/cilium-cni bpf cilium daemon cilium-health bugtool
 ifdef LIBNETWORK_PLUGIN
@@ -12,9 +11,6 @@ TESTPKGS_EVAL := $(subst github.com/cilium/cilium/,,$(shell $(CGO_DISABLED) $(GO
 TESTPKGS ?= $(TESTPKGS_EVAL)
 GOLANGVERSION := $(shell $(GO) version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 GOLANG_SRCFILES := $(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor | sort | uniq)
-BPF_FILES_EVAL := $(shell git ls-files $(ROOT_DIR)/bpf/ | grep -v .gitignore | tr "\n" ' ')
-BPF_FILES ?= $(BPF_FILES_EVAL)
-BPF_SRCFILES := $(subst ../,,$(BPF_FILES))
 
 SWAGGER_VERSION := v0.20.1
 SWAGGER := $(CONTAINER_ENGINE_FULL) run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
@@ -148,7 +144,6 @@ unit-tests: start-kvstores
 	$(QUIET) $(MAKE) -C tools/maptool/
 	$(QUIET) $(MAKE) -C test/bpf/
 	test/bpf/unit-test
-	$(QUIET) $(MAKE) -C daemon/ check-bindata
 ifeq ($(SKIP_VET),"false")
 	$(MAKE) govet
 endif
@@ -193,11 +188,16 @@ clean: clean-container
 	-$(MAKE) -C ./contrib/packaging/rpm clean
 	-rm -f GIT_VERSION
 
-install:
+install-bpf:
+	$(INSTALL) -m 0750 -d $(DESTDIR)$(LOCALSTATEDIR)/lib/cilium
+	-rm -f $(DESTDIR)$(LOCALSTATEDIR)/lib/cilium/bpf
+	$(foreach bpfsrc,$(BPF_SRCFILES), $(INSTALL) -D -m 0644 $(bpfsrc) $(DESTDIR)$(LOCALSTATEDIR)/lib/cilium/$(bpfsrc);)
+
+install: install-bpf
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	for i in $(SUBDIRS); do $(MAKE) -C $$i install; done
 
-install-container:
+install-container: install-bpf
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) -C $$i install; done
 

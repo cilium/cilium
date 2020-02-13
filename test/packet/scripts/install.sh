@@ -65,7 +65,6 @@ sudo ln -s /usr/local/go/bin/* /usr/local/bin/
 go version
 sudo mkdir /go/
 export GOPATH=/go/
-go get -u github.com/cilium/go-bindata/...
 go get -u github.com/google/gops
 go get -u github.com/onsi/ginkgo/ginkgo
 go get -u github.com/onsi/gomega/...

@@ -59,7 +59,6 @@ Requires:      docker-engine >= 1.12, glibc-devel(x86-32), iproute >= 4.10, clan
 BuildRequires: %{?go_compiler:compiler(go-compiler)}%{!?go_compiler:golang}
 
 BuildRequires: golang
-BuildRequires: go-bindata
 BuildRequires: glibc-devel(x86-32)
 BuildRequires: cmake
 BuildRequires: bazel
@@ -107,7 +106,6 @@ echo "%{version}.%{release}" > VERSION
 
 export PKG_BUILD=1
 
-make -C daemon apply-bindata
 make V=1 proxylib plugins bpf cilium daemon monitor cilium-health bugtool tools operator
 
 %install

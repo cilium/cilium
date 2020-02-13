@@ -56,8 +56,4 @@ RUN curl -sfL https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz | tar 
         go get -d -u github.com/gordonklaus/ineffassign && \
         cd /go/src/github.com/gordonklaus/ineffassign && \
         git checkout -b 1003c8bd00dc2869cb5ca5282e6ce33834fed514 1003c8bd00dc2869cb5ca5282e6ce33834fed514 && \
-        go install && \
-        go get -d github.com/cilium/go-bindata/... && \
-        cd /go/src/github.com/cilium/go-bindata && \
-        git checkout -b e950ad39c6092155a6d89f04c90b1c46d8c97d49 e950ad39c6092155a6d89f04c90b1c46d8c97d49 && \
-        go install github.com/cilium/go-bindata/go-bindata
+        go install
