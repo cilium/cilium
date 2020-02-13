@@ -43,7 +43,7 @@ var kvstoreGetCmd = &cobra.Command{
 		setupKvstore(ctx)
 
 		if recursive {
-			pairs, err := kvstore.ListPrefix(ctx, key)
+			pairs, err := kvstore.Client().ListPrefix(ctx, key)
 			if err != nil {
 				Fatalf("Unable to list keys: %s", err)
 			}
@@ -57,17 +57,17 @@ var kvstoreGetCmd = &cobra.Command{
 				fmt.Printf("%s => %s\n", k, string(v.Data))
 			}
 		} else {
-			val, err := kvstore.Get(ctx, key)
+			val, err := kvstore.Client().Get(ctx, key)
 			if err != nil || val == nil {
 				Fatalf("Unable to retrieve key: %s", err)
 			}
 			if command.OutputJSON() {
-				if err := command.PrintOutput(*val); err != nil {
+				if err := command.PrintOutput(string(val)); err != nil {
 					os.Exit(1)
 				}
 				return
 			}
-			fmt.Printf("%s => %s\n", key, *val)
+			fmt.Printf("%s => %s\n", key, string(val))
 		}
 	},
 }

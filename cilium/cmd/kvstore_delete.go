@@ -38,11 +38,11 @@ var kvstoreDeleteCmd = &cobra.Command{
 		setupKvstore(ctx)
 
 		if recursive {
-			if err := kvstore.DeletePrefix(ctx, args[0]); err != nil {
+			if err := kvstore.Client().DeletePrefix(ctx, args[0]); err != nil {
 				Fatalf("Unable to delete keys: %s", err)
 			}
 		} else {
-			if err := kvstore.Delete(ctx, args[0]); err != nil {
+			if err := kvstore.Client().Delete(ctx, args[0]); err != nil {
 				Fatalf("Unable to delete key: %s", err)
 			}
 		}

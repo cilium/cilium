@@ -22,6 +22,17 @@ import (
 	. "gopkg.in/check.v1"
 )
 
+// Close closes the default kvstore client. It does not block on the client
+// being initialised and should only be used as a convenience function in
+// tests.
+func Close() {
+	select {
+	case <-defaultClientSet:
+		defaultClient.Close()
+	default:
+	}
+}
+
 func Test(t *testing.T) {
 	TestingT(t)
 }
