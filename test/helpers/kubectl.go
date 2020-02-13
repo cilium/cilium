@@ -17,8 +17,6 @@ package helpers
 import (
 	"bytes"
 	"context"
-	"crypto/md5"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -808,7 +806,18 @@ func (kub *Kubectl) NamespaceCreate(name string) *CmdRes {
 
 // NamespaceDelete deletes a given Kubernetes namespace
 func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
+	res := kub.DeleteAllInNamespace(name)
+	if !res.WasSuccessful() {
+		kub.Logger().Infof("Error while deleting all objects from %s ns: %s", name, res.GetError().Error())
+	}
 	return kub.ExecShort(fmt.Sprintf("%s delete namespace %s", KubectlCmd, name))
+}
+
+// DeleteAllInNamespace deletes all k8s objects in a namespace
+func (kub *Kubectl) DeleteAllInNamespace(name string) *CmdRes {
+	// we are getting all namespaced resources from k8s apiserver, and delete all objects of these types in a provided namespace
+	return kub.ExecShort(fmt.Sprintf("%s delete $(%s api-resources --namespaced=true --verbs=delete -o name | tr '\n' ',' | sed -e 's/,$//') -n %s --all",
+		KubectlCmd, KubectlCmd, name))
 }
 
 // WaitforPods waits up until timeout seconds have elapsed for all pods in the
@@ -3117,25 +3126,20 @@ func addrsEqual(addr1, addr2 *models.BackendAddress) bool {
 // which is running.
 // Note: Namespaces can only be 63 characters long (to comply with DNS). We
 // ensure that the namespace here is shorter than that, but keep it unique by
-// hashing the complete name.
-func GenerateNamespaceForTest() string {
+// prefixing with timestamp
+func GenerateNamespaceForTest(seed string) string {
 	lowered := strings.ToLower(ginkgoext.CurrentGinkgoTestDescription().FullTestText)
 	// K8s namespaces cannot have spaces or underscores.
 	replaced := strings.Replace(lowered, " ", "", -1)
 	replaced = strings.Replace(replaced, "_", "", -1)
 
-	if len(replaced) <= 63 {
-		return replaced
+	timestamped := time.Now().Format("200601021504") + seed + replaced
+
+	if len(timestamped) <= 63 {
+		return timestamped
 	}
 
-	// We need to shorten the name to <=63 characters
-	// Hash the name, encode it as hex, then put it all together
-	h := md5.Sum(([]byte)(replaced[0:]))
-	hash := hex.EncodeToString(h[:])
-	out := []byte(replaced[:56])
-	out = append(out, []byte("-")...)
-	out = append(out, hash[:6]...)
-	return string(out)
+	return timestamped[:63]
 }
 
 // TimestampFilename appends a "timestamp" to the name. The goal is to make this

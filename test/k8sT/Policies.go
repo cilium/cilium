@@ -187,7 +187,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		}
 
 		BeforeAll(func() {
-			namespaceForTest = helpers.GenerateNamespaceForTest()
+			namespaceForTest = helpers.GenerateNamespaceForTest("")
 			kubectl.NamespaceDelete(namespaceForTest)
 			kubectl.NamespaceCreate(namespaceForTest).ExpectSuccess("could not create namespace")
 			kubectl.Apply(helpers.ApplyOptions{FilePath: demoPath, Namespace: namespaceForTest}).ExpectSuccess("could not create resource")
@@ -1132,11 +1132,12 @@ EOF`, k, v)
 
 		var (
 			err               error
-			secondNS          = "second"
+			secondNS          string
 			appPods           map[string]string
 			appPodsNS         map[string]string
 			clusterIP         string
 			secondNSclusterIP string
+			nsLabel           = "second"
 
 			demoPath           string
 			l3L4Policy         string
@@ -1147,18 +1148,26 @@ EOF`, k, v)
 		)
 
 		BeforeAll(func() {
+			secondNS = helpers.GenerateNamespaceForTest("2")
+
+			cnpSecondNSChart := helpers.ManifestGet(kubectl.BasePath(), "cnp-second-namespaces")
+			cnpSecondNS = helpers.ManifestGet(kubectl.BasePath(), "cnp-second-namespaces.yaml")
+			res := kubectl.HelmTemplate(cnpSecondNSChart, "", cnpSecondNS, map[string]string{
+				"Namespace": secondNS,
+			})
+			res.ExpectSuccess("Unable to render cnp-second-namespace chart")
+
 			demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
 			l3L4Policy = helpers.ManifestGet(kubectl.BasePath(), "l3-l4-policy.yaml")
-			cnpSecondNS = helpers.ManifestGet(kubectl.BasePath(), "cnp-second-namespaces.yaml")
 			netpolNsSelector = fmt.Sprintf("%s -n %s", helpers.ManifestGet(kubectl.BasePath(), "netpol-namespace-selector.yaml"), secondNS)
 			l3l4PolicySecondNS = fmt.Sprintf("%s -n %s", l3L4Policy, secondNS)
 			demoManifest = fmt.Sprintf("%s -n %s", demoPath, secondNS)
 
 			kubectl.NamespaceDelete(secondNS)
-			res := kubectl.NamespaceCreate(secondNS)
+			res = kubectl.NamespaceCreate(secondNS)
 			res.ExpectSuccess("unable to create namespace %q", secondNS)
 
-			res = kubectl.Exec(fmt.Sprintf("kubectl label namespaces/%[1]s nslabel=%[1]s", secondNS))
+			res = kubectl.Exec(fmt.Sprintf("kubectl label namespaces/%s nslabel=%s", secondNS, nsLabel))
 			res.ExpectSuccess("cannot create namespace labels")
 
 			res = kubectl.ApplyDefault(demoManifest)
@@ -1336,8 +1345,8 @@ EOF`, k, v)
 			demoPath        string
 			demoManifestNS1 string
 			demoManifestNS2 string
-			firstNS         = "first"
-			secondNS        = "second"
+			firstNS         string
+			secondNS        string
 
 			appPodsFirstNS  map[string]string
 			appPodsSecondNS map[string]string
@@ -1352,6 +1361,8 @@ EOF`, k, v)
 		)
 
 		BeforeAll(func() {
+			firstNS = helpers.GenerateNamespaceForTest("1")
+			secondNS = helpers.GenerateNamespaceForTest("2")
 			demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
 			egressDenyAllPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-default-deny-egress.yaml")
 			ingressDenyAllPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-default-deny-ingress.yaml")

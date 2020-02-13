@@ -10,7 +10,7 @@ spec:
   ingress:
   - fromEndpoints:
     - matchLabels:
-        "k8s:io.kubernetes.pod.namespace": second
+        "k8s:io.kubernetes.pod.namespace": {{ .Values.Namespace }}
     toPorts:
     - ports:
       - port: "80"
