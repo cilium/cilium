@@ -16,6 +16,7 @@ package encrypt
 
 import (
 	"fmt"
+	"sync"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -74,21 +75,25 @@ const (
 )
 
 var (
-	// Encrypt represents the BPF map for sockets
-	encryptMap = bpf.NewMap(MapName,
-		bpf.MapTypeArray,
-		&EncryptKey{},
-		int(unsafe.Sizeof(EncryptKey{})),
-		&EncryptValue{},
-		int(unsafe.Sizeof(EncryptValue{})),
-		MaxEntries,
-		0, 0,
-		bpf.ConvertKeyValue,
-	).WithCache()
+	once       sync.Once
+	encryptMap *bpf.Map
 )
 
 // MapCreate will create an encrypt map
 func MapCreate() error {
+	once.Do(func() {
+		encryptMap = bpf.NewMap(MapName,
+			bpf.MapTypeArray,
+			&EncryptKey{},
+			int(unsafe.Sizeof(EncryptKey{})),
+			&EncryptValue{},
+			int(unsafe.Sizeof(EncryptValue{})),
+			MaxEntries,
+			0, 0,
+			bpf.ConvertKeyValue,
+		).WithCache()
+	})
+
 	_, err := encryptMap.OpenOrCreate()
 	return err
 }

@@ -365,7 +365,7 @@ func (d *Daemon) initMaps() error {
 }
 
 func setupIPSec() (int, uint8, error) {
-	if option.Config.EncryptNode == false {
+	if !option.Config.EncryptNode {
 		ipsec.DeleteIPsecEncryptRoute()
 	}
 
