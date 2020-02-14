@@ -80,7 +80,7 @@ func (cdw *configDirectoryWatcher) watch() error {
 		// lrwxrwxrwx. 1 root root 12 Jul 21 16:32 test7 -> ..data/test7
 		//
 		// Ignore all backing files and only read the symlinks
-		if strings.HasPrefix(f.Name(), "..") {
+		if strings.HasPrefix(f.Name(), "..") || f.IsDir() {
 			continue
 		}
 
