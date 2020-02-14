@@ -4,16 +4,15 @@ set -e
 
 locked=1
 
-zone=us-west1-a
 export KUBECONFIG=gke-kubeconfig
 
 while [ $locked -ne 0 ]; do
     rm gke-kubeconfig || true
     echo "selecting random cluster"
-    cluster=$(gcloud container clusters list --zone $zone | grep cilium-ci | sort -R | head -n 1 | awk '{print $1}')
+    cluster=$(gcloud container clusters list --zone $GKE_ZONE | grep cilium-ci | sort -R | head -n 1 | awk '{print $1}')
 
     echo "getting kubeconfig for $cluster"
-    gcloud container clusters get-credentials --zone $zone $cluster
+    gcloud container clusters get-credentials --zone $GKE_ZONE $cluster
 
     echo "aquiring cluster lock"
     set +e
@@ -33,7 +32,7 @@ echo "creating cilium ns"
 kubectl create ns cilium || true
 
 echo "scaling $cluster to 2"
-yes | gcloud container clusters resize $cluster --node-pool default-pool --num-nodes 2 --zone $zone
+yes | gcloud container clusters resize $cluster --node-pool default-pool --num-nodes 2 --zone $GKE_ZONE
 
 echo "labeling nodes"
 index=1

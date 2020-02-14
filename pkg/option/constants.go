@@ -28,8 +28,8 @@ const (
 
 var (
 	TCPFlags = map[string]uint16{
-		"none": 0,
-		"all":  ^uint16(0),
+		"none": uint16(0x0000),
+		"all":  uint16(0x00FF),
 		"fin":  TCP_FIN,
 		"syn":  TCP_SYN,
 		"rst":  TCP_RST,

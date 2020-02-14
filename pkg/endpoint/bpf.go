@@ -216,16 +216,18 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				direction = trafficdirection.Egress
 			}
 
-			keysFromFilter := l4.ToKeys(direction)
+			keysFromFilter := l4.ToMapState(direction)
 
-			for _, keyFromFilter := range keysFromFilter {
+			for keyFromFilter, entry := range keysFromFilter {
 				if oldEntry, ok := e.desiredPolicy.PolicyMapState[keyFromFilter]; ok {
 					updatedDesiredMapState[keyFromFilter] = oldEntry
 				} else {
 					insertedDesiredMapState[keyFromFilter] = struct{}{}
 				}
-
-				e.desiredPolicy.PolicyMapState[keyFromFilter] = policy.MapStateEntry{ProxyPort: redirectPort}
+				if entry != policy.NoRedirectEntry {
+					entry.ProxyPort = redirectPort
+				}
+				e.desiredPolicy.PolicyMapState[keyFromFilter] = entry
 			}
 		}
 	}
@@ -1060,13 +1062,15 @@ func (e *Endpoint) applyPolicyMapChanges() (proxyChanges bool, err error) {
 	//  collected on the newly computed desired policy, which is
 	//  not fully realized yet. This is why we get the map changes
 	//  from the desired policy here.
-	adds, deletes := e.desiredPolicy.PolicyMapChanges.ConsumeMapChanges()
+	adds, deletes := e.desiredPolicy.ConsumeMapChanges()
 
 	for keyToAdd, entry := range adds {
 		// Keep the existing proxy port, if any
-		entry.ProxyPort = e.realizedRedirects[policy.ProxyIDFromKey(e.ID, keyToAdd)]
-		if entry.ProxyPort != 0 {
-			proxyChanges = true
+		if entry != policy.NoRedirectEntry {
+			entry.ProxyPort = e.realizedRedirects[policy.ProxyIDFromKey(e.ID, keyToAdd)]
+			if entry.ProxyPort != 0 {
+				proxyChanges = true
+			}
 		}
 		if !e.addPolicyKey(keyToAdd, entry, true) {
 			errors++

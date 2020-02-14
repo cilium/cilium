@@ -202,11 +202,11 @@ var (
 	cachedRequiresV2Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, RequiresV2Selector)
 )
 
-var L7Rules1 = &policy.PerEpData{L7Rules: api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2}}}
+var L7Rules1 = &policy.PerSelectorPolicy{L7Rules: api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2}}}
 
-var L7Rules1HeaderMatch = &policy.PerEpData{L7Rules: api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2HeaderMatch}}}
+var L7Rules1HeaderMatch = &policy.PerSelectorPolicy{L7Rules: api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2HeaderMatch}}}
 
-var L7Rules2 = &policy.PerEpData{L7Rules: api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1}}}
+var L7Rules2 = &policy.PerSelectorPolicy{L7Rules: api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1}}}
 
 var ExpectedPortNetworkPolicyRule1 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: []uint64{1001, 1002},
@@ -288,7 +288,7 @@ var L4PolicyMap1 = map[string]*policy.L4Filter{
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		L7Parser: policy.ParserTypeHTTP,
-		L7RulesPerEp: policy.L7DataMap{
+		L7RulesPerSelector: policy.L7DataMap{
 			cachedSelector1: L7Rules1,
 		},
 	},
@@ -299,7 +299,7 @@ var L4PolicyMap1HeaderMatch = map[string]*policy.L4Filter{
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		L7Parser: policy.ParserTypeHTTP,
-		L7RulesPerEp: policy.L7DataMap{
+		L7RulesPerSelector: policy.L7DataMap{
 			cachedSelector1: L7Rules1HeaderMatch,
 		},
 	},
@@ -310,40 +310,40 @@ var L4PolicyMap1RequiresV2 = map[string]*policy.L4Filter{
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		L7Parser: policy.ParserTypeHTTP,
-		L7RulesPerEp: policy.L7DataMap{
+		L7RulesPerSelector: policy.L7DataMap{
 			cachedRequiresV2Selector1: L7Rules1,
 		},
 	},
 }
 
 var L4PolicyMap2 = map[string]*policy.L4Filter{
-	"8080/UDP": {
+	"8080/TCP": {
 		Port:     8080,
-		Protocol: api.ProtoUDP,
+		Protocol: api.ProtoTCP,
 		L7Parser: policy.ParserTypeHTTP,
-		L7RulesPerEp: policy.L7DataMap{
+		L7RulesPerSelector: policy.L7DataMap{
 			cachedSelector2: L7Rules2,
 		},
 	},
 }
 
 var L4PolicyMap3 = map[string]*policy.L4Filter{
-	"80/UDP": {
+	"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		L7Parser: policy.ParserTypeHTTP,
-		L7RulesPerEp: policy.L7DataMap{
+		L7RulesPerSelector: policy.L7DataMap{
 			wildcardCachedSelector: L7Rules1,
 		},
 	},
 }
 
 var L4PolicyMap3RequiresV2 = map[string]*policy.L4Filter{
-	"80/UDP": {
+	"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		L7Parser: policy.ParserTypeHTTP,
-		L7RulesPerEp: policy.L7DataMap{
+		L7RulesPerSelector: policy.L7DataMap{
 			cachedRequiresV2Selector: L7Rules1,
 		},
 	},
@@ -354,8 +354,8 @@ var L4PolicyMap4 = map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
-		L7RulesPerEp: policy.L7DataMap{
-			cachedSelector1: &policy.PerEpData{L7Rules: api.L7Rules{}},
+		L7RulesPerSelector: policy.L7DataMap{
+			cachedSelector1: &policy.PerSelectorPolicy{L7Rules: api.L7Rules{}},
 		},
 	},
 }
@@ -365,8 +365,8 @@ var L4PolicyMap5 = map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
-		L7RulesPerEp: policy.L7DataMap{
-			wildcardCachedSelector: &policy.PerEpData{L7Rules: api.L7Rules{}},
+		L7RulesPerSelector: policy.L7DataMap{
+			wildcardCachedSelector: &policy.PerSelectorPolicy{L7Rules: api.L7Rules{}},
 		},
 	},
 }
@@ -394,7 +394,7 @@ var ExpectedPerPortPolicies1HeaderMatch = []*cilium.PortNetworkPolicy{
 var ExpectedPerPortPolicies2 = []*cilium.PortNetworkPolicy{
 	{
 		Port:     8080,
-		Protocol: envoy_api_v2_core.SocketAddress_UDP,
+		Protocol: envoy_api_v2_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{
 			ExpectedPortNetworkPolicyRule2,
 		},
@@ -592,8 +592,8 @@ var L4PolicyL7 = &policy.L4Policy{
 		"9090/TCP": {
 			Port: 9090, Protocol: api.ProtoTCP,
 			L7Parser: "tester",
-			L7RulesPerEp: policy.L7DataMap{
-				cachedSelector1: &policy.PerEpData{L7Rules: api.L7Rules{
+			L7RulesPerSelector: policy.L7DataMap{
+				cachedSelector1: &policy.PerSelectorPolicy{L7Rules: api.L7Rules{
 					L7Proto: "tester",
 					L7: []api.PortRuleL7{
 						map[string]string{

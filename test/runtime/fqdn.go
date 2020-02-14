@@ -177,8 +177,13 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		ExpectCiliumReady(vm)
 
 		By("Create sample containers in %q docker network", worldNetwork)
-		vm.Exec(fmt.Sprintf("docker network create  %s", worldNetwork)).ExpectSuccess(
-			"%q network cant be created", worldNetwork)
+		res := vm.Exec(fmt.Sprintf("docker network create %s", worldNetwork))
+		if !res.WasSuccessful() {
+			if !strings.Contains(res.GetStdErr(), "network with name world already exists") {
+				res.ExpectSuccess(
+					"%q network cant be created", worldNetwork)
+			}
+		}
 
 		for name, image := range ciliumTestImages {
 			vm.ContainerCreate(name, image, worldNetwork, fmt.Sprintf("-l id.%s", name))
@@ -224,7 +229,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		// Use a bridge network (The docker default) to be able to use this
 		// server from cilium agent. This should change when DNS proxy is in
 		// place.
-		res := vm.ContainerCreate(
+		res = vm.ContainerCreate(
 			bindContainerName,
 			constants.BindContainerImage,
 			"bridge",
@@ -346,7 +351,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
   }
 ]`
 		fqdnPolicyImport(fqdnPolicy)
-		expectFQDNSareApplied("cilium.test", 1)
+		expectFQDNSareApplied("cilium.test", 0)
 
 		By("Denying egress to IPs of DNS names not in ToFQDNs, and normal IPs")
 		// www.cilium.io has a different IP than cilium.io (it is CNAMEd as well!),
@@ -402,7 +407,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		_, err := vm.PolicyRenderAndImport(policy)
 		Expect(err).To(BeNil(), "Policy cannot be imported")
 
-		expectFQDNSareApplied("cilium.test", 1)
+		expectFQDNSareApplied("cilium.test", 0)
 
 		allowVerdict := "verdict Forwarded DNS Query: world1.cilium.test"
 		deniedVerdict := "verdict Denied DNS Query: world2.cilium.test"
@@ -461,7 +466,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		_, err := vm.PolicyRenderAndImport(fmt.Sprintf(policy, outsideIps[OutsideHttpd1]))
 		Expect(err).To(BeNil(), "Policy cannot be imported")
 
-		expectFQDNSareApplied("cilium.test", 1)
+		expectFQDNSareApplied("cilium.test", 0)
 
 		By("Testing connectivity to Cilium.test domain")
 		res := vm.ContainerExec(helpers.App1, helpers.CurlFail(world1Target))
@@ -571,7 +576,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 ]`
 		_, err := vm.PolicyRenderAndImport(fqdnPolicy)
 		Expect(err).To(BeNil(), "Policy cannot be imported")
-		expectFQDNSareApplied("cilium.test", 1)
+		expectFQDNSareApplied("cilium.test", 0)
 
 		By("Allowing egress to IPs of only the specified DNS names")
 		res := vm.ContainerExec(helpers.App1, helpers.CurlFail(world2Target))
@@ -657,7 +662,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		_, err := vm.PolicyRenderAndImport(policy)
 		Expect(err).To(BeNil(), "Policy cannot be imported")
 
-		expectFQDNSareApplied("cilium.test", 1)
+		expectFQDNSareApplied("cilium.test", 0)
 		target := "http://level1CNAME.cilium.test"
 		res := vm.ContainerExec(helpers.App1, helpers.CurlFail(target))
 		res.ExpectSuccess("Container %q cannot access to %q when should work", helpers.App1, target)
@@ -784,7 +789,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 ]`
 		_, err := vm.PolicyRenderAndImport(fqdnPolicy)
 		Expect(err).To(BeNil(), "Policy cannot be imported")
-		expectFQDNSareApplied("cilium.test", 1)
+		expectFQDNSareApplied("cilium.test", 0)
 
 		By("Denying egress to any IPs or domains")
 		for _, allowedTarget := range []string{"world1.cilium.test", "world2.cilium.test", "world3.cilium.test", "level1CNAME.cilium.test", "level2CNAME.cilium.test"} {
@@ -833,7 +838,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 
 		// Selector cache is populated when a policy is applied on an endpoint.
 		// DNSSEC container is not running yet, so we can't expect the FQDNs to be applied yet.
-		// expectFQDNSareApplied("dnssec.test", 1)
+		// expectFQDNSareApplied("dnssec.test", 0)
 
 		By("Validate that allow target is working correctly")
 		res := vm.ContainerRun(
@@ -1043,7 +1048,7 @@ INITSYSTEM=SYSTEMD`
 		_, err := vm.PolicyRenderAndImport(policy)
 		Expect(err).To(BeNil(), "Policy cannot be imported")
 
-		expectFQDNSareApplied("cilium.test", 1)
+		expectFQDNSareApplied("cilium.test", 0)
 
 		By("Curl from %q to %q", helpers.App1, targetURL)
 		res := vm.ContainerExec(helpers.App1, helpers.CurlFail(targetURL))

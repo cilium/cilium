@@ -171,6 +171,10 @@ func GenerateCIDRRules(numRules int) api.Rules {
 type DummyOwner struct{}
 
 func (d DummyOwner) LookupRedirectPort(l4 *L4Filter) uint16 {
+	// Return a fake non-0 listening port number for redirect filters.
+	if l4.IsRedirect() {
+		return 4242
+	}
 	return 0
 }
 
@@ -283,14 +287,11 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 						Port:     80,
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
-						CachedSelectors: CachedSelectorSlice{
-							wildcardCachedSelector,
-						},
-						allowsAllAtL3: true,
-						L7Parser:      ParserTypeHTTP,
-						Ingress:       true,
-						L7RulesPerEp: L7DataMap{
-							wildcardCachedSelector: &PerEpData{
+						wildcard: wildcardCachedSelector,
+						L7Parser: ParserTypeHTTP,
+						Ingress:  true,
+						L7RulesPerSelector: L7DataMap{
+							wildcardCachedSelector: &PerSelectorPolicy{
 								L7Rules: api.L7Rules{
 									HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/good"}},
 								},
@@ -378,24 +379,17 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 						Port:     80,
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
-						CachedSelectors: CachedSelectorSlice{
-							wildcardCachedSelector,
-							cachedSelectorHost,
-						},
-						allowsAllAtL3: true,
-						L7Parser:      ParserTypeHTTP,
-						Ingress:       true,
-						L7RulesPerEp: L7DataMap{
-							wildcardCachedSelector: &PerEpData{
+						wildcard: wildcardCachedSelector,
+						L7Parser: ParserTypeHTTP,
+						Ingress:  true,
+						L7RulesPerSelector: L7DataMap{
+							wildcardCachedSelector: &PerSelectorPolicy{
 								L7Rules: api.L7Rules{
 									HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/good"}},
 								},
 								CanShortCircuit: true,
 							},
-							cachedSelectorHost: &PerEpData{
-								L7Rules:         api.L7Rules{},
-								CanShortCircuit: true,
-							},
+							cachedSelectorHost: nil,
 						},
 						DerivedFromRules: labels.LabelArrayList{nil},
 					},
@@ -464,13 +458,12 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 						Port:     80,
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
-						CachedSelectors: CachedSelectorSlice{
-							wildcardCachedSelector,
+						wildcard: wildcardCachedSelector,
+						L7Parser: ParserTypeNone,
+						Ingress:  true,
+						L7RulesPerSelector: L7DataMap{
+							wildcardCachedSelector: nil,
 						},
-						allowsAllAtL3:    true,
-						L7Parser:         ParserTypeNone,
-						Ingress:          true,
-						L7RulesPerEp:     L7DataMap{},
 						DerivedFromRules: labels.LabelArrayList{nil},
 					},
 				},
@@ -492,8 +485,8 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 		identity.NumericIdentity(192): labels.ParseSelectLabelArray("id=resolve_test_1"),
 	}
 	testSelectorCache.UpdateIdentities(added1, nil)
-	c.Assert(policy.PolicyMapChanges.adds, HasLen, 0)
-	c.Assert(policy.PolicyMapChanges.deletes, HasLen, 0)
+	c.Assert(policy.policyMapChanges.adds, HasLen, 0)
+	c.Assert(policy.policyMapChanges.deletes, HasLen, 0)
 
 	// Have to remove circular reference before testing to avoid an infinite loop
 	policy.selectorPolicy.Detach()
@@ -557,15 +550,15 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 		identity.NumericIdentity(194): labels.ParseSelectLabelArray("id=resolve_test_1", "num=3"),
 	}
 	testSelectorCache.UpdateIdentities(added1, nil)
-	c.Assert(policy.PolicyMapChanges.adds, HasLen, 3)
-	c.Assert(policy.PolicyMapChanges.deletes, HasLen, 0)
+	c.Assert(policy.policyMapChanges.adds, HasLen, 3)
+	c.Assert(policy.policyMapChanges.deletes, HasLen, 0)
 
 	deleted1 := cache.IdentityCache{
 		identity.NumericIdentity(193): labels.ParseSelectLabelArray("id=resolve_test_1", "num=2"),
 	}
 	testSelectorCache.UpdateIdentities(nil, deleted1)
-	c.Assert(policy.PolicyMapChanges.adds, HasLen, 2)
-	c.Assert(policy.PolicyMapChanges.deletes, HasLen, 1)
+	c.Assert(policy.policyMapChanges.adds, HasLen, 2)
+	c.Assert(policy.policyMapChanges.deletes, HasLen, 1)
 
 	cachedSelectorWorld := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorld])
 	c.Assert(cachedSelectorWorld, Not(IsNil))
@@ -584,14 +577,12 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 						Port:     80,
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
-						CachedSelectors: CachedSelectorSlice{
-							cachedSelectorWorld,
-							cachedSelectorTest,
+						L7Parser: ParserTypeNone,
+						Ingress:  true,
+						L7RulesPerSelector: L7DataMap{
+							cachedSelectorWorld: nil,
+							cachedSelectorTest:  nil,
 						},
-						allowsAllAtL3:    false,
-						L7Parser:         ParserTypeNone,
-						Ingress:          true,
-						L7RulesPerEp:     L7DataMap{},
 						DerivedFromRules: labels.LabelArrayList{nil, nil},
 					},
 				},
@@ -606,7 +597,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 			{TrafficDirection: trafficdirection.Egress.Uint8()}:                          {},
 			{Identity: uint32(identity.ReservedIdentityWorld), DestPort: 80, Nexthdr: 6}: {},
 		},
-		PolicyMapChanges: MapChanges{
+		policyMapChanges: MapChanges{
 			adds: MapState{
 				{Identity: 192, DestPort: 80, Nexthdr: 6}: {},
 				{Identity: 194, DestPort: 80, Nexthdr: 6}: {},
@@ -626,10 +617,10 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 
 	c.Assert(policy, checker.Equals, &expectedEndpointPolicy)
 
-	adds, deletes := policy.PolicyMapChanges.ConsumeMapChanges()
+	adds, deletes := policy.ConsumeMapChanges()
 	// maps on the policy got cleared
-	c.Assert(policy.PolicyMapChanges.adds, IsNil)
-	c.Assert(policy.PolicyMapChanges.deletes, IsNil)
+	c.Assert(policy.policyMapChanges.adds, IsNil)
+	c.Assert(policy.policyMapChanges.deletes, IsNil)
 
 	c.Assert(adds, checker.Equals, MapState{
 		{Identity: 192, DestPort: 80, Nexthdr: 6}: {},

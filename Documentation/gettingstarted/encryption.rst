@@ -6,9 +6,9 @@
 
 .. _encryption:
 
-*****************************
-Transparent Encryption (beta)
-*****************************
+************************************
+Transparent Encryption (stable/beta)
+************************************
 
 This guide explains how to configure Cilium to use IPsec based transparent
 encryption using Kubernetes secrets to distribute the IPsec keys. After this
@@ -19,8 +19,9 @@ keys may be manually distributed but that is not shown here.
 
 .. note::
 
-    This is a beta feature. Please provide feedback and file a GitHub issue
-    if you experience any problems.
+    The encryption feature is stable in combination with the direct-routing and
+    ENI datapath mode. In combination with encapsulation/tunneling, the feature
+    is still in beta phase.
 
 Generate & import the PSK
 =========================
@@ -54,7 +55,7 @@ Deploy Cilium release via Helm:
 .. parsed-literal::
 
     helm install cilium |CHART_RELEASE| \\
-      --namespace cilium \\
+      --namespace kube-system \\
       --set global.encryption.enabled=true \\
       --set global.encryption.nodeEncryption=false
 
@@ -119,10 +120,10 @@ To replace cilium-ipsec-keys secret with a new keys,
 
 .. code-block:: shell-session
 
-    KEYID=$(kubectl get secret -n cilium cilium-ipsec-keys -o yaml|grep keys: | awk '{print $2}' | base64 -d | awk '{print $1}')
+    KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o yaml|grep keys: | awk '{print $2}' | base64 -d | awk '{print $1}')
     if [[ $KEYID -gt 15 ]]; then KEYID=0; fi
     data=$(echo "{\"stringData\":{\"keys\":\"$((($KEYID+1))) "rfc4106\(gcm\(aes\)\)" $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null| xxd -p -c 64)) 128\"}}")
-    kubectl patch secret -n cilium cilium-ipsec-keys -p="${data}" -v=1
+    kubectl patch secret -n kube-system cilium-ipsec-keys -p="${data}" -v=1
 
 Then restart cilium agents to transition to the new key. During transition the
 new and old keys will be in use. The cilium agent keeps per endpoint data on

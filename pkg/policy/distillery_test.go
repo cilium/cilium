@@ -246,14 +246,14 @@ var (
 	mapKeyAllow___L4 = Key{0, 80, 6, dirIngress}
 	mapKeyAllowAll__ = Key{0, 0, 0, dirIngress}
 	// Desired map entries for no L7 redirect / redirect to Proxy
-	mapEntryL7None_ = MapStateEntry{l7RedirectNone_}
-	mapEntryL7Proxy = MapStateEntry{l7RedirectProxy}
+	mapEntryL7None_ = NoRedirectEntry
+	mapEntryL7Proxy = redirectEntry
 )
 
 // combineL4L7 returns a new PortRule that refers to the specified l4 ports and
 // l7 rules.
 func combineL4L7(l4 []api.PortRule, l7 *api.L7Rules) []api.PortRule {
-	result := make([]api.PortRule, len(l4))
+	result := make([]api.PortRule, 0, len(l4))
 	for _, pr := range l4 {
 		result = append(result, api.PortRule{
 			Ports: pr.Ports,
@@ -314,52 +314,13 @@ func (d *policyDistillery) distillPolicy(epLabels labels.LabelArray) (MapState, 
 	// Handle L4 ingress from each identity in the cache to the endpoint.
 	io.WriteString(d.log, "[distill] Producing L4 filter keys\n")
 	for _, l4 := range l4IngressPolicy {
-		io.WriteString(d.log, fmt.Sprintf("[distill] Processing L4Filter (l3: %+v), (l4: %d/%s), (l7: %+v)\n", l4.CachedSelectors, l4.Port, l4.Protocol, l4.L7RulesPerEp))
-		for _, key := range l4.ToKeys(0) {
-			io.WriteString(d.log, fmt.Sprintf("[distill] L4 ingress allow %+v (parser=%s, redirect=%t)\n", key, l4.L7Parser, l4.IsRedirect()))
-			if l4.IsRedirect() {
-				result[key] = MapStateEntry{l7RedirectProxy}
-			} else {
-				result[key] = MapStateEntry{l7RedirectNone_}
-			}
+		io.WriteString(d.log, fmt.Sprintf("[distill] Processing L4Filter (l4: %d/%s), (l3/7: %+v)\n", l4.Port, l4.Protocol, l4.L7RulesPerSelector))
+		for key, entry := range l4.ToMapState(0) {
+			io.WriteString(d.log, fmt.Sprintf("[distill] L4 ingress allow %+v (parser=%s, redirect=%t)\n", key, l4.L7Parser, entry != NoRedirectEntry))
+			result[key] = entry
 		}
 	}
 	l4IngressPolicy.Detach(d.Repository.GetSelectorCache())
-
-	// Handle L3-wildcard of L7 destinations
-	// Eg, when you have L4+L7 "allow /public on 80" with L3 "allow all from foo"
-	// Initially, three keys would be generated: L4+L7, L3+L4+L7, and L3.
-	// Here, we remove the L3+L4+L7 key if it overlaps with the L4+L7,
-	// but only if they have the same L7 redirect.
-	//
-	// For these the BPF policy order of attempting L3+L4 lookup, L4 lookup,
-	// then L3 lookup means that three keys are not strictly necessary; the
-	// correct behaviour can be encoded with two keys - an L4 key and L3 key.
-	nKeys := 0
-	l3l4keys := make([]Key, len(result))
-	for k := range result {
-		if k.Identity > 0 && k.DestPort > 0 {
-			l3l4keys[nKeys] = k
-			nKeys++
-		}
-	}
-	for i := 0; i < nKeys; i++ {
-		k := l3l4keys[i]
-		io.WriteString(d.log, fmt.Sprintf("[distill] Squashing L3-dependent L4 key %+v\n", k))
-		wildcardL3 := Key{DestPort: k.DestPort, Nexthdr: k.Nexthdr, TrafficDirection: k.TrafficDirection}
-		wildcardL4 := Key{Identity: k.Identity, TrafficDirection: k.TrafficDirection}
-		if _, ok := result[wildcardL4]; ok {
-			io.WriteString(d.log, fmt.Sprintf("[distill] -> Found L3 overlap %+v\n", wildcardL4))
-			if entry, ok := result[wildcardL3]; ok {
-				io.WriteString(d.log, fmt.Sprintf("[distill] -> Found L4 overlap %+v:%+v\n", wildcardL3, entry))
-				if entry.ProxyPort == result[k].ProxyPort {
-					io.WriteString(d.log, fmt.Sprintf("[distill] -> Removing L3-dependent L4 %+v\n", k))
-					delete(result, k)
-				}
-			}
-		}
-	}
-
 	return result, nil
 }
 
@@ -424,34 +385,32 @@ func Test_MergeRules(t *testing.T) {
 		{3, api.Rules{rule____NoAllow, rule____NoAllow, rule____NoAllow, rule__L4__Allow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7None_, mapKeyAllowFoo__: mapEntryL7None_}},
 		{4, api.Rules{rule____NoAllow, rule____NoAllow, ruleL3L4__Allow, rule____NoAllow, rule____NoAllow}, MapState{mapKeyAllowFooL4: mapEntryL7None_}},
 		{5, api.Rules{rule____NoAllow, rule____NoAllow, ruleL3L4__Allow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllowFooL4: mapEntryL7None_, mapKeyAllowFoo__: mapEntryL7None_}},
-		{6, api.Rules{rule____NoAllow, rule____NoAllow, ruleL3L4__Allow, rule__L4__Allow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7None_}},                                    // Differs from spreadsheet(!)
-		{7, api.Rules{rule____NoAllow, rule____NoAllow, ruleL3L4__Allow, rule__L4__Allow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7None_, mapKeyAllowFoo__: mapEntryL7None_}}, // Differs from spreadsheet(!)
+		{6, api.Rules{rule____NoAllow, rule____NoAllow, ruleL3L4__Allow, rule__L4__Allow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7None_}},                                    // identical L3L4 entry suppressed
+		{7, api.Rules{rule____NoAllow, rule____NoAllow, ruleL3L4__Allow, rule__L4__Allow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7None_, mapKeyAllowFoo__: mapEntryL7None_}}, // identical L3L4 entry suppressed
 		{8, api.Rules{rule____NoAllow, rule__L4L7Allow, rule____NoAllow, rule____NoAllow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy}},
 		{9, api.Rules{rule____NoAllow, rule__L4L7Allow, rule____NoAllow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy, mapKeyAllowFoo__: mapEntryL7None_}},
 		{10, api.Rules{rule____NoAllow, rule__L4L7Allow, rule____NoAllow, rule__L4__Allow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy}},
 		{11, api.Rules{rule____NoAllow, rule__L4L7Allow, rule____NoAllow, rule__L4__Allow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy, mapKeyAllowFoo__: mapEntryL7None_}},
-		{12, api.Rules{rule____NoAllow, rule__L4L7Allow, ruleL3L4__Allow, rule____NoAllow, rule____NoAllow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy, mapKeyAllow___L4: mapEntryL7Proxy}},
-		{13, api.Rules{rule____NoAllow, rule__L4L7Allow, ruleL3L4__Allow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy, mapKeyAllowFoo__: mapEntryL7None_}}, // Differs from spreadsheet(!)
-		{14, api.Rules{rule____NoAllow, rule__L4L7Allow, ruleL3L4__Allow, rule__L4__Allow, rule____NoAllow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy, mapKeyAllow___L4: mapEntryL7Proxy}},
-		{15, api.Rules{rule____NoAllow, rule__L4L7Allow, ruleL3L4__Allow, rule__L4__Allow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy, mapKeyAllowFoo__: mapEntryL7None_}}, // Differs from spreadsheet(!)
+		{12, api.Rules{rule____NoAllow, rule__L4L7Allow, ruleL3L4__Allow, rule____NoAllow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy}},                                    // L3L4 entry suppressed to allow L4-only entry to redirect
+		{13, api.Rules{rule____NoAllow, rule__L4L7Allow, ruleL3L4__Allow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy, mapKeyAllowFoo__: mapEntryL7None_}}, // L3L4 entry suppressed to allow L4-only entry to redirect
+		{14, api.Rules{rule____NoAllow, rule__L4L7Allow, ruleL3L4__Allow, rule__L4__Allow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy}},                                    // L3L4 entry suppressed to allow L4-only entry to redirect
+		{15, api.Rules{rule____NoAllow, rule__L4L7Allow, ruleL3L4__Allow, rule__L4__Allow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy, mapKeyAllowFoo__: mapEntryL7None_}}, // L3L4 entry suppressed to allow L4-only entry to redirect
 		{16, api.Rules{ruleL3L4L7Allow, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule____NoAllow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy}},
 		{17, api.Rules{ruleL3L4L7Allow, rule____NoAllow, rule____NoAllow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy, mapKeyAllowFoo__: mapEntryL7None_}},
-		// TODO: Tests 22-23 reveal a bug in the redirect logic (GH-7438).
-		//{18, api.Rules{ruleL3L4L7Allow, rule____NoAllow, rule____NoAllow, rule__L4__Allow, rule____NoAllow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy, mapKeyAllow___L4: mapEntryL7None_}},
-		//{19, api.Rules{ruleL3L4L7Allow, rule____NoAllow, rule____NoAllow, rule__L4__Allow, ruleL3____Allow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy, mapKeyAllow___L4: mapEntryL7None_, mapKeyAllowFoo__: mapEntryL7None_}},
+		{18, api.Rules{ruleL3L4L7Allow, rule____NoAllow, rule____NoAllow, rule__L4__Allow, rule____NoAllow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy, mapKeyAllow___L4: mapEntryL7None_}},
+		{19, api.Rules{ruleL3L4L7Allow, rule____NoAllow, rule____NoAllow, rule__L4__Allow, ruleL3____Allow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy, mapKeyAllow___L4: mapEntryL7None_, mapKeyAllowFoo__: mapEntryL7None_}},
 		{20, api.Rules{ruleL3L4L7Allow, rule____NoAllow, ruleL3L4__Allow, rule____NoAllow, rule____NoAllow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy}},
 		{21, api.Rules{ruleL3L4L7Allow, rule____NoAllow, ruleL3L4__Allow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy, mapKeyAllowFoo__: mapEntryL7None_}},
-		// TODO: Tests 22-23 reveal a bug in the redirect logic (GH-7438).
-		//{22, api.Rules{ruleL3L4L7Allow, rule____NoAllow, ruleL3L4__Allow, rule__L4__Allow, rule____NoAllow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy, mapKeyAllow___L4: mapEntryL7None_}},
-		//{23, api.Rules{ruleL3L4L7Allow, rule____NoAllow, ruleL3L4__Allow, rule__L4__Allow, ruleL3____Allow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy, mapKeyAllow___L4: mapEntryL7None_, mapKeyAllowFoo__: mapEntryL7None_}},
-		{24, api.Rules{ruleL3L4L7Allow, rule__L4L7Allow, rule____NoAllow, rule____NoAllow, rule____NoAllow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy, mapKeyAllow___L4: mapEntryL7Proxy}},
-		{25, api.Rules{ruleL3L4L7Allow, rule__L4L7Allow, rule____NoAllow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy, mapKeyAllowFoo__: mapEntryL7None_}}, // Differs from spreadsheet(!)
-		{26, api.Rules{ruleL3L4L7Allow, rule__L4L7Allow, rule____NoAllow, rule__L4__Allow, rule____NoAllow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy, mapKeyAllow___L4: mapEntryL7Proxy}},
-		{27, api.Rules{ruleL3L4L7Allow, rule__L4L7Allow, rule____NoAllow, rule__L4__Allow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy, mapKeyAllowFoo__: mapEntryL7None_}}, // Differs from spreadsheet(!)
-		{28, api.Rules{ruleL3L4L7Allow, rule__L4L7Allow, ruleL3L4__Allow, rule____NoAllow, rule____NoAllow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy, mapKeyAllow___L4: mapEntryL7Proxy}},
-		{29, api.Rules{ruleL3L4L7Allow, rule__L4L7Allow, ruleL3L4__Allow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy, mapKeyAllowFoo__: mapEntryL7None_}}, // Differs from spreadsheet(!)
-		{30, api.Rules{ruleL3L4L7Allow, rule__L4L7Allow, ruleL3L4__Allow, rule__L4__Allow, rule____NoAllow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy, mapKeyAllow___L4: mapEntryL7Proxy}},
-		{31, api.Rules{ruleL3L4L7Allow, rule__L4L7Allow, ruleL3L4__Allow, rule__L4__Allow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy, mapKeyAllowFoo__: mapEntryL7None_}}, // Differs from spreadsheet(!)
+		{22, api.Rules{ruleL3L4L7Allow, rule____NoAllow, ruleL3L4__Allow, rule__L4__Allow, rule____NoAllow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy, mapKeyAllow___L4: mapEntryL7None_}},
+		{23, api.Rules{ruleL3L4L7Allow, rule____NoAllow, ruleL3L4__Allow, rule__L4__Allow, ruleL3____Allow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy, mapKeyAllow___L4: mapEntryL7None_, mapKeyAllowFoo__: mapEntryL7None_}},
+		{24, api.Rules{ruleL3L4L7Allow, rule__L4L7Allow, rule____NoAllow, rule____NoAllow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy}},                                    // identical L3L4 entry suppressed
+		{25, api.Rules{ruleL3L4L7Allow, rule__L4L7Allow, rule____NoAllow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy, mapKeyAllowFoo__: mapEntryL7None_}}, // identical L3L4 entry suppressed
+		{26, api.Rules{ruleL3L4L7Allow, rule__L4L7Allow, rule____NoAllow, rule__L4__Allow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy}},                                    // identical L3L4 entry suppressed
+		{27, api.Rules{ruleL3L4L7Allow, rule__L4L7Allow, rule____NoAllow, rule__L4__Allow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy, mapKeyAllowFoo__: mapEntryL7None_}}, // identical L3L4 entry suppressed
+		{28, api.Rules{ruleL3L4L7Allow, rule__L4L7Allow, ruleL3L4__Allow, rule____NoAllow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy}},                                    // identical L3L4 entry suppressed
+		{29, api.Rules{ruleL3L4L7Allow, rule__L4L7Allow, ruleL3L4__Allow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy, mapKeyAllowFoo__: mapEntryL7None_}}, // identical L3L4 entry suppressed
+		{30, api.Rules{ruleL3L4L7Allow, rule__L4L7Allow, ruleL3L4__Allow, rule__L4__Allow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy}},                                    // identical L3L4 entry suppressed
+		{31, api.Rules{ruleL3L4L7Allow, rule__L4L7Allow, ruleL3L4__Allow, rule__L4__Allow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy, mapKeyAllowFoo__: mapEntryL7None_}}, // identical L3L4 entry suppressed
 	}
 	for _, tt := range tests {
 		repo := newPolicyDistillery(selectorCache)

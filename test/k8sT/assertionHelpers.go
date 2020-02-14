@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 package k8sTest
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -23,7 +22,6 @@ import (
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
 var longTimeout = 10 * time.Minute
@@ -71,27 +69,6 @@ func ExpectCiliumRunning(vm *helpers.Kubectl) {
 func ExpectAllPodsTerminated(vm *helpers.Kubectl) {
 	err := vm.WaitCleanAllTerminatingPods(helpers.HelperTimeout)
 	ExpectWithOffset(1, err).To(BeNil(), "terminating containers are not deleted after timeout")
-}
-
-// ExpectETCDOperatorReady is a wrapper around helpers/WaitForNPods. It asserts
-// the error returned by that function is nil.
-func ExpectETCDOperatorReady(vm *helpers.Kubectl) {
-	// Etcd operator creates 5 nodes (1 cilium-etcd-operator + 1 etcd-operator + 3 etcd nodes),
-	// the new pods are added when the previous is ready,
-	// so we need to wait until 5 pods are in ready state.
-	// This is to avoid cases where a few pods are ready, but the
-	// new one is not created yet.
-	By("Waiting for all etcd-operator pods to be ready")
-
-	err := vm.WaitforNPods(helpers.CiliumNamespace, "-l io.cilium/app=etcd-operator", 5, longTimeout)
-	warningMessage := ""
-	if err != nil {
-		res := vm.Exec(fmt.Sprintf(
-			"%s -n %s get pods -l io.cilium/app=etcd-operator",
-			helpers.KubectlCmd, helpers.CiliumNamespace))
-		warningMessage = res.Output().String()
-	}
-	Expect(err).To(BeNil(), "etcd-operator is not ready after timeout, pods status:\n %s", warningMessage)
 }
 
 // ExpectCiliumPreFlightInstallReady is a wrapper around helpers/WaitForNPods.
@@ -163,47 +140,10 @@ func SkipItIfNoKubeProxy() {
 	}
 }
 
-func deleteCiliumDS(kubectl *helpers.Kubectl) {
-	// Do not assert on success in AfterEach intentionally to avoid
-	// incomplete teardown.
-
-	_ = kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.CiliumNamespace))
-	Expect(waitToDeleteCilium(kubectl, logger)).To(BeNil(), "timed out deleting Cilium pods")
-}
-
 func deleteETCDOperator(kubectl *helpers.Kubectl) {
 	// Do not assert on success in AfterEach intentionally to avoid
 	// incomplete teardown.
 	_ = kubectl.DeleteResource("deploy", fmt.Sprintf("-n %s -l io.cilium/app=etcd-operator", helpers.CiliumNamespace))
 	_ = kubectl.DeleteResource("pod", fmt.Sprintf("-n %s -l io.cilium/app=etcd-operator", helpers.CiliumNamespace))
 	_ = kubectl.WaitCleanAllTerminatingPods(helpers.HelperTimeout)
-}
-
-func waitToDeleteCilium(kubectl *helpers.Kubectl, logger *logrus.Entry) error {
-	var (
-		pods []string
-		err  error
-	)
-
-	ctx, cancel := context.WithTimeout(context.Background(), helpers.HelperTimeout)
-	defer cancel()
-
-	status := 1
-	for status > 0 {
-
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("timed out waiting to delete Cilium: pods still remaining: %s", pods)
-		default:
-		}
-
-		pods, err = kubectl.GetCiliumPodsContext(ctx, helpers.CiliumNamespace)
-		status := len(pods)
-		logger.Infof("Cilium pods terminating '%d' err='%v' pods='%v'", status, err, pods)
-		if status == 0 {
-			return nil
-		}
-		time.Sleep(1 * time.Second)
-	}
-	return nil
 }

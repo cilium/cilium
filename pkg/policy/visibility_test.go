@@ -34,14 +34,14 @@ func (ds *PolicyTestSuite) TestGenerateL7RulesByParser(c *C) {
 	c.Assert(m, Not(IsNil))
 	c.Assert(len(m), Equals, 1)
 
-	var l7Rules []*PerEpData
+	var l7Rules []*PerSelectorPolicy
 	for _, v := range m {
 		l7Rules = append(l7Rules, v)
 	}
 
 	// Check that we allow all at L7 for DNS for the one rule we should have
 	// generated.
-	c.Assert(l7Rules[0], checker.DeepEquals, &PerEpData{L7Rules: api.L7Rules{DNS: []api.PortRuleDNS{{MatchPattern: "*"}}}})
+	c.Assert(l7Rules[0], checker.DeepEquals, &PerSelectorPolicy{L7Rules: api.L7Rules{DNS: []api.PortRuleDNS{{MatchPattern: "*"}}}})
 }
 
 func (ds *PolicyTestSuite) TestVisibilityPolicyCreation(c *C) {

@@ -16,9 +16,6 @@ package policy
 
 import (
 	"fmt"
-	"strconv"
-
-	"github.com/cilium/cilium/pkg/policy/api"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -26,81 +23,6 @@ import (
 // ruleSlice is a wrapper around a slice of *rule, which allows for functions
 // to be written with []*rule as a receiver.
 type ruleSlice []*rule
-
-func (rules ruleSlice) wildcardL3L4Rules(ingress bool, l4Policy L4PolicyMap, requirements []v1.LabelSelectorRequirement, selectorCache *SelectorCache) {
-	// Duplicate L3-only rules into wildcard L7 rules.
-	for _, r := range rules {
-		if ingress {
-			for _, rule := range r.Ingress {
-				// Non-label-based rule. Ignore.
-				if !rule.AllowsWildcarding() {
-					continue
-				}
-
-				fromEndpoints := rule.GetSourceEndpointSelectorsWithRequirements(requirements)
-				ruleLabels := r.Rule.Labels.DeepCopy()
-
-				// L3-only rule.
-				if len(rule.ToPorts) == 0 && len(fromEndpoints) > 0 {
-					wildcardL3L4Rule(api.ProtoTCP, 0, fromEndpoints, ruleLabels, l4Policy, selectorCache)
-					wildcardL3L4Rule(api.ProtoUDP, 0, fromEndpoints, ruleLabels, l4Policy, selectorCache)
-				} else {
-					// L4-only or L3-dependent L4 rule.
-					//
-					// "fromEndpoints" may be empty here, which indicates that all L3 peers should
-					// be selected. If so, add the wildcard selector.
-					if len(fromEndpoints) == 0 {
-						fromEndpoints = append(fromEndpoints, api.WildcardEndpointSelector)
-					}
-					for _, toPort := range rule.ToPorts {
-						// L3/L4-only rule
-						if toPort.Rules.IsEmpty() {
-							for _, p := range toPort.Ports {
-								// Already validated via PortRule.Validate().
-								port, _ := strconv.ParseUint(p.Port, 0, 16)
-								wildcardL3L4Rule(p.Protocol, int(port), fromEndpoints, ruleLabels, l4Policy, selectorCache)
-							}
-						}
-					}
-				}
-			}
-		} else {
-			for _, rule := range r.Egress {
-				// Non-label-based rule. Ignore.
-				if !rule.AllowsWildcarding() {
-					continue
-				}
-
-				toEndpoints := rule.GetDestinationEndpointSelectorsWithRequirements(requirements)
-				ruleLabels := r.Rule.Labels.DeepCopy()
-
-				// L3-only rule.
-				if len(rule.ToPorts) == 0 && len(toEndpoints) > 0 {
-					wildcardL3L4Rule(api.ProtoTCP, 0, toEndpoints, ruleLabels, l4Policy, selectorCache)
-					wildcardL3L4Rule(api.ProtoUDP, 0, toEndpoints, ruleLabels, l4Policy, selectorCache)
-				} else {
-					// L4-only or L3-dependent L4 rule.
-					//
-					// "toEndpoints" may be empty here, which indicates that all L3 peers should
-					// be selected. If so, add the wildcard selector.
-					if len(toEndpoints) == 0 {
-						toEndpoints = append(toEndpoints, api.WildcardEndpointSelector)
-					}
-					for _, toPort := range rule.ToPorts {
-						// L3/L4-only rule
-						if toPort.Rules.IsEmpty() {
-							for _, p := range toPort.Ports {
-								// Already validated via PortRule.Validate().
-								port, _ := strconv.ParseUint(p.Port, 0, 16)
-								wildcardL3L4Rule(p.Protocol, int(port), toEndpoints, ruleLabels, l4Policy, selectorCache)
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-}
 
 func (rules ruleSlice) resolveL4IngressPolicy(policyCtx PolicyContext, ctx *SearchContext) (L4PolicyMap, error) {
 	result := L4PolicyMap{}
@@ -141,8 +63,6 @@ func (rules ruleSlice) resolveL4IngressPolicy(policyCtx PolicyContext, ctx *Sear
 			state.matchedRules++
 		}
 	}
-
-	matchedRules.wildcardL3L4Rules(true, result, requirements, policyCtx.GetSelectorCache())
 
 	state.trace(len(rules), ctx)
 
@@ -192,8 +112,6 @@ func (rules ruleSlice) resolveL4EgressPolicy(policyCtx PolicyContext, ctx *Searc
 			state.matchedRules++
 		}
 	}
-
-	matchedRules.wildcardL3L4Rules(false, result, requirements, policyCtx.GetSelectorCache())
 
 	state.trace(len(rules), ctx)
 

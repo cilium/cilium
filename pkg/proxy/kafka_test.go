@@ -283,7 +283,7 @@ func (s *proxyTestSuite) TestKafkaRedirect(c *C) {
 	r := newRedirect(localEndpointMock, pp, uint16(portInt))
 
 	r.rules = policy.L7DataMap{
-		wildcardCachedSelector: &policy.PerEpData{L7Rules: api.L7Rules{
+		wildcardCachedSelector: &policy.PerSelectorPolicy{L7Rules: api.L7Rules{
 			Kafka: []api.PortRuleKafka{kafkaRule1, kafkaRule2},
 		}},
 	}

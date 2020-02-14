@@ -66,8 +66,32 @@ func (k Key) IsEgress() bool {
 type MapStateEntry struct {
 	// The proxy port, in host byte order.
 	// If 0 (default), there is no proxy redirection for the corresponding
-	// Key.
+	// Key. Any other value signifies proxy redirection.
 	ProxyPort uint16
+}
+
+// NoRedirectEntry is a special MapStateEntry used to signify that the
+// entry is not redirecting to a proxy.
+var NoRedirectEntry = MapStateEntry{ProxyPort: 0}
+
+// redirectEntry is a MapStateEntry used to signify that the entry
+// must redirect to a proxy. Any non-zero value would do, as the
+// callers replace this with the actual proxy listening port number
+// before the entry is added to the actual bpf map.
+var redirectEntry = MapStateEntry{ProxyPort: 1}
+
+// RedirectPreferredInsert inserts a new entry giving priority to L7-redirects by
+// not overwriting a L7-redirect entry with a non-redirect entry
+func (keys MapState) RedirectPreferredInsert(key Key, entry MapStateEntry) {
+	if entry == NoRedirectEntry {
+		if _, ok := keys[key]; ok {
+			// Key already exist, keep the existing entry so that
+			// a redirect entry is never overwritten by a non-redirect
+			// entry
+			return
+		}
+	}
+	keys[key] = entry
 }
 
 // DetermineAllowLocalhostIngress determines whether communication should be allowed
@@ -75,7 +99,6 @@ type MapStateEntry struct {
 // the desiredPolicyKeys if the localhost is allowed to communicate with the
 // endpoint.
 func (keys MapState) DetermineAllowLocalhostIngress(l4Policy *L4Policy) {
-
 	if option.Config.AlwaysAllowLocalhost() {
 		keys[localHostKey] = MapStateEntry{}
 	}
@@ -124,7 +147,7 @@ type MapChanges struct {
 // cases where an identity is first added and then deleted, or first
 // deleted and then added.
 func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdentity,
-	port uint16, proto uint8, direction trafficdirection.TrafficDirection) {
+	port uint16, proto uint8, direction trafficdirection.TrafficDirection, redirect bool) {
 	key := Key{
 		// The actual identity is set in the loops below
 		Identity: 0,
@@ -133,8 +156,9 @@ func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdent
 		Nexthdr:          proto,
 		TrafficDirection: direction.Uint8(),
 	}
-	value := MapStateEntry{
-		ProxyPort: 0, // Will be updated by the caller when applicable
+	var value MapStateEntry // defaults to ProxyPort 0 == no redirect
+	if redirect {
+		value = redirectEntry // Special entry to mark the need for redirection
 	}
 
 	if option.Config.Debug {
@@ -144,6 +168,7 @@ func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdent
 			logfields.Port:             port,
 			logfields.Protocol:         proto,
 			logfields.TrafficDirection: direction,
+			logfields.IsRedirect:       redirect,
 		}).Debug("AccumulateMapChanges")
 	}
 
@@ -154,7 +179,9 @@ func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdent
 		}
 		for _, id := range adds {
 			key.Identity = id.Uint32()
-			mc.adds[key] = value
+			// insert but do not allow NoRedirectEntry to overwrite a redirect entry
+			mc.adds.RedirectPreferredInsert(key, value)
+
 			// Remove a potential previously deleted key
 			if mc.deletes != nil {
 				delete(mc.deletes, key)
@@ -177,9 +204,9 @@ func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdent
 	mc.mutex.Unlock()
 }
 
-// ConsumeMapChanges transfers the changes from MapChanges to the caller.
+// consumeMapChanges transfers the changes from MapChanges to the caller.
 // May return nil maps.
-func (mc *MapChanges) ConsumeMapChanges() (adds, deletes MapState) {
+func (mc *MapChanges) consumeMapChanges() (adds, deletes MapState) {
 	mc.mutex.Lock()
 	adds = mc.adds
 	mc.adds = nil

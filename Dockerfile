@@ -1,7 +1,7 @@
 #
 # cilium-envoy from github.com/cilium/proxy
 #
-FROM quay.io/cilium/cilium-envoy:c16d0f195d4fa5e26c3a7cff9a27fc69a13437c5 as cilium-envoy
+FROM quay.io/cilium/cilium-envoy:c31482c3e49670980c05cafc914320f7949b266f as cilium-envoy
 
 #
 # Cilium incremental build. Should be fast given builder-deps is up-to-date!
@@ -37,7 +37,7 @@ RUN make LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 V=$V LIBNETWORK_PLUGIN=$LIBNETWORK_PLU
 # built while allowing the new versions to make changes that are not
 # backwards compatible.
 #
-FROM quay.io/cilium/cilium-runtime:2020-01-29
+FROM quay.io/cilium/cilium-runtime:2020-02-12
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=builder /tmp/install /
 COPY --from=cilium-envoy / /

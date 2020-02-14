@@ -905,11 +905,6 @@ func (s *SSHMeta) SetUpCiliumWithSockops() error {
 	return s.SetUpCiliumWithOptions("--sockops-enable --tofqdns-enable-poller=true")
 }
 
-// SetUpCiliumInIpvlanMode starts cilium-agent in the ipvlan mode
-func (s *SSHMeta) SetUpCiliumInIpvlanMode(ipvlanMasterDevice string) error {
-	return s.SetUpCiliumWithOptions("--tunnel=disabled --datapath-mode=ipvlan --ipvlan-master-device=" + ipvlanMasterDevice)
-}
-
 // WaitUntilReady waits until the output of `cilium status` returns with code
 // zero. Returns an error if the output of `cilium status` returns a nonzero
 // return code after the specified timeout duration has elapsed.

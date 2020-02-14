@@ -97,17 +97,6 @@ func (s CachedSelectorSlice) SelectsAllEndpoints() bool {
 	return false
 }
 
-// Insert in a sorted order? Returns true if inserted, false if cs was already in
-func (s *CachedSelectorSlice) Insert(cs CachedSelector) bool {
-	for _, selector := range *s {
-		if selector == cs {
-			return false
-		}
-	}
-	*s = append(*s, cs)
-	return true
-}
-
 // CachedSelectionUser inserts selectors into the cache and gets update
 // callbacks whenever the set of selected numeric identities change for
 // the CachedSelectors pushed by it.
@@ -151,6 +140,10 @@ type CachedSelectionUser interface {
 // identitySelector is used as a map key, so it must not be implemented by a
 // map, slice, or a func, or a runtime panic will be triggered. In all
 // cases below identitySelector is being implemented by structs.
+//
+// Because the selector exposed to the user is used as a map key, it must always
+// be passed to the user as a pointer to the actual implementation type.
+// For this reason 'notifyUsers' must be implemented by each type separately.
 type identitySelector interface {
 	CachedSelector
 	addUser(CachedSelectionUser) (added bool)
@@ -335,16 +328,6 @@ func (f *fqdnSelector) removeUser(user CachedSelectionUser) (last bool) {
 }
 
 // lock must be held
-//
-// The caller is responsible for making sure the same identity is not
-// present in both 'added' and 'deleted'.
-func (s *selectorManager) notifyUsers(added, deleted []identity.NumericIdentity) {
-	for user := range s.users {
-		user.IdentitySelectionUpdated(s, s.GetSelections(), added, deleted)
-	}
-}
-
-// lock must be held
 func (s *selectorManager) numUsers() int {
 	return len(s.users)
 }
@@ -382,6 +365,17 @@ type fqdnSelector struct {
 	selector api.FQDNSelector
 	// dnsProxy updates the set of identities which correspond to this selector.
 	dnsProxy identityNotifier
+}
+
+// lock must be held
+//
+// The caller is responsible for making sure the same identity is not
+// present in both 'added' and 'deleted'.
+func (f *fqdnSelector) notifyUsers(added, deleted []identity.NumericIdentity) {
+	for user := range f.users {
+		// pass 'f' to the user as '*fqdnSelector'
+		user.IdentitySelectionUpdated(f, f.GetSelections(), added, deleted)
+	}
 }
 
 // identityNotifier provides a means for other subsystems to be made aware of a
@@ -422,6 +416,17 @@ type labelIdentitySelector struct {
 	selectorManager
 	selector   api.EndpointSelector
 	namespaces []string // allowed namespaces, or ""
+}
+
+// lock must be held
+//
+// The caller is responsible for making sure the same identity is not
+// present in both 'added' and 'deleted'.
+func (l *labelIdentitySelector) notifyUsers(added, deleted []identity.NumericIdentity) {
+	for user := range l.users {
+		// pass 'l' to the user as '*labelIdentitySelector'
+		user.IdentitySelectionUpdated(l, l.GetSelections(), added, deleted)
+	}
 }
 
 // xxxMatches returns true if the CachedSelector matches given labels.

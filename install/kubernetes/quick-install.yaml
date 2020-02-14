@@ -118,14 +118,14 @@ data:
   wait-bpf-mount: "false"
 
   masquerade: "true"
-
   install-iptables-rules: "true"
   auto-direct-node-routes: "false"
   kube-proxy-replacement:  "probe"
+  enable-host-reachable-services: "false"
+  enable-external-ips: "false"
   enable-node-port: "false"
   enable-well-known-identities: "false"
   enable-remote-node-identity: "true"
-
 ---
 # Source: cilium/charts/agent/templates/serviceaccount.yaml
 apiVersion: v1
@@ -133,7 +133,6 @@ kind: ServiceAccount
 metadata:
   name: cilium
   namespace: kube-system
-
 ---
 # Source: cilium/charts/operator/templates/serviceaccount.yaml
 apiVersion: v1
@@ -141,7 +140,6 @@ kind: ServiceAccount
 metadata:
   name: cilium-operator
   namespace: kube-system
-
 ---
 # Source: cilium/charts/agent/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -218,7 +216,6 @@ rules:
   - ciliumidentities/status
   verbs:
   - '*'
-
 ---
 # Source: cilium/charts/operator/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -276,7 +273,6 @@ rules:
   - ciliumidentities/status
   verbs:
   - '*'
-
 ---
 # Source: cilium/charts/agent/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -291,7 +287,6 @@ subjects:
 - kind: ServiceAccount
   name: cilium
   namespace: kube-system
-
 ---
 # Source: cilium/charts/operator/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -306,7 +301,6 @@ subjects:
 - kind: ServiceAccount
   name: cilium-operator
   namespace: kube-system
-
 ---
 # Source: cilium/charts/agent/templates/daemonset.yaml
 apiVersion: apps/v1
@@ -336,6 +330,31 @@ spec:
         - --config-dir=/tmp/cilium/config-map
         command:
         - cilium-agent
+        livenessProbe:
+          exec:
+            command:
+            - cilium
+            - status
+            - --brief
+          failureThreshold: 10
+          # The initial delay for the liveness probe is intentionally large to
+          # avoid an endless kill & restart cycle if in the event that the initial
+          # bootstrapping takes longer than expected.
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            command:
+            - cilium
+            - status
+            - --brief
+          failureThreshold: 3
+          initialDelaySeconds: 5
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 5
         env:
         - name: K8S_NODE_NAME
           valueFrom:
@@ -385,32 +404,7 @@ spec:
             exec:
               command:
               - /cni-uninstall.sh
-        livenessProbe:
-          exec:
-            command:
-            - cilium
-            - status
-            - --brief
-          failureThreshold: 10
-          # The initial delay for the liveness probe is intentionally large to
-          # avoid an endless kill & restart cycle if in the event that the initial
-          # bootstrapping takes longer than expected.
-          initialDelaySeconds: 120
-          periodSeconds: 30
-          successThreshold: 1
-          timeoutSeconds: 5
         name: cilium-agent
-        readinessProbe:
-          exec:
-            command:
-            - cilium
-            - status
-            - --brief
-          failureThreshold: 3
-          initialDelaySeconds: 5
-          periodSeconds: 30
-          successThreshold: 1
-          timeoutSeconds: 5
         securityContext:
           capabilities:
             add:
@@ -526,7 +520,6 @@ spec:
     rollingUpdate:
       maxUnavailable: 2
     type: RollingUpdate
-
 ---
 # Source: cilium/charts/operator/templates/deployment.yaml
 apiVersion: apps/v1
@@ -654,17 +647,3 @@ spec:
       restartPolicy: Always
       serviceAccount: cilium-operator
       serviceAccountName: cilium-operator
-
----
-# Source: cilium/charts/agent/templates/servicemonitor.yaml
-
----
-# Source: cilium/charts/agent/templates/svc.yaml
-
-
----
-# Source: cilium/charts/operator/templates/servicemonitor.yaml
-
----
-# Source: cilium/charts/operator/templates/svc.yaml
-

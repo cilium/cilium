@@ -174,9 +174,12 @@ const (
 	KubectlPolicyNameLabel      = k8sConst.PolicyLabelName
 	KubectlPolicyNameSpaceLabel = k8sConst.PolicyLabelNamespace
 
-	CiliumStableVersion      = "v1.5"
-	CiliumStableImageVersion = "cilium/cilium:" + CiliumStableVersion
-	ciliumDeveloperImage     = "%s/cilium/cilium-dev:latest"
+	// CiliumStableHelmChartVersion should be the chart version that points
+	// to the v1.X branch
+	CiliumStableHelmChartVersion = "1.6-dev"
+	CiliumStableVersion          = "v1.6"
+	CiliumLatestHelmChartVersion = "1.7.90"
+	CiliumLatestImageVersion     = "latest"
 
 	MonitorLogFileName = "monitor.log"
 
@@ -229,13 +232,15 @@ const (
 	ReservedIdentityHealth = 4
 )
 
-// NightlyStableUpgradesFrom the cilium images to update from in Nightly test.
-var NightlyStableUpgradesFrom = []string{"v1.3"}
+// NightlyStableUpgradesFrom maps the cilium image versions to the helm charts
+// that will be used to run update tests in the Nightly test.
+var NightlyStableUpgradesFrom = map[string]string{"1.6": "1.6-dev", "1.7": "1.7-dev"}
 
 var (
 	IsCiliumV1_5 = versioncheck.MustCompile(">=1.4.90 <1.6.0")
 	IsCiliumV1_6 = versioncheck.MustCompile(">=1.5.90 <1.7.0")
 	IsCiliumV1_7 = versioncheck.MustCompile(">=1.6.90 <1.8.0")
+	IsCiliumV1_8 = versioncheck.MustCompile(">=1.7.90 <1.9.0")
 )
 
 // CiliumDefaultDSPatch is the default Cilium DaemonSet patch to be used in all tests.

@@ -752,7 +752,7 @@ func GetEnvoyHTTPRules(certManager policy.CertificateManager, l7Rules *api.L7Rul
 	return nil, true
 }
 
-func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7ParserType, l7Rules *policy.PerEpData) (*cilium.PortNetworkPolicyRule, bool) {
+func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7ParserType, l7Rules *policy.PerSelectorPolicy) (*cilium.PortNetworkPolicyRule, bool) {
 	// Optimize the policy if the endpoint selector is a wildcard by
 	// keeping remote policies list empty to match all remote policies.
 	var remotePolicies []uint64
@@ -773,6 +773,11 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7Parse
 
 	r := &cilium.PortNetworkPolicyRule{
 		RemotePolicies: remotePolicies,
+	}
+
+	if l7Rules == nil {
+		// L3/L4 only rule, everything in L7 is allowed
+		return r, true
 	}
 
 	if l7Rules.TerminatingTLS != nil {
@@ -831,6 +836,48 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7Parse
 	return r, canShortCircuit
 }
 
+func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetworkPolicyRule {
+	// Use map to remove duplicates
+	remoteMap := make(map[uint64]struct{})
+	wildcardFound := false
+	for sel, l7 := range selectors {
+		if sel.IsWildcard() {
+			wildcardFound = true
+			break
+		}
+
+		for _, id := range sel.GetSelections() {
+			remoteMap[uint64(id)] = struct{}{}
+		}
+
+		if l7 != nil {
+			log.Warningf("L3-only rule for selector %v surprisingly has L7 rules (%v)!", sel, *l7)
+		}
+	}
+
+	if wildcardFound {
+		// Optimize the policy if the endpoint selector is a wildcard by
+		// keeping remote policies list empty to match all remote policies.
+		remoteMap = nil
+	} else if len(remoteMap) == 0 {
+		// No remote policies would match this rule. Discard it.
+		return nil
+	}
+
+	// Convert to a sorted slice
+	remotePolicies := make([]uint64, 0, len(remoteMap))
+	for id := range remoteMap {
+		remotePolicies = append(remotePolicies, id)
+	}
+	sort.Slice(remotePolicies, func(i, j int) bool {
+		return remotePolicies[i] < remotePolicies[j]
+	})
+
+	return &cilium.PortNetworkPolicyRule{
+		RemotePolicies: remotePolicies,
+	}
+}
+
 func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool) []*cilium.PortNetworkPolicy {
 	if !policyEnforced {
 		// Return an allow-all policy.
@@ -855,32 +902,43 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool)
 		pnp := &cilium.PortNetworkPolicy{
 			Port:     uint32(l4.Port),
 			Protocol: protocol,
-			Rules:    make([]*cilium.PortNetworkPolicyRule, 0, len(l4.L7RulesPerEp)),
+			Rules:    make([]*cilium.PortNetworkPolicyRule, 0, len(l4.L7RulesPerSelector)),
 		}
-
 		allowAll := false
 		// Assume none of the rules have side-effects so that rule evaluation can
 		// be stopped as soon as the first allowing rule is found. 'canShortCircuit'
 		// is set to 'false' below if any rules with side effects are encountered,
 		// causing all the applicable rules to be evaluated instead.
 		canShortCircuit := true
-		for sel, l7 := range l4.L7RulesPerEp {
-			rule, cs := getPortNetworkPolicyRule(sel, l4.L7Parser, l7)
-			if !cs {
-				canShortCircuit = false
-			}
+
+		if l4.Port == 0 {
+			// L3-only rule, must generate L7 allow-all in case there are other
+			// port-specific rules. Otherwise traffic from allowed remotes could be dropped.
+			rule := getWildcardNetworkPolicyRule(l4.L7RulesPerSelector)
 			if rule != nil {
 				if len(rule.RemotePolicies) == 0 && rule.L7 == nil {
-					// Got an allow-all rule, which would short-circuit all of
-					// the other rules. Just set no rules, which has the same
-					// effect of allowing all.
+					// Got an allow-all rule, which can short-circuit all of
+					// the other rules.
 					allowAll = true
 				}
-
 				pnp.Rules = append(pnp.Rules, rule)
 			}
+		} else {
+			for sel, l7 := range l4.L7RulesPerSelector {
+				rule, cs := getPortNetworkPolicyRule(sel, l4.L7Parser, l7)
+				if rule != nil {
+					if !cs {
+						canShortCircuit = false
+					}
+					if len(rule.RemotePolicies) == 0 && rule.L7 == nil {
+						// Got an allow-all rule, which can short-circuit all of
+						// the other rules.
+						allowAll = true
+					}
+					pnp.Rules = append(pnp.Rules, rule)
+				}
+			}
 		}
-
 		// Short-circuit rules if a rule allows all and all other rules can be short-circuited
 		if allowAll && canShortCircuit {
 			log.Debug("Short circuiting HTTP rules due to rule allowing all and no other rules needing attention")

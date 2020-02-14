@@ -541,6 +541,13 @@ type bpfAttrProg struct {
 	AttachType  uint32
 }
 
+type bpfAttachProg struct {
+	TargetFd    uint32
+	AttachFd    uint32
+	AttachType  uint32
+	AttachFlags uint32
+}
+
 // TestDummyProg loads a minimal BPF program into the kernel and probes
 // whether it succeeds in doing so. This can be used to bail out early
 // in the daemon when a given type is not supported.
@@ -574,11 +581,24 @@ func TestDummyProg(progType ProgType, attachType uint32) error {
 	fd, _, errno := unix.Syscall(unix.SYS_BPF, BPF_PROG_LOAD,
 		uintptr(unsafe.Pointer(&bpfAttr)),
 		unsafe.Sizeof(bpfAttr))
-	err = unix.Setrlimit(unix.RLIMIT_MEMLOCK, &oldLim)
+	unix.Setrlimit(unix.RLIMIT_MEMLOCK, &oldLim)
 	if errno == 0 {
-		unix.Close(int(fd))
-		if err != nil {
-			return err
+		defer unix.Close(int(fd))
+		bpfAttr := bpfAttachProg{
+			TargetFd:   uint32(os.Stdin.Fd()),
+			AttachFd:   uint32(fd),
+			AttachType: attachType,
+		}
+		// We also need to go and probe the kernel whether we can actually
+		// attach something to make sure CONFIG_CGROUP_BPF is compiled in.
+		// The behavior is that when compiled in, we'll get a EBADF via
+		// cgroup_bpf_prog_attach() -> cgroup_get_from_fd(), otherwise when
+		// compiled out, we'll get EINVAL.
+		ret, _, errno := unix.Syscall(unix.SYS_BPF, BPF_PROG_ATTACH,
+			uintptr(unsafe.Pointer(&bpfAttr)),
+			unsafe.Sizeof(bpfAttr))
+		if int(ret) < 0 && errno != syscall.EBADF {
+			return errno
 		}
 		return nil
 	}

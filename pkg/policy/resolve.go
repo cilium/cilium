@@ -66,8 +66,8 @@ type EndpointPolicy struct {
 	// All fields within the Key and the proxy port must be in host byte-order.
 	PolicyMapState MapState
 
-	// PolicyMapChanges collects pending changes to the PolicyMapState
-	PolicyMapChanges MapChanges
+	// policyMapChanges collects pending changes to the PolicyMapState
+	policyMapChanges MapChanges
 
 	// PolicyOwner describes any type which consumes this EndpointPolicy object.
 	PolicyOwner PolicyOwner
@@ -125,10 +125,10 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner) *EndpointPolicy 
 	// computeDesiredL4PolicyMapEntires() call finishes may
 	// already be applied to the PolicyMapState, specifically:
 	//
-	// - PolicyMapChanges may contain an addition of an entry that
+	// - policyMapChanges may contain an addition of an entry that
 	//   is already added to the PolicyMapState
 	//
-	// - PolicyMapChanges may congtain a deletion of an entry that
+	// - policyMapChanges may contain a deletion of an entry that
 	//   has already been deleted from PolicyMapState
 	p.insertUser(calculatedPolicy)
 
@@ -154,24 +154,31 @@ func (p *EndpointPolicy) computeDesiredL4PolicyMapEntries() {
 
 func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(l4PolicyMap L4PolicyMap, direction trafficdirection.TrafficDirection) {
 	for _, filter := range l4PolicyMap {
-		keysFromFilter := filter.ToKeys(direction)
-		for _, keyFromFilter := range keysFromFilter {
-			var proxyPort uint16
-			// Preserve the already-allocated proxy ports for redirects that
-			// already exist.
-			if filter.IsRedirect() {
-				proxyPort = p.PolicyOwner.LookupRedirectPort(filter)
+		keysFromFilter := filter.ToMapState(direction)
+		for keyFromFilter, entry := range keysFromFilter {
+			// Fix up the proxy port for entries that need proxy redirection
+			if entry != NoRedirectEntry {
+				entry.ProxyPort = p.PolicyOwner.LookupRedirectPort(filter)
 				// If the currently allocated proxy port is 0, this is a new
 				// redirect, for which no port has been allocated yet. Ignore
 				// it for now. This will be configured by
-				// e.addNewRedirectsFromMap once the port has been allocated.
-				if proxyPort == 0 {
+				// e.addNewRedirectsFromDesiredPolicy() once the port has been allocated.
+				if entry == NoRedirectEntry {
 					continue
 				}
 			}
-			p.PolicyMapState[keyFromFilter] = MapStateEntry{ProxyPort: proxyPort}
+			p.PolicyMapState[keyFromFilter] = entry
 		}
 	}
+}
+
+// ConsumeMapChanges transfers the changes from MapChanges to the caller,
+// locking the selector cache to make sure concurrent identity updates
+// have completed.
+func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes MapState) {
+	p.selectorPolicy.SelectorCache.mutex.Lock()
+	defer p.selectorPolicy.SelectorCache.mutex.Unlock()
+	return p.policyMapChanges.consumeMapChanges()
 }
 
 // NewEndpointPolicy returns an empty EndpointPolicy stub.

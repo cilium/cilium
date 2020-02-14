@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1338,7 +1338,7 @@ func addIfNotOverwritten(options map[string]string, field, value string) map[str
 	return options
 }
 
-func (kub *Kubectl) generateCiliumYaml(options map[string]string, filename string) error {
+func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 	for key, value := range defaultHelmOptions {
 		options = addIfNotOverwritten(options, key, value)
 	}
@@ -1378,7 +1378,14 @@ func (kub *Kubectl) generateCiliumYaml(options map[string]string, filename strin
 			options[k] = v
 		}
 	}
+	return nil
+}
 
+func (kub *Kubectl) generateCiliumYaml(options map[string]string, filename string) error {
+	err := kub.overwriteHelmOptions(options)
+	if err != nil {
+		return err
+	}
 	// TODO GH-8753: Use helm rendering library instead of shelling out to
 	// helm template
 	helmTemplate := kub.GetFilePath(HelmTemplate)
@@ -1390,17 +1397,40 @@ func (kub *Kubectl) generateCiliumYaml(options map[string]string, filename strin
 	return nil
 }
 
-// ciliumInstallHelm installs Cilium with the Helm options provided.
-func (kub *Kubectl) ciliumInstallHelm(filename string, options map[string]string) error {
-	if err := kub.generateCiliumYaml(options, filename); err != nil {
-		return err
-	}
+func (kub *Kubectl) DeleteCiliumDS() error {
+	// Do not assert on success in AfterEach intentionally to avoid
+	// incomplete teardown.
 
-	res := kub.Apply(ApplyOptions{FilePath: filename, Force: true, Namespace: GetCiliumNamespace(GetCurrentIntegration())})
-	if !res.WasSuccessful() {
-		return res.GetErr("Unable to apply YAML")
-	}
+	_ = kub.DeleteResource("ds", fmt.Sprintf("-n %s cilium", GetCiliumNamespace(GetCurrentIntegration())))
+	return kub.waitToDeleteCilium()
+}
 
+func (kub *Kubectl) waitToDeleteCilium() error {
+	var (
+		pods []string
+		err  error
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), HelperTimeout)
+	defer cancel()
+
+	status := 1
+	for status > 0 {
+
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timed out waiting to delete Cilium: pods still remaining: %s", pods)
+		default:
+		}
+
+		pods, err = kub.GetCiliumPodsContext(ctx, GetCiliumNamespace(GetCurrentIntegration()))
+		status := len(pods)
+		kub.Logger().Infof("Cilium pods terminating '%d' err='%v' pods='%v'", status, err, pods)
+		if status == 0 {
+			return nil
+		}
+		time.Sleep(1 * time.Second)
+	}
 	return nil
 }
 
@@ -1420,7 +1450,41 @@ func (kub *Kubectl) ciliumUninstallHelm(filename string, options map[string]stri
 
 // CiliumInstall installs Cilium with the provided Helm options.
 func (kub *Kubectl) CiliumInstall(filename string, options map[string]string) error {
-	return kub.ciliumInstallHelm(filename, options)
+	if err := kub.generateCiliumYaml(options, filename); err != nil {
+		return err
+	}
+
+	// Remove cilium DS to ensure that new instances of cilium-agent are started
+	// for the newly generated ConfigMap. Otherwise, the CM changes will stay
+	// inactive until each cilium-agent has been restarted.
+	if err := kub.DeleteCiliumDS(); err != nil {
+		return err
+	}
+
+	res := kub.Apply(ApplyOptions{FilePath: filename, Force: true, Namespace: GetCiliumNamespace(GetCurrentIntegration())})
+	if !res.WasSuccessful() {
+		return res.GetErr("Unable to apply YAML")
+	}
+
+	return nil
+}
+
+// RunHelm runs the helm command with the given options.
+func (kub *Kubectl) RunHelm(action, repo, helmName, version, namespace string, options map[string]string) (*CmdRes, error) {
+	err := kub.overwriteHelmOptions(options)
+	if err != nil {
+		return nil, err
+	}
+	optionsString := ""
+
+	for k, v := range options {
+		optionsString += fmt.Sprintf(" --set %s=%s ", k, v)
+	}
+
+	return kub.ExecMiddle(fmt.Sprintf("helm %s %s %s "+
+		"--version=%s "+
+		"--namespace=%s "+
+		"%s", action, helmName, repo, version, namespace, optionsString)), nil
 }
 
 // CiliumUninstall uninstalls Cilium with the provided Helm options.
@@ -1502,6 +1566,16 @@ func (kub *Kubectl) CiliumEndpointsStatus(pod string) map[string]string {
 	defer cancel()
 	return kub.CiliumExecContext(ctx, pod, fmt.Sprintf(
 		"cilium endpoint list -o jsonpath='%s'", filter)).KVOutput()
+}
+
+// CiliumEndpointIPv6 returns the IPv6 address of each endpoint which matches
+// the given endpoint selector.
+func (kub *Kubectl) CiliumEndpointIPv6(pod string, endpoint string) map[string]string {
+	filter := `{range [*]}{@.status.external-identifiers.pod-name}{"="}{@.status.networking.addressing[*].ipv6}{"\n"}{end}`
+	ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+	defer cancel()
+	return kub.CiliumExecContext(ctx, pod, fmt.Sprintf(
+		"cilium endpoint get %s -o jsonpath='%s'", endpoint, filter)).KVOutput()
 }
 
 // CiliumEndpointWaitReady waits until all endpoints managed by all Cilium pod
@@ -2750,6 +2824,43 @@ CILIUM_SERVICES:
 	return validateCiliumSvcLB(*ciliumService, ciliumLB)
 }
 
+// CiliumServiceAdd adds the given service on a 'pod' running Cilium
+func (kub *Kubectl) CiliumServiceAdd(pod string, id int64, frontend string, backends []string, svcType, trafficPolicy string) error {
+	var opts []string
+	switch strings.ToLower(svcType) {
+	case "nodeport":
+		opts = append(opts, "--k8s-node-port")
+	case "externalip":
+		opts = append(opts, "--k8s-external")
+	case "clusterip":
+		// this is the default
+	default:
+		return fmt.Errorf("invalid service type: %q", svcType)
+	}
+
+	trafficPolicy = strings.Title(strings.ToLower(trafficPolicy))
+	switch trafficPolicy {
+	case "Cluster", "Local":
+		opts = append(opts, "--k8s-traffic-policy "+trafficPolicy)
+	default:
+		return fmt.Errorf("invalid traffic policy: %q", svcType)
+	}
+
+	optsStr := strings.Join(opts, " ")
+	backendsStr := strings.Join(backends, ",")
+	ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+	defer cancel()
+	return kub.CiliumExecContext(ctx, pod, fmt.Sprintf("cilium service update --id %d --frontend %q --backends %q %s",
+		id, frontend, backendsStr, optsStr)).GetErr("cilium service update")
+}
+
+// CiliumServiceDel deletes the service with 'id' on a 'pod' running Cilium
+func (kub *Kubectl) CiliumServiceDel(pod string, id int64) error {
+	ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+	defer cancel()
+	return kub.CiliumExecContext(ctx, pod, fmt.Sprintf("cilium service delete %d", id)).GetErr("cilium service delete")
+}
+
 // ciliumServicePreFlightCheck checks that k8s service is plumbed correctly
 func (kub *Kubectl) ciliumServicePreFlightCheck() error {
 	ginkgoext.By("Performing Cilium service preflight check")
@@ -2882,6 +2993,11 @@ func (kub *Kubectl) reportMapHost(ctx context.Context, path string, reportCmds m
 			log.WithError(err).Errorf("cannot create test results for command '%s'", cmd)
 		}
 	}
+}
+
+// HelmAddCiliumRepo installs the repository that contain Cilium helm charts.
+func (kub *Kubectl) HelmAddCiliumRepo() *CmdRes {
+	return kub.ExecMiddle("helm repo add cilium https://helm.cilium.io")
 }
 
 // HelmTemplate renders given helm template. TODO: use go helm library for that

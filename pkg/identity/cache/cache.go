@@ -116,9 +116,7 @@ func collectEvent(event allocator.AllocatorEvent, added, deleted IdentityCache) 
 			// Un-delete the added ID if previously
 			// 'deleted' so that collected events can be
 			// processed in any order.
-			if _, exists := deleted[id]; exists {
-				delete(deleted, id)
-			}
+			delete(deleted, id)
 			added[id] = gi.LabelArray
 			return true
 		}
@@ -127,9 +125,7 @@ func collectEvent(event allocator.AllocatorEvent, added, deleted IdentityCache) 
 		return false
 	}
 	// Reverse an add when subsequently deleted
-	if _, exists := added[id]; exists {
-		delete(added, id)
-	}
+	delete(added, id)
 	// record the id deleted even if an add was reversed, as the
 	// id may also have previously existed, in which case the
 	// result is not no-op!
