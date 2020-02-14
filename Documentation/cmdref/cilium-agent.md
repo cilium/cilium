@@ -92,7 +92,6 @@ cilium-agent [flags]
       --ip-allocation-timeout duration                        Time after which an incomplete CIDR allocation is considered failed (default 2m0s)
       --ipam string                                           Backend to use for IPAM
       --ipsec-key-file string                                 Path to IPSec key file
-      --ipv4-cluster-cidr-mask-size int                       Mask size for the cluster wide CIDR (default 8)
       --ipv4-node string                                      IPv4 address of node (default "auto")
       --ipv4-pod-subnets strings                              List of IPv4 pod subnets to preconfigure for encryption
       --ipv4-range string                                     Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16 (default "auto")
