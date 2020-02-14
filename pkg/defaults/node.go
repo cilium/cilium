@@ -41,19 +41,8 @@ const (
 var (
 	// Default addressing schema
 	//
-	// cluster:		    beef:beef:beef:beef::/64
 	// node:                    beef:beef:beef:beef:<node>:<node>:/96
-	// state:                   beef:beef:beef:beef:<node>:<node>:<state>:/112
-	// lxc:                     beef:beef:beef:beef:<node>:<node>:<state>:<lxc>/128
-
-	// ClusterIPv6Mask represents the CIDR Mask for an entire cluster.
-	ClusterIPv6Mask = net.CIDRMask(64, 128)
-
-	// NodeIPv6Mask represents the CIDR Mask for the cilium node.
-	NodeIPv6Mask = net.CIDRMask(96, 128)
-
-	// StateIPv6Mask represents the CIDR Mask for the state position.
-	StateIPv6Mask = net.CIDRMask(112, 128)
+	// lxc:                     beef:beef:beef:beef:<node>:<node>::<lxc>/128
 
 	// ContainerIPv6Mask is the IPv6 prefix length for address assigned to
 	// container. The default is L3 only and thus /128.
