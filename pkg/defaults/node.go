@@ -27,9 +27,6 @@ const (
 	// DefaultIPv4PrefixLen is the length used to allocate container IPv4 addresses from.
 	DefaultIPv4PrefixLen = 16
 
-	// DefaultIPv4ClusterPrefixLen is the IPv4 prefix length of the entire cluster.
-	DefaultIPv4ClusterPrefixLen = 8
-
 	// DefaultNAT46Prefix is the IPv6 prefix to represent NATed IPv4 addresses.
 	DefaultNAT46Prefix = "0:0:0:0:0:FFFF::/96"
 

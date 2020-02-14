@@ -34,8 +34,6 @@ import (
 )
 
 var (
-	ipv4ClusterCidrMaskSize = defaults.DefaultIPv4ClusterPrefixLen
-
 	ipv4Loopback        net.IP
 	ipv4ExternalAddress net.IP
 	ipv4InternalAddress net.IP
@@ -57,11 +55,6 @@ func makeIPv6HostIP() net.IP {
 	}
 
 	return ip
-}
-
-// SetIPv4ClusterCidrMaskSize sets the size of the mask of the IPv4 cluster prefix
-func SetIPv4ClusterCidrMaskSize(size int) {
-	ipv4ClusterCidrMaskSize = size
 }
 
 // InitDefaultPrefix initializes the node address and allocation prefixes with
@@ -148,19 +141,6 @@ func InitDefaultPrefix(device string) {
 				ipv6NodePortAddress = ip
 			}
 		}
-	}
-}
-
-// GetIPv4ClusterRange returns the IPv4 prefix of the cluster
-func GetIPv4ClusterRange() *net.IPNet {
-	if ipv4AllocRange == nil {
-		return nil
-	}
-
-	mask := net.CIDRMask(ipv4ClusterCidrMaskSize, 32)
-	return &net.IPNet{
-		IP:   ipv4AllocRange.IPNet.IP.Mask(mask),
-		Mask: mask,
 	}
 }
 
@@ -289,16 +269,8 @@ func ValidatePostInit() error {
 		}
 	}
 
-	if option.Config.EnableIPv4 {
-		if ipv4InternalAddress == nil {
-			return fmt.Errorf("BUG: Internal IPv4 node address was not configured")
-		}
-
-		ones, _ := ipv4AllocRange.Mask.Size()
-		if ipv4ClusterCidrMaskSize > ones {
-			return fmt.Errorf("IPv4 per node allocation prefix (%s) must be inside cluster prefix (%s)",
-				ipv4AllocRange, GetIPv4ClusterRange())
-		}
+	if option.Config.EnableIPv4 && ipv4InternalAddress == nil {
+		return fmt.Errorf("BUG: Internal IPv4 node address was not configured")
 	}
 
 	return nil

@@ -291,6 +291,35 @@ Annotations:
    upgrade. Connections should successfully re-establish without requiring
    clients to reconnect.
 
+.. _1.8_upgrade_notes:
+
+1.8 Upgrade Notes
+-----------------
+
+.. _1.8_upgrade_notes:
+
+IMPORTANT: Changes required before upgrading to 1.8.0
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. warning::
+
+   Do not upgrade to 1.8.0 before reading the following section and completing
+   the required steps.
+
+* While operating in direct-routing mode (``--tunnel=disabled``), traffic with
+  a destination address matching a particular CIDR is automatically excluded
+  from being masqueraded. So far, this CIDR consisted of
+  ``<alloc-cidr>/<size>`` where the size could be set with the option
+  ``--ipv4-cluster-cidr-mask-size``. This was not always desirable and
+  limiting, therefore Cilium 1.6 had already introduced the option
+  ``--native-routing-cidr`` allowing to explicitly specify the CIDR for native
+  routing. With Cilium 1.8, the option ``--ipv4-cluster-cidr-mask-size`` is
+  being deprecated and all users must use the option ``--native-routing-cidr``
+  instead.
+
+  .. note:: The ENI IPAM mode automatically derives the native routing CIDR so
+            no action is required.
+
 .. _1.7_upgrade_notes:
 
 1.7 Upgrade Notes

@@ -284,7 +284,6 @@ func (d *Daemon) allocateIPs() error {
 	log.Infof("  Internal-Node IPv4: %s", node.GetInternalIPv4())
 
 	if option.Config.EnableIPv4 {
-		log.Infof("  Cluster IPv4 prefix: %s", node.GetIPv4ClusterRange())
 		log.Infof("  IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
 
 		if c := option.Config.IPv4NativeRoutingCIDR(); c != nil {
@@ -328,8 +327,6 @@ func (d *Daemon) bootstrapIPAM() {
 	// or IPv4 alloc prefix, respectively, retrieved by k8s node annotations.
 	bootstrapStats.ipam.Start()
 	log.Info("Initializing node addressing")
-
-	node.SetIPv4ClusterCidrMaskSize(option.Config.IPv4ClusterCIDRMaskSize)
 
 	if option.Config.IPv4Range != AutoCIDR {
 		allocCIDR, err := cidr.ParseCIDR(option.Config.IPv4Range)

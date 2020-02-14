@@ -644,9 +644,6 @@ func (m *IptablesManager) remoteSnatDstAddrExclusion() string {
 	case option.Config.IPv4NativeRoutingCIDR() != nil:
 		return option.Config.IPv4NativeRoutingCIDR().String()
 
-	case option.Config.Tunnel == option.TunnelDisabled:
-		return node.GetIPv4ClusterRange().String()
-
 	default:
 		return node.GetIPv4AllocRange().String()
 	}

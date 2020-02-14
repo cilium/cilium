@@ -1072,7 +1072,6 @@ type DaemonConfig struct {
 	DisableEnvoyVersionCheck      bool
 	FixedIdentityMapping          map[string]string
 	FixedIdentityMappingValidator func(val string) (string, error)
-	IPv4ClusterCIDRMaskSize       int
 	IPv4Range                     string
 	IPv6Range                     string
 	IPv4ServiceRange              string
@@ -1709,7 +1708,6 @@ func (c *DaemonConfig) Populate() {
 	c.HTTPRequestTimeout = viper.GetInt(HTTPRequestTimeout)
 	c.HTTPRetryCount = viper.GetInt(HTTPRetryCount)
 	c.HTTPRetryTimeout = viper.GetInt(HTTPRetryTimeout)
-	c.IPv4ClusterCIDRMaskSize = viper.GetInt(IPv4ClusterCIDRMaskSize)
 	c.IdentityChangeGracePeriod = viper.GetDuration(IdentityChangeGracePeriod)
 	c.IPAM = viper.GetString(IPAM)
 	c.IPv4Range = viper.GetString(IPv4Range)
