@@ -521,7 +521,7 @@ fi
 if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	ENCAP_DEV="cilium_${MODE}"
 	ip link show $ENCAP_DEV || {
-		ip link add name $ENCAP_DEV address $(rnd_mac_addr) type $MODE external || encap_fail
+		ip link add name $ENCAP_DEV address $(rnd_mac_addr) mtu $MTU type $MODE external || encap_fail
 	}
 
 	setup_dev $ENCAP_DEV
