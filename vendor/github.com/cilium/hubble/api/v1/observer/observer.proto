@@ -1,0 +1,107 @@
+// Copyright 2019 Authors of Hubble
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+import public "flow/flow.proto";
+
+package observer;
+
+// Observer returns a stream of Payload depending on which filter the user
+// want to observer.
+service Observer {
+    // GetFlows returning structured data, meant to eventually obsolete GetLastNFlows.
+    rpc GetFlows(GetFlowsRequest) returns (stream GetFlowsResponse) {}
+
+    // ServerStatus returns some details about the running hubble server.
+    rpc ServerStatus(ServerStatusRequest) returns (ServerStatusResponse) {}
+}
+
+message ServerStatusRequest {}
+
+message ServerStatusResponse {
+    // number of currently captured flows
+    uint64 num_flows = 1;
+
+    // maximum capacity of the ring buffer
+    uint64 max_flows = 2;
+}
+
+message GetFlowsRequest {
+    // Number of flows that should be returned. Incompatible with `since/until`.
+    uint64 number = 1;
+
+    // Unused 2
+
+    // follow sets when the server should continue to stream flows after
+    // printing the last N flows.
+    bool follow = 3;
+
+    // blacklist defines a list of filters which have to match for a flow to be
+    // excluded from the result.
+    // If multiple blacklist filters are specified, only one of them has to
+    // match for a flow to be excluded.
+    repeated flow.FlowFilter blacklist = 5;
+
+    // whitelist defines a list of filters which have to match for a flow to be
+    // included in the result.
+    // If multiple whitelist filters are specified, only one of them has to
+    // match for a flow to be included.
+    // The whitelist and blacklist can both be specified. In such cases, the
+    // set of the returned flows is the set difference `whitelist - blacklist`.
+    // In other words, the result will contain all flows matched by the
+    // whitelist that are not also simultaneously matched by the blacklist.
+    repeated flow.FlowFilter whitelist = 6;
+
+    // Since this time for returned flows. Incompatible with `number`.
+    google.protobuf.Timestamp since = 7;
+
+    // Until this time for returned flows. Incompatible with `number`.
+    google.protobuf.Timestamp until = 8;
+}
+
+// GetFlowsResponse contains either a flow or a protocol message.
+message GetFlowsResponse {
+    oneof response_types{
+        flow.Flow flow = 1;
+        ProtocolMessage server_msg = 2;
+    }
+    // Name of the node where this event was observed.
+    string node_name = 1000;
+    // Timestamp at which this event was observed.
+    google.protobuf.Timestamp time = 1001;
+}
+
+// ProtocolMessage is a type of message type that can sent by the server to
+// inform the client with its current status.
+message ProtocolMessage {
+    oneof msg {
+        ProtocolMessageInfo info = 1;
+    }
+}
+
+// ProtocolMessageInfo is an informational message type that can sent by the server.
+message ProtocolMessageInfo {
+     string msg = 1;
+     ProtocolMessageType type = 2;
+}
+
+// ProtocolMessageType enumerates the type of messages the server can return
+// to the client.
+enum ProtocolMessageType {
+    UNKNOWN_PROTOCOL_MESSAGE_TYPE = 0;
+    PROGRESS_PROTOCOL_MESSAGE_TYPE = 1;
+    ERROR_PROTOCOL_MESSAGE_TYPE = 2;
+}

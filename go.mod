@@ -8,87 +8,83 @@ go 1.13
 
 // direct dependencies
 require (
-	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
-	github.com/armon/go-metrics v0.0.0-20190430140413-ec5e00d3c878 // indirect
-	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
+	github.com/asaskevich/govalidator v0.0.0-20200108200545-475eaeb16496
 	github.com/aws/aws-sdk-go-v2 v0.18.0
 	github.com/blang/semver v3.5.0+incompatible
 	github.com/c9s/goprocinfo v0.0.0-20190309065803-0b2ad9ac246b
-	github.com/census-instrumentation/opencensus-proto v0.2.1 // indirect
+	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/cilium/arping v1.0.1-0.20190728065459-c5eaf8d7a710
 	github.com/cilium/ebpf v0.0.0-20191113100448-d9fb101ca1fb
+	github.com/cilium/hubble v0.0.0-20200218223710-04ab72591fac
 	github.com/cilium/ipam v0.0.0-20200217195329-a46f8d55f9db
 	github.com/cilium/proxy v0.0.0-20191113190709-4c7b379792e6
 	github.com/containernetworking/cni v0.7.1
 	github.com/containernetworking/plugins v0.8.2
 	github.com/davecgh/go-spew v1.1.1
-	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v0.7.3-0.20190327010347-be7ac8be2ae0
-	github.com/docker/go-connections v0.3.0 // indirect
 	github.com/docker/libnetwork v0.8.0-dev.2.0.20190624125649-f0e46a78ea34
-	github.com/envoyproxy/protoc-gen-validate v0.1.0 // indirect
-	github.com/fatih/color v1.7.0
-	github.com/go-openapi/errors v0.19.2
+	github.com/fatih/color v1.9.0
+	github.com/go-openapi/analysis v0.19.7 // indirect
+	github.com/go-openapi/errors v0.19.3
 	github.com/go-openapi/loads v0.19.4
-	github.com/go-openapi/runtime v0.19.4
-	github.com/go-openapi/spec v0.19.3
-	github.com/go-openapi/strfmt v0.19.3
-	github.com/go-openapi/swag v0.19.5
-	github.com/go-openapi/validate v0.19.5
-	github.com/golang/protobuf v1.3.2
-	github.com/golang/snappy v0.0.1 // indirect
+	github.com/go-openapi/runtime v0.19.11
+	github.com/go-openapi/spec v0.19.6
+	github.com/go-openapi/strfmt v0.19.4
+	github.com/go-openapi/swag v0.19.7
+	github.com/go-openapi/validate v0.19.6
+	github.com/gogo/protobuf v1.3.1
+	github.com/golang/protobuf v1.3.3
 	github.com/google/go-cmp v0.3.1
 	github.com/google/gopacket v1.1.17
-	github.com/google/gops v0.3.6
-	github.com/googleapis/gnostic v0.2.0 // indirect
+	github.com/google/gops v0.3.7
 	github.com/gorilla/mux v1.7.0
 	github.com/hashicorp/consul/api v1.2.0
 	github.com/hashicorp/go-immutable-radix v1.1.0
-	github.com/hashicorp/go-msgpack v0.5.5 // indirect
-	github.com/hashicorp/go-rootcerts v1.0.1 // indirect
-	github.com/hashicorp/memberlist v0.1.5 // indirect
-	github.com/hashicorp/serf v0.8.5 // indirect
-	github.com/imdario/mergo v0.3.6 // indirect
-	github.com/ishidawataru/sctp v0.0.0-20180213033435-07191f837fed // indirect
+	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/jessevdk/go-flags v1.4.0
-	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/kevinburke/ssh_config v0.0.0-20190725054713-01f96b0aa0cd
 	github.com/kr/pretty v0.1.0
-	github.com/mattn/go-isatty v0.0.9 // indirect
+	github.com/mailru/easyjson v0.7.1 // indirect
+	github.com/mattn/go-colorable v0.1.4 // indirect
+	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/mattn/go-shellwords v1.0.5
-	github.com/miekg/dns v1.1.4
-	github.com/morikuni/aec v0.0.0-20170113033406-39771216ff4c // indirect
+	github.com/miekg/dns v1.1.27
 	github.com/onsi/ginkgo v1.10.1
 	github.com/onsi/gomega v1.7.0
-	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
-	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/optiopay/kafka v0.0.0-20180809090225-01ce283b732b
 	github.com/pborman/uuid v1.2.0
-	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
+	github.com/pelletier/go-toml v1.6.0 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/pmezard/go-difflib v1.0.0
-	github.com/prometheus/client_golang v1.2.0
-	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
+	github.com/prometheus/client_golang v1.4.1
+	github.com/prometheus/client_model v0.2.0
+	github.com/prometheus/common v0.9.1 // indirect
+	github.com/prometheus/procfs v0.0.10 // indirect
 	github.com/russross/blackfriday v1.5.2
-	github.com/sasha-s/go-deadlock v0.2.0
+	github.com/sasha-s/go-deadlock v0.2.1-0.20190130213442-5dc88f41ca59
 	github.com/servak/go-fastping v0.0.0-20160802140958-5718d12e20a0
 	github.com/shirou/gopsutil v0.0.0-20181107111621-48177ef5f880
 	github.com/sirupsen/logrus v1.4.2
+	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/cobra v0.0.5
-	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5
-	github.com/spf13/viper v1.6.1
+	github.com/spf13/viper v1.6.2
 	github.com/vishvananda/netlink v1.1.1-0.20200210222539-bfba8e4149db
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20190911215424-9ed5f76dc03b
-	golang.org/x/crypto v0.0.0-20190820162420-60c769a6c586
-	golang.org/x/net v0.0.0-20191004110552-13f9640d40b9
+	go.mongodb.org/mongo-driver v1.3.0 // indirect
+	go.uber.org/atomic v1.5.1 // indirect
+	go.uber.org/multierr v1.4.0 // indirect
+	go.uber.org/zap v1.13.0 // indirect
+	golang.org/x/crypto v0.0.0-20200214034016-1d94cc7ab1c6
+	golang.org/x/net v0.0.0-20200202094626-16171245cfb2
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
-	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
+	golang.org/x/sys v0.0.0-20200217220822-9197077df867
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
-	google.golang.org/genproto v0.0.0-20190502173448-54afdca5d873
-	google.golang.org/grpc v1.23.1
+	google.golang.org/genproto v0.0.0-20200218151345-dad8c97a84f5
+	google.golang.org/grpc v1.27.1
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/fsnotify.v1 v1.4.7
+	gopkg.in/ini.v1 v1.52.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.2.8
 	k8s.io/api v0.17.3
@@ -243,6 +239,7 @@ replace (
 	github.com/fatih/color => github.com/fatih/color v1.7.0
 	github.com/fatih/structs => github.com/fatih/structs v0.0.0-20180123065059-ebf56d35bba7
 	github.com/flynn/go-shlex => github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568
+	github.com/francoispqt/gojay => github.com/francoispqt/gojay v1.2.13
 	github.com/fsnotify/fsnotify => github.com/fsnotify/fsnotify v1.4.7
 	github.com/ghodss/yaml => github.com/ghodss/yaml v1.0.0
 	github.com/gliderlabs/ssh => github.com/gliderlabs/ssh v0.1.1
@@ -250,6 +247,7 @@ replace (
 	github.com/go-acme/lego => github.com/go-acme/lego v2.5.0+incompatible
 	github.com/go-bindata/go-bindata => github.com/go-bindata/go-bindata v3.1.1+incompatible
 	github.com/go-critic/go-critic => github.com/go-critic/go-critic v0.3.5-0.20190526074819-1df300866540
+	github.com/go-errors/errors => github.com/go-errors/errors v1.0.1
 	github.com/go-gl/glfw => github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1
 	github.com/go-kit/kit => github.com/go-kit/kit v0.8.0
 	github.com/go-ldap/ldap => github.com/go-ldap/ldap v3.0.2+incompatible
@@ -423,6 +421,7 @@ replace (
 	github.com/lucas-clemente/quic-clients => github.com/lucas-clemente/quic-clients v0.1.0
 	github.com/lucas-clemente/quic-go => github.com/lucas-clemente/quic-go v0.10.2
 	github.com/lucas-clemente/quic-go-certificates => github.com/lucas-clemente/quic-go-certificates v0.0.0-20160823095156-d2f86524cced
+	github.com/lunixbochs/vtclean => github.com/lunixbochs/vtclean v1.0.0
 	github.com/lyft/protoc-gen-star => github.com/lyft/protoc-gen-star v0.4.11
 	github.com/magiconair/properties => github.com/magiconair/properties v1.8.1
 	github.com/mailru/easyjson => github.com/mailru/easyjson v0.7.0
@@ -549,6 +548,8 @@ replace (
 	github.com/valyala/quicktemplate => github.com/valyala/quicktemplate v1.1.1
 	github.com/valyala/tcplisten => github.com/valyala/tcplisten v0.0.0-20161114210144-ceec8f93295a
 	github.com/vektah/gqlparser => github.com/vektah/gqlparser v1.1.2
+	github.com/viant/assertly => github.com/viant/assertly v0.4.8
+	github.com/viant/toolbox => github.com/viant/toolbox v0.24.0
 	github.com/vishvananda/netlink => github.com/vishvananda/netlink v1.1.1-0.20200210222539-bfba8e4149db
 	github.com/vishvananda/netns => github.com/vishvananda/netns v0.0.0-20190625233234-7109fa855b0f
 	github.com/vmware/govmomi => github.com/vmware/govmomi v0.20.3
