@@ -45,8 +45,7 @@ func listLocalAddresses(family int) ([]net.IP, error) {
 		if ip.IsExcluded(ipsToExclude, addr.IP) {
 			continue
 		}
-		switch addr.IP.String() {
-		case "127.0.0.1", "::1":
+		if addr.IP.IsLoopback() {
 			continue
 		}
 
