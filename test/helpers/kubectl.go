@@ -623,15 +623,24 @@ func (kub *Kubectl) getIfaceByIPAddr(label string, ipAddr string) (string, error
 		return "", fmt.Errorf("Cannot get node by label %q", label)
 	}
 
-	cmd := fmt.Sprintf(
-		`ip -j a s  | jq -r '.[] | select(.addr_info[] | .local == "%s") | .ifname'`,
-		ipAddr)
+	cmd := fmt.Sprintf(`ip -j a s`)
 	res, err := kub.ExecInHostNetNS(context.TODO(), nodeName, cmd)
 	if err != nil {
-		return "", fmt.Errorf("Failed to exec %q cmd on %q node", cmd, nodeName)
+		return "", fmt.Errorf("Failed to exec %q cmd on %q node: %s", cmd, nodeName, err)
 	}
 	if !res.WasSuccessful() {
-		return "", fmt.Errorf("Failed to exec %q cmd on %q node", cmd, nodeName)
+		return "", fmt.Errorf("Failed to exec %q cmd on %q node: %s", cmd, nodeName, res.GetErr("foo"))
+	}
+
+	cmd = fmt.Sprintf(
+		`ip -j a s  | jq -r '.[] | select(.addr_info[] | .local == "%s") | .ifname'`,
+		ipAddr)
+	res, err = kub.ExecInHostNetNS(context.TODO(), nodeName, cmd)
+	if err != nil {
+		return "", fmt.Errorf("Failed to exec %q cmd on %q node: %s", cmd, nodeName, err)
+	}
+	if !res.WasSuccessful() {
+		return "", fmt.Errorf("Failed to exec %q cmd on %q node: %s", cmd, nodeName, res.GetErr("bar"))
 	}
 	iface := strings.Trim(res.GetStdOut(), "\n")
 	if len(iface) == 0 {
