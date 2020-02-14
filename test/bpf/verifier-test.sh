@@ -232,8 +232,7 @@ function load_cg {
 }
 
 function load_xdp {
-	if $IPROUTE2 link set help 2>&1 | grep -q xdpgeneric; then
-		$IPROUTE2 link set dev ${DEV} xdpgeneric off
+	if $IPROUTE2 link set dev ${DEV} xdpgeneric off 2>/dev/null; then
 		for p in ${XDP_PROGS}; do
 			load_prog_dev "$IPROUTE2 link set" "xdpgeneric" ${p}
 		done
