@@ -81,7 +81,7 @@ type NatKey6 struct {
 }
 
 // NewValue creates a new bpf.MapValue.
-func (k *NatKey6) NewValue() bpf.MapValue { return &NatEntry4{} }
+func (k *NatKey6) NewValue() bpf.MapValue { return &NatEntry6{} }
 
 // ToNetwork converts ports to network byte order.
 //
