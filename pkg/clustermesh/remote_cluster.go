@@ -265,3 +265,28 @@ func (rc *remoteCluster) isReady() bool {
 
 	return rc.backend != nil && rc.remoteNodes != nil && rc.ipCacheWatcher != nil
 }
+
+func (rc *remoteCluster) status() *models.RemoteCluster {
+	rc.mutex.RLock()
+	defer rc.mutex.RUnlock()
+
+	// This can happen when the controller in restartRemoteConnection is waiting
+	// for the first connection to succeed.
+	var backendStatus = "Backend not initialized"
+	if rc.backend != nil {
+		var backendError error
+		backendStatus, backendError = rc.backend.Status()
+		if backendError != nil {
+			backendStatus = backendError.Error()
+		}
+	}
+
+	return &models.RemoteCluster{
+		Name:              rc.name,
+		Ready:             rc.isReadyLocked(),
+		NumNodes:          int64(rc.remoteNodes.NumEntries()),
+		NumSharedServices: int64(rc.remoteServices.NumEntries()),
+		NumIdentities:     int64(rc.remoteIdentityCache.NumEntries()),
+		Status:            backendStatus,
+	}
+}
