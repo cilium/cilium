@@ -61,11 +61,13 @@ var (
 // for testing purposes.
 func CreateWithName(mapName string) error {
 	buildMap.Do(func() {
+		mapType := bpf.MapType(bpf.BPF_MAP_TYPE_HASH)
 		fd, err := bpf.CreateMap(bpf.BPF_MAP_TYPE_HASH,
 			uint32(unsafe.Sizeof(policymap.PolicyKey{})),
 			uint32(unsafe.Sizeof(policymap.PolicyEntry{})),
 			uint32(policymap.MaxEntries),
-			0, 0, innerMapName)
+			bpf.GetPreAllocateMapFlags(mapType),
+			0, innerMapName)
 
 		if err != nil {
 			log.WithError(err).Warning("unable to create EP to policy map")
