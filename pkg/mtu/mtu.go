@@ -124,6 +124,15 @@ func NewConfiguration(authKeySize int, encryptEnabled bool, encapEnabled bool, m
 	return conf
 }
 
+// GetRouteTunnelMTU return the MTU to be used on the encryption routing
+// table. This is the MTU without encryption overhead.
+func (c *Configuration) GetRouteTunnelMTU() int {
+	if c.encryptEnabled && c.encapEnabled {
+		return EthernetMTU - TunnelOverhead
+	}
+	return c.GetRouteMTU()
+}
+
 // GetRouteMTU returns the MTU to be used on the network. When running in
 // tunneling mode and/or with encryption enabled, this will have tunnel and
 // encryption overhead accounted for.

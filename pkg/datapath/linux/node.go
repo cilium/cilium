@@ -904,6 +904,7 @@ func (n *linuxNodeHandler) createNodeIPSecOutRoute(ip *net.IPNet) route.Route {
 		Device:  n.datapathConfig.HostDevice,
 		Prefix:  *ip,
 		Table:   linux_defaults.RouteTableIPSec,
+		MTU:     n.nodeConfig.MtuConfig.GetRouteTunnelMTU(),
 	}
 }
 
