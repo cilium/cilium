@@ -904,6 +904,7 @@ func (n *linuxNodeHandler) createNodeIPSecOutRoute(ip *net.IPNet) route.Route {
 		Device:  n.datapathConfig.HostDevice,
 		Prefix:  *ip,
 		Table:   linux_defaults.RouteTableIPSec,
+		MTU:     n.nodeConfig.MtuConfig.GetRouteTunnelMTU(),
 	}
 }
 
@@ -918,6 +919,7 @@ func (n *linuxNodeHandler) createNodeExternalIPSecOutRoute(ip *net.IPNet, dflt b
 	} else {
 		tbl = linux_defaults.RouteTableIPSec
 		dev = n.datapathConfig.HostDevice
+		mtu = n.nodeConfig.MtuConfig.GetRouteTunnelMTU()
 	}
 
 	// The default routing table accounts for encryption overhead for encrypt-node traffic
