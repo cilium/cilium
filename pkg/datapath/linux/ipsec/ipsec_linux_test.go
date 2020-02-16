@@ -62,7 +62,7 @@ func (p *IPSecSuitePrivileged) TestInvalidLoadKeys(c *C) {
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
 	c.Assert(err, IsNil)
 
-	_, err = UpsertIPsecEndpoint(local, remote, IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, IPSecDirBoth)
 	c.Assert(err, NotNil)
 }
 
@@ -95,7 +95,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEquals(c *C) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, IPSecDirBoth)
 	c.Assert(err, IsNil)
 
 	ipsecDeleteXfrmSpi(0)
@@ -113,7 +113,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEquals(c *C) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, IPSecDirBoth)
 	c.Assert(err, IsNil)
 
 	ipsecDeleteXfrmSpi(0)
@@ -142,7 +142,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEndpoint(c *C) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, IPSecDirBoth)
 	c.Assert(err, IsNil)
 
 	ipsecDeleteXfrmSpi(0)
@@ -161,7 +161,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEndpoint(c *C) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, IPSecDirBoth)
 	c.Assert(err, IsNil)
 
 	ipsecDeleteXfrmSpi(0)
@@ -176,7 +176,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecKeyMissing(c *C) {
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
 	c.Assert(err, IsNil)
 
-	_, err = UpsertIPsecEndpoint(local, remote, IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, IPSecDirBoth)
 	c.Assert(err, ErrorMatches, "unable to replace local state: IPSec key missing")
 
 	ipsecDeleteXfrmSpi(0)
