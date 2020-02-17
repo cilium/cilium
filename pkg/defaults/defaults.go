@@ -306,4 +306,8 @@ const (
 
 	// RestoreV6Addr is used as match for cilium_host v6 (router) address
 	RestoreV6Addr = "cilium.v6.internal.raw "
+
+	// IPAMExpiration is the timeout after which an IP subject to expiratio
+	// is being released again if no endpoint is being created in time.
+	IPAMExpiration = 3 * time.Minute
 )

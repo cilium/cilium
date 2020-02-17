@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,12 +18,14 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	ipamapi "github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -47,7 +49,11 @@ func NewPostIPAMHandler(d *Daemon) ipamapi.PostIPAMHandler {
 func (h *postIPAM) Handle(params ipamapi.PostIPAMParams) middleware.Responder {
 	family := strings.ToLower(swag.StringValue(params.Family))
 	owner := swag.StringValue(params.Owner)
-	ipv4Result, ipv6Result, err := h.daemon.ipam.AllocateNext(family, owner)
+	var expirationTimeout time.Duration
+	if swag.BoolValue(params.Expiration) {
+		expirationTimeout = defaults.IPAMExpiration
+	}
+	ipv4Result, ipv6Result, err := h.daemon.ipam.AllocateNextWithExpiration(family, owner, expirationTimeout)
 	if err != nil {
 		return api.Error(ipamapi.PostIPAMFailureCode, err)
 	}
@@ -60,20 +66,22 @@ func (h *postIPAM) Handle(params ipamapi.PostIPAMParams) middleware.Responder {
 	if ipv4Result != nil {
 		resp.Address.IPV4 = ipv4Result.IP.String()
 		resp.IPV4 = &models.IPAMAddressResponse{
-			Cidrs:     ipv4Result.CIDRs,
-			IP:        ipv4Result.IP.String(),
-			MasterMac: ipv4Result.Master,
-			Gateway:   ipv4Result.GatewayIP,
+			Cidrs:          ipv4Result.CIDRs,
+			IP:             ipv4Result.IP.String(),
+			MasterMac:      ipv4Result.Master,
+			Gateway:        ipv4Result.GatewayIP,
+			ExpirationUUID: ipv4Result.ExpirationUUID,
 		}
 	}
 
 	if ipv6Result != nil {
 		resp.Address.IPV6 = ipv6Result.IP.String()
 		resp.IPV6 = &models.IPAMAddressResponse{
-			Cidrs:     ipv6Result.CIDRs,
-			IP:        ipv6Result.IP.String(),
-			MasterMac: ipv6Result.Master,
-			Gateway:   ipv6Result.GatewayIP,
+			Cidrs:          ipv6Result.CIDRs,
+			IP:             ipv6Result.IP.String(),
+			MasterMac:      ipv6Result.Master,
+			Gateway:        ipv6Result.GatewayIP,
+			ExpirationUUID: ipv6Result.ExpirationUUID,
 		}
 	}
 
