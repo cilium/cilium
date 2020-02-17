@@ -57,7 +57,11 @@ struct nat_entry {
 # define SNAT_SIGNAL_THRES		64
 #else
 # if defined ENABLE_IPV4 && defined ENABLE_IPV6
-#  define SNAT_COLLISION_RETRIES	18
+#  ifdef ENABLE_DSR_HYBRID
+#   define SNAT_COLLISION_RETRIES	16
+#  else
+#   define SNAT_COLLISION_RETRIES	18
+#  endif
 # else
 #  define SNAT_COLLISION_RETRIES	20
 # endif

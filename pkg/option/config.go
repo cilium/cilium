@@ -244,7 +244,7 @@ const (
 	EnableNodePort = "enable-node-port"
 
 	// NodePortMode indicates in which mode NodePort implementation should run
-	// ("snat" or "dsr")
+	// ("snat", "dsr" or "hybrid")
 	NodePortMode = "node-port-mode"
 
 	// KubeProxyReplacement controls how to enable kube-proxy replacement
@@ -760,6 +760,15 @@ const (
 	// NodePortMaxDefault is the maximum port to listen for NodePort requests
 	NodePortMaxDefault = 32767
 
+	// NodePortModeSNAT is for SNATing requests to remote nodes
+	NodePortModeSNAT = "snat"
+
+	// NodePortModeDSR is for performing DSR for requests to remote nodes
+	NodePortModeDSR = "dsr"
+
+	// NodePortModeHybrid is a dual mode of the above, that is, DSR for TCP and SNAT for UDP
+	NodePortModeHybrid = "hybrid"
+
 	// KubeProxyReplacementProbe specifies to auto-enable available features for
 	// kube-proxy replacement
 	KubeProxyReplacementProbe = "probe"
@@ -1262,7 +1271,7 @@ type DaemonConfig struct {
 	EnableNodePort bool
 
 	// NodePortMode indicates in which mode NodePort implementation should run
-	// ("snat" or "dsr")
+	// ("snat", "dsr" or "hybrid")
 	NodePortMode string
 
 	// KubeProxyReplacement controls how to enable kube-proxy replacement

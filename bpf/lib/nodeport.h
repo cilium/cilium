@@ -36,7 +36,6 @@
 #endif
 
 #ifdef ENABLE_NODEPORT
-
 #ifdef ENABLE_IPV4
 struct bpf_elf_map __section_maps NODEPORT_NEIGH4 = {
 	.type		= BPF_MAP_TYPE_LRU_HASH,
@@ -55,8 +54,8 @@ struct bpf_elf_map __section_maps NODEPORT_NEIGH6 = {
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= SNAT_MAPPING_IPV6_SIZE,
 };
-# ifdef ENABLE_DSR
-// The IPv6 extension should be 8-bytes aligned
+
+/* The IPv6 extension should be 8-bytes aligned */
 struct dsr_opt_v6 {
 	__u8 nexthdr;
 	__u8 len;
@@ -65,9 +64,7 @@ struct dsr_opt_v6 {
 	union v6addr addr;
 	__be32 port;
 };
-# endif
 #endif /* ENABLE_IPV6 */
-
 #endif /* ENABLE_NODEPORT */
 
 static inline void bpf_clear_nodeport(struct __sk_buff *skb)
@@ -78,6 +75,19 @@ static inline void bpf_clear_nodeport(struct __sk_buff *skb)
 }
 
 #ifdef ENABLE_NODEPORT
+static __always_inline bool nodeport_uses_dsr(__u8 nexthdr)
+{
+# if defined(ENABLE_DSR) && !defined(ENABLE_DSR_HYBRID)
+	return true;
+# elif defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)
+	if (nexthdr == IPPROTO_TCP)
+		return true;
+	return false;
+# else
+	return false;
+# endif
+}
+
 static inline bool __inline__ bpf_skip_nodeport(struct __sk_buff *skb)
 {
 	volatile __u32 tc_index = skb->tc_index;
@@ -88,6 +98,11 @@ static inline bool __inline__ bpf_skip_nodeport(struct __sk_buff *skb)
 
 #ifdef ENABLE_NODEPORT
 #ifdef ENABLE_IPV6
+static inline bool nodeport_uses_dsr6(const struct ipv6_ct_tuple *tuple)
+{
+	return nodeport_uses_dsr(tuple->nexthdr);
+}
+
 static __always_inline bool nodeport_nat_ipv6_needed(struct __sk_buff *skb,
 						     union v6addr *addr, int dir)
 {
@@ -96,6 +111,18 @@ static __always_inline bool nodeport_nat_ipv6_needed(struct __sk_buff *skb,
 
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return false;
+#ifdef ENABLE_DSR_HYBRID
+	{
+		__u8 nexthdr = ip6->nexthdr;
+		int ret;
+
+		ret = ipv6_hdrlen(skb, ETH_HLEN, &nexthdr);
+		if (ret > 0) {
+			if (nodeport_uses_dsr(nexthdr))
+				return false;
+		}
+	}
+#endif /* ENABLE_DSR_HYBRID */
 	/* See nodeport_nat_ipv4_needed(). */
 	if (dir == NAT_DIR_EGRESS)
 		return !ipv6_addrcmp((union v6addr *)&ip6->saddr, addr);
@@ -130,7 +157,6 @@ static __always_inline int nodeport_nat_ipv6_rev(struct __sk_buff *skb,
 }
 
 # ifdef ENABLE_DSR
-
 static __always_inline int set_dsr_ext6(struct __sk_buff *skb,
 					struct ipv6hdr *ip6,
 					union v6addr *svc_addr, __be32 svc_port)
@@ -221,9 +247,8 @@ static __always_inline int handle_dsr_v6(struct __sk_buff *skb, bool *dsr)
 		return ret;
 
 	if (*dsr) {
-		if (snat_v6_create_dsr(skb, &opt.addr, opt.port) < 0) {
+		if (snat_v6_create_dsr(skb, &opt.addr, opt.port) < 0)
 			return DROP_INVALID;
-		}
 	}
 
 	return 0;
@@ -233,22 +258,18 @@ static __always_inline int xlate_dsr_v6(struct __sk_buff *skb,
 					struct ipv6_ct_tuple *tuple,
 					int l4_off)
 {
-	int ret;
 	struct ipv6_ct_tuple nat_tup = *tuple;
 	struct ipv6_nat_entry *entry;
+	int ret = 0;
 
 	nat_tup.flags = NAT_DIR_EGRESS;
 	nat_tup.sport = tuple->dport;
 	nat_tup.dport = tuple->sport;
-	entry = snat_v6_lookup(&nat_tup);
-	if (entry) {
-		ret = snat_v6_rewrite_egress(skb, &nat_tup, entry, l4_off);
-		if (ret != 0) {
-			return ret;
-		}
-	}
 
-	return 0;
+	entry = snat_v6_lookup(&nat_tup);
+	if (entry)
+		ret = snat_v6_rewrite_egress(skb, &nat_tup, entry, l4_off);
+	return ret;
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_DSR)
@@ -282,20 +303,16 @@ int tail_nodeport_ipv6_dsr(struct __sk_buff *skb)
 
 	ret = fib_lookup(skb, &fib_params, sizeof(fib_params),
 			 BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
-	if (ret != 0) {
+	if (ret != 0)
 		return DROP_NO_FIB;
-	}
 
-	if (eth_store_daddr(skb, fib_params.dmac, 0) < 0) {
+	if (eth_store_daddr(skb, fib_params.dmac, 0) < 0)
 		return DROP_WRITE_ERROR;
-	}
-	if (eth_store_saddr(skb, fib_params.smac, 0) < 0) {
+	if (eth_store_saddr(skb, fib_params.smac, 0) < 0)
 		return DROP_WRITE_ERROR;
-	}
 
 	return redirect(fib_params.ifindex, 0);
 }
-
 # endif /* ENABLE_DSR */
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT)
@@ -448,14 +465,15 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 	if (!svc || (!lb6_svc_is_external_ip(svc) && !lb6_svc_is_nodeport(svc))) {
 		if (svc)
 			return DROP_IS_CLUSTER_IP;
-#ifdef ENABLE_DSR
-		return TC_ACT_OK;
-#else
-		skb->cb[CB_NAT] = NAT_DIR_INGRESS;
-		skb->cb[CB_SRC_IDENTITY] = src_identity;
-		ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_NAT);
-		return DROP_MISSED_TAIL_CALL;
-#endif /* ENABLE_DSR */
+
+		if (nodeport_uses_dsr6(&tuple)) {
+			return TC_ACT_OK;
+		} else {
+			skb->cb[CB_NAT] = NAT_DIR_INGRESS;
+			skb->cb[CB_SRC_IDENTITY] = src_identity;
+			ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_NAT);
+			return DROP_MISSED_TAIL_CALL;
+		}
 	}
 
 	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, skb, l4_off, CT_EGRESS,
@@ -513,19 +531,18 @@ redo:
 	}
 
 	if (!backend_local) {
-#ifdef ENABLE_DSR
-		skb->cb[CB_SVC_PORT] = key.dport;
-		skb->cb[CB_SVC_ADDR_V6_1] = key.address.p1;
-		skb->cb[CB_SVC_ADDR_V6_2] = key.address.p2;
-		skb->cb[CB_SVC_ADDR_V6_3] = key.address.p3;
-		skb->cb[CB_SVC_ADDR_V6_4] = key.address.p4;
-		ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_DSR);
+		if (nodeport_uses_dsr6(&tuple)) {
+			skb->cb[CB_SVC_PORT] = key.dport;
+			skb->cb[CB_SVC_ADDR_V6_1] = key.address.p1;
+			skb->cb[CB_SVC_ADDR_V6_2] = key.address.p2;
+			skb->cb[CB_SVC_ADDR_V6_3] = key.address.p3;
+			skb->cb[CB_SVC_ADDR_V6_4] = key.address.p4;
+			ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_DSR);
+		} else {
+			skb->cb[CB_NAT] = NAT_DIR_EGRESS;
+			ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_NAT);
+		}
 		return DROP_MISSED_TAIL_CALL;
-#else
-		skb->cb[CB_NAT] = NAT_DIR_EGRESS;
-		ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_NAT);
-		return DROP_MISSED_TAIL_CALL;
-#endif /* ENABLE_DSR */
 	}
 
 	return TC_ACT_OK;
@@ -646,6 +663,11 @@ int tail_rev_nodeport_lb6(struct __sk_buff *skb)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
+static inline bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple)
+{
+	return nodeport_uses_dsr(tuple->nexthdr);
+}
+
 static __always_inline bool nodeport_nat_ipv4_needed(struct __sk_buff *skb,
 						     __be32 addr, int dir)
 {
@@ -654,6 +676,10 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __sk_buff *skb,
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return false;
+#ifdef ENABLE_DSR_HYBRID
+	if (nodeport_uses_dsr(ip4->protocol))
+		return false;
+#endif /* ENABLE_DSR_HYBRID */
 	/* Basic minimum is to only NAT when there is a potential of
 	 * overlapping tuples, e.g. applications in hostns reusing
 	 * source IPs we SNAT in node-port.
@@ -691,7 +717,6 @@ static __always_inline int nodeport_nat_ipv4_rev(struct __sk_buff *skb,
 }
 
 # ifdef ENABLE_DSR
-
 /* Helper function to set the IPv4 option for DSR when a backend is remote.
  * NOTE: Revalidate data after calling the function.
  */
@@ -728,6 +753,7 @@ static __always_inline int set_dsr_opt4(struct __sk_buff *skb,
 
 	if (skb_adjust_room(skb, 0x8, BPF_ADJ_ROOM_NET, 0))
 		return DROP_INVALID;
+
 	if (skb_store_bytes(skb, ETH_HLEN + sizeof(*ip4),
 			    &opt1, sizeof(opt1), 0) < 0)
 		return DROP_INVALID;
@@ -760,23 +786,23 @@ static __always_inline int handle_dsr_v4(struct __sk_buff *skb, bool *dsr)
 		if (skb_load_bytes(skb, ETH_HLEN + sizeof(struct iphdr),
 				   &opt1, sizeof(opt1)) < 0)
 			return DROP_INVALID;
-		opt1 = bpf_ntohl(opt1);
 
+		opt1 = bpf_ntohl(opt1);
 		if ((opt1 & DSR_IPV4_OPT_MASK) == DSR_IPV4_OPT_32) {
 			if (skb_load_bytes(skb, ETH_HLEN +
 					   sizeof(struct iphdr) +
 					   sizeof(opt1),
 					   &opt2, sizeof(opt2)) < 0)
 				return DROP_INVALID;
+
 			opt2 = bpf_ntohl(opt2);
 
 			__be32 dport = opt1 & DSR_IPV4_DPORT_MASK;
 			__be32 address = opt2;
 			*dsr = true;
 
-			if (snat_v4_create_dsr(skb, address, dport) < 0) {
+			if (snat_v4_create_dsr(skb, address, dport) < 0)
 				return DROP_INVALID;
-			}
 		}
 	}
 
@@ -787,22 +813,18 @@ static __always_inline int xlate_dsr_v4(struct __sk_buff *skb,
 					struct ipv4_ct_tuple *tuple,
 					int l4_off)
 {
-	int ret;
 	struct ipv4_ct_tuple nat_tup = *tuple;
 	struct ipv4_nat_entry *entry;
+	int ret = 0;
 
 	nat_tup.flags = NAT_DIR_EGRESS;
 	nat_tup.sport = tuple->dport;
 	nat_tup.dport = tuple->sport;
-	entry = snat_v4_lookup(&nat_tup);
-	if (entry) {
-		ret = snat_v4_rewrite_egress(skb, &nat_tup, entry, l4_off);
-		if (ret != 0) {
-			return ret;
-		}
-	}
 
-	return 0;
+	entry = snat_v4_lookup(&nat_tup);
+	if (entry)
+		ret = snat_v4_rewrite_egress(skb, &nat_tup, entry, l4_off);
+	return ret;
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_DSR)
@@ -833,21 +855,17 @@ int tail_nodeport_ipv4_dsr(struct __sk_buff *skb)
 
 	ret = fib_lookup(skb, &fib_params, sizeof(fib_params),
 			 BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
-	if (ret != 0) {
+	if (ret != 0)
 		return DROP_NO_FIB;
-	}
 
-	if (eth_store_daddr(skb, fib_params.dmac, 0) < 0) {
+	if (eth_store_daddr(skb, fib_params.dmac, 0) < 0)
 		return DROP_WRITE_ERROR;
-	}
-	if (eth_store_saddr(skb, fib_params.smac, 0) < 0) {
+	if (eth_store_saddr(skb, fib_params.smac, 0) < 0)
 		return DROP_WRITE_ERROR;
-	}
 
 	return redirect(fib_params.ifindex, 0);
 }
-
-# endif /*ENABLE_DSR */
+# endif /* ENABLE_DSR */
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT)
 int tail_nodeport_nat_ipv4(struct __sk_buff *skb)
@@ -997,14 +1015,15 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 	if (!svc || (!lb4_svc_is_external_ip(svc) && !lb4_svc_is_nodeport(svc))) {
 		if (svc)
 			return DROP_IS_CLUSTER_IP;
-#ifdef ENABLE_DSR
-		return TC_ACT_OK;
-#else
-		skb->cb[CB_NAT] = NAT_DIR_INGRESS;
-		skb->cb[CB_SRC_IDENTITY] = src_identity;
-		ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
-		return DROP_MISSED_TAIL_CALL;
-#endif /* ENABLE_DSR */
+
+		if (nodeport_uses_dsr4(&tuple)) {
+			return TC_ACT_OK;
+		} else {
+			skb->cb[CB_NAT] = NAT_DIR_INGRESS;
+			skb->cb[CB_SRC_IDENTITY] = src_identity;
+			ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
+			return DROP_MISSED_TAIL_CALL;
+		}
 	}
 
 	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, skb, l4_off, CT_EGRESS,
@@ -1062,16 +1081,15 @@ redo:
 	}
 
 	if (!backend_local) {
-#ifdef ENABLE_DSR
-		skb->cb[CB_SVC_PORT] = key.dport;
-		skb->cb[CB_SVC_ADDR_V4] = key.address;
-		ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_DSR);
+		if (nodeport_uses_dsr4(&tuple)) {
+			skb->cb[CB_SVC_PORT] = key.dport;
+			skb->cb[CB_SVC_ADDR_V4] = key.address;
+			ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_DSR);
+		} else {
+			skb->cb[CB_NAT] = NAT_DIR_EGRESS;
+			ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
+		}
 		return DROP_MISSED_TAIL_CALL;
-#else // Fallback to SNAT
-		skb->cb[CB_NAT] = NAT_DIR_EGRESS;
-		ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
-		return DROP_MISSED_TAIL_CALL;
-#endif /* ENABLE_DSR */
 	}
 
 	return TC_ACT_OK;
