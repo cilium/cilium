@@ -15,8 +15,6 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
-#include <stdio.h>
-#include <linux/byteorder.h>
 
 /* Ensure declaration of notification event types */
 #define DEBUG
@@ -27,6 +25,7 @@
 #include "lib/conntrack.h"
 #include "lib/dbg.h"
 #include "lib/drop.h"
+#define SKIP_UNDEF_LPM_LOOKUP_FN
 #include "lib/maps.h"
 #include "lib/nat.h"
 #include "lib/trace.h"

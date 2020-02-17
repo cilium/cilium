@@ -18,7 +18,7 @@
 #ifndef _LINUX_IN_H
 #define _LINUX_IN_H
 
-#include <linux/type_mapper.h>
+#include <linux/types.h>
 
 /* Standard well-defined IP protocols.  */
 enum {

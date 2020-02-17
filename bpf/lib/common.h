@@ -23,8 +23,8 @@
 #include <linux/if_ether.h>
 #include <linux/ipv6.h>
 #include <linux/in.h>
-#include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 // FIXME: GH-3239 LRU logic is not handling timeouts gracefully enough
 // #ifndef HAVE_LRU_MAP_TYPE
@@ -695,7 +695,7 @@ static inline int redirect_self(struct __sk_buff *skb)
 #endif
 }
 
-static inline int redirect_peer(int ifindex, uint32_t flags)
+static inline int redirect_peer(int ifindex, __u32 flags)
 {
 	/* If our datapath has proper redirect support, we make use
 	 * of it here, otherwise we terminate tc processing by letting

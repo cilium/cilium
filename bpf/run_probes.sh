@@ -26,6 +26,8 @@ FEATURE_FILE="$RUNDIR/globals/bpf_features.h"
 INFO_FILE="$RUNDIR/bpf_features.log"
 WARNING_FILE="$RUNDIR/bpf_requirements.log"
 
+MACHINE=$(uname -m)
+
 function cleanup {
 	if [ ! -z "$PROBE_DIR" ]; then
 		rm -rf "$PROBE_DIR"
@@ -42,7 +44,7 @@ function probe_run_tc()
 	FEATURE=$2
 	tc qdisc del dev $DEV clsact 2> /dev/null
 
-	PROBE_OPTS="-D__NR_CPUS__=$(nproc) -O2 -target bpf -I$DIR -I. -I$LIB/include -Wall -Wno-address-of-packed-member -Wno-unknown-warning-option"
+	PROBE_OPTS="-D__NR_CPUS__=$(nproc) -O2 -target bpf -I/usr/include/${MACHINE}-linux-gnu -I$DIR -I. -I$LIB/include -Wall -Wno-address-of-packed-member -Wno-unknown-warning-option"
 
 	clang $PROBE_OPTS -c "$PROBE" -o "$OUT" &&
 	tc qdisc add dev $DEV clsact &&
@@ -64,7 +66,7 @@ function probe_run_ll()
 	PROBE_BASE="${LIB}/probes"
 	OUT="$PROBE_DIR"
 	LIB_INCLUDE="${LIB}/include"
-	PROBE_OPTS="-O2 -I$OUT -I$PROBE_BASE -I$LIB_INCLUDE -Wall"
+	PROBE_OPTS="-O2 -I/usr/include/${MACHINE}-linux-gnu -I$OUT -I$PROBE_BASE -I$LIB_INCLUDE -Wall"
 
 	for PROBE in "${PROBE_BASE}"/*.t
 	do

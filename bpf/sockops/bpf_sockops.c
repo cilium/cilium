@@ -22,9 +22,6 @@
 #include <node_config.h>
 #include <bpf/api.h>
 
-#include <stdint.h>
-#include <stdio.h>
-
 #include <linux/bpf.h>
 #include <linux/if_ether.h>
 
@@ -37,6 +34,34 @@
 #include "../lib/policy.h"
 
 #include "bpf_sockops.h"
+
+static __always_inline void sk_extract4_key(struct bpf_sock_ops *ops,
+					    struct sock_key *key)
+{
+	key->dip4 = ops->remote_ip4;
+	key->sip4 = ops->local_ip4;
+	key->family = ENDPOINT_KEY_IPV4;
+
+	key->sport = (bpf_ntohl(ops->local_port) >> 16);
+	/* clang-7.1 or higher seems to think it can do a 16-bit read here
+	 * which unfortunately most kernels (as of October 2019) do not
+	 * support, which leads to verifier failures. Insert a READ_ONCE
+	 * to make sure that a 32-bit read followed by shift is generated. */
+	key->dport = READ_ONCE(ops->remote_port) >> 16;
+}
+
+static __always_inline void sk_lb4_key(struct lb4_key *lb4,
+					  struct sock_key *key)
+{
+	/* SK MSG is always egress, so use daddr */
+	lb4->address = key->dip4;
+	lb4->dport = key->dport;
+}
+
+static __always_inline bool redirect_to_proxy(int verdict)
+{
+	return verdict > 0;
+}
 
 static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 {

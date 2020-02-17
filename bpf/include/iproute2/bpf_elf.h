@@ -1,7 +1,7 @@
 #ifndef __BPF_ELF__
 #define __BPF_ELF__
 
-#include <linux/type_mapper.h>
+#include <linux/types.h>
 
 /* Note:
  *

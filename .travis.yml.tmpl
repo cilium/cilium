@@ -11,7 +11,7 @@ if: branch = master OR type = pull_request
 addons:
   apt:
     packages:
-      - kernel-package libc6-dev-i386
+      - kernel-package
 
 before_install: ./.travis/prepare.sh
 
