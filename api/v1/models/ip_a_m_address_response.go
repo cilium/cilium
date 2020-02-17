@@ -18,6 +18,11 @@ type IPAMAddressResponse struct {
 	// List of CIDRs out of which IPs are allocated
 	Cidrs []string `json:"cidrs"`
 
+	// The UUID for the expiration timer. Set when expiration has been
+	// enabled while allocating.
+	//
+	ExpirationUUID string `json:"expiration-uuid,omitempty"`
+
 	// IP of gateway
 	Gateway string `json:"gateway,omitempty"`
 
