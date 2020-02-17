@@ -432,7 +432,7 @@ var _ = Describe("K8sServicesTest", func() {
 		testNodePort := func(bpfNodePort bool) {
 			var data v1.Service
 			k8s1Name, k8s1IP := getNodeInfo(helpers.K8s1)
-			k8s2Name, k8s2IP := getNodeInfo(helpers.K8s1)
+			k8s2Name, k8s2IP := getNodeInfo(helpers.K8s2)
 
 			waitPodsDs()
 
