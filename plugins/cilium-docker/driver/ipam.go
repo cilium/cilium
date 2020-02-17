@@ -116,7 +116,7 @@ func (driver *driver) requestAddress(w http.ResponseWriter, r *http.Request) {
 		family = client.AddressFamilyIPv6
 	}
 
-	ipam, err := driver.client.IPAMAllocate(family, "docker-ipam")
+	ipam, err := driver.client.IPAMAllocate(family, "docker-ipam", false)
 	if err != nil {
 		sendError(w, fmt.Sprintf("Could not allocate IP address: %s", err), http.StatusBadRequest)
 		return
