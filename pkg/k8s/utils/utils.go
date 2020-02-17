@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ package utils
 import (
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/kubernetes/pkg/kubelet/types"
 )
 
 // ExtractNamespace extracts the namespace of ObjectMeta.
@@ -50,16 +49,4 @@ func GetObjNamespaceName(obj metav1.Object) string {
 	}
 
 	return ns + "/" + obj.GetName()
-}
-
-// GetObjUID returns the object's namespace and name.
-func GetObjUID(obj metav1.Object) string {
-	return GetObjNamespaceName(obj) + "/" + string(obj.GetUID())
-}
-
-// IsInfraContainer returns true if the given set of labels represent a infra
-// container.
-func IsInfraContainer(labels map[string]string) bool {
-	return labels[types.KubernetesContainerNameLabel] == "POD"
-
 }

@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,8 +25,8 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/uuid"
 
+	"github.com/cilium/ipam/service/ipallocator"
 	"golang.org/x/time/rate"
-	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
 )
 
 type eniMap map[string]*v2.ENI

@@ -51,6 +51,9 @@ github.com/cilium/ebpf/asm
 github.com/cilium/ebpf/internal
 github.com/cilium/ebpf/internal/unix
 github.com/cilium/ebpf/perf
+# github.com/cilium/ipam v0.0.0-20200217195329-a46f8d55f9db => github.com/cilium/ipam v0.0.0-20200217195329-a46f8d55f9db
+github.com/cilium/ipam/service/allocator
+github.com/cilium/ipam/service/ipallocator
 # github.com/cilium/proxy v0.0.0-20191113190709-4c7b379792e6 => github.com/cilium/proxy v0.0.0-20191113190709-4c7b379792e6
 github.com/cilium/proxy/go/cilium/api
 github.com/cilium/proxy/go/envoy/api/v2
@@ -857,12 +860,6 @@ k8s.io/kube-openapi/pkg/generators
 k8s.io/kube-openapi/pkg/generators/rules
 k8s.io/kube-openapi/pkg/util/proto
 k8s.io/kube-openapi/pkg/util/sets
-# k8s.io/kubernetes v1.17.3 => k8s.io/kubernetes v1.17.3
-k8s.io/kubernetes/pkg/apis/core
-k8s.io/kubernetes/pkg/apis/scheduling
-k8s.io/kubernetes/pkg/kubelet/types
-k8s.io/kubernetes/pkg/registry/core/service/allocator
-k8s.io/kubernetes/pkg/registry/core/service/ipallocator
 # k8s.io/utils v0.0.0-20191114184206-e782cd3c129f => k8s.io/utils v0.0.0-20191114184206-e782cd3c129f
 k8s.io/utils/buffer
 k8s.io/utils/integer
