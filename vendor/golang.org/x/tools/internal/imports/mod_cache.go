@@ -51,6 +51,18 @@ type directoryPackageInfo struct {
 	needsReplace bool
 }
 
+// reachedStatus returns true when info has a status at least target and any error associated with
+// an attempt to reach target.
+func (info *directoryPackageInfo) reachedStatus(target directoryPackageStatus) (bool, error) {
+	if info.err == nil {
+		return info.status >= target, nil
+	}
+	if info.status == target {
+		return true, info.err
+	}
+	return true, nil
+}
+
 // moduleCacheInfo is a concurrency safe map for storing information about
 // the directories in the module cache.
 //
@@ -96,4 +108,14 @@ func (d *moduleCacheInfo) Load(dir string) (directoryPackageInfo, bool) {
 		return directoryPackageInfo{}, false
 	}
 	return *info, true
+}
+
+// Keys returns the keys currently present in d.
+func (d *moduleCacheInfo) Keys() (keys []string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for key := range d.modCacheDirInfo {
+		keys = append(keys, key)
+	}
+	return keys
 }

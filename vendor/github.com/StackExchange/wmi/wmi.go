@@ -370,50 +370,32 @@ func (c *Client) loadEntity(dst interface{}, src *ole.IDispatch) (errFieldMismat
 				}
 			}
 		default:
-			if f.Kind() == reflect.Slice {
-				switch f.Type().Elem().Kind() {
-				case reflect.String:
-					safeArray := prop.ToArray()
-					if safeArray != nil {
-						arr := safeArray.ToValueArray()
-						fArr := reflect.MakeSlice(f.Type(), len(arr), len(arr))
-						for i, v := range arr {
-							s := fArr.Index(i)
-							s.SetString(v.(string))
-						}
-						f.Set(fArr)
+			// Only support []string slices for now
+			if f.Kind() == reflect.Slice && f.Type().Elem().Kind() == reflect.String {
+				safeArray := prop.ToArray()
+				if safeArray != nil {
+					arr := safeArray.ToValueArray()
+					fArr := reflect.MakeSlice(f.Type(), len(arr), len(arr))
+					for i, v := range arr {
+						s := fArr.Index(i)
+						s.SetString(v.(string))
 					}
-				case reflect.Uint8:
-					safeArray := prop.ToArray()
-					if safeArray != nil {
-						arr := safeArray.ToValueArray()
-						fArr := reflect.MakeSlice(f.Type(), len(arr), len(arr))
-						for i, v := range arr {
-							s := fArr.Index(i)
-							s.SetUint(reflect.ValueOf(v).Uint())
-						}
-						f.Set(fArr)
-					}
-				default:
-					return &ErrFieldMismatch{
-						StructType: of.Type(),
-						FieldName:  n,
-						Reason:     fmt.Sprintf("unsupported slice type (%T)", val),
-					}
-				}
-			} else {
-				typeof := reflect.TypeOf(val)
-				if typeof == nil && (isPtr || c.NonePtrZero) {
-					if (isPtr && c.PtrNil) || (!isPtr && c.NonePtrZero) {
-						of.Set(reflect.Zero(of.Type()))
-					}
+					f.Set(fArr)
 					break
 				}
-				return &ErrFieldMismatch{
-					StructType: of.Type(),
-					FieldName:  n,
-					Reason:     fmt.Sprintf("unsupported type (%T)", val),
+			}
+
+			typeof := reflect.TypeOf(val)
+			if typeof == nil && (isPtr || c.NonePtrZero) {
+				if (isPtr && c.PtrNil) || (!isPtr && c.NonePtrZero) {
+					of.Set(reflect.Zero(of.Type()))
 				}
+				break
+			}
+			return &ErrFieldMismatch{
+				StructType: of.Type(),
+				FieldName:  n,
+				Reason:     fmt.Sprintf("unsupported type (%T)", val),
 			}
 		}
 	}
