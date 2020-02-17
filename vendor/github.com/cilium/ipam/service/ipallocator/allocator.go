@@ -1,4 +1,5 @@
 /*
+Copyright 2020 Authors of Cilium.
 Copyright 2015 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,10 +20,10 @@ package ipallocator
 import (
 	"errors"
 	"fmt"
-	api "k8s.io/kubernetes/pkg/apis/core"
-	"k8s.io/kubernetes/pkg/registry/core/service/allocator"
 	"math/big"
 	"net"
+
+	"github.com/cilium/ipam/service/allocator"
 )
 
 // Interface manages the allocation of IP addresses out of a range. Interface
@@ -99,22 +100,6 @@ func NewCIDRRange(cidr *net.IPNet) (*Range, error) {
 	return NewAllocatorCIDRRange(cidr, func(max int, rangeSpec string) (allocator.Interface, error) {
 		return allocator.NewAllocationMap(max, rangeSpec), nil
 	})
-}
-
-// NewFromSnapshot allocates a Range and initializes it from a snapshot.
-func NewFromSnapshot(snap *api.RangeAllocation) (*Range, error) {
-	_, ipnet, err := net.ParseCIDR(snap.Range)
-	if err != nil {
-		return nil, err
-	}
-	r, err := NewCIDRRange(ipnet)
-	if err != nil {
-		return nil, err
-	}
-	if err := r.Restore(ipnet, snap.Data); err != nil {
-		return nil, err
-	}
-	return r, nil
 }
 
 func maximum(a, b int) int {
@@ -204,15 +189,13 @@ func (r *Range) Has(ip net.IP) bool {
 }
 
 // Snapshot saves the current state of the pool.
-func (r *Range) Snapshot(dst *api.RangeAllocation) error {
+func (r *Range) Snapshot() (string, []byte, error) {
 	snapshottable, ok := r.alloc.(allocator.Snapshottable)
 	if !ok {
-		return fmt.Errorf("not a snapshottable allocator")
+		return "", nil, fmt.Errorf("not a snapshottable allocator")
 	}
-	rangeString, data := snapshottable.Snapshot()
-	dst.Range = rangeString
-	dst.Data = data
-	return nil
+	str, data := snapshottable.Snapshot()
+	return str, data, nil
 }
 
 // Restore restores the pool to the previously captured state. ErrMismatchedNetwork
