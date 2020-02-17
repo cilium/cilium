@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package ipam
 
 import (
 	"net"
+	"time"
 
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/datapath/fake"
@@ -58,4 +59,71 @@ func (s *IPAMSuite) TestAllocatedIPDump(c *C) {
 	for ip := range allocv6 {
 		c.Assert(net.ParseIP(ip), NotNil)
 	}
+}
+
+func (s *IPAMSuite) TestExpirationTimer(c *C) {
+	ip := net.ParseIP("1.1.1.1")
+	timeout := 50 * time.Millisecond
+
+	fakeAddressing := fake.NewNodeAddressing()
+	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true}, &ownerMock{}, &ownerMock{})
+
+	err := ipam.AllocateIP(ip, "foo")
+	c.Assert(err, IsNil)
+
+	uuid, err := ipam.StartExpirationTimer(ip, timeout)
+	c.Assert(err, IsNil)
+	c.Assert(uuid, Not(Equals), "")
+	// must fail, already registered
+	uuid, err = ipam.StartExpirationTimer(ip, timeout)
+	c.Assert(err, Not(IsNil))
+	c.Assert(uuid, Equals, "")
+	// must fail, already in use
+	err = ipam.AllocateIP(ip, "foo")
+	c.Assert(err, Not(IsNil))
+	// Let expiration timer expire
+	time.Sleep(2 * timeout)
+	// Must suceed, IP must be released again
+	err = ipam.AllocateIP(ip, "foo")
+	c.Assert(err, IsNil)
+	// register new expiration timer
+	uuid, err = ipam.StartExpirationTimer(ip, timeout)
+	c.Assert(err, IsNil)
+	c.Assert(uuid, Not(Equals), "")
+	// attempt to stop with an invalid uuid, must fail
+	err = ipam.StopExpirationTimer(ip, "unknown-uuid")
+	c.Assert(err, Not(IsNil))
+	// stop expiration with valid uuid
+	err = ipam.StopExpirationTimer(ip, uuid)
+	c.Assert(err, IsNil)
+	// Let expiration timer expire
+	time.Sleep(2 * timeout)
+	// must fail as IP is properly in use now
+	err = ipam.AllocateIP(ip, "foo")
+	c.Assert(err, Not(IsNil))
+	// release IP for real
+	err = ipam.ReleaseIP(ip)
+	c.Assert(err, IsNil)
+
+	// allocate IP again
+	err = ipam.AllocateIP(ip, "foo")
+	c.Assert(err, IsNil)
+	// register expiration timer
+	uuid, err = ipam.StartExpirationTimer(ip, timeout)
+	c.Assert(err, IsNil)
+	c.Assert(uuid, Not(Equals), "")
+	// release IP, must also stop expiration timer
+	err = ipam.ReleaseIP(ip)
+	c.Assert(err, IsNil)
+	// allocate same IP again
+	err = ipam.AllocateIP(ip, "foo")
+	c.Assert(err, IsNil)
+	// register expiration timer must succeed even though stop was never called
+	uuid, err = ipam.StartExpirationTimer(ip, timeout)
+	c.Assert(err, IsNil)
+	c.Assert(uuid, Not(Equals), "")
+	// release IP
+	err = ipam.ReleaseIP(ip)
+	c.Assert(err, IsNil)
+
 }

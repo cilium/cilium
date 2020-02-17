@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -92,6 +92,11 @@ type IPAM struct {
 
 	// owner maps an IP to the owner
 	owner map[string]string
+
+	// expirationTimers is a map of all expiration timers. Each entry
+	// represents a IP allocation which is protected by an expiration
+	// timer.
+	expirationTimers map[string]string
 
 	// mutex covers access to all members of this struct
 	allocatorMutex lock.RWMutex
