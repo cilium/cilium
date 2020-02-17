@@ -184,6 +184,35 @@ func (ipam *IPAM) AllocateNext(family, owner string) (ipv4Result, ipv6Result *Al
 	return
 }
 
+// AllocateNextWithExpiration is identical to AllocateNext but registers an
+// expiration timer as well. This is identical to using AllocateNext() in
+// combination with StartExpirationTimer()
+func (ipam *IPAM) AllocateNextWithExpiration(family, owner string, timeout time.Duration) (ipv4Result, ipv6Result *AllocationResult, err error) {
+	ipv4Result, ipv6Result, err = ipam.AllocateNext(family, owner)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if timeout != time.Duration(0) {
+		for _, result := range []*AllocationResult{ipv4Result, ipv6Result} {
+			if result != nil {
+				result.ExpirationUUID, err = ipam.StartExpirationTimer(result.IP, timeout)
+				if err != nil {
+					if ipv4Result != nil {
+						ipam.ReleaseIP(ipv4Result.IP)
+					}
+					if ipv6Result != nil {
+						ipam.ReleaseIP(ipv6Result.IP)
+					}
+					return
+				}
+			}
+		}
+	}
+
+	return
+}
+
 func (ipam *IPAM) releaseIPLocked(ip net.IP) error {
 	family := familyIPv4
 	if ip.To4() != nil {
