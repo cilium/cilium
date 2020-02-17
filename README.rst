@@ -1,6 +1,6 @@
 |logo|
 
-|cii| |build-status| |pulls| |slack| |go-report| |go-doc| |rtd| |apache| |gpl|
+|cii| |build-status| |pulls| |slack| |go-report| |go-doc| |rtd| |apache| |gpl| |TODOs|
 
 Cilium is open source software for providing and transparently securing network
 connectivity and loadbalancing between application workloads such as
@@ -308,3 +308,7 @@ under the `General Public License, Version 2.0 <bpf/COPYING>`_.
 .. |pulls| image:: https://img.shields.io/docker/pulls/cilium/cilium.svg
     :alt: Cilium pulls
     :target: https://hub.docker.com/r/cilium/cilium/tags/
+    
+.. |TODOs| image:: https://badgen.net/https/api.tickgit.com/badgen/github.com/cilium/cilium
+    :alt: TODOs
+    :target: https://www.tickgit.com/browse?repo=github.com/cilium/cilium
