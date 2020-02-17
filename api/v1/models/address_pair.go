@@ -18,8 +18,14 @@ type AddressPair struct {
 	// IPv4 address
 	IPV4 string `json:"ipv4,omitempty"`
 
+	// UUID of IPv4 expiration timer
+	IPV4ExpirationUUID string `json:"ipv4-expiration-uuid,omitempty"`
+
 	// IPv6 address
 	IPV6 string `json:"ipv6,omitempty"`
+
+	// UUID of IPv6 expiration timer
+	IPV6ExpirationUUID string `json:"ipv6-expiration-uuid,omitempty"`
 }
 
 // Validate validates this address pair
