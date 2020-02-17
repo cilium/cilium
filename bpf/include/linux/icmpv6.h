@@ -1,7 +1,7 @@
 #ifndef _LINUX_ICMPV6_H
 #define _LINUX_ICMPV6_H
 
-#include <linux/type_mapper.h>
+#include <linux/types.h>
 #include <linux/in6.h>
 
 struct icmp6hdr {

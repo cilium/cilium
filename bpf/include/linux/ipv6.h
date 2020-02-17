@@ -1,7 +1,7 @@
 #ifndef _IPV6_H
 #define _IPV6_H
 
-#include <linux/type_mapper.h>
+#include <linux/types.h>
 #include <linux/in6.h>
 
 /* The latest drafts declared increase in minimal mtu up to 1280. */

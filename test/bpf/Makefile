@@ -1,6 +1,6 @@
 include ../../Makefile.defs
 
-FLAGS := -I../../bpf/ -I../../bpf/include -I. -D__NR_CPUS__=$(shell nproc) -O2
+FLAGS := -I/usr/include/$(shell uname -m)-linux-gnu  -I../../bpf/ -I../../bpf/include -I. -D__NR_CPUS__=$(shell nproc) -O2
 BPF_CC_FLAGS :=  ${FLAGS} -target bpf -emit-llvm
 BPF_LLC_FLAGS   := -march=bpf -mcpu=probe -filetype=obj
 

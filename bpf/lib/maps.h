@@ -168,7 +168,7 @@ struct bpf_elf_map __section_maps ENCRYPT_MAP = {
 };
 
 #ifndef SKIP_CALLS_MAP
-static __always_inline void ep_tail_call(struct __sk_buff *skb, uint32_t index)
+static __always_inline void ep_tail_call(struct __sk_buff *skb, __u32 index)
 {
 	tail_call(skb, &CALLS_MAP, index);
 }

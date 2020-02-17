@@ -754,8 +754,8 @@ static __always_inline int handle_dsr_v4(struct __sk_buff *skb, bool *dsr)
 	// Check whether IPv4 header contains a 64-bit option (IPv4 header
 	// w/o option (5 x 32-bit words) + the DSR option (2 x 32-bit words))
 	if (ip4->ihl == 0x7) {
-		uint32_t opt1 = 0;
-		uint32_t opt2 = 0;
+		__u32 opt1 = 0;
+		__u32 opt2 = 0;
 
 		if (skb_load_bytes(skb, ETH_HLEN + sizeof(struct iphdr),
 				   &opt1, sizeof(opt1)) < 0)

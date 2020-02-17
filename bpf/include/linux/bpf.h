@@ -8,7 +8,7 @@
 #ifndef __LINUX_BPF_H__
 #define __LINUX_BPF_H__
 
-#include <linux/type_mapper.h>
+#include <linux/types.h>
 #include <linux/bpf_common.h>
 
 /* Define BIT() here to avoid pulling in more headers */

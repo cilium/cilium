@@ -40,7 +40,7 @@ static void test___ct_update_timeout()
 {
 	struct ct_entry entry = {};
 	union tcp_flags flags = {};
-	uint32_t then;
+	__u32 then;
 	int monitor;
 
 	// No update initially; mostly just because __now is less than the

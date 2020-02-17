@@ -88,18 +88,20 @@ static inline __u32 bpf_ktime_get_sec(void)
 	return (__u64)(bpf_ktime_get_nsec() / NSEC_PER_SEC);
 }
 
-#if __BYTE_ORDER == __LITTLE_ENDIAN
+#if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && \
+	__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 # define __bpf_ntohs(x)		__builtin_bswap16(x)
 # define __bpf_htons(x)		__builtin_bswap16(x)
 # define __bpf_ntohl(x)		__builtin_bswap32(x)
 # define __bpf_htonl(x)		__builtin_bswap32(x)
-#elif __BYTE_ORDER == __BIG_ENDIAN
+#elif defined(__BYTE_ORDER__) && defined(__ORDER_BIG_ENDIAN__) && \
+	__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 # define __bpf_ntohs(x)		(x)
 # define __bpf_htons(x)		(x)
 # define __bpf_ntohl(x)		(x)
 # define __bpf_htonl(x)		(x)
 #else
-# error "Fix your __BYTE_ORDER?!"
+# error "endianness detection needs to be set up for your compiler?!"
 #endif
 
 #define bpf_htons(x)				\
@@ -131,8 +133,8 @@ static inline __u32 bpf_ktime_get_sec(void)
 #define fetch_mac(x) { { fetch_u32_i(x, 1), (__u16)fetch_u32_i(x, 2) } }
 
 /* DEFINE_* macros help to declare static data. */
-#define DEFINE_U32(NAME, value) uint32_t NAME = value
-#define DEFINE_U32_I(NAME, i) uint32_t NAME ## _ ## i
+#define DEFINE_U32(NAME, value) __u32 NAME = value
+#define DEFINE_U32_I(NAME, i) __u32 NAME ## _ ## i
 #define DEFINE_IPV6(NAME, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16)	\
 DEFINE_U32_I(NAME, 1) = bpf_htonl( (a1) << 24 |  (a2) << 16 |  (a3) << 8 |  (a4));			\
 DEFINE_U32_I(NAME, 2) = bpf_htonl( (a5) << 24 |  (a6) << 16 |  (a7) << 8 |  (a8));			\

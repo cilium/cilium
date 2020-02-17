@@ -20,9 +20,6 @@
 
 #include <bpf/api.h>
 
-#include <stdint.h>
-#include <stdio.h>
-
 #include <linux/if_packet.h>
 
 #include "lib/utils.h"
