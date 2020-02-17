@@ -416,7 +416,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}
 
 	podName := string(cniArgs.K8S_POD_NAMESPACE) + "/" + string(cniArgs.K8S_POD_NAME)
-	ipam, err = c.IPAMAllocate("", podName)
+	ipam, err = c.IPAMAllocate("", podName, true)
 	if err != nil {
 		err = fmt.Errorf("unable to allocate IP via local cilium agent: %s", err)
 		return
@@ -455,6 +455,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	if ipv6IsEnabled(ipam) {
 		ep.Addressing.IPV6 = ipam.Address.IPV6
+		ep.Addressing.IPV6ExpirationUUID = ipam.IPV6.ExpirationUUID
 
 		ipConfig, routes, err = prepareIP(ep.Addressing.IPV6, true, &state, int(conf.RouteMTU))
 		if err != nil {
@@ -467,6 +468,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	if ipv4IsEnabled(ipam) {
 		ep.Addressing.IPV4 = ipam.Address.IPV4
+		ep.Addressing.IPV4ExpirationUUID = ipam.IPV4.ExpirationUUID
 
 		ipConfig, routes, err = prepareIP(ep.Addressing.IPV4, false, &state, int(conf.RouteMTU))
 		if err != nil {
@@ -578,20 +580,6 @@ func cmdDel(args *skel.CmdArgs) error {
 		//                         the endpoint is always deleted though, no
 		//                         need to retry
 		log.WithError(err).Warning("Errors encountered while deleting endpoint")
-
-		// Endpoint deletion has failed. We can't be sure whether the
-		// CNI ADD was interrupted in between the IP allocation and the
-		// endpoint creation. In order to guarantee to never leak IP
-		// addresses, delete any IP addresses associated with the pod
-		// being deleted. This task is only done manually on endpoint
-		// delete failure as all IPs of an endpoint are released when
-		// the endpoint is deleted.
-		log.Info("Releasing IPs manually due to inability to delete endpoint")
-		podName := string(cniArgs.K8S_POD_NAMESPACE) + "/" + string(cniArgs.K8S_POD_NAME)
-		err = c.IPAMReleaseIP(podName)
-		if err != nil {
-			log.WithError(err).WithField("pod", podName).Warning("Unable to manually release IPs of pod")
-		}
 	}
 
 	netNs, err := ns.GetNS(args.Netns)

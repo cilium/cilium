@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
 	"sync"
 	"time"
 
@@ -353,12 +354,13 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	// so we can return from the creation API call.
 	revCh := ep.WaitForPolicyRevision(ctx, 1, nil)
 
+waitForSuccessfulBuild:
 	for {
 		select {
 		case <-revCh:
 			if ctx.Err() == nil {
 				// At least one BPF regeneration has successfully completed.
-				return ep, 0, nil
+				break waitForSuccessfulBuild
 			}
 
 		case <-ctx.Done():
@@ -373,7 +375,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 				// return immediately to let the sidecar container start,
 				// in case it is required to enforce L7 rules.
 				logger.Info("Endpoint has sidecar proxy, returning from synchronous creation request before regeneration has succeeded")
-				return ep, 0, nil
+				break waitForSuccessfulBuild
 			}
 		}
 
@@ -381,6 +383,27 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 			return d.errorDuringCreation(ep, fmt.Errorf("timeout while waiting for initial endpoint generation to complete"))
 		}
 	}
+
+	// The endpoint has been successfully created, stop the expiration
+	// timers of all attached IPs
+	if addressing := epTemplate.Addressing; addressing != nil {
+		if uuid := addressing.IPV4ExpirationUUID; uuid != "" {
+			if ip := net.ParseIP(addressing.IPV4); ip != nil {
+				if err := d.ipam.StopExpirationTimer(ip, uuid); err != nil {
+					return d.errorDuringCreation(ep, err)
+				}
+			}
+		}
+		if uuid := addressing.IPV6ExpirationUUID; uuid != "" {
+			if ip := net.ParseIP(addressing.IPV6); ip != nil {
+				if err := d.ipam.StopExpirationTimer(ip, uuid); err != nil {
+					return d.errorDuringCreation(ep, err)
+				}
+			}
+		}
+	}
+
+	return ep, 0, nil
 }
 
 func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder {
