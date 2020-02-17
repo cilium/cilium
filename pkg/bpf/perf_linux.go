@@ -336,6 +336,7 @@ func PerfEventOpen(config *PerfEventConfig, pid int, cpu int, groupFD int, flags
 		uintptr(cpu),
 		uintptr(groupFD),
 		uintptr(flags), 0)
+	runtime.KeepAlive(&attr)
 	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
 		metrics.BPFSyscallDuration.WithLabelValues(metricOpPerfEventOpen, metrics.Errno2Outcome(err)).Observe(duration.EndError(err).Total().Seconds())
 	}
