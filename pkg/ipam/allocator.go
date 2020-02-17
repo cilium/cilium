@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,8 +19,10 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/uuid"
 
 	"github.com/sirupsen/logrus"
 )
@@ -182,10 +184,7 @@ func (ipam *IPAM) AllocateNext(family, owner string) (ipv4Result, ipv6Result *Al
 	return
 }
 
-// ReleaseIP release a IP address.
-func (ipam *IPAM) ReleaseIP(ip net.IP) error {
-	ipam.allocatorMutex.Lock()
-	defer ipam.allocatorMutex.Unlock()
+func (ipam *IPAM) releaseIPLocked(ip net.IP) error {
 	family := familyIPv4
 	if ip.To4() != nil {
 		if ipam.IPv4Allocator == nil {
@@ -212,9 +211,17 @@ func (ipam *IPAM) ReleaseIP(ip net.IP) error {
 		"owner": owner,
 	}).Debugf("Released IP")
 	delete(ipam.owner, ip.String())
+	delete(ipam.expirationTimers, ip.String())
 
 	metrics.IpamEvent.WithLabelValues(metricRelease, family).Inc()
 	return nil
+}
+
+// ReleaseIP release a IP address.
+func (ipam *IPAM) ReleaseIP(ip net.IP) error {
+	ipam.allocatorMutex.Lock()
+	defer ipam.allocatorMutex.Unlock()
+	return ipam.releaseIPLocked(ip)
 }
 
 // ReleaseIPString is identical to ReleaseIP but takes a string and supports
@@ -276,4 +283,74 @@ func (ipam *IPAM) Dump() (allocv4 map[string]string, allocv6 map[string]string, 
 	}
 
 	return
+}
+
+// StartExpirationTimer installs an expiration timer for a previously allocated
+// IP. Unless StopExpirationTimer is called in time, the IP will be released
+// again after expiration of the specified timeout. The function will return a
+// UUID representing the unique allocation attempt. The same UUID must be
+// passed into StopExpirationTimer again.
+//
+// This function is to be used as allocation and use of an IP can be controlled
+// by an external entity and that external entity can disappear. Therefore such
+// users should register an expiration timer before returning the IP and then
+// stop the expiration timer when the IP has been used.
+func (ipam *IPAM) StartExpirationTimer(ip net.IP, timeout time.Duration) (string, error) {
+	ipam.allocatorMutex.Lock()
+	defer ipam.allocatorMutex.Unlock()
+
+	ipString := ip.String()
+	if _, ok := ipam.expirationTimers[ipString]; ok {
+		return "", fmt.Errorf("expiration timer already registered")
+	}
+
+	allocationUUID := uuid.NewUUID().String()
+	ipam.expirationTimers[ipString] = allocationUUID
+
+	go func(ip net.IP, allocationUUID string, timeout time.Duration) {
+		ipString := ip.String()
+		time.Sleep(timeout)
+
+		ipam.allocatorMutex.Lock()
+		defer ipam.allocatorMutex.Unlock()
+
+		if currentUUID, ok := ipam.expirationTimers[ipString]; ok {
+			if currentUUID == allocationUUID {
+				scopedLog := log.WithFields(logrus.Fields{"ip": ipString, "uuid": allocationUUID})
+				if err := ipam.releaseIPLocked(ip); err != nil {
+					scopedLog.WithError(err).Warning("Unable to release IP after expiration")
+				} else {
+					scopedLog.Warning("Released IP after expiration")
+				}
+			} else {
+				// This is an obsolete expiration timer. The IP
+				// was reused and a new expiration timer is
+				// already attached
+			}
+		} else {
+			// Expiration timer was removed. No action is required
+		}
+	}(ip, allocationUUID, timeout)
+
+	return allocationUUID, nil
+}
+
+// StopExpirationTimer will remove the expiration timer for a particular IP.
+// The UUID returned by the symmetric StartExpirationTimer must be provided.
+// The expiration timer will only be removed if the UUIDs match. Releasing an
+// IP will also stop the expiration timer.
+func (ipam *IPAM) StopExpirationTimer(ip net.IP, allocationUUID string) error {
+	ipam.allocatorMutex.Lock()
+	defer ipam.allocatorMutex.Unlock()
+
+	ipString := ip.String()
+	if currentUUID, ok := ipam.expirationTimers[ipString]; !ok {
+		return fmt.Errorf("no expiration timer registered")
+	} else if currentUUID != allocationUUID {
+		return fmt.Errorf("UUID mismatch, not stopping expiration timer")
+	}
+
+	delete(ipam.expirationTimers, ipString)
+
+	return nil
 }

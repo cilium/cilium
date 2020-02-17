@@ -76,9 +76,10 @@ type Owner interface {
 // NewIPAM returns a new IP address manager
 func NewIPAM(nodeAddressing datapath.NodeAddressing, c Configuration, owner Owner) *IPAM {
 	ipam := &IPAM{
-		nodeAddressing: nodeAddressing,
-		config:         c,
-		owner:          map[string]string{},
+		nodeAddressing:   nodeAddressing,
+		config:           c,
+		owner:            map[string]string{},
+		expirationTimers: map[string]string{},
 		blacklist: IPBlacklist{
 			ips: map[string]string{},
 		},
