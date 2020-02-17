@@ -689,8 +689,8 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node, firstAddition
 		newKey = newNode.EncryptionKey
 	}
 
-	if option.Config.EnableNodePort ||
-		(n.nodeConfig.EnableIPSec && option.Config.Tunnel == option.TunnelDisabled) {
+	if n.nodeConfig.EnableIPv4 && (option.Config.EnableNodePort ||
+		(n.nodeConfig.EnableIPSec && option.Config.Tunnel == option.TunnelDisabled)) {
 		var ifaceName string
 		if option.Config.EnableNodePort {
 			ifaceName = option.Config.Device
