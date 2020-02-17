@@ -8,7 +8,7 @@
  * misc macros and some eBPF specific LLVM built-ins.
  */
 
-#include <linux/type_mapper.h>
+#include <linux/types.h>
 #include <linux/byteorder.h>
 #include <linux/bpf.h>
 
@@ -111,14 +111,14 @@
 /* Map access/manipulation */
 static void *BPF_FUNC(map_lookup_elem, void *map, const void *key);
 static int BPF_FUNC(map_update_elem, void *map, const void *key,
-		    const void *value, uint32_t flags);
+		    const void *value, __u32 flags);
 static int BPF_FUNC(map_delete_elem, void *map, const void *key);
 
 /* Time access */
-static uint64_t BPF_FUNC(ktime_get_ns);
+static __u64 BPF_FUNC(ktime_get_ns);
 
 /* Sockets */
-static uint64_t BPF_FUNC(get_socket_cookie, void *ctx);
+static __u64 BPF_FUNC(get_socket_cookie, void *ctx);
 
 /* Debugging */
 
@@ -133,79 +133,79 @@ static void BPF_FUNC(trace_printk, const char *fmt, int fmt_size, ...);
 #endif
 
 /* Random numbers */
-static uint32_t BPF_FUNC(get_prandom_u32);
+static __u32 BPF_FUNC(get_prandom_u32);
 
 /* Tail calls */
 static void BPF_FUNC(tail_call, struct __sk_buff *skb, void *map,
-		     uint32_t index);
+		     __u32 index);
 
 /* System helpers */
-static uint32_t BPF_FUNC(get_smp_processor_id);
+static __u32 BPF_FUNC(get_smp_processor_id);
 
 /* Packet misc meta data */
-static uint32_t BPF_FUNC(get_cgroup_classid, struct __sk_buff *skb);
-static uint32_t BPF_FUNC(get_route_realm, struct __sk_buff *skb);
-static uint32_t BPF_FUNC(get_hash_recalc, struct __sk_buff *skb);
-static uint32_t BPF_FUNC(set_hash_invalid, struct __sk_buff *skb);
+static __u32 BPF_FUNC(get_cgroup_classid, struct __sk_buff *skb);
+static __u32 BPF_FUNC(get_route_realm, struct __sk_buff *skb);
+static __u32 BPF_FUNC(get_hash_recalc, struct __sk_buff *skb);
+static __u32 BPF_FUNC(set_hash_invalid, struct __sk_buff *skb);
 
-static int BPF_FUNC(skb_under_cgroup, void *map, uint32_t index);
+static int BPF_FUNC(skb_under_cgroup, void *map, __u32 index);
 
 /* Packet redirection */
-static int BPF_FUNC(redirect, int ifindex, uint32_t flags);
+static int BPF_FUNC(redirect, int ifindex, __u32 flags);
 static int BPF_FUNC(clone_redirect, struct __sk_buff *skb, int ifindex,
-		    uint32_t flags);
+		    __u32 flags);
 
 /* Packet manipulation */
-static int BPF_FUNC(skb_load_bytes_relative, struct __sk_buff *skb, uint32_t off,
-		    void *to, uint32_t len, uint32_t hdr);
-static int BPF_FUNC(skb_load_bytes, struct __sk_buff *skb, uint32_t off,
-		    void *to, uint32_t len);
-static int BPF_FUNC(skb_store_bytes, struct __sk_buff *skb, uint32_t off,
-		    const void *from, uint32_t len, uint32_t flags);
-static int BPF_FUNC(skb_adjust_room, struct __sk_buff *skb, int32_t len_diff,
-		    uint32_t mode, uint64_t flags);
+static int BPF_FUNC(skb_load_bytes_relative, struct __sk_buff *skb, __u32 off,
+		    void *to, __u32 len, __u32 hdr);
+static int BPF_FUNC(skb_load_bytes, struct __sk_buff *skb, __u32 off,
+		    void *to, __u32 len);
+static int BPF_FUNC(skb_store_bytes, struct __sk_buff *skb, __u32 off,
+		    const void *from, __u32 len, __u32 flags);
+static int BPF_FUNC(skb_adjust_room, struct __sk_buff *skb, __s32 len_diff,
+		    __u32 mode, __u64 flags);
 
-static int BPF_FUNC(l3_csum_replace, struct __sk_buff *skb, uint32_t off,
-		    uint32_t from, uint32_t to, uint32_t flags);
-static int BPF_FUNC(l4_csum_replace, struct __sk_buff *skb, uint32_t off,
-		    uint32_t from, uint32_t to, uint32_t flags);
-static int BPF_FUNC(csum_diff, void *from, uint32_t from_size, void *to,
-		    uint32_t to_size, uint32_t seed);
+static int BPF_FUNC(l3_csum_replace, struct __sk_buff *skb, __u32 off,
+		    __u32 from, __u32 to, __u32 flags);
+static int BPF_FUNC(l4_csum_replace, struct __sk_buff *skb, __u32 off,
+		    __u32 from, __u32 to, __u32 flags);
+static int BPF_FUNC(csum_diff, void *from, __u32 from_size, void *to,
+		    __u32 to_size, __u32 seed);
 
-static int BPF_FUNC(skb_change_type, struct __sk_buff *skb, uint32_t type);
-static int BPF_FUNC(skb_change_proto, struct __sk_buff *skb, uint32_t proto,
-		    uint32_t flags);
-static int BPF_FUNC(skb_change_tail, struct __sk_buff *skb, uint32_t nlen,
-		    uint32_t flags);
-static int BPF_FUNC(skb_pull_data, struct __sk_buff *skb, uint32_t len);
+static int BPF_FUNC(skb_change_type, struct __sk_buff *skb, __u32 type);
+static int BPF_FUNC(skb_change_proto, struct __sk_buff *skb, __u32 proto,
+		    __u32 flags);
+static int BPF_FUNC(skb_change_tail, struct __sk_buff *skb, __u32 nlen,
+		    __u32 flags);
+static int BPF_FUNC(skb_pull_data, struct __sk_buff *skb, __u32 len);
 
 /* Packet vlan encap/decap */
-static int BPF_FUNC(skb_vlan_push, struct __sk_buff *skb, uint16_t proto,
-		    uint16_t vlan_tci);
+static int BPF_FUNC(skb_vlan_push, struct __sk_buff *skb, __u16 proto,
+		    __u16 vlan_tci);
 static int BPF_FUNC(skb_vlan_pop, struct __sk_buff *skb);
 
 /* Packet tunnel encap/decap */
 static int BPF_FUNC(skb_get_tunnel_key, struct __sk_buff *skb,
-		    struct bpf_tunnel_key *to, uint32_t size, uint32_t flags);
+		    struct bpf_tunnel_key *to, __u32 size, __u32 flags);
 static int BPF_FUNC(skb_set_tunnel_key, struct __sk_buff *skb,
-		    const struct bpf_tunnel_key *from, uint32_t size,
-		    uint32_t flags);
+		    const struct bpf_tunnel_key *from, __u32 size,
+		    __u32 flags);
 
 static int BPF_FUNC(skb_get_tunnel_opt, struct __sk_buff *skb,
-		    void *to, uint32_t size);
+		    void *to, __u32 size);
 static int BPF_FUNC(skb_set_tunnel_opt, struct __sk_buff *skb,
-		    const void *from, uint32_t size);
+		    const void *from, __u32 size);
 
 /* Events for user space */
-static int BPF_FUNC2(skb_event_output, struct __sk_buff *skb, void *map, uint64_t index,
-		     const void *data, uint32_t size) = (void *)BPF_FUNC_perf_event_output;
+static int BPF_FUNC2(skb_event_output, struct __sk_buff *skb, void *map, __u64 index,
+		     const void *data, __u32 size) = (void *)BPF_FUNC_perf_event_output;
 
 /* Sockops and SK_MSG helpers */
-static int BPF_FUNC(sock_map_update, struct bpf_sock_ops *skops, void *map, uint32_t key,  uint64_t flags);
-static int BPF_FUNC(sock_hash_update, struct bpf_sock_ops *skops, void *map, void *key,  uint64_t flags);
-static int BPF_FUNC(msg_redirect_hash, struct sk_msg_md *md, void *map, void *key, uint64_t flags);
+static int BPF_FUNC(sock_map_update, struct bpf_sock_ops *skops, void *map, __u32 key,  __u64 flags);
+static int BPF_FUNC(sock_hash_update, struct bpf_sock_ops *skops, void *map, void *key,  __u64 flags);
+static int BPF_FUNC(msg_redirect_hash, struct sk_msg_md *md, void *map, void *key, __u64 flags);
 
-static int BPF_FUNC(fib_lookup, void *ctx, struct bpf_fib_lookup *params, uint32_t plen, uint32_t flags);
+static int BPF_FUNC(fib_lookup, void *ctx, struct bpf_fib_lookup *params, __u32 plen, __u32 flags);
 
 /** LLVM built-ins, mem*() routines work for constant size */
 

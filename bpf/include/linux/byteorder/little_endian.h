@@ -8,7 +8,7 @@
 #define __LITTLE_ENDIAN_BITFIELD
 #endif
 
-#include <linux/type_mapper.h>
+#include <linux/types.h>
 #include <linux/swab.h>
 
 #define __constant_htonl(x) ((__be32)___constant_swab32((x)))

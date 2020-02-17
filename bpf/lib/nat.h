@@ -70,20 +70,21 @@ static __always_inline __be16 __snat_clamp_port_range(__u16 start, __u16 end,
 	return (val % (__u16)(end - start)) + start;
 }
 
-static __always_inline __be16 __snat_try_keep_port(__u16 start, __u16 end,
-						   __u16 val)
+static __always_inline __maybe_unused __be16
+__snat_try_keep_port(__u16 start, __u16 end, __u16 val)
 {
 	return val >= start && val <= end ? val :
 	       __snat_clamp_port_range(start, end, get_prandom_u32());
 }
 
-static __always_inline void *__snat_lookup(void *map, void *tuple)
+static __always_inline __maybe_unused void *__snat_lookup(void *map, void *tuple)
 {
 	return map_lookup_elem(map, tuple);
 }
 
-static __always_inline int __snat_update(void *map, void *otuple, void *ostate,
-					 void *rtuple, void *rstate)
+static __always_inline __maybe_unused int __snat_update(void *map, void *otuple,
+							void *ostate, void *rtuple,
+							void *rstate)
 {
 	int ret = map_update_elem(map, rtuple, rstate, BPF_NOEXIST);
 	if (!ret) {
@@ -94,8 +95,8 @@ static __always_inline int __snat_update(void *map, void *otuple, void *ostate,
 	return ret;
 }
 
-static __always_inline void __snat_delete(void *map, void *otuple,
-					  void *rtuple)
+static __always_inline __maybe_unused void __snat_delete(void *map, void *otuple,
+							 void *rtuple)
 {
 	map_delete_elem(map, otuple);
 	map_delete_elem(map, rtuple);
@@ -441,8 +442,9 @@ static __always_inline bool snat_v4_can_skip(const struct ipv4_nat_target *targe
 	return false;
 }
 
-static __always_inline int snat_v4_create_dsr(struct __sk_buff *skb,
-					      __be32 to_saddr, __be16 to_sport)
+static __always_inline __maybe_unused int snat_v4_create_dsr(struct __sk_buff *skb,
+							     __be32 to_saddr,
+							     __be16 to_sport)
 {
 	void *data, *data_end;
 	struct ipv4_ct_tuple tuple = {};
@@ -553,13 +555,13 @@ static __always_inline int snat_v4_process(struct __sk_buff *skb, int dir,
 	       snat_v4_rewrite_ingress(skb, &tuple, state, off);
 }
 #else
-static __always_inline int snat_v4_process(struct __sk_buff *skb, int dir,
-					   const struct ipv4_nat_target *target)
+static __always_inline __maybe_unused int snat_v4_process(struct __sk_buff *skb, int dir,
+							  const struct ipv4_nat_target *target)
 {
 	return TC_ACT_OK;
 }
 
-static __always_inline void snat_v4_delete_tuples(struct ipv4_ct_tuple *tuple)
+static __always_inline __maybe_unused void snat_v4_delete_tuples(struct ipv4_ct_tuple *tuple)
 {
 }
 #endif
@@ -893,9 +895,9 @@ static __always_inline bool snat_v6_can_skip(const struct ipv6_nat_target *targe
 	return false;
 }
 
-static __always_inline int snat_v6_create_dsr(struct __sk_buff *skb,
-					      union v6addr *to_saddr,
-					      __be16 to_sport)
+static __always_inline __maybe_unused int snat_v6_create_dsr(struct __sk_buff *skb,
+							     union v6addr *to_saddr,
+							     __be16 to_sport)
 {
 	void *data, *data_end;
 	struct ipv6_ct_tuple tuple = {};
@@ -1020,7 +1022,7 @@ static __always_inline int snat_v6_process(struct __sk_buff *skb, int dir,
 	       snat_v6_rewrite_ingress(skb, &tuple, state, off);
 }
 #else
-static __always_inline int snat_v6_process(struct __sk_buff *skb, int dir,
+static __always_inline __maybe_unused int snat_v6_process(struct __sk_buff *skb, int dir,
 					   const struct ipv6_nat_target *target)
 {
 	return TC_ACT_OK;
@@ -1032,8 +1034,8 @@ static __always_inline void snat_v6_delete_tuples(struct ipv6_ct_tuple *tuple)
 #endif
 
 #ifdef CONNTRACK
-static __always_inline void ct_delete4(void *map, struct ipv4_ct_tuple *tuple,
-				       struct __sk_buff *skb)
+static __always_inline __maybe_unused void ct_delete4(void *map, struct ipv4_ct_tuple *tuple,
+						      struct __sk_buff *skb)
 {
 	int err;
 
@@ -1043,8 +1045,8 @@ static __always_inline void ct_delete4(void *map, struct ipv4_ct_tuple *tuple,
 		snat_v4_delete_tuples(tuple);
 }
 
-static __always_inline void ct_delete6(void *map, struct ipv6_ct_tuple *tuple,
-				       struct __sk_buff *skb)
+static __always_inline __maybe_unused void ct_delete6(void *map, struct ipv6_ct_tuple *tuple,
+						      struct __sk_buff *skb)
 {
 	int err;
 
@@ -1054,18 +1056,18 @@ static __always_inline void ct_delete6(void *map, struct ipv6_ct_tuple *tuple,
 		snat_v6_delete_tuples(tuple);
 }
 #else
-static __always_inline void ct_delete4(void *map, struct ipv4_ct_tuple *tuple,
-				       struct __sk_buff *skb)
+static __always_inline __maybe_unused void ct_delete4(void *map, struct ipv4_ct_tuple *tuple,
+						      struct __sk_buff *skb)
 {
 }
 
-static __always_inline void ct_delete6(void *map, struct ipv6_ct_tuple *tuple,
-				       struct __sk_buff *skb)
+static __always_inline __maybe_unused void ct_delete6(void *map, struct ipv6_ct_tuple *tuple,
+						      struct __sk_buff *skb)
 {
 }
 #endif
 
-static __always_inline int snat_process(struct __sk_buff *skb, int dir)
+static __always_inline __maybe_unused int snat_process(struct __sk_buff *skb, int dir)
 {
 	int ret = TC_ACT_OK;
 

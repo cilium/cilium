@@ -17,7 +17,7 @@
 #ifndef _LINUX_UDP_H
 #define _LINUX_UDP_H
 
-#include <linux/type_mapper.h>
+#include <linux/types.h>
 
 struct udphdr {
 	__be16	source;

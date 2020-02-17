@@ -17,7 +17,7 @@
 #ifndef _LINUX_TCP_H
 #define _LINUX_TCP_H
 
-#include <linux/type_mapper.h>
+#include <linux/types.h>
 
 struct tcphdr {
 	__be16	source;

@@ -22,9 +22,6 @@
 
 #include <bpf/api.h>
 
-#include <stdint.h>
-#include <stdio.h>
-
 #include <linux/icmpv6.h>
 #include <linux/if_packet.h>
 

@@ -14,7 +14,7 @@
 #ifndef _LINUX_PERF_EVENT_H
 #define _LINUX_PERF_EVENT_H
 
-#include <linux/type_mapper.h>
+#include <linux/types.h>
 #include <linux/ioctl.h>
 
 /*

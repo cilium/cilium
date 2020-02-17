@@ -18,7 +18,6 @@
 
 #include <unistd.h>
 #include <stdio.h>
-#include <stdint.h>
 #include <string.h>
 #include <errno.h>
 
@@ -36,9 +35,9 @@
 struct bpf_map_fixup {
 	int off;
 	enum bpf_map_type type;
-	uint32_t size_key;
-	uint32_t size_val;
-	uint32_t flags;
+	__u32 size_key;
+	__u32 size_val;
+	__u32 flags;
 };
 
 struct bpf_test {
@@ -54,9 +53,9 @@ static struct bpf_test tests[] = {
 #include "raw_probe.t"
 };
 
-static uint64_t bpf_ptr_to_u64(const void *ptr)
+static __u64 bpf_ptr_to_u64(const void *ptr)
 {
-	return (uint64_t)(unsigned long)ptr;
+	return (__u64)(unsigned long)ptr;
 }
 
 #ifndef __NR_bpf
@@ -103,9 +102,9 @@ int bpf_prog_load(enum bpf_prog_type type, enum bpf_attach_type attach_type,
 	return bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
 }
 
-static int bpf_map_create(enum bpf_map_type type, uint32_t size_key,
-			  uint32_t size_value, uint32_t max_elem,
-			  uint32_t flags)
+static int bpf_map_create(enum bpf_map_type type, __u32 size_key,
+			  __u32 size_value, __u32 max_elem,
+			  __u32 flags)
 {
 	union bpf_attr attr;
 
@@ -261,7 +260,7 @@ static void bpf_run_test(struct bpf_test *test, int debug_mode)
 			.max_elem	= 1,
 			.flags		= map->flags,
 		};
-	  
+
 		fd = bpf_map_create(map->type, map->size_key,
 				    map->size_val, 1, map->flags);
 		if (fd < 0) {
@@ -274,7 +273,7 @@ static void bpf_run_test(struct bpf_test *test, int debug_mode)
 			/* We fail in verifier eventually. */
 			break;
 		}
-		
+
 		if (bpf_map_selfcheck_pinned(fd, &elf_map, sizeof elf_map, test->type) != 0)
 			break;
 

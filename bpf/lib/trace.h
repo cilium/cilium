@@ -167,8 +167,8 @@ send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
 	if (!monitor)
 		monitor = TRACE_PAYLOAD_LEN;
 
-	uint64_t skb_len = (uint64_t)skb->len, cap_len = min((uint64_t)monitor, (uint64_t)skb_len);
-	uint32_t hash = get_hash_recalc(skb);
+	__u64 skb_len = (__u64)skb->len, cap_len = min((__u64)monitor, (__u64)skb_len);
+	__u32 hash = get_hash_recalc(skb);
 	struct trace_notify msg = {
 		.type = CILIUM_NOTIFY_TRACE,
 		.subtype = obs_point,
@@ -206,8 +206,8 @@ send_trace_notify4(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst, 
 	if (!monitor)
 		monitor = TRACE_PAYLOAD_LEN;
 
-	uint64_t skb_len = (uint64_t)skb->len, cap_len = min((uint64_t)monitor, (uint64_t)skb_len);
-	uint32_t hash = get_hash_recalc(skb);
+	__u64 skb_len = (__u64)skb->len, cap_len = min((__u64)monitor, (__u64)skb_len);
+	__u32 hash = get_hash_recalc(skb);
 	struct trace_notify msg = {
 		.type = CILIUM_NOTIFY_TRACE,
 		.subtype = obs_point,
@@ -245,8 +245,8 @@ send_trace_notify6(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst, 
 	if (!monitor)
 		monitor = TRACE_PAYLOAD_LEN;
 
-	uint64_t skb_len = (uint64_t)skb->len, cap_len = min((uint64_t)monitor, (uint64_t)skb_len);
-	uint32_t hash = get_hash_recalc(skb);
+	__u64 skb_len = (__u64)skb->len, cap_len = min((__u64)monitor, (__u64)skb_len);
+	__u32 hash = get_hash_recalc(skb);
 	struct trace_notify msg = {
 		.type = CILIUM_NOTIFY_TRACE,
 		.subtype = obs_point,

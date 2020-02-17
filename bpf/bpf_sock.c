@@ -21,9 +21,6 @@
 
 #include <bpf/api.h>
 
-#include <stdint.h>
-#include <stdio.h>
-
 #define SKIP_POLICY_MAP	1
 #define SKIP_CALLS_MAP	1
 
@@ -124,7 +121,7 @@ __u64 sock_local_cookie(struct bpf_sock_addr *ctx)
 }
 
 static __always_inline __maybe_unused
-bool sock_proto_enabled(uint32_t proto)
+bool sock_proto_enabled(__u32 proto)
 {
 	switch (proto) {
 #ifdef ENABLE_HOST_SERVICES_TCP

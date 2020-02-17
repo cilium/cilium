@@ -23,14 +23,10 @@
 #ifndef __LIB_METRICS__
 #define __LIB_METRICS__
 
-
 #include "common.h"
 #include "utils.h"
 #include "maps.h"
 #include "dbg.h"
-#include <stdint.h>
-#include <stdbool.h>
-
 
 /**
  * update_metrics

@@ -17,7 +17,7 @@
 #ifndef _LINUX_ICMP_H
 #define _LINUX_ICMP_H
 
-#include <linux/type_mapper.h>
+#include <linux/types.h>
 
 #define ICMP_ECHOREPLY		0	/* Echo Reply			*/
 #define ICMP_DEST_UNREACH	3	/* Destination Unreachable	*/

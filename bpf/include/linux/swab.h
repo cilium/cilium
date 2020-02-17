@@ -1,7 +1,7 @@
 #ifndef _LINUX_SWAB_H
 #define _LINUX_SWAB_H
 
-#include <linux/type_mapper.h>
+#include <linux/types.h>
 
 /*
  * casts are necessary for constants, because we never know how for sure
