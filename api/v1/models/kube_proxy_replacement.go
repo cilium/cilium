@@ -316,7 +316,7 @@ type KubeProxyReplacementFeaturesNodePort struct {
 	Enabled bool `json:"enabled,omitempty"`
 
 	// mode
-	// Enum: [SNAT DSR]
+	// Enum: [SNAT DSR HYBRID]
 	Mode string `json:"mode,omitempty"`
 
 	// port max
@@ -344,7 +344,7 @@ var kubeProxyReplacementFeaturesNodePortTypeModePropEnum []interface{}
 
 func init() {
 	var res []string
-	if err := json.Unmarshal([]byte(`["SNAT","DSR"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["SNAT","DSR","HYBRID"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
@@ -359,6 +359,9 @@ const (
 
 	// KubeProxyReplacementFeaturesNodePortModeDSR captures enum value "DSR"
 	KubeProxyReplacementFeaturesNodePortModeDSR string = "DSR"
+
+	// KubeProxyReplacementFeaturesNodePortModeHYBRID captures enum value "HYBRID"
+	KubeProxyReplacementFeaturesNodePortModeHYBRID string = "HYBRID"
 )
 
 // prop value enum

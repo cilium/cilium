@@ -1633,6 +1633,7 @@ definitions:
                 enum:
                 - SNAT
                 - DSR
+                - HYBRID
               portMin:
                 type: integer
               portMax:

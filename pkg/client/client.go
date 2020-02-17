@@ -264,8 +264,12 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 			features := []string{}
 
 			if np := sr.KubeProxyReplacement.Features.NodePort; np.Enabled {
+				mode := np.Mode
+				if mode == models.KubeProxyReplacementFeaturesNodePortModeHYBRID {
+					mode = strings.Title(mode)
+				}
 				features = append(features,
-					fmt.Sprintf("NodePort (%s, %d-%d)", np.Mode, np.PortMin, np.PortMax))
+					fmt.Sprintf("NodePort (%s, %d-%d)", mode, np.PortMin, np.PortMax))
 			}
 
 			if sr.KubeProxyReplacement.Features.ExternalIPs.Enabled {

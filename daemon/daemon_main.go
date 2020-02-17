@@ -499,7 +499,7 @@ func init() {
 	flags.Bool(option.EnableNodePort, false, "Enable NodePort type services by Cilium (beta)")
 	option.BindEnv(option.EnableNodePort)
 
-	flags.String(option.NodePortMode, defaults.NodePortMode, "BPF NodePort mode (\"snat\", \"dsr\")")
+	flags.String(option.NodePortMode, defaults.NodePortMode, "BPF NodePort mode (\"snat\", \"dsr\", \"hybrid\")")
 	option.BindEnv(option.NodePortMode)
 
 	flags.StringSlice(option.NodePortRange, []string{fmt.Sprintf("%d", option.NodePortMinDefault), fmt.Sprintf("%d", option.NodePortMaxDefault)}, fmt.Sprintf("Set the min/max NodePort port range"))
@@ -1470,11 +1470,15 @@ func initKubeProxyReplacementOptions() {
 			}
 		}
 
-		if option.Config.NodePortMode != "dsr" && option.Config.NodePortMode != "snat" {
+		if option.Config.NodePortMode != option.NodePortModeSNAT &&
+			option.Config.NodePortMode != option.NodePortModeDSR &&
+			option.Config.NodePortMode != option.NodePortModeHybrid {
 			log.Fatalf("Invalid value for --%s: %s", option.NodePortMode, option.Config.NodePortMode)
 		}
 
-		if option.Config.NodePortMode == "dsr" && option.Config.Tunnel != option.TunnelDisabled {
+		if (option.Config.NodePortMode == option.NodePortModeDSR ||
+			option.Config.NodePortMode == option.NodePortModeHybrid) &&
+			option.Config.Tunnel != option.TunnelDisabled {
 			// Currently, DSR does not work in the tunnel mode. Once it's fixed,
 			// the constraint can be removed.
 			log.Fatal("DSR cannot be used with tunnel")

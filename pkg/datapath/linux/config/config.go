@@ -209,8 +209,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EnableIPv6 {
 			cDefinesMap["NODEPORT_NEIGH6"] = "cilium_nodeport_neigh6"
 		}
-		if option.Config.NodePortMode == "dsr" {
+		if option.Config.NodePortMode == option.NodePortModeDSR ||
+			option.Config.NodePortMode == option.NodePortModeHybrid {
 			cDefinesMap["ENABLE_DSR"] = "1"
+			if option.Config.NodePortMode == option.NodePortModeHybrid {
+				cDefinesMap["ENABLE_DSR_HYBRID"] = "1"
+			}
 		}
 		if option.Config.EnableExternalIPs {
 			cDefinesMap["ENABLE_EXTERNAL_IP"] = "1"
