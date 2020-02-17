@@ -722,6 +722,9 @@ func init() {
           },
           {
             "$ref": "#/parameters/ipam-owner"
+          },
+          {
+            "$ref": "#/parameters/ipam-expiration"
           }
         ],
         "responses": {
@@ -1238,8 +1241,16 @@ func init() {
           "description": "IPv4 address",
           "type": "string"
         },
+        "ipv4-expiration-uuid": {
+          "description": "UUID of IPv4 expiration timer",
+          "type": "string"
+        },
         "ipv6": {
           "description": "IPv6 address",
+          "type": "string"
+        },
+        "ipv6-expiration-uuid": {
+          "description": "UUID of IPv6 expiration timer",
           "type": "string"
         }
       }
@@ -2145,6 +2156,10 @@ func init() {
             "type": "string"
           }
         },
+        "expiration-uuid": {
+          "description": "The UUID for the expiration timer. Set when expiration has been\nenabled while allocating.\n",
+          "type": "string"
+        },
         "gateway": {
           "description": "IP of gateway",
           "type": "string"
@@ -2886,6 +2901,11 @@ func init() {
       "name": "id",
       "in": "path",
       "required": true
+    },
+    "ipam-expiration": {
+      "type": "boolean",
+      "name": "expiration",
+      "in": "header"
     },
     "ipam-family": {
       "enum": [
@@ -3794,6 +3814,11 @@ func init() {
             "type": "string",
             "name": "owner",
             "in": "query"
+          },
+          {
+            "type": "boolean",
+            "name": "expiration",
+            "in": "header"
           }
         ],
         "responses": {
@@ -4365,8 +4390,16 @@ func init() {
           "description": "IPv4 address",
           "type": "string"
         },
+        "ipv4-expiration-uuid": {
+          "description": "UUID of IPv4 expiration timer",
+          "type": "string"
+        },
         "ipv6": {
           "description": "IPv6 address",
+          "type": "string"
+        },
+        "ipv6-expiration-uuid": {
+          "description": "UUID of IPv6 expiration timer",
           "type": "string"
         }
       }
@@ -5272,6 +5305,10 @@ func init() {
             "type": "string"
           }
         },
+        "expiration-uuid": {
+          "description": "The UUID for the expiration timer. Set when expiration has been\nenabled while allocating.\n",
+          "type": "string"
+        },
         "gateway": {
           "description": "IP of gateway",
           "type": "string"
@@ -6013,6 +6050,11 @@ func init() {
       "name": "id",
       "in": "path",
       "required": true
+    },
+    "ipam-expiration": {
+      "type": "boolean",
+      "name": "expiration",
+      "in": "header"
     },
     "ipam-family": {
       "enum": [
