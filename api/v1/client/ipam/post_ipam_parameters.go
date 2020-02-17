@@ -13,6 +13,7 @@ import (
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
+	"github.com/go-openapi/swag"
 
 	strfmt "github.com/go-openapi/strfmt"
 )
@@ -61,6 +62,8 @@ for the post ipam operation typically these are written to a http.Request
 */
 type PostIpamParams struct {
 
+	/*Expiration*/
+	Expiration *bool
 	/*Family*/
 	Family *string
 	/*Owner*/
@@ -104,6 +107,17 @@ func (o *PostIpamParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
+// WithExpiration adds the expiration to the post ipam params
+func (o *PostIpamParams) WithExpiration(expiration *bool) *PostIpamParams {
+	o.SetExpiration(expiration)
+	return o
+}
+
+// SetExpiration adds the expiration to the post ipam params
+func (o *PostIpamParams) SetExpiration(expiration *bool) {
+	o.Expiration = expiration
+}
+
 // WithFamily adds the family to the post ipam params
 func (o *PostIpamParams) WithFamily(family *string) *PostIpamParams {
 	o.SetFamily(family)
@@ -133,6 +147,15 @@ func (o *PostIpamParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Regi
 		return err
 	}
 	var res []error
+
+	if o.Expiration != nil {
+
+		// header param expiration
+		if err := r.SetHeaderParam("expiration", swag.FormatBool(*o.Expiration)); err != nil {
+			return err
+		}
+
+	}
 
 	if o.Family != nil {
 

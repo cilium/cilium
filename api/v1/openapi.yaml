@@ -404,6 +404,7 @@ paths:
       parameters:
       - "$ref": "#/parameters/ipam-family"
       - "$ref": "#/parameters/ipam-owner"
+      - "$ref": "#/parameters/ipam-expiration"
       responses:
         '201':
           description: Success
@@ -954,6 +955,10 @@ parameters:
     name: owner
     in: query
     type: string
+  ipam-expiration:
+    name: expiration
+    in: header
+    type: boolean
   map-name:
     name: name
     description: Name of map
@@ -1383,6 +1388,11 @@ definitions:
       master-mac:
         type: string
         description: MAC of master interface if address is a slave/secondary of a master interface
+      expiration-uuid:
+        type: string
+        description: |
+          The UUID for the expiration timer. Set when expiration has been
+          enabled while allocating.
   AddressPair:
     description: Addressing information of an endpoint
     type: object
@@ -1390,8 +1400,14 @@ definitions:
       ipv4:
         description: IPv4 address
         type: string
+      ipv4-expiration-uuid:
+        description: UUID of IPv4 expiration timer
+        type: string
       ipv6:
         description: IPv6 address
+        type: string
+      ipv6-expiration-uuid:
+        description: UUID of IPv6 expiration timer
         type: string
   Address:
     description: IP address
