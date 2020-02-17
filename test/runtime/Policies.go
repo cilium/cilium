@@ -1542,7 +1542,7 @@ var _ = Describe("RuntimePolicies", func() {
 		})
 	})
 
-	Context("Test Policy Generation for Already-Allocated Identities", func() {
+	Context("Tests for Already-Allocated Identities", func() {
 		var (
 			newContainerName = fmt.Sprintf("%s-already-allocated-id", helpers.Httpd1)
 		)
@@ -1559,7 +1559,7 @@ var _ = Describe("RuntimePolicies", func() {
 			vm.ContainerRm(newContainerName)
 		})
 
-		It("Tests L4 Policy is Generated for Endpoint whose identity has already been allocated", func() {
+		It("Tests L4 policy is generated for endpoint with already-allocated identity", func() {
 			// Create a new container which has labels which have already been
 			// allocated an identity from the key-value store.
 			By("Creating new container with label id.httpd1, which has already " +
