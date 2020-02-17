@@ -255,6 +255,10 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 		ginkgoext.Fail(fmt.Sprintf("Cannot connect to k8s cluster, output:\n%s", res.CombineOutput().String()), 1)
 		return nil
 	}
+	if err := k.WaitforPods(LogGathererNamespace, "-l "+logGathererSelector(true), HelperTimeout); err != nil {
+		ginkgoext.Fail(fmt.Sprintf("Failed waiting for log-gatherer pods: %s", err), 1)
+		return nil
+	}
 
 	return k
 }
