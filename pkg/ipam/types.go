@@ -44,6 +44,10 @@ type AllocationResult struct {
 	// If the allocated IP is derived from a VPC, then the gateway
 	// represented the gateway of the VPC or VPC subnet.
 	GatewayIP string
+
+	// ExpirationUUID is the UUID of the expiration timer. This field is
+	// only set if AllocateNextWithExpiration is used.
+	ExpirationUUID string
 }
 
 // Allocator is the interface for an IP allocator implementation
