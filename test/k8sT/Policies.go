@@ -792,7 +792,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			})
 		})
 
-		Context("Redirects traffic to proxy when no policy is applied with proxy-visibility annotation", func() {
+		Context("Traffic redirections to proxy", func() {
 
 			var (
 				// track which app1 pod we care about, and its corresponding
