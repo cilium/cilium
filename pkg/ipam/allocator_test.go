@@ -127,3 +127,54 @@ func (s *IPAMSuite) TestExpirationTimer(c *C) {
 	c.Assert(err, IsNil)
 
 }
+
+func (s *IPAMSuite) TestAllocateNextWithExpiration(c *C) {
+	timeout := 50 * time.Millisecond
+
+	fakeAddressing := fake.NewNodeAddressing()
+	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true}, &ownerMock{}, &ownerMock{})
+
+	ipv4, ipv6, err := ipam.AllocateNextWithExpiration("", "foo", timeout)
+	c.Assert(err, IsNil)
+
+	// IPv4 address must be in use
+	err = ipam.AllocateIP(ipv4.IP, "foo")
+	c.Assert(err, Not(IsNil))
+	// IPv6 address must be in use
+	err = ipam.AllocateIP(ipv6.IP, "foo")
+	c.Assert(err, Not(IsNil))
+	// Let expiration timer expire
+	time.Sleep(2 * timeout)
+	// IPv4 address must be available again
+	err = ipam.AllocateIP(ipv4.IP, "foo")
+	c.Assert(err, IsNil)
+	// IPv6 address must be available again
+	err = ipam.AllocateIP(ipv6.IP, "foo")
+	c.Assert(err, IsNil)
+	// Release IPs
+	err = ipam.ReleaseIP(ipv4.IP)
+	c.Assert(err, IsNil)
+	err = ipam.ReleaseIP(ipv6.IP)
+	c.Assert(err, IsNil)
+
+	// Allocate IPs again and test stopping the expiration timer
+	ipv4, ipv6, err = ipam.AllocateNextWithExpiration("", "foo", timeout)
+	c.Assert(err, IsNil)
+
+	// Stop expiration timer for IPv4 address
+	err = ipam.StopExpirationTimer(ipv4.IP, ipv4.ExpirationUUID)
+	c.Assert(err, IsNil)
+
+	// Let expiration timer expire
+	time.Sleep(2 * timeout)
+
+	// IPv4 address must be in use
+	err = ipam.AllocateIP(ipv4.IP, "foo")
+	c.Assert(err, Not(IsNil))
+	// IPv6 address must be available again
+	err = ipam.AllocateIP(ipv6.IP, "foo")
+	c.Assert(err, IsNil)
+	// Release IPv4 address
+	err = ipam.ReleaseIP(ipv4.IP)
+	c.Assert(err, IsNil)
+}
