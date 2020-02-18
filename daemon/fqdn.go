@@ -74,8 +74,8 @@ func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSel
 	// AllocateCIDRs. If we for some reason cannot allocate new CIDRs,
 	// we have to undo all of our changes and release the identities.
 	// This is best effort, as releasing can fail as well.
-	usedIdentities := make([]*identity.Identity, 0)
-	selectorIdentitySliceMapping := make(map[policyApi.FQDNSelector][]*identity.Identity)
+	usedIdentities := make([]*identity.Identity, 0, len(selectorsWithIPsToUpdate))
+	selectorIdentitySliceMapping := make(map[policyApi.FQDNSelector][]*identity.Identity, len(selectorsWithIPsToUpdate))
 
 	// Allocate identities for each IPNet and then map to selector
 	for selector, selectorIPs := range selectorsWithIPsToUpdate {
