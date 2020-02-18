@@ -42,7 +42,9 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
+	"github.com/cilium/cilium/pkg/hubble"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -62,6 +64,9 @@ import (
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/version"
 
+	hubbleServe "github.com/cilium/hubble/cmd/serve"
+	"github.com/cilium/hubble/pkg/parser"
+	hubbleServer "github.com/cilium/hubble/pkg/server"
 	"github.com/go-openapi/loads"
 	gops "github.com/google/gops/agent"
 	"github.com/jessevdk/go-flags"
@@ -718,6 +723,18 @@ func init() {
 	flags.Bool(option.DisableCNPStatusUpdates, false, "Do not send CNP NodeStatus updates to the Kubernetes api-server (recommended to run with `cnp-node-status-gc=false` in cilium-operator)")
 	option.BindEnv(option.DisableCNPStatusUpdates)
 
+	flags.StringSlice(option.HubbleListenAddresses, []string{}, "List of IP addresses for Hubble server to listen to.")
+	option.BindEnv(option.HubbleListenAddresses)
+
+	flags.Int(option.HubbleFlowBufferSize, 4096, "Maximum number of flows in Hubble's buffer.")
+	option.BindEnv(option.HubbleFlowBufferSize)
+
+	flags.String(option.HubbleMetricsServer, "", "Address to serve Hubble metrics on.")
+	option.BindEnv(option.HubbleMetricsServer)
+
+	flags.StringSlice(option.HubbleMetrics, []string{}, "List of Hubble metrics to enable.")
+	option.BindEnv(option.HubbleMetrics)
+
 	viper.BindPFlags(flags)
 }
 
@@ -1295,6 +1312,7 @@ func runDaemon() {
 
 	bootstrapStats.overall.End(true)
 	bootstrapStats.updateMetrics()
+	d.launchHubble()
 
 	select {
 	case err := <-metricsErrs:
@@ -1587,4 +1605,40 @@ func checkNodePortAndEphemeralPortRanges() error {
 			ephemeralPortRange[0], ephemeralPortRange[1])
 	}
 	return nil
+}
+
+func (d *Daemon) launchHubble() {
+	logger := logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble")
+	addresses := option.Config.HubbleListenAddresses
+	if len(addresses) == 0 {
+		logger.Info("Hubble server is disabled")
+		return
+	}
+	for _, address := range addresses {
+		if !strings.HasPrefix(address, "unix://") {
+			logger.WithField("addresses", addresses).
+				Warn("Hubble server currently only supports listening on Unix domain sockets")
+			return
+		}
+	}
+	epDNSGetter := hubble.NewLocalEndpointDNSGetter(d.endpointManager)
+	identityGetter := hubble.NewLocalIdentityGetter(d.identityAllocator)
+	ipGetter := hubble.NewLocalIPGetter(ipcache.IPIdentityCache)
+	serviceGetter := hubble.NewLocalServiceGetter(d.svc)
+	payloadParser, _ := parser.New(epDNSGetter, identityGetter, epDNSGetter, ipGetter, serviceGetter)
+	s := hubbleServer.NewLocalServer(payloadParser, option.Config.HubbleFlowBufferSize, logger)
+	go s.Start()
+	d.monitorAgent.GetMonitor().RegisterNewListener(context.TODO(), hubble.NewHubbleListener(s))
+	logger.WithField("addresses", addresses).Info("Starting Hubble server")
+	if err := hubbleServe.Serve(logger, addresses, s); err != nil {
+		logger.WithError(err).Warn("Failed to start Hubble server")
+		return
+	}
+	if option.Config.HubbleMetricsServer != "" {
+		logger.WithFields(logrus.Fields{
+			"address": option.Config.HubbleMetricsServer,
+			"metrics": option.Config.HubbleMetrics,
+		}).Info("Starting Hubble Metrics server")
+		hubbleServe.EnableMetrics(log, option.Config.HubbleMetricsServer, option.Config.HubbleMetrics)
+	}
 }
