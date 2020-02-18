@@ -123,12 +123,6 @@ static __always_inline int nodeport_nat_ipv6_fwd(struct __sk_buff *skb,
 	return NODEPORT_DO_NAT_IPV6(addr, NAT_DIR_EGRESS);
 }
 
-static __always_inline int nodeport_nat_ipv6_rev(struct __sk_buff *skb,
-						 union v6addr *addr)
-{
-	return NODEPORT_DO_NAT_IPV6(addr, NAT_DIR_INGRESS);
-}
-
 # ifdef ENABLE_DSR
 
 static __always_inline int set_dsr_ext6(struct __sk_buff *skb,
@@ -684,12 +678,6 @@ static __always_inline int nodeport_nat_ipv4_fwd(struct __sk_buff *skb,
 	return NODEPORT_DO_NAT_IPV4(addr, NAT_DIR_EGRESS);
 }
 
-static __always_inline int nodeport_nat_ipv4_rev(struct __sk_buff *skb,
-						 const __be32 addr)
-{
-	return NODEPORT_DO_NAT_IPV4(addr, NAT_DIR_INGRESS);
-}
-
 # ifdef ENABLE_DSR
 
 /* Helper function to set the IPv4 option for DSR when a backend is remote.
@@ -1232,46 +1220,5 @@ static __always_inline int nodeport_nat_fwd(struct __sk_buff *skb,
 	return TC_ACT_OK;
 }
 
-static __always_inline int nodeport_nat_rev(struct __sk_buff *skb,
-					    const bool encap)
-{
-	__u16 proto;
-
-	if (!validate_ethertype(skb, &proto))
-		return TC_ACT_OK;
-	switch (proto) {
-#ifdef ENABLE_IPV4
-	case bpf_htons(ETH_P_IP): {
-		__be32 addr;
-#ifdef ENCAP_IFINDEX
-		if (encap)
-			addr = IPV4_GATEWAY;
-		else
-#endif
-			addr = IPV4_NODEPORT;
-		return nodeport_nat_ipv4_rev(skb, addr);
-	}
-#endif /* ENABLE_IPV4 */
-#ifdef ENABLE_IPV6
-	case bpf_htons(ETH_P_IPV6): {
-		union v6addr addr;
-#ifdef ENCAP_IFINDEX
-		if (encap)
-			BPF_V6(addr, ROUTER_IP);
-		else
-#endif
-			BPF_V6(addr, IPV6_NODEPORT);
-		return nodeport_nat_ipv6_rev(skb, &addr);
-	}
-#endif /* ENABLE_IPV6 */
-	default:
-		build_bug_on(!(NODEPORT_PORT_MIN_NAT < NODEPORT_PORT_MAX_NAT));
-		build_bug_on(!(NODEPORT_PORT_MIN     < NODEPORT_PORT_MAX));
-		build_bug_on(!(NODEPORT_PORT_MAX     < NODEPORT_PORT_MIN_NAT));
-		build_bug_on(!(NODEPORT_PORT_MAX     < EPHERMERAL_MIN));
-		break;
-	}
-	return TC_ACT_OK;
-}
 #endif /* ENABLE_NODEPORT */
 #endif /* __NODEPORT_H_ */
