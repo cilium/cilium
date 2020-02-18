@@ -234,3 +234,33 @@ func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
 	c.Assert(found, Equals, true)
 	c.Assert(m.svcHealth.ServiceByPort(32001), IsNil)
 }
+
+func (m *ManagerTestSuite) TestGetDeepCopyServiceByAddr(c *C) {
+	fe := frontend1.DeepCopy()
+	var be []lb.Backend
+	for _, backend := range backends1 {
+		be = append(be, *backend.DeepCopy())
+	}
+	name := "svc1"
+	namespace := "ns1"
+	hcport := uint16(3)
+	created, id1, err := m.svc.UpsertService(*fe, be, lb.SVCTypeNodePort, lb.SVCTrafficPolicyCluster, hcport, name, namespace)
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(id1, Equals, lb.ID(1))
+	fe.ID = id1
+	be[0].ID = 1
+	be[1].ID = 2
+	byid, ok := m.svc.GetDeepCopyServiceByID(lb.ServiceID(id1))
+	c.Assert(ok, Equals, true)
+	byaddr, ok := m.svc.GetDeepCopyServiceByAddr(frontend1.L3n4Addr)
+	c.Assert(ok, Equals, true)
+	c.Assert(byid, checker.DeepEquals, byaddr)
+	c.Assert(byaddr.Frontend, checker.DeepEquals, *fe)
+	c.Assert(byaddr.Backends, checker.DeepEquals, be)
+	c.Assert(byaddr.Type, Equals, lb.SVCTypeNodePort)
+	c.Assert(byaddr.TrafficPolicy, Equals, lb.SVCTrafficPolicyCluster)
+	c.Assert(byaddr.HealthCheckNodePort, Equals, hcport)
+	c.Assert(byaddr.Namespace, Equals, namespace)
+	c.Assert(byaddr.Name, Equals, name)
+}
