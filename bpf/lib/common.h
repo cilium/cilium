@@ -91,6 +91,8 @@
 #define CILIUM_CALL_ENCAP_NODEPORT_NAT		19
 #define CILIUM_CALL_IPV4_NODEPORT_DSR		20
 #define CILIUM_CALL_IPV6_NODEPORT_DSR		21
+/* This is used for the map creation by Cilium agent. When modified,
+ * InternalCallMaxEntries should be updated accordingly. */
 #define CILIUM_CALL_SIZE			22
 
 typedef __u64 mac_t;

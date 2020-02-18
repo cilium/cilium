@@ -849,6 +849,16 @@ func (e *Endpoint) finalizeProxyState(regenContext *regenerationContext, err err
 	}
 }
 
+// InitMap creates the policy map in the kernel.
+func (e *Endpoint) InitMap() error {
+	m, _, err := policymap.OpenOrCreate(e.policyMapPath())
+	if err != nil {
+		return err
+	}
+	err = m.Close()
+	return err
+}
+
 // deleteMaps releases references to all BPF maps associated with this
 // endpoint.
 //
