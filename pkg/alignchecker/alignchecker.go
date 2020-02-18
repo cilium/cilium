@@ -84,7 +84,7 @@ func getStructInfosFromDWARF(d *dwarf.Data, toCheck map[string][]reflect.Type) (
 
 		if _, found := toCheck[st.StructName]; found {
 			unionCount := 0
-			offsets := make(map[string]int64)
+			offsets := make(map[string]int64, len(st.Field))
 			for _, field := range st.Field {
 				n := field.Name
 				// Create surrogate names ($union0, $union1, etc) for unnamed
