@@ -143,9 +143,7 @@ If multiple sources and / or destinations are provided, each source is tested wh
 			if err != nil {
 				Fatalf("%s", err)
 			}
-			for _, v := range srcYamlSlices {
-				srcSlices = append(srcSlices, v)
-			}
+			srcSlices = append(srcSlices, srcYamlSlices...)
 		}
 
 		if dstK8sYaml != "" {
@@ -153,9 +151,7 @@ If multiple sources and / or destinations are provided, each source is tested wh
 			if err != nil {
 				Fatalf("%s", err)
 			}
-			for _, v := range dstYamlSlices {
-				dstSlices = append(dstSlices, v)
-			}
+			dstSlices = append(dstSlices, dstYamlSlices...)
 		}
 
 		for _, v := range srcSlices {
