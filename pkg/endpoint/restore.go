@@ -122,7 +122,7 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, basePath
 // names that can possibly contain an endpoint, into two lists, containing those
 // names that represent an incomplete endpoint restore and those that do not.
 func partitionEPDirNamesByRestoreStatus(eptsDirNames []string) (complete []string, incomplete []string) {
-	dirNames := make(map[string]struct{})
+	dirNames := make(map[string]struct{}, len(eptsDirNames))
 	for _, epDirName := range eptsDirNames {
 		dirNames[epDirName] = struct{}{}
 	}

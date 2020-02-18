@@ -129,7 +129,7 @@ func (c *Collector) GetStaleProbes() map[string]time.Time {
 	c.RLock()
 	defer c.RUnlock()
 
-	probes := make(map[string]time.Time)
+	probes := make(map[string]time.Time, len(c.staleProbes))
 
 	for p := range c.staleProbes {
 		probes[p] = c.probeStartTime[p]
