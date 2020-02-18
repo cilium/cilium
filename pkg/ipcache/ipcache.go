@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
-
+	hubbleIPCache "github.com/cilium/hubble/pkg/ipcache"
 	"github.com/sirupsen/logrus"
 )
 
@@ -457,4 +457,27 @@ func (m *K8sMetadata) Equal(o *K8sMetadata) bool {
 	}
 
 	return m.Namespace == o.Namespace && m.PodName == o.PodName
+}
+
+// GetIPIdentity returns the IP identity of the given IP address. Hubble uses this function to populate
+// fields like namespace and pod name for remote endpoints. If the K8s metadata is unavailable, it sets
+// the Identity field for the IP identity.
+//
+//  - IPGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L46
+func (ipc *IPCache) GetIPIdentity(ip net.IP) (hubbleIPCache.IPIdentity, bool) {
+	ipIdentity, ok := ipc.LookupByIP(ip.String())
+	if !ok {
+		return hubbleIPCache.IPIdentity{}, false
+	}
+	meta := ipc.GetK8sMetadata(ip.String())
+	if meta == nil {
+		return hubbleIPCache.IPIdentity{
+			Identity: ipIdentity.ID,
+		}, true
+	}
+	return hubbleIPCache.IPIdentity{
+		Identity:  ipIdentity.ID,
+		Namespace: meta.Namespace,
+		PodName:   meta.PodName,
+	}, true
 }
