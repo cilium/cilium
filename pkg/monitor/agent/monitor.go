@@ -101,12 +101,12 @@ func NewMonitor(ctx context.Context, nPages int, server1_2 net.Listener) (m *Mon
 	return m, nil
 }
 
-// registerNewListener adds the new MonitorListener to the global list. It also spawns
+// RegisterNewListener adds the new MonitorListener to the global list. It also spawns
 // a singleton goroutine to read and distribute the events. It passes a
 // cancelable context to this goroutine and the cancelFunc is assigned to
 // perfReaderCancel. Note that cancelling parentCtx (e.g. on program shutdown)
 // will also cancel the derived context.
-func (m *Monitor) registerNewListener(parentCtx context.Context, newListener listener.MonitorListener) {
+func (m *Monitor) RegisterNewListener(parentCtx context.Context, newListener listener.MonitorListener) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -252,7 +252,7 @@ func (m *Monitor) connectionHandler1_2(parentCtx context.Context, server net.Lis
 		}
 
 		newListener := newListenerv1_2(conn, option.Config.MonitorQueueSize, m.removeListener)
-		m.registerNewListener(parentCtx, newListener)
+		m.RegisterNewListener(parentCtx, newListener)
 	}
 }
 

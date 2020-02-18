@@ -142,3 +142,8 @@ func (a *Agent) SendEvent(typ int, event interface{}) error {
 
 	return nil
 }
+
+// GetMonitor returns the pointer to the monitor.
+func (a *Agent) GetMonitor() *Monitor {
+	return a.monitor
+}
