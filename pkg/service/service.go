@@ -694,3 +694,17 @@ func (s *Service) notifyMonitorServiceDelete(id lb.ID) {
 		}
 	}
 }
+
+// GetServiceNameByAddr returns namespace and name of the service with a given L3n4Addr. The third
+// return value is set to true if and only if the service is found in the map.
+func (s *Service) GetServiceNameByAddr(addr lb.L3n4Addr) (string, string, bool) {
+	s.RLock()
+	defer s.RUnlock()
+
+	svc, found := s.svcByHash[addr.Hash()]
+	if !found {
+		return "", "", false
+	}
+
+	return svc.svcNamespace, svc.svcName, true
+}

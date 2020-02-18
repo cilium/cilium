@@ -234,3 +234,25 @@ func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
 	c.Assert(found, Equals, true)
 	c.Assert(m.svcHealth.ServiceByPort(32001), IsNil)
 }
+
+func (m *ManagerTestSuite) TestGetServiceNameByAddr(c *C) {
+	fe := frontend1.DeepCopy()
+	var be []lb.Backend
+	for _, backend := range backends1 {
+		be = append(be, *backend.DeepCopy())
+	}
+	name := "svc1"
+	namespace := "ns1"
+	hcport := uint16(3)
+	created, id1, err := m.svc.UpsertService(*fe, be, lb.SVCTypeNodePort, lb.SVCTrafficPolicyCluster, hcport, name, namespace)
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(id1, Equals, lb.ID(1))
+	fe.ID = id1
+	gotNamespace, gotName, ok := m.svc.GetServiceNameByAddr(frontend1.L3n4Addr)
+	c.Assert(gotNamespace, Equals, namespace)
+	c.Assert(gotName, Equals, name)
+	c.Assert(ok, Equals, true)
+	_, _, ok = m.svc.GetServiceNameByAddr(frontend2.L3n4Addr)
+	c.Assert(ok, Equals, false)
+}
