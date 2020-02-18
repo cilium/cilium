@@ -143,3 +143,7 @@ func (a *Agent) SendEvent(typ int, event interface{}) error {
 
 	return nil
 }
+
+func (a *Agent) GetMonitor() *Monitor {
+	return a.monitor
+}
