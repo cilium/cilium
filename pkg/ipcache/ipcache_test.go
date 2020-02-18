@@ -103,7 +103,7 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 
 	cachedHostIP, _ := IPIdentityCache.getHostIPCache(endpointIP)
 	c.Assert(cachedHostIP, checker.DeepEquals, hostIP)
-	c.Assert(IPIdentityCache.getK8sMetadata(endpointIP), checker.DeepEquals, k8sMeta)
+	c.Assert(IPIdentityCache.GetK8sMetadata(endpointIP), checker.DeepEquals, k8sMeta)
 
 	newIdentity := identityPkg.NumericIdentity(69)
 	IPIdentityCache.Upsert(endpointIP, hostIP, 0, k8sMeta, Identity{
