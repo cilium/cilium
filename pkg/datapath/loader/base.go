@@ -154,6 +154,9 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 		args[initArgDevicePreFilter] = option.Config.DevicePreFilter
 		args[initArgModePreFilter] = option.Config.ModePreFilter
+	} else {
+		args[initArgDevicePreFilter] = "<nil>"
+		args[initArgModePreFilter] = "<nil>"
 	}
 
 	args[initArgLib] = option.Config.BpfDir
@@ -206,6 +209,8 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	if option.Config.EncryptInterface != "" {
 		args[initArgEncryptInterface] = option.Config.EncryptInterface
+	} else {
+		args[initArgEncryptInterface] = "<nil>"
 	}
 
 	if option.Config.Device != "undefined" {
@@ -229,6 +234,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initArgDevice] = option.Config.Device
 	} else {
 		args[initArgMode] = option.Config.Tunnel
+		args[initArgDevice] = "<nil>"
 
 		if option.Config.IsFlannelMasterDeviceSet() {
 			args[initArgMode] = "flannel"
@@ -242,6 +248,8 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	if option.Config.EnableNodePort {
 		args[initArgNodePort] = "true"
+	} else {
+		args[initArgNodePort] = "false"
 	}
 
 	log.Info("Setting up base BPF datapath")
@@ -256,6 +264,12 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 				logfields.SysParamName:  s.name,
 				logfields.SysParamValue: s.val,
 			}).Warning("Failed to sysctl -w")
+		}
+	}
+
+	for i, arg := range args {
+		if arg == "" {
+			log.Warningf("empty argument passed to bpf/init.sh at position %d", i)
 		}
 	}
 

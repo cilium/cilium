@@ -529,7 +529,7 @@ else
 fi
 
 if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$MODE" = "routed" ] || [ "$NODE_PORT" = "true" ] ; then
-	if [ -z "$NATIVE_DEV" ]; then
+	if [ "$NATIVE_DEV" == "<nil>" ]; then
 		echo "No device specified for $MODE mode, ignoring..."
 	else
 		if [ "$IP6_HOST" != "<nil>" ]; then
@@ -631,7 +631,7 @@ bpf_load $HOST_DEV1 "" "ingress" bpf_hostdev_ingress.c bpf_hostdev_ingress.o to-
 # bpf_ipsec.o is also needed by proxy redirects, so we load it unconditionally
 bpf_load $HOST_DEV2 "" "ingress" bpf_ipsec.c bpf_ipsec.o from-netdev $CALLS_MAP
 if [ "$IPSEC" == "true" ]; then
-	if [ $ENCRYPT_DEV != "" ]; then
+	if [ "$ENCRYPT_DEV" != "<nil>" ]; then
 		bpf_load $ENCRYPT_DEV "" "ingress" bpf_network.c bpf_network.o from-network $CALLS_MAP
 	fi
 fi
@@ -639,7 +639,7 @@ if [ "$HOST_DEV1" != "$HOST_DEV2" ]; then
 	bpf_unload $HOST_DEV2 "egress"
 fi
 
-if [ -n "$XDP_DEV" ]; then
+if [ "$XDP_DEV" != "<nil>" ]; then
 	CIDR_MAP="cilium_cidr_v*"
 	COPTS=""
 	xdp_load $XDP_DEV $XDP_MODE "$COPTS" bpf_xdp.c bpf_xdp.o from-netdev $CIDR_MAP
