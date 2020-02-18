@@ -303,9 +303,7 @@ func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int64, s
 		SecondaryPrivateIpAddressCount: &toAllocate,
 		SubnetId:                       &subnetID,
 	}
-	for _, grp := range groups {
-		createReq.Groups = append(createReq.Groups, grp)
-	}
+	createReq.Groups = append(createReq.Groups, groups...)
 
 	c.rateLimit(ctx, "CreateNetworkInterface")
 	sinceStart := spanstat.Start()

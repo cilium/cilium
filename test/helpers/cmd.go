@@ -171,9 +171,7 @@ func (res *CmdRes) FindResults(filter string) ([]reflect.Value, error) {
 	parser.Parse(filter)
 	fullResults, _ := parser.FindResults(data)
 	for _, res := range fullResults {
-		for _, val := range res {
-			result = append(result, val)
-		}
+		result = append(result, res...)
 	}
 	return result, nil
 }
