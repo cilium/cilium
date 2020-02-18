@@ -47,6 +47,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/endpointsynchronizer"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -71,7 +72,8 @@ import (
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/trigger"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
-
+	hubbleProto "github.com/cilium/hubble/api/v1/flow"
+	hubbleV1 "github.com/cilium/hubble/pkg/api/v1"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
 )
@@ -625,4 +627,61 @@ func (d *Daemon) GetNodeSuffix() string {
 	}
 
 	return ip.String()
+}
+
+// GetIdentity looks up identity by ID from Cilium's identity cache. Hubble uses the identity info
+// to populate source and destination labels of flows.
+//
+//  - IdentityGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L40
+func (d *Daemon) GetIdentity(securityIdentity uint64) (*models.Identity, error) {
+	ident := d.identityAllocator.LookupIdentityByID(context.Background(), identity.NumericIdentity(securityIdentity))
+	if ident == nil {
+		return nil, fmt.Errorf("identity %d not found", securityIdentity)
+	}
+	return ident.GetModel(), nil
+}
+
+// GetEndpointInfo returns endpoint info for a given IP address. Hubble uses this function to populate
+// fields like namespace and pod name for local endpoints.
+//
+//  - EndpointGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L34
+func (d *Daemon) GetEndpointInfo(ip net.IP) (endpoint hubbleV1.EndpointInfo, ok bool) {
+	ep := d.endpointManager.LookupIP(ip)
+	if ep == nil {
+		return nil, false
+	}
+	return ep, true
+}
+
+// GetNamesOf implements DNSGetter.GetNamesOf. It looks up DNS names of a given IP from the
+// FQDN cache of an endpoint specified by sourceEpID.
+//
+//  - DNSGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L27
+func (d *Daemon) GetNamesOf(sourceEpID uint64, ip net.IP) []string {
+	ep := d.endpointManager.LookupCiliumID(uint16(sourceEpID))
+	if ep == nil {
+		return nil
+	}
+	return ep.DNSHistory.LookupIP(ip)
+}
+
+// GetServiceByAddr looks up service by IP/port. Hubble uses this function to annotate flows
+// with service information.
+//
+//  - ServiceGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L52
+func (d *Daemon) GetServiceByAddr(ip net.IP, port uint16) (hubbleProto.Service, bool) {
+	addr := loadbalancer.L3n4Addr{
+		IP: ip,
+		L4Addr: loadbalancer.L4Addr{
+			Port: port,
+		},
+	}
+	namespace, name, ok := d.svc.GetServiceNameByAddr(addr)
+	if !ok {
+		return hubbleProto.Service{}, false
+	}
+	return hubbleProto.Service{
+		Namespace: namespace,
+		Name:      name,
+	}, true
 }
