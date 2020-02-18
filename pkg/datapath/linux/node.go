@@ -42,12 +42,14 @@ var (
 )
 
 type linuxNodeHandler struct {
-	mutex          lock.Mutex
-	isInitialized  bool
-	nodeConfig     datapath.LocalNodeConfiguration
-	nodeAddressing datapath.NodeAddressing
-	datapathConfig DatapathConfiguration
-	nodes          map[node.Identity]*node.Node
+	mutex                lock.Mutex
+	isInitialized        bool
+	nodeConfig           datapath.LocalNodeConfiguration
+	nodeAddressing       datapath.NodeAddressing
+	datapathConfig       DatapathConfiguration
+	nodes                map[node.Identity]*node.Node
+	enableNeighDiscovery bool
+	neighByNode          map[node.Identity]*netlink.Neigh
 }
 
 // NewNodeHandler returns a new node handler to handle node events and
@@ -57,6 +59,7 @@ func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapat
 		nodeAddressing: nodeAddressing,
 		datapathConfig: datapathConfig,
 		nodes:          map[node.Identity]*node.Node{},
+		neighByNode:    map[node.Identity]*netlink.Neigh{},
 	}
 }
 
@@ -556,7 +559,7 @@ func neighborLog(spec, iface string, err error, ip *net.IP, hwAddr *net.Hardware
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.Reason: spec,
 		"Interface":      iface,
-		"IP":             ip,
+		logfields.IPAddr: ip,
 		"HardwareAddr":   hwAddr,
 		"LinkIndex":      link,
 	})
@@ -605,8 +608,26 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *node.Node, ifaceName string) 
 		}
 		err := netlink.NeighSet(&neigh)
 		neighborLog("insertNeighbor NeighSet", ifaceName, err, &ciliumIPv4, &hwAddr, link)
+		if err == nil {
+			n.neighByNode[newNode.Identity()] = &neigh
+		}
 	} else {
 		neighborLog("insertNeighbor arping failed", ifaceName, err, &ciliumIPv4, &hwAddr, link)
+	}
+}
+
+func (n *linuxNodeHandler) deleteNeighbor(oldNode *node.Node) {
+	neigh, ok := n.neighByNode[oldNode.Identity()]
+	if !ok {
+		return
+	}
+
+	if err := netlink.NeighDel(neigh); err != nil {
+		log.WithFields(logrus.Fields{
+			logfields.IPAddr: neigh.IP,
+			"HardwareAddr":   neigh.HardwareAddr,
+			"LinkIndex":      neigh.LinkIndex,
+		}).WithError(err).Warn("Failed to remove neighbor entry")
 	}
 }
 
@@ -689,8 +710,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node, firstAddition
 		newKey = newNode.EncryptionKey
 	}
 
-	if n.nodeConfig.EnableIPv4 && (option.Config.EnableNodePort ||
-		(n.nodeConfig.EnableIPSec && option.Config.Tunnel == option.TunnelDisabled)) {
+	if n.enableNeighDiscovery {
 		var ifaceName string
 		if option.Config.EnableNodePort {
 			ifaceName = option.Config.Device
@@ -789,6 +809,10 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *node.Node) error {
 			n.deleteNodeRoute(oldNode.IPv4AllocCIDR)
 			n.deleteNodeRoute(oldNode.IPv6AllocCIDR)
 		}
+	}
+
+	if n.enableNeighDiscovery {
+		n.deleteNeighbor(oldNode)
 	}
 
 	if n.nodeConfig.EnableIPSec {
@@ -1086,6 +1110,10 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 
 	prevConfig := n.nodeConfig
 	n.nodeConfig = newConfig
+
+	n.enableNeighDiscovery = n.nodeConfig.EnableIPv4 &&
+		(option.Config.EnableNodePort ||
+			(n.nodeConfig.EnableIPSec && option.Config.Tunnel == option.TunnelDisabled))
 
 	n.updateOrRemoveNodeRoutes(prevConfig.AuxiliaryPrefixes, newConfig.AuxiliaryPrefixes)
 
