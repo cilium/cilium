@@ -86,6 +86,10 @@ cilium-agent [flags]
       --http-request-timeout uint                             Time after which a forwarded HTTP request is considered failed unless completed (in seconds); Use 0 for unlimited (default 3600)
       --http-retry-count uint                                 Number of retries performed after a forwarded request attempt fails (default 3)
       --http-retry-timeout uint                               Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)
+      --hubble-flow-buffer-size int                           Maximum number of flows in Hubble's buffer. (default 4096)
+      --hubble-listen-addresses strings                       List of IP addresses for Hubble server to listen to.
+      --hubble-metrics strings                                List of Hubble metrics to enable.
+      --hubble-metrics-server string                          Address to serve Hubble metrics on.
       --identity-allocation-mode string                       Method to use for identity allocation (default "kvstore")
       --identity-change-grace-period duration                 Time to wait before using new identity on endpoint identity change (default 5s)
       --install-iptables-rules                                Install base iptables rules for cilium to mainly interact with kube-proxy (and masquerading) (default true)
