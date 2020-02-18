@@ -70,10 +70,11 @@ func NatDumpCreated(dumpStart, entryCreated uint64) string {
 }
 
 // NewMap instantiates a Map.
-func NewMap(name string, v4 bool, entries int) *Map {
+func NewMap(name string, v4, lru bool, entries int) *Map {
 	var sizeKey, sizeVal int
 	var mapKey bpf.MapKey
 	var mapValue bpf.MapValue
+	var mapType bpf.MapType
 
 	if v4 {
 		mapKey = &NatKey4{}
@@ -86,10 +87,15 @@ func NewMap(name string, v4 bool, entries int) *Map {
 		mapValue = &NatEntry6{}
 		sizeVal = int(unsafe.Sizeof(NatEntry6{}))
 	}
+	if lru {
+		mapType = bpf.MapTypeLRUHash
+	} else {
+		mapType = bpf.MapTypeHash
+	}
 	return &Map{
 		Map: *bpf.NewMap(
 			name,
-			bpf.MapTypeLRUHash,
+			mapType,
 			mapKey,
 			sizeKey,
 			mapValue,
@@ -263,16 +269,16 @@ func (m *Map) DeleteMapping(key tuple.TupleKey) error {
 }
 
 // GlobalMaps returns all global NAT maps.
-func GlobalMaps(ipv4, ipv6 bool) (ipv4Map, ipv6Map *Map) {
+func GlobalMaps(ipv4, ipv6, lru bool) (ipv4Map, ipv6Map *Map) {
 	entries := option.Config.NATMapEntriesGlobal
 	if entries == 0 {
 		entries = option.LimitTableMax
 	}
 	if ipv4 {
-		ipv4Map = NewMap(MapNameSnat4Global, true, entries)
+		ipv4Map = NewMap(MapNameSnat4Global, true, lru, entries)
 	}
 	if ipv6 {
-		ipv6Map = NewMap(MapNameSnat6Global, false, entries)
+		ipv6Map = NewMap(MapNameSnat6Global, false, lru, entries)
 	}
 	return
 }

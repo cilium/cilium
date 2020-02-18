@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/debug"
@@ -263,8 +264,10 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 		}
 	}
 
+	pm := probes.NewProbeManager()
+	supportedMapTypes := pm.GetMapTypes()
 	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny,
-		option.Config.EnableIPv4, option.Config.EnableIPv6,
+		option.Config.EnableIPv4, option.Config.EnableIPv6, supportedMapTypes.HaveLruHashMapType,
 	)
 	policymap.InitMapInfo(option.Config.PolicyMapMaxEntries)
 

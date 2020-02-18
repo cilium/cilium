@@ -40,9 +40,9 @@ func Test(t *testing.T) {
 }
 
 func (t *CTMapTestSuite) TestInit(c *C) {
-	InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true)
+	infos := getMapInfo()
 	for mapType := MapType(0); mapType < MapTypeMax; mapType++ {
-		info := mapInfo[mapType]
+		info := infos[mapType]
 		if mapType.isIPv6() {
 			c.Assert(info.keySize, Equals, int(unsafe.Sizeof(tuple.TupleKey6{})))
 			c.Assert(strings.Contains(info.bpfDefine, "6"), Equals, true)

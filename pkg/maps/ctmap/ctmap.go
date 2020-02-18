@@ -22,10 +22,12 @@ import (
 	"net"
 	"os"
 	"reflect"
+	"sync"
 	"time"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -54,7 +56,8 @@ var (
 		metrics.LabelDatapathFamily: "ipv4",
 	}
 
-	mapInfo = make(map[MapType]mapAttributes)
+	mapInfo map[MapType]mapAttributes
+	once    sync.Once
 )
 
 const (
@@ -129,10 +132,10 @@ func setupMapInfo(mapType MapType, define string, mapKey bpf.MapKey, keySize int
 // InitMapInfo builds the information about different CT maps for the
 // combination of L3/L4 protocols, using the specified limits on TCP vs non-TCP
 // maps.
-func InitMapInfo(tcpMaxEntries, anyMaxEntries int, v4, v6 bool) {
+func InitMapInfo(tcpMaxEntries, anyMaxEntries int, v4, v6, lru bool) {
 	mapInfo = make(map[MapType]mapAttributes)
 
-	global4Map, global6Map := nat.GlobalMaps(v4, v6)
+	global4Map, global6Map := nat.GlobalMaps(v4, v6, lru)
 
 	// SNAT also only works if the CT map is global so all local maps will be nil
 	natMaps := map[MapType]NatMap{
@@ -179,8 +182,15 @@ func InitMapInfo(tcpMaxEntries, anyMaxEntries int, v4, v6 bool) {
 		anyMaxEntries, natMaps[MapTypeIPv6AnyGlobal])
 }
 
-func init() {
-	InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true)
+func getMapInfo() map[MapType]mapAttributes {
+	once.Do(func() {
+		pm := probes.NewProbeManager()
+		supportedMapTypes := pm.GetMapTypes()
+		InitMapInfo(option.CTMapEntriesGlobalTCPDefault,
+			option.CTMapEntriesGlobalAnyDefault, option.Config.EnableIPv4,
+			option.Config.EnableIPv6, supportedMapTypes.HaveLruHashMapType)
+	})
+	return mapInfo
 }
 
 // CtEndpoint represents an endpoint for the functions required to manage
@@ -248,19 +258,20 @@ func (m *Map) DumpEntries() (string, error) {
 }
 
 func newMap(mapName string, mapType MapType) *Map {
+	info := getMapInfo()
 	result := &Map{
 		Map: *bpf.NewMap(mapName,
 			bpf.MapTypeLRUHash,
-			mapInfo[mapType].mapKey,
-			mapInfo[mapType].keySize,
-			mapInfo[mapType].mapValue,
-			mapInfo[mapType].valueSize,
-			mapInfo[mapType].maxEntries,
+			info[mapType].mapKey,
+			info[mapType].keySize,
+			info[mapType].mapValue,
+			info[mapType].valueSize,
+			info[mapType].maxEntries,
 			0, 0,
-			mapInfo[mapType].parser,
+			info[mapType].parser,
 		),
 		mapType: mapType,
-		define:  mapInfo[mapType].bpfDefine,
+		define:  info[mapType].bpfDefine,
 	}
 	return result
 }
@@ -276,7 +287,8 @@ func purgeCtEntry6(m *Map, key CtKey, natMap NatMap) error {
 // doGC6 iterates through a CTv6 map and drops entries based on the given
 // filter.
 func doGC6(m *Map, filter *GCFilter) gcStats {
-	natMap := mapInfo[m.mapType].natMap
+	info := getMapInfo()
+	natMap := info[m.mapType].natMap
 	stats := statStartGc(m)
 	defer stats.finish()
 
@@ -356,7 +368,8 @@ func purgeCtEntry4(m *Map, key CtKey, natMap NatMap) error {
 // doGC4 iterates through a CTv4 map and drops entries based on the given
 // filter.
 func doGC4(m *Map, filter *GCFilter) gcStats {
-	natMap := mapInfo[m.mapType].natMap
+	info := getMapInfo()
+	natMap := info[m.mapType].natMap
 	stats := statStartGc(m)
 	defer stats.finish()
 
@@ -585,12 +598,13 @@ func NameIsGlobal(filename string) bool {
 // the specified CtEndpoint is nil.
 func WriteBPFMacros(fw io.Writer, e CtEndpoint) {
 	var mapEntriesTCP, mapEntriesAny int
+	info := getMapInfo()
 	for _, m := range maps(e, true, true) {
 		fmt.Fprintf(fw, "#define %s %s\n", m.define, m.Name())
 		if m.mapType.isTCP() {
-			mapEntriesTCP = mapInfo[m.mapType].maxEntries
+			mapEntriesTCP = info[m.mapType].maxEntries
 		} else {
-			mapEntriesAny = mapInfo[m.mapType].maxEntries
+			mapEntriesAny = info[m.mapType].maxEntries
 		}
 	}
 	fmt.Fprintf(fw, "#define CT_MAP_SIZE_TCP %d\n", mapEntriesTCP)
