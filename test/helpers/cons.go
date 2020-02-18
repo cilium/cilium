@@ -200,11 +200,12 @@ const (
 
 	// Logs messages that should not be in the cilium logs.
 	panicMessage      = "panic:"
-	deadLockHeader    = "POTENTIAL DEADLOCK:"       // from github.com/sasha-s/go-deadlock/deadlock.go:header
-	segmentationFault = "segmentation fault"        // from https://github.com/cilium/cilium/issues/3233
-	NACKreceived      = "NACK received for version" // from https://github.com/cilium/cilium/issues/4003
-	RunInitFailed     = "JoinEP: "                  // from https://github.com/cilium/cilium/pull/5052
-	sizeMismatch      = "size mismatch for BPF map" // from https://github.com/cilium/cilium/issues/7851
+	deadLockHeader    = "POTENTIAL DEADLOCK:"                  // from github.com/sasha-s/go-deadlock/deadlock.go:header
+	segmentationFault = "segmentation fault"                   // from https://github.com/cilium/cilium/issues/3233
+	NACKreceived      = "NACK received for version"            // from https://github.com/cilium/cilium/issues/4003
+	RunInitFailed     = "JoinEP: "                             // from https://github.com/cilium/cilium/pull/5052
+	sizeMismatch      = "size mismatch for BPF map"            // from https://github.com/cilium/cilium/issues/7851
+	emptyBPFInitArg   = "empty argument passed to bpf/init.sh" // from https://github.com/cilium/cilium/issues/10228
 
 	// HelmTemplate is the location of the Helm templates to install Cilium
 	HelmTemplate = "../install/kubernetes/cilium"
@@ -257,6 +258,7 @@ var badLogMessages = map[string][]string{
 	NACKreceived:      nil,
 	RunInitFailed:     {"signal: terminated", "signal: killed"},
 	sizeMismatch:      nil,
+	emptyBPFInitArg:   nil,
 }
 
 var ciliumCLICommands = map[string]string{
