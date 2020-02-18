@@ -17,9 +17,12 @@
 package common
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"gopkg.in/check.v1"
 	"io/ioutil"
@@ -107,4 +110,24 @@ func (s *CommonSuite) TestMoveNewFilesTo(c *check.C) {
 			compareDir(tt.args.newDir, tt.wantNewDir)
 		}
 	}
+}
+
+func (s *CommonSuite) TestGetNumPossibleCPUsFromReader(c *check.C) {
+	log := logging.DefaultLogger.WithField(logfields.LogSubsys, "utils-test")
+	tests := []struct {
+		in       string
+		expected int
+	}{
+		{"0", 1},
+		{"0-7", 8},
+		{"0,2-3", 3},
+		{"", 0},
+		{"foobar", 0},
+	}
+
+	for _, t := range tests {
+		possibleCpus := getNumPossibleCPUsFromReader(log, strings.NewReader(t.in))
+		c.Assert(possibleCpus, check.Equals, t.expected)
+	}
+
 }

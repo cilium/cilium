@@ -40,4 +40,7 @@ const (
 	// CiliumCHeaderPrefix is the prefix using when printing/writing an endpoint in a
 	// base64 form.
 	CiliumCHeaderPrefix = "CILIUM_BASE64_"
+
+	// PossibleCPUSysfsPath is used to retrieve the number of CPUs for per-CPU maps.
+	PossibleCPUSysfsPath = "/sys/devices/system/cpu/possible"
 )
