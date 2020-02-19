@@ -80,12 +80,13 @@ func (svc *svcInfo) deepCopyToLBSVC() *lb.SVC {
 		backends[i] = *backend.DeepCopy()
 	}
 	return &lb.SVC{
-		Frontend:      *svc.frontend.DeepCopy(),
-		Backends:      backends,
-		Type:          svc.svcType,
-		TrafficPolicy: svc.svcTrafficPolicy,
-		Name:          svc.svcName,
-		Namespace:     svc.svcNamespace,
+		Frontend:            *svc.frontend.DeepCopy(),
+		Backends:            backends,
+		Type:                svc.svcType,
+		TrafficPolicy:       svc.svcTrafficPolicy,
+		HealthCheckNodePort: svc.svcHealthCheckNodePort,
+		Name:                svc.svcName,
+		Namespace:           svc.svcNamespace,
 	}
 }
 
