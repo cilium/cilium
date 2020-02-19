@@ -407,6 +407,7 @@ func (*TagSpecifier) XXX_OneofWrappers() []interface{} {
 
 // Stats configuration proto schema for built-in *envoy.statsd* sink. This sink does not support
 // tagged metrics.
+// [#extension: envoy.stat_sinks.statsd]
 type StatsdSink struct {
 	// Types that are valid to be assigned to StatsdSpecifier:
 	//	*StatsdSink_Address
@@ -525,6 +526,7 @@ func (*StatsdSink) XXX_OneofWrappers() []interface{} {
 // The sink emits stats with `DogStatsD <https://docs.datadoghq.com/guides/dogstatsd/>`_
 // compatible tags. Tags are configurable via :ref:`StatsConfig
 // <envoy_api_msg_config.metrics.v2.StatsConfig>`.
+// [#extension: envoy.stat_sinks.dog_statsd]
 type DogStatsdSink struct {
 	// Types that are valid to be assigned to DogStatsdSpecifier:
 	//	*DogStatsdSink_Address
@@ -609,6 +611,7 @@ func (*DogStatsdSink) XXX_OneofWrappers() []interface{} {
 // Note that only a single HystrixSink should be configured.
 //
 // Streaming is started through an admin endpoint :http:get:`/hystrix_event_stream`.
+// [#extension: envoy.stat_sinks.hystrix]
 type HystrixSink struct {
 	// The number of buckets the rolling statistical window is divided into.
 	//

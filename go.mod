@@ -14,7 +14,7 @@ require (
 	github.com/cilium/ebpf v0.0.0-20191113100448-d9fb101ca1fb
 	github.com/cilium/hubble v0.0.0-20200304205543-565cbe60f7fb
 	github.com/cilium/ipam v0.0.0-20200217195329-a46f8d55f9db
-	github.com/cilium/proxy v0.0.0-20191113190709-4c7b379792e6
+	github.com/cilium/proxy v0.0.0-20200309181938-3cf80fe45d03
 	github.com/containernetworking/cni v0.7.1
 	github.com/containernetworking/plugins v0.8.2
 	github.com/davecgh/go-spew v1.1.1
@@ -66,8 +66,8 @@ require (
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
-	google.golang.org/genproto v0.0.0-20190502173448-54afdca5d873
-	google.golang.org/grpc v1.23.1
+	google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55
+	google.golang.org/grpc v1.25.1
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/fsnotify.v1 v1.4.7
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
