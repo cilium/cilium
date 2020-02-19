@@ -132,13 +132,13 @@ type Lock struct {
 // returned also contains a patch specific local Mutex which will be held.
 //
 // It is required to call Unlock() on the returned Lock to unlock
-func LockPath(ctx context.Context, path string) (l *Lock, err error) {
+func LockPath(ctx context.Context, backend BackendOperations, path string) (l *Lock, err error) {
 	id, err := kvstoreLocks.lock(ctx, path)
 	if err != nil {
 		return nil, err
 	}
 
-	lock, err := Client().LockPath(ctx, path)
+	lock, err := backend.LockPath(ctx, path)
 	if err != nil {
 		kvstoreLocks.unlock(path, id)
 		Trace("Failed to lock", err, logrus.Fields{fieldKey: path})

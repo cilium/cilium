@@ -138,7 +138,7 @@ func NewKVStoreBackend(basePath, suffix string, typ allocator.AllocatorKey, back
 // lockPath locks a key in the scope of an allocator
 func (k *kvstoreBackend) lockPath(ctx context.Context, key string) (*kvstore.Lock, error) {
 	suffix := strings.TrimPrefix(key, k.basePrefix)
-	return kvstore.LockPath(ctx, path.Join(k.lockPrefix, suffix))
+	return kvstore.LockPath(ctx, k.backend, path.Join(k.lockPrefix, suffix))
 }
 
 // DeleteAllKeys will delete all keys
@@ -198,7 +198,7 @@ func (k *kvstoreBackend) createValueNodeKey(ctx context.Context, key string, new
 // Lock locks a key in the scope of an allocator
 func (k *kvstoreBackend) lock(ctx context.Context, key string) (*kvstore.Lock, error) {
 	suffix := strings.TrimPrefix(key, k.basePrefix)
-	return kvstore.LockPath(ctx, path.Join(k.lockPrefix, suffix))
+	return kvstore.LockPath(ctx, k.backend, path.Join(k.lockPrefix, suffix))
 }
 
 // Lock locks a key in the scope of an allocator
