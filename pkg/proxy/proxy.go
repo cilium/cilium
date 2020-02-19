@@ -424,8 +424,6 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 policy.ProxyPolicy, id string, localEn
 			}
 			revertStack.Push(implUpdateRevertFunc)
 
-			redir.lastUpdated = time.Now()
-
 			scopedLog.WithField(logfields.Object, logfields.Repr(redir)).
 				Debug("updated existing ", l4.GetL7Parser(), " proxy instance")
 

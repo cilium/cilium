@@ -15,8 +15,6 @@
 package proxy
 
 import (
-	"time"
-
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
@@ -48,14 +46,12 @@ type Redirect struct {
 	dstPort        uint16
 	endpointID     uint64
 	localEndpoint  logger.EndpointUpdater
-	created        time.Time
 	implementation RedirectImplementation
 
 	// The following fields are updated while the redirect is alive, the
 	// mutex must be held to read and write these fields
-	mutex       lock.RWMutex
-	lastUpdated time.Time
-	rules       policy.L7DataMap
+	mutex lock.RWMutex
+	rules policy.L7DataMap
 }
 
 func newRedirect(localEndpoint logger.EndpointUpdater, listener *ProxyPort, dstPort uint16) *Redirect {
@@ -64,8 +60,6 @@ func newRedirect(localEndpoint logger.EndpointUpdater, listener *ProxyPort, dstP
 		dstPort:       dstPort,
 		endpointID:    localEndpoint.GetID(),
 		localEndpoint: localEndpoint,
-		created:       time.Now(),
-		lastUpdated:   time.Now(),
 	}
 }
 
