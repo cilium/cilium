@@ -111,7 +111,7 @@ func (t *AlignCheckerSuite) TestCheckStructAlignments(c *C) {
 	}
 
 	for _, tt := range testCases {
-		err := CheckStructAlignments(path, toCheck{tt.cName: tt.goTypes})
+		err := CheckStructAlignments(path, toCheck{tt.cName: tt.goTypes}, true)
 		if tt.err == "" {
 			c.Assert(err, IsNil)
 		} else {

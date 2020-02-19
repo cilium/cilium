@@ -69,5 +69,20 @@ func CheckStructAlignments(path string) error {
 			reflect.TypeOf(tunnel.TunnelEndpoint{}),
 		},
 	}
-	return check.CheckStructAlignments(path, toCheck)
+	if err := check.CheckStructAlignments(path, toCheck, true); err != nil {
+		return err
+	}
+	toCheckSizes := map[string][]reflect.Type{
+		"uint16_t": {
+			reflect.TypeOf(lbmap.Backend4Key{}),
+			reflect.TypeOf(lbmap.Backend6Key{}),
+			reflect.TypeOf(lbmap.RevNat4Key{}),
+			reflect.TypeOf(lbmap.RevNat6Key{}),
+		},
+		"int": {
+			reflect.TypeOf(sockmap.SockmapValue{}),
+			reflect.TypeOf(eppolicymap.EPPolicyValue{}),
+		},
+	}
+	return check.CheckStructAlignments(path, toCheckSizes, false)
 }
