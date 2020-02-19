@@ -107,7 +107,7 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 	// Replace the current program
 	objPath := path.Join(dirs.Output, endpointObj)
 	if ep.HasIpvlanDataPath() {
-		if err := graftDatapath(ctx, ep.MapPath(), objPath, symbolFromEndpoint); err != nil {
+		if err := graftDatapath(ctx, ep.MapPath(), objPath, symbolFromEndpoint, 0); err != nil {
 			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
 			})
@@ -118,6 +118,20 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 				scopedLog.WithError(err).Warn("JoinEP: Failed to load program")
 			}
 			return err
+		}
+		if ep.RequireEgressProg() {
+			if err := graftDatapath(ctx, ep.MapPath(), objPath, symbolToEndpoint, 1); err != nil {
+				scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
+					logfields.Path: objPath,
+				})
+				// Don't log an error here if the context was canceled or timed out;
+				// this log message should only represent failures with respect to
+				// loading the program.
+				if ctx.Err() == nil {
+					scopedLog.WithError(err).Warn("JoinEP: Failed to load program")
+				}
+				return err
+			}
 		}
 	} else {
 		if err := l.replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress); err != nil {
