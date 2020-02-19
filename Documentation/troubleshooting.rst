@@ -293,54 +293,6 @@ Opening the ``status``, we can drill down through ``policy.realized.l4``. Do you
 ``ingress`` and ``egress`` rules match what you expect? If not, the reference to the errant
 rules can be found in the ``derived-from-rules`` node.
 
-Automatic Diagnosis
-===================
-
-The ``cluster-diagnosis`` tool can help identify the most commonly encountered
-issues in Cilium deployments. The tool currently supports Kubernetes
-and Minikube clusters only.
-
-The tool performs various checks and provides hints to fix specific
-issues that it has identified.
-
-The following is a list of prerequisites:
-
-* Requires Python >= 2.7.*
-* Requires ``kubectl``.
-* ``kubectl`` should be pointing to your cluster before running the tool.
-
-You can download the latest version of the cluster-diagnosis.zip file
-using the following command:
-
-::
-
-    curl -sLO releases.cilium.io/tools/cluster-diagnosis.zip
-
-Command to run the cluster-diagnosis tool:
-
-.. code:: bash
-
-    python cluster-diagnosis.zip
-
-Command to collect the system dump using the cluster-diagnosis tool:
-
-.. code:: bash
-
-    python cluster-diagnosis.zip sysdump
-
-You can specify from which nodes to collect the system dumps by passing
-node IP addresses via the ``--nodes`` argument:
-
-.. code:: bash
-
-    python cluster-diagnosis.zip sysdump --nodes=$NODE1_IP,$NODE2_IP2
-
-Use ``--help`` to see more options:
-
-.. code:: bash
-
-    python cluster-diagnosis.zip sysdump --help
-
 Symptom Library
 ===============
 
@@ -470,13 +422,26 @@ The script has the following list of prerequisites:
 * Requires ``kubectl``.
 * ``kubectl`` should be pointing to your cluster before running the tool.
 
-You can download the latest version of the cluster-diagnosis.zip file
-using the following command:
+You can download the latest version of the ``cilium-sysdump`` tool using the
+following command:
 
 .. code:: bash
 
-    $ curl -sLO releases.cilium.io/tools/cluster-diagnosis.zip
-    $ python cluster-diagnosis.zip sysdump
+    curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
+    python cilium-sysdump.zip
+
+You can specify from which nodes to collect the system dumps by passing
+node IP addresses via the ``--nodes`` argument:
+
+.. code:: bash
+
+    python cilium-sysdump.zip --nodes=$NODE1_IP,$NODE2_IP2
+
+Use ``--help`` to see more options:
+
+.. code:: bash
+
+    python cilium-sysdump.zip --help
 
 Single Node Bugtool
 ~~~~~~~~~~~~~~~~~~~
