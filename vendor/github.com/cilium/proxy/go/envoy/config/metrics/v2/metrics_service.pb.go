@@ -25,6 +25,7 @@ const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 // Metrics Service is configured as a built-in *envoy.metrics_service* :ref:`StatsSink
 // <envoy_api_msg_config.metrics.v2.StatsSink>`. This opaque configuration will be used to create
 // Metrics Service.
+// [#extension: envoy.stat_sinks.metrics_service]
 type MetricsServiceConfig struct {
 	// The upstream gRPC cluster that hosts the metrics service.
 	GrpcService          *core.GrpcService `protobuf:"bytes,1,opt,name=grpc_service,json=grpcService,proto3" json:"grpc_service,omitempty"`

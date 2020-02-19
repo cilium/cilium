@@ -67,7 +67,7 @@ github.com/blang/semver
 # github.com/c9s/goprocinfo v0.0.0-20190309065803-0b2ad9ac246b
 ## explicit
 github.com/c9s/goprocinfo/linux
-# github.com/census-instrumentation/opencensus-proto v0.2.1
+# github.com/census-instrumentation/opencensus-proto v0.2.2-0.20191220023634-be218fb6bd67
 github.com/census-instrumentation/opencensus-proto/gen-go/resource/v1
 github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1
 # github.com/cespare/xxhash/v2 v2.1.0
@@ -123,9 +123,10 @@ github.com/cilium/hubble/pkg/time
 ## explicit
 github.com/cilium/ipam/service/allocator
 github.com/cilium/ipam/service/ipallocator
-# github.com/cilium/proxy v0.0.0-20191113190709-4c7b379792e6
+# github.com/cilium/proxy v0.0.0-20200309181938-3cf80fe45d03
 ## explicit
 github.com/cilium/proxy/go/cilium/api
+github.com/cilium/proxy/go/envoy/annotations
 github.com/cilium/proxy/go/envoy/api/v2
 github.com/cilium/proxy/go/envoy/api/v2/auth
 github.com/cilium/proxy/go/envoy/api/v2/cluster
@@ -143,6 +144,10 @@ github.com/cilium/proxy/go/envoy/config/overload/v2alpha
 github.com/cilium/proxy/go/envoy/config/trace/v2
 github.com/cilium/proxy/go/envoy/type
 github.com/cilium/proxy/go/envoy/type/matcher
+github.com/cilium/proxy/go/envoy/type/metadata/v2
+github.com/cilium/proxy/go/envoy/type/tracing/v2
+# github.com/cncf/udpa/go v0.0.0-20191230090109-edbea6a78f6d
+github.com/cncf/udpa/go/udpa/annotations
 # github.com/containernetworking/cni v0.7.1
 ## explicit
 github.com/containernetworking/cni/pkg/skel
@@ -671,13 +676,14 @@ google.golang.org/appengine/internal/log
 google.golang.org/appengine/internal/remote_api
 google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/urlfetch
-# google.golang.org/genproto v0.0.0-20190502173448-54afdca5d873
+# google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55
 ## explicit
 google.golang.org/genproto/googleapis/api/annotations
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.23.1
+# google.golang.org/grpc v1.25.1
 ## explicit
 google.golang.org/grpc
+google.golang.org/grpc/backoff
 google.golang.org/grpc/balancer
 google.golang.org/grpc/balancer/base
 google.golang.org/grpc/balancer/roundrobin
@@ -695,10 +701,13 @@ google.golang.org/grpc/internal
 google.golang.org/grpc/internal/backoff
 google.golang.org/grpc/internal/balancerload
 google.golang.org/grpc/internal/binarylog
+google.golang.org/grpc/internal/buffer
 google.golang.org/grpc/internal/channelz
 google.golang.org/grpc/internal/envconfig
 google.golang.org/grpc/internal/grpcrand
 google.golang.org/grpc/internal/grpcsync
+google.golang.org/grpc/internal/resolver/dns
+google.golang.org/grpc/internal/resolver/passthrough
 google.golang.org/grpc/internal/syscall
 google.golang.org/grpc/internal/transport
 google.golang.org/grpc/keepalive
