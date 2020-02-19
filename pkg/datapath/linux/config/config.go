@@ -543,13 +543,13 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e datapath.Endp
 		}
 	}
 
-	if !e.HasIpvlanDataPath() {
-		if e.RequireARPPassthrough() {
-			fmt.Fprint(fw, "#define ENABLE_ARP_PASSTHROUGH 1\n")
-		} else {
-			fmt.Fprint(fw, "#define ENABLE_ARP_RESPONDER 1\n")
-		}
+	if e.RequireARPPassthrough() {
+		fmt.Fprint(fw, "#define ENABLE_ARP_PASSTHROUGH 1\n")
+	} else {
+		fmt.Fprint(fw, "#define ENABLE_ARP_RESPONDER 1\n")
+	}
 
+	if !e.HasIpvlanDataPath() {
 		fmt.Fprint(fw, "#define ENABLE_HOST_REDIRECT 1\n")
 		if option.Config.IsFlannelMasterDeviceSet() {
 			fmt.Fprint(fw, "#define HOST_REDIRECT_TO_INGRESS 1\n")
