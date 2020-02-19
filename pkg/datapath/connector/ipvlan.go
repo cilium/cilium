@@ -46,14 +46,19 @@ type bpfAttrProg struct {
 	Name        [16]byte
 }
 
-func loadEntryProg(mapFd int) (int, error) {
+func loadEntryProg(mapFd int, key uint8) (int, error) {
 	tmp := (*[4]byte)(unsafe.Pointer(&mapFd))
 	insns := []byte{
+		// BPF_LD | BPF_IMM | BPF_DW
 		0x18, 0x12, 0x00, 0x00, tmp[0], tmp[1], tmp[2], tmp[3],
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0xb7, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		// BPF_ALU64 | BPF_K | BPF_MOVE
+		0xb7, 0x03, 0x00, 0x00, byte(key), 0x00, 0x00, 0x00,
+		// BPF_JMP | BPF_K | BPF_CALL
 		0x85, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00,
+		// BPF_ALU64 | BPF_MOVE
 		0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		// BPF_JMP | BPF_K | BPF_CALL
 		0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	}
 	license := []byte{'A', 'S', 'L', '2', '\x00'}
@@ -103,7 +108,7 @@ func createTailCallMap() (int, int, error) {
 		MapType:    3,
 		SizeKey:    4,
 		SizeValue:  4,
-		MaxEntries: 1,
+		MaxEntries: 2,
 		Flags:      0,
 	}
 	fd, _, errno := unix.Syscall(unix.SYS_BPF, 0, /* BPF_MAP_CREATE */
@@ -138,13 +143,18 @@ func createTailCallMap() (int, int, error) {
 	return int(fd), int(info.MapID), nil
 }
 
-// setupIpvlanInRemoteNs creates a tail call map, renames the netdevice inside
-// the target netns and attaches a BPF program to it on egress path which
-// then jumps into the tail call map index 0.
+// setupIpvlanInRemoteNs renames device name and setups tc-bpf filter and tail call map.
+func setupIpvlanInRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (int, int, error) {
+	return SetupIpvlanInRemoteNsWithBPF(netNs, srcIfName, dstIfName, false, true)
+}
+
+// SetupIpvlanInRemoteNsWithBPF creates a tail call map, renames the netdevice inside
+// the target netns and attaches BPF programs to it. egress path jumps into the tail
+// call map index 0, ingress path jumps into  index 1.
 //
 // NB: Do not close the returned mapFd before it has been pinned. Otherwise,
 // the map will be destroyed.
-func setupIpvlanInRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (int, int, error) {
+func SetupIpvlanInRemoteNsWithBPF(netNs ns.NetNS, srcIfName, dstIfName string, ingress bool, egress bool) (int, int, error) {
 	rl := unix.Rlimit{
 		Cur: unix.RLIM_INFINITY,
 		Max: unix.RLIM_INFINITY,
@@ -188,27 +198,54 @@ func setupIpvlanInRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (int, in
 			return fmt.Errorf("failed to create clsact qdisc on %q: %s", dstIfName, err)
 		}
 
-		progFd, err := loadEntryProg(mapFd)
-		if err != nil {
-			return fmt.Errorf("failed to load root BPF prog for %q: %s", dstIfName, err)
+		if egress {
+			progFd, err := loadEntryProg(mapFd, 0)
+			if err != nil {
+				return fmt.Errorf("failed to load egress root BPF prog for %q: %s", dstIfName, err)
+			}
+
+			filterAttrs := netlink.FilterAttrs{
+				LinkIndex: ipvlan.Attrs().Index,
+				Parent:    netlink.HANDLE_MIN_EGRESS,
+				Handle:    netlink.MakeHandle(0, 1),
+				Protocol:  3,
+				Priority:  1,
+			}
+			filter := &netlink.BpfFilter{
+				FilterAttrs:  filterAttrs,
+				Fd:           progFd,
+				Name:         "polEntry",
+				DirectAction: true,
+			}
+			if err = netlink.FilterAdd(filter); err != nil {
+				unix.Close(progFd)
+				return fmt.Errorf("failed to create egress cls_bpf filter on %q: %s", dstIfName, err)
+			}
 		}
 
-		filterAttrs := netlink.FilterAttrs{
-			LinkIndex: ipvlan.Attrs().Index,
-			Parent:    netlink.HANDLE_MIN_EGRESS,
-			Handle:    netlink.MakeHandle(0, 1),
-			Protocol:  3,
-			Priority:  1,
-		}
-		filter := &netlink.BpfFilter{
-			FilterAttrs:  filterAttrs,
-			Fd:           progFd,
-			Name:         "polEntry",
-			DirectAction: true,
-		}
-		if err = netlink.FilterAdd(filter); err != nil {
-			unix.Close(progFd)
-			return fmt.Errorf("failed to create cls_bpf filter on %q: %s", dstIfName, err)
+		if ingress {
+			progFd, err := loadEntryProg(mapFd, 1)
+			if err != nil {
+				return fmt.Errorf("failed to load ingress root eBPF prog for %q: %s", dstIfName, err)
+			}
+
+			filterAttrs := netlink.FilterAttrs{
+				LinkIndex: ipvlan.Attrs().Index,
+				Parent:    netlink.HANDLE_MIN_INGRESS,
+				Handle:    netlink.MakeHandle(0, 1),
+				Protocol:  unix.ETH_P_ALL,
+				Priority:  1,
+			}
+			filter := &netlink.BpfFilter{
+				FilterAttrs:  filterAttrs,
+				Fd:           progFd,
+				Name:         "ingressPolEntry",
+				DirectAction: true,
+			}
+			if err = netlink.FilterAdd(filter); err != nil {
+				unix.Close(progFd)
+				return fmt.Errorf("failed to create ingress cls_bpf ingress filter on %q: %s", dstIfName, err)
+			}
 		}
 
 		return nil
