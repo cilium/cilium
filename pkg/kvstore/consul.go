@@ -658,7 +658,7 @@ func (c *consulClient) createIfExists(ctx context.Context, condKey, key string, 
 	//
 	// Lock the conditional key to serialize all CreateIfExists() calls
 
-	l, err := LockPath(ctx, condKey)
+	l, err := LockPath(ctx, c, condKey)
 	if err != nil {
 		return fmt.Errorf("unable to lock condKey for CreateIfExists: %s", err)
 	}
