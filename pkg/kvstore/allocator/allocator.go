@@ -143,7 +143,7 @@ func (k *kvstoreBackend) lockPath(ctx context.Context, key string) (*kvstore.Loc
 
 // DeleteAllKeys will delete all keys
 func (k *kvstoreBackend) DeleteAllKeys() {
-	kvstore.Client().DeletePrefix(k.basePrefix)
+	k.backend.DeletePrefix(k.basePrefix)
 }
 
 func (k *kvstoreBackend) encodeKey(key allocator.AllocatorKey) []byte {
