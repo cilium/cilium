@@ -395,23 +395,27 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		cmd = kubectl.ExecMiddle("helm delete cilium-preflight --namespace=" + helpers.CiliumNamespace)
 		ExpectWithOffset(1, cmd).To(helpers.CMDSuccess(), "Unable to delete preflight")
 
-		err = kubectl.WaitforPods(
-			helpers.CiliumNamespace, "-l k8s-app=cilium", timeout)
+		err = kubectl.WaitforPods(helpers.CiliumNamespace, "-l k8s-app=cilium", timeout)
 		ExpectWithOffset(1, err).Should(BeNil(), "Cilium is not ready after timeout")
 		// Need to run using the kvstore-based allocator because upgrading from
 		// kvstore-based allocator to CRD-based allocator is not currently
 		// supported at this time.
 		By("Upgrading Cilium to %s", newHelmChartVersion)
+		opts := map[string]string{
+			"global.tag": newImageVersion,
+		}
+		// We have removed the labels since >= 1.7 and we are only testing
+		// starting from 1.6.
+		if oldHelmChartVersion == "1.6-dev" {
+			opts["agent.keepDeprecatedLabels"] = "true"
+		}
 		cmd, err = kubectl.RunHelm(
 			"upgrade",
 			filepath.Join(kubectl.BasePath(), helpers.HelmTemplate),
 			"cilium",
 			newHelmChartVersion,
 			helpers.CiliumNamespace,
-			map[string]string{
-				"global.tag":                 newImageVersion,
-				"agent.keepDeprecatedLabels": "true",
-			})
+			opts)
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", newHelmChartVersion)
 		ExpectWithOffset(1, cmd).To(helpers.CMDSuccess(), "Cilium %q was not able to be deployed", newHelmChartVersion)
 

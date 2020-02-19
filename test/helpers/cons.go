@@ -176,8 +176,8 @@ const (
 
 	// CiliumStableHelmChartVersion should be the chart version that points
 	// to the v1.X branch
-	CiliumStableHelmChartVersion = "1.6-dev"
-	CiliumStableVersion          = "v1.6"
+	CiliumStableHelmChartVersion = "1.7-dev"
+	CiliumStableVersion          = "v1.7"
 	CiliumLatestHelmChartVersion = "1.7.90"
 	CiliumLatestImageVersion     = "latest"
 
@@ -229,7 +229,7 @@ const (
 
 // NightlyStableUpgradesFrom maps the cilium image versions to the helm charts
 // that will be used to run update tests in the Nightly test.
-var NightlyStableUpgradesFrom = map[string]string{"1.6": "1.6-dev", "1.7": "1.7-dev"}
+var NightlyStableUpgradesFrom = map[string]string{"v1.6": "1.6-dev", "v1.7": "1.7-dev"}
 
 var (
 	IsCiliumV1_5 = versioncheck.MustCompile(">=1.4.90 <1.6.0")
