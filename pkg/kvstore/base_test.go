@@ -38,7 +38,7 @@ func (s *BaseTests) TestLock(c *C) {
 	defer Client().DeletePrefix(prefix)
 
 	for i := 0; i < 10; i++ {
-		lock, err := LockPath(context.Background(), fmt.Sprintf("%sfoo/%d", prefix, i))
+		lock, err := LockPath(context.Background(), Client(), fmt.Sprintf("%sfoo/%d", prefix, i))
 		c.Assert(err, IsNil)
 		c.Assert(lock, Not(IsNil))
 		lock.Unlock()

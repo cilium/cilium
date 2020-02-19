@@ -211,7 +211,7 @@ func acquireGlobalID(l3n4Addr loadbalancer.L3n4Addr, baseID uint32) (*loadbalanc
 	svcPath := path.Join(common.ServicesKeyPath, sha256Sum)
 
 	// Lock that sha256Sum
-	lockKey, err := kvstore.LockPath(context.Background(), svcPath)
+	lockKey, err := kvstore.LockPath(context.Background(), kvstore.Client(), svcPath)
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +294,7 @@ func deleteL3n4AddrIDBySHA256(sha256Sum string) error {
 	}
 	svcPath := path.Join(common.ServicesKeyPath, sha256Sum)
 	// Lock that sha256Sum
-	lockKey, err := kvstore.LockPath(context.Background(), svcPath)
+	lockKey, err := kvstore.LockPath(context.Background(), kvstore.Client(), svcPath)
 	if err != nil {
 		return err
 	}
