@@ -698,7 +698,9 @@ static __always_inline bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple
 }
 
 static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
-						     __be32 addr, int dir)
+						     __be32 addr, int dir,
+						     bool *from_endpoint __maybe_unused,
+						     const bool encap __maybe_unused)
 {
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -713,24 +715,69 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 	 * overlapping tuples, e.g. applications in hostns reusing
 	 * source IPs we SNAT in node-port.
 	 */
-	if (dir == NAT_DIR_EGRESS)
-		return ip4->saddr == addr;
-	else
+	if (dir == NAT_DIR_EGRESS) {
+		if (ip4->saddr == addr) {
+			return true;
+		}
+#ifdef ENABLE_MASQUERADE
+		struct endpoint_info *ep;
+
+		/* Do not MASQ when this function is executed from bpf_overlay
+		 * (encap=true denotes this fact). Otherwise, a packet will be
+		 * SNAT'd to cilium_host IP addr. */
+		if (encap)
+			return false;
+
+		if ((ep = __lookup_ip4_endpoint(ip4->saddr)) != NULL &&
+		    !(ep->flags & ENDPOINT_F_HOST)) {
+			struct remote_endpoint_info *info;
+			*from_endpoint = true;
+			info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr,
+					       V4_CACHE_KEY_LEN);
+			if (info != NULL) {
+				if (info->sec_label == WORLD_ID)
+					return true;
+#ifdef ENCAP_IFINDEX
+				/* In the tunnel mode, a packet from a local ep
+				 * to a remote node is not encap'd, and is sent
+				 * via a native dev. Therefore, such packet has
+				 * to be MASQ'd. Otherwise, it might be dropped
+				 * either by underlying network (e.g. AWS drops
+				 * packets by default from unknown subnets) or
+				 * by the remote node if its native dev's
+				 * rp_filter=1. */
+				if (info->sec_label == REMOTE_NODE_ID)
+					return true;
+#endif
+			}
+		}
+#endif /*ENABLE_MASQUERADE */
+
+		return false;
+	} else {
 		return ip4->daddr == addr;
+	}
 }
 
 static __always_inline int nodeport_nat_ipv4_fwd(struct __ctx_buff *ctx,
-						 const __be32 addr)
+						 const __be32 addr,
+						 const bool encap)
 {
+	bool from_endpoint = false;
 	struct ipv4_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = 65535,
 		.addr = addr,
 	};
-	int ret = nodeport_nat_ipv4_needed(ctx, addr, NAT_DIR_EGRESS) ?
-		snat_v4_process(ctx, NAT_DIR_EGRESS, &target) : CTX_ACT_OK;
+	int ret = CTX_ACT_OK;
+
+	if (nodeport_nat_ipv4_needed(ctx, addr, NAT_DIR_EGRESS,
+				     &from_endpoint, encap))
+		ret = snat_v4_process(ctx, NAT_DIR_EGRESS, &target,
+				      from_endpoint);
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
+
 	return ret;
 }
 
@@ -926,7 +973,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 		}
 	}
 #endif
-	ret = snat_v4_process(ctx, dir, &target);
+	ret = snat_v4_process(ctx, dir, &target, false);
 	if (IS_ERR(ret)) {
 		/* In case of no mapping, recircle back to main path. SNAT is very
 		 * expensive in terms of instructions (since we don't have BPF to
@@ -1266,7 +1313,7 @@ static __always_inline int nodeport_nat_fwd(struct __ctx_buff *ctx,
 		else
 #endif
 			addr = IPV4_NODEPORT;
-		return nodeport_nat_ipv4_fwd(ctx, addr);
+		return nodeport_nat_ipv4_fwd(ctx, addr, encap);
 	}
 #endif /* ENABLE_IPV4 */
 #ifdef ENABLE_IPV6
