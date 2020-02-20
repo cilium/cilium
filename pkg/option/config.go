@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/sysctl"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
@@ -1825,22 +1826,9 @@ func (c *DaemonConfig) Populate() {
 	}
 	c.IPv6PodSubnets = subnets
 
-	nodePortRange := viper.GetStringSlice(NodePortRange)
-	if len(nodePortRange) > 0 {
-		if len(nodePortRange) != 2 {
-			log.Fatal("Unable to parse min/max port for NodePort range!")
-		}
-		c.NodePortMin, err = strconv.Atoi(nodePortRange[0])
-		if err != nil {
-			log.WithError(err).Fatal("Unable to parse min port value for NodePort range!")
-		}
-		c.NodePortMax, err = strconv.Atoi(nodePortRange[1])
-		if err != nil {
-			log.WithError(err).Fatal("Unable to parse max port value for NodePort range!")
-		}
-		if c.NodePortMax <= c.NodePortMin {
-			log.Fatal("NodePort range min port must be smaller than max port!")
-		}
+	err = c.populateNodePortRange()
+	if err != nil {
+		log.WithError(err).Fatal("Failed to populate NodePortRange")
 	}
 
 	hostServicesProtos := viper.GetStringSlice(HostReachableServicesProtos)
@@ -1954,6 +1942,47 @@ func (c *DaemonConfig) Populate() {
 	c.SkipCRDCreation = viper.GetBool(SkipCRDCreation)
 	c.DisableCNPStatusUpdates = viper.GetBool(DisableCNPStatusUpdates)
 	c.AwsReleaseExcessIps = viper.GetBool(AwsReleaseExcessIps)
+}
+
+func (c *DaemonConfig) populateNodePortRange() error {
+	nodePortRange := viper.GetStringSlice(NodePortRange)
+	if len(nodePortRange) > 0 {
+		if len(nodePortRange) != 2 {
+			log.Fatal("Unable to parse min/max port for NodePort range!")
+		}
+		var err error
+		c.NodePortMin, err = strconv.Atoi(nodePortRange[0])
+		if err != nil {
+			log.WithError(err).Fatal("Unable to parse min port value for NodePort range!")
+		}
+		c.NodePortMax, err = strconv.Atoi(nodePortRange[1])
+		if err != nil {
+			log.WithError(err).Fatal("Unable to parse max port value for NodePort range!")
+		}
+		if c.NodePortMax <= c.NodePortMin {
+			log.Fatal("NodePort range min port must be smaller than max port!")
+		}
+	}
+
+	val, err := sysctl.Read("net.ipv4.ip_local_port_range")
+	if err != nil {
+		return fmt.Errorf("Unable to read net.ipv4.ip_local_port_range")
+	}
+	ephermeralPortRange := strings.Split(val, "\t")
+	if len(ephermeralPortRange) != 2 {
+		return fmt.Errorf("Invalid ephermeral port range: %s", val)
+	}
+	ephermeralPortMin, err := strconv.Atoi(ephermeralPortRange[0])
+	if err != nil {
+		return fmt.Errorf("Unable to parse min port value %s for ephermeral range", ephermeralPortRange[0])
+	}
+	if !(c.NodePortMax < ephermeralPortMin) {
+		msg := `NodePort range (%s-%s) max port must be smaller than ephermeral range (%s-%s) min port. ` +
+			`Adjust ephermeral range port with "sysctl -w net.ipv4.ip_local_port_range='MIN MAX'".`
+		return fmt.Errorf(msg, nodePortRange[0], nodePortRange[1], ephermeralPortRange[0], ephermeralPortRange[1])
+	}
+
+	return nil
 }
 
 func sanitizeIntParam(paramName string, paramDefault int) int {
