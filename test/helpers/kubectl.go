@@ -838,11 +838,18 @@ func (kub *Kubectl) NamespaceCreate(name string) *CmdRes {
 
 // NamespaceDelete deletes a given Kubernetes namespace
 func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
+	ginkgoext.By("Deleting namespace %s", name)
 	res := kub.DeleteAllInNamespace(name)
 	if !res.WasSuccessful() {
 		kub.Logger().Infof("Error while deleting all objects from %s ns: %s", name, res.GetError().Error())
 	}
-	return kub.ExecShort(fmt.Sprintf("%s delete namespace %s", KubectlCmd, name))
+	res = kub.ExecShort(fmt.Sprintf("%s delete namespace %s", KubectlCmd, name))
+	if !res.WasSuccessful() {
+		kub.Logger().Infof("Error while deleting ns %s: %s", name, res.GetError().Error())
+	}
+	return kub.ExecShort(fmt.Sprintf(
+		"%[1]s get namespace %[2]s -o json | tr -d \"\\n\" | sed \"s/\\\"finalizers\\\": \\[[^]]\\+\\]/\\\"finalizers\\\": []/\" | %[1]s replace --raw /api/v1/namespaces/%[2]s/finalize -f -", KubectlCmd, name))
+
 }
 
 // DeleteAllInNamespace deletes all k8s objects in a namespace
