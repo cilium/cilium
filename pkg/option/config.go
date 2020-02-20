@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/sysctl"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
@@ -1827,7 +1828,7 @@ func (c *DaemonConfig) Populate() {
 
 	err = c.populateNodePortRange()
 	if err != nil {
-		log.WithError(err).Fatal("NodePortRange can not be parsed.")
+		log.WithError(err).Fatal("Failed to populate NodePortRange")
 	}
 
 	hostServicesProtos := viper.GetStringSlice(HostReachableServicesProtos)
@@ -1957,12 +1958,30 @@ func (c *DaemonConfig) populateNodePortRange() error {
 			return fmt.Errorf("Unable to parse max port value for NodePort range: %s", err.Error())
 		}
 		if c.NodePortMax <= c.NodePortMin {
-			return errors.New("NodePort range min port must be smaller than max port!")
+			return errors.New("NodePort range min port must be smaller than max port")
 		}
 	case 0:
 		log.Warning("NodePort range was set but is empty.")
 	default:
-		return errors.New("Unable to parse min/max port value for NodePort range!")
+		return fmt.Errorf("Unable to parse min/max port value for NodePort range: %s", NodePortRange)
+	}
+
+	val, err := sysctl.Read("net.ipv4.ip_local_port_range")
+	if err != nil {
+		return fmt.Errorf("Unable to read net.ipv4.ip_local_port_range")
+	}
+	ephermeralPortRange := strings.Split(val, "\t")
+	if len(ephermeralPortRange) != 2 {
+		return fmt.Errorf("Invalid ephermeral port range: %s", val)
+	}
+	ephermeralPortMin, err := strconv.Atoi(ephermeralPortRange[0])
+	if err != nil {
+		return fmt.Errorf("Unable to parse min port value %s for ephermeral range", ephermeralPortRange[0])
+	}
+	if !(c.NodePortMax < ephermeralPortMin) {
+		msg := `NodePort range (%s-%s) max port must be smaller than ephermeral range (%s-%s) min port. ` +
+			`Adjust ephermeral range port with "sysctl -w net.ipv4.ip_local_port_range='MIN MAX'".`
+		return fmt.Errorf(msg, nodePortRange[0], nodePortRange[1], ephermeralPortRange[0], ephermeralPortRange[1])
 	}
 
 	return nil
