@@ -636,7 +636,8 @@ int tail_rev_nodeport_lb6(struct __sk_buff *skb)
 
 #ifdef ENABLE_IPV4
 static __always_inline bool nodeport_nat_ipv4_needed(struct __sk_buff *skb,
-						     __be32 addr, int dir)
+						     __be32 addr, int dir,
+						     bool *from_endpoint)
 {
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -647,24 +648,48 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __sk_buff *skb,
 	 * overlapping tuples, e.g. applications in hostns reusing
 	 * source IPs we SNAT in node-port.
 	 */
-	if (dir == NAT_DIR_EGRESS)
-		return ip4->saddr == addr;
-	else
+	// TODO(brb) update comment ^^
+	if (dir == NAT_DIR_EGRESS) {
+		if (ip4->saddr == addr) {
+			return true;
+		}
+
+		// TODO(brb) use skb mark to determine if src is a local
+		// endpoint
+		if (__lookup_ip4_endpoint(ip4->saddr) != NULL) {
+			struct remote_endpoint_info *info;
+			*from_endpoint = true;
+			info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr,
+					       V4_CACHE_KEY_LEN);
+			if (info != NULL && info->sec_label == WORLD_ID) {
+				return true;
+			}
+		}
+
+		return false;
+	} else {
 		return ip4->daddr == addr;
+	}
 }
 
 static __always_inline int nodeport_nat_ipv4_fwd(struct __sk_buff *skb,
 						 const __be32 addr)
 {
+	bool from_endpoint = false;
 	struct ipv4_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = 65535,
 		.addr = addr,
 	};
-	int ret = nodeport_nat_ipv4_needed(skb, addr, NAT_DIR_EGRESS) ?
-		snat_v4_process(skb, NAT_DIR_EGRESS, &target) : TC_ACT_OK;
+	int ret = TC_ACT_OK;
+
+	if (nodeport_nat_ipv4_needed(skb, addr, NAT_DIR_EGRESS,
+				     &from_endpoint))
+		ret = snat_v4_process(skb, NAT_DIR_EGRESS, &target,
+				      from_endpoint);
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = TC_ACT_OK;
+
 	return ret;
 }
 
@@ -866,7 +891,7 @@ int tail_nodeport_nat_ipv4(struct __sk_buff *skb)
 		}
 	}
 #endif
-	ret = snat_v4_process(skb, dir, &target);
+	ret = snat_v4_process(skb, dir, &target, false);
 	if (IS_ERR(ret)) {
 		/* In case of no mapping, recircle back to main path. SNAT is very
 		 * expensive in terms of instructions (since we don't have BPF to

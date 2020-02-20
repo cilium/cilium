@@ -430,16 +430,21 @@ static __always_inline int snat_v4_rewrite_ingress(struct __sk_buff *skb,
 }
 
 static __always_inline bool snat_v4_can_skip(const struct ipv4_nat_target *target,
-					     const struct ipv4_ct_tuple *tuple, int dir)
+					     const struct ipv4_ct_tuple *tuple, int dir,
+					     bool from_endpoint)
 {
 	__u16 dport = bpf_ntohs(tuple->dport), sport = bpf_ntohs(tuple->sport);
 
-	// TODO(brb) check endpoint vs host_local (maybe pass a parameter
-	// from_endpoint)
-	if (dir == NAT_DIR_EGRESS && !target->src_from_world && sport < NAT_MIN_EGRESS)
+	if (dir == NAT_DIR_EGRESS) {
+		if (from_endpoint) {
+			// Don't avoid MASQ
+			return false;
+		} else if (!target->src_from_world && sport < NAT_MIN_EGRESS) {
+			return true;
+		}
+	} else if (dir == NAT_DIR_INGRESS && (dport < target->min_port || dport > target->max_port))
 		return true;
-	if (dir == NAT_DIR_INGRESS && (dport < target->min_port || dport > target->max_port))
-		return true;
+
 	return false;
 }
 
@@ -492,7 +497,8 @@ static __always_inline int snat_v4_create_dsr(struct __sk_buff *skb,
 }
 
 static __always_inline int snat_v4_process(struct __sk_buff *skb, int dir,
-					   const struct ipv4_nat_target *target)
+					   const struct ipv4_nat_target *target,
+					   bool from_endpoint)
 {
 	struct ipv4_nat_entry *state, tmp;
 	struct ipv4_ct_tuple tuple = {};
@@ -542,7 +548,7 @@ static __always_inline int snat_v4_process(struct __sk_buff *skb, int dir,
 		return DROP_NAT_UNSUPP_PROTO;
 	};
 
-	if (snat_v4_can_skip(target, &tuple, dir))
+	if (snat_v4_can_skip(target, &tuple, dir, from_endpoint))
 		return NAT_PUNT_TO_STACK;
 	ret = snat_v4_handle_mapping(skb, &tuple, &state, &tmp, dir, off, target);
 	if (ret > 0)
