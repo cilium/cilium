@@ -365,6 +365,9 @@ func DeleteIPsecEndpoint(remote *net.IPNet) {
 }
 
 func isXfrmPolicyCilium(policy netlink.XfrmPolicy) bool {
+	if policy.Mark == nil {
+		return false
+	}
 	if policy.Mark.Mask != linux_defaults.RouteMarkMask {
 		return false
 	}
@@ -376,6 +379,9 @@ func isXfrmPolicyCilium(policy netlink.XfrmPolicy) bool {
 }
 
 func isXfrmStateCilium(state netlink.XfrmState) bool {
+	if state.Mark == nil {
+		return false
+	}
 	if state.Mark.Mask != linux_defaults.RouteMarkMask {
 		return false
 	}
