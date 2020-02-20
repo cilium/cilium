@@ -147,6 +147,14 @@ var (
 	}
 )
 
+func HelmOverwrite(option string) string {
+	integration := strings.ToLower(os.Getenv("CNI_INTEGRATION"))
+	if overrides, exists := helmOverrides[integration]; exists {
+		return overrides[option]
+	}
+	return ""
+}
+
 func init() {
 	// Copy over envronment variables that are passed in.
 	for envVar, helmVar := range map[string]string{
