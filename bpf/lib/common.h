@@ -520,7 +520,7 @@ enum {
 #ifdef ENABLE_NODEPORT
 #define NAT_MIN_EGRESS		NODEPORT_PORT_MIN_NAT
 #else
-#define NAT_MIN_EGRESS		EPHERMERAL_MIN
+#define NAT_MIN_EGRESS		EPHEMERAL_MIN
 #endif
 
 enum {
