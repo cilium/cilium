@@ -328,10 +328,6 @@ func init() {
 	flags.StringSlice(option.HostReachableServicesProtos, []string{option.HostServicesTCP, option.HostServicesUDP}, "Only enable reachability of services for host applications for specific protocols")
 	option.BindEnv(option.HostReachableServicesProtos)
 
-	flags.Bool(option.DeprecatedEnableLegacyServices, false, "Enable legacy (prior-v1.5) services")
-	flags.MarkDeprecated(option.DeprecatedEnableLegacyServices, "this option is deprecated as of v1.6")
-	option.BindEnv(option.DeprecatedEnableLegacyServices)
-
 	flags.Bool(option.EnableAutoDirectRoutingName, defaults.EnableAutoDirectRouting, "Enable automatic L2 routing between nodes")
 	option.BindEnv(option.EnableAutoDirectRoutingName)
 
