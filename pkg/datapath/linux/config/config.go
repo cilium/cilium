@@ -290,6 +290,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			cDefinesMap["SNAT_MAPPING_IPV6_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
 		}
 
+		if option.Config.EnableBPFMasquerade {
+			cDefinesMap["ENABLE_MASQUERADE"] = "1"
+		}
+
 		ctmap.WriteBPFMacros(fw, nil)
 	}
 
