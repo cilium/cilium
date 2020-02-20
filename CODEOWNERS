@@ -65,6 +65,7 @@ kubernetes-upstream.Jenkinsfile @cilium/ci
 ginkgo-all.Jenkinsfile @cilium/ci
 ginkgo-kubernetes-all.Jenkinsfile @cilium/ci
 install/kubernetes/ @cilium/kubernetes
+jenkinsfiles @cilium/ci
 Jenkinsfile @cilium/ci
 Jenkinsfile.nightly @cilium/ci
 operator/ @cilium/operator
