@@ -638,9 +638,6 @@ const (
 	// subject to egress masquerading
 	EgressMasqueradeInterfaces = "egress-masquerade-interfaces"
 
-	// DeprecatedEnableLegacyServices enables the legacy services
-	DeprecatedEnableLegacyServices = "enable-legacy-services"
-
 	// PolicyTriggerInterval is the amount of time between triggers of policy
 	// updates are invoked.
 	PolicyTriggerInterval = "policy-trigger-interval"

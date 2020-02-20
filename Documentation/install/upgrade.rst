@@ -325,7 +325,13 @@ Deprecated options
 
 * ``keep-bpf-templates``: This option no longer has any effect due to the BPF
   assets not being compiled into the cilium-agent binary anymore. The option is
-  deprecated and will be removed in v1.9.
+  deprecated and will be removed in Cilium 1.9.
+
+Removed options
+~~~~~~~~~~~~~~~
+
+* ``enable-legacy-services``: This option was deprecated in Cilium 1.6 and is
+  now removed.
 
 .. _1.7_upgrade_notes:
 
