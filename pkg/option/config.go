@@ -1970,18 +1970,18 @@ func (c *DaemonConfig) populateNodePortRange() error {
 	if err != nil {
 		return fmt.Errorf("Unable to read net.ipv4.ip_local_port_range")
 	}
-	ephermeralPortRange := strings.Split(val, "\t")
-	if len(ephermeralPortRange) != 2 {
-		return fmt.Errorf("Invalid ephermeral port range: %s", val)
+	ephemeralPortRange := strings.Split(val, "\t")
+	if len(ephemeralPortRange) != 2 {
+		return fmt.Errorf("Invalid ephemeral port range: %s", val)
 	}
-	ephermeralPortMin, err := strconv.Atoi(ephermeralPortRange[0])
+	ephemeralPortMin, err := strconv.Atoi(ephemeralPortRange[0])
 	if err != nil {
-		return fmt.Errorf("Unable to parse min port value %s for ephermeral range", ephermeralPortRange[0])
+		return fmt.Errorf("Unable to parse min port value %s for ephemeral range", ephemeralPortRange[0])
 	}
-	if !(c.NodePortMax < ephermeralPortMin) {
-		msg := `NodePort range (%s-%s) max port must be smaller than ephermeral range (%s-%s) min port. ` +
-			`Adjust ephermeral range port with "sysctl -w net.ipv4.ip_local_port_range='MIN MAX'".`
-		return fmt.Errorf(msg, nodePortRange[0], nodePortRange[1], ephermeralPortRange[0], ephermeralPortRange[1])
+	if !(c.NodePortMax < ephemeralPortMin) {
+		msg := `NodePort range (%s-%s) max port must be smaller than ephemeral range (%s-%s) min port. ` +
+			`Adjust ephemeral range port with "sysctl -w net.ipv4.ip_local_port_range='MIN MAX'".`
+		return fmt.Errorf(msg, nodePortRange[0], nodePortRange[1], ephemeralPortRange[0], ephemeralPortRange[1])
 	}
 
 	return nil

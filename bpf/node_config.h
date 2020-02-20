@@ -122,7 +122,7 @@ DEFINE_IPV6(SNAT_IPV6_EXTERNAL, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0
 #define MONITOR_AGGREGATION 5
 #define MTU 1500
 #define ENABLE_IPSEC
-#define EPHERMERAL_MIN 32768
+#define EPHEMERAL_MIN 32768
 #ifdef ENABLE_MASQUERADE
 #define CT_MAP_TCP6 test_cilium_ct_tcp6_65535
 #define CT_MAP_ANY6 test_cilium_ct_any6_65535
