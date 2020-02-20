@@ -37,7 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/sysctl"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
@@ -1964,24 +1963,6 @@ func (c *DaemonConfig) populateNodePortRange() error {
 		log.Warning("NodePort range was set but is empty.")
 	default:
 		return fmt.Errorf("Unable to parse min/max port value for NodePort range: %s", NodePortRange)
-	}
-
-	val, err := sysctl.Read("net.ipv4.ip_local_port_range")
-	if err != nil {
-		return fmt.Errorf("Unable to read net.ipv4.ip_local_port_range")
-	}
-	ephemeralPortRange := strings.Split(val, "\t")
-	if len(ephemeralPortRange) != 2 {
-		return fmt.Errorf("Invalid ephemeral port range: %s", val)
-	}
-	ephemeralPortMin, err := strconv.Atoi(ephemeralPortRange[0])
-	if err != nil {
-		return fmt.Errorf("Unable to parse min port value %s for ephemeral range", ephemeralPortRange[0])
-	}
-	if !(c.NodePortMax < ephemeralPortMin) {
-		msg := `NodePort range (%s-%s) max port must be smaller than ephemeral range (%s-%s) min port. ` +
-			`Adjust ephemeral range port with "sysctl -w net.ipv4.ip_local_port_range='MIN MAX'".`
-		return fmt.Errorf(msg, nodePortRange[0], nodePortRange[1], ephemeralPortRange[0], ephemeralPortRange[1])
 	}
 
 	return nil
