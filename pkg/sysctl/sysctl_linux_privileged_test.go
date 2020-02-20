@@ -99,12 +99,20 @@ func (s *SysctlLinuxPrivilegedTestSuite) TestDisableEnable(c *C) {
 			c.Assert(err, NotNil)
 		} else {
 			c.Assert(err, IsNil)
+
+			val, err := Read(tc.name)
+			c.Assert(err, IsNil)
+			c.Assert(val, Equals, "1")
 		}
 		err = Disable(tc.name)
 		if tc.expectedErr {
 			c.Assert(err, NotNil)
 		} else {
 			c.Assert(err, IsNil)
+
+			val, err := Read(tc.name)
+			c.Assert(err, IsNil)
+			c.Assert(val, Equals, "0")
 		}
 	}
 }
