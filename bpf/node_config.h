@@ -101,10 +101,12 @@ DEFINE_IPV6(SNAT_IPV6_EXTERNAL, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0
 #define LB6_SERVICES_MAP_V2 test_cilium_lb6_services
 #define LB6_BACKEND_MAP test_cilium_lb6_backends
 #define LB6_REVERSE_NAT_SK_MAP cilium_lb6_reverse_sk
+#define LB6_REVERSE_NAT_SK_MAP_SIZE 262144
 #define LB4_REVERSE_NAT_MAP test_cilium_lb4_reverse_nat
 #define LB4_SERVICES_MAP_V2 test_cilium_lb4_services
 #define LB4_BACKEND_MAP test_cilium_lb4_backends
 #define LB4_REVERSE_NAT_SK_MAP cilium_lb4_reverse_sk
+#define LB4_REVERSE_NAT_SK_MAP_SIZE 262144
 #define ENABLE_ARP_RESPONDER
 #define TUNNEL_ENDPOINT_MAP_SIZE 65536
 #define ENDPOINTS_MAP_SIZE 65536

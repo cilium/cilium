@@ -158,7 +158,7 @@ struct bpf_elf_map __section_maps LB4_REVERSE_NAT_SK_MAP = {
 	.size_key	= sizeof(struct ipv4_revnat_tuple),
 	.size_value	= sizeof(struct ipv4_revnat_entry),
 	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= 256 * 1024,
+	.max_elem	= LB4_REVERSE_NAT_SK_MAP_SIZE,
 };
 
 static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
@@ -479,7 +479,7 @@ struct bpf_elf_map __section_maps LB6_REVERSE_NAT_SK_MAP = {
 	.size_key	= sizeof(struct ipv6_revnat_tuple),
 	.size_value	= sizeof(struct ipv6_revnat_entry),
 	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= 256 * 1024,
+	.max_elem	= LB6_REVERSE_NAT_SK_MAP_SIZE,
 };
 
 static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
