@@ -23,7 +23,7 @@ const (
 	// GroupFilePath is the unix group file path.
 	GroupFilePath = "/etc/group"
 	// HubbleGroupName is the hubble's unix group name.
-	HubbleGroupName = "hubble"
+	HubbleGroupName = "cilium"
 	// SocketFileMode is the default file mode for the sockets.
 	SocketFileMode os.FileMode = 0660
 	// ClientTimeout specifies timeout to be used by clients
