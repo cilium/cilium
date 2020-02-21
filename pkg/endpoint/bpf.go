@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -872,7 +872,8 @@ func (e *Endpoint) deleteMaps() []error {
 
 	if e.ConntrackLocalLocked() {
 		// Remove local connection tracking maps
-		for _, m := range ctmap.LocalMaps(e, option.Config.EnableIPv4, option.Config.EnableIPv6) {
+		// We don't need to check for LRU hashmap support to delete the maps.
+		for _, m := range ctmap.LocalMaps(e, option.Config.EnableIPv4, option.Config.EnableIPv6, true) {
 			ctPath, err := m.Path()
 			if err == nil {
 				err = os.RemoveAll(ctPath)
@@ -905,10 +906,11 @@ func (e *Endpoint) DeleteBPFProgramLocked() error {
 func (e *Endpoint) garbageCollectConntrack(filter *ctmap.GCFilter) {
 	var maps []*ctmap.Map
 
+	// We don't need to check for LRU hashmap support to run the garbage collector.
 	if e.ConntrackLocalLocked() {
-		maps = ctmap.LocalMaps(e, option.Config.EnableIPv4, option.Config.EnableIPv6)
+		maps = ctmap.LocalMaps(e, option.Config.EnableIPv4, option.Config.EnableIPv6, true)
 	} else {
-		maps = ctmap.GlobalMaps(option.Config.EnableIPv4, option.Config.EnableIPv6)
+		maps = ctmap.GlobalMaps(option.Config.EnableIPv4, option.Config.EnableIPv6, true)
 	}
 	for _, m := range maps {
 		if err := m.Open(); err != nil {

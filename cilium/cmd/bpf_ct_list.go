@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/command"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 
 	"github.com/spf13/cobra"
@@ -45,11 +46,14 @@ func init() {
 
 func dumpCt(eID string) {
 	var maps []*ctmap.Map
+	pm := probes.NewProbeManager()
+	supportedMapTypes := pm.GetMapTypes()
 	if eID == "global" {
-		maps = ctmap.GlobalMaps(true, true)
+		maps = ctmap.GlobalMaps(true, true, supportedMapTypes.HaveLruHashMapType)
 	} else {
 		id, _ := strconv.Atoi(eID)
-		maps = ctmap.LocalMaps(&dummyEndpoint{ID: id}, true, true)
+		maps = ctmap.LocalMaps(&dummyEndpoint{ID: id}, true, true,
+			supportedMapTypes.HaveLruHashMapType)
 	}
 
 	for _, m := range maps {

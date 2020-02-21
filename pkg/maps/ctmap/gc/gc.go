@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -157,10 +157,11 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) (mapType bpf.MapType, maxDeleteRatio float64) {
 	var maps []*ctmap.Map
 
+	// We don't need to check for LRU hashmap support to run the garbage collector.
 	if e == nil {
-		maps = ctmap.GlobalMaps(ipv4, ipv6)
+		maps = ctmap.GlobalMaps(ipv4, ipv6, true)
 	} else {
-		maps = ctmap.LocalMaps(e, ipv4, ipv6)
+		maps = ctmap.LocalMaps(e, ipv4, ipv6, true)
 	}
 	for _, m := range maps {
 		path, err := m.Path()
