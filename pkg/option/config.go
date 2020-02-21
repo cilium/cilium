@@ -488,9 +488,8 @@ const (
 	BPFCompileDebugName = "bpf-compile-debug"
 
 	// CTMapEntriesGlobalTCPDefault is the default maximum number of entries
-	// in the TCP CT table. It retains the Cilium 1.2 (or earlier) size to
-	// minimize disruption during upgrade.
-	CTMapEntriesGlobalTCPDefault = 1000000
+	// in the TCP CT table.
+	CTMapEntriesGlobalTCPDefault = 2 << 18 // 512Ki
 
 	// CTMapEntriesGlobalAnyDefault is the default maximum number of entries
 	// in the non-TCP CT table.
