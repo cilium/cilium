@@ -132,7 +132,7 @@ data:
   # policy drops or a change in loadbalancing decisions for a connection.
   #
   # For users upgrading from Cilium 1.2 or earlier, to minimize disruption
-  # during the upgrade process, comment out these options.
+  # during the upgrade process, set bpf-ct-global-tcp-max to 1000000.
   bpf-ct-global-tcp-max: "{{ .Values.global.bpf.ctTcpMax }}"
   bpf-ct-global-any-max: "{{ .Values.global.bpf.ctAnyMax }}"
 

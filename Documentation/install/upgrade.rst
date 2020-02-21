@@ -320,6 +320,18 @@ IMPORTANT: Changes required before upgrading to 1.8.0
   .. note:: The ENI IPAM mode automatically derives the native routing CIDR so
             no action is required.
 
+Upgrading from >=1.7.0 to 1.8.y
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#. Since Cilium 1.5, the conntrack table size ``ct-global-max-entries-tcp``
+   parameter was set to the default value ``1000000`` to retain backwards
+   compatibility with previous versions. In Cilium 1.8 the default value is
+   set to 512K by default in order to reduce the agent memory consumption. This
+   means at maximum 512K connections across all endpoints (split by protocol,
+   tcp or other) are supported by default. To prevent from breaking established
+   connections, ``bpf-ct-global-tcp-max`` must be manually set to
+   ``1000000`` (or any other sufficiently large value) before upgrading.
+
 Deprecated options
 ~~~~~~~~~~~~~~~~~~
 
