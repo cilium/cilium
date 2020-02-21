@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,14 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/u8proto"
+)
+
+const (
+	// SockRevNat6MapName is the BPF map name.
+	SockRevNat6MapName = "cilium_lb6_reverse_sk"
+
+	// SockRevNat6MapSize is the maximum number of entries in the BPF map.
+	SockRevNat6MapSize = 256 * 1024
 )
 
 var (
