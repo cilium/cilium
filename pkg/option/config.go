@@ -493,10 +493,21 @@ const (
 	// BPFCompileDebugName is the name of the option to enable BPF compiliation debugging
 	BPFCompileDebugName = "bpf-compile-debug"
 
+	// CTMapEntriesGlobalTCPDefault is the default maximum number of entries
+	// in the TCP CT table.
 	CTMapEntriesGlobalTCPDefault = 2 << 18 // 512Ki
+
+	// CTMapEntriesGlobalAnyDefault is the default maximum number of entries
+	// in the non-TCP CT table.
 	CTMapEntriesGlobalAnyDefault = 2 << 17 // 256Ki
-	CTMapEntriesGlobalTCPName    = "bpf-ct-global-tcp-max"
-	CTMapEntriesGlobalAnyName    = "bpf-ct-global-any-max"
+
+	// CTMapEntriesGlobalTCPName configures max entries for the TCP CT
+	// table.
+	CTMapEntriesGlobalTCPName = "bpf-ct-global-tcp-max"
+
+	// CTMapEntriesGlobalAnyName configures max entries for the non-TCP CT
+	// table.
+	CTMapEntriesGlobalAnyName = "bpf-ct-global-any-max"
 
 	// CTMapEntriesTimeout* name option and default value mappings
 	CTMapEntriesTimeoutSYNName    = "bpf-ct-timeout-regular-tcp-syn"
