@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import (
 	"os"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/maps/nat"
 
 	"github.com/spf13/cobra"
@@ -39,7 +40,9 @@ func init() {
 }
 
 func flushNat() {
-	ipv4, ipv6 := nat.GlobalMaps(true, true)
+	pm := probes.NewProbeManager()
+	supportedMapTypes := pm.GetMapTypes()
+	ipv4, ipv6 := nat.GlobalMaps(true, true, supportedMapTypes.HaveLruHashMapType)
 
 	for _, m := range []*nat.Map{ipv4, ipv6} {
 		if m == nil {
