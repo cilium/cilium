@@ -1000,21 +1000,15 @@ func (m *IptablesManager) ciliumNoTrackXfrmRules(prog, input string) error {
 	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkDecrypt, linux_defaults.RouteMarkMask)
 	matchFromIPSecDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
 
-	if err := runProg(prog, append(
-		m.waitArgs,
-		"-t", "raw", input, ciliumPreRawChain,
-		"-m", "mark", "--mark", matchFromIPSecDecrypt,
-		"-m", "comment", "--comment", xfrmDescription,
-		"-j", "NOTRACK"), false); err != nil {
-		return err
-	}
-	if err := runProg(prog, append(
-		m.waitArgs,
-		"-t", "raw", input, ciliumPreRawChain,
-		"-m", "mark", "--mark", matchFromIPSecEncrypt,
-		"-m", "comment", "--comment", xfrmDescription,
-		"-j", "NOTRACK"), false); err != nil {
-		return err
+	for _, match := range []string{matchFromIPSecDecrypt, matchFromIPSecEncrypt} {
+		if err := runProg(prog, append(
+			m.waitArgs,
+			"-t", "raw", input, ciliumPreRawChain,
+			"-m", "mark", "--mark", match,
+			"-m", "comment", "--comment", xfrmDescription,
+			"-j", "NOTRACK"), false); err != nil {
+			return err
+		}
 	}
 	return nil
 }
