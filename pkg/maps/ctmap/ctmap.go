@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -247,8 +247,7 @@ func (m *Map) DumpEntries() (string, error) {
 	return buffer.String(), err
 }
 
-// NewMap creates a new CT map of the specified type with the specified name.
-func NewMap(mapName string, mapType MapType) *Map {
+func newMap(mapName string, mapType MapType) *Map {
 	result := &Map{
 		Map: *bpf.NewMap(mapName,
 			bpf.MapTypeLRUHash,
@@ -529,24 +528,24 @@ func maps(e CtEndpoint, ipv4, ipv6 bool) []*Map {
 	result := make([]*Map, 0, mapCount)
 	if e == nil {
 		if ipv4 {
-			result = append(result, NewMap(MapNameTCP4Global, MapTypeIPv4TCPGlobal))
-			result = append(result, NewMap(MapNameAny4Global, MapTypeIPv4AnyGlobal))
+			result = append(result, newMap(MapNameTCP4Global, MapTypeIPv4TCPGlobal))
+			result = append(result, newMap(MapNameAny4Global, MapTypeIPv4AnyGlobal))
 		}
 		if ipv6 {
-			result = append(result, NewMap(MapNameTCP6Global, MapTypeIPv6TCPGlobal))
-			result = append(result, NewMap(MapNameAny6Global, MapTypeIPv6AnyGlobal))
+			result = append(result, newMap(MapNameTCP6Global, MapTypeIPv6TCPGlobal))
+			result = append(result, newMap(MapNameAny6Global, MapTypeIPv6AnyGlobal))
 		}
 	} else {
 		if ipv4 {
-			result = append(result, NewMap(bpf.LocalMapName(MapNameTCP4, uint16(e.GetID())),
+			result = append(result, newMap(bpf.LocalMapName(MapNameTCP4, uint16(e.GetID())),
 				MapTypeIPv4TCPLocal))
-			result = append(result, NewMap(bpf.LocalMapName(MapNameAny4, uint16(e.GetID())),
+			result = append(result, newMap(bpf.LocalMapName(MapNameAny4, uint16(e.GetID())),
 				MapTypeIPv4AnyLocal))
 		}
 		if ipv6 {
-			result = append(result, NewMap(bpf.LocalMapName(MapNameTCP6, uint16(e.GetID())),
+			result = append(result, newMap(bpf.LocalMapName(MapNameTCP6, uint16(e.GetID())),
 				MapTypeIPv6TCPLocal))
-			result = append(result, NewMap(bpf.LocalMapName(MapNameAny6, uint16(e.GetID())),
+			result = append(result, newMap(bpf.LocalMapName(MapNameAny6, uint16(e.GetID())),
 				MapTypeIPv6AnyLocal))
 		}
 	}
