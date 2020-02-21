@@ -40,3 +40,16 @@ func (ls LabelArrayList) GetModel() [][]string {
 	}
 	return res
 }
+
+// Same returns true if the label arrays lists have the same label arrays in the same order.
+func (ls LabelArrayList) Same(b LabelArrayList) bool {
+	if len(ls) != len(b) {
+		return false
+	}
+	for l := range ls {
+		if !ls[l].Same(b[l]) {
+			return false
+		}
+	}
+	return true
+}

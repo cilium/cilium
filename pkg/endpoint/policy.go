@@ -751,3 +751,21 @@ func (e *Endpoint) UpdateVisibilityPolicy(annoCB AnnotationsResolverCB) {
 	}
 	<-ch
 }
+
+// GetRealizedPolicyRuleLabelsForKey returns the list of policy rule labels
+// which match a given flow key (in host byte-order)
+func (e *Endpoint) GetRealizedPolicyRuleLabelsForKey(key policy.Key) (
+	derivedFrom labels.LabelArrayList,
+	revision uint64,
+	ok bool,
+) {
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+
+	entry, ok := e.realizedPolicy.PolicyMapState[key]
+	if !ok {
+		return nil, 0, false
+	}
+
+	return entry.DerivedFromRules.DeepCopy(), e.policyRevision, true
+}
