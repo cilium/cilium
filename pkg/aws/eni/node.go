@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -78,7 +79,7 @@ type Node struct {
 	// in parallel.
 	resyncNeeded time.Time
 
-	enis map[string]v2.ENI
+	enis map[string]eniTypes.ENI
 
 	available map[string]v2.AllocationIP
 
@@ -232,7 +233,7 @@ func (n *Node) updatedResource(resource *v2.CiliumNode) bool {
 }
 
 func (n *Node) recalculateLocked() {
-	n.enis = map[string]v2.ENI{}
+	n.enis = map[string]eniTypes.ENI{}
 	n.available = map[string]v2.AllocationIP{}
 	enis := n.manager.instancesAPI.GetENIs(n.resource.Spec.ENI.InstanceID)
 	// An ec2 instance has at least one ENI attached, no ENI found implies instance not found.
@@ -280,8 +281,8 @@ func (n *Node) releaseNeeded() bool {
 }
 
 // ENIs returns a copy of all ENIs attached to the node
-func (n *Node) ENIs() (enis map[string]v2.ENI) {
-	enis = map[string]v2.ENI{}
+func (n *Node) ENIs() (enis map[string]eniTypes.ENI) {
+	enis = map[string]eniTypes.ENI{}
 	n.mutex.RLock()
 	for _, e := range n.enis {
 		enis[e.ID] = e
@@ -364,7 +365,7 @@ func isAttachmentIndexConflict(err error) bool {
 
 // indexExists returns true if the specified index is occupied by an ENI in the
 // slice of ENIs
-func indexExists(enis map[string]v2.ENI, index int64) bool {
+func indexExists(enis map[string]eniTypes.ENI, index int64) bool {
 	for _, e := range enis {
 		if e.Number == int(index) {
 			return true

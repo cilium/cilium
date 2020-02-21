@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -405,7 +406,7 @@ func newCRDAllocator(family Family, owner Owner, k8sEventReg K8sEventRegister) A
 	return allocator
 }
 
-func deriveGatewayIP(eni ciliumv2.ENI) string {
+func deriveGatewayIP(eni eniTypes.ENI) string {
 	subnetIP, _, err := net.ParseCIDR(eni.Subnet.CIDR)
 	if err != nil {
 		log.WithError(err).Warningf("Unable to parse AWS subnet CIDR %s", eni.Subnet.CIDR)

@@ -20,9 +20,9 @@ import (
 	"context"
 
 	metricsmock "github.com/cilium/cilium/pkg/aws/eni/metrics/mock"
+	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/checker"
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
 	"gopkg.in/check.v1"
 )
@@ -38,36 +38,36 @@ func (i *instancesApiMock) GetInstances(ctx context.Context, vpcs types.VpcMap, 
 
 	m = types.InstanceMap{}
 
-	m.Add("i-1", &v2.ENI{
+	m.Add("i-1", &eniTypes.ENI{
 		ID:             "eni-1",
 		IP:             "1.1.1.1",
 		Number:         0,
 		SecurityGroups: []string{"sg1", "sg2"},
 		Addresses:      []string{},
-		Subnet:         v2.AwsSubnet{ID: "subnet-1"},
-		VPC:            v2.AwsVPC{ID: "vpc-1"},
+		Subnet:         eniTypes.AwsSubnet{ID: "subnet-1"},
+		VPC:            eniTypes.AwsVPC{ID: "vpc-1"},
 	})
 
 	if i.instancesIteration > 1 {
-		m.Add("i-1", &v2.ENI{
+		m.Add("i-1", &eniTypes.ENI{
 			ID:             "eni-2",
 			IP:             "2.2.2.2",
 			Number:         1,
 			SecurityGroups: []string{"sg3", "sg4"},
 			Addresses:      []string{},
-			Subnet:         v2.AwsSubnet{ID: "subnet-1"},
-			VPC:            v2.AwsVPC{ID: "vpc-1"},
+			Subnet:         eniTypes.AwsSubnet{ID: "subnet-1"},
+			VPC:            eniTypes.AwsVPC{ID: "vpc-1"},
 		})
 	}
 
-	m.Add("i-2", &v2.ENI{
+	m.Add("i-2", &eniTypes.ENI{
 		ID:             "eni-3",
 		IP:             "3.3.3.3",
 		Number:         0,
 		SecurityGroups: []string{"sg3", "sg4"},
 		Addresses:      []string{},
-		Subnet:         v2.AwsSubnet{ID: "subnet-2"},
-		VPC:            v2.AwsVPC{ID: "vpc-2"},
+		Subnet:         eniTypes.AwsSubnet{ID: "subnet-2"},
+		VPC:            eniTypes.AwsVPC{ID: "vpc-2"},
 	})
 
 	return

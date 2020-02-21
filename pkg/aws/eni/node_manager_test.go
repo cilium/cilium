@@ -24,6 +24,7 @@ import (
 
 	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
 	metricsmock "github.com/cilium/cilium/pkg/aws/eni/metrics/mock"
+	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/checker"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -141,7 +142,7 @@ func newCiliumNode(node, instanceID, instanceType, az, vpcID string, firstInterf
 	cn := &v2.CiliumNode{
 		ObjectMeta: metav1.ObjectMeta{Name: node, Namespace: "default"},
 		Spec: v2.NodeSpec{
-			ENI: v2.ENISpec{
+			ENI: eniTypes.ENISpec{
 				InstanceID:          instanceID,
 				InstanceType:        instanceType,
 				FirstInterfaceIndex: &firstInterfaceIndex,
@@ -168,7 +169,7 @@ func newCiliumNodeWithSGTags(node, instanceID, instanceType, az, vpcID string, s
 	cn := &v2.CiliumNode{
 		ObjectMeta: metav1.ObjectMeta{Name: node, Namespace: "default"},
 		Spec: v2.NodeSpec{
-			ENI: v2.ENISpec{
+			ENI: eniTypes.ENISpec{
 				InstanceID:          instanceID,
 				InstanceType:        instanceType,
 				FirstInterfaceIndex: &firstInterfaceIndex,

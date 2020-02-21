@@ -15,7 +15,7 @@
 package types
 
 import (
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 )
 
 // Tags implements generic key value tags used by AWS
@@ -83,7 +83,7 @@ type SecurityGroup struct {
 type instance struct {
 	// enis is a map of all ENIs attached to the instance indexed by the
 	// ENI ID
-	enis map[string]*v2.ENI
+	enis map[string]*eniTypes.ENI
 }
 
 // InstanceMap is the list of all instances indexed by instance ID
@@ -91,7 +91,7 @@ type InstanceMap map[string]*instance
 
 // Add adds an instance definition to the instance map. instanceMap may not be
 // subject to concurrent access while add() is used.
-func (m InstanceMap) Add(instanceID string, eni *v2.ENI) {
+func (m InstanceMap) Add(instanceID string, eni *eniTypes.ENI) {
 	i, ok := m[instanceID]
 	if !ok {
 		i = &instance{}
@@ -99,7 +99,7 @@ func (m InstanceMap) Add(instanceID string, eni *v2.ENI) {
 	}
 
 	if i.enis == nil {
-		i.enis = map[string]*v2.ENI{}
+		i.enis = map[string]*eniTypes.ENI{}
 	}
 
 	i.enis[eni.ID] = eni
@@ -108,7 +108,7 @@ func (m InstanceMap) Add(instanceID string, eni *v2.ENI) {
 // Update updates the ENI definition of an ENI for a particular instance. If
 // the ENI is already known, the definition is updated, otherwise the ENI is
 // added to the instance.
-func (m InstanceMap) Update(instanceID string, eni *v2.ENI) {
+func (m InstanceMap) Update(instanceID string, eni *eniTypes.ENI) {
 	if i, ok := m[instanceID]; ok {
 		i.enis[eni.ID] = eni
 	} else {
@@ -117,7 +117,7 @@ func (m InstanceMap) Update(instanceID string, eni *v2.ENI) {
 }
 
 // Get returns the list of ENIs for a particular instance ID
-func (m InstanceMap) Get(instanceID string) (enis []*v2.ENI) {
+func (m InstanceMap) Get(instanceID string) (enis []*eniTypes.ENI) {
 	if instance, ok := m[instanceID]; ok {
 		for _, e := range instance.enis {
 			enis = append(enis, e.DeepCopy())

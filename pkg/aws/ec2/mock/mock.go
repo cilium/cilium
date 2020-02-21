@@ -20,8 +20,8 @@ import (
 	"net"
 	"time"
 
+	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/uuid"
 
@@ -29,7 +29,7 @@ import (
 	"golang.org/x/time/rate"
 )
 
-type eniMap map[string]*v2.ENI
+type eniMap map[string]*eniTypes.ENI
 
 // Operation is an EC2 API operation that this mock API supports
 type Operation int
@@ -48,7 +48,7 @@ const (
 
 type API struct {
 	mutex          lock.RWMutex
-	unattached     map[string]*v2.ENI
+	unattached     map[string]*eniTypes.ENI
 	enis           map[string]eniMap
 	subnets        map[string]*types.Subnet
 	vpcs           map[string]*types.Vpc
@@ -67,7 +67,7 @@ func NewAPI(subnets []*types.Subnet, vpcs []*types.Vpc, securityGroups []*types.
 	}
 
 	api := &API{
-		unattached:     map[string]*v2.ENI{},
+		unattached:     map[string]*eniTypes.ENI{},
 		enis:           map[string]eniMap{},
 		subnets:        map[string]*types.Subnet{},
 		vpcs:           map[string]*types.Vpc{},
@@ -150,7 +150,7 @@ func (e *API) simulateDelay(op Operation) {
 	}
 }
 
-func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int64, subnetID, desc string, groups []string) (string, *v2.ENI, error) {
+func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int64, subnetID, desc string, groups []string) (string, *eniTypes.ENI, error) {
 	e.rateLimit()
 	e.simulateDelay(CreateNetworkInterface)
 
@@ -171,10 +171,10 @@ func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int64, subn
 	}
 
 	eniID := uuid.NewUUID().String()
-	eni := &v2.ENI{
+	eni := &eniTypes.ENI{
 		ID:          eniID,
 		Description: desc,
-		Subnet: v2.AwsSubnet{
+		Subnet: eniTypes.AwsSubnet{
 			ID: subnetID,
 		},
 		SecurityGroups: groups,
