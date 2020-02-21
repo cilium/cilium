@@ -487,12 +487,22 @@ const (
 	// BPFCompileDebugName is the name of the option to enable BPF compiliation debugging
 	BPFCompileDebugName = "bpf-compile-debug"
 
-	// CTMapEntriesGlobalTCP retains the Cilium 1.2 (or earlier) size to
+	// CTMapEntriesGlobalTCPDefault is the default maximum number of entries
+	// in the TCP CT table. It retains the Cilium 1.2 (or earlier) size to
 	// minimize disruption during upgrade.
 	CTMapEntriesGlobalTCPDefault = 1000000
+
+	// CTMapEntriesGlobalAnyDefault is the default maximum number of entries
+	// in the non-TCP CT table.
 	CTMapEntriesGlobalAnyDefault = 2 << 17 // 256Ki
-	CTMapEntriesGlobalTCPName    = "bpf-ct-global-tcp-max"
-	CTMapEntriesGlobalAnyName    = "bpf-ct-global-any-max"
+
+	// CTMapEntriesGlobalTCPName configures max entries for the TCP CT
+	// table.
+	CTMapEntriesGlobalTCPName = "bpf-ct-global-tcp-max"
+
+	// CTMapEntriesGlobalAnyName configures max entries for the non-TCP CT
+	// table.
+	CTMapEntriesGlobalAnyName = "bpf-ct-global-any-max"
 
 	// CTMapEntriesTimeout* name option and default value mappings
 	CTMapEntriesTimeoutSYNName    = "bpf-ct-timeout-regular-tcp-syn"
