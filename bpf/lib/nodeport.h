@@ -17,7 +17,6 @@
 /* No nodeport on cilium_host interface. */
 #ifdef FROM_HOST
 # undef ENABLE_NODEPORT
-# undef ENABLE_MASQUERADE
 #endif
 
 #ifdef ENABLE_NODEPORT

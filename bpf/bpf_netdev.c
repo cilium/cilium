@@ -685,15 +685,6 @@ int from_netdev(struct __ctx_buff *ctx)
 		/* Pass unknown traffic to the stack */
 		return CTX_ACT_OK;
 
-#ifdef ENABLE_MASQUERADE
-	cilium_dbg_capture(ctx, DBG_CAPTURE_SNAT_PRE, ctx->ifindex);
-	ret = snat_process(ctx, BPF_PKT_DIR);
-	if (ret != CTX_ACT_OK) {
-		return ret;
-	}
-	cilium_dbg_capture(ctx, DBG_CAPTURE_SNAT_POST, ctx->ifindex);
-#endif /* ENABLE_MASQUERADE */
-
 	return do_netdev(ctx, proto);
 }
 
@@ -710,16 +701,7 @@ int to_netdev(struct __ctx_buff *ctx)
 	ret = nodeport_nat_fwd(ctx, false);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
-#elif defined(ENABLE_MASQUERADE)
-	__u16 proto;
-	if (!validate_ethertype(ctx, &proto))
-		/* Pass unknown traffic to the stack */
-		return CTX_ACT_OK;
-	cilium_dbg_capture(ctx, DBG_CAPTURE_SNAT_PRE, ctx->ifindex);
-	ret = snat_process(ctx, BPF_PKT_DIR);
-	if (!ret)
-		cilium_dbg_capture(ctx, DBG_CAPTURE_SNAT_POST, ctx->ifindex);
-#endif /* ENABLE_MASQUERADE */
+#endif
 	return ret;
 }
 
