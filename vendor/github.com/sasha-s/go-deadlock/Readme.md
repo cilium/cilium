@@ -1,4 +1,5 @@
-# Online deadlock detection in go (golang). [Docs](https://godoc.org/github.com/sasha-s/go-deadlock). [![Build Status](https://travis-ci.org/sasha-s/go-deadlock.svg?branch=master)](https://travis-ci.org/sasha-s/go-deadlock)
+# Online deadlock detection in go (golang). [![Try it online](https://img.shields.io/badge/try%20it-online-blue.svg)](https://wandbox.org/permlink/hJc6QCZowxbNm9WW) [![Docs](https://godoc.org/github.com/sasha-s/go-deadlock?status.svg)](https://godoc.org/github.com/sasha-s/go-deadlock) [![Build Status](https://travis-ci.org/sasha-s/go-deadlock.svg?branch=master)](https://travis-ci.org/sasha-s/go-deadlock) [![codecov](https://codecov.io/gh/sasha-s/go-deadlock/branch/master/graph/badge.svg)](https://codecov.io/gh/sasha-s/go-deadlock) [![version](https://badge.fury.io/gh/sasha-s%2Fgo-deadlock.svg)](https://github.com/sasha-s/go-deadlock/releases)  [![Go Report Card](https://goreportcard.com/badge/github.com/sasha-s/go-deadlock)](https://goreportcard.com/report/github.com/sasha-s/go-deadlock) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) 
+
 ## Why
 Deadlocks happen and are painful to debug.
 
@@ -58,7 +59,7 @@ In addition, if it sees that we are waiting on a lock for a long time (opts.Dead
 
 
 ## Sample output
-####Inconsistent lock ordering:
+#### Inconsistent lock ordering:
 ```
 POTENTIAL DEADLOCK: Inconsistent locking. saw this ordering in one goroutine:
 happened before
@@ -114,4 +115,61 @@ created by google.golang.org/cloud/bigtable/bttest.TestConcurrentMutationsReadMo
 
 ## Need a mutex that works with net.context?
 I have [one](https://github.com/sasha-s/go-csync).
+
+## Grabbing an RLock twice from the same goroutine
+This is, surprisingly, not a good idea!
+
+From [RWMutex](https://golang.org/pkg/sync/#RWMutex) docs:
+
+>If a goroutine holds a RWMutex for reading and another goroutine might call Lock, no goroutine should expect to be able to acquire a read lock until the initial read lock is released. In particular, this prohibits recursive read locking. This is to ensure that the lock eventually becomes available; a blocked Lock call excludes new readers from acquiring the lock.
+
+
+The following code will deadlock &mdash; [run the example on playground](https://play.golang.org/p/AkL-W63nq5f) or [try it online with go-deadlock on wandbox](https://wandbox.org/permlink/JwnL0GMySBju4SII):
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+func main() {
+	var mu sync.RWMutex
+
+	chrlockTwice := make(chan struct{}) // Used to control rlockTwice
+	rlockTwice := func() {
+		mu.RLock()
+		fmt.Println("first Rlock succeeded")
+		<-chrlockTwice
+		<-chrlockTwice
+		fmt.Println("trying to Rlock again")
+		mu.RLock()
+		fmt.Println("second Rlock succeeded")
+		mu.RUnlock()
+		mu.RUnlock()
+	}
+
+	chLock := make(chan struct{}) // Used to contol lock
+	lock := func() {
+		<-chLock
+		fmt.Println("about to Lock")
+		mu.Lock()
+		fmt.Println("Lock succeeded")
+		mu.Unlock()
+		<-chLock
+	}
+
+	control := func() {
+		chrlockTwice <- struct{}{}
+		chLock <- struct{}{}
+
+		close(chrlockTwice)
+		close(chLock)
+	}
+
+	go control()
+	go lock()
+	rlockTwice()
+}
+```
 
