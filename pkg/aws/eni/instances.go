@@ -19,8 +19,8 @@ import (
 	"context"
 	"time"
 
+	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/sirupsen/logrus"
@@ -165,7 +165,7 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 }
 
 // GetENI returns the ENI of an instance at a particular interface index
-func (m *InstancesManager) GetENI(instanceID string, index int) *v2.ENI {
+func (m *InstancesManager) GetENI(instanceID string, index int) *eniTypes.ENI {
 	for _, eni := range m.getENIs(instanceID) {
 		if eni.Number == index {
 			return eni
@@ -176,12 +176,12 @@ func (m *InstancesManager) GetENI(instanceID string, index int) *v2.ENI {
 }
 
 // GetENIs returns the list of ENIs associated with a particular instance
-func (m *InstancesManager) GetENIs(instanceID string) []*v2.ENI {
+func (m *InstancesManager) GetENIs(instanceID string) []*eniTypes.ENI {
 	return m.getENIs(instanceID)
 }
 
 // getENIs returns the list of ENIs associated with a particular instance
-func (m *InstancesManager) getENIs(instanceID string) []*v2.ENI {
+func (m *InstancesManager) getENIs(instanceID string) []*eniTypes.ENI {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	return m.instances.Get(instanceID)
@@ -190,7 +190,7 @@ func (m *InstancesManager) getENIs(instanceID string) []*v2.ENI {
 // UpdateENI updates the ENI definition of an ENI for a particular instance. If
 // the ENI is already known, the definition is updated, otherwise the ENI is
 // added to the instance.
-func (m *InstancesManager) UpdateENI(instanceID string, eni *v2.ENI) {
+func (m *InstancesManager) UpdateENI(instanceID string, eni *eniTypes.ENI) {
 	m.mutex.Lock()
 	m.instances.Update(instanceID, eni)
 	m.mutex.Unlock()

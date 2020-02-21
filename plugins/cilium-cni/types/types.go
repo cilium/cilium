@@ -20,8 +20,7 @@ import (
 	"io/ioutil"
 	"net"
 
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-
+	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/containernetworking/cni/pkg/version"
@@ -32,7 +31,7 @@ type NetConf struct {
 	cniTypes.NetConf
 	MTU         int              `json:"mtu"`
 	Args        Args             `json:"args"`
-	ENI         ciliumv2.ENISpec `json:"eni,omitempty"`
+	ENI         eniTypes.ENISpec `json:"eni,omitempty"`
 	EnableDebug bool             `json:"enable-debug"`
 }
 

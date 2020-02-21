@@ -18,6 +18,7 @@ import (
 	"context"
 	"time"
 
+	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/metadata"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/controller"
@@ -267,7 +268,7 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 
 	if option.Config.IPAM == option.IPAMENI {
 		// set ENI field in the node only when the ENI ipam is specified
-		nodeResource.Spec.ENI = ciliumv2.ENISpec{}
+		nodeResource.Spec.ENI = eniTypes.ENISpec{}
 		instanceID, instanceType, availabilityZone, vpcID, err := metadata.GetInstanceMetadata()
 		if err != nil {
 			log.WithError(err).Fatal("Unable to retrieve InstanceID of own EC2 instance")

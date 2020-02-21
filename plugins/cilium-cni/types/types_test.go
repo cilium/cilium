@@ -22,8 +22,8 @@ import (
 	"path"
 	"testing"
 
+	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/checker"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
 	cnitypes "github.com/containernetworking/cni/pkg/types"
 	"gopkg.in/check.v1"
@@ -115,7 +115,7 @@ func (t *CNITypesSuite) TestReadCNIConfENIWithPlugins(c *check.C) {
 			CNIVersion: "0.3.1",
 			Type:       "cilium-cni",
 		},
-		ENI: ciliumv2.ENISpec{
+		ENI: eniTypes.ENISpec{
 			PreAllocate:         5,
 			FirstInterfaceIndex: &firstInterfaceIndex,
 			SecurityGroups:      []string{"sg-xxx"},
@@ -152,7 +152,7 @@ func (t *CNITypesSuite) TestReadCNIConfENI(c *check.C) {
 			Name: "cilium",
 			Type: "cilium-cni",
 		},
-		ENI: ciliumv2.ENISpec{
+		ENI: eniTypes.ENISpec{
 			InstanceType:        "m4.xlarge",
 			PreAllocate:         16,
 			FirstInterfaceIndex: &firstInterfaceIndex,
