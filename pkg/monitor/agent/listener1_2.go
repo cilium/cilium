@@ -58,7 +58,6 @@ func (ml *listenerv1_2) Enqueue(pl *payload.Payload) {
 // intended to be a goroutine.
 func (ml *listenerv1_2) drainQueue() {
 	defer func() {
-		ml.Close()
 		ml.cleanupFn(ml)
 	}()
 

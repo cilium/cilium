@@ -141,11 +141,13 @@ func (m *Monitor) removeListener(ml listener.MonitorListener) {
 	m.Lock()
 	defer m.Unlock()
 
+	// Remove the listener and close it.
 	delete(m.listeners, ml)
 	log.WithFields(logrus.Fields{
 		"count.listener": len(m.listeners),
 		"version":        ml.Version(),
 	}).Debug("Removed listener")
+	ml.Close()
 
 	// If this was the final listener, shutdown the perf reader and unmap our
 	// ring buffer readers. This tells the kernel to not emit this data.
