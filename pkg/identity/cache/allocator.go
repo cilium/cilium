@@ -443,7 +443,7 @@ func (m *CachingIdentityAllocator) WatchRemoteIdentities(backend kvstore.Backend
 		return nil, fmt.Errorf("Error setting up remote allocator backend: %s", err)
 	}
 
-	remoteAlloc, err := allocator.NewAllocator(GlobalIdentity{}, remoteAllocatorBackend)
+	remoteAlloc, err := allocator.NewAllocator(GlobalIdentity{}, remoteAllocatorBackend, allocator.WithEvents(m.IdentityAllocator.GetEvents()))
 	if err != nil {
 		return nil, fmt.Errorf("Unable to initialize remote Identity Allocator: %s", err)
 	}
