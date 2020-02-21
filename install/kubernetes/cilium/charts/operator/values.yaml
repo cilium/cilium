@@ -1,2 +1,5 @@
 image: operator
 synchronizeK8sNodes: true
+
+# Specifies the resources for the operator container
+resources: {}

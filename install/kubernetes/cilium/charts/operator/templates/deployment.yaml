@@ -166,6 +166,8 @@ spec:
           name: kube-config
           readOnly: true
 {{- end}}
+        resources:
+          {{- toYaml .Values.resources | trim | nindent 10 }}
       hostNetwork: true
 {{- if .Values.global.etcd.managed }}
       # In managed etcd mode, Cilium must be able to resolve the DNS name of

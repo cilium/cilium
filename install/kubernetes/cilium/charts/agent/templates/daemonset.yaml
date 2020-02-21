@@ -143,6 +143,8 @@ spec:
               command:
               - /cni-uninstall.sh
 {{- end }}
+        resources:
+          {{- toYaml .Values.resources | trim | nindent 10 }}
         name: cilium-agent
 {{- if .Values.global.prometheus.enabled }}
         ports:
@@ -222,6 +224,8 @@ spec:
         volumeMounts:
         - mountPath: /var/run/cilium
           name: cilium-run
+        resources:
+          {{- toYaml .Values.monitor.resources | trim | nindent 10 }}
 {{- end }}
 {{- if .Values.global.etcd.managed }}
       # In managed etcd mode, Cilium must be able to resolve the DNS name of
@@ -286,6 +290,8 @@ spec:
 {{- end }}
         - mountPath: /var/run/cilium
           name: cilium-run
+        resources:
+          {{- toYaml .Values.initResources | trim | nindent 10 }}
       restartPolicy: Always
 {{- if and (eq .Release.Namespace "kube-system") (or (gt .Capabilities.KubeVersion.Minor "10") (gt .Capabilities.KubeVersion.Major "1"))}}
       priorityClassName: system-node-critical
