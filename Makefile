@@ -290,6 +290,7 @@ generate-k8s-api:
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:eppolicymap")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:sockmap")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:ctmap")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:fragmap")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"pkg:tuple")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"pkg:bpf")
 

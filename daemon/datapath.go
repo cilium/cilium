@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/fragmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
@@ -337,6 +338,10 @@ func (d *Daemon) initMaps() error {
 	if err := d.svc.InitMaps(option.Config.EnableIPv6, option.Config.EnableIPv4,
 		option.Config.RestoreState); err != nil {
 		log.WithError(err).Fatal("Unable to initialize service maps")
+	}
+
+	if err := fragmap.InitMap(); err != nil {
+		return err
 	}
 
 	// Set up the list of IPCache listeners in the daemon, to be
