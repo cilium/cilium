@@ -25,6 +25,7 @@ datapath instead of the default veth-based one.
     - L7 policy enforcement
     - NAT64
     - IPVLAN with tunneling
+    - BPF-based masquerading
 
 .. note::
 
@@ -73,13 +74,7 @@ connect to kube-apiserver.
 
 Masquerading with iptables in L3-only mode is not possible since netfilter
 hooks are bypassed in the kernel in this mode, hence L3S (symmetric) had
-to be introduced in the kernel at the cost of performance. However, Cilium
-supports its own BPF-based masquerading which does not rely in any way on
-iptables masquerading. If the ``global.installIptablesRules`` parameter is set
-to ``"false"`` and ``global.masquerade`` set to ``"true"``, then Cilium will
-use the more efficient BPF-based masquerading where ipvlan can remain in
-L3 mode as well (instead of L3S). A Linux kernel v4.16 or higher would be
-required for BPF-based masquerading.
+to be introduced in the kernel at the cost of performance.
 
 Example ConfigMap extract for ipvlan in pure L3 mode:
 
@@ -105,20 +100,6 @@ masquerading all traffic leaving the node:
      --set global.ipvlan.masterDevice=bond0 \\
      --set global.tunnel=disabled \\
      --set global.masquerade=true \\
-     --set global.autoDirectNodeRoutes=true
-
-Example ConfigMap extract for ipvlan in L3 mode with more efficient
-BPF-based masquerading instead of iptables-based:
-
-.. parsed-literal::
-
-   helm install cilium |CHART_RELEASE| \\
-     --namespace kube-system \\
-     --set global.datapathMode=ipvlan \\
-     --set global.ipvlan.masterDevice=bond0 \\
-     --set global.tunnel=disabled \\
-     --set global.masquerade=true \\
-     --set global.installIptablesRules=false \\
      --set global.autoDirectNodeRoutes=true
 
 Verify that it has come up correctly:
