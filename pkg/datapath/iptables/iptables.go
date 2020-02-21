@@ -698,6 +698,60 @@ func getDeliveryInterface(ifName string) string {
 	return deliveryInterface
 }
 
+func (m *IptablesManager) installForwardChainRules(localDeliveryInterface, forwardChain string) error {
+	transient := ""
+	if forwardChain == ciliumTransientForwardChain {
+		transient = " (transient)"
+	}
+
+	// While kube-proxy does change the policy of the iptables FORWARD chain
+	// it doesn't seem to handle all cases, e.g. host network pods that use
+	// the node IP which would still end up in default DENY. Similarly, for
+	// plain Docker setup, we would otherwise hit default DENY in FORWARD chain.
+	// Also, k8s 1.15 introduced "-m conntrack --ctstate INVALID -j DROP" which
+	// in the direct routing case can drop EP replies.
+	//
+	// Therefore, add three rules below to avoid having a user to manually opt-in.
+	// See also: https://github.com/kubernetes/kubernetes/issues/39823
+	// In here can only be basic ACCEPT rules, nothing more complicated.
+	//
+	// The second rule is for the case of nodeport traffic where the backend is
+	// remote. The traffic flow in FORWARD is as follows:
+	//
+	//  - Node serving nodeport request:
+	//      IN=eno1 OUT=cilium_host
+	//      IN=cilium_host OUT=eno1
+	//
+	//  - Node running backend:
+	//       IN=eno1 OUT=cilium_host
+	//       IN=lxc... OUT=eno1
+	if err := runProg("iptables", append(
+		m.waitArgs,
+		"-A", forwardChain,
+		"-o", localDeliveryInterface,
+		"-m", "comment", "--comment", "cilium"+transient+": any->cluster on "+localDeliveryInterface+" forward accept",
+		"-j", "ACCEPT"), false); err != nil {
+		return err
+	}
+	if err := runProg("iptables", append(
+		m.waitArgs,
+		"-A", forwardChain,
+		"-i", localDeliveryInterface,
+		"-m", "comment", "--comment", "cilium"+transient+": cluster->any on "+localDeliveryInterface+" forward accept (nodeport)",
+		"-j", "ACCEPT"), false); err != nil {
+		return err
+	}
+	if err := runProg("iptables", append(
+		m.waitArgs,
+		"-A", forwardChain,
+		"-i", "lxc+",
+		"-m", "comment", "--comment", "cilium"+transient+": cluster->any on lxc+ forward accept",
+		"-j", "ACCEPT"), false); err != nil {
+		return err
+	}
+	return nil
+}
+
 // TransientRulesStart installs iptables rules for Cilium that need to be
 // kept in-tact during agent restart which removes/installs its main rules.
 // Transient rules are then removed once iptables rule update cycle has
@@ -711,50 +765,8 @@ func (m *IptablesManager) TransientRulesStart(ifName string) error {
 		if err := transientChain.add(m.waitArgs); err != nil {
 			return fmt.Errorf("cannot add custom chain %s: %s", transientChain.name, err)
 		}
-		// While kube-proxy does change the policy of the iptables FORWARD chain
-		// it doesn't seem to handle all cases, e.g. host network pods that use
-		// the node IP which would still end up in default DENY. Similarly, for
-		// plain Docker setup, we would otherwise hit default DENY in FORWARD chain.
-		// Also, k8s 1.15 introduced "-m conntrack --ctstate INVALID -j DROP" which
-		// in the direct routing case can drop EP replies.
-		//
-		// Therefore, add three rules below to avoid having a user to manually opt-in.
-		// See also: https://github.com/kubernetes/kubernetes/issues/39823
-		// In here can only be basic ACCEPT rules, nothing more complicated.
-		//
-		// The second rule is for the case of nodeport traffic where the backend is
-		// remote. The traffic flow in FORWARD is as follows:
-		//
-		//  - Node serving nodeport request:
-		//      IN=eno1 OUT=cilium_host
-		//      IN=cilium_host OUT=eno1
-		//
-		//  - Node running backend:
-		//       IN=eno1 OUT=cilium_host
-		//       IN=lxc... OUT=eno1
-		if err := runProg("iptables", append(
-			m.waitArgs,
-			"-A", ciliumTransientForwardChain,
-			"-o", localDeliveryInterface,
-			"-m", "comment", "--comment", "cilium (transient): any->cluster on "+localDeliveryInterface+" forward accept",
-			"-j", "ACCEPT"), false); err != nil {
-			return err
-		}
-		if err := runProg("iptables", append(
-			m.waitArgs,
-			"-A", ciliumTransientForwardChain,
-			"-i", localDeliveryInterface,
-			"-m", "comment", "--comment", "cilium (transient): cluster->any on "+localDeliveryInterface+" forward accept (nodeport)",
-			"-j", "ACCEPT"), false); err != nil {
-			return err
-		}
-		if err := runProg("iptables", append(
-			m.waitArgs,
-			"-A", ciliumTransientForwardChain,
-			"-i", "lxc+",
-			"-m", "comment", "--comment", "cilium (transient): cluster->any on lxc+ forward accept",
-			"-j", "ACCEPT"), false); err != nil {
-			return err
+		if err := m.installForwardChainRules(localDeliveryInterface, transientChain.name); err != nil {
+			return fmt.Errorf("cannot install forward chain rules to %s: %s", transientChain.name, err)
 		}
 		if err := transientChain.installFeeder(m.waitArgs); err != nil {
 			return fmt.Errorf("cannot install feeder rule %s: %s", transientChain.feederArgs, err)
@@ -776,7 +788,6 @@ func (m *IptablesManager) TransientRulesEnd(quiet bool) {
 func (m *IptablesManager) InstallRules(ifName string) error {
 	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkDecrypt, linux_defaults.RouteMarkMask)
 	matchFromIPSecDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
-	localDeliveryInterface := getDeliveryInterface(ifName)
 
 	for _, c := range ciliumChains {
 		if err := c.add(m.waitArgs); err != nil {
@@ -792,31 +803,11 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 		return err
 	}
 
+	localDeliveryInterface := getDeliveryInterface(ifName)
+
 	if option.Config.EnableIPv4 {
-		// See kube-proxy comment in TransientRules().
-		if err := runProg("iptables", append(
-			m.waitArgs,
-			"-A", ciliumForwardChain,
-			"-o", localDeliveryInterface,
-			"-m", "comment", "--comment", "cilium: any->cluster on "+localDeliveryInterface+" forward accept",
-			"-j", "ACCEPT"), false); err != nil {
-			return err
-		}
-		if err := runProg("iptables", append(
-			m.waitArgs,
-			"-A", ciliumForwardChain,
-			"-i", localDeliveryInterface,
-			"-m", "comment", "--comment", "cilium: cluster->any on "+localDeliveryInterface+" forward accept (nodeport)",
-			"-j", "ACCEPT"), false); err != nil {
-			return err
-		}
-		if err := runProg("iptables", append(
-			m.waitArgs,
-			"-A", ciliumForwardChain,
-			"-i", "lxc+",
-			"-m", "comment", "--comment", "cilium: cluster->any on lxc+ forward accept",
-			"-j", "ACCEPT"), false); err != nil {
-			return err
+		if err := m.installForwardChainRules(localDeliveryInterface, ciliumForwardChain); err != nil {
+			return fmt.Errorf("cannot install forward chain rules to %s: %s", transientChain.name, err)
 		}
 
 		// Mark all packets sourced from processes running on the host with a
