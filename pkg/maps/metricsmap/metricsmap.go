@@ -45,7 +45,11 @@ const (
 	MapName = "cilium_metrics"
 	// MaxEntries is the maximum number of keys that can be present in the
 	// Metrics Map.
-	MaxEntries = 65536
+	//
+	// Currently max. 2 bits of the Key.Dir member are used (unknown,
+	// ingress or egress). Thus we can reduce from the theoretical max. size
+	// of 2**16 (2 uint8) to 2**10 (1 uint8 + 2 bits).
+	MaxEntries = 1024
 	// dirIngress and dirEgress values should match with
 	// METRIC_INGRESS and METRIC_EGRESS in bpf/lib/common.h
 	dirIngress = 1
@@ -59,9 +63,9 @@ const (
 // or egress (from an endpoint). If it's none of the above, we return
 // UNKNOWN direction.
 var direction = map[uint8]string{
-	0: "UNKNOWN",
-	1: "INGRESS",
-	2: "EGRESS",
+	dirUnknown: "UNKNOWN",
+	dirIngress: "INGRESS",
+	dirEgress:  "EGRESS",
 }
 
 type pad3uint16 [3]uint16
