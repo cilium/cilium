@@ -162,6 +162,9 @@ const (
 	// DatapathMode is the default value for the datapath mode.
 	DatapathMode = "veth"
 
+	// EnableXTSocketFallback is the default value for EnableXTSocketFallback
+	EnableXTSocketFallback = true
+
 	// EnableAutoDirectRouting is the default value for EnableAutoDirectRouting
 	EnableAutoDirectRouting = false
 
