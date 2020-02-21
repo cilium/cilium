@@ -1,8 +1,11 @@
 #!/bin/bash
 
-set -e
-
 export KUBECONFIG=gke-kubeconfig
+
+echo "deleting terminating namespaces"
+./delete-terminating-namespaces.sh
+
+set -e
 
 cluster=$(cat cluster-name)
 echo "scaling $cluster ng to 0"
