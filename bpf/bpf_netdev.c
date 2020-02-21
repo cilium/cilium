@@ -245,8 +245,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	return CTX_ACT_OK;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC)
-int tail_handle_ipv6(struct __ctx_buff *ctx)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC) int tail_handle_ipv6(struct __ctx_buff *ctx)
 {
 	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_IDENTITY);
 	int ret;
@@ -255,8 +254,8 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 
 	ret = handle_ipv6(ctx, proxy_identity);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, proxy_identity, ret,
-					      CTX_ACT_DROP, METRIC_INGRESS);
+		return send_drop_notify_error(ctx, proxy_identity, ret, CTX_ACT_DROP, METRIC_INGRESS);
+
 	return ret;
 }
 #endif /* ENABLE_IPV6 */
@@ -429,8 +428,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 #endif
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC)
-int tail_handle_ipv4(struct __ctx_buff *ctx)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4(struct __ctx_buff *ctx)
 {
 	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_IDENTITY);
 	int ret;
@@ -684,15 +682,6 @@ int from_netdev(struct __ctx_buff *ctx)
 		/* Pass unknown traffic to the stack */
 		return CTX_ACT_OK;
 
-#ifdef ENABLE_MASQUERADE
-	cilium_dbg_capture(ctx, DBG_CAPTURE_SNAT_PRE, ctx_get_ifindex(ctx));
-	ret = snat_process(ctx, BPF_PKT_DIR);
-	if (ret != CTX_ACT_OK) {
-		return ret;
-	}
-	cilium_dbg_capture(ctx, DBG_CAPTURE_SNAT_POST, ctx_get_ifindex(ctx));
-#endif /* ENABLE_MASQUERADE */
-
 	return do_netdev(ctx, proto);
 }
 
@@ -709,16 +698,7 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	ret = nodeport_nat_fwd(ctx, false);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
-#elif defined(ENABLE_MASQUERADE)
-	__u16 proto;
-	if (!validate_ethertype(ctx, &proto))
-		/* Pass unknown traffic to the stack */
-		return CTX_ACT_OK;
-	cilium_dbg_capture(ctx, DBG_CAPTURE_SNAT_PRE, ctx_get_ifindex(ctx));
-	ret = snat_process(ctx, BPF_PKT_DIR);
-	if (!ret)
-		cilium_dbg_capture(ctx, DBG_CAPTURE_SNAT_POST, ctx_get_ifindex(ctx));
-#endif /* ENABLE_MASQUERADE */
+#endif
 	return ret;
 }
 

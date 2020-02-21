@@ -113,7 +113,7 @@ struct ipv4_nat_target {
 	bool src_from_world;
 };
 
-#if defined ENABLE_IPV4 && (defined ENABLE_MASQUERADE || defined ENABLE_NODEPORT)
+#if defined ENABLE_IPV4 && defined ENABLE_NODEPORT
 struct bpf_elf_map __section_maps SNAT_MAPPING_IPV4 = {
 	.type		= NAT_MAP_TYPE,
 	.size_key	= sizeof(struct ipv4_ct_tuple),
@@ -481,7 +481,7 @@ static __always_inline __maybe_unused int snat_v4_create_dsr(struct __ctx_buff *
 	return CTX_ACT_OK;
 }
 
-static __always_inline int snat_v4_process(struct __ctx_buff *ctx, int dir,
+static __always_inline __maybe_unused int snat_v4_process(struct __ctx_buff *ctx, int dir,
 					   const struct ipv4_nat_target *target)
 {
 	struct ipv4_nat_entry *state, tmp;
@@ -580,7 +580,7 @@ struct ipv6_nat_target {
 	bool src_from_world;
 };
 
-#if defined ENABLE_IPV6 && (defined ENABLE_MASQUERADE || defined ENABLE_NODEPORT)
+#if defined ENABLE_IPV6 && defined ENABLE_NODEPORT
 struct bpf_elf_map __section_maps SNAT_MAPPING_IPV6 = {
 	.type		= NAT_MAP_TYPE,
 	.size_key	= sizeof(struct ipv6_ct_tuple),
@@ -942,7 +942,7 @@ static __always_inline __maybe_unused int snat_v6_create_dsr(struct __ctx_buff *
 	return CTX_ACT_OK;
 }
 
-static __always_inline int snat_v6_process(struct __ctx_buff *ctx, int dir,
+static __always_inline __maybe_unused int snat_v6_process(struct __ctx_buff *ctx, int dir,
 					   const struct ipv6_nat_target *target)
 {
 	struct ipv6_nat_entry *state, tmp;
@@ -1023,7 +1023,7 @@ int snat_v6_process(struct __ctx_buff *ctx __maybe_unused,
 	return CTX_ACT_OK;
 }
 
-static __always_inline
+static __always_inline __maybe_unused
 void snat_v6_delete_tuples(struct ipv6_ct_tuple *tuple __maybe_unused)
 {
 }
@@ -1052,47 +1052,17 @@ static __always_inline __maybe_unused void ct_delete6(void *map, struct ipv6_ct_
 		snat_v6_delete_tuples(tuple);
 }
 #else
-static __always_inline __maybe_unused void ct_delete4(void *map, struct ipv4_ct_tuple *tuple,
-						      struct __ctx_buff *ctx)
+static __always_inline __maybe_unused void ct_delete4(void *map __maybe_unused,
+						      struct ipv4_ct_tuple *tuple __maybe_unused,
+						      struct __ctx_buff *ctx __maybe_unused)
 {
 }
 
-static __always_inline __maybe_unused void ct_delete6(void *map, struct ipv6_ct_tuple *tuple,
-						      struct __ctx_buff *ctx)
+static __always_inline __maybe_unused void ct_delete6(void *map __maybe_unused,
+						      struct ipv6_ct_tuple *tuple __maybe_unused,
+						      struct __ctx_buff *ctx __maybe_unused)
 {
 }
 #endif
 
-static __always_inline __maybe_unused int snat_process(struct __ctx_buff *ctx, int dir)
-{
-	int ret = CTX_ACT_OK;
-
-#ifdef ENABLE_MASQUERADE
-	switch (ctx_get_protocol(ctx)) {
-#ifdef ENABLE_IPV4
-	case bpf_htons(ETH_P_IP): {
-		struct ipv4_nat_target target = {
-			.min_port = SNAT_MAPPING_MIN_PORT,
-			.max_port = SNAT_MAPPING_MAX_PORT,
-			.addr  = SNAT_IPV4_EXTERNAL,
-		};
-		ret = snat_v4_process(ctx, dir, &target);
-		break; }
-#endif
-#ifdef ENABLE_IPV6
-	case bpf_htons(ETH_P_IPV6): {
-		struct ipv6_nat_target target = {
-			.min_port = SNAT_MAPPING_MIN_PORT,
-			.max_port = SNAT_MAPPING_MAX_PORT,
-		};
-		BPF_V6(target.addr, SNAT_IPV6_EXTERNAL);
-		ret = snat_v6_process(ctx, dir, &target);
-		break; }
-#endif
-	}
-	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, dir);
-#endif
-	return ret;
-}
 #endif /* __LIB_NAT__ */
