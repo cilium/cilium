@@ -6,7 +6,12 @@
 
 set -e
 
-git clone --depth 1 -b bpftool https://github.com/cilium/linux.git $HOME/k-bpftool
+if [ -d "$HOME/k-bpftool" ]; then
+    cd $HOME/k-bpftool
+    git pull origin bpftool
+else
+    git clone --depth 1 -b bpftool https://github.com/cilium/linux.git $HOME/k-bpftool
+fi
 cd $HOME/k-bpftool/tools/bpf/bpftool
 make
 sudo make install
