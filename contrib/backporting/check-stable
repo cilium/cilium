@@ -152,7 +152,7 @@ generate_commit_list_for_pr () {
     entry_id=${entry_array[0]}
     entry_sha=${entry_array[1]}
     entry_sub=${entry_array[@]:2}
-    upstream="$(git log --since="1year" --pretty="%H" --no-merges --grep "$entry_sub" $REMOTE/master)"
+    upstream="$(git log -F --since="1year" --pretty="%H" --no-merges --grep "$entry_sub" $REMOTE/master)"
     upstream="$(git show $upstream | git patch-id)"
     upstream=($upstream)
     if [ "$entry_id" == "${upstream[0]}" ]; then
