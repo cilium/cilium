@@ -103,30 +103,19 @@ static __always_inline bool nodeport_nat_ipv6_needed(struct __sk_buff *skb,
 		return !ipv6_addrcmp((union v6addr *)&ip6->daddr, addr);
 }
 
-#define NODEPORT_DO_NAT_IPV6(ADDR, NDIR)					\
-	({									\
-		struct ipv6_nat_target target = {				\
-			.min_port = NODEPORT_PORT_MIN_NAT,			\
-			.max_port = 65535,					\
-		};								\
-		ipv6_addr_copy(&target.addr, (ADDR));				\
-		int ____ret = nodeport_nat_ipv6_needed(skb, (ADDR), (NDIR)) ?	\
-			      snat_v6_process(skb, (NDIR), &target) : TC_ACT_OK;\
-		if (____ret == NAT_PUNT_TO_STACK)				\
-			____ret = TC_ACT_OK;					\
-		____ret;							\
-	})
-
 static __always_inline int nodeport_nat_ipv6_fwd(struct __sk_buff *skb,
 						 union v6addr *addr)
 {
-	return NODEPORT_DO_NAT_IPV6(addr, NAT_DIR_EGRESS);
-}
-
-static __always_inline int nodeport_nat_ipv6_rev(struct __sk_buff *skb,
-						 union v6addr *addr)
-{
-	return NODEPORT_DO_NAT_IPV6(addr, NAT_DIR_INGRESS);
+	struct ipv6_nat_target target = {
+		.min_port = NODEPORT_PORT_MIN_NAT,
+		.max_port = 65535,
+	};
+	ipv6_addr_copy(&target.addr, addr);
+	int ret = nodeport_nat_ipv6_needed(skb, addr, NAT_DIR_EGRESS) ?
+		snat_v6_process(skb, NAT_DIR_EGRESS, &target) : TC_ACT_OK;
+	if (ret == NAT_PUNT_TO_STACK)
+		ret = TC_ACT_OK;
+	return ret;
 }
 
 # ifdef ENABLE_DSR
@@ -664,30 +653,19 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __sk_buff *skb,
 		return ip4->daddr == addr;
 }
 
-#define NODEPORT_DO_NAT_IPV4(ADDR, NDIR)					\
-	({									\
-		struct ipv4_nat_target target = {				\
-			.min_port = NODEPORT_PORT_MIN_NAT,			\
-			.max_port = 65535,					\
-			.addr = (ADDR),						\
-		};								\
-		int ____ret = nodeport_nat_ipv4_needed(skb, (ADDR), (NDIR)) ?	\
-			      snat_v4_process(skb, (NDIR), &target) : TC_ACT_OK;\
-		if (____ret == NAT_PUNT_TO_STACK)				\
-			____ret = TC_ACT_OK;					\
-		____ret;							\
-	})
-
 static __always_inline int nodeport_nat_ipv4_fwd(struct __sk_buff *skb,
 						 const __be32 addr)
 {
-	return NODEPORT_DO_NAT_IPV4(addr, NAT_DIR_EGRESS);
-}
-
-static __always_inline int nodeport_nat_ipv4_rev(struct __sk_buff *skb,
-						 const __be32 addr)
-{
-	return NODEPORT_DO_NAT_IPV4(addr, NAT_DIR_INGRESS);
+	struct ipv4_nat_target target = {
+		.min_port = NODEPORT_PORT_MIN_NAT,
+		.max_port = 65535,
+		.addr = addr,
+	};
+	int ret = nodeport_nat_ipv4_needed(skb, addr, NAT_DIR_EGRESS) ?
+		snat_v4_process(skb, NAT_DIR_EGRESS, &target) : TC_ACT_OK;
+	if (ret == NAT_PUNT_TO_STACK)
+		ret = TC_ACT_OK;
+	return ret;
 }
 
 # ifdef ENABLE_DSR
@@ -1227,44 +1205,6 @@ static __always_inline int nodeport_nat_fwd(struct __sk_buff *skb,
 	}
 #endif /* ENABLE_IPV6 */
 	default:
-		break;
-	}
-	return TC_ACT_OK;
-}
-
-static __always_inline int nodeport_nat_rev(struct __sk_buff *skb,
-					    const bool encap)
-{
-	__u16 proto;
-
-	if (!validate_ethertype(skb, &proto))
-		return TC_ACT_OK;
-	switch (proto) {
-#ifdef ENABLE_IPV4
-	case bpf_htons(ETH_P_IP): {
-		__be32 addr;
-#ifdef ENCAP_IFINDEX
-		if (encap)
-			addr = IPV4_GATEWAY;
-		else
-#endif
-			addr = IPV4_NODEPORT;
-		return nodeport_nat_ipv4_rev(skb, addr);
-	}
-#endif /* ENABLE_IPV4 */
-#ifdef ENABLE_IPV6
-	case bpf_htons(ETH_P_IPV6): {
-		union v6addr addr;
-#ifdef ENCAP_IFINDEX
-		if (encap)
-			BPF_V6(addr, ROUTER_IP);
-		else
-#endif
-			BPF_V6(addr, IPV6_NODEPORT);
-		return nodeport_nat_ipv6_rev(skb, &addr);
-	}
-#endif /* ENABLE_IPV6 */
-	default:
 		build_bug_on(!(NODEPORT_PORT_MIN_NAT < NODEPORT_PORT_MAX_NAT));
 		build_bug_on(!(NODEPORT_PORT_MIN     < NODEPORT_PORT_MAX));
 		build_bug_on(!(NODEPORT_PORT_MAX     < NODEPORT_PORT_MIN_NAT));
@@ -1273,5 +1213,6 @@ static __always_inline int nodeport_nat_rev(struct __sk_buff *skb,
 	}
 	return TC_ACT_OK;
 }
+
 #endif /* ENABLE_NODEPORT */
 #endif /* __NODEPORT_H_ */
