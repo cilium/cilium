@@ -695,15 +695,6 @@ int from_netdev(struct __sk_buff *skb)
 		/* Pass unknown traffic to the stack */
 		return TC_ACT_OK;
 
-#ifdef ENABLE_MASQUERADE
-	cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_PRE, skb->ifindex);
-	ret = snat_process(skb, BPF_PKT_DIR);
-	if (ret != TC_ACT_OK) {
-		return ret;
-	}
-	cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_POST, skb->ifindex);
-#endif /* ENABLE_MASQUERADE */
-
 	return do_netdev(skb, proto);
 }
 
@@ -714,23 +705,12 @@ int to_netdev(struct __sk_buff *skb)
 	 * workaround.
 	 */
 	int ret = TC_ACT_OK;
-#if (defined(ENABLE_NODEPORT) && !defined(ENABLE_DSR)) || defined(ENABLE_MASQUERADE)
 # if defined(ENABLE_NODEPORT) && !defined(ENABLE_DSR)
 	if ((skb->mark & MARK_MAGIC_SNAT_DONE) == MARK_MAGIC_SNAT_DONE)
 		return TC_ACT_OK;
 	ret = nodeport_nat_fwd(skb, false);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, METRIC_EGRESS);
-# else
-	__u16 proto;
-	if (!validate_ethertype(skb, &proto))
-		/* Pass unknown traffic to the stack */
-		return TC_ACT_OK;
-	cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_PRE, skb->ifindex);
-	ret = snat_process(skb, BPF_PKT_DIR);
-	if (!ret)
-		cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_POST, skb->ifindex);
-# endif
 #endif
 	return ret;
 }

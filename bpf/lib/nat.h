@@ -434,6 +434,8 @@ static __always_inline bool snat_v4_can_skip(const struct ipv4_nat_target *targe
 {
 	__u16 dport = bpf_ntohs(tuple->dport), sport = bpf_ntohs(tuple->sport);
 
+	// TODO(brb) check endpoint vs host_local (maybe pass a parameter
+	// from_endpoint)
 	if (dir == NAT_DIR_EGRESS && !target->src_from_world && sport < NAT_MIN_EGRESS)
 		return true;
 	if (dir == NAT_DIR_INGRESS && (dport < target->min_port || dport > target->max_port))
@@ -1065,36 +1067,4 @@ static __always_inline void ct_delete6(void *map, struct ipv6_ct_tuple *tuple,
 }
 #endif
 
-static __always_inline int snat_process(struct __sk_buff *skb, int dir)
-{
-	int ret = TC_ACT_OK;
-
-#ifdef ENABLE_MASQUERADE
-	switch (skb->protocol) {
-#ifdef ENABLE_IPV4
-	case bpf_htons(ETH_P_IP): {
-		struct ipv4_nat_target target = {
-			.min_port = SNAT_MAPPING_MIN_PORT,
-			.max_port = SNAT_MAPPING_MAX_PORT,
-			.addr  = SNAT_IPV4_EXTERNAL,
-		};
-		ret = snat_v4_process(skb, dir, &target);
-		break; }
-#endif
-#ifdef ENABLE_IPV6
-	case bpf_htons(ETH_P_IPV6): {
-		struct ipv6_nat_target target = {
-			.min_port = SNAT_MAPPING_MIN_PORT,
-			.max_port = SNAT_MAPPING_MAX_PORT,
-		};
-		BPF_V6(target.addr, SNAT_IPV6_EXTERNAL);
-		ret = snat_v6_process(skb, dir, &target);
-		break; }
-#endif
-	}
-	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, dir);
-#endif
-	return ret;
-}
 #endif /* __LIB_NAT__ */
