@@ -31,6 +31,9 @@ echo $cluster > cluster-name
 echo "creating cilium ns"
 kubectl create ns cilium || true
 
+echo "deleting terminating namespaces"
+./delete-terminating-namespaces.sh
+
 echo "scaling $cluster to 2"
 yes | gcloud container clusters resize $cluster --node-pool default-pool --num-nodes 2 --zone $GKE_ZONE
 
