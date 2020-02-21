@@ -513,6 +513,9 @@ const (
 	// PreAllocateMapsName is the name of the option PreAllocateMaps
 	PreAllocateMapsName = "preallocate-bpf-maps"
 
+	// EnableXTSocketFallbackName is the name of the EnableXTSocketFallback option
+	EnableXTSocketFallbackName = "enable-xt-socket-fallback"
+
 	// EnableAutoDirectRoutingName is the name for the EnableAutoDirectRouting option
 	EnableAutoDirectRoutingName = "auto-direct-node-routes"
 
@@ -1157,6 +1160,10 @@ type DaemonConfig struct {
 	// Cilium on all interfaces created by the flannel.
 	FlannelUninstallOnExit bool
 
+	// EnableXTSocketFallback allows disabling of kernel's ip_early_demux
+	// sysctl option if `xt_socket` kernel module is not available.
+	EnableXTSocketFallback bool
+
 	// EnableAutoDirectRouting enables installation of direct routes to
 	// other nodes when available
 	EnableAutoDirectRouting bool
@@ -1694,6 +1701,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableHostReachableServices = viper.GetBool(EnableHostReachableServices)
 	c.EnableRemoteNodeIdentity = viper.GetBool(EnableRemoteNodeIdentity)
 	c.DockerEndpoint = viper.GetString(Docker)
+	c.EnableXTSocketFallback = viper.GetBool(EnableXTSocketFallbackName)
 	c.EnableAutoDirectRouting = viper.GetBool(EnableAutoDirectRoutingName)
 	c.EnableEndpointRoutes = viper.GetBool(EnableEndpointRoutes)
 	c.EnableHealthChecking = viper.GetBool(EnableHealthChecking)
