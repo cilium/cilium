@@ -105,9 +105,11 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			cDefinesMap["IPV4_NODEPORT"] = fmt.Sprintf("%#x", byteorder.HostSliceToNetwork(ipv4NP, reflect.Uint32).(uint32))
 		}
 
-		cDefinesMap["IPV4_FRAGMENTS"] = "1"
-		cDefinesMap["IPV4_FRAG_DATAGRAMS_MAP"] = "cilium_ipv4_frag_datagrams"
-		cDefinesMap["CILIUM_IPV4_FRAG_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", fragmap.MaxEntries)
+		if option.Config.EnableIPv4FragmentsTracking {
+			cDefinesMap["IPV4_FRAGMENTS"] = "1"
+			cDefinesMap["IPV4_FRAG_DATAGRAMS_MAP"] = "cilium_ipv4_frag_datagrams"
+			cDefinesMap["CILIUM_IPV4_FRAG_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", fragmap.MaxEntries)
+		}
 	}
 
 	if nat46Range := option.Config.NAT46Prefix; nat46Range != nil {

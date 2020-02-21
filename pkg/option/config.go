@@ -669,6 +669,10 @@ const (
 
 	// EnableRemoteNodeIdentity enables use of the remote-node identity
 	EnableRemoteNodeIdentity = "enable-remote-node-identity"
+
+	// EnableIPv4FragmentsTrackingName is the name of the option to enable
+	// IPv4 fragments tracking for L4-based lookups
+	EnableIPv4FragmentsTrackingName = "enable-ipv4-fragments-tracking"
 )
 
 // Default string arguments
@@ -1343,6 +1347,10 @@ type DaemonConfig struct {
 
 	// EnableRemoteNodeIdentity enables use of the remote-node identity
 	EnableRemoteNodeIdentity bool
+
+	// EnableIPv4FragmentsTracking enables IPv4 fragments tracking for
+	// L4-based lookups
+	EnableIPv4FragmentsTracking bool
 }
 
 var (
@@ -1777,6 +1785,7 @@ func (c *DaemonConfig) Populate() {
 	c.CTMapEntriesTimeoutSVCAny = viper.GetDuration(CTMapEntriesTimeoutSVCAnyName)
 	c.CTMapEntriesTimeoutSYN = viper.GetDuration(CTMapEntriesTimeoutSYNName)
 	c.CTMapEntriesTimeoutFIN = viper.GetDuration(CTMapEntriesTimeoutFINName)
+	c.EnableIPv4FragmentsTracking = viper.GetBool(EnableIPv4FragmentsTrackingName)
 
 	if nativeCIDR := viper.GetString(IPv4NativeRoutingCIDR); nativeCIDR != "" {
 		c.ipv4NativeRoutingCIDR = cidr.MustParseCIDR(nativeCIDR)

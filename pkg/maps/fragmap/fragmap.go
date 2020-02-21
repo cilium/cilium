@@ -76,7 +76,7 @@ func (k FragmentKey) NewValue() bpf.MapValue { return &FragmentValue{} }
 
 // InitMap creates the signal map in the kernel.
 func InitMap() error {
-	if !option.Config.EnableIPv4 {
+	if !option.Config.EnableIPv4 || !option.Config.EnableIPv4FragmentsTracking {
 		return nil
 	}
 

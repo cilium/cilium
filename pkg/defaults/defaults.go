@@ -350,4 +350,8 @@ const (
 	// IPAMExpiration is the timeout after which an IP subject to expiratio
 	// is being released again if no endpoint is being created in time.
 	IPAMExpiration = 3 * time.Minute
+
+	// EnableIPv4FragmentsTracking enables IPv4 fragments tracking for
+	// L4-based lookups
+	EnableIPv4FragmentsTracking = true
 )
