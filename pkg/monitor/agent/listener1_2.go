@@ -86,6 +86,5 @@ func (ml *listenerv1_2) Version() listener.Version {
 func (ml *listenerv1_2) Close() {
 	ml.once.Do(func() {
 		ml.conn.Close()
-		close(ml.queue)
 	})
 }

@@ -42,6 +42,8 @@ func (m *ListenerSuite) TestListenerv1_2(c *C) {
 	// Calling Close() multiple times shouldn't cause panic.
 	l.Close()
 	l.Close()
+	// Explicitly close the queue here so that the defer function inside drainQueue gets called.
+	close(l.queue)
 	// Make sure the cleanup function gets called.
 	<-closed
 	server.Close()
