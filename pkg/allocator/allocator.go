@@ -367,6 +367,13 @@ func WithoutGC() AllocatorOption {
 	return func(a *Allocator) { a.disableGC = true }
 }
 
+// GetEvents returns the events channel given to the allocator when
+// constructed.
+// Note: This channel is not owned by the allocator!
+func (a *Allocator) GetEvents() AllocatorEventChan {
+	return a.events
+}
+
 // Delete deletes an allocator and stops the garbage collector
 func (a *Allocator) Delete() {
 	close(a.stopGC)
