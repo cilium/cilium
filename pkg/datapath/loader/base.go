@@ -49,7 +49,6 @@ const (
 	initArgXDPMode
 	initArgMTU
 	initArgIPSec
-	initArgMasquerade
 	initArgEncryptInterface
 	initArgHostReachableServices
 	initArgHostReachableServicesUDP
@@ -186,12 +185,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initArgIPSec] = "true"
 	} else {
 		args[initArgIPSec] = "false"
-	}
-
-	if !option.Config.InstallIptRules && option.Config.Masquerade {
-		args[initArgMasquerade] = "true"
-	} else {
-		args[initArgMasquerade] = "false"
 	}
 
 	if option.Config.EnableHostReachableServices {
