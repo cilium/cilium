@@ -314,3 +314,60 @@ func NewBackend6(id loadbalancer.BackendID, ip net.IP, port uint16, proto u8prot
 func (b *Backend6) Map() *bpf.Map          { return Backend6Map }
 func (b *Backend6) GetKey() BackendKey     { return b.Key }
 func (b *Backend6) GetValue() BackendValue { return b.Value }
+
+// SockRevNat6Key is the tuple with address, port and cookie used as key in
+// the reverse NAT sock map.
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
+type SockRevNat6Key struct {
+	cookie  uint64
+	address types.IPv6
+	port    int16
+	pad     int16
+}
+
+// SockRevNat6Value is an entry in the reverse NAT sock map.
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
+type SockRevNat6Value struct {
+	address     types.IPv6
+	port        int16
+	revNatIndex uint16
+}
+
+// GetKeyPtr returns the unsafe pointer to the BPF key
+func (k *SockRevNat6Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
+
+// GetValuePtr returns the unsafe pointer to the BPF value
+func (v *SockRevNat6Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
+
+// String converts the key into a human readable string format.
+func (k *SockRevNat6Key) String() string {
+	return fmt.Sprintf("%s:%d, %d", k.address, k.port, k.cookie)
+}
+
+// String converts the value into a human readable string format.
+func (v *SockRevNat6Value) String() string {
+	return fmt.Sprintf("%s:%d, %d", v.address, v.port, v.revNatIndex)
+}
+
+// NewValue returns a new empty instance of the structure representing the BPF
+// map value.
+func (k SockRevNat6Key) NewValue() bpf.MapValue { return &SockRevNat6Value{} }
+
+// CreateSockRevNat6Map creates the reverse NAT sock map.
+func CreateSockRevNat6Map() error {
+	sockRevNat6Map := bpf.NewMap(SockRevNat6MapName,
+		bpf.MapTypeLRUHash,
+		&SockRevNat6Key{},
+		int(unsafe.Sizeof(SockRevNat6Key{})),
+		&SockRevNat6Value{},
+		int(unsafe.Sizeof(SockRevNat6Value{})),
+		SockRevNat6MapSize,
+		0,
+		0,
+		bpf.ConvertKeyValue,
+	)
+	_, err := sockRevNat6Map.Create()
+	return err
+}

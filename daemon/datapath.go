@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,15 +27,22 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	datapathIpcache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/encrypt"
+	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
+	"github.com/cilium/cilium/pkg/maps/nat"
+	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -334,9 +341,70 @@ func (d *Daemon) initMaps() error {
 		return err
 	}
 
+	pm := probes.NewProbeManager()
+	supportedMapTypes := pm.GetMapTypes()
+	createSockRevNatMaps := option.Config.EnableHostReachableServices &&
+		option.Config.EnableHostServicesUDP && supportedMapTypes.HaveLruHashMapType
 	if err := d.svc.InitMaps(option.Config.EnableIPv6, option.Config.EnableIPv4,
-		option.Config.RestoreState); err != nil {
+		option.Config.RestoreState, createSockRevNatMaps); err != nil {
 		log.WithError(err).Fatal("Unable to initialize service maps")
+	}
+
+	if err := eventsmap.InitMap(); err != nil {
+		return err
+	}
+
+	if err := signalmap.InitMap(); err != nil {
+		return err
+	}
+
+	if err := policymap.InitCallMaps(); err != nil {
+		return err
+	}
+
+	if option.Config.EnableIPSec {
+		if err := encrypt.MapCreate(); err != nil {
+			return err
+		}
+	}
+
+	for _, ep := range d.endpointManager.GetEndpoints() {
+		ep.InitMap()
+	}
+
+	for _, ep := range d.endpointManager.GetEndpoints() {
+		for _, m := range ctmap.LocalMaps(ep, option.Config.EnableIPv4,
+			option.Config.EnableIPv6, supportedMapTypes.HaveLruHashMapType) {
+			if _, err := m.Create(); err != nil {
+				return err
+			}
+		}
+	}
+	for _, m := range ctmap.GlobalMaps(option.Config.EnableIPv4,
+		option.Config.EnableIPv6, supportedMapTypes.HaveLruHashMapType) {
+		if _, err := m.Create(); err != nil {
+			return err
+		}
+	}
+
+	ipv4Nat, ipv6Nat := nat.GlobalMaps(option.Config.EnableIPv4,
+		option.Config.EnableIPv6, supportedMapTypes.HaveLruHashMapType)
+	if option.Config.EnableIPv4 {
+		if _, err := ipv4Nat.Create(); err != nil {
+			return err
+		}
+	}
+	if option.Config.EnableIPv6 {
+		if _, err := ipv6Nat.Create(); err != nil {
+			return err
+		}
+	}
+
+	if option.Config.EnableNodePort {
+		if err := neighborsmap.InitMaps(option.Config.EnableIPv4,
+			option.Config.EnableIPv6); err != nil {
+			return err
+		}
 	}
 
 	// Set up the list of IPCache listeners in the daemon, to be

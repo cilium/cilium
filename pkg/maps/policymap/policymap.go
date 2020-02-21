@@ -29,6 +29,9 @@ const (
 	// PolicyCallMapName is the name of the map to do tail calls into policy
 	// enforcement programs.
 	PolicyCallMapName = "cilium_policy_call"
+	// InternalCallMapName is the name of the per-endpoint map for internal
+	// tail calls.
+	InternalCallMapName = "cilium_internal_call"
 
 	// MapName is the prefix for endpoint-specific policy maps which map
 	// identity+ports+direction to whether the policy allows communication
@@ -39,6 +42,10 @@ const (
 	// array for the tail calls to jump into the endpoint specific policy
 	// programs. This number *MUST* be identical to the maximum endpoint ID.
 	PolicyCallMaxEntries = ^uint16(0)
+	// InternalCallMaxEntries is the size of the internal tail call map for
+	// endpoints. This number *MUST* be identical to CILIUM_CALL_SIZE on BPF
+	// side.
+	InternalCallMaxEntries = 22
 
 	// AllPorts is used to ignore the L4 ports in PolicyMap lookups; all ports
 	// are allowed. In the datapath, this is represented with the value 0 in the
@@ -83,6 +90,36 @@ type PolicyEntry struct {
 	Packets   uint64 `align:"packets"`
 	Bytes     uint64 `align:"bytes"`
 }
+
+// CallKey is the index into the prog array map.
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
+type CallKey struct {
+	index uint32
+}
+
+// CallValue is the program ID in the prog array map.
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
+type CallValue struct {
+	progID uint32
+}
+
+// GetKeyPtr returns the unsafe pointer to the BPF key
+func (k *CallKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
+
+// GetValuePtr returns the unsafe pointer to the BPF value
+func (v *CallValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
+
+// String converts the key into a human readable string format.
+func (k *CallKey) String() string { return fmt.Sprintf("%d", k.index) }
+
+// String converts the value into a human readable string format.
+func (v *CallValue) String() string { return fmt.Sprintf("%d", v.progID) }
+
+// NewValue returns a new empty instance of the structure representing the BPF
+// map value.
+func (k CallKey) NewValue() bpf.MapValue { return &CallValue{} }
 
 func (pe *PolicyEntry) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(pe) }
 func (pe *PolicyEntry) NewValue() bpf.MapValue      { return &PolicyEntry{} }
@@ -278,6 +315,13 @@ func OpenOrCreate(path string) (*PolicyMap, bool, error) {
 	return m, isNewMap, err
 }
 
+// Create creates a policy map at the specified path.
+func Create(path string) (bool, error) {
+	m := newMap(path)
+	isNewMap, err := m.Create()
+	return isNewMap, err
+}
+
 // Open opens the policymap at the specified path.
 func Open(path string) (*PolicyMap, error) {
 	m := newMap(path)
@@ -290,4 +334,35 @@ func Open(path string) (*PolicyMap, error) {
 // InitMapInfo updates the map info defaults for policy maps.
 func InitMapInfo(maxEntries int) {
 	MaxEntries = maxEntries
+}
+
+// InitCallMaps creates the call maps (policy and internal) in the kernel.
+func InitCallMaps() error {
+	policyCallMap := bpf.NewMap(PolicyCallMapName,
+		bpf.MapTypeProgArray,
+		&CallKey{},
+		int(unsafe.Sizeof(CallKey{})),
+		&CallValue{},
+		int(unsafe.Sizeof(CallValue{})),
+		int(PolicyCallMaxEntries),
+		0,
+		0,
+		bpf.ConvertKeyValue,
+	)
+	if _, err := policyCallMap.Create(); err != nil {
+		return err
+	}
+	internalCallMap := bpf.NewMap(InternalCallMapName,
+		bpf.MapTypeProgArray,
+		&CallKey{},
+		int(unsafe.Sizeof(CallKey{})),
+		&CallValue{},
+		int(unsafe.Sizeof(CallValue{})),
+		InternalCallMaxEntries,
+		0,
+		0,
+		bpf.ConvertKeyValue,
+	)
+	_, err := internalCallMap.Create()
+	return err
 }

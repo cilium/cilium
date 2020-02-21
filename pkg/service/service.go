@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -134,7 +134,7 @@ func NewService(monitorNotify monitorNotify) *Service {
 // InitMaps opens or creates BPF maps used by services.
 //
 // If restore is set to false, entries of the maps are removed.
-func (s *Service) InitMaps(ipv6, ipv4, restore bool) error {
+func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -153,11 +153,21 @@ func (s *Service) InitMaps(ipv6, ipv4, restore bool) error {
 		if !restore {
 			toDelete = append(toDelete, lbmap.Service6MapV2, lbmap.Backend6Map, lbmap.RevNat6Map)
 		}
+		if sockMaps {
+			if err := lbmap.CreateSockRevNat6Map(); err != nil {
+				return err
+			}
+		}
 	}
 	if ipv4 {
 		toOpen = append(toOpen, lbmap.Service4MapV2, lbmap.Backend4Map, lbmap.RevNat4Map)
 		if !restore {
 			toDelete = append(toDelete, lbmap.Service4MapV2, lbmap.Backend4Map, lbmap.RevNat4Map)
+		}
+		if sockMaps {
+			if err := lbmap.CreateSockRevNat4Map(); err != nil {
+				return err
+			}
 		}
 	}
 

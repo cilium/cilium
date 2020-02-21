@@ -33,11 +33,6 @@ import (
 )
 
 const (
-	// SignalMapName is the BPF map name
-	SignalMapName = "cilium_signals"
-)
-
-const (
 	// SignalNatFillUp denotes potential congestion on the NAT table
 	SignalNatFillUp = iota
 	SignalTypeMax
