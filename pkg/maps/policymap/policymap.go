@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,19 +26,19 @@ import (
 )
 
 const (
-	// CallMapName is the name of the map to do tail calls into policy
-	// enforcement programs
-	CallMapName = "cilium_policy"
+	// PolicyCallMapName is the name of the map to do tail calls into policy
+	// enforcement programs.
+	PolicyCallMapName = "cilium_policy_call"
 
 	// MapName is the prefix for endpoint-specific policy maps which map
 	// identity+ports+direction to whether the policy allows communication
 	// with that identity on that port for that direction.
-	MapName = CallMapName + "_"
+	MapName = PolicyCallMapName + "_"
 
-	// ProgArrayMaxEntries is the upper limit of entries in the program
+	// PolicyCallMaxEntries is the upper limit of entries in the program
 	// array for the tail calls to jump into the endpoint specific policy
-	// programs. This number *MUST* be identical to the maximum endponit ID.
-	ProgArrayMaxEntries = ^uint16(0)
+	// programs. This number *MUST* be identical to the maximum endpoint ID.
+	PolicyCallMaxEntries = ^uint16(0)
 
 	// AllPorts is used to ignore the L4 ports in PolicyMap lookups; all ports
 	// are allowed. In the datapath, this is represented with the value 0 in the

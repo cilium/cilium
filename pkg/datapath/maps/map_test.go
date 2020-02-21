@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -86,9 +86,9 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 				42,
 			},
 			paths: []string{
-				"cilium_policy_00001",
-				"cilium_policy_00001",
-				"cilium_policy_00042",
+				"cilium_policy_call_00001",
+				"cilium_policy_call_00001",
+				"cilium_policy_call_00042",
 				"cilium_ct6_00001",
 				"cilium_ct4_00001",
 				"cilium_ct_any6_00001",
@@ -104,8 +104,8 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 				42,
 			},
 			paths: []string{
-				"cilium_policy_00001",
-				"cilium_policy_00042",
+				"cilium_policy_call_00001",
+				"cilium_policy_call_00042",
 				"cilium_ct6_00001",
 				"cilium_ct4_00001",
 				"cilium_ct_any6_00001",
@@ -113,7 +113,7 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 				"cilium_ep_config_00001",
 			},
 			removedPaths: []string{
-				"cilium_policy_00001",
+				"cilium_policy_call_00001",
 				"cilium_ct6_00001",
 				"cilium_ct4_00001",
 				"cilium_ct_any6_00001",
@@ -130,8 +130,8 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 				1,
 			},
 			paths: []string{
-				"cilium_policy_00001",
-				"cilium_policy_00042",
+				"cilium_policy_call_00001",
+				"cilium_policy_call_00042",
 				"cilium_ct6_00001",
 				"cilium_ct4_00001",
 				"cilium_ct_any6_00001",
@@ -139,7 +139,7 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 				"cilium_ep_config_00001",
 			},
 			removedPaths: []string{
-				"cilium_policy_00042",
+				"cilium_policy_call_00042",
 			},
 			removedMappings: []int{
 				42,
@@ -149,8 +149,8 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 			name:      "Delete every map",
 			endpoints: []uint16{},
 			paths: []string{
-				"cilium_policy_00001",
-				"cilium_policy_00042",
+				"cilium_policy_call_00001",
+				"cilium_policy_call_00042",
 				"cilium_ct6_00001",
 				"cilium_ct4_00001",
 				"cilium_ct_any6_00001",
@@ -158,8 +158,8 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 				"cilium_ep_config_00001",
 			},
 			removedPaths: []string{
-				"cilium_policy_00001",
-				"cilium_policy_00042",
+				"cilium_policy_call_00001",
+				"cilium_policy_call_00042",
 				"cilium_ct6_00001",
 				"cilium_ct4_00001",
 				"cilium_ct_any6_00001",
@@ -178,15 +178,15 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 				42,
 			},
 			paths: []string{
-				"cilium_policy_1",
-				"cilium_policy_42",
+				"cilium_policy_call_1",
+				"cilium_policy_call_42",
 				"cilium_ct6_1",
 				"cilium_ct4_1",
 				"cilium_ct_any6_1",
 				"cilium_ct_any4_1",
 				"cilium_ep_config_1",
-				"cilium_policy_00001",
-				"cilium_policy_00042",
+				"cilium_policy_call_00001",
+				"cilium_policy_call_00042",
 				"cilium_ct6_00001",
 				"cilium_ct4_00001",
 				"cilium_ct_any6_00001",
@@ -194,8 +194,8 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 				"cilium_ep_config_00001",
 			},
 			removedPaths: []string{
-				"cilium_policy_1",
-				"cilium_policy_42",
+				"cilium_policy_call_1",
+				"cilium_policy_call_42",
 				"cilium_ct6_1",
 				"cilium_ct4_1",
 				"cilium_ct_any6_1",

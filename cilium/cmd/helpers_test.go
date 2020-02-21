@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -597,7 +597,7 @@ func (s *CMDHelpersSuite) TestParsePolicyUpdateArgsHelper(c *C) {
 		{
 			args:             []string{labels.IDNameHost, "ingress", "12345"},
 			invalid:          false,
-			mapBaseName:      "cilium_policy_reserved_1",
+			mapBaseName:      "cilium_policy_call_reserved_1",
 			trafficDirection: trafficdirection.Ingress,
 			peerLbl:          12345,
 			port:             0,
@@ -606,7 +606,7 @@ func (s *CMDHelpersSuite) TestParsePolicyUpdateArgsHelper(c *C) {
 		{
 			args:             []string{"123", "egress", "12345", "1/tcp"},
 			invalid:          false,
-			mapBaseName:      "cilium_policy_00123",
+			mapBaseName:      "cilium_policy_call_00123",
 			trafficDirection: trafficdirection.Egress,
 			peerLbl:          12345,
 			port:             1,
@@ -615,7 +615,7 @@ func (s *CMDHelpersSuite) TestParsePolicyUpdateArgsHelper(c *C) {
 		{
 			args:             []string{"123", "ingress", "12345", "1"},
 			invalid:          false,
-			mapBaseName:      "cilium_policy_00123",
+			mapBaseName:      "cilium_policy_call_00123",
 			trafficDirection: trafficdirection.Ingress,
 			peerLbl:          12345,
 			port:             1,
