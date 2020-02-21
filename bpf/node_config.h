@@ -31,7 +31,6 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define REMOTE_NODE_ID 6
 #define HOST_IFINDEX_MAC { .addr = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 } }
 #define NAT46_PREFIX { .addr = { 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xa, 0x0, 0x0, 0x0, 0x0, 0x0 } }
-#define BPF_PKT_DIR 1
 #define NODEPORT_PORT_MIN 30000
 #define NODEPORT_PORT_MAX 32767
 #define NODEPORT_PORT_MIN_NAT (NODEPORT_PORT_MAX + 1)
@@ -46,28 +45,21 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define CT_REPORT_INTERVAL		5
 #define CT_REPORT_FLAGS			0xff
 
-#ifdef ENABLE_MASQUERADE
-#define SNAT_MAPPING_MIN_PORT 1024
-#define SNAT_MAPPING_MAX_PORT 65535
-#endif
-
 #ifdef ENABLE_IPV4
 #define IPV4_MASK 0xffff
 #define IPV4_GATEWAY 0xfffff50a
 #define IPV4_LOOPBACK 0x1ffff50a
-#if defined(ENABLE_MASQUERADE) || defined(ENABLE_NODEPORT)
-#define SNAT_IPV4_EXTERNAL IPV4_GATEWAY
+#ifdef ENABLE_NODEPORT
 #define SNAT_MAPPING_IPV4 test_cilium_snat_v4_external
 #define SNAT_MAPPING_IPV4_SIZE 524288
-#endif /* ENABLE_MASQUERADE */
+#endif /* ENABLE_NODEPORT */
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
-#if defined(ENABLE_MASQUERADE) || defined(ENABLE_NODEPORT)
-DEFINE_IPV6(SNAT_IPV6_EXTERNAL, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1, 0x0, 0x1, 0x0, 0x0);
+#ifdef ENABLE_NODEPORT
 #define SNAT_MAPPING_IPV6 test_cilium_snat_v6_external
 #define SNAT_MAPPING_IPV6_SIZE 524288
-#endif /* ENABLE_MASQUERADE */
+#endif /* ENABLE_NODEPORT */
 #endif /* ENABLE_IPV6 */
 
 #define ENCAP_GENEVE 1
@@ -110,7 +102,7 @@ DEFINE_IPV6(SNAT_IPV6_EXTERNAL, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0
 #define MONITOR_AGGREGATION 5
 #define MTU 1500
 #define EPHEMERAL_MIN 32768
-#if defined(ENABLE_MASQUERADE) || defined(ENABLE_NODEPORT)
+#ifdef ENABLE_NODEPORT
 #define CT_MAP_TCP6 test_cilium_ct_tcp6_65535
 #define CT_MAP_ANY6 test_cilium_ct_any6_65535
 #define CT_MAP_TCP4 test_cilium_ct_tcp4_65535
@@ -119,7 +111,7 @@ DEFINE_IPV6(SNAT_IPV6_EXTERNAL, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0
 #define CT_MAP_SIZE_ANY 4096
 #define CONNTRACK
 #define CONNTRACK_ACCOUNTING
-#endif
+#endif /* ENABLE_NODEPORT */
 
 #ifdef ENABLE_NODEPORT
 #ifdef ENABLE_IPV4

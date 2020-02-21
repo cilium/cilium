@@ -268,8 +268,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	if option.Config.IsPodSubnetsDefined() {
 		cDefinesMap["IP_POOLS"] = "1"
 	}
-	haveMasquerade := !option.Config.InstallIptRules && option.Config.Masquerade
-	if haveMasquerade || option.Config.EnableNodePort {
+	if option.Config.EnableNodePort {
 		if option.Config.EnableIPv4 {
 			cDefinesMap["SNAT_MAPPING_IPV4"] = nat.MapNameSnat4Global
 			cDefinesMap["SNAT_MAPPING_IPV4_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
@@ -279,25 +278,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			cDefinesMap["SNAT_MAPPING_IPV6"] = nat.MapNameSnat6Global
 			cDefinesMap["SNAT_MAPPING_IPV6_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
 		}
-	}
-	if haveMasquerade {
-		cDefinesMap["ENABLE_MASQUERADE"] = "1"
-		cDefinesMap["SNAT_MAPPING_MIN_PORT"] = fmt.Sprintf("%d", nat.MinPortSnatDefault)
-		cDefinesMap["SNAT_MAPPING_MAX_PORT"] = fmt.Sprintf("%d", nat.MaxPortSnatDefault)
 
-		// SNAT_DIRECTION is defined by init.sh
-		if option.Config.EnableIPv4 {
-			ipv4Addr := node.GetExternalIPv4()
-			cDefinesMap["SNAT_IPV4_EXTERNAL"] = fmt.Sprintf("%#x", byteorder.HostSliceToNetwork(ipv4Addr, reflect.Uint32).(uint32))
-		}
-
-		if option.Config.EnableIPv6 {
-			extraMacrosMap["SNAT_IPV6_EXTERNAL"] = hostIP.String()
-			fw.WriteString(defineIPv6("SNAT_IPV6_EXTERNAL", hostIP))
-		}
-	}
-
-	if (!option.Config.InstallIptRules && option.Config.Masquerade) || option.Config.EnableNodePort {
 		ctmap.WriteBPFMacros(fw, nil)
 	}
 
