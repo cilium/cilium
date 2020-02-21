@@ -305,7 +305,7 @@ func ObjPin(fd int, pathname string) error {
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
 	)
-	runtime.KeepAlive(&pathStr)
+	runtime.KeepAlive(pathStr)
 	runtime.KeepAlive(&uba)
 
 	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
@@ -336,7 +336,7 @@ func ObjGet(pathname string) (int, error) {
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
 	)
-	runtime.KeepAlive(&pathStr)
+	runtime.KeepAlive(pathStr)
 	runtime.KeepAlive(&uba)
 	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
 		metrics.BPFSyscallDuration.WithLabelValues(metricOpObjGet, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
