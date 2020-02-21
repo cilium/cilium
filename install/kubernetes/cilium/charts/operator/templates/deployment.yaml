@@ -127,6 +127,9 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
 {{- end }}
       restartPolicy: Always
+{{- if and (eq .Release.Namespace "kube-system") (or (gt .Capabilities.KubeVersion.Minor "10") (gt .Capabilities.KubeVersion.Major "1"))}}
+      priorityClassName: system-cluster-critical
+{{- end }}
       serviceAccount: cilium-operator
       serviceAccountName: cilium-operator
       volumes:
