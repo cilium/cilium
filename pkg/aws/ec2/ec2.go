@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"time"
 
+	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/spanstat"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -107,14 +107,14 @@ func (c *Client) describeNetworkInterfaces(ctx context.Context) ([]ec2.NetworkIn
 }
 
 // parseENI parses a ec2.NetworkInterface as returned by the EC2 service API,
-// converts it into a v2. ENI object
-func parseENI(iface *ec2.NetworkInterface, vpcs types.VpcMap, subnets types.SubnetMap) (instanceID string, eni *v2.ENI, err error) {
+// converts it into a eniTypes.ENI object
+func parseENI(iface *ec2.NetworkInterface, vpcs types.VpcMap, subnets types.SubnetMap) (instanceID string, eni *eniTypes.ENI, err error) {
 	if iface.PrivateIpAddress == nil {
 		err = fmt.Errorf("ENI has no IP address")
 		return
 	}
 
-	eni = &v2.ENI{
+	eni = &eniTypes.ENI{
 		IP:             *iface.PrivateIpAddress,
 		SecurityGroups: []string{},
 		Addresses:      []string{},
@@ -297,7 +297,7 @@ func (c *Client) GetSubnets(ctx context.Context) (types.SubnetMap, error) {
 }
 
 // CreateNetworkInterface creates an ENI with the given parameters
-func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int64, subnetID, desc string, groups []string) (string, *v2.ENI, error) {
+func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int64, subnetID, desc string, groups []string) (string, *eniTypes.ENI, error) {
 	createReq := &ec2.CreateNetworkInterfaceInput{
 		Description:                    &desc,
 		SecondaryPrivateIpAddressCount: &toAllocate,

@@ -21,6 +21,7 @@ import (
 	"sort"
 	"time"
 
+	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
@@ -36,18 +37,18 @@ type k8sAPI interface {
 }
 
 type nodeManagerAPI interface {
-	GetENI(instanceID string, index int) *v2.ENI
-	GetENIs(instanceID string) []*v2.ENI
+	GetENI(instanceID string, index int) *eniTypes.ENI
+	GetENIs(instanceID string) []*eniTypes.ENI
 	GetSubnet(subnetID string) *types.Subnet
 	GetSubnets(ctx context.Context) types.SubnetMap
 	FindSubnetByTags(vpcID, availabilityZone string, required types.Tags) *types.Subnet
 	FindSecurityGroupByTags(vpcID string, required types.Tags) []*types.SecurityGroup
 	Resync(ctx context.Context) time.Time
-	UpdateENI(instanceID string, eni *v2.ENI)
+	UpdateENI(instanceID string, eni *eniTypes.ENI)
 }
 
 type ec2API interface {
-	CreateNetworkInterface(ctx context.Context, toAllocate int64, subnetID, desc string, groups []string) (string, *v2.ENI, error)
+	CreateNetworkInterface(ctx context.Context, toAllocate int64, subnetID, desc string, groups []string) (string, *eniTypes.ENI, error)
 	DeleteNetworkInterface(ctx context.Context, eniID string) error
 	AttachNetworkInterface(ctx context.Context, index int64, instanceID, eniID string) (string, error)
 	ModifyNetworkInterface(ctx context.Context, eniID, attachmentID string, deleteOnTermination bool) error
