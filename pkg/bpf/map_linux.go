@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -451,6 +451,16 @@ func (m *Map) OpenOrCreateUnpinned() (bool, error) {
 	defer m.lock.Unlock()
 
 	return m.openOrCreate(false)
+}
+
+// Create is similar to OpenOrCreate, but closes the map after creating or
+// opening it.
+func (m *Map) Create() (bool, error) {
+	isNew, err := m.OpenOrCreate()
+	if err != nil {
+		return isNew, err
+	}
+	return isNew, m.Close()
 }
 
 func (m *Map) openOrCreate(pin bool) (bool, error) {

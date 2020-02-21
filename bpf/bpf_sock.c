@@ -140,19 +140,6 @@ bool sock_proto_enabled(__u32 proto)
 
 #ifdef ENABLE_IPV4
 #ifdef ENABLE_HOST_SERVICES_UDP
-struct ipv4_revnat_tuple {
-	__u64 cookie;
-	__be32 address;
-	__be16 port;
-	__u16 pad;
-};
-
-struct ipv4_revnat_entry {
-	__be32 address;
-	__be16 port;
-	__u16 rev_nat_index;
-};
-
 struct bpf_elf_map __section_maps LB4_REVERSE_NAT_SK_MAP = {
 	.type		= BPF_MAP_TYPE_LRU_HASH,
 	.size_key	= sizeof(struct ipv4_revnat_tuple),
@@ -461,19 +448,6 @@ int sock4_xlate_rcv(struct bpf_sock_addr *ctx)
 
 #if defined(ENABLE_IPV6) || defined(ENABLE_IPV4)
 #ifdef ENABLE_HOST_SERVICES_UDP
-struct ipv6_revnat_tuple {
-	__u64 cookie;
-	union v6addr address;
-	__be16 port;
-	__u16 pad;
-};
-
-struct ipv6_revnat_entry {
-	union v6addr address;
-	__be16 port;
-	__u16 rev_nat_index;
-};
-
 struct bpf_elf_map __section_maps LB6_REVERSE_NAT_SK_MAP = {
 	.type		= BPF_MAP_TYPE_LRU_HASH,
 	.size_key	= sizeof(struct ipv6_revnat_tuple),

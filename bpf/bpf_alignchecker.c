@@ -26,6 +26,7 @@
 #include "lib/dbg.h"
 #include "lib/drop.h"
 #define SKIP_UNDEF_LPM_LOOKUP_FN
+#include "lib/lb.h"
 #include "lib/maps.h"
 #include "lib/nat.h"
 #include "lib/trace.h"
@@ -72,6 +73,10 @@ int main() {
     DECLARE_STRUCT(drop_notify, iter);
     DECLARE_STRUCT(debug_msg, iter);
     DECLARE_STRUCT(debug_capture_msg, iter);
+    DECLARE_STRUCT(ipv4_revnat_tuple, iter);
+    DECLARE_STRUCT(ipv4_revnat_entry, iter);
+    DECLARE_STRUCT(ipv6_revnat_tuple, iter);
+    DECLARE_STRUCT(ipv6_revnat_entry, iter);
 
     return 0;
 }

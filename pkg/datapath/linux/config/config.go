@@ -33,17 +33,19 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
+	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
+	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/signal"
 
 	"github.com/vishvananda/netlink"
 )
@@ -148,8 +150,8 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["PREALLOCATE_MAPS"] = "1"
 	}
 
-	cDefinesMap["EVENTS_MAP"] = "cilium_events"
-	cDefinesMap["SIGNAL_MAP"] = signal.SignalMapName
+	cDefinesMap["EVENTS_MAP"] = eventsmap.MapName
+	cDefinesMap["SIGNAL_MAP"] = signalmap.MapName
 	cDefinesMap["POLICY_CALL_MAP"] = policymap.PolicyCallMapName
 	cDefinesMap["EP_POLICY_MAP"] = eppolicymap.MapName
 	cDefinesMap["LB6_REVERSE_NAT_MAP"] = "cilium_lb6_reverse_nat"
@@ -206,10 +208,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_NODEPORT"] = "1"
 
 		if option.Config.EnableIPv4 {
-			cDefinesMap["NODEPORT_NEIGH4"] = "cilium_nodeport_neigh4"
+			cDefinesMap["NODEPORT_NEIGH4"] = neighborsmap.Map4Name
 		}
 		if option.Config.EnableIPv6 {
-			cDefinesMap["NODEPORT_NEIGH6"] = "cilium_nodeport_neigh6"
+			cDefinesMap["NODEPORT_NEIGH6"] = neighborsmap.Map6Name
 		}
 		if option.Config.NodePortMode == "dsr" {
 			cDefinesMap["ENABLE_DSR"] = "1"

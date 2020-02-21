@@ -60,6 +60,10 @@ func CheckStructAlignments(path string) error {
 		"policy_key":           {reflect.TypeOf(policymap.PolicyKey{})},
 		"policy_entry":         {reflect.TypeOf(policymap.PolicyEntry{})},
 		"sock_key":             {reflect.TypeOf(sockmap.SockmapKey{})},
+		"ipv4_revnat_tuple":    {reflect.TypeOf(lbmap.SockRevNat4Key{})},
+		"ipv4_revnat_entry":    {reflect.TypeOf(lbmap.SockRevNat4Value{})},
+		"ipv6_revnat_tuple":    {reflect.TypeOf(lbmap.SockRevNat6Key{})},
+		"ipv6_revnat_entry":    {reflect.TypeOf(lbmap.SockRevNat6Value{})},
 		// TODO: alignchecker does not support nested structs yet.
 		// "ipv4_nat_entry":    {reflect.TypeOf(nat.NatEntry4{})},
 		// "ipv6_nat_entry":    {reflect.TypeOf(nat.NatEntry6{})},

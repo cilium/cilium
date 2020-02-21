@@ -35,6 +35,34 @@
 
 #define CILIUM_LB_MAP_MAX_FE		256
 
+#ifdef ENABLE_HOST_SERVICES_UDP
+struct ipv4_revnat_tuple {
+	__u64 cookie;
+	__be32 address;
+	__be16 port;
+	__u16 pad;
+};
+
+struct ipv4_revnat_entry {
+	__be32 address;
+	__be16 port;
+	__u16 rev_nat_index;
+};
+
+struct ipv6_revnat_tuple {
+	__u64 cookie;
+	union v6addr address;
+	__be16 port;
+	__u16 pad;
+};
+
+struct ipv6_revnat_entry {
+	union v6addr address;
+	__be16 port;
+	__u16 rev_nat_index;
+};
+#endif
+
 #ifdef ENABLE_IPV6
 struct bpf_elf_map __section_maps LB6_REVERSE_NAT_MAP = {
 	.type		= BPF_MAP_TYPE_HASH,
