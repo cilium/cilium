@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/modules"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
 	go_version "github.com/blang/semver"
@@ -322,9 +323,10 @@ var transientChain = customChain{
 
 // IptablesManager manages the iptables-related configuration for Cilium.
 type IptablesManager struct {
-	haveIp6tables   bool
-	haveSocketMatch bool
-	waitArgs        []string
+	haveIp6tables        bool
+	haveSocketMatch      bool
+	ipEarlyDemuxDisabled bool
+	waitArgs             []string
 }
 
 // Init initializes the iptables manager and checks for iptables kernel modules
@@ -355,9 +357,40 @@ func (m *IptablesManager) Init() {
 	m.haveIp6tables = ip6tables
 
 	if err := modulesManager.FindOrLoadModules("xt_socket"); err != nil {
-		log.WithError(err).Warning("xt_socket kernel module could not be loaded")
 		if option.Config.Tunnel == option.TunnelDisabled {
-			log.Warning("Traffic to endpoints with L7 ingress policy may be dropped unexpectedly")
+			// xt_socket module is needed to circumvent an explicit drop in ip_forward()
+			// logic for packets for which a local socket is found by ip early
+			// demux. xt_socket performs a local socket match and sets an skb mark on
+			// match, which will divert the packet to the local stack using our policy
+			// routing rule, thus avoiding being processed by ip_forward() at all.
+			//
+			// If xt_socket module does not exist we can disable ip early demux to to
+			// avoid the explicit drop in ip_forward(). This is not needed in tunneling
+			// modes, as then we'll set the skb mark in the bpf logic before the policy
+			// routing stage so that the packet is routed locally instead of being
+			// forwarded by ip_forward().
+			//
+			// We would not need the xt_socket at all if the datapath universally would
+			// set the "to proxy" skb mark bits on before the packet hits policy routing
+			// stage. Currently this is not true for endpoint routing modes.
+			log.WithError(err).Warning("xt_socket kernel module could not be loaded")
+
+			if option.Config.EnableXTSocketFallback {
+				v4disabled := true
+				v6disabled := true
+				if option.Config.EnableIPv4 {
+					v4disabled = sysctl.Disable("net.ipv4.ip_early_demux") == nil
+				}
+				if option.Config.EnableIPv6 {
+					v6disabled = sysctl.Disable("net.ipv6.ip_early_demux") == nil
+				}
+				if v4disabled && v6disabled {
+					m.ipEarlyDemuxDisabled = true
+					log.Warning("Disabled ip_early_demux to allow proxy redirection with original source/destination address without xt_socket support also in non-tunneled datapath modes.")
+				} else {
+					log.WithError(err).Warning("Could not disable ip_early_demux, traffic redirected due to an HTTP policy or visibility may be dropped unexpectedly")
+				}
+			}
 		}
 	} else {
 		m.haveSocketMatch = true
@@ -374,8 +407,13 @@ func (m *IptablesManager) Init() {
 	}
 }
 
+// SupportsOriginalSourceAddr tells if an L7 proxy can use POD's original source address and port in
+// the upstream connection to allow the destination to properly derive the source security ID from
+// the source IP address.
 func (m *IptablesManager) SupportsOriginalSourceAddr() bool {
-	return m.haveSocketMatch
+	// Original source address use works if xt_socket match is supported, or if ip early demux
+	// is disabled, or if the datapath is in a tunneling mode.
+	return m.haveSocketMatch || m.ipEarlyDemuxDisabled || option.Config.Tunnel != option.TunnelDisabled
 }
 
 // RemoveRules removes iptables rules installed by Cilium.

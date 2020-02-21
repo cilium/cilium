@@ -254,6 +254,9 @@ data:
   ipvlan-master-device: {{ .Values.global.ipvlan.masterDevice }}
 {{- end }}
 {{- end }}
+{{- if .Values.global.enableXTSocketFallback }}
+  enable-xt-socket-fallback: {{ .Values.global.enableXTSocketFallback | quote }}
+{{- end}}
   install-iptables-rules: {{ .Values.global.installIptablesRules | quote }}
   auto-direct-node-routes: {{ .Values.global.autoDirectNodeRoutes | quote }}
 
