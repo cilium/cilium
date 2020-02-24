@@ -165,7 +165,7 @@ $(TARGET): $(TARGET).c
 	$(QUIET) ${HOSTCC} -Wall -O2 -Wno-format-truncation -I include/ $@.c -lelf -o $@
 
 install:
-	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
+	$(QUIET)$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
 
 clean:
 	@$(ECHO_CLEAN)
