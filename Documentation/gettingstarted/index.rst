@@ -54,6 +54,7 @@ Advanced Networking
 
    aws-eni
    kube-router
+   bird
    clustermesh
    flannel-integration
    ipvlan
