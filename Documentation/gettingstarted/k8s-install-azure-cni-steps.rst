@@ -1,11 +1,3 @@
-Limitations
-===========
-
-* Due to the architecture of the Azure CNI plugin, Layer 7 network policies and
-  visibility including FQDN policies are currently not supported in this
-  chaining mode.  The upcoming native Azure IPAM mode will support all L7
-  network policies.
-
 Create an AKS + Cilium CNI configuration
 ========================================
 
@@ -28,6 +20,7 @@ desired CNI chaining configuration:
           "plugins": [
             {
               "type": "azure-vnet",
+              "mode": "transparent",
               "bridge": "azure0",
               "ipam": {
                  "type": "azure-vnet-ipam"
@@ -73,6 +66,7 @@ Deploy Cilium release via Helm:
      --set global.cni.chainingMode=generic-veth \\
      --set global.cni.customConf=true \\
      --set global.nodeinit.enabled=true \\
+     --set nodeinit.azure=true \\
      --set global.cni.configMap=cni-configuration \\
      --set global.tunnel=disabled \\
      --set global.masquerade=false
