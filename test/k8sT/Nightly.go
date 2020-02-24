@@ -322,8 +322,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 var _ = Describe("NightlyExamples", func() {
 
 	var kubectl *helpers.Kubectl
-	var demoPath string
-	var l3Policy, l7Policy string
+	var l3Policy string
 	var ciliumFilename string
 
 	BeforeAll(func() {
@@ -358,45 +357,74 @@ var _ = Describe("NightlyExamples", func() {
 	})
 
 	Context("Upgrade test", func() {
-		var cleanupCallback = func() { return }
+		var (
+			kubectl *helpers.Kubectl
 
-		BeforeEach(func() {
+			cleanupCallback = func() { return }
+		)
+
+		BeforeAll(func() {
+			kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+
+			demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
+			l7Policy = helpers.ManifestGet(kubectl.BasePath(), "l7-policy.yaml")
+			migrateSVCClient = helpers.ManifestGet(kubectl.BasePath(), "migrate-svc-client.yaml")
+			migrateSVCServer = helpers.ManifestGet(kubectl.BasePath(), "migrate-svc-server.yaml")
+			_ = kubectl.Delete(helpers.DNSDeployment(kubectl.BasePath()))
+
+			kubectl.Delete(migrateSVCClient)
+			kubectl.Delete(migrateSVCServer)
+			kubectl.Delete(l7Policy)
+			kubectl.Delete(demoPath)
+
 			// Delete kube-dns because if not will be a restore the old endpoints
 			// from master instead of create the new ones.
-			_ = kubectl.Delete(helpers.DNSDeployment(kubectl.BasePath()))
+			_ = kubectl.DeleteResource(
+				"deploy", fmt.Sprintf("-n %s kube-dns", helpers.KubeSystemNamespace))
 
 			_ = kubectl.DeleteResource(
 				"deploy", fmt.Sprintf("-n %s cilium-operator", helpers.CiliumNamespace))
+			// Sometimes PolicyGen has a lot of pods running around without delete
+			// it. Using this we are sure that we delete before this test start
+			kubectl.Exec(fmt.Sprintf(
+				"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
 
-			// Delete etcd operator because sometimes when install from
-			// clean-state the quorum is lost.
-			// ETCD operator maybe is not installed at all, so no assert here.
 			kubectl.DeleteETCDOperator()
-			ExpectAllPodsTerminated(kubectl)
 
+			ExpectAllPodsTerminated(kubectl)
+		})
+
+		AfterAll(func() {
+			kubectl.CloseSSHClient()
+		})
+
+		AfterFailed(func() {
+			kubectl.CiliumReport(helpers.CiliumNamespace, "cilium endpoint list")
+		})
+
+		JustAfterEach(func() {
+			kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 		})
 
 		AfterEach(func() {
 			cleanupCallback()
-		})
-
-		AfterAll(func() {
-			_ = kubectl.ApplyDefault(helpers.DNSDeployment(kubectl.BasePath()))
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		for imageVersion, chartVersion := range helpers.NightlyStableUpgradesFrom {
 			func(imageVersion, chartVersion string) {
-				It(fmt.Sprintf("Update Cilium from %s to master", imageVersion), func() {
-					var assertUpgradeSuccessful func()
-					assertUpgradeSuccessful, cleanupCallback = InstallAndValidateCiliumUpgrades(
-						kubectl,
-						imageVersion,
-						chartVersion,
-						helpers.CiliumLatestHelmChartVersion,
-						helpers.CiliumLatestImageVersion,
-					)
-					assertUpgradeSuccessful()
-				})
+				SkipItIf(func() bool { return !helpers.RunsWithKubeProxy() },
+					fmt.Sprintf("Update Cilium from %s to master", imageVersion), func() {
+						var assertUpgradeSuccessful func()
+						assertUpgradeSuccessful, cleanupCallback = InstallAndValidateCiliumUpgrades(
+							kubectl,
+							chartVersion,
+							imageVersion,
+							helpers.CiliumLatestHelmChartVersion,
+							helpers.CiliumLatestImageVersion,
+						)
+						assertUpgradeSuccessful()
+					})
 			}(imageVersion, chartVersion)
 		}
 	})
