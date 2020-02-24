@@ -265,8 +265,8 @@ encodes this information as an IPv4 option or IPv6 extension header at the cost 
 advertising a lower MTU. For TCP services, Cilium only encodes the service IP/port
 for the SYN packet.
 
-Above helm example configuration in a kube-proxy-free environment with DSR enabled
-would look as follows:
+Above helm example configuration in a kube-proxy-free environment with DSR-only mode
+enabled would look as follows:
 
 .. parsed-literal::
 
@@ -276,6 +276,34 @@ would look as follows:
         --set global.autoDirectNodeRoutes=true \\
         --set global.kubeProxyReplacement=strict \\
         --set global.nodePort.mode=dsr \\
+        --set global.k8sServiceHost=API_SERVER_IP \\
+        --set global.k8sServicePort=API_SERVER_PORT
+
+Hybrid DSR and SNAT Mode
+************************
+
+Cilium also supports a hybrid DSR and SNAT mode, that is, DSR is performed for TCP
+and SNAT for UDP connections. This has the advantage that it removes the need for
+manual MTU changes in the network while still benefitting from the latency improvements
+through the removed extra hop for replies, in particular, when TCP is the main transport
+for workloads.
+
+The mode setting ``global.nodePort.mode`` allows to control the behavior through the
+options ``dsr``, ``snat`` and ``hybrid``. While Cilium's BPF NodePort implementation
+operates in SNAT mode by default, the ``hybrid`` mode is automatically enabled for the
+``global.kubeProxyReplacement`` settings with value ``probe`` or ``strict`` in order to
+transparently benefit from the optimization.
+
+A helm example configuration in a kube-proxy-free environment with DSR enabled in hybrid
+mode would look as follows:
+
+.. parsed-literal::
+
+    helm install cilium |CHART_RELEASE| \\
+        --namespace kube-system \\
+        --set global.tunnel=disabled \\
+        --set global.autoDirectNodeRoutes=true \\
+        --set global.kubeProxyReplacement=strict \\
         --set global.k8sServiceHost=API_SERVER_IP \\
         --set global.k8sServicePort=API_SERVER_PORT
 
@@ -414,5 +442,8 @@ Limitations
       the BPF kube-proxy replacement. Meaning, while the first packet with L4 header will
       reach the backend, all subsequent packets will not due to service lookup failing.
       This will be addressed via `GH issue 10076 <https://github.com/cilium/cilium/issues/10076>`__.
+    * Cilium's DSR NodePort mode currently does not operate well in environments with
+      TCP Fast Open (TFO) enabled. It is recommended to switch to ``snat`` mode in this
+      situation.
     * Kubernetes Service sessionAffinity is currently not implemented.
       This will be addressed via `GH issue 9076 <https://github.com/cilium/cilium/issues/9076>`__.
