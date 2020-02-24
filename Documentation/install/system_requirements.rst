@@ -20,7 +20,6 @@ When running Cilium using the container image ``cilium/cilium``, the host
 system must meet these requirements:
 
 - `Linux kernel`_ >= 4.9.17
-- :ref:`req_kvstore` etcd >= 3.1.0 or consul >= 0.6.4
 
 When running Cilium as a native process on your host (i.e. **not** running the
 ``cilium/cilium`` container image) these additional requirements must be met:
@@ -30,6 +29,11 @@ When running Cilium as a native process on your host (i.e. **not** running the
 
 .. _`clang+LLVM`: https://llvm.org
 .. _iproute2: https://www.kernel.org/pub/linux/utils/net/iproute2/
+
+When running Cilium without Kubernetes these additional requirements
+must be met:
+
+- :ref:`req_kvstore` etcd >= 3.1.0 or consul >= 0.6.4
 
 ======================== ========================== ===================
 Requirement              Minimum Version            In cilium container
@@ -137,12 +141,18 @@ by adding the following to the helm configuration command line:
 Key-Value store
 ===============
 
-Cilium uses a distributed Key-Value store to manage, synchronize and distribute
-security identities across all cluster nodes. The following Key-Value stores
-are currently supported:
+Cilium optionally uses a distributed Key-Value store to manage,
+synchronize and distribute security identities across all cluster
+nodes. The following Key-Value stores are currently supported:
 
 - etcd >= 3.1.0
 - consul >= 0.6.4
+
+Cilium can be used without a Key-Value store when CRD-based state
+management is used with Kubernetes. This is the default for new Cilium
+installations. Larger clusters will perform better with a Key-Value
+store backed identity management instead, see :ref:`k8s_quick_install`
+for more details.
 
 See :ref:`install_kvstore` for details on how to configure the
 ``cilium-agent`` to use a Key-Value store.
