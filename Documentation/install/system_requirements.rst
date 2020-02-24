@@ -79,7 +79,7 @@ Linux Kernel
 
 Cilium leverages and builds on the kernel BPF functionality as well as various
 subsystems which integrate with BPF. Therefore, host systems are required to
-run Linux kernel version 4.8.0 or later to run a Cilium agent. More recent
+run Linux kernel version 4.9.17 or later to run a Cilium agent. More recent
 kernels may provide additional BPF functionality that Cilium will automatically
 detect and use on agent start.
 
@@ -103,6 +103,34 @@ linked, either choice is valid.
 
    Users running Linux 4.10 or earlier with Cilium CIDR policies may face
    :ref:`cidr_limitations`.
+
+L7 proxy redirection currently uses ``TPROXY`` iptables actions as well
+as ``socket`` matches. For L7 redirection to work as intended kernel
+configuration must include the following modules:
+
+.. code:: bash
+
+        CONFIG_NETFILTER_XT_TARGET_TPROXY=m
+        CONFIG_NETFILTER_XT_MATCH_MARK=m
+        CONFIG_NETFILTER_XT_MATCH_SOCKET=m
+
+When ``xt_socket`` kernel module is missing the forwarding of
+redirected L7 traffic does not work in non-tunneled datapath
+modes. Since some notable kernels (e.g., COS) are shipping without
+``xt_socket`` module, Cilium implements a fallback compatibility mode
+to allow L7 policies and visibility to be used with those
+kernels. Currently this fallback disables ``ip_early_demux`` kernel
+feature in non-tunneled datapath modes, which may decrease system
+networking performance. This guarantees HTTP and Kafka redirection
+works as intended.  However, if HTTP or Kafka enforcement policies or
+visibility annotations are never used, this behavior can be turned off
+by adding the following to the helm configuration command line:
+
+.. parsed-literal::
+
+   helm install cilium |CHART_RELEASE| \\
+     ...
+     --set global.enableXTSocketFallback=false
 
 .. _req_kvstore:
 
