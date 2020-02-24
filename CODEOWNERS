@@ -51,7 +51,7 @@ daemon/state.go @cilium/endpoint
 daemon/sysctl.* @cilium/bpf
 Documentation/ @cilium/docs
 Documentation/bpf.rst @scanf @borkmann
-Documentation/contributing.rst @cilium/contributing
+Documentation/contributing/ @cilium/contributing
 envoy/ @cilium/proxy
 examples/ @cilium/docs
 examples/getting-started/Vagrantfile @cilium/ci
