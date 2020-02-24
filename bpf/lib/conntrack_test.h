@@ -86,7 +86,7 @@ static void test___ct_lookup()
 {
 	void *map = __ipv4_map;
 	struct ct_entry *entry = &map[0];
-	struct __sk_buff skb = {};
+	struct __ctx_buff ctx = {};
 	void *tuple = (void *)__TUPLE_EXIST;
 
 	struct ct_state ct_state;
@@ -97,7 +97,7 @@ static void test___ct_lookup()
 	seen_flags.value |= TCP_FLAG_SYN;
 
 	/* First packet is monitored */
-	res = __ct_lookup(map, &skb, tuple, ACTION_CREATE, CT_INGRESS,
+	res = __ct_lookup(map, &ctx, tuple, ACTION_CREATE, CT_INGRESS,
 			  &ct_state, true, seen_flags, &monitor);
 	assert(res == CT_ESTABLISHED);
 	assert(monitor == TRACE_PAYLOAD_LEN);
@@ -106,7 +106,7 @@ static void test___ct_lookup()
 	/* Second packet with the same flags is not monitored; it does reset
 	 * lifetime back to CT_SYN_TIMEOUT. */
 	advance_time();
-	res = __ct_lookup(map, &skb, tuple, ACTION_CREATE, CT_INGRESS,
+	res = __ct_lookup(map, &ctx, tuple, ACTION_CREATE, CT_INGRESS,
 			  &ct_state, true, seen_flags, &monitor);
 	assert(res == CT_ESTABLISHED);
 	assert(monitor == 0);
@@ -115,7 +115,7 @@ static void test___ct_lookup()
         /* Subsequent non-SYN packets result in a default TCP lifetime */
 	advance_time();
 	seen_flags.value &= ~TCP_FLAG_SYN;
-	res = __ct_lookup(map, &skb, tuple, ACTION_CREATE, CT_INGRESS,
+	res = __ct_lookup(map, &ctx, tuple, ACTION_CREATE, CT_INGRESS,
 			  &ct_state, true, seen_flags, &monitor);
 	assert(res == CT_ESTABLISHED);
 	assert(monitor == 0);
@@ -124,7 +124,7 @@ static void test___ct_lookup()
 	/* Monitor if the connection is closing on one side */
 	advance_time();
 	seen_flags.value |= TCP_FLAG_FIN;
-	res = __ct_lookup(map, &skb, tuple, ACTION_CLOSE, CT_INGRESS,
+	res = __ct_lookup(map, &ctx, tuple, ACTION_CLOSE, CT_INGRESS,
 			  &ct_state, true, seen_flags, &monitor);
 	assert(res == CT_ESTABLISHED);
 	assert(monitor == TRACE_PAYLOAD_LEN);
@@ -133,7 +133,7 @@ static void test___ct_lookup()
 	/* This doesn't automatically trigger monitor for subsequent packets */
 	advance_time();
 	seen_flags.value &= ~TCP_FLAG_FIN;
-	res = __ct_lookup(map, &skb, tuple, ACTION_CREATE, CT_INGRESS,
+	res = __ct_lookup(map, &ctx, tuple, ACTION_CREATE, CT_INGRESS,
 			  &ct_state, true, seen_flags, &monitor);
 	assert(res == CT_ESTABLISHED);
 	assert(monitor == 0);
@@ -144,7 +144,7 @@ static void test___ct_lookup()
 	 * CT_CLOSE_TIMEOUT. */
 	advance_time();
 	seen_flags.value |= TCP_FLAG_FIN;
-	res = __ct_lookup(map, &skb, tuple, ACTION_CLOSE, CT_EGRESS,
+	res = __ct_lookup(map, &ctx, tuple, ACTION_CLOSE, CT_EGRESS,
 			  &ct_state, true, seen_flags, &monitor);
 	assert(res == CT_ESTABLISHED);
 	assert(monitor == TRACE_PAYLOAD_LEN);
@@ -154,7 +154,7 @@ static void test___ct_lookup()
 	advance_time();
 	monitor = 0;
 	seen_flags.value &= ~TCP_FLAG_FIN;
-	res = __ct_lookup(map, &skb, tuple, ACTION_CREATE, CT_EGRESS,
+	res = __ct_lookup(map, &ctx, tuple, ACTION_CREATE, CT_EGRESS,
 			  &ct_state, true, seen_flags, &monitor);
 	assert(res == CT_ESTABLISHED);
 	assert(monitor == 0);
@@ -163,7 +163,7 @@ static void test___ct_lookup()
 	/* Label connection as new if the tuple wasn't previously tracked */
 	tuple = (void *)__TUPLE_NOEXIST;
 	seen_flags.value = TCP_FLAG_SYN;
-	res = __ct_lookup(map, &skb, tuple, ACTION_CREATE, CT_INGRESS,
+	res = __ct_lookup(map, &ctx, tuple, ACTION_CREATE, CT_INGRESS,
 			  &ct_state, true, seen_flags, &monitor);
 	assert(res == CT_NEW);
 	assert(monitor == TRACE_PAYLOAD_LEN);

@@ -58,7 +58,7 @@ static inline int ipv6_authlen(struct ipv6_opt_hdr *opthdr)
 	return (opthdr->hdrlen + 2) << 2;
 }
 
-static inline int __inline__ ipv6_hdrlen(struct __sk_buff *skb, int l3_off, __u8 *nexthdr)
+static inline int __inline__ ipv6_hdrlen(struct __ctx_buff *ctx, int l3_off, __u8 *nexthdr)
 {
 	int i, len = sizeof(struct ipv6hdr);
 	struct ipv6_opt_hdr opthdr;
@@ -77,7 +77,7 @@ static inline int __inline__ ipv6_hdrlen(struct __sk_buff *skb, int l3_off, __u8
 		case NEXTHDR_ROUTING:
 		case NEXTHDR_AUTH:
 		case NEXTHDR_DEST:
-			if (skb_load_bytes(skb, l3_off + len, &opthdr, sizeof(opthdr)) < 0)
+			if (ctx_load_bytes(ctx, l3_off + len, &opthdr, sizeof(opthdr)) < 0)
 				return DROP_INVALID;
 
 			nh = opthdr.nexthdr;
@@ -151,83 +151,83 @@ static inline int ipv6_match_prefix_64(const union v6addr *addr, const union v6a
 	return !tmp;
 }
 
-static inline int ipv6_dec_hoplimit(struct __sk_buff *skb, int off)
+static inline int ipv6_dec_hoplimit(struct __ctx_buff *ctx, int off)
 {
 	__u8 hl;
 
-	skb_load_bytes(skb, off + offsetof(struct ipv6hdr, hop_limit),
+	ctx_load_bytes(ctx, off + offsetof(struct ipv6hdr, hop_limit),
 		       &hl, sizeof(hl));
 	if (hl <= 1)
 		return 1;
 	hl--;
-	if (skb_store_bytes(skb, off + offsetof(struct ipv6hdr, hop_limit),
+	if (ctx_store_bytes(ctx, off + offsetof(struct ipv6hdr, hop_limit),
 			    &hl, sizeof(hl), BPF_F_RECOMPUTE_CSUM) < 0)
 		return DROP_WRITE_ERROR;
 	return 0;
 }
 
-static inline int ipv6_load_saddr(struct __sk_buff *skb, int off, union v6addr *dst)
+static inline int ipv6_load_saddr(struct __ctx_buff *ctx, int off, union v6addr *dst)
 {
-	return skb_load_bytes(skb, off + offsetof(struct ipv6hdr, saddr), dst->addr,
+	return ctx_load_bytes(ctx, off + offsetof(struct ipv6hdr, saddr), dst->addr,
 			      sizeof(((struct ipv6hdr *)NULL)->saddr));
 }
 
 /* Assumes that caller fixes checksum csum_diff() and l4_csum_replace() */
-static inline int ipv6_store_saddr(struct __sk_buff *skb, __u8 *addr, int off)
+static inline int ipv6_store_saddr(struct __ctx_buff *ctx, __u8 *addr, int off)
 {
-	return skb_store_bytes(skb, off + offsetof(struct ipv6hdr, saddr), addr, 16, 0);
+	return ctx_store_bytes(ctx, off + offsetof(struct ipv6hdr, saddr), addr, 16, 0);
 }
 
-static inline int ipv6_load_daddr(struct __sk_buff *skb, int off, union v6addr *dst)
+static inline int ipv6_load_daddr(struct __ctx_buff *ctx, int off, union v6addr *dst)
 {
-	return skb_load_bytes(skb, off + offsetof(struct ipv6hdr, daddr), dst->addr,
+	return ctx_load_bytes(ctx, off + offsetof(struct ipv6hdr, daddr), dst->addr,
 			      sizeof(((struct ipv6hdr *)NULL)->daddr));
 }
 
 /* Assumes that caller fixes checksum csum_diff() and l4_csum_replace() */
-static inline int ipv6_store_daddr(struct __sk_buff *skb, __u8 *addr, int off)
+static inline int ipv6_store_daddr(struct __ctx_buff *ctx, __u8 *addr, int off)
 {
-	return skb_store_bytes(skb, off + offsetof(struct ipv6hdr, daddr), addr, 16, 0);
+	return ctx_store_bytes(ctx, off + offsetof(struct ipv6hdr, daddr), addr, 16, 0);
 }
 
-static inline int ipv6_load_nexthdr(struct __sk_buff *skb, int off, __u8 *nexthdr)
+static inline int ipv6_load_nexthdr(struct __ctx_buff *ctx, int off, __u8 *nexthdr)
 {
-	return skb_load_bytes(skb, off + offsetof(struct ipv6hdr, nexthdr), nexthdr,
+	return ctx_load_bytes(ctx, off + offsetof(struct ipv6hdr, nexthdr), nexthdr,
 			      sizeof(__u8));
 }
 
 /* Assumes that caller fixes checksum csum_diff() and l4_csum_replace() */
-static inline int ipv6_store_nexthdr(struct __sk_buff *skb, __u8 *nexthdr, int off)
+static inline int ipv6_store_nexthdr(struct __ctx_buff *ctx, __u8 *nexthdr, int off)
 {
-	return skb_store_bytes(skb, off + offsetof(struct ipv6hdr, nexthdr), nexthdr,
+	return ctx_store_bytes(ctx, off + offsetof(struct ipv6hdr, nexthdr), nexthdr,
 			      sizeof(__u8), 0);
 }
 
-static inline int ipv6_load_paylen(struct __sk_buff *skb, int off, __be16 *len)
+static inline int ipv6_load_paylen(struct __ctx_buff *ctx, int off, __be16 *len)
 {
-	return skb_load_bytes(skb, off + offsetof(struct ipv6hdr, payload_len),
+	return ctx_load_bytes(ctx, off + offsetof(struct ipv6hdr, payload_len),
 			      len, sizeof(*len));
 }
 
 /* Assumes that caller fixes checksum csum_diff() and l4_csum_replace() */
-static inline int ipv6_store_paylen(struct __sk_buff *skb, int off, __be16 *len)
+static inline int ipv6_store_paylen(struct __ctx_buff *ctx, int off, __be16 *len)
 {
-	return skb_store_bytes(skb, off + offsetof(struct ipv6hdr, payload_len),
+	return ctx_store_bytes(ctx, off + offsetof(struct ipv6hdr, payload_len),
 			       len, sizeof(*len), 0);
 }
 
-static inline int ipv6_store_flowlabel(struct __sk_buff *skb, int off, __be32 label)
+static inline int ipv6_store_flowlabel(struct __ctx_buff *ctx, int off, __be32 label)
 {
 	__be32 old;
 
 	/* use traffic class from packet */
-	if (skb_load_bytes(skb, off, &old, 4) < 0)
+	if (ctx_load_bytes(ctx, off, &old, 4) < 0)
 		return DROP_INVALID;
 
 	old &= IPV6_TCLASS_MASK;
 	old = bpf_htonl(0x60000000) | label | old;
 
-	if (skb_store_bytes(skb, off, &old, 4, BPF_F_RECOMPUTE_CSUM) < 0)
+	if (ctx_store_bytes(ctx, off, &old, 4, BPF_F_RECOMPUTE_CSUM) < 0)
 		return DROP_WRITE_ERROR;
 
 	return 0;

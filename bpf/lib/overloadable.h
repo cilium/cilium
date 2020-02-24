@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2019 Authors of Cilium
+ *  Copyright (C) 2020 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -15,24 +15,10 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
-#include <bpf/ctx/skb.h>
-#include <bpf/api.h>
+#ifndef __LIB_OVERLOADABLE_H_
+#define __LIB_OVERLOADABLE_H_
 
-#include <node_config.h>
-#include <netdev_config.h>
+#include "lib/overloadable_skb.h"
+#include "lib/overloadable_xdp.h"
 
-#include "lib/common.h"
-
-__section("to-host")
-int to_host(struct __ctx_buff *ctx)
-{
-	// Upper 16 bits may carry proxy port number, clear it out
-	__u32 magic = ctx->cb[0] & 0xFFFF;
-	if (magic == MARK_MAGIC_TO_PROXY) {
-		ctx->mark = ctx->cb[0];
-		ctx->cb[0] = 0;
-	}
-	return CTX_ACT_OK;
-}
-
-BPF_LICENSE("GPL");
+#endif /* __LIB_OVERLOADABLE_H_ */

@@ -18,6 +18,7 @@
 #ifndef __LIB_UTILS_H_
 #define __LIB_UTILS_H_
 
+#include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
 
 #define min(x, y)		\
@@ -60,17 +61,6 @@ static inline void bpf_barrier(void)
 # define WRITE_ONCE(x, v)	\
 	({ typeof(x) __val = (v); __WRITE_ONCE(x, __val); bpf_barrier(); __val; })
 #endif
-
-/* Clear CB values */
-static inline void bpf_clear_cb(struct __sk_buff *skb)
-{
-	__u32 zero = 0;
-	skb->cb[0] = zero;
-	skb->cb[1] = zero;
-	skb->cb[2] = zero;
-	skb->cb[3] = zero;
-	skb->cb[4] = zero;
-}
 
 #define NSEC_PER_SEC	1000000000UL
 

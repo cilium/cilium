@@ -15,11 +15,11 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
+#include <bpf/ctx/unspec.h>
+#include <bpf/api.h>
 
 #include <node_config.h>
 #include <netdev_config.h>
-
-#include <bpf/api.h>
 
 #define SKIP_POLICY_MAP	1
 #define SKIP_CALLS_MAP	1

@@ -15,33 +15,33 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
-#include <linux/if_packet.h>
+#include <bpf/ctx/skb.h>
+#include <bpf/api.h>
 
 #include <node_config.h>
 #include <netdev_config.h>
-#include <bpf/api.h>
 
 #include "lib/common.h"
 #include "lib/dbg.h"
 
 __section("from-netdev")
-int from_netdev(struct __sk_buff *skb)
+int from_netdev(struct __ctx_buff *ctx)
 {
-	if ((skb->cb[0] & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT) {
-		skb->mark = skb->cb[0];
-		set_identity(skb, skb->cb[1]);
+	if ((ctx->cb[0] & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT) {
+		ctx->mark = ctx->cb[0];
+		set_identity(ctx, ctx->cb[1]);
 	} else {
 		// Upper 16 bits may carry proxy port number, clear it out
-		__u32 magic = skb->cb[0] & 0xFFFF;
+		__u32 magic = ctx->cb[0] & 0xFFFF;
 		if (magic == MARK_MAGIC_TO_PROXY) {
-			__be16 port = skb->cb[0] >> 16;
+			__be16 port = ctx->cb[0] >> 16;
 
-			skb->mark = skb->cb[0];
-			skb_change_type(skb, PACKET_HOST);
-			cilium_dbg_capture(skb, DBG_CAPTURE_PROXY_POST, port);
+			ctx->mark = ctx->cb[0];
+			ctx_change_type(ctx, PACKET_HOST);
+			cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_POST, port);
 		}
 	}
-	return TC_ACT_OK;
+	return CTX_ACT_OK;
 }
 
 BPF_LICENSE("GPL");

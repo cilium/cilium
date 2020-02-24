@@ -19,7 +19,7 @@
  * Policy verdict notification via perf event ring buffer.
  *
  * API:
- * void send_policy_verdict_notify(skb, remote_label, dst_port, proto, dir, is_ipv6, verdict, match_type)
+ * void send_policy_verdict_notify(ctx, remote_label, dst_port, proto, dir, is_ipv6, verdict, match_type)
  *
  * If POLICY_VERDICT_NOTIFY is not defined, the API will be a non-op.
  */
@@ -44,16 +44,16 @@ struct policy_verdict_notify {
 };
 
 static inline void
-send_policy_verdict_notify(struct __sk_buff *skb, __u32 remote_label, __u16 dst_port, __u8 proto,
+send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst_port, __u8 proto,
                              __u8 dir, __u8 is_ipv6, int verdict, __u8 match_type)
 {
-	__u64 skb_len = (__u64)skb->len, cap_len = min((__u64)TRACE_PAYLOAD_LEN, (__u64)skb_len);
-	__u32 hash = get_hash_recalc(skb);
+	__u64 ctx_len = (__u64)ctx->len, cap_len = min((__u64)TRACE_PAYLOAD_LEN, (__u64)ctx_len);
+	__u32 hash = get_hash_recalc(ctx);
 	struct policy_verdict_notify msg = {
 		.type = CILIUM_NOTIFY_POLICY_VERDICT,
 		.source = EVENT_SOURCE,
 		.hash = hash,
-		.len_orig = skb_len,
+		.len_orig = ctx_len,
 		.len_cap = cap_len,
 		.version = NOTIFY_CAPTURE_VER,
 		.remote_label = remote_label,
@@ -67,7 +67,7 @@ send_policy_verdict_notify(struct __sk_buff *skb, __u32 remote_label, __u16 dst_
 		.pad1 = 0,
 	};
 
-	skb_event_output(skb, &EVENTS_MAP,
+	ctx_event_output(ctx, &EVENTS_MAP,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
 }
@@ -75,7 +75,7 @@ send_policy_verdict_notify(struct __sk_buff *skb, __u32 remote_label, __u16 dst_
 #else
 
 static inline void
-send_policy_verdict_notify(struct __sk_buff *skb, __u32 remote_label, __u16 dst_port, __u8 proto,
+send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst_port, __u8 proto,
                              __u8 dir, __u8 is_ipv6, int verdict, __u8 match_type)
 {
 }

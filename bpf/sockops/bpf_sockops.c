@@ -15,15 +15,17 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
-#define SKIP_CALLS_MAP 1
-#define SKIP_POLICY_MAP 1
-#define SOCKMAP 1
-
-#include <node_config.h>
+#include <bpf/ctx/unspec.h>
 #include <bpf/api.h>
 
-#include <linux/bpf.h>
+#include <node_config.h>
+
 #include <linux/if_ether.h>
+
+#define SKIP_CALLS_MAP 1
+#define SKIP_POLICY_MAP 1
+
+#define SOCKMAP 1
 
 #include "../lib/utils.h"
 #include "../lib/common.h"

@@ -65,17 +65,17 @@ static inline void csum_l4_offset_and_flags(__u8 nexthdr, struct csum_offset *of
 
 /**
  * Helper to change L4 checksum
- * @arg skb	Packet
+ * @arg ctx	Packet
  * @arg l4_off	Offset to L4 header
  * @arg csum	Pointer to csum_offset as extracted by csum_l4_offset_and_flags()
  * @arg from	From value or 0 if to contains csum diff
  * @arg to	To value or a csum diff
  * @arg flags	Additional flags to be passed to l4_csum_replace()
  */
-static inline int csum_l4_replace(struct __sk_buff *skb, int l4_off, struct csum_offset *csum,
+static inline int csum_l4_replace(struct __ctx_buff *ctx, int l4_off, struct csum_offset *csum,
 				  __be32 from, __be32 to, int flags)
 {
-	return l4_csum_replace(skb, l4_off + csum->offset, from, to, flags | csum->flags);
+	return l4_csum_replace(ctx, l4_off + csum->offset, from, to, flags | csum->flags);
 }
 
 #endif /* __LB_H_ */
