@@ -18,9 +18,10 @@
 # @cilium/vendor        Vendoring, dependency management
 #
 # Specific code owners:
-# @eloycoto             Debian packaging
-# @aanm @ianvernon      Docker packaging
-# @scanf @borkmann      BPF documentation
+# @eloycoto                       Debian packaging
+# @aanm @ianvernon                Docker packaging
+# @scanf @borkmann                BPF documentation
+# @gandro @glibsm @michi-covalent Hubble
 
 # The following filepaths should be sorted so that more specific paths occur
 # after the less specific paths, otherwise the ownership for the specific paths
@@ -88,6 +89,7 @@ pkg/endpointmanager/ @cilium/endpoint
 pkg/envoy/ @cilium/proxy
 pkg/fqdn/ @cilium/agent
 pkg/health/ @cilium/health
+pkg/hubble/ @gandro @glibsm @michi-covalent
 pkg/identity @cilium/policy
 pkg/ipcache/ @cilium/ipcache
 pkg/k8s/ @cilium/kubernetes
