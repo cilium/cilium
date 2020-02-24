@@ -272,21 +272,22 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	Context("DirectRouting", func() {
+		BeforeEach(func() {
+			SkipIfIntegration(helpers.CIIntegrationFlannel)
+			SkipIfIntegration(helpers.CIIntegrationGKE)
+		})
+
 		directRoutingOptions := map[string]string{
 			"global.tunnel":               "disabled",
 			"global.autoDirectNodeRoutes": "true",
 		}
 
 		It("Check connectivity with automatic direct nodes routes", func() {
-			SkipIfIntegration(helpers.CIIntegrationFlannel)
-
 			deployCilium(directRoutingOptions)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
 
 		It("Check direct connectivity with per endpoint routes", func() {
-			SkipIfIntegration(helpers.CIIntegrationFlannel)
-
 			directRoutingOptions["global.endpointRoutes.enabled"] = "true"
 			directRoutingOptions["global.ipv6.enabled"] = "false"
 			deployCilium(directRoutingOptions)
@@ -319,6 +320,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		BeforeEach(func() {
 			SkipIfBenchmark()
+			SkipIfIntegration(helpers.CIIntegrationGKE)
 		})
 
 		AfterEach(func() {
@@ -389,6 +391,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 	Context("Transparent encryption DirectRouting", func() {
 		It("Check connectivity with transparent encryption and direct routing", func() {
 			SkipIfIntegration(helpers.CIIntegrationFlannel)
+			SkipIfIntegration(helpers.CIIntegrationGKE)
 			SkipItIfNoKubeProxy()
 
 			privateIface, err := kubectl.GetPrivateIface()
