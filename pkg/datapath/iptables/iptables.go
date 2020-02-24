@@ -59,7 +59,7 @@ const (
 var (
 	isWaitMinVersion        = versioncheck.MustCompile(">=1.4.20")
 	isWaitSecondsMinVersion = versioncheck.MustCompile(">=1.4.22")
-	hexnumRE                = regexp.MustCompile("0x0+([0-9])")
+	hexnumRE                = regexp.MustCompile("0x0+([0-9a-f])")
 )
 
 const (
@@ -688,6 +688,7 @@ func (m *IptablesManager) ensureCiliumChains() error {
 	return nil
 }
 
+// filterRuleSet filters out disabled rules from the list of rules provided as an argument.
 func (m *IptablesManager) filterRuleSet(rules []iptablesRule) []iptablesRule {
 	retRules := []iptablesRule{}
 	for _, rule := range rules {
@@ -699,6 +700,18 @@ func (m *IptablesManager) filterRuleSet(rules []iptablesRule) []iptablesRule {
 	return retRules
 }
 
+func cleanArgs(args []string) []string {
+	var argsCopy []string
+
+	for i := range args {
+		tmpField := strings.Trim(args[i], "\"")
+		tmpField = hexnumRE.ReplaceAllString(tmpField, "0x$1")
+		argsCopy = append(argsCopy, strings.Fields(tmpField)...)
+	}
+
+	return argsCopy
+}
+
 func (m *IptablesManager) ensureIptRules(prog, table, chain string, rules []iptablesRule) error {
 	rulesCount := len(rules)
 	if rulesCount == 0 {
@@ -708,12 +721,7 @@ func (m *IptablesManager) ensureIptRules(prog, table, chain string, rules []ipta
 	curRuleIndex := 0
 	var ruleArgsCopy []string
 	// Exclude the -t [TABLE NAME] part from the arg set.
-	tmpArgs := rules[curRuleIndex].args[2:]
-	for i := range tmpArgs {
-		tmpField := strings.Trim(tmpArgs[i], "\"")
-		tmpField = hexnumRE.ReplaceAllString(tmpField, "0x$1")
-		ruleArgsCopy = append(ruleArgsCopy, strings.Fields(tmpField)...)
-	}
+	ruleArgsCopy = cleanArgs(rules[curRuleIndex].args[2:])
 	ruleArgset := sets.NewString(ruleArgsCopy...)
 
 	// Collect output from ipables-save command so that we can cross verify the rules that
@@ -755,7 +763,6 @@ func (m *IptablesManager) ensureIptRules(prog, table, chain string, rules []ipta
 				continue
 			}
 
-			fmt.Printf("Deleting rule: %v\n", line)
 			// We have ensured all the rules, delete all unnecessery rules
 			reversedRule, err := reverseRule(line)
 			if err != nil {
@@ -801,13 +808,7 @@ func (m *IptablesManager) ensureIptRules(prog, table, chain string, rules []ipta
 			}
 
 			// Process the next rule in the list.
-			var argsCopy []string
-			tmpArgs := rules[curRuleIndex].args[2:]
-			for i := range tmpArgs {
-				tmpField := strings.Trim(tmpArgs[i], "\"")
-				tmpField = hexnumRE.ReplaceAllString(tmpField, "0x$1")
-				argsCopy = append(argsCopy, strings.Fields(tmpField)...)
-			}
+			argsCopy := cleanArgs(rules[curRuleIndex].args[2:])
 			ruleArgset = sets.NewString(argsCopy...)
 		} else {
 			// Insert the rule we are currently working in the ruleset to ensure.
