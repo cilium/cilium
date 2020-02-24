@@ -1,5 +1,5 @@
-`Install Helm`_ to prepare generating the deployment artifacts based on the
-Helm templates.
+`Install Helm`_ version 3.0.0 or higher to prepare generating the deployment
+artifacts based on the Helm templates.
 
 .. _Install Helm: https://helm.sh/docs/using_helm/#install-helm
 
