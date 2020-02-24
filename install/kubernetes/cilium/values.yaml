@@ -82,6 +82,13 @@ global:
     serviceMonitor:
       enabled: false
 
+  # enableXTSocketFallback enables the fallback compatibility solution
+  # when the xt_socket kernel module is missing and it is needed for
+  # the datapath L7 redirection to work properly.  See documentation
+  # for details on when this can be disabled:
+  # http://docs.cilium.io/en/latest/install/system_requirements/#admin-kernel-version.
+  enableXTSocketFallback: true
+
   # installIptablesRules enables installation of iptables rules to allow for
   # TPROXY (L7 proxy injection), itpables based masquerading and compatibility
   # with kube-proxy. See documentation for details on when this can be
