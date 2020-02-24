@@ -267,6 +267,9 @@ const (
 	// Masquerade are the packets from endpoints leaving the host
 	Masquerade = "masquerade"
 
+	// Masquerade packets from endpoints leaving the host with BPF instead of iptables
+	EnableBPFMasquerade = "enable-bpf-masquerade"
+
 	// InstallIptRules sets whether Cilium should install any iptables in general
 	InstallIptRules = "install-iptables-rules"
 
@@ -1435,6 +1438,7 @@ type DaemonConfig struct {
 	// Masquerade specifies whether or not to masquerade packets from endpoints
 	// leaving the host.
 	Masquerade             bool
+	EnableBPFMasquerade    bool
 	InstallIptRules        bool
 	MonitorAggregation     string
 	PreAllocateMaps        bool
@@ -2198,6 +2202,7 @@ func (c *DaemonConfig) Populate() {
 	c.Logstash = viper.GetBool(Logstash)
 	c.LoopbackIPv4 = viper.GetString(LoopbackIPv4)
 	c.Masquerade = viper.GetBool(Masquerade)
+	c.EnableBPFMasquerade = viper.GetBool(EnableBPFMasquerade)
 	c.InstallIptRules = viper.GetBool(InstallIptRules)
 	c.IPSecKeyFile = viper.GetString(IPSecKeyFileName)
 	c.ModePreFilter = viper.GetString(PrefilterMode)
