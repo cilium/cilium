@@ -19,4 +19,4 @@ clean:
 	-$(QUIET) rm -f $(TARGET)
 
 install:
-	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
+	$(QUIET)$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)

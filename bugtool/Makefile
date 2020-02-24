@@ -1,4 +1,4 @@
-# Copyright 2017-2018 Authors of Cilium
+# Copyright 2017-2020 Authors of Cilium
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,5 +28,5 @@ clean:
 	$(QUIET)$(GO) clean $(GOCLEAN)
 
 install:
-	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
-	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
+	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
+	$(QUIET)$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)

@@ -24,8 +24,8 @@ clean:
 
 install:
 	$(QUIET)for i in $(SUBDIRS); do $(MAKE) -C $$i install; done
-	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
-	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
+	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
+	$(QUIET)$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
 
 .PHONY: force
 force :;

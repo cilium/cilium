@@ -19,7 +19,7 @@ ifeq ($(GO),)
 	GO = go
 endif
 
-INSTALL = $(QUIET)install
+INSTALL = install
 
 CGO_DISABLED = CGO_ENABLED=0
 VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)

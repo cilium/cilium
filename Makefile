@@ -189,16 +189,16 @@ clean: clean-container
 	-rm -f GIT_VERSION
 
 install-bpf:
-	$(INSTALL) -m 0750 -d $(DESTDIR)$(LOCALSTATEDIR)/lib/cilium
+	$(QUIET)$(INSTALL) -m 0750 -d $(DESTDIR)$(LOCALSTATEDIR)/lib/cilium
 	-rm -rf $(DESTDIR)$(LOCALSTATEDIR)/lib/cilium/bpf/*
 	$(foreach bpfsrc,$(BPF_SRCFILES), $(INSTALL) -D -m 0644 $(bpfsrc) $(DESTDIR)$(LOCALSTATEDIR)/lib/cilium/$(bpfsrc);)
 
 install: install-bpf
-	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
+	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	for i in $(SUBDIRS); do $(MAKE) -C $$i install; done
 
 install-container: install-bpf
-	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
+	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) -C $$i install; done
 
 # Workaround for not having git in the build environment
