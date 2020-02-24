@@ -289,7 +289,11 @@ type bpfAttrObjOp struct {
 
 // ObjPin stores the map's fd in pathname.
 func ObjPin(fd int, pathname string) error {
-	pathStr := syscall.StringBytePtr(pathname)
+	pathStr, err := syscall.BytePtrFromString(pathname)
+	if err != nil {
+		return fmt.Errorf("Unable to convert pathname %q to byte pointer: %w", pathname, err)
+	}
+
 	uba := bpfAttrObjOp{
 		pathname: uint64(uintptr(unsafe.Pointer(pathStr))),
 		fd:       uint32(fd),
@@ -299,7 +303,7 @@ func ObjPin(fd int, pathname string) error {
 	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
 		duration = spanstat.Start()
 	}
-	ret, _, err := unix.Syscall(
+	ret, _, errno := unix.Syscall(
 		unix.SYS_BPF,
 		BPF_OBJ_PIN,
 		uintptr(unsafe.Pointer(&uba)),
@@ -309,11 +313,11 @@ func ObjPin(fd int, pathname string) error {
 	runtime.KeepAlive(&uba)
 
 	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
-		metrics.BPFSyscallDuration.WithLabelValues(metricOpObjPin, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
+		metrics.BPFSyscallDuration.WithLabelValues(metricOpObjPin, metrics.Errno2Outcome(errno)).Observe(duration.End(errno == 0).Total().Seconds())
 	}
 
-	if ret != 0 || err != 0 {
-		return fmt.Errorf("Unable to pin object with file descriptor %d to %s: %s", fd, pathname, err)
+	if ret != 0 || errno != 0 {
+		return fmt.Errorf("Unable to pin object with file descriptor %d to %s: %s", fd, pathname, errno)
 	}
 
 	return nil
@@ -321,7 +325,11 @@ func ObjPin(fd int, pathname string) error {
 
 // ObjGet reads the pathname and returns the map's fd read.
 func ObjGet(pathname string) (int, error) {
-	pathStr := syscall.StringBytePtr(pathname)
+	pathStr, err := syscall.BytePtrFromString(pathname)
+	if err != nil {
+		return 0, fmt.Errorf("Unable to convert pathname %q to byte pointer: %w", pathname, err)
+	}
+
 	uba := bpfAttrObjOp{
 		pathname: uint64(uintptr(unsafe.Pointer(pathStr))),
 	}
@@ -330,7 +338,7 @@ func ObjGet(pathname string) (int, error) {
 	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
 		duration = spanstat.Start()
 	}
-	fd, _, err := unix.Syscall(
+	fd, _, errno := unix.Syscall(
 		unix.SYS_BPF,
 		BPF_OBJ_GET,
 		uintptr(unsafe.Pointer(&uba)),
@@ -339,13 +347,13 @@ func ObjGet(pathname string) (int, error) {
 	runtime.KeepAlive(pathStr)
 	runtime.KeepAlive(&uba)
 	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
-		metrics.BPFSyscallDuration.WithLabelValues(metricOpObjGet, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
+		metrics.BPFSyscallDuration.WithLabelValues(metricOpObjGet, metrics.Errno2Outcome(errno)).Observe(duration.End(errno == 0).Total().Seconds())
 	}
 
-	if fd == 0 || err != 0 {
+	if fd == 0 || errno != 0 {
 		return 0, &os.PathError{
 			Op:   "Unable to get object",
-			Err:  err,
+			Err:  errno,
 			Path: pathname,
 		}
 	}
