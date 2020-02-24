@@ -850,7 +850,7 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 			return err
 		}
 
-		if option.Config.Masquerade {
+		if option.Config.Masquerade && !option.Config.EnableBPFMasquerade {
 			// Masquerade all egress traffic leaving the node
 			//
 			// This rule must be first as it has different exclusion criteria

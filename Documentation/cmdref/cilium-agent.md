@@ -53,6 +53,7 @@ cilium-agent [flags]
       --disable-iptables-feeder-rules strings         Chains to ignore when installing feeder rules.
       --egress-masquerade-interfaces string           Limit egress masquerading to interface selector
       --enable-auto-protect-node-port-range           Append NodePort range to net.ipv4.ip_local_reserved_ports if it overlaps with ephemeral port range (net.ipv4.ip_local_port_range) (default true)
+      --enable-bpf-masquerade                         Masquerade packets from endpoints leaving the host with BPF instead of iptables
       --enable-endpoint-health-checking               Enable connectivity health checking between virtual endpoints (default true)
       --enable-endpoint-routes                        Use per endpoint routes instead of routing via cilium_host
       --enable-external-ips                           Enable k8s service externalIPs feature (requires enabling enable-node-port) (default true)

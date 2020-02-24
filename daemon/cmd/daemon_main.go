@@ -529,6 +529,9 @@ func init() {
 	flags.Bool(option.Masquerade, true, "Masquerade packets from endpoints leaving the host")
 	option.BindEnv(option.Masquerade)
 
+	flags.Bool(option.EnableBPFMasquerade, false, "Masquerade packets from endpoints leaving the host with BPF instead of iptables")
+	option.BindEnv(option.EnableBPFMasquerade)
+
 	flags.Bool(option.InstallIptRules, true, "Install base iptables rules for cilium to mainly interact with kube-proxy (and masquerading)")
 	option.BindEnv(option.InstallIptRules)
 
@@ -1061,6 +1064,19 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	initKubeProxyReplacementOptions()
+
+	if option.Config.Masquerade && option.Config.EnableBPFMasquerade {
+		// TODO(brb) nodeport + ipvlan constraints will be lifted once the SNAT BPF code has been refactored
+		if !option.Config.EnableNodePort {
+			log.Fatal("BPF masquerade requires NodePort (--enable-node-port=\"true\")")
+		}
+		if option.Config.DatapathMode == option.DatapathModeIpvlan {
+			log.Fatal("BPF masquerade works only in veth mode (--datapath-mode=\"veth\"")
+		}
+		if option.Config.EgressMasqueradeInterfaces != "" {
+			log.Fatalf("BPF masquerade does not allow to specify devices via --%s. Use --%s instead.", option.EgressMasqueradeInterfaces, option.Device)
+		}
+	}
 
 	// If device has been specified, use it to derive better default
 	// allocation prefixes
