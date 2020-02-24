@@ -128,7 +128,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["POLICY_MAP_SIZE"] = fmt.Sprintf("%d", policymap.MaxEntries)
 	cDefinesMap["IPCACHE_MAP"] = ipcachemap.Name
 	cDefinesMap["IPCACHE_MAP_SIZE"] = fmt.Sprintf("%d", ipcachemap.MaxEntries)
-	cDefinesMap["POLICY_PROG_MAP_SIZE"] = fmt.Sprintf("%d", policymap.ProgArrayMaxEntries)
+	cDefinesMap["POLICY_PROG_MAP_SIZE"] = fmt.Sprintf("%d", policymap.PolicyCallMaxEntries)
 	cDefinesMap["SOCKOPS_MAP_SIZE"] = fmt.Sprintf("%d", sockmap.MaxEntries)
 	cDefinesMap["ENCRYPT_MAP"] = encrypt.MapName
 	cDefinesMap["CT_CONNECTION_LIFETIME_TCP"] = fmt.Sprintf("%d", int64(option.Config.CTMapEntriesTimeoutTCP.Seconds()))
@@ -150,7 +150,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	cDefinesMap["EVENTS_MAP"] = "cilium_events"
 	cDefinesMap["SIGNAL_MAP"] = signal.SignalMapName
-	cDefinesMap["POLICY_CALL_MAP"] = policymap.CallMapName
+	cDefinesMap["POLICY_CALL_MAP"] = policymap.PolicyCallMapName
 	cDefinesMap["EP_POLICY_MAP"] = eppolicymap.MapName
 	cDefinesMap["LB6_REVERSE_NAT_MAP"] = "cilium_lb6_reverse_nat"
 	cDefinesMap["LB6_SERVICES_MAP_V2"] = "cilium_lb6_services_v2"
