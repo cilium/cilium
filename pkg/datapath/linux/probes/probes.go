@@ -16,6 +16,7 @@ package probes
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/command/exec"
@@ -30,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"golang.org/x/sys/unix"
 
 	"github.com/pkg/errors"
 )
@@ -38,6 +41,10 @@ var (
 	log          = logging.DefaultLogger.WithField(logfields.LogSubsys, "probes")
 	once         sync.Once
 	probeManager *ProbeManager
+
+	// ErrKernelConfigNotFound represents the error if kernel config is unavailable
+	// to the cilium agent.
+	ErrKernelConfigNotFound = errors.New("CONFIG_BPF kernel parameter not found")
 )
 
 // KernelParam is a type based on string which represents CONFIG_* kernel
@@ -196,10 +203,25 @@ func (p *ProbeManager) SystemKernelHz() (int, error) {
 // warnings when optional parameters are not enabled.
 func (p *ProbeManager) SystemConfigProbes() error {
 	config := p.features.SystemConfig
-	// Required
-	if !config.ConfigBpf.Enabled() {
-		return fmt.Errorf("CONFIG_BPF kernel parameter is required")
+
+	// Check Kernel Config is available or not.
+	// We are replicating BPFTools logic here to check if kernel config is available
+	// https://elixir.bootlin.com/linux/latest/source/tools/bpf/bpftool/feature.c#L390
+	info := unix.Utsname{}
+	err := unix.Uname(&info)
+	var release string
+	if err == nil {
+		release = strings.TrimSpace(string(bytes.Trim(info.Release[:], "\x00")))
 	}
+
+	// Any error checking these files will return Kernel config not found error
+	if _, err := os.Stat(fmt.Sprintf("/boot/config-%s", release)); err != nil {
+		if _, err = os.Stat("/proc/config.gz"); err != nil {
+			return ErrKernelConfigNotFound
+		}
+	}
+
+	// Required
 	if !config.ConfigBpfSyscall.Enabled() {
 		return fmt.Errorf(
 			"CONFIG_BPF_SYSCALL kernel parameter is required")
