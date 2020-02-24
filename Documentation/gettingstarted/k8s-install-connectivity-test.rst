@@ -28,4 +28,4 @@ indicates success or failure of the test:
     pod-to-b-intra-node-9d9d4d6f9-qccfs                      1/1     Running            0          8m35s
     pod-to-b-multi-node-clusterip-5956c84b7c-hwzfg           1/1     Running            0          8m35s
     pod-to-b-multi-node-headless-6698899447-xlhfw            1/1     Running            0          8m35s
-    pod-to-external-fqdn-allow-google-cnp-667649bbf6-v6rf8   0/1     Running            0          8m35s
+    pod-to-external-fqdn-allow-google-cnp-667649bbf6-v6rf8   1/1     Running            0          8m35s
