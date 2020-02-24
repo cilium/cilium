@@ -190,7 +190,7 @@ clean: clean-container
 
 install-bpf:
 	$(INSTALL) -m 0750 -d $(DESTDIR)$(LOCALSTATEDIR)/lib/cilium
-	-rm -f $(DESTDIR)$(LOCALSTATEDIR)/lib/cilium/bpf
+	-rm -rf $(DESTDIR)$(LOCALSTATEDIR)/lib/cilium/bpf/*
 	$(foreach bpfsrc,$(BPF_SRCFILES), $(INSTALL) -D -m 0644 $(bpfsrc) $(DESTDIR)$(LOCALSTATEDIR)/lib/cilium/$(bpfsrc);)
 
 install: install-bpf
