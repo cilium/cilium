@@ -147,6 +147,16 @@ var (
 	}
 )
 
+// HelmOverride returns the value of a Helm override option for the currently
+// enabled CNI_INTEGRATION
+func HelmOverride(option string) string {
+	integration := strings.ToLower(os.Getenv("CNI_INTEGRATION"))
+	if overrides, exists := helmOverrides[integration]; exists {
+		return overrides[option]
+	}
+	return ""
+}
+
 func init() {
 	// Copy over envronment variables that are passed in.
 	for envVar, helmVar := range map[string]string{

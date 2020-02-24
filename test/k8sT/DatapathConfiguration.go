@@ -209,7 +209,15 @@ var _ = Describe("K8sDatapathConfig", func() {
 			ExpectWithOffset(1, err).Should(BeNil(), "Unable to determine cilium pod on node %s", helpers.K8s1)
 			status := kubectl.CiliumExec(ciliumPod, "cilium bpf tunnel list | wc -l")
 			status.ExpectSuccess()
-			Expect(status.IntOutput()).Should(Equal((kubectl.GetNumCiliumNodes()-1)*2+1), "Did not find expected number of entries in BPF tunnel map")
+
+			// ipv4+ipv6: 2 entries for each remote node + 1 header row
+			numEntries := (kubectl.GetNumCiliumNodes()-1)*2 + 1
+			if value := helpers.HelmOverride("global.ipv6.enabled"); value == "false" {
+				// ipv4 only: 1 entry for each remote node + 1 header row
+				numEntries = (kubectl.GetNumCiliumNodes() - 1) + 1
+			}
+
+			Expect(status.IntOutput()).Should(Equal(numEntries), "Did not find expected number of entries in BPF tunnel map")
 		}
 
 		It("Check connectivity with transparent encryption and VXLAN encapsulation", func() {
