@@ -33,7 +33,7 @@
  *
  * declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
  *                     CILIUM_CALL_FOO)
- * int foo_fn(struct __sk_buff *skb)
+ * int foo_fn(struct __ctx_buff *ctx)
  * {
  *    [...]
  * }
@@ -51,13 +51,13 @@
  * set, then above emits a tail call as follows:
  *
  * __attribute__((section("2" "/" "10"), used))
- * int foo_fn(struct __sk_buff *skb)
+ * int foo_fn(struct __ctx_buff *ctx)
  * {
  *    [...]
  * }
  *
  * [...]
- * do { ep_tail_call(skb, 10); ret = -140; } while (0);
+ * do { ep_tail_call(ctx, 10); ret = -140; } while (0);
  * [...]
  *
  * The fall-through side sets DROP_MISSED_TAIL_CALL as ret.
@@ -66,13 +66,13 @@
  * of them, then the code emission looks like:
  *
  * static __inline __attribute__ ((__always_inline__))
- * int foo_fn(struct __sk_buff *skb)
+ * int foo_fn(struct __ctx_buff *ctx)
  * {
  *    [...]
  * }
  *
  * [...]
- * return foo_fn(skb);
+ * return foo_fn(ctx);
  * [...]
  *
  * Selectors can be single is_defined(), or multiple ones
@@ -88,10 +88,10 @@
 	__eval(__declare_tailcall_if_, COND)(NAME)
 
 #define __invoke_tailcall_if_0(NAME, FUNC)    \
-	return FUNC(skb)
+	return FUNC(ctx)
 #define __invoke_tailcall_if_1(NAME, FUNC)    \
 	do {                                  \
-		ep_tail_call(skb, NAME);      \
+		ep_tail_call(ctx, NAME);      \
 		ret = DROP_MISSED_TAIL_CALL;  \
 	} while (0)
 #define invoke_tailcall_if(COND, NAME, FUNC)  \

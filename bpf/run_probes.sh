@@ -87,7 +87,7 @@ echo "#ifndef BPF_FEATURES_H_"  > "$FEATURE_FILE"
 echo "#define BPF_FEATURES_H_" >> "$FEATURE_FILE"
 echo "" >> "$FEATURE_FILE"
 
-#probe_run_tc "skb_change_tail.c" "HAVE_SKB_CHANGE_TAIL"
+#probe_run_tc "ctx_change_tail.c" "HAVE_SKB_CHANGE_TAIL"
 probe_run_ll
 
 echo "#endif /* BPF_FEATURES_H_ */" >> "$FEATURE_FILE"

@@ -161,7 +161,7 @@ function setup_proxy_rules()
 
 	# Any packet to an ingress or egress proxy uses a separate routing table
 	# that routes the packet to the loopback device regardless of the destination
-	# address in the packet. For this to work the skb must have a socket set
+	# address in the packet. For this to work the ctx must have a socket set
 	# (e.g., via TPROXY).
 	to_proxy_rulespec="fwmark 0x200/0xF00 pref 9 lookup $TO_PROXY_RT_TABLE"
 
@@ -645,7 +645,7 @@ fi
 if [ "$XDP_DEV" != "<nil>" ]; then
 	CIDR_MAP="cilium_cidr_v*"
 	COPTS=""
-	xdp_load $XDP_DEV $XDP_MODE "$COPTS" bpf_xdp.c bpf_xdp.o from-netdev $CIDR_MAP
+	xdp_load $XDP_DEV $XDP_MODE "$COPTS" bpf_prefilter.c bpf_prefilter.o from-netdev $CIDR_MAP
 fi
 
 # Compile dummy BPF file containing all shared struct definitions used by

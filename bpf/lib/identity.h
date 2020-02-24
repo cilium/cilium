@@ -43,27 +43,27 @@ static inline bool identity_is_reserved(__u32 identity)
 	return identity < UNMANAGED_ID || identity == REMOTE_NODE_ID;
 }
 
-static inline bool __inline__ inherit_identity_from_host(struct __sk_buff *skb, __u32 *identity)
+static inline bool __inline__ inherit_identity_from_host(struct __ctx_buff *ctx, __u32 *identity)
 {
-	__u32 magic = skb->mark & MARK_MAGIC_HOST_MASK;
+	__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
 	bool from_proxy = false;
 
 	/* Packets from the ingress proxy must skip the proxy when the
 	 * destination endpoint evaluates the policy. As the packet
 	 * would loop and/or the connection be reset otherwise. */
 	if (magic == MARK_MAGIC_PROXY_INGRESS) {
-		*identity = get_identity(skb);
-		skb->tc_index |= TC_INDEX_F_SKIP_INGRESS_PROXY;
+		*identity = get_identity(ctx);
+		ctx->tc_index |= TC_INDEX_F_SKIP_INGRESS_PROXY;
 		from_proxy = true;
 	/* (Return) packets from the egress proxy must skip the
 	 * redirection to the proxy, as the packet would loop and/or
 	 * the connection be reset otherwise. */
 	} else if (magic == MARK_MAGIC_PROXY_EGRESS) {
-		*identity = get_identity(skb);
-		skb->tc_index |= TC_INDEX_F_SKIP_EGRESS_PROXY;
+		*identity = get_identity(ctx);
+		ctx->tc_index |= TC_INDEX_F_SKIP_EGRESS_PROXY;
 		from_proxy = true;
 	} else if (magic == MARK_MAGIC_IDENTITY) {
-		*identity = get_identity(skb);
+		*identity = get_identity(ctx);
 	} else if (magic == MARK_MAGIC_HOST) {
 		*identity = HOST_ID;
 	} else {
@@ -71,8 +71,8 @@ static inline bool __inline__ inherit_identity_from_host(struct __sk_buff *skb, 
 	}
 
 	/* Reset packet mark to avoid hitting routing rules again */
-	skb->mark = 0;
-	cilium_dbg(skb, DBG_INHERIT_IDENTITY, *identity, 0);
+	ctx->mark = 0;
+	cilium_dbg(ctx, DBG_INHERIT_IDENTITY, *identity, 0);
 
 	return from_proxy;
 }

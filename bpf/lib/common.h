@@ -18,11 +18,15 @@
 #ifndef __LIB_COMMON_H_
 #define __LIB_COMMON_H_
 
-#include <bpf_features.h>
+#include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
+
 #include <linux/if_ether.h>
 #include <linux/ipv6.h>
 #include <linux/in.h>
+
+#include <bpf_features.h>
+
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -109,10 +113,10 @@ union v6addr {
         __u8 addr[16];
 } __attribute__((packed));
 
-static inline bool validate_ethertype(struct __sk_buff *skb, __u16 *proto)
+static inline bool validate_ethertype(struct __ctx_buff *ctx, __u16 *proto)
 {
-	void *data = (void *) (long) skb->data;
-	void *data_end = (void *) (long) skb->data_end;
+	void *data = (void *) (long) ctx->data;
+	void *data_end = (void *) (long) ctx->data_end;
 
 	if (data + ETH_HLEN > data_end)
 		return false;
@@ -126,9 +130,9 @@ static inline bool validate_ethertype(struct __sk_buff *skb, __u16 *proto)
 	return true;
 }
 
-static inline bool __revalidate_data(struct __sk_buff *skb, void **data_,
-				     void **data_end_, void **l3,
-				     const size_t l3_len, const bool pull)
+static __always_inline __maybe_unused bool
+__revalidate_data(struct __ctx_buff *ctx, void **data_, void **data_end_,
+		  void **l3, const size_t l3_len, const bool pull)
 {
 	const size_t tot_len = ETH_HLEN + l3_len;
 	void *data_end;
@@ -136,9 +140,9 @@ static inline bool __revalidate_data(struct __sk_buff *skb, void **data_,
 
 	/* Verifier workaround, do this unconditionally: invalid size of register spill. */
 	if (pull)
-		skb_pull_data(skb, tot_len);
-	data_end = (void *)(long)skb->data_end;
-	data = (void *)(long)skb->data;
+		ctx_pull_data(ctx, tot_len);
+	data_end = (void *)(long)ctx->data_end;
+	data = (void *)(long)ctx->data;
 	if (data + tot_len > data_end)
 		return false;
 
@@ -150,20 +154,20 @@ static inline bool __revalidate_data(struct __sk_buff *skb, void **data_,
 	return true;
 }
 
-/* revalidate_data_first() initializes the provided pointers from the skb and
+/* revalidate_data_first() initializes the provided pointers from the ctx and
  * ensures that the data is pulled in for access. Should be used the first
- * time that the skb data is accessed, subsequent calls can be made to
+ * time that the ctx data is accessed, subsequent calls can be made to
  * revalidate_data() which is cheaper.
- * Returns true if 'skb' is long enough for an IP header of the provided type,
+ * Returns true if 'ctx' is long enough for an IP header of the provided type,
  * false otherwise. */
-#define revalidate_data_first(skb, data, data_end, ip)			\
-	__revalidate_data(skb, data, data_end, (void **)ip, sizeof(**ip), true)
+#define revalidate_data_first(ctx, data, data_end, ip)			\
+	__revalidate_data(ctx, data, data_end, (void **)ip, sizeof(**ip), true)
 
-/* revalidate_data() initializes the provided pointers from the skb.
- * Returns true if 'skb' is long enough for an IP header of the provided type,
+/* revalidate_data() initializes the provided pointers from the ctx.
+ * Returns true if 'ctx' is long enough for an IP header of the provided type,
  * false otherwise. */
-#define revalidate_data(skb, data, data_end, ip)			\
-	__revalidate_data(skb, data, data_end, (void **)ip, sizeof(**ip), false)
+#define revalidate_data(ctx, data, data_end, ip)			\
+	__revalidate_data(ctx, data, data_end, (void **)ip, sizeof(**ip), false)
 
 /* Macros for working with L3 cilium defined IPV6 addresses */
 #define BPF_V6(dst, ...)	BPF_V6_1(dst, fetch_ipv6(__VA_ARGS__))
@@ -294,12 +298,12 @@ enum {
 # define BPF_F_PSEUDO_HDR                (1ULL << 4)
 #endif
 
-#define IS_ERR(x) (unlikely((x < 0) || (x == TC_ACT_SHOT)))
+#define IS_ERR(x) (unlikely((x < 0) || (x == CTX_ACT_DROP)))
 
 /* Cilium IPSec code to indicate packet needs to be handled
- * by IPSec stack. Maps to TC_ACT_OK.
+ * by IPSec stack. Maps to CTX_ACT_OK.
  */
-#define IPSEC_ENDPOINT TC_ACT_OK
+#define IPSEC_ENDPOINT CTX_ACT_OK
 
 /* Return value to indicate that proxy redirection is required */
 #define POLICY_ACT_PROXY_REDIRECT (1 << 16)
@@ -372,7 +376,7 @@ enum {
 #define METRIC_INGRESS  1
 #define METRIC_EGRESS   2
 
-/* Magic skb->mark identifies packets origination and encryption status.
+/* Magic ctx->mark identifies packets origination and encryption status.
  *
  * The upper 16 bits plus lower 8 bits (e.g. mask 0XFFFF00FF) contain the
  * packets security identity. The lower/upper halves are swapped to recover
@@ -427,34 +431,8 @@ enum {
 #define DSR_IPV6_OPT_TYPE	0x1B
 #define DSR_IPV6_OPT_LEN	0x14	// to store ipv6 addr + port
 #define DSR_IPV6_EXT_LEN	0x2	// = (sizeof(dsr_opt_v6) - 8) / 8
-/**
- * get_identity - returns source identity from the mark field
- */
-static inline int __inline__ get_identity(struct __sk_buff *skb)
-{
-	return ((skb->mark & 0xFF) << 16) | skb->mark >> 16;
-}
 
-static inline void __inline__ set_encrypt_dip(struct __sk_buff *skb, __u32 ip_endpoint)
-{
-	skb->cb[4] = ip_endpoint;
-}
-
-/**
- * set_identity - pushes 24 bit identity into skb mark value.
- */
-static inline void __inline__ set_identity(struct __sk_buff *skb, __u32 identity)
-{
-	skb->mark = skb->mark & MARK_MAGIC_KEY_MASK;
-	skb->mark |= ((identity & 0xFFFF) << 16) | ((identity & 0xFF0000) >> 16);
-}
-
-static inline void __inline__ set_identity_cb(struct __sk_buff *skb, __u32 identity)
-{
-	skb->cb[1] = identity;
-}
-
-/* We cap key index at 4 bits because mark value is used to map skb to key */
+/* We cap key index at 4 bits because mark value is used to map ctx to key */
 #define MAX_KEY_INDEX 15
 
 /* encrypt_key is the index into the encrypt map */
@@ -475,21 +453,8 @@ static inline __u32 __inline__ or_encrypt_key(__u8 key)
 	return (((__u32)key & 0x0F) << 12) | MARK_MAGIC_ENCRYPT;
 }
 
-/**
- * set_encrypt_key - pushes 8 bit key and encryption marker into skb mark value.
- */
-static inline void __inline__ set_encrypt_key(struct __sk_buff *skb, __u8 key)
-{
-	skb->mark = or_encrypt_key(key);
-}
-
-static inline void __inline__ set_encrypt_key_cb(struct __sk_buff *skb, __u8 key)
-{
-	skb->cb[0] = or_encrypt_key(key);
-}
-
 /*
- * skb->tc_index uses
+ * ctx->tc_index uses
  *
  * cilium_host @egress
  *   bpf_host -> bpf_lxc
@@ -499,7 +464,7 @@ static inline void __inline__ set_encrypt_key_cb(struct __sk_buff *skb, __u8 key
 #define TC_INDEX_F_SKIP_NODEPORT	4
 #define TC_INDEX_F_SKIP_RECIRCULATION	8
 
-/* skb->cb[] usage: */
+/* ctx->cb[] usage: */
 enum {
 	CB_SRC_LABEL,
 #define	CB_SVC_PORT		CB_SRC_LABEL	/* Alias, non-overlapping */
@@ -694,21 +659,6 @@ static inline void relax_verifier(void)
 	csum_diff(0, 0, &foo, 1, 0);
 }
 
-static inline int redirect_self(struct __sk_buff *skb)
-{
-	/* Looping back the packet into the originating netns. In
-	 * case of veth, it's xmit'ing into the hosts' veth device
-	 * such that we end up on ingress in the peer. For ipvlan
-	 * slave it's redirect to ingress as we are attached on the
-	 * slave in netns already.
-	 */
-#ifdef ENABLE_HOST_REDIRECT
-	return redirect(skb->ifindex, 0);
-#else
-	return redirect(skb->ifindex, BPF_F_INGRESS);
-#endif
-}
-
 static inline int redirect_peer(int ifindex, __u32 flags)
 {
 	/* If our datapath has proper redirect support, we make use
@@ -718,7 +668,7 @@ static inline int redirect_peer(int ifindex, __u32 flags)
 #ifdef ENABLE_HOST_REDIRECT
 	return redirect(ifindex, flags);
 #else
-	return TC_ACT_OK;
+	return CTX_ACT_OK;
 #endif /* ENABLE_HOST_REDIRECT */
 }
 
@@ -741,5 +691,7 @@ static inline int redirect_peer(int ifindex, __u32 flags)
 #ifndef EADDRINUSE
 # define EADDRINUSE		98
 #endif
+
+#include "overloadable.h"
 
 #endif /* __LIB_COMMON_H_ */

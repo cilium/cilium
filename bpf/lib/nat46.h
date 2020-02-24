@@ -57,12 +57,12 @@ static inline int get_csum_offset(__u8 protocol)
 	return csum_off;
 }
 
-static inline int icmp4_to_icmp6(struct __sk_buff *skb, int nh_off)
+static inline int icmp4_to_icmp6(struct __ctx_buff *ctx, int nh_off)
 {
 	struct icmphdr icmp4;
 	struct icmp6hdr icmp6 = {};
 
-	if (skb_load_bytes(skb, nh_off, &icmp4, sizeof(icmp4)) < 0)
+	if (ctx_load_bytes(ctx, nh_off, &icmp4, sizeof(icmp4)) < 0)
 		return DROP_INVALID;
 	else
 		icmp6.icmp6_cksum = icmp4.checksum;
@@ -133,7 +133,7 @@ static inline int icmp4_to_icmp6(struct __sk_buff *skb, int nh_off)
 		return DROP_UNKNOWN_ICMP_TYPE;
 	}
 
-	if (skb_store_bytes(skb, nh_off, &icmp6, sizeof(icmp6), 0) < 0)
+	if (ctx_store_bytes(ctx, nh_off, &icmp6, sizeof(icmp6), 0) < 0)
 		return DROP_WRITE_ERROR;
 
 	icmp4.checksum = 0;
@@ -141,12 +141,12 @@ static inline int icmp4_to_icmp6(struct __sk_buff *skb, int nh_off)
 	return csum_diff(&icmp4, sizeof(icmp4), &icmp6, sizeof(icmp6), 0);
 }
 
-static inline int icmp6_to_icmp4(struct __sk_buff *skb, int nh_off)
+static inline int icmp6_to_icmp4(struct __ctx_buff *ctx, int nh_off)
 {
 	struct icmphdr icmp4 = {};
 	struct icmp6hdr icmp6;
 
-	if (skb_load_bytes(skb, nh_off, &icmp6, sizeof(icmp6)) < 0)
+	if (ctx_load_bytes(ctx, nh_off, &icmp6, sizeof(icmp6)) < 0)
 		return DROP_INVALID;
 	else
 		icmp4.checksum = icmp6.icmp6_cksum;
@@ -209,7 +209,7 @@ static inline int icmp6_to_icmp4(struct __sk_buff *skb, int nh_off)
 		return DROP_UNKNOWN_ICMP6_TYPE;
 	}
 
-	if (skb_store_bytes(skb, nh_off, &icmp4, sizeof(icmp4), 0) < 0)
+	if (ctx_store_bytes(ctx, nh_off, &icmp4, sizeof(icmp4), 0) < 0)
 		return DROP_WRITE_ERROR;
 
 	icmp4.checksum = 0;
@@ -234,7 +234,7 @@ static inline int ipv6_prefix_match(struct in6_addr *addr,
  * s6 = nat46_prefix<s4>
  * d6 = nat46_prefix<d4> or v6_dst if non null
  */
-static inline int ipv4_to_ipv6(struct __sk_buff *skb, struct iphdr *ip4,
+static inline int ipv4_to_ipv6(struct __ctx_buff *ctx, struct iphdr *ip4,
 			       int nh_off, union v6addr *v6_dst)
 {
 	struct ipv6hdr v6 = {};
@@ -246,7 +246,7 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, struct iphdr *ip4,
 	__u64 csum_flags = BPF_F_PSEUDO_HDR;
 	union v6addr nat46_prefix = NAT46_PREFIX;
 	
-	if (skb_load_bytes(skb, nh_off, &v4, sizeof(v4)) < 0)
+	if (ctx_load_bytes(ctx, nh_off, &v4, sizeof(v4)) < 0)
 		return DROP_INVALID;
 
 	if (ipv4_hdrlen(ip4) != sizeof(v4))
@@ -280,19 +280,19 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, struct iphdr *ip4,
 	v4hdr_len = (v4.ihl << 2);
 	v6.payload_len = bpf_htons(bpf_ntohs(v4.tot_len) - v4hdr_len);
 
-	if (skb_change_proto(skb, bpf_htons(ETH_P_IPV6), 0) < 0) {
+	if (ctx_change_proto(ctx, bpf_htons(ETH_P_IPV6), 0) < 0) {
 #ifdef DEBUG_NAT46
-		printk("v46 NAT: skb_modify failed\n");
+		printk("v46 NAT: ctx_modify failed\n");
 #endif
 		return DROP_WRITE_ERROR;
 	}
 
-	if (skb_store_bytes(skb, nh_off, &v6, sizeof(v6), 0) < 0 ||
-	    skb_store_bytes(skb, nh_off - 2, &protocol, 2, 0) < 0)
+	if (ctx_store_bytes(ctx, nh_off, &v6, sizeof(v6), 0) < 0 ||
+	    ctx_store_bytes(ctx, nh_off - 2, &protocol, 2, 0) < 0)
 		return DROP_WRITE_ERROR;
 
 	if (v4.protocol == IPPROTO_ICMP) {
-		csum = icmp4_to_icmp6(skb, nh_off + sizeof(v6));
+		csum = icmp4_to_icmp6(ctx, nh_off + sizeof(v6));
 		csum = ipv6_pseudohdr_checksum(&v6, IPPROTO_ICMPV6,
 					       bpf_ntohs(v6.payload_len), csum);
 	} else {
@@ -314,7 +314,7 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, struct iphdr *ip4,
 	else
 		csum_off += sizeof(struct ipv6hdr);
 
-	if (l4_csum_replace(skb, nh_off + csum_off, 0, csum, csum_flags) < 0)
+	if (l4_csum_replace(ctx, nh_off + csum_off, 0, csum, csum_flags) < 0)
 		return DROP_CSUM_L4;
 
 #ifdef DEBUG_NAT46
@@ -329,7 +329,7 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, struct iphdr *ip4,
  * s4 = <ipv4-range>.<lxc-id>
  * d4 = d6[96 .. 127]
  */
-static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off, __be32 saddr)
+static inline int ipv6_to_ipv4(struct __ctx_buff *ctx, int nh_off, __be32 saddr)
 {
 	struct ipv6hdr v6;
 	struct iphdr v4 = {};
@@ -338,11 +338,11 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off, __be32 saddr)
 	__be16 protocol = bpf_htons(ETH_P_IP);
 	__u64 csum_flags = BPF_F_PSEUDO_HDR;
 
-	if (skb_load_bytes(skb, nh_off, &v6, sizeof(v6)) < 0)
+	if (ctx_load_bytes(ctx, nh_off, &v6, sizeof(v6)) < 0)
 		return DROP_INVALID;
 
 	/* Drop frames which carry extensions headers */
-	if (ipv6_hdrlen(skb, nh_off, &v6.nexthdr) != sizeof(v6))
+	if (ipv6_hdrlen(ctx, nh_off, &v6.nexthdr) != sizeof(v6))
 		return DROP_INVALID_EXTHDR;
 
 	/* build v4 header */
@@ -359,23 +359,23 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off, __be32 saddr)
 	csum_off = offsetof(struct iphdr, check);
 	csum = csum_diff(NULL, 0, &v4, sizeof(v4), csum);
 
-	if (skb_change_proto(skb, bpf_htons(ETH_P_IP), 0) < 0) {
+	if (ctx_change_proto(ctx, bpf_htons(ETH_P_IP), 0) < 0) {
 #ifdef DEBUG_NAT46
-		printk("v46 NAT: skb_modify failed\n");
+		printk("v46 NAT: ctx_modify failed\n");
 #endif
 		return DROP_WRITE_ERROR;
 	}
 
-	if (skb_store_bytes(skb, nh_off, &v4, sizeof(v4), 0) < 0 ||
-	    skb_store_bytes(skb, nh_off - 2, &protocol, 2, 0) < 0)
+	if (ctx_store_bytes(ctx, nh_off, &v4, sizeof(v4), 0) < 0 ||
+	    ctx_store_bytes(ctx, nh_off - 2, &protocol, 2, 0) < 0)
 		return DROP_WRITE_ERROR;
 
-	if (l3_csum_replace(skb, nh_off + csum_off, 0, csum, 0) < 0)
+	if (l3_csum_replace(ctx, nh_off + csum_off, 0, csum, 0) < 0)
 		return DROP_CSUM_L3;
 
 	if (v6.nexthdr == IPPROTO_ICMPV6) {
 		__be32 csum1 = 0;
-		csum = icmp6_to_icmp4(skb, nh_off + sizeof(v4));
+		csum = icmp6_to_icmp4(ctx, nh_off + sizeof(v4));
 		csum1 = ipv6_pseudohdr_checksum(&v6, IPPROTO_ICMPV6,
 						bpf_ntohs(v6.payload_len), 0);
 		csum = csum - csum1;
@@ -397,7 +397,7 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off, __be32 saddr)
 	else
 		csum_off += sizeof(struct iphdr);
 
-	if (l4_csum_replace(skb, nh_off + csum_off, 0, csum, csum_flags) < 0)
+	if (l4_csum_replace(ctx, nh_off + csum_off, 0, csum, csum_flags) < 0)
 		return DROP_CSUM_L4;
 
 #ifdef DEBUG_NAT46

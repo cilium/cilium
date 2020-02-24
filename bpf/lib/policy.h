@@ -42,7 +42,7 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 	};
 
 	if (!map)
-		return TC_ACT_OK;
+		return CTX_ACT_OK;
 
 	/* Start with L3/L4 lookup. */
 	policy = map_lookup_elem(map, &key);
@@ -69,7 +69,7 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 	if (likely(policy)) {
 		/* FIXME: Need byte counter */
 		__sync_fetch_and_add(&policy->packets, 1);
-		return TC_ACT_OK;
+		return CTX_ACT_OK;
 	}
 
 	/* Final fallback if allow-all policy is in place. */
@@ -78,7 +78,7 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 	if (likely(policy)) {
 		/* FIXME: Need byte counter */
 		__sync_fetch_and_add(&policy->packets, 1);
-		return TC_ACT_OK;
+		return CTX_ACT_OK;
 	}
 
 	return DROP_POLICY;
@@ -86,15 +86,15 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 #else
 
 static inline void __inline__
-account(struct __sk_buff *skb, struct policy_entry *policy)
+account(struct __ctx_buff *ctx, struct policy_entry *policy)
 {
 	/* FIXME: Use per cpu counters */
 	__sync_fetch_and_add(&policy->packets, 1);
-	__sync_fetch_and_add(&policy->bytes, skb->len);
+	__sync_fetch_and_add(&policy->bytes, ctx->len);
 }
 
 static inline int __inline__
-__policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
+__policy_can_access(void *map, struct __ctx_buff *ctx, __u32 identity,
 		    __u16 dport, __u8 proto, int dir, bool is_fragment, __u8 *match_type)
 {
 #ifdef ALLOW_ICMP_FRAG_NEEDED
@@ -105,16 +105,16 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 		struct icmphdr icmphdr;
 		struct iphdr *ip4;
 
-		if (!revalidate_data(skb, &data, &data_end, &ip4))
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 
 		__u32 off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
 
-		if (skb_load_bytes(skb, off, &icmphdr, sizeof(icmphdr)) < 0)
+		if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
 			return DROP_INVALID;
 
 		if(icmphdr.type == ICMP_DEST_UNREACH && icmphdr.code == ICMP_FRAG_NEEDED)
-			return TC_ACT_OK;
+			return CTX_ACT_OK;
 	}
 #endif /* ALLOW_ICMP_FRAG_NEEDED */
 
@@ -133,10 +133,10 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 		/* Start with L3/L4 lookup. */
 		policy = map_lookup_elem(map, &key);
 		if (likely(policy)) {
-			cilium_dbg3(skb, DBG_L4_CREATE, identity, SECLABEL,
+			cilium_dbg3(ctx, DBG_L4_CREATE, identity, SECLABEL,
 				    dport << 16 | proto);
 
-			account(skb, policy);
+			account(ctx, policy);
 			*match_type = POLICY_MATCH_L3_L4;
 			return policy->proxy_port;
 		}
@@ -145,7 +145,7 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 		key.sec_label = 0;
 		policy = map_lookup_elem(map, &key);
 		if (likely(policy)) {
-			account(skb, policy);
+			account(ctx, policy);
 			*match_type = POLICY_MATCH_L4_ONLY;
 			return policy->proxy_port;
 		}
@@ -157,22 +157,22 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 	key.protocol = 0;
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {
-		account(skb, policy);
+		account(ctx, policy);
 		*match_type = POLICY_MATCH_L3_ONLY;
-		return TC_ACT_OK;
+		return CTX_ACT_OK;
 	}
 
 	/* Final fallback if allow-all policy is in place. */
 	key.sec_label = 0;
 	policy = map_lookup_elem(map, &key);
 	if (policy) {
-		account(skb, policy);
+		account(ctx, policy);
 		*match_type = POLICY_MATCH_ALL;
-		return TC_ACT_OK;
+		return CTX_ACT_OK;
 	}
 
-	if (skb->cb[CB_POLICY])
-		return TC_ACT_OK;
+	if (ctx->cb[CB_POLICY])
+		return CTX_ACT_OK;
 
 	if (is_fragment)
 		return DROP_FRAG_NOSUPPORT;
@@ -181,31 +181,31 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 
 /**
  * Determine whether the policy allows this traffic on ingress.
- * @arg skb		Packet to allow or deny
+ * @arg ctx		Packet to allow or deny
  * @arg src_identity	Source security identity for this packet
  * @arg dport		Destination port of this packet
  * @arg proto		L3 Protocol of this packet
  *
  * Returns:
  *   - Positive integer indicating the proxy_port to handle this traffic
- *   - TC_ACT_OK if the policy allows this traffic based only on labels/L3/L4
+ *   - CTX_ACT_OK if the policy allows this traffic based only on labels/L3/L4
  *   - Negative error code if the packet should be dropped
  */
 static inline int __inline__
-policy_can_access_ingress(struct __sk_buff *skb, __u32 src_identity,
+policy_can_access_ingress(struct __ctx_buff *ctx, __u32 src_identity,
 			  __u16 dport, __u8 proto, bool is_fragment, __u8 *match_type)
 {
 	int ret;
 
-	ret = __policy_can_access(&POLICY_MAP, skb, src_identity, dport,
+	ret = __policy_can_access(&POLICY_MAP, ctx, src_identity, dport,
 				      proto, CT_INGRESS, is_fragment, match_type);
-	if (ret >= TC_ACT_OK)
+	if (ret >= CTX_ACT_OK)
 		return ret;
 
-	cilium_dbg(skb, DBG_POLICY_DENIED, src_identity, SECLABEL);
+	cilium_dbg(ctx, DBG_POLICY_DENIED, src_identity, SECLABEL);
 
 #ifdef IGNORE_DROP
-	ret = TC_ACT_OK;
+	ret = CTX_ACT_OK;
 #endif
 
 	return ret;
@@ -213,7 +213,7 @@ policy_can_access_ingress(struct __sk_buff *skb, __u32 src_identity,
 
 #ifdef ENCAP_IFINDEX
 static inline bool __inline__
-is_encap(struct __sk_buff *skb, __u16 dport, __u8 proto)
+is_encap(struct __ctx_buff *ctx, __u16 dport, __u8 proto)
 {
 	return proto == IPPROTO_UDP &&
 		(dport == bpf_htons(PORT_UDP_VXLAN) ||
@@ -223,67 +223,67 @@ is_encap(struct __sk_buff *skb, __u16 dport, __u8 proto)
 #endif
 
 static inline int __inline__
-policy_can_egress(struct __sk_buff *skb, __u32 identity, __u16 dport, __u8 proto, __u8 *match_type)
+policy_can_egress(struct __ctx_buff *ctx, __u32 identity, __u16 dport, __u8 proto, __u8 *match_type)
 {
 #ifdef ENCAP_IFINDEX
-	if (is_encap(skb, dport, proto))
+	if (is_encap(ctx, dport, proto))
 		return DROP_ENCAP_PROHIBITED;
 #endif
 
-	int ret = __policy_can_access(&POLICY_MAP, skb, identity, dport, proto,
+	int ret = __policy_can_access(&POLICY_MAP, ctx, identity, dport, proto,
 				      CT_EGRESS, false, match_type);
 	if (ret >= 0)
 		return ret;
 
-	cilium_dbg(skb, DBG_POLICY_DENIED, SECLABEL, identity);
+	cilium_dbg(ctx, DBG_POLICY_DENIED, SECLABEL, identity);
 
 #ifdef IGNORE_DROP
-	ret = TC_ACT_OK;
+	ret = CTX_ACT_OK;
 #endif
 
 	return ret;
 }
 
-static inline int policy_can_egress6(struct __sk_buff *skb,
+static inline int policy_can_egress6(struct __ctx_buff *ctx,
 				     struct ipv6_ct_tuple *tuple,
 				     __u32 identity, __u8 *match_type)
 {
-	return policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr, match_type);
+	return policy_can_egress(ctx, identity, tuple->dport, tuple->nexthdr, match_type);
 }
 
-static inline int policy_can_egress4(struct __sk_buff *skb,
+static inline int policy_can_egress4(struct __ctx_buff *ctx,
 				     struct ipv4_ct_tuple *tuple,
 				     __u32 identity, __u8 *match_type)
 {
-	return policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr, match_type);
+	return policy_can_egress(ctx, identity, tuple->dport, tuple->nexthdr, match_type);
 }
 
 /**
- * Mark skb to skip policy enforcement
- * @arg skb	packet
+ * Mark ctx to skip policy enforcement
+ * @arg ctx	packet
  *
  * Will cause the packet to ignore the policy enforcement layer and
  * be considered accepted despite of the policy outcome.
  */
-static inline void policy_mark_skip(struct __sk_buff *skb)
+static inline void policy_mark_skip(struct __ctx_buff *ctx)
 {
-	skb->cb[CB_POLICY] = 1;
+	ctx->cb[CB_POLICY] = 1;
 }
 
-static inline void policy_clear_mark(struct __sk_buff *skb)
+static inline void policy_clear_mark(struct __ctx_buff *ctx)
 {
-	skb->cb[CB_POLICY] = 0;
+	ctx->cb[CB_POLICY] = 0;
 }
 
 #endif // SOCKMAP
 #else
 
 
-static inline void policy_mark_skip(struct __sk_buff *skb)
+static inline void policy_mark_skip(struct __ctx_buff *ctx)
 {
 }
 
-static inline void policy_clear_mark(struct __sk_buff *skb)
+static inline void policy_clear_mark(struct __ctx_buff *ctx)
 {
 }
 

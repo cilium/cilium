@@ -22,6 +22,9 @@
 #define DROP_NOTIFY
 #define POLICY_VERDICT_NOTIFY
 
+#include <bpf/ctx/unspec.h>
+#include <bpf/api.h>
+
 #include "node_config.h"
 #include "lib/conntrack.h"
 #include "lib/dbg.h"
