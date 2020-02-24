@@ -215,7 +215,8 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 				DockerEndpointID: e.dockerEndpointID,
 				DockerNetworkID:  e.dockerNetworkID,
 				PodName:          e.getK8sNamespaceAndPodName(),
-				Namespace:        e.K8sNamespace,
+				K8sPodName:       e.K8sPodName,
+				K8sNamespace:     e.K8sNamespace,
 			},
 			// FIXME GH-3280 When we begin returning endpoint revisions this should
 			// change to return the configured and in-datapath policies.
