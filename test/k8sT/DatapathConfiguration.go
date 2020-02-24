@@ -253,6 +253,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 		}, 600)
 
 		It("Check connectivity with Geneve encapsulation", func() {
+			// Geneve is currently not supported on GKE
+			SkipIfIntegration(helpers.CIIntegrationGKE)
+
 			deployCilium(map[string]string{
 				"global.tunnel": "geneve",
 			})
