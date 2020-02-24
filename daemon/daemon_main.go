@@ -1449,6 +1449,10 @@ func initKubeProxyReplacementOptions() {
 		log.Infof("Auto-enabling %q, %q, %q features", option.EnableNodePort,
 			option.EnableExternalIPs, option.EnableHostReachableServices)
 
+		if option.Config.Tunnel == option.TunnelDisabled {
+			option.Config.NodePortMode = option.NodePortModeHybrid
+		}
+
 		option.Config.EnableNodePort = true
 		option.Config.EnableExternalIPs = true
 		option.Config.EnableHostReachableServices = true
@@ -1479,7 +1483,8 @@ func initKubeProxyReplacementOptions() {
 			option.Config.NodePortMode == option.NodePortModeHybrid) &&
 			option.Config.Tunnel != option.TunnelDisabled {
 			// Currently, DSR does not work in the tunnel mode. Once it's fixed,
-			// the constraint can be removed.
+			// the constraint can be removed. Also hybrid can be set to default
+			// in tunnel mode for the probe case above.
 			log.Fatal("DSR cannot be used with tunnel")
 		}
 	}
