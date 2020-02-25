@@ -143,6 +143,7 @@ data:
   wait-bpf-mount: "false"
 
   masquerade: "true"
+  enable-bpf-masquerade: "false"
   enable-xt-socket-fallback: "true"
   install-iptables-rules: "true"
   auto-direct-node-routes: "false"

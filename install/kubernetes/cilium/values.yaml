@@ -119,9 +119,12 @@ global:
   # disabled.
   installIptablesRules: true
 
-  # masquerade enables masquerading of traffic leaving the ndoe for
+  # masquerade enables masquerading of traffic leaving the node for
   # destinations outside of the cluster.
   masquerade: true
+
+  # bpfMasquerade enables masquerading with BPF instead of iptables
+  bpfMasquerade: false
 
   # autoDirectNodeRoutes enables installation of PodCIDR routes between worker
   # nodes if worker nodes share a common L2 network segment.
