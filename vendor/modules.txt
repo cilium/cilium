@@ -16,10 +16,8 @@ github.com/Azure/go-autorest/autorest/azure/cli
 # github.com/Azure/go-autorest/autorest/date v0.2.0
 github.com/Azure/go-autorest/autorest/date
 # github.com/Azure/go-autorest/autorest/to v0.3.0
-## explicit
 github.com/Azure/go-autorest/autorest/to
 # github.com/Azure/go-autorest/autorest/validation v0.2.0
-## explicit
 github.com/Azure/go-autorest/autorest/validation
 # github.com/Azure/go-autorest/logger v0.1.0
 github.com/Azure/go-autorest/logger
@@ -70,7 +68,6 @@ github.com/blang/semver
 ## explicit
 github.com/c9s/goprocinfo/linux
 # github.com/census-instrumentation/opencensus-proto v0.2.1
-## explicit
 github.com/census-instrumentation/opencensus-proto/gen-go/resource/v1
 github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1
 # github.com/cespare/xxhash/v2 v2.1.0
@@ -85,6 +82,40 @@ github.com/cilium/ebpf/asm
 github.com/cilium/ebpf/internal
 github.com/cilium/ebpf/internal/unix
 github.com/cilium/ebpf/perf
+# github.com/cilium/hubble v0.0.0-20200304173801-3a8a8f56fb08
+## explicit
+github.com/cilium/hubble/api/v1/flow
+github.com/cilium/hubble/api/v1/observer
+github.com/cilium/hubble/cmd/serve
+github.com/cilium/hubble/pkg/api
+github.com/cilium/hubble/pkg/api/v1
+github.com/cilium/hubble/pkg/cilium
+github.com/cilium/hubble/pkg/cilium/client
+github.com/cilium/hubble/pkg/container
+github.com/cilium/hubble/pkg/filters
+github.com/cilium/hubble/pkg/fqdncache
+github.com/cilium/hubble/pkg/ipcache
+github.com/cilium/hubble/pkg/k8s
+github.com/cilium/hubble/pkg/logger
+github.com/cilium/hubble/pkg/math
+github.com/cilium/hubble/pkg/metrics
+github.com/cilium/hubble/pkg/metrics/api
+github.com/cilium/hubble/pkg/metrics/dns
+github.com/cilium/hubble/pkg/metrics/drop
+github.com/cilium/hubble/pkg/metrics/flow
+github.com/cilium/hubble/pkg/metrics/http
+github.com/cilium/hubble/pkg/metrics/icmp
+github.com/cilium/hubble/pkg/metrics/port-distribution
+github.com/cilium/hubble/pkg/metrics/tcp
+github.com/cilium/hubble/pkg/parser
+github.com/cilium/hubble/pkg/parser/endpoint
+github.com/cilium/hubble/pkg/parser/errors
+github.com/cilium/hubble/pkg/parser/getters
+github.com/cilium/hubble/pkg/parser/options
+github.com/cilium/hubble/pkg/parser/seven
+github.com/cilium/hubble/pkg/parser/threefour
+github.com/cilium/hubble/pkg/server
+github.com/cilium/hubble/pkg/servicecache
 # github.com/cilium/ipam v0.0.0-20200217195329-a46f8d55f9db
 ## explicit
 github.com/cilium/ipam/service/allocator
@@ -133,7 +164,6 @@ github.com/dgrijalva/jwt-go
 # github.com/dimchansky/utfbom v1.1.0
 github.com/dimchansky/utfbom
 # github.com/docker/distribution v2.7.1+incompatible
-## explicit
 github.com/docker/distribution/digestset
 github.com/docker/distribution/reference
 github.com/docker/distribution/registry/api/errcode
@@ -162,7 +192,7 @@ github.com/docker/docker/pkg/longpath
 github.com/docker/docker/pkg/plugingetter
 github.com/docker/docker/pkg/plugins
 github.com/docker/docker/pkg/plugins/transport
-# github.com/docker/go-connections v0.3.0
+# github.com/docker/go-connections v0.4.0
 ## explicit
 github.com/docker/go-connections/nat
 github.com/docker/go-connections/sockets
@@ -180,7 +210,7 @@ github.com/docker/libnetwork/types
 # github.com/emicklei/go-restful v2.9.5+incompatible
 github.com/emicklei/go-restful
 github.com/emicklei/go-restful/log
-# github.com/envoyproxy/protoc-gen-validate v0.1.0
+# github.com/envoyproxy/protoc-gen-validate v0.3.0-java
 ## explicit
 github.com/envoyproxy/protoc-gen-validate/validate
 # github.com/evanphx/json-patch v4.2.0+incompatible
@@ -228,13 +258,16 @@ github.com/go-openapi/swag
 github.com/go-openapi/validate
 # github.com/go-stack/stack v1.8.0
 github.com/go-stack/stack
-# github.com/gogo/protobuf v1.2.2-0.20190723190241-65acae22fc9d
+# github.com/gogo/protobuf v1.3.0
+## explicit
 github.com/gogo/protobuf/gogoproto
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/protoc-gen-gogo/descriptor
 github.com/gogo/protobuf/sortkeys
+github.com/gogo/protobuf/types
 # github.com/golang/protobuf v1.3.2
 ## explicit
+github.com/golang/protobuf/jsonpb
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/protoc-gen-go/descriptor
 github.com/golang/protobuf/ptypes
@@ -310,7 +343,6 @@ github.com/imdario/mergo
 # github.com/inconshreveable/mousetrap v1.0.0
 github.com/inconshreveable/mousetrap
 # github.com/ishidawataru/sctp v0.0.0-20180213033435-07191f837fed
-## explicit
 github.com/ishidawataru/sctp
 # github.com/jessevdk/go-flags v1.4.0
 ## explicit
@@ -353,7 +385,7 @@ github.com/mitchellh/mapstructure
 github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.1
 github.com/modern-go/reflect2
-# github.com/morikuni/aec v0.0.0-20170113033406-39771216ff4c
+# github.com/morikuni/aec v1.0.0
 ## explicit
 # github.com/onsi/ginkgo v1.10.1
 ## explicit
@@ -391,10 +423,8 @@ github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
 github.com/onsi/gomega/types
 # github.com/opencontainers/go-digest v1.0.0-rc1
-## explicit
 github.com/opencontainers/go-digest
 # github.com/opencontainers/image-spec v1.0.1
-## explicit
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
 # github.com/optiopay/kafka v0.0.0-00010101000000-000000000000 => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
@@ -592,7 +622,7 @@ golang.org/x/text/width
 # golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 ## explicit
 golang.org/x/time/rate
-# golang.org/x/tools v0.0.0-20190920225731-5eefd052ad72
+# golang.org/x/tools v0.0.0-20191108193012-7d206e10da11
 golang.org/x/tools/go/ast/astutil
 golang.org/x/tools/go/gcexportdata
 golang.org/x/tools/go/internal/gcimporter
@@ -604,6 +634,7 @@ golang.org/x/tools/internal/gopathwalk
 golang.org/x/tools/internal/imports
 golang.org/x/tools/internal/module
 golang.org/x/tools/internal/semver
+golang.org/x/tools/internal/span
 # gonum.org/v1/gonum v0.0.0-20190331200053-3d26580ed485
 gonum.org/v1/gonum/blas
 gonum.org/v1/gonum/blas/blas64
@@ -655,6 +686,8 @@ google.golang.org/grpc/credentials/internal
 google.golang.org/grpc/encoding
 google.golang.org/grpc/encoding/proto
 google.golang.org/grpc/grpclog
+google.golang.org/grpc/health
+google.golang.org/grpc/health/grpc_health_v1
 google.golang.org/grpc/internal
 google.golang.org/grpc/internal/backoff
 google.golang.org/grpc/internal/balancerload

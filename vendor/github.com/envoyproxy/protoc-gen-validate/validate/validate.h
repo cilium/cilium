@@ -12,9 +12,21 @@
 #if !defined(_WIN32)
 #include <arpa/inet.h>
 #else
-#include <winsock.h>
+#include <winsock2.h>
 #include <ws2tcpip.h>
+
+// <windows.h> uses macros to #define a ton of symbols,
+// many of which interfere with our code here and down
+// the line in various extensions.
+#undef DELETE
+#undef ERROR
+#undef GetMessage
+#undef interface
+#undef TRUE
+
 #endif
+
+#include "google/protobuf/stubs/strutil.h" // for UTF8Len
 
 namespace pgv {
 using std::string;
@@ -22,6 +34,7 @@ using std::string;
 class UnimplementedException : public std::runtime_error {
 public:
   UnimplementedException() : std::runtime_error("not yet implemented") {}
+  UnimplementedException(const std::string& message) : std::runtime_error(message) {}
   // Thrown by C++ validation code that is not yet implemented.
 };
 
@@ -76,6 +89,11 @@ static inline bool Contains(const string& search_in, const string& to_find)
   return search_in.find(to_find) != string::npos;
 }
 
+static inline bool NotContains(const string& search_in, const string& to_find)
+{
+  return !Contains(search_in, to_find);
+}
+
 static inline bool IsIpv4(const string& to_validate) {
 	struct sockaddr_in sa;
 	return !(inet_pton(AF_INET, to_validate.c_str(), &sa.sin_addr) < 1);
@@ -117,6 +135,20 @@ static inline bool IsHostname(const string& to_validate) {
   }
 
   return true;
+}
+
+static inline size_t Utf8Len(const string& narrow_string) {
+  const char *str_char = narrow_string.c_str();
+  ptrdiff_t byte_len = narrow_string.length();
+  size_t unicode_len = 0;
+  int char_len = 1;
+  while (byte_len > 0 && char_len > 0) {
+    char_len = google::protobuf::UTF8FirstLetterNumBytes(str_char, byte_len);
+    str_char += char_len;
+    byte_len -= char_len;
+    ++unicode_len;
+  }
+  return unicode_len;
 }
 
 } // namespace pgv
