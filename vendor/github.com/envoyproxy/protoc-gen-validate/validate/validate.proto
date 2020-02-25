@@ -12,26 +12,27 @@ import "google/protobuf/timestamp.proto";
 extend google.protobuf.MessageOptions {
     // Disabled nullifies any validation rules for this message, including any
     // message fields associated with it that do support validation.
-    optional bool disabled = 919191;
+    optional bool disabled = 1071;
 }
 
 // Validation rules applied at the oneof level
 extend google.protobuf.OneofOptions {
     // Required ensures that exactly one the field options in a oneof is set;
     // validation fails if no fields in the oneof are set.
-    optional bool required = 919191;
+    optional bool required = 1071;
 }
 
 // Validation rules applied at the field level
 extend google.protobuf.FieldOptions {
     // Rules specify the validations to be performed on this field. By default,
     // no validation is performed against a field.
-    optional FieldRules rules = 919191;
+    optional FieldRules rules = 1071;
 }
 
 // FieldRules encapsulates the rules for each type of field. Depending on the
 // field, the correct set should be used to ensure proper validations.
 message FieldRules {
+    optional MessageRules message = 17;
     oneof type {
         // Scalar Field Types
         FloatRules    float    = 1;
@@ -52,7 +53,6 @@ message FieldRules {
 
         // Complex Field Types
         EnumRules     enum     = 16;
-        MessageRules  message  = 17;
         RepeatedRules repeated = 18;
         MapRules      map      = 19;
 
@@ -502,6 +502,10 @@ message StringRules {
     // anywhere in the string.
     optional string contains = 9;
 
+    // NotContains specifies that this field cannot have the specified substring
+    // anywhere in the string.
+    optional string not_contains = 23;
+
     // In specifies that this field must be equal to one of the specified
     // values
     repeated string in     = 10;
@@ -545,7 +549,25 @@ message StringRules {
         // defined by RFC 1034 (which does not support internationalized domain
         // names or IDNs), or it can be a valid IP (v4 or v6).
         bool address  = 21;
+
+        // Uuid specifies that the field must be a valid UUID as defined by
+        // RFC 4122
+        bool uuid     = 22;
+
+        // WellKnownRegex specifies a common well known pattern defined as a regex.
+        KnownRegex well_known_regex = 24;
     }
+}
+
+// WellKnownRegex contain some well-known patterns.
+enum KnownRegex {
+  UNKNOWN = 0;
+
+  // HTTP header name as defined by RFC 7230.
+  HTTP_HEADER_NAME = 1;
+
+  // HTTP header value as defined by RFC 7230.
+  HTTP_HEADER_VALUE = 2;
 }
 
 // BytesRules describe the constraints applied to `bytes` values
