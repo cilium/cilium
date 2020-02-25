@@ -113,11 +113,12 @@ func (ch *CiliumHealth) runServer() {
 		scopedLog.WithError(err).Fatal("Cannot set default permissions on socket")
 	}
 
+	status := &models.Status{}
+
 	// Periodically fetch status from cilium-health server
 	for {
-		status := &models.Status{
-			State: models.StatusStateOk,
-		}
+		status.Msg = ""
+		status.State = models.StatusStateOk
 
 		_, err := ch.client.Restapi.GetHealthz(nil)
 		if err != nil {
