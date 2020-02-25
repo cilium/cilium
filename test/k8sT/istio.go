@@ -114,10 +114,12 @@ var _ = Describe("K8sIstioTest", func() {
 		By("Deleting the Istio CRDs")
 		_ = kubectl.Delete(istioCRDYAMLPath)
 
+		By("Waiting all terminating PODs to disappear")
+		err := kubectl.WaitCleanAllTerminatingPods(teardownTimeout)
+		ExpectWithOffset(1, err).To(BeNil(), "terminating Istio PODs are not deleted after timeout")
+
 		By("Deleting the istio-system namespace")
 		_ = kubectl.NamespaceDelete(istioSystemNamespace)
-
-		kubectl.WaitCleanAllTerminatingPods(teardownTimeout)
 
 		kubectl.CloseSSHClient()
 	})
