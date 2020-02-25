@@ -147,6 +147,107 @@ func (s *LabelsSuite) TestEquals(c *C) {
 	c.Assert(lbls6.Equals(lbls5), Equals, false)
 	c.Assert(lbls6.Equals(lbls6), Equals, true)
 }
+
+func (s *LabelsSuite) TestLess(c *C) {
+	// LabelArrays are in lexical order from list1-list8
+	lbls1 := LabelArray(nil)
+	lbls2 := LabelArray{
+		NewLabel("env", "devel", LabelSourceAny),
+	}
+	lbls3 := LabelArray{
+		NewLabel("env", "devel", LabelSourceReserved),
+	}
+	lbls4 := LabelArray{
+		NewLabel("env", "prod", LabelSourceAny),
+	}
+	lbls5 := LabelArray{
+		NewLabel("env", "prod", LabelSourceAny),
+		NewLabel("user", "bob", LabelSourceContainer),
+	}
+	lbls6 := LabelArray{
+		NewLabel("env", "prod", LabelSourceAny),
+		NewLabel("user", "bob", LabelSourceContainer),
+	}
+	lbls7 := LabelArray{
+		NewLabel("env", "prod", LabelSourceAny),
+		NewLabel("user", "bob", LabelSourceContainer),
+		NewLabel("xyz", "", LabelSourceAny),
+	}
+	lbls8 := LabelArray{
+		NewLabel("foo", "bar", LabelSourceAny),
+	}
+
+	c.Assert(lbls1.Less(lbls1), Equals, false)
+	c.Assert(lbls1.Less(lbls2), Equals, true)
+	c.Assert(lbls1.Less(lbls3), Equals, true)
+	c.Assert(lbls1.Less(lbls4), Equals, true)
+	c.Assert(lbls1.Less(lbls5), Equals, true)
+	c.Assert(lbls1.Less(lbls6), Equals, true)
+	c.Assert(lbls1.Less(lbls7), Equals, true)
+	c.Assert(lbls1.Less(lbls8), Equals, true)
+
+	c.Assert(lbls2.Less(lbls1), Equals, false)
+	c.Assert(lbls2.Less(lbls2), Equals, false)
+	c.Assert(lbls2.Less(lbls3), Equals, true)
+	c.Assert(lbls2.Less(lbls4), Equals, true)
+	c.Assert(lbls2.Less(lbls5), Equals, true)
+	c.Assert(lbls2.Less(lbls6), Equals, true)
+	c.Assert(lbls2.Less(lbls7), Equals, true)
+	c.Assert(lbls2.Less(lbls8), Equals, true)
+
+	c.Assert(lbls3.Less(lbls1), Equals, false)
+	c.Assert(lbls3.Less(lbls2), Equals, false)
+	c.Assert(lbls3.Less(lbls3), Equals, false)
+	c.Assert(lbls3.Less(lbls4), Equals, true)
+	c.Assert(lbls3.Less(lbls5), Equals, true)
+	c.Assert(lbls3.Less(lbls6), Equals, true)
+	c.Assert(lbls3.Less(lbls7), Equals, true)
+	c.Assert(lbls3.Less(lbls8), Equals, true)
+
+	c.Assert(lbls4.Less(lbls1), Equals, false)
+	c.Assert(lbls4.Less(lbls2), Equals, false)
+	c.Assert(lbls4.Less(lbls3), Equals, false)
+	c.Assert(lbls4.Less(lbls4), Equals, false)
+	c.Assert(lbls4.Less(lbls5), Equals, true)
+	c.Assert(lbls4.Less(lbls6), Equals, true)
+	c.Assert(lbls4.Less(lbls7), Equals, true)
+	c.Assert(lbls4.Less(lbls8), Equals, true)
+
+	c.Assert(lbls5.Less(lbls1), Equals, false)
+	c.Assert(lbls5.Less(lbls2), Equals, false)
+	c.Assert(lbls5.Less(lbls3), Equals, false)
+	c.Assert(lbls5.Less(lbls4), Equals, false)
+	c.Assert(lbls5.Less(lbls5), Equals, false)
+	c.Assert(lbls5.Less(lbls6), Equals, false)
+	c.Assert(lbls5.Less(lbls7), Equals, true)
+	c.Assert(lbls5.Less(lbls8), Equals, true)
+
+	c.Assert(lbls6.Less(lbls1), Equals, false)
+	c.Assert(lbls6.Less(lbls2), Equals, false)
+	c.Assert(lbls6.Less(lbls3), Equals, false)
+	c.Assert(lbls6.Less(lbls4), Equals, false)
+	c.Assert(lbls6.Less(lbls5), Equals, false)
+	c.Assert(lbls6.Less(lbls6), Equals, false)
+	c.Assert(lbls6.Less(lbls7), Equals, true)
+	c.Assert(lbls6.Less(lbls8), Equals, true)
+
+	c.Assert(lbls7.Less(lbls1), Equals, false)
+	c.Assert(lbls7.Less(lbls2), Equals, false)
+	c.Assert(lbls7.Less(lbls3), Equals, false)
+	c.Assert(lbls7.Less(lbls4), Equals, false)
+	c.Assert(lbls7.Less(lbls5), Equals, false)
+	c.Assert(lbls7.Less(lbls6), Equals, false)
+	c.Assert(lbls7.Less(lbls7), Equals, false)
+	c.Assert(lbls7.Less(lbls8), Equals, true)
+
+	c.Assert(lbls8.Less(lbls1), Equals, false)
+	c.Assert(lbls8.Less(lbls2), Equals, false)
+	c.Assert(lbls8.Less(lbls3), Equals, false)
+	c.Assert(lbls8.Less(lbls4), Equals, false)
+	c.Assert(lbls8.Less(lbls5), Equals, false)
+	c.Assert(lbls8.Less(lbls6), Equals, false)
+	c.Assert(lbls8.Less(lbls7), Equals, false)
+	c.Assert(lbls8.Less(lbls8), Equals, false)
 }
 
 // TestOutputConversions tests the various ways a LabelArray can be converted

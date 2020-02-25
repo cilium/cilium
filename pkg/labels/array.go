@@ -225,3 +225,36 @@ func (ls LabelArray) Equals(b LabelArray) bool {
 	}
 	return true
 }
+
+// Less returns true if ls comes before b in the lexicographical order.
+// Assumes both ls and b are already sorted.
+func (ls LabelArray) Less(b LabelArray) bool {
+	lsLen, bLen := len(ls), len(b)
+
+	minLen := lsLen
+	if bLen < minLen {
+		minLen = bLen
+	}
+
+	for i := 0; i < minLen; i++ {
+		switch {
+		// Key
+		case ls[i].Key < b[i].Key:
+			return true
+		case ls[i].Key > b[i].Key:
+			return false
+		// Value
+		case ls[i].Value < b[i].Value:
+			return true
+		case ls[i].Value > b[i].Value:
+			return false
+		// Source
+		case ls[i].Source < b[i].Source:
+			return true
+		case ls[i].Source > b[i].Source:
+			return false
+		}
+	}
+
+	return lsLen < bLen
+}
