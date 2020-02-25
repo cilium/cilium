@@ -35,9 +35,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-var (
-	eventsMapName = "cilium_events"
-)
+const eventsMapName = "cilium_events"
 
 // isCtxDone is a utility function that returns true when the context's Done()
 // channel is closed. It is intended to simplify goroutines that need to check

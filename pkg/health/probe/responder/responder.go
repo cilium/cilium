@@ -23,8 +23,8 @@ import (
 	"time"
 )
 
-// DefaultTimeout used for shutdown
-var DefaultTimeout = 30 * time.Second
+// defaultTimeout used for shutdown
+var defaultTimeout = 30 * time.Second
 
 // Server wraps a minimal http server for the /hello endpoint
 type Server struct {
@@ -48,7 +48,7 @@ func (s *Server) Serve() error {
 
 // Shutdown server gracefully
 func (s *Server) Shutdown() error {
-	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 	return s.httpServer.Shutdown(ctx)
 }

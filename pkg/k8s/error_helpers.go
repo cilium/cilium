@@ -25,10 +25,11 @@ var (
 
 	// k8sErrMsgMU guards additions and removals to k8sErrMsg, which stores a
 	// time after which a repeat error message can be printed
-	k8sErrMsgMU      lock.Mutex
-	k8sErrMsg        = map[string]time.Time{}
-	k8sErrLogTimeout = time.Minute
+	k8sErrMsgMU lock.Mutex
+	k8sErrMsg   = map[string]time.Time{}
 )
+
+const k8sErrLogTimeout = time.Minute
 
 // k8sErrorUpdateCheckUnmuteTime returns a boolean indicating whether we should
 // log errmsg or not. It manages once-per-k8sErrLogTimeout entry in k8sErrMsg.
