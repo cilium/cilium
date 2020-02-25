@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -224,7 +225,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				} else {
 					insertedDesiredMapState[keyFromFilter] = struct{}{}
 				}
-				if entry != policy.NoRedirectEntry {
+				if entry.IsRedirectEntry() {
 					entry.ProxyPort = redirectPort
 				}
 				e.desiredPolicy.PolicyMapState[keyFromFilter] = entry
@@ -334,10 +335,15 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 			TrafficDirection: direction.Uint8(),
 		}
 
-		e.desiredPolicy.PolicyMapState[newKey] = policy.MapStateEntry{
-			ProxyPort: redirectPort,
+		derivedFrom := labels.LabelArrayList{
+			labels.LabelArray{
+				labels.NewLabel(policy.LabelKeyPolicyDerivedFrom, policy.LabelVisibilityAnnotation, labels.LabelSourceReserved),
+			},
 		}
+		entry := policy.NewMapStateEntry(derivedFrom, true)
+		entry.ProxyPort = redirectPort
 
+		e.desiredPolicy.PolicyMapState[newKey] = entry
 		insertedDesiredMapState[newKey] = struct{}{}
 	}
 
@@ -1068,7 +1074,7 @@ func (e *Endpoint) applyPolicyMapChanges() (proxyChanges bool, err error) {
 
 	for keyToAdd, entry := range adds {
 		// Keep the existing proxy port, if any
-		if entry != policy.NoRedirectEntry {
+		if entry.IsRedirectEntry() {
 			entry.ProxyPort = e.realizedRedirects[policy.ProxyIDFromKey(e.ID, keyToAdd)]
 			if entry.ProxyPort != 0 {
 				proxyChanges = true
@@ -1143,7 +1149,7 @@ func (e *Endpoint) addPolicyMapDelta() error {
 	errors := 0
 
 	for keyToAdd, entry := range e.desiredPolicy.PolicyMapState {
-		if oldEntry, ok := e.realizedPolicy.PolicyMapState[keyToAdd]; !ok || oldEntry != entry {
+		if oldEntry, ok := e.realizedPolicy.PolicyMapState[keyToAdd]; !ok || !oldEntry.Equal(&entry) {
 			if !e.addPolicyKey(keyToAdd, entry, false) {
 				errors++
 			}

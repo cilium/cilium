@@ -16,6 +16,7 @@ package policy
 
 import (
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -30,6 +31,14 @@ var (
 		Identity:         identity.ReservedIdentityHost.Uint32(),
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}
+)
+
+const (
+	LabelKeyPolicyDerivedFrom  = "io.cilium.policy.derived-from"
+	LabelAllowLocalHostIngress = "allow-localhost-ingress"
+	LabelAllowAnyIngress       = "allow-any-ingress"
+	LabelAllowAnyEgress        = "allow-any-egress"
+	LabelVisibilityAnnotation  = "visibility-annotation"
 )
 
 // MapState is a state of a policy map.
@@ -68,22 +77,47 @@ type MapStateEntry struct {
 	// If 0 (default), there is no proxy redirection for the corresponding
 	// Key. Any other value signifies proxy redirection.
 	ProxyPort uint16
+
+	// DerivedFromRules tracks the policy rules this entry derives from
+	DerivedFromRules labels.LabelArrayList
 }
 
-// NoRedirectEntry is a special MapStateEntry used to signify that the
-// entry is not redirecting to a proxy.
-var NoRedirectEntry = MapStateEntry{ProxyPort: 0}
+// NewMapStateEntry creates a map state entry. If redirect is true, the
+// caller is expected to replace the ProxyPort field before it is added to
+// the actual BPF map.
+func NewMapStateEntry(derivedFrom labels.LabelArrayList, redirect bool) MapStateEntry {
+	var proxyPort uint16
+	if redirect {
+		// Any non-zero value will do, as the callers replace this with the
+		// actual proxy listening port number before the entry is added to the
+		// actual bpf map.
+		proxyPort = 1
+	}
 
-// redirectEntry is a MapStateEntry used to signify that the entry
-// must redirect to a proxy. Any non-zero value would do, as the
-// callers replace this with the actual proxy listening port number
-// before the entry is added to the actual bpf map.
-var redirectEntry = MapStateEntry{ProxyPort: 1}
+	return MapStateEntry{
+		ProxyPort:        proxyPort,
+		DerivedFromRules: derivedFrom,
+	}
+}
+
+// IsRedirectEntry returns true if e contains a redirect
+func (e *MapStateEntry) IsRedirectEntry() bool {
+	return e.ProxyPort != 0
+}
+
+// Equal returns true of two entries are equal
+func (e *MapStateEntry) Equal(o *MapStateEntry) bool {
+	if e == nil || o == nil {
+		return e == o
+	}
+
+	return e.ProxyPort == o.ProxyPort && e.DerivedFromRules.Equals(o.DerivedFromRules)
+}
 
 // RedirectPreferredInsert inserts a new entry giving priority to L7-redirects by
 // not overwriting a L7-redirect entry with a non-redirect entry
 func (keys MapState) RedirectPreferredInsert(key Key, entry MapStateEntry) {
-	if entry == NoRedirectEntry {
+	if !entry.IsRedirectEntry() {
 		if _, ok := keys[key]; ok {
 			// Key already exist, keep the existing entry so that
 			// a redirect entry is never overwritten by a non-redirect
@@ -100,7 +134,12 @@ func (keys MapState) RedirectPreferredInsert(key Key, entry MapStateEntry) {
 // endpoint.
 func (keys MapState) DetermineAllowLocalhostIngress(l4Policy *L4Policy) {
 	if option.Config.AlwaysAllowLocalhost() {
-		keys[localHostKey] = MapStateEntry{}
+		derivedFrom := labels.LabelArrayList{
+			labels.LabelArray{
+				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowLocalHostIngress, labels.LabelSourceReserved),
+			},
+		}
+		keys[localHostKey] = NewMapStateEntry(derivedFrom, false)
 	}
 }
 
@@ -115,7 +154,12 @@ func (keys MapState) AllowAllIdentities(ingress, egress bool) {
 			Nexthdr:          0,
 			TrafficDirection: trafficdirection.Ingress.Uint8(),
 		}
-		keys[keyToAdd] = MapStateEntry{}
+		derivedFrom := labels.LabelArrayList{
+			labels.LabelArray{
+				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowLocalHostIngress, labels.LabelSourceReserved),
+			},
+		}
+		keys[keyToAdd] = NewMapStateEntry(derivedFrom, false)
 	}
 	if egress {
 		keyToAdd := Key{
@@ -124,7 +168,12 @@ func (keys MapState) AllowAllIdentities(ingress, egress bool) {
 			Nexthdr:          0,
 			TrafficDirection: trafficdirection.Egress.Uint8(),
 		}
-		keys[keyToAdd] = MapStateEntry{}
+		derivedFrom := labels.LabelArrayList{
+			labels.LabelArray{
+				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved),
+			},
+		}
+		keys[keyToAdd] = NewMapStateEntry(derivedFrom, false)
 	}
 }
 
@@ -147,7 +196,8 @@ type MapChanges struct {
 // cases where an identity is first added and then deleted, or first
 // deleted and then added.
 func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdentity,
-	port uint16, proto uint8, direction trafficdirection.TrafficDirection, redirect bool) {
+	port uint16, proto uint8, direction trafficdirection.TrafficDirection,
+	redirect bool, derivedFrom labels.LabelArrayList) {
 	key := Key{
 		// The actual identity is set in the loops below
 		Identity: 0,
@@ -156,10 +206,8 @@ func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdent
 		Nexthdr:          proto,
 		TrafficDirection: direction.Uint8(),
 	}
-	var value MapStateEntry // defaults to ProxyPort 0 == no redirect
-	if redirect {
-		value = redirectEntry // Special entry to mark the need for redirection
-	}
+
+	value := NewMapStateEntry(derivedFrom, redirect)
 
 	if option.Config.Debug {
 		log.WithFields(logrus.Fields{
@@ -179,7 +227,7 @@ func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdent
 		}
 		for _, id := range adds {
 			key.Identity = id.Uint32()
-			// insert but do not allow NoRedirectEntry to overwrite a redirect entry
+			// insert but do not allow non-redirect entries to overwrite a redirect entry
 			mc.adds.RedirectPreferredInsert(key, value)
 
 			// Remove a potential previously deleted key

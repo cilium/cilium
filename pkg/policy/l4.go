@@ -241,7 +241,7 @@ func (l4 *L4Filter) GetPort() uint16 {
 }
 
 // ToMapState converts filter into a MapState with two possible values:
-// - NoRedirectEntry (ProxyPort = 0): No proxy redirection is needed for this key
+// - Entry with ProxyPort = 0: No proxy redirection is needed for this key
 // - Entry with any other port #: Proxy redirection is required for this key,
 //                                caller must replace the ProxyPort with the actual
 //                                listening port number.
@@ -291,11 +291,9 @@ func (l4 *L4Filter) ToMapState(direction trafficdirection.TrafficDirection) MapS
 			}).Debug("ToMapState: Skipping L3/L4 key due to existing L4-only key")
 			continue
 		}
-		entry := NoRedirectEntry
-		if l7 != nil {
-			entry = redirectEntry
-		}
 
+		derivedFrom := l4.DerivedFromRules.DeepCopy().Sort()
+		entry := NewMapStateEntry(derivedFrom, l7 != nil)
 		if cs.IsWildcard() {
 			keyToAdd.Identity = 0
 			keysToAdd.RedirectPreferredInsert(keyToAdd, entry)
@@ -358,12 +356,13 @@ func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, selections
 	// that we could not push updates on a stale policy.
 	l4Policy := (*L4Policy)(atomic.LoadPointer(&l4.policy))
 	if l4Policy != nil {
+		derivedFrom := l4.DerivedFromRules.DeepCopy().Sort()
 		direction := trafficdirection.Egress
 		if l4.Ingress {
 			direction = trafficdirection.Ingress
 		}
 		l4Policy.AccumulateMapChanges(added, deleted, uint16(l4.Port), uint8(l4.U8Proto), direction,
-			l4.L7RulesPerSelector[selector] != nil)
+			l4.L7RulesPerSelector[selector] != nil, derivedFrom)
 	}
 }
 
@@ -801,10 +800,11 @@ func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
 // The caller is responsible for making sure the same identity is not
 // present in both 'adds' and 'deletes'.
 func (l4 *L4Policy) AccumulateMapChanges(adds, deletes []identity.NumericIdentity,
-	port uint16, proto uint8, direction trafficdirection.TrafficDirection, redirect bool) {
+	port uint16, proto uint8, direction trafficdirection.TrafficDirection,
+	redirect bool, derivedFrom labels.LabelArrayList) {
 	l4.mutex.RLock()
 	for epPolicy := range l4.users {
-		epPolicy.policyMapChanges.AccumulateMapChanges(adds, deletes, port, proto, direction, redirect)
+		epPolicy.policyMapChanges.AccumulateMapChanges(adds, deletes, port, proto, direction, redirect, derivedFrom)
 	}
 	l4.mutex.RUnlock()
 }

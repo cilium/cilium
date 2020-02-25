@@ -149,7 +149,7 @@ func (s *LabelsSuite) TestEquals(c *C) {
 }
 
 func (s *LabelsSuite) TestLess(c *C) {
-	// LabelArrays are in lexical order from list1-list8
+	// lbls1-lbls8 are defined in lexical order
 	lbls1 := LabelArray(nil)
 	lbls2 := LabelArray{
 		NewLabel("env", "devel", LabelSourceAny),
