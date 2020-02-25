@@ -213,8 +213,8 @@ func (ls LabelArray) StringMap() map[string]string {
 	return o
 }
 
-// Same returns true if the label arrays are the same, i.e., have the same labels in the same order.
-func (ls LabelArray) Same(b LabelArray) bool {
+// Equals returns true if the label arrays are the same, i.e., have the same labels in the same order.
+func (ls LabelArray) Equals(b LabelArray) bool {
 	if len(ls) != len(b) {
 		return false
 	}
