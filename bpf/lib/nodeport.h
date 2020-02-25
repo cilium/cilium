@@ -651,10 +651,6 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return false;
-#ifdef ENABLE_DSR_HYBRID
-	if (nodeport_uses_dsr(ip4->protocol))
-		return false;
-#endif /* ENABLE_DSR_HYBRID */
 	/* Basic minimum is to only NAT when there is a potential of
 	 * overlapping tuples, e.g. applications in hostns reusing
 	 * source IPs we SNAT in node-port.
@@ -1004,15 +1000,10 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		if (svc)
 			return DROP_IS_CLUSTER_IP;
 
-		if (nodeport_uses_dsr4(&tuple)) {
-			return CTX_ACT_OK;
-		} else {
-			// TODO
-			ctx->cb[CB_NAT] = NAT_DIR_INGRESS;
-			ctx->cb[CB_SRC_IDENTITY] = src_identity;
-			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT);
-			return DROP_MISSED_TAIL_CALL;
-		}
+		ctx->cb[CB_NAT] = NAT_DIR_INGRESS;
+		ctx->cb[CB_SRC_IDENTITY] = src_identity;
+		ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT);
+		return DROP_MISSED_TAIL_CALL;
 	}
 
 	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
