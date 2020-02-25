@@ -53,9 +53,7 @@ const (
 	ciliumHealth = "cilium-health"
 	netNSName    = "cilium-health"
 	binaryName   = "cilium-health-responder"
-)
 
-var (
 	// vethName is the host-side veth link device name for cilium-health EP
 	// (veth mode only).
 	vethName = "lxc_health"

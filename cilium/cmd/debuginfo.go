@@ -49,13 +49,16 @@ const (
 	JSONPATH
 )
 
-var (
+const (
 	// Can't call it jsonOutput because another var in this package uses that.
 	jsonOutputDebuginfo = "json"
 	markdownOutput      = "markdown"
 	htmlOutput          = "html"
 	jsonpathOutput      = "jsonpath"
-	jsonPathRegExp      = regexp.MustCompile(`^jsonpath\=(.*)`)
+)
+
+var (
+	jsonPathRegExp = regexp.MustCompile(`^jsonpath\=(.*)`)
 )
 
 // outputTypes enum strings

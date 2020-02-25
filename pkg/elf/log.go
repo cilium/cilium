@@ -19,9 +19,9 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "elf")
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "elf")
 
+const (
 	fieldSymbol = "symbol"
 
 	srcPath = "template-path"
