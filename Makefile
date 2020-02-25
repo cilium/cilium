@@ -102,7 +102,7 @@ ifeq ($(SKIP_KVSTORES),"false")
 	$(CONTAINER_ENGINE_FULL) run -d \
 		--name "cilium-etcd-test-container" \
 		-p 4002:4001 \
-		quay.io/coreos/etcd:v3.2.17 \
+		$(ETCD_IMAGE) \
 		etcd -name etcd0 \
 		-advertise-client-urls http://0.0.0.0:4001 \
 		-listen-client-urls http://0.0.0.0:4001 \

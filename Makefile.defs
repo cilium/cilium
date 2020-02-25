@@ -82,3 +82,9 @@ endif
 # Container engine
 CONTAINER_ENGINE?=docker
 CONTAINER_ENGINE_FULL=$(QUIET)$(CONTAINER_ENGINE)
+
+ifeq ($(shell uname -m),aarch64)
+    ETCD_IMAGE=quay.io/coreos/etcd:v3.2.17-arm64
+else
+    ETCD_IMAGE=quay.io/coreos/etcd:v3.2.17
+endif
