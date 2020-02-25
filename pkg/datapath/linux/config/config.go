@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
+	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
@@ -207,10 +208,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_NODEPORT"] = "1"
 
 		if option.Config.EnableIPv4 {
-			cDefinesMap["NODEPORT_NEIGH4"] = "cilium_nodeport_neigh4"
+			cDefinesMap["NODEPORT_NEIGH4"] = neighborsmap.Map4Name
 		}
 		if option.Config.EnableIPv6 {
-			cDefinesMap["NODEPORT_NEIGH6"] = "cilium_nodeport_neigh6"
+			cDefinesMap["NODEPORT_NEIGH6"] = neighborsmap.Map6Name
 		}
 		if option.Config.NodePortMode == option.NodePortModeDSR ||
 			option.Config.NodePortMode == option.NodePortModeHybrid {
