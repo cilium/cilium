@@ -157,13 +157,13 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(l4PolicyMap L4Policy
 		keysFromFilter := filter.ToMapState(direction)
 		for keyFromFilter, entry := range keysFromFilter {
 			// Fix up the proxy port for entries that need proxy redirection
-			if entry != NoRedirectEntry {
+			if entry.IsRedirectEntry() {
 				entry.ProxyPort = p.PolicyOwner.LookupRedirectPort(filter)
 				// If the currently allocated proxy port is 0, this is a new
 				// redirect, for which no port has been allocated yet. Ignore
 				// it for now. This will be configured by
 				// e.addNewRedirectsFromDesiredPolicy() once the port has been allocated.
-				if entry == NoRedirectEntry {
+				if !entry.IsRedirectEntry() {
 					continue
 				}
 			}
