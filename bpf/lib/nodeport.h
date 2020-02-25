@@ -707,10 +707,6 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return false;
-#ifdef ENABLE_DSR_HYBRID
-	if (nodeport_uses_dsr(ip4->protocol))
-		return false;
-#endif /* ENABLE_DSR_HYBRID */
 	/* Basic minimum is to only NAT when there is a potential of
 	 * overlapping tuples, e.g. applications in hostns reusing
 	 * source IPs we SNAT in node-port.
