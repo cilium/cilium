@@ -84,7 +84,7 @@ func (s *LabelsSuite) TestHas(c *C) {
 	}
 }
 
-func (s *LabelsSuite) TestSame(c *C) {
+func (s *LabelsSuite) TestEquals(c *C) {
 	lbls1 := LabelArray{
 		NewLabel("env", "devel", LabelSourceAny),
 		NewLabel("user", "bob", LabelSourceContainer),
@@ -105,47 +105,48 @@ func (s *LabelsSuite) TestSame(c *C) {
 	}
 	lbls6 := LabelArray{}
 
-	c.Assert(lbls1.Same(lbls1), Equals, true)
-	c.Assert(lbls1.Same(lbls2), Equals, true)
-	c.Assert(lbls1.Same(lbls3), Equals, false) // inverted order
-	c.Assert(lbls1.Same(lbls4), Equals, false) // different count
-	c.Assert(lbls1.Same(lbls5), Equals, false)
-	c.Assert(lbls1.Same(lbls6), Equals, false)
+	c.Assert(lbls1.Equals(lbls1), Equals, true)
+	c.Assert(lbls1.Equals(lbls2), Equals, true)
+	c.Assert(lbls1.Equals(lbls3), Equals, false) // inverted order
+	c.Assert(lbls1.Equals(lbls4), Equals, false) // different count
+	c.Assert(lbls1.Equals(lbls5), Equals, false)
+	c.Assert(lbls1.Equals(lbls6), Equals, false)
 
-	c.Assert(lbls2.Same(lbls1), Equals, true)
-	c.Assert(lbls2.Same(lbls2), Equals, true)
-	c.Assert(lbls2.Same(lbls3), Equals, false) // inverted order
-	c.Assert(lbls2.Same(lbls4), Equals, false) // different count
-	c.Assert(lbls2.Same(lbls5), Equals, false)
-	c.Assert(lbls2.Same(lbls6), Equals, false)
+	c.Assert(lbls2.Equals(lbls1), Equals, true)
+	c.Assert(lbls2.Equals(lbls2), Equals, true)
+	c.Assert(lbls2.Equals(lbls3), Equals, false) // inverted order
+	c.Assert(lbls2.Equals(lbls4), Equals, false) // different count
+	c.Assert(lbls2.Equals(lbls5), Equals, false)
+	c.Assert(lbls2.Equals(lbls6), Equals, false)
 
-	c.Assert(lbls3.Same(lbls1), Equals, false)
-	c.Assert(lbls3.Same(lbls2), Equals, false)
-	c.Assert(lbls3.Same(lbls3), Equals, true)
-	c.Assert(lbls3.Same(lbls4), Equals, false)
-	c.Assert(lbls3.Same(lbls5), Equals, false)
-	c.Assert(lbls3.Same(lbls6), Equals, false)
+	c.Assert(lbls3.Equals(lbls1), Equals, false)
+	c.Assert(lbls3.Equals(lbls2), Equals, false)
+	c.Assert(lbls3.Equals(lbls3), Equals, true)
+	c.Assert(lbls3.Equals(lbls4), Equals, false)
+	c.Assert(lbls3.Equals(lbls5), Equals, false)
+	c.Assert(lbls3.Equals(lbls6), Equals, false)
 
-	c.Assert(lbls4.Same(lbls1), Equals, false)
-	c.Assert(lbls4.Same(lbls2), Equals, false)
-	c.Assert(lbls4.Same(lbls3), Equals, false)
-	c.Assert(lbls4.Same(lbls4), Equals, true)
-	c.Assert(lbls4.Same(lbls5), Equals, false)
-	c.Assert(lbls4.Same(lbls6), Equals, false)
+	c.Assert(lbls4.Equals(lbls1), Equals, false)
+	c.Assert(lbls4.Equals(lbls2), Equals, false)
+	c.Assert(lbls4.Equals(lbls3), Equals, false)
+	c.Assert(lbls4.Equals(lbls4), Equals, true)
+	c.Assert(lbls4.Equals(lbls5), Equals, false)
+	c.Assert(lbls4.Equals(lbls6), Equals, false)
 
-	c.Assert(lbls5.Same(lbls1), Equals, false)
-	c.Assert(lbls5.Same(lbls2), Equals, false)
-	c.Assert(lbls5.Same(lbls3), Equals, false)
-	c.Assert(lbls5.Same(lbls4), Equals, false)
-	c.Assert(lbls5.Same(lbls5), Equals, true)
-	c.Assert(lbls5.Same(lbls6), Equals, false)
+	c.Assert(lbls5.Equals(lbls1), Equals, false)
+	c.Assert(lbls5.Equals(lbls2), Equals, false)
+	c.Assert(lbls5.Equals(lbls3), Equals, false)
+	c.Assert(lbls5.Equals(lbls4), Equals, false)
+	c.Assert(lbls5.Equals(lbls5), Equals, true)
+	c.Assert(lbls5.Equals(lbls6), Equals, false)
 
-	c.Assert(lbls6.Same(lbls1), Equals, false)
-	c.Assert(lbls6.Same(lbls2), Equals, false)
-	c.Assert(lbls6.Same(lbls3), Equals, false)
-	c.Assert(lbls6.Same(lbls4), Equals, false)
-	c.Assert(lbls6.Same(lbls5), Equals, false)
-	c.Assert(lbls6.Same(lbls6), Equals, true)
+	c.Assert(lbls6.Equals(lbls1), Equals, false)
+	c.Assert(lbls6.Equals(lbls2), Equals, false)
+	c.Assert(lbls6.Equals(lbls3), Equals, false)
+	c.Assert(lbls6.Equals(lbls4), Equals, false)
+	c.Assert(lbls6.Equals(lbls5), Equals, false)
+	c.Assert(lbls6.Equals(lbls6), Equals, true)
+}
 }
 
 // TestOutputConversions tests the various ways a LabelArray can be converted
