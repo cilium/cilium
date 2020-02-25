@@ -245,8 +245,8 @@ global:
     # device is the name of the device handling NodePort requests
     # device:
 
-    # dsr enables direct server return for NodePort services
-    dsr: false
+    # mode is the mode of NodePort feature
+    mode: "hybrid"
 
   # externalIPs is the configuration for ExternalIPs service handling
   externalIPs:

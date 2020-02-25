@@ -284,15 +284,12 @@ Hybrid DSR and SNAT Mode
 
 Cilium also supports a hybrid DSR and SNAT mode, that is, DSR is performed for TCP
 and SNAT for UDP connections. This has the advantage that it removes the need for
-manual MTU changes in the network while still benefitting from the latency improvements
+manual MTU changes in the network while still benefiting from the latency improvements
 through the removed extra hop for replies, in particular, when TCP is the main transport
 for workloads.
 
 The mode setting ``global.nodePort.mode`` allows to control the behavior through the
-options ``dsr``, ``snat`` and ``hybrid``. While Cilium's BPF NodePort implementation
-operates in SNAT mode by default, the ``hybrid`` mode is automatically enabled for the
-``global.kubeProxyReplacement`` settings with value ``probe`` or ``strict`` in order to
-transparently benefit from the optimization.
+options ``dsr``, ``snat`` and ``hybrid``.
 
 A helm example configuration in a kube-proxy-free environment with DSR enabled in hybrid
 mode would look as follows:

@@ -344,9 +344,6 @@ const (
 	// EnableRemoteNodeIdentity is the default value for option.EnableRemoteNodeIdentity
 	EnableRemoteNodeIdentity = false
 
-	// NodePortMode is the default value for option.NodePortMode
-	NodePortMode = "snat"
-
 	// IPAMExpiration is the timeout after which an IP subject to expiratio
 	// is being released again if no endpoint is being created in time.
 	IPAMExpiration = 3 * time.Minute
