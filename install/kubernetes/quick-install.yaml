@@ -132,6 +132,7 @@ data:
   wait-bpf-mount: "false"
 
   masquerade: "true"
+  enable-bpf-masquerade: "true"
   enable-xt-socket-fallback: "true"
   install-iptables-rules: "true"
   auto-direct-node-routes: "false"
@@ -220,6 +221,7 @@ rules:
   - ciliumidentities/status
   verbs:
   - '*'
+
 ---
 # Source: cilium/charts/operator/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -277,6 +279,7 @@ rules:
   - ciliumidentities/status
   verbs:
   - '*'
+
 ---
 # Source: cilium/charts/agent/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -291,6 +294,7 @@ subjects:
 - kind: ServiceAccount
   name: cilium
   namespace: kube-system
+
 ---
 # Source: cilium/charts/operator/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -305,6 +309,7 @@ subjects:
 - kind: ServiceAccount
   name: cilium-operator
   namespace: kube-system
+
 ---
 # Source: cilium/charts/agent/templates/daemonset.yaml
 apiVersion: apps/v1
@@ -530,6 +535,7 @@ spec:
     rollingUpdate:
       maxUnavailable: 2
     type: RollingUpdate
+
 ---
 # Source: cilium/charts/operator/templates/deployment.yaml
 apiVersion: apps/v1
