@@ -771,7 +771,7 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache) {
 			// order is different, but identity labels are
 			// sorted for the kv-store, so there should
 			// not be too many false negatives.
-			if lbls.Same(old.lbls) {
+			if lbls.Equals(old.lbls) {
 				log.WithFields(logrus.Fields{logfields.Identity: numericID}).Debug("UpdateIdentities: Skipping add of an existing identical identity")
 				delete(added, numericID)
 				continue
