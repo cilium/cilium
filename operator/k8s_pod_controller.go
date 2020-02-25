@@ -27,12 +27,12 @@ import (
 )
 
 const (
-	minimalPodRestartInterval = 5 * time.Minute
+	minimalPodRestartInterval  = 5 * time.Minute
+	unmanagedKubeDnsMinimalAge = 30 * time.Second
 )
 
 var (
 	unmanagedKubeDnsWatcherInterval int
-	unmanagedKubeDnsMinimalAge      = 30 * time.Second
 	lastPodRestart                  = map[string]time.Time{}
 )
 

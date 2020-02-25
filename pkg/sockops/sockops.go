@@ -36,13 +36,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var (
-	// Default prefix for map objects
-	mapPrefix = defaults.DefaultMapPrefix
-
-	contextTimeout = 5 * time.Minute
-)
-
 const (
 	cSockops = "bpf_sockops.c"
 	oSockops = "bpf_sockops.o"
@@ -53,6 +46,11 @@ const (
 	eIPC = "bpf_redir"
 
 	sockMap = "cilium_sock_ops"
+
+	// Default prefix for map objects
+	mapPrefix = defaults.DefaultMapPrefix
+
+	contextTimeout = 5 * time.Minute
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "sockops")

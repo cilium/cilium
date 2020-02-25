@@ -39,9 +39,9 @@ type CiliumHealth struct {
 	status *models.Status
 }
 
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-health-launcher")
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-health-launcher")
 
+const (
 	serverProbeInterval  = 60 * time.Second
 	serverProbeDeadline  = 1 * time.Second
 	connectRetryInterval = 1 * time.Second

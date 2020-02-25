@@ -43,7 +43,7 @@ const (
 
 type symbolKind uint32
 
-var (
+const (
 	symbolUint32 = symbolKind(1)
 	symbolString = symbolKind(2)
 )

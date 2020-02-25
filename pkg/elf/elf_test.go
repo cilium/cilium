@@ -37,9 +37,10 @@ type ELFTestSuite struct{}
 var (
 	_ = Suite(&ELFTestSuite{})
 
-	elfObjCopy  = "elf-demo-copy.o"
 	baseObjPath = filepath.Join(testutils.CiliumRootDir, "test", "bpf", "elf-demo.o")
 )
+
+const elfObjCopy = "elf-demo-copy.o"
 
 func Test(t *testing.T) {
 	TestingT(t)
