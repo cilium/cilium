@@ -63,6 +63,10 @@ int main() {
     DECLARE_STRUCT(policy_verdict_notify, iter);
     DECLARE_STRUCT(debug_msg, iter);
     DECLARE_STRUCT(debug_capture_msg, iter);
+    DECLARE_STRUCT(ipv4_revnat_tuple, iter);
+    DECLARE_STRUCT(ipv4_revnat_entry, iter);
+    DECLARE_STRUCT(ipv6_revnat_tuple, iter);
+    DECLARE_STRUCT(ipv6_revnat_entry, iter);
 
     return 0;
 }
