@@ -5,10 +5,7 @@ package server
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"errors"
-	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -25,8 +22,17 @@ import (
 	flags "github.com/jessevdk/go-flags"
 	"golang.org/x/net/netutil"
 
+	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/api/v1/server/restapi"
-	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/api/v1/server/restapi/daemon"
+	"github.com/cilium/cilium/api/v1/server/restapi/endpoint"
+	"github.com/cilium/cilium/api/v1/server/restapi/ipam"
+	"github.com/cilium/cilium/api/v1/server/restapi/metrics"
+	"github.com/cilium/cilium/api/v1/server/restapi/policy"
+	"github.com/cilium/cilium/api/v1/server/restapi/prefilter"
+	"github.com/cilium/cilium/api/v1/server/restapi/service"
+
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 const (

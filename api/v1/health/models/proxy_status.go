@@ -6,8 +6,11 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"strconv"
+
 	strfmt "github.com/go-openapi/strfmt"
 
+	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
 )
 
@@ -20,10 +23,53 @@ type ProxyStatus struct {
 
 	// Port range used for proxying
 	PortRange string `json:"port-range,omitempty"`
+
+	// Detailed description of configured redirects
+	Redirects []*ProxyRedirect `json:"redirects"`
+
+	// Total number of listening proxy ports
+	TotalPorts int64 `json:"total-ports,omitempty"`
+
+	// Total number of ports configured to redirect to proxies
+	TotalRedirects int64 `json:"total-redirects,omitempty"`
 }
 
 // Validate validates this proxy status
 func (m *ProxyStatus) Validate(formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.validateRedirects(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *ProxyStatus) validateRedirects(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Redirects) { // not required
+		return nil
+	}
+
+	for i := 0; i < len(m.Redirects); i++ {
+		if swag.IsZero(m.Redirects[i]) { // not required
+			continue
+		}
+
+		if m.Redirects[i] != nil {
+			if err := m.Redirects[i].Validate(formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("redirects" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
 	return nil
 }
 

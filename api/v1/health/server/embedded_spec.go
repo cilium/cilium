@@ -446,6 +446,22 @@ func init() {
         "type": "string"
       }
     },
+    "clusterMeshStatus": {
+      "description": "Status of ClusterMesh",
+      "properties": {
+        "clusters": {
+          "description": "List of remote clusters",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/remoteCluster"
+          }
+        },
+        "num-global-services": {
+          "description": "Number of global services",
+          "type": "integer"
+        }
+      }
+    },
     "clusterStatus": {
       "description": "Status of cluster",
       "properties": {
@@ -591,6 +607,70 @@ func init() {
         }
       }
     },
+    "kubeProxyReplacement": {
+      "description": "Status of kube-proxy replacement",
+      "type": "object",
+      "properties": {
+        "features": {
+          "type": "object",
+          "properties": {
+            "externalIPs": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "hostReachableServices": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "protocols": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "nodePort": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "SNAT",
+                    "DSR",
+                    "HYBRID"
+                  ]
+                },
+                "portMax": {
+                  "type": "integer"
+                },
+                "portMin": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "Disabled",
+            "Strict",
+            "Probe",
+            "Partial"
+          ]
+        }
+      }
+    },
     "monitorStatus": {
       "description": "Status of the node monitor",
       "properties": {
@@ -672,6 +752,24 @@ func init() {
         }
       }
     },
+    "proxyRedirect": {
+      "description": "Configured proxy redirection state",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name of the proxy redirect",
+          "type": "string"
+        },
+        "proxy": {
+          "description": "Name of the proxy this redirect points to",
+          "type": "string"
+        },
+        "proxy-port": {
+          "description": "Host port that this redirect points to",
+          "type": "integer"
+        }
+      }
+    },
     "proxyStatus": {
       "description": "Status of proxy",
       "type": "object",
@@ -682,6 +780,50 @@ func init() {
         },
         "port-range": {
           "description": "Port range used for proxying",
+          "type": "string"
+        },
+        "redirects": {
+          "description": "Detailed description of configured redirects",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/proxyRedirect"
+          }
+        },
+        "total-ports": {
+          "description": "Total number of listening proxy ports",
+          "type": "integer"
+        },
+        "total-redirects": {
+          "description": "Total number of ports configured to redirect to proxies",
+          "type": "integer"
+        }
+      }
+    },
+    "remoteCluster": {
+      "description": "Status of remote cluster",
+      "properties": {
+        "name": {
+          "description": "Name of the cluster",
+          "type": "string"
+        },
+        "num-identities": {
+          "description": "Number of identities in the cluster",
+          "type": "integer"
+        },
+        "num-nodes": {
+          "description": "Number of nodes in the cluster",
+          "type": "integer"
+        },
+        "num-shared-services": {
+          "description": "Number of services in the cluster",
+          "type": "integer"
+        },
+        "ready": {
+          "description": "Indicates readiness of the remote cluser",
+          "type": "boolean"
+        },
+        "status": {
+          "description": "Status of the control plane",
           "type": "string"
         }
       }
@@ -720,6 +862,9 @@ func init() {
         "cluster": {
           "$ref": "#/definitions/clusterStatus"
         },
+        "cluster-mesh": {
+          "$ref": "#/definitions/clusterMeshStatus"
+        },
         "container-runtime": {
           "$ref": "#/definitions/status"
         },
@@ -728,6 +873,9 @@ func init() {
         },
         "ipam": {
           "$ref": "#/definitions/ipAMStatus"
+        },
+        "kube-proxy-replacement": {
+          "$ref": "#/definitions/kubeProxyReplacement"
         },
         "kubernetes": {
           "$ref": "#/definitions/k8sStatus"
