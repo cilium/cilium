@@ -365,6 +365,10 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
+	for _, ep := range d.endpointManager.GetEndpoints() {
+		ep.InitMap()
+	}
+
 	// Set up the list of IPCache listeners in the daemon, to be
 	// used by syncEndpointsAndHostIPs()
 	// xDS cache will be added later by calling AddListener(), but only if necessary.

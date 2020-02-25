@@ -308,6 +308,13 @@ func OpenOrCreate(path string) (*PolicyMap, bool, error) {
 	return m, isNewMap, err
 }
 
+// Create creates a policy map at the specified path.
+func Create(path string) (bool, error) {
+	m := newMap(path)
+	isNewMap, err := m.Create()
+	return isNewMap, err
+}
+
 // Open opens the policymap at the specified path.
 func Open(path string) (*PolicyMap, error) {
 	m := newMap(path)
