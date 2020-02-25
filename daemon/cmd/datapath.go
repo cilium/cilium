@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -356,6 +357,12 @@ func (d *Daemon) initMaps() error {
 
 	if err := policymap.InitCallMap(); err != nil {
 		return err
+	}
+
+	if option.Config.EnableIPSec {
+		if err := encrypt.MapCreate(); err != nil {
+			return err
+		}
 	}
 
 	// Set up the list of IPCache listeners in the daemon, to be
