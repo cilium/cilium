@@ -20,6 +20,18 @@
 
 #include "common.h"
 
+#ifndef TC_ACT_OK
+# define TC_ACT_OK		0
+#endif
+
+#ifndef TC_ACT_SHOT
+# define TC_ACT_SHOT		2
+#endif
+
+#ifndef TC_ACT_REDIRECT
+# define TC_ACT_REDIRECT	7
+#endif
+
 #define __ctx_buff		__sk_buff
 
 #define CTX_ACT_OK		TC_ACT_OK

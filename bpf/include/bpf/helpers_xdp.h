@@ -15,35 +15,17 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
-#ifndef __BPF_API__
-#define __BPF_API__
+#ifndef __BPF_HELPERS_XDP__
+#define __BPF_HELPERS_XDP__
 
-#include <linux/types.h>
-#include <linux/byteorder.h>
 #include <linux/bpf.h>
-#include <linux/if_packet.h>
 
 #include "compiler.h"
-#include "section.h"
 #include "helpers.h"
-#include "builtins.h"
 
-#define PIN_NONE		0
-#define PIN_OBJECT_NS		1
-#define PIN_GLOBAL_NS		2
+/* Events for user space */
+static int BPF_FUNC_REMAP(xdp_event_output, struct xdp_md *xdp, void *map,
+			  __u64 index, const void *data, __u32 size) =
+			 (void *)BPF_FUNC_perf_event_output;
 
-struct bpf_elf_map {
-	__u32 type;
-	__u32 size_key;
-	__u32 size_value;
-	__u32 max_elem;
-	__u32 flags;
-	__u32 id;
-	__u32 pinning;
-#ifdef SOCKMAP
-	__u32 inner_id;
-	__u32 inner_idx;
-#endif
-};
-
-#endif /* __BPF_API__ */
+#endif /* __BPF_HELPERS_XDP__ */

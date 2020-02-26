@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2020 Authors of Cilium
+ *  Copyright (C) 2016-2020 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,6 +20,10 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+
+#ifndef __section
+# define __section(X)		__attribute__((section(X), used))
+#endif
 
 #ifndef __maybe_unused
 # define __maybe_unused		__attribute__((__unused__))
@@ -54,6 +58,10 @@
 
 #ifndef build_bug_on
 # define build_bug_on(E)	((void)sizeof(char[1 - 2*!!(E)]))
+#endif
+
+#ifndef __printf
+# define __printf(X, Y)		__attribute__((__format__(printf, X, Y)))
 #endif
 
 static __always_inline void bpf_barrier(void)

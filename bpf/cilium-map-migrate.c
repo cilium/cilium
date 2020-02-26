@@ -49,7 +49,7 @@
 #include "elf/libelf.h"
 #include "elf/gelf.h"
 
-#include "iproute2/bpf_elf.h"
+#include "bpf/api.h"
 
 #ifndef EM_BPF
 # define EM_BPF		247
@@ -513,7 +513,7 @@ static int bpf_check_ancillary(struct bpf_elf_ctx *ctx, bpf_handle_state_t cb,
 		if (ret < 0)
 			continue;
 		if (data.sec_hdr.sh_type == SHT_PROGBITS &&
-		    !strcmp(data.sec_name, ELF_SECTION_MAPS))
+		    !strcmp(data.sec_name, "maps"))
 			ret = bpf_fetch_maps_begin(ctx, i, &data);
 		else if (data.sec_hdr.sh_type == SHT_SYMTAB &&
 			 !strcmp(data.sec_name, ".symtab"))
