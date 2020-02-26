@@ -25,6 +25,8 @@ cilium-operator [flags]
       --cluster-name string                     Name of the cluster (default "default")
       --cnp-node-status-gc-interval duration    GC interval for nodes which have been removed from the cluster in CiliumNetworkPolicy Status (default 2m0s)
       --cnp-status-update-interval duration     Interval between CNP status updates sent to the k8s-apiserver per-CNP (default 1s)
+      --config string                           Configuration file (default "$HOME/ciliumd.yaml")
+      --config-dir string                       Configuration directory that contains a file for each option
   -D, --debug                                   Enable debugging mode
       --enable-k8s-endpoint-slice               Enables k8s EndpointSlice feature into Cilium-Operator if the k8s cluster supports it (default true)
       --enable-metrics                          Enable Prometheus metrics

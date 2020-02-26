@@ -155,7 +155,11 @@ func init() {
 		return
 	}
 
-	cobra.OnInitialize(initConfig)
+	if viper.GetBool("version") {
+		fmt.Printf("Cilium %s\n", version.Version)
+		os.Exit(0)
+	}
+	cobra.OnInitialize(option.InitConfig("ciliumd"))
 
 	// Reset the help function to also exit, as we block elsewhere in interrupts
 	// and would not exit when called with -h.
@@ -746,57 +750,6 @@ func restoreExecPermissions(searchDir string, patterns ...string) error {
 		}
 	}
 	return err
-}
-
-// initConfig reads in config file and ENV variables if set.
-func initConfig() {
-	if viper.GetBool("version") {
-		fmt.Printf("Cilium %s\n", version.Version)
-		os.Exit(0)
-	}
-
-	if viper.GetString(option.CMDRef) != "" {
-		return
-	}
-
-	option.Config.ConfigFile = viper.GetString(option.ConfigFile) // enable ability to specify config file via flag
-	option.Config.ConfigDir = viper.GetString(option.ConfigDir)
-	viper.SetEnvPrefix("cilium")
-
-	if option.Config.ConfigDir != "" {
-		if _, err := os.Stat(option.Config.ConfigDir); os.IsNotExist(err) {
-			log.Fatalf("Non-existent configuration directory %s", option.Config.ConfigDir)
-		}
-
-		if m, err := option.ReadDirConfig(option.Config.ConfigDir); err != nil {
-			log.Fatalf("Unable to read configuration directory %s: %s", option.Config.ConfigDir, err)
-		} else {
-			// replace deprecated fields with new fields
-			option.ReplaceDeprecatedFields(m)
-			err := option.MergeConfig(m)
-			if err != nil {
-				log.Fatalf("Unable to merge configuration: %s", err)
-			}
-		}
-	}
-
-	if option.Config.ConfigFile != "" {
-		viper.SetConfigFile(option.Config.ConfigFile)
-	} else {
-		viper.SetConfigName("ciliumd") // name of config file (without extension)
-		viper.AddConfigPath("$HOME")   // adding home directory as first search path
-	}
-
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		log.WithField(logfields.Path, viper.ConfigFileUsed()).
-			Info("Using config from file")
-	} else if option.Config.ConfigFile != "" {
-		log.WithField(logfields.Path, option.Config.ConfigFile).
-			Fatal("Error reading config file")
-	} else {
-		log.WithField(logfields.Reason, err).Info("Skipped reading configuration file")
-	}
 }
 
 func initEnv(cmd *cobra.Command) {
