@@ -2181,3 +2181,51 @@ func getHostDevice() string {
 	}
 	return hostDevice
 }
+
+// InitConfig reads in config file and ENV variables if set.
+func InitConfig(configName string) func() {
+	return func() {
+		if viper.GetString(CMDRef) != "" {
+			return
+		}
+
+		Config.ConfigFile = viper.GetString(ConfigFile) // enable ability to specify config file via flag
+		Config.ConfigDir = viper.GetString(ConfigDir)
+		viper.SetEnvPrefix("cilium")
+
+		if Config.ConfigDir != "" {
+			if _, err := os.Stat(Config.ConfigDir); os.IsNotExist(err) {
+				log.Fatalf("Non-existent configuration directory %s", Config.ConfigDir)
+			}
+
+			if m, err := ReadDirConfig(Config.ConfigDir); err != nil {
+				log.Fatalf("Unable to read configuration directory %s: %s", Config.ConfigDir, err)
+			} else {
+				// replace deprecated fields with new fields
+				ReplaceDeprecatedFields(m)
+				err := MergeConfig(m)
+				if err != nil {
+					log.Fatalf("Unable to merge configuration: %s", err)
+				}
+			}
+		}
+
+		if Config.ConfigFile != "" {
+			viper.SetConfigFile(Config.ConfigFile)
+		} else {
+			viper.SetConfigName(configName) // name of config file (without extension)
+			viper.AddConfigPath("$HOME")    // adding home directory as first search path
+		}
+
+		// If a config file is found, read it in.
+		if err := viper.ReadInConfig(); err == nil {
+			log.WithField(logfields.Path, viper.ConfigFileUsed()).
+				Info("Using config from file")
+		} else if Config.ConfigFile != "" {
+			log.WithField(logfields.Path, Config.ConfigFile).
+				Fatal("Error reading config file")
+		} else {
+			log.WithField(logfields.Reason, err).Info("Skipped reading configuration file")
+		}
+	}
+}

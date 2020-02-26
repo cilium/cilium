@@ -88,12 +88,10 @@ func main() {
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
 	if viper.GetBool("version") {
-		fmt.Printf("Cilium %s\n", version.Version)
+		fmt.Printf("Cilium-Operator %s\n", version.Version)
 		os.Exit(0)
 	}
-
-	viper.SetEnvPrefix("cilium")
-	viper.SetConfigName("cilium-operator")
+	cobra.OnInitialize(option.InitConfig("cilium-operator"))
 }
 
 func kvstoreEnabled() bool {

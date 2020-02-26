@@ -70,6 +70,12 @@ func init() {
 	option.BindEnv(option.ClusterName)
 
 	// Operator-specific flags
+	flags.String(option.ConfigFile, "", `Configuration file (default "$HOME/ciliumd.yaml")`)
+	option.BindEnv(option.ConfigFile)
+
+	flags.String(option.ConfigDir, "", `Configuration directory that contains a file for each option`)
+	option.BindEnv(option.ConfigDir)
+
 	// Deprecated, remove in 1.9
 	flags.Bool(option.EnableCCNPNodeStatusGC, true, "Enable CiliumClusterwideNetworkPolicy Status garbage collection for nodes which have been removed from the cluster")
 	option.BindEnv(option.EnableCCNPNodeStatusGC)
