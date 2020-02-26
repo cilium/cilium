@@ -31,7 +31,7 @@
 #define TEMPLATE_LXC_ID 0xffff
 
 #ifndef DISABLE_SIP_VERIFICATION
-static inline int is_valid_lxc_src_ip(struct ipv6hdr *ip6)
+static __always_inline int is_valid_lxc_src_ip(struct ipv6hdr *ip6)
 {
 #ifdef ENABLE_IPV6
 	union v6addr valid = {};
@@ -44,7 +44,7 @@ static inline int is_valid_lxc_src_ip(struct ipv6hdr *ip6)
 #endif
 }
 
-static inline int is_valid_lxc_src_ipv4(struct iphdr *ip4)
+static __always_inline int is_valid_lxc_src_ipv4(struct iphdr *ip4)
 {
 #ifdef ENABLE_IPV4
 	return ip4->saddr == LXC_IPV4;
@@ -54,12 +54,12 @@ static inline int is_valid_lxc_src_ipv4(struct iphdr *ip4)
 #endif
 }
 #else
-static inline int is_valid_lxc_src_ip(struct ipv6hdr *ip6)
+static __always_inline int is_valid_lxc_src_ip(struct ipv6hdr *ip6)
 {
 	return 1;
 }
 
-static inline int is_valid_lxc_src_ipv4(struct iphdr *ip4)
+static __always_inline int is_valid_lxc_src_ipv4(struct iphdr *ip4)
 {
 	return 1;
 }
@@ -94,7 +94,7 @@ static inline int is_valid_lxc_src_ipv4(struct iphdr *ip4)
  *   a BPF program configured upon ingress to transfer the cb[] to the mark
  *   before passing the traffic up to the stack towards the proxy.
  */
-static inline int __inline__
+static __always_inline int
 ctx_redirect_to_proxy(struct __ctx_buff *ctx, __be16 proxy_port)
 {
 	ctx->mark = MARK_MAGIC_TO_PROXY | proxy_port << 16;
@@ -115,7 +115,7 @@ ctx_redirect_to_proxy(struct __ctx_buff *ctx, __be16 proxy_port)
  * ctx_redirect_to_proxy_hairpin redirects to the proxy by hairpining the
  * packet out the incoming interface
  */
-static inline int __inline__
+static __always_inline int
 ctx_redirect_to_proxy_hairpin(struct __ctx_buff *ctx, __be16 proxy_port)
 {
 	union macaddr host_mac = HOST_IFINDEX_MAC;
@@ -143,7 +143,7 @@ ctx_redirect_to_proxy_hairpin(struct __ctx_buff *ctx, __be16 proxy_port)
 /**
  * tc_index_skip_ingress_proxy - returns true if packet originates from ingress proxy
  */
-static inline bool __inline__ tc_index_skip_ingress_proxy(struct __ctx_buff *ctx)
+static __always_inline bool tc_index_skip_ingress_proxy(struct __ctx_buff *ctx)
 {
 	volatile __u32 tc_index = ctx->tc_index;
 #ifdef DEBUG
@@ -157,7 +157,7 @@ static inline bool __inline__ tc_index_skip_ingress_proxy(struct __ctx_buff *ctx
 /**
  * tc_index_skip_egress_proxy - returns true if packet originates from egress proxy
  */
-static inline bool __inline__ tc_index_skip_egress_proxy(struct __ctx_buff *ctx)
+static __always_inline bool tc_index_skip_egress_proxy(struct __ctx_buff *ctx)
 {
 	volatile __u32 tc_index = ctx->tc_index;
 #ifdef DEBUG

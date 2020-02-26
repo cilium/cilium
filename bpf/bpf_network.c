@@ -32,7 +32,7 @@
 #include "lib/drop.h"
 
 #ifdef ENABLE_IPV6
-static inline int handle_ipv6(struct __ctx_buff *ctx)
+static __always_inline int handle_ipv6(struct __ctx_buff *ctx)
 {
 #ifdef ENABLE_IPSEC
 	void *data_end, *data;
@@ -70,7 +70,7 @@ static inline int handle_ipv6(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-static inline int handle_ipv4(struct __ctx_buff *ctx)
+static __always_inline int handle_ipv4(struct __ctx_buff *ctx)
 {
 #ifdef ENABLE_IPSEC
 	void *data_end, *data;

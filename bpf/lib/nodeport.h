@@ -67,7 +67,7 @@ struct dsr_opt_v6 {
 #endif /* ENABLE_IPV6 */
 #endif /* ENABLE_NODEPORT */
 
-static inline void bpf_clear_nodeport(struct __ctx_buff *ctx)
+static __always_inline void bpf_clear_nodeport(struct __ctx_buff *ctx)
 {
 #ifdef ENABLE_NODEPORT
 	ctx->tc_index &= ~TC_INDEX_F_SKIP_NODEPORT;
@@ -88,7 +88,7 @@ static __always_inline bool nodeport_uses_dsr(__u8 nexthdr)
 # endif
 }
 
-static inline bool __inline__ bpf_skip_nodeport(struct __ctx_buff *ctx)
+static __always_inline bool bpf_skip_nodeport(struct __ctx_buff *ctx)
 {
 	volatile __u32 tc_index = ctx->tc_index;
 	ctx->tc_index &= ~TC_INDEX_F_SKIP_NODEPORT;
@@ -98,7 +98,7 @@ static inline bool __inline__ bpf_skip_nodeport(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_NODEPORT
 #ifdef ENABLE_IPV6
-static inline bool nodeport_uses_dsr6(const struct ipv6_ct_tuple *tuple)
+static __always_inline bool nodeport_uses_dsr6(const struct ipv6_ct_tuple *tuple)
 {
 	return nodeport_uses_dsr(tuple->nexthdr);
 }
@@ -419,7 +419,8 @@ drop_err:
 }
 
 /* See nodeport_lb4(). */
-static inline int nodeport_lb6(struct __ctx_buff *ctx, __u32 src_identity)
+static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
+					__u32 src_identity)
 {
 	int ret, l3_off = ETH_HLEN, l4_off, hdrlen;
 	struct ipv6_ct_tuple tuple = {};
@@ -549,8 +550,8 @@ redo:
 }
 
 /* See comment in tail_rev_nodeport_lb4(). */
-static inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex,
-                                    union macaddr *mac)
+static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex,
+					    union macaddr *mac)
 {
 	int ret, ret2, l3_off = ETH_HLEN, l4_off, hdrlen;
 	struct ipv6_ct_tuple tuple = {};
@@ -663,7 +664,7 @@ int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-static inline bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple)
+static __always_inline bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple)
 {
 	return nodeport_uses_dsr(tuple->nexthdr);
 }
@@ -973,7 +974,8 @@ drop_err:
  * which handles the case of: i) backend is local EP, ii) backend is remote EP,
  * iii) reply from remote backend EP.
  */
-static inline int nodeport_lb4(struct __ctx_buff *ctx, __u32 src_identity)
+static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
+					__u32 src_identity)
 {
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -1105,8 +1107,8 @@ redo:
  * CILIUM_CALL_IPV{4,6}_NODEPORT_REVNAT is plugged into CILIUM_MAP_CALLS
  * of the bpf_netdev, bpf_overlay and of the bpf_lxc.
  */
-static inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex,
-				   union macaddr *mac)
+static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex,
+					    union macaddr *mac)
 {
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;

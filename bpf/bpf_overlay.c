@@ -35,7 +35,8 @@
 #include "lib/nodeport.h"
 
 #ifdef ENABLE_IPV6
-static inline int handle_ipv6(struct __ctx_buff *ctx, __u32 *identity)
+static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
+				       __u32 *identity)
 {
 	int ret, l4_off, l3_off = ETH_HLEN, hdrlen;
 	void *data_end, *data;
@@ -155,7 +156,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC) int tail_handle_ipv6
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-static inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
+static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 {
 	void *data_end, *data;
 	struct iphdr *ip4;

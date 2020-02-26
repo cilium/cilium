@@ -15,6 +15,8 @@
 
 #include <iproute2/bpf_elf.h>
 
+#include "compiler.h"
+
 #ifndef TC_ACT_OK
 #define TC_ACT_OK 0
 #define TC_ACT_RECLASSIFY       1
@@ -24,32 +26,6 @@
 #define TC_ACT_QUEUED           5
 #define TC_ACT_REPEAT           6
 #define TC_ACT_REDIRECT         7
-#endif
-
-/** Misc macros. */
-
-#ifndef __stringify
-# define __stringify(X)		#X
-#endif
-
-#ifndef __maybe_unused
-# define __maybe_unused		__attribute__((__unused__))
-#endif
-
-#ifndef offsetof
-# define offsetof(TYPE, MEMBER)	__builtin_offsetof(TYPE, MEMBER)
-#endif
-
-#ifndef likely
-# define likely(X)		__builtin_expect(!!(X), 1)
-#endif
-
-#ifndef unlikely
-# define unlikely(X)		__builtin_expect(!!(X), 0)
-#endif
-
-#ifndef __inline__
-# define __inline__		__attribute__((always_inline))
 #endif
 
 /** Section helper macros. */

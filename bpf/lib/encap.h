@@ -23,9 +23,9 @@
 
 #ifdef ENCAP_IFINDEX
 #ifdef ENABLE_IPSEC
-static inline int __inline__
-enacap_and_redirect_nomark_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint, __u8 key,
-			 __u32 seclabel)
+static __always_inline int
+enacap_and_redirect_nomark_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
+				 __u8 key, __u32 seclabel)
 {
 	/* Traffic from local host in tunnel mode will be passed to
 	 * cilium_host. In non-IPSec case traffic with non-local dst
@@ -46,9 +46,9 @@ enacap_and_redirect_nomark_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint, 
 	return IPSEC_ENDPOINT;
 }
 
-static inline int __inline__
-encap_and_redirect_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint, __u8 key,
-			 __u32 seclabel)
+static __always_inline int
+encap_and_redirect_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
+			 __u8 key, __u32 seclabel)
 {
 	/* IPSec is performed by the stack on any packets with the
 	 * MARK_MAGIC_ENCRYPT bit set. During the process though we
@@ -62,9 +62,9 @@ encap_and_redirect_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint, __u8 key
 	ctx->cb[4] = tunnel_endpoint;
 	return IPSEC_ENDPOINT;
 }
-#endif
+#endif /* ENABLE_IPSEC */
 
-static inline int __inline__
+static __always_inline int
 encap_remap_v6_host_address(struct __ctx_buff *ctx, const bool egress)
 {
 #ifdef ENABLE_ENCAP_HOST_REMAP
@@ -121,7 +121,7 @@ encap_remap_v6_host_address(struct __ctx_buff *ctx, const bool egress)
 	return 0;
 }
 
-static inline int __inline__
+static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 		    __u32 seclabel, __u32 monitor)
 {
@@ -150,7 +150,7 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	return 0;
 }
 
-static inline int __inline__
+static __always_inline int
 __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 				 __u32 seclabel, __u32 monitor)
 {
@@ -166,7 +166,7 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
  * device. On error returns CTX_ACT_DROP, DROP_NO_TUNNEL_ENDPOINT or
  * DROP_WRITE_ERROR.
  */
-static inline int __inline__
+static __always_inline int
 encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 			       __u8 key, __u32 seclabel, __u32 monitor)
 {
@@ -187,8 +187,10 @@ encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
  * handling, CTX_ACT_DROP, DROP_NO_TUNNEL_ENDPOINT or DROP_WRITE_ERROR on error,
  * and finally on successful redirect returns TC_ACT_REDIRECT.
  */
-static inline int __inline__
-encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint, __u8 encrypt_key, struct endpoint_key *key, __u32 seclabel, __u32 monitor)
+static __always_inline int
+encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
+		       __u8 encrypt_key, struct endpoint_key *key, __u32 seclabel,
+		       __u32 monitor)
 {
 	struct endpoint_key *tunnel;
 
@@ -216,8 +218,9 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint, __u8 encry
 	return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel, monitor);
 }
 
-static inline int __inline__
-encap_and_redirect_netdev(struct __ctx_buff *ctx, struct endpoint_key *k, __u32 seclabel, __u32 monitor)
+static __always_inline int
+encap_and_redirect_netdev(struct __ctx_buff *ctx, struct endpoint_key *k,
+			  __u32 seclabel, __u32 monitor)
 {
 	struct endpoint_key *tunnel;
 

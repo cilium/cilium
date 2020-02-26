@@ -37,40 +37,15 @@
 	_x > _y ? _x : _y;	\
 })
 
-static inline void bpf_barrier(void)
-{
-	/* Workaround to avoid verifier complaint:
-	 * "dereference of modified ctx ptr R5 off=48+0, ctx+const is allowed, ctx+const+const is not"
-	 */
-	asm volatile("" ::: "memory");
-}
-
-#ifndef __READ_ONCE
-# define __READ_ONCE(x)		(*(volatile typeof(x) *)&x)
-#endif
-#ifndef __WRITE_ONCE
-# define __WRITE_ONCE(x, v)	(*(volatile typeof(x) *)&x) = (v)
-#endif
-
-/* {READ,WRITE}_ONCE() with verifier workaround via bpf_barrier(). */
-#ifndef READ_ONCE
-# define READ_ONCE(x)		\
-	({ typeof(x) __val; __val = __READ_ONCE(x); bpf_barrier(); __val; })
-#endif
-#ifndef WRITE_ONCE
-# define WRITE_ONCE(x, v)	\
-	({ typeof(x) __val = (v); __WRITE_ONCE(x, __val); bpf_barrier(); __val; })
-#endif
-
 #define NSEC_PER_SEC	1000000000UL
 
 /* Monotonic clock, scalar format. */
-static inline __u64 bpf_ktime_get_nsec(void)
+static __always_inline __u64 bpf_ktime_get_nsec(void)
 {
 	return ktime_get_ns();
 }
 
-static inline __u32 bpf_ktime_get_sec(void)
+static __always_inline __u32 bpf_ktime_get_sec(void)
 {
 	/* Ignores remainder subtraction as we'd do in
 	 * ns_to_timespec(), but good enough here.
@@ -107,14 +82,6 @@ static inline __u32 bpf_ktime_get_sec(void)
 #define bpf_ntohl(x)				\
 	(__builtin_constant_p(x) ?		\
 	 __constant_ntohl(x) : __bpf_ntohl(x))
-
-#ifndef __fetch
-# define __fetch(x) (__u32)(&(x))
-#endif
-
-#ifndef build_bug_on
-# define build_bug_on(e) ((void)sizeof(char[1 - 2*!!(e)]))
-#endif
 
 /* fetch_* macros assist in fetching variously sized static data */
 #define fetch_u32(x) __fetch(x)

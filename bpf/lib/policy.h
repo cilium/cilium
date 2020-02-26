@@ -26,7 +26,7 @@
 #include "maps.h"
 
 #ifdef SOCKMAP
-static inline int __inline__
+static __always_inline int
 policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 {
 	void *map = lookup_ip4_endpoint_policy_map(ip);
@@ -84,8 +84,7 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 	return DROP_POLICY;
 }
 #else
-
-static inline void __inline__
+static __always_inline void
 account(struct __ctx_buff *ctx, struct policy_entry *policy)
 {
 	/* FIXME: Use per cpu counters */
@@ -93,7 +92,7 @@ account(struct __ctx_buff *ctx, struct policy_entry *policy)
 	__sync_fetch_and_add(&policy->bytes, ctx->len);
 }
 
-static inline int __inline__
+static __always_inline int
 __policy_can_access(void *map, struct __ctx_buff *ctx, __u32 identity,
 		    __u16 dport, __u8 proto, int dir, bool is_fragment, __u8 *match_type)
 {
@@ -191,7 +190,7 @@ __policy_can_access(void *map, struct __ctx_buff *ctx, __u32 identity,
  *   - CTX_ACT_OK if the policy allows this traffic based only on labels/L3/L4
  *   - Negative error code if the packet should be dropped
  */
-static inline int __inline__
+static __always_inline int
 policy_can_access_ingress(struct __ctx_buff *ctx, __u32 src_identity,
 			  __u16 dport, __u8 proto, bool is_fragment, __u8 *match_type)
 {
@@ -212,7 +211,7 @@ policy_can_access_ingress(struct __ctx_buff *ctx, __u32 src_identity,
 }
 
 #ifdef ENCAP_IFINDEX
-static inline bool __inline__
+static __always_inline bool
 is_encap(struct __ctx_buff *ctx, __u16 dport, __u8 proto)
 {
 	return proto == IPPROTO_UDP &&
@@ -222,8 +221,9 @@ is_encap(struct __ctx_buff *ctx, __u16 dport, __u8 proto)
 }
 #endif
 
-static inline int __inline__
-policy_can_egress(struct __ctx_buff *ctx, __u32 identity, __u16 dport, __u8 proto, __u8 *match_type)
+static __always_inline int
+policy_can_egress(struct __ctx_buff *ctx, __u32 identity, __u16 dport, __u8 proto,
+		  __u8 *match_type)
 {
 #ifdef ENCAP_IFINDEX
 	if (is_encap(ctx, dport, proto))
@@ -244,16 +244,16 @@ policy_can_egress(struct __ctx_buff *ctx, __u32 identity, __u16 dport, __u8 prot
 	return ret;
 }
 
-static inline int policy_can_egress6(struct __ctx_buff *ctx,
-				     struct ipv6_ct_tuple *tuple,
-				     __u32 identity, __u8 *match_type)
+static __always_inline int policy_can_egress6(struct __ctx_buff *ctx,
+					      struct ipv6_ct_tuple *tuple,
+					      __u32 identity, __u8 *match_type)
 {
 	return policy_can_egress(ctx, identity, tuple->dport, tuple->nexthdr, match_type);
 }
 
-static inline int policy_can_egress4(struct __ctx_buff *ctx,
-				     struct ipv4_ct_tuple *tuple,
-				     __u32 identity, __u8 *match_type)
+static __always_inline int policy_can_egress4(struct __ctx_buff *ctx,
+					      struct ipv4_ct_tuple *tuple,
+					      __u32 identity, __u8 *match_type)
 {
 	return policy_can_egress(ctx, identity, tuple->dport, tuple->nexthdr, match_type);
 }
@@ -265,26 +265,22 @@ static inline int policy_can_egress4(struct __ctx_buff *ctx,
  * Will cause the packet to ignore the policy enforcement layer and
  * be considered accepted despite of the policy outcome.
  */
-static inline void policy_mark_skip(struct __ctx_buff *ctx)
+static __always_inline void policy_mark_skip(struct __ctx_buff *ctx)
 {
 	ctx->cb[CB_POLICY] = 1;
 }
 
-static inline void policy_clear_mark(struct __ctx_buff *ctx)
+static __always_inline void policy_clear_mark(struct __ctx_buff *ctx)
 {
 	ctx->cb[CB_POLICY] = 0;
 }
-
 #endif // SOCKMAP
 #else
-
-
-static inline void policy_mark_skip(struct __ctx_buff *ctx)
+static __always_inline void policy_mark_skip(struct __ctx_buff *ctx)
 {
 }
 
-static inline void policy_clear_mark(struct __ctx_buff *ctx)
+static __always_inline void policy_clear_mark(struct __ctx_buff *ctx)
 {
 }
-
 #endif

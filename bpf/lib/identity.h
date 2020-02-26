@@ -38,12 +38,13 @@
  *
  * Identities 128 and higher are guaranteed to be generated based on user input.
  */
-static inline bool identity_is_reserved(__u32 identity)
+static __always_inline bool identity_is_reserved(__u32 identity)
 {
 	return identity < UNMANAGED_ID || identity == REMOTE_NODE_ID;
 }
 
-static inline bool __inline__ inherit_identity_from_host(struct __ctx_buff *ctx, __u32 *identity)
+static __always_inline bool inherit_identity_from_host(struct __ctx_buff *ctx,
+						       __u32 *identity)
 {
 	__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
 	bool from_proxy = false;

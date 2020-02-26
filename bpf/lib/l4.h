@@ -47,8 +47,9 @@
  *
  * Return 0 on success or a negative DROP_* reason
  */
-static inline int l4_modify_port(struct __ctx_buff *ctx, int l4_off, int off,
-				 struct csum_offset *csum_off, __be16 port, __be16 old_port)
+static __always_inline int l4_modify_port(struct __ctx_buff *ctx, int l4_off,
+					  int off, struct csum_offset *csum_off,
+					  __be16 port, __be16 old_port)
 {
 	if (csum_l4_replace(ctx, l4_off, csum_off, old_port, port, sizeof(port)) < 0)
 		return DROP_CSUM_L4;
@@ -59,7 +60,8 @@ static inline int l4_modify_port(struct __ctx_buff *ctx, int l4_off, int off,
 	return 0;
 }
 
-static inline int l4_load_port(struct __ctx_buff *ctx, int off, __be16 *port)
+static __always_inline int l4_load_port(struct __ctx_buff *ctx, int off,
+					__be16 *port)
 {
         return ctx_load_bytes(ctx, off, port, sizeof(__be16));
 }

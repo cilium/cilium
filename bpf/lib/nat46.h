@@ -33,7 +33,7 @@
 #error "ENABLE_NAT46 requisite options are not configured, see lib/nat46.h."
 #endif
 
-static inline int get_csum_offset(__u8 protocol)
+static __always_inline int get_csum_offset(__u8 protocol)
 {
 	int csum_off;
 
@@ -57,7 +57,7 @@ static inline int get_csum_offset(__u8 protocol)
 	return csum_off;
 }
 
-static inline int icmp4_to_icmp6(struct __ctx_buff *ctx, int nh_off)
+static __always_inline int icmp4_to_icmp6(struct __ctx_buff *ctx, int nh_off)
 {
 	struct icmphdr icmp4;
 	struct icmp6hdr icmp6 = {};
@@ -141,7 +141,7 @@ static inline int icmp4_to_icmp6(struct __ctx_buff *ctx, int nh_off)
 	return csum_diff(&icmp4, sizeof(icmp4), &icmp6, sizeof(icmp6), 0);
 }
 
-static inline int icmp6_to_icmp4(struct __ctx_buff *ctx, int nh_off)
+static __always_inline int icmp6_to_icmp4(struct __ctx_buff *ctx, int nh_off)
 {
 	struct icmphdr icmp4 = {};
 	struct icmp6hdr icmp6;
@@ -217,8 +217,8 @@ static inline int icmp6_to_icmp4(struct __ctx_buff *ctx, int nh_off)
 	return csum_diff(&icmp6, sizeof(icmp6), &icmp4, sizeof(icmp4), 0);
 }
 
-static inline int ipv6_prefix_match(struct in6_addr *addr,
-				    union v6addr *v6prefix)
+static __always_inline int ipv6_prefix_match(struct in6_addr *addr,
+					     union v6addr *v6prefix)
 {
 	if (addr->in6_u.u6_addr32[0] == v6prefix->p1 &&
 	    addr->in6_u.u6_addr32[1] == v6prefix->p2 &&
@@ -234,8 +234,8 @@ static inline int ipv6_prefix_match(struct in6_addr *addr,
  * s6 = nat46_prefix<s4>
  * d6 = nat46_prefix<d4> or v6_dst if non null
  */
-static inline int ipv4_to_ipv6(struct __ctx_buff *ctx, struct iphdr *ip4,
-			       int nh_off, union v6addr *v6_dst)
+static __always_inline int ipv4_to_ipv6(struct __ctx_buff *ctx, struct iphdr *ip4,
+					int nh_off, union v6addr *v6_dst)
 {
 	struct ipv6hdr v6 = {};
 	struct iphdr v4;
@@ -329,7 +329,8 @@ static inline int ipv4_to_ipv6(struct __ctx_buff *ctx, struct iphdr *ip4,
  * s4 = <ipv4-range>.<lxc-id>
  * d4 = d6[96 .. 127]
  */
-static inline int ipv6_to_ipv4(struct __ctx_buff *ctx, int nh_off, __be32 saddr)
+static __always_inline int ipv6_to_ipv4(struct __ctx_buff *ctx, int nh_off,
+					__be32 saddr)
 {
 	struct ipv6hdr v6;
 	struct iphdr v4 = {};

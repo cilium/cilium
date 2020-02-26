@@ -21,16 +21,6 @@
 #include <linux/types.h>
 #include <linux/bpf.h>
 
-#ifndef __maybe_unused
-# define __maybe_unused		__attribute__((__unused__))
-#endif
-
-#ifndef __always_inline
-# define __always_inline	__attribute__((always_inline))
-#endif
-
-#ifndef __overloadable
-# define __overloadable		__attribute__((overloadable))
-#endif
+#include "../compiler.h"
 
 #endif /* __BPF_CTX_COMMON_H_ */
