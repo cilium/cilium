@@ -20,10 +20,11 @@
 
 #include "common.h"
 
-#define __ctx_buff	__sk_buff
+#define __ctx_buff		__sk_buff
 
-#define CTX_ACT_OK	TC_ACT_OK
-#define CTX_ACT_DROP	TC_ACT_SHOT
+#define CTX_ACT_OK		TC_ACT_OK
+#define CTX_ACT_DROP		TC_ACT_SHOT
+#define CTX_ACT_TX		TC_ACT_REDIRECT
 
 #define ctx_under_cgroup	skb_under_cgroup
 #define ctx_load_bytes_relative	skb_load_bytes_relative
