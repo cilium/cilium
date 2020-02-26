@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,14 +42,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
-)
-
-var (
-	// kvNodeGCInterval duration for which the nodes are GC in the KVStore.
-	kvNodeGCInterval              time.Duration
-	enableCNPNodeStatusGC         bool
-	enableCCNPNodeStatusGC        bool
-	ciliumCNPNodeStatusGCInterval time.Duration
 )
 
 func runNodeWatcher() error {
@@ -131,7 +123,7 @@ func runNodeWatcher() error {
 			// and we need to delete all nodes in the kvNodeStore that are *not*
 			// present in the k8sNodeStore.
 
-			if enableENI {
+			if option.Config.IPAM == option.IPAMENI {
 				nodes, err := ciliumK8sClient.CiliumV2().CiliumNodes().List(meta_v1.ListOptions{})
 				if err != nil {
 					log.WithError(err).Warning("Unable to list CiliumNodes. Won't clean up stale CiliumNodes")
@@ -163,11 +155,11 @@ func runNodeWatcher() error {
 		}, serializer.NoRetry)
 	}()
 
-	if enableCNPNodeStatusGC {
+	if option.Config.EnableCNPNodeStatusGC {
 		go runCNPNodeStatusGC("cnp-node-gc", false, ciliumNodeStore)
 	}
 
-	if enableCCNPNodeStatusGC {
+	if option.Config.EnableCCNPNodeStatusGC {
 		go runCNPNodeStatusGC("ccnp-node-gc", true, ciliumNodeStore)
 	}
 
@@ -190,9 +182,9 @@ func runCNPNodeStatusGC(name string, clusterwide bool, ciliumNodeStore *store.Sh
 
 	controller.NewManager().UpdateController(name,
 		controller.ControllerParams{
-			RunInterval: ciliumCNPNodeStatusGCInterval,
+			RunInterval: option.Config.CNPNodeStatusGCInterval,
 			DoFunc: func(ctx context.Context) error {
-				lastRun := time.Now().Add(-kvNodeGCInterval)
+				lastRun := time.Now().Add(-option.Config.NodesGCInterval)
 				k8sCapabilities := k8sversion.Capabilities()
 				continueID := ""
 				wg := sync.WaitGroup{}

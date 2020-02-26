@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -94,6 +94,15 @@ const (
 	// in L7 HTTPs policy enforcement.
 	CertsDirectory = "certificates-directory"
 
+	// CNPNodeStatusGCInterval is the GC interval for nodes which have been
+	// removed from the cluster in CiliumNetworkPolicy and
+	// CiliumClusterwideNetworkPolicy Status.
+	CNPNodeStatusGCInterval = "cnp-node-status-gc-interval"
+
+	// CNPStatusUpdateInterval is the interval between status updates
+	// being sent to the K8s apiserver for a given CNP.
+	CNPStatusUpdateInterval = "cnp-status-update-interval"
+
 	// CGroupRoot is the path to Cgroup2 filesystem
 	CGroupRoot = "cgroup-root"
 
@@ -142,11 +151,34 @@ const (
 	// Docker is the path to docker runtime socket (DEPRECATED: use container-runtime-endpoint instead)
 	Docker = "docker"
 
+	// EnableCEPGC enables CiliumEndpoint garbage collector
+	EnableCEPGC = "cilium-endpoint-gc"
+
+	// EnableCCNPNodeStatusGC enables CiliumClusterwideNetworkPolicy Status
+	// garbage collection for nodes which have been removed from the cluster
+	EnableCCNPNodeStatusGC = "ccnp-node-status-gc"
+
+	// EnableCNPNodeStatusGC enables CiliumNetworkPolicy Status garbage collection
+	// for nodes which have been removed from the cluster
+	EnableCNPNodeStatusGC = "cnp-node-status-gc"
+
 	// EnablePolicy enables policy enforcement in the agent.
 	EnablePolicy = "enable-policy"
 
+	// EnableMetrics enables prometheus metrics.
+	EnableMetrics = "enable-metrics"
+
 	// EnableExternalIPs enables implementation of k8s services with externalIPs in datapath
 	EnableExternalIPs = "enable-external-ips"
+
+	// ENIParallelWorkers specifies the number of parallel workers to be used in ENI mode.
+	ENIParallelWorkers = "eni-parallel-workers"
+
+	// EndpointGCInterval is the interval between attempts of the CEP GC
+	// controller.
+	// Note that only one node per cluster should run this, and most iterations
+	// will simply return.
+	EndpointGCInterval = "cilium-endpoint-gc-interval"
 
 	// K8sEnableEndpointSlice enables the k8s EndpointSlice feature into Cilium
 	K8sEnableEndpointSlice = "enable-k8s-endpoint-slice"
@@ -170,6 +202,13 @@ const (
 	// which allows to use reserved label for fixed identities
 	FixedIdentityMapping = "fixed-identity-mapping"
 
+	// IdentityGCInterval is the interval in which allocator identities are
+	// attempted to be expired from the kvstore
+	IdentityGCInterval = "identity-gc-interval"
+
+	// IdentityHeartbeatTimeout is the timeout used to GC identities from k8s
+	IdentityHeartbeatTimeout = "identity-heartbeat-timeout"
+
 	// IPv4ClusterCIDRMaskSize is the mask size for the cluster wide CIDR
 	IPv4ClusterCIDRMaskSize = "ipv4-cluster-cidr-mask-size"
 
@@ -190,6 +229,9 @@ const (
 
 	// ModePreFilterGeneric for loading progs with xdpgeneric
 	ModePreFilterGeneric = "generic"
+
+	// NodesGCInterval is the duration for which the nodes are GC in the KVStore.
+	NodesGCInterval = "nodes-gc-interval"
 
 	// IPv6ClusterAllocCIDRName is the name of the IPv6ClusterAllocCIDR option
 	IPv6ClusterAllocCIDRName = "ipv6-cluster-alloc-cidr"
@@ -361,6 +403,15 @@ const (
 	// global cache on startup.
 	// The file is not re-read after agent start.
 	ToFQDNsPreCache = "tofqdns-pre-cache"
+
+	// UnmanagedPodWatcherInterval is the interval to check for unmanaged kube-dns pods (0 to disable)
+	UnmanagedPodWatcherInterval = "unmanaged-pod-watcher-interval"
+
+	// SyncK8sServices synchronizes k8s services into the kvstore
+	SyncK8sServices = "synchronize-k8s-services"
+
+	// SyncK8sNodes synchronizes k8s nodes into the kvstore
+	SyncK8sNodes = "synchronize-k8s-nodes"
 
 	// MTUName is the name of the MTU option
 	MTUName = "mtu"
@@ -1089,6 +1140,8 @@ type DaemonConfig struct {
 	IPv6ServiceRange              string
 	K8sAPIServer                  string
 	K8sKubeConfigPath             string
+	K8sClientBurst                int
+	K8sClientQPSLimit             float64
 	K8sWatcherEndpointSelector    string
 	KVStore                       string
 	KVStoreOpt                    map[string]string
@@ -1338,16 +1391,6 @@ type DaemonConfig struct {
 	// the network policy for cilium-agent.
 	AllowICMPFragNeeded bool
 
-	// AwsInstanceLimitMapping allows overwirting AWS instance limits defined in
-	// pkg/aws/eni/limits.go
-	// e.g. {"a1.medium": "2,4,4", "a2.custom2": "4,5,6"}
-	AwsInstanceLimitMapping map[string]string
-
-	// AwsReleaseExcessIps allows releasing excess free IP addresses from ENI.
-	// Enabling this option reduces waste of IP addresses but may increase
-	// the number of API calls to AWS EC2 service.
-	AwsReleaseExcessIps bool
-
 	// EnableWellKnownIdentities enables the use of well-known identities.
 	// This is requires if identiy resolution is required to bring up the
 	// control plane, e.g. when using the managed etcd feature
@@ -1359,11 +1402,89 @@ type DaemonConfig struct {
 
 	// EnableRemoteNodeIdentity enables use of the remote-node identity
 	EnableRemoteNodeIdentity bool
+
+	// Operator-specific options
+
+	// EnableCEPGC enables CiliumEndpoint garbage collector
+	EnableCEPGC bool
+
+	// EnableCNPNodeStatusGC enables CiliumNetworkPolicy Status garbage collection
+	// for nodes which have been removed from the cluster
+	EnableCNPNodeStatusGC bool
+
+	// EnableCCNPNodeStatusGC enables CiliumClusterwideNetworkPolicy Status
+	// garbage collection for nodes which have been removed from the cluster
+	EnableCCNPNodeStatusGC bool
+
+	// EnableMetrics enables prometheus metrics.
+	EnableMetrics bool
+
+	// SyncK8sServices synchronizes k8s services into the kvstore
+	SyncK8sServices bool
+
+	// SyncK8sNodes synchronizes k8s nodes into the kvstore
+	SyncK8sNodes bool
+
+	// CNPNodeStatusGCInterval is the GC interval for nodes which have been
+	// removed from the cluster in CiliumNetworkPolicy and
+	// CiliumClusterwideNetworkPolicy Status.
+	CNPNodeStatusGCInterval time.Duration
+
+	// CNPStatusUpdateInterval is the interval between status updates
+	// being sent to the K8s apiserver for a given CNP.
+	CNPStatusUpdateInterval time.Duration
+
+	// EndpointGCInterval is the interval between attempts of the CEP GC
+	// controller.
+	// Note that only one node per cluster should run this, and most iterations
+	// will simply return.
+	EndpointGCInterval time.Duration
+
+	// IdentityGCInterval is the interval in which allocator identities are
+	// attempted to be expired from the kvstore
+	IdentityGCInterval time.Duration
+
+	// IdentityHeartbeatTimeout is the timeout used to GC identities from k8s
+	IdentityHeartbeatTimeout time.Duration
+
+	// NodesGCInterval is the duration for which the nodes are GC in the KVStore.
+	NodesGCInterval time.Duration
+
+	// UnmanagedPodWatcherInterval is the interval to check for unmanaged kube-dns pods (0 to disable)
+	UnmanagedPodWatcherInterval int
+
+	// AWS options
+
+	// ENITags are the tags that will be added to every ENI created by the AWS ENI IPAM
+	ENITags map[string]string
+
+	// ENIParallelWorkers specifies the number of parallel workers to be used in ENI mode.
+	ENIParallelWorkers int64
+
+	// AwsInstanceLimitMapping allows overwirting AWS instance limits defined in
+	// pkg/aws/eni/limits.go
+	// e.g. {"a1.medium": "2,4,4", "a2.custom2": "4,5,6"}
+	AwsInstanceLimitMapping map[string]string
+
+	// AwsReleaseExcessIps allows releasing excess free IP addresses from ENI.
+	// Enabling this option reduces waste of IP addresses but may increase
+	// the number of API calls to AWS EC2 service.
+	AwsReleaseExcessIps bool
+
+	// AWSClientQPSLimit is the queries per second limit for the AWS client used by AWS ENI IPAM
+	AWSClientQPSLimit float64
+
+	// AWSClientBurst is the burst value allowed for the AWS client used by the AWS ENI IPAM
+	AWSClientBurst int
+
+	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2 API to fill out the instnacetype to adapter limit mapping
+	UpdateEC2AdapterLimitViaAPI bool
 }
 
 var (
 	// Config represents the daemon configuration
 	Config = &DaemonConfig{
+		AwsInstanceLimitMapping:      make(map[string]string),
 		Opts:                         NewIntOptions(&DaemonOptionLibrary),
 		Monitor:                      &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
 		IPv6ClusterAllocCIDR:         defaults.IPv6ClusterAllocCIDR,
@@ -1374,6 +1495,7 @@ var (
 		EnableIPv4:                   defaults.EnableIPv4,
 		EnableIPv6:                   defaults.EnableIPv6,
 		EnableL7Proxy:                defaults.EnableL7Proxy,
+		ENITags:                      make(map[string]string),
 		ToFQDNsMaxIPsPerHost:         defaults.ToFQDNsMaxIPsPerHost,
 		KVstorePeriodicSync:          defaults.KVstorePeriodicSync,
 		KVstoreConnectivityTimeout:   defaults.KVstoreConnectivityTimeout,
@@ -1674,6 +1796,8 @@ func (c *DaemonConfig) Populate() {
 	c.AllowLocalhost = viper.GetString(AllowLocalhost)
 	c.AnnotateK8sNode = viper.GetBool(AnnotateK8sNode)
 	c.AutoCreateCiliumNodeResource = viper.GetBool(AutoCreateCiliumNodeResource)
+	c.AWSClientBurst = viper.GetInt(AWSClientBurst)
+	c.AWSClientQPSLimit = viper.GetFloat64(AWSClientQPSLimit)
 	c.BPFCompilationDebug = viper.GetBool(BPFCompileDebugName)
 	c.CTMapEntriesGlobalTCP = viper.GetInt(CTMapEntriesGlobalTCPName)
 	c.CTMapEntriesGlobalAny = viper.GetInt(CTMapEntriesGlobalAnyName)
@@ -1684,6 +1808,8 @@ func (c *DaemonConfig) Populate() {
 	c.ClusterID = viper.GetInt(ClusterIDName)
 	c.ClusterName = viper.GetString(ClusterName)
 	c.ClusterMeshConfig = viper.GetString(ClusterMeshConfigName)
+	c.CNPNodeStatusGCInterval = viper.GetDuration(CNPNodeStatusGCInterval)
+	c.CNPStatusUpdateInterval = viper.GetDuration(CNPStatusUpdateInterval)
 	c.DatapathMode = viper.GetString(DatapathMode)
 	c.Debug = viper.GetBool(DebugArg)
 	c.DebugVerbose = viper.GetStringSlice(DebugVerbose)
@@ -1712,10 +1838,16 @@ func (c *DaemonConfig) Populate() {
 	c.EnableL7Proxy = viper.GetBool(EnableL7Proxy)
 	c.EnableTracing = viper.GetBool(EnableTracing)
 	c.EnableNodePort = viper.GetBool(EnableNodePort)
+	c.ENIParallelWorkers = viper.GetInt64(ENIParallelWorkers)
 	c.NodePortMode = viper.GetString(NodePortMode)
 	c.KubeProxyReplacement = viper.GetString(KubeProxyReplacement)
+	c.EnableCEPGC = viper.GetBool(EnableCEPGC)
+	c.EnableCNPNodeStatusGC = viper.GetBool(EnableCNPNodeStatusGC)
+	c.EnableCCNPNodeStatusGC = viper.GetBool(EnableCCNPNodeStatusGC)
+	c.EnableMetrics = viper.GetBool(EnableMetrics)
 	c.EncryptInterface = viper.GetString(EncryptInterface)
 	c.EncryptNode = viper.GetBool(EncryptNode)
+	c.EndpointGCInterval = viper.GetDuration(EndpointGCInterval)
 	c.EnvoyLogPath = viper.GetString(EnvoyLog)
 	c.ForceLocalPolicyEvalAtSource = viper.GetBool(ForceLocalPolicyEvalAtSource)
 	c.HostDevice = getHostDevice()
@@ -1725,6 +1857,7 @@ func (c *DaemonConfig) Populate() {
 	c.HTTPRetryCount = viper.GetInt(HTTPRetryCount)
 	c.HTTPRetryTimeout = viper.GetInt(HTTPRetryTimeout)
 	c.IdentityChangeGracePeriod = viper.GetDuration(IdentityChangeGracePeriod)
+	c.IdentityGCInterval = viper.GetDuration(IdentityGCInterval)
 	c.IPAM = viper.GetString(IPAM)
 	c.IPv4Range = viper.GetString(IPv4Range)
 	c.IPv4NodeAddr = viper.GetString(IPv4NodeAddr)
@@ -1734,6 +1867,8 @@ func (c *DaemonConfig) Populate() {
 	c.IPv6Range = viper.GetString(IPv6Range)
 	c.IPv6ServiceRange = viper.GetString(IPv6ServiceRange)
 	c.K8sAPIServer = viper.GetString(K8sAPIServer)
+	c.K8sClientBurst = viper.GetInt(K8sClientBurst)
+	c.K8sClientQPSLimit = viper.GetFloat64(K8sClientQPSLimit)
 	c.K8sEnableK8sEndpointSlice = viper.GetBool(K8sEnableEndpointSlice)
 	c.K8sKubeConfigPath = viper.GetString(K8sKubeConfigPath)
 	c.K8sRequireIPv4PodCIDR = viper.GetBool(K8sRequireIPv4PodCIDRName)
@@ -1759,6 +1894,7 @@ func (c *DaemonConfig) Populate() {
 	c.Logstash = viper.GetBool(Logstash)
 	c.LoopbackIPv4 = viper.GetString(LoopbackIPv4)
 	c.Masquerade = viper.GetBool(Masquerade)
+	c.IdentityHeartbeatTimeout = viper.GetDuration(IdentityHeartbeatTimeout)
 	c.InstallIptRules = viper.GetBool(InstallIptRules)
 	c.IPSecKeyFile = viper.GetString(IPSecKeyFileName)
 	c.ModePreFilter = viper.GetString(PrefilterMode)
@@ -1767,6 +1903,7 @@ func (c *DaemonConfig) Populate() {
 	c.MonitorQueueSize = viper.GetInt(MonitorQueueSizeName)
 	c.MTU = viper.GetInt(MTUName)
 	c.NAT46Range = viper.GetString(NAT46Range)
+	c.NodesGCInterval = viper.GetDuration(NodesGCInterval)
 	c.FlannelMasterDevice = viper.GetString(FlannelMasterDevice)
 	c.FlannelUninstallOnExit = viper.GetBool(FlannelUninstallOnExit)
 	c.PolicyMapMaxEntries = viper.GetInt(PolicyMapEntriesName)
@@ -1783,8 +1920,12 @@ func (c *DaemonConfig) Populate() {
 	c.UseSingleClusterRoute = viper.GetBool(SingleClusterRouteName)
 	c.SocketPath = viper.GetString(SocketPath)
 	c.SockopsEnable = viper.GetBool(SockopsEnableName)
+	c.SyncK8sServices = viper.GetBool(SyncK8sServices)
+	c.SyncK8sNodes = viper.GetBool(SyncK8sNodes)
 	c.TracePayloadlen = viper.GetInt(TracePayloadlen)
 	c.Tunnel = viper.GetString(TunnelName)
+	c.UnmanagedPodWatcherInterval = viper.GetInt(UnmanagedPodWatcherInterval)
+	c.UpdateEC2AdapterLimitViaAPI = viper.GetBool(UpdateEC2AdapterLimitViaAPI)
 	c.Version = viper.GetString(Version)
 	c.WriteCNIConfigurationWhenReady = viper.GetString(WriteCNIConfigurationWhenReady)
 	c.PolicyTriggerInterval = viper.GetDuration(PolicyTriggerInterval)
@@ -1877,12 +2018,20 @@ func (c *DaemonConfig) Populate() {
 	c.MonitorAggregationFlags = ctMonitorReportFlags
 
 	// Map options
+	if m := viper.GetStringMapString(AwsInstanceLimitMapping); len(m) != 0 {
+		c.AwsInstanceLimitMapping = m
+	}
+
 	if m := viper.GetStringMapString(FixedIdentityMapping); len(m) != 0 {
 		c.FixedIdentityMapping = m
 	}
 
 	if m := viper.GetStringMapString(KVStoreOpt); len(m) != 0 {
 		c.KVStoreOpt = m
+	}
+
+	if m := viper.GetStringMapString(ENITags); len(m) != 0 {
+		c.ENITags = m
 	}
 
 	if m := viper.GetStringMapString(LogOpt); len(m) != 0 {
