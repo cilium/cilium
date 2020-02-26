@@ -78,9 +78,11 @@ func (e *AllocatorConsulSuite) TearDownTest(c *C) {
 //FIXME: this should be named better, it implements pkg/allocator.Backend
 type TestAllocatorKey string
 
-func (t TestAllocatorKey) GetKey() string              { return string(t) }
-func (t TestAllocatorKey) GetAsMap() map[string]string { return map[string]string{string(t): string(t)} }
-func (t TestAllocatorKey) String() string              { return string(t) }
+func (t TestAllocatorKey) GetKey() string { return string(t) }
+func (t TestAllocatorKey) GetAsMap() map[string]string {
+	return map[string]string{string(t): string(t)}
+}
+func (t TestAllocatorKey) String() string { return string(t) }
 func (t TestAllocatorKey) PutKey(v string) allocator.AllocatorKey {
 	return TestAllocatorKey(v)
 }
