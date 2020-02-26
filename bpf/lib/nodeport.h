@@ -666,8 +666,13 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 			*from_endpoint = true;
 			info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr,
 					       V4_CACHE_KEY_LEN);
-			if (info != NULL && info->sec_label == WORLD_ID) {
-				return true;
+			if (info != NULL) {
+				if (info->sec_label == WORLD_ID)
+					return true;
+#ifdef ENCAP_IFINDEX
+				if (info->sec_label == REMOTE_NODE_ID)
+					return true;
+#endif
 			}
 		}
 #endif /*ENABLE_MASQUERADE */
