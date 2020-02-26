@@ -25,7 +25,7 @@
 
 #include "raw_insn.h"
 
-#include "iproute2/bpf_elf.h"
+#include "bpf/api.h"
 
 #define BPF_MAX_FIXUPS	64
 #define BPF_MAX_INSNS	(2 * BPF_MAXINSNS)
