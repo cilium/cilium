@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,19 +21,12 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
 	core_v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
-var (
-	// ciliumEndpointGCInterval is the interval between attempts of the CEP GC
-	// controller.
-	// Note that only one node per cluster should run this, and most iterations
-	// will simply return.
-	ciliumEndpointGCInterval time.Duration
 )
 
 // enableCiliumEndpointSyncGC starts the node-singleton sweeper for
@@ -60,11 +53,11 @@ func enableCiliumEndpointSyncGC() {
 	// this dummy manager is needed only to add this controller to the global list
 	controller.NewManager().UpdateController(controllerName,
 		controller.ControllerParams{
-			RunInterval: ciliumEndpointGCInterval,
+			RunInterval: option.Config.EndpointGCInterval,
 			DoFunc: func(ctx context.Context) error {
 				var (
 					listOpts = meta_v1.ListOptions{Limit: 10}
-					loopStop = time.Now().Add(ciliumEndpointGCInterval)
+					loopStop = time.Now().Add(option.Config.EndpointGCInterval)
 				)
 
 				pods, err := k8s.Client().CoreV1().Pods("").List(meta_v1.ListOptions{})

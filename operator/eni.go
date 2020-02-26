@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"
 
 	"github.com/aws/aws-sdk-go-v2/aws/ec2metadata"
@@ -120,12 +121,12 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 		instances *eni.InstancesManager
 	)
 
-	if enableMetrics {
+	if option.Config.EnableMetrics {
 		eniMetrics := metrics.NewPrometheusMetrics(metricNamespace, registry)
 		ec2Client = ec2shim.NewClient(ec2.New(cfg), eniMetrics, awsClientQPSLimit, awsClientBurst)
 		log.Info("Connected to EC2 service API")
 		instances = eni.NewInstancesManager(ec2Client, eniMetrics)
-		nodeManager, err = eni.NewNodeManager(instances, ec2Client, &k8sAPI{}, eniMetrics, eniParallelWorkers, eniTags)
+		nodeManager, err = eni.NewNodeManager(instances, ec2Client, &k8sAPI{}, eniMetrics, option.Config.ENIParallelWorkers, eniTags)
 		if err != nil {
 			return fmt.Errorf("unable to initialize ENI node manager: %s", err)
 		}
@@ -136,7 +137,7 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 		ec2Client = ec2shim.NewClient(ec2.New(cfg), noOpMetric, awsClientQPSLimit, awsClientBurst)
 		log.Info("Connected to EC2 service API")
 		instances = eni.NewInstancesManager(ec2Client, noOpMetric)
-		nodeManager, err = eni.NewNodeManager(instances, ec2Client, &k8sAPI{}, noOpMetric, eniParallelWorkers, eniTags)
+		nodeManager, err = eni.NewNodeManager(instances, ec2Client, &k8sAPI{}, noOpMetric, option.Config.ENIParallelWorkers, eniTags)
 		if err != nil {
 			return fmt.Errorf("unable to initialize ENI node manager: %s", err)
 		}

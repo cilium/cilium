@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,20 +21,11 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
-)
-
-var (
-	// identityGCInterval is the interval in which allocator identities are
-	// attempted to be expired from the kvstore
-	identityGCInterval time.Duration
-
-	// identityAllocationMode specifies what mode to use for identity
-	// allocation
-	identityAllocationMode string
+	"github.com/cilium/cilium/pkg/option"
 )
 
 func startKvstoreIdentityGC() {
-	log.Infof("Starting kvstore identity garbage collector with %s interval...", identityGCInterval)
+	log.Infof("Starting kvstore identity garbage collector with %s interval...", option.Config.IdentityGCInterval)
 	backend, err := kvstoreallocator.NewKVStoreBackend(cache.IdentitiesPath, "", nil, kvstore.Client())
 	if err != nil {
 		log.WithError(err).Fatal("Unable to initialize kvstore backend for identity allocation")
@@ -51,7 +42,7 @@ func startKvstoreIdentityGC() {
 				keysToDelete = keysToDelete2
 			}
 
-			<-time.After(identityGCInterval)
+			<-time.After(option.Config.IdentityGCInterval)
 		}
 	}()
 }

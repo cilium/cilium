@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/option"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,14 +33,13 @@ const (
 )
 
 var (
-	unmanagedKubeDnsWatcherInterval int
-	lastPodRestart                  = map[string]time.Time{}
+	lastPodRestart = map[string]time.Time{}
 )
 
 func enableUnmanagedKubeDNSController() {
 	controller.NewManager().UpdateController("restart-unmanaged-kube-dns",
 		controller.ControllerParams{
-			RunInterval: time.Duration(unmanagedKubeDnsWatcherInterval) * time.Second,
+			RunInterval: time.Duration(option.Config.UnmanagedPodWatcherInterval) * time.Second,
 			DoFunc: func(ctx context.Context) error {
 				for podName, lastRestart := range lastPodRestart {
 					if time.Since(lastRestart) > 2*minimalPodRestartInterval {

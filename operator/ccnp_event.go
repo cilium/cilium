@@ -25,18 +25,13 @@ import (
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/groups"
 
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
-)
-
-var (
-	// ccnpStatusUpdateInterval is the amount of time between status updates
-	// being sent to the K8s apiserver for a given CCNP.
-	ccnpStatusUpdateInterval time.Duration
 )
 
 // enableCCNPWatcher is similar to enableCNPWatcher but handles the watch events for
@@ -72,7 +67,7 @@ func enableCCNPWatcher() error {
 			return err
 		}
 
-		ccnpStatusMgr = k8s.NewCCNPStatusEventHandler(ccnpSharedStore, ccnpStore, ccnpStatusUpdateInterval)
+		ccnpStatusMgr = k8s.NewCCNPStatusEventHandler(ccnpSharedStore, ccnpStore, option.Config.CNPStatusUpdateInterval)
 
 		go ccnpStatusMgr.WatchForCCNPStatusEvents()
 	}
