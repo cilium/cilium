@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2019 Authors of Cilium
+ *  Copyright (C) 2016-2020 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -15,30 +15,26 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
-#ifndef __LIB_UTILS_H_
-#define __LIB_UTILS_H_
+#ifndef __LIB_TIME_H_
+#define __LIB_TIME_H_
 
 #include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
 
-#include "endian.h"
-#include "time.h"
-#include "static_data.h"
+#define NSEC_PER_SEC	1000000000UL
 
-#define min(x, y)		\
-({				\
-	typeof(x) _x = (x);	\
-	typeof(y) _y = (y);	\
-	(void) (&_x == &_y);	\
-	_x < _y ? _x : _y;	\
-})
+/* Monotonic clock, scalar format. */
+static __always_inline __u64 bpf_ktime_get_nsec(void)
+{
+	return ktime_get_ns();
+}
 
-#define max(x, y)		\
-({				\
-	typeof(x) _x = (x);	\
-	typeof(y) _y = (y);	\
-	(void) (&_x == &_y);	\
-	_x > _y ? _x : _y;	\
-})
+static __always_inline __u32 bpf_ktime_get_sec(void)
+{
+	/* Ignores remainder subtraction as we'd do in
+	 * ns_to_timespec(), but good enough here.
+	 */
+	return (__u64)(bpf_ktime_get_nsec() / NSEC_PER_SEC);
+}
 
-#endif /* __LIB_UTILS_H_ */
+#endif /* __LIB_TIME_H_ */
