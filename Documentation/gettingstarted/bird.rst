@@ -273,7 +273,7 @@ nodes. In this case, you need configure `Equal-Cost Multi-Path (ECMP) routing
             merge paths yes limit {{ N }} ;
     }
 
-See user's manual for more detailed information.
+See the user manual for more detailed information.
 
 You need to check the ECMP correctness on physical network (Core router in the
 above scenario):
