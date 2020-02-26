@@ -189,7 +189,7 @@ Verify the changes, you should get something like this:
             dev cilium_host
 
 This indicates that the PodCIDR ``10.5.48.0/24`` on this node has been
-successfully announed to the BGP peers.
+successfully announced to the BGP peers.
 
 Monitoring
 ##############
