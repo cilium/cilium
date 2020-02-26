@@ -59,7 +59,6 @@ var (
 
 	apiServerPort  uint16
 	shutdownSignal = make(chan struct{})
-	metricsAddress string
 
 	ciliumK8sClient clientset.Interface
 )

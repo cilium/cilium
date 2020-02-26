@@ -18,8 +18,8 @@ free to ping us on the `Slack channel`.
 
 .. warning::
 
-   Do not upgrade to 1.7.0 before reading the section
-   :ref:`1.7_required_changes`.
+   Do not upgrade to 1.8.0 before reading the section
+   :ref:`1.8_required_changes`.
 
 .. _pre_flight:
 
@@ -326,6 +326,26 @@ Deprecated options
 * ``keep-bpf-templates``: This option no longer has any effect due to the BPF
   assets not being compiled into the cilium-agent binary anymore. The option is
   deprecated and will be removed in Cilium 1.9.
+
+Deprecated cilium-operator options
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* ``metrics-address``: This option is being deprecated and a new flag is
+  introduced to replace its usage. The new option is ``operator-prometheus-serve-addr``.
+  This old option will be removed in Cilium 1.9
+
+* ``ccnp-node-status-gc``: This option is being deprecated. Disabling CCNP node
+  status GC can be done with ``cnp-node-status-gc-interval=0``. (Note that this
+  is not a typo, it is meant to be ``cnp-node-status-gc-interval``).
+  This old option will be removed in Cilium 1.9
+
+* ``cnp-node-status-gc``: This option is being deprecated. Disabling CNP node
+  status GC can be done with ``cnp-node-status-gc-interval=0``.
+  This old option will be removed in Cilium 1.9
+
+* ``cilium-endpoint-gc``: This option is being deprecated. Disabling cilium
+  endpoint GC can be done with ``cilium-endpoint-gc-interval=0``.
+  This old option will be removed in Cilium 1.9
 
 Removed options
 ~~~~~~~~~~~~~~~

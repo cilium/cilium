@@ -152,14 +152,17 @@ const (
 	Docker = "docker"
 
 	// EnableCEPGC enables CiliumEndpoint garbage collector
+	// Deprecated: use EndpointGCInterval and remove in 1.9
 	EnableCEPGC = "cilium-endpoint-gc"
 
 	// EnableCCNPNodeStatusGC enables CiliumClusterwideNetworkPolicy Status
 	// garbage collection for nodes which have been removed from the cluster
+	// Deprecated: use CNPNodeStatusGCInterval and remove in 1.9
 	EnableCCNPNodeStatusGC = "ccnp-node-status-gc"
 
 	// EnableCNPNodeStatusGC enables CiliumNetworkPolicy Status garbage collection
 	// for nodes which have been removed from the cluster
+	// Deprecated: use CNPNodeStatusGCInterval and remove in 1.9
 	EnableCNPNodeStatusGC = "cnp-node-status-gc"
 
 	// EnablePolicy enables policy enforcement in the agent.
@@ -372,6 +375,9 @@ const (
 
 	// PrometheusServeAddr IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
 	PrometheusServeAddr = "prometheus-serve-addr"
+
+	// OperatorPrometheusServeAddr IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
+	OperatorPrometheusServeAddr = "operator-prometheus-serve-addr"
 
 	// PrometheusServeAddrDeprecated IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
 	PrometheusServeAddrDeprecated = "prometheus-serve-addr-deprecated"
@@ -1155,20 +1161,21 @@ type DaemonConfig struct {
 
 	// Masquerade specifies whether or not to masquerade packets from endpoints
 	// leaving the host.
-	Masquerade             bool
-	InstallIptRules        bool
-	MonitorAggregation     string
-	PreAllocateMaps        bool
-	IPv6NodeAddr           string
-	IPv4NodeAddr           string
-	SidecarHTTPProxy       bool
-	SidecarIstioProxyImage string
-	SocketPath             string
-	TracePayloadlen        int
-	Version                string
-	PProf                  bool
-	PrometheusServeAddr    string
-	ToFQDNsMinTTL          int
+	Masquerade                  bool
+	InstallIptRules             bool
+	MonitorAggregation          string
+	PreAllocateMaps             bool
+	IPv6NodeAddr                string
+	IPv4NodeAddr                string
+	SidecarHTTPProxy            bool
+	SidecarIstioProxyImage      string
+	SocketPath                  string
+	TracePayloadlen             int
+	Version                     string
+	PProf                       bool
+	PrometheusServeAddr         string
+	OperatorPrometheusServeAddr string
+	ToFQDNsMinTTL               int
 
 	// ToFQDNsProxyPort is the user-configured global, shared, DNS listen port used
 	// by the DNS Proxy. Both UDP and TCP are handled on the same port. When it
@@ -1406,14 +1413,17 @@ type DaemonConfig struct {
 	// Operator-specific options
 
 	// EnableCEPGC enables CiliumEndpoint garbage collector
+	// Deprecated: use EndpointGCInterval and remove in 1.9
 	EnableCEPGC bool
 
 	// EnableCNPNodeStatusGC enables CiliumNetworkPolicy Status garbage collection
 	// for nodes which have been removed from the cluster
+	// Deprecated: use CNPNodeStatusGCInterval and remove in 1.9
 	EnableCNPNodeStatusGC bool
 
 	// EnableCCNPNodeStatusGC enables CiliumClusterwideNetworkPolicy Status
 	// garbage collection for nodes which have been removed from the cluster
+	// Deprecated: use CNPNodeStatusGCInterval and remove in 1.9
 	EnableCCNPNodeStatusGC bool
 
 	// EnableMetrics enables prometheus metrics.
@@ -1911,6 +1921,7 @@ func (c *DaemonConfig) Populate() {
 	c.PreAllocateMaps = viper.GetBool(PreAllocateMapsName)
 	c.PrependIptablesChains = viper.GetBool(PrependIptablesChainsName)
 	c.PrometheusServeAddr = getPrometheusServerAddr()
+	c.OperatorPrometheusServeAddr = viper.GetString(OperatorPrometheusServeAddr)
 	c.ProxyConnectTimeout = viper.GetInt(ProxyConnectTimeout)
 	c.BlacklistConflictingRoutes = viper.GetBool(BlacklistConflictingRoutes)
 	c.ReadCNIConfiguration = viper.GetString(ReadCNIConfiguration)

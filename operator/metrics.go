@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,13 +17,19 @@ package main
 import (
 	"net/http"
 
+	"github.com/cilium/cilium/pkg/option"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const metricNamespace = "cilium_operator"
 
-var registry *prometheus.Registry
+var (
+	registry *prometheus.Registry
+
+	metricsAddress string
+)
 
 func registerMetrics() {
 	registry = prometheus.NewPedanticRegistry()
@@ -32,6 +38,13 @@ func registerMetrics() {
 		// The Handler function provides a default handler to expose metrics
 		// via an HTTP server. "/metrics" is the usual endpoint for that.
 		http.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
-		log.Fatal(http.ListenAndServe(metricsAddress, nil))
+		log.Fatal(http.ListenAndServe(getPrometheusServerAddr(), nil))
 	}()
+}
+
+func getPrometheusServerAddr() string {
+	if option.Config.OperatorPrometheusServeAddr == "" {
+		return metricsAddress
+	}
+	return option.Config.OperatorPrometheusServeAddr
 }

@@ -70,11 +70,15 @@ func init() {
 	option.BindEnv(option.ClusterName)
 
 	// Operator-specific flags
+	// Deprecated, remove in 1.9
 	flags.Bool(option.EnableCCNPNodeStatusGC, true, "Enable CiliumClusterwideNetworkPolicy Status garbage collection for nodes which have been removed from the cluster")
 	option.BindEnv(option.EnableCCNPNodeStatusGC)
+	flags.MarkDeprecated(option.EnableCCNPNodeStatusGC, fmt.Sprintf("Please use %s=0 to disable CCNP Status GC", option.CNPNodeStatusGCInterval))
 
+	// Deprecated, remove in 1.9
 	flags.Bool(option.EnableCNPNodeStatusGC, true, "Enable CiliumNetworkPolicy Status garbage collection for nodes which have been removed from the cluster")
 	option.BindEnv(option.EnableCNPNodeStatusGC)
+	flags.MarkDeprecated(option.EnableCNPNodeStatusGC, fmt.Sprintf("Please use %s=0 to disable CNP Status GC", option.CNPNodeStatusGCInterval))
 
 	flags.Duration(option.CNPNodeStatusGCInterval, 2*time.Minute, "GC interval for nodes which have been removed from the cluster in CiliumNetworkPolicy Status")
 	option.BindEnv(option.CNPNodeStatusGCInterval)
@@ -93,8 +97,10 @@ func init() {
 	flags.MarkHidden(option.DisableCiliumEndpointCRDName)
 	option.BindEnv(option.DisableCiliumEndpointCRDName)
 
+	// Deprecated, remove in 1.9
 	flags.Bool(option.EnableCEPGC, true, "Enable CiliumEndpoint garbage collector")
 	option.BindEnv(option.EnableCEPGC)
+	flags.MarkDeprecated(option.EnableCEPGC, fmt.Sprintf("Please use %s=0 to disable CEP GC", option.EndpointGCInterval))
 
 	flags.Duration(option.EndpointGCInterval, 30*time.Minute, "GC interval for cilium endpoints")
 	option.BindEnv(option.EndpointGCInterval)
@@ -139,6 +145,9 @@ func init() {
 	flags.Duration(option.NodesGCInterval, 2*time.Minute, "GC interval for nodes store in the kvstore")
 	option.BindEnv(option.NodesGCInterval)
 
+	flags.String(option.OperatorPrometheusServeAddr, ":6942", "Address to serve Prometheus metrics")
+	option.BindEnv(option.OperatorPrometheusServeAddr)
+
 	flags.Bool(option.SyncK8sServices, true, "Synchronize Kubernetes services to kvstore")
 	option.BindEnv(option.SyncK8sServices)
 
@@ -154,7 +163,9 @@ func init() {
 	// TODO: Urgent fix
 	flags.Uint16Var(&apiServerPort, "api-server-port", 9234, "Port on which the operator should serve API requests")
 
+	// Deprecated, remove in 1.9
 	flags.StringVar(&metricsAddress, "metrics-address", ":6942", "Address to serve Prometheus metrics")
+	flags.MarkDeprecated("metrics-address", fmt.Sprintf("Please use %s instead", option.OperatorPrometheusServeAddr))
 
 	flags.String(option.CMDRef, "", "Path to cmdref output directory")
 	flags.MarkHidden(option.CMDRef)
