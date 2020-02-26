@@ -13,6 +13,7 @@
 # @cilium/kvstore       Key/Value store: Consul, etcd
 # @cilium/loadbalancer  Load balancer
 # @cilium/monitor       Cilium node monitor tool
+# @cilium/operator      Cilium operator
 # @cilium/policy        Policy behaviour
 # @cilium/proxy         L7 proxy, Envoy
 # @cilium/vendor        Vendoring, dependency management
@@ -111,6 +112,7 @@ pkg/monitor/format @cilium/cli
 pkg/monitor/payload @cilium/api
 pkg/mountinfo @cilium/bpf
 pkg/mtu @cilium/bpf
+pkg/operator @cilium/operator
 pkg/option @cilium/option
 pkg/output @cilium/cli
 pkg/pidfile @cilium/agent
