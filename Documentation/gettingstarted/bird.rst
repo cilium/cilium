@@ -292,7 +292,7 @@ above scenario):
         *via 10.4.1.8, [200/0], 12w4d, bgp-65418, internal, tag 65418
 
 Graceful restart
-----
+----------------
 
 **This feature also relies on peer side's configuration.**
 
