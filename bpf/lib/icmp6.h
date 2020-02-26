@@ -35,14 +35,14 @@
 #define ACTION_UNKNOWN_ICMP6_NS DROP_UNKNOWN_TARGET
 #endif
 
-static inline __u8 icmp6_load_type(struct __ctx_buff *ctx, int nh_off)
+static __always_inline __u8 icmp6_load_type(struct __ctx_buff *ctx, int nh_off)
 {
 	__u8 type;
 	ctx_load_bytes(ctx, nh_off + ICMP6_TYPE_OFFSET, &type, sizeof(type));
 	return type;
 }
 
-static inline int __inline__ icmp6_send_reply(struct __ctx_buff *ctx, int nh_off)
+static __always_inline int icmp6_send_reply(struct __ctx_buff *ctx, int nh_off)
 {
 	union macaddr smac, dmac = NODE_MAC;
 	const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
@@ -84,7 +84,8 @@ static inline int __inline__ icmp6_send_reply(struct __ctx_buff *ctx, int nh_off
 	return redirect_self(ctx);
 }
 
-static inline int __icmp6_send_echo_reply(struct __ctx_buff *ctx, int nh_off)
+static __always_inline int __icmp6_send_echo_reply(struct __ctx_buff *ctx,
+						   int nh_off)
 {
 	struct icmp6hdr icmp6hdr = {}, icmp6hdr_old;
 	int csum_off = nh_off + ICMP6_CSUM_OFFSET;
@@ -140,8 +141,8 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_ECHO_REPLY) int tail_icm
  *
  * NOTE: This is terminal function and will cause the BPF program to exit
  */
-static inline int icmp6_send_echo_reply(struct __ctx_buff *ctx, int nh_off,
-					__u8 direction)
+static __always_inline int icmp6_send_echo_reply(struct __ctx_buff *ctx,
+						 int nh_off, __u8 direction)
 {
 	ctx->cb[0] = nh_off;
 	ctx->cb[1] = direction;
@@ -150,8 +151,8 @@ static inline int icmp6_send_echo_reply(struct __ctx_buff *ctx, int nh_off,
 	return DROP_MISSED_TAIL_CALL;
 }
 
-static inline int send_icmp6_ndisc_adv(struct __ctx_buff *ctx, int nh_off,
-				       union macaddr *mac)
+static __always_inline int send_icmp6_ndisc_adv(struct __ctx_buff *ctx,
+						int nh_off, union macaddr *mac)
 {
 	struct icmp6hdr icmp6hdr = {}, icmp6hdr_old;
 	__u8 opts[8], opts_old[8];
@@ -205,23 +206,21 @@ static inline int send_icmp6_ndisc_adv(struct __ctx_buff *ctx, int nh_off,
 	return icmp6_send_reply(ctx, nh_off);
 }
 
-static inline __be32 compute_icmp6_csum(char data[80], __u16 payload_len,
-					struct ipv6hdr *ipv6hdr)
+static __always_inline __be32 compute_icmp6_csum(char data[80], __u16 payload_len,
+						 struct ipv6hdr *ipv6hdr)
 {
 	__be32 sum;
 
 	/* compute checksum with new payload length */
 	sum = csum_diff(NULL, 0, data, payload_len, 0);
-	//printk("csum1 = %x\n", sum);
 	sum = ipv6_pseudohdr_checksum(ipv6hdr, IPPROTO_ICMPV6, payload_len,
 				      sum);
-	//printk("csum2 = %x\n", sum);
-
 	return sum;
 }
 
 #ifdef HAVE_SKB_CHANGE_TAIL
-static inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx, int nh_off)
+static __always_inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
+						      int nh_off)
 {
 	/* FIXME: Fix code below to not require this init */
         char data[80] = {};
@@ -329,7 +328,8 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED) int tail_
  *
  * NOTE: This is terminal function and will cause the BPF program to exit
  */
-static inline int icmp6_send_time_exceeded(struct __ctx_buff *ctx, int nh_off, __u8 direction)
+static __always_inline int icmp6_send_time_exceeded(struct __ctx_buff *ctx,
+						    int nh_off, __u8 direction)
 {
 	ctx->cb[0] = nh_off;
 	ctx->cb[1] = direction;
@@ -339,7 +339,7 @@ static inline int icmp6_send_time_exceeded(struct __ctx_buff *ctx, int nh_off, _
 	return DROP_MISSED_TAIL_CALL;
 }
 
-static inline int __icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off)
+static __always_inline int __icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off)
 {
 	union v6addr target, router;
 
@@ -383,7 +383,8 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_HANDLE_ICMP6_NS) int tail_icmp6_han
  *
  * NOTE: This is terminal function and will cause the BPF program to exit
  */
-static inline int icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off, __u8 direction)
+static __always_inline int icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off,
+					   __u8 direction)
 {
 	ctx->cb[0] = nh_off;
 	ctx->cb[1] = direction;
@@ -393,8 +394,8 @@ static inline int icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off, __u8 direc
 	return DROP_MISSED_TAIL_CALL;
 }
 
-static inline int icmp6_handle(struct __ctx_buff *ctx, int nh_off,
-			       struct ipv6hdr *ip6, __u8 direction)
+static __always_inline int icmp6_handle(struct __ctx_buff *ctx, int nh_off,
+					struct ipv6hdr *ip6, __u8 direction)
 {
 	union v6addr router_ip;
 	__u8 type = icmp6_load_type(ctx, nh_off);

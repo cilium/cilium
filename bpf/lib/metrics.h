@@ -36,7 +36,8 @@
             	is the drop error code.
  * Update the metrics map.
  */
-static inline void update_metrics(__u32 bytes, __u8 direction, __u8 reason)
+static __always_inline void update_metrics(__u32 bytes, __u8 direction,
+					   __u8 reason)
 {
     struct metrics_value *entry, newEntry = {};
     struct metrics_key key = {};

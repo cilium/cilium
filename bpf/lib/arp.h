@@ -32,8 +32,8 @@ struct arp_eth {
 } __attribute__((packed));
 
 /* Check if packet is ARP request for IP */
-static inline int arp_check(struct ethhdr *eth, struct arphdr *arp,
-			    struct arp_eth *arp_eth, union macaddr *mac)
+static __always_inline int arp_check(struct ethhdr *eth, struct arphdr *arp,
+				     struct arp_eth *arp_eth, union macaddr *mac)
 {
 	union macaddr *dmac = (union macaddr *) &eth->h_dest;
 
@@ -42,9 +42,9 @@ static inline int arp_check(struct ethhdr *eth, struct arphdr *arp,
 	       (eth_is_bcast(dmac) || !eth_addrcmp(dmac, mac));
 }
 
-static inline int arp_prepare_response(struct __ctx_buff *ctx, struct ethhdr *eth,
-				       struct arp_eth *arp_eth, __be32 ip,
-				       union macaddr *mac)
+static __always_inline int
+arp_prepare_response(struct __ctx_buff *ctx, struct ethhdr *eth,
+		     struct arp_eth *arp_eth, __be32 ip, union macaddr *mac)
 {
 	union macaddr smac = *(union macaddr *) &eth->h_source;
 	__be32 sip = arp_eth->ar_sip;
@@ -62,7 +62,8 @@ static inline int arp_prepare_response(struct __ctx_buff *ctx, struct ethhdr *et
 	return 0;
 }
 
-static inline int arp_respond(struct __ctx_buff *ctx, union macaddr *mac, int direction)
+static __always_inline int arp_respond(struct __ctx_buff *ctx, union macaddr *mac,
+				       int direction)
 {
 	void *data_end = (void *) (long) ctx->data_end;
 	void *data = (void *) (long) ctx->data;

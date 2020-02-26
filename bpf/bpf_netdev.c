@@ -50,7 +50,8 @@
 #include "lib/nodeport.h"
 
 #if defined FROM_HOST && (defined ENABLE_IPV4 || defined ENABLE_IPV6)
-static inline int rewrite_dmac_to_host(struct __ctx_buff *ctx, __u32 src_identity)
+static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx,
+						__u32 src_identity)
 {
 	/* When attached to cilium_host, we rewrite the DMAC to the mac of
 	 * cilium_host (peer) to ensure the packet is being considered to be
@@ -59,14 +60,15 @@ static inline int rewrite_dmac_to_host(struct __ctx_buff *ctx, __u32 src_identit
 
 	/* Rewrite to destination MAC of cilium_net (remote peer) */
 	if (eth_store_daddr(ctx, (__u8 *) &cilium_net_mac.addr, 0) < 0)
-		return send_drop_notify_error(ctx, src_identity, DROP_WRITE_ERROR, CTX_ACT_OK, METRIC_INGRESS);
+		return send_drop_notify_error(ctx, src_identity, DROP_WRITE_ERROR,
+					      CTX_ACT_OK, METRIC_INGRESS);
 
 	return CTX_ACT_OK;
 }
 #endif
 
 #if defined ENABLE_IPV4 || defined ENABLE_IPV6
-static inline __u32 finalize_sec_ctx(__u32 secctx, __u32 src_identity)
+static __always_inline __u32 finalize_sec_ctx(__u32 secctx, __u32 src_identity)
 {
 #ifdef ENABLE_SECCTX_FROM_IPCACHE
 	/* If we could not derive the secctx from the packet itself but
@@ -81,8 +83,9 @@ static inline __u32 finalize_sec_ctx(__u32 secctx, __u32 src_identity)
 #endif
 
 #ifdef ENABLE_IPV6
-static inline __u32 derive_sec_ctx(struct __ctx_buff *ctx, const union v6addr *node_ip,
-				   struct ipv6hdr *ip6, __u32 *identity)
+static __always_inline __u32 derive_sec_ctx(struct __ctx_buff *ctx,
+					    const union v6addr *node_ip,
+					    struct ipv6hdr *ip6, __u32 *identity)
 {
 #ifdef FIXED_SRC_SECCTX
 	*identity = FIXED_SRC_SECCTX;
@@ -106,7 +109,8 @@ static inline __u32 derive_sec_ctx(struct __ctx_buff *ctx, const union v6addr *n
 #endif
 }
 
-static inline int handle_ipv6(struct __ctx_buff *ctx, __u32 src_identity)
+static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
+				       __u32 src_identity)
 {
 	struct remote_endpoint_info *info = NULL;
 	union v6addr node_ip = { };
@@ -271,7 +275,8 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC) int tail_handle_ipv6
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-static inline __u32 derive_ipv4_sec_ctx(struct __ctx_buff *ctx, struct iphdr *ip4)
+static __always_inline __u32 derive_ipv4_sec_ctx(struct __ctx_buff *ctx,
+						 struct iphdr *ip4)
 {
 #ifdef FIXED_SRC_SECCTX
 	return FIXED_SRC_SECCTX;
@@ -280,7 +285,8 @@ static inline __u32 derive_ipv4_sec_ctx(struct __ctx_buff *ctx, struct iphdr *ip
 #endif
 }
 
-static inline int handle_ipv4(struct __ctx_buff *ctx, __u32 src_identity)
+static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
+				       __u32 src_identity)
 {
 	struct remote_endpoint_info *info = NULL;
 	struct ipv4_ct_tuple tuple = {};

@@ -103,7 +103,7 @@ struct bpf_elf_map __section_maps LB4_BACKEND_MAP = {
 #define cilium_dbg_lb(a, b, c, d)
 #endif
 
-static inline bool lb4_svc_is_nodeport(const struct lb4_service *svc)
+static __always_inline bool lb4_svc_is_nodeport(const struct lb4_service *svc)
 {
 #ifdef ENABLE_NODEPORT
 	return svc->nodeport;
@@ -112,7 +112,7 @@ static inline bool lb4_svc_is_nodeport(const struct lb4_service *svc)
 #endif /* ENABLE_NODEPORT */
 }
 
-static inline bool lb6_svc_is_nodeport(const struct lb6_service *svc)
+static __always_inline bool lb6_svc_is_nodeport(const struct lb6_service *svc)
 {
 #ifdef ENABLE_NODEPORT
 	return svc->nodeport;
@@ -121,7 +121,7 @@ static inline bool lb6_svc_is_nodeport(const struct lb6_service *svc)
 #endif /* ENABLE_NODEPORT */
 }
 
-static inline bool lb4_svc_is_external_ip(const struct lb4_service *svc)
+static __always_inline bool lb4_svc_is_external_ip(const struct lb4_service *svc)
 {
 #ifdef ENABLE_EXTERNAL_IP
 	return svc->external;
@@ -130,7 +130,7 @@ static inline bool lb4_svc_is_external_ip(const struct lb4_service *svc)
 #endif
 }
 
-static inline bool lb6_svc_is_external_ip(const struct lb6_service *svc)
+static __always_inline bool lb6_svc_is_external_ip(const struct lb6_service *svc)
 {
 #ifdef ENABLE_EXTERNAL_IP
 	return svc->external;
@@ -139,20 +139,20 @@ static inline bool lb6_svc_is_external_ip(const struct lb6_service *svc)
 #endif
 }
 
-static inline int lb6_select_slave(__u16 count)
+static __always_inline int lb6_select_slave(__u16 count)
 {
 	/* Slave 0 is reserved for the master slot */
 	return (get_prandom_u32() % count) + 1;
 }
 
-static inline int lb4_select_slave(__u16 count)
+static __always_inline int lb4_select_slave(__u16 count)
 {
 	/* Slave 0 is reserved for the master slot */
 	return (get_prandom_u32() % count) + 1;
 }
 
-static inline int __inline__ extract_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
-					     int l4_off, __be16 *port)
+static __always_inline int extract_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
+					   int l4_off, __be16 *port)
 {
 	int ret;
 
@@ -177,9 +177,9 @@ static inline int __inline__ extract_l4_port(struct __ctx_buff *ctx, __u8 nexthd
 	return 0;
 }
 
-static inline int __inline__ reverse_map_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
-						 __be16 port, int l4_off,
-						 struct csum_offset *csum_off)
+static __always_inline int reverse_map_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
+					       __be16 port, int l4_off,
+					       struct csum_offset *csum_off)
 {
 	switch (nexthdr) {
 	case IPPROTO_TCP:
@@ -214,7 +214,7 @@ static inline int __inline__ reverse_map_l4_port(struct __ctx_buff *ctx, __u8 ne
 }
 
 #ifdef ENABLE_IPV6
-static inline int __inline__ __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
+static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 					 struct csum_offset *csum_off,
 					 struct ipv6_ct_tuple *tuple, int flags,
 					 struct lb6_reverse_nat *nat)
@@ -265,9 +265,9 @@ static inline int __inline__ __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
  * @arg tuple		tuple
  * @arg saddr_tuple	If set, tuple address will be updated with new source address
  */
-static inline int __inline__ lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
-					 struct csum_offset *csum_off, __u16 index,
-					 struct ipv6_ct_tuple *tuple, int flags)
+static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
+				       struct csum_offset *csum_off, __u16 index,
+				       struct ipv6_ct_tuple *tuple, int flags)
 {
 	struct lb6_reverse_nat *nat;
 
@@ -295,12 +295,12 @@ static inline int __inline__ lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
  *   - DROP_UNKNOWN_L4 if packet should be ignore (sent to stack)
  *   - Negative error code
  */
-static inline int __inline__ lb6_extract_key(struct __ctx_buff *ctx,
-					     struct ipv6_ct_tuple *tuple,
-					     int l4_off,
-					     struct lb6_key *key,
-					     struct csum_offset *csum_off,
-					     int dir)
+static __always_inline int lb6_extract_key(struct __ctx_buff *ctx,
+					   struct ipv6_ct_tuple *tuple,
+					   int l4_off,
+					   struct lb6_key *key,
+					   struct csum_offset *csum_off,
+					   int dir)
 {
 	union v6addr *addr;
 	// FIXME(brb): set after adding support for different L4 protocols in LB
@@ -316,7 +316,7 @@ static inline int __inline__ lb6_extract_key(struct __ctx_buff *ctx,
 #endif
 }
 
-static inline
+static __always_inline
 struct lb6_service *__lb6_lookup_service(struct lb6_key *key)
 {
 	key->slave = 0;
@@ -348,7 +348,7 @@ struct lb6_service *__lb6_lookup_service(struct lb6_key *key)
 	return NULL;
 }
 
-static inline
+static __always_inline
 struct lb6_service *lb6_lookup_service(struct __ctx_buff *ctx,
 				       struct lb6_key *key)
 {
@@ -361,13 +361,13 @@ struct lb6_service *lb6_lookup_service(struct __ctx_buff *ctx,
 	return svc;
 }
 
-static inline struct lb6_backend *__lb6_lookup_backend(__u16 backend_id)
+static __always_inline struct lb6_backend *__lb6_lookup_backend(__u16 backend_id)
 {
 	return map_lookup_elem(&LB6_BACKEND_MAP, &backend_id);
 }
 
-static inline struct lb6_backend *lb6_lookup_backend(struct __ctx_buff *ctx,
-						     __u16 backend_id)
+static __always_inline struct lb6_backend *
+lb6_lookup_backend(struct __ctx_buff *ctx, __u16 backend_id)
 {
 	struct lb6_backend *backend;
 
@@ -379,13 +379,13 @@ static inline struct lb6_backend *lb6_lookup_backend(struct __ctx_buff *ctx,
 	return backend;
 }
 
-static inline
+static __always_inline
 struct lb6_service *__lb6_lookup_slave(struct lb6_key *key)
 {
 	return map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
 }
 
-static inline
+static __always_inline
 struct lb6_service *lb6_lookup_slave(struct __ctx_buff *ctx,
 				     struct lb6_key *key, __u16 slave)
 {
@@ -403,13 +403,13 @@ struct lb6_service *lb6_lookup_slave(struct __ctx_buff *ctx,
 	return NULL;
 }
 
-static inline int __inline__ lb6_xlate(struct __ctx_buff *ctx,
-				       union v6addr *new_dst, __u8 nexthdr,
-				       int l3_off, int l4_off,
-				       struct csum_offset *csum_off,
-				       struct lb6_key *key,
-				       struct lb6_service *svc,
-				       struct lb6_backend *backend)
+static __always_inline int lb6_xlate(struct __ctx_buff *ctx,
+				     union v6addr *new_dst, __u8 nexthdr,
+				     int l3_off, int l4_off,
+				     struct csum_offset *csum_off,
+				     struct lb6_key *key,
+				     struct lb6_service *svc,
+				     struct lb6_backend *backend)
 {
 	ipv6_store_daddr(ctx, new_dst->addr, l3_off);
 
@@ -435,13 +435,13 @@ static inline int __inline__ lb6_xlate(struct __ctx_buff *ctx,
 	return CTX_ACT_OK;
 }
 
-static inline int __inline__ lb6_local(void *map, struct __ctx_buff *ctx,
-				       int l3_off, int l4_off,
-				       struct csum_offset *csum_off,
-				       struct lb6_key *key,
-				       struct ipv6_ct_tuple *tuple,
-				       struct lb6_service *svc,
-				       struct ct_state *state)
+static __always_inline int lb6_local(void *map, struct __ctx_buff *ctx,
+				     int l3_off, int l4_off,
+				     struct csum_offset *csum_off,
+				     struct lb6_key *key,
+				     struct ipv6_ct_tuple *tuple,
+				     struct lb6_service *svc,
+				     struct ct_state *state)
 {
 	__u32 monitor; // Deliberately ignored; regular CT will determine monitoring.
 	union v6addr *addr;
@@ -541,26 +541,27 @@ drop_no_service:
 /* Stubs for v4-in-v6 socket cgroup hook case when only v4 is enabled to avoid
  * additional map management.
  */
-static inline
+static __always_inline
 struct lb6_service *__lb6_lookup_service(struct lb6_key *key)
 {
 	return NULL;
 }
 
-static inline
+static __always_inline
 struct lb6_service *__lb6_lookup_slave(struct lb6_key *key)
 {
 	return NULL;
 }
 
-static inline struct lb6_backend *__lb6_lookup_backend(__u16 backend_id)
+static __always_inline struct lb6_backend *
+__lb6_lookup_backend(__u16 backend_id)
 {
 	return NULL;
 }
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-static inline int __inline__ __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l4_off,
+static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l4_off,
 					 struct csum_offset *csum_off,
 					 struct ipv4_ct_tuple *tuple, int flags,
 					 struct lb4_reverse_nat *nat,
@@ -637,10 +638,10 @@ static inline int __inline__ __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, i
  * @arg index		reverse NAT index
  * @arg tuple		tuple
  */
-static inline int __inline__ lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l4_off,
-					 struct csum_offset *csum_off,
-					 struct ct_state *ct_state,
-					 struct ipv4_ct_tuple *tuple, int flags)
+static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l4_off,
+				       struct csum_offset *csum_off,
+				       struct ct_state *ct_state,
+				       struct ipv4_ct_tuple *tuple, int flags)
 {
 	struct lb4_reverse_nat *nat;
 
@@ -666,12 +667,12 @@ static inline int __inline__ lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
  *   - DROP_UNKNOWN_L4 if packet should be ignore (sent to stack)
  *   - Negative error code
  */
-static inline int __inline__ lb4_extract_key(struct __ctx_buff *ctx,
-					     struct ipv4_ct_tuple *tuple,
-					     int l4_off,
-					     struct lb4_key *key,
-					     struct csum_offset *csum_off,
-					     int dir)
+static __always_inline int lb4_extract_key(struct __ctx_buff *ctx,
+					   struct ipv4_ct_tuple *tuple,
+					   int l4_off,
+					   struct lb4_key *key,
+					   struct csum_offset *csum_off,
+					   int dir)
 {
 	// FIXME: set after adding support for different L4 protocols in LB
 	key->proto = 0;
@@ -685,7 +686,7 @@ static inline int __inline__ lb4_extract_key(struct __ctx_buff *ctx,
 #endif
 }
 
-static inline
+static __always_inline
 struct lb4_service *__lb4_lookup_service(struct lb4_key *key)
 {
 	key->slave = 0;
@@ -717,7 +718,7 @@ struct lb4_service *__lb4_lookup_service(struct lb4_key *key)
 	return NULL;
 }
 
-static inline
+static __always_inline
 struct lb4_service *lb4_lookup_service(struct __ctx_buff *ctx,
 				       struct lb4_key *key)
 {
@@ -729,13 +730,13 @@ struct lb4_service *lb4_lookup_service(struct __ctx_buff *ctx,
 	return svc;
 }
 
-static inline struct lb4_backend *__lb4_lookup_backend(__u16 backend_id)
+static __always_inline struct lb4_backend *__lb4_lookup_backend(__u16 backend_id)
 {
 	return map_lookup_elem(&LB4_BACKEND_MAP, &backend_id);
 }
 
-static inline struct lb4_backend *lb4_lookup_backend(struct __ctx_buff *ctx,
-						     __u16 backend_id)
+static __always_inline struct lb4_backend *
+lb4_lookup_backend(struct __ctx_buff *ctx, __u16 backend_id)
 {
 	struct lb4_backend *backend;
 
@@ -747,13 +748,13 @@ static inline struct lb4_backend *lb4_lookup_backend(struct __ctx_buff *ctx,
 	return backend;
 }
 
-static inline
+static __always_inline
 struct lb4_service *__lb4_lookup_slave(struct lb4_key *key)
 {
 	return map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
 }
 
-static inline
+static __always_inline
 struct lb4_service *lb4_lookup_slave(struct __ctx_buff *ctx,
 					   struct lb4_key *key, __u16 slave)
 {
@@ -771,7 +772,7 @@ struct lb4_service *lb4_lookup_slave(struct __ctx_buff *ctx,
 	return NULL;
 }
 
-static inline int __inline__
+static __always_inline int
 lb4_xlate(struct __ctx_buff *ctx, __be32 *new_daddr, __be32 *new_saddr,
 	     __be32 *old_saddr, __u8 nexthdr, int l3_off, int l4_off,
 	     struct csum_offset *csum_off, struct lb4_key *key,
@@ -817,13 +818,13 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_daddr, __be32 *new_saddr,
 	return CTX_ACT_OK;
 }
 
-static inline int __inline__ lb4_local(void *map, struct __ctx_buff *ctx,
-				       int l3_off, int l4_off,
-				       struct csum_offset *csum_off,
-				       struct lb4_key *key,
-				       struct ipv4_ct_tuple *tuple,
-					struct lb4_service *svc,
-				       struct ct_state *state, __be32 saddr)
+static __always_inline int lb4_local(void *map, struct __ctx_buff *ctx,
+				     int l3_off, int l4_off,
+				     struct csum_offset *csum_off,
+				     struct lb4_key *key,
+				     struct ipv4_ct_tuple *tuple,
+				     struct lb4_service *svc,
+				     struct ct_state *state, __be32 saddr)
 {
 	__u32 monitor; // Deliberately ignored; regular CT will determine monitoring.
 	__be32 new_saddr = 0, new_daddr;

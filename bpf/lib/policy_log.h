@@ -43,9 +43,10 @@ struct policy_verdict_notify {
 	__u32	pad1; // align with 64 bits
 };
 
-static inline void
-send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst_port, __u8 proto,
-                             __u8 dir, __u8 is_ipv6, int verdict, __u8 match_type)
+static __always_inline void
+send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst_port,
+			   __u8 proto, __u8 dir, __u8 is_ipv6, int verdict,
+			   __u8 match_type)
 {
 	__u64 ctx_len = (__u64)ctx->len, cap_len = min((__u64)TRACE_PAYLOAD_LEN, (__u64)ctx_len);
 	__u32 hash = get_hash_recalc(ctx);
@@ -71,14 +72,12 @@ send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
 }
-
 #else
-
-static inline void
-send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst_port, __u8 proto,
-                             __u8 dir, __u8 is_ipv6, int verdict, __u8 match_type)
+static __always_inline void
+send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst_port,
+			   __u8 proto, __u8 dir, __u8 is_ipv6, int verdict,
+			   __u8 match_type)
 {
 }
 #endif /* POLICY_VERDICT_NOTIFY */
-
 #endif /* __LIB_POLICY_LOG__*/

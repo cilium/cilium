@@ -27,9 +27,6 @@
 
 #include <bpf_features.h>
 
-#include <stdbool.h>
-#include <stddef.h>
-
 // FIXME: GH-3239 LRU logic is not handling timeouts gracefully enough
 // #ifndef HAVE_LRU_MAP_TYPE
 // #define NEEDS_TIMEOUT 1
@@ -63,11 +60,6 @@
 # ifdef ENABLE_IPV6
 #  define ENABLE_ENCAP_HOST_REMAP 1
 # endif
-#endif
-
-#define __inline__ __attribute__((always_inline))
-#ifndef __always_inline
-#define __always_inline inline __inline__
 #endif
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
@@ -113,7 +105,8 @@ union v6addr {
         __u8 addr[16];
 } __attribute__((packed));
 
-static inline bool validate_ethertype(struct __ctx_buff *ctx, __u16 *proto)
+static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
+					       __u16 *proto)
 {
 	void *data = (void *) (long) ctx->data;
 	void *data_end = (void *) (long) ctx->data_end;
@@ -448,7 +441,7 @@ struct encrypt_config {
 /**
  * or_encrypt_key - mask and shift key into encryption format
  */
-static inline __u32 __inline__ or_encrypt_key(__u8 key)
+static __always_inline __u32 or_encrypt_key(__u8 key)
 {
 	return (((__u32)key & 0x0F) << 12) | MARK_MAGIC_ENCRYPT;
 }
@@ -653,13 +646,13 @@ struct ct_state {
  * help relax the verifier to avoid reaching complexity limits on older
  * kernels.
  */
-static inline void relax_verifier(void)
+static __always_inline void relax_verifier(void)
 {
 	int foo = 0;
 	csum_diff(0, 0, &foo, 1, 0);
 }
 
-static inline int redirect_peer(int ifindex, __u32 flags)
+static __always_inline int redirect_peer(int ifindex, __u32 flags)
 {
 	/* If our datapath has proper redirect support, we make use
 	 * of it here, otherwise we terminate tc processing by letting

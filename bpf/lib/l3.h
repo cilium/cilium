@@ -29,8 +29,8 @@
 #include "csum.h"
 
 #ifdef ENABLE_IPV6
-static inline int __inline__ ipv6_l3(struct __ctx_buff *ctx, int l3_off,
-				     __u8 *smac, __u8 *dmac, __u8 direction)
+static __always_inline int ipv6_l3(struct __ctx_buff *ctx, int l3_off,
+				   __u8 *smac, __u8 *dmac, __u8 direction)
 {
 	int ret;
 
@@ -53,8 +53,8 @@ static inline int __inline__ ipv6_l3(struct __ctx_buff *ctx, int l3_off,
 }
 #endif /* ENABLE_IPV6 */
 
-static inline int __inline__ ipv4_l3(struct __ctx_buff *ctx, int l3_off,
-				     __u8 *smac, __u8 *dmac, struct iphdr *ip4)
+static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
+				   __u8 *smac, __u8 *dmac, struct iphdr *ip4)
 {
 	if (ipv4_dec_ttl(ctx, l3_off, ip4)) {
 		/* FIXME: Send ICMP TTL */
@@ -71,9 +71,11 @@ static inline int __inline__ ipv4_l3(struct __ctx_buff *ctx, int l3_off,
 }
 
 #ifdef ENABLE_IPV6
-static inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_off, int l4_off,
-				      __u32 seclabel, struct ipv6hdr *ip6, __u8 nexthdr,
-				      struct endpoint_info *ep, __u8 direction)
+static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_off,
+					       int l4_off, __u32 seclabel,
+					       struct ipv6hdr *ip6, __u8 nexthdr,
+					       struct endpoint_info *ep,
+					       __u8 direction)
 {
 	int ret;
 
@@ -108,9 +110,9 @@ static inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_off, int l4
 }
 #endif /* ENABLE_IPV6 */
 
-static inline int __inline__ ipv4_local_delivery(struct __ctx_buff *ctx, int l3_off, int l4_off,
-						 __u32 seclabel, struct iphdr *ip4,
-						 struct endpoint_info *ep, __u8 direction)
+static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_off, int l4_off,
+					       __u32 seclabel, struct iphdr *ip4,
+					       struct endpoint_info *ep, __u8 direction)
 {
 	int ret;
 
@@ -143,7 +145,7 @@ static inline int __inline__ ipv4_local_delivery(struct __ctx_buff *ctx, int l3_
 #endif
 }
 
-static inline __u8 __inline__ get_encrypt_key(__u32 ctx)
+static __always_inline __u8 get_encrypt_key(__u32 ctx)
 {
 	struct encrypt_key key = {.ctx = ctx};
 	struct encrypt_config *cfg;
@@ -155,7 +157,7 @@ static inline __u8 __inline__ get_encrypt_key(__u32 ctx)
 	return cfg->encrypt_key;
 }
 
-static inline __u8 __inline__ get_min_encrypt_key(__u8 peer_key)
+static __always_inline __u8 get_min_encrypt_key(__u8 peer_key)
 {
 	__u8 local_key = get_encrypt_key(0);
 
