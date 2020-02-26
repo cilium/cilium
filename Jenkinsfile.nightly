@@ -93,8 +93,7 @@ pipeline {
                     script {
                         if  (!currentBuild.displayName.contains('fail')) {
                             currentBuild.displayName = 'building or pushing Cilium images failed ' + currentBuild.displayName
-                        }
-                    }
+                        } }
                 }
             }
         }
@@ -123,9 +122,13 @@ pipeline {
                     dir("${TESTDIR}"){
                         sh './post_build_agent.sh || true'
                         sh 'vagrant destroy -f || true'
-                        sh './archive_test_results.sh || true'
+                        sh './archive_test_results_eks.sh || true'
+                    }
+                    dir("${TESTDIR}/.."){
                         archiveArtifacts artifacts: '*.zip'
-                        junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'test/*.xml'
+                    }
+                    dir("${TESTDIR}"){
+                        junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: '*.xml'
                     }
                 }
             }
@@ -135,7 +138,7 @@ pipeline {
         always {
             sh "cd ${TESTDIR}; K8S_VERSION=1.12 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; vagrant destroy -f || true"
-            sh 'cd ${TEST_DIR}; ./post_build_agent.sh || true'
+            sh 'cd ${TESTDIR}; ./post_build_agent.sh || true'
             cleanWs()
             sh '/usr/local/bin/cleanup || true'
         }

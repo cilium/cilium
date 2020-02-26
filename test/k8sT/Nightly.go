@@ -322,8 +322,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 var _ = Describe("NightlyExamples", func() {
 
 	var kubectl *helpers.Kubectl
-	var demoPath string
-	var l3Policy, l7Policy string
+	var l3Policy string
 	var ciliumFilename string
 
 	BeforeAll(func() {
