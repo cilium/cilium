@@ -1,4 +1,5 @@
 image: operator
+# Deprecated: please use synchronizeK8sNodes in install/kubernetes/cilium/values.yaml
 synchronizeK8sNodes: true
 
 # Specifies the resources for the operator container

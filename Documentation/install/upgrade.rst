@@ -353,6 +353,10 @@ Removed options
 * ``enable-legacy-services``: This option was deprecated in Cilium 1.6 and is
   now removed.
 
+Removed helm options
+~~~~~~~~~~~~~~~~~~~~
+* ``operator.synchronizeK8sNodes``: was removed and replaced with ``global.synchronizeK8sNodes``
+
 .. _1.7_upgrade_notes:
 
 1.7 Upgrade Notes

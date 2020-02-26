@@ -118,6 +118,7 @@ data:
   wait-bpf-mount: "false"
 
   masquerade: "true"
+  enable-xt-socket-fallback: "true"
   install-iptables-rules: "true"
   auto-direct-node-routes: "false"
   kube-proxy-replacement:  "probe"
@@ -126,6 +127,8 @@ data:
   enable-node-port: "false"
   enable-well-known-identities: "false"
   enable-remote-node-identity: "true"
+
+  synchronize-k8s-nodes: "true"
 ---
 # Source: cilium/charts/agent/templates/serviceaccount.yaml
 apiVersion: v1
@@ -404,6 +407,8 @@ spec:
             exec:
               command:
               - /cni-uninstall.sh
+        resources:
+          {}
         name: cilium-agent
         securityContext:
           capabilities:
@@ -469,6 +474,10 @@ spec:
           mountPropagation: HostToContainer
         - mountPath: /var/run/cilium
           name: cilium-run
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
       restartPolicy: Always
       priorityClassName: system-node-critical
       serviceAccount: cilium
@@ -550,62 +559,25 @@ spec:
     spec:
       containers:
       - args:
+        - --config-dir=/tmp/cilium/config-map
         - --debug=$(CILIUM_DEBUG)
-        - --identity-allocation-mode=$(CILIUM_IDENTITY_ALLOCATION_MODE)
-        - --synchronize-k8s-nodes=true
         command:
         - cilium-operator
         env:
-        - name: CILIUM_K8S_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
         - name: K8S_NODE_NAME
           valueFrom:
             fieldRef:
               apiVersion: v1
               fieldPath: spec.nodeName
+        - name: CILIUM_K8S_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
         - name: CILIUM_DEBUG
           valueFrom:
             configMapKeyRef:
               key: debug
-              name: cilium-config
-              optional: true
-        - name: CILIUM_CLUSTER_NAME
-          valueFrom:
-            configMapKeyRef:
-              key: cluster-name
-              name: cilium-config
-              optional: true
-        - name: CILIUM_CLUSTER_ID
-          valueFrom:
-            configMapKeyRef:
-              key: cluster-id
-              name: cilium-config
-              optional: true
-        - name: CILIUM_IPAM
-          valueFrom:
-            configMapKeyRef:
-              key: ipam
-              name: cilium-config
-              optional: true
-        - name: CILIUM_DISABLE_ENDPOINT_CRD
-          valueFrom:
-            configMapKeyRef:
-              key: disable-endpoint-crd
-              name: cilium-config
-              optional: true
-        - name: CILIUM_KVSTORE
-          valueFrom:
-            configMapKeyRef:
-              key: kvstore
-              name: cilium-config
-              optional: true
-        - name: CILIUM_KVSTORE_OPT
-          valueFrom:
-            configMapKeyRef:
-              key: kvstore-opt
               name: cilium-config
               optional: true
         - name: AWS_ACCESS_KEY_ID
@@ -626,12 +598,6 @@ spec:
               key: AWS_DEFAULT_REGION
               name: cilium-aws
               optional: true
-        - name: CILIUM_IDENTITY_ALLOCATION_MODE
-          valueFrom:
-            configMapKeyRef:
-              key: identity-allocation-mode
-              name: cilium-config
-              optional: true
         image: "docker.io/cilium/operator:latest"
         imagePullPolicy: Always
         name: cilium-operator
@@ -643,7 +609,18 @@ spec:
           initialDelaySeconds: 60
           periodSeconds: 10
           timeoutSeconds: 3
+        volumeMounts:
+        - mountPath: /tmp/cilium/config-map
+          name: cilium-config-path
+          readOnly: true
+        resources:
+          {}
       hostNetwork: true
       restartPolicy: Always
       serviceAccount: cilium-operator
       serviceAccountName: cilium-operator
+      volumes:
+        # To read the configuration from the config map
+      - configMap:
+          name: cilium-config
+        name: cilium-config-path
