@@ -4,7 +4,6 @@
     Please use the official rendered version released here:
     http://docs.cilium.io
 
-.. _bird:
 
 ****************************
 Using BIRD to run BGP
