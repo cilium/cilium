@@ -155,11 +155,11 @@ func runNodeWatcher() error {
 		}, serializer.NoRetry)
 	}()
 
-	if option.Config.EnableCNPNodeStatusGC {
+	if option.Config.EnableCNPNodeStatusGC && option.Config.CNPNodeStatusGCInterval != 0 {
 		go runCNPNodeStatusGC("cnp-node-gc", false, ciliumNodeStore)
 	}
 
-	if option.Config.EnableCCNPNodeStatusGC {
+	if option.Config.EnableCCNPNodeStatusGC && option.Config.CNPNodeStatusGCInterval != 0 {
 		go runCNPNodeStatusGC("ccnp-node-gc", true, ciliumNodeStore)
 	}
 
