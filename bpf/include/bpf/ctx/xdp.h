@@ -20,10 +20,11 @@
 
 #include "common.h"
 
-#define __ctx_buff	xdp_md
+#define __ctx_buff			xdp_md
 
-#define CTX_ACT_OK	XDP_PASS
-#define CTX_ACT_DROP	XDP_DROP
+#define CTX_ACT_OK			XDP_PASS
+#define CTX_ACT_DROP			XDP_DROP
+#define CTX_ACT_TX			XDP_TX	/* hairpin only */
 
 #define ctx_pull_data(ctx, ...)		do { /* Already linear. */ } while (0)
 #define ctx_event_output		xdp_event_output
