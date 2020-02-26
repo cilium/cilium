@@ -82,6 +82,11 @@ global:
     serviceMonitor:
       enabled: false
 
+  # operatorPrometheus enables
+  operatorPrometheus:
+    enabled: false
+    port: 6942
+
   # enableXTSocketFallback enables the fallback compatibility solution
   # when the xt_socket kernel module is missing and it is needed for
   # the datapath L7 redirection to work properly.  See documentation
@@ -335,3 +340,5 @@ global:
 
   # remoteNodeIdentity enables use of the remote node identity
   remoteNodeIdentity: true
+
+  synchronizeK8sNodes: true

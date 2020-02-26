@@ -59,6 +59,14 @@ data:
   prometheus-serve-addr: ":{{ .Values.global.prometheus.port }}"
 {{- end }}
 
+{{- if .Values.global.operatorPrometheus.enabled }}
+  # If you want metrics enabled in cilium-operator, set the port for
+  # which the Cilium Operator will have their metrics exposed.
+  # NOTE that this will open the port on the nodes where Cilium operator pod
+  # is scheduled.
+  operator-prometheus-serve-addr: ":{{ .Values.global.operatorPrometheus.port }}"
+{{- end }}
+
   # Enable IPv4 addressing. If enabled, all endpoints are allocated an IPv4
   # address.
 {{- if .Values.global.ipv4 }}
@@ -315,3 +323,5 @@ data:
   enable-well-known-identities: "false"
 {{- end }}
   enable-remote-node-identity: {{ .Values.global.remoteNodeIdentity | quote }}
+
+  synchronize-k8s-nodes: {{ .Values.global.synchronizeK8sNodes | quote }}
