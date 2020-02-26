@@ -295,7 +295,7 @@ Graceful restart
 
 **This feature also relies on peer side's configuration.**
 
-Add ``graceful restart`` to each bgp section:
+Add ``graceful restart`` to each ``bgp`` section:
 
 .. code:: bash
 
