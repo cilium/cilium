@@ -208,6 +208,10 @@ func kvstoreEnabled() bool {
 		synchronizeNodes
 }
 
+func getAPIServerAddr() []string {
+	return []string{fmt.Sprintf("127.0.0.1:%d", apiServerPort), fmt.Sprintf("[::1]:%d", apiServerPort)}
+}
+
 func runOperator(cmd *cobra.Command) {
 	logging.SetupLogging([]string{}, map[string]string{}, "cilium-operator", viper.GetBool("debug"))
 
@@ -222,7 +226,7 @@ func runOperator(cmd *cobra.Command) {
 
 	log.Infof("Cilium Operator %s", version.Version)
 	k8sInitDone := make(chan struct{})
-	go startServer(fmt.Sprintf(":%d", apiServerPort), shutdownSignal, k8sInitDone)
+	go startServer(shutdownSignal, k8sInitDone, getAPIServerAddr()...)
 
 	if enableMetrics {
 		registerMetrics()

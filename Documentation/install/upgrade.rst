@@ -298,6 +298,17 @@ Annotations:
 
 .. _1.7_required_changes:
 
+IMPORTANT: Changes required before upgrading to 1.7.1
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. warning::
+
+   Do not upgrade to 1.7.1 before reading the following sections and completing
+   the required steps for both 1.7.0 and 1.7.1.
+
+* ``api-server-port``: This flag, available in cilium-operator deployment only,
+  changed its behavior. The old behavior was opening that port on all interfaces,
+  the new behavior is opening that port on ``127.0.0.1`` and ``::1`` only.
+
 IMPORTANT: Changes required before upgrading to 1.7.0
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
