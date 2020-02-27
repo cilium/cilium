@@ -9,7 +9,8 @@ CILIUM_CHARTS := "$(ROOT_DIR)/$(RELATIVE_DIR)/cilium/"
 CILIUM_VALUES := "$(CILIUM_CHARTS)/values.yaml"
 
 VERSION_REGEX := '[0-9]\+\.[0-9]\+\.[0-9]\+.*'
-DEV_VERSION_REGEX := '[0-9]\+\.[0-9]\+\.90'
+LATEST_VERSION_REGEX := '[0-9]\+\.[0-9]\+\.90'
+DEV_VERSION_REGEX := '[0-9]\+\.[0-9]\+\.[0-9]\+-dev'
 CILIUM_CHART_REGEX := '\([vV]ersion:\) '$(VERSION_REGEX)
 CILIUM_TAG_REGEX := '\(tag:\) \(v'$(VERSION_REGEX)'\|latest\)'
 CILIUM_PULLPOLICY_REGEX := '\(pullPolicy:\) .*'
@@ -25,12 +26,16 @@ update-versions:
 	$(QUIET)grep -lRZ -e "version:" -e "appVersion:" $(CILIUM_CHARTS) | \
 		xargs -0 -l sed -i -e 's/'$(CILIUM_CHART_REGEX)'/\1 $(VERSION)/g'
 	@# Fix up the cilium tag
-	$(QUIET)if echo $(VERSION) | grep -q $(DEV_VERSION_REGEX); then \
-			sed -i 's/'$(CILIUM_TAG_REGEX)'/\1 latest/' $(CILIUM_VALUES); \
-			sed -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 Always/' $(CILIUM_VALUES); \
-		else \
-			sed -i 's/'$(CILIUM_TAG_REGEX)'/\1 v$(VERSION)/' $(CILIUM_VALUES); \
-			sed -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 IfNotPresent/' $(CILIUM_VALUES); \
+	$(QUIET)if echo $(VERSION) | grep -q $(LATEST_VERSION_REGEX); then				\
+			sed -i 's/'$(CILIUM_TAG_REGEX)'/\1 latest/' $(CILIUM_VALUES);			\
+			sed -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 Always/' $(CILIUM_VALUES);		\
+		elif echo $(VERSION) | grep -q $(DEV_VERSION_REGEX); then				\
+			DEV_BRANCH=$$(echo $(VERSION) | sed 's/-dev//')					\
+			sed -i 's/'$(CILIUM_TAG_REGEX)'/\1 $(DEV_BRANCH)/' $(CILIUM_VALUES);		\
+			sed -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 Always/' $(CILIUM_VALUES);		\
+		else											\
+			sed -i 's/'$(CILIUM_TAG_REGEX)'/\1 v$(VERSION)/' $(CILIUM_VALUES);		\
+			sed -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 IfNotPresent/' $(CILIUM_VALUES);	\
 		fi
 	@# Fix up the managed etcd version, as that has its own scheme
 	$(QUIET)sed -i 's/'$(VERSION)'/'$(MANAGED_ETCD_VERSION)'/' $(MANAGED_ETCD_PATH)
