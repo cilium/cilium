@@ -127,7 +127,7 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 		log.Info("Connected to EC2 service API")
 		iMetrics := ipamMetrics.NewPrometheusMetrics(metricNamespace, registry)
 		instances = eni.NewInstancesManager(ec2Client, iMetrics)
-		nodeManager, err = eni.NewNodeManager(instances, ec2Client, &k8sAPI{}, iMetrics, option.Config.ENIParallelWorkers, eniTags)
+		nodeManager, err = eni.NewNodeManager(instances, ec2Client, &k8sAPI{}, iMetrics, option.Config.ParallelAllocWorkers, eniTags)
 		if err != nil {
 			return fmt.Errorf("unable to initialize ENI node manager: %s", err)
 		}
@@ -135,7 +135,7 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 		ec2Client = ec2shim.NewClient(ec2.New(cfg), &apiMetrics.NoOpMetrics{}, awsClientQPSLimit, awsClientBurst)
 		log.Info("Connected to EC2 service API")
 		instances = eni.NewInstancesManager(ec2Client, &ipamMetrics.NoOpMetrics{})
-		nodeManager, err = eni.NewNodeManager(instances, ec2Client, &k8sAPI{}, &ipamMetrics.NoOpMetrics{}, option.Config.ENIParallelWorkers, eniTags)
+		nodeManager, err = eni.NewNodeManager(instances, ec2Client, &k8sAPI{}, &ipamMetrics.NoOpMetrics{}, option.Config.ParallelAllocWorkers, eniTags)
 		if err != nil {
 			return fmt.Errorf("unable to initialize ENI node manager: %s", err)
 		}

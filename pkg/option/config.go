@@ -174,8 +174,12 @@ const (
 	// EnableExternalIPs enables implementation of k8s services with externalIPs in datapath
 	EnableExternalIPs = "enable-external-ips"
 
-	// ENIParallelWorkers specifies the number of parallel workers to be used in ENI mode.
-	ENIParallelWorkers = "eni-parallel-workers"
+	// ENIParallelWorkersDeprecated is the deprecated name of the option
+	// ParallelAllocWorkers that can be removed in Cilium 1.9
+	ENIParallelWorkersDeprecated = "eni-parallel-workers"
+
+	// ParallelAllocWorkers specifies the number of parallel workers to be used for IPAM allocation
+	ParallelAllocWorkers = "parallel-alloc-workers"
 
 	// EndpointGCInterval is the interval between attempts of the CEP GC
 	// controller.
@@ -1480,8 +1484,8 @@ type DaemonConfig struct {
 	// ENITags are the tags that will be added to every ENI created by the AWS ENI IPAM
 	ENITags map[string]string
 
-	// ENIParallelWorkers specifies the number of parallel workers to be used in ENI mode.
-	ENIParallelWorkers int64
+	// ParallelAllocWorkers specifies the number of parallel workers to be used in ENI mode.
+	ParallelAllocWorkers int64
 
 	// AwsInstanceLimitMapping allows overwirting AWS instance limits defined in
 	// pkg/aws/eni/limits.go
@@ -1860,7 +1864,6 @@ func (c *DaemonConfig) Populate() {
 	c.EnableL7Proxy = viper.GetBool(EnableL7Proxy)
 	c.EnableTracing = viper.GetBool(EnableTracing)
 	c.EnableNodePort = viper.GetBool(EnableNodePort)
-	c.ENIParallelWorkers = viper.GetInt64(ENIParallelWorkers)
 	c.NodePortMode = viper.GetString(NodePortMode)
 	c.KubeProxyReplacement = viper.GetString(KubeProxyReplacement)
 	c.EnableCEPGC = viper.GetBool(EnableCEPGC)
@@ -2056,6 +2059,12 @@ func (c *DaemonConfig) Populate() {
 		c.ConntrackGCInterval = time.Duration(val) * time.Second
 	} else {
 		c.ConntrackGCInterval = viper.GetDuration(ConntrackGCInterval)
+	}
+
+	if val := viper.GetInt64(ENIParallelWorkersDeprecated); val != 0 {
+		c.ParallelAllocWorkers = val
+	} else {
+		c.ParallelAllocWorkers = viper.GetInt64(ParallelAllocWorkers)
 	}
 
 	if c.MonitorQueueSize == 0 {

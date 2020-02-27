@@ -366,6 +366,10 @@ Deprecated cilium-operator options
   or ``operator-api-serve-addr=[::1]:9234`` for IPv6-only clusters.
   This old option will be removed in Cilium 1.9
 
+* ``eni-parallel-workers``: This option in the Operator has been renamed to
+  ``parallel-alloc-workers``. The obsolete option name ``eni-parallel-workers``
+  has been deprecated and will be removed in v1.9.
+
 Removed options
 ~~~~~~~~~~~~~~~
 

@@ -56,8 +56,12 @@ func init() {
 		option.ENITags, "ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)")
 	option.BindEnv(option.ENITags)
 
-	flags.Int64(option.ENIParallelWorkers, defaults.ENIParallelWorkers, "Maximum number of parallel workers used by ENI allocator")
-	option.BindEnv(option.ENIParallelWorkers)
+	flags.Int64(option.ENIParallelWorkersDeprecated, defaults.ParallelAllocWorkers, "")
+	flags.MarkDeprecated(option.ENIParallelWorkersDeprecated, fmt.Sprintf("please use --%s", option.ParallelAllocWorkers))
+	option.BindEnv(option.ENIParallelWorkersDeprecated)
+
+	flags.Int64(option.ParallelAllocWorkers, defaults.ParallelAllocWorkers, "Maximum number of parallel IPAM workers")
+	option.BindEnv(option.ParallelAllocWorkers)
 
 	flags.Bool(option.UpdateEC2AdapterLimitViaAPI, false, "Use the EC2 API to update the instance type to adapter limits")
 	option.BindEnv(option.UpdateEC2AdapterLimitViaAPI)
