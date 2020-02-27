@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/source"
@@ -90,7 +91,7 @@ func (s *NodeSuite) TestParseCiliumNode(c *C) {
 			Encryption: ciliumv2.EncryptionSpec{
 				Key: 10,
 			},
-			IPAM: ciliumv2.IPAMSpec{
+			IPAM: ipamTypes.IPAMSpec{
 				PodCIDRs: []string{
 					"10.10.0.0/16",
 					"c0de::/96",
