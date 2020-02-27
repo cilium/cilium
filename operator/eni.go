@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/aws/aws-sdk-go-v2/aws/ec2metadata"
@@ -33,21 +32,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/sirupsen/logrus"
 )
-
-var nodeManager *ipam.NodeManager
-
-func ciliumNodeUpdated(resource *v2.CiliumNode) {
-	if nodeManager != nil {
-		// resource is deep copied before it is stored in pkg/aws/eni
-		nodeManager.Update(resource)
-	}
-}
-
-func ciliumNodeDeleted(nodeName string) {
-	if nodeManager != nil {
-		nodeManager.Delete(nodeName)
-	}
-}
 
 // startENIAllocator kicks of ENI allocation, the initial connection to AWS
 // APIs is done in a blocking manner, given that is successful, a controller is
