@@ -38,17 +38,17 @@ const (
 )
 
 const (
-	// SignalNatFillUp denotes potential congestion on the NAT table
-	SignalNatFillUp = iota
+	// SignalGC denotes potential congestion on the NAT table, for example
+	SignalGC = iota
 	SignalTypeMax
 )
 
 const (
-	// SignalNatV4 denotes NAT IPv4 table
-	SignalNatV4 = iota
-	// SignalNatV6 denotes NAT IPv6 table
-	SignalNatV6
-	SignalNatMax
+	// SignalGCV4 denotes GC signal for IPv4 table
+	SignalGCV4 = iota
+	// SignalGCV6 denotes GC signal for IPv6 table
+	SignalGCV6
+	SignalMax
 )
 
 // SignalData holds actual data the BPF program sent along with
@@ -70,11 +70,11 @@ var (
 	events *perf.Reader
 
 	signalName = [SignalTypeMax]string{
-		SignalNatFillUp: "nat_fill_up",
+		SignalGC: "nat_fill_up",
 	}
-	signalNatProto = [SignalNatMax]string{
-		SignalNatV4: "ipv4",
-		SignalNatV6: "ipv6",
+	signalGCProto = [SignalMax]string{
+		SignalGCV4: "ipv4",
+		SignalGCV6: "ipv6",
 	}
 )
 
@@ -83,8 +83,8 @@ func signalCollectMetrics(sig *SignalMsg, signalStatus string) {
 	signalData := ""
 	if sig != nil {
 		signalType = signalName[sig.Which]
-		if sig.Which == SignalNatFillUp {
-			signalData = signalNatProto[sig.Data]
+		if sig.Which == SignalGC {
+			signalData = signalGCProto[sig.Data]
 		}
 	}
 	metrics.SignalsHandled.WithLabelValues(signalType, signalData, signalStatus).Inc()
@@ -105,7 +105,7 @@ func signalReceive(msg *perf.Record) {
 // MuteChannel tells to not send any new events to a particular channel
 // for a given signal.
 func MuteChannel(signal int) error {
-	if signal != SignalNatFillUp {
+	if signal != SignalGC {
 		return fmt.Errorf("Signal number not supported: %d", signal)
 	}
 	// Right now we only support 1 type of signal, we may extend this in
@@ -121,7 +121,7 @@ func MuteChannel(signal int) error {
 // UnmuteChannel tells to allow sending new events to a particular channel
 // for a given signal.
 func UnmuteChannel(signal int) error {
-	if signal != SignalNatFillUp {
+	if signal != SignalGC {
 		return fmt.Errorf("Signal number not supported: %d", signal)
 	}
 	// See comment in MuteChannel().
