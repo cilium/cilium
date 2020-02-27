@@ -27,7 +27,9 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service/healthserver"
+	"github.com/cilium/cilium/pkg/signal"
 
 	"github.com/sirupsen/logrus"
 )
@@ -464,6 +466,21 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, prevBackendCount int,
 		}
 	}
 
+	// Trigger GC if necessary for purging stale CT_SERVICE entries
+	if option.Config.EnableHostServicesTCP == false ||
+		option.Config.EnableHostServicesUDP == false ||
+		option.Config.EnableNodePort == true &&
+			svcType != lb.SVCTypeClusterIP {
+		sig := signal.SignalMsg{
+			Which: signal.SignalGC,
+		}
+		if ipv6 {
+			sig.Data = signal.SignalGCV6
+		} else {
+			sig.Data = signal.SignalGCV4
+		}
+		signal.SignalTrigger(&sig, "upsert_service")
+	}
 	return nil
 }
 
