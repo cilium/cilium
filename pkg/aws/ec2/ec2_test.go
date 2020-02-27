@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/pkg/aws/eni/metrics/mock"
+	"github.com/cilium/cilium/pkg/api/metrics/mock"
 
 	"gopkg.in/check.v1"
 )
@@ -43,5 +43,5 @@ func (e *Ec2Suite) TestRateLimit(c *check.C) {
 		client.rateLimit(context.TODO(), "test")
 	}
 
-	c.Assert(metricsAPI.EC2RateLimit("test"), check.Not(check.DeepEquals), time.Duration(0))
+	c.Assert(metricsAPI.RateLimit("test"), check.Not(check.DeepEquals), time.Duration(0))
 }

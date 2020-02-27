@@ -20,9 +20,9 @@ import (
 	"reflect"
 	"time"
 
+	apiMetrics "github.com/cilium/cilium/pkg/api/metrics"
 	ec2shim "github.com/cilium/cilium/pkg/aws/ec2"
 	"github.com/cilium/cilium/pkg/aws/eni"
-	"github.com/cilium/cilium/pkg/aws/eni/metrics"
 	"github.com/cilium/cilium/pkg/controller"
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -122,8 +122,8 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 	)
 
 	if option.Config.EnableMetrics {
-		eniMetrics := metrics.NewPrometheusMetrics(metricNamespace, registry)
-		ec2Client = ec2shim.NewClient(ec2.New(cfg), eniMetrics, awsClientQPSLimit, awsClientBurst)
+		aMetrics := apiMetrics.NewPrometheusMetrics("ipam", metricNamespace, registry)
+		ec2Client = ec2shim.NewClient(ec2.New(cfg), aMetrics, awsClientQPSLimit, awsClientBurst)
 		log.Info("Connected to EC2 service API")
 		iMetrics := ipamMetrics.NewPrometheusMetrics(metricNamespace, registry)
 		instances = eni.NewInstancesManager(ec2Client, iMetrics)
@@ -132,10 +132,7 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 			return fmt.Errorf("unable to initialize ENI node manager: %s", err)
 		}
 	} else {
-		// Inject dummy metrics operations that do nothing so we don't panic if
-		// metrics aren't enabled
-		noOpMetric := &noOpMetrics{}
-		ec2Client = ec2shim.NewClient(ec2.New(cfg), noOpMetric, awsClientQPSLimit, awsClientBurst)
+		ec2Client = ec2shim.NewClient(ec2.New(cfg), &apiMetrics.NoOpMetrics{}, awsClientQPSLimit, awsClientBurst)
 		log.Info("Connected to EC2 service API")
 		instances = eni.NewInstancesManager(ec2Client, &ipamMetrics.NoOpMetrics{})
 		nodeManager, err = eni.NewNodeManager(instances, ec2Client, &k8sAPI{}, &ipamMetrics.NoOpMetrics{}, option.Config.ENIParallelWorkers, eniTags)
@@ -167,18 +164,3 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 
 	return nil
 }
-
-// The below are types which fulfill various interfaces which are needed by the
-// eni / ec2 functions we have which do nothing if metrics are disabled.
-
-type noOpMetricsObserver struct{}
-
-// MetricsObserver implementation
-func (m *noOpMetricsObserver) PostRun(callDuration, latency time.Duration, folds int) {}
-func (m *noOpMetricsObserver) QueueEvent(reason string)                               {}
-
-type noOpMetrics struct{}
-
-// ec2 metricsAPI interface implementation
-func (m *noOpMetrics) ObserveEC2APICall(call, status string, duration float64)      {}
-func (m *noOpMetrics) ObserveEC2RateLimit(operation string, duration time.Duration) {}

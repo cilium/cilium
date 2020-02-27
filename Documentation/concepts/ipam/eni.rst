@@ -391,26 +391,4 @@ by passing the ``--update-ec2-apdater-limit-via-api`` CLI flag. This will requir
 Metrics
 *******
 
-The generic IPAM metrics are documented in the section :ref:`ipam_metrics`.
-
-The following ENI specific metrics are exposed:
-
-``cilium_operator_eni_aws_api_duration_seconds``
-  Duration of interactions with AWS API"
-
-  *Labels:*
-
-  ``operation``:
-    EC2 API operation
-
-  ``responseCode``:
-    Status code returned by the operation
-
-
-``cilium_operator_ec2_rate_limit_duration_seconds``
-  Duration of EC2 client-side rate limiter blocking
-
-  *Labels:*
-
-  ``operation``:
-    EC2 API operation
+The IPAM metrics are documented in the section :ref:`ipam_metrics`.
