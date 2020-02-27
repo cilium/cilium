@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/api/helpers"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/spanstat"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -99,7 +100,7 @@ func (c *Client) describeNetworkInterfaces(ctx context.Context) ([]ec2.NetworkIn
 
 // parseENI parses a ec2.NetworkInterface as returned by the EC2 service API,
 // converts it into a eniTypes.ENI object
-func parseENI(iface *ec2.NetworkInterface, vpcs types.VpcMap, subnets types.SubnetMap) (instanceID string, eni *eniTypes.ENI, err error) {
+func parseENI(iface *ec2.NetworkInterface, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (instanceID string, eni *eniTypes.ENI, err error) {
 	if iface.PrivateIpAddress == nil {
 		err = fmt.Errorf("ENI has no IP address")
 		return
@@ -170,7 +171,7 @@ func parseENI(iface *ec2.NetworkInterface, vpcs types.VpcMap, subnets types.Subn
 
 // GetInstances returns the list of all instances including their ENIs as
 // instanceMap
-func (c *Client) GetInstances(ctx context.Context, vpcs types.VpcMap, subnets types.SubnetMap) (types.InstanceMap, error) {
+func (c *Client) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (types.InstanceMap, error) {
 	instances := types.InstanceMap{}
 
 	networkInterfaces, err := c.describeNetworkInterfaces(ctx)
@@ -213,8 +214,8 @@ func (c *Client) describeVpcs(ctx context.Context) ([]ec2.Vpc, error) {
 }
 
 // GetVpcs retrieves and returns all Vpcs
-func (c *Client) GetVpcs(ctx context.Context) (types.VpcMap, error) {
-	vpcs := types.VpcMap{}
+func (c *Client) GetVpcs(ctx context.Context) (ipamTypes.VirtualNetworkMap, error) {
+	vpcs := ipamTypes.VirtualNetworkMap{}
 
 	vpcList, err := c.describeVpcs(ctx)
 	if err != nil {
@@ -222,7 +223,7 @@ func (c *Client) GetVpcs(ctx context.Context) (types.VpcMap, error) {
 	}
 
 	for _, v := range vpcList {
-		vpc := &types.Vpc{ID: *v.VpcId}
+		vpc := &ipamTypes.VirtualNetwork{ID: *v.VpcId}
 
 		if v.CidrBlock != nil {
 			vpc.PrimaryCIDR = *v.CidrBlock
@@ -250,8 +251,8 @@ func (c *Client) describeSubnets(ctx context.Context) ([]ec2.Subnet, error) {
 }
 
 // GetSubnets returns all EC2 subnets as a subnetMap
-func (c *Client) GetSubnets(ctx context.Context) (types.SubnetMap, error) {
-	subnets := types.SubnetMap{}
+func (c *Client) GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error) {
+	subnets := ipamTypes.SubnetMap{}
 
 	subnetList, err := c.describeSubnets(ctx)
 	if err != nil {
@@ -259,7 +260,7 @@ func (c *Client) GetSubnets(ctx context.Context) (types.SubnetMap, error) {
 	}
 
 	for _, s := range subnetList {
-		subnet := &types.Subnet{
+		subnet := &ipamTypes.Subnet{
 			ID:                 *s.SubnetId,
 			CIDR:               *s.CidrBlock,
 			AvailableAddresses: int(*s.AvailableIpAddressCount),
@@ -271,7 +272,7 @@ func (c *Client) GetSubnets(ctx context.Context) (types.SubnetMap, error) {
 		}
 
 		if s.VpcId != nil {
-			subnet.VpcID = *s.VpcId
+			subnet.VirtualNetworkID = *s.VpcId
 		}
 
 		for _, tag := range s.Tags {

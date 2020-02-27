@@ -106,3 +106,57 @@ type IPAMStatus struct {
 	// +optional
 	Used AllocationMap `json:"used,omitempty"`
 }
+
+// Tags implements generic key value tags
+type Tags map[string]string
+
+// Match returns true if the required tags are all found
+func (t Tags) Match(required Tags) bool {
+	for k, neededvalue := range required {
+		haveValue, ok := t[k]
+		if !ok || (ok && neededvalue != haveValue) {
+			return false
+		}
+	}
+	return true
+}
+
+// Subnet is a representation of a subnet
+type Subnet struct {
+	// ID is the subnet ID
+	ID string
+
+	// Name is the subnet name
+	Name string
+
+	// CIDR is the CIDR associated with the subnet
+	CIDR string
+
+	// AvailabilityZone is the availability zone of the subnet
+	AvailabilityZone string
+
+	// VirtualNetworkID is the virtual network the subnet is in
+	VirtualNetworkID string
+
+	// AvailableAddresses is the number of addresses available for
+	// allocation
+	AvailableAddresses int
+
+	// Tags is the tags of the subnet
+	Tags Tags
+}
+
+// SubnetMap indexes subnets by subnet ID
+type SubnetMap map[string]*Subnet
+
+// VirtualNetwork is the representation of a virtual network
+type VirtualNetwork struct {
+	// ID is the ID of the virtual network
+	ID string
+
+	// PrimaryCIDR is the primary IPv4 CIDR
+	PrimaryCIDR string
+}
+
+// VirtualNetworkMap indexes virtual networks by their ID
+type VirtualNetworkMap map[string]*VirtualNetwork

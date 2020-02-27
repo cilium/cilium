@@ -22,7 +22,6 @@ import (
 	"time"
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
-	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -411,7 +410,7 @@ func (n *Node) findNextIndex(index int64) int64 {
 // specified by the ciliumNode. neededAddresses of secondary IPs are assigned
 // to the interface up to the maximum number of addresses as allowed by the
 // ENI.
-func (n *Node) allocateENI(ctx context.Context, s *types.Subnet, a *allocatableResources) error {
+func (n *Node) allocateENI(ctx context.Context, s *ipamTypes.Subnet, a *allocatableResources) error {
 	nodeResource := n.ResourceCopy()
 	n.mutex.RLock()
 
@@ -531,7 +530,7 @@ func (n *Node) allocateENI(ctx context.Context, s *types.Subnet, a *allocatableR
 type allocatableResources struct {
 	instanceID          string
 	eni                 string
-	subnet              *types.Subnet
+	subnet              *ipamTypes.Subnet
 	availableOnSubnet   int
 	limits              ipamTypes.Limits
 	remainingInterfaces int
@@ -605,7 +604,7 @@ func (n *Node) determineMaintenanceAction() (*allocatableResources, error) {
 			// Select the ENI with the most addresses available for release
 			if firstEniWithFreeIpFound || eniWithMoreFreeIpsFound {
 				a.eni = key
-				a.subnet = &types.Subnet{ID: e.Subnet.ID}
+				a.subnet = &ipamTypes.Subnet{ID: e.Subnet.ID}
 				a.ipsToReleaseOnENI = freeIpsOnENI[:maxReleaseOnENI]
 			}
 		}
@@ -694,7 +693,7 @@ func (n *Node) determineMaintenanceAction() (*allocatableResources, error) {
 	return a, nil
 }
 
-func (n *Node) prepareENICreation(a *allocatableResources) (*types.Subnet, error) {
+func (n *Node) prepareENICreation(a *allocatableResources) (*ipamTypes.Subnet, error) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
