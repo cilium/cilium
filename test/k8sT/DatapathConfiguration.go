@@ -272,6 +272,20 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
 
+		// TODO(brb) Enable the following test after bpf_netdev can be mounted on multiple devices
+		//It("Check BPF masquerading", func() {
+		//	iface, err := kubectl.GetDefaultIface()
+		//	Expect(err).Should(BeNil(), "Failed to retrieve default iface")
+		//	deployCilium(map[string]string{
+		//		"global.bpfMasquerade":   "true",
+		//		"global.nodePort.device": iface,
+		//		"global.tunnel":          "vxlan",
+		//	})
+
+		//	Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+		//	Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false)).Should(BeTrue(), "Connectivity test to http://google.com failed")
+		//})
+
 	})
 
 	Context("DirectRouting", func() {
@@ -300,6 +314,20 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
 
+		It("Check BPF masquerading", func() {
+			iface, err := kubectl.GetDefaultIface()
+			Expect(err).Should(BeNil(), "Failed to retrieve default iface")
+			deployCilium(map[string]string{
+				"global.bpfMasquerade":        "true",
+				"global.nodePort.device":      iface,
+				"global.tunnel":               "disabled",
+				"global.autoDirectNodeRoutes": "true",
+			})
+
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			Expect(testPodHTTPToOutside(kubectl, "http://google.com")).Should(BeTrue(), "Connectivity test to http://google.com failed")
+		})
+
 		It("Check connectivity with sockops and direct routing", func() {
 			// Note if run on kernel without sockops feature is ignored
 			deployCilium(map[string]string{
@@ -308,7 +336,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			Expect(testPodConnectivitySameNodes(kubectl)).Should(BeTrue(), "Connectivity test on same node failed")
 		}, 600)
-
 	})
 
 	Context("Sockops performance", func() {
@@ -559,6 +586,29 @@ func testPodHTTP(kubectl *helpers.Kubectl, requireMultiNode bool, callOffset int
 	res.ExpectContains("Requests/sec", "wrk failed")
 	return true, targetIP
 
+}
+
+func testPodHTTPToOutside(kubectl *helpers.Kubectl, outsideURL string) bool {
+	label := "zgroup=testDSClient"
+	filter := "- l" + label
+	err := kubectl.WaitforPods(helpers.DefaultNamespace, filter, helpers.HelperTimeout)
+	ExpectWithOffset(1, err).Should(BeNil(), "Failure while waiting for connectivity test pods to start")
+
+	pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, label)
+	ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve pod names by filter %s", filter)
+
+	for _, pod := range pods {
+		By("Making ten curl requests from %q to %q", pod, outsideURL)
+		for i := 1; i <= 10; i++ {
+			res := kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, pod,
+				helpers.CurlFail(outsideURL))
+			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
+				"Pod %q can not connect to %q", pod, outsideURL)
+		}
+	}
+
+	return true
 }
 
 func testPodNetperf(kubectl *helpers.Kubectl, requireMultiNode bool, callOffset int, test helpers.PerfTest) (bool, string) {
