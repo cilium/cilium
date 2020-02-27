@@ -17,7 +17,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	apiMetrics "github.com/cilium/cilium/pkg/api/metrics"
@@ -27,57 +26,15 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/aws/aws-sdk-go-v2/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/sirupsen/logrus"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var nodeManager *ipam.NodeManager
-
-type k8sAPI struct{}
-
-func (k *k8sAPI) Get(node string) (*v2.CiliumNode, error) {
-	return ciliumK8sClient.CiliumV2().CiliumNodes().Get(node, metav1.GetOptions{})
-}
-
-func (k *k8sAPI) UpdateStatus(node, origNode *v2.CiliumNode) (*v2.CiliumNode, error) {
-	// If k8s supports status as a sub-resource, then we need to update the status separately
-	k8sCapabilities := k8sversion.Capabilities()
-	switch {
-	case k8sCapabilities.UpdateStatus:
-		if !reflect.DeepEqual(origNode.Status, node.Status) {
-			return ciliumK8sClient.CiliumV2().CiliumNodes().UpdateStatus(node)
-		}
-	default:
-		if !reflect.DeepEqual(origNode.Status, node.Status) {
-			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(node)
-		}
-	}
-
-	return nil, nil
-}
-
-func (k *k8sAPI) Update(node, origNode *v2.CiliumNode) (*v2.CiliumNode, error) {
-	// If k8s supports status as a sub-resource, then we need to update the status separately
-	k8sCapabilities := k8sversion.Capabilities()
-	switch {
-	case k8sCapabilities.UpdateStatus:
-		if !reflect.DeepEqual(origNode.Spec, node.Spec) {
-			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(node)
-		}
-	default:
-		if !reflect.DeepEqual(origNode, node) {
-			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(node)
-		}
-	}
-
-	return nil, nil
-}
 
 func ciliumNodeUpdated(resource *v2.CiliumNode) {
 	if nodeManager != nil {
@@ -129,7 +86,7 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 		iMetrics := ipamMetrics.NewPrometheusMetrics(metricNamespace, registry)
 
 		instances = eni.NewInstancesManager(ec2Client, eniTags)
-		nodeManager, err = ipam.NewNodeManager(instances, &k8sAPI{}, iMetrics, option.Config.ParallelAllocWorkers,
+		nodeManager, err = ipam.NewNodeManager(instances, &ciliumNodeUpdateImplementation{}, iMetrics, option.Config.ParallelAllocWorkers,
 			option.Config.AwsReleaseExcessIps)
 		if err != nil {
 			return fmt.Errorf("unable to initialize ENI node manager: %s", err)
@@ -138,7 +95,7 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 		ec2Client = ec2shim.NewClient(ec2.New(cfg), &apiMetrics.NoOpMetrics{}, awsClientQPSLimit, awsClientBurst)
 		log.Info("Connected to EC2 service API")
 		instances = eni.NewInstancesManager(ec2Client, eniTags)
-		nodeManager, err = ipam.NewNodeManager(instances, &k8sAPI{}, &ipamMetrics.NoOpMetrics{}, option.Config.ParallelAllocWorkers,
+		nodeManager, err = ipam.NewNodeManager(instances, &ciliumNodeUpdateImplementation{}, &ipamMetrics.NoOpMetrics{}, option.Config.ParallelAllocWorkers,
 			option.Config.AwsReleaseExcessIps)
 		if err != nil {
 			return fmt.Errorf("unable to initialize ENI node manager: %s", err)
