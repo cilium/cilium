@@ -23,6 +23,7 @@ import (
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -39,10 +40,10 @@ type k8sAPI interface {
 type nodeManagerAPI interface {
 	GetENI(instanceID string, index int) *eniTypes.ENI
 	GetENIs(instanceID string) []*eniTypes.ENI
-	GetSubnet(subnetID string) *types.Subnet
-	GetSubnets(ctx context.Context) types.SubnetMap
-	FindSubnetByTags(vpcID, availabilityZone string, required types.Tags) *types.Subnet
-	FindSecurityGroupByTags(vpcID string, required types.Tags) []*types.SecurityGroup
+	GetSubnet(subnetID string) *ipamTypes.Subnet
+	GetSubnets(ctx context.Context) ipamTypes.SubnetMap
+	FindSubnetByTags(vpcID, availabilityZone string, required ipamTypes.Tags) *ipamTypes.Subnet
+	FindSecurityGroupByTags(vpcID string, required ipamTypes.Tags) []*types.SecurityGroup
 	Resync(ctx context.Context) time.Time
 	UpdateENI(instanceID string, eni *eniTypes.ENI)
 }

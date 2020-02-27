@@ -21,15 +21,16 @@ import (
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/sirupsen/logrus"
 )
 
 type instanceAPI interface {
-	GetInstances(ctx context.Context, vpcs types.VpcMap, subnets types.SubnetMap) (types.InstanceMap, error)
-	GetSubnets(ctx context.Context) (types.SubnetMap, error)
-	GetVpcs(ctx context.Context) (types.VpcMap, error)
+	GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (types.InstanceMap, error)
+	GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error)
+	GetVpcs(ctx context.Context) (ipamTypes.VirtualNetworkMap, error)
 	GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, error)
 }
 
@@ -38,8 +39,8 @@ type instanceAPI interface {
 type InstancesManager struct {
 	mutex          lock.RWMutex
 	instances      types.InstanceMap
-	subnets        types.SubnetMap
-	vpcs           types.VpcMap
+	subnets        ipamTypes.SubnetMap
+	vpcs           ipamTypes.VirtualNetworkMap
 	securityGroups types.SecurityGroupMap
 	api            instanceAPI
 	metricsAPI     metricsAPI
@@ -57,7 +58,7 @@ func NewInstancesManager(api instanceAPI, metricsAPI metricsAPI) *InstancesManag
 // GetSubnet returns the subnet by subnet ID
 //
 // The returned subnet is immutable so it can be safely accessed
-func (m *InstancesManager) GetSubnet(subnetID string) *types.Subnet {
+func (m *InstancesManager) GetSubnet(subnetID string) *ipamTypes.Subnet {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
@@ -67,11 +68,11 @@ func (m *InstancesManager) GetSubnet(subnetID string) *types.Subnet {
 // GetSubnets returns all the tracked subnets
 //
 // The returned subnetMap is immutable so it can be safely accessed
-func (m *InstancesManager) GetSubnets(ctx context.Context) types.SubnetMap {
+func (m *InstancesManager) GetSubnets(ctx context.Context) ipamTypes.SubnetMap {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
-	subnetsCopy := make(types.SubnetMap)
+	subnetsCopy := make(ipamTypes.SubnetMap)
 	for k, v := range m.subnets {
 		subnetsCopy[k] = v
 	}
@@ -83,12 +84,12 @@ func (m *InstancesManager) GetSubnets(ctx context.Context) types.SubnetMap {
 // availability zone and all required tags
 //
 // The returned subnet is immutable so it can be safely accessed
-func (m *InstancesManager) FindSubnetByTags(vpcID, availabilityZone string, required types.Tags) (bestSubnet *types.Subnet) {
+func (m *InstancesManager) FindSubnetByTags(vpcID, availabilityZone string, required ipamTypes.Tags) (bestSubnet *ipamTypes.Subnet) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
 	for _, s := range m.subnets {
-		if s.VpcID == vpcID && s.AvailabilityZone == availabilityZone && s.Tags.Match(required) {
+		if s.VirtualNetworkID == vpcID && s.AvailabilityZone == availabilityZone && s.Tags.Match(required) {
 			if bestSubnet == nil || bestSubnet.AvailableAddresses < s.AvailableAddresses {
 				bestSubnet = s
 			}
@@ -101,7 +102,7 @@ func (m *InstancesManager) FindSubnetByTags(vpcID, availabilityZone string, requ
 // FindSecurityGroupByTags returns the security groups matching VPC ID and all required tags
 //
 // The returned security groups slice is immutable so it can be safely accessed
-func (m *InstancesManager) FindSecurityGroupByTags(vpcID string, required types.Tags) []*types.SecurityGroup {
+func (m *InstancesManager) FindSecurityGroupByTags(vpcID string, required ipamTypes.Tags) []*types.SecurityGroup {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
