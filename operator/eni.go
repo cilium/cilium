@@ -24,6 +24,7 @@ import (
 	ec2shim "github.com/cilium/cilium/pkg/aws/ec2"
 	"github.com/cilium/cilium/pkg/aws/eni"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/ipam"
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
@@ -36,7 +37,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var nodeManager *eni.NodeManager
+var nodeManager *ipam.NodeManager
 
 type k8sAPI struct{}
 
@@ -126,16 +127,19 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 		ec2Client = ec2shim.NewClient(ec2.New(cfg), aMetrics, awsClientQPSLimit, awsClientBurst)
 		log.Info("Connected to EC2 service API")
 		iMetrics := ipamMetrics.NewPrometheusMetrics(metricNamespace, registry)
-		instances = eni.NewInstancesManager(ec2Client, iMetrics)
-		nodeManager, err = eni.NewNodeManager(instances, ec2Client, &k8sAPI{}, iMetrics, option.Config.ParallelAllocWorkers, eniTags)
+
+		instances = eni.NewInstancesManager(ec2Client, eniTags)
+		nodeManager, err = ipam.NewNodeManager(instances, &k8sAPI{}, iMetrics, option.Config.ParallelAllocWorkers,
+			option.Config.AwsReleaseExcessIps)
 		if err != nil {
 			return fmt.Errorf("unable to initialize ENI node manager: %s", err)
 		}
 	} else {
 		ec2Client = ec2shim.NewClient(ec2.New(cfg), &apiMetrics.NoOpMetrics{}, awsClientQPSLimit, awsClientBurst)
 		log.Info("Connected to EC2 service API")
-		instances = eni.NewInstancesManager(ec2Client, &ipamMetrics.NoOpMetrics{})
-		nodeManager, err = eni.NewNodeManager(instances, ec2Client, &k8sAPI{}, &ipamMetrics.NoOpMetrics{}, option.Config.ParallelAllocWorkers, eniTags)
+		instances = eni.NewInstancesManager(ec2Client, eniTags)
+		nodeManager, err = ipam.NewNodeManager(instances, &k8sAPI{}, &ipamMetrics.NoOpMetrics{}, option.Config.ParallelAllocWorkers,
+			option.Config.AwsReleaseExcessIps)
 		if err != nil {
 			return fmt.Errorf("unable to initialize ENI node manager: %s", err)
 		}
