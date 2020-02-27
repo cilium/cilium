@@ -391,46 +391,9 @@ by passing the ``--update-ec2-apdater-limit-via-api`` CLI flag. This will requir
 Metrics
 *******
 
-The following metrics are exposed:
+The generic IPAM metrics are documented in the section :ref:`ipam_metrics`.
 
-``cilium_operator_eni_ips``
-  Number of IPs allocated
-
-  *Labels:*
-
-  * ``type:`` { "used" | "available" | "needed" }
-
-``cilium_operator_eni_allocation_ops``
-  Number of IP allocation operations
-
-  *Labels:*
-
-  * ``subnetId``: Thew AWS subnet ID used for the allocation
-
-``cilium_operator_eni_release_ops``
-  Number of IP release operations
-
-  *Labels:*
-
-  * ``subnetId``: Thew AWS subnet ID which IPs are released
-
-``cilium_operator_eni_interface_creation_ops``
-  Number of ENIs allocated
-
-  *Labels:*
-
-  * ``subnetId``: The AWS subnet ID used for the creation
-  * ``status``: The status of the creation
-
-``cilium_operator_eni_available``
-  Number of ENIs with addresses available
-
-``cilium_operator_eni_nodes``
-  Number of nodes by category
-
-  *Labels:*
-
-  * ``category``: ``{ total | in-deficit | at-capacity }``
+The following ENI specific metrics are exposed:
 
 ``cilium_operator_eni_aws_api_duration_seconds``
   Duration of interactions with AWS API"
@@ -451,6 +414,3 @@ The following metrics are exposed:
 
   ``operation``:
     EC2 API operation
-
-``cilium_operator_eni_resync_total``
-  Number of synchronization operations of the AWS EC2 metadata cache

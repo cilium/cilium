@@ -327,6 +327,18 @@ Deprecated options
   assets not being compiled into the cilium-agent binary anymore. The option is
   deprecated and will be removed in Cilium 1.9.
 
+Renamed Metrics
+~~~~~~~~~~~~~~~
+
+The following metrics have been renamed:
+
+* ``cilium_operator_eni_ips`` to ``cilium_operator_ipam_ips``
+* ``cilium_operator_eni_allocation_ops`` to ``cilium_operator_ipam_allocation_ops``
+* ``cilium_operator_eni_interface_creation_ops`` to ``cilium_operator_ipam_interface_creation_ops``
+* ``cilium_operator_eni_available`` to ``cilium_operator_ipam_available``
+* ``cilium_operator_eni_nodes_at_capacity`` to ``cilium_operator_ipam_nodes_at_capacity``
+* ``cilium_operator_eni_resync_total`` to ``cilium_operator_ipam_resync_total``
+
 Deprecated cilium-operator options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
