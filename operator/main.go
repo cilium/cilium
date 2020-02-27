@@ -21,6 +21,7 @@ import (
 	"os/signal"
 
 	"github.com/cilium/cilium/pkg/aws/eni"
+	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/k8s"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/types"
@@ -28,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
 
@@ -53,6 +55,7 @@ var (
 				genMarkdown(cmd, cmdRefDir)
 				os.Exit(0)
 			}
+			initEnv()
 			runOperator(cmd)
 		},
 	}
@@ -63,6 +66,19 @@ var (
 
 	ciliumK8sClient clientset.Interface
 )
+
+func initEnv() {
+	// Prepopulate option.Config with options from CLI.
+	option.Config.Populate()
+
+	// add hooks after setting up metrics in the option.Confog
+	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumOperatortName))
+
+	// Logging should always be bootstrapped first. Do not add any code above this!
+	logging.SetupLogging(option.Config.LogDriver, option.Config.LogOpt, "cilium-operator", option.Config.Debug)
+
+	option.LogRegisteredOptions(log)
+}
 
 func main() {
 	signals := make(chan os.Signal, 1)
@@ -113,7 +129,6 @@ func getAPIServerAddr() []string {
 }
 
 func runOperator(cmd *cobra.Command) {
-	logging.SetupLogging([]string{}, map[string]string{}, "cilium-operator", viper.GetBool("debug"))
 
 	log.Infof("Cilium Operator %s", version.Version)
 	k8sInitDone := make(chan struct{})
