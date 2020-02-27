@@ -201,11 +201,12 @@ func (m *Monitor) handleEvents(stopCtx context.Context) {
 			continue
 		}
 
-		m.Lock()
 		plType := payload.EventSample
 		if record.LostSamples > 0 {
 			plType = payload.RecordLost
+			m.Lock()
 			m.MonitorStatus.Lost += int64(record.LostSamples)
+			m.Unlock()
 		}
 		pl := payload.Payload{
 			Data: record.RawSample,
@@ -213,8 +214,7 @@ func (m *Monitor) handleEvents(stopCtx context.Context) {
 			Lost: record.LostSamples,
 			Type: plType,
 		}
-		m.sendLocked(&pl)
-		m.Unlock()
+		m.send(&pl)
 	}
 }
 
@@ -260,11 +260,6 @@ func (m *Monitor) connectionHandler1_2(parentCtx context.Context, server net.Lis
 func (m *Monitor) send(pl *payload.Payload) {
 	m.Lock()
 	defer m.Unlock()
-	m.sendLocked(pl)
-}
-
-// sendLocked enqueues the payload to all listeners while holding the monitor lock.
-func (m *Monitor) sendLocked(pl *payload.Payload) {
 	for ml := range m.listeners {
 		ml.Enqueue(pl)
 	}
