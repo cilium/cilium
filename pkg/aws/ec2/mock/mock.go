@@ -31,7 +31,8 @@ import (
 	"golang.org/x/time/rate"
 )
 
-type eniMap map[string]*eniTypes.ENI
+// ENIMap is a map of ENI interfaced indexed by ENI ID
+type ENIMap map[string]*eniTypes.ENI
 
 // Operation is an EC2 API operation that this mock API supports
 type Operation int
@@ -48,10 +49,11 @@ const (
 	MaxOperation
 )
 
+// API represents a mocked EC2 API
 type API struct {
 	mutex          lock.RWMutex
 	unattached     map[string]*eniTypes.ENI
-	enis           map[string]eniMap
+	enis           map[string]ENIMap
 	subnets        map[string]*ipamTypes.Subnet
 	vpcs           map[string]*ipamTypes.VirtualNetwork
 	securityGroups map[string]*types.SecurityGroup
@@ -61,6 +63,7 @@ type API struct {
 	delaySim       *helpers.DelaySimulator
 }
 
+// NewAPI returns a new mocked EC2 API
 func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, securityGroups []*types.SecurityGroup) *API {
 	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
 	cidrRange, err := ipallocator.NewCIDRRange(cidr)
@@ -70,7 +73,7 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 
 	api := &API{
 		unattached:     map[string]*eniTypes.ENI{},
-		enis:           map[string]eniMap{},
+		enis:           map[string]ENIMap{},
 		subnets:        map[string]*ipamTypes.Subnet{},
 		vpcs:           map[string]*ipamTypes.VirtualNetwork{},
 		securityGroups: map[string]*types.SecurityGroup{},
@@ -79,19 +82,39 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 		delaySim:       helpers.NewDelaySimulator(),
 	}
 
-	for _, s := range subnets {
-		api.subnets[s.ID] = s
-	}
+	api.UpdateSubnets(subnets)
+	api.UpdateSecurityGroups(securityGroups)
 
 	for _, v := range vpcs {
 		api.vpcs[v.ID] = v
 	}
 
-	for _, sg := range securityGroups {
-		api.securityGroups[sg.ID] = sg
-	}
-
 	return api
+}
+
+// UpdateSubnets replaces the subents which the mock API will return
+func (e *API) UpdateSubnets(subnets []*ipamTypes.Subnet) {
+	e.mutex.Lock()
+	for _, s := range subnets {
+		e.subnets[s.ID] = s
+	}
+	e.mutex.Unlock()
+}
+
+// UpdateSecurityGroups replaces the security groups which the mock API will return
+func (e *API) UpdateSecurityGroups(securityGroups []*types.SecurityGroup) {
+	e.mutex.Lock()
+	for _, sg := range securityGroups {
+		e.securityGroups[sg.ID] = sg
+	}
+	e.mutex.Unlock()
+}
+
+// UpdateENIs replaces the ENIs which the mock API will return
+func (e *API) UpdateENIs(enis map[string]ENIMap) {
+	e.mutex.Lock()
+	e.enis = enis
+	e.mutex.Unlock()
 }
 
 // SetMockError modifies the mock API to return an error for a particular
@@ -219,7 +242,7 @@ func (e *API) AttachNetworkInterface(ctx context.Context, index int64, instanceI
 	delete(e.unattached, eniID)
 
 	if _, ok := e.enis[instanceID]; !ok {
-		e.enis[instanceID] = eniMap{}
+		e.enis[instanceID] = ENIMap{}
 	}
 
 	eni.Number = int(index)
