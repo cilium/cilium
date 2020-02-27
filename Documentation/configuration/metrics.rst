@@ -247,18 +247,28 @@ Exported Metrics
 
 All metrics are exported under the ``cilium_operator_`` Prometheus namespace.
 
+.. _ipam_metrics:
+
+IPAM
+~~~~
+
+================================= ================================ ========================================================
+Name                              Labels                           Description
+================================= ================================ ========================================================
+``ipam_ips``                      ``type``                         Number of IPs allocated
+``ipam_allocation_ops``           ``subnetId``                     Number of IP allocation operations
+``ipam_interface_creation_ops``   ``subnetId``, ``status``         Number of interfaces creation operations
+``ipam_available``                                                 Number of interfaces with addresses available
+``ipam_nodes_at_capacity``                                         Number of nodes unable to allocate more addresses
+``ipam_resync_total``                                              Number of synchronization operations with external IPAM API
+================================= ================================ ========================================================
+
 ENI
 ~~~
 
 ================================ ================================ ========================================================
 Name                             Labels                           Description
 ================================ ================================ ========================================================
-``eni_ips``                      ``type``                         Number of IPs allocated
-``eni_allocation_ops``           ``subnetId``                     Number of IP allocation operations
-``eni_interface_creation_ops``   ``subnetId``, ``status``         Number of ENIs allocated
-``eni_available``                                                 Number of ENIs with addresses available
-``eni_nodes_at_capacity``                                         Number of nodes unable to allocate more addresses
 ``eni_aws_api_duration_seconds`` ``operation``, ``responseCode``  Duration of interactions with AWS API
-``eni_resync_total``                                              Number of synchronization operations to synchronize AWS EC2 metadata
 ``eni_ec2_rate_limit``           ``operation``                    Number of times the EC2 client rate limiter kicked in
 ================================ ================================ ========================================================

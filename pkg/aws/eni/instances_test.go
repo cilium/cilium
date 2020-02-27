@@ -19,10 +19,10 @@ package eni
 import (
 	"context"
 
-	metricsmock "github.com/cilium/cilium/pkg/aws/eni/metrics/mock"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/checker"
+	metricsmock "github.com/cilium/cilium/pkg/ipam/metrics/mock"
 
 	"gopkg.in/check.v1"
 )

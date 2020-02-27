@@ -420,7 +420,7 @@ func (n *Node) allocateENI(ctx context.Context, s *types.Subnet, a *allocatableR
 
 	eniID, eni, err := n.manager.ec2API.CreateNetworkInterface(ctx, toAllocate, s.ID, desc, securityGroupIDs)
 	if err != nil {
-		n.manager.metricsAPI.IncENIAllocationAttempt("ENI creation failed", s.ID)
+		n.manager.metricsAPI.IncAllocationAttempt("ENI creation failed", s.ID)
 		return fmt.Errorf("unable to create ENI: %s", err)
 	}
 
@@ -451,7 +451,7 @@ func (n *Node) allocateENI(ctx context.Context, s *types.Subnet, a *allocatableR
 			return nil
 		}
 
-		n.manager.metricsAPI.IncENIAllocationAttempt("ENI attachment failed", s.ID)
+		n.manager.metricsAPI.IncAllocationAttempt("ENI attachment failed", s.ID)
 
 		return fmt.Errorf("unable to attach ENI at index %d: %s", index, err)
 	}
@@ -479,7 +479,7 @@ func (n *Node) allocateENI(ctx context.Context, s *types.Subnet, a *allocatableR
 				return nil
 			}
 
-			n.manager.metricsAPI.IncENIAllocationAttempt("ENI modification failed", s.ID)
+			n.manager.metricsAPI.IncAllocationAttempt("ENI modification failed", s.ID)
 			return fmt.Errorf("unable to mark ENI for deletion on termination: %s", err)
 		}
 	}
@@ -495,7 +495,7 @@ func (n *Node) allocateENI(ctx context.Context, s *types.Subnet, a *allocatableR
 	// Add the information of the created ENI to the instances manager
 	n.manager.instancesAPI.UpdateENI(n.resource.Spec.ENI.InstanceID, eni)
 
-	n.manager.metricsAPI.IncENIAllocationAttempt("success", s.ID)
+	n.manager.metricsAPI.IncAllocationAttempt("success", s.ID)
 	n.manager.metricsAPI.AddIPAllocation(s.ID, toAllocate)
 
 	return nil
@@ -526,7 +526,7 @@ func (n *Node) determineMaintenanceAction() (*allocatableResources, error) {
 	scopedLog := n.loggerLocked()
 
 	if !ok {
-		n.manager.metricsAPI.IncENIAllocationAttempt("limits unavailable", "")
+		n.manager.metricsAPI.IncAllocationAttempt("limits unavailable", "")
 		return nil, fmt.Errorf("Unable to determine limits of instance type '%s'", instanceType)
 	}
 
@@ -691,7 +691,7 @@ func (n *Node) prepareENICreation(a *allocatableResources) (*types.Subnet, error
 
 	bestSubnet := n.manager.instancesAPI.FindSubnetByTags(n.resource.Spec.ENI.VpcID, n.resource.Spec.ENI.AvailabilityZone, n.resource.Spec.ENI.SubnetTags)
 	if bestSubnet == nil {
-		n.manager.metricsAPI.IncENIAllocationAttempt("no available subnet", "")
+		n.manager.metricsAPI.IncAllocationAttempt("no available subnet", "")
 		return nil, fmt.Errorf("No matching subnet available for ENI creation (VPC=%s AZ=%s SubnetTags=%s",
 			n.resource.Spec.ENI.VpcID, n.resource.Spec.ENI.AvailabilityZone, n.resource.Spec.ENI.SubnetTags)
 	}
@@ -721,7 +721,7 @@ func (n *Node) maintainIpPool(ctx context.Context) error {
 			n.manager.metricsAPI.AddIPRelease(a.subnet.ID, int64(a.availableOnSubnet))
 			return nil
 		}
-		n.manager.metricsAPI.IncENIAllocationAttempt("ip unassignment failed", a.subnet.ID)
+		n.manager.metricsAPI.IncAllocationAttempt("ip unassignment failed", a.subnet.ID)
 		scopedLog.WithFields(logrus.Fields{
 			fieldEniID:           n.enis[a.eni].ID,
 			"releasingAddresses": a.ipsToReleaseOnENI,
@@ -733,12 +733,12 @@ func (n *Node) maintainIpPool(ctx context.Context) error {
 	if a.subnet != nil && a.availableOnSubnet > 0 {
 		err := n.manager.ec2API.AssignPrivateIpAddresses(ctx, n.enis[a.eni].ID, int64(a.availableOnSubnet))
 		if err == nil {
-			n.manager.metricsAPI.IncENIAllocationAttempt("success", a.subnet.ID)
+			n.manager.metricsAPI.IncAllocationAttempt("success", a.subnet.ID)
 			n.manager.metricsAPI.AddIPAllocation(a.subnet.ID, int64(a.availableOnSubnet))
 			return nil
 		}
 
-		n.manager.metricsAPI.IncENIAllocationAttempt("ip assignment failed", a.subnet.ID)
+		n.manager.metricsAPI.IncAllocationAttempt("ip assignment failed", a.subnet.ID)
 		scopedLog.WithFields(logrus.Fields{
 			fieldEniID:           n.enis[a.eni].ID,
 			"requestedAddresses": a.availableOnSubnet,

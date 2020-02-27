@@ -58,11 +58,11 @@ type ec2API interface {
 }
 
 type metricsAPI interface {
-	IncENIAllocationAttempt(status, subnetID string)
+	IncAllocationAttempt(status, subnetID string)
 	AddIPAllocation(subnetID string, allocated int64)
 	AddIPRelease(subnetID string, released int64)
 	SetAllocatedIPs(typ string, allocated int)
-	SetAvailableENIs(available int)
+	SetAvailableInterfaces(available int)
 	SetAvailableIPsPerSubnet(subnetID string, availabilityZone string, available int)
 	SetNodes(category string, nodes int)
 	IncResyncCount()
@@ -319,7 +319,7 @@ func (n *NodeManager) Resync(ctx context.Context, syncTime time.Time) {
 	n.metricsAPI.SetAllocatedIPs("used", stats.totalUsed)
 	n.metricsAPI.SetAllocatedIPs("available", stats.totalAvailable)
 	n.metricsAPI.SetAllocatedIPs("needed", stats.totalNeeded)
-	n.metricsAPI.SetAvailableENIs(stats.remainingInterfaces)
+	n.metricsAPI.SetAvailableInterfaces(stats.remainingInterfaces)
 	n.metricsAPI.SetNodes("total", stats.nodes)
 	n.metricsAPI.SetNodes("in-deficit", stats.nodesInDeficit)
 	n.metricsAPI.SetNodes("at-capacity", stats.nodesAtCapacity)
