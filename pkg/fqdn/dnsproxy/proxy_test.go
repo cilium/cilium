@@ -173,7 +173,7 @@ func (s *DNSProxyTestSuite) SetUpSuite(c *C) {
 	s.dnsServer = setupServer(c)
 	c.Assert(s.dnsServer, Not(IsNil), Commentf("unable to setup DNS server"))
 
-	proxy, err := StartDNSProxy("", 0,
+	proxy, err := StartDNSProxy("", 0, true, // any address, any port, enable compression
 		// LookupEPByIP
 		func(ip net.IP) (*endpoint.Endpoint, error) {
 			return endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, uint16(epID1), endpoint.StateReady), nil

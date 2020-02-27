@@ -104,6 +104,10 @@ type DNSProxy struct {
 	// this may cause DNS disruption. A client pool may be better.
 	UDPClient, TCPClient *dns.Client
 
+	// EnableDNSCompression allows the DNS proxy to compress responses to
+	// endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
+	EnableDNSCompression bool
+
 	// lookupTargetDNSServer extracts the originally intended target of a DNS
 	// query. It is always set to lookupTargetDNSServer in
 	// helpers.go but is modified during testing.
@@ -233,7 +237,7 @@ func (proxyStat *ProxyRequestContext) IsTimeout() bool {
 // notifyFunc will be called with DNS response data that is returned to a
 // requesting endpoint. Note that denied requests will not trigger this
 // callback.
-func StartDNSProxy(address string, port uint16, lookupEPFunc LookupEndpointIDByIPFunc, lookupSecIDFunc LookupSecIDByIPFunc, notifyFunc NotifyOnDNSMsgFunc) (*DNSProxy, error) {
+func StartDNSProxy(address string, port uint16, enableDNSCompression bool, lookupEPFunc LookupEndpointIDByIPFunc, lookupSecIDFunc LookupSecIDByIPFunc, notifyFunc NotifyOnDNSMsgFunc) (*DNSProxy, error) {
 	if port == 0 {
 		log.Debug("DNS Proxy port is configured to 0. A random port will be assigned by the OS.")
 	}
@@ -249,6 +253,7 @@ func StartDNSProxy(address string, port uint16, lookupEPFunc LookupEndpointIDByI
 		lookupTargetDNSServer: lookupTargetDNSServer,
 		allowed:               make(perEPAllow),
 		rejectReply:           dns.RcodeRefused,
+		EnableDNSCompression:  enableDNSCompression,
 	}
 
 	// Start the DNS listeners on UDP and TCP
@@ -472,6 +477,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	scopedLog.Debug("Responding to original DNS query")
 	// restore the ID to the one in the initial request so it matches what the requester expects.
 	response.Id = requestID
+	response.Compress = p.EnableDNSCompression && shouldCompressResponse(request, response)
 	err = w.WriteMsg(response)
 	if err != nil {
 		scopedLog.WithError(err).Error("Cannot forward proxied DNS response")
@@ -598,4 +604,24 @@ func bindToAddr(address string, port uint16, ipv4, ipv6 bool) (*net.UDPConn, *ne
 	}
 
 	return conn.(*net.UDPConn), listener.(*net.TCPListener), nil
+}
+
+// shouldCompressResponse returns true when the response needs to be compressed
+// for a given request.
+// Originally, DNS was limited to 512 byte responses. EDNS0 allows for larger
+// sizes. In either case, responses can apply DNS compression, and the original
+// RFCs require clients to accept this. In miekg/dns there is a comment that BIND
+// does not support compression, so we retain the ability to suppress this.
+func shouldCompressResponse(request, response *dns.Msg) bool {
+	ednsOptions := request.IsEdns0()
+	responseLenNoCompression := response.Len()
+
+	switch {
+	case ednsOptions != nil && responseLenNoCompression > int(ednsOptions.UDPSize()): // uint16 -> int cast should always be safe
+		return true
+	case responseLenNoCompression > 512:
+		return true
+	}
+
+	return false
 }
