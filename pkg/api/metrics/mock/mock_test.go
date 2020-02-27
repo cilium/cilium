@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,9 +33,9 @@ var _ = check.Suite(&MockSuite{})
 
 func (e *MockSuite) TestMock(c *check.C) {
 	api := NewMockMetrics()
-	api.ObserveEC2APICall("DescribeNetworkInterfaces", "success", 2.0)
-	c.Assert(api.EC2APICall("DescribeNetworkInterfaces", "success"), check.Equals, 2.0)
-	api.ObserveEC2RateLimit("DescribeNetworkInterfaces", time.Second)
-	api.ObserveEC2RateLimit("DescribeNetworkInterfaces", time.Second)
-	c.Assert(api.EC2RateLimit("DescribeNetworkInterfaces"), check.Equals, 2*time.Second)
+	api.ObserveAPICall("DescribeNetworkInterfaces", "success", 2.0)
+	c.Assert(api.APICall("DescribeNetworkInterfaces", "success"), check.Equals, 2.0)
+	api.ObserveRateLimit("DescribeNetworkInterfaces", time.Second)
+	api.ObserveRateLimit("DescribeNetworkInterfaces", time.Second)
+	c.Assert(api.RateLimit("DescribeNetworkInterfaces"), check.Equals, 2*time.Second)
 }

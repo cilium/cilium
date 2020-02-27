@@ -338,6 +338,8 @@ The following metrics have been renamed:
 * ``cilium_operator_eni_available`` to ``cilium_operator_ipam_available``
 * ``cilium_operator_eni_nodes_at_capacity`` to ``cilium_operator_ipam_nodes_at_capacity``
 * ``cilium_operator_eni_resync_total`` to ``cilium_operator_ipam_resync_total``
+* ``cilium_operator_eni_aws_api_duration_seconds`` to ``cilium_operator_ipam_api_duration_seconds``
+* ``cilium_operator_eni_ec2_rate_limit_duration_seconds`` to ``cilium_operator_ipam_api_rate_limit_duration_seconds``
 
 Deprecated cilium-operator options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
