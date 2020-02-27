@@ -142,9 +142,11 @@ spec:
         - mountPath: {{ .Values.global.kubeConfigPath }}
           name: kube-config
           readOnly: true
-{{- end}}
+{{- end }}
+{{- if .Values.resources }}
         resources:
           {{- toYaml .Values.resources | trim | nindent 10 }}
+{{- end }}
       hostNetwork: true
 {{- if .Values.global.etcd.managed }}
       # In managed etcd mode, Cilium must be able to resolve the DNS name of
