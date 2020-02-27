@@ -36,6 +36,8 @@ type ENISpec struct {
 	// the PreAllocate and MaxAboveWatermark logic takes over to continue
 	// allocating IPs.
 	//
+	// OBSOLETE: This field is obsolete, please use Spec.IPAM.MinAllocate
+	//
 	// +optional
 	MinAllocate int `json:"min-allocate,omitempty"`
 
@@ -43,6 +45,8 @@ type ENISpec struct {
 	// available for allocation in the IPAMspec. It defines the buffer of
 	// addresses available immediately without requiring cilium-operator to
 	// get involved.
+	//
+	// OBSOLETE: This field is obsolete, please use Spec.IPAM.PreAllocate
 	//
 	// +optional
 	PreAllocate int `json:"pre-allocate,omitempty"`
@@ -53,6 +57,8 @@ type ENISpec struct {
 	// allocate IPs, e.g. when a new ENI is allocated, as many secondary
 	// IPs as possible are allocated. Limiting the amount can help reduce
 	// waste of IPs.
+	//
+	// OBSOLETE: This field is obsolete, please use Spec.IPAM.MaxAboveWatermark
 	//
 	// +optional
 	MaxAboveWatermark int `json:"max-above-watermark,omitempty"`

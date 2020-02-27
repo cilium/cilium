@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
@@ -721,7 +722,7 @@ type NodeSpec struct {
 	// operator
 	//
 	// +optional
-	IPAM IPAMSpec `json:"ipam,omitempty"`
+	IPAM ipamTypes.IPAMSpec `json:"ipam,omitempty"`
 }
 
 // HealthAddressingSpec is the addressing information required to do
@@ -747,22 +748,6 @@ type EncryptionSpec struct {
 	Key int `json:"key,omitempty"`
 }
 
-// IPAMSpec is the IPAM specification of the node
-type IPAMSpec struct {
-	// Pool is the list of IPs available to the node for allocation. When
-	// an IP is used, the IP will remain on this list but will be added to
-	// Status.IPAM.Used
-	//
-	// +optional
-	Pool map[string]AllocationIP `json:"pool,omitempty"`
-
-	// PodCIDRs is the list of CIDRs available to the node for allocation.
-	// When an IP is used, the IP will be added to Status.IPAM.Used
-	//
-	// +optional
-	PodCIDRs []string `json:"podCIDRs,omitempty"`
-}
-
 // NodeStatus is the status of a node
 type NodeStatus struct {
 	// ENI is the AWS ENI specific status of the node
@@ -773,37 +758,7 @@ type NodeStatus struct {
 	// IPAM is the IPAM status of the node
 	//
 	// +optional
-	IPAM IPAMStatus `json:"ipam,omitempty"`
-}
-
-// IPAMStatus is the IPAM status of a node
-type IPAMStatus struct {
-	// Used lists all IPs out of Spec.IPAM.Pool which have been allocated
-	// and are in use.
-	//
-	// +optional
-	Used map[string]AllocationIP `json:"used,omitempty"`
-}
-
-// AllocationIP is an IP which is available for allocation, or already
-// has been allocated
-type AllocationIP struct {
-	// Owner is the owner of the IP. This field is set if the IP has been
-	// allocated. It will be set to the pod name or another identifier
-	// representing the usage of the IP
-	//
-	// The owner field is left blank for an entry in Spec.IPAM.Pool and
-	// filled out as the IP is used and also added to Status.IPAM.Used.
-	//
-	// +optional
-	Owner string `json:"owner,omitempty"`
-
-	// Resource is set for both available and allocated IPs, it represents
-	// what resource the IP is associated with, e.g. in combination with
-	// AWS ENI, this will refer to the ID of the ENI
-	//
-	// +optional
-	Resource string `json:"resource,omitempty"`
+	IPAM ipamTypes.IPAMStatus `json:"ipam,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

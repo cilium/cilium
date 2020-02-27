@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/checker"
 	metricsmock "github.com/cilium/cilium/pkg/ipam/metrics/mock"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -146,18 +147,18 @@ func newCiliumNode(node, instanceID, instanceType, az, vpcID string, firstInterf
 				InstanceID:          instanceID,
 				InstanceType:        instanceType,
 				FirstInterfaceIndex: &firstInterfaceIndex,
-				PreAllocate:         preAllocate,
-				MinAllocate:         minAllocate,
 				AvailabilityZone:    az,
 				VpcID:               vpcID,
 			},
-			IPAM: v2.IPAMSpec{
-				Pool: map[string]v2.AllocationIP{},
+			IPAM: ipamTypes.IPAMSpec{
+				Pool:        ipamTypes.AllocationMap{},
+				PreAllocate: preAllocate,
+				MinAllocate: minAllocate,
 			},
 		},
 		Status: v2.NodeStatus{
-			IPAM: v2.IPAMStatus{
-				Used: map[string]v2.AllocationIP{},
+			IPAM: ipamTypes.IPAMStatus{
+				Used: ipamTypes.AllocationMap{},
 			},
 		},
 	}
@@ -173,19 +174,19 @@ func newCiliumNodeWithSGTags(node, instanceID, instanceType, az, vpcID string, s
 				InstanceID:          instanceID,
 				InstanceType:        instanceType,
 				FirstInterfaceIndex: &firstInterfaceIndex,
-				PreAllocate:         preAllocate,
-				MinAllocate:         minAllocate,
 				AvailabilityZone:    az,
 				VpcID:               vpcID,
 				SecurityGroupTags:   sgTags,
 			},
-			IPAM: v2.IPAMSpec{
-				Pool: map[string]v2.AllocationIP{},
+			IPAM: ipamTypes.IPAMSpec{
+				Pool:        ipamTypes.AllocationMap{},
+				PreAllocate: preAllocate,
+				MinAllocate: minAllocate,
 			},
 		},
 		Status: v2.NodeStatus{
-			IPAM: v2.IPAMStatus{
-				Used: map[string]v2.AllocationIP{},
+			IPAM: ipamTypes.IPAMStatus{
+				Used: ipamTypes.AllocationMap{},
 			},
 		},
 	}
@@ -194,12 +195,12 @@ func newCiliumNodeWithSGTags(node, instanceID, instanceType, az, vpcID string, s
 }
 
 func updateCiliumNode(cn *v2.CiliumNode, available, used int) *v2.CiliumNode {
-	cn.Spec.IPAM.Pool = map[string]v2.AllocationIP{}
+	cn.Spec.IPAM.Pool = ipamTypes.AllocationMap{}
 	for i := 0; i < used; i++ {
-		cn.Spec.IPAM.Pool[fmt.Sprintf("1.1.1.%d", i)] = v2.AllocationIP{Resource: "foo"}
+		cn.Spec.IPAM.Pool[fmt.Sprintf("1.1.1.%d", i)] = ipamTypes.AllocationIP{Resource: "foo"}
 	}
 
-	cn.Status.IPAM.Used = map[string]v2.AllocationIP{}
+	cn.Status.IPAM.Used = ipamTypes.AllocationMap{}
 	for ip, ipAllocation := range cn.Spec.IPAM.Pool {
 		if used > 0 {
 			delete(cn.Spec.IPAM.Pool, ip)
@@ -435,7 +436,7 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 
 	// Announce node, wait for IPs to become available
 	cn := newCiliumNode("node3", "i-testNodeManagerReleaseAddress-1", "m4.xlarge", "us-west-1", "vpc-1", 1, 4, 10)
-	cn.Spec.ENI.MaxAboveWatermark = 4
+	cn.Spec.IPAM.MaxAboveWatermark = 4
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
 

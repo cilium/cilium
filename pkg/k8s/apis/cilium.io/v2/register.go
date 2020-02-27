@@ -430,6 +430,25 @@ func createNodeCRD(clientset apiextensionsclient.Interface) error {
 										},
 									},
 								},
+								"ipam": {
+									Type: "object",
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"min-allocate": {
+											Type:    "integer",
+											Minimum: getFloat64(0),
+											Description: "min-allocate is the minimum number of IPs that will be allocated before" +
+												" the cilium-agent will write the CNI config.",
+										},
+										"pre-allocate": {
+											Type:    "integer",
+											Minimum: getFloat64(0),
+										},
+										"max-above-watermark": {
+											Type:    "integer",
+											Minimum: getFloat64(0),
+										},
+									},
+								},
 							},
 						},
 					},

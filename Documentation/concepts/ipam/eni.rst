@@ -103,7 +103,7 @@ allocation:
 
   *This field is automatically populated when using ``--auto-create-cilium-node-resource``*
 
-``spec.eni.min-allocate``
+``spec.ipam.min-allocate``
   The minimum number of IPs that must be allocated when the node is first
   bootstrapped. It defines the minimum base socket of addresses that must be
   available. After reaching this watermark, the PreAllocate and
@@ -111,14 +111,14 @@ allocation:
 
   If unspecified, no minimum number of IPs is required.
 
-``spec.eni.pre-allocate``
+``spec.ipam.pre-allocate``
   The number of IP addresses that must be available for allocation at all
   times.  It defines the buffer of addresses available immediately without
   requiring for the operator to get involved.
 
   If unspecified, this value defaults to 8.
 
-``spec.eni.max-above-watermark``
+``spec.ipam.max-above-watermark``
   The maximum number of addresses to allocate beyond the addresses needed to
   reach the PreAllocate watermark.  Going above the watermark can help reduce
   the number of API calls to allocate IPs, e.g. when a new ENI is allocated, as

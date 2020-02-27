@@ -82,7 +82,7 @@ type Node struct {
 
 	enis map[string]eniTypes.ENI
 
-	available map[string]v2.AllocationIP
+	available ipamTypes.AllocationMap
 
 	manager *NodeManager
 
@@ -118,6 +118,33 @@ type nodeStatistics struct {
 	// allocated or have not yet exhausted the ENI specific quota of
 	// addresses
 	remainingInterfaces int
+}
+
+// GetMaxAboveWatermark returns the max-above-watermark setting for an AWS node
+func (n *Node) GetMaxAboveWatermark() int {
+	if n.resource.Spec.IPAM.MaxAboveWatermark != 0 {
+		return n.resource.Spec.IPAM.MaxAboveWatermark
+	}
+	return n.resource.Spec.ENI.MaxAboveWatermark
+}
+
+// GetPreAllocate returns the pre-allocation setting for an AWS node
+func (n *Node) GetPreAllocate() int {
+	if n.resource.Spec.IPAM.PreAllocate != 0 {
+		return n.resource.Spec.IPAM.PreAllocate
+	}
+	if n.resource.Spec.ENI.PreAllocate != 0 {
+		return n.resource.Spec.ENI.PreAllocate
+	}
+	return defaults.ENIPreAllocation
+}
+
+// GetMinAllocate returns the minimum-allocation setting of an AWS node
+func (n *Node) GetMinAllocate() int {
+	if n.resource.Spec.IPAM.MinAllocate != 0 {
+		return n.resource.Spec.IPAM.MinAllocate
+	}
+	return n.resource.Spec.ENI.MinAllocate
 }
 
 func (n *Node) logger() *logrus.Entry {
@@ -161,10 +188,6 @@ func (n *Node) getNeededAddresses() int {
 }
 
 func calculateNeededIPs(availableIPs, usedIPs, preAllocate, minAllocate int) (neededIPs int) {
-	if preAllocate == 0 {
-		preAllocate = defaults.ENIPreAllocation
-	}
-
 	neededIPs = preAllocate - (availableIPs - usedIPs)
 	if neededIPs < 0 {
 		neededIPs = 0
@@ -235,7 +258,7 @@ func (n *Node) updatedResource(resource *v2.CiliumNode) bool {
 
 func (n *Node) recalculateLocked() {
 	n.enis = map[string]eniTypes.ENI{}
-	n.available = map[string]v2.AllocationIP{}
+	n.available = ipamTypes.AllocationMap{}
 	enis := n.manager.instancesAPI.GetENIs(n.resource.Spec.ENI.InstanceID)
 	// An ec2 instance has at least one ENI attached, no ENI found implies instance not found.
 	if len(enis) == 0 {
@@ -253,13 +276,13 @@ func (n *Node) recalculateLocked() {
 		}
 
 		for _, ip := range e.Addresses {
-			n.available[ip] = v2.AllocationIP{Resource: e.ID}
+			n.available[ip] = ipamTypes.AllocationIP{Resource: e.ID}
 		}
 	}
 	n.stats.usedIPs = len(n.resource.Status.IPAM.Used)
 	n.stats.availableIPs = len(n.available)
-	n.stats.neededIPs = calculateNeededIPs(n.stats.availableIPs, n.stats.usedIPs, n.resource.Spec.ENI.PreAllocate, n.resource.Spec.ENI.MinAllocate)
-	n.stats.excessIPs = calculateExcessIPs(n.stats.availableIPs, n.stats.usedIPs, n.resource.Spec.ENI.PreAllocate, n.resource.Spec.ENI.MinAllocate, n.resource.Spec.ENI.MaxAboveWatermark)
+	n.stats.neededIPs = calculateNeededIPs(n.stats.availableIPs, n.stats.usedIPs, n.GetPreAllocate(), n.GetMinAllocate())
+	n.stats.excessIPs = calculateExcessIPs(n.stats.availableIPs, n.stats.usedIPs, n.GetPreAllocate(), n.GetMinAllocate(), n.GetMaxAboveWatermark())
 
 	n.loggerLocked().WithFields(logrus.Fields{
 		"available":                 n.stats.availableIPs,
@@ -293,8 +316,8 @@ func (n *Node) ENIs() (enis map[string]eniTypes.ENI) {
 }
 
 // Pool returns the IP allocation pool available to the node
-func (n *Node) Pool() (pool map[string]v2.AllocationIP) {
-	pool = map[string]v2.AllocationIP{}
+func (n *Node) Pool() (pool ipamTypes.AllocationMap) {
+	pool = ipamTypes.AllocationMap{}
 	n.mutex.RLock()
 	for k, allocationIP := range n.available {
 		pool[k] = allocationIP
@@ -401,7 +424,7 @@ func (n *Node) allocateENI(ctx context.Context, s *types.Subnet, a *allocatableR
 	neededAddresses := n.stats.neededIPs
 	desc := "Cilium-CNI (" + n.resource.Spec.ENI.InstanceID + ")"
 	// Must allocate secondary ENI IPs as needed, up to ENI instance limit - 1 (reserve 1 for primary IP)
-	toAllocate := int64(math.IntMin(neededAddresses+nodeResource.Spec.ENI.MaxAboveWatermark, a.limits.IPv4-1))
+	toAllocate := int64(math.IntMin(neededAddresses+n.GetMaxAboveWatermark(), a.limits.IPv4-1))
 	// Validate whether request has already been fulfilled in the meantime
 	if toAllocate == 0 {
 		n.mutex.RUnlock()
@@ -603,7 +626,7 @@ func (n *Node) determineMaintenanceAction() (*allocatableResources, error) {
 
 	// Validate that the node still requires addresses to be allocated, the
 	// request may have been resolved in the meantime.
-	maxAllocate := n.stats.neededIPs + n.resource.Spec.ENI.MaxAboveWatermark
+	maxAllocate := n.stats.neededIPs + n.GetMaxAboveWatermark()
 	if n.stats.neededIPs == 0 {
 		return nil, nil
 	}
@@ -803,7 +826,7 @@ func (n *Node) SyncToAPIServer() (err error) {
 	// fall back to the controller based background interval to retry.
 	for retry := 0; retry < 2; retry++ {
 		if node.Status.IPAM.Used == nil {
-			node.Status.IPAM.Used = map[string]v2.AllocationIP{}
+			node.Status.IPAM.Used = ipamTypes.AllocationMap{}
 		}
 
 		node.Status.ENI.ENIs = n.ENIs()
@@ -838,11 +861,11 @@ func (n *Node) SyncToAPIServer() (err error) {
 
 	for retry := 0; retry < 2; retry++ {
 		if node.Spec.IPAM.Pool == nil {
-			node.Spec.IPAM.Pool = map[string]v2.AllocationIP{}
+			node.Spec.IPAM.Pool = ipamTypes.AllocationMap{}
 		}
 
-		if node.Spec.ENI.PreAllocate == 0 {
-			node.Spec.ENI.PreAllocate = defaults.ENIPreAllocation
+		if node.Spec.IPAM.PreAllocate == 0 {
+			node.Spec.IPAM.PreAllocate = defaults.ENIPreAllocation
 		}
 
 		node.Spec.IPAM.Pool = n.Pool()
