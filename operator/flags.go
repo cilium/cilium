@@ -44,6 +44,12 @@ func init() {
 	flags.Float64(option.IPAMAPIQPSLimit, defaults.IPAMAPIQPSLimit, "Queries per second limit when accessing external IPAM APIs")
 	option.BindEnv(option.IPAMAPIQPSLimit)
 
+	flags.String(option.AzureSubscriptionID, "", "Subscription ID to access Azure API")
+	option.BindEnvWithLegacyEnvFallback(option.AzureSubscriptionID, "AZURE_SUBSCRIPTION_ID")
+
+	flags.String(option.AzureResourceGroup, "", "Resource group to use for Azure IPAM")
+	option.BindEnvWithLegacyEnvFallback(option.AzureResourceGroup, "AZURE_RESOURCE_GROUP")
+
 	flags.Var(option.NewNamedMapOptions(option.AwsInstanceLimitMapping, &option.Config.AwsInstanceLimitMapping, nil),
 		option.AwsInstanceLimitMapping,
 		`Add or overwrite mappings of AWS instance limit in the form of `+

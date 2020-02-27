@@ -428,16 +428,18 @@ func deriveGatewayIP(eni eniTypes.ENI) string {
 func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.AllocationIP) (result *AllocationResult, err error) {
 	result = &AllocationResult{IP: ip}
 
+	a.store.mutex.RLock()
+	defer a.store.mutex.RUnlock()
+
+	if a.store.ownNode == nil {
+		return
+	}
+
+	switch option.Config.IPAM {
+
 	// In ENI mode, the Resource points to the ENI so we can derive the
 	// master interface and all CIDRs of the VPC
-	if option.Config.IPAM == option.IPAMENI {
-		a.store.mutex.RLock()
-		defer a.store.mutex.RUnlock()
-
-		if a.store.ownNode == nil {
-			return
-		}
-
+	case option.IPAMENI:
 		for _, eni := range a.store.ownNode.Status.ENI.ENIs {
 			if eni.ID == ipInfo.Resource {
 				result.Master = eni.MAC
@@ -446,6 +448,20 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 				if eni.Subnet.CIDR != "" {
 					result.GatewayIP = deriveGatewayIP(eni)
 				}
+
+				return
+			}
+		}
+
+		result = nil
+		err = fmt.Errorf("unable to find ENI %s", ipInfo.Resource)
+
+	// In Azure mode, the Resource points to the azure interface so we can
+	// derive the master interface
+	case option.IPAMAzure:
+		for _, iface := range a.store.ownNode.Status.Azure.Interfaces {
+			if iface.ID == ipInfo.Resource {
+				result.Master = iface.MAC
 
 				return
 			}
