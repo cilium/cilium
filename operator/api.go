@@ -24,9 +24,7 @@ import (
 )
 
 // startServer starts an api server listening on the given address.
-func startServer(addr string, shutdownSignal <-chan struct{}, allSystemsGo <-chan struct{}) {
-	log.Infof("Starting apiserver on address %s", addr)
-
+func startServer(shutdownSignal <-chan struct{}, allSystemsGo <-chan struct{}, addrs ...string) {
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		select {
 		// only start serving the real health check once all systems all up and running
@@ -37,16 +35,46 @@ func startServer(addr string, shutdownSignal <-chan struct{}, allSystemsGo <-cha
 		}
 	})
 
-	srv := &http.Server{Addr: addr}
+	errs := make(chan error, 1)
+	nServers := 0
 
-	go func() {
-		<-shutdownSignal
-		if err := srv.Shutdown(context.Background()); err != nil {
-			log.WithError(err).Error("apiserver shutdown")
+	// Since we are opening this on localhost only, we need to make sure
+	// we can open for both v4 and v6 localhost. In case the user is running
+	// v4-only or v6-only.
+	for _, addr := range addrs {
+		if addr == "" {
+			continue
 		}
-	}()
+		nServers++
+		srv := &http.Server{Addr: addr}
+		errCh := make(chan error, 1)
 
-	log.Fatalf("Unable to start status api: %s", srv.ListenAndServe())
+		go func() {
+			err := srv.ListenAndServe()
+			if err != nil {
+				errCh <- err
+				errs <- err
+			}
+		}()
+		go func() {
+			select {
+			case <-shutdownSignal:
+				if err := srv.Shutdown(context.Background()); err != nil {
+					log.WithError(err).Error("apiserver shutdown")
+				}
+			case err := <-errCh:
+				log.Warnf("Unable to start status api: %s", err)
+			}
+		}()
+		log.Infof("Starting apiserver on address %s", addr)
+	}
+
+	for err := range errs {
+		nServers--
+		if nServers == 0 {
+			log.Fatalf("Unable to start status api: %s", err)
+		}
+	}
 }
 
 func healthHandlerOK(w http.ResponseWriter, r *http.Request) {
