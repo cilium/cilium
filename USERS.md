@@ -45,6 +45,11 @@ Requirements to be listed
 Users (Alphabetically)
 ----------------------
 
+    * N: Acoss
+      D: Acoss is using cilium as their main CNI plugin (self hosted k8s, On-premises)
+      U: CiliumNetworkPolicy, Hubble, BPF NodePort, Direct routing
+      L: @JrCs
+
     * N: Adobe, Inc.
       D: Adobe's Project Ethos uses Cilium for multi-tenant, multi-cloud clusters
       U: L3/L4/L7 policies
