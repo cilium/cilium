@@ -154,6 +154,9 @@ func init() {
 	flags.String(option.OperatorPrometheusServeAddr, ":6942", "Address to serve Prometheus metrics")
 	option.BindEnv(option.OperatorPrometheusServeAddr)
 
+	flags.String(option.OperatorAPIServeAddr, "localhost:9234", "Address to serve API requests")
+	option.BindEnv(option.OperatorAPIServeAddr)
+
 	flags.Bool(option.SyncK8sServices, true, "Synchronize Kubernetes services to kvstore")
 	option.BindEnv(option.SyncK8sServices)
 
@@ -166,8 +169,9 @@ func init() {
 	flags.Bool(option.Version, false, "Print version information")
 	option.BindEnv(option.Version)
 
-	// TODO: Urgent fix
+	// Deprecated, remove in 1.9
 	flags.Uint16Var(&apiServerPort, "api-server-port", 9234, "Port on which the operator should serve API requests")
+	flags.MarkDeprecated("api-server-port", fmt.Sprintf("Please use %s instead", option.OperatorAPIServeAddr))
 
 	// Deprecated, remove in 1.9
 	flags.StringVar(&metricsAddress, "metrics-address", ":6942", "Address to serve Prometheus metrics")

@@ -347,6 +347,11 @@ Deprecated cilium-operator options
   endpoint GC can be done with ``cilium-endpoint-gc-interval=0``.
   This old option will be removed in Cilium 1.9
 
+* ``api-server-port``: This option is being deprecated. The API Server address
+  and port can be enabled with ``operator-api-serve-addr=127.0.0.1:9234``
+  or ``operator-api-serve-addr=[::1]:9234`` for IPv6-only clusters.
+  This old option will be removed in Cilium 1.9
+
 Removed options
 ~~~~~~~~~~~~~~~
 

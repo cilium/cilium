@@ -57,6 +57,7 @@ var (
 		},
 	}
 
+	// Deprecated: remove in 1.9
 	apiServerPort  uint16
 	shutdownSignal = make(chan struct{})
 
@@ -104,12 +105,19 @@ func kvstoreEnabled() bool {
 		option.Config.SyncK8sNodes
 }
 
+func getAPIServerAddr() []string {
+	if option.Config.OperatorAPIServeAddr == "" {
+		return []string{fmt.Sprintf("127.0.0.1:%d", apiServerPort), fmt.Sprintf("[::1]:%d", apiServerPort)}
+	}
+	return []string{option.Config.OperatorAPIServeAddr}
+}
+
 func runOperator(cmd *cobra.Command) {
 	logging.SetupLogging([]string{}, map[string]string{}, "cilium-operator", viper.GetBool("debug"))
 
 	log.Infof("Cilium Operator %s", version.Version)
 	k8sInitDone := make(chan struct{})
-	go startServer(fmt.Sprintf(":%d", apiServerPort), shutdownSignal, k8sInitDone)
+	go startServer(shutdownSignal, k8sInitDone, getAPIServerAddr()...)
 
 	if option.Config.EnableMetrics {
 		registerMetrics()

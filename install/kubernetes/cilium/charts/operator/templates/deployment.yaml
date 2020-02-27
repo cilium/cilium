@@ -93,6 +93,11 @@ spec:
 {{- end }}
         livenessProbe:
           httpGet:
+{{- if .Values.global.ipv4.enabled }}
+            host: '127.0.0.1'
+{{- else }}
+            host: '[::1]'
+{{- end }}
             path: /healthz
             port: 9234
             scheme: HTTP

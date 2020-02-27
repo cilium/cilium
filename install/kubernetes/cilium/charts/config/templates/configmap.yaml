@@ -325,3 +325,9 @@ data:
   enable-remote-node-identity: {{ .Values.global.remoteNodeIdentity | quote }}
 
   synchronize-k8s-nodes: {{ .Values.global.synchronizeK8sNodes | quote }}
+
+{{- if .Values.global.ipv4.enabled }}
+  operator-api-serve-addr: '127.0.0.1:9234'
+{{- else }}
+  operator-api-serve-addr: '[::1]:9234'
+{{- end }}

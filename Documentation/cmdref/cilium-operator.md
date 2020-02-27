@@ -15,7 +15,6 @@ cilium-operator [flags]
 ### Options
 
 ```
-      --api-server-port uint16                  Port on which the operator should serve API requests (default 9234)
       --aws-client-burst int                    Burst value allowed for the AWS client used by the AWS ENI IPAM (default 4)
       --aws-client-qps float                    Queries per second limit for the AWS client used by the AWS ENI IPAM (default 20)
       --aws-instance-limit-mapping map          Add or overwrite mappings of AWS instance limit in the form of {"AWS instance type": "Maximum Network Interfaces","IPv4 Addresses per Interface","IPv6 Addresses per Interface"}. cli example: --aws-instance-limit-mapping=a1.medium=2,4,4 --aws-instance-limit-mapping=a2.somecustomflavor=4,5,6 configmap example: {"a1.medium": "2,4,4", "a2.somecustomflavor": "4,5,6"} (default map[])
@@ -45,6 +44,7 @@ cilium-operator [flags]
       --kvstore string                          Key-value store type
       --kvstore-opt map                         Key-value store options (default map[])
       --nodes-gc-interval duration              GC interval for nodes store in the kvstore (default 2m0s)
+      --operator-api-serve-addr string          Address to serve API requests (default "localhost:9234")
       --operator-prometheus-serve-addr string   Address to serve Prometheus metrics (default ":6942")
       --synchronize-k8s-nodes                   Synchronize Kubernetes nodes to kvstore and perform CNP GC (default true)
       --synchronize-k8s-services                Synchronize Kubernetes services to kvstore (default true)
