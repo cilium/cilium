@@ -24,6 +24,7 @@ import (
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/defaults"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/math"
@@ -509,7 +510,7 @@ type allocatableResources struct {
 	eni                 string
 	subnet              *types.Subnet
 	availableOnSubnet   int
-	limits              Limits
+	limits              ipamTypes.Limits
 	remainingInterfaces int
 	totalENIs           int
 	ipsToReleaseOnENI   []string
