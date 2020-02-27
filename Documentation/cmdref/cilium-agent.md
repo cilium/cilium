@@ -152,6 +152,7 @@ cilium-agent [flags]
       --sockops-enable                                        Enable sockops when kernel supported
       --state-dir string                                      Directory path to store runtime state (default "/var/run/cilium")
       --tofqdns-dns-reject-response-code string               DNS response code for rejecting DNS requests, available options are '[nameError refused]' (default "refused")
+      --tofqdns-enable-dns-compression                        Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present (default true)
       --tofqdns-enable-poller                                 Enable proactive polling of DNS names in toFQDNs.matchName rules.
       --tofqdns-enable-poller-events                          Emit DNS responses seen by the DNS poller as Monitor events, if the poller is enabled. (default true)
       --tofqdns-endpoint-max-ip-per-hostname int              Maximum number of IPs to maintain per FQDN name for each endpoint (default 50)

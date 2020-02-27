@@ -692,6 +692,9 @@ func init() {
 	flags.String(option.ToFQDNsPreCache, defaults.ToFQDNsPreCache, "DNS cache data at this path is preloaded on agent startup")
 	option.BindEnv(option.ToFQDNsPreCache)
 
+	flags.Bool(option.ToFQDNsEnableDNSCompression, defaults.ToFQDNsEnableDNSCompression, "Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present")
+	option.BindEnv(option.ToFQDNsEnableDNSCompression)
+
 	flags.Int(option.PolicyQueueSize, defaults.PolicyQueueSize, "size of queues for policy-related events")
 	option.BindEnv(option.PolicyQueueSize)
 
