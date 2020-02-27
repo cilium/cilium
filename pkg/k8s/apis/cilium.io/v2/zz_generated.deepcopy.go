@@ -541,6 +541,7 @@ func (in *NodeSpec) DeepCopyInto(out *NodeSpec) {
 	out.HealthAddressing = in.HealthAddressing
 	out.Encryption = in.Encryption
 	in.ENI.DeepCopyInto(&out.ENI)
+	out.Azure = in.Azure
 	in.IPAM.DeepCopyInto(&out.IPAM)
 	return
 }
@@ -559,6 +560,7 @@ func (in *NodeSpec) DeepCopy() *NodeSpec {
 func (in *NodeStatus) DeepCopyInto(out *NodeStatus) {
 	*out = *in
 	in.ENI.DeepCopyInto(&out.ENI)
+	in.Azure.DeepCopyInto(&out.Azure)
 	in.IPAM.DeepCopyInto(&out.IPAM)
 	return
 }

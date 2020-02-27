@@ -101,7 +101,7 @@ func NewIPAM(nodeAddressing datapath.NodeAddressing, c Configuration, owner Owne
 		if c.EnableIPv4 {
 			ipam.IPv4Allocator = newHostScopeAllocator(nodeAddressing.IPv4().AllocationCIDR().IPNet)
 		}
-	case option.IPAMCRD, option.IPAMENI:
+	case option.IPAMCRD, option.IPAMENI, option.IPAMAzure:
 		log.Info("Initializing CRD-based IPAM")
 		if c.EnableIPv6 {
 			ipam.IPv6Allocator = newCRDAllocator(IPv6, owner, k8sEventReg)

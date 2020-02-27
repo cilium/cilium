@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
+	azureTypes "github.com/cilium/cilium/pkg/azure/types"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
@@ -717,6 +718,11 @@ type NodeSpec struct {
 	// +optional
 	ENI eniTypes.ENISpec `json:"eni,omitempty"`
 
+	// Azure is the Azure specific configuration
+	//
+	// +optional
+	Azure azureTypes.AzureSpec `json:"azure,omitempty"`
+
 	// IPAM is the address management specification. This section can be
 	// populated by a user or it can be automatically populated by an IPAM
 	// operator
@@ -754,6 +760,11 @@ type NodeStatus struct {
 	//
 	// +optional
 	ENI eniTypes.ENIStatus `json:"eni,omitempty"`
+
+	// Azure is the Azure specific status of the node
+	//
+	// +optional
+	Azure azureTypes.AzureStatus `json:"azure,omitempty"`
 
 	// IPAM is the IPAM status of the node
 	//

@@ -692,6 +692,10 @@ const (
 	// AWSClientBurstDeprecated is the deprecated version of IPAMAPIBurst and will be rewmoved in v1.9
 	AWSClientBurstDeprecated = "aws-client-burst"
 
+	// IPAMAzure is the value to select the Azure IPAM plugin for
+	// option.IPAM
+	IPAMAzure = "azure"
+
 	// ENITags are the tags that will be added to every ENI created by the AWS ENI IPAM
 	ENITags = "eni-tags"
 
@@ -746,6 +750,12 @@ const (
 
 	// EnableRemoteNodeIdentity enables use of the remote-node identity
 	EnableRemoteNodeIdentity = "enable-remote-node-identity"
+
+	// AzureSubscriptionID is the subscription ID to use when accessing the Azure API
+	AzureSubscriptionID = "azure-subscription-id"
+
+	// AzureResourceGroup is the resource group of the nodes used for the cluster
+	AzureResourceGroup = "azure-resource-group"
 )
 
 // Default string arguments
@@ -1511,6 +1521,12 @@ type DaemonConfig struct {
 
 	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2 API to fill out the instnacetype to adapter limit mapping
 	UpdateEC2AdapterLimitViaAPI bool
+
+	// AzureSubscriptionID is the subscription ID to use when accessing the Azure API
+	AzureSubscriptionID string
+
+	// AzureResourceGroup is the resource group of the nodes used for the cluster
+	AzureResourceGroup string
 }
 
 var (
@@ -1828,6 +1844,8 @@ func (c *DaemonConfig) Populate() {
 	c.AllowLocalhost = viper.GetString(AllowLocalhost)
 	c.AnnotateK8sNode = viper.GetBool(AnnotateK8sNode)
 	c.AutoCreateCiliumNodeResource = viper.GetBool(AutoCreateCiliumNodeResource)
+	c.AzureSubscriptionID = viper.GetString(AzureSubscriptionID)
+	c.AzureResourceGroup = viper.GetString(AzureResourceGroup)
 	c.BPFCompilationDebug = viper.GetBool(BPFCompileDebugName)
 	c.CTMapEntriesGlobalTCP = viper.GetInt(CTMapEntriesGlobalTCPName)
 	c.CTMapEntriesGlobalAny = viper.GetInt(CTMapEntriesGlobalAnyName)

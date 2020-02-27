@@ -123,7 +123,8 @@ func runNodeWatcher() error {
 			// and we need to delete all nodes in the kvNodeStore that are *not*
 			// present in the k8sNodeStore.
 
-			if option.Config.IPAM == option.IPAMENI {
+			switch option.Config.IPAM {
+			case option.IPAMENI, option.IPAMAzure:
 				nodes, err := ciliumK8sClient.CiliumV2().CiliumNodes().List(meta_v1.ListOptions{})
 				if err != nil {
 					log.WithError(err).Warning("Unable to list CiliumNodes. Won't clean up stale CiliumNodes")
