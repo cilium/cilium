@@ -359,3 +359,42 @@ global:
   # packets affected by policies will not be dropped. Policy related
   # decisions can be checked via the poicy verdict messages.
   policyAuditMode: false
+
+  # hubble configures Hubble.
+  hubble:
+    # List of unix domain socket paths to listen to, for example:
+    #
+    #   listenAddresses:
+    #   - "unix:///var/run/cilium/hubble.sock"
+    #
+    # You can specify the list of metrics from the helm CLI:
+    #
+    #   --set global.hubble.listenAddresses={unix:///var/run/cilium}
+    #
+    # Hubble is disabled if the list is empty.
+    listenAddresses: []
+    # Buffer size of the channel Hubble uses to receive monitor events. Defaults to 128.
+    eventQueueSize: ~
+    # Number of recent flows for Hubble to cache. Defaults to 4096.
+    flowBufferSize: ~
+    # Specifies the address the metric server listens to (e.g. ":12345"). The metric server is
+    # disabled if this value is empty.
+    metricServer: ~
+    # List of metrics to collect, for example:
+    #
+    #   metrics:
+    #   - dns:query;ignoreAAAA
+    #   - drop
+    #   - tcp
+    #   - flow
+    #   - port-distribution
+    #   - icmp
+    #   - http
+    #
+    # You can specify the list of metrics from the helm CLI:
+    #
+    #   --set metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,port-distribution,icmp,http}"
+    #
+    # See https://github.com/cilium/hubble/blob/master/Documentation/metrics.md for more comprehensive
+    # documentation about Hubble's metric collection.
+    metrics: []
