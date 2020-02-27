@@ -521,7 +521,7 @@ func (n *Node) determineMaintenanceAction() (*allocatableResources, error) {
 	defer n.mutex.Unlock()
 
 	instanceType := n.resource.Spec.ENI.InstanceType
-	limits, ok := GetLimits(instanceType)
+	limits, ok := getLimits(instanceType)
 
 	scopedLog := n.loggerLocked()
 
