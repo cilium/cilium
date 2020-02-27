@@ -404,6 +404,8 @@ spec:
             exec:
               command:
               - /cni-uninstall.sh
+        resources:
+          {}
         name: cilium-agent
         securityContext:
           capabilities:
@@ -469,6 +471,10 @@ spec:
           mountPropagation: HostToContainer
         - mountPath: /var/run/cilium
           name: cilium-run
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
       restartPolicy: Always
       priorityClassName: system-node-critical
       serviceAccount: cilium
@@ -643,6 +649,8 @@ spec:
           initialDelaySeconds: 60
           periodSeconds: 10
           timeoutSeconds: 3
+        resources:
+          {}
       hostNetwork: true
       restartPolicy: Always
       serviceAccount: cilium-operator
