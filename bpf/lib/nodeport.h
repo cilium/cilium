@@ -644,7 +644,8 @@ static __always_inline bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple
 
 static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 						     __be32 addr, int dir,
-						     bool *from_endpoint)
+						     bool *from_endpoint,
+						     const bool encap)
 {
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -660,6 +661,9 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 			return true;
 		}
 #ifdef ENABLE_MASQUERADE
+		if (encap)
+			return false;
+
 		// TODO(brb) use skb mark to determine if src is a local endpoint
 		if (__lookup_ip4_endpoint(ip4->saddr) != NULL) {
 			struct remote_endpoint_info *info;
@@ -684,7 +688,8 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 }
 
 static __always_inline int nodeport_nat_ipv4_fwd(struct __ctx_buff *ctx,
-						 const __be32 addr)
+						 const __be32 addr,
+						 const bool encap)
 {
 	bool from_endpoint = false;
 	struct ipv4_nat_target target = {
@@ -695,7 +700,7 @@ static __always_inline int nodeport_nat_ipv4_fwd(struct __ctx_buff *ctx,
 	int ret = CTX_ACT_OK;
 
 	if (nodeport_nat_ipv4_needed(ctx, addr, NAT_DIR_EGRESS,
-				     &from_endpoint))
+				     &from_endpoint, encap))
 		ret = snat_v4_process(ctx, NAT_DIR_EGRESS, &target,
 				      from_endpoint);
 	if (ret == NAT_PUNT_TO_STACK)
@@ -1215,7 +1220,7 @@ static __always_inline int nodeport_nat_fwd(struct __ctx_buff *ctx,
 		else
 #endif
 			addr = IPV4_NODEPORT;
-		return nodeport_nat_ipv4_fwd(ctx, addr);
+		return nodeport_nat_ipv4_fwd(ctx, addr, encap);
 	}
 #endif /* ENABLE_IPV4 */
 #ifdef ENABLE_IPV6
