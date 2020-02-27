@@ -17,27 +17,26 @@ package ec2
 import (
 	"context"
 	"fmt"
-	"time"
 
+	"github.com/cilium/cilium/pkg/api/helpers"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/spanstat"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	"golang.org/x/time/rate"
 )
 
 // Client represents an EC2 API client
 type Client struct {
 	ec2Client  *ec2.Client
-	limiter    *rate.Limiter
+	limiter    *helpers.ApiLimiter
 	metricsAPI metricsAPI
 }
 
 type metricsAPI interface {
+	helpers.MetricsAPI
 	ObserveAPICall(call, status string, duration float64)
-	ObserveRateLimit(operation string, duration time.Duration)
 }
 
 // NewClient returns a new EC2 client
@@ -45,7 +44,7 @@ func NewClient(ec2Client *ec2.Client, metrics metricsAPI, rateLimit float64, bur
 	return &Client{
 		ec2Client:  ec2Client,
 		metricsAPI: metrics,
-		limiter:    rate.NewLimiter(rate.Limit(rateLimit), burst),
+		limiter:    helpers.NewApiLimiter(metrics, rateLimit, burst),
 	}
 }
 
@@ -64,14 +63,6 @@ func deriveStatus(req *aws.Request, err error) string {
 	return "OK"
 }
 
-func (c *Client) rateLimit(ctx context.Context, operation string) {
-	r := c.limiter.Reserve()
-	if delay := r.Delay(); delay != time.Duration(0) && delay != rate.InfDuration {
-		c.metricsAPI.ObserveRateLimit(operation, delay)
-		c.limiter.Wait(ctx)
-	}
-}
-
 // describeNetworkInterfaces lists all ENIs
 func (c *Client) describeNetworkInterfaces(ctx context.Context) ([]ec2.NetworkInterface, error) {
 	var (
@@ -80,7 +71,7 @@ func (c *Client) describeNetworkInterfaces(ctx context.Context) ([]ec2.NetworkIn
 	)
 
 	for {
-		c.rateLimit(ctx, "DescribeNetworkInterfaces")
+		c.limiter.Limit(ctx, "DescribeNetworkInterfaces")
 		req := &ec2.DescribeNetworkInterfacesInput{}
 		if nextToken != "" {
 			req.NextToken = &nextToken
@@ -205,7 +196,7 @@ func (c *Client) GetInstances(ctx context.Context, vpcs types.VpcMap, subnets ty
 func (c *Client) describeVpcs(ctx context.Context) ([]ec2.Vpc, error) {
 	var vpcs []ec2.Vpc
 
-	c.rateLimit(ctx, "DescribeVpcs")
+	c.limiter.Limit(ctx, "DescribeVpcs")
 	req := &ec2.DescribeVpcsInput{}
 
 	sinceStart := spanstat.Start()
@@ -245,7 +236,7 @@ func (c *Client) GetVpcs(ctx context.Context) (types.VpcMap, error) {
 
 // describeSubnets lists all subnets
 func (c *Client) describeSubnets(ctx context.Context) ([]ec2.Subnet, error) {
-	c.rateLimit(ctx, "DescribeSubnets")
+	c.limiter.Limit(ctx, "DescribeSubnets")
 
 	sinceStart := spanstat.Start()
 	listReq := c.ec2Client.DescribeSubnetsRequest(&ec2.DescribeSubnetsInput{})
@@ -305,7 +296,7 @@ func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int64, s
 	}
 	createReq.Groups = append(createReq.Groups, groups...)
 
-	c.rateLimit(ctx, "CreateNetworkInterface")
+	c.limiter.Limit(ctx, "CreateNetworkInterface")
 	sinceStart := spanstat.Start()
 	create := c.ec2Client.CreateNetworkInterfaceRequest(createReq)
 	resp, err := create.Send(ctx)
@@ -333,7 +324,7 @@ func (c *Client) DeleteNetworkInterface(ctx context.Context, eniID string) error
 	delReq := &ec2.DeleteNetworkInterfaceInput{}
 	delReq.NetworkInterfaceId = &eniID
 
-	c.rateLimit(ctx, "DeleteNetworkInterface")
+	c.limiter.Limit(ctx, "DeleteNetworkInterface")
 	sinceStart := spanstat.Start()
 	req := c.ec2Client.DeleteNetworkInterfaceRequest(delReq)
 	_, err := req.Send(ctx)
@@ -349,7 +340,7 @@ func (c *Client) AttachNetworkInterface(ctx context.Context, index int64, instan
 		NetworkInterfaceId: &eniID,
 	}
 
-	c.rateLimit(ctx, "AttachNetworkInterface")
+	c.limiter.Limit(ctx, "AttachNetworkInterface")
 	sinceStart := spanstat.Start()
 	attach := c.ec2Client.AttachNetworkInterfaceRequest(attachReq)
 	attachResp, err := attach.Send(ctx)
@@ -373,7 +364,7 @@ func (c *Client) ModifyNetworkInterface(ctx context.Context, eniID, attachmentID
 		NetworkInterfaceId: &eniID,
 	}
 
-	c.rateLimit(ctx, "ModifyNetworkInterfaceAttribute")
+	c.limiter.Limit(ctx, "ModifyNetworkInterfaceAttribute")
 	sinceStart := spanstat.Start()
 	modify := c.ec2Client.ModifyNetworkInterfaceAttributeRequest(modifyReq)
 	_, err := modify.Send(ctx)
@@ -389,7 +380,7 @@ func (c *Client) AssignPrivateIpAddresses(ctx context.Context, eniID string, add
 		SecondaryPrivateIpAddressCount: &addresses,
 	}
 
-	c.rateLimit(ctx, "AssignPrivateIpAddresses")
+	c.limiter.Limit(ctx, "AssignPrivateIpAddresses")
 	sinceStart := spanstat.Start()
 	req := c.ec2Client.AssignPrivateIpAddressesRequest(&request)
 	_, err := req.Send(ctx)
@@ -404,7 +395,7 @@ func (c *Client) UnassignPrivateIpAddresses(ctx context.Context, eniID string, a
 		PrivateIpAddresses: addresses,
 	}
 
-	c.rateLimit(ctx, "UnassignPrivateIpAddresses")
+	c.limiter.Limit(ctx, "UnassignPrivateIpAddresses")
 	sinceStart := spanstat.Start()
 	req := c.ec2Client.UnassignPrivateIpAddressesRequest(&request)
 	_, err := req.Send(ctx)
@@ -418,7 +409,7 @@ func (c *Client) TagENI(ctx context.Context, eniID string, eniTags map[string]st
 		Resources: []string{eniID},
 		Tags:      createAWSTagSlice(eniTags),
 	}
-	c.rateLimit(ctx, "CreateTags")
+	c.limiter.Limit(ctx, "CreateTags")
 	sinceStart := spanstat.Start()
 	req := c.ec2Client.CreateTagsRequest(&request)
 	_, err := req.Send(ctx)
@@ -440,7 +431,7 @@ func createAWSTagSlice(tags map[string]string) []ec2.Tag {
 }
 
 func (c *Client) describeSecurityGroups(ctx context.Context) ([]ec2.SecurityGroup, error) {
-	c.rateLimit(ctx, "DescribeSecurityGroups")
+	c.limiter.Limit(ctx, "DescribeSecurityGroups")
 	sinceStart := spanstat.Start()
 	req := c.ec2Client.DescribeSecurityGroupsRequest(&ec2.DescribeSecurityGroupsInput{})
 	response, err := req.Send(ctx)

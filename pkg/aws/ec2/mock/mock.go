@@ -20,6 +20,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/cilium/cilium/pkg/api/helpers"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/lock"
@@ -54,9 +55,9 @@ type API struct {
 	vpcs           map[string]*types.Vpc
 	securityGroups map[string]*types.SecurityGroup
 	errors         map[Operation]error
-	delays         map[Operation]time.Duration
 	allocator      *ipallocator.Range
 	limiter        *rate.Limiter
+	delaySim       *helpers.DelaySimulator
 }
 
 func NewAPI(subnets []*types.Subnet, vpcs []*types.Vpc, securityGroups []*types.SecurityGroup) *API {
@@ -74,7 +75,7 @@ func NewAPI(subnets []*types.Subnet, vpcs []*types.Vpc, securityGroups []*types.
 		securityGroups: map[string]*types.SecurityGroup{},
 		allocator:      cidrRange,
 		errors:         map[Operation]error{},
-		delays:         map[Operation]time.Duration{},
+		delaySim:       helpers.NewDelaySimulator(),
 	}
 
 	for _, s := range subnets {
@@ -100,24 +101,16 @@ func (e *API) SetMockError(op Operation, err error) {
 	e.mutex.Unlock()
 }
 
-func (e *API) setDelayLocked(op Operation, delay time.Duration) {
-	if delay == time.Duration(0) {
-		delete(e.delays, op)
-	} else {
-		e.delays[op] = delay
-	}
-}
-
 // SetDelay specifies the delay which should be simulated for an individual EC2
 // API operation
 func (e *API) SetDelay(op Operation, delay time.Duration) {
 	e.mutex.Lock()
 	if op == AllOperations {
 		for op := AllOperations + 1; op < MaxOperation; op++ {
-			e.setDelayLocked(op, delay)
+			e.delaySim.SetDelay(op, delay)
 		}
 	} else {
-		e.setDelayLocked(op, delay)
+		e.delaySim.SetDelay(op, delay)
 	}
 	e.mutex.Unlock()
 }
@@ -141,18 +134,9 @@ func (e *API) rateLimit() {
 	}
 }
 
-func (e *API) simulateDelay(op Operation) {
-	e.mutex.RLock()
-	delay, ok := e.delays[op]
-	e.mutex.RUnlock()
-	if ok {
-		time.Sleep(delay)
-	}
-}
-
 func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int64, subnetID, desc string, groups []string) (string, *eniTypes.ENI, error) {
 	e.rateLimit()
-	e.simulateDelay(CreateNetworkInterface)
+	e.delaySim.Delay(CreateNetworkInterface)
 
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
@@ -196,7 +180,7 @@ func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int64, subn
 
 func (e *API) DeleteNetworkInterface(ctx context.Context, eniID string) error {
 	e.rateLimit()
-	e.simulateDelay(DeleteNetworkInterface)
+	e.delaySim.Delay(DeleteNetworkInterface)
 
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
@@ -217,7 +201,7 @@ func (e *API) DeleteNetworkInterface(ctx context.Context, eniID string) error {
 
 func (e *API) AttachNetworkInterface(ctx context.Context, index int64, instanceID, eniID string) (string, error) {
 	e.rateLimit()
-	e.simulateDelay(AttachNetworkInterface)
+	e.delaySim.Delay(AttachNetworkInterface)
 
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
@@ -246,7 +230,7 @@ func (e *API) AttachNetworkInterface(ctx context.Context, index int64, instanceI
 
 func (e *API) ModifyNetworkInterface(ctx context.Context, eniID, attachmentID string, deleteOnTermination bool) error {
 	e.rateLimit()
-	e.simulateDelay(ModifyNetworkInterface)
+	e.delaySim.Delay(ModifyNetworkInterface)
 
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
@@ -260,7 +244,7 @@ func (e *API) ModifyNetworkInterface(ctx context.Context, eniID, attachmentID st
 
 func (e *API) AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int64) error {
 	e.rateLimit()
-	e.simulateDelay(AssignPrivateIpAddresses)
+	e.delaySim.Delay(AssignPrivateIpAddresses)
 
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
@@ -296,7 +280,7 @@ func (e *API) AssignPrivateIpAddresses(ctx context.Context, eniID string, addres
 
 func (e *API) UnassignPrivateIpAddresses(ctx context.Context, eniID string, addresses []string) error {
 	e.rateLimit()
-	e.simulateDelay(UnassignPrivateIpAddresses)
+	e.delaySim.Delay(UnassignPrivateIpAddresses)
 
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
@@ -396,7 +380,7 @@ func (e *API) GetSubnets(ctx context.Context) (types.SubnetMap, error) {
 
 func (e *API) TagENI(ctx context.Context, eniID string, eniTags map[string]string) error {
 	e.rateLimit()
-	e.simulateDelay(TagENI)
+	e.delaySim.Delay(TagENI)
 
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
