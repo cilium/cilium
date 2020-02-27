@@ -69,25 +69,27 @@ var (
 	once   sync.Once
 	events *perf.Reader
 
-	signalName = [SignalTypeMax]string{
-		SignalGC: "nat_fill_up",
-	}
 	signalGCProto = [SignalMax]string{
 		SignalGCV4: "ipv4",
 		SignalGCV6: "ipv6",
 	}
 )
 
-func signalCollectMetrics(sig *SignalMsg, signalStatus string) {
-	signalType := ""
+func signalCollectMetrics(sig *SignalMsg, signalType, signalStatus string) {
 	signalData := ""
 	if sig != nil {
-		signalType = signalName[sig.Which]
 		if sig.Which == SignalGC {
 			signalData = signalGCProto[sig.Data]
 		}
 	}
 	metrics.SignalsHandled.WithLabelValues(signalType, signalData, signalStatus).Inc()
+}
+
+func SignalTrigger(sig *SignalMsg, signalType string) {
+	if channels[sig.Which] != nil {
+		channels[sig.Which] <- sig.Data
+		signalCollectMetrics(sig, signalType, "received")
+	}
 }
 
 func signalReceive(msg *perf.Record) {
@@ -96,10 +98,7 @@ func signalReceive(msg *perf.Record) {
 		log.WithError(err).Warningf("Cannot parse signal from BPF datapath")
 		return
 	}
-	if channels[sig.Which] != nil {
-		channels[sig.Which] <- sig.Data
-		signalCollectMetrics(&sig, "received")
-	}
+	SignalTrigger(&sig, "nat_fill_up")
 }
 
 // MuteChannel tells to not send any new events to a particular channel
@@ -168,12 +167,12 @@ func SetupSignalListener() {
 				record, err := events.Read()
 				switch {
 				case err != nil:
-					signalCollectMetrics(nil, "error")
+					signalCollectMetrics(nil, "", "error")
 					log.WithError(err).WithFields(logrus.Fields{
 						logfields.BPFMapName: SignalMapName,
 					}).Errorf("failed to read event")
 				case record.LostSamples > 0:
-					signalCollectMetrics(nil, "lost")
+					signalCollectMetrics(nil, "", "lost")
 				default:
 					signalReceive(&record)
 				}
