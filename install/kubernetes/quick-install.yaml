@@ -407,8 +407,6 @@ spec:
             exec:
               command:
               - /cni-uninstall.sh
-        resources:
-          {}
         name: cilium-agent
         securityContext:
           capabilities:
@@ -613,10 +611,9 @@ spec:
         - mountPath: /tmp/cilium/config-map
           name: cilium-config-path
           readOnly: true
-        resources:
-          {}
       hostNetwork: true
       restartPolicy: Always
+      priorityClassName: system-cluster-critical
       serviceAccount: cilium-operator
       serviceAccountName: cilium-operator
       volumes:
