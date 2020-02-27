@@ -379,6 +379,9 @@ const (
 	// OperatorPrometheusServeAddr IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
 	OperatorPrometheusServeAddr = "operator-prometheus-serve-addr"
 
+	// OperatorAPIServeAddr IP:Port on which to serve api requests in operator (pass ":Port" to bind on all interfaces, "" is off)
+	OperatorAPIServeAddr = "operator-api-serve-addr"
+
 	// PrometheusServeAddrDeprecated IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
 	PrometheusServeAddrDeprecated = "prometheus-serve-addr-deprecated"
 
@@ -1175,6 +1178,7 @@ type DaemonConfig struct {
 	PProf                       bool
 	PrometheusServeAddr         string
 	OperatorPrometheusServeAddr string
+	OperatorAPIServeAddr        string
 	ToFQDNsMinTTL               int
 
 	// ToFQDNsProxyPort is the user-configured global, shared, DNS listen port used
@@ -1922,6 +1926,7 @@ func (c *DaemonConfig) Populate() {
 	c.PrependIptablesChains = viper.GetBool(PrependIptablesChainsName)
 	c.PrometheusServeAddr = getPrometheusServerAddr()
 	c.OperatorPrometheusServeAddr = viper.GetString(OperatorPrometheusServeAddr)
+	c.OperatorAPIServeAddr = viper.GetString(OperatorAPIServeAddr)
 	c.ProxyConnectTimeout = viper.GetInt(ProxyConnectTimeout)
 	c.BlacklistConflictingRoutes = viper.GetBool(BlacklistConflictingRoutes)
 	c.ReadCNIConfiguration = viper.GetString(ReadCNIConfiguration)
