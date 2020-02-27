@@ -299,11 +299,11 @@ const (
 	// ParallelAllocWorkers is the default max number of parallel workers doing allocation in the operator
 	ParallelAllocWorkers = 50
 
-	// AWSClientBurst is the default burst value for the AWS client
-	AWSClientBurst = 4
+	// IPAMAPIBurst is the default burst value when rate limiting access to external APIs
+	IPAMAPIBurst = 4
 
-	// AWSClientQPSLimit is the default QPS limit for the AWS client
-	AWSClientQPSLimit = 20.0
+	// IPAMAPIQPSLimit is the default QPS limit when rate limiting access to external APIs
+	IPAMAPIQPSLimit = 20.0
 
 	// AutoCreateCiliumNodeResource enables automatic creation of a
 	// CiliumNode resource for the local node

@@ -32,12 +32,17 @@ func init() {
 
 	flags := rootCmd.Flags()
 
-	// AWS dedicated flags
-	flags.Int(option.AWSClientBurst, defaults.AWSClientBurst, "Burst value allowed for the AWS client used by the AWS ENI IPAM")
-	option.BindEnv(option.AWSClientBurst)
+	flags.Int(option.AWSClientBurstDeprecated, defaults.IPAMAPIBurst, "")
+	flags.MarkDeprecated(option.AWSClientBurstDeprecated, fmt.Sprintf("please use --%s", option.IPAMAPIBurst))
 
-	flags.Float64(option.AWSClientQPSLimit, defaults.AWSClientQPSLimit, "Queries per second limit for the AWS client used by the AWS ENI IPAM")
-	option.BindEnv(option.AWSClientQPSLimit)
+	flags.Int(option.IPAMAPIBurst, defaults.IPAMAPIBurst, "Upper burst limit when accessing external APIs")
+	option.BindEnv(option.IPAMAPIBurst)
+
+	flags.Float64(option.AWSClientQPSLimitDeprecated, defaults.IPAMAPIQPSLimit, "")
+	flags.MarkDeprecated(option.AWSClientQPSLimitDeprecated, fmt.Sprintf("please use --%s", option.IPAMAPIQPSLimit))
+
+	flags.Float64(option.IPAMAPIQPSLimit, defaults.IPAMAPIQPSLimit, "Queries per second limit when accessing external IPAM APIs")
+	option.BindEnv(option.IPAMAPIQPSLimit)
 
 	flags.Var(option.NewNamedMapOptions(option.AwsInstanceLimitMapping, &option.Config.AwsInstanceLimitMapping, nil),
 		option.AwsInstanceLimitMapping,

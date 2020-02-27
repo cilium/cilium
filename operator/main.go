@@ -160,8 +160,8 @@ func runOperator(cmd *cobra.Command) {
 			}
 		}
 		if err := startENIAllocator(
-			option.Config.AWSClientQPSLimit,
-			option.Config.AWSClientBurst,
+			option.Config.IPAMAPIQPSLimit,
+			option.Config.IPAMAPIBurst,
 			option.Config.ENITags); err != nil {
 			log.WithError(err).Fatal("Unable to start ENI allocator")
 		}
