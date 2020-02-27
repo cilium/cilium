@@ -296,8 +296,8 @@ const (
 	// CiliumNode.Spec.ENI.FirstInterfaceIndex if no value is set
 	ENIFirstInterfaceIndex = 1
 
-	// ENIParallelWorkers is the default max number of workers that process ENI operations
-	ENIParallelWorkers = 50
+	// ParallelAllocWorkers is the default max number of parallel workers doing allocation in the operator
+	ParallelAllocWorkers = 50
 
 	// AWSClientBurst is the default burst value for the AWS client
 	AWSClientBurst = 4
