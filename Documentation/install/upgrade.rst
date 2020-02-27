@@ -370,6 +370,14 @@ Deprecated cilium-operator options
   ``parallel-alloc-workers``. The obsolete option name ``eni-parallel-workers``
   has been deprecated and will be removed in v1.9.
 
+* ``aws-client-burst``: This option in the Operator has been renamed to
+  ``limit-ipam-api-burst``. The obsolete option name ``aws-client-burst`` has been
+  deprecated and will be removed in v1.9.
+
+* ``aws-client-qps``: This option in the Operator has been renamed to
+  ``limit-ipam-api-qps``. The obsolete option name ``aws-client-qps`` has been
+  deprecated and will be removed in v1.9.
+
 Removed options
 ~~~~~~~~~~~~~~~
 

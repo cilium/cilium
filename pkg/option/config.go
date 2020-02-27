@@ -680,11 +680,17 @@ const (
 	// IPAMENI is the value to select the AWS ENI IPAM plugin for option.IPAM
 	IPAMENI = "eni"
 
-	// AWSClientQPSLimit is the queries per second limit for the AWS client used by AWS ENI IPAM
-	AWSClientQPSLimit = "aws-client-qps"
+	// IPAMAPIQPSLimit is the queries per second limit when accessing external IPAM APIs
+	IPAMAPIQPSLimit = "limit-ipam-api-qps"
 
-	// AWSClientBurst is the burst value allowed for the AWS client used by the AWS ENI IPAM
-	AWSClientBurst = "aws-client-burst"
+	// AWSClientQPSLimitDeprecated is the deprecated version of IPAMAPIQPSLimit and will be removed in v1.9
+	AWSClientQPSLimitDeprecated = "aws-client-qps"
+
+	// IPAMAPIBurst is the burst value allowed when accessing external IPAM APIs
+	IPAMAPIBurst = "limit-ipam-api-burst"
+
+	// AWSClientBurstDeprecated is the deprecated version of IPAMAPIBurst and will be rewmoved in v1.9
+	AWSClientBurstDeprecated = "aws-client-burst"
 
 	// ENITags are the tags that will be added to every ENI created by the AWS ENI IPAM
 	ENITags = "eni-tags"
@@ -1479,6 +1485,12 @@ type DaemonConfig struct {
 	// UnmanagedPodWatcherInterval is the interval to check for unmanaged kube-dns pods (0 to disable)
 	UnmanagedPodWatcherInterval int
 
+	// IPAMAPIQPSLimit is the queries per second limit when accessing external IPAM APIs
+	IPAMAPIQPSLimit float64
+
+	// IPAMAPIBurst is the burst value allowed when accessing external IPAM APIs
+	IPAMAPIBurst int
+
 	// AWS options
 
 	// ENITags are the tags that will be added to every ENI created by the AWS ENI IPAM
@@ -1496,12 +1508,6 @@ type DaemonConfig struct {
 	// Enabling this option reduces waste of IP addresses but may increase
 	// the number of API calls to AWS EC2 service.
 	AwsReleaseExcessIps bool
-
-	// AWSClientQPSLimit is the queries per second limit for the AWS client used by AWS ENI IPAM
-	AWSClientQPSLimit float64
-
-	// AWSClientBurst is the burst value allowed for the AWS client used by the AWS ENI IPAM
-	AWSClientBurst int
 
 	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2 API to fill out the instnacetype to adapter limit mapping
 	UpdateEC2AdapterLimitViaAPI bool
@@ -1822,8 +1828,6 @@ func (c *DaemonConfig) Populate() {
 	c.AllowLocalhost = viper.GetString(AllowLocalhost)
 	c.AnnotateK8sNode = viper.GetBool(AnnotateK8sNode)
 	c.AutoCreateCiliumNodeResource = viper.GetBool(AutoCreateCiliumNodeResource)
-	c.AWSClientBurst = viper.GetInt(AWSClientBurst)
-	c.AWSClientQPSLimit = viper.GetFloat64(AWSClientQPSLimit)
 	c.BPFCompilationDebug = viper.GetBool(BPFCompileDebugName)
 	c.CTMapEntriesGlobalTCP = viper.GetInt(CTMapEntriesGlobalTCPName)
 	c.CTMapEntriesGlobalAny = viper.GetInt(CTMapEntriesGlobalAnyName)
@@ -2065,6 +2069,18 @@ func (c *DaemonConfig) Populate() {
 		c.ParallelAllocWorkers = val
 	} else {
 		c.ParallelAllocWorkers = viper.GetInt64(ParallelAllocWorkers)
+	}
+
+	if val := viper.GetFloat64(AWSClientQPSLimitDeprecated); val != 0 {
+		c.IPAMAPIQPSLimit = val
+	} else {
+		c.IPAMAPIQPSLimit = viper.GetFloat64(IPAMAPIQPSLimit)
+	}
+
+	if val := viper.GetInt(AWSClientBurstDeprecated); val != 0 {
+		c.IPAMAPIBurst = val
+	} else {
+		c.IPAMAPIBurst = viper.GetInt(IPAMAPIBurst)
 	}
 
 	if c.MonitorQueueSize == 0 {
