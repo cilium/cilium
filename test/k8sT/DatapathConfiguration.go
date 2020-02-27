@@ -280,20 +280,23 @@ var _ = Describe("K8sDatapathConfig", func() {
 			SkipIfIntegration(helpers.CIIntegrationGKE)
 		})
 
-		directRoutingOptions := map[string]string{
-			"global.tunnel":               "disabled",
-			"global.autoDirectNodeRoutes": "true",
-		}
-
 		It("Check connectivity with automatic direct nodes routes", func() {
-			deployCilium(directRoutingOptions)
+			deployCilium(map[string]string{
+				"global.tunnel":               "disabled",
+				"global.autoDirectNodeRoutes": "true",
+			})
+
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
 
 		It("Check direct connectivity with per endpoint routes", func() {
-			directRoutingOptions["global.endpointRoutes.enabled"] = "true"
-			directRoutingOptions["global.ipv6.enabled"] = "false"
-			deployCilium(directRoutingOptions)
+			deployCilium(map[string]string{
+				"global.tunnel":                 "disabled",
+				"global.autoDirectNodeRoutes":   "true",
+				"global.endpointRoutes.enabled": "true",
+				"global.ipv6.enabled":           "false",
+			})
+
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
 
