@@ -540,6 +540,19 @@ func (kub *Kubectl) GetPodsIPs(namespace string, filter string) (map[string]stri
 	return res.KVOutput(), nil
 }
 
+// GetPodsHostIPs returns a map with pod name as a key and host IP name as value. It
+// only gets pods in the given namespace that match the provided filter. It
+// returns an error if pods cannot be retrieved correctly
+func (kub *Kubectl) GetPodsHostIPs(namespace string, label string) (map[string]string, error) {
+	jsonFilter := `{range .items[*]}{@.metadata.name}{"="}{@.status.hostIP}{"\n"}{end}`
+	res := kub.ExecShort(fmt.Sprintf("%s -n %s get pods -l %s -o jsonpath='%s'",
+		KubectlCmd, namespace, label, jsonFilter))
+	if !res.WasSuccessful() {
+		return nil, fmt.Errorf("cannot retrieve pods: %s", res.CombineOutput())
+	}
+	return res.KVOutput(), nil
+}
+
 // GetEndpoints gets all of the endpoints in the given namespace that match the
 // provided filter.
 func (kub *Kubectl) GetEndpoints(namespace string, filter string) *CmdRes {
@@ -665,27 +678,15 @@ func (kub *Kubectl) GetNodeIPByLabel(label string, external bool) (string, error
 }
 
 func (kub *Kubectl) getIfaceByIPAddr(label string, ipAddr string) (string, error) {
-	nodeName, err := kub.GetNodeNameByLabel(label)
-	if err != nil {
-		return "", fmt.Errorf("Cannot get node by label %q", label)
-	}
-
 	cmd := fmt.Sprintf(
 		`ip -j a s  | jq -r '.[] | select(.addr_info[] | .local == "%s") | .ifname'`,
 		ipAddr)
-	res, err := kub.ExecInHostNetNS(context.TODO(), nodeName, cmd)
+	iface, err := kub.ExecInHostNetNSByLabel(context.TODO(), label, cmd)
 	if err != nil {
-		return "", fmt.Errorf("Failed to exec %q cmd on %q node", cmd, nodeName)
-	}
-	if !res.WasSuccessful() {
-		return "", fmt.Errorf("Failed to exec %q cmd on %q node", cmd, nodeName)
-	}
-	iface := strings.Trim(res.GetStdOut(), "\n")
-	if len(iface) == 0 {
-		return "", fmt.Errorf("No iface with %s addr on %q node", ipAddr, nodeName)
+		return "", fmt.Errorf("Failed to retrieve iface by IP addr: %s", err)
 	}
 
-	return iface, nil
+	return strings.Trim(iface, "\n"), nil
 }
 
 // GetServiceHostPort returns the host and the first port for the given service name.
@@ -1555,6 +1556,18 @@ func (kub *Kubectl) waitToDelete(name, label string) error {
 		time.Sleep(1 * time.Second)
 	}
 	return nil
+}
+
+// GetDefaultIface returns an interface name which is used by a default route.
+// Assumes that all nodes have identical interfaces.
+func (kub *Kubectl) GetDefaultIface() (string, error) {
+	cmd := `ip -o r | grep default | grep -o 'dev [a-zA-Z0-9]*' | cut -d' ' -f2`
+	iface, err := kub.ExecInHostNetNSByLabel(context.TODO(), K8s1, cmd)
+	if err != nil {
+		return "", fmt.Errorf("Failed to retrieve default iface: %s", err)
+	}
+
+	return strings.Trim(iface, "\n"), nil
 }
 
 func (kub *Kubectl) DeleteCiliumDS() error {
@@ -2482,7 +2495,7 @@ func (kub *Kubectl) ExecInPods(ctx context.Context, namespace, selector, cmd str
 }
 
 // ExecInHostNetNS runs given command in a pod running in a host network namespace
-func (kub *Kubectl) ExecInHostNetNS(ctx context.Context, node, cmd string) (result *CmdRes, err error) {
+func (kub *Kubectl) ExecInHostNetNS(ctx context.Context, node, cmd string) (*CmdRes, error) {
 	// This is a hack, as we execute the given cmd in the log-gathering pod
 	// which runs in the host netns. Also, the log-gathering pods lack some
 	// packages, e.g. iproute2.
@@ -2490,6 +2503,25 @@ func (kub *Kubectl) ExecInHostNetNS(ctx context.Context, node, cmd string) (resu
 		logGathererSelector(true), node)
 
 	return kub.ExecInFirstPod(ctx, LogGathererNamespace, selector, cmd)
+}
+
+// ExecInHostNetNSByLabel runs given command in a pod running in a host network namespace.
+// The pod's node is identified by the given label.
+func (kub *Kubectl) ExecInHostNetNSByLabel(ctx context.Context, label, cmd string) (string, error) {
+	nodeName, err := kub.GetNodeNameByLabel(label)
+	if err != nil {
+		return "", fmt.Errorf("Cannot get node by label %s", label)
+	}
+
+	res, err := kub.ExecInHostNetNS(ctx, nodeName, cmd)
+	if err != nil {
+		return "", fmt.Errorf("Failed to exec %s cmd on %s node: %s", cmd, nodeName, err)
+	}
+	if !res.WasSuccessful() {
+		return "", fmt.Errorf("Failed to exec %q cmd on %q node: %s", cmd, nodeName, res.GetErr(""))
+	}
+
+	return res.GetStdOut(), nil
 }
 
 // GetCiliumHostIPv4 retrieves cilium_host IPv4 addr of the given node.

@@ -1016,13 +1016,7 @@ var _ = Describe("K8sServicesTest", func() {
 					})
 				})
 
-				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with direct routing and DSR", func() {
-					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-						"global.nodePort.mode":        "dsr",
-						"global.tunnel":               "disabled",
-						"global.autoDirectNodeRoutes": "true",
-					})
-
+				testDSR := func() {
 					var data v1.Service
 					err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
 					Expect(err).Should(BeNil(), "Cannot retrieve service")
@@ -1047,6 +1041,27 @@ var _ = Describe("K8sServicesTest", func() {
 					kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium bpf ct flush global", "Unable to flush CT maps")
 					res = kubectl.CiliumExecContext(context.TODO(), pod, "cilium bpf nat list | grep 64000")
 					res.ExpectFail("NAT entry was not evicted")
+				}
+
+				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with direct routing and DSR", func() {
+					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+						"global.nodePort.mode":        "dsr",
+						"global.tunnel":               "disabled",
+						"global.autoDirectNodeRoutes": "true",
+					})
+
+					testDSR()
+				})
+
+				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with direct routing, DSR and BPF MASQ", func() {
+					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+						"global.nodePort.mode":        "dsr",
+						"global.tunnel":               "disabled",
+						"global.autoDirectNodeRoutes": "true",
+						"global.bpfMasquerade":        "true",
+					})
+
+					testDSR()
 				})
 
 				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing and SNAT", func() {
