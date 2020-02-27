@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 
 // +build !privileged_tests
 
-package ec2
+package helpers
 
 import (
 	"context"
@@ -30,17 +30,17 @@ func Test(t *testing.T) {
 	check.TestingT(t)
 }
 
-type Ec2Suite struct{}
+type HelpersSuite struct{}
 
-var _ = check.Suite(&Ec2Suite{})
+var _ = check.Suite(&HelpersSuite{})
 
-func (e *Ec2Suite) TestRateLimit(c *check.C) {
+func (e *HelpersSuite) TestRateLimit(c *check.C) {
 	metricsAPI := mock.NewMockMetrics()
-	client := NewClient(nil, metricsAPI, 10.0, 4)
-	c.Assert(client, check.Not(check.IsNil))
+	limiter := NewApiLimiter(metricsAPI, 10.0, 4)
+	c.Assert(limiter, check.Not(check.IsNil))
 
 	for i := 0; i < 10; i++ {
-		client.rateLimit(context.TODO(), "test")
+		limiter.Limit(context.TODO(), "test")
 	}
 
 	c.Assert(metricsAPI.RateLimit("test"), check.Not(check.DeepEquals), time.Duration(0))
