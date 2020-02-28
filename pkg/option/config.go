@@ -2004,20 +2004,9 @@ func (c *DaemonConfig) Populate() {
 		log.WithError(err).Fatal("Failed to populate NodePortRange")
 	}
 
-	hostServicesProtos := viper.GetStringSlice(HostReachableServicesProtos)
-	if len(hostServicesProtos) > 2 {
-		log.Fatal("Unable to parse protocols for host reachable services!")
-	}
-	for i := 0; i < len(hostServicesProtos); i++ {
-		switch strings.ToLower(hostServicesProtos[i]) {
-		case HostServicesTCP:
-			c.EnableHostServicesTCP = true
-		case HostServicesUDP:
-			c.EnableHostServicesUDP = true
-		default:
-			log.Fatalf("Unable to parse protocol %s for host reachable services!",
-				hostServicesProtos[i])
-		}
+	err = c.populateHostServicesProtos()
+	if err != nil {
+		log.WithError(err).Fatal("Failed to populate HostReachableServicesProtos")
 	}
 
 	monitorAggregationFlags := viper.GetStringSlice(MonitorAggregationFlags)
@@ -2126,6 +2115,11 @@ func (c *DaemonConfig) Populate() {
 
 func (c *DaemonConfig) populateNodePortRange() error {
 	nodePortRange := viper.GetStringSlice(NodePortRange)
+	// When passed via configmap, we might not get a slice but single
+	// string instead, so split it if needed.
+	if len(nodePortRange) == 1 {
+		nodePortRange = strings.Split(nodePortRange[0], ",")
+	}
 	switch len(nodePortRange) {
 	case 2:
 		var err error
@@ -2145,6 +2139,32 @@ func (c *DaemonConfig) populateNodePortRange() error {
 		log.Warning("NodePort range was set but is empty.")
 	default:
 		return fmt.Errorf("Unable to parse min/max port value for NodePort range: %s", NodePortRange)
+	}
+
+	return nil
+}
+
+func (c *DaemonConfig) populateHostServicesProtos() error {
+	hostServicesProtos := viper.GetStringSlice(HostReachableServicesProtos)
+	// When passed via configmap, we might not get a slice but single
+	// string instead, so split it if needed.
+	if len(hostServicesProtos) == 1 {
+		hostServicesProtos = strings.Split(hostServicesProtos[0], ",")
+	}
+	if len(hostServicesProtos) > 2 {
+		return fmt.Errorf("More than two protocols for host reachable services not supported: %s",
+			hostServicesProtos)
+	}
+	for i := 0; i < len(hostServicesProtos); i++ {
+		switch strings.ToLower(hostServicesProtos[i]) {
+		case HostServicesTCP:
+			c.EnableHostServicesTCP = true
+		case HostServicesUDP:
+			c.EnableHostServicesUDP = true
+		default:
+			return fmt.Errorf("Protocol other than %s,%s not supported for host reachable services: %s",
+				HostServicesTCP, HostServicesUDP, hostServicesProtos[i])
+		}
 	}
 
 	return nil
