@@ -70,6 +70,11 @@ Users (Alphabetically)
       D: Palantir is using Cilium as their main CNI plugin in AWS (self hosted k8s).
       U: ENI networking, L3/L4 policies, FQDN based policy, FQDN filtering
       Q: ungureanuvladvictor
+      
+    * N: Radio France
+      D: Radio France is using Cilium in their production clusters (self-hosted k8s with kops on AWS)
+      U: Mainly Service load-balancing
+      Q: @francoisj
 
     * N: Rapyuta Robotics.
       D: Rapyuta is using cilium as their main CNI plugin. (self hosted k8s)
