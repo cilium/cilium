@@ -338,6 +338,7 @@ generate-k8s-api:
 	maps:eventsmap\
 	maps:fragmap\
 	maps:ipcache\
+	maps:ipmasq\
 	maps:lbmap\
 	maps:lxcmap\
 	maps:metricsmap\
