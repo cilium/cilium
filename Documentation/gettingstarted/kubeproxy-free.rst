@@ -318,7 +318,8 @@ cilium_host device or loopback address, e.g. ``127.0.0.1:NODE_PORT``.
 
 If ``kube-apiserver`` was configured to use a non-default NodePort port range,
 then the same range must be passed to Cilium via the ``global.nodePort.range``
-option.
+option, for example, as ``--set global.nodePort.range="10000\,32767"`` for a
+range of ``10000-32767``. The default Kubernetes NodePort range is ``30000-32767``.
 
 kube-proxy Hybrid Modes
 ***********************
