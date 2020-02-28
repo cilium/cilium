@@ -229,8 +229,8 @@ func (s *SSHMeta) ExecContext(ctx context.Context, cmd string, options ...ExecOp
 		} else {
 			// Log other error types. They are likely from SSH or the network
 			log.WithError(err).Errorf("Error executing command '%s'", cmd)
-			res.err = err
 		}
+		res.err = err
 	}
 
 	res.SendToLog(ops.SkipLog)
@@ -305,6 +305,9 @@ func (s *SSHMeta) ExecInBackground(ctx context.Context, cmd string, options ...E
 				if res.exitcode == 130 {
 					res.success = true
 				}
+			}
+			if !res.success {
+				res.err = err
 			}
 		} else {
 			res.success = true
