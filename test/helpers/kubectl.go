@@ -853,11 +853,11 @@ func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
 	ginkgoext.By("Deleting namespace %s", name)
 	res := kub.DeleteAllInNamespace(name)
 	if !res.WasSuccessful() {
-		kub.Logger().Infof("Error while deleting all objects from %s ns: %s", name, res.GetError().Error())
+		kub.Logger().Infof("Error while deleting all objects from %s ns: %s", name, res.GetError())
 	}
 	res = kub.ExecShort(fmt.Sprintf("%s delete namespace %s", KubectlCmd, name))
 	if !res.WasSuccessful() {
-		kub.Logger().Infof("Error while deleting ns %s: %s", name, res.GetError().Error())
+		kub.Logger().Infof("Error while deleting ns %s: %s", name, res.GetError())
 	}
 	return kub.ExecShort(fmt.Sprintf(
 		"%[1]s get namespace %[2]s -o json | tr -d \"\\n\" | sed \"s/\\\"finalizers\\\": \\[[^]]\\+\\]/\\\"finalizers\\\": []/\" | %[1]s replace --raw /api/v1/namespaces/%[2]s/finalize -f -", KubectlCmd, name))
