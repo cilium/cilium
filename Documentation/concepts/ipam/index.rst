@@ -12,6 +12,16 @@ Address Management
 
 Cilium supports multiple different address management modes:
 
+Cilium Container Networking Control Flow
+========================================
+
+The control flow picture below gives an overview about how the containers
+obtain its IP Address from the IPAM/Kubernetes Cluster Node from different
+modes of Address Management that Cilium Supports.
+
+.. image:: cilium_container_networking_control_flow.png
+    :align: center
+
 .. toctree::
    :maxdepth: 1
    :glob:
