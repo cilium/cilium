@@ -326,6 +326,15 @@ const (
 	// Masquerade packets from endpoints leaving the host with BPF instead of iptables
 	EnableBPFMasquerade = "enable-bpf-masquerade"
 
+	// EnableIPMasqAgent enables BPF ip-masq-agent
+	EnableIPMasqAgent = "enable-ip-masq-agent"
+
+	// IPMasqAgentConfigPath is the configuration file path
+	IPMasqAgentConfigPath = "ip-masq-agent-config-path"
+
+	// IPMasqAgentSyncPeriod is the configuration file synchronization period
+	IPMasqAgentSyncPeriod = "ip-masq-agent-sync-period"
+
 	// InstallIptRules sets whether Cilium should install any iptables in general
 	InstallIptRules = "install-iptables-rules"
 
@@ -1534,6 +1543,9 @@ type DaemonConfig struct {
 	// leaving the host.
 	Masquerade                  bool
 	EnableBPFMasquerade         bool
+	EnableIPMasqAgent           bool
+	IPMasqAgentConfigPath       string
+	IPMasqAgentSyncPeriod       time.Duration
 	InstallIptRules             bool
 	MonitorAggregation          string
 	PreAllocateMaps             bool
@@ -2385,6 +2397,9 @@ func (c *DaemonConfig) Populate() {
 	c.LoopbackIPv4 = viper.GetString(LoopbackIPv4)
 	c.Masquerade = viper.GetBool(Masquerade)
 	c.EnableBPFMasquerade = viper.GetBool(EnableBPFMasquerade)
+	c.EnableIPMasqAgent = viper.GetBool(EnableIPMasqAgent)
+	c.IPMasqAgentConfigPath = viper.GetString(IPMasqAgentConfigPath)
+	c.IPMasqAgentSyncPeriod = viper.GetDuration(IPMasqAgentSyncPeriod)
 	c.IdentityHeartbeatTimeout = viper.GetDuration(IdentityHeartbeatTimeout)
 	c.InstallIptRules = viper.GetBool(InstallIptRules)
 	c.IPSecKeyFile = viper.GetString(IPSecKeyFileName)

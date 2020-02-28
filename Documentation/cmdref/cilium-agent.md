@@ -61,6 +61,7 @@ cilium-agent [flags]
       --enable-host-port                              Enable k8s hostPort mapping feature (requires enabling enable-node-port) (default true)
       --enable-host-reachable-services                Enable reachability of services for host applications (beta)
       --enable-hubble                                 Enable hubble server
+      --enable-ip-masq-agent                          Enable BPF ip-masq-agent
       --enable-ipsec                                  Enable IPSec support
       --enable-ipv4                                   Enable IPv4 support (default true)
       --enable-ipv4-fragment-tracking                 Enable IPv4 fragments tracking for L4-based lookups (default true)
@@ -103,6 +104,8 @@ cilium-agent [flags]
       --identity-change-grace-period duration         Time to wait before using new identity on endpoint identity change (default 5s)
       --install-iptables-rules                        Install base iptables rules for cilium to mainly interact with kube-proxy (and masquerading) (default true)
       --ip-allocation-timeout duration                Time after which an incomplete CIDR allocation is considered failed (default 2m0s)
+      --ip-masq-agent-config-path string              ip-masq-agent configuration file path (default "/etc/config/ip-masq-agent")
+      --ip-masq-agent-sync-period duration            ip-masq-agent configuration file synchronization period (default 1m0s)
       --ipam string                                   Backend to use for IPAM (default "hostscope-legacy")
       --ipsec-key-file string                         Path to IPSec key file
       --ipv4-node string                              IPv4 address of node (default "auto")
