@@ -32,7 +32,7 @@ struct nat_entry {
 
 #define NAT_CONTINUE_XLATE 	0
 
-#ifdef HAVE_LRU_MAP_TYPE
+#ifdef HAVE_LRU_HASH_MAP_TYPE
 # define NAT_MAP_TYPE BPF_MAP_TYPE_LRU_HASH
 #else
 # define NAT_MAP_TYPE BPF_MAP_TYPE_HASH
@@ -120,7 +120,7 @@ struct bpf_elf_map __section_maps SNAT_MAPPING_IPV4 = {
 	.size_value	= sizeof(struct ipv4_nat_entry),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= SNAT_MAPPING_IPV4_SIZE,
-#ifndef HAVE_LRU_MAP_TYPE
+#ifndef HAVE_LRU_HASH_MAP_TYPE
 	.flags		= CONDITIONAL_PREALLOC,
 #endif
 };
@@ -584,7 +584,7 @@ struct bpf_elf_map __section_maps SNAT_MAPPING_IPV6 = {
 	.size_value	= sizeof(struct ipv6_nat_entry),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= SNAT_MAPPING_IPV6_SIZE,
-#ifndef HAVE_LRU_MAP_TYPE
+#ifndef HAVE_LRU_HASH_MAP_TYPE
 	.flags		= CONDITIONAL_PREALLOC,
 #endif
 };

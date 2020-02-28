@@ -18,7 +18,7 @@
 #include "lib/eps.h"
 #include "lib/events.h"
 
-#ifndef HAVE_LPM_MAP_TYPE
+#ifndef HAVE_LPM_TRIE_MAP_TYPE
 # undef CIDR4_LPM_PREFILTER
 # undef CIDR6_LPM_PREFILTER
 #endif
