@@ -205,7 +205,7 @@ static __always_inline __be32 compute_icmp6_csum(char data[80], __u16 payload_le
 	return sum;
 }
 
-#ifdef HAVE_SKB_CHANGE_TAIL
+#if HAVE_PROG_TYPE_HELPER(sched_cls, bpf_skb_change_tail)
 static __always_inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 						      int nh_off)
 {
@@ -292,7 +292,7 @@ static __always_inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED)
 int tail_icmp6_send_time_exceeded(struct __ctx_buff *ctx)
 {
-#ifdef HAVE_SKB_CHANGE_TAIL
+#if HAVE_PROG_TYPE_HELPER(sched_cls, bpf_skb_change_tail)
 	int ret, nh_off = ctx_load_meta(ctx, 0);
 	__u8 direction  = ctx_load_meta(ctx, 1);
 
