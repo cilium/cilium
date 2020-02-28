@@ -429,7 +429,7 @@ func (m *Map) OpenParallel() (bool, error) {
 // support for this map type, then the map will be opened as MapTypeHash
 // instead. Note that the BPF code that interacts with this map *MUST* be
 // structured in such a way that the map is declared as the same type based on
-// the same probe logic (eg HAVE_LRU_MAP_TYPE, HAVE_LPM_MAP_TYPE).
+// the same probe logic (eg HAVE_LRU_HASH_MAP_TYPE, HAVE_LPM_TRIE_MAP_TYPE).
 //
 // For code that uses an LPMTrie, the BPF code must also use macros to retain
 // the "longest prefix match" behaviour on top of the hash maps, for example
