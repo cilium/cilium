@@ -537,6 +537,15 @@ func init() {
 	flags.Bool(option.EnableBPFMasquerade, false, "Masquerade packets from endpoints leaving the host with BPF instead of iptables")
 	option.BindEnv(option.EnableBPFMasquerade)
 
+	flags.Bool(option.EnableIPMasqAgent, false, "Enable BPF ip-masq-agent")
+	option.BindEnv(option.EnableIPMasqAgent)
+
+	flags.String(option.IPMasqAgentConfigPath, "/etc/config/ip-masq-agent", "ip-masq-agent configuration file path")
+	option.BindEnv(option.IPMasqAgentConfigPath)
+
+	flags.Duration(option.IPMasqAgentSyncPeriod, 60*time.Second, "ip-masq-agent configuration file synchronization period")
+	option.BindEnv(option.IPMasqAgentSyncPeriod)
+
 	flags.Bool(option.InstallIptRules, true, "Install base iptables rules for cilium to mainly interact with kube-proxy (and masquerading)")
 	option.BindEnv(option.InstallIptRules)
 
@@ -1016,6 +1025,18 @@ func initEnv(cmd *cobra.Command) {
 		if option.Config.EgressMasqueradeInterfaces != "" {
 			log.Fatalf("BPF masquerade does not allow to specify devices via --%s", option.EgressMasqueradeInterfaces)
 		}
+	} else if option.Config.EnableIPMasqAgent {
+		log.Fatal("BPF ip-masq-agent requires --masquerade=\"true\" and --enable-bpf-masquerade=\"true\"")
+	}
+
+	if option.Config.EnableIPMasqAgent {
+		if !option.Config.EnableIPv4 {
+			log.Fatal("BPF ip-masq-agent works only in IPv4")
+		}
+		// TODO(brb) the probe seems to be broken on kernel 5.5.6 (EPERM)
+		//if !probe.HaveFullLPM() {
+		//	log.Fatal("BPF ip-masq-agent needs kernel 4.16 or newer")
+		//}
 	}
 
 	// If device has been specified, use it to derive better default
