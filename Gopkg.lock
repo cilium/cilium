@@ -1207,7 +1207,7 @@
   revision = "13995c7128ccc8e51e9a6bd2b551020a27180abd"
 
 [[projects]]
-  digest = "1:9c0cd2472b75950e8c07d3317bbe031ab4ceea0ec37903538dc9dcbebd6cd861"
+  digest = "1:21152aabda0e0b8d5a3d7c16bf432ebd379bc43dd752a84ab9c45a4885470e01"
   name = "go.etcd.io/etcd"
   packages = [
     "auth/authpb",
@@ -1233,7 +1233,7 @@
     "raft/tracker",
   ]
   pruneopts = "NUT"
-  revision = "v3.4.0"
+  revision = "v3.4.4"
 
 [[projects]]
   digest = "1:cc9d86ec4e6e3bdf87e3a421273bfeed003cf8e21351c0302fe8b0eb7b10efe6"
