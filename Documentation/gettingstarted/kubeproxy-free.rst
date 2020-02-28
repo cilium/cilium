@@ -445,3 +445,7 @@ Limitations
       situation.
     * Kubernetes Service sessionAffinity is currently not implemented.
       This will be addressed via `GH issue 9076 <https://github.com/cilium/cilium/issues/9076>`__.
+    * The BPF kube-proxy replacement currently cannot be used in combination with CNI chaining
+      e.g. deployed as ``--set global.cni.chainingMode=portmap``. Future Cilium versions are
+      going to provide native portmap support via BPF and therefore without the need for chaining;
+      tracked via `GH issue 10359 <https://github.com/cilium/cilium/issues/10359>`__.
