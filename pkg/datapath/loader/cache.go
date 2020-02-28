@@ -57,6 +57,7 @@ var ignoredELFPrefixes = []string{
 	"cilium_snat",                // All SNAT maps
 	"cilium_tunnel",              // Global
 	"cilium_ipv4_frag_datagrams", // Global
+	"cilium_ipmasq",              // Global
 	"from-container",             // Prog name
 	"to-container",               // Prog name
 	// Endpoint IPv6 address. It's possible for the template object to have
