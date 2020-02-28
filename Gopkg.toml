@@ -110,7 +110,7 @@ required = [
 
 [[constraint]]
   name = "go.etcd.io/etcd"
-  revision = "v3.4.0"
+  revision = "v3.4.4"
 
   # main-usage = "pkg/kvstore"
   # on-revision = ""
