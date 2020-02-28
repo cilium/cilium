@@ -51,7 +51,7 @@ LB_OPTIONS = \
 # These options are intended to max out the BPF program complexity. it is load
 # tested as well.
 MAX_LB_OPTIONS = -DENABLE_IPV4 -DENABLE_IPV6 -DLB_L3 -DLB_L4 \
-	-DENABLE_HOST_SERVICES_TCP -DENABLE_HOST_SERVICES_TCP -DENABLE_NODEPORT \
+	-DENABLE_HOST_SERVICES_TCP -DENABLE_HOST_SERVICES_UDP -DENABLE_NODEPORT \
 	-DENABLE_EXTERNAL_IP
 
 bpf_sock.ll: bpf_sock.c $(LIB)
