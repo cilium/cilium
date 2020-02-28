@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/maps/fragmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
+	"github.com/cilium/cilium/pkg/maps/ipmasq"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
@@ -281,6 +282,11 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 		if option.Config.EnableBPFMasquerade {
 			cDefinesMap["ENABLE_MASQUERADE"] = "1"
+		}
+
+		if option.Config.EnableIPMasqAgent {
+			cDefinesMap["ENABLE_IP_MASQ_AGENT"] = "1"
+			cDefinesMap["IP_MASQ_AGENT_IPV4"] = ipmasq.MapName
 		}
 
 		ctmap.WriteBPFMacros(fw, nil)

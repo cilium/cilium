@@ -159,6 +159,9 @@ const (
 	// V6Prefix is a IPv6 subnet/CIDR prefix
 	V6Prefix = "v6Prefix"
 
+	// CIDR is a IPv4/IPv4 subnet/CIDR
+	CIDR = "cidr"
+
 	// Interface is an interface id/name on the system
 	Interface = "interface"
 

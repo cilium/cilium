@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/maps/fragmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
+	"github.com/cilium/cilium/pkg/maps/ipmasq"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
@@ -416,6 +417,12 @@ func (d *Daemon) initMaps() error {
 	ipcache.IPIdentityCache.SetListeners([]ipcache.IPIdentityMappingListener{
 		datapathIpcache.NewListener(d, d),
 	})
+
+	if option.Config.EnableIPv4 && option.Config.EnableIPMasqAgent {
+		if _, err := ipmasq.IPMasq4Map.OpenOrCreate(); err != nil {
+			return err
+		}
+	}
 
 	// Start the controller for periodic sync of the metrics map with
 	// the prometheus server.

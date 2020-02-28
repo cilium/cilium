@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipmasq"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -1271,6 +1272,13 @@ func runDaemon() {
 		err := node.SetInternalIPv4From(option.Config.FlannelMasterDevice)
 		if err != nil {
 			log.WithError(err).WithField("device", option.Config.FlannelMasterDevice).Fatal("Unable to set internal IPv4")
+		}
+	}
+
+	if option.Config.EnableIPMasqAgent {
+		if err := ipmasq.Start(option.Config.IPMasqAgentConfigPath,
+			option.Config.IPMasqAgentSyncPeriod); err != nil {
+			log.WithError(err).Fatal("ip-masq-agent failed to start")
 		}
 	}
 
