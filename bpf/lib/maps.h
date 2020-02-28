@@ -88,13 +88,13 @@ struct bpf_elf_map __section_maps TUNNEL_MAP = {
 
 #endif
 
-#ifdef HAVE_LPM_MAP_TYPE
+#ifdef HAVE_LPM_TRIE_MAP_TYPE
 #define LPM_MAP_TYPE BPF_MAP_TYPE_LPM_TRIE
 #else
 #define LPM_MAP_TYPE BPF_MAP_TYPE_HASH
 #endif
 
-#ifndef HAVE_LPM_MAP_TYPE
+#ifndef HAVE_LPM_TRIE_MAP_TYPE
 /* Define a function with the following NAME which iterates through PREFIXES
  * (a list of integers ordered from high to low representing prefix length),
  * performing a lookup in MAP using LOOKUP_FN to find a provided IP of type
@@ -113,7 +113,7 @@ _Pragma("unroll")							\
 									\
 	return 0;							\
 }
-#endif /* HAVE_LPM_MAP_TYPE */
+#endif /* HAVE_LPM_TRIE_MAP_TYPE */
 
 #ifndef SKIP_UNDEF_LPM_LOOKUP_FN
 #undef LPM_LOOKUP_FN

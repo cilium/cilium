@@ -14,7 +14,7 @@
 #include <bpf_features.h>
 
 // FIXME: GH-3239 LRU logic is not handling timeouts gracefully enough
-// #ifndef HAVE_LRU_MAP_TYPE
+// #ifndef HAVE_LRU_HASH_MAP_TYPE
 // #define NEEDS_TIMEOUT 1
 // #endif
 #define NEEDS_TIMEOUT 1
