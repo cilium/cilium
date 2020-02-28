@@ -484,7 +484,7 @@ required = [
 
 [[constraint]]
   name = "google.golang.org/grpc"
-  revision = "v1.17.0"
+  revision = "v1.23.1"
 
   # main-usage = "pkg/envoy, pkg/workloads and proxylib/npds"
   # on-revision = "TODO GH-7290 @aanm upgrade once https://github.com/grpc/grpc-go/issues/2636 is fixed"
