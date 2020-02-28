@@ -1,7 +1,7 @@
 Restart remaining pods
 ======================
 
-If you did not use the ``--set global.restartPods=true`` flag above, you will
+If you did not use the ``--set nodeinit.restartPods=true`` flag above, you will
 need to restart pods in the ``kube-system`` namespace manually at a later time,
 to ensure they can be managed by Cilium:
 
