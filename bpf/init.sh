@@ -546,11 +546,11 @@ if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$MODE" = "routed" ] ||
 		fi
 
 		bpf_load $NATIVE_DEV "$COPTS" "ingress" bpf_netdev.c bpf_netdev.o "from-netdev" $CALLS_MAP
-		if [ "$MASQ" = "true" ] || [ "$NODE_PORT" = "true" ]; then
-			bpf_load $NATIVE_DEV "$COPTS" "egress" bpf_netdev.c bpf_netdev.o "to-netdev" $CALLS_MAP
-		else
-			bpf_unload $NATIVE_DEV "egress"
-		fi
+		#if [ "$MASQ" = "true" ] || [ "$NODE_PORT" = "true" ]; then
+		#	bpf_load $NATIVE_DEV "$COPTS" "egress" bpf_netdev.c bpf_netdev.o "to-netdev" $CALLS_MAP
+		#else
+		#	bpf_unload $NATIVE_DEV "egress"
+		#fi
 
 		echo "$NATIVE_DEV" > $RUNDIR/device.state
 	fi
