@@ -159,6 +159,19 @@ spec:
               fi
 {{- end }}
 
+{{- if .Values.reconfigureKubelet }}
+              # GKE: Alter the kubelet configuration to run in CNI mode
+              echo "Changing kubelet configuration to --network-plugin=cni --cni-bin-dir={{ .Values.global.cni.binPath }}"
+              mkdir -p {{ .Values.global.cni.binPath }}
+              sed -i "s:--network-plugin=kubenet:--network-plugin=cni\ --cni-bin-dir={{ .Values.global.cni.binPath }}:g" /etc/default/kubelet
+              echo "Restarting kubelet..."
+              systemctl restart kubelet
+{{- end }}
+
+{{- if not (eq .Values.global.nodeinit.bootstrapFile "") }}
+              date > {{ .Values.global.nodeinit.bootstrapFile }}
+{{- end }}
+
 {{- if .Values.restartPods }}
               echo "Restarting kubenet managed pods"
               if grep -q 'docker' /etc/crictl.yaml; then
@@ -183,19 +196,6 @@ spec:
                 # COS-beta (with containerd)
                 for f in `find /var/lib/cni/networks/ -type f ! -name lock ! -name last_reserved_ip.0`; do crictl stopp $(cat $f) || true; done
               fi
-{{- end }}
-
-{{- if .Values.reconfigureKubelet }}
-              # GKE: Alter the kubelet configuration to run in CNI mode
-              echo "Changing kubelet configuration to --network-plugin=cni --cni-bin-dir={{ .Values.global.cni.binPath }}"
-              mkdir -p {{ .Values.global.cni.binPath }}
-              sed -i "s:--network-plugin=kubenet:--network-plugin=cni\ --cni-bin-dir={{ .Values.global.cni.binPath }}:g" /etc/default/kubelet
-              echo "Restarting kubelet..."
-              systemctl restart kubelet
-{{- end }}
-
-{{- if not (eq .Values.global.nodeinit.bootstrapFile "") }}
-              date > {{ .Values.global.nodeinit.bootstrapFile }}
 {{- end }}
 
 {{- if .Values.revertReconfigureKubelet }}
