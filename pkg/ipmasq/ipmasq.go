@@ -20,10 +20,18 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ipmasq"
+)
+
+var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipmasq")
 )
 
 // ipnet is a wrapper type for net.IPNet to enable de-serialization of CIDRs
@@ -83,13 +91,15 @@ func (a *IPMasqAgent) Update() error {
 
 	for cidrStr, cidr := range a.nonMasqCIDRsInMap {
 		if _, ok := a.nonMasqCIDRsFromConfig[cidrStr]; !ok {
+			log.WithField(logfields.CIDR, cidrStr).Info("Removing CIDR")
 			ipmasq.Delete(cidr)
-			delete(a.nonMasqCIDRsFromConfig, cidrStr)
+			delete(a.nonMasqCIDRsInMap, cidrStr)
 		}
 	}
 
 	for cidrStr, cidr := range a.nonMasqCIDRsFromConfig {
 		if _, ok := a.nonMasqCIDRsInMap[cidrStr]; !ok {
+			log.WithField(logfields.CIDR, cidrStr).Info("Adding CIDR")
 			ipmasq.Update(cidr)
 			a.nonMasqCIDRsInMap[cidrStr] = cidr
 		}
@@ -105,6 +115,11 @@ func (a *IPMasqAgent) readConfig() error {
 
 	raw, err := ioutil.ReadFile(a.configPath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			log.WithField(logfields.Path, a.configPath).Info("Config file not found")
+			a.nonMasqCIDRsFromConfig = map[string]net.IPNet{}
+			return nil
+		}
 		return fmt.Errorf("Failed to read %s: %s", a.configPath, err)
 	}
 
