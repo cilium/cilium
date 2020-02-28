@@ -142,6 +142,7 @@ data:
 
   masquerade: "true"
 
+  enable-xt-socket-fallback: "true"
   install-iptables-rules: "true"
   auto-direct-node-routes: "false"
   enable-node-port: "false"
