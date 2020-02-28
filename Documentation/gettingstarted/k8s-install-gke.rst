@@ -67,7 +67,7 @@ Prepare & Deploy Cilium
 Deploy Cilium release via Helm:
 
 If you are ready to restart existing pods when initializing the node, you can
-also pass the ``--set global.restartPods`` flag to the ``helm`` command
+also pass the ``--set nodeinit.restartPods`` flag to the ``helm`` command
 below. This will ensure all pods are managed by Cilium.
 
 .. parsed-literal::
