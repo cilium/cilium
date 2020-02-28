@@ -324,6 +324,7 @@ generate-k8s-api:
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"k8s:types")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:policymap")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:ipcache")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:ipmasq")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:lxcmap")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:tunnel")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:encrypt")
