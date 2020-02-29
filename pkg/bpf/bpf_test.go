@@ -21,17 +21,17 @@ import (
 )
 
 func (s *BPFTestSuite) TestDefaultMapFlags(c *C) {
-	c.Assert(GetPreAllocateMapFlags(BPF_MAP_TYPE_LPM_TRIE), Equals, uint32(BPF_F_NO_PREALLOC))
-	c.Assert(GetPreAllocateMapFlags(BPF_MAP_TYPE_ARRAY), Equals, uint32(0))
-	c.Assert(GetPreAllocateMapFlags(BPF_MAP_TYPE_LRU_HASH), Equals, uint32(0))
+	c.Assert(GetPreAllocateMapFlags(MapTypeLPMTrie), Equals, uint32(BPF_F_NO_PREALLOC))
+	c.Assert(GetPreAllocateMapFlags(MapTypeArray), Equals, uint32(0))
+	c.Assert(GetPreAllocateMapFlags(MapTypeLRUHash), Equals, uint32(0))
 
-	c.Assert(GetPreAllocateMapFlags(BPF_MAP_TYPE_HASH), Equals, uint32(BPF_F_NO_PREALLOC))
+	c.Assert(GetPreAllocateMapFlags(MapTypeHash), Equals, uint32(BPF_F_NO_PREALLOC))
 	EnableMapPreAllocation()
-	c.Assert(GetPreAllocateMapFlags(BPF_MAP_TYPE_HASH), Equals, uint32(0))
+	c.Assert(GetPreAllocateMapFlags(MapTypeHash), Equals, uint32(0))
 
-	c.Assert(GetPreAllocateMapFlags(BPF_MAP_TYPE_LPM_TRIE), Equals, uint32(BPF_F_NO_PREALLOC))
-	c.Assert(GetPreAllocateMapFlags(BPF_MAP_TYPE_ARRAY), Equals, uint32(0))
-	c.Assert(GetPreAllocateMapFlags(BPF_MAP_TYPE_LRU_HASH), Equals, uint32(0))
+	c.Assert(GetPreAllocateMapFlags(MapTypeLPMTrie), Equals, uint32(BPF_F_NO_PREALLOC))
+	c.Assert(GetPreAllocateMapFlags(MapTypeArray), Equals, uint32(0))
+	c.Assert(GetPreAllocateMapFlags(MapTypeLRUHash), Equals, uint32(0))
 }
 
 func (s *BPFTestSuite) TestPreallocationFlags(c *C) {

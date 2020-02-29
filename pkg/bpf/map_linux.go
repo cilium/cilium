@@ -159,7 +159,7 @@ func NewMap(name string, mapType MapType, mapKey MapKey, keySize int, mapValue M
 func NewPerCPUHashMap(name string, mapKey MapKey, keySize int, mapValue MapValue, valueSize, cpus, maxEntries int, flags uint32, innerID uint32, dumpParser DumpParser) *Map {
 	m := &Map{
 		MapInfo: MapInfo{
-			MapType:       BPF_MAP_TYPE_PERCPU_HASH,
+			MapType:       MapTypePerCPUHash,
 			MapKey:        mapKey,
 			KeySize:       uint32(keySize),
 			MapValue:      mapValue,
@@ -470,7 +470,7 @@ func (m *Map) openOrCreate(pin bool) (bool, error) {
 
 	mapType := GetMapType(m.MapType)
 	flags := m.Flags | GetPreAllocateMapFlags(mapType)
-	fd, isNew, err := OpenOrCreateMap(m.path, int(mapType), m.KeySize, m.ValueSize, m.MaxEntries, flags, m.InnerID, pin)
+	fd, isNew, err := OpenOrCreateMap(m.path, mapType, m.KeySize, m.ValueSize, m.MaxEntries, flags, m.InnerID, pin)
 	if err != nil {
 		return false, err
 	}
@@ -1088,7 +1088,7 @@ func (m *Map) CheckAndUpgrade(desired *MapInfo) bool {
 	return objCheck(
 		m.fd,
 		m.path,
-		int(desiredMapType),
+		desiredMapType,
 		desired.KeySize,
 		desired.ValueSize,
 		desired.MaxEntries,

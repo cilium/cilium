@@ -162,7 +162,7 @@ func NewMap(name string) *Map {
 	return &Map{
 		Map: *bpf.NewMap(
 			name,
-			bpf.BPF_MAP_TYPE_LPM_TRIE,
+			bpf.MapTypeLPMTrie,
 			&Key{},
 			int(unsafe.Sizeof(Key{})),
 			&RemoteEndpointInfo{},
@@ -244,7 +244,7 @@ func SupportsDelete() bool {
 // BackedByLPM returns true if the IPCache is backed by a proper LPM
 // implementation (provided by Linux kernels 4.11 or later), false otherwise.
 func BackedByLPM() bool {
-	return IPCache.MapType == bpf.BPF_MAP_TYPE_LPM_TRIE
+	return IPCache.MapType == bpf.MapTypeLPMTrie
 }
 
 var (
