@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/color"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -32,8 +31,7 @@ type VerifyFunc func(key string, value string) error
 // cannot be parsed or applied.
 type ParseFunc func(value string) (OptionSetting, error)
 
-// FormatFunc formats the specified value as a colored textual representation
-// of the option.
+// FormatFunc formats the specified value as textual representation option.
 type FormatFunc func(value OptionSetting) string
 
 // Option is the structure used to specify the semantics of a configurable
@@ -373,9 +371,9 @@ func (o *IntOptions) Dump() {
 		_, option := o.Library.Lookup(k)
 		if option == nil || option.Format == nil {
 			if o.Opts[k] == OptionDisabled {
-				text = color.Red("Disabled")
+				text = "Disabled"
 			} else {
-				text = color.Green("Enabled")
+				text = "Enabled"
 			}
 		} else {
 			text = option.Format(o.Opts[k])

@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/color"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -48,23 +47,6 @@ type Status struct {
 	Msg   string     `json:"msg"`
 	Type  StatusType `json:"status-type"`
 	State string     `json:"state"`
-}
-
-func (sc StatusCode) ColorString() string {
-	var text string
-	switch sc {
-	case OK:
-		text = color.Green("OK")
-	case Warning:
-		text = color.Yellow("Warning")
-	case Failure:
-		text = color.Red("Failure")
-	case Disabled:
-		text = color.Yellow("Disabled")
-	default:
-		text = "Unknown code"
-	}
-	return fmt.Sprintf("%s", text)
 }
 
 func (sc StatusCode) String() string {
