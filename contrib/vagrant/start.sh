@@ -339,7 +339,6 @@ EOF
     esac
 
     cilium_options+=" ${TUNNEL_MODE_STRING}"
-    cilium_options+=" --access-log=/var/log/cilium-access.log"
 
 cat <<EOF >> "$filename"
 sleep 2s

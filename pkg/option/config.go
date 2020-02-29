@@ -48,9 +48,6 @@ var (
 )
 
 const (
-	// AccessLog is the path to access log of supported L7 requests observed
-	AccessLog = "access-log"
-
 	// AgentLabels are additional labels to identify this agent
 	AgentLabels = "agent-labels"
 
@@ -986,9 +983,6 @@ type DaemonConfig struct {
 	// Monitor contains the configuration for the node monitor.
 	Monitor *models.MonitorStatus
 
-	// AccessLog is the path to the access log of supported L7 requests observed.
-	AccessLog string
-
 	// AgentLabels contains additional labels to identify this agent in monitor events.
 	AgentLabels []string
 
@@ -1838,7 +1832,6 @@ func (c *DaemonConfig) parseExcludedLocalAddresses(s []string) error {
 func (c *DaemonConfig) Populate() {
 	var err error
 
-	c.AccessLog = viper.GetString(AccessLog)
 	c.AgentLabels = viper.GetStringSlice(AgentLabels)
 	c.AllowICMPFragNeeded = viper.GetBool(AllowICMPFragNeeded)
 	c.AllowLocalhost = viper.GetString(AllowLocalhost)
