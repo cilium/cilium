@@ -146,35 +146,35 @@ func InitMapInfo(tcpMaxEntries, anyMaxEntries int, v4, v6 bool) {
 		MapTypeIPv6AnyGlobal: global6Map,
 	}
 
-	setupMapInfo(MapType(MapTypeIPv4TCPLocal), "CT_MAP_TCP4",
+	setupMapInfo(MapTypeIPv4TCPLocal, "CT_MAP_TCP4",
 		&CtKey4{}, int(unsafe.Sizeof(CtKey4{})),
 		MapNumEntriesLocal, natMaps[MapTypeIPv4TCPLocal])
 
-	setupMapInfo(MapType(MapTypeIPv6TCPLocal), "CT_MAP_TCP6",
+	setupMapInfo(MapTypeIPv6TCPLocal, "CT_MAP_TCP6",
 		&CtKey6{}, int(unsafe.Sizeof(CtKey6{})),
 		MapNumEntriesLocal, natMaps[MapTypeIPv6TCPLocal])
 
-	setupMapInfo(MapType(MapTypeIPv4TCPGlobal), "CT_MAP_TCP4",
+	setupMapInfo(MapTypeIPv4TCPGlobal, "CT_MAP_TCP4",
 		&CtKey4Global{}, int(unsafe.Sizeof(CtKey4Global{})),
 		tcpMaxEntries, natMaps[MapTypeIPv4TCPGlobal])
 
-	setupMapInfo(MapType(MapTypeIPv6TCPGlobal), "CT_MAP_TCP6",
+	setupMapInfo(MapTypeIPv6TCPGlobal, "CT_MAP_TCP6",
 		&CtKey6Global{}, int(unsafe.Sizeof(CtKey6Global{})),
 		tcpMaxEntries, natMaps[MapTypeIPv6TCPGlobal])
 
-	setupMapInfo(MapType(MapTypeIPv4AnyLocal), "CT_MAP_ANY4",
+	setupMapInfo(MapTypeIPv4AnyLocal, "CT_MAP_ANY4",
 		&CtKey4{}, int(unsafe.Sizeof(CtKey4{})),
 		MapNumEntriesLocal, natMaps[MapTypeIPv4AnyLocal])
 
-	setupMapInfo(MapType(MapTypeIPv6AnyLocal), "CT_MAP_ANY6",
+	setupMapInfo(MapTypeIPv6AnyLocal, "CT_MAP_ANY6",
 		&CtKey6{}, int(unsafe.Sizeof(CtKey6{})),
 		MapNumEntriesLocal, natMaps[MapTypeIPv6AnyLocal])
 
-	setupMapInfo(MapType(MapTypeIPv4AnyGlobal), "CT_MAP_ANY4",
+	setupMapInfo(MapTypeIPv4AnyGlobal, "CT_MAP_ANY4",
 		&CtKey4Global{}, int(unsafe.Sizeof(CtKey4Global{})),
 		anyMaxEntries, natMaps[MapTypeIPv4AnyGlobal])
 
-	setupMapInfo(MapType(MapTypeIPv6AnyGlobal), "CT_MAP_ANY6",
+	setupMapInfo(MapTypeIPv6AnyGlobal, "CT_MAP_ANY6",
 		&CtKey6Global{}, int(unsafe.Sizeof(CtKey6Global{})),
 		anyMaxEntries, natMaps[MapTypeIPv6AnyGlobal])
 }

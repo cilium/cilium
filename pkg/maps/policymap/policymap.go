@@ -252,7 +252,7 @@ func (pm *PolicyMap) DumpToSlice() (PolicyEntriesDump, error) {
 }
 
 func newMap(path string) *PolicyMap {
-	mapType := bpf.MapType(bpf.BPF_MAP_TYPE_HASH)
+	mapType := bpf.MapTypeHash
 	flags := bpf.GetPreAllocateMapFlags(mapType)
 	return &PolicyMap{
 		Map: bpf.NewMap(
