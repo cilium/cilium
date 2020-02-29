@@ -60,8 +60,8 @@ var (
 // for testing purposes.
 func CreateWithName(mapName string) error {
 	buildMap.Do(func() {
-		mapType := bpf.MapType(bpf.BPF_MAP_TYPE_HASH)
-		fd, err := bpf.CreateMap(bpf.BPF_MAP_TYPE_HASH,
+		mapType := bpf.MapTypeHash
+		fd, err := bpf.CreateMap(mapType,
 			uint32(unsafe.Sizeof(policymap.PolicyKey{})),
 			uint32(unsafe.Sizeof(policymap.PolicyEntry{})),
 			uint32(policymap.MaxEntries),

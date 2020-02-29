@@ -39,7 +39,7 @@ import (
 // When mapType is the type HASH_OF_MAPS an innerID is required to point at a
 // map fd which has the same type/keySize/valueSize/maxEntries as expected map
 // entries. For all other mapTypes innerID is ignored and should be zeroed.
-func CreateMap(mapType int, keySize, valueSize, maxEntries, flags, innerID uint32, path string) (int, error) {
+func CreateMap(mapType MapType, keySize, valueSize, maxEntries, flags, innerID uint32, path string) (int, error) {
 	// This struct must be in sync with union bpf_attr's anonymous struct
 	// used by the BPF_MAP_CREATE command
 	uba := struct {
@@ -400,7 +400,7 @@ func ObjClose(fd int) error {
 	return nil
 }
 
-func objCheck(fd int, path string, mapType int, keySize, valueSize, maxEntries, flags uint32) bool {
+func objCheck(fd int, path string, mapType MapType, keySize, valueSize, maxEntries, flags uint32) bool {
 	info, err := GetMapInfo(os.Getpid(), fd)
 	if err != nil {
 		return false
@@ -409,10 +409,10 @@ func objCheck(fd int, path string, mapType int, keySize, valueSize, maxEntries, 
 	scopedLog := log.WithField(logfields.Path, path)
 	mismatch := false
 
-	if int(info.MapType) != mapType {
+	if info.MapType != mapType {
 		scopedLog.WithFields(logrus.Fields{
 			"old": info.MapType,
-			"new": MapType(mapType),
+			"new": mapType,
 		}).Warning("Map type mismatch for BPF map")
 		mismatch = true
 	}
@@ -465,7 +465,7 @@ func objCheck(fd int, path string, mapType int, keySize, valueSize, maxEntries, 
 	return false
 }
 
-func OpenOrCreateMap(path string, mapType int, keySize, valueSize, maxEntries, flags uint32, innerID uint32, pin bool) (int, bool, error) {
+func OpenOrCreateMap(path string, mapType MapType, keySize, valueSize, maxEntries, flags uint32, innerID uint32, pin bool) (int, bool, error) {
 	var fd int
 
 	redo := false
