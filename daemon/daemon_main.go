@@ -194,9 +194,6 @@ func init() {
 	})
 
 	// Env bindings
-	flags.String(option.AccessLog, "", "Path to access log of supported L7 requests observed")
-	option.BindEnv(option.AccessLog)
-
 	flags.StringSlice(option.AgentLabels, []string{}, "Additional labels to identify this agent")
 	option.BindEnv(option.AgentLabels)
 

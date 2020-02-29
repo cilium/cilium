@@ -326,6 +326,8 @@ Deprecated options
 * ``keep-bpf-templates``: This option no longer has any effect due to the BPF
   assets not being compiled into the cilium-agent binary anymore. The option is
   deprecated and will be removed in Cilium 1.9.
+* ``access-log``: L7 access logs have been available via Hubble since Cilium
+  1.6. The ``access-log`` option to log to a file has been removed.
 
 Renamed Metrics
 ~~~~~~~~~~~~~~~

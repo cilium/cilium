@@ -15,7 +15,6 @@
 package logger
 
 import (
-	"encoding/json"
 	"net"
 	"strconv"
 	"time"
@@ -29,16 +28,13 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
 	"github.com/sirupsen/logrus"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "proxy-logger")
 
 	logMutex lock.Mutex
-	logger   *lumberjack.Logger
 	notifier LogRecordNotifier
-	logPath  string
 	metadata []string
 )
 
@@ -320,21 +316,10 @@ func (lr *LogRecord) getLogFields() *logrus.Entry {
 	return fields
 }
 
-func (lr *LogRecord) getRawLogMessage() []byte {
-	b, err := json.Marshal(*lr)
-	if err != nil {
-		return []byte(err.Error())
-	}
-
-	return append(b, byte('\n'))
-}
-
 // Log logs a record to the logfile and flushes the buffer
 func (lr *LogRecord) Log() {
 	flowdebug.Log(lr.getLogFields(), "Logging flow record")
 
-	// Lock while writing access log so we serialize writes as we may have
-	// to reopen the logfile and parallel writes could fail because of that
 	logMutex.Lock()
 	defer logMutex.Unlock()
 
@@ -343,47 +328,12 @@ func (lr *LogRecord) Log() {
 	if notifier != nil {
 		notifier.NewProxyLogRecord(lr)
 	}
-
-	if logger == nil {
-		flowdebug.Log(log.WithField(FieldFilePath, logPath),
-			"Skipping writing to access log (logger nil)")
-		return
-	}
-
-	if _, err := logger.Write(lr.getRawLogMessage()); err != nil {
-		log.WithError(err).WithField(FieldFilePath, logPath).
-			Errorf("Error writing to access file")
-	}
-}
-
-// Called with lock held
-func openLogfileLocked(lf string) error {
-	logPath = lf
-	log.WithField(FieldFilePath, logPath).Info("Opened access log")
-
-	logger = &lumberjack.Logger{
-		Filename:   lf,
-		MaxSize:    100, // megabytes
-		MaxBackups: 3,
-		MaxAge:     28,   //days
-		Compress:   true, // disabled by default
-	}
-
-	return nil
 }
 
 // LogRecordNotifier is the interface to implement LogRecord notifications
 type LogRecordNotifier interface {
 	// NewProxyLogRecord is called for each new log record
 	NewProxyLogRecord(l *LogRecord) error
-}
-
-// OpenLogfile opens a file for logging
-func OpenLogfile(lf string) error {
-	logMutex.Lock()
-	defer logMutex.Unlock()
-
-	return openLogfileLocked(lf)
 }
 
 // SetNotifier sets the notifier to call for all L7 records

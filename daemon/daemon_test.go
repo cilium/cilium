@@ -75,7 +75,6 @@ func setupTestDirectories() {
 	option.Config.Device = "undefined"
 	option.Config.RunDir = tempRunDir
 	option.Config.StateDir = tempRunDir
-	option.Config.AccessLog = filepath.Join(tempRunDir, "cilium-access.log")
 }
 
 func TestMain(m *testing.M) {
