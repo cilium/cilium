@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,13 +15,14 @@
 package k8s
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
-	"strconv"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -93,37 +94,11 @@ func ParseNode(k8sNode *types.Node, source source.Source) *node.Node {
 		addrs = append(addrs, na)
 	}
 
-	k8sNodeAddHostIP := func(annotation string) {
-		if ciliumInternalIP, ok := k8sNode.Annotations[annotation]; !ok || ciliumInternalIP == "" {
-			scopedLog.Debugf("Missing %s. Annotation required when IPSec Enabled", annotation)
-		} else if ip := net.ParseIP(ciliumInternalIP); ip == nil {
-			scopedLog.Debugf("ParseIP %s error", ciliumInternalIP)
-		} else {
-			na := node.Address{
-				Type: addressing.NodeCiliumInternalIP,
-				IP:   ip,
-			}
-			addrs = append(addrs, na)
-			scopedLog.Debugf("Add NodeCiliumInternalIP: %s", ip)
-		}
-	}
-
-	k8sNodeAddHostIP(annotation.CiliumHostIP)
-	k8sNodeAddHostIP(annotation.CiliumHostIPv6)
-
-	encryptKey := uint8(0)
-	if key, ok := k8sNode.Annotations[annotation.CiliumEncryptionKey]; ok {
-		if u, err := strconv.ParseUint(key, 10, 8); err == nil {
-			encryptKey = uint8(u)
-		}
-	}
-
 	newNode := &node.Node{
-		Name:          k8sNode.Name,
-		Cluster:       option.Config.ClusterName,
-		IPAddresses:   addrs,
-		Source:        source,
-		EncryptionKey: encryptKey,
+		Name:        k8sNode.Name,
+		Cluster:     option.Config.ClusterName,
+		IPAddresses: addrs,
+		Source:      source,
 	}
 
 	if len(k8sNode.SpecPodCIDRs) != 0 {
@@ -182,26 +157,6 @@ func ParseNode(k8sNode *types.Node, source source.Source) *node.Node {
 		}
 	}
 
-	if newNode.IPv4HealthIP == nil {
-		if healthIP, ok := k8sNode.Annotations[annotation.V4HealthName]; !ok || healthIP == "" {
-			scopedLog.Debug("Empty IPv4 health endpoint annotation in node")
-		} else if ip := net.ParseIP(healthIP); ip == nil {
-			scopedLog.WithField(logfields.V4HealthIP, healthIP).Error("BUG, invalid IPv4 health endpoint annotation in node")
-		} else {
-			newNode.IPv4HealthIP = ip
-		}
-	}
-
-	if newNode.IPv6HealthIP == nil {
-		if healthIP, ok := k8sNode.Annotations[annotation.V6HealthName]; !ok || healthIP == "" {
-			scopedLog.Debug("Empty IPv6 health endpoint annotation in node")
-		} else if ip := net.ParseIP(healthIP); ip == nil {
-			scopedLog.WithField(logfields.V6HealthIP, healthIP).Error("BUG, invalid IPv6 health endpoint annotation in node")
-		} else {
-			newNode.IPv6HealthIP = ip
-		}
-	}
-
 	return newNode
 }
 
@@ -212,10 +167,7 @@ func GetNode(c kubernetes.Interface, nodeName string) (*v1.Node, error) {
 	return c.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
 }
 
-// SetNodeNetworkUnavailableFalse sets Kubernetes NodeNetworkUnavailable to
-// false as Cilium is managing the network connectivity.
-// https://kubernetes.io/docs/concepts/architecture/nodes/#condition
-func SetNodeNetworkUnavailableFalse(c kubernetes.Interface, nodeName string) error {
+func setNodeNetworkUnavailableFalse(c kubernetes.Interface, nodeName string) error {
 	condition := v1.NodeCondition{
 		Type:               v1.NodeNetworkUnavailable,
 		Status:             v1.ConditionFalse,
@@ -231,4 +183,18 @@ func SetNodeNetworkUnavailableFalse(c kubernetes.Interface, nodeName string) err
 	patch := []byte(fmt.Sprintf(`{"status":{"conditions":%s}}`, raw))
 	_, err = c.CoreV1().Nodes().PatchStatus(nodeName, patch)
 	return err
+}
+
+// SetNodeNetworkUnavailableFalse sets Kubernetes NodeNetworkUnavailable to
+// false as Cilium is managing the network connectivity.
+// https://kubernetes.io/docs/concepts/architecture/nodes/#condition
+func (k8sCli K8sClient) SetNodeNetworkUnavailableFalse(nodeName string) {
+	log.WithField(logfields.NodeName, nodeName).Info("Marking v1.Node networking as available")
+
+	controller.NewManager().UpdateController("k8s-patch-node-network-available",
+		controller.ControllerParams{
+			DoFunc: func(_ context.Context) error {
+				return setNodeNetworkUnavailableFalse(k8sCli, nodeName)
+			},
+		})
 }

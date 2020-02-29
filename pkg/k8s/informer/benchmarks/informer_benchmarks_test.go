@@ -23,7 +23,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 
@@ -537,10 +536,7 @@ func (k *K8sIntegrationSuite) benchmarkInformer(nCycles int, newInformer bool, c
 }
 
 func OldEqualV1Node(node1, node2 *v1.Node) bool {
-	// The only information we care about the node is it's annotations, in
-	// particularly the CiliumHostIP annotation.
-	return node1.GetObjectMeta().GetName() == node2.GetObjectMeta().GetName() &&
-		node1.GetAnnotations()[annotation.CiliumHostIP] == node2.GetAnnotations()[annotation.CiliumHostIP]
+	return node1.GetObjectMeta().GetName() == node2.GetObjectMeta().GetName()
 }
 
 func OldCopyObjToV1Node(obj interface{}) *v1.Node {

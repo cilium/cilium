@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,25 +29,6 @@ const (
 	// V6CIDRName is the annotation name used to store the IPv6
 	// pod CIDR in the node's annotations.
 	V6CIDRName = Prefix + ".network.ipv6-pod-cidr"
-
-	// V4HealthName is the annotation name used to store the IPv4
-	// address of the cilium-health endpoint in the node's annotations.
-	V4HealthName = Prefix + ".network.ipv4-health-ip"
-	// V6HealthName is the annotation name used to store the IPv6
-	// address of the cilium-health endpoint in the node's annotations.
-	V6HealthName = Prefix + ".network.ipv6-health-ip"
-
-	// CiliumHostIP is the annotation name used to store the IPv4 address
-	// of the cilium host interface in the node's annotations.
-	CiliumHostIP = Prefix + ".network.ipv4-cilium-host"
-
-	// CiliumHostIPv6 is the annotation name used to store the IPv6 address
-	// of the cilium host interface in the node's annotation.
-	CiliumHostIPv6 = Prefix + ".network.ipv6-cilium-host"
-
-	// CiliumEncryptionKey is the annotation name used to store the encryption
-	// key of the cilium host interface in the node's annotation.
-	CiliumEncryptionKey = Prefix + ".network.encryption-key"
 
 	// GlobalService if set to true, marks a service to become a global
 	// service

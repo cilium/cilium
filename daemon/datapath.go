@@ -364,21 +364,21 @@ func (d *Daemon) initMaps() error {
 	return nil
 }
 
-func setupIPSec() (int, uint8, error) {
+func setupIPSec() (int, error) {
 	if !option.Config.EncryptNode {
 		ipsec.DeleteIPsecEncryptRoute()
 	}
 
 	if !option.Config.EnableIPSec {
-		return 0, 0, nil
+		return 0, nil
 	}
 
 	authKeySize, spi, err := ipsec.LoadIPSecKeysFile(option.Config.IPSecKeyFile)
 	if err != nil {
-		return 0, 0, err
+		return 0, err
 	}
 	node.SetIPsecKeyIdentity(spi)
-	return authKeySize, spi, nil
+	return authKeySize, nil
 }
 
 // Datapath returns a reference to the datapath implementation.

@@ -73,10 +73,6 @@ const (
 	// disabled.
 	AllowLocalhostPolicy = "policy"
 
-	// AnnotateK8sNode enables annotating a kubernetes node while bootstrapping
-	// the daemon, which can also be disbled using this option.
-	AnnotateK8sNode = "annotate-k8s-node"
-
 	// AwsInstanceLimitMapping allows overwirting AWS instance limits defined in
 	// pkg/aws/eni/limits.go
 	// e.g. {"a1.medium": "2,4,4", "a2.custom2": "4,5,6"}
@@ -1321,9 +1317,6 @@ type DaemonConfig struct {
 	// EnableEndpointRoutes enables use of per endpoint routes
 	EnableEndpointRoutes bool
 
-	// Specifies wheather to annotate the kubernetes nodes or not
-	AnnotateK8sNode bool
-
 	// RunMonitorAgent indicates whether to run the monitor agent
 	RunMonitorAgent bool
 
@@ -1524,7 +1517,6 @@ var (
 		BlacklistConflictingRoutes:   defaults.BlacklistConflictingRoutes,
 		ForceLocalPolicyEvalAtSource: defaults.ForceLocalPolicyEvalAtSource,
 		EnableEndpointRoutes:         defaults.EnableEndpointRoutes,
-		AnnotateK8sNode:              defaults.AnnotateK8sNode,
 		K8sServiceCacheSize:          defaults.K8sServiceCacheSize,
 		AutoCreateCiliumNodeResource: defaults.AutoCreateCiliumNodeResource,
 		IdentityAllocationMode:       IdentityAllocationModeKVstore,
@@ -1808,7 +1800,6 @@ func (c *DaemonConfig) Populate() {
 	c.AgentLabels = viper.GetStringSlice(AgentLabels)
 	c.AllowICMPFragNeeded = viper.GetBool(AllowICMPFragNeeded)
 	c.AllowLocalhost = viper.GetString(AllowLocalhost)
-	c.AnnotateK8sNode = viper.GetBool(AnnotateK8sNode)
 	c.AutoCreateCiliumNodeResource = viper.GetBool(AutoCreateCiliumNodeResource)
 	c.AWSClientBurst = viper.GetInt(AWSClientBurst)
 	c.AWSClientQPSLimit = viper.GetFloat64(AWSClientQPSLimit)
