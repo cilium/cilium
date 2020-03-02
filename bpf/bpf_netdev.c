@@ -103,7 +103,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr *dst;
-	int ret, l4_off, l3_off = ETH_HLEN, hdrlen;
+	int ret, l3_off = ETH_HLEN, hdrlen;
 	struct endpoint_info *ep;
 	__u8 nexthdr;
 	__u32 secctx;
@@ -130,8 +130,6 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	hdrlen = ipv6_hdrlen(ctx, l3_off, &nexthdr);
 	if (hdrlen < 0)
 		return hdrlen;
-
-	l4_off = l3_off + hdrlen;
 
 #ifdef HANDLE_NS
 	if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
@@ -185,7 +183,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		if (ep->flags & ENDPOINT_F_HOST)
 			return CTX_ACT_OK;
 
-		return ipv6_local_delivery(ctx, l3_off, l4_off, secctx, ip6, nexthdr, ep, METRIC_INGRESS);
+		return ipv6_local_delivery(ctx, l3_off, secctx, ep, METRIC_INGRESS);
 	}
 
 #ifdef ENCAP_IFINDEX

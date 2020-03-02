@@ -24,7 +24,7 @@
 static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 				       __u32 *identity)
 {
-	int ret, l4_off, l3_off = ETH_HLEN, hdrlen;
+	int ret, l3_off = ETH_HLEN, hdrlen;
 	void *data_end, *data;
 	struct ipv6hdr *ip6;
 	struct bpf_tunnel_key key = {};
@@ -106,8 +106,7 @@ not_esp:
 		if (hdrlen < 0)
 			return hdrlen;
 
-		l4_off = l3_off + hdrlen;
-		return ipv6_local_delivery(ctx, l3_off, l4_off, key.tunnel_id, ip6, nexthdr, ep, METRIC_INGRESS);
+		return ipv6_local_delivery(ctx, l3_off, key.tunnel_id, ep, METRIC_INGRESS);
 	}
 
 to_host:
