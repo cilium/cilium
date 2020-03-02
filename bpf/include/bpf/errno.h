@@ -18,11 +18,20 @@
 #ifndef ENOMEM
 # define ENOMEM		12
 #endif
+#ifndef EFAULT
+# define EFAULT		14
+#endif
+#ifndef EINVAL
+# define EINVAL		22
+#endif
 #ifndef ENOTSUP
 # define ENOTSUP	95
 #endif
 #ifndef EADDRINUSE
 # define EADDRINUSE	98
+#endif
+#ifndef ENOTSUPP
+# define ENOTSUPP	524
 #endif
 
 #endif /* __BPF_ERRNO__ */

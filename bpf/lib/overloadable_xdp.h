@@ -43,7 +43,11 @@ set_encrypt_key_cb(struct xdp_md *ctx, __u8 key)
 static __always_inline __maybe_unused __overloadable int
 redirect_self(struct xdp_md *ctx)
 {
+#ifdef ENABLE_HOST_REDIRECT
+	return XDP_TX;
+#else
 	return -ENOTSUP;
+#endif
 }
 
 #endif /* __LIB_OVERLOADABLE_XDP_H_ */

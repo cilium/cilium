@@ -21,7 +21,6 @@
 #include "metrics.h"
 
 #ifdef DROP_NOTIFY
-
 struct drop_notify {
 	NOTIFY_CAPTURE_HDR
 	__u32		src_label;
@@ -30,9 +29,11 @@ struct drop_notify {
 	__u32		unused;
 };
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_DROP_NOTIFY) int __send_drop_notify(struct __ctx_buff *ctx)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_DROP_NOTIFY)
+int __send_drop_notify(struct __ctx_buff *ctx)
 {
-	__u64 ctx_len = (__u64)ctx->len, cap_len = min((__u64)TRACE_PAYLOAD_LEN, (__u64)ctx_len);
+	__u64 ctx_len = (__u64)ctx_full_len(ctx);
+	__u64 cap_len = min((__u64)TRACE_PAYLOAD_LEN, (__u64)ctx_len);
 	__u32 hash = get_hash_recalc(ctx);
 	struct drop_notify msg = {
 		.type = CILIUM_NOTIFY_DROP,
@@ -41,24 +42,22 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_DROP_NOTIFY) int __send_drop_notify
 		.len_orig = ctx_len,
 		.len_cap = cap_len,
 		.version = NOTIFY_CAPTURE_VER,
-		.src_label = ctx->cb[0],
-		.dst_label = ctx->cb[1],
-		.dst_id = ctx->cb[3],
+		.src_label = ctx_load_meta(ctx, 0),
+		.dst_label = ctx_load_meta(ctx, 1),
+		.dst_id = ctx_load_meta(ctx, 3),
 		.unused = 0,
 	};
-	// mask needed to calm verifier
-	int error = ctx->cb[2] & 0xFFFFFFFF;
+	/* Mask needed to calm verifier. */
+	int error = ctx_load_meta(ctx, 2) & 0xFFFFFFFF;
 
 	if (error < 0)
 		error = -error;
-
 	msg.subtype = error;
 
 	ctx_event_output(ctx, &EVENTS_MAP,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
-
-	return ctx->cb[4];
+	return ctx_load_meta(ctx, 4);
 }
 
 /**
@@ -78,14 +77,13 @@ static __always_inline int send_drop_notify(struct __ctx_buff *ctx, __u32 src,
 					    __u32 dst, __u32 dst_id, int reason,
 					    int exitcode, __u8 direction)
 {
-	ctx->cb[0] = src;
-	ctx->cb[1] = dst;
-	ctx->cb[2] = reason;
-	ctx->cb[3] = dst_id;
-	ctx->cb[4] = exitcode;
+	ctx_store_meta(ctx, 0, src);
+	ctx_store_meta(ctx, 1, dst);
+	ctx_store_meta(ctx, 2, reason);
+	ctx_store_meta(ctx, 3, dst_id);
+	ctx_store_meta(ctx, 4, exitcode);
 
-	update_metrics(ctx->len, direction, -reason);
-
+	update_metrics(ctx_full_len(ctx), direction, -reason);
 	ep_tail_call(ctx, CILIUM_CALL_DROP_NOTIFY);
 
 	return exitcode;
@@ -95,10 +93,10 @@ static __always_inline int send_drop_notify(struct __ctx_buff *ctx, __u32 src,
 					    __u32 dst, __u32 dst_id, int reason,
 					    int exitcode, __u8 direction)
 {
-	update_metrics(ctx->len, direction, -reason);
+	update_metrics(ctx_full_len(ctx), direction, -reason);
 	return exitcode;
 }
-#endif
+#endif /* DROP_NOTIFY */
 
 static __always_inline int send_drop_notify_error(struct __ctx_buff *ctx, __u32 src,
 						  int error, int exitcode,

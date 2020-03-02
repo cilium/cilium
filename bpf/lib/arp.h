@@ -62,20 +62,19 @@ static __always_inline int arp_respond(struct __ctx_buff *ctx, union macaddr *ma
 		return CTX_ACT_OK;
 
 	arp_eth = data + ETH_HLEN + sizeof(*arp);
-
 	if (arp_check(eth, arp, mac)) {
 		__be32 target_ip = arp_eth->ar_tip;
 		ret = arp_prepare_response(ctx, eth, arp_eth, target_ip, mac);
 		if (unlikely(ret != 0))
 			goto error;
 
-		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, ctx->ifindex);
-		return redirect(ctx->ifindex, direction);
+		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY,
+				   ctx_get_ifindex(ctx));
+		return ctx_redirect(ctx, ctx_get_ifindex(ctx), direction);
 	}
 
 	/* Pass any unknown ARP requests to the Linux stack */
 	return CTX_ACT_OK;
-
 error:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 }

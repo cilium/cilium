@@ -26,7 +26,8 @@ struct bpf_elf_map __section_maps CALLS_MAP = {
 	.max_elem	= CALLS_MAP_ID,
 };
 
-__section_tail(CALLS_MAP_ID, 0) int tail_lxc_prog(struct __sk_buff *skb) {
+__section_tail(CALLS_MAP_ID, 0)
+int tail_lxc_prog(struct __sk_buff *skb) {
 	return TC_ACT_OK;
 }
 

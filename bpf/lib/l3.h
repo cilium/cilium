@@ -80,15 +80,15 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 	 * Note that the packet could still be dropped but it would show up
 	 * as an ingress drop counter in metrics.
 	 */
-	update_metrics(ctx->len, direction, REASON_FORWARDED);
+	update_metrics(ctx_full_len(ctx), direction, REASON_FORWARDED);
 #endif
 
 #if defined USE_BPF_PROG_FOR_INGRESS_POLICY && !defined FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
 	ctx->mark = (seclabel << 16) | MARK_MAGIC_IDENTITY;
 	return redirect_peer(ep->ifindex, 0);
 #else
-	ctx->cb[CB_SRC_LABEL] = seclabel;
-	ctx->cb[CB_IFINDEX] = ep->ifindex;
+	ctx_store_meta(ctx, CB_SRC_LABEL, seclabel);
+	ctx_store_meta(ctx, CB_IFINDEX, ep->ifindex);
 	tail_call(ctx, &POLICY_CALL_MAP, ep->lxc_id);
 	return DROP_MISSED_TAIL_CALL;
 #endif
@@ -116,15 +116,15 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 	 * Note that the packet could still be dropped but it would show up
 	 * as an ingress drop counter in metrics.
 	 */
-	update_metrics(ctx->len, direction, REASON_FORWARDED);
+	update_metrics(ctx_full_len(ctx), direction, REASON_FORWARDED);
 #endif
 
 #if defined USE_BPF_PROG_FOR_INGRESS_POLICY && !defined FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
 	ctx->mark = (seclabel << 16) | MARK_MAGIC_IDENTITY;
 	return redirect_peer(ep->ifindex, 0);
 #else
-	ctx->cb[CB_SRC_LABEL] = seclabel;
-	ctx->cb[CB_IFINDEX] = ep->ifindex;
+	ctx_store_meta(ctx, CB_SRC_LABEL, seclabel);
+	ctx_store_meta(ctx, CB_IFINDEX, ep->ifindex);
 	tail_call(ctx, &POLICY_CALL_MAP, ep->lxc_id);
 	return DROP_MISSED_TAIL_CALL;
 #endif

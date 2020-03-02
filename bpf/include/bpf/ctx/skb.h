@@ -4,7 +4,11 @@
 #ifndef __BPF_CTX_SKB_H_
 #define __BPF_CTX_SKB_H_
 
+#define __ctx_buff		__sk_buff
+#define __ctx_is		__ctx_skb
+
 #include "common.h"
+#include "../helpers_skb.h"
 
 #ifndef TC_ACT_OK
 # define TC_ACT_OK		0
@@ -18,33 +22,64 @@
 # define TC_ACT_REDIRECT	7
 #endif
 
-#define __ctx_buff		__sk_buff
-
 #define CTX_ACT_OK		TC_ACT_OK
 #define CTX_ACT_DROP		TC_ACT_SHOT
 #define CTX_ACT_TX		TC_ACT_REDIRECT
 
-#define ctx_under_cgroup	skb_under_cgroup
-#define ctx_load_bytes_relative	skb_load_bytes_relative
+#define META_PIVOT		field_sizeof(struct __sk_buff, cb)
+
 #define ctx_load_bytes		skb_load_bytes
 #define ctx_store_bytes		skb_store_bytes
+
 #define ctx_adjust_room		skb_adjust_room
+
 #define ctx_change_type		skb_change_type
 #define ctx_change_proto	skb_change_proto
 #define ctx_change_tail		skb_change_tail
+
 #define ctx_pull_data		skb_pull_data
-#define ctx_vlan_push		skb_vlan_push
-#define ctx_vlan_pop		skb_vlan_pop
+
 #define ctx_get_tunnel_key	skb_get_tunnel_key
 #define ctx_set_tunnel_key	skb_set_tunnel_key
-#define ctx_get_tunnel_opt	skb_get_tunnel_opt
-#define ctx_set_tunnel_opt	skb_set_tunnel_opt
+
 #define ctx_event_output	skb_event_output
+
+#define ctx_adjust_meta		({ -ENOTSUPP; })
+
+static __always_inline __maybe_unused __overloadable int
+ctx_redirect(struct __sk_buff *ctx, int ifindex, __u32 flags)
+{
+	return redirect(ifindex, flags);
+}
 
 static __always_inline __maybe_unused __overloadable __u32
 ctx_full_len(struct __sk_buff *ctx)
 {
 	return ctx->len;
+}
+
+static __always_inline __maybe_unused __overloadable void
+ctx_store_meta(struct __sk_buff *ctx, const __u32 off, __u32 data)
+{
+	ctx->cb[off] = data;
+}
+
+static __always_inline __maybe_unused __overloadable __u32
+ctx_load_meta(struct __sk_buff *ctx, const __u32 off)
+{
+	return ctx->cb[off];
+}
+
+static __always_inline __maybe_unused __overloadable __u32
+ctx_get_protocol(struct __sk_buff *ctx)
+{
+	return ctx->protocol;
+}
+
+static __always_inline __maybe_unused __overloadable __u32
+ctx_get_ifindex(struct __sk_buff *ctx)
+{
+	return ctx->ifindex;
 }
 
 #endif /* __BPF_CTX_SKB_H_ */

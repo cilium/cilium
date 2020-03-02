@@ -16,7 +16,15 @@
 #endif
 
 #ifndef offsetof
-# define offsetof(TYPE, MEMBER)	__builtin_offsetof(TYPE, MEMBER)
+# define offsetof(T, M)		__builtin_offsetof(T, M)
+#endif
+
+#ifndef field_sizeof
+# define field_sizeof(T, M)	sizeof((((T *)NULL)->M))
+#endif
+
+#ifndef __packed
+# define __packed		__attribute__((packed))
 #endif
 
 #ifndef likely
@@ -59,7 +67,7 @@ static __always_inline void bpf_barrier(void)
 }
 
 #ifndef ARRAY_SIZE
-# define ARRAY_SIZE(arr)	(sizeof(arr) / sizeof((arr)[0]))
+# define ARRAY_SIZE(A)		(sizeof(A) / sizeof((A)[0]))
 #endif
 
 #ifndef __READ_ONCE

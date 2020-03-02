@@ -6,6 +6,7 @@
 
 #include <linux/bpf.h>
 
+#include "ctx/ctx.h"
 #include "compiler.h"
 
 #ifndef BPF_FUNC
@@ -13,13 +14,21 @@
 	(* NAME)(__VA_ARGS__) __maybe_unused = (void *)BPF_FUNC_##NAME
 #endif
 
+#ifndef BPF_STUB
+# define BPF_STUB(NAME, ...)						\
+	(* NAME##__stub)(__VA_ARGS__) __maybe_unused = (void *)((__u32)-1)
+#endif
+
 #ifndef BPF_FUNC_REMAP
 # define BPF_FUNC_REMAP(NAME, ...)					\
 	(* NAME)(__VA_ARGS__) __maybe_unused
 #endif
 
-#include "helpers_skb.h"
-#include "helpers_xdp.h"
+#if __ctx_is == __ctx_skb
+# include "helpers_skb.h"
+#else
+# include "helpers_xdp.h"
+#endif
 
 /* Map access/manipulation */
 static void *BPF_FUNC(map_lookup_elem, void *map, const void *key);
