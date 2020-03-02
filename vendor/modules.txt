@@ -194,7 +194,8 @@ github.com/docker/docker/pkg/longpath
 github.com/docker/docker/pkg/plugingetter
 github.com/docker/docker/pkg/plugins
 github.com/docker/docker/pkg/plugins/transport
-# github.com/docker/go-connections v0.3.0
+# github.com/docker/go-connections v0.4.0
+## explicit
 github.com/docker/go-connections/nat
 github.com/docker/go-connections/sockets
 github.com/docker/go-connections/tlsconfig
@@ -211,7 +212,8 @@ github.com/docker/libnetwork/types
 # github.com/emicklei/go-restful v2.9.5+incompatible
 github.com/emicklei/go-restful
 github.com/emicklei/go-restful/log
-# github.com/envoyproxy/protoc-gen-validate v0.1.0
+# github.com/envoyproxy/protoc-gen-validate v0.3.0-java
+## explicit
 github.com/envoyproxy/protoc-gen-validate/validate
 # github.com/evanphx/json-patch v4.2.0+incompatible
 github.com/evanphx/json-patch
@@ -316,8 +318,7 @@ github.com/hashicorp/go-cleanhttp
 github.com/hashicorp/go-immutable-radix
 # github.com/hashicorp/go-rootcerts v1.0.0
 github.com/hashicorp/go-rootcerts
-# github.com/hashicorp/golang-lru v0.5.3
-## explicit
+# github.com/hashicorp/golang-lru v0.5.1
 github.com/hashicorp/golang-lru
 github.com/hashicorp/golang-lru/simplelru
 # github.com/hashicorp/hcl v1.0.0
@@ -344,6 +345,7 @@ github.com/imdario/mergo
 # github.com/inconshreveable/mousetrap v1.0.0
 github.com/inconshreveable/mousetrap
 # github.com/ishidawataru/sctp v0.0.0-20180213033435-07191f837fed
+## explicit
 github.com/ishidawataru/sctp
 # github.com/jessevdk/go-flags v1.4.0
 ## explicit
@@ -386,6 +388,8 @@ github.com/mitchellh/mapstructure
 github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.1
 github.com/modern-go/reflect2
+# github.com/morikuni/aec v1.0.0
+## explicit
 # github.com/onsi/ginkgo v1.10.1
 ## explicit
 github.com/onsi/ginkgo

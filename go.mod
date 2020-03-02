@@ -21,7 +21,9 @@ require (
 	github.com/containernetworking/plugins v0.8.2
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/docker v0.7.3-0.20190327010347-be7ac8be2ae0
+	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/libnetwork v0.0.0-20190128195551-d8d4c8cf03d7
+	github.com/envoyproxy/protoc-gen-validate v0.3.0-java // indirect
 	github.com/go-openapi/errors v0.19.3
 	github.com/go-openapi/loads v0.19.5
 	github.com/go-openapi/runtime v0.19.4
@@ -37,12 +39,13 @@ require (
 	github.com/gorilla/mux v1.7.0
 	github.com/hashicorp/consul/api v1.2.0
 	github.com/hashicorp/go-immutable-radix v1.1.0
-	github.com/hashicorp/golang-lru v0.5.3 // indirect
+	github.com/ishidawataru/sctp v0.0.0-20180213033435-07191f837fed // indirect
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/kevinburke/ssh_config v0.0.0-20190725054713-01f96b0aa0cd
 	github.com/kr/pretty v0.1.0
 	github.com/mattn/go-shellwords v1.0.5
 	github.com/miekg/dns v1.0.14
+	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.10.1
 	github.com/onsi/gomega v1.7.0
 	github.com/optiopay/kafka v0.0.0-00010101000000-000000000000
