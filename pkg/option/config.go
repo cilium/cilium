@@ -667,6 +667,10 @@ const (
 	// IPAM is the IPAM method to use
 	IPAM = "ipam"
 
+	// IPAMHostScopeLegacy is the value to select the legacy hostscope IPAM mode
+	// This option will disappear in Cilium v1.9
+	IPAMHostScopeLegacy = "hostscope-legacy"
+
 	// IPAMCRD is the value to select the CRD-backed IPAM plugin for
 	// option.IPAM
 	IPAMCRD = "crd"

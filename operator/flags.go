@@ -129,7 +129,7 @@ func init() {
 	flags.Bool(option.EnableMetrics, false, "Enable Prometheus metrics")
 	option.BindEnv(option.EnableMetrics)
 
-	flags.String(option.IPAM, "", "Backend to use for IPAM")
+	flags.String(option.IPAM, option.IPAMHostScopeLegacy, "Backend to use for IPAM")
 	option.BindEnv(option.IPAM)
 
 	flags.Duration(option.IdentityHeartbeatTimeout, 15*time.Minute, "Timeout after which identity expires on lack of heartbeat")
