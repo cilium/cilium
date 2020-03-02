@@ -16,6 +16,7 @@ Cilium supports multiple different address management modes:
    :maxdepth: 1
    :glob:
 
+   kubernetes
    hostscope
    crd
    eni
