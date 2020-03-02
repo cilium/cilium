@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
+	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/service"
@@ -107,7 +108,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		},
 	}
 
-	id, svc := ParseService(k8sSvc)
+	id, svc := ParseService(k8sSvc, fakeDatapath.NewNodeAddressing())
 	c.Assert(id, checker.DeepEquals, ServiceID{Namespace: "bar", Name: "foo"})
 	c.Assert(svc, checker.DeepEquals, &Service{
 		TrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
@@ -134,7 +135,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		},
 	}
 
-	id, svc = ParseService(k8sSvc)
+	id, svc = ParseService(k8sSvc, fakeDatapath.NewNodeAddressing())
 	c.Assert(id, checker.DeepEquals, ServiceID{Namespace: "bar", Name: "foo"})
 	c.Assert(svc, checker.DeepEquals, &Service{
 		IsHeadless:    true,
@@ -161,7 +162,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		},
 	}
 
-	id, svc = ParseService(k8sSvc)
+	id, svc = ParseService(k8sSvc, fakeDatapath.NewNodeAddressing())
 	c.Assert(id, checker.DeepEquals, ServiceID{Namespace: "bar", Name: "foo"})
 	c.Assert(svc, checker.DeepEquals, &Service{
 		FrontendIP:    net.ParseIP("127.0.0.1"),
@@ -626,7 +627,7 @@ func (s *K8sSuite) TestServiceString(c *check.C) {
 		},
 	}
 
-	_, svc := ParseService(k8sSvc)
+	_, svc := ParseService(k8sSvc, fakeDatapath.NewNodeAddressing())
 	c.Assert(svc.String(), check.Equals, "frontend:127.0.0.1/ports=[]/selector=map[foo:bar]")
 }
 
@@ -648,7 +649,7 @@ func (s *K8sSuite) TestNewClusterService(c *check.C) {
 				Type: v1.ServiceTypeClusterIP,
 			},
 		},
-	})
+	}, fakeDatapath.NewNodeAddressing())
 
 	_, endpoints := ParseEndpoints(&types.Endpoints{
 		Endpoints: &v1.Endpoints{
