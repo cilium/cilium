@@ -404,7 +404,7 @@ func init() {
 	flags.String(option.IdentityAllocationMode, option.IdentityAllocationModeKVstore, "Method to use for identity allocation")
 	option.BindEnv(option.IdentityAllocationMode)
 
-	flags.String(option.IPAM, "", "Backend to use for IPAM")
+	flags.String(option.IPAM, option.IPAMHostScopeLegacy, "Backend to use for IPAM")
 	option.BindEnv(option.IPAM)
 
 	flags.Int(option.IPv4ClusterCIDRMaskSize, 8, "Mask size for the cluster wide CIDR")

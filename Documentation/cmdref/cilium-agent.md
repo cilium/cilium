@@ -90,7 +90,7 @@ cilium-agent [flags]
       --identity-change-grace-period duration         Time to wait before using new identity on endpoint identity change (default 5s)
       --install-iptables-rules                        Install base iptables rules for cilium to mainly interact with kube-proxy (and masquerading) (default true)
       --ip-allocation-timeout duration                Time after which an incomplete CIDR allocation is considered failed (default 2m0s)
-      --ipam string                                   Backend to use for IPAM
+      --ipam string                                   Backend to use for IPAM (default "hostscope-legacy")
       --ipsec-key-file string                         Path to IPSec key file
       --ipv4-node string                              IPv4 address of node (default "auto")
       --ipv4-pod-subnets strings                      List of IPv4 pod subnets to preconfigure for encryption
