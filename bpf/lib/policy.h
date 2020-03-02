@@ -199,8 +199,7 @@ policy_can_access_ingress(struct __ctx_buff *ctx, __u32 src_identity,
 }
 
 #ifdef ENCAP_IFINDEX
-static __always_inline bool
-is_encap(struct __ctx_buff *ctx, __u16 dport, __u8 proto)
+static __always_inline bool is_encap(__u16 dport, __u8 proto)
 {
 	return proto == IPPROTO_UDP &&
 		(dport == bpf_htons(PORT_UDP_VXLAN) ||
@@ -214,7 +213,7 @@ policy_can_egress(struct __ctx_buff *ctx, __u32 identity, __u16 dport, __u8 prot
 		  __u8 *match_type)
 {
 #ifdef ENCAP_IFINDEX
-	if (is_encap(ctx, dport, proto))
+	if (is_encap(dport, proto))
 		return DROP_ENCAP_PROHIBITED;
 #endif
 
