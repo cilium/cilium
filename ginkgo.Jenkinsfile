@@ -31,6 +31,7 @@ pipeline {
                 BuildIfLabel('area/k8s', 'Cilium-PR-Ginkgo-Tests-K8s')
                 BuildIfLabel('area/documentation', 'Cilium-PR-Doc-Tests')
                 sh 'env'
+                sh 'go version'
                 checkout scm
                 sh 'mkdir -p ${PROJ_PATH}'
                 sh 'ls -A | grep -v src | xargs mv -t ${PROJ_PATH}'
