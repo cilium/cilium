@@ -273,8 +273,7 @@ ct_recreate6:
 			}
 #endif /* ENABLE_ROUTING */
 			policy_clear_mark(ctx);
-			return ipv6_local_delivery(ctx, l3_off, l4_off, SECLABEL,
-						   ip6, tuple->nexthdr, ep,
+			return ipv6_local_delivery(ctx, l3_off, SECLABEL, ep,
 						   METRIC_EGRESS);
 		}
 	}
