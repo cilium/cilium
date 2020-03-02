@@ -542,8 +542,6 @@ func (m *IptablesManager) installStaticProxyRules() error {
 			m.waitArgs,
 			"-t", "raw",
 			"-A", ciliumPreRawChain,
-			// Destination is a local node POD address
-			"!", "-d", node.GetInternalIPv4().String(),
 			"-m", "mark", "--mark", matchToProxy,
 			"-m", "comment", "--comment", "cilium: NOTRACK for proxy traffic",
 			"-j", "NOTRACK"), false)
@@ -554,8 +552,6 @@ func (m *IptablesManager) installStaticProxyRules() error {
 				m.waitArgs,
 				"-t", "filter",
 				"-A", ciliumInputChain,
-				// Destination is a local node POD address
-				"!", "-d", node.GetInternalIPv4().String(),
 				"-m", "mark", "--mark", matchToProxy,
 				"-m", "comment", "--comment", "cilium: ACCEPT for proxy traffic",
 				"-j", "ACCEPT"), false)
@@ -566,8 +562,6 @@ func (m *IptablesManager) installStaticProxyRules() error {
 				m.waitArgs,
 				"-t", "raw",
 				"-A", ciliumOutputRawChain,
-				// Return traffic is from a local node POD address
-				"!", "-s", node.GetInternalIPv4().String(),
 				"-m", "mark", "--mark", matchProxyReply,
 				"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
 				"-j", "NOTRACK"), false)
@@ -579,8 +573,6 @@ func (m *IptablesManager) installStaticProxyRules() error {
 				m.waitArgs,
 				"-t", "filter",
 				"-A", ciliumOutputChain,
-				// Return traffic is from a local node POD address
-				"!", "-s", node.GetInternalIPv4().String(),
 				"-m", "mark", "--mark", matchProxyReply,
 				"-m", "comment", "--comment", "cilium: ACCEPT for proxy return traffic",
 				"-j", "ACCEPT"), false)
@@ -596,8 +588,6 @@ func (m *IptablesManager) installStaticProxyRules() error {
 			m.waitArgs,
 			"-t", "raw",
 			"-A", ciliumPreRawChain,
-			// Destination is a local node POD address
-			"!", "-d", node.GetIPv6().String(),
 			"-m", "mark", "--mark", matchToProxy,
 			"-m", "comment", "--comment", "cilium: NOTRACK for proxy traffic",
 			"-j", "NOTRACK"), false)
@@ -608,8 +598,6 @@ func (m *IptablesManager) installStaticProxyRules() error {
 				m.waitArgs,
 				"-t", "filter",
 				"-A", ciliumInputChain,
-				// Destination is a local node POD address
-				"!", "-d", node.GetIPv6().String(),
 				"-m", "mark", "--mark", matchToProxy,
 				"-m", "comment", "--comment", "cilium: ACCEPT for proxy traffic",
 				"-j", "ACCEPT"), false)
@@ -620,8 +608,6 @@ func (m *IptablesManager) installStaticProxyRules() error {
 				m.waitArgs,
 				"-t", "raw",
 				"-A", ciliumOutputRawChain,
-				// Return traffic is from a local node POD address
-				"!", "-s", node.GetIPv6().String(),
 				"-m", "mark", "--mark", matchProxyReply,
 				"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
 				"-j", "NOTRACK"), false)
@@ -633,8 +619,6 @@ func (m *IptablesManager) installStaticProxyRules() error {
 				m.waitArgs,
 				"-t", "filter",
 				"-A", ciliumOutputChain,
-				// Return traffic is from a local node POD address
-				"!", "-s", node.GetIPv6().String(),
 				"-m", "mark", "--mark", matchProxyReply,
 				"-m", "comment", "--comment", "cilium: ACCEPT for proxy return traffic",
 				"-j", "ACCEPT"), false)
