@@ -671,6 +671,10 @@ const (
 	// This option will disappear in Cilium v1.9
 	IPAMHostScopeLegacy = "hostscope-legacy"
 
+	// IPAMKubernetes is the value to select the Kubernetes PodCIDR based
+	// hostscope IPAM mode
+	IPAMKubernetes = "kubernetes"
+
 	// IPAMCRD is the value to select the CRD-backed IPAM plugin for
 	// option.IPAM
 	IPAMCRD = "crd"
@@ -2175,6 +2179,17 @@ func (c *DaemonConfig) Populate() {
 		if c.DisableCiliumEndpointCRD {
 			log.Warningf("Running Cilium with %q=%q requires endpoint CRDs. Changing %s to %t", KVStore, c.KVStore, DisableCiliumEndpointCRDName, false)
 			c.DisableCiliumEndpointCRD = false
+		}
+	}
+
+	switch c.IPAM {
+	case IPAMKubernetes:
+		if c.EnableIPv4 {
+			c.K8sRequireIPv4PodCIDR = true
+		}
+
+		if c.EnableIPv6 {
+			c.K8sRequireIPv6PodCIDR = true
 		}
 	}
 
