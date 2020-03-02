@@ -715,7 +715,7 @@ func init() {
 	flags.MarkHidden(option.PolicyTriggerInterval)
 	option.BindEnv(option.PolicyTriggerInterval)
 
-	flags.Bool(option.DisableCNPStatusUpdates, false, "Do not send CNP NodeStatus updates to the Kubernetes api-server (recommended to run with `cnp-node-status-gc=false` in cilium-operator)")
+	flags.Bool(option.DisableCNPStatusUpdates, false, `Do not send CNP NodeStatus updates to the Kubernetes api-server (recommended to run with "cnp-node-status-gc=false" in cilium-operator)`)
 	option.BindEnv(option.DisableCNPStatusUpdates)
 
 	viper.BindPFlags(flags)
