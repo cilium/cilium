@@ -277,7 +277,6 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	struct endpoint_info *ep;
 	void *data, *data_end;
 	struct iphdr *ip4;
-	int l4_off;
 	__u32 secctx;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -302,7 +301,6 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 		return DROP_INVALID;
 #endif /* ENABLE_NODEPORT */
 
-	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 	secctx = derive_ipv4_sec_ctx(ctx, ip4);
 	tuple.nexthdr = ip4->protocol;
 
@@ -361,7 +359,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 			return CTX_ACT_OK;
 #endif
 
-		return ipv4_local_delivery(ctx, ETH_HLEN, l4_off, secctx, ip4, ep, METRIC_INGRESS);
+		return ipv4_local_delivery(ctx, ETH_HLEN, secctx, ip4, ep, METRIC_INGRESS);
 	}
 
 #ifdef ENCAP_IFINDEX
