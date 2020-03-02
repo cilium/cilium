@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/datapath"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -118,14 +119,14 @@ func EqualV1NetworkPolicy(np1, np2 *types.NetworkPolicy) bool {
 		reflect.DeepEqual(np1.Spec, np2.Spec)
 }
 
-func EqualV1Services(k8sSVC1, k8sSVC2 *types.Service) bool {
+func EqualV1Services(k8sSVC1, k8sSVC2 *types.Service, nodeAddressing datapath.NodeAddressing) bool {
 	// Service annotations are used to mark services as global, shared, etc.
 	if !comparator.MapStringEquals(k8sSVC1.GetAnnotations(), k8sSVC2.GetAnnotations()) {
 		return false
 	}
 
-	svcID1, svc1 := ParseService(k8sSVC1)
-	svcID2, svc2 := ParseService(k8sSVC2)
+	svcID1, svc1 := ParseService(k8sSVC1, nodeAddressing)
+	svcID2, svc2 := ParseService(k8sSVC2, nodeAddressing)
 
 	if svcID1 != svcID2 {
 		return false

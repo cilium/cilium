@@ -41,7 +41,7 @@ import (
 )
 
 var (
-	k8sSvcCache = k8s.NewServiceCache()
+	k8sSvcCache = k8s.NewServiceCache(nil)
 	// k8sSvcCacheSynced is used do signalize when all services are synced with
 	// k8s.
 	k8sSvcCacheSynced = make(chan struct{})

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/checker"
+	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -52,7 +53,7 @@ func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 		},
 	}
 
-	cache := NewServiceCache()
+	cache := NewServiceCache(fakeDatapath.NewNodeAddressing())
 	cache.services = map[ServiceID]*Service{
 		svcID1: {
 			FrontendIP: net.ParseIP("1.1.1.1"),
@@ -183,7 +184,7 @@ func (s *K8sSuite) TestServiceCacheEndpointSlice(c *check.C) {
 func testServiceCache(c *check.C,
 	updateEndpointsCB, deleteEndpointsCB func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup)) {
 
-	svcCache := NewServiceCache()
+	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
 
 	k8sSvc := &types.Service{
 		Service: &v1.Service{
@@ -328,7 +329,7 @@ func (s *K8sSuite) TestCacheActionString(c *check.C) {
 }
 
 func (s *K8sSuite) TestServiceMerging(c *check.C) {
-	svcCache := NewServiceCache()
+	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
 
 	k8sSvc := &types.Service{
 		Service: &v1.Service{
@@ -575,7 +576,7 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 		return true
 	}, 2*time.Second), check.IsNil)
 
-	k8sSvcID, _ := ParseService(k8sSvc)
+	k8sSvcID, _ := ParseService(k8sSvc, nil)
 	addresses := svcCache.GetServiceIP(k8sSvcID)
 	c.Assert(addresses, checker.DeepEquals, loadbalancer.NewL3n4Addr(loadbalancer.TCP, net.ParseIP("127.0.0.1"), 80))
 
@@ -593,7 +594,7 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 }
 
 func (s *K8sSuite) TestNonSharedServie(c *check.C) {
-	svcCache := NewServiceCache()
+	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
 
 	k8sSvc := &types.Service{
 		Service: &v1.Service{
