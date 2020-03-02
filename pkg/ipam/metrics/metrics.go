@@ -26,7 +26,7 @@ const ipamSubsystem = "ipam"
 
 type prometheusMetrics struct {
 	registry              *prometheus.Registry
-	AllocateEniOps        *prometheus.CounterVec
+	AllocateInterfaceOps  *prometheus.CounterVec
 	AllocateIpOps         *prometheus.CounterVec
 	ReleaseIpOps          *prometheus.CounterVec
 	IPsAllocated          *prometheus.GaugeVec
@@ -39,7 +39,7 @@ type prometheusMetrics struct {
 	resync                *triggerMetrics
 }
 
-// NewPrometheusMetrics returns a new ENI metrics implementation backed by
+// NewPrometheusMetrics returns a new interface metrics implementation backed by
 // Prometheus metrics.
 func NewPrometheusMetrics(namespace string, registry *prometheus.Registry) *prometheusMetrics {
 	m := &prometheusMetrics{
@@ -67,11 +67,11 @@ func NewPrometheusMetrics(namespace string, registry *prometheus.Registry) *prom
 		Help:      "Number of IP release operations",
 	}, []string{"subnetId"})
 
-	m.AllocateEniOps = prometheus.NewCounterVec(prometheus.CounterOpts{
+	m.AllocateInterfaceOps = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
 		Subsystem: ipamSubsystem,
 		Name:      "interface_creation_ops",
-		Help:      "Number of ENIs allocated",
+		Help:      "Number of interfaces allocated",
 	}, []string{"subnetId", "status"})
 
 	m.AvailableInterfaces = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -111,7 +111,7 @@ func NewPrometheusMetrics(namespace string, registry *prometheus.Registry) *prom
 	registry.MustRegister(m.IPsAllocated)
 	registry.MustRegister(m.AllocateIpOps)
 	registry.MustRegister(m.ReleaseIpOps)
-	registry.MustRegister(m.AllocateEniOps)
+	registry.MustRegister(m.AllocateInterfaceOps)
 	registry.MustRegister(m.AvailableInterfaces)
 	registry.MustRegister(m.AvailableIPsPerSubnet)
 	registry.MustRegister(m.Nodes)
@@ -136,7 +136,7 @@ func (p *prometheusMetrics) ResyncTrigger() trigger.MetricsObserver {
 }
 
 func (p *prometheusMetrics) IncAllocationAttempt(status, subnetID string) {
-	p.AllocateEniOps.WithLabelValues(subnetID, status).Inc()
+	p.AllocateInterfaceOps.WithLabelValues(subnetID, status).Inc()
 }
 
 func (p *prometheusMetrics) AddIPAllocation(subnetID string, allocated int64) {
