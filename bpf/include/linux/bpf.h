@@ -11,12 +11,10 @@
 #include <linux/types.h>
 #include <linux/bpf_common.h>
 
-/* Define BIT() here to avoid pulling in more headers */
-#define BIT(nr) (1UL << (nr))
-
 /* Extended instruction set based on top of classic BPF */
 
 /* instruction classes */
+#define BPF_JMP32	0x06	/* jmp mode in word width */
 #define BPF_ALU64	0x07	/* alu mode in double word width */
 
 /* ld/ldx fields */
@@ -106,6 +104,13 @@ enum bpf_cmd {
 	BPF_BTF_LOAD,
 	BPF_BTF_GET_FD_BY_ID,
 	BPF_TASK_FD_QUERY,
+	BPF_MAP_LOOKUP_AND_DELETE_ELEM,
+	BPF_MAP_FREEZE,
+	BPF_BTF_GET_NEXT_ID,
+	BPF_MAP_LOOKUP_BATCH,
+	BPF_MAP_LOOKUP_AND_DELETE_BATCH,
+	BPF_MAP_UPDATE_BATCH,
+	BPF_MAP_DELETE_BATCH,
 };
 
 enum bpf_map_type {
@@ -130,8 +135,22 @@ enum bpf_map_type {
 	BPF_MAP_TYPE_SOCKHASH,
 	BPF_MAP_TYPE_CGROUP_STORAGE,
 	BPF_MAP_TYPE_REUSEPORT_SOCKARRAY,
+	BPF_MAP_TYPE_PERCPU_CGROUP_STORAGE,
+	BPF_MAP_TYPE_QUEUE,
+	BPF_MAP_TYPE_STACK,
+	BPF_MAP_TYPE_SK_STORAGE,
+	BPF_MAP_TYPE_DEVMAP_HASH,
+	BPF_MAP_TYPE_STRUCT_OPS,
 };
 
+/* Note that tracing related programs such as
+ * BPF_PROG_TYPE_{KPROBE,TRACEPOINT,PERF_EVENT,RAW_TRACEPOINT}
+ * are not subject to a stable API since kernel internal data
+ * structures can change from release to release and may
+ * therefore break existing tracing BPF programs. Tracing BPF
+ * programs correspond to /a/ specific kernel which is to be
+ * analyzed, and not /a/ specific kernel /and/ all future ones.
+ */
 enum bpf_prog_type {
 	BPF_PROG_TYPE_UNSPEC,
 	BPF_PROG_TYPE_SOCKET_FILTER,
@@ -155,6 +174,13 @@ enum bpf_prog_type {
 	BPF_PROG_TYPE_LWT_SEG6LOCAL,
 	BPF_PROG_TYPE_LIRC_MODE2,
 	BPF_PROG_TYPE_SK_REUSEPORT,
+	BPF_PROG_TYPE_FLOW_DISSECTOR,
+	BPF_PROG_TYPE_CGROUP_SYSCTL,
+	BPF_PROG_TYPE_RAW_TRACEPOINT_WRITABLE,
+	BPF_PROG_TYPE_CGROUP_SOCKOPT,
+	BPF_PROG_TYPE_TRACING,
+	BPF_PROG_TYPE_STRUCT_OPS,
+	BPF_PROG_TYPE_EXT,
 };
 
 enum bpf_attach_type {
@@ -175,6 +201,15 @@ enum bpf_attach_type {
 	BPF_CGROUP_UDP4_SENDMSG,
 	BPF_CGROUP_UDP6_SENDMSG,
 	BPF_LIRC_MODE2,
+	BPF_FLOW_DISSECTOR,
+	BPF_CGROUP_SYSCTL,
+	BPF_CGROUP_UDP4_RECVMSG,
+	BPF_CGROUP_UDP6_RECVMSG,
+	BPF_CGROUP_GETSOCKOPT,
+	BPF_CGROUP_SETSOCKOPT,
+	BPF_TRACE_RAW_TP,
+	BPF_TRACE_FENTRY,
+	BPF_TRACE_FEXIT,
 	__MAX_BPF_ATTACH_TYPE
 };
 
@@ -203,6 +238,11 @@ enum bpf_attach_type {
  * When children program makes decision (like picking TCP CA or sock bind)
  * parent program has a chance to override it.
  *
+ * With BPF_F_ALLOW_MULTI a new program is added to the end of the list of
+ * programs for a cgroup. Though it's possible to replace an old program at
+ * any position by also specifying BPF_F_REPLACE flag and position itself in
+ * replace_bpf_fd attribute. Old program at this position will be released.
+ *
  * A cgroup with MULTI or OVERRIDE flag allows any attach flags in sub-cgroups.
  * A cgroup with NONE doesn't allow any programs in sub-cgroups.
  * Ex1:
@@ -221,6 +261,7 @@ enum bpf_attach_type {
  */
 #define BPF_F_ALLOW_OVERRIDE	(1U << 0)
 #define BPF_F_ALLOW_MULTI	(1U << 1)
+#define BPF_F_REPLACE		(1U << 2)
 
 /* If BPF_F_STRICT_ALIGNMENT is used in BPF_PROG_LOAD command, the
  * verifier will perform strict alignment checking as if the kernel
@@ -229,8 +270,54 @@ enum bpf_attach_type {
  */
 #define BPF_F_STRICT_ALIGNMENT	(1U << 0)
 
-/* when bpf_ldimm64->src_reg == BPF_PSEUDO_MAP_FD, bpf_ldimm64->imm == fd */
+/* If BPF_F_ANY_ALIGNMENT is used in BPF_PROF_LOAD command, the
+ * verifier will allow any alignment whatsoever.  On platforms
+ * with strict alignment requirements for loads ands stores (such
+ * as sparc and mips) the verifier validates that all loads and
+ * stores provably follow this requirement.  This flag turns that
+ * checking and enforcement off.
+ *
+ * It is mostly used for testing when we want to validate the
+ * context and memory access aspects of the verifier, but because
+ * of an unaligned access the alignment check would trigger before
+ * the one we are interested in.
+ */
+#define BPF_F_ANY_ALIGNMENT	(1U << 1)
+
+/* BPF_F_TEST_RND_HI32 is used in BPF_PROG_LOAD command for testing purpose.
+ * Verifier does sub-register def/use analysis and identifies instructions whose
+ * def only matters for low 32-bit, high 32-bit is never referenced later
+ * through implicit zero extension. Therefore verifier notifies JIT back-ends
+ * that it is safe to ignore clearing high 32-bit for these instructions. This
+ * saves some back-ends a lot of code-gen. However such optimization is not
+ * necessary on some arches, for example x86_64, arm64 etc, whose JIT back-ends
+ * hence hasn't used verifier's analysis result. But, we really want to have a
+ * way to be able to verify the correctness of the described optimization on
+ * x86_64 on which testsuites are frequently exercised.
+ *
+ * So, this flag is introduced. Once it is set, verifier will randomize high
+ * 32-bit for those instructions who has been identified as safe to ignore them.
+ * Then, if verifier is not doing correct analysis, such randomization will
+ * regress tests to expose bugs.
+ */
+#define BPF_F_TEST_RND_HI32	(1U << 2)
+
+/* The verifier internal test flag. Behavior is undefined */
+#define BPF_F_TEST_STATE_FREQ	(1U << 3)
+
+/* When BPF ldimm64's insn[0].src_reg != 0 then this can have
+ * two extensions:
+ *
+ * insn[0].src_reg:  BPF_PSEUDO_MAP_FD   BPF_PSEUDO_MAP_VALUE
+ * insn[0].imm:      map fd              map fd
+ * insn[1].imm:      0                   offset into value
+ * insn[0].off:      0                   0
+ * insn[1].off:      0                   0
+ * ldimm64 rewrite:  address of map      address of map[0]+offset
+ * verifier type:    CONST_PTR_TO_MAP    PTR_TO_MAP_VALUE
+ */
 #define BPF_PSEUDO_MAP_FD	1
+#define BPF_PSEUDO_MAP_VALUE	2
 
 /* when bpf_call->src_reg == BPF_PSEUDO_CALL, bpf_call->imm == pc-relative
  * offset to another bpf function
@@ -241,6 +328,7 @@ enum bpf_attach_type {
 #define BPF_ANY		0 /* create new element or update existing */
 #define BPF_NOEXIST	1 /* create new element if it didn't exist */
 #define BPF_EXIST	2 /* update existing element */
+#define BPF_F_LOCK	4 /* spin_lock-ed map_lookup/map_update */
 
 /* flags for BPF_MAP_CREATE command */
 #define BPF_F_NO_PREALLOC	(1U << 0)
@@ -254,17 +342,35 @@ enum bpf_attach_type {
 /* Specify numa node during map creation */
 #define BPF_F_NUMA_NODE		(1U << 2)
 
-/* flags for BPF_PROG_QUERY */
-#define BPF_F_QUERY_EFFECTIVE	(1U << 0)
-
 #define BPF_OBJ_NAME_LEN 16U
 
-/* Flags for accessing BPF object */
+/* Flags for accessing BPF object from syscall side. */
 #define BPF_F_RDONLY		(1U << 3)
 #define BPF_F_WRONLY		(1U << 4)
 
 /* Flag for stack_map, store build_id+offset instead of pointer */
 #define BPF_F_STACK_BUILD_ID	(1U << 5)
+
+/* Zero-initialize hash function seed. This should only be used for testing. */
+#define BPF_F_ZERO_SEED		(1U << 6)
+
+/* Flags for accessing BPF object from program side. */
+#define BPF_F_RDONLY_PROG	(1U << 7)
+#define BPF_F_WRONLY_PROG	(1U << 8)
+
+/* Clone map from listener for newly accepted socket */
+#define BPF_F_CLONE		(1U << 9)
+
+/* Enable memory-mapping BPF map */
+#define BPF_F_MMAPABLE		(1U << 10)
+
+/* Flags for BPF_PROG_QUERY. */
+
+/* Query effective (directly attached + inherited from ancestor cgroups)
+ * programs that will be executed for events within a cgroup.
+ * attach_flags with this flag are returned only for directly attached programs.
+ */
+#define BPF_F_QUERY_EFFECTIVE	(1U << 0)
 
 enum bpf_stack_build_id_status {
 	/* user space need an empty entry to identify end of a trace */
@@ -303,6 +409,10 @@ union bpf_attr {
 		__u32	btf_fd;		/* fd pointing to a BTF type data */
 		__u32	btf_key_type_id;	/* BTF type_id of the key */
 		__u32	btf_value_type_id;	/* BTF type_id of the value */
+		__u32	btf_vmlinux_value_type_id;/* BTF type_id of a kernel-
+						   * struct stored as the
+						   * map value
+						   */
 	};
 
 	struct { /* anonymous struct used by BPF_MAP_*_ELEM commands */
@@ -315,6 +425,23 @@ union bpf_attr {
 		__u64		flags;
 	};
 
+	struct { /* struct used by BPF_MAP_*_BATCH commands */
+		__aligned_u64	in_batch;	/* start batch,
+						 * NULL to start from beginning
+						 */
+		__aligned_u64	out_batch;	/* output: next start batch */
+		__aligned_u64	keys;
+		__aligned_u64	values;
+		__u32		count;		/* input/output:
+						 * input: # of key/value
+						 * elements
+						 * output: # of filled elements
+						 */
+		__u32		map_fd;
+		__u64		elem_flags;
+		__u64		flags;
+	} batch;
+
 	struct { /* anonymous struct used by BPF_PROG_LOAD command */
 		__u32		prog_type;	/* one of enum bpf_prog_type */
 		__u32		insn_cnt;
@@ -323,7 +450,7 @@ union bpf_attr {
 		__u32		log_level;	/* verbosity level of verifier */
 		__u32		log_size;	/* size of user buffer */
 		__aligned_u64	log_buf;	/* user supplied buffer */
-		__u32		kern_version;	/* checked when prog_type=kprobe */
+		__u32		kern_version;	/* not used */
 		__u32		prog_flags;
 		char		prog_name[BPF_OBJ_NAME_LEN];
 		__u32		prog_ifindex;	/* ifindex of netdev to prep for */
@@ -332,6 +459,15 @@ union bpf_attr {
 		 * (context accesses, allowed helpers, etc).
 		 */
 		__u32		expected_attach_type;
+		__u32		prog_btf_fd;	/* fd pointing to BTF type data */
+		__u32		func_info_rec_size;	/* userspace bpf_func_info size */
+		__aligned_u64	func_info;	/* func info */
+		__u32		func_info_cnt;	/* number of bpf_func_info records */
+		__u32		line_info_rec_size;	/* userspace bpf_line_info size */
+		__aligned_u64	line_info;	/* line info */
+		__u32		line_info_cnt;	/* number of bpf_line_info records */
+		__u32		attach_btf_id;	/* in-kernel BTF type id to attach to */
+		__u32		attach_prog_fd; /* 0 to attach to vmlinux */
 	};
 
 	struct { /* anonymous struct used by BPF_OBJ_* commands */
@@ -345,17 +481,31 @@ union bpf_attr {
 		__u32		attach_bpf_fd;	/* eBPF program to attach */
 		__u32		attach_type;
 		__u32		attach_flags;
+		__u32		replace_bpf_fd;	/* previously attached eBPF
+						 * program to replace if
+						 * BPF_F_REPLACE is used
+						 */
 	};
 
 	struct { /* anonymous struct used by BPF_PROG_TEST_RUN command */
 		__u32		prog_fd;
 		__u32		retval;
-		__u32		data_size_in;
-		__u32		data_size_out;
+		__u32		data_size_in;	/* input: len of data_in */
+		__u32		data_size_out;	/* input/output: len of data_out
+						 *   returns ENOSPC if data_out
+						 *   is too small.
+						 */
 		__aligned_u64	data_in;
 		__aligned_u64	data_out;
 		__u32		repeat;
 		__u32		duration;
+		__u32		ctx_size_in;	/* input: len of ctx_in */
+		__u32		ctx_size_out;	/* input/output: len of ctx_out
+						 *   returns ENOSPC if ctx_out
+						 *   is too small.
+						 */
+		__aligned_u64	ctx_in;
+		__aligned_u64	ctx_out;
 	} test;
 
 	struct { /* anonymous struct used by BPF_*_GET_*_ID */
@@ -462,10 +612,13 @@ union bpf_attr {
  * 	Return
  * 		0 on success, or a negative error in case of failure.
  *
- * int bpf_probe_read(void *dst, u32 size, const void *src)
+ * int bpf_probe_read(void *dst, u32 size, const void *unsafe_ptr)
  * 	Description
  * 		For tracing programs, safely attempt to read *size* bytes from
- * 		address *src* and store the data in *dst*.
+ * 		kernel space address *unsafe_ptr* and store the data in *dst*.
+ *
+ * 		Generally, use bpf_probe_read_user() or bpf_probe_read_kernel()
+ * 		instead.
  * 	Return
  * 		0 on success, or a negative error in case of failure.
  *
@@ -485,6 +638,8 @@ union bpf_attr {
  * 		limited to five).
  *
  * 		Each time the helper is called, it appends a line to the trace.
+ * 		Lines are discarded while *\/sys/kernel/debug/tracing/trace* is
+ * 		open, use *\/sys/kernel/debug/tracing/trace_pipe* to avoid this.
  * 		The format of the trace is customizable, and the exact output
  * 		one will get depends on the options set in
  * 		*\/sys/kernel/debug/tracing/trace_options* (see also the
@@ -562,7 +717,7 @@ union bpf_attr {
  * 		**BPF_F_INVALIDATE_HASH** (set *skb*\ **->hash**, *skb*\
  * 		**->swhash** and *skb*\ **->l4hash** to 0).
  *
- * 		A call to this helper is susceptible to change the underlaying
+ * 		A call to this helper is susceptible to change the underlying
  * 		packet buffer. Therefore, at load time, all checks on pointers
  * 		previously done by the verifier are invalidated and must be
  * 		performed again, if the helper is used in combination with
@@ -587,7 +742,7 @@ union bpf_attr {
  * 		flexibility and can handle sizes larger than 2 or 4 for the
  * 		checksum to update.
  *
- * 		A call to this helper is susceptible to change the underlaying
+ * 		A call to this helper is susceptible to change the underlying
  * 		packet buffer. Therefore, at load time, all checks on pointers
  * 		previously done by the verifier are invalidated and must be
  * 		performed again, if the helper is used in combination with
@@ -619,7 +774,7 @@ union bpf_attr {
  * 		flexibility and can handle sizes larger than 2 or 4 for the
  * 		checksum to update.
  *
- * 		A call to this helper is susceptible to change the underlaying
+ * 		A call to this helper is susceptible to change the underlying
  * 		packet buffer. Therefore, at load time, all checks on pointers
  * 		previously done by the verifier are invalidated and must be
  * 		performed again, if the helper is used in combination with
@@ -674,7 +829,7 @@ union bpf_attr {
  * 		efficient, but it is handled through an action code where the
  * 		redirection happens only after the eBPF program has returned.
  *
- * 		A call to this helper is susceptible to change the underlaying
+ * 		A call to this helper is susceptible to change the underlying
  * 		packet buffer. Therefore, at load time, all checks on pointers
  * 		previously done by the verifier are invalidated and must be
  * 		performed again, if the helper is used in combination with
@@ -694,7 +849,7 @@ union bpf_attr {
  * 		A 64-bit integer containing the current GID and UID, and
  * 		created as such: *current_gid* **<< 32 \|** *current_uid*.
  *
- * int bpf_get_current_comm(char *buf, u32 size_of_buf)
+ * int bpf_get_current_comm(void *buf, u32 size_of_buf)
  * 	Description
  * 		Copy the **comm** attribute of the current task into *buf* of
  * 		*size_of_buf*. The **comm** attribute contains the name of
@@ -716,7 +871,7 @@ union bpf_attr {
  * 		based on a user-provided identifier for all traffic coming from
  * 		the tasks belonging to the related cgroup. See also the related
  * 		kernel documentation, available from the Linux sources in file
- * 		*Documentation/cgroup-v1/net_cls.txt*.
+ * 		*Documentation/admin-guide/cgroup-v1/net_cls.rst*.
  *
  * 		The Linux kernel has two versions for cgroups: there are
  * 		cgroups v1 and cgroups v2. Both are available to users, who can
@@ -739,7 +894,7 @@ union bpf_attr {
  * 		**ETH_P_8021Q** and **ETH_P_8021AD**, it is considered to
  * 		be **ETH_P_8021Q**.
  *
- * 		A call to this helper is susceptible to change the underlaying
+ * 		A call to this helper is susceptible to change the underlying
  * 		packet buffer. Therefore, at load time, all checks on pointers
  * 		previously done by the verifier are invalidated and must be
  * 		performed again, if the helper is used in combination with
@@ -751,7 +906,7 @@ union bpf_attr {
  * 	Description
  * 		Pop a VLAN header from the packet associated to *skb*.
  *
- * 		A call to this helper is susceptible to change the underlaying
+ * 		A call to this helper is susceptible to change the underlying
  * 		packet buffer. Therefore, at load time, all checks on pointers
  * 		previously done by the verifier are invalidated and must be
  * 		performed again, if the helper is used in combination with
@@ -890,9 +1045,9 @@ union bpf_attr {
  * 		supports redirection to the egress interface, and accepts no
  * 		flag at all.
  *
- * 		The same effect can be attained with the more generic
- * 		**bpf_redirect_map**\ (), which requires specific maps to be
- * 		used but offers better performance.
+ * 		The same effect can also be attained with the more generic
+ * 		**bpf_redirect_map**\ (), which uses a BPF map to store the
+ * 		redirect target instead of providing it directly to the helper.
  * 	Return
  * 		For XDP, the helper returns **XDP_REDIRECT** on success or
  * 		**XDP_ABORTED** on error. For other program types, the values
@@ -923,7 +1078,7 @@ union bpf_attr {
  * 		The realm of the route for the packet associated to *skb*, or 0
  * 		if none was found.
  *
- * int bpf_perf_event_output(struct pt_reg *ctx, struct bpf_map *map, u64 flags, void *data, u64 size)
+ * int bpf_perf_event_output(void *ctx, struct bpf_map *map, u64 flags, void *data, u64 size)
  * 	Description
  * 		Write raw *data* blob into a special BPF perf event held by
  * 		*map* of type **BPF_MAP_TYPE_PERF_EVENT_ARRAY**. This perf
@@ -968,7 +1123,7 @@ union bpf_attr {
  * 	Return
  * 		0 on success, or a negative error in case of failure.
  *
- * int bpf_skb_load_bytes(const struct sk_buff *skb, u32 offset, void *to, u32 len)
+ * int bpf_skb_load_bytes(const void *skb, u32 offset, void *to, u32 len)
  * 	Description
  * 		This helper was provided as an easy way to load data from a
  * 		packet. It can be used to load *len* bytes from *offset* from
@@ -985,7 +1140,7 @@ union bpf_attr {
  * 	Return
  * 		0 on success, or a negative error in case of failure.
  *
- * int bpf_get_stackid(struct pt_reg *ctx, struct bpf_map *map, u64 flags)
+ * int bpf_get_stackid(void *ctx, struct bpf_map *map, u64 flags)
  * 	Description
  * 		Walk a user or a kernel stack and return its id. To achieve
  * 		this, the helper needs *ctx*, which is a pointer to the context
@@ -1054,7 +1209,7 @@ union bpf_attr {
  * 		The checksum result, or a negative error code in case of
  * 		failure.
  *
- * int bpf_skb_get_tunnel_opt(struct sk_buff *skb, u8 *opt, u32 size)
+ * int bpf_skb_get_tunnel_opt(struct sk_buff *skb, void *opt, u32 size)
  * 	Description
  * 		Retrieve tunnel options metadata for the packet associated to
  * 		*skb*, and store the raw tunnel option data to the buffer *opt*
@@ -1072,7 +1227,7 @@ union bpf_attr {
  * 	Return
  * 		The size of the option data retrieved.
  *
- * int bpf_skb_set_tunnel_opt(struct sk_buff *skb, u8 *opt, u32 size)
+ * int bpf_skb_set_tunnel_opt(struct sk_buff *skb, void *opt, u32 size)
  * 	Description
  * 		Set tunnel options metadata for the packet associated to *skb*
  * 		to the option data contained in the raw buffer *opt* of *size*.
@@ -1101,7 +1256,7 @@ union bpf_attr {
  * 		All values for *flags* are reserved for future usage, and must
  * 		be left at zero.
  *
- * 		A call to this helper is susceptible to change the underlaying
+ * 		A call to this helper is susceptible to change the underlying
  * 		packet buffer. Therefore, at load time, all checks on pointers
  * 		previously done by the verifier are invalidated and must be
  * 		performed again, if the helper is used in combination with
@@ -1214,7 +1369,7 @@ union bpf_attr {
  * 		implicitly linearizes, unclones and drops offloads from the
  * 		*skb*.
  *
- * 		A call to this helper is susceptible to change the underlaying
+ * 		A call to this helper is susceptible to change the underlying
  * 		packet buffer. Therefore, at load time, all checks on pointers
  * 		previously done by the verifier are invalidated and must be
  * 		performed again, if the helper is used in combination with
@@ -1250,7 +1405,7 @@ union bpf_attr {
  * 		**bpf_skb_pull_data()** to effectively unclone the *skb* from
  * 		the very beginning in case it is indeed cloned.
  *
- * 		A call to this helper is susceptible to change the underlaying
+ * 		A call to this helper is susceptible to change the underlying
  * 		packet buffer. Therefore, at load time, all checks on pointers
  * 		previously done by the verifier are invalidated and must be
  * 		performed again, if the helper is used in combination with
@@ -1302,7 +1457,7 @@ union bpf_attr {
  * 		All values for *flags* are reserved for future usage, and must
  * 		be left at zero.
  *
- * 		A call to this helper is susceptible to change the underlaying
+ * 		A call to this helper is susceptible to change the underlying
  * 		packet buffer. Therefore, at load time, all checks on pointers
  * 		previously done by the verifier are invalidated and must be
  * 		performed again, if the helper is used in combination with
@@ -1317,7 +1472,7 @@ union bpf_attr {
  * 		can be used to prepare the packet for pushing or popping
  * 		headers.
  *
- * 		A call to this helper is susceptible to change the underlaying
+ * 		A call to this helper is susceptible to change the underlying
  * 		packet buffer. Therefore, at load time, all checks on pointers
  * 		previously done by the verifier are invalidated and must be
  * 		performed again, if the helper is used in combination with
@@ -1325,45 +1480,14 @@ union bpf_attr {
  * 	Return
  * 		0 on success, or a negative error in case of failure.
  *
- * int bpf_probe_read_str(void *dst, int size, const void *unsafe_ptr)
+ * int bpf_probe_read_str(void *dst, u32 size, const void *unsafe_ptr)
  * 	Description
- * 		Copy a NUL terminated string from an unsafe address
- * 		*unsafe_ptr* to *dst*. The *size* should include the
- * 		terminating NUL byte. In case the string length is smaller than
- * 		*size*, the target is not padded with further NUL bytes. If the
- * 		string length is larger than *size*, just *size*-1 bytes are
- * 		copied and the last byte is set to NUL.
+ * 		Copy a NUL terminated string from an unsafe kernel address
+ * 		*unsafe_ptr* to *dst*. See bpf_probe_read_kernel_str() for
+ * 		more details.
  *
- * 		On success, the length of the copied string is returned. This
- * 		makes this helper useful in tracing programs for reading
- * 		strings, and more importantly to get its length at runtime. See
- * 		the following snippet:
- *
- * 		::
- *
- * 			SEC("kprobe/sys_open")
- * 			void bpf_sys_open(struct pt_regs *ctx)
- * 			{
- * 			        char buf[PATHLEN]; // PATHLEN is defined to 256
- * 			        int res = bpf_probe_read_str(buf, sizeof(buf),
- * 				                             ctx->di);
- *
- * 				// Consume buf, for example push it to
- * 				// userspace via bpf_perf_event_output(); we
- * 				// can use res (the string length) as event
- * 				// size, after checking its boundaries.
- * 			}
- *
- * 		In comparison, using **bpf_probe_read()** helper here instead
- * 		to read the string would require to estimate the length at
- * 		compile time, and would often result in copying more memory
- * 		than necessary.
- *
- * 		Another useful use case is when parsing individual process
- * 		arguments or individual environment variables navigating
- * 		*current*\ **->mm->arg_start** and *current*\
- * 		**->mm->env_start**: using this helper and the return value,
- * 		one can quickly iterate at the right offset of the memory area.
+ * 		Generally, use bpf_probe_read_user_str() or bpf_probe_read_kernel_str()
+ * 		instead.
  * 	Return
  * 		On success, the strictly positive length of the string,
  * 		including the trailing NUL character. On error, a negative
@@ -1376,8 +1500,8 @@ union bpf_attr {
  * 		If no cookie has been set yet, generate a new cookie. Once
  * 		generated, the socket cookie remains stable for the life of the
  * 		socket. This helper can be useful for monitoring per socket
- * 		networking traffic statistics as it provides a unique socket
- * 		identifier per namespace.
+ * 		networking traffic statistics as it provides a global socket
+ * 		identifier that can be assumed unique.
  * 	Return
  * 		A 8-byte long non-decreasing number on success, or 0 if the
  * 		socket field is missing inside *skb*.
@@ -1385,14 +1509,14 @@ union bpf_attr {
  * u64 bpf_get_socket_cookie(struct bpf_sock_addr *ctx)
  * 	Description
  * 		Equivalent to bpf_get_socket_cookie() helper that accepts
- * 		*skb*, but gets socket from **struct bpf_sock_addr** contex.
+ * 		*skb*, but gets socket from **struct bpf_sock_addr** context.
  * 	Return
  * 		A 8-byte long non-decreasing number.
  *
  * u64 bpf_get_socket_cookie(struct bpf_sock_ops *ctx)
  * 	Description
  * 		Equivalent to bpf_get_socket_cookie() helper that accepts
- * 		*skb*, but gets socket from **struct bpf_sock_ops** contex.
+ * 		*skb*, but gets socket from **struct bpf_sock_ops** context.
  * 	Return
  * 		A 8-byte long non-decreasing number.
  *
@@ -1411,7 +1535,7 @@ union bpf_attr {
  * 	Return
  * 		0
  *
- * int bpf_setsockopt(struct bpf_sock_ops *bpf_socket, int level, int optname, char *optval, int optlen)
+ * int bpf_setsockopt(struct bpf_sock_ops *bpf_socket, int level, int optname, void *optval, int optlen)
  * 	Description
  * 		Emulate a call to **setsockopt()** on the socket associated to
  * 		*bpf_socket*, which must be a full socket. The *level* at
@@ -1433,20 +1557,38 @@ union bpf_attr {
  * 	Return
  * 		0 on success, or a negative error in case of failure.
  *
- * int bpf_skb_adjust_room(struct sk_buff *skb, u32 len_diff, u32 mode, u64 flags)
+ * int bpf_skb_adjust_room(struct sk_buff *skb, s32 len_diff, u32 mode, u64 flags)
  * 	Description
  * 		Grow or shrink the room for data in the packet associated to
  * 		*skb* by *len_diff*, and according to the selected *mode*.
  *
- * 		There is a single supported mode at this time:
+ *		There are two supported modes at this time:
+ *
+ *		* **BPF_ADJ_ROOM_MAC**: Adjust room at the mac layer
+ *		  (room space is added or removed below the layer 2 header).
  *
  * 		* **BPF_ADJ_ROOM_NET**: Adjust room at the network layer
  * 		  (room space is added or removed below the layer 3 header).
  *
- * 		All values for *flags* are reserved for future usage, and must
- * 		be left at zero.
+ *		The following flags are supported at this time:
  *
- * 		A call to this helper is susceptible to change the underlaying
+ *		* **BPF_F_ADJ_ROOM_FIXED_GSO**: Do not adjust gso_size.
+ *		  Adjusting mss in this way is not allowed for datagrams.
+ *
+ *		* **BPF_F_ADJ_ROOM_ENCAP_L3_IPV4**,
+ *		  **BPF_F_ADJ_ROOM_ENCAP_L3_IPV6**:
+ *		  Any new space is reserved to hold a tunnel header.
+ *		  Configure skb offsets and other fields accordingly.
+ *
+ *		* **BPF_F_ADJ_ROOM_ENCAP_L4_GRE**,
+ *		  **BPF_F_ADJ_ROOM_ENCAP_L4_UDP**:
+ *		  Use with ENCAP_L3 flags to further specify the tunnel type.
+ *
+ *		* **BPF_F_ADJ_ROOM_ENCAP_L2**\ (*len*):
+ *		  Use with ENCAP_L3/L4 flags to further specify the tunnel
+ *		  type; *len* is the length of the inner MAC header.
+ *
+ * 		A call to this helper is susceptible to change the underlying
  * 		packet buffer. Therefore, at load time, all checks on pointers
  * 		previously done by the verifier are invalidated and must be
  * 		performed again, if the helper is used in combination with
@@ -1463,18 +1605,19 @@ union bpf_attr {
  * 		but this is only implemented for native XDP (with driver
  * 		support) as of this writing).
  *
- * 		All values for *flags* are reserved for future usage, and must
- * 		be left at zero.
+ * 		The lower two bits of *flags* are used as the return code if
+ * 		the map lookup fails. This is so that the return value can be
+ * 		one of the XDP program return codes up to XDP_TX, as chosen by
+ * 		the caller. Any higher bits in the *flags* argument must be
+ * 		unset.
  *
- * 		When used to redirect packets to net devices, this helper
- * 		provides a high performance increase over **bpf_redirect**\ ().
- * 		This is due to various implementation details of the underlying
- * 		mechanisms, one of which is the fact that **bpf_redirect_map**\
- * 		() tries to send packet as a "bulk" to the device.
+ * 		See also bpf_redirect(), which only supports redirecting to an
+ * 		ifindex, but doesn't require a map to do so.
  * 	Return
- * 		**XDP_REDIRECT** on success, or **XDP_ABORTED** on error.
+ * 		**XDP_REDIRECT** on success, or the value of the two lower bits
+ * 		of the **flags* argument on error.
  *
- * int bpf_sk_redirect_map(struct bpf_map *map, u32 key, u64 flags)
+ * int bpf_sk_redirect_map(struct sk_buff *skb, struct bpf_map *map, u32 key, u64 flags)
  * 	Description
  * 		Redirect the packet to the socket referenced by *map* (of type
  * 		**BPF_MAP_TYPE_SOCKMAP**) at index *key*. Both ingress and
@@ -1525,7 +1668,7 @@ union bpf_attr {
  * 		more flexibility as the user is free to store whatever meta
  * 		data they need.
  *
- * 		A call to this helper is susceptible to change the underlaying
+ * 		A call to this helper is susceptible to change the underlying
  * 		packet buffer. Therefore, at load time, all checks on pointers
  * 		previously done by the verifier are invalidated and must be
  * 		performed again, if the helper is used in combination with
@@ -1594,7 +1737,7 @@ union bpf_attr {
  * 	Return
  * 		0 on success, or a negative error in case of failure.
  *
- * int bpf_getsockopt(struct bpf_sock_ops *bpf_socket, int level, int optname, char *optval, int optlen)
+ * int bpf_getsockopt(struct bpf_sock_ops *bpf_socket, int level, int optname, void *optval, int optlen)
  * 	Description
  * 		Emulate a call to **getsockopt()** on the socket associated to
  * 		*bpf_socket*, which must be a full socket. The *level* at
@@ -1613,7 +1756,7 @@ union bpf_attr {
  * 	Return
  * 		0 on success, or a negative error in case of failure.
  *
- * int bpf_override_return(struct pt_reg *regs, u64 rc)
+ * int bpf_override_return(struct pt_regs *regs, u64 rc)
  * 	Description
  * 		Used for error injection, this helper uses kprobes to override
  * 		the return value of the probed function, and to set it to *rc*.
@@ -1654,11 +1797,19 @@ union bpf_attr {
  * 		error if an eBPF program tries to set a callback that is not
  * 		supported in the current kernel.
  *
- * 		The supported callback values that *argval* can combine are:
+ * 		*argval* is a flag array which can combine these flags:
  *
  * 		* **BPF_SOCK_OPS_RTO_CB_FLAG** (retransmission time out)
  * 		* **BPF_SOCK_OPS_RETRANS_CB_FLAG** (retransmission)
  * 		* **BPF_SOCK_OPS_STATE_CB_FLAG** (TCP state change)
+ * 		* **BPF_SOCK_OPS_RTT_CB_FLAG** (every RTT)
+ *
+ * 		Therefore, this function can be used to clear a callback flag by
+ * 		setting the appropriate bit to zero. e.g. to disable the RTO
+ * 		callback:
+ *
+ * 		**bpf_sock_ops_cb_flags_set(bpf_sock,**
+ * 			**bpf_sock->bpf_sock_ops_cb_flags & ~BPF_SOCK_OPS_RTO_CB_FLAG)**
  *
  * 		Here are some examples of where one could call such eBPF
  * 		program:
@@ -1760,7 +1911,7 @@ union bpf_attr {
  * 		copied if necessary (i.e. if data was not linear and if start
  * 		and end pointers do not point to the same chunk).
  *
- * 		A call to this helper is susceptible to change the underlaying
+ * 		A call to this helper is susceptible to change the underlying
  * 		packet buffer. Therefore, at load time, all checks on pointers
  * 		previously done by the verifier are invalidated and must be
  * 		performed again, if the helper is used in combination with
@@ -1794,7 +1945,7 @@ union bpf_attr {
  * 		only possible to shrink the packet as of this writing,
  * 		therefore *delta* must be a negative integer.
  *
- * 		A call to this helper is susceptible to change the underlaying
+ * 		A call to this helper is susceptible to change the underlying
  * 		packet buffer. Therefore, at load time, all checks on pointers
  * 		previously done by the verifier are invalidated and must be
  * 		performed again, if the helper is used in combination with
@@ -1818,7 +1969,7 @@ union bpf_attr {
  * 	Return
  * 		0 on success, or a negative error in case of failure.
  *
- * int bpf_get_stack(struct pt_regs *regs, void *buf, u32 size, u64 flags)
+ * int bpf_get_stack(void *ctx, void *buf, u32 size, u64 flags)
  * 	Description
  * 		Return a user or a kernel stack in bpf program provided buffer.
  * 		To achieve this, the helper needs *ctx*, which is a pointer
@@ -1851,7 +2002,7 @@ union bpf_attr {
  * 		A non-negative value equal to or less than *size* on success,
  * 		or a negative error in case of failure.
  *
- * int bpf_skb_load_bytes_relative(const struct sk_buff *skb, u32 offset, void *to, u32 len, u32 start_header)
+ * int bpf_skb_load_bytes_relative(const void *skb, u32 offset, void *to, u32 len, u32 start_header)
  * 	Description
  * 		This helper is similar to **bpf_skb_load_bytes**\ () in that
  * 		it provides an easy way to load *len* bytes from *offset*
@@ -1885,9 +2036,9 @@ union bpf_attr {
  *		is set to metric from route (IPv4/IPv6 only), and ifindex
  *		is set to the device index of the nexthop from the FIB lookup.
  *
- *             *plen* argument is the size of the passed in struct.
- *             *flags* argument can be a combination of one or more of the
- *             following values:
+ *		*plen* argument is the size of the passed in struct.
+ *		*flags* argument can be a combination of one or more of the
+ *		following values:
  *
  *		**BPF_FIB_LOOKUP_DIRECT**
  *			Do a direct table lookup vs full lookup using FIB
@@ -1896,15 +2047,15 @@ union bpf_attr {
  *			Perform lookup from an egress perspective (default is
  *			ingress).
  *
- *             *ctx* is either **struct xdp_md** for XDP programs or
- *             **struct sk_buff** tc cls_act programs.
- *     Return
+ *		*ctx* is either **struct xdp_md** for XDP programs or
+ *		**struct sk_buff** tc cls_act programs.
+ *	Return
  *		* < 0 if any input argument is invalid
  *		*   0 on success (packet is forwarded, nexthop neighbor exists)
  *		* > 0 one of **BPF_FIB_LKUP_RET_** codes explaining why the
  *		  packet is not forwarded or needs assist from full stack
  *
- * int bpf_sock_hash_update(struct bpf_sock_ops_kern *skops, struct bpf_map *map, void *key, u64 flags)
+ * int bpf_sock_hash_update(struct bpf_sock_ops *skops, struct bpf_map *map, void *key, u64 flags)
  *	Description
  *		Add an entry to, or update a sockhash *map* referencing sockets.
  *		The *skops* is used as a new value for the entry associated to
@@ -1966,8 +2117,21 @@ union bpf_attr {
  *			Only works if *skb* contains an IPv6 packet. Insert a
  *			Segment Routing Header (**struct ipv6_sr_hdr**) inside
  *			the IPv6 header.
+ *		**BPF_LWT_ENCAP_IP**
+ *			IP encapsulation (GRE/GUE/IPIP/etc). The outer header
+ *			must be IPv4 or IPv6, followed by zero or more
+ *			additional headers, up to **LWT_BPF_MAX_HEADROOM**
+ *			total bytes in all prepended headers. Please note that
+ *			if **skb_is_gso**\ (*skb*) is true, no more than two
+ *			headers can be prepended, and the inner header, if
+ *			present, should be either GRE or UDP/GUE.
  *
- * 		A call to this helper is susceptible to change the underlaying
+ *		**BPF_LWT_ENCAP_SEG6**\ \* types can be called by BPF programs
+ *		of type **BPF_PROG_TYPE_LWT_IN**; **BPF_LWT_ENCAP_IP** type can
+ *		be called by bpf programs of types **BPF_PROG_TYPE_LWT_IN** and
+ *		**BPF_PROG_TYPE_LWT_XMIT**.
+ *
+ * 		A call to this helper is susceptible to change the underlying
  * 		packet buffer. Therefore, at load time, all checks on pointers
  * 		previously done by the verifier are invalidated and must be
  * 		performed again, if the helper is used in combination with
@@ -1982,7 +2146,7 @@ union bpf_attr {
  *		inside the outermost IPv6 Segment Routing Header can be
  *		modified through this helper.
  *
- * 		A call to this helper is susceptible to change the underlaying
+ * 		A call to this helper is susceptible to change the underlying
  * 		packet buffer. Therefore, at load time, all checks on pointers
  * 		previously done by the verifier are invalidated and must be
  * 		performed again, if the helper is used in combination with
@@ -1998,7 +2162,7 @@ union bpf_attr {
  *		after the segments are accepted. *delta* can be as well
  *		positive (growing) as negative (shrinking).
  *
- * 		A call to this helper is susceptible to change the underlaying
+ * 		A call to this helper is susceptible to change the underlying
  * 		packet buffer. Therefore, at load time, all checks on pointers
  * 		previously done by the verifier are invalidated and must be
  * 		performed again, if the helper is used in combination with
@@ -2021,45 +2185,19 @@ union bpf_attr {
  *			Type of *param*: **int**.
  *		**SEG6_LOCAL_ACTION_END_B6**
  *			End.B6 action: Endpoint bound to an SRv6 policy.
- *			Type of param: **struct ipv6_sr_hdr**.
+ *			Type of *param*: **struct ipv6_sr_hdr**.
  *		**SEG6_LOCAL_ACTION_END_B6_ENCAP**
  *			End.B6.Encap action: Endpoint bound to an SRv6
  *			encapsulation policy.
- *			Type of param: **struct ipv6_sr_hdr**.
+ *			Type of *param*: **struct ipv6_sr_hdr**.
  *
- * 		A call to this helper is susceptible to change the underlaying
+ * 		A call to this helper is susceptible to change the underlying
  * 		packet buffer. Therefore, at load time, all checks on pointers
  * 		previously done by the verifier are invalidated and must be
  * 		performed again, if the helper is used in combination with
  * 		direct packet access.
  *	Return
  * 		0 on success, or a negative error in case of failure.
- *
- * int bpf_rc_keydown(void *ctx, u32 protocol, u64 scancode, u32 toggle)
- *	Description
- *		This helper is used in programs implementing IR decoding, to
- *		report a successfully decoded key press with *scancode*,
- *		*toggle* value in the given *protocol*. The scancode will be
- *		translated to a keycode using the rc keymap, and reported as
- *		an input key down event. After a period a key up event is
- *		generated. This period can be extended by calling either
- *		**bpf_rc_keydown** () again with the same values, or calling
- *		**bpf_rc_repeat** ().
- *
- *		Some protocols include a toggle bit, in case the button	was
- *		released and pressed again between consecutive scancodes.
- *
- *		The *ctx* should point to the lirc sample as passed into
- *		the program.
- *
- *		The *protocol* is the decoded protocol number (see
- *		**enum rc_proto** for some predefined values).
- *
- *		This helper is only available is the kernel was compiled with
- *		the **CONFIG_BPF_LIRC_MODE2** configuration option set to
- *		"**y**".
- *	Return
- *		0
  *
  * int bpf_rc_repeat(void *ctx)
  *	Description
@@ -2080,7 +2218,33 @@ union bpf_attr {
  *	Return
  *		0
  *
- * uint64_t bpf_skb_cgroup_id(struct sk_buff *skb)
+ * int bpf_rc_keydown(void *ctx, u32 protocol, u64 scancode, u32 toggle)
+ *	Description
+ *		This helper is used in programs implementing IR decoding, to
+ *		report a successfully decoded key press with *scancode*,
+ *		*toggle* value in the given *protocol*. The scancode will be
+ *		translated to a keycode using the rc keymap, and reported as
+ *		an input key down event. After a period a key up event is
+ *		generated. This period can be extended by calling either
+ *		**bpf_rc_keydown**\ () again with the same values, or calling
+ *		**bpf_rc_repeat**\ ().
+ *
+ *		Some protocols include a toggle bit, in case the button	was
+ *		released and pressed again between consecutive scancodes.
+ *
+ *		The *ctx* should point to the lirc sample as passed into
+ *		the program.
+ *
+ *		The *protocol* is the decoded protocol number (see
+ *		**enum rc_proto** for some predefined values).
+ *
+ *		This helper is only available is the kernel was compiled with
+ *		the **CONFIG_BPF_LIRC_MODE2** configuration option set to
+ *		"**y**".
+ *	Return
+ *		0
+ *
+ * u64 bpf_skb_cgroup_id(struct sk_buff *skb)
  * 	Description
  * 		Return the cgroup v2 id of the socket associated with the *skb*.
  * 		This is roughly similar to the **bpf_get_cgroup_classid**\ ()
@@ -2095,6 +2259,38 @@ union bpf_attr {
  * 		**CONFIG_SOCK_CGROUP_DATA** configuration option.
  * 	Return
  * 		The id is returned or 0 in case the id could not be retrieved.
+ *
+ * u64 bpf_get_current_cgroup_id(void)
+ * 	Return
+ * 		A 64-bit integer containing the current cgroup id based
+ * 		on the cgroup within which the current task is running.
+ *
+ * void *bpf_get_local_storage(void *map, u64 flags)
+ *	Description
+ *		Get the pointer to the local storage area.
+ *		The type and the size of the local storage is defined
+ *		by the *map* argument.
+ *		The *flags* meaning is specific for each map type,
+ *		and has to be 0 for cgroup local storage.
+ *
+ *		Depending on the BPF program type, a local storage area
+ *		can be shared between multiple instances of the BPF program,
+ *		running simultaneously.
+ *
+ *		A user should care about the synchronization by himself.
+ *		For example, by using the **BPF_STX_XADD** instruction to alter
+ *		the shared data.
+ *	Return
+ *		A pointer to the local storage area.
+ *
+ * int bpf_sk_select_reuseport(struct sk_reuseport_md *reuse, struct bpf_map *map, void *key, u64 flags)
+ *	Description
+ *		Select a **SO_REUSEPORT** socket from a
+ *		**BPF_MAP_TYPE_REUSEPORT_ARRAY** *map*.
+ *		It checks the selected socket is matching the incoming
+ *		request in the socket buffer.
+ *	Return
+ *		0 on success, or a negative error in case of failure.
  *
  * u64 bpf_skb_ancestor_cgroup_id(struct sk_buff *skb, int ancestor_level)
  *	Description
@@ -2114,36 +2310,586 @@ union bpf_attr {
  *	Return
  *		The id is returned or 0 in case the id could not be retrieved.
  *
- * u64 bpf_get_current_cgroup_id(void)
- * 	Return
- * 		A 64-bit integer containing the current cgroup id based
- * 		on the cgroup within which the current task is running.
- *
- * void* get_local_storage(void *map, u64 flags)
+ * struct bpf_sock *bpf_sk_lookup_tcp(void *ctx, struct bpf_sock_tuple *tuple, u32 tuple_size, u64 netns, u64 flags)
  *	Description
- *		Get the pointer to the local storage area.
- *		The type and the size of the local storage is defined
- *		by the *map* argument.
- *		The *flags* meaning is specific for each map type,
- *		and has to be 0 for cgroup local storage.
+ *		Look for TCP socket matching *tuple*, optionally in a child
+ *		network namespace *netns*. The return value must be checked,
+ *		and if non-**NULL**, released via **bpf_sk_release**\ ().
  *
- *		Depending on the bpf program type, a local storage area
- *		can be shared between multiple instances of the bpf program,
- *		running simultaneously.
+ *		The *ctx* should point to the context of the program, such as
+ *		the skb or socket (depending on the hook in use). This is used
+ *		to determine the base network namespace for the lookup.
  *
- *		A user should care about the synchronization by himself.
- *		For example, by using the BPF_STX_XADD instruction to alter
- *		the shared data.
+ *		*tuple_size* must be one of:
+ *
+ *		**sizeof**\ (*tuple*\ **->ipv4**)
+ *			Look for an IPv4 socket.
+ *		**sizeof**\ (*tuple*\ **->ipv6**)
+ *			Look for an IPv6 socket.
+ *
+ *		If the *netns* is a negative signed 32-bit integer, then the
+ *		socket lookup table in the netns associated with the *ctx* will
+ *		will be used. For the TC hooks, this is the netns of the device
+ *		in the skb. For socket hooks, this is the netns of the socket.
+ *		If *netns* is any other signed 32-bit value greater than or
+ *		equal to zero then it specifies the ID of the netns relative to
+ *		the netns associated with the *ctx*. *netns* values beyond the
+ *		range of 32-bit integers are reserved for future use.
+ *
+ *		All values for *flags* are reserved for future usage, and must
+ *		be left at zero.
+ *
+ *		This helper is available only if the kernel was compiled with
+ *		**CONFIG_NET** configuration option.
  *	Return
- *		Pointer to the local storage area.
+ *		Pointer to **struct bpf_sock**, or **NULL** in case of failure.
+ *		For sockets with reuseport option, the **struct bpf_sock**
+ *		result is from *reuse*\ **->socks**\ [] using the hash of the
+ *		tuple.
  *
- * int bpf_sk_select_reuseport(struct sk_reuseport_md *reuse, struct bpf_map *map, void *key, u64 flags)
+ * struct bpf_sock *bpf_sk_lookup_udp(void *ctx, struct bpf_sock_tuple *tuple, u32 tuple_size, u64 netns, u64 flags)
  *	Description
- *		Select a SO_REUSEPORT sk from a	BPF_MAP_TYPE_REUSEPORT_ARRAY map
- *		It checks the selected sk is matching the incoming
- *		request in the skb.
+ *		Look for UDP socket matching *tuple*, optionally in a child
+ *		network namespace *netns*. The return value must be checked,
+ *		and if non-**NULL**, released via **bpf_sk_release**\ ().
+ *
+ *		The *ctx* should point to the context of the program, such as
+ *		the skb or socket (depending on the hook in use). This is used
+ *		to determine the base network namespace for the lookup.
+ *
+ *		*tuple_size* must be one of:
+ *
+ *		**sizeof**\ (*tuple*\ **->ipv4**)
+ *			Look for an IPv4 socket.
+ *		**sizeof**\ (*tuple*\ **->ipv6**)
+ *			Look for an IPv6 socket.
+ *
+ *		If the *netns* is a negative signed 32-bit integer, then the
+ *		socket lookup table in the netns associated with the *ctx* will
+ *		will be used. For the TC hooks, this is the netns of the device
+ *		in the skb. For socket hooks, this is the netns of the socket.
+ *		If *netns* is any other signed 32-bit value greater than or
+ *		equal to zero then it specifies the ID of the netns relative to
+ *		the netns associated with the *ctx*. *netns* values beyond the
+ *		range of 32-bit integers are reserved for future use.
+ *
+ *		All values for *flags* are reserved for future usage, and must
+ *		be left at zero.
+ *
+ *		This helper is available only if the kernel was compiled with
+ *		**CONFIG_NET** configuration option.
+ *	Return
+ *		Pointer to **struct bpf_sock**, or **NULL** in case of failure.
+ *		For sockets with reuseport option, the **struct bpf_sock**
+ *		result is from *reuse*\ **->socks**\ [] using the hash of the
+ *		tuple.
+ *
+ * int bpf_sk_release(struct bpf_sock *sock)
+ *	Description
+ *		Release the reference held by *sock*. *sock* must be a
+ *		non-**NULL** pointer that was returned from
+ *		**bpf_sk_lookup_xxx**\ ().
  *	Return
  *		0 on success, or a negative error in case of failure.
+ *
+ * int bpf_map_push_elem(struct bpf_map *map, const void *value, u64 flags)
+ * 	Description
+ * 		Push an element *value* in *map*. *flags* is one of:
+ *
+ * 		**BPF_EXIST**
+ * 			If the queue/stack is full, the oldest element is
+ * 			removed to make room for this.
+ * 	Return
+ * 		0 on success, or a negative error in case of failure.
+ *
+ * int bpf_map_pop_elem(struct bpf_map *map, void *value)
+ * 	Description
+ * 		Pop an element from *map*.
+ * 	Return
+ * 		0 on success, or a negative error in case of failure.
+ *
+ * int bpf_map_peek_elem(struct bpf_map *map, void *value)
+ * 	Description
+ * 		Get an element from *map* without removing it.
+ * 	Return
+ * 		0 on success, or a negative error in case of failure.
+ *
+ * int bpf_msg_push_data(struct sk_msg_buff *msg, u32 start, u32 len, u64 flags)
+ *	Description
+ *		For socket policies, insert *len* bytes into *msg* at offset
+ *		*start*.
+ *
+ *		If a program of type **BPF_PROG_TYPE_SK_MSG** is run on a
+ *		*msg* it may want to insert metadata or options into the *msg*.
+ *		This can later be read and used by any of the lower layer BPF
+ *		hooks.
+ *
+ *		This helper may fail if under memory pressure (a malloc
+ *		fails) in these cases BPF programs will get an appropriate
+ *		error and BPF programs will need to handle them.
+ *	Return
+ *		0 on success, or a negative error in case of failure.
+ *
+ * int bpf_msg_pop_data(struct sk_msg_buff *msg, u32 start, u32 len, u64 flags)
+ *	Description
+ *		Will remove *len* bytes from a *msg* starting at byte *start*.
+ *		This may result in **ENOMEM** errors under certain situations if
+ *		an allocation and copy are required due to a full ring buffer.
+ *		However, the helper will try to avoid doing the allocation
+ *		if possible. Other errors can occur if input parameters are
+ *		invalid either due to *start* byte not being valid part of *msg*
+ *		payload and/or *pop* value being to large.
+ *	Return
+ *		0 on success, or a negative error in case of failure.
+ *
+ * int bpf_rc_pointer_rel(void *ctx, s32 rel_x, s32 rel_y)
+ *	Description
+ *		This helper is used in programs implementing IR decoding, to
+ *		report a successfully decoded pointer movement.
+ *
+ *		The *ctx* should point to the lirc sample as passed into
+ *		the program.
+ *
+ *		This helper is only available is the kernel was compiled with
+ *		the **CONFIG_BPF_LIRC_MODE2** configuration option set to
+ *		"**y**".
+ *	Return
+ *		0
+ *
+ * int bpf_spin_lock(struct bpf_spin_lock *lock)
+ *	Description
+ *		Acquire a spinlock represented by the pointer *lock*, which is
+ *		stored as part of a value of a map. Taking the lock allows to
+ *		safely update the rest of the fields in that value. The
+ *		spinlock can (and must) later be released with a call to
+ *		**bpf_spin_unlock**\ (\ *lock*\ ).
+ *
+ *		Spinlocks in BPF programs come with a number of restrictions
+ *		and constraints:
+ *
+ *		* **bpf_spin_lock** objects are only allowed inside maps of
+ *		  types **BPF_MAP_TYPE_HASH** and **BPF_MAP_TYPE_ARRAY** (this
+ *		  list could be extended in the future).
+ *		* BTF description of the map is mandatory.
+ *		* The BPF program can take ONE lock at a time, since taking two
+ *		  or more could cause dead locks.
+ *		* Only one **struct bpf_spin_lock** is allowed per map element.
+ *		* When the lock is taken, calls (either BPF to BPF or helpers)
+ *		  are not allowed.
+ *		* The **BPF_LD_ABS** and **BPF_LD_IND** instructions are not
+ *		  allowed inside a spinlock-ed region.
+ *		* The BPF program MUST call **bpf_spin_unlock**\ () to release
+ *		  the lock, on all execution paths, before it returns.
+ *		* The BPF program can access **struct bpf_spin_lock** only via
+ *		  the **bpf_spin_lock**\ () and **bpf_spin_unlock**\ ()
+ *		  helpers. Loading or storing data into the **struct
+ *		  bpf_spin_lock** *lock*\ **;** field of a map is not allowed.
+ *		* To use the **bpf_spin_lock**\ () helper, the BTF description
+ *		  of the map value must be a struct and have **struct
+ *		  bpf_spin_lock** *anyname*\ **;** field at the top level.
+ *		  Nested lock inside another struct is not allowed.
+ *		* The **struct bpf_spin_lock** *lock* field in a map value must
+ *		  be aligned on a multiple of 4 bytes in that value.
+ *		* Syscall with command **BPF_MAP_LOOKUP_ELEM** does not copy
+ *		  the **bpf_spin_lock** field to user space.
+ *		* Syscall with command **BPF_MAP_UPDATE_ELEM**, or update from
+ *		  a BPF program, do not update the **bpf_spin_lock** field.
+ *		* **bpf_spin_lock** cannot be on the stack or inside a
+ *		  networking packet (it can only be inside of a map values).
+ *		* **bpf_spin_lock** is available to root only.
+ *		* Tracing programs and socket filter programs cannot use
+ *		  **bpf_spin_lock**\ () due to insufficient preemption checks
+ *		  (but this may change in the future).
+ *		* **bpf_spin_lock** is not allowed in inner maps of map-in-map.
+ *	Return
+ *		0
+ *
+ * int bpf_spin_unlock(struct bpf_spin_lock *lock)
+ *	Description
+ *		Release the *lock* previously locked by a call to
+ *		**bpf_spin_lock**\ (\ *lock*\ ).
+ *	Return
+ *		0
+ *
+ * struct bpf_sock *bpf_sk_fullsock(struct bpf_sock *sk)
+ *	Description
+ *		This helper gets a **struct bpf_sock** pointer such
+ *		that all the fields in this **bpf_sock** can be accessed.
+ *	Return
+ *		A **struct bpf_sock** pointer on success, or **NULL** in
+ *		case of failure.
+ *
+ * struct bpf_tcp_sock *bpf_tcp_sock(struct bpf_sock *sk)
+ *	Description
+ *		This helper gets a **struct bpf_tcp_sock** pointer from a
+ *		**struct bpf_sock** pointer.
+ *	Return
+ *		A **struct bpf_tcp_sock** pointer on success, or **NULL** in
+ *		case of failure.
+ *
+ * int bpf_skb_ecn_set_ce(struct sk_buff *skb)
+ *	Description
+ *		Set ECN (Explicit Congestion Notification) field of IP header
+ *		to **CE** (Congestion Encountered) if current value is **ECT**
+ *		(ECN Capable Transport). Otherwise, do nothing. Works with IPv6
+ *		and IPv4.
+ *	Return
+ *		1 if the **CE** flag is set (either by the current helper call
+ *		or because it was already present), 0 if it is not set.
+ *
+ * struct bpf_sock *bpf_get_listener_sock(struct bpf_sock *sk)
+ *	Description
+ *		Return a **struct bpf_sock** pointer in **TCP_LISTEN** state.
+ *		**bpf_sk_release**\ () is unnecessary and not allowed.
+ *	Return
+ *		A **struct bpf_sock** pointer on success, or **NULL** in
+ *		case of failure.
+ *
+ * struct bpf_sock *bpf_skc_lookup_tcp(void *ctx, struct bpf_sock_tuple *tuple, u32 tuple_size, u64 netns, u64 flags)
+ *	Description
+ *		Look for TCP socket matching *tuple*, optionally in a child
+ *		network namespace *netns*. The return value must be checked,
+ *		and if non-**NULL**, released via **bpf_sk_release**\ ().
+ *
+ *		This function is identical to **bpf_sk_lookup_tcp**\ (), except
+ *		that it also returns timewait or request sockets. Use
+ *		**bpf_sk_fullsock**\ () or **bpf_tcp_sock**\ () to access the
+ *		full structure.
+ *
+ *		This helper is available only if the kernel was compiled with
+ *		**CONFIG_NET** configuration option.
+ *	Return
+ *		Pointer to **struct bpf_sock**, or **NULL** in case of failure.
+ *		For sockets with reuseport option, the **struct bpf_sock**
+ *		result is from *reuse*\ **->socks**\ [] using the hash of the
+ *		tuple.
+ *
+ * int bpf_tcp_check_syncookie(struct bpf_sock *sk, void *iph, u32 iph_len, struct tcphdr *th, u32 th_len)
+ * 	Description
+ * 		Check whether *iph* and *th* contain a valid SYN cookie ACK for
+ * 		the listening socket in *sk*.
+ *
+ * 		*iph* points to the start of the IPv4 or IPv6 header, while
+ * 		*iph_len* contains **sizeof**\ (**struct iphdr**) or
+ * 		**sizeof**\ (**struct ip6hdr**).
+ *
+ * 		*th* points to the start of the TCP header, while *th_len*
+ * 		contains **sizeof**\ (**struct tcphdr**).
+ *
+ * 	Return
+ * 		0 if *iph* and *th* are a valid SYN cookie ACK, or a negative
+ * 		error otherwise.
+ *
+ * int bpf_sysctl_get_name(struct bpf_sysctl *ctx, char *buf, size_t buf_len, u64 flags)
+ *	Description
+ *		Get name of sysctl in /proc/sys/ and copy it into provided by
+ *		program buffer *buf* of size *buf_len*.
+ *
+ *		The buffer is always NUL terminated, unless it's zero-sized.
+ *
+ *		If *flags* is zero, full name (e.g. "net/ipv4/tcp_mem") is
+ *		copied. Use **BPF_F_SYSCTL_BASE_NAME** flag to copy base name
+ *		only (e.g. "tcp_mem").
+ *	Return
+ *		Number of character copied (not including the trailing NUL).
+ *
+ *		**-E2BIG** if the buffer wasn't big enough (*buf* will contain
+ *		truncated name in this case).
+ *
+ * int bpf_sysctl_get_current_value(struct bpf_sysctl *ctx, char *buf, size_t buf_len)
+ *	Description
+ *		Get current value of sysctl as it is presented in /proc/sys
+ *		(incl. newline, etc), and copy it as a string into provided
+ *		by program buffer *buf* of size *buf_len*.
+ *
+ *		The whole value is copied, no matter what file position user
+ *		space issued e.g. sys_read at.
+ *
+ *		The buffer is always NUL terminated, unless it's zero-sized.
+ *	Return
+ *		Number of character copied (not including the trailing NUL).
+ *
+ *		**-E2BIG** if the buffer wasn't big enough (*buf* will contain
+ *		truncated name in this case).
+ *
+ *		**-EINVAL** if current value was unavailable, e.g. because
+ *		sysctl is uninitialized and read returns -EIO for it.
+ *
+ * int bpf_sysctl_get_new_value(struct bpf_sysctl *ctx, char *buf, size_t buf_len)
+ *	Description
+ *		Get new value being written by user space to sysctl (before
+ *		the actual write happens) and copy it as a string into
+ *		provided by program buffer *buf* of size *buf_len*.
+ *
+ *		User space may write new value at file position > 0.
+ *
+ *		The buffer is always NUL terminated, unless it's zero-sized.
+ *	Return
+ *		Number of character copied (not including the trailing NUL).
+ *
+ *		**-E2BIG** if the buffer wasn't big enough (*buf* will contain
+ *		truncated name in this case).
+ *
+ *		**-EINVAL** if sysctl is being read.
+ *
+ * int bpf_sysctl_set_new_value(struct bpf_sysctl *ctx, const char *buf, size_t buf_len)
+ *	Description
+ *		Override new value being written by user space to sysctl with
+ *		value provided by program in buffer *buf* of size *buf_len*.
+ *
+ *		*buf* should contain a string in same form as provided by user
+ *		space on sysctl write.
+ *
+ *		User space may write new value at file position > 0. To override
+ *		the whole sysctl value file position should be set to zero.
+ *	Return
+ *		0 on success.
+ *
+ *		**-E2BIG** if the *buf_len* is too big.
+ *
+ *		**-EINVAL** if sysctl is being read.
+ *
+ * int bpf_strtol(const char *buf, size_t buf_len, u64 flags, long *res)
+ *	Description
+ *		Convert the initial part of the string from buffer *buf* of
+ *		size *buf_len* to a long integer according to the given base
+ *		and save the result in *res*.
+ *
+ *		The string may begin with an arbitrary amount of white space
+ *		(as determined by **isspace**\ (3)) followed by a single
+ *		optional '**-**' sign.
+ *
+ *		Five least significant bits of *flags* encode base, other bits
+ *		are currently unused.
+ *
+ *		Base must be either 8, 10, 16 or 0 to detect it automatically
+ *		similar to user space **strtol**\ (3).
+ *	Return
+ *		Number of characters consumed on success. Must be positive but
+ *		no more than *buf_len*.
+ *
+ *		**-EINVAL** if no valid digits were found or unsupported base
+ *		was provided.
+ *
+ *		**-ERANGE** if resulting value was out of range.
+ *
+ * int bpf_strtoul(const char *buf, size_t buf_len, u64 flags, unsigned long *res)
+ *	Description
+ *		Convert the initial part of the string from buffer *buf* of
+ *		size *buf_len* to an unsigned long integer according to the
+ *		given base and save the result in *res*.
+ *
+ *		The string may begin with an arbitrary amount of white space
+ *		(as determined by **isspace**\ (3)).
+ *
+ *		Five least significant bits of *flags* encode base, other bits
+ *		are currently unused.
+ *
+ *		Base must be either 8, 10, 16 or 0 to detect it automatically
+ *		similar to user space **strtoul**\ (3).
+ *	Return
+ *		Number of characters consumed on success. Must be positive but
+ *		no more than *buf_len*.
+ *
+ *		**-EINVAL** if no valid digits were found or unsupported base
+ *		was provided.
+ *
+ *		**-ERANGE** if resulting value was out of range.
+ *
+ * void *bpf_sk_storage_get(struct bpf_map *map, struct bpf_sock *sk, void *value, u64 flags)
+ *	Description
+ *		Get a bpf-local-storage from a *sk*.
+ *
+ *		Logically, it could be thought of getting the value from
+ *		a *map* with *sk* as the **key**.  From this
+ *		perspective,  the usage is not much different from
+ *		**bpf_map_lookup_elem**\ (*map*, **&**\ *sk*) except this
+ *		helper enforces the key must be a full socket and the map must
+ *		be a **BPF_MAP_TYPE_SK_STORAGE** also.
+ *
+ *		Underneath, the value is stored locally at *sk* instead of
+ *		the *map*.  The *map* is used as the bpf-local-storage
+ *		"type". The bpf-local-storage "type" (i.e. the *map*) is
+ *		searched against all bpf-local-storages residing at *sk*.
+ *
+ *		An optional *flags* (**BPF_SK_STORAGE_GET_F_CREATE**) can be
+ *		used such that a new bpf-local-storage will be
+ *		created if one does not exist.  *value* can be used
+ *		together with **BPF_SK_STORAGE_GET_F_CREATE** to specify
+ *		the initial value of a bpf-local-storage.  If *value* is
+ *		**NULL**, the new bpf-local-storage will be zero initialized.
+ *	Return
+ *		A bpf-local-storage pointer is returned on success.
+ *
+ *		**NULL** if not found or there was an error in adding
+ *		a new bpf-local-storage.
+ *
+ * int bpf_sk_storage_delete(struct bpf_map *map, struct bpf_sock *sk)
+ *	Description
+ *		Delete a bpf-local-storage from a *sk*.
+ *	Return
+ *		0 on success.
+ *
+ *		**-ENOENT** if the bpf-local-storage cannot be found.
+ *
+ * int bpf_send_signal(u32 sig)
+ *	Description
+ *		Send signal *sig* to the process of the current task.
+ *		The signal may be delivered to any of this process's threads.
+ *	Return
+ *		0 on success or successfully queued.
+ *
+ *		**-EBUSY** if work queue under nmi is full.
+ *
+ *		**-EINVAL** if *sig* is invalid.
+ *
+ *		**-EPERM** if no permission to send the *sig*.
+ *
+ *		**-EAGAIN** if bpf program can try again.
+ *
+ * s64 bpf_tcp_gen_syncookie(struct bpf_sock *sk, void *iph, u32 iph_len, struct tcphdr *th, u32 th_len)
+ *	Description
+ *		Try to issue a SYN cookie for the packet with corresponding
+ *		IP/TCP headers, *iph* and *th*, on the listening socket in *sk*.
+ *
+ *		*iph* points to the start of the IPv4 or IPv6 header, while
+ *		*iph_len* contains **sizeof**\ (**struct iphdr**) or
+ *		**sizeof**\ (**struct ip6hdr**).
+ *
+ *		*th* points to the start of the TCP header, while *th_len*
+ *		contains the length of the TCP header.
+ *
+ *	Return
+ *		On success, lower 32 bits hold the generated SYN cookie in
+ *		followed by 16 bits which hold the MSS value for that cookie,
+ *		and the top 16 bits are unused.
+ *
+ *		On failure, the returned value is one of the following:
+ *
+ *		**-EINVAL** SYN cookie cannot be issued due to error
+ *
+ *		**-ENOENT** SYN cookie should not be issued (no SYN flood)
+ *
+ *		**-EOPNOTSUPP** kernel configuration does not enable SYN cookies
+ *
+ *		**-EPROTONOSUPPORT** IP packet version is not 4 or 6
+ *
+ * int bpf_skb_output(void *ctx, struct bpf_map *map, u64 flags, void *data, u64 size)
+ * 	Description
+ * 		Write raw *data* blob into a special BPF perf event held by
+ * 		*map* of type **BPF_MAP_TYPE_PERF_EVENT_ARRAY**. This perf
+ * 		event must have the following attributes: **PERF_SAMPLE_RAW**
+ * 		as **sample_type**, **PERF_TYPE_SOFTWARE** as **type**, and
+ * 		**PERF_COUNT_SW_BPF_OUTPUT** as **config**.
+ *
+ * 		The *flags* are used to indicate the index in *map* for which
+ * 		the value must be put, masked with **BPF_F_INDEX_MASK**.
+ * 		Alternatively, *flags* can be set to **BPF_F_CURRENT_CPU**
+ * 		to indicate that the index of the current CPU core should be
+ * 		used.
+ *
+ * 		The value to write, of *size*, is passed through eBPF stack and
+ * 		pointed by *data*.
+ *
+ * 		*ctx* is a pointer to in-kernel struct sk_buff.
+ *
+ * 		This helper is similar to **bpf_perf_event_output**\ () but
+ * 		restricted to raw_tracepoint bpf programs.
+ * 	Return
+ * 		0 on success, or a negative error in case of failure.
+ *
+ * int bpf_probe_read_user(void *dst, u32 size, const void *unsafe_ptr)
+ * 	Description
+ * 		Safely attempt to read *size* bytes from user space address
+ * 		*unsafe_ptr* and store the data in *dst*.
+ * 	Return
+ * 		0 on success, or a negative error in case of failure.
+ *
+ * int bpf_probe_read_kernel(void *dst, u32 size, const void *unsafe_ptr)
+ * 	Description
+ * 		Safely attempt to read *size* bytes from kernel space address
+ * 		*unsafe_ptr* and store the data in *dst*.
+ * 	Return
+ * 		0 on success, or a negative error in case of failure.
+ *
+ * int bpf_probe_read_user_str(void *dst, u32 size, const void *unsafe_ptr)
+ * 	Description
+ * 		Copy a NUL terminated string from an unsafe user address
+ * 		*unsafe_ptr* to *dst*. The *size* should include the
+ * 		terminating NUL byte. In case the string length is smaller than
+ * 		*size*, the target is not padded with further NUL bytes. If the
+ * 		string length is larger than *size*, just *size*-1 bytes are
+ * 		copied and the last byte is set to NUL.
+ *
+ * 		On success, the length of the copied string is returned. This
+ * 		makes this helper useful in tracing programs for reading
+ * 		strings, and more importantly to get its length at runtime. See
+ * 		the following snippet:
+ *
+ * 		::
+ *
+ * 			SEC("kprobe/sys_open")
+ * 			void bpf_sys_open(struct pt_regs *ctx)
+ * 			{
+ * 			        char buf[PATHLEN]; // PATHLEN is defined to 256
+ * 			        int res = bpf_probe_read_user_str(buf, sizeof(buf),
+ * 				                                  ctx->di);
+ *
+ * 				// Consume buf, for example push it to
+ * 				// userspace via bpf_perf_event_output(); we
+ * 				// can use res (the string length) as event
+ * 				// size, after checking its boundaries.
+ * 			}
+ *
+ * 		In comparison, using **bpf_probe_read_user()** helper here
+ * 		instead to read the string would require to estimate the length
+ * 		at compile time, and would often result in copying more memory
+ * 		than necessary.
+ *
+ * 		Another useful use case is when parsing individual process
+ * 		arguments or individual environment variables navigating
+ * 		*current*\ **->mm->arg_start** and *current*\
+ * 		**->mm->env_start**: using this helper and the return value,
+ * 		one can quickly iterate at the right offset of the memory area.
+ * 	Return
+ * 		On success, the strictly positive length of the string,
+ * 		including the trailing NUL character. On error, a negative
+ * 		value.
+ *
+ * int bpf_probe_read_kernel_str(void *dst, u32 size, const void *unsafe_ptr)
+ * 	Description
+ * 		Copy a NUL terminated string from an unsafe kernel address *unsafe_ptr*
+ * 		to *dst*. Same semantics as with bpf_probe_read_user_str() apply.
+ * 	Return
+ * 		On success, the strictly positive length of the string,	including
+ * 		the trailing NUL character. On error, a negative value.
+ *
+ * int bpf_tcp_send_ack(void *tp, u32 rcv_nxt)
+ *	Description
+ *		Send out a tcp-ack. *tp* is the in-kernel struct tcp_sock.
+ *		*rcv_nxt* is the ack_seq to be sent out.
+ *	Return
+ *		0 on success, or a negative error in case of failure.
+ *
+ * int bpf_send_signal_thread(u32 sig)
+ *	Description
+ *		Send signal *sig* to the thread corresponding to the current task.
+ *	Return
+ *		0 on success or successfully queued.
+ *
+ *		**-EBUSY** if work queue under nmi is full.
+ *
+ *		**-EINVAL** if *sig* is invalid.
+ *
+ *		**-EPERM** if no permission to send the *sig*.
+ *
+ *		**-EAGAIN** if bpf program can try again.
+ *
+ * u64 bpf_jiffies64(void)
+ *	Description
+ *		Obtain the 64bit jiffies
+ *	Return
+ *		The 64 bit jiffies
  */
 #define __BPF_FUNC_MAPPER(FN)		\
 	FN(unspec),			\
@@ -2229,7 +2975,42 @@ union bpf_attr {
 	FN(get_current_cgroup_id),	\
 	FN(get_local_storage),		\
 	FN(sk_select_reuseport),	\
-	FN(skb_ancestor_cgroup_id),
+	FN(skb_ancestor_cgroup_id),	\
+	FN(sk_lookup_tcp),		\
+	FN(sk_lookup_udp),		\
+	FN(sk_release),			\
+	FN(map_push_elem),		\
+	FN(map_pop_elem),		\
+	FN(map_peek_elem),		\
+	FN(msg_push_data),		\
+	FN(msg_pop_data),		\
+	FN(rc_pointer_rel),		\
+	FN(spin_lock),			\
+	FN(spin_unlock),		\
+	FN(sk_fullsock),		\
+	FN(tcp_sock),			\
+	FN(skb_ecn_set_ce),		\
+	FN(get_listener_sock),		\
+	FN(skc_lookup_tcp),		\
+	FN(tcp_check_syncookie),	\
+	FN(sysctl_get_name),		\
+	FN(sysctl_get_current_value),	\
+	FN(sysctl_get_new_value),	\
+	FN(sysctl_set_new_value),	\
+	FN(strtol),			\
+	FN(strtoul),			\
+	FN(sk_storage_get),		\
+	FN(sk_storage_delete),		\
+	FN(send_signal),		\
+	FN(tcp_gen_syncookie),		\
+	FN(skb_output),			\
+	FN(probe_read_user),		\
+	FN(probe_read_kernel),		\
+	FN(probe_read_user_str),	\
+	FN(probe_read_kernel_str),	\
+	FN(tcp_send_ack),		\
+	FN(send_signal_thread),		\
+	FN(jiffies64),
 
 /* integer value in 'imm' field of BPF_CALL instruction selects which helper
  * function eBPF program intends to call
@@ -2285,9 +3066,33 @@ enum bpf_func_id {
 /* BPF_FUNC_perf_event_output for sk_buff input context. */
 #define BPF_F_CTXLEN_MASK		(0xfffffULL << 32)
 
+/* Current network namespace */
+#define BPF_F_CURRENT_NETNS		(-1L)
+
+/* BPF_FUNC_skb_adjust_room flags. */
+#define BPF_F_ADJ_ROOM_FIXED_GSO	(1ULL << 0)
+
+#define BPF_ADJ_ROOM_ENCAP_L2_MASK	0xff
+#define BPF_ADJ_ROOM_ENCAP_L2_SHIFT	56
+
+#define BPF_F_ADJ_ROOM_ENCAP_L3_IPV4	(1ULL << 1)
+#define BPF_F_ADJ_ROOM_ENCAP_L3_IPV6	(1ULL << 2)
+#define BPF_F_ADJ_ROOM_ENCAP_L4_GRE	(1ULL << 3)
+#define BPF_F_ADJ_ROOM_ENCAP_L4_UDP	(1ULL << 4)
+#define BPF_F_ADJ_ROOM_ENCAP_L2(len)	(((__u64)len & \
+					  BPF_ADJ_ROOM_ENCAP_L2_MASK) \
+					 << BPF_ADJ_ROOM_ENCAP_L2_SHIFT)
+
+/* BPF_FUNC_sysctl_get_name flags. */
+#define BPF_F_SYSCTL_BASE_NAME		(1ULL << 0)
+
+/* BPF_FUNC_sk_storage_get flags */
+#define BPF_SK_STORAGE_GET_F_CREATE	(1ULL << 0)
+
 /* Mode for BPF_FUNC_skb_adjust_room helper. */
 enum bpf_adj_room_mode {
 	BPF_ADJ_ROOM_NET,
+	BPF_ADJ_ROOM_MAC,
 };
 
 /* Mode for BPF_FUNC_skb_load_bytes_relative helper. */
@@ -2299,8 +3104,15 @@ enum bpf_hdr_start_off {
 /* Encapsulation type for BPF_FUNC_lwt_push_encap helper. */
 enum bpf_lwt_encap_mode {
 	BPF_LWT_ENCAP_SEG6,
-	BPF_LWT_ENCAP_SEG6_INLINE
+	BPF_LWT_ENCAP_SEG6_INLINE,
+	BPF_LWT_ENCAP_IP,
 };
+
+#define __bpf_md_ptr(type, name)	\
+union {					\
+	type name;			\
+	__u64 :64;			\
+} __attribute__((aligned(8)))
 
 /* user accessible mirror of in-kernel sk_buff.
  * new fields can only be added to the end of this structure
@@ -2336,6 +3148,11 @@ struct __sk_buff {
 	/* ... here. */
 
 	__u32 data_meta;
+	__bpf_md_ptr(struct bpf_flow_keys *, flow_keys);
+	__u64 tstamp;
+	__u32 wire_len;
+	__u32 gso_segs;
+	__bpf_md_ptr(struct bpf_sock *, sk);
 };
 
 struct bpf_tunnel_key {
@@ -2377,7 +3194,15 @@ enum bpf_ret_code {
 	BPF_DROP = 2,
 	/* 3-6 reserved */
 	BPF_REDIRECT = 7,
-	/* >127 are reserved for prog type specific return codes */
+	/* >127 are reserved for prog type specific return codes.
+	 *
+	 * BPF_LWT_REROUTE: used by BPF_PROG_TYPE_LWT_IN and
+	 *    BPF_PROG_TYPE_LWT_XMIT to indicate that skb had been
+	 *    changed and should be routed based on its new L3 header.
+	 *    (This is an L3 redirect, as opposed to L2 redirect
+	 *    represented by BPF_REDIRECT above).
+	 */
+	BPF_LWT_REROUTE = 128,
 };
 
 struct bpf_sock {
@@ -2387,15 +3212,80 @@ struct bpf_sock {
 	__u32 protocol;
 	__u32 mark;
 	__u32 priority;
-	__u32 src_ip4;		/* Allows 1,2,4-byte read.
-				 * Stored in network byte order.
+	/* IP address also allows 1 and 2 bytes access */
+	__u32 src_ip4;
+	__u32 src_ip6[4];
+	__u32 src_port;		/* host byte order */
+	__u32 dst_port;		/* network byte order */
+	__u32 dst_ip4;
+	__u32 dst_ip6[4];
+	__u32 state;
+};
+
+struct bpf_tcp_sock {
+	__u32 snd_cwnd;		/* Sending congestion window		*/
+	__u32 srtt_us;		/* smoothed round trip time << 3 in usecs */
+	__u32 rtt_min;
+	__u32 snd_ssthresh;	/* Slow start size threshold		*/
+	__u32 rcv_nxt;		/* What we want to receive next		*/
+	__u32 snd_nxt;		/* Next sequence we send		*/
+	__u32 snd_una;		/* First byte we want an ack for	*/
+	__u32 mss_cache;	/* Cached effective mss, not including SACKS */
+	__u32 ecn_flags;	/* ECN status bits.			*/
+	__u32 rate_delivered;	/* saved rate sample: packets delivered */
+	__u32 rate_interval_us;	/* saved rate sample: time elapsed */
+	__u32 packets_out;	/* Packets which are "in flight"	*/
+	__u32 retrans_out;	/* Retransmitted packets out		*/
+	__u32 total_retrans;	/* Total retransmits for entire connection */
+	__u32 segs_in;		/* RFC4898 tcpEStatsPerfSegsIn
+				 * total number of segments in.
 				 */
-	__u32 src_ip6[4];	/* Allows 1,2,4-byte read.
-				 * Stored in network byte order.
+	__u32 data_segs_in;	/* RFC4898 tcpEStatsPerfDataSegsIn
+				 * total number of data segments in.
 				 */
-	__u32 src_port;		/* Allows 4-byte read.
-				 * Stored in host byte order
+	__u32 segs_out;		/* RFC4898 tcpEStatsPerfSegsOut
+				 * The total number of segments sent.
 				 */
+	__u32 data_segs_out;	/* RFC4898 tcpEStatsPerfDataSegsOut
+				 * total number of data segments sent.
+				 */
+	__u32 lost_out;		/* Lost packets			*/
+	__u32 sacked_out;	/* SACK'd packets			*/
+	__u64 bytes_received;	/* RFC4898 tcpEStatsAppHCThruOctetsReceived
+				 * sum(delta(rcv_nxt)), or how many bytes
+				 * were acked.
+				 */
+	__u64 bytes_acked;	/* RFC4898 tcpEStatsAppHCThruOctetsAcked
+				 * sum(delta(snd_una)), or how many bytes
+				 * were acked.
+				 */
+	__u32 dsack_dups;	/* RFC4898 tcpEStatsStackDSACKDups
+				 * total number of DSACK blocks received
+				 */
+	__u32 delivered;	/* Total data packets delivered incl. rexmits */
+	__u32 delivered_ce;	/* Like the above but only ECE marked packets */
+	__u32 icsk_retransmits;	/* Number of unrecovered [RTO] timeouts */
+};
+
+struct bpf_sock_tuple {
+	union {
+		struct {
+			__be32 saddr;
+			__be32 daddr;
+			__be16 sport;
+			__be16 dport;
+		} ipv4;
+		struct {
+			__be32 saddr[4];
+			__be32 daddr[4];
+			__be16 sport;
+			__be16 dport;
+		} ipv6;
+	};
+};
+
+struct bpf_xdp_sock {
+	__u32 queue_id;
 };
 
 #define XDP_PACKET_HEADROOM 256
@@ -2434,8 +3324,8 @@ enum sk_action {
  * be added to the end of this structure
  */
 struct sk_msg_md {
-	void *data;
-	void *data_end;
+	__bpf_md_ptr(void *, data);
+	__bpf_md_ptr(void *, data_end);
 
 	__u32 family;
 	__u32 remote_ip4;	/* Stored in network byte order */
@@ -2444,6 +3334,7 @@ struct sk_msg_md {
 	__u32 local_ip6[4];	/* Stored in network byte order */
 	__u32 remote_port;	/* Stored in network byte order */
 	__u32 local_port;	/* stored in host byte order */
+	__u32 size;		/* Total size of sk_msg */
 };
 
 struct sk_reuseport_md {
@@ -2451,8 +3342,9 @@ struct sk_reuseport_md {
 	 * Start of directly accessible data. It begins from
 	 * the tcp/udp header.
 	 */
-	void *data;
-	void *data_end;		/* End of directly accessible data */
+	__bpf_md_ptr(void *, data);
+	/* End of directly accessible data */
+	__bpf_md_ptr(void *, data_end);
 	/*
 	 * Total length of packet (starting from the tcp/udp header).
 	 * Note that the directly accessible bytes (data_end - data)
@@ -2487,12 +3379,27 @@ struct bpf_prog_info {
 	char name[BPF_OBJ_NAME_LEN];
 	__u32 ifindex;
 	__u32 gpl_compatible:1;
+	__u32 :31; /* alignment pad */
 	__u64 netns_dev;
 	__u64 netns_ino;
 	__u32 nr_jited_ksyms;
 	__u32 nr_jited_func_lens;
 	__aligned_u64 jited_ksyms;
 	__aligned_u64 jited_func_lens;
+	__u32 btf_id;
+	__u32 func_info_rec_size;
+	__aligned_u64 func_info;
+	__u32 nr_func_info;
+	__u32 nr_line_info;
+	__aligned_u64 line_info;
+	__aligned_u64 jited_line_info;
+	__u32 nr_jited_line_info;
+	__u32 line_info_rec_size;
+	__u32 jited_line_info_rec_size;
+	__u32 nr_prog_tags;
+	__aligned_u64 prog_tags;
+	__u64 run_time_ns;
+	__u64 run_cnt;
 } __attribute__((aligned(8)));
 
 struct bpf_map_info {
@@ -2504,7 +3411,7 @@ struct bpf_map_info {
 	__u32 map_flags;
 	char  name[BPF_OBJ_NAME_LEN];
 	__u32 ifindex;
-	__u32 :32;
+	__u32 btf_vmlinux_value_type_id;
 	__u64 netns_dev;
 	__u64 netns_ino;
 	__u32 btf_id;
@@ -2527,7 +3434,7 @@ struct bpf_sock_addr {
 	__u32 user_ip4;		/* Allows 1,2,4-byte read and 4-byte write.
 				 * Stored in network byte order.
 				 */
-	__u32 user_ip6[4];	/* Allows 1,2,4-byte read an 4-byte write.
+	__u32 user_ip6[4];	/* Allows 1,2,4,8-byte read and 4,8-byte write.
 				 * Stored in network byte order.
 				 */
 	__u32 user_port;	/* Allows 4-byte read and write.
@@ -2536,12 +3443,13 @@ struct bpf_sock_addr {
 	__u32 family;		/* Allows 4-byte read, but no write */
 	__u32 type;		/* Allows 4-byte read, but no write */
 	__u32 protocol;		/* Allows 4-byte read, but no write */
-	__u32 msg_src_ip4;	/* Allows 1,2,4-byte read an 4-byte write.
+	__u32 msg_src_ip4;	/* Allows 1,2,4-byte read and 4-byte write.
 				 * Stored in network byte order.
 				 */
-	__u32 msg_src_ip6[4];	/* Allows 1,2,4-byte read an 4-byte write.
+	__u32 msg_src_ip6[4];	/* Allows 1,2,4,8-byte read and 4,8-byte write.
 				 * Stored in network byte order.
 				 */
+	__bpf_md_ptr(struct bpf_sock *, sk);
 };
 
 /* User bpf_sock_ops struct to access socket values and specify request ops
@@ -2593,13 +3501,15 @@ struct bpf_sock_ops {
 	__u32 sk_txhash;
 	__u64 bytes_received;
 	__u64 bytes_acked;
+	__bpf_md_ptr(struct bpf_sock *, sk);
 };
 
 /* Definitions for bpf_sock_ops_cb_flags */
 #define BPF_SOCK_OPS_RTO_CB_FLAG	(1<<0)
 #define BPF_SOCK_OPS_RETRANS_CB_FLAG	(1<<1)
 #define BPF_SOCK_OPS_STATE_CB_FLAG	(1<<2)
-#define BPF_SOCK_OPS_ALL_CB_FLAGS       0x7		/* Mask of all currently
+#define BPF_SOCK_OPS_RTT_CB_FLAG	(1<<3)
+#define BPF_SOCK_OPS_ALL_CB_FLAGS       0xF		/* Mask of all currently
 							 * supported cb flags
 							 */
 
@@ -2653,6 +3563,8 @@ enum {
 					 */
 	BPF_SOCK_OPS_TCP_LISTEN_CB,	/* Called on listen(2), right after
 					 * socket transition to LISTEN state.
+					 */
+	BPF_SOCK_OPS_RTT_CB,		/* Called on every RTT.
 					 */
 };
 
@@ -2708,8 +3620,8 @@ struct bpf_raw_tracepoint_args {
 /* DIRECT:  Skip the FIB rules and go to FIB table associated with device
  * OUTPUT:  Do lookup from egress perspective; default is ingress
  */
-#define BPF_FIB_LOOKUP_DIRECT  BIT(0)
-#define BPF_FIB_LOOKUP_OUTPUT  BIT(1)
+#define BPF_FIB_LOOKUP_DIRECT  (1U << 0)
+#define BPF_FIB_LOOKUP_OUTPUT  (1U << 1)
 
 enum {
 	BPF_FIB_LKUP_RET_SUCCESS,      /* lookup successful */
@@ -2779,6 +3691,74 @@ enum bpf_task_fd_type {
 	BPF_FD_TYPE_KRETPROBE,		/* (symbol + offset) or addr */
 	BPF_FD_TYPE_UPROBE,		/* filename + offset */
 	BPF_FD_TYPE_URETPROBE,		/* filename + offset */
+};
+
+#define BPF_FLOW_DISSECTOR_F_PARSE_1ST_FRAG		(1U << 0)
+#define BPF_FLOW_DISSECTOR_F_STOP_AT_FLOW_LABEL		(1U << 1)
+#define BPF_FLOW_DISSECTOR_F_STOP_AT_ENCAP		(1U << 2)
+
+struct bpf_flow_keys {
+	__u16	nhoff;
+	__u16	thoff;
+	__u16	addr_proto;			/* ETH_P_* of valid addrs */
+	__u8	is_frag;
+	__u8	is_first_frag;
+	__u8	is_encap;
+	__u8	ip_proto;
+	__be16	n_proto;
+	__be16	sport;
+	__be16	dport;
+	union {
+		struct {
+			__be32	ipv4_src;
+			__be32	ipv4_dst;
+		};
+		struct {
+			__u32	ipv6_src[4];	/* in6_addr; network order */
+			__u32	ipv6_dst[4];	/* in6_addr; network order */
+		};
+	};
+	__u32	flags;
+	__be32	flow_label;
+};
+
+struct bpf_func_info {
+	__u32	insn_off;
+	__u32	type_id;
+};
+
+#define BPF_LINE_INFO_LINE_NUM(line_col)	((line_col) >> 10)
+#define BPF_LINE_INFO_LINE_COL(line_col)	((line_col) & 0x3ff)
+
+struct bpf_line_info {
+	__u32	insn_off;
+	__u32	file_name_off;
+	__u32	line_off;
+	__u32	line_col;
+};
+
+struct bpf_spin_lock {
+	__u32	val;
+};
+
+struct bpf_sysctl {
+	__u32	write;		/* Sysctl is being read (= 0) or written (= 1).
+				 * Allows 1,2,4-byte read, but no write.
+				 */
+	__u32	file_pos;	/* Sysctl file position to read from, write to.
+				 * Allows 1,2,4-byte read an 4-byte write.
+				 */
+};
+
+struct bpf_sockopt {
+	__bpf_md_ptr(struct bpf_sock *, sk);
+	__bpf_md_ptr(void *, optval);
+	__bpf_md_ptr(void *, optval_end);
+
+	__s32	level;
+	__s32	optname;
+	__s32	optlen;
+	__s32	retval;
 };
 
 #endif /* __LINUX_BPF_H__ */
