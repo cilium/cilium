@@ -1398,6 +1398,13 @@ func addIfNotOverwritten(options map[string]string, field, value string) map[str
 }
 
 func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
+	if integration := GetCurrentIntegration(); integration != "" {
+		overrides := helmOverrides[integration]
+		for key, value := range overrides {
+			options = addIfNotOverwritten(options, key, value)
+		}
+
+	}
 	for key, value := range defaultHelmOptions {
 		options = addIfNotOverwritten(options, key, value)
 	}
@@ -1436,12 +1443,6 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		}
 	}
 
-	if integration := GetCurrentIntegration(); integration != "" {
-		overrides := helmOverrides[integration]
-		for k, v := range overrides {
-			options[k] = v
-		}
-	}
 	return nil
 }
 
