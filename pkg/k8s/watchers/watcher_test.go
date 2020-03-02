@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/checker"
+	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/types"
@@ -237,6 +238,7 @@ func (s *K8sWatcherSuite) TestUpdateToServiceEndpointsGH9525(c *C) {
 		policyManager,
 		policyRepository,
 		nil,
+		fakeDatapath.NewDatapath(),
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -562,6 +564,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
 		policyManager,
 		policyRepository,
 		svcManager,
+		fakeDatapath.NewDatapath(),
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -716,6 +719,7 @@ func (s *K8sWatcherSuite) TestChangeSVCPort(c *C) {
 		policyManager,
 		policyRepository,
 		svcManager,
+		fakeDatapath.NewDatapath(),
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -732,21 +736,9 @@ func (s *K8sWatcherSuite) TestChangeSVCPort(c *C) {
 
 func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 	enableNodePortBak := option.Config.EnableNodePort
-	nodePortv4Bak := node.GetNodePortIPv4()
-	nodePortv6Bak := node.GetNodePortIPv6()
-	internalv4Bak := node.GetInternalIPv4()
-	internalv6Bak := node.GetIPv6Router()
 	option.Config.EnableNodePort = true
-	node.SetNodePortIPv4(net.ParseIP("127.1.1.1"))
-	node.SetNodePortIPv6(net.ParseIP("::1"))
-	node.SetInternalIPv4(net.ParseIP("127.1.1.2"))
-	node.SetIPv6Router(net.ParseIP("::2"))
 	defer func() {
 		option.Config.EnableNodePort = enableNodePortBak
-		node.SetNodePortIPv4(nodePortv4Bak)
-		node.SetNodePortIPv6(nodePortv6Bak)
-		node.SetInternalIPv4(internalv4Bak)
-		node.SetIPv6Router(internalv6Bak)
 	}()
 
 	k8sSvc := &types.Service{
@@ -893,8 +885,8 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 
 	nodePortIPs1 := []*loadbalancer.L3n4AddrID{
 		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("0.0.0.0"), 18080, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, node.GetNodePortIPv4(), 18080, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, node.GetInternalIPv4(), 18080, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, fakeDatapath.IPv4NodePortAddress, 18080, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, fakeDatapath.IPv4InternalAddress, 18080, 0),
 	}
 	for _, nodePort := range nodePortIPs1 {
 		upsert1stWanted[nodePort.Hash()] = loadbalancer.SVC{
@@ -915,8 +907,8 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 	}
 	// nodePortIPs2 := []*loadbalancer.L3n4AddrID{
 	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("0.0.0.0"), 18080, 0),
-	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, node.GetNodePortIPv4(), 18080, 0),
-	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, node.GetInternalIPv4(), 18080, 0),
+	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.Pv4NodePortAddress, 18080, 0),
+	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4InternalAddress, 18080, 0),
 	// }
 	// for _, nodePort := range nodePortIPs2 {
 	// 	upsert1stWanted[nodePort.Hash()] = loadbalancer.SVC{
@@ -937,8 +929,8 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 	// }
 	nodePortIPs3 := []*loadbalancer.L3n4AddrID{
 		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("0.0.0.0"), 18081, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, node.GetNodePortIPv4(), 18081, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, node.GetInternalIPv4(), 18081, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4NodePortAddress, 18081, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4InternalAddress, 18081, 0),
 	}
 	for _, nodePort := range nodePortIPs3 {
 		upsert1stWanted[nodePort.Hash()] = loadbalancer.SVC{
@@ -1194,6 +1186,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 		policyManager,
 		policyRepository,
 		svcManager,
+		fakeDatapath.NewDatapath(),
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1224,21 +1217,9 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_1(c *C) {
 	// 1) delete the non existing services from the datapath.
 
 	enableNodePortBak := option.Config.EnableNodePort
-	nodePortv4Bak := node.GetNodePortIPv4()
-	nodePortv6Bak := node.GetNodePortIPv6()
-	internalv4Bak := node.GetInternalIPv4()
-	internalv6Bak := node.GetIPv6Router()
 	option.Config.EnableNodePort = true
-	node.SetNodePortIPv4(net.ParseIP("127.1.1.1"))
-	node.SetNodePortIPv6(net.ParseIP("::1"))
-	node.SetInternalIPv4(net.ParseIP("127.1.1.2"))
-	node.SetIPv6Router(net.ParseIP("::2"))
 	defer func() {
 		option.Config.EnableNodePort = enableNodePortBak
-		node.SetNodePortIPv4(nodePortv4Bak)
-		node.SetNodePortIPv6(nodePortv6Bak)
-		node.SetInternalIPv4(internalv4Bak)
-		node.SetIPv6Router(internalv6Bak)
 	}()
 
 	k8sSvc1stApply := &types.Service{
@@ -1334,13 +1315,13 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_1(c *C) {
 
 	nodePortIPs1 := []*loadbalancer.L3n4AddrID{
 		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("0.0.0.0"), 18080, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, node.GetNodePortIPv4(), 18080, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, node.GetInternalIPv4(), 18080, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, fakeDatapath.IPv4NodePortAddress, 18080, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, fakeDatapath.IPv4InternalAddress, 18080, 0),
 	}
 	nodePortIPs2 := []*loadbalancer.L3n4AddrID{
 		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("0.0.0.0"), 18081, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, node.GetNodePortIPv4(), 18081, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, node.GetInternalIPv4(), 18081, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4NodePortAddress, 18081, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4InternalAddress, 18081, 0),
 	}
 
 	upsert1stWanted := map[string]loadbalancer.SVC{
@@ -1519,6 +1500,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_1(c *C) {
 		policyManager,
 		policyRepository,
 		svcManager,
+		fakeDatapath.NewDatapath(),
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1545,21 +1527,9 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 	//    services without any backend.
 
 	enableNodePortBak := option.Config.EnableNodePort
-	nodePortv4Bak := node.GetNodePortIPv4()
-	nodePortv6Bak := node.GetNodePortIPv6()
-	internalv4Bak := node.GetInternalIPv4()
-	internalv6Bak := node.GetIPv6Router()
 	option.Config.EnableNodePort = true
-	node.SetNodePortIPv4(net.ParseIP("127.1.1.1"))
-	node.SetNodePortIPv6(net.ParseIP("::1"))
-	node.SetInternalIPv4(net.ParseIP("127.1.1.2"))
-	node.SetIPv6Router(net.ParseIP("::2"))
 	defer func() {
 		option.Config.EnableNodePort = enableNodePortBak
-		node.SetNodePortIPv4(nodePortv4Bak)
-		node.SetNodePortIPv6(nodePortv6Bak)
-		node.SetInternalIPv4(internalv4Bak)
-		node.SetIPv6Router(internalv6Bak)
 	}()
 
 	k8sSvc1stApply := &types.Service{
@@ -1646,13 +1616,13 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 
 	nodePortIPs1 := []*loadbalancer.L3n4AddrID{
 		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("0.0.0.0"), 18080, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, node.GetNodePortIPv4(), 18080, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, node.GetInternalIPv4(), 18080, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, fakeDatapath.IPv4NodePortAddress, 18080, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, fakeDatapath.IPv4InternalAddress, 18080, 0),
 	}
 	nodePortIPs2 := []*loadbalancer.L3n4AddrID{
 		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("0.0.0.0"), 18081, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, node.GetNodePortIPv4(), 18081, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, node.GetInternalIPv4(), 18081, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4NodePortAddress, 18081, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4InternalAddress, 18081, 0),
 	}
 
 	upsert1stWanted := map[string]loadbalancer.SVC{
@@ -1835,6 +1805,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 		policyManager,
 		policyRepository,
 		svcManager,
+		fakeDatapath.NewDatapath(),
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1856,21 +1827,9 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 
 func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 	enableNodePortBak := option.Config.EnableNodePort
-	nodePortv4Bak := node.GetNodePortIPv4()
-	nodePortv6Bak := node.GetNodePortIPv6()
-	internalv4Bak := node.GetInternalIPv4()
-	internalv6Bak := node.GetIPv6Router()
 	option.Config.EnableNodePort = true
-	node.SetNodePortIPv4(net.ParseIP("127.1.1.1"))
-	node.SetNodePortIPv6(net.ParseIP("::1"))
-	node.SetInternalIPv4(net.ParseIP("127.1.1.2"))
-	node.SetIPv6Router(net.ParseIP("::2"))
 	defer func() {
 		option.Config.EnableNodePort = enableNodePortBak
-		node.SetNodePortIPv4(nodePortv4Bak)
-		node.SetNodePortIPv6(nodePortv6Bak)
-		node.SetInternalIPv4(internalv4Bak)
-		node.SetIPv6Router(internalv6Bak)
 	}()
 
 	svc1stApply := &types.Service{
@@ -2084,8 +2043,8 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 
 	nodePortIPs1 := []*loadbalancer.L3n4AddrID{
 		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("0.0.0.0"), 18080, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, node.GetNodePortIPv4(), 18080, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, node.GetInternalIPv4(), 18080, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, fakeDatapath.IPv4NodePortAddress, 18080, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, fakeDatapath.IPv4InternalAddress, 18080, 0),
 	}
 	for _, nodePort := range nodePortIPs1 {
 		upsert1stWanted[nodePort.Hash()] = loadbalancer.SVC{
@@ -2106,8 +2065,8 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 	}
 	// nodePortIPs2 := []*loadbalancer.L3n4AddrID{
 	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("0.0.0.0"), 18080, 0),
-	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, node.GetNodePortIPv4(), 18080, 0),
-	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, node.GetInternalIPv4(), 18080, 0),
+	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4NodePortAddress, 18080, 0),
+	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4InternalAddress, 18080, 0),
 	// }
 	// for _, nodePort := range nodePortIPs2 {
 	// 	upsert1stWanted[nodePort.Hash()] = loadbalancer.SVC{
@@ -2128,8 +2087,8 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 	// }
 	nodePortIPs3 := []*loadbalancer.L3n4AddrID{
 		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("0.0.0.0"), 18081, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, node.GetNodePortIPv4(), 18081, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, node.GetInternalIPv4(), 18081, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4NodePortAddress, 18081, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4InternalAddress, 18081, 0),
 	}
 	for _, nodePort := range nodePortIPs3 {
 		upsert1stWanted[nodePort.Hash()] = loadbalancer.SVC{
@@ -2719,6 +2678,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 		policyManager,
 		policyRepository,
 		svcManager,
+		fakeDatapath.NewDatapath(),
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()

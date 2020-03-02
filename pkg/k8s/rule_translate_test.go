@@ -17,6 +17,7 @@
 package k8s
 
 import (
+	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/policy"
@@ -238,7 +239,7 @@ func (s *K8sSuite) TestPreprocessRules(c *C) {
 
 	epIP := "10.1.1.1"
 
-	cache := NewServiceCache()
+	cache := NewServiceCache(fakeDatapath.NewNodeAddressing())
 
 	endpointInfo := Endpoints{
 		Backends: map[string]*Backend{

@@ -23,10 +23,10 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
 
@@ -59,7 +59,7 @@ func ParseServiceID(svc *types.Service) ServiceID {
 }
 
 // ParseService parses a Kubernetes service and returns a Service
-func ParseService(svc *types.Service) (ServiceID, *Service) {
+func ParseService(svc *types.Service, nodeAddressing datapath.NodeAddressing) (ServiceID, *Service) {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sSvcName:    svc.ObjectMeta.Name,
 		logfields.K8sNamespace:  svc.ObjectMeta.Namespace,
@@ -129,7 +129,7 @@ func ParseService(svc *types.Service) (ServiceID, *Service) {
 		// so for now (until we have refactored the LB code) keep NodePort
 		// frontends in Service.NodePorts.
 		if svc.Spec.Type == v1.ServiceTypeNodePort || svc.Spec.Type == v1.ServiceTypeLoadBalancer {
-			if option.Config.EnableNodePort {
+			if option.Config.EnableNodePort && nodeAddressing != nil {
 				if _, ok := svcInfo.NodePorts[portName]; !ok {
 					svcInfo.NodePorts[portName] =
 						make(map[string]*loadbalancer.L3n4AddrID)
@@ -141,7 +141,7 @@ func ParseService(svc *types.Service) (ServiceID, *Service) {
 				if option.Config.EnableIPv4 &&
 					clusterIP != nil && !strings.Contains(svc.Spec.ClusterIP, ":") {
 
-					for _, ip := range []net.IP{net.IPv4(0, 0, 0, 0), node.GetNodePortIPv4(), node.GetInternalIPv4()} {
+					for _, ip := range nodeAddressing.IPv4().LoadBalancerNodeAddresses() {
 						nodePortFE := loadbalancer.NewL3n4AddrID(proto, ip, port, id)
 						svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
 					}
@@ -149,7 +149,7 @@ func ParseService(svc *types.Service) (ServiceID, *Service) {
 				if option.Config.EnableIPv6 &&
 					clusterIP != nil && strings.Contains(svc.Spec.ClusterIP, ":") {
 
-					for _, ip := range []net.IP{net.IPv6zero, node.GetNodePortIPv6(), node.GetIPv6Router()} {
+					for _, ip := range nodeAddressing.IPv6().LoadBalancerNodeAddresses() {
 						nodePortFE := loadbalancer.NewL3n4AddrID(proto, ip, port, id)
 						svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
 					}

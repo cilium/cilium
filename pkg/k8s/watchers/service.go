@@ -56,7 +56,7 @@ func (k *K8sWatcher) servicesInit(k8sClient kubernetes.Interface, serSvcs *seria
 				if oldk8sSvc := k8s.CopyObjToV1Services(oldObj); oldk8sSvc != nil {
 					valid = true
 					if newk8sSvc := k8s.CopyObjToV1Services(newObj); newk8sSvc != nil {
-						if k8s.EqualV1Services(oldk8sSvc, newk8sSvc) {
+						if k8s.EqualV1Services(oldk8sSvc, newk8sSvc, k.datapath.LocalNodeAddressing()) {
 							equal = true
 							return
 						}

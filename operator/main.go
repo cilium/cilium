@@ -234,7 +234,7 @@ func runOperator(cmd *cobra.Command) {
 							// Create another service cache that contains the
 							// k8s service for etcd. As soon the k8s caches are
 							// synced, this hijack will stop happening.
-							sc := k8s.NewServiceCache()
+							sc := k8s.NewServiceCache(nil)
 							sc.UpdateService(&types.Service{Service: k8sSvc}, nil)
 							svcGetter = &serviceGetter{
 								shortCutK8sCache: &sc,
