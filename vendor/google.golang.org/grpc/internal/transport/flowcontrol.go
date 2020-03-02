@@ -149,7 +149,6 @@ func (f *inFlow) maybeAdjust(n uint32) uint32 {
 		n = uint32(math.MaxInt32)
 	}
 	f.mu.Lock()
-	defer f.mu.Unlock()
 	// estSenderQuota is the receiver's view of the maximum number of bytes the sender
 	// can send without a window update.
 	estSenderQuota := int32(f.limit - (f.pendingData + f.pendingUpdate))
@@ -170,8 +169,10 @@ func (f *inFlow) maybeAdjust(n uint32) uint32 {
 			// is padded; We will fallback on the current available window(at least a 1/4th of the limit).
 			f.delta = n
 		}
+		f.mu.Unlock()
 		return f.delta
 	}
+	f.mu.Unlock()
 	return 0
 }
 

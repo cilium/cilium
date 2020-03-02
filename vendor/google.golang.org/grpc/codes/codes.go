@@ -132,8 +132,7 @@ const (
 
 	// Unavailable indicates the service is currently unavailable.
 	// This is a most likely a transient condition and may be corrected
-	// by retrying with a backoff. Note that it is not always safe to retry
-	// non-idempotent operations.
+	// by retrying with a backoff.
 	//
 	// See litmus test above for deciding between FailedPrecondition,
 	// Aborted, and Unavailable.

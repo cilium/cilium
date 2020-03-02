@@ -36,14 +36,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	spb "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/internal"
 )
-
-func init() {
-	internal.StatusRawProto = statusRawProto
-}
-
-func statusRawProto(s *Status) *spb.Status { return s.s }
 
 // statusError is an alias of a status proto.  It implements error and Status,
 // and a nil statusError should never be returned by this package.
@@ -56,17 +49,6 @@ func (se *statusError) Error() string {
 
 func (se *statusError) GRPCStatus() *Status {
 	return &Status{s: (*spb.Status)(se)}
-}
-
-// Is implements future error.Is functionality.
-// A statusError is equivalent if the code and message are identical.
-func (se *statusError) Is(target error) bool {
-	tse, ok := target.(*statusError)
-	if !ok {
-		return false
-	}
-
-	return proto.Equal((*spb.Status)(se), (*spb.Status)(tse))
 }
 
 // Status represents an RPC status code, message, and details.  It is immutable
@@ -143,7 +125,7 @@ func FromProto(s *spb.Status) *Status {
 // Status is returned with codes.Unknown and the original error message.
 func FromError(err error) (s *Status, ok bool) {
 	if err == nil {
-		return nil, true
+		return &Status{s: &spb.Status{Code: int32(codes.OK)}}, true
 	}
 	if se, ok := err.(interface {
 		GRPCStatus() *Status
@@ -217,7 +199,7 @@ func Code(err error) codes.Code {
 func FromContextError(err error) *Status {
 	switch err {
 	case nil:
-		return nil
+		return New(codes.OK, "")
 	case context.DeadlineExceeded:
 		return New(codes.DeadlineExceeded, err.Error())
 	case context.Canceled:
