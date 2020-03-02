@@ -19,7 +19,7 @@ struct arp_eth {
 
 /* Check if packet is ARP request for IP */
 static __always_inline int arp_check(struct ethhdr *eth, struct arphdr *arp,
-				     struct arp_eth *arp_eth, union macaddr *mac)
+				     union macaddr *mac)
 {
 	union macaddr *dmac = (union macaddr *) &eth->h_dest;
 
@@ -63,7 +63,7 @@ static __always_inline int arp_respond(struct __ctx_buff *ctx, union macaddr *ma
 
 	arp_eth = data + ETH_HLEN + sizeof(*arp);
 
-	if (arp_check(eth, arp, arp_eth, mac)) {
+	if (arp_check(eth, arp, mac)) {
 		__be32 target_ip = arp_eth->ar_tip;
 		ret = arp_prepare_response(ctx, eth, arp_eth, target_ip, mac);
 		if (unlikely(ret != 0))
