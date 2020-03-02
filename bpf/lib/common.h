@@ -62,8 +62,6 @@
 # endif
 #endif
 
-#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
-
 /* These are shared with test/bpf/check-complexity.sh, when modifying any of
  * the below, that script should also be updated. */
 #define CILIUM_CALL_DROP_NOTIFY			1
@@ -640,17 +638,6 @@ struct ct_state {
 	__u16 unused;
 	__u16 backend_id;	/* Backend ID in lb4_backends */
 };
-
-/**
- * relax_verifier is a dummy helper call to introduce a pruning checkpoing to
- * help relax the verifier to avoid reaching complexity limits on older
- * kernels.
- */
-static __always_inline void relax_verifier(void)
-{
-	int foo = 0;
-	csum_diff(0, 0, &foo, 1, 0);
-}
 
 static __always_inline int redirect_peer(int ifindex, __u32 flags)
 {
