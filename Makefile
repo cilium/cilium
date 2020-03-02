@@ -235,9 +235,6 @@ docker-plugin-image: GIT_VERSION
 	$(QUIET)echo "Push like this when ready:"
 	$(QUIET)echo "docker push cilium/docker-plugin:$(DOCKER_IMAGE_TAG)"
 
-docker-image-init:
-	$(QUIET)cd contrib/packaging/docker && ${CONTAINER_ENGINE} build -t "cilium/cilium-init:$(UTC_DATE)" -f Dockerfile.init .
-
 docker-image-runtime:
 	cd contrib/packaging/docker && ${CONTAINER_ENGINE} build -t "cilium/cilium-runtime:$(UTC_DATE)" -f Dockerfile.runtime .
 
