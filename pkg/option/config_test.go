@@ -217,6 +217,26 @@ func (s *OptionSuite) TestBindEnv(c *C) {
 	viper.Reset()
 }
 
+func (s *OptionSuite) TestEnabledFunctions(c *C) {
+	d := &DaemonConfig{}
+	c.Assert(d.IPv4Enabled(), Equals, false)
+	c.Assert(d.IPv6Enabled(), Equals, false)
+	d = &DaemonConfig{EnableIPv4: true}
+	c.Assert(d.IPv4Enabled(), Equals, true)
+	c.Assert(d.IPv6Enabled(), Equals, false)
+	d = &DaemonConfig{EnableIPv6: true}
+	c.Assert(d.IPv4Enabled(), Equals, false)
+	c.Assert(d.IPv6Enabled(), Equals, true)
+	d = &DaemonConfig{}
+	c.Assert(d.BlacklistConflictingRoutesEnabled(), Equals, false)
+	d = &DaemonConfig{BlacklistConflictingRoutes: true}
+	c.Assert(d.BlacklistConflictingRoutesEnabled(), Equals, true)
+	d = &DaemonConfig{}
+	c.Assert(d.IPAMMode(), Equals, "")
+	d = &DaemonConfig{IPAM: IPAMENI}
+	c.Assert(d.IPAMMode(), Equals, IPAMENI)
+}
+
 func (s *OptionSuite) TestLocalAddressExclusion(c *C) {
 	d := &DaemonConfig{}
 	err := d.parseExcludedLocalAddresses([]string{"1.1.1.1/32", "3.3.3.0/24", "f00d::1/128"})

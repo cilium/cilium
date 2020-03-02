@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@ import (
 
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 
 	. "gopkg.in/check.v1"
@@ -35,29 +37,38 @@ type IPAMSuite struct{}
 
 var _ = Suite(&IPAMSuite{})
 
-func fakeIPv4AllocCIDRIP() net.IP {
+func fakeIPv4AllocCIDRIP(fakeAddressing datapath.NodeAddressing) net.IP {
 	// force copy so net.IP can be modified
-	return net.ParseIP(fake.NewNodeAddressing().IPv4().AllocationCIDR().IP.String())
+	return net.ParseIP(fakeAddressing.IPv4().AllocationCIDR().IP.String())
 }
 
-func fakeIPv6AllocCIDRIP() net.IP {
+func fakeIPv6AllocCIDRIP(fakeAddressing datapath.NodeAddressing) net.IP {
 	// force copy so net.IP can be modified
-	return net.ParseIP(fake.NewNodeAddressing().IPv6().AllocationCIDR().IP.String())
+	return net.ParseIP(fakeAddressing.IPv6().AllocationCIDR().IP.String())
 }
+
+type testConfiguration struct{}
+
+func (t *testConfiguration) IPv4Enabled() bool                        { return true }
+func (t *testConfiguration) IPv6Enabled() bool                        { return true }
+func (t *testConfiguration) HealthCheckingEnabled() bool              { return true }
+func (t *testConfiguration) IPAMMode() string                         { return "" }
+func (t *testConfiguration) BlacklistConflictingRoutesEnabled() bool  { return false }
+func (t *testConfiguration) SetIPv4NativeRoutingCIDR(cidr *cidr.CIDR) {}
 
 func (s *IPAMSuite) TestLock(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true}, &ownerMock{}, &ownerMock{})
+	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{})
 
 	// Since the IPs we have allocated to the endpoints might or might not
 	// be in the allocrange specified in cilium, we need to specify them
 	// manually on the endpoint based on the alloc range.
-	ipv4 := fakeIPv4AllocCIDRIP()
+	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)
 	nextIP(ipv4)
 	epipv4, err := addressing.NewCiliumIPv4(ipv4.String())
 	c.Assert(err, IsNil)
 
-	ipv6 := fakeIPv6AllocCIDRIP()
+	ipv6 := fakeIPv6AllocCIDRIP(fakeAddressing)
 	nextIP(ipv6)
 	epipv6, err := addressing.NewCiliumIPv6(ipv6.String())
 	c.Assert(err, IsNil)
@@ -79,9 +90,9 @@ func (s *IPAMSuite) TestLock(c *C) {
 
 func (s *IPAMSuite) TestBlackList(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true}, &ownerMock{}, &ownerMock{})
+	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{})
 
-	ipv4 := fakeIPv4AllocCIDRIP()
+	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)
 	nextIP(ipv4)
 
 	ipam.BlacklistIP(ipv4, "test")
@@ -95,7 +106,7 @@ func (s *IPAMSuite) TestBlackList(c *C) {
 	ipam.BlacklistIPNet(*ipNet, "test")
 	c.Assert(ipam.blacklist.Contains(ipv4), Equals, true)
 
-	ipv6 := fakeIPv6AllocCIDRIP()
+	ipv6 := fakeIPv6AllocCIDRIP(fakeAddressing)
 	nextIP(ipv6)
 
 	ipam.BlacklistIP(ipv6, "test")
@@ -117,14 +128,14 @@ func (s *IPAMSuite) TestDeriveFamily(c *C) {
 
 func (s *IPAMSuite) TestOwnerRelease(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true}, &ownerMock{}, &ownerMock{})
+	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{})
 
-	ipv4 := fakeIPv4AllocCIDRIP()
+	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)
 	nextIP(ipv4)
 	err := ipam.AllocateIP(ipv4, "default/test")
 	c.Assert(err, IsNil)
 
-	ipv6 := fakeIPv6AllocCIDRIP()
+	ipv6 := fakeIPv6AllocCIDRIP(fakeAddressing)
 	nextIP(ipv6)
 	err = ipam.AllocateIP(ipv6, "default/test")
 	c.Assert(err, IsNil)

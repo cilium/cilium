@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Authors of Cilium
+// Copyright 2017-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@ package ipam
 
 import (
 	"net"
-	"strings"
 
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging"
@@ -51,10 +51,28 @@ func DeriveFamily(ip net.IP) Family {
 	return IPv4
 }
 
-// Configuration is the configuration of an IP address manager
-type Configuration struct {
-	EnableIPv4 bool
-	EnableIPv6 bool
+// Configuration is the configuration passed into the IPAM subsystem
+type Configuration interface {
+	// IPv4Enabled must return true when IPv4 is enabled
+	IPv4Enabled() bool
+
+	// IPv6 must return true when IPv6 is enabled
+	IPv6Enabled() bool
+
+	// IPAMMode returns the IPAM mode
+	IPAMMode() string
+
+	// HealthCheckingEnabled must return true when health-checking is
+	// enabled
+	HealthCheckingEnabled() bool
+
+	// BlacklistConflictingRoutesEnabled must return true when blacklisting
+	// of conflicting IPs is enabled
+	BlacklistConflictingRoutesEnabled() bool
+
+	// SetIPv4NativeRoutingCIDR is called by the IPAM module to announce
+	// the native IPv4 routing CIDR if it exists
+	SetIPv4NativeRoutingCIDR(cidr *cidr.CIDR)
 }
 
 // Owner is the interface the owner of an IPAM allocator has to implement
@@ -87,31 +105,31 @@ func NewIPAM(nodeAddressing datapath.NodeAddressing, c Configuration, owner Owne
 		},
 	}
 
-	switch strings.ToLower(option.Config.IPAM) {
+	switch c.IPAMMode() {
 	case "":
 		log.WithFields(logrus.Fields{
 			logfields.V4Prefix: nodeAddressing.IPv4().AllocationCIDR(),
 			logfields.V6Prefix: nodeAddressing.IPv6().AllocationCIDR(),
 		}).Info("Initializing hostscope IPAM")
 
-		if c.EnableIPv6 {
+		if c.IPv6Enabled() {
 			ipam.IPv6Allocator = newHostScopeAllocator(nodeAddressing.IPv6().AllocationCIDR().IPNet)
 		}
 
-		if c.EnableIPv4 {
+		if c.IPv4Enabled() {
 			ipam.IPv4Allocator = newHostScopeAllocator(nodeAddressing.IPv4().AllocationCIDR().IPNet)
 		}
 	case option.IPAMCRD, option.IPAMENI, option.IPAMAzure:
 		log.Info("Initializing CRD-based IPAM")
-		if c.EnableIPv6 {
-			ipam.IPv6Allocator = newCRDAllocator(IPv6, owner, k8sEventReg)
+		if c.IPv6Enabled() {
+			ipam.IPv6Allocator = newCRDAllocator(IPv6, c, owner, k8sEventReg)
 		}
 
-		if c.EnableIPv4 {
-			ipam.IPv4Allocator = newCRDAllocator(IPv4, owner, k8sEventReg)
+		if c.IPv4Enabled() {
+			ipam.IPv4Allocator = newCRDAllocator(IPv4, c, owner, k8sEventReg)
 		}
 	default:
-		log.Fatalf("Unknown IPAM backend %s", option.Config.IPAM)
+		log.Fatalf("Unknown IPAM backend %s", c.IPAMMode())
 	}
 
 	return ipam
@@ -167,7 +185,7 @@ func (ipam *IPAM) reserveLocalRoutes() {
 // ReserveLocalRoutes walks through local routes/subnets and reserves them in
 // the allocator pool in case of overlap
 func (ipam *IPAM) ReserveLocalRoutes() {
-	if !option.Config.BlacklistConflictingRoutes {
+	if !ipam.config.BlacklistConflictingRoutesEnabled() {
 		return
 	}
 
