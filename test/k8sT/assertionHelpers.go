@@ -87,12 +87,12 @@ func ExpectCiliumPreFlightInstallReady(vm *helpers.Kubectl) {
 	Expect(err).To(BeNil(), "cilium pre-flight check is not ready after timeout, pods status:\n %s", warningMessage)
 }
 
-// DeployCiliumAndDNS deploys DNS and cilium into the kubernetes cluster
+// DeployCiliumAndDNS deploys cilium into the kubernetes cluster and restarts the DNS pods
 func DeployCiliumAndDNS(vm *helpers.Kubectl, ciliumFilename string) {
 	DeployCiliumOptionsAndDNS(vm, ciliumFilename, map[string]string{})
 }
 
-// DeployCiliumOptionsAndDNS deploys DNS and cilium with options into the kubernetes cluster
+// DeployCiliumOptionsAndDNS deploys cilium with options into the kubernetes cluster and restarts the DNS pods
 func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, ciliumFilename string, options map[string]string) {
 	By("Installing Cilium")
 	err := vm.CiliumInstall(ciliumFilename, options)
@@ -100,8 +100,10 @@ func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, ciliumFilename string, optio
 
 	ExpectCiliumRunning(vm)
 
-	By("Installing DNS Deployment")
-	_ = vm.ApplyDefault(helpers.DNSDeployment(vm.BasePath()))
+	By("Restarting DNS Deployment")
+	if res := vm.DeleteResource("pod", fmt.Sprintf("-n %s -l k8s-app=kube-dns", helpers.KubeSystemNamespace)); !res.WasSuccessful() {
+		log.Warningf("Unable to delete DNS pods: %s", res.OutputPrettyPrint())
+	}
 
 	switch helpers.GetCurrentIntegration() {
 	case helpers.CIIntegrationFlannel:
