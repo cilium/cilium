@@ -377,7 +377,6 @@ var _ = Describe("NightlyExamples", func() {
 			l7Policy = helpers.ManifestGet(kubectl.BasePath(), "l7-policy.yaml")
 			migrateSVCClient = helpers.ManifestGet(kubectl.BasePath(), "migrate-svc-client.yaml")
 			migrateSVCServer = helpers.ManifestGet(kubectl.BasePath(), "migrate-svc-server.yaml")
-			_ = kubectl.Delete(helpers.DNSDeployment(kubectl.BasePath()))
 
 			kubectl.Delete(migrateSVCClient)
 			kubectl.Delete(migrateSVCServer)

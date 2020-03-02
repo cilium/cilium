@@ -63,7 +63,6 @@ var _ = Describe("K8sUpdates", func() {
 		l7Policy = helpers.ManifestGet(kubectl.BasePath(), "l7-policy.yaml")
 		migrateSVCClient = helpers.ManifestGet(kubectl.BasePath(), "migrate-svc-client.yaml")
 		migrateSVCServer = helpers.ManifestGet(kubectl.BasePath(), "migrate-svc-server.yaml")
-		_ = kubectl.Delete(helpers.DNSDeployment(kubectl.BasePath()))
 
 		kubectl.Delete(migrateSVCClient)
 		kubectl.Delete(migrateSVCServer)
@@ -72,8 +71,9 @@ var _ = Describe("K8sUpdates", func() {
 
 		// Delete kube-dns because if not will be a restore the old endpoints
 		// from master instead of create the new ones.
-		_ = kubectl.DeleteResource(
-			"deploy", fmt.Sprintf("-n %s kube-dns", helpers.KubeSystemNamespace))
+		if res := kubectl.DeleteResource("pod", fmt.Sprintf("-n %s -l k8s-app=kube-dns", helpers.KubeSystemNamespace)); !res.WasSuccessful() {
+			log.Warningf("Unable to delete DNS pods: %s", res.OutputPrettyPrint())
+		}
 
 		_ = kubectl.DeleteResource(
 			"deploy", fmt.Sprintf("-n %s cilium-operator", helpers.CiliumNamespace))
@@ -189,8 +189,8 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 
 		kubectl.DeleteETCDOperator()
 
-		if res := kubectl.Delete(helpers.DNSDeployment(kubectl.BasePath())); !res.WasSuccessful() {
-			log.Warningf("Unable to delete CoreDNS deployment: %s", res.OutputPrettyPrint())
+		if res := kubectl.DeleteResource("pod", fmt.Sprintf("-n %s -l k8s-app=kube-dns", helpers.KubeSystemNamespace)); !res.WasSuccessful() {
+			log.Warningf("Unable to delete DNS pods: %s", res.OutputPrettyPrint())
 		}
 
 		// make sure we clean everything up before doing any other test
@@ -207,8 +207,8 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 
 		// Delete kube-dns because if not will be a restore the old
 		// endpoints from master instead of create the new ones.
-		if res := kubectl.Delete(helpers.DNSDeployment(kubectl.BasePath())); !res.WasSuccessful() {
-			log.Warningf("Unable to delete CoreDNS deployment: %s", res.OutputPrettyPrint())
+		if res := kubectl.DeleteResource("pod", fmt.Sprintf("-n %s -l k8s-app=kube-dns", helpers.KubeSystemNamespace)); !res.WasSuccessful() {
+			log.Warningf("Unable to delete DNS pods: %s", res.OutputPrettyPrint())
 		}
 
 		// Delete all etcd pods otherwise they will be kept running but
@@ -241,15 +241,17 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", oldHelmChartVersion)
 		ExpectWithOffset(1, cmd).To(helpers.CMDSuccess(), "Cilium %q was not able to be deployed", oldHelmChartVersion)
 
-		By("Installing kube-dns")
-		cmd = kubectl.ApplyDefault(helpers.DNSDeployment(kubectl.BasePath()))
-		ExpectWithOffset(1, cmd).To(helpers.CMDSuccess(), "Unable to deploy Kubedns")
-
 		// Cilium is only ready if kvstore is ready, the kvstore is ready if
 		// kube-dns is running.
 		By("Cilium %q is installed and running", oldHelmChartVersion)
 		ExpectCiliumReady(kubectl)
 		ExpectCiliumOperatorReady(kubectl)
+
+		By("Restarting DNS Pods")
+		if res := kubectl.DeleteResource("pod", fmt.Sprintf("-n %s -l k8s-app=kube-dns", helpers.KubeSystemNamespace)); !res.WasSuccessful() {
+			log.Warningf("Unable to delete DNS pods: %s", res.OutputPrettyPrint())
+		}
+		ExpectKubeDNSReady(kubectl)
 
 		validatedImage := func(image string) {
 			By("Checking that installed image is %q", image)
@@ -328,8 +330,6 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 
 		err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
 		Expect(err).Should(BeNil(), "Test pods are not ready after timeout")
-
-		ExpectKubeDNSReady(kubectl)
 
 		_, err = kubectl.CiliumPolicyAction(
 			helpers.DefaultNamespace, l7Policy, helpers.KubectlApply, timeout)
