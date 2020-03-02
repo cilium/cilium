@@ -29,7 +29,6 @@
 #include "lib/utils.h"
 #include "lib/common.h"
 #include "lib/maps.h"
-#include "lib/xdp.h"
 #include "lib/eps.h"
 #include "lib/events.h"
 
@@ -37,6 +36,21 @@
 # undef CIDR4_LPM_PREFILTER
 # undef CIDR6_LPM_PREFILTER
 #endif
+
+struct lpm_v4_key {
+	struct bpf_lpm_trie_key lpm;
+	__u8 addr[4];
+};
+
+struct lpm_v6_key {
+	struct bpf_lpm_trie_key lpm;
+	__u8 addr[16];
+};
+
+struct lpm_val {
+	/* Just dummy for now. */
+	__u8 flags;
+};
 
 #ifdef CIDR4_FILTER
 struct bpf_elf_map __section_maps CIDR4_HMAP_NAME = {
