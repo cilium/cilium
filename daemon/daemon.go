@@ -332,6 +332,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 		&d,
 		d.policy,
 		d.svc,
+		d.datapath,
 	)
 
 	bootstrapStats.daemonInit.End(true)

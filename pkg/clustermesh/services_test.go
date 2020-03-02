@@ -24,6 +24,7 @@ import (
 	"path"
 	"time"
 
+	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -65,7 +66,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	s.randomName = testutils.RandomRune()
 
 	kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName)
-	s.svcCache = k8s.NewServiceCache()
+	s.svcCache = k8s.NewServiceCache(fakeDatapath.NewNodeAddressing())
 	identity.InitWellKnownIdentities()
 
 	mgr := cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
