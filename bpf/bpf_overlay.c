@@ -148,7 +148,6 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 	struct endpoint_info *ep;
 	struct bpf_tunnel_key key = {};
 	bool decrypted;
-	int l4_off;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
 	if (!revalidate_data_first(ctx, &data, &data_end, &ip4))
@@ -177,7 +176,6 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 		}
 	}
 
-	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 #ifdef ENABLE_IPSEC
 	if (!decrypted) {
 		/* IPSec is not currently enforce (feature coming soon)
@@ -212,7 +210,7 @@ not_esp:
 		if (ep->flags & ENDPOINT_F_HOST)
 			goto to_host;
 
-		return ipv4_local_delivery(ctx, ETH_HLEN, l4_off, key.tunnel_id, ip4, ep, METRIC_INGRESS);
+		return ipv4_local_delivery(ctx, ETH_HLEN, key.tunnel_id, ip4, ep, METRIC_INGRESS);
 	}
 
 to_host:
