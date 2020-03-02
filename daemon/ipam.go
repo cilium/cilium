@@ -350,9 +350,6 @@ func (d *Daemon) bootstrapIPAM() {
 	}
 
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
-	d.ipam = ipam.NewIPAM(d.datapath.LocalNodeAddressing(), ipam.Configuration{
-		EnableIPv4: option.Config.EnableIPv4,
-		EnableIPv6: option.Config.EnableIPv6,
-	}, d.nodeDiscovery, d.k8sWatcher)
+	d.ipam = ipam.NewIPAM(d.datapath.LocalNodeAddressing(), option.Config, d.nodeDiscovery, d.k8sWatcher)
 	bootstrapStats.ipam.End(true)
 }

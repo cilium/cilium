@@ -34,10 +34,10 @@ func (o *ownerMock) UpdateCiliumNodeResource()                                  
 
 func (s *IPAMSuite) TestAllocatedIPDump(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true}, &ownerMock{}, &ownerMock{})
+	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{})
 
-	ipv4 := fakeIPv4AllocCIDRIP()
-	ipv6 := fakeIPv6AllocCIDRIP()
+	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)
+	ipv6 := fakeIPv6AllocCIDRIP(fakeAddressing)
 
 	for i := 0; i < 10; i++ {
 		_, err := addressing.NewCiliumIPv4(ipv4.String())
@@ -66,7 +66,7 @@ func (s *IPAMSuite) TestExpirationTimer(c *C) {
 	timeout := 50 * time.Millisecond
 
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true}, &ownerMock{}, &ownerMock{})
+	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{})
 
 	err := ipam.AllocateIP(ip, "foo")
 	c.Assert(err, IsNil)
@@ -132,7 +132,7 @@ func (s *IPAMSuite) TestAllocateNextWithExpiration(c *C) {
 	timeout := 50 * time.Millisecond
 
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true}, &ownerMock{}, &ownerMock{})
+	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{})
 
 	ipv4, ipv6, err := ipam.AllocateNextWithExpiration("", "foo", timeout)
 	c.Assert(err, IsNil)

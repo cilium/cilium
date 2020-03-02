@@ -72,16 +72,19 @@ type nodeStore struct {
 	// allocationPoolSize is the size of the IP pool for each address
 	// family
 	allocationPoolSize map[Family]int
+
+	conf Configuration
 }
 
 // newNodeStore initializes a new store which reflects the CiliumNode custom
 // resource of the specified node name
-func newNodeStore(nodeName string, owner Owner, k8sEventReg K8sEventRegister) *nodeStore {
+func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg K8sEventRegister) *nodeStore {
 	log.WithField(fieldName, nodeName).Info("Subscribed to CiliumNode custom resource")
 
 	store := &nodeStore{
 		allocators:         []*crdAllocator{},
 		allocationPoolSize: map[Family]int{},
+		conf:               conf,
 	}
 	ciliumClient := k8s.CiliumClient()
 
@@ -212,7 +215,7 @@ func (n *nodeStore) hasMinimumIPsInPool() (minimumReached bool, required, numAva
 		required = n.ownNode.Spec.IPAM.PreAllocate
 	case n.ownNode.Spec.ENI.PreAllocate != 0:
 		required = n.ownNode.Spec.ENI.PreAllocate
-	case option.Config.EnableHealthChecking:
+	case n.conf.HealthCheckingEnabled():
 		required = 2
 	default:
 		required = 1
@@ -224,9 +227,9 @@ func (n *nodeStore) hasMinimumIPsInPool() (minimumReached bool, required, numAva
 			minimumReached = true
 		}
 
-		if option.Config.IPAM == option.IPAMENI {
+		if n.conf.IPAMMode() == option.IPAMENI {
 			if vpcCIDR := deriveVpcCIDR(n.ownNode); vpcCIDR != nil {
-				option.Config.SetIPv4NativeRoutingCIDR(vpcCIDR)
+				n.conf.SetIPv4NativeRoutingCIDR(vpcCIDR)
 			} else {
 				minimumReached = false
 			}
@@ -392,18 +395,21 @@ type crdAllocator struct {
 
 	// family is the address family this allocator is allocator for
 	family Family
+
+	conf Configuration
 }
 
 // newCRDAllocator creates a new CRD-backed IP allocator
-func newCRDAllocator(family Family, owner Owner, k8sEventReg K8sEventRegister) Allocator {
+func newCRDAllocator(family Family, c Configuration, owner Owner, k8sEventReg K8sEventRegister) Allocator {
 	initNodeStore.Do(func() {
-		sharedNodeStore = newNodeStore(node.GetName(), owner, k8sEventReg)
+		sharedNodeStore = newNodeStore(node.GetName(), c, owner, k8sEventReg)
 	})
 
 	allocator := &crdAllocator{
 		allocated: ipamTypes.AllocationMap{},
 		family:    family,
 		store:     sharedNodeStore,
+		conf:      c,
 	}
 
 	sharedNodeStore.addAllocator(allocator)
@@ -435,7 +441,7 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 		return
 	}
 
-	switch option.Config.IPAM {
+	switch a.conf.IPAMMode() {
 
 	// In ENI mode, the Resource points to the ENI so we can derive the
 	// master interface and all CIDRs of the VPC

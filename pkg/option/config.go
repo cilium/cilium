@@ -1621,6 +1621,32 @@ func (c *DaemonConfig) AlwaysAllowLocalhost() bool {
 	}
 }
 
+// IPv4Enabled returns true if IPv4 is enabled
+func (c *DaemonConfig) IPv4Enabled() bool {
+	return c.EnableIPv4
+}
+
+// IPv6Enabled returns true if IPv6 is enabled
+func (c *DaemonConfig) IPv6Enabled() bool {
+	return c.EnableIPv6
+}
+
+// HealthCheckingEnabled returns true if health checking is enabled
+func (c *DaemonConfig) HealthCheckingEnabled() bool {
+	return c.EnableHealthChecking
+}
+
+// IPAMMode returns the IPAM mode
+func (c *DaemonConfig) IPAMMode() string {
+	return strings.ToLower(c.IPAM)
+}
+
+// BlacklistConflictingRoutesEnabled returns true when blacklisting of
+// conflicting routes is enabled
+func (c *DaemonConfig) BlacklistConflictingRoutesEnabled() bool {
+	return c.BlacklistConflictingRoutes
+}
+
 // TracingEnabled returns if tracing policy (outlining which rules apply to a
 // specific set of labels) is enabled.
 func (c *DaemonConfig) TracingEnabled() bool {
