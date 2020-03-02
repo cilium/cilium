@@ -72,6 +72,10 @@ static __always_inline void bpf_barrier(void)
 	asm volatile("" ::: "memory");
 }
 
+#ifndef ARRAY_SIZE
+# define ARRAY_SIZE(arr)	(sizeof(arr) / sizeof((arr)[0]))
+#endif
+
 #ifndef __READ_ONCE
 # define __READ_ONCE(X)		(*(volatile typeof(X) *)&X)
 #endif

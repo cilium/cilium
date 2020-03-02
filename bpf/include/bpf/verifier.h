@@ -15,37 +15,17 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
-#ifndef __BPF_API__
-#define __BPF_API__
+#ifndef __BPF_VERIFIER__
+#define __BPF_VERIFIER__
 
-#include <linux/types.h>
-#include <linux/byteorder.h>
-#include <linux/bpf.h>
-#include <linux/if_packet.h>
+/* relax_verifier is a dummy helper call to introduce a pruning checkpoint
+ * to help relax the verifier to avoid reaching complexity limits on older
+ * kernels.
+ */
+static __always_inline void relax_verifier(void)
+{
+	int foo = 0;
+	csum_diff(0, 0, &foo, 1, 0);
+}
 
-#include "compiler.h"
-#include "section.h"
-#include "helpers.h"
-#include "builtins.h"
-#include "verifier.h"
-#include "errno.h"
-
-#define PIN_NONE		0
-#define PIN_OBJECT_NS		1
-#define PIN_GLOBAL_NS		2
-
-struct bpf_elf_map {
-	__u32 type;
-	__u32 size_key;
-	__u32 size_value;
-	__u32 max_elem;
-	__u32 flags;
-	__u32 id;
-	__u32 pinning;
-#ifdef SOCKMAP
-	__u32 inner_id;
-	__u32 inner_idx;
-#endif
-};
-
-#endif /* __BPF_API__ */
+#endif /* __BPF_VERIFIER__ */
