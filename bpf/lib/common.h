@@ -103,11 +103,26 @@ union v6addr {
         __u8 addr[16];
 } __attribute__((packed));
 
+static __always_inline void *ctx_data(const struct __ctx_buff *ctx)
+{
+	return (void *)(unsigned long)ctx->data;
+}
+
+static __always_inline void *ctx_data_end(const struct __ctx_buff *ctx)
+{
+	return (void *)(unsigned long)ctx->data_end;
+}
+
+static __always_inline bool ctx_no_room(const void *needed, const void *limit)
+{
+	return unlikely(needed > limit);
+}
+
 static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
 					       __u16 *proto)
 {
-	void *data = (void *) (long) ctx->data;
-	void *data_end = (void *) (long) ctx->data_end;
+	void *data = ctx_data(ctx);
+	void *data_end = ctx_data_end(ctx);
 
 	if (data + ETH_HLEN > data_end)
 		return false;
@@ -132,8 +147,8 @@ __revalidate_data(struct __ctx_buff *ctx, void **data_, void **data_end_,
 	/* Verifier workaround, do this unconditionally: invalid size of register spill. */
 	if (pull)
 		ctx_pull_data(ctx, tot_len);
-	data_end = (void *)(long)ctx->data_end;
-	data = (void *)(long)ctx->data;
+	data_end = ctx_data_end(ctx);
+	data = ctx_data(ctx);
 	if (data + tot_len > data_end)
 		return false;
 
