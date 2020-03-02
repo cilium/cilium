@@ -600,37 +600,37 @@ Upgrading from >=1.4.0 to 1.5.y
 
         .. parsed-literal::
 
-          $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-pre-flight-with-rm-svc-v2.yaml
+          $ kubectl apply -f https://raw.githubusercontent.com/cilium/cilium/v1.5/examples/kubernetes/1.10/cilium-pre-flight-with-rm-svc-v2.yaml
 
       .. group-tab:: K8s 1.11
 
         .. parsed-literal::
 
-          $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-pre-flight-with-rm-svc-v2.yaml
+          $ kubectl apply -f https://raw.githubusercontent.com/cilium/cilium/v1.5/examples/kubernetes/1.11/cilium-pre-flight-with-rm-svc-v2.yaml
 
       .. group-tab:: K8s 1.12
 
         .. parsed-literal::
 
-          $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-pre-flight-with-rm-svc-v2.yaml
+          $ kubectl apply -f https://raw.githubusercontent.com/cilium/cilium/v1.5/examples/kubernetes/1.12/cilium-pre-flight-with-rm-svc-v2.yaml
 
       .. group-tab:: K8s 1.13
 
         .. parsed-literal::
 
-          $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-pre-flight-with-rm-svc-v2.yaml
+          $ kubectl apply -f https://raw.githubusercontent.com/cilium/cilium/v1.5/examples/kubernetes/1.13/cilium-pre-flight-with-rm-svc-v2.yaml
 
       .. group-tab:: K8s 1.14
 
         .. parsed-literal::
 
-          $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-pre-flight-with-rm-svc-v2.yaml
+          $ kubectl apply -f https://raw.githubusercontent.com/cilium/cilium/v1.5/examples/kubernetes/1.14/cilium-pre-flight-with-rm-svc-v2.yaml
 
       .. group-tab:: K8s 1.15
 
         .. parsed-literal::
 
-          $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-pre-flight-with-rm-svc-v2.yaml
+          $ kubectl apply -f https://raw.githubusercontent.com/cilium/cilium/v1.5/examples/kubernetes/1.15/cilium-pre-flight-with-rm-svc-v2.yaml
 
 
    See :ref:`pre_flight` for instructions how to run, validate and remove
