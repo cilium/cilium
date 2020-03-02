@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,6 +38,10 @@ type NodeAddressingFamily interface {
 
 	// LocalAddresses lists all local addresses
 	LocalAddresses() ([]net.IP, error)
+
+	// LoadBalancerNodeAddresses lists all addresses on which HostPort and
+	// NodePort services should be responded to
+	LoadBalancerNodeAddresses() []net.IP
 }
 
 // NodeAddressing implements addressing of a node
