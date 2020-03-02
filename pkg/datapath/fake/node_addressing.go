@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,38 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 )
 
+var (
+	IPv4InternalAddress = net.ParseIP("2.2.2.2")
+	IPv4NodePortAddress = net.ParseIP("3.3.3.3")
+
+	fakeIPv4 = addressFamily{
+		router:          net.ParseIP("1.1.1.2"),
+		primaryExternal: net.ParseIP("1.1.1.1"),
+		allocCIDR:       cidr.MustParseCIDR("1.1.1.0/24"),
+		localAddresses: []net.IP{
+			net.ParseIP("2.2.2.2"),
+			net.ParseIP("3.3.3.3"),
+			net.ParseIP("4.4.4.4"),
+		},
+		lbNodeAddresses: []net.IP{net.IPv4(0, 0, 0, 0), IPv4InternalAddress, IPv4NodePortAddress},
+	}
+
+	IPv6InternalAddress = net.ParseIP("f00d::1")
+	IPv6NodePortAddress = net.ParseIP("f00d::2")
+
+	fakeIPv6 = addressFamily{
+		router:          net.ParseIP("cafe::2"),
+		primaryExternal: net.ParseIP("cafe::1"),
+		allocCIDR:       cidr.MustParseCIDR("cafe::/96"),
+		localAddresses: []net.IP{
+			net.ParseIP("f00d::1"),
+			net.ParseIP("f00d::2"),
+			net.ParseIP("f00d::3"),
+		},
+		lbNodeAddresses: []net.IP{net.IPv6zero, IPv6InternalAddress, IPv6NodePortAddress},
+	}
+)
+
 type fakeNodeAddressing struct {
 	ipv6 addressFamily
 	ipv4 addressFamily
@@ -31,11 +63,7 @@ type fakeNodeAddressing struct {
 func NewIPv6OnlyNodeAddressing() datapath.NodeAddressing {
 	return &fakeNodeAddressing{
 		ipv4: addressFamily{},
-		ipv6: addressFamily{
-			router:          net.ParseIP("cafe::2"),
-			primaryExternal: net.ParseIP("cafe::1"),
-			allocCIDR:       cidr.MustParseCIDR("cafe::/96"),
-		},
+		ipv6: fakeIPv6,
 	}
 }
 
@@ -43,11 +71,7 @@ func NewIPv6OnlyNodeAddressing() datapath.NodeAddressing {
 // disabled
 func NewIPv4OnlyNodeAddressing() datapath.NodeAddressing {
 	return &fakeNodeAddressing{
-		ipv4: addressFamily{
-			router:          net.ParseIP("1.1.1.2"),
-			primaryExternal: net.ParseIP("1.1.1.1"),
-			allocCIDR:       cidr.MustParseCIDR("1.1.1.0/24"),
-		},
+		ipv4: fakeIPv4,
 		ipv6: addressFamily{},
 	}
 }
@@ -55,26 +79,8 @@ func NewIPv4OnlyNodeAddressing() datapath.NodeAddressing {
 // NewNodeAddressing returns a new fake node addressing
 func NewNodeAddressing() datapath.NodeAddressing {
 	return &fakeNodeAddressing{
-		ipv4: addressFamily{
-			router:          net.ParseIP("1.1.1.2"),
-			primaryExternal: net.ParseIP("1.1.1.1"),
-			allocCIDR:       cidr.MustParseCIDR("1.1.1.0/24"),
-			localAddresses: []net.IP{
-				net.ParseIP("2.2.2.2"),
-				net.ParseIP("3.3.3.3"),
-				net.ParseIP("4.4.4.4"),
-			},
-		},
-		ipv6: addressFamily{
-			router:          net.ParseIP("cafe::2"),
-			primaryExternal: net.ParseIP("cafe::1"),
-			allocCIDR:       cidr.MustParseCIDR("cafe::/96"),
-			localAddresses: []net.IP{
-				net.ParseIP("f00d::1"),
-				net.ParseIP("f00d::2"),
-				net.ParseIP("f00d::3"),
-			},
-		},
+		ipv4: fakeIPv4,
+		ipv6: fakeIPv6,
 	}
 }
 
@@ -83,6 +89,7 @@ type addressFamily struct {
 	primaryExternal net.IP
 	allocCIDR       *cidr.CIDR
 	localAddresses  []net.IP
+	lbNodeAddresses []net.IP
 }
 
 func (a *addressFamily) Router() net.IP {
@@ -99,6 +106,10 @@ func (a *addressFamily) AllocationCIDR() *cidr.CIDR {
 
 func (a *addressFamily) LocalAddresses() ([]net.IP, error) {
 	return a.localAddresses, nil
+}
+
+func (a *addressFamily) LoadBalancerNodeAddresses() []net.IP {
+	return a.lbNodeAddresses
 }
 
 func (n *fakeNodeAddressing) IPv6() datapath.NodeAddressingFamily {
