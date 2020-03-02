@@ -31,6 +31,7 @@ Address Management Modes
    :maxdepth: 1
    :glob:
 
+   kubernetes
    hostscope
    crd
    azure

@@ -88,11 +88,11 @@ func NewIPAM(nodeAddressing datapath.NodeAddressing, c Configuration, owner Owne
 	}
 
 	switch strings.ToLower(option.Config.IPAM) {
-	case option.IPAMHostScopeLegacy:
+	case option.IPAMHostScopeLegacy, option.IPAMKubernetes:
 		log.WithFields(logrus.Fields{
 			logfields.V4Prefix: nodeAddressing.IPv4().AllocationCIDR(),
 			logfields.V6Prefix: nodeAddressing.IPv6().AllocationCIDR(),
-		}).Info("Initializing legacy hostscope IPAM")
+		}).Infof("Initializing %s IPAM", option.Config.IPAM)
 
 		if c.EnableIPv6 {
 			ipam.IPv6Allocator = newHostScopeAllocator(nodeAddressing.IPv6().AllocationCIDR().IPNet)
