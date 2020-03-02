@@ -51,18 +51,14 @@ type pickfirstBalancer struct {
 
 func (b *pickfirstBalancer) HandleResolvedAddrs(addrs []resolver.Address, err error) {
 	if err != nil {
-		if grpclog.V(2) {
-			grpclog.Infof("pickfirstBalancer: HandleResolvedAddrs called with error %v", err)
-		}
+		grpclog.Infof("pickfirstBalancer: HandleResolvedAddrs called with error %v", err)
 		return
 	}
 	if b.sc == nil {
 		b.sc, err = b.cc.NewSubConn(addrs, balancer.NewSubConnOptions{})
 		if err != nil {
 			//TODO(yuxuanli): why not change the cc state to Idle?
-			if grpclog.V(2) {
-				grpclog.Errorf("pickfirstBalancer: failed to NewSubConn: %v", err)
-			}
+			grpclog.Errorf("pickfirstBalancer: failed to NewSubConn: %v", err)
 			return
 		}
 		b.cc.UpdateBalancerState(connectivity.Idle, &picker{sc: b.sc})
@@ -74,13 +70,9 @@ func (b *pickfirstBalancer) HandleResolvedAddrs(addrs []resolver.Address, err er
 }
 
 func (b *pickfirstBalancer) HandleSubConnStateChange(sc balancer.SubConn, s connectivity.State) {
-	if grpclog.V(2) {
-		grpclog.Infof("pickfirstBalancer: HandleSubConnStateChange: %p, %v", sc, s)
-	}
+	grpclog.Infof("pickfirstBalancer: HandleSubConnStateChange: %p, %v", sc, s)
 	if b.sc != sc {
-		if grpclog.V(2) {
-			grpclog.Infof("pickfirstBalancer: ignored state change because sc is not recognized")
-		}
+		grpclog.Infof("pickfirstBalancer: ignored state change because sc is not recognized")
 		return
 	}
 	if s == connectivity.Shutdown {
