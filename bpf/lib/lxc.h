@@ -68,8 +68,8 @@ static __always_inline int is_valid_lxc_src_ipv4(struct iphdr *ip4)
  *
  * In chaining mode with bridged endpoint devices:
  * * To apply egress policy, the egressing endpoint configures the mark,
- *   which is propagated to ctx->cb[] in the caller. The redirect() call here
- *   redirects the packet to the ingress TC filter configured on the bridge
+ *   which is propagated via ctx_store_meta() in the caller. The redirect() call
+ *   here redirects the packet to the ingress TC filter configured on the bridge
  *   master device.
  * * To apply ingress policy, the stack transmits the packet into the bridge
  *   master device which tail calls into the policy program for the ingress
@@ -111,7 +111,7 @@ ctx_redirect_to_proxy_hairpin(struct __ctx_buff *ctx, __be16 proxy_port)
 	struct iphdr *ip4;
 	int ret;
 
-	ctx->cb[0] = MARK_MAGIC_TO_PROXY | (proxy_port << 16);
+	ctx_store_meta(ctx, 0, MARK_MAGIC_TO_PROXY | (proxy_port << 16));
 	bpf_barrier(); /* verifier workaround */
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))

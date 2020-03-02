@@ -12,12 +12,14 @@
 __section("to-host")
 int to_host(struct __ctx_buff *ctx)
 {
-	// Upper 16 bits may carry proxy port number, clear it out
-	__u32 magic = ctx->cb[0] & 0xFFFF;
+	/* Upper 16 bits may carry proxy port number, clear it out */
+	__u32 magic = ctx_load_meta(ctx, 0) & 0xFFFF;
+
 	if (magic == MARK_MAGIC_TO_PROXY) {
-		ctx->mark = ctx->cb[0];
-		ctx->cb[0] = 0;
+		ctx->mark = ctx_load_meta(ctx, 0);
+		ctx_store_meta(ctx, 0, 0);
 	}
+
 	return CTX_ACT_OK;
 }
 

@@ -244,21 +244,19 @@ static __always_inline __u8 __ct_lookup(void *map, struct __ctx_buff *ctx,
 
 #ifdef ENABLE_NAT46
 		/* This packet needs nat46 translation */
-		if (entry->nat46 && !ctx->cb[CB_NAT46_STATE])
-			ctx->cb[CB_NAT46_STATE] = NAT46;
+		if (entry->nat46 && !ctx_load_meta(ctx, CB_NAT46_STATE))
+			ctx_store_meta(ctx, CB_NAT46_STATE, NAT46);
 #endif
-
 #ifdef CONNTRACK_ACCOUNTING
 		/* FIXME: This is slow, per-cpu counters? */
 		if (dir == CT_INGRESS) {
 			__sync_fetch_and_add(&entry->rx_packets, 1);
-			__sync_fetch_and_add(&entry->rx_bytes, ctx->len);
+			__sync_fetch_and_add(&entry->rx_bytes, ctx_full_len(ctx));
 		} else if (dir == CT_EGRESS) {
 			__sync_fetch_and_add(&entry->tx_packets, 1);
-			__sync_fetch_and_add(&entry->tx_bytes, ctx->len);
+			__sync_fetch_and_add(&entry->tx_bytes, ctx_full_len(ctx));
 		}
 #endif
-
 		switch (action) {
 		case ACTION_CREATE:
 			reopen = entry->rx_closing | entry->tx_closing;
@@ -436,7 +434,7 @@ static __always_inline int ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	}
 
 #ifdef ENABLE_NAT46
-	ctx->cb[CB_NAT46_STATE] = NAT46_CLEAR;
+	ctx_store_meta(ctx, CB_NAT46_STATE, NAT46_CLEAR);
 #endif
 out:
 	cilium_dbg(ctx, DBG_CT_VERDICT, ret < 0 ? -ret : ret, ct_state->rev_nat_index);
@@ -662,10 +660,10 @@ static __always_inline int ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 
 	if (dir == CT_INGRESS) {
 		entry.rx_packets = 1;
-		entry.rx_bytes = ctx->len;
+		entry.rx_bytes = ctx_full_len(ctx);
 	} else if (dir == CT_EGRESS) {
 		entry.tx_packets = 1;
-		entry.tx_bytes = ctx->len;
+		entry.tx_bytes = ctx_full_len(ctx);
 	}
 
 	cilium_dbg3(ctx, DBG_CT_CREATED6, entry.rev_nat_index, ct_state->src_sec_id, 0);
@@ -765,14 +763,14 @@ static __always_inline int ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 
 	if (dir == CT_INGRESS) {
 		entry.rx_packets = 1;
-		entry.rx_bytes = ctx->len;
+		entry.rx_bytes = ctx_full_len(ctx);
 	} else if (dir == CT_EGRESS) {
 		entry.tx_packets = 1;
-		entry.tx_bytes = ctx->len;
+		entry.tx_bytes = ctx_full_len(ctx);
 	}
 
 #ifdef ENABLE_NAT46
-	if (ctx->cb[CB_NAT46_STATE] == NAT64)
+	if (ctx_load_meta(ctx, CB_NAT46_STATE) == NAT64)
 		entry.nat46 = dir == CT_EGRESS;
 #endif
 

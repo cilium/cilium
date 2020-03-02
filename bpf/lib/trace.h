@@ -69,7 +69,7 @@ update_trace_metrics(struct __ctx_buff *ctx, __u8 obs_point, __u8 reason)
 
 	switch (obs_point) {
 		case TRACE_TO_LXC:
-			update_metrics(ctx->len, METRIC_INGRESS, REASON_FORWARDED);
+			update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_FORWARDED);
 			break;
 
 		/* TRACE_FROM_LXC, i.e endpoint-to-endpoint delivery
@@ -84,21 +84,20 @@ update_trace_metrics(struct __ctx_buff *ctx, __u8 obs_point, __u8 reason)
 		case TRACE_TO_HOST:
 		case TRACE_TO_STACK:
 		case TRACE_TO_OVERLAY:
-			update_metrics(ctx->len, METRIC_EGRESS, REASON_FORWARDED);
+			update_metrics(ctx_full_len(ctx), METRIC_EGRESS, REASON_FORWARDED);
 			break;
 		case TRACE_FROM_OVERLAY:
 		case TRACE_FROM_NETWORK:
 			encrypted = reason & TRACE_REASON_ENCRYPTED;
 			if (!encrypted)
-				update_metrics(ctx->len, METRIC_INGRESS, REASON_PLAINTEXT);
+				update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_PLAINTEXT);
 			else
-				update_metrics(ctx->len, METRIC_INGRESS, REASON_DECRYPT);
+				update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_DECRYPT);
 			break;
 	}
 }
 
 #ifdef TRACE_NOTIFY
-
 struct trace_notify {
 	NOTIFY_CAPTURE_HDR
 	__u32		src_label;
@@ -152,7 +151,8 @@ send_trace_notify(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst,
 	if (!monitor)
 		monitor = TRACE_PAYLOAD_LEN;
 
-	__u64 ctx_len = (__u64)ctx->len, cap_len = min((__u64)monitor, (__u64)ctx_len);
+	__u64 ctx_len = (__u64)ctx_full_len(ctx);
+	__u64 cap_len = min((__u64)monitor, (__u64)ctx_len);
 	__u32 hash = get_hash_recalc(ctx);
 	struct trace_notify msg = {
 		.type = CILIUM_NOTIFY_TRACE,
@@ -191,7 +191,8 @@ send_trace_notify4(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst,
 	if (!monitor)
 		monitor = TRACE_PAYLOAD_LEN;
 
-	__u64 ctx_len = (__u64)ctx->len, cap_len = min((__u64)monitor, (__u64)ctx_len);
+	__u64 ctx_len = (__u64)ctx_full_len(ctx);
+	__u64 cap_len = min((__u64)monitor, (__u64)ctx_len);
 	__u32 hash = get_hash_recalc(ctx);
 	struct trace_notify msg = {
 		.type = CILIUM_NOTIFY_TRACE,
@@ -230,7 +231,8 @@ send_trace_notify6(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst,
 	if (!monitor)
 		monitor = TRACE_PAYLOAD_LEN;
 
-	__u64 ctx_len = (__u64)ctx->len, cap_len = min((__u64)monitor, (__u64)ctx_len);
+	__u64 ctx_len = (__u64)ctx_full_len(ctx);
+	__u64 cap_len = min((__u64)monitor, (__u64)ctx_len);
 	__u32 hash = get_hash_recalc(ctx);
 	struct trace_notify msg = {
 		.type = CILIUM_NOTIFY_TRACE,
@@ -255,9 +257,7 @@ send_trace_notify6(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
 }
-
 #else
-
 static __always_inline void
 send_trace_notify(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst,
 		  __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
@@ -278,7 +278,5 @@ send_trace_notify6(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst,
 {
 	update_trace_metrics(ctx, obs_point, reason);
 }
-
-#endif
-
+#endif /* TRACE_NOTIFY */
 #endif /* __LIB_TRACE__ */

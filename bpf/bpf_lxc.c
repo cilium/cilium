@@ -726,7 +726,8 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
  * ARP responder for ARP requests from container
  * Respond to IPV4_GATEWAY with NODE_MAC
  */
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP) int tail_handle_arp(struct __ctx_buff *ctx)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP)
+int tail_handle_arp(struct __ctx_buff *ctx)
 {
 	union macaddr mac = NODE_MAC;
 	return arp_respond(ctx, &mac, 0);
@@ -901,7 +902,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 				  LXC_ID, ifindex, *reason, monitor);
 	}
 
-	ifindex = ctx->cb[CB_IFINDEX];
+	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	if (ifindex)
 		return redirect_peer(ifindex, 0);
 
@@ -911,30 +912,28 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY)
 int tail_ipv6_policy(struct __ctx_buff *ctx)
 {
-	int ret, ifindex = ctx->cb[CB_IFINDEX];
-	__u32 src_label = ctx->cb[CB_SRC_LABEL];
+	int ret, ifindex = ctx_load_meta(ctx, CB_IFINDEX);
+	__u32 src_label = ctx_load_meta(ctx, CB_SRC_LABEL);
 	__u16 proxy_port = 0;
 	__u8 reason = 0;
 
+	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
-	ctx->cb[CB_SRC_LABEL] = 0;
 	ret = ipv6_policy(ctx, ifindex, src_label, &reason, &proxy_port);
-
 	if (ret == POLICY_ACT_PROXY_REDIRECT)
 		ret = ctx_redirect_to_proxy(ctx, proxy_port);
-
 	if (IS_ERR(ret))
 		return send_drop_notify(ctx, src_label, SECLABEL, LXC_ID,
 					ret, CTX_ACT_DROP, METRIC_INGRESS);
 
-	ctx->cb[0] = ctx->mark; // essential for proxy ingress, see bpf_ipsec.c
+	ctx_store_meta(ctx, 0, ctx->mark); // essential for proxy ingress, see bpf_ipsec.c
 	return ret;
 }
 
 declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CILIUM_CALL_IPV6_TO_ENDPOINT)
 int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 {
-	__u32 src_identity = ctx->cb[CB_SRC_LABEL];
+	__u32 src_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	__u16 proxy_port = 0;
@@ -974,20 +973,17 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, LXC_ID, SECLABEL);
 
 #if defined LOCAL_DELIVERY_METRICS
-	update_metrics(ctx->len, METRIC_INGRESS, REASON_FORWARDED);
+	update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_FORWARDED);
 #endif
+	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
-	ctx->cb[CB_SRC_LABEL] = 0;
 	ret = ipv6_policy(ctx, 0, src_identity, &reason, &proxy_port);
-
 	if (ret == POLICY_ACT_PROXY_REDIRECT)
 		ret = ctx_redirect_to_proxy_hairpin(ctx, proxy_port);
-
 out:
 	if (IS_ERR(ret))
 		return send_drop_notify(ctx, src_identity, SECLABEL, LXC_ID,
 					ret, CTX_ACT_DROP, METRIC_INGRESS);
-
 	return ret;
 }
 #endif /* ENABLE_IPV6 */
@@ -1048,12 +1044,11 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	}
 
 #ifdef ENABLE_NAT46
-	if (ctx->cb[CB_NAT46_STATE] == NAT46) {
+	if (ctx_load_meta(ctx, CB_NAT46_STATE) == NAT46) {
 		ep_tail_call(ctx, CILIUM_CALL_NAT46);
 		return DROP_MISSED_TAIL_CALL;
 	}
 #endif
-
 	if (unlikely(ret == CT_REPLY && ct_state.rev_nat_index &&
 		     !ct_state.loopback)) {
 		int ret2;
@@ -1116,7 +1111,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 				  LXC_ID, ifindex, *reason, monitor);
 	}
 
-	ifindex = ctx->cb[CB_IFINDEX];
+	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	if (ifindex)
 		return redirect_peer(ifindex, 0);
 
@@ -1126,29 +1121,28 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY)
 int tail_ipv4_policy(struct __ctx_buff *ctx)
 {
-	int ret, ifindex = ctx->cb[CB_IFINDEX];
-	__u32 src_label = ctx->cb[CB_SRC_LABEL];
+	int ret, ifindex = ctx_load_meta(ctx, CB_IFINDEX);
+	__u32 src_label = ctx_load_meta(ctx, CB_SRC_LABEL);
 	__u16 proxy_port = 0;
 	__u8 reason = 0;
 
-	ctx->cb[CB_SRC_LABEL] = 0;
-	ret = ipv4_policy(ctx, ifindex, src_label, &reason, &proxy_port);
+	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
+	ret = ipv4_policy(ctx, ifindex, src_label, &reason, &proxy_port);
 	if (ret == POLICY_ACT_PROXY_REDIRECT)
 		ret = ctx_redirect_to_proxy(ctx, proxy_port);
-
 	if (IS_ERR(ret))
 		return send_drop_notify(ctx, src_label, SECLABEL, LXC_ID,
 					ret, CTX_ACT_DROP, METRIC_INGRESS);
 
-	ctx->cb[0] = ctx->mark; // essential for proxy ingress, see bpf_ipsec.c
+	ctx_store_meta(ctx, 0, ctx->mark); // essential for proxy ingress, see bpf_ipsec.c
 	return ret;
 }
 
 declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CILIUM_CALL_IPV4_TO_ENDPOINT)
 int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 {
-	__u32 src_identity = ctx->cb[CB_SRC_LABEL];
+	__u32 src_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
 	void *data, *data_end;
 	struct iphdr *ip4;
 	__u16 proxy_port = 0;
@@ -1187,20 +1181,17 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, LXC_ID, SECLABEL);
 
 #if defined LOCAL_DELIVERY_METRICS
-	update_metrics(ctx->len, METRIC_INGRESS, REASON_FORWARDED);
+	update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_FORWARDED);
 #endif
+	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
-	ctx->cb[CB_SRC_LABEL] = 0;
 	ret = ipv4_policy(ctx, 0, src_identity, &reason, &proxy_port);
-
 	if (ret == POLICY_ACT_PROXY_REDIRECT)
 		ret = ctx_redirect_to_proxy_hairpin(ctx, proxy_port);
-
 out:
 	if (IS_ERR(ret))
 		return send_drop_notify(ctx, src_identity, SECLABEL, LXC_ID,
 					ret, CTX_ACT_DROP, METRIC_INGRESS);
-
 	return ret;
 }
 #endif /* ENABLE_IPV4 */
@@ -1208,13 +1199,14 @@ out:
 /* Handle policy decisions as the packet makes its way towards the endpoint.
  * Previously, the packet may have come from another local endpoint, another
  * endpoint in the cluster, or from the big blue room (as identified by the
- * contents of ctx->cb[CB_SRC_LABEL]). Determine whether the traffic may be
+ * contents of ctx / CB_SRC_LABEL. Determine whether the traffic may be
  * passed into the endpoint or if it needs further inspection by a userspace
  * proxy.
  */
-__section_tail(CILIUM_MAP_POLICY, TEMPLATE_LXC_ID) int handle_policy(struct __ctx_buff *ctx)
+__section_tail(CILIUM_MAP_POLICY, TEMPLATE_LXC_ID)
+int handle_policy(struct __ctx_buff *ctx)
 {
-	__u32 src_label = ctx->cb[CB_SRC_LABEL];
+	__u32 src_label = ctx_load_meta(ctx, CB_SRC_LABEL);
 	__u16 proto;
 	int ret;
 
@@ -1250,7 +1242,8 @@ out:
 }
 
 #ifdef ENABLE_NAT46
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64) int tail_ipv6_to_ipv4(struct __ctx_buff *ctx)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64)
+int tail_ipv6_to_ipv4(struct __ctx_buff *ctx)
 {
 	int ret = ipv6_to_ipv4(ctx, 14, LXC_IPV4);
 	if (IS_ERR(ret))
@@ -1259,7 +1252,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64) int tail_ipv6_to_ipv4(struct
 
 	cilium_dbg_capture(ctx, DBG_CAPTURE_AFTER_V64, ctx->ingress_ifindex);
 
-	ctx->cb[CB_NAT46_STATE] = NAT64;
+	ctx_store_meta(ctx, CB_NAT46_STATE, NAT64);
 
 	invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
 			   CILIUM_CALL_IPV4_FROM_LXC, tail_handle_ipv4);
@@ -1280,7 +1273,8 @@ static __always_inline int handle_ipv4_to_ipv6(struct __ctx_buff *ctx)
 
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT46) int tail_ipv4_to_ipv6(struct __ctx_buff *ctx)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT46)
+int tail_ipv4_to_ipv6(struct __ctx_buff *ctx)
 {
 	int ret = handle_ipv4_to_ipv6(ctx);
 
@@ -1317,7 +1311,7 @@ int handle_to_container(struct __ctx_buff *ctx)
 	send_trace_notify(ctx, trace, identity, 0, 0,
 			  ctx->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
 
-	ctx->cb[CB_SRC_LABEL] = identity;
+	ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 
 	switch (proto) {
 #if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER

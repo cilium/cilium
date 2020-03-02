@@ -75,7 +75,7 @@ account(struct __ctx_buff *ctx, struct policy_entry *policy)
 {
 	/* FIXME: Use per cpu counters */
 	__sync_fetch_and_add(&policy->packets, 1);
-	__sync_fetch_and_add(&policy->bytes, ctx->len);
+	__sync_fetch_and_add(&policy->bytes, ctx_full_len(ctx));
 }
 
 static __always_inline int
@@ -156,11 +156,12 @@ __policy_can_access(void *map, struct __ctx_buff *ctx, __u32 identity,
 		return CTX_ACT_OK;
 	}
 
-	if (ctx->cb[CB_POLICY])
+	if (ctx_load_meta(ctx, CB_POLICY))
 		return CTX_ACT_OK;
 
 	if (is_fragment)
 		return DROP_FRAG_NOSUPPORT;
+
 	return DROP_POLICY;
 }
 
@@ -256,14 +257,14 @@ static __always_inline int policy_can_egress4(struct __ctx_buff *ctx,
  */
 static __always_inline void policy_mark_skip(struct __ctx_buff *ctx)
 {
-	ctx->cb[CB_POLICY] = 1;
+	ctx_store_meta(ctx, CB_POLICY, 1);
 }
 
 static __always_inline void policy_clear_mark(struct __ctx_buff *ctx)
 {
-	ctx->cb[CB_POLICY] = 0;
+	ctx_store_meta(ctx, CB_POLICY, 0);
 }
-#endif // SOCKMAP
+#endif /* SOCKMAP */
 #else
 static __always_inline void policy_mark_skip(struct __ctx_buff *ctx)
 {

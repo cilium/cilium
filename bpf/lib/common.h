@@ -89,21 +89,6 @@ union v6addr {
         __u8 addr[16];
 } __attribute__((packed));
 
-static __always_inline void *ctx_data(const struct __ctx_buff *ctx)
-{
-	return (void *)(unsigned long)ctx->data;
-}
-
-static __always_inline void *ctx_data_end(const struct __ctx_buff *ctx)
-{
-	return (void *)(unsigned long)ctx->data_end;
-}
-
-static __always_inline bool ctx_no_room(const void *needed, const void *limit)
-{
-	return unlikely(needed > limit);
-}
-
 static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
 					       __u16 *proto)
 {
@@ -456,7 +441,7 @@ static __always_inline __u32 or_encrypt_key(__u8 key)
 #define TC_INDEX_F_SKIP_NODEPORT	4
 #define TC_INDEX_F_SKIP_RECIRCULATION	8
 
-/* ctx->cb[] usage: */
+/* ctx_{load,store}_meta() usage: */
 enum {
 	CB_SRC_LABEL,
 #define	CB_SVC_PORT		CB_SRC_LABEL	/* Alias, non-overlapping */

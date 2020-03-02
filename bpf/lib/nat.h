@@ -1062,7 +1062,7 @@ static __always_inline __maybe_unused int snat_process(struct __ctx_buff *ctx, i
 	int ret = CTX_ACT_OK;
 
 #ifdef ENABLE_MASQUERADE
-	switch (ctx->protocol) {
+	switch (ctx_get_protocol(ctx)) {
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP): {
 		struct ipv4_nat_target target = {

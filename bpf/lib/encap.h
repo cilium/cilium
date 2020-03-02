@@ -6,6 +6,8 @@
 
 #include "common.h"
 #include "dbg.h"
+#include "trace.h"
+#include "l3.h"
 
 #ifdef ENCAP_IFINDEX
 #ifdef ENABLE_IPSEC
@@ -26,9 +28,9 @@ enacap_and_redirect_nomark_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	 * in both cases because xfrm layer would overwrite them. We
 	 * use cb[4] here so it doesn't need to be reset by bpf_ipsec.
 	 */
-	ctx->cb[0] = or_encrypt_key(key);
-	ctx->cb[1] = seclabel;
-	ctx->cb[4] = tunnel_endpoint;
+	ctx_store_meta(ctx, 0, or_encrypt_key(key));
+	ctx_store_meta(ctx, 1, seclabel);
+	ctx_store_meta(ctx, 4, tunnel_endpoint);
 	return IPSEC_ENDPOINT;
 }
 
@@ -45,7 +47,7 @@ encap_and_redirect_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	 */
 	set_encrypt_key(ctx, key);
 	set_identity(ctx, seclabel);
-	ctx->cb[4] = tunnel_endpoint;
+	ctx_store_meta(ctx, 4, tunnel_endpoint);
 	return IPSEC_ENDPOINT;
 }
 #endif /* ENABLE_IPSEC */

@@ -65,7 +65,7 @@ static __always_inline int icmp6_send_reply(struct __ctx_buff *ctx, int nh_off)
 	    eth_store_saddr(ctx, dmac.addr, 0) < 0)
 		return DROP_WRITE_ERROR;
 
-	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, ctx->ifindex);
+	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, ctx_get_ifindex(ctx));
 
 	return redirect_self(ctx);
 }
@@ -105,16 +105,16 @@ static __always_inline int __icmp6_send_echo_reply(struct __ctx_buff *ctx,
 	return icmp6_send_reply(ctx, nh_off);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_ECHO_REPLY) int tail_icmp6_send_echo_reply(struct __ctx_buff *ctx)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_ECHO_REPLY)
+int tail_icmp6_send_echo_reply(struct __ctx_buff *ctx)
 {
-	int ret, nh_off = ctx->cb[0];
-	__u8 direction  = ctx->cb[1];
+	int ret, nh_off = ctx_load_meta(ctx, 0);
+	__u8 direction  = ctx_load_meta(ctx, 1);
 
-	ctx->cb[0] = 0;
+	ctx_store_meta(ctx, 0, 0);
 	ret = __icmp6_send_echo_reply(ctx, nh_off);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, direction);
-
 	return ret;
 }
 
@@ -130,8 +130,9 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_ECHO_REPLY) int tail_icm
 static __always_inline int icmp6_send_echo_reply(struct __ctx_buff *ctx,
 						 int nh_off, __u8 direction)
 {
-	ctx->cb[0] = nh_off;
-	ctx->cb[1] = direction;
+	ctx_store_meta(ctx, 0, nh_off);
+	ctx_store_meta(ctx, 1, direction);
+
 	ep_tail_call(ctx, CILIUM_CALL_SEND_ICMP6_ECHO_REPLY);
 
 	return DROP_MISSED_TAIL_CALL;
@@ -249,7 +250,7 @@ static __always_inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 		sum = compute_icmp6_csum(data, 56, ipv6hdr);
 		payload_len = bpf_htons(56);
 		trimlen = 56 - bpf_ntohs(ipv6hdr->payload_len);
-		if (ctx_change_tail(ctx, ctx->len + trimlen, 0) < 0)
+		if (ctx_change_tail(ctx, ctx_full_len(ctx) + trimlen, 0) < 0)
 			return DROP_WRITE_ERROR;
 		/* trim or expand buffer and copy data buffer after ipv6 header */
 		if (ctx_store_bytes(ctx, nh_off + sizeof(struct ipv6hdr),
@@ -268,7 +269,7 @@ static __always_inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 		payload_len = bpf_htons(68);
 		/* trim or expand buffer and copy data buffer after ipv6 header */
 		trimlen = 68 - bpf_ntohs(ipv6hdr->payload_len);
-		if (ctx_change_tail(ctx, ctx->len + trimlen, 0) < 0)
+		if (ctx_change_tail(ctx, ctx_full_len(ctx) + trimlen, 0) < 0)
 			return DROP_WRITE_ERROR;
 		if (ctx_store_bytes(ctx, nh_off + sizeof(struct ipv6hdr),
 				    data, 68, 0) < 0)
@@ -288,17 +289,17 @@ static __always_inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 }
 #endif
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED) int tail_icmp6_send_time_exceeded(struct __ctx_buff *ctx)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED)
+int tail_icmp6_send_time_exceeded(struct __ctx_buff *ctx)
 {
 #ifdef HAVE_SKB_CHANGE_TAIL
-	int ret, nh_off = ctx->cb[0];
-	__u8 direction  = ctx->cb[1];
+	int ret, nh_off = ctx_load_meta(ctx, 0);
+	__u8 direction  = ctx_load_meta(ctx, 1);
 
-	ctx->cb[0] = 0;
+	ctx_store_meta(ctx, 0, 0);
 	ret = __icmp6_send_time_exceeded(ctx, nh_off);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, direction);
-
 	return ret;
 #else
 	return 0;
@@ -317,8 +318,8 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED) int tail_
 static __always_inline int icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 						    int nh_off, __u8 direction)
 {
-	ctx->cb[0] = nh_off;
-	ctx->cb[1] = direction;
+	ctx_store_meta(ctx, 0, nh_off);
+	ctx_store_meta(ctx, 1, direction);
 
 	ep_tail_call(ctx, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED);
 
@@ -346,16 +347,16 @@ static __always_inline int __icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off)
 	}
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_HANDLE_ICMP6_NS) int tail_icmp6_handle_ns(struct __ctx_buff *ctx)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_HANDLE_ICMP6_NS)
+int tail_icmp6_handle_ns(struct __ctx_buff *ctx)
 {
-	int ret, nh_off = ctx->cb[0];
-	__u8 direction  = ctx->cb[1];
+	int ret, nh_off = ctx_load_meta(ctx, 0);
+	__u8 direction  = ctx_load_meta(ctx, 1);
 
-	ctx->cb[0] = 0;
+	ctx_store_meta(ctx, 0, 0);
 	ret = __icmp6_handle_ns(ctx, nh_off);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, direction);
-
 	return ret;
 }
 
@@ -372,8 +373,8 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_HANDLE_ICMP6_NS) int tail_icmp6_han
 static __always_inline int icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off,
 					   __u8 direction)
 {
-	ctx->cb[0] = nh_off;
-	ctx->cb[1] = direction;
+	ctx_store_meta(ctx, 0, nh_off);
+	ctx_store_meta(ctx, 1, direction);
 
 	ep_tail_call(ctx, CILIUM_CALL_HANDLE_ICMP6_NS);
 

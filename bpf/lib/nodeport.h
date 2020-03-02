@@ -11,6 +11,7 @@
 #include "conntrack.h"
 #include "csum.h"
 #include "encap.h"
+#include "trace.h"
 
 #define CB_SRC_IDENTITY	0
 
@@ -264,16 +265,18 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	struct ipv6hdr *ip6;
 	union v6addr addr = {};
 	struct bpf_fib_lookup fib_params = {};
+	__be32 dport;
 	int ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	__be32 dport = ctx->cb[CB_SVC_PORT];
-	addr.p1 = ctx->cb[CB_SVC_ADDR_V6_1];
-	addr.p2 = ctx->cb[CB_SVC_ADDR_V6_2];
-	addr.p3 = ctx->cb[CB_SVC_ADDR_V6_3];
-	addr.p4 = ctx->cb[CB_SVC_ADDR_V6_4];
+	dport   = ctx_load_meta(ctx, CB_SVC_PORT);
+	addr.p1 = ctx_load_meta(ctx, CB_SVC_ADDR_V6_1);
+	addr.p2 = ctx_load_meta(ctx, CB_SVC_ADDR_V6_2);
+	addr.p3 = ctx_load_meta(ctx, CB_SVC_ADDR_V6_3);
+	addr.p4 = ctx_load_meta(ctx, CB_SVC_ADDR_V6_4);
+
 	ret = set_dsr_ext6(ctx, ip6, &addr, dport);
 	if (ret)
 		return ret;
@@ -296,14 +299,14 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
 		return DROP_WRITE_ERROR;
 
-	return redirect(fib_params.ifindex, 0);
+	return ctx_redirect(ctx, fib_params.ifindex, 0);
 }
 # endif /* ENABLE_DSR */
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT)
 int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 {
-	int ifindex = NATIVE_DEV_IFINDEX, ret, dir = ctx->cb[CB_NAT];
+	int ifindex = NATIVE_DEV_IFINDEX, ret, dir = ctx_load_meta(ctx, CB_NAT);
 	struct bpf_fib_lookup fib_params = {};
 	struct ipv6_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
@@ -396,7 +399,7 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 	}
 	ifindex = fib_params.ifindex;
 out_send:
-	return redirect(ifindex, 0);
+	return ctx_redirect(ctx, ifindex, 0);
 drop_err:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
 				      dir == NAT_DIR_INGRESS ?
@@ -455,8 +458,8 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 		if (nodeport_uses_dsr6(&tuple)) {
 			return CTX_ACT_OK;
 		} else {
-			ctx->cb[CB_NAT] = NAT_DIR_INGRESS;
-			ctx->cb[CB_SRC_IDENTITY] = src_identity;
+			ctx_store_meta(ctx, CB_NAT, NAT_DIR_INGRESS);
+			ctx_store_meta(ctx, CB_SRC_IDENTITY, src_identity);
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT);
 			return DROP_MISSED_TAIL_CALL;
 		}
@@ -518,14 +521,14 @@ redo:
 
 	if (!backend_local) {
 		if (nodeport_uses_dsr6(&tuple)) {
-			ctx->cb[CB_SVC_PORT] = key.dport;
-			ctx->cb[CB_SVC_ADDR_V6_1] = key.address.p1;
-			ctx->cb[CB_SVC_ADDR_V6_2] = key.address.p2;
-			ctx->cb[CB_SVC_ADDR_V6_3] = key.address.p3;
-			ctx->cb[CB_SVC_ADDR_V6_4] = key.address.p4;
+			ctx_store_meta(ctx, CB_SVC_PORT, key.dport);
+			ctx_store_meta(ctx, CB_SVC_ADDR_V6_1, key.address.p1);
+			ctx_store_meta(ctx, CB_SVC_ADDR_V6_2, key.address.p2);
+			ctx_store_meta(ctx, CB_SVC_ADDR_V6_3, key.address.p3);
+			ctx_store_meta(ctx, CB_SVC_ADDR_V6_4, key.address.p4);
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_DSR);
 		} else {
-			ctx->cb[CB_NAT] = NAT_DIR_EGRESS;
+			ctx_store_meta(ctx, CB_NAT, NAT_DIR_EGRESS);
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT);
 		}
 		return DROP_MISSED_TAIL_CALL;
@@ -644,7 +647,7 @@ int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 	ret = rev_nodeport_lb6(ctx, &ifindex, &mac);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
-	return redirect(ifindex, 0);
+	return ctx_redirect(ctx, ifindex, 0);
 }
 #endif /* ENABLE_IPV6 */
 
@@ -819,10 +822,12 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 	void *data, *data_end;
 	struct iphdr *ip4;
 	struct bpf_fib_lookup fib_params = {};
+	__be32 address;
+	__be16 dport;
 	int ret;
 
-	__be16 dport = ctx->cb[CB_SVC_PORT];
-	__be32 address = ctx->cb[CB_SVC_ADDR_V4];
+	address = ctx_load_meta(ctx, CB_SVC_ADDR_V4);
+	dport = ctx_load_meta(ctx, CB_SVC_PORT);
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -849,14 +854,14 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 	if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
 		return DROP_WRITE_ERROR;
 
-	return redirect(fib_params.ifindex, 0);
+	return ctx_redirect(ctx, fib_params.ifindex, 0);
 }
 # endif /* ENABLE_DSR */
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT)
 int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 {
-	int ifindex = NATIVE_DEV_IFINDEX, ret, dir = ctx->cb[CB_NAT];
+	int ifindex = NATIVE_DEV_IFINDEX, ret, dir = ctx_load_meta(ctx, CB_NAT);
 	struct bpf_fib_lookup fib_params = {};
 	struct ipv4_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
@@ -948,7 +953,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 	}
 	ifindex = fib_params.ifindex;
 out_send:
-	return redirect(ifindex, 0);
+	return ctx_redirect(ctx, ifindex, 0);
 drop_err:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
 				      dir == NAT_DIR_INGRESS ?
@@ -1006,9 +1011,8 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		if (nodeport_uses_dsr4(&tuple)) {
 			return CTX_ACT_OK;
 		} else {
-			// TODO
-			ctx->cb[CB_NAT] = NAT_DIR_INGRESS;
-			ctx->cb[CB_SRC_IDENTITY] = src_identity;
+			ctx_store_meta(ctx, CB_NAT, NAT_DIR_INGRESS);
+			ctx_store_meta(ctx, CB_SRC_IDENTITY, src_identity);
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT);
 			return DROP_MISSED_TAIL_CALL;
 		}
@@ -1070,12 +1074,11 @@ redo:
 
 	if (!backend_local) {
 		if (nodeport_uses_dsr4(&tuple)) {
-			// TODO
-			ctx->cb[CB_SVC_PORT] = key.dport;
-			ctx->cb[CB_SVC_ADDR_V4] = key.address;
+			ctx_store_meta(ctx, CB_SVC_PORT, key.dport);
+			ctx_store_meta(ctx, CB_SVC_ADDR_V4, key.address);
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_DSR);
 		} else {
-			ctx->cb[CB_NAT] = NAT_DIR_EGRESS;
+			ctx_store_meta(ctx, CB_NAT, NAT_DIR_EGRESS);
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT);
 		}
 		return DROP_MISSED_TAIL_CALL;
@@ -1197,7 +1200,7 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 	ret = rev_nodeport_lb4(ctx, &ifindex, &mac);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
-	return redirect(ifindex, 0);
+	return ctx_redirect(ctx, ifindex, 0);
 }
 #endif /* ENABLE_IPV4 */
 

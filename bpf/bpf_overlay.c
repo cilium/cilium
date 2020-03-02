@@ -72,7 +72,8 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		 * so for now just handle normally
 		 */
 		if (ip6->nexthdr != IPPROTO_ESP) {
-			update_metrics(ctx->len, METRIC_INGRESS, REASON_PLAINTEXT);
+			update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
+				       REASON_PLAINTEXT);
 			goto not_esp;
 		}
 
@@ -128,14 +129,15 @@ to_host:
 #endif
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC) int tail_handle_ipv6(struct __ctx_buff *ctx)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC)
+int tail_handle_ipv6(struct __ctx_buff *ctx)
 {
 	__u32 src_identity = 0;
 	int ret = handle_ipv6(ctx, &src_identity);
 
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, src_identity, ret, CTX_ACT_DROP, METRIC_INGRESS);
-
+		return send_drop_notify_error(ctx, src_identity, ret,
+					      CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
 #endif /* ENABLE_IPV6 */
@@ -182,7 +184,8 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 		 * so for now just handle normally
 		 */
 		if (ip4->protocol != IPPROTO_ESP) {
-			update_metrics(ctx->len, METRIC_INGRESS, REASON_PLAINTEXT);
+			update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
+				       REASON_PLAINTEXT);
 			goto not_esp;
 		}
 
@@ -232,14 +235,15 @@ to_host:
 #endif
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4(struct __ctx_buff *ctx)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC)
+int tail_handle_ipv4(struct __ctx_buff *ctx)
 {
 	__u32 src_identity = 0;
 	int ret = handle_ipv4(ctx, &src_identity);
 
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, src_identity, ret, CTX_ACT_DROP, METRIC_INGRESS);
-
+		return send_drop_notify_error(ctx, src_identity, ret,
+					      CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
 #endif /* ENABLE_IPV4 */
