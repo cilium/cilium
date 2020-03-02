@@ -95,10 +95,6 @@ type bpfAttrMapOpElem struct {
 }
 
 // UpdateElementFromPointers updates the map in fd with the given value in the given key.
-// The flags can have the following values:
-// bpf.BPF_ANY to create new element or update existing;
-// bpf.BPF_NOEXIST to create new element if it didn't exist;
-// bpf.BPF_EXIST to update existing element.
 func UpdateElementFromPointers(fd int, structPtr unsafe.Pointer, sizeOfStruct uintptr) error {
 	var duration *spanstat.SpanStat
 	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
