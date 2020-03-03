@@ -327,6 +327,20 @@ Deprecated options
   assets not being compiled into the cilium-agent binary anymore. The option is
   deprecated and will be removed in Cilium 1.9.
 
+Renamed Metrics
+~~~~~~~~~~~~~~~
+
+The following metrics have been renamed:
+
+* ``cilium_operator_eni_ips`` to ``cilium_operator_ipam_ips``
+* ``cilium_operator_eni_allocation_ops`` to ``cilium_operator_ipam_allocation_ops``
+* ``cilium_operator_eni_interface_creation_ops`` to ``cilium_operator_ipam_interface_creation_ops``
+* ``cilium_operator_eni_available`` to ``cilium_operator_ipam_available``
+* ``cilium_operator_eni_nodes_at_capacity`` to ``cilium_operator_ipam_nodes_at_capacity``
+* ``cilium_operator_eni_resync_total`` to ``cilium_operator_ipam_resync_total``
+* ``cilium_operator_eni_aws_api_duration_seconds`` to ``cilium_operator_ipam_api_duration_seconds``
+* ``cilium_operator_eni_ec2_rate_limit_duration_seconds`` to ``cilium_operator_ipam_api_rate_limit_duration_seconds``
+
 Deprecated cilium-operator options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -346,6 +360,23 @@ Deprecated cilium-operator options
 * ``cilium-endpoint-gc``: This option is being deprecated. Disabling cilium
   endpoint GC can be done with ``cilium-endpoint-gc-interval=0``.
   This old option will be removed in Cilium 1.9
+
+* ``api-server-port``: This option is being deprecated. The API Server address
+  and port can be enabled with ``operator-api-serve-addr=127.0.0.1:9234``
+  or ``operator-api-serve-addr=[::1]:9234`` for IPv6-only clusters.
+  This old option will be removed in Cilium 1.9
+
+* ``eni-parallel-workers``: This option in the Operator has been renamed to
+  ``parallel-alloc-workers``. The obsolete option name ``eni-parallel-workers``
+  has been deprecated and will be removed in v1.9.
+
+* ``aws-client-burst``: This option in the Operator has been renamed to
+  ``limit-ipam-api-burst``. The obsolete option name ``aws-client-burst`` has been
+  deprecated and will be removed in v1.9.
+
+* ``aws-client-qps``: This option in the Operator has been renamed to
+  ``limit-ipam-api-qps``. The obsolete option name ``aws-client-qps`` has been
+  deprecated and will be removed in v1.9.
 
 Removed options
 ~~~~~~~~~~~~~~~
@@ -655,37 +686,37 @@ Upgrading from >=1.4.0 to 1.5.y
 
         .. parsed-literal::
 
-          $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-pre-flight-with-rm-svc-v2.yaml
+          $ kubectl apply -f https://raw.githubusercontent.com/cilium/cilium/v1.5/examples/kubernetes/1.10/cilium-pre-flight-with-rm-svc-v2.yaml
 
       .. group-tab:: K8s 1.11
 
         .. parsed-literal::
 
-          $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-pre-flight-with-rm-svc-v2.yaml
+          $ kubectl apply -f https://raw.githubusercontent.com/cilium/cilium/v1.5/examples/kubernetes/1.11/cilium-pre-flight-with-rm-svc-v2.yaml
 
       .. group-tab:: K8s 1.12
 
         .. parsed-literal::
 
-          $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-pre-flight-with-rm-svc-v2.yaml
+          $ kubectl apply -f https://raw.githubusercontent.com/cilium/cilium/v1.5/examples/kubernetes/1.12/cilium-pre-flight-with-rm-svc-v2.yaml
 
       .. group-tab:: K8s 1.13
 
         .. parsed-literal::
 
-          $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-pre-flight-with-rm-svc-v2.yaml
+          $ kubectl apply -f https://raw.githubusercontent.com/cilium/cilium/v1.5/examples/kubernetes/1.13/cilium-pre-flight-with-rm-svc-v2.yaml
 
       .. group-tab:: K8s 1.14
 
         .. parsed-literal::
 
-          $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-pre-flight-with-rm-svc-v2.yaml
+          $ kubectl apply -f https://raw.githubusercontent.com/cilium/cilium/v1.5/examples/kubernetes/1.14/cilium-pre-flight-with-rm-svc-v2.yaml
 
       .. group-tab:: K8s 1.15
 
         .. parsed-literal::
 
-          $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-pre-flight-with-rm-svc-v2.yaml
+          $ kubectl apply -f https://raw.githubusercontent.com/cilium/cilium/v1.5/examples/kubernetes/1.15/cilium-pre-flight-with-rm-svc-v2.yaml
 
 
    See :ref:`pre_flight` for instructions how to run, validate and remove

@@ -17,9 +17,10 @@ package listener
 import (
 	"net"
 	"os"
-	"syscall"
 
 	"github.com/cilium/cilium/pkg/monitor/payload"
+
+	"golang.org/x/sys/unix"
 )
 
 // Version is the version of a node-monitor listener client. There are
@@ -70,6 +71,6 @@ func IsDisconnected(err error) bool {
 		return false
 	}
 
-	errn := syscerr.Err.(syscall.Errno)
-	return errn == syscall.EPIPE
+	errn := syscerr.Err.(unix.Errno)
+	return errn == unix.EPIPE
 }

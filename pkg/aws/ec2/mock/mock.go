@@ -20,8 +20,10 @@ import (
 	"net"
 	"time"
 
+	"github.com/cilium/cilium/pkg/api/helpers"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/uuid"
 
@@ -29,7 +31,8 @@ import (
 	"golang.org/x/time/rate"
 )
 
-type eniMap map[string]*eniTypes.ENI
+// ENIMap is a map of ENI interfaced indexed by ENI ID
+type ENIMap map[string]*eniTypes.ENI
 
 // Operation is an EC2 API operation that this mock API supports
 type Operation int
@@ -46,20 +49,22 @@ const (
 	MaxOperation
 )
 
+// API represents a mocked EC2 API
 type API struct {
 	mutex          lock.RWMutex
 	unattached     map[string]*eniTypes.ENI
-	enis           map[string]eniMap
-	subnets        map[string]*types.Subnet
-	vpcs           map[string]*types.Vpc
+	enis           map[string]ENIMap
+	subnets        map[string]*ipamTypes.Subnet
+	vpcs           map[string]*ipamTypes.VirtualNetwork
 	securityGroups map[string]*types.SecurityGroup
 	errors         map[Operation]error
-	delays         map[Operation]time.Duration
 	allocator      *ipallocator.Range
 	limiter        *rate.Limiter
+	delaySim       *helpers.DelaySimulator
 }
 
-func NewAPI(subnets []*types.Subnet, vpcs []*types.Vpc, securityGroups []*types.SecurityGroup) *API {
+// NewAPI returns a new mocked EC2 API
+func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, securityGroups []*types.SecurityGroup) *API {
 	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
 	cidrRange, err := ipallocator.NewCIDRRange(cidr)
 	if err != nil {
@@ -68,28 +73,48 @@ func NewAPI(subnets []*types.Subnet, vpcs []*types.Vpc, securityGroups []*types.
 
 	api := &API{
 		unattached:     map[string]*eniTypes.ENI{},
-		enis:           map[string]eniMap{},
-		subnets:        map[string]*types.Subnet{},
-		vpcs:           map[string]*types.Vpc{},
+		enis:           map[string]ENIMap{},
+		subnets:        map[string]*ipamTypes.Subnet{},
+		vpcs:           map[string]*ipamTypes.VirtualNetwork{},
 		securityGroups: map[string]*types.SecurityGroup{},
 		allocator:      cidrRange,
 		errors:         map[Operation]error{},
-		delays:         map[Operation]time.Duration{},
+		delaySim:       helpers.NewDelaySimulator(),
 	}
 
-	for _, s := range subnets {
-		api.subnets[s.ID] = s
-	}
+	api.UpdateSubnets(subnets)
+	api.UpdateSecurityGroups(securityGroups)
 
 	for _, v := range vpcs {
 		api.vpcs[v.ID] = v
 	}
 
-	for _, sg := range securityGroups {
-		api.securityGroups[sg.ID] = sg
-	}
-
 	return api
+}
+
+// UpdateSubnets replaces the subents which the mock API will return
+func (e *API) UpdateSubnets(subnets []*ipamTypes.Subnet) {
+	e.mutex.Lock()
+	for _, s := range subnets {
+		e.subnets[s.ID] = s
+	}
+	e.mutex.Unlock()
+}
+
+// UpdateSecurityGroups replaces the security groups which the mock API will return
+func (e *API) UpdateSecurityGroups(securityGroups []*types.SecurityGroup) {
+	e.mutex.Lock()
+	for _, sg := range securityGroups {
+		e.securityGroups[sg.ID] = sg
+	}
+	e.mutex.Unlock()
+}
+
+// UpdateENIs replaces the ENIs which the mock API will return
+func (e *API) UpdateENIs(enis map[string]ENIMap) {
+	e.mutex.Lock()
+	e.enis = enis
+	e.mutex.Unlock()
 }
 
 // SetMockError modifies the mock API to return an error for a particular
@@ -100,24 +125,16 @@ func (e *API) SetMockError(op Operation, err error) {
 	e.mutex.Unlock()
 }
 
-func (e *API) setDelayLocked(op Operation, delay time.Duration) {
-	if delay == time.Duration(0) {
-		delete(e.delays, op)
-	} else {
-		e.delays[op] = delay
-	}
-}
-
 // SetDelay specifies the delay which should be simulated for an individual EC2
 // API operation
 func (e *API) SetDelay(op Operation, delay time.Duration) {
 	e.mutex.Lock()
 	if op == AllOperations {
 		for op := AllOperations + 1; op < MaxOperation; op++ {
-			e.setDelayLocked(op, delay)
+			e.delaySim.SetDelay(op, delay)
 		}
 	} else {
-		e.setDelayLocked(op, delay)
+		e.delaySim.SetDelay(op, delay)
 	}
 	e.mutex.Unlock()
 }
@@ -141,18 +158,9 @@ func (e *API) rateLimit() {
 	}
 }
 
-func (e *API) simulateDelay(op Operation) {
-	e.mutex.RLock()
-	delay, ok := e.delays[op]
-	e.mutex.RUnlock()
-	if ok {
-		time.Sleep(delay)
-	}
-}
-
 func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int64, subnetID, desc string, groups []string) (string, *eniTypes.ENI, error) {
 	e.rateLimit()
-	e.simulateDelay(CreateNetworkInterface)
+	e.delaySim.Delay(CreateNetworkInterface)
 
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
@@ -196,7 +204,7 @@ func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int64, subn
 
 func (e *API) DeleteNetworkInterface(ctx context.Context, eniID string) error {
 	e.rateLimit()
-	e.simulateDelay(DeleteNetworkInterface)
+	e.delaySim.Delay(DeleteNetworkInterface)
 
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
@@ -217,7 +225,7 @@ func (e *API) DeleteNetworkInterface(ctx context.Context, eniID string) error {
 
 func (e *API) AttachNetworkInterface(ctx context.Context, index int64, instanceID, eniID string) (string, error) {
 	e.rateLimit()
-	e.simulateDelay(AttachNetworkInterface)
+	e.delaySim.Delay(AttachNetworkInterface)
 
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
@@ -234,7 +242,7 @@ func (e *API) AttachNetworkInterface(ctx context.Context, index int64, instanceI
 	delete(e.unattached, eniID)
 
 	if _, ok := e.enis[instanceID]; !ok {
-		e.enis[instanceID] = eniMap{}
+		e.enis[instanceID] = ENIMap{}
 	}
 
 	eni.Number = int(index)
@@ -246,7 +254,7 @@ func (e *API) AttachNetworkInterface(ctx context.Context, index int64, instanceI
 
 func (e *API) ModifyNetworkInterface(ctx context.Context, eniID, attachmentID string, deleteOnTermination bool) error {
 	e.rateLimit()
-	e.simulateDelay(ModifyNetworkInterface)
+	e.delaySim.Delay(ModifyNetworkInterface)
 
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
@@ -260,7 +268,7 @@ func (e *API) ModifyNetworkInterface(ctx context.Context, eniID, attachmentID st
 
 func (e *API) AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int64) error {
 	e.rateLimit()
-	e.simulateDelay(AssignPrivateIpAddresses)
+	e.delaySim.Delay(AssignPrivateIpAddresses)
 
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
@@ -296,7 +304,7 @@ func (e *API) AssignPrivateIpAddresses(ctx context.Context, eniID string, addres
 
 func (e *API) UnassignPrivateIpAddresses(ctx context.Context, eniID string, addresses []string) error {
 	e.rateLimit()
-	e.simulateDelay(UnassignPrivateIpAddresses)
+	e.delaySim.Delay(UnassignPrivateIpAddresses)
 
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
@@ -343,7 +351,7 @@ func (e *API) UnassignPrivateIpAddresses(ctx context.Context, eniID string, addr
 	return fmt.Errorf("Unable to find ENI with ID %s", eniID)
 }
 
-func (e *API) GetInstances(ctx context.Context, vpcs types.VpcMap, subnets types.SubnetMap) (types.InstanceMap, error) {
+func (e *API) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (types.InstanceMap, error) {
 	instances := types.InstanceMap{}
 
 	e.mutex.RLock()
@@ -370,8 +378,8 @@ func (e *API) GetInstances(ctx context.Context, vpcs types.VpcMap, subnets types
 	return instances, nil
 }
 
-func (e *API) GetVpcs(ctx context.Context) (types.VpcMap, error) {
-	vpcs := types.VpcMap{}
+func (e *API) GetVpcs(ctx context.Context) (ipamTypes.VirtualNetworkMap, error) {
+	vpcs := ipamTypes.VirtualNetworkMap{}
 
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
@@ -382,8 +390,8 @@ func (e *API) GetVpcs(ctx context.Context) (types.VpcMap, error) {
 	return vpcs, nil
 }
 
-func (e *API) GetSubnets(ctx context.Context) (types.SubnetMap, error) {
-	subnets := types.SubnetMap{}
+func (e *API) GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error) {
+	subnets := ipamTypes.SubnetMap{}
 
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
@@ -396,7 +404,7 @@ func (e *API) GetSubnets(ctx context.Context) (types.SubnetMap, error) {
 
 func (e *API) TagENI(ctx context.Context, eniID string, eniTags map[string]string) error {
 	e.rateLimit()
-	e.simulateDelay(TagENI)
+	e.delaySim.Delay(TagENI)
 
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()

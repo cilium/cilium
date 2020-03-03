@@ -103,7 +103,7 @@ allocation:
 
   *This field is automatically populated when using ``--auto-create-cilium-node-resource``*
 
-``spec.eni.min-allocate``
+``spec.ipam.min-allocate``
   The minimum number of IPs that must be allocated when the node is first
   bootstrapped. It defines the minimum base socket of addresses that must be
   available. After reaching this watermark, the PreAllocate and
@@ -111,14 +111,14 @@ allocation:
 
   If unspecified, no minimum number of IPs is required.
 
-``spec.eni.pre-allocate``
+``spec.ipam.pre-allocate``
   The number of IP addresses that must be available for allocation at all
   times.  It defines the buffer of addresses available immediately without
   requiring for the operator to get involved.
 
   If unspecified, this value defaults to 8.
 
-``spec.eni.max-above-watermark``
+``spec.ipam.max-above-watermark``
   The maximum number of addresses to allocate beyond the addresses needed to
   reach the PreAllocate watermark.  Going above the watermark can help reduce
   the number of API calls to allocate IPs, e.g. when a new ENI is allocated, as
@@ -391,66 +391,4 @@ by passing the ``--update-ec2-apdater-limit-via-api`` CLI flag. This will requir
 Metrics
 *******
 
-The following metrics are exposed:
-
-``cilium_operator_eni_ips``
-  Number of IPs allocated
-
-  *Labels:*
-
-  * ``type:`` { "used" | "available" | "needed" }
-
-``cilium_operator_eni_allocation_ops``
-  Number of IP allocation operations
-
-  *Labels:*
-
-  * ``subnetId``: Thew AWS subnet ID used for the allocation
-
-``cilium_operator_eni_release_ops``
-  Number of IP release operations
-
-  *Labels:*
-
-  * ``subnetId``: Thew AWS subnet ID which IPs are released
-
-``cilium_operator_eni_interface_creation_ops``
-  Number of ENIs allocated
-
-  *Labels:*
-
-  * ``subnetId``: The AWS subnet ID used for the creation
-  * ``status``: The status of the creation
-
-``cilium_operator_eni_available``
-  Number of ENIs with addresses available
-
-``cilium_operator_eni_nodes``
-  Number of nodes by category
-
-  *Labels:*
-
-  * ``category``: ``{ total | in-deficit | at-capacity }``
-
-``cilium_operator_eni_aws_api_duration_seconds``
-  Duration of interactions with AWS API"
-
-  *Labels:*
-
-  ``operation``:
-    EC2 API operation
-
-  ``responseCode``:
-    Status code returned by the operation
-
-
-``cilium_operator_ec2_rate_limit_duration_seconds``
-  Duration of EC2 client-side rate limiter blocking
-
-  *Labels:*
-
-  ``operation``:
-    EC2 API operation
-
-``cilium_operator_eni_resync_total``
-  Number of synchronization operations of the AWS EC2 metadata cache
+The IPAM metrics are documented in the section :ref:`ipam_metrics`.

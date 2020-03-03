@@ -174,8 +174,12 @@ const (
 	// EnableExternalIPs enables implementation of k8s services with externalIPs in datapath
 	EnableExternalIPs = "enable-external-ips"
 
-	// ENIParallelWorkers specifies the number of parallel workers to be used in ENI mode.
-	ENIParallelWorkers = "eni-parallel-workers"
+	// ENIParallelWorkersDeprecated is the deprecated name of the option
+	// ParallelAllocWorkers that can be removed in Cilium 1.9
+	ENIParallelWorkersDeprecated = "eni-parallel-workers"
+
+	// ParallelAllocWorkers specifies the number of parallel workers to be used for IPAM allocation
+	ParallelAllocWorkers = "parallel-alloc-workers"
 
 	// EndpointGCInterval is the interval between attempts of the CEP GC
 	// controller.
@@ -379,6 +383,9 @@ const (
 	// OperatorPrometheusServeAddr IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
 	OperatorPrometheusServeAddr = "operator-prometheus-serve-addr"
 
+	// OperatorAPIServeAddr IP:Port on which to serve api requests in operator (pass ":Port" to bind on all interfaces, "" is off)
+	OperatorAPIServeAddr = "operator-api-serve-addr"
+
 	// PrometheusServeAddrDeprecated IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
 	PrometheusServeAddrDeprecated = "prometheus-serve-addr-deprecated"
 
@@ -409,6 +416,10 @@ const (
 	// global cache on startup.
 	// The file is not re-read after agent start.
 	ToFQDNsPreCache = "tofqdns-pre-cache"
+
+	// ToFQDNsEnableDNSCompression allows the DNS proxy to compress responses to
+	// endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
+	ToFQDNsEnableDNSCompression = "tofqdns-enable-dns-compression"
 
 	// UnmanagedPodWatcherInterval is the interval to check for unmanaged kube-dns pods (0 to disable)
 	UnmanagedPodWatcherInterval = "unmanaged-pod-watcher-interval"
@@ -669,11 +680,21 @@ const (
 	// IPAMENI is the value to select the AWS ENI IPAM plugin for option.IPAM
 	IPAMENI = "eni"
 
-	// AWSClientQPSLimit is the queries per second limit for the AWS client used by AWS ENI IPAM
-	AWSClientQPSLimit = "aws-client-qps"
+	// IPAMAPIQPSLimit is the queries per second limit when accessing external IPAM APIs
+	IPAMAPIQPSLimit = "limit-ipam-api-qps"
 
-	// AWSClientBurst is the burst value allowed for the AWS client used by the AWS ENI IPAM
-	AWSClientBurst = "aws-client-burst"
+	// AWSClientQPSLimitDeprecated is the deprecated version of IPAMAPIQPSLimit and will be removed in v1.9
+	AWSClientQPSLimitDeprecated = "aws-client-qps"
+
+	// IPAMAPIBurst is the burst value allowed when accessing external IPAM APIs
+	IPAMAPIBurst = "limit-ipam-api-burst"
+
+	// AWSClientBurstDeprecated is the deprecated version of IPAMAPIBurst and will be rewmoved in v1.9
+	AWSClientBurstDeprecated = "aws-client-burst"
+
+	// IPAMAzure is the value to select the Azure IPAM plugin for
+	// option.IPAM
+	IPAMAzure = "azure"
 
 	// ENITags are the tags that will be added to every ENI created by the AWS ENI IPAM
 	ENITags = "eni-tags"
@@ -732,6 +753,12 @@ const (
 
 	// K8sHeartbeatTimeout configures the timeout for apiserver heartbeat
 	K8sHeartbeatTimeout = "k8s-heartbeat-timeout"
+
+	// AzureSubscriptionID is the subscription ID to use when accessing the Azure API
+	AzureSubscriptionID = "azure-subscription-id"
+
+	// AzureResourceGroup is the resource group of the nodes used for the cluster
+	AzureResourceGroup = "azure-resource-group"
 )
 
 // Default string arguments
@@ -1178,6 +1205,7 @@ type DaemonConfig struct {
 	PProf                       bool
 	PrometheusServeAddr         string
 	OperatorPrometheusServeAddr string
+	OperatorAPIServeAddr        string
 	ToFQDNsMinTTL               int
 
 	// ToFQDNsProxyPort is the user-configured global, shared, DNS listen port used
@@ -1211,6 +1239,10 @@ type DaemonConfig struct {
 
 	// Path to a file with DNS cache data to preload on startup
 	ToFQDNsPreCache string
+
+	// ToFQDNsEnableDNSCompression allows the DNS proxy to compress responses to
+	// endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
+	ToFQDNsEnableDNSCompression bool
 
 	// HostDevice will be device used by Cilium to connect to the outside world.
 	HostDevice string
@@ -1466,13 +1498,19 @@ type DaemonConfig struct {
 	// UnmanagedPodWatcherInterval is the interval to check for unmanaged kube-dns pods (0 to disable)
 	UnmanagedPodWatcherInterval int
 
+	// IPAMAPIQPSLimit is the queries per second limit when accessing external IPAM APIs
+	IPAMAPIQPSLimit float64
+
+	// IPAMAPIBurst is the burst value allowed when accessing external IPAM APIs
+	IPAMAPIBurst int
+
 	// AWS options
 
 	// ENITags are the tags that will be added to every ENI created by the AWS ENI IPAM
 	ENITags map[string]string
 
-	// ENIParallelWorkers specifies the number of parallel workers to be used in ENI mode.
-	ENIParallelWorkers int64
+	// ParallelAllocWorkers specifies the number of parallel workers to be used in ENI mode.
+	ParallelAllocWorkers int64
 
 	// AwsInstanceLimitMapping allows overwirting AWS instance limits defined in
 	// pkg/aws/eni/limits.go
@@ -1484,17 +1522,17 @@ type DaemonConfig struct {
 	// the number of API calls to AWS EC2 service.
 	AwsReleaseExcessIps bool
 
-	// AWSClientQPSLimit is the queries per second limit for the AWS client used by AWS ENI IPAM
-	AWSClientQPSLimit float64
-
-	// AWSClientBurst is the burst value allowed for the AWS client used by the AWS ENI IPAM
-	AWSClientBurst int
-
 	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2 API to fill out the instnacetype to adapter limit mapping
 	UpdateEC2AdapterLimitViaAPI bool
 
 	// K8sHeartbeatTimeout configures the timeout for apiserver heartbeat
 	K8sHeartbeatTimeout time.Duration
+
+	// AzureSubscriptionID is the subscription ID to use when accessing the Azure API
+	AzureSubscriptionID string
+
+	// AzureResourceGroup is the resource group of the nodes used for the cluster
+	AzureResourceGroup string
 }
 
 var (
@@ -1812,8 +1850,8 @@ func (c *DaemonConfig) Populate() {
 	c.AllowLocalhost = viper.GetString(AllowLocalhost)
 	c.AnnotateK8sNode = viper.GetBool(AnnotateK8sNode)
 	c.AutoCreateCiliumNodeResource = viper.GetBool(AutoCreateCiliumNodeResource)
-	c.AWSClientBurst = viper.GetInt(AWSClientBurst)
-	c.AWSClientQPSLimit = viper.GetFloat64(AWSClientQPSLimit)
+	c.AzureSubscriptionID = viper.GetString(AzureSubscriptionID)
+	c.AzureResourceGroup = viper.GetString(AzureResourceGroup)
 	c.BPFCompilationDebug = viper.GetBool(BPFCompileDebugName)
 	c.CTMapEntriesGlobalTCP = viper.GetInt(CTMapEntriesGlobalTCPName)
 	c.CTMapEntriesGlobalAny = viper.GetInt(CTMapEntriesGlobalAnyName)
@@ -1855,7 +1893,6 @@ func (c *DaemonConfig) Populate() {
 	c.EnableL7Proxy = viper.GetBool(EnableL7Proxy)
 	c.EnableTracing = viper.GetBool(EnableTracing)
 	c.EnableNodePort = viper.GetBool(EnableNodePort)
-	c.ENIParallelWorkers = viper.GetInt64(ENIParallelWorkers)
 	c.NodePortMode = viper.GetString(NodePortMode)
 	c.KubeProxyReplacement = viper.GetString(KubeProxyReplacement)
 	c.EnableCEPGC = viper.GetBool(EnableCEPGC)
@@ -1929,6 +1966,7 @@ func (c *DaemonConfig) Populate() {
 	c.PrependIptablesChains = viper.GetBool(PrependIptablesChainsName)
 	c.PrometheusServeAddr = getPrometheusServerAddr()
 	c.OperatorPrometheusServeAddr = viper.GetString(OperatorPrometheusServeAddr)
+	c.OperatorAPIServeAddr = viper.GetString(OperatorAPIServeAddr)
 	c.ProxyConnectTimeout = viper.GetInt(ProxyConnectTimeout)
 	c.BlacklistConflictingRoutes = viper.GetBool(BlacklistConflictingRoutes)
 	c.ReadCNIConfiguration = viper.GetString(ReadCNIConfiguration)
@@ -1981,6 +2019,7 @@ func (c *DaemonConfig) Populate() {
 	}
 	c.ToFQDNsProxyPort = viper.GetInt(ToFQDNsProxyPort)
 	c.ToFQDNsPreCache = viper.GetString(ToFQDNsPreCache)
+	c.ToFQDNsEnableDNSCompression = viper.GetBool(ToFQDNsEnableDNSCompression)
 
 	// Convert IP strings into net.IPNet types
 	subnets, invalid := ip.ParseCIDRs(viper.GetStringSlice(IPv4PodSubnets))
@@ -2006,20 +2045,9 @@ func (c *DaemonConfig) Populate() {
 		log.WithError(err).Fatal("Failed to populate NodePortRange")
 	}
 
-	hostServicesProtos := viper.GetStringSlice(HostReachableServicesProtos)
-	if len(hostServicesProtos) > 2 {
-		log.Fatal("Unable to parse protocols for host reachable services!")
-	}
-	for i := 0; i < len(hostServicesProtos); i++ {
-		switch strings.ToLower(hostServicesProtos[i]) {
-		case HostServicesTCP:
-			c.EnableHostServicesTCP = true
-		case HostServicesUDP:
-			c.EnableHostServicesUDP = true
-		default:
-			log.Fatalf("Unable to parse protocol %s for host reachable services!",
-				hostServicesProtos[i])
-		}
+	err = c.populateHostServicesProtos()
+	if err != nil {
+		log.WithError(err).Fatal("Failed to populate HostReachableServicesProtos")
 	}
 
 	monitorAggregationFlags := viper.GetStringSlice(MonitorAggregationFlags)
@@ -2060,6 +2088,24 @@ func (c *DaemonConfig) Populate() {
 		c.ConntrackGCInterval = time.Duration(val) * time.Second
 	} else {
 		c.ConntrackGCInterval = viper.GetDuration(ConntrackGCInterval)
+	}
+
+	if val := viper.GetInt64(ENIParallelWorkersDeprecated); val != 0 {
+		c.ParallelAllocWorkers = val
+	} else {
+		c.ParallelAllocWorkers = viper.GetInt64(ParallelAllocWorkers)
+	}
+
+	if val := viper.GetFloat64(AWSClientQPSLimitDeprecated); val != 0 {
+		c.IPAMAPIQPSLimit = val
+	} else {
+		c.IPAMAPIQPSLimit = viper.GetFloat64(IPAMAPIQPSLimit)
+	}
+
+	if val := viper.GetInt(AWSClientBurstDeprecated); val != 0 {
+		c.IPAMAPIBurst = val
+	} else {
+		c.IPAMAPIBurst = viper.GetInt(IPAMAPIBurst)
 	}
 
 	if c.MonitorQueueSize == 0 {
@@ -2128,6 +2174,11 @@ func (c *DaemonConfig) Populate() {
 
 func (c *DaemonConfig) populateNodePortRange() error {
 	nodePortRange := viper.GetStringSlice(NodePortRange)
+	// When passed via configmap, we might not get a slice but single
+	// string instead, so split it if needed.
+	if len(nodePortRange) == 1 {
+		nodePortRange = strings.Split(nodePortRange[0], ",")
+	}
 	switch len(nodePortRange) {
 	case 2:
 		var err error
@@ -2147,6 +2198,32 @@ func (c *DaemonConfig) populateNodePortRange() error {
 		log.Warning("NodePort range was set but is empty.")
 	default:
 		return fmt.Errorf("Unable to parse min/max port value for NodePort range: %s", NodePortRange)
+	}
+
+	return nil
+}
+
+func (c *DaemonConfig) populateHostServicesProtos() error {
+	hostServicesProtos := viper.GetStringSlice(HostReachableServicesProtos)
+	// When passed via configmap, we might not get a slice but single
+	// string instead, so split it if needed.
+	if len(hostServicesProtos) == 1 {
+		hostServicesProtos = strings.Split(hostServicesProtos[0], ",")
+	}
+	if len(hostServicesProtos) > 2 {
+		return fmt.Errorf("More than two protocols for host reachable services not supported: %s",
+			hostServicesProtos)
+	}
+	for i := 0; i < len(hostServicesProtos); i++ {
+		switch strings.ToLower(hostServicesProtos[i]) {
+		case HostServicesTCP:
+			c.EnableHostServicesTCP = true
+		case HostServicesUDP:
+			c.EnableHostServicesUDP = true
+		default:
+			return fmt.Errorf("Protocol other than %s,%s not supported for host reachable services: %s",
+				HostServicesTCP, HostServicesUDP, hostServicesProtos[i])
+		}
 	}
 
 	return nil

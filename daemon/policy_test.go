@@ -191,7 +191,7 @@ func (ds *DaemonSuite) getXDSNetworkPolicies(c *C, resourceNames []string) map[s
 
 func prepareEndpointDirs() (cleanup func(), err error) {
 	testEPDir := fmt.Sprintf("%d", testEndpointID)
-	if err = os.Mkdir(testEPDir, 755); err != nil {
+	if err = os.Mkdir(testEPDir, 0755); err != nil {
 		return func() {}, err
 	}
 	return func() {

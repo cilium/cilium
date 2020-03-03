@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"syscall"
 
 	"github.com/cilium/cilium/pkg/aws/eni"
+	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/k8s"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/types"
@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
 
@@ -36,6 +37,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,19 +55,34 @@ var (
 				genMarkdown(cmd, cmdRefDir)
 				os.Exit(0)
 			}
+			initEnv()
 			runOperator(cmd)
 		},
 	}
 
+	// Deprecated: remove in 1.9
 	apiServerPort  uint16
 	shutdownSignal = make(chan struct{})
 
 	ciliumK8sClient clientset.Interface
 )
 
+func initEnv() {
+	// Prepopulate option.Config with options from CLI.
+	option.Config.Populate()
+
+	// add hooks after setting up metrics in the option.Confog
+	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumOperatortName))
+
+	// Logging should always be bootstrapped first. Do not add any code above this!
+	logging.SetupLogging(option.Config.LogDriver, option.Config.LogOpt, "cilium-operator", option.Config.Debug)
+
+	option.LogRegisteredOptions(log)
+}
+
 func main() {
 	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(signals, unix.SIGINT, unix.SIGTERM)
 
 	go func() {
 		<-signals
@@ -104,12 +121,18 @@ func kvstoreEnabled() bool {
 		option.Config.SyncK8sNodes
 }
 
+func getAPIServerAddr() []string {
+	if option.Config.OperatorAPIServeAddr == "" {
+		return []string{fmt.Sprintf("127.0.0.1:%d", apiServerPort), fmt.Sprintf("[::1]:%d", apiServerPort)}
+	}
+	return []string{option.Config.OperatorAPIServeAddr}
+}
+
 func runOperator(cmd *cobra.Command) {
-	logging.SetupLogging([]string{}, map[string]string{}, "cilium-operator", viper.GetBool("debug"))
 
 	log.Infof("Cilium Operator %s", version.Version)
 	k8sInitDone := make(chan struct{})
-	go startServer(fmt.Sprintf(":%d", apiServerPort), shutdownSignal, k8sInitDone)
+	go startServer(shutdownSignal, k8sInitDone, getAPIServerAddr()...)
 
 	if option.Config.EnableMetrics {
 		registerMetrics()
@@ -142,7 +165,8 @@ func runOperator(cmd *cobra.Command) {
 		enableUnmanagedKubeDNSController()
 	}
 
-	if option.Config.IPAM == option.IPAMENI {
+	switch option.Config.IPAM {
+	case option.IPAMENI:
 		if err := eni.UpdateLimitsFromUserDefinedMappings(option.Config.AwsInstanceLimitMapping); err != nil {
 			log.WithError(err).Fatal("Parse aws-instance-limit-mapping failed")
 		}
@@ -152,10 +176,17 @@ func runOperator(cmd *cobra.Command) {
 			}
 		}
 		if err := startENIAllocator(
-			option.Config.AWSClientQPSLimit,
-			option.Config.AWSClientBurst,
+			option.Config.IPAMAPIQPSLimit,
+			option.Config.IPAMAPIBurst,
 			option.Config.ENITags); err != nil {
 			log.WithError(err).Fatal("Unable to start ENI allocator")
+		}
+
+		startSynchronizingCiliumNodes()
+
+	case option.IPAMAzure:
+		if err := startAzureAllocator(option.Config.IPAMAPIQPSLimit, option.Config.IPAMAPIBurst); err != nil {
+			log.WithError(err).Fatal("Unable to start Azure allocator")
 		}
 
 		startSynchronizingCiliumNodes()
@@ -203,7 +234,7 @@ func runOperator(cmd *cobra.Command) {
 							// Create another service cache that contains the
 							// k8s service for etcd. As soon the k8s caches are
 							// synced, this hijack will stop happening.
-							sc := k8s.NewServiceCache()
+							sc := k8s.NewServiceCache(nil)
 							sc.UpdateService(&types.Service{Service: k8sSvc}, nil)
 							svcGetter = &serviceGetter{
 								shortCutK8sCache: &sc,

@@ -17,9 +17,11 @@ package main
 import (
 	"reflect"
 
+	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,6 +29,21 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 )
+
+var nodeManager *ipam.NodeManager
+
+func ciliumNodeUpdated(resource *v2.CiliumNode) {
+	if nodeManager != nil {
+		// resource is deep copied before it is stored in pkg/aws/eni
+		nodeManager.Update(resource)
+	}
+}
+
+func ciliumNodeDeleted(nodeName string) {
+	if nodeManager != nil {
+		nodeManager.Delete(nodeName)
+	}
+}
 
 func startSynchronizingCiliumNodes() {
 	log.Info("Starting to synchronize CiliumNode custom resources...")
@@ -86,4 +103,44 @@ func deleteCiliumNode(name string) {
 		log.WithField("name", name).Info("Removed CiliumNode after receiving node deletion event")
 	}
 	ciliumNodeDeleted(name)
+}
+
+type ciliumNodeUpdateImplementation struct{}
+
+func (c *ciliumNodeUpdateImplementation) Get(node string) (*v2.CiliumNode, error) {
+	return ciliumK8sClient.CiliumV2().CiliumNodes().Get(node, metav1.GetOptions{})
+}
+
+func (c *ciliumNodeUpdateImplementation) UpdateStatus(node, origNode *v2.CiliumNode) (*v2.CiliumNode, error) {
+	// If k8s supports status as a sub-resource, then we need to update the status separately
+	k8sCapabilities := k8sversion.Capabilities()
+	switch {
+	case k8sCapabilities.UpdateStatus:
+		if !reflect.DeepEqual(origNode.Status, node.Status) {
+			return ciliumK8sClient.CiliumV2().CiliumNodes().UpdateStatus(node)
+		}
+	default:
+		if !reflect.DeepEqual(origNode.Status, node.Status) {
+			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(node)
+		}
+	}
+
+	return nil, nil
+}
+
+func (c *ciliumNodeUpdateImplementation) Update(node, origNode *v2.CiliumNode) (*v2.CiliumNode, error) {
+	// If k8s supports status as a sub-resource, then we need to update the status separately
+	k8sCapabilities := k8sversion.Capabilities()
+	switch {
+	case k8sCapabilities.UpdateStatus:
+		if !reflect.DeepEqual(origNode.Spec, node.Spec) {
+			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(node)
+		}
+	default:
+		if !reflect.DeepEqual(origNode, node) {
+			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(node)
+		}
+	}
+
+	return nil, nil
 }

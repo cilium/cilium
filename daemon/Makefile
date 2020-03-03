@@ -4,7 +4,7 @@ include ../Makefile.defs
 TARGET=cilium-agent
 LINKS=cilium-node-monitor
 SOURCES := $(shell find ../api ../common ../daemon ../pkg . \( -name '*.go'  ! -name '*_test.go' \))
-$(TARGET): $(SOURCES)
+$(TARGET): $(SOURCES) ../Dockerfile ../Makefile ../Makefile.defs Makefile
 	@$(ECHO_GO)
 	$(QUIET) CGO_ENABLED=0 $(GO) build $(GOBUILD) -o $(TARGET)
 

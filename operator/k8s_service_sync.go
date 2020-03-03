@@ -41,7 +41,7 @@ import (
 )
 
 var (
-	k8sSvcCache = k8s.NewServiceCache()
+	k8sSvcCache = k8s.NewServiceCache(nil)
 	// k8sSvcCacheSynced is used do signalize when all services are synced with
 	// k8s.
 	k8sSvcCacheSynced = make(chan struct{})
@@ -139,7 +139,7 @@ func startSynchronizingServices() {
 				metrics.EventTSK8s.SetToCurrentTime()
 				if oldk8sSvc := k8s.CopyObjToV1Services(oldObj); oldk8sSvc != nil {
 					if newk8sSvc := k8s.CopyObjToV1Services(newObj); newk8sSvc != nil {
-						if k8s.EqualV1Services(oldk8sSvc, newk8sSvc) {
+						if k8s.EqualV1Services(oldk8sSvc, newk8sSvc, nil) {
 							return
 						}
 

@@ -24,6 +24,7 @@ import (
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/checker"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 
 	cnitypes "github.com/containernetworking/cni/pkg/types"
 	"gopkg.in/check.v1"
@@ -163,6 +164,51 @@ func (t *CNITypesSuite) TestReadCNIConfENI(c *check.C) {
 			},
 			VpcID:            "vpc-1",
 			AvailabilityZone: "us-west1",
+		},
+	}
+	testConfRead(c, confFile1, &netConf1)
+}
+
+func (t *CNITypesSuite) TestReadCNIConfENIv2WithPlugins(c *check.C) {
+	confFile1 := `
+{
+  "cniVersion":"0.3.1",
+  "name":"cilium",
+  "plugins": [
+    {
+      "cniVersion":"0.3.1",
+      "type":"cilium-cni",
+      "eni": {
+        "first-interface-index":1,
+        "security-groups":[
+          "sg-xxx"
+        ],
+        "subnet-tags":{
+          "foo":"true"
+        }
+      },
+      "ipam": {
+        "pre-allocate": 5
+      }
+    }
+  ]
+}
+`
+	firstInterfaceIndex := 1
+	netConf1 := NetConf{
+		NetConf: cnitypes.NetConf{
+			CNIVersion: "0.3.1",
+			Type:       "cilium-cni",
+		},
+		ENI: eniTypes.ENISpec{
+			FirstInterfaceIndex: &firstInterfaceIndex,
+			SecurityGroups:      []string{"sg-xxx"},
+			SubnetTags: map[string]string{
+				"foo": "true",
+			},
+		},
+		IPAM: ipamTypes.IPAMSpec{
+			PreAllocate: 5,
 		},
 	}
 	testConfRead(c, confFile1, &netConf1)

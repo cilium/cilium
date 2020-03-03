@@ -181,6 +181,14 @@ data:
   blacklist-conflicting-routes: "false"
 {{- end }}
 
+{{- if .Values.global.azure.enabled }}
+  ipam: "azure"
+  enable-endpoint-routes: "true"
+  auto-create-cilium-node-resource: "true"
+  blacklist-conflicting-routes: "false"
+  enable-local-node-route: "false"
+{{- end }}
+
 {{- if .Values.global.flannel.enabled }}
   # Interface to be used when running Cilium on top of a CNI plugin.
   # For flannel, use "cni0"
@@ -235,10 +243,12 @@ data:
   #  - portmap (Enables HostPort support for Cilium)
   cni-chaining-mode: {{ .Values.global.cni.chainingMode }}
 
+{{- if ne .Values.global.cni.chainingMode "portmap" }}
   # Disable the PodCIDR route to the cilium_host interface as it is not
   # required. While chaining, it is the responsibility of the underlying plugin
   # to enable routing.
   enable-local-node-route: "false"
+{{- end }}
 {{- end }}
 
   masquerade: {{ .Values.global.masquerade | quote }}
@@ -325,3 +335,9 @@ data:
   enable-remote-node-identity: {{ .Values.global.remoteNodeIdentity | quote }}
 
   synchronize-k8s-nodes: {{ .Values.global.synchronizeK8sNodes | quote }}
+
+{{- if .Values.global.ipv4.enabled }}
+  operator-api-serve-addr: '127.0.0.1:9234'
+{{- else }}
+  operator-api-serve-addr: '[::1]:9234'
+{{- end }}

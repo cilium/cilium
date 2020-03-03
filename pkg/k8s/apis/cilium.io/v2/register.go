@@ -377,6 +377,15 @@ func createNodeCRD(clientset apiextensionsclient.Interface) error {
 					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 						"spec": {
 							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+								"azure": {
+									Type: "object",
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"instance-id": {
+											Type:        "string",
+											Description: "instance-id is the Azure specific identifier of the node",
+										},
+									},
+								},
 								"eni": {
 									Type: "object",
 									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
@@ -427,6 +436,25 @@ func createNodeCRD(clientset apiextensionsclient.Interface) error {
 										"delete-on-termination": {
 											Type:        "boolean",
 											Description: "delete-on-termination marks the ENI to be deleted when the EC2 instance is terminated.",
+										},
+									},
+								},
+								"ipam": {
+									Type: "object",
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"min-allocate": {
+											Type:    "integer",
+											Minimum: getFloat64(0),
+											Description: "min-allocate is the minimum number of IPs that will be allocated before" +
+												" the cilium-agent will write the CNI config.",
+										},
+										"pre-allocate": {
+											Type:    "integer",
+											Minimum: getFloat64(0),
+										},
+										"max-above-watermark": {
+											Type:    "integer",
+											Minimum: getFloat64(0),
 										},
 									},
 								},

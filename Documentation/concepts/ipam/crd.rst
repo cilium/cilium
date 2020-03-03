@@ -110,6 +110,8 @@ list of all IPs which are available to the node for allocation:
 
 .. code-block:: go
 
+        // AllocationMap is a map of allocated IPs indexed by IP
+        type AllocationMap map[string]AllocationIP
 
         // NodeSpec is the configuration specific to a node
         type NodeSpec struct {
@@ -130,7 +132,7 @@ list of all IPs which are available to the node for allocation:
                 // Status.IPAM.InUse
                 //
                 // +optional
-                Pool map[string]AllocationIP `json:"pool,omitempty"`
+                Pool AllocationMap `json:"pool,omitempty"`
 	}
 
 	// AllocationIP is an IP available for allocation or already allocated
@@ -178,5 +180,5 @@ all used addresses on that node:
 		// allocated and are in use.
 		//
 		// +optional
-		InUse map[string]AllocationIP `json:"used,omitempty"`
+		InUse AllocationMap `json:"used,omitempty"`
 	}

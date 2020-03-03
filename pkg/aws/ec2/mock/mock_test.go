@@ -20,9 +20,9 @@ import (
 	"context"
 	"errors"
 	"testing"
-	"time"
 
 	"github.com/cilium/cilium/pkg/aws/types"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 
 	"gopkg.in/check.v1"
 )
@@ -36,7 +36,7 @@ type MockSuite struct{}
 var _ = check.Suite(&MockSuite{})
 
 func (e *MockSuite) TestMock(c *check.C) {
-	api := NewAPI([]*types.Subnet{{ID: "s-1", AvailableAddresses: 100}}, []*types.Vpc{{ID: "v-1"}}, []*types.SecurityGroup{{ID: "sg-1"}})
+	api := NewAPI([]*ipamTypes.Subnet{{ID: "s-1", AvailableAddresses: 100}}, []*ipamTypes.VirtualNetwork{{ID: "v-1"}}, []*types.SecurityGroup{{ID: "sg-1"}})
 	c.Assert(api, check.Not(check.IsNil))
 
 	eniID1, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"})
@@ -75,7 +75,7 @@ func (e *MockSuite) TestMock(c *check.C) {
 }
 
 func (e *MockSuite) TestSetMockError(c *check.C) {
-	api := NewAPI([]*types.Subnet{}, []*types.Vpc{}, []*types.SecurityGroup{})
+	api := NewAPI([]*ipamTypes.Subnet{}, []*ipamTypes.VirtualNetwork{}, []*types.SecurityGroup{})
 	c.Assert(api, check.Not(check.IsNil))
 
 	mockError := errors.New("error")
@@ -105,21 +105,8 @@ func (e *MockSuite) TestSetMockError(c *check.C) {
 	c.Assert(err, check.Equals, mockError)
 }
 
-func (e *MockSuite) TestSetDelay(c *check.C) {
-	api := NewAPI([]*types.Subnet{}, []*types.Vpc{}, []*types.SecurityGroup{})
-	c.Assert(api, check.Not(check.IsNil))
-
-	api.SetDelay(AllOperations, time.Second)
-	c.Assert(api.delays[CreateNetworkInterface], check.Equals, time.Second)
-	c.Assert(api.delays[DeleteNetworkInterface], check.Equals, time.Second)
-	c.Assert(api.delays[ModifyNetworkInterface], check.Equals, time.Second)
-	c.Assert(api.delays[AttachNetworkInterface], check.Equals, time.Second)
-	c.Assert(api.delays[AssignPrivateIpAddresses], check.Equals, time.Second)
-	c.Assert(api.delays[UnassignPrivateIpAddresses], check.Equals, time.Second)
-}
-
 func (e *MockSuite) TestSetLimiter(c *check.C) {
-	api := NewAPI([]*types.Subnet{{ID: "s-1", AvailableAddresses: 100}}, []*types.Vpc{{ID: "v-1"}}, []*types.SecurityGroup{{ID: "sg-1"}})
+	api := NewAPI([]*ipamTypes.Subnet{{ID: "s-1", AvailableAddresses: 100}}, []*ipamTypes.VirtualNetwork{{ID: "v-1"}}, []*types.SecurityGroup{{ID: "sg-1"}})
 	c.Assert(api, check.Not(check.IsNil))
 
 	api.SetLimiter(10.0, 2)

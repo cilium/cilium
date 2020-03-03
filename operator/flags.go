@@ -32,12 +32,23 @@ func init() {
 
 	flags := rootCmd.Flags()
 
-	// AWS dedicated flags
-	flags.Int(option.AWSClientBurst, defaults.AWSClientBurst, "Burst value allowed for the AWS client used by the AWS ENI IPAM")
-	option.BindEnv(option.AWSClientBurst)
+	flags.Int(option.AWSClientBurstDeprecated, defaults.IPAMAPIBurst, "")
+	flags.MarkDeprecated(option.AWSClientBurstDeprecated, fmt.Sprintf("please use --%s", option.IPAMAPIBurst))
 
-	flags.Float64(option.AWSClientQPSLimit, defaults.AWSClientQPSLimit, "Queries per second limit for the AWS client used by the AWS ENI IPAM")
-	option.BindEnv(option.AWSClientQPSLimit)
+	flags.Int(option.IPAMAPIBurst, defaults.IPAMAPIBurst, "Upper burst limit when accessing external APIs")
+	option.BindEnv(option.IPAMAPIBurst)
+
+	flags.Float64(option.AWSClientQPSLimitDeprecated, defaults.IPAMAPIQPSLimit, "")
+	flags.MarkDeprecated(option.AWSClientQPSLimitDeprecated, fmt.Sprintf("please use --%s", option.IPAMAPIQPSLimit))
+
+	flags.Float64(option.IPAMAPIQPSLimit, defaults.IPAMAPIQPSLimit, "Queries per second limit when accessing external IPAM APIs")
+	option.BindEnv(option.IPAMAPIQPSLimit)
+
+	flags.String(option.AzureSubscriptionID, "", "Subscription ID to access Azure API")
+	option.BindEnvWithLegacyEnvFallback(option.AzureSubscriptionID, "AZURE_SUBSCRIPTION_ID")
+
+	flags.String(option.AzureResourceGroup, "", "Resource group to use for Azure IPAM")
+	option.BindEnvWithLegacyEnvFallback(option.AzureResourceGroup, "AZURE_RESOURCE_GROUP")
 
 	flags.Var(option.NewNamedMapOptions(option.AwsInstanceLimitMapping, &option.Config.AwsInstanceLimitMapping, nil),
 		option.AwsInstanceLimitMapping,
@@ -56,8 +67,12 @@ func init() {
 		option.ENITags, "ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)")
 	option.BindEnv(option.ENITags)
 
-	flags.Int64(option.ENIParallelWorkers, defaults.ENIParallelWorkers, "Maximum number of parallel workers used by ENI allocator")
-	option.BindEnv(option.ENIParallelWorkers)
+	flags.Int64(option.ENIParallelWorkersDeprecated, defaults.ParallelAllocWorkers, "")
+	flags.MarkDeprecated(option.ENIParallelWorkersDeprecated, fmt.Sprintf("please use --%s", option.ParallelAllocWorkers))
+	option.BindEnv(option.ENIParallelWorkersDeprecated)
+
+	flags.Int64(option.ParallelAllocWorkers, defaults.ParallelAllocWorkers, "Maximum number of parallel IPAM workers")
+	option.BindEnv(option.ParallelAllocWorkers)
 
 	flags.Bool(option.UpdateEC2AdapterLimitViaAPI, false, "Use the EC2 API to update the instance type to adapter limits")
 	option.BindEnv(option.UpdateEC2AdapterLimitViaAPI)
@@ -154,6 +169,9 @@ func init() {
 	flags.String(option.OperatorPrometheusServeAddr, ":6942", "Address to serve Prometheus metrics")
 	option.BindEnv(option.OperatorPrometheusServeAddr)
 
+	flags.String(option.OperatorAPIServeAddr, "localhost:9234", "Address to serve API requests")
+	option.BindEnv(option.OperatorAPIServeAddr)
+
 	flags.Bool(option.SyncK8sServices, true, "Synchronize Kubernetes services to kvstore")
 	option.BindEnv(option.SyncK8sServices)
 
@@ -166,8 +184,9 @@ func init() {
 	flags.Bool(option.Version, false, "Print version information")
 	option.BindEnv(option.Version)
 
-	// TODO: Urgent fix
+	// Deprecated, remove in 1.9
 	flags.Uint16Var(&apiServerPort, "api-server-port", 9234, "Port on which the operator should serve API requests")
+	flags.MarkDeprecated("api-server-port", fmt.Sprintf("Please use %s instead", option.OperatorAPIServeAddr))
 
 	// Deprecated, remove in 1.9
 	flags.StringVar(&metricsAddress, "metrics-address", ":6942", "Address to serve Prometheus metrics")

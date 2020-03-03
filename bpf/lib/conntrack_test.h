@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: GPL-2.0
-// Copyright (c) 2018-2019 Authors of Cilium
+/* SPDX-License-Identifier: GPL-2.0 */
+/* Copyright (C) 2018-2020 Authors of Cilium */
 
 enum {
 	__TUPLE_EXIST,

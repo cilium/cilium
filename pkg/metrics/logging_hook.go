@@ -42,6 +42,8 @@ func NewLoggingHook(component string) *LoggingHook {
 	switch component {
 	case components.CiliumAgentName:
 		metric = ErrorsWarnings
+	case components.CiliumOperatortName:
+		metric = ErrorsWarnings
 	default:
 		panic(fmt.Sprintf("component %s is unsupported by LoggingHook", component))
 	}

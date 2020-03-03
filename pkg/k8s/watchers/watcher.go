@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
@@ -165,6 +166,7 @@ type K8sWatcher struct {
 	podStoreOnce sync.Once
 
 	namespaceStore cache.Store
+	datapath       datapath.Datapath
 }
 
 func NewK8sWatcher(
@@ -173,11 +175,12 @@ func NewK8sWatcher(
 	policyManager policyManager,
 	policyRepository policyRepository,
 	svcManager svcManager,
+	datapath datapath.Datapath,
 ) *K8sWatcher {
 	return &K8sWatcher{
 		k8sResourceSynced:         map[string]<-chan struct{}{},
 		k8sResourceSyncedStopWait: map[string]bool{},
-		K8sSvcCache:               k8s.NewServiceCache(),
+		K8sSvcCache:               k8s.NewServiceCache(datapath.LocalNodeAddressing()),
 		endpointManager:           endpointManager,
 		nodeDiscoverManager:       nodeDiscoverManager,
 		policyManager:             policyManager,
@@ -185,6 +188,7 @@ func NewK8sWatcher(
 		svcManager:                svcManager,
 		controllersStarted:        make(chan struct{}),
 		podStoreSet:               make(chan struct{}),
+		datapath:                  datapath,
 	}
 }
 

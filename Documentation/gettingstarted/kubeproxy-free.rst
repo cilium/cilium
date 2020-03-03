@@ -318,7 +318,8 @@ cilium_host device or loopback address, e.g. ``127.0.0.1:NODE_PORT``.
 
 If ``kube-apiserver`` was configured to use a non-default NodePort port range,
 then the same range must be passed to Cilium via the ``global.nodePort.range``
-option.
+option, for example, as ``--set global.nodePort.range="10000\,32767"`` for a
+range of ``10000-32767``. The default Kubernetes NodePort range is ``30000-32767``.
 
 kube-proxy Hybrid Modes
 ***********************
@@ -444,3 +445,7 @@ Limitations
       situation.
     * Kubernetes Service sessionAffinity is currently not implemented.
       This will be addressed via `GH issue 9076 <https://github.com/cilium/cilium/issues/9076>`__.
+    * The BPF kube-proxy replacement currently cannot be used in combination with CNI chaining
+      e.g. deployed as ``--set global.cni.chainingMode=portmap``. Future Cilium versions are
+      going to provide native portmap support via BPF and therefore without the need for chaining;
+      tracked via `GH issue 10359 <https://github.com/cilium/cilium/issues/10359>`__.

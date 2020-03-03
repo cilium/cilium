@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@ import (
 const (
 	// CiliumAgentName is the name of cilium-agent (daemon) process name.
 	CiliumAgentName = "cilium-agent"
+	// CiliumOperatortName is the name of cilium-operator process name.
+	CiliumOperatortName = "cilium-operator"
 	// CiliumDaemonTestName is the name of test binary for daemon package.
 	CiliumDaemonTestName = "daemon.test"
 )

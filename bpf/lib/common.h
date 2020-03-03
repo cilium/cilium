@@ -1,20 +1,6 @@
-/*
- *  Copyright (C) 2016-2019 Authors of Cilium
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- */
+/* SPDX-License-Identifier: GPL-2.0 */
+/* Copyright (C) 2016-2020 Authors of Cilium */
+
 #ifndef __LIB_COMMON_H_
 #define __LIB_COMMON_H_
 
@@ -62,8 +48,6 @@
 # endif
 #endif
 
-#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
-
 /* These are shared with test/bpf/check-complexity.sh, when modifying any of
  * the below, that script should also be updated. */
 #define CILIUM_CALL_DROP_NOTIFY			1
@@ -105,11 +89,26 @@ union v6addr {
         __u8 addr[16];
 } __attribute__((packed));
 
+static __always_inline void *ctx_data(const struct __ctx_buff *ctx)
+{
+	return (void *)(unsigned long)ctx->data;
+}
+
+static __always_inline void *ctx_data_end(const struct __ctx_buff *ctx)
+{
+	return (void *)(unsigned long)ctx->data_end;
+}
+
+static __always_inline bool ctx_no_room(const void *needed, const void *limit)
+{
+	return unlikely(needed > limit);
+}
+
 static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
 					       __u16 *proto)
 {
-	void *data = (void *) (long) ctx->data;
-	void *data_end = (void *) (long) ctx->data_end;
+	void *data = ctx_data(ctx);
+	void *data_end = ctx_data_end(ctx);
 
 	if (data + ETH_HLEN > data_end)
 		return false;
@@ -134,8 +133,8 @@ __revalidate_data(struct __ctx_buff *ctx, void **data_, void **data_end_,
 	/* Verifier workaround, do this unconditionally: invalid size of register spill. */
 	if (pull)
 		ctx_pull_data(ctx, tot_len);
-	data_end = (void *)(long)ctx->data_end;
-	data = (void *)(long)ctx->data;
+	data_end = ctx_data_end(ctx);
+	data = ctx_data(ctx);
 	if (data + tot_len > data_end)
 		return false;
 
@@ -641,17 +640,6 @@ struct ct_state {
 	__u16 backend_id;	/* Backend ID in lb4_backends */
 };
 
-/**
- * relax_verifier is a dummy helper call to introduce a pruning checkpoing to
- * help relax the verifier to avoid reaching complexity limits on older
- * kernels.
- */
-static __always_inline void relax_verifier(void)
-{
-	int foo = 0;
-	csum_diff(0, 0, &foo, 1, 0);
-}
-
 static __always_inline int redirect_peer(int ifindex, __u32 flags)
 {
 	/* If our datapath has proper redirect support, we make use
@@ -664,26 +652,6 @@ static __always_inline int redirect_peer(int ifindex, __u32 flags)
 	return CTX_ACT_OK;
 #endif /* ENABLE_HOST_REDIRECT */
 }
-
-/* Few basic errno codes as we don't want to include errno.h. */
-#ifndef ENOTSUP
-# define ENOTSUP	95
-#endif
-#ifndef ENXIO
-# define ENXIO		6
-#endif
-#ifndef EPERM
-# define EPERM		1
-#endif
-#ifndef ENOENT
-# define ENOENT		2
-#endif
-#ifndef ENOMEM
-# define ENOMEM		12
-#endif
-#ifndef EADDRINUSE
-# define EADDRINUSE		98
-#endif
 
 #include "overloadable.h"
 

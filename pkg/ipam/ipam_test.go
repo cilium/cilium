@@ -35,6 +35,16 @@ type IPAMSuite struct{}
 
 var _ = Suite(&IPAMSuite{})
 
+func fakeIPv4AllocCIDRIP() net.IP {
+	// force copy so net.IP can be modified
+	return net.ParseIP(fake.NewNodeAddressing().IPv4().AllocationCIDR().IP.String())
+}
+
+func fakeIPv6AllocCIDRIP() net.IP {
+	// force copy so net.IP can be modified
+	return net.ParseIP(fake.NewNodeAddressing().IPv6().AllocationCIDR().IP.String())
+}
+
 func (s *IPAMSuite) TestLock(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
 	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true}, &ownerMock{}, &ownerMock{})
@@ -42,12 +52,12 @@ func (s *IPAMSuite) TestLock(c *C) {
 	// Since the IPs we have allocated to the endpoints might or might not
 	// be in the allocrange specified in cilium, we need to specify them
 	// manually on the endpoint based on the alloc range.
-	ipv4 := fakeAddressing.IPv4().AllocationCIDR().IP
+	ipv4 := fakeIPv4AllocCIDRIP()
 	nextIP(ipv4)
 	epipv4, err := addressing.NewCiliumIPv4(ipv4.String())
 	c.Assert(err, IsNil)
 
-	ipv6 := fakeAddressing.IPv6().AllocationCIDR().IP
+	ipv6 := fakeIPv6AllocCIDRIP()
 	nextIP(ipv6)
 	epipv6, err := addressing.NewCiliumIPv6(ipv6.String())
 	c.Assert(err, IsNil)
@@ -71,8 +81,7 @@ func (s *IPAMSuite) TestBlackList(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
 	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true}, &ownerMock{}, &ownerMock{})
 
-	// force copy of first possible IP in allocation range
-	ipv4 := net.ParseIP(fakeAddressing.IPv4().AllocationCIDR().IP.String())
+	ipv4 := fakeIPv4AllocCIDRIP()
 	nextIP(ipv4)
 
 	ipam.BlacklistIP(ipv4, "test")
@@ -86,8 +95,7 @@ func (s *IPAMSuite) TestBlackList(c *C) {
 	ipam.BlacklistIPNet(*ipNet, "test")
 	c.Assert(ipam.blacklist.Contains(ipv4), Equals, true)
 
-	// force copy of first possible IP in allocation range
-	ipv6 := net.ParseIP(fakeAddressing.IPv6().AllocationCIDR().IP.String())
+	ipv6 := fakeIPv6AllocCIDRIP()
 	nextIP(ipv6)
 
 	ipam.BlacklistIP(ipv6, "test")
@@ -111,13 +119,12 @@ func (s *IPAMSuite) TestOwnerRelease(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
 	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true}, &ownerMock{}, &ownerMock{})
 
-	// force copy of first possible IP in allocation range
-	ipv4 := net.ParseIP(fakeAddressing.IPv4().AllocationCIDR().IP.String())
+	ipv4 := fakeIPv4AllocCIDRIP()
 	nextIP(ipv4)
 	err := ipam.AllocateIP(ipv4, "default/test")
 	c.Assert(err, IsNil)
 
-	ipv6 := net.ParseIP(fakeAddressing.IPv6().AllocationCIDR().IP.String())
+	ipv6 := fakeIPv6AllocCIDRIP()
 	nextIP(ipv6)
 	err = ipam.AllocateIP(ipv6, "default/test")
 	c.Assert(err, IsNil)

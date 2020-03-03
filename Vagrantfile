@@ -110,10 +110,6 @@ ENV["LC_ALL"] = "en_US.UTF-8"
 ENV["LC_CTYPE"] = "en_US.UTF-8"
 
 Vagrant.configure(2) do |config|
-    if ENV['CILIUM_TEMP'] then
-        # Temporarily install forked bpftool
-        config.vm.provision "shell", path: "#{ENV['CILIUM_TEMP']}/../../test/provision/bpftool.sh"
-    end
     config.vm.provision "bootstrap", type: "shell", inline: $bootstrap
     config.vm.provision "build", type: "shell", run: "always", privileged: false, inline: $build
     config.vm.provision "install", type: "shell", run: "always", privileged: false, inline: $install
@@ -136,7 +132,7 @@ Vagrant.configure(2) do |config|
     master_vm_name = "#{$vm_base_name}1#{$build_id_name}"
     config.vm.define master_vm_name, primary: true do |cm|
         node_ip = "#{$master_ip}"
-		cm.vm.network "forwarded_port", guest: 6443, host: 7443
+		cm.vm.network "forwarded_port", guest: 6443, host: 7443, auto_correct: true
         cm.vm.network "private_network", ip: "#{$master_ip}",
             virtualbox__intnet: "cilium-test-#{$build_id}",
             :libvirt__guest_ipv6 => "yes",

@@ -702,6 +702,9 @@ func init() {
 	flags.String(option.ToFQDNsPreCache, defaults.ToFQDNsPreCache, "DNS cache data at this path is preloaded on agent startup")
 	option.BindEnv(option.ToFQDNsPreCache)
 
+	flags.Bool(option.ToFQDNsEnableDNSCompression, defaults.ToFQDNsEnableDNSCompression, "Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present")
+	option.BindEnv(option.ToFQDNsEnableDNSCompression)
+
 	flags.Int(option.PolicyQueueSize, defaults.PolicyQueueSize, "size of queues for policy-related events")
 	option.BindEnv(option.PolicyQueueSize)
 
@@ -722,7 +725,7 @@ func init() {
 	flags.MarkHidden(option.PolicyTriggerInterval)
 	option.BindEnv(option.PolicyTriggerInterval)
 
-	flags.Bool(option.DisableCNPStatusUpdates, false, "Do not send CNP NodeStatus updates to the Kubernetes api-server (recommended to run with `cnp-node-status-gc=false` in cilium-operator)")
+	flags.Bool(option.DisableCNPStatusUpdates, false, `Do not send CNP NodeStatus updates to the Kubernetes api-server (recommended to run with "cnp-node-status-gc=false" in cilium-operator)`)
 	option.BindEnv(option.DisableCNPStatusUpdates)
 
 	flags.Duration(option.K8sHeartbeatTimeout, 30*time.Second, "Timeout for k8s heartbeat")

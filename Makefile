@@ -235,9 +235,6 @@ docker-plugin-image: GIT_VERSION
 	$(QUIET)echo "Push like this when ready:"
 	$(QUIET)echo "docker push cilium/docker-plugin:$(DOCKER_IMAGE_TAG)"
 
-docker-image-init:
-	$(QUIET)cd contrib/packaging/docker && ${CONTAINER_ENGINE} build -t "cilium/cilium-init:$(UTC_DATE)" -f Dockerfile.init .
-
 docker-image-runtime:
 	cd contrib/packaging/docker && ${CONTAINER_ENGINE} build -t "cilium/cilium-runtime:$(UTC_DATE)" -f Dockerfile.runtime .
 
@@ -273,6 +270,8 @@ generate-health-api: api/v1/health/openapi.yaml
 generate-k8s-api:
 	$(call generate_k8s_api_all,github.com/cilium/cilium/pkg/k8s/apis,"cilium.io:v2")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg/aws,"eni:types")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"azure:types")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"ipam:types")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"policy:api")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"pkg:loadbalancer")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"pkg:k8s")

@@ -15,11 +15,10 @@ cilium-operator [flags]
 ### Options
 
 ```
-      --api-server-port uint16                  Port on which the operator should serve API requests (default 9234)
-      --aws-client-burst int                    Burst value allowed for the AWS client used by the AWS ENI IPAM (default 4)
-      --aws-client-qps float                    Queries per second limit for the AWS client used by the AWS ENI IPAM (default 20)
       --aws-instance-limit-mapping map          Add or overwrite mappings of AWS instance limit in the form of {"AWS instance type": "Maximum Network Interfaces","IPv4 Addresses per Interface","IPv6 Addresses per Interface"}. cli example: --aws-instance-limit-mapping=a1.medium=2,4,4 --aws-instance-limit-mapping=a2.somecustomflavor=4,5,6 configmap example: {"a1.medium": "2,4,4", "a2.somecustomflavor": "4,5,6"} (default map[])
       --aws-release-excess-ips                  Enable releasing excess free IP addresses from AWS ENI.
+      --azure-resource-group string             Resource group to use for Azure IPAM
+      --azure-subscription-id string            Subscription ID to access Azure API
       --cilium-endpoint-gc-interval duration    GC interval for cilium endpoints (default 30m0s)
       --cluster-id int                          Unique identifier of the cluster
       --cluster-name string                     Name of the cluster (default "default")
@@ -30,7 +29,6 @@ cilium-operator [flags]
   -D, --debug                                   Enable debugging mode
       --enable-k8s-endpoint-slice               Enables k8s EndpointSlice feature into Cilium-Operator if the k8s cluster supports it (default true)
       --enable-metrics                          Enable Prometheus metrics
-      --eni-parallel-workers int                Maximum number of parallel workers used by ENI allocator (default 50)
       --eni-tags map                            ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag) (default map[])
   -h, --help                                    help for cilium-operator
       --identity-allocation-mode string         Method to use for identity allocation (default "kvstore")
@@ -44,8 +42,12 @@ cilium-operator [flags]
       --k8s-namespace string                    Name of the Kubernetes namespace in which Cilium Operator is deployed in
       --kvstore string                          Key-value store type
       --kvstore-opt map                         Key-value store options (default map[])
+      --limit-ipam-api-burst int                Upper burst limit when accessing external APIs (default 4)
+      --limit-ipam-api-qps float                Queries per second limit when accessing external IPAM APIs (default 20)
       --nodes-gc-interval duration              GC interval for nodes store in the kvstore (default 2m0s)
+      --operator-api-serve-addr string          Address to serve API requests (default "localhost:9234")
       --operator-prometheus-serve-addr string   Address to serve Prometheus metrics (default ":6942")
+      --parallel-alloc-workers int              Maximum number of parallel IPAM workers (default 50)
       --synchronize-k8s-nodes                   Synchronize Kubernetes nodes to kvstore and perform CNP GC (default true)
       --synchronize-k8s-services                Synchronize Kubernetes services to kvstore (default true)
       --unmanaged-pod-watcher-interval int      Interval to check for unmanaged kube-dns pods (0 to disable) (default 15)

@@ -36,8 +36,8 @@ func (s *IPAMSuite) TestAllocatedIPDump(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
 	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true}, &ownerMock{}, &ownerMock{})
 
-	ipv4 := fakeAddressing.IPv4().AllocationCIDR().IP
-	ipv6 := fakeAddressing.IPv6().AllocationCIDR().IP
+	ipv4 := fakeIPv4AllocCIDRIP()
+	ipv6 := fakeIPv6AllocCIDRIP()
 
 	for i := 0; i < 10; i++ {
 		_, err := addressing.NewCiliumIPv4(ipv4.String())

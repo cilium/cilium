@@ -61,7 +61,7 @@ func (e *EPPolicyMapTestSuite) TestWriteEndpoint(c *C) {
 	bpf.CheckOrMountFS("", false)
 	keys := make([]*lxcmap.EndpointKey, 1)
 	many := make([]*lxcmap.EndpointKey, 256)
-	fd, err := bpf.CreateMap(bpf.BPF_MAP_TYPE_HASH,
+	fd, err := bpf.CreateMap(bpf.MapTypeHash,
 		uint32(unsafe.Sizeof(policymap.PolicyKey{})),
 		uint32(unsafe.Sizeof(policymap.PolicyEntry{})), 1024, 0, 0,
 		"ep-policy-inner-map")
@@ -87,7 +87,7 @@ func (e *EPPolicyMapTestSuite) TestWriteEndpointFails(c *C) {
 	option.Config.SockopsEnable = true
 	bpf.CheckOrMountFS("", false)
 	keys := make([]*lxcmap.EndpointKey, 1)
-	_, err := bpf.CreateMap(bpf.BPF_MAP_TYPE_HASH,
+	_, err := bpf.CreateMap(bpf.MapTypeHash,
 		uint32(unsafe.Sizeof(policymap.PolicyKey{})),
 		uint32(unsafe.Sizeof(policymap.PolicyEntry{})), 1024, 0, 0,
 		"ep-policy-inner-map")
@@ -103,7 +103,7 @@ func (e *EPPolicyMapTestSuite) TestWriteEndpointDisabled(c *C) {
 	option.Config.SockopsEnable = false
 	bpf.CheckOrMountFS("", false)
 	keys := make([]*lxcmap.EndpointKey, 1)
-	fd, err := bpf.CreateMap(bpf.BPF_MAP_TYPE_HASH,
+	fd, err := bpf.CreateMap(bpf.MapTypeHash,
 		uint32(unsafe.Sizeof(policymap.PolicyKey{})),
 		uint32(unsafe.Sizeof(policymap.PolicyEntry{})), 1024, 0, 0,
 		"ep-policy-inner-map")

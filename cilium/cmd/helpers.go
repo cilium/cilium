@@ -26,7 +26,6 @@ import (
 	"text/tabwriter"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/color"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -358,11 +357,11 @@ func dumpConfig(Opts map[string]string) {
 		value = Opts[k]
 		if enabled, err := option.NormalizeBool(value); err != nil {
 			// If it cannot be parsed as a bool, just format the value.
-			fmt.Printf("%-24s %s\n", k, color.Green(value))
+			fmt.Printf("%-24s %s\n", k, value)
 		} else if enabled == option.OptionDisabled {
-			fmt.Printf("%-24s %s\n", k, color.Red("Disabled"))
+			fmt.Printf("%-24s %s\n", k, "Disabled")
 		} else {
-			fmt.Printf("%-24s %s\n", k, color.Green("Enabled"))
+			fmt.Printf("%-24s %s\n", k, "Enabled")
 		}
 	}
 }

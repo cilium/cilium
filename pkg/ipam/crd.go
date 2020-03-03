@@ -23,6 +23,7 @@ import (
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/cidr"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
@@ -203,8 +204,12 @@ func (n *nodeStore) hasMinimumIPsInPool() (minimumReached bool, required, numAva
 	}
 
 	switch {
+	case n.ownNode.Spec.IPAM.MinAllocate != 0:
+		required = n.ownNode.Spec.IPAM.MinAllocate
 	case n.ownNode.Spec.ENI.MinAllocate != 0:
 		required = n.ownNode.Spec.ENI.MinAllocate
+	case n.ownNode.Spec.IPAM.PreAllocate != 0:
+		required = n.ownNode.Spec.IPAM.PreAllocate
 	case n.ownNode.Spec.ENI.PreAllocate != 0:
 		required = n.ownNode.Spec.ENI.PreAllocate
 	case option.Config.EnableHealthChecking:
@@ -289,7 +294,7 @@ func (n *nodeStore) refreshNode() error {
 	copy(staleCopyOfAllocators, n.allocators)
 	n.mutex.RUnlock()
 
-	node.Status.IPAM.Used = map[string]ciliumv2.AllocationIP{}
+	node.Status.IPAM.Used = ipamTypes.AllocationMap{}
 
 	for _, a := range staleCopyOfAllocators {
 		a.mutex.RLock()
@@ -320,7 +325,7 @@ func (n *nodeStore) addAllocator(allocator *crdAllocator) {
 }
 
 // allocate checks if a particular IP can be allocated or return an error
-func (n *nodeStore) allocate(ip net.IP) (*ciliumv2.AllocationIP, error) {
+func (n *nodeStore) allocate(ip net.IP) (*ipamTypes.AllocationIP, error) {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
 
@@ -341,7 +346,7 @@ func (n *nodeStore) allocate(ip net.IP) (*ciliumv2.AllocationIP, error) {
 }
 
 // allocateNext allocates the next available IP or returns an error
-func (n *nodeStore) allocateNext(allocated map[string]ciliumv2.AllocationIP, family Family) (net.IP, *ciliumv2.AllocationIP, error) {
+func (n *nodeStore) allocateNext(allocated ipamTypes.AllocationMap, family Family) (net.IP, *ipamTypes.AllocationIP, error) {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
 
@@ -383,7 +388,7 @@ type crdAllocator struct {
 
 	// allocated is a map of all allocated IPs indexed by the allocated IP
 	// represented as string
-	allocated map[string]ciliumv2.AllocationIP
+	allocated ipamTypes.AllocationMap
 
 	// family is the address family this allocator is allocator for
 	family Family
@@ -396,7 +401,7 @@ func newCRDAllocator(family Family, owner Owner, k8sEventReg K8sEventRegister) A
 	})
 
 	allocator := &crdAllocator{
-		allocated: map[string]ciliumv2.AllocationIP{},
+		allocated: ipamTypes.AllocationMap{},
 		family:    family,
 		store:     sharedNodeStore,
 	}
@@ -420,19 +425,21 @@ func deriveGatewayIP(eni eniTypes.ENI) string {
 	return net.IPv4(addr[0], addr[1], addr[2], addr[3]+1).String()
 }
 
-func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ciliumv2.AllocationIP) (result *AllocationResult, err error) {
+func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.AllocationIP) (result *AllocationResult, err error) {
 	result = &AllocationResult{IP: ip}
+
+	a.store.mutex.RLock()
+	defer a.store.mutex.RUnlock()
+
+	if a.store.ownNode == nil {
+		return
+	}
+
+	switch option.Config.IPAM {
 
 	// In ENI mode, the Resource points to the ENI so we can derive the
 	// master interface and all CIDRs of the VPC
-	if option.Config.IPAM == option.IPAMENI {
-		a.store.mutex.RLock()
-		defer a.store.mutex.RUnlock()
-
-		if a.store.ownNode == nil {
-			return
-		}
-
+	case option.IPAMENI:
 		for _, eni := range a.store.ownNode.Status.ENI.ENIs {
 			if eni.ID == ipInfo.Resource {
 				result.Master = eni.MAC
@@ -441,6 +448,20 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ciliumv2.Allocat
 				if eni.Subnet.CIDR != "" {
 					result.GatewayIP = deriveGatewayIP(eni)
 				}
+
+				return
+			}
+		}
+
+		result = nil
+		err = fmt.Errorf("unable to find ENI %s", ipInfo.Resource)
+
+	// In Azure mode, the Resource points to the azure interface so we can
+	// derive the master interface
+	case option.IPAMAzure:
+		for _, iface := range a.store.ownNode.Status.Azure.Interfaces {
+			if iface.ID == ipInfo.Resource {
+				result.Master = iface.MAC
 
 				return
 			}
@@ -494,7 +515,7 @@ func (a *crdAllocator) Release(ip net.IP) error {
 
 // markAllocated marks a particular IP as allocated and triggers the custom
 // resource update
-func (a *crdAllocator) markAllocated(ip net.IP, owner string, ipInfo ciliumv2.AllocationIP) {
+func (a *crdAllocator) markAllocated(ip net.IP, owner string, ipInfo ipamTypes.AllocationIP) {
 	ipInfo.Owner = owner
 	a.allocated[ip.String()] = ipInfo
 	a.store.refreshTrigger.TriggerWithReason(fmt.Sprintf("allocation of IP %s", ip.String()))

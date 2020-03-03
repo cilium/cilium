@@ -1983,8 +1983,16 @@ func init() {
           "description": "Docker network ID",
           "type": "string"
         },
+        "k8s-namespace": {
+          "description": "K8s namespace for this endpoint",
+          "type": "string"
+        },
+        "k8s-pod-name": {
+          "description": "K8s pod name for this endpoint",
+          "type": "string"
+        },
         "pod-name": {
-          "description": "K8s pod for this endpoint",
+          "description": "K8s pod for this endpoint(Deprecated, use K8sPodName and K8sNamespace instead)",
           "type": "string"
         }
       }
@@ -5445,8 +5453,16 @@ func init() {
           "description": "Docker network ID",
           "type": "string"
         },
+        "k8s-namespace": {
+          "description": "K8s namespace for this endpoint",
+          "type": "string"
+        },
+        "k8s-pod-name": {
+          "description": "K8s pod name for this endpoint",
+          "type": "string"
+        },
         "pod-name": {
-          "description": "K8s pod for this endpoint",
+          "description": "K8s pod for this endpoint(Deprecated, use K8sPodName and K8sNamespace instead)",
           "type": "string"
         }
       }

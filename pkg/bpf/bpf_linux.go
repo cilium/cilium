@@ -22,7 +22,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"syscall"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -40,7 +39,7 @@ import (
 // When mapType is the type HASH_OF_MAPS an innerID is required to point at a
 // map fd which has the same type/keySize/valueSize/maxEntries as expected map
 // entries. For all other mapTypes innerID is ignored and should be zeroed.
-func CreateMap(mapType int, keySize, valueSize, maxEntries, flags, innerID uint32, path string) (int, error) {
+func CreateMap(mapType MapType, keySize, valueSize, maxEntries, flags, innerID uint32, path string) (int, error) {
 	// This struct must be in sync with union bpf_attr's anonymous struct
 	// used by the BPF_MAP_CREATE command
 	uba := struct {
@@ -96,10 +95,6 @@ type bpfAttrMapOpElem struct {
 }
 
 // UpdateElementFromPointers updates the map in fd with the given value in the given key.
-// The flags can have the following values:
-// bpf.BPF_ANY to create new element or update existing;
-// bpf.BPF_NOEXIST to create new element if it didn't exist;
-// bpf.BPF_EXIST to update existing element.
 func UpdateElementFromPointers(fd int, structPtr unsafe.Pointer, sizeOfStruct uintptr) error {
 	var duration *spanstat.SpanStat
 	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
@@ -184,7 +179,7 @@ func LookupElement(fd int, key, value unsafe.Pointer) error {
 	return ret
 }
 
-func deleteElement(fd int, key unsafe.Pointer) (uintptr, syscall.Errno) {
+func deleteElement(fd int, key unsafe.Pointer) (uintptr, unix.Errno) {
 	uba := bpfAttrMapOpElem{
 		mapFd: uint32(fd),
 		key:   uint64(uintptr(key)),
@@ -239,7 +234,7 @@ func GetNextKeyFromPointers(fd int, structPtr unsafe.Pointer, sizeOfStruct uintp
 
 	// BPF_MAP_GET_NEXT_KEY returns ENOENT when all keys have been iterated
 	// translate that to io.EOF to signify there are no next keys
-	if err == syscall.ENOENT {
+	if err == unix.ENOENT {
 		return io.EOF
 	}
 
@@ -289,11 +284,10 @@ type bpfAttrObjOp struct {
 
 // ObjPin stores the map's fd in pathname.
 func ObjPin(fd int, pathname string) error {
-	pathStr, err := syscall.BytePtrFromString(pathname)
+	pathStr, err := unix.BytePtrFromString(pathname)
 	if err != nil {
 		return fmt.Errorf("Unable to convert pathname %q to byte pointer: %w", pathname, err)
 	}
-
 	uba := bpfAttrObjOp{
 		pathname: uint64(uintptr(unsafe.Pointer(pathStr))),
 		fd:       uint32(fd),
@@ -325,11 +319,10 @@ func ObjPin(fd int, pathname string) error {
 
 // ObjGet reads the pathname and returns the map's fd read.
 func ObjGet(pathname string) (int, error) {
-	pathStr, err := syscall.BytePtrFromString(pathname)
+	pathStr, err := unix.BytePtrFromString(pathname)
 	if err != nil {
 		return 0, fmt.Errorf("Unable to convert pathname %q to byte pointer: %w", pathname, err)
 	}
-
 	uba := bpfAttrObjOp{
 		pathname: uint64(uintptr(unsafe.Pointer(pathStr))),
 	}
@@ -403,7 +396,7 @@ func ObjClose(fd int) error {
 	return nil
 }
 
-func objCheck(fd int, path string, mapType int, keySize, valueSize, maxEntries, flags uint32) bool {
+func objCheck(fd int, path string, mapType MapType, keySize, valueSize, maxEntries, flags uint32) bool {
 	info, err := GetMapInfo(os.Getpid(), fd)
 	if err != nil {
 		return false
@@ -412,10 +405,10 @@ func objCheck(fd int, path string, mapType int, keySize, valueSize, maxEntries, 
 	scopedLog := log.WithField(logfields.Path, path)
 	mismatch := false
 
-	if int(info.MapType) != mapType {
+	if info.MapType != mapType {
 		scopedLog.WithFields(logrus.Fields{
 			"old": info.MapType,
-			"new": MapType(mapType),
+			"new": mapType,
 		}).Warning("Map type mismatch for BPF map")
 		mismatch = true
 	}
@@ -468,7 +461,7 @@ func objCheck(fd int, path string, mapType int, keySize, valueSize, maxEntries, 
 	return false
 }
 
-func OpenOrCreateMap(path string, mapType int, keySize, valueSize, maxEntries, flags uint32, innerID uint32, pin bool) (int, bool, error) {
+func OpenOrCreateMap(path string, mapType MapType, keySize, valueSize, maxEntries, flags uint32, innerID uint32, pin bool) (int, bool, error) {
 	var fd int
 
 	redo := false
@@ -628,7 +621,7 @@ func TestDummyProg(progType ProgType, attachType uint32) error {
 		ret, _, errno := unix.Syscall(unix.SYS_BPF, BPF_PROG_ATTACH,
 			uintptr(unsafe.Pointer(&bpfAttr)),
 			unsafe.Sizeof(bpfAttr))
-		if int(ret) < 0 && errno != syscall.EBADF {
+		if int(ret) < 0 && errno != unix.EBADF {
 			return errno
 		}
 		return nil

@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -85,6 +85,12 @@ func (a *addressFamilyIPv4) LocalAddresses() ([]net.IP, error) {
 	return listLocalAddresses(netlink.FAMILY_V4)
 }
 
+// LoadBalancerNodeAddresses returns all IPv4 node addresses on which the
+// loadbalancer should implement HostPort and NodePort services.
+func (a *addressFamilyIPv4) LoadBalancerNodeAddresses() []net.IP {
+	return []net.IP{net.IPv4(0, 0, 0, 0), node.GetNodePortIPv4(), node.GetInternalIPv4()}
+}
+
 type addressFamilyIPv6 struct{}
 
 func (a *addressFamilyIPv6) Router() net.IP {
@@ -101,6 +107,12 @@ func (a *addressFamilyIPv6) AllocationCIDR() *cidr.CIDR {
 
 func (a *addressFamilyIPv6) LocalAddresses() ([]net.IP, error) {
 	return listLocalAddresses(netlink.FAMILY_V6)
+}
+
+// LoadBalancerNodeAddresses returns all IPv6 node addresses on which the
+// loadbalancer should implement HostPort and NodePort services.
+func (a *addressFamilyIPv6) LoadBalancerNodeAddresses() []net.IP {
+	return []net.IP{net.IPv6zero, node.GetNodePortIPv6(), node.GetIPv6Router()}
 }
 
 type linuxNodeAddressing struct {
