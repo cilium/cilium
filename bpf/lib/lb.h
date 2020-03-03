@@ -387,12 +387,11 @@ struct lb6_service *lb6_lookup_slave(struct __ctx_buff *ctx,
 }
 
 static __always_inline int lb6_xlate(struct __ctx_buff *ctx,
-				     union v6addr *new_dst, __u8 nexthdr,
+				     union v6addr *new_dst, __u8 nexthdr __maybe_unused,
 				     int l3_off, int l4_off,
 				     struct csum_offset *csum_off,
 				     struct lb6_key *key,
-				     struct lb6_service *svc,
-				     struct lb6_backend *backend)
+				     struct lb6_backend *backend __maybe_unused)
 {
 	ipv6_store_daddr(ctx, new_dst->addr, l3_off);
 
@@ -514,7 +513,7 @@ update_state:
 	state->rev_nat_index = svc->rev_nat_index;
 
 	return lb6_xlate(ctx, addr, tuple->nexthdr, l3_off, l4_off,
-			 csum_off, key, svc, backend);
+			 csum_off, key, backend);
 
 drop_no_service:
 	tuple->flags = flags;
