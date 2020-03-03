@@ -1,0 +1,3110 @@
+# bash completion for cilium                               -*- shell-script -*-
+
+__cilium_debug()
+{
+    if [[ -n ${BASH_COMP_DEBUG_FILE} ]]; then
+        echo "$*" >> "${BASH_COMP_DEBUG_FILE}"
+    fi
+}
+
+# Homebrew on Macs have version 1.3 of bash-completion which doesn't include
+# _init_completion. This is a very minimal version of that function.
+__cilium_init_completion()
+{
+    COMPREPLY=()
+    _get_comp_words_by_ref "$@" cur prev words cword
+}
+
+__cilium_index_of_word()
+{
+    local w word=$1
+    shift
+    index=0
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+        index=$((index+1))
+    done
+    index=-1
+}
+
+__cilium_contains_word()
+{
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
+    return 1
+}
+
+__cilium_handle_reply()
+{
+    __cilium_debug "${FUNCNAME[0]}"
+    case $cur in
+        -*)
+            if [[ $(type -t compopt) = "builtin" ]]; then
+                compopt -o nospace
+            fi
+            local allflags
+            if [ ${#must_have_one_flag[@]} -ne 0 ]; then
+                allflags=("${must_have_one_flag[@]}")
+            else
+                allflags=("${flags[*]} ${two_word_flags[*]}")
+            fi
+            COMPREPLY=( $(compgen -W "${allflags[*]}" -- "$cur") )
+            if [[ $(type -t compopt) = "builtin" ]]; then
+                [[ "${COMPREPLY[0]}" == *= ]] || compopt +o nospace
+            fi
+
+            # complete after --flag=abc
+            if [[ $cur == *=* ]]; then
+                if [[ $(type -t compopt) = "builtin" ]]; then
+                    compopt +o nospace
+                fi
+
+                local index flag
+                flag="${cur%=*}"
+                __cilium_index_of_word "${flag}" "${flags_with_completion[@]}"
+                COMPREPLY=()
+                if [[ ${index} -ge 0 ]]; then
+                    PREFIX=""
+                    cur="${cur#*=}"
+                    ${flags_completion[${index}]}
+                    if [ -n "${ZSH_VERSION}" ]; then
+                        # zsh completion needs --flag= prefix
+                        eval "COMPREPLY=( \"\${COMPREPLY[@]/#/${flag}=}\" )"
+                    fi
+                fi
+            fi
+            return 0;
+            ;;
+    esac
+
+    # check if we are handling a flag with special work handling
+    local index
+    __cilium_index_of_word "${prev}" "${flags_with_completion[@]}"
+    if [[ ${index} -ge 0 ]]; then
+        ${flags_completion[${index}]}
+        return
+    fi
+
+    # we are parsing a flag and don't have a special handler, no completion
+    if [[ ${cur} != "${words[cword]}" ]]; then
+        return
+    fi
+
+    local completions
+    completions=("${commands[@]}")
+    if [[ ${#must_have_one_noun[@]} -ne 0 ]]; then
+        completions=("${must_have_one_noun[@]}")
+    fi
+    if [[ ${#must_have_one_flag[@]} -ne 0 ]]; then
+        completions+=("${must_have_one_flag[@]}")
+    fi
+    COMPREPLY=( $(compgen -W "${completions[*]}" -- "$cur") )
+
+    if [[ ${#COMPREPLY[@]} -eq 0 && ${#noun_aliases[@]} -gt 0 && ${#must_have_one_noun[@]} -ne 0 ]]; then
+        COMPREPLY=( $(compgen -W "${noun_aliases[*]}" -- "$cur") )
+    fi
+
+    if [[ ${#COMPREPLY[@]} -eq 0 ]]; then
+		if declare -F __cilium_custom_func >/dev/null; then
+			# try command name qualified custom func
+			__cilium_custom_func
+		else
+			# otherwise fall back to unqualified for compatibility
+			declare -F __custom_func >/dev/null && __custom_func
+		fi
+    fi
+
+    # available in bash-completion >= 2, not always present on macOS
+    if declare -F __ltrim_colon_completions >/dev/null; then
+        __ltrim_colon_completions "$cur"
+    fi
+
+    # If there is only 1 completion and it is a flag with an = it will be completed
+    # but we don't want a space after the =
+    if [[ "${#COMPREPLY[@]}" -eq "1" ]] && [[ $(type -t compopt) = "builtin" ]] && [[ "${COMPREPLY[0]}" == --*= ]]; then
+       compopt -o nospace
+    fi
+}
+
+# The arguments should be in the form "ext1|ext2|extn"
+__cilium_handle_filename_extension_flag()
+{
+    local ext="$1"
+    _filedir "@(${ext})"
+}
+
+__cilium_handle_subdirs_in_dir_flag()
+{
+    local dir="$1"
+    pushd "${dir}" >/dev/null 2>&1 && _filedir -d && popd >/dev/null 2>&1
+}
+
+__cilium_handle_flag()
+{
+    __cilium_debug "${FUNCNAME[0]}: c is $c words[c] is ${words[c]}"
+
+    # if a command required a flag, and we found it, unset must_have_one_flag()
+    local flagname=${words[c]}
+    local flagvalue
+    # if the word contained an =
+    if [[ ${words[c]} == *"="* ]]; then
+        flagvalue=${flagname#*=} # take in as flagvalue after the =
+        flagname=${flagname%=*} # strip everything after the =
+        flagname="${flagname}=" # but put the = back
+    fi
+    __cilium_debug "${FUNCNAME[0]}: looking for ${flagname}"
+    if __cilium_contains_word "${flagname}" "${must_have_one_flag[@]}"; then
+        must_have_one_flag=()
+    fi
+
+    # if you set a flag which only applies to this command, don't show subcommands
+    if __cilium_contains_word "${flagname}" "${local_nonpersistent_flags[@]}"; then
+      commands=()
+    fi
+
+    # keep flag value with flagname as flaghash
+    # flaghash variable is an associative array which is only supported in bash > 3.
+    if [[ -z "${BASH_VERSION}" || "${BASH_VERSINFO[0]}" -gt 3 ]]; then
+        if [ -n "${flagvalue}" ] ; then
+            flaghash[${flagname}]=${flagvalue}
+        elif [ -n "${words[ $((c+1)) ]}" ] ; then
+            flaghash[${flagname}]=${words[ $((c+1)) ]}
+        else
+            flaghash[${flagname}]="true" # pad "true" for bool flag
+        fi
+    fi
+
+    # skip the argument to a two word flag
+    if [[ ${words[c]} != *"="* ]] && __cilium_contains_word "${words[c]}" "${two_word_flags[@]}"; then
+			  __cilium_debug "${FUNCNAME[0]}: found a flag ${words[c]}, skip the next argument"
+        c=$((c+1))
+        # if we are looking for a flags value, don't show commands
+        if [[ $c -eq $cword ]]; then
+            commands=()
+        fi
+    fi
+
+    c=$((c+1))
+
+}
+
+__cilium_handle_noun()
+{
+    __cilium_debug "${FUNCNAME[0]}: c is $c words[c] is ${words[c]}"
+
+    if __cilium_contains_word "${words[c]}" "${must_have_one_noun[@]}"; then
+        must_have_one_noun=()
+    elif __cilium_contains_word "${words[c]}" "${noun_aliases[@]}"; then
+        must_have_one_noun=()
+    fi
+
+    nouns+=("${words[c]}")
+    c=$((c+1))
+}
+
+__cilium_handle_command()
+{
+    __cilium_debug "${FUNCNAME[0]}: c is $c words[c] is ${words[c]}"
+
+    local next_command
+    if [[ -n ${last_command} ]]; then
+        next_command="_${last_command}_${words[c]//:/__}"
+    else
+        if [[ $c -eq 0 ]]; then
+            next_command="_cilium_root_command"
+        else
+            next_command="_${words[c]//:/__}"
+        fi
+    fi
+    c=$((c+1))
+    __cilium_debug "${FUNCNAME[0]}: looking for ${next_command}"
+    declare -F "$next_command" >/dev/null && $next_command
+}
+
+__cilium_handle_word()
+{
+    if [[ $c -ge $cword ]]; then
+        __cilium_handle_reply
+        return
+    fi
+    __cilium_debug "${FUNCNAME[0]}: c is $c words[c] is ${words[c]}"
+    if [[ "${words[c]}" == -* ]]; then
+        __cilium_handle_flag
+    elif __cilium_contains_word "${words[c]}" "${commands[@]}"; then
+        __cilium_handle_command
+    elif [[ $c -eq 0 ]]; then
+        __cilium_handle_command
+    elif __cilium_contains_word "${words[c]}" "${command_aliases[@]}"; then
+        # aliashash variable is an associative array which is only supported in bash > 3.
+        if [[ -z "${BASH_VERSION}" || "${BASH_VERSINFO[0]}" -gt 3 ]]; then
+            words[c]=${aliashash[${words[c]}]}
+            __cilium_handle_command
+        else
+            __cilium_handle_noun
+        fi
+    else
+        __cilium_handle_noun
+    fi
+    __cilium_handle_word
+}
+
+_cilium_bpf_ct_flush()
+{
+    last_command="cilium_bpf_ct_flush"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_ct_list()
+{
+    last_command="cilium_bpf_ct_list"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_ct()
+{
+    last_command="cilium_bpf_ct"
+
+    command_aliases=()
+
+    commands=()
+    commands+=("flush")
+    commands+=("list")
+    if [[ -z "${BASH_VERSION}" || "${BASH_VERSINFO[0]}" -gt 3 ]]; then
+        command_aliases+=("ls")
+        aliashash["ls"]="list"
+    fi
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_endpoint_delete()
+{
+    last_command="cilium_bpf_endpoint_delete"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_endpoint_list()
+{
+    last_command="cilium_bpf_endpoint_list"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_endpoint()
+{
+    last_command="cilium_bpf_endpoint"
+
+    command_aliases=()
+
+    commands=()
+    commands+=("delete")
+    commands+=("list")
+    if [[ -z "${BASH_VERSION}" || "${BASH_VERSINFO[0]}" -gt 3 ]]; then
+        command_aliases+=("ls")
+        aliashash["ls"]="list"
+    fi
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_ipcache_get()
+{
+    last_command="cilium_bpf_ipcache_get"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_ipcache_list()
+{
+    last_command="cilium_bpf_ipcache_list"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_ipcache()
+{
+    last_command="cilium_bpf_ipcache"
+
+    command_aliases=()
+
+    commands=()
+    commands+=("get")
+    commands+=("list")
+    if [[ -z "${BASH_VERSION}" || "${BASH_VERSINFO[0]}" -gt 3 ]]; then
+        command_aliases+=("ls")
+        aliashash["ls"]="list"
+    fi
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_lb_list()
+{
+    last_command="cilium_bpf_lb_list"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--revnat")
+    local_nonpersistent_flags+=("--revnat")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_lb()
+{
+    last_command="cilium_bpf_lb"
+
+    command_aliases=()
+
+    commands=()
+    commands+=("list")
+    if [[ -z "${BASH_VERSION}" || "${BASH_VERSINFO[0]}" -gt 3 ]]; then
+        command_aliases+=("ls")
+        aliashash["ls"]="list"
+    fi
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_metrics_list()
+{
+    last_command="cilium_bpf_metrics_list"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_metrics()
+{
+    last_command="cilium_bpf_metrics"
+
+    command_aliases=()
+
+    commands=()
+    commands+=("list")
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_nat_flush()
+{
+    last_command="cilium_bpf_nat_flush"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_nat_list()
+{
+    last_command="cilium_bpf_nat_list"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_nat()
+{
+    last_command="cilium_bpf_nat"
+
+    command_aliases=()
+
+    commands=()
+    commands+=("flush")
+    commands+=("list")
+    if [[ -z "${BASH_VERSION}" || "${BASH_VERSINFO[0]}" -gt 3 ]]; then
+        command_aliases+=("ls")
+        aliashash["ls"]="list"
+    fi
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_policy_add()
+{
+    last_command="cilium_bpf_policy_add"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_policy_delete()
+{
+    last_command="cilium_bpf_policy_delete"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_policy_get()
+{
+    last_command="cilium_bpf_policy_get"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--all")
+    local_nonpersistent_flags+=("--all")
+    flags+=("--numeric")
+    flags+=("-n")
+    local_nonpersistent_flags+=("--numeric")
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_policy()
+{
+    last_command="cilium_bpf_policy"
+
+    command_aliases=()
+
+    commands=()
+    commands+=("add")
+    commands+=("delete")
+    commands+=("get")
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_proxy_flush()
+{
+    last_command="cilium_bpf_proxy_flush"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_proxy_list()
+{
+    last_command="cilium_bpf_proxy_list"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_proxy()
+{
+    last_command="cilium_bpf_proxy"
+
+    command_aliases=()
+
+    commands=()
+    commands+=("flush")
+    commands+=("list")
+    if [[ -z "${BASH_VERSION}" || "${BASH_VERSINFO[0]}" -gt 3 ]]; then
+        command_aliases+=("ls")
+        aliashash["ls"]="list"
+    fi
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_sha_get()
+{
+    last_command="cilium_bpf_sha_get"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_sha_list()
+{
+    last_command="cilium_bpf_sha_list"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_sha()
+{
+    last_command="cilium_bpf_sha"
+
+    command_aliases=()
+
+    commands=()
+    commands+=("get")
+    if [[ -z "${BASH_VERSION}" || "${BASH_VERSINFO[0]}" -gt 3 ]]; then
+        command_aliases+=("describe")
+        aliashash["describe"]="get"
+    fi
+    commands+=("list")
+    if [[ -z "${BASH_VERSION}" || "${BASH_VERSINFO[0]}" -gt 3 ]]; then
+        command_aliases+=("ls")
+        aliashash["ls"]="list"
+    fi
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_tunnel_list()
+{
+    last_command="cilium_bpf_tunnel_list"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf_tunnel()
+{
+    last_command="cilium_bpf_tunnel"
+
+    command_aliases=()
+
+    commands=()
+    commands+=("list")
+    if [[ -z "${BASH_VERSION}" || "${BASH_VERSINFO[0]}" -gt 3 ]]; then
+        command_aliases+=("ls")
+        aliashash["ls"]="list"
+    fi
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_bpf()
+{
+    last_command="cilium_bpf"
+
+    command_aliases=()
+
+    commands=()
+    commands+=("ct")
+    commands+=("endpoint")
+    commands+=("ipcache")
+    commands+=("lb")
+    commands+=("metrics")
+    commands+=("nat")
+    commands+=("policy")
+    commands+=("proxy")
+    commands+=("sha")
+    if [[ -z "${BASH_VERSION}" || "${BASH_VERSINFO[0]}" -gt 3 ]]; then
+        command_aliases+=("template")
+        aliashash["template"]="sha"
+    fi
+    commands+=("tunnel")
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_cleanup()
+{
+    last_command="cilium_cleanup"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--all-state")
+    local_nonpersistent_flags+=("--all-state")
+    flags+=("--bpf-state")
+    local_nonpersistent_flags+=("--bpf-state")
+    flags+=("--force")
+    flags+=("-f")
+    local_nonpersistent_flags+=("--force")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_completion()
+{
+    last_command="cilium_completion"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    must_have_one_noun+=("bash")
+    must_have_one_noun+=("zsh")
+    noun_aliases=()
+}
+
+_cilium_config()
+{
+    last_command="cilium_config"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--list-options")
+    local_nonpersistent_flags+=("--list-options")
+    flags+=("--num-pages=")
+    two_word_flags+=("--num-pages")
+    two_word_flags+=("-n")
+    local_nonpersistent_flags+=("--num-pages=")
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_debuginfo()
+{
+    last_command="cilium_debuginfo"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--file")
+    flags+=("-f")
+    local_nonpersistent_flags+=("--file")
+    flags+=("--file-per-command")
+    local_nonpersistent_flags+=("--file-per-command")
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--output-directory=")
+    two_word_flags+=("--output-directory")
+    local_nonpersistent_flags+=("--output-directory=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_endpoint_config()
+{
+    last_command="cilium_endpoint_config"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--list-options")
+    local_nonpersistent_flags+=("--list-options")
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_endpoint_disconnect()
+{
+    last_command="cilium_endpoint_disconnect"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_endpoint_get()
+{
+    last_command="cilium_endpoint_get"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--labels=")
+    two_word_flags+=("--labels")
+    two_word_flags+=("-l")
+    local_nonpersistent_flags+=("--labels=")
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_endpoint_health()
+{
+    last_command="cilium_endpoint_health"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_endpoint_labels()
+{
+    last_command="cilium_endpoint_labels"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--add=")
+    two_word_flags+=("--add")
+    two_word_flags+=("-a")
+    local_nonpersistent_flags+=("--add=")
+    flags+=("--delete=")
+    two_word_flags+=("--delete")
+    two_word_flags+=("-d")
+    local_nonpersistent_flags+=("--delete=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_endpoint_list()
+{
+    last_command="cilium_endpoint_list"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--no-headers")
+    local_nonpersistent_flags+=("--no-headers")
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_endpoint_log()
+{
+    last_command="cilium_endpoint_log"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_endpoint_regenerate()
+{
+    last_command="cilium_endpoint_regenerate"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_endpoint()
+{
+    last_command="cilium_endpoint"
+
+    command_aliases=()
+
+    commands=()
+    commands+=("config")
+    commands+=("disconnect")
+    commands+=("get")
+    if [[ -z "${BASH_VERSION}" || "${BASH_VERSINFO[0]}" -gt 3 ]]; then
+        command_aliases+=("inspect, show")
+        aliashash["inspect, show"]="get"
+    fi
+    commands+=("health")
+    commands+=("labels")
+    commands+=("list")
+    if [[ -z "${BASH_VERSION}" || "${BASH_VERSINFO[0]}" -gt 3 ]]; then
+        command_aliases+=("ls")
+        aliashash["ls"]="list"
+    fi
+    commands+=("log")
+    commands+=("regenerate")
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_fqdn_cache_clean()
+{
+    last_command="cilium_fqdn_cache_clean"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--force")
+    flags+=("-f")
+    local_nonpersistent_flags+=("--force")
+    flags+=("--matchpattern=")
+    two_word_flags+=("--matchpattern")
+    two_word_flags+=("-p")
+    local_nonpersistent_flags+=("--matchpattern=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_fqdn_cache_list()
+{
+    last_command="cilium_fqdn_cache_list"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--endpoint=")
+    two_word_flags+=("--endpoint")
+    two_word_flags+=("-e")
+    local_nonpersistent_flags+=("--endpoint=")
+    flags+=("--matchpattern=")
+    two_word_flags+=("--matchpattern")
+    two_word_flags+=("-p")
+    local_nonpersistent_flags+=("--matchpattern=")
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_fqdn_cache()
+{
+    last_command="cilium_fqdn_cache"
+
+    command_aliases=()
+
+    commands=()
+    commands+=("clean")
+    commands+=("list")
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_fqdn_names()
+{
+    last_command="cilium_fqdn_names"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_fqdn()
+{
+    last_command="cilium_fqdn"
+
+    command_aliases=()
+
+    commands=()
+    commands+=("cache")
+    commands+=("names")
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_identity_get()
+{
+    last_command="cilium_identity_get"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--label=")
+    two_word_flags+=("--label")
+    local_nonpersistent_flags+=("--label=")
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_identity_list()
+{
+    last_command="cilium_identity_list"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--endpoints")
+    local_nonpersistent_flags+=("--endpoints")
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_identity()
+{
+    last_command="cilium_identity"
+
+    command_aliases=()
+
+    commands=()
+    commands+=("get")
+    commands+=("list")
+    if [[ -z "${BASH_VERSION}" || "${BASH_VERSINFO[0]}" -gt 3 ]]; then
+        command_aliases+=("ls")
+        aliashash["ls"]="list"
+    fi
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_kvstore_delete()
+{
+    last_command="cilium_kvstore_delete"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--recursive")
+    local_nonpersistent_flags+=("--recursive")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+    flags+=("--kvstore=")
+    two_word_flags+=("--kvstore")
+    flags+=("--kvstore-opt=")
+    two_word_flags+=("--kvstore-opt")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_kvstore_get()
+{
+    last_command="cilium_kvstore_get"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--recursive")
+    local_nonpersistent_flags+=("--recursive")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+    flags+=("--kvstore=")
+    two_word_flags+=("--kvstore")
+    flags+=("--kvstore-opt=")
+    two_word_flags+=("--kvstore-opt")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_kvstore_set()
+{
+    last_command="cilium_kvstore_set"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--key=")
+    two_word_flags+=("--key")
+    local_nonpersistent_flags+=("--key=")
+    flags+=("--value=")
+    two_word_flags+=("--value")
+    local_nonpersistent_flags+=("--value=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+    flags+=("--kvstore=")
+    two_word_flags+=("--kvstore")
+    flags+=("--kvstore-opt=")
+    two_word_flags+=("--kvstore-opt")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_kvstore()
+{
+    last_command="cilium_kvstore"
+
+    command_aliases=()
+
+    commands=()
+    commands+=("delete")
+    commands+=("get")
+    commands+=("set")
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--kvstore=")
+    two_word_flags+=("--kvstore")
+    flags+=("--kvstore-opt=")
+    two_word_flags+=("--kvstore-opt")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_map_get()
+{
+    last_command="cilium_map_get"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_map_list()
+{
+    last_command="cilium_map_list"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--verbose")
+    local_nonpersistent_flags+=("--verbose")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_map()
+{
+    last_command="cilium_map"
+
+    command_aliases=()
+
+    commands=()
+    commands+=("get")
+    commands+=("list")
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_metrics_list()
+{
+    last_command="cilium_metrics_list"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_metrics()
+{
+    last_command="cilium_metrics"
+
+    command_aliases=()
+
+    commands=()
+    commands+=("list")
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_monitor()
+{
+    last_command="cilium_monitor"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--from=")
+    two_word_flags+=("--from")
+    local_nonpersistent_flags+=("--from=")
+    flags+=("--hex")
+    local_nonpersistent_flags+=("--hex")
+    flags+=("--json")
+    flags+=("-j")
+    local_nonpersistent_flags+=("--json")
+    flags+=("--monitor-socket=")
+    two_word_flags+=("--monitor-socket")
+    local_nonpersistent_flags+=("--monitor-socket=")
+    flags+=("--related-to=")
+    two_word_flags+=("--related-to")
+    local_nonpersistent_flags+=("--related-to=")
+    flags+=("--to=")
+    two_word_flags+=("--to")
+    local_nonpersistent_flags+=("--to=")
+    flags+=("--type=")
+    two_word_flags+=("--type")
+    two_word_flags+=("-t")
+    local_nonpersistent_flags+=("--type=")
+    flags+=("--verbose")
+    flags+=("-v")
+    local_nonpersistent_flags+=("--verbose")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_node_list()
+{
+    last_command="cilium_node_list"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_node()
+{
+    last_command="cilium_node"
+
+    command_aliases=()
+
+    commands=()
+    commands+=("list")
+    if [[ -z "${BASH_VERSION}" || "${BASH_VERSINFO[0]}" -gt 3 ]]; then
+        command_aliases+=("ls")
+        aliashash["ls"]="list"
+    fi
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_policy_delete()
+{
+    last_command="cilium_policy_delete"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--all")
+    local_nonpersistent_flags+=("--all")
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_policy_get()
+{
+    last_command="cilium_policy_get"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_policy_import()
+{
+    last_command="cilium_policy_import"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--print")
+    local_nonpersistent_flags+=("--print")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_policy_selectors()
+{
+    last_command="cilium_policy_selectors"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_policy_trace()
+{
+    last_command="cilium_policy_trace"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--dport=")
+    two_word_flags+=("--dport")
+    local_nonpersistent_flags+=("--dport=")
+    flags+=("--dst=")
+    two_word_flags+=("--dst")
+    two_word_flags+=("-d")
+    local_nonpersistent_flags+=("--dst=")
+    flags+=("--dst-endpoint=")
+    two_word_flags+=("--dst-endpoint")
+    local_nonpersistent_flags+=("--dst-endpoint=")
+    flags+=("--dst-identity=")
+    two_word_flags+=("--dst-identity")
+    local_nonpersistent_flags+=("--dst-identity=")
+    flags+=("--dst-k8s-pod=")
+    two_word_flags+=("--dst-k8s-pod")
+    local_nonpersistent_flags+=("--dst-k8s-pod=")
+    flags+=("--dst-k8s-yaml=")
+    two_word_flags+=("--dst-k8s-yaml")
+    local_nonpersistent_flags+=("--dst-k8s-yaml=")
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--src=")
+    two_word_flags+=("--src")
+    two_word_flags+=("-s")
+    local_nonpersistent_flags+=("--src=")
+    flags+=("--src-endpoint=")
+    two_word_flags+=("--src-endpoint")
+    local_nonpersistent_flags+=("--src-endpoint=")
+    flags+=("--src-identity=")
+    two_word_flags+=("--src-identity")
+    local_nonpersistent_flags+=("--src-identity=")
+    flags+=("--src-k8s-pod=")
+    two_word_flags+=("--src-k8s-pod")
+    local_nonpersistent_flags+=("--src-k8s-pod=")
+    flags+=("--src-k8s-yaml=")
+    two_word_flags+=("--src-k8s-yaml")
+    local_nonpersistent_flags+=("--src-k8s-yaml=")
+    flags+=("--verbose")
+    flags+=("-v")
+    local_nonpersistent_flags+=("--verbose")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_policy_validate()
+{
+    last_command="cilium_policy_validate"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--print")
+    local_nonpersistent_flags+=("--print")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_policy_wait()
+{
+    last_command="cilium_policy_wait"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--fail-wait-time=")
+    two_word_flags+=("--fail-wait-time")
+    local_nonpersistent_flags+=("--fail-wait-time=")
+    flags+=("--max-wait-time=")
+    two_word_flags+=("--max-wait-time")
+    local_nonpersistent_flags+=("--max-wait-time=")
+    flags+=("--sleep-time=")
+    two_word_flags+=("--sleep-time")
+    local_nonpersistent_flags+=("--sleep-time=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_policy()
+{
+    last_command="cilium_policy"
+
+    command_aliases=()
+
+    commands=()
+    commands+=("delete")
+    commands+=("get")
+    commands+=("import")
+    commands+=("selectors")
+    commands+=("trace")
+    commands+=("validate")
+    commands+=("wait")
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_prefilter_delete()
+{
+    last_command="cilium_prefilter_delete"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--cidr=")
+    two_word_flags+=("--cidr")
+    local_nonpersistent_flags+=("--cidr=")
+    flags+=("--revision=")
+    two_word_flags+=("--revision")
+    local_nonpersistent_flags+=("--revision=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_prefilter_list()
+{
+    last_command="cilium_prefilter_list"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_prefilter_update()
+{
+    last_command="cilium_prefilter_update"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--cidr=")
+    two_word_flags+=("--cidr")
+    local_nonpersistent_flags+=("--cidr=")
+    flags+=("--revision=")
+    two_word_flags+=("--revision")
+    local_nonpersistent_flags+=("--revision=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_prefilter()
+{
+    last_command="cilium_prefilter"
+
+    command_aliases=()
+
+    commands=()
+    commands+=("delete")
+    commands+=("list")
+    if [[ -z "${BASH_VERSION}" || "${BASH_VERSINFO[0]}" -gt 3 ]]; then
+        command_aliases+=("ls")
+        aliashash["ls"]="list"
+    fi
+    commands+=("update")
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_preflight_fqdn-poller()
+{
+    last_command="cilium_preflight_fqdn-poller"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--tofqdns-pre-cache=")
+    two_word_flags+=("--tofqdns-pre-cache")
+    local_nonpersistent_flags+=("--tofqdns-pre-cache=")
+    flags+=("--tofqdns-pre-cache-ttl=")
+    two_word_flags+=("--tofqdns-pre-cache-ttl")
+    local_nonpersistent_flags+=("--tofqdns-pre-cache-ttl=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_preflight_migrate-identity()
+{
+    last_command="cilium_preflight_migrate-identity"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--k8s-api-server=")
+    two_word_flags+=("--k8s-api-server")
+    local_nonpersistent_flags+=("--k8s-api-server=")
+    flags+=("--k8s-kubeconfig-path=")
+    two_word_flags+=("--k8s-kubeconfig-path")
+    local_nonpersistent_flags+=("--k8s-kubeconfig-path=")
+    flags+=("--kvstore=")
+    two_word_flags+=("--kvstore")
+    local_nonpersistent_flags+=("--kvstore=")
+    flags+=("--kvstore-opt=")
+    two_word_flags+=("--kvstore-opt")
+    local_nonpersistent_flags+=("--kvstore-opt=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_preflight()
+{
+    last_command="cilium_preflight"
+
+    command_aliases=()
+
+    commands=()
+    commands+=("fqdn-poller")
+    commands+=("migrate-identity")
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_service_delete()
+{
+    last_command="cilium_service_delete"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--all")
+    local_nonpersistent_flags+=("--all")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_service_get()
+{
+    last_command="cilium_service_get"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_service_list()
+{
+    last_command="cilium_service_list"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_service_update()
+{
+    last_command="cilium_service_update"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--backends=")
+    two_word_flags+=("--backends")
+    local_nonpersistent_flags+=("--backends=")
+    flags+=("--frontend=")
+    two_word_flags+=("--frontend")
+    local_nonpersistent_flags+=("--frontend=")
+    flags+=("--id=")
+    two_word_flags+=("--id")
+    local_nonpersistent_flags+=("--id=")
+    flags+=("--k8s-external")
+    local_nonpersistent_flags+=("--k8s-external")
+    flags+=("--k8s-node-port")
+    local_nonpersistent_flags+=("--k8s-node-port")
+    flags+=("--k8s-traffic-policy=")
+    two_word_flags+=("--k8s-traffic-policy")
+    local_nonpersistent_flags+=("--k8s-traffic-policy=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_service()
+{
+    last_command="cilium_service"
+
+    command_aliases=()
+
+    commands=()
+    commands+=("delete")
+    commands+=("get")
+    commands+=("list")
+    if [[ -z "${BASH_VERSION}" || "${BASH_VERSINFO[0]}" -gt 3 ]]; then
+        command_aliases+=("ls")
+        aliashash["ls"]="list"
+    fi
+    commands+=("update")
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_status()
+{
+    last_command="cilium_status"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--all-addresses")
+    local_nonpersistent_flags+=("--all-addresses")
+    flags+=("--all-clusters")
+    local_nonpersistent_flags+=("--all-clusters")
+    flags+=("--all-controllers")
+    local_nonpersistent_flags+=("--all-controllers")
+    flags+=("--all-health")
+    local_nonpersistent_flags+=("--all-health")
+    flags+=("--all-nodes")
+    local_nonpersistent_flags+=("--all-nodes")
+    flags+=("--all-redirects")
+    local_nonpersistent_flags+=("--all-redirects")
+    flags+=("--brief")
+    local_nonpersistent_flags+=("--brief")
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--timeout=")
+    two_word_flags+=("--timeout")
+    local_nonpersistent_flags+=("--timeout=")
+    flags+=("--verbose")
+    local_nonpersistent_flags+=("--verbose")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_version()
+{
+    last_command="cilium_version"
+
+    command_aliases=()
+
+    commands=()
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--output=")
+    two_word_flags+=("--output")
+    two_word_flags+=("-o")
+    local_nonpersistent_flags+=("--output=")
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+_cilium_root_command()
+{
+    last_command="cilium"
+
+    command_aliases=()
+
+    commands=()
+    commands+=("bpf")
+    commands+=("cleanup")
+    commands+=("completion")
+    commands+=("config")
+    commands+=("debuginfo")
+    commands+=("endpoint")
+    commands+=("fqdn")
+    commands+=("identity")
+    commands+=("kvstore")
+    commands+=("map")
+    commands+=("metrics")
+    commands+=("monitor")
+    commands+=("node")
+    commands+=("policy")
+    commands+=("prefilter")
+    commands+=("preflight")
+    commands+=("service")
+    commands+=("status")
+    commands+=("version")
+
+    flags=()
+    two_word_flags=()
+    local_nonpersistent_flags=()
+    flags_with_completion=()
+    flags_completion=()
+
+    flags+=("--config=")
+    two_word_flags+=("--config")
+    flags+=("--debug")
+    flags+=("-D")
+    flags+=("--host=")
+    two_word_flags+=("--host")
+    two_word_flags+=("-H")
+
+    must_have_one_flag=()
+    must_have_one_noun=()
+    noun_aliases=()
+}
+
+__start_cilium()
+{
+    local cur prev words cword
+    declare -A flaghash 2>/dev/null || :
+    declare -A aliashash 2>/dev/null || :
+    if declare -F _init_completion >/dev/null 2>&1; then
+        _init_completion -s || return
+    else
+        __cilium_init_completion -n "=" || return
+    fi
+
+    local c=0
+    local flags=()
+    local two_word_flags=()
+    local local_nonpersistent_flags=()
+    local flags_with_completion=()
+    local flags_completion=()
+    local commands=("cilium")
+    local must_have_one_flag=()
+    local must_have_one_noun=()
+    local last_command
+    local nouns=()
+
+    __cilium_handle_word
+}
+
+if [[ $(type -t compopt) = "builtin" ]]; then
+    complete -o default -F __start_cilium cilium
+else
+    complete -o default -o nospace -F __start_cilium cilium
+fi
+
+# ex: ts=4 sw=4 et filetype=sh
+

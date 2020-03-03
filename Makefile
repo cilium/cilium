@@ -611,6 +611,8 @@ postcheck: build
 	$(QUIET) contrib/scripts/lock-check.sh
 	@$(ECHO_CHECK) contrib/scripts/rand-check.sh
 	$(QUIET) contrib/scripts/rand-check.sh
+	@$(ECHO_CHECK) contrib/scripts/check-helm-quick-install.sh
+	$(QUIET) HELM_VERSION=$(HELM_VERSION) contrib/scripts/check-helm-quick-install.sh
 
 minikube:
 	$(QUIET) contrib/scripts/minikube.sh

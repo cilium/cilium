@@ -5,7 +5,7 @@ include ../../Makefile.defs
 
 MANAGED_ETCD_VERSION := "v2.0.7"
 
-QUICK_INSTALL := "$(ROOT_DIR)/$(RELATIVE_DIR)/quick-install.yaml"
+QUICK_INSTALL ?= "$(ROOT_DIR)/$(RELATIVE_DIR)/quick-install.yaml"
 MANAGED_ETCD_PATH := "$(ROOT_DIR)/$(RELATIVE_DIR)/cilium/charts/managed-etcd/values.yaml"
 CILIUM_CHARTS := "$(ROOT_DIR)/$(RELATIVE_DIR)/cilium/"
 CILIUM_VALUES := "$(CILIUM_CHARTS)/values.yaml"
@@ -17,9 +17,9 @@ CILIUM_CHART_REGEX := '\([vV]ersion:\) '$(VERSION_REGEX)
 CILIUM_TAG_REGEX := '\(tag:\) \(v'$(VERSION_REGEX)'\|latest\)'
 CILIUM_PULLPOLICY_REGEX := '\(pullPolicy:\) .*'
 
-all: update-versions $(QUICK_INSTALL)
+all: update-versions quick-install
 
-$(QUICK_INSTALL): $(shell find cilium/ -type f)
+quick-install: $(shell find cilium/ -type f)
 	$(QUIET)helm template cilium --namespace=kube-system $(OPTS) > $(QUICK_INSTALL)
 
 update-versions:
@@ -45,4 +45,4 @@ update-versions:
 clean:
 	$(RM) $(QUICK_INSTALL)
 
-.phony: all clean update-versions
+.phony: all clean update-versions quick-install
