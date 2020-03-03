@@ -1,11 +1,10 @@
-`Install Helm`_ version 3.0.0 or higher to prepare generating the deployment
-artifacts based on the Helm templates.
+First, make sure you have `installed Helm`_ version 3.0.0 or higher.
 
-.. _Install Helm: https://helm.sh/docs/using_helm/#install-helm
+.. _installed Helm: https://helm.sh/docs/using_helm/#install-helm
 
 .. only:: stable
 
-   Setup helm repository:
+   Setup Helm repository:
 
     .. code:: bash
 

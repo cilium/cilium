@@ -79,8 +79,8 @@ does not interfere with the ENIs managed by Cilium:
 
    kubectl -n kube-system set image daemonset/aws-node aws-node=docker.io/spaster/alpine-sleep
 
-Prepare & Deploy Cilium
-=======================
+Deploy Cilium
+=============
 
 .. include:: k8s-install-download-release.rst
 
