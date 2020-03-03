@@ -58,15 +58,17 @@ var IPMasq4Map = bpf.NewMap(
 	bpf.ConvertKeyValue,
 ).WithCache()
 
-func Update(cidr net.IPNet) error {
+type IPMasqBPFMap struct{}
+
+func (*IPMasqBPFMap) Update(cidr net.IPNet) error {
 	return IPMasq4Map.Update(key(cidr), &Value{})
 }
 
-func Delete(cidr net.IPNet) error {
+func (*IPMasqBPFMap) Delete(cidr net.IPNet) error {
 	return IPMasq4Map.Delete(key(cidr))
 }
 
-func Dump() ([]net.IPNet, error) {
+func (*IPMasqBPFMap) Dump() ([]net.IPNet, error) {
 	cidrs := []net.IPNet{}
 	if err := IPMasq4Map.DumpWithCallback(
 		func(key bpf.MapKey, value bpf.MapValue) {

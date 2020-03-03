@@ -21,7 +21,6 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
@@ -52,19 +51,32 @@ type config struct {
 	NonMasqCIDRs []ipnet `json:"nonMasqueradeCIDRs"`
 }
 
+// IPMasqMap is an interface describing methods for manipulating an ipmasq map
+type IPMasqMap interface {
+	Update(cidr net.IPNet) error
+	Delete(cidr net.IPNet) error
+	Dump() ([]net.IPNet, error)
+}
+
 // IPMasqAgent represents a state of the ip-masq-agent
 type IPMasqAgent struct {
 	configPath             string
 	nonMasqCIDRsFromConfig map[string]net.IPNet
 	nonMasqCIDRsInMap      map[string]net.IPNet
+	ipMasqMap              IPMasqMap
 }
 
 // Run starts the "ip-masq-agent" controller which is used to sync the ipmasq
 // BPF maps.
 func Run(configPath string, syncPeriod time.Duration) error {
+	return run(configPath, syncPeriod, &ipmasq.IPMasqBPFMap{})
+}
+
+func run(configPath string, syncPeriod time.Duration, ipMasqMap IPMasqMap) error {
 	a := &IPMasqAgent{
 		configPath:        configPath,
 		nonMasqCIDRsInMap: map[string]net.IPNet{},
+		ipMasqMap:         ipMasqMap,
 	}
 
 	if err := a.restore(); err != nil {
@@ -92,7 +104,7 @@ func (a *IPMasqAgent) Update() error {
 	for cidrStr, cidr := range a.nonMasqCIDRsInMap {
 		if _, ok := a.nonMasqCIDRsFromConfig[cidrStr]; !ok {
 			log.WithField(logfields.CIDR, cidrStr).Info("Removing CIDR")
-			ipmasq.Delete(cidr)
+			a.ipMasqMap.Delete(cidr)
 			delete(a.nonMasqCIDRsInMap, cidrStr)
 		}
 	}
@@ -100,7 +112,7 @@ func (a *IPMasqAgent) Update() error {
 	for cidrStr, cidr := range a.nonMasqCIDRsFromConfig {
 		if _, ok := a.nonMasqCIDRsInMap[cidrStr]; !ok {
 			log.WithField(logfields.CIDR, cidrStr).Info("Adding CIDR")
-			ipmasq.Update(cidr)
+			a.ipMasqMap.Update(cidr)
 			a.nonMasqCIDRsInMap[cidrStr] = cidr
 		}
 	}
@@ -139,7 +151,7 @@ func (a *IPMasqAgent) readConfig() error {
 // restore dumps the ipmasq BPF map and populates IPMasqAgent.nonMasqCIDRsInMap
 // with the CIDRs from the map.
 func (a *IPMasqAgent) restore() error {
-	cidrsInMap, err := ipmasq.Dump()
+	cidrsInMap, err := a.ipMasqMap.Dump()
 	if err != nil {
 		return fmt.Errorf("Failed to dump ip-masq-agent cidrs from map: %s", err)
 	}
