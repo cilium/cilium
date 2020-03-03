@@ -4,6 +4,7 @@
 #ifndef __NODEPORT_H_
 #define __NODEPORT_H_
 
+#include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
 
 #include "nat.h"
@@ -83,6 +84,16 @@ static __always_inline bool bpf_skip_nodeport(struct __ctx_buff *ctx)
 #endif /* ENABLE_NODEPORT */
 
 #ifdef ENABLE_NODEPORT
+static __always_inline void bpf_mark_snat_done(struct __ctx_buff *ctx)
+{
+	/* From XDP layer, we do not go through an egress hook from
+	 * here, hence nothing to be done.
+	 */
+#if __ctx_is == __ctx_skb
+	ctx->mark |= MARK_MAGIC_SNAT_DONE;
+#endif
+}
+
 #ifdef ENABLE_IPV6
 static __always_inline bool nodeport_uses_dsr6(const struct ipv6_ct_tuple *tuple)
 {
@@ -362,7 +373,8 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 			goto drop_err;
 	}
 
-	ctx->mark |= MARK_MAGIC_SNAT_DONE;
+	bpf_mark_snat_done(ctx);
+
 	if (dir == NAT_DIR_INGRESS) {
 		ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
 		ret = DROP_MISSED_TAIL_CALL;
@@ -577,7 +589,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 
-		ctx->mark |= MARK_MAGIC_SNAT_DONE;
+		bpf_mark_snat_done(ctx);
 #ifdef ENCAP_IFINDEX
 		{
 			union v6addr *dst = (union v6addr *)&ip6->daddr;
@@ -915,7 +927,8 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 			goto drop_err;
 	}
 
-	ctx->mark |= MARK_MAGIC_SNAT_DONE;
+	bpf_mark_snat_done(ctx);
+
 	if (dir == NAT_DIR_INGRESS) {
 		ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
 		ret = DROP_MISSED_TAIL_CALL;
@@ -1131,7 +1144,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 
-		ctx->mark |= MARK_MAGIC_SNAT_DONE;
+		bpf_mark_snat_done(ctx);
 #ifdef ENCAP_IFINDEX
 		{
 			struct remote_endpoint_info *info;
