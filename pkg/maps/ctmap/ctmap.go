@@ -54,7 +54,7 @@ var (
 		metrics.LabelDatapathFamily: "ipv4",
 	}
 
-	mapInfo = make(map[MapType]mapAttributes)
+	mapInfo = make(map[mapType]mapAttributes)
 )
 
 const (
@@ -76,7 +76,7 @@ const (
 	MapNameAny6Global = MapNameAny6 + "global"
 	MapNameAny4Global = MapNameAny4 + "global"
 
-	MapNumEntriesLocal = 64000
+	mapNumEntriesLocal = 64000
 
 	TUPLE_F_OUT     = 0
 	TUPLE_F_IN      = 1
@@ -93,7 +93,7 @@ const (
 	metricsDeleted = "deleted"
 )
 
-var globalDeleteLock [MapTypeMax]lock.Mutex
+var globalDeleteLock [mapTypeMax]lock.Mutex
 
 type NatMap interface {
 	Open() error
@@ -112,8 +112,8 @@ type mapAttributes struct {
 	natMap     NatMap
 }
 
-func setupMapInfo(mapType MapType, define string, mapKey bpf.MapKey, keySize int, maxEntries int, nat NatMap) {
-	mapInfo[mapType] = mapAttributes{
+func setupMapInfo(m mapType, define string, mapKey bpf.MapKey, keySize int, maxEntries int, nat NatMap) {
+	mapInfo[m] = mapAttributes{
 		bpfDefine: define,
 		mapKey:    mapKey,
 		keySize:   keySize,
@@ -130,53 +130,53 @@ func setupMapInfo(mapType MapType, define string, mapKey bpf.MapKey, keySize int
 // combination of L3/L4 protocols, using the specified limits on TCP vs non-TCP
 // maps.
 func InitMapInfo(tcpMaxEntries, anyMaxEntries int, v4, v6 bool) {
-	mapInfo = make(map[MapType]mapAttributes)
+	mapInfo = make(map[mapType]mapAttributes)
 
 	global4Map, global6Map := nat.GlobalMaps(v4, v6)
 
 	// SNAT also only works if the CT map is global so all local maps will be nil
-	natMaps := map[MapType]NatMap{
-		MapTypeIPv4TCPLocal:  nil,
-		MapTypeIPv6TCPLocal:  nil,
-		MapTypeIPv4TCPGlobal: global4Map,
-		MapTypeIPv6TCPGlobal: global6Map,
-		MapTypeIPv4AnyLocal:  nil,
-		MapTypeIPv6AnyLocal:  nil,
-		MapTypeIPv4AnyGlobal: global4Map,
-		MapTypeIPv6AnyGlobal: global6Map,
+	natMaps := map[mapType]NatMap{
+		mapTypeIPv4TCPLocal:  nil,
+		mapTypeIPv6TCPLocal:  nil,
+		mapTypeIPv4TCPGlobal: global4Map,
+		mapTypeIPv6TCPGlobal: global6Map,
+		mapTypeIPv4AnyLocal:  nil,
+		mapTypeIPv6AnyLocal:  nil,
+		mapTypeIPv4AnyGlobal: global4Map,
+		mapTypeIPv6AnyGlobal: global6Map,
 	}
 
-	setupMapInfo(MapType(MapTypeIPv4TCPLocal), "CT_MAP_TCP4",
+	setupMapInfo(mapTypeIPv4TCPLocal, "CT_MAP_TCP4",
 		&CtKey4{}, int(unsafe.Sizeof(CtKey4{})),
-		MapNumEntriesLocal, natMaps[MapTypeIPv4TCPLocal])
+		mapNumEntriesLocal, natMaps[mapTypeIPv4TCPLocal])
 
-	setupMapInfo(MapType(MapTypeIPv6TCPLocal), "CT_MAP_TCP6",
+	setupMapInfo(mapTypeIPv6TCPLocal, "CT_MAP_TCP6",
 		&CtKey6{}, int(unsafe.Sizeof(CtKey6{})),
-		MapNumEntriesLocal, natMaps[MapTypeIPv6TCPLocal])
+		mapNumEntriesLocal, natMaps[mapTypeIPv6TCPLocal])
 
-	setupMapInfo(MapType(MapTypeIPv4TCPGlobal), "CT_MAP_TCP4",
+	setupMapInfo(mapTypeIPv4TCPGlobal, "CT_MAP_TCP4",
 		&CtKey4Global{}, int(unsafe.Sizeof(CtKey4Global{})),
-		tcpMaxEntries, natMaps[MapTypeIPv4TCPGlobal])
+		tcpMaxEntries, natMaps[mapTypeIPv4TCPGlobal])
 
-	setupMapInfo(MapType(MapTypeIPv6TCPGlobal), "CT_MAP_TCP6",
+	setupMapInfo(mapTypeIPv6TCPGlobal, "CT_MAP_TCP6",
 		&CtKey6Global{}, int(unsafe.Sizeof(CtKey6Global{})),
-		tcpMaxEntries, natMaps[MapTypeIPv6TCPGlobal])
+		tcpMaxEntries, natMaps[mapTypeIPv6TCPGlobal])
 
-	setupMapInfo(MapType(MapTypeIPv4AnyLocal), "CT_MAP_ANY4",
+	setupMapInfo(mapTypeIPv4AnyLocal, "CT_MAP_ANY4",
 		&CtKey4{}, int(unsafe.Sizeof(CtKey4{})),
-		MapNumEntriesLocal, natMaps[MapTypeIPv4AnyLocal])
+		mapNumEntriesLocal, natMaps[mapTypeIPv4AnyLocal])
 
-	setupMapInfo(MapType(MapTypeIPv6AnyLocal), "CT_MAP_ANY6",
+	setupMapInfo(mapTypeIPv6AnyLocal, "CT_MAP_ANY6",
 		&CtKey6{}, int(unsafe.Sizeof(CtKey6{})),
-		MapNumEntriesLocal, natMaps[MapTypeIPv6AnyLocal])
+		mapNumEntriesLocal, natMaps[mapTypeIPv6AnyLocal])
 
-	setupMapInfo(MapType(MapTypeIPv4AnyGlobal), "CT_MAP_ANY4",
+	setupMapInfo(mapTypeIPv4AnyGlobal, "CT_MAP_ANY4",
 		&CtKey4Global{}, int(unsafe.Sizeof(CtKey4Global{})),
-		anyMaxEntries, natMaps[MapTypeIPv4AnyGlobal])
+		anyMaxEntries, natMaps[mapTypeIPv4AnyGlobal])
 
-	setupMapInfo(MapType(MapTypeIPv6AnyGlobal), "CT_MAP_ANY6",
+	setupMapInfo(mapTypeIPv6AnyGlobal, "CT_MAP_ANY6",
 		&CtKey6Global{}, int(unsafe.Sizeof(CtKey6Global{})),
-		anyMaxEntries, natMaps[MapTypeIPv6AnyGlobal])
+		anyMaxEntries, natMaps[mapTypeIPv6AnyGlobal])
 }
 
 func init() {
@@ -193,7 +193,7 @@ type CtEndpoint interface {
 type Map struct {
 	bpf.Map
 
-	mapType MapType
+	mapType mapType
 	// define maps to the macro used in the datapath portion for the map
 	// name, for example 'CT_MAP4'.
 	define string
@@ -247,21 +247,21 @@ func (m *Map) DumpEntries() (string, error) {
 	return buffer.String(), err
 }
 
-// NewMap creates a new CT map of the specified type with the specified name.
-func NewMap(mapName string, mapType MapType) *Map {
+// newMap creates a new CT map of the specified type with the specified name.
+func newMap(mapName string, m mapType) *Map {
 	result := &Map{
 		Map: *bpf.NewMap(mapName,
 			bpf.MapTypeLRUHash,
-			mapInfo[mapType].mapKey,
-			mapInfo[mapType].keySize,
-			mapInfo[mapType].mapValue,
-			mapInfo[mapType].valueSize,
-			mapInfo[mapType].maxEntries,
+			mapInfo[m].mapKey,
+			mapInfo[m].keySize,
+			mapInfo[m].mapValue,
+			mapInfo[m].valueSize,
+			mapInfo[m].maxEntries,
 			0, 0,
-			mapInfo[mapType].parser,
+			mapInfo[m].parser,
 		),
-		mapType: mapType,
-		define:  mapInfo[mapType].bpfDefine,
+		mapType: m,
+		define:  mapInfo[m].bpfDefine,
 	}
 	return result
 }
@@ -529,25 +529,25 @@ func maps(e CtEndpoint, ipv4, ipv6 bool) []*Map {
 	result := make([]*Map, 0, mapCount)
 	if e == nil {
 		if ipv4 {
-			result = append(result, NewMap(MapNameTCP4Global, MapTypeIPv4TCPGlobal))
-			result = append(result, NewMap(MapNameAny4Global, MapTypeIPv4AnyGlobal))
+			result = append(result, newMap(MapNameTCP4Global, mapTypeIPv4TCPGlobal))
+			result = append(result, newMap(MapNameAny4Global, mapTypeIPv4AnyGlobal))
 		}
 		if ipv6 {
-			result = append(result, NewMap(MapNameTCP6Global, MapTypeIPv6TCPGlobal))
-			result = append(result, NewMap(MapNameAny6Global, MapTypeIPv6AnyGlobal))
+			result = append(result, newMap(MapNameTCP6Global, mapTypeIPv6TCPGlobal))
+			result = append(result, newMap(MapNameAny6Global, mapTypeIPv6AnyGlobal))
 		}
 	} else {
 		if ipv4 {
-			result = append(result, NewMap(bpf.LocalMapName(MapNameTCP4, uint16(e.GetID())),
-				MapTypeIPv4TCPLocal))
-			result = append(result, NewMap(bpf.LocalMapName(MapNameAny4, uint16(e.GetID())),
-				MapTypeIPv4AnyLocal))
+			result = append(result, newMap(bpf.LocalMapName(MapNameTCP4, uint16(e.GetID())),
+				mapTypeIPv4TCPLocal))
+			result = append(result, newMap(bpf.LocalMapName(MapNameAny4, uint16(e.GetID())),
+				mapTypeIPv4AnyLocal))
 		}
 		if ipv6 {
-			result = append(result, NewMap(bpf.LocalMapName(MapNameTCP6, uint16(e.GetID())),
-				MapTypeIPv6TCPLocal))
-			result = append(result, NewMap(bpf.LocalMapName(MapNameAny6, uint16(e.GetID())),
-				MapTypeIPv6AnyLocal))
+			result = append(result, newMap(bpf.LocalMapName(MapNameTCP6, uint16(e.GetID())),
+				mapTypeIPv6TCPLocal))
+			result = append(result, newMap(bpf.LocalMapName(MapNameAny6, uint16(e.GetID())),
+				mapTypeIPv6AnyLocal))
 		}
 	}
 	return result

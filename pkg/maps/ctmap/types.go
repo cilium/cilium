@@ -24,84 +24,84 @@ import (
 	"github.com/cilium/cilium/pkg/tuple"
 )
 
+// mapType is a type of connection tracking map.
+type mapType int
+
 const (
-	// MapTypeIPv4TCPLocal and friends are MapTypes which correspond to a
+	// mapTypeIPv4TCPLocal and friends are map types which correspond to a
 	// combination of the following attributes:
 	// * IPv4 or IPv6;
 	// * TCP or non-TCP (shortened to Any)
 	// * Local (endpoint-specific) or global (endpoint-oblivious).
-	MapTypeIPv4TCPLocal = iota
-	MapTypeIPv6TCPLocal
-	MapTypeIPv4TCPGlobal
-	MapTypeIPv6TCPGlobal
-	MapTypeIPv4AnyLocal
-	MapTypeIPv6AnyLocal
-	MapTypeIPv4AnyGlobal
-	MapTypeIPv6AnyGlobal
-	MapTypeMax
+	mapTypeIPv4TCPLocal mapType = iota
+	mapTypeIPv6TCPLocal
+	mapTypeIPv4TCPGlobal
+	mapTypeIPv6TCPGlobal
+	mapTypeIPv4AnyLocal
+	mapTypeIPv6AnyLocal
+	mapTypeIPv4AnyGlobal
+	mapTypeIPv6AnyGlobal
+	mapTypeMax
 )
 
-// MapType is a type of connection tracking map.
-type MapType int
-
 // String renders the map type into a user-readable string.
-func (m MapType) String() string {
+func (m mapType) String() string {
 	switch m {
-	case MapTypeIPv4TCPLocal:
+	case mapTypeIPv4TCPLocal:
 		return "Local IPv4 TCP CT map"
-	case MapTypeIPv6TCPLocal:
+	case mapTypeIPv6TCPLocal:
 		return "Local IPv6 TCP CT map"
-	case MapTypeIPv4TCPGlobal:
+	case mapTypeIPv4TCPGlobal:
 		return "Global IPv4 TCP CT map"
-	case MapTypeIPv6TCPGlobal:
+	case mapTypeIPv6TCPGlobal:
 		return "Global IPv6 TCP CT map"
-	case MapTypeIPv4AnyLocal:
+	case mapTypeIPv4AnyLocal:
 		return "Local IPv4 non-TCP CT map"
-	case MapTypeIPv6AnyLocal:
+	case mapTypeIPv6AnyLocal:
 		return "Local IPv6 non-TCP CT map"
-	case MapTypeIPv4AnyGlobal:
+	case mapTypeIPv4AnyGlobal:
 		return "Global IPv4 non-TCP CT map"
-	case MapTypeIPv6AnyGlobal:
+	case mapTypeIPv6AnyGlobal:
 		return "Global IPv6 non-TCP CT map"
 	}
 	return fmt.Sprintf("Unknown (%d)", int(m))
 }
 
-func (m MapType) isIPv4() bool {
+func (m mapType) isIPv4() bool {
 	switch m {
-	case MapTypeIPv4TCPLocal, MapTypeIPv4TCPGlobal, MapTypeIPv4AnyLocal, MapTypeIPv4AnyGlobal:
+	case mapTypeIPv4TCPLocal, mapTypeIPv4TCPGlobal, mapTypeIPv4AnyLocal, mapTypeIPv4AnyGlobal:
 		return true
 	}
 	return false
 }
 
-func (m MapType) isIPv6() bool {
+func (m mapType) isIPv6() bool {
 	switch m {
-	case MapTypeIPv6TCPLocal, MapTypeIPv6TCPGlobal, MapTypeIPv6AnyLocal, MapTypeIPv6AnyGlobal:
+	case mapTypeIPv6TCPLocal, mapTypeIPv6TCPGlobal, mapTypeIPv6AnyLocal, mapTypeIPv6AnyGlobal:
 		return true
 	}
 	return false
 }
 
-func (m MapType) isLocal() bool {
+func (m mapType) isLocal() bool {
 	switch m {
-	case MapTypeIPv4TCPLocal, MapTypeIPv6TCPLocal, MapTypeIPv4AnyLocal, MapTypeIPv6AnyLocal:
+	case mapTypeIPv4TCPLocal, mapTypeIPv6TCPLocal, mapTypeIPv4AnyLocal, mapTypeIPv6AnyLocal:
 		return true
 	}
 	return false
 }
 
-func (m MapType) isGlobal() bool {
+func (m mapType) isGlobal() bool {
 	switch m {
-	case MapTypeIPv4TCPGlobal, MapTypeIPv6TCPGlobal, MapTypeIPv4AnyGlobal, MapTypeIPv6AnyGlobal:
+	case mapTypeIPv4TCPGlobal, mapTypeIPv6TCPGlobal, mapTypeIPv4AnyGlobal, mapTypeIPv6AnyGlobal:
 		return true
 	}
 	return false
 }
 
-func (m MapType) isTCP() bool {
+func (m mapType) isTCP() bool {
 	switch m {
-	case MapTypeIPv4TCPLocal, MapTypeIPv6TCPLocal, MapTypeIPv4TCPGlobal, MapTypeIPv6TCPGlobal:
+	case mapTypeIPv4TCPLocal, mapTypeIPv6TCPLocal, mapTypeIPv4TCPGlobal, mapTypeIPv6TCPGlobal:
 		return true
 	}
 	return false
