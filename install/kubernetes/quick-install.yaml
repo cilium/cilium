@@ -139,6 +139,7 @@ data:
   enable-host-reachable-services: "false"
   enable-external-ips: "false"
   enable-node-port: "false"
+  node-port-mode: "hybrid"
   enable-well-known-identities: "false"
   enable-remote-node-identity: "true"
 
@@ -619,6 +620,7 @@ spec:
           {}
       hostNetwork: true
       restartPolicy: Always
+      priorityClassName: system-cluster-critical
       serviceAccount: cilium-operator
       serviceAccountName: cilium-operator
       volumes:

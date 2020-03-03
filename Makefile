@@ -446,6 +446,8 @@ postcheck: build
 	$(QUIET) MAKE=$(MAKE) contrib/scripts/check-cmdref.sh
 	@$(ECHO_CHECK) contrib/scripts/lock-check.sh
 	$(QUIET) contrib/scripts/lock-check.sh
+	@$(ECHO_CHECK) contrib/scripts/check-helm-quick-install.sh
+	$(QUIET) contrib/scripts/check-helm-quick-install.sh
 	@$(SKIP_DOCS) || $(MAKE) check-docs
 
 minikube:
