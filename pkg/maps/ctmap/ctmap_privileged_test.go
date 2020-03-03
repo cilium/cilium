@@ -38,7 +38,7 @@ func Test(t *testing.T) {
 }
 
 func (k *CTMapTestSuite) Benchmark_MapUpdate(c *C) {
-	m := NewMap(MapNameTCP4Global+"_test", MapTypeIPv4TCPGlobal)
+	m := newMap(MapNameTCP4Global+"_test", mapTypeIPv4TCPGlobal)
 	_, err := m.OpenOrCreate()
 	defer m.Map.Unpin()
 	c.Assert(err, IsNil)
