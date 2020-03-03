@@ -333,9 +333,6 @@ const (
 	// Restore restores state, if possible, from previous daemon
 	Restore = "restore"
 
-	// SidecarHTTPProxy disable host HTTP proxy, assuming proxies in sidecar containers
-	SidecarHTTPProxy = "sidecar-http-proxy"
-
 	// SidecarIstioProxyImage regular expression matching compatible Istio sidecar istio-proxy container image names
 	SidecarIstioProxyImage = "sidecar-istio-proxy-image"
 
@@ -1194,7 +1191,6 @@ type DaemonConfig struct {
 	PreAllocateMaps             bool
 	IPv6NodeAddr                string
 	IPv4NodeAddr                string
-	SidecarHTTPProxy            bool
 	SidecarIstioProxyImage      string
 	SocketPath                  string
 	TracePayloadlen             int
@@ -2156,7 +2152,6 @@ func (c *DaemonConfig) Populate() {
 	c.DisableEnvoyVersionCheck = viper.GetBool(DisableEnvoyVersionCheck)
 	c.K8sNamespace = viper.GetString(K8sNamespaceName)
 	c.MaxControllerInterval = viper.GetInt(MaxCtrlIntervalName)
-	c.SidecarHTTPProxy = viper.GetBool(SidecarHTTPProxy)
 	c.PolicyQueueSize = sanitizeIntParam(PolicyQueueSize, defaults.PolicyQueueSize)
 	c.EndpointQueueSize = sanitizeIntParam(EndpointQueueSize, defaults.EndpointQueueSize)
 	c.SelectiveRegeneration = viper.GetBool(SelectiveRegeneration)
