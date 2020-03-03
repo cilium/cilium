@@ -756,9 +756,10 @@ struct lb4_service *lb4_lookup_slave(struct __ctx_buff *ctx,
 
 static __always_inline int
 lb4_xlate(struct __ctx_buff *ctx, __be32 *new_daddr, __be32 *new_saddr,
-	     __be32 *old_saddr, __u8 nexthdr, int l3_off, int l4_off,
+	     __be32 *old_saddr, __u8 nexthdr __maybe_unused,
+	     int l3_off, int l4_off,
 	     struct csum_offset *csum_off, struct lb4_key *key,
-	     struct lb4_service *svc, struct lb4_backend *backend)
+	     struct lb4_backend *backend __maybe_unused)
 {
 	int ret;
 	__be32 sum;
@@ -923,7 +924,7 @@ update_state:
 
 	return lb4_xlate(ctx, &new_daddr, &new_saddr, &saddr,
 			 tuple->nexthdr, l3_off, l4_off, csum_off, key,
-			 svc, backend);
+			 backend);
 
 drop_no_service:
 		tuple->flags = flags;
