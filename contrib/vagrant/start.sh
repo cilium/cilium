@@ -93,7 +93,11 @@ function write_netcfg_header(){
     filename="${3}"
     cat <<EOF > "${filename}"
 #!/usr/bin/env bash
+set -o errexit
+set -o nounset
+set -o pipefail
 
+K8S=${K8S:-}
 if [ -n "${K8S}" ]; then
     export K8S="1"
 fi
@@ -175,8 +179,9 @@ function write_k8s_header(){
     filename="${2}"
     cat <<EOF > "${filename}"
 #!/usr/bin/env bash
-
-set -e
+set -o errexit
+set -o nounset
+set -o pipefail
 
 # K8s installation
 sudo apt-get -y install curl
@@ -254,6 +259,10 @@ EOF
 
     cat <<EOF > "${filename_2nd_half}"
 #!/usr/bin/env bash
+set -o errexit
+set -o nounset
+set -o pipefail
+
 # K8s installation 2nd half
 k8s_path="/home/vagrant/go/src/github.com/cilium/cilium/contrib/vagrant/scripts"
 export IPV6_EXT="${IPV6_EXT}"
