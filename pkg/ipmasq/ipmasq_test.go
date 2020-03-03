@@ -90,7 +90,7 @@ func (i *IPMasqTestSuite) TearDownTest(c *check.C) {
 }
 
 func (i *IPMasqTestSuite) TestUpdate(c *check.C) {
-	_, err := i.configFile.WriteString(`{"nonMasqueradeCIDRs": ["1.1.1.1/32", "2.2.2.2/16"]}`)
+	_, err := i.configFile.WriteString("nonMasqueradeCIDRs:\n- 1.1.1.1/32\n- 2.2.2.2/16")
 	c.Assert(err, check.IsNil)
 	time.Sleep(300 * time.Millisecond)
 
@@ -103,7 +103,7 @@ func (i *IPMasqTestSuite) TestUpdate(c *check.C) {
 	// Write new config
 	_, err = i.configFile.Seek(0, 0)
 	c.Assert(err, check.IsNil)
-	_, err = i.configFile.WriteString(`{"nonMasqueradeCIDRs": ["8.8.0.0/16", "2.2.2.2/16"]}`)
+	_, err = i.configFile.WriteString("nonMasqueradeCIDRs:\n- 8.8.0.0/16\n- 2.2.2.2/16")
 	c.Assert(err, check.IsNil)
 	time.Sleep(300 * time.Millisecond)
 
@@ -129,7 +129,7 @@ func (i *IPMasqTestSuite) TestRestore(c *check.C) {
 	_, cidr, _ = net.ParseCIDR("4.4.0.0/16")
 	i.ipMasqMap.cidrs[cidr.String()] = *cidr
 
-	_, err = i.configFile.WriteString(`{"nonMasqueradeCIDRs": ["4.4.0.0/16"]}`)
+	_, err = i.configFile.WriteString("nonMasqueradeCIDRs:\n- 4.4.0.0/16")
 	c.Assert(err, check.IsNil)
 
 	start(i.configFile.Name(), 100*time.Millisecond, i.ipMasqMap, i.manager)
