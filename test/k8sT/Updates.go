@@ -381,11 +381,12 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			newHelmChartVersion,
 			helpers.CiliumNamespace,
 			map[string]string{
-				"preflight.enabled": "true ",
-				"agent.enabled":     "false ",
-				"config.enabled":    "false ",
-				"operator.enabled":  "false ",
-				"global.tag":        newImageVersion,
+				"preflight.enabled":       "true ",
+				"agent.enabled":           "false ",
+				"config.enabled":          "false ",
+				"operator.enabled":        "false ",
+				"global.tag":              newImageVersion,
+				"global.nodeinit.enabled": "false",
 			},
 		)
 		ExpectWithOffset(1, err).To(BeNil(), "Unable to deploy preflight manifest")
