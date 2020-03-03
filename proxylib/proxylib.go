@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/proxylib/accesslog"
 	_ "github.com/cilium/cilium/proxylib/cassandra"
 	_ "github.com/cilium/cilium/proxylib/memcached"
+	_ "github.com/cilium/cilium/proxylib/mysql"
 	"github.com/cilium/cilium/proxylib/npds"
 	. "github.com/cilium/cilium/proxylib/proxylib"
 	_ "github.com/cilium/cilium/proxylib/r2d2"
