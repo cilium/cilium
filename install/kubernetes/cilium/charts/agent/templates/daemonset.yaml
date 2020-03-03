@@ -193,6 +193,11 @@ spec:
         - mountPath: /tmp/cilium/config-map
           name: cilium-config-path
           readOnly: true
+{{- if and .Values.global.ipMasqAgent .Values.global.ipMasqAgent.enabled }}
+        - mountPath: /etc/config
+          name: ip-masq-agent
+          readOnly: true
+{{- end }}
 {{- if .Values.global.cni.configMap }}
         - mountPath: {{ .Values.global.cni.confFileMountPath }}
           name: cni-configuration
@@ -384,6 +389,15 @@ spec:
       - configMap:
           name: cilium-config
         name: cilium-config-path
+{{- if and .Values.global.ipMasqAgent .Values.global.ipMasqAgent.enabled }}
+      - configMap:
+          name: ip-masq-agent
+          optional: true
+          items:
+          - key: config
+            path: ip-masq-agent
+        name: ip-masq-agent
+{{- end }}
 {{- if .Values.global.encryption.enabled }}
       - name: cilium-ipsec-secrets
         secret:
