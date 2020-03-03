@@ -66,13 +66,15 @@ type IPMasqAgent struct {
 	ipMasqMap              IPMasqMap
 }
 
-// Run starts the "ip-masq-agent" controller which is used to sync the ipmasq
+// Start starts the "ip-masq-agent" controller which is used to sync the ipmasq
 // BPF maps.
-func Run(configPath string, syncPeriod time.Duration) error {
-	return run(configPath, syncPeriod, &ipmasq.IPMasqBPFMap{})
+func Start(configPath string, syncPeriod time.Duration) error {
+	return start(configPath, syncPeriod, &ipmasq.IPMasqBPFMap{}, controller.NewManager())
 }
 
-func run(configPath string, syncPeriod time.Duration, ipMasqMap IPMasqMap) error {
+func start(configPath string, syncPeriod time.Duration,
+	ipMasqMap IPMasqMap, manager *controller.Manager) error {
+
 	a := &IPMasqAgent{
 		configPath:        configPath,
 		nonMasqCIDRsInMap: map[string]net.IPNet{},
@@ -83,7 +85,7 @@ func run(configPath string, syncPeriod time.Duration, ipMasqMap IPMasqMap) error
 		return err
 	}
 
-	controller.NewManager().UpdateController("ip-masq-agent",
+	manager.UpdateController("ip-masq-agent",
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
 				return a.Update()

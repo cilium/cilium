@@ -1231,7 +1231,7 @@ func runDaemon() {
 	}
 
 	if option.Config.EnableIPMasqAgent {
-		if err := ipmasq.Run(option.Config.IPMasqAgentConfigPath,
+		if err := ipmasq.Start(option.Config.IPMasqAgentConfigPath,
 			option.Config.IPMasqAgentSyncPeriod); err != nil {
 			log.WithError(err).Fatal("ip-masq-agent failed to start")
 		}
