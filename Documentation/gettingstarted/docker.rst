@@ -115,7 +115,7 @@ named 'cilium-net' for all containers:
 
 ::
 
-    $ docker network create --ipv6 --subnet ::1/112 --driver cilium --ipam-driver cilium cilium-net
+    $ docker network create --driver cilium --ipam-driver cilium cilium-net
 
 
 Step 6: Start an Example Service with Docker
