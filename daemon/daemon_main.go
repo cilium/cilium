@@ -566,10 +566,6 @@ func init() {
 	flags.Bool(option.Restore, true, "Restores state, if possible, from previous daemon")
 	option.BindEnv(option.Restore)
 
-	flags.Bool(option.SidecarHTTPProxy, false, "Disable host HTTP proxy, assuming proxies in sidecar containers")
-	flags.MarkHidden(option.SidecarHTTPProxy)
-	option.BindEnv(option.SidecarHTTPProxy)
-
 	flags.String(option.SidecarIstioProxyImage, k8s.DefaultSidecarIstioProxyImageRegexp,
 		"Regular expression matching compatible Istio sidecar istio-proxy container image names")
 	option.BindEnv(option.SidecarIstioProxyImage)
@@ -1039,10 +1035,6 @@ func initEnv(cmd *cobra.Command) {
 		} else {
 			node.SetExternalIPv4(ip)
 		}
-	}
-
-	if option.Config.SidecarHTTPProxy {
-		log.Warn(`"sidecar-http-proxy" flag is deprecated and has no effect`)
 	}
 
 	k8s.SidecarIstioProxyImageRegexp, err = regexp.Compile(option.Config.SidecarIstioProxyImage)
