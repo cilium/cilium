@@ -86,6 +86,7 @@ github.com/cilium/ebpf/perf
 ## explicit
 github.com/cilium/hubble/api/v1/flow
 github.com/cilium/hubble/api/v1/observer
+github.com/cilium/hubble/cmd/observe
 github.com/cilium/hubble/cmd/serve
 github.com/cilium/hubble/pkg/api
 github.com/cilium/hubble/pkg/api/v1
@@ -114,8 +115,10 @@ github.com/cilium/hubble/pkg/parser/getters
 github.com/cilium/hubble/pkg/parser/options
 github.com/cilium/hubble/pkg/parser/seven
 github.com/cilium/hubble/pkg/parser/threefour
+github.com/cilium/hubble/pkg/printer
 github.com/cilium/hubble/pkg/server
 github.com/cilium/hubble/pkg/servicecache
+github.com/cilium/hubble/pkg/time
 # github.com/cilium/ipam v0.0.0-20200217195329-a46f8d55f9db
 ## explicit
 github.com/cilium/ipam/service/allocator
@@ -215,6 +218,8 @@ github.com/emicklei/go-restful/log
 github.com/envoyproxy/protoc-gen-validate/validate
 # github.com/evanphx/json-patch v4.2.0+incompatible
 github.com/evanphx/json-patch
+# github.com/francoispqt/gojay v1.2.13
+github.com/francoispqt/gojay
 # github.com/fsnotify/fsnotify v1.4.7
 github.com/fsnotify/fsnotify
 # github.com/go-ole/go-ole v1.2.1
