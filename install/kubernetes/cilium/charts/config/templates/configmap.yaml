@@ -272,6 +272,10 @@ data:
 {{- if .Values.global.egressMasqueradeInterfaces }}
   egress-masquerade-interfaces: {{ .Values.global.egressMasqueradeInterfaces }}
 {{- end }}
+{{- if and .Values.global.ipMasqAgent .Values.global.ipMasqAgent.enabled }}
+  enable-ip-masq-agent: "true"
+  ip-masq-agent-sync-period: {{ .Values.global.ipMasqAgent.syncPeriod | quote }}
+{{- end }}
 
 {{- if .Values.global.encryption.enabled }}
   enable-ipsec: {{ .Values.global.encryption.enabled | quote }}
