@@ -32,6 +32,10 @@ END
 end
 
 $bootstrap = <<SCRIPT
+set -o errexit
+set -o nounset
+set -o pipefail
+
 echo "----------------------------------------------------------------"
 export PATH=/home/vagrant/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
 
@@ -53,12 +57,20 @@ mv bpf-map /usr/bin
 SCRIPT
 
 $build = <<SCRIPT
+set -o errexit
+set -o nounset
+set -o pipefail
+
 export PATH=/home/vagrant/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
 ~/go/src/github.com/cilium/cilium/common/build.sh
 rm -fr ~/go/bin/cilium*
 SCRIPT
 
 $install = <<SCRIPT
+set -o errexit
+set -o nounset
+set -o pipefail
+
 sudo -E make -C /home/vagrant/go/src/github.com/cilium/cilium/ install
 
 sudo mkdir -p /etc/sysconfig
