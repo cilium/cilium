@@ -172,6 +172,40 @@ func init() {
 	}
 }
 
+func GetStableCiliumVersion() (imageURL, version string) {
+	image := defaultHelmOptions["agent.image"]
+	version = CiliumStableVersion
+
+	switch {
+	case strings.Contains(image, "/") && strings.Contains(image, ":"):
+		parts := strings.Split(image, ":")
+		imageURL = parts[0] + ":" + version
+	case strings.Contains(image, "/"):
+		imageURL = image + ":" + version
+	default:
+		imageURL = defaultHelmOptions["global.registry"] + image + ":" + version
+	}
+
+	return imageURL, version
+}
+
+func GetLatestCiliumVersion() (imageURL, version string) {
+	image := defaultHelmOptions["agent.image"]
+	switch {
+	case strings.Contains(image, "/") && strings.Contains(image, ":"):
+		parts := strings.Split(image, ":")
+		version = parts[1]
+		imageURL = image
+	case strings.Contains(image, "/"):
+		version = defaultHelmOptions["global.tag"]
+		imageURL = image + ":" + version
+	default:
+		version = defaultHelmOptions["global.tag"]
+		imageURL = defaultHelmOptions["global.registry"] + "/" + image + ":" + version
+	}
+	return imageURL, version
+}
+
 // GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
 func GetCurrentK8SEnv() string { return os.Getenv("K8S_VERSION") }
 

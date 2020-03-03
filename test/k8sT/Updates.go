@@ -16,7 +16,6 @@ package k8sTest
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -114,14 +113,18 @@ var _ = Describe("K8sUpdates", func() {
 	SkipItIf(func() bool { return !helpers.RunsWithKubeProxy() },
 		"Tests upgrade and downgrade from a Cilium stable image to master", func() {
 
-			// FIXME:
-			// 1- Make a global way to get the full image URL from all settings in a helper
-			// 2- Use only full image paths here
-			stableImage := "docker.io/cilium/cilium:" + helpers.CiliumStableVersion
-			latestImage := "docker.io/cilium/cilium:" + helpers.CiliumLatestImageVersion
-			if img := os.Getenv("CILIUM_IMAGE"); img != "" {
-				latestImage = img
-			}
+			//// FIXME:
+			//// 1- Make a global way to get the full image URL from all settings in a helper
+			//// 2- Use only full image paths here
+			//stableImage := "docker.io/cilium/cilium:" + helpers.CiliumStableVersion
+			//latestImage := "docker.io/cilium/cilium:" + helpers.CiliumLatestImageVersion
+			//if img := os.Getenv("CILIUM_IMAGE"); img != "" {
+			//	latestImage = img
+			//}
+
+			//stableImage, stableImageVersion := helpers.GetStableCiliumVersion()
+			stableImage, stableImageVersion := "docker.io/cilium/cilium:"+helpers.CiliumStableVersion, helpers.CiliumStableVersion
+			latestImage, _ := helpers.GetLatestCiliumVersion()
 
 			var assertUpgradeSuccessful func()
 			assertUpgradeSuccessful, cleanupCallback =
@@ -129,6 +132,7 @@ var _ = Describe("K8sUpdates", func() {
 					kubectl,
 					helpers.CiliumStableHelmChartVersion,
 					stableImage,
+					stableImageVersion,
 					helpers.CiliumLatestHelmChartVersion,
 					latestImage,
 				)
@@ -140,16 +144,16 @@ var _ = Describe("K8sUpdates", func() {
 // upgrade to the newVersion and if the newVersion can be downgraded to the
 // oldVersion.  It returns two callbacks, the first one is the assertfunction
 // that need to run, and the second one are the cleanup actions
-func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVersion, oldImage, newHelmChartVersion, newImage string) (func(), func()) {
+func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVersion, oldImage, oldImageVersion, newHelmChartVersion, newImage string) (func(), func()) {
 	// FIXME: add version extractor here
-	//canRun, err := helpers.CanRunK8sVersion(oldImageVersion, helpers.GetCurrentK8SEnv())
-	//ExpectWithOffset(1, err).To(BeNil(), "Unable to get k8s constraints for %s", oldImageVersion)
-	//if !canRun {
-	//	Skip(fmt.Sprintf(
-	//		"Cilium %q is not supported in K8s %q. Skipping upgrade/downgrade tests.",
-	//		oldImageVersion, helpers.GetCurrentK8SEnv()))
-	//	return func() {}, func() {}
-	//}
+	canRun, err := helpers.CanRunK8sVersion(oldImageVersion, helpers.GetCurrentK8SEnv())
+	ExpectWithOffset(1, err).To(BeNil(), "Unable to get k8s constraints for %s", oldImageVersion)
+	if !canRun {
+		Skip(fmt.Sprintf(
+			"Cilium %q is not supported in K8s %q. Skipping upgrade/downgrade tests.",
+			oldImageVersion, helpers.GetCurrentK8SEnv()))
+		return func() {}, func() {}
+	}
 
 	SkipIfIntegration(helpers.CIIntegrationFlannel)
 
