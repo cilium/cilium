@@ -1,5 +1,66 @@
 # Changelog
 
+## v1.7.1
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* add getting started guide for BIRD (Backport PR #10401, Upstream PR #10326, @ArthurChiao)
+* bpf: Fix native dev cleanup (Backport PR #10401, Upstream PR #10352, @brb)
+* Do not listen on any port by default for cilium-operator (#10370, @aanm)
+* docs: Drop k8s 1.10 from supported/tested versions (Backport PR #10354, Upstream PR #10319, @jrajahalme)
+* docs: Mention that a kv-store is optional with k8s. (Backport PR #10354, Upstream PR #10321, @jrajahalme)
+* Fallback mode for a missing `xt_socket` kernel module is added where kernel's IP early demux functionality is disabled. This fallback is enabled by default if it is needed for correct policy enforcement and visibility functionality. This fallback may be disabled by setting `enable-xt-socket-fallback=false`. (Backport PR #10354, Upstream PR #10299, @jrajahalme)
+* Switch to upstream bpftool (Backport PR #10429, Upstream PR #10353, @mrostecki)
+* The deprecated `--enable-legacy-service` option was removed. (Backport PR #10286, Upstream PR #10255, @tklauser)
+
+**Bugfixes:**
+* AKS: Fix dynamic reconfiguration of bridge mode (Backport PR #10401, Upstream PR #10383, @tgraf)
+* cilium: encryption, segfaults if existing non-Cilium xfrm policy without mark set exists (Backport PR #10286, Upstream PR #10268, @jrfastab)
+* cilium: fix node-port range parsing from helm and update docs (Backport PR #10401, Upstream PR #10382, @borkmann)
+* clustermesh: Emit identity-change events for remote clusters (Backport PR #10354, Upstream PR #10290, @raybejjani)
+* Correct accidental partial revert of https://github.com/cilium/cilium/pull/10185 when reporting cluster status. (#10303, @raybejjani)
+* daemon: fix cilium-agent helper message for disable-cnp-status-updates (Backport PR #10441, Upstream PR #10414, @aanm)
+* doc: Fix AKS guide regression (Backport PR #10354, Upstream PR #10308, @tgraf)
+* Envoy fixes for CVE-2020-8659, CVE-2020-8660, CVE-2020-8661, CVE-2020-8664 (Backport PR #10441, Upstream PR #10434, @jrajahalme)
+* etcd: Fix gRPC load balancer issue (Backport PR #10401, Upstream PR #10381, @tgraf)
+* Fixups for Correct clustermesh identity sync kvstore backend usage (Backport PR #10286, Upstream PR #10243, @raybejjani)
+* fqdn: DNS proxy compresses DNS responses (Backport PR #10441, Upstream PR #10366, @raybejjani)
+* kubernetes: do not disable node routes for portmap (Backport PR #10441, Upstream PR #10415, @aanm)
+* Make cilium bpf {ct, nat} {list, flush} to work when running in ipv6-only mode (Backport PR #10254, Upstream PR #10193, @brb)
+* metrics: add missing metrics for cilium agent api handler (Backport PR #10401, Upstream PR #10376, @fristonio)
+* node: Remove permanent ARP entry when remote node is deleted (Backport PR #10354, Upstream PR #10227, @brb)
+* policy: fix innermap's flag error in eppolicymap (Backport PR #10254, Upstream PR #10201, @zhiyuan0x)
+* service: Fix HealthCheckNodePort not displayed in API (Backport PR #10254, Upstream PR #10240, @gandro)
+
+**CI Changes:**
+* test: Wait for Istio POD termination before deleting istio-system or cilium (Backport PR #10354, Upstream PR #10325, @jrajahalme)
+
+**Misc Changes:**
+* [1.7] docs: Simplify upgrade instructions (#10467, @joestringer)
+* bpf: Fix typo in max options for bpf_lb (Backport PR #10401, Upstream PR #10386, @pchaigno)
+* bpf: remove unused GetProgNextID, GetProgFDByID and GetProgInfoByFD (Backport PR #10286, Upstream PR #10187, @tklauser)
+* daemon: Check nodePortMax < ephemeralPortMin in agent (Backport PR #10286, Upstream PR #10260, @brb)
+* daemon: create directory with correct permissions in prepareEndpointDirs (Backport PR #10441, Upstream PR #10397, @tklauser)
+* datapath/loader: always set all args to bpf/init.sh (Backport PR #10286, Upstream PR #10230, @tklauser)
+* doc: Add helm version requirements updated install URL to GKE install guide (Backport PR #10354, Upstream PR #10315, @CybrPunk)
+* doc: Adjust documentation to renamed cilium-sysdump tool (Backport PR #10354, Upstream PR #10165, @tgraf)
+* doc: Fix links to contributing guide (Backport PR #10401, Upstream PR #10322, @CybrPunk)
+* docs: fix inconsistent ipv6 usage in getting started docker docs (Backport PR #10441, Upstream PR #10428, @fristonio)
+* Documentation: Lock dependency to fix build (Backport PR #10437, Upstream PR #10419, @Ropes)
+* Fix dead link in 1.4->1.5 upgrade documentation (Backport PR #10441, Upstream PR #10416, @Ropes)
+* helm: Allow disabling xt_socket fallback (Backport PR #10354, Upstream PR #10342, @brb)
+* install: Support generating vX.Y-dev charts (Backport PR #10401, Upstream PR #10355, @joestringer)
+* Istio integration has been updated to Istio release 1.4.6. (#10470, @jrajahalme)
+* pkg/bpf: Fix KeepAlive usage for pathStr (Backport PR #10354, Upstream PR #10288, @brb)
+* test/provision: Fix cilium.provision on running VM (Backport PR #10354, Upstream PR #10301, @pchaigno)
+* test: Avoid using global map for Cilium configuration (Backport PR #10401, Upstream PR #10388, @brb)
+* Use -F flag in git log in check-stable script (Backport PR #10286, Upstream PR #10283, @nebril)
+
+**Other Changes:**
+* 1.7: Fix readme stable releases section (#10444, @joestringer)
+
 ## v1.7.0
 
 **Note**: The summary of changes represent the diff between v1.6.6 and v1.7.0
