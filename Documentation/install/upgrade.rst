@@ -122,8 +122,8 @@ Upgrading Minor Versions
 
 .. warning::
 
-   Do not upgrade to 1.6.y before reading the section
-   :ref:`1.6_required_changes` and completing the required steps. Skipping to
+   Do not upgrade to 1.7.y before reading the section
+   :ref:`1.7_required_changes` and completing the required steps. Skipping to
    apply the changes may lead to an non-functional upgrade.
 
 Step 1: Upgrade to latest micro version (Recommended)
@@ -298,16 +298,6 @@ Annotations:
 
 .. _1.7_required_changes:
 
-IMPORTANT: Changes required before upgrading to 1.7.1
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.. warning::
-
-   Do not upgrade to 1.7.1 before reading the following sections and completing
-   the required steps for both 1.7.0 and 1.7.1.
-
-* ``api-server-port``: This flag, available in cilium-operator deployment only,
-  changed its behavior. The old behavior was opening that port on all interfaces,
-  the new behavior is opening that port on ``127.0.0.1`` and ``::1`` only.
 
 IMPORTANT: Changes required before upgrading to 1.7.0
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -446,6 +436,15 @@ New ConfigMap Options
 
     For users who previously were running with ``nodePort.enabled=true`` it is
     recommended to set the option to ``strict`` before upgrading.
+
+Modified Options
+~~~~~~~~~~~~~~~~
+
+* ``api-server-port``: This flag, available in cilium-operator deployment only,
+  changed its behavior in v1.7.1 and later. The old behavior was opening that
+  port on all interfaces, the new behavior is opening that port on
+  ``127.0.0.1`` and ``::1`` only. No action is necessary to handle this change
+  during upgrade.
 
 Removed options
 ~~~~~~~~~~~~~~~~~~
