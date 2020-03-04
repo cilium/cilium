@@ -51,6 +51,7 @@ IP
 IPsec
 IPv
 Integrations
+IoT
 Istio
 JUnit
 Jakub
@@ -153,6 +154,7 @@ Zannoni
 Zhou
 allocator
 allocators
+amd
 analytics
 api
 apiKeys
