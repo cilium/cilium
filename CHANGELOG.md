@@ -1,5 +1,67 @@
 # Changelog
 
+# v1.6.7
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* add option to hold cilium agent after init container (Backport PR #10135, Upstream PR #10101, @aanm)
+* Do not listen on any port by default for cilium-operator (#10369, @aanm)
+* Fallback mode for a missing `xt_socket` kernel module is added where kernel's IP early demux functionality is disabled. This fallback is enabled by default if it is needed for corre
+ct policy enforcement and visibility functionality. This fallback may be disabled by setting `enable-xt-socket-fallback=false`. (Backport PR #10361, Upstream PR #10299, @jrajahalme)
+* ServiceMonitor should default to release namespace (Backport PR #10135, Upstream PR #10088, @dsexton)
+
+**Bugfixes:**
+* AKS: Fix dynamic reconfiguration of bridge mode (Backport PR #10379, Upstream PR #10383, @tgraf)
+* bpf: Fix proxy redirection for egress programs (Backport PR #10223, Upstream PR #10113, @tgraf)
+* cilium: only enable IPv6 forwarding if IPv6 is enabled (Backport PR #10135, Upstream PR #9034, @jrfastab)
+* Correct clustermesh identity sync kvstore backend usage (to actually use the remote) (Backport PR #10223, Upstream PR #10185, @raybejjani)
+* doc: Fix AKS guide regression (Backport PR #10379, Upstream PR #10308, @tgraf)
+* Envoy fixes for CVE-2020-8659, CVE-2020-8660, CVE-2020-8661, CVE-2020-8664 (Backport PR #10443, Upstream PR #10434, @jrajahalme)
+* etcd: Fix gRPC load balancer issue (Backport PR #10379, Upstream PR #10381, @tgraf)
+* Fix cilium-operator deadlock for clusters with more than 128 services (Backport PR #10127, Upstream PR #10010, @aanm)
+* Fix concurrent access of a variable used for metrics (Backport PR #10223, Upstream PR #10137, @aanm)
+* Fix memory corruption on clusters with IPv6 and NodePort enabled (Backport PR #10223, Upstream PR #10192, @aanm)
+* Fix regression to avoid freeing alive IPs (Backport PR #10237, Upstream PR #10207, @tgraf)
+* Fixups for Correct clustermesh identity sync kvstore backend usage (Backport PR #10291, Upstream PR #10243, @raybejjani)
+* ipam: Protect release from releasing alive IP (Backport PR #10095, Upstream PR #10066, @tgraf)
+* ipcache: Add probe to check for dump capability to support delete (Backport PR #10223, Upstream PR #10144, @tgraf)
+* Make cilium bpf {ct, nat} {list, flush} to work when running in ipv6-only mode (Backport PR #10291, Upstream PR #10193, @brb)
+* node: Remove permanent ARP entry when remote node is deleted (Backport PR #10361, Upstream PR #10227, @brb)
+* pkg/bpf: Protect attr in perf_linux.go with runtime.KeepAlive (#10206, @brb)
+* pkg/bpf: Protect each uintptr with runtime.KeepAlive (Backport PR #10267, Upstream PR #10168, @brb)
+* pkg/endpoint: access endpoint state safely across go routines (Backport PR #10223, Upstream PR #10140, @aanm)
+* policy: fix innermap's flag error in eppolicymap (Backport PR #10291, Upstream PR #10201, @zhiyuan0x)
+
+**CI Changes:**
+* test: Wait for Istio POD termination before deleting istio-system or cilium (Backport PR #10361, Upstream PR #10325, @jrajahalme)
+
+**Misc Changes:**
+* bpf: Fix space hack in Makefile (Backport PR #10223, Upstream PR #10173, @brb)
+* bpf: remove unused GetProgNextID, GetProgFDByID and GetProgInfoByFD (Backport PR #10267, Upstream PR #10187, @tklauser)
+* bugtool: Dump NAT BPF maps entries with bpftool (Backport PR #10223, Upstream PR #10190, @brb)
+* charts: Generate versions from VERSION file (Backport PR #10223, Upstream PR #10171, @joestringer)
+* doc: Adjust documentation to renamed cilium-sysdump tool (Backport PR #10361, Upstream PR #10165, @tgraf)
+* doc: Document L7 limitation in azure-cni chaining mode (Backport PR #10223, Upstream PR #10131, @tgraf)
+* doc: Fix links to contributing guide (Backport PR #10361, Upstream PR #10322, @CybrPunk)
+* docs: fix link for Cilium-PR-Kubernetes-Upstream job (Backport PR #10223, Upstream PR #10178, @tklauser)
+* Documentation: Lock dependency to fix build (Backport PR #10438, Upstream PR #10419, @Ropes)
+* Fix dead link in 1.4->1.5 upgrade documentation (Backport PR #10443, Upstream PR #10416, @Ropes)
+* fqdn: Avoid races when updating global cache on GC (Backport PR #10443, Upstream PR #9483, @raybejjani)
+* golang: update to 1.12.17 (#10210, @aanm)
+* helm: Allow disabling xt_socket fallback (Backport PR #10361, Upstream PR #10342, @brb)
+* install: Support generating vX.Y-dev charts (Backport PR #10361, Upstream PR #10355, @joestringer)
+* pkg/bpf: Fix KeepAlive usage for pathStr (Backport PR #10361, Upstream PR #10288, @brb)
+* Update release process steps (Backport PR #10135, Upstream PR #10035, @aanm)
+* Use -F flag in git log in check-stable script (Backport PR #10291, Upstream PR #10283, @nebril)
+
+**Other Changes:**
+* .github: update github-actions project (#10045, @aanm)
+* [1.6] Fix CRI-O regression in the tree (#10412, @joestringer)
+* [v1.6] wip run with race detector (#10130, @aanm)
+* update k8s dependencies to 1.16.7 (#10216, @aanm)
+
 # v1.6.6
 
 Summary of Changes
