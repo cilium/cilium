@@ -124,8 +124,7 @@ var _ = Describe("K8sUpdates", func() {
 
 			//stableImage, stableImageVersion := helpers.GetStableCiliumVersion()
 			stableImage, stableImageVersion := "docker.io/cilium/cilium:"+helpers.CiliumStableVersion, helpers.CiliumStableVersion
-			latestImage, _ := helpers.GetLatestCiliumVersion()
-
+			latestImage, latestImageVersion := helpers.GetLatestCiliumVersion()
 			var assertUpgradeSuccessful func()
 			assertUpgradeSuccessful, cleanupCallback =
 				InstallAndValidateCiliumUpgrades(
@@ -135,6 +134,7 @@ var _ = Describe("K8sUpdates", func() {
 					stableImageVersion,
 					helpers.CiliumLatestHelmChartVersion,
 					latestImage,
+					latestImageVersion,
 				)
 			assertUpgradeSuccessful()
 		})
@@ -144,7 +144,7 @@ var _ = Describe("K8sUpdates", func() {
 // upgrade to the newVersion and if the newVersion can be downgraded to the
 // oldVersion.  It returns two callbacks, the first one is the assertfunction
 // that need to run, and the second one are the cleanup actions
-func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVersion, oldImage, oldImageVersion, newHelmChartVersion, newImage string) (func(), func()) {
+func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVersion, oldImage, oldImageVersion, newHelmChartVersion, newImage, newImageVersion string) (func(), func()) {
 	// FIXME: add version extractor here
 	canRun, err := helpers.CanRunK8sVersion(oldImageVersion, helpers.GetCurrentK8SEnv())
 	ExpectWithOffset(1, err).To(BeNil(), "Unable to get k8s constraints for %s", oldImageVersion)
@@ -215,7 +215,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		}
 
 		// make sure we clean everything up before doing any other test
-		cleanupCiliumState(filepath.Join(kubectl.BasePath(), helpers.HelmTemplate), newHelmChartVersion, "", newImage, "")
+		cleanupCiliumState(filepath.Join(kubectl.BasePath(), helpers.HelmTemplate), newHelmChartVersion, newImage, newImageVersion, "")
 	}
 
 	testfunc := func() {
@@ -402,7 +402,6 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 				"agent.enabled":           "false ",
 				"config.enabled":          "false ",
 				"operator.enabled":        "false ",
-				"agent.image":             newImage,
 				"preflight.image":         newImage,
 				"global.nodeinit.enabled": "false",
 			},
@@ -466,7 +465,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		ExpectWithOffset(1, cmd).To(helpers.CMDSuccess(), "Cilium %q was not able to be deployed", oldHelmChartVersion)
 
 		err = helpers.WithTimeout(
-			waitForUpdateImage(oldImage),
+			waitForUpdateImage(oldImageVersion),
 			"Cilium Pods are not updating correctly",
 			&helpers.TimeoutConfig{Timeout: timeout})
 		ExpectWithOffset(1, err).To(BeNil(), "Pods are not updating")

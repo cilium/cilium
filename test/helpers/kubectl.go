@@ -172,37 +172,54 @@ func init() {
 	}
 }
 
-func GetStableCiliumVersion() (imageURL, version string) {
-	image := defaultHelmOptions["agent.image"]
-	version = CiliumStableVersion
+//func GetStableCiliumVersion() (imageURL, version string) {
+//	image := defaultHelmOptions["agent.image"]
+//	version = CiliumStableVersion
+//
+//	switch {
+//	case strings.Contains(image, "/") && strings.Contains(image, ":"):
+//		parts := strings.Split(image, ":")
+//		imageURL = parts[0] + ":" + version
+//	case strings.Contains(image, "/"):
+//		imageURL = image + ":" + version
+//	default:
+//		imageURL = defaultHelmOptions["global.registry"] + image + ":" + version
+//	}
+//
+//	return imageURL, version
+//}
 
-	switch {
-	case strings.Contains(image, "/") && strings.Contains(image, ":"):
-		parts := strings.Split(image, ":")
-		imageURL = parts[0] + ":" + version
-	case strings.Contains(image, "/"):
-		imageURL = image + ":" + version
-	default:
-		imageURL = defaultHelmOptions["global.registry"] + image + ":" + version
-	}
+// Group #    Contains
+//    1       http protocol
+//    2       registry domain
+//    3       registry path
+//    4       - tag w/ ":"
+//    5        tag
 
-	return imageURL, version
-}
+var imageURLRE = regexp.MustCompile(`(https?://)?([^/]+)/([^:]+)(:(.+))?`)
 
 func GetLatestCiliumVersion() (imageURL, version string) {
 	image := defaultHelmOptions["agent.image"]
-	switch {
-	case strings.Contains(image, "/") && strings.Contains(image, ":"):
-		parts := strings.Split(image, ":")
-		version = parts[1]
-		imageURL = image
-	case strings.Contains(image, "/"):
+
+	parts := imageURLRE.FindStringSubmatch(image)
+	if parts == nil {
 		version = defaultHelmOptions["global.tag"]
-		imageURL = image + ":" + version
-	default:
-		version = defaultHelmOptions["global.tag"]
-		imageURL = defaultHelmOptions["global.registry"] + "/" + image + ":" + version
+		imageURL = fmt.Sprintf("%s/%s:%s", defaultHelmOptions["global.registry"], image, version)
+		fmt.Printf("FML parts is nil image: %s imageURL: %s, version: %s\n", image, imageURL, version)
+		return imageURL, version
 	}
+
+	fmt.Printf("FML parts is NOT nil image: %s\n", image)
+	proto := parts[1]
+	registryDomain := parts[2]
+	registryPath := parts[3]
+	tag := parts[5]
+	if tag == "" {
+		tag = defaultHelmOptions["global.tag"]
+	}
+
+	version = tag
+	imageURL = fmt.Sprintf("%s%s/%s:%s", proto, registryDomain, registryPath, version)
 	return imageURL, version
 }
 
