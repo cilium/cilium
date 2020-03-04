@@ -1,4 +1,14 @@
 ---
+# Source: istio-init/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-init-service-account
+  namespace: istio-system
+  labels:
+    app: istio-init
+    istio: init
+---
 # Source: istio-init/templates/configmap-crd-10.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -5100,16 +5110,6 @@ data:
     
     ---
 ---
-# Source: istio-init/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-init-service-account
-  namespace: istio-system
-  labels:
-    app: istio-init
-    istio: init
----
 # Source: istio-init/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -5145,7 +5145,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   namespace: istio-system
-  name: istio-init-crd-10-1.4.3
+  name: istio-init-crd-10-1.4.6
 spec:
   template:
     metadata:
@@ -5155,7 +5155,7 @@ spec:
       serviceAccountName: istio-init-service-account
       containers:
       - name: istio-init-crd-10
-        image: "docker.io/istio/kubectl:1.4.3"
+        image: "docker.io/istio/kubectl:1.4.6"
         imagePullPolicy: IfNotPresent
         resources:
           limits:
@@ -5180,7 +5180,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   namespace: istio-system
-  name: istio-init-crd-11-1.4.3
+  name: istio-init-crd-11-1.4.6
 spec:
   template:
     metadata:
@@ -5190,7 +5190,7 @@ spec:
       serviceAccountName: istio-init-service-account
       containers:
       - name: istio-init-crd-11
-        image: "docker.io/istio/kubectl:1.4.3"
+        image: "docker.io/istio/kubectl:1.4.6"
         imagePullPolicy: IfNotPresent
         resources:
           limits:
@@ -5215,7 +5215,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   namespace: istio-system
-  name: istio-init-crd-14-1.4.3
+  name: istio-init-crd-14-1.4.6
 spec:
   template:
     metadata:
@@ -5225,7 +5225,7 @@ spec:
       serviceAccountName: istio-init-service-account
       containers:
       - name: istio-init-crd-14
-        image: "docker.io/istio/kubectl:1.4.3"
+        image: "docker.io/istio/kubectl:1.4.6"
         imagePullPolicy: IfNotPresent
         resources:
           limits:
