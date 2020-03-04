@@ -13,3 +13,4 @@ Creating a Sandbox environment
 
    minikube
    microk8s
+   k3s
