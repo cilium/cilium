@@ -4,7 +4,13 @@
 #ifndef __LIB_OVERLOADABLE_H_
 #define __LIB_OVERLOADABLE_H_
 
-#include "lib/overloadable_skb.h"
-#include "lib/overloadable_xdp.h"
+#include <bpf/ctx/ctx.h>
+#include <bpf/api.h>
+
+#if __ctx_is == __ctx_skb
+# include "lib/overloadable_skb.h"
+#else
+# include "lib/overloadable_xdp.h"
+#endif
 
 #endif /* __LIB_OVERLOADABLE_H_ */

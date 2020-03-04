@@ -16,7 +16,8 @@
 #define CTX_ACT_DROP			XDP_DROP
 #define CTX_ACT_TX			XDP_TX	/* hairpin only */
 
-#define META_PIVOT			field_sizeof(struct __sk_buff, cb)
+#define META_PIVOT			((int)(field_sizeof(struct __sk_buff, cb) + \
+					       sizeof(__u32))) /* cb + RECIRC_MARKER */
 
 static __always_inline __maybe_unused __overloadable int
 xdp_load_bytes(struct xdp_md *ctx, __u64 off, void *to, const __u64 len)

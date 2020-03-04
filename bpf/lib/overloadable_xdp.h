@@ -50,4 +50,32 @@ redirect_self(struct xdp_md *ctx)
 #endif
 }
 
+#define RECIRC_MARKER	5
+
+static __always_inline __maybe_unused __overloadable void
+ctx_skip_nodeport_clear(struct xdp_md *ctx)
+{
+#ifdef ENABLE_NODEPORT
+	ctx_store_meta(ctx, RECIRC_MARKER, 0);
+#endif
+}
+
+static __always_inline __maybe_unused __overloadable void
+ctx_skip_nodeport_set(struct xdp_md *ctx)
+{
+#ifdef ENABLE_NODEPORT
+	ctx_store_meta(ctx, RECIRC_MARKER, 1);
+#endif
+}
+
+static __always_inline __maybe_unused __overloadable bool
+ctx_skip_nodeport(struct xdp_md *ctx)
+{
+#ifdef ENABLE_NODEPORT
+	return ctx_load_meta(ctx, RECIRC_MARKER);
+#else
+        return true;
+#endif
+}
+
 #endif /* __LIB_OVERLOADABLE_XDP_H_ */
