@@ -216,7 +216,7 @@ configuration options for each minor version.
    DaemonSet, Deployment and RBAC definitions.
 
 Step 3: Rolling Back
-====================
+--------------------
 
 Occasionally, it may be necessary to undo the rollout because a step was missed
 or something went wrong during upgrade. To undo the rollout run:
