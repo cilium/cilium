@@ -38,6 +38,6 @@ Annotation                          Description
 ``io.cilium.network.ipv6-pod-cidr`` IPv6 PodCIDR range
 =================================== ============================================================
 
-.. note:: The annotation-based mechanism is primiarly useful in combination with
+.. note:: The annotation-based mechanism is primarily useful in combination with
 	  older Kubernetes versions which do not support ``Spec.PodCIDRs`` yet
 	  but support for both IPv4 and IPv6 is enabled.
