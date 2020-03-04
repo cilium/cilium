@@ -167,6 +167,9 @@ func init() {
 
 	flags.DurationVar(&cnpStatusUpdateInterval, "cnp-status-update-interval", 1*time.Second, "interval between CNP status updates sent to the k8s-apiserver per-CNP")
 
+	flags.Duration(option.K8sHeartbeatTimeout, 30*time.Second, "Configures the timeout for api-server heartbeat, set to 0 to disable")
+	option.BindEnv(option.K8sHeartbeatTimeout)
+
 	flags.StringVar(&cmdRefDir, "cmdref", "", "Path to cmdref output directory")
 	flags.MarkHidden("cmdref")
 	viper.BindPFlags(flags)

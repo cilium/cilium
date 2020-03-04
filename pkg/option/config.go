@@ -673,6 +673,9 @@ const (
 
 	// EnableRemoteNodeIdentity enables use of the remote-node identity
 	EnableRemoteNodeIdentity = "enable-remote-node-identity"
+
+	// K8sHeartbeatTimeout configures the timeout for apiserver heartbeat
+	K8sHeartbeatTimeout = "k8s-heartbeat-timeout"
 )
 
 // Default string arguments
@@ -1357,6 +1360,9 @@ type DaemonConfig struct {
 
 	// EnableRemoteNodeIdentity enables use of the remote-node identity
 	EnableRemoteNodeIdentity bool
+
+	// K8sHeartbeatTimeout configures the timeout for apiserver heartbeat
+	K8sHeartbeatTimeout time.Duration
 }
 
 var (
@@ -1698,6 +1704,7 @@ func (c *DaemonConfig) Populate() {
 	c.EgressMasqueradeInterfaces = viper.GetString(EgressMasqueradeInterfaces)
 	c.EnableHostReachableServices = viper.GetBool(EnableHostReachableServices)
 	c.EnableRemoteNodeIdentity = viper.GetBool(EnableRemoteNodeIdentity)
+	c.K8sHeartbeatTimeout = viper.GetDuration(K8sHeartbeatTimeout)
 	c.DockerEndpoint = viper.GetString(Docker)
 	c.EnableXTSocketFallback = viper.GetBool(EnableXTSocketFallbackName)
 	c.EnableAutoDirectRouting = viper.GetBool(EnableAutoDirectRoutingName)
