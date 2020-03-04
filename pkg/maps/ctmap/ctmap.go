@@ -54,7 +54,7 @@ var (
 		metrics.LabelDatapathFamily: "ipv4",
 	}
 
-	mapInfo = make(map[mapType]mapAttributes)
+	mapInfo map[mapType]mapAttributes
 )
 
 const (
@@ -130,7 +130,7 @@ func setupMapInfo(m mapType, define string, mapKey bpf.MapKey, keySize int, maxE
 // combination of L3/L4 protocols, using the specified limits on TCP vs non-TCP
 // maps.
 func InitMapInfo(tcpMaxEntries, anyMaxEntries int, v4, v6 bool) {
-	mapInfo = make(map[mapType]mapAttributes)
+	mapInfo = make(map[mapType]mapAttributes, mapTypeMax)
 
 	global4Map, global6Map := nat.GlobalMaps(v4, v6)
 
