@@ -167,7 +167,7 @@ Kubernetes resources are updated accordingly to version you are upgrading to:
 .. note::
 
    Make sure that you are using the same options as for the initial deployment.
-   Instead of using ``--set``, you can also modify the ``values.yaml` in
+   Instead of using ``--set``, you can also modify the ``values.yaml`` in
    ``install/kubernetes/cilium/values.yaml`` and use it to regenerate the YAML
    for the latest version.
 
