@@ -29,6 +29,10 @@ assignees: ''
   - [operator](https://hub.docker.com/repository/docker/cilium/operator/builds/edit)
   - [docker-plugin](https://hub.docker.com/repository/docker/cilium/docker-plugin/builds/edit)
 - [ ] Create and push *both* tags to GitHub (`vX.Y.Z`, `X.Y.Z`)
+- [ ] Wait for docker builds to complete
+  - [cilium](https://hub.docker.com/repository/docker/cilium/cilium/builds)
+  - [operator](https://hub.docker.com/repository/docker/cilium/operator/builds)
+  - [docker-plugin](https://hub.docker.com/repository/docker/cilium/docker-plugin/builds)
 - [ ] Create helm charts artifacts in [Cilium charts] repository
 - [ ] [Create a release] for the new tag `vX.Y.Z`, using the release notes
       from above
