@@ -14,5 +14,5 @@ Please ensure your pull request adheres to the following guidelines:
 Fixes: #issue-number
 
 ```release-note
-<!-- Enter the release note text here if needed or remove this section! -->
+<!-- Enter the release note text here if needed or remove this section and use `release-note/misc` label! -->
 ```
