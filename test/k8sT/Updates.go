@@ -88,10 +88,10 @@ var _ = Describe("K8sUpdates", func() {
 	})
 
 	AfterAll(func() {
-		ciliumFilename := helpers.TimestampFilename("cilium.yaml")
-		err := kubectl.CiliumInstall(ciliumFilename, map[string]string{})
-		Expect(err).To(BeNil(), "Cilium cannot be installed")
-		ExpectCiliumReady(kubectl)
+		//ciliumFilename := helpers.TimestampFilename("cilium.yaml")
+		//err := kubectl.CiliumInstall(ciliumFilename, map[string]string{})
+		//Expect(err).To(BeNil(), "Cilium cannot be installed")
+		//ExpectCiliumReady(kubectl)
 
 		kubectl.CloseSSHClient()
 	})
