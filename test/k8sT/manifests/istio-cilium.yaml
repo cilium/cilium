@@ -52,7 +52,7 @@ metadata:
     chart: mixer
     heritage: Helm
     release: istio
-    version: 1.4.3
+    version: 1.4.6
     istio: mixer
     istio-mixer-type: policy
 spec:
@@ -76,7 +76,7 @@ metadata:
     chart: mixer
     heritage: Helm
     release: istio
-    version: 1.4.3
+    version: 1.4.6
     istio: mixer
     istio-mixer-type: telemetry
 spec:
@@ -130,6 +130,97 @@ spec:
       app: security
       release: istio
       istio: citadel
+---
+# Source: istio/charts/galley/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-galley-service-account
+  namespace: istio-system
+  labels:
+    app: galley
+    chart: galley
+    heritage: Helm
+    release: istio
+---
+# Source: istio/charts/gateways/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ingressgateway-service-account
+  namespace: istio-system
+  labels:
+    app: istio-ingressgateway
+    chart: gateways
+    heritage: Helm
+    release: istio
+---
+# Source: istio/charts/mixer/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-mixer-service-account
+  namespace: istio-system
+  labels:
+    app: mixer
+    chart: mixer
+    heritage: Helm
+    release: istio
+---
+# Source: istio/charts/pilot/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-pilot-service-account
+  namespace: istio-system
+  labels:
+    app: pilot
+    chart: pilot
+    heritage: Helm
+    release: istio
+---
+# Source: istio/charts/prometheus/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: istio-system
+  labels:
+    app: prometheus
+    chart: prometheus
+    heritage: Helm
+    release: istio
+---
+# Source: istio/charts/security/templates/create-custom-resources-job.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-security-post-install-account
+  namespace: istio-system
+  labels:
+    app: security
+    chart: security
+    heritage: Helm
+    release: istio
+---
+# Source: istio/charts/security/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-citadel-service-account
+  namespace: istio-system
+  labels:
+    app: security
+    chart: security
+    heritage: Helm
+    release: istio
+---
+# Source: istio/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-multi
+  namespace: istio-system
 ---
 # Source: istio/charts/galley/templates/configmap.yaml
 apiVersion: v1
@@ -831,7 +922,7 @@ metadata:
     istio: sidecar-injector
 data:
   values: |-
-    {"certmanager":{"enabled":false,"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.3","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"proxyv2"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.3","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"hub":"quay.io/jetstack","image":"cert-manager-controller","nodeSelector":{},"podAnnotations":{},"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"replicaCount":1,"resources":{},"tag":"v0.8.1","tolerations":[]},"egressgateway":{"enabled":false},"galley":{"enableAnalysis":false,"enableServiceDiscovery":false,"enabled":true,"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.3","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"proxyv2"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.3","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"image":"galley","nodeSelector":{},"podAnnotations":{},"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"replicaCount":1,"rollingMaxSurge":"100%","rollingMaxUnavailable":"25%","tolerations":[]},"gateways":{"enabled":true,"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.3","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"proxyv2"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.3","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"istio-egressgateway":{"autoscaleEnabled":true,"autoscaleMax":5,"autoscaleMin":1,"cpu":{"targetAverageUtilization":80},"enabled":false,"env":{"ISTIO_META_ROUTER_MODE":"sni-dnat"},"labels":{"app":"istio-egressgateway","istio":"egressgateway"},"nodeSelector":{},"podAnnotations":{},"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"ports":[{"name":"http2","port":80},{"name":"https","port":443},{"name":"tls","port":15443,"targetPort":15443}],"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"rollingMaxSurge":"100%","rollingMaxUnavailable":"25%","secretVolumes":[{"mountPath":"/etc/istio/egressgateway-certs","name":"egressgateway-certs","secretName":"istio-egressgateway-certs"},{"mountPath":"/etc/istio/egressgateway-ca-certs","name":"egressgateway-ca-certs","secretName":"istio-egressgateway-ca-certs"}],"serviceAnnotations":{},"tolerations":[],"type":"ClusterIP"},"istio-ilbgateway":{"autoscaleEnabled":true,"autoscaleMax":5,"autoscaleMin":1,"cpu":{"targetAverageUtilization":80},"enabled":false,"labels":{"app":"istio-ilbgateway","istio":"ilbgateway"},"loadBalancerIP":"","nodeSelector":{},"podAnnotations":{},"ports":[{"name":"grpc-pilot-mtls","port":15011},{"name":"grpc-pilot","port":15010},{"name":"tcp-citadel-grpc-tls","port":8060,"targetPort":8060},{"name":"tcp-dns","port":5353}],"resources":{"requests":{"cpu":"800m","memory":"512Mi"}},"rollingMaxSurge":"100%","rollingMaxUnavailable":"25%","secretVolumes":[{"mountPath":"/etc/istio/ilbgateway-certs","name":"ilbgateway-certs","secretName":"istio-ilbgateway-certs"},{"mountPath":"/etc/istio/ilbgateway-ca-certs","name":"ilbgateway-ca-certs","secretName":"istio-ilbgateway-ca-certs"}],"serviceAnnotations":{"cloud.google.com/load-balancer-type":"internal"},"tolerations":[],"type":"LoadBalancer"},"istio-ingressgateway":{"applicationPorts":"","autoscaleEnabled":true,"autoscaleMax":5,"autoscaleMin":1,"cpu":{"targetAverageUtilization":80},"enabled":true,"env":{"ISTIO_META_ROUTER_MODE":"sni-dnat"},"externalIPs":[],"labels":{"app":"istio-ingressgateway","istio":"ingressgateway"},"loadBalancerIP":"","loadBalancerSourceRanges":[],"meshExpansionPorts":[{"name":"tcp-pilot-grpc-tls","port":15011,"targetPort":15011},{"name":"tcp-mixer-grpc-tls","port":15004,"targetPort":15004},{"name":"tcp-citadel-grpc-tls","port":8060,"targetPort":8060},{"name":"tcp-dns-tls","port":853,"targetPort":853}],"nodeSelector":{},"podAnnotations":{},"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"ports":[{"name":"status-port","port":15020,"targetPort":15020},{"name":"http2","nodePort":31380,"port":80,"targetPort":80},{"name":"https","nodePort":31390,"port":443},{"name":"tcp","nodePort":31400,"port":31400},{"name":"https-kiali","port":15029,"targetPort":15029},{"name":"https-prometheus","port":15030,"targetPort":15030},{"name":"https-grafana","port":15031,"targetPort":15031},{"name":"https-tracing","port":15032,"targetPort":15032},{"name":"tls","port":15443,"targetPort":15443}],"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"rollingMaxSurge":"100%","rollingMaxUnavailable":"25%","sds":{"enabled":false,"image":"node-agent-k8s","resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}}},"secretVolumes":[{"mountPath":"/etc/istio/ingressgateway-certs","name":"ingressgateway-certs","secretName":"istio-ingressgateway-certs"},{"mountPath":"/etc/istio/ingressgateway-ca-certs","name":"ingressgateway-ca-certs","secretName":"istio-ingressgateway-ca-certs"}],"serviceAnnotations":{},"tolerations":[],"type":"LoadBalancer"}},"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.3","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"proxyv2"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.3","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"grafana":{"accessMode":"ReadWriteMany","contextPath":"/grafana","dashboardProviders":{"dashboardproviders.yaml":{"apiVersion":1,"providers":[{"disableDeletion":false,"folder":"istio","name":"istio","options":{"path":"/var/lib/grafana/dashboards/istio"},"orgId":1,"type":"file"}]}},"datasources":{"datasources.yaml":{"apiVersion":1,"datasources":[{"access":"proxy","editable":true,"isDefault":true,"jsonData":{"timeInterval":"5s"},"name":"Prometheus","orgId":1,"type":"prometheus","url":"http://prometheus:9090"}]}},"enabled":false,"env":{},"envSecrets":{},"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.3","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"proxyv2"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.3","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"image":{"repository":"grafana/grafana","tag":"6.4.3"},"ingress":{"annotations":{},"enabled":false,"hosts":["grafana.local"],"tls":[]},"nodeSelector":{},"persist":false,"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"replicaCount":1,"security":{"enabled":false,"passphraseKey":"passphrase","secretName":"grafana","usernameKey":"username"},"service":{"annotations":{},"externalPort":3000,"loadBalancerIP":null,"loadBalancerSourceRanges":[],"name":"http","type":"ClusterIP"},"storageClassName":"","tolerations":[]},"ingress":{"enabled":false},"istio_cni":{"enabled":false},"istiocoredns":{"coreDNSImage":"coredns/coredns","coreDNSPluginImage":"istio/coredns-plugin:0.2-istio-1.1","coreDNSTag":"1.6.2","enabled":false,"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.3","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"proxyv2"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.3","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"nodeSelector":{},"podAnnotations":{},"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"replicaCount":1,"rollingMaxSurge":"100%","rollingMaxUnavailable":"25%","tolerations":[]},"kiali":{"contextPath":"/kiali","createDemoSecret":false,"dashboard":{"auth":{"strategy":"login"},"grafanaURL":null,"jaegerURL":null,"secretName":"kiali","viewOnlyMode":false},"enabled":false,"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.3","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"proxyv2"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.3","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"hub":"quay.io/kiali","image":"kiali","ingress":{"annotations":{},"enabled":false,"hosts":["kiali.local"],"tls":null},"nodeSelector":{},"podAnnotations":{},"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"prometheusAddr":"http://prometheus:9090","replicaCount":1,"security":{"cert_file":"/kiali-cert/cert-chain.pem","enabled":false,"private_key_file":"/kiali-cert/key.pem"},"tag":"v1.9","tolerations":[]},"mixer":{"adapters":{"kubernetesenv":{"enabled":true},"prometheus":{"enabled":true,"metricsExpiryDuration":"10m"},"stdio":{"enabled":false,"outputAsJson":true},"useAdapterCRDs":false},"env":{"GOMAXPROCS":"6"},"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.3","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"proxyv2"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.3","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"image":"mixer","nodeSelector":{},"podAnnotations":{},"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"policy":{"autoscaleEnabled":true,"autoscaleMax":5,"autoscaleMin":1,"cpu":{"targetAverageUtilization":80},"enabled":true,"replicaCount":1,"rollingMaxSurge":"100%","rollingMaxUnavailable":"25%"},"telemetry":{"autoscaleEnabled":true,"autoscaleMax":5,"autoscaleMin":1,"cpu":{"targetAverageUtilization":80},"enabled":true,"loadshedding":{"latencyThreshold":"100ms","mode":"enforce"},"replicaCount":1,"reportBatchMaxEntries":100,"reportBatchMaxTime":"1s","resources":{"limits":{"cpu":"4800m","memory":"4G"},"requests":{"cpu":"1000m","memory":"1G"}},"rollingMaxSurge":"100%","rollingMaxUnavailable":"25%","sessionAffinityEnabled":false},"tolerations":[]},"nodeagent":{"enabled":false,"env":{"CA_ADDR":"","CA_PROVIDER":"","PLUGINS":""},"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.3","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"proxyv2"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.3","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"image":"node-agent-k8s","nodeSelector":{},"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"tolerations":[]},"pilot":{"autoscaleEnabled":true,"autoscaleMax":5,"autoscaleMin":1,"configSource":{"subscribedResources":null},"cpu":{"targetAverageUtilization":80},"enableProtocolSniffingForInbound":false,"enableProtocolSniffingForOutbound":true,"enabled":true,"env":{"PILOT_PUSH_THROTTLE":100},"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.3","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"proxyv2"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.3","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"image":"docker.io/cilium/istio_pilot:1.4.3","keepaliveMaxServerConnectionAge":"30m","nodeSelector":{},"podAnnotations":{},"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"resources":{"requests":{"cpu":"500m","memory":"2048Mi"}},"rollingMaxSurge":"100%","rollingMaxUnavailable":"25%","sidecar":true,"tolerations":[],"traceSampling":1},"prometheus":{"contextPath":"/prometheus","enabled":true,"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.3","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"proxyv2"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.3","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"hub":"docker.io/prom","image":"prometheus","ingress":{"annotations":null,"enabled":false,"hosts":["prometheus.local"],"tls":null},"nodeSelector":{},"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"replicaCount":1,"retention":"6h","scrapeInterval":"15s","security":{"enabled":true},"service":{"annotations":{},"nodePort":{"enabled":false,"port":32090}},"tag":"v2.12.0","tolerations":[]},"security":{"citadelHealthCheck":false,"createMeshPolicy":true,"enableNamespacesByDefault":true,"enabled":true,"env":{},"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.3","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"proxyv2"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.3","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"image":"citadel","nodeSelector":{},"podAnnotations":{},"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"replicaCount":1,"rollingMaxSurge":"100%","rollingMaxUnavailable":"25%","selfSigned":true,"tolerations":[],"workloadCertTtl":"2160h"},"sidecarInjectorWebhook":{"enabled":false},"tracing":{"enabled":false,"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.3","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"proxyv2"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.3","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"ingress":{"annotations":null,"enabled":false,"hosts":null,"tls":null},"jaeger":{"accessMode":"ReadWriteMany","hub":"docker.io/jaegertracing","image":"all-in-one","memory":{"max_traces":50000},"persist":false,"podAnnotations":{},"spanStorageType":"badger","storageClassName":"","tag":1.14},"nodeSelector":{},"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"provider":"jaeger","service":{"annotations":{},"externalPort":80,"name":"http","type":"ClusterIP"},"tolerations":[],"zipkin":{"hub":"docker.io/openzipkin","image":"zipkin","javaOptsHeap":700,"maxSpans":500000,"node":{"cpus":2},"podAnnotations":{},"probeStartupDelay":200,"queryPort":9411,"resources":{"limits":{"cpu":"300m","memory":"900Mi"},"requests":{"cpu":"150m","memory":"900Mi"}},"tag":"2.14.2"}}}
+    {"certmanager":{"enabled":false,"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.6","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"docker.io/cilium/istio_proxy:1.4.6"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.6","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"hub":"quay.io/jetstack","image":"cert-manager-controller","nodeSelector":{},"podAnnotations":{},"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"replicaCount":1,"resources":{},"tag":"v0.8.1","tolerations":[]},"egressgateway":{"enabled":false},"galley":{"enableAnalysis":false,"enableServiceDiscovery":false,"enabled":true,"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.6","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"docker.io/cilium/istio_proxy:1.4.6"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.6","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"image":"galley","nodeSelector":{},"podAnnotations":{},"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"replicaCount":1,"rollingMaxSurge":"100%","rollingMaxUnavailable":"25%","tolerations":[]},"gateways":{"enabled":true,"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.6","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"docker.io/cilium/istio_proxy:1.4.6"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.6","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"istio-egressgateway":{"autoscaleEnabled":true,"autoscaleMax":5,"autoscaleMin":1,"cpu":{"targetAverageUtilization":80},"enabled":false,"env":{"ISTIO_META_ROUTER_MODE":"sni-dnat"},"labels":{"app":"istio-egressgateway","istio":"egressgateway"},"nodeSelector":{},"podAnnotations":{},"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"ports":[{"name":"http2","port":80},{"name":"https","port":443},{"name":"tls","port":15443,"targetPort":15443}],"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"rollingMaxSurge":"100%","rollingMaxUnavailable":"25%","secretVolumes":[{"mountPath":"/etc/istio/egressgateway-certs","name":"egressgateway-certs","secretName":"istio-egressgateway-certs"},{"mountPath":"/etc/istio/egressgateway-ca-certs","name":"egressgateway-ca-certs","secretName":"istio-egressgateway-ca-certs"}],"serviceAnnotations":{},"tolerations":[],"type":"ClusterIP"},"istio-ilbgateway":{"autoscaleEnabled":true,"autoscaleMax":5,"autoscaleMin":1,"cpu":{"targetAverageUtilization":80},"enabled":false,"labels":{"app":"istio-ilbgateway","istio":"ilbgateway"},"loadBalancerIP":"","nodeSelector":{},"podAnnotations":{},"ports":[{"name":"grpc-pilot-mtls","port":15011},{"name":"grpc-pilot","port":15010},{"name":"tcp-citadel-grpc-tls","port":8060,"targetPort":8060},{"name":"tcp-dns","port":5353}],"resources":{"requests":{"cpu":"800m","memory":"512Mi"}},"rollingMaxSurge":"100%","rollingMaxUnavailable":"25%","secretVolumes":[{"mountPath":"/etc/istio/ilbgateway-certs","name":"ilbgateway-certs","secretName":"istio-ilbgateway-certs"},{"mountPath":"/etc/istio/ilbgateway-ca-certs","name":"ilbgateway-ca-certs","secretName":"istio-ilbgateway-ca-certs"}],"serviceAnnotations":{"cloud.google.com/load-balancer-type":"internal"},"tolerations":[],"type":"LoadBalancer"},"istio-ingressgateway":{"applicationPorts":"","autoscaleEnabled":true,"autoscaleMax":5,"autoscaleMin":1,"cpu":{"targetAverageUtilization":80},"enabled":true,"env":{"ISTIO_META_ROUTER_MODE":"sni-dnat"},"externalIPs":[],"labels":{"app":"istio-ingressgateway","istio":"ingressgateway"},"loadBalancerIP":"","loadBalancerSourceRanges":[],"meshExpansionPorts":[{"name":"tcp-pilot-grpc-tls","port":15011,"targetPort":15011},{"name":"tcp-mixer-grpc-tls","port":15004,"targetPort":15004},{"name":"tcp-citadel-grpc-tls","port":8060,"targetPort":8060},{"name":"tcp-dns-tls","port":853,"targetPort":853}],"nodeSelector":{},"podAnnotations":{},"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"ports":[{"name":"status-port","port":15020,"targetPort":15020},{"name":"http2","nodePort":31380,"port":80,"targetPort":80},{"name":"https","nodePort":31390,"port":443},{"name":"tcp","nodePort":31400,"port":31400},{"name":"https-kiali","port":15029,"targetPort":15029},{"name":"https-prometheus","port":15030,"targetPort":15030},{"name":"https-grafana","port":15031,"targetPort":15031},{"name":"https-tracing","port":15032,"targetPort":15032},{"name":"tls","port":15443,"targetPort":15443}],"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"rollingMaxSurge":"100%","rollingMaxUnavailable":"25%","sds":{"enabled":false,"image":"node-agent-k8s","resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}}},"secretVolumes":[{"mountPath":"/etc/istio/ingressgateway-certs","name":"ingressgateway-certs","secretName":"istio-ingressgateway-certs"},{"mountPath":"/etc/istio/ingressgateway-ca-certs","name":"ingressgateway-ca-certs","secretName":"istio-ingressgateway-ca-certs"}],"serviceAnnotations":{},"tolerations":[],"type":"LoadBalancer"}},"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.6","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"docker.io/cilium/istio_proxy:1.4.6"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.6","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"grafana":{"accessMode":"ReadWriteMany","contextPath":"/grafana","dashboardProviders":{"dashboardproviders.yaml":{"apiVersion":1,"providers":[{"disableDeletion":false,"folder":"istio","name":"istio","options":{"path":"/var/lib/grafana/dashboards/istio"},"orgId":1,"type":"file"}]}},"datasources":{"datasources.yaml":{"apiVersion":1,"datasources":[{"access":"proxy","editable":true,"isDefault":true,"jsonData":{"timeInterval":"5s"},"name":"Prometheus","orgId":1,"type":"prometheus","url":"http://prometheus:9090"}]}},"enabled":false,"env":{},"envSecrets":{},"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.6","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"docker.io/cilium/istio_proxy:1.4.6"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.6","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"image":{"repository":"grafana/grafana","tag":"6.4.3"},"ingress":{"annotations":{},"enabled":false,"hosts":["grafana.local"],"tls":[]},"nodeSelector":{},"persist":false,"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"replicaCount":1,"security":{"enabled":false,"passphraseKey":"passphrase","secretName":"grafana","usernameKey":"username"},"service":{"annotations":{},"externalPort":3000,"loadBalancerIP":null,"loadBalancerSourceRanges":[],"name":"http","type":"ClusterIP"},"storageClassName":"","tolerations":[]},"ingress":{"enabled":false},"istio_cni":{"enabled":false,"repair":{"enabled":true}},"istiocoredns":{"coreDNSImage":"coredns/coredns","coreDNSPluginImage":"istio/coredns-plugin:0.2-istio-1.1","coreDNSTag":"1.6.2","enabled":false,"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.6","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"docker.io/cilium/istio_proxy:1.4.6"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.6","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"nodeSelector":{},"podAnnotations":{},"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"replicaCount":1,"rollingMaxSurge":"100%","rollingMaxUnavailable":"25%","tolerations":[]},"kiali":{"contextPath":"/kiali","createDemoSecret":false,"dashboard":{"auth":{"strategy":"login"},"grafanaURL":null,"jaegerURL":null,"secretName":"kiali","viewOnlyMode":false},"enabled":false,"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.6","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"docker.io/cilium/istio_proxy:1.4.6"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.6","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"hub":"quay.io/kiali","image":"kiali","ingress":{"annotations":{},"enabled":false,"hosts":["kiali.local"],"tls":null},"nodeSelector":{},"podAnnotations":{},"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"prometheusAddr":"http://prometheus:9090","replicaCount":1,"security":{"cert_file":"/kiali-cert/cert-chain.pem","enabled":false,"private_key_file":"/kiali-cert/key.pem"},"tag":"v1.9","tolerations":[]},"mixer":{"adapters":{"kubernetesenv":{"enabled":true},"prometheus":{"enabled":true,"metricsExpiryDuration":"10m"},"stdio":{"enabled":false,"outputAsJson":true},"useAdapterCRDs":false},"env":{"GOMAXPROCS":"6"},"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.6","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"docker.io/cilium/istio_proxy:1.4.6"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.6","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"image":"mixer","nodeSelector":{},"podAnnotations":{},"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"policy":{"autoscaleEnabled":true,"autoscaleMax":5,"autoscaleMin":1,"cpu":{"targetAverageUtilization":80},"enabled":true,"replicaCount":1,"rollingMaxSurge":"100%","rollingMaxUnavailable":"25%"},"telemetry":{"autoscaleEnabled":true,"autoscaleMax":5,"autoscaleMin":1,"cpu":{"targetAverageUtilization":80},"enabled":true,"loadshedding":{"latencyThreshold":"100ms","mode":"enforce"},"replicaCount":1,"reportBatchMaxEntries":100,"reportBatchMaxTime":"1s","resources":{"limits":{"cpu":"4800m","memory":"4G"},"requests":{"cpu":"1000m","memory":"1G"}},"rollingMaxSurge":"100%","rollingMaxUnavailable":"25%","sessionAffinityEnabled":false},"tolerations":[]},"nodeagent":{"enabled":false,"env":{"CA_ADDR":"","CA_PROVIDER":"","PLUGINS":""},"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.6","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"docker.io/cilium/istio_proxy:1.4.6"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.6","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"image":"node-agent-k8s","nodeSelector":{},"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"tolerations":[]},"pilot":{"autoscaleEnabled":true,"autoscaleMax":5,"autoscaleMin":1,"configSource":{"subscribedResources":null},"cpu":{"targetAverageUtilization":80},"enableProtocolSniffingForInbound":false,"enableProtocolSniffingForOutbound":true,"enabled":true,"env":{"PILOT_PUSH_THROTTLE":100},"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.6","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"docker.io/cilium/istio_proxy:1.4.6"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.6","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"image":"docker.io/cilium/istio_pilot:1.4.6","keepaliveMaxServerConnectionAge":"30m","nodeSelector":{},"podAnnotations":{},"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"resources":{"requests":{"cpu":"500m","memory":"2048Mi"}},"rollingMaxSurge":"100%","rollingMaxUnavailable":"25%","sidecar":true,"tolerations":[],"traceSampling":1},"prometheus":{"contextPath":"/prometheus","enabled":true,"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.6","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"docker.io/cilium/istio_proxy:1.4.6"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.6","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"hub":"docker.io/prom","image":"prometheus","ingress":{"annotations":null,"enabled":false,"hosts":["prometheus.local"],"tls":null},"nodeSelector":{},"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"replicaCount":1,"retention":"6h","scrapeInterval":"15s","security":{"enabled":true},"service":{"annotations":{},"nodePort":{"enabled":false,"port":32090}},"tag":"v2.12.0","tolerations":[]},"security":{"citadelHealthCheck":false,"createMeshPolicy":true,"enableNamespacesByDefault":true,"enabled":true,"env":{},"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.6","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"docker.io/cilium/istio_proxy:1.4.6"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.6","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"image":"citadel","nodeSelector":{},"podAnnotations":{},"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"replicaCount":1,"rollingMaxSurge":"100%","rollingMaxUnavailable":"25%","selfSigned":true,"tolerations":[],"workloadCertTtl":"2160h"},"sidecarInjectorWebhook":{"enabled":false},"tracing":{"enabled":false,"global":{"arch":{"amd64":2,"ppc64le":2,"s390x":2},"certificates":[],"configValidation":true,"controlPlaneSecurityEnabled":true,"defaultNodeSelector":{},"defaultPodDisruptionBudget":{"enabled":true},"defaultResources":{"requests":{"cpu":"10m"}},"defaultTolerations":[],"disablePolicyChecks":true,"enableHelmTest":false,"enableTracing":true,"hub":"docker.io/istio","imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"k8sIngress":{"enableHttps":false,"enabled":false,"gatewayName":"ingressgateway"},"localityLbSetting":{"enabled":true},"logging":{"level":"default:info"},"meshExpansion":{"enabled":false,"useILB":false},"meshID":"","meshNetworks":{},"monitoringPort":15014,"mtls":{"auto":false,"enabled":true},"multiCluster":{"clusterName":"","enabled":false},"network":"","oneNamespace":false,"operatorManageWebhooks":false,"outboundTrafficPolicy":{"mode":"ALLOW_ANY"},"policyCheckFailOpen":false,"priorityClassName":"","proxy":{"accessLogEncoding":"TEXT","accessLogFile":"","accessLogFormat":"","autoInject":"enabled","clusterDomain":"cluster.local","componentLogLevel":"","concurrency":2,"dnsRefreshRate":"300s","enableCoreDump":false,"enableCoreDumpImage":"ubuntu:xenial","envoyAccessLogService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyMetricsService":{"enabled":false,"host":null,"port":null,"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"},"tlsSettings":{"caCertificates":null,"clientCertificate":null,"mode":"DISABLE","privateKey":null,"sni":null,"subjectAltNames":[]}},"envoyStatsd":{"enabled":false,"host":null,"port":null},"excludeIPRanges":"","excludeInboundPorts":"","excludeOutboundPorts":"","image":"docker.io/cilium/istio_proxy:1.4.6","includeIPRanges":"*","includeInboundPorts":"*","init":{"resources":{"limits":{"cpu":"100m","memory":"50Mi"},"requests":{"cpu":"10m","memory":"10Mi"}}},"kubevirtInterfaces":"","logLevel":"","privileged":false,"protocolDetectionTimeout":"100ms","readinessFailureThreshold":30,"readinessInitialDelaySeconds":1,"readinessPeriodSeconds":2,"resources":{"limits":{"cpu":"2000m","memory":"1024Mi"},"requests":{"cpu":"100m","memory":"128Mi"}},"statusPort":15020,"tracer":"zipkin"},"proxy_init":{"image":"docker.io/cilium/istio_proxy:1.4.6"},"sds":{"enabled":false,"token":{"aud":"istio-ca"},"udsPath":""},"tag":"1.4.6","tracer":{"datadog":{"address":"$(HOST_IP):8126"},"lightstep":{"accessToken":"","address":"","cacertPath":"","secure":true},"stackdriver":{"debug":false,"maxNumberOfAnnotations":200,"maxNumberOfAttributes":200,"maxNumberOfMessageEvents":200},"zipkin":{"address":""}},"trustDomain":"","trustDomainAliases":[],"useMCP":true},"ingress":{"annotations":null,"enabled":false,"hosts":null,"tls":null},"jaeger":{"accessMode":"ReadWriteMany","hub":"docker.io/jaegertracing","image":"all-in-one","memory":{"max_traces":50000},"persist":false,"podAnnotations":{},"spanStorageType":"badger","storageClassName":"","tag":1.14},"nodeSelector":{},"podAntiAffinityLabelSelector":[],"podAntiAffinityTermLabelSelector":[],"provider":"jaeger","service":{"annotations":{},"externalPort":80,"name":"http","type":"ClusterIP"},"tolerations":[],"zipkin":{"hub":"docker.io/openzipkin","image":"zipkin","javaOptsHeap":700,"maxSpans":500000,"node":{"cpus":2},"podAnnotations":{},"probeStartupDelay":200,"queryPort":9411,"resources":{"limits":{"cpu":"300m","memory":"900Mi"},"requests":{"cpu":"150m","memory":"900Mi"}},"tag":"2.14.2"}}}
 
   config: |-
     policy: enabled
@@ -840,23 +931,33 @@ data:
     neverInjectSelector:
       null
     template: |-
+      {{- $cniDisabled := (not .Values.istio_cni.enabled) }}
+      {{- $cniRepairEnabled := (and .Values.istio_cni.enabled .Values.istio_cni.repair.enabled) }}
+      {{- $enableInitContainer := (or $cniDisabled $cniRepairEnabled .Values.global.proxy.enableCoreDump) }}
       rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
-      {{- if or (not .Values.istio_cni.enabled) .Values.global.proxy.enableCoreDump }}
+      {{- if $enableInitContainer }}
       initContainers:
       - name: sleep
         image: busybox:1.28.4
         imagePullPolicy: IfNotPresent
         command: ['sh', '-c', 'max=120; i=0; until nslookup kube-dns.kube-system.svc.cluster.local; do i=$((i + 1)); if [ $i -eq $max ]; then echo timed-out; exit 1; else sleep 1; fi done ']
-      {{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
-      {{- if not .Values.istio_cni.enabled }}
+      {{- if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
+      {{ if $cniRepairEnabled -}}
+      - name: istio-validation
+      {{ else -}}
       - name: istio-init
+      {{ end -}}
       {{- if contains "/" .Values.global.proxy_init.image }}
         image: "{{ .Values.global.proxy_init.image }}"
       {{- else }}
         image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
       {{- end }}
         command:
+      {{- if $cniRepairEnabled }}
+        - istio-iptables-go
+      {{- else }}
         - istio-iptables
+      {{- end }}
         - "-p"
         - "15001"
         - "-z"
@@ -873,7 +974,7 @@ data:
         - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` `*` }}"
         - "-d"
         - "{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
-        {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne .Values.global.proxy.excludeOutboundPorts "") -}}
+        {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundPorts`) (ne (valueOrDefault .Values.global.proxy.excludeOutboundPorts "") "") -}}
         - "-o"
         - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}"
         {{ end -}}
@@ -881,7 +982,11 @@ data:
         - "-k"
         - "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
         {{ end -}}
-        imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
+      {{ if $cniRepairEnabled -}}
+        - "--run-validation"
+        - "--skip-rule-apply"
+      {{- end }}
+        imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
       {{- if .Values.global.proxy.init.resources }}
         resources:
           {{ toYaml .Values.global.proxy.init.resources | indent 4 }}
@@ -890,20 +995,27 @@ data:
       {{- end }}
         securityContext:
           allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
+          privileged: {{ .Values.global.proxy.privileged }}
           capabilities:
+      {{- if not $cniRepairEnabled }}
             add:
             - NET_ADMIN
             - NET_RAW
+      {{- end }}
             drop:
             - ALL
-          privileged: {{ .Values.global.proxy.privileged }}
           readOnlyRootFilesystem: false
+        {{- if not $cniRepairEnabled }}
           runAsGroup: 0
           runAsNonRoot: false
           runAsUser: 0
+        {{- else }}
+          runAsGroup: 1337
+          runAsUser: 1337
+          runAsNonRoot: true
+        {{- end }}
         restartPolicy: Always
-      {{- end }}
-      {{  end -}}
+        {{ end -}}
       {{- if eq .Values.global.proxy.enableCoreDump true }}
       - name: enable-core-dump
         args:
@@ -927,7 +1039,7 @@ data:
           runAsNonRoot: false
           runAsUser: 0
       {{ end }}
-      {{- end }}
+        {{ end }}
       containers:
       - name: istio-proxy
       {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
@@ -1124,15 +1236,15 @@ data:
           value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetDebug }}"
         {{- if .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations }}
         - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ANNOTATIONS
-          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations }}"
+          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAnnotations.Value }}"
         {{- end }}
         {{- if .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes }}
         - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_ATTRIBUTES
-          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes }}"
+          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfAttributes.Value }}"
         {{- end }}
         {{- if .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}
         - name: STACKDRIVER_TRACING_MAX_NUMBER_OF_MESSAGE_EVENTS
-          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents }}"
+          value: "{{ .ProxyConfig.GetTracing.GetStackdriver.GetMaxNumberOfMessageEvents.Value }}"
         {{- end }}
         {{- end }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
@@ -1160,7 +1272,7 @@ data:
           {{ if eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY` -}}
           runAsNonRoot: false
           runAsUser: 0
-          {{- else -}}
+          {{- else }}
           runAsNonRoot: true
           runAsUser: 1337
           {{- end }}
@@ -1283,97 +1395,6 @@ data:
          traffic.sidecar.istio.io/kubevirtInterfaces: "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
     injectedAnnotations:
 ---
-# Source: istio/charts/galley/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-galley-service-account
-  namespace: istio-system
-  labels:
-    app: galley
-    chart: galley
-    heritage: Helm
-    release: istio
----
-# Source: istio/charts/gateways/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-ingressgateway-service-account
-  namespace: istio-system
-  labels:
-    app: istio-ingressgateway
-    chart: gateways
-    heritage: Helm
-    release: istio
----
-# Source: istio/charts/mixer/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-mixer-service-account
-  namespace: istio-system
-  labels:
-    app: mixer
-    chart: mixer
-    heritage: Helm
-    release: istio
----
-# Source: istio/charts/pilot/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-pilot-service-account
-  namespace: istio-system
-  labels:
-    app: pilot
-    chart: pilot
-    heritage: Helm
-    release: istio
----
-# Source: istio/charts/prometheus/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: prometheus
-  namespace: istio-system
-  labels:
-    app: prometheus
-    chart: prometheus
-    heritage: Helm
-    release: istio
----
-# Source: istio/charts/security/templates/create-custom-resources-job.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-security-post-install-account
-  namespace: istio-system
-  labels:
-    app: security
-    chart: security
-    heritage: Helm
-    release: istio
----
-# Source: istio/charts/security/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-citadel-service-account
-  namespace: istio-system
-  labels:
-    app: security
-    chart: security
-    heritage: Helm
-    release: istio
----
-# Source: istio/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-multi
-  namespace: istio-system
----
 # Source: istio/charts/galley/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -1416,9 +1437,8 @@ rules:
 - apiGroups: ["extensions"]
   resources: ["ingresses"]
   verbs: ["get", "list", "watch"]
-- apiGroups: ["extensions"]
-  resources: ["deployments/finalizers"]
-  resourceNames: ["istio-galley"]
+- apiGroups: [""]
+  resources: ["namespaces/finalizers"]
   verbs: ["update"]
 - apiGroups: ["apiextensions.k8s.io"]
   resources: ["customresourcedefinitions"]
@@ -1703,7 +1723,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-multi
   labels:
-    chart: istio-1.4.3
+    chart: istio-1.4.6
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -1979,7 +1999,7 @@ spec:
       serviceAccountName: istio-galley-service-account
       containers:
         - name: galley
-          image: "docker.io/istio/galley:1.4.3"
+          image: "docker.io/istio/galley:1.4.6"
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 443
@@ -2110,7 +2130,7 @@ spec:
       serviceAccountName: istio-ingressgateway-service-account
       containers:
         - name: istio-proxy
-          image: "docker.io/cilium/istio_proxy:1.4.3"
+          image: "docker.io/cilium/istio_proxy:1.4.6"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 15020
@@ -2281,190 +2301,6 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istio-telemetry
-  namespace: istio-system
-  labels:
-    app: istio-mixer
-    chart: mixer
-    heritage: Helm
-    release: istio
-    istio: mixer
-spec:
-  strategy:
-    rollingUpdate:
-      maxSurge: 100%
-      maxUnavailable: 25%
-  selector:
-    matchLabels:
-      istio: mixer
-      istio-mixer-type: telemetry
-  template:
-    metadata:
-      labels:
-        app: telemetry
-        chart: mixer
-        heritage: Helm
-        release: istio
-        security.istio.io/tlsMode: "istio"
-        istio: mixer
-        istio-mixer-type: telemetry
-      annotations:
-        sidecar.istio.io/inject: "false"
-    spec:
-      serviceAccountName: istio-mixer-service-account
-      volumes:
-      - name: istio-certs
-        secret:
-          secretName: istio.istio-mixer-service-account
-          optional: true
-      - name: uds-socket
-        emptyDir: {}
-      - name: telemetry-adapter-secret
-        secret:
-          secretName: telemetry-adapter-secret
-          optional: true
-      affinity:      
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "amd64"
-                - "ppc64le"
-                - "s390x"
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "amd64"
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "ppc64le"
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "s390x"      
-      containers:
-      - name: mixer
-        image: "docker.io/istio/mixer:1.4.3"
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 15014
-        - containerPort: 42422
-        args:
-          - --monitoringPort=15014
-          - --address
-          - unix:///sock/mixer.socket
-          - --log_output_level=default:info
-          - --configStoreURL=mcps://istio-galley.istio-system.svc:9901
-          - --certFile=/etc/certs/cert-chain.pem
-          - --keyFile=/etc/certs/key.pem
-          - --caCertFile=/etc/certs/root-cert.pem
-          - --configDefaultNamespace=istio-system
-          - --useAdapterCRDs=false
-          - --trace_zipkin_url=http://zipkin.istio-system:9411/api/v1/spans
-          - --averageLatencyThreshold
-          - 100ms
-          - --loadsheddingMode
-          - enforce
-        env:
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
-        - name: GOMAXPROCS
-          value: "6"
-        resources:
-          limits:
-            cpu: 4800m
-            memory: 4G
-          requests:
-            cpu: 1000m
-            memory: 1G
-        volumeMounts:
-        - name: istio-certs
-          mountPath: /etc/certs
-          readOnly: true
-        - name: telemetry-adapter-secret
-          mountPath: /var/run/secrets/istio.io/telemetry/adapter
-          readOnly: true
-        - name: uds-socket
-          mountPath: /sock
-        livenessProbe:
-          httpGet:
-            path: /version
-            port: 15014
-          initialDelaySeconds: 5
-          periodSeconds: 5
-      - name: istio-proxy
-        image: "docker.io/cilium/istio_proxy:1.4.3"
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 9091
-        - containerPort: 15004
-        - containerPort: 15090
-          protocol: TCP
-          name: http-envoy-prom
-        args:
-        - proxy
-        - --domain
-        - $(POD_NAMESPACE).svc.cluster.local
-        - --serviceCluster
-        - istio-telemetry
-        - --templateFile
-        - /etc/istio/proxy/envoy_telemetry.yaml.tmpl
-        - --controlPlaneAuthPolicy
-        - MUTUAL_TLS
-        - --log_output_level=default:info
-        env:
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.name
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
-        - name: INSTANCE_IP
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: status.podIP
-        - name: SDS_ENABLED
-          value: "false"
-        resources:
-          limits:
-            cpu: 2000m
-            memory: 1024Mi
-          requests:
-            cpu: 100m
-            memory: 128Mi
-        volumeMounts:
-        - name: istio-certs
-          mountPath: /etc/certs
-          readOnly: true
-        - name: uds-socket
-          mountPath: /sock
----
-# Source: istio/charts/mixer/templates/deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
   name: istio-policy
   namespace: istio-system
   labels:
@@ -2542,7 +2378,7 @@ spec:
                 - "s390x"      
       containers:
       - name: mixer
-        image: "docker.io/istio/mixer:1.4.3"
+        image: "docker.io/istio/mixer:1.4.6"
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 15014
@@ -2581,7 +2417,7 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
-        image: "docker.io/cilium/istio_proxy:1.4.3"
+        image: "docker.io/cilium/istio_proxy:1.4.6"
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
@@ -2635,6 +2471,190 @@ spec:
           mountPath: /var/run/secrets/istio.io/policy/adapter
           readOnly: true
 ---
+# Source: istio/charts/mixer/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-telemetry
+  namespace: istio-system
+  labels:
+    app: istio-mixer
+    chart: mixer
+    heritage: Helm
+    release: istio
+    istio: mixer
+spec:
+  strategy:
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 25%
+  selector:
+    matchLabels:
+      istio: mixer
+      istio-mixer-type: telemetry
+  template:
+    metadata:
+      labels:
+        app: telemetry
+        chart: mixer
+        heritage: Helm
+        release: istio
+        security.istio.io/tlsMode: "istio"
+        istio: mixer
+        istio-mixer-type: telemetry
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istio-mixer-service-account
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.istio-mixer-service-account
+          optional: true
+      - name: uds-socket
+        emptyDir: {}
+      - name: telemetry-adapter-secret
+        secret:
+          secretName: telemetry-adapter-secret
+          optional: true
+      affinity:      
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "amd64"
+                - "ppc64le"
+                - "s390x"
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "amd64"
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "ppc64le"
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - "s390x"      
+      containers:
+      - name: mixer
+        image: "docker.io/istio/mixer:1.4.6"
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 15014
+        - containerPort: 42422
+        args:
+          - --monitoringPort=15014
+          - --address
+          - unix:///sock/mixer.socket
+          - --log_output_level=default:info
+          - --configStoreURL=mcps://istio-galley.istio-system.svc:9901
+          - --certFile=/etc/certs/cert-chain.pem
+          - --keyFile=/etc/certs/key.pem
+          - --caCertFile=/etc/certs/root-cert.pem
+          - --configDefaultNamespace=istio-system
+          - --useAdapterCRDs=false
+          - --trace_zipkin_url=http://zipkin.istio-system:9411/api/v1/spans
+          - --averageLatencyThreshold
+          - 100ms
+          - --loadsheddingMode
+          - enforce
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: GOMAXPROCS
+          value: "6"
+        resources:
+          limits:
+            cpu: 4800m
+            memory: 4G
+          requests:
+            cpu: 1000m
+            memory: 1G
+        volumeMounts:
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
+        - name: telemetry-adapter-secret
+          mountPath: /var/run/secrets/istio.io/telemetry/adapter
+          readOnly: true
+        - name: uds-socket
+          mountPath: /sock
+        livenessProbe:
+          httpGet:
+            path: /version
+            port: 15014
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      - name: istio-proxy
+        image: "docker.io/cilium/istio_proxy:1.4.6"
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9091
+        - containerPort: 15004
+        - containerPort: 15090
+          protocol: TCP
+          name: http-envoy-prom
+        args:
+        - proxy
+        - --domain
+        - $(POD_NAMESPACE).svc.cluster.local
+        - --serviceCluster
+        - istio-telemetry
+        - --templateFile
+        - /etc/istio/proxy/envoy_telemetry.yaml.tmpl
+        - --controlPlaneAuthPolicy
+        - MUTUAL_TLS
+        - --log_output_level=default:info
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        - name: SDS_ENABLED
+          value: "false"
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 1024Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        volumeMounts:
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
+        - name: uds-socket
+          mountPath: /sock
+---
 # Source: istio/charts/pilot/templates/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -2670,7 +2690,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
         - name: discovery
-          image: "docker.io/cilium/istio_pilot:1.4.3"
+          image: "docker.io/cilium/istio_pilot:1.4.6"
           imagePullPolicy: IfNotPresent
           args:
           - "discovery"
@@ -2723,7 +2743,7 @@ spec:
             mountPath: /etc/certs
             readOnly: true
         - name: istio-proxy
-          image: "docker.io/cilium/istio_proxy:1.4.3"
+          image: "docker.io/cilium/istio_proxy:1.4.6"
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 15003
@@ -2944,7 +2964,7 @@ spec:
       serviceAccountName: istio-citadel-service-account
       containers:
         - name: citadel
-          image: "docker.io/istio/citadel:1.4.3"
+          image: "docker.io/istio/citadel:1.4.6"
           imagePullPolicy: IfNotPresent
           args:
             - --append-dns-names=true
@@ -3023,30 +3043,6 @@ spec:
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istio-telemetry
-  namespace: istio-system
-  labels:
-    app: mixer
-    chart: mixer
-    heritage: Helm
-    release: istio
-spec:
-    maxReplicas: 5
-    minReplicas: 1
-    scaleTargetRef:
-      apiVersion: apps/v1
-      kind: Deployment
-      name: istio-telemetry
-    metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        targetAverageUtilization: 80
----
-# Source: istio/charts/mixer/templates/autoscale.yaml
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
-metadata:
   name: istio-policy
   namespace: istio-system
   labels:
@@ -3061,6 +3057,30 @@ spec:
       apiVersion: apps/v1
       kind: Deployment
       name: istio-policy
+    metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: 80
+---
+# Source: istio/charts/mixer/templates/autoscale.yaml
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: istio-telemetry
+  namespace: istio-system
+  labels:
+    app: mixer
+    chart: mixer
+    heritage: Helm
+    release: istio
+spec:
+    maxReplicas: 5
+    minReplicas: 1
+    scaleTargetRef:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: istio-telemetry
     metrics:
     - type: Resource
       resource:
@@ -3363,27 +3383,6 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:
-  name: kubernetesenv
-  namespace: istio-system
-  labels:
-    app: mixer
-    chart: mixer
-    heritage: Helm
-    release: istio
-spec:
-  compiledAdapter: kubernetesenv
-  params:
-    # when running from mixer root, use the following config after adding a
-    # symbolic link to a kubernetes config file via:
-    #
-    # $ ln -s ~/.kube/config mixer/adapter/kubernetes/kubeconfig
-    #
-    # kubeconfig_path: "mixer/adapter/kubernetes/kubeconfig"
----
-# Source: istio/charts/mixer/templates/config.yaml
-apiVersion: "config.istio.io/v1alpha2"
-kind: handler
-metadata:
   name: prometheus
   namespace: istio-system
   labels:
@@ -3589,9 +3588,9 @@ spec:
 ---
 # Source: istio/charts/mixer/templates/config.yaml
 apiVersion: "config.istio.io/v1alpha2"
-kind: instance
+kind: handler
 metadata:
-  name: tcpbytereceived
+  name: kubernetesenv
   namespace: istio-system
   labels:
     app: mixer
@@ -3599,137 +3598,14 @@ metadata:
     heritage: Helm
     release: istio
 spec:
-  compiledTemplate: metric
+  compiledAdapter: kubernetesenv
   params:
-    value: connection.received.bytes | 0
-    dimensions:
-      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
-      source_workload: source.workload.name | "unknown"
-      source_workload_namespace: source.workload.namespace | "unknown"
-      source_principal: source.principal | "unknown"
-      source_app: source.labels["app"] | "unknown"
-      source_version: source.labels["version"] | "unknown"
-      destination_workload: destination.workload.name | "unknown"
-      destination_workload_namespace: destination.workload.namespace | "unknown"
-      destination_principal: destination.principal | "unknown"
-      destination_app: destination.labels["app"] | "unknown"
-      destination_version: destination.labels["version"] | "unknown"
-      destination_service: destination.service.host | "unknown"
-      destination_service_name: destination.service.name | "unknown"
-      destination_service_namespace: destination.service.namespace | "unknown"
-      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
-      response_flags: context.proxy_error_code | "-"
-    monitored_resource_type: '"UNSPECIFIED"'
----
-# Source: istio/charts/mixer/templates/config.yaml
-apiVersion: "config.istio.io/v1alpha2"
-kind: instance
-metadata:
-  name: responsesize
-  namespace: istio-system
-  labels:
-    app: mixer
-    chart: mixer
-    heritage: Helm
-    release: istio
-spec:
-  compiledTemplate: metric
-  params:
-    value: response.size | 0
-    dimensions:
-      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
-      source_workload: source.workload.name | "unknown"
-      source_workload_namespace: source.workload.namespace | "unknown"
-      source_principal: source.principal | "unknown"
-      source_app: source.labels["app"] | "unknown"
-      source_version: source.labels["version"] | "unknown"
-      destination_workload: destination.workload.name | "unknown"
-      destination_workload_namespace: destination.workload.namespace | "unknown"
-      destination_principal: destination.principal | "unknown"
-      destination_app: destination.labels["app"] | "unknown"
-      destination_version: destination.labels["version"] | "unknown"
-      destination_service: destination.service.host | conditional((destination.service.name | "unknown") == "unknown", "unknown", request.host)
-      destination_service_name: destination.service.name | "unknown"
-      destination_service_namespace: destination.service.namespace | "unknown"
-      request_protocol: api.protocol | context.protocol | "unknown"
-      response_code: response.code | 200
-      response_flags: context.proxy_error_code | "-"
-      permissive_response_code: rbac.permissive.response_code | "none"
-      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
-      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
-    monitored_resource_type: '"UNSPECIFIED"'
----
-# Source: istio/charts/mixer/templates/config.yaml
-apiVersion: "config.istio.io/v1alpha2"
-kind: instance
-metadata:
-  name: tcpconnectionsopened
-  namespace: istio-system
-  labels:
-    app: mixer
-    chart: mixer
-    heritage: Helm
-    release: istio
-spec:
-  compiledTemplate: metric
-  params:
-    value: "1"
-    dimensions:
-      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
-      source_workload: source.workload.name | "unknown"
-      source_workload_namespace: source.workload.namespace | "unknown"
-      source_principal: source.principal | "unknown"
-      source_app: source.labels["app"] | "unknown"
-      source_version: source.labels["version"] | "unknown"
-      destination_workload: destination.workload.name | "unknown"
-      destination_workload_namespace: destination.workload.namespace | "unknown"
-      destination_principal: destination.principal | "unknown"
-      destination_app: destination.labels["app"] | "unknown"
-      destination_version: destination.labels["version"] | "unknown"
-      destination_service: destination.service.host | "unknown"
-      destination_service_name: destination.service.name | "unknown"
-      destination_service_namespace: destination.service.namespace | "unknown"
-      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
-      response_flags: context.proxy_error_code | "-"
-    monitored_resource_type: '"UNSPECIFIED"'
----
-# Source: istio/charts/mixer/templates/config.yaml
-apiVersion: "config.istio.io/v1alpha2"
-kind: instance
-metadata:
-  name: requestsize
-  namespace: istio-system
-  labels:
-    app: mixer
-    chart: mixer
-    heritage: Helm
-    release: istio
-spec:
-  compiledTemplate: metric
-  params:
-    value: request.size | 0
-    dimensions:
-      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
-      source_workload: source.workload.name | "unknown"
-      source_workload_namespace: source.workload.namespace | "unknown"
-      source_principal: source.principal | "unknown"
-      source_app: source.labels["app"] | "unknown"
-      source_version: source.labels["version"] | "unknown"
-      destination_workload: destination.workload.name | "unknown"
-      destination_workload_namespace: destination.workload.namespace | "unknown"
-      destination_principal: destination.principal | "unknown"
-      destination_app: destination.labels["app"] | "unknown"
-      destination_version: destination.labels["version"] | "unknown"
-      destination_service: destination.service.host | conditional((destination.service.name | "unknown") == "unknown", "unknown", request.host)
-      destination_service_name: destination.service.name | "unknown"
-      destination_service_namespace: destination.service.namespace | "unknown"
-      request_protocol: api.protocol | context.protocol | "unknown"
-      response_code: response.code | 200
-      response_flags: context.proxy_error_code | "-"
-      permissive_response_code: rbac.permissive.response_code | "none"
-      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
-      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
-    monitored_resource_type: '"UNSPECIFIED"'
+    # when running from mixer root, use the following config after adding a
+    # symbolic link to a kubernetes config file via:
+    #
+    # $ ln -s ~/.kube/config mixer/adapter/kubernetes/kubeconfig
+    #
+    # kubeconfig_path: "mixer/adapter/kubernetes/kubeconfig"
 ---
 # Source: istio/charts/mixer/templates/config.yaml
 ---
@@ -3774,7 +3650,189 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: instance
 metadata:
-  name: tcpconnectionsclosed
+  name: requestduration
+  namespace: istio-system
+  labels:
+    app: mixer
+    chart: mixer
+    heritage: Helm
+    release: istio
+spec:
+  compiledTemplate: metric
+  params:
+    value: response.duration | "0ms"
+    dimensions:
+      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+      source_workload: source.workload.name | "unknown"
+      source_workload_namespace: source.workload.namespace | "unknown"
+      source_principal: source.principal | "unknown"
+      source_app: source.labels["app"] | "unknown"
+      source_version: source.labels["version"] | "unknown"
+      destination_workload: destination.workload.name | "unknown"
+      destination_workload_namespace: destination.workload.namespace | "unknown"
+      destination_principal: destination.principal | "unknown"
+      destination_app: destination.labels["app"] | "unknown"
+      destination_version: destination.labels["version"] | "unknown"
+      destination_service: destination.service.host | conditional((destination.service.name | "unknown") == "unknown", "unknown", request.host)
+      destination_service_name: destination.service.name | "unknown"
+      destination_service_namespace: destination.service.namespace | "unknown"
+      request_protocol: api.protocol | context.protocol | "unknown"
+      response_code: response.code | 200
+      response_flags: context.proxy_error_code | "-"
+      permissive_response_code: rbac.permissive.response_code | "none"
+      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
+      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+    monitored_resource_type: '"UNSPECIFIED"'
+---
+# Source: istio/charts/mixer/templates/config.yaml
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: requestsize
+  namespace: istio-system
+  labels:
+    app: mixer
+    chart: mixer
+    heritage: Helm
+    release: istio
+spec:
+  compiledTemplate: metric
+  params:
+    value: request.size | 0
+    dimensions:
+      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+      source_workload: source.workload.name | "unknown"
+      source_workload_namespace: source.workload.namespace | "unknown"
+      source_principal: source.principal | "unknown"
+      source_app: source.labels["app"] | "unknown"
+      source_version: source.labels["version"] | "unknown"
+      destination_workload: destination.workload.name | "unknown"
+      destination_workload_namespace: destination.workload.namespace | "unknown"
+      destination_principal: destination.principal | "unknown"
+      destination_app: destination.labels["app"] | "unknown"
+      destination_version: destination.labels["version"] | "unknown"
+      destination_service: destination.service.host | conditional((destination.service.name | "unknown") == "unknown", "unknown", request.host)
+      destination_service_name: destination.service.name | "unknown"
+      destination_service_namespace: destination.service.namespace | "unknown"
+      request_protocol: api.protocol | context.protocol | "unknown"
+      response_code: response.code | 200
+      response_flags: context.proxy_error_code | "-"
+      permissive_response_code: rbac.permissive.response_code | "none"
+      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
+      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+    monitored_resource_type: '"UNSPECIFIED"'
+---
+# Source: istio/charts/mixer/templates/config.yaml
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: responsesize
+  namespace: istio-system
+  labels:
+    app: mixer
+    chart: mixer
+    heritage: Helm
+    release: istio
+spec:
+  compiledTemplate: metric
+  params:
+    value: response.size | 0
+    dimensions:
+      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+      source_workload: source.workload.name | "unknown"
+      source_workload_namespace: source.workload.namespace | "unknown"
+      source_principal: source.principal | "unknown"
+      source_app: source.labels["app"] | "unknown"
+      source_version: source.labels["version"] | "unknown"
+      destination_workload: destination.workload.name | "unknown"
+      destination_workload_namespace: destination.workload.namespace | "unknown"
+      destination_principal: destination.principal | "unknown"
+      destination_app: destination.labels["app"] | "unknown"
+      destination_version: destination.labels["version"] | "unknown"
+      destination_service: destination.service.host | conditional((destination.service.name | "unknown") == "unknown", "unknown", request.host)
+      destination_service_name: destination.service.name | "unknown"
+      destination_service_namespace: destination.service.namespace | "unknown"
+      request_protocol: api.protocol | context.protocol | "unknown"
+      response_code: response.code | 200
+      response_flags: context.proxy_error_code | "-"
+      permissive_response_code: rbac.permissive.response_code | "none"
+      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
+      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+    monitored_resource_type: '"UNSPECIFIED"'
+---
+# Source: istio/charts/mixer/templates/config.yaml
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: tcpbytesent
+  namespace: istio-system
+  labels:
+    app: mixer
+    chart: mixer
+    heritage: Helm
+    release: istio
+spec:
+  compiledTemplate: metric
+  params:
+    value: connection.sent.bytes | 0
+    dimensions:
+      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+      source_workload: source.workload.name | "unknown"
+      source_workload_namespace: source.workload.namespace | "unknown"
+      source_principal: source.principal | "unknown"
+      source_app: source.labels["app"] | "unknown"
+      source_version: source.labels["version"] | "unknown"
+      destination_workload: destination.workload.name | "unknown"
+      destination_workload_namespace: destination.workload.namespace | "unknown"
+      destination_principal: destination.principal | "unknown"
+      destination_app: destination.labels["app"] | "unknown"
+      destination_version: destination.labels["version"] | "unknown"
+      destination_service: destination.service.host | "unknown"
+      destination_service_name: destination.service.name | "unknown"
+      destination_service_namespace: destination.service.namespace | "unknown"
+      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+      response_flags: context.proxy_error_code | "-"
+    monitored_resource_type: '"UNSPECIFIED"'
+---
+# Source: istio/charts/mixer/templates/config.yaml
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: tcpbytereceived
+  namespace: istio-system
+  labels:
+    app: mixer
+    chart: mixer
+    heritage: Helm
+    release: istio
+spec:
+  compiledTemplate: metric
+  params:
+    value: connection.received.bytes | 0
+    dimensions:
+      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+      source_workload: source.workload.name | "unknown"
+      source_workload_namespace: source.workload.namespace | "unknown"
+      source_principal: source.principal | "unknown"
+      source_app: source.labels["app"] | "unknown"
+      source_version: source.labels["version"] | "unknown"
+      destination_workload: destination.workload.name | "unknown"
+      destination_workload_namespace: destination.workload.namespace | "unknown"
+      destination_principal: destination.principal | "unknown"
+      destination_app: destination.labels["app"] | "unknown"
+      destination_version: destination.labels["version"] | "unknown"
+      destination_service: destination.service.host | "unknown"
+      destination_service_name: destination.service.name | "unknown"
+      destination_service_namespace: destination.service.namespace | "unknown"
+      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+      response_flags: context.proxy_error_code | "-"
+    monitored_resource_type: '"UNSPECIFIED"'
+---
+# Source: istio/charts/mixer/templates/config.yaml
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: tcpconnectionsopened
   namespace: istio-system
   labels:
     app: mixer
@@ -3808,7 +3866,7 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: instance
 metadata:
-  name: requestduration
+  name: tcpconnectionsclosed
   namespace: istio-system
   labels:
     app: mixer
@@ -3818,7 +3876,7 @@ metadata:
 spec:
   compiledTemplate: metric
   params:
-    value: response.duration | "0ms"
+    value: "1"
     dimensions:
       reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
       source_workload: source.workload.name | "unknown"
@@ -3831,15 +3889,11 @@ spec:
       destination_principal: destination.principal | "unknown"
       destination_app: destination.labels["app"] | "unknown"
       destination_version: destination.labels["version"] | "unknown"
-      destination_service: destination.service.host | conditional((destination.service.name | "unknown") == "unknown", "unknown", request.host)
+      destination_service: destination.service.host | "unknown"
       destination_service_name: destination.service.name | "unknown"
       destination_service_namespace: destination.service.namespace | "unknown"
-      request_protocol: api.protocol | context.protocol | "unknown"
-      response_code: response.code | 200
-      response_flags: context.proxy_error_code | "-"
-      permissive_response_code: rbac.permissive.response_code | "none"
-      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+      response_flags: context.proxy_error_code | "-"
     monitored_resource_type: '"UNSPECIFIED"'
 ---
 # Source: istio/charts/mixer/templates/config.yaml
@@ -3888,9 +3942,9 @@ spec:
 ---
 # Source: istio/charts/mixer/templates/config.yaml
 apiVersion: "config.istio.io/v1alpha2"
-kind: instance
+kind: rule
 metadata:
-  name: tcpbytesent
+  name: promhttp
   namespace: istio-system
   labels:
     app: mixer
@@ -3898,27 +3952,14 @@ metadata:
     heritage: Helm
     release: istio
 spec:
-  compiledTemplate: metric
-  params:
-    value: connection.sent.bytes | 0
-    dimensions:
-      reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
-      source_workload: source.workload.name | "unknown"
-      source_workload_namespace: source.workload.namespace | "unknown"
-      source_principal: source.principal | "unknown"
-      source_app: source.labels["app"] | "unknown"
-      source_version: source.labels["version"] | "unknown"
-      destination_workload: destination.workload.name | "unknown"
-      destination_workload_namespace: destination.workload.namespace | "unknown"
-      destination_principal: destination.principal | "unknown"
-      destination_app: destination.labels["app"] | "unknown"
-      destination_version: destination.labels["version"] | "unknown"
-      destination_service: destination.service.host | "unknown"
-      destination_service_name: destination.service.name | "unknown"
-      destination_service_namespace: destination.service.namespace | "unknown"
-      connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
-      response_flags: context.proxy_error_code | "-"
-    monitored_resource_type: '"UNSPECIFIED"'
+  match: (context.protocol == "http" || context.protocol == "grpc") && (match((request.useragent | "-"), "kube-probe*") == false) && (match((request.useragent | "-"), "Prometheus*") == false)
+  actions:
+  - handler: prometheus
+    instances:
+    - requestcount
+    - requestduration
+    - requestsize
+    - responsesize
 ---
 # Source: istio/charts/mixer/templates/config.yaml
 apiVersion: "config.istio.io/v1alpha2"
@@ -3943,6 +3984,24 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
+  name: promtcpconnectionopen
+  namespace: istio-system
+  labels:
+    app: mixer
+    chart: mixer
+    heritage: Helm
+    release: istio
+spec:
+  match: context.protocol == "tcp" && ((connection.event | "na") == "open")
+  actions:
+  - handler: prometheus
+    instances:
+    - tcpconnectionsopened
+---
+# Source: istio/charts/mixer/templates/config.yaml
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
   name: promtcpconnectionclosed
   namespace: istio-system
   labels:
@@ -3956,24 +4015,6 @@ spec:
   - handler: prometheus
     instances:
     - tcpconnectionsclosed
----
-# Source: istio/charts/mixer/templates/config.yaml
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
-metadata:
-  name: tcpkubeattrgenrulerule
-  namespace: istio-system
-  labels:
-    app: mixer
-    chart: mixer
-    heritage: Helm
-    release: istio
-spec:
-  match: context.protocol == "tcp"
-  actions:
-  - handler: kubernetesenv
-    instances:
-    - attributes
 ---
 # Source: istio/charts/mixer/templates/config.yaml
 apiVersion: "config.istio.io/v1alpha2"
@@ -3996,7 +4037,7 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
-  name: promhttp
+  name: tcpkubeattrgenrulerule
   namespace: istio-system
   labels:
     app: mixer
@@ -4004,38 +4045,17 @@ metadata:
     heritage: Helm
     release: istio
 spec:
-  match: (context.protocol == "http" || context.protocol == "grpc") && (match((request.useragent | "-"), "kube-probe*") == false) && (match((request.useragent | "-"), "Prometheus*") == false)
+  match: context.protocol == "tcp"
   actions:
-  - handler: prometheus
+  - handler: kubernetesenv
     instances:
-    - requestcount
-    - requestduration
-    - requestsize
-    - responsesize
----
-# Source: istio/charts/mixer/templates/config.yaml
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
-metadata:
-  name: promtcpconnectionopen
-  namespace: istio-system
-  labels:
-    app: mixer
-    chart: mixer
-    heritage: Helm
-    release: istio
-spec:
-  match: context.protocol == "tcp" && ((connection.event | "na") == "open")
-  actions:
-  - handler: prometheus
-    instances:
-    - tcpconnectionsopened
+    - attributes
 ---
 # Source: istio/charts/security/templates/create-custom-resources-job.yaml
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: istio-security-post-install-1.4.3
+  name: istio-security-post-install-1.4.6
   namespace: istio-system
   annotations:
     "helm.sh/hook": post-install,post-upgrade
@@ -4060,7 +4080,7 @@ spec:
       serviceAccountName: istio-security-post-install-account
       containers:
         - name: kubectl
-          image: "docker.io/istio/kubectl:1.4.3"
+          image: "docker.io/istio/kubectl:1.4.6"
           imagePullPolicy: IfNotPresent
           command: [ "/bin/bash", "/tmp/security/run.sh", "/tmp/security/custom-resources.yaml" ]
           volumeMounts:

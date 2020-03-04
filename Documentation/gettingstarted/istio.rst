@@ -31,12 +31,12 @@ Step 2: Install Istio
 
 Install the `Helm client <https://docs.helm.sh/using_helm/#installing-helm>`_.
 
-Download `Istio version 1.4.3
-<https://github.com/istio/istio/releases/tag/1.4.3>`_:
+Download `Istio version 1.4.6
+<https://github.com/istio/istio/releases/tag/1.4.6>`_:
 
 ::
 
-   export ISTIO_VERSION=1.4.3
+   export ISTIO_VERSION=1.4.6
    curl -L https://git.io/getLatestIstio | sh -
    export ISTIO_HOME=`pwd`/istio-${ISTIO_VERSION}
    export PATH="$PATH:${ISTIO_HOME}/bin"
@@ -107,6 +107,7 @@ of Pilot, and disables unused services:
         --set global.controlPlaneSecurityEnabled=true \
         --set global.mtls.enabled=true \
         --set global.proxy.image=docker.io/cilium/istio_proxy:${ISTIO_VERSION} \
+        --set global.proxy_init.image=docker.io/cilium/istio_proxy:${ISTIO_VERSION} \
         --set ingress.enabled=false \
         --set egressgateway.enabled=false \
         > istio-cilium.yaml
@@ -121,6 +122,7 @@ of Pilot, and disables unused services:
         --set global.controlPlaneSecurityEnabled=true \
         --set global.mtls.enabled=true \
         --set global.proxy.image=docker.io/cilium/istio_proxy:${ISTIO_VERSION} \
+        --set global.proxy_init.image=docker.io/cilium/istio_proxy:${ISTIO_VERSION} \
         --set ingress.enabled=false \
         --set egressgateway.enabled=false \
         > istio-cilium.yaml
