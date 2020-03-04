@@ -22,23 +22,8 @@ and flexible. To learn more about BPF, read more in our extensive
 Stable Releases
 ===============
 
-The Cilium community maintains minor stable releases for the last three major
-Cilium versions. Older Cilium stable versions from major releases prior to that
-are considered EOL.
-
-For upgrades to new major releases please consult the `Cilium Upgrade Guide
-<https://docs.cilium.io/en/stable/install/upgrade/>`_.
-
-Listed below are the actively maintained release branches along with their latest
-minor release, corresponding image pull tags and their release notes:
-
-+-------------------------------------------------------+------------+-------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
-| `v1.6 <https://github.com/cilium/cilium/tree/v1.6>`__ | 2019-12-17 | ``docker.io/cilium/cilium:v1.6.5``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.6.5>`__  | `General Announcement <https://cilium.io/blog/2019/08/20/cilium-16>`__ |
-+-------------------------------------------------------+------------+-------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
-| `v1.5 <https://github.com/cilium/cilium/tree/v1.5>`__ | 2019-12-17 | ``docker.io/cilium/cilium:v1.5.11`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.5.11>`__ | `General Announcement <https://cilium.io/blog/2019/04/24/cilium-15>`__ |
-+-------------------------------------------------------+------------+-------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
-| `v1.4 <https://github.com/cilium/cilium/tree/v1.4>`__ | 2019-12-17 | ``docker.io/cilium/cilium:v1.4.10`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.4.10>`_  | `General Announcement <https://cilium.io/blog/2019/02/12/cilium-14>`__ |
-+-------------------------------------------------------+------------+-------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
+See the `Latest README.md`<https://github.com/cilium/cilium/#stable-releases>`
+for an updated list of supported stable releases.
 
 Functionality Overview
 ======================
