@@ -69,15 +69,10 @@ You should see something like this:
 	[...]
 	[✔]  EKS cluster "test-cluster" in "us-west-2" region is ready
 
-Disable the aws-node DaemonSet (EKS only)
-=========================================
+Delete VPC CNI (``aws-node`` DaemonSet)
+=======================================
 
-If you are running an EKS cluster, disable the ``aws-node`` DaemonSet so it
-does not interfere with the ENIs managed by Cilium:
-
-.. code:: bash
-
-   kubectl -n kube-system set image daemonset/aws-node aws-node=docker.io/spaster/alpine-sleep
+.. include:: k8s-install-remove-aws-node.rst
 
 Deploy Cilium
 =============

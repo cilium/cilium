@@ -27,15 +27,12 @@ EKS cluster using ``eksctl``, see the section :ref:`k8s_install_eks`.
 
    eksctl create cluster -n eni-cluster -N 0
 
-Disable the aws-node DaemonSet (EKS only)
-=========================================
+Disable VPC CNI (``aws-node`` DaemonSet) (EKS only)
+===================================================
 
-If you are running an EKS cluster, disable the ``aws-node`` DaemonSet so it
-does not interfere with the ENIs managed by Cilium:
+If you are running an EKS cluster, you should delete the ``aws-node`` DaemonSet.
 
-.. code:: bash
-
-   kubectl -n kube-system set image daemonset/aws-node aws-node=docker.io/spaster/alpine-sleep
+.. include:: k8s-install-remove-aws-node.rst
 
 Prepare & Deploy Cilium
 =======================
