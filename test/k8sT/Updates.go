@@ -323,6 +323,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 			helpers.HelmTemplate + " " +
 			"--namespace=kube-system " +
 			"--set preflight.enabled=true " +
+			fmt.Sprintf("--set preflight.image=%s ", helpers.CiliumDeveloperImage) +
 			"--set agent.enabled=false " +
 			"--set config.enabled=false " +
 			"--set operator.enabled=false " +
