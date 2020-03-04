@@ -68,11 +68,11 @@ func reverse(b []byte) []byte {
 
 // HostToNetwork converts b to the networking byte order.
 func HostToNetwork(b interface{}) interface{} {
-	switch b.(type) {
+	switch bt := b.(type) {
 	case uint16:
-		return swap16(b.(uint16))
+		return swap16(bt)
 	case uint32:
-		return swap32(b.(uint32))
+		return swap32(bt)
 	default:
 		panic(unsupported(b))
 	}
@@ -80,11 +80,11 @@ func HostToNetwork(b interface{}) interface{} {
 
 // NetworkToHost converts n to host byte order.
 func NetworkToHost(n interface{}) interface{} {
-	switch n.(type) {
+	switch nt := n.(type) {
 	case uint16:
-		return swap16(n.(uint16))
+		return swap16(nt)
 	case uint32:
-		return swap32(n.(uint32))
+		return swap32(nt)
 	default:
 		panic(unsupported(n))
 	}
