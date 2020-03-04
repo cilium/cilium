@@ -516,6 +516,19 @@ func (kub *Kubectl) GetPodsIPs(namespace string, filter string) (map[string]stri
 	return res.KVOutput(), nil
 }
 
+// GetPodsHostIPs returns a map with pod name as a key and host IP name as value. It
+// only gets pods in the given namespace that match the provided filter. It
+// returns an error if pods cannot be retrieved correctly
+func (kub *Kubectl) GetPodsHostIPs(namespace string, label string) (map[string]string, error) {
+	jsonFilter := `{range .items[*]}{@.metadata.name}{"="}{@.status.hostIP}{"\n"}{end}`
+	res := kub.ExecShort(fmt.Sprintf("%s -n %s get pods -l %s -o jsonpath='%s'",
+		KubectlCmd, namespace, label, jsonFilter))
+	if !res.WasSuccessful() {
+		return nil, fmt.Errorf("cannot retrieve pods: %s", res.CombineOutput())
+	}
+	return res.KVOutput(), nil
+}
+
 // GetEndpoints gets all of the endpoints in the given namespace that match the
 // provided filter.
 func (kub *Kubectl) GetEndpoints(namespace string, filter string) *CmdRes {
