@@ -78,4 +78,32 @@ redirect_self(struct __sk_buff *ctx)
 #endif
 }
 
+static __always_inline __maybe_unused __overloadable void
+ctx_skip_nodeport_clear(struct __sk_buff *ctx)
+{
+#ifdef ENABLE_NODEPORT
+	ctx->tc_index &= ~TC_INDEX_F_SKIP_NODEPORT;
+#endif
+}
+
+static __always_inline __maybe_unused __overloadable void
+ctx_skip_nodeport_set(struct __sk_buff *ctx)
+{
+#ifdef ENABLE_NODEPORT
+	ctx->tc_index |= TC_INDEX_F_SKIP_NODEPORT;
+#endif
+}
+
+static __always_inline __maybe_unused __overloadable bool
+ctx_skip_nodeport(struct __sk_buff *ctx)
+{
+#ifdef ENABLE_NODEPORT
+	volatile __u32 tc_index = ctx->tc_index;
+	ctx->tc_index &= ~TC_INDEX_F_SKIP_NODEPORT;
+	return tc_index & TC_INDEX_F_SKIP_NODEPORT;
+#else
+	return true;
+#endif
+}
+
 #endif /* __LIB_OVERLOADABLE_SKB_H_ */

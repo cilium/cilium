@@ -617,7 +617,7 @@ static __always_inline int do_netdev(struct __ctx_buff *ctx, __u16 proto)
 	}
 #endif
 	bpf_clear_cb(ctx);
-	bpf_clear_nodeport(ctx);
+	bpf_skip_nodeport_clear(ctx);
 
 #ifdef FROM_HOST
 	if (1) {

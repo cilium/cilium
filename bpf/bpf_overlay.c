@@ -255,7 +255,7 @@ int from_overlay(struct __ctx_buff *ctx)
 	int ret;
 
 	bpf_clear_cb(ctx);
-	bpf_clear_nodeport(ctx);
+	bpf_skip_nodeport_clear(ctx);
 
 	if (!validate_ethertype(ctx, &proto)) {
 		/* Pass unknown traffic to the stack */
