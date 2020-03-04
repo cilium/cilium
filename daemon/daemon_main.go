@@ -744,6 +744,9 @@ func init() {
 	flags.StringSlice(option.HubbleMetrics, []string{}, "List of Hubble metrics to enable.")
 	option.BindEnv(option.HubbleMetrics)
 
+	flags.Duration(option.K8sHeartbeatTimeout, 30*time.Second, "Configures the timeout for api-server heartbeat, set to 0 to disable")
+	option.BindEnv(option.K8sHeartbeatTimeout)
+
 	viper.BindPFlags(flags)
 }
 

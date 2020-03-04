@@ -113,13 +113,20 @@ func useNodeCIDR(n *node.Node) {
 // Init initializes the Kubernetes package. It is required to call Configure()
 // beforehand.
 func Init() error {
-	if err := createDefaultClient(); err != nil {
+	closeAllDefaultClientConns, err := createDefaultClient()
+	if err != nil {
 		return fmt.Errorf("unable to create k8s client: %s", err)
 	}
 
-	if err := createDefaultCiliumClient(); err != nil {
+	closeAllCiliumClientConns, err := createDefaultCiliumClient()
+	if err != nil {
 		return fmt.Errorf("unable to create cilium k8s client: %s", err)
 	}
+
+	runHeartbeat([]func(){
+		closeAllDefaultClientConns,
+		closeAllCiliumClientConns,
+	}, make(chan struct{}))
 
 	if err := k8sversion.Update(Client()); err != nil {
 		return err
