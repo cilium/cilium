@@ -776,6 +776,9 @@ const (
 
 	// HubbleMetrics specifies enabled metrics and their configuration options.
 	HubbleMetrics = "hubble-metrics"
+
+	// K8sHeartbeatTimeout configures the timeout for apiserver heartbeat
+	K8sHeartbeatTimeout = "k8s-heartbeat-timeout"
 )
 
 // Default string arguments
@@ -1563,6 +1566,9 @@ type DaemonConfig struct {
 
 	// HubbleMetrics specifies enabled metrics and their configuration options.
 	HubbleMetrics []string
+
+	// K8sHeartbeatTimeout configures the timeout for apiserver heartbeat
+	K8sHeartbeatTimeout time.Duration
 }
 
 var (
@@ -1935,6 +1941,7 @@ func (c *DaemonConfig) Populate() {
 	c.EgressMasqueradeInterfaces = viper.GetString(EgressMasqueradeInterfaces)
 	c.EnableHostReachableServices = viper.GetBool(EnableHostReachableServices)
 	c.EnableRemoteNodeIdentity = viper.GetBool(EnableRemoteNodeIdentity)
+	c.K8sHeartbeatTimeout = viper.GetDuration(K8sHeartbeatTimeout)
 	c.DockerEndpoint = viper.GetString(Docker)
 	c.EnableXTSocketFallback = viper.GetBool(EnableXTSocketFallbackName)
 	c.EnableAutoDirectRouting = viper.GetBool(EnableAutoDirectRoutingName)
