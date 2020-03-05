@@ -15,6 +15,12 @@
 #include "common.h"
 
 #ifdef POLICY_VERDICT_NOTIFY
+
+#ifndef POLICY_VERDICT_LOG_FILTER
+DEFINE_U32(POLICY_VERDICT_LOG_FILTER, 0xffff);
+#define POLICY_VERDICT_LOG_FILTER fetch_u32(POLICY_VERDICT_LOG_FILTER)
+#endif
+
 struct policy_verdict_notify {
 	NOTIFY_CAPTURE_HDR
 	__u32	remote_label;
@@ -28,11 +34,23 @@ struct policy_verdict_notify {
 	__u32	pad1; // align with 64 bits
 };
 
+static __always_inline bool policy_verdict_filter_allow(__u32 filter, __u8 dir)
+{
+	// Make dir being volatile to avoid compiler optimizing out filter (thinking
+	// it to be zero).
+	volatile __u8 d = dir;
+	return ((filter & d) > 0);
+}
+
 static __always_inline void
 send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst_port,
 			   __u8 proto, __u8 dir, __u8 is_ipv6, int verdict,
 			   __u8 match_type)
 {
+	if (!policy_verdict_filter_allow(POLICY_VERDICT_LOG_FILTER, dir)) {
+		return;
+	}
+
 	__u64 ctx_len = (__u64)ctx_full_len(ctx);
 	__u64 cap_len = min((__u64)TRACE_PAYLOAD_LEN, (__u64)ctx_len);
 	__u32 hash = get_hash_recalc(ctx);
