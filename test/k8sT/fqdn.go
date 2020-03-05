@@ -67,9 +67,6 @@ var _ = Describe("K8sFQDNTest", func() {
 		Expect(err).Should(BeNil(), "Testapp is not ready after timeout")
 
 		appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
-
-		err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=bind", helpers.HelperTimeout)
-		Expect(err).Should(BeNil(), "Bind app is not ready after timeout")
 	})
 
 	AfterFailed(func() {
