@@ -519,7 +519,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	res.Interfaces = append(res.Interfaces, &cniTypesVer.Interface{
 		Name:    args.IfName,
 		Mac:     macAddrStr,
-		Sandbox: "/proc/" + args.Netns + "/ns/net",
+		Sandbox: args.Netns,
 	})
 
 	// Specify that endpoint must be regenerated synchronously. See GH-4409.
