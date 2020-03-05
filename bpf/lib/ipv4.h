@@ -17,16 +17,16 @@ static __always_inline int ipv4_load_daddr(struct __ctx_buff *ctx, int off,
 static __always_inline int ipv4_dec_ttl(struct __ctx_buff *ctx, int off,
 					struct iphdr *ip4)
 {
-	__u8 new_ttl, ttl = ip4->ttl;
+	__u32 new_ttl, ttl = ip4->ttl;
+	__be32 sum;
 
 	if (ttl <= 1)
 		return 1;
-
 	new_ttl = ttl - 1;
-	/* l3_csum_replace() takes at min 2 bytes, zero extended. */
-	l3_csum_replace(ctx, off + offsetof(struct iphdr, check), ttl, new_ttl, 2);
-	ctx_store_bytes(ctx, off + offsetof(struct iphdr, ttl), &new_ttl, sizeof(new_ttl), 0);
-
+	sum = csum_diff(&ttl, sizeof(ttl), &new_ttl, sizeof(new_ttl), 0);
+	l3_csum_replace(ctx, off + offsetof(struct iphdr, check), 0, sum, 0);
+	ctx_store_bytes(ctx, off + offsetof(struct iphdr, ttl), &new_ttl,
+			sizeof(new_ttl), 0);
 	return 0;
 }
 

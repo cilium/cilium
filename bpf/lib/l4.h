@@ -37,7 +37,7 @@ static __always_inline int l4_modify_port(struct __ctx_buff *ctx, int l4_off,
 					  int off, struct csum_offset *csum_off,
 					  __be16 port, __be16 old_port)
 {
-	if (csum_l4_replace(ctx, l4_off, csum_off, old_port, port, sizeof(port)) < 0)
+	if (csum_l4_replace(ctx, l4_off, csum_off, old_port, port, 0) < 0)
 		return DROP_CSUM_L4;
 
 	if (ctx_store_bytes(ctx, l4_off + off, &port, sizeof(port), 0) < 0)
