@@ -12,7 +12,7 @@ require (
 	github.com/c9s/goprocinfo v0.0.0-20190309065803-0b2ad9ac246b
 	github.com/cilium/arping v1.0.1-0.20190728065459-c5eaf8d7a710
 	github.com/cilium/ebpf v0.0.0-20191113100448-d9fb101ca1fb
-	github.com/cilium/hubble v0.0.0-20200304173801-3a8a8f56fb08
+	github.com/cilium/hubble v0.0.0-20200304205543-565cbe60f7fb
 	github.com/cilium/ipam v0.0.0-20200217195329-a46f8d55f9db
 	github.com/cilium/proxy v0.0.0-20191113190709-4c7b379792e6
 	github.com/containernetworking/cni v0.7.1

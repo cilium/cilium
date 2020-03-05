@@ -82,7 +82,7 @@ github.com/cilium/ebpf/asm
 github.com/cilium/ebpf/internal
 github.com/cilium/ebpf/internal/unix
 github.com/cilium/ebpf/perf
-# github.com/cilium/hubble v0.0.0-20200304173801-3a8a8f56fb08
+# github.com/cilium/hubble v0.0.0-20200304205543-565cbe60f7fb
 ## explicit
 github.com/cilium/hubble/api/v1/flow
 github.com/cilium/hubble/api/v1/observer
@@ -218,8 +218,6 @@ github.com/emicklei/go-restful/log
 github.com/envoyproxy/protoc-gen-validate/validate
 # github.com/evanphx/json-patch v4.2.0+incompatible
 github.com/evanphx/json-patch
-# github.com/francoispqt/gojay v1.2.13
-github.com/francoispqt/gojay
 # github.com/fsnotify/fsnotify v1.4.7
 github.com/fsnotify/fsnotify
 # github.com/go-ole/go-ole v1.2.1
