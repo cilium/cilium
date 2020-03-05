@@ -28,11 +28,23 @@ struct policy_verdict_notify {
 	__u32	pad1; // align with 64 bits
 };
 
+static __always_inline bool policy_verdict_filter_allow(__u32 filter, __u8 dir)
+{
+	// Doesn't work somehow on my setup
+	// return ((filter & (1 << (dir-1))) > 0);
+	// return ((filter & dir) > 0);
+	return ((filter & (0x40000000 + dir)) > 0);
+}
+
 static __always_inline void
 send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst_port,
 			   __u8 proto, __u8 dir, __u8 is_ipv6, int verdict,
-			   __u8 match_type)
+			   __u8 match_type, __u32 filter)
 {
+	if (!policy_verdict_filter_allow(filter, dir)) {
+		return;
+	}
+
 	__u64 ctx_len = (__u64)ctx->len, cap_len = min((__u64)TRACE_PAYLOAD_LEN, (__u64)ctx_len);
 	__u32 hash = get_hash_recalc(ctx);
 	struct policy_verdict_notify msg = {
@@ -61,7 +73,7 @@ send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst
 static __always_inline void
 send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst_port,
 			   __u8 proto, __u8 dir, __u8 is_ipv6, int verdict,
-			   __u8 match_type)
+			   __u8 match_type, __u32 filter)
 {
 }
 #endif /* POLICY_VERDICT_NOTIFY */

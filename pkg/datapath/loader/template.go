@@ -205,7 +205,7 @@ func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint32 {
 	identity := ep.GetIdentity().Uint32()
 	result["SECLABEL"] = identity
 	result["SECLABEL_NB"] = byteorder.HostToNetwork(identity).(uint32)
-
+	result["POLICY_VERDICT_LOG_FILTER"] = uint32(ep.GetPolicyVerdictLogFilter())
 	return result
 
 }

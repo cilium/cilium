@@ -174,14 +174,14 @@ skip_service_lookup:
 	verdict = policy_can_egress6(ctx, tuple, *dstID, &policy_match_type);
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
 		send_policy_verdict_notify(ctx, *dstID, tuple->dport, tuple->nexthdr,
-						POLICY_EGRESS, 1, verdict, policy_match_type);
+						POLICY_EGRESS, 1, verdict, policy_match_type, POLICY_VERDICT_LOG_FILTER);
 		return verdict;
 	}
 
 	switch (ret) {
 	case CT_NEW:
 		send_policy_verdict_notify(ctx, *dstID, tuple->dport, tuple->nexthdr,
-						POLICY_EGRESS, 1, verdict, policy_match_type);
+						POLICY_EGRESS, 1, verdict, policy_match_type, POLICY_VERDICT_LOG_FILTER);
 ct_recreate6:
 		/* New connection implies that rev_nat_index remains untouched
 		 * to the index provided by the loadbalancer (if it applied).
@@ -522,14 +522,14 @@ skip_service_lookup:
 
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
 		send_policy_verdict_notify(ctx, *dstID, tuple.dport, tuple.nexthdr,
-						POLICY_EGRESS, 0, verdict, policy_match_type);
+						POLICY_EGRESS, 0, verdict, policy_match_type, POLICY_VERDICT_LOG_FILTER);
 		return verdict;
 	}
 
 	switch (ret) {
 	case CT_NEW:
 		send_policy_verdict_notify(ctx, *dstID, tuple.dport, tuple.nexthdr,
-						POLICY_EGRESS, 0, verdict, policy_match_type);
+						POLICY_EGRESS, 0, verdict, policy_match_type, POLICY_VERDICT_LOG_FILTER);
 ct_recreate4:
 		/* New connection implies that rev_nat_index remains untouched
 		 * to the index provided by the loadbalancer (if it applied).
@@ -859,7 +859,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	 * permitted by policy */
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
 		send_policy_verdict_notify(ctx, src_label, tuple.dport, tuple.nexthdr,
-						 POLICY_INGRESS, 1, verdict, policy_match_type);
+						 POLICY_INGRESS, 1, verdict, policy_match_type, POLICY_VERDICT_LOG_FILTER);
 		return verdict;
 	}
 
@@ -868,7 +868,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 
 	if (ret == CT_NEW) {
 		send_policy_verdict_notify(ctx, src_label, tuple.dport, tuple.nexthdr,
-						 POLICY_INGRESS, 1, verdict, policy_match_type);
+						 POLICY_INGRESS, 1, verdict, policy_match_type, POLICY_VERDICT_LOG_FILTER);
 #ifdef ENABLE_DSR
 		bool dsr = false;
 
@@ -1074,7 +1074,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	 * permitted by policy */
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
 		send_policy_verdict_notify(ctx, src_label, tuple.dport, tuple.nexthdr,
-						 POLICY_INGRESS, 0, verdict, policy_match_type);
+						 POLICY_INGRESS, 0, verdict, policy_match_type, POLICY_VERDICT_LOG_FILTER);
 		return verdict;
 	}
 
@@ -1083,7 +1083,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 
 	if (ret == CT_NEW) {
 		send_policy_verdict_notify(ctx, src_label, tuple.dport, tuple.nexthdr,
-						 POLICY_INGRESS, 0, verdict, policy_match_type);
+						 POLICY_INGRESS, 0, verdict, policy_match_type, POLICY_VERDICT_LOG_FILTER);
 #ifdef ENABLE_DSR
 		bool dsr = false;
 
