@@ -52,8 +52,8 @@ Deploy the `ConfigMap`:
    kubectl apply -f chaining.yaml
 
 
-Prepare & Deploy Cilium
-=======================
+Deploy Cilium
+=============
 
 .. include:: k8s-install-download-release.rst
 
