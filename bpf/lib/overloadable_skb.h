@@ -4,7 +4,7 @@
 #ifndef __LIB_OVERLOADABLE_SKB_H_
 #define __LIB_OVERLOADABLE_SKB_H_
 
-static __always_inline __maybe_unused __overloadable void
+static __always_inline __maybe_unused void
 bpf_clear_cb(struct __sk_buff *ctx)
 {
 	__u32 zero = 0;
@@ -19,13 +19,13 @@ bpf_clear_cb(struct __sk_buff *ctx)
 /**
  * get_identity - returns source identity from the mark field
  */
-static __always_inline __maybe_unused __overloadable int
+static __always_inline __maybe_unused int
 get_identity(struct __sk_buff *ctx)
 {
 	return ((ctx->mark & 0xFF) << 16) | ctx->mark >> 16;
 }
 
-static __always_inline __maybe_unused __overloadable void
+static __always_inline __maybe_unused void
 set_encrypt_dip(struct __sk_buff *ctx, __u32 ip_endpoint)
 {
 	ctx->cb[4] = ip_endpoint;
@@ -34,14 +34,14 @@ set_encrypt_dip(struct __sk_buff *ctx, __u32 ip_endpoint)
 /**
  * set_identity - pushes 24 bit identity into ctx mark value.
  */
-static __always_inline __maybe_unused __overloadable void
+static __always_inline __maybe_unused void
 set_identity(struct __sk_buff *ctx, __u32 identity)
 {
 	ctx->mark = ctx->mark & MARK_MAGIC_KEY_MASK;
 	ctx->mark |= ((identity & 0xFFFF) << 16) | ((identity & 0xFF0000) >> 16);
 }
 
-static __always_inline __maybe_unused __overloadable void
+static __always_inline __maybe_unused void
 set_identity_cb(struct __sk_buff *ctx, __u32 identity)
 {
 	ctx->cb[1] = identity;
@@ -50,19 +50,19 @@ set_identity_cb(struct __sk_buff *ctx, __u32 identity)
 /**
  * set_encrypt_key - pushes 8 bit key and encryption marker into ctx mark value.
  */
-static __always_inline __maybe_unused __overloadable void
+static __always_inline __maybe_unused void
 set_encrypt_key(struct __sk_buff *ctx, __u8 key)
 {
 	ctx->mark = or_encrypt_key(key);
 }
 
-static __always_inline __maybe_unused __overloadable void
+static __always_inline __maybe_unused void
 set_encrypt_key_cb(struct __sk_buff *ctx, __u8 key)
 {
 	ctx->cb[0] = or_encrypt_key(key);
 }
 
-static __always_inline __maybe_unused __overloadable int
+static __always_inline __maybe_unused int
 redirect_self(struct __sk_buff *ctx)
 {
 	/* Looping back the packet into the originating netns. In
@@ -78,7 +78,7 @@ redirect_self(struct __sk_buff *ctx)
 #endif
 }
 
-static __always_inline __maybe_unused __overloadable void
+static __always_inline __maybe_unused void
 ctx_skip_nodeport_clear(struct __sk_buff *ctx)
 {
 #ifdef ENABLE_NODEPORT
@@ -86,7 +86,7 @@ ctx_skip_nodeport_clear(struct __sk_buff *ctx)
 #endif
 }
 
-static __always_inline __maybe_unused __overloadable void
+static __always_inline __maybe_unused void
 ctx_skip_nodeport_set(struct __sk_buff *ctx)
 {
 #ifdef ENABLE_NODEPORT
@@ -94,7 +94,7 @@ ctx_skip_nodeport_set(struct __sk_buff *ctx)
 #endif
 }
 
-static __always_inline __maybe_unused __overloadable bool
+static __always_inline __maybe_unused bool
 ctx_skip_nodeport(struct __sk_buff *ctx)
 {
 #ifdef ENABLE_NODEPORT

@@ -46,37 +46,37 @@
 
 #define ctx_adjust_meta		({ -ENOTSUPP; })
 
-static __always_inline __maybe_unused __overloadable int
+static __always_inline __maybe_unused int
 ctx_redirect(struct __sk_buff *ctx, int ifindex, __u32 flags)
 {
 	return redirect(ifindex, flags);
 }
 
-static __always_inline __maybe_unused __overloadable __u32
+static __always_inline __maybe_unused __u32
 ctx_full_len(struct __sk_buff *ctx)
 {
 	return ctx->len;
 }
 
-static __always_inline __maybe_unused __overloadable void
+static __always_inline __maybe_unused void
 ctx_store_meta(struct __sk_buff *ctx, const __u32 off, __u32 data)
 {
 	ctx->cb[off] = data;
 }
 
-static __always_inline __maybe_unused __overloadable __u32
+static __always_inline __maybe_unused __u32
 ctx_load_meta(struct __sk_buff *ctx, const __u32 off)
 {
 	return ctx->cb[off];
 }
 
-static __always_inline __maybe_unused __overloadable __u32
+static __always_inline __maybe_unused __u32
 ctx_get_protocol(struct __sk_buff *ctx)
 {
 	return ctx->protocol;
 }
 
-static __always_inline __maybe_unused __overloadable __u32
+static __always_inline __maybe_unused __u32
 ctx_get_ifindex(struct __sk_buff *ctx)
 {
 	return ctx->ifindex;

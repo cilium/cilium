@@ -38,10 +38,6 @@
 #undef __always_inline		/* stddef.h defines its own */
 #define __always_inline		inline __attribute__((always_inline))
 
-#ifndef __overloadable
-# define __overloadable		__attribute__((overloadable))
-#endif
-
 #ifndef __stringify
 # define __stringify(X)		#X
 #endif
