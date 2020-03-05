@@ -52,6 +52,12 @@ func defineUint32(name string, value uint32) string {
 		name, value, value, name, name)
 }
 
+// defineVolatileUint32 writes the C definition for an unsigned volatile 32-bit value.
+func defineVolatileUint32(name string, value uint32) string {
+	return fmt.Sprintf("DEFINE_U32_V(%s, %#08x);\t/* %d */\n#define %s fetch_u32(%s)\n",
+		name, value, value, name, name)
+}
+
 // defineIPv4 writes the C definition for the given IPv4 address.
 func defineIPv4(name string, addr []byte) string {
 	if len(addr) != net.IPv4len {
