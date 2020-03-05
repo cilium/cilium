@@ -2062,7 +2062,8 @@ func (c *DaemonConfig) Populate() {
 	if maxZombies := viper.GetInt(ToFQDNsMaxDeferredConnectionDeletes); maxZombies >= 0 {
 		c.ToFQDNsMaxDeferredConnectionDeletes = viper.GetInt(ToFQDNsMaxDeferredConnectionDeletes)
 	} else {
-		log.Fatal("tofqdns-max-deferred-connection-deletes must be positive, or 0 to disable deferred connection deletion")
+		log.Fatalf("%s must be positive, or 0 to disable deferred connection deletion",
+			ToFQDNsMaxDeferredConnectionDeletes)
 	}
 	switch {
 	case viper.IsSet(ToFQDNsMinTTL): // set by user
