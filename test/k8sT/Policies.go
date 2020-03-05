@@ -827,7 +827,7 @@ var _ = Describe("K8sPolicyTest", func() {
 					break
 				}
 
-				Expect(kubectl.WaitforPods("foo", "-l zgroup=testapp", helpers.HelperTimeout)).To(BeNil())
+				Expect(kubectl.WaitforPods(namespaceForTest, "-l zgroup=testapp", helpers.HelperTimeout)).To(BeNil())
 				var podList v1.PodList
 				err = kubectl.GetPods(namespaceForTest, fmt.Sprintf("-n %s -l k8s-app=cilium --field-selector spec.nodeName=%s", helpers.CiliumNamespace, nodeName)).Unmarshal(&podList)
 				Expect(err).To(BeNil())
