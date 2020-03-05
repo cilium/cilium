@@ -65,6 +65,12 @@ Users (Alphabetically)
       D: Datadog is using Cilium in AWS (self-hosted k8s)
       U: ENI Networking, Service load-balancing, Encryption
       Q: @lbernail, @roboll
+      
+    * N: GitLab
+      D: GitLab is using Cilium as a method for implementing network policies inside Auto DevOps deployed clusters for GitLab customers using k8s
+      U: Network policies
+      L: https://docs.gitlab.com/ee/user/clusters/applications.html#install-cilium-using-gitlab-ci
+      Q: @ap4y @whaber
 
     * N: Palantir Technologies Inc.
       D: Palantir is using Cilium as their main CNI plugin in AWS (self hosted k8s).
