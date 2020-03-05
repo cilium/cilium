@@ -26,12 +26,10 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/monitor/api"
-	"github.com/francoispqt/gojay"
-	"github.com/gogo/protobuf/types"
-	"github.com/google/gopacket/layers"
-
 	pb "github.com/cilium/hubble/api/v1/flow"
 	v1 "github.com/cilium/hubble/pkg/api/v1"
+	"github.com/gogo/protobuf/types"
+	"github.com/google/gopacket/layers"
 )
 
 // additional named ports that are related to hubble and cilium, which do
@@ -40,17 +38,12 @@ var namedPorts = map[int]string{
 	4240: "cilium-health",
 }
 
-// Encoder for flows.
-type Encoder interface {
-	Encode(v interface{}) error
-}
-
 // Printer for flows.
 type Printer struct {
 	opts        Options
 	line        int
 	tw          *tabwriter.Writer
-	jsonEncoder Encoder
+	jsonEncoder *json.Encoder
 }
 
 // New Printer.
@@ -76,11 +69,7 @@ func New(fopts ...Option) *Printer {
 		// initialize tabwriter since it's going to be needed
 		p.tw = tabwriter.NewWriter(opts.w, 2, 0, 3, ' ', 0)
 	case JSONOutput:
-		if opts.withJSONEncoder {
-			p.jsonEncoder = json.NewEncoder(p.opts.w)
-		} else {
-			p.jsonEncoder = gojay.NewEncoder(p.opts.w)
-		}
+		p.jsonEncoder = json.NewEncoder(p.opts.w)
 	}
 
 	return p

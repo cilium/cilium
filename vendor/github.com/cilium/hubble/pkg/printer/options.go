@@ -37,11 +37,9 @@ const (
 
 // Options for the printer.
 type Options struct {
-	output Output
-	w      io.Writer
-	werr   io.Writer
-	// Use json.Encoder instead of gojay
-	withJSONEncoder       bool
+	output                Output
+	w                     io.Writer
+	werr                  io.Writer
 	enablePortTranslation bool
 	enableIPTranslation   bool
 }
@@ -81,13 +79,6 @@ func Tab() Option {
 func Writer(w io.Writer) Option {
 	return func(opts *Options) {
 		opts.w = w
-	}
-}
-
-// WithJSONEncoder configures the JSON output to use json.Encoder instead of gojay.
-func WithJSONEncoder() Option {
-	return func(opts *Options) {
-		opts.withJSONEncoder = true
 	}
 }
 

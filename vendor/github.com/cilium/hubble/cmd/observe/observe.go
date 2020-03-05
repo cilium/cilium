@@ -282,7 +282,7 @@ func handleArgs(ofilter *observeFilter) (err error) {
 	case "dict":
 		opts = append(opts, hubprinter.Dict())
 	case "json", "JSON":
-		opts = append(opts, hubprinter.JSON(), hubprinter.WithJSONEncoder())
+		opts = append(opts, hubprinter.JSON())
 	case "tab", "table":
 		if follow {
 			return fmt.Errorf("table output format is not compatible with follow mode")
