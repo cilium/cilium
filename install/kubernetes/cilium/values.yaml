@@ -376,7 +376,8 @@ global:
     #
     # Hubble is disabled if the list is empty.
     listenAddresses: []
-    # Buffer size of the channel Hubble uses to receive monitor events. Defaults to 128.
+    # Buffer size of the channel Hubble uses to receive monitor events. If this value is not set,
+    # the queue size is set to the default monitor queue size.
     eventQueueSize: ~
     # Number of recent flows for Hubble to cache. Defaults to 4096.
     flowBufferSize: ~

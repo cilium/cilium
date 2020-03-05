@@ -735,7 +735,7 @@ func init() {
 	flags.Int(option.HubbleFlowBufferSize, 4095, "Maximum number of flows in Hubble's buffer. The actual buffer size gets rounded up to the next power of 2, e.g. 4095 => 4096")
 	option.BindEnv(option.HubbleFlowBufferSize)
 
-	flags.Int(option.HubbleEventQueueSize, 128, "Buffer size of the channel to receive monitor events.")
+	flags.Int(option.HubbleEventQueueSize, 0, "Buffer size of the channel to receive monitor events.")
 	option.BindEnv(option.HubbleEventQueueSize)
 
 	flags.String(option.HubbleMetricsServer, "", "Address to serve Hubble metrics on.")

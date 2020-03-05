@@ -86,7 +86,7 @@ cilium-agent [flags]
       --http-request-timeout uint                     Time after which a forwarded HTTP request is considered failed unless completed (in seconds); Use 0 for unlimited (default 3600)
       --http-retry-count uint                         Number of retries performed after a forwarded request attempt fails (default 3)
       --http-retry-timeout uint                       Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)
-      --hubble-event-queue-size int                   Buffer size of the channel to receive monitor events. (default 128)
+      --hubble-event-queue-size int                   Buffer size of the channel to receive monitor events.
       --hubble-flow-buffer-size int                   Maximum number of flows in Hubble's buffer. The actual buffer size gets rounded up to the next power of 2, e.g. 4095 => 4096 (default 4095)
       --hubble-listen-addresses strings               List of unix domain sockets for Hubble server to listen to.
       --hubble-metrics strings                        List of Hubble metrics to enable.

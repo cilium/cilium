@@ -2165,10 +2165,7 @@ func (c *DaemonConfig) Populate() {
 	}
 
 	if c.MonitorQueueSize == 0 {
-		c.MonitorQueueSize = runtime.NumCPU() * defaults.MonitorQueueSizePerCPU
-		if c.MonitorQueueSize > defaults.MonitorQueueSizePerCPUMaximum {
-			c.MonitorQueueSize = defaults.MonitorQueueSizePerCPUMaximum
-		}
+		c.MonitorQueueSize = getDefaultMonitorQueueSize(runtime.NumCPU())
 	}
 
 	// Metrics Setup
@@ -2228,6 +2225,9 @@ func (c *DaemonConfig) Populate() {
 	c.HubbleListenAddresses = viper.GetStringSlice(HubbleListenAddresses)
 	c.HubbleFlowBufferSize = viper.GetInt(HubbleFlowBufferSize)
 	c.HubbleEventQueueSize = viper.GetInt(HubbleEventQueueSize)
+	if c.HubbleEventQueueSize == 0 {
+		c.HubbleEventQueueSize = getDefaultMonitorQueueSize(runtime.NumCPU())
+	}
 	c.HubbleMetricsServer = viper.GetString(HubbleMetricsServer)
 	c.HubbleMetrics = viper.GetStringSlice(HubbleMetrics)
 
@@ -2385,4 +2385,12 @@ func InitConfig(configName string) func() {
 			log.WithField(logfields.Reason, err).Info("Skipped reading configuration file")
 		}
 	}
+}
+
+func getDefaultMonitorQueueSize(numCPU int) int {
+	monitorQueueSize := numCPU * defaults.MonitorQueueSizePerCPU
+	if monitorQueueSize > defaults.MonitorQueueSizePerCPUMaximum {
+		monitorQueueSize = defaults.MonitorQueueSizePerCPUMaximum
+	}
+	return monitorQueueSize
 }
