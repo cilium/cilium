@@ -26,4 +26,6 @@ DEFINE_U32_I(NAME, 4) = bpf_htonl((a13) << 24 | (a14) << 16 | (a15) << 8 | (a16)
 DEFINE_U32_I(NAME, 1) = (a1) << 24 | (a2) << 16 |  (a3) << 8 | (a4);	\
 DEFINE_U32_I(NAME, 2) =                            (a5) << 8 | (a6)
 
+#define DEFINE_U32_V(NAME, value) volatile __u32 NAME = value
+
 #endif /* __LIB_STATIC_DATA_H_ */

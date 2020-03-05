@@ -50,6 +50,7 @@ type epInfoCache struct {
 	requireEgressProg                      bool
 	requireRouting                         bool
 	requireEndpointRoute                   bool
+	policyVerdictLogFilter                 uint32
 	cidr4PrefixLengths, cidr6PrefixLengths []int
 	options                                *option.IntOptions
 	lxcMAC                                 mac.MAC
@@ -71,24 +72,25 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 	ep := &epInfoCache{
 		revision: e.nextPolicyRevision,
 
-		epdir:                 epdir,
-		id:                    e.GetID(),
-		ifName:                e.ifName,
-		ipvlan:                e.HasIpvlanDataPath(),
-		identity:              e.GetIdentity(),
-		mac:                   e.GetNodeMAC(),
-		ipv4:                  e.IPv4Address(),
-		ipv6:                  e.IPv6Address(),
-		conntrackLocal:        e.ConntrackLocalLocked(),
-		requireARPPassthrough: e.RequireARPPassthrough(),
-		requireEgressProg:     e.RequireEgressProg(),
-		requireRouting:        e.RequireRouting(),
-		requireEndpointRoute:  e.RequireEndpointRoute(),
-		cidr4PrefixLengths:    cidr4,
-		cidr6PrefixLengths:    cidr6,
-		options:               e.Options.DeepCopy(),
-		lxcMAC:                e.mac,
-		ifIndex:               e.ifIndex,
+		epdir:                  epdir,
+		id:                     e.GetID(),
+		ifName:                 e.ifName,
+		ipvlan:                 e.HasIpvlanDataPath(),
+		identity:               e.GetIdentity(),
+		mac:                    e.GetNodeMAC(),
+		ipv4:                   e.IPv4Address(),
+		ipv6:                   e.IPv6Address(),
+		conntrackLocal:         e.ConntrackLocalLocked(),
+		requireARPPassthrough:  e.RequireARPPassthrough(),
+		requireEgressProg:      e.RequireEgressProg(),
+		requireRouting:         e.RequireRouting(),
+		requireEndpointRoute:   e.RequireEndpointRoute(),
+		policyVerdictLogFilter: e.GetPolicyVerdictLogFilter(),
+		cidr4PrefixLengths:     cidr4,
+		cidr6PrefixLengths:     cidr6,
+		options:                e.Options.DeepCopy(),
+		lxcMAC:                 e.mac,
+		ifIndex:                e.ifIndex,
 
 		endpoint: e,
 	}
@@ -186,4 +188,8 @@ func (ep *epInfoCache) RequireRouting() bool {
 // RequireEndpointRoute returns if the endpoint wants a per endpoint route
 func (ep *epInfoCache) RequireEndpointRoute() bool {
 	return ep.requireEndpointRoute
+}
+
+func (ep *epInfoCache) GetPolicyVerdictLogFilter() uint32 {
+	return ep.policyVerdictLogFilter
 }
