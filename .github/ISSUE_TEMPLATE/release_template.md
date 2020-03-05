@@ -43,7 +43,6 @@ assignees: ''
 - [ ] Prepare post-release changes to master branch
   - [ ] Update [Stable releases] section of the README
   - [ ] Update the project pointers in `.github/cilium-actions.yml`
-- [ ] Bump the version of Cilium used in upgrade tests
 - [ ] Update the `stable` tags for each Cilium image on Docker Hub (if applicable)
 - [ ] Update external tools and guides to point to the new Cilium version:
   - [ ] [kops]
