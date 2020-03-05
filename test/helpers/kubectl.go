@@ -677,6 +677,10 @@ func (kub *Kubectl) waitForNPods(checkStatus checkPodStatusFunc, namespace strin
 			return false
 		}
 
+		if len(podList.Items) == 0 {
+			return false
+		}
+
 		var required int
 
 		if minRequired == 0 {
