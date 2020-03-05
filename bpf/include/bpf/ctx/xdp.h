@@ -19,7 +19,7 @@
 #define META_PIVOT			((int)(field_sizeof(struct __sk_buff, cb) + \
 					       sizeof(__u32))) /* cb + RECIRC_MARKER */
 
-static __always_inline __maybe_unused __overloadable int
+static __always_inline __maybe_unused int
 xdp_load_bytes(struct xdp_md *ctx, __u64 off, void *to, const __u64 len)
 {
 	void *from;
@@ -46,7 +46,7 @@ xdp_load_bytes(struct xdp_md *ctx, __u64 off, void *to, const __u64 len)
 	return ret;
 }
 
-static __always_inline __maybe_unused __overloadable int
+static __always_inline __maybe_unused int
 xdp_store_bytes(struct xdp_md *ctx, __u64 off, const void *from,
 		const __u64 len, __u64 flags)
 {
@@ -121,7 +121,7 @@ __csum_replace_by_diff(__sum16 *sum, __wsum diff)
 	*sum = csum_fold(csum_add(diff, ~csum_unfold(*sum)));
 }
 
-static __always_inline __maybe_unused __overloadable int
+static __always_inline __maybe_unused int
 l3_csum_replace(struct xdp_md *ctx, __u64 off, const __u32 from, __u32 to,
 		__u32 flags)
 {
@@ -151,7 +151,7 @@ l3_csum_replace(struct xdp_md *ctx, __u64 off, const __u32 from, __u32 to,
 
 #define CSUM_MANGLED_0		((__sum16)0xffff)
 
-static __always_inline __maybe_unused __overloadable int
+static __always_inline __maybe_unused int
 l4_csum_replace(struct xdp_md *ctx, __u64 off, __u32 from, __u32 to,
 		__u32 flags)
 {
@@ -189,7 +189,7 @@ l4_csum_replace(struct xdp_md *ctx, __u64 off, __u32 from, __u32 to,
 
 #define redirect			redirect__stub
 
-static __always_inline __maybe_unused __overloadable int
+static __always_inline __maybe_unused int
 ctx_redirect(struct xdp_md *ctx, int ifindex, const __u32 flags)
 {
 	if (unlikely(flags))
@@ -199,14 +199,14 @@ ctx_redirect(struct xdp_md *ctx, int ifindex, const __u32 flags)
 	return XDP_TX;
 }
 
-static __always_inline __maybe_unused __overloadable __u32
+static __always_inline __maybe_unused __u32
 ctx_full_len(struct xdp_md *ctx)
 {
 	/* No non-linear section in XDP. */
 	return ctx_data_end(ctx) - ctx_data(ctx);
 }
 
-static __always_inline __maybe_unused __overloadable void
+static __always_inline __maybe_unused void
 ctx_store_meta(struct xdp_md *ctx, const __u64 off, __u32 datum)
 {
 	__u32 *data_meta = ctx_data_meta(ctx);
@@ -219,7 +219,7 @@ ctx_store_meta(struct xdp_md *ctx, const __u64 off, __u32 datum)
 	}
 }
 
-static __always_inline __maybe_unused __overloadable __u32
+static __always_inline __maybe_unused __u32
 ctx_load_meta(struct xdp_md *ctx, const __u64 off)
 {
 	__u32 *data_meta = ctx_data_meta(ctx);
@@ -233,7 +233,7 @@ ctx_load_meta(struct xdp_md *ctx, const __u64 off)
 	}
 }
 
-static __always_inline __maybe_unused __overloadable __u32
+static __always_inline __maybe_unused __u32
 ctx_get_protocol(struct xdp_md *ctx)
 {
 	void *data_end = ctx_data_end(ctx);
@@ -245,7 +245,7 @@ ctx_get_protocol(struct xdp_md *ctx)
 	return eth->h_proto;
 }
 
-static __always_inline __maybe_unused __overloadable __u32
+static __always_inline __maybe_unused __u32
 ctx_get_ifindex(struct xdp_md *ctx)
 {
 	return ctx->ingress_ifindex;
