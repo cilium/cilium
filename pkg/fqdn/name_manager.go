@@ -16,6 +16,7 @@ package fqdn
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"regexp"
 	"sync"
@@ -56,6 +57,12 @@ type NameManager struct {
 	cache *DNSCache
 
 	bootstrapCompleted bool
+
+	// updateQueue serializes updates. This is needed to guard UpdateGenerateDNS
+	// and ForceGenerateDNS when they call out to config.updateSelectors. The
+	// callback may (read: does) make calls back into NameManager that need to
+	// lock NameManager.
+	updateQueue chan func()
 }
 
 // RegisterForIdentityUpdates exposes this FQDNSelector so that identities
@@ -139,11 +146,21 @@ func NewNameManager(config Config) *NameManager {
 		}
 	}
 
+	// Setup the update queue and a trivial goroutine to apply them
+	updateQueue := make(chan func(), 65536) // ~0.5MB of buffer
+	go func() {
+		defer log.Warn("Unexpected exit of NameManager update goroutine. FQDN -> Policy updates will stop working until cilium-agent is restarted")
+		for update := range updateQueue {
+			update()
+		}
+	}()
+
 	return &NameManager{
 		config:       config,
 		namesToPoll:  make(map[string]struct{}),
 		allSelectors: make(map[api.FQDNSelector]*regexp.Regexp),
 		cache:        config.Cache,
+		updateQueue:  updateQueue,
 	}
 
 }
@@ -168,9 +185,12 @@ func (n *NameManager) GetDNSNames() (dnsNames []string) {
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
 // have changed for a name, store which rules must be updated in rulesToUpdate,
 // regenerate them, and emit via UpdateSelectors.
-func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (wg *sync.WaitGroup, err error) {
+func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (errCh chan error) {
+	n.Mutex.Lock()
+	defer n.Mutex.Unlock()
+
 	// Update IPs in n
-	fqdnSelectorsToUpdate, updatedDNSNames := n.UpdateDNSIPs(lookupTime, updatedDNSIPs)
+	fqdnSelectorsToUpdate, updatedDNSNames := n.updateDNSIPs(lookupTime, updatedDNSIPs)
 	for dnsName, IPs := range updatedDNSNames {
 		log.WithFields(logrus.Fields{
 			"matchName":             dnsName,
@@ -179,20 +199,21 @@ func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Tim
 		}).Debug("Updated FQDN with new IPs")
 	}
 
-	namesMissingIPs, selectorIPMapping := n.GenerateSelectorUpdates(fqdnSelectorsToUpdate)
+	namesMissingIPs, selectorIPMapping := n.generateSelectorUpdates(fqdnSelectorsToUpdate)
 	if len(namesMissingIPs) != 0 {
 		log.WithField(logfields.DNSName, namesMissingIPs).
 			Debug("No IPs to insert when generating DNS name selected by ToFQDN rule")
 	}
-
-	return n.config.UpdateSelectors(ctx, selectorIPMapping, namesMissingIPs)
+	return n.enqueueUpdate(ctx, namesMissingIPs, selectorIPMapping)
 }
 
 // ForceGenerateDNS unconditionally regenerates all rules that refer to DNS
 // names in namesToRegen. These names are FQDNs and toFQDNs.matchPatterns or
 // matchNames that match them will cause these rules to regenerate.
-func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []string) (wg *sync.WaitGroup, err error) {
+func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []string) (errCh chan error) {
 	n.Mutex.Lock()
+	defer n.Mutex.Unlock()
+
 	affectedFQDNSels := make(map[api.FQDNSelector]struct{}, 0)
 	for _, dnsName := range namesToRegen {
 		for fqdnSel, fqdnRegEx := range n.allSelectors {
@@ -207,11 +228,35 @@ func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []strin
 		log.WithField(logfields.DNSName, namesMissingIPs).
 			Debug("No IPs to insert when generating DNS name selected by ToFQDN rule")
 	}
-	n.Mutex.Unlock()
 
-	// emit the new rules
-	return n.config.
-		UpdateSelectors(ctx, selectorIPMapping, namesMissingIPs)
+	return n.enqueueUpdate(ctx, namesMissingIPs, selectorIPMapping)
+}
+
+// enqueueUpdate adds this update to the updateQueue.
+// When full, it will return an error (this is bad!)
+// We cannot block on enqueue here, because it is possible for a callback to
+// lock NameManager and then deadlocking.
+func (n *NameManager) enqueueUpdate(ctx context.Context, namesMissingIPs []api.FQDNSelector, selectorIPMapping map[api.FQDNSelector][]net.IP) (errCh chan error) {
+	errCh = make(chan error, 1)
+
+	updateFunc := func() {
+		defer close(errCh)
+		wg, err := n.config.UpdateSelectors(ctx, selectorIPMapping, namesMissingIPs)
+		if err != nil {
+			errCh <- err
+		}
+		wg.Wait()
+	}
+
+	select {
+	case n.updateQueue <- updateFunc:
+		// no-op
+
+	default:
+		errCh <- fmt.Errorf("NameManager update queue is full. DNS updates to policy will be lost!")
+		close(errCh)
+	}
+	return errCh
 }
 
 func (n *NameManager) CompleteBootstrap() {
@@ -220,17 +265,14 @@ func (n *NameManager) CompleteBootstrap() {
 	n.Unlock()
 }
 
-// UpdateDNSIPs updates the IPs for each DNS name in updatedDNSIPs.
+// updateDNSIPs updates the IPs for each DNS name in updatedDNSIPs.
 // It returns:
 // affectedSelectors: a set of all FQDNSelectors which match DNS Names whose
 // corresponding set of IPs has changed.
 // updatedNames: a map of DNS names to all the valid IPs we store for each.
-func (n *NameManager) UpdateDNSIPs(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (affectedSelectors map[api.FQDNSelector]struct{}, updatedNames map[string][]net.IP) {
+func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (affectedSelectors map[api.FQDNSelector]struct{}, updatedNames map[string][]net.IP) {
 	updatedNames = make(map[string][]net.IP, len(updatedDNSIPs))
 	affectedSelectors = make(map[api.FQDNSelector]struct{}, len(updatedDNSIPs))
-
-	n.Lock()
-	defer n.Unlock()
 
 perDNSName:
 	for dnsName, lookupIPs := range updatedDNSIPs {
@@ -266,14 +308,11 @@ perDNSName:
 	return affectedSelectors, updatedNames
 }
 
-// GenerateSelectorUpdates iterates over all names in the DNS cache managed by
+// generateSelectorUpdates iterates over all names in the DNS cache managed by
 // gen and figures out to which FQDNSelectors managed by the cache these names
 // map. Returns the set of FQDNSelectors which map to no IPs, and a mapping
 // of FQDNSelectors to IPs.
-func (n *NameManager) GenerateSelectorUpdates(fqdnSelectors map[api.FQDNSelector]struct{}) (namesMissingIPs []api.FQDNSelector, selectorIPMapping map[api.FQDNSelector][]net.IP) {
-	n.Lock()
-	defer n.Unlock()
-
+func (n *NameManager) generateSelectorUpdates(fqdnSelectors map[api.FQDNSelector]struct{}) (namesMissingIPs []api.FQDNSelector, selectorIPMapping map[api.FQDNSelector][]net.IP) {
 	namesMissingIPs, selectorIPMapping = mapSelectorsToIPs(fqdnSelectors, n.cache)
 	return namesMissingIPs, selectorIPMapping
 }

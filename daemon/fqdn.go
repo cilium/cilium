@@ -190,8 +190,8 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			metrics.FQDNGarbageCollectorCleanedTotal.Add(float64(len(namesToClean)))
 			log.WithField(logfields.Controller, dnsGCJobName).Infof(
 				"FQDN garbage collector work deleted %d name entries", len(namesToClean))
-			_, err := d.dnsNameManager.ForceGenerateDNS(context.TODO(), namesToClean)
-			return err
+			errCh := d.dnsNameManager.ForceGenerateDNS(context.TODO(), namesToClean)
+			return <-errCh
 		},
 	})
 
@@ -510,25 +510,18 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		defer updateCancel()
 		updateStart := time.Now()
 
-		wg, err := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, map[string]*fqdn.DNSIPRecords{
+		errCh := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, map[string]*fqdn.DNSIPRecords{
 			qname: {
 				IPs: responseIPs,
 				TTL: int(TTL),
 			}})
-		if err != nil {
-			log.WithError(err).Error("error updating internal DNS cache for rule generation")
-		}
-
-		updateComplete := make(chan struct{})
-		go func(wg *sync.WaitGroup, done chan struct{}) {
-			wg.Wait()
-			close(updateComplete)
-		}(wg, updateComplete)
-
 		select {
 		case <-updateCtx.Done():
 			log.Error("Timed out waiting for datapath updates of FQDN IP information; returning response")
-		case <-updateComplete:
+		case err = <-errCh:
+			if err != nil {
+				log.WithError(err).Error("error updating internal DNS cache for rule generation")
+			}
 		}
 
 		log.WithFields(logrus.Fields{
