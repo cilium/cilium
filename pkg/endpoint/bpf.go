@@ -1303,6 +1303,20 @@ func (e *Endpoint) RequireEndpointRoute() bool {
 	return e.DatapathConfiguration.InstallEndpointRoute
 }
 
+// GetPolicyVerdictLogFilter returns the PolicyVerdictLogFilter that would control
+// the creation of policy verdict logs. Value of VerdictLogFilter needs to be
+// consistent with how it is used in policy_verdict_filter_allow() in bpf/lib/policy_log.h
+func (e *Endpoint) GetPolicyVerdictLogFilter() uint32 {
+	var filter uint32 = 0
+	if e.desiredPolicy.IngressPolicyEnabled {
+		filter = (filter | 0x1)
+	}
+	if e.desiredPolicy.EgressPolicyEnabled {
+		filter = (filter | 0x2)
+	}
+	return filter
+}
+
 type linkCheckerFunc func(string) error
 
 // ValidateConnectorPlumbing checks whether the endpoint is correctly plumbed

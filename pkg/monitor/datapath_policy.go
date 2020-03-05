@@ -96,7 +96,7 @@ type PolicyVerdictNotify struct {
 	DstPort     uint16
 	Proto       uint8
 	Flags       uint8
-	Pad2        uint32
+	Pad1        uint32
 	// data
 }
 
