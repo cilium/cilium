@@ -67,7 +67,7 @@ Users (Alphabetically)
       Q: @lbernail, @roboll
       
     * N: GitLab
-      D: GitLab is using Cilium as a method for implementing network policies inside Auto DevOps deployed clusters for GitLab customers using k8s
+      D: GitLab is using Cilium to implement network policies inside Auto DevOps deployed clusters for customers using k8s
       U: Network policies
       L: https://docs.gitlab.com/ee/user/clusters/applications.html#install-cilium-using-gitlab-ci
       Q: @ap4y @whaber
