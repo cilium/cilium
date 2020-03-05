@@ -201,7 +201,6 @@ It also provides a simple Grafana dashboard, but you could also create your
 own, e.g. `Trip.com's <https://ctripcloud.github.io/cilium/network/2020/01/19/trip-first-step-towards-cloud-native-networking.html>`_ looks like this:
 
 .. image:: images/bird_dashboard.png
-   :scale: 95%
 
 Advanced Configurations
 #######################
