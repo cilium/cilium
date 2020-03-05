@@ -59,8 +59,8 @@ Create a cluster-admin-binding
 
     kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user your@google.email
 
-Prepare & Deploy Cilium
-=======================
+Deploy Cilium
+=============
 
 .. include:: k8s-install-download-release.rst
 
