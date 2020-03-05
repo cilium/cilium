@@ -25,6 +25,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	. "gopkg.in/check.v1"
@@ -414,4 +415,9 @@ func Test_populateNodePortRange(t *testing.T) {
 			}
 		})
 	}
+}
+
+func (s *OptionSuite) TestGetDefaultMonitorQueueSize(c *C) {
+	c.Assert(getDefaultMonitorQueueSize(4), Equals, 4*defaults.MonitorQueueSizePerCPU)
+	c.Assert(getDefaultMonitorQueueSize(1000), Equals, defaults.MonitorQueueSizePerCPUMaximum)
 }
