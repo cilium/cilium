@@ -66,6 +66,12 @@ Users (Alphabetically)
       U: ENI Networking, Service load-balancing, Encryption
       Q: @lbernail, @roboll
 
+    * N: GitLab
+      D: GitLab is using Cilium to implement network policies inside Auto DevOps deployed clusters for customers using k8s
+      U: Network policies
+      L: https://docs.gitlab.com/ee/user/clusters/applications.html#install-cilium-using-gitlab-ci
+      Q: @ap4y @whaber
+     
     * N: Palantir Technologies Inc.
       D: Palantir is using Cilium as their main CNI plugin in AWS (self hosted k8s).
       U: ENI networking, L3/L4 policies, FQDN based policy, FQDN filtering
