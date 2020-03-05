@@ -71,8 +71,8 @@ Retrieve Credentials to access cluster
 
     az aks get-credentials --resource-group $RESOURCE_GROUP -n $CLUSTER_NAME
 
-Prepare & Deploy Cilium
-=======================
+Deploy Cilium
+=============
 
 .. include:: k8s-install-download-release.rst
 

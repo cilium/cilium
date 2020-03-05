@@ -34,8 +34,8 @@ If you are running an EKS cluster, you should delete the ``aws-node`` DaemonSet.
 
 .. include:: k8s-install-remove-aws-node.rst
 
-Prepare & Deploy Cilium
-=======================
+Deploy Cilium
+=============
 
 .. include:: k8s-install-download-release.rst
 
