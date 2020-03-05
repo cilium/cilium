@@ -14,3 +14,4 @@
 #define ENCAP_IFINDEX 1
 #define SECLABEL 2
 #define SECLABEL_NB 0xfffff
+#define POLICY_VERDICT_LOG_FILTER 0xffff
