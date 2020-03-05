@@ -158,6 +158,19 @@ func HelmOverride(option string) string {
 }
 
 func init() {
+	// Set defaults to match passed-in fully-qualified image
+	// If these are further set via CLI, they will be overwritten below
+	if v := os.Getenv("agent.image"); v != "" {
+		registry, image, version, isFullyQualified := SplitContainerURL(v)
+		if isFullyQualified {
+			defaultHelmOptions["global.tag"] = version
+			// This always works because SplitContainerURL would not return
+			// isFullyQualified == true otherwise
+			parts := strings.SplitN(image, "/", 1)
+			defaultHelmOptions["global.registry"] = registry + "/" + parts[0]
+		}
+	}
+
 	// Copy over envronment variables that are passed in.
 	for envVar, helmVar := range map[string]string{
 		"CILIUM_REGISTRY":       "global.registry",
