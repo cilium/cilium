@@ -260,7 +260,6 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 	}
 
 	res := k.Apply(ApplyOptions{FilePath: filepath.Join(k.BasePath(), manifestsPath, "log-gatherer.yaml"), Namespace: LogGathererNamespace})
-
 	if !res.WasSuccessful() {
 		ginkgoext.Fail(fmt.Sprintf("Cannot connect to k8s cluster, output:\n%s", res.CombineOutput().String()), 1)
 		return nil
@@ -936,6 +935,10 @@ func (kub *Kubectl) waitForNPods(checkStatus checkPodStatusFunc, namespace strin
 		err := kub.GetPods(namespace, filter).Unmarshal(podList)
 		if err != nil {
 			kub.Logger().Infof("Error while getting PodList: %s", err)
+			return false
+		}
+
+		if len(podList.Items) == 0 {
 			return false
 		}
 
