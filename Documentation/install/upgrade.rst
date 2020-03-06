@@ -79,53 +79,22 @@ Once the number of READY pods are the same, you can delete cilium-pre-flight-che
 
       helm delete cilium-preflight --namespace=kube-system
 
-.. _upgrade_micro:
-
-Upgrading Micro Versions
-========================
-
-Micro versions within a particular minor version, e.g. 1.2.x -> 1.2.y, are
-always 100% compatible for both up- and downgrades. Upgrading or downgrading is
-as simple as changing the image tag version in the `DaemonSet` file:
-
-.. tabs::
-  .. group-tab:: kubectl
-
-    .. parsed-literal::
-
-      kubectl -n kube-system set image daemonset/cilium cilium-agent=docker.io/cilium/cilium:vX.Y.Z
-      kubectl -n kube-system rollout status daemonset/cilium
-
-  .. group-tab:: Helm
-
-    .. parsed-literal::
-
-      helm upgrade cilium cilium/cilium --version X.Y.Z --reuse-values --namespace=kube-system
-
-Kubernetes will automatically restart all Cilium according to the
-``UpgradeStrategy`` specified in the `DaemonSet`.
-
-.. note::
-
-    Direct version upgrade between minor versions is not recommended as RBAC
-    and DaemonSet definitions are subject to change between minor versions.
-    See :ref:`upgrade_minor` for instructions on how to up or downgrade between
-    different minor versions.
-
 .. _upgrade_minor:
 
-Upgrading Minor Versions
-========================
+Upgrading Cilium
+================
 
 .. include:: upgrade-warning.rst
 
 Step 1: Upgrade to latest micro version (Recommended)
 -----------------------------------------------------
 
-When upgrading from one minor release to another minor release, for example 1.x
-to 1.y, it is recommended to first upgrade to the latest micro release
-as documented in (:ref:`upgrade_micro`). This ensures that downgrading by rolling back
-on a failed minor release upgrade is always possible and seamless.
+When upgrading from one minor release to another minor release, for example
+1.x to 1.y, it is recommended to upgrade to the latest micro release for a
+Cilium release series first. The latest micro releases for each supported
+version of Cilium are `here <https://github.com/cilium/cilium#stable-releases>`_.
+Upgrading to the latest micro release ensures the most seamless experience if a
+rollback is required following the minor release upgrade.
 
 Step 2: Option A: Generate YAML using Helm (Recommended)
 --------------------------------------------------------
