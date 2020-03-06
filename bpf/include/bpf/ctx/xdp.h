@@ -19,6 +19,8 @@
 #define META_PIVOT			((int)(field_sizeof(struct __sk_buff, cb) + \
 					       sizeof(__u32))) /* cb + RECIRC_MARKER */
 
+#define __CTX_OFF_MAX			0xff
+
 static __always_inline __maybe_unused int
 xdp_load_bytes(struct xdp_md *ctx, __u64 off, void *to, const __u64 len)
 {
@@ -30,16 +32,17 @@ xdp_load_bytes(struct xdp_md *ctx, __u64 off, void *to, const __u64 len)
 	 */
 	asm volatile("r1 = *(u32 *)(%[ctx] +0)\n\t"
 		     "r2 = *(u32 *)(%[ctx] +4)\n\t"
-		     "if %[off] > 0xff goto +6\n\t"
+		     "if %[off] > %[offmax] goto +6\n\t"
 		     "r1 += %[off]\n\t"
 		     "%[from] = r1\n\t"
 		     "r1 += %[len]\n\t"
 		     "if r1 > r2 goto +2\n\t"
 		     "%[ret] = 0\n\t"
 		     "goto +1\n\t"
-		     "%[ret] = -22\n\t"
+		     "%[ret] = %[errno]\n\t"
 		     : [ret]"=r"(ret), [from]"=r"(from)
-		     : [ctx]"r"(ctx), [off]"r"(off), [len]"ri"(len)
+		     : [ctx]"r"(ctx), [off]"r"(off), [len]"ri"(len),
+		       [offmax]"i"(__CTX_OFF_MAX), [errno]"i"(-EINVAL)
 		     : "r1", "r2");
 	if (!ret)
 		__builtin_memcpy(to, from, len);
@@ -55,16 +58,17 @@ xdp_store_bytes(struct xdp_md *ctx, __u64 off, const void *from,
 	/* See xdp_load_bytes(). */
 	asm volatile("r1 = *(u32 *)(%[ctx] +0)\n\t"
 		     "r2 = *(u32 *)(%[ctx] +4)\n\t"
-		     "if %[off] > 0xff goto +6\n\t"
+		     "if %[off] > %[offmax] goto +6\n\t"
 		     "r1 += %[off]\n\t"
 		     "%[to] = r1\n\t"
 		     "r1 += %[len]\n\t"
 		     "if r1 > r2 goto +2\n\t"
 		     "%[ret] = 0\n\t"
 		     "goto +1\n\t"
-		     "%[ret] = -22\n\t"
+		     "%[ret] = %[errno]\n\t"
 		     : [ret]"=r"(ret), [to]"=r"(to)
-		     : [ctx]"r"(ctx), [off]"r"(off), [len]"ri"(len)
+		     : [ctx]"r"(ctx), [off]"r"(off), [len]"ri"(len),
+		       [offmax]"i"(__CTX_OFF_MAX), [errno]"i"(-EINVAL)
 		     : "r1", "r2");
 	if (!ret)
 		__builtin_memcpy(to, from, len);
@@ -133,16 +137,17 @@ l3_csum_replace(struct xdp_md *ctx, __u64 off, const __u32 from, __u32 to,
 	/* See xdp_load_bytes(). */
 	asm volatile("r1 = *(u32 *)(%[ctx] +0)\n\t"
 		     "r2 = *(u32 *)(%[ctx] +4)\n\t"
-		     "if %[off] > 0xff goto +6\n\t"
+		     "if %[off] > %[offmax] goto +6\n\t"
 		     "r1 += %[off]\n\t"
 		     "%[sum] = r1\n\t"
 		     "r1 += 2\n\t"
 		     "if r1 > r2 goto +2\n\t"
 		     "%[ret] = 0\n\t"
 		     "goto +1\n\t"
-		     "%[ret] = -22\n\t"
+		     "%[ret] = %[errno]\n\t"
 		     : [ret]"=r"(ret), [sum]"=r"(sum)
-		     : [ctx]"r"(ctx), [off]"r"(off)
+		     : [ctx]"r"(ctx), [off]"r"(off),
+		       [offmax]"i"(__CTX_OFF_MAX), [errno]"i"(-EINVAL)
 		     : "r1", "r2");
 	if (!ret)
 		__csum_replace_by_diff(sum, to);
@@ -166,16 +171,17 @@ l4_csum_replace(struct xdp_md *ctx, __u64 off, __u32 from, __u32 to,
 	/* See xdp_load_bytes(). */
 	asm volatile("r1 = *(u32 *)(%[ctx] +0)\n\t"
 		     "r2 = *(u32 *)(%[ctx] +4)\n\t"
-		     "if %[off] > 0xff goto +6\n\t"
+		     "if %[off] > %[offmax] goto +6\n\t"
 		     "r1 += %[off]\n\t"
 		     "%[sum] = r1\n\t"
 		     "r1 += 2\n\t"
 		     "if r1 > r2 goto +2\n\t"
 		     "%[ret] = 0\n\t"
 		     "goto +1\n\t"
-		     "%[ret] = -22\n\t"
+		     "%[ret] = %[errno]\n\t"
 		     : [ret]"=r"(ret), [sum]"=r"(sum)
-		     : [ctx]"r"(ctx), [off]"r"(off)
+		     : [ctx]"r"(ctx), [off]"r"(off),
+		       [offmax]"i"(__CTX_OFF_MAX), [errno]"i"(-EINVAL)
 		     : "r1", "r2");
 	if (!ret) {
 		if (is_mmzero && !*sum)
