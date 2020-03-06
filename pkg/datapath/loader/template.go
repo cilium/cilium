@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -70,7 +70,10 @@ var (
 // program directly to a device, that there are no unintended consequences such
 // as allowing traffic to leak out with routable addresses.
 type templateCfg struct {
-	datapath.EndpointConfiguration
+	// CompileTimeConfiguration passes through directly to the underlying
+	// endpoint configuration, while the rest of the EndpointConfiguration
+	// interface is implemented directly here through receiver functions.
+	datapath.CompileTimeConfiguration
 	stats *metrics.SpanStat
 }
 
@@ -129,13 +132,13 @@ func (t *templateCfg) GetPolicyVerdictLogFilter() uint32 {
 // it inside a templateCfg which hides static data from callers that wish to
 // generate header files based on the configuration, substituting it for
 // template data.
-func wrap(cfg datapath.EndpointConfiguration, stats *metrics.SpanStat) *templateCfg {
+func wrap(cfg datapath.CompileTimeConfiguration, stats *metrics.SpanStat) *templateCfg {
 	if stats == nil {
 		stats = &metrics.SpanStat{}
 	}
 	return &templateCfg{
-		EndpointConfiguration: cfg,
-		stats:                 stats,
+		CompileTimeConfiguration: cfg,
+		stats:                    stats,
 	}
 }
 
