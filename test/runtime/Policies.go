@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Authors of Cilium
+// Copyright 2017-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1469,6 +1469,10 @@ var _ = Describe("RuntimePolicies", func() {
 		Context("With PolicyAuditMode", func() {
 			BeforeEach(func() {
 				vm.ExecCilium("config PolicyAuditMode=Enabled").ExpectSuccess("unable to change daemon configuration")
+			})
+
+			AfterAll(func() {
+				vm.ExecCilium("config PolicyAuditMode=Disabled").ExpectSuccess("unable to change daemon configuration")
 			})
 
 			It("tests ingress", func() {
