@@ -70,22 +70,6 @@ pipeline {
                 }
             }
         }
-        stage('Nightly-Docker-Image') {
-            when {
-                environment name: 'GIT_BRANCH', value: 'origin/master'
-            }
-            steps {
-                withDockerRegistry([ credentialsId: "NIGHTLY_DOCKER_HUB_CRED", url: "" ]) {
-                    dir('${GOPATH}/${PROJ_PATH}') {
-                        sh 'make docker-image'
-                    }
-                    sh 'docker tag cilium/cilium:latest cilium/nightly:latest'
-                    sh 'docker tag cilium/nightly:latest cilium/nightly:${NIGHTLY_TAG}'
-                    sh 'docker push cilium/nightly:${NIGHTLY_TAG}'
-                    sh 'docker push cilium/nightly:latest'
-                }
-            }
-        }
         stage('Make Cilium images') {
             steps {
                 sh 'cd ${TESTDIR}; ./make-images-push-to-local-registry.sh $(./print-node-ip.sh) latest'
@@ -97,6 +81,19 @@ pipeline {
                             currentBuild.displayName = 'building or pushing Cilium images failed ' + currentBuild.displayName
                         }
                     }
+                }
+            }
+        }
+        stage('Nightly-Docker-Image') {
+            when {
+                environment name: 'GIT_BRANCH', value: 'origin/master'
+            }
+            steps {
+                withDockerRegistry([ credentialsId: "NIGHTLY_DOCKER_HUB_CRED", url: "" ]) {
+                    sh 'docker tag cilium/cilium:latest cilium/nightly:latest'
+                    sh 'docker tag cilium/nightly:latest cilium/nightly:${NIGHTLY_TAG}'
+                    sh 'docker push cilium/nightly:${NIGHTLY_TAG}'
+                    sh 'docker push cilium/nightly:latest'
                 }
             }
         }
