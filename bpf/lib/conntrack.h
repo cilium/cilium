@@ -220,25 +220,6 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 			ct_state->node_port = entry->node_port;
 			ct_state->dsr = entry->dsr;
 			ct_state->proxy_redirect = entry->proxy_redirect;
-			/* To support seamless upgrade from an earlier service
-			 * implementation, we store references to the backend
-			 * in the "ct_entry.rx_bytes" field.
-			 * Previously, the field "ct_entry.backend_id" was used
-			 * for legacy services so we co-opted the field
-			 * "ct_entry.rx_bytes" to store the services v2
-			 * backend (as it is not used with dir=CT_SERVICE).
-			 *
-			 * As of v1.6, "ct_entry.backend_id" is zeroed so that
-			 * users who migrate to v1.6 will end up with CT
-			 * entries that assign no meaning to this field.
-			 * In v1.7 it will be safe to reuse this field for
-			 * other purposes. Current plans are to expand the
-			 * backend_id to 32 bits, which would involve creating
-			 * a union across the backend_id and [rt]x_bytes fields.
-			 * For now, just retrieve the backend out of rx_bytes.
-			 *
-			 * TODO (1.7+): Switch to entry->backend_id
-			 */
 			if (dir == CT_SERVICE) {
 				ct_state->backend_id = entry->rx_bytes;
 			}
@@ -636,7 +617,6 @@ ct_update6_backend_id(const void *map, const struct ipv6_ct_tuple *tuple,
 		return;
 
 	/* See the ct_create4 comments re the rx_bytes hack */
-	entry->backend_id = 0;
 	entry->rx_bytes = state->backend_id;
 	return;
 }
@@ -672,7 +652,6 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 
 	/* See the ct_create4 comments re the rx_bytes hack */
 	if (dir == CT_SERVICE) {
-		entry.backend_id = 0;
 		entry.rx_bytes = ct_state->backend_id;
 	}
 
@@ -729,7 +708,6 @@ static __always_inline void ct_update4_backend_id(const void *map,
 		return;
 
 	/* See the ct_create4 comments re the rx_bytes hack */
-	entry->backend_id = 0;
 	entry->rx_bytes = state->backend_id;
 	return;
 }
@@ -767,18 +745,11 @@ static __always_inline int ct_create4(const void *map_main,
 	entry.node_port = ct_state->node_port;
 	entry.dsr = ct_state->dsr;
 
-	/* We need to store the backend_id (points to a svc v2 endpoint), while
-	 * handling migration for users upgrading from prior releases. where
-	 * the "ct_entry.backend_id" field was used for legacy services.
-	 *
-	 * Previously, the rx_bytes field was not used for entries with
+	/* Previously, the rx_bytes field was not used for entries with
 	 * the dir=CT_SERVICE (see GH#7060). Therefore, we can safely abuse
-	 * this field to save the backend_id. The hack will go away once we stop
-	 * supporting the legacy svc (in v1.6 we will zero the backend_id
-	 * field, in v1.7 we can remove the rx_bytes hack).
+	 * this field to save the backend_id.
 	 */
 	if (dir == CT_SERVICE) {
-		entry.backend_id = 0;
 		entry.rx_bytes = ct_state->backend_id;
 	}
 	entry.rev_nat_index = ct_state->rev_nat_index;
