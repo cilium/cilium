@@ -373,20 +373,9 @@ Running ``cilium endpoint get`` for one of the endpoints will provide a
 description of known state about it, which includes BPF verification logs.
 
 The files under ``/var/run/cilium/state`` provide context about how the BPF
-datapath is managed and set up. The .log files will describe the BPF
-requirements and features that Cilium detected and used to generate the BPF
-programs. The .h files describe specific configurations used for BPF program
-compilation. The numbered directories describe endpoint-specific state,
-including header configuration files and BPF binaries.
-
-.. code:: bash
-
-    # for log in /var/run/cilium/state/*.log; do echo "cat $log"; cat $log; done
-    cat /var/run/cilium/state/bpf_features.log
-    BPF/probes: CONFIG_CGROUP_BPF=y is not in kernel configuration
-    BPF/probes: CONFIG_LWTUNNEL_BPF=y is not in kernel configuration
-    HAVE_LPM_MAP_TYPE: Your kernel doesn't support LPM trie maps for BPF, thus disabling CIDR policies. Recommendation is to run 4.11+ kernels.
-    HAVE_LRU_MAP_TYPE: Your kernel doesn't support LRU maps for BPF, thus switching back to using hash table for the cilium connection tracker. Recommendation is to run 4.10+ kernels.
+datapath is managed and set up. The .h files describe specific configurations
+used for BPF program compilation. The numbered directories describe
+endpoint-specific state, including header configuration files and BPF binaries.
 
 Current BPF map state for particular programs is held under ``/sys/fs/bpf/``,
 and the `bpf-map <https://github.com/cilium/bpf-map>`_ utility can be useful
