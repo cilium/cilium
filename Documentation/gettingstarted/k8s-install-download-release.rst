@@ -1,3 +1,9 @@
+.. only:: not (epub or latex or html)
+
+    WARNING: You are looking at unreleased Cilium documentation.
+    Please use the official rendered version released here:
+    http://docs.cilium.io
+
 .. note::
 
    First, make sure you have Helm 3 `installed <https://helm.sh/docs/using_helm/#install-helm>`_.
@@ -6,7 +12,6 @@
    there should be no issue as both version are mutually compatible in  order to support
    `gradual migration <https://helm.sh/docs/topics/v2_v3_migration/>`_. Cilium chart is
    targeting Helm 3 (v3.0.3 and above).
-
 
 .. only:: stable
 
