@@ -147,7 +147,7 @@ type CachedSelectionUser interface {
 type identitySelector interface {
 	CachedSelector
 	addUser(CachedSelectionUser) (added bool)
-	removeUser(CachedSelectionUser) (last bool)
+	removeUser(CachedSelectionUser) (last bool, cb func())
 	notifyUsers(added, deleted []identity.NumericIdentity)
 	numUsers() int
 }
@@ -313,18 +313,17 @@ func (s *selectorManager) addUser(user CachedSelectionUser) (added bool) {
 }
 
 // lock must be held
-func (s *selectorManager) removeUser(user CachedSelectionUser) (last bool) {
+func (s *selectorManager) removeUser(user CachedSelectionUser) (last bool, cb func()) {
 	delete(s.users, user)
-	return len(s.users) == 0
+	return len(s.users) == 0, nil
 }
 
-func (f *fqdnSelector) removeUser(user CachedSelectionUser) (last bool) {
+func (f *fqdnSelector) removeUser(user CachedSelectionUser) (last bool, cb func()) {
 	delete(f.users, user)
-	removed := len(f.users) == 0
-	if removed {
-		f.dnsProxy.UnregisterForIdentityUpdates(f.selector)
+	if len(f.users) == 0 {
+		return true, func() { f.dnsProxy.UnregisterForIdentityUpdates(f.selector) }
 	}
-	return removed
+	return false, nil
 }
 
 // lock must be held
@@ -705,21 +704,29 @@ func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, selector 
 	return newIDSel, true
 }
 
-func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user CachedSelectionUser) {
+func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user CachedSelectionUser) func() {
 	key := selector.String()
 	sel, exists := sc.selectors[key]
 	if exists {
-		if sel.removeUser(user) {
+		last, cb := sel.removeUser(user)
+		if last {
 			delete(sc.selectors, key)
 		}
+		return cb
 	}
+	return nil
 }
 
 // RemoveSelector removes CachedSelector for the user.
 func (sc *SelectorCache) RemoveSelector(selector CachedSelector, user CachedSelectionUser) {
 	sc.mutex.Lock()
-	sc.removeSelectorLocked(selector, user)
+	cb := sc.removeSelectorLocked(selector, user)
 	sc.mutex.Unlock()
+
+	// Callback may lock the name manager, so it must be called after sc.mutex is unlocked!
+	if cb != nil {
+		cb()
+	}
 }
 
 // RemoveSelectors removes CachedSelectorSlice for the user.
@@ -741,6 +748,7 @@ func (sc *SelectorCache) ChangeUser(selector CachedSelector, from, to CachedSele
 		// Add before remove so that the count does not dip to zero in between,
 		// as this causes FQDN unregistration (if applicable).
 		idSel.addUser(to)
+		// ignoring the return values as we have just added a user above
 		idSel.removeUser(from)
 	}
 	sc.mutex.Unlock()
