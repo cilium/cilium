@@ -533,7 +533,9 @@ struct ct_entry {
 	      dsr:1,
 	      reserved:8;
 	__u16 rev_nat_index;
-	__u16 backend_id; /* Populated only in v1.6+ BPF code. */
+	/* In the kernel ifindex is u32, so we need to check in cilium-agent
+	 * that ifindex of a NodePort device is <= MAX(u16). */
+	__u16 ifindex;
 
 	/* *x_flags_seen represents the OR of all TCP flags seen for the
 	 * transmit/receive direction of this entry. */
