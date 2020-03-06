@@ -16,10 +16,7 @@ This upgrade guide is intended for Cilium running on Kubernetes. Helm
 commands in this guide use helm3 syntax. If you have questions, feel
 free to ping us on the `Slack channel`.
 
-.. warning::
-
-   Do not upgrade to 1.8.0 before reading the section
-   :ref:`1.8_required_changes`.
+.. include:: upgrade-warning.rst
 
 .. _pre_flight:
 
@@ -120,11 +117,7 @@ Kubernetes will automatically restart all Cilium according to the
 Upgrading Minor Versions
 ========================
 
-.. warning::
-
-   Do not upgrade to 1.6.y before reading the section
-   :ref:`1.6_required_changes` and completing the required steps. Skipping to
-   apply the changes may lead to an non-functional upgrade.
+.. include:: upgrade-warning.rst
 
 Step 1: Upgrade to latest micro version (Recommended)
 -----------------------------------------------------
@@ -305,6 +298,8 @@ Annotations:
 
 1.8 Upgrade Notes
 -----------------
+
+.. _current_release_required_changes:
 
 .. _1.8_required_changes:
 
