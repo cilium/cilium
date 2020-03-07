@@ -2110,7 +2110,6 @@ func init() {
       "description": "State of endpoint",
       "type": "string",
       "enum": [
-        "creating",
         "waiting-for-identity",
         "not-ready",
         "waiting-to-regenerate",
@@ -5580,7 +5579,6 @@ func init() {
       "description": "State of endpoint",
       "type": "string",
       "enum": [
-        "creating",
         "waiting-for-identity",
         "not-ready",
         "waiting-to-regenerate",

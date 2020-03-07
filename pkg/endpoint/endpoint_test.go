@@ -215,7 +215,7 @@ func (s *EndpointSuite) TestEndpointStatus(c *C) {
 }
 
 func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
-	e := NewEndpointWithState(s, &FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, 100, StateCreating)
+	e := NewEndpointWithState(s, &FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, 100, StateWaitingForIdentity)
 
 	// Test that inserting identity labels works
 	rev := e.replaceIdentityLabels(pkgLabels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
@@ -239,23 +239,11 @@ func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
 }
 
 func (s *EndpointSuite) TestEndpointState(c *C) {
-	e := NewEndpointWithState(s, &FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, 100, StateCreating)
+	e := NewEndpointWithState(s, &FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, 100, StateWaitingForIdentity)
 	e.unconditionalLock()
 	defer e.unlock()
 
-	e.state = StateCreating
-	c.Assert(e.setState(StateCreating, "test"), Equals, false)
-	c.Assert(e.setState(StateWaitingForIdentity, "test"), Equals, true)
-	e.state = StateCreating
-	c.Assert(e.setState(StateReady, "test"), Equals, false)
-	c.Assert(e.setState(StateWaitingToRegenerate, "test"), Equals, false)
-	c.Assert(e.setState(StateRegenerating, "test"), Equals, false)
-	c.Assert(e.setState(StateDisconnecting, "test"), Equals, true)
-	e.state = StateCreating
-	c.Assert(e.setState(StateDisconnected, "test"), Equals, false)
-
 	e.state = StateWaitingForIdentity
-	c.Assert(e.setState(StateCreating, "test"), Equals, false)
 	c.Assert(e.setState(StateWaitingForIdentity, "test"), Equals, false)
 	c.Assert(e.setState(StateReady, "test"), Equals, true)
 	e.state = StateWaitingForIdentity
@@ -266,7 +254,6 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 	c.Assert(e.setState(StateDisconnected, "test"), Equals, false)
 
 	e.state = StateReady
-	c.Assert(e.setState(StateCreating, "test"), Equals, false)
 	c.Assert(e.setState(StateWaitingForIdentity, "test"), Equals, true)
 	e.state = StateReady
 	c.Assert(e.setState(StateReady, "test"), Equals, false)
@@ -278,7 +265,6 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 	c.Assert(e.setState(StateDisconnected, "test"), Equals, false)
 
 	e.state = StateWaitingToRegenerate
-	c.Assert(e.setState(StateCreating, "test"), Equals, false)
 	c.Assert(e.setState(StateWaitingForIdentity, "test"), Equals, true)
 	e.state = StateWaitingToRegenerate
 	c.Assert(e.setState(StateReady, "test"), Equals, false)
@@ -289,7 +275,6 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 	c.Assert(e.setState(StateDisconnected, "test"), Equals, false)
 
 	e.state = StateRegenerating
-	c.Assert(e.setState(StateCreating, "test"), Equals, false)
 	c.Assert(e.setState(StateWaitingForIdentity, "test"), Equals, true)
 	e.state = StateRegenerating
 	c.Assert(e.setState(StateReady, "test"), Equals, false)
@@ -301,7 +286,6 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 	c.Assert(e.setState(StateDisconnected, "test"), Equals, false)
 
 	e.state = StateDisconnecting
-	c.Assert(e.setState(StateCreating, "test"), Equals, false)
 	c.Assert(e.setState(StateWaitingForIdentity, "test"), Equals, false)
 	c.Assert(e.setState(StateReady, "test"), Equals, false)
 	c.Assert(e.setState(StateWaitingToRegenerate, "test"), Equals, false)
@@ -310,7 +294,6 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 	c.Assert(e.setState(StateDisconnected, "test"), Equals, true)
 
 	e.state = StateDisconnected
-	c.Assert(e.setState(StateCreating, "test"), Equals, false)
 	c.Assert(e.setState(StateWaitingForIdentity, "test"), Equals, false)
 	c.Assert(e.setState(StateReady, "test"), Equals, false)
 	c.Assert(e.setState(StateWaitingToRegenerate, "test"), Equals, false)
@@ -336,7 +319,7 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 	c.Assert(e.BuilderSetStateLocked(StateRegenerating, "test"), Equals, true)
 
 	// Typical lifecycle
-	e.state = StateCreating
+	e.state = ""
 	c.Assert(e.setState(StateWaitingForIdentity, "test"), Equals, true)
 	// Initial build does not change the state
 	c.Assert(e.BuilderSetStateLocked(StateRegenerating, "test"), Equals, false)
@@ -438,7 +421,7 @@ func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
 	// Number of policy revision signals should be 0
 	c.Assert(len(e.policyRevisionSignals), Equals, 0)
 
-	e.state = StateCreating
+	e.state = StateWaitingForIdentity
 	ctx, cancel = context.WithCancel(context.Background())
 	ch = e.WaitForPolicyRevision(ctx, 99, func(time.Time) { cbRan = true })
 
@@ -655,7 +638,7 @@ func (s *EndpointSuite) TestEndpointEventQueueDeadlockUponDeletion(c *C) {
 }
 
 func BenchmarkEndpointGetModel(b *testing.B) {
-	e := NewEndpointWithState(&suite, &FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, 123, StateCreating)
+	e := NewEndpointWithState(&suite, &FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, 123, StateWaitingForIdentity)
 
 	for i := 0; i < 256; i++ {
 		e.LogStatusOK(BPF, "Hello World!")
