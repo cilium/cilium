@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -70,9 +70,6 @@ var (
 )
 
 const (
-	// StateCreating is used to set the endpoint is being created.
-	StateCreating = string(models.EndpointStateCreating)
-
 	// StateWaitingForIdentity is used to set if the endpoint is waiting
 	// for an identity from the KVStore.
 	StateWaitingForIdentity = string(models.EndpointStateWaitingForIdentity)
@@ -1226,11 +1223,6 @@ func (e *Endpoint) setState(toState, reason string) bool {
 		case StateWaitingForIdentity, StateRestoring:
 			goto OKState
 		}
-	case StateCreating:
-		switch toState {
-		case StateDisconnecting, StateWaitingForIdentity, StateRestoring:
-			goto OKState
-		}
 	case StateWaitingForIdentity:
 		switch toState {
 		case StateReady, StateDisconnecting:
@@ -1317,7 +1309,7 @@ func (e *Endpoint) BuilderSetStateLocked(toState, reason string) bool {
 	// Validate the state transition.
 	fromState := e.state
 	switch fromState { // From state
-	case StateCreating, StateWaitingForIdentity, StateReady, StateDisconnecting, StateDisconnected:
+	case StateWaitingForIdentity, StateReady, StateDisconnecting, StateDisconnected:
 		// No valid transitions for the builder
 	case StateWaitingToRegenerate, StateRestoring:
 		switch toState {
