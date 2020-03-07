@@ -390,6 +390,13 @@ Removed helm options
 ~~~~~~~~~~~~~~~~~~~~
 * ``operator.synchronizeK8sNodes``: was removed and replaced with ``global.synchronizeK8sNodes``
 
+Removed resource fields
+~~~~~~~~~~~~~~~~~~~~~~~
+
+* The fields ``CiliumEndpoint.Status.Status``,
+  ``CiliumEndpoint.Status.Spec``, and ``EndpointIdentity.LabelsSHA256``,
+  deprecated in 1.4, have been removed.
+
 .. _1.7_upgrade_notes:
 
 1.7 Upgrade Notes

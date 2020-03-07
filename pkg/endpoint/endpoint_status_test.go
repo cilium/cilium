@@ -210,7 +210,7 @@ func (s *EndpointSuite) TestGetCiliumEndpointStatusCorrectnes(c *check.C) {
 
 	cep := e.GetCiliumEndpointStatus()
 
-	c.Assert(len(cep.Status.Log), check.Equals, cilium_v2.EndpointStatusLogEntries)
+	c.Assert(len(cep.Log), check.Equals, cilium_v2.EndpointStatusLogEntries)
 }
 
 // apiResult is an individual desired AllowedIdentityEntry test result entry.
