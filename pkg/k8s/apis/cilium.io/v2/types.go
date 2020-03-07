@@ -387,10 +387,6 @@ type EndpointStatus struct {
 	// - disconnecting
 	// - disconnected
 	State string `json:"state,omitempty"`
-
-	// Deprecated fields
-	Spec   *deprecatedEndpointConfigurationSpec `json:"spec,omitempty"`
-	Status *DeprecatedEndpointStatus            `json:"status,omitempty"`
 }
 
 // EndpointStatusLogEntries is the maximum number of log entries in EndpointStatus.Log
@@ -479,36 +475,6 @@ func (a AllowedIdentityList) Sort() {
 	})
 }
 
-// +k8s:deepcopy-gen=false
-type deprecatedEndpointConfigurationSpec struct {
-	LabelConfiguration *deprecatedLabelConfigurationSpec `json:"label-configuration,omitempty"`
-	Options            map[string]string                 `json:"options,omitempty"`
-}
-
-type deprecatedLabelConfigurationSpec struct {
-	User []string `json:"user"`
-}
-
-// DeprecatedEndpointStatus is the original endpoint status provided for
-// backwards compatibility.
-//
-// See EndpointStatus for descriptions of fields
-// +k8s:deepcopy-gen=false
-type DeprecatedEndpointStatus struct {
-	Controllers ControllerList                 `json:"controllers,omitempty"`
-	Identity    *EndpointIdentity              `json:"identity,omitempty"`
-	Log         []*models.EndpointStatusChange `json:"log,omitempty"`
-	Networking  *EndpointNetworking            `json:"networking,omitempty"`
-	State       string                         `json:"state,omitempty"`
-
-	// These fields are no longer populated
-	Realized            *deprecatedEndpointConfigurationSpec `json:"realized,omitempty"`
-	Labels              *deprecatedLabelConfigurationStatus  `json:"labels,omitempty"`
-	Policy              *models.EndpointPolicyStatus         `json:"policy,omitempty"`
-	ExternalIdentifiers *models.EndpointIdentifiers          `json:"external-identifiers,omitempty"`
-	Health              *models.EndpointHealth               `json:"health,omitempty"`
-}
-
 // EndpointIdentity is the identity information of an endpoint
 type EndpointIdentity struct {
 	// ID is the numeric identity of the endpoint
@@ -516,9 +482,6 @@ type EndpointIdentity struct {
 
 	// Labels is the list of labels associated with the identity
 	Labels []string `json:"labels,omitempty"`
-
-	// Deprecated fields
-	LabelsSHA256 string `json:"labelsSHA256,omitempty"`
 }
 
 // +genclient
@@ -603,20 +566,6 @@ type EndpointNetworking struct {
 	// NodeIP is the IP of the node the endpoint is running on. The IP must
 	// be reachable between nodes.
 	NodeIP string `json:"node,omitempty"`
-
-	// Deprecated fields
-	HostAddressing *models.NodeAddressing `json:"host-addressing,omitempty"`
-	HostMac        string                 `json:"host-mac,omitempty"`
-	InterfaceIndex int64                  `json:"interface-index,omitempty"`
-	InterfaceName  string                 `json:"interface-name,omitempty"`
-	Mac            string                 `json:"mac,omitempty"`
-}
-
-type deprecatedLabelConfigurationStatus struct {
-	Derived          []string                         `json:"derived"`
-	Disabled         []string                         `json:"disabled"`
-	Realized         deprecatedLabelConfigurationSpec `json:"realized,omitempty"`
-	SecurityRelevant []string                         `json:"security-relevant"`
 }
 
 // DeepCopyInto is an inefficient hack to allow reusing models.Endpoint in the

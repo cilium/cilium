@@ -19,7 +19,6 @@
 package v2
 
 import (
-	models "github.com/cilium/cilium/api/v1/models"
 	api "github.com/cilium/cilium/pkg/policy/api"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -456,11 +455,6 @@ func (in *EndpointNetworking) DeepCopyInto(out *EndpointNetworking) {
 				**out = **in
 			}
 		}
-	}
-	if in.HostAddressing != nil {
-		in, out := &in.HostAddressing, &out.HostAddressing
-		*out = new(models.NodeAddressing)
-		(*in).DeepCopyInto(*out)
 	}
 	return
 }

@@ -318,16 +318,5 @@ func (e *Endpoint) GetCiliumEndpointStatus() *cilium_v2.EndpointStatus {
 		Policy:                 e.getEndpointPolicy(),
 		Encryption:             cilium_v2.EncryptionSpec{Key: int(node.GetIPsecKeyIdentity())},
 		VisibilityPolicyStatus: e.getEndpointVisibilityPolicyStatus(),
-		// Scheduled for deprecation in 1.5
-		//
-		// Status is deprecated but we have some users depending on
-		// these fields so they continue to be populated until version
-		// 1.5
-		Status: &cilium_v2.DeprecatedEndpointStatus{
-			Controllers: controllers,
-			Identity:    identity,
-			Log:         log,
-			Networking:  networking,
-		},
 	}
 }
