@@ -152,9 +152,11 @@ func (ds *FQDNTestSuite) TestNameManagerSelectorHandling(c *C) {
 			poller      = NewDNSPoller(cfg, nameManager)
 		)
 
+		nameManager.Lock()
 		for _, fqdnSel := range testCase.selectorsToAdd {
-			nameManager.RegisterForIdentityUpdates(fqdnSel)
+			nameManager.RegisterForIdentityUpdatesLocked(fqdnSel)
 		}
+		nameManager.Unlock()
 		for i := testCase.lookupIterationsAfterAdd; i > 0; i-- {
 			err := poller.LookupUpdateDNS(context.Background())
 			c.Assert(err, IsNil, Commentf("Error running DNS lookups"))
@@ -162,9 +164,11 @@ func (ds *FQDNTestSuite) TestNameManagerSelectorHandling(c *C) {
 
 		// delete rules listed in the test case (note: we don't delete any unless
 		// they are listed)
+		nameManager.Lock()
 		for _, fqdnSel := range testCase.selectorsToDelete {
-			nameManager.UnregisterForIdentityUpdates(fqdnSel)
+			nameManager.UnregisterForIdentityUpdatesLocked(fqdnSel)
 		}
+		nameManager.Unlock()
 		for i := testCase.lookupIterationsAfterDelete; i > 0; i-- {
 			err := poller.LookupUpdateDNS(context.Background())
 			c.Assert(err, IsNil, Commentf("Error running DNS lookups"))
