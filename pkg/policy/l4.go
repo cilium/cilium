@@ -219,7 +219,8 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection) []Key {
 }
 
 // IdentitySelectionUpdated implements CachedSelectionUser interface
-// This call is made while holding selector cache lock, must beware of deadlocking!
+// This call is made while holding name manager and selector cache
+// locks, must beware of deadlocking!
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'added' and 'deleted'.
