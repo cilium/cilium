@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -103,6 +104,43 @@ type DummySelectorCacheUser struct{}
 func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, selections, added, deleted []identity.NumericIdentity) {
 }
 
+type dummyIdentityNotifier struct {
+	mutex     lock.Mutex
+	selectors map[api.FQDNSelector][]identity.NumericIdentity
+}
+
+func newDummyIdentityNotifier() *dummyIdentityNotifier {
+	return &dummyIdentityNotifier{
+		selectors: make(map[api.FQDNSelector][]identity.NumericIdentity),
+	}
+}
+
+// Lock must be held during any calls to RegisterForIdentityUpdatesLocked or
+// UnregisterForIdentityUpdatesLocked.
+func (d *dummyIdentityNotifier) Lock() {
+	d.mutex.Lock()
+}
+
+// Unlock must be called after calls to RegisterForIdentityUpdatesLocked or
+// UnregisterForIdentityUpdatesLocked are done.
+func (d *dummyIdentityNotifier) Unlock() {
+	d.mutex.Unlock()
+}
+
+// RegisterForIdentityUpdatesLocked starts managing this selector.
+func (d *dummyIdentityNotifier) RegisterForIdentityUpdatesLocked(selector api.FQDNSelector) (identities []identity.NumericIdentity) {
+	ids, ok := d.selectors[selector]
+	if !ok {
+		d.selectors[selector] = []identity.NumericIdentity{}
+	}
+	return ids
+}
+
+// UnregisterForIdentityUpdatesLocked stops managing this selector.
+func (d *dummyIdentityNotifier) UnregisterForIdentityUpdatesLocked(selector api.FQDNSelector) {
+	delete(d.selectors, selector)
+}
+
 func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 	netPolicy := &networkingv1.NetworkPolicy{
 		Spec: networkingv1.NetworkPolicySpec{
@@ -161,6 +199,7 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 	c.Assert(len(rules), Equals, 1)
 
 	repo := policy.NewPolicyRepository(nil, nil)
+	repo.GetSelectorCache().SetLocalIdentityNotifier(newDummyIdentityNotifier())
 
 	repo.AddList(rules)
 	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
@@ -289,6 +328,7 @@ func (s *K8sSuite) TestParseNetworkPolicyMultipleSelectors(c *C) {
 	c.Assert(len(rules), Equals, 1)
 
 	repo := policy.NewPolicyRepository(nil, nil)
+	repo.GetSelectorCache().SetLocalIdentityNotifier(newDummyIdentityNotifier())
 	repo.AddList(rules)
 
 	endpointLabels := labels.LabelArray{
@@ -487,6 +527,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 	}
 
 	repo := policy.NewPolicyRepository(nil, nil)
+	repo.GetSelectorCache().SetLocalIdentityNotifier(newDummyIdentityNotifier())
 	repo.AddList(rules)
 	// Because search context did not contain port-specific policy, deny is
 	// expected.
@@ -541,6 +582,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 
 func parseAndAddRules(c *C, p *networkingv1.NetworkPolicy) *policy.Repository {
 	repo := policy.NewPolicyRepository(nil, nil)
+	repo.GetSelectorCache().SetLocalIdentityNotifier(newDummyIdentityNotifier())
 	rules, err := ParseNetworkPolicy(p)
 	c.Assert(err, IsNil)
 	rev := repo.GetRevision()
@@ -699,6 +741,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 	}
 
 	repo := policy.NewPolicyRepository(nil, nil)
+	repo.GetSelectorCache().SetLocalIdentityNotifier(newDummyIdentityNotifier())
 	repo.AddList(rules)
 	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
 
@@ -723,6 +766,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 	repo = policy.NewPolicyRepository(nil, nil)
+	repo.GetSelectorCache().SetLocalIdentityNotifier(newDummyIdentityNotifier())
 	repo.AddList(rules)
 	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
 }
@@ -754,6 +798,7 @@ func (s *K8sSuite) TestParseNetworkPolicyDenyAll(c *C) {
 	}
 
 	repo := policy.NewPolicyRepository(nil, nil)
+	repo.GetSelectorCache().SetLocalIdentityNotifier(newDummyIdentityNotifier())
 	repo.AddList(rules)
 	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
 }
@@ -865,6 +910,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	c.Assert(len(rules), Equals, 1)
 
 	repo := policy.NewPolicyRepository(nil, nil)
+	repo.GetSelectorCache().SetLocalIdentityNotifier(newDummyIdentityNotifier())
 	repo.AddList(rules)
 	ctx := policy.SearchContext{
 		From: labels.LabelArray{
@@ -999,6 +1045,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	c.Assert(len(rules), Equals, 1)
 
 	repo = policy.NewPolicyRepository(nil, nil)
+	repo.GetSelectorCache().SetLocalIdentityNotifier(newDummyIdentityNotifier())
 	repo.AddList(rules)
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -1067,6 +1114,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	c.Assert(len(rules), Equals, 1)
 
 	repo = policy.NewPolicyRepository(nil, nil)
+	repo.GetSelectorCache().SetLocalIdentityNotifier(newDummyIdentityNotifier())
 	repo.AddList(rules)
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -1206,6 +1254,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	c.Assert(len(rules), Equals, 1)
 
 	repo = policy.NewPolicyRepository(nil, nil)
+	repo.GetSelectorCache().SetLocalIdentityNotifier(newDummyIdentityNotifier())
 	// add example 4
 	repo.AddList(rules)
 

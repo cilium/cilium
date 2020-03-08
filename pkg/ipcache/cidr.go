@@ -71,6 +71,9 @@ func allocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
 		allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.IPAllocationTimeout)
 		defer cancel()
 
+		if IdentityAllocator == nil {
+			return nil, fmt.Errorf("IdentityAllocator not initialized!")
+		}
 		id, isNew, err := IdentityAllocator.AllocateIdentity(allocateCtx, cidr.GetCIDRLabels(prefix), false)
 		if err != nil {
 			IdentityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)

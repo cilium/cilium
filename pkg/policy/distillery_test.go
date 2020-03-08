@@ -329,7 +329,7 @@ func Test_MergeL3(t *testing.T) {
 		identity.NumericIdentity(identityFoo): labelsFoo,
 		identity.NumericIdentity(identityBar): labelsBar,
 	}
-	selectorCache := NewSelectorCache(identityCache)
+	selectorCache := testNewSelectorCache(identityCache)
 
 	tests := []struct {
 		test   int
@@ -368,7 +368,7 @@ func Test_MergeRules(t *testing.T) {
 	identityCache := cache.IdentityCache{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 	}
-	selectorCache := NewSelectorCache(identityCache)
+	selectorCache := testNewSelectorCache(identityCache)
 
 	tests := []struct {
 		test   int
@@ -441,7 +441,7 @@ func Test_AllowAll(t *testing.T) {
 		identity.NumericIdentity(identityFoo): labelsFoo,
 		identity.NumericIdentity(identityBar): labelsBar,
 	}
-	selectorCache := NewSelectorCache(identityCache)
+	selectorCache := testNewSelectorCache(identityCache)
 
 	tests := []struct {
 		test     int
