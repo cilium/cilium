@@ -38,7 +38,7 @@ var (
 
 	dummySelectorCacheUser = &DummySelectorCacheUser{}
 	c                      = cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
-	testSelectorCache      = NewSelectorCache(c.GetIdentityCache())
+	testSelectorCache      = testNewSelectorCache(c.GetIdentityCache())
 
 	wildcardCachedSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, api.WildcardEndpointSelector)
 

@@ -61,7 +61,9 @@ func (ds *FQDNTestSuite) TestNameManagerCIDRGeneration(c *C) {
 	)
 
 	// add rules
-	ids := nameManager.RegisterForIdentityUpdates(ciliumIOSel)
+	nameManager.Lock()
+	ids := nameManager.RegisterForIdentityUpdatesLocked(ciliumIOSel)
+	nameManager.Unlock()
 	c.Assert(len(ids), Equals, 0)
 	c.Assert(ids, Not(IsNil))
 
@@ -112,10 +114,12 @@ func (ds *FQDNTestSuite) TestNameManagerMultiIPUpdate(c *C) {
 
 	// add rules
 	selectorsToAdd := api.FQDNSelectorSlice{ciliumIOSel, githubSel}
+	nameManager.Lock()
 	for _, sel := range selectorsToAdd {
-		ids := nameManager.RegisterForIdentityUpdates(sel)
+		ids := nameManager.RegisterForIdentityUpdatesLocked(sel)
 		c.Assert(ids, Not(IsNil))
 	}
+	nameManager.Unlock()
 
 	// poll DNS once, check that we only generate 1 IP for cilium.io
 	selIPMap = make(map[api.FQDNSelector][]net.IP)
@@ -150,16 +154,18 @@ func (ds *FQDNTestSuite) TestNameManagerMultiIPUpdate(c *C) {
 	c.Assert(selIPMap[githubSel][0].Equal(net.ParseIP("3.3.3.3")), Equals, true, Commentf("Incorrect IP mapping to FQDN"))
 	c.Assert(selIPMap[githubSel][1].Equal(net.ParseIP("4.4.4.4")), Equals, true, Commentf("Incorrect IP mapping to FQDN"))
 
-	// Second registration returns nil
-	ids := nameManager.RegisterForIdentityUpdates(githubSel)
+	// Second registration fails because IdenitityAllocator is not initialized
+	nameManager.Lock()
+	ids := nameManager.RegisterForIdentityUpdatesLocked(githubSel)
 	c.Assert(ids, IsNil)
 
-	nameManager.UnregisterForIdentityUpdates(githubSel)
+	nameManager.UnregisterForIdentityUpdatesLocked(githubSel)
 	_, exists := nameManager.allSelectors[githubSel]
 	c.Assert(exists, Equals, false)
 
-	nameManager.UnregisterForIdentityUpdates(ciliumIOSel)
+	nameManager.UnregisterForIdentityUpdatesLocked(ciliumIOSel)
 	_, exists = nameManager.allSelectors[ciliumIOSel]
 	c.Assert(exists, Equals, false)
+	nameManager.Unlock()
 
 }
