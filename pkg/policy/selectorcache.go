@@ -102,7 +102,7 @@ func (s CachedSelectorSlice) SelectsAllEndpoints() bool {
 // the CachedSelectors pushed by it.
 type CachedSelectionUser interface {
 	// IdentitySelectionUpdated implementations MUST NOT call back
-	// to selector cache while executing this function!
+	// to the name manager or the selector cache while executing this function!
 	//
 	// The caller is responsible for making sure the same identity is not
 	// present in both 'added' and 'deleted'.
@@ -147,8 +147,13 @@ type CachedSelectionUser interface {
 type identitySelector interface {
 	CachedSelector
 	addUser(CachedSelectionUser) (added bool)
-	removeUser(CachedSelectionUser) (last bool)
+
+	// Called with NameManager and SelectorCache locks held
+	removeUser(CachedSelectionUser, identityNotifier) (last bool)
+
+	// This may be called while the NameManager lock is held
 	notifyUsers(added, deleted []identity.NumericIdentity)
+
 	numUsers() int
 }
 
@@ -313,18 +318,19 @@ func (s *selectorManager) addUser(user CachedSelectionUser) (added bool) {
 }
 
 // lock must be held
-func (s *selectorManager) removeUser(user CachedSelectionUser) (last bool) {
+func (s *selectorManager) removeUser(user CachedSelectionUser, dnsProxy identityNotifier) (last bool) {
 	delete(s.users, user)
 	return len(s.users) == 0
 }
 
-func (f *fqdnSelector) removeUser(user CachedSelectionUser) (last bool) {
+// locks must be held for the dnsProxy and the SelectorCache
+func (f *fqdnSelector) removeUser(user CachedSelectionUser, dnsProxy identityNotifier) (last bool) {
 	delete(f.users, user)
-	removed := len(f.users) == 0
-	if removed {
-		f.dnsProxy.UnregisterForIdentityUpdates(f.selector)
+	if len(f.users) == 0 {
+		dnsProxy.UnregisterForIdentityUpdates(f.selector)
+		return true
 	}
-	return removed
+	return false
 }
 
 // lock must be held
@@ -363,8 +369,6 @@ func (s *selectorManager) setSelections(selections *[]identity.NumericIdentity) 
 type fqdnSelector struct {
 	selectorManager
 	selector api.FQDNSelector
-	// dnsProxy updates the set of identities which correspond to this selector.
-	dnsProxy identityNotifier
 }
 
 // lock must be held
@@ -386,6 +390,14 @@ func (f *fqdnSelector) notifyUsers(added, deleted []identity.NumericIdentity) {
 // relationship is contained only via DNS responses, which are handled
 // externally.
 type identityNotifier interface {
+	// Lock must be held during any calls to RegisterForIdentityUpdates or
+	// UnregisterForIdentityUpdates.
+	Lock()
+
+	// Unlock must be called after calls to RegisterForIdentityUpdates or
+	// UnregisterForIdentityUpdates are done.
+	Unlock()
+
 	// RegisterForIdentityUpdates exposes this FQDNSelector so that identities
 	// for IPs contained in a DNS response that matches said selector can be
 	// propagated back to the SelectorCache via `UpdateFQDNSelector`. When called,
@@ -485,7 +497,6 @@ func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, identiti
 				cachedSelections: make(map[identity.NumericIdentity]struct{}),
 			},
 			selector: fqdnSelec,
-			dnsProxy: sc.localIdentityNotifier,
 		}
 		sc.selectors[fqdnKey] = fqdnSel
 	} else {
@@ -585,7 +596,6 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 			cachedSelections: make(map[identity.NumericIdentity]struct{}),
 		},
 		selector: fqdnSelec,
-		dnsProxy: sc.localIdentityNotifier,
 	}
 
 	// Make the FQDN subsystem aware of this selector and fetch identities
@@ -599,7 +609,7 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 	// If this is called twice, one of the results will arbitrarily contain
 	// a real slice of ids, while the other will receive nil. We must fold
 	// them together below.
-	ids := newFQDNSel.dnsProxy.RegisterForIdentityUpdates(newFQDNSel.selector)
+	ids := sc.localIdentityNotifier.RegisterForIdentityUpdates(newFQDNSel.selector)
 
 	// Do not go through the identity cache to see what identities "match" this
 	// selector. This has to be updated via whatever is getting the CIDR identities
@@ -705,11 +715,12 @@ func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, selector 
 	return newIDSel, true
 }
 
+// lock must be held
 func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user CachedSelectionUser) {
 	key := selector.String()
 	sel, exists := sc.selectors[key]
 	if exists {
-		if sel.removeUser(user) {
+		if sel.removeUser(user, sc.localIdentityNotifier) {
 			delete(sc.selectors, key)
 		}
 	}
@@ -717,18 +728,22 @@ func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user Cach
 
 // RemoveSelector removes CachedSelector for the user.
 func (sc *SelectorCache) RemoveSelector(selector CachedSelector, user CachedSelectionUser) {
+	sc.localIdentityNotifier.Lock()
 	sc.mutex.Lock()
 	sc.removeSelectorLocked(selector, user)
 	sc.mutex.Unlock()
+	sc.localIdentityNotifier.Unlock()
 }
 
 // RemoveSelectors removes CachedSelectorSlice for the user.
 func (sc *SelectorCache) RemoveSelectors(selectors CachedSelectorSlice, user CachedSelectionUser) {
+	sc.localIdentityNotifier.Lock()
 	sc.mutex.Lock()
 	for _, selector := range selectors {
 		sc.removeSelectorLocked(selector, user)
 	}
 	sc.mutex.Unlock()
+	sc.localIdentityNotifier.Unlock()
 }
 
 // ChangeUser changes the CachedSelectionUser that gets updates on the
@@ -741,7 +756,8 @@ func (sc *SelectorCache) ChangeUser(selector CachedSelector, from, to CachedSele
 		// Add before remove so that the count does not dip to zero in between,
 		// as this causes FQDN unregistration (if applicable).
 		idSel.addUser(to)
-		idSel.removeUser(from)
+		// ignoring the return value as we have just added a user above
+		idSel.removeUser(from, sc.localIdentityNotifier)
 	}
 	sc.mutex.Unlock()
 }
