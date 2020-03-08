@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/testutils"
 
 	. "gopkg.in/check.v1"
 	v1 "k8s.io/api/core/v1"
@@ -100,6 +101,12 @@ var (
 
 type DummySelectorCacheUser struct{}
 
+func testNewPolicyRepository() *policy.Repository {
+	repo := policy.NewPolicyRepository(nil, nil)
+	repo.GetSelectorCache().SetLocalIdentityNotifier(testutils.NewDummyIdentityNotifier())
+	return repo
+}
+
 func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, selections, added, deleted []identity.NumericIdentity) {
 }
 
@@ -160,7 +167,7 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 
-	repo := policy.NewPolicyRepository(nil, nil)
+	repo := testNewPolicyRepository()
 
 	repo.AddList(rules)
 	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
@@ -288,7 +295,7 @@ func (s *K8sSuite) TestParseNetworkPolicyMultipleSelectors(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 
-	repo := policy.NewPolicyRepository(nil, nil)
+	repo := testNewPolicyRepository()
 	repo.AddList(rules)
 
 	endpointLabels := labels.LabelArray{
@@ -486,7 +493,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 
-	repo := policy.NewPolicyRepository(nil, nil)
+	repo := testNewPolicyRepository()
 	repo.AddList(rules)
 	// Because search context did not contain port-specific policy, deny is
 	// expected.
@@ -540,7 +547,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 }
 
 func parseAndAddRules(c *C, p *networkingv1.NetworkPolicy) *policy.Repository {
-	repo := policy.NewPolicyRepository(nil, nil)
+	repo := testNewPolicyRepository()
 	rules, err := ParseNetworkPolicy(p)
 	c.Assert(err, IsNil)
 	rev := repo.GetRevision()
@@ -698,7 +705,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 
-	repo := policy.NewPolicyRepository(nil, nil)
+	repo := testNewPolicyRepository()
 	repo.AddList(rules)
 	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
 
@@ -722,7 +729,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 	rules, err = ParseNetworkPolicy(netPolicy2)
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
-	repo = policy.NewPolicyRepository(nil, nil)
+	repo = testNewPolicyRepository()
 	repo.AddList(rules)
 	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
 }
@@ -753,7 +760,7 @@ func (s *K8sSuite) TestParseNetworkPolicyDenyAll(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 
-	repo := policy.NewPolicyRepository(nil, nil)
+	repo := testNewPolicyRepository()
 	repo.AddList(rules)
 	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
 }
@@ -864,7 +871,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 
-	repo := policy.NewPolicyRepository(nil, nil)
+	repo := testNewPolicyRepository()
 	repo.AddList(rules)
 	ctx := policy.SearchContext{
 		From: labels.LabelArray{
@@ -998,7 +1005,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 
-	repo = policy.NewPolicyRepository(nil, nil)
+	repo = testNewPolicyRepository()
 	repo.AddList(rules)
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -1066,7 +1073,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 
-	repo = policy.NewPolicyRepository(nil, nil)
+	repo = testNewPolicyRepository()
 	repo.AddList(rules)
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -1205,7 +1212,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 
-	repo = policy.NewPolicyRepository(nil, nil)
+	repo = testNewPolicyRepository()
 	// add example 4
 	repo.AddList(rules)
 
