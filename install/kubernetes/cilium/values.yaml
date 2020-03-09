@@ -202,6 +202,9 @@ global:
     # tracking table
     ctAnyMax: 262144
 
+    # natMax is the maximum number of entries for the NAT table
+    natMax: 841429
+
     # montiorAggregation is the level of aggregation for datapath trace events
     monitorAggregation: medium
 
