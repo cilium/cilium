@@ -210,6 +210,7 @@ ct_recreate6:
 #ifdef ENABLE_NODEPORT
 		/* See comment in handle_ipv4_from_lxc(). */
 		if (ct_state.node_port) {
+			ctx->cb[CB_IFINDEX] = ct_state.ifindex;
 			ctx->tc_index |= TC_INDEX_F_SKIP_RECIRCULATION;
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
 			return DROP_MISSED_TAIL_CALL;
@@ -560,6 +561,7 @@ ct_recreate4:
 		 * perform the reverse DNAT.
 		 */
 		if (ct_state.node_port) {
+			ctx->cb[CB_IFINDEX] = ct_state.ifindex;
 			ctx->tc_index |= TC_INDEX_F_SKIP_RECIRCULATION;
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
 			return DROP_MISSED_TAIL_CALL;
@@ -882,6 +884,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.node_port = ct_state.node_port;
+		ct_state_new.ifindex = ct_state.ifindex;
 		ret = ct_create6(get_ct_map6(&tuple), &tuple, ctx, CT_INGRESS, &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))
 			return ret;
@@ -1091,6 +1094,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.node_port = ct_state.node_port;
+		ct_state_new.ifindex = ct_state.ifindex;
 		ret = ct_create4(get_ct_map4(&tuple), &tuple, ctx, CT_INGRESS, &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))
 			return ret;

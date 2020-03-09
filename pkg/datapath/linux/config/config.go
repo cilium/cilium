@@ -382,6 +382,11 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e datapath.Endp
 		fmt.Fprintf(fw, "#define ENABLE_ROUTING 1\n")
 	}
 
+	// TODO(brb) temporary workaround to make bpf_lxc.c to compile with nodeport.h
+	if option.Config.EnableNodePort {
+		fmt.Fprint(fw, "#define NATIVE_DEV_IFINDEX 0\n")
+	}
+
 	if !e.HasIpvlanDataPath() {
 		if e.RequireARPPassthrough() {
 			fmt.Fprint(fw, "#define ENABLE_ARP_PASSTHROUGH 1\n")

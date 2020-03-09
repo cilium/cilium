@@ -461,9 +461,6 @@ case "${MODE}" in
 		echo "#define EPHEMERAL_MIN $CILIUM_EPHEMERAL_MIN" >> $RUNDIR/globals/node_config.h
 
 		if [ "$NODE_PORT" = "true" ]; then
-			sed -i '/^#.*NATIVE_DEV_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
-			NATIVE_DEV_IDX=$(cat /sys/class/net/${NATIVE_DEV}/ifindex)
-			echo "#define NATIVE_DEV_IFINDEX $NATIVE_DEV_IDX" >> $RUNDIR/globals/node_config.h
 			sed -i '/^#.*NATIVE_DEV_MAC.*$/d' $RUNDIR/globals/node_config.h
 			NATIVE_DEV_MAC=$(ip link show $NATIVE_DEV | grep ether | awk '{print $2}')
 			NATIVE_DEV_MAC=$(mac2array $NATIVE_DEV_MAC)
@@ -540,7 +537,8 @@ if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$MODE" = "routed" ] ||
 		CALLS_MAP=cilium_calls_netdev_${ID_WORLD}
 		COPTS="-DSECLABEL=${ID_WORLD}"
 		if [ "$NODE_PORT" = "true" ]; then
-			COPTS="${COPTS} -DLB_L3 -DLB_L4"
+			NATIVE_DEV_IDX=$(cat /sys/class/net/${NATIVE_DEV}/ifindex)
+			COPTS="${COPTS} -DLB_L3 -DLB_L4 -DNATIVE_DEV_IFINDEX=${NATIVE_DEV_IDX}"
 		fi
 
 		bpf_load $NATIVE_DEV "$COPTS" "ingress" bpf_netdev.c bpf_netdev.o "from-netdev" $CALLS_MAP
