@@ -17,10 +17,10 @@ and meeting links.
 ====================== ===================================== ============= ================================================================================
 SIG                    Meeting                               Slack         Description
 ====================== ===================================== ============= ================================================================================
-Datapath               Every 2 weeks                         #sig-datapath Owner of all BPF and Linux kernel related datapath code.
+Datapath               Wednesdays, 08:00 PT                  #sig-datapath Owner of all BPF and Linux kernel related datapath code.
 Documentation          None                                  #sig-docs     All documentation related discussions
-Envoy                  Every 2 weeks                         #sig-envoy    Envoy, Istio and maintenance of all L7 protocol parsers.
-Policy                 Every Wed, 9:30 PT (`Policy-Zoom`_)   #sig-policy   All topics related to policy. The SIG is responsible for all security relevant APIs and the enforcement logic.
+Envoy                  Biweekly on Thursdays, 09:00 PT       #sig-envoy    Envoy, Istio and maintenance of all L7 protocol parsers.
+Policy                 None                                  #sig-policy   All topics related to policy. The SIG is responsible for all security relevant APIs and the enforcement logic.
 Release Management     None                                  #launchpad    Responsible for the release management and backport process.
 ====================== ===================================== ============= ================================================================================
 
