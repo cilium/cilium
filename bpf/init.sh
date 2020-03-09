@@ -461,11 +461,17 @@ case "${MODE}" in
 		echo "#define EPHEMERAL_MIN $CILIUM_EPHEMERAL_MIN" >> $RUNDIR/globals/node_config.h
 
 		if [ "$NODE_PORT" = "true" ]; then
-			sed -i '/^#.*NATIVE_DEV_MAC.*$/d' $RUNDIR/globals/node_config.h
-			NATIVE_DEV_MAC=$(ip link show $NATIVE_DEV | grep ether | awk '{print $2}')
-			NATIVE_DEV_MAC=$(mac2array $NATIVE_DEV_MAC)
-			echo "#define NATIVE_DEV_MAC { .addr = ${NATIVE_DEV_MAC}}" >> $RUNDIR/globals/node_config.h
-
+			MAC_BY_IFINDEX_MACRO="#define NATIVE_DEV_MAC_BY_IFINDEX(IFINDEX) ({ \\
+	union macaddr mac = {.addr = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0}}; \\
+	switch (IFINDEX) { \\\\\n"
+			MAC_BY_IFINDEX_MACRO_END="	} \\
+	mac; })"
+			IDX=$(cat /sys/class/net/${NATIVE_DEV}/ifindex)
+			MAC=$(ip link show $NATIVE_DEV | grep ether | awk '{print $2}')
+			MAC=$(mac2array $MAC)
+			MAC_BY_IFINDEX_MACRO="${MAC_BY_IFINDEX_MACRO}	case ${IDX}: {union macaddr tmp = {.addr = ${MAC}}; mac=tmp;} break; \\\\\n"
+			MAC_BY_IFINDEX_MACRO="${MAC_BY_IFINDEX_MACRO}${MAC_BY_IFINDEX_MACRO_END}"
+			echo -e "${MAC_BY_IFINDEX_MACRO}" >> $RUNDIR/globals/node_config.h
 		fi
 esac
 

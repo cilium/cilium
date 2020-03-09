@@ -662,7 +662,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_REVNAT)
 int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 {
 	int ifindex = ctx->cb[CB_IFINDEX];
-	union macaddr mac = NATIVE_DEV_MAC;
+	union macaddr mac = NATIVE_DEV_MAC_BY_IFINDEX(ifindex);
 	int ret = 0;
 
 	ret = rev_nodeport_lb6(ctx, &ifindex, &mac);
@@ -1250,7 +1250,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_REVNAT)
 int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 {
 	int ifindex = ctx->cb[CB_IFINDEX];
-	union macaddr mac = NATIVE_DEV_MAC;
+	union macaddr mac = NATIVE_DEV_MAC_BY_IFINDEX(ifindex);
 	int ret = 0;
 
 	ret = rev_nodeport_lb4(ctx, &ifindex, &mac);
