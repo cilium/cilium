@@ -647,9 +647,11 @@ ct_update6_rev_nat_index(void *map, struct ipv6_ct_tuple *tuple,
 }
 
 /* Offset must point to IPv6 */
-static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
-					struct __sk_buff *skb, int dir,
-					struct ct_state *ct_state, bool proxy_redirect)
+static __always_inline int ct_create6(const void *map_main, const void *map_related,
+				      struct ipv6_ct_tuple *tuple,
+				      struct __sk_buff *skb, int dir,
+				      struct ct_state *ct_state,
+				      bool proxy_redirect)
 {
 	/* Create entry in original direction */
 	struct ct_entry entry = { };
@@ -684,30 +686,26 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 	cilium_dbg3(skb, DBG_CT_CREATED6, entry.rev_nat_index, ct_state->src_sec_id, 0);
 
 	entry.src_sec_id = ct_state->src_sec_id;
-	if (map_update_elem(map, tuple, &entry, 0) < 0)
+	if (map_update_elem(map_main, tuple, &entry, 0) < 0)
 		return DROP_CT_CREATE_FAILED;
 
-	/* Create an ICMPv6 entry to relate errors */
-	struct ipv6_ct_tuple icmp_tuple = {
-		.nexthdr = IPPROTO_ICMPV6,
-		.sport = 0,
-		.dport = 0,
-		.flags = tuple->flags | TUPLE_F_RELATED,
-	};
+	if (map_related != NULL) {
+		/* Create an ICMPv6 entry to relate errors */
+		struct ipv6_ct_tuple icmp_tuple = {
+			.nexthdr = IPPROTO_ICMPV6,
+			.sport = 0,
+			.dport = 0,
+			.flags = tuple->flags | TUPLE_F_RELATED,
+		};
 
-	entry.seen_non_syn = true; /* For ICMP, there is no SYN. */
+		entry.seen_non_syn = true; /* For ICMP, there is no SYN. */
 
-	ipv6_addr_copy(&icmp_tuple.daddr, &tuple->daddr);
-	ipv6_addr_copy(&icmp_tuple.saddr, &tuple->saddr);
+		ipv6_addr_copy(&icmp_tuple.daddr, &tuple->daddr);
+		ipv6_addr_copy(&icmp_tuple.saddr, &tuple->saddr);
 
-	/* FIXME: We could do a lookup and check if an L3 entry already exists */
-	if (map_update_elem(map, &icmp_tuple, &entry, 0) < 0) {
-		/* Previous map update succeeded, we could delete it
-		 * but we might as well just let it time out.
-		 */
-		return DROP_CT_CREATE_FAILED;
+		if (map_update_elem(map_related, &icmp_tuple, &entry, 0) < 0)
+			return DROP_CT_CREATE_FAILED;
 	}
-
 	return 0;
 }
 
@@ -741,9 +739,11 @@ ct_update4_rev_nat_index(void *map, struct ipv4_ct_tuple *tuple,
 	return;
 }
 
-static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
-					struct __sk_buff *skb, int dir,
-					struct ct_state *ct_state, bool proxy_redirect)
+static __always_inline int ct_create4(const void *map_main, const void *map_related,
+				      struct ipv4_ct_tuple *tuple,
+				      struct __sk_buff *skb, int dir,
+				      struct ct_state *ct_state,
+				      bool proxy_redirect)
 {
 	/* Create entry in original direction */
 	struct ct_entry entry = { };
@@ -791,7 +791,7 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 	cilium_dbg3(skb, DBG_CT_CREATED4, entry.rev_nat_index, ct_state->src_sec_id, ct_state->addr);
 
 	entry.src_sec_id = ct_state->src_sec_id;
-	if (map_update_elem(map, tuple, &entry, 0) < 0)
+	if (map_update_elem(map_main, tuple, &entry, 0) < 0)
 		return DROP_CT_CREATE_FAILED;
 
 	if (ct_state->addr && ct_state->loopback) {
@@ -814,29 +814,32 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 			tuple->daddr = ct_state->addr;
 		}
 
-		if (map_update_elem(map, tuple, &entry, 0) < 0)
+		if (map_update_elem(map_main, tuple, &entry, 0) < 0)
 			return DROP_CT_CREATE_FAILED;
 		tuple->saddr = saddr;
 		tuple->daddr = daddr;
 		tuple->flags = flags;
 	}
 
-	/* Create an ICMP entry to relate errors */
-	struct ipv4_ct_tuple icmp_tuple = {
-		.daddr = tuple->daddr,
-		.saddr = tuple->saddr,
-		.nexthdr = IPPROTO_ICMP,
-		.sport = 0,
-		.dport = 0,
-		.flags = tuple->flags | TUPLE_F_RELATED,
-	};
+	if (map_related != NULL) {
+		/* Create an ICMP entry to relate errors */
+		struct ipv4_ct_tuple icmp_tuple = {
+			.daddr = tuple->daddr,
+			.saddr = tuple->saddr,
+			.nexthdr = IPPROTO_ICMP,
+			.sport = 0,
+			.dport = 0,
+			.flags = tuple->flags | TUPLE_F_RELATED,
+		};
 
-	entry.seen_non_syn = true; /* For ICMP, there is no SYN. */
-
-	/* FIXME: We could do a lookup and check if an L3 entry already exists */
-	if (map_update_elem(map, &icmp_tuple, &entry, 0) < 0)
-		return DROP_CT_CREATE_FAILED;
-
+		entry.seen_non_syn = true; /* For ICMP, there is no SYN. */
+		/* Previous map update succeeded, we could delete it in case
+		 * the below throws an error, but we might as well just let
+		 * it time out.
+		 */
+		if (map_update_elem(map_related, &icmp_tuple, &entry, 0) < 0)
+			return DROP_CT_CREATE_FAILED;
+	}
 	return 0;
 }
 
@@ -867,9 +870,11 @@ ct_update6_rev_nat_index(void *map, struct ipv6_ct_tuple *tuple,
 {
 }
 
-static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
-					struct __sk_buff *skb, int dir,
-					struct ct_state *ct_state, bool from_proxy)
+static __always_inline int ct_create6(const void *map_main, const void *map_related,
+				      struct ipv6_ct_tuple *tuple,
+				      struct __sk_buff *skb, int dir,
+				      struct ct_state *ct_state,
+				      bool from_proxy)
 {
 	return 0;
 }
@@ -886,9 +891,10 @@ ct_update4_rev_nat_index(void *map, struct ipv4_ct_tuple *tuple,
 {
 }
 
-static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
-					struct __sk_buff *skb, int dir,
-					struct ct_state *ct_state, bool from_proxy)
+static __always_inline int ct_create4(const void *map_main, const void *map_related,
+				      struct ipv4_ct_tuple *tuple,
+				      struct __sk_buff *skb, int dir,
+				      struct ct_state *ct_state, bool from_proxy)
 {
 	return 0;
 }

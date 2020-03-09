@@ -198,7 +198,7 @@ ct_recreate6:
 		 * reverse NAT.
 		 */
 		ct_state_new.src_sec_id = SECLABEL;
-		ret = ct_create6(get_ct_map6(tuple), tuple, skb, CT_EGRESS, &ct_state_new, verdict > 0);
+		ret = ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6, tuple, skb, CT_EGRESS, &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))
 			return ret;
 		monitor = TRACE_PAYLOAD_LEN;
@@ -538,8 +538,11 @@ ct_recreate4:
 		 * reverse NAT.
 		 */
 		ct_state_new.src_sec_id = SECLABEL;
-		ret = ct_create4(get_ct_map4(&tuple), &tuple, skb, CT_EGRESS,
-				 &ct_state_new, verdict > 0);
+		/* We could avoid creating related entries for legacy ClusterIP
+		 * handling here, but turns out that verifier cannot handle it.
+		 */
+		ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple, skb,
+				 CT_EGRESS, &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))
 			return ret;
 		break;
@@ -876,7 +879,8 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.node_port = ct_state.node_port;
-		ret = ct_create6(get_ct_map6(&tuple), &tuple, skb, CT_INGRESS, &ct_state_new, verdict > 0);
+		ret = ct_create6(get_ct_map6(&tuple), &CT_MAP_ANY6, &tuple, skb, CT_INGRESS,
+				 &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -1085,7 +1089,8 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, _
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.node_port = ct_state.node_port;
-		ret = ct_create4(get_ct_map4(&tuple), &tuple, skb, CT_INGRESS, &ct_state_new, verdict > 0);
+		ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple, skb, CT_INGRESS,
+				 &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))
 			return ret;
 
