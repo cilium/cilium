@@ -205,6 +205,15 @@ install-container: install-bpf
 GIT_VERSION: .git
 	echo "$(GIT_VERSION)" >GIT_VERSION
 
+docker-cilium-image-for-developers:
+	# DOCKER_BUILDKIT allows for faster build as well as the ability to use
+	# a dedicated dockerignore file per Dockerfile.
+	DOCKER_BUILDKIT=1 $(CONTAINER_ENGINE_FULL) build \
+	     --build-arg LOCKDEBUG=\
+	     --build-arg V=\
+	     --build-arg LIBNETWORK_PLUGIN=\
+	     -t "cilium/cilium-dev:"latest"" . -f ./cilium-dev.Dockerfile
+
 docker-image: clean docker-image-no-clean docker-operator-image docker-plugin-image
 
 docker-image-no-clean: GIT_VERSION
