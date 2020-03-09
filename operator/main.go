@@ -102,8 +102,8 @@ func main() {
 	}
 }
 
-// initConfig reads in config file and ENV variables if set.
-func initConfig() {
+// init reads in config file and ENV variables if set.
+func init() {
 	if viper.GetBool("version") {
 		fmt.Printf("Cilium-Operator %s\n", version.Version)
 		os.Exit(0)
