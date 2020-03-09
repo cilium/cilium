@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"k8s.io/klog"
 
@@ -28,8 +27,6 @@ import (
 )
 
 func init() {
-	cobra.OnInitialize(initConfig)
-
 	flags := rootCmd.Flags()
 
 	flags.Int(option.AWSClientBurstDeprecated, defaults.IPAMAPIBurst, "")
