@@ -144,6 +144,7 @@ data:
   enable-remote-node-identity: "true"
 
   synchronize-k8s-nodes: "true"
+  policy-audit-mode: "false"
   operator-api-serve-addr: '127.0.0.1:9234'
 ---
 # Source: cilium/charts/agent/templates/clusterrole.yaml
