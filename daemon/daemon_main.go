@@ -160,11 +160,7 @@ func init() {
 		return
 	}
 
-	if viper.GetBool("version") {
-		fmt.Printf("Cilium %s\n", version.Version)
-		os.Exit(0)
-	}
-	cobra.OnInitialize(option.InitConfig("ciliumd"))
+	cobra.OnInitialize(option.InitConfig("Cilium", "ciliumd"))
 
 	// Reset the help function to also exit, as we block elsewhere in interrupts
 	// and would not exit when called with -h.
