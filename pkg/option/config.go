@@ -2269,7 +2269,9 @@ func (c *DaemonConfig) populateNodePortRange() error {
 			return errors.New("NodePort range min port must be smaller than max port")
 		}
 	case 0:
-		log.Warning("NodePort range was set but is empty.")
+		if viper.IsSet(NodePortRange) {
+			log.Warning("NodePort range was set but is empty.")
+		}
 	default:
 		return fmt.Errorf("Unable to parse min/max port value for NodePort range: %s", NodePortRange)
 	}
@@ -2306,11 +2308,13 @@ func (c *DaemonConfig) populateHostServicesProtos() error {
 func sanitizeIntParam(paramName string, paramDefault int) int {
 	intParam := viper.GetInt(paramName)
 	if intParam <= 0 {
-		log.WithFields(
-			logrus.Fields{
-				"parameter":    paramName,
-				"defaultValue": paramDefault,
-			}).Warning("user-provided parameter had value <= 0 , which is invalid ; setting to default")
+		if !viper.IsSet(paramName) {
+			log.WithFields(
+				logrus.Fields{
+					"parameter":    paramName,
+					"defaultValue": paramDefault,
+				}).Warning("user-provided parameter had value <= 0 , which is invalid ; setting to default")
+		}
 		return paramDefault
 	}
 	return intParam
