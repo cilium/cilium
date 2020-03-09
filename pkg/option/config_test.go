@@ -275,8 +275,8 @@ func Test_populateNodePortRange(t *testing.T) {
 		{
 			name: "NodePortRange not set in viper",
 			want: want{
-				wantMin: NodePortMinDefault,
-				wantMax: NodePortMaxDefault,
+				wantMin: 0,
+				wantMax: 0,
 				wantErr: false,
 			},
 			preTestRun: func() {

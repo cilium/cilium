@@ -2247,6 +2247,10 @@ func (c *DaemonConfig) Populate() {
 }
 
 func (c *DaemonConfig) populateNodePortRange() error {
+	if !viper.IsSet(NodePortRange) {
+		return nil
+	}
+
 	nodePortRange := viper.GetStringSlice(NodePortRange)
 	// When passed via configmap, we might not get a slice but single
 	// string instead, so split it if needed.
@@ -2305,7 +2309,7 @@ func (c *DaemonConfig) populateHostServicesProtos() error {
 
 func sanitizeIntParam(paramName string, paramDefault int) int {
 	intParam := viper.GetInt(paramName)
-	if intParam <= 0 {
+	if viper.IsSet(paramName) && intParam <= 0 {
 		log.WithFields(
 			logrus.Fields{
 				"parameter":    paramName,
