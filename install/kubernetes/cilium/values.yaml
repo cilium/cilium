@@ -282,9 +282,9 @@ global:
     # enabled enables use of the IPVLAN datapath
     enabled: false
 
-    # primaryDevice is the name of the device to use to attach secondary IPVLAN
+    # masterDevice is the name of the device to use to attach secondary IPVLAN
     # devices
-    # primaryDevice: eth0
+    # masterDevice: eth0
 
   # pprof is the GO pprof configuration
   pprof:
