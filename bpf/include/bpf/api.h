@@ -109,10 +109,10 @@
 #endif
 
 /* Map access/manipulation */
-static void *BPF_FUNC(map_lookup_elem, void *map, const void *key);
-static int BPF_FUNC(map_update_elem, void *map, const void *key,
+static void *BPF_FUNC(map_lookup_elem, const void *map, const void *key);
+static int BPF_FUNC(map_update_elem, const void *map, const void *key,
 		    const void *value, uint32_t flags);
-static int BPF_FUNC(map_delete_elem, void *map, const void *key);
+static int BPF_FUNC(map_delete_elem, const void *map, const void *key);
 
 /* Time access */
 static uint64_t BPF_FUNC(ktime_get_ns);
