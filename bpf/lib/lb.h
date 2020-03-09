@@ -459,7 +459,7 @@ static __always_inline int lb6_local(void *map, struct __ctx_buff *ctx,
 		}
 		state->backend_id = slave_svc->backend_id;
 		state->rev_nat_index = svc->rev_nat_index;
-		ret = ct_create6(map, tuple, ctx, CT_SERVICE, state, false);
+		ret = ct_create6(map, NULL, tuple, ctx, CT_SERVICE, state, false);
 		/* Fail closed, if the conntrack entry create fails drop
 		 * service lookup.
 		 */
@@ -830,7 +830,7 @@ static __always_inline int lb4_local(void *map, struct __ctx_buff *ctx,
 		}
 		state->backend_id = slave_svc->backend_id;
 		state->rev_nat_index = svc->rev_nat_index;
-		ret = ct_create4(map, tuple, ctx, CT_SERVICE, state, false);
+		ret = ct_create4(map, NULL, tuple, ctx, CT_SERVICE, state, false);
 		/* Fail closed, if the conntrack entry create fails drop
 		 * service lookup.
 		 */
