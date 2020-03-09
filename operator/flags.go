@@ -19,14 +19,17 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/spf13/viper"
-	"k8s.io/klog"
-
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/option"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"k8s.io/klog"
 )
 
 func init() {
+	cobra.OnInitialize(option.InitConfig("Cilium-Operator", "cilium-operator"))
+
 	flags := rootCmd.Flags()
 
 	flags.Int(option.AWSClientBurstDeprecated, defaults.IPAMAPIBurst, "")

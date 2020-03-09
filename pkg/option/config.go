@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/version"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
@@ -2340,8 +2341,13 @@ func getHostDevice() string {
 }
 
 // InitConfig reads in config file and ENV variables if set.
-func InitConfig(configName string) func() {
+func InitConfig(programName, configName string) func() {
 	return func() {
+		if viper.GetBool("version") {
+			fmt.Printf("%s %s\n", programName, version.Version)
+			os.Exit(0)
+		}
+
 		if viper.GetString(CMDRef) != "" {
 			return
 		}
