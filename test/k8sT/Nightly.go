@@ -238,7 +238,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 		getClient := func(ip, port, filePipe string) string {
 			return fmt.Sprintf(
-				"rm %[1]s; touch %[1]s; tail -f %[1]s 2>&1 | nc -v %[2]s %[3]s",
+				"bash -c 'rm %[1]s; touch %[1]s; tail -f %[1]s 2>&1 | nc -v %[2]s %[3]s'",
 				filePipe, ip, port)
 		}
 
@@ -262,7 +262,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 			netcatPods, err := kubectl.GetPodNames(helpers.DefaultNamespace, "zgroup=netcatds")
 			Expect(err).To(BeNil(), "Cannot get pods names for netcatds")
-			Expect(len(netcatPods)).To(BeNumerically(">", 0), "Pods are not ready")
+			Expect(len(netcatPods)).To(BeNumerically(">=", 2), "Pods are not ready")
 
 			server := netcatPods[0]
 			client := netcatPods[1]
@@ -275,17 +275,20 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			serverctx := kubectl.ExecPodCmdBackground(ctx, helpers.DefaultNamespace, server, ncServer)
-			err = serverctx.WaitUntilMatch(listeningString)
-			Expect(err).To(BeNil(), "netcat server did not start correctly")
-
-			_ = kubectl.ExecPodCmdBackground(ctx, helpers.DefaultNamespace, client, ncClient)
-
 			testNcConnectivity := func(sleep time.Duration) {
+				serverctx := kubectl.ExecPodCmdBackground(ctx, helpers.DefaultNamespace, server, ncServer)
+				err = serverctx.WaitUntilMatch(listeningString)
+				Expect(err).To(BeNil(), "netcat server did not start correctly")
+
+				_ = kubectl.ExecPodCmdBackground(ctx, helpers.DefaultNamespace, client, ncClient)
+
 				helpers.Sleep(sleep)
 				uid := helpers.MakeUID()
-				_ = kubectl.ExecPodCmd(helpers.DefaultNamespace, client,
-					fmt.Sprintf(`echo -e "%s" >> %s`, HTTPRequest(uid, ips[client]), pipePath))
+
+				res := kubectl.ExecPodCmd(helpers.DefaultNamespace, client,
+					fmt.Sprintf(`bash -c "echo -e '%s' >> %s"`, HTTPRequest(uid, ips[client]), pipePath))
+				res.ExpectSuccess("Failed to populate netcat client pipe")
+
 				Expect(serverctx.WaitUntilMatch(uid)).To(BeNil(),
 					"%q is not in the server output after timeout", uid)
 				serverctx.ExpectContains(uid, "Cannot get server UUID")

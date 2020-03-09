@@ -286,7 +286,7 @@ func (res *CmdRes) GetDebugMessage() string {
 // If the timeout is reached it will return an error.
 func (res *CmdRes) WaitUntilMatch(substr string) error {
 	body := func() bool {
-		return strings.Contains(res.Output().String(), substr)
+		return strings.Contains(res.OutputPrettyPrint(), substr)
 	}
 
 	return WithTimeout(
