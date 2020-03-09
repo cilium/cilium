@@ -17,6 +17,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/spf13/viper"
@@ -24,9 +25,14 @@ import (
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/version"
 )
 
 func init() {
+	if viper.GetBool("version") {
+		fmt.Printf("Cilium-Operator %s\n", version.Version)
+		os.Exit(0)
+	}
 	flags := rootCmd.Flags()
 
 	flags.Int(option.AWSClientBurstDeprecated, defaults.IPAMAPIBurst, "")
