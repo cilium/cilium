@@ -700,7 +700,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	if n.enableNeighDiscovery {
 		var ifaceName string
 		if option.Config.EnableNodePort {
-			ifaceName = option.Config.Device
+			ifaceName = option.Config.Devices[0]
 		} else {
 			ifaceName = option.Config.EncryptInterface
 		}

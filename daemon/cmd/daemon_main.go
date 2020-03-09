@@ -244,7 +244,7 @@ func init() {
 	flags.StringSlice(option.DebugVerbose, []string{}, "List of enabled verbose debug groups")
 	option.BindEnv(option.DebugVerbose)
 
-	flags.StringP(option.Device, "d", "undefined", "Device facing cluster/external network for direct L3 (non-overlay mode)")
+	flags.StringSliceP(option.Device, "d", []string{}, "List of devices facing cluster/external network for attaching bpf_netdev")
 	option.BindEnv(option.Device)
 
 	flags.String(option.DatapathMode, defaults.DatapathMode, "Datapath mode name")
@@ -1025,8 +1025,8 @@ func initEnv(cmd *cobra.Command) {
 			log.WithField(logfields.Tunnel, option.Config.Tunnel).
 				Fatal("tunnel cannot be set in the 'ipvlan' datapath mode")
 		}
-		if option.Config.Device != "undefined" {
-			log.WithField(logfields.Device, option.Config.Device).
+		if len(option.Config.Devices) != 0 {
+			log.WithField(logfields.Devices, option.Config.Devices).
 				Fatal("device cannot be set in the 'ipvlan' datapath mode")
 		}
 		if option.Config.EnableIPSec {
@@ -1036,20 +1036,21 @@ func initEnv(cmd *cobra.Command) {
 		option.Config.Tunnel = option.TunnelDisabled
 		// We disallow earlier command line combination of --device with
 		// --datapath-mode ipvlan. But given all the remaining logic is
-		// shared with option.Config.Device, override it here internally
+		// shared with option.Config.Devices, override it here internally
 		// with the specified ipvlan master device. Reason to have a
 		// separate, more specific command line parameter here and in
 		// the swagger API is that in future we might deprecate --device
 		// parameter with e.g. some auto-detection mechanism, thus for
 		// ipvlan it is desired to have a separate one, see PR #6608.
-		option.Config.Device = viper.GetString(option.IpvlanMasterDevice)
-		if option.Config.Device == "undefined" {
-			log.WithField(logfields.IpvlanMasterDevice, option.Config.Device).
+		iface := viper.GetString(option.IpvlanMasterDevice)
+		if iface == "undefined" {
+			log.WithField(logfields.IpvlanMasterDevice, option.Config.Devices[0]).
 				Fatal("ipvlan master device must be specified in the 'ipvlan' datapath mode")
 		}
-		link, err := netlink.LinkByName(option.Config.Device)
+		option.Config.Devices = []string{iface}
+		link, err := netlink.LinkByName(option.Config.Devices[0])
 		if err != nil {
-			log.WithError(err).WithField(logfields.IpvlanMasterDevice, option.Config.Device).
+			log.WithError(err).WithField(logfields.IpvlanMasterDevice, option.Config.Devices[0]).
 				Fatal("Cannot find device interface")
 		}
 		option.Config.Ipvlan.MasterDeviceIndex = link.Attrs().Index
@@ -1068,12 +1069,17 @@ func initEnv(cmd *cobra.Command) {
 	if option.Config.EnableIPSec && option.Config.Tunnel == option.TunnelDisabled && option.Config.EncryptInterface == "" {
 		link, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
 		if err != nil {
-			log.WithError(err).Fatal("Ipsec default interface lookup failed, consider \"encrypt-interface\" to manually configure interface.", err)
+			log.WithError(err).Fatal("Ipsec default interface lookup failed, consider \"encrypt-interface\" to manually configure interface.")
 		}
 		option.Config.EncryptInterface = link
 	}
 
 	initKubeProxyReplacementOptions()
+	if option.Config.EnableNodePort {
+		if err := node.InitNodePortAddrs(option.Config.Devices); err != nil {
+			log.WithError(err).Fatal("Failed to initialize NodePort addrs")
+		}
+	}
 
 	if option.Config.Masquerade && option.Config.EnableBPFMasquerade {
 		// TODO(brb) nodeport + ipvlan constraints will be lifted once the SNAT BPF code has been refactored
@@ -1099,11 +1105,9 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
-	// If device has been specified, use it to derive better default
+	// If there is one device specified, use it to derive better default
 	// allocation prefixes
-	if option.Config.Device != "undefined" {
-		node.InitDefaultPrefix(option.Config.Device)
-	}
+	node.InitDefaultPrefix(option.Config.Devices)
 
 	if option.Config.IPv6NodeAddr != "auto" {
 		if ip := net.ParseIP(option.Config.IPv6NodeAddr); ip == nil {
@@ -1578,7 +1582,7 @@ func initKubeProxyReplacementOptions() {
 		}
 	}
 
-	if option.Config.EnableNodePort && option.Config.Device == "undefined" {
+	if option.Config.EnableNodePort && len(option.Config.Devices) == 0 {
 		device, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
 		if err != nil {
 			msg := "BPF NodePort's external facing device could not be determined. Use --device to specify."
@@ -1593,18 +1597,20 @@ func initKubeProxyReplacementOptions() {
 		} else {
 			log.WithField(logfields.Interface, device).
 				Info("Using auto-derived device for BPF node port")
-			option.Config.Device = device
+			option.Config.Devices = []string{device}
 		}
 	}
 
 	if option.Config.EnableNodePort &&
 		option.Config.NodePortAcceleration != option.NodePortAccelerationNone {
 		if option.Config.XDPDevice != "undefined" &&
-			option.Config.XDPDevice != option.Config.Device {
+			(len(option.Config.Devices) == 0 ||
+				option.Config.XDPDevice != option.Config.Devices[0]) {
 			log.Fatalf("Cannot set NodePort acceleration device: mismatch between Prefilter device %s and NodePort device %s",
-				option.Config.XDPDevice, option.Config.Device)
+				option.Config.XDPDevice, option.Config.Devices[0])
 		}
-		option.Config.XDPDevice = option.Config.Device
+		// TODO(brb) support multi-dev for XDP
+		option.Config.XDPDevice = option.Config.Devices[0]
 		if err := loader.SetXDPMode(option.Config.NodePortAcceleration); err != nil {
 			log.WithError(err).Fatal("Cannot set NodePort acceleration")
 		}

@@ -55,13 +55,30 @@ func C2GoArray(str string) []byte {
 // array := []byte{0x12, 0xFF, 0x0, 0x01}
 // fmt.Print(GoArray2C(array)) // "{ 0x12, 0xff, 0x0, 0x1 }"
 func GoArray2C(array []byte) string {
+	return goArray2C(array, true)
+}
+
+// GoArray2CNoSpaces does the same as GoArray2C, but no spaces are used in
+// the final output.
+// Example:
+// array := []byte{0x12, 0xFF, 0x0, 0x01}
+// fmt.Print(GoArray2CNoSpaces(array)) // "{0x12,0xff,0x0,0x1}"
+func GoArray2CNoSpaces(array []byte) string {
+	return goArray2C(array, false)
+}
+
+func goArray2C(array []byte, space bool) string {
 	ret := ""
+	format := ",%#x"
+	if space {
+		format = ", %#x"
+	}
 
 	for i, e := range array {
 		if i == 0 {
 			ret = ret + fmt.Sprintf("%#x", e)
 		} else {
-			ret = ret + fmt.Sprintf(", %#x", e)
+			ret = ret + fmt.Sprintf(format, e)
 		}
 	}
 	return ret

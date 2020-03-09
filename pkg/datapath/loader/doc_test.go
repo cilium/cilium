@@ -34,7 +34,7 @@ func Test(t *testing.T) {
 }
 
 func (s *LoaderTestSuite) SetUpTest(c *C) {
-	node.InitDefaultPrefix("")
+	node.InitDefaultPrefix(nil)
 	node.SetInternalIPv4(templateIPv4)
 	node.SetIPv4Loopback(templateIPv4)
 }
