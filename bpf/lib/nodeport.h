@@ -508,15 +508,15 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	case CT_NEW:
 		ct_state_new.src_sec_id = SECLABEL;
 		ct_state_new.node_port = 1;
-		ret = ct_create6(get_ct_map6(&tuple), &tuple, ctx, CT_EGRESS,
-				 &ct_state_new, false);
+		ret = ct_create6(get_ct_map6(&tuple), NULL, &tuple, ctx,
+				 CT_EGRESS, &ct_state_new, false);
 		if (IS_ERR(ret))
 			return ret;
 		if (backend_local) {
 			ct_flip_tuple_dir6(&tuple);
 redo:
 			ct_state_new.rev_nat_index = 0;
-			ret = ct_create6(get_ct_map6(&tuple), &tuple, ctx,
+			ret = ct_create6(get_ct_map6(&tuple), NULL, &tuple, ctx,
 					 CT_INGRESS, &ct_state_new, false);
 			if (IS_ERR(ret))
 				return ret;
@@ -1066,15 +1066,15 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	case CT_NEW:
 		ct_state_new.src_sec_id = SECLABEL;
 		ct_state_new.node_port = 1;
-		ret = ct_create4(get_ct_map4(&tuple), &tuple, ctx, CT_EGRESS,
-				 &ct_state_new, false);
+		ret = ct_create4(get_ct_map4(&tuple), NULL, &tuple, ctx,
+				 CT_EGRESS, &ct_state_new, false);
 		if (IS_ERR(ret))
 			return ret;
 		if (backend_local) {
 			ct_flip_tuple_dir4(&tuple);
 redo:
 			ct_state_new.rev_nat_index = 0;
-			ret = ct_create4(get_ct_map4(&tuple), &tuple, ctx,
+			ret = ct_create4(get_ct_map4(&tuple), NULL, &tuple, ctx,
 					 CT_INGRESS, &ct_state_new, false);
 			if (IS_ERR(ret))
 				return ret;
