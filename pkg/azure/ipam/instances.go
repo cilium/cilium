@@ -39,11 +39,11 @@ type AzureAPI interface {
 // InstancesManager maintains the list of instances. It must be kept up to date
 // by calling resync() regularly.
 type InstancesManager struct {
-	mutex      lock.RWMutex
-	instances  types.InstanceMap
-	vnets      ipamTypes.VirtualNetworkMap
-	api        AzureAPI
-	allocators map[string]*allocator.Allocator
+	mutex     lock.RWMutex
+	instances types.InstanceMap
+	vnets     ipamTypes.VirtualNetworkMap
+	api       AzureAPI
+	allocator *allocator.GroupAllocator
 }
 
 // NewInstancesManager returns a new instances manager
@@ -54,6 +54,13 @@ func NewInstancesManager(api AzureAPI) *InstancesManager {
 	}
 }
 
+func (m *InstancesManager) Allocator() (allocator *allocator.GroupAllocator) {
+	m.mutex.RLock()
+	allocator = m.allocator
+	m.mutex.RUnlock()
+	return
+}
+
 // CreateNode is called on discovery of a new node and returns the ENI node
 // allocation implementation for the new node
 func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, n *ipam.Node) ipam.NodeOperations {
@@ -61,38 +68,28 @@ func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, n *ipam.Node) ipam.Nod
 }
 
 // GetPoolQuota returns the number of available IPs in all IP pools
-func (m *InstancesManager) GetPoolQuota() ipamTypes.PoolQuotaMap {
-	pool := ipamTypes.PoolQuotaMap{}
-
-	m.mutex.RLock()
-	for subnetID, subnet := range m.allocators {
-		pool[ipamTypes.PoolID(subnetID)] = ipamTypes.PoolQuota{
-			AvailableIPs: subnet.Free(),
-		}
+func (m *InstancesManager) GetPoolQuota() (quota ipamTypes.PoolQuotaMap) {
+	if a := m.Allocator(); a != nil {
+		quota = a.GetPoolQuota()
 	}
-	m.mutex.RUnlock()
-
-	return pool
-}
-
-// getSubnet returns the subnet by subnet ID
-//
-// The returned subnet is immutable so it can be safely accessed
-func (m *InstancesManager) getSubnet(subnetID string) *allocator.Allocator {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
-	return m.allocators[subnetID]
+	return
 }
 
 // getSubnets returns all available subnets
-func (m *InstancesManager) getSubnets() (subnets []*allocator.Allocator) {
-	m.mutex.RLock()
-	for _, subnet := range m.allocators {
-		subnets = append(subnets, subnet)
+func (m *InstancesManager) getSubnetIDs() (ids []string) {
+	if a := m.Allocator(); a != nil {
+		ids = m.Allocator().SubnetIDs()
+	} else {
+		ids = []string{}
 	}
-	defer m.mutex.RUnlock()
 	return
+}
+
+func (m *InstancesManager) GetAllocator(id string) *allocator.Allocator {
+	if a := m.Allocator(); a != nil {
+		return a.GetAllocator(id)
+	}
+	return nil
 }
 
 // Resync fetches the list of EC2 instances and subnets and updates the local
@@ -119,19 +116,10 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 		"numSubnets":         len(subnets),
 	}).Info("Synchronized Azure IPAM information")
 
-	// Create subnet allocators for all identified subnets
-	allocators := map[string]*allocator.Allocator{}
-	for id, subnet := range subnets {
-		if subnet.CIDR == nil {
-			continue
-		}
-
-		a, err := allocator.NewAllocator(subnet.ID, subnet.CIDR)
-		if err != nil {
-			log.WithError(err).WithField("subnet", id).Warning("Unable to create allocator for subnet")
-			continue
-		}
-		allocators[id] = a
+	groupAllocator, err := allocator.NewGroupAllocator(subnets)
+	if err != nil {
+		log.WithError(err).Warning("Unable to create allocator")
+		return time.Time{}
 	}
 
 	// Reserve all known IP addresses in all known subnet allocators
@@ -140,7 +128,7 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 			for _, address := range iface.Addresses {
 				ip := net.ParseIP(address.IP)
 				if ip != nil {
-					if a, ok := allocators[address.Subnet]; ok {
+					if a := groupAllocator.GetAllocator(address.Subnet); a != nil {
 						if err := a.Allocate(ip); err != nil {
 							log.WithFields(logrus.Fields{
 								"instance":  instance,
@@ -163,7 +151,7 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 	m.mutex.Lock()
 	m.instances = instances
 	m.vnets = vnets
-	m.allocators = allocators
+	m.allocator = groupAllocator
 	m.mutex.Unlock()
 
 	return resyncStart

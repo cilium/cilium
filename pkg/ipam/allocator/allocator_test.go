@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/ipam/types"
 
 	"gopkg.in/check.v1"
 )
@@ -130,4 +131,20 @@ func (e *AllocatorSuite) TestAllocatorRelease(c *check.C) {
 	ips, err = s.AllocateMany(3)
 	c.Assert(err, check.IsNil)
 	c.Assert(len(ips), check.Equals, 3)
+}
+
+func (e *AllocatorSuite) TestGroupAllocator(c *check.C) {
+	g, err := NewGroupAllocator(types.SubnetMap{
+		"s1": &types.Subnet{ID: "s1", CIDR: cidr.MustParseCIDR("10.10.0.0/16")},
+		"s2": &types.Subnet{ID: "s2", CIDR: cidr.MustParseCIDR("10.20.0.0/16")},
+	})
+	c.Assert(err, check.IsNil)
+	c.Assert(g, check.Not(check.IsNil))
+	c.Assert(g.GetAllocator("s1"), check.Not(check.IsNil))
+	c.Assert(g.GetAllocator("s2"), check.Not(check.IsNil))
+	c.Assert(g.GetAllocator("s3"), check.IsNil)
+	c.Assert(len(g.SubnetIDs()), check.Equals, 2)
+	quota := g.GetPoolQuota()
+	c.Assert(quota["s1"].AvailableIPs, check.Equals, int(math.Pow(2.0, 16.0))-2)
+	c.Assert(quota["s2"].AvailableIPs, check.Equals, int(math.Pow(2.0, 16.0))-2)
 }

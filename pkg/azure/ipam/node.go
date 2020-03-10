@@ -138,13 +138,13 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 
 		// No IP address assigned to interface yet, pick any subnet
 		if len(subnets) == 0 {
-			for _, subnet := range n.manager.getSubnets() {
-				subnets[subnet.SubnetID] = struct{}{}
+			for _, subnetID := range n.manager.getSubnetIDs() {
+				subnets[subnetID] = struct{}{}
 			}
 		}
 
 		for subnetID := range subnets {
-			if subnet := n.manager.getSubnet(subnetID); subnet != nil {
+			if subnet := n.manager.GetAllocator(subnetID); subnet != nil {
 				available := subnet.Free()
 				if available > 0 && a.InterfaceID == "" {
 					scopedLog.WithFields(logrus.Fields{
@@ -166,7 +166,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 // AllocateIPs performs the Azure IP allocation operation
 func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error {
 	subnetID := string(a.PoolID)
-	subnet := n.manager.getSubnet(subnetID)
+	subnet := n.manager.GetAllocator(subnetID)
 	if subnet == nil {
 		return fmt.Errorf("subnet no longer available")
 	}

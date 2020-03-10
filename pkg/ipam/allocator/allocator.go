@@ -19,6 +19,8 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/ipam/types"
+	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/cilium/ipam/service/ipallocator"
 )
@@ -87,4 +89,65 @@ func (s *Allocator) ReleaseMany(ips []net.IP) {
 	for _, ip := range ips {
 		s.Release(ip)
 	}
+}
+
+// GroupAllocator is an allocator to allocate from a group of subnets
+type GroupAllocator struct {
+	mutex      lock.RWMutex
+	allocators map[string]*Allocator
+}
+
+// NewGroupAllocator returns a new group allocator based on a map of subnets
+func NewGroupAllocator(subnets types.SubnetMap) (*GroupAllocator, error) {
+	g := &GroupAllocator{
+		allocators: map[string]*Allocator{},
+	}
+
+	// Create subnet allocators for all identified subnets
+	for _, subnet := range subnets {
+		if subnet.CIDR == nil {
+			continue
+		}
+
+		a, err := NewAllocator(subnet.ID, subnet.CIDR)
+		if err != nil {
+			return nil, err
+		}
+		g.allocators[subnet.ID] = a
+	}
+
+	return g, nil
+}
+
+// GetPoolQuota returns the number of available IPs in all IP pools
+func (g *GroupAllocator) GetPoolQuota() types.PoolQuotaMap {
+	pool := types.PoolQuotaMap{}
+
+	g.mutex.RLock()
+	for subnetID, allocator := range g.allocators {
+		pool[types.PoolID(subnetID)] = types.PoolQuota{AvailableIPs: allocator.Free()}
+	}
+	g.mutex.RUnlock()
+
+	return pool
+}
+
+// GetAllocator returns the allocator for a subnet
+func (g *GroupAllocator) GetAllocator(subnetID string) *Allocator {
+	g.mutex.RLock()
+	defer g.mutex.RUnlock()
+
+	return g.allocators[subnetID]
+}
+
+// SubnetIDs returns the list of subnets covered by the group allocator
+func (g *GroupAllocator) SubnetIDs() (ids []string) {
+	g.mutex.RLock()
+	defer g.mutex.RUnlock()
+
+	for subnetID := range g.allocators {
+		ids = append(ids, subnetID)
+	}
+
+	return
 }
