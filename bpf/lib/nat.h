@@ -537,7 +537,7 @@ static __always_inline int snat_v4_process(struct __sk_buff *skb, int dir,
 		}
 		break;
 	default:
-		return DROP_NAT_UNSUPP_PROTO;
+		return NAT_PUNT_TO_STACK;
 	};
 
 	if (snat_v4_can_skip(target, &tuple, dir))
@@ -1004,7 +1004,7 @@ static __always_inline int snat_v6_process(struct __sk_buff *skb, int dir,
 		}
 		break;
 	default:
-		return DROP_NAT_UNSUPP_PROTO;
+		return NAT_PUNT_TO_STACK;
 	};
 
 	if (snat_v6_can_skip(target, &tuple, dir))
