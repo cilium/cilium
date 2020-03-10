@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os/exec"
 	"path"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -27,8 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/probe"
-
-	"golang.org/x/sys/unix"
 )
 
 type preFilterMapType int
@@ -260,29 +257,6 @@ func (p *PreFilter) init() (*PreFilter, error) {
 		}
 	}
 	return p, nil
-}
-
-// ProbePreFilter checks whether XDP mode is supported on given device
-func ProbePreFilter(device, mode string) error {
-	cmd := exec.Command("ip", "-force", "link", "set", "dev", device, mode, "off")
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("Cannot run ip command: %v", err)
-	}
-	if err := cmd.Wait(); err != nil {
-		if exiterr, ok := err.(*exec.ExitError); ok {
-			if status, ok := exiterr.Sys().(unix.WaitStatus); ok {
-				switch status.ExitStatus() {
-				case 2:
-					return fmt.Errorf("Mode %s not supported on device %s", mode, device)
-				default:
-					return fmt.Errorf("Prefilter not supported on OS")
-				}
-			}
-		} else {
-			return fmt.Errorf("Cannot wait for ip command: %v", err)
-		}
-	}
-	return nil
 }
 
 // NewPreFilter returns prefilter handle

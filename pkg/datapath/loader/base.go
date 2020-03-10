@@ -45,8 +45,8 @@ const (
 	initArgIPv6NodeIP
 	initArgMode
 	initArgDevice
-	initArgDevicePreFilter
-	initArgModePreFilter
+	initArgXDPDevice
+	initArgXDPMode
 	initArgMTU
 	initArgIPSec
 	initArgMasquerade
@@ -132,13 +132,21 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		return err
 	}
 
-	scopedLog := log.WithField(logfields.XDPDevice, option.Config.DevicePreFilter)
-	if option.Config.DevicePreFilter != "undefined" {
-		if err := prefilter.ProbePreFilter(option.Config.DevicePreFilter, option.Config.ModePreFilter); err != nil {
-			scopedLog.WithError(err).Warn("Turning off prefilter")
-			option.Config.DevicePreFilter = "undefined"
+	scopedLog := log.WithField(logfields.XDPDevice, option.Config.XDPDevice)
+	if option.Config.XDPDevice != "undefined" {
+		if err := ProbeXDP(option.Config.XDPDevice, option.Config.XDPMode); err != nil {
+			scopedLog.WithError(err).Warn("Turning off XDP acceleration")
+			option.Config.XDPDevice = "undefined"
 		}
 	}
+	if option.Config.XDPDevice != "undefined" {
+		args[initArgXDPDevice] = option.Config.XDPDevice
+		args[initArgXDPMode] = option.Config.XDPMode
+	} else {
+		args[initArgXDPDevice] = "<nil>"
+		args[initArgXDPMode] = "<nil>"
+	}
+
 	if option.Config.DevicePreFilter != "undefined" {
 		preFilter, err := prefilter.NewPreFilter()
 		if err != nil {
@@ -152,12 +160,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		}
 
 		o.SetPrefilter(preFilter)
-
-		args[initArgDevicePreFilter] = option.Config.DevicePreFilter
-		args[initArgModePreFilter] = option.Config.ModePreFilter
-	} else {
-		args[initArgDevicePreFilter] = "<nil>"
-		args[initArgModePreFilter] = "<nil>"
 	}
 
 	args[initArgLib] = option.Config.BpfDir

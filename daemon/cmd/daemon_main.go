@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -510,6 +511,9 @@ func init() {
 	flags.StringSlice(option.NodePortRange, []string{fmt.Sprintf("%d", option.NodePortMinDefault), fmt.Sprintf("%d", option.NodePortMaxDefault)}, "Set the min/max NodePort port range")
 	option.BindEnv(option.NodePortRange)
 
+	flags.String(option.NodePortAcceleration, option.NodePortAccelerationNone, "BPF NodePort acceleration via XDP (\"none\", \"generic\", \"native\")")
+	option.BindEnv(option.NodePortAcceleration)
+
 	flags.String(option.LibDir, defaults.LibraryPath, "Directory path to store runtime build environment")
 	option.BindEnv(option.LibDir)
 
@@ -893,14 +897,23 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	option.Config.ModePreFilter = strings.ToLower(option.Config.ModePreFilter)
-	switch option.Config.ModePreFilter {
-	case option.ModePreFilterNative:
-		option.Config.ModePreFilter = "xdpdrv"
-	case option.ModePreFilterGeneric:
-		option.Config.ModePreFilter = "xdpgeneric"
-	default:
+	if option.Config.ModePreFilter != option.ModePreFilterNative &&
+		option.Config.ModePreFilter != option.ModePreFilterGeneric {
 		log.Fatalf("Invalid setting for --prefilter-mode, must be { %s, %s }",
 			option.ModePreFilterNative, option.ModePreFilterGeneric)
+	}
+
+	if option.Config.DevicePreFilter != "undefined" {
+		if option.Config.XDPDevice != "undefined" &&
+			option.Config.XDPDevice != option.Config.DevicePreFilter {
+			log.Fatalf("Cannot set Prefilter device: mismatch between NodePort device %s and Prefilter device %s",
+				option.Config.XDPDevice, option.Config.DevicePreFilter)
+		}
+
+		option.Config.XDPDevice = option.Config.DevicePreFilter
+		if err := loader.SetXDPMode(option.Config.ModePreFilter); err != nil {
+			scopedLog.WithError(err).Fatal("Cannot set prefilter XDP mode")
+		}
 	}
 
 	scopedLog = log.WithField(logfields.Path, option.Config.SocketPath)
@@ -1470,6 +1483,12 @@ func initKubeProxyReplacementOptions() {
 			option.Config.NodePortMode != option.NodePortModeHybrid {
 			log.Fatalf("Invalid value for --%s: %s", option.NodePortMode, option.Config.NodePortMode)
 		}
+
+		if option.Config.NodePortAcceleration != option.NodePortAccelerationNone &&
+			option.Config.NodePortAcceleration != option.NodePortAccelerationGeneric &&
+			option.Config.NodePortAcceleration != option.NodePortAccelerationNative {
+			log.Fatalf("Invalid value for --%s: %s", option.NodePortAcceleration, option.Config.NodePortAcceleration)
+		}
 	}
 
 	if option.Config.EnableNodePort {
@@ -1519,6 +1538,19 @@ func initKubeProxyReplacementOptions() {
 			log.WithField(logfields.Interface, device).
 				Info("Using auto-derived device for BPF node port")
 			option.Config.Device = device
+		}
+	}
+
+	if option.Config.EnableNodePort &&
+		option.Config.NodePortAcceleration != option.NodePortAccelerationNone {
+		if option.Config.XDPDevice != "undefined" &&
+			option.Config.XDPDevice != option.Config.Device {
+			log.Fatalf("Cannot set NodePort acceleration device: mismatch between Prefilter device %s and NodePort device %s",
+				option.Config.XDPDevice, option.Config.Device)
+		}
+		option.Config.XDPDevice = option.Config.Device
+		if err := loader.SetXDPMode(option.Config.NodePortAcceleration); err != nil {
+			log.WithError(err).Fatal("Cannot set NodePort acceleration")
 		}
 	}
 
