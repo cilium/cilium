@@ -102,12 +102,7 @@ func (m *InstancesManager) getSubnets() (subnets []*subnetAllocator) {
 }
 
 func newSubnetAllocator(subnet *ipamTypes.Subnet) (*subnetAllocator, error) {
-	_, cidr, err := net.ParseCIDR(subnet.CIDR)
-	if err != nil {
-		return nil, fmt.Errorf("invalid CIDR: %s", err)
-	}
-
-	allocator, err := ipallocator.NewCIDRRange(cidr)
+	allocator, err := ipallocator.NewCIDRRange(subnet.CIDR.IPNet)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create IP allocator: %s", err)
 	}
@@ -145,6 +140,10 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 	// Create subnet allocators for all identified subnets
 	allocators := map[string]*subnetAllocator{}
 	for id, subnet := range subnets {
+		if subnet.CIDR == nil {
+			continue
+		}
+
 		a, err := newSubnetAllocator(subnet)
 		if err != nil {
 			log.WithError(err).WithField("subnet", id).Warning("Unable to create allocator for subnet")

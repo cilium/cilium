@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/api/helpers"
 	"github.com/cilium/cilium/pkg/azure/types"
+	"github.com/cilium/cilium/pkg/cidr"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -230,7 +231,11 @@ func parseSubnet(subnet *network.Subnet) (s *ipamTypes.Subnet) {
 	}
 
 	if subnet.AddressPrefix != nil {
-		s.CIDR = *subnet.AddressPrefix
+		c, err := cidr.ParseCIDR(*subnet.AddressPrefix)
+		if err != nil {
+			return nil
+		}
+		s.CIDR = c
 	}
 
 	return
@@ -259,8 +264,9 @@ func (c *Client) GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetwor
 				if subnet.ID == nil {
 					continue
 				}
-
-				subnets[*subnet.ID] = parseSubnet(&subnet)
+				if s := parseSubnet(&subnet); s != nil {
+					subnets[*subnet.ID] = s
+				}
 			}
 		}
 	}

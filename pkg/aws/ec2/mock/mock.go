@@ -360,8 +360,8 @@ func (e *API) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap
 	for instanceID, enis := range e.enis {
 		for _, eni := range enis {
 			if subnets != nil {
-				if subnet, ok := subnets[eni.Subnet.ID]; ok {
-					eni.Subnet.CIDR = subnet.CIDR
+				if subnet, ok := subnets[eni.Subnet.ID]; ok && subnet.CIDR != nil {
+					eni.Subnet.CIDR = subnet.CIDR.String()
 				}
 			}
 
