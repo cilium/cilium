@@ -65,6 +65,7 @@ data:
   # NOTE that this will open the port on the nodes where Cilium operator pod
   # is scheduled.
   operator-prometheus-serve-addr: ":{{ .Values.global.operatorPrometheus.port }}"
+  enable-metrics: "true"
 {{- end }}
 
   # Enable IPv4 addressing. If enabled, all endpoints are allocated an IPv4
