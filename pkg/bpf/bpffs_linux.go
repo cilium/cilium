@@ -47,9 +47,9 @@ func lockDown() {
 	lockedDown = true
 }
 
-func SetMapRoot(path string) {
+func setMapRoot(path string) {
 	if lockedDown {
-		panic("SetMapRoot() call after MapRoot was read")
+		panic("setMapRoot() call after MapRoot was read")
 	}
 	mapRoot = path
 }
@@ -57,18 +57,6 @@ func SetMapRoot(path string) {
 func GetMapRoot() string {
 	once.Do(lockDown)
 	return mapRoot
-}
-
-func SetMapPrefix(path string) {
-	if lockedDown {
-		panic("SetMapPrefix() call after MapPrefix was read")
-	}
-	mapPrefix = path
-}
-
-func GetMapPrefix() string {
-	once.Do(lockDown)
-	return mapPrefix
 }
 
 func MapPrefixPath() string {
@@ -182,7 +170,7 @@ func hasMultipleMounts() (bool, error) {
 // checkOrMountCustomLocation tries to check or mount the BPF filesystem in the
 // given path.
 func checkOrMountCustomLocation(bpfRoot string, printWarning bool) error {
-	SetMapRoot(bpfRoot)
+	setMapRoot(bpfRoot)
 
 	// Check whether the custom location has a BPFFS mount.
 	mounted, bpffsInstance, err := mountinfo.IsMountFS(mountinfo.FilesystemTypeBPFFS, bpfRoot)
@@ -192,7 +180,7 @@ func checkOrMountCustomLocation(bpfRoot string, printWarning bool) error {
 
 	// If the custom location has no mount, let's mount BPFFS there.
 	if !mounted {
-		SetMapRoot(bpfRoot)
+		setMapRoot(bpfRoot)
 		if err := mountFS(printWarning); err != nil {
 			return err
 		}
@@ -256,7 +244,7 @@ func checkOrMountDefaultLocations(printWarning bool) error {
 			"for more information, see: https://cilium.link/err-bpf-mount",
 			defaults.DefaultMapRootFallback,
 		)
-		SetMapRoot(defaults.DefaultMapRootFallback)
+		setMapRoot(defaults.DefaultMapRootFallback)
 
 		cMounted, cBpffsInstance, err := mountinfo.IsMountFS(mountinfo.FilesystemTypeBPFFS, mapRoot)
 		if err != nil {
