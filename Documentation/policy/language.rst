@@ -300,12 +300,13 @@ remote-node
     nodes. (Requires the option ``enable-remote-node-identity`` to be enabled)
 cluster
     Cluster is the logical group of all network endpoints inside of the local
-    cluster. This includes all Cilium-managed endpoints of the local cluster.
-    It also includes the host entity to cover host networking containers as
-    well as the init entity to include endpoints currently being bootstrapped.
+    cluster. This includes all Cilium-managed endpoints of the local cluster,
+    unmanaged endpoints in the local cluster, as well as the host,
+    remote-node, and init identities.
 init
     The init entity contains all endpoints in bootstrap phase for which the
-    security identity has not been resolved yet. See section
+    security identity has not been resolved yet. This is typically only
+    observed in non-Kubernetes environments. See section
     :ref:`endpoint_lifecycle` for details.
 world
     The world entity corresponds to all endpoints outside of the cluster.
