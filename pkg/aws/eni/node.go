@@ -182,7 +182,7 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ipam.Re
 		// Select the ENI with the most addresses available for release
 		if firstEniWithFreeIpFound || eniWithMoreFreeIpsFound {
 			r.InterfaceID = key
-			r.PoolID = ipam.PoolID(e.Subnet.ID)
+			r.PoolID = ipamTypes.PoolID(e.Subnet.ID)
 			r.IPsToRelease = freeIpsOnENI[:maxReleaseOnENI]
 		}
 	}
@@ -238,7 +238,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 				}).Debug("Subnet has IPs available")
 
 				a.InterfaceID = key
-				a.PoolID = ipam.PoolID(subnet.ID)
+				a.PoolID = ipamTypes.PoolID(subnet.ID)
 				a.AvailableForAllocation = math.IntMin(subnet.AvailableAddresses, availableOnENI)
 			}
 		}

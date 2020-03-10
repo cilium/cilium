@@ -67,12 +67,12 @@ func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, n *ipam.Node) ipam.Nod
 }
 
 // GetPoolQuota returns the number of available IPs in all IP pools
-func (m *InstancesManager) GetPoolQuota() ipam.PoolQuotaMap {
-	pool := ipam.PoolQuotaMap{}
+func (m *InstancesManager) GetPoolQuota() ipamTypes.PoolQuotaMap {
+	pool := ipamTypes.PoolQuotaMap{}
 
 	m.mutex.RLock()
 	for subnetID, subnet := range m.allocators {
-		pool[ipam.PoolID(subnetID)] = ipam.PoolQuota{
+		pool[ipamTypes.PoolID(subnetID)] = ipamTypes.PoolQuota{
 			AvailableIPs: subnet.allocator.Free(),
 		}
 	}

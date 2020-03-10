@@ -153,7 +153,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 					}).Debug("Subnet has IPs available")
 
 					a.InterfaceID = iface.ID
-					a.PoolID = ipam.PoolID(subnetID)
+					a.PoolID = ipamTypes.PoolID(subnetID)
 					a.AvailableForAllocation = math.IntMin(available, availableOnInterface)
 				}
 			}

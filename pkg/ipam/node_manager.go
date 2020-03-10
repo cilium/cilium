@@ -38,21 +38,6 @@ type k8sImplementation interface {
 	Get(name string) (*v2.CiliumNode, error)
 }
 
-// PoolID is the type used to identify an IPAM pool
-type PoolID string
-
-// PoolQuota defines the limits of an IPAM pool
-type PoolQuota struct {
-	// AvailabilityZone is the availability zone in which the IPAM pool resides in
-	AvailabilityZone string
-
-	// AvailableIPs is the number of available IPs in the pool
-	AvailableIPs int
-}
-
-// PoolQuotaMap is a map of pool quotas indexes by pool identifier
-type PoolQuotaMap map[PoolID]PoolQuota
-
 // AllocationLimits defines the pre-allocation limits in which IPAM operations
 // are performed. This defines the size of the buffer a node will maintain to
 // have IPs available for immediate use without requiring to perform IP
@@ -158,7 +143,7 @@ type AllocationImplementation interface {
 
 	// GetPoolQuota is called to retrieve the remaining IP addresses in all
 	// IP pools known to the IPAM implementation.
-	GetPoolQuota() PoolQuotaMap
+	GetPoolQuota() ipamTypes.PoolQuotaMap
 
 	// Resync is called periodically to give the IPAM implementation a
 	// chance to resync its own state with external APIs or systems. It is
