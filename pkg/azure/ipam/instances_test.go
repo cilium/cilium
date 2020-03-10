@@ -189,11 +189,11 @@ func (e *IPAMSuite) TestGetVpcsAndSubnets(c *check.C) {
 
 	subnet1 := mngr.getSubnet("subnet-1")
 	c.Assert(subnet1, check.Not(check.IsNil))
-	c.Assert(subnet1.subnet.ID, check.Equals, "subnet-1")
+	c.Assert(subnet1.SubnetID, check.Equals, "subnet-1")
 
 	subnet2 := mngr.getSubnet("subnet-2")
 	c.Assert(subnet2, check.Not(check.IsNil))
-	c.Assert(subnet2.subnet.ID, check.Equals, "subnet-2")
+	c.Assert(subnet2.SubnetID, check.Equals, "subnet-2")
 
 	c.Assert(mngr.getSubnet("subnet-3"), check.IsNil)
 
@@ -201,15 +201,15 @@ func (e *IPAMSuite) TestGetVpcsAndSubnets(c *check.C) {
 
 	subnet1 = mngr.getSubnet("subnet-1")
 	c.Assert(subnet1, check.Not(check.IsNil))
-	c.Assert(subnet1.subnet.ID, check.Equals, "subnet-1")
+	c.Assert(subnet1.SubnetID, check.Equals, "subnet-1")
 
 	subnet2 = mngr.getSubnet("subnet-2")
 	c.Assert(subnet2, check.Not(check.IsNil))
-	c.Assert(subnet2.subnet.ID, check.Equals, "subnet-2")
+	c.Assert(subnet2.SubnetID, check.Equals, "subnet-2")
 
 	subnet3 := mngr.getSubnet("subnet-3")
 	c.Assert(subnet3, check.Not(check.IsNil))
-	c.Assert(subnet3.subnet.ID, check.Equals, "subnet-3")
+	c.Assert(subnet3.SubnetID, check.Equals, "subnet-3")
 }
 
 func (e *IPAMSuite) TestInstances(c *check.C) {

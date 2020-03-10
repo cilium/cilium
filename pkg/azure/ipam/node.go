@@ -139,13 +139,13 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 		// No IP address assigned to interface yet, pick any subnet
 		if len(subnets) == 0 {
 			for _, subnet := range n.manager.getSubnets() {
-				subnets[subnet.subnet.ID] = struct{}{}
+				subnets[subnet.SubnetID] = struct{}{}
 			}
 		}
 
 		for subnetID := range subnets {
 			if subnet := n.manager.getSubnet(subnetID); subnet != nil {
-				available := subnet.allocator.Free()
+				available := subnet.Free()
 				if available > 0 && a.InterfaceID == "" {
 					scopedLog.WithFields(logrus.Fields{
 						"subnetID":           subnetID,
@@ -174,10 +174,10 @@ func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error 
 	ips := []net.IP{}
 
 	for i := 0; i < a.AvailableForAllocation; i++ {
-		ip, err := subnet.allocator.AllocateNext()
+		ip, err := subnet.AllocateNext()
 		if err != nil {
 			for _, ip = range ips {
-				subnet.allocator.Release(ip)
+				subnet.Release(ip)
 			}
 			return err
 		}
@@ -187,9 +187,7 @@ func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error 
 
 	err := n.manager.api.AssignPrivateIpAddresses(ctx, subnetID, a.InterfaceID, ips)
 	if err != nil {
-		for _, ip := range ips {
-			subnet.allocator.Release(ip)
-		}
+		subnet.ReleaseMany(ips)
 		return err
 	}
 
