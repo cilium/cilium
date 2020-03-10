@@ -56,6 +56,7 @@ static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
 	return CTX_ACT_OK;
 }
 
+#ifndef SKIP_POLICY_MAP
 #ifdef ENABLE_IPV6
 static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_off,
 					       __u32 seclabel,
@@ -130,6 +131,7 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 	return DROP_MISSED_TAIL_CALL;
 #endif
 }
+#endif /* SKIP_POLICY_MAP */
 
 static __always_inline __u8 get_encrypt_key(__u32 ctx)
 {
