@@ -36,6 +36,8 @@ UTC_DATE=$(shell date -u "+%Y-%m-%d")
 
 GO_VERSION := $(shell cat GO_VERSION)
 
+ARCH=$(subst aarch64,arm64,$(subst x86_64,amd64,$(patsubst i%86,386,$(shell uname -m))))
+
 # Since there's a bug with NFS or the kernel, the flock syscall hangs the documentation
 # build in the developer VM. For this reason the documentation build is skipped if NFS
 # is running in the developer VM.
@@ -100,6 +102,7 @@ ifeq ($(SKIP_KVSTORES),"false")
 	@echo Starting key-value store containers...
 	-$(CONTAINER_ENGINE_FULL) rm -f "cilium-etcd-test-container" 2> /dev/null
 	$(CONTAINER_ENGINE_FULL) run -d \
+		-e ETCD_UNSUPPORTED_ARCH=$(ARCH) \
 		--name "cilium-etcd-test-container" \
 		-p 4002:4001 \
 		$(ETCD_IMAGE) \
