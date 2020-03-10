@@ -27,9 +27,8 @@ RUN for i in proxylib envoy plugins/cilium-cni bpf cilium daemon cilium-health b
      do LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 V=$V LIBNETWORK_PLUGIN=$LIBNETWORK_PLUGIN \
             SKIP_DOCS=true DESTDIR= \
             make -C $i install; done
-RUN cd /root && groupadd -f cilium \
-	&& echo ". /etc/profile.d/bash_completion.sh" >> /root/.bashrc \
-    && cilium completion bash >> /root/.bashrc \
+RUN groupadd -f cilium \
+    && echo ". /etc/profile.d/bash_completion.sh" >> /etc/bash.bashrc \
     && sysctl -w kernel.core_pattern=/tmp/core.%e.%p.%t
 ENV INITSYSTEM="SYSTEMD"
 CMD ["/usr/bin/cilium"]

@@ -46,8 +46,7 @@ COPY plugins/cilium-cni/cni-uninstall.sh /cni-uninstall.sh
 COPY contrib/packaging/docker/init-container.sh /init-container.sh
 WORKDIR /home/cilium
 RUN groupadd -f cilium \
-	&& echo ". /etc/profile.d/bash_completion.sh" >> /root/.bashrc \
-    && cilium completion bash >> /root/.bashrc \
+    && echo ". /etc/profile.d/bash_completion.sh" >> /etc/bash.bashrc \
     && sysctl -w kernel.core_pattern=/tmp/core.%e.%p.%t
 ENV INITSYSTEM="SYSTEMD"
 CMD ["/usr/bin/cilium"]
