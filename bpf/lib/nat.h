@@ -465,9 +465,7 @@ static __always_inline __maybe_unused int snat_v4_create_dsr(struct __ctx_buff *
 		tuple.sport = l4hdr.dport;
 		break;
 	default:
-		// NodePort svc can be reached only via TCP or UDP, so
-		// drop the rest
-		return DROP_NAT_UNSUPP_PROTO;
+		return NAT_PUNT_TO_STACK;
 	}
 
 	state.common.created = bpf_ktime_get_nsec();
@@ -529,7 +527,7 @@ static __always_inline int snat_v4_process(struct __ctx_buff *ctx, int dir,
 		}
 		break;
 	default:
-		return DROP_NAT_UNSUPP_PROTO;
+		return NAT_PUNT_TO_STACK;
 	};
 
 	if (snat_v4_can_skip(target, &tuple, dir))
@@ -923,9 +921,7 @@ static __always_inline __maybe_unused int snat_v6_create_dsr(struct __ctx_buff *
 		tuple.sport = l4hdr.dport;
 		break;
 	default:
-		// NodePort svc can be reached only via TCP or UDP, so
-		// drop the rest
-		return DROP_NAT_UNSUPP_PROTO;
+		return NAT_PUNT_TO_STACK;
 	}
 
 	state.common.created = bpf_ktime_get_nsec();
@@ -996,7 +992,7 @@ static __always_inline int snat_v6_process(struct __ctx_buff *ctx, int dir,
 		}
 		break;
 	default:
-		return DROP_NAT_UNSUPP_PROTO;
+		return NAT_PUNT_TO_STACK;
 	};
 
 	if (snat_v6_can_skip(target, &tuple, dir))
