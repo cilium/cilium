@@ -23,7 +23,7 @@ ALL_TC_PROGS="bpf_hostdev_ingress bpf_lxc bpf_netdev bpf_network bpf_overlay"
 TC_PROGS=${TC_PROGS:-$ALL_TC_PROGS}
 ALL_CG_PROGS="bpf_sock sockops/bpf_sockops sockops/bpf_redir"
 CG_PROGS=${CG_PROGS:-$ALL_CG_PROGS}
-ALL_XDP_PROGS="bpf_prefilter"
+ALL_XDP_PROGS="bpf_xdp"
 XDP_PROGS=${XDP_PROGS:-$ALL_XDP_PROGS}
 IGNORED_PROGS="bpf_alignchecker"
 ALL_PROGS="${IGNORED_PROGS} ${ALL_CG_PROGS} ${ALL_TC_PROGS} ${ALL_XDP_PROGS}"
@@ -237,7 +237,7 @@ function load_xdp {
 			load_prog_dev "$IPROUTE2 link set" "xdpgeneric" ${p}
 		done
 	else
-		echo "=> Skipping ${DIR}/bpf_prefilter.c."
+		echo "=> Skipping ${DIR}/bpf_xdp.c."
 		echo "Ensure you have linux >= 4.12 and recent iproute2 to test XDP." 1>&2
 	fi
 }
