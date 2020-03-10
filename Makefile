@@ -371,14 +371,14 @@ microk8s: check-microk8s
 	@echo "  DEPLOY image to microk8s ($(LOCAL_IMAGE))"
 	$(CONTAINER_ENGINE_FULL) tag cilium/cilium-dev:$(LOCAL_IMAGE_TAG) $(LOCAL_IMAGE)
 	$(CONTAINER_ENGINE_FULL) push $(LOCAL_IMAGE)
-	$(QUIET)kubectl apply -f contrib/k8s/microk8s-prepull.yaml
-	$(QUIET)kubectl -n kube-system delete pod -l name=prepull
-	$(QUIET)kubectl -n kube-system rollout status ds/prepull
+	$(QUIET)microk8s.kubectl apply -f contrib/k8s/microk8s-prepull.yaml
+	$(QUIET)microk8s.kubectl -n kube-system delete pod -l name=prepull
+	$(QUIET)microk8s.kubectl -n kube-system rollout status ds/prepull
 	@echo
 	@echo "Update image tag like this when ready:"
-	@echo "    kubectl -n kube-system set image ds/cilium cilium-agent=$(LOCAL_IMAGE)"
+	@echo "    microk8s.kubectl -n kube-system set image ds/cilium cilium-agent=$(LOCAL_IMAGE)"
 	@echo "Or, redeploy the Cilium pods:"
-	@echo "    kubectl -n kube-system delete pod -l k8s-app=cilium"
+	@echo "    microk8s.kubectl -n kube-system delete pod -l k8s-app=cilium"
 
 precheck: ineffassign logging-subsys-field
 	@$(ECHO_CHECK) contrib/scripts/check-fmt.sh
