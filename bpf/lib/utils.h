@@ -117,7 +117,7 @@ static inline __u32 bpf_ktime_get_sec(void)
 	 __constant_ntohl(x) : __bpf_ntohl(x))
 
 #ifndef __fetch
-# define __fetch(x) (__u32)(&(x))
+# define __fetch(x) (__u32)(__u64)(&(x))
 #endif
 
 #ifndef build_bug_on
