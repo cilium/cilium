@@ -14,6 +14,10 @@
 
 package types
 
+import (
+	"github.com/cilium/cilium/pkg/cidr"
+)
+
 // Limits specifies the IPAM relevant instance limits
 type Limits struct {
 	// Adapters specifies the maximum number of interfaces that can be
@@ -130,7 +134,7 @@ type Subnet struct {
 	Name string
 
 	// CIDR is the CIDR associated with the subnet
-	CIDR string
+	CIDR *cidr.CIDR
 
 	// AvailabilityZone is the availability zone of the subnet
 	AvailabilityZone string

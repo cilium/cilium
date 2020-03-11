@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 
 	apimock "github.com/cilium/cilium/pkg/azure/api/mock"
 	"github.com/cilium/cilium/pkg/azure/types"
+	"github.com/cilium/cilium/pkg/cidr"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 
 	"gopkg.in/check.v1"
@@ -31,7 +32,7 @@ var (
 	subnets = []*ipamTypes.Subnet{
 		{
 			ID:               "subnet-1",
-			CIDR:             "1.1.0.0/16",
+			CIDR:             cidr.MustParseCIDR("1.1.0.0/16"),
 			VirtualNetworkID: "vpc-1",
 			Tags: map[string]string{
 				"tag1": "tag1",
@@ -39,7 +40,7 @@ var (
 		},
 		{
 			ID:               "subnet-2",
-			CIDR:             "2.2.0.0/16",
+			CIDR:             cidr.MustParseCIDR("2.2.0.0/16"),
 			VirtualNetworkID: "vpc-2",
 			Tags: map[string]string{
 				"tag1": "tag1",
@@ -50,7 +51,7 @@ var (
 	subnets2 = []*ipamTypes.Subnet{
 		{
 			ID:               "subnet-1",
-			CIDR:             "1.1.0.0/16",
+			CIDR:             cidr.MustParseCIDR("1.1.0.0/16"),
 			VirtualNetworkID: "vpc-1",
 			Tags: map[string]string{
 				"tag1": "tag1",
@@ -58,7 +59,7 @@ var (
 		},
 		{
 			ID:               "subnet-2",
-			CIDR:             "2.2.0.0/16",
+			CIDR:             cidr.MustParseCIDR("2.2.0.0/16"),
 			VirtualNetworkID: "vpc-2",
 			Tags: map[string]string{
 				"tag1": "tag1",
@@ -66,7 +67,7 @@ var (
 		},
 		{
 			ID:               "subnet-3",
-			CIDR:             "3.3.0.0/16",
+			CIDR:             cidr.MustParseCIDR("3.3.0.0/16"),
 			VirtualNetworkID: "vpc-1",
 			Tags: map[string]string{
 				"tag2": "tag2",
