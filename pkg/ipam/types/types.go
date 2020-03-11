@@ -160,3 +160,18 @@ type VirtualNetwork struct {
 
 // VirtualNetworkMap indexes virtual networks by their ID
 type VirtualNetworkMap map[string]*VirtualNetwork
+
+// PoolID is the type used to identify an IPAM pool
+type PoolID string
+
+// PoolQuota defines the limits of an IPAM pool
+type PoolQuota struct {
+	// AvailabilityZone is the availability zone in which the IPAM pool resides in
+	AvailabilityZone string
+
+	// AvailableIPs is the number of available IPs in the pool
+	AvailableIPs int
+}
+
+// PoolQuotaMap is a map of pool quotas indexes by pool identifier
+type PoolQuotaMap map[PoolID]PoolQuota
