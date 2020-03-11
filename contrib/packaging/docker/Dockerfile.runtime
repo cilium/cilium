@@ -8,7 +8,7 @@ apt-get upgrade -y && \
 # Prepackaged Cilium runtime dependencies
 #
 apt-get install -y --no-install-recommends \
-    gpg gpg-agent libelf-dev libmnl-dev libc6-dev-i386 iptables libgcc-5-dev \
+    gpg gpg-agent libelf-dev libmnl-dev iptables libgcc-5-dev \
     bash-completion binutils binutils-dev ca-certificates kmod && \
 apt-get purge --auto-remove && \
 apt-get clean
@@ -23,11 +23,13 @@ RUN \
 # Build dependencies
 #
 apt-get update && \
-apt-get install -y --no-install-recommends make git curl ca-certificates xz-utils \
+apt-get install -y --no-install-recommends \
+# Base runtime-build dependencies
+  make curl ca-certificates xz-utils \
 # Additional iproute2 build dependencies
   gcc git pkg-config bison flex build-essential \
 # Additional bpftool dependencies
-  python3 && \
+  python3 gcc-multilib \
 # Additional clang/llvm dependencies
   cmake ninja-build && \
 #
@@ -72,7 +74,15 @@ strip -s ./loopback && \
 #
 # Cleanup
 #
-apt-get purge --auto-remove -y gpg gpg-agent gcc make bison flex git curl xz-utils ca-certificates cmake ninja-build && \
+apt-get purge --auto-remove -y gpg gpg-agent \
+# Base runtime-build dependencies
+  make curl ca-certificates xz-utils \
+# Additional iproute2 build dependencies
+  gcc git pkg-config bison flex build-essential \
+# Additional bpftool dependencies
+  python3 gcc-multilib \
+# Additional clang/llvm dependencies
+  cmake ninja-build && \
 apt-get clean
 
 #
