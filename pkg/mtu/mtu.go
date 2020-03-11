@@ -77,10 +77,16 @@ type Configuration struct {
 	// Similar to StandardMTU, this is a singleton for the process.
 	tunnelMTU int
 
-	// encryptMTU is the MTU used for configurations a encryption route
-	// without tunneling. If tunneling is enabled the tunnelMTU is used
-	// which will include additional encryption overhead if needed.
-	encryptMTU int
+	// preEncrypMTU is the MTU used for configurations of a encryption route.
+	// If tunneling is enabled the tunnelMTU is used which will include
+	// additional encryption overhead if needed.
+	preEncryptMTU int
+
+	// postEncryptMTU is the MTU used for configurations of a encryption
+	// route _after_ encryption tags have been addded. These will be used
+	// in the encryption routing table. The MTU accounts for the tunnel
+	// overhead, if any, but assumes packets are already encrypted.
+	postEncryptMTU int
 
 	encapEnabled   bool
 	encryptEnabled bool
@@ -112,7 +118,8 @@ func NewConfiguration(authKeySize int, encryptEnabled bool, encapEnabled bool, m
 	conf := Configuration{
 		standardMTU:    mtu,
 		tunnelMTU:      mtu - (TunnelOverhead + encryptOverhead),
-		encryptMTU:     mtu - encryptOverhead,
+		postEncryptMTU: mtu - TunnelOverhead,
+		preEncryptMTU:  mtu - encryptOverhead,
 		encapEnabled:   encapEnabled,
 		encryptEnabled: encryptEnabled,
 	}
@@ -125,12 +132,17 @@ func NewConfiguration(authKeySize int, encryptEnabled bool, encapEnabled bool, m
 }
 
 // GetRouteTunnelMTU return the MTU to be used on the encryption routing
-// table. This is the MTU without encryption overhead.
+// table. This is the MTU without encryption overhead and in the tunnel
+// case accounts for the tunnel overhead.
 func (c *Configuration) GetRouteTunnelMTU() int {
-	if c.encryptEnabled && c.encapEnabled {
-		return EthernetMTU - TunnelOverhead
+	if c.encapEnabled {
+		if c.postEncryptMTU == 0 {
+			return EthernetMTU - TunnelOverhead
+		}
+		return c.postEncryptMTU
+
 	}
-	return c.GetRouteMTU()
+	return c.GetDeviceMTU()
 }
 
 // GetRouteMTU returns the MTU to be used on the network. When running in
@@ -142,10 +154,10 @@ func (c *Configuration) GetRouteMTU() int {
 	}
 
 	if c.encryptEnabled && !c.encapEnabled {
-		if c.encryptMTU == 0 {
+		if c.preEncryptMTU == 0 {
 			return EthernetMTU - EncryptionIPsecOverhead
 		}
-		return c.encryptMTU
+		return c.preEncryptMTU
 	}
 
 	if c.tunnelMTU == 0 {
