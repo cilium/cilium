@@ -34,14 +34,14 @@ Create a GKE Cluster
 
 You can apply any method to create a GKE cluster. The example given here is
 using the `Google Cloud SDK <https://cloud.google.com/sdk/>`_. This guide
-will create a cluster on zone ``europe-west4-a``; feel free to change the zone
-if you are in a different region of the globe.
+will create a single-zone cluster in ``europe-west4-a``; feel free to change
+the zone that is closer to where you are, you can create a regional cluster
+with ``--region europe-west4`` also.
 
 .. code:: bash
 
-    export GKE_ZONE="europe-west4-a"
     gcloud container --project $GKE_PROJECT clusters create cluster1 \
-       --username admin --image-type COS --num-nodes 2 --zone ${GKE_ZONE}
+       --username admin --image-type COS --num-nodes 2 --zone europe-west4-a
 
 When done, you should be able to access your cluster like this:
 
