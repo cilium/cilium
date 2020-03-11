@@ -595,7 +595,6 @@ function dump_cli_output {
   cilium config > ${DIR}/config.txt
   cilium bpf lb list > ${DIR}/bpf_lb_list.txt
   cilium bpf ct list global > ${DIR}/bpf_ct_list_global.txt
-  cilium bpf tunnel list > ${DIR}/bpf_tunnel_list.txt
   cilium policy get > ${DIR}/policy_get.txt
   cilium status > ${DIR}/status.txt
   cilium debuginfo -f ${DIR}/debuginfo.txt
@@ -625,7 +624,6 @@ function dump_cli_output_k8s {
   kubectl exec -n ${NAMESPACE} ${POD} -- cilium config > ${DIR}/${POD}_config.txt
   kubectl exec -n ${NAMESPACE} ${POD} -- cilium bpf lb list > ${DIR}/${POD}_bpf_lb_list.txt
   kubectl exec -n ${NAMESPACE} ${POD} -- cilium bpf ct list global > ${DIR}/${POD}_bpf_ct_list_global.txt
-  kubectl exec -n ${NAMESPACE} ${POD} -- cilium bpf tunnel list > ${DIR}/${POD}_bpf_tunnel_list.txt
   kubectl exec -n ${NAMESPACE} ${POD} -- cilium policy get > ${DIR}/${POD}_policy_get.txt
   kubectl exec -n ${NAMESPACE} ${POD} -- cilium status > ${DIR}/${POD}_status.txt
   kubectl exec -n ${NAMESPACE} ${POD} -- cilium debuginfo > ${DIR}/${POD}_debuginfo.txt

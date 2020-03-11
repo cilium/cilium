@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -179,6 +178,14 @@ func waitForHostDeviceWhenReady(ifaceName string) error {
 
 func endParallelMapMode() {
 	ipcachemap.IPCache.EndParallelMode()
+
+	// TODO: This can be removed in v1.10
+	path := bpf.MapPath("cilium_tunnel_map")
+	if _, err := os.Stat(path); err == nil {
+		if err = os.RemoveAll(path); err == nil {
+			log.Infof("removed legacy tunnel map file %s", path)
+		}
+	}
 }
 
 // syncLXCMap adds local host enties to bpf lxcmap, as well as
@@ -327,10 +334,6 @@ func (d *Daemon) initMaps() error {
 	}
 
 	if _, err := metricsmap.Metrics.OpenOrCreate(); err != nil {
-		return err
-	}
-
-	if _, err := tunnel.TunnelMap.OpenOrCreate(); err != nil {
 		return err
 	}
 

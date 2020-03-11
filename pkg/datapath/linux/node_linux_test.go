@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	nodeaddressing "github.com/cilium/cilium/pkg/node/addressing"
@@ -94,10 +93,6 @@ func (s *linuxPrivilegedBaseTestSuite) SetUpTest(c *check.C, addressing datapath
 		err = setupDummyDevice(dummyHostDeviceName)
 	}
 	c.Assert(err, check.IsNil)
-
-	tunnel.TunnelMap = tunnel.NewTunnelMap("test_cilium_tunnel_map")
-	_, err = tunnel.TunnelMap.OpenOrCreate()
-	c.Assert(err, check.IsNil)
 }
 
 func (s *linuxPrivilegedIPv6OnlyTestSuite) SetUpTest(c *check.C) {
@@ -118,8 +113,6 @@ func (s *linuxPrivilegedIPv4AndIPv6TestSuite) SetUpTest(c *check.C) {
 func tearDownTest(c *check.C) {
 	removeDevice(dummyHostDeviceName)
 	removeDevice(dummyExternalDeviceName)
-	err := tunnel.TunnelMap.Unpin()
-	c.Assert(err, check.IsNil)
 }
 
 func (s *linuxPrivilegedIPv6OnlyTestSuite) TearDownTest(c *check.C) {
@@ -401,20 +394,12 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	if s.enableIPv4 {
-		underlayIP, err := tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc1.IP)
-		c.Assert(err, check.IsNil)
-		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
-
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
 
 	if s.enableIPv6 {
-		underlayIP, err := tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc1.IP)
-		c.Assert(err, check.IsNil)
-		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
-
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
@@ -440,20 +425,12 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 
 	// alloc range v1 should map to underlay2
 	if s.enableIPv4 {
-		underlayIP, err := tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc1.IP)
-		c.Assert(err, check.IsNil)
-		c.Assert(underlayIP.Equal(externalNodeIP2), check.Equals, true)
-
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
 	}
 
 	if s.enableIPv6 {
-		underlayIP, err := tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc1.IP)
-		c.Assert(err, check.IsNil)
-		c.Assert(underlayIP.Equal(externalNodeIP2), check.Equals, true)
-
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1)
 		c.Assert(err, check.IsNil)
 		c.Assert(foundRoute, check.Not(check.IsNil))
@@ -477,19 +454,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 	err = linuxNodeHandler.NodeUpdate(nodev2, nodev3)
 	c.Assert(err, check.IsNil)
 
-	// alloc range v1 should fail
-	underlayIP, err := tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc1.IP)
-	c.Assert(err, check.Not(check.IsNil))
-
-	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc1.IP)
-	c.Assert(err, check.Not(check.IsNil))
-
 	if s.enableIPv4 {
-		// alloc range v2 should map to underlay1
-		underlayIP, err := tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc2.IP)
-		c.Assert(err, check.IsNil)
-		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
-
 		// node routes for alloc1 ranges should be gone
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1)
 		c.Assert(err, check.IsNil)
@@ -502,11 +467,6 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 	}
 
 	if s.enableIPv6 {
-		// alloc range v2 should map to underlay1
-		underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc2.IP)
-		c.Assert(err, check.IsNil)
-		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
-
 		// node routes for alloc1 ranges should be gone
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1)
 		c.Assert(err, check.IsNil)
@@ -527,13 +487,6 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 	}
 	err = linuxNodeHandler.NodeUpdate(nodev3, nodev4)
 	c.Assert(err, check.IsNil)
-
-	// alloc range v2 should fail
-	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc2.IP)
-	c.Assert(err, check.Not(check.IsNil))
-
-	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc2.IP)
-	c.Assert(err, check.Not(check.IsNil))
 
 	if s.enableIPv4 {
 		// node routes for alloc2 ranges should be gone
@@ -568,11 +521,6 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	if s.enableIPv4 {
-		// alloc range v2 should map to underlay1
-		underlayIP, err := tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc2.IP)
-		c.Assert(err, check.IsNil)
-		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
-
 		// node routes for alloc2 ranges should have been installed
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2)
 		c.Assert(err, check.IsNil)
@@ -580,11 +528,6 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 	}
 
 	if s.enableIPv6 {
-		// alloc range v2 should map to underlay1
-		underlayIP, err := tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc2.IP)
-		c.Assert(err, check.IsNil)
-		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
-
 		// node routes for alloc2 ranges should have been installed
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2)
 		c.Assert(err, check.IsNil)
@@ -594,20 +537,6 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 	// delete nodev5
 	err = linuxNodeHandler.NodeDelete(nodev5)
 	c.Assert(err, check.IsNil)
-
-	// alloc range v1 should fail
-	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc1.IP)
-	c.Assert(err, check.Not(check.IsNil))
-
-	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc1.IP)
-	c.Assert(err, check.Not(check.IsNil))
-
-	// alloc range v2 should fail
-	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc2.IP)
-	c.Assert(err, check.Not(check.IsNil))
-
-	underlayIP, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc2.IP)
-	c.Assert(err, check.Not(check.IsNil))
 
 	if s.enableIPv4 {
 		// node routes for alloc2 ranges should be gone
@@ -811,16 +740,6 @@ func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(c *check.C)
 	err = linuxNodeHandler.NodeAdd(nodev1)
 	c.Assert(err, check.IsNil)
 
-	// tunnel map entries must exist
-	if s.enableIPv4 {
-		_, err = tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc1.IP)
-		c.Assert(err, check.IsNil)
-	}
-	if s.enableIPv6 {
-		_, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc1.IP)
-		c.Assert(err, check.IsNil)
-	}
-
 	// Simulate agent restart with address families disables
 	err = linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
 		EnableIPv6:          false,
@@ -833,12 +752,6 @@ func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(c *check.C)
 	err = linuxNodeHandler.NodeAdd(nodev1)
 	c.Assert(err, check.IsNil)
 
-	// tunnel map entries should have been removed
-	_, err = tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc1.IP)
-	c.Assert(err, check.Not(check.IsNil))
-	_, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc1.IP)
-	c.Assert(err, check.Not(check.IsNil))
-
 	// Simulate agent restart with address families enabled again
 	err = linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
 		EnableIPv4:          s.enableIPv4,
@@ -850,16 +763,6 @@ func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(c *check.C)
 	// Simulate initial node addition
 	err = linuxNodeHandler.NodeAdd(nodev1)
 	c.Assert(err, check.IsNil)
-
-	// tunnel map entries must exist
-	if s.enableIPv4 {
-		_, err = tunnel.TunnelMap.GetTunnelEndpoint(ip4Alloc1.IP)
-		c.Assert(err, check.IsNil)
-	}
-	if s.enableIPv6 {
-		_, err = tunnel.TunnelMap.GetTunnelEndpoint(ip6Alloc1.IP)
-		c.Assert(err, check.IsNil)
-	}
 
 	err = linuxNodeHandler.NodeDelete(nodev1)
 	c.Assert(err, check.IsNil)

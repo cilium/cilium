@@ -289,11 +289,6 @@ Add a new loadbalancer
 BPF
 ---
 
-List node tunneling mapping information
-::
-
-    cilium bpf tunnel list
-
 Checking logs for verifier issue
 ::
 

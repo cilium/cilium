@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -63,48 +62,6 @@ func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapat
 	}
 }
 
-// updateTunnelMapping is called when a node update is received while running
-// with encapsulation mode enabled. The CIDR and IP of both the old and new
-// node are provided as context. The caller expects the tunnel mapping in the
-// datapath to be updated.
-func updateTunnelMapping(oldCIDR, newCIDR *cidr.CIDR, oldIP, newIP net.IP, firstAddition, encapEnabled bool, oldEncryptKey, newEncryptKey uint8) {
-	if !encapEnabled {
-		// When the protocol family is disabled, the initial node addition will
-		// trigger a deletion to clean up leftover entries. The deletion happens
-		// in quiet mode as we don't know whether it exists or not
-		if newCIDR != nil && firstAddition {
-			deleteTunnelMapping(newCIDR, true)
-		}
-
-		return
-	}
-
-	if cidrNodeMappingUpdateRequired(oldCIDR, newCIDR, oldIP, newIP, oldEncryptKey, newEncryptKey) {
-		log.WithFields(logrus.Fields{
-			logfields.IPAddr: newIP,
-			"allocCIDR":      newCIDR,
-		}).Debug("Updating tunnel map entry")
-
-		if err := tunnel.TunnelMap.SetTunnelEndpoint(newEncryptKey, newCIDR.IP, newIP); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				"allocCIDR": newCIDR,
-			}).Error("bpf: Unable to update in tunnel endpoint map")
-		}
-	}
-
-	// Determine whether an old tunnel mapping must be cleaned up. The
-	// below switch lists all conditions in which case the oldCIDR must be
-	// removed from the tunnel mapping
-	switch {
-	// CIDR no longer announced
-	case newCIDR == nil && oldCIDR != nil:
-		fallthrough
-	// Node allocation CIDR has changed
-	case oldCIDR != nil && newCIDR != nil && !oldCIDR.IP.Equal(newCIDR.IP):
-		deleteTunnelMapping(oldCIDR, false)
-	}
-}
-
 // cidrNodeMappingUpdateRequired returns true if the change from an old node
 // CIDR and node IP to a new node CIDR and node IP requires to insert/update
 // the new node CIDR.
@@ -129,22 +86,6 @@ func cidrNodeMappingUpdateRequired(oldCIDR, newCIDR *cidr.CIDR, oldIP, newIP net
 
 	// CIDR changed
 	return !oldCIDR.IP.Equal(newCIDR.IP)
-}
-
-func deleteTunnelMapping(oldCIDR *cidr.CIDR, quietMode bool) {
-	if oldCIDR == nil {
-		return
-	}
-
-	log.WithField("allocCIDR", oldCIDR).Debug("Deleting tunnel map entry")
-
-	if err := tunnel.TunnelMap.DeleteTunnelEndpoint(oldCIDR.IP); err != nil {
-		if !quietMode {
-			log.WithError(err).WithFields(logrus.Fields{
-				"allocCIDR": oldCIDR,
-			}).Error("Unable to delete in tunnel endpoint map")
-		}
-	}
 }
 
 func createDirectRouteSpec(CIDR *cidr.CIDR, nodeIP net.IP) (routeSpec *netlink.Route, err error) {
@@ -681,7 +622,6 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node, firstAddition
 		oldIP4, oldIP6         net.IP
 		newIP4                 = newNode.GetNodeIP(false)
 		newIP6                 = newNode.GetNodeIP(true)
-		oldKey, newKey         uint8
 	)
 
 	if oldNode != nil {
@@ -689,12 +629,10 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node, firstAddition
 		oldIP6Cidr = oldNode.IPv6AllocCIDR
 		oldIP4 = oldNode.GetNodeIP(false)
 		oldIP6 = oldNode.GetNodeIP(true)
-		oldKey = oldNode.EncryptionKey
 	}
 
 	if n.nodeConfig.EnableIPSec && !n.subnetEncryption() {
 		n.enableIPsec(newNode)
-		newKey = newNode.EncryptionKey
 	}
 
 	if n.enableNeighDiscovery {
@@ -729,13 +667,6 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node, firstAddition
 	}
 
 	if n.nodeConfig.EnableEncapsulation {
-		// Update the tunnel mapping of the node. In case the
-		// node has changed its CIDR range, a new entry in the
-		// map is created and the old entry is removed.
-		updateTunnelMapping(oldIP4Cidr, newNode.IPv4AllocCIDR, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4, oldKey, newKey)
-		// Not a typo, the IPv4 host IP is used to build the IPv6 overlay
-		updateTunnelMapping(oldIP6Cidr, newNode.IPv6AllocCIDR, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv6, oldKey, newKey)
-
 		if !n.nodeConfig.UseSingleClusterRoute {
 			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP4Cidr}, []*cidr.CIDR{newNode.IPv4AllocCIDR})
 			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP6Cidr}, []*cidr.CIDR{newNode.IPv6AllocCIDR})
@@ -743,11 +674,6 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node, firstAddition
 
 		return nil
 	} else if firstAddition {
-		// When encapsulation is disabled, then the initial node addition
-		// triggers a removal of eventual old tunnel map entries.
-		deleteTunnelMapping(newNode.IPv4AllocCIDR, true)
-		deleteTunnelMapping(newNode.IPv6AllocCIDR, true)
-
 		if rt, _ := n.lookupNodeRoute(newNode.IPv4AllocCIDR); rt != nil {
 			n.deleteNodeRoute(newNode.IPv4AllocCIDR)
 		}
@@ -789,9 +715,6 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *node.Node) error {
 	}
 
 	if n.nodeConfig.EnableEncapsulation {
-		deleteTunnelMapping(oldNode.IPv4AllocCIDR, false)
-		deleteTunnelMapping(oldNode.IPv6AllocCIDR, false)
-
 		if !n.nodeConfig.UseSingleClusterRoute {
 			n.deleteNodeRoute(oldNode.IPv4AllocCIDR)
 			n.deleteNodeRoute(oldNode.IPv6AllocCIDR)

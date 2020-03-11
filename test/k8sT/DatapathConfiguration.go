@@ -57,7 +57,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	AfterFailed(func() {
 		kubectl.CiliumReport(helpers.CiliumNamespace,
-			"cilium bpf tunnel list",
 			"cilium endpoint list")
 	})
 
@@ -203,23 +202,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 			SkipIfIntegration(helpers.CIIntegrationFlannel)
 		})
 
-		validateBPFTunnelMap := func() {
-			By("Checking that BPF tunnels are in place")
-			ciliumPod, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s1)
-			ExpectWithOffset(1, err).Should(BeNil(), "Unable to determine cilium pod on node %s", helpers.K8s1)
-			status := kubectl.CiliumExec(ciliumPod, "cilium bpf tunnel list | wc -l")
-			status.ExpectSuccess()
-
-			// ipv4+ipv6: 2 entries for each remote node + 1 header row
-			numEntries := (kubectl.GetNumCiliumNodes()-1)*2 + 1
-			if value := helpers.HelmOverride("global.ipv6.enabled"); value == "false" {
-				// ipv4 only: 1 entry for each remote node + 1 header row
-				numEntries = (kubectl.GetNumCiliumNodes() - 1) + 1
-			}
-
-			Expect(status.IntOutput()).Should(Equal(numEntries), "Did not find expected number of entries in BPF tunnel map")
-		}
-
 		It("Check connectivity with transparent encryption and VXLAN encapsulation", func() {
 			if !helpers.RunsOnNetNext() {
 				Skip("Skipping test because it is not running with the net-next kernel")
@@ -230,7 +212,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 			deployCilium(map[string]string{
 				"global.encryption.enabled": "true",
 			})
-			validateBPFTunnelMap()
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test with IPsec between nodes failed")
 		}, 600)
 
@@ -239,7 +220,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 			deployCilium(map[string]string{
 				"global.sockops.enabled": "true",
 			})
-			validateBPFTunnelMap()
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			Expect(testPodConnectivitySameNodes(kubectl)).Should(BeTrue(), "Connectivity test on same node failed")
 		}, 600)
@@ -248,7 +228,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 			deployCilium(map[string]string{
 				"global.tunnel": "vxlan",
 			})
-			validateBPFTunnelMap()
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		}, 600)
 
@@ -259,7 +238,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 			deployCilium(map[string]string{
 				"global.tunnel": "geneve",
 			})
-			validateBPFTunnelMap()
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
 

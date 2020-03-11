@@ -397,6 +397,11 @@ Removed resource fields
   ``CiliumEndpoint.Status.Spec``, and ``EndpointIdentity.LabelsSHA256``,
   deprecated in 1.4, have been removed.
 
+Deprecated BPF maps
+~~~~~~~~~~~~~~~~~~~
+* The ``cilium_tunnel_map`` has been deprecated and the IPcache is used for all
+  enapsulation mapping. The command ``cilium bpf tunnel list`` has been removed.
+
 .. _1.7_upgrade_notes:
 
 1.7 Upgrade Notes

@@ -267,7 +267,6 @@ var ciliumCLICommands = map[string]string{
 	"cilium config":                         "config.txt",
 	"sudo cilium bpf lb list":               "bpf_lb_list.txt",
 	"sudo cilium bpf ct list global":        "bpf_ct_list.txt",
-	"sudo cilium bpf tunnel list":           "bpf_tunnel_list.txt",
 	"cilium policy get":                     "policy_get.txt",
 	"cilium status --all-controllers":       "status.txt",
 	"cilium kvstore get cilium --recursive": "kvstore_get.txt",
@@ -281,7 +280,6 @@ var ciliumKubCLICommands = map[string]string{
 	"cilium config":                   "config.txt",
 	"cilium bpf lb list":              "bpf_lb_list.txt",
 	"cilium bpf ct list global":       "bpf_ct_list.txt",
-	"cilium bpf tunnel list":          "bpf_tunnel_list.txt",
 	"cilium policy get":               "policy_get.txt",
 	"cilium status --all-controllers": "status.txt",
 }
