@@ -202,22 +202,6 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 			return CTX_ACT_OK;
 		else
 			return ret;
-	} else {
-		struct endpoint_key key = {};
-
-		/* IPv6 lookup key: daddr/96 */
-		dst = (union v6addr *) &ip6->daddr;
-		key.ip6.p1 = dst->p1;
-		key.ip6.p2 = dst->p2;
-		key.ip6.p3 = dst->p3;
-		key.ip6.p4 = 0;
-		key.family = ENDPOINT_KEY_IPV6;
-
-		ret = encap_and_redirect_netdev(ctx, &key, secctx, TRACE_PAYLOAD_LEN);
-		if (ret == IPSEC_ENDPOINT)
-			return CTX_ACT_OK;
-		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
-			return ret;
 	}
 #endif
 
@@ -374,20 +358,6 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 		if (ret == IPSEC_ENDPOINT)
 			return CTX_ACT_OK;
 		else
-			return ret;
-	} else {
-		/* IPv4 lookup key: daddr & IPV4_MASK */
-		struct endpoint_key key = {};
-		int ret;
-
-		key.ip4 = ip4->daddr & IPV4_MASK;
-		key.family = ENDPOINT_KEY_IPV4;
-
-		cilium_dbg(ctx, DBG_NETDEV_ENCAP4, key.ip4, secctx);
-		ret = encap_and_redirect_netdev(ctx, &key, secctx, TRACE_PAYLOAD_LEN);
-		if (ret == IPSEC_ENDPOINT)
-			return CTX_ACT_OK;
-		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
 			return ret;
 	}
 #endif

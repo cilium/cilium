@@ -156,12 +156,14 @@ skip_service_lookup:
 		struct remote_endpoint_info *info;
 
 		info = lookup_ip6_remote_endpoint(&orig_dip);
-		if (info != NULL && info->sec_label) {
-			*dstID = info->sec_label;
+		if (info != NULL) {
 			tunnel_endpoint = info->tunnel_endpoint;
-			encrypt_key = get_min_encrypt_key(info->key);
-		} else {
-			*dstID = WORLD_ID;
+			if (info->sec_label) {
+				*dstID = info->sec_label;
+				encrypt_key = get_min_encrypt_key(info->key);
+			} else {
+				*dstID = WORLD_ID;
+			}
 		}
 
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
@@ -280,32 +282,16 @@ ct_recreate6:
 
 	/* The packet goes to a peer not managed by this agent instance */
 #ifdef ENCAP_IFINDEX
-	{
-		struct endpoint_key key = {};
-
-		/* Lookup the destination prefix in the list of known
-		 * destination prefixes. If there is a match, the packet will
-		 * be encapsulated to that node and then routed by the agent on
-		 * the remote node.
-		 *
-		 * IPv6 lookup key: daddr/96
-		 */
-		key.ip6.p1 = daddr->p1;
-		key.ip6.p2 = daddr->p2;
-		key.ip6.p3 = daddr->p3;
-		key.family = ENDPOINT_KEY_IPV6;
-
-		/* Three cases exist here either (a) the encap and redirect could
-		 * not find the tunnel so fallthrough to nat46 and stack, (b)
-		 * the packet needs IPSec encap so push ctx to stack for encap, or
-		 * (c) packet was redirected to tunnel device so return.
-		 */
-		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key, &key, SECLABEL, monitor);
-		if (ret == IPSEC_ENDPOINT)
-			goto pass_to_stack;
-		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
-			return ret;
-	}
+	/* Three cases exist here either (a) the encap and redirect could
+	 * not find the tunnel so fallthrough to nat46 and stack, (b)
+	 * the packet needs IPSec encap so push ctx to stack for encap, or
+	 * (c) packet was redirected to tunnel device so return.
+	 */
+	ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key, SECLABEL, monitor);
+	if (ret == IPSEC_ENDPOINT)
+		goto pass_to_stack;
+	else if (ret != DROP_NO_TUNNEL_ENDPOINT)
+		return ret;
 #endif
 
 #ifdef ENABLE_NAT46
@@ -502,12 +488,14 @@ skip_service_lookup:
 		struct remote_endpoint_info *info;
 
 		info = lookup_ip4_remote_endpoint(orig_dip);
-		if (info != NULL && info->sec_label) {
-			*dstID = info->sec_label;
+		if (info != NULL) {
 			tunnel_endpoint = info->tunnel_endpoint;
-			encrypt_key = get_min_encrypt_key(info->key);
-		} else {
-			*dstID = WORLD_ID;
+			if (info->sec_label) {
+				*dstID = info->sec_label;
+				encrypt_key = get_min_encrypt_key(info->key);
+			} else {
+				*dstID = WORLD_ID;
+			}
 		}
 
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
@@ -633,26 +621,19 @@ ct_recreate4:
 	}
 
 #ifdef ENCAP_IFINDEX
-	{
-		struct endpoint_key key = {};
-
-		key.ip4 = orig_dip & IPV4_MASK;
-		key.family = ENDPOINT_KEY_IPV4;
-
-		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key, &key, SECLABEL, monitor);
-		if (ret == DROP_NO_TUNNEL_ENDPOINT)
-			goto pass_to_stack;
-		/* If not redirected noteably due to IPSEC then pass up to stack
-		 * for further processing.
-		 */
-		else if (ret == IPSEC_ENDPOINT)
-			goto pass_to_stack;
-		/* This is either redirect by encap code or an error has occured
-		 * either way return and stack will consume ctx.
-		 */
-		else
-			return ret;
-	}
+	ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key, SECLABEL, monitor);
+	if (ret == DROP_NO_TUNNEL_ENDPOINT)
+		goto pass_to_stack;
+	/* If not redirected noteably due to IPSEC then pass up to stack
+	 * for further processing.
+	 */
+	else if (ret == IPSEC_ENDPOINT)
+		goto pass_to_stack;
+	/* This is either redirect by encap code or an error has occured
+	 * either way return and stack will consume ctx.
+	 */
+	else
+		return ret;
 #else
 	goto pass_to_stack;
 #endif

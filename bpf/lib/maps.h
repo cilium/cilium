@@ -75,19 +75,6 @@ struct bpf_elf_map __section_maps CALLS_MAP = {
 };
 #endif /* SKIP_CALLS_MAP */
 
-#ifdef ENCAP_IFINDEX
-
-struct bpf_elf_map __section_maps TUNNEL_MAP = {
-	.type		= BPF_MAP_TYPE_HASH,
-	.size_key	= sizeof(struct endpoint_key),
-	.size_value	= sizeof(struct endpoint_key),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= TUNNEL_ENDPOINT_MAP_SIZE,
-	.flags		= CONDITIONAL_PREALLOC,
-};
-
-#endif
-
 #ifdef HAVE_LPM_MAP_TYPE
 #define LPM_MAP_TYPE BPF_MAP_TYPE_LPM_TRIE
 #else

@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
-	"github.com/cilium/cilium/pkg/maps/tunnel"
 )
 
 // CheckStructAlignments checks whether size and offsets of the C and Go
@@ -66,7 +65,6 @@ func CheckStructAlignments(path string) error {
 		"endpoint_key": {
 			reflect.TypeOf(bpf.EndpointKey{}),
 			reflect.TypeOf(eppolicymap.EndpointKey{}),
-			reflect.TypeOf(tunnel.TunnelEndpoint{}),
 		},
 	}
 	return check.CheckStructAlignments(path, toCheck)

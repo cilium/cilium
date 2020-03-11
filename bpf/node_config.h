@@ -53,7 +53,6 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #endif
 
 #ifdef ENABLE_IPV4
-#define IPV4_MASK 0xffff
 #define IPV4_GATEWAY 0xfffff50a
 #define IPV4_LOOPBACK 0x1ffff50a
 #ifdef ENABLE_MASQUERADE
@@ -80,7 +79,6 @@ DEFINE_IPV6(SNAT_IPV6_EXTERNAL, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0
 #define SOCK_OPS_MAP test_sock_ops_map
 #define IPCACHE_MAP test_cilium_ipcache
 #define ENCRYPT_MAP test_cilium_encrypt_state
-#define TUNNEL_MAP test_cilium_tunnel_map
 #define EP_POLICY_MAP test_cilium_ep_to_policy
 #define LB6_REVERSE_NAT_MAP test_cilium_lb6_reverse_nat
 #define LB6_SERVICES_MAP_V2 test_cilium_lb6_services
@@ -91,7 +89,6 @@ DEFINE_IPV6(SNAT_IPV6_EXTERNAL, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0
 #define LB4_BACKEND_MAP test_cilium_lb4_backends
 #define LB4_REVERSE_NAT_SK_MAP cilium_lb4_reverse_sk
 #define ENABLE_ARP_RESPONDER
-#define TUNNEL_ENDPOINT_MAP_SIZE 65536
 #define ENDPOINTS_MAP_SIZE 65536
 #define METRICS_MAP_SIZE 65536
 #define CILIUM_NET_MAC  { .addr = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x57 } }
