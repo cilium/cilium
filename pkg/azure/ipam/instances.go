@@ -16,24 +16,18 @@ package ipam
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"time"
 
 	"github.com/cilium/cilium/pkg/azure/types"
 	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/pkg/ipam/allocator"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 
-	"github.com/cilium/ipam/service/ipallocator"
 	"github.com/sirupsen/logrus"
 )
-
-type subnetAllocator struct {
-	subnet    *ipamTypes.Subnet
-	allocator *ipallocator.Range
-}
 
 // AzureAPI is the API surface used of the Azure API
 type AzureAPI interface {
@@ -45,11 +39,11 @@ type AzureAPI interface {
 // InstancesManager maintains the list of instances. It must be kept up to date
 // by calling resync() regularly.
 type InstancesManager struct {
-	mutex      lock.RWMutex
-	instances  types.InstanceMap
-	vnets      ipamTypes.VirtualNetworkMap
-	api        AzureAPI
-	allocators map[string]*subnetAllocator
+	mutex     lock.RWMutex
+	instances types.InstanceMap
+	vnets     ipamTypes.VirtualNetworkMap
+	api       AzureAPI
+	allocator allocator.Allocator
 }
 
 // NewInstancesManager returns a new instances manager
@@ -57,7 +51,15 @@ func NewInstancesManager(api AzureAPI) *InstancesManager {
 	return &InstancesManager{
 		instances: types.InstanceMap{},
 		api:       api,
+		allocator: &allocator.NoOpAllocator{},
 	}
+}
+
+func (m *InstancesManager) getAllocator() (allocator allocator.Allocator) {
+	m.mutex.RLock()
+	allocator = m.allocator
+	m.mutex.RUnlock()
+	return
 }
 
 // CreateNode is called on discovery of a new node and returns the ENI node
@@ -67,50 +69,8 @@ func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, n *ipam.Node) ipam.Nod
 }
 
 // GetPoolQuota returns the number of available IPs in all IP pools
-func (m *InstancesManager) GetPoolQuota() ipamTypes.PoolQuotaMap {
-	pool := ipamTypes.PoolQuotaMap{}
-
-	m.mutex.RLock()
-	for subnetID, subnet := range m.allocators {
-		pool[ipamTypes.PoolID(subnetID)] = ipamTypes.PoolQuota{
-			AvailableIPs: subnet.allocator.Free(),
-		}
-	}
-	m.mutex.RUnlock()
-
-	return pool
-}
-
-// getSubnet returns the subnet by subnet ID
-//
-// The returned subnet is immutable so it can be safely accessed
-func (m *InstancesManager) getSubnet(subnetID string) *subnetAllocator {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
-	return m.allocators[subnetID]
-}
-
-// getSubnets returns all available subnets
-func (m *InstancesManager) getSubnets() (subnets []*subnetAllocator) {
-	m.mutex.RLock()
-	for _, subnet := range m.allocators {
-		subnets = append(subnets, subnet)
-	}
-	defer m.mutex.RUnlock()
-	return
-}
-
-func newSubnetAllocator(subnet *ipamTypes.Subnet) (*subnetAllocator, error) {
-	allocator, err := ipallocator.NewCIDRRange(subnet.CIDR.IPNet)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create IP allocator: %s", err)
-	}
-
-	return &subnetAllocator{
-		allocator: allocator,
-		subnet:    subnet,
-	}, nil
+func (m *InstancesManager) GetPoolQuota() (quota ipamTypes.PoolQuotaMap) {
+	return m.getAllocator().GetPoolQuota()
 }
 
 // Resync fetches the list of EC2 instances and subnets and updates the local
@@ -137,19 +97,10 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 		"numSubnets":         len(subnets),
 	}).Info("Synchronized Azure IPAM information")
 
-	// Create subnet allocators for all identified subnets
-	allocators := map[string]*subnetAllocator{}
-	for id, subnet := range subnets {
-		if subnet.CIDR == nil {
-			continue
-		}
-
-		a, err := newSubnetAllocator(subnet)
-		if err != nil {
-			log.WithError(err).WithField("subnet", id).Warning("Unable to create allocator for subnet")
-			continue
-		}
-		allocators[id] = a
+	groupAllocator, err := allocator.NewPoolGroupAllocator(subnets)
+	if err != nil {
+		log.WithError(err).Warning("Unable to create allocator")
+		return time.Time{}
 	}
 
 	// Reserve all known IP addresses in all known subnet allocators
@@ -158,14 +109,12 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 			for _, address := range iface.Addresses {
 				ip := net.ParseIP(address.IP)
 				if ip != nil {
-					if a, ok := allocators[address.Subnet]; ok {
-						if err := a.allocator.Allocate(ip); err != nil {
-							log.WithFields(logrus.Fields{
-								"instance":  instance,
-								"interface": iface.ID,
-								"address":   address,
-							}).WithError(err).Warning("Unable to allocate IP in internal allocator")
-						}
+					if err := groupAllocator.Allocate(ipamTypes.PoolID(address.Subnet), ip); err != nil {
+						log.WithFields(logrus.Fields{
+							"instance":  instance,
+							"interface": iface.ID,
+							"address":   address,
+						}).WithError(err).Warning("Unable to allocate IP in internal allocator")
 					}
 				} else {
 					log.WithFields(logrus.Fields{
@@ -181,7 +130,7 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 	m.mutex.Lock()
 	m.instances = instances
 	m.vnets = vnets
-	m.allocators = allocators
+	m.allocator = groupAllocator
 	m.mutex.Unlock()
 
 	return resyncStart

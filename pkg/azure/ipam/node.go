@@ -17,7 +17,6 @@ package ipam
 import (
 	"context"
 	"fmt"
-	"net"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/azure/types"
@@ -123,39 +122,29 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 			a.AvailableInterfaces++
 		}
 
-		scopedLog.WithFields(logrus.Fields{
-			"id":                   iface.ID,
-			"availableOnInterface": availableOnInterface,
-		}).Debug("Interface has IPs available")
+		if a.InterfaceID == "" {
+			scopedLog.WithFields(logrus.Fields{
+				"id":                   iface.ID,
+				"availableOnInterface": availableOnInterface,
+			}).Debug("Interface has IPs available")
 
-		subnets := map[string]struct{}{}
-
-		for _, address := range iface.Addresses {
-			if address.Subnet != "" {
-				subnets[address.Subnet] = struct{}{}
-			}
-		}
-
-		// No IP address assigned to interface yet, pick any subnet
-		if len(subnets) == 0 {
-			for _, subnet := range n.manager.getSubnets() {
-				subnets[subnet.subnet.ID] = struct{}{}
-			}
-		}
-
-		for subnetID := range subnets {
-			if subnet := n.manager.getSubnet(subnetID); subnet != nil {
-				available := subnet.allocator.Free()
-				if available > 0 && a.InterfaceID == "" {
-					scopedLog.WithFields(logrus.Fields{
-						"subnetID":           subnetID,
-						"availableAddresses": available,
-					}).Debug("Subnet has IPs available")
-
-					a.InterfaceID = iface.ID
-					a.PoolID = ipamTypes.PoolID(subnetID)
-					a.AvailableForAllocation = math.IntMin(available, availableOnInterface)
+			preferredPoolIDs := []ipamTypes.PoolID{}
+			for _, address := range iface.Addresses {
+				if address.Subnet != "" {
+					preferredPoolIDs = append(preferredPoolIDs, ipamTypes.PoolID(address.Subnet))
 				}
+			}
+
+			poolID, available := n.manager.getAllocator().FirstPoolWithAvailableQuota(preferredPoolIDs)
+			if poolID != ipamTypes.PoolNotExists {
+				scopedLog.WithFields(logrus.Fields{
+					"subnetID":           poolID,
+					"availableAddresses": available,
+				}).Debug("Subnet has IPs available")
+
+				a.InterfaceID = iface.ID
+				a.PoolID = poolID
+				a.AvailableForAllocation = math.IntMin(available, availableOnInterface)
 			}
 		}
 	}
@@ -165,31 +154,14 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 
 // AllocateIPs performs the Azure IP allocation operation
 func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error {
-	subnetID := string(a.PoolID)
-	subnet := n.manager.getSubnet(subnetID)
-	if subnet == nil {
-		return fmt.Errorf("subnet no longer available")
-	}
-
-	ips := []net.IP{}
-
-	for i := 0; i < a.AvailableForAllocation; i++ {
-		ip, err := subnet.allocator.AllocateNext()
-		if err != nil {
-			for _, ip = range ips {
-				subnet.allocator.Release(ip)
-			}
-			return err
-		}
-
-		ips = append(ips, ip)
-	}
-
-	err := n.manager.api.AssignPrivateIpAddresses(ctx, subnetID, a.InterfaceID, ips)
+	ips, err := n.manager.getAllocator().AllocateMany(a.PoolID, a.AvailableForAllocation)
 	if err != nil {
-		for _, ip := range ips {
-			subnet.allocator.Release(ip)
-		}
+		return err
+	}
+
+	err = n.manager.api.AssignPrivateIpAddresses(ctx, string(a.PoolID), a.InterfaceID, ips)
+	if err != nil {
+		n.manager.getAllocator().ReleaseMany(a.PoolID, ips)
 		return err
 	}
 
