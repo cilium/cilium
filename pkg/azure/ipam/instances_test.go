@@ -181,35 +181,21 @@ func (e *IPAMSuite) TestGetVpcsAndSubnets(c *check.C) {
 	mngr := NewInstancesManager(api)
 	c.Assert(mngr, check.Not(check.IsNil))
 
-	c.Assert(mngr.getSubnet("subnet-1"), check.IsNil)
-	c.Assert(mngr.getSubnet("subnet-2"), check.IsNil)
-	c.Assert(mngr.getSubnet("subnet-3"), check.IsNil)
+	c.Assert(mngr.getAllocator().PoolExists("subnet-1"), check.Equals, false)
+	c.Assert(mngr.getAllocator().PoolExists("subnet-2"), check.Equals, false)
+	c.Assert(mngr.getAllocator().PoolExists("subnet-3"), check.Equals, false)
 
 	iteration1(api, mngr)
 
-	subnet1 := mngr.getSubnet("subnet-1")
-	c.Assert(subnet1, check.Not(check.IsNil))
-	c.Assert(subnet1.subnet.ID, check.Equals, "subnet-1")
-
-	subnet2 := mngr.getSubnet("subnet-2")
-	c.Assert(subnet2, check.Not(check.IsNil))
-	c.Assert(subnet2.subnet.ID, check.Equals, "subnet-2")
-
-	c.Assert(mngr.getSubnet("subnet-3"), check.IsNil)
+	c.Assert(mngr.getAllocator().PoolExists("subnet-1"), check.Equals, true)
+	c.Assert(mngr.getAllocator().PoolExists("subnet-2"), check.Equals, true)
+	c.Assert(mngr.getAllocator().PoolExists("subnet-3"), check.Equals, false)
 
 	iteration2(api, mngr)
 
-	subnet1 = mngr.getSubnet("subnet-1")
-	c.Assert(subnet1, check.Not(check.IsNil))
-	c.Assert(subnet1.subnet.ID, check.Equals, "subnet-1")
-
-	subnet2 = mngr.getSubnet("subnet-2")
-	c.Assert(subnet2, check.Not(check.IsNil))
-	c.Assert(subnet2.subnet.ID, check.Equals, "subnet-2")
-
-	subnet3 := mngr.getSubnet("subnet-3")
-	c.Assert(subnet3, check.Not(check.IsNil))
-	c.Assert(subnet3.subnet.ID, check.Equals, "subnet-3")
+	c.Assert(mngr.getAllocator().PoolExists("subnet-1"), check.Equals, true)
+	c.Assert(mngr.getAllocator().PoolExists("subnet-2"), check.Equals, true)
+	c.Assert(mngr.getAllocator().PoolExists("subnet-3"), check.Equals, true)
 }
 
 func (e *IPAMSuite) TestInstances(c *check.C) {
