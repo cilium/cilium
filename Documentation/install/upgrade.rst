@@ -302,6 +302,8 @@ Deprecated options
   deprecated and will be removed in Cilium 1.9.
 * ``access-log``: L7 access logs have been available via Hubble since Cilium
   1.6. The ``access-log`` option to log to a file has been removed.
+* ``--disable-k8s-services`` option from cilium-agent has been deprecated
+  and will be removed in Cilium 1.9. 
 
 Renamed Metrics
 ~~~~~~~~~~~~~~~

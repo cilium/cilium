@@ -323,6 +323,7 @@ func init() {
 
 	flags.Bool(option.DisableK8sServices, false, "Disable east-west K8s load balancing by cilium")
 	option.BindEnv(option.DisableK8sServices)
+	flags.MarkDeprecated(option.DisableK8sServices, "This option is no longer supported and will be removed in v1.9")
 
 	flags.String(option.EgressMasqueradeInterfaces, "", "Limit egress masquerading to interface selector")
 	option.BindEnv(option.EgressMasqueradeInterfaces)
@@ -411,7 +412,7 @@ func init() {
 
 	flags.Int(option.IPv4ClusterCIDRMaskSize, 8, "Mask size for the cluster wide CIDR")
 	option.BindEnv(option.IPv4ClusterCIDRMaskSize)
-	flags.MarkDeprecated(option.IPv4ClusterCIDRMaskSize, "This option is no longer supported and will be removed in v1.9")
+	flags.MarkDeprecated(option.IPv4ClusterCIDRMaskSize, "This option has been deprecated and will be removed in v1.9")
 
 	flags.String(option.IPv4Range, AutoCIDR, "Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16")
 	option.BindEnv(option.IPv4Range)
