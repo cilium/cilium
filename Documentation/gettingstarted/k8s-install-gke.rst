@@ -41,7 +41,7 @@ if you are in a different region of the globe.
 
     export GKE_ZONE="europe-west4-a"
     gcloud container --project $GKE_PROJECT clusters create cluster1 \
-       --username "admin" --image-type COS --num-nodes 2 --zone ${GKE_ZONE}
+       --username admin --image-type COS --num-nodes 2 --zone ${GKE_ZONE}
 
 When done, you should be able to access your cluster like this:
 
