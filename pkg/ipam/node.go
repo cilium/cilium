@@ -352,7 +352,7 @@ type AllocationAction struct {
 	// PoolID is the IPAM pool identifier to allocate the IPs from. This
 	// can correspond to a subnet ID or it can also left blank or set to a
 	// value such as "global" to indicate a single address pool.
-	PoolID PoolID
+	PoolID ipamTypes.PoolID
 
 	// AvailableForAllocation is the number IPs available for allocation.
 	// If InterfaeID is set, then this number corresponds to the number of
@@ -384,7 +384,7 @@ type ReleaseAction struct {
 	// PoolID is the IPAM pool identifier to release the IPs from. This can
 	// correspond to a subnet ID or it can also left blank or set to a
 	// value such as "global" to indicate a single address pool.
-	PoolID PoolID
+	PoolID ipamTypes.PoolID
 
 	// IPsToRelease is the list of IPs to release
 	IPsToRelease []string

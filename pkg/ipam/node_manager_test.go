@@ -38,7 +38,7 @@ var (
 	eniTags    = map[string]string{}
 )
 
-const testPoolID = PoolID("global")
+const testPoolID = ipamTypes.PoolID("global")
 
 type allocationImplementationMock struct {
 	poolSize     int
@@ -57,9 +57,9 @@ func (a *allocationImplementationMock) CreateNode(obj *v2.CiliumNode, node *Node
 	}
 }
 
-func (a *allocationImplementationMock) GetPoolQuota() PoolQuotaMap {
-	return PoolQuotaMap{
-		testPoolID: PoolQuota{AvailableIPs: a.poolSize - a.allocatedIPs},
+func (a *allocationImplementationMock) GetPoolQuota() ipamTypes.PoolQuotaMap {
+	return ipamTypes.PoolQuotaMap{
+		testPoolID: ipamTypes.PoolQuota{AvailableIPs: a.poolSize - a.allocatedIPs},
 	}
 }
 
