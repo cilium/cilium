@@ -86,7 +86,7 @@ var (
 	defaultHelmOptions = map[string]string{
 		"global.registry":               "k8s1:5000/cilium",
 		"agent.image":                   "cilium-dev",
-		"preflight.image":               "cilium-dev",
+		"preflight.image":               "cilium-dev", // Set again in init to match agent.image!
 		"global.tag":                    "latest",
 		"operator.image":                "operator",
 		"managed-etcd.registry":         "docker.io/cilium",
@@ -182,6 +182,9 @@ func init() {
 			defaultHelmOptions[helmVar] = v
 		}
 	}
+
+	// preflight must match the cilium agent image (that's the point)
+	defaultHelmOptions["preflight.image"] = defaultHelmOptions["agent.image"]
 }
 
 // GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
