@@ -61,12 +61,6 @@ make -j `getconf _NPROCESSORS_ONLN` && \
 strip bpftool && \
 cd ../../../../ && \
 #
-# bpf-map
-#
-curl -SsL https://github.com/cilium/bpf-map/releases/download/v1.0/bpf-map -o bpf-map && \
-chmod +x bpf-map && \
-strip bpf-map && \
-#
 # cni/loopback
 #
 curl -sS -L https://github.com/containernetworking/plugins/releases/download/v0.7.5/cni-plugins-amd64-v0.7.5.tgz -o cni.tar.gz && \
@@ -97,7 +91,6 @@ LABEL maintainer="maintainer@cilium.io"
 WORKDIR /bin
 COPY --from=runtime-build /tmp/iproute2/tc/tc /tmp/iproute2/ip/ip ./
 COPY --from=runtime-build /tmp/linux/tools/bpf/bpftool/bpftool ./
-COPY --from=runtime-build /tmp/bpf-map ./
 COPY --from=runtime-gobuild /go/bin/gops ./
 WORKDIR /cni
 COPY --from=runtime-build /tmp/loopback ./
