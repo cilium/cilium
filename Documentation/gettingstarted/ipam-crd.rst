@@ -50,11 +50,10 @@ Create a CiliumNode CR
              name: "k8s1"
            spec:
              ipam:
-               available:
-                 192.168.1.1: {}
-                 192.168.1.2: {}
-                 192.168.1.3: {}
-                 192.168.1.4: {}
+               192.168.1.1: {}
+               192.168.1.2: {}
+               192.168.1.3: {}
+               192.168.1.4: {}
 
 #. Validate that Cilium has started up correctly
 
@@ -80,11 +79,10 @@ Create a CiliumNode CR
          [...]
        spec:
          ipam:
-           available:
-             192.168.1.1: {}
-             192.168.1.2: {}
-             192.168.1.3: {}
-             192.168.1.4: {}
+           192.168.1.1: {}
+           192.168.1.2: {}
+           192.168.1.3: {}
+           192.168.1.4: {}
        status:
          ipam:
            used:
