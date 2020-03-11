@@ -181,7 +181,7 @@ spec:
           name: cni-path
         - mountPath: {{ .Values.global.cni.hostConfDirMountPath }}
           name: etc-cni-netd
-{{- if and (.Values.global.containerRuntime.socketPath) (not (eq .Values.global.containerRuntime.integration "none") }}
+{{- if and (.Values.global.containerRuntime.socketPath) (not (eq .Values.global.containerRuntime.integration "none")) }}
 {{- if or (eq .Values.global.containerRuntime.integration "docker") (eq .Values.global.containerRuntime.integration "auto") }}
         - mountPath: /var/run/docker.sock
           readOnly: true
@@ -340,14 +340,14 @@ spec:
           type: DirectoryOrCreate
         name: bpf-maps
 {{- end }}
-{{- if and (.Values.global.containerRuntime.socketPath) (not (eq .Values.global.containerRuntime.integration "none") }}
-      # To read container runtime events from the node
+{{- if and (.Values.global.containerRuntime.socketPath) (not (eq .Values.global.containerRuntime.integration "none")) }}
+        # To read container runtime events from the node
       - hostPath:
           path: {{ .Values.global.containerRuntime.socketPath }}
           type: Socket
         name: runtime-socket
 {{- end }}
-      # To install cilium cni plugin in the host
+        # To install cilium cni plugin in the host
       - hostPath:
           path:  {{ .Values.global.cni.binPath }}
           type: DirectoryOrCreate
