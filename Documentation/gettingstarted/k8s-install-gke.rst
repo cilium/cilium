@@ -52,12 +52,22 @@ When done, you should be able to access your cluster like this:
     gke-cluster1-default-pool-a63a765c-flr2   Ready    <none>   6m    v1.11.7-gke.4
     gke-cluster1-default-pool-a63a765c-z73c   Ready    <none>   6m    v1.11.7-gke.4
 
-Create a cluster-admin-binding
-==============================
+Create an admin role binding
+============================
+
+In a new GKE cluster an admin role binding needs to be created explicitly in
+order to associate the Google identity (e.g. a personal account, or corporate
+G Suite account), with a Kubernetes identity. To do this run the following
+commands. You might want to run ``gcloud config get-value core/account``
+first, if you have multiple accounts and want to check if you are using the
+correct one (see `GKE RBAC documentation`_ for more info).
+
+.. _GKE RBAC documentation: https://cloud.google.com/kubernetes-engine/docs/how-to/role-based-access-control
 
 .. code:: bash
 
-    kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user your@google.email
+    account="$(gcloud config get-value core/account 2>/dev/null)"
+    kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user ${account}
 
 Deploy Cilium
 =============
