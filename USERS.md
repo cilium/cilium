@@ -102,3 +102,8 @@ Users (Alphabetically)
       U: ENI Networking, Service load-balancing, Direct routing (via Bird)
       L: https://ctripcloud.github.io/cilium/network/2020/01/19/trip-first-step-towards-cloud-native-networking.html
       Q: @ArthurChiao
+
+    * N: Wildlife Studios
+      D: Wildlife Studios is using Cilium in AWS for all their game production clusters (self hosted k8s)
+      U: ClusterMesh, Global Service Load Balancing.
+      Q: @Oki @luanguimaraesla
