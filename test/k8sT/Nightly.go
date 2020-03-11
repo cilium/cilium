@@ -238,7 +238,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 		getClient := func(ip, port, filePipe string) string {
 			return fmt.Sprintf(
-				"bash -c 'rm %[1]s; touch %[1]s; tail -f %[1]s 2>&1 | nc -v %[2]s %[3]s'",
+				`bash -c "rm %[1]s; touch %[1]s; tail -f %[1]s 2>&1 | nc -v %[2]s %[3]s"`,
 				filePipe, ip, port)
 		}
 
@@ -253,7 +253,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 		}
 		// testConnectivity check that nc is running across the k8s nodes
 		testConnectivity := func() {
-
+			killNetcat := "killall nc"
 			pipePath := "/tmp/nc_pipe.txt"
 			listeningString := "listening on [::]:8888"
 
@@ -270,23 +270,27 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 			Expect(err).To(BeNil(), "Cannot get netcat ips")
 
 			ncServer := getServer("8888")
-			ncClient := getClient(ips[server], "8888", pipePath)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
 			testNcConnectivity := func(sleep time.Duration) {
+				uid := helpers.MakeUID()
+				pipePath = "/tmp/" + uid
+				ncClient := getClient(ips[server], "8888", pipePath)
+
+				kubectl.ExecPodCmd(helpers.DefaultNamespace, server, killNetcat)
 				serverctx := kubectl.ExecPodCmdBackground(ctx, helpers.DefaultNamespace, server, ncServer)
 				err = serverctx.WaitUntilMatch(listeningString)
 				Expect(err).To(BeNil(), "netcat server did not start correctly")
 
-				_ = kubectl.ExecPodCmdBackground(ctx, helpers.DefaultNamespace, client, ncClient)
+				kubectl.ExecPodCmd(helpers.DefaultNamespace, client, killNetcat)
+				kubectl.ExecPodCmdBackground(ctx, helpers.DefaultNamespace, client, ncClient)
 
 				helpers.Sleep(sleep)
-				uid := helpers.MakeUID()
 
 				res := kubectl.ExecPodCmd(helpers.DefaultNamespace, client,
-					fmt.Sprintf(`bash -c "echo -e '%s' >> %s"`, HTTPRequest(uid, ips[client]), pipePath))
+					fmt.Sprintf(`bash -c "echo -e '%[1]s' >> %s"`, HTTPRequest(uid, ips[client]), pipePath))
 				res.ExpectSuccess("Failed to populate netcat client pipe")
 
 				Expect(serverctx.WaitUntilMatch(uid)).To(BeNil(),
