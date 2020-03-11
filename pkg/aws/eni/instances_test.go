@@ -32,7 +32,6 @@ var (
 	subnets = []*ipamTypes.Subnet{
 		{
 			ID:                 "subnet-1",
-			CIDR:               "",
 			AvailableAddresses: 10,
 			VirtualNetworkID:   "vpc-1",
 			AvailabilityZone:   "us-west-1",
@@ -42,7 +41,6 @@ var (
 		},
 		{
 			ID:                 "subnet-2",
-			CIDR:               "",
 			AvailableAddresses: 20,
 			VirtualNetworkID:   "vpc-2",
 			AvailabilityZone:   "us-east-1",
@@ -55,7 +53,6 @@ var (
 	subnets2 = []*ipamTypes.Subnet{
 		{
 			ID:                 "subnet-1",
-			CIDR:               "",
 			AvailableAddresses: 10,
 			VirtualNetworkID:   "vpc-1",
 			AvailabilityZone:   "us-west-1",
@@ -65,7 +62,6 @@ var (
 		},
 		{
 			ID:                 "subnet-2",
-			CIDR:               "",
 			AvailableAddresses: 20,
 			VirtualNetworkID:   "vpc-2",
 			AvailabilityZone:   "us-east-1",
@@ -75,7 +71,6 @@ var (
 		},
 		{
 			ID:                 "subnet-3",
-			CIDR:               "",
 			AvailableAddresses: 0,
 			VirtualNetworkID:   "vpc-1",
 			AvailabilityZone:   "us-west-1",

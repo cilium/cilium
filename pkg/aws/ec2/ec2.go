@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/api/helpers"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
+	"github.com/cilium/cilium/pkg/cidr"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/spanstat"
 
@@ -138,8 +139,8 @@ func parseENI(iface *ec2.NetworkInterface, vpcs ipamTypes.VirtualNetworkMap, sub
 		eni.Subnet.ID = *iface.SubnetId
 
 		if subnets != nil {
-			if subnet, ok := subnets[eni.Subnet.ID]; ok {
-				eni.Subnet.CIDR = subnet.CIDR
+			if subnet, ok := subnets[eni.Subnet.ID]; ok && subnet.CIDR != nil {
+				eni.Subnet.CIDR = subnet.CIDR.String()
 			}
 		}
 	}
@@ -260,9 +261,14 @@ func (c *Client) GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error) {
 	}
 
 	for _, s := range subnetList {
+		c, err := cidr.ParseCIDR(*s.CidrBlock)
+		if err != nil {
+			continue
+		}
+
 		subnet := &ipamTypes.Subnet{
 			ID:                 *s.SubnetId,
-			CIDR:               *s.CidrBlock,
+			CIDR:               c,
 			AvailableAddresses: int(*s.AvailableIpAddressCount),
 			Tags:               map[string]string{},
 		}
