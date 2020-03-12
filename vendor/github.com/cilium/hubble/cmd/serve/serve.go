@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Authors of Hubble
+// Copyright 2017-2020 Authors of Hubble
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package serve
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -23,7 +24,6 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/cilium/hubble/api/v1/observer"
 	"github.com/cilium/hubble/pkg/api"
@@ -33,9 +33,9 @@ import (
 	"github.com/cilium/hubble/pkg/fqdncache"
 	"github.com/cilium/hubble/pkg/ipcache"
 	"github.com/cilium/hubble/pkg/metrics"
-	metricsAPI "github.com/cilium/hubble/pkg/metrics/api"
 	"github.com/cilium/hubble/pkg/parser"
 	"github.com/cilium/hubble/pkg/server"
+	"github.com/cilium/hubble/pkg/server/serveroption"
 	"github.com/cilium/hubble/pkg/servicecache"
 	"github.com/google/gops/agent"
 	"github.com/sirupsen/logrus"
@@ -50,16 +50,15 @@ func New(log *logrus.Entry) *cobra.Command {
 	serverCmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Start gRPC server",
-		Run: func(cmd *cobra.Command, args []string) {
-			err := validateArgs(log)
-			if err != nil {
-				log.WithError(err).Fatal("failed to parse arguments")
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateArgs(log); err != nil {
+				return fmt.Errorf("failed to parse arguments: %v", err)
 			}
 
 			if gopsVar {
 				log.Debug("starting gops agent")
 				if err := agent.Listen(agent.Options{}); err != nil {
-					log.WithError(err).Fatal("failed to start gops agent")
+					return fmt.Errorf("failed to start gops agent: %v", err)
 				}
 			}
 
@@ -76,7 +75,7 @@ func New(log *logrus.Entry) *cobra.Command {
 
 			ciliumClient, err := client.NewClient()
 			if err != nil {
-				log.WithError(err).Fatal("failed to get Cilium client")
+				return fmt.Errorf("failed to get Cilium client: %v", err)
 			}
 			ipCache := ipcache.New()
 			fqdnCache := fqdncache.New()
@@ -88,9 +87,9 @@ func New(log *logrus.Entry) *cobra.Command {
 			}
 			payloadParser, err := parser.New(endpoints, ciliumClient, fqdnCache, podGetter, serviceCache)
 			if err != nil {
-				log.WithError(err).Fatal("failed to get parser")
+				return fmt.Errorf("failed to get parser: %v", err)
 			}
-			s := server.NewServer(
+			s, err := server.NewServer(
 				ciliumClient,
 				endpoints,
 				ipCache,
@@ -101,22 +100,33 @@ func New(log *logrus.Entry) *cobra.Command {
 				int(eventQueueSize),
 				log,
 			)
-			s.Start()
-			err = Serve(log, listenClientUrls, s.GetGRPCServer())
 			if err != nil {
-				log.WithError(err).Fatal("")
+				return fmt.Errorf("failed to initialize server: %v", err)
 			}
-			if err := s.HandleMonitorSocket(nodeName); err != nil {
-				log.WithError(err).Fatal("HandleMonitorSocket failed")
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			setupSigHandler(ctx, cancel)
+			s.Start()
+			if err = Serve(ctx, log, listenClientUrls, s.GetGRPCServer()); err != nil {
+				return err
 			}
+			if err := s.HandleMonitorSocket(ctx, nodeName); err != nil {
+				return fmt.Errorf("failed to handle monitor socket: %v", err)
+			}
+			return nil
 		},
 	}
 
 	serverCmd.Flags().StringArrayVarP(&listenClientUrls, "listen-client-urls", "", []string{serverSocketPath}, "List of URLs to listen on for client traffic.")
-	serverCmd.Flags().Uint32Var(&maxFlows, "max-flows", 131071, "Max number of flows to store in memory (gets rounded up to closest (2^n)-1")
-	serverCmd.Flags().Uint32Var(&eventQueueSize, "event-queue-size", 128, "Size of the event queue for received monitor events")
+	serverCmd.Flags().Uint32Var(&maxFlows,
+		"max-flows", uint32(serveroption.Default.MaxFlows),
+		"Max number of flows to store in memory (gets rounded up to closest (2^n)-1",
+	)
+	serverCmd.Flags().Uint32Var(&eventQueueSize,
+		"event-queue-size", uint32(serveroption.Default.MonitorBuffer),
+		"Size of the event queue for received monitor events",
+	)
 
-	serverCmd.Flags().StringVar(&serveDurationVar, "duration", "", "Shut the server down after this duration")
 	serverCmd.Flags().StringVar(&nodeName, "node-name", os.Getenv(envNodeName), "Node name where hubble is running (defaults to value set in env variable '"+envNodeName+"'")
 
 	serverCmd.Flags().StringSliceVar(&enabledMetrics, "metric", []string{}, "Enable metrics reporting")
@@ -130,19 +140,13 @@ func New(log *logrus.Entry) *cobra.Command {
 	return serverCmd
 }
 
-// observerCmd represents the monitor command
 var (
 	maxFlows       uint32
 	eventQueueSize uint32
 
-	serveDurationVar string
-	serveDuration    time.Duration
-	nodeName         string
+	nodeName string
 
 	listenClientUrls []string
-
-	// when the server started
-	serverStart time.Time
 
 	enabledMetrics []string
 	metricsServer  string
@@ -155,41 +159,12 @@ const (
 	envNodeName      = "HUBBLE_NODE_NAME"
 )
 
-// EnableMetrics starts the metrics server with a given list of metrics.
-func EnableMetrics(log *logrus.Entry, metricsServer string, m []string) {
-	errChan, err := metrics.Init(metricsServer, metricsAPI.ParseMetricList(m))
-	if err != nil {
-		log.WithError(err).Fatal("Unable to setup metrics")
-	}
-
-	go func() {
-		err := <-errChan
-		if err != nil {
-			log.WithError(err).Fatal("Unable to initialize metrics server")
-		}
-	}()
-
-}
-
 func validateArgs(log *logrus.Entry) error {
-	if serveDurationVar != "" {
-		d, err := time.ParseDuration(serveDurationVar)
-		if err != nil {
-			log.WithField("duration", serveDurationVar).
-				Fatal("failed to parse the provided --duration")
-		}
-		serveDuration = d
-	}
-
-	log.WithFields(logrus.Fields{
-		"max-flows": maxFlows,
-		"duration":  serveDuration,
-	}).Info("Started server with args")
-
 	if metricsServer != "" {
-		EnableMetrics(log, metricsServer, enabledMetrics)
+		if err := metrics.EnableMetrics(log, metricsServer, enabledMetrics); err != nil {
+			return err
+		}
 	}
-
 	return nil
 }
 
@@ -237,23 +212,10 @@ func setupListeners(listenClientUrls []string) (listeners map[string]net.Listene
 
 // Serve starts the GRPC server on the provided socketPath. If the port is non-zero, it listens
 // to the TCP port instead of the unix domain socket.
-func Serve(log *logrus.Entry, listenClientUrls []string, s server.GRPCServer) error {
+func Serve(ctx context.Context, log *logrus.Entry, listenClientUrls []string, s server.GRPCServer) error {
 	clientListeners, err := setupListeners(listenClientUrls)
 	if err != nil {
 		return err
-	}
-
-	serverStart = time.Now()
-
-	if serveDuration != 0 {
-		// Register a server shutdown
-		go func() {
-			<-time.After(serveDuration)
-			log.WithField("duration", serveDuration).Info(
-				"Shutting down after the configured duration",
-			)
-			os.Exit(0)
-		}()
 	}
 
 	healthSrv := health.NewServer()
@@ -269,22 +231,27 @@ func Serve(log *logrus.Entry, listenClientUrls []string, s server.GRPCServer) er
 			log.WithField("client-listener", clientListURL).Info("Starting gRPC server on client-listener")
 			err = clientGRPC.Serve(clientList)
 			if err != nil {
-				log.WithError(err).Fatal("failed to close grpc server")
+				log.WithError(err).Error("failed to close grpc server")
 			}
 		}(clientListURL, clientList)
 	}
+	go func() {
+		<-ctx.Done()
+		clientGRPC.Stop()
+	}()
 
-	setupSigHandler()
 	return nil
 }
 
-func setupSigHandler() {
+func setupSigHandler(ctx context.Context, cancel context.CancelFunc) {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
 	go func() {
-		for range signalChan {
+		select {
+		case <-ctx.Done():
+		case <-signalChan:
 			fmt.Printf("\nReceived an interrupt, disconnecting from monitor...\n\n")
-			os.Exit(0)
+			cancel()
 		}
 	}()
 }

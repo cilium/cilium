@@ -16,6 +16,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
 	"fmt"
 	"io"
@@ -35,6 +36,7 @@ import (
 	"github.com/cilium/hubble/pkg/cilium/client"
 	"github.com/cilium/hubble/pkg/ipcache"
 	"github.com/cilium/hubble/pkg/parser"
+	"github.com/cilium/hubble/pkg/server/serveroption"
 	"github.com/cilium/hubble/pkg/servicecache"
 	"github.com/gogo/protobuf/types"
 	"github.com/sirupsen/logrus"
@@ -62,13 +64,21 @@ func NewServer(
 	maxFlows int,
 	eventQueueSize int,
 	logger *logrus.Entry,
-) *ObserverServer {
+) (*ObserverServer, error) {
 	ciliumState := cilium.NewCiliumState(ciliumClient, endpoints, ipCache, fqdnCache, serviceCache, logger)
+	s, err := NewLocalServer(
+		payloadParser, logger,
+		serveroption.WithMaxFlows(maxFlows),
+		serveroption.WithMonitorBuffer(eventQueueSize),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not create local server: %v", err)
+	}
 	return &ObserverServer{
 		log:         logger,
-		grpcServer:  NewLocalServer(payloadParser, maxFlows, eventQueueSize, logger),
+		grpcServer:  s,
 		ciliumState: ciliumState,
-	}
+	}, nil
 }
 
 // Start starts the server to handle the events sent to the events channel as
@@ -79,28 +89,31 @@ func (s *ObserverServer) Start() {
 }
 
 // HandleMonitorSocket connects to the monitor socket and consumes monitor events.
-func (s *ObserverServer) HandleMonitorSocket(nodeName string) error {
+func (s *ObserverServer) HandleMonitorSocket(ctx context.Context, nodeName string) error {
 	// On EOF, retry
-	// On other errors, exit
+	// On other errors and done ctx, exit
 	// always wait connTimeout when retrying
-	for ; ; time.Sleep(api.ConnectionTimeout) {
+	for {
 		conn, version, err := openMonitorSock()
 		if err != nil {
 			s.log.WithError(err).Error("Cannot open monitor serverSocketPath")
 			return err
 		}
 
-		err = s.consumeMonitorEvents(conn, version, nodeName)
-		switch {
-		case err == nil:
+		err = s.consumeMonitorEvents(ctx, conn, version, nodeName)
+		switch err {
+		case nil:
 			// no-op
-
-		case err == io.EOF, err == io.ErrUnexpectedEOF:
+		case io.EOF, io.ErrUnexpectedEOF:
 			s.log.WithError(err).Warn("connection closed")
-			continue
-
 		default:
-			s.log.WithError(err).Fatal("decoding error")
+			return fmt.Errorf("decoding error: %v", err)
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(api.ConnectionTimeout):
 		}
 	}
 }
@@ -144,7 +157,7 @@ func getMonitorParser(conn net.Conn, version listener.Version, nodeName string) 
 // consumeMonitorEvents handles and prints events on a monitor connection. It
 // calls getMonitorParsed to construct a monitor-version appropriate parser.
 // It closes conn on return, and returns on error, including io.EOF
-func (s *ObserverServer) consumeMonitorEvents(conn net.Conn, version listener.Version, nodeName string) error {
+func (s *ObserverServer) consumeMonitorEvents(ctx context.Context, conn net.Conn, version listener.Version, nodeName string) error {
 	defer conn.Close()
 	ch := s.GetGRPCServer().GetEventsChannel()
 	endpointEvents := s.ciliumState.GetEndpointEventsChannel()
@@ -168,7 +181,12 @@ func (s *ObserverServer) consumeMonitorEvents(conn net.Conn, version listener.Ve
 			return err
 		}
 
-		ch <- pl
+		select {
+		case <-ctx.Done():
+			return nil
+		case ch <- pl:
+		}
+
 		// we don't expect to have many MessageTypeAgent so we
 		// can "decode" this messages as they come.
 		switch pl.Data[0] {
@@ -178,7 +196,7 @@ func (s *ObserverServer) consumeMonitorEvents(conn net.Conn, version listener.Ve
 
 			an := monitorAPI.AgentNotify{}
 			if err := dec.Decode(&an); err != nil {
-				fmt.Printf("Error while decoding agent notification message: %s\n", err)
+				s.log.WithError(err).Warning("failed to decoded agent notification message")
 				continue
 			}
 			switch an.Type {
@@ -203,7 +221,7 @@ func (s *ObserverServer) consumeMonitorEvents(conn net.Conn, version listener.Ve
 			lr := monitor.LogRecordNotify{}
 
 			if err := dec.Decode(&lr); err != nil {
-				fmt.Printf("Error while decoding access log message type: %s\n", err)
+				s.log.WithError(err).Warning("failed to decode access logg message type")
 				continue
 			}
 			if lr.DNS != nil {

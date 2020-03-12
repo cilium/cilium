@@ -19,6 +19,8 @@ package hubble
 import (
 	"testing"
 
+	"github.com/cilium/hubble/pkg/server/serveroption"
+
 	"github.com/cilium/cilium/pkg/checker"
 	listener2 "github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/monitor/payload"
@@ -40,7 +42,10 @@ var _ = Suite(&HubbleSuite{})
 func (s *HubbleSuite) TestHubbleListener(c *C) {
 	// Setting maxFlows to 100. This should create the events channel with buffer size set to 1:
 	//   https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/server/local_observer.go#L90
-	grpcServer := server.NewLocalServer(nil, 100, 1, logrus.NewEntry(logrus.New()))
+	grpcServer, err := server.NewLocalServer(nil, logrus.NewEntry(logrus.New()),
+		serveroption.WithMaxFlows(100),
+		serveroption.WithMonitorBuffer(1))
+	c.Assert(err, IsNil)
 	listener := NewHubbleListener(grpcServer)
 	c.Assert(listener.Version(), Equals, listener2.Version1_2)
 	pl := payload.Payload{CPU: 1, Lost: 2, Type: 3, Data: []byte{'a', 'b', 'c'}}

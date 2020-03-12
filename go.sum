@@ -96,14 +96,16 @@ github.com/cespare/xxhash/v2 v2.1.0/go.mod h1:dgIUBU3pDso/gPgZ1osOZ0iQf77oPR28Tj
 github.com/cilium/arping v1.0.1-0.20190728065459-c5eaf8d7a710 h1:htVjkajqUYy6JmLMGlZYxfZ4urQq7rDvgUfmSJX7fSg=
 github.com/cilium/arping v1.0.1-0.20190728065459-c5eaf8d7a710/go.mod h1:ohfPr9hSb4vRsw5UEjCs3OoWD38U0z8EfSgZPbIe/+M=
 github.com/cilium/cilium v1.7.0-rc2.0.20200304124244-647a43c7953f/go.mod h1:t5xlCbWzen5MJm3QTM0JUXC43PgaJZVW7rtMHBEwDS8=
+github.com/cilium/cilium v1.7.0-rc2.0.20200311180626-711b37ed100c/go.mod h1:DivZYmYP4ZOqCcTP+3eNxuHkQYYeybeB5XdrjeZvyLY=
 github.com/cilium/client-go v0.0.0-20200217141255-96fd08586691 h1:WwV9S3lIRzfCt8xndUZ5a0EnKQzRz1/IM/bLOndVhkI=
 github.com/cilium/client-go v0.0.0-20200217141255-96fd08586691/go.mod h1:cLXlTMtWHkuK4tD360KpWz2gG2KtdWEr/OT02i3emRQ=
 github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3 h1:wenYMyWJ08dgEUUj0Ija8qdK/V9vL3ThAD5sjOYlFlg=
 github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3/go.mod h1:cXN7jgo+gsGlNvQ7Vqu2ELdc3f7i7PPgupHqSkLzzBo=
 github.com/cilium/ebpf v0.0.0-20191113100448-d9fb101ca1fb h1:bQ0NJ9dAB8vsw7ffajBDX/7Wr64BdLWeJkYY36UkeRY=
 github.com/cilium/ebpf v0.0.0-20191113100448-d9fb101ca1fb/go.mod h1:MA5e5Lr8slmEg9bt0VpxxWqJlO4iwu3FBdHUzV7wQVg=
-github.com/cilium/hubble v0.0.0-20200304205543-565cbe60f7fb h1:w+NkbBM7QYLT+kazyZXvwZtXya94e/wgXLdp2Th7l00=
 github.com/cilium/hubble v0.0.0-20200304205543-565cbe60f7fb/go.mod h1:GYdTLWzzpzgp2ptyEp0LccPotGo4BxPX9SJRGL4pI5c=
+github.com/cilium/hubble v0.0.0-20200312104109-daf0d22074cb h1:bMBRFcv57f6X6XL3OWLzTEaaIcOSu9TFakMr4yzChdU=
+github.com/cilium/hubble v0.0.0-20200312104109-daf0d22074cb/go.mod h1:KW9XVfDaAw2XnqD4bskTBMBz06syhZvxkNJ+3Bb6fRU=
 github.com/cilium/ipam v0.0.0-20200217195329-a46f8d55f9db h1:pW/jw3e14kOrad7wNZRKdnSDRStOcJ02A7uIpTsa5f8=
 github.com/cilium/ipam v0.0.0-20200217195329-a46f8d55f9db/go.mod h1:URWgSDyRFKKBgnY4Svj37siCG145nu3qJt6oHlZRdqU=
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b h1:+bsFX/WOMIoaayXVyRem1awcpz3icz/HoL8Dxg/m6a4=

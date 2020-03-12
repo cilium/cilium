@@ -76,32 +76,9 @@ message GetFlowsRequest {
 message GetFlowsResponse {
     oneof response_types{
         flow.Flow flow = 1;
-        ProtocolMessage server_msg = 2;
     }
     // Name of the node where this event was observed.
     string node_name = 1000;
     // Timestamp at which this event was observed.
     google.protobuf.Timestamp time = 1001;
-}
-
-// ProtocolMessage is a type of message type that can sent by the server to
-// inform the client with its current status.
-message ProtocolMessage {
-    oneof msg {
-        ProtocolMessageInfo info = 1;
-    }
-}
-
-// ProtocolMessageInfo is an informational message type that can sent by the server.
-message ProtocolMessageInfo {
-     string msg = 1;
-     ProtocolMessageType type = 2;
-}
-
-// ProtocolMessageType enumerates the type of messages the server can return
-// to the client.
-enum ProtocolMessageType {
-    UNKNOWN_PROTOCOL_MESSAGE_TYPE = 0;
-    PROGRESS_PROTOCOL_MESSAGE_TYPE = 1;
-    ERROR_PROTOCOL_MESSAGE_TYPE = 2;
 }

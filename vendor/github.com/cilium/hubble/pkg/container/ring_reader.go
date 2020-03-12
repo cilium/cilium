@@ -24,6 +24,7 @@ import (
 type RingReader struct {
 	ring *Ring
 	idx  uint64
+	ctx  context.Context
 	c    <-chan *v1.Event
 }
 
@@ -33,6 +34,7 @@ func NewRingReader(ring *Ring, start uint64) *RingReader {
 	return &RingReader{
 		ring: ring,
 		idx:  start,
+		ctx:  nil,
 	}
 }
 
@@ -64,21 +66,28 @@ func (r *RingReader) Next() *v1.Event {
 // position by one. If there are no more event to read, NextFollow blocks
 // until the next event is added to the ring or the context is cancelled.
 func (r *RingReader) NextFollow(ctx context.Context) *v1.Event {
-	if r.c == nil {
+	// if the context changed between invocations, we also have to restart
+	// readFrom, as the old readFrom instance will be using the old context.
+	if r.c == nil || r.ctx != ctx {
 		r.c = r.ring.readFrom(ctx, r.idx)
+		r.ctx = ctx
 	}
-	// when the ring is not full, nil events may be sent to the channel
-	// one should keep reading in such a case
-	for {
-		select {
-		case e := <-r.c:
-			r.idx++
-			if e != nil {
-				return e
-			}
-		case <-ctx.Done():
+
+	select {
+	case e, ok := <-r.c:
+		if !ok {
+			// channel can only be closed by readFrom if ctx is cancelled
 			r.c = nil
+			r.ctx = nil
 			return nil
 		}
+		// increment idx so that future calls to the ring reader will
+		// continue reading from were we stopped.
+		r.idx++
+		return e
+	case <-ctx.Done():
+		r.c = nil
+		r.ctx = nil
+		return nil
 	}
 }
