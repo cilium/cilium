@@ -15,9 +15,10 @@
 package metrics
 
 import (
+	"fmt"
 	"net/http"
 
-	"github.com/cilium/hubble/pkg/api/v1"
+	v1 "github.com/cilium/hubble/pkg/api/v1"
 	"github.com/cilium/hubble/pkg/metrics/api"
 	_ "github.com/cilium/hubble/pkg/metrics/dns"               // invoke init
 	_ "github.com/cilium/hubble/pkg/metrics/drop"              // invoke init
@@ -26,9 +27,9 @@ import (
 	_ "github.com/cilium/hubble/pkg/metrics/icmp"              // invoke init
 	_ "github.com/cilium/hubble/pkg/metrics/port-distribution" // invoke init
 	_ "github.com/cilium/hubble/pkg/metrics/tcp"               // invoke init
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -59,4 +60,20 @@ func Init(address string, enabled api.Map) (<-chan error, error) {
 	}()
 
 	return errChan, nil
+}
+
+// EnableMetrics starts the metrics server with a given list of metrics. This is the
+// function Cilium uses to configure Hubble metrics in embedded mode.
+func EnableMetrics(log *logrus.Entry, metricsServer string, m []string) error {
+	errChan, err := Init(metricsServer, api.ParseMetricList(m))
+	if err != nil {
+		return fmt.Errorf("unable to setup metrics: %v", err)
+	}
+	go func() {
+		err := <-errChan
+		if err != nil {
+			log.WithError(err).Error("Unable to initialize metrics server")
+		}
+	}()
+	return nil
 }
