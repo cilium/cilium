@@ -1498,10 +1498,10 @@ func (kub *Kubectl) DeleteCiliumOperator() error {
 	// incomplete teardown.
 
 	_ = kub.DeleteResource("deployment", fmt.Sprintf("-n %s cilium-operator", GetCiliumNamespace(GetCurrentIntegration())))
-	return kub.waitToDeleteCiliumOperator()
+	return kub.waitToDelete("Cilium Operator", "io.cilium/app=cilium")
 }
 
-func (kub *Kubectl) waitToDeleteCiliumOperator() error {
+func (kub *Kubectl) waitToDelete(name, label string) error {
 	var (
 		pods []string
 		err  error
@@ -1519,9 +1519,12 @@ func (kub *Kubectl) waitToDeleteCiliumOperator() error {
 		default:
 		}
 
-		pods, err = kub.GetPodNamesContext(ctx, GetCiliumNamespace(GetCurrentIntegration()), "io.cilium/app=cilium")
+		pods, err = kub.GetPodNamesContext(ctx, GetCiliumNamespace(GetCurrentIntegration()), label)
+		if err != nil {
+			return err
+		}
 		status = len(pods)
-		kub.Logger().Infof("Cilium Operator pods terminating '%d' err='%v' pods='%v'", status, err, pods)
+		kub.Logger().Infof("%s pods terminating '%d' err='%v' pods='%v'", name, status, err, pods)
 		if status == 0 {
 			return nil
 		}
@@ -1535,36 +1538,7 @@ func (kub *Kubectl) DeleteCiliumDS() error {
 	// incomplete teardown.
 
 	_ = kub.DeleteResource("ds", fmt.Sprintf("-n %s cilium", GetCiliumNamespace(GetCurrentIntegration())))
-	return kub.waitToDeleteCilium()
-}
-
-func (kub *Kubectl) waitToDeleteCilium() error {
-	var (
-		pods []string
-		err  error
-	)
-
-	ctx, cancel := context.WithTimeout(context.Background(), HelperTimeout)
-	defer cancel()
-
-	status := 1
-	for status > 0 {
-
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("timed out waiting to delete Cilium: pods still remaining: %s", pods)
-		default:
-		}
-
-		pods, err = kub.GetCiliumPodsContext(ctx, GetCiliumNamespace(GetCurrentIntegration()))
-		status := len(pods)
-		kub.Logger().Infof("Cilium pods terminating '%d' err='%v' pods='%v'", status, err, pods)
-		if status == 0 {
-			return nil
-		}
-		time.Sleep(1 * time.Second)
-	}
-	return nil
+	return kub.waitToDelete("Cilium", "k8s-app=cilium")
 }
 
 // ciliumUninstallHelm uninstalls Cilium with the Helm options provided.
