@@ -31,29 +31,28 @@ Step 2: Install Istio
 
 Install the `Helm client <https://docs.helm.sh/using_helm/#installing-helm>`_.
 
-Download `Istio version 1.4.6
-<https://github.com/istio/istio/releases/tag/1.4.6>`_:
+Download `Istio version 1.5.0
+<https://github.com/istio/istio/releases/tag/1.5.0>`_:
 
 ::
 
-   export ISTIO_VERSION=1.4.6
+   export ISTIO_VERSION=1.5.0
    curl -L https://git.io/getLatestIstio | sh -
    export ISTIO_HOME=`pwd`/istio-${ISTIO_VERSION}
    export PATH="$PATH:${ISTIO_HOME}/bin"
+   istioctl verify-install
 
 .. note::
 
    Cilium integration, as presented in this Getting Started Guide, has
    been tested with Kubernetes releases 1.14, 1.15, 1.16, and
-   1.17. Note that this does *not* work with K8s 1.13, and that Istio
-   1.4 has *not* been officially tested with Kubernetes releases 1.16,
-   1.17.
-
+   1.17. Note that this does *not* work with K8s 1.13.
 
 Create a copy of Istio's Helm charts in order to customize them:
 
 ::
 
+    rm -rf istio-cilium-helm
     cp -r ${ISTIO_HOME}/install/kubernetes/helm/istio istio-cilium-helm
 
 Configure the Cilium-specific variant of Pilot to inject the
@@ -144,7 +143,7 @@ Deploy Istio onto Kubernetes:
      kubectl create namespace istio-system
      helm template istio-init ${ISTIO_HOME}/install/kubernetes/helm/istio-init --namespace istio-system | kubectl apply -f -
 
-Verify that 23 Istio CRDs have been created:
+Verify that 25 Istio CRDs have been created:
 
 ::
 
@@ -154,7 +153,7 @@ Verify that 23 Istio CRDs have been created:
 
    This will get stuck at 0 if Cilium is not running in your cluster!
 
-When the above returns '23', you can stop it with ``CTRL-c`` and deploy Istio:
+When the above returns '25', you can stop it with ``CTRL-c`` and deploy Istio:
 
 ::
 
