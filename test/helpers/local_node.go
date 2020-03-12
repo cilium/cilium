@@ -20,7 +20,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -80,21 +79,14 @@ func (s *LocalExecutor) CloseSSHClient() {
 	return
 }
 
-// setBasePath is a no-op
 func (s *LocalExecutor) setBasePath() {
-	gopath := os.Getenv("GOPATH")
-	if gopath != "" {
-		s.basePath = filepath.Join(gopath, CiliumPath)
+	wd, err := os.Getwd()
+	if err != nil {
+		ginkgoext.Fail(fmt.Sprintf("Cannot set base path: %s", err.Error()), 1)
 		return
 	}
+	s.basePath = wd
 
-	home := os.Getenv("HOME")
-	if home == "" {
-		return
-	}
-
-	s.basePath = filepath.Join(home, "go", CiliumPath)
-	return
 }
 
 func (s LocalExecutor) getLocalCmd(ctx context.Context, command string, stdout io.Writer, stderr io.Writer) *exec.Cmd {
