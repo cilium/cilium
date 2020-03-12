@@ -97,7 +97,7 @@ var _ = Describe("K8sIstioTest", func() {
 		res.ExpectSuccess("unable to create Istio CRDs")
 
 		By("Waiting for Istio CRDs to be ready")
-		err := kubectl.WaitForCRDCount("istio.io|certmanager.k8s.io", 23, helpers.HelperTimeout)
+		err := kubectl.WaitForCRDCount("istio.io|certmanager.k8s.io", 25, helpers.HelperTimeout)
 		Expect(err).To(BeNil(),
 			"Istio CRDs are not ready after timeout")
 

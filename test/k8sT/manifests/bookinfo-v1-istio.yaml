@@ -46,7 +46,7 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: TPROXY
-        sidecar.istio.io/status: '{"version":"45fd8869cfbf8375ea44be15a0156f5850b1789428501a78c16a8490fd325b06","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"8fed0d2ecbb139209c0b5e642d71dd80e5d965609ad504099c0857b565898242","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: "9080"
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
@@ -96,8 +96,6 @@ spec:
         - MUTUAL_TLS
         - --statusPort
         - "15020"
-        - --applicationPorts
-        - "9080"
         env:
         - name: POD_NAME
           valueFrom:
@@ -122,6 +120,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
+        - name: ISTIO_AUTO_MTLS_ENABLED
+          value: "true"
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -134,8 +134,6 @@ spec:
           value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: TPROXY
-        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
-          value: "9080"
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"details","track":"stable","version":"v1","zgroup":"bookinfo"}
@@ -143,7 +141,7 @@ spec:
           value: details-v1
         - name: ISTIO_META_OWNER
           value: kubernetes://apis/apps/v1/namespaces/default/deployments/details-v1
-        image: docker.io/cilium/istio_proxy:1.4.6
+        image: docker.io/cilium/istio_proxy:1.5.0
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -213,7 +211,7 @@ spec:
         - '*'
         - -d
         - "15020"
-        image: docker.io/cilium/istio_proxy:1.4.6
+        image: docker.io/cilium/istio_proxy:1.5.0
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
@@ -284,7 +282,7 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: TPROXY
-        sidecar.istio.io/status: '{"version":"45fd8869cfbf8375ea44be15a0156f5850b1789428501a78c16a8490fd325b06","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"8fed0d2ecbb139209c0b5e642d71dd80e5d965609ad504099c0857b565898242","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: "9080"
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
@@ -334,8 +332,6 @@ spec:
         - MUTUAL_TLS
         - --statusPort
         - "15020"
-        - --applicationPorts
-        - "9080"
         env:
         - name: POD_NAME
           valueFrom:
@@ -360,6 +356,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
+        - name: ISTIO_AUTO_MTLS_ENABLED
+          value: "true"
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -372,8 +370,6 @@ spec:
           value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: TPROXY
-        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
-          value: "9080"
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"reviews","track":"stable","version":"v1","zgroup":"bookinfo"}
@@ -381,7 +377,7 @@ spec:
           value: reviews-v1
         - name: ISTIO_META_OWNER
           value: kubernetes://apis/apps/v1/namespaces/default/deployments/reviews-v1
-        image: docker.io/cilium/istio_proxy:1.4.6
+        image: docker.io/cilium/istio_proxy:1.5.0
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -451,7 +447,7 @@ spec:
         - '*'
         - -d
         - "15020"
-        image: docker.io/cilium/istio_proxy:1.4.6
+        image: docker.io/cilium/istio_proxy:1.5.0
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
@@ -522,7 +518,7 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: TPROXY
-        sidecar.istio.io/status: '{"version":"45fd8869cfbf8375ea44be15a0156f5850b1789428501a78c16a8490fd325b06","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"8fed0d2ecbb139209c0b5e642d71dd80e5d965609ad504099c0857b565898242","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: "9080"
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
@@ -572,8 +568,6 @@ spec:
         - MUTUAL_TLS
         - --statusPort
         - "15020"
-        - --applicationPorts
-        - "9080"
         env:
         - name: POD_NAME
           valueFrom:
@@ -598,6 +592,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
+        - name: ISTIO_AUTO_MTLS_ENABLED
+          value: "true"
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -610,8 +606,6 @@ spec:
           value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: TPROXY
-        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
-          value: "9080"
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"productpage","track":"stable","version":"v1","zgroup":"bookinfo"}
@@ -619,7 +613,7 @@ spec:
           value: productpage-v1
         - name: ISTIO_META_OWNER
           value: kubernetes://apis/apps/v1/namespaces/default/deployments/productpage-v1
-        image: docker.io/cilium/istio_proxy:1.4.6
+        image: docker.io/cilium/istio_proxy:1.5.0
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -689,7 +683,7 @@ spec:
         - '*'
         - -d
         - "15020"
-        image: docker.io/cilium/istio_proxy:1.4.6
+        image: docker.io/cilium/istio_proxy:1.5.0
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
