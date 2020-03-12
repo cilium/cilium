@@ -423,19 +423,8 @@ update-authors:
 	@contrib/scripts/extract_authors.sh >> AUTHORS
 	@cat .authors.aux >> AUTHORS
 
-docs-container:
-	$(QUIET)cp -r ./api ./Documentation/_api
-	$(CONTAINER_ENGINE_FULL) image build -t cilium/docs-builder -f Documentation/Dockerfile ./Documentation; \
-	  (ret=$$?; rm -r ./Documentation/_api && exit $$ret)
-
-DOCS_PORT=9081
-render-docs: test-docs
-	$(CONTAINER_ENGINE_FULL) container run --rm -dit --name docs-cilium -p $(DOCS_PORT):80 -v $$(pwd)/Documentation/_build/html/:/usr/local/apache2/htdocs/ httpd:2.4
-	@echo "$$(tput setaf 2)Running at http://localhost:$(DOCS_PORT)$$(tput sgr0)"
-
-test-docs: docs-container
-	-$(CONTAINER_ENGINE_FULL) container rm -f docs-cilium >/dev/null 2>&1 || true
-	$(CONTAINER_ENGINE_FULL) container run --rm -v $$(pwd):/srv/ cilium/docs-builder /bin/bash -c 'make html'
+render-docs:
+	$(MAKE) -C Documentation run-server
 
 manpages:
 	-rm -r man
