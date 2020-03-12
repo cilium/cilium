@@ -2523,6 +2523,8 @@ func (kub *Kubectl) GatherLogs(ctx context.Context) {
 		"kubectl describe pods --all-namespaces":                     "pods_status.txt",
 		"kubectl get replicationcontroller --all-namespaces -o json": "replicationcontroller.txt",
 		"kubectl get deployment --all-namespaces -o json":            "deployment.txt",
+
+		fmt.Sprintf("kubectl get cm cilium-config -n %s -o json", GetCiliumNamespace(GetCurrentIntegration())): "cilium-config.json",
 	}
 
 	kub.GeneratePodLogGatheringCommands(ctx, reportCmds)
