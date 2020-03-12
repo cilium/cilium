@@ -1,0 +1,3 @@
+# Ingore everything except for requirements file
+*
+!requirements.txt
