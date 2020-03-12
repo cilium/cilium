@@ -61,6 +61,8 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+pip3 install -r ~/go/src/github.com/cilium/cilium/Documentation/requirements.txt
+
 export PATH=/home/vagrant/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
 ~/go/src/github.com/cilium/cilium/common/build.sh
 rm -fr ~/go/bin/cilium*
