@@ -65,7 +65,6 @@ func (s *State) syncEndpoints() {
 		}
 
 		s.endpoints.SyncEndpoints(parsedEPs)
-		s.endpoints.GarbageCollect()
 	}
 }
 
@@ -103,7 +102,7 @@ func (s *State) consumeEndpointEvents() {
 			}
 
 			ep := endpoint.ParseEndpointFromEndpointDeleteNotification(edn)
-			s.endpoints.MarkDeleted(ep)
+			s.endpoints.DeleteEndpoint(ep)
 		default:
 			s.log.WithFields(logrus.Fields{
 				"type":         int(an.Type),

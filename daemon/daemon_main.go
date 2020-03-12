@@ -63,10 +63,11 @@ import (
 	"github.com/cilium/cilium/pkg/probe"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/version"
-
 	hubbleServe "github.com/cilium/hubble/cmd/serve"
+	hubbleMetrics "github.com/cilium/hubble/pkg/metrics"
 	"github.com/cilium/hubble/pkg/parser"
 	hubbleServer "github.com/cilium/hubble/pkg/server"
+	"github.com/cilium/hubble/pkg/server/serveroption"
 	"github.com/go-openapi/loads"
 	gops "github.com/google/gops/agent"
 	"github.com/jessevdk/go-flags"
@@ -1585,11 +1586,17 @@ func (d *Daemon) launchHubble() {
 		logger.WithError(err).Warn("Failed to initialize Hubble")
 		return
 	}
-	s := hubbleServer.NewLocalServer(payloadParser, option.Config.HubbleFlowBufferSize, option.Config.HubbleEventQueueSize, logger)
+	s, err := hubbleServer.NewLocalServer(payloadParser, logger,
+		serveroption.WithMaxFlows(option.Config.HubbleFlowBufferSize),
+		serveroption.WithMonitorBuffer(option.Config.HubbleEventQueueSize))
+	if err != nil {
+		logger.WithError(err).Warn("Failed to initialize Hubble")
+		return
+	}
 	go s.Start()
-	d.monitorAgent.GetMonitor().RegisterNewListener(context.TODO(), hubble.NewHubbleListener(s))
+	d.monitorAgent.GetMonitor().RegisterNewListener(d.ctx, hubble.NewHubbleListener(s))
 	logger.WithField("addresses", addresses).Info("Starting Hubble server")
-	if err := hubbleServe.Serve(logger, addresses, s); err != nil {
+	if err := hubbleServe.Serve(d.ctx, logger, addresses, s); err != nil {
 		logger.WithError(err).Warn("Failed to start Hubble server")
 		return
 	}
@@ -1598,6 +1605,9 @@ func (d *Daemon) launchHubble() {
 			"address": option.Config.HubbleMetricsServer,
 			"metrics": option.Config.HubbleMetrics,
 		}).Info("Starting Hubble Metrics server")
-		hubbleServe.EnableMetrics(log, option.Config.HubbleMetricsServer, option.Config.HubbleMetrics)
+		if err := hubbleMetrics.EnableMetrics(log, option.Config.HubbleMetricsServer, option.Config.HubbleMetrics); err != nil {
+			logger.WithError(err).Warn("Failed to initialize Hubble metrics server")
+			return
+		}
 	}
 }
