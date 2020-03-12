@@ -2803,7 +2803,7 @@ func (kub *Kubectl) ciliumHealthPreFlightCheck() error {
 		if len(ciliumPods) != len(nodeCount) {
 			return fmt.Errorf(
 				"cilium-agent '%s': Only %d/%d nodes appeared in cilium-health status. nodes = '%+v'",
-				pod, len(nodeCount), len(ciliumPods), nodeCount)
+				pod, len(ciliumPods), len(nodeCount), nodeCount)
 		}
 
 		healthStatus, err := status.Filter(statusFilter)
