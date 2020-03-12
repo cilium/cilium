@@ -1493,6 +1493,43 @@ func (kub *Kubectl) GetPublicIface() (string, error) {
 	return kub.getIfaceByIPAddr(K8s1, ipAddr)
 }
 
+func (kub *Kubectl) DeleteCiliumOperator() error {
+	// Do not assert on success in AfterEach intentionally to avoid
+	// incomplete teardown.
+
+	_ = kub.DeleteResource("deployment", fmt.Sprintf("-n %s cilium-operator", GetCiliumNamespace(GetCurrentIntegration())))
+	return kub.waitToDeleteCiliumOperator()
+}
+
+func (kub *Kubectl) waitToDeleteCiliumOperator() error {
+	var (
+		pods []string
+		err  error
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), HelperTimeout)
+	defer cancel()
+
+	status := 1
+	for status > 0 {
+
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timed out waiting to delete Cilium Operator: pods still remaining: %s", pods)
+		default:
+		}
+
+		pods, err = kub.GetPodNamesContext(ctx, GetCiliumNamespace(GetCurrentIntegration()), "io.cilium/app=cilium")
+		status = len(pods)
+		kub.Logger().Infof("Cilium Operator pods terminating '%d' err='%v' pods='%v'", status, err, pods)
+		if status == 0 {
+			return nil
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return nil
+}
+
 func (kub *Kubectl) DeleteCiliumDS() error {
 	// Do not assert on success in AfterEach intentionally to avoid
 	// incomplete teardown.
@@ -1554,6 +1591,13 @@ func (kub *Kubectl) CiliumInstall(filename string, options map[string]string) er
 	// for the newly generated ConfigMap. Otherwise, the CM changes will stay
 	// inactive until each cilium-agent has been restarted.
 	if err := kub.DeleteCiliumDS(); err != nil {
+		return err
+	}
+
+	// Remove cilium operator to ensure that new instances of cilium-operator are started
+	// for the newly generated ConfigMap. Otherwise, the CM changes will stay
+	// inactive until each cilium-operator has been restarted.
+	if err := kub.DeleteCiliumOperator(); err != nil {
 		return err
 	}
 
