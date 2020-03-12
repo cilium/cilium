@@ -82,7 +82,7 @@ github.com/cilium/ebpf/asm
 github.com/cilium/ebpf/internal
 github.com/cilium/ebpf/internal/unix
 github.com/cilium/ebpf/perf
-# github.com/cilium/hubble v0.0.0-20200304205543-565cbe60f7fb
+# github.com/cilium/hubble v0.0.0-20200312104109-daf0d22074cb
 ## explicit
 github.com/cilium/hubble/api/v1/flow
 github.com/cilium/hubble/api/v1/observer
@@ -117,6 +117,7 @@ github.com/cilium/hubble/pkg/parser/seven
 github.com/cilium/hubble/pkg/parser/threefour
 github.com/cilium/hubble/pkg/printer
 github.com/cilium/hubble/pkg/server
+github.com/cilium/hubble/pkg/server/serveroption
 github.com/cilium/hubble/pkg/servicecache
 github.com/cilium/hubble/pkg/time
 # github.com/cilium/ipam v0.0.0-20200217195329-a46f8d55f9db
@@ -201,7 +202,6 @@ github.com/docker/docker/pkg/plugingetter
 github.com/docker/docker/pkg/plugins
 github.com/docker/docker/pkg/plugins/transport
 # github.com/docker/go-connections v0.4.0
-## explicit
 github.com/docker/go-connections/nat
 github.com/docker/go-connections/sockets
 github.com/docker/go-connections/tlsconfig
@@ -219,7 +219,6 @@ github.com/docker/libnetwork/types
 github.com/emicklei/go-restful
 github.com/emicklei/go-restful/log
 # github.com/envoyproxy/protoc-gen-validate v0.3.0-java
-## explicit
 github.com/envoyproxy/protoc-gen-validate/validate
 # github.com/evanphx/json-patch v4.2.0+incompatible
 github.com/evanphx/json-patch
@@ -393,8 +392,6 @@ github.com/mitchellh/mapstructure
 github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.1
 github.com/modern-go/reflect2
-# github.com/morikuni/aec v1.0.0
-## explicit
 # github.com/onsi/ginkgo v1.10.1
 ## explicit
 github.com/onsi/ginkgo

@@ -18,6 +18,7 @@ import (
 	"context"
 	"sync"
 	"sync/atomic"
+	"unsafe"
 
 	v1 "github.com/cilium/hubble/pkg/api/v1"
 	"github.com/cilium/hubble/pkg/math"
@@ -41,10 +42,11 @@ type Ring struct {
 	dataLen uint64
 	// data is the internal buffer of this ring buffer.
 	data []*v1.Event
-	// cond is used to signal when a write was made so a "waiting" reader in
-	// ReadFrom(<-chan struct{}, uint64) <-chan *pb.Payload knows the writer
-	// has written into the internal buffer.
-	cond *sync.Cond
+	// notify{Mu,Ch} are used to signal a waiting reader in readFrom when the
+	// writer has written a new value.
+	// We cannot use sync.Cond as it cannot be used in select statements.
+	notifyMu sync.Mutex
+	notifyCh chan struct{}
 }
 
 // NewRing creates a ring buffer. For efficiency, the internal
@@ -70,8 +72,27 @@ func NewRing(n int) *Ring {
 		cycleMask: ^uint64(0) >> cycleExp,
 		dataLen:   dataLen,
 		data:      make([]*v1.Event, dataLen, dataLen),
-		cond:      sync.NewCond(&sync.RWMutex{}),
+		notifyMu:  sync.Mutex{},
+		notifyCh:  nil,
 	}
+}
+
+// dataLoadAtomic performs an atomic load on `r.data[dataIdx]`.
+// `dataIdx` is the array index with the cycle counter already masked out.
+// This ensures that the point load/store itself is data race free. However,
+// it is the callers responsibility to ensure that the read is semantically
+// correct, i.e. by checking that the read cycle is ahead of the write cycle.
+func (r *Ring) dataLoadAtomic(dataIdx uint64) (e *v1.Event) {
+	slot := unsafe.Pointer(&r.data[dataIdx])
+	return (*v1.Event)(atomic.LoadPointer((*unsafe.Pointer)(slot)))
+}
+
+// dataLoadAtomic performs an atomic store as `r.data[dataIdx] = e`.
+// `dataIdx` is the array index with the cycle counter already masked out.
+// This ensures that the point load/store itself is a data race.
+func (r *Ring) dataStoreAtomic(dataIdx uint64, e *v1.Event) {
+	slot := unsafe.Pointer(&r.data[dataIdx])
+	atomic.StorePointer((*unsafe.Pointer)(slot), unsafe.Pointer(e))
 }
 
 // Len returns the number of elements in the ring buffer, similar to builtin `len()`.
@@ -89,12 +110,30 @@ func (r *Ring) Cap() uint64 {
 }
 
 // Write writes the given event into the ring buffer in the next available
-// writing block.
+// writing block. The entry must not be nil, otherwise readFrom will block when
+// reading back this event.
 func (r *Ring) Write(entry *v1.Event) {
+	// We need to lock the notification mutex when updating r.write, otherwise
+	// there is a race condition where a readFrom goroutine goes to sleep
+	// after we sent out the notification.
+	// This lock is only shared with other readFrom instances that are about
+	// to go to sleep, so contention should be low. Notably, readers which are
+	// far away from the current write pointer will still be able to make
+	// progress concurrently.
+
+	r.notifyMu.Lock()
+
 	write := atomic.AddUint64(&r.write, 1)
 	writeIdx := (write - 1) & r.mask
-	r.data[writeIdx] = entry
-	r.cond.Broadcast()
+	r.dataStoreAtomic(writeIdx, entry)
+
+	// notify any sleeping readers
+	if r.notifyCh != nil {
+		close(r.notifyCh)
+		r.notifyCh = nil
+	}
+
+	r.notifyMu.Unlock()
 }
 
 // LastWriteParallel returns the last element written.
@@ -118,7 +157,7 @@ func (r *Ring) LastWrite() uint64 {
 // that position is no longer available to be read, returns true otherwise.
 func (r *Ring) read(read uint64) (*v1.Event, bool) {
 	readIdx := read & r.mask
-	event := r.data[readIdx]
+	event := r.dataLoadAtomic(readIdx)
 
 	lastWrite := atomic.LoadUint64(&r.write) - 1
 	lastWriteIdx := lastWrite & r.mask
@@ -159,17 +198,14 @@ func (r *Ring) readFrom(ctx context.Context, read uint64) <-chan *v1.Event {
 		// a half cycle is (^uint64(0)/r.dataLen)/2
 		// which translates into (^uint64(0)>>r.dataLen)>>1
 		halfCycle := (^uint64(0) >> r.cycleExp) >> 1
-		go func() {
-			<-ctx.Done()
-			r.cond.Broadcast()
-		}()
 		defer func() {
 			close(ch)
 		}()
-		// read forever until stop is closed
+
+		// read forever until ctx is done
 		for ; ; read++ {
 			readIdx := read & r.mask
-			event := r.data[readIdx]
+			event := r.dataLoadAtomic(readIdx)
 
 			lastWrite := atomic.LoadUint64(&r.write) - 1
 			lastWriteIdx := lastWrite & r.mask
@@ -183,7 +219,7 @@ func (r *Ring) readFrom(ctx context.Context, read uint64) <-chan *v1.Event {
 			// write: f0 f1 f2 f3 f4 f5 f6 f7 f8 f9 fa fb fc fd fe ff  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
 			// index:  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
 			// cycle: 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
-			case readCycle == (writeCycle-1)&r.cycleMask && readIdx > lastWriteIdx:
+			case event != nil && readCycle == (writeCycle-1)&r.cycleMask && readIdx > lastWriteIdx:
 				select {
 				case ch <- event:
 					continue
@@ -197,7 +233,7 @@ func (r *Ring) readFrom(ctx context.Context, read uint64) <-chan *v1.Event {
 			// write: f0 f1 f2 f3 f4 f5 f6 f7 f8 f9 fa fb fc fd fe ff  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
 			// index:  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
 			// cycle: 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
-			case readCycle == writeCycle:
+			case event != nil && readCycle == writeCycle:
 				if readIdx < lastWriteIdx {
 					select {
 					case ch <- event:
@@ -224,37 +260,38 @@ func (r *Ring) readFrom(ctx context.Context, read uint64) <-chan *v1.Event {
 			// write: f0 f1 f2 f3 f4 f5 f6 f7 f8 f9 fa fb fc fd fe ff  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
 			// index:  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
 			// cycle: 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f 1f  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
-			case readCycle >= (writeCycle+1)&r.cycleMask && readCycle < (halfCycle+writeCycle)&r.cycleMask:
+			case event == nil || readCycle >= (writeCycle+1)&r.cycleMask && readCycle < (halfCycle+writeCycle)&r.cycleMask:
 				// The writer has already written a new event so there's no
 				// need to stop the reader.
-				//
-				// FIXME?: It is still possible the writer will
-				//  write something after we check for `r.write` and before
-				//  we do r.cond.Wait, which means we will only receive
-				//  a broadcast() from the writer after a new event arrives,
-				//  making the reader block.
-				//  We can sort of avoiding it by checking if r.write got
-				//  incremented before we block while we wait for a broadcast
+
+				// Before going to sleep, we need to check that there has been
+				// no write in the meantime. This check can only be race free
+				// if the lock on notifyMu is held, otherwise a write can occur
+				// before we obtain the notifyCh instance.
+				r.notifyMu.Lock()
 				if lastWrite != atomic.LoadUint64(&r.write)-1 {
+					// A write has occurred - retry
+					r.notifyMu.Unlock()
 					read--
 					continue
 				}
-				r.cond.L.Lock()
+
+				// This channel will be closed by the writer if it makes a write
+				if r.notifyCh == nil {
+					r.notifyCh = make(chan struct{})
+				}
+				notifyCh := r.notifyCh
+				r.notifyMu.Unlock()
+
+				// Sleep until a write occurs or the context is cancelled
 				select {
-				case <-ctx.Done():
-					r.cond.L.Unlock()
-					return
-				default:
-					r.cond.Wait()
-					r.cond.L.Unlock()
+				case <-notifyCh:
 					read--
-				}
-				select {
+					continue
 				case <-ctx.Done():
 					return
-				default:
-					continue
 				}
+
 			}
 		}
 	}()

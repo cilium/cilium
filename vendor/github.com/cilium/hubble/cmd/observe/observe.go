@@ -103,8 +103,7 @@ programs attached to endpoints and devices. This includes:
 				if s, ok := status.FromError(err); ok && s.Code() == codes.Unknown {
 					msg = s.Message()
 				}
-				fmt.Fprintf(os.Stderr, "Error: %s\n", msg)
-				os.Exit(-1)
+				return errors.New(msg)
 			}
 			return nil
 		},
@@ -414,15 +413,6 @@ func getFlows(client observer.ObserverClient, req *observer.GetFlowsRequest) err
 				return nil
 			}
 			return err
-		}
-		if serverMsg := getFlowResponse.GetServerMsg(); serverMsg != nil {
-			if serverMsg.GetInfo().GetType() == observer.ProtocolMessageType_PROGRESS_PROTOCOL_MESSAGE_TYPE {
-				err := printer.WriteErr(serverMsg.GetInfo().Msg)
-				if err != nil {
-					return err
-				}
-			}
-			continue
 		}
 
 		flow := getFlowResponse.GetFlow()
