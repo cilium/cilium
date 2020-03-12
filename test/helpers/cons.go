@@ -68,6 +68,12 @@ const (
 	Private  = "private"
 	Name     = "Name"
 
+	// CiliumAgentLabel is the label used for Cilium
+	CiliumAgentLabel = "k8s-app=cilium"
+
+	// CiliumOperatorLabel is the label used in the Cilium Operator deployment
+	CiliumOperatorLabel = "io.cilium/app=operator"
+
 	// PolicyEnforcement represents the PolicyEnforcement configuration option
 	// for the Cilium agent.
 	PolicyEnforcement = "PolicyEnforcement"
