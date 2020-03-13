@@ -4432,7 +4432,7 @@ legacy cBPF:
   load balancing and for XDP to implement a bypass or dropping mechanism at high
   packet rates.
 
-  http://suricata.readthedocs.io/en/latest/capture-hardware/ebpf-xdp.html
+  https://suricata.readthedocs.io/en/suricata-5.0.2/capture-hardware/ebpf-xdp.html
 
   https://github.com/OISF/suricata
 
@@ -4631,7 +4631,7 @@ The following (incomplete) list includes blog posts around BPF, XDP and related 
 32. May 2017,
      Monitoring the Control Plane,
      Gary Berger,
-     http://firstclassfunc.com/2017/05/monitoring-the-control-plane/
+     https://www.firstclassfunc.com/2018/07/monitoring-the-control-plane/
 
 31. Apr 2017,
      USENIX/LISA 2016 Linux bcc/BPF Tools,
@@ -4982,7 +4982,7 @@ related to BPF and XDP:
      LinuxCon, Toronto,
      What Can BPF Do For You?,
      Brenden Blanco,
-     https://events.linuxfoundation.org/sites/events/files/slides/iovisor-lc-bof-2016.pdf
+     https://events.static.linuxfound.org/sites/events/files/slides/iovisor-lc-bof-2016.pdf
 
 14. Aug 2016,
      LinuxCon, Toronto,
@@ -5041,7 +5041,7 @@ related to BPF and XDP:
     LinuxCon Europe, Dublin,
     eBPF on the Mainframe,
     Michael Holzheu,
-    https://events.linuxfoundation.org/sites/events/files/slides/ebpf_on_the_mainframe_lcon_2015.pdf
+    https://events.static.linuxfound.org/sites/events/files/slides/ebpf_on_the_mainframe_lcon_2015.pdf
 
 4. Aug 2015,
     Tracing Summit, Seattle,
@@ -5053,13 +5053,13 @@ related to BPF and XDP:
     LinuxCon Japan, Tokyo,
     Exciting Developments in Linux Tracing,
     Elena Zannoni,
-    https://events.linuxfoundation.org/sites/events/files/slides/tracing-linux-ezannoni-linuxcon-ja-2015_0.pdf
+    https://events.static.linuxfound.org/sites/events/files/slides/tracing-linux-ezannoni-linuxcon-ja-2015_0.pdf
 
 2. Feb 2015,
     Collaboration Summit, Santa Rosa,
     BPF: In-kernel Virtual Machine,
     Alexei Starovoitov,
-    https://events.linuxfoundation.org/sites/events/files/slides/bpf_collabsummit_2015feb20.pdf
+    https://events.static.linuxfound.org/sites/events/files/slides/bpf_collabsummit_2015feb20.pdf
 
 1. Feb 2015,
     NetDev 0.1, Ottawa,

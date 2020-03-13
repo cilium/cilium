@@ -797,8 +797,8 @@ Export the current ConfigMap
 
 
 In the `ConfigMap` above, we can verify that Cilium is using ``debug`` with
-``true``, it has a etcd endpoint running with `TLS <https://coreos.com/etcd/docs/latest/op-guide/security.html>`_,
-and the etcd is set up to have `client to server authentication <https://coreos.com/etcd/docs/latest/op-guide/security.html#example-2-client-to-server-authentication-with-https-client-certificates>`_.
+``true``, it has a etcd endpoint running with `TLS <https://etcd.io/docs/latest/op-guide/security/>`_,
+and the etcd is set up to have `client to server authentication <https://etcd.io/docs/latest/op-guide/security/#example-2-client-to-server-authentication-with-https-client-certificates>`_.
 
 Generate the latest ConfigMap
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
