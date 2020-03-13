@@ -446,6 +446,7 @@ int sock4_xlate_rcv(struct bpf_sock_addr *ctx)
 #endif /* ENABLE_IPV4 */
 
 #if defined(ENABLE_IPV6) || defined(ENABLE_IPV4)
+#ifdef ENABLE_IPV6
 #ifdef ENABLE_HOST_SERVICES_UDP
 struct ipv6_revnat_tuple {
 	__u64 cookie;
@@ -496,6 +497,7 @@ static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 	return -1;
 }
 #endif /* ENABLE_HOST_SERVICES_UDP */
+#endif /* ENABLE_IPV6 */
 
 static __always_inline void ctx_get_v6_address(struct bpf_sock_addr *ctx,
 					       union v6addr *addr)
@@ -526,8 +528,8 @@ static __always_inline void ctx_set_v6_address(struct bpf_sock_addr *ctx,
 	ctx->user_ip6[3] = addr->p4;
 }
 
-static __always_inline bool sock6_skip_xlate(struct lb6_service *svc,
-					     union v6addr *address)
+static __always_inline __maybe_unused bool
+sock6_skip_xlate(struct lb6_service *svc, union v6addr *address)
 {
 	if (is_v6_loopback(address))
 		return false;
@@ -546,9 +548,8 @@ static __always_inline bool sock6_skip_xlate(struct lb6_service *svc,
 	return false;
 }
 
-static __always_inline
-struct lb6_service *sock6_nodeport_wildcard_lookup(struct lb6_key *key,
-						   bool include_remote_hosts)
+static __always_inline __maybe_unused struct lb6_service *
+sock6_nodeport_wildcard_lookup(struct lb6_key *key, bool include_remote_hosts)
 {
 #ifdef ENABLE_NODEPORT
 	struct remote_endpoint_info *info;
@@ -668,6 +669,7 @@ int sock6_post_bind(struct bpf_sock *ctx)
 
 static __always_inline int __sock6_xlate(struct bpf_sock_addr *ctx)
 {
+#ifdef ENABLE_IPV6
 	struct lb6_backend *backend;
 	struct lb6_service *svc;
 	struct lb6_key key = {
@@ -723,6 +725,9 @@ static __always_inline int __sock6_xlate(struct bpf_sock_addr *ctx)
 	ctx_set_port(ctx, backend->port);
 
 	return 0;
+#else
+	return sock6_xlate_v4_in_v6(ctx);
+#endif /* ENABLE_IPV6 */
 }
 
 __section("from-sock6")
@@ -764,6 +769,7 @@ static __always_inline int sock6_xlate_snd_v4_in_v6(struct bpf_sock_addr *ctx)
 
 static __always_inline int __sock6_xlate_snd(struct bpf_sock_addr *ctx)
 {
+#ifdef ENABLE_IPV6
 	struct lb6_backend *backend;
 	struct lb6_service *svc;
 	struct lb6_key lkey = {
@@ -815,6 +821,9 @@ static __always_inline int __sock6_xlate_snd(struct bpf_sock_addr *ctx)
 	ctx_set_port(ctx, backend->port);
 
 	return 0;
+#else
+	return sock6_xlate_snd_v4_in_v6(ctx);
+#endif /* ENABLE_IPV6 */
 }
 
 __section("snd-sock6")
@@ -855,6 +864,7 @@ static __always_inline int sock6_xlate_rcv_v4_in_v6(struct bpf_sock_addr *ctx)
 
 static __always_inline int __sock6_xlate_rcv(struct bpf_sock_addr *ctx)
 {
+#ifdef ENABLE_IPV6
 	struct ipv6_revnat_tuple rkey = {};
 	struct ipv6_revnat_entry *rval;
 
@@ -881,6 +891,7 @@ static __always_inline int __sock6_xlate_rcv(struct bpf_sock_addr *ctx)
 		ctx_set_port(ctx, rval->port);
 		return 0;
 	}
+#endif /* ENABLE_IPV6 */
 
 	return sock6_xlate_rcv_v4_in_v6(ctx);
 }
