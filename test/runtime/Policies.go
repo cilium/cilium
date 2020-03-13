@@ -62,7 +62,6 @@ var _ = Describe("RuntimePolicies", func() {
 		vm            *helpers.SSHMeta
 		monitorStop   = func() error { return nil }
 		initContainer string
-		cleanup       = func() { return }
 	)
 
 	BeforeAll(func() {
@@ -83,12 +82,10 @@ var _ = Describe("RuntimePolicies", func() {
 
 	BeforeEach(func() {
 		ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
-		cleanup = func() { return }
 	})
 
 	AfterEach(func() {
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
-		cleanup()
 	})
 
 	JustBeforeEach(func() {
@@ -545,70 +542,89 @@ var _ = Describe("RuntimePolicies", func() {
 		checkProxyStatistics(app3EndpointID, 2, 4, 2, 2, 2)
 	})
 
-	It("Checks CIDR L3 Policy", func() {
+	Context("CIDR L3 Policy", func() {
+		var (
+			httpd1DockerNetworking        map[string]string
+			ipv4Prefix, ipv6Prefix        string
+			ipv4Address, ipv4PrefixExcept string
+		)
 
-		ipv4OtherHost := "192.168.254.111"
-		ipv4OtherNet := "99.11.0.0/16"
-		httpd2Label := "id.httpd2"
-		httpd1Label := "id.httpd1"
-		app3Label := "id.app3"
-
-		logger.WithFields(logrus.Fields{
-			"IPv4_host":       helpers.FakeIPv4WorldAddress,
-			"IPv4_other_host": ipv4OtherHost,
-			"IPv4_other_net":  ipv4OtherNet,
-			"IPv6_host":       helpers.FakeIPv6WorldAddress}).
-			Info("VM IP address configuration")
-
-		// If the pseudo host IPs have not been removed since the last run but
-		// Cilium was restarted, the IPs may have been picked up as valid host
-		// IPs. Remove them from the list so they are not regarded as localhost
-		// entries.
-		// Don't care about success or failure as the BPF endpoint may not even be
-		// present; this is best-effort.
-		_ = vm.ExecCilium(fmt.Sprintf("bpf endpoint delete %s", helpers.FakeIPv4WorldAddress))
-		_ = vm.ExecCilium(fmt.Sprintf("bpf endpoint delete %s", helpers.FakeIPv6WorldAddress))
-
-		httpd1DockerNetworking, err := vm.ContainerInspectNet(helpers.Httpd1)
-		Expect(err).Should(BeNil(), fmt.Sprintf(
-			"could not get container %s Docker networking", helpers.Httpd1))
-
-		ipv6Prefix := fmt.Sprintf("%s/112", httpd1DockerNetworking["IPv6Gateway"])
-		ipv4Address := httpd1DockerNetworking[helpers.IPv4]
-
-		// Get prefix of node-local endpoints.
-		By("Getting IPv4 and IPv6 prefixes of node-local endpoints")
-		getIpv4Prefix := vm.Exec(fmt.Sprintf(`expr %s : '\([0-9]*\.[0-9]*\.\)'`, ipv4Address)).SingleOut()
-		ipv4Prefix := fmt.Sprintf("%s0.0/16", getIpv4Prefix)
-		getIpv4PrefixExcept := vm.Exec(fmt.Sprintf(`expr %s : '\([0-9]*\.[0-9]*\.\)'`, ipv4Address)).SingleOut()
-		ipv4PrefixExcept := fmt.Sprintf(`%s0.0/18`, getIpv4PrefixExcept)
-
-		By("IPV6 Prefix: %q", ipv6Prefix)
-		By("IPV4 Address Endpoint: %q", ipv4Address)
-		By("IPV4 Prefix: %q", ipv4Prefix)
-		By("IPV4 Prefix Except: %q", ipv4PrefixExcept)
-
-		By("Setting PolicyEnforcement to always enforce (default-deny)")
-		ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
+		const (
+			ipv4OtherHost = "192.168.254.111"
+			ipv4OtherNet  = "99.11.0.0/16"
+			httpd2Label   = "id.httpd2"
+			httpd1Label   = "id.httpd1"
+			app3Label     = "id.app3"
+		)
 
 		// Delete the pseudo-host IPs that we added to localhost after test
 		// finishes. Don't care about success; this is best-effort.
-		cleanup = func() {
+		cleanup := func() {
 			_ = vm.RemoveIPFromLoopbackDevice(fmt.Sprintf("%s/32", helpers.FakeIPv4WorldAddress))
 			_ = vm.RemoveIPFromLoopbackDevice(fmt.Sprintf("%s/128", helpers.FakeIPv6WorldAddress))
 		}
 
-		By("Adding Pseudo-Host IPs to localhost")
-		vm.AddIPToLoopbackDevice(fmt.Sprintf("%s/32", helpers.FakeIPv4WorldAddress)).ExpectSuccess("Unable to add %s to pseudo-host IP to localhost", helpers.FakeIPv4WorldAddress)
-		vm.AddIPToLoopbackDevice(fmt.Sprintf("%s/128", helpers.FakeIPv6WorldAddress)).ExpectSuccess("Unable to add %s to pseudo-host IP to localhost", helpers.FakeIPv6WorldAddress)
+		BeforeAll(func() {
+			var err error
 
-		By("Pinging host IPv4 from httpd2 (should NOT work due to default-deny PolicyEnforcement mode)")
+			httpd1DockerNetworking, err = vm.ContainerInspectNet(helpers.Httpd1)
+			Expect(err).Should(BeNil(), fmt.Sprintf(
+				"could not get container %s Docker networking", helpers.Httpd1))
 
-		res := vm.ContainerExec(helpers.Httpd2, helpers.Ping(helpers.FakeIPv4WorldAddress))
-		res.ExpectFail("Unexpected success pinging host (%s) from %s", helpers.FakeIPv4WorldAddress, helpers.Httpd2)
+			ipv6Prefix = fmt.Sprintf("%s/112", httpd1DockerNetworking["IPv6Gateway"])
+			ipv4Address = httpd1DockerNetworking[helpers.IPv4]
 
-		By("Importing L3 CIDR Policy for IPv4 Egress Allowing Egress to %q, %q from %q", ipv4OtherHost, ipv4OtherHost, httpd2Label)
-		script := fmt.Sprintf(`
+			// Get prefix of node-local endpoints.
+			By("Getting IPv4 and IPv6 prefixes of node-local endpoints")
+			getIpv4Prefix := vm.Exec(fmt.Sprintf(`expr %s : '\([0-9]*\.[0-9]*\.\)'`, ipv4Address)).SingleOut()
+			ipv4Prefix = fmt.Sprintf("%s0.0/16", getIpv4Prefix)
+			getIpv4PrefixExcept := vm.Exec(fmt.Sprintf(`expr %s : '\([0-9]*\.[0-9]*\.\)'`, ipv4Address)).SingleOut()
+			ipv4PrefixExcept = fmt.Sprintf(`%s0.0/18`, getIpv4PrefixExcept)
+
+			By("Adding Pseudo-Host IPs to localhost")
+			cleanup()
+			vm.AddIPToLoopbackDevice(fmt.Sprintf("%s/32", helpers.FakeIPv4WorldAddress)).ExpectSuccess("Unable to add %s to pseudo-host IP to localhost", helpers.FakeIPv4WorldAddress)
+			vm.AddIPToLoopbackDevice(fmt.Sprintf("%s/128", helpers.FakeIPv6WorldAddress)).ExpectSuccess("Unable to add %s to pseudo-host IP to localhost", helpers.FakeIPv6WorldAddress)
+		})
+
+		AfterAll(func() {
+			cleanup()
+		})
+
+		BeforeEach(func() {
+			logger.WithFields(logrus.Fields{
+				"IPv4_host":       helpers.FakeIPv4WorldAddress,
+				"IPv4_other_host": ipv4OtherHost,
+				"IPv4_other_net":  ipv4OtherNet,
+				"IPv6_host":       helpers.FakeIPv6WorldAddress}).
+				Info("VM IP address configuration")
+
+			// If the pseudo host IPs have not been removed since the last run but
+			// Cilium was restarted, the IPs may have been picked up as valid host
+			// IPs. Remove them from the list so they are not regarded as localhost
+			// entries.
+			// Don't care about success or failure as the BPF endpoint may not even be
+			// present; this is best-effort.
+			_ = vm.ExecCilium(fmt.Sprintf("bpf endpoint delete %s", helpers.FakeIPv4WorldAddress))
+			_ = vm.ExecCilium(fmt.Sprintf("bpf endpoint delete %s", helpers.FakeIPv6WorldAddress))
+
+			By("IPV6 Prefix: %q", ipv6Prefix)
+			By("IPV4 Address Endpoint: %q", ipv4Address)
+			By("IPV4 Prefix: %q", ipv4Prefix)
+			By("IPV4 Prefix Except: %q", ipv4PrefixExcept)
+
+			By("Setting PolicyEnforcement to always enforce (default-deny)")
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
+		})
+
+		It("validates toCIDR", func() {
+			By("Pinging host IPv4 from httpd2 (should NOT work due to default-deny PolicyEnforcement mode)")
+
+			res := vm.ContainerExec(helpers.Httpd2, helpers.Ping(helpers.FakeIPv4WorldAddress))
+			res.ExpectFail("Unexpected success pinging host (%s) from %s", helpers.FakeIPv4WorldAddress, helpers.Httpd2)
+
+			By("Importing L3 CIDR Policy for IPv4 Egress Allowing Egress to %q, %q from %q", ipv4OtherHost, ipv4OtherHost, httpd2Label)
+			script := fmt.Sprintf(`
 		[{
 			"endpointSelector": {"matchLabels":{"%s":""}},
 			"egress":
@@ -619,19 +635,19 @@ var _ = Describe("RuntimePolicies", func() {
 				]
 			}]
 		}]`, httpd2Label, ipv4OtherHost, ipv4OtherHost)
-		_, err = vm.PolicyRenderAndImport(script)
-		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
+			_, err := vm.PolicyRenderAndImport(script)
+			Expect(err).To(BeNil(), "Unable to import policy: %s", err)
 
-		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping(helpers.FakeIPv4WorldAddress))
-		res.ExpectSuccess("Unexpected failure pinging host (%s) from %s", helpers.FakeIPv4WorldAddress, helpers.Httpd2)
-		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
+			res = vm.ContainerExec(helpers.Httpd2, helpers.Ping(helpers.FakeIPv4WorldAddress))
+			res.ExpectSuccess("Unexpected failure pinging host (%s) from %s", helpers.FakeIPv4WorldAddress, helpers.Httpd2)
+			vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 
-		By("Pinging host IPv6 from httpd2 (should NOT work because we did not specify IPv6 CIDR of host as part of previously imported policy)")
-		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping6(helpers.FakeIPv6WorldAddress))
-		res.ExpectFail("Unexpected success pinging host (%s) from %s", helpers.FakeIPv6WorldAddress, helpers.Httpd2)
+			By("Pinging host IPv6 from httpd2 (should NOT work because we did not specify IPv6 CIDR of host as part of previously imported policy)")
+			res = vm.ContainerExec(helpers.Httpd2, helpers.Ping6(helpers.FakeIPv6WorldAddress))
+			res.ExpectFail("Unexpected success pinging host (%s) from %s", helpers.FakeIPv6WorldAddress, helpers.Httpd2)
 
-		By("Importing L3 CIDR Policy for IPv6 Egress")
-		script = fmt.Sprintf(`
+			By("Importing L3 CIDR Policy for IPv6 Egress")
+			script = fmt.Sprintf(`
 		[{
 			"endpointSelector": {"matchLabels":{"%s":""}},
 			"egress": [{
@@ -640,18 +656,18 @@ var _ = Describe("RuntimePolicies", func() {
 				]
 			}]
 		}]`, httpd2Label, helpers.FakeIPv6WorldAddress)
-		_, err = vm.PolicyRenderAndImport(script)
-		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
+			_, err = vm.PolicyRenderAndImport(script)
+			Expect(err).To(BeNil(), "Unable to import policy: %s", err)
 
-		By("Pinging host IPv6 from httpd2 (should work because policy allows IPv6 CIDR %q)", helpers.FakeIPv6WorldAddress)
-		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping6(helpers.FakeIPv6WorldAddress))
-		res.ExpectSuccess("Unexpected failure pinging host (%s) from %s", helpers.FakeIPv6WorldAddress, helpers.Httpd2)
-		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
+			By("Pinging host IPv6 from httpd2 (should work because policy allows IPv6 CIDR %q)", helpers.FakeIPv6WorldAddress)
+			res = vm.ContainerExec(helpers.Httpd2, helpers.Ping6(helpers.FakeIPv6WorldAddress))
+			res.ExpectSuccess("Unexpected failure pinging host (%s) from %s", helpers.FakeIPv6WorldAddress, helpers.Httpd2)
+			vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 
-		// This test case checks that ping works even without explicit CIDR policies
-		// imported.
-		By("Importing L3 Label-Based Policy Allowing traffic from httpd2 to httpd1")
-		script = fmt.Sprintf(`
+			// This test case checks that ping works even without explicit CIDR policies
+			// imported.
+			By("Importing L3 Label-Based Policy Allowing traffic from httpd2 to httpd1")
+			script = fmt.Sprintf(`
 		[{
 			"endpointSelector": {"matchLabels":{"%[1]s":""}},
 			"ingress": [{
@@ -668,26 +684,28 @@ var _ = Describe("RuntimePolicies", func() {
 				]
 			}]
 		}]`, httpd1Label, httpd2Label)
-		_, err = vm.PolicyRenderAndImport(script)
-		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
+			_, err = vm.PolicyRenderAndImport(script)
+			Expect(err).To(BeNil(), "Unable to import policy: %s", err)
 
-		By("Pinging httpd1 IPV4 from httpd2 (should work because we allowed traffic to httpd1 labels from httpd2 labels)")
-		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping(httpd1DockerNetworking[helpers.IPv4]))
-		res.ExpectSuccess("Unexpected failure pinging %s (%s) from %s", helpers.Httpd1, httpd1DockerNetworking[helpers.IPv4], helpers.Httpd2)
-		By("Pinging httpd1 IPv6 from httpd2 (should work because we allowed traffic to httpd1 labels from httpd2 labels)")
-		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping6(httpd1DockerNetworking[helpers.IPv6]))
-		res.ExpectSuccess("Unexpected failure pinging %s (%s) from %s", helpers.Httpd1, httpd1DockerNetworking[helpers.IPv6], helpers.Httpd2)
-		By("Pinging httpd1 IPv4 from app3 (should NOT work because app3 hasn't been whitelisted to communicate with httpd1)")
-		res = vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
-		res.ExpectFail("Unexpected success pinging %s IPv4 from %s", helpers.Httpd1, helpers.App3)
-		By("Pinging httpd1 IPv6 from app3 (should NOT work because app3 hasn't been whitelisted to communicate with httpd1)")
-		res = vm.ContainerExec(helpers.App3, helpers.Ping6(helpers.Httpd1))
-		res.ExpectFail("Unexpected success pinging %s IPv6 from %s", helpers.Httpd1, helpers.App3)
-		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
+			By("Pinging httpd1 IPV4 from httpd2 (should work because we allowed traffic to httpd1 labels from httpd2 labels)")
+			res = vm.ContainerExec(helpers.Httpd2, helpers.Ping(httpd1DockerNetworking[helpers.IPv4]))
+			res.ExpectSuccess("Unexpected failure pinging %s (%s) from %s", helpers.Httpd1, httpd1DockerNetworking[helpers.IPv4], helpers.Httpd2)
+			By("Pinging httpd1 IPv6 from httpd2 (should work because we allowed traffic to httpd1 labels from httpd2 labels)")
+			res = vm.ContainerExec(helpers.Httpd2, helpers.Ping6(httpd1DockerNetworking[helpers.IPv6]))
+			res.ExpectSuccess("Unexpected failure pinging %s (%s) from %s", helpers.Httpd1, httpd1DockerNetworking[helpers.IPv6], helpers.Httpd2)
+			By("Pinging httpd1 IPv4 from app3 (should NOT work because app3 hasn't been whitelisted to communicate with httpd1)")
+			res = vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
+			res.ExpectFail("Unexpected success pinging %s IPv4 from %s", helpers.Httpd1, helpers.App3)
+			By("Pinging httpd1 IPv6 from app3 (should NOT work because app3 hasn't been whitelisted to communicate with httpd1)")
+			res = vm.ContainerExec(helpers.App3, helpers.Ping6(helpers.Httpd1))
+			res.ExpectFail("Unexpected success pinging %s IPv6 from %s", helpers.Httpd1, helpers.App3)
+			vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
+		})
 
-		// Checking combined policy allowing traffic from IPv4 and IPv6 CIDR ranges.
-		By("Importing Policy Allowing Ingress From %q --> %q And From CIDRs %q, %q", helpers.Httpd2, helpers.Httpd1, ipv4Prefix, ipv6Prefix)
-		script = fmt.Sprintf(`
+		It("validates fromCIDR", func() {
+			// Checking combined policy allowing traffic from IPv4 and IPv6 CIDR ranges.
+			By("Importing Policy Allowing Ingress From %q --> %q And From CIDRs %q, %q", helpers.Httpd2, helpers.Httpd1, ipv4Prefix, ipv6Prefix)
+			policy := fmt.Sprintf(`
 		[{
 			"endpointSelector": {"matchLabels":{"%[1]s":""}},
 			"ingress": [{
@@ -710,30 +728,31 @@ var _ = Describe("RuntimePolicies", func() {
 			}]
 		}]`, httpd1Label, httpd2Label, ipv4Prefix, ipv6Prefix)
 
-		_, err = vm.PolicyRenderAndImport(script)
-		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
+			_, err := vm.PolicyRenderAndImport(policy)
+			Expect(err).To(BeNil(), "Unable to import policy: %s", err)
 
-		By("Pinging httpd1 IPV4 from httpd2 (should work because we allowed traffic to httpd1 labels from httpd2 labels)")
-		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping(httpd1DockerNetworking[helpers.IPv4]))
-		res.ExpectSuccess("Unexpected failure pinging %s (%s) from %s", helpers.Httpd1, httpd1DockerNetworking[helpers.IPv4], helpers.Httpd2)
+			// Checks from a Cilium endpoint
+			By("Pinging httpd1 IPV4 from httpd2 (should work because we allowed traffic to httpd1 labels from httpd2 labels)")
+			res := vm.ContainerExec(helpers.Httpd2, helpers.Ping(httpd1DockerNetworking[helpers.IPv4]))
+			res.ExpectSuccess("Unexpected failure pinging %s (%s) from %s", helpers.Httpd1, httpd1DockerNetworking[helpers.IPv4], helpers.Httpd2)
 
-		By("Pinging httpd1 IPv6 from httpd2 (should work because we allowed traffic to httpd1 labels from httpd2 labels)")
-		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping6(httpd1DockerNetworking[helpers.IPv6]))
-		res.ExpectSuccess("Unexpected failure pinging %s (%s) from %s", helpers.Httpd1, httpd1DockerNetworking[helpers.IPv6], helpers.Httpd2)
+			By("Pinging httpd1 IPv6 from httpd2 (should work because we allowed traffic to httpd1 labels from httpd2 labels)")
+			res = vm.ContainerExec(helpers.Httpd2, helpers.Ping6(httpd1DockerNetworking[helpers.IPv6]))
+			res.ExpectSuccess("Unexpected failure pinging %s (%s) from %s", helpers.Httpd1, httpd1DockerNetworking[helpers.IPv6], helpers.Httpd2)
 
-		By("Pinging httpd1 IPv4 %q from app3 (shouldn't work because CIDR policies don't apply to endpoint-endpoint communication)", ipv4Prefix)
-		res = vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
-		res.ExpectFail("Unexpected success pinging %s IPv4 from %s", helpers.Httpd1, helpers.App3)
+			By("Pinging httpd1 IPv4 %q from app3 (shouldn't work because CIDR policies don't apply to endpoint-endpoint communication)", ipv4Prefix)
+			res = vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
+			res.ExpectFail("Unexpected success pinging %s IPv4 from %s", helpers.Httpd1, helpers.App3)
 
-		By("Pinging httpd1 IPv6 %q from app3 (shouldn't work because CIDR policies don't apply to endpoint-endpoint communication)", ipv6Prefix)
-		res = vm.ContainerExec(helpers.App3, helpers.Ping6(helpers.Httpd1))
-		res.ExpectFail("Unexpected success pinging %s IPv6 from %s", helpers.Httpd1, helpers.App3)
+			By("Pinging httpd1 IPv6 %q from app3 (shouldn't work because CIDR policies don't apply to endpoint-endpoint communication)", ipv6Prefix)
+			res = vm.ContainerExec(helpers.App3, helpers.Ping6(helpers.Httpd1))
+			res.ExpectFail("Unexpected success pinging %s IPv6 from %s", helpers.Httpd1, helpers.App3)
 
-		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
+			vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 
-		// Make sure that combined label-based and CIDR-based policy works.
-		By("Importing Policy Allowing Ingress From %s --> %s And From CIDRs %s", helpers.Httpd2, helpers.Httpd1, ipv4OtherNet)
-		script = fmt.Sprintf(`
+			// Make sure that combined label-based and CIDR-based policy works.
+			By("Importing Policy Allowing Ingress From %s --> %s And From CIDRs %s", helpers.Httpd2, helpers.Httpd1, ipv4OtherNet)
+			policy = fmt.Sprintf(`
 		[{
 			"endpointSelector": {"matchLabels":{"%[1]s":""}},
 			"ingress": [{
@@ -754,22 +773,22 @@ var _ = Describe("RuntimePolicies", func() {
 				]
 			}]
 		}]`, httpd1Label, httpd2Label, ipv4OtherNet, app3Label)
-		_, err = vm.PolicyRenderAndImport(script)
-		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
+			_, err = vm.PolicyRenderAndImport(policy)
+			Expect(err).To(BeNil(), "Unable to import policy: %s", err)
 
-		By("Pinging httpd1 IPv4 from app3 (should NOT work because we only allow traffic from %q to %q)", httpd2Label, httpd1Label)
-		res = vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
-		res.ExpectFail("Unexpected success pinging %s IPv4 from %s", helpers.Httpd1, helpers.App3)
+			By("Pinging httpd1 IPv4 from app3 (should NOT work because we only allow traffic from %q to %q)", httpd2Label, httpd1Label)
+			res = vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
+			res.ExpectFail("Unexpected success pinging %s IPv4 from %s", helpers.Httpd1, helpers.App3)
 
-		By("Pinging httpd1 IPv6 from app3 (should NOT work because we only allow traffic from %q to %q)", httpd2Label, httpd1Label)
-		res = vm.ContainerExec(helpers.App3, helpers.Ping6(helpers.Httpd1))
-		res.ExpectFail("Unexpected success pinging %s IPv6 from %s", helpers.Httpd1, helpers.App3)
+			By("Pinging httpd1 IPv6 from app3 (should NOT work because we only allow traffic from %q to %q)", httpd2Label, httpd1Label)
+			res = vm.ContainerExec(helpers.App3, helpers.Ping6(helpers.Httpd1))
+			res.ExpectFail("Unexpected success pinging %s IPv6 from %s", helpers.Httpd1, helpers.App3)
 
-		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
+			vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 
-		By("Testing CIDR Exceptions in Cilium Policy")
-		By("Importing Policy Allowing Ingress From %q --> %q And From CIDRs %q Except %q", helpers.Httpd2, helpers.Httpd1, ipv4Prefix, ipv4PrefixExcept)
-		script = fmt.Sprintf(`
+			By("Testing CIDR Exceptions in Cilium Policy")
+			By("Importing Policy Allowing Ingress From %q --> %q And From CIDRs %q Except %q", helpers.Httpd2, helpers.Httpd1, ipv4Prefix, ipv4PrefixExcept)
+			policy = fmt.Sprintf(`
 		[{
 			"endpointSelector": {"matchLabels":{"%s":""}},
 			"ingress": [{
@@ -786,8 +805,9 @@ var _ = Describe("RuntimePolicies", func() {
 				]
 			}]
 		}]`, httpd1Label, httpd2Label, ipv4Prefix, ipv4PrefixExcept)
-		_, err = vm.PolicyRenderAndImport(script)
-		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
+			_, err = vm.PolicyRenderAndImport(policy)
+			Expect(err).To(BeNil(), "Unable to import policy: %s", err)
+		})
 
 	})
 
