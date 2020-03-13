@@ -44,7 +44,7 @@ pipeline {
             steps {
                 Status("PENDING", "${env.JOB_NAME}")
                 checkout scm
-                sh "make test-docs"
+                sh "make -C Documentation html"
             }
         }
     }
