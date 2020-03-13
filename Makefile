@@ -37,11 +37,6 @@ UTC_DATE=$(shell date -u "+%Y-%m-%d")
 GO_VERSION := $(shell cat GO_VERSION)
 GOARCH := $(shell $(GO) env GOARCH)
 
-# Since there's a bug with NFS or the kernel, the flock syscall hangs the documentation
-# build in the developer VM. For this reason the documentation build is skipped if NFS
-# is running in the developer VM.
-SKIP_DOCS ?= $(shell if mount | grep -q "/home/vagrant/go/src/github.com/cilium/cilium type nfs"; then echo "true"; else echo "false"; fi)
-
 TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=https://consul:8443 \
 	-X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002 \
 	-X github.com/cilium/cilium/pkg/testutils.CiliumRootDir=$(ROOT_DIR) \
@@ -424,7 +419,7 @@ update-authors:
 	@cat .authors.aux >> AUTHORS
 
 render-docs:
-	$(MAKE) -C Documentation run-server
+	$(MAKE) -C Documentation html run-server
 
 manpages:
 	-rm -r man
@@ -435,18 +430,11 @@ install-manpages:
 	cp man/* /usr/local/share/man/man1/
 	mandb
 
-# Strip "tabs assets" errors from the dummy target, but fail on target failure.
-check-docs:
-	$(QUIET)($(MAKE) -C Documentation/ dummy SPHINXOPTS="$(SPHINXOPTS)" 2>&1 && touch $@.ok) \
-		| grep -v "tabs assets"
-	@rm $@.ok 2>/dev/null
-
 postcheck: build
 	@$(ECHO_CHECK) contrib/scripts/check-cmdref.sh
 	$(QUIET) MAKE=$(MAKE) contrib/scripts/check-cmdref.sh
 	@$(ECHO_CHECK) contrib/scripts/lock-check.sh
 	$(QUIET) contrib/scripts/lock-check.sh
-	@$(SKIP_DOCS) || $(MAKE) check-docs
 
 minikube:
 	$(QUIET) contrib/scripts/minikube.sh
