@@ -17,7 +17,6 @@
 package main
 
 import (
-	"math/rand"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -55,12 +54,12 @@ func (g *GetNodesSuite) SetUpSuite(c *C) {
 func (g *GetNodesSuite) Test_getNodesHandle(c *C) {
 	// Set seed so we can have the same pseudorandom client IDs.
 	// The seed is set to 0 for each unit test.
-	rand.Seed(0)
+	randGen.Seed(0)
 	const numberOfClients = 10
 
 	clientIDs := make([]int64, 0, numberOfClients)
 	for i := 0; i < numberOfClients; i++ {
-		clientIDs = append(clientIDs, rand.Int63())
+		clientIDs = append(clientIDs, randGen.Int63())
 	}
 
 	var zero int64
@@ -371,7 +370,7 @@ func (g *GetNodesSuite) Test_getNodesHandle(c *C) {
 
 	for _, tt := range tests {
 		c.Log(tt.name)
-		rand.Seed(0)
+		randGen.Seed(0)
 		args := tt.setupArgs()
 		want := tt.setupWanted()
 		h := &getNodes{

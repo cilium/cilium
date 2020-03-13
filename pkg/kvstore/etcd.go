@@ -64,11 +64,9 @@ var (
 	// ErrLockLeaseExpired is an error whenever the lease of the lock does not
 	// exist or it was expired.
 	ErrLockLeaseExpired = errors.New("transaction did not succeed: lock lease expired")
-)
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
+	randGen = rand.New(rand.NewSource(time.Now().UnixNano()))
+)
 
 type etcdModule struct {
 	opts   backendOptions
@@ -362,7 +360,7 @@ func (e *etcdClient) waitForInitLock(ctx context.Context) <-chan bool {
 
 			// Generate a random number so that we can acquire a lock even
 			// if other agents are killed while locking this path.
-			randNumber := strconv.FormatUint(rand.Uint64(), 16)
+			randNumber := strconv.FormatUint(randGen.Uint64(), 16)
 			locker, err := e.LockPath(ctx, InitLockPath+"/"+randNumber)
 			if err == nil {
 				locker.Unlock(context.Background())

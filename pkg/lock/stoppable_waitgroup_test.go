@@ -167,13 +167,13 @@ func (s *SemaphoredMutexSuite) TestWaitChannel(c *C) {
 func (s *SemaphoredMutexSuite) TestParallelism(c *C) {
 	l := NewStoppableWaitGroup()
 
-	rand.Seed(time.Now().Unix())
+	randGen := rand.New(rand.NewSource(time.Now().UnixNano()))
 	in := make(chan int)
 	stop := make(chan struct{})
 	go func() {
 		for {
 			select {
-			case in <- rand.Intn(1 - 0):
+			case in <- randGen.Intn(1 - 0):
 			case <-stop:
 				close(in)
 				return
@@ -198,7 +198,7 @@ func (s *SemaphoredMutexSuite) TestParallelism(c *C) {
 		}()
 	}
 
-	time.Sleep(time.Duration(rand.Intn(3-0)) * time.Second)
+	time.Sleep(time.Duration(randGen.Intn(3-0)) * time.Second)
 	close(stop)
 	wg.Wait()
 	add := atomic.LoadInt64(&adds)
