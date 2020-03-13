@@ -29,7 +29,7 @@ Step 2: Install Istio
 
    Make sure that Cilium is running in your cluster before proceeding.
 
-Install the `Helm client <https://docs.helm.sh/using_helm/#installing-helm>`_.
+Install the `Helm client <https://helm.sh/docs/intro/install/>`_.
 
 Download `Istio version 1.5.0
 <https://github.com/istio/istio/releases/tag/1.5.0>`_:

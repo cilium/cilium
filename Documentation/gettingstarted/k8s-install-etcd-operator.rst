@@ -187,4 +187,4 @@ disadvantages which can become of relevance as you scale up your clusters:
   certain scale. The cilium-etcd-operator will not take any measures to provide
   fast disk access and performance will depend whatever is provided to the pods
   in your Kubernetes cluster. See `etcd Hardware recommendations
-  <https://coreos.com/etcd/docs/latest/op-guide/hardware.html>`_ for more details.
+  <https://etcd.io/docs/latest/op-guide/hardware/>`_ for more details.
