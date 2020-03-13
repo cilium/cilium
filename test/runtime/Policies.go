@@ -547,6 +547,7 @@ var _ = Describe("RuntimePolicies", func() {
 			httpd1DockerNetworking        map[string]string
 			ipv4Prefix, ipv6Prefix        string
 			ipv4Address, ipv4PrefixExcept string
+			worldIP                       string
 		)
 
 		const (
@@ -555,11 +556,14 @@ var _ = Describe("RuntimePolicies", func() {
 			httpd2Label   = "id.httpd2"
 			httpd1Label   = "id.httpd1"
 			app3Label     = "id.app3"
+			worldPrefix   = "192.168.2.0/24"
 		)
 
 		// Delete the pseudo-host IPs that we added to localhost after test
 		// finishes. Don't care about success; this is best-effort.
 		cleanup := func() {
+			_ = vm.ContainerRm(helpers.WorldHttpd1)
+			_ = vm.NetworkDelete(helpers.WorldDockerNetwork)
 			_ = vm.RemoveIPFromLoopbackDevice(fmt.Sprintf("%s/32", helpers.FakeIPv4WorldAddress))
 			_ = vm.RemoveIPFromLoopbackDevice(fmt.Sprintf("%s/128", helpers.FakeIPv6WorldAddress))
 		}
@@ -585,6 +589,21 @@ var _ = Describe("RuntimePolicies", func() {
 			cleanup()
 			vm.AddIPToLoopbackDevice(fmt.Sprintf("%s/32", helpers.FakeIPv4WorldAddress)).ExpectSuccess("Unable to add %s to pseudo-host IP to localhost", helpers.FakeIPv4WorldAddress)
 			vm.AddIPToLoopbackDevice(fmt.Sprintf("%s/128", helpers.FakeIPv6WorldAddress)).ExpectSuccess("Unable to add %s to pseudo-host IP to localhost", helpers.FakeIPv6WorldAddress)
+
+			netOptions := "-o com.docker.network.bridge.enable_ip_masquerade=false"
+			res := vm.NetworkCreateWithOptions(helpers.WorldDockerNetwork, worldPrefix, false, netOptions)
+			res.ExpectSuccess("Docker network for world containers could not be created")
+			res = vm.NetworkGet(helpers.WorldDockerNetwork)
+			res.ExpectSuccess("Docker network for world containers is unavailable")
+
+			vm.ContainerCreate(helpers.WorldHttpd1, constants.HttpdImage, helpers.WorldDockerNetwork, fmt.Sprintf("-l id.%s", helpers.WorldHttpd1))
+			res = vm.ContainerInspect(helpers.WorldHttpd1)
+			res.ExpectSuccess("World container is not ready")
+
+			worldNet, err := vm.ContainerInspectOtherNet(helpers.WorldHttpd1, helpers.WorldDockerNetwork)
+			Expect(err).Should(BeNil(), fmt.Sprintf(
+				"could not get container %s Docker networking", helpers.WorldHttpd1))
+			worldIP = worldNet[helpers.IPv4]
 		})
 
 		AfterAll(func() {
@@ -704,7 +723,7 @@ var _ = Describe("RuntimePolicies", func() {
 
 		It("validates fromCIDR", func() {
 			// Checking combined policy allowing traffic from IPv4 and IPv6 CIDR ranges.
-			By("Importing Policy Allowing Ingress From %q --> %q And From CIDRs %q, %q", helpers.Httpd2, helpers.Httpd1, ipv4Prefix, ipv6Prefix)
+			By("Importing Policy Allowing Ingress From %q --> %q And From CIDRs %q, %q, %q", helpers.Httpd2, helpers.Httpd1, ipv4Prefix, ipv6Prefix, worldPrefix)
 			policy := fmt.Sprintf(`
 		[{
 			"endpointSelector": {"matchLabels":{"%[1]s":""}},
@@ -714,6 +733,7 @@ var _ = Describe("RuntimePolicies", func() {
 				]
 			}, {
 				"fromCIDR": [
+					"%s",
 					"%s",
 					"%s"
 				]
@@ -726,7 +746,7 @@ var _ = Describe("RuntimePolicies", func() {
 					{"matchLabels":{"%[1]s":""}}
 				]
 			}]
-		}]`, httpd1Label, httpd2Label, ipv4Prefix, ipv6Prefix)
+		}]`, httpd1Label, httpd2Label, ipv4Prefix, ipv6Prefix, worldPrefix)
 
 			_, err := vm.PolicyRenderAndImport(policy)
 			Expect(err).To(BeNil(), "Unable to import policy: %s", err)
@@ -747,6 +767,11 @@ var _ = Describe("RuntimePolicies", func() {
 			By("Pinging httpd1 IPv6 %q from app3 (shouldn't work because CIDR policies don't apply to endpoint-endpoint communication)", ipv6Prefix)
 			res = vm.ContainerExec(helpers.App3, helpers.Ping6(helpers.Httpd1))
 			res.ExpectFail("Unexpected success pinging %s IPv6 from %s", helpers.Httpd1, helpers.App3)
+
+			// Ping from a source outside Cilium control
+			By(fmt.Sprintf("Pinging httpd1 IPV4 from world container (should work because we allowed traffic to httpd1 labels from prefix %s)", worldPrefix))
+			res = vm.ContainerExec(helpers.WorldHttpd1, helpers.Ping(httpd1DockerNetworking[helpers.IPv4]))
+			res.ExpectSuccess("Unexpected failure pinging %s (%s) from %s", helpers.Httpd1, httpd1DockerNetworking[helpers.IPv4], helpers.WorldHttpd1)
 
 			vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 
@@ -787,7 +812,7 @@ var _ = Describe("RuntimePolicies", func() {
 			vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 
 			By("Testing CIDR Exceptions in Cilium Policy")
-			By("Importing Policy Allowing Ingress From %q --> %q And From CIDRs %q Except %q", helpers.Httpd2, helpers.Httpd1, ipv4Prefix, ipv4PrefixExcept)
+			By("Importing Policy Allowing Ingress From %q --> %q And From CIDRs %q Except %q", helpers.Httpd2, helpers.Httpd1, worldPrefix, worldIP)
 			policy = fmt.Sprintf(`
 		[{
 			"endpointSelector": {"matchLabels":{"%s":""}},
@@ -804,11 +829,14 @@ var _ = Describe("RuntimePolicies", func() {
 				}
 				]
 			}]
-		}]`, httpd1Label, httpd2Label, ipv4Prefix, ipv4PrefixExcept)
+		}]`, httpd1Label, httpd2Label, worldPrefix, fmt.Sprintf("%s/32", worldIP))
 			_, err = vm.PolicyRenderAndImport(policy)
 			Expect(err).To(BeNil(), "Unable to import policy: %s", err)
-		})
 
+			By(fmt.Sprintf("Pinging httpd1 IPV4 from world container (should not work because the IP %s falls within the CIDR exception range)", worldIP))
+			res = vm.ContainerExec(helpers.WorldHttpd1, helpers.Ping(httpd1DockerNetworking[helpers.IPv4]))
+			res.ExpectFail("Unexpected success pinging %s IPv4 from %s", httpd1DockerNetworking[helpers.IPv4], helpers.WorldHttpd1)
+		})
 	})
 
 	It("Extended HTTP Methods tests", func() {
