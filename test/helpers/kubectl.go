@@ -124,12 +124,10 @@ var (
 	}
 
 	microk8sHelmOverrides = map[string]string{
-		"global.cni.confPath":                 "/var/snap/microk8s/current/args/cni-network",
-		"global.cni.binPath":                  "/var/snap/microk8s/current/opt/cni/bin",
-		"global.cni.customConf":               "true",
-		"global.containerRuntime.integration": "containerd",
-		"global.containerRuntime.socketPath":  "/var/snap/microk8s/common/run/containerd.sock",
-		"global.daemon.runPath":               "/var/snap/microk8s/current/var/run/cilium",
+		"global.cni.confPath":   "/var/snap/microk8s/current/args/cni-network",
+		"global.cni.binPath":    "/var/snap/microk8s/current/opt/cni/bin",
+		"global.cni.customConf": "true",
+		"global.daemon.runPath": "/var/snap/microk8s/current/var/run/cilium",
 	}
 	minikubeHelmOverrides = map[string]string{
 		"global.ipv6.enabled":           "false",
