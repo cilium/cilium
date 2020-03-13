@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -126,7 +126,6 @@ zone "dnssec.test" {
 var _ = Describe("RuntimeFQDNPolicies", func() {
 	const (
 		bindContainerName = "bind"
-		worldNetwork      = "world"
 		WorldHttpd1       = "WorldHttpd1"
 		WorldHttpd2       = "WorldHttpd2"
 		WorldHttpd3       = "WorldHttpd3"
@@ -176,20 +175,20 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
 		ExpectCiliumReady(vm)
 
-		By("Create sample containers in %q docker network", worldNetwork)
-		res := vm.Exec(fmt.Sprintf("docker network create %s", worldNetwork))
+		By("Create sample containers in %q docker network", helpers.WorldDockerNetwork)
+		res := vm.Exec(fmt.Sprintf("docker network create %s", helpers.WorldDockerNetwork))
 		if !res.WasSuccessful() {
 			if !strings.Contains(res.GetStdErr(), "network with name world already exists") {
 				res.ExpectSuccess(
-					"%q network cant be created", worldNetwork)
+					"%q network cant be created", helpers.WorldDockerNetwork)
 			}
 		}
 
 		for name, image := range ciliumTestImages {
-			vm.ContainerCreate(name, image, worldNetwork, fmt.Sprintf("-l id.%s", name))
+			vm.ContainerCreate(name, image, helpers.WorldDockerNetwork, fmt.Sprintf("-l id.%s", name))
 			res := vm.ContainerInspect(name)
 			res.ExpectSuccess("Container is not ready after create it")
-			ip, err := res.Filter(fmt.Sprintf(`{[0].NetworkSettings.Networks.%s.IPAddress}`, worldNetwork))
+			ip, err := res.Filter(fmt.Sprintf(`{[0].NetworkSettings.Networks.%s.IPAddress}`, helpers.WorldDockerNetwork))
 			Expect(err).To(BeNil(), "Cannot retrieve network info for %q", name)
 			worldIps[name] = ip.String()
 		}
@@ -204,10 +203,10 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		Expect(err).To(BeNil(), "bind file can't be created")
 
 		for name, image := range ciliumOutsideImages {
-			vm.ContainerCreate(name, image, worldNetwork, fmt.Sprintf("-l id.%s", name))
+			vm.ContainerCreate(name, image, helpers.WorldDockerNetwork, fmt.Sprintf("-l id.%s", name))
 			res := vm.ContainerInspect(name)
 			res.ExpectSuccess("Container is not ready after create it")
-			ip, err := res.Filter(fmt.Sprintf(`{[0].NetworkSettings.Networks.%s.IPAddress}`, worldNetwork))
+			ip, err := res.Filter(fmt.Sprintf(`{[0].NetworkSettings.Networks.%s.IPAddress}`, helpers.WorldDockerNetwork))
 			Expect(err).To(BeNil(), "Cannot retrieve network info for %q", name)
 			outsideIps[name] = ip.String()
 		}
@@ -274,7 +273,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		}
 		vm.SampleContainersActions(helpers.Delete, "")
 		vm.ContainerRm(bindContainerName)
-		vm.Exec(fmt.Sprintf("docker network rm  %s", worldNetwork))
+		vm.Exec(fmt.Sprintf("docker network rm  %s", helpers.WorldDockerNetwork))
 		vm.CloseSSHClient()
 	})
 
