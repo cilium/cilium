@@ -556,13 +556,24 @@ func ConvertToPod(obj interface{}) interface{} {
 		var containers []types.PodContainer
 		for _, c := range concreteObj.Spec.Containers {
 			var vmps []string
+			var ports []types.ContainerPort
 			for _, cvm := range c.VolumeMounts {
 				vmps = append(vmps, cvm.MountPath)
+			}
+			for _, port := range c.Ports {
+				cp := types.ContainerPort{
+					Protocol:      string(port.Protocol),
+					ContainerPort: port.ContainerPort,
+					HostPort:      port.HostPort,
+					HostIP:        port.HostIP,
+				}
+				ports = append(ports, cp)
 			}
 			pc := types.PodContainer{
 				Name:              c.Name,
 				Image:             c.Image,
 				VolumeMountsPaths: vmps,
+				HostPorts:         ports,
 			}
 			containers = append(containers, pc)
 		}
@@ -585,13 +596,24 @@ func ConvertToPod(obj interface{}) interface{} {
 		var containers []types.PodContainer
 		for _, c := range pod.Spec.Containers {
 			var vmps []string
+			var ports []types.ContainerPort
 			for _, cvm := range c.VolumeMounts {
 				vmps = append(vmps, cvm.MountPath)
+			}
+			for _, port := range c.Ports {
+				cp := types.ContainerPort{
+					Protocol:      string(port.Protocol),
+					ContainerPort: port.ContainerPort,
+					HostPort:      port.HostPort,
+					HostIP:        port.HostIP,
+				}
+				ports = append(ports, cp)
 			}
 			pc := types.PodContainer{
 				Name:              c.Name,
 				Image:             c.Image,
 				VolumeMountsPaths: vmps,
+				HostPorts:         ports,
 			}
 			containers = append(containers, pc)
 		}
