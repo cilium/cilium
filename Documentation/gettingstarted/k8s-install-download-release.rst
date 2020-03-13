@@ -6,7 +6,7 @@
 
 .. note::
 
-   First, make sure you have Helm 3 `installed <https://helm.sh/docs/using_helm/#install-helm>`_.
+   First, make sure you have Helm 3 `installed <https://helm.sh/docs/intro/install/>`_.
 
    If you have (or planning to have) Helm 2 charts (and Tiller) in the same cluster,
    there should be no issue as both version are mutually compatible in  order to support
