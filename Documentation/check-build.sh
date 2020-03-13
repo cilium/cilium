@@ -23,6 +23,10 @@ build_with_spellchecker() {
     sphinx-build -b spelling -d "${build_dir}/doctrees" . "${build_dir}/spelling" -q -E 2> "${warnings}"
 }
 
+build_with_linkchecker() {
+    sphinx-build -b linkcheck -d "${build_dir}/doctrees" . "${build_dir}/spelling" -q -E
+}
+
 filter_warnings() {
     grep -v \
         -e "tabs assets" \
@@ -47,6 +51,7 @@ hint_about_wordlist_update() {
         "Documentation/update-spelling_wordlist.sh" "${new_words}"
 }
 
+echo "Validating documentation (syntax, spelling)..."
 if build_with_spellchecker ; then
     status_ok=0
     if filter_warnings > /dev/null ;  then
@@ -66,4 +71,12 @@ if build_with_spellchecker ; then
     fi
 fi
 
+# TODO: Fix broken links and re-enable this
+# echo "Checking links..."
+# if ! build_with_linkchecker ; then
+#     echo "Link check failed!"
+#     exit 1
+# fi
+
+echo "Building documentation (${target})..."
 exec sphinx-build -M "${target}" "${source_dir}" "${build_dir}"
