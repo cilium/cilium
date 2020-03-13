@@ -171,10 +171,7 @@ Execute the commands below from the bastion host. If ``kubectl`` isn't installed
 
 You should see that nodes are in ``Ready`` state and Cilium pods are in ``Running`` state
 
-Demo Application
-================
-
-Follow this `link <https://cilium.readthedocs.io/en/stable/gettingstarted/minikube/#step-2-deploy-the-demo-application>`__ to deploy a demo application and verify the correctness of the installation.
+.. include:: k8s-install-connectivity-test.rst
 
 Delete Cluster
 ==============
