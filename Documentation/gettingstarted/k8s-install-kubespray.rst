@@ -16,7 +16,7 @@ Cilium as the CNI. The guide uses:
   - Kubespray v2.6.0
   - Latest `Cilium released version <https://github.com/cilium/cilium/releases>`__ (instructions for using the version are mentioned below)
 
-Please consult `Kubespray Prerequisites <https://github.com/kubernetes-incubator/kubespray#requirements>`__ and Cilium :ref:`admin_system_reqs`. 
+Please consult `Kubespray Prerequisites <https://github.com/kubernetes-sigs/kubespray#requirements>`__ and Cilium :ref:`admin_system_reqs`. 
 
 
 Installing Kubespray
