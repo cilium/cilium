@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Authors of Cilium
+// Copyright 2017-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -884,13 +884,15 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
 CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load %s
 INITSYSTEM=SYSTEMD`
 
-	err := RenderTemplateToFile("cilium", fmt.Sprintf(systemdTemplate, ciliumOpts), os.ModePerm)
+	ciliumConfig := "cilium.conf.ginkgo"
+	err := RenderTemplateToFile(ciliumConfig, fmt.Sprintf(systemdTemplate, ciliumOpts), os.ModePerm)
 	if err != nil {
 		return err
 	}
 	defer os.Remove("cilium")
 
-	res := s.Exec("sudo cp /vagrant/cilium /etc/sysconfig/cilium")
+	confPath := filepath.Join("/home/vagrant/go/src/github.com/cilium/cilium/test", ciliumConfig)
+	res := s.Exec(fmt.Sprintf("sudo cp %s /etc/sysconfig/cilium", confPath))
 	if !res.WasSuccessful() {
 		return fmt.Errorf("%s", res.CombineOutput())
 	}
