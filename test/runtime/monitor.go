@@ -27,10 +27,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func init() {
-	// ensure that our random numbers are seeded differently on each run
-	rand.Seed(time.Now().UnixNano())
-}
+// ensure that our random numbers are seeded differently on each run
+var randGen = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 const (
 	// MonitorDropNotification represents the DropNotification configuration

@@ -17,16 +17,11 @@ package fqdn
 import (
 	"fmt"
 	"math"
-	"math/rand"
 	"net"
 	"time"
 
 	"github.com/miekg/dns"
 )
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
 
 // DNSIPRecords mimics the RR data from an A or AAAA response.
 // My kingdom for a DNS IP RR type that isn't hidden in the stdlib or has a

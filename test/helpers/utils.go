@@ -38,10 +38,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func init() {
-	// ensure that our random numbers are seeded differently on each run
-	rand.Seed(time.Now().UnixNano())
-}
+// ensure that our random numbers are seeded differently on each run
+var randGen = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 // IsRunningOnJenkins detects if the currently running Ginkgo application is
 // most likely running in a Jenkins environment. Returns true if certain
@@ -81,7 +79,7 @@ func CountValues(key string, data []string) (int, int) {
 
 // MakeUID returns a randomly generated string.
 func MakeUID() string {
-	return fmt.Sprintf("%08x", rand.Uint32())
+	return fmt.Sprintf("%08x", randGen.Uint32())
 }
 
 // RenderTemplateToFile renders a text/template string into a target filename

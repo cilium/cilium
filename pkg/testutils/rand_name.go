@@ -21,11 +21,12 @@ import (
 
 // Stolen from:
 // https://stackoverflow.com/questions/22892120/how-to-generate-a-random-string-of-a-fixed-length-in-golang
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
 
-var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+var (
+	randGen = rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+)
 
 // RandomRuneWithPrefix returns a random name string with fixed prefix
 func RandomRuneWithPrefix(prefix string, n int) string {
@@ -36,7 +37,7 @@ func RandomRuneWithPrefix(prefix string, n int) string {
 func RandomRuneWithLen(n int) string {
 	b := make([]rune, n)
 	for i := range b {
-		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+		b[i] = letterRunes[randGen.Intn(len(letterRunes))]
 	}
 	return string(b)
 }

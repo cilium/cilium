@@ -50,9 +50,7 @@ const (
 	k8sMinimumEventHearbeat = time.Minute
 )
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
+var randGen = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 type k8sVersion struct {
 	version          string
@@ -288,7 +286,7 @@ func (h *getNodes) Handle(params GetClusterNodesParams) middleware.Responder {
 	if exists {
 		clientID = *params.ClientID
 	} else {
-		clientID = rand.Int63()
+		clientID = randGen.Int63()
 		// make sure we haven't allocated an existing client ID nor the
 		// randomizer has allocated ID 0, if we have then we will return
 		// clientID 0.
