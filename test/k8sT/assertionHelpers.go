@@ -101,7 +101,14 @@ func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, ciliumFilename string, optio
 	ExpectCiliumRunning(vm)
 
 	By("Installing DNS Deployment")
-	_ = vm.ApplyDefault(helpers.DNSDeployment(vm.BasePath()))
+	switch helpers.GetCurrentIntegration() {
+	case helpers.CIIntegrationMicrok8s:
+		By(fmt.Sprintf("%s (hint: %s)",
+			"Assuming that microk8s already has DNS deployed...",
+			"Use 'microk8s.enable dns' to create deployment"))
+	default:
+		_ = vm.ApplyDefault(helpers.DNSDeployment(vm.BasePath()))
+	}
 
 	switch helpers.GetCurrentIntegration() {
 	case helpers.CIIntegrationFlannel:
