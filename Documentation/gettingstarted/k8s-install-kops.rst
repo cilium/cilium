@@ -82,7 +82,7 @@ you will be deploying the cluster.
 
 The above steps are sufficient for getting a working cluster installed. Please
 consult `kops aws documentation
-<https://github.com/kubernetes/kops/blob/master/docs/aws.md>`_ for more
+<https://github.com/kubernetes/kops/blob/master/docs/getting_started/aws.md>`_ for more
 detailed setup instructions.
 
 Cilium Prerequisites
@@ -134,13 +134,7 @@ You may be prompted to create a ssh public-private key pair.
 
 (Please see :ref:`appendix_kops`)
 
-Testing Cilium
-==============
-
-Follow the `Cilium getting started guide example
-<http://cilium.readthedocs.io/en/latest/gettingstarted/minikube/#step-2-deploy-the-demo-application>`_
-to test that the cluster is setup properly and that Cilium CNI and security
-policies are functional.
+.. include:: k8s-install-connectivity-test.rst
 
 .. _appendix_kops:
 
