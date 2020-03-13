@@ -1643,6 +1643,11 @@ definitions:
                 type: integer
               portMax:
                 type: integer
+          hostPort:
+            type: object
+            properties:
+              enabled:
+                type: boolean
           externalIPs:
             type: object
             properties:
@@ -2089,6 +2094,7 @@ definitions:
             - ClusterIP
             - NodePort
             - ExternalIPs
+            - HostPort
           trafficPolicy:
             description: Service traffic policy
             type: string

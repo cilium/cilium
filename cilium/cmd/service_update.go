@@ -31,6 +31,7 @@ var (
 	deprecatedAddRev bool // TODO(v1.8+): remove it
 	k8sExternalIPs   bool
 	k8sNodePort      bool
+	k8sHostPort      bool
 	k8sTrafficPolicy string
 	idU              uint64
 	frontend         string
@@ -51,6 +52,7 @@ func init() {
 	serviceUpdateCmd.Flags().Uint64VarP(&idU, "id", "", 0, "Identifier")
 	serviceUpdateCmd.Flags().BoolVarP(&k8sExternalIPs, "k8s-external", "", false, "Set service as a k8s ExternalIPs")
 	serviceUpdateCmd.Flags().BoolVarP(&k8sNodePort, "k8s-node-port", "", false, "Set service as a k8s NodePort")
+	serviceUpdateCmd.Flags().BoolVarP(&k8sHostPort, "k8s-host-port", "", false, "Set service as a k8s HostPort")
 	serviceUpdateCmd.Flags().StringVarP(&k8sTrafficPolicy, "k8s-traffic-policy", "", "Cluster", "Set service with k8s externalTrafficPolicy as {Local,Cluster}")
 	serviceUpdateCmd.Flags().BoolVarP(&deprecatedAddRev, "rev", "", false, "Add reverse translation")
 	serviceUpdateCmd.Flags().MarkDeprecated("rev", "and it is inactive")
@@ -70,6 +72,13 @@ func parseFrontendAddress(address string) (*models.FrontendAddress, net.IP) {
 		Port:     uint16(frontend.Port),
 		Protocol: models.FrontendAddressProtocolTCP,
 	}, frontend.IP
+}
+
+func boolToInt(set bool) int {
+	if set {
+		return 1
+	}
+	return 0
 }
 
 func updateService(cmd *cobra.Command, args []string) {
@@ -97,12 +106,14 @@ func updateService(cmd *cobra.Command, args []string) {
 		spec.Flags = &models.ServiceSpecFlags{}
 	}
 
-	if k8sExternalIPs && k8sNodePort {
-		Fatalf("Cannot set both --k8s-external and --k8s-node-port for a service")
+	if boolToInt(k8sExternalIPs)+boolToInt(k8sNodePort)+boolToInt(k8sHostPort) > 1 {
+		Fatalf("Can only set one of --k8s-external, --k8s-node-port, --k8s-host-port for a service")
 	} else if k8sExternalIPs {
 		spec.Flags = &models.ServiceSpecFlags{Type: models.ServiceSpecFlagsTypeExternalIPs}
 	} else if k8sNodePort {
 		spec.Flags = &models.ServiceSpecFlags{Type: models.ServiceSpecFlagsTypeNodePort}
+	} else if k8sHostPort {
+		spec.Flags = &models.ServiceSpecFlags{Type: models.ServiceSpecFlagsTypeHostPort}
 	} else {
 		spec.Flags = &models.ServiceSpecFlags{Type: models.ServiceSpecFlagsTypeClusterIP}
 	}
