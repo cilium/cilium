@@ -287,6 +287,9 @@ const (
 	// LabelPrefixFile is the valid label prefixes file path
 	LabelPrefixFile = "label-prefix-file"
 
+	// EnableHostPort enables HostPort forwarding implemented by Cilium in BPF
+	EnableHostPort = "enable-host-port"
+
 	// EnableNodePort enables NodePort services implemented by Cilium in BPF
 	EnableNodePort = "enable-node-port"
 
@@ -1388,6 +1391,9 @@ type DaemonConfig struct {
 
 	// EnableNodePort enables k8s NodePort service implementation in BPF
 	EnableNodePort bool
+
+	// EnableHostPort enables k8s Pod's hostPort mapping through BPF
+	EnableHostPort bool
 
 	// NodePortMode indicates in which mode NodePort implementation should run
 	// ("snat", "dsr" or "hybrid")

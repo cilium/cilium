@@ -501,6 +501,9 @@ func init() {
 		option.KubeProxyReplacementStrict, option.KubeProxyReplacementDisabled))
 	option.BindEnv(option.KubeProxyReplacement)
 
+	flags.Bool(option.EnableHostPort, true, fmt.Sprintf("Enable k8s hostPort mapping feature (requires enabling %s)", option.EnableNodePort))
+	option.BindEnv(option.EnableHostPort)
+
 	flags.Bool(option.EnableNodePort, false, "Enable NodePort type services by Cilium (beta)")
 	option.BindEnv(option.EnableNodePort)
 
@@ -1400,9 +1403,11 @@ func initKubeProxyReplacementOptions() {
 	}
 
 	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementDisabled {
-		log.Infof("Auto-disabling %q, %q, %q features", option.EnableNodePort,
-			option.EnableExternalIPs, option.EnableHostReachableServices)
+		log.Infof("Auto-disabling %q, %q, %q, %q features", option.EnableNodePort,
+			option.EnableExternalIPs, option.EnableHostReachableServices,
+			option.Config.EnableHostPort)
 
+		option.Config.EnableHostPort = false
 		option.Config.EnableNodePort = false
 		option.Config.EnableExternalIPs = false
 		option.Config.EnableHostReachableServices = false
@@ -1419,9 +1424,11 @@ func initKubeProxyReplacementOptions() {
 	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementProbe ||
 		option.Config.KubeProxyReplacement == option.KubeProxyReplacementStrict {
 
-		log.Infof("Auto-enabling %q, %q, %q features", option.EnableNodePort,
-			option.EnableExternalIPs, option.EnableHostReachableServices)
+		log.Infof("Auto-enabling %q, %q, %q, %q features", option.EnableNodePort,
+			option.EnableExternalIPs, option.EnableHostReachableServices,
+			option.EnableHostPort)
 
+		option.Config.EnableHostPort = true
 		option.Config.EnableNodePort = true
 		option.Config.EnableExternalIPs = true
 		option.Config.EnableHostReachableServices = true
@@ -1436,6 +1443,7 @@ func initKubeProxyReplacementOptions() {
 			if strict {
 				log.Fatal(msg)
 			} else {
+				option.Config.EnableHostPort = false
 				option.Config.EnableNodePort = false
 				option.Config.EnableExternalIPs = false
 				log.Warn(msg + " Disabling the feature.")
@@ -1462,6 +1470,7 @@ func initKubeProxyReplacementOptions() {
 				log.Fatal(msg)
 			} else {
 				log.Warn(msg + " Disabling the feature.")
+				option.Config.EnableHostPort = false
 				option.Config.EnableNodePort = false
 				option.Config.EnableExternalIPs = false
 			}
@@ -1472,6 +1481,7 @@ func initKubeProxyReplacementOptions() {
 				log.Fatal(err)
 			} else {
 				log.Warn(fmt.Sprintf("%s Disabling the feature.", err))
+				option.Config.EnableHostPort = false
 				option.Config.EnableNodePort = false
 				option.Config.EnableExternalIPs = false
 			}
@@ -1486,6 +1496,7 @@ func initKubeProxyReplacementOptions() {
 				log.WithError(err).Fatal(msg)
 			} else {
 				log.WithError(err).Warn(msg + " Disabling BPF NodePort feature.")
+				option.Config.EnableHostPort = false
 				option.Config.EnableNodePort = false
 				option.Config.EnableExternalIPs = false
 			}
@@ -1532,6 +1543,7 @@ func initKubeProxyReplacementOptions() {
 	}
 
 	if !option.Config.EnableNodePort {
+		option.Config.EnableHostPort = false
 		option.Config.EnableExternalIPs = false
 	} else {
 		if option.Config.Tunnel != option.TunnelDisabled &&

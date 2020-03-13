@@ -2089,6 +2089,7 @@ definitions:
             - ClusterIP
             - NodePort
             - ExternalIPs
+            - HostPort
           trafficPolicy:
             description: Service traffic policy
             type: string

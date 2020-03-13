@@ -477,7 +477,9 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 			return ret;
 	}
 
-	if (!svc || (!lb6_svc_is_external_ip(svc) && !lb6_svc_is_nodeport(svc))) {
+	if (!svc || (!lb6_svc_is_external_ip(svc) &&
+		     !lb6_svc_is_nodeport(svc)) &&
+		     !lb6_svc_is_hostport(svc)) {
 		if (svc)
 			return DROP_IS_CLUSTER_IP;
 
@@ -499,6 +501,8 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 		return DROP_INVALID;
 
 	backend_local = lookup_ip6_endpoint(ip6);
+	if (lb6_svc_is_hostport(svc) && !backend_local)
+		return DROP_INVALID;
 
 	switch (ret) {
 	case CT_NEW:
@@ -1031,7 +1035,9 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 			return ret;
 	}
 
-	if (!svc || (!lb4_svc_is_external_ip(svc) && !lb4_svc_is_nodeport(svc))) {
+	if (!svc || (!lb4_svc_is_external_ip(svc) &&
+		     !lb4_svc_is_nodeport(svc)) &&
+		     !lb4_svc_is_hostport(svc)) {
 		if (svc)
 			return DROP_IS_CLUSTER_IP;
 
@@ -1053,6 +1059,8 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		return DROP_INVALID;
 
 	backend_local = lookup_ip4_endpoint(ip4);
+	if (lb4_svc_is_hostport(svc) && !backend_local)
+		return DROP_INVALID;
 
 	switch (ret) {
 	case CT_NEW:

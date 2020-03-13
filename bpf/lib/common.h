@@ -559,7 +559,8 @@ struct lb6_service {
 	__u8 external:1,	/* K8s External IPs */
 	     nodeport:1,	/* K8s NodePort service */
 	     local_scope:1,	/* K8s externalTrafficPolicy=Local */
-	     reserved:5;
+	     hostport:1,	/* K8s hostPort forwarding */
+	     reserved:4;
 	__u8 pad[3];
 };
 
@@ -594,7 +595,8 @@ struct lb4_service {
 	__u8 external:1,	/* K8s External IPs */
 	     nodeport:1,	/* K8s NodePort service */
 	     local_scope:1,	/* K8s externalTrafficPolicy=Local */
-	     reserved:5;
+	     hostport:1,	/* K8s hostPort forwarding */
+	     reserved:4;
 	__u8 pad[3];
 };
 

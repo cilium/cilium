@@ -35,6 +35,7 @@ type SVCType string
 
 const (
 	SVCTypeNone         = SVCType("NONE")
+	SVCTypeHostPort     = SVCType("HostPort")
 	SVCTypeClusterIP    = SVCType("ClusterIP")
 	SVCTypeNodePort     = SVCType("NodePort")
 	SVCTypeExternalIPs  = SVCType("ExternalIPs")
@@ -59,6 +60,7 @@ const (
 	serviceFlagExternalIPs = 1
 	serviceFlagNodePort    = 2
 	serviceFlagLocalScope  = 4
+	serviceFlagHostPort    = 8
 )
 
 // CreateSvcFlag returns the ServiceFlags for all given SVCTypes.
@@ -68,6 +70,8 @@ func CreateSvcFlag(svcLocal bool, svcTypes ...SVCType) ServiceFlags {
 		switch svcType {
 		case SVCTypeExternalIPs:
 			flags |= serviceFlagExternalIPs
+		case SVCTypeHostPort:
+			flags |= serviceFlagHostPort
 		case SVCTypeNodePort:
 			flags |= serviceFlagNodePort
 		}
@@ -88,6 +92,8 @@ func (s ServiceFlags) SVCType() SVCType {
 	switch {
 	case s&serviceFlagExternalIPs != 0:
 		return SVCTypeExternalIPs
+	case s&serviceFlagHostPort != 0:
+		return SVCTypeHostPort
 	case s&serviceFlagNodePort != 0:
 		return SVCTypeNodePort
 	default:
@@ -109,8 +115,8 @@ func (s ServiceFlags) SVCTrafficPolicy() SVCTrafficPolicy {
 func (s ServiceFlags) String() string {
 	var strTypes []string
 	typeSet := false
-	sType := s & (serviceFlagExternalIPs | serviceFlagNodePort)
-	for _, svcType := range []SVCType{SVCTypeExternalIPs, SVCTypeNodePort} {
+	sType := s & (serviceFlagExternalIPs | serviceFlagHostPort | serviceFlagNodePort)
+	for _, svcType := range []SVCType{SVCTypeExternalIPs, SVCTypeHostPort, SVCTypeNodePort} {
 		if sType.IsSvcType(false, svcType) {
 			strTypes = append(strTypes, string(svcType))
 			typeSet = true

@@ -122,6 +122,24 @@ static __always_inline bool lb6_svc_is_external_ip(const struct lb6_service *svc
 #endif
 }
 
+static __always_inline bool lb4_svc_is_hostport(const struct lb4_service *svc)
+{
+#ifdef ENABLE_HOSTPORT
+	return svc->hostport;
+#else
+	return false;
+#endif /* ENABLE_HOSTPORT */
+}
+
+static __always_inline bool lb6_svc_is_hostport(const struct lb6_service *svc)
+{
+#ifdef ENABLE_HOSTPORT
+	return svc->hostport;
+#else
+	return false;
+#endif /* ENABLE_HOSTPORT */
+}
+
 static __always_inline int lb6_select_slave(__u16 count)
 {
 	/* Slave 0 is reserved for the master slot */
