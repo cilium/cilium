@@ -32,6 +32,7 @@ import (
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -168,7 +169,7 @@ func (k *K8sWatcher) addK8sPodV1(pod *types.Pod) error {
 		"hostIP":               pod.StatusHostIP,
 	})
 
-	skipped, err := k.updatePodHostIP(pod)
+	skipped, err := k.updatePodHostData(pod)
 	switch {
 	case skipped:
 		logger.WithError(err).Debug("Skipped ipcache map update on pod add")
@@ -280,7 +281,7 @@ func (k *K8sWatcher) deleteK8sPodV1(pod *types.Pod) error {
 		"hostIP":               pod.StatusHostIP,
 	})
 
-	skipped, err := k.deletePodHostIP(pod)
+	skipped, err := k.deletePodHostData(pod)
 	switch {
 	case skipped:
 		logger.WithError(err).Debug("Skipped ipcache map delete on pod delete")
@@ -292,7 +293,113 @@ func (k *K8sWatcher) deleteK8sPodV1(pod *types.Pod) error {
 	return err
 }
 
-func (k *K8sWatcher) updatePodHostIP(pod *types.Pod) (bool, error) {
+func genServiceMappings(pod *types.Pod) []loadbalancer.SVC {
+	var svcs []loadbalancer.SVC
+	for _, c := range pod.SpecContainers {
+		for _, p := range c.HostPorts {
+			if p.HostPort == 0 {
+				continue
+			}
+			feIP := net.ParseIP(p.HostIP)
+			if feIP == nil {
+				feIP = net.ParseIP(pod.StatusHostIP)
+			}
+			proto, err := loadbalancer.NewL4Type(p.Protocol)
+			if err != nil {
+				continue
+			}
+			fe := loadbalancer.L3n4AddrID{
+				L3n4Addr: loadbalancer.L3n4Addr{
+					IP: feIP,
+					L4Addr: loadbalancer.L4Addr{
+						Protocol: proto,
+						Port:     uint16(p.HostPort),
+					},
+				},
+				ID: loadbalancer.ID(0),
+			}
+			be := loadbalancer.Backend{
+				L3n4Addr: loadbalancer.L3n4Addr{
+					IP: net.ParseIP(pod.StatusPodIP),
+					L4Addr: loadbalancer.L4Addr{
+						Protocol: proto,
+						Port:     uint16(p.ContainerPort),
+					},
+				},
+			}
+			svcs = append(svcs,
+				loadbalancer.SVC{
+					Frontend: fe,
+					Backends: []loadbalancer.Backend{be},
+					Type:     loadbalancer.SVCTypeHostPort,
+					// We don't have the node name available here, but in
+					// any case in the BPF data path we drop any potential
+					// non-local backends anyway (which should never exist).
+					TrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+				})
+		}
+	}
+
+	return svcs
+}
+
+func (k *K8sWatcher) UpsertHostPortMapping(pod *types.Pod) error {
+	if option.Config.DisableK8sServices || !option.Config.EnableHostPort {
+		return nil
+	}
+
+	svcs := genServiceMappings(pod)
+	if len(svcs) == 0 {
+		return nil
+	}
+
+	logger := log.WithFields(logrus.Fields{
+		logfields.K8sPodName:   pod.ObjectMeta.Name,
+		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
+		"podIP":                pod.StatusPodIP,
+		"hostIP":               pod.StatusHostIP,
+	})
+
+	for _, dpSvc := range svcs {
+		if _, _, err := k.svcManager.UpsertService(dpSvc.Frontend, dpSvc.Backends, dpSvc.Type,
+			dpSvc.TrafficPolicy, dpSvc.HealthCheckNodePort, pod.ObjectMeta.Name+"_hostPort",
+			pod.ObjectMeta.Namespace); err != nil {
+			logger.WithError(err).Error("Error while inserting service in LB map")
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (k *K8sWatcher) DeleteHostPortMapping(pod *types.Pod) error {
+	if option.Config.DisableK8sServices || !option.Config.EnableHostPort {
+		return nil
+	}
+
+	svcs := genServiceMappings(pod)
+	if len(svcs) == 0 {
+		return nil
+	}
+
+	logger := log.WithFields(logrus.Fields{
+		logfields.K8sPodName:   pod.ObjectMeta.Name,
+		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
+		"podIP":                pod.StatusPodIP,
+		"hostIP":               pod.StatusHostIP,
+	})
+
+	for _, dpSvc := range svcs {
+		if _, err := k.svcManager.DeleteService(dpSvc.Frontend.L3n4Addr); err != nil {
+			logger.WithError(err).Error("Error while deleting service in LB map")
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (k *K8sWatcher) updatePodHostData(pod *types.Pod) (bool, error) {
 	if pod.SpecHostNetwork {
 		return true, fmt.Errorf("pod is using host networking")
 	}
@@ -305,6 +412,11 @@ func (k *K8sWatcher) updatePodHostIP(pod *types.Pod) (bool, error) {
 	podIP := net.ParseIP(pod.StatusPodIP)
 	if podIP == nil {
 		return true, fmt.Errorf("no/invalid PodIP: %s", pod.StatusPodIP)
+	}
+
+	err := k.UpsertHostPortMapping(pod)
+	if err == nil {
+		return true, fmt.Errorf("cannot upsert hostPort for PodIP: %s", pod.StatusPodIP)
 	}
 
 	hostKey := node.GetIPsecKeyIdentity()
@@ -322,13 +434,14 @@ func (k *K8sWatcher) updatePodHostIP(pod *types.Pod) (bool, error) {
 		Source: source.Kubernetes,
 	})
 	if !selfOwned {
+		k.DeleteHostPortMapping(pod)
 		return true, fmt.Errorf("ipcache entry owned by kvstore or agent")
 	}
 
 	return false, nil
 }
 
-func (k *K8sWatcher) deletePodHostIP(pod *types.Pod) (bool, error) {
+func (k *K8sWatcher) deletePodHostData(pod *types.Pod) (bool, error) {
 	if pod.SpecHostNetwork {
 		return true, fmt.Errorf("pod is using host networking")
 	}
@@ -337,6 +450,8 @@ func (k *K8sWatcher) deletePodHostIP(pod *types.Pod) (bool, error) {
 	if podIP == nil {
 		return true, fmt.Errorf("no/invalid PodIP: %s", pod.StatusPodIP)
 	}
+
+	k.DeleteHostPortMapping(pod)
 
 	// a small race condition exists here as deletion could occur in
 	// parallel based on another event but it doesn't matter as the

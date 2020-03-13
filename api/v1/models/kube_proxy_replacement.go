@@ -139,6 +139,9 @@ type KubeProxyReplacementFeatures struct {
 	// external i ps
 	ExternalIPs *KubeProxyReplacementFeaturesExternalIPs `json:"externalIPs,omitempty"`
 
+	// host port
+	HostPort *KubeProxyReplacementFeaturesHostPort `json:"hostPort,omitempty"`
+
 	// host reachable services
 	HostReachableServices *KubeProxyReplacementFeaturesHostReachableServices `json:"hostReachableServices,omitempty"`
 
@@ -151,6 +154,10 @@ func (m *KubeProxyReplacementFeatures) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateExternalIPs(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateHostPort(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -178,6 +185,24 @@ func (m *KubeProxyReplacementFeatures) validateExternalIPs(formats strfmt.Regist
 		if err := m.ExternalIPs.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features" + "." + "externalIPs")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *KubeProxyReplacementFeatures) validateHostPort(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.HostPort) { // not required
+		return nil
+	}
+
+	if m.HostPort != nil {
+		if err := m.HostPort.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("features" + "." + "hostPort")
 			}
 			return err
 		}
@@ -265,6 +290,38 @@ func (m *KubeProxyReplacementFeaturesExternalIPs) MarshalBinary() ([]byte, error
 // UnmarshalBinary interface implementation
 func (m *KubeProxyReplacementFeaturesExternalIPs) UnmarshalBinary(b []byte) error {
 	var res KubeProxyReplacementFeaturesExternalIPs
+	if err := swag.ReadJSON(b, &res); err != nil {
+		return err
+	}
+	*m = res
+	return nil
+}
+
+// KubeProxyReplacementFeaturesHostPort kube proxy replacement features host port
+// swagger:model KubeProxyReplacementFeaturesHostPort
+// +k8s:deepcopy-gen=true
+type KubeProxyReplacementFeaturesHostPort struct {
+
+	// enabled
+	Enabled bool `json:"enabled,omitempty"`
+}
+
+// Validate validates this kube proxy replacement features host port
+func (m *KubeProxyReplacementFeaturesHostPort) Validate(formats strfmt.Registry) error {
+	return nil
+}
+
+// MarshalBinary interface implementation
+func (m *KubeProxyReplacementFeaturesHostPort) MarshalBinary() ([]byte, error) {
+	if m == nil {
+		return nil, nil
+	}
+	return swag.WriteJSON(m)
+}
+
+// UnmarshalBinary interface implementation
+func (m *KubeProxyReplacementFeaturesHostPort) UnmarshalBinary(b []byte) error {
+	var res KubeProxyReplacementFeaturesHostPort
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}
