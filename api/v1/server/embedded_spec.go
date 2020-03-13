@@ -2457,6 +2457,14 @@ func init() {
                 }
               }
             },
+            "hostPort": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            },
             "hostReachableServices": {
               "type": "object",
               "properties": {
@@ -3043,7 +3051,8 @@ func init() {
               "enum": [
                 "ClusterIP",
                 "NodePort",
-                "ExternalIPs"
+                "ExternalIPs",
+                "HostPort"
               ]
             }
           }
@@ -5926,6 +5935,14 @@ func init() {
                 }
               }
             },
+            "hostPort": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            },
             "hostReachableServices": {
               "type": "object",
               "properties": {
@@ -6512,7 +6529,8 @@ func init() {
               "enum": [
                 "ClusterIP",
                 "NodePort",
-                "ExternalIPs"
+                "ExternalIPs",
+                "HostPort"
               ]
             }
           }
