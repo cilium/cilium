@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
 	"context"
@@ -128,7 +128,10 @@ func init() {
 	)
 }
 
-func daemonMain() {
+// Execute sets up gops, installs the cleanup signal handler and invokes
+// the root command. This function only returns when an interrupt
+// signal has been received. This is intended to be called by main.main().
+func Execute() {
 	bootstrapStats.overall.Start()
 
 	// Open socket for using gops to get stacktraces of the agent.
@@ -143,7 +146,6 @@ func daemonMain() {
 		os.Exit(-1)
 	}
 	<-interruptCh
-	os.Exit(0)
 }
 
 func skipInit(basePath string) bool {

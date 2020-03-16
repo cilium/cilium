@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,24 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
-	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/sysctl"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/proxy/logger"
 )
 
-func enableIPForwarding() error {
-	if err := sysctl.Enable("net.ipv4.ip_forward"); err != nil {
-		return err
-	}
-	if err := sysctl.Enable("net.ipv4.conf.all.forwarding"); err != nil {
-		return err
-	}
-	if option.Config.EnableIPv6 {
-		if err := sysctl.Enable("net.ipv6.conf.all.forwarding"); err != nil {
-			return err
-		}
-	}
-	return nil
+// NewProxyLogRecord is invoked by the proxy accesslog on each new access log entry
+func (d *Daemon) NewProxyLogRecord(l *logger.LogRecord) error {
+	return d.monitorAgent.SendEvent(monitorAPI.MessageTypeAccessLog, l.LogRecord)
 }
