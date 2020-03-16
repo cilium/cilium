@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import (
 )
 
 // SecurityGroup is the representation of an AWS Security Group
+//
+// +k8s:deepcopy-gen=true
 type SecurityGroup struct {
 	// ID is the SecurityGroup ID
 	ID string
