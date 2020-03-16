@@ -12,8 +12,8 @@
 #ifdef ENCAP_IFINDEX
 #ifdef ENABLE_IPSEC
 static __always_inline int
-enacap_and_redirect_nomark_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
-				 __u8 key, __u32 seclabel)
+encap_and_redirect_nomark_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
+				__u8 key, __u32 seclabel)
 {
 	/* Traffic from local host in tunnel mode will be passed to
 	 * cilium_host. In non-IPSec case traffic with non-local dst
@@ -159,7 +159,7 @@ encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 {
 #ifdef ENABLE_IPSEC
 	if (key)
-		return enacap_and_redirect_nomark_ipsec(ctx, tunnel_endpoint, key, seclabel);
+		return encap_and_redirect_nomark_ipsec(ctx, tunnel_endpoint, key, seclabel);
 #endif
 	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, seclabel, monitor);
 }
@@ -219,7 +219,7 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct endpoint_key *k,
 	if (tunnel->key) {
 		__u8 key = get_min_encrypt_key(tunnel->key);
 
-		return enacap_and_redirect_nomark_ipsec(ctx, tunnel->ip4,
+		return encap_and_redirect_nomark_ipsec(ctx, tunnel->ip4,
 						       key, seclabel);
 	}
 #endif
