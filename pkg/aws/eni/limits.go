@@ -21,6 +21,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/lock"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -38,6 +40,8 @@ type Limits struct {
 	// IPv6 is the maximum number of IPv6 addresses per ENI
 	IPv6 int
 }
+
+var limitsMutex lock.RWMutex
 
 // limit contains limits for adapter count and addresses
 // The mappings will be updated from agent configuration at bootstrap time
@@ -265,12 +269,17 @@ var limits = map[string]Limits{
 
 // GetLimits returns the instance limits of a particular instance type
 func GetLimits(instanceType string) (limit Limits, ok bool) {
+	limitsMutex.RLock()
 	limit, ok = limits[instanceType]
+	limitsMutex.RUnlock()
 	return
 }
 
 // UpdateLimitsFromUserDefinedMappings updates limits from the given map
 func UpdateLimitsFromUserDefinedMappings(m map[string]string) (err error) {
+	limitsMutex.Lock()
+	defer limitsMutex.Unlock()
+
 	for instanceType, limitString := range m {
 		limit, err := parseLimitString(limitString)
 		if err != nil {
@@ -314,6 +323,9 @@ func UpdateLimitsFromEC2API(ctx context.Context) error {
 
 		instanceTypeInfos = append(instanceTypeInfos, describeInstanceTypesResponse.InstanceTypes...)
 	}
+
+	limitsMutex.Lock()
+	defer limitsMutex.Unlock()
 
 	for _, instanceTypeInfo := range instanceTypeInfos {
 		instanceType := string(instanceTypeInfo.InstanceType)
