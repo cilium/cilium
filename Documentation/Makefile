@@ -14,6 +14,7 @@ builder-image:
 DOCKER_RUN := docker container run --rm \
 		--workdir /src/Documentation \
 		--volume $(CURDIR)/..:/src \
+		--user "$(shell id -u):$(shell id -g)" \
 			cilium/docs-builder
 
 cmdref:
