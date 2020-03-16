@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
@@ -200,40 +199,6 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 				helpers.DefaultNamespace, l7Policy,
 				helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).To(BeNil(), "L7 policy cannot be imported correctly")
-
-			By("validate that CEP is updated with correct enforcement mode")
-
-			desiredPolicyStatus := map[string]models.EndpointPolicyEnabled{
-				backupApp:   models.EndpointPolicyEnabledNone,
-				empireHqApp: models.EndpointPolicyEnabledNone,
-				kafkaApp:    models.EndpointPolicyEnabledBoth,
-				outpostApp:  models.EndpointPolicyEnabledNone,
-			}
-
-			body := func() bool {
-				for app, policy := range desiredPolicyStatus {
-					cep := kubectl.CepGet(helpers.DefaultNamespace, appPods[app])
-					if cep == nil {
-						return false
-					}
-					state := models.EndpointPolicyEnabledNone
-					switch {
-					case cep.Policy.Egress.Enforcing && cep.Policy.Ingress.Enforcing:
-						state = models.EndpointPolicyEnabledBoth
-					case cep.Policy.Egress.Enforcing:
-						state = models.EndpointPolicyEnabledIngress
-					case cep.Policy.Ingress.Enforcing:
-						state = models.EndpointPolicyEnabledEgress
-					}
-
-					if state != policy {
-						return false
-					}
-				}
-				return true
-			}
-			err = helpers.WithTimeout(body, "CEP policy enforcement", &helpers.TimeoutConfig{Timeout: helpers.HelperTimeout})
-			Expect(err).To(BeNil(), "CEP not updated with correct policy enforcement")
 
 			By("Testing Kafka L7 policy enforcement status")
 			err = kubectl.ExecKafkaPodCmd(

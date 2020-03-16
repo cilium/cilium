@@ -676,6 +676,25 @@ const (
 
 	// K8sHeartbeatTimeout configures the timeout for apiserver heartbeat
 	K8sHeartbeatTimeout = "k8s-heartbeat-timeout"
+
+	// EndpointStatus enables population of information in the
+	// CiliumEndpoint.Status resource
+	EndpointStatus = "endpoint-status"
+
+	// EndpointStatusPolicy enables CiliumEndpoint.Status.Policy
+	EndpointStatusPolicy = "policy"
+
+	// EndpointStatusHealth enables CilliumEndpoint.Status.Health
+	EndpointStatusHealth = "health"
+
+	// EndpointStatusControllers enables CiliumEndpoint.Status.Controllers
+	EndpointStatusControllers = "controllers"
+
+	// EndpointStatusLog enables CiliumEndpoint.Status.Log
+	EndpointStatusLog = "log"
+
+	// EndpointStatusState enables CiliumEndpoint.Status.State
+	EndpointStatusState = "state"
 )
 
 // Default string arguments
@@ -1363,6 +1382,10 @@ type DaemonConfig struct {
 
 	// K8sHeartbeatTimeout configures the timeout for apiserver heartbeat
 	K8sHeartbeatTimeout time.Duration
+
+	// EndpointStatus enables population of information in the
+	// CiliumEndpoint.Status resource
+	EndpointStatus map[string]struct{}
 }
 
 var (
@@ -1378,6 +1401,7 @@ var (
 		EnableIPv4:                   defaults.EnableIPv4,
 		EnableIPv6:                   defaults.EnableIPv6,
 		EnableL7Proxy:                defaults.EnableL7Proxy,
+		EndpointStatus:               make(map[string]struct{}),
 		ToFQDNsMaxIPsPerHost:         defaults.ToFQDNsMaxIPsPerHost,
 		KVstorePeriodicSync:          defaults.KVstorePeriodicSync,
 		KVstoreConnectivityTimeout:   defaults.KVstoreConnectivityTimeout,
@@ -1466,6 +1490,13 @@ func (c *DaemonConfig) TracingEnabled() bool {
 // IsFlannelMasterDeviceSet returns if the flannel master device is set.
 func (c *DaemonConfig) IsFlannelMasterDeviceSet() bool {
 	return len(c.FlannelMasterDevice) != 0
+}
+
+// EndpointStatusIsEnabled returns true if a particular EndpointStatus* feature
+// is enabled
+func (c *DaemonConfig) EndpointStatusIsEnabled(option string) bool {
+	_, ok := c.EndpointStatus[option]
+	return ok
 }
 
 func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
@@ -1575,6 +1606,13 @@ func (c *DaemonConfig) Validate() error {
 	if c.EnableHostReachableServices && !c.EnableHostServicesUDP && !c.EnableHostServicesTCP {
 		return fmt.Errorf("%s must be at minimum one of [%s,%s]",
 			HostReachableServicesProtos, HostServicesTCP, HostServicesUDP)
+	}
+
+	allowedEndpointStatusValues := EndpointStatusValuesMap()
+	for enabledEndpointStatus := range c.EndpointStatus {
+		if _, ok := allowedEndpointStatusValues[enabledEndpointStatus]; !ok {
+			return fmt.Errorf("unknown endpoint-status option '%s'", enabledEndpointStatus)
+		}
 	}
 
 	return nil
@@ -1891,6 +1929,10 @@ func (c *DaemonConfig) Populate() {
 		c.ConntrackGCInterval = viper.GetDuration(ConntrackGCInterval)
 	}
 
+	for _, option := range viper.GetStringSlice(EndpointStatus) {
+		c.EndpointStatus[option] = struct{}{}
+	}
+
 	if c.MonitorQueueSize == 0 {
 		c.MonitorQueueSize = runtime.NumCPU() * defaults.MonitorQueueSizePerCPU
 		if c.MonitorQueueSize > defaults.MonitorQueueSizePerCPUMaximum {
@@ -2043,4 +2085,24 @@ func getHostDevice() string {
 		return defaults.HostDevice
 	}
 	return hostDevice
+}
+
+// EndpointStatusValues returns all available EndpointStatus option values
+func EndpointStatusValues() []string {
+	return []string{
+		EndpointStatusControllers,
+		EndpointStatusHealth,
+		EndpointStatusLog,
+		EndpointStatusPolicy,
+		EndpointStatusState,
+	}
+}
+
+// EndpointStatusValuesMap returns all EndpointStatus option values as a map
+func EndpointStatusValuesMap() (values map[string]struct{}) {
+	values = map[string]struct{}{}
+	for _, v := range EndpointStatusValues() {
+		values[v] = struct{}{}
+	}
+	return
 }

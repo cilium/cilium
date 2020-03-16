@@ -49,7 +49,7 @@ type EndpointSynchronizer struct {
 // has 1 controller that updates it, and a local copy is retained and only
 // updates are pushed up.
 // CiliumEndpoint objects have the same name as the pod they represent.
-func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoint) {
+func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, conf endpoint.EndpointStatusConfiguration) {
 	var (
 		endpointID     = e.ID
 		controllerName = fmt.Sprintf("sync-to-k8s-ciliumendpoint (%v)", endpointID)
@@ -112,7 +112,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 
 				// Serialize the endpoint into a model. It is compared with the one
 				// from before, only updating on changes.
-				mdl := e.GetCiliumEndpointStatus()
+				mdl := e.GetCiliumEndpointStatus(conf)
 				if reflect.DeepEqual(mdl, lastMdl) {
 					scopedLog.Debug("Skipping CiliumEndpoint update because it has not changed")
 					return nil
@@ -144,7 +144,9 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 						ObjectMeta: meta_v1.ObjectMeta{
 							Name: podName,
 						},
-						Status: *mdl,
+					}
+					if mdl != nil {
+						cep.Status = *mdl
 					}
 					localCEP, err = ciliumClient.CiliumEndpoints(namespace).Create(cep)
 					if err != nil {
