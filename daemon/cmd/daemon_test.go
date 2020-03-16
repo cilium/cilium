@@ -103,7 +103,8 @@ func TestMain(m *testing.M) {
 
 type dummyEpSyncher struct{}
 
-func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint) {}
+func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, conf endpoint.EndpointStatusConfiguration) {
+}
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
 

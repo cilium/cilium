@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 
@@ -46,6 +47,15 @@ type endpointGeneratorSpec struct {
 	allowedEgressIdentities  int
 	numPortsPerIdentity      int
 	fakeControllerManager    bool
+}
+
+type endpointStatusConfiguration map[string]bool
+
+func (e endpointStatusConfiguration) EndpointStatusIsEnabled(name string) bool {
+	if e != nil {
+		return e[string(name)]
+	}
+	return false
 }
 
 func (s *EndpointSuite) newEndpoint(c *check.C, spec endpointGeneratorSpec) *Endpoint {
@@ -115,7 +125,7 @@ func (s *EndpointSuite) newEndpoint(c *check.C, spec endpointGeneratorSpec) *End
 
 func (s *EndpointSuite) TestGetCiliumEndpointStatusSuccessfulControllers(c *check.C) {
 	e := s.newEndpoint(c, endpointGeneratorSpec{})
-	cepA := e.GetCiliumEndpointStatus()
+	cepA := e.GetCiliumEndpointStatus(&endpointStatusConfiguration{})
 
 	// Run successful controllers in the background
 	for i := 0; i < 50; i++ {
@@ -139,7 +149,7 @@ func (s *EndpointSuite) TestGetCiliumEndpointStatusSuccessfulControllers(c *chec
 		case <-timeout:
 			return
 		case <-tick:
-			cepB := e.GetCiliumEndpointStatus()
+			cepB := e.GetCiliumEndpointStatus(&endpointStatusConfiguration{})
 			c.Assert(cepA, checker.DeepEquals, cepB)
 		}
 	}
@@ -147,7 +157,7 @@ func (s *EndpointSuite) TestGetCiliumEndpointStatusSuccessfulControllers(c *chec
 
 func (s *EndpointSuite) TestGetCiliumEndpointStatusSuccessfulLog(c *check.C) {
 	e := s.newEndpoint(c, endpointGeneratorSpec{})
-	cepA := e.GetCiliumEndpointStatus()
+	cepA := e.GetCiliumEndpointStatus(&endpointStatusConfiguration{})
 
 	go func() {
 		for i := 0; i < 1000; i++ {
@@ -167,7 +177,7 @@ func (s *EndpointSuite) TestGetCiliumEndpointStatusSuccessfulLog(c *check.C) {
 		case <-timeout:
 			return
 		case <-tick:
-			cepB := e.GetCiliumEndpointStatus()
+			cepB := e.GetCiliumEndpointStatus(&endpointStatusConfiguration{})
 			c.Assert(cepA, checker.DeepEquals, cepB)
 		}
 	}
@@ -192,8 +202,8 @@ func (s *EndpointSuite) TestGetCiliumEndpointStatusDeepEqual(c *check.C) {
 		numPortsPerIdentity:      10,
 	})
 
-	cepA := a.GetCiliumEndpointStatus()
-	cepB := b.GetCiliumEndpointStatus()
+	cepA := a.GetCiliumEndpointStatus(&endpointStatusConfiguration{})
+	cepB := b.GetCiliumEndpointStatus(&endpointStatusConfiguration{})
 
 	c.Assert(cepA, checker.DeepEquals, cepB)
 }
@@ -208,7 +218,9 @@ func (s *EndpointSuite) TestGetCiliumEndpointStatusCorrectnes(c *check.C) {
 		numPortsPerIdentity:      10,
 	})
 
-	cep := e.GetCiliumEndpointStatus()
+	cep := e.GetCiliumEndpointStatus(&endpointStatusConfiguration{
+		option.EndpointStatusLog: true,
+	})
 
 	c.Assert(len(cep.Log), check.Equals, cilium_v2.EndpointStatusLogEntries)
 }
@@ -452,7 +464,7 @@ func (s *EndpointSuite) BenchmarkGetCiliumEndpointStatus(c *check.C) {
 
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
-		status := e.GetCiliumEndpointStatus()
+		status := e.GetCiliumEndpointStatus(&endpointStatusConfiguration{})
 		c.Assert(status, check.Not(check.IsNil))
 	}
 	c.StopTimer()

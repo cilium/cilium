@@ -669,7 +669,7 @@ func (d *dummyManager) AllocateID(id uint16) (uint16, error) {
 	return uint16(1), nil
 }
 
-func (d *dummyManager) RunK8sCiliumEndpointSync(*Endpoint) {
+func (d *dummyManager) RunK8sCiliumEndpointSync(*Endpoint, EndpointStatusConfiguration) {
 }
 
 func (d *dummyManager) UpdateReferences(map[id.PrefixType]string, *Endpoint) {
