@@ -38,19 +38,19 @@ contrib/packaging/deb/ @eloycoto
 contrib/packaging/docker/ @aanm @ianvernon
 contrib/vagrant @cilium/ci
 daemon/ @cilium/agent
-daemon/datapath.* @cilium/bpf
-daemon/endpoint.* @cilium/endpoint
-daemon/health.* @cilium/health
-daemon/ipcache.* @cilium/ipcache
-daemon/k8s_watcher.* @cilium/kubernetes
-daemon/loadbalancer.* @cilium/loadbalancer
-daemon/metrics.* @cilium/metrics
-daemon/policy.* @cilium/policy
-daemon/prefilter.go @cilium/bpf
-daemon/proxy.go @cilium/proxy
-daemon/requirements.go @cilium/bpf
-daemon/state.go @cilium/endpoint
-daemon/sysctl.* @cilium/bpf
+daemon/cmd/datapath.* @cilium/bpf
+daemon/cmd/endpoint.* @cilium/endpoint
+daemon/cmd/health.* @cilium/health
+daemon/cmd/ipcache.* @cilium/ipcache
+daemon/cmd/k8s_watcher.* @cilium/kubernetes
+daemon/cmd/loadbalancer.* @cilium/loadbalancer
+daemon/cmd/metrics.* @cilium/metrics
+daemon/cmd/policy.* @cilium/policy
+daemon/cmd/prefilter.go @cilium/bpf
+daemon/cmd/proxy.go @cilium/proxy
+daemon/cmd/requirements.go @cilium/bpf
+daemon/cmd/state.go @cilium/endpoint
+daemon/cmd/sysctl.* @cilium/bpf
 Documentation/ @cilium/docs
 Documentation/bpf.rst @scanf @borkmann
 Documentation/contributing/ @cilium/contributing

@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,18 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !privileged_tests
-
-package main
+package cmd
 
 import (
-	"os"
-
-	. "gopkg.in/check.v1"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/sysctl"
 )
 
-func (s *DaemonSuite) TestMemoryMap(c *C) {
-	pid := os.Getpid()
-	m := memoryMap(pid)
-	c.Assert(m, Not(Equals), "")
+func enableIPForwarding() error {
+	if err := sysctl.Enable("net.ipv4.ip_forward"); err != nil {
+		return err
+	}
+	if err := sysctl.Enable("net.ipv4.conf.all.forwarding"); err != nil {
+		return err
+	}
+	if option.Config.EnableIPv6 {
+		if err := sysctl.Enable("net.ipv6.conf.all.forwarding"); err != nil {
+			return err
+		}
+	}
+	return nil
 }

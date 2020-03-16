@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,14 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+// +build !privileged_tests
+
+package cmd
 
 import (
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
-	"github.com/cilium/cilium/pkg/proxy/logger"
+	"os"
+
+	. "gopkg.in/check.v1"
 )
 
-// NewProxyLogRecord is invoked by the proxy accesslog on each new access log entry
-func (d *Daemon) NewProxyLogRecord(l *logger.LogRecord) error {
-	return d.monitorAgent.SendEvent(monitorAPI.MessageTypeAccessLog, l.LogRecord)
+func (s *DaemonSuite) TestMemoryMap(c *C) {
+	pid := os.Getpid()
+	m := memoryMap(pid)
+	c.Assert(m, Not(Equals), "")
 }
