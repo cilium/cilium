@@ -437,6 +437,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 			}
 			if helpers.ExistNodeWithoutCilium() {
 				opts["operator.synchronizeK8sNodes"] = "false"
+				opts["global.synchronizeK8sNodes"] = "false"
+			} else {
+				By("ExistNodeWithoutCilium is false")
 			}
 			deployCilium(opts)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
