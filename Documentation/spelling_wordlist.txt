@@ -295,6 +295,7 @@ hashtable
 hashtables
 hexData
 hoc
+hostPort
 hq
 https
 hugepages
