@@ -436,7 +436,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"global.etcd.managed": "true",
 			}
 			if helpers.ExistNodeWithoutCilium() {
-				opts["operator.synchronizeK8sNodes"] = "false"
+				opts["global.synchronizeK8sNodes"] = "false"
 			}
 			deployCilium(opts)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
