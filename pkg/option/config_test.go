@@ -227,3 +227,21 @@ func (s *OptionSuite) TestLocalAddressExclusion(c *C) {
 	c.Assert(d.IsExcludedLocalAddress(net.ParseIP("f00d::1")), Equals, true)
 	c.Assert(d.IsExcludedLocalAddress(net.ParseIP("f00d::2")), Equals, false)
 }
+
+func (s *OptionSuite) TestEndpointStatusIsEnabled(c *C) {
+
+	d := DaemonConfig{}
+	d.EndpointStatus = map[string]struct{}{EndpointStatusHealth: {}, EndpointStatusPolicy: {}}
+	c.Assert(d.EndpointStatusIsEnabled(EndpointStatusHealth), Equals, true)
+	c.Assert(d.EndpointStatusIsEnabled(EndpointStatusPolicy), Equals, true)
+	c.Assert(d.EndpointStatusIsEnabled(EndpointStatusLog), Equals, false)
+}
+
+func (s *OptionSuite) TestEndpointStatusValues(c *C) {
+	c.Assert(len(EndpointStatusValues()), Not(Equals), 0)
+	c.Assert(len(EndpointStatusValuesMap()), Not(Equals), 0)
+	for _, v := range EndpointStatusValues() {
+		_, ok := EndpointStatusValuesMap()[v]
+		c.Assert(ok, Equals, true)
+	}
+}
