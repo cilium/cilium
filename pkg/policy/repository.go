@@ -412,8 +412,8 @@ func (r ruleSlice) UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpoints
 			endpointsToRegenerate.Insert(epp)
 		}
 		// If we could not evaluate the rules against the current endpoint, or
-		// the endpoint is not selected by the rules, remove it from the set
-		// of endpoints to bump the revision. If the error is non-nil, the
+		// the endpoint is selected by the rules, remove it from the set of
+		// endpoints to bump the revision. If the error is non-nil, the
 		// endpoint is no longer in either set (endpointsToBumpRevision or
 		// endpointsToRegenerate, as we could not determine what to do for the
 		// endpoint). This is usually the case when the endpoint is no longer
