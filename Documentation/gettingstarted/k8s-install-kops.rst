@@ -108,7 +108,7 @@ in the command below.
 
 
 Creating a Cluster
-====================
+==================
 
 * Note that you will need to specify the ``--master-zones`` and ``--zones`` for
   creating the master and worker nodes. The number of master zones should be
@@ -139,7 +139,7 @@ You may be prompted to create a ssh public-private key pair.
 .. _appendix_kops:
 
 Deleting a Cluster
-===========================
+==================
 
 To undo the dependencies and other deployment features in AWS from the ``kops``
 cluster creation, use ``kops`` to destroy a cluster *immediately* with the
