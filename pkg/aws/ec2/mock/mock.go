@@ -95,8 +95,9 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 // UpdateSubnets replaces the subents which the mock API will return
 func (e *API) UpdateSubnets(subnets []*ipamTypes.Subnet) {
 	e.mutex.Lock()
+	e.subnets = map[string]*ipamTypes.Subnet{}
 	for _, s := range subnets {
-		e.subnets[s.ID] = s
+		e.subnets[s.ID] = s.DeepCopy()
 	}
 	e.mutex.Unlock()
 }
@@ -104,8 +105,9 @@ func (e *API) UpdateSubnets(subnets []*ipamTypes.Subnet) {
 // UpdateSecurityGroups replaces the security groups which the mock API will return
 func (e *API) UpdateSecurityGroups(securityGroups []*types.SecurityGroup) {
 	e.mutex.Lock()
+	e.securityGroups = map[string]*types.SecurityGroup{}
 	for _, sg := range securityGroups {
-		e.securityGroups[sg.ID] = sg
+		e.securityGroups[sg.ID] = sg.DeepCopy()
 	}
 	e.mutex.Unlock()
 }
@@ -113,7 +115,13 @@ func (e *API) UpdateSecurityGroups(securityGroups []*types.SecurityGroup) {
 // UpdateENIs replaces the ENIs which the mock API will return
 func (e *API) UpdateENIs(enis map[string]ENIMap) {
 	e.mutex.Lock()
-	e.enis = enis
+	e.enis = map[string]ENIMap{}
+	for instanceID, m := range enis {
+		e.enis[instanceID] = ENIMap{}
+		for eniID, eni := range m {
+			e.enis[instanceID][eniID] = eni.DeepCopy()
+		}
+	}
 	e.mutex.Unlock()
 }
 
@@ -199,7 +207,7 @@ func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int64, subn
 	subnet.AvailableAddresses -= int(toAllocate)
 
 	e.unattached[eniID] = eni
-	return eniID, eni, nil
+	return eniID, eni.DeepCopy(), nil
 }
 
 func (e *API) DeleteNetworkInterface(ctx context.Context, eniID string) error {
@@ -371,7 +379,7 @@ func (e *API) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap
 				}
 			}
 
-			instances.Add(instanceID, eni)
+			instances.Add(instanceID, eni.DeepCopy())
 		}
 	}
 
@@ -385,7 +393,7 @@ func (e *API) GetVpcs(ctx context.Context) (ipamTypes.VirtualNetworkMap, error) 
 	defer e.mutex.RUnlock()
 
 	for _, v := range e.vpcs {
-		vpcs[v.ID] = v
+		vpcs[v.ID] = v.DeepCopy()
 	}
 	return vpcs, nil
 }
@@ -397,7 +405,7 @@ func (e *API) GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error) {
 	defer e.mutex.RUnlock()
 
 	for _, s := range e.subnets {
-		subnets[s.ID] = s
+		subnets[s.ID] = s.DeepCopy()
 	}
 	return subnets, nil
 }
@@ -423,7 +431,7 @@ func (e *API) GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, er
 	defer e.mutex.RUnlock()
 
 	for _, sg := range e.securityGroups {
-		securityGroups[sg.ID] = sg
+		securityGroups[sg.ID] = sg.DeepCopy()
 	}
 	return securityGroups, nil
 }
