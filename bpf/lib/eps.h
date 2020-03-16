@@ -62,7 +62,7 @@ static __always_inline __maybe_unused struct remote_endpoint_info *
 ipcache_lookup6(struct bpf_elf_map *map, union v6addr *addr, __u32 prefix)
 {
 	struct ipcache_key key = {
-		.lpm_key = { IPCACHE_PREFIX_LEN(prefix) },
+		.lpm_key = { IPCACHE_PREFIX_LEN(prefix), {} },
 		.family = ENDPOINT_KEY_IPV6,
 		.ip6 = *addr,
 	};
@@ -76,7 +76,7 @@ static __always_inline __maybe_unused struct remote_endpoint_info *
 ipcache_lookup4(struct bpf_elf_map *map, __be32 addr, __u32 prefix)
 {
 	struct ipcache_key key = {
-		.lpm_key = { IPCACHE_PREFIX_LEN(prefix) },
+		.lpm_key = { IPCACHE_PREFIX_LEN(prefix), {} },
 		.family = ENDPOINT_KEY_IPV4,
 		.ip4 = addr,
 	};
