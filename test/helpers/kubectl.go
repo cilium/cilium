@@ -1963,6 +1963,25 @@ func (kub *Kubectl) CiliumNodesWait() (bool, error) {
 	return true, nil
 }
 
+// LoadedPolicyInFirstAgent returns the policy as loaded in the first cilium
+// agent that is found in the cluster
+func (kub *Kubectl) LoadedPolicyInFirstAgent() (string, error) {
+	pods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
+	if err != nil {
+		return "", fmt.Errorf("cannot retrieve cilium pods: %s", err)
+	}
+	for _, pod := range pods {
+		ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+		defer cancel()
+		res := kub.CiliumExecContext(ctx, pod, "cilium policy get")
+		if !res.WasSuccessful() {
+			return "", fmt.Errorf("cannot execute cilium policy get: %s", res.Output())
+		}
+		return res.CombineOutput().String(), nil
+	}
+	return "", fmt.Errorf("no running cilium pods")
+}
+
 // WaitPolicyDeleted waits for policy policyName to be deleted from the
 // cilium-agent running in pod. Returns an error if policyName was unable to
 // be deleted after some amount of time.

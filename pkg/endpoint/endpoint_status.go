@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -292,31 +292,63 @@ func (e *Endpoint) getEndpointVisibilityPolicyStatus() *string {
 	return &str
 }
 
+// EndpointStatusConfiguration is the configuration interface that a caller of
+// to GetCiliumEndpointStatus() must implement
+type EndpointStatusConfiguration interface {
+	// EndpointStatusIsEnabled must return true if a particular
+	// option.EndpointStatus* feature is enabled
+	EndpointStatusIsEnabled(option string) bool
+}
+
+func compressEndpointState(state models.EndpointState) string {
+	switch state {
+	case models.EndpointStateRestoring, models.EndpointStateWaitingToRegenerate,
+		models.EndpointStateRegenerating, models.EndpointStateReady,
+		models.EndpointStateDisconnecting, models.EndpointStateDisconnected:
+		return string(models.EndpointStateReady)
+	}
+
+	return string(state)
+}
+
 // GetCiliumEndpointStatus creates a cilium_v2.EndpointStatus of an endpoint.
 // See cilium_v2.EndpointStatus for a detailed explanation of each field.
-func (e *Endpoint) GetCiliumEndpointStatus() *cilium_v2.EndpointStatus {
+func (e *Endpoint) GetCiliumEndpointStatus(conf EndpointStatusConfiguration) *cilium_v2.EndpointStatus {
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 
 	model := e.GetModelRLocked()
 	modelStatus := model.Status
 
-	controllers := getEndpointStatusControllers(modelStatus)
-	identity := getEndpointIdentity(modelStatus)
-	log := e.getEndpointStatusLog()
-	networking := getEndpointNetworking(modelStatus)
-
-	return &cilium_v2.EndpointStatus{
-		ID:                     int64(e.ID),
-		ExternalIdentifiers:    modelStatus.ExternalIdentifiers,
-		Controllers:            controllers,
-		Identity:               identity,
-		Log:                    log,
-		Networking:             networking,
-		Health:                 modelStatus.Health,
-		State:                  string(modelStatus.State),
-		Policy:                 e.getEndpointPolicy(),
-		Encryption:             cilium_v2.EncryptionSpec{Key: int(node.GetIPsecKeyIdentity())},
-		VisibilityPolicyStatus: e.getEndpointVisibilityPolicyStatus(),
+	status := &cilium_v2.EndpointStatus{
+		ID:                  int64(e.ID),
+		ExternalIdentifiers: modelStatus.ExternalIdentifiers,
+		Identity:            getEndpointIdentity(modelStatus),
+		Networking:          getEndpointNetworking(modelStatus),
+		State:               compressEndpointState(modelStatus.State),
+		Encryption:          cilium_v2.EncryptionSpec{Key: int(node.GetIPsecKeyIdentity())},
 	}
+
+	if conf.EndpointStatusIsEnabled(option.EndpointStatusControllers) {
+		status.Controllers = getEndpointStatusControllers(modelStatus)
+	}
+
+	if conf.EndpointStatusIsEnabled(option.EndpointStatusPolicy) {
+		status.Policy = e.getEndpointPolicy()
+		status.VisibilityPolicyStatus = e.getEndpointVisibilityPolicyStatus()
+	}
+
+	if conf.EndpointStatusIsEnabled(option.EndpointStatusHealth) {
+		status.Health = modelStatus.Health
+	}
+
+	if conf.EndpointStatusIsEnabled(option.EndpointStatusLog) {
+		status.Log = e.getEndpointStatusLog()
+	}
+
+	if conf.EndpointStatusIsEnabled(option.EndpointStatusState) {
+		status.State = string(modelStatus.State)
+	}
+
+	return status
 }

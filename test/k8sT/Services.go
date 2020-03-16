@@ -797,7 +797,6 @@ var _ = Describe("K8sServicesTest", func() {
 
 		var (
 			expectedCIDR = "198.49.23.144/32"
-			podName      = "toservices"
 
 			endpointPath      string
 			podPath           string
@@ -837,32 +836,20 @@ var _ = Describe("K8sServicesTest", func() {
 		})
 
 		validateEgress := func() {
-			By("Checking that toServices CIDR is plumbed into CEP")
+			By("Checking that toServices CIDR is plumbed into the policy")
 			Eventually(func() string {
-				res := kubectl.Exec(fmt.Sprintf(
-					"%s -n %s get cep %s -o json",
-					helpers.KubectlCmd,
-					helpers.DefaultNamespace,
-					podName))
-				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "cannot get Cilium endpoint")
-				data, err := res.Filter(`{.status.policy.egress}`)
-				ExpectWithOffset(1, err).To(BeNil(), "unable to get endpoint %s metadata", podName)
-				return data.String()
+				output, err := kubectl.LoadedPolicyInFirstAgent()
+				ExpectWithOffset(1, err).To(BeNil(), "unable to retrieve policy")
+				return output
 			}, 2*time.Minute, 2*time.Second).Should(ContainSubstring(expectedCIDR))
 		}
 
 		validateEgressAfterDeletion := func() {
-			By("Checking that toServices CIDR is no longer plumbed into CEP")
+			By("Checking that toServices CIDR is no longer plumbed into the policy")
 			Eventually(func() string {
-				res := kubectl.Exec(fmt.Sprintf(
-					"%s -n %s get cep %s -o json",
-					helpers.KubectlCmd,
-					helpers.DefaultNamespace,
-					podName))
-				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "cannot get Cilium endpoint")
-				data, err := res.Filter(`{.status.policy.egress}`)
-				ExpectWithOffset(1, err).To(BeNil(), "unable to get endpoint %s metadata", podName)
-				return data.String()
+				output, err := kubectl.LoadedPolicyInFirstAgent()
+				ExpectWithOffset(1, err).To(BeNil(), "unable to retrieve policy")
+				return output
 			}, 2*time.Minute, 2*time.Second).ShouldNot(ContainSubstring(expectedCIDR))
 		}
 

@@ -25,7 +25,7 @@ import (
 
 type endpointManager interface {
 	AllocateID(id uint16) (uint16, error)
-	RunK8sCiliumEndpointSync(*Endpoint)
+	RunK8sCiliumEndpointSync(*Endpoint, EndpointStatusConfiguration)
 	UpdateReferences(map[id.PrefixType]string, *Endpoint)
 	UpdateIDReference(*Endpoint)
 	RemoveReferences(map[id.PrefixType]string)
@@ -64,7 +64,7 @@ func (e *Endpoint) Expose(mgr endpointManager) error {
 
 	e.getLogger().Info("New endpoint")
 
-	mgr.RunK8sCiliumEndpointSync(e)
+	mgr.RunK8sCiliumEndpointSync(e, option.Config)
 	return nil
 }
 

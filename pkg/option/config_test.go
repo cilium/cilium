@@ -250,6 +250,15 @@ func (s *OptionSuite) TestLocalAddressExclusion(c *C) {
 	c.Assert(d.IsExcludedLocalAddress(net.ParseIP("f00d::2")), Equals, false)
 }
 
+func (s *OptionSuite) TestEndpointStatusIsEnabled(c *C) {
+
+	d := DaemonConfig{}
+	d.EndpointStatus = map[string]struct{}{EndpointStatusHealth: {}, EndpointStatusPolicy: {}}
+	c.Assert(d.EndpointStatusIsEnabled(EndpointStatusHealth), Equals, true)
+	c.Assert(d.EndpointStatusIsEnabled(EndpointStatusPolicy), Equals, true)
+	c.Assert(d.EndpointStatusIsEnabled(EndpointStatusLog), Equals, false)
+}
+
 func Test_populateNodePortRange(t *testing.T) {
 	type want struct {
 		wantMin int
@@ -420,4 +429,13 @@ func Test_populateNodePortRange(t *testing.T) {
 func (s *OptionSuite) TestGetDefaultMonitorQueueSize(c *C) {
 	c.Assert(getDefaultMonitorQueueSize(4), Equals, 4*defaults.MonitorQueueSizePerCPU)
 	c.Assert(getDefaultMonitorQueueSize(1000), Equals, defaults.MonitorQueueSizePerCPUMaximum)
+}
+
+func (s *OptionSuite) TestEndpointStatusValues(c *C) {
+	c.Assert(len(EndpointStatusValues()), Not(Equals), 0)
+	c.Assert(len(EndpointStatusValuesMap()), Not(Equals), 0)
+	for _, v := range EndpointStatusValues() {
+		_, ok := EndpointStatusValuesMap()[v]
+		c.Assert(ok, Equals, true)
+	}
 }
