@@ -200,7 +200,7 @@ ctx_redirect(struct xdp_md *ctx, int ifindex, const __u32 flags)
 {
 	if (unlikely(flags))
 		return -ENOTSUPP;
-	if (ifindex != ctx->ingress_ifindex)
+	if ((__u32)ifindex != ctx->ingress_ifindex)
 		return -ENOTSUPP;
 	return XDP_TX;
 }
