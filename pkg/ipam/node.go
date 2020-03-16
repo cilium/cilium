@@ -261,7 +261,9 @@ func (n *Node) recalculateLocked() {
 	}
 
 	n.available = a
-	n.stats.UsedIPs = len(n.resource.Status.IPAM.Used)
+	if n.resource != nil {
+		n.stats.UsedIPs = len(n.resource.Status.IPAM.Used)
+	}
 	n.stats.AvailableIPs = len(n.available)
 	n.stats.NeededIPs = calculateNeededIPs(n.stats.AvailableIPs, n.stats.UsedIPs, n.ops.GetPreAllocate(), n.ops.GetMinAllocate())
 	n.stats.ExcessIPs = calculateExcessIPs(n.stats.AvailableIPs, n.stats.UsedIPs, n.ops.GetPreAllocate(), n.ops.GetMinAllocate(), n.ops.GetMaxAboveWatermark())
