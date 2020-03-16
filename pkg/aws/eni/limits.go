@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
+	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
@@ -32,6 +33,7 @@ import (
 // The mappings will be updated from agent configuration at bootstrap time
 //
 // Source: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html?shortFooter=true#AvailableIpPerENI
+var limitsMutex lock.RWMutex
 var limits = map[string]ipamTypes.Limits{
 	"a1.medium":     {Adapters: 2, IPv4: 4, IPv6: 4},
 	"a1.large":      {Adapters: 3, IPv4: 10, IPv6: 10},
@@ -254,12 +256,17 @@ var limits = map[string]ipamTypes.Limits{
 
 // getLimits returns the instance limits of a particular instance type
 func getLimits(instanceType string) (limit ipamTypes.Limits, ok bool) {
+	limitsMutex.RLock()
 	limit, ok = limits[instanceType]
+	limitsMutex.RUnlock()
 	return
 }
 
 // UpdateLimitsFromUserDefinedMappings updates limits from the given map
 func UpdateLimitsFromUserDefinedMappings(m map[string]string) (err error) {
+	limitsMutex.Lock()
+	defer limitsMutex.Unlock()
+
 	for instanceType, limitString := range m {
 		limit, err := parseLimitString(limitString)
 		if err != nil {
@@ -303,6 +310,9 @@ func UpdateLimitsFromEC2API(ctx context.Context) error {
 
 		instanceTypeInfos = append(instanceTypeInfos, describeInstanceTypesResponse.InstanceTypes...)
 	}
+
+	limitsMutex.Lock()
+	defer limitsMutex.Unlock()
 
 	for _, instanceTypeInfo := range instanceTypeInfos {
 		instanceType := string(instanceTypeInfo.InstanceType)
