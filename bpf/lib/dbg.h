@@ -216,23 +216,29 @@ static __always_inline void cilium_dbg_capture(struct __ctx_buff *ctx, __u8 type
 # define printk(fmt, ...)					\
 		do { } while (0)
 
-static __always_inline void cilium_dbg(struct __ctx_buff *ctx, __u8 type,
-				       __u32 arg1, __u32 arg2)
+static __always_inline
+void cilium_dbg(struct __ctx_buff *ctx __maybe_unused, __u8 type __maybe_unused,
+		__u32 arg1 __maybe_unused, __u32 arg2 __maybe_unused)
 {
 }
 
-static __always_inline void cilium_dbg3(struct __ctx_buff *ctx, __u8 type,
-					__u32 arg1, __u32 arg2, __u32 arg3)
+static __always_inline
+void cilium_dbg3(struct __ctx_buff *ctx __maybe_unused,
+		 __u8 type __maybe_unused, __u32 arg1 __maybe_unused,
+		 __u32 arg2 __maybe_unused, __u32 arg3 __maybe_unused)
 {
 }
 
-static __always_inline void cilium_dbg_capture(struct __ctx_buff *ctx,
-					       __u8 type, __u32 arg1)
+static __always_inline
+void cilium_dbg_capture(struct __ctx_buff *ctx __maybe_unused,
+			__u8 type __maybe_unused, __u32 arg1 __maybe_unused)
 {
 }
 
-static __always_inline void cilium_dbg_capture2(struct __ctx_buff *ctx, __u8 type,
-						__u32 arg1, __u32 arg2)
+static __always_inline
+void cilium_dbg_capture2(struct __ctx_buff *ctx __maybe_unused,
+			 __u8 type __maybe_unused, __u32 arg1 __maybe_unused,
+			 __u32 arg2 __maybe_unused)
 {
 }
 

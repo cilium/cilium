@@ -167,10 +167,11 @@ static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 			       &rval, 0);
 }
 #else
-static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
-					       struct lb4_backend *backend,
-					       struct lb4_key *lkey,
-					       struct lb4_service *slave_svc)
+static __always_inline
+int sock4_update_revnat(struct bpf_sock_addr *ctx __maybe_unused,
+			struct lb4_backend *backend __maybe_unused,
+			struct lb4_key *lkey __maybe_unused,
+			struct lb4_service *slave_svc __maybe_unused)
 {
 	return -1;
 }
@@ -197,8 +198,8 @@ static __always_inline bool sock4_skip_xlate(struct lb4_service *svc,
 }
 
 static __always_inline
-struct lb4_service *sock4_nodeport_wildcard_lookup(struct lb4_key *key,
-						   const bool include_remote_hosts)
+struct lb4_service *sock4_nodeport_wildcard_lookup(struct lb4_key *key __maybe_unused,
+						   const bool include_remote_hosts __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
 	struct remote_endpoint_info *info;
@@ -489,10 +490,11 @@ static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 			       &rval, 0);
 }
 #else
-static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
-					       struct lb6_backend *backend,
-					       struct lb6_key *lkey,
-					       struct lb6_service *slave_svc)
+static __always_inline
+int sock6_update_revnat(struct bpf_sock_addr *ctx __maybe_unused,
+			struct lb6_backend *backend __maybe_unused,
+			struct lb6_key *lkey __maybe_unused,
+			struct lb6_service *slave_svc __maybe_unused)
 {
 	return -1;
 }
@@ -510,7 +512,7 @@ static __always_inline void ctx_get_v6_address(struct bpf_sock_addr *ctx,
 
 #ifdef ENABLE_NODEPORT
 static __always_inline void ctx_get_v6_src_address(struct bpf_sock *ctx,
-					       union v6addr *addr)
+						   union v6addr *addr)
 {
 	addr->p1 = ctx->src_ip6[0];
 	addr->p2 = ctx->src_ip6[1];
@@ -549,7 +551,8 @@ sock6_skip_xlate(struct lb6_service *svc, union v6addr *address)
 }
 
 static __always_inline __maybe_unused struct lb6_service *
-sock6_nodeport_wildcard_lookup(struct lb6_key *key, bool include_remote_hosts)
+sock6_nodeport_wildcard_lookup(struct lb6_key *key __maybe_unused,
+			       bool include_remote_hosts __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
 	struct remote_endpoint_info *info;
@@ -581,7 +584,8 @@ wildcard_lookup:
 #endif /* ENABLE_NODEPORT */
 }
 
-static __always_inline int sock6_xlate_v4_in_v6(struct bpf_sock_addr *ctx)
+static __always_inline
+int sock6_xlate_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
 {
 #ifdef ENABLE_IPV4
 	struct bpf_sock_addr fake_ctx;

@@ -53,7 +53,8 @@ encap_and_redirect_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 #endif /* ENABLE_IPSEC */
 
 static __always_inline int
-encap_remap_v6_host_address(struct __ctx_buff *ctx, const bool egress)
+encap_remap_v6_host_address(struct __ctx_buff *ctx __maybe_unused,
+			    const bool egress __maybe_unused)
 {
 #ifdef ENABLE_ENCAP_HOST_REMAP
 	struct csum_offset csum = {};

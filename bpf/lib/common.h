@@ -625,7 +625,8 @@ struct ct_state {
 	__u16 backend_id;	/* Backend ID in lb4_backends */
 };
 
-static __always_inline int redirect_peer(int ifindex, __u32 flags)
+static __always_inline int redirect_peer(int ifindex __maybe_unused,
+					 __u32 flags __maybe_unused)
 {
 	/* If our datapath has proper redirect support, we make use
 	 * of it here, otherwise we terminate tc processing by letting

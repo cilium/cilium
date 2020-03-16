@@ -51,7 +51,7 @@ xdp_load_bytes(struct xdp_md *ctx, __u64 off, void *to, const __u64 len)
 
 static __always_inline __maybe_unused int
 xdp_store_bytes(struct xdp_md *ctx, __u64 off, const void *from,
-		const __u64 len, __u64 flags)
+		const __u64 len, __u64 flags __maybe_unused)
 {
 	void *to;
 	int ret;
