@@ -259,22 +259,30 @@ send_trace_notify6(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst,
 }
 #else
 static __always_inline void
-send_trace_notify(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst,
-		  __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
+send_trace_notify(struct __ctx_buff *ctx, __u8 obs_point,
+		  __u32 src __maybe_unused, __u32 dst __maybe_unused,
+		  __u16 dst_id __maybe_unused, __u32 ifindex __maybe_unused,
+		  __u8 reason, __u32 monitor __maybe_unused)
 {
 	update_trace_metrics(ctx, obs_point, reason);
 }
 
 static __always_inline void
-send_trace_notify4(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst, __be32 orig_addr,
-		   __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
+send_trace_notify4(struct __ctx_buff *ctx, __u8 obs_point,
+		   __u32 src __maybe_unused, __u32 dst __maybe_unused,
+		   __be32 orig_addr __maybe_unused, __u16 dst_id __maybe_unused,
+		   __u32 ifindex __maybe_unused, __u8 reason,
+		   __u32 monitor __maybe_unused)
 {
 	update_trace_metrics(ctx, obs_point, reason);
 }
 
 static __always_inline void
-send_trace_notify6(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst, union v6addr *orig_addr,
-		   __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
+send_trace_notify6(struct __ctx_buff *ctx, __u8 obs_point,
+		   __u32 src __maybe_unused, __u32 dst __maybe_unused,
+		   union v6addr *orig_addr __maybe_unused,
+		   __u16 dst_id __maybe_unused, __u32 ifindex __maybe_unused,
+		   __u8 reason, __u32 monitor __maybe_unused)
 {
 	update_trace_metrics(ctx, obs_point, reason);
 }

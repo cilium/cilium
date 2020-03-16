@@ -79,7 +79,7 @@ redirect_self(struct __sk_buff *ctx)
 }
 
 static __always_inline __maybe_unused void
-ctx_skip_nodeport_clear(struct __sk_buff *ctx)
+ctx_skip_nodeport_clear(struct __sk_buff *ctx __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
 	ctx->tc_index &= ~TC_INDEX_F_SKIP_NODEPORT;
@@ -87,7 +87,7 @@ ctx_skip_nodeport_clear(struct __sk_buff *ctx)
 }
 
 static __always_inline __maybe_unused void
-ctx_skip_nodeport_set(struct __sk_buff *ctx)
+ctx_skip_nodeport_set(struct __sk_buff *ctx __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
 	ctx->tc_index |= TC_INDEX_F_SKIP_NODEPORT;
@@ -95,7 +95,7 @@ ctx_skip_nodeport_set(struct __sk_buff *ctx)
 }
 
 static __always_inline __maybe_unused bool
-ctx_skip_nodeport(struct __sk_buff *ctx)
+ctx_skip_nodeport(struct __sk_buff *ctx __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
 	volatile __u32 tc_index = ctx->tc_index;

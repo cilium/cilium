@@ -86,7 +86,8 @@ struct bpf_elf_map __section_maps LB4_BACKEND_MAP = {
 #define cilium_dbg_lb(a, b, c, d)
 #endif
 
-static __always_inline bool lb4_svc_is_nodeport(const struct lb4_service *svc)
+static __always_inline
+bool lb4_svc_is_nodeport(const struct lb4_service *svc __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
 	return svc->nodeport;
@@ -95,7 +96,8 @@ static __always_inline bool lb4_svc_is_nodeport(const struct lb4_service *svc)
 #endif /* ENABLE_NODEPORT */
 }
 
-static __always_inline bool lb6_svc_is_nodeport(const struct lb6_service *svc)
+static __always_inline
+bool lb6_svc_is_nodeport(const struct lb6_service *svc __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
 	return svc->nodeport;
@@ -104,7 +106,8 @@ static __always_inline bool lb6_svc_is_nodeport(const struct lb6_service *svc)
 #endif /* ENABLE_NODEPORT */
 }
 
-static __always_inline bool lb4_svc_is_external_ip(const struct lb4_service *svc)
+static __always_inline
+bool lb4_svc_is_external_ip(const struct lb4_service *svc __maybe_unused)
 {
 #ifdef ENABLE_EXTERNAL_IP
 	return svc->external;
@@ -113,7 +116,8 @@ static __always_inline bool lb4_svc_is_external_ip(const struct lb4_service *svc
 #endif
 }
 
-static __always_inline bool lb6_svc_is_external_ip(const struct lb6_service *svc)
+static __always_inline
+bool lb6_svc_is_external_ip(const struct lb6_service *svc __maybe_unused)
 {
 #ifdef ENABLE_EXTERNAL_IP
 	return svc->external;
@@ -278,9 +282,9 @@ static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
  *   - DROP_UNKNOWN_L4 if packet should be ignore (sent to stack)
  *   - Negative error code
  */
-static __always_inline int lb6_extract_key(struct __ctx_buff *ctx,
+static __always_inline int lb6_extract_key(struct __ctx_buff *ctx __maybe_unused,
 					   struct ipv6_ct_tuple *tuple,
-					   int l4_off,
+					   int l4_off __maybe_unused,
 					   struct lb6_key *key,
 					   struct csum_offset *csum_off,
 					   int dir)
@@ -332,7 +336,7 @@ struct lb6_service *__lb6_lookup_service(struct lb6_key *key)
 }
 
 static __always_inline
-struct lb6_service *lb6_lookup_service(struct __ctx_buff *ctx,
+struct lb6_service *lb6_lookup_service(struct __ctx_buff *ctx __maybe_unused,
 				       struct lb6_key *key)
 {
 	struct lb6_service *svc = __lb6_lookup_service(key);
@@ -350,7 +354,7 @@ static __always_inline struct lb6_backend *__lb6_lookup_backend(__u16 backend_id
 }
 
 static __always_inline struct lb6_backend *
-lb6_lookup_backend(struct __ctx_buff *ctx, __u16 backend_id)
+lb6_lookup_backend(struct __ctx_buff *ctx __maybe_unused, __u16 backend_id)
 {
 	struct lb6_backend *backend;
 
@@ -369,7 +373,7 @@ struct lb6_service *__lb6_lookup_slave(struct lb6_key *key)
 }
 
 static __always_inline
-struct lb6_service *lb6_lookup_slave(struct __ctx_buff *ctx,
+struct lb6_service *lb6_lookup_slave(struct __ctx_buff *ctx __maybe_unused,
 				     struct lb6_key *key, __u16 slave)
 {
 	struct lb6_service *svc;
@@ -524,19 +528,19 @@ drop_no_service:
  * additional map management.
  */
 static __always_inline
-struct lb6_service *__lb6_lookup_service(struct lb6_key *key)
+struct lb6_service *__lb6_lookup_service(struct lb6_key *key __maybe_unused)
 {
 	return NULL;
 }
 
 static __always_inline
-struct lb6_service *__lb6_lookup_slave(struct lb6_key *key)
+struct lb6_service *__lb6_lookup_slave(struct lb6_key *key __maybe_unused)
 {
 	return NULL;
 }
 
 static __always_inline struct lb6_backend *
-__lb6_lookup_backend(__u16 backend_id)
+__lb6_lookup_backend(__u16 backend_id __maybe_unused)
 {
 	return NULL;
 }
@@ -649,9 +653,9 @@ static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l
  *   - DROP_UNKNOWN_L4 if packet should be ignore (sent to stack)
  *   - Negative error code
  */
-static __always_inline int lb4_extract_key(struct __ctx_buff *ctx,
+static __always_inline int lb4_extract_key(struct __ctx_buff *ctx __maybe_unused,
 					   struct ipv4_ct_tuple *tuple,
-					   int l4_off,
+					   int l4_off __maybe_unused,
 					   struct lb4_key *key,
 					   struct csum_offset *csum_off,
 					   int dir)
@@ -701,7 +705,7 @@ struct lb4_service *__lb4_lookup_service(struct lb4_key *key)
 }
 
 static __always_inline
-struct lb4_service *lb4_lookup_service(struct __ctx_buff *ctx,
+struct lb4_service *lb4_lookup_service(struct __ctx_buff *ctx __maybe_unused,
 				       struct lb4_key *key)
 {
 	struct lb4_service *svc = __lb4_lookup_service(key);
@@ -718,7 +722,7 @@ static __always_inline struct lb4_backend *__lb4_lookup_backend(__u16 backend_id
 }
 
 static __always_inline struct lb4_backend *
-lb4_lookup_backend(struct __ctx_buff *ctx, __u16 backend_id)
+lb4_lookup_backend(struct __ctx_buff *ctx __maybe_unused, __u16 backend_id)
 {
 	struct lb4_backend *backend;
 
@@ -737,8 +741,8 @@ struct lb4_service *__lb4_lookup_slave(struct lb4_key *key)
 }
 
 static __always_inline
-struct lb4_service *lb4_lookup_slave(struct __ctx_buff *ctx,
-					   struct lb4_key *key, __u16 slave)
+struct lb4_service *lb4_lookup_slave(struct __ctx_buff *ctx __maybe_unused,
+				     struct lb4_key *key, __u16 slave)
 {
 	struct lb4_service *svc;
 

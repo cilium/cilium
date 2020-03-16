@@ -54,7 +54,8 @@ static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx,
 #endif
 
 #if defined ENABLE_IPV4 || defined ENABLE_IPV6
-static __always_inline __u32 finalize_sec_ctx(__u32 secctx, __u32 src_identity)
+static __always_inline
+__u32 finalize_sec_ctx(__u32 secctx, __u32 src_identity __maybe_unused)
 {
 #ifdef ENABLE_SECCTX_FROM_IPCACHE
 	/* If we could not derive the secctx from the packet itself but
@@ -69,7 +70,7 @@ static __always_inline __u32 finalize_sec_ctx(__u32 secctx, __u32 src_identity)
 #endif
 
 #ifdef ENABLE_IPV6
-static __always_inline __u32 derive_sec_ctx(struct __ctx_buff *ctx,
+static __always_inline __u32 derive_sec_ctx(struct __ctx_buff *ctx __maybe_unused,
 					    const union v6addr *node_ip,
 					    struct ipv6hdr *ip6, __u32 *identity)
 {
@@ -261,8 +262,9 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-static __always_inline __u32 derive_ipv4_sec_ctx(struct __ctx_buff *ctx,
-						 struct iphdr *ip4)
+static __always_inline
+__u32 derive_ipv4_sec_ctx(struct __ctx_buff *ctx __maybe_unused,
+			  struct iphdr *ip4 __maybe_unused)
 {
 #ifdef FIXED_SRC_SECCTX
 	return FIXED_SRC_SECCTX;
@@ -596,7 +598,7 @@ static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx)
 	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, seclabel, TRACE_PAYLOAD_LEN);
 }
 
-static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto)
+static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto __maybe_unused)
 {
 	return do_netdev_encrypt_encap(ctx);
 }
@@ -695,7 +697,7 @@ int from_netdev(struct __ctx_buff *ctx)
 }
 
 __section("to-netdev")
-int to_netdev(struct __ctx_buff *ctx)
+int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 {
 	/* Cannot compile the section out entriely, test/bpf/verifier-test.sh
 	 * workaround.

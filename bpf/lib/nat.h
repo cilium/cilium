@@ -545,13 +545,16 @@ static __always_inline int snat_v4_process(struct __ctx_buff *ctx, int dir,
 	       snat_v4_rewrite_ingress(ctx, &tuple, state, off);
 }
 #else
-static __always_inline __maybe_unused int snat_v4_process(struct __ctx_buff *ctx, int dir,
-							  const struct ipv4_nat_target *target)
+static __always_inline __maybe_unused
+int snat_v4_process(struct __ctx_buff *ctx __maybe_unused,
+		    int dir __maybe_unused,
+		    const struct ipv4_nat_target *target __maybe_unused)
 {
 	return CTX_ACT_OK;
 }
 
-static __always_inline __maybe_unused void snat_v4_delete_tuples(struct ipv4_ct_tuple *tuple)
+static __always_inline __maybe_unused
+void snat_v4_delete_tuples(struct ipv4_ct_tuple *tuple __maybe_unused)
 {
 }
 #endif
@@ -1012,13 +1015,16 @@ static __always_inline int snat_v6_process(struct __ctx_buff *ctx, int dir,
 	       snat_v6_rewrite_ingress(ctx, &tuple, state, off);
 }
 #else
-static __always_inline __maybe_unused int snat_v6_process(struct __ctx_buff *ctx, int dir,
-					   const struct ipv6_nat_target *target)
+static __always_inline __maybe_unused
+int snat_v6_process(struct __ctx_buff *ctx __maybe_unused,
+		    int dir __maybe_unused,
+		    const struct ipv6_nat_target *target __maybe_unused)
 {
 	return CTX_ACT_OK;
 }
 
-static __always_inline void snat_v6_delete_tuples(struct ipv6_ct_tuple *tuple)
+static __always_inline
+void snat_v6_delete_tuples(struct ipv6_ct_tuple *tuple __maybe_unused)
 {
 }
 #endif

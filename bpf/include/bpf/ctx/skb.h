@@ -47,7 +47,7 @@
 #define ctx_adjust_meta		({ -ENOTSUPP; })
 
 static __always_inline __maybe_unused int
-ctx_redirect(struct __sk_buff *ctx, int ifindex, __u32 flags)
+ctx_redirect(struct __sk_buff *ctx __maybe_unused, int ifindex, __u32 flags)
 {
 	return redirect(ifindex, flags);
 }
