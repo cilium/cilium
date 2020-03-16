@@ -39,7 +39,6 @@ Infrastructure Provisioning
 
 We will use Terraform for provisioning AWS infrastructure.
 
--------------------------
 Configure AWS credentials
 -------------------------
 
@@ -52,7 +51,6 @@ Export the variables for your AWS credentials
   export AWS_SSH_KEY_NAME="yyy"
   export AWS_DEFAULT_REGION="zzz"
 
------------------------------
 Configure Terraform Variables
 -----------------------------
 
@@ -108,7 +106,6 @@ Example ``terraform.tfvars`` file:
   kube_insecure_apiserver_address = "0.0.0.0"
 
 
------------------------
 Apply the configuration
 -----------------------
 
