@@ -290,6 +290,9 @@ data:
   host-reachable-services-protos: {{ .Values.global.hostServices.protocols }}
 {{- end }}
 {{- end }}
+{{- if .Values.global.hostPort }}
+  enable-host-port: {{ .Values.global.hostPort.enabled | quote }}
+{{- end }}
 {{- if .Values.global.externalIPs }}
   enable-external-ips: {{ .Values.global.externalIPs.enabled | quote }}
 {{- end }}

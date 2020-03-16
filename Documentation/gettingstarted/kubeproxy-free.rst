@@ -94,7 +94,8 @@ configuration.
 
 This will install Cilium as a CNI plugin with the BPF kube-proxy replacement to
 implement handling of Kubernetes services of type ClusterIP, NodePort, ExternalIPs
-and LoadBalancer.
+and LoadBalancer. On top of that the BPF kube-proxy replacement also supports
+hostPort for containers such that using portmap is not necessary anymore.
 
 Finally, as a last step, verify that Cilium has come up correctly on all nodes and
 is ready to operate:
@@ -321,6 +322,112 @@ then the same range must be passed to Cilium via the ``global.nodePort.range``
 option, for example, as ``--set global.nodePort.range="10000\,32767"`` for a
 range of ``10000-32767``. The default Kubernetes NodePort range is ``30000-32767``.
 
+Container hostPort support
+**************************
+
+Although not part of kube-proxy, Cilium's BPF kube-proxy replacement also
+natively supports ``hostPort`` service mapping without having to use the
+Helm CNI chaining option of ``global.cni.chainingMode=portmap``.
+
+By specifying ``global.kubeProxyReplacement=strict`` or ``global.kubeProxyReplacement=probe``
+the native hostPort support is automatically enabled and therefore no further
+action is required. Otherwise ``global.hostPort.enabled=true`` can be used to
+enable the setting.
+
+An example deployment in a kube-proxy-free environment therefore is the same
+as in the earlier getting started deployment:
+
+.. parsed-literal::
+
+    helm install cilium |CHART_RELEASE| \\
+        --namespace kube-system \\
+        --set global.kubeProxyReplacement=strict \\
+        --set global.k8sServiceHost=API_SERVER_IP \\
+        --set global.k8sServicePort=API_SERVER_PORT
+
+Also, ensure that each node IP is known via ``INTERNAL-IP`` or ``EXTERNAL-IP``,
+for example:
+
+.. parsed-literal::
+
+    kubectl get nodes -o wide
+    NAME   STATUS   ROLES    AGE     VERSION   INTERNAL-IP      EXTERNAL-IP   [...]
+    apoc   Ready    master   6h15m   v1.17.3   192.168.178.29   <none>        [...]
+    tank   Ready    <none>   6h13m   v1.17.3   192.168.178.28   <none>        [...]
+
+If this is not the case, then ``kubelet`` needs to be made aware of it through
+specifying ``--node-ip`` through ``KUBELET_EXTRA_ARGS``. Assuming ``eth0`` is
+the public facing interface, this can be achieved by:
+
+.. parsed-literal::
+
+    echo KUBELET_EXTRA_ARGS=\"--node-ip=$(ip -4 -o a show eth0 | awk '{print $4}' | cut -d/ -f1)\" | tee -a /etc/default/kubelet
+
+After updating ``/etc/default/kubelet``, kubelet needs to be restarted.
+
+The following modified example yaml from the setup validation with an additional
+``hostPort: 8080`` parameter can be used to verify the mapping:
+
+.. parsed-literal::
+
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: my-nginx
+    spec:
+      selector:
+        matchLabels:
+          run: my-nginx
+      replicas: 1
+      template:
+        metadata:
+          labels:
+            run: my-nginx
+        spec:
+          containers:
+          - name: my-nginx
+            image: nginx
+            ports:
+            - containerPort: 80
+              hostPort: 8080
+
+After deployment, we can validate that Cilium's BPF kube-proxy replacement
+exposed the container as HostPort under the specified port ``8080``:
+
+.. parsed-literal::
+
+    kubectl exec -it -n kube-system cilium-fmh8d -- cilium service list
+    ID   Frontend               Service Type   Backend
+    [...]
+    5    192.168.178.29:8080    HostPort       1 => 10.29.207.199:80
+
+Similarly, we can inspect through ``iptables`` in the host namespace that
+no ``iptables`` rule for the HostPort service is present:
+
+.. parsed-literal::
+
+    iptables-save | grep HOSTPORT
+    [ empty line ]
+
+Last but not least, a simple ``curl`` test shows connectivity for the
+exposed HostPort container under the node's IP:
+
+.. parsed-literal::
+
+    curl 192.168.178.29:8080
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <title>Welcome to nginx!</title>
+    [....]
+
+Removing the deployment also removes the corresponding HostPort from
+the ``cilium service list`` dump:
+
+.. parsed-literal::
+
+    kubectl delete deployment my-nginx
+
 kube-proxy Hybrid Modes
 ***********************
 
@@ -333,9 +440,10 @@ This section therefore elaborates on the various ``global.kubeProxyReplacement``
 - ``global.kubeProxyReplacement=strict``: This option expects a kube-proxy-free
   Kubernetes setup where Cilium is expected to fully replace all kube-proxy
   functionality. Once the Cilium agent is up and running, it takes care of handling
-  Kubernetes services of type ClusterIP, NodePort, ExternalIPs and LoadBalancer.
-  If the underlying kernel version requirements are not met (see :ref:`kubeproxy-free`
-  note), then the Cilium agent will bail out on start-up with an error message.
+  Kubernetes services of type ClusterIP, NodePort, ExternalIPs and LoadBalancer as
+  well as HostPort. If the underlying kernel version requirements are not met
+  (see :ref:`kubeproxy-free` note), then the Cilium agent will bail out on start-up
+  with an error message.
 
 - ``global.kubeProxyReplacement=probe``: This option is intended for a hybrid setup,
   that is, kube-proxy is running in the Kubernetes cluster where Cilium partially
@@ -356,9 +464,9 @@ This section therefore elaborates on the various ``global.kubeProxyReplacement``
   for the BPF kube-proxy replacement should be used. Similarly to ``strict`` mode, the
   Cilium agent will bail out on start-up with an error message if the underlying kernel
   requirements are not met. For fine-grained configuration, ``global.hostServices.enabled``,
-  ``global.nodePort.enabled`` and ``global.externalIPs.enabled`` can be set to ``true``.
-  By default all three options are set to ``false``. A few example configurations for the
-  ``partial`` option are provided below.
+  ``global.nodePort.enabled``, ``global.externalIPs.enabled`` and ``global.hostPort.enabled``
+  can be set to ``true``. By default all four options are set to ``false``. A few example
+  configurations for the ``partial`` option are provided below.
 
   The following helm setup below would be equivalent to ``global.kubeProxyReplacement=strict``
   in a kube-proxy-free environment:
@@ -371,6 +479,7 @@ This section therefore elaborates on the various ``global.kubeProxyReplacement``
         --set global.hostServices.enabled=true \\
         --set global.nodePort.enabled=true \\
         --set global.externalIPs.enabled=true \\
+        --set global.hostPort.enabled=true \\
         --set global.k8sServiceHost=API_SERVER_IP \\
         --set global.k8sServicePort=API_SERVER_PORT
 
@@ -445,7 +554,3 @@ Limitations
       situation.
     * Kubernetes Service sessionAffinity is currently not implemented.
       This will be addressed via `GH issue 9076 <https://github.com/cilium/cilium/issues/9076>`__.
-    * The BPF kube-proxy replacement currently cannot be used in combination with CNI chaining
-      e.g. deployed as ``--set global.cni.chainingMode=portmap``. Future Cilium versions are
-      going to provide native portmap support via BPF and therefore without the need for chaining;
-      tracked via `GH issue 10359 <https://github.com/cilium/cilium/issues/10359>`__.

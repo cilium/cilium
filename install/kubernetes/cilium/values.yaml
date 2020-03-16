@@ -263,6 +263,11 @@ global:
     # mode is the mode of NodePort feature
     mode: "hybrid"
 
+  # hostPort is the configuration for container hostPort mapping
+  hostPort:
+    # enabled enables the hostPort functionality
+    enabled: false
+
   # externalIPs is the configuration for ExternalIPs service handling
   externalIPs:
     # enabled enables ExternalIPs functionality
