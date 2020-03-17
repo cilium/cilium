@@ -221,7 +221,9 @@ func (s *AllocatorSuite) TestSelectID(c *C) {
 		c.Assert(id, Not(Equals), idpool.NoID)
 		c.Assert(val, Equals, id.String())
 		c.Assert(id, Equals, unmaskedID)
+		a.mainCache.mutex.Lock()
 		a.mainCache.cache[id] = TestAllocatorKey(fmt.Sprintf("key-%d", i))
+		a.mainCache.mutex.Unlock()
 	}
 
 	// we should be out of IDs
