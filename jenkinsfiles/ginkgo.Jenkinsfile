@@ -30,6 +30,7 @@ pipeline {
                 BuildIfLabel('integration/cni-flannel', 'Cilium-PR-K8s-Flannel')
                 BuildIfLabel('area/k8s', 'Cilium-PR-Ginkgo-Tests-K8s')
                 BuildIfLabel('area/documentation', 'Cilium-PR-Doc-Tests')
+                sh 'xDDDD'
                 sh 'env'
                 checkout scm
                 sh 'mkdir -p ${PROJ_PATH}'
@@ -302,6 +303,7 @@ pipeline {
         always {
             cleanWs()
             sh '/usr/local/bin/cleanup || true'
+            slackSend "Build Failed- ${env.JOB_NAME} ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)"
         }
     }
 }
