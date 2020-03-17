@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -274,8 +274,10 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		}
 		vm.SampleContainersActions(helpers.Delete, "")
 		vm.ContainerRm(bindContainerName)
-		vm.Exec(fmt.Sprintf("docker network rm  %s", worldNetwork))
+		err := vm.NetworkDelete(worldNetwork).
+			GetErr("Error deleting docker world network")
 		vm.CloseSSHClient()
+		Expect(err).To(BeNil(), "FQDN test did not clean up after itself")
 	})
 
 	JustBeforeEach(func() {
