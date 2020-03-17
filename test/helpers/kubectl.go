@@ -3154,10 +3154,11 @@ func serviceKey(s v1.Service) string {
 func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.Endpoints, k8sServicesFound map[string]bool) error {
 	var k8sService *v1.Service
 
-	// TODO(brb) validate NodePort and LoadBalancer services
+	// TODO(brb) validate NodePort, LoadBalancer and HostPort services
 	if cSvc.Status.Realized.Flags != nil {
 		switch cSvc.Status.Realized.Flags.Type {
 		case models.ServiceSpecFlagsTypeNodePort,
+			models.ServiceSpecFlagsTypeHostPort,
 			models.ServiceSpecFlagsTypeExternalIPs:
 			return nil
 		case "LoadBalancer":

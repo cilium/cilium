@@ -80,6 +80,7 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
+          hostPort: 8080
         readinessProbe:
           httpGet:
             path: /
@@ -89,6 +90,7 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 69
+          hostPort: 6969
           protocol: UDP
       terminationGracePeriodSeconds: 0
       nodeSelector:
