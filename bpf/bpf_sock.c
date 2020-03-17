@@ -742,7 +742,8 @@ int sock6_xlate(struct bpf_sock_addr *ctx)
 }
 
 #ifdef ENABLE_HOST_SERVICES_UDP
-static __always_inline int sock6_xlate_snd_v4_in_v6(struct bpf_sock_addr *ctx)
+static __always_inline int
+sock6_xlate_snd_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
 {
 #ifdef ENABLE_IPV4
 	struct bpf_sock_addr fake_ctx;
@@ -837,7 +838,8 @@ static __always_inline int sock6_xlate_snd(struct bpf_sock_addr *ctx)
 	return SYS_PROCEED;
 }
 
-static __always_inline int sock6_xlate_rcv_v4_in_v6(struct bpf_sock_addr *ctx)
+static __always_inline int
+sock6_xlate_rcv_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
 {
 #ifdef ENABLE_IPV4
 	struct bpf_sock_addr fake_ctx;
