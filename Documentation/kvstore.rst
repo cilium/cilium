@@ -49,10 +49,10 @@ required to implement multi cluster service discovery.
 ============================================================= ====================
 Key                                                           Value
 ============================================================= ====================
-``cilium/state/services/v1/<cluster>/<namespace>/<service>``  service.ClusterService_
+``cilium/state/services/v1/<cluster>/<namespace>/<service>``  serviceStore.ClusterService_
 ============================================================= ====================
 
-.. _service.ClusterService: https://godoc.org/github.com/cilium/cilium/pkg/service#ClusterService
+.. _serviceStore.ClusterService: https://godoc.org/github.com/cilium/cilium/pkg/service/store#ClusterService
 
 Identities
 ----------

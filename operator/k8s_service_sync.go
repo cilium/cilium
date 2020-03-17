@@ -31,10 +31,10 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/serializer"
-	"github.com/cilium/cilium/pkg/service"
+	serviceStore "github.com/cilium/cilium/pkg/service/store"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -45,7 +45,7 @@ var (
 	// k8sSvcCacheSynced is used do signalize when all services are synced with
 	// k8s.
 	k8sSvcCacheSynced = make(chan struct{})
-	servicesStore     *store.SharedStore
+	kvs               *store.SharedStore
 )
 
 func k8sServiceHandler() {
@@ -66,16 +66,16 @@ func k8sServiceHandler() {
 
 		if !event.Service.Shared {
 			// The annotation may have been added, delete an eventual existing service
-			servicesStore.DeleteLocalKey(context.TODO(), &svc)
+			kvs.DeleteLocalKey(context.TODO(), &svc)
 			return
 		}
 
 		switch event.Action {
 		case k8s.UpdateService:
-			servicesStore.UpdateLocalKeySync(context.TODO(), &svc)
+			kvs.UpdateLocalKeySync(context.TODO(), &svc)
 
 		case k8s.DeleteService:
-			servicesStore.DeleteLocalKey(context.TODO(), &svc)
+			kvs.DeleteLocalKey(context.TODO(), &svc)
 		}
 	}
 	for {
@@ -95,9 +95,9 @@ func startSynchronizingServices() {
 
 	go func() {
 		store, err := store.JoinSharedStore(store.Configuration{
-			Prefix: service.ServiceStorePrefix,
+			Prefix: serviceStore.ServiceStorePrefix,
 			KeyCreator: func() store.Key {
-				return &service.ClusterService{}
+				return &serviceStore.ClusterService{}
 			},
 			SynchronizationInterval: 5 * time.Minute,
 		})
@@ -106,7 +106,7 @@ func startSynchronizingServices() {
 			log.WithError(err).Fatal("Unable to join kvstore store to announce services")
 		}
 
-		servicesStore = store
+		kvs = store
 		close(readyChan)
 	}()
 

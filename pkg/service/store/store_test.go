@@ -14,7 +14,7 @@
 
 // +build !privileged_tests
 
-package service
+package store
 
 import (
 	"github.com/cilium/cilium/pkg/checker"
