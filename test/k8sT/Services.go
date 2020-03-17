@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -617,6 +618,45 @@ var _ = Describe("K8sServicesTest", func() {
 			failRequests(tftpURL, count, k8s2Name)
 		}
 
+		testHostPort := func() {
+			var (
+				httpURL string
+				tftpURL string
+			)
+
+			k8s1Name, _ := getNodeInfo(helpers.K8s1)
+			k8s2Name, k8s2IP := getNodeInfo(helpers.K8s2)
+
+			httpHostPort := int32(8080)
+			tftpHostPort := int32(6969)
+
+			httpHostPortStr := strconv.Itoa(int(httpHostPort))
+			tftpHostPortStr := strconv.Itoa(int(tftpHostPort))
+
+			count := 10
+
+			pod, err := kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s2)
+			Expect(err).Should(BeNil(), fmt.Sprintf("Cannot determine cilium pod name"))
+
+			res := kubectl.CiliumExec(pod, "cilium service list | grep "+k8s2IP+":"+httpHostPortStr+" | grep HostPort")
+			Expect(res.GetStdOut()).ShouldNot(BeEmpty(), "No HostPort entry for "+k8s2IP+":"+httpHostPortStr)
+
+			res = kubectl.CiliumExec(pod, "cilium service list | grep "+k8s2IP+":"+tftpHostPortStr+" | grep HostPort")
+			Expect(res.GetStdOut()).ShouldNot(BeEmpty(), "No HostPort entry for "+k8s2IP+":"+tftpHostPortStr)
+
+			// Cluster-internal connectivity to HostPort
+			httpURL = getHTTPLink(k8s2IP, httpHostPort)
+			tftpURL = getTFTPLink(k8s2IP, tftpHostPort)
+
+			// ... from same node
+			doRequests(httpURL, count, k8s2Name)
+			doRequests(tftpURL, count, k8s2Name)
+
+			// ... from different node
+			doRequests(httpURL, count, k8s1Name)
+			doRequests(tftpURL, count, k8s1Name)
+		}
+
 		testHealthCheckNodePort := func() {
 			var data v1.Service
 			k8s1Name, k8s1IP := getNodeInfo(helpers.K8s1)
@@ -706,6 +746,10 @@ var _ = Describe("K8sServicesTest", func() {
 					It("Tests HealthCheckNodePort", func() {
 						testHealthCheckNodePort()
 					})
+
+					It("Tests HostPort", func() {
+						testHostPort()
+					})
 				})
 
 				Context("Tests with direct routing", func() {
@@ -726,6 +770,10 @@ var _ = Describe("K8sServicesTest", func() {
 
 					It("Tests HealthCheckNodePort", func() {
 						testHealthCheckNodePort()
+					})
+
+					It("Tests HostPort", func() {
+						testHostPort()
 					})
 
 					SkipContextIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with MetalLB", func() {
