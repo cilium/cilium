@@ -57,6 +57,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.1
 	github.com/vishvananda/netlink v1.1.1-0.20200210222539-bfba8e4149db
+	github.com/youtube/vitess v2.1.1+incompatible // indirect
 	go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738
 	golang.org/x/crypto v0.0.0-20191206172530-e9b2fee46413
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
@@ -76,6 +77,7 @@ require (
 	k8s.io/code-generator v0.17.3
 	k8s.io/klog v1.0.0
 	sigs.k8s.io/yaml v1.1.0
+	vitess.io/vitess v2.1.1+incompatible
 )
 
 replace (
