@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/testutils"
 
 	. "gopkg.in/check.v1"
@@ -31,6 +32,7 @@ import (
 
 type StatusTestSuite struct {
 	config Config
+	mutex  lock.Mutex
 }
 
 var _ = Suite(&StatusTestSuite{})
@@ -40,11 +42,20 @@ func Test(t *testing.T) {
 }
 
 func (s *StatusTestSuite) SetUpTest(c *C) {
+	s.mutex.Lock()
 	s.config = Config{
 		Interval:         10 * time.Millisecond,
 		WarningThreshold: 20 * time.Millisecond,
 		FailureThreshold: 80 * time.Millisecond,
 	}
+	s.mutex.Unlock()
+}
+
+func (s *StatusTestSuite) Config() (c Config) {
+	s.mutex.Lock()
+	c = s.config
+	s.mutex.Unlock()
+	return
 }
 
 func (s *StatusTestSuite) TestVariableProbeInterval(c *C) {
@@ -78,7 +89,7 @@ func (s *StatusTestSuite) TestVariableProbeInterval(c *C) {
 		},
 	}
 
-	collector := NewCollector(p, s.config)
+	collector := NewCollector(p, s.Config())
 	defer collector.Close()
 
 	// wait for 5 probe intervals to occur with 1 millisecond interval
@@ -94,13 +105,13 @@ func (s *StatusTestSuite) TestCollectorFailureTimeout(c *C) {
 	p := []Probe{
 		{
 			Probe: func(ctx context.Context) (interface{}, error) {
-				time.Sleep(s.config.FailureThreshold * 2)
+				time.Sleep(s.Config().FailureThreshold * 2)
 				return nil, nil
 			},
 			OnStatusUpdate: func(status Status) {
 				if status.StaleWarning && status.Data == nil && status.Err != nil {
 					if strings.Contains(status.Err.Error(),
-						fmt.Sprintf("within %v seconds", s.config.FailureThreshold.Seconds())) {
+						fmt.Sprintf("within %v seconds", s.Config().FailureThreshold.Seconds())) {
 
 						atomic.AddUint64(&ok, 1)
 					}
@@ -109,7 +120,7 @@ func (s *StatusTestSuite) TestCollectorFailureTimeout(c *C) {
 		},
 	}
 
-	collector := NewCollector(p, s.config)
+	collector := NewCollector(p, s.Config())
 	defer collector.Close()
 
 	// wait for the failure timeout to kick in
@@ -144,7 +155,7 @@ func (s *StatusTestSuite) TestCollectorSuccess(c *C) {
 		},
 	}
 
-	collector := NewCollector(p, s.config)
+	collector := NewCollector(p, s.Config())
 	defer collector.Close()
 
 	// wait for the probe to succeed 3 times and to return the error 3 times
@@ -161,7 +172,7 @@ func (s *StatusTestSuite) TestCollectorSuccessAfterTimeout(c *C) {
 		{
 			Probe: func(ctx context.Context) (interface{}, error) {
 				if atomic.LoadUint64(&timeout) == 0 {
-					time.Sleep(2 * s.config.FailureThreshold)
+					time.Sleep(2 * s.Config().FailureThreshold)
 				}
 				return nil, nil
 			},
@@ -176,7 +187,7 @@ func (s *StatusTestSuite) TestCollectorSuccessAfterTimeout(c *C) {
 		},
 	}
 
-	collector := NewCollector(p, s.config)
+	collector := NewCollector(p, s.Config())
 	defer collector.Close()
 
 	// wait for the probe to timeout (warning and failure) and then to succeed
