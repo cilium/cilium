@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ import (
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 	hubbleProto "github.com/cilium/hubble/api/v1/flow"
 	hubbleV1 "github.com/cilium/hubble/pkg/api/v1"
-	"github.com/sirupsen/logrus"
+
 	"golang.org/x/sync/semaphore"
 )
 
@@ -276,7 +276,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 		}
 	}
 
-	authKeySize, encryptKeyID, err := setupIPSec()
+	authKeySize, err := setupIPSec()
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to setup encryption: %s", err)
 	}
@@ -444,32 +444,6 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 
 	if err := d.allocateIPs(); err != nil {
 		return nil, nil, err
-	}
-
-	// Annotation of the k8s node must happen after discovery of the
-	// PodCIDR range and allocation of the health IPs.
-	if k8s.IsEnabled() && option.Config.AnnotateK8sNode {
-		bootstrapStats.k8sInit.Start()
-		log.WithFields(logrus.Fields{
-			logfields.V4Prefix:       node.GetIPv4AllocRange(),
-			logfields.V6Prefix:       node.GetIPv6AllocRange(),
-			logfields.V4HealthIP:     d.nodeDiscovery.LocalNode.IPv4HealthIP,
-			logfields.V6HealthIP:     d.nodeDiscovery.LocalNode.IPv6HealthIP,
-			logfields.V4CiliumHostIP: node.GetInternalIPv4(),
-			logfields.V6CiliumHostIP: node.GetIPv6Router(),
-		}).Info("Annotating k8s node")
-
-		err := k8s.Client().AnnotateNode(node.GetName(),
-			encryptKeyID,
-			node.GetIPv4AllocRange(), node.GetIPv6AllocRange(),
-			d.nodeDiscovery.LocalNode.IPv4HealthIP, d.nodeDiscovery.LocalNode.IPv6HealthIP,
-			node.GetInternalIPv4(), node.GetIPv6Router())
-		if err != nil {
-			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")
-		}
-		bootstrapStats.k8sInit.End(true)
-	} else if !option.Config.AnnotateK8sNode {
-		log.Debug("Annotate k8s node is disabled.")
 	}
 
 	d.nodeDiscovery.StartDiscovery(node.GetName())

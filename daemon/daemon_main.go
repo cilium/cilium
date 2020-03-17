@@ -205,8 +205,8 @@ func init() {
 	flags.String(option.AllowLocalhost, option.AllowLocalhostAuto, "Policy when to allow local stack to reach local endpoints { auto | always | policy }")
 	option.BindEnv(option.AllowLocalhost)
 
-	flags.Bool(option.AnnotateK8sNode, defaults.AnnotateK8sNode, "Annotate Kubernetes node")
-	option.BindEnv(option.AnnotateK8sNode)
+	flags.Bool("annotate-k8s-node", false, "")
+	flags.MarkDeprecated("annotate-k8s-node", "this option no longer has any effect")
 
 	flags.Bool(option.BlacklistConflictingRoutes, defaults.BlacklistConflictingRoutes, "Don't blacklist IP allocations conflicting with local non-cilium routes")
 	option.BindEnv(option.BlacklistConflictingRoutes)
@@ -1266,6 +1266,12 @@ func runDaemon() {
 	go func() {
 		errs <- svr.Serve()
 	}()
+
+	if k8s.IsEnabled() {
+		bootstrapStats.k8sInit.Start()
+		k8s.Client().SetNodeNetworkUnavailableFalse(node.GetName())
+		bootstrapStats.k8sInit.End(true)
+	}
 
 	bootstrapStats.overall.End(true)
 	bootstrapStats.updateMetrics()

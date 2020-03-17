@@ -127,7 +127,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		ExpectWithOffset(1, err).Should(BeNil(), "Pods are not ready after timeout")
 
 		_, err = kubectl.CiliumNodesWait()
-		ExpectWithOffset(1, err).Should(BeNil(), "Failure while waiting for k8s nodes to be annotated by Cilium")
+		ExpectWithOffset(1, err).Should(BeNil(), "Failure while waiting for k8s nodes to be represented by CiliumNode resources")
 
 		By("Making sure all endpoints are in ready state")
 		err = kubectl.CiliumEndpointWaitReady()

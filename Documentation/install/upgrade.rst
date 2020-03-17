@@ -398,6 +398,8 @@ Deprecated options
   1.6. The ``access-log`` option to log to a file has been removed.
 * ``--disable-k8s-services`` option from cilium-agent has been deprecated
   and will be removed in Cilium 1.9.
+* ``annotate-k8s-node``: Node annotations have been removed. The option no
+  longer has any effect and will be removed in 1.9.
 
 Renamed Metrics
 ~~~~~~~~~~~~~~~

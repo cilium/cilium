@@ -23,7 +23,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 
@@ -61,8 +60,6 @@ var nodeSampleJSON = `{
     "metadata": {
         "annotations": {
             "container.googleapis.com/instance_id": "111111111111111111",
-            "io.cilium.network.ipv4-cilium-host": "10.0.0.1",
-            "io.cilium.network.ipv4-health-ip": "10.0.0.1",
             "io.cilium.network.ipv4-pod-cidr": "10.0.0.1/27",
             "node.alpha.kubernetes.io/ttl": "30",
             "volumes.kubernetes.io/controller-managed-attach-detach": "true"
@@ -537,10 +534,7 @@ func (k *K8sIntegrationSuite) benchmarkInformer(nCycles int, newInformer bool, c
 }
 
 func OldEqualV1Node(node1, node2 *v1.Node) bool {
-	// The only information we care about the node is it's annotations, in
-	// particularly the CiliumHostIP annotation.
-	return node1.GetObjectMeta().GetName() == node2.GetObjectMeta().GetName() &&
-		node1.GetAnnotations()[annotation.CiliumHostIP] == node2.GetAnnotations()[annotation.CiliumHostIP]
+	return node1.GetObjectMeta().GetName() == node2.GetObjectMeta().GetName()
 }
 
 func OldCopyObjToV1Node(obj interface{}) *v1.Node {

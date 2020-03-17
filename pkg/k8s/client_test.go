@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,13 +17,10 @@
 package k8s
 
 import (
-	"encoding/json"
-	"fmt"
-	"net"
+	"strings"
 	"time"
 
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/source"
@@ -42,8 +39,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "node1",
 			Annotations: map[string]string{
-				annotation.V4CIDRName:   "10.254.0.0/16",
-				annotation.CiliumHostIP: "10.254.0.1",
+				annotation.V4CIDRName: "10.254.0.0/16",
 			},
 		},
 		Spec: v1.NodeSpec{
@@ -53,29 +49,22 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 
 	// set buffer to 2 to prevent blocking when calling UseNodeCIDR
 	// and we need to wait for the response of the channel.
-	patchChan := make(chan bool, 2)
+	patchStatusChan := make(chan bool, 2)
 	fakeK8sClient := &fake.Clientset{}
 	k8sCli.Interface = fakeK8sClient
 	fakeK8sClient.AddReactor("patch", "nodes",
 		func(action testing.Action) (bool, runtime.Object, error) {
-			// If subresource is empty it means we are patching status and not
-			// patching annotations
-			if action.GetSubresource() != "" {
+			if action.GetSubresource() != "status" {
 				return true, nil, nil
 			}
 
-			n1copy := node1.DeepCopy()
-			n1copy.Annotations[annotation.V4CIDRName] = "10.2.0.0/16"
-			raw, err := json.Marshal(n1copy.Annotations)
-			if err != nil {
-				c.Assert(err, IsNil)
-			}
-			patchWanted := []byte(fmt.Sprintf(`{"metadata":{"annotations":%s}}`, raw))
-
 			patchReceived := action.(testing.PatchAction).GetPatch()
-			c.Assert(string(patchReceived), checker.DeepEquals, string(patchWanted))
-			patchChan <- true
-			return true, n1copy, nil
+			if !strings.Contains(string(patchReceived), `"status":"False"`) {
+				c.Errorf("PatchStatus() did not patch \"status\":\"False\"")
+				c.FailNow()
+			}
+			patchStatusChan <- true
+			return true, node1.DeepCopy(), nil
 		})
 
 	node1Slim := ConvertToNode(node1.DeepCopy()).(*types.Node)
@@ -85,21 +74,12 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	c.Assert(node.GetIPv4AllocRange().String(), Equals, "10.2.0.0/16")
 	// IPv6 Node range is not checked because it shouldn't be changed.
 
-	err := k8sCli.AnnotateNode("node1",
-		0,
-		node.GetIPv4AllocRange(),
-		node.GetIPv6AllocRange(),
-		nil,
-		nil,
-		net.ParseIP("10.254.0.1"),
-		net.ParseIP(""))
-
-	c.Assert(err, IsNil)
+	k8sCli.SetNodeNetworkUnavailableFalse("node1")
 
 	select {
-	case <-patchChan:
+	case <-patchStatusChan:
 	case <-time.Tick(10 * time.Second):
-		c.Errorf("d.fakeK8sClient.CoreV1().Nodes().Update() was not called")
+		c.Errorf("d.fakeK8sClient.CoreV1().Nodes().PatchStatus() was not called")
 		c.FailNow()
 	}
 
@@ -108,45 +88,13 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "node2",
 			Annotations: map[string]string{
-				annotation.V4CIDRName:   "10.254.0.0/16",
-				annotation.CiliumHostIP: "10.254.0.1",
+				annotation.V4CIDRName: "10.254.0.0/16",
 			},
 		},
 		Spec: v1.NodeSpec{
 			PodCIDR: "aaaa:aaaa:aaaa:aaaa:beef:beef::/96",
 		},
 	}
-
-	failAttempts := 0
-
-	fakeK8sClient = &fake.Clientset{}
-	k8sCli.Interface = fakeK8sClient
-	fakeK8sClient.AddReactor("patch", "nodes",
-		func(action testing.Action) (bool, runtime.Object, error) {
-			// If subresource is empty it means we are patching status and not
-			// patching annotations
-			if action.GetSubresource() != "" {
-				return true, nil, nil
-			}
-			// first call will be a patch for annotations
-			if failAttempts == 0 {
-				failAttempts++
-				return true, nil, fmt.Errorf("failing on purpose")
-			}
-			n2Copy := node2.DeepCopy()
-			n2Copy.Annotations[annotation.V4CIDRName] = "10.254.0.0/16"
-			n2Copy.Annotations[annotation.V6CIDRName] = "aaaa:aaaa:aaaa:aaaa:beef:beef::/96"
-			raw, err := json.Marshal(n2Copy.Annotations)
-			if err != nil {
-				c.Assert(err, IsNil)
-			}
-			patchWanted := []byte(fmt.Sprintf(`{"metadata":{"annotations":%s}}`, raw))
-
-			patchReceived := action.(testing.PatchAction).GetPatch()
-			c.Assert(string(patchReceived), checker.DeepEquals, string(patchWanted))
-			patchChan <- true
-			return true, n2Copy, nil
-		})
 
 	node2Slim := ConvertToNode(node2.DeepCopy()).(*types.Node)
 	node2Cilium := ParseNode(node2Slim, source.Unspec)
@@ -156,22 +104,4 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	// IPv6.
 	c.Assert(node.GetIPv4AllocRange().String(), Equals, "10.254.0.0/16")
 	c.Assert(node.GetIPv6AllocRange().String(), Equals, "aaaa:aaaa:aaaa:aaaa:beef:beef::/96")
-
-	err = k8sCli.AnnotateNode("node2",
-		0,
-		node.GetIPv4AllocRange(),
-		node.GetIPv6AllocRange(),
-		nil,
-		nil,
-		net.ParseIP("10.254.0.1"),
-		net.ParseIP(""))
-
-	c.Assert(err, IsNil)
-
-	select {
-	case <-patchChan:
-	case <-time.Tick(10 * time.Second):
-		c.Errorf("d.fakeK8sClient.CoreV1().Nodes().Update() was not called")
-		c.FailNow()
-	}
 }

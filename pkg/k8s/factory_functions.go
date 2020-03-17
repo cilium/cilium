@@ -243,19 +243,6 @@ func EqualV1Node(node1, node2 *types.Node) bool {
 		return false
 	}
 
-	anno1 := node1.GetAnnotations()
-	anno2 := node2.GetAnnotations()
-	annotationsWeCareAbout := []string{
-		annotation.CiliumHostIP,
-		annotation.CiliumHostIPv6,
-		annotation.V4HealthName,
-		annotation.V6HealthName,
-	}
-	for _, an := range annotationsWeCareAbout {
-		if anno1[an] != anno2[an] {
-			return false
-		}
-	}
 	if len(node1.SpecTaints) != len(node2.SpecTaints) {
 		return false
 	}
