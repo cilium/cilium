@@ -26,12 +26,12 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/service"
+	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/testutils"
 
 	"gopkg.in/check.v1"
 	. "gopkg.in/check.v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -392,14 +392,14 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 	}, 2*time.Second), check.IsNil)
 
 	// Merging a service update with own cluster name must not result in update
-	svcCache.MergeExternalServiceUpdate(&service.ClusterService{
+	svcCache.MergeExternalServiceUpdate(&serviceStore.ClusterService{
 		Cluster:   option.Config.ClusterName,
 		Namespace: "bar",
 		Name:      "foo",
-		Frontends: map[string]service.PortConfiguration{
+		Frontends: map[string]serviceStore.PortConfiguration{
 			"1.1.1.1": {},
 		},
-		Backends: map[string]service.PortConfiguration{
+		Backends: map[string]serviceStore.PortConfiguration{
 			"3.3.3.3": map[string]*loadbalancer.L4Addr{
 				"port": {Protocol: loadbalancer.TCP, Port: 80},
 			},
@@ -416,14 +416,14 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 	default:
 	}
 
-	svcCache.MergeExternalServiceUpdate(&service.ClusterService{
+	svcCache.MergeExternalServiceUpdate(&serviceStore.ClusterService{
 		Cluster:   "cluster1",
 		Namespace: "bar",
 		Name:      "foo",
-		Frontends: map[string]service.PortConfiguration{
+		Frontends: map[string]serviceStore.PortConfiguration{
 			"1.1.1.1": {},
 		},
-		Backends: map[string]service.PortConfiguration{
+		Backends: map[string]serviceStore.PortConfiguration{
 			"3.3.3.3": map[string]*loadbalancer.L4Addr{
 				"port": {Protocol: loadbalancer.TCP, Port: 80},
 			},
@@ -440,13 +440,13 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 		c.Assert(event.ID, check.Equals, svcID)
 
 		c.Assert(event.Endpoints.Backends["2.2.2.2"], checker.DeepEquals, &Backend{
-			Ports: service.PortConfiguration{
+			Ports: serviceStore.PortConfiguration{
 				"http-test-svc": {Protocol: loadbalancer.TCP, Port: 8080},
 			},
 		})
 
 		c.Assert(event.Endpoints.Backends["3.3.3.3"], checker.DeepEquals, &Backend{
-			Ports: service.PortConfiguration{
+			Ports: serviceStore.PortConfiguration{
 				"port": {Protocol: loadbalancer.TCP, Port: 80},
 			},
 		})
@@ -455,14 +455,14 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 	}, 2*time.Second), check.IsNil)
 
 	// Merging a service for another name should not trigger any updates
-	svcCache.MergeExternalServiceUpdate(&service.ClusterService{
+	svcCache.MergeExternalServiceUpdate(&serviceStore.ClusterService{
 		Cluster:   "cluster",
 		Namespace: "bar",
 		Name:      "foo2",
-		Frontends: map[string]service.PortConfiguration{
+		Frontends: map[string]serviceStore.PortConfiguration{
 			"1.1.1.1": {},
 		},
-		Backends: map[string]service.PortConfiguration{
+		Backends: map[string]serviceStore.PortConfiguration{
 			"3.3.3.3": map[string]*loadbalancer.L4Addr{
 				"port": {Protocol: loadbalancer.TCP, Port: 80},
 			},
@@ -512,14 +512,14 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 		return true
 	}, 2*time.Second), check.IsNil)
 
-	cluster2svc := &service.ClusterService{
+	cluster2svc := &serviceStore.ClusterService{
 		Cluster:   "cluster2",
 		Namespace: "bar",
 		Name:      "foo",
-		Frontends: map[string]service.PortConfiguration{
+		Frontends: map[string]serviceStore.PortConfiguration{
 			"1.1.1.1": {},
 		},
-		Backends: map[string]service.PortConfiguration{
+		Backends: map[string]serviceStore.PortConfiguration{
 			"4.4.4.4": map[string]*loadbalancer.L4Addr{
 				"port": {Protocol: loadbalancer.TCP, Port: 80},
 			},
@@ -534,7 +534,7 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 		c.Assert(event.Action, check.Equals, UpdateService)
 
 		c.Assert(event.Endpoints.Backends["4.4.4.4"], checker.DeepEquals, &Backend{
-			Ports: service.PortConfiguration{
+			Ports: serviceStore.PortConfiguration{
 				"port": {Protocol: loadbalancer.TCP, Port: 80},
 			},
 		})
@@ -569,7 +569,7 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 		c.Assert(event.Action, check.Equals, UpdateService)
 		c.Assert(event.ID, check.Equals, svcID)
 		c.Assert(event.Endpoints.Backends["3.3.3.3"], checker.DeepEquals, &Backend{
-			Ports: service.PortConfiguration{
+			Ports: serviceStore.PortConfiguration{
 				"port": {Protocol: loadbalancer.TCP, Port: 80},
 			},
 		})
@@ -615,11 +615,11 @@ func (s *K8sSuite) TestNonSharedServie(c *check.C) {
 	swgSvcs := lock.NewStoppableWaitGroup()
 	svcCache.UpdateService(k8sSvc, swgSvcs)
 
-	svcCache.MergeExternalServiceUpdate(&service.ClusterService{
+	svcCache.MergeExternalServiceUpdate(&serviceStore.ClusterService{
 		Cluster:   "cluster1",
 		Namespace: "bar",
 		Name:      "foo",
-		Backends: map[string]service.PortConfiguration{
+		Backends: map[string]serviceStore.PortConfiguration{
 			"3.3.3.3": map[string]*loadbalancer.L4Addr{
 				"port": {Protocol: loadbalancer.TCP, Port: 80},
 			},

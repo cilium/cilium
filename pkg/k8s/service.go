@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/service"
+	serviceStore "github.com/cilium/cilium/pkg/service/store"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -387,10 +387,10 @@ func (s *Service) UniquePorts() map[uint16]bool {
 	return uniqPorts
 }
 
-// NewClusterService returns the service.ClusterService representing a
+// NewClusterService returns the serviceStore.ClusterService representing a
 // Kubernetes Service
-func NewClusterService(id ServiceID, k8sService *Service, k8sEndpoints *Endpoints) service.ClusterService {
-	svc := service.NewClusterService(id.Name, id.Namespace)
+func NewClusterService(id ServiceID, k8sService *Service, k8sEndpoints *Endpoints) serviceStore.ClusterService {
+	svc := serviceStore.NewClusterService(id.Name, id.Namespace)
 
 	for key, value := range k8sService.Labels {
 		svc.Labels[key] = value
@@ -400,15 +400,15 @@ func NewClusterService(id ServiceID, k8sService *Service, k8sEndpoints *Endpoint
 		svc.Selector[key] = value
 	}
 
-	portConfig := service.PortConfiguration{}
+	portConfig := serviceStore.PortConfiguration{}
 	for portName, port := range k8sService.Ports {
 		portConfig[string(portName)] = port
 	}
 
-	svc.Frontends = map[string]service.PortConfiguration{}
+	svc.Frontends = map[string]serviceStore.PortConfiguration{}
 	svc.Frontends[k8sService.FrontendIP.String()] = portConfig
 
-	svc.Backends = map[string]service.PortConfiguration{}
+	svc.Backends = map[string]serviceStore.PortConfiguration{}
 	for ipString, backend := range k8sEndpoints.Backends {
 		svc.Backends[ipString] = backend.Ports
 	}
