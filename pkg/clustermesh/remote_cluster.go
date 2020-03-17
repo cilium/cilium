@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
-	"github.com/cilium/cilium/pkg/service"
+	serviceStore "github.com/cilium/cilium/pkg/service/store"
 
 	"github.com/sirupsen/logrus"
 )
@@ -175,9 +175,9 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 				}
 
 				remoteServices, err := store.JoinSharedStore(store.Configuration{
-					Prefix: path.Join(service.ServiceStorePrefix, rc.name),
+					Prefix: path.Join(serviceStore.ServiceStorePrefix, rc.name),
 					KeyCreator: func() store.Key {
-						svc := service.ClusterService{}
+						svc := serviceStore.ClusterService{}
 						return &svc
 					},
 					SynchronizationInterval: time.Minute,
