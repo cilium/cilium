@@ -29,7 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/service"
+	serviceStore "github.com/cilium/cilium/pkg/service/store"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/discovery/v1beta1"
@@ -50,7 +50,7 @@ type Endpoints struct {
 // Backend contains all ports and the node name of a given backend
 // +k8s:deepcopy-gen=true
 type Backend struct {
-	Ports    service.PortConfiguration
+	Ports    serviceStore.PortConfiguration
 	NodeName string
 }
 
@@ -152,7 +152,7 @@ func ParseEndpoints(ep *types.Endpoints) (ServiceID, *Endpoints) {
 		for _, addr := range sub.Addresses {
 			backend, ok := endpoints.Backends[addr.IP]
 			if !ok {
-				backend = &Backend{Ports: service.PortConfiguration{}}
+				backend = &Backend{Ports: serviceStore.PortConfiguration{}}
 				endpoints.Backends[addr.IP] = backend
 			}
 
@@ -195,7 +195,7 @@ func ParseEndpointSlice(ep *types.EndpointSlice) (ServiceID, *Endpoints) {
 		for _, addr := range sub.Addresses {
 			backend, ok := endpoints.Backends[addr]
 			if !ok {
-				backend = &Backend{Ports: service.PortConfiguration{}}
+				backend = &Backend{Ports: serviceStore.PortConfiguration{}}
 				endpoints.Backends[addr] = backend
 				if nodeName, ok := sub.Topology["kubernetes.io/hostname"]; ok {
 					backend.NodeName = nodeName
