@@ -37,8 +37,6 @@ UTC_DATE=$(shell date -u "+%Y-%m-%d")
 GO_VERSION := $(shell cat GO_VERSION)
 GOARCH := $(shell $(GO) env GOARCH)
 
-ARCH=$(subst aarch64,arm64,$(subst x86_64,amd64,$(patsubst i%86,386,$(shell uname -m))))
-
 # Since there's a bug with NFS or the kernel, the flock syscall hangs the documentation
 # build in the developer VM. For this reason the documentation build is skipped if NFS
 # is running in the developer VM.
@@ -226,9 +224,9 @@ docker-image-no-clean: GIT_VERSION
 		--build-arg V=${V} \
 		--build-arg LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
 		-t "cilium/cilium:$(DOCKER_IMAGE_TAG)" .
-	$(CONTAINER_ENGINE_FULL) tag cilium/cilium:$(DOCKER_IMAGE_TAG) cilium/cilium:$(DOCKER_IMAGE_TAG)-${ARCH}
+	$(CONTAINER_ENGINE_FULL) tag cilium/cilium:$(DOCKER_IMAGE_TAG) cilium/cilium:$(DOCKER_IMAGE_TAG)-${GOARCH}
 	$(QUIET)echo "Push like this when ready:"
-	$(QUIET)echo "${CONTAINER_ENGINE} push cilium/cilium:$(DOCKER_IMAGE_TAG)-${ARCH}"
+	$(QUIET)echo "${CONTAINER_ENGINE} push cilium/cilium:$(DOCKER_IMAGE_TAG)-${GOARCH}"
 
 docker-cilium-manifest:
 	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh cilium $(DOCKER_IMAGE_TAG)
@@ -240,9 +238,9 @@ dev-docker-image: GIT_VERSION
 		--build-arg V=${V} \
 		--build-arg LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
 		-t "cilium/cilium-dev:$(DOCKER_IMAGE_TAG)" .
-	$(CONTAINER_ENGINE_FULL) tag cilium/cilium-dev:$(DOCKER_IMAGE_TAG) cilium/cilium-dev:$(DOCKER_IMAGE_TAG)-${ARCH}
+	$(CONTAINER_ENGINE_FULL) tag cilium/cilium-dev:$(DOCKER_IMAGE_TAG) cilium/cilium-dev:$(DOCKER_IMAGE_TAG)-${GOARCH}
 	$(QUIET)echo "Push like this when ready:"
-	$(QUIET)echo "${CONTAINER_ENGINE} push cilium/cilium-dev:$(DOCKER_IMAGE_TAG)-${ARCH}"
+	$(QUIET)echo "${CONTAINER_ENGINE} push cilium/cilium-dev:$(DOCKER_IMAGE_TAG)-${GOARCH}"
 
 docker-cilium-dev-manifest:
 	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh cilium-dev $(DOCKER_IMAGE_TAG)
@@ -250,9 +248,9 @@ docker-cilium-dev-manifest:
 
 docker-operator-image: GIT_VERSION
 	$(CONTAINER_ENGINE_FULL) build --build-arg LOCKDEBUG=${LOCKDEBUG} -f cilium-operator.Dockerfile -t "cilium/operator:$(DOCKER_IMAGE_TAG)" .
-	$(CONTAINER_ENGINE_FULL) tag cilium/operator:$(DOCKER_IMAGE_TAG) cilium/operator:$(DOCKER_IMAGE_TAG)-${ARCH}
+	$(CONTAINER_ENGINE_FULL) tag cilium/operator:$(DOCKER_IMAGE_TAG) cilium/operator:$(DOCKER_IMAGE_TAG)-${GOARCH}
 	$(QUIET)echo "Push like this when ready:"
-	$(QUIET)echo "docker push cilium/operator:$(DOCKER_IMAGE_TAG)-${ARCH}"
+	$(QUIET)echo "docker push cilium/operator:$(DOCKER_IMAGE_TAG)-${GOARCH}"
 
 docker-operator-manifest:
 	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh operator $(DOCKER_IMAGE_TAG)
@@ -260,9 +258,9 @@ docker-operator-manifest:
 
 docker-plugin-image: GIT_VERSION
 	$(CONTAINER_ENGINE_FULL) build --build-arg LOCKDEBUG=${LOCKDEUBG} -f cilium-docker-plugin.Dockerfile -t "cilium/docker-plugin:$(DOCKER_IMAGE_TAG)" .
-	$(CONTAINER_ENGINE_FULL) tag cilium/docker-plugin:$(DOCKER_IMAGE_TAG) cilium/docker-plugin:$(DOCKER_IMAGE_TAG)-${ARCH}
+	$(CONTAINER_ENGINE_FULL) tag cilium/docker-plugin:$(DOCKER_IMAGE_TAG) cilium/docker-plugin:$(DOCKER_IMAGE_TAG)-${GOARCH}
 	$(QUIET)echo "Push like this when ready:"
-	$(QUIET)echo "docker push cilium/docker-plugin:$(DOCKER_IMAGE_TAG)-${ARCH}"
+	$(QUIET)echo "docker push cilium/docker-plugin:$(DOCKER_IMAGE_TAG)-${GOARCH}"
 
 docker-plugin-manifest:
 	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh docker-plugin $(DOCKER_IMAGE_TAG)
@@ -270,7 +268,7 @@ docker-plugin-manifest:
 
 docker-image-runtime:
 	cd contrib/packaging/docker && ${CONTAINER_ENGINE} build -t "cilium/cilium-runtime:$(UTC_DATE)" -f Dockerfile.runtime .
-	${CONTAINER_ENGINE} tag cilium/cilium-runtime:$(UTC_DATE) cilium/cilium-runtime:$(UTC_DATE)-${ARCH}
+	${CONTAINER_ENGINE} tag cilium/cilium-runtime:$(UTC_DATE) cilium/cilium-runtime:$(UTC_DATE)-${GOARCH}
 
 docker-cilium-runtime-manifest:
 	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh cilium-runtime $(UTC_DATE)
@@ -278,7 +276,7 @@ docker-cilium-runtime-manifest:
 
 docker-image-builder:
 	${CONTAINER_ENGINE_FULL} build -t "cilium/cilium-builder:$(UTC_DATE)" -f Dockerfile.builder .
-	${CONTAINER_ENGINE_FULL} tag cilium/cilium-builder:$(UTC_DATE) cilium/cilium-builder:$(UTC_DATE)-${ARCH}
+	${CONTAINER_ENGINE_FULL} tag cilium/cilium-builder:$(UTC_DATE) cilium/cilium-builder:$(UTC_DATE)-${GOARCH}
 
 docker-cilium-builder-manifest:
 	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh cilium-builder $(UTC_DATE)
