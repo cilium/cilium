@@ -869,10 +869,12 @@ func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
 	res := kub.DeleteAllInNamespace(name)
 	if !res.WasSuccessful() {
 		kub.Logger().Infof("Error while deleting all objects from %s ns: %s", name, res.GetError())
+		return res
 	}
 	res = kub.ExecShort(fmt.Sprintf("%s delete namespace %s", KubectlCmd, name))
 	if !res.WasSuccessful() {
 		kub.Logger().Infof("Error while deleting ns %s: %s", name, res.GetError())
+		return res
 	}
 	return kub.ExecShort(fmt.Sprintf(
 		"%[1]s get namespace %[2]s -o json | tr -d \"\\n\" | sed \"s/\\\"finalizers\\\": \\[[^]]\\+\\]/\\\"finalizers\\\": []/\" | %[1]s replace --raw /api/v1/namespaces/%[2]s/finalize -f -", KubectlCmd, name))
@@ -881,6 +883,14 @@ func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
 
 // DeleteAllInNamespace deletes all k8s objects in a namespace
 func (kub *Kubectl) DeleteAllInNamespace(name string) *CmdRes {
+	// Try the simpler delete command. If this fails then we bail out. If it
+	// succeeds we will need to run the more complex one since `all` doesn't
+	// select everything.
+	if res := kub.ExecShort(fmt.Sprintf("%s delete all -n %s --all", KubectlCmd, name)); !res.WasSuccessful() {
+		kub.Logger().Infof("Error while deleting in ns %s: %s", name, res.GetError())
+		return res
+	}
+
 	// we are getting all namespaced resources from k8s apiserver, and delete all objects of these types in a provided namespace
 	return kub.ExecShort(fmt.Sprintf("%s delete $(%s api-resources --namespaced=true --verbs=delete -o name | tr '\n' ',' | sed -e 's/,$//') -n %s --all",
 		KubectlCmd, KubectlCmd, name))
