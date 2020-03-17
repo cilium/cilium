@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	datapathIpcache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
-	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -126,7 +125,7 @@ func clearCiliumVeths() error {
 }
 
 // SetPrefilter sets the preftiler for the given daemon.
-func (d *Daemon) SetPrefilter(preFilter *prefilter.PreFilter) {
+func (d *Daemon) SetPrefilter(preFilter datapath.PreFilter) {
 	d.preFilter = preFilter
 }
 
