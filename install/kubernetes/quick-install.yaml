@@ -61,7 +61,7 @@ data:
   # Only effective when monitor aggregation is set to "medium" or higher.
   monitor-aggregation-flags: all
 
-  # ct-global-max-entries-* specifies the maximum number of connections
+  # bpf-ct-global-*-max specifies the maximum number of connections
   # supported across all endpoints, split by protocol: tcp or other. One pair
   # of maps uses these values for IPv4 connections, and another pair of maps
   # use these values for IPv6 connections.
@@ -77,7 +77,7 @@ data:
 
   # bpf-nat-global-max specified the maximum number of entries in the BPF NAT
   # table.
-  bpf-nat-global-max: "841429"
+  bpf-nat-global-max: "524288"
 
   # Pre-allocation of map entries allows per-packet latency to be reduced, at
   # the expense of up-front memory allocation for the entries in the maps. The
