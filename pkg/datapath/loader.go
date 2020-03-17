@@ -16,9 +16,10 @@ package datapath
 
 import (
 	"context"
+	"io"
+	"net"
 
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
-	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -40,7 +41,15 @@ type BaseProgramOwner interface {
 	GetCompilationLock() *lock.RWMutex
 	Datapath() Datapath
 	LocalConfig() *LocalNodeConfiguration
-	SetPrefilter(pf *prefilter.PreFilter)
+	SetPrefilter(pf PreFilter)
+}
+
+// PreFilter an interface for an XDP pre-filter.
+type PreFilter interface {
+	WriteConfig(fw io.Writer)
+	Dump(to []string) ([]string, int64)
+	Insert(revision int64, cidrs []net.IPNet) error
+	Delete(revision int64, cidrs []net.IPNet) error
 }
 
 // RouteReserver is any type which is responsible for installing local routes.
