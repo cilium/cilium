@@ -266,14 +266,6 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		} else {
 			addLabels.MergeLabels(identityLabels)
 			infoLabels.MergeLabels(info)
-			ep.UpdateVisibilityPolicy(func(ns, podName string) (proxyVisibility string, err error) {
-				p, err := d.k8sWatcher.GetCachedPod(ns, podName)
-				if err != nil {
-					return "", err
-				}
-
-				return p.Annotations[annotation.ProxyVisibility], nil
-			})
 		}
 	}
 
@@ -292,10 +284,11 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	// is available or has received the notification that includes the
 	// static pod's labels. In this case, start a controller to attempt to
 	// resolve the labels.
+	k8sLabelsConfigured := true
 	if ep.K8sNamespaceAndPodNameIsSet() && k8s.IsEnabled() {
 		// If there are labels, but no pod namespace, then it's
 		// likely that there are no k8s labels at all. Resolve.
-		if _, k8sLabelsConfigured := addLabels[k8sConst.PodNamespaceLabel]; !k8sLabelsConfigured {
+		if _, k8sLabelsConfigured = addLabels[k8sConst.PodNamespaceLabel]; !k8sLabelsConfigured {
 			ep.RunMetadataResolver(d.fetchK8sLabelsAndAnnotations)
 		}
 	}
@@ -303,6 +296,21 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	err = d.endpointManager.AddEndpoint(d, ep, "Create endpoint from API PUT")
 	if err != nil {
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to insert endpoint into manager: %s", err))
+	}
+
+	// We need to update the the visibility policy after adding the endpoint in
+	// the endpoint manager because the endpoint manager create the endpoint
+	// queue of the endpoint. If we execute this function before the endpoint
+	// manager creates the endpoint queue the operation will fail.
+	if ep.K8sNamespaceAndPodNameIsSet() && k8s.IsEnabled() && k8sLabelsConfigured {
+		ep.UpdateVisibilityPolicy(func(ns, podName string) (proxyVisibility string, err error) {
+			p, err := d.k8sWatcher.GetCachedPod(ns, podName)
+			if err != nil {
+				return "", err
+			}
+
+			return p.Annotations[annotation.ProxyVisibility], nil
+		})
 	}
 
 	ep.UpdateLabels(ctx, addLabels, infoLabels, true)
