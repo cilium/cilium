@@ -389,6 +389,7 @@ microk
 microservice
 microservices
 minikube
+misconfigures
 mlx
 mov
 mul
