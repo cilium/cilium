@@ -73,8 +73,8 @@ type AzureInterface struct {
 	// +optional
 	State string `json:"state,omitempty"`
 
-	// Addresses is the list of all IPs associated with the ENI, including
-	// all secondary addresses
+	// Addresses is the list of all IPs associated with the interface,
+	// including all secondary addresses
 	//
 	// +optional
 	Addresses []AzureAddress `json:"addresses,omitempty"`
