@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 // Copyright 2017 Lyft, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,7 +22,6 @@ import (
 	"time"
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -65,33 +64,6 @@ type Node struct {
 // UpdatedNode is called when an update to the CiliumNode is received.
 func (n *Node) UpdatedNode(obj *v2.CiliumNode) {
 	n.k8sObj = obj
-}
-
-// GetMaxAboveWatermark returns the max-above-watermark setting for an AWS node
-func (n *Node) GetMaxAboveWatermark() int {
-	if n.k8sObj.Spec.IPAM.MaxAboveWatermark != 0 {
-		return n.k8sObj.Spec.IPAM.MaxAboveWatermark
-	}
-	return n.k8sObj.Spec.ENI.MaxAboveWatermark
-}
-
-// GetPreAllocate returns the pre-allocation setting for an AWS node
-func (n *Node) GetPreAllocate() int {
-	if n.k8sObj.Spec.IPAM.PreAllocate != 0 {
-		return n.k8sObj.Spec.IPAM.PreAllocate
-	}
-	if n.k8sObj.Spec.ENI.PreAllocate != 0 {
-		return n.k8sObj.Spec.ENI.PreAllocate
-	}
-	return defaults.IPAMPreAllocation
-}
-
-// GetMinAllocate returns the minimum-allocation setting of an AWS node
-func (n *Node) GetMinAllocate() int {
-	if n.k8sObj.Spec.IPAM.MinAllocate != 0 {
-		return n.k8sObj.Spec.IPAM.MinAllocate
-	}
-	return n.k8sObj.Spec.ENI.MinAllocate
 }
 
 func (n *Node) logger() *logrus.Entry {

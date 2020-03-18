@@ -74,9 +74,6 @@ type nodeOperationsMock struct {
 }
 
 func (n *nodeOperationsMock) UpdatedNode(obj *v2.CiliumNode) { n.k8sObj = obj }
-func (n *nodeOperationsMock) GetMaxAboveWatermark() int      { return n.k8sObj.Spec.IPAM.MaxAboveWatermark }
-func (n *nodeOperationsMock) GetPreAllocate() int            { return n.k8sObj.Spec.IPAM.PreAllocate }
-func (n *nodeOperationsMock) GetMinAllocate() int            { return n.k8sObj.Spec.IPAM.MinAllocate }
 
 func (n *nodeOperationsMock) PopulateStatusFields(resource *v2.CiliumNode) {}
 

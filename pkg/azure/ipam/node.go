@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/azure/types"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -52,24 +51,6 @@ type Node struct {
 // UpdatedNode is called when an update to the CiliumNode is received.
 func (n *Node) UpdatedNode(obj *v2.CiliumNode) {
 	n.k8sObj = obj
-}
-
-// GetMaxAboveWatermark returns the max-above-watermark setting for an Azure node
-func (n *Node) GetMaxAboveWatermark() int {
-	return n.k8sObj.Spec.IPAM.MaxAboveWatermark
-}
-
-// GetPreAllocate returns the pre-allocation setting for an Azure node
-func (n *Node) GetPreAllocate() int {
-	if n.k8sObj.Spec.IPAM.PreAllocate != 0 {
-		return n.k8sObj.Spec.IPAM.PreAllocate
-	}
-	return defaults.IPAMPreAllocation
-}
-
-// GetMinAllocate returns the min-allocation setting for an Azure node
-func (n *Node) GetMinAllocate() int {
-	return n.k8sObj.Spec.IPAM.MinAllocate
 }
 
 func (n *Node) instanceIdLocked() (id string) {
