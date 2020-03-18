@@ -343,91 +343,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false)).Should(BeTrue(), "Connectivity test to http://google.com failed")
 		})
 
-		SkipContextIf(helpers.DoesNotExistNodeWithoutCilium, "Check BPF masquerading with ip-masq-agent", func() {
-			var (
-				tmpEchoPodPath      string
-				tmpConfigMapDirPath string
-				tmpConfigMapPath    string
-			)
-
-			BeforeAll(func() {
-				// Deploy echoserver on the node which does not run Cilium to test
-				// BPF masquerading. The pod will run in the host netns, so no CNI
-				// is required for the pod on that host.
-				echoPodPath := helpers.ManifestGet(kubectl.BasePath(), "echoserver-hostnetns.yaml")
-				res := kubectl.ExecMiddle("mktemp")
-				res.ExpectSuccess()
-				tmpEchoPodPath = strings.Trim(res.GetStdOut(), "\n")
-				kubectl.ExecMiddle(fmt.Sprintf("sed 's/NODE_WITHOUT_CILIUM/%s/' %s > %s",
-					helpers.GetNodeWithoutCilium(), echoPodPath, tmpEchoPodPath)).ExpectSuccess()
-				kubectl.ApplyDefault(tmpEchoPodPath).ExpectSuccess("Cannot install echoserver application")
-				Expect(kubectl.WaitforPods(helpers.DefaultNamespace, "-l app=echoserver", helpers.HelperTimeout)).
-					Should(BeNil())
-
-				// Setup ip-masq-agent configmap dir
-				res = kubectl.ExecMiddle("mktemp -d")
-				res.ExpectSuccess()
-				tmpConfigMapDirPath = strings.Trim(res.GetStdOut(), "\n")
-				tmpConfigMapPath = filepath.Join(tmpConfigMapDirPath, "config")
-			})
-
-			AfterAll(func() {
-				if tmpEchoPodPath != "" {
-					kubectl.Delete(tmpEchoPodPath)
-				}
-
-				if tmpConfigMapPath != "" {
-					ns := helpers.GetCiliumNamespace(helpers.GetCurrentIntegration())
-					kubectl.DeleteResource("configmap", fmt.Sprintf("ip-masq-agent --namespace=%s", ns))
-				}
-
-				for _, path := range []string{tmpEchoPodPath, tmpConfigMapPath, tmpConfigMapDirPath} {
-					if path != "" {
-						os.Remove(path)
-					}
-				}
-
-			})
-
-			It("Check", func() {
-				defaultIface, err := kubectl.GetDefaultIface()
-				Expect(err).Should(BeNil(), "Failed to retrieve default iface")
-				deployCilium(map[string]string{
-					"global.nodePort.device":        fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface),
-					"global.bpfMasquerade":          "true",
-					"global.ipMasqAgent.enabled":    "true",
-					"global.ipMasqAgent.syncPeriod": "1s",
-					"global.tunnel":                 "disabled",
-					"global.autoDirectNodeRoutes":   "true",
-				})
-
-				// Check that requests to the echoserver from client pods are masqueraded.
-				nodeIP, err := kubectl.GetNodeIPByLabel(helpers.GetNodeWithoutCilium(), false)
-				Expect(err).Should(BeNil())
-				Expect(testPodHTTPToOutside(kubectl,
-					fmt.Sprintf("http://%s:80", nodeIP), true, false)).Should(BeTrue(),
-					"Connectivity test to http://%s failed", nodeIP)
-
-				// Deploy ip-masq-agent configmap to prevent masquerading to the node IP
-				// which is running the echoserver.
-				kubectl.ExecMiddle(fmt.Sprintf("echo 'nonMasqueradeCIDRs:\n- %s/32' > %s", nodeIP, tmpConfigMapPath)).
-					ExpectSuccess()
-				ns := helpers.GetCiliumNamespace(helpers.GetCurrentIntegration())
-				kubectl.CreateResource("configmap",
-					fmt.Sprintf("ip-masq-agent --from-file=%s --namespace=%s", tmpConfigMapDirPath, ns)).
-					ExpectSuccess("Failed to provision ip-masq-agent configmap")
-
-				// Wait until the ip-masq-agent configmap is mounted into cilium-agent pods,
-				// and the pods have read the new configuration
-				time.Sleep(60 * time.Second)
-
-				// Check that connections from the client pods are not masqueraded
-				Expect(testPodHTTPToOutside(kubectl,
-					fmt.Sprintf("http://%s:80", nodeIP), false, true)).Should(BeTrue(),
-					"Connectivity test to http://%s failed", nodeIP)
-			})
-		})
-
 		It("Check connectivity with sockops and direct routing", func() {
 			// Note if run on kernel without sockops feature is ignored
 			deployCilium(map[string]string{
@@ -436,6 +351,116 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			Expect(testPodConnectivitySameNodes(kubectl)).Should(BeTrue(), "Connectivity test on same node failed")
 		}, 600)
+	})
+
+	SkipContextIf(helpers.DoesNotExistNodeWithoutCilium, "Check BPF masquerading with ip-masq-agent", func() {
+		var (
+			tmpEchoPodPath      string
+			tmpConfigMapDirPath string
+			tmpConfigMapPath    string
+			defaultIface        string
+			err                 error
+		)
+
+		BeforeAll(func() {
+			defaultIface, err = kubectl.GetDefaultIface()
+			Expect(err).Should(BeNil(), "Failed to retrieve default iface")
+
+			// Deploy echoserver on the node which does not run Cilium to test
+			// BPF masquerading. The pod will run in the host netns, so no CNI
+			// is required for the pod on that host.
+			echoPodPath := helpers.ManifestGet(kubectl.BasePath(), "echoserver-hostnetns.yaml")
+			res := kubectl.ExecMiddle("mktemp")
+			res.ExpectSuccess()
+			tmpEchoPodPath = strings.Trim(res.GetStdOut(), "\n")
+			kubectl.ExecMiddle(fmt.Sprintf("sed 's/NODE_WITHOUT_CILIUM/%s/' %s > %s",
+				helpers.GetNodeWithoutCilium(), echoPodPath, tmpEchoPodPath)).ExpectSuccess()
+
+			// Setup ip-masq-agent configmap dir
+			res = kubectl.ExecMiddle("mktemp -d")
+			res.ExpectSuccess()
+			tmpConfigMapDirPath = strings.Trim(res.GetStdOut(), "\n")
+			tmpConfigMapPath = filepath.Join(tmpConfigMapDirPath, "config")
+		})
+
+		AfterEach(func() {
+			if tmpConfigMapPath != "" {
+				ns := helpers.GetCiliumNamespace(helpers.GetCurrentIntegration())
+				kubectl.DeleteResource("configmap", fmt.Sprintf("ip-masq-agent --namespace=%s", ns))
+			}
+		})
+
+		AfterAll(func() {
+			if tmpEchoPodPath != "" {
+				kubectl.Delete(tmpEchoPodPath)
+			}
+
+			for _, path := range []string{tmpEchoPodPath, tmpConfigMapPath, tmpConfigMapDirPath} {
+				if path != "" {
+					os.Remove(path)
+				}
+			}
+		})
+
+		testIPMasqAgent := func() {
+			// Check that requests to the echoserver from client pods are masqueraded.
+			nodeIP, err := kubectl.GetNodeIPByLabel(helpers.GetNodeWithoutCilium(), false)
+			Expect(err).Should(BeNil())
+			Expect(testPodHTTPToOutside(kubectl,
+				fmt.Sprintf("http://%s:80", nodeIP), true, false)).Should(BeTrue(),
+				"Connectivity test to http://%s failed", nodeIP)
+
+			// Deploy ip-masq-agent configmap to prevent masquerading to the node IP
+			// which is running the echoserver.
+			kubectl.ExecMiddle(fmt.Sprintf("echo 'nonMasqueradeCIDRs:\n- %s/32' > %s", nodeIP, tmpConfigMapPath)).
+				ExpectSuccess()
+			ns := helpers.GetCiliumNamespace(helpers.GetCurrentIntegration())
+			kubectl.CreateResource("configmap",
+				fmt.Sprintf("ip-masq-agent --from-file=%s --namespace=%s", tmpConfigMapDirPath, ns)).
+				ExpectSuccess("Failed to provision ip-masq-agent configmap")
+
+			// Wait until the ip-masq-agent configmap is mounted into cilium-agent pods,
+			// and the pods have read the new configuration
+			time.Sleep(90 * time.Second)
+
+			// Check that connections from the client pods are not masqueraded
+			Expect(testPodHTTPToOutside(kubectl,
+				fmt.Sprintf("http://%s:80", nodeIP), false, true)).Should(BeTrue(),
+				"Connectivity test to http://%s failed", nodeIP)
+		}
+
+		It("DirectRouting", func() {
+			deployCilium(map[string]string{
+				"global.nodePort.device":        fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface),
+				"global.bpfMasquerade":          "true",
+				"global.ipMasqAgent.enabled":    "true",
+				"global.ipMasqAgent.syncPeriod": "1s",
+				"global.tunnel":                 "disabled",
+				"global.autoDirectNodeRoutes":   "true",
+			})
+			// echoserver cannot be deployed in BeforeAll(), as this requires Cilium
+			// up and running in k8s v1.11. So, deploy it here after Cilium has been
+			// deployed.
+			kubectl.ApplyDefault(tmpEchoPodPath).ExpectSuccess("Cannot install echoserver application")
+			Expect(kubectl.WaitforPods(helpers.DefaultNamespace, "-l app=echoserver", helpers.HelperTimeout)).
+				Should(BeNil())
+
+			testIPMasqAgent()
+		})
+
+		It("VXLAN", func() {
+			defaultIface, err := kubectl.GetDefaultIface()
+			Expect(err).Should(BeNil(), "Failed to retrieve default iface")
+			deployCilium(map[string]string{
+				"global.nodePort.device":        fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface),
+				"global.bpfMasquerade":          "true",
+				"global.ipMasqAgent.enabled":    "true",
+				"global.ipMasqAgent.syncPeriod": "1s",
+				"global.tunnel":                 "vxlan",
+			})
+
+			testIPMasqAgent()
+		})
 	})
 
 	Context("Sockops performance", func() {
