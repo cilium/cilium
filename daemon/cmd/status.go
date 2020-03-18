@@ -125,6 +125,11 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		mode = models.KubeProxyReplacementModeDisabled
 	}
 
+	devices := make([]string, len(option.Config.Devices))
+	for i, iface := range option.Config.Devices {
+		devices[i] = iface
+	}
+
 	features := &models.KubeProxyReplacementFeatures{
 		NodePort:              &models.KubeProxyReplacementFeaturesNodePort{},
 		HostPort:              &models.KubeProxyReplacementFeaturesHostPort{},
@@ -162,6 +167,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 
 	return &models.KubeProxyReplacement{
 		Mode:     mode,
+		Devices:  devices,
 		Features: features,
 	}
 }
