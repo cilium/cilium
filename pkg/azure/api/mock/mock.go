@@ -69,15 +69,16 @@ func NewAPI(subnets []*ipamTypes.Subnet, vnets []*ipamTypes.VirtualNetwork) *API
 
 func (a *API) UpdateSubnets(subnets []*ipamTypes.Subnet) {
 	a.mutex.Lock()
+	a.subnets = map[string]*ipamTypes.Subnet{}
 	for _, s := range subnets {
-		a.subnets[s.ID] = s
+		a.subnets[s.ID] = s.DeepCopy()
 	}
 	a.mutex.Unlock()
 }
 
 func (a *API) UpdateInstances(instances types.InstanceMap) {
 	a.mutex.Lock()
-	a.instances = instances
+	a.instances = instances.DeepCopy()
 	a.mutex.Unlock()
 }
 
@@ -135,7 +136,7 @@ func (a *API) GetInstances(ctx context.Context) (types.InstanceMap, error) {
 
 	for instanceID, instance := range a.instances {
 		for _, intf := range instance.Interfaces {
-			instances.Update(instanceID, intf)
+			instances.Update(instanceID, intf.DeepCopy())
 		}
 	}
 
@@ -157,11 +158,11 @@ func (a *API) GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetworkMa
 	subnets := ipamTypes.SubnetMap{}
 
 	for _, s := range a.subnets {
-		subnets[s.ID] = s
+		subnets[s.ID] = s.DeepCopy()
 	}
 
 	for _, v := range a.vnets {
-		vnets[v.ID] = v
+		vnets[v.ID] = v.DeepCopy()
 	}
 
 	return vnets, subnets, nil
