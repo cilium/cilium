@@ -20,6 +20,9 @@ import (
 // +k8s:deepcopy-gen=true
 type KubeProxyReplacement struct {
 
+	// devices
+	Devices []string `json:"devices"`
+
 	// features
 	Features *KubeProxyReplacementFeatures `json:"features,omitempty"`
 

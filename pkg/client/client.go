@@ -286,8 +286,10 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 					strings.Join(hs.Protocols, ", ")))
 			}
 
-			fmt.Fprintf(w, "KubeProxyReplacement:\t%s\t[%s]\n",
-				sr.KubeProxyReplacement.Mode, strings.Join(features, ", "))
+			devices := strings.Join(sr.KubeProxyReplacement.Devices, ", ")
+
+			fmt.Fprintf(w, "KubeProxyReplacement:\t%s\t(%s)\t[%s]\n",
+				sr.KubeProxyReplacement.Mode, devices, strings.Join(features, ", "))
 		}
 	}
 	if sr.Cilium != nil {

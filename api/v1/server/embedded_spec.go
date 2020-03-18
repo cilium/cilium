@@ -2509,6 +2509,12 @@ func init() {
       "description": "Status of kube-proxy replacement",
       "type": "object",
       "properties": {
+        "devices": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "features": {
           "type": "object",
           "properties": {
@@ -6073,6 +6079,12 @@ func init() {
       "description": "Status of kube-proxy replacement",
       "type": "object",
       "properties": {
+        "devices": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "features": {
           "type": "object",
           "properties": {
