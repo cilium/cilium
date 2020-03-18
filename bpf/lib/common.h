@@ -577,6 +577,19 @@ struct lb6_reverse_nat {
 	__be16 port;
 } __attribute__((packed));
 
+struct ipv6_revnat_tuple {
+	__u64 cookie;
+	union v6addr address;
+	__be16 port;
+	__u16 pad;
+};
+
+struct ipv6_revnat_entry {
+	union v6addr address;
+	__be16 port;
+	__u16 rev_nat_index;
+};
+
 struct lb4_key {
 	__be32 address;		/* Service virtual IPv4 address */
 	__be16 dport;		/* L4 port filter, if unset, all ports apply */
@@ -611,6 +624,19 @@ struct lb4_reverse_nat {
 	__be32 address;
 	__be16 port;
 } __attribute__((packed));
+
+struct ipv4_revnat_tuple {
+	__u64 cookie;
+	__be32 address;
+	__be16 port;
+	__u16 pad;
+};
+
+struct ipv4_revnat_entry {
+	__be32 address;
+	__be16 port;
+	__u16 rev_nat_index;
+};
 
 struct ct_state {
 	__u16 rev_nat_index;

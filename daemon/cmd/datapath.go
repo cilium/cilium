@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	datapathIpcache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -333,8 +334,12 @@ func (d *Daemon) initMaps() error {
 		return err
 	}
 
+	pm := probes.NewProbeManager()
+	supportedMapTypes := pm.GetMapTypes()
+	createSockRevNatMaps := option.Config.EnableHostReachableServices &&
+		option.Config.EnableHostServicesUDP && supportedMapTypes.HaveLruHashMapType
 	if err := d.svc.InitMaps(option.Config.EnableIPv6, option.Config.EnableIPv4,
-		option.Config.RestoreState); err != nil {
+		createSockRevNatMaps, option.Config.RestoreState); err != nil {
 		log.WithError(err).Fatal("Unable to initialize service maps")
 	}
 
