@@ -168,6 +168,9 @@ const (
 	// CIDR is a IPv4/IPv4 subnet/CIDR
 	CIDR = "cidr"
 
+	// MTU is the maximum transmission unit of one interface
+	MTU = "mtu"
+
 	// Interface is an interface id/name on the system
 	Interface = "interface"
 

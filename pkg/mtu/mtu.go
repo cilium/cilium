@@ -14,6 +14,8 @@
 
 package mtu
 
+import "net"
+
 const (
 	// MaxMTU is the highest MTU that can be used for devices and routes
 	// handled by Cilium. It will typically be used to configure inbound
@@ -96,13 +98,17 @@ type Configuration struct {
 // specified, otherwise it will be automatically detected. if encapEnabled is
 // true, the MTU is adjusted to account for encapsulation overhead for all
 // routes involved in node to node communication.
-func NewConfiguration(authKeySize int, encryptEnabled bool, encapEnabled bool, mtu int) Configuration {
+func NewConfiguration(authKeySize int, encryptEnabled bool, encapEnabled bool, mtu int, mtuDetectIP net.IP) Configuration {
 	encryptOverhead := 0
 
 	if mtu == 0 {
 		var err error
 
-		mtu, err = autoDetect()
+		if mtuDetectIP != nil {
+			mtu, err = getMTUFromIf(mtuDetectIP)
+		} else {
+			mtu, err = autoDetect()
+		}
 		if err != nil {
 			log.WithError(err).Warning("Unable to automatically detect MTU")
 			mtu = EthernetMTU
