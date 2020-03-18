@@ -180,8 +180,8 @@ func parseInterface(iface *network.Interface) (instanceID string, i *types.Azure
 	return
 }
 
-// GetInstances returns the list of all instances including their ENIs as
-// instanceMap
+// GetInstances returns the list of all instances including all attached
+// interfaces as instanceMap
 func (c *Client) GetInstances(ctx context.Context) (types.InstanceMap, error) {
 	instances := types.InstanceMap{}
 
