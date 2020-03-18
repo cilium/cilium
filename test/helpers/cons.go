@@ -203,6 +203,14 @@ const (
 	// DockerBridgeIP is the IP on the docker0 bridge
 	DockerBridgeIP = "172.17.0.1"
 
+	// SecondaryIface is the name of the secondary iface which can be used to
+	// communicate between nodes. The iface is used to attach bpf_netdev.o
+	// to test NodePort with multiple devices.
+	// Because the name is hardcoded, it cannot be used in tests which run on
+	// on EKS/GKE or any other env which hasn't been provisioned with
+	// test/Vagrantfile.
+	SecondaryIface = "enp0s9"
+
 	// Logs messages that should not be in the cilium logs.
 	panicMessage       = "panic:"
 	deadLockHeader     = "POTENTIAL DEADLOCK:"                        // from github.com/sasha-s/go-deadlock/deadlock.go:header

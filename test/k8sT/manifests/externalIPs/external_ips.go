@@ -15,12 +15,12 @@
 package external_ips
 
 const (
-	PublicInterfaceName  = "enp0s9"
+	PublicInterfaceName  = "enp0s10"
 	PrivateInterfaceName = "enp0s8"
 )
 
 // On both dev and CI VMs the public interface, i.e., an interface that has a
-// network shared with the host is the 'enp0s9'. The private interface, i.e.,
+// network shared with the host is the 'enp0s10'. The private interface, i.e.,
 // an interface that has a network shared with all VMs is the 'enp0s8'
 var NetDevTranslation = map[string]string{
 	"svc-a-external-ips-k8s1-host-public":  PublicInterfaceName,
