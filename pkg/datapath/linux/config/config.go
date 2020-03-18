@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
+	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -148,7 +149,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["PREALLOCATE_MAPS"] = "1"
 	}
 
-	cDefinesMap["EVENTS_MAP"] = "cilium_events"
+	cDefinesMap["EVENTS_MAP"] = eventsmap.MapName
 	cDefinesMap["SIGNAL_MAP"] = signal.SignalMapName
 	cDefinesMap["POLICY_CALL_MAP"] = policymap.PolicyCallMapName
 	cDefinesMap["EP_POLICY_MAP"] = eppolicymap.MapName
