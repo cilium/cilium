@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ import (
 // `align:"field_name_in_c_struct". In the case of unnamed union field, such
 // union fields can be referred with special tags - `align:"$union0"`,
 // `align:"$union1"`, etc.
-func CheckStructAlignments(pathToObj string, toCheck map[string][]reflect.Type) error {
+func CheckStructAlignments(pathToObj string, toCheck map[string][]reflect.Type, checkOffsets bool) error {
 	f, err := elf.Open(pathToObj)
 	if err != nil {
 		return fmt.Errorf("elf failed to open %s: %s", pathToObj, err)
@@ -50,7 +50,7 @@ func CheckStructAlignments(pathToObj string, toCheck map[string][]reflect.Type) 
 	}
 
 	for cName, goStructs := range toCheck {
-		if err := check(cName, goStructs, structInfo); err != nil {
+		if err := check(cName, goStructs, structInfo, checkOffsets); err != nil {
 			return err
 		}
 	}
@@ -69,39 +69,40 @@ func getStructInfosFromDWARF(d *dwarf.Data, toCheck map[string][]reflect.Type) (
 	r := d.Reader()
 
 	for entry, err := r.Next(); entry != nil && err == nil; entry, err = r.Next() {
-		// Read only DWARF struct entries
-		if entry.Tag != dwarf.TagStructType {
+		t, err := d.Type(entry.Offset)
+		if err != nil {
 			continue
 		}
 
-		t, err := d.Type(entry.Offset)
-		if err != nil {
-			return nil, fmt.Errorf("cannot read DWARF info section at offset %d: %s",
-				entry.Offset, err)
-		}
-
-		st := t.(*dwarf.StructType)
-
-		if _, found := toCheck[st.StructName]; found {
-			unionCount := 0
-			offsets := make(map[string]int64, len(st.Field))
-			for _, field := range st.Field {
-				n := field.Name
-				// Create surrogate names ($union0, $union1, etc) for unnamed
-				// union members
-				if n == "" {
-					if t, ok := field.Type.(*dwarf.StructType); ok {
-						if t.Kind == "union" {
-							n = fmt.Sprintf("$union%d", unionCount)
-							unionCount++
+		if st, ok := t.(*dwarf.StructType); ok {
+			if _, found := toCheck[st.StructName]; found {
+				unionCount := 0
+				offsets := make(map[string]int64, len(st.Field))
+				for _, field := range st.Field {
+					n := field.Name
+					// Create surrogate names ($union0, $union1, etc) for unnamed
+					// union members
+					if n == "" {
+						if t, ok := field.Type.(*dwarf.StructType); ok {
+							if t.Kind == "union" {
+								n = fmt.Sprintf("$union%d", unionCount)
+								unionCount++
+							}
 						}
 					}
+					offsets[n] = field.ByteOffset
 				}
-				offsets[n] = field.ByteOffset
+				structs[st.StructName] = structInfo{
+					size:         st.ByteSize,
+					fieldOffsets: offsets,
+				}
 			}
-			structs[st.StructName] = structInfo{
-				size:         st.ByteSize,
-				fieldOffsets: offsets,
+		} else if t.Common() != nil {
+			if _, found := toCheck[t.Common().Name]; found {
+				structs[t.Common().Name] = structInfo{
+					size:         t.Common().ByteSize,
+					fieldOffsets: nil,
+				}
 			}
 		}
 	}
@@ -109,7 +110,7 @@ func getStructInfosFromDWARF(d *dwarf.Data, toCheck map[string][]reflect.Type) (
 	return structs, nil
 }
 
-func check(name string, toCheck []reflect.Type, structs map[string]structInfo) error {
+func check(name string, toCheck []reflect.Type, structs map[string]structInfo, checkOffsets bool) error {
 	for _, g := range toCheck {
 		c, found := structs[name]
 		if !found {
@@ -119,6 +120,10 @@ func check(name string, toCheck []reflect.Type, structs map[string]structInfo) e
 		if c.size != int64(g.Size()) {
 			return fmt.Errorf("%s(%d) size does not match %s(%d)", g, g.Size(),
 				name, c.size)
+		}
+
+		if !checkOffsets {
+			continue
 		}
 
 		for i := 0; i < g.NumField(); i++ {

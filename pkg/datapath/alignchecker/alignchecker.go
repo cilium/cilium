@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -69,5 +69,20 @@ func CheckStructAlignments(path string) error {
 			reflect.TypeOf(tunnel.TunnelEndpoint{}),
 		},
 	}
-	return check.CheckStructAlignments(path, toCheck)
+	if err := check.CheckStructAlignments(path, toCheck, true); err != nil {
+		return err
+	}
+	toCheckSizes := map[string][]reflect.Type{
+		"__u16": {
+			reflect.TypeOf(lbmap.Backend4Key{}),
+			reflect.TypeOf(lbmap.Backend6Key{}),
+			reflect.TypeOf(lbmap.RevNat4Key{}),
+			reflect.TypeOf(lbmap.RevNat6Key{}),
+		},
+		"int": {
+			reflect.TypeOf(sockmap.SockmapValue{}),
+			reflect.TypeOf(eppolicymap.EPPolicyValue{}),
+		},
+	}
+	return check.CheckStructAlignments(path, toCheckSizes, false)
 }
