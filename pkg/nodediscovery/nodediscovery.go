@@ -282,7 +282,6 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 
 		nodeResource.Spec.ENI.VpcID = vpcID
 		nodeResource.Spec.ENI.FirstInterfaceIndex = getInt(defaults.ENIFirstInterfaceIndex)
-		nodeResource.Spec.ENI.PreAllocate = defaults.IPAMPreAllocation
 
 		if c := n.NetConf; c != nil {
 			if c.IPAM.MinAllocate != 0 {
