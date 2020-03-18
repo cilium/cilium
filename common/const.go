@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,4 +40,7 @@ const (
 	// CiliumCHeaderPrefix is the prefix using when printing/writing an endpoint in a
 	// base64 form.
 	CiliumCHeaderPrefix = "CILIUM_BASE64_"
+
+	// PossibleCPUSysfsPath is used to retrieve the number of CPUs for per-CPU maps.
+	PossibleCPUSysfsPath = "/sys/devices/system/cpu/possible"
 )
