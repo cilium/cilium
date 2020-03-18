@@ -30,21 +30,6 @@ const (
 	StateSucceeded = "succeeded"
 )
 
-// AzureSpec is the Azure specific configuration of a node.
-//
-// The Azure configuration can either be provided explicitly by the user or the
-// cilium agent running on the node can be instructed to create the CiliumNode
-// custom resource along with an Azure configuration when the node registers
-// itself to the Kubernetes cluster.
-//
-// This struct is embedded into v2.CiliumNode
-//
-// +k8s:deepcopy-gen=true
-type AzureSpec struct {
-	// InstanceID is the Azure specific identifier of the node.
-	InstanceID string `json:"instance-id,omitempty"`
-}
-
 // AzureStatus is the status of Azure addressing of the node
 //
 // This struct is embedded into v2.CiliumNode

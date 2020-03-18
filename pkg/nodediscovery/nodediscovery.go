@@ -315,7 +315,7 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 			nodeResource.Spec.ENI.DeleteOnTermination = c.ENI.DeleteOnTermination
 		}
 
-		nodeResource.Spec.ENI.InstanceID = instanceID
+		nodeResource.Spec.InstanceID = instanceID
 		nodeResource.Spec.ENI.InstanceType = instanceType
 		nodeResource.Spec.ENI.AvailabilityZone = availabilityZone
 
@@ -326,8 +326,12 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 		if !strings.HasPrefix(providerID, azureTypes.ProviderPrefix) {
 			log.WithError(err).Fatalf("Spec.ProviderID in k8s node resource must have prefix %s", azureTypes.ProviderPrefix)
 		}
-		nodeResource.Spec.Azure = azureTypes.AzureSpec{}
-		nodeResource.Spec.Azure.InstanceID = strings.TrimPrefix(providerID, azureTypes.ProviderPrefix)
+		// The Azure controller in Kubernetes creates a mix of upper
+		// and lower case when filling in the ProviderID and is
+		// therefore not providing the exact representation of what is
+		// returned by the Azure API. Convert it to lower case for
+		// consistent results.
+		nodeResource.Spec.InstanceID = strings.ToLower(strings.TrimPrefix(providerID, azureTypes.ProviderPrefix))
 	}
 
 	if performUpdate {

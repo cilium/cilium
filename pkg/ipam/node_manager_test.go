@@ -77,8 +77,6 @@ func (n *nodeOperationsMock) UpdatedNode(obj *v2.CiliumNode) { n.k8sObj = obj }
 
 func (n *nodeOperationsMock) PopulateStatusFields(resource *v2.CiliumNode) {}
 
-func (n *nodeOperationsMock) LogFields(log *logrus.Entry) *logrus.Entry { return log }
-
 func (n *nodeOperationsMock) CreateInterface(ctx context.Context, allocation *AllocationAction, scopedLog *logrus.Entry) (int, string, error) {
 	return 0, "operation not supported", fmt.Errorf("operation not supported")
 }

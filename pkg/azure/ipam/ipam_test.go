@@ -117,9 +117,7 @@ func newCiliumNode(node, instanceID string, preAllocate, minAllocate int) *v2.Ci
 	cn := &v2.CiliumNode{
 		ObjectMeta: metav1.ObjectMeta{Name: node, Namespace: "default"},
 		Spec: v2.NodeSpec{
-			Azure: types.AzureSpec{
-				InstanceID: instanceID,
-			},
+			InstanceID: instanceID,
 			IPAM: ipamTypes.IPAMSpec{
 				Pool:        ipamTypes.AllocationMap{},
 				PreAllocate: preAllocate,
