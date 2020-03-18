@@ -293,6 +293,10 @@ type Endpoint struct {
 	exposed chan struct{}
 
 	allocator cache.IdentityAllocator
+
+	// initialBuildComplete is true after the initial build has been
+	// completed successfully
+	initialBuildComplete bool
 }
 
 // SetAllocator sets the identity allocator for this endpoint.
@@ -1829,7 +1833,12 @@ func (e *Endpoint) setPolicyRevision(rev uint64) {
 			ps.done(now)
 			delete(e.policyRevisionSignals, ps)
 		default:
-			if rev >= ps.wantedRev {
+			// The policy revision of an endpoint can be bumped
+			// before the initial build has happened if an endpoint
+			// is not affected by a policy update. Require an
+			// initial build to have happened to assume that a
+			// policy revision is implemented.
+			if rev >= ps.wantedRev && e.initialBuildComplete {
 				close(ps.ch)
 				ps.done(now)
 				delete(e.policyRevisionSignals, ps)

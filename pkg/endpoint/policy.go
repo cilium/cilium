@@ -386,6 +386,9 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 	// Set realized state to desired state.
 	e.realizedPolicy = e.desiredPolicy
 
+	// the initial build is guaranteed to be successful at this point
+	e.initialBuildComplete = true
+
 	// Mark the endpoint to be running the policy revision it was
 	// compiled for
 	e.setPolicyRevision(revision)
