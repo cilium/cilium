@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net"
 	"os"
 	"path"
@@ -1613,6 +1614,27 @@ func initKubeProxyReplacementOptions() {
 		option.Config.XDPDevice = option.Config.Devices[0]
 		if err := loader.SetXDPMode(option.Config.NodePortAcceleration); err != nil {
 			log.WithError(err).Fatal("Cannot set NodePort acceleration")
+		}
+	}
+	if option.Config.EnableNodePort {
+		for _, iface := range option.Config.Devices {
+			link, err := netlink.LinkByName(iface)
+			if err != nil {
+				log.WithError(err).Fatalf("Cannot retrieve %s link", iface)
+			}
+			if strings.ContainsAny(iface, "=;") {
+				// Because we pass IPV{4,6}_NODEPORT addresses to bpf/init.sh
+				// in a form "$IFACE_NAME1=$IPV{4,6}_ADDR1;$IFACE_NAME2=...",
+				// we need to restrict the iface names. Otherwise, bpf/init.sh
+				// won't properly parse the mappings.
+				log.Fatalf("%s link name contains '=' or ';' character which is not allowed",
+					iface)
+			}
+			if idx := link.Attrs().Index; idx > math.MaxUint16 {
+				// TODO(brb) after adding surrogate id => ifindex BPF map,
+				// the restriction can be lifted
+				log.Fatalf("%s link ifindex %d exceeds max(uint16)", iface, idx)
+			}
 		}
 	}
 
