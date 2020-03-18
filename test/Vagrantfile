@@ -105,12 +105,19 @@ Vagrant.configure("2") do |config|
             server.vm.network "private_network",
                 ip: "192.168.36.1#{i}",
                 virtualbox__intnet: "cilium-k8s#{$BUILD_NUMBER}-#{$JOB_NAME}-#{$K8S_VERSION}"
+            server.vm.network "private_network",
+                ip: "192.168.37.1#{i}",
+                virtualbox__intnet: "cilium-k8s-2#{$BUILD_NUMBER}-#{$JOB_NAME}-#{$K8S_VERSION}"
 
             # @TODO: Clean this one when https://github.com/hashicorp/vagrant/issues/9822 is fixed.
             server.vm.provision "ipv6-config",
                 type: "shell",
                 run: "always",
                 inline: "ip -6 a a fd04::1#{i}/96 dev enp0s8 || true"
+            server.vm.provision "ipv6-config",
+                type: "shell",
+                run: "always",
+                inline: "ip -6 a a fd05::1#{i}/96 dev enp0s9 || true"
 
             # This network is only used by NFS
             server.vm.network "private_network", type: "dhcp"
