@@ -6,6 +6,8 @@ FROM docker.io/library/ubuntu:18.04
 
 LABEL maintainer="maintainer@cilium.io"
 
+ARG ARCH=amd64
+
 WORKDIR /go/src/github.com/cilium/cilium
 
 #
@@ -32,7 +34,6 @@ RUN apt-get update \
 		git \
 		iproute2 \
 		libc6-dev \
-		libc6-dev-i386 \
 		libelf-dev \
 		llvm-7 \
 		m4 \
@@ -52,7 +53,7 @@ RUN apt-get update \
 #
 # Install Go
 #
-RUN curl -sfL https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz | tar -xzC /usr/local && \
+RUN curl -sfL https://dl.google.com/go/go${GO_VERSION}.linux-${ARCH}.tar.gz | tar -xzC /usr/local && \
         go get -d -u github.com/gordonklaus/ineffassign && \
         cd /go/src/github.com/gordonklaus/ineffassign && \
         git checkout -b 1003c8bd00dc2869cb5ca5282e6ce33834fed514 1003c8bd00dc2869cb5ca5282e6ce33834fed514 && \

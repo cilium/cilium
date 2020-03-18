@@ -267,7 +267,7 @@ docker-plugin-manifest:
 	$(QUIET) contrib/scripts/push_manifest.sh docker-plugin $(DOCKER_IMAGE_TAG)
 
 docker-image-runtime:
-	cd contrib/packaging/docker && ${CONTAINER_ENGINE} build -t "cilium/cilium-runtime:$(UTC_DATE)" -f Dockerfile.runtime .
+	cd contrib/packaging/docker && ${CONTAINER_ENGINE} build --build-arg ARCH=$(GOARCH) -t "cilium/cilium-runtime:$(UTC_DATE)" -f Dockerfile.runtime .
 	${CONTAINER_ENGINE} tag cilium/cilium-runtime:$(UTC_DATE) cilium/cilium-runtime:$(UTC_DATE)-${GOARCH}
 
 docker-cilium-runtime-manifest:
@@ -275,7 +275,7 @@ docker-cilium-runtime-manifest:
 	$(QUIET) contrib/scripts/push_manifest.sh cilium-runtime $(UTC_DATE)
 
 docker-image-builder:
-	${CONTAINER_ENGINE_FULL} build -t "cilium/cilium-builder:$(UTC_DATE)" -f Dockerfile.builder .
+	${CONTAINER_ENGINE_FULL} build --build-arg ARCH=$(GOARCH) -t "cilium/cilium-builder:$(UTC_DATE)" -f Dockerfile.builder .
 	${CONTAINER_ENGINE_FULL} tag cilium/cilium-builder:$(UTC_DATE) cilium/cilium-builder:$(UTC_DATE)-${GOARCH}
 
 docker-cilium-builder-manifest:

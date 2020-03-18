@@ -8,7 +8,7 @@ apt-get upgrade -y && \
 # Prepackaged Cilium runtime dependencies
 #
 apt-get install -y --no-install-recommends \
-    gpg gpg-agent libelf-dev libmnl-dev libc6-dev-i386 iptables libgcc-5-dev \
+    gpg gpg-agent libelf-dev libmnl-dev iptables libgcc-5-dev \
     bash-completion binutils binutils-dev ca-certificates clang-7 llvm-7 kmod && \
 apt-get purge --auto-remove && \
 apt-get clean && \
@@ -31,6 +31,7 @@ update-alternatives --install /usr/bin/llc llc /usr/lib/llvm-7/bin/llc 1000
 # Build Cilium runtime dependencies.
 #
 FROM runtime-base as runtime-build
+ARG ARCH=amd64
 WORKDIR /tmp
 RUN \
 #
@@ -61,15 +62,9 @@ make -j `getconf _NPROCESSORS_ONLN` && \
 strip bpftool && \
 cd ../../../../ && \
 #
-# bpf-map
-#
-curl -SsL https://github.com/cilium/bpf-map/releases/download/v1.0/bpf-map -o bpf-map && \
-chmod +x bpf-map && \
-strip bpf-map && \
-#
 # cni/loopback
 #
-curl -sS -L https://github.com/containernetworking/plugins/releases/download/v0.7.5/cni-plugins-amd64-v0.7.5.tgz -o cni.tar.gz && \
+curl -sS -L https://github.com/containernetworking/plugins/releases/download/v0.7.5/cni-plugins-${ARCH}-v0.7.5.tgz -o cni.tar.gz && \
 tar -xvf cni.tar.gz ./loopback && \
 strip -s ./loopback && \
 #
@@ -87,7 +82,16 @@ RUN go get -d github.com/google/gops && \
 cd /go/src/github.com/google/gops && \
 git checkout -b v0.3.6 v0.3.6 && \
 go install && \
-strip /go/bin/gops
+strip /go/bin/gops && \
+cd && \
+#
+# bpf-map
+#
+go get github.com/cilium/bpf-map && \
+cd /go/src/github.com/cilium/bpf-map && \
+git checkout -b v1.0 && \
+go install && \
+strip /go/bin/bpf-map
 
 #
 # Stripped cilium runtime base image
@@ -97,7 +101,7 @@ LABEL maintainer="maintainer@cilium.io"
 WORKDIR /bin
 COPY --from=runtime-build /tmp/iproute2/tc/tc /tmp/iproute2/ip/ip ./
 COPY --from=runtime-build /tmp/linux/tools/bpf/bpftool/bpftool ./
-COPY --from=runtime-build /tmp/bpf-map ./
 COPY --from=runtime-gobuild /go/bin/gops ./
+COPY --from=runtime-gobuild /go/bin/bpf-map ./
 WORKDIR /cni
 COPY --from=runtime-build /tmp/loopback ./
