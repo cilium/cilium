@@ -545,10 +545,35 @@ var _ = Describe("K8sServicesTest", func() {
 			), "Failed to account for IPv4 fragments (out)")
 		}
 
-		testNodePort := func(bpfNodePort bool) {
-			var data v1.Service
+		getIPv4Andv6AddrForIface := func(nodeName, iface string) (string, string) {
+			cmd := fmt.Sprintf("ip -4 -o a s dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)
+			res, err := kubectl.ExecInHostNetNS(context.TODO(), nodeName, cmd)
+			Expect(err).To(BeNil(), cmd)
+			res.ExpectSuccess(cmd)
+			ipv4 := strings.Trim(res.GetStdOut(), "\n")
+
+			cmd = fmt.Sprintf("ip -6 -o a s dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)
+			res, err = kubectl.ExecInHostNetNS(context.TODO(), nodeName, cmd)
+			Expect(err).To(BeNil(), cmd)
+			res.ExpectSuccess(cmd)
+			ipv6 := strings.Trim(res.GetStdOut(), "\n")
+
+			return ipv4, ipv6
+		}
+
+		testNodePort := func(bpfNodePort bool, testSecondaryNodePortIP bool) {
+			var (
+				data                                 v1.Service
+				secondaryK8s1IPv4, secondaryK8s2IPv4 string
+			)
+
 			k8s1Name, k8s1IP := kubectl.GetNodeInfo(helpers.K8s1)
 			k8s2Name, k8s2IP := kubectl.GetNodeInfo(helpers.K8s2)
+
+			if testSecondaryNodePortIP {
+				secondaryK8s1IPv4, _ = getIPv4Andv6AddrForIface(k8s1Name, helpers.SecondaryIface)
+				secondaryK8s2IPv4, _ = getIPv4Andv6AddrForIface(k8s2Name, helpers.SecondaryIface)
+			}
 
 			waitPodsDs()
 
@@ -673,6 +698,18 @@ var _ = Describe("K8sServicesTest", func() {
 				tftpURL = getTFTPLink("::ffff:"+remoteCiliumHostIPv4, data.Spec.Ports[1].NodePort)
 				testCurlRequest(testDSClient, httpURL)
 				testCurlRequest(testDSClient, tftpURL)
+
+				if testSecondaryNodePortIP {
+					httpURL = getHTTPLink(secondaryK8s1IPv4, data.Spec.Ports[0].NodePort)
+					tftpURL = getTFTPLink(secondaryK8s1IPv4, data.Spec.Ports[1].NodePort)
+					doRequests(httpURL, count, k8s1Name)
+					doRequests(tftpURL, count, k8s1Name)
+
+					httpURL = getHTTPLink(secondaryK8s2IPv4, data.Spec.Ports[0].NodePort)
+					tftpURL = getTFTPLink(secondaryK8s2IPv4, data.Spec.Ports[1].NodePort)
+					doRequests(httpURL, count, k8s2Name)
+					doRequests(tftpURL, count, k8s2Name)
+				}
 
 				// Ensure the NodePort cannot be bound from any redirected address
 				failBind(localCiliumHostIPv4, data.Spec.Ports[0].NodePort, "tcp", k8s1Name)
@@ -869,7 +906,7 @@ var _ = Describe("K8sServicesTest", func() {
 		}
 
 		SkipItIf(helpers.RunsWithoutKubeProxy, "Tests NodePort (kube-proxy)", func() {
-			testNodePort(false)
+			testNodePort(false, false)
 		})
 
 		SkipItIf(helpers.RunsWithoutKubeProxy, "Tests NodePort (kube-proxy) with externalTrafficPolicy=Local", func() {
@@ -898,7 +935,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 				It("Tests NodePort with L7 Policy", func() {
 					applyPolicy(demoPolicy)
-					testNodePort(false)
+					testNodePort(false, false)
 				})
 			})
 
@@ -907,8 +944,15 @@ var _ = Describe("K8sServicesTest", func() {
 			"Tests NodePort BPF", func() {
 				// TODO(brb) Add with L7 policy test cases after GH#8971 has been fixed
 
+				var (
+					privateIface string
+					err          error
+				)
+
 				BeforeAll(func() {
 					enableBackgroundReport = false
+					privateIface, err = kubectl.GetPrivateIface()
+					Expect(err).Should(BeNil(), "Cannot determine private iface")
 				})
 
 				AfterAll(func() {
@@ -925,7 +969,7 @@ var _ = Describe("K8sServicesTest", func() {
 					})
 
 					It("Tests NodePort", func() {
-						testNodePort(true)
+						testNodePort(true, false)
 					})
 
 					It("Tests NodePort with externalTrafficPolicy=Local", func() {
@@ -939,6 +983,15 @@ var _ = Describe("K8sServicesTest", func() {
 					It("Tests HostPort", func() {
 						testHostPort()
 					})
+
+					SkipItIf(func() bool { return helpers.GetCurrentIntegration() != "" },
+						"Tests with secondary NodePort device", func() {
+							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+								"global.nodePort.device": fmt.Sprintf(`'{%s,%s}'`, privateIface, helpers.SecondaryIface),
+							})
+
+							testNodePort(true, true)
+						})
 				})
 
 				Context("Tests with direct routing", func() {
@@ -950,7 +1003,7 @@ var _ = Describe("K8sServicesTest", func() {
 					})
 
 					It("Tests NodePort", func() {
-						testNodePort(true)
+						testNodePort(true, false)
 					})
 
 					It("Tests NodePort with externalTrafficPolicy=Local", func() {
@@ -964,6 +1017,18 @@ var _ = Describe("K8sServicesTest", func() {
 					It("Tests HostPort", func() {
 						testHostPort()
 					})
+
+					SkipItIf(func() bool { return helpers.GetCurrentIntegration() != "" },
+						"Tests with secondary NodePort device", func() {
+							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+								"global.tunnel":               "disabled",
+								"global.autoDirectNodeRoutes": "true",
+								"global.nodePort.mode":        "snat",
+								"global.nodePort.device":      fmt.Sprintf(`'{%s,%s}'`, privateIface, helpers.SecondaryIface),
+							})
+
+							testNodePort(true, true)
+						})
 
 					It("Tests GH#10983", func() {
 						var data v1.Service
@@ -996,6 +1061,7 @@ var _ = Describe("K8sServicesTest", func() {
 						)
 
 						BeforeAll(func() {
+							DeployCiliumAndDNS(kubectl, ciliumFilename)
 							// Will allocate LoadBalancer IPs from 192.168.36.{240-250} range
 							metalLB = helpers.ManifestGet(kubectl.BasePath(), "metallb.yaml")
 							res := kubectl.ApplyDefault(metalLB)
