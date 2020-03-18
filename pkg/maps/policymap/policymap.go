@@ -17,6 +17,7 @@ package policymap
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -83,6 +84,36 @@ type PolicyEntry struct {
 	Packets   uint64 `align:"packets"`
 	Bytes     uint64 `align:"bytes"`
 }
+
+// CallKey is the index into the prog array map.
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
+type CallKey struct {
+	index uint32
+}
+
+// CallValue is the program ID in the prog array map.
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
+type CallValue struct {
+	progID uint32
+}
+
+// GetKeyPtr returns the unsafe pointer to the BPF key
+func (k *CallKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
+
+// GetValuePtr returns the unsafe pointer to the BPF value
+func (v *CallValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
+
+// String converts the key into a human readable string format.
+func (k *CallKey) String() string { return strconv.FormatUint(uint64(k.index), 10) }
+
+// String converts the value into a human readable string format.
+func (v *CallValue) String() string { return strconv.FormatUint(uint64(v.progID), 10) }
+
+// NewValue returns a new empty instance of the structure representing the BPF
+// map value.
+func (k CallKey) NewValue() bpf.MapValue { return &CallValue{} }
 
 func (pe *PolicyEntry) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(pe) }
 func (pe *PolicyEntry) NewValue() bpf.MapValue      { return &PolicyEntry{} }
@@ -290,4 +321,21 @@ func Open(path string) (*PolicyMap, error) {
 // InitMapInfo updates the map info defaults for policy maps.
 func InitMapInfo(maxEntries int) {
 	MaxEntries = maxEntries
+}
+
+// InitCallMap creates the policy call map in the kernel.
+func InitCallMap() error {
+	policyCallMap := bpf.NewMap(PolicyCallMapName,
+		bpf.MapTypeProgArray,
+		&CallKey{},
+		int(unsafe.Sizeof(CallKey{})),
+		&CallValue{},
+		int(unsafe.Sizeof(CallValue{})),
+		int(PolicyCallMaxEntries),
+		0,
+		0,
+		bpf.ConvertKeyValue,
+	)
+	_, err := policyCallMap.Create()
+	return err
 }
