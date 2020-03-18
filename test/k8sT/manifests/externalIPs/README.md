@@ -62,4 +62,4 @@ that run on `k8s1` and `k8s2`:
 sudo service kube-proxy stop && sudo su -c 'iptables-save | grep -v KUBE | iptables-restore'
 ```
 
-and start cilium with `--enable-node-port --device=enp0s9`
+and start cilium with `--enable-node-port --device=enp0s10`
