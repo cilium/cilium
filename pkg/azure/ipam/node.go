@@ -90,11 +90,6 @@ func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
 	n.mutex.RUnlock()
 }
 
-// PopulateSpecFields fills in the spec field of the CiliumNode custom resource
-// with Azure specific information
-func (n *Node) PopulateSpecFields(k8sObj *v2.CiliumNode) {
-}
-
 // PrepareIPRelease prepares the release of IPs
 func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ipam.ReleaseAction {
 	return &ipam.ReleaseAction{}

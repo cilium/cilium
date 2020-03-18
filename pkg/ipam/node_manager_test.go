@@ -79,7 +79,6 @@ func (n *nodeOperationsMock) GetPreAllocate() int            { return n.k8sObj.S
 func (n *nodeOperationsMock) GetMinAllocate() int            { return n.k8sObj.Spec.IPAM.MinAllocate }
 
 func (n *nodeOperationsMock) PopulateStatusFields(resource *v2.CiliumNode) {}
-func (n *nodeOperationsMock) PopulateSpecFields(resource *v2.CiliumNode)   {}
 
 func (n *nodeOperationsMock) LogFields(log *logrus.Entry) *logrus.Entry { return log }
 

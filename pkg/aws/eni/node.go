@@ -123,14 +123,6 @@ func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
 	k8sObj.Status.ENI.ENIs = n.getENIs()
 }
 
-// PopulateSpecFields fills in the spec field of the CiliumNode custom resource
-// with ENI specific information
-func (n *Node) PopulateSpecFields(k8sObj *v2.CiliumNode) {
-	if k8sObj.Spec.IPAM.PreAllocate == 0 {
-		k8sObj.Spec.IPAM.PreAllocate = defaults.IPAMPreAllocation
-	}
-}
-
 // getLimits returns the interface and IP limits of this node
 func (n *Node) getLimits() (ipamTypes.Limits, bool) {
 	return getLimits(n.k8sObj.Spec.ENI.InstanceType)

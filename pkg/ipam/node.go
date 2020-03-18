@@ -19,6 +19,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
@@ -601,7 +602,10 @@ func (n *Node) syncToAPIServer() (err error) {
 		node.Spec.IPAM.Pool = n.Pool()
 		scopedLog.WithField("poolSize", len(node.Spec.IPAM.Pool)).Debug("Updating node in apiserver")
 
-		n.ops.PopulateSpecFields(node)
+		if node.Spec.IPAM.PreAllocate == 0 {
+			node.Spec.IPAM.PreAllocate = defaults.IPAMPreAllocation
+		}
+
 		updatedNode, err = n.manager.k8sAPI.Update(node, origNode)
 		if updatedNode != nil && updatedNode.Name != "" {
 			node = updatedNode.DeepCopy()
