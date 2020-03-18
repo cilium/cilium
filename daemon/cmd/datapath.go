@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -359,6 +360,24 @@ func (d *Daemon) initMaps() error {
 
 	for _, ep := range d.endpointManager.GetEndpoints() {
 		ep.InitMap()
+	}
+
+	for _, ep := range d.endpointManager.GetEndpoints() {
+		if !ep.ConntrackLocal() {
+			continue
+		}
+		for _, m := range ctmap.LocalMaps(ep, option.Config.EnableIPv4,
+			option.Config.EnableIPv6) {
+			if _, err := m.Create(); err != nil {
+				return err
+			}
+		}
+	}
+	for _, m := range ctmap.GlobalMaps(option.Config.EnableIPv4,
+		option.Config.EnableIPv6) {
+		if _, err := m.Create(); err != nil {
+			return err
+		}
 	}
 
 	// Set up the list of IPCache listeners in the daemon, to be
