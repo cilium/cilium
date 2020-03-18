@@ -37,35 +37,6 @@ type formatTestCase struct {
 	output string
 }
 
-func (s *ConfigSuite) TestGoArray2C(c *C) {
-	tests := []formatTestCase{
-		{
-			input:  []byte{0, 0x01, 0x02, 0x03},
-			output: "0x0, 0x1, 0x2, 0x3",
-		},
-		{
-			input:  []byte{0, 0xFF, 0xFF, 0xFF},
-			output: "0x0, 0xff, 0xff, 0xff",
-		},
-		{
-			input:  []byte{0xa, 0xbc, 0xde, 0xf1},
-			output: "0xa, 0xbc, 0xde, 0xf1",
-		},
-		{
-			input:  []byte{0},
-			output: "0x0",
-		},
-		{
-			input:  []byte{},
-			output: "",
-		},
-	}
-
-	for _, test := range tests {
-		c.Assert(goArray2C(test.input), Equals, test.output)
-	}
-}
-
 func (s *ConfigSuite) TestdefineIPv6(c *C) {
 	tests := []formatTestCase{
 		{

@@ -19,31 +19,15 @@ import (
 	"net"
 	"reflect"
 
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/byteorder"
 )
-
-// goArray2C transforms a byte slice into its hexadecimal string representation.
-// Example:
-// array := []byte{0x12, 0xFF, 0x0, 0x01}
-// fmt.Print(GoArray2C(array)) // "{ 0x12, 0xff, 0x0, 0x1 }"
-func goArray2C(array []byte) string {
-	ret := ""
-
-	for i, e := range array {
-		if i == 0 {
-			ret = ret + fmt.Sprintf("%#x", e)
-		} else {
-			ret = ret + fmt.Sprintf(", %#x", e)
-		}
-	}
-	return ret
-}
 
 // FmtDefineAddress returns the a define string from the given name and addr.
 // Example:
 // fmt.Print(FmtDefineAddress("foo", []byte{1, 2, 3})) // "#define foo { .addr = { 0x1, 0x2, 0x3 } }\n"
 func FmtDefineAddress(name string, addr []byte) string {
-	return fmt.Sprintf("#define %s { .addr = { %s } }\n", name, goArray2C(addr))
+	return fmt.Sprintf("#define %s { .addr = { %s } }\n", name, common.GoArray2C(addr))
 }
 
 // defineUint32 writes the C definition for an unsigned 32-bit value.
@@ -55,7 +39,7 @@ func defineUint32(name string, value uint32) string {
 // defineIPv4 writes the C definition for the given IPv4 address.
 func defineIPv4(name string, addr []byte) string {
 	if len(addr) != net.IPv4len {
-		return fmt.Sprintf("/* BUG: bad ip define %s %s */\n", name, goArray2C(addr))
+		return fmt.Sprintf("/* BUG: bad ip define %s %s */\n", name, common.GoArray2C(addr))
 	}
 	nboAddr := byteorder.HostSliceToNetwork(addr, reflect.Uint32).(uint32)
 	return defineUint32(name, nboAddr)
@@ -64,20 +48,20 @@ func defineIPv4(name string, addr []byte) string {
 // defineIPv6 writes the C definition for the given IPv6 address.
 func defineIPv6(name string, addr []byte) string {
 	if len(addr) != net.IPv6len {
-		return fmt.Sprintf("/* BUG: bad ip define %s %s */\n", name, goArray2C(addr))
+		return fmt.Sprintf("/* BUG: bad ip define %s %s */\n", name, common.GoArray2C(addr))
 	}
-	return fmt.Sprintf("DEFINE_IPV6(%s, %s);\n", name, goArray2C(addr))
+	return fmt.Sprintf("DEFINE_IPV6(%s, %s);\n", name, common.GoArray2C(addr))
 }
 
 func dumpRaw(name string, addr []byte) string {
-	return fmt.Sprintf(" %s%s\n", name, goArray2C(addr))
+	return fmt.Sprintf(" %s%s\n", name, common.GoArray2C(addr))
 }
 
 // defineMAC writes the C definition for the given MAC name and addr.
 func defineMAC(name string, addr []byte) string {
 	if len(addr) != 6 { /* MAC len */
-		return fmt.Sprintf("/* BUG: bad mac define %s %s */\n", name, goArray2C(addr))
+		return fmt.Sprintf("/* BUG: bad mac define %s %s */\n", name, common.GoArray2C(addr))
 	}
 	return fmt.Sprintf("DEFINE_MAC(%s, %s);\n#define %s fetch_mac(%s)\n",
-		name, goArray2C(addr), name, name)
+		name, common.GoArray2C(addr), name, name)
 }

@@ -48,6 +48,23 @@ func C2GoArray(str string) []byte {
 	return ret
 }
 
+// GoArray2C transforms a byte slice into its hexadecimal string representation.
+// Example:
+// array := []byte{0x12, 0xFF, 0x0, 0x01}
+// fmt.Print(GoArray2C(array)) // "{ 0x12, 0xff, 0x0, 0x1 }"
+func GoArray2C(array []byte) string {
+	ret := ""
+
+	for i, e := range array {
+		if i == 0 {
+			ret = ret + fmt.Sprintf("%#x", e)
+		} else {
+			ret = ret + fmt.Sprintf(",%#x", e)
+		}
+	}
+	return ret
+}
+
 // FindEPConfigCHeader returns the full path of the file that is the CHeaderFileName from
 // the slice of files
 func FindEPConfigCHeader(basePath string, epFiles []os.FileInfo) string {
