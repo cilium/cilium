@@ -107,7 +107,11 @@ func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, ciliumFilename string, optio
 			"Assuming that microk8s already has DNS deployed...",
 			"Use 'microk8s.enable dns' to create deployment"))
 	default:
-		_ = vm.ApplyDefault(helpers.DNSDeployment(vm.BasePath()))
+		vm.ApplyDefault(helpers.DNSDeployment(vm.BasePath()))
+		By("Restarting DNS Pods")
+		if res := vm.DeleteResource("pod", fmt.Sprintf("-n %s -l k8s-app=kube-dns", helpers.KubeSystemNamespace)); !res.WasSuccessful() {
+			log.Warningf("Unable to delete DNS pods: %s", res.OutputPrettyPrint())
+		}
 	}
 
 	switch helpers.GetCurrentIntegration() {
