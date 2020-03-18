@@ -213,13 +213,13 @@ calculation is performed:
 
 .. code-block:: go
 
-     spec.eni.pre-allocate - (len(spec.ipam.available) - len(status.ipam.used))
+     spec.ipam.pre-allocate - (len(spec.ipam.available) - len(status.ipam.used))
 
 For excess IP calculation:
 
 .. code-block:: go
 
-     (len(spec.ipam.available) - len(status.ipam.used)) - (spec.eni.pre-allocate + spec.eni.max-above-watermark)
+     (len(spec.ipam.available) - len(status.ipam.used)) - (spec.ipam.pre-allocate + spec.ipam.max-above-watermark)
 
 Upon detection of a deficit, the node is added to the list of nodes which
 require IP address allocation. When a deficit is detected using the interval
@@ -258,10 +258,10 @@ ENI:
 
 .. code-block:: go
 
-      min(AvailableOnSubnet, min(AvailableOnENI, NeededAddresses + spec.eni.max-above-watermark))
+      min(AvailableOnSubnet, min(AvailableOnENI, NeededAddresses + spec.ipam.max-above-watermark))
 
 This means that the number of IPs allocated in a single allocation cycle can be
-less than what is required to fulfill ``spec.eni.pre-allocate``.
+less than what is required to fulfill ``spec.ipam.pre-allocate``.
 
 In order to allocate the IPs, the method ``AssignPrivateIpAddresses`` of the
 EC2 service API is called. When no more ENIs are available meeting the above
@@ -278,7 +278,7 @@ are available for release on the ENI:
 
 .. code-block:: go
 
-      min(FreeOnENI, (FreeIPs - spec.eni.pre-allocate - spec.eni.max-above-watermark))
+      min(FreeOnENI, (FreeIPs - spec.ipam.pre-allocate - spec.ipam.max-above-watermark))
 
 Operator releases IPs from the selected ENI, if there is still excess free IP
 not released, operator will attempt to release in next release cycle.
