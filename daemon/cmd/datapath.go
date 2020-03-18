@@ -354,6 +354,10 @@ func (d *Daemon) initMaps() error {
 		return err
 	}
 
+	if err := policymap.InitCallMap(); err != nil {
+		return err
+	}
+
 	// Set up the list of IPCache listeners in the daemon, to be
 	// used by syncEndpointsAndHostIPs()
 	// xDS cache will be added later by calling AddListener(), but only if necessary.
