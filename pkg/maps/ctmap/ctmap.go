@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"net"
 	"os"
 	"reflect"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -55,6 +56,7 @@ var (
 	}
 
 	mapInfo map[mapType]mapAttributes
+	once    sync.Once
 )
 
 const (
@@ -126,13 +128,13 @@ func setupMapInfo(m mapType, define string, mapKey bpf.MapKey, keySize int, maxE
 	}
 }
 
-// InitMapInfo builds the information about different CT maps for the
+// initMapInfo builds the information about different CT maps for the
 // combination of L3/L4 protocols, using the specified limits on TCP vs non-TCP
 // maps.
-func InitMapInfo(tcpMaxEntries, anyMaxEntries int, v4, v6 bool) {
+func initMapInfo(tcpMaxEntries, anyMaxEntries int, v4, v6, lru bool) {
 	mapInfo = make(map[mapType]mapAttributes, mapTypeMax)
 
-	global4Map, global6Map := nat.GlobalMaps(v4, v6)
+	global4Map, global6Map := nat.GlobalMapsWithLRU(v4, v6, lru)
 
 	// SNAT also only works if the CT map is global so all local maps will be nil
 	natMaps := map[mapType]NatMap{
@@ -179,8 +181,13 @@ func InitMapInfo(tcpMaxEntries, anyMaxEntries int, v4, v6 bool) {
 		anyMaxEntries, natMaps[mapTypeIPv6AnyGlobal])
 }
 
-func init() {
-	InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true)
+func getMapInfo(lru bool) map[mapType]mapAttributes {
+	once.Do(func() {
+		initMapInfo(option.CTMapEntriesGlobalTCPDefault,
+			option.CTMapEntriesGlobalAnyDefault, option.Config.EnableIPv4,
+			option.Config.EnableIPv6, lru)
+	})
+	return mapInfo
 }
 
 // CtEndpoint represents an endpoint for the functions required to manage
@@ -248,20 +255,21 @@ func (m *Map) DumpEntries() (string, error) {
 }
 
 // newMap creates a new CT map of the specified type with the specified name.
-func newMap(mapName string, m mapType) *Map {
+func newMap(mapName string, m mapType, lru bool) *Map {
+	info := getMapInfo(lru)
 	result := &Map{
 		Map: *bpf.NewMap(mapName,
 			bpf.MapTypeLRUHash,
-			mapInfo[m].mapKey,
-			mapInfo[m].keySize,
-			mapInfo[m].mapValue,
-			mapInfo[m].valueSize,
-			mapInfo[m].maxEntries,
+			info[m].mapKey,
+			info[m].keySize,
+			info[m].mapValue,
+			info[m].valueSize,
+			info[m].maxEntries,
 			0, 0,
-			mapInfo[m].parser,
+			info[m].parser,
 		),
 		mapType: m,
-		define:  mapInfo[m].bpfDefine,
+		define:  info[m].bpfDefine,
 	}
 	return result
 }
@@ -277,7 +285,9 @@ func purgeCtEntry6(m *Map, key CtKey, natMap NatMap) error {
 // doGC6 iterates through a CTv6 map and drops entries based on the given
 // filter.
 func doGC6(m *Map, filter *GCFilter) gcStats {
-	natMap := mapInfo[m.mapType].natMap
+	// We don't need to check for LRU hashmap support since we're not creating the map.
+	info := getMapInfo(false)
+	natMap := info[m.mapType].natMap
 	stats := statStartGc(m)
 	defer stats.finish()
 
@@ -357,7 +367,9 @@ func purgeCtEntry4(m *Map, key CtKey, natMap NatMap) error {
 // doGC4 iterates through a CTv4 map and drops entries based on the given
 // filter.
 func doGC4(m *Map, filter *GCFilter) gcStats {
-	natMap := mapInfo[m.mapType].natMap
+	// We don't need to check for LRU hashmap support since we're not creating the map.
+	info := getMapInfo(false)
+	natMap := info[m.mapType].natMap
 	stats := statStartGc(m)
 	defer stats.finish()
 
@@ -504,7 +516,8 @@ func (m *Map) Flush() int {
 // once all referenced to the map are cleared - that is, all BPF programs which
 // refer to the old map and removed/reloaded.
 func DeleteIfUpgradeNeeded(e CtEndpoint) {
-	for _, newMap := range maps(e, true, true) {
+	// No need to check LRU hashmap support to delete the map.
+	for _, newMap := range maps(e, true, true, false) {
 		path, err := newMap.Path()
 		if err != nil {
 			log.WithError(err).Warning("Failed to get path for CT map")
@@ -525,29 +538,29 @@ func DeleteIfUpgradeNeeded(e CtEndpoint) {
 
 // maps returns all connecting tracking maps associated with endpoint 'e' (or
 // the global maps if 'e' is nil).
-func maps(e CtEndpoint, ipv4, ipv6 bool) []*Map {
+func maps(e CtEndpoint, ipv4, ipv6, lru bool) []*Map {
 	result := make([]*Map, 0, mapCount)
 	if e == nil {
 		if ipv4 {
-			result = append(result, newMap(MapNameTCP4Global, mapTypeIPv4TCPGlobal))
-			result = append(result, newMap(MapNameAny4Global, mapTypeIPv4AnyGlobal))
+			result = append(result, newMap(MapNameTCP4Global, mapTypeIPv4TCPGlobal, lru))
+			result = append(result, newMap(MapNameAny4Global, mapTypeIPv4AnyGlobal, lru))
 		}
 		if ipv6 {
-			result = append(result, newMap(MapNameTCP6Global, mapTypeIPv6TCPGlobal))
-			result = append(result, newMap(MapNameAny6Global, mapTypeIPv6AnyGlobal))
+			result = append(result, newMap(MapNameTCP6Global, mapTypeIPv6TCPGlobal, lru))
+			result = append(result, newMap(MapNameAny6Global, mapTypeIPv6AnyGlobal, lru))
 		}
 	} else {
 		if ipv4 {
 			result = append(result, newMap(bpf.LocalMapName(MapNameTCP4, uint16(e.GetID())),
-				mapTypeIPv4TCPLocal))
+				mapTypeIPv4TCPLocal, lru))
 			result = append(result, newMap(bpf.LocalMapName(MapNameAny4, uint16(e.GetID())),
-				mapTypeIPv4AnyLocal))
+				mapTypeIPv4AnyLocal, lru))
 		}
 		if ipv6 {
 			result = append(result, newMap(bpf.LocalMapName(MapNameTCP6, uint16(e.GetID())),
-				mapTypeIPv6TCPLocal))
+				mapTypeIPv6TCPLocal, lru))
 			result = append(result, newMap(bpf.LocalMapName(MapNameAny6, uint16(e.GetID())),
-				mapTypeIPv6AnyLocal))
+				mapTypeIPv6AnyLocal, lru))
 		}
 	}
 	return result
@@ -559,7 +572,13 @@ func maps(e CtEndpoint, ipv4, ipv6 bool) []*Map {
 //
 // The returned maps are not yet opened.
 func LocalMaps(e CtEndpoint, ipv4, ipv6 bool) []*Map {
-	return maps(e, ipv4, ipv6)
+	return LocalMapsWithLRU(e, ipv4, ipv6, false)
+}
+
+// LocalMapsWithLRU is the same as LocalMaps, but allows to set the NAT map's
+// type.
+func LocalMapsWithLRU(e CtEndpoint, ipv4, ipv6, lru bool) []*Map {
+	return maps(e, ipv4, ipv6, lru)
 }
 
 // GlobalMaps returns a slice of CT maps that are used globally by all
@@ -568,7 +587,13 @@ func LocalMaps(e CtEndpoint, ipv4, ipv6 bool) []*Map {
 //
 // The returned maps are not yet opened.
 func GlobalMaps(ipv4, ipv6 bool) []*Map {
-	return maps(nil, ipv4, ipv6)
+	return GlobalMapsWithLRU(ipv4, ipv6, false)
+}
+
+// GlobalMapsWithLRU is the same as GlobalMaps, but allows to set the NAT map's
+// type.
+func GlobalMapsWithLRU(ipv4, ipv6, lru bool) []*Map {
+	return maps(nil, ipv4, ipv6, lru)
 }
 
 // NameIsGlobal returns true if the specified filename (basename) denotes a
@@ -586,12 +611,15 @@ func NameIsGlobal(filename string) bool {
 // the specified CtEndpoint is nil.
 func WriteBPFMacros(fw io.Writer, e CtEndpoint) {
 	var mapEntriesTCP, mapEntriesAny int
-	for _, m := range maps(e, true, true) {
+	// We don't need to check for LRU hashmap support
+	// since we're not using the map type.
+	info := getMapInfo(false)
+	for _, m := range maps(e, true, true, true) {
 		fmt.Fprintf(fw, "#define %s %s\n", m.define, m.Name())
 		if m.mapType.isTCP() {
-			mapEntriesTCP = mapInfo[m.mapType].maxEntries
+			mapEntriesTCP = info[m.mapType].maxEntries
 		} else {
-			mapEntriesAny = mapInfo[m.mapType].maxEntries
+			mapEntriesAny = info[m.mapType].maxEntries
 		}
 	}
 	fmt.Fprintf(fw, "#define CT_MAP_SIZE_TCP %d\n", mapEntriesTCP)
@@ -603,7 +631,9 @@ func WriteBPFMacros(fw io.Writer, e CtEndpoint) {
 // an internal error occurs.
 func Exists(e CtEndpoint, ipv4, ipv6 bool) bool {
 	result := true
-	for _, m := range maps(e, ipv4, ipv6) {
+	// We don't need to check LRU hashmap support
+	// to check that the maps exist.
+	for _, m := range maps(e, ipv4, ipv6, false) {
 		path, err := m.Path()
 		if err != nil {
 			// Catch this error early
