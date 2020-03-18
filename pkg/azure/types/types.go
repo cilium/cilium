@@ -85,6 +85,8 @@ type AzureInterface struct {
 
 // Instance is the minimal representation of a Azure instance as needed by the
 // IPAM plugin
+//
+// +k8s:deepcopy-gen=true
 type Instance struct {
 	// interfaces is a map of all interfaces attached to the instance
 	// indexed by the ID
@@ -92,6 +94,8 @@ type Instance struct {
 }
 
 // InstanceMap is the list of all instances indexed by instance ID
+//
+// +k8s:deepcopy-gen=true
 type InstanceMap map[string]*Instance
 
 // Update updates the definition of an Azure interface for a particular
