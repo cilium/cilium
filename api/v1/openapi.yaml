@@ -1672,6 +1672,10 @@ definitions:
         - Strict
         - Probe
         - Partial
+      devices:
+          type: array
+          items:
+            type: string
       features:
         type: object
         properties:
