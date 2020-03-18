@@ -35,17 +35,24 @@ import (
 
 var _ = Describe("K8sDatapathConfig", func() {
 
-	var kubectl *helpers.Kubectl
-	var demoDSPath string
-	var ipsecDSPath string
-	var monitorLog = "monitor-aggregation.log"
-	var ciliumFilename string
+	var (
+		kubectl        *helpers.Kubectl
+		demoDSPath     string
+		ipsecDSPath    string
+		monitorLog     = "monitor-aggregation.log"
+		ciliumFilename string
+		privateIface   string
+		err            error
+	)
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		demoDSPath = helpers.ManifestGet(kubectl.BasePath(), "demo_ds.yaml")
 		ipsecDSPath = helpers.ManifestGet(kubectl.BasePath(), "ipsec_ds.yaml")
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
+
+		privateIface, err = kubectl.GetPrivateIface()
+		Expect(err).Should(BeNil(), "Cannot determine private iface")
 	})
 
 	BeforeEach(func() {
@@ -278,19 +285,18 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
 
-		// TODO(brb) Enable the following test after bpf_netdev can be mounted on multiple devices
-		//It("Check BPF masquerading", func() {
-		//	iface, err := kubectl.GetDefaultIface()
-		//	Expect(err).Should(BeNil(), "Failed to retrieve default iface")
-		//	deployCilium(map[string]string{
-		//		"global.bpfMasquerade":   "true",
-		//		"global.nodePort.device": iface,
-		//		"global.tunnel":          "vxlan",
-		//	})
+		SkipItIf(helpers.DoesNotRunOnNetNext, "Check BPF masquerading", func() {
+			defaultIface, err := kubectl.GetDefaultIface()
+			Expect(err).Should(BeNil(), "Failed to retrieve default iface")
+			deployCilium(map[string]string{
+				"global.bpfMasquerade":   "true",
+				"global.nodePort.device": fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface),
+				"global.tunnel":          "vxlan",
+			})
 
-		//	Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-		//	Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false)).Should(BeTrue(), "Connectivity test to http://google.com failed")
-		//})
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false)).Should(BeTrue(), "Connectivity test to http://google.com failed")
+		})
 	})
 
 	Context("DirectRouting", func() {
@@ -313,18 +319,22 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"global.tunnel":                 "disabled",
 				"global.autoDirectNodeRoutes":   "true",
 				"global.endpointRoutes.enabled": "true",
-				"global.ipv6.enabled":           "false",
+				// TODO(brb) Cannot enable IPv6 due to:
+				// level=warning msg="Log buffer too small to dump verifier log 16777215 bytes (10 tries)!" subsys=datapath-loader
+				"global.ipv6.enabled": "false",
 			})
 
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			//Expect(false).Should(BeTrue(), "Foo")
 		})
 
-		It("Check BPF masquerading", func() {
-			iface, err := kubectl.GetDefaultIface()
+		SkipItIf(helpers.DoesNotRunOnNetNext, "Check BPF masquerading", func() {
+			defaultIface, err := kubectl.GetDefaultIface()
 			Expect(err).Should(BeNil(), "Failed to retrieve default iface")
+
 			deployCilium(map[string]string{
 				"global.bpfMasquerade":        "true",
-				"global.nodePort.device":      iface,
+				"global.nodePort.device":      fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface),
 				"global.tunnel":               "disabled",
 				"global.autoDirectNodeRoutes": "true",
 			})
@@ -380,7 +390,10 @@ var _ = Describe("K8sDatapathConfig", func() {
 			})
 
 			It("Check", func() {
+				defaultIface, err := kubectl.GetDefaultIface()
+				Expect(err).Should(BeNil(), "Failed to retrieve default iface")
 				deployCilium(map[string]string{
+					"global.nodePort.device":        fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface),
 					"global.bpfMasquerade":          "true",
 					"global.ipMasqAgent.enabled":    "true",
 					"global.ipMasqAgent.syncPeriod": "1s",
