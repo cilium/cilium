@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
+	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
@@ -398,6 +399,13 @@ func (d *Daemon) initMaps() error {
 	}
 	if option.Config.EnableIPv6 {
 		if _, err := ipv6Nat.Create(); err != nil {
+			return err
+		}
+	}
+
+	if option.Config.EnableNodePort {
+		if err := neighborsmap.InitMaps(option.Config.EnableIPv4,
+			option.Config.EnableIPv6); err != nil {
 			return err
 		}
 	}
