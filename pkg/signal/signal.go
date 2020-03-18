@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,16 +25,12 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/metrics"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
 	"github.com/sirupsen/logrus"
-)
-
-const (
-	// SignalMapName is the BPF map name
-	SignalMapName = "cilium_signals"
 )
 
 const (
@@ -149,7 +145,7 @@ func SetupSignalListener() {
 	once.Do(func() {
 		var err error
 
-		path := oldBPF.MapPath(SignalMapName)
+		path := oldBPF.MapPath(signalmap.MapName)
 		signalMap, err := ebpf.LoadPinnedMap(path)
 		if err != nil {
 			log.WithError(err).Warningf("Failed to open signals map")
@@ -158,7 +154,7 @@ func SetupSignalListener() {
 		events, err = perf.NewReader(signalMap, os.Getpagesize())
 		if err != nil {
 			log.WithError(err).Warningf("Cannot open %s map! Ignoring signals!",
-				SignalMapName)
+				signalmap.MapName)
 			return
 		}
 
@@ -170,7 +166,7 @@ func SetupSignalListener() {
 				case err != nil:
 					signalCollectMetrics(nil, "error")
 					log.WithError(err).WithFields(logrus.Fields{
-						logfields.BPFMapName: SignalMapName,
+						logfields.BPFMapName: signalmap.MapName,
 					}).Errorf("failed to read event")
 				case record.LostSamples > 0:
 					signalCollectMetrics(nil, "lost")

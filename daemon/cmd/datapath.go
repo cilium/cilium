@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -346,6 +347,10 @@ func (d *Daemon) initMaps() error {
 	}
 
 	if err := eventsmap.InitMap(); err != nil {
+		return err
+	}
+
+	if err := signalmap.InitMap(); err != nil {
 		return err
 	}
 
