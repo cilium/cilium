@@ -39,6 +39,7 @@ import (
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
+	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
@@ -384,6 +385,19 @@ func (d *Daemon) initMaps() error {
 	for _, m := range ctmap.GlobalMapsWithLRU(option.Config.EnableIPv4,
 		option.Config.EnableIPv6, supportedMapTypes.HaveLruHashMapType) {
 		if _, err := m.Create(); err != nil {
+			return err
+		}
+	}
+
+	ipv4Nat, ipv6Nat := nat.GlobalMapsWithLRU(option.Config.EnableIPv4,
+		option.Config.EnableIPv6, supportedMapTypes.HaveLruHashMapType)
+	if option.Config.EnableIPv4 {
+		if _, err := ipv4Nat.Create(); err != nil {
+			return err
+		}
+	}
+	if option.Config.EnableIPv6 {
+		if _, err := ipv6Nat.Create(); err != nil {
 			return err
 		}
 	}
