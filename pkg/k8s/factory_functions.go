@@ -761,9 +761,9 @@ func ConvertToCiliumEndpoint(obj interface{}) interface{} {
 		p := &types.CiliumEndpoint{
 			TypeMeta:   concreteObj.TypeMeta,
 			ObjectMeta: concreteObj.ObjectMeta,
-			Encryption: concreteObj.Status.Encryption.DeepCopy(),
-			Identity:   concreteObj.Status.Identity.DeepCopy(),
-			Networking: concreteObj.Status.Networking.DeepCopy(),
+			Encryption: &concreteObj.Status.Encryption,
+			Identity:   concreteObj.Status.Identity,
+			Networking: concreteObj.Status.Networking,
 		}
 		*concreteObj = cilium_v2.CiliumEndpoint{}
 		return p
@@ -777,9 +777,9 @@ func ConvertToCiliumEndpoint(obj interface{}) interface{} {
 			Obj: &types.CiliumEndpoint{
 				TypeMeta:   ciliumEndpoint.TypeMeta,
 				ObjectMeta: ciliumEndpoint.ObjectMeta,
-				Encryption: ciliumEndpoint.Status.Encryption.DeepCopy(),
-				Identity:   ciliumEndpoint.Status.Identity.DeepCopy(),
-				Networking: ciliumEndpoint.Status.Networking.DeepCopy(),
+				Encryption: &ciliumEndpoint.Status.Encryption,
+				Identity:   ciliumEndpoint.Status.Identity,
+				Networking: ciliumEndpoint.Status.Networking,
 			},
 		}
 		*ciliumEndpoint = cilium_v2.CiliumEndpoint{}
