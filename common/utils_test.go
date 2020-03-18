@@ -47,6 +47,38 @@ func (s *CommonSuite) TestC2GoArray(c *check.C) {
 	c.Assert(C2GoArray(""), checker.DeepEquals, []byte{})
 }
 
+func (s *CommonSuite) TestGoArray2C(c *check.C) {
+	tests := []struct {
+		input  []byte
+		output string
+	}{
+		{
+			input:  []byte{0, 0x01, 0x02, 0x03},
+			output: "0x0, 0x1, 0x2, 0x3",
+		},
+		{
+			input:  []byte{0, 0xFF, 0xFF, 0xFF},
+			output: "0x0, 0xff, 0xff, 0xff",
+		},
+		{
+			input:  []byte{0xa, 0xbc, 0xde, 0xf1},
+			output: "0xa, 0xbc, 0xde, 0xf1",
+		},
+		{
+			input:  []byte{0},
+			output: "0x0",
+		},
+		{
+			input:  []byte{},
+			output: "",
+		},
+	}
+
+	for _, test := range tests {
+		c.Assert(GoArray2C(test.input), check.Equals, test.output)
+	}
+}
+
 func (s *CommonSuite) TestMoveNewFilesTo(c *check.C) {
 	oldDir := c.MkDir()
 	newDir := c.MkDir()
