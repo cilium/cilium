@@ -55,11 +55,6 @@ type NodeOperations interface {
 	// Node.mutex will remain locked while this function is called.
 	PopulateStatusFields(resource *v2.CiliumNode)
 
-	// LogFields is called to extend the logrus logger with implementation
-	// specific fields.  Node.mutex will remain locked while this function
-	// is called.
-	LogFields(log *logrus.Entry) *logrus.Entry
-
 	// CreateInterface is called to create a new interface. This is only
 	// done if PrepareIPAllocation indicates that no more IPs are available
 	// (AllocationAction.AvailableForAllocation == 0) for allocation but

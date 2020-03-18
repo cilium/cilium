@@ -17,7 +17,6 @@ package ipam
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/cilium/cilium/pkg/azure/types"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -27,11 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/math"
 
 	"github.com/sirupsen/logrus"
-)
-
-const (
-	// maxAttachRetries is the maximum number of attachment retries
-	maxAttachRetries = 5
 )
 
 // Node represents a node representing an Azure instance
@@ -53,19 +47,12 @@ func (n *Node) UpdatedNode(obj *v2.CiliumNode) {
 	n.k8sObj = obj
 }
 
-func (n *Node) instanceIdLocked() (id string) {
-	if n.k8sObj != nil {
-		id = strings.ToLower(n.k8sObj.Spec.Azure.InstanceID)
-	}
-	return
-}
-
 // PopulateStatusFields fills in the status field of the CiliumNode custom
 // resource with Azure specific information
 func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
 	n.mutex.RLock()
 	k8sObj.Status.Azure.Interfaces = []types.AzureInterface{}
-	for _, iface := range n.manager.GetInterfaces(n.instanceIdLocked()) {
+	for _, iface := range n.manager.GetInterfaces(n.k8sObj.InstanceID()) {
 		k8sObj.Status.Azure.Interfaces = append(k8sObj.Status.Azure.Interfaces, *iface)
 	}
 	n.mutex.RUnlock()
@@ -85,7 +72,7 @@ func (n *Node) ReleaseIPs(ctx context.Context, r *ipam.ReleaseAction) error {
 func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationAction, err error) {
 	a = &ipam.AllocationAction{}
 
-	for _, iface := range n.manager.GetInterfaces(n.instanceIdLocked()) {
+	for _, iface := range n.manager.GetInterfaces(n.k8sObj.InstanceID()) {
 		scopedLog.WithFields(logrus.Fields{
 			"id":           iface.ID,
 			"numAddresses": len(iface.Addresses),
@@ -150,26 +137,18 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	return 0, "", fmt.Errorf("not implemented")
 }
 
-// LogFields extends the log entry with Azure IPAM specific fields
-func (n *Node) LogFields(logger *logrus.Entry) *logrus.Entry {
-	if n.k8sObj != nil {
-		logger = logger.WithField("instanceID", n.k8sObj.Spec.Azure.InstanceID)
-	}
-	return logger
-}
-
 // ResyncInterfacesAndIPs is called to retrieve and interfaces and IPs as known
 // to the Azure API and return them
 func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (ipamTypes.AllocationMap, error) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
-	if n.k8sObj.Spec.Azure.InstanceID == "" {
+	if n.k8sObj.InstanceID() == "" {
 		return nil, nil
 	}
 
 	available := ipamTypes.AllocationMap{}
-	interfaces := n.manager.GetInterfaces(n.instanceIdLocked())
+	interfaces := n.manager.GetInterfaces(n.k8sObj.InstanceID())
 	for _, iface := range interfaces {
 		for _, address := range iface.Addresses {
 			if address.State == types.StateSucceeded {

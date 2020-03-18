@@ -25,6 +25,8 @@ package types
 type ENISpec struct {
 	// InstanceID is the AWS InstanceId of the node. The InstanceID is used
 	// to retrieve AWS metadata for the node.
+	//
+	// OBSOLETE: This field is obsolete, please use Spec.InstanceID
 	InstanceID string `json:"instance-id,omitempty"`
 
 	// InstanceType is the AWS EC2 instance type, e.g. "m5.large"

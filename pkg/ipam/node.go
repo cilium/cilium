@@ -154,13 +154,16 @@ func (n *Node) logger() *logrus.Entry {
 	return n.loggerLocked()
 }
 
-func (n *Node) loggerLocked() *logrus.Entry {
-	if n == nil {
-		return log
-	}
+func (n *Node) loggerLocked() (logger *logrus.Entry) {
+	logger = log
 
-	logger := log.WithField(fieldName, n.name)
-	return n.ops.LogFields(logger)
+	if n != nil {
+		logger = logger.WithField(fieldName, n.name)
+		if n.resource != nil {
+			logger = logger.WithField("instanceID", n.resource.InstanceID())
+		}
+	}
+	return
 }
 
 // getMaxAboveWatermark returns the max-above-watermark setting for an AWS node

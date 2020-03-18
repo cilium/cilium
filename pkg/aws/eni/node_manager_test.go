@@ -142,8 +142,8 @@ func newCiliumNode(node, instanceID, instanceType, az, vpcID string, firstInterf
 	cn := &v2.CiliumNode{
 		ObjectMeta: metav1.ObjectMeta{Name: node, Namespace: "default"},
 		Spec: v2.NodeSpec{
+			InstanceID: instanceID,
 			ENI: eniTypes.ENISpec{
-				InstanceID:          instanceID,
 				InstanceType:        instanceType,
 				FirstInterfaceIndex: &firstInterfaceIndex,
 				AvailabilityZone:    az,
@@ -169,8 +169,8 @@ func newCiliumNodeWithSGTags(node, instanceID, instanceType, az, vpcID string, s
 	cn := &v2.CiliumNode{
 		ObjectMeta: metav1.ObjectMeta{Name: node, Namespace: "default"},
 		Spec: v2.NodeSpec{
+			InstanceID: instanceID,
 			ENI: eniTypes.ENISpec{
-				InstanceID:          instanceID,
 				InstanceType:        instanceType,
 				FirstInterfaceIndex: &firstInterfaceIndex,
 				AvailabilityZone:    az,

@@ -71,12 +71,6 @@ Azure Allocation Parameters
 
 The following parameters are available to control the IP allocation:
 
-
-``InstanceID``
-  The Azure instance identifier matching the node.
-
-  *This field is automatically populated when using ``--auto-create-cilium-node-resource``*
-
 ``spec.ipam.min-allocate``
   The minimum number of IPs that must be allocated when the node is first
   bootstrapped. It defines the minimum base socket of addresses that must be

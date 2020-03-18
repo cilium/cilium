@@ -646,6 +646,12 @@ type NodeAddress struct {
 
 // NodeSpec is the configuration specific to a node
 type NodeSpec struct {
+	// InstanceID is the identifier of the node. This is different from the
+	// node name which is typically the FQDN of the node. The InstanceID
+	// typically refers to the identifier used by the cloud provider or
+	// some other means of identification.
+	InstanceID string `json:"instance-id,omitempty"`
+
 	// Addresses is the list of all node addresses
 	//
 	// +optional
@@ -666,11 +672,6 @@ type NodeSpec struct {
 	//
 	// +optional
 	ENI eniTypes.ENISpec `json:"eni,omitempty"`
-
-	// Azure is the Azure specific configuration
-	//
-	// +optional
-	Azure azureTypes.AzureSpec `json:"azure,omitempty"`
 
 	// IPAM is the address management specification. This section can be
 	// populated by a user or it can be automatically populated by an IPAM
@@ -730,4 +731,16 @@ type CiliumNodeList struct {
 
 	// Items is a list of CiliumNode
 	Items []CiliumNode `json:"items"`
+}
+
+// InstanceID returns the InstanceID of a CiliumNode
+func (n *CiliumNode) InstanceID() (instanceID string) {
+	if n != nil {
+		instanceID = n.Spec.InstanceID
+		// OBSOLETE: This fallback can be removed in Cilium 1.9
+		if instanceID == "" {
+			instanceID = n.Spec.ENI.InstanceID
+		}
+	}
+	return
 }

@@ -66,27 +66,12 @@ func (n *Node) UpdatedNode(obj *v2.CiliumNode) {
 	n.k8sObj = obj
 }
 
-func (n *Node) logger() *logrus.Entry {
-	if n == nil {
-		return log
-	}
-
-	n.mutex.RLock()
-	defer n.mutex.RUnlock()
-
-	return n.loggerLocked()
-}
-
 func (n *Node) loggerLocked() *logrus.Entry {
 	if n == nil {
 		return log
 	}
 
-	if n.k8sObj != nil {
-		return log.WithField("instanceID", n.k8sObj.Spec.ENI.InstanceID)
-	}
-
-	return log
+	return log.WithField("instanceID", n.k8sObj.InstanceID())
 }
 
 // PopulateStatusFields fills in the status field of the CiliumNode custom
@@ -254,7 +239,7 @@ func (n *Node) getSecurityGroupIDs(ctx context.Context) ([]string, error) {
 		}
 	}
 
-	if eni := n.manager.GetENI(n.k8sObj.Spec.ENI.InstanceID, 0); eni != nil {
+	if eni := n.manager.GetENI(n.k8sObj.InstanceID(), 0); eni != nil {
 		return eni.SecurityGroups, nil
 	}
 
@@ -331,7 +316,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 		return 0, errUnableToGetSecurityGroups, fmt.Errorf("%s %s", errUnableToGetSecurityGroups, err)
 	}
 
-	desc := "Cilium-CNI (" + n.k8sObj.Spec.ENI.InstanceID + ")"
+	desc := "Cilium-CNI (" + n.k8sObj.InstanceID() + ")"
 	// Must allocate secondary ENI IPs as needed, up to ENI instance limit - 1 (reserve 1 for primary IP)
 	toAllocate := math.IntMin(allocation.MaxIPsToAllocate, limits.IPv4-1)
 	// Validate whether request has already been fulfilled in the meantime
@@ -358,7 +343,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 
 	var attachmentID string
 	for attachRetries := 0; attachRetries < maxAttachRetries; attachRetries++ {
-		attachmentID, err = n.manager.api.AttachNetworkInterface(ctx, index, n.k8sObj.Spec.ENI.InstanceID, eniID)
+		attachmentID, err = n.manager.api.AttachNetworkInterface(ctx, index, n.k8sObj.InstanceID(), eniID)
 
 		// The index is already in use, this can happen if the local
 		// list of ENIs is oudated.  Retry the attachment to avoid
@@ -419,16 +404,8 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	}
 
 	// Add the information of the created ENI to the instances manager
-	n.manager.UpdateENI(n.k8sObj.Spec.ENI.InstanceID, eni)
+	n.manager.UpdateENI(n.k8sObj.InstanceID(), eni)
 	return toAllocate, "", nil
-}
-
-// LogFields extends the log entry with ENI specific fields
-func (n *Node) LogFields(logger *logrus.Entry) *logrus.Entry {
-	if n.k8sObj != nil {
-		logger = logger.WithField("instanceID", n.k8sObj.Spec.ENI.InstanceID)
-	}
-	return logger
 }
 
 // ResyncInterfacesAndIPs is called to retrieve and ENIs and IPs as known to
@@ -439,7 +416,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 
 	available := ipamTypes.AllocationMap{}
 	n.enis = map[string]eniTypes.ENI{}
-	enis := n.manager.GetENIs(n.k8sObj.Spec.ENI.InstanceID)
+	enis := n.manager.GetENIs(n.k8sObj.InstanceID())
 	// An ec2 instance has at least one ENI attached, no ENI found implies instance not found.
 	if len(enis) == 0 {
 		scopedLog.Warning("Instance not found! Please delete corresponding ciliumnode if instance has already been deleted.")

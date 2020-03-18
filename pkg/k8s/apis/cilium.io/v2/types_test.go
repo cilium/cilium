@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"testing"
 
+	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/checker"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
@@ -400,4 +401,12 @@ func (s *CiliumV2Suite) TestParseRules(c *C) {
 	err = json.Unmarshal(ciliumRuleList, &cnpl)
 	c.Assert(err, IsNil)
 	c.Assert(cnpl, checker.DeepEquals, *expectedPolicyRuleListWithLabel)
+}
+
+func (s *CiliumV2Suite) TestCiliumNodeInstanceID(c *C) {
+	c.Assert((*CiliumNode)(nil).InstanceID(), Equals, "")
+	c.Assert((&CiliumNode{}).InstanceID(), Equals, "")
+	c.Assert((&CiliumNode{Spec: NodeSpec{InstanceID: "foo"}}).InstanceID(), Equals, "foo")
+	c.Assert((&CiliumNode{Spec: NodeSpec{InstanceID: "foo", ENI: eniTypes.ENISpec{InstanceID: "bar"}}}).InstanceID(), Equals, "foo")
+	c.Assert((&CiliumNode{Spec: NodeSpec{ENI: eniTypes.ENISpec{InstanceID: "bar"}}}).InstanceID(), Equals, "bar")
 }

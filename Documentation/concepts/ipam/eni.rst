@@ -80,12 +80,6 @@ ENI Allocation Parameters
 The following parameters are available to control the ENI creation and IP
 allocation:
 
-
-``InstanceID``
-  The AWS EC2 instance identifier matching the node.
-
-  *This field is automatically populated when using ``--auto-create-cilium-node-resource``*
-
 ``InstanceType``
   The AWS EC2 instance type
 
