@@ -84,11 +84,6 @@ type NodeOperations interface {
 	// Node.mutex will remain locked while this function is called.
 	PopulateStatusFields(resource *v2.CiliumNode)
 
-	// PopulateSpecFields is called to give the implementation a chance
-	// to populate any implementation specific fields in CiliumNode.Spec.
-	// Node.mutex will remain locked while this function is called.
-	PopulateSpecFields(resource *v2.CiliumNode)
-
 	// LogFields is called to extend the logrus logger with implementation
 	// specific fields.  Node.mutex will remain locked while this function
 	// is called.
