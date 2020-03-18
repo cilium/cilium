@@ -72,7 +72,6 @@ func setupTestDirectories() {
 		panic("Mkdir failed")
 	}
 
-	option.Config.Device = "undefined"
 	option.Config.RunDir = tempRunDir
 	option.Config.StateDir = tempRunDir
 }

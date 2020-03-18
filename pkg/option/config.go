@@ -137,7 +137,7 @@ const (
 	// DebugVerbose is the argument enables verbose log message for particular subsystems
 	DebugVerbose = "debug-verbose"
 
-	// Device facing cluster/external network for direct L3 (non-overlay mode)
+	// List of devices facing cluster/external network for attaching bpf_netdev
 	Device = "device"
 
 	// DisableConntrack disables connection tracking
@@ -1012,7 +1012,7 @@ type DaemonConfig struct {
 	LibDir           string     // Cilium library files directory
 	RunDir           string     // Cilium runtime directory
 	NAT46Prefix      *net.IPNet // NAT46 IPv6 Prefix
-	Device           string     // Receive device
+	Devices          []string   // bpf_netdev device
 	DevicePreFilter  string     // XDP device
 	ModePreFilter    string     // XDP mode, values: { native | generic }
 	HostV4Addr       net.IP     // Host v4 address of the snooping device
@@ -1998,7 +1998,7 @@ func (c *DaemonConfig) Populate() {
 	c.DatapathMode = viper.GetString(DatapathMode)
 	c.Debug = viper.GetBool(DebugArg)
 	c.DebugVerbose = viper.GetStringSlice(DebugVerbose)
-	c.Device = viper.GetString(Device)
+	c.Devices = viper.GetStringSlice(Device)
 	c.DisableConntrack = viper.GetBool(DisableConntrack)
 	c.EnableIPv4 = getIPv4Enabled()
 	c.EnableIPv6 = viper.GetBool(EnableIPv6Name)

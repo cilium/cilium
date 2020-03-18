@@ -20,10 +20,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath"
@@ -44,18 +46,19 @@ const (
 	initArgIPv4NodeIP
 	initArgIPv6NodeIP
 	initArgMode
-	initArgDevice
+	initArgDevices
 	initArgDevicePreFilter
 	initArgModePreFilter
 	initArgMTU
 	initArgIPSec
-	initArgMasquerade
 	initArgEncryptInterface
 	initArgHostReachableServices
 	initArgHostReachableServicesUDP
 	initArgCgroupRoot
 	initArgBpffsRoot
 	initArgNodePort
+	initArgNodePortIPv4Addrs
+	initArgNodePortIPv6Addrs
 	initArgMax
 )
 
@@ -207,11 +210,13 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initArgEncryptInterface] = "<nil>"
 	}
 
-	if option.Config.Device != "undefined" {
-		_, err := netlink.LinkByName(option.Config.Device)
-		if err != nil {
-			log.WithError(err).WithField("device", option.Config.Device).Warn("Link does not exist")
-			return err
+	if len(option.Config.Devices) != 0 {
+		for _, device := range option.Config.Devices {
+			_, err := netlink.LinkByName(device)
+			if err != nil {
+				log.WithError(err).WithField("device", device).Warn("Link does not exist")
+				return err
+			}
 		}
 
 		if option.Config.DatapathMode == option.DatapathModeIpvlan {
@@ -225,14 +230,14 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 			strings.ToLower(option.Config.Tunnel) != "disabled" {
 			args[initArgMode] = option.Config.Tunnel
 		}
-		args[initArgDevice] = option.Config.Device
+		args[initArgDevices] = strings.Join(option.Config.Devices, ",")
 	} else {
 		args[initArgMode] = option.Config.Tunnel
-		args[initArgDevice] = "<nil>"
+		args[initArgDevices] = "<nil>"
 
 		if option.Config.IsFlannelMasterDeviceSet() {
 			args[initArgMode] = "flannel"
-			args[initArgDevice] = option.Config.FlannelMasterDevice
+			args[initArgDevices] = option.Config.FlannelMasterDevice
 		}
 	}
 
@@ -242,8 +247,32 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	if option.Config.EnableNodePort {
 		args[initArgNodePort] = "true"
+		if option.Config.EnableIPv4 {
+			addrs := node.GetNodePortIPv4AddrsWithDevices()
+			tmp := make([]string, 0, len(addrs))
+			for iface, ipv4 := range addrs {
+				tmp = append(tmp,
+					fmt.Sprintf("%s=%#x", iface,
+						byteorder.HostSliceToNetwork(ipv4, reflect.Uint32).(uint32)))
+			}
+			args[initArgNodePortIPv4Addrs] = strings.Join(tmp, ";")
+		} else {
+			args[initArgNodePortIPv4Addrs] = "<nil>"
+		}
+		if option.Config.EnableIPv6 {
+			addrs := node.GetNodePortIPv6AddrsWithDevices()
+			tmp := make([]string, 0, len(addrs))
+			for iface, ipv6 := range addrs {
+				tmp = append(tmp, fmt.Sprintf("%s=%s", iface, common.GoArray2C(ipv6)))
+			}
+			args[initArgNodePortIPv6Addrs] = strings.Join(tmp, ";")
+		} else {
+			args[initArgNodePortIPv6Addrs] = "<nil>"
+		}
 	} else {
 		args[initArgNodePort] = "false"
+		args[initArgNodePortIPv4Addrs] = "<nil>"
+		args[initArgNodePortIPv6Addrs] = "<nil>"
 	}
 
 	log.Info("Setting up base BPF datapath")

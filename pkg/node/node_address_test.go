@@ -30,7 +30,7 @@ import (
 )
 
 func (s *NodeSuite) TestMaskCheck(c *C) {
-	InitDefaultPrefix("")
+	InitDefaultPrefix(nil)
 
 	allocCIDR := cidr.MustParseCIDR("1.1.1.1/16")
 	SetIPv4AllocRange(allocCIDR)
