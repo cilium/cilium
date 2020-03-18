@@ -272,7 +272,13 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 		return nil, nil, fmt.Errorf("unable to setup encryption: %s", err)
 	}
 
-	mtuConfig := mtu.NewConfiguration(authKeySize, option.Config.EnableIPSec, option.Config.Tunnel != option.TunnelDisabled, configuredMTU)
+	var mtuConfig mtu.Configuration
+	externalIP := node.GetExternalIPv4()
+	if externalIP == nil {
+		externalIP = node.GetIPv6()
+	}
+	// ExternalIP could be nil but we are covering that case inside NewConfiguration
+	mtuConfig = mtu.NewConfiguration(authKeySize, option.Config.EnableIPSec, option.Config.Tunnel != option.TunnelDisabled, configuredMTU, externalIP)
 
 	nodeMngr, err := nodemanager.NewManager("all", dp.Node(), ipcache.IPIdentityCache, option.Config)
 	if err != nil {
