@@ -83,7 +83,7 @@ func (n *Node) GetPreAllocate() int {
 	if n.k8sObj.Spec.ENI.PreAllocate != 0 {
 		return n.k8sObj.Spec.ENI.PreAllocate
 	}
-	return defaults.ENIPreAllocation
+	return defaults.IPAMPreAllocation
 }
 
 // GetMinAllocate returns the minimum-allocation setting of an AWS node
@@ -127,7 +127,7 @@ func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
 // with ENI specific information
 func (n *Node) PopulateSpecFields(k8sObj *v2.CiliumNode) {
 	if k8sObj.Spec.IPAM.PreAllocate == 0 {
-		k8sObj.Spec.IPAM.PreAllocate = defaults.ENIPreAllocation
+		k8sObj.Spec.IPAM.PreAllocate = defaults.IPAMPreAllocation
 	}
 }
 

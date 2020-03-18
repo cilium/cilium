@@ -64,7 +64,7 @@ func (n *Node) GetPreAllocate() int {
 	if n.k8sObj.Spec.IPAM.PreAllocate != 0 {
 		return n.k8sObj.Spec.IPAM.PreAllocate
 	}
-	return defaults.ENIPreAllocation
+	return defaults.IPAMPreAllocation
 }
 
 // GetMinAllocate returns the min-allocation setting for an Azure node

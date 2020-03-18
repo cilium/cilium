@@ -292,9 +292,9 @@ const (
 	// It is calculated as Min(int64 positive max, etcd MaxLeaseTTL, consul MaxLeaseTTL)
 	KVstoreLeaseMaxTTL = 86400 * time.Second
 
-	// ENIPreAllocation is the default value for
-	// CiliumNode.Spec.ENI.PreAllocate if no value is set
-	ENIPreAllocation = 8
+	// IPAMPreAllocation is the default value for
+	// CiliumNode.Spec.IPAM.PreAllocate if no value is set
+	IPAMPreAllocation = 8
 
 	// ENIFirstInterfaceIndex is the default value for
 	// CiliumNode.Spec.ENI.FirstInterfaceIndex if no value is set
