@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 // Copyright 2017 Lyft, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -38,33 +38,6 @@ type k8sImplementation interface {
 	Get(name string) (*v2.CiliumNode, error)
 }
 
-// AllocationLimits defines the pre-allocation limits in which IPAM operations
-// are performed. This defines the size of the buffer a node will maintain to
-// have IPs available for immediate use without requiring to perform IP
-// allocation via an external component.
-type AllocationLimits interface {
-	// GetMaxAboveWatermark returns the maximum number of addresses to
-	// allocate beyond the addresses needed to reach the PreAllocate
-	// watermark.  Going above the watermark can help reduce the number of
-	// API calls to allocate IPs, e.g. when a new interface is allocated,
-	// as many secondary IPs as possible are allocated. Limiting the amount
-	// can help reduce waste of IPs.
-	GetMaxAboveWatermark() int
-
-	// GetPreAllocate returns the number of IP addresses that must be
-	// available for immediate use by the node. It defines the buffer of
-	// addresses available immediately without requiring cilium-operator to
-	// get involved.
-	GetPreAllocate() int
-
-	// GetMinAllocate returns the minimum number of IPs that must be
-	// allocated when the node is first bootstrapped. It defines the
-	// minimum base socket of addresses that must be available. After
-	// reaching this watermark, the PreAllocate and MaxAboveWatermark logic
-	// takes over to continue allocating IPs.
-	GetMinAllocate() int
-}
-
 // NodeOperations is the interface an IPAM implementation must provide in order
 // to provide IP allocation for a node. The structure implementing this API
 // *must* be aware of the node connected to this implementation. This is
@@ -73,8 +46,6 @@ type AllocationLimits interface {
 // NodeOperations implementation which performs operations in the context of
 // that node.
 type NodeOperations interface {
-	AllocationLimits
-
 	// UpdateNode is called when an update to the CiliumNode is received.
 	// Node.mutex will remain locked while UpdateNode is being called.
 	UpdatedNode(obj *v2.CiliumNode)

@@ -163,6 +163,42 @@ func (n *Node) loggerLocked() *logrus.Entry {
 	return n.ops.LogFields(logger)
 }
 
+// getMaxAboveWatermark returns the max-above-watermark setting for an AWS node
+//
+// n.mutex must be held when calling this function
+func (n *Node) getMaxAboveWatermark() int {
+	if n.resource.Spec.IPAM.MaxAboveWatermark != 0 {
+		return n.resource.Spec.IPAM.MaxAboveWatermark
+	}
+	// OBSOLETE: This can be removed in Cilium 1.9
+	return n.resource.Spec.ENI.MaxAboveWatermark
+}
+
+// getPreAllocate returns the pre-allocation setting for an AWS node
+//
+// n.mutex must be held when calling this function
+func (n *Node) getPreAllocate() int {
+	if n.resource.Spec.IPAM.PreAllocate != 0 {
+		return n.resource.Spec.IPAM.PreAllocate
+	}
+	// OBSOLETE: This can be removed in Cilium 1.9
+	if n.resource.Spec.ENI.PreAllocate != 0 {
+		return n.resource.Spec.ENI.PreAllocate
+	}
+	return defaults.IPAMPreAllocation
+}
+
+// getMinAllocate returns the minimum-allocation setting of an AWS node
+//
+// n.mutex must be held when calling this function
+func (n *Node) getMinAllocate() int {
+	if n.resource.Spec.IPAM.MinAllocate != 0 {
+		return n.resource.Spec.IPAM.MinAllocate
+	}
+	// OBSOLETE: This can be removed in Cilium 1.9
+	return n.resource.Spec.ENI.MinAllocate
+}
+
 // GetNeededAddresses returns the number of needed addresses that need to be
 // allocated or released. A positive number is returned to indicate allocation.
 // A negative number is returned to indicate release of addresses.
@@ -266,8 +302,8 @@ func (n *Node) recalculateLocked() {
 		n.stats.UsedIPs = len(n.resource.Status.IPAM.Used)
 	}
 	n.stats.AvailableIPs = len(n.available)
-	n.stats.NeededIPs = calculateNeededIPs(n.stats.AvailableIPs, n.stats.UsedIPs, n.ops.GetPreAllocate(), n.ops.GetMinAllocate())
-	n.stats.ExcessIPs = calculateExcessIPs(n.stats.AvailableIPs, n.stats.UsedIPs, n.ops.GetPreAllocate(), n.ops.GetMinAllocate(), n.ops.GetMaxAboveWatermark())
+	n.stats.NeededIPs = calculateNeededIPs(n.stats.AvailableIPs, n.stats.UsedIPs, n.getPreAllocate(), n.getMinAllocate())
+	n.stats.ExcessIPs = calculateExcessIPs(n.stats.AvailableIPs, n.stats.UsedIPs, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAboveWatermark())
 
 	scopedLog.WithFields(logrus.Fields{
 		"available":                 n.stats.AvailableIPs,
@@ -367,7 +403,7 @@ type AllocationAction struct {
 	// NodeOperations.AllocateIPs() is called and defines the maximum
 	// number of IPs to allocate in order to stay within the boundaries as
 	// defined by NodeOperations.{ MinAllocate() | PreAllocate() |
-	// GetMaxAboveWatermark() }.
+	// getMaxAboveWatermark() }.
 	MaxIPsToAllocate int
 
 	// AvailableInterfaces is the number of interfaces available to be created
@@ -438,7 +474,7 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 		return nil, err
 	}
 
-	a.allocation.MaxIPsToAllocate = n.stats.NeededIPs + n.ops.GetMaxAboveWatermark()
+	a.allocation.MaxIPsToAllocate = n.stats.NeededIPs + n.getMaxAboveWatermark()
 
 	if a.allocation != nil {
 		n.stats.RemainingInterfaces = a.allocation.AvailableInterfaces
