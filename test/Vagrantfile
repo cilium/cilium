@@ -31,6 +31,11 @@ $KUBEPROXY = (ENV['KUBEPROXY'] || "1")
 $MEMORY = (ENV['VM_MEMORY'] || "4096").to_i
 $CPU = (ENV['VM_CPUS'] || "2").to_i
 
+if ENV['KERNEL'] != nil && ENV['KERNEL'] != ""
+    $SERVER_BOX = instance_variable_get("@v"+ ENV['KERNEL'] + "_SERVER_BOX")
+    $SERVER_VERSION = instance_variable_get("@v"+ ENV['KERNEL'] + "_SERVER_VERSION")
+end
+
 if ENV['NETNEXT'] == "true"
     $SERVER_BOX = $NETNEXT_SERVER_BOX
     $SERVER_VERSION = $NETNEXT_SERVER_VERSION
