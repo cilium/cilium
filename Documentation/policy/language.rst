@@ -479,8 +479,8 @@ provided in DNS responses are allowed by Cilium in a similar manner to IPs in
 or are not know a priori, or when DNS is more convenient. To enforce policy on
 DNS requests themselves, see `Layer 7 Examples`_.
 
-IP information is captured from DNS responses per-Endpoint via a `DNS Proxy`_
-or `DNS Polling`_. An L3 `CIDR based`_ rule is generated for every ``toFQDNs``
+IP information is captured from DNS responses per-Endpoint via a `DNS Proxy`_.
+An L3 `CIDR based`_ rule is generated for every ``toFQDNs``
 rule and applies to the same endpoints. The IP information is selected for
 insertion by ``matchName`` or ``matchPattern`` rules, and is collected from all
 DNS responses seen by Cilium on the node. Multiple selectors may be included in
@@ -517,8 +517,6 @@ IPs to be allowed are selected via:
   * ``*`` alone matches all names, and inserts all cached DNS IPs into this
     rule.
 
-.. note:: `DNS Polling`_ will not poll ``matchPattern`` entries even if they
-          are literal DNS names.
 
 Example
 ~~~~~~~
@@ -554,16 +552,13 @@ state will be have ``source: connection`` with a single IP listed within the
 A minimum TTL is used to ensure a lower time bound to DNS data expiration, and
 IPs allowed by a ``toFQDNs`` rule will be allowed at least this long It can be
 configured with the ``--tofqdns-min-ttl`` CLI option. The value is in integer
-seconds and must be 1 or more. The default is 1 hour, or 10 minutes when `DNS
-Polling`_ is enabled.
+seconds and must be 1 or more, the default is 1 hour.
 
 Some care needs to be taken when setting ``--tofqdns-min-ttl`` with DNS data
 that returns many distinct IPs over time. A long TTL will keep each IP cached
 long after the related connections have terminated. Large numbers of IPs each
 have corresponding Security Identities and too many may slow down Cilium policy
-regeneration. This can be especially pronounced when using `DNS Polling`_ to
-obtain DNS data. In such cases a shorter minimum TTL is recommended, as `DNS
-Polling`_ will recover up-do-date IPs regularly.
+regeneration.
 
 Managing Short-Lived Connections & Maximum IPs per FQDN/endpoint
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1007,8 +1002,8 @@ agent respecting TTL.
 
 .. _DNS Proxy:
 
-DNS Proxy (preferred)
-"""""""""""""""""""""
+DNS Proxy 
+"""""""""
   A DNS Proxy intercepts egress DNS traffic and records IPs seen in the
   responses. This interception is, itself, a separate policy rule governing the
   DNS requests, and must be specified separately. For details on how to enforce
@@ -1040,54 +1035,6 @@ DNS Proxy (preferred)
 .. only:: epub or latex
 
         .. literalinclude:: ../../examples/policies/l7/dns/dns-visibility.json
-
-.. _DNS Polling:
-
-DNS Polling
-"""""""""""
-  DNS Polling periodically issues a DNS lookup for each ``matchName`` from
-  cilium-agent. The result is used to regenerate endpoint policy.  Despite the
-  name, the ``matchName`` field does not have to be a fully-qualified domain
-  name. In cases where search domains are configured for cilium-agent, the DNS
-  lookups from Cilium will not be qualified and will utilize the search list.
-  Unqualified names must be matched as-is by ``matchPattern`` in order to
-  insert related IPs.
-
-  DNS lookups are repeated with an interval of 5 seconds, and are made for
-  A(IPv4) and AAAA(IPv6) addresses. Should a lookup fail, the most recent IP
-  data is used instead. An IP change will trigger a regeneration of the Cilium
-  policy for each endpoint and increment the per cilium-agent policy repository
-  revision.
-
-  Polling may be enabled by the ``--tofqdns-enable-poller`` cilium-agent
-  CLI option. It is disabled by default.
-
-  The DNS polling implementation is very limited. It may not behave as expected.
-
-  #. The DNS polling is done from the cilium-agent process. This may result in
-     different IPs being returned in the DNS response than those seen by an
-     application.
-
-  #. When using DNS Polling with DNS responses that return a new IP on every
-     query, the IP being whitelisted may differ from the one used for
-     connections by applications. This is because the application will make
-     a DNS query independent from the poll.
-
-  #. When DNS lookups return many distinct IPs over time, large values of
-     ``--tofqdns-min-ttl`` may result in unacceptably slow policy
-     regeneration. See `DNS and Long-Lived Connections`_ for details.
-
-  #. The lookups from Cilium follow the configuration of the environment it
-     is in via ``/etc/resolv.conf``. When running as a kubernetes pod, the
-     contents of ``resolv.conf`` are controlled via the ``dnsPolicy`` field of a
-     spec. When running directly on a host, it will use the host's file.
-     Irrespective of how the DNS lookups are configured, TTLs and caches on the
-     resolver will impact the IPs seen by the cilium-agent lookups.
-
-.. note:: Connections to the DNS resolver must be explicitly whitelisted to
-          allow DNS queries. This is independent of the source of DNS
-          information, whether from polling or the DNS proxy.
-
 
 Alpine/musl deployments and DNS Refused
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
