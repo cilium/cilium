@@ -8,8 +8,16 @@ apt-get upgrade -y && \
 # Prepackaged Cilium runtime dependencies
 #
 apt-get install -y --no-install-recommends \
-    libelf-dev libmnl-dev iptables libgcc-5-dev bash-completion \
-    binutils binutils-dev ca-certificates kmod && \
+# Additional iproute2 runtime dependencies
+    libelf1 libmnl0 \
+# Additional bpftool runtime dependencies (libbfd)
+    binutils-dev \
+# Additional BPF build runtime dependencies
+    libgcc-5-dev \
+# Bash completion for Cilium
+    bash-completion \
+# Additional misc runtime dependencies
+    iptables kmod ca-certificates && \
 apt-get purge --auto-remove && \
 apt-get clean
 
@@ -25,9 +33,9 @@ RUN \
 apt-get update && \
 apt-get install -y --no-install-recommends \
 # Base runtime-build dependencies
-  make curl ca-certificates xz-utils \
+  make curl ca-certificates xz-utils binutils \
 # Additional iproute2 build dependencies
-  gcc git pkg-config bison flex build-essential \
+  gcc git pkg-config bison flex build-essential libelf-dev libmnl-dev \
 # Additional bpftool dependencies
   python3 \
 # Additional clang/llvm dependencies
@@ -76,9 +84,9 @@ strip -s ./loopback && \
 #
 apt-get purge --auto-remove -y \
 # Base runtime-build dependencies
-  make curl ca-certificates xz-utils \
+  make curl ca-certificates xz-utils binutils \
 # Additional iproute2 build dependencies
-  gcc git pkg-config bison flex build-essential \
+  gcc git pkg-config bison flex build-essential libelf-dev libmnl-dev \
 # Additional bpftool dependencies
   python3 \
 # Additional clang/llvm dependencies
