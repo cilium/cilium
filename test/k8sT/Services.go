@@ -446,7 +446,7 @@ var _ = Describe("K8sServicesTest", func() {
 			return ipv4, ipv6
 		}
 
-		testNodePort := func(bpfNodePort bool, testSecondaryNodePortIP bool) {
+		testNodePort := func(bpfNodePort, testSecondaryNodePortIP, testFromOutside bool) {
 			var (
 				data                                 v1.Service
 				secondaryK8s1IPv4, secondaryK8s2IPv4 string
@@ -486,6 +486,10 @@ var _ = Describe("K8sServicesTest", func() {
 			tftpURL = getTFTPLink(k8s1IP, data.Spec.Ports[1].NodePort)
 			doRequests(httpURL, count, k8s1Name)
 			doRequests(tftpURL, count, k8s1Name)
+			if testFromOutside {
+				doRequestsFromThirdHost(httpURL, count, false)
+				doRequestsFromThirdHost(tftpURL, count, false)
+			}
 
 			httpURL = getHTTPLink("::ffff:"+k8s1IP, data.Spec.Ports[0].NodePort)
 			tftpURL = getTFTPLink("::ffff:"+k8s1IP, data.Spec.Ports[1].NodePort)
@@ -496,6 +500,10 @@ var _ = Describe("K8sServicesTest", func() {
 			tftpURL = getTFTPLink(k8s2IP, data.Spec.Ports[1].NodePort)
 			doRequests(httpURL, count, k8s1Name)
 			doRequests(tftpURL, count, k8s1Name)
+			if testFromOutside {
+				doRequestsFromThirdHost(httpURL, count, false)
+				doRequestsFromThirdHost(tftpURL, count, false)
+			}
 
 			httpURL = getHTTPLink("::ffff:"+k8s2IP, data.Spec.Ports[0].NodePort)
 			tftpURL = getTFTPLink("::ffff:"+k8s2IP, data.Spec.Ports[1].NodePort)
@@ -589,11 +597,19 @@ var _ = Describe("K8sServicesTest", func() {
 					tftpURL = getTFTPLink(secondaryK8s1IPv4, data.Spec.Ports[1].NodePort)
 					doRequests(httpURL, count, k8s1Name)
 					doRequests(tftpURL, count, k8s1Name)
+					if testFromOutside {
+						doRequestsFromThirdHost(httpURL, count, false)
+						doRequestsFromThirdHost(tftpURL, count, false)
+					}
 
 					httpURL = getHTTPLink(secondaryK8s2IPv4, data.Spec.Ports[0].NodePort)
 					tftpURL = getTFTPLink(secondaryK8s2IPv4, data.Spec.Ports[1].NodePort)
 					doRequests(httpURL, count, k8s2Name)
 					doRequests(tftpURL, count, k8s2Name)
+					if testFromOutside {
+						doRequestsFromThirdHost(httpURL, count, false)
+						doRequestsFromThirdHost(tftpURL, count, false)
+					}
 				}
 
 				// Ensure the NodePort cannot be bound from any redirected address
@@ -717,7 +733,7 @@ var _ = Describe("K8sServicesTest", func() {
 		}
 
 		SkipItIf(helpers.RunsWithoutKubeProxy, "Tests NodePort (kube-proxy)", func() {
-			testNodePort(false, false)
+			testNodePort(false, false, false)
 		})
 
 		SkipItIf(helpers.RunsWithoutKubeProxy, "Tests NodePort (kube-proxy) with externalTrafficPolicy=Local", func() {
@@ -746,7 +762,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 				It("Tests NodePort with L7 Policy", func() {
 					applyPolicy(demoPolicy)
-					testNodePort(false, false)
+					testNodePort(false, false, false)
 				})
 			})
 
@@ -780,7 +796,7 @@ var _ = Describe("K8sServicesTest", func() {
 					})
 
 					It("Tests NodePort", func() {
-						testNodePort(true, false)
+						testNodePort(true, false, helpers.ExistNodeWithoutCilium())
 					})
 
 					It("Tests NodePort with externalTrafficPolicy=Local", func() {
@@ -801,7 +817,7 @@ var _ = Describe("K8sServicesTest", func() {
 								"global.nodePort.device": fmt.Sprintf(`'{%s,%s}'`, privateIface, helpers.SecondaryIface),
 							})
 
-							testNodePort(true, true)
+							testNodePort(true, true, helpers.ExistNodeWithoutCilium())
 						})
 				})
 
@@ -814,7 +830,7 @@ var _ = Describe("K8sServicesTest", func() {
 					})
 
 					It("Tests NodePort", func() {
-						testNodePort(true, false)
+						testNodePort(true, false, helpers.ExistNodeWithoutCilium())
 					})
 
 					It("Tests NodePort with externalTrafficPolicy=Local", func() {
@@ -835,7 +851,7 @@ var _ = Describe("K8sServicesTest", func() {
 								"global.nodePort.device": fmt.Sprintf(`'{%s,%s}'`, privateIface, helpers.SecondaryIface),
 							})
 
-							testNodePort(true, true)
+							testNodePort(true, true, helpers.ExistNodeWithoutCilium())
 						})
 
 					SkipContextIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with MetalLB", func() {
