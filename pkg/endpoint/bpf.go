@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -596,7 +596,8 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
 	}
 
-	return datapathRegenCtxt.epInfoCache.revision, compilationExecuted, err
+	stateDirComplete := compilationExecuted
+	return datapathRegenCtxt.epInfoCache.revision, stateDirComplete, err
 }
 
 func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (compilationExecuted bool, err error) {

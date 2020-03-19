@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -247,7 +247,7 @@ func (e *Endpoint) updateAndOverrideEndpointOptions(opts option.OptionMap) (opts
 // Called with e.Mutex UNlocked
 func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 	var revision uint64
-	var compilationExecuted bool
+	var stateDirComplete bool
 	var err error
 
 	context.Stats = regenerationStatistics{}
@@ -338,7 +338,7 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 		e.unlock()
 	}()
 
-	revision, compilationExecuted, err = e.regenerateBPF(context)
+	revision, stateDirComplete, err = e.regenerateBPF(context)
 	if err != nil {
 		failDir := e.FailedDirectoryPath()
 		e.getLogger().WithFields(logrus.Fields{
@@ -351,13 +351,13 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 		return err
 	}
 
-	return e.updateRealizedState(stats, origDir, revision, compilationExecuted)
+	return e.updateRealizedState(stats, origDir, revision, stateDirComplete)
 }
 
 // updateRealizedState sets any realized state fields within the endpoint to
 // be the desired state of the endpoint. This is only called after a successful
 // regeneration of the endpoint.
-func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir string, revision uint64, compilationExecuted bool) error {
+func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir string, revision uint64, stateDirComplete bool) error {
 	// Update desired policy for endpoint because policy has now been realized
 	// in the datapath. PolicyMap state is not updated here, because that is
 	// performed in endpoint.syncPolicyMap().
@@ -373,7 +373,7 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 	// Depending upon result of BPF regeneration (compilation executed),
 	// shift endpoint directories to match said BPF regeneration
 	// results.
-	err = e.synchronizeDirectories(origDir, compilationExecuted)
+	err = e.synchronizeDirectories(origDir, stateDirComplete)
 	if err != nil {
 		return fmt.Errorf("error synchronizing endpoint BPF program directories: %s", err)
 	}
