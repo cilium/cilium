@@ -71,15 +71,19 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	hostIP := node.GetIPv6()
 
 	fmt.Fprintf(fw, "/*\n")
-	fmt.Fprintf(fw, " cilium.v6.external.str %s\n", node.GetIPv6().String())
-	fmt.Fprintf(fw, " cilium.v6.internal.str %s\n", node.GetIPv6Router().String())
-	fmt.Fprintf(fw, " cilium.v6.nodeport.str %s\n", node.GetNodePortIPv6().String())
-	fmt.Fprintf(fw, "\n")
+	if option.Config.EnableIPv6 {
+		fmt.Fprintf(fw, " cilium.v6.external.str %s\n", node.GetIPv6().String())
+		fmt.Fprintf(fw, " cilium.v6.internal.str %s\n", node.GetIPv6Router().String())
+		fmt.Fprintf(fw, " cilium.v6.nodeport.str %s\n", node.GetNodePortIPv6().String())
+		fmt.Fprintf(fw, "\n")
+	}
 	fmt.Fprintf(fw, " cilium.v4.external.str %s\n", node.GetExternalIPv4().String())
 	fmt.Fprintf(fw, " cilium.v4.internal.str %s\n", node.GetInternalIPv4().String())
 	fmt.Fprintf(fw, " cilium.v4.nodeport.str %s\n", node.GetNodePortIPv4().String())
 	fmt.Fprintf(fw, "\n")
-	fw.WriteString(dumpRaw(defaults.RestoreV6Addr, node.GetIPv6Router()))
+	if option.Config.EnableIPv6 {
+		fw.WriteString(dumpRaw(defaults.RestoreV6Addr, node.GetIPv6Router()))
+	}
 	fw.WriteString(dumpRaw(defaults.RestoreV4Addr, node.GetInternalIPv4()))
 	fmt.Fprintf(fw, " */\n\n")
 
@@ -111,8 +115,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		fw.WriteString(FmtDefineAddress("NAT46_PREFIX", nat46Range.IP))
 	}
 
-	extraMacrosMap["HOST_IP"] = hostIP.String()
-	fw.WriteString(defineIPv6("HOST_IP", hostIP))
+	if option.Config.EnableIPv6 {
+		extraMacrosMap["HOST_IP"] = hostIP.String()
+		fw.WriteString(defineIPv6("HOST_IP", hostIP))
+	}
 
 	cDefinesMap["HOST_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameHost))
 	cDefinesMap["WORLD_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameWorld))
@@ -357,7 +363,25 @@ func (h *HeaderfileWriter) WriteNetdevConfig(w io.Writer, cfg datapath.DeviceCon
 // writeStaticData writes the endpoint-specific static data defines to the
 // specified writer. This must be kept in sync with loader.ELFSubstitutions().
 func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConfiguration) {
-	fmt.Fprint(fw, defineIPv6("LXC_IP", e.IPv6Address()))
+	// We want to ensure that the template BPF program always has "LXC_IP"
+	// defined and present as a symbol in the resulting object file after
+	// compilation, regardless of whether IPv6 is disabled. Because the type
+	// templateCfg hardcodes a dummy IPv6 address (and adheres to the
+	// datapath.EndpointConfiguration interface), we can rely on it always
+	// having an IPv6 addr. Endpoints however may not have IPv6 addrs if IPv6
+	// is disabled. Hence this check prevents us from omitting the "LXC_IP"
+	// symbol from the template BPF program. Without this, the following
+	// scenario is possible:
+	//   1) Enable IPv6 in cilium
+	//   2) Create an endpoint (ensure endpoint has an IPv6 addr)
+	//   3) Disable IPv6 and restart cilium
+	// This results in a template BPF object without an "LXC_IP" defined,
+	// __but__ the endpoint still has "LXC_IP" defined. This causes a later
+	// call to loader.ELFSubstitutions() to fail on missing a symbol "LXC_IP".
+	if e.IPv6Address() != nil {
+		fmt.Fprint(fw, defineIPv6("LXC_IP", e.IPv6Address()))
+	}
+
 	fmt.Fprint(fw, defineIPv4("LXC_IPV4", e.IPv4Address()))
 
 	fmt.Fprint(fw, defineMAC("NODE_MAC", e.GetNodeMAC()))
