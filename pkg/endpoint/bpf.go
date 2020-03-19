@@ -480,12 +480,15 @@ func (e *Endpoint) removeOldRedirects(desiredRedirects map[string]bool, proxyWai
 // ReloadDatapath forces the datapath programs to be reloaded. It does
 // not guarantee recompilation of the programs.
 // Must be called with endpoint.Mutex not held and endpoint.buildMutex held.
-// Returns the policy revision number when the regeneration has called, a
-// boolean if the BPF compilation was executed and an error in case of an error.
-func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint64, compiled bool, reterr error) {
+//
+// Returns the policy revision number when the regeneration has called,
+// Whether the new state dir is populated with all new BPF state files, and
+// and an error if something failed.
+func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint64, stateDirComplete bool, reterr error) {
 	var (
 		err                 error
 		compilationExecuted bool
+		headerfileChanged   bool
 	)
 
 	stats := &regenContext.Stats
@@ -502,7 +505,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	datapathRegenCtxt.prepareForProxyUpdates(regenContext.parentContext)
 	defer datapathRegenCtxt.completionCancel()
 
-	err = e.runPreCompilationSteps(regenContext)
+	headerfileChanged, err = e.runPreCompilationSteps(regenContext)
 
 	// Keep track of the side-effects of the regeneration that need to be
 	// reverted in case of failure.
@@ -590,7 +593,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
 	}
 
-	stateDirComplete := compilationExecuted
+	stateDirComplete = headerfileChanged && compilationExecuted
 	return datapathRegenCtxt.epInfoCache.revision, stateDirComplete, err
 }
 
@@ -645,7 +648,9 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (compilati
 // runPreCompilationSteps runs all of the regeneration steps that are necessary
 // right before compiling the BPF for the given endpoint.
 // The endpoint mutex must not be held.
-func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (preCompilationError error) {
+//
+// Returns whether the headerfile changed and/or an error.
+func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (headerfileChanged bool, preCompilationError error) {
 	stats := &regenContext.Stats
 	datapathRegenCtxt := regenContext.datapathRegenerationContext
 
@@ -653,7 +658,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	err := e.lockAlive()
 	stats.waitingForLock.End(err == nil)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	defer e.unlock()
@@ -688,7 +693,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 
 		// Compute policy for this endpoint.
 		if err = e.regeneratePolicy(); err != nil {
-			return fmt.Errorf("Unable to regenerate policy: %s", err)
+			return false, fmt.Errorf("Unable to regenerate policy: %s", err)
 		}
 
 		_ = e.updateAndOverrideEndpointOptions(nil)
@@ -696,27 +701,27 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 		// Dry mode needs Network Policy Updates, but the proxy wait group must
 		// not be initialized, as there is no proxy ACKing the changes.
 		if err, _ = e.updateNetworkPolicy(nil); err != nil {
-			return err
+			return false, err
 		}
 
 		if err = e.writeHeaderfile(nextDir); err != nil {
-			return fmt.Errorf("Unable to write header file: %s", err)
+			return false, fmt.Errorf("Unable to write header file: %s", err)
 		}
 
 		log.WithField(logfields.EndpointID, e.ID).Debug("Skipping bpf updates due to dry mode")
-		return nil
+		return false, nil
 	}
 
 	if e.policyMap == nil {
 		e.policyMap, _, err = policymap.OpenOrCreate(e.policyMapPath())
 		if err != nil {
-			return err
+			return false, err
 		}
 		// Clean up map contents
 		e.getLogger().Debug("flushing old PolicyMap")
 		err = e.policyMap.DeleteAll()
 		if err != nil {
-			return err
+			return false, err
 		}
 
 		// Also reset the in-memory state of the realized state as the
@@ -731,7 +736,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 		err = e.regeneratePolicy()
 		stats.policyCalculation.End(err == nil)
 		if err != nil {
-			return fmt.Errorf("unable to regenerate policy for '%s': %s", e.StringID(), err)
+			return false, fmt.Errorf("unable to regenerate policy for '%s': %s", e.StringID(), err)
 		}
 
 		_ = e.updateAndOverrideEndpointOptions(nil)
@@ -743,7 +748,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 		err, networkPolicyRevertFunc := e.updateNetworkPolicy(datapathRegenCtxt.proxyWaitGroup)
 		stats.proxyPolicyCalculation.End(err == nil)
 		if err != nil {
-			return err
+			return false, err
 		}
 		datapathRegenCtxt.revertStack.Push(networkPolicyRevertFunc)
 
@@ -760,7 +765,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 			desiredRedirects, err, finalizeFunc, revertFunc = e.addNewRedirects(datapathRegenCtxt.proxyWaitGroup)
 			stats.proxyConfiguration.End(err == nil)
 			if err != nil {
-				return err
+				return false, err
 			}
 			datapathRegenCtxt.finalizeList.Append(finalizeFunc)
 			datapathRegenCtxt.revertStack.Push(revertFunc)
@@ -776,7 +781,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 		err = e.syncPolicyMap()
 		stats.mapSync.End(err == nil)
 		if err != nil {
-			return fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
+			return false, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
 		}
 
 		// At this point, traffic is no longer redirected to the proxy for
@@ -796,21 +801,20 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 
 	// Avoid BPF program compilation and installation if the headerfile for the endpoint
 	// or the node have not changed.
-	var changed bool
 	datapathRegenCtxt.bpfHeaderfilesHash, err = e.owner.Datapath().Loader().EndpointHash(e)
 	if err != nil {
 		e.getLogger().WithError(err).Warn("Unable to hash header file")
 		datapathRegenCtxt.bpfHeaderfilesHash = ""
-		changed = true
+		headerfileChanged = true
 	} else {
-		changed = (datapathRegenCtxt.bpfHeaderfilesHash != e.bpfHeaderfileHash)
+		headerfileChanged = (datapathRegenCtxt.bpfHeaderfilesHash != e.bpfHeaderfileHash)
 		e.getLogger().WithField(logfields.BPFHeaderfileHash, datapathRegenCtxt.bpfHeaderfilesHash).
 			Debugf("BPF header file hashed (was: %q)", e.bpfHeaderfileHash)
 	}
-	if changed {
+	if headerfileChanged {
 		datapathRegenCtxt.regenerationLevel = regeneration.RegenerateWithDatapathRewrite
 		if err = e.writeHeaderfile(nextDir); err != nil {
-			return fmt.Errorf("unable to write header file: %s", err)
+			return false, fmt.Errorf("unable to write header file: %s", err)
 		}
 	}
 
@@ -821,10 +825,10 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 		datapathRegenCtxt.epInfoCache = e.createEpInfoCache(currentDir)
 	}
 	if datapathRegenCtxt.epInfoCache == nil {
-		return fmt.Errorf("Unable to cache endpoint information")
+		return headerfileChanged, fmt.Errorf("Unable to cache endpoint information")
 	}
 
-	return nil
+	return headerfileChanged, nil
 }
 
 func (e *Endpoint) finalizeProxyState(regenContext *regenerationContext, err error) {
