@@ -109,9 +109,9 @@ static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
 
 static __always_inline __maybe_unused bool
 __revalidate_data(struct __ctx_buff *ctx, void **data_, void **data_end_,
-		  void **l3, const size_t l3_len, const bool pull)
+		  void **l3, const __u32 l3_len, const bool pull)
 {
-	const size_t tot_len = ETH_HLEN + l3_len;
+	const __u32 tot_len = ETH_HLEN + l3_len;
 	void *data_end;
 	void *data;
 
