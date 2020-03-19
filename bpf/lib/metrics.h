@@ -29,8 +29,7 @@
 #include "maps.h"
 #include "dbg.h"
 #include <stdint.h>
-#include <stdbool.h>
-
+#include "bpf/stddef.h"
 
 /**
  * update_metrics

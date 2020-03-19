@@ -29,8 +29,7 @@
 
 #include <bpf/api.h>
 
-#include <stdint.h>
-#include <stdio.h>
+#include "bpf/stddef.h"
 
 #include "lib/utils.h"
 #include "lib/common.h"

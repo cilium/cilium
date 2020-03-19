@@ -24,7 +24,7 @@
 #include <linux/ipv6.h>
 #include <linux/in.h>
 #include <stdint.h>
-#include <stdbool.h>
+#include "bpf/stddef.h"
 
 // FIXME: GH-3239 LRU logic is not handling timeouts gracefully enough
 // #ifndef HAVE_LRU_MAP_TYPE
@@ -128,9 +128,9 @@ static inline bool validate_ethertype(struct __sk_buff *skb, __u16 *proto)
 
 static inline bool __revalidate_data(struct __sk_buff *skb, void **data_,
 				     void **data_end_, void **l3,
-				     const size_t l3_len, const bool pull)
+				     const unsigned l3_len, const bool pull)
 {
-	const size_t tot_len = ETH_HLEN + l3_len;
+	const __u32 tot_len = ETH_HLEN + l3_len;
 	void *data_end;
 	void *data;
 

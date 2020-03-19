@@ -18,7 +18,7 @@
 #ifndef __LIB_XDP_H_
 #define __LIB_XDP_H_
 
-#include <stdbool.h>
+#include "bpf/stddef.h"
 
 struct lpm_v4_key {
 	struct bpf_lpm_trie_key lpm;

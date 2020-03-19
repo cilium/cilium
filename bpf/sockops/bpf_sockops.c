@@ -22,8 +22,7 @@
 #include <node_config.h>
 #include <bpf/api.h>
 
-#include <stdint.h>
-#include <stdio.h>
+#include "bpf/stddef.h"
 
 #include <linux/bpf.h>
 #include <linux/if_ether.h>

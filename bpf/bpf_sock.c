@@ -20,9 +20,7 @@
 #include <netdev_config.h>
 
 #include <bpf/api.h>
-
-#include <stdint.h>
-#include <stdio.h>
+#include "bpf/stddef.h"
 
 #define SKIP_POLICY_MAP	1
 #define SKIP_CALLS_MAP	1
