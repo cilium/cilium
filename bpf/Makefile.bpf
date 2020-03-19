@@ -1,4 +1,4 @@
-FLAGS := -I/usr/include/$(shell uname -m)-linux-gnu -I$(ROOT_DIR)/bpf/include -I$(ROOT_DIR)/bpf -D__NR_CPUS__=$(shell nproc) -O2 -g
+FLAGS := -I$(ROOT_DIR)/bpf/include -I$(ROOT_DIR)/bpf -D__NR_CPUS__=$(shell nproc) -O2 -g
 
 CLANG_FLAGS := ${FLAGS} -target bpf -emit-llvm
 # eBPF verifier enforces unaligned access checks where necessary, so don't
