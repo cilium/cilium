@@ -45,6 +45,9 @@ global:
     # sets cluster domain for cilium-etcd-operator
     clusterDomain: cluster.local
 
+    # defines the size of the etcd cluster
+    clusterSize: 3
+
     # endpoints is the list of etcd endpoints (not needed when using
     # managed=true)
     endpoints:

@@ -36,7 +36,7 @@ spec:
         - name: CILIUM_ETCD_OPERATOR_CLUSTER_DOMAIN
           value: "{{ .Values.global.etcd.clusterDomain }}"
         - name: CILIUM_ETCD_OPERATOR_ETCD_CLUSTER_SIZE
-          value: "3"
+          value: "{{ .Values.global.etcd.clusterSize }}"
         - name: CILIUM_ETCD_OPERATOR_NAMESPACE
           valueFrom:
             fieldRef:
