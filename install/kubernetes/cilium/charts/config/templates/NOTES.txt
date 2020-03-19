@@ -1,0 +1,5 @@
+You have successfully installed Cilium {{ .Chart.Name }}
+
+Your release version is {{ .Chart.Version }}
+
+For any further help, visit https://docs.cilium.io/en/v{{ substr 0 3 .Chart.Version }}/gettinghelp
