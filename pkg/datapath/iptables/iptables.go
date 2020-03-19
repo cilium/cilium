@@ -168,6 +168,22 @@ func (m *IptablesManager) removeCiliumRules(table, prog, match string) {
 		// -A CILIUM_FORWARD -o cilium_host -m comment --comment "cilium: any->cluster on cilium_host forward accept" -j ACCEPT
 		// -A POSTROUTING -m comment --comment "cilium-feeder: CILIUM_POST" -j CILIUM_POST
 		if strings.Contains(rule, match) {
+			// do not remove feeder for chains that are set to be disabled
+			// ie catch the begining of the rule like -A POSTROUTING to match it against
+			// disabled chains
+			skipFeeder := false
+			for _, disabledChain := range option.Config.DisableIptablesFeederRules {
+				// we skip if the match is ciliumTransientForwardChain since we don't want to touch it
+				if match != ciliumTransientForwardChain && strings.Contains(rule, " "+strings.ToUpper(disabledChain)+" ") {
+					log.WithField("chain", disabledChain).Info("Skipping the removal of feeder chain")
+					skipFeeder = true
+					break
+				}
+			}
+			if skipFeeder {
+				continue
+			}
+
 			reversedRule, err := reverseRule(rule)
 			if err != nil {
 				log.WithError(err).WithField(logfields.Object, rule).Warnf("Unable to parse %s rule into slice. Leaving rule behind.", prog)
@@ -772,6 +788,19 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 
 	for _, c := range ciliumChains {
 		if err := c.add(m.waitArgs); err != nil {
+			// do not return error for chain creation that are linked to disabled feeder rules
+			skipFeeder := false
+			for _, disabledChain := range option.Config.DisableIptablesFeederRules {
+				if strings.ToLower(c.hook) == strings.ToLower(disabledChain) {
+					skipFeeder = true
+					break
+				}
+			}
+			if skipFeeder {
+				log.WithField("chain", c.name).Warningf("ignoring creation of chain since feeder rules for %s is disabled", c.hook)
+				continue
+			}
+
 			return fmt.Errorf("cannot add custom chain %s: %s", c.name, err)
 		}
 	}
@@ -940,6 +969,19 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 	}
 
 	for _, c := range ciliumChains {
+		// do not install feeder for chains that are set to be disabled
+		skipFeeder := false
+		for _, disabledChain := range option.Config.DisableIptablesFeederRules {
+			if strings.ToLower(c.hook) == strings.ToLower(disabledChain) {
+				log.WithField("chain", c.hook).Infof("Skipping the install of feeder rule")
+				skipFeeder = true
+				break
+			}
+		}
+		if skipFeeder {
+			continue
+		}
+
 		if err := c.installFeeder(m.waitArgs); err != nil {
 			return fmt.Errorf("cannot install feeder rule %s: %s", c.feederArgs, err)
 		}
