@@ -44,6 +44,21 @@ func (p *probeValue) DeepCopyMapValue() bpf.MapValue { return &probeValue{p.Valu
 // HaveFullLPM tests whether kernel supports fully functioning BPF LPM map
 // with proper bpf.GetNextKey() traversal. Needs 4.16 or higher.
 func HaveFullLPM() bool {
+	var oldLim unix.Rlimit
+
+	tmpLim := unix.Rlimit{
+		Cur: unix.RLIM_INFINITY,
+		Max: unix.RLIM_INFINITY,
+	}
+	if err := unix.Getrlimit(unix.RLIMIT_MEMLOCK, &oldLim); err != nil {
+		return false
+	}
+	// Otherwise opening the map might fail with EPERM
+	if err := unix.Setrlimit(unix.RLIMIT_MEMLOCK, &tmpLim); err != nil {
+		return false
+	}
+	defer unix.Setrlimit(unix.RLIMIT_MEMLOCK, &oldLim)
+
 	m := bpf.NewMap("cilium_test", bpf.MapTypeLPMTrie,
 		&probeKey{}, int(unsafe.Sizeof(probeKey{})),
 		&probeValue{}, int(unsafe.Sizeof(probeValue{})),
