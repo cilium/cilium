@@ -324,6 +324,7 @@ integrations
 io
 ip
 ipcache
+ipmasq
 iproute
 ipsec
 iptables
@@ -396,6 +397,7 @@ lwt
 macOS
 matchLabels
 matchPattern
+masq
 mc
 mediabot
 memcache
