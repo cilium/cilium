@@ -36,7 +36,7 @@
 #include "elf/libelf.h"
 #include "elf/gelf.h"
 
-#include "bpf/ctx/unspec.h"
+#include "bpf/ctx/nobpf.h"
 #include "bpf/api.h"
 
 #ifndef EM_BPF
