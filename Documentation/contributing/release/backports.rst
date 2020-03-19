@@ -152,8 +152,20 @@ Creating the backports branch
 Creating the backport pull request
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The backport pull-request may be created via the GitHub web interface, or
-alternatively you can use CLI tools to achieve these steps.
+The backport pull-request may be created via CLI tools, or alternatively
+you can use the GitHub web interface to achieve these steps.
+
+Via command-line tools
+^^^^^^^^^^^^^^^^^^^^^^
+
+These steps require all of the tools described in the :ref:`backport_setup`
+section above. It pushes the git tree, creates the pull request and updates
+the labels for the PRs that are backported, based on the
+``vRELEASE-backport-YYYY-MM-DD.txt`` file in the current directory.
+
+   .. code-block:: bash
+
+      # contrib/backporting/submit-backport
 
 Via GitHub web interface
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -171,20 +183,6 @@ Via GitHub web interface
 
 #. Mark all PRs you backported with the backport pending label
    ``backport-pending/X.Y`` and clear the ``needs-backport/vX.Y`` label.
-
-Via command-line tools
-^^^^^^^^^^^^^^^^^^^^^^
-
-These steps require all of the tools described in the :ref:`backport_setup`
-section above. Note that the list of PRs to pass to the ``set-labels.py``
-script are listed at the end of the ``vRELEASE-backport-YYYY-MM-DD.txt`` file.
-
-   .. code-block:: bash
-
-      # Create a pull-request on Github
-      $ gh pull-request -b vX.Y -l backport/vX.Y -F vRELEASE-backport-YYYY-MM-DD.txt
-      # Set PR 1234's v1.0 backporting labels to pending
-      $ contrib/backporting/set-labels.py 1234 pending 1.0
 
 After the backports are merged
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
