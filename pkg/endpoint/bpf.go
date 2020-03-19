@@ -97,14 +97,16 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 		fmt.Fprintf(fw, " * Container ID: %s\n", e.containerID)
 	}
 
+	if option.Config.EnableIPv6 {
+		fmt.Fprintf(fw, " * IPv6 address: %s\n", e.IPv6.String())
+	}
 	fmt.Fprintf(fw, ""+
-		" * IPv6 address: %s\n"+
 		" * IPv4 address: %s\n"+
 		" * Identity: %d\n"+
 		" * PolicyMap: %s\n"+
 		" * NodeMAC: %s\n"+
 		" */\n\n",
-		e.IPv6.String(), e.IPv4.String(),
+		e.IPv4.String(),
 		e.GetIdentity(), bpf.LocalMapName(policymap.MapName, e.ID),
 		e.nodeMAC)
 
