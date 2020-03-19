@@ -29,7 +29,7 @@ apt-get install -y --no-install-recommends \
 # Additional iproute2 build dependencies
   gcc git pkg-config bison flex build-essential \
 # Additional bpftool dependencies
-  python3 gcc-multilib \
+  python3 \
 # Additional clang/llvm dependencies
   cmake ninja-build && \
 #
@@ -80,7 +80,7 @@ apt-get purge --auto-remove -y gpg gpg-agent \
 # Additional iproute2 build dependencies
   gcc git pkg-config bison flex build-essential \
 # Additional bpftool dependencies
-  python3 gcc-multilib \
+  python3 \
 # Additional clang/llvm dependencies
   cmake ninja-build && \
 apt-get clean
