@@ -267,9 +267,10 @@ func (s *StoreSuite) TestStoreLocalKeyProtection(c *C) {
 	c.Assert(expect(func() bool { return localKey1.updated() >= 1 }), IsNil)
 	// delete all keys
 	kvstore.Client().DeletePrefix(context.TODO(), store.conf.Prefix)
+	time.Sleep(10 * time.Millisecond)
 	c.Assert(expect(func() bool {
 		v, err := kvstore.Client().Get(context.TODO(), store.keyPath(&localKey1))
-		return err == nil && v == nil
+		return err == nil && v != nil
 	}), IsNil)
 }
 
