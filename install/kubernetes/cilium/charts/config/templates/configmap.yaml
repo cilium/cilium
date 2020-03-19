@@ -384,4 +384,7 @@ data:
   # https://github.com/cilium/hubble/blob/master/Documentation/metrics.md
   hubble-metrics: {{ .Values.global.hubble.metrics | join " " | quote }}
   {{- end }}
+
+  # A space separated list of iptables chains to disable when installing feeder rules.
+  disable-iptables-feeder-rules: {{ .Values.global.disableIptablesFeederRules | join " " | quote }}
 {{- end }}

@@ -790,6 +790,10 @@ const (
 	// HubbleMetrics specifies enabled metrics and their configuration options.
 	HubbleMetrics = "hubble-metrics"
 
+	// DisableIptablesFeederRules specifies which chains will be excluded
+	// when installing the feeder rules
+	DisableIptablesFeederRules = "disable-iptables-feeder-rules"
+
 	// K8sHeartbeatTimeout configures the timeout for apiserver heartbeat
 	K8sHeartbeatTimeout = "k8s-heartbeat-timeout"
 
@@ -1608,6 +1612,10 @@ type DaemonConfig struct {
 	// EndpointStatus enables population of information in the
 	// CiliumEndpoint.Status resource
 	EndpointStatus map[string]struct{}
+
+	// DisableIptablesFeederRules specifies which chains will be excluded
+	// when installing the feeder rules
+	DisableIptablesFeederRules []string
 }
 
 var (
@@ -2295,6 +2303,7 @@ func (c *DaemonConfig) Populate() {
 	}
 	c.HubbleMetricsServer = viper.GetString(HubbleMetricsServer)
 	c.HubbleMetrics = viper.GetStringSlice(HubbleMetrics)
+	c.DisableIptablesFeederRules = viper.GetStringSlice(DisableIptablesFeederRules)
 
 	// Hidden options
 	c.ConfigFile = viper.GetString(ConfigFile)

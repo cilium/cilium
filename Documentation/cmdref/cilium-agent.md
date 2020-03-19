@@ -49,6 +49,7 @@ cilium-agent [flags]
       --disable-cnp-status-updates                    Do not send CNP NodeStatus updates to the Kubernetes api-server (recommended to run with "cnp-node-status-gc=false" in cilium-operator)
       --disable-conntrack                             Disable connection tracking
       --disable-endpoint-crd                          Disable use of CiliumEndpoint CRD
+      --disable-iptables-feeder-rules strings         Chains to ignore when installing feeder rules.
       --egress-masquerade-interfaces string           Limit egress masquerading to interface selector
       --enable-endpoint-health-checking               Enable connectivity health checking between virtual endpoints (default true)
       --enable-endpoint-routes                        Use per endpoint routes instead of routing via cilium_host
