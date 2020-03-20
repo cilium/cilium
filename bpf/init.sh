@@ -267,7 +267,7 @@ function bpf_compile()
 	TYPE=$3
 	EXTRA_OPTS=$4
 
-	clang -O2 -g -target bpf -emit-llvm				\
+	clang -O2 -target bpf -emit-llvm				\
 	      -Wno-address-of-packed-member -Wno-unknown-warning-option	\
 	      -I. -I$DIR -I$LIB -I$LIB/include				\
 	      -D__NR_CPUS__=$(nproc)					\
@@ -645,4 +645,4 @@ fi
 
 # Compile dummy BPF file containing all shared struct definitions used by
 # pkg/alignchecker to validate C and Go equivalent struct alignments
-bpf_compile bpf_alignchecker.c bpf_alignchecker.o obj ""
+bpf_compile bpf_alignchecker.c bpf_alignchecker.o obj "-g"

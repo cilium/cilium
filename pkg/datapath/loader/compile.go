@@ -221,7 +221,9 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool
 	} else {
 		args = append(args, "-emit-llvm")
 		if debug {
-			args = append(args, "-g")
+			// FIXME: Latest clang/llvm generates incompatible BTF that
+			// iproute2 cannot load.
+			//args = append(args, "-g")
 		}
 	}
 
