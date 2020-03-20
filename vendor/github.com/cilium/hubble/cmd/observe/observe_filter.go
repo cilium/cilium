@@ -122,6 +122,8 @@ func newObserveFilter() *observeFilter {
 			{"protocol"},
 			{"port", "to-port"},
 			{"port", "from-port"},
+			{"identity", "to-identity"},
+			{"identity", "from-identity"},
 		},
 	}
 }
@@ -392,6 +394,34 @@ func (of *observeFilter) set(f *filterTracker, name, val string, track bool) err
 			f.Protocol = append(f.Protocol, val)
 		})
 
+	// identity filters
+	case "identity":
+		identity, err := strconv.ParseUint(val, 10, 64)
+		if err != nil {
+			return fmt.Errorf("invalid security identity: %s: %s", val, err)
+		}
+		f.applyLeft(func(f *pb.FlowFilter) {
+			f.SourceIdentity = append(f.SourceIdentity, identity)
+		})
+		f.applyRight(func(f *pb.FlowFilter) {
+			f.DestinationIdentity = append(f.DestinationIdentity, identity)
+		})
+	case "from-identity":
+		identity, err := strconv.ParseUint(val, 10, 64)
+		if err != nil {
+			return fmt.Errorf("invalid security identity: %s: %s", val, err)
+		}
+		f.apply(func(f *pb.FlowFilter) {
+			f.SourceIdentity = append(f.SourceIdentity, identity)
+		})
+	case "to-identity":
+		identity, err := strconv.ParseUint(val, 10, 64)
+		if err != nil {
+			return fmt.Errorf("invalid security identity: %s: %s", val, err)
+		}
+		f.apply(func(f *pb.FlowFilter) {
+			f.DestinationIdentity = append(f.DestinationIdentity, identity)
+		})
 	}
 
 	return nil

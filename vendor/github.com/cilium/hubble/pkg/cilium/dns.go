@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	"github.com/cilium/hubble/pkg/parser/getters"
 )
 
 const (
@@ -29,9 +30,9 @@ const (
 
 // FqdnCache defines an interface for caching FQDN info from Cilium.
 type FqdnCache interface {
+	getters.DNSGetter
 	InitializeFrom(entries []*models.DNSLookup)
 	AddDNSLookup(epID uint64, lookupTime time.Time, domainName string, ips []net.IP, ttl uint32)
-	GetNamesOf(epID uint64, ip net.IP) []string
 }
 
 // syncFQDNCache regularily syncs DNS lookups from Cilium into our local FQDN

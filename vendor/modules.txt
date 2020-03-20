@@ -82,7 +82,7 @@ github.com/cilium/ebpf/asm
 github.com/cilium/ebpf/internal
 github.com/cilium/ebpf/internal/unix
 github.com/cilium/ebpf/perf
-# github.com/cilium/hubble v0.0.0-20200312104109-daf0d22074cb
+# github.com/cilium/hubble v0.0.0-20200320161706-5faac2a81350
 ## explicit
 github.com/cilium/hubble/api/v1/flow
 github.com/cilium/hubble/api/v1/observer
