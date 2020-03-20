@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/api/v1/server/restapi"
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/cleanup"
@@ -736,7 +737,13 @@ func init() {
 	flags.Bool(option.PolicyAuditModeArg, false, "Enable policy audit (non-drop) mode")
 	option.BindEnv(option.PolicyAuditModeArg)
 
-	flags.StringSlice(option.HubbleListenAddresses, []string{}, "List of unix domain sockets for Hubble server to listen to.")
+	flags.Bool(option.EnableHubble, false, "Enable hubble server")
+	option.BindEnv(option.EnableHubble)
+
+	flags.String(option.HubbleSocketPath, defaults.HubbleSockPath, "Set hubble's socket path to listen for connections")
+	option.BindEnv(option.HubbleSocketPath)
+
+	flags.StringSlice(option.HubbleListenAddresses, []string{}, "List of additional addresses for Hubble server to listen to")
 	option.BindEnv(option.HubbleListenAddresses)
 
 	flags.Int(option.HubbleFlowBufferSize, 4095, "Maximum number of flows in Hubble's buffer. The actual buffer size gets rounded up to the next power of 2, e.g. 4095 => 4096")
@@ -1238,16 +1245,14 @@ func runDaemon() {
 	metricsErrs := initMetrics()
 
 	bootstrapStats.initAPI.Start()
-	api := d.instantiateAPI()
+	srv := server.NewServer(d.instantiateAPI())
+	srv.EnabledListeners = []string{"unix"}
+	srv.SocketPath = flags.Filename(option.Config.SocketPath)
+	srv.ReadTimeout = apiTimeout
+	srv.WriteTimeout = apiTimeout
+	defer srv.Shutdown()
 
-	svr := server.NewServer(api)
-	svr.EnabledListeners = []string{"unix"}
-	svr.SocketPath = flags.Filename(option.Config.SocketPath)
-	svr.ReadTimeout = apiTimeout
-	svr.WriteTimeout = apiTimeout
-	defer svr.Shutdown()
-
-	svr.ConfigureAPI()
+	srv.ConfigureAPI()
 	bootstrapStats.initAPI.End(true)
 
 	repr, err := monitorAPI.TimeRepr(time.Now())
@@ -1276,7 +1281,7 @@ func runDaemon() {
 	errs := make(chan error, 1)
 
 	go func() {
-		errs <- svr.Serve()
+		errs <- srv.Serve()
 	}()
 
 	bootstrapStats.overall.End(true)
@@ -1303,97 +1308,97 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPI {
 	}
 
 	log.Info("Initializing Cilium API")
-	api := restapi.NewCiliumAPI(swaggerSpec)
+	restAPI := restapi.NewCiliumAPI(swaggerSpec)
 
-	api.Logger = log.Infof
+	restAPI.Logger = log.Infof
 
 	// /healthz/
-	api.DaemonGetHealthzHandler = NewGetHealthzHandler(d)
+	restAPI.DaemonGetHealthzHandler = NewGetHealthzHandler(d)
 
 	// /cluster/nodes
-	api.DaemonGetClusterNodesHandler = NewGetClusterNodesHandler(d)
+	restAPI.DaemonGetClusterNodesHandler = NewGetClusterNodesHandler(d)
 
 	// /config/
-	api.DaemonGetConfigHandler = NewGetConfigHandler(d)
-	api.DaemonPatchConfigHandler = NewPatchConfigHandler(d)
+	restAPI.DaemonGetConfigHandler = NewGetConfigHandler(d)
+	restAPI.DaemonPatchConfigHandler = NewPatchConfigHandler(d)
 
 	// /endpoint/
-	api.EndpointGetEndpointHandler = NewGetEndpointHandler(d)
+	restAPI.EndpointGetEndpointHandler = NewGetEndpointHandler(d)
 
 	// /endpoint/{id}
-	api.EndpointGetEndpointIDHandler = NewGetEndpointIDHandler(d)
-	api.EndpointPutEndpointIDHandler = NewPutEndpointIDHandler(d)
-	api.EndpointPatchEndpointIDHandler = NewPatchEndpointIDHandler(d)
-	api.EndpointDeleteEndpointIDHandler = NewDeleteEndpointIDHandler(d)
+	restAPI.EndpointGetEndpointIDHandler = NewGetEndpointIDHandler(d)
+	restAPI.EndpointPutEndpointIDHandler = NewPutEndpointIDHandler(d)
+	restAPI.EndpointPatchEndpointIDHandler = NewPatchEndpointIDHandler(d)
+	restAPI.EndpointDeleteEndpointIDHandler = NewDeleteEndpointIDHandler(d)
 
 	// /endpoint/{id}config/
-	api.EndpointGetEndpointIDConfigHandler = NewGetEndpointIDConfigHandler(d)
-	api.EndpointPatchEndpointIDConfigHandler = NewPatchEndpointIDConfigHandler(d)
+	restAPI.EndpointGetEndpointIDConfigHandler = NewGetEndpointIDConfigHandler(d)
+	restAPI.EndpointPatchEndpointIDConfigHandler = NewPatchEndpointIDConfigHandler(d)
 
 	// /endpoint/{id}/labels/
-	api.EndpointGetEndpointIDLabelsHandler = NewGetEndpointIDLabelsHandler(d)
-	api.EndpointPatchEndpointIDLabelsHandler = NewPatchEndpointIDLabelsHandler(d)
+	restAPI.EndpointGetEndpointIDLabelsHandler = NewGetEndpointIDLabelsHandler(d)
+	restAPI.EndpointPatchEndpointIDLabelsHandler = NewPatchEndpointIDLabelsHandler(d)
 
 	// /endpoint/{id}/log/
-	api.EndpointGetEndpointIDLogHandler = NewGetEndpointIDLogHandler(d)
+	restAPI.EndpointGetEndpointIDLogHandler = NewGetEndpointIDLogHandler(d)
 
 	// /endpoint/{id}/healthz
-	api.EndpointGetEndpointIDHealthzHandler = NewGetEndpointIDHealthzHandler(d)
+	restAPI.EndpointGetEndpointIDHealthzHandler = NewGetEndpointIDHealthzHandler(d)
 
 	// /identity/
-	api.PolicyGetIdentityHandler = newGetIdentityHandler(d)
-	api.PolicyGetIdentityIDHandler = newGetIdentityIDHandler(d.identityAllocator)
+	restAPI.PolicyGetIdentityHandler = newGetIdentityHandler(d)
+	restAPI.PolicyGetIdentityIDHandler = newGetIdentityIDHandler(d.identityAllocator)
 
 	// /identity/endpoints
-	api.PolicyGetIdentityEndpointsHandler = newGetIdentityEndpointsIDHandler(d)
+	restAPI.PolicyGetIdentityEndpointsHandler = newGetIdentityEndpointsIDHandler(d)
 
 	// /policy/
-	api.PolicyGetPolicyHandler = newGetPolicyHandler(d.policy)
-	api.PolicyPutPolicyHandler = newPutPolicyHandler(d)
-	api.PolicyDeletePolicyHandler = newDeletePolicyHandler(d)
-	api.PolicyGetPolicySelectorsHandler = newGetPolicyCacheHandler(d)
+	restAPI.PolicyGetPolicyHandler = newGetPolicyHandler(d.policy)
+	restAPI.PolicyPutPolicyHandler = newPutPolicyHandler(d)
+	restAPI.PolicyDeletePolicyHandler = newDeletePolicyHandler(d)
+	restAPI.PolicyGetPolicySelectorsHandler = newGetPolicyCacheHandler(d)
 
 	// /policy/resolve/
-	api.PolicyGetPolicyResolveHandler = NewGetPolicyResolveHandler(d)
+	restAPI.PolicyGetPolicyResolveHandler = NewGetPolicyResolveHandler(d)
 
 	// /service/{id}/
-	api.ServiceGetServiceIDHandler = NewGetServiceIDHandler(d.svc)
-	api.ServiceDeleteServiceIDHandler = NewDeleteServiceIDHandler(d.svc)
-	api.ServicePutServiceIDHandler = NewPutServiceIDHandler(d.svc)
+	restAPI.ServiceGetServiceIDHandler = NewGetServiceIDHandler(d.svc)
+	restAPI.ServiceDeleteServiceIDHandler = NewDeleteServiceIDHandler(d.svc)
+	restAPI.ServicePutServiceIDHandler = NewPutServiceIDHandler(d.svc)
 
 	// /service/
-	api.ServiceGetServiceHandler = NewGetServiceHandler(d.svc)
+	restAPI.ServiceGetServiceHandler = NewGetServiceHandler(d.svc)
 
 	// /prefilter/
-	api.PrefilterGetPrefilterHandler = NewGetPrefilterHandler(d)
-	api.PrefilterDeletePrefilterHandler = NewDeletePrefilterHandler(d)
-	api.PrefilterPatchPrefilterHandler = NewPatchPrefilterHandler(d)
+	restAPI.PrefilterGetPrefilterHandler = NewGetPrefilterHandler(d)
+	restAPI.PrefilterDeletePrefilterHandler = NewDeletePrefilterHandler(d)
+	restAPI.PrefilterPatchPrefilterHandler = NewPatchPrefilterHandler(d)
 
 	// /ipam/{ip}/
-	api.IpamPostIpamHandler = NewPostIPAMHandler(d)
-	api.IpamPostIpamIPHandler = NewPostIPAMIPHandler(d)
-	api.IpamDeleteIpamIPHandler = NewDeleteIPAMIPHandler(d)
+	restAPI.IpamPostIpamHandler = NewPostIPAMHandler(d)
+	restAPI.IpamPostIpamIPHandler = NewPostIPAMIPHandler(d)
+	restAPI.IpamDeleteIpamIPHandler = NewDeleteIPAMIPHandler(d)
 
 	// /debuginfo
-	api.DaemonGetDebuginfoHandler = NewGetDebugInfoHandler(d)
+	restAPI.DaemonGetDebuginfoHandler = NewGetDebugInfoHandler(d)
 
 	// /map
-	api.DaemonGetMapHandler = NewGetMapHandler(d)
-	api.DaemonGetMapNameHandler = NewGetMapNameHandler(d)
+	restAPI.DaemonGetMapHandler = NewGetMapHandler(d)
+	restAPI.DaemonGetMapNameHandler = NewGetMapNameHandler(d)
 
 	// metrics
-	api.MetricsGetMetricsHandler = NewGetMetricsHandler(d)
+	restAPI.MetricsGetMetricsHandler = NewGetMetricsHandler(d)
 
 	// /fqdn/cache
-	api.PolicyGetFqdnCacheHandler = NewGetFqdnCacheHandler(d)
-	api.PolicyDeleteFqdnCacheHandler = NewDeleteFqdnCacheHandler(d)
-	api.PolicyGetFqdnCacheIDHandler = NewGetFqdnCacheIDHandler(d)
-	api.PolicyGetFqdnNamesHandler = NewGetFqdnNamesHandler(d)
+	restAPI.PolicyGetFqdnCacheHandler = NewGetFqdnCacheHandler(d)
+	restAPI.PolicyDeleteFqdnCacheHandler = NewDeleteFqdnCacheHandler(d)
+	restAPI.PolicyGetFqdnCacheIDHandler = NewGetFqdnCacheIDHandler(d)
+	restAPI.PolicyGetFqdnNamesHandler = NewGetFqdnNamesHandler(d)
 
 	// /ip/
-	api.PolicyGetIPHandler = NewGetIPHandler()
+	restAPI.PolicyGetIPHandler = NewGetIPHandler()
 
-	return api
+	return restAPI
 }
 
 func initKubeProxyReplacementOptions() {
@@ -1590,35 +1595,41 @@ func checkNodePortAndEphemeralPortRanges() error {
 
 func (d *Daemon) launchHubble() {
 	logger := logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble")
-	addresses := option.Config.HubbleListenAddresses
-	if len(addresses) == 0 {
+	if !option.Config.EnableHubble {
 		logger.Info("Hubble server is disabled")
 		return
 	}
+	addresses := append(option.Config.HubbleListenAddresses, "unix://"+option.Config.HubbleSocketPath)
 	for _, address := range addresses {
+		// TODO: remove warning once mutual TLS has been implemented
 		if !strings.HasPrefix(address, "unix://") {
-			logger.WithField("addresses", addresses).
-				Warn("Hubble server currently only supports listening on Unix domain sockets")
-			return
+			logger.WithField("address", address).Warn("Hubble server will be exposing its API insecurely on this address")
 		}
 	}
 	payloadParser, err := parser.New(d, d, d, ipcache.IPIdentityCache, d)
 	if err != nil {
-		logger.WithError(err).Warn("Failed to initialize Hubble")
+		logger.WithError(err).Error("Failed to initialize Hubble")
 		return
 	}
 	s, err := hubbleServer.NewLocalServer(payloadParser, logger,
 		serveroption.WithMaxFlows(option.Config.HubbleFlowBufferSize),
 		serveroption.WithMonitorBuffer(option.Config.HubbleEventQueueSize))
 	if err != nil {
-		logger.WithError(err).Warn("Failed to initialize Hubble")
+		logger.WithError(err).Error("Failed to initialize Hubble")
 		return
 	}
 	go s.Start()
 	d.monitorAgent.GetMonitor().RegisterNewListener(d.ctx, hubble.NewHubbleListener(s))
+
+	listeners, err := hubbleServe.SetupListeners(addresses, api.CiliumGroupName)
+	if err != nil {
+		logger.WithError(err).Error("Failed to initialize Hubble")
+		return
+	}
+
 	logger.WithField("addresses", addresses).Info("Starting Hubble server")
-	if err := hubbleServe.Serve(d.ctx, logger, addresses, s); err != nil {
-		logger.WithError(err).Warn("Failed to start Hubble server")
+	if err := hubbleServe.Serve(d.ctx, logger, listeners, s); err != nil {
+		logger.WithError(err).Error("Failed to start Hubble server")
 		return
 	}
 	if option.Config.HubbleMetricsServer != "" {
