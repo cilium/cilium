@@ -36,4 +36,4 @@ fi
 
 DATE=$(date --rfc-3339=date)
 git checkout -b pr/v$BRANCH-backport-$DATE origin/v$BRANCH
-contrib/backporting/check-stable $BRANCH $DATE.txt
+contrib/backporting/check-stable $BRANCH v$BRANCH-backport-$DATE.txt
