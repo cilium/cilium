@@ -516,7 +516,9 @@ This section therefore elaborates on the various ``global.kubeProxyReplacement``
         --set global.externalIPs.enabled=true
 
 - ``global.kubeProxyReplacement=disabled``: This option disables any Kubernetes service
-  handling by fully relying on kube-proxy instead.
+  handling by fully relying on kube-proxy instead, except for ClusterIP services
+  accessed from pods if cilium-agent's flag ``--disable-k8s-services`` is set to
+  ``false`` (pre-v1.6 behavior).
 
 In Cilium's helm chart, the default mode is ``global.kubeProxyReplacement=probe`` for
 new deployments.
