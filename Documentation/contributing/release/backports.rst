@@ -189,6 +189,20 @@ Via GitHub web interface
    the ``start-backport`` script above (``GITHUB_TOKEN`` needs to be set for
    this to work).
 
+Via command-line tools
+^^^^^^^^^^^^^^^^^^^^^^
+
+These steps require all of the tools described in the :ref:`backport_setup`
+section above. Note that the list of PRs to pass to the ``set-labels.py``
+script are listed at the end of the ``vRELEASE-backport-YYYY-MM-DD.txt`` file.
+
+   .. code-block:: bash
+
+      # Create a pull-request on Github
+      $ gh pull-request -b vX.Y -l backport/vX.Y -F vRELEASE-backport-YYYY-MM-DD.txt
+      # Set PR 1234's v1.0 backporting labels to pending
+      $ contrib/backporting/set-labels.py 1234 pending 1.0
+
 After the backports are merged
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
