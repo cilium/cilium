@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"github.com/cilium/cilium/hubble-proxy/cmd/completion"
+	"github.com/cilium/cilium/hubble-proxy/cmd/serve"
 	"github.com/cilium/cilium/hubble-proxy/cmd/version"
 	v "github.com/cilium/cilium/pkg/version"
 
@@ -33,6 +34,7 @@ func New() *cobra.Command {
 	}
 	rootCmd.AddCommand(
 		completion.New(),
+		serve.New(),
 		version.New(),
 	)
 	rootCmd.SetVersionTemplate("{{with .Name}}{{printf \"%s \" .}}{{end}}{{printf \"v%s\" .Version}}\n")
