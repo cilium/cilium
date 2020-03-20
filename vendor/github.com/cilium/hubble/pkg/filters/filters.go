@@ -475,6 +475,27 @@ func filterByPort(portStrs []string, getPort func(*v1.Event) (port uint16, ok bo
 	}, nil
 }
 
+func sourceEndpoint(ev *v1.Event) *pb.Endpoint {
+	return ev.GetFlow().GetSource()
+}
+
+func destinationEndpoint(ev *v1.Event) *pb.Endpoint {
+	return ev.GetFlow().GetDestination()
+}
+
+func filterByIdentity(identities []uint64, getEndpoint func(*v1.Event) *pb.Endpoint) FilterFunc {
+	return func(ev *v1.Event) bool {
+		if endpoint := getEndpoint(ev); endpoint != nil {
+			for _, i := range identities {
+				if i == endpoint.Identity {
+					return true
+				}
+			}
+		}
+		return false
+	}
+}
+
 func filterByReplyField(replyParams []bool) FilterFunc {
 	return func(ev *v1.Event) bool {
 		if len(replyParams) == 0 {
@@ -664,6 +685,14 @@ func BuildFilter(ff *pb.FlowFilter) (FilterFuncs, error) {
 			return nil, fmt.Errorf("invalid DNS query filter: %v", err)
 		}
 		fs = append(fs, dnsFilters)
+	}
+
+	if ff.GetSourceIdentity() != nil {
+		fs = append(fs, filterByIdentity(ff.GetSourceIdentity(), sourceEndpoint))
+	}
+
+	if ff.GetDestinationIdentity() != nil {
+		fs = append(fs, filterByIdentity(ff.GetDestinationIdentity(), destinationEndpoint))
 	}
 
 	return fs, nil

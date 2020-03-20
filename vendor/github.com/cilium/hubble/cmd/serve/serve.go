@@ -23,7 +23,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"syscall"
 
 	"github.com/cilium/hubble/api/v1/observer"
 	"github.com/cilium/hubble/pkg/api"
@@ -40,6 +39,7 @@ import (
 	"github.com/google/gops/agent"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
@@ -107,7 +107,11 @@ func New(log *logrus.Entry) *cobra.Command {
 			defer cancel()
 			setupSigHandler(ctx, cancel)
 			s.Start()
-			if err = Serve(ctx, log, listenClientUrls, s.GetGRPCServer()); err != nil {
+			listeners, err := SetupListeners(listenClientUrls, api.GetGroupName())
+			if err != nil {
+				return err
+			}
+			if err = Serve(ctx, log, listeners, s.GetGRPCServer()); err != nil {
 				return err
 			}
 			if err := s.HandleMonitorSocket(ctx, nodeName); err != nil {
@@ -168,7 +172,12 @@ func validateArgs(log *logrus.Entry) error {
 	return nil
 }
 
-func setupListeners(listenClientUrls []string) (listeners map[string]net.Listener, err error) {
+// SetupListeners takes a list of addresses to create listeners. If the address
+// is prefixed with 'unix://', it is assumed to be a UNIX domain socket, in
+// which case appropriate permissions are tentatively set and the group owner
+// is set to socketGroup. Otherwise, the address is assumed to be TCP.
+// This function returns a map with addresses as keys.
+func SetupListeners(addresses []string, socketGroup string) (listeners map[string]net.Listener, err error) {
 	listeners = map[string]net.Listener{}
 	defer func() {
 		if err != nil {
@@ -178,20 +187,20 @@ func setupListeners(listenClientUrls []string) (listeners map[string]net.Listene
 		}
 	}()
 
-	for _, listenClientURL := range listenClientUrls {
-		if listenClientURL == "" {
+	for _, address := range addresses {
+		if address == "" {
 			continue
 		}
-		if !strings.HasPrefix(listenClientURL, "unix://") {
+		if !strings.HasPrefix(address, "unix://") {
 			var socket net.Listener
-			socket, err = net.Listen("tcp", listenClientURL)
+			socket, err = net.Listen("tcp", address)
 			if err != nil {
 				return nil, err
 			}
-			listeners[listenClientURL] = socket
+			listeners[address] = socket
 		} else {
-			socketPath := strings.TrimPrefix(listenClientURL, "unix://")
-			syscall.Unlink(socketPath)
+			socketPath := strings.TrimPrefix(address, "unix://")
+			_ = unix.Unlink(socketPath)
 			var socket net.Listener
 			socket, err = net.Listen("unix", socketPath)
 			if err != nil {
@@ -199,12 +208,11 @@ func setupListeners(listenClientUrls []string) (listeners map[string]net.Listene
 			}
 
 			if os.Getuid() == 0 {
-				err = api.SetDefaultPermissions(socketPath)
-				if err != nil {
+				if err = api.SetDefaultPermissions(socketPath, socketGroup); err != nil {
 					return nil, err
 				}
 			}
-			listeners[listenClientURL] = socket
+			listeners[address] = socket
 		}
 	}
 	return listeners, nil
@@ -212,12 +220,7 @@ func setupListeners(listenClientUrls []string) (listeners map[string]net.Listene
 
 // Serve starts the GRPC server on the provided socketPath. If the port is non-zero, it listens
 // to the TCP port instead of the unix domain socket.
-func Serve(ctx context.Context, log *logrus.Entry, listenClientUrls []string, s server.GRPCServer) error {
-	clientListeners, err := setupListeners(listenClientUrls)
-	if err != nil {
-		return err
-	}
-
+func Serve(ctx context.Context, log *logrus.Entry, listeners map[string]net.Listener, s server.GRPCServer) error {
 	healthSrv := health.NewServer()
 	healthSrv.SetServingStatus(v1.ObserverServiceName, healthpb.HealthCheckResponse_SERVING)
 
@@ -226,11 +229,10 @@ func Serve(ctx context.Context, log *logrus.Entry, listenClientUrls []string, s 
 	observer.RegisterObserverServer(clientGRPC, s)
 	healthpb.RegisterHealthServer(clientGRPC, healthSrv)
 
-	for clientListURL, clientList := range clientListeners {
+	for clientListURL, clientList := range listeners {
 		go func(clientListURL string, clientList net.Listener) {
 			log.WithField("client-listener", clientListURL).Info("Starting gRPC server on client-listener")
-			err = clientGRPC.Serve(clientList)
-			if err != nil {
+			if err := clientGRPC.Serve(clientList); err != nil {
 				log.WithError(err).Error("failed to close grpc server")
 			}
 		}(clientListURL, clientList)

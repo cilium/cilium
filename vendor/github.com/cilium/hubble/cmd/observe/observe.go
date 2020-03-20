@@ -21,12 +21,12 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"syscall"
 	"time"
 
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
+	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -210,6 +210,16 @@ programs attached to endpoints and devices. This includes:
 		"to-port", ofilter,
 		"Show only flows with the given destination port (e.g. 8080)"))
 
+	observerCmd.Flags().Var(filterVar(
+		"from-identity", ofilter,
+		"Show all flows originating at an endpoint with the given security identity"))
+	observerCmd.Flags().Var(filterVar(
+		"identity", ofilter,
+		"Show all flows related to an endpoint with the given security identity"))
+	observerCmd.Flags().Var(filterVar(
+		"to-identity", ofilter,
+		"Show all flows terminating at an endpoint with the given security identity"))
+
 	observerCmd.Flags().BoolVarP(
 		&jsonOutput, "json", "j", false, "Deprecated. Use '--output json' instead.",
 	)
@@ -391,7 +401,7 @@ func getFlows(client observer.ObserverClient, req *observer.GetFlowsRequest) err
 
 	go func() {
 		sigs := make(chan os.Signal, 1)
-		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+		signal.Notify(sigs, unix.SIGINT, unix.SIGTERM)
 		select {
 		case <-sigs:
 		case <-ctx.Done():

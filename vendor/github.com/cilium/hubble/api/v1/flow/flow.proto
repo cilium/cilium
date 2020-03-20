@@ -252,6 +252,10 @@ message FlowFilter {
     repeated bool reply = 15;
     // dns_query filters L7 DNS flows by query patterns (RE2 regex), e.g. 'kube.*local'.
     repeated string dns_query = 18;
+    // source_identity filters by the security identity of the source endpoint.
+    repeated uint64 source_identity = 19;
+    // destination_identity filters by the security identity of the destination endpoint.
+    repeated uint64 destination_identity = 20;
 }
 
 // EventType are constants are based on the ones from <linux/perf_event.h>.

@@ -47,10 +47,9 @@ func GetGroupIDByName(grpName string) (int, error) {
 	return -1, fmt.Errorf("group %q not found", grpName)
 }
 
-// SetDefaultPermissions sets the given socket to with cilium's default
-// group and mode permissions. Group `HubbleGroupName` and mode `0660`
-func SetDefaultPermissions(socketPath string) error {
-	group := getGroupName()
+// SetDefaultPermissions sets the socket's group to the given group and
+// permissions to SocketFileMode.
+func SetDefaultPermissions(socketPath, group string) error {
 	gid, err := GetGroupIDByName(group)
 	if err != nil {
 		return fmt.Errorf("group %s not found", group)
@@ -69,7 +68,8 @@ func SetDefaultPermissions(socketPath string) error {
 	return nil
 }
 
-func getGroupName() string {
+// GetGroupName returns Hubble's group name.
+func GetGroupName() string {
 	if name, ok := os.LookupEnv(HubbleGroupNameKey); ok {
 		return name
 	}

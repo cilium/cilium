@@ -16,8 +16,7 @@ package printer
 
 import (
 	"io"
-	"os"
-	"syscall"
+	"io/ioutil"
 )
 
 // Output enum of the printer.
@@ -85,7 +84,7 @@ func Writer(w io.Writer) Option {
 // IgnoreStderr configures the output to not print any
 func IgnoreStderr() Option {
 	return func(opts *Options) {
-		opts.werr = os.NewFile(uintptr(syscall.Stderr), os.DevNull)
+		opts.werr = ioutil.Discard
 	}
 }
 
