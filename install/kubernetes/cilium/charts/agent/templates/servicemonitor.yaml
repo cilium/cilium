@@ -1,4 +1,5 @@
 {{- if and .Values.global.prometheus.enabled (.Values.global.prometheus.serviceMonitor.enabled) }}
+---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -21,3 +22,24 @@ spec:
     honorLabels: true
     path: /metrics
 {{- end }}
+{{- if and .Values.global.hubble.metrics.enabled (.Values.global.hubble.metrics.serviceMonitor.enabled) }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hubble
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      k8s-app: cilium
+  namespaceSelector:
+    matchNames:
+    - {{ .Release.Namespace }}
+  endpoints:
+  - port: hubble-metrics
+    interval: 10s
+    honorLabels: true
+    path: /metrics
+{{- end }}
+

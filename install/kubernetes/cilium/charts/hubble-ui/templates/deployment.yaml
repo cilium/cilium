@@ -1,0 +1,38 @@
+{{- if .Values.global.hubble.ui.enabled }}
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: hubble-ui
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      k8s-app: hubble-ui
+  template:
+    metadata:
+      labels:
+        k8s-app: hubble-ui
+    spec:
+      serviceAccountName: hubble-ui
+      containers:
+        - name: hubble-ui
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: LOG_LEVEL
+              value: "info"
+            - name: HUBBLE
+              value: "true"
+            - name: HUBBLE_SERVICE
+              value: "hubble-grpc.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}"
+            - name: HUBBLE_PORT
+              value: "50051"
+          ports:
+            - containerPort: 12000
+              name: http
+          resources:
+            {{- toYaml .Values.resources | trim | nindent 12 }}
+{{- end }}

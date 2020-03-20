@@ -408,6 +408,8 @@ global:
   # hubble configures Hubble.
   hubble:
     enabled: false
+    ui:
+      enabled: false 
     # Default unix domain socket path to listen to when Hubble is enabled. Default to "/var/run/cilium/hubble.sock".
     socketPath: /var/run/cilium/hubble.sock
     # List of additional addresses to listen to, for example:
@@ -445,7 +447,11 @@ global:
     #
     # See https://github.com/cilium/hubble/blob/master/Documentation/metrics.md for more comprehensive
     # documentation about Hubble's metric collection.
-    metrics: []
+    metrics:
+      enabled:
+       - drop
+      serviceMonitor:
+        enabled: false
     # Configures the hubble-cli subchart
     cli:
       enabled: false
