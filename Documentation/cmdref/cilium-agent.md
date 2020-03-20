@@ -57,6 +57,7 @@ cilium-agent [flags]
       --enable-health-checking                        Enable connectivity health checking (default true)
       --enable-host-port                              Enable k8s hostPort mapping feature (requires enabling enable-node-port) (default true)
       --enable-host-reachable-services                Enable reachability of services for host applications (beta)
+      --enable-hubble                                 Enable hubble server
       --enable-ipsec                                  Enable IPSec support
       --enable-ipv4                                   Enable IPv4 support (default true)
       --enable-ipv6                                   Enable IPv6 support (default true)
@@ -90,9 +91,10 @@ cilium-agent [flags]
       --http-retry-timeout uint                       Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)
       --hubble-event-queue-size int                   Buffer size of the channel to receive monitor events.
       --hubble-flow-buffer-size int                   Maximum number of flows in Hubble's buffer. The actual buffer size gets rounded up to the next power of 2, e.g. 4095 => 4096 (default 4095)
-      --hubble-listen-addresses strings               List of unix domain sockets for Hubble server to listen to.
+      --hubble-listen-addresses strings               List of additional addresses for Hubble server to listen to
       --hubble-metrics strings                        List of Hubble metrics to enable.
       --hubble-metrics-server string                  Address to serve Hubble metrics on.
+      --hubble-socket-path string                     Set hubble's socket path to listen for connections (default "/var/run/cilium/hubble.sock")
       --identity-allocation-mode string               Method to use for identity allocation (default "kvstore")
       --identity-change-grace-period duration         Time to wait before using new identity on endpoint identity change (default 5s)
       --install-iptables-rules                        Install base iptables rules for cilium to mainly interact with kube-proxy (and masquerading) (default true)
