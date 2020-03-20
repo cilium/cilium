@@ -27,7 +27,7 @@ require (
 	github.com/go-openapi/strfmt v0.19.4
 	github.com/go-openapi/swag v0.19.7
 	github.com/go-openapi/validate v0.19.5
-	github.com/gogo/protobuf v1.3.0
+	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.3.2
 	github.com/google/go-cmp v0.3.1
 	github.com/google/gopacket v1.1.17
@@ -40,14 +40,14 @@ require (
 	github.com/kr/pretty v0.1.0
 	github.com/mattn/go-shellwords v1.0.5
 	github.com/miekg/dns v1.0.14
-	github.com/onsi/ginkgo v1.10.1
+	github.com/onsi/ginkgo v1.11.0
 	github.com/onsi/gomega v1.7.0
 	github.com/optiopay/kafka v0.0.0-00010101000000-000000000000
 	github.com/pborman/uuid v1.2.0
 	github.com/pkg/errors v0.8.1
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/prometheus/client_golang v1.2.0
-	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
+	github.com/prometheus/client_model v0.2.0
 	github.com/russross/blackfriday v1.5.2
 	github.com/sasha-s/go-deadlock v0.2.1-0.20190427202633-1595213edefa
 	github.com/servak/go-fastping v0.0.0-20160802140958-5718d12e20a0
@@ -58,28 +58,28 @@ require (
 	github.com/spf13/viper v1.6.1
 	github.com/vishvananda/netlink v1.1.1-0.20200210222539-bfba8e4149db
 	go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738
-	golang.org/x/crypto v0.0.0-20191206172530-e9b2fee46413
+	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55
-	google.golang.org/grpc v1.25.1
+	google.golang.org/grpc v1.26.0
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/fsnotify.v1 v1.4.7
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.2.8
-	k8s.io/api v0.17.3
-	k8s.io/apiextensions-apiserver v0.17.3
-	k8s.io/apimachinery v0.17.3
-	k8s.io/client-go v0.17.3
-	k8s.io/code-generator v0.17.3
+	k8s.io/api v0.18.0-rc.1
+	k8s.io/apiextensions-apiserver v0.18.0-rc.1
+	k8s.io/apimachinery v0.18.0-rc.1
+	k8s.io/client-go v0.18.0-rc.1
+	k8s.io/code-generator v0.18.0-rc.1
 	k8s.io/klog v1.0.0
-	sigs.k8s.io/yaml v1.1.0
+	sigs.k8s.io/yaml v1.2.0
 )
 
 replace (
 	github.com/miekg/dns => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
 	github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
-	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20200217141255-96fd08586691
+	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20200320155341-c249b443d739
 )

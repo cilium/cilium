@@ -219,7 +219,7 @@ func runOperator(cmd *cobra.Command) {
 							logfields.ServiceName:      name,
 							logfields.ServiceNamespace: namespace,
 						}).Info("Retrieving service spec from k8s to perform automatic etcd service translation")
-						k8sSvc, err := k8s.Client().CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
+						k8sSvc, err := k8s.Client().CoreV1().Services(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 						switch {
 						case err == nil:
 							// Create another service cache that contains the

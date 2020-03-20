@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package k8s
 
 import (
+	"context"
 	goerrors "errors"
 	"fmt"
 	"net"
@@ -130,7 +131,7 @@ func runHeartbeat(closeAllConns []func(), stop chan struct{}) error {
 			// For this reason we have picked to perform a get on `kube-system` instead a get of a node.
 			//
 			// [0] https://github.com/kubernetes/kubernetes/blob/v1.17.3/pkg/kubelet/kubelet_node_status.go#L423
-			_, err := k8sCli.Interface.CoreV1().Namespaces().Get("kube-system", metav1.GetOptions{})
+			_, err := k8sCli.Interface.CoreV1().Namespaces().Get(context.TODO(), "kube-system", metav1.GetOptions{})
 			switch t := err.(type) {
 			case (*errors.StatusError):
 				if t.ErrStatus.Code == http.StatusGatewayTimeout || t.ErrStatus.Code == http.StatusRequestTimeout ||
@@ -193,7 +194,7 @@ func CreateClient(config *rest.Config) (*kubernetes.Clientset, func(), error) {
 
 // isConnReady returns the err for the kube-system namespace get
 func isConnReady(c kubernetes.Interface) error {
-	_, err := c.CoreV1().Namespaces().Get("kube-system", metav1.GetOptions{})
+	_, err := c.CoreV1().Namespaces().Get(context.TODO(), "kube-system", metav1.GetOptions{})
 	return err
 }
 

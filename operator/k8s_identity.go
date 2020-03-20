@@ -39,8 +39,9 @@ var identityStore cache.Store
 // will error if the object has since been changed.
 func deleteIdentity(identity *types.Identity) error {
 	err := ciliumK8sClient.CiliumV2().CiliumIdentities().Delete(
+		context.TODO(),
 		identity.Name,
-		&metav1.DeleteOptions{
+		metav1.DeleteOptions{
 			Preconditions: &metav1.Preconditions{
 				UID:             &identity.UID,
 				ResourceVersion: &identity.ResourceVersion,
