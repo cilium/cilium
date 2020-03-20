@@ -1432,7 +1432,7 @@ func initKubeProxyReplacementOptions() {
 
 	if option.Config.DisableK8sServices {
 		if option.Config.KubeProxyReplacement != option.KubeProxyReplacementDisabled {
-			log.Infof("Service handling disabled. Auto-disabling --%s from \"%s\" to \"%s\"",
+			log.Warnf("Service handling disabled. Auto-disabling --%s from \"%s\" to \"%s\"",
 				option.KubeProxyReplacement, option.Config.KubeProxyReplacement,
 				option.KubeProxyReplacementDisabled)
 			option.Config.KubeProxyReplacement = option.KubeProxyReplacementDisabled
@@ -1448,7 +1448,6 @@ func initKubeProxyReplacementOptions() {
 		option.Config.EnableHostReachableServices = false
 		option.Config.EnableHostServicesTCP = false
 		option.Config.EnableHostServicesUDP = false
-		option.Config.DisableK8sServices = true
 
 		return
 	}
