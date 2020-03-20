@@ -465,8 +465,7 @@ install-manpages:
 	mandb
 
 postcheck: build
-	@$(ECHO_CHECK) contrib/scripts/check-cmdref.sh
-	$(QUIET) MAKE="$(MAKE) $(SUBMAKEOPTS)" contrib/scripts/check-cmdref.sh
+	$(QUIET)$(MAKE) $(SUBMAKEOPTS) -C Documentation update-cmdref check-cmdref
 	@$(ECHO_CHECK) contrib/scripts/lock-check.sh
 	$(QUIET) contrib/scripts/lock-check.sh
 
