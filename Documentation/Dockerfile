@@ -17,6 +17,8 @@ RUN apk add --no-cache --virtual --update \
 ADD ./requirements.txt /tmp/requirements.txt
 RUN pip install -r /tmp/requirements.txt
 
+ENV HOME=/tmp
+
 ## Workaround odd behaviour of sphinx versionwarning extension. It wants to
 ## write runtime data inside a system directory.
 ## We do rely on this extension, so we cannot just drop it.
