@@ -8,15 +8,16 @@ set -o pipefail
 # to Python (see e.g. https://stackoverflow.com/a/47657926), that
 # way we might be able to call Sphinx only once and make it quicker
 
-source_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-build_dir="${source_dir}/_build"
+build_dir="${script_dir}/_build"
 warnings="${build_dir}/warnings.txt"
 spelling="${build_dir}/spelling/output.txt"
 
 target="${1:-"html"}"
+shift
 
-cd "${source_dir}"
+cd "${script_dir}"
 mkdir -p "${build_dir}"
 
 build_with_spellchecker() {
@@ -72,6 +73,7 @@ if build_with_spellchecker ; then
 fi
 
 # TODO: Fix broken links and re-enable this
+# (https://github.com/cilium/cilium/issues/10601)
 # echo "Checking links..."
 # if ! build_with_linkchecker ; then
 #     echo "Link check failed!"
@@ -79,4 +81,4 @@ fi
 # fi
 
 echo "Building documentation (${target})..."
-exec sphinx-build -M "${target}" "${source_dir}" "${build_dir}"
+exec sphinx-build -M "${target}" "${script_dir}" "${build_dir}" $@

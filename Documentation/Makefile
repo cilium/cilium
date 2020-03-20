@@ -17,16 +17,24 @@ DOCKER_RUN := docker container run --rm \
 		--user "$(shell id -u):$(shell id -g)" \
 			cilium/docs-builder
 
-cmdref: builder-image
+update-cmdref: builder-image
 	@$(ECHO_GEN)cmdref
 	-$(QUIET)rm -rvf cmdref/cilium*.md
-	$(QUIET)$(DOCKER_RUN) ./update-cmdrefs.sh
+	$(QUIET)$(DOCKER_RUN) ./update-cmdref.sh
+
+check-cmdref: builder-image update-cmdref
+	@$(ECHO_CHECK)cmdref
+	$(QUIET)$(DOCKER_RUN) ./check-cmdref.sh
+
+ifeq ($(V),0)
+SPHINX_OPTS += -q
+endif
 
 epub latex html: builder-image
 	@$(ECHO_GEN)_api
 	$(QUIET)cp -r ../api _api
 	@$(ECHO_GEN)_build/$@
-	$(QUIET)$(DOCKER_RUN) ./check-build.sh $(@)
+	$(QUIET)$(DOCKER_RUN) ./check-build.sh $(@) $(SPHINX_OPTS)
 
 DOCS_PORT = 9081
 
