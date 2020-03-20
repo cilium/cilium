@@ -17,7 +17,7 @@ DOCKER_RUN := docker container run --rm \
 		--user "$(shell id -u):$(shell id -g)" \
 			cilium/docs-builder
 
-cmdref:
+cmdref: builder-image
 	@$(ECHO_GEN)cmdref
 	-$(QUIET)rm -rvf cmdref/cilium*.md
 	$(QUIET)$(DOCKER_RUN) ./update-cmdrefs.sh
