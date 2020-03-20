@@ -17,3 +17,43 @@ spec:
   selector:
     k8s-app: cilium
 {{- end }}
+{{- if .Values.global.hubble.ui.enabled }}
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: hubble-grpc
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: hubble 
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    k8s-app: cilium
+  ports:
+  - targetPort: 50051
+    protocol: TCP
+    port: 50051
+{{- end }}
+{{- if and .Values.global.hubble.metrics.enabled (.Values.global.hubble.metrics.serviceMonitor.enabled) }}
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: hubble-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: hubble 
+spec:
+  clusterIP: None
+  type: ClusterIP
+  ports:
+  - name: hubble-metrics
+    port: {{ regexReplaceAll ":([0-9]+)$" .Values.global.hubble.metricsServer "${1}" }}
+    protocol: TCP
+    targetPort: hubble-metrics
+  selector:
+    k8s-app: cilium
+{{- end }}
+

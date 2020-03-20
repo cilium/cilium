@@ -1,0 +1,34 @@
+# Configuration for hubble ui
+image:
+  # repository of the docker image
+  repository: quay.io/cilium/hubble-ui
+  # tag is the container image tag to use
+  tag: latest
+  # pullPolicy is the container image pull policy
+  pullPolicy: Always
+clusterDomain: cluster.local
+replicas: 1
+# Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
+#
+#     resources:
+#       limits:
+#         cpu: 1000m
+#         memory: 1024Mi
+#       requests:
+#         cpu: 100m
+#         memory: 64Mi
+resources: {}
+  
+ingress:
+  enabled: false
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  path: /
+  hosts:
+    - chart-example.local
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+

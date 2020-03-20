@@ -419,7 +419,15 @@ data:
   # A space separated list of metrics to enable. See [0] for available metrics.
   #
   # https://github.com/cilium/hubble/blob/master/Documentation/metrics.md
-  hubble-metrics: {{ .Values.global.hubble.metrics | join " " | quote }}
+  hubble-metrics: {{- range .Values.global.hubble.metrics.enabled }}
+    {{.}}
+  {{- end }}
+{{- end }}
+{{ if and .Values.global.hubble.ui.enabled (not (has "0.0.0.0:50051" .Values.global.hubble.listenAddresses)) }}
+  # A space separated list of additional addresses for Hubble server to listen to.
+  hubble-listen-addresses: {{ append .Values.global.hubble.listenAddresses "0.0.0.0:50051" | join " " | quote }}
+{{- else if .Values.global.hubble.listenAddresses}}
+  hubble-listen-addresses: {{ .Values.global.hubble.listenAddresses | join " " | quote }}
 {{- end }}
 {{- end }}
 
