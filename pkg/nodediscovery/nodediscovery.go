@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -216,7 +216,7 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 	ciliumClient := k8s.CiliumClient()
 
 	performUpdate := true
-	nodeResource, err := ciliumClient.CiliumV2().CiliumNodes().Get(node.GetName(), metav1.GetOptions{})
+	nodeResource, err := ciliumClient.CiliumV2().CiliumNodes().Get(context.TODO(), node.GetName(), metav1.GetOptions{})
 	if err != nil {
 		performUpdate = false
 		nodeResource = &ciliumv2.CiliumNode{
@@ -335,12 +335,12 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 	}
 
 	if performUpdate {
-		_, err = ciliumClient.CiliumV2().CiliumNodes().Update(nodeResource)
+		_, err = ciliumClient.CiliumV2().CiliumNodes().Update(context.TODO(), nodeResource, metav1.UpdateOptions{})
 		if err != nil {
 			log.WithError(err).Fatal("Unable to update CiliumNode resource")
 		}
 	} else {
-		if _, err = ciliumClient.CiliumV2().CiliumNodes().Create(nodeResource); err != nil {
+		if _, err = ciliumClient.CiliumV2().CiliumNodes().Create(context.TODO(), nodeResource, metav1.CreateOptions{}); err != nil {
 			log.WithError(err).Fatal("Unable to create CiliumNode resource")
 		} else {
 			log.Info("Successfully created CiliumNode resource")

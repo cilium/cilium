@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"k8s.io/client-go/kubernetes"
 	"os"
 	go_runtime "runtime"
 	"strconv"
@@ -46,6 +45,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	k8sTesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 )
@@ -74,7 +74,7 @@ func (k *K8sIntegrationSuite) SetUpSuite(c *C) {
 
 		client, err := clientset.NewForConfig(restConfig)
 		c.Assert(err, IsNil)
-		client.CiliumV2().CiliumNetworkPolicies("default").Delete("testing-policy", &metav1.DeleteOptions{})
+		client.CiliumV2().CiliumNetworkPolicies("default").Delete(context.TODO(), "testing-policy", metav1.DeleteOptions{})
 	}
 }
 
@@ -155,10 +155,10 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 		c.Assert(err, IsNil)
 		ciliumNPClient, err = clientset.NewForConfig(restConfig)
 		c.Assert(err, IsNil)
-		cnp.CiliumNetworkPolicy, err = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Create(cnp.CiliumNetworkPolicy)
+		cnp.CiliumNetworkPolicy, err = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Create(context.TODO(), cnp.CiliumNetworkPolicy, metav1.CreateOptions{})
 		c.Assert(err, IsNil)
 		defer func() {
-			err = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Delete(cnp.GetName(), &metav1.DeleteOptions{})
+			err = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Delete(context.TODO(), cnp.GetName(), metav1.DeleteOptions{})
 			c.Assert(err, IsNil)
 		}()
 	} else {
@@ -326,7 +326,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 	c.Assert(err, IsNil)
 
 	if integrationTest {
-		cnp.CiliumNetworkPolicy, err = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Get(cnp.GetName(), metav1.GetOptions{})
+		cnp.CiliumNetworkPolicy, err = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Get(context.TODO(), cnp.GetName(), metav1.GetOptions{})
 		c.Assert(err, IsNil)
 	}
 
@@ -340,7 +340,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 	c.Assert(err, IsNil)
 
 	if integrationTest {
-		cnp.CiliumNetworkPolicy, err = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Get(cnp.GetName(), metav1.GetOptions{})
+		cnp.CiliumNetworkPolicy, err = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Get(context.TODO(), cnp.GetName(), metav1.GetOptions{})
 		c.Assert(err, IsNil)
 
 		// Ignore timestamps
@@ -374,7 +374,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 	c.Assert(err, IsNil)
 
 	if integrationTest {
-		cnp.CiliumNetworkPolicy, err = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Get(cnp.GetName(), metav1.GetOptions{})
+		cnp.CiliumNetworkPolicy, err = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Get(context.TODO(), cnp.GetName(), metav1.GetOptions{})
 		c.Assert(err, IsNil)
 
 		// Ignore timestamps
@@ -440,10 +440,10 @@ func benchmarkCNPNodeStatusController(integrationTest bool, nNodes int, nParalle
 		c.Assert(err, IsNil)
 	}
 
-	cnp.CiliumNetworkPolicy, err = ciliumNPClients[0].CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Create(cnp.CiliumNetworkPolicy)
+	cnp.CiliumNetworkPolicy, err = ciliumNPClients[0].CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Create(context.TODO(), cnp.CiliumNetworkPolicy, metav1.CreateOptions{})
 	c.Assert(err, IsNil)
 	defer func() {
-		err = ciliumNPClients[0].CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Delete(cnp.GetName(), &metav1.DeleteOptions{})
+		err = ciliumNPClients[0].CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Delete(context.TODO(), cnp.GetName(), metav1.DeleteOptions{})
 		c.Assert(err, IsNil)
 	}()
 
@@ -560,10 +560,10 @@ func (k *K8sIntegrationSuite) benchmarkUpdateCNPNodeStatus(integrationTest bool,
 			ciliumNPClients[i], err = clientset.NewForConfig(restConfig)
 			c.Assert(err, IsNil)
 		}
-		cnp.CiliumNetworkPolicy, err = ciliumNPClients[0].CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Create(cnp.CiliumNetworkPolicy)
+		cnp.CiliumNetworkPolicy, err = ciliumNPClients[0].CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Create(context.TODO(), cnp.CiliumNetworkPolicy, metav1.CreateOptions{})
 		c.Assert(err, IsNil)
 		defer func() {
-			err = ciliumNPClients[0].CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Delete(cnp.GetName(), &metav1.DeleteOptions{})
+			err = ciliumNPClients[0].CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Delete(context.TODO(), cnp.GetName(), metav1.DeleteOptions{})
 			c.Assert(err, IsNil)
 		}()
 	} else {
@@ -670,7 +670,7 @@ func (k *K8sIntegrationSuite) benchmarkGetNodes(integrationTest bool, nCycles in
 	for i := 0; i < nParallelClients; i++ {
 		go func(clientID int) {
 			for range r {
-				_, err := k8sClients[clientID].CoreV1().Nodes().Get("k8s1", metav1.GetOptions{})
+				_, err := k8sClients[clientID].CoreV1().Nodes().Get(context.TODO(), "k8s1", metav1.GetOptions{})
 				c.Assert(err, IsNil)
 				wg.Done()
 			}

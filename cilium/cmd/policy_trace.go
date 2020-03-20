@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Authors of Cilium
+// Copyright 2017-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -258,7 +259,7 @@ func getSecIDFromK8s(podName string) (string, error) {
 		return "", fmt.Errorf("unable to create k8s client: %s", err)
 	}
 
-	ep, err := ciliumK8sClient.CiliumV2().CiliumEndpoints(namespace).Get(pod, meta_v1.GetOptions{})
+	ep, err := ciliumK8sClient.CiliumV2().CiliumEndpoints(namespace).Get(context.TODO(), pod, meta_v1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("unable to get pod %s in namespace %s", pod, namespace)
 	}

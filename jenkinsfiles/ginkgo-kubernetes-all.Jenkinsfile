@@ -303,7 +303,7 @@ pipeline {
                 }
             }
         }
-        stage('BDD-Test-k8s-1.{14,15}') {
+        stage('BDD-Test-k8s-1.14-and-1.15') {
             environment {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
@@ -367,7 +367,7 @@ pipeline {
                 }
             }
         }
-        stage('Copy code and boot VMs 1.16'){
+        stage('Copy code and boot VMs 1.{16,17}'){
 
             options {
                 timeout(time: 60, unit: 'MINUTES')
@@ -408,9 +408,38 @@ pipeline {
                         }
                     }
                 }
+                stage('Boot vms 1.17') {
+                    environment {
+                        K8S_VERSION="1.17"
+                        GOPATH="${WORKSPACE}/${K8S_VERSION}-gopath"
+                        TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                        KUBECONFIG="vagrant-kubeconfig"
+                        //setting it here so we don't compile Cilium in vagrant nodes (already done on local node registry)
+                    }
+                    steps {
+                        sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
+                        sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
+                        retry(3) {
+                            timeout(time: 20, unit: 'MINUTES'){
+                                dir("${TESTDIR}") {
+                                    sh 'CILIUM_REGISTRY="$(./print-node-ip)" ./vagrant-ci-start.sh'
+                                }
+                            }
+                        }
+                    }
+                    post {
+                        unsuccessful {
+                            script {
+                                if  (!currentBuild.displayName.contains('fail')) {
+                                    currentBuild.displayName = 'K8S 1.17 vm provisioning fail\n' + currentBuild.displayName
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
-        stage('BDD-Test-k8s-1.16') {
+        stage('BDD-Test-k8s-1.16-and-1.17') {
             environment {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
@@ -440,6 +469,33 @@ pipeline {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
                                     currentBuild.displayName = 'K8s 1.16 tests fail\n' + currentBuild.displayName
+                                }
+                            }
+                        }
+                    }
+                }
+                stage('BDD-Test-k8s-1.17') {
+                    environment {
+                        K8S_VERSION="1.17"
+                        GOPATH="${WORKSPACE}/${K8S_VERSION}-gopath"
+                        TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                        KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
+                    }
+                    steps {
+                        sh 'cd ${TESTDIR}; ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG} -cilium.registry=$(./print-node-ip.sh)'
+                    }
+                    post {
+                        always {
+                            sh 'cd ${TESTDIR}; ./post_build_agent.sh || true'
+                            sh 'cd ${TESTDIR}; ./archive_test_results.sh || true'
+                            sh 'cd ${TESTDIR}/..; mv *.zip ${WORKSPACE} || true'
+                            sh 'cd ${TESTDIR}; mv *.xml ${WORKSPACE}/${PROJ_PATH}/test || true'
+                            sh 'cd ${TESTDIR}; vagrant destroy -f || true'
+                        }
+                        unsuccessful {
+                            script {
+                                if  (!currentBuild.displayName.contains('fail')) {
+                                    currentBuild.displayName = 'K8s 1.17 tests fail\n' + currentBuild.displayName
                                 }
                             }
                         }

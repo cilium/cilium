@@ -107,7 +107,7 @@ func (c *crdBackend) AllocateID(ctx context.Context, id idpool.ID, key allocator
 		},
 	}
 
-	_, err := c.Client.CiliumV2().CiliumIdentities().Create(identity)
+	_, err := c.Client.CiliumV2().CiliumIdentities().Create(ctx, identity, metav1.CreateOptions{})
 	return err
 }
 
@@ -160,7 +160,7 @@ func (c *crdBackend) AcquireReference(ctx context.Context, id idpool.ID, key all
 			return err
 		}
 
-		_, err = identityOps.Patch(identity.GetName(), k8sTypes.JSONPatchType, patch, "status")
+		_, err = identityOps.Patch(ctx, identity.GetName(), k8sTypes.JSONPatchType, patch, metav1.PatchOptions{}, "status")
 		if err != nil {
 			patch, err = json.Marshal([]JSONPatch{
 				{
@@ -172,7 +172,7 @@ func (c *crdBackend) AcquireReference(ctx context.Context, id idpool.ID, key all
 			if err != nil {
 				return err
 			}
-			_, err = identityOps.Patch(identity.GetName(), k8sTypes.JSONPatchType, patch, "status")
+			_, err = identityOps.Patch(ctx, identity.GetName(), k8sTypes.JSONPatchType, patch, metav1.PatchOptions{}, "status")
 		}
 
 		if err == nil {
@@ -192,7 +192,7 @@ func (c *crdBackend) AcquireReference(ctx context.Context, id idpool.ID, key all
 	}
 
 	if capabilities.UpdateStatus {
-		_, err = identityOps.UpdateStatus(identityCopy.CiliumIdentity)
+		_, err = identityOps.UpdateStatus(ctx, identityCopy.CiliumIdentity, metav1.UpdateOptions{})
 		if err == nil {
 			return nil
 		}
@@ -200,7 +200,7 @@ func (c *crdBackend) AcquireReference(ctx context.Context, id idpool.ID, key all
 		/* fall through and attempt Update() */
 	}
 
-	_, err = identityOps.Update(identityCopy.CiliumIdentity)
+	_, err = identityOps.Update(ctx, identityCopy.CiliumIdentity, metav1.UpdateOptions{})
 	return err
 }
 
@@ -368,7 +368,7 @@ func (c *crdBackend) Release(ctx context.Context, key allocator.AllocatorKey) (e
 		if err != nil {
 			return err
 		}
-		_, err = identityOps.Patch(identity.GetName(), k8sTypes.JSONPatchType, patch, "status")
+		_, err = identityOps.Patch(ctx, identity.GetName(), k8sTypes.JSONPatchType, patch, metav1.PatchOptions{}, "status")
 		if err == nil {
 			return nil
 		}
@@ -382,7 +382,7 @@ func (c *crdBackend) Release(ctx context.Context, key allocator.AllocatorKey) (e
 	}
 
 	if capabilities.UpdateStatus {
-		_, err = identityOps.UpdateStatus(identityCopy.CiliumIdentity)
+		_, err = identityOps.UpdateStatus(ctx, identityCopy.CiliumIdentity, metav1.UpdateOptions{})
 		if err == nil {
 			return nil
 		}
@@ -390,7 +390,7 @@ func (c *crdBackend) Release(ctx context.Context, key allocator.AllocatorKey) (e
 		/* fall through and attempt Update() */
 	}
 
-	_, err = identityOps.Update(identityCopy.CiliumIdentity)
+	_, err = identityOps.Update(ctx, identityCopy.CiliumIdentity, metav1.UpdateOptions{})
 	return err
 }
 

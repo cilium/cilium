@@ -17,6 +17,8 @@
 package fake
 
 import (
+	"context"
+
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -36,7 +38,7 @@ var ciliumidentitiesResource = schema.GroupVersionResource{Group: "cilium.io", V
 var ciliumidentitiesKind = schema.GroupVersionKind{Group: "cilium.io", Version: "v2", Kind: "CiliumIdentity"}
 
 // Get takes name of the ciliumIdentity, and returns the corresponding ciliumIdentity object, and an error if there is any.
-func (c *FakeCiliumIdentities) Get(name string, options v1.GetOptions) (result *v2.CiliumIdentity, err error) {
+func (c *FakeCiliumIdentities) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2.CiliumIdentity, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootGetAction(ciliumidentitiesResource, name), &v2.CiliumIdentity{})
 	if obj == nil {
@@ -46,7 +48,7 @@ func (c *FakeCiliumIdentities) Get(name string, options v1.GetOptions) (result *
 }
 
 // List takes label and field selectors, and returns the list of CiliumIdentities that match those selectors.
-func (c *FakeCiliumIdentities) List(opts v1.ListOptions) (result *v2.CiliumIdentityList, err error) {
+func (c *FakeCiliumIdentities) List(ctx context.Context, opts v1.ListOptions) (result *v2.CiliumIdentityList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootListAction(ciliumidentitiesResource, ciliumidentitiesKind, opts), &v2.CiliumIdentityList{})
 	if obj == nil {
@@ -67,13 +69,13 @@ func (c *FakeCiliumIdentities) List(opts v1.ListOptions) (result *v2.CiliumIdent
 }
 
 // Watch returns a watch.Interface that watches the requested ciliumIdentities.
-func (c *FakeCiliumIdentities) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeCiliumIdentities) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewRootWatchAction(ciliumidentitiesResource, opts))
 }
 
 // Create takes the representation of a ciliumIdentity and creates it.  Returns the server's representation of the ciliumIdentity, and an error, if there is any.
-func (c *FakeCiliumIdentities) Create(ciliumIdentity *v2.CiliumIdentity) (result *v2.CiliumIdentity, err error) {
+func (c *FakeCiliumIdentities) Create(ctx context.Context, ciliumIdentity *v2.CiliumIdentity, opts v1.CreateOptions) (result *v2.CiliumIdentity, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootCreateAction(ciliumidentitiesResource, ciliumIdentity), &v2.CiliumIdentity{})
 	if obj == nil {
@@ -83,7 +85,7 @@ func (c *FakeCiliumIdentities) Create(ciliumIdentity *v2.CiliumIdentity) (result
 }
 
 // Update takes the representation of a ciliumIdentity and updates it. Returns the server's representation of the ciliumIdentity, and an error, if there is any.
-func (c *FakeCiliumIdentities) Update(ciliumIdentity *v2.CiliumIdentity) (result *v2.CiliumIdentity, err error) {
+func (c *FakeCiliumIdentities) Update(ctx context.Context, ciliumIdentity *v2.CiliumIdentity, opts v1.UpdateOptions) (result *v2.CiliumIdentity, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootUpdateAction(ciliumidentitiesResource, ciliumIdentity), &v2.CiliumIdentity{})
 	if obj == nil {
@@ -94,7 +96,7 @@ func (c *FakeCiliumIdentities) Update(ciliumIdentity *v2.CiliumIdentity) (result
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeCiliumIdentities) UpdateStatus(ciliumIdentity *v2.CiliumIdentity) (*v2.CiliumIdentity, error) {
+func (c *FakeCiliumIdentities) UpdateStatus(ctx context.Context, ciliumIdentity *v2.CiliumIdentity, opts v1.UpdateOptions) (*v2.CiliumIdentity, error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootUpdateSubresourceAction(ciliumidentitiesResource, "status", ciliumIdentity), &v2.CiliumIdentity{})
 	if obj == nil {
@@ -104,22 +106,22 @@ func (c *FakeCiliumIdentities) UpdateStatus(ciliumIdentity *v2.CiliumIdentity) (
 }
 
 // Delete takes name of the ciliumIdentity and deletes it. Returns an error if one occurs.
-func (c *FakeCiliumIdentities) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakeCiliumIdentities) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewRootDeleteAction(ciliumidentitiesResource, name), &v2.CiliumIdentity{})
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeCiliumIdentities) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(ciliumidentitiesResource, listOptions)
+func (c *FakeCiliumIdentities) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewRootDeleteCollectionAction(ciliumidentitiesResource, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v2.CiliumIdentityList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched ciliumIdentity.
-func (c *FakeCiliumIdentities) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v2.CiliumIdentity, err error) {
+func (c *FakeCiliumIdentities) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.CiliumIdentity, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootPatchSubresourceAction(ciliumidentitiesResource, name, pt, data, subresources...), &v2.CiliumIdentity{})
 	if obj == nil {

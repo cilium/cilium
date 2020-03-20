@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/cilium/cilium/pkg/ipam"
@@ -99,7 +100,7 @@ func startSynchronizingCiliumNodes() {
 }
 
 func deleteCiliumNode(name string) {
-	if err := ciliumK8sClient.CiliumV2().CiliumNodes().Delete(name, &metav1.DeleteOptions{}); err == nil {
+	if err := ciliumK8sClient.CiliumV2().CiliumNodes().Delete(context.TODO(), name, metav1.DeleteOptions{}); err == nil {
 		log.WithField("name", name).Info("Removed CiliumNode after receiving node deletion event")
 	}
 	ciliumNodeDeleted(name)
@@ -108,7 +109,7 @@ func deleteCiliumNode(name string) {
 type ciliumNodeUpdateImplementation struct{}
 
 func (c *ciliumNodeUpdateImplementation) Get(node string) (*v2.CiliumNode, error) {
-	return ciliumK8sClient.CiliumV2().CiliumNodes().Get(node, metav1.GetOptions{})
+	return ciliumK8sClient.CiliumV2().CiliumNodes().Get(context.TODO(), node, metav1.GetOptions{})
 }
 
 func (c *ciliumNodeUpdateImplementation) UpdateStatus(node, origNode *v2.CiliumNode) (*v2.CiliumNode, error) {
@@ -117,11 +118,11 @@ func (c *ciliumNodeUpdateImplementation) UpdateStatus(node, origNode *v2.CiliumN
 	switch {
 	case k8sCapabilities.UpdateStatus:
 		if !reflect.DeepEqual(origNode.Status, node.Status) {
-			return ciliumK8sClient.CiliumV2().CiliumNodes().UpdateStatus(node)
+			return ciliumK8sClient.CiliumV2().CiliumNodes().UpdateStatus(context.TODO(), node, metav1.UpdateOptions{})
 		}
 	default:
 		if !reflect.DeepEqual(origNode.Status, node.Status) {
-			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(node)
+			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(context.TODO(), node, metav1.UpdateOptions{})
 		}
 	}
 
@@ -134,11 +135,11 @@ func (c *ciliumNodeUpdateImplementation) Update(node, origNode *v2.CiliumNode) (
 	switch {
 	case k8sCapabilities.UpdateStatus:
 		if !reflect.DeepEqual(origNode.Spec, node.Spec) {
-			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(node)
+			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(context.TODO(), node, metav1.UpdateOptions{})
 		}
 	default:
 		if !reflect.DeepEqual(origNode, node) {
-			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(node)
+			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(context.TODO(), node, metav1.UpdateOptions{})
 		}
 	}
 

@@ -125,7 +125,7 @@ func runNodeWatcher() error {
 
 			switch option.Config.IPAM {
 			case option.IPAMENI, option.IPAMAzure:
-				nodes, err := ciliumK8sClient.CiliumV2().CiliumNodes().List(meta_v1.ListOptions{})
+				nodes, err := ciliumK8sClient.CiliumV2().CiliumNodes().List(context.TODO(), meta_v1.ListOptions{})
 				if err != nil {
 					log.WithError(err).Warning("Unable to list CiliumNodes. Won't clean up stale CiliumNodes")
 				} else {
@@ -195,10 +195,11 @@ func runCNPNodeStatusGC(name string, clusterwide bool, ciliumNodeStore *store.Sh
 				for {
 					var cnpItemsList []cilium_v2.CiliumNetworkPolicy
 					if clusterwide {
-						ccnpList, err := ciliumK8sClient.CiliumV2().CiliumClusterwideNetworkPolicies().List(meta_v1.ListOptions{
-							Limit:    10,
-							Continue: continueID,
-						})
+						ccnpList, err := ciliumK8sClient.CiliumV2().CiliumClusterwideNetworkPolicies().List(ctx,
+							meta_v1.ListOptions{
+								Limit:    10,
+								Continue: continueID,
+							})
 						if err != nil {
 							return err
 						}
@@ -210,10 +211,11 @@ func runCNPNodeStatusGC(name string, clusterwide bool, ciliumNodeStore *store.Sh
 						}
 						continueID = ccnpList.Continue
 					} else {
-						cnpList, err := ciliumK8sClient.CiliumV2().CiliumNetworkPolicies(core_v1.NamespaceAll).List(meta_v1.ListOptions{
-							Limit:    10,
-							Continue: continueID,
-						})
+						cnpList, err := ciliumK8sClient.CiliumV2().CiliumNetworkPolicies(core_v1.NamespaceAll).List(ctx,
+							meta_v1.ListOptions{
+								Limit:    10,
+								Continue: continueID,
+							})
 						if err != nil {
 							return err
 						}
@@ -307,9 +309,11 @@ func updateCNP(ciliumClient v2.CiliumV2Interface, cnp *cilium_v2.CiliumNetworkPo
 			// If the namespace is empty the policy is the clusterwide policy
 			// and not the namespaced CiliumNetworkPolicy.
 			if ns == "" {
-				_, err = ciliumClient.CiliumClusterwideNetworkPolicies().Patch(cnp.GetName(), types.JSONPatchType, removeStatusNodeJSON, "status")
+				_, err = ciliumClient.CiliumClusterwideNetworkPolicies().Patch(context.TODO(),
+					cnp.GetName(), types.JSONPatchType, removeStatusNodeJSON, meta_v1.PatchOptions{}, "status")
 			} else {
-				_, err = ciliumClient.CiliumNetworkPolicies(ns).Patch(cnp.GetName(), types.JSONPatchType, removeStatusNodeJSON, "status")
+				_, err = ciliumClient.CiliumNetworkPolicies(ns).Patch(context.TODO(),
+					cnp.GetName(), types.JSONPatchType, removeStatusNodeJSON, meta_v1.PatchOptions{}, "status")
 			}
 			if err != nil {
 				// We can leave the errors as debug as the GC happens on a best effort
@@ -332,9 +336,9 @@ func updateCNP(ciliumClient v2.CiliumV2Interface, cnp *cilium_v2.CiliumNetworkPo
 				CiliumNetworkPolicy: cnp,
 				Status:              cnp.Status,
 			}
-			_, err = ciliumClient.CiliumClusterwideNetworkPolicies().UpdateStatus(ccnp)
+			_, err = ciliumClient.CiliumClusterwideNetworkPolicies().UpdateStatus(context.TODO(), ccnp, meta_v1.UpdateOptions{})
 		} else {
-			_, err = ciliumClient.CiliumNetworkPolicies(ns).UpdateStatus(cnp)
+			_, err = ciliumClient.CiliumNetworkPolicies(ns).UpdateStatus(context.TODO(), cnp, meta_v1.UpdateOptions{})
 		}
 		if err != nil {
 			// We can leave the errors as debug as the GC happens on a best effort
@@ -348,9 +352,9 @@ func updateCNP(ciliumClient v2.CiliumV2Interface, cnp *cilium_v2.CiliumNetworkPo
 				CiliumNetworkPolicy: cnp,
 				Status:              cnp.Status,
 			}
-			_, err = ciliumClient.CiliumClusterwideNetworkPolicies().Update(ccnp)
+			_, err = ciliumClient.CiliumClusterwideNetworkPolicies().Update(context.TODO(), ccnp, meta_v1.UpdateOptions{})
 		} else {
-			_, err = ciliumClient.CiliumNetworkPolicies(ns).Update(cnp)
+			_, err = ciliumClient.CiliumNetworkPolicies(ns).Update(context.TODO(), cnp, meta_v1.UpdateOptions{})
 		}
 		if err != nil {
 			// We can leave the errors as debug as the GC happens on a best effort

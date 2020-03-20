@@ -162,12 +162,12 @@ pipeline {
                         }
                     }
                 }
-                stage('Boot vms K8s-1.17') {
+                stage('Boot vms K8s-1.18') {
                     environment {
-                        TESTED_SUITE="k8s-1.17"
+                        TESTED_SUITE="k8s-1.18"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                        K8S_VERSION="1.17"
+                        K8S_VERSION="1.18"
                         KUBECONFIG="vagrant-kubeconfig"
                     }
                     steps {
@@ -185,7 +185,7 @@ pipeline {
                         unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
-                                    currentBuild.displayName = 'K8s 1.17 vm provisioning fail\n' + currentBuild.displayName
+                                    currentBuild.displayName = 'K8s 1.18 vm provisioning fail\n' + currentBuild.displayName
                                 }
                             }
                         }
@@ -260,13 +260,13 @@ pipeline {
                         }
                     }
                 }
-                stage('BDD-Test-PR-K8s-1.17') {
+                stage('BDD-Test-PR-K8s-1.18') {
                     environment {
-                        TESTED_SUITE="k8s-1.17"
+                        TESTED_SUITE="k8s-1.18"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                         KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
-                        K8S_VERSION="1.17"
+                        K8S_VERSION="1.18"
                     }
                     steps {
                         sh 'cd ${TESTDIR}; HOME=${GOPATH} ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s*/" | sed "s/Runtime.*/NoTests/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh)'
@@ -282,7 +282,7 @@ pipeline {
                         unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
-                                    currentBuild.displayName = 'K8s 1.17 fail\n' + currentBuild.displayName
+                                    currentBuild.displayName = 'K8s 1.18 fail\n' + currentBuild.displayName
                                 }
                             }
                         }

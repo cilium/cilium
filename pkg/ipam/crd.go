@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,11 +15,14 @@
 package ipam
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"reflect"
 	"sync"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -312,9 +315,9 @@ func (n *nodeStore) refreshNode() error {
 	ciliumClient := k8s.CiliumClient()
 	switch {
 	case k8sCapabilities.UpdateStatus:
-		_, err = ciliumClient.CiliumV2().CiliumNodes().UpdateStatus(node)
+		_, err = ciliumClient.CiliumV2().CiliumNodes().UpdateStatus(context.TODO(), node, metav1.UpdateOptions{})
 	default:
-		_, err = ciliumClient.CiliumV2().CiliumNodes().Update(node)
+		_, err = ciliumClient.CiliumV2().CiliumNodes().Update(context.TODO(), node, metav1.UpdateOptions{})
 	}
 
 	return err

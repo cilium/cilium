@@ -33,6 +33,13 @@ data:
   #   setting it to "kvstore".
   identity-allocation-mode: crd
 
+  # identity-change-grace-period is the grace period that needs to pass
+  # before an endpoint that has changed its identity will start using
+  # that new identity. During the grace period, the new identity has
+  # already been allocated and other nodes in the cluster have a chance
+  # to whitelist the new upcoming identity of the endpoint.
+  identity-change-grace-period: "5s"
+
   # If you want to run cilium in debug mode change this value to true
   debug: "false"
 
@@ -141,6 +148,7 @@ data:
   auto-direct-node-routes: "false"
   kube-proxy-replacement:  "probe"
   enable-host-reachable-services: "false"
+  enable-host-port: "false"
   enable-external-ips: "false"
   enable-node-port: "false"
   node-port-mode: "hybrid"

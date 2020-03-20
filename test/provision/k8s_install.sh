@@ -165,6 +165,40 @@ apiServer:
 EOF
 )
 
+KUBEADM_CONFIG_V1BETA2=$(cat <<-EOF
+apiVersion: kubeadm.k8s.io/v1beta2
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: "{{ .KUBEADM_ADDR }}"
+  bindPort: 6443
+bootstrapTokens:
+- groups:
+  - system:bootstrappers:kubeadm:default-node-token
+  token: {{ .TOKEN }}
+  ttl: 24h0m0s
+  usages:
+  - signing
+  - authentication
+nodeRegistration:
+  criSocket: "{{ .KUBEADM_CRI_SOCKET }}"
+---
+apiVersion: kubeadm.k8s.io/v1beta2
+kind: ClusterConfiguration
+kubernetesVersion: "v{{ .K8S_FULL_VERSION }}"
+networking:
+  dnsDomain: cluster.local
+  podSubnet: "{{ .KUBEADM_POD_NETWORK }}/{{ .KUBEADM_POD_CIDR}}"
+  serviceSubnet: "{{ .KUBEADM_SVC_CIDR }}"
+controlPlaneEndpoint: "k8s1:6443"
+controllerManager:
+  extraArgs:
+    "feature-gates": "{{ .CONTROLLER_FEATURE_GATES }}"
+apiServer:
+  extraArgs:
+    "feature-gates": "{{ .API_SERVER_FEATURE_GATES }}"
+EOF
+)
+
 # CRIO bridge disabled.
 if [[ -f  "/etc/cni/net.d/100-crio-bridge.conf" ]]; then
     echo "Disabling crio CNI bridge"
@@ -254,6 +288,17 @@ case $K8S_VERSION in
         CONTROLLER_FEATURE_GATES="EndpointSlice=true"
         API_SERVER_FEATURE_GATES="EndpointSlice=true"
         ;;
+    "1.18")
+        KUBERNETES_CNI_VERSION="0.8.5"
+        KUBERNETES_CNI_OS="-linux"
+        K8S_FULL_VERSION="1.18.0-rc.1"
+        KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
+        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
+        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
+        KUBEADM_CONFIG="${KUBEADM_CONFIG_V1BETA2}"
+        CONTROLLER_FEATURE_GATES="EndpointSlice=true"
+        API_SERVER_FEATURE_GATES="EndpointSlice=true"
+        ;;
 esac
 
 # TODO(brb) Enable after we switch k8s vsn in the kubeproxy-free job to >= v1.16
@@ -274,12 +319,14 @@ case $K8S_VERSION in
         if [ $? -ne 0 ]; then
             echo "falling back on binary k8s install"
             set -e
-            install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}"
+            install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}" "${KUBERNETES_CNI_OS}"
         fi
         ;;
-#   "1.17")
-#       install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}"
-#       ;;
+   "1.18")
+       # kubeadm 1.18 requires conntrack to be installed
+       sudo apt-get install -y conntrack
+       install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}" "${KUBERNETES_CNI_OS}"
+       ;;
 esac
 set -e
 
