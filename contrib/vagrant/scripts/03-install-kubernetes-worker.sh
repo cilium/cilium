@@ -31,13 +31,11 @@ EOF
 function install_containerd() {
     sudo service docker stop
     sudo apt remove containerd* -y
-    download_to "${cache_dir}/containerd" "containerd-1.2.1.linux-amd64.tar.gz" \
-       "https://github.com/containerd/containerd/releases/download/v1.2.1/containerd-1.2.1.linux-amd64.tar.gz"
-
-    cp "${cache_dir}/containerd/containerd-1.2.1.linux-amd64.tar.gz" .
+    download_and_decompress_to "${cache_dir}/containerd" "containerd-1.2.1.linux-amd64.tar.gz" \
+       "https://github.com/containerd/containerd/releases/download/v1.2.1/containerd-1.2.1.linux-amd64.tar.gz" \
+       "/"
 
     sudo apt-get install runc -y
-    sudo tar -xvf containerd-1.2.1.linux-amd64.tar.gz -C / --no-same-owner
 
     sudo rm -f /etc/systemd/system/containerd.service
     sudo ln -s /bin/containerd /usr/local/bin/containerd
@@ -92,12 +90,9 @@ if [ -n "${INSTALL}" ]; then
         cp "${k8s_cache_dir}/${component}" .
     done
 
-    download_to "${cache_dir}/cni" "cni-plugins-amd64-v0.7.5.tgz" \
-        "https://github.com/containernetworking/plugins/releases/download/v0.7.5/cni-plugins-amd64-v0.7.5.tgz"
-
-    cp "${cache_dir}/cni/cni-plugins-amd64-v0.7.5.tgz" .
-
-    sudo tar -xvf cni-plugins-amd64-v0.7.5.tgz -C /opt/cni/bin
+    download_and_decompress_to "${cache_dir}/cni" "cni-plugins-amd64-v0.7.5.tgz" \
+        "https://github.com/containernetworking/plugins/releases/download/v0.7.5/cni-plugins-amd64-v0.7.5.tgz" \
+        "/opt/cni/bin"
 
     chmod +x kubelet kubectl kube-proxy
 

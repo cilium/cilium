@@ -29,11 +29,9 @@ cp "${certs_dir}/etcd-server.pem" \
    /etc/etcd/
 
 if [ -n "${INSTALL}" ]; then
-    download_to "${cache_dir}/etcd" "etcd-${etcd_version}-linux-amd64.tar.gz" \
-        "https://github.com/coreos/etcd/releases/download/${etcd_version}/etcd-${etcd_version}-linux-amd64.tar.gz"
-
-    cp "${cache_dir}/etcd/etcd-${etcd_version}-linux-amd64.tar.gz" .
-    tar -xvf etcd-${etcd_version}-linux-amd64.tar.gz
+    download_and_decompress_to "${cache_dir}/etcd" "etcd-${etcd_version}-linux-amd64.tar.gz" \
+        "https://github.com/coreos/etcd/releases/download/${etcd_version}/etcd-${etcd_version}-linux-amd64.tar.gz" \
+        "./"
 
     sudo mv etcd-${etcd_version}-linux-amd64/etcd* /usr/bin/
 fi

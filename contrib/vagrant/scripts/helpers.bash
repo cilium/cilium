@@ -112,6 +112,22 @@ function download_to {
     fi
 }
 
+function download_and_decompress_to {
+  local cache_dir="${1}"
+  local component="${2}"
+  local url="${3}"
+  local dest="${4}"
+  local noretry=${5}
+
+  download_to "${cache_dir}" "${component}" "${url}"
+  cp "${cache_dir}/${component}" .
+  if ! sudo tar -xvf "${component}" -C "${dest}" 2>/dev/null && [ -z "${noretry}" ] ; then
+    log "Decompressing ${component} from cache failed, retrying..."
+    rm "${cache_dir}/${component}"
+    download_and_decompress_to "$@" "noretry"
+  fi
+}
+
 function log {
   local save=$-
   set +u
