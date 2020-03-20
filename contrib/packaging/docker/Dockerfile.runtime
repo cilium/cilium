@@ -10,8 +10,6 @@ apt-get upgrade -y && \
 apt-get install -y --no-install-recommends \
 # Additional iproute2 runtime dependencies
     libelf1 libmnl0 \
-# Additional bpftool runtime dependencies (libbfd)
-    binutils-dev \
 # Additional BPF build runtime dependencies
     libgcc-5-dev \
 # Bash completion for Cilium
