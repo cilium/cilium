@@ -27,6 +27,8 @@ export KUBEADM_CRI_SOCKET="/var/run/dockershim.sock"
 export KUBEADM_SLAVE_OPTIONS=""
 export KUBEADM_OPTIONS=""
 export K8S_FULL_VERSION=""
+export CONTROLLER_FEATURE_GATES=""
+export API_SERVER_FEATURE_GATES=""
 export DNS_DEPLOYMENT="${PROVISIONSRC}/manifest/dns_deployment.yaml"
 export KUBEDNS_DEPLOYMENT="${PROVISIONSRC}/manifest/kubedns_deployment.yaml"
 export COREDNS_DEPLOYMENT="${PROVISIONSRC}/manifest/${K8S_VERSION}/coredns_deployment.yaml"
@@ -145,12 +147,6 @@ bootstrapTokens:
   - authentication
 nodeRegistration:
   criSocket: "{{ .KUBEADM_CRI_SOCKET }}"
-controllerManager:
-  extraArgs:
-    "feature-gates": "{{ .CONTROLLER_FEATURE_GATES }}"
-apiServer:
-  extraArgs:
-    "feature-gates": "{{ .API_SERVER_FEATURE_GATES }}"
 ---
 apiVersion: kubeadm.k8s.io/v1beta1
 kind: ClusterConfiguration
@@ -160,6 +156,12 @@ networking:
   podSubnet: "{{ .KUBEADM_POD_NETWORK }}/{{ .KUBEADM_POD_CIDR}}"
   serviceSubnet: "{{ .KUBEADM_SVC_CIDR }}"
 controlPlaneEndpoint: "k8s1:6443"
+controllerManager:
+  extraArgs:
+    "feature-gates": "{{ .CONTROLLER_FEATURE_GATES }}"
+apiServer:
+  extraArgs:
+    "feature-gates": "{{ .API_SERVER_FEATURE_GATES }}"
 EOF
 )
 
@@ -249,8 +251,8 @@ case $K8S_VERSION in
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         KUBEADM_CONFIG="${KUBEADM_CONFIG_ALPHA3}"
-        CONTROLLER_FEATURE_GATES="EndpointSlice=true,PodSecurityPolicy=true"
-        API_SERVER_FEATURE_GATES="EndpointSlice=true,PodSecurityPolicy=true"
+        CONTROLLER_FEATURE_GATES="EndpointSlice=true"
+        API_SERVER_FEATURE_GATES="EndpointSlice=true"
         ;;
 esac
 
