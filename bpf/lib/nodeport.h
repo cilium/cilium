@@ -438,7 +438,7 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 			return ret;
 	}
 
-	if ((svc = lb6_lookup_service(skb, &key)) != NULL) {
+	if ((svc = lb6_lookup_service(&key)) != NULL) {
 		ret = lb6_local(get_ct_map6(&tuple), skb, l3_off, l4_off,
 				&csum_off, &key, &tuple, svc, &ct_state_new);
 		if (IS_ERR(ret))
@@ -987,7 +987,7 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 			return ret;
 	}
 
-	if ((svc = lb4_lookup_service(skb, &key)) != NULL) {
+	if ((svc = lb4_lookup_service(&key)) != NULL) {
 		ret = lb4_local(get_ct_map4(&tuple), skb, l3_off, l4_off, &csum_off,
 				&key, &tuple, svc, &ct_state_new, ip4->saddr);
 		if (IS_ERR(ret))
