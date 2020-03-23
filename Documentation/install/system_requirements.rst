@@ -159,8 +159,8 @@ a later kernel version as detailed below:
 Cilium Feature          Minimum Kernel Version
 ======================= ===============================
 :ref:`cidr_limitations` >= 4.11
-:ref:`host-services`    >= 4.19.57, >= 5.1.16+,  >=5.2+
-:ref:`kubeproxy-free`   >= 4.19.57, >= 5.1.16+,  >=5.2+
+:ref:`host-services`    >= 4.19.57, >= 5.1.16,  >= 5.2
+:ref:`kubeproxy-free`   >= 4.19.57, >= 5.1.16,  >= 5.2
 ======================= ===============================
 
 .. _req_kvstore:
