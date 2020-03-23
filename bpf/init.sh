@@ -45,8 +45,8 @@ set -e
 set -x
 set -o pipefail
 
-if [[ ! $(command -v cilium) ]]; then
-	echo "Can't be initialized because 'cilium' is not in the path."
+if [[ ! $(command -v cilium-map-migrate) ]]; then
+	echo "Can't be initialized because 'cilium-map-migrate' is not in the path."
 	exit 1
 fi
 
