@@ -15,7 +15,7 @@ Backport Criteria
 -----------------
 
 Committers may nominate PRs that have been merged into master as candidates for
-backport into stable_releases if they affect the stable production usage
+backport into stable releases if they affect the stable production usage
 of community users.
 
 Backport criteria for current minor release
@@ -55,8 +55,8 @@ process for backporting these PRs:
 One-time setup
 ~~~~~~~~~~~~~~
 
-#. The scripts referred to below need to be run in Linux, they do not
-   work on OSX.  You can use the cilium dev VM for this, but you need
+#. The scripts referred to below need to be run on Linux, they do not
+   work on macOS. You can use the cilium dev VM for this, but you need
    to configure git to have your name and email address to be used in
    the commit messages:
 
@@ -65,8 +65,8 @@ One-time setup
       $ git config --global user.name "John Doe"
       $ git config --global user.email johndoe@example.com
 
-#. Make sure you have your a GitHub developer access token
-   available. For details, see `contrib/backporting/README.md
+#. Make sure you have a GitHub developer access token with the ``public_repos``
+   scope available. For details, see `contrib/backporting/README.md
    <https://github.com/cilium/cilium/blob/master/contrib/backporting/README.md>`_
 
 #. This guide makes use of several tools to automate the backporting process.
@@ -79,6 +79,8 @@ One-time setup
    | bash                                                         | Yes       | N/A (OS-specific)                                       |
    +--------------------------------------------------------------+-----------+---------------------------------------------------------+
    | git                                                          | Yes       | N/A (OS-specific)                                       |
+   +--------------------------------------------------------------+-----------+---------------------------------------------------------+
+   | jq                                                           | Yes       | N/A (OS-specific)                                       |
    +--------------------------------------------------------------+-----------+---------------------------------------------------------+
    | python3                                                      | No        | `Python Downloads <https://www.python.org/downloads/>`_ |
    +--------------------------------------------------------------+-----------+---------------------------------------------------------+
