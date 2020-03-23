@@ -32,6 +32,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -123,12 +124,27 @@ func Init() error {
 		return fmt.Errorf("unable to create cilium k8s client: %s", err)
 	}
 
-	runHeartbeat(
-		k8sRestClient,
-		[]func(){
+	heartBeat := func(ctx context.Context) error {
+		// Kubernetes does a get node of the node that kubelet is running [0]. This seems excessive in
+		// our case because the amount of data transferred is bigger than doing a Get of /healthz.
+		// For this reason we have picked to perform a get on `/healthz` instead a get of a node.
+		//
+		// [0] https://github.com/kubernetes/kubernetes/blob/v1.17.3/pkg/kubelet/kubelet_node_status.go#L423
+		res := k8sRestClient.Get().Resource("healthz").Do(ctx)
+		return res.Error()
+	}
+
+	go wait.Until(func() {
+		runHeartbeat(
+			heartBeat,
+			option.Config.K8sHeartbeatTimeout,
 			closeAllDefaultClientConns,
 			closeAllCiliumClientConns,
-		}, make(chan struct{}))
+		)
+	},
+		option.Config.K8sHeartbeatTimeout,
+		make(chan struct{}),
+	)
 
 	if err := k8sversion.Update(Client()); err != nil {
 		return err
