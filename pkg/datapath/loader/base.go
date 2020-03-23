@@ -56,6 +56,7 @@ const (
 	initArgCgroupRoot
 	initArgBpffsRoot
 	initArgNodePort
+	initBPFCPU
 	initArgMax
 )
 
@@ -252,7 +253,9 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initArgNodePort] = "false"
 	}
 
-	log.Info("Setting up base BPF datapath")
+	args[initBPFCPU] = GetBPFCPU()
+
+	log.Infof("Setting up base BPF datapath (BPF %s instruction set)", args[initBPFCPU])
 
 	for _, s := range sysSettings {
 		log.Infof("Setting sysctl %s=%s", s.name, s.val)

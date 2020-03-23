@@ -24,8 +24,10 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"sync"
 
 	"github.com/cilium/cilium/pkg/command/exec"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -39,6 +41,13 @@ const (
 	outputObject   = OutputType("obj")
 	outputAssembly = OutputType("asm")
 	outputSource   = OutputType("c")
+)
+
+var (
+	probeCPUOnce sync.Once
+
+	// default fallback
+	nameBPFCPU = "v1"
 )
 
 // progInfo describes a program to be compiled with the expected output format
@@ -69,7 +78,7 @@ var (
 	standardCFlags = []string{"-O2", "-target", "bpf",
 		fmt.Sprintf("-D__NR_CPUS__=%d", runtime.NumCPU()),
 		"-Wno-address-of-packed-member", "-Wno-unknown-warning-option"}
-	standardLDFlags = []string{"-march=bpf", "-mcpu=probe"}
+	standardLDFlags = []string{"-march=bpf"}
 
 	endpointPrefix   = "bpf_lxc"
 	endpointProg     = fmt.Sprintf("%s.%s", endpointPrefix, outputSource)
@@ -104,6 +113,23 @@ var (
 		OutputType: outputObject,
 	}
 )
+
+// GetBPFCPU returns the BPF CPU for this host.
+func GetBPFCPU() string {
+	probeCPUOnce.Do(func() {
+		if !option.Config.DryMode {
+			// We can probe the availability of BPF instructions indirectly
+			// based on what kernel helpers are available since both were
+			// added in the same release, that is, 4.14.
+			if h := probes.NewProbeManager().GetHelpers("xdp"); h != nil {
+				if _, ok := h["bpf_redirect_map"]; ok {
+					nameBPFCPU = "v2"
+				}
+			}
+		}
+	})
+	return nameBPFCPU
+}
 
 // progLDFlags determines the loader flags for the specified prog and paths.
 func progLDFlags(prog *progInfo, dir *directoryInfo) []string {
@@ -154,6 +180,7 @@ func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, deb
 		linkArgs = append(linkArgs, "-mattr=dwarfris")
 	}
 	linkArgs = append(linkArgs, standardLDFlags...)
+	linkArgs = append(linkArgs, "-mcpu="+GetBPFCPU())
 	linkArgs = append(linkArgs, progLDFlags(prog, dir)...)
 
 	linkCmd := exec.CommandContext(ctx, linker, linkArgs...)
