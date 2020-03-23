@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -89,13 +89,13 @@ func init() {
 	BugtoolRootCmd.Flags().StringVarP(&archivePrefix, "archive-prefix", "", "", "String to prefix to name of archive if created (e.g., with cilium pod-name)")
 }
 
-func getVerifyCiliumPods() []string {
-	// By default try to pick either Kubernetes or non-k8s (host mode). If
-	// we find Cilium pod(s) then it's k8s-mode otherwise host mode.
-	// Passing extra flags can override the default.
-	k8sPods, err := getCiliumPods(k8sNamespace, k8sLabel)
-	switch {
-	case k8s:
+func getVerifyCiliumPods() (k8sPods []string) {
+	if k8s {
+		var err error
+		// By default try to pick either Kubernetes or non-k8s (host mode). If
+		// we find Cilium pod(s) then it's k8s-mode otherwise host mode.
+		// Passing extra flags can override the default.
+		k8sPods, err = getCiliumPods(k8sNamespace, k8sLabel)
 		// When the k8s flag is set, perform extra checks that we actually do have pods or fail.
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\nFailed to find pods, is kube-apiserver running?\n", err)
@@ -105,7 +105,8 @@ func getVerifyCiliumPods() []string {
 			fmt.Fprint(os.Stderr, "Found no pods, is kube-apiserver running?\n")
 			os.Exit(1)
 		}
-	case os.Getuid() != 0 && len(k8sPods) == 0:
+	}
+	if os.Getuid() != 0 && !k8s && len(k8sPods) == 0 {
 		// When the k8s flag is not set and the user is not root,
 		// debuginfo and BPF related commands can fail.
 		fmt.Printf("Warning, some of the BPF commands might fail when run as not root\n")
