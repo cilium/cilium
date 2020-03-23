@@ -16,7 +16,7 @@ all: $(BPF) $(TARGET) subdirs
 
 build_all:
 	@$(ECHO_CHECK)/*.c BUILD_PERMUTATIONS=1
-	$(MAKE) all BUILD_PERMUTATIONS=1
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) all BUILD_PERMUTATIONS=1
 
 BUILD_PERMUTATIONS ?= ""
 
@@ -152,8 +152,8 @@ bpf_lxc.o: bpf_lxc.ll
 	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
 
 subdirs: $(SUBDIRS)
-	$(foreach TARGET,$(SUBDIRS), \
-		$(MAKE) -C $(TARGET))
+	$(QUIET) $(foreach TARGET,$(SUBDIRS), \
+		$(MAKE) $(SUBMAKEOPTS) -C $(TARGET))
 
 else
 all: $(TARGET)
@@ -170,6 +170,6 @@ install:
 clean:
 	@$(ECHO_CLEAN)
 	$(QUIET) $(foreach TARGET,$(SUBDIRS), \
-		$(MAKE) -C $(TARGET) clean)
+		$(MAKE) $(SUBMAKEOPTS) -C $(TARGET) clean)
 	$(QUIET)rm -fr *.o *.ll *.i *.s
 	$(QUIET)rm -f $(TARGET)

@@ -75,10 +75,10 @@ all: precheck build postcheck
 build: $(SUBDIRS)
 
 build-container:
-	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) -C $$i all; done
+	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) $(SUBMAKEOPTS) -C $$i all; done
 
 $(SUBDIRS): force
-	@ $(MAKE) -C $@ all
+	@ $(MAKE) $(SUBMAKEOPTS) -C $@ all
 
 jenkins-precheck:
 	docker-compose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER run --rm precheck
@@ -92,7 +92,7 @@ PRIV_TEST_PKGS_EVAL := $(shell for pkg in $(TESTPKGS); do echo $(pkg); done | xa
 PRIV_TEST_PKGS ?= $(PRIV_TEST_PKGS_EVAL)
 tests-privileged:
 	# cilium-map-migrate is a dependency of some unit tests.
-	$(MAKE) -C bpf cilium-map-migrate
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C bpf cilium-map-migrate
 	$(QUIET)$(foreach pkg,$(PRIV_TEST_PKGS),\
 		$(GO) test $(GOFLAGS) $(TEST_LDFLAGS) github.com/cilium/cilium/$(pkg) $(GOTEST_PRIV_OPTS) || exit 1;)
 
@@ -143,8 +143,8 @@ generate-cov:
 	$(QUIET) rm coverage.out coverage-all-tmp.out
 
 unit-tests: start-kvstores
-	$(QUIET) $(MAKE) -C tools/maptool/
-	$(QUIET) $(MAKE) -C test/bpf/
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C tools/maptool/
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C test/bpf/
 	test/bpf/unit-test
 ifeq ($(SKIP_VET),"false")
 	$(MAKE) govet
@@ -183,12 +183,12 @@ tags: $(GOLANG_SRCFILES) $(BPF_SRCFILES) cscope.files
 	cscope -R -b -q
 
 clean-container:
-	-for i in $(SUBDIRS); do $(MAKE) -C $$i clean; done
+	-$(QUIET) for i in $(SUBDIRS); do $(MAKE) $(SUBMAKEOPTS) -C $$i clean; done
 
 clean: clean-container
-	-$(MAKE) -C ./contrib/packaging/deb clean
-	-$(MAKE) -C ./contrib/packaging/rpm clean
-	-rm -f GIT_VERSION
+	-$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/deb clean
+	-$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/rpm clean
+	-$(QUIET) rm -f GIT_VERSION
 
 install-bpf:
 	$(QUIET)$(INSTALL) -m 0750 -d $(DESTDIR)$(LOCALSTATEDIR)/lib/cilium
@@ -197,11 +197,11 @@ install-bpf:
 
 install: install-bpf
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
-	for i in $(SUBDIRS); do $(MAKE) -C $$i install; done
+	for i in $(SUBDIRS); do $(MAKE) $(SUBMAKEOPTS) -C $$i install; done
 
 install-container: install-bpf
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
-	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) -C $$i install; done
+	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) $(SUBMAKEOPTS) -C $$i install; done
 
 # Workaround for not having git in the build environment
 GIT_VERSION: .git
@@ -283,16 +283,16 @@ docker-cilium-builder-manifest:
 	$(QUIET) contrib/scripts/push_manifest.sh cilium-builder $(UTC_DATE)
 
 build-deb:
-	$(MAKE) -C ./contrib/packaging/deb
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/deb
 
 build-rpm:
-	$(MAKE) -C ./contrib/packaging/rpm
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/rpm
 
 runtime-tests:
-	$(MAKE) -C tests runtime-tests
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C tests runtime-tests
 
 k8s-tests:
-	$(MAKE) -C tests k8s-tests
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C tests k8s-tests
 
 generate-api: api/v1/openapi.yaml
 	@$(ECHO_GEN)api/v1/openapi.yaml
@@ -420,7 +420,7 @@ precheck: ineffassign logging-subsys-field
 	$(QUIET) contrib/scripts/check-missing-tags-in-tests.sh
 	@$(ECHO_CHECK) contrib/scripts/check-assert-deep-equals.sh
 	$(QUIET) contrib/scripts/check-assert-deep-equals.sh
-	$(QUIET) $(MAKE) -C bpf build_all
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C bpf build_all
 
 pprof-help:
 	@echo "Available pprof targets:"
@@ -479,16 +479,16 @@ install-manpages:
 
 # Strip "tabs assets" errors from the dummy target, but fail on target failure.
 check-docs:
-	$(QUIET)($(MAKE) -C Documentation/ dummy SPHINXOPTS="$(SPHINXOPTS)" 2>&1 && touch $@.ok) \
+	$(QUIET)($(MAKE) $(SUBMAKEOPTS) -C Documentation/ dummy SPHINXOPTS="$(SPHINXOPTS)" 2>&1 && touch $@.ok) \
 		| grep -v "tabs assets"
 	@rm $@.ok 2>/dev/null
 
 postcheck: build
 	@$(ECHO_CHECK) contrib/scripts/check-cmdref.sh
-	$(QUIET) MAKE=$(MAKE) contrib/scripts/check-cmdref.sh
+	$(QUIET) MAKE="$(MAKE) $(SUBMAKEOPTS)" contrib/scripts/check-cmdref.sh
 	@$(ECHO_CHECK) contrib/scripts/lock-check.sh
 	$(QUIET) contrib/scripts/lock-check.sh
-	@$(SKIP_DOCS) || $(MAKE) check-docs
+	@$(SKIP_DOCS) || $(MAKE) $(SUBMAKEOPTS) check-docs
 
 minikube:
 	$(QUIET) contrib/scripts/minikube.sh
