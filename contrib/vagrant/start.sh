@@ -227,7 +227,8 @@ export K8S_SERVICE_CLUSTER_IP_RANGE="${k8s_service_cluster_ip_range}"
 export K8S_CLUSTER_API_SERVER_IP="${k8s_cluster_api_server_ip}"
 export K8S_CLUSTER_DNS_IP="${k8s_cluster_dns_ip}"
 export RUNTIME="${RUNTIME}"
-# Only do installation if RELOAD is not set
+export INSTALL="${INSTALL}"
+# Always do installation if RELOAD is not set
 if [ -z "${RELOAD}" ]; then
     export INSTALL="1"
 fi
@@ -274,7 +275,8 @@ export K8S_CLUSTER_DNS_IP="${k8s_cluster_dns_ip}"
 export RUNTIME="${RUNTIME}"
 export K8STAG="${VM_BASENAME}"
 export NWORKERS="${NWORKERS}"
-# Only do installation if RELOAD is not set
+export INSTALL="${INSTALL}"
+# Always do installation if RELOAD is not set
 if [ -z "${RELOAD}" ]; then
     export INSTALL="1"
 fi
