@@ -106,7 +106,10 @@ function download_to {
     if [ ! -f "${cache_dir}/${component}" ]; then
         log "Downloading ${component}..."
 
-        ${WGET} -O "${cache_dir}/${component}" -nv "${url}"
+        rm -f "/tmp/${component}"
+        ${WGET} -O "/tmp/${component}" -nv "${url}"
+        # Hide 'failed to preserve ownership' error
+        mv "/tmp/${component}" "${cache_dir}/${component}" 2>/dev/null
 
         log "Downloading ${component}... Done!"
     fi
