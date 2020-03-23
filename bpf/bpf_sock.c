@@ -225,7 +225,7 @@ struct lb4_service *sock4_nodeport_wildcard_lookup(struct lb4_key *key __maybe_u
 	return NULL;
 wildcard_lookup:
 	key->address = 0;
-	return __lb4_lookup_service(key);
+	return lb4_lookup_service(key);
 #else
 	return NULL;
 #endif /* ENABLE_NODEPORT */
@@ -250,7 +250,7 @@ static __always_inline int __sock4_xlate(struct bpf_sock_addr *ctx,
 	 * nodeport services. If latter fails, we try wildcarded
 	 * lookup for nodeport services.
 	 */
-	svc = __lb4_lookup_service(&key);
+	svc = lb4_lookup_service(&key);
 	if (!svc) {
 		key.dport = ctx_dst_port(ctx);
 
@@ -316,7 +316,7 @@ static __always_inline int __sock4_post_bind(struct bpf_sock *ctx)
 	if (!sock_proto_enabled(ctx->protocol))
 		return 0;
 
-	svc = __lb4_lookup_service(&key);
+	svc = lb4_lookup_service(&key);
 	if (!svc) {
 		/* Perform a wildcard lookup for the case where the caller tries
 		 * to bind to loopback or an address with host identity
@@ -358,7 +358,7 @@ static __always_inline int __sock4_xlate_snd(struct bpf_sock_addr *ctx,
 	struct lb4_service *svc;
 	struct lb4_service *slave_svc;
 
-	svc = __lb4_lookup_service(&lkey);
+	svc = lb4_lookup_service(&lkey);
 	if (!svc) {
 		lkey.dport = ctx_dst_port(ctx);
 		svc = sock4_nodeport_wildcard_lookup(&lkey, true);
@@ -422,7 +422,7 @@ static __always_inline int __sock4_xlate_rcv(struct bpf_sock_addr *ctx,
 			.dport		= rval->port,
 		};
 
-		svc = __lb4_lookup_service(&lkey);
+		svc = lb4_lookup_service(&lkey);
 		if (!svc || svc->rev_nat_index != rval->rev_nat_index) {
 			map_delete_elem(&LB4_REVERSE_NAT_SK_MAP, &rkey);
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);
@@ -578,7 +578,7 @@ sock6_nodeport_wildcard_lookup(struct lb6_key *key __maybe_unused,
 	return NULL;
 wildcard_lookup:
 	__builtin_memset(&key->address, 0, sizeof(key->address));
-	return __lb6_lookup_service(key);
+	return lb6_lookup_service(key);
 #else
 	return NULL;
 #endif /* ENABLE_NODEPORT */
@@ -647,7 +647,7 @@ static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
 
 	ctx_get_v6_src_address(ctx, &key.address);
 
-	svc = __lb6_lookup_service(&key);
+	svc = lb6_lookup_service(&key);
 	if (!svc) {
 		key.dport = ctx_src_port(ctx);
 		svc = sock6_nodeport_wildcard_lookup(&key, false);
@@ -688,7 +688,7 @@ static __always_inline int __sock6_xlate(struct bpf_sock_addr *ctx)
 	ctx_get_v6_address(ctx, &key.address);
 	v6_orig = key.address;
 
-	svc = __lb6_lookup_service(&key);
+	svc = lb6_lookup_service(&key);
 	if (!svc) {
 		key.dport = ctx_dst_port(ctx);
 
@@ -786,7 +786,7 @@ static __always_inline int __sock6_xlate_snd(struct bpf_sock_addr *ctx)
 	ctx_get_v6_address(ctx, &lkey.address);
 	v6_orig = lkey.address;
 
-	svc = __lb6_lookup_service(&lkey);
+	svc = lb6_lookup_service(&lkey);
 	if (!svc) {
 		lkey.dport = ctx_dst_port(ctx);
 
@@ -886,7 +886,7 @@ static __always_inline int __sock6_xlate_rcv(struct bpf_sock_addr *ctx)
 			.dport		= rval->port,
 		};
 
-		svc = __lb6_lookup_service(&lkey);
+		svc = lb6_lookup_service(&lkey);
 		if (!svc || svc->rev_nat_index != rval->rev_nat_index) {
 			map_delete_elem(&LB6_REVERSE_NAT_SK_MAP, &rkey);
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);

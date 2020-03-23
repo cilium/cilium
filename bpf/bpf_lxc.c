@@ -106,7 +106,7 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 	{
 		struct lb6_service *svc;
 
-		if ((svc = lb6_lookup_service(ctx, &key)) != NULL) {
+		if ((svc = lb6_lookup_service(&key)) != NULL) {
 			ret = lb6_local(get_ct_map6(tuple), ctx, l3_off, l4_off,
 					&csum_off, &key, tuple, svc, &ct_state_new);
 			if (IS_ERR(ret))
@@ -457,7 +457,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	{
 		struct lb4_service *svc;
 
-		if ((svc = lb4_lookup_service(ctx, &key)) != NULL) {
+		if ((svc = lb4_lookup_service(&key)) != NULL) {
 			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off, &csum_off,
 					&key, &tuple, svc, &ct_state_new, ip4->saddr);
 			if (IS_ERR(ret))
