@@ -331,6 +331,7 @@ jgt
 jle
 jlt
 jne
+jq
 js
 jset
 jsge
