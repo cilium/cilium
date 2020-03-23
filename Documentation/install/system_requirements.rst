@@ -24,7 +24,7 @@ system must meet these requirements:
 When running Cilium as a native process on your host (i.e. **not** running the
 ``cilium/cilium`` container image) these additional requirements must be met:
 
-- `clang+LLVM`_ >=5.0 (Recommended: >=7.0)
+- `clang+LLVM`_ >= 5.0 (Recommended: >=10.0)
 - iproute2_ with BPF templating patches [#iproute2_foot]_
 
 .. _`clang+LLVM`: https://llvm.org
