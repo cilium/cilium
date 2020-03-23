@@ -14,31 +14,25 @@ ENV PATH "$GOROOT/bin:$GOPATH/bin:$PATH"
 ENV GO_VERSION 1.14.1
 
 #
-# Build dependencies
+# Basic build dependencies
 #
 RUN \
 apt-get update && \
 apt-get upgrade -y --no-install-recommends && \
 apt-get install -y --no-install-recommends \
 # Base Cilium-build dependencies
-  apt-utils \
   binutils \
   coreutils \
   curl \
   gcc \
   git \
   libc6-dev \
-  libc6-dev-i386 \
   libelf-dev \
-  m4 \
   make \
-  pkg-config \
-  python \
   rsync \
   unzip \
   wget \
-  zip \
-  zlib1g-dev && \
+  zip && \
 apt-get purge --auto-remove && \
 apt-get clean && \
 rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
