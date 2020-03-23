@@ -26,6 +26,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
@@ -122,21 +123,31 @@ func setDialer(config *rest.Config) func() {
 }
 
 func runHeartbeat(heartBeat func(context.Context) error, timeout time.Duration, closeAllConns ...func()) {
+	expireDate := time.Now().Add(-timeout)
+	// Don't even perform a health check if we have received a successful
+	// k8s event in the last 'timeout' duration
+	if k8smetrics.LastSuccessInteraction.Time().After(expireDate) {
+		return
+	}
+
 	done := make(chan error)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	go func() {
+		// If we have reached up to this point to perform a heartbeat to
+		// kube-apiserver then we should close the connections if we receive
+		// any error at all except if we receive a http.StatusTooManyRequests
+		// which means the server is overloaded and only for this reason we
+		// will not close all connections.
 		err := heartBeat(ctx)
 		switch t := err.(type) {
 		case *errors.StatusError:
-			switch t.ErrStatus.Code {
-			case http.StatusGatewayTimeout,
-				http.StatusRequestTimeout,
-				http.StatusBadGateway:
-				done <- t
+			if t.ErrStatus.Code != http.StatusTooManyRequests {
+				done <- err
 			}
+		default:
+			done <- err
 		}
-
 		close(done)
 	}()
 

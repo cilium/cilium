@@ -20,6 +20,7 @@ import (
 	"net"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -240,6 +241,16 @@ func (*k8sMetrics) Observe(verb string, u url.URL, latency time.Duration) {
 
 func (*k8sMetrics) Increment(code string, method string, host string) {
 	metrics.KubernetesAPICalls.WithLabelValues(host, method, code).Inc()
+	// The 'code' is set to '<error>' in case an error is returned from k8s
+	// more info:
+	// https://github.com/kubernetes/client-go/blob/v0.18.0-rc.1/rest/request.go#L700-L703
+	if code != "<error>" {
+		// Consider success if status code is 2xx or 4xx
+		if strings.HasPrefix(code, "2") ||
+			strings.HasPrefix(code, "4") {
+			k8smetrics.LastSuccessInteraction.Reset()
+		}
+	}
 	k8smetrics.LastInteraction.Reset()
 }
 
