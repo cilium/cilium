@@ -316,8 +316,8 @@ static inline int __inline__ lb6_extract_key(struct __sk_buff *skb,
 #endif
 }
 
-static inline
-struct lb6_service *__lb6_lookup_service(struct lb6_key *key)
+static __always_inline
+struct lb6_service *lb6_lookup_service(struct lb6_key *key)
 {
 	key->slave = 0;
 #ifdef LB_L4
@@ -348,20 +348,7 @@ struct lb6_service *__lb6_lookup_service(struct lb6_key *key)
 	return NULL;
 }
 
-static inline
-struct lb6_service *lb6_lookup_service(struct __sk_buff *skb,
-				       struct lb6_key *key)
-{
-	struct lb6_service *svc = __lb6_lookup_service(key);
-
-
-	if (!svc)
-		cilium_dbg_lb(skb, DBG_LB6_LOOKUP_MASTER_FAIL, 0, 0);
-
-	return svc;
-}
-
-static inline struct lb6_backend *__lb6_lookup_backend(__u16 backend_id)
+static __always_inline struct lb6_backend *__lb6_lookup_backend(__u16 backend_id)
 {
 	return map_lookup_elem(&LB6_BACKEND_MAP, &backend_id);
 }
@@ -506,7 +493,7 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb,
 	 */
 	if (!(backend = lb6_lookup_backend(skb, state->backend_id))) {
 		key->slave = 0;
-		if (!(svc = lb6_lookup_service(skb, key))) {
+		if (!(svc = lb6_lookup_service(key))) {
 			goto drop_no_service;
 		}
 		slave = lb6_select_slave(svc->count);
@@ -541,8 +528,8 @@ drop_no_service:
 /* Stubs for v4-in-v6 socket cgroup hook case when only v4 is enabled to avoid
  * additional map management.
  */
-static inline
-struct lb6_service *__lb6_lookup_service(struct lb6_key *key)
+static __always_inline
+struct lb6_service *lb6_lookup_service(struct lb6_key *key __maybe_unused)
 {
 	return NULL;
 }
@@ -685,8 +672,8 @@ static inline int __inline__ lb4_extract_key(struct __sk_buff *skb,
 #endif
 }
 
-static inline
-struct lb4_service *__lb4_lookup_service(struct lb4_key *key)
+static __always_inline
+struct lb4_service *lb4_lookup_service(struct lb4_key *key)
 {
 	key->slave = 0;
 #ifdef LB_L4
@@ -717,19 +704,7 @@ struct lb4_service *__lb4_lookup_service(struct lb4_key *key)
 	return NULL;
 }
 
-static inline
-struct lb4_service *lb4_lookup_service(struct __sk_buff *skb,
-				       struct lb4_key *key)
-{
-	struct lb4_service *svc = __lb4_lookup_service(key);
-
-	if (!svc)
-		cilium_dbg_lb(skb, DBG_LB4_LOOKUP_MASTER_FAIL, 0, 0);
-
-	return svc;
-}
-
-static inline struct lb4_backend *__lb4_lookup_backend(__u16 backend_id)
+static __always_inline struct lb4_backend *__lb4_lookup_backend(__u16 backend_id)
 {
 	return map_lookup_elem(&LB4_BACKEND_MAP, &backend_id);
 }
@@ -896,7 +871,7 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 	 */
 	if (!(backend = lb4_lookup_backend(skb, state->backend_id))) {
 		key->slave = 0;
-		if (!(svc = lb4_lookup_service(skb, key))) {
+		if (!(svc = lb4_lookup_service(key))) {
 			goto drop_no_service;
 		}
 		slave = lb4_select_slave(svc->count);
