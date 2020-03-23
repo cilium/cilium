@@ -60,7 +60,6 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 #endif
 	int ret, verdict, l4_off, hdrlen;
 	struct csum_offset csum_off = {};
-	struct lb6_key key = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
 	void *data, *data_end;
@@ -84,14 +83,6 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 
 	l4_off = l3_off + hdrlen;
 
-	ret = lb6_extract_key(ctx, tuple, l4_off, &key, &csum_off, CT_EGRESS);
-	if (IS_ERR(ret)) {
-		if (ret == DROP_UNKNOWN_L4)
-			goto skip_service_lookup;
-		else
-			return ret;
-	}
-
 	/*
 	 * Check if the destination address is among the address that should be
 	 * load balanced. This operation is performed before we go through the
@@ -103,6 +94,15 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 # if !defined(ENABLE_HOST_SERVICES_FULL) || defined(ENABLE_EXTERNAL_IP)
 	{
 		struct lb6_service *svc;
+		struct lb6_key key = {};
+
+		ret = lb6_extract_key(ctx, tuple, l4_off, &key, &csum_off, CT_EGRESS);
+		if (IS_ERR(ret)) {
+			if (ret == DROP_UNKNOWN_L4)
+				goto skip_service_lookup;
+			else
+				return ret;
+		}
 
 		if ((svc = lb6_lookup_service(&key)) != NULL) {
 			ret = lb6_local(get_ct_map6(tuple), ctx, l3_off, l4_off,
@@ -112,10 +112,11 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 			hairpin_flow |= ct_state_new.loopback;
 		}
 	}
+
+skip_service_lookup:
 # endif /* !ENABLE_HOST_SERVICES_FULL || ENABLE_EXTERNAL_IP*/
 #endif /* ENABLE_SERVICES */
 
-skip_service_lookup:
 	/* The verifier wants to see this assignment here in case the above goto
 	 * skip_service_lookup is hit. However, in the case the packet
 	 * is _not_ TCP or UDP we should not be using proxy logic anyways. For
@@ -417,7 +418,6 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	struct iphdr *ip4;
 	int ret, verdict, l3_off = ETH_HLEN, l4_off;
 	struct csum_offset csum_off = {};
-	struct lb4_key key = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
 	__be32 orig_dip;
@@ -441,18 +441,20 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 
-	ret = lb4_extract_key(ctx, &tuple, l4_off, &key, &csum_off, CT_EGRESS);
-	if (IS_ERR(ret)) {
-		if (ret == DROP_UNKNOWN_L4)
-			goto skip_service_lookup;
-		else
-			return ret;
-	}
-
 #ifdef ENABLE_SERVICES
 # if !defined(ENABLE_HOST_SERVICES_FULL) || defined(ENABLE_EXTERNAL_IP)
 	{
 		struct lb4_service *svc;
+		struct lb4_key key = {};
+
+		ret = lb4_extract_key(ctx, &tuple, l4_off, &key, &csum_off,
+				      CT_EGRESS);
+		if (IS_ERR(ret)) {
+			if (ret == DROP_UNKNOWN_L4)
+				goto skip_service_lookup;
+			else
+				return ret;
+		}
 
 		if ((svc = lb4_lookup_service(&key)) != NULL) {
 			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off, &csum_off,
@@ -462,10 +464,11 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 			hairpin_flow |= ct_state_new.loopback;
 		}
 	}
+
+skip_service_lookup:
 # endif /* !ENABLE_HOST_SERVICES_FULL || ENABLE_EXTERNAL_IP */
 #endif /* ENABLE_SERVICES */
 
-skip_service_lookup:
 	/* The verifier wants to see this assignment here in case the above goto
 	 * skip_service_lookup is hit. However, in the case the packet
 	 * is _not_ TCP or UDP we should not be using proxy logic anyways. For
