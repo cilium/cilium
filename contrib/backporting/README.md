@@ -51,3 +51,22 @@ and the signed-off-by from the backporter.
    `./cherry-pick 479dd2d5a92a7035267bcdb91186c512ddd4379e`
 
 3. Resolve conflicts whenever necessary, and continue with the next commit.
+
+# set-labels.py - Set PR labels
+
+`set-labels.py <PR number> <action> <backport version>`
+
+The `set-labels.py` script is meant to keep the status of backporting changes
+up-to-date. The script takes the PR number to update, the action to take which
+can be "done" or "pending", and the backport version. This script needs the
+`GITHUB_TOKEN` environment variable set. Please provide a developer access
+token that has the `public_repo` scope as described in the steps above.
+
+## Example invocation
+
+The following invocation will set the "backport-done/1.7" label on the PRs
+10505 and 10651.
+
+```
+for pr in 10505 10651; do contrib/backporting/set-labels.py $pr done 1.7; done
+```
