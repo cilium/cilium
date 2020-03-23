@@ -41,6 +41,7 @@ daemon/ @cilium/agent
 daemon/cmd/datapath.* @cilium/bpf
 daemon/cmd/endpoint.* @cilium/endpoint
 daemon/cmd/health.* @cilium/health
+daemon/cmd/hubble.go @cilium/hubble
 daemon/cmd/ipcache.* @cilium/ipcache
 daemon/cmd/k8s_watcher.* @cilium/kubernetes
 daemon/cmd/loadbalancer.* @cilium/loadbalancer
