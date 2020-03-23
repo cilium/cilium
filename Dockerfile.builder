@@ -1,11 +1,8 @@
 #
-# Cilium build-time dependencies.
-# Image created from this file is used to build Cilium.
+# Cilium build-time base image (image created from this file is used to build Cilium)
 #
-FROM docker.io/library/ubuntu:18.04
-
+FROM quay.io/cilium/cilium-runtime:2020-03-23
 LABEL maintainer="maintainer@cilium.io"
-
 WORKDIR /go/src/github.com/cilium/cilium
 
 #
@@ -19,41 +16,39 @@ ENV GO_VERSION 1.14.1
 #
 # Build dependencies
 #
-RUN apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y --no-install-recommends \
-	&& DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-		apt-utils \
-		binutils \
-		ca-certificates \
-		clang-7 \
-		coreutils \
-		curl \
-		gcc \
-		git \
-		iproute2 \
-		libc6-dev \
-		libc6-dev-i386 \
-		libelf-dev \
-		llvm-7 \
-		m4 \
-		make \
-		pkg-config \
-		python \
-		rsync \
-		unzip \
-		wget \
-		zip \
-		zlib1g-dev \
-	&& apt-get clean \
-	&& rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
-	&& update-alternatives --install /usr/bin/clang clang /usr/bin/clang-7 100 \
-	&& update-alternatives --install /usr/bin/llc llc /usr/bin/llc-7 100
+RUN \
+apt-get update && \
+apt-get upgrade -y --no-install-recommends && \
+apt-get install -y --no-install-recommends \
+# Base Cilium-build dependencies
+  apt-utils \
+  binutils \
+  coreutils \
+  curl \
+  gcc \
+  git \
+  libc6-dev \
+  libc6-dev-i386 \
+  libelf-dev \
+  m4 \
+  make \
+  pkg-config \
+  python \
+  rsync \
+  unzip \
+  wget \
+  zip \
+  zlib1g-dev && \
+apt-get purge --auto-remove && \
+apt-get clean && \
+rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 #
 # Install Go
 #
-RUN curl -sfL https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz | tar -xzC /usr/local && \
-        go get -d -u github.com/gordonklaus/ineffassign && \
-        cd /go/src/github.com/gordonklaus/ineffassign && \
-        git checkout -b 1003c8bd00dc2869cb5ca5282e6ce33834fed514 1003c8bd00dc2869cb5ca5282e6ce33834fed514 && \
-        go install
+RUN \
+curl -sfL https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz | tar -xzC /usr/local && \
+go get -d -u github.com/gordonklaus/ineffassign && \
+cd /go/src/github.com/gordonklaus/ineffassign && \
+git checkout -b 1003c8bd00dc2869cb5ca5282e6ce33834fed514 1003c8bd00dc2869cb5ca5282e6ce33834fed514 && \
+go install
