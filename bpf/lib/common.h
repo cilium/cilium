@@ -619,7 +619,6 @@ struct ct_state {
 	      proxy_redirect:1, // Connection is redirected to a proxy
 	      dsr:1,
 	      reserved:12;
-	__be16 orig_dport;
 	__be32 addr;
 	__be32 svc_addr;
 	__u32 src_sec_id;
