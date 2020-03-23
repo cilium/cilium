@@ -799,7 +799,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
 	bool skip_ingress_proxy = false;
-	union v6addr orig_dip, orig_sip;
+	union v6addr orig_sip;
 	__u32 monitor = 0;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 
@@ -811,7 +811,6 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 
 	ipv6_addr_copy(&tuple.daddr, (union v6addr *) &ip6->daddr);
 	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->saddr);
-	ipv6_addr_copy(&orig_dip, (union v6addr *) &ip6->daddr);
 	ipv6_addr_copy(&orig_sip, (union v6addr *) &ip6->saddr);
 
 	/* If packet is coming from the ingress proxy we have to skip
@@ -1001,9 +1000,9 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
 	bool skip_ingress_proxy = false;
-	__be32 orig_dip, orig_sip;
 	bool is_fragment = false;
 	__u32 monitor = 0;
+	__be32 orig_sip;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -1018,7 +1017,6 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 
 	tuple.daddr = ip4->daddr;
 	tuple.saddr = ip4->saddr;
-	orig_dip = ip4->daddr;
 	orig_sip = ip4->saddr;
 
 	l4_off = l3_off + ipv4_hdrlen(ip4);
