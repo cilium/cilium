@@ -125,13 +125,15 @@ func runHeartbeat(client rest.Interface, closeAllConns []func(), stop chan struc
 	timeout := option.Config.K8sHeartbeatTimeout
 	go wait.Until(func() {
 		done := make(chan error)
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
 		go func() {
 			// Kubernetes does a get node of the node that kubelet is running [0]. This seems excessive in
 			// our case because the amount of data transferred is bigger than doing a Get of /healthz.
 			// For this reason we have picked to perform a get on `/healthz` instead a get of a node.
 			//
 			// [0] https://github.com/kubernetes/kubernetes/blob/v1.17.3/pkg/kubelet/kubelet_node_status.go#L423
-			res := client.Get().Resource("healthz").Do(context.TODO())
+			res := client.Get().Resource("healthz").Do(ctx)
 			switch t := res.Error().(type) {
 			case *errors.StatusError:
 				switch t.ErrStatus.Code {
@@ -153,7 +155,7 @@ func runHeartbeat(client rest.Interface, closeAllConns []func(), stop chan struc
 					fn()
 				}
 			}
-		case <-time.After(timeout):
+		case <-ctx.Done():
 			log.Warn("Heartbeat timed out, restarting client connections")
 			for _, fn := range closeAllConns {
 				fn()
