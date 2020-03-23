@@ -32,6 +32,7 @@ HOSTLB_UDP=${14}
 CGROUP_ROOT=${15}
 BPFFS_ROOT=${16}
 NODE_PORT=${17}
+MCPU=${18}
 
 ID_HOST=1
 ID_WORLD=2
@@ -275,7 +276,7 @@ function bpf_compile()
 	      -DHANDLE_NS						\
 	      $EXTRA_OPTS						\
 	      -c $LIB/$IN -o - |					\
-	llc -march=bpf -mcpu=probe -mattr=dwarfris -filetype=$TYPE -o $OUT
+	llc -march=bpf -mcpu=$MCPU -mattr=dwarfris -filetype=$TYPE -o $OUT
 }
 
 function xdp_load()
