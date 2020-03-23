@@ -121,22 +121,24 @@ func setDialer(config *rest.Config) func() {
 	return dialer.CloseAll
 }
 
-func runHeartbeat(closeAllConns []func(), stop chan struct{}) error {
+func runHeartbeat(client rest.Interface, closeAllConns []func(), stop chan struct{}) {
 	timeout := option.Config.K8sHeartbeatTimeout
 	go wait.Until(func() {
 		done := make(chan error)
 		go func() {
 			// Kubernetes does a get node of the node that kubelet is running [0]. This seems excessive in
-			// our case because the amount of data transferred is bigger than doing a Get of the kube-system namespace.
-			// For this reason we have picked to perform a get on `kube-system` instead a get of a node.
+			// our case because the amount of data transferred is bigger than doing a Get of /healthz.
+			// For this reason we have picked to perform a get on `/healthz` instead a get of a node.
 			//
 			// [0] https://github.com/kubernetes/kubernetes/blob/v1.17.3/pkg/kubelet/kubelet_node_status.go#L423
-			_, err := k8sCli.Interface.CoreV1().Namespaces().Get(context.TODO(), "kube-system", metav1.GetOptions{})
-			switch t := err.(type) {
-			case (*errors.StatusError):
-				if t.ErrStatus.Code == http.StatusGatewayTimeout || t.ErrStatus.Code == http.StatusRequestTimeout ||
-					t.ErrStatus.Code == http.StatusBadGateway {
-					done <- err
+			res := client.Get().Resource("healthz").Do(context.TODO())
+			switch t := res.Error().(type) {
+			case *errors.StatusError:
+				switch t.ErrStatus.Code {
+				case http.StatusGatewayTimeout,
+					http.StatusRequestTimeout,
+					http.StatusBadGateway:
+					done <- t
 				}
 			}
 
@@ -158,7 +160,6 @@ func runHeartbeat(closeAllConns []func(), stop chan struct{}) error {
 			}
 		}
 	}, timeout, stop)
-	return nil
 }
 
 // CreateClient creates a new client to access the Kubernetes API
@@ -203,21 +204,21 @@ func Client() *K8sClient {
 	return k8sCli
 }
 
-func createDefaultClient() (func(), error) {
+func createDefaultClient() (rest.Interface, func(), error) {
 	restConfig, err := CreateConfig()
 	if err != nil {
-		return nil, fmt.Errorf("unable to create k8s client rest configuration: %s", err)
+		return nil, nil, fmt.Errorf("unable to create k8s client rest configuration: %s", err)
 	}
 	restConfig.ContentConfig.ContentType = `application/vnd.kubernetes.protobuf`
 
 	createdK8sClient, closeAllConns, err := CreateClient(restConfig)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create k8s client: %s", err)
+		return nil, nil, fmt.Errorf("unable to create k8s client: %s", err)
 	}
 
 	k8sCli.Interface = createdK8sClient
 
-	return closeAllConns, nil
+	return createdK8sClient.RESTClient(), closeAllConns, nil
 }
 
 // CiliumClient returns the default Cilium Kubernetes client.
