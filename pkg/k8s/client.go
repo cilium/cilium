@@ -121,47 +121,39 @@ func setDialer(config *rest.Config) func() {
 	return dialer.CloseAll
 }
 
-func runHeartbeat(client rest.Interface, closeAllConns []func(), stop chan struct{}) {
-	timeout := option.Config.K8sHeartbeatTimeout
-	go wait.Until(func() {
-		done := make(chan error)
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
-		go func() {
-			// Kubernetes does a get node of the node that kubelet is running [0]. This seems excessive in
-			// our case because the amount of data transferred is bigger than doing a Get of /healthz.
-			// For this reason we have picked to perform a get on `/healthz` instead a get of a node.
-			//
-			// [0] https://github.com/kubernetes/kubernetes/blob/v1.17.3/pkg/kubelet/kubelet_node_status.go#L423
-			res := client.Get().Resource("healthz").Do(ctx)
-			switch t := res.Error().(type) {
-			case *errors.StatusError:
-				switch t.ErrStatus.Code {
-				case http.StatusGatewayTimeout,
-					http.StatusRequestTimeout,
-					http.StatusBadGateway:
-					done <- t
-				}
+func runHeartbeat(heartBeat func(context.Context) error, timeout time.Duration, closeAllConns ...func()) {
+	done := make(chan error)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	go func() {
+		err := heartBeat(ctx)
+		switch t := err.(type) {
+		case *errors.StatusError:
+			switch t.ErrStatus.Code {
+			case http.StatusGatewayTimeout,
+				http.StatusRequestTimeout,
+				http.StatusBadGateway:
+				done <- t
 			}
+		}
 
-			close(done)
-		}()
+		close(done)
+	}()
 
-		select {
-		case err := <-done:
-			if err != nil {
-				log.WithError(err).Warn("Network status error received, restarting client connections")
-				for _, fn := range closeAllConns {
-					fn()
-				}
-			}
-		case <-ctx.Done():
-			log.Warn("Heartbeat timed out, restarting client connections")
+	select {
+	case err := <-done:
+		if err != nil {
+			log.WithError(err).Warn("Network status error received, restarting client connections")
 			for _, fn := range closeAllConns {
 				fn()
 			}
 		}
-	}, timeout, stop)
+	case <-ctx.Done():
+		log.Warn("Heartbeat timed out, restarting client connections")
+		for _, fn := range closeAllConns {
+			fn()
+		}
+	}
 }
 
 // CreateClient creates a new client to access the Kubernetes API
