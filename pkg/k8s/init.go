@@ -130,24 +130,26 @@ func Init() error {
 		// For this reason we have picked to perform a get on `/healthz` instead a get of a node.
 		//
 		// [0] https://github.com/kubernetes/kubernetes/blob/v1.17.3/pkg/kubelet/kubelet_node_status.go#L423
-		res := k8sRestClient.Get().Resource("healthz").Do(ctx)
+		res := k8sRestClient.Get().Resource("healthz").Do()
 		return res.Error()
 	}
 
-	controller.NewManager().UpdateController("k8s-heartbeat",
-		controller.ControllerParams{
-			DoFunc: func(context.Context) error {
-				runHeartbeat(
-					heartBeat,
-					option.Config.K8sHeartbeatTimeout,
-					closeAllDefaultClientConns,
-					closeAllCiliumClientConns,
-				)
-				return nil
+	if option.Config.K8sHeartbeatTimeout != 0 {
+		controller.NewManager().UpdateController("k8s-heartbeat",
+			controller.ControllerParams{
+				DoFunc: func(context.Context) error {
+					runHeartbeat(
+						heartBeat,
+						option.Config.K8sHeartbeatTimeout,
+						closeAllDefaultClientConns,
+						closeAllCiliumClientConns,
+					)
+					return nil
+				},
+				RunInterval: option.Config.K8sHeartbeatTimeout,
 			},
-			RunInterval: option.Config.K8sHeartbeatTimeout,
-		},
-	)
+		)
+	}
 
 	if err := k8sversion.Update(Client()); err != nil {
 		return err
