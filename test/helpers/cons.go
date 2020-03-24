@@ -212,6 +212,7 @@ const (
 	RunInitFailed     = "JoinEP: "                             // from https://github.com/cilium/cilium/pull/5052
 	sizeMismatch      = "size mismatch for BPF map"            // from https://github.com/cilium/cilium/issues/7851
 	emptyBPFInitArg   = "empty argument passed to bpf/init.sh" // from https://github.com/cilium/cilium/issues/10228
+	removingMap       = "Removing map to allow for property upgrade"
 
 	// HelmTemplate is the location of the Helm templates to install Cilium
 	HelmTemplate = "../install/kubernetes/cilium"
@@ -265,6 +266,7 @@ var badLogMessages = map[string][]string{
 	RunInitFailed:     {"signal: terminated", "signal: killed"},
 	sizeMismatch:      nil,
 	emptyBPFInitArg:   nil,
+	removingMap:       nil,
 }
 
 var ciliumCLICommands = map[string]string{
