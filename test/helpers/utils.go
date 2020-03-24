@@ -226,6 +226,8 @@ func HoldEnvironment(description ...string) {
 	fmt.Fprintf(os.Stdout, "\n\nPausing test for debug, use vagrant to access test setup.")
 	fmt.Fprintf(os.Stdout, "\nRun \"kill -SIGCONT %d\" to continue.\n", pid)
 	unix.Kill(pid, unix.SIGSTOP)
+	time.Sleep(time.Millisecond)
+	fmt.Fprintf(os.Stdout, "Test resumed.\n")
 }
 
 // Fail is a Ginkgo failure handler which raises a SIGSTOP for the test process
