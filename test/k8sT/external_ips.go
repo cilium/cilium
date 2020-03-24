@@ -42,6 +42,7 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 		podNode2            string
 		hostNetworkPodNode1 string
 		hostNetworkPodNode2 string
+		hostNetworkPodNode3 string
 
 		// name2IP maps the service-name-cluster-ip to the running clusterIP
 		// assigned by kubernetes. Since the IPs are ephemeral over CI runs,
@@ -116,6 +117,7 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 		podNode2 = getPodName("id=app3")
 		hostNetworkPodNode1 = getPodNodeName(helpers.K8s1, "-l id=host-client")
 		hostNetworkPodNode2 = getPodNodeName(helpers.K8s2, "-l id=host-client")
+		hostNetworkPodNode3 = getPodNodeName(helpers.K8s3, "-l id=host-client")
 
 		// map the public and private ip addresses of k8s1. We need to do this
 		// since the public and private IP addresses are also ephemeral across
@@ -224,9 +226,7 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 					Skip(skipReason)
 					return
 				}
-				// TODO @brb, once the kube-proxy free is merged in master
-				// we can uncomment this
-				// Expect(got).ToNot(Equal(expected), "It seems this test is disabled but your changes have fix this test case")
+				Expect(got).ToNot(Equal(expected), "It seems this test is disabled but your changes have to fix this test case")
 				return
 			}
 			Expect(got).To(Equal(expected), cmd.GetCmd())
@@ -268,13 +268,12 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 				},
 				getTableEntries(external_ips.ExpectedResultFromNode2)...,
 			)
-			// TODO: Enable me once the 3rd VM is added to the CI
-			// DescribeTable("From host running on node-3 to services being backed by a pod running on node-1",
-			// 	func(ipName, ip, port, expected, skipReason string) {
-			// 		testFunc(hostNetworkPodNode3)(ipName, ip, port, expected, skipReason)
-			// 	},
-			// 	getTableEntries(external_ips.ExpectedResultFromNode2)...,
-			// )
+			DescribeTable("From host running on node-3 (no cilium) to services being backed by a pod running on node-1",
+				func(ipName, ip, port, expected, skipReason string) {
+					testFunc(hostNetworkPodNode3)(ipName, ip, port, expected, skipReason)
+				},
+				getTableEntries(external_ips.ExpectedResultFromNode2)...,
+			)
 		},
 	)
 
@@ -312,13 +311,12 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 				},
 				getTableEntries(external_ips.ExpectedResultFromNode2)...,
 			)
-			// TODO: Enable me once the 3rd VM is added to the CI
-			// DescribeTable("From host running on node-3 to services being backed by a pod running on node-1",
-			// 	func(ipName, ip, port, expected, skipReason string) {
-			// 		testFunc(hostNetworkPodNode3)(ipName, ip, port, expected, skipReason)
-			// 	},
-			// 	getTableEntries(external_ips.ExpectedResultFromNode2)...,
-			// )
+			DescribeTable("From host running on node-3 to services being backed by a pod running on node-1",
+				func(ipName, ip, port, expected, skipReason string) {
+					testFunc(hostNetworkPodNode3)(ipName, ip, port, expected, skipReason)
+				},
+				getTableEntries(external_ips.ExpectedResultFromNode2)...,
+			)
 		},
 	)
 })
