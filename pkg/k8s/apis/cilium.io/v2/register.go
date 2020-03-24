@@ -572,11 +572,7 @@ func createUpdateCRD(clientset apiextensionsclient.Interface, CRDName string, cr
 	// wait for the CRD to be established
 	scopedLog.Debug("Waiting for CRD (CustomResourceDefinition) to be available...")
 	err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
-		crd, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.TODO(), crd.ObjectMeta.Name, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		for _, cond := range crd.Status.Conditions {
+		for _, cond := range clusterCRD.Status.Conditions {
 			switch cond.Type {
 			case apiextensionsv1beta1.Established:
 				if cond.Status == apiextensionsv1beta1.ConditionTrue {
@@ -588,6 +584,10 @@ func createUpdateCRD(clientset apiextensionsclient.Interface, CRDName string, cr
 					return false, err
 				}
 			}
+		}
+		clusterCRD, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.TODO(), crd.ObjectMeta.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, err
 		}
 		return false, err
 	})
