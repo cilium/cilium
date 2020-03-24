@@ -134,20 +134,22 @@ func Init() error {
 		return res.Error()
 	}
 
-	controller.NewManager().UpdateController("k8s-heartbeat",
-		controller.ControllerParams{
-			DoFunc: func(context.Context) error {
-				runHeartbeat(
-					heartBeat,
-					option.Config.K8sHeartbeatTimeout,
-					closeAllDefaultClientConns,
-					closeAllCiliumClientConns,
-				)
-				return nil
+	if option.Config.K8sHeartbeatTimeout != 0 {
+		controller.NewManager().UpdateController("k8s-heartbeat",
+			controller.ControllerParams{
+				DoFunc: func(context.Context) error {
+					runHeartbeat(
+						heartBeat,
+						option.Config.K8sHeartbeatTimeout,
+						closeAllDefaultClientConns,
+						closeAllCiliumClientConns,
+					)
+					return nil
+				},
+				RunInterval: option.Config.K8sHeartbeatTimeout,
 			},
-			RunInterval: option.Config.K8sHeartbeatTimeout,
-		},
-	)
+		)
+	}
 
 	if err := k8sversion.Update(Client()); err != nil {
 		return err
