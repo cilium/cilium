@@ -17,6 +17,7 @@
 package tools
 
 import (
+	_ "github.com/cilium/deepequal-gen"
 	_ "k8s.io/code-generator"
 	_ "k8s.io/code-generator/cmd/client-gen"
 
