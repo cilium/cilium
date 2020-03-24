@@ -139,7 +139,6 @@ pipeline {
                         NO_CILIUM_ON_NODE="k8s3"
                         KUBEPROXY="0"
                         KUBECONFIG="vagrant-kubeconfig"
-                         //setting it here so we don't compile Cilium in vagrant nodes (already done on local node registry)
                     }
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
@@ -147,7 +146,7 @@ pipeline {
                         retry(3) {
                             timeout(time: 45, unit: 'MINUTES'){
                                 dir("${TESTDIR}") {
-                                    sh 'CILIUM_REGISTRY="$(./print-node-ip)" ./vagrant-ci-start.sh'
+                                    sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
                                 }
                             }
                         }
@@ -176,7 +175,7 @@ pipeline {
                         retry(3) {
                             timeout(time: 45, unit: 'MINUTES'){
                                 dir("${TESTDIR}") {
-                                    sh 'CILIUM_REGISTRY="$(./print-node-ip)" ./vagrant-ci-start.sh'
+                                    sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
                                 }
                             }
                         }
