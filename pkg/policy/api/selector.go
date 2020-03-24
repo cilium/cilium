@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,12 +17,15 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/validation"
 	k8sLbls "k8s.io/apimachinery/pkg/labels"
@@ -31,19 +34,39 @@ import (
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "policy-api")
 
 // EndpointSelector is a wrapper for k8s LabelSelector.
+// +deepequal-gen:private-method=true
 type EndpointSelector struct {
+	// +deepequal-gen=false
 	*metav1.LabelSelector
 
 	// requirements provides a cache for a k8s-friendly format of the
 	// LabelSelector, which allows more efficient matching in Matches().
 	//
 	// Kept as a pointer to allow EndpointSelector to be used as a map key.
+	// +deepequal-gen=false
 	requirements *k8sLbls.Requirements
 
 	// cachedString is the cached representation of the LabelSelector for this
 	// EndpointSelector. It is populated when EndpointSelectors are created
 	// via `NewESFromMatchRequirements`. It is immutable after its creation.
 	cachedLabelSelectorString string
+}
+
+func (in *EndpointSelector) DeepEqual(other *EndpointSelector) bool {
+	switch {
+	case (in == nil) != (other == nil):
+		return false
+	case (in == nil) && (other == nil):
+		return true
+	}
+	if !comparator.MapStringEquals(in.MatchLabels, other.MatchLabels) {
+		return false
+	}
+	// Once k8s upstream library supports DeepEqual we can remove this reflect
+	if !reflect.DeepEqual(in.requirements, other.requirements) {
+		return false
+	}
+	return in.deepEqual(other)
 }
 
 // LabelSelectorString returns a user-friendly string representation of

@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ package api
 
 import (
 	"context"
-	"reflect"
 
 	"github.com/cilium/cilium/pkg/labels"
 )
@@ -68,15 +67,6 @@ type Rule struct {
 // NewRule builds a new rule with no selector and no policy.
 func NewRule() *Rule {
 	return &Rule{}
-}
-
-// DeepEquals returns true if the specified rule is deeply the same.
-func (r *Rule) DeepEquals(r2 *Rule) bool {
-	if reflect.DeepEqual(r, r2) {
-		return true
-	}
-
-	return false
 }
 
 // WithEndpointSelector configures the Rule with the specified selector.

@@ -320,6 +320,7 @@ generate-k8s-api:
 	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg,"azure:types")
 	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg,"ipam:types")
 	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg,"policy:api")
+	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium,"pkg:labels")
 	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium,"pkg:loadbalancer")
 	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium,"pkg:k8s")
 	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium,"pkg:node")

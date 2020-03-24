@@ -191,7 +191,7 @@ func (r *CiliumNetworkPolicy) SpecEquals(o *CiliumNetworkPolicy) bool {
 	if o == nil {
 		return r == nil
 	}
-	return r.Spec.DeepEquals(o.Spec) && r.Specs.DeepEquals(o.Specs)
+	return r.Spec.DeepEqual(o.Spec) && r.Specs.DeepEqual(o.Specs)
 }
 
 // AnnotationsEquals returns true if ObjectMeta.Annotations of each
