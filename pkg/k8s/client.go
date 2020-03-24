@@ -113,11 +113,14 @@ func CreateConfig() (*rest.Config, error) {
 }
 
 func setDialer(config *rest.Config) func() {
-	context := (&net.Dialer{
+	if option.Config.K8sHeartbeatTimeout == 0 {
+		return func() {}
+	}
+	ctx := (&net.Dialer{
 		Timeout:   option.Config.K8sHeartbeatTimeout,
 		KeepAlive: option.Config.K8sHeartbeatTimeout,
 	}).DialContext
-	dialer := connrotation.NewDialer(context)
+	dialer := connrotation.NewDialer(ctx)
 	config.Dial = dialer.DialContext
 	return dialer.CloseAll
 }
