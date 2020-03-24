@@ -13,6 +13,7 @@ require (
 	github.com/blang/semver v3.5.0+incompatible
 	github.com/c9s/goprocinfo v0.0.0-20190309065803-0b2ad9ac246b
 	github.com/cilium/arping v1.0.1-0.20190728065459-c5eaf8d7a710
+	github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
 	github.com/cilium/ebpf v0.0.0-20191113100448-d9fb101ca1fb
 	github.com/cilium/ipam v0.0.0-20200420133938-2f672ef3ad54
 	github.com/cilium/proxy v0.0.0-20200309181938-3cf80fe45d03
@@ -34,7 +35,7 @@ require (
 	github.com/go-openapi/validate v0.19.5
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.3.2
-	github.com/google/go-cmp v0.3.1
+	github.com/google/go-cmp v0.4.0
 	github.com/google/gofuzz v1.1.0
 	github.com/google/gopacket v1.1.17
 	github.com/google/gops v0.3.6
@@ -78,7 +79,7 @@ require (
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
-	golang.org/x/tools v0.0.0-20200131233409-575de47986ce
+	golang.org/x/tools v0.0.0-20200324175852-6fb6f5a9fc59
 	google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55
 	google.golang.org/grpc v1.26.0
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127

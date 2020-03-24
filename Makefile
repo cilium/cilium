@@ -68,16 +68,37 @@ define generate_k8s_api
 	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
 endef
 
+define generate_deepequal
+	cd "./vendor/github.com/cilium/deepequal-gen" && \
+	GO111MODULE=off go run main.go \
+	--input-dirs $(1) \
+	-O zz_generated.deepequal \
+	--go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
+endef
+
 define generate_k8s_api_all
 	$(call generate_k8s_api,all,github.com/cilium/cilium/pkg/k8s/client,$(1),$(2))
+	$(call generate_deepequal,"$(subst $(space),$(comma),$(foreach pkg,$(2),$(1)/$(subst ",,$(subst :,/,$(pkg)))))")
 endef
 
-define generate_k8s_api_deepcopy
+empty:=
+space:= $(empty) $(empty)
+
+define generate_k8s_api_deepcopy_deepequal
 	$(call generate_k8s_api,deepcopy,github.com/cilium/cilium/pkg/k8s/client,$(1),$(2))
+	@# Explanation for the 'subst' below:
+	@#   $(subst ",,$(subst :,/,$(pkg))) - replace all ':' with '/' and replace
+	@#    all '"' with '' from $pkg
+	@#   $(foreach pkg,$(2),$(1)/$(subst ",,$(subst :,/,$(pkg)))) - for each
+	@#    "$pkg", with the characters replaced, create a new string with the
+	@#    prefix $(1)
+	@#   Finally replace all spaces with commas from the generated strings.
+	$(call generate_deepequal,"$(subst $(space),$(comma),$(foreach pkg,$(2),$(1)/$(subst ",,$(subst :,/,$(pkg)))))")
 endef
 
-define generate_k8s_api_deepcopy_client
+define generate_k8s_api_deepcopy_deepequal_client
 	$(call generate_k8s_api,deepcopy$(comma)client,github.com/cilium/cilium/pkg/k8s/slim/k8s/client,$(1),$(2))
+	$(call generate_deepequal,"$(subst $(space),$(comma),$(foreach pkg,$(2),$(1)/$(subst ",,$(subst :,/,$(pkg)))))")
 endef
 
 define generate_k8s_protobuf
@@ -404,15 +425,13 @@ generate-k8s-api:
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/util/intstr$(comma)$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/discovery/v1beta1$(comma)$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/networking/v1)
-	$(call generate_k8s_api_deepcopy_client,github.com/cilium/cilium/pkg/k8s/slim/k8s/apis,"\
+	$(call generate_k8s_api_deepcopy_deepequal_client,github.com/cilium/cilium/pkg/k8s/slim/k8s/apis,"$\
 	discovery:v1beta1\
 	networking:v1\
-	core:v1\
-	")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg/k8s/slim/k8s/apis,"\
-	meta:v1\
-	")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"\
+	core:v1")
+	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg/k8s/slim/k8s/apis,"$\
+	meta:v1")
+	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg,"$\
 	aws:types\
 	azure:types\
 	ipam:types\
@@ -435,17 +454,15 @@ generate-k8s-api:
 	maps:tunnel\
 	node:types\
 	policy:api\
-	service:store\
-	")
+	service:store")
 	$(call generate_k8s_api_all,github.com/cilium/cilium/pkg/k8s/apis,"cilium.io:v2")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg/aws,"eni:types")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/api,"v1:models")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"\
+	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg/aws,"eni:types")
+	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/api,"v1:models")
+	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium,"$\
 	pkg:bpf\
 	pkg:k8s\
 	pkg:loadbalancer\
-	pkg:tuple\
-	")
+	pkg:tuple")
 
 vps:
 	VBoxManage list runningvms
