@@ -202,14 +202,17 @@ var _ = Describe("K8sServicesTest", func() {
 				"cluster-ip-same-node.log")
 			defer monitorStop()
 
+			httpSVCURL := fmt.Sprintf("http://%s/", clusterIP)
+			tftpSVCURL := fmt.Sprintf("tftp://%s/hello", clusterIP)
+
 			k8s1Name, _ := getNodeInfo(helpers.K8s1)
 			status, err := kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
-				helpers.CurlFail("http://%s/", clusterIP))
+				helpers.CurlFail(httpSVCURL))
 			Expect(err).To(BeNil(), "Cannot run curl in host netns")
 			status.ExpectSuccess("cannot curl to service IP from host")
 
 			status, err = kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
-				helpers.CurlFail("tftp://%s/hello", clusterIP))
+				helpers.CurlFail(tftpSVCURL))
 			Expect(err).To(BeNil(), "Cannot run curl in host netns")
 			status.ExpectSuccess("cannot curl to service IP from host")
 			ciliumPods, err := kubectl.GetCiliumPods(helpers.CiliumNamespace)
@@ -218,6 +221,12 @@ var _ = Describe("K8sServicesTest", func() {
 				service := kubectl.CiliumExec(pod, "cilium service list")
 				service.ExpectSuccess("Cannot retrieve services on cilium Pod")
 				service.ExpectContains(clusterIP, "ClusterIP is not present in the cilium service list")
+			}
+			for i := 0; i < 10; i++ {
+				// Send requests from "app2" pod which runs on the same node as
+				// "app1" pods
+				testCurlRequest("id=app2", httpSVCURL)
+				testCurlRequest("id=app2", tftpSVCURL)
 			}
 		}, 300)
 
