@@ -97,10 +97,11 @@ Troubleshooting
    be running at the same time:
 
    * ``kube-dns`` or ``coredns``
+   * ``cilium-operator``
    * ``cilium-xxx``
    * ``cilium-etcd-operator``
    * ``etcd-operator``
-   * ``etcd-xxx``
+   * ``cilium-etcd-xxx``
 
    All timeouts are configured that this will typically work out smoothly even
    if some of the pods restart once or twice. In case any of the above pods get
