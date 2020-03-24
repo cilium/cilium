@@ -29,7 +29,7 @@ require (
 	github.com/go-openapi/validate v0.19.5
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.3.2
-	github.com/google/go-cmp v0.3.1
+	github.com/google/go-cmp v0.4.0
 	github.com/google/gopacket v1.1.17
 	github.com/google/gops v0.3.6
 	github.com/gorilla/mux v1.7.0
@@ -57,6 +57,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.1
 	github.com/vishvananda/netlink v1.1.1-0.20200210222539-bfba8e4149db
+	github.com/wind-river/deepequal-gen v0.0.0-20190308202827-53869373a6aecd9213bdae2d4ff0c3e92eeebe3e
 	go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738
 	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
@@ -82,4 +83,5 @@ replace (
 	github.com/miekg/dns => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
 	github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
 	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20200326103132-fe7bd31c2794
+	github.com/wind-river/deepequal-gen => /home/aanm/git-repos/go/src/github.com/wind-river/deepequal-gen
 )
