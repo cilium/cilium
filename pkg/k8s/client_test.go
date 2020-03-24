@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/testutils"
 
 	. "gopkg.in/check.v1"
 	"k8s.io/api/core/v1"
@@ -197,11 +198,18 @@ func (s *K8sSuite) Test_runHeartbeat(c *C) {
 		},
 	)
 
-	select {
-	case <-time.After(5 * time.Millisecond):
-		c.Error("Heartbeat should have closed all connections")
-	case <-called:
-	}
+	// We need to polling for the condition instead of using a time.After to
+	// give the opportunity for scheduler to run the go routine inside runHeartbeat
+	err := testutils.WaitUntil(func() bool {
+		select {
+		case <-called:
+			return true
+		default:
+			return false
+		}
+	},
+		5*time.Second)
+	c.Assert(err, IsNil, Commentf("Heartbeat should have closed all connections"))
 
 	// There are some connectivity issues, cilium is trying to reach kube-apiserver
 	// but it's only receiving errors. We should close all connections!
@@ -223,11 +231,18 @@ func (s *K8sSuite) Test_runHeartbeat(c *C) {
 		},
 	)
 
-	select {
-	case <-time.After(200 * time.Millisecond):
-		c.Error("Heartbeat should have closed all connections")
-	case <-called:
-	}
+	// We need to polling for the condition instead of using a time.After to
+	// give the opportunity for scheduler to run the go routine inside runHeartbeat
+	err = testutils.WaitUntil(func() bool {
+		select {
+		case <-called:
+			return true
+		default:
+			return false
+		}
+	},
+		5*time.Second)
+	c.Assert(err, IsNil, Commentf("Heartbeat should have closed all connections"))
 
 	// Cilium is successfully talking with kube-apiserver, we should not do
 	// anything.
@@ -268,11 +283,18 @@ func (s *K8sSuite) Test_runHeartbeat(c *C) {
 		},
 	)
 
-	select {
-	case <-time.After(200 * time.Millisecond):
-		c.Error("Heartbeat should have closed all connections")
-	case <-called:
-	}
+	// We need to polling for the condition instead of using a time.After to
+	// give the opportunity for scheduler to run the go routine inside runHeartbeat
+	err = testutils.WaitUntil(func() bool {
+		select {
+		case <-called:
+			return true
+		default:
+			return false
+		}
+	},
+		5*time.Second)
+	c.Assert(err, IsNil, Commentf("Heartbeat should have closed all connections"))
 
 	// Cilium had the last interaction with kube-apiserver a long time ago.
 	// We should perform a heartbeat but the heart beat will return
@@ -295,9 +317,16 @@ func (s *K8sSuite) Test_runHeartbeat(c *C) {
 		},
 	)
 
-	select {
-	case <-time.After(200 * time.Millisecond):
-		c.Error("Heartbeat should have closed all connections")
-	case <-called:
-	}
+	// We need to polling for the condition instead of using a time.After to
+	// give the opportunity for scheduler to run the go routine inside runHeartbeat
+	err = testutils.WaitUntil(func() bool {
+		select {
+		case <-called:
+			return true
+		default:
+			return false
+		}
+	},
+		5*time.Second)
+	c.Assert(err, IsNil, Commentf("Heartbeat should have closed all connections"))
 }
