@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
 package types
 
 import (
+	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
 	"k8s.io/api/core/v1"
@@ -24,26 +26,31 @@ import (
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +deepequal-gen=false
 type NetworkPolicy struct {
 	*networkingv1.NetworkPolicy
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +deepequal-gen=false
 type Service struct {
 	*v1.Service
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +deepequal-gen=false
 type Endpoints struct {
 	*v1.Endpoints
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +deepequal-gen=false
 type EndpointSlice struct {
 	*v1beta1.EndpointSlice
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +deepequal-gen=true
 type SlimCNP struct {
 	*v2.CiliumNetworkPolicy
 }
@@ -63,8 +70,11 @@ type PodContainer struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +deepequal-gen:private-method=true
 type Pod struct {
+	// +deepequal-gen=false
 	metav1.TypeMeta
+	// +deepequal-gen=false
 	metav1.ObjectMeta
 	StatusPodIP            string
 	StatusHostIP           string
@@ -75,7 +85,44 @@ type Pod struct {
 	SpecContainers []PodContainer
 }
 
+// AnnotationsEqual returns whether the annotation with any key in
+// relevantAnnotations is equal in anno1 and anno2.
+func AnnotationsEqual(relevantAnnotations []string, anno1, anno2 map[string]string) bool {
+	for _, an := range relevantAnnotations {
+		if anno1[an] != anno2[an] {
+			return false
+		}
+	}
+	return true
+}
+
+func (in *Pod) DeepEqual(other *Pod) bool {
+	if other == nil {
+		return false
+	}
+
+	if in.Name != other.Name {
+		return false
+	}
+	if in.Namespace != other.Namespace {
+		return false
+	}
+
+	if !AnnotationsEqual([]string{annotation.ProxyVisibility}, in.GetAnnotations(), other.GetAnnotations()) {
+		return false
+	}
+
+	oldPodLabels := in.GetLabels()
+	newPodLabels := other.GetLabels()
+	if !comparator.MapStringEquals(oldPodLabels, newPodLabels) {
+		return false
+	}
+
+	return in.deepEqual(other)
+}
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +deepequal-gen=false
 type Node struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
@@ -87,12 +134,14 @@ type Node struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +deepequal-gen=false
 type Namespace struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +deepequal-gen=false
 type Identity struct {
 	*v2.CiliumIdentity
 }
@@ -111,10 +160,28 @@ func ConvertToIdentity(obj interface{}) interface{} {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +deepequal-gen:private-method=true
 type CiliumEndpoint struct {
+	// +deepequal-gen=false
 	metav1.TypeMeta
+	// +deepequal-gen=false
 	metav1.ObjectMeta
 	Identity   *v2.EndpointIdentity
 	Networking *v2.EndpointNetworking
 	Encryption *v2.EncryptionSpec
+}
+
+func (in *CiliumEndpoint) DeepEqual(other *CiliumEndpoint) bool {
+	if other == nil {
+		return false
+	}
+
+	if in.Name != other.Name {
+		return false
+	}
+	if in.Namespace != other.Namespace {
+		return false
+	}
+
+	return in.deepEqual(other)
 }

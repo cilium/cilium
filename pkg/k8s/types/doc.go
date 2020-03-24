@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 // limitations under the License.
 
 // +k8s:deepcopy-gen=package,register
+// +deepequal-gen=package
 
 // Package types contains slimmer versions of k8s types.
 // +groupName=pkg
