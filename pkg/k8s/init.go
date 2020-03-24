@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/backoff"
+	"github.com/cilium/cilium/pkg/controller"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
@@ -32,7 +33,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -134,16 +134,19 @@ func Init() error {
 		return res.Error()
 	}
 
-	go wait.Until(func() {
-		runHeartbeat(
-			heartBeat,
-			option.Config.K8sHeartbeatTimeout,
-			closeAllDefaultClientConns,
-			closeAllCiliumClientConns,
-		)
-	},
-		option.Config.K8sHeartbeatTimeout,
-		make(chan struct{}),
+	controller.NewManager().UpdateController("k8s-heartbeat",
+		controller.ControllerParams{
+			DoFunc: func(context.Context) error {
+				runHeartbeat(
+					heartBeat,
+					option.Config.K8sHeartbeatTimeout,
+					closeAllDefaultClientConns,
+					closeAllCiliumClientConns,
+				)
+				return nil
+			},
+			RunInterval: option.Config.K8sHeartbeatTimeout,
+		},
 	)
 
 	if err := k8sversion.Update(Client()); err != nil {
