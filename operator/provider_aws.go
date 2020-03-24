@@ -1,4 +1,5 @@
-// Copyright 2017-2018 Authors of Cilium
+//+build operator_aws
+// Copyright 2017-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,9 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package groups
+package main
 
-// Empty imports to register providers
 import (
-	_ "github.com/cilium/cilium/pkg/policy/groups/aws" // AWS import to be able to register the provider.
+	_ "github.com/cilium/cilium/pkg/policy/groups/aws" // Register AWS policy group provider.
 )
