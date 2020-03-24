@@ -50,4 +50,5 @@ RUN groupadd -f cilium \
     && cilium completion bash >> /root/.bashrc \
     && sysctl -w kernel.core_pattern=/tmp/core.%e.%p.%t
 ENV INITSYSTEM="SYSTEMD"
+USER 65534
 CMD ["/usr/bin/cilium"]
