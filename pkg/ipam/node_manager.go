@@ -21,6 +21,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/cilium/cilium/pkg/controller"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
@@ -168,6 +169,31 @@ func NewNodeManager(instancesAPI AllocationImplementation, k8sAPI k8sImplementat
 	mngr.resyncTrigger = resyncTrigger
 
 	return mngr, nil
+}
+
+// Start kicks of the NodeManager by performing the initial state
+// synchronization and starting the background sync go routine
+func (n *NodeManager) Start(ctx context.Context) {
+	// Trigger the initial resync in a blocking manner
+	n.instancesAPI.Resync(ctx)
+
+	// Start an interval based  background resync for safety, it will
+	// synchronize the state regularly and resolve eventual deficit if the
+	// event driven trigger fails, and also release excess IP addresses
+	// if release-excess-ips is enabled
+	go func() {
+		time.Sleep(time.Minute)
+		mngr := controller.NewManager()
+		mngr.UpdateController("ipam-node-interval-refresh",
+			controller.ControllerParams{
+				RunInterval: time.Minute,
+				DoFunc: func(ctx context.Context) error {
+					syncTime := n.instancesAPI.Resync(ctx)
+					n.Resync(ctx, syncTime)
+					return nil
+				},
+			})
+	}()
 }
 
 // GetNames returns the list of all node names

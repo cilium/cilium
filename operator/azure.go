@@ -17,12 +17,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"time"
 
 	apiMetrics "github.com/cilium/cilium/pkg/api/metrics"
 	azureAPI "github.com/cilium/cilium/pkg/azure/api"
 	azureIPAM "github.com/cilium/cilium/pkg/azure/ipam"
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	"github.com/cilium/cilium/pkg/option"
@@ -64,25 +62,7 @@ func startAzureAllocator(clientQPSLimit float64, clientBurst int) (*ipam.NodeMan
 		return nil, fmt.Errorf("unable to initialize Azure node manager: %s", err)
 	}
 
-	instances.Resync(context.TODO())
-
-	// Start an interval based  background resync for safety, it will
-	// synchronize the state regularly and resolve eventual deficit if the
-	// event driven trigger fails, and also release excess IP addresses
-	// if release-excess-ips is enabled
-	go func() {
-		time.Sleep(time.Minute)
-		mngr := controller.NewManager()
-		mngr.UpdateController("azure-api-refresh",
-			controller.ControllerParams{
-				RunInterval: time.Minute,
-				DoFunc: func(ctx context.Context) error {
-					syncTime := instances.Resync(ctx)
-					nodeManager.Resync(ctx, syncTime)
-					return nil
-				},
-			})
-	}()
+	nodeManager.Start(context.TODO())
 
 	return nodeManager, nil
 }

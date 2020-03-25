@@ -33,16 +33,17 @@ import (
 type Client struct {
 	ec2Client  *ec2.Client
 	limiter    *helpers.ApiLimiter
-	metricsAPI metricsAPI
+	metricsAPI MetricsAPI
 }
 
-type metricsAPI interface {
+// MetricsAPI represents the metrics maintained by the AWS API client
+type MetricsAPI interface {
 	helpers.MetricsAPI
 	ObserveAPICall(call, status string, duration float64)
 }
 
 // NewClient returns a new EC2 client
-func NewClient(ec2Client *ec2.Client, metrics metricsAPI, rateLimit float64, burst int) *Client {
+func NewClient(ec2Client *ec2.Client, metrics MetricsAPI, rateLimit float64, burst int) *Client {
 	return &Client{
 		ec2Client:  ec2Client,
 		metricsAPI: metrics,
