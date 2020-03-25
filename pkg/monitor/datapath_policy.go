@@ -63,6 +63,25 @@ const (
 	PolicyMatchAll = 4
 )
 
+type PolicyMatchType int
+
+func (m PolicyMatchType) String() string {
+	switch m {
+	case PolicyMatchL3Only:
+		return "L3-Only"
+	case PolicyMatchL3L4:
+		return "L3-L4"
+	case PolicyMatchL4Only:
+		return "L4-Only"
+	case PolicyMatchAll:
+		return "all"
+	case PolicyMatchNone:
+		return "none"
+
+	}
+	return "unknown"
+}
+
 // PolicyVerdictNotify is the message format of a policy verdict notification in the bpf ring buffer
 type PolicyVerdictNotify struct {
 	Type        uint8
@@ -91,6 +110,12 @@ func (n *PolicyVerdictNotify) IsTrafficIPv6() bool {
 	return (n.Flags&PolicyVerdictNotifyFlagIsIPv6 > 0)
 }
 
+// GetPolicyMatchType returns how the traffic matched the policy
+func (n *PolicyVerdictNotify) GetPolicyMatchType() PolicyMatchType {
+	return PolicyMatchType((n.Flags & PolicyVerdictNotifyFlagMatchType) >>
+		PolicyVerdictNotifyFlagMatchTypeBitOffset)
+}
+
 // GetPolicyActionString returns the action string corresponding to the action
 func GetPolicyActionString(verdict int32) string {
 	if verdict < 0 {
@@ -101,28 +126,9 @@ func GetPolicyActionString(verdict int32) string {
 	return "allow"
 }
 
-func getPolicyMatchTypeString(flag uint8) string {
-	matchType := (flag & PolicyVerdictNotifyFlagMatchType) >>
-		PolicyVerdictNotifyFlagMatchTypeBitOffset
-	switch matchType {
-	case PolicyMatchL3Only:
-		return "L3-Only"
-	case PolicyMatchL3L4:
-		return "L3-L4"
-	case PolicyMatchL4Only:
-		return "L4-Only"
-	case PolicyMatchAll:
-		return "all"
-	case PolicyMatchNone:
-		return "none"
-
-	}
-	return "unknown"
-}
-
 // DumpInfo prints a summary of the policy notify messages.
 func (n *PolicyVerdictNotify) DumpInfo(data []byte) {
 	fmt.Printf("Policy verdict log: flow %#x local EP ID %d, remote ID %d, dst port %d, proto %d, ingress %v, action %s, match %s, %s\n",
 		n.Hash, n.Source, n.RemoteLabel, n.DstPort, n.Proto, n.IsTrafficIngress(), GetPolicyActionString(n.Verdict),
-		getPolicyMatchTypeString(n.Flags), GetConnectionSummary(data[PolicyVerdictNotifyLen:]))
+		n.GetPolicyMatchType(), GetConnectionSummary(data[PolicyVerdictNotifyLen:]))
 }
