@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/aws/eni"
 	"github.com/cilium/cilium/pkg/components"
+	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/types"
@@ -156,6 +157,11 @@ func runOperator(cmd *cobra.Command) {
 		enableUnmanagedKubeDNSController()
 	}
 
+	var (
+		nodeManager *ipam.NodeManager
+		err         error
+	)
+
 	switch option.Config.IPAM {
 	case option.IPAMENI:
 		if err := eni.UpdateLimitsFromUserDefinedMappings(option.Config.AwsInstanceLimitMapping); err != nil {
@@ -166,21 +172,23 @@ func runOperator(cmd *cobra.Command) {
 				log.WithError(err).Error("Unable to update instance type to adapter limits from EC2 API")
 			}
 		}
-		if err := startENIAllocator(
+		nodeManager, err = startENIAllocator(
 			option.Config.IPAMAPIQPSLimit,
 			option.Config.IPAMAPIBurst,
-			option.Config.ENITags); err != nil {
+			option.Config.ENITags)
+		if err != nil {
 			log.WithError(err).Fatal("Unable to start ENI allocator")
 		}
 
-		startSynchronizingCiliumNodes()
+		startSynchronizingCiliumNodes(nodeManager)
 
 	case option.IPAMAzure:
-		if err := startAzureAllocator(option.Config.IPAMAPIQPSLimit, option.Config.IPAMAPIBurst); err != nil {
+		nodeManager, err = startAzureAllocator(option.Config.IPAMAPIQPSLimit, option.Config.IPAMAPIBurst)
+		if err != nil {
 			log.WithError(err).Fatal("Unable to start Azure allocator")
 		}
 
-		startSynchronizingCiliumNodes()
+		startSynchronizingCiliumNodes(nodeManager)
 	}
 
 	if kvstoreEnabled() {
@@ -256,7 +264,7 @@ func runOperator(cmd *cobra.Command) {
 		}
 
 		if option.Config.SyncK8sNodes {
-			if err := runNodeWatcher(); err != nil {
+			if err := runNodeWatcher(nodeManager); err != nil {
 				log.WithError(err).Error("Unable to setup node watcher")
 			}
 		}
@@ -281,7 +289,7 @@ func runOperator(cmd *cobra.Command) {
 		enableCiliumEndpointSyncGC()
 	}
 
-	err := enableCNPWatcher()
+	err = enableCNPWatcher()
 	if err != nil {
 		log.WithError(err).WithField("subsys", "CNPWatcher").Fatal(
 			"Cannot connect to Kubernetes apiserver ")

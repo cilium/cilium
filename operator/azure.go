@@ -29,7 +29,7 @@ import (
 )
 
 // startAzureAllocator starts the Azure IP allocator
-func startAzureAllocator(clientQPSLimit float64, clientBurst int) error {
+func startAzureAllocator(clientQPSLimit float64, clientBurst int) (*ipam.NodeManager, error) {
 	var (
 		azMetrics azureAPI.MetricsAPI
 		iMetrics  ipam.MetricsAPI
@@ -38,11 +38,11 @@ func startAzureAllocator(clientQPSLimit float64, clientBurst int) error {
 	log.Info("Starting Azure IP allocator...")
 
 	if option.Config.AzureSubscriptionID == "" {
-		return fmt.Errorf("Azure subscription ID not specified")
+		return nil, fmt.Errorf("Azure subscription ID not specified")
 	}
 
 	if option.Config.AzureResourceGroup == "" {
-		return fmt.Errorf("Azure resource group not specified")
+		return nil, fmt.Errorf("Azure resource group not specified")
 	}
 
 	if option.Config.EnableMetrics {
@@ -56,12 +56,12 @@ func startAzureAllocator(clientQPSLimit float64, clientBurst int) error {
 	azureClient, err := azureAPI.NewClient(option.Config.AzureSubscriptionID,
 		option.Config.AzureResourceGroup, azMetrics, clientQPSLimit, clientBurst)
 	if err != nil {
-		return fmt.Errorf("unable to create Azure client: %s", err)
+		return nil, fmt.Errorf("unable to create Azure client: %s", err)
 	}
 	instances := azureIPAM.NewInstancesManager(azureClient)
-	nodeManager, err = ipam.NewNodeManager(instances, &ciliumNodeUpdateImplementation{}, iMetrics, option.Config.ParallelAllocWorkers, false)
+	nodeManager, err := ipam.NewNodeManager(instances, &ciliumNodeUpdateImplementation{}, iMetrics, option.Config.ParallelAllocWorkers, false)
 	if err != nil {
-		return fmt.Errorf("unable to initialize Azure node manager: %s", err)
+		return nil, fmt.Errorf("unable to initialize Azure node manager: %s", err)
 	}
 
 	instances.Resync(context.TODO())
@@ -84,5 +84,5 @@ func startAzureAllocator(clientQPSLimit float64, clientBurst int) error {
 			})
 	}()
 
-	return nil
+	return nodeManager, nil
 }
