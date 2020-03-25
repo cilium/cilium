@@ -17,12 +17,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"time"
 
 	apiMetrics "github.com/cilium/cilium/pkg/api/metrics"
 	ec2shim "github.com/cilium/cilium/pkg/aws/ec2"
 	"github.com/cilium/cilium/pkg/aws/eni"
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	"github.com/cilium/cilium/pkg/option"
@@ -37,6 +35,11 @@ import (
 // APIs is done in a blocking manner, given that is successful, a controller is
 // started to manage allocation based on CiliumNode custom resources
 func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags map[string]string) (*ipam.NodeManager, error) {
+	var (
+		aMetrics ec2shim.MetricsAPI
+		iMetrics ipam.MetricsAPI
+	)
+
 	log.Info("Starting ENI allocator...")
 
 	cfg, err := external.LoadDefaultAWSConfig()
@@ -58,55 +61,24 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 
 	cfg.Region = instance.Region
 
-	var (
-		ec2Client   *ec2shim.Client
-		instances   *eni.InstancesManager
-		nodeManager *ipam.NodeManager
-	)
-
 	if option.Config.EnableMetrics {
-		aMetrics := apiMetrics.NewPrometheusMetrics("ipam", metricNamespace, registry)
-		ec2Client = ec2shim.NewClient(ec2.New(cfg), aMetrics, awsClientQPSLimit, awsClientBurst)
-		log.Info("Connected to EC2 service API")
-		iMetrics := ipamMetrics.NewPrometheusMetrics(metricNamespace, registry)
-
-		instances = eni.NewInstancesManager(ec2Client, eniTags)
-		nodeManager, err = ipam.NewNodeManager(instances, &ciliumNodeUpdateImplementation{}, iMetrics, option.Config.ParallelAllocWorkers,
-			option.Config.AwsReleaseExcessIps)
-		if err != nil {
-			return nil, fmt.Errorf("unable to initialize ENI node manager: %s", err)
-		}
+		aMetrics = apiMetrics.NewPrometheusMetrics("ipam", metricNamespace, registry)
+		iMetrics = ipamMetrics.NewPrometheusMetrics(metricNamespace, registry)
 	} else {
-		ec2Client = ec2shim.NewClient(ec2.New(cfg), &apiMetrics.NoOpMetrics{}, awsClientQPSLimit, awsClientBurst)
-		log.Info("Connected to EC2 service API")
-		instances = eni.NewInstancesManager(ec2Client, eniTags)
-		nodeManager, err = ipam.NewNodeManager(instances, &ciliumNodeUpdateImplementation{}, &ipamMetrics.NoOpMetrics{}, option.Config.ParallelAllocWorkers,
-			option.Config.AwsReleaseExcessIps)
-		if err != nil {
-			return nil, fmt.Errorf("unable to initialize ENI node manager: %s", err)
-		}
+		aMetrics = &apiMetrics.NoOpMetrics{}
+		iMetrics = &ipamMetrics.NoOpMetrics{}
 	}
 
-	// Initial blocking synchronization of all ENIs and subnets
-	instances.Resync(context.TODO())
+	ec2Client := ec2shim.NewClient(ec2.New(cfg), aMetrics, awsClientQPSLimit, awsClientBurst)
+	log.Info("Connected to EC2 service API")
+	instances := eni.NewInstancesManager(ec2Client, eniTags)
+	nodeManager, err := ipam.NewNodeManager(instances, &ciliumNodeUpdateImplementation{}, iMetrics,
+		option.Config.ParallelAllocWorkers, option.Config.AwsReleaseExcessIps)
+	if err != nil {
+		return nil, fmt.Errorf("unable to initialize ENI node manager: %s", err)
+	}
 
-	// Start an interval based  background resync for safety, it will
-	// synchronize the state regularly and resolve eventual deficit if the
-	// event driven trigger fails, and also release excess IP addresses
-	// if release-excess-ips is enabled
-	go func() {
-		time.Sleep(time.Minute)
-		mngr := controller.NewManager()
-		mngr.UpdateController("eni-refresh",
-			controller.ControllerParams{
-				RunInterval: time.Minute,
-				DoFunc: func(ctx context.Context) error {
-					syncTime := instances.Resync(ctx)
-					nodeManager.Resync(ctx, syncTime)
-					return nil
-				},
-			})
-	}()
+	nodeManager.Start(context.TODO())
 
 	return nodeManager, nil
 }
