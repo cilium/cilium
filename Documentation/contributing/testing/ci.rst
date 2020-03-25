@@ -35,6 +35,21 @@ This job can be used to run tests on custom branches. To do so, log into Jenkins
 Then add your branch name to ``GitHub Organization -> cilium -> Filter by name (with wildcards) -> Include`` field and save changes.
 After you don't need to run tests on your branch, please remove the branch from this field.
 
+.. note::
+
+   It is also possible to run specific tests from this suite via ``test-focus``. It takes trailing words as a regex.
+
+   +----------------------------------------------------+------------------------------+
+   | ``test-focus K8s.*``                               | Runs all kubernetes tests    |
+   +----------------------------------------------------+------------------------------+
+   | ``test-focus Runtime.*``                           | Runs all runtime tests       |
+   +----------------------------------------------------+------------------------------+
+   | ``test-focus K8sPolicy.*``                         | Runs all k8s policy tests    |
+   +----------------------------------------------------+------------------------------+
+   | ``test-focus K8sDemosTest Tests Star Wars Demo.*`` | Runs only this specific test |
+   +----------------------------------------------------+------------------------------+
+
+
 
 Cilium-PR-Ginkgo-Tests-k8s
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -134,21 +149,23 @@ a pull-request to be merged, etc. Each linked job contains a description
 illustrating which subset of tests the job runs.
 
 
-+---------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| Jenkins Job                                                                                             | Trigger Phrase    | Required To Merge? |
-+=========================================================================================================+===================+====================+
-| `Cilium-PR-Ginkgo-Tests-Validated <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Validated/>`_   | test-me-please    | Yes                |
-+---------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-Pr-Ginkgo-Test-k8s <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-k8s/>`_                | test-missed-k8s   | No                 |
-+---------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-Nightly-Tests-PR <https://jenkins.cilium.io/job/Cilium-PR-Nightly-Tests-All/>`_                 | test-nightly      | No                 |
-+---------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-PR-Doc-Tests <https://jenkins.cilium.io/view/all/job/Cilium-PR-Doc-Tests/>`_                    | test-docs-please  | No                 |
-+---------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-PR-Kubernetes-Upstream <https://jenkins.cilium.io/view/PR/job/Cilium-PR-Kubernetes-Upstream/>`_ | test-upstream-k8s | No                 |
-+---------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-PR-Flannel <https://jenkins.cilium.io/job/Cilium-PR-Flannel/>`_                                 | test-flannel      | No                 |
-+---------------------------------------------------------------------------------------------------------+-------------------+--------------------+
++----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+| Jenkins Job                                                                                                    | Trigger Phrase    | Required To Merge? |
++================================================================================================================+===================+====================+
+| `Cilium-PR-Ginkgo-Tests-Validated <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Validated/>`_          | test-me-please    | Yes                |
++----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+| `Cilium-Ginkgo-Tests-Focus <https://jenkins.cilium.io/view/PR/job/Cilium-PR-Ginkgo-Tests-Validated-Focus/>`_   | test-focus        | No                 |
++----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+| `Cilium-Pr-Ginkgo-Test-k8s <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-k8s/>`_                       | test-missed-k8s   | No                 |
++----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+| `Cilium-Nightly-Tests-PR <https://jenkins.cilium.io/job/Cilium-PR-Nightly-Tests-All/>`_                        | test-nightly      | No                 |
++----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+| `Cilium-PR-Doc-Tests <https://jenkins.cilium.io/view/all/job/Cilium-PR-Doc-Tests/>`_                           | test-docs-please  | No                 |
++----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+| `Cilium-PR-Kubernetes-Upstream <https://jenkins.cilium.io/view/PR/job/Cilium-PR-Kubernetes-Upstream/>`_        | test-upstream-k8s | No                 |
++----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+| `Cilium-PR-Flannel <https://jenkins.cilium.io/job/Cilium-PR-Flannel/>`_                                        | test-flannel      | No                 |
++----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 
 There are some feature flags based on Pull Requests labels, the list of labels
 are the following:
