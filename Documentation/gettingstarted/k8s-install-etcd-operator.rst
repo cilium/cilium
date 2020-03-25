@@ -98,7 +98,7 @@ Troubleshooting
 
    * ``kube-dns`` or ``coredns``
    * ``cilium-operator``
-   * ``cilium-xxx``
+   * ``cilium-xxx`` 
    * ``cilium-etcd-operator``
    * ``etcd-operator``
    * ``cilium-etcd-xxx``
