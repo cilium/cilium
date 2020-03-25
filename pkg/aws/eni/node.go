@@ -77,7 +77,16 @@ func (n *Node) loggerLocked() *logrus.Entry {
 // PopulateStatusFields fills in the status field of the CiliumNode custom
 // resource with ENI specific information
 func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
-	k8sObj.Status.ENI.ENIs = n.getENIs()
+	k8sObj.Status.ENI.ENIs = map[string]eniTypes.ENI{}
+	n.manager.instances.ForeachInterface(n.k8sObj.InstanceID(),
+		func(instanceID, interfaceID string, rev ipamTypes.InterfaceRevision) error {
+			e, ok := rev.Resource.(*eniTypes.ENI)
+			if ok {
+				k8sObj.Status.ENI.ENIs[interfaceID] = *e.DeepCopy()
+			}
+			return nil
+		})
+	return
 }
 
 // getLimits returns the interface and IP limits of this node
@@ -202,17 +211,6 @@ func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error 
 	return n.manager.api.AssignPrivateIpAddresses(ctx, a.InterfaceID, int64(a.AvailableForAllocation))
 }
 
-// getENIs returns a copy of all ENIs attached to the node
-func (n *Node) getENIs() (enis map[string]eniTypes.ENI) {
-	enis = map[string]eniTypes.ENI{}
-	n.mutex.RLock()
-	for _, e := range n.enis {
-		enis[e.ID] = e
-	}
-	n.mutex.RUnlock()
-	return
-}
-
 func (n *Node) getSecurityGroupIDs(ctx context.Context) ([]string, error) {
 	// 1. check explicit security groups associations via checking Spec.ENI.SecurityGroups
 	// 2. check if Spec.ENI.SecurityGroupTags is passed and if so filter by those
@@ -239,11 +237,22 @@ func (n *Node) getSecurityGroupIDs(ctx context.Context) ([]string, error) {
 		}
 	}
 
-	if eni := n.manager.GetENI(n.k8sObj.InstanceID(), 0); eni != nil {
-		return eni.SecurityGroups, nil
+	var securityGroups []string
+	n.manager.instances.ForeachInterface(n.k8sObj.InstanceID(),
+		func(instanceID, interfaceID string, rev ipamTypes.InterfaceRevision) error {
+			e, ok := rev.Resource.(*eniTypes.ENI)
+			if ok && e.Number == 0 {
+				securityGroups = make([]string, len(e.SecurityGroups))
+				copy(securityGroups, e.SecurityGroups)
+			}
+			return nil
+		})
+
+	if securityGroups == nil {
+		return nil, fmt.Errorf("failed to get security group ids")
 	}
 
-	return nil, fmt.Errorf("failed to get security group ids")
+	return securityGroups, nil
 }
 
 func (n *Node) errorInstanceNotRunning(err error) (notRunning bool) {
@@ -416,23 +425,29 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 
 	available := ipamTypes.AllocationMap{}
 	n.enis = map[string]eniTypes.ENI{}
-	enis := n.manager.GetENIs(n.k8sObj.InstanceID())
+
+	n.manager.instances.ForeachInterface(n.k8sObj.InstanceID(),
+		func(instanceID, interfaceID string, rev ipamTypes.InterfaceRevision) error {
+			e, ok := rev.Resource.(*eniTypes.ENI)
+			if !ok {
+				return nil
+			}
+			n.enis[e.ID] = *e
+
+			if e.Number < *n.k8sObj.Spec.ENI.FirstInterfaceIndex {
+				return nil
+			}
+
+			for _, ip := range e.Addresses {
+				available[ip] = ipamTypes.AllocationIP{Resource: e.ID}
+			}
+			return nil
+		})
+
 	// An ec2 instance has at least one ENI attached, no ENI found implies instance not found.
-	if len(enis) == 0 {
+	if len(n.enis) == 0 {
 		scopedLog.Warning("Instance not found! Please delete corresponding ciliumnode if instance has already been deleted.")
 		return nil, fmt.Errorf("unable to retrieve ENIs")
-	}
-
-	for _, e := range enis {
-		n.enis[e.ID] = *e
-
-		if e.Number < *n.k8sObj.Spec.ENI.FirstInterfaceIndex {
-			continue
-		}
-
-		for _, ip := range e.Addresses {
-			available[ip] = ipamTypes.AllocationIP{Resource: e.ID}
-		}
 	}
 
 	return available, nil

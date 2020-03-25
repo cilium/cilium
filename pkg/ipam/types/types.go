@@ -15,7 +15,10 @@
 package types
 
 import (
+	"fmt"
+
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 // Limits specifies the IPAM relevant instance limits
@@ -182,3 +185,181 @@ type PoolQuota struct {
 
 // PoolQuotaMap is a map of pool quotas indexes by pool identifier
 type PoolQuotaMap map[PoolID]PoolQuota
+
+// Interface is the implementation of a IPAM relevant network interface
+type Interface interface {
+	// InterfaceID must return the identifier of the interface
+	InterfaceID() string
+
+	// ForeachAddress must iterate over all addresses of the interface and
+	// call fn for each address
+	ForeachAddress(instanceID string, fn AddressIterator) error
+}
+
+// InterfaceRevision is the configurationr revision of a network interface. It
+// consists of a revision hash representing the current configuration version
+// and the resource itself.
+//
+// +k8s:deepcopy-gen=false
+type InterfaceRevision struct {
+	// Resource is the interface resource
+	Resource Interface
+
+	// Fingerprint is the fingerprint reprsenting the network interface
+	// configuration. It is typically implemented as the result of a hash
+	// function calculated off the resource. This field is optional, not
+	// all IPAM backends make use of fingerprints.
+	Fingerprint string
+}
+
+// Instance is the representation of an instance, typically a VM, subject to
+// per-node IPAM logic
+//
+// +k8s:deepcopy-gen=false
+type Instance struct {
+	// interfaces is a map of all interfaces attached to the instance
+	// indexed by the interface ID
+	Interfaces map[string]InterfaceRevision
+}
+
+// InstanceMap is the list of all instances indexed by instance ID
+//
+// +k8s:deepcopy-gen=false
+type InstanceMap struct {
+	mutex lock.RWMutex
+	data  map[string]*Instance
+}
+
+// NewInstanceMap returns a new InstanceMap
+func NewInstanceMap() *InstanceMap {
+	return &InstanceMap{data: map[string]*Instance{}}
+}
+
+// Update updates the definition of an interface for a particular instance. If
+// the interface is already known, the definition is updated, otherwise the
+// interface is added to the instance.
+func (m *InstanceMap) Update(instanceID string, iface InterfaceRevision) {
+	m.mutex.Lock()
+	m.updateLocked(instanceID, iface)
+	m.mutex.Unlock()
+}
+
+func (m *InstanceMap) updateLocked(instanceID string, iface InterfaceRevision) {
+	if iface.Resource == nil {
+		return
+	}
+
+	i, ok := m.data[instanceID]
+	if !ok {
+		i = &Instance{}
+		m.data[instanceID] = i
+	}
+
+	if i.Interfaces == nil {
+		i.Interfaces = map[string]InterfaceRevision{}
+	}
+
+	i.Interfaces[iface.Resource.InterfaceID()] = iface
+}
+
+type Address interface{}
+
+// AddressIterator is the function called by the ForeachAddress iterator
+type AddressIterator func(instanceID, interfaceID, ip, poolID string, address Address) error
+
+func foreachAddress(instanceID string, instance *Instance, fn AddressIterator) error {
+	for _, rev := range instance.Interfaces {
+		if err := rev.Resource.ForeachAddress(instanceID, fn); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ForeachAddress calls fn for each address on each interface attached to each
+// instance. If an instanceID is specified, the only the interfaces and
+// addresses of the specified instance are considered.
+//
+// The InstanceMap is read-locked throughout the iteration process, i.e., no
+// updates will occur. However, the address object given to the AddressIterator
+// will point to live data and must be deep copied if used outside of the
+// context of the iterator function.
+func (m *InstanceMap) ForeachAddress(instanceID string, fn AddressIterator) error {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	if instanceID != "" {
+		if instance := m.data[instanceID]; instance != nil {
+			return foreachAddress(instanceID, instance, fn)
+		}
+		return fmt.Errorf("instance does not exist")
+	}
+
+	for instanceID, instance := range m.data {
+		if err := foreachAddress(instanceID, instance, fn); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// InterfaceIterator is the function called by the ForeachInterface iterator
+type InterfaceIterator func(instanceID, interfaceID string, iface InterfaceRevision) error
+
+func foreachInterface(instanceID string, instance *Instance, fn InterfaceIterator) error {
+	for _, rev := range instance.Interfaces {
+		if err := fn(instanceID, rev.Resource.InterfaceID(), rev); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ForeachInterface calls fn for each interface on each interface attached to
+// each instance. If an instanceID is specified, the only the interfaces and
+// addresses of the specified instance are considered.
+//
+// The InstanceMap is read-locked throughout the iteration process, i.e., no
+// updates will occur. However, the address object given to the InterfaceIterator
+// will point to live data and must be deep copied if used outside of the
+// context of the iterator function.
+func (m *InstanceMap) ForeachInterface(instanceID string, fn InterfaceIterator) error {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	if instanceID != "" {
+		if instance := m.data[instanceID]; instance != nil {
+			return foreachInterface(instanceID, instance, fn)
+		}
+		return fmt.Errorf("instance does not exist")
+	}
+	for instanceID, instance := range m.data {
+		if err := foreachInterface(instanceID, instance, fn); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// DeepCopy returns a deep copy
+func (m *InstanceMap) DeepCopy() *InstanceMap {
+	c := NewInstanceMap()
+	m.ForeachInterface("", func(instanceID, interfaceID string, rev InterfaceRevision) error {
+		// c is not exposed yet, we can access it without locking it
+		c.updateLocked(instanceID, rev)
+		return nil
+	})
+	return c
+}
+
+// NumInstances returns the number of instances in the instance map
+func (m *InstanceMap) NumInstances() (size int) {
+	m.mutex.RLock()
+	size = len(m.data)
+	m.mutex.RUnlock()
+	return
+}

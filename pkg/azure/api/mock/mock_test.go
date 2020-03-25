@@ -43,7 +43,7 @@ func (e *MockSuite) TestMock(c *check.C) {
 
 	instances, err := api.GetInstances(context.Background())
 	c.Assert(err, check.IsNil)
-	c.Assert(len(instances), check.Equals, 0)
+	c.Assert(instances.NumInstances(), check.Equals, 0)
 
 	vnets, subnets, err := api.GetVpcsAndSubnets(context.Background())
 	c.Assert(err, check.IsNil)
@@ -52,25 +52,37 @@ func (e *MockSuite) TestMock(c *check.C) {
 	c.Assert(len(subnets), check.Equals, 1)
 	c.Assert(subnets["s-1"], checker.DeepEquals, &ipamTypes.Subnet{ID: "s-1", AvailableAddresses: 100})
 
-	instances = types.InstanceMap{}
-	instances.Update("i-1", &types.AzureInterface{ID: "intf-1"})
+	instances = ipamTypes.NewInstanceMap()
+	instances.Update("i-1", ipamTypes.InterfaceRevision{Resource: &types.AzureInterface{ID: "intf-1"}})
 	api.UpdateInstances(instances)
 	instances, err = api.GetInstances(context.Background())
 	c.Assert(err, check.IsNil)
-	c.Assert(len(instances), check.Equals, 1)
-	c.Assert(instances.Get("i-1")[0], checker.DeepEquals, &types.AzureInterface{ID: "intf-1"})
+	c.Assert(instances.NumInstances(), check.Equals, 1)
+	instances.ForeachInterface("", func(instanceID, interfaceID string, iface ipamTypes.InterfaceRevision) error {
+		c.Assert(instanceID, check.Equals, "i-1")
+		c.Assert(interfaceID, check.Equals, "intf-1")
+		return nil
+	})
 
 	err = api.AssignPrivateIpAddresses(context.Background(), "s-1", "intf-1", []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2")})
 	c.Assert(err, check.IsNil)
 	instances, err = api.GetInstances(context.Background())
 	c.Assert(err, check.IsNil)
-	c.Assert(len(instances), check.Equals, 1)
-	c.Assert(instances.Get("i-1")[0], checker.DeepEquals, &types.AzureInterface{
-		ID: "intf-1",
-		Addresses: []types.AzureAddress{
-			{IP: "1.1.1.1", Subnet: "s-1", State: types.StateSucceeded},
-			{IP: "2.2.2.2", Subnet: "s-1", State: types.StateSucceeded},
-		}})
+	c.Assert(instances.NumInstances(), check.Equals, 1)
+	instances.ForeachInterface("", func(instanceID, interfaceID string, revision ipamTypes.InterfaceRevision) error {
+		c.Assert(instanceID, check.Equals, "i-1")
+		c.Assert(interfaceID, check.Equals, "intf-1")
+
+		iface, ok := revision.Resource.(*types.AzureInterface)
+		c.Assert(ok, check.Equals, true)
+		c.Assert(iface, checker.DeepEquals, &types.AzureInterface{
+			ID: "intf-1",
+			Addresses: []types.AzureAddress{
+				{IP: "1.1.1.1", Subnet: "s-1", State: types.StateSucceeded},
+				{IP: "2.2.2.2", Subnet: "s-1", State: types.StateSucceeded},
+			}})
+		return nil
+	})
 }
 
 func (e *MockSuite) TestSetMockError(c *check.C) {

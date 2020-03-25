@@ -52,9 +52,13 @@ func (n *Node) UpdatedNode(obj *v2.CiliumNode) {
 func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
 	n.mutex.RLock()
 	k8sObj.Status.Azure.Interfaces = []types.AzureInterface{}
-	for _, iface := range n.manager.GetInterfaces(n.k8sObj.InstanceID()) {
-		k8sObj.Status.Azure.Interfaces = append(k8sObj.Status.Azure.Interfaces, *iface)
-	}
+	n.manager.instances.ForeachInterface(n.k8sObj.InstanceID(), func(instanceID, interfaceID string, interfaceObj ipamTypes.InterfaceRevision) error {
+		iface, ok := interfaceObj.Resource.(*types.AzureInterface)
+		if ok {
+			k8sObj.Status.Azure.Interfaces = append(k8sObj.Status.Azure.Interfaces, *(iface.DeepCopy()))
+		}
+		return nil
+	})
 	n.mutex.RUnlock()
 }
 
@@ -71,8 +75,12 @@ func (n *Node) ReleaseIPs(ctx context.Context, r *ipam.ReleaseAction) error {
 // PrepareIPAllocation returns the number of IPs that can be allocated/created.
 func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationAction, err error) {
 	a = &ipam.AllocationAction{}
+	err = n.manager.instances.ForeachInterface(n.k8sObj.InstanceID(), func(instanceID, interfaceID string, interfaceObj ipamTypes.InterfaceRevision) error {
+		iface, ok := interfaceObj.Resource.(*types.AzureInterface)
+		if !ok {
+			return fmt.Errorf("invalid interface object")
+		}
 
-	for _, iface := range n.manager.GetInterfaces(n.k8sObj.InstanceID()) {
 		scopedLog.WithFields(logrus.Fields{
 			"id":           iface.ID,
 			"numAddresses": len(iface.Addresses),
@@ -80,10 +88,10 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 
 		availableOnInterface := math.IntMax(types.InterfaceAddressLimit-len(iface.Addresses), 0)
 		if availableOnInterface <= 0 {
-			continue
-		} else {
-			a.AvailableInterfaces++
+			return nil
 		}
+
+		a.AvailableInterfaces++
 
 		if a.InterfaceID == "" {
 			scopedLog.WithFields(logrus.Fields{
@@ -110,7 +118,8 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 				a.AvailableForAllocation = math.IntMin(available, availableOnInterface)
 			}
 		}
-	}
+		return nil
+	})
 
 	return
 }
@@ -148,19 +157,23 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 	}
 
 	available := ipamTypes.AllocationMap{}
-	interfaces := n.manager.GetInterfaces(n.k8sObj.InstanceID())
-	for _, iface := range interfaces {
-		for _, address := range iface.Addresses {
-			if address.State == types.StateSucceeded {
-				available[address.IP] = ipamTypes.AllocationIP{Resource: iface.ID}
-			} else {
-				log.WithFields(logrus.Fields{
-					"ip":    address.IP,
-					"state": address.State,
-				}).Warning("Ignoring potentially available IP due to non-successful state")
-			}
+	n.manager.instances.ForeachAddress(n.k8sObj.InstanceID(), func(instanceID, interfaceID, ip, poolID string, addressObj ipamTypes.Address) error {
+		address, ok := addressObj.(types.AzureAddress)
+		if !ok {
+			log.WithField("ip", ip).Warning("Not an Azure address object, ignoring IP")
+			return nil
 		}
-	}
+
+		if address.State == types.StateSucceeded {
+			available[address.IP] = ipamTypes.AllocationIP{Resource: interfaceID}
+		} else {
+			log.WithFields(logrus.Fields{
+				"ip":    address.IP,
+				"state": address.State,
+			}).Warning("Ignoring potentially available IP due to non-successful state")
+		}
+		return nil
+	})
 
 	return available, nil
 }

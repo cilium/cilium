@@ -359,8 +359,8 @@ func (e *API) UnassignPrivateIpAddresses(ctx context.Context, eniID string, addr
 	return fmt.Errorf("Unable to find ENI with ID %s", eniID)
 }
 
-func (e *API) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (types.InstanceMap, error) {
-	instances := types.InstanceMap{}
+func (e *API) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error) {
+	instances := ipamTypes.NewInstanceMap()
 
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
@@ -379,7 +379,8 @@ func (e *API) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap
 				}
 			}
 
-			instances.Add(instanceID, eni.DeepCopy())
+			eniRevision := ipamTypes.InterfaceRevision{Resource: eni.DeepCopy()}
+			instances.Update(instanceID, eniRevision)
 		}
 	}
 

@@ -311,39 +311,3 @@ func (e *ENISuite) TestGetSecurityGroupByTags(c *check.C) {
 	c.Assert(sgGroups[0].Tags, checker.DeepEquals, reqTags)
 	c.Assert(sgGroups[1].Tags, checker.DeepEquals, reqTags)
 }
-
-func (e *ENISuite) TestGetENIs(c *check.C) {
-	api := ec2mock.NewAPI(subnets, vpcs, securityGroups)
-	c.Assert(api, check.Not(check.IsNil))
-
-	mngr := NewInstancesManager(api, nil)
-	c.Assert(mngr, check.Not(check.IsNil))
-
-	iteration1(api, mngr)
-	c.Assert(len(mngr.GetENIs("i-1")), check.Equals, 1)
-	c.Assert(len(mngr.GetENIs("i-2")), check.Equals, 1)
-	c.Assert(len(mngr.GetENIs("i-unknown")), check.Equals, 0)
-
-	iteration2(api, mngr)
-	c.Assert(len(mngr.GetENIs("i-1")), check.Equals, 2)
-	c.Assert(len(mngr.GetENIs("i-2")), check.Equals, 1)
-	c.Assert(len(mngr.GetENIs("i-unknown")), check.Equals, 0)
-}
-
-func (e *ENISuite) TestGetENI(c *check.C) {
-	api := ec2mock.NewAPI(subnets, vpcs, securityGroups)
-	c.Assert(api, check.Not(check.IsNil))
-
-	mngr := NewInstancesManager(api, nil)
-	c.Assert(mngr, check.Not(check.IsNil))
-
-	iteration1(api, mngr)
-	c.Assert(mngr.GetENI("i-1", 0), check.Not(check.IsNil))
-	c.Assert(mngr.GetENI("i-1", 1), check.IsNil)
-	c.Assert(mngr.GetENI("i-2", 0), check.Not(check.IsNil))
-
-	iteration2(api, mngr)
-	c.Assert(mngr.GetENI("i-1", 0), check.Not(check.IsNil))
-	c.Assert(mngr.GetENI("i-1", 1), check.Not(check.IsNil))
-	c.Assert(mngr.GetENI("i-2", 0), check.Not(check.IsNil))
-}

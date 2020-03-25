@@ -167,24 +167,22 @@ func (e *IPAMSuite) TestIpamPreAllocate8(c *check.C) {
 	instances := NewInstancesManager(api)
 	c.Assert(instances, check.Not(check.IsNil))
 
-	api.UpdateInstances(types.InstanceMap{
-		"i-1": &types.Instance{
-			Interfaces: map[string]*types.AzureInterface{
-				"intf-1": {
-					ID:            "intf-1",
-					SecurityGroup: "sg1",
-					Addresses: []types.AzureAddress{
-						{
-							IP:     "1.1.1.1",
-							Subnet: "subnet-1",
-							State:  types.StateSucceeded,
-						},
-					},
-					State: types.StateSucceeded,
+	m := ipamTypes.NewInstanceMap()
+	m.Update("i-1", ipamTypes.InterfaceRevision{
+		Resource: &types.AzureInterface{
+			ID:            "intf-1",
+			SecurityGroup: "sg1",
+			Addresses: []types.AzureAddress{
+				{
+					IP:     "1.1.1.1",
+					Subnet: "subnet-1",
+					State:  types.StateSucceeded,
 				},
 			},
+			State: types.StateSucceeded,
 		},
 	})
+	api.UpdateInstances(m)
 
 	instances.Resync(context.TODO())
 
@@ -228,24 +226,22 @@ func (e *IPAMSuite) TestIpamMinAllocate10(c *check.C) {
 	instances := NewInstancesManager(api)
 	c.Assert(instances, check.Not(check.IsNil))
 
-	api.UpdateInstances(types.InstanceMap{
-		"i-1": &types.Instance{
-			Interfaces: map[string]*types.AzureInterface{
-				"intf-1": {
-					ID:            "intf-1",
-					SecurityGroup: "sg1",
-					Addresses: []types.AzureAddress{
-						{
-							IP:     "1.1.1.1",
-							Subnet: "subnet-1",
-							State:  types.StateSucceeded,
-						},
-					},
-					State: types.StateSucceeded,
+	m := ipamTypes.NewInstanceMap()
+	m.Update("i-1", ipamTypes.InterfaceRevision{
+		Resource: &types.AzureInterface{
+			ID:            "intf-1",
+			SecurityGroup: "sg1",
+			Addresses: []types.AzureAddress{
+				{
+					IP:     "1.1.1.1",
+					Subnet: "subnet-1",
+					State:  types.StateSucceeded,
 				},
 			},
+			State: types.StateSucceeded,
 		},
 	})
+	api.UpdateInstances(m)
 
 	instances.Resync(context.TODO())
 
@@ -303,15 +299,18 @@ func (e *IPAMSuite) TestIpamManyNodes(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	state := make([]*nodeState, numNodes)
-	allInstances := types.InstanceMap{}
+	allInstances := ipamTypes.NewInstanceMap()
 
 	for i := range state {
-		allInstances.Update(fmt.Sprintf("i-%d", i), &types.AzureInterface{
-			ID:            fmt.Sprintf("intf-%d", i),
-			SecurityGroup: "sg1",
-			Addresses:     []types.AzureAddress{},
-			State:         types.StateSucceeded,
+		allInstances.Update(fmt.Sprintf("i-%d", i), ipamTypes.InterfaceRevision{
+			Resource: &types.AzureInterface{
+				ID:            fmt.Sprintf("intf-%d", i),
+				SecurityGroup: "sg1",
+				Addresses:     []types.AzureAddress{},
+				State:         types.StateSucceeded,
+			},
 		})
+
 	}
 
 	api.UpdateInstances(allInstances)
@@ -373,16 +372,18 @@ func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLi
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	state := make([]*nodeState, c.N)
-	allInstances := types.InstanceMap{}
+	allInstances := ipamTypes.NewInstanceMap()
 
 	c.ResetTimer()
 
 	for i := range state {
-		allInstances.Update(fmt.Sprintf("i-%d", i), &types.AzureInterface{
-			ID:            fmt.Sprintf("intf-%d", i),
-			SecurityGroup: "sg1",
-			Addresses:     []types.AzureAddress{},
-			State:         types.StateSucceeded,
+		allInstances.Update(fmt.Sprintf("i-%d", i), ipamTypes.InterfaceRevision{
+			Resource: &types.AzureInterface{
+				ID:            fmt.Sprintf("intf-%d", i),
+				SecurityGroup: "sg1",
+				Addresses:     []types.AzureAddress{},
+				State:         types.StateSucceeded,
+			},
 		})
 	}
 
