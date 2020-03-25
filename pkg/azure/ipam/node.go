@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/math"
 
 	"github.com/sirupsen/logrus"
@@ -30,13 +29,8 @@ import (
 
 // Node represents a node representing an Azure instance
 type Node struct {
-	mutex lock.RWMutex
-
 	// node contains the general purpose fields of a node
 	node *ipam.Node
-
-	// k8sObj is the CiliumNode custom resource representing the node
-	k8sObj *v2.CiliumNode
 
 	// manager is the Azure node manager responsible for this node
 	manager *InstancesManager
@@ -44,22 +38,19 @@ type Node struct {
 
 // UpdatedNode is called when an update to the CiliumNode is received.
 func (n *Node) UpdatedNode(obj *v2.CiliumNode) {
-	n.k8sObj = obj
 }
 
 // PopulateStatusFields fills in the status field of the CiliumNode custom
 // resource with Azure specific information
 func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
-	n.mutex.RLock()
 	k8sObj.Status.Azure.Interfaces = []types.AzureInterface{}
-	n.manager.instances.ForeachInterface(n.k8sObj.InstanceID(), func(instanceID, interfaceID string, interfaceObj ipamTypes.InterfaceRevision) error {
+	n.manager.instances.ForeachInterface(n.node.InstanceID(), func(instanceID, interfaceID string, interfaceObj ipamTypes.InterfaceRevision) error {
 		iface, ok := interfaceObj.Resource.(*types.AzureInterface)
 		if ok {
 			k8sObj.Status.Azure.Interfaces = append(k8sObj.Status.Azure.Interfaces, *(iface.DeepCopy()))
 		}
 		return nil
 	})
-	n.mutex.RUnlock()
 }
 
 // PrepareIPRelease prepares the release of IPs
@@ -75,7 +66,7 @@ func (n *Node) ReleaseIPs(ctx context.Context, r *ipam.ReleaseAction) error {
 // PrepareIPAllocation returns the number of IPs that can be allocated/created.
 func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationAction, err error) {
 	a = &ipam.AllocationAction{}
-	err = n.manager.instances.ForeachInterface(n.k8sObj.InstanceID(), func(instanceID, interfaceID string, interfaceObj ipamTypes.InterfaceRevision) error {
+	err = n.manager.instances.ForeachInterface(n.node.InstanceID(), func(instanceID, interfaceID string, interfaceObj ipamTypes.InterfaceRevision) error {
 		iface, ok := interfaceObj.Resource.(*types.AzureInterface)
 		if !ok {
 			return fmt.Errorf("invalid interface object")
@@ -149,15 +140,12 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 // ResyncInterfacesAndIPs is called to retrieve and interfaces and IPs as known
 // to the Azure API and return them
 func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (ipamTypes.AllocationMap, error) {
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
-
-	if n.k8sObj.InstanceID() == "" {
+	if n.node.InstanceID() == "" {
 		return nil, nil
 	}
 
 	available := ipamTypes.AllocationMap{}
-	n.manager.instances.ForeachAddress(n.k8sObj.InstanceID(), func(instanceID, interfaceID, ip, poolID string, addressObj ipamTypes.Address) error {
+	n.manager.instances.ForeachAddress(n.node.InstanceID(), func(instanceID, interfaceID, ip, poolID string, addressObj ipamTypes.Address) error {
 		address, ok := addressObj.(types.AzureAddress)
 		if !ok {
 			log.WithField("ip", ip).Warning("Not an Azure address object, ignoring IP")

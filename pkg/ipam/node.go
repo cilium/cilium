@@ -270,6 +270,16 @@ func (n *Node) poolMaintenanceComplete() {
 	n.mutex.Unlock()
 }
 
+// InstanceID returns the instance ID of the node
+func (n *Node) InstanceID() (id string) {
+	n.mutex.RLock()
+	if n.resource != nil {
+		id = n.resource.InstanceID()
+	}
+	n.mutex.RUnlock()
+	return
+}
+
 // UpdatedResource is called when an update to the CiliumNode has been
 // received. The IPAM layer will attempt to immediately resolve any IP deficits
 // and also trigger the background sync to continue working in the background
