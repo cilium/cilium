@@ -20,6 +20,8 @@ import (
 	"net"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/checker"
+
 	"gopkg.in/check.v1"
 )
 
@@ -102,6 +104,30 @@ func (e *TypesSuite) TestForeachAddresses(c *check.C) {
 		return nil
 	})
 	c.Assert(interfaces, check.Equals, 2)
+}
+
+func (e *TypesSuite) TestGetInterface(c *check.C) {
+	m := NewInstanceMap()
+	rev := InterfaceRevision{
+		Resource: &mockInterface{
+			id: "intf0",
+			pools: map[string][]net.IP{
+				"s1": {net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2")},
+			},
+		},
+	}
+	m.Update("i-1", rev)
+
+	_, ok := m.GetInterface("inexistent", "inexistent")
+	c.Assert(ok, check.Equals, false)
+	_, ok = m.GetInterface("i-1", "inexistent")
+	c.Assert(ok, check.Equals, false)
+	_, ok = m.GetInterface("inexistent", "intf0")
+	c.Assert(ok, check.Equals, false)
+	intf, ok := m.GetInterface("i-1", "intf0")
+	c.Assert(ok, check.Equals, true)
+
+	c.Assert(intf, checker.DeepEquals, rev)
 }
 
 func (e *TypesSuite) TestInstanceMapNumInstances(c *check.C) {

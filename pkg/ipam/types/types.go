@@ -348,6 +348,21 @@ func (m *InstanceMap) ForeachInterface(instanceID string, fn InterfaceIterator) 
 	return nil
 }
 
+// GetInterface returns returns a particular interface of an instance. The
+// boolean indicates whether the interface was found or not.
+func (m *InstanceMap) GetInterface(instanceID, interfaceID string) (InterfaceRevision, bool) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	if instance := m.data[instanceID]; instance != nil {
+		if rev, ok := instance.Interfaces[interfaceID]; ok {
+			return rev, true
+		}
+	}
+
+	return InterfaceRevision{}, false
+}
+
 // DeepCopy returns a deep copy
 func (m *InstanceMap) DeepCopy() *InstanceMap {
 	c := NewInstanceMap()
