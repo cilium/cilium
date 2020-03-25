@@ -107,13 +107,13 @@ func (n *nodeOperationsMock) PrepareIPAllocation(scopedLog *logrus.Entry) (*Allo
 
 func (n *nodeOperationsMock) AllocateIPs(ctx context.Context, allocation *AllocationAction) error {
 	n.mutex.Lock()
-	n.allocator.mutex.RLock()
+	n.allocator.mutex.Lock()
 	n.allocator.allocatedIPs += allocation.AvailableForAllocation
 	for i := 0; i < allocation.AvailableForAllocation; i++ {
 		n.allocator.ipGenerator++
 		n.allocatedIPs = append(n.allocatedIPs, fmt.Sprintf("%d", n.allocator.ipGenerator))
 	}
-	n.allocator.mutex.RUnlock()
+	n.allocator.mutex.Unlock()
 	n.mutex.Unlock()
 	return nil
 }
