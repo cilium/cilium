@@ -185,172 +185,177 @@ var _ = Describe("K8sIstioTest", func() {
 
 	// This is a subset of Services's "Bookinfo Demo" test suite, with the pods
 	// injected with Istio sidecar proxies and Istio mTLS enabled.
-	Context("Istio Bookinfo Demo", func() {
+	//
+	// We skip on GKE because the proxy-init/istio-init containers see iptables6
+	// errors on the default COS images. We prefer to test on COS so we skip
+	// these for now.
+	SkipContextIf(func() bool { return helpers.IsIntegration(helpers.CIIntegrationGKE) },
+		"Istio Bookinfo Demo", func() {
 
-		var (
-			resourceYAMLPaths []string
-			policyPaths       []string
-		)
+			var (
+				resourceYAMLPaths []string
+				policyPaths       []string
+			)
 
-		AfterEach(func() {
-			for _, resourcePath := range resourceYAMLPaths {
-				By("Deleting resource in file %q", resourcePath)
-				// Explicitly do not check result to avoid having assertions in AfterEach.
-				_ = kubectl.Delete(resourcePath)
-			}
-
-			for _, policyPath := range policyPaths {
-				By("Deleting policy in file %q", policyPath)
-				// Explicitly do not check result to avoid having assertions in AfterEach.
-				_ = kubectl.Delete(policyPath)
-			}
-		})
-
-		// shouldConnect checks that srcPod can connect to dstURI.
-		shouldConnect := func(srcPod, dstURI string) bool {
-			By("Checking that %q can connect to %q", srcPod, dstURI)
-			res := kubectl.ExecPodCmd(
-				helpers.DefaultNamespace, srcPod, fmt.Sprintf("%s %s", wgetCommand, dstURI))
-			if !res.WasSuccessful() {
-				GinkgoPrint("Unable to connect from %q to %q: %s", srcPod, dstURI, res.OutputPrettyPrint())
-				return false
-			}
-			return true
-		}
-
-		// shouldNotConnect checks that srcPod cannot connect to dstURI.
-		shouldNotConnect := func(srcPod, dstURI string) bool {
-			By("Checking that %q cannot connect to %q", srcPod, dstURI)
-			res := kubectl.ExecPodCmd(
-				helpers.DefaultNamespace, srcPod, fmt.Sprintf("%s %s", wgetCommand, dstURI))
-			if res.WasSuccessful() {
-				GinkgoPrint("Was able to connect from %q to %q, but expected no connection: %s", srcPod, dstURI, res.OutputPrettyPrint())
-				return false
-			}
-			return true
-		}
-
-		// formatLabelArgument formats the provided key-value pairs as labels for use in
-		// querying Kubernetes.
-		formatLabelArgument := func(firstKey, firstValue string, nextLabels ...string) string {
-			baseString := fmt.Sprintf("-l %s=%s", firstKey, firstValue)
-			if nextLabels == nil {
-				return baseString
-			} else if len(nextLabels)%2 != 0 {
-				Fail("must provide even number of arguments for label key-value pairings")
-			} else {
-				for i := 0; i < len(nextLabels); i += 2 {
-					baseString = fmt.Sprintf("%s,%s=%s", baseString, nextLabels[i], nextLabels[i+1])
+			AfterEach(func() {
+				for _, resourcePath := range resourceYAMLPaths {
+					By("Deleting resource in file %q", resourcePath)
+					// Explicitly do not check result to avoid having assertions in AfterEach.
+					_ = kubectl.Delete(resourcePath)
 				}
-			}
-			return baseString
-		}
 
-		// formatAPI is a helper function which formats a URI to access.
-		formatAPI := func(service, port, resource string) string {
-			target := fmt.Sprintf(
-				"%s.%s.svc.cluster.local:%s",
-				service, helpers.DefaultNamespace, port)
-			if resource != "" {
-				return fmt.Sprintf("%s/%s", target, resource)
-			}
-			return target
-		}
+				for _, policyPath := range policyPaths {
+					By("Deleting policy in file %q", policyPath)
+					// Explicitly do not check result to avoid having assertions in AfterEach.
+					_ = kubectl.Delete(policyPath)
+				}
+			})
 
-		It("Tests bookinfo inter-service connectivity", func() {
-			var err error
-			version := "version"
-			v1 := "v1"
-
-			productPage := "productpage"
-			reviews := "reviews"
-			ratings := "ratings"
-			details := "details"
-			dnsChecks := []string{productPage, reviews, ratings, details}
-			app := "app"
-			health := "health"
-			ratingsPath := "ratings/0"
-			apiPort := "9080"
-			podNameFilter := "{.items[*].metadata.name}"
-
-			// Those YAML files are the bookinfo-v1.yaml and bookinfo-v2.yaml
-			// manifests injected with Istio sidecars using those commands:
-			// cd test/k8sT/manifests/
-			// istioctl kube-inject -f bookinfo-v1.yaml > bookinfo-v1-istio.yaml
-			// istioctl kube-inject -f bookinfo-v2.yaml > bookinfo-v2-istio.yaml
-			bookinfoV1YAML := helpers.ManifestGet(kubectl.BasePath(), "bookinfo-v1-istio.yaml")
-			bookinfoV2YAML := helpers.ManifestGet(kubectl.BasePath(), "bookinfo-v2-istio.yaml")
-			l7PolicyPath := helpers.ManifestGet(kubectl.BasePath(), "cnp-specs.yaml")
-
-			waitIstioReady()
-
-			// Create the L7 policy before creating the pods, in order to test
-			// that the sidecar proxy mode doesn't deadlock on endpoint
-			// creation in this case.
-			policyPaths = []string{l7PolicyPath}
-			for _, policyPath := range policyPaths {
-				By("Creating policy in file %q", policyPath)
-				_, err := kubectl.CiliumPolicyAction(helpers.DefaultNamespace, policyPath, helpers.KubectlApply, helpers.HelperTimeout)
-				Expect(err).Should(BeNil(), "Unable to create policy %q", policyPath)
+			// shouldConnect checks that srcPod can connect to dstURI.
+			shouldConnect := func(srcPod, dstURI string) bool {
+				By("Checking that %q can connect to %q", srcPod, dstURI)
+				res := kubectl.ExecPodCmd(
+					helpers.DefaultNamespace, srcPod, fmt.Sprintf("%s %s", wgetCommand, dstURI))
+				if !res.WasSuccessful() {
+					GinkgoPrint("Unable to connect from %q to %q: %s", srcPod, dstURI, res.OutputPrettyPrint())
+					return false
+				}
+				return true
 			}
 
-			resourceYAMLPaths = []string{bookinfoV2YAML, bookinfoV1YAML}
-			for _, resourcePath := range resourceYAMLPaths {
-				By("Creating resources in file %q", resourcePath)
-				res := kubectl.Create(resourcePath)
-				res.ExpectSuccess("Unable to create resource %q", resourcePath)
+			// shouldNotConnect checks that srcPod cannot connect to dstURI.
+			shouldNotConnect := func(srcPod, dstURI string) bool {
+				By("Checking that %q cannot connect to %q", srcPod, dstURI)
+				res := kubectl.ExecPodCmd(
+					helpers.DefaultNamespace, srcPod, fmt.Sprintf("%s %s", wgetCommand, dstURI))
+				if res.WasSuccessful() {
+					GinkgoPrint("Was able to connect from %q to %q, but expected no connection: %s", srcPod, dstURI, res.OutputPrettyPrint())
+					return false
+				}
+				return true
 			}
 
-			// Wait for pods and endpoints to be ready before creating the
-			// next resources to reduce the load on the next pod creations,
-			// in order to reduce the probability of regeneration timeout.
-			By("Waiting for Bookinfo pods to be ready")
-			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=bookinfo", helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
-
-			By("Waiting for Bookinfo endpoints to be ready")
-			err = kubectl.CiliumEndpointWaitReady()
-			Expect(err).Should(BeNil(), "Endpoints are not ready after timeout")
-
-			for _, service := range []string{details, ratings, reviews, productPage} {
-				By("Waiting for Bookinfo service %q to be ready", service)
-				err = kubectl.WaitForServiceEndpoints(
-					helpers.DefaultNamespace, "", service,
-					helpers.HelperTimeout)
-				Expect(err).Should(BeNil(), "Service %q is not ready after timeout", service)
+			// formatLabelArgument formats the provided key-value pairs as labels for use in
+			// querying Kubernetes.
+			formatLabelArgument := func(firstKey, firstValue string, nextLabels ...string) string {
+				baseString := fmt.Sprintf("-l %s=%s", firstKey, firstValue)
+				if nextLabels == nil {
+					return baseString
+				} else if len(nextLabels)%2 != 0 {
+					Fail("must provide even number of arguments for label key-value pairings")
+				} else {
+					for i := 0; i < len(nextLabels); i += 2 {
+						baseString = fmt.Sprintf("%s,%s=%s", baseString, nextLabels[i], nextLabels[i+1])
+					}
+				}
+				return baseString
 			}
 
-			for _, name := range dnsChecks {
-				By("Waiting for DNS to resolve Bookinfo service %q", name)
-				err = kubectl.WaitForKubeDNSEntry(name, helpers.DefaultNamespace)
-				Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
+			// formatAPI is a helper function which formats a URI to access.
+			formatAPI := func(service, port, resource string) string {
+				target := fmt.Sprintf(
+					"%s.%s.svc.cluster.local:%s",
+					service, helpers.DefaultNamespace, port)
+				if resource != "" {
+					return fmt.Sprintf("%s/%s", target, resource)
+				}
+				return target
 			}
 
-			By("Testing L7 filtering")
-			reviewsPodV1, err := kubectl.GetPods(helpers.DefaultNamespace, formatLabelArgument(app, reviews, version, v1)).Filter(podNameFilter)
-			Expect(err).Should(BeNil(), "Cannot get reviewsV1 pods")
-			productpagePodV1, err := kubectl.GetPods(helpers.DefaultNamespace, formatLabelArgument(app, productPage, version, v1)).Filter(podNameFilter)
-			Expect(err).Should(BeNil(), "Cannot get productpageV1 pods")
+			It("Tests bookinfo inter-service connectivity", func() {
+				var err error
+				version := "version"
+				v1 := "v1"
 
-			// Connectivity checks often need to be repeated because Pilot
-			// is eventually consistent, i.e. it may take some time for a
-			// sidecar proxy to get updated with the configuration for another
-			// new endpoint and it rejects egress traffic with 503s in the
-			// meantime.
-			err = helpers.WithTimeout(func() bool {
-				allGood := true
+				productPage := "productpage"
+				reviews := "reviews"
+				ratings := "ratings"
+				details := "details"
+				dnsChecks := []string{productPage, reviews, ratings, details}
+				app := "app"
+				health := "health"
+				ratingsPath := "ratings/0"
+				apiPort := "9080"
+				podNameFilter := "{.items[*].metadata.name}"
 
-				allGood = shouldConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, health)) && allGood
-				allGood = shouldNotConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, ratingsPath)) && allGood
+				// Those YAML files are the bookinfo-v1.yaml and bookinfo-v2.yaml
+				// manifests injected with Istio sidecars using those commands:
+				// cd test/k8sT/manifests/
+				// istioctl kube-inject -f bookinfo-v1.yaml > bookinfo-v1-istio.yaml
+				// istioctl kube-inject -f bookinfo-v2.yaml > bookinfo-v2-istio.yaml
+				bookinfoV1YAML := helpers.ManifestGet(kubectl.BasePath(), "bookinfo-v1-istio.yaml")
+				bookinfoV2YAML := helpers.ManifestGet(kubectl.BasePath(), "bookinfo-v2-istio.yaml")
+				l7PolicyPath := helpers.ManifestGet(kubectl.BasePath(), "cnp-specs.yaml")
 
-				allGood = shouldConnect(productpagePodV1.String(), formatAPI(details, apiPort, health)) && allGood
+				waitIstioReady()
 
-				allGood = shouldNotConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, health)) && allGood
-				allGood = shouldNotConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, ratingsPath)) && allGood
+				// Create the L7 policy before creating the pods, in order to test
+				// that the sidecar proxy mode doesn't deadlock on endpoint
+				// creation in this case.
+				policyPaths = []string{l7PolicyPath}
+				for _, policyPath := range policyPaths {
+					By("Creating policy in file %q", policyPath)
+					_, err := kubectl.CiliumPolicyAction(helpers.DefaultNamespace, policyPath, helpers.KubectlApply, helpers.HelperTimeout)
+					Expect(err).Should(BeNil(), "Unable to create policy %q", policyPath)
+				}
 
-				return allGood
-			}, "Istio sidecar proxies are not configured", &helpers.TimeoutConfig{Timeout: helpers.HelperTimeout})
-			Expect(err).Should(BeNil(), "Cannot configure Istio sidecar proxies")
+				resourceYAMLPaths = []string{bookinfoV2YAML, bookinfoV1YAML}
+				for _, resourcePath := range resourceYAMLPaths {
+					By("Creating resources in file %q", resourcePath)
+					res := kubectl.Create(resourcePath)
+					res.ExpectSuccess("Unable to create resource %q", resourcePath)
+				}
+
+				// Wait for pods and endpoints to be ready before creating the
+				// next resources to reduce the load on the next pod creations,
+				// in order to reduce the probability of regeneration timeout.
+				By("Waiting for Bookinfo pods to be ready")
+				err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=bookinfo", helpers.HelperTimeout)
+				Expect(err).Should(BeNil(), "Pods are not ready after timeout")
+
+				By("Waiting for Bookinfo endpoints to be ready")
+				err = kubectl.CiliumEndpointWaitReady()
+				Expect(err).Should(BeNil(), "Endpoints are not ready after timeout")
+
+				for _, service := range []string{details, ratings, reviews, productPage} {
+					By("Waiting for Bookinfo service %q to be ready", service)
+					err = kubectl.WaitForServiceEndpoints(
+						helpers.DefaultNamespace, "", service,
+						helpers.HelperTimeout)
+					Expect(err).Should(BeNil(), "Service %q is not ready after timeout", service)
+				}
+
+				for _, name := range dnsChecks {
+					By("Waiting for DNS to resolve Bookinfo service %q", name)
+					err = kubectl.WaitForKubeDNSEntry(name, helpers.DefaultNamespace)
+					Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
+				}
+
+				By("Testing L7 filtering")
+				reviewsPodV1, err := kubectl.GetPods(helpers.DefaultNamespace, formatLabelArgument(app, reviews, version, v1)).Filter(podNameFilter)
+				Expect(err).Should(BeNil(), "Cannot get reviewsV1 pods")
+				productpagePodV1, err := kubectl.GetPods(helpers.DefaultNamespace, formatLabelArgument(app, productPage, version, v1)).Filter(podNameFilter)
+				Expect(err).Should(BeNil(), "Cannot get productpageV1 pods")
+
+				// Connectivity checks often need to be repeated because Pilot
+				// is eventually consistent, i.e. it may take some time for a
+				// sidecar proxy to get updated with the configuration for another
+				// new endpoint and it rejects egress traffic with 503s in the
+				// meantime.
+				err = helpers.WithTimeout(func() bool {
+					allGood := true
+
+					allGood = shouldConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, health)) && allGood
+					allGood = shouldNotConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, ratingsPath)) && allGood
+
+					allGood = shouldConnect(productpagePodV1.String(), formatAPI(details, apiPort, health)) && allGood
+
+					allGood = shouldNotConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, health)) && allGood
+					allGood = shouldNotConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, ratingsPath)) && allGood
+
+					return allGood
+				}, "Istio sidecar proxies are not configured", &helpers.TimeoutConfig{Timeout: helpers.HelperTimeout})
+				Expect(err).Should(BeNil(), "Cannot configure Istio sidecar proxies")
+			})
 		})
-	})
 })
