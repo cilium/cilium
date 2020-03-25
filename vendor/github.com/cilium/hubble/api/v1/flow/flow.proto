@@ -64,6 +64,13 @@ message Flow {
     // destination_service contains the service name of the destination
     Service destination_service = 21;
 
+    // traffic_direction of the connection, e.g. ingress or egress
+    TrafficDirection traffic_direction = 22;
+
+    // policy_match_type is only applicable to the cilium event type PolicyVerdict
+    // https://github.com/cilium/cilium/blob/e831859b5cc336c6d964a6d35bbd34d1840e21b9/pkg/monitor/datapath_policy.go#L50
+    uint32 policy_match_type = 23;
+
     // This is a temporary workaround to support summary field for pb.Flow without
     // duplicating logic from the old parser. This field will be removed once we
     // fully migrate to the new parser.
@@ -175,6 +182,12 @@ enum Verdict {
     VERDICT_UNKNOWN = 0;
     FORWARDED = 1;
     DROPPED = 2;
+}
+
+enum TrafficDirection {
+    TRAFFIC_DIRECTION_UNKNOWN = 0;
+    INGRESS = 1;
+    EGRESS = 2;
 }
 
 // EventTypeFilter is a filter describing a particular event type

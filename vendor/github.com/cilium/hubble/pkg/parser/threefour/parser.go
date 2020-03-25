@@ -96,6 +96,7 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 	eventType = payload.Data[0]
 	var dn *monitor.DropNotify
 	var tn *monitor.TraceNotify
+	var pvn *monitor.PolicyVerdictNotify
 	var eventSubType uint8
 	switch eventType {
 	case monitorAPI.MessageTypeDrop:
@@ -112,6 +113,13 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 		}
 		eventSubType = tn.ObsPoint
 		packetOffset = (int)(tn.DataOffset())
+	case monitorAPI.MessageTypePolicyVerdict:
+		pvn = &monitor.PolicyVerdictNotify{}
+		if err := binary.Read(bytes.NewReader(payload.Data), byteorder.Native, pvn); err != nil {
+			return fmt.Errorf("failed to parse policy verdict: %v", err)
+		}
+		eventSubType = pvn.SubType
+		packetOffset = monitor.PolicyVerdictNotifyLen
 	default:
 		return errors.NewErrInvalidType(eventType)
 	}
@@ -136,7 +144,7 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 		}
 	}
 
-	srcLabelID, dstLabelID := decodeSecurityIdentities(dn, tn)
+	srcLabelID, dstLabelID := decodeSecurityIdentities(dn, tn, pvn)
 	srcEndpoint := p.resolveEndpoint(srcIP, srcLabelID)
 	dstEndpoint := p.resolveEndpoint(dstIP, dstLabelID)
 	var sourceService, destinationService *pb.Service
@@ -150,8 +158,8 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 	}
 
 	decoded.Time = payload.Time
-	decoded.Verdict = decodeVerdict(eventType)
-	decoded.DropReason = decodeDropReason(dn)
+	decoded.Verdict = decodeVerdict(dn, tn, pvn)
+	decoded.DropReason = decodeDropReason(dn, pvn)
 	decoded.Ethernet = ether
 	decoded.IP = ip
 	decoded.L4 = l4
@@ -163,9 +171,11 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 	decoded.DestinationNames = p.resolveNames(srcEndpoint.ID, dstIP)
 	decoded.L7 = nil
 	decoded.Reply = decodeIsReply(tn)
+	decoded.TrafficDirection = decodeTrafficDirection(pvn)
 	decoded.EventType = decodeCiliumEventType(eventType, eventSubType)
 	decoded.SourceService = sourceService
 	decoded.DestinationService = destinationService
+	decoded.PolicyMatchType = decodePolicyMatchType(pvn)
 	decoded.Summary = summary
 
 	return nil
@@ -299,20 +309,36 @@ func decodeLayers(packet *packet) (
 	return
 }
 
-func decodeVerdict(eventType uint8) pb.Verdict {
-	switch eventType {
-	case monitorAPI.MessageTypeDrop:
+func decodeVerdict(dn *monitor.DropNotify, tn *monitor.TraceNotify, pvn *monitor.PolicyVerdictNotify) pb.Verdict {
+	switch {
+	case dn != nil:
 		return pb.Verdict_DROPPED
-	case monitorAPI.MessageTypeTrace:
+	case tn != nil:
 		return pb.Verdict_FORWARDED
-	default:
-		return pb.Verdict_VERDICT_UNKNOWN
+	case pvn != nil:
+		if pvn.Verdict < 0 {
+			return pb.Verdict_DROPPED
+		}
+		return pb.Verdict_FORWARDED
 	}
+	return pb.Verdict_VERDICT_UNKNOWN
 }
 
-func decodeDropReason(dn *monitor.DropNotify) uint32 {
-	if dn != nil {
+func decodeDropReason(dn *monitor.DropNotify, pvn *monitor.PolicyVerdictNotify) uint32 {
+	switch {
+	case dn != nil:
 		return uint32(dn.SubType)
+	case pvn != nil && pvn.Verdict < 0:
+		// if the flow was dropped, verdict equals the negative of the drop reason
+		return uint32(-pvn.Verdict)
+	}
+	return 0
+}
+
+func decodePolicyMatchType(pvn *monitor.PolicyVerdictNotify) uint32 {
+	if pvn != nil {
+		return uint32((pvn.Flags & monitor.PolicyVerdictNotifyFlagMatchType) >>
+			monitor.PolicyVerdictNotifyFlagMatchTypeBitOffset)
 	}
 	return 0
 }
@@ -396,7 +422,7 @@ func decodeCiliumEventType(eventType, eventSubType uint8) *pb.CiliumEventType {
 	}
 }
 
-func decodeSecurityIdentities(dn *monitor.DropNotify, tn *monitor.TraceNotify) (
+func decodeSecurityIdentities(dn *monitor.DropNotify, tn *monitor.TraceNotify, pvn *monitor.PolicyVerdictNotify) (
 	sourceSecurityIdentiy, destinationSecurityIdentity uint64,
 ) {
 	switch {
@@ -406,9 +432,25 @@ func decodeSecurityIdentities(dn *monitor.DropNotify, tn *monitor.TraceNotify) (
 	case tn != nil:
 		sourceSecurityIdentiy = uint64(tn.SrcLabel)
 		destinationSecurityIdentity = uint64(tn.DstLabel)
+	case pvn != nil:
+		if pvn.IsTrafficIngress() {
+			sourceSecurityIdentiy = uint64(pvn.RemoteLabel)
+		} else {
+			destinationSecurityIdentity = uint64(pvn.RemoteLabel)
+		}
 	}
 
 	return
+}
+
+func decodeTrafficDirection(pvn *monitor.PolicyVerdictNotify) pb.TrafficDirection {
+	if pvn != nil {
+		if pvn.IsTrafficIngress() {
+			return pb.TrafficDirection_INGRESS
+		}
+		return pb.TrafficDirection_EGRESS
+	}
+	return pb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN
 }
 
 func getTCPFlags(tcp layers.TCP) string {

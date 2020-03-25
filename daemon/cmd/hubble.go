@@ -52,7 +52,8 @@ func (d *Daemon) launchHubble() {
 	}
 	s, err := hubbleServer.NewLocalServer(payloadParser, logger,
 		serveroption.WithMaxFlows(option.Config.HubbleFlowBufferSize),
-		serveroption.WithMonitorBuffer(option.Config.HubbleEventQueueSize))
+		serveroption.WithMonitorBuffer(option.Config.HubbleEventQueueSize),
+		serveroption.WithCiliumDaemon(d))
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize Hubble")
 		return

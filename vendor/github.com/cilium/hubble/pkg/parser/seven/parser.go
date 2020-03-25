@@ -153,6 +153,8 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 	decoded.EventType = decodeCiliumEventType(eventType)
 	decoded.SourceService = sourceService
 	decoded.DestinationService = destinationService
+	decoded.TrafficDirection = decodeTrafficDirection(r.ObservationPoint)
+	decoded.PolicyMatchType = 0
 	decoded.Summary = p.getSummary(r, decoded)
 
 	return nil
@@ -213,6 +215,17 @@ func decodeVerdict(verdict accesslog.FlowVerdict) pb.Verdict {
 		return pb.Verdict_FORWARDED
 	default:
 		return pb.Verdict_VERDICT_UNKNOWN
+	}
+}
+
+func decodeTrafficDirection(direction accesslog.ObservationPoint) pb.TrafficDirection {
+	switch direction {
+	case accesslog.Ingress:
+		return pb.TrafficDirection_INGRESS
+	case accesslog.Egress:
+		return pb.TrafficDirection_EGRESS
+	default:
+		return pb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN
 	}
 }
 

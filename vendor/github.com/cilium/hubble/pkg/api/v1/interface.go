@@ -42,6 +42,8 @@ type Flow interface {
 	GetEventType() *pb.CiliumEventType
 	GetSourceService() *pb.Service
 	GetDestinationService() *pb.Service
+	GetTrafficDirection() pb.TrafficDirection
+	GetPolicyMatchType() uint32
 	GetSummary() string
 }
 

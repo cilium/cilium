@@ -106,6 +106,10 @@ github.com/cilium/ebpf v0.0.0-20191113100448-d9fb101ca1fb/go.mod h1:MA5e5Lr8slmE
 github.com/cilium/hubble v0.0.0-20200304205543-565cbe60f7fb/go.mod h1:GYdTLWzzpzgp2ptyEp0LccPotGo4BxPX9SJRGL4pI5c=
 github.com/cilium/hubble v0.0.0-20200320161706-5faac2a81350 h1:Emt6IBafrgi95wUCKJdspH6vuTx9mmpwOEEwo61j5U4=
 github.com/cilium/hubble v0.0.0-20200320161706-5faac2a81350/go.mod h1:OdNhwzmedkPgZBCZAqhNK3LUmVc7GJPOXw1k8g3/w3E=
+github.com/cilium/hubble v0.5.1-0.20200324170115-b05c8293bec9 h1:Y+HjxOhzuLbgXx3xBx4Up/c3NbceGAkP4alxzVqopso=
+github.com/cilium/hubble v0.5.1-0.20200324170115-b05c8293bec9/go.mod h1:OdNhwzmedkPgZBCZAqhNK3LUmVc7GJPOXw1k8g3/w3E=
+github.com/cilium/hubble v0.5.1-0.20200324190551-e687889e3dd3 h1:dmdcFn96kmMaRBFy/VaVT5ajlR8T/qCO+QnXG4CF+94=
+github.com/cilium/hubble v0.5.1-0.20200324190551-e687889e3dd3/go.mod h1:OdNhwzmedkPgZBCZAqhNK3LUmVc7GJPOXw1k8g3/w3E=
 github.com/cilium/ipam v0.0.0-20200217195329-a46f8d55f9db h1:pW/jw3e14kOrad7wNZRKdnSDRStOcJ02A7uIpTsa5f8=
 github.com/cilium/ipam v0.0.0-20200217195329-a46f8d55f9db/go.mod h1:URWgSDyRFKKBgnY4Svj37siCG145nu3qJt6oHlZRdqU=
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b h1:+bsFX/WOMIoaayXVyRem1awcpz3icz/HoL8Dxg/m6a4=
