@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
@@ -44,7 +45,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func runNodeWatcher() error {
+func runNodeWatcher(nodeManager *ipam.NodeManager) error {
 	log.Info("Starting to synchronize k8s nodes to kvstore...")
 
 	serNodes := serializer.NewFunctionQueue(1024)
@@ -105,7 +106,7 @@ func runNodeWatcher() error {
 				serNodes.Enqueue(func() error {
 					deletedNode := k8s.ParseNode(n, source.Kubernetes)
 					ciliumNodeStore.DeleteLocalKey(context.TODO(), deletedNode)
-					deleteCiliumNode(n.Name)
+					deleteCiliumNode(nodeManager, n.Name)
 					return nil
 				}, serializer.NoRetry)
 			},
@@ -131,7 +132,7 @@ func runNodeWatcher() error {
 				} else {
 					for _, node := range nodes.Items {
 						if _, ok, err := k8sNodeStore.GetByKey(node.Name); !ok && err == nil {
-							deleteCiliumNode(node.Name)
+							deleteCiliumNode(nodeManager, node.Name)
 						}
 					}
 				}

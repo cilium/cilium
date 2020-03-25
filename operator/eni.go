@@ -36,19 +36,19 @@ import (
 // startENIAllocator kicks of ENI allocation, the initial connection to AWS
 // APIs is done in a blocking manner, given that is successful, a controller is
 // started to manage allocation based on CiliumNode custom resources
-func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags map[string]string) error {
+func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags map[string]string) (*ipam.NodeManager, error) {
 	log.Info("Starting ENI allocator...")
 
 	cfg, err := external.LoadDefaultAWSConfig()
 	if err != nil {
-		return fmt.Errorf("unable to load AWS configuration: %s", err)
+		return nil, fmt.Errorf("unable to load AWS configuration: %s", err)
 	}
 
 	log.Info("Retrieving own metadata from EC2 metadata server...")
 	metadataClient := ec2metadata.New(cfg)
 	instance, err := metadataClient.GetInstanceIdentityDocument()
 	if err != nil {
-		return fmt.Errorf("unable to retrieve instance identity document: %s", err)
+		return nil, fmt.Errorf("unable to retrieve instance identity document: %s", err)
 	}
 
 	log.WithFields(logrus.Fields{
@@ -59,8 +59,9 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 	cfg.Region = instance.Region
 
 	var (
-		ec2Client *ec2shim.Client
-		instances *eni.InstancesManager
+		ec2Client   *ec2shim.Client
+		instances   *eni.InstancesManager
+		nodeManager *ipam.NodeManager
 	)
 
 	if option.Config.EnableMetrics {
@@ -73,7 +74,7 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 		nodeManager, err = ipam.NewNodeManager(instances, &ciliumNodeUpdateImplementation{}, iMetrics, option.Config.ParallelAllocWorkers,
 			option.Config.AwsReleaseExcessIps)
 		if err != nil {
-			return fmt.Errorf("unable to initialize ENI node manager: %s", err)
+			return nil, fmt.Errorf("unable to initialize ENI node manager: %s", err)
 		}
 	} else {
 		ec2Client = ec2shim.NewClient(ec2.New(cfg), &apiMetrics.NoOpMetrics{}, awsClientQPSLimit, awsClientBurst)
@@ -82,7 +83,7 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 		nodeManager, err = ipam.NewNodeManager(instances, &ciliumNodeUpdateImplementation{}, &ipamMetrics.NoOpMetrics{}, option.Config.ParallelAllocWorkers,
 			option.Config.AwsReleaseExcessIps)
 		if err != nil {
-			return fmt.Errorf("unable to initialize ENI node manager: %s", err)
+			return nil, fmt.Errorf("unable to initialize ENI node manager: %s", err)
 		}
 	}
 
@@ -107,5 +108,5 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 			})
 	}()
 
-	return nil
+	return nodeManager, nil
 }

@@ -31,22 +31,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-var nodeManager *ipam.NodeManager
-
-func ciliumNodeUpdated(resource *v2.CiliumNode) {
-	if nodeManager != nil {
-		// resource is deep copied before it is stored in pkg/aws/eni
-		nodeManager.Update(resource)
-	}
-}
-
-func ciliumNodeDeleted(nodeName string) {
-	if nodeManager != nil {
-		nodeManager.Delete(nodeName)
-	}
-}
-
-func startSynchronizingCiliumNodes() {
+func startSynchronizingCiliumNodes(nodeManager *ipam.NodeManager) {
 	log.Info("Starting to synchronize CiliumNode custom resources...")
 
 	// TODO: The operator is currently storing a full copy of the
@@ -61,7 +46,7 @@ func startSynchronizingCiliumNodes() {
 			AddFunc: func(obj interface{}) {
 				if node, ok := obj.(*v2.CiliumNode); ok {
 					// node is deep copied before it is stored in pkg/aws/eni
-					ciliumNodeUpdated(node)
+					nodeManager.Update(node)
 				} else {
 					log.Warningf("Unknown CiliumNode object type %s received: %+v", reflect.TypeOf(obj), obj)
 				}
@@ -69,7 +54,7 @@ func startSynchronizingCiliumNodes() {
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				if node, ok := newObj.(*v2.CiliumNode); ok {
 					// node is deep copied before it is stored in pkg/aws/eni
-					ciliumNodeUpdated(node)
+					nodeManager.Update(node)
 				} else {
 					log.Warningf("Unknown CiliumNode object type %s received: %+v", reflect.TypeOf(newObj), newObj)
 				}
@@ -83,11 +68,11 @@ func startSynchronizingCiliumNodes() {
 					// known state and the object no longer
 					// exists.
 					if node, ok := deletedObj.Obj.(*v2.CiliumNode); ok {
-						ciliumNodeDeleted(node.Name)
+						nodeManager.Delete(node.Name)
 						return
 					}
 				} else if node, ok := obj.(*v2.CiliumNode); ok {
-					ciliumNodeDeleted(node.Name)
+					nodeManager.Delete(node.Name)
 					return
 				}
 				log.Warningf("Unknown CiliumNode object type %s received: %+v", reflect.TypeOf(obj), obj)
@@ -99,11 +84,13 @@ func startSynchronizingCiliumNodes() {
 	go ciliumNodeInformer.Run(wait.NeverStop)
 }
 
-func deleteCiliumNode(name string) {
+func deleteCiliumNode(nodeManager *ipam.NodeManager, name string) {
 	if err := ciliumK8sClient.CiliumV2().CiliumNodes().Delete(context.TODO(), name, metav1.DeleteOptions{}); err == nil {
 		log.WithField("name", name).Info("Removed CiliumNode after receiving node deletion event")
 	}
-	ciliumNodeDeleted(name)
+	if nodeManager != nil {
+		nodeManager.Delete(name)
+	}
 }
 
 type ciliumNodeUpdateImplementation struct{}
