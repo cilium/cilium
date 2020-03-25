@@ -182,8 +182,8 @@ func parseInterface(iface *network.Interface) (instanceID string, i *types.Azure
 
 // GetInstances returns the list of all instances including all attached
 // interfaces as instanceMap
-func (c *Client) GetInstances(ctx context.Context) (types.InstanceMap, error) {
-	instances := types.InstanceMap{}
+func (c *Client) GetInstances(ctx context.Context) (*ipamTypes.InstanceMap, error) {
+	instances := ipamTypes.NewInstanceMap()
 
 	networkInterfaces, err := c.describeNetworkInterfaces(ctx)
 	if err != nil {
@@ -192,7 +192,7 @@ func (c *Client) GetInstances(ctx context.Context) (types.InstanceMap, error) {
 
 	for _, iface := range networkInterfaces {
 		if id, azureInterface := parseInterface(&iface); id != "" {
-			instances.Update(id, azureInterface)
+			instances.Update(id, ipamTypes.InterfaceRevision{Resource: azureInterface})
 		}
 	}
 

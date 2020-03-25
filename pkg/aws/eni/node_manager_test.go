@@ -302,11 +302,13 @@ func (e *ENISuite) TestNodeManagerENIWithSGTags(c *check.C) {
 	// and remove eth0 from the map
 	eniNode, castOK := node.Ops().(*Node)
 	c.Assert(castOK, check.Equals, true)
-	enis := eniNode.getENIs()
-	delete(enis, eniID1)
-	for _, eni := range enis {
-		c.Assert(eni.SecurityGroups, checker.DeepEquals, []string{"sg-1"})
+	eniNode.mutex.RLock()
+	for id, eni := range eniNode.enis {
+		if id != eniID1 {
+			c.Assert(eni.SecurityGroups, checker.DeepEquals, []string{"sg-1"})
+		}
 	}
+	eniNode.mutex.RUnlock()
 }
 
 // TestNodeManagerMinAllocate20 tests MinAllocate without PreAllocate

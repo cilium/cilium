@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package types
 
 import (
+	"net"
 	"testing"
 
 	"gopkg.in/check.v1"
@@ -34,4 +35,101 @@ func (b *TypesSuite) TestTagsMatch(c *check.C) {
 	c.Assert(Tags{"1": "1", "2": "2"}.Match(Tags{"1": "1"}), check.Equals, true)
 	c.Assert(Tags{"1": "1", "2": "2"}.Match(Tags{"2": "2"}), check.Equals, true)
 	c.Assert(Tags{"1": "1", "2": "2"}.Match(Tags{"3": "3"}), check.Equals, false)
+}
+
+type mockInterface struct {
+	id    string
+	pools map[string][]net.IP
+}
+
+func (m *mockInterface) InterfaceID() string {
+	return m.id
+}
+
+func (m *mockInterface) ForeachAddress(instanceID string, fn AddressIterator) error {
+	for poolID, ips := range m.pools {
+		for _, ip := range ips {
+			if err := fn(instanceID, m.id, ip.String(), poolID, ip); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (e *TypesSuite) TestForeachAddresses(c *check.C) {
+	m := NewInstanceMap()
+	m.Update("i-1", InterfaceRevision{
+		Resource: &mockInterface{
+			id: "intf0",
+			pools: map[string][]net.IP{
+				"s1": {net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2")},
+			},
+		},
+	})
+	m.Update("i-2", InterfaceRevision{
+		Resource: &mockInterface{
+			id: "intf0",
+			pools: map[string][]net.IP{
+				"s1": {net.ParseIP("3.3.3.3"), net.ParseIP("4.4.4.4")},
+			},
+		},
+	})
+
+	// Iterate over all instances
+	addresses := 0
+	m.ForeachAddress("", func(instanceID, interfaceID, ip, poolID string, address Address) error {
+		_, ok := address.(net.IP)
+		c.Assert(ok, check.Equals, true)
+		addresses++
+		return nil
+	})
+	c.Assert(addresses, check.Equals, 4)
+
+	// Iterate over "i-1"
+	addresses = 0
+	m.ForeachAddress("i-1", func(instanceID, interfaceID, ip, poolID string, address Address) error {
+		addresses++
+		return nil
+	})
+	c.Assert(addresses, check.Equals, 2)
+
+	// Iterate over all interfaces
+	interfaces := 0
+	m.ForeachInterface("", func(instanceID, interfaceID string, iface InterfaceRevision) error {
+		interfaces++
+		return nil
+	})
+	c.Assert(interfaces, check.Equals, 2)
+}
+
+func (e *TypesSuite) TestInstanceMapNumInstances(c *check.C) {
+	m := NewInstanceMap()
+	m.Update("i-1", InterfaceRevision{
+		Resource: &mockInterface{
+			id: "intf0",
+			pools: map[string][]net.IP{
+				"s1": {net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2")},
+			},
+		},
+	})
+	m.Update("i-2", InterfaceRevision{
+		Resource: &mockInterface{
+			id: "intf0",
+			pools: map[string][]net.IP{
+				"s1": {net.ParseIP("3.3.3.3"), net.ParseIP("4.4.4.4")},
+			},
+		},
+	})
+	m.Update("i-2", InterfaceRevision{
+		Resource: &mockInterface{
+			id: "intf1",
+			pools: map[string][]net.IP{
+				"s1": {net.ParseIP("4.4.4.4"), net.ParseIP("5.5.5.5")},
+			},
+		},
+	})
+
+	c.Assert(m.NumInstances(), check.Equals, 2)
 }

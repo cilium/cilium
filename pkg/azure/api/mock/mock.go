@@ -42,7 +42,7 @@ const (
 type API struct {
 	mutex     lock.RWMutex
 	subnets   map[string]*ipamTypes.Subnet
-	instances types.InstanceMap
+	instances *ipamTypes.InstanceMap
 	vnets     map[string]*ipamTypes.VirtualNetwork
 	errors    map[Operation]error
 	delaySim  *helpers.DelaySimulator
@@ -51,7 +51,7 @@ type API struct {
 
 func NewAPI(subnets []*ipamTypes.Subnet, vnets []*ipamTypes.VirtualNetwork) *API {
 	api := &API{
-		instances: types.InstanceMap{},
+		instances: ipamTypes.NewInstanceMap(),
 		subnets:   map[string]*ipamTypes.Subnet{},
 		vnets:     map[string]*ipamTypes.VirtualNetwork{},
 		errors:    map[Operation]error{},
@@ -76,7 +76,7 @@ func (a *API) UpdateSubnets(subnets []*ipamTypes.Subnet) {
 	a.mutex.Unlock()
 }
 
-func (a *API) UpdateInstances(instances types.InstanceMap) {
+func (a *API) UpdateInstances(instances *ipamTypes.InstanceMap) {
 	a.mutex.Lock()
 	a.instances = instances.DeepCopy()
 	a.mutex.Unlock()
@@ -121,7 +121,7 @@ func (a *API) rateLimit() {
 	}
 }
 
-func (a *API) GetInstances(ctx context.Context) (types.InstanceMap, error) {
+func (a *API) GetInstances(ctx context.Context) (*ipamTypes.InstanceMap, error) {
 	a.rateLimit()
 	a.delaySim.Delay(GetInstances)
 
@@ -132,15 +132,7 @@ func (a *API) GetInstances(ctx context.Context) (types.InstanceMap, error) {
 		return nil, err
 	}
 
-	instances := types.InstanceMap{}
-
-	for instanceID, instance := range a.instances {
-		for _, intf := range instance.Interfaces {
-			instances.Update(instanceID, intf.DeepCopy())
-		}
-	}
-
-	return instances, nil
+	return a.instances.DeepCopy(), nil
 }
 
 func (a *API) GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetworkMap, ipamTypes.SubnetMap, error) {
@@ -179,25 +171,40 @@ func (a *API) AssignPrivateIpAddresses(ctx context.Context, subnetID, interfaceI
 		return err
 	}
 
-	for _, instance := range a.instances {
-		for _, intf := range instance.Interfaces {
-			if intf.ID == interfaceID {
-				if len(intf.Addresses)+len(ips) > types.InterfaceAddressLimit {
-					return fmt.Errorf("exceeded interface limit")
-				}
+	foundInterface := false
 
-				for _, ip := range ips {
-					intf.Addresses = append(intf.Addresses, types.AzureAddress{
-						IP:     ip.String(),
-						Subnet: subnetID,
-						State:  types.StateSucceeded,
-					})
-				}
-
-				return nil
-			}
+	err := a.instances.ForeachInterface("", func(instanceID, id string, iface ipamTypes.InterfaceRevision) error {
+		intf, ok := iface.Resource.(*types.AzureInterface)
+		if !ok {
+			return fmt.Errorf("invalid interface object")
 		}
+
+		if id != interfaceID {
+			return nil
+		}
+
+		if len(intf.Addresses)+len(ips) > types.InterfaceAddressLimit {
+			return fmt.Errorf("exceeded interface limit")
+		}
+
+		for _, ip := range ips {
+			intf.Addresses = append(intf.Addresses, types.AzureAddress{
+				IP:     ip.String(),
+				Subnet: subnetID,
+				State:  types.StateSucceeded,
+			})
+		}
+
+		foundInterface = true
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
-	return fmt.Errorf("interface %s not found", interfaceID)
+	if !foundInterface {
+		return fmt.Errorf("interface %s not found", interfaceID)
+	}
+
+	return nil
 }

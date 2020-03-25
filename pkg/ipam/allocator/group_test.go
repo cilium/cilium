@@ -114,3 +114,37 @@ func (e *AllocatorSuite) TestPoolGroupAllocatorAlloxate(c *check.C) {
 	c.Assert(quota["s1"].AvailableIPs, check.Equals, maxAvailablePerPool)
 	c.Assert(quota["s2"].AvailableIPs, check.Equals, maxAvailablePerPool)
 }
+
+type allocatorTestIPs map[string][]string
+
+func (a allocatorTestIPs) ForeachAddress(instanceID string, fn types.AddressIterator) error {
+	for poolID, ips := range a {
+		for _, ip := range ips {
+			if err := fn("i-1", "1", ip, poolID, nil); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (e *AllocatorSuite) TestPoolGroupAllocatorReserve(c *check.C) {
+	g, err := NewPoolGroupAllocator(types.SubnetMap{
+		"s1": &types.Subnet{ID: "s1", CIDR: cidr.MustParseCIDR("10.10.0.0/24")},
+		"s2": &types.Subnet{ID: "s2", CIDR: cidr.MustParseCIDR("10.20.0.0/24")},
+	})
+	c.Assert(err, check.IsNil)
+	c.Assert(g, check.Not(check.IsNil))
+
+	g.ReserveAddresses(allocatorTestIPs{"s1": []string{"10.10.0.1", "10.10.0.128", "1.1.1.1"}})
+
+	// .0 is reserved
+	maxAvailablePerPool := int(math.Pow(2.0, 8.0)) - 2
+	quota := g.GetPoolQuota()
+
+	// 2 IPs should be reserved in s-1
+	c.Assert(quota["s1"].AvailableIPs, check.Equals, maxAvailablePerPool-2)
+	// No IPs should be reserved in s-2
+	c.Assert(quota["s2"].AvailableIPs, check.Equals, maxAvailablePerPool)
+
+}

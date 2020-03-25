@@ -14,6 +14,10 @@
 
 package types
 
+import (
+	"github.com/cilium/cilium/pkg/ipam/types"
+)
+
 const (
 	// ProviderPrefix is the prefix used to indicate that a k8s ProviderID
 	// represents an Azure resource
@@ -83,47 +87,18 @@ type AzureInterface struct {
 	SecurityGroup string `json:"security-group,omitempty"`
 }
 
-// Instance is the minimal representation of a Azure instance as needed by the
-// IPAM plugin
-//
-// +k8s:deepcopy-gen=true
-type Instance struct {
-	// interfaces is a map of all interfaces attached to the instance
-	// indexed by the ID
-	Interfaces map[string]*AzureInterface
+// InterfaceID returns the identifier of the interface
+func (a *AzureInterface) InterfaceID() string {
+	return a.ID
 }
 
-// InstanceMap is the list of all instances indexed by instance ID
-//
-// +k8s:deepcopy-gen=true
-type InstanceMap map[string]*Instance
-
-// Update updates the definition of an Azure interface for a particular
-// instance. If the interface is already known, the definition is updated,
-// otherwise the interface is added to the instance.
-func (m InstanceMap) Update(instanceID string, iface *AzureInterface) {
-	i, ok := m[instanceID]
-	if !ok {
-		i = &Instance{}
-		m[instanceID] = i
-	}
-
-	if i.Interfaces == nil {
-		i.Interfaces = map[string]*AzureInterface{}
-	}
-
-	i.Interfaces[iface.ID] = iface
-}
-
-// Get returns the list of interfaces for a particular instance ID. The
-// returned interfaces are deep copied and can be safely accessed but will
-// become stale.
-func (m InstanceMap) Get(instanceID string) (interfaces []*AzureInterface) {
-	if instance, ok := m[instanceID]; ok {
-		for _, iface := range instance.Interfaces {
-			interfaces = append(interfaces, iface.DeepCopy())
+// ForeachAddress iterates over all addresses and calls fn
+func (a *AzureInterface) ForeachAddress(id string, fn types.AddressIterator) error {
+	for _, address := range a.Addresses {
+		if err := fn(id, a.ID, address.IP, address.Subnet, address); err != nil {
+			return err
 		}
 	}
 
-	return
+	return nil
 }

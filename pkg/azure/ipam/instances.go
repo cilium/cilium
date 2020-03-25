@@ -19,7 +19,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/cilium/cilium/pkg/azure/types"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -31,7 +30,7 @@ import (
 
 // AzureAPI is the API surface used of the Azure API
 type AzureAPI interface {
-	GetInstances(ctx context.Context) (types.InstanceMap, error)
+	GetInstances(ctx context.Context) (*ipamTypes.InstanceMap, error)
 	GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetworkMap, ipamTypes.SubnetMap, error)
 	AssignPrivateIpAddresses(ctx context.Context, subnetID, interfaceID string, ips []net.IP) error
 }
@@ -40,7 +39,7 @@ type AzureAPI interface {
 // by calling resync() regularly.
 type InstancesManager struct {
 	mutex     lock.RWMutex
-	instances types.InstanceMap
+	instances *ipamTypes.InstanceMap
 	vnets     ipamTypes.VirtualNetworkMap
 	api       AzureAPI
 	allocator allocator.Allocator
@@ -49,7 +48,7 @@ type InstancesManager struct {
 // NewInstancesManager returns a new instances manager
 func NewInstancesManager(api AzureAPI) *InstancesManager {
 	return &InstancesManager{
-		instances: types.InstanceMap{},
+		instances: ipamTypes.NewInstanceMap(),
 		api:       api,
 		allocator: &allocator.NoOpAllocator{},
 	}
@@ -91,7 +90,7 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 	}
 
 	log.WithFields(logrus.Fields{
-		"numInstances":       len(instances),
+		"numInstances":       instances.NumInstances(),
 		"numVirtualNetworks": len(vnets),
 		"numSubnets":         len(subnets),
 	}).Info("Synchronized Azure IPAM information")
@@ -102,29 +101,9 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 		return time.Time{}
 	}
 
-	// Reserve all known IP addresses in all known subnet allocators
-	for _, instance := range instances {
-		for _, iface := range instance.Interfaces {
-			for _, address := range iface.Addresses {
-				ip := net.ParseIP(address.IP)
-				if ip != nil {
-					if err := groupAllocator.Allocate(ipamTypes.PoolID(address.Subnet), ip); err != nil {
-						log.WithFields(logrus.Fields{
-							"instance":  instance,
-							"interface": iface.ID,
-							"address":   address,
-						}).WithError(err).Warning("Unable to allocate IP in internal allocator")
-					}
-				} else {
-					log.WithFields(logrus.Fields{
-						"instance":  instance,
-						"interface": iface.ID,
-						"address":   address,
-					}).Warning("Unable to parse IP of AzureAddress")
-				}
-			}
-		}
-	}
+	// Iterate over all addresses of all instances and reserve them in the
+	// allocator
+	groupAllocator.ReserveAddresses(instances)
 
 	m.mutex.Lock()
 	m.instances = instances
@@ -133,11 +112,4 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 	m.mutex.Unlock()
 
 	return resyncStart
-}
-
-// GetInterfaces returns the list of interfaces associated with a particular instance
-func (m *InstancesManager) GetInterfaces(instanceID string) []*types.AzureInterface {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-	return m.instances.Get(instanceID)
 }
