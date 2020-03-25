@@ -38,8 +38,17 @@ contribute to Cilium:
 +----------------------------------------------------------------------------------+-----------------------------+-------------------------------------------------------------------------------+
 + `Docker-Compose <https://docs.docker.com/compose/install/>`_                     | OS-Dependent                | N/A (OS-specific)                                                             |
 +----------------------------------------------------------------------------------+-----------------------------+-------------------------------------------------------------------------------+
++ python3-pip                                                                      | latest                      | N/A (OS-specific)                                                             |
++----------------------------------------------------------------------------------+-----------------------------+-------------------------------------------------------------------------------+
 
-To run Cilium locally on VMs, you need:
+
+To build the documentation, you will need to install its dependencies:
+
+::
+
+    $ sudo pip3 install -r Documentation/requirements.txt
+
+Finally, in order to run Cilium locally on VMs, you need:
 
 +----------------------------------------------------------------------------------+-----------------------+--------------------------------------------------------------------------------+
 | Dependency                                                                       | Version / Commit ID   | Download Command                                                               |
@@ -48,12 +57,6 @@ To run Cilium locally on VMs, you need:
 +----------------------------------------------------------------------------------+-----------------------+--------------------------------------------------------------------------------+
 | `VirtualBox <https://www.virtualbox.org/wiki/Downloads>`_ (if not using libvirt) | >= 5.2                | N/A (OS-specific)                                                              |
 +----------------------------------------------------------------------------------+-----------------------+--------------------------------------------------------------------------------+
-
-Finally, in order to build the documentation, you should have Sphinx installed:
-
-::
-
-    $ sudo pip install sphinx
 
 You should start with the `gs_guide`, which walks you through the set-up, such
 as installing Vagrant, getting the Cilium sources, and going through some
