@@ -47,12 +47,10 @@ type k8sImplementation interface {
 // that node.
 type NodeOperations interface {
 	// UpdateNode is called when an update to the CiliumNode is received.
-	// Node.mutex will remain locked while UpdateNode is being called.
 	UpdatedNode(obj *v2.CiliumNode)
 
 	// PopulateStatusFields is called to give the implementation a chance
 	// to populate any implementation specific fields in CiliumNode.Status.
-	// Node.mutex will remain locked while this function is called.
 	PopulateStatusFields(resource *v2.CiliumNode)
 
 	// CreateInterface is called to create a new interface. This is only
@@ -61,21 +59,18 @@ type NodeOperations interface {
 	// interfaces are available for creation
 	// (AllocationAction.AvailableInterfaces > 0). This function must
 	// create the interface *and* allocate up to
-	// AllocationAction.MaxIPsToAllocate.  Node.mutex will remain locked
-	// while this function is called.
+	// AllocationAction.MaxIPsToAllocate.
 	CreateInterface(ctx context.Context, allocation *AllocationAction, scopedLog *logrus.Entry) (int, string, error)
 
 	// ResyncInterfacesAndIPs is called to synchronize the latest list of
 	// interfaces and IPs associated with the node. This function is called
 	// sparingly as this information is kept in sync based on the success
 	// of the functions AllocateIPs(), ReleaseIPs() and CreateInterface().
-	// Node.mutex will remain locked while this function is called.
 	ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (ipamTypes.AllocationMap, error)
 
 	// PrepareIPAllocation is called to calculate the number of IPs that
 	// can be allocated on the node and whether a new network interface
-	// must be attached to the node. Node.mutex will remain locked while
-	// this function is called.
+	// must be attached to the node.
 	PrepareIPAllocation(scopedLog *logrus.Entry) (*AllocationAction, error)
 
 	// AllocateIPs is called after invoking PrepareIPAllocation and needs
@@ -307,39 +302,34 @@ type resyncStats struct {
 }
 
 func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncStats, syncTime time.Time) {
-	node.mutex.Lock()
-
-	if syncTime.After(node.resyncNeeded) {
-		node.loggerLocked().Debug("Resetting resyncNeeded")
-		node.resyncNeeded = time.Time{}
-	}
-
-	node.recalculateLocked()
+	node.updateLastResync(syncTime)
+	node.recalculate()
 	allocationNeeded := node.allocationNeeded()
 	releaseNeeded := node.releaseNeeded()
 	if allocationNeeded || releaseNeeded {
-		node.waitingForPoolMaintenance = true
+		node.requirePoolMaintenance()
 		node.poolMaintainer.Trigger()
 	}
 
+	nodeStats := node.Stats()
+
 	stats.mutex.Lock()
-	stats.totalUsed += node.stats.UsedIPs
-	availableOnNode := node.stats.AvailableIPs - node.stats.UsedIPs
+	stats.totalUsed += nodeStats.UsedIPs
+	availableOnNode := nodeStats.AvailableIPs - nodeStats.UsedIPs
 	stats.totalAvailable += availableOnNode
-	stats.totalNeeded += node.stats.NeededIPs
-	stats.remainingInterfaces += node.stats.RemainingInterfaces
+	stats.totalNeeded += nodeStats.NeededIPs
+	stats.remainingInterfaces += nodeStats.RemainingInterfaces
 	stats.nodes++
 
 	if allocationNeeded {
 		stats.nodesInDeficit++
 	}
 
-	if node.stats.RemainingInterfaces == 0 && availableOnNode == 0 {
+	if nodeStats.RemainingInterfaces == 0 && availableOnNode == 0 {
 		stats.nodesAtCapacity++
 	}
 
 	stats.mutex.Unlock()
-	node.mutex.Unlock()
 
 	node.k8sSync.Trigger()
 }
