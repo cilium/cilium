@@ -40,9 +40,7 @@ assignees: ''
 
 ## Post-release
 
-- [ ] Prepare post-release changes to master branch
-  - [ ] Update [Stable releases] section of the README
-  - [ ] Update the project pointers in `.github/cilium-actions.yml`
+- [ ] Prepare post-release changes to master branch using `contrib/release/bump-readme.sh`
 - [ ] Update the `stable` tags for each Cilium image on Docker Hub (if applicable)
 - [ ] Update external tools and guides to point to the new Cilium version:
   - [ ] [kops]
