@@ -107,7 +107,22 @@ func (g *PoolGroupAllocator) AllocateMany(poolID types.PoolID, num int) ([]net.I
 
 // Allocate allocates a paritcular IP in a particular pool
 func (g *PoolGroupAllocator) Allocate(poolID types.PoolID, ip net.IP) error {
-	allocator := g.getAllocator(poolID)
+	var allocator *PoolAllocator
+
+	switch poolID {
+	case types.PoolUnspec:
+		g.mutex.RLock()
+		for _, a := range g.allocators {
+			if a.AllocationCIDR.IPNet.Contains(ip) {
+				allocator = a
+				break
+			}
+		}
+		g.mutex.RUnlock()
+	default:
+		allocator = g.getAllocator(poolID)
+	}
+
 	if allocator == nil {
 		return errPoolNotExists
 	}

@@ -26,8 +26,9 @@ import (
 
 // PoolAllocator is an IP allocator allocating out of a particular CIDR pool
 type PoolAllocator struct {
-	PoolID    types.PoolID
-	allocator *ipallocator.Range
+	PoolID         types.PoolID
+	AllocationCIDR *cidr.CIDR
+	allocator      *ipallocator.Range
 }
 
 // NewPoolAllocator returns a new Allocator
@@ -37,7 +38,7 @@ func NewPoolAllocator(poolID types.PoolID, allocationCIDR *cidr.CIDR) (*PoolAllo
 		return nil, fmt.Errorf("unable to create IP allocator: %s", err)
 	}
 
-	return &PoolAllocator{PoolID: poolID, allocator: allocator}, nil
+	return &PoolAllocator{PoolID: poolID, allocator: allocator, AllocationCIDR: allocationCIDR}, nil
 }
 
 // Free returns the number of available IPs for allocation

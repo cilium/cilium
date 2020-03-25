@@ -171,6 +171,9 @@ type VirtualNetworkMap map[string]*VirtualNetwork
 // PoolNotExists indicate that no such pool ID exists
 const PoolNotExists = PoolID("")
 
+// PoolUnspec indicates that the pool ID is unspecified
+const PoolUnspec = PoolNotExists
+
 // PoolID is the type used to identify an IPAM pool
 type PoolID string
 
