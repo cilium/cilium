@@ -49,6 +49,16 @@ pipeline {
     }
 
     stages {
+        stage('Set build name') {
+            when {
+                not {environment name: 'GIT_BRANCH', value: 'origin/master'}
+            }
+            steps {
+                   script {
+                       currentBuild.displayName = env.getProperty('ghprbPullTitle') + '  ' + env.getProperty('ghprbPullLink') + '  ' + currentBuild.displayName
+                   }
+            }
+        }
         stage('Checkout') {
             options {
                 timeout(time: 20, unit: 'MINUTES')
