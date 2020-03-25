@@ -308,8 +308,20 @@ func (n *Node) UpdatedResource(resource *v2.CiliumNode) bool {
 	return allocationNeeded
 }
 
+func (n *Node) resourceAttached() (attached bool) {
+	n.mutex.RLock()
+	attached = n.resource != nil
+	n.mutex.RUnlock()
+	return
+}
+
 func (n *Node) recalculate() {
+	// Skip any recalculation if the CiliumNode resource does not exist yet
+	if !n.resourceAttached() {
+		return
+	}
 	scopedLog := n.logger()
+
 	a, err := n.ops.ResyncInterfacesAndIPs(context.TODO(), scopedLog)
 
 	n.mutex.Lock()
@@ -324,9 +336,7 @@ func (n *Node) recalculate() {
 	}
 
 	n.available = a
-	if n.resource != nil {
-		n.stats.UsedIPs = len(n.resource.Status.IPAM.Used)
-	}
+	n.stats.UsedIPs = len(n.resource.Status.IPAM.Used)
 	n.stats.AvailableIPs = len(n.available)
 	n.stats.NeededIPs = calculateNeededIPs(n.stats.AvailableIPs, n.stats.UsedIPs, n.getPreAllocate(), n.getMinAllocate())
 	n.stats.ExcessIPs = calculateExcessIPs(n.stats.AvailableIPs, n.stats.UsedIPs, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAboveWatermark())
