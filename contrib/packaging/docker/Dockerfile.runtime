@@ -17,7 +17,8 @@ apt-get install -y --no-install-recommends \
 # Additional misc runtime dependencies
     iptables kmod ca-certificates && \
 apt-get purge --auto-remove && \
-apt-get clean
+apt-get clean && \
+rm -rf /var/lib/apt/lists/*
 
 #
 # Build Cilium runtime dependencies.
@@ -89,7 +90,8 @@ apt-get purge --auto-remove -y \
   python3 \
 # Additional clang/llvm dependencies
   cmake ninja-build && \
-apt-get clean
+apt-get clean && \
+rm -rf /var/lib/apt/lists/*
 
 #
 # Go-based tools we need at runtime
