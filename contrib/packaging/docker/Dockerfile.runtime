@@ -142,9 +142,7 @@ strip /go/bin/gops
 FROM runtime-base
 LABEL maintainer="maintainer@cilium.io"
 WORKDIR /bin
-COPY --from=runtime-build /tmp/iproute2/tc/tc /tmp/iproute2/ip/ip ./
-COPY --from=runtime-build /tmp/linux/tools/bpf/bpftool/bpftool ./
-COPY --from=runtime-build /tmp/llvm/llvm/build/bin/clang /tmp/llvm/llvm/build/bin/llc ./
+COPY --from=runtime-build /tmp/iproute2/tc/tc /tmp/iproute2/ip/ip /tmp/linux/tools/bpf/bpftool/bpftool /tmp/llvm/llvm/build/bin/clang /tmp/llvm/llvm/build/bin/llc ./
 COPY --from=runtime-gobuild /go/bin/gops ./
 WORKDIR /cni
 COPY --from=runtime-build /tmp/loopback ./
