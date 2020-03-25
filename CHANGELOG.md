@@ -1,5 +1,29 @@
 # Changelog
 
+# v1.6.8
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add option to retrieve pprof traces from running cilium-agents (Backport PR #10684, Upstream PR #10666, @aanm)
+* Update k8s libraries to 1.16.8 (#10662, @aanm)
+
+**Bugfixes:**
+* Fix issue where lxc_config.h header disappears after some regenerations (Backport PR #10640, Upstream PR #10630, @joestringer)
+* kubernetes: do not set enable-endpoint-health-checking=false with portmap (Backport PR #10684, Upstream PR #10566, @soumynathan)
+* policy: Keep NameManager locked during SelectorCache operations (Backport PR #10532, Upstream PR #10501, @jrajahalme)
+
+**CI Changes:**
+* [CI] Replace jenkinsfiles with symlinks (Backport PR #10460, Upstream PR #10262, @nebril)
+* test: Fix possible race in waitForNPods helper function (Backport PR #10499, Upstream PR #10481, @brb)
+* update: fix preflight step in upgrade test (#10472, @aanm)
+
+**Misc Changes:**
+* Adds details about required kernel versions above 4.9.17, supported OS update (Backport PR #10684, Upstream PR #10537, @seanmwinn)
+* Istio integration has been updated to Istio release 1.4.6 (#10469, @jrajahalme)
+* test: Avoid using global map for Cilium configuration (Backport PR #10460, Upstream PR #10388, @brb)
+
 # v1.6.7
 
 Summary of Changes
