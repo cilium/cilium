@@ -41,6 +41,7 @@ contribute to Cilium:
 + python3-pip                                                                      | latest                      | N/A (OS-specific)                                                             |
 +----------------------------------------------------------------------------------+-----------------------------+-------------------------------------------------------------------------------+
 
+For `unit_testing`, you will need to run ``docker`` without privileges. You can usually achieve this by adding your current user to the ``docker`` group.
 
 To build the documentation, you will need to install its dependencies:
 
