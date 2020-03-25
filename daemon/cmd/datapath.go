@@ -302,13 +302,14 @@ func (d *Daemon) initMaps() error {
 		return nil
 	}
 
-	// Delete old proxymaps if left over from an upgrade.
-	// TODO: Remove this code when Cilium 1.6 is the oldest supported release
-	for _, name := range []string{"cilium_proxy4", "cilium_proxy6"} {
+	// Delete old maps if left over from an upgrade.
+	// TODO: Remove proxymaps when Cilium 1.6 is the oldest supported release.
+	// TODO: Remove policy map when Cilium 1.8 is the oldest supported release.
+	for _, name := range []string{"cilium_proxy4", "cilium_proxy6", "cilium_policy"} {
 		path := bpf.MapPath(name)
 		if _, err := os.Stat(path); err == nil {
 			if err = os.RemoveAll(path); err == nil {
-				log.Infof("removed legacy proxymap file %s", path)
+				log.Infof("removed legacy map file %s", path)
 			}
 		}
 	}
