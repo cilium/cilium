@@ -34,6 +34,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// DefaultOptions to include in the server. Other packages may extend this
+// in their init() function.
+var DefaultOptions []serveroption.Option
+
 // GRPCServer defines the interface for Hubble gRPC server, extending the
 // auto-generated ObserverServer interface from the protobuf definition.
 type GRPCServer interface {
@@ -87,6 +91,7 @@ func NewLocalServer(
 	options ...serveroption.Option,
 ) (*LocalObserverServer, error) {
 	opts := serveroption.Default // start with defaults
+	options = append(options, DefaultOptions...)
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {
 			return nil, fmt.Errorf("failed to apply option: %v", err)
@@ -108,12 +113,34 @@ func NewLocalServer(
 		opts:          opts,
 	}
 
+	for _, f := range s.opts.OnServerInit {
+		err := f.OnServerInit(s)
+		if err != nil {
+			s.log.WithError(err).Error("failed in OnServerInit")
+			return nil, err
+		}
+	}
+
 	return s, nil
 }
 
 // Start implements GRPCServer.Start.
 func (s *LocalObserverServer) Start() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+nextEvent:
 	for pl := range s.GetEventsChannel() {
+		for _, f := range s.opts.OnMonitorEvent {
+			stop, err := f.OnMonitorEvent(ctx, pl)
+			if err != nil {
+				s.log.WithError(err).WithField("data", pl.Data).Info("failed in OnMonitorEvent")
+			}
+			if stop {
+				continue nextEvent
+			}
+		}
+
 		flow, err := decodeFlow(s.payloadParser, pl)
 		if err != nil {
 			if !errors.IsErrInvalidType(err) {
@@ -122,7 +149,19 @@ func (s *LocalObserverServer) Start() {
 			continue
 		}
 
+		for _, f := range s.opts.OnDecodedFlow {
+			stop, err := f.OnDecodedFlow(ctx, flow)
+			if err != nil {
+				s.log.WithError(err).WithField("data", pl.Data).Info("failed in OnDecodedFlow")
+			}
+			if stop {
+				continue nextEvent
+			}
+		}
+
+		// FIXME: Convert metrics into an OnDecodedFlow function
 		metrics.ProcessFlow(flow)
+
 		s.GetRingBuffer().Write(&v1.Event{
 			Timestamp: pl.Time,
 			Event:     flow,
@@ -159,6 +198,11 @@ func (s *LocalObserverServer) GetStopped() chan struct{} {
 // GetPayloadParser implements GRPCServer.GetPayloadParser.
 func (s *LocalObserverServer) GetPayloadParser() *parser.Parser {
 	return s.payloadParser
+}
+
+// GetOptions implements serveroptions.Server.GetOptions.
+func (s *LocalObserverServer) GetOptions() serveroption.Options {
+	return s.opts
 }
 
 // ServerStatus should have a comment, apparently. It returns the server status.

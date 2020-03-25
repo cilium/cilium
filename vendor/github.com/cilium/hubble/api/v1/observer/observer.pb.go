@@ -134,6 +134,16 @@ const Verdict_VERDICT_UNKNOWN = Verdict(flow.Verdict_VERDICT_UNKNOWN)
 const Verdict_FORWARDED = Verdict(flow.Verdict_FORWARDED)
 const Verdict_DROPPED = Verdict(flow.Verdict_DROPPED)
 
+// TrafficDirection from public import flow/flow.proto
+type TrafficDirection = flow.TrafficDirection
+
+var TrafficDirection_name = flow.TrafficDirection_name
+var TrafficDirection_value = flow.TrafficDirection_value
+
+const TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN = TrafficDirection(flow.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN)
+const TrafficDirection_INGRESS = TrafficDirection(flow.TrafficDirection_INGRESS)
+const TrafficDirection_EGRESS = TrafficDirection(flow.TrafficDirection_EGRESS)
+
 // EventType from public import flow/flow.proto
 type EventType = flow.EventType
 

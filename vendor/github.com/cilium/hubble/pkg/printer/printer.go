@@ -25,6 +25,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	pb "github.com/cilium/hubble/api/v1/flow"
 	v1 "github.com/cilium/hubble/pkg/api/v1"
@@ -152,9 +153,6 @@ func getTimestamp(f v1.Flow) string {
 
 // GetFlowType returns the type of a flow as a string.
 func GetFlowType(f v1.Flow) string {
-	if f == nil || f.GetEventType() == nil {
-		return "UNKNOWN"
-	}
 	if l7 := f.GetL7(); l7 != nil {
 		l7Protocol := "l7"
 		l7Type := strings.ToLower(l7.Type.String())
@@ -168,10 +166,33 @@ func GetFlowType(f v1.Flow) string {
 		}
 		return l7Protocol + "-" + l7Type
 	}
-	if f.GetVerdict() == pb.Verdict_DROPPED {
-		return api.DropReason(uint8(f.GetEventType().SubType))
+
+	switch f.GetEventType().GetType() {
+	case api.MessageTypeTrace:
+		return api.TraceObservationPoint(uint8(f.GetEventType().GetSubType()))
+	case api.MessageTypeDrop:
+		return api.DropReason(uint8(f.GetEventType().GetSubType()))
+	case api.MessageTypePolicyVerdict:
+		switch f.GetVerdict() {
+		case pb.Verdict_FORWARDED:
+			switch f.GetPolicyMatchType() {
+			case monitor.PolicyMatchL3Only:
+				return "L3-Only"
+			case monitor.PolicyMatchL3L4:
+				return "L3-L4"
+			case monitor.PolicyMatchL4Only:
+				return "L4-Only"
+			case monitor.PolicyMatchAll:
+				return "All"
+			case monitor.PolicyMatchNone:
+				return "None"
+			}
+		case pb.Verdict_DROPPED:
+			return api.DropReason(uint8(f.GetDropReason()))
+		}
 	}
-	return api.TraceObservationPoint(uint8(f.GetEventType().SubType))
+
+	return "UNKNOWN"
 }
 
 // WriteProtoFlow writes v1.Flow into the output writer.

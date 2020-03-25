@@ -32,6 +32,9 @@ type EndpointsHandler interface {
 // EqualsByID compares if the receiver's endpoint has the same ID, PodName and
 // PodNamespace.
 func (e *Endpoint) EqualsByID(o *Endpoint) bool {
+	if o == nil {
+		return false
+	}
 	return (e.ID == o.ID && e.PodName == "" && e.PodNamespace == "") ||
 		e.ID == o.ID &&
 			e.PodName == o.PodName &&

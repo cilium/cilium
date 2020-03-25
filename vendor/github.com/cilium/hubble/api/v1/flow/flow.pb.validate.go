@@ -153,6 +153,10 @@ func (m *Flow) Validate() error {
 		}
 	}
 
+	// no validation rules for TrafficDirection
+
+	// no validation rules for PolicyMatchType
+
 	// no validation rules for Summary
 
 	return nil

@@ -65,9 +65,9 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 
 	eventType := payload.Data[0]
 	switch eventType {
-	case monitorAPI.MessageTypeDrop:
-		fallthrough
-	case monitorAPI.MessageTypeTrace:
+	case monitorAPI.MessageTypeDrop,
+		monitorAPI.MessageTypeTrace,
+		monitorAPI.MessageTypePolicyVerdict:
 		return p.l34.Decode(payload, decoded)
 	case monitorAPI.MessageTypeAccessLog:
 		return p.l7.Decode(payload, decoded)
