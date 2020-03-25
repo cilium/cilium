@@ -71,14 +71,14 @@ func (n *Node) loggerLocked() *logrus.Entry {
 		return log
 	}
 
-	return log.WithField("instanceID", n.k8sObj.InstanceID())
+	return log.WithField("instanceID", n.node.InstanceID())
 }
 
 // PopulateStatusFields fills in the status field of the CiliumNode custom
 // resource with ENI specific information
 func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
 	k8sObj.Status.ENI.ENIs = map[string]eniTypes.ENI{}
-	n.manager.instances.ForeachInterface(n.k8sObj.InstanceID(),
+	n.manager.instances.ForeachInterface(n.node.InstanceID(),
 		func(instanceID, interfaceID string, rev ipamTypes.InterfaceRevision) error {
 			e, ok := rev.Resource.(*eniTypes.ENI)
 			if ok {
@@ -238,7 +238,7 @@ func (n *Node) getSecurityGroupIDs(ctx context.Context) ([]string, error) {
 	}
 
 	var securityGroups []string
-	n.manager.instances.ForeachInterface(n.k8sObj.InstanceID(),
+	n.manager.instances.ForeachInterface(n.node.InstanceID(),
 		func(instanceID, interfaceID string, rev ipamTypes.InterfaceRevision) error {
 			e, ok := rev.Resource.(*eniTypes.ENI)
 			if ok && e.Number == 0 {
@@ -325,7 +325,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 		return 0, errUnableToGetSecurityGroups, fmt.Errorf("%s %s", errUnableToGetSecurityGroups, err)
 	}
 
-	desc := "Cilium-CNI (" + n.k8sObj.InstanceID() + ")"
+	desc := "Cilium-CNI (" + n.node.InstanceID() + ")"
 	// Must allocate secondary ENI IPs as needed, up to ENI instance limit - 1 (reserve 1 for primary IP)
 	toAllocate := math.IntMin(allocation.MaxIPsToAllocate, limits.IPv4-1)
 	// Validate whether request has already been fulfilled in the meantime
@@ -352,7 +352,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 
 	var attachmentID string
 	for attachRetries := 0; attachRetries < maxAttachRetries; attachRetries++ {
-		attachmentID, err = n.manager.api.AttachNetworkInterface(ctx, index, n.k8sObj.InstanceID(), eniID)
+		attachmentID, err = n.manager.api.AttachNetworkInterface(ctx, index, n.node.InstanceID(), eniID)
 
 		// The index is already in use, this can happen if the local
 		// list of ENIs is oudated.  Retry the attachment to avoid
@@ -413,7 +413,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	}
 
 	// Add the information of the created ENI to the instances manager
-	n.manager.UpdateENI(n.k8sObj.InstanceID(), eni)
+	n.manager.UpdateENI(n.node.InstanceID(), eni)
 	return toAllocate, "", nil
 }
 
@@ -426,7 +426,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 	available := ipamTypes.AllocationMap{}
 	n.enis = map[string]eniTypes.ENI{}
 
-	n.manager.instances.ForeachInterface(n.k8sObj.InstanceID(),
+	n.manager.instances.ForeachInterface(n.node.InstanceID(),
 		func(instanceID, interfaceID string, rev ipamTypes.InterfaceRevision) error {
 			e, ok := rev.Resource.(*eniTypes.ENI)
 			if !ok {

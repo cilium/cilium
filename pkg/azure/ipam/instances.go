@@ -63,7 +63,7 @@ func (m *InstancesManager) getAllocator() (allocator allocator.Allocator) {
 
 // CreateNode is called on discovery of a new node
 func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, n *ipam.Node) ipam.NodeOperations {
-	return &Node{k8sObj: obj, manager: m, node: n}
+	return &Node{manager: m, node: n}
 }
 
 // GetPoolQuota returns the number of available IPs in all IP pools
