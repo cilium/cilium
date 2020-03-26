@@ -558,13 +558,28 @@ if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$MODE" = "routed" ] ||
             done
         fi
 
+        COPTS=""
+
+        if [ "$MODE" = "direct" ] && [ "$NODE_PORT" = "true" ] ; then
+            # First device from the list is used for direct routing between nodes
+            DIRECT_ROUTING_DEV=$(echo "${NATIVE_DEVS}" | cut -d, -f1)
+            DIRECT_ROUTING_DEV_IDX=$(cat /sys/class/net/${DIRECT_ROUTING_DEV}/ifindex)
+            COPTS="${COPTS} -DDIRECT_ROUTING_DEV_IFINDEX=${DIRECT_ROUTING_DEV_IDX}"
+	        if [ "$IP4_HOST" != "<nil>" ]; then
+                COPTS="${COPTS} -DIPV4_DIRECT_ROUTING=${v4_addrs[$DIRECT_ROUTING_DEV]}"
+            fi
+	        if [ "$IP6_HOST" != "<nil>" ]; then
+                COPTS="${COPTS} -DIPV6_DIRECT_ROUTING={.addr={${v6_addrs[$DIRECT_ROUTING_DEV]}}}"
+            fi
+        fi
+
 		for NATIVE_DEV in ${NATIVE_DEVS//,/ }; do
-			COPTS="-DSECLABEL=${ID_WORLD}"
+			COPTS="${COPTS} -DSECLABEL=${ID_WORLD}"
 			NATIVE_DEV_IDX=$(cat /sys/class/net/${NATIVE_DEV}/ifindex)
 			CALLS_MAP=cilium_calls_netdev_${NATIVE_DEV_IDX}
 
 			if [ "$NODE_PORT" = "true" ]; then
-				COPTS="${COPTS} -DLB_L3 -DLB_L4 -DNATIVE_DEV_IFINDEX=${NATIVE_DEV_IDX}"
+				COPTS="${COPTS} -DLB_L3 -DLB_L4 -DNATIVE_DEV_IFINDEX=${NATIVE_DEV_IDX} "
 	            if [ "$IP4_HOST" != "<nil>" ]; then
                     COPTS="${COPTS} -DIPV4_NODEPORT=${v4_addrs[$NATIVE_DEV]}"
                 fi
