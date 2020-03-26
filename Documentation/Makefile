@@ -19,11 +19,11 @@ DOCKER_RUN := docker container run --rm \
 
 update-cmdref: builder-image
 	@$(ECHO_GEN)cmdref
-	-$(QUIET)rm -rvf cmdref/cilium*.md
+	-$(QUIET)rm -rf cmdref/cilium*.md
 	$(QUIET)$(DOCKER_RUN) ./update-cmdref.sh
 
 check-cmdref: builder-image update-cmdref
-	@$(ECHO_CHECK)cmdref
+	@$(ECHO_CHECK) cmdref
 	$(QUIET)$(DOCKER_RUN) ./check-cmdref.sh
 
 ifeq ($(V),0)
