@@ -124,8 +124,10 @@ DEFINE_IPV6(SNAT_IPV6_EXTERNAL, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0
 #ifdef ENABLE_NODEPORT
 #ifdef ENABLE_IPV4
 #define NODEPORT_NEIGH4 test_cilium_neigh4
+#define IPV4_NODEPORT 0x10203040
 #endif
 #ifdef ENABLE_IPV6
 #define NODEPORT_NEIGH6 test_cilium_neigh6
+DEFINE_IPV6(IPV6_NODEPORT, 0xbe, 0xef, 0, 0, 0, 0, 0, 0x1, 0, 0, 0, 0x1, 0x01, 0x65, 0x82, 0xbc);
 #endif
 #endif

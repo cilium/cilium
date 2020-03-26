@@ -607,7 +607,7 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 
 static __always_inline int do_netdev(struct __ctx_buff *ctx, __u16 proto)
 {
-	__u32 identity = 0;
+	__u32 __maybe_unused identity = 0;
 	int ret;
 
 #ifdef ENABLE_IPSEC

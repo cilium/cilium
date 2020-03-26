@@ -73,7 +73,7 @@ struct dsr_opt_v6 {
 };
 #endif /* ENABLE_IPV6 */
 
-static __always_inline bool nodeport_uses_dsr(__u8 nexthdr)
+static __always_inline bool nodeport_uses_dsr(__u8 nexthdr __maybe_unused)
 {
 # if defined(ENABLE_DSR) && !defined(ENABLE_DSR_HYBRID)
 	return true;
@@ -478,8 +478,8 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	}
 
 	if (!svc || (!lb6_svc_is_external_ip(svc) &&
-		     !lb6_svc_is_nodeport(svc)) &&
-		     !lb6_svc_is_hostport(svc)) {
+		     !lb6_svc_is_nodeport(svc) &&
+		     !lb6_svc_is_hostport(svc))) {
 		if (svc)
 			return DROP_IS_CLUSTER_IP;
 
@@ -1036,8 +1036,8 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	}
 
 	if (!svc || (!lb4_svc_is_external_ip(svc) &&
-		     !lb4_svc_is_nodeport(svc)) &&
-		     !lb4_svc_is_hostport(svc)) {
+		     !lb4_svc_is_nodeport(svc) &&
+		     !lb4_svc_is_hostport(svc))) {
 		if (svc)
 			return DROP_IS_CLUSTER_IP;
 
