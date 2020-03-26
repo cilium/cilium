@@ -28,6 +28,14 @@ spec:
           value: kafka-service
         - name: ADVERTISED_PORT
           value: "9092"
+        - name: CONSUMER_THREADS
+          value: "1"
+        - name: ZK_CONNECT
+          value: "zk.connect=localhost:2181/root/path"
+        - name: GROUP_ID
+          value: "groupid=test"
+        - name: TOPICS
+          value: "empire-announce,deathstar-plans,test-topic"
         livenessProbe:
           tcpSocket:
             port: 9092
