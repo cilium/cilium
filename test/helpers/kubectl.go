@@ -175,7 +175,7 @@ func (kub *Kubectl) GetNumNodes() int {
 // leads to TopicAuthorizationException or any other error. Hence the
 // function needs to also take into account the stderr messages returned.
 func (kub *Kubectl) ExecKafkaPodCmd(namespace string, pod string, arg string) error {
-	command := fmt.Sprintf("%s exec -n %s %s sh -- %s", KubectlCmd, namespace, pod, arg)
+	command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, pod, arg)
 	res := kub.Exec(command)
 	if !res.WasSuccessful() {
 		return fmt.Errorf("ExecKafkaPodCmd: command '%s' failed %s",
