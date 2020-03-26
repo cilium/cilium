@@ -603,14 +603,16 @@ create_k8s_config
 
 cd "${dir}/../.."
 
+PROVISION_ARGS=""
+if [ -n "${NO_PROVISION}" ]; then
+    PROVISION_ARGS="--no-provision"
+fi
 if [ -n "${RELOAD}" ]; then
-    vagrant reload
-elif [ -n "${NO_PROVISION}" ]; then
-    vagrant up --no-provision
+    vagrant reload $PROVISION_ARGS
 elif [ -n "${PROVISION}" ]; then
     vagrant provision
 else
-    vagrant up
+    vagrant up $PROVISION_ARGS
     if [ "$?" -eq "0" -a -n "${K8S}" ]; then
         host_port=$(vagrant port --guest 6443)
         vagrant ssh k8s1 -- cat /home/vagrant/.kube/config | sed "s;server:.*:6443;server: https://k8s1:$host_port;g" > vagrant.kubeconfig
