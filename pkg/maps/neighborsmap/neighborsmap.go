@@ -49,6 +49,7 @@ type Key6 struct {
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type Value struct {
 	macaddr types.MACAddr
+	pad     uint16
 }
 
 // GetKeyPtr returns the unsafe pointer to the BPF key
