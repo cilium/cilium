@@ -34,7 +34,7 @@ func (ds *PolicyTestSuite) TestGenerateL7RulesByParser(c *C) {
 	c.Assert(m, Not(IsNil))
 	c.Assert(len(m), Equals, 1)
 
-	var l7Rules []*PerSelectorPolicy
+	l7Rules := make([]*PerSelectorPolicy, 0, len(m))
 	for _, v := range m {
 		l7Rules = append(l7Rules, v)
 	}

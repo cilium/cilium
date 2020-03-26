@@ -237,7 +237,7 @@ func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
 
 func (m *ManagerTestSuite) TestGetServiceNameByAddr(c *C) {
 	fe := frontend1.DeepCopy()
-	var be []lb.Backend
+	be := make([]lb.Backend, 0, len(backends1))
 	for _, backend := range backends1 {
 		be = append(be, *backend.DeepCopy())
 	}
