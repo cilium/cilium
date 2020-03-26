@@ -1566,6 +1566,24 @@ func initKubeProxyReplacementOptions() {
 				log.Fatalf("%s link ifindex %d exceeds max(uint16)", iface, idx)
 			}
 		}
+
+		if option.Config.EnableIPv4 &&
+			option.Config.Tunnel == option.TunnelDisabled &&
+			option.Config.NodePortMode != option.NodePortModeSNAT &&
+			len(option.Config.Devices) > 1 {
+
+			iface := option.Config.Devices[0] // direct routing interface
+			if val, err := sysctl.Read(fmt.Sprintf("net.ipv4.conf.%s.rp_filter", iface)); err != nil {
+				log.Warnf("Unable to read net.ipv4.conf.%s.rp_filter: %s. Ignoring the check",
+					iface, err)
+			} else {
+				if val == "1" {
+					log.Warnf(`DSR might not work for requests sent to other than %s device. `+
+						`Run 'sysctl -w net.ipv4.conf.%s.rp_filter=2' on each node to fix`,
+						iface, iface)
+				}
+			}
+		}
 	}
 
 	if option.Config.EnableHostReachableServices {
