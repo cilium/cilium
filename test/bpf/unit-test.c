@@ -10,6 +10,8 @@
 #include "lib/common.h"
 #include "node_config.h"
 
+#define CONNTRACK
+
 #define htonl bpf_htonl
 #define ntohl bpf_ntohl
 
