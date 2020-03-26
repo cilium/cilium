@@ -6,7 +6,7 @@ LINKS=cilium-node-monitor
 SOURCES := $(shell find ../api ../common ../daemon ../pkg . \( -name '*.go'  ! -name '*_test.go' \))
 $(TARGET): $(SOURCES) ../Dockerfile ../Makefile ../Makefile.defs Makefile
 	@$(ECHO_GO)
-	$(QUIET) CGO_ENABLED=0 $(GO) build $(GOBUILD) -o $(TARGET)
+	$(QUIET)$(GO) build $(GOBUILD) -o $(TARGET)
 
 all: $(TARGET) links
 

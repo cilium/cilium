@@ -147,7 +147,7 @@ endif
 	$(QUIET) echo "mode: count" > coverage-all-tmp.out
 	$(QUIET) echo "mode: count" > coverage.out
 	$(QUIET)$(foreach pkg,$(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)),\
-		$(GO) test $(GOFLAGS) $(TEST_UNITTEST_LDFLAGS) $(pkg) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) || exit 1; \
+		$(_GO) test $(GOFLAGS) $(TEST_UNITTEST_LDFLAGS) $(pkg) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) || exit 1; \
 		tail -n +2 coverage.out >> coverage-all-tmp.out;)
 	$(MAKE) generate-cov
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
@@ -359,7 +359,7 @@ gofmt:
 
 govet:
 	@$(ECHO_CHECK) vetting all GOFILES...
-	$(QUIET) $(GOLIST) $(GO) vet \
+	$(QUIET) $(GOLIST) $(_GO) vet \
     ./api/... \
     ./bugtool/... \
     ./cilium/... \
