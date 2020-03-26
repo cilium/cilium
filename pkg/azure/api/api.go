@@ -278,7 +278,7 @@ func (c *Client) GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetwor
 // the interfaceID. The provided IPs must belong to the subnet as specified by
 // the subnet ID.
 func (c *Client) AssignPrivateIpAddresses(ctx context.Context, subnetID, interfaceID string, ips []net.IP) error {
-	var ipConfigurations []network.InterfaceIPConfiguration
+	ipConfigurations := make([]network.InterfaceIPConfiguration, 0, len(ips))
 
 	for _, ip := range ips {
 		ipString := ip.String()

@@ -105,7 +105,7 @@ func DeepAllowUnexported(vs ...interface{}) cmp.Option {
 	for _, v := range vs {
 		structTypes(reflect.ValueOf(v), m)
 	}
-	var typs []interface{}
+	typs := make([]interface{}, 0, len(m))
 	for t := range m {
 		typs = append(typs, reflect.New(t).Elem().Interface())
 	}

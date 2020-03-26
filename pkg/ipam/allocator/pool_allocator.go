@@ -54,7 +54,7 @@ func (s *PoolAllocator) Allocate(ip net.IP) error {
 // AllocateMany allocates multiple IP addresses. The operation succeeds if all
 // IPs can be allocated. On failure, all IPs are released again.
 func (s *PoolAllocator) AllocateMany(num int) ([]net.IP, error) {
-	var ips []net.IP
+	ips := make([]net.IP, 0, num)
 
 	for i := 0; i < num; i++ {
 		ip, err := s.allocator.AllocateNext()

@@ -617,7 +617,7 @@ func genCartesianProduct(
 	bes *k8s.Endpoints,
 ) []loadbalancer.SVC {
 
-	var svcs []loadbalancer.SVC
+	svcs := make([]loadbalancer.SVC, 0, len(ports))
 
 	for fePortName, fePort := range ports {
 		var besValues []loadbalancer.Backend

@@ -64,15 +64,12 @@ func (n *NameManager) GetModel() *models.NameManager {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
 
-	var (
-		namesToPoll  []string
-		allSelectors []*models.SelectorEntry
-	)
-
+	namesToPoll := make([]string, 0, len(n.namesToPoll))
 	for name := range n.namesToPoll {
 		namesToPoll = append(namesToPoll, name)
 	}
 
+	allSelectors := make([]*models.SelectorEntry, 0, len(n.allSelectors))
 	for fqdnSel, regex := range n.allSelectors {
 		pair := &models.SelectorEntry{
 			SelectorString: fqdnSel.String(),
