@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 
 	. "gopkg.in/check.v1"
@@ -45,6 +46,7 @@ var (
 	dummyDevCfg   = testutils.NewTestEndpoint()
 	dummyEPCfg    = testutils.NewTestEndpoint()
 	ipv4DummyAddr = []byte{192, 0, 2, 3}
+	ipv6DummyAddr = []byte{0x20, 0x01, 0xdb, 0x8, 0x0b, 0xad, 0xca, 0xfe, 0x60, 0x0d, 0xbe, 0xe2, 0x0b, 0xad, 0xca, 0xfe}
 )
 
 func (s *ConfigSuite) SetUpTest(c *C) {
@@ -108,6 +110,97 @@ func (s *ConfigSuite) TestWriteEndpointConfig(c *C) {
 	writeConfig(c, "endpoint", func(w io.Writer, dp datapath.ConfigWriter) error {
 		return dp.WriteEndpointConfig(w, &dummyEPCfg)
 	})
+
+	// Create copy of config option so that it can be restored at the end of
+	// this test. In the future, we'd like to parallelize running unit tests.
+	// As it stands, this test would not be ready to parallelize until we
+	// remove our dependency on globals (e.g. option.Config).
+	oldEnableIPv6 := option.Config.EnableIPv6
+	defer func() {
+		option.Config.EnableIPv6 = oldEnableIPv6
+	}()
+
+	testRun := func(t *testutils.TestEndpoint) ([]byte, map[string]uint32, map[string]string) {
+		cfg := &HeaderfileWriter{}
+		varSub, stringSub := loader.ELFSubstitutions(t)
+
+		var buf bytes.Buffer
+		cfg.writeStaticData(&buf, t)
+
+		return buf.Bytes(), varSub, stringSub
+	}
+
+	lxcIPs := []string{"LXC_IP_1", "LXC_IP_2", "LXC_IP_3", "LXC_IP_4"}
+
+	tests := []struct {
+		description string
+		template    testutils.TestEndpoint // Represents template bpf prog
+		endpoint    testutils.TestEndpoint // Represents normal endpoint bpf prog
+		preTestRun  func(t *testutils.TestEndpoint, e *testutils.TestEndpoint)
+		templateExp bool
+		endpointExp bool
+	}{
+		{
+			description: "IPv6 is disabled, endpoint does not have an IPv6 addr",
+			template:    testutils.NewTestEndpoint(),
+			endpoint:    testutils.NewTestEndpoint(),
+			preTestRun: func(t *testutils.TestEndpoint, e *testutils.TestEndpoint) {
+				option.Config.EnableIPv6 = false
+				t.IPv6 = ipv6DummyAddr // Template bpf prog always has dummy IPv6
+				e.IPv6 = nil           // This endpoint does not have an IPv6 addr
+			},
+			templateExp: true,
+			endpointExp: false,
+		},
+		{
+			description: "IPv6 is disabled, endpoint does have an IPv6 addr",
+			template:    testutils.NewTestEndpoint(),
+			endpoint:    testutils.NewTestEndpoint(),
+			preTestRun: func(t *testutils.TestEndpoint, e *testutils.TestEndpoint) {
+				option.Config.EnableIPv6 = false
+				t.IPv6 = ipv6DummyAddr // Template bpf prog always has dummy IPv6
+				e.IPv6 = ipv6DummyAddr // This endpoint does have an IPv6 addr
+			},
+			templateExp: true,
+			endpointExp: true,
+		},
+		{
+			description: "IPv6 is enabled",
+			template:    testutils.NewTestEndpoint(),
+			endpoint:    testutils.NewTestEndpoint(),
+			preTestRun: func(t *testutils.TestEndpoint, e *testutils.TestEndpoint) {
+				option.Config.EnableIPv6 = true
+				t.IPv6 = ipv6DummyAddr
+				e.IPv6 = ipv6DummyAddr
+			},
+			templateExp: true,
+			endpointExp: true,
+		},
+		{
+			description: "IPv6 is enabled, endpoint does not have IPv6 address",
+			template:    testutils.NewTestEndpoint(),
+			endpoint:    testutils.NewTestEndpoint(),
+			preTestRun: func(t *testutils.TestEndpoint, e *testutils.TestEndpoint) {
+				option.Config.EnableIPv6 = true
+				t.IPv6 = ipv6DummyAddr
+				e.IPv6 = nil
+			},
+			templateExp: true,
+			endpointExp: false,
+		},
+	}
+	for _, test := range tests {
+		c.Logf("Testing %s", test.description)
+		test.preTestRun(&test.template, &test.endpoint)
+
+		b, vsub, _ := testRun(&test.template)
+		c.Assert(bytes.Contains(b, []byte("DEFINE_IPV6")), Equals, test.templateExp)
+		assertKeysInsideMap(c, vsub, lxcIPs, test.templateExp)
+
+		b, vsub, _ = testRun(&test.endpoint)
+		c.Assert(bytes.Contains(b, []byte("DEFINE_IPV6")), Equals, test.endpointExp)
+		assertKeysInsideMap(c, vsub, lxcIPs, test.endpointExp)
+	}
 }
 
 func (s *ConfigSuite) TestWriteStaticData(c *C) {
@@ -138,5 +231,12 @@ func (s *ConfigSuite) TestWriteStaticData(c *C) {
 			continue
 		}
 		c.Assert(bytes.Contains(b, []byte(v)), Equals, true)
+	}
+}
+
+func assertKeysInsideMap(c *C, m map[string]uint32, keys []string, want bool) {
+	for _, v := range keys {
+		_, ok := m[v]
+		c.Assert(ok, Equals, want)
 	}
 }
