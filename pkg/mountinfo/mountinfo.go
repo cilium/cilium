@@ -110,6 +110,10 @@ func parseMountInfoFile(r io.Reader) ([]*MountInfo, error) {
 		})
 	}
 
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
 	return result, nil
 }
 
