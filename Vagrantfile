@@ -48,6 +48,8 @@ echo "getting status of systemd-journald"
 sudo service systemd-journald status
 echo "done configuring journald"
 
+pip3 install -r ~/go/src/github.com/cilium/cilium/Documentation/requirements.txt
+
 sudo service docker restart
 echo 'cd ~/go/src/github.com/cilium/cilium' >> /home/vagrant/.bashrc
 sudo chown -R vagrant:vagrant /home/vagrant 2>/dev/null || true
@@ -61,8 +63,6 @@ $build = <<SCRIPT
 set -o errexit
 set -o nounset
 set -o pipefail
-
-pip3 install -r ~/go/src/github.com/cilium/cilium/Documentation/requirements.txt
 
 export PATH=/home/vagrant/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
 #{$makeclean}
