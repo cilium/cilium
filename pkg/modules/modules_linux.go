@@ -49,6 +49,10 @@ func parseModulesFile(r io.Reader) ([]string, error) {
 		result = append(result, moduleInfoSeparated[0])
 	}
 
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
 	return result, nil
 }
 
