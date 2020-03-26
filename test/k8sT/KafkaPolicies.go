@@ -46,12 +46,12 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 		topicDeathstarPlans = "deathstar-plans"
 		topicTest           = "test-topic"
 
-		prodHqAnnounce    = `-c "echo 'Happy 40th Birthday to General Tagge' | ./kafka-produce.sh --topic empire-announce"`
-		conOutpostAnnoune = `-c "./kafka-consume.sh --topic empire-announce --from-beginning --max-messages 1"`
-		prodHqDeathStar   = `-c "echo 'deathstar reactor design v3' | ./kafka-produce.sh --topic deathstar-plans"`
-		conOutDeathStar   = `-c "./kafka-consume.sh --topic deathstar-plans --from-beginning --max-messages 1"`
-		prodBackAnnounce  = `-c "echo 'Happy 40th Birthday to General Tagge' | ./kafka-produce.sh --topic empire-announce"`
-		prodOutAnnounce   = `-c "echo 'Vader Booed at Empire Karaoke Party' | ./kafka-produce.sh --topic empire-announce"`
+		prodHqAnnounce    = `sh -c "echo 'Happy 40th Birthday to General Tagge' | ./kafka-produce.sh --topic empire-announce"`
+		conOutpostAnnoune = `sh -c "./kafka-consume.sh --topic empire-announce --from-beginning --max-messages 1"`
+		prodHqDeathStar   = `sh -c "echo 'deathstar reactor design v3' | ./kafka-produce.sh --topic deathstar-plans"`
+		conOutDeathStar   = `sh -c "./kafka-consume.sh --topic deathstar-plans --from-beginning --max-messages 1"`
+		prodBackAnnounce  = `sh -c "echo 'Happy 40th Birthday to General Tagge' | ./kafka-produce.sh --topic empire-announce"`
+		prodOutAnnounce   = `sh -c "echo 'Vader Booed at Empire Karaoke Party' | ./kafka-produce.sh --topic empire-announce"`
 	)
 
 	AfterFailed(func() {
