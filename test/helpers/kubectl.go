@@ -896,7 +896,7 @@ func (kub *Kubectl) GetPods(namespace string, filter string) *CmdRes {
 // returns an error if pods cannot be retrieved correctly
 func (kub *Kubectl) GetPodsNodes(namespace string, filter string) (map[string]string, error) {
 	jsonFilter := `{range .items[*]}{@.metadata.name}{"="}{@.spec.nodeName}{"\n"}{end}`
-	res := kub.Exec(fmt.Sprintf("%s -n %s get pods %s -o jsonpath='%s'",
+	res := kub.Exec(fmt.Sprintf("%s -n %s get pods -l '%s' -o jsonpath='%s'",
 		KubectlCmd, namespace, filter, jsonFilter))
 	if !res.WasSuccessful() {
 		return nil, fmt.Errorf("cannot retrieve pods: %s", res.CombineOutput())
@@ -914,7 +914,7 @@ func (kub *Kubectl) GetPodOnNodeLabeledWithOffset(label string, podFilter string
 
 	var podName string
 
-	podsNodes, err := kub.GetPodsNodes(DefaultNamespace, fmt.Sprintf("-l %s", podFilter))
+	podsNodes, err := kub.GetPodsNodes(DefaultNamespace, fmt.Sprintf("%s", podFilter))
 	gomega.ExpectWithOffset(callOffset, err).Should(gomega.BeNil(), "Cannot retrieve pods nodes with filter %q", podFilter)
 	gomega.Expect(podsNodes).ShouldNot(gomega.BeEmpty(), "No pod found in namespace %s with filter %q", DefaultNamespace, podFilter)
 	for pod, node := range podsNodes {
