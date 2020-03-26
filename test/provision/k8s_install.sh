@@ -407,6 +407,21 @@ else
     sudo systemctl stop etcd
 fi
 
+# Add aliases and bash completion for kubectl
+cat <<EOF >> /home/vagrant/.bashrc
+
+# kubectl
+source <(kubectl completion bash)
+alias k='kubectl'
+complete -F __start_kubectl k
+alias ks='kubectl -n kube-system'
+complete -F __start_kubectl ks
+cilium_pod() {
+    kubectl -n kube-system get pods -l k8s-app=cilium \
+            -o jsonpath="{.items[?(@.spec.nodeName == \"\$1\")].metadata.name}"
+}
+EOF
+
 # Create world network
 docker network create --subnet=192.168.9.0/24 outside
 docker run --net outside --ip 192.168.9.10 --restart=always -d docker.io/cilium/demo-httpd:latest
