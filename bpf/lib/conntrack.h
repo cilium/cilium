@@ -827,57 +827,70 @@ static __always_inline int ct_create4(const void *map_main, const void *map_rela
 	return 0;
 }
 #else /* !CONNTRACK */
-static __always_inline int ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
-				      struct __ctx_buff *ctx, int off, int dir,
-				      struct ct_state *ct_state, __u32 *monitor)
+static __always_inline int
+ct_lookup6(void *map __maybe_unused, struct ipv6_ct_tuple *tuple __maybe_unused,
+	   struct __ctx_buff *ctx __maybe_unused, int off __maybe_unused,
+	   int dir __maybe_unused, struct ct_state *ct_state __maybe_unused,
+	   __u32 *monitor __maybe_unused)
 {
 	return 0;
 }
 
-static __always_inline int ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
-				      struct __ctx_buff *ctx, int off, int dir,
-				      struct ct_state *ct_state, __u32 *monitor)
+static __always_inline int
+ct_lookup4(void *map __maybe_unused, struct ipv4_ct_tuple *tuple __maybe_unused,
+	   struct __ctx_buff *ctx __maybe_unused, int off __maybe_unused,
+	   int dir __maybe_unused, struct ct_state *ct_state __maybe_unused,
+	   __u32 *monitor __maybe_unused)
 {
 	return 0;
 }
 
-static __always_inline void ct_update6_backend_id(void *map,
-						  struct ipv6_ct_tuple *tuple,
-						  struct ct_state *state)
+static __always_inline void
+ct_update6_backend_id(void *map __maybe_unused,
+		      struct ipv6_ct_tuple *tuple __maybe_unused,
+		      struct ct_state *state __maybe_unused)
 {
 }
 
 static __always_inline void
-ct_update6_rev_nat_index(void *map, struct ipv6_ct_tuple *tuple,
-			 struct ct_state *state)
+ct_update6_rev_nat_index(void *map __maybe_unused,
+			 struct ipv6_ct_tuple *tuple __maybe_unused,
+			 struct ct_state *state __maybe_unused)
 {
 }
 
-static __always_inline int ct_create6(const void *map_main, const void *map_related,
-				      struct ipv6_ct_tuple *tuple,
-				      struct __ctx_buff *ctx, const int dir,
-				      struct ct_state *ct_state,
-				      bool from_proxy)
+static __always_inline int
+ct_create6(const void *map_main __maybe_unused,
+	   const void *map_related __maybe_unused,
+	   struct ipv6_ct_tuple *tuple __maybe_unused,
+	   struct __ctx_buff *ctx __maybe_unused, const int dir __maybe_unused,
+	   struct ct_state *ct_state __maybe_unused,
+	   bool from_proxy __maybe_unused)
 {
 	return 0;
 }
 
-static __always_inline void ct_update4_backend_id(void *map,
-						  struct ipv4_ct_tuple *tuple,
-					          struct ct_state *state)
+static __always_inline void
+ct_update4_backend_id(void *map __maybe_unused,
+		      struct ipv4_ct_tuple *tuple __maybe_unused,
+		      struct ct_state *state __maybe_unused)
 {
 }
 
 static __always_inline void
-ct_update4_rev_nat_index(void *map, struct ipv4_ct_tuple *tuple,
-			 struct ct_state *state)
+ct_update4_rev_nat_index(void *map __maybe_unused,
+			 struct ipv4_ct_tuple *tuple __maybe_unused,
+			 struct ct_state *state __maybe_unused)
 {
 }
 
-static __always_inline int ct_create4(const void *map_main, const void *map_related,
-				      struct ipv4_ct_tuple *tuple,
-				      struct __ctx_buff *ctx, const int dir,
-				      struct ct_state *ct_state, bool from_proxy)
+static __always_inline int
+ct_create4(const void *map_main __maybe_unused,
+	   const void *map_related __maybe_unused,
+	   struct ipv4_ct_tuple *tuple __maybe_unused,
+	   struct __ctx_buff *ctx __maybe_unused, const int dir __maybe_unused,
+	   struct ct_state *ct_state __maybe_unused,
+	   bool from_proxy __maybe_unused)
 {
 	return 0;
 }

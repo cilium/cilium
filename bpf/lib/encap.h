@@ -156,7 +156,8 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
  */
 static __always_inline int
 encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
-			       __u8 key, __u32 seclabel, __u32 monitor)
+			       __u8 key __maybe_unused, __u32 seclabel,
+			       __u32 monitor)
 {
 #ifdef ENABLE_IPSEC
 	if (key)
@@ -177,8 +178,8 @@ encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
  */
 static __always_inline int
 encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
-		       __u8 encrypt_key, struct endpoint_key *key, __u32 seclabel,
-		       __u32 monitor)
+		       __u8 encrypt_key __maybe_unused,
+		       struct endpoint_key *key, __u32 seclabel, __u32 monitor)
 {
 	struct endpoint_key *tunnel;
 

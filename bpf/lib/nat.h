@@ -1030,8 +1030,9 @@ void snat_v6_delete_tuples(struct ipv6_ct_tuple *tuple __maybe_unused)
 #endif
 
 #ifdef CONNTRACK
-static __always_inline __maybe_unused void ct_delete4(void *map, struct ipv4_ct_tuple *tuple,
-						      struct __ctx_buff *ctx)
+static __always_inline __maybe_unused void
+ct_delete4(void *map __maybe_unused, struct ipv4_ct_tuple *tuple __maybe_unused,
+	   struct __ctx_buff *ctx __maybe_unused)
 {
 	int err;
 
@@ -1041,8 +1042,9 @@ static __always_inline __maybe_unused void ct_delete4(void *map, struct ipv4_ct_
 		snat_v4_delete_tuples(tuple);
 }
 
-static __always_inline __maybe_unused void ct_delete6(void *map, struct ipv6_ct_tuple *tuple,
-						      struct __ctx_buff *ctx)
+static __always_inline __maybe_unused void
+ct_delete6(void *map __maybe_unused, struct ipv6_ct_tuple *tuple __maybe_unused,
+	   struct __ctx_buff *ctx __maybe_unused)
 {
 	int err;
 
@@ -1052,18 +1054,21 @@ static __always_inline __maybe_unused void ct_delete6(void *map, struct ipv6_ct_
 		snat_v6_delete_tuples(tuple);
 }
 #else
-static __always_inline __maybe_unused void ct_delete4(void *map, struct ipv4_ct_tuple *tuple,
-						      struct __ctx_buff *ctx)
+static __always_inline __maybe_unused void
+ct_delete4(void *map __maybe_unused, struct ipv4_ct_tuple *tuple __maybe_unused,
+	   struct __ctx_buff *ctx __maybe_unused)
 {
 }
 
-static __always_inline __maybe_unused void ct_delete6(void *map, struct ipv6_ct_tuple *tuple,
-						      struct __ctx_buff *ctx)
+static __always_inline __maybe_unused void
+ct_delete6(void *map __maybe_unused, struct ipv6_ct_tuple *tuple __maybe_unused,
+	   struct __ctx_buff *ctx __maybe_unused)
 {
 }
 #endif
 
-static __always_inline __maybe_unused int snat_process(struct __ctx_buff *ctx, int dir)
+static __always_inline __maybe_unused int
+snat_process(struct __ctx_buff *ctx __maybe_unused, int dir __maybe_unused)
 {
 	int ret = CTX_ACT_OK;
 
