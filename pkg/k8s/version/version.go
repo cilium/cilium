@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,6 +39,10 @@ type ServerCapabilities struct {
 	// MinimalVersionMet is true when the minimal version of Kubernetes
 	// required to run Cilium has been met
 	MinimalVersionMet bool
+
+	// FieldTypeInCRDSchema is set to true if Kubernetes supports having
+	// the field Type set in the CRD Schema.
+	FieldTypeInCRDSchema bool
 }
 
 type cachedVersion struct {
@@ -50,8 +54,9 @@ type cachedVersion struct {
 var (
 	cached = cachedVersion{}
 
-	patchConstraint        = versioncheck.MustCompile(">= 1.13.0")
-	updateStatusConstraint = versioncheck.MustCompile(">= 1.11.0")
+	patchConstraint           = versioncheck.MustCompile(">= 1.13.0")
+	updateStatusConstraint    = versioncheck.MustCompile(">= 1.11.0")
+	isGThanRootTypeConstraint = versioncheck.MustCompile(">= 1.12.0")
 
 	// MinimalVersionConstraint is the minimal version required to run
 	// Cilium
@@ -83,6 +88,7 @@ func updateVersion(version *go_version.Version) {
 	cached.capabilities.Patch = patchConstraint.Check(version) || option.Config.K8sForceJSONPatch
 	cached.capabilities.UpdateStatus = updateStatusConstraint.Check(version)
 	cached.capabilities.MinimalVersionMet = MinimalVersionConstraint.Check(version)
+	cached.capabilities.FieldTypeInCRDSchema = isGThanRootTypeConstraint.Check(version)
 }
 
 // Force forces the use of a specific version
