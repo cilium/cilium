@@ -1111,7 +1111,7 @@ var _ = SkipDescribeIf(func() bool {
 
 			BeforeAll(func() {
 				appPods = helpers.GetAppPods(apps, namespaceForTest, kubectl, "id")
-				podsNodes, err := kubectl.GetPodsNodes(namespaceForTest, "-l id=app1")
+				podsNodes, err := kubectl.GetPodsNodes(namespaceForTest, "id=app1")
 				Expect(err).To(BeNil(), "error getting pod->node mapping")
 				Expect(len(podsNodes)).To(Equal(2))
 				// Just grab the first one.
@@ -1121,7 +1121,7 @@ var _ = SkipDescribeIf(func() bool {
 					break
 				}
 
-				podsNodes, err = kubectl.GetPodsNodes(namespaceForTest, "-l id=app2")
+				podsNodes, err = kubectl.GetPodsNodes(namespaceForTest, "id=app2")
 				Expect(err).To(BeNil(), "error getting pod->node mapping")
 				Expect(len(podsNodes)).To(Equal(1))
 				for k := range podsNodes {
@@ -1894,7 +1894,7 @@ var _ = SkipDescribeIf(func() bool {
 		}
 
 		testConnectivitytoRedis := func() {
-			webPods, err := kubectl.GetPodsNodes(helpers.DefaultNamespace, "-l app=guestbook")
+			webPods, err := kubectl.GetPodsNodes(helpers.DefaultNamespace, "app=guestbook")
 			ExpectWithOffset(1, err).To(BeNil(), "Error retrieving web pods")
 			ExpectWithOffset(1, webPods).ShouldNot(BeEmpty(), "Cannot retrieve web pods")
 

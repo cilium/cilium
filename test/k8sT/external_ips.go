@@ -120,8 +120,8 @@ var _ = skipSuite("K8sKubeProxyFreeMatrix tests", func() {
 
 		podNode1 = getPodName("id=app1")
 		podNode2 = getPodName("id=app3")
-		hostNetworkPodNode1 = getPodNodeName(helpers.K8s1, "-l id=host-client")
-		hostNetworkPodNode2 = getPodNodeName(helpers.K8s2, "-l id=host-client")
+		hostNetworkPodNode1 = getPodNodeName(helpers.K8s1, "id=host-client")
+		hostNetworkPodNode2 = getPodNodeName(helpers.K8s2, "id=host-client")
 
 		// map the public and private ip addresses of k8s1. We need to do this
 		// since the public and private IP addresses are also ephemeral across
