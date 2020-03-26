@@ -207,7 +207,7 @@ func Dissect(dissect bool, data []byte) {
 		defer dissectLock.Unlock()
 
 		initParser()
-		parser.DecodeLayers(data, &cache.decoded)
+		err := parser.DecodeLayers(data, &cache.decoded)
 
 		for _, typ := range cache.decoded {
 			switch typ {
@@ -231,6 +231,9 @@ func Dissect(dissect bool, data []byte) {
 		}
 		if parser.Truncated {
 			fmt.Println("  Packet has been truncated")
+		}
+		if err != nil {
+			fmt.Println("  Failed to decode layer:", err)
 		}
 
 	} else {
