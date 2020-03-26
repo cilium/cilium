@@ -98,6 +98,8 @@ brought up by vagrant:
   default 0.
 * ``RELOAD=1``: Issue a ``vagrant reload`` instead of ``vagrant up``, useful
   to resume halted VMs.
+* ``NO_PROVISION=1``: Avoid provisioning Cilium inside the VM. Supports quick
+  restart without recompiling all of Cilium.
 * ``NFS=1``: Use NFS for vagrant shared directories instead of rsync.
 * ``K8S=1``: Build & install kubernetes on the nodes. ``k8s1`` is the master
   node, which contains both master components: etcd, kube-controller-manager,
