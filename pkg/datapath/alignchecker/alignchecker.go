@@ -21,11 +21,14 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
+	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
+	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 )
@@ -64,6 +67,8 @@ func CheckStructAlignments(path string) error {
 		"ipv4_revnat_entry":    {reflect.TypeOf(lbmap.SockRevNat4Value{})},
 		"ipv6_revnat_tuple":    {reflect.TypeOf(lbmap.SockRevNat6Key{})},
 		"ipv6_revnat_entry":    {reflect.TypeOf(lbmap.SockRevNat6Value{})},
+		"v6addr":               {reflect.TypeOf(neighborsmap.Key6{})},
+		"macaddr":              {reflect.TypeOf(neighborsmap.Value{})},
 		// TODO: alignchecker does not support nested structs yet.
 		// "ipv4_nat_entry":    {reflect.TypeOf(nat.NatEntry4{})},
 		// "ipv6_nat_entry":    {reflect.TypeOf(nat.NatEntry6{})},
@@ -83,10 +88,19 @@ func CheckStructAlignments(path string) error {
 			reflect.TypeOf(lbmap.RevNat4Key{}),
 			reflect.TypeOf(lbmap.RevNat6Key{}),
 		},
+		"__u32": {
+			reflect.TypeOf(signalmap.Key{}),
+			reflect.TypeOf(signalmap.Value{}),
+			reflect.TypeOf(eventsmap.Key{}),
+			reflect.TypeOf(eventsmap.Value{}),
+			reflect.TypeOf(policymap.CallKey{}),
+			reflect.TypeOf(policymap.CallValue{}),
+		},
 		"int": {
 			reflect.TypeOf(sockmap.SockmapValue{}),
 			reflect.TypeOf(eppolicymap.EPPolicyValue{}),
 		},
+		"__be32": {reflect.TypeOf(neighborsmap.Key4{})},
 	}
 	return check.CheckStructAlignments(path, toCheckSizes, false)
 }
