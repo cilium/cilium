@@ -5724,7 +5724,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   namespace: istio-system
-  name: istio-init-crd-all-1.5.0
+  name: istio-init-crd-all-1.5.1
 spec:
   template:
     metadata:
@@ -5734,7 +5734,7 @@ spec:
       serviceAccountName: istio-init-service-account
       containers:
       - name: istio-init-crd-all
-        image: "docker.io/istio/kubectl:1.5.0"
+        image: "docker.io/istio/kubectl:1.5.1"
         imagePullPolicy: IfNotPresent
         resources:
           limits:
@@ -5759,7 +5759,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   namespace: istio-system
-  name: istio-init-crd-mixer-1.5.0
+  name: istio-init-crd-mixer-1.5.1
 spec:
   template:
     metadata:
@@ -5769,7 +5769,7 @@ spec:
       serviceAccountName: istio-init-service-account
       containers:
       - name: istio-init-crd-mixer
-        image: "docker.io/istio/kubectl:1.5.0"
+        image: "docker.io/istio/kubectl:1.5.1"
         imagePullPolicy: IfNotPresent
         resources:
           limits:
