@@ -8,6 +8,7 @@ LIB := $(shell find ../../bpf/ -name '*.h')
 
 CLANG ?= $(QUIET) clang
 LLC ?= llc
+GCC ?= $(QUIET) gcc
 
 BPF_TARGETS := elf-demo.o
 TARGETS := $(BPF_TARGETS) unit-test
@@ -19,7 +20,7 @@ elf-demo.o: elf-demo.c
 
 %: %.c $(LIB)
 	@$(ECHO_CC)
-	$(CLANG) $(FLAGS) -I../../bpf/ $< -o $@
+	$(GCC) $(FLAGS) -I../../bpf/ $< -o $@
 
 clean:
 	@$(ECHO_CLEAN)
