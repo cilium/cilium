@@ -34,8 +34,7 @@ var _ = Suite(&SysctlLinuxPrivilegedTestSuite{})
 func (s *SysctlLinuxPrivilegedTestSuite) TestWriteSysctl(c *C) {
 	testCases := []struct {
 		name        string
-		value       []byte
-		oldValue    []byte
+		value       string
 		expectedErr bool
 	}{
 		{
