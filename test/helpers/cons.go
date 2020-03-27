@@ -185,7 +185,6 @@ const (
 	CiliumStableHelmChartVersion = "1.7-dev"
 	CiliumStableVersion          = "v1.7"
 	CiliumLatestHelmChartVersion = "1.7.90"
-	CiliumLatestImageVersion     = "latest"
 
 	MonitorLogFileName = "monitor.log"
 

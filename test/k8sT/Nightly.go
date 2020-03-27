@@ -427,7 +427,7 @@ var _ = Describe("NightlyExamples", func() {
 							chartVersion,
 							imageVersion,
 							helpers.CiliumLatestHelmChartVersion,
-							helpers.CiliumLatestImageVersion,
+							helpers.GetLatestImageVersion(),
 						)
 						assertUpgradeSuccessful()
 					})
