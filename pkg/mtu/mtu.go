@@ -131,10 +131,10 @@ func NewConfiguration(authKeySize int, encryptEnabled bool, encapEnabled bool, m
 	return conf
 }
 
-// GetRouteTunnelMTU return the MTU to be used on the encryption routing
+// GetRoutePostEncryptMTU return the MTU to be used on the encryption routing
 // table. This is the MTU without encryption overhead and in the tunnel
 // case accounts for the tunnel overhead.
-func (c *Configuration) GetRouteTunnelMTU() int {
+func (c *Configuration) GetRoutePostEncryptMTU() int {
 	if c.encapEnabled {
 		if c.postEncryptMTU == 0 {
 			return EthernetMTU - TunnelOverhead
