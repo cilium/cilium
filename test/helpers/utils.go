@@ -529,3 +529,13 @@ func SplitContainerURL(url string) (registry, image, tag string, success bool) {
 
 	return registry, image, tag, true
 }
+
+// GetLatestImageVersion infers which docker tag should be used
+func GetLatestImageVersion() string {
+	_, _, tag, success := SplitContainerURL(config.CiliumTestConfig.CiliumImage)
+
+	if success && len(tag) > 0 {
+		return tag
+	}
+	return "latest"
+}

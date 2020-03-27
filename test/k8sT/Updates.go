@@ -114,7 +114,7 @@ var _ = Describe("K8sUpdates", func() {
 				helpers.CiliumStableHelmChartVersion,
 				helpers.CiliumStableVersion,
 				helpers.CiliumLatestHelmChartVersion,
-				helpers.CiliumLatestImageVersion,
+				helpers.GetLatestImageVersion(),
 			)
 		assertUpgradeSuccessful()
 	})
@@ -238,6 +238,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 				"global.tag":      oldImageVersion,
 				"global.registry": "docker.io/cilium",
 				"agent.image":     "cilium",
+				"operator.image":  "operator",
 			},
 		)
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", oldHelmChartVersion)
@@ -245,9 +246,9 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 
 		// Cilium is only ready if kvstore is ready, the kvstore is ready if
 		// kube-dns is running.
-		By("Cilium %q is installed and running", oldHelmChartVersion)
 		ExpectCiliumReady(kubectl)
 		ExpectCiliumOperatorReady(kubectl)
+		By("Cilium %q is installed and running", oldHelmChartVersion)
 
 		By("Restarting DNS Pods")
 		if res := kubectl.DeleteResource("pod", fmt.Sprintf("-n %s -l k8s-app=kube-dns", helpers.KubeSystemNamespace)); !res.WasSuccessful() {

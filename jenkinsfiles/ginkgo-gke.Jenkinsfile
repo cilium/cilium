@@ -2,7 +2,7 @@
 
 pipeline {
     agent {
-        label 'baremetal'
+        label 'gke'
     }
 
     environment {
@@ -12,6 +12,8 @@ pipeline {
         GOPATH="${WORKSPACE}"
         GKE_KEY=credentials('gke-key')
         GKE_ZONE="us-west1-a"
+        TAG="${GIT_COMMIT}"
+        HOME="${WORKSPACE}"
     }
 
     options {
@@ -70,6 +72,7 @@ pipeline {
                 dir("/tmp") {
                     withCredentials([file(credentialsId: 'gke-key', variable: 'KEY_PATH')]) {
                         sh 'gcloud auth activate-service-account --key-file ${KEY_PATH}'
+                        sh 'gcloud config set project cilium-ci'
                     }
                 }
             }
@@ -77,11 +80,8 @@ pipeline {
         stage('Make Cilium images and prepare gke cluster') {
             parallel {
                 stage('Make Cilium images') {
-                    environment {
-                        TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
-                    }
                     steps {
-                        sh 'cd ${TESTDIR}; ./make-images-push-to-local-registry.sh $(./print-node-ip.sh) latest'
+                        sh 'cd ${TESTDIR}; ./make-images-push-to-local-registry.sh $(./print-node-ip.sh) ${TAG}'
                     }
                     post {
                         unsuccessful {
@@ -126,16 +126,33 @@ pipeline {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
                 KUBECONFIG="${TESTDIR}/gke/gke-kubeconfig"
                 CNI_INTEGRATION="gke"
+                CILIUM_IMAGE = """${sh(
+                        returnStdout: true,
+                        script: 'echo -n $(${TESTDIR}/print-node-ip.sh)/cilium/cilium:${TAG}'
+                        )}"""
+                CILIUM_OPERATOR_IMAGE= """${sh(
+                        returnStdout: true,
+                        script: 'echo -n $(${TESTDIR}/print-node-ip.sh)/cilium/operator:${TAG}'
+                        )}"""
+                K8S_VERSION= """${sh(
+                        returnStdout: true,
+                        script: 'cd ${TESTDIR}; gke/get-cluster-version.sh'
+                        )}"""
+                FOCUS= """${sh(
+                        returnStdout: true,
+                        script: 'echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s*/" | tr -d \'\n\''
+                        )}"""
             }
             steps {
                 dir("${TESTDIR}"){
-                    sh 'K8S_VERSION=$(${TESTDIR}/gke/get-cluster-version.sh) CILIUM_IMAGE=$(./print-node-ip.sh)/cilium/cilium:latest CILIUM_OPERATOR_IMAGE=$(./print-node-ip.sh)/cilium/operator:latest ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s*/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/gke/gke-kubeconfig -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh)'
+                    sh 'env'
+                    sh 'ginkgo --focus="${FOCUS}" -v -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG} -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh) -cilium.image=${CILIUM_IMAGE} -cilium.operator-image=${CILIUM_OPERATOR_IMAGE} -cilium.holdEnvironment=false'
                 }
             }
             post {
                 always {
                     sh 'cd ${TESTDIR}; ./archive_test_results_eks.sh || true'
-                    archiveArtifacts artifacts: 'src/github.com/cilium/cilium/*.zip'
+                    archiveArtifacts artifacts: '**/*.zip'
                     junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'src/github.com/cilium/cilium/test/*.xml'
                 }
                 unsuccessful {
@@ -150,6 +167,7 @@ pipeline {
   }
     post {
         always {
+            sh 'cd ${TESTDIR}; ./clean-local-registry-tag.sh $(./print-node-ip.sh) ${TAG} || true'
             sh 'cd ${TESTDIR}/gke; ./release-cluster.sh || true'
             cleanWs()
             sh '/usr/local/bin/cleanup || true'
