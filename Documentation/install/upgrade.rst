@@ -22,14 +22,17 @@ questions, feel free to ping us on the `Slack channel`.
 
 .. _pre_flight:
 
-Running a pre-flight DaemonSet (Optional)
-=========================================
+Running pre-flight check (Required)
+===================================
 
 When rolling out an upgrade with Kubernetes, Kubernetes will first terminate the
 pod followed by pulling the new image version and then finally spin up the new
 image. In order to reduce the downtime of the agent, the new image version can
 be pre-pulled. It also verifies that the new image version can be pulled and
-avoids ErrImagePull errors during the rollout.
+avoids ErrImagePull errors during the rollout. If you are running in :ref:`kubeproxy-free`
+mode you need to also pass on the Kubernetes API Server IP and /
+or the Kubernetes API Server Port when generating the ``cilium-preflight.yaml``
+file.
 
 .. code:: bash
 
@@ -42,6 +45,33 @@ avoids ErrImagePull errors during the rollout.
       > cilium-preflight.yaml
     kubectl create cilium-preflight.yaml
 
+  .. group-tab:: kubectl (kubeproxy-free)
+
+    .. parsed-literal::
+
+      helm template |CHART_RELEASE| \\
+        --set preflight.enabled=true \\
+        --set agent.enabled=false \\
+        --set config.enabled=false \\
+        --set operator.enabled=false \\
+        --set global.k8sServiceHost=API_SERVER_IP \\
+        --set global.k8sServicePort=API_SERVER_PORT \\
+        > cilium-preflight.yaml
+      kubectl create cilium-preflight.yaml
+
+  .. group-tab:: Helm (kubeproxy-free)
+
+    .. parsed-literal::
+
+      helm install cilium-preflight |CHART_RELEASE| \\
+        --namespace=kube-system \\
+        --set preflight.enabled=true \\
+        --set agent.enabled=false \\
+        --set config.enabled=false \\
+        --set operator.enabled=false \\
+        --set global.k8sServiceHost=API_SERVER_IP \\
+        --set global.k8sServicePort=API_SERVER_PORT
+
 After running the cilium-pre-flight.yaml, make sure the number of READY pods
 is the same number of Cilium pods running.
 
@@ -52,8 +82,24 @@ is the same number of Cilium pods running.
     cilium                    2         2         2       2            2           <none>          1h20m
     cilium-pre-flight-check   2         2         2       2            2           <none>          7m15s
 
-Once the number of READY pods are the same, you can delete cilium-pre-flight-check
-`DaemonSet` and proceed with the upgrade.
+Once the number of READY pods are the same, make sure the Cilium PreFlight
+deployment is also marked as READY 1/1. In case it shows READY 0/1 please see
+:ref:`cnp_validation`.
+
+.. code-block:: shell-session
+
+    kubectl get deployment -n kube-system cilium-pre-flight-check -w
+    NAME                      READY   UP-TO-DATE   AVAILABLE   AGE
+    cilium-pre-flight-check   1/1     1            0           12s
+
+.. _cleanup_preflight_check:
+
+Clean up pre-flight check
+-------------------------
+
+Once the number of READY for the preflight `DaemonSet` is the same as the number
+of cilium pods running and the preflight ``Deployment`` is marked as READY ``1/1``
+you can delete the cilium-preflight and proceed with the upgrade.
 
 .. code-block:: shell-session
 
@@ -877,3 +923,113 @@ If a migration has gone wrong, it possible to start with a clean slate. Ensure t
 .. code-block:: shell-session
 
       $ kubectl delete ciliumid --all
+
+.. _cnp_validation:
+
+CNP Validation
+--------------
+
+Running the CNP Validator will make sure the policies deployed in the cluster
+are valid. It is important to run this validation before an upgrade so it will
+make sure Cilium has a correct behavior after upgrade. Avoiding doing this
+validation might cause Cilium from updating its ``NodeStatus`` in those invalid
+Network Policies as well as in the worst case scenario it might give a false
+sense of security to the user if a policy is badly formatted and Cilium is not
+enforcing that policy due a bad validation schema. This CNP Validator is
+automatically executed as part of the pre-flight check :ref:`pre_flight`.
+
+Start by deployment the ``cilium-pre-flight-check`` and check if the the
+``Deployment`` shows READY 1/1, if it does not check the pod logs.
+
+.. code-block:: shell-session
+
+      $ kubectl get deployment -n kube-system cilium-pre-flight-check -w
+      NAME                      READY   UP-TO-DATE   AVAILABLE   AGE
+      cilium-pre-flight-check   0/1     1            0           12s
+
+      $ kubectl logs -n kube-system deployment/cilium-pre-flight-check -c cnp-validator --previous
+      level=info msg="Setting up kubernetes client"
+      level=info msg="Establishing connection to apiserver" host="https://172.20.0.1:443" subsys=k8s
+      level=info msg="Connected to apiserver" subsys=k8s
+      level=info msg="Validating CiliumNetworkPolicy 'default/cidr-rule': OK!
+      level=error msg="Validating CiliumNetworkPolicy 'default/cnp-update': unexpected validation error: spec.labels: Invalid value: \"string\": spec.labels in body must be of type object: \"string\""
+      level=error msg="Found invalid CiliumNetworkPolicy"
+
+In this example, we can see the ``CiliumNetworkPolicy`` in the ``default``
+namespace with the name ``cnp-update`` is not valid for the Cilium version we
+are trying to upgrade. In order to fix this policy we need to edit it, we can
+do this by saving the policy locally and modify it. For this example it seems
+the ``.spec.labels`` has set an array of strings which is not correct as per
+the official schema.
+
+.. code-block:: shell-session
+
+      $ kubectl get cnp -n default cnp-update -o yaml > cnp-bad.yaml
+      $ cat cnp-bad.yaml
+        apiVersion: cilium.io/v2
+        kind: CiliumNetworkPolicy
+        [...]
+        spec:
+          endpointSelector:
+            matchLabels:
+              id: app1
+          ingress:
+          - fromEndpoints:
+            - matchLabels:
+                id: app2
+            toPorts:
+            - ports:
+              - port: "80"
+                protocol: TCP
+          labels:
+          - custom=true
+        [...]
+
+To fix this policy we need to set the ``.spec.labels`` with the right format and
+commit these changes into kubernetes.
+
+.. code-block:: shell-session
+
+      $ cat cnp-bad.yaml
+        apiVersion: cilium.io/v2
+        kind: CiliumNetworkPolicy
+        [...]
+        spec:
+          endpointSelector:
+            matchLabels:
+              id: app1
+          ingress:
+          - fromEndpoints:
+            - matchLabels:
+                id: app2
+            toPorts:
+            - ports:
+              - port: "80"
+                protocol: TCP
+          labels:
+          - key: "custom"
+            value: "true"
+        [...]
+      $
+      $ kubectl apply -f ./cnp-bad.yaml
+
+After applying the fixed policy we can delete the pod that was validating the
+policies so that kubernetes creates a new pod immediately to verify if the fixed
+policies are now valid.
+
+.. code-block:: shell-session
+
+      $ kubectl delete pod -n kube-system -l k8s-app=cilium-pre-flight-check-deployment
+      pod "cilium-pre-flight-check-86dfb69668-ngbql" deleted
+      $ kubectl get deployment -n kube-system cilium-pre-flight-check
+      NAME                      READY   UP-TO-DATE   AVAILABLE   AGE
+      cilium-pre-flight-check   1/1     1            1           55m
+      $ kubectl logs -n kube-system deployment/cilium-pre-flight-check -c cnp-validator
+      level=info msg="Setting up kubernetes client"
+      level=info msg="Establishing connection to apiserver" host="https://172.20.0.1:443" subsys=k8s
+      level=info msg="Connected to apiserver" subsys=k8s
+      level=info msg="Validating CiliumNetworkPolicy 'default/cidr-rule': OK!
+      level=info msg="Validating CiliumNetworkPolicy 'default/cnp-update': OK!
+      level=info msg="All CCNPs and CNPs valid!"
+
+Once they are valid you can continue with the upgrade process. :ref:`cleanup_preflight_check`

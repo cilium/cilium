@@ -89,8 +89,8 @@ Cloudflare
 cls
 clustermesh
 cni
-committer
-committers
+cnp
+codebase
 conf
 config
 ConfigMap
@@ -320,6 +320,7 @@ kubectl
 Kubectl
 kubelet
 Kubelet
+kubeproxy
 kubernetes
 Kubernetes
 kubespray

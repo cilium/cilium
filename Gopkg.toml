@@ -180,14 +180,14 @@ required = [
 
 [[constraint]]
   name = "github.com/go-openapi/errors"
-  revision = "v0.19.0"
+  revision = "v0.19.2"
 
   # main-usage = "api/v1"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/go-openapi/loads"
-  revision = "v0.19.0"
+  revision = "v0.19.2"
 
   # main-usage = "swagger spec"
   # on-revision = ""
@@ -201,7 +201,7 @@ required = [
 
 [[constraint]]
   name = "github.com/go-openapi/spec"
-  revision = "v0.19.0"
+  revision = "v0.19.2"
 
   # main-usage = "api/v1"
   # on-revision = ""
@@ -215,35 +215,35 @@ required = [
 
 [[constraint]]
   name = "github.com/go-openapi/swag"
-  revision = "v0.19.0"
+  revision = "v0.19.5"
 
   # main-usage = "api/v1"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/go-openapi/validate"
-  revision = "v0.19.0"
+  revision = "v0.19.2"
 
   # main-usage = "api/v1"
   # on-revision = ""
 
 [[override]]
   name = "github.com/go-openapi/analysis"
-  revision = "v0.19.0"
+  revision = "v0.19.2"
 
   # main-usage = "api/v1"
   # on-revision = ""
 
 [[override]]
   name = "github.com/go-openapi/errors"
-  revision = "v0.19.0"
+  revision = "v0.19.2"
 
   # main-usage = "api/v1"
   # on-revision = ""
 
 [[override]]
   name = "github.com/go-openapi/jsonpointer"
-  revision = "v0.19.0"
+  revision = "v0.19.3"
 
   # main-usage = "api/v1"
   # on-revision = ""

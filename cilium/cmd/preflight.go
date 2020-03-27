@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -76,6 +76,10 @@ func init() {
 	migrateIdentityCmd.Flags().StringVar(&kvStore, "kvstore", "", "Key-value store type")
 	migrateIdentityCmd.Flags().Var(option.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil), "kvstore-opt", "Key-value store options")
 	preflightCmd.AddCommand(migrateIdentityCmd)
+
+	validateCNP.Flags().StringVar(&k8sAPIServer, "k8s-api-server", "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
+	validateCNP.Flags().StringVar(&k8sKubeConfigPath, "k8s-kubeconfig-path", "", "Absolute path of the kubernetes kubeconfig file")
+	preflightCmd.AddCommand(validateCNP)
 
 	rootCmd.AddCommand(preflightCmd)
 }
