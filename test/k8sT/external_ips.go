@@ -206,6 +206,7 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 			case bytes.Contains(b, []byte("Connection refused")):
 				got = "connection refused"
 			case bytes.Contains(b, []byte("No route to host")),
+				bytes.Contains(b, []byte("Network unreachable")),
 				bytes.Contains(b, []byte("Host is unreachable")),
 				bytes.Contains(b, []byte("Connection timed out")):
 				got = "No route to host / connection timed out"
