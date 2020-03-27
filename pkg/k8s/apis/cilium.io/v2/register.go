@@ -191,7 +191,7 @@ func createCNPCRD(clientset apiextensionsclient.Interface) error {
 				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
 			},
 			Scope:      apiextensionsv1beta1.NamespaceScoped,
-			Validation: &cnpCRV,
+			Validation: &CNPCRV,
 		},
 	}
 	// Kubernetes < 1.12 does not support having the field Type set in the root
@@ -243,7 +243,7 @@ func createCCNPCRD(clientset apiextensionsclient.Interface) error {
 				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
 			},
 			Scope:      apiextensionsv1beta1.ClusterScoped,
-			Validation: &cnpCRV,
+			Validation: &CNPCRV,
 		},
 	}
 	// Kubernetes < 1.12 does not support having the field Type set in the root
@@ -655,7 +655,7 @@ var (
 		OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{},
 	}
 
-	cnpCRV = apiextensionsv1beta1.CustomResourceValidation{
+	CNPCRV = apiextensionsv1beta1.CustomResourceValidation{
 		OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
 			// TODO: remove the following comment when we add checker
 			// to detect if we should install the CNP validation for k8s > 1.11
