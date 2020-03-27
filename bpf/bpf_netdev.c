@@ -712,6 +712,15 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	 */
 	int ret = CTX_ACT_OK;
 #if defined(ENABLE_NODEPORT) && (!defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)))
+	int ifindex = NATIVE_DEV_IFINDEX;
+	union macaddr mac = NATIVE_DEV_MAC;
+
+	/* Handle a potential reply from local NodePort endpoint */
+	ctx->tc_index |= TC_INDEX_F_SKIP_RECIRCULATION;
+	ret = rev_nodeport_lb(ctx, &ifindex, &mac);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+
 	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) == MARK_MAGIC_SNAT_DONE)
 		return CTX_ACT_OK;
 	ret = nodeport_nat_fwd(ctx, false);

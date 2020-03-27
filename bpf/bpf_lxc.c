@@ -210,9 +210,7 @@ ct_recreate6:
 #ifdef ENABLE_NODEPORT
 		/* See comment in handle_ipv4_from_lxc(). */
 		if (ct_state.node_port) {
-			ctx->tc_index |= TC_INDEX_F_SKIP_RECIRCULATION;
-			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
-			return DROP_MISSED_TAIL_CALL;
+			return ctx_redirect(ctx, NATIVE_DEV_IFINDEX, 0);
 		}
 # ifdef ENABLE_DSR
 		if (ct_state.dsr) {
@@ -564,11 +562,8 @@ ct_recreate4:
 		 * is local to the node. We'll redirect to bpf_netdev egress to
 		 * perform the reverse DNAT.
 		 */
-		if (ct_state.node_port) {
-			ctx->tc_index |= TC_INDEX_F_SKIP_RECIRCULATION;
-			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
-			return DROP_MISSED_TAIL_CALL;
-		}
+		if (ct_state.node_port)
+			return ctx_redirect(ctx, NATIVE_DEV_IFINDEX, 0);
 # ifdef ENABLE_DSR
 		if (ct_state.dsr) {
 			ret = xlate_dsr_v4(ctx, &tuple, l4_off);

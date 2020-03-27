@@ -1123,12 +1123,11 @@ redo:
 }
 
 /* Reverse NAT handling of node-port traffic for the case where the
- * backend i) was a local EP and bpf_lxc redirected to us, ii) was
- * a remote backend and we got here after reverse SNAT from the
- * tail_nodeport_nat_ipv4().
+ * backend i) was a local EP, ii) was a remote backend and we got here
+ * after reverse SNAT from the tail_nodeport_nat_ipv4().
  *
  * CILIUM_CALL_IPV{4,6}_NODEPORT_REVNAT is plugged into CILIUM_MAP_CALLS
- * of the bpf_netdev, bpf_overlay and of the bpf_lxc.
+ * of the bpf_netdev and bpf_overlay.
  */
 static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex,
 					    union macaddr *mac)
@@ -1238,6 +1237,28 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 	return ctx_redirect(ctx, ifindex, 0);
 }
 #endif /* ENABLE_IPV4 */
+
+static __always_inline int rev_nodeport_lb(struct __ctx_buff *ctx, int *ifindex,
+					    union macaddr *mac)
+{
+	__u16 proto;
+
+	if (!validate_ethertype(ctx, &proto))
+		return CTX_ACT_OK;
+	switch (proto) {
+#ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		return rev_nodeport_lb4(ctx, ifindex, mac);
+#endif /* ENABLE_IPV4 */
+#ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		return rev_nodeport_lb6(ctx, ifindex, mac);
+#endif /* ENABLE_IPV6 */
+	default:
+		break;
+	}
+	return CTX_ACT_OK;
+}
 
 static __always_inline int nodeport_nat_fwd(struct __ctx_buff *ctx,
 					    const bool encap)
