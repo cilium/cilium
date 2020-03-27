@@ -87,7 +87,7 @@ clean-jenkins-precheck:
 	# remove the networks
 	docker-compose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER down
 
-PRIV_TEST_PKGS_EVAL := $(shell for pkg in $(TESTPKGS); do echo $(pkg); done | xargs grep --include='*.go' -ril '+build privileged_tests' | xargs dirname | sort | uniq)
+PRIV_TEST_PKGS_EVAL := $(shell for pkg in $(TESTPKGS); do echo $(pkg); done | xargs grep --include='*.go' -ril '+build [^!]*privileged_tests' | xargs dirname | sort | uniq)
 PRIV_TEST_PKGS ?= $(PRIV_TEST_PKGS_EVAL)
 tests-privileged:
 	# cilium-map-migrate is a dependency of some unit tests.
