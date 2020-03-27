@@ -15,11 +15,8 @@
 package swag
 
 import (
-	"math"
 	"reflect"
-	"regexp"
 	"strings"
-	"sync"
 	"unicode"
 )
 
@@ -29,15 +26,15 @@ var commonInitialisms *indexOfInitialisms
 // initialisms is a slice of sorted initialisms
 var initialisms []string
 
-var once sync.Once
-
 var isInitialism func(string) bool
 
-var (
-	splitRex1     *regexp.Regexp
-	splitRex2     *regexp.Regexp
-	splitReplacer *strings.Replacer
-)
+// GoNamePrefixFunc sets an optional rule to prefix go names
+// which do not start with a letter.
+//
+// e.g. to help converting "123" into "{prefix}123"
+//
+// The default is to prefix with "X"
+var GoNamePrefixFunc func(string) string
 
 func init() {
 	// Taken from https://github.com/golang/lint/blob/3390df4df2787994aea98de825b964ac7944b817/lint.go#L732-L769
@@ -55,6 +52,8 @@ func init() {
 		"HTTP":  true,
 		"ID":    true,
 		"IP":    true,
+		"IPv4":  true,
+		"IPv6":  true,
 		"JSON":  true,
 		"LHS":   true,
 		"OAI":   true,
@@ -85,13 +84,10 @@ func init() {
 
 	// a thread-safe index of initialisms
 	commonInitialisms = newIndexOfInitialisms().load(configuredInitialisms)
+	initialisms = commonInitialisms.sorted()
 
 	// a test function
 	isInitialism = commonInitialisms.isInitialism
-}
-
-func ensureSorted() {
-	initialisms = commonInitialisms.sorted()
 }
 
 const (
@@ -175,40 +171,6 @@ func (s byInitialism) Less(i, j int) bool {
 	return strings.Compare(s[i], s[j]) > 0
 }
 
-// Prepares strings by splitting by caps, spaces, dashes, and underscore
-func split(str string) []string {
-	// check if consecutive single char things make up an initialism
-	once.Do(func() {
-		splitRex1 = regexp.MustCompile(`(\p{Lu})`)
-		splitRex2 = regexp.MustCompile(`(\pL|\pM|\pN|\p{Pc})+`)
-		splitReplacer = strings.NewReplacer(
-			"@", "At ",
-			"&", "And ",
-			"|", "Pipe ",
-			"$", "Dollar ",
-			"!", "Bang ",
-			"-", " ",
-			"_", " ",
-		)
-		ensureSorted()
-	})
-
-	str = trim(str)
-
-	// Convert dash and underscore to spaces
-	str = splitReplacer.Replace(str)
-
-	// Split when uppercase is found (needed for Snake)
-	str = splitRex1.ReplaceAllString(str, " $1")
-
-	for _, k := range initialisms {
-		str = strings.Replace(str, splitRex1.ReplaceAllString(k, " $1"), " "+k, -1)
-	}
-	// Get the final list of words
-	//words = rex2.FindAllString(str, -1)
-	return splitRex2.FindAllString(str, -1)
-}
-
 // Removes leading whitespaces
 func trim(str string) string {
 	return strings.Trim(str, " ")
@@ -261,30 +223,31 @@ func ToCommandName(name string) string {
 
 // ToHumanNameLower represents a code name as a human series of words
 func ToHumanNameLower(name string) string {
-	in := split(name)
+	in := newSplitter(withPostSplitInitialismCheck).split(name)
 	out := make([]string, 0, len(in))
 
 	for _, w := range in {
-		if !isInitialism(upper(w)) {
-			out = append(out, lower(w))
+		if !w.IsInitialism() {
+			out = append(out, lower(w.GetOriginal()))
 		} else {
-			out = append(out, w)
+			out = append(out, w.GetOriginal())
 		}
 	}
+
 	return strings.Join(out, " ")
 }
 
 // ToHumanNameTitle represents a code name as a human series of words with the first letters titleized
 func ToHumanNameTitle(name string) string {
-	in := split(name)
-	out := make([]string, 0, len(in))
+	in := newSplitter(withPostSplitInitialismCheck).split(name)
 
+	out := make([]string, 0, len(in))
 	for _, w := range in {
-		uw := upper(w)
-		if !isInitialism(uw) {
-			out = append(out, Camelize(w))
+		original := w.GetOriginal()
+		if !w.IsInitialism() {
+			out = append(out, Camelize(original))
 		} else {
-			out = append(out, w)
+			out = append(out, original)
 		}
 	}
 	return strings.Join(out, " ")
@@ -319,24 +282,34 @@ func ToVarName(name string) string {
 
 // ToGoName translates a swagger name which can be underscored or camel cased to a name that golint likes
 func ToGoName(name string) string {
-	in := split(name)
-	out := make([]string, 0, len(in))
+	lexems := newSplitter(withPostSplitInitialismCheck).split(name)
 
-	for _, w := range in {
-		uw := upper(w)
-		mod := int(math.Min(float64(len(uw)), 2))
-		if !isInitialism(uw) && !isInitialism(uw[:len(uw)-mod]) {
-			uw = Camelize(w)
+	result := ""
+	for _, lexem := range lexems {
+		goName := lexem.GetUnsafeGoName()
+
+		// to support old behavior
+		if lexem.IsInitialism() {
+			goName = upper(goName)
 		}
-		out = append(out, uw)
+		result += goName
 	}
 
-	result := strings.Join(out, "")
 	if len(result) > 0 {
-		if !unicode.IsUpper([]rune(result)[0]) {
-			result = "X" + result
+		// Only prefix with X when the first character isn't an ascii letter
+		first := []rune(result)[0]
+		if !unicode.IsLetter(first) || (first > unicode.MaxASCII && !unicode.IsUpper(first)) {
+			if GoNamePrefixFunc == nil {
+				return "X" + result
+			}
+			result = GoNamePrefixFunc(name) + result
+		}
+		first = []rune(result)[0]
+		if unicode.IsLetter(first) && !unicode.IsUpper(first) {
+			result = string(append([]rune{unicode.ToUpper(first)}, []rune(result)[1:]...))
 		}
 	}
+
 	return result
 }
 

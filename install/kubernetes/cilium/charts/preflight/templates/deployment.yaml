@@ -1,0 +1,80 @@
+{{- if .Values.validateCNPs }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cilium-pre-flight-check
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      k8s-app: cilium-pre-flight-check-deployment
+      kubernetes.io/cluster-service: "true"
+  template:
+    metadata:
+      labels:
+        k8s-app: cilium-pre-flight-check-deployment
+        kubernetes.io/cluster-service: "true"
+    spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: "k8s-app"
+                operator: In
+                values:
+                - cilium
+            topologyKey: "kubernetes.io/hostname"
+      containers:
+{{- if .Values.validateCNPs }}
+{{- if contains "/" .Values.image }}
+        - image: "{{ .Values.image }}"
+{{- else }}
+        - image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+{{- end }}
+          imagePullPolicy: {{ .Values.global.pullPolicy }}
+          name: cnp-validator
+          command: ["/bin/sh"]
+          args:
+          - -c
+          - "cilium preflight validate-cnp && touch /tmp/ready-validate-cnp && sleep 1h"
+          livenessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/ready-validate-cnp
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/ready-validate-cnp
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          env:
+{{- if .Values.global.k8sServiceHost }}
+          - name: KUBERNETES_SERVICE_HOST
+            value: {{ .Values.global.k8sServiceHost | quote }}
+{{- end }}
+{{- if .Values.global.k8sServicePort }}
+          - name: KUBERNETES_SERVICE_PORT
+            value: {{ .Values.global.k8sServicePort | quote }}
+{{- end }}
+{{- end }}
+      hostNetwork: true
+      restartPolicy: Always
+      serviceAccount: cilium
+      serviceAccountName: cilium
+      terminationGracePeriodSeconds: 1
+      tolerations:
+        - effect: NoSchedule
+          key: node.kubernetes.io/not-ready
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+        - effect: NoSchedule
+          key: node.cloudprovider.kubernetes.io/uninitialized
+          value: "true"
+        - key: CriticalAddonsOnly
+          operator: "Exists"
+{{- end }}

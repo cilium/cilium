@@ -429,21 +429,21 @@
     "internal",
   ]
   pruneopts = "NUT"
-  revision = "v0.19.0"
+  revision = "v0.19.2"
 
 [[projects]]
-  digest = "1:2c25c65f6928a43066d02607fbedd6a1b21322db5f8d1ab92ac77ac3bcc72776"
+  digest = "1:561157070be37514e296bbf1144e5e3130573483e253443bf378917475f55836"
   name = "github.com/go-openapi/errors"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "v0.19.0"
+  revision = "v0.19.2"
 
 [[projects]]
-  digest = "1:260f7ebefc63024c8dfe2c9f1a2935a89fa4213637a1f522f592f80c001cc441"
+  digest = "1:3758c86e787dfe5792a23430f34636106a16da914446724399c9c12f121a225d"
   name = "github.com/go-openapi/jsonpointer"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "v0.19.0"
+  revision = "v0.19.3"
 
 [[projects]]
   digest = "1:98abd61947ff5c7c6fcfec5473d02a4821ed3a2dd99a4fbfdb7925b0dd745546"
@@ -458,7 +458,7 @@
   name = "github.com/go-openapi/loads"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "v0.19.0"
+  revision = "v0.19.2"
 
 [[projects]]
   digest = "1:61b6581bcefb37cc5e624c8fdecf6d5a45857285c34fe48bc849d439468c4e80"
@@ -478,11 +478,11 @@
   revision = "v0.19.0"
 
 [[projects]]
-  digest = "1:8f80caf2fa31f78a035f33981c9685013033073b53f344f579e60fa69f0c6670"
+  digest = "1:f04cb7797917efbe9d9efd509a311f28930a9ee7ef1e047d01808d64ded53554"
   name = "github.com/go-openapi/spec"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "v0.19.0"
+  revision = "v0.19.2"
 
 [[projects]]
   digest = "1:60aff2b170a49776659202b25183974d06afea5641bf92c2c8525bbe67ffde6a"
@@ -492,18 +492,18 @@
   revision = "v0.19.0"
 
 [[projects]]
-  digest = "1:076ebf43e6e70f18ef9d079a685ede59a0f4dc9247256c209cf57407f959cef9"
+  digest = "1:b318f36b1725220c1580b27504b8ee9d33a2a8e2db58f28c176edf6f0d1b7fb2"
   name = "github.com/go-openapi/swag"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "v0.19.0"
+  revision = "v0.19.5"
 
 [[projects]]
-  digest = "1:d2f9c34eee6ddafe36cc96f0ce0499c0df78380aa54fd8053df1397621db786b"
+  digest = "1:9a32276054d546a6000ef4fe0465ee177012674e387cdf47c2ec8b7d6c4713cf"
   name = "github.com/go-openapi/validate"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "v0.19.0"
+  revision = "v0.19.2"
 
 [[projects]]
   digest = "1:60e4d28196ed68e967bc01901d7ff6a9b67285d0544a79e589d2525750b6b399"
@@ -1558,12 +1558,13 @@
   revision = "kubernetes-1.16.9"
 
 [[projects]]
-  digest = "1:7febd5a0e29d26b0732a8f65d8034d9ff88b44dc05ca0de69af775649c31aeaa"
+  digest = "1:3a3169935f116c03f1b538e5ea55a2978b13511035136b345d427761ec8063ee"
   name = "k8s.io/apiextensions-apiserver"
   packages = [
     "pkg/apis/apiextensions",
     "pkg/apis/apiextensions/v1",
     "pkg/apis/apiextensions/v1beta1",
+    "pkg/apiserver/validation",
     "pkg/client/clientset/clientset",
     "pkg/client/clientset/clientset/scheme",
     "pkg/client/clientset/clientset/typed/apiextensions/v1",
@@ -1951,10 +1952,13 @@
     "k8s.io/api/core/v1",
     "k8s.io/api/extensions/v1beta1",
     "k8s.io/api/networking/v1",
+    "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions",
     "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
+    "k8s.io/apiextensions-apiserver/pkg/apiserver/validation",
     "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset",
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
+    "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
     "k8s.io/apimachinery/pkg/apis/meta/v1/validation",
     "k8s.io/apimachinery/pkg/fields",
     "k8s.io/apimachinery/pkg/labels",

@@ -27,4 +27,5 @@ CLI to help upgrade cilium
 * [cilium](../cilium)	 - CLI
 * [cilium preflight fqdn-poller](../cilium_preflight_fqdn-poller)	 - Prepare for DNS Polling upgrades to cilium 1.4
 * [cilium preflight migrate-identity](../cilium_preflight_migrate-identity)	 - Migrate KVStore-backed identities to kubernetes CRD-backed identities
+* [cilium preflight validate-cnp](../cilium_preflight_validate-cnp)	 - Validate Cilium Network Policies deployed in the cluster
 
