@@ -32,6 +32,7 @@ api/ @cilium/api
 bpf/ @cilium/bpf
 bugtool/cmd/ @cilium/cli
 cilium/ @cilium/cli
+cilium/cmd/preflight_k8s_valid_cnp.go @cilium/kubernetes
 cilium-health/cmd/ @cilium/cli
 cilium-health/launch/ @cilium/health
 contrib/packaging/deb/ @eloycoto

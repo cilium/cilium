@@ -22,6 +22,10 @@ preflight:
   # Path to write the --tofqdns-pre-cache file to. When empty no file is
   # generated.
   tofqdnsPreCache: ""
+  # By default we should always validate the installed CNPs before upgrading
+  # Cilium. This will make sure the user will have the policies deployed in the
+  # cluster with the right schema.
+  validateCNPs: true
 
 # global groups all configuration options that have effect on all sub-charts
 global:
