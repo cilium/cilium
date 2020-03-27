@@ -202,6 +202,7 @@ cli
 cls
 clustermesh
 cni
+cnp
 codebase
 conf
 config
@@ -349,6 +350,7 @@ kubeadm
 kubeconfig
 kubectl
 kubelet
+kubeproxy
 kubernetes
 kubespray
 kvstore
