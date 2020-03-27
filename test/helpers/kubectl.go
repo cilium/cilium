@@ -2342,7 +2342,7 @@ func (kub *Kubectl) ValidateNoErrorsInLogs(duration time.Duration) {
 	defer cancel()
 
 	var logs string
-	cmd := fmt.Sprintf("%s -n %s logs --timestamps=true -l k8s-app=cilium --since=%vs",
+	cmd := fmt.Sprintf("%s -n %s logs --tail=-1 --timestamps=true -l k8s-app=cilium --since=%vs",
 		KubectlCmd, GetCiliumNamespace(GetCurrentIntegration()), duration.Seconds())
 	res := kub.ExecContext(ctx, fmt.Sprintf("%s --previous", cmd), ExecOptions{SkipLog: true})
 	if res.WasSuccessful() {
