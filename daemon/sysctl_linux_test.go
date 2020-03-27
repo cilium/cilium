@@ -31,7 +31,7 @@ type DaemonPrivilegedSuite struct{}
 
 var _ = Suite(&DaemonPrivilegedSuite{})
 
-func (s *DaemonPrivilegedSuite) TestInitSysctlParams(c *C) {
-	err := initSysctlParams()
+func (s *DaemonPrivilegedSuite) TestEnableIPForwarding(c *C) {
+	err := enableIPForwarding()
 	c.Assert(err, IsNil)
 }
