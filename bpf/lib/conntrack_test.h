@@ -85,7 +85,7 @@ static void test___ct_update_timeout()
 static void test___ct_lookup()
 {
 	void *map = __ipv4_map;
-	struct ct_entry *entry = &map[0];
+	struct ct_entry *entry = &__ipv4_map[0];
 	struct __ctx_buff ctx = {};
 	void *tuple = (void *)__TUPLE_EXIST;
 
