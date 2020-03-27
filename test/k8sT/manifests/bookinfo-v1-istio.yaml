@@ -141,7 +141,7 @@ spec:
           value: details-v1
         - name: ISTIO_META_OWNER
           value: kubernetes://apis/apps/v1/namespaces/default/deployments/details-v1
-        image: docker.io/cilium/istio_proxy:1.5.0
+        image: docker.io/cilium/istio_proxy:1.5.1
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -211,7 +211,7 @@ spec:
         - '*'
         - -d
         - "15020"
-        image: docker.io/cilium/istio_proxy:1.5.0
+        image: docker.io/cilium/istio_proxy:1.5.1
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
@@ -377,7 +377,7 @@ spec:
           value: reviews-v1
         - name: ISTIO_META_OWNER
           value: kubernetes://apis/apps/v1/namespaces/default/deployments/reviews-v1
-        image: docker.io/cilium/istio_proxy:1.5.0
+        image: docker.io/cilium/istio_proxy:1.5.1
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -447,7 +447,7 @@ spec:
         - '*'
         - -d
         - "15020"
-        image: docker.io/cilium/istio_proxy:1.5.0
+        image: docker.io/cilium/istio_proxy:1.5.1
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
@@ -613,7 +613,7 @@ spec:
           value: productpage-v1
         - name: ISTIO_META_OWNER
           value: kubernetes://apis/apps/v1/namespaces/default/deployments/productpage-v1
-        image: docker.io/cilium/istio_proxy:1.5.0
+        image: docker.io/cilium/istio_proxy:1.5.1
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -683,7 +683,7 @@ spec:
         - '*'
         - -d
         - "15020"
-        image: docker.io/cilium/istio_proxy:1.5.0
+        image: docker.io/cilium/istio_proxy:1.5.1
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
