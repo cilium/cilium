@@ -90,7 +90,8 @@ func (*AllocatorAWS) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (*ipam.No
 		iMetrics = &ipamMetrics.NoOpMetrics{}
 	}
 
-	ec2Client := ec2shim.NewClient(ec2.New(cfg), aMetrics, option.Config.IPAMAPIQPSLimit, option.Config.IPAMAPIBurst)
+	subnetsFilters := ec2shim.NewSubnetsFilters(option.Config.IPAMSubnetsTags, option.Config.IPAMSubnetsIDs)
+	ec2Client := ec2shim.NewClient(ec2.New(cfg), aMetrics, option.Config.IPAMAPIQPSLimit, option.Config.IPAMAPIBurst, subnetsFilters)
 	log.Info("Connected to EC2 service API")
 	instances := eni.NewInstancesManager(ec2Client, option.Config.ENITags)
 	nodeManager, err := ipam.NewNodeManager(instances, getterUpdater, iMetrics,
