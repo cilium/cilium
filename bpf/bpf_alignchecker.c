@@ -21,16 +21,16 @@
 #include "lib/policy_log.h"
 #include "sockops/bpf_sockops.h"
 
-// DECLARE_STRUCT declares a unique usage of the struct 'x' on the stack.
+// DECLARE declares a unique usage of the union or struct 'x' on the stack.
 //
 // To prevent compiler from optimizing away the var, we pass a reference
 // to the var to a BPF helper function which accepts a reference as
 // an argument.
-#define DECLARE_STRUCT(x, iter)			\
-{						\
-	struct x s ## iter = {};		\
-	trace_printk("%p", 1, &s ## iter);	\
-	iter++;					\
+#define DECLARE(datatype, x, iter)         \
+{                       \
+    datatype x s ## iter = {};        \
+    trace_printk("%p", 1, &s ## iter);  \
+    iter++;                 \
 }
 
 // This function is a placeholder for C struct definitions shared with Go, and
@@ -38,35 +38,36 @@
 int main() {
     int iter = 0;
 
-    DECLARE_STRUCT(ipv4_ct_tuple, iter);
-    DECLARE_STRUCT(ipv6_ct_tuple, iter);
-    DECLARE_STRUCT(ct_entry, iter);
-    DECLARE_STRUCT(ipcache_key, iter);
-    DECLARE_STRUCT(remote_endpoint_info, iter);
-    DECLARE_STRUCT(lb4_key, iter);
-    DECLARE_STRUCT(lb4_service, iter);
-    DECLARE_STRUCT(lb4_backend, iter);
-    DECLARE_STRUCT(lb6_key, iter);
-    DECLARE_STRUCT(lb6_service, iter);
-    DECLARE_STRUCT(lb6_backend, iter);
-    DECLARE_STRUCT(endpoint_key, iter);
-    DECLARE_STRUCT(endpoint_info, iter);
-    DECLARE_STRUCT(metrics_key, iter);
-    DECLARE_STRUCT(metrics_value, iter);
-    DECLARE_STRUCT(sock_key, iter);
-    DECLARE_STRUCT(policy_key, iter);
-    DECLARE_STRUCT(policy_entry, iter);
-    DECLARE_STRUCT(ipv4_nat_entry, iter);
-    DECLARE_STRUCT(ipv6_nat_entry, iter);
-    DECLARE_STRUCT(trace_notify, iter);
-    DECLARE_STRUCT(drop_notify, iter);
-    DECLARE_STRUCT(policy_verdict_notify, iter);
-    DECLARE_STRUCT(debug_msg, iter);
-    DECLARE_STRUCT(debug_capture_msg, iter);
-    DECLARE_STRUCT(ipv4_revnat_tuple, iter);
-    DECLARE_STRUCT(ipv4_revnat_entry, iter);
-    DECLARE_STRUCT(ipv6_revnat_tuple, iter);
-    DECLARE_STRUCT(ipv6_revnat_entry, iter);
+    DECLARE(struct, ipv4_ct_tuple, iter);
+    DECLARE(struct, ipv6_ct_tuple, iter);
+    DECLARE(struct, ct_entry, iter);
+    DECLARE(struct, ipcache_key, iter);
+    DECLARE(struct, remote_endpoint_info, iter);
+    DECLARE(struct, lb4_key, iter);
+    DECLARE(struct, lb4_service, iter);
+    DECLARE(struct, lb4_backend, iter);
+    DECLARE(struct, lb6_key, iter);
+    DECLARE(struct, lb6_service, iter);
+    DECLARE(struct, lb6_backend, iter);
+    DECLARE(struct, endpoint_key, iter);
+    DECLARE(struct, endpoint_info, iter);
+    DECLARE(struct, metrics_key, iter);
+    DECLARE(struct, metrics_value, iter);
+    DECLARE(struct, sock_key, iter);
+    DECLARE(struct, policy_key, iter);
+    DECLARE(struct, policy_entry, iter);
+    DECLARE(struct, ipv4_nat_entry, iter);
+    DECLARE(struct, ipv6_nat_entry, iter);
+    DECLARE(struct, trace_notify, iter);
+    DECLARE(struct, drop_notify, iter);
+    DECLARE(struct, policy_verdict_notify, iter);
+    DECLARE(struct, debug_msg, iter);
+    DECLARE(struct, debug_capture_msg, iter);
+    DECLARE(struct, ipv4_revnat_tuple, iter);
+    DECLARE(struct, ipv4_revnat_entry, iter);
+    DECLARE(struct, ipv6_revnat_tuple, iter);
+    DECLARE(struct, ipv6_revnat_entry, iter);
+    DECLARE(union, macaddr, iter);
 
     return 0;
 }
