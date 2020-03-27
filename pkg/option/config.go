@@ -719,6 +719,12 @@ const (
 	// IPAMAPIBurst is the burst value allowed when accessing external IPAM APIs
 	IPAMAPIBurst = "limit-ipam-api-burst"
 
+	// IPAMSubnetsIDs are optional subnets IDs used to filter subnets and interfaces listing
+	IPAMSubnetsIDs = "subnet-ids-filter"
+
+	// IAPMSubnetsTags are optional tags used to filter subnets, and interfaces within those subnets
+	IPAMSubnetsTags = "subnet-tags-filter"
+
 	// AWSClientBurstDeprecated is the deprecated version of IPAMAPIBurst and will be rewmoved in v1.9
 	AWSClientBurstDeprecated = "aws-client-burst"
 
@@ -1851,6 +1857,12 @@ type DaemonConfig struct {
 	// IPAMAPIBurst is the burst value allowed when accessing external IPAM APIs
 	IPAMAPIBurst int
 
+	// IPAMSubnetsIDs are optional subnets IDs used to filter subnets and interfaces listing
+	IPAMSubnetsIDs []string
+
+	// IPAMSubnetsTags are optional tags used to filter subnets, and interfaces within those subnets
+	IPAMSubnetsTags map[string]string
+
 	// AWS options
 
 	// ENITags are the tags that will be added to every ENI created by the AWS ENI IPAM
@@ -1932,6 +1944,8 @@ var (
 		EnableL7Proxy:                defaults.EnableL7Proxy,
 		EndpointStatus:               make(map[string]struct{}),
 		ENITags:                      make(map[string]string),
+		IPAMSubnetsIDs:               make([]string, 0),
+		IPAMSubnetsTags:              make(map[string]string),
 		ToFQDNsMaxIPsPerHost:         defaults.ToFQDNsMaxIPsPerHost,
 		KVstorePeriodicSync:          defaults.KVstorePeriodicSync,
 		KVstoreConnectivityTimeout:   defaults.KVstoreConnectivityTimeout,
@@ -2506,6 +2520,14 @@ func (c *DaemonConfig) Populate() {
 
 	if m := viper.GetStringMapString(ENITags); len(m) != 0 {
 		c.ENITags = m
+	}
+
+	if m := viper.GetStringMapString(IPAMSubnetsTags); len(m) != 0 {
+		c.IPAMSubnetsTags = m
+	}
+
+	if m := viper.GetStringSlice(IPAMSubnetsIDs); len(m) != 0 {
+		c.IPAMSubnetsIDs = m
 	}
 
 	if m := viper.GetStringMapString(LogOpt); len(m) != 0 {

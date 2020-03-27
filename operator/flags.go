@@ -68,6 +68,12 @@ func init() {
 		option.ENITags, "ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)")
 	option.BindEnv(option.ENITags)
 
+	flags.StringToStringVar(&option.Config.IPAMSubnetsTags, option.IPAMSubnetsTags, option.Config.IPAMSubnetsTags,
+		"Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag")
+	option.BindEnv(option.IPAMSubnetsTags)
+	flags.StringSliceVar(&option.Config.IPAMSubnetsIDs, option.IPAMSubnetsIDs, option.Config.IPAMSubnetsIDs, "Subnets IDs (separated by commas)")
+	option.BindEnv(option.IPAMSubnetsIDs)
+
 	flags.Int64(option.ENIParallelWorkersDeprecated, defaults.ParallelAllocWorkers, "")
 	flags.MarkDeprecated(option.ENIParallelWorkersDeprecated, fmt.Sprintf("please use --%s", option.ParallelAllocWorkers))
 	option.BindEnv(option.ENIParallelWorkersDeprecated)
