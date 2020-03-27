@@ -316,6 +316,55 @@ Updating k8s is a special case, for that one needs to do:
     $ make generate-k8s-api
     $ git add go.mod go.sum vendor/
 
+Optional: Docker and IPv6
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Note that these instructions are useful to you if you care about having IPv6
+addresses for your Docker containers.
+
+If you'd like IPv6 addresses, you will need to follow these steps:
+
+1) Edit ``/etc/docker/daemon.json`` and set the ``ipv6`` key to ``true``.
+
+::
+
+    {
+      "ipv6": true
+    }
+
+
+If that doesn't work alone, try assigning a fixed range. Many people have
+reported trouble with IPv6 and Docker. `Source here.
+<https://github.com/moby/moby/issues/29443#issuecomment-495808871>`_
+
+::
+
+    {
+      "ipv6": true,
+      "fixed-cidr-v6": "2001:db8:1::/64"
+    }
+
+
+And then:
+
+::
+
+    ip -6 route add 2001:db8:1::/64 dev docker0
+    sysctl net.ipv6.conf.default.forwarding=1
+    sysctl net.ipv6.conf.all.forwarding=1
+
+
+2) Restart the docker daemon to pick up the new configuration.
+
+3) The new command for creating a network managed by Cilium:
+
+::
+
+    $ docker network create --ipv6 --driver cilium --ipam-driver cilium cilium-net
+
+
+Now new containers will have an IPv6 address assigned to them.
+
 Debugging
 ~~~~~~~~~
 
