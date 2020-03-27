@@ -294,7 +294,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"global.tunnel":                 "disabled",
 				"global.autoDirectNodeRoutes":   "true",
 				"global.endpointRoutes.enabled": "true",
-				"global.ipv6.enabled":           "false",
 			})
 
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
