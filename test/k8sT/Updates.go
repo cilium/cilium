@@ -96,7 +96,9 @@ var _ = Describe("K8sUpdates", func() {
 	})
 
 	JustAfterEach(func() {
-		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		blacklist := helpers.GetBadLogMessages()
+		delete(blacklist, helpers.RemovingMapMsg)
+		kubectl.ValidateListOfErrorsInLogs(CurrentGinkgoTestDescription().Duration, blacklist)
 	})
 
 	AfterEach(func() {

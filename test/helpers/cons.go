@@ -212,7 +212,7 @@ const (
 	RunInitFailed     = "JoinEP: "                                   // from https://github.com/cilium/cilium/pull/5052
 	sizeMismatch      = "size mismatch for BPF map"                  // from https://github.com/cilium/cilium/issues/7851
 	emptyBPFInitArg   = "empty argument passed to bpf/init.sh"       // from https://github.com/cilium/cilium/issues/10228
-	removingMap       = "Removing map to allow for property upgrade" // from https://github.com/cilium/cilium/pull/10626
+	RemovingMapMsg    = "Removing map to allow for property upgrade" // from https://github.com/cilium/cilium/pull/10626
 	logBufferMessage  = "Log buffer too small to dump verifier log"  // from https://github.com/cilium/cilium/issues/10517
 
 	// HelmTemplate is the location of the Helm templates to install Cilium
@@ -267,7 +267,7 @@ var badLogMessages = map[string][]string{
 	RunInitFailed:     {"signal: terminated", "signal: killed"},
 	sizeMismatch:      nil,
 	emptyBPFInitArg:   nil,
-	removingMap:       nil,
+	RemovingMapMsg:    nil,
 	logBufferMessage:  nil,
 }
 
@@ -318,4 +318,16 @@ func K8s1VMName() string {
 // K8s2VMName is the name of the Kubernetes worker node when running K8s tests.
 func K8s2VMName() string {
 	return fmt.Sprintf("k8s2-%s", GetCurrentK8SEnv())
+}
+
+// GetBadLogMessages returns a deep copy of badLogMessages to allow removing
+// messages for specific tests.
+func GetBadLogMessages() map[string][]string {
+	mapCopy := make(map[string][]string, len(badLogMessages))
+	for badMsg, exceptions := range badLogMessages {
+		exceptionsCopy := make([]string, len(exceptions))
+		copy(exceptionsCopy, exceptions)
+		mapCopy[badMsg] = exceptionsCopy
+	}
+	return mapCopy
 }
