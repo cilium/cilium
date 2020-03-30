@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/pkg/errors"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-azure")
@@ -47,12 +48,24 @@ func (*AllocatorAzure) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (*ipam.
 
 	log.Info("Starting Azure IP allocator...")
 
-	if option.Config.AzureSubscriptionID == "" {
-		return nil, fmt.Errorf("Azure subscription ID not specified")
+	subscriptionID := option.Config.AzureSubscriptionID
+	if subscriptionID == "" {
+		log.Debug("SubscriptionID was not specified via CLI, retrieving it via Azure IMS")
+		subID, err := azureAPI.GetSubscriptionID(context.TODO())
+		if err != nil {
+			return nil, errors.Wrap(err, "Azure subscription ID was not specified via CLI and retrieving it from the Azure IMS was not possible")
+		}
+		subscriptionID = subID
 	}
 
-	if option.Config.AzureResourceGroup == "" {
-		return nil, fmt.Errorf("Azure resource group not specified")
+	resourceGroupName := option.Config.AzureResourceGroup
+	if resourceGroupName == "" {
+		log.Debug("ResourceGroupName was not specified via CLI, retrieving it via Azure IMS")
+		rgName, err := azureAPI.GetResourceGroupName(context.TODO())
+		if err != nil {
+			return nil, errors.Wrap(err, "Azure resource group name was not specified via CLI and retrieving it from the Azure IMS was not possible")
+		}
+		resourceGroupName = rgName
 	}
 
 	if option.Config.EnableMetrics {
@@ -63,8 +76,7 @@ func (*AllocatorAzure) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (*ipam.
 		iMetrics = &ipamMetrics.NoOpMetrics{}
 	}
 
-	azureClient, err := azureAPI.NewClient(option.Config.AzureSubscriptionID,
-		option.Config.AzureResourceGroup, azMetrics, option.Config.IPAMAPIQPSLimit, option.Config.IPAMAPIBurst)
+	azureClient, err := azureAPI.NewClient(subscriptionID, resourceGroupName, azMetrics, option.Config.IPAMAPIQPSLimit, option.Config.IPAMAPIBurst)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create Azure client: %w", err)
 	}
