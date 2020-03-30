@@ -314,8 +314,8 @@ func (in *PodContainer) DeepCopyInto(out *PodContainer) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.HostPorts != nil {
-		in, out := &in.HostPorts, &out.HostPorts
+	if in.ContainerPorts != nil {
+		in, out := &in.ContainerPorts, &out.ContainerPorts
 		*out = make([]ContainerPort, len(*in))
 		copy(*out, *in)
 	}
