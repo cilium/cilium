@@ -299,19 +299,24 @@ var _ = Describe("K8sServicesTest", func() {
 	Context("Checks service across nodes", func() {
 
 		var (
-			demoYAML string
+			demoYAML          string
+			echoHostNetNSYAML string
 		)
 
 		BeforeAll(func() {
 			demoYAML = helpers.ManifestGet(kubectl.BasePath(), "demo_ds.yaml")
-			res := kubectl.ApplyDefault(demoYAML)
-			res.ExpectSuccess("Unable to apply %s", demoYAML)
+			echoHostNetNSYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-hostnetns-svc.yaml")
+			for _, yaml := range []string{demoYAML, echoHostNetNSYAML} {
+				res := kubectl.ApplyDefault(yaml)
+				res.ExpectSuccess("Unable to apply %s", yaml)
+			}
 		})
 
 		AfterAll(func() {
 			// Explicitly ignore result of deletion of resources to avoid incomplete
 			// teardown if any step fails.
 			_ = kubectl.Delete(demoYAML)
+			_ = kubectl.Delete(echoHostNetNSYAML)
 			ExpectAllPodsTerminated(kubectl)
 		})
 
@@ -627,6 +632,17 @@ var _ = Describe("K8sServicesTest", func() {
 			failRequests(tftpURL, count, k8s2Name)
 		}
 
+		testNodePortInHostNetNS := func() {
+			var data v1.Service
+			_, k8s1IP := getNodeInfo(helpers.K8s1)
+
+			err := kubectl.Get(helpers.DefaultNamespace, "service echo-hostnetns").Unmarshal(&data)
+			Expect(err).Should(BeNil(), "Can not retrieve service")
+
+			httpURL := getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
+			doRequestsFromThirdHost(httpURL, 10, false)
+		}
+
 		testHostPort := func() {
 			var (
 				httpURL string
@@ -752,6 +768,11 @@ var _ = Describe("K8sServicesTest", func() {
 						testExternalTrafficPolicyLocal()
 					})
 
+					SkipItIf(helpers.DoesNotExistNodeWithoutCilium,
+						"Tests NodePort with endpoints in host netns", func() {
+							testNodePortInHostNetNS()
+						})
+
 					It("Tests HealthCheckNodePort", func() {
 						testHealthCheckNodePort()
 					})
@@ -810,6 +831,19 @@ var _ = Describe("K8sServicesTest", func() {
 						})
 					})
 				})
+
+				SkipItIf(helpers.DoesNotExistNodeWithoutCilium,
+					"Tests NodePort with endpoints in host netns", func() {
+						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+							// Change to "hybrid" after https://github.com/cilium/cilium/issues/10789
+							// has been fixed
+							"global.nodePort.mode":        "snat",
+							"global.tunnel":               "disabled",
+							"global.autoDirectNodeRoutes": "true",
+						})
+
+						testNodePortInHostNetNS()
+					})
 
 				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with direct routing and DSR", func() {
 					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
