@@ -750,7 +750,7 @@ int handle_xgress(struct __ctx_buff *ctx)
 	__u16 proto;
 	int ret;
 
-	bpf_clear_cb(ctx);
+	bpf_clear_meta(ctx);
 
 	send_trace_notify(ctx, TRACE_FROM_LXC, SECLABEL, 0, 0, 0, 0,
 			  TRACE_PAYLOAD_LEN);
@@ -1311,7 +1311,7 @@ int handle_to_container(struct __ctx_buff *ctx)
 		goto out;
 	}
 
-	bpf_clear_cb(ctx);
+	bpf_clear_meta(ctx);
 
 	if (inherit_identity_from_host(ctx, &identity))
 		trace = TRACE_FROM_PROXY;
