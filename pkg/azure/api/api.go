@@ -39,7 +39,7 @@ const (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "azure-api")
 
-// Client represents an EC2 API client
+// Client represents an Azure API client
 type Client struct {
 	resourceGroup   string
 	interfaces      network.InterfacesClient
@@ -55,7 +55,7 @@ type MetricsAPI interface {
 	ObserveRateLimit(operation string, duration time.Duration)
 }
 
-// NewClient returns a new EC2 client
+// NewClient returns a new Azure client
 func NewClient(subscriptionID, resourceGroup string, metrics MetricsAPI, rateLimit float64, burst int) (*Client, error) {
 	c := &Client{
 		resourceGroup:   resourceGroup,
