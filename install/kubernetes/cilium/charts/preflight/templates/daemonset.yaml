@@ -82,7 +82,7 @@ spec:
         - image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}"
 {{- end }}
           imagePullPolicy: {{ .Values.global.pullPolicy }}
-          name: cilium-pre-flight-check
+          name: cilium-pre-flight-fqdn-precache
           command: ["/bin/sh"]
           args:
           - -c
