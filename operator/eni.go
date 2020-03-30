@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	apiMetrics "github.com/cilium/cilium/pkg/api/metrics"
 	ec2shim "github.com/cilium/cilium/pkg/aws/ec2"
 	"github.com/cilium/cilium/pkg/aws/eni"
@@ -62,8 +63,8 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 	cfg.Region = instance.Region
 
 	if option.Config.EnableMetrics {
-		aMetrics = apiMetrics.NewPrometheusMetrics("ipam", metricNamespace, registry)
-		iMetrics = ipamMetrics.NewPrometheusMetrics(metricNamespace, registry)
+		aMetrics = apiMetrics.NewPrometheusMetrics("ipam", operatorMetrics.Namespace, operatorMetrics.Registry)
+		iMetrics = ipamMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, operatorMetrics.Registry)
 	} else {
 		aMetrics = &apiMetrics.NoOpMetrics{}
 		iMetrics = &ipamMetrics.NoOpMetrics{}

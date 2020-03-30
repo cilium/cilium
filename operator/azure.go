@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	apiMetrics "github.com/cilium/cilium/pkg/api/metrics"
 	azureAPI "github.com/cilium/cilium/pkg/azure/api"
 	azureIPAM "github.com/cilium/cilium/pkg/azure/ipam"
@@ -44,8 +45,8 @@ func startAzureAllocator(clientQPSLimit float64, clientBurst int) (*ipam.NodeMan
 	}
 
 	if option.Config.EnableMetrics {
-		azMetrics = apiMetrics.NewPrometheusMetrics(metricNamespace, "azure", registry)
-		iMetrics = ipamMetrics.NewPrometheusMetrics(metricNamespace, registry)
+		azMetrics = apiMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, "azure", operatorMetrics.Registry)
+		iMetrics = ipamMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, operatorMetrics.Registry)
 	} else {
 		azMetrics = &apiMetrics.NoOpMetrics{}
 		iMetrics = &ipamMetrics.NoOpMetrics{}

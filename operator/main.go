@@ -20,6 +20,7 @@ import (
 	"os"
 	"os/signal"
 
+	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	"github.com/cilium/cilium/pkg/aws/eni"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -127,7 +128,7 @@ func runOperator(cmd *cobra.Command) {
 	go startServer(shutdownSignal, k8sInitDone, getAPIServerAddr()...)
 
 	if option.Config.EnableMetrics {
-		registerMetrics()
+		operatorMetrics.Register()
 	}
 
 	k8s.Configure(
