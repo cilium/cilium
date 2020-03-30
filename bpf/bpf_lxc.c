@@ -935,7 +935,8 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 		return send_drop_notify(ctx, src_label, SECLABEL, LXC_ID,
 					ret, CTX_ACT_DROP, METRIC_INGRESS);
 
-	ctx_store_meta(ctx, 0, ctx->mark); // essential for proxy ingress, see bpf_ipsec.c
+	// Store meta: essential for proxy ingress, see bpf_hostdev_ingress.c
+	ctx_store_meta(ctx, 0, ctx->mark);
 	return ret;
 }
 
@@ -1143,7 +1144,8 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 		return send_drop_notify(ctx, src_label, SECLABEL, LXC_ID,
 					ret, CTX_ACT_DROP, METRIC_INGRESS);
 
-	ctx_store_meta(ctx, 0, ctx->mark); // essential for proxy ingress, see bpf_ipsec.c
+	// Store meta: essential for proxy ingress, see bpf_hostdev_ingress.c
+	ctx_store_meta(ctx, 0, ctx->mark);
 	return ret;
 }
 

@@ -4,7 +4,7 @@ include ../Makefile.defs
 
 SUBDIRS = sockops
 
-BPF_SIMPLE = bpf_prefilter.o bpf_ipsec.o bpf_network.o bpf_alignchecker.o bpf_hostdev_ingress.o
+BPF_SIMPLE = bpf_prefilter.o bpf_network.o bpf_alignchecker.o bpf_hostdev_ingress.o
 BPF = bpf_lxc.o bpf_overlay.o bpf_sock.o bpf_netdev.o $(BPF_SIMPLE)
 
 TARGET=cilium-map-migrate
