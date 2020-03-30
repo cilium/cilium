@@ -16,4 +16,5 @@ spec:
       - port: "80"
         protocol: TCP
   labels:
-  - "custom=true"
+  - key: "custom"
+    value: "true"
