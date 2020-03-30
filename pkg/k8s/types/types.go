@@ -59,7 +59,7 @@ type PodContainer struct {
 	Name              string
 	Image             string
 	VolumeMountsPaths []string
-	HostPorts         []ContainerPort
+	ContainerPorts    []ContainerPort
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -312,7 +312,7 @@ func (k *K8sWatcher) deleteK8sPodV1(pod *types.Pod) error {
 func genServiceMappings(pod *types.Pod) []loadbalancer.SVC {
 	var svcs []loadbalancer.SVC
 	for _, c := range pod.SpecContainers {
-		for _, p := range c.HostPorts {
+		for _, p := range c.ContainerPorts {
 			if p.HostPort == 0 {
 				continue
 			}
