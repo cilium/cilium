@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package aws
 
 import (
 	"context"
@@ -24,6 +24,8 @@ import (
 	"github.com/cilium/cilium/pkg/aws/eni"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/aws/aws-sdk-go-v2/aws/ec2metadata"
@@ -32,10 +34,28 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// startENIAllocator kicks of ENI allocation, the initial connection to AWS
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-aws")
+
+// AllocatorAWS is an implementation of IPAM allocator interface for AWS ENI
+type AllocatorAWS struct{}
+
+// Init sets up ENI limits based on given options
+func (*AllocatorAWS) Init() error {
+	if err := eni.UpdateLimitsFromUserDefinedMappings(option.Config.AwsInstanceLimitMapping); err != nil {
+		return fmt.Errorf("failed to parse aws-instance-limit-mapping: %w", err)
+	}
+	if option.Config.UpdateEC2AdapterLimitViaAPI {
+		if err := eni.UpdateLimitsFromEC2API(context.TODO()); err != nil {
+			return fmt.Errorf("unable to update instance type to adapter limits from EC2 API: %w", err)
+		}
+	}
+	return nil
+}
+
+// Start kicks of ENI allocation, the initial connection to AWS
 // APIs is done in a blocking manner, given that is successful, a controller is
 // started to manage allocation based on CiliumNode custom resources
-func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags map[string]string) (*ipam.NodeManager, error) {
+func (*AllocatorAWS) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (*ipam.NodeManager, error) {
 	var (
 		aMetrics ec2shim.MetricsAPI
 		iMetrics ipam.MetricsAPI
@@ -45,14 +65,14 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 
 	cfg, err := external.LoadDefaultAWSConfig()
 	if err != nil {
-		return nil, fmt.Errorf("unable to load AWS configuration: %s", err)
+		return nil, fmt.Errorf("unable to load AWS configuration: %w", err)
 	}
 
 	log.Info("Retrieving own metadata from EC2 metadata server...")
 	metadataClient := ec2metadata.New(cfg)
 	instance, err := metadataClient.GetInstanceIdentityDocument()
 	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve instance identity document: %s", err)
+		return nil, fmt.Errorf("unable to retrieve instance identity document: %w", err)
 	}
 
 	log.WithFields(logrus.Fields{
@@ -70,13 +90,13 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 		iMetrics = &ipamMetrics.NoOpMetrics{}
 	}
 
-	ec2Client := ec2shim.NewClient(ec2.New(cfg), aMetrics, awsClientQPSLimit, awsClientBurst)
+	ec2Client := ec2shim.NewClient(ec2.New(cfg), aMetrics, option.Config.IPAMAPIQPSLimit, option.Config.IPAMAPIBurst)
 	log.Info("Connected to EC2 service API")
-	instances := eni.NewInstancesManager(ec2Client, eniTags)
-	nodeManager, err := ipam.NewNodeManager(instances, &ciliumNodeUpdateImplementation{}, iMetrics,
+	instances := eni.NewInstancesManager(ec2Client, option.Config.ENITags)
+	nodeManager, err := ipam.NewNodeManager(instances, getterUpdater, iMetrics,
 		option.Config.ParallelAllocWorkers, option.Config.AwsReleaseExcessIps)
 	if err != nil {
-		return nil, fmt.Errorf("unable to initialize ENI node manager: %s", err)
+		return nil, fmt.Errorf("unable to initialize ENI node manager: %w", err)
 	}
 
 	nodeManager.Start(context.TODO())

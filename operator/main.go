@@ -21,7 +21,6 @@ import (
 	"os/signal"
 
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
-	"github.com/cilium/cilium/pkg/aws/eni"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -165,26 +164,32 @@ func runOperator(cmd *cobra.Command) {
 
 	switch option.Config.IPAM {
 	case option.IPAMENI:
-		if err := eni.UpdateLimitsFromUserDefinedMappings(option.Config.AwsInstanceLimitMapping); err != nil {
-			log.WithError(err).Fatal("Parse aws-instance-limit-mapping failed")
+		ipamAllocatorAWS, providerBuiltin := allocatorProviders["aws"]
+		if !providerBuiltin {
+			log.WithError(err).Fatal("AWS ENI allocator is not supported by this version of cilium-operator")
 		}
-		if option.Config.UpdateEC2AdapterLimitViaAPI {
-			if err := eni.UpdateLimitsFromEC2API(context.TODO()); err != nil {
-				log.WithError(err).Error("Unable to update instance type to adapter limits from EC2 API")
-			}
+
+		if err := ipamAllocatorAWS.Init(); err != nil {
+			log.WithError(err).Fatal("Unable to init AWS ENI allocator")
 		}
-		nodeManager, err = startENIAllocator(
-			option.Config.IPAMAPIQPSLimit,
-			option.Config.IPAMAPIBurst,
-			option.Config.ENITags)
+
+		nodeManager, err = ipamAllocatorAWS.Start(&ciliumNodeUpdateImplementation{})
 		if err != nil {
-			log.WithError(err).Fatal("Unable to start ENI allocator")
+			log.WithError(err).Fatal("Unable to start AWS ENI allocator")
 		}
 
 		startSynchronizingCiliumNodes(nodeManager)
-
 	case option.IPAMAzure:
-		nodeManager, err = startAzureAllocator(option.Config.IPAMAPIQPSLimit, option.Config.IPAMAPIBurst)
+		ipamAllocatorAzure, providerBuiltin := allocatorProviders["azure"]
+		if !providerBuiltin {
+			log.WithError(err).Fatal("Azure allocator is not supported by this version of cilium-operator")
+		}
+
+		if err := ipamAllocatorAzure.Init(); err != nil {
+			log.WithError(err).Fatal("Unable to init Azure allocator")
+		}
+
+		nodeManager, err = ipamAllocatorAzure.Start(&ciliumNodeUpdateImplementation{})
 		if err != nil {
 			log.WithError(err).Fatal("Unable to start Azure allocator")
 		}
