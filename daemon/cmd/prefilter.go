@@ -64,12 +64,13 @@ func NewPatchPrefilterHandler(d *Daemon) PatchPrefilterHandler {
 }
 
 func (h *patchPrefilter) Handle(params PatchPrefilterParams) middleware.Responder {
-	var list []net.IPNet
-	spec := params.PrefilterSpec
 	if h.d.preFilter == nil {
 		msg := fmt.Errorf("Prefilter is not enabled in daemon")
 		return api.Error(PatchPrefilterFailureCode, msg)
 	}
+
+	spec := params.PrefilterSpec
+	list := make([]net.IPNet, 0, len(spec.Deny))
 	for _, cidrStr := range spec.Deny {
 		_, cidr, err := net.ParseCIDR(cidrStr)
 		if err != nil {
@@ -95,12 +96,13 @@ func NewDeletePrefilterHandler(d *Daemon) DeletePrefilterHandler {
 }
 
 func (h *deletePrefilter) Handle(params DeletePrefilterParams) middleware.Responder {
-	var list []net.IPNet
-	spec := params.PrefilterSpec
 	if h.d.preFilter == nil {
 		msg := fmt.Errorf("Prefilter is not enabled in daemon")
 		return api.Error(DeletePrefilterFailureCode, msg)
 	}
+
+	spec := params.PrefilterSpec
+	list := make([]net.IPNet, 0, len(spec.Deny))
 	for _, cidrStr := range spec.Deny {
 		_, cidr, err := net.ParseCIDR(cidrStr)
 		if err != nil {
