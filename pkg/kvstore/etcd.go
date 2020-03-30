@@ -485,6 +485,12 @@ func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error
 		if err != nil {
 			return nil, err
 		}
+		if cfg.TLS != nil {
+			cfg.TLS.GetClientCertificate, err = getClientCertificateReloader(cfgPath)
+			if err != nil {
+				return nil, err
+			}
+		}
 		cfg.DialOptions = append(cfg.DialOptions, config.DialOptions...)
 		config = cfg
 	}
@@ -1493,11 +1499,36 @@ func newConfig(fpath string) (*client.Config, error) {
 		}
 		cfg.TLS.RootCAs = cp
 	}
-	cfg.TLS.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+	return cfg, nil
+}
+
+// reload on-disk certificate and key when needed
+func getClientCertificateReloader(fpath string) (func(*tls.CertificateRequestInfo) (*tls.Certificate, error), error) {
+	yc := &yamlKeyPairConfig{}
+	b, err := ioutil.ReadFile(fpath)
+	if err != nil {
+		return nil, err
+	}
+	err = yaml.Unmarshal(b, yc)
+	if err != nil {
+		return nil, err
+	}
+	if yc.Certfile == "" || yc.Keyfile == "" {
+		return nil, nil
+	}
+	reloader := func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 		cer, err := tls.LoadX509KeyPair(yc.Certfile, yc.Keyfile)
 		return &cer, err
 	}
-	return cfg, nil
+	return reloader, nil
+}
+
+// copy of relevant internal structure fields in go.etcd.io/etcd/clientv3/yaml
+// needed to implement certificates reload, not depending on the deprecated
+// newconfig/yamlConfig.
+type yamlKeyPairConfig struct {
+	Certfile string `json:"cert-file"`
+	Keyfile  string `json:"key-file"`
 }
 
 // copy of the internal structure in github.com/etcd-io/etcd/clientv3/yaml so we
