@@ -93,7 +93,7 @@ int from_network(struct __ctx_buff *ctx)
 	__u16 proto;
 	int ret = 0;
 
-	bpf_clear_cb(ctx);
+	bpf_clear_meta(ctx);
 
 #ifdef ENABLE_IPSEC
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT) {

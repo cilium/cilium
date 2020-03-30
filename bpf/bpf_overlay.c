@@ -254,7 +254,7 @@ int from_overlay(struct __ctx_buff *ctx)
 	__u16 proto;
 	int ret;
 
-	bpf_clear_cb(ctx);
+	bpf_clear_meta(ctx);
 	bpf_skip_nodeport_clear(ctx);
 
 	if (!validate_ethertype(ctx, &proto)) {

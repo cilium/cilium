@@ -5,7 +5,7 @@
 #define __LIB_OVERLOADABLE_SKB_H_
 
 static __always_inline __maybe_unused void
-bpf_clear_cb(struct __sk_buff *ctx)
+bpf_clear_meta(struct __sk_buff *ctx)
 {
 	__u32 zero = 0;
 
