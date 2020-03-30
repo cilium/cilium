@@ -572,6 +572,34 @@ func getPodIPs(podStats v1.PodStatus) []string {
 	return ips
 }
 
+func k8sContainerToTypesContainer(k8sContainers []v1.Container) []types.PodContainer {
+	var containers []types.PodContainer
+	for _, c := range k8sContainers {
+		var vmps []string
+		var ports []types.ContainerPort
+		for _, cvm := range c.VolumeMounts {
+			vmps = append(vmps, cvm.MountPath)
+		}
+		for _, port := range c.Ports {
+			cp := types.ContainerPort{
+				Protocol:      string(port.Protocol),
+				ContainerPort: port.ContainerPort,
+				HostPort:      port.HostPort,
+				HostIP:        port.HostIP,
+			}
+			ports = append(ports, cp)
+		}
+		pc := types.PodContainer{
+			Name:              c.Name,
+			Image:             c.Image,
+			VolumeMountsPaths: vmps,
+			ContainerPorts:    ports,
+		}
+		containers = append(containers, pc)
+	}
+	return containers
+}
+
 // ConvertToPod converts a *v1.Pod into a
 // *types.Pod or a cache.DeletedFinalStateUnknown into
 // a cache.DeletedFinalStateUnknown with a *types.Pod in its Obj.
@@ -582,30 +610,8 @@ func getPodIPs(podStats v1.PodStatus) []string {
 func ConvertToPod(obj interface{}) interface{} {
 	switch concreteObj := obj.(type) {
 	case *v1.Pod:
-		var containers []types.PodContainer
-		for _, c := range concreteObj.Spec.Containers {
-			var vmps []string
-			var ports []types.ContainerPort
-			for _, cvm := range c.VolumeMounts {
-				vmps = append(vmps, cvm.MountPath)
-			}
-			for _, port := range c.Ports {
-				cp := types.ContainerPort{
-					Protocol:      string(port.Protocol),
-					ContainerPort: port.ContainerPort,
-					HostPort:      port.HostPort,
-					HostIP:        port.HostIP,
-				}
-				ports = append(ports, cp)
-			}
-			pc := types.PodContainer{
-				Name:              c.Name,
-				Image:             c.Image,
-				VolumeMountsPaths: vmps,
-				ContainerPorts:    ports,
-			}
-			containers = append(containers, pc)
-		}
+		containers := k8sContainerToTypesContainer(concreteObj.Spec.Containers)
+		containers = append(containers, k8sContainerToTypesContainer(concreteObj.Spec.InitContainers)...)
 		p := &types.Pod{
 			TypeMeta:               concreteObj.TypeMeta,
 			ObjectMeta:             concreteObj.ObjectMeta,
@@ -622,30 +628,8 @@ func ConvertToPod(obj interface{}) interface{} {
 		if !ok {
 			return obj
 		}
-		var containers []types.PodContainer
-		for _, c := range pod.Spec.Containers {
-			var vmps []string
-			var ports []types.ContainerPort
-			for _, cvm := range c.VolumeMounts {
-				vmps = append(vmps, cvm.MountPath)
-			}
-			for _, port := range c.Ports {
-				cp := types.ContainerPort{
-					Protocol:      string(port.Protocol),
-					ContainerPort: port.ContainerPort,
-					HostPort:      port.HostPort,
-					HostIP:        port.HostIP,
-				}
-				ports = append(ports, cp)
-			}
-			pc := types.PodContainer{
-				Name:              c.Name,
-				Image:             c.Image,
-				VolumeMountsPaths: vmps,
-				ContainerPorts:    ports,
-			}
-			containers = append(containers, pc)
-		}
+		containers := k8sContainerToTypesContainer(pod.Spec.Containers)
+		containers = append(containers, k8sContainerToTypesContainer(pod.Spec.InitContainers)...)
 		dfsu := cache.DeletedFinalStateUnknown{
 			Key: concreteObj.Key,
 			Obj: &types.Pod{
