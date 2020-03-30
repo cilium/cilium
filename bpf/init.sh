@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2016-2019 Authors of Cilium
+# Copyright 2016-2020 Authors of Cilium
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -630,8 +630,7 @@ if [ "$MODE" == "ipvlan" ]; then
 fi
 bpf_load $HOST_DEV1 "$COPTS" "egress" bpf_netdev.c bpf_host.o from-netdev $CALLS_MAP
 bpf_load $HOST_DEV1 "" "ingress" bpf_hostdev_ingress.c bpf_hostdev_ingress.o to-host $CALLS_MAP
-# bpf_ipsec.o is also needed by proxy redirects, so we load it unconditionally
-bpf_load $HOST_DEV2 "" "ingress" bpf_ipsec.c bpf_ipsec.o from-netdev $CALLS_MAP
+bpf_load $HOST_DEV2 "" "ingress" bpf_hostdev_ingress.c bpf_hostdev_ingress.o to-host $CALLS_MAP
 if [ "$IPSEC" == "true" ]; then
 	if [ "$ENCRYPT_DEV" != "<nil>" ]; then
 		bpf_load $ENCRYPT_DEV "" "ingress" bpf_network.c bpf_network.o from-network $CALLS_MAP
