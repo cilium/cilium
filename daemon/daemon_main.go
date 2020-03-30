@@ -1533,6 +1533,12 @@ func runDaemon() {
 		errs <- server.Serve()
 	}()
 
+	if k8s.IsEnabled() {
+		bootstrapStats.k8sInit.Start()
+		k8s.Client().MarkNodeReady(node.GetName())
+		bootstrapStats.k8sInit.End(true)
+	}
+
 	bootstrapStats.overall.End(true)
 	bootstrapStats.updateMetrics()
 

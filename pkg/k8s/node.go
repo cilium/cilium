@@ -15,12 +15,14 @@
 package k8s
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -187,10 +189,10 @@ func GetNode(c kubernetes.Interface, nodeName string) (*v1.Node, error) {
 	return c.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
 }
 
-// SetNodeNetworkUnavailableFalse sets Kubernetes NodeNetworkUnavailable to
+// setNodeNetworkUnavailableFalse sets Kubernetes NodeNetworkUnavailable to
 // false as Cilium is managing the network connectivity.
 // https://kubernetes.io/docs/concepts/architecture/nodes/#condition
-func SetNodeNetworkUnavailableFalse(c kubernetes.Interface, nodeName string) error {
+func setNodeNetworkUnavailableFalse(c kubernetes.Interface, nodeName string) error {
 	condition := v1.NodeCondition{
 		Type:               v1.NodeNetworkUnavailable,
 		Status:             v1.ConditionFalse,
@@ -206,4 +208,17 @@ func SetNodeNetworkUnavailableFalse(c kubernetes.Interface, nodeName string) err
 	patch := []byte(fmt.Sprintf(`{"status":{"conditions":%s}}`, raw))
 	_, err = c.CoreV1().Nodes().PatchStatus(nodeName, patch)
 	return err
+}
+
+// MarkNodeReady marks the Kubernetes node resource as ready from a networking
+// perspective
+func (k8sCli K8sClient) MarkNodeReady(nodeName string) {
+	log.WithField(logfields.NodeName, nodeName).Debug("Setting NetworkUnavailable=false")
+
+	controller.NewManager().UpdateController("mark-k8s-node-as-available",
+		controller.ControllerParams{
+			DoFunc: func(_ context.Context) error {
+				return setNodeNetworkUnavailableFalse(k8sCli, nodeName)
+			},
+		})
 }
