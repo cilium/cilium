@@ -1,4 +1,4 @@
-// Copyright 2017-2020 Authors of Cilium
+// Copyright 2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,16 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//+build operator_aws
-
 package main
 
 import (
-	// These dependencies should be included only when this file is included in the build.
-	allocatorAWS "github.com/cilium/cilium/pkg/ipam/allocator/aws" // AWS allocator.
-	_ "github.com/cilium/cilium/pkg/policy/groups/aws"             // Register AWS policy group provider.
+	"github.com/cilium/cilium/pkg/ipam/allocator"
 )
 
-func init() {
-	allocatorProviders["aws"] = &allocatorAWS.AllocatorAWS{}
-}
+var (
+	allocatorProviders = make(map[string]allocator.AllocatorProvider)
+)

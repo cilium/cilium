@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package azure
 
 import (
 	"context"
@@ -24,11 +24,22 @@ import (
 	azureIPAM "github.com/cilium/cilium/pkg/azure/ipam"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
-// startAzureAllocator starts the Azure IP allocator
-func startAzureAllocator(clientQPSLimit float64, clientBurst int) (*ipam.NodeManager, error) {
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-azure")
+
+// AllocatorAzure is an implementation of IPAM allocator interface for Azure
+type AllocatorAzure struct{}
+
+// Init in Azure implementation doesn't need to do anything
+func (*AllocatorAzure) Init() error { return nil }
+
+// Start kicks of the Azure IP allocation
+func (*AllocatorAzure) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (*ipam.NodeManager, error) {
+
 	var (
 		azMetrics azureAPI.MetricsAPI
 		iMetrics  ipam.MetricsAPI
@@ -53,14 +64,14 @@ func startAzureAllocator(clientQPSLimit float64, clientBurst int) (*ipam.NodeMan
 	}
 
 	azureClient, err := azureAPI.NewClient(option.Config.AzureSubscriptionID,
-		option.Config.AzureResourceGroup, azMetrics, clientQPSLimit, clientBurst)
+		option.Config.AzureResourceGroup, azMetrics, option.Config.IPAMAPIQPSLimit, option.Config.IPAMAPIBurst)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create Azure client: %s", err)
+		return nil, fmt.Errorf("unable to create Azure client: %w", err)
 	}
 	instances := azureIPAM.NewInstancesManager(azureClient)
-	nodeManager, err := ipam.NewNodeManager(instances, &ciliumNodeUpdateImplementation{}, iMetrics, option.Config.ParallelAllocWorkers, false)
+	nodeManager, err := ipam.NewNodeManager(instances, getterUpdater, iMetrics, option.Config.ParallelAllocWorkers, false)
 	if err != nil {
-		return nil, fmt.Errorf("unable to initialize Azure node manager: %s", err)
+		return nil, fmt.Errorf("unable to initialize Azure node manager: %w", err)
 	}
 
 	nodeManager.Start(context.TODO())

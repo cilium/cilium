@@ -12,16 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//+build operator_aws
+//+build operator_azure
 
 package main
 
 import (
 	// These dependencies should be included only when this file is included in the build.
-	allocatorAWS "github.com/cilium/cilium/pkg/ipam/allocator/aws" // AWS allocator.
-	_ "github.com/cilium/cilium/pkg/policy/groups/aws"             // Register AWS policy group provider.
+	allocatorAzure "github.com/cilium/cilium/pkg/ipam/allocator/azure" // Azure allocator task.
 )
 
 func init() {
-	allocatorProviders["aws"] = &allocatorAWS.AllocatorAWS{}
+	allocatorProviders["azure"] = &allocatorAzure.AllocatorAzure{}
 }
