@@ -285,6 +285,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["POLICY_AUDIT_MODE"] = "1"
 	}
 
+	if option.Config.AllowICMPFragNeeded {
+		cDefinesMap["ALLOW_ICMP_FRAG_NEEDED"] = "1"
+	}
+
 	// Since golang maps are unordered, we sort the keys in the map
 	// to get a consistent writtern format to the writer. This maintains
 	// the consistency when we try to calculate hash for a datapath after
@@ -314,10 +318,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		// to the writer.
 		encodedConfig := base64.StdEncoding.EncodeToString(jsonBytes)
 		fmt.Fprintf(fw, "\n// JSON_OUTPUT: %s\n", encodedConfig)
-	}
-
-	if option.Config.AllowICMPFragNeeded {
-		fmt.Fprintf(fw, "#define ALLOW_ICMP_FRAG_NEEDED 1\n")
 	}
 
 	return fw.Flush()
