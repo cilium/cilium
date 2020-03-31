@@ -70,12 +70,13 @@ __u32 finalize_sec_ctx(__u32 secctx, __u32 src_identity __maybe_unused)
 #endif
 
 #ifdef ENABLE_IPV6
-static __always_inline __u32 derive_sec_ctx(struct __ctx_buff *ctx __maybe_unused,
-					    const union v6addr *node_ip,
-					    struct ipv6hdr *ip6, __u32 *identity)
+static __always_inline __u32
+derive_sec_ctx(struct __ctx_buff *ctx __maybe_unused,
+	       const union v6addr *node_ip __maybe_unused,
+	       struct ipv6hdr *ip6 __maybe_unused, __u32 *identity)
 {
-#ifdef FIXED_SRC_SECCTX
-	*identity = FIXED_SRC_SECCTX;
+#ifdef FROM_HOST
+	*identity = HOST_ID;
 	return 0;
 #else
 	if (ipv6_match_prefix_64((union v6addr *) &ip6->saddr, node_ip)) {
@@ -266,8 +267,8 @@ static __always_inline
 __u32 derive_ipv4_sec_ctx(struct __ctx_buff *ctx __maybe_unused,
 			  struct iphdr *ip4 __maybe_unused)
 {
-#ifdef FIXED_SRC_SECCTX
-	return FIXED_SRC_SECCTX;
+#ifdef FROM_HOST
+	return HOST_ID;
 #else
 	return WORLD_ID;
 #endif
