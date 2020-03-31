@@ -186,10 +186,14 @@ func (s *K8sSuite) Test_runHeartbeat(c *C) {
 	k8smetrics.LastSuccessInteraction.Reset()
 	time.Sleep(2 * time.Millisecond)
 
+	testCtx, testCtxCancel := context.WithCancel(context.Background())
+
 	called := make(chan struct{})
 	runHeartbeat(
 		func(ctx context.Context) error {
-			<-ctx.Done()
+			// Block any attempt to connect return from a heartbeat until the
+			// test is complete.
+			<-testCtx.Done()
 			return nil
 		},
 		time.Millisecond,
@@ -210,19 +214,24 @@ func (s *K8sSuite) Test_runHeartbeat(c *C) {
 	},
 		5*time.Second)
 	c.Assert(err, IsNil, Commentf("Heartbeat should have closed all connections"))
+	testCtxCancel()
 
 	// There are some connectivity issues, cilium is trying to reach kube-apiserver
-	// but it's only receiving errors. We should close all connections!
+	// but it's only receiving errors for other requests. We should close all
+	// connections!
 
 	// Wait the double amount of time than the timeout to make sure
 	// LastSuccessInteraction is not taken into account and we will see that we
 	// will close all connections.
+	testCtx, testCtxCancel = context.WithCancel(context.Background())
 	time.Sleep(200 * time.Millisecond)
 
 	called = make(chan struct{})
 	runHeartbeat(
 		func(ctx context.Context) error {
-			<-ctx.Done()
+			// Block any attempt to connect return from a heartbeat until the
+			// test is complete.
+			<-testCtx.Done()
 			return nil
 		},
 		100*time.Millisecond,
@@ -243,6 +252,7 @@ func (s *K8sSuite) Test_runHeartbeat(c *C) {
 	},
 		5*time.Second)
 	c.Assert(err, IsNil, Commentf("Heartbeat should have closed all connections"))
+	testCtxCancel()
 
 	// Cilium is successfully talking with kube-apiserver, we should not do
 	// anything.
