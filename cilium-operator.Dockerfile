@@ -3,8 +3,9 @@ LABEL maintainer="maintainer@cilium.io"
 ADD . /go/src/github.com/cilium/cilium
 WORKDIR /go/src/github.com/cilium/cilium/operator
 ARG LOCKDEBUG
+ARG CHECKPTR
 ARG V
-RUN make CGO_ENABLED=0 GOOS=linux LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 EXTRA_GOBUILD_FLAGS="-a -installsuffix cgo -tags operator_aws"
+RUN make CGO_ENABLED=0 GOOS=linux LOCKDEBUG=$LOCKDEBUG CHECKPTR=$CHECKPTR PKG_BUILD=1 EXTRA_GOBUILD_FLAGS="-a -installsuffix cgo -tags operator_aws"
 
 FROM docker.io/library/alpine:3.9.3 as certs
 RUN apk --update add ca-certificates

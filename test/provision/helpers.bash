@@ -95,7 +95,7 @@ function pull_image_and_push_to_local_registry {
 
 function build_cilium_image {
   echo "building cilium image..."
-  make LOCKDEBUG=1 docker-image-no-clean
+  make LOCKDEBUG=1 CHECKPTR=1 docker-image-no-clean
   echo "tagging cilium image..."
   docker tag cilium/cilium k8s1:5000/cilium/cilium-dev
   echo "pushing cilium image..."
@@ -105,7 +105,7 @@ function build_cilium_image {
 function build_operator_image {
   # build cilium-operator image
   echo "building cilium-operator image..."
-  make LOCKDEBUG=1 docker-operator-image
+  make LOCKDEBUG=1 CHECKPTR=1 docker-operator-image
   echo "tagging cilium-operator image..."
   docker tag cilium/operator k8s1:5000/cilium/operator
   echo "pushing cilium-operator image..."

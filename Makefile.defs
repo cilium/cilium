@@ -81,11 +81,13 @@ GOBUILD = $(GOFLAGS) -ldflags '$(GOLDFLAGS)' $(EXTRA_GOBUILD_FLAGS)
 # Uncomment to enable race detection
 #GOBUILD += -race
 
-# Uncomment to enable deadlock detection
-#GOBUILD += -tags lockdebug
-
 ifneq ($(LOCKDEBUG),)
     GOBUILD += -tags lockdebug
+endif
+
+ifneq ($(CHECKPTR),)
+    # Enable unsafe.Pointer instrumentation, see https://tip.golang.org/doc/go1.14#compiler
+    GOBUILD += -gcflags=all=-d=checkptr
 endif
 
 # Container engine

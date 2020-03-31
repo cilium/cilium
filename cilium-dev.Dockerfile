@@ -8,6 +8,7 @@ LABEL maintainer="maintainer@cilium.io"
 RUN apt-get install make -y
 WORKDIR /go/src/github.com/cilium/cilium
 ARG LOCKDEBUG
+ARG CHECKPTR
 ARG V
 ARG LIBNETWORK_PLUGIN
 COPY --from=cilium-envoy / /
@@ -24,7 +25,7 @@ COPY ./plugins/cilium-cni ./plugins/cilium-cni
 COPY ./proxylib ./proxylib
 COPY ./Makefile* ./
 RUN for i in proxylib envoy plugins/cilium-cni bpf cilium daemon cilium-health bugtool; \
-     do LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 V=$V LIBNETWORK_PLUGIN=$LIBNETWORK_PLUGIN \
+     do LOCKDEBUG=$LOCKDEBUG CHECKPTR=$CHECKPTR PKG_BUILD=1 V=$V LIBNETWORK_PLUGIN=$LIBNETWORK_PLUGIN \
             SKIP_DOCS=true DESTDIR= \
             make -C $i install; done
 RUN groupadd -f cilium \
