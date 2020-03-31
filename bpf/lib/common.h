@@ -48,6 +48,11 @@
 # endif
 #endif
 
+#if HAVE_PROG_TYPE_HELPER(cgroup_sock_addr, bpf_get_netns_cookie) && \
+    HAVE_PROG_TYPE_HELPER(cgroup_sock,      bpf_get_netns_cookie)
+# define ENABLE_HOST_SERVICES_NETNS 1
+#endif
+
 /* These are shared with test/bpf/check-complexity.sh, when modifying any of
  * the below, that script should also be updated. */
 #define CILIUM_CALL_DROP_NOTIFY			1
