@@ -408,18 +408,24 @@ func createNodeCRD(clientset apiextensionsclient.Interface) error {
 									Type: "object",
 									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 										"min-allocate": {
-											Type:    "integer",
-											Minimum: getFloat64(0),
-											Description: "min-allocate is the minimum number of IPs that will be allocated before" +
-												" the cilium-agent will write the CNI config.",
+											Type:        "integer",
+											Minimum:     getFloat64(0),
+											Description: "min-allocate is the minimum number of IPs that will be allocated before the cilium-agent will write the CNI config.",
+										},
+										"max-allocate": {
+											Type:        "integer",
+											Minimum:     getFloat64(0),
+											Description: "max-allocate is the maximum number of IPs that will be allocated to the node.",
 										},
 										"pre-allocate": {
-											Type:    "integer",
-											Minimum: getFloat64(0),
+											Type:        "integer",
+											Minimum:     getFloat64(0),
+											Description: "pre-allocate defines the number of IP addresses that must be available for allocation at all times.",
 										},
 										"max-above-watermark": {
-											Type:    "integer",
-											Minimum: getFloat64(0),
+											Type:        "integer",
+											Minimum:     getFloat64(0),
+											Description: "max-above-watermark defines the number of addresses to allocate beyond what is needed to reach the PreAllocate watermark.",
 										},
 										"first-interface-index": {
 											Type:        "integer",
@@ -461,18 +467,24 @@ func createNodeCRD(clientset apiextensionsclient.Interface) error {
 									Type: "object",
 									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 										"min-allocate": {
-											Type:    "integer",
-											Minimum: getFloat64(0),
-											Description: "min-allocate is the minimum number of IPs that will be allocated before" +
-												" the cilium-agent will write the CNI config.",
+											Type:        "integer",
+											Minimum:     getFloat64(0),
+											Description: "min-allocate is the minimum number of IPs that will be allocated before the cilium-agent will write the CNI config.",
+										},
+										"max-allocate": {
+											Type:        "integer",
+											Minimum:     getFloat64(0),
+											Description: "max-allocate is the maximum number of IPs that will be allocated to the node.",
 										},
 										"pre-allocate": {
-											Type:    "integer",
-											Minimum: getFloat64(0),
+											Type:        "integer",
+											Minimum:     getFloat64(0),
+											Description: "pre-allocate is number of IP addresses that must be available for allocation at all times.",
 										},
 										"max-above-watermark": {
-											Type:    "integer",
-											Minimum: getFloat64(0),
+											Type:        "integer",
+											Minimum:     getFloat64(0),
+											Description: "max-above-watermark defines the number of addresses to allocate beyond what is needed to reach the PreAllocate watermark.",
 										},
 									},
 								},

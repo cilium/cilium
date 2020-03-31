@@ -105,6 +105,14 @@ allocation:
 
   If unspecified, no minimum number of IPs is required.
 
+``spec.ipam.max-allocate``
+  The maximum number of IPs that can be allocated to the node.
+  When the current amount of allocated IPs will approach this value,
+  the considered value for PreAllocate will decrease down to 0 in order to
+  not attempt to allocate more addresses than defined.
+
+  If unspecified, no maximum number of IPs will be enforced.
+
 ``spec.ipam.pre-allocate``
   The number of IP addresses that must be available for allocation at all
   times.  It defines the buffer of addresses available immediately without
