@@ -625,6 +625,16 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 			logfields.Attempt: attempt,
 		})
 
+		// A different Allocate call might have allocated the key while we were
+		// attempting to allocate in this execution thread. It does not hurt
+		// to check if localKeys contains a reference for the key that we are
+		// attempting to allocate.
+		if val := a.localKeys.use(k); val != idpool.NoID {
+			kvstore.Trace("Reusing local id", nil, logrus.Fields{fieldID: val, fieldKey: key})
+			a.mainCache.insert(key, val)
+			return val, false, nil
+		}
+
 		select {
 		case <-ctx.Done():
 			scopedLog.WithError(ctx.Err()).Warning("Ongoing key allocation has been cancelled")
