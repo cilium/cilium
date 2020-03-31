@@ -322,6 +322,15 @@ then the same range must be passed to Cilium via the ``global.nodePort.range``
 option, for example, as ``--set global.nodePort.range="10000\,32767"`` for a
 range of ``10000-32767``. The default Kubernetes NodePort range is ``30000-32767``.
 
+If the NodePort port range overlaps with the ephemeral port range
+(``net.ipv4.ip_local_port_range``), Cilium will append the NodePort range to
+the reserved ports (``net.ipv4.ip_local_reserved_ports``). This is needed to
+prevent a NodePort service from hijacking traffic of a host local application
+which source port matches the service port. To disable the modification of
+the reserved ports, set ``global.nodePort.autoProtectPortRanges`` to ``false``.
+
+
+
 Container hostPort support
 **************************
 
