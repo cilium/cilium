@@ -44,8 +44,8 @@ static __always_inline bool ipv4_is_fragment(struct iphdr *ip4)
 	// +----+----+----+----------------------------------+
 	//
 	// If "More fragments" or the offset is nonzero, then this is an IP
-	// fragment. The evil bit must be set to 0 (RFC791, RFC3514).
-	return ip4->frag_off & bpf_htons(0xBFFF);
+	// fragment (RFC791).
+	return ip4->frag_off & bpf_htons(0x3FFF);
 }
 
 #endif /* __LIB_IPV4__ */
