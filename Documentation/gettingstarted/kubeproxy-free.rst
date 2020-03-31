@@ -554,5 +554,8 @@ Limitations
     * Cilium's DSR NodePort mode currently does not operate well in environments with
       TCP Fast Open (TFO) enabled. It is recommended to switch to ``snat`` mode in this
       situation.
+    * Cilium's DSR NodePort does not work with services endpoints which run in
+      the host network namespace (``hostNetwork: true``). This will be addressed via
+      `GH issue 10789 <https://github.com/cilium/cilium/issues/10789>`__.
     * Kubernetes Service sessionAffinity is currently not implemented.
       This will be addressed via `GH issue 9076 <https://github.com/cilium/cilium/issues/9076>`__.
