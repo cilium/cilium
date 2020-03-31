@@ -48,6 +48,12 @@ var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "config")
 )
 
+type FlagsSection struct {
+	Name  string   // short one-liner to describe the section
+	Desc  string   // optional paragraph to explain a section
+	Flags []string // names of flags to include in the section
+}
+
 const (
 	// AgentLabels are additional labels to identify this agent
 	AgentLabels = "agent-labels"
@@ -827,6 +833,239 @@ const (
 	// EndpointStatusState enables CiliumEndpoint.Status.State
 	EndpointStatusState = "state"
 )
+
+// HelpFlagSections to format the Cilium Agent help template.
+// Developers please make sure to add the new flags to
+// the respective sections or create a new section.
+var HelpFlagSections = []FlagsSection{
+	{
+		Name: "BPF flags",
+		Flags: []string{
+			BPFRoot,
+			KeepBPFTemplates,
+			CTMapEntriesGlobalTCPName,
+			CTMapEntriesGlobalAnyName,
+			CTMapEntriesTimeoutSYNName,
+			CTMapEntriesTimeoutFINName,
+			CTMapEntriesTimeoutTCPName,
+			CTMapEntriesTimeoutAnyName,
+			CTMapEntriesTimeoutSVCTCPName,
+			CTMapEntriesTimeoutSVCAnyName,
+			NATMapEntriesGlobalName,
+			PolicyMapEntriesName,
+			PreAllocateMapsName,
+			BPFCompileDebugName,
+		},
+	},
+	{
+		Name: "DNS policy flags",
+		Flags: []string{
+			FQDNRejectResponseCode,
+			ToFQDNsEnablePoller,
+			ToFQDNsEnablePollerEvents,
+			ToFQDNsMaxIPsPerHost,
+			ToFQDNsMinTTL,
+			ToFQDNsPreCache,
+			ToFQDNsProxyPort,
+			FQDNProxyResponseMaxDelay,
+			ToFQDNsEnableDNSCompression,
+			ToFQDNsMaxDeferredConnectionDeletes,
+		},
+	},
+	{
+		Name: "Kubernetes flags",
+		Flags: []string{
+			K8sAPIServer,
+			K8sKubeConfigPath,
+			K8sNamespaceName,
+			K8sRequireIPv4PodCIDRName,
+			K8sRequireIPv6PodCIDRName,
+			K8sWatcherEndpointSelector,
+			K8sWatcherQueueSize,
+			K8sEventHandover,
+			DisableK8sServices,
+			AnnotateK8sNode,
+			K8sForceJSONPatch,
+			DisableCiliumEndpointCRDName,
+			K8sHeartbeatTimeout,
+			EnableExternalIPs,
+			K8sEnableEndpointSlice,
+			EnableHostPort,
+			AutoCreateCiliumNodeResource,
+			DisableCNPStatusUpdates,
+			ReadCNIConfiguration,
+			WriteCNIConfigurationWhenReady,
+			EndpointStatus,
+			SkipCRDCreation,
+			FlannelMasterDevice,
+			FlannelUninstallOnExit,
+			EnableWellKnownIdentities,
+		},
+	},
+	{
+		Name: "Clustermesh flags",
+		Flags: []string{
+			ClusterIDName,
+			ClusterName,
+			ClusterMeshConfigName,
+		},
+	},
+	{
+		Name: "Route flags",
+		Flags: []string{
+			SingleClusterRouteName,
+			EnableEndpointRoutes,
+			EnableLocalNodeRoute,
+			BlacklistConflictingRoutes,
+			EnableAutoDirectRoutingName,
+		},
+	},
+	{
+		Name: "Proxy flags",
+		Flags: []string{
+			HTTPIdleTimeout,
+			HTTPMaxGRPCTimeout,
+			HTTPRequestTimeout,
+			HTTPRetryCount,
+			HTTPRetryTimeout,
+			ProxyConnectTimeout,
+			SidecarIstioProxyImage,
+		},
+	},
+	{
+		Name: "Debug, logging and trace flags",
+		Flags: []string{
+			DebugArg,
+			DebugVerbose,
+			EnableTracing,
+			LogDriver,
+			LogOpt,
+			LogSystemLoadConfigName,
+			EnvoyLog,
+			EnableEndpointHealthChecking,
+			EnableHealthChecking,
+			TracePayloadlen,
+			PProf,
+		},
+	},
+	{
+		Name: "Metrics and monitoring flags",
+		Flags: []string{
+			Metrics,
+			MonitorAggregationName,
+			MonitorAggregationFlags,
+			MonitorAggregationInterval,
+			MonitorQueueSizeName,
+			PrometheusServeAddr,
+		},
+	},
+	{
+		Name: "IP flags",
+		Flags: []string{
+			EnableIPv4Name,
+			EnableIPv6Name,
+			IPAllocationTimeout,
+			IPAM,
+			IPv4ClusterCIDRMaskSize,
+			IPv4NodeAddr,
+			IPv6NodeAddr,
+			IPv4PodSubnets,
+			IPv6PodSubnets,
+			IPv4ServiceRange,
+			IPv6ServiceRange,
+			IPv4Range,
+			IPv6Range,
+			LoopbackIPv4,
+			IPv6ClusterAllocCIDRName,
+			MTUName,
+			NAT46Range,
+		},
+	},
+	{
+		Name: "KVstore flags",
+		Flags: []string{
+			KVStore,
+			KVStoreOpt,
+			KVstoreConnectivityTimeout,
+			KVstorePeriodicSync,
+		},
+	},
+	{
+		Name: "Encryption flags",
+		Flags: []string{
+			EncryptInterface,
+			EncryptNode,
+			EnableIPSecName,
+			IPSecKeyFileName,
+		},
+	},
+	{
+		Name: "Policy flags",
+		Flags: []string{
+			AllowLocalhost,
+			AllowICMPFragNeeded,
+			EnablePolicy,
+			ExcludeLocalAddress,
+			ForceLocalPolicyEvalAtSource,
+			PolicyQueueSize,
+			PolicyAuditModeArg,
+			EnableL7Proxy,
+			IdentityAllocationMode,
+			IdentityChangeGracePeriod,
+			FixedIdentityMapping,
+			CertsDirectory,
+		},
+	},
+	{
+		Name: "Hubble flags",
+		Flags: []string{
+			EnableHubble,
+			HubbleSocketPath,
+			HubbleListenAddresses,
+			HubbleFlowBufferSize,
+			HubbleEventQueueSize,
+			HubbleMetricsServer,
+			HubbleMetrics,
+		},
+	},
+	{
+		Name: "Services and address translation flags",
+		Flags: []string{
+			EgressMasqueradeInterfaces,
+			Masquerade,
+			KubeProxyReplacement,
+			EnableNodePort,
+			NodePortMode,
+			NodePortRange,
+			EnableHostReachableServices,
+			HostReachableServicesProtos,
+		},
+	},
+	{
+		Name: "IPtables flags",
+		Flags: []string{
+			PrependIptablesChainsName,
+			InstallIptRules,
+			DisableIptablesFeederRules,
+		},
+	},
+	{
+		Name: "Networking flags",
+		Flags: []string{
+			Device,
+			DatapathMode,
+			ConntrackGCInterval,
+			DisableConntrack,
+			EnableAutoProtectNodePortRange,
+			TunnelName,
+			SockopsEnableName,
+			PrefilterDevice,
+			PrefilterMode,
+			EnableXTSocketFallbackName,
+			IpvlanMasterDevice,
+		},
+	},
+}
 
 // Default string arguments
 var (
