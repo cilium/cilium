@@ -269,11 +269,14 @@ function bpf_compile()
 	EXTRA_OPTS=$4
 
 	clang -O2 -target bpf -emit-llvm				\
-	      -Wno-address-of-packed-member -Wno-unknown-warning-option	\
+	      -Wall -Wextra -Werror					\
+	      -Wno-address-of-packed-member				\
+	      -Wno-unknown-warning-option				\
+	      -Wno-gnu-variable-sized-type-not-at-end			\
 	      -I. -I$DIR -I$LIB -I$LIB/include				\
 	      -D__NR_CPUS__=$(nproc)					\
-	      -DENABLE_ARP_RESPONDER					\
-	      -DHANDLE_NS						\
+	      -DENABLE_ARP_RESPONDER=1					\
+	      -DHANDLE_NS=1						\
 	      $EXTRA_OPTS						\
 	      -c $LIB/$IN -o - |					\
 	llc -march=bpf -mcpu=$MCPU -mattr=dwarfris -filetype=$TYPE -o $OUT
