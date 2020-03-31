@@ -152,6 +152,7 @@ data:
   enable-external-ips: "false"
   enable-node-port: "false"
   node-port-mode: "hybrid"
+  enable-auto-protect-node-port-range: "true"
   # Chaining mode is set to portmap, enable health checking
   enable-endpoint-health-checking: "true"
   enable-well-known-identities: "false"
