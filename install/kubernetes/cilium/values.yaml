@@ -256,6 +256,10 @@ global:
     # device is the name of the device handling NodePort requests
     # device:
 
+    # Append NodePort range to ip_local_reserved_ports if clash with ephemeral
+    # ports is detected
+    autoProtectPortRange: true
+
   # externalIPs is the configuration for ExternalIPs service handling
   externalIPs:
     # enabled enables ExternalIPs functionality
