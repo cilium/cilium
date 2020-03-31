@@ -511,6 +511,31 @@ Be sure to pass ``--cilium.passCLIEnvironment=true`` to allow kubectl to invoke 
 
 .. note:: The kubernetes version varies between AWS regions. Be sure to check with ``kubectl version``
 
+Adding new Managed Kubernetes providers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+All Managed Kubernetes test support relies on using a pre-configured kubeconfig
+file.  This isn't always adequate, however, and adding defaults specific to
+each provider is possible. The `commit adding GKE <https://github.com/cilium/cilium/commit/c2d8445fd725c515a635c8c3ad3be901a08084eb>`_
+support is a good reference.
+
+1- Add a map of helm settings to act as an override for this provider in
+`test/helpers/kubectl.go <https://github.com/cilium/cilium/blob/26dec4c4f4311df2b1a6c909b27ff7fe6e46929f/test/helpers/kubectl.go#L80-L102>`_.
+These should be the helm settings used when generating cilium specs for this provider.
+
+2- Add a unique `CI Integration constant <https://github.com/cilium/cilium/blob/26dec4c4f4311df2b1a6c909b27ff7fe6e46929f/test/helpers/kubectl.go#L66-L67>`_.
+This value is passed in when invoking ginkgo via the ``CNI_INTEGRATON``
+environment variable.
+
+3- Update the `helm overrides <https://github.com/cilium/cilium/blob/26dec4c4f4311df2b1a6c909b27ff7fe6e46929f/test/helpers/kubectl.go#L138-L147>`_
+mapping with the constant and the helm settings.
+
+4- For cases where a test should be skipped use the ``SkipIfIntegration``. To
+skip whole contexts, use ``SkipContextIf``. More complex logic can be expressed
+with functions like ``IsIntegration``. These functions are all part of the
+`test/helpers <https://github.com/cilium/cilium/blob/26dec4c4f4311df2b1a6c909b27ff7fe6e46929f/test/helpers>`_
+package.
+
 Running End-To-End Tests In Other Environments via SSH
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
