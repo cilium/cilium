@@ -255,6 +255,7 @@ Load Balancer            node             64k             Max 64k cumulative bac
 Policy                   endpoint         16k             Max 16k allowed identity + port + protocol pairs for specific endpoint
 Proxy Map                node             512k            Max 512k concurrent redirected TCP connections to proxy
 Tunnel                   node             64k             Max 32k nodes (IPv4+IPv6) or 64k nodes (IPv4 or IPv6) across all clusters
+IPv4 Fragmentation       node             8k              Max 8k fragmented datagrams in flight on node
 ======================== ================ =============== =====================================================
 
 Kubernetes Integration
