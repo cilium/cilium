@@ -80,7 +80,8 @@ account(struct __ctx_buff *ctx, struct policy_entry *policy)
 
 static __always_inline int
 __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 identity,
-		    __u16 dport, __u8 proto, int dir, bool is_fragment, __u8 *match_type)
+		    __u16 dport, __u8 proto, int dir,
+		    bool is_untracked_fragment, __u8 *match_type)
 {
 #ifdef ALLOW_ICMP_FRAG_NEEDED
 	// When ALLOW_ICMP_FRAG_NEEDED is defined we allow all packets
@@ -113,8 +114,8 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 identity,
 		.pad = 0,
 	};
 
-	/* L4 lookup can't be done on fragments. */
-	if (!is_fragment) {
+	/* L4 lookup can't be done on untracked fragments. */
+	if (!is_untracked_fragment) {
 		/* Start with L3/L4 lookup. */
 		policy = map_lookup_elem(map, &key);
 		if (likely(policy)) {
@@ -159,7 +160,7 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 identity,
 	if (ctx_load_meta(ctx, CB_POLICY))
 		return CTX_ACT_OK;
 
-	if (is_fragment)
+	if (is_untracked_fragment)
 		return DROP_FRAG_NOSUPPORT;
 
 	return DROP_POLICY;
@@ -167,10 +168,13 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 identity,
 
 /**
  * Determine whether the policy allows this traffic on ingress.
- * @arg ctx		Packet to allow or deny
- * @arg src_identity	Source security identity for this packet
- * @arg dport		Destination port of this packet
- * @arg proto		L3 Protocol of this packet
+ * @arg ctx			Packet to allow or deny
+ * @arg src_identity		Source security identity for this packet
+ * @arg dport			Destination port of this packet
+ * @arg proto			L3 Protocol of this packet
+ * @arg is_untracked_fragment	True if packet is a TCP/UDP datagram fragment
+ *				AND IPv4 fragment tracking is disabled
+ * @arg match_type		Pointer to store layers used for policy match
  *
  * Returns:
  *   - Positive integer indicating the proxy_port to handle this traffic
@@ -179,12 +183,14 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 identity,
  */
 static __always_inline int
 policy_can_access_ingress(struct __ctx_buff *ctx, __u32 src_identity,
-			  __u16 dport, __u8 proto, bool is_fragment, __u8 *match_type)
+			  __u16 dport, __u8 proto, bool is_untracked_fragment,
+			  __u8 *match_type)
 {
 	int ret;
 
 	ret = __policy_can_access(&POLICY_MAP, ctx, src_identity, dport,
-				      proto, CT_INGRESS, is_fragment, match_type);
+				  proto, CT_INGRESS, is_untracked_fragment,
+				  match_type);
 	if (ret >= CTX_ACT_OK)
 		return ret;
 
