@@ -1011,7 +1011,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
 	bool skip_ingress_proxy = false;
-	bool is_fragment = false;
+	bool is_untracked_fragment = false;
 	__u32 monitor = 0;
 	__be32 orig_sip;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
@@ -1032,7 +1032,12 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
-	is_fragment = ipv4_is_fragment(ip4);
+#if !defined IPV4_FRAGMENTS
+	/* Indicate that this is a datagram fragment for which we cannot
+	 * retrieve L4 ports. Do not set flag if we support fragmentation.
+	 */
+	is_untracked_fragment = ipv4_is_fragment(ip4);
+#endif
 
 	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_INGRESS, &ct_state,
 			 &monitor);
@@ -1071,7 +1076,8 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 
 	verdict = policy_can_access_ingress(ctx, src_label, tuple.dport,
 					    tuple.nexthdr,
-					    is_fragment, &policy_match_type);
+					    is_untracked_fragment,
+					    &policy_match_type);
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
