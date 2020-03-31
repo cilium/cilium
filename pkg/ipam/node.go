@@ -202,6 +202,11 @@ func (n *Node) getMinAllocate() int {
 	return n.resource.Spec.ENI.MinAllocate
 }
 
+// getMaxAllocate returns the maximum-allocation setting of an AWS node
+func (n *Node) getMaxAllocate() int {
+	return n.resource.Spec.IPAM.MaxAllocate
+}
+
 // GetNeededAddresses returns the number of needed addresses that need to be
 // allocated or released. A positive number is returned to indicate allocation.
 // A negative number is returned to indicate release of addresses.
@@ -218,14 +223,22 @@ func (n *Node) GetNeededAddresses() int {
 	return 0
 }
 
-func calculateNeededIPs(availableIPs, usedIPs, preAllocate, minAllocate int) (neededIPs int) {
+func calculateNeededIPs(availableIPs, usedIPs, preAllocate, minAllocate, maxAllocate int) (neededIPs int) {
 	neededIPs = preAllocate - (availableIPs - usedIPs)
-	if neededIPs < 0 {
-		neededIPs = 0
-	}
 
 	if minAllocate > 0 {
 		neededIPs = math.IntMax(neededIPs, minAllocate-availableIPs)
+	}
+
+	// If maxAllocate is set (> 0) and neededIPs is higher than the
+	// maxAllocate value, we only return the amount of IPs that can
+	// still be allocated
+	if maxAllocate > 0 && (availableIPs+neededIPs) > maxAllocate {
+		neededIPs = maxAllocate - availableIPs
+	}
+
+	if neededIPs < 0 {
+		neededIPs = 0
 	}
 
 	return
@@ -338,7 +351,7 @@ func (n *Node) recalculate() {
 	n.available = a
 	n.stats.UsedIPs = len(n.resource.Status.IPAM.Used)
 	n.stats.AvailableIPs = len(n.available)
-	n.stats.NeededIPs = calculateNeededIPs(n.stats.AvailableIPs, n.stats.UsedIPs, n.getPreAllocate(), n.getMinAllocate())
+	n.stats.NeededIPs = calculateNeededIPs(n.stats.AvailableIPs, n.stats.UsedIPs, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAllocate())
 	n.stats.ExcessIPs = calculateExcessIPs(n.stats.AvailableIPs, n.stats.UsedIPs, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAboveWatermark())
 
 	scopedLog.WithFields(logrus.Fields{

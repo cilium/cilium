@@ -25,6 +25,7 @@ type testNeededDef struct {
 	used        int
 	preallocate int
 	minallocate int
+	maxallocate int
 	result      int
 }
 
@@ -38,13 +39,16 @@ type testExcessDef struct {
 }
 
 var neededDef = []testNeededDef{
-	{0, 0, 0, 16, 16},
-	{0, 0, 8, 16, 16},
-	{0, 0, 16, 8, 16},
-	{0, 0, 16, 0, 16},
-	{8, 0, 0, 16, 8},
-	{8, 4, 8, 0, 4},
-	{8, 4, 8, 8, 4},
+	{0, 0, 0, 16, 0, 16},
+	{0, 0, 8, 16, 0, 16},
+	{0, 0, 16, 8, 0, 16},
+	{0, 0, 16, 0, 0, 16},
+	{8, 0, 0, 16, 0, 8},
+	{8, 4, 8, 0, 0, 4},
+	{8, 4, 8, 8, 0, 4},
+	{8, 4, 8, 8, 6, 0},
+	{8, 4, 8, 0, 8, 0},
+	{4, 4, 8, 0, 8, 4},
 }
 
 var excessDef = []testExcessDef{
@@ -62,7 +66,7 @@ var excessDef = []testExcessDef{
 
 func (e *IPAMSuite) TestCalculateNeededIPs(c *check.C) {
 	for _, d := range neededDef {
-		result := calculateNeededIPs(d.available, d.used, d.preallocate, d.minallocate)
+		result := calculateNeededIPs(d.available, d.used, d.preallocate, d.minallocate, d.maxallocate)
 		c.Assert(result, check.Equals, d.result)
 	}
 }

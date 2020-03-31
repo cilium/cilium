@@ -84,6 +84,14 @@ type IPAMSpec struct {
 	// +optional
 	MinAllocate int `json:"min-allocate,omitempty"`
 
+	// MaxAllocate is the maximum number of IPs that can be allocated to the
+	// node. When the current amount of allocated IPs will approach this value,
+	// the considered value for PreAllocate will decrease down to 0 in order to
+	// not attempt to allocate more addresses than defined.
+	//
+	// +optional
+	MaxAllocate int `json:"max-allocate,omitempty"`
+
 	// PreAllocate defines the number of IP addresses that must be
 	// available for allocation in the IPAMspec. It defines the buffer of
 	// addresses available immediately without requiring cilium-operator to
