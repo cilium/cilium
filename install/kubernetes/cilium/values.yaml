@@ -388,16 +388,18 @@ global:
 
   # hubble configures Hubble.
   hubble:
-    # List of unix domain socket paths to listen to, for example:
+    enabled: false
+    # Default unix domain socket path to listen to when Hubble is enabled. Default to "/var/run/cilium/hubble.sock".
+    socketPath: /var/run/cilium/hubble.sock
+    # List of additional addresses to listen to, for example:
     #
     #   listenAddresses:
-    #   - "unix:///var/run/cilium/hubble.sock"
+    #   - ":50051"
+    #   - ":50052"
     #
     # You can specify the list of metrics from the helm CLI:
     #
-    #   --set global.hubble.listenAddresses={unix:///var/run/cilium}
-    #
-    # Hubble is disabled if the list is empty.
+    #   --set global.hubble.listenAddresses={:50051,:50052}
     listenAddresses: []
     # Buffer size of the channel Hubble uses to receive monitor events. If this value is not set,
     # the queue size is set to the default monitor queue size.
