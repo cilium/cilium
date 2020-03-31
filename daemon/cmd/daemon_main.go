@@ -1094,6 +1094,11 @@ func initEnv(cmd *cobra.Command) {
 		log.WithError(err).Fatal("Invalid sidecar-istio-proxy-image regular expression")
 		return
 	}
+
+	supportedMapTypes := probes.NewProbeManager().GetMapTypes()
+	if option.Config.EnableIPv4 && !supportedMapTypes.HaveLruHashMapType {
+		log.Info("Disabled support for IPv4 fragments due to missing kernel support for BPF LRU maps")
+	}
 }
 
 func (d *Daemon) initKVStore() {

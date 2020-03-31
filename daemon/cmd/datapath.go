@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
+	"github.com/cilium/cilium/pkg/maps/fragmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
@@ -399,6 +400,12 @@ func (d *Daemon) initMaps() error {
 	if option.Config.EnableNodePort {
 		if err := neighborsmap.InitMaps(option.Config.EnableIPv4,
 			option.Config.EnableIPv6); err != nil {
+			return err
+		}
+	}
+
+	if option.Config.EnableIPv4 && supportedMapTypes.HaveLruHashMapType {
+		if err := fragmap.InitMap(); err != nil {
 			return err
 		}
 	}

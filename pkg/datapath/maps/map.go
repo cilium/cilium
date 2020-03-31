@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/logging"
@@ -161,6 +162,11 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_lb4_reverse_sk",
 			"cilium_snat_v4_external",
 			"cilium_proxy4"}...)
+	}
+
+	supportedMapTypes := probes.NewProbeManager().GetMapTypes()
+	if !option.Config.EnableIPv4 || !supportedMapTypes.HaveLruHashMapType {
+		maps = append(maps, "cilium_ipv4_frag_datagrams")
 	}
 
 	// Can be removed with Cilium 1.8
