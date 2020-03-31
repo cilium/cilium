@@ -1313,7 +1313,6 @@ static __always_inline int nodeport_nat_rev(struct __ctx_buff *ctx,
 		build_bug_on(!(NODEPORT_PORT_MIN_NAT < NODEPORT_PORT_MAX_NAT));
 		build_bug_on(!(NODEPORT_PORT_MIN     < NODEPORT_PORT_MAX));
 		build_bug_on(!(NODEPORT_PORT_MAX     < NODEPORT_PORT_MIN_NAT));
-		build_bug_on(!(NODEPORT_PORT_MAX     < EPHEMERAL_MIN));
 		break;
 	}
 	return CTX_ACT_OK;
