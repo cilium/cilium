@@ -3,7 +3,8 @@ FLAGS := -I$(ROOT_DIR)/bpf/include -I$(ROOT_DIR)/bpf -D__NR_CPUS__=$(shell nproc
 CLANG_FLAGS := ${FLAGS} -target bpf -emit-llvm
 # eBPF verifier enforces unaligned access checks where necessary, so don't
 # let clang complain too early.
-CLANG_FLAGS += -Wall -Wextra -Werror -Wno-address-of-packed-member -Wno-unknown-warning-option
+CLANG_FLAGS += -Wall -Wextra -Werror
+CLANG_FLAGS += -Wno-address-of-packed-member -Wno-unknown-warning-option -Wno-gnu-variable-sized-type-not-at-end
 LLC_FLAGS   := -march=bpf -mcpu=probe -mattr=dwarfris
 
 LIB := $(shell find $(ROOT_DIR)/bpf -name '*.h')

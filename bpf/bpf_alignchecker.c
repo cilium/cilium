@@ -6,6 +6,7 @@
 #define TRACE_NOTIFY
 #define DROP_NOTIFY
 #define POLICY_VERDICT_NOTIFY
+#undef ENABLE_ARP_RESPONDER
 
 #include <bpf/ctx/unspec.h>
 #include <bpf/api.h>

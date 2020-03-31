@@ -424,7 +424,7 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 	ifindex = fib_params.ifindex;
-out_send:
+out_send: __maybe_unused
 	return ctx_redirect(ctx, ifindex, 0);
 drop_err:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
@@ -983,7 +983,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 	ifindex = fib_params.ifindex;
-out_send:
+out_send: __maybe_unused
 	return ctx_redirect(ctx, ifindex, 0);
 drop_err:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
@@ -1240,7 +1240,7 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV4 */
 
 static __always_inline int nodeport_nat_fwd(struct __ctx_buff *ctx,
-					    const bool encap)
+					    const bool encap __maybe_unused)
 {
 	__u16 proto;
 
@@ -1278,7 +1278,7 @@ static __always_inline int nodeport_nat_fwd(struct __ctx_buff *ctx,
 }
 
 static __always_inline int nodeport_nat_rev(struct __ctx_buff *ctx,
-					    const bool encap)
+					    const bool encap __maybe_unused)
 {
 	__u16 proto;
 

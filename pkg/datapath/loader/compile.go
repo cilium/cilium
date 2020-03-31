@@ -84,7 +84,10 @@ type directoryInfo struct {
 var (
 	standardCFlags = []string{"-O2", "-target", "bpf",
 		fmt.Sprintf("-D__NR_CPUS__=%d", runtime.NumCPU()),
-		"-Wno-address-of-packed-member", "-Wno-unknown-warning-option"}
+		"-Wall", "-Wextra", "-Werror",
+		"-Wno-address-of-packed-member",
+		"-Wno-unknown-warning-option",
+		"-Wno-gnu-variable-sized-type-not-at-end"}
 	standardLDFlags = []string{"-march=bpf"}
 
 	// testIncludes allows the unit tests to inject additional include

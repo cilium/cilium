@@ -132,7 +132,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 
 #ifdef ENABLE_NODEPORT
 	if (!bpf_skip_nodeport(ctx)) {
-		int ret = nodeport_lb6(ctx, srcid_from_proxy);
+		ret = nodeport_lb6(ctx, srcid_from_proxy);
 		if (ret < 0)
 			return ret;
 	}
@@ -152,7 +152,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 
 #ifdef HANDLE_NS
 	if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
-		int ret = icmp6_handle(ctx, ETH_HLEN, ip6, METRIC_INGRESS);
+		ret = icmp6_handle(ctx, ETH_HLEN, ip6, METRIC_INGRESS);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -162,8 +162,6 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 
 #ifdef FROM_HOST
 	if (1) {
-		int ret;
-
 		/* If we are attached to cilium_host at egress, this will
 		 * rewrite the destination mac address to the MAC of cilium_net */
 		ret = rewrite_dmac_to_host(ctx, secctx);
@@ -455,7 +453,8 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_IPSEC
 #ifndef ENCAP_IFINDEX
-static __always_inline int do_netdev_encrypt_pools(struct __ctx_buff *ctx)
+static __always_inline int
+do_netdev_encrypt_pools(struct __ctx_buff *ctx __maybe_unused)
 {
 	int ret = 0;
 #ifdef IP_POOLS
@@ -507,20 +506,19 @@ static __always_inline int do_netdev_encrypt_pools(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 drop_err:
-#endif // IP_POOLS
+#endif /* IP_POOLS */
 	return ret;
 }
 
-static __always_inline int do_netdev_encrypt_fib(struct __ctx_buff *ctx,
-						 __u16 proto,
-						 int *encrypt_iface)
+static __always_inline int
+do_netdev_encrypt_fib(struct __ctx_buff *ctx __maybe_unused,
+		      __u16 proto __maybe_unused,
+		      int *encrypt_iface __maybe_unused)
 {
 	int ret = 0;
-
 #if HAVE_PROG_TYPE_HELPER(sched_cls, bpf_fib_lookup)
 	struct bpf_fib_lookup fib_params = {};
 	void *data, *data_end;
-	__be32 sum;
 	int err;
 
 	if (proto ==  bpf_htons(ETH_P_IP)) {
