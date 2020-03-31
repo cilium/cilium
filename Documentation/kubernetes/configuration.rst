@@ -321,6 +321,8 @@ filesystems, the mount point path must be reflected in the unit filename.
 Container Runtimes
 ==================
 
+.. _crio-instructions:
+
 CRIO
 ----
 
