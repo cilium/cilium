@@ -50,6 +50,12 @@ After you don't need to run tests on your branch, please remove the branch from 
    +----------------------------------------------------+------------------------------+
 
 
+Cilium-PR-Ginkgo-Tests-Kernel
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Runs the Kubernetes e2e tests with a 4.19 kernel. The configuration for this
+job is contained within ``ginkgo-kernel.Jenkinsfile``.
+
 
 Cilium-PR-Ginkgo-Tests-k8s
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -150,13 +156,17 @@ illustrating which subset of tests the job runs.
 
 
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| Jenkins Job                                                                                                    | Trigger Phrase    | Required To Merge? |
+| Jenkins Job                                                                                                    | Trigger Phrases   | Required To Merge? |
 +================================================================================================================+===================+====================+
-| `Cilium-PR-Ginkgo-Tests-Validated <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Validated/>`_          | test-me-please    | Yes                |
+| `Cilium-PR-Ginkgo-Tests-Validated <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Validated/>`_          | test-me-please,   | Yes                |
+|                                                                                                                | restart-ginkgo    |                    |
++----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+| `Cilium-PR-Ginkgo-Tests-Kernel <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Kernel/>`_                | test-me-please,   | No                 |
+|                                                                                                                | test-with-kernel  |                    |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-Ginkgo-Tests-Focus <https://jenkins.cilium.io/view/PR/job/Cilium-PR-Ginkgo-Tests-Validated-Focus/>`_   | test-focus        | No                 |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-Pr-Ginkgo-Test-k8s <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-k8s/>`_                       | test-missed-k8s   | No                 |
+| `Cilium-PR-Ginkgo-Tests-k8s <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-k8s/>`_                      | test-missed-k8s   | No                 |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-Nightly-Tests-PR <https://jenkins.cilium.io/job/Cilium-PR-Nightly-Tests-All/>`_                        | test-nightly      | No                 |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
