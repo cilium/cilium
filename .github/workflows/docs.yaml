@@ -1,10 +1,8 @@
 name: Documentation Updates
 
 on:
-  push:
-    paths: ["Documentation/**"]
-  pull_request:
-    paths: ["Documentation/**"]
+  - push
+  - pull_request
 
 jobs:
     build-html:
