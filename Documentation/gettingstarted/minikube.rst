@@ -61,6 +61,10 @@ Install Cilium as `DaemonSet
 your new Kubernetes cluster. The DaemonSet will automatically install itself as
 Kubernetes CNI plugin.
 
+.. note::
+
+   In case of installing Cilium with CRIO, please see :ref:`crio-instructions` instructions.
+
 .. parsed-literal::
 
     kubectl create -f \ |SCM_WEB|\/install/kubernetes/quick-install.yaml
