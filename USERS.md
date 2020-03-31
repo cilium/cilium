@@ -87,6 +87,11 @@ Users (Alphabetically)
       U: CiliumNetworkPolicy, Hubble, Service Load Balancing.
       Q: @Gowtham
 
+    * N: Sphere Knowledge
+      D: Sphere Knowledge is using Cilium in AWS (self-hosted k8s & EKS)
+      U: ENI Networking, Network policies, Service load-balancing, Hubble
+      Q: @mvisonneau
+
     * N: Sportradar
       D: Sportradar is using Cilium as their main CNI plugin in AWS (using kops)
       U: L3/L4 policies, Hubble, BPF NodePort, CiliumClusterwideNetworkPolicy
