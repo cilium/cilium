@@ -40,19 +40,19 @@ echo "----------------------------------------------------------------"
 export PATH=/home/vagrant/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
 
 echo "editing journald configuration"
-sudo bash -c "echo RateLimitIntervalSec=1s >> /etc/systemd/journald.conf"
-sudo bash -c "echo RateLimitBurst=10000 >> /etc/systemd/journald.conf"
+bash -c "echo RateLimitIntervalSec=1s >> /etc/systemd/journald.conf"
+bash -c "echo RateLimitBurst=10000 >> /etc/systemd/journald.conf"
 echo "restarting systemd-journald"
-sudo systemctl restart systemd-journald
+systemctl restart systemd-journald
 echo "getting status of systemd-journald"
-sudo service systemd-journald status
+service systemd-journald status
 echo "done configuring journald"
 
-pip3 install -r ~/go/src/github.com/cilium/cilium/Documentation/requirements.txt
+pip3 install -r /home/vagrant/go/src/github.com/cilium/cilium/Documentation/requirements.txt
 
-sudo service docker restart
+service docker restart
 echo 'cd ~/go/src/github.com/cilium/cilium' >> /home/vagrant/.bashrc
-sudo chown -R vagrant:vagrant /home/vagrant 2>/dev/null || true
+chown -R vagrant:vagrant /home/vagrant 2>/dev/null || true
 curl -SsL https://github.com/cilium/bpf-map/releases/download/v1.0/bpf-map -o bpf-map
 chmod +x bpf-map
 mv bpf-map /usr/bin
