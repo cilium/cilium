@@ -79,8 +79,7 @@ void ctx_set_port(struct bpf_sock_addr *ctx, __be16 dport)
 static __always_inline __maybe_unused bool
 ctx_in_hostns(void *ctx __maybe_unused)
 {
-#if HAVE_PROG_TYPE_HELPER(cgroup_sock_addr, bpf_get_netns_cookie) && \
-    HAVE_PROG_TYPE_HELPER(cgroup_sock,      bpf_get_netns_cookie)
+#ifdef ENABLE_HOST_SERVICES_NETNS
 	return get_netns_cookie(ctx) == get_netns_cookie(NULL);
 #else
 	return true;
