@@ -503,6 +503,11 @@ func init() {
 	flags.String(option.NodePortMode, defaults.NodePortMode, "BPF NodePort mode (\"snat\", \"dsr\")")
 	option.BindEnv(option.NodePortMode)
 
+	flags.Bool(option.EnableAutoProtectNodePortRange, true,
+		"Append NodePort range to net.ipv4.ip_local_reserved_ports if it overlaps "+
+			"with ephemeral port range (net.ipv4.ip_local_port_range)")
+	option.BindEnv(option.EnableAutoProtectNodePortRange)
+
 	flags.StringSlice(option.NodePortRange, []string{fmt.Sprintf("%d", option.NodePortMinDefault), fmt.Sprintf("%d", option.NodePortMaxDefault)}, fmt.Sprintf("Set the min/max NodePort port range"))
 	option.BindEnv(option.NodePortRange)
 
@@ -1592,24 +1597,97 @@ func initKubeProxyReplacementOptions() {
 	}
 }
 
+// checkNodePortAndEphemeralPortRanges checks whether the ephemeral port range
+// does not clash with the nodeport range to prevent the BPF nodeport from
+// hijacking an existing connection on the local host which source port is
+// the same as a nodeport service.
+//
+// If it clashes, check whether the nodeport range is listed in ip_local_reserved_ports.
+// If it isn't and EnableAutoProtectNodePortRange == false, then return an error
+// making cilium-agent to stop.
+// Otherwise, if EnableAutoProtectNodePortRange == true, then append the nodeport
+// range to ip_local_reserved_ports.
 func checkNodePortAndEphemeralPortRanges() error {
-	val, err := sysctl.Read("net.ipv4.ip_local_port_range")
+	ephemeralPortRangeStr, err := sysctl.Read("net.ipv4.ip_local_port_range")
 	if err != nil {
 		return fmt.Errorf("Unable to read net.ipv4.ip_local_port_range")
 	}
-	ephemeralPortRange := strings.Split(val, "\t")
+	ephemeralPortRange := strings.Split(ephemeralPortRangeStr, "\t")
 	if len(ephemeralPortRange) != 2 {
-		return fmt.Errorf("Invalid ephemeral port range: %s", val)
+		return fmt.Errorf("Invalid ephemeral port range: %s", ephemeralPortRangeStr)
 	}
 	ephemeralPortMin, err := strconv.Atoi(ephemeralPortRange[0])
 	if err != nil {
 		return fmt.Errorf("Unable to parse min port value %s for ephemeral range", ephemeralPortRange[0])
 	}
-	if !(option.Config.NodePortMax < ephemeralPortMin) {
-		msg := `NodePort range (%d-%d) max port must be smaller than ephemeral range (%s-%s) min port. ` +
-			`Adjust ephemeral range port with "sysctl -w net.ipv4.ip_local_port_range='MIN MAX'".`
-		return fmt.Errorf(msg, option.Config.NodePortMin, option.Config.NodePortMax,
-			ephemeralPortRange[0], ephemeralPortRange[1])
+	ephemeralPortMax, err := strconv.Atoi(ephemeralPortRange[1])
+	if err != nil {
+		return fmt.Errorf("Unable to parse max port value %s for ephemeral range", ephemeralPortRange[1])
 	}
+
+	if option.Config.NodePortMax < ephemeralPortMin {
+		// ephemeral port range does not clash with nodeport range
+		return nil
+	}
+
+	nodePortRangeStr := fmt.Sprintf("%d-%d", option.Config.NodePortMin,
+		option.Config.NodePortMax)
+
+	if option.Config.NodePortMin > ephemeralPortMax {
+		return fmt.Errorf("NodePort port range (%s) is not allowed to be after ephemeral port range (%s)",
+			nodePortRangeStr, ephemeralPortRangeStr)
+	}
+
+	reservedPortsStr, err := sysctl.Read("net.ipv4.ip_local_reserved_ports")
+	if err != nil {
+		return fmt.Errorf("Unable to read net.ipv4.ip_local_reserved_ports")
+	}
+	for _, portRange := range strings.Split(reservedPortsStr, ",") {
+		if portRange == "" {
+			break
+		}
+		ports := strings.Split(portRange, "-")
+		if len(ports) == 0 {
+			return fmt.Errorf("Invalid reserved ports range")
+		}
+		from, err := strconv.Atoi(ports[0])
+		if err != nil {
+			return fmt.Errorf("Unable to parse reserved port %q", ports[0])
+		}
+		to := from
+		if len(ports) == 2 {
+			if to, err = strconv.Atoi(ports[1]); err != nil {
+				return fmt.Errorf("Unable to parse reserved port %q", ports[1])
+			}
+		}
+
+		if from <= option.Config.NodePortMin && to >= option.Config.NodePortMax {
+			// nodeport range is protected by reserved port range
+			return nil
+		}
+
+		if from > option.Config.NodePortMax {
+			break
+		}
+	}
+
+	if !option.Config.EnableAutoProtectNodePortRange {
+		msg := `NodePort port range (%s) must not clash with ephemeral port range (%s). ` +
+			`Adjust ephemeral range port with "sysctl -w net.ipv4.ip_local_port_range='MIN MAX'", or ` +
+			`protect the NodePort range by appending it to "net.ipv4.ip_local_reserved_ports", or ` +
+			`set --%s=true to auto-append the range to "net.ipv4.ip_local_reserved_ports"`
+		return fmt.Errorf(msg, nodePortRangeStr, ephemeralPortRangeStr,
+			option.EnableAutoProtectNodePortRange)
+	}
+
+	if reservedPortsStr != "" {
+		reservedPortsStr += ","
+	}
+	reservedPortsStr += fmt.Sprintf("%d-%d", option.Config.NodePortMin, option.Config.NodePortMax)
+	if err := sysctl.Write("net.ipv4.ip_local_reserved_ports", reservedPortsStr); err != nil {
+		return fmt.Errorf("Unable to addend nodeport range (%s) to net.ipv4.ip_local_reserved_ports: %s",
+			nodePortRangeStr, err)
+	}
+
 	return nil
 }

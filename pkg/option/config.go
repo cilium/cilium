@@ -244,6 +244,11 @@ const (
 	// ("snat" or "dsr")
 	NodePortMode = "node-port-mode"
 
+	// EnableAutoProtectNodePortRange enables appending NodePort range to
+	// net.ipv4.ip_local_reserved_ports if it overlaps with ephemeral port
+	// range (net.ipv4.ip_local_port_range)
+	EnableAutoProtectNodePortRange = "enable-auto-protect-node-port-range"
+
 	// KubeProxyReplacement controls how to enable kube-proxy replacement
 	// features in BPF datapath
 	KubeProxyReplacement = "kube-proxy-replacement"
@@ -1301,6 +1306,11 @@ type DaemonConfig struct {
 	// ("snat" or "dsr")
 	NodePortMode string
 
+	// EnableAutoProtectNodePortRange enables appending NodePort range to
+	// net.ipv4.ip_local_reserved_ports if it overlaps with ephemeral port
+	// range (net.ipv4.ip_local_port_range)
+	EnableAutoProtectNodePortRange bool
+
 	// KubeProxyReplacement controls how to enable kube-proxy replacement
 	// features in BPF datapath
 	KubeProxyReplacement string
@@ -1756,6 +1766,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableTracing = viper.GetBool(EnableTracing)
 	c.EnableNodePort = viper.GetBool(EnableNodePort)
 	c.NodePortMode = viper.GetString(NodePortMode)
+	c.EnableAutoProtectNodePortRange = viper.GetBool(EnableAutoProtectNodePortRange)
 	c.KubeProxyReplacement = viper.GetString(KubeProxyReplacement)
 	c.EncryptInterface = viper.GetString(EncryptInterface)
 	c.EncryptNode = viper.GetBool(EncryptNode)
