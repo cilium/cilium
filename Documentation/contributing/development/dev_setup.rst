@@ -377,14 +377,35 @@ from the BPF based datapath. Debugging messages are sent if either the
 mode of the agent can be enabled by starting ``cilium-agent`` with the option
 ``--debug`` enabled or by running ``cilium config debug=true`` for an already
 running agent. Debugging of an individual endpoint can be enabled by running
-``cilium endpoint config ID debug=true``
+``cilium endpoint config ID debug=true``. Running ``cilium monitor -v`` will
+print the normal form of monitor output along with debug messages:
 
+.. code:: shell-session
 
-.. code:: bash
+   $ cilium endpoint config 731 debug=true
+   Endpoint 731 configuration updated successfully
+   $ cilium monitor -v
+   Press Ctrl-C to quit
+   level=info msg="Initializing dissection cache..." subsys=monitor
+   <- endpoint 745 flow 0x6851276 identity 4->0 state new ifindex 0 orig-ip 0.0.0.0: 8e:3c:a3:67:cc:1e -> 16:f9:cd:dc:87:e5 ARP
+   -> lxc_health: 16:f9:cd:dc:87:e5 -> 8e:3c:a3:67:cc:1e ARP
+   CPU 00: MARK 0xbbe3d555 FROM 0 DEBUG: Inheriting identity=1 from stack
+   <- host flow 0xbbe3d555 identity 1->0 state new ifindex 0 orig-ip 0.0.0.0: 10.11.251.76:57896 -> 10.11.166.21:4240 tcp ACK
+   CPU 00: MARK 0xbbe3d555 FROM 0 DEBUG: Successfully mapped daddr=10.11.251.76 to identity=1
+   CPU 00: MARK 0xbbe3d555 FROM 0 DEBUG: Attempting local delivery for container id 745 from seclabel 1
+   CPU 00: MARK 0xbbe3d555 FROM 745 DEBUG: Conntrack lookup 1/2: src=10.11.251.76:57896 dst=10.11.166.21:4240
+   CPU 00: MARK 0xbbe3d555 FROM 745 DEBUG: Conntrack lookup 2/2: nexthdr=6 flags=0
+   CPU 00: MARK 0xbbe3d555 FROM 745 DEBUG: CT entry found lifetime=21925, revnat=0
+   CPU 00: MARK 0xbbe3d555 FROM 745 DEBUG: CT verdict: Established, revnat=0
+   -> endpoint 745 flow 0xbbe3d555 identity 1->4 state established ifindex lxc_health orig-ip 10.11.251.76: 10.11.251.76:57896 -> 10.11.166.21:4240 tcp ACK
+
+Passing ``-v -v`` supports deeper detail, for example:
+
+.. code:: shell-session
 
     $ cilium endpoint config 3978 debug=true
     Endpoint 3978 configuration updated successfully
-    $ cilium monitor -v --hex
+    $ cilium monitor -v -v --hex
     Listening for events on 2 CPUs with 64x4096 of shared memory
     Press Ctrl-C to quit
     ------------------------------------------------------------------------------

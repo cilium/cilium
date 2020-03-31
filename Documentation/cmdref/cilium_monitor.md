@@ -28,7 +28,7 @@ cilium monitor [flags]
       --related-to []uint16     Filter by either source or destination endpoint id
       --to []uint16             Filter by destination endpoint id
   -t, --type []string           Filter by event types [agent capture debug drop l7 policy-verdict trace]
-  -v, --verbose                 Enable verbose output
+  -v, --verbose bools[=false]   Enable verbose output (-v, -vv) (default [])
 ```
 
 ### Options inherited from parent commands

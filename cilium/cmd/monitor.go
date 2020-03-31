@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Authors of Cilium
+// Copyright 2017-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -56,6 +56,7 @@ programs attached to endpoints and devices. This includes:
 	}
 	printer    = format.NewMonitorFormatter(format.INFO)
 	socketPath = ""
+	verbosity  = []bool{}
 )
 
 func init() {
@@ -65,7 +66,8 @@ func init() {
 	monitorCmd.Flags().Var(&printer.FromSource, "from", "Filter by source endpoint id")
 	monitorCmd.Flags().Var(&printer.ToDst, "to", "Filter by destination endpoint id")
 	monitorCmd.Flags().Var(&printer.Related, "related-to", "Filter by either source or destination endpoint id")
-	monitorCmd.Flags().BoolVarP(&printer.Verbose, "verbose", "v", false, "Enable verbose output")
+	monitorCmd.Flags().BoolSliceVarP(&verbosity, "verbose", "v", nil, "Enable verbose output (-v, -vv)")
+	monitorCmd.Flags().Lookup("verbose").NoOptDefVal = "false"
 	monitorCmd.Flags().BoolVarP(&printer.JSONOutput, "json", "j", false, "Enable json output. Shadows -v flag")
 	monitorCmd.Flags().StringVar(&socketPath, "monitor-socket", "", "Configure monitor socket path")
 	viper.BindEnv("monitor-socket", "CILIUM_MONITOR_SOCK")
@@ -75,10 +77,15 @@ func init() {
 func setVerbosity() {
 	if printer.JSONOutput {
 		printer.Verbosity = format.JSON
-	} else if printer.Verbose {
-		printer.Verbosity = format.DEBUG
 	} else {
-		printer.Verbosity = format.INFO
+		switch len(verbosity) {
+		case 1:
+			printer.Verbosity = format.DEBUG
+		case 2:
+			printer.Verbosity = format.VERBOSE
+		default:
+			printer.Verbosity = format.INFO
+		}
 	}
 }
 

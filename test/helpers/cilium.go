@@ -348,7 +348,7 @@ func (s *SSHMeta) BasePath() string {
 // called the command will stop and monitor's output is saved on
 // `monitorLogFileName` file.
 func (s *SSHMeta) MonitorStart() func() error {
-	cmd := "cilium monitor -v | ts '[%Y-%m-%d %H:%M:%S]'"
+	cmd := "cilium monitor -vv | ts '[%Y-%m-%d %H:%M:%S]'"
 	ctx, cancel := context.WithCancel(context.Background())
 	res := s.ExecInBackground(ctx, cmd, ExecOptions{SkipLog: true})
 
