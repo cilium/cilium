@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,7 +51,6 @@ type MonitorFormatter struct {
 	FromSource Uint16Flags
 	ToDst      Uint16Flags
 	Related    Uint16Flags
-	Verbose    bool
 	Hex        bool
 	JSONOutput bool
 	Verbosity  Verbosity
@@ -65,7 +64,6 @@ func NewMonitorFormatter(verbosity Verbosity) *MonitorFormatter {
 		FromSource: Uint16Flags{},
 		ToDst:      Uint16Flags{},
 		Related:    Uint16Flags{},
-		Verbose:    false,
 		JSONOutput: false,
 		Verbosity:  verbosity,
 	}
@@ -98,7 +96,7 @@ func (m *MonitorFormatter) dropEvents(prefix string, data []byte) {
 	}
 	if m.match(monitorAPI.MessageTypeDrop, dn.Source, uint16(dn.DstID)) {
 		switch m.Verbosity {
-		case INFO:
+		case INFO, DEBUG:
 			dn.DumpInfo(data)
 		case JSON:
 			dn.DumpJSON(data, prefix)
@@ -118,7 +116,7 @@ func (m *MonitorFormatter) traceEvents(prefix string, data []byte) {
 	}
 	if m.match(monitorAPI.MessageTypeTrace, tn.Source, tn.DstID) {
 		switch m.Verbosity {
-		case INFO:
+		case INFO, DEBUG:
 			tn.DumpInfo(data)
 		case JSON:
 			tn.DumpJSON(data, prefix)
@@ -169,7 +167,7 @@ func (m *MonitorFormatter) captureEvents(prefix string, data []byte) {
 	}
 	if m.match(monitorAPI.MessageTypeCapture, dc.Source, 0) {
 		switch m.Verbosity {
-		case INFO:
+		case INFO, DEBUG:
 			dc.DumpInfo(data)
 		case JSON:
 			dc.DumpJSON(data, prefix)

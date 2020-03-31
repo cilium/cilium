@@ -202,6 +202,11 @@ Verbose output (including debug if enabled)
 
     cilium monitor -v
 
+Extra verbose output (including packet dissection)
+::
+
+    cilium monitor -v -v
+
 
 Filter for only the events related to endpoint
 ::
@@ -224,7 +229,7 @@ Show notifications only for dropped packet events
 Don't dissect packet payload, display payload in hex information
 ::
 
-    cilium monitor -v --hex
+    cilium monitor -v -v --hex
 
 
 
