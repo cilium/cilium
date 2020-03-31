@@ -53,32 +53,11 @@ static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx,
 }
 #endif
 
-#if defined ENABLE_IPV4 || defined ENABLE_IPV6
-static __always_inline
-__u32 finalize_sec_ctx(__u32 secctx, __u32 src_identity __maybe_unused)
-{
-#ifdef ENABLE_SECCTX_FROM_IPCACHE
-	/* If we could not derive the secctx from the packet itself but
-	 * from the ipcache instead, then use the ipcache identity. E.g.
-	 * used in ipvlan master device's datapath on ingress.
-	 */
-	if (secctx == WORLD_ID && !identity_is_reserved(src_identity))
-		secctx = src_identity;
-#endif /* ENABLE_SECCTX_FROM_IPCACHE */
-	return secctx;
-}
-#endif
-
 #ifdef ENABLE_IPV6
+#ifndef FROM_HOST
 static __always_inline __u32
-derive_sec_ctx(struct __ctx_buff *ctx __maybe_unused,
-	       const union v6addr *node_ip __maybe_unused,
-	       struct ipv6hdr *ip6 __maybe_unused, __u32 *identity)
+derive_src_id(const union v6addr *node_ip, struct ipv6hdr *ip6, __u32 *identity)
 {
-#ifdef FROM_HOST
-	*identity = HOST_ID;
-	return 0;
-#else
 	if (ipv6_match_prefix_64((union v6addr *) &ip6->saddr, node_ip)) {
 		/* Read initial 4 bytes of header and then extract flowlabel */
 		__u32 *tmp = (__u32 *) ip6;
@@ -89,19 +68,57 @@ derive_sec_ctx(struct __ctx_buff *ctx __maybe_unused,
 		 * source from a remote node can be droppped. */
 		if (*identity == HOST_ID)
 			return DROP_INVALID_IDENTITY;
-	} else {
-		*identity = WORLD_ID;
+	}
+	return 0;
+}
+#endif
+
+static __always_inline __u32
+resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
+	       __u32 srcid_from_proxy)
+{
+	__u32 src_id = WORLD_ID, srcid_from_ipcache = srcid_from_proxy;
+	struct remote_endpoint_info *info = NULL;
+	union v6addr *src;
+
+#ifndef FROM_HOST
+	union v6addr node_ip = {};
+	int ret;
+
+	BPF_V6(node_ip, ROUTER_IP);
+	ret = derive_src_id(&node_ip, ip6, &src_id);
+	if (IS_ERR(ret))
+		return ret;
+#endif
+
+	/* Packets from the proxy will already have a real identity. */
+	if (identity_is_reserved(srcid_from_ipcache)) {
+		src = (union v6addr *) &ip6->saddr;
+		info = ipcache_lookup6(&IPCACHE_MAP, src, V6_CACHE_KEY_LEN);
+		if (info != NULL && info->sec_label)
+			srcid_from_ipcache = info->sec_label;
+		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
+			   ((__u32 *) src)[3], srcid_from_ipcache);
 	}
 
-	return 0;
+#ifdef FROM_HOST
+	src_id = srcid_from_ipcache;
+#elif ENABLE_SECCTX_FROM_IPCACHE
+	/* If we could not derive the secctx from the packet itself but
+	 * from the ipcache instead, then use the ipcache identity. E.g.
+	 * used in ipvlan master device's datapath on ingress.
+	 */
+	if (src_id == WORLD_ID && !identity_is_reserved(srcid_from_ipcache))
+		src_id = srcid_from_ipcache;
 #endif
+
+	return src_id;
 }
 
 static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
-				       __u32 src_identity)
+				       __u32 srcid_from_proxy)
 {
 	struct remote_endpoint_info *info = NULL;
-	union v6addr node_ip = { };
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr *dst;
@@ -115,7 +132,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 
 #ifdef ENABLE_NODEPORT
 	if (!bpf_skip_nodeport(ctx)) {
-		int ret = nodeport_lb6(ctx, src_identity);
+		int ret = nodeport_lb6(ctx, srcid_from_proxy);
 		if (ret < 0)
 			return ret;
 	}
@@ -141,30 +158,11 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	}
 #endif
 
-	BPF_V6(node_ip, ROUTER_IP);
-	ret = derive_sec_ctx(ctx, &node_ip, ip6, &secctx);
-	if (IS_ERR(ret))
-		return ret;
+	secctx = resolve_srcid_ipv6(ctx, ip6, srcid_from_proxy);
 
-	/* Packets from the proxy will already have a real identity. */
-	if (identity_is_reserved(src_identity)) {
-		union v6addr *src = (union v6addr *) &ip6->saddr;
-		info = ipcache_lookup6(&IPCACHE_MAP, src, V6_CACHE_KEY_LEN);
-		if (info != NULL) {
-			__u32 sec_label = info->sec_label;
-			if (sec_label)
-				src_identity = info->sec_label;
-		}
-		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
-			   ((__u32 *) src)[3], src_identity);
-	}
-
-	secctx = finalize_sec_ctx(secctx, src_identity);
 #ifdef FROM_HOST
 	if (1) {
 		int ret;
-
-		secctx = src_identity;
 
 		/* If we are attached to cilium_host at egress, this will
 		 * rewrite the destination mac address to the MAC of cilium_net */
@@ -263,19 +261,54 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-static __always_inline
-__u32 derive_ipv4_sec_ctx(struct __ctx_buff *ctx __maybe_unused,
-			  struct iphdr *ip4 __maybe_unused)
+static __always_inline __u32
+resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
+		   __u32 srcid_from_proxy)
 {
-#ifdef FROM_HOST
-	return HOST_ID;
-#else
-	return WORLD_ID;
+	__u32 src_id = WORLD_ID, srcid_from_ipcache = srcid_from_proxy;
+	struct remote_endpoint_info *info = NULL;
+
+	/* Packets from the proxy will already have a real identity. */
+	if (identity_is_reserved(srcid_from_ipcache)) {
+		info = ipcache_lookup4(&IPCACHE_MAP, ip4->saddr, V4_CACHE_KEY_LEN);
+		if (info != NULL) {
+			__u32 sec_label = info->sec_label;
+			if (sec_label) {
+				/* When SNAT is enabled on traffic ingressing
+				 * into Cilium, all traffic from the world will
+				 * have a source IP of the host. It will only
+				 * actually be from the host if
+				 * "srcid_from_proxy" (passed into this
+				 * function) reports the src as the host. So we
+				 * can ignore the ipcache if it reports the
+				 * source as HOST_ID.
+				 */
+#ifdef ENABLE_EXTRA_HOST_DEV
+				if (sec_label != HOST_ID)
 #endif
+					srcid_from_ipcache = sec_label;
+			}
+		}
+		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+			   ip4->saddr, srcid_from_ipcache);
+	}
+
+#ifdef FROM_HOST
+	src_id = srcid_from_ipcache;
+#elif ENABLE_SECCTX_FROM_IPCACHE
+	/* If we could not derive the secctx from the packet itself but
+	 * from the ipcache instead, then use the ipcache identity. E.g.
+	 * used in ipvlan master device's datapath on ingress.
+	 */
+	if (!identity_is_reserved(srcid_from_ipcache))
+		src_id = srcid_from_ipcache;
+#endif
+
+	return src_id;
 }
 
 static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
-				       __u32 src_identity)
+				       __u32 srcid_from_proxy)
 {
 	struct remote_endpoint_info *info = NULL;
 	struct ipv4_ct_tuple tuple = {};
@@ -289,7 +322,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 
 #ifdef ENABLE_NODEPORT
 	if (!bpf_skip_nodeport(ctx)) {
-		int ret = nodeport_lb4(ctx, src_identity);
+		int ret = nodeport_lb4(ctx, srcid_from_proxy);
 		if (ret < 0)
 			return ret;
 	}
@@ -306,39 +339,13 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 		return DROP_INVALID;
 #endif /* ENABLE_NODEPORT */
 
-	secctx = derive_ipv4_sec_ctx(ctx, ip4);
 	tuple.nexthdr = ip4->protocol;
 
-	/* Packets from the proxy will already have a real identity. */
-	if (identity_is_reserved(src_identity)) {
-		info = ipcache_lookup4(&IPCACHE_MAP, ip4->saddr, V4_CACHE_KEY_LEN);
-		if (info != NULL) {
-			__u32 sec_label = info->sec_label;
-			if (sec_label) {
-				/* When SNAT is enabled on traffic ingressing
-				 * into Cilium, all traffic from the world will
-				 * have a source IP of the host. It will only
-				 * actually be from the host if "src_identity"
-				 * (passed into this function) reports the src
-				 * as the host. So we can ignore the ipcache
-				 * if it reports the source as HOST_ID.
-				 */
-#ifndef ENABLE_EXTRA_HOST_DEV
-				if (sec_label != HOST_ID)
-#endif
-					src_identity = sec_label;
-			}
-		}
-		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
-			   ip4->saddr, src_identity);
-	}
+	secctx = resolve_srcid_ipv4(ctx, ip4, srcid_from_proxy);
 
-	secctx = finalize_sec_ctx(secctx, src_identity);
 #ifdef FROM_HOST
 	if (1) {
 		int ret;
-
-		secctx = src_identity;
 
 		/* If we are attached to cilium_host at egress, this will
 		 * rewrite the destination mac address to the MAC of cilium_net */
