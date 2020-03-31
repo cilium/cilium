@@ -1,7 +1,6 @@
 name: Documentation Updates
 
 on:
-  - push
   - pull_request
 
 jobs:
