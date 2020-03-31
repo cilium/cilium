@@ -2030,7 +2030,22 @@ type ResourceLifeCycleAction string
 // imported before the timeout is
 // exceeded.
 func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action ResourceLifeCycleAction, timeout time.Duration) (string, error) {
-	numNodes := kub.GetNumCiliumNodes()
+	pods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
+	if err != nil {
+		kub.Logger().WithError(err).Error("cannot retrieve cilium pods")
+		return "", fmt.Errorf("Cannot get cilium pods: %s", err)
+	}
+	numNodes := len(pods)
+
+	revisions := make(map[string]int)
+	for _, pod := range pods {
+		revision, err := kub.CiliumPolicyRevision(pod)
+		if err != nil {
+			kub.Logger().WithError(err).Error("cannot retrieve cilium pod policy revision")
+			return "", fmt.Errorf("Cannot retrieve cilium pod policy revision: %s", err)
+		}
+		revisions[pod] = revision
+	}
 
 	// Test filter: https://jqplay.org/s/EgNzc06Cgn
 	jqFilter := fmt.Sprintf(
@@ -2059,7 +2074,6 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 		if !res.WasSuccessful() {
 			kub.Logger().WithError(res.GetErr("")).Error("cannot get cnp status")
 			return false
-
 		}
 
 		err := res.Unmarshal(&data)
@@ -2077,7 +2091,7 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 		return true
 	}
 
-	err := WithTimeout(
+	err = WithTimeout(
 		body,
 		"cannot change state of resource correctly; command timed out",
 		&TimeoutConfig{Timeout: timeout})
@@ -2094,15 +2108,19 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 			return true
 		}
 
-		pods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
-		if err != nil {
-			kub.Logger().WithError(err).Error("cannot retrieve cilium pods")
-			return false
-		}
 		for _, item := range result {
 			for _, ciliumPod := range pods {
 				if !kub.CiliumIsPolicyLoaded(ciliumPod, item) {
 					kub.Logger().Infof("Policy '%s' is not ready on Cilium pod '%s'", item, ciliumPod)
+					return false
+				}
+
+				ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+				defer cancel()
+				desiredRevision := revisions[ciliumPod] + 1
+				res := kub.CiliumExecContext(ctx, ciliumPod, fmt.Sprintf("cilium policy wait %d --max-wait-time %f", desiredRevision, ShortCommandTimeout.Seconds()))
+				if !(res.GetExitCode() != 0) {
+					kub.Logger().Infof("Failed to wait for policy revision %d on pod %s", desiredRevision, ciliumPod)
 					return false
 				}
 			}
