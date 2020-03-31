@@ -175,18 +175,7 @@ func GetFlowType(f v1.Flow) string {
 	case api.MessageTypePolicyVerdict:
 		switch f.GetVerdict() {
 		case pb.Verdict_FORWARDED:
-			switch f.GetPolicyMatchType() {
-			case monitor.PolicyMatchL3Only:
-				return "L3-Only"
-			case monitor.PolicyMatchL3L4:
-				return "L3-L4"
-			case monitor.PolicyMatchL4Only:
-				return "L4-Only"
-			case monitor.PolicyMatchAll:
-				return "All"
-			case monitor.PolicyMatchNone:
-				return "None"
-			}
+			return monitor.PolicyMatchType(f.GetPolicyMatchType()).String()
 		case pb.Verdict_DROPPED:
 			return api.DropReason(uint8(f.GetDropReason()))
 		}

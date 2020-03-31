@@ -50,7 +50,7 @@ func (d *Daemon) launchHubble() {
 		logger.WithError(err).Error("Failed to initialize Hubble")
 		return
 	}
-	s, err := hubbleServer.NewLocalServer(payloadParser, logger,
+	observerServer, err := hubbleServer.NewLocalServer(payloadParser, logger,
 		serveroption.WithMaxFlows(option.Config.HubbleFlowBufferSize),
 		serveroption.WithMonitorBuffer(option.Config.HubbleEventQueueSize),
 		serveroption.WithCiliumDaemon(d))
@@ -58,20 +58,28 @@ func (d *Daemon) launchHubble() {
 		logger.WithError(err).Error("Failed to initialize Hubble")
 		return
 	}
-	go s.Start()
-	d.monitorAgent.GetMonitor().RegisterNewListener(d.ctx, hubble.NewHubbleListener(s))
+	go observerServer.Start()
+	d.monitorAgent.GetMonitor().RegisterNewListener(d.ctx, hubble.NewHubbleListener(observerServer))
 
-	listeners, err := hubbleServe.SetupListeners(addresses, api.CiliumGroupName)
+	srv, err := hubbleServe.NewServer(logger,
+		hubbleServe.WithListeners(addresses, api.CiliumGroupName),
+		hubbleServe.WithHealthService(),
+		hubbleServe.WithObserverService(observerServer),
+	)
 	if err != nil {
-		logger.WithError(err).Error("Failed to initialize Hubble")
+		logger.WithError(err).Error("Failed to initialize Hubble server")
 		return
 	}
-
 	logger.WithField("addresses", addresses).Info("Starting Hubble server")
-	if err := hubbleServe.Serve(d.ctx, logger, listeners, s); err != nil {
+	if err := srv.Serve(); err != nil {
 		logger.WithError(err).Error("Failed to start Hubble server")
 		return
 	}
+	go func() {
+		<-d.ctx.Done()
+		srv.Stop()
+	}()
+
 	if option.Config.HubbleMetricsServer != "" {
 		logger.WithFields(logrus.Fields{
 			"address": option.Config.HubbleMetricsServer,
