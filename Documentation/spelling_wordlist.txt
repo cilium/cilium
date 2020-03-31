@@ -222,6 +222,7 @@ crypto
 cryptographic
 daemonset
 datacenter
+datagrams
 datapath
 datastore
 datastream

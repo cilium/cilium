@@ -451,7 +451,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 		struct lb4_service *svc;
 		struct lb4_key key = {};
 
-		ret = lb4_extract_key(ctx, &tuple, l4_off, &key, &csum_off,
+		ret = lb4_extract_key(ctx, ip4, l4_off, &key, &csum_off,
 				      CT_EGRESS);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_UNKNOWN_L4)

@@ -15,6 +15,7 @@
 
 #include "csum.h"
 #include "conntrack.h"
+#include "ipv4.h"
 
 #define CILIUM_LB_MAP_MAX_FE		256
 
@@ -159,13 +160,29 @@ static __always_inline int lb4_select_slave(__u16 count)
 }
 
 static __always_inline int extract_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
-					   int l4_off, __be16 *port)
+					   int l4_off, __be16 *port,
+					   __maybe_unused struct iphdr *ip4)
 {
 	int ret;
 
 	switch (nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
+#ifdef IPV4_FRAGMENTS
+		if (ip4) {
+			struct ipv4_frag_l4ports ports = { };
+			int ret;
+
+			if (unlikely(ipv4_is_fragment(ip4))) {
+				ret = ipv4_handle_fragment(ctx, ip4, l4_off,
+							   &ports);
+				if (IS_ERR(ret))
+					return ret;
+				*port = ports.dport;
+				break;
+			}
+		}
+#endif
 		/* Port offsets for UDP and TCP are the same */
 		ret = l4_load_port(ctx, l4_off + TCP_DPORT_OFF, port);
 		if (IS_ERR(ret))
@@ -317,7 +334,7 @@ static __always_inline int lb6_extract_key(struct __ctx_buff *ctx __maybe_unused
 	csum_l4_offset_and_flags(tuple->nexthdr, csum_off);
 
 #ifdef LB_L4
-	return extract_l4_port(ctx, tuple->nexthdr, l4_off, &key->dport);
+	return extract_l4_port(ctx, tuple->nexthdr, l4_off, &key->dport, NULL);
 #else
 	return 0;
 #endif
@@ -649,7 +666,7 @@ static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l
 
 /** Extract IPv4 LB key from packet
  * @arg ctx		Packet
- * @arg tuple		Tuple
+ * @arg ip4		Pointer to L3 header
  * @arg l4_off		Offset to L4 header
  * @arg key		Pointer to store LB key in
  * @arg csum_off	Pointer to store L4 checksum field offset  in
@@ -661,7 +678,7 @@ static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l
  *   - Negative error code
  */
 static __always_inline int lb4_extract_key(struct __ctx_buff *ctx __maybe_unused,
-					   struct ipv4_ct_tuple *tuple,
+					   struct iphdr *ip4,
 					   int l4_off __maybe_unused,
 					   struct lb4_key *key,
 					   struct csum_offset *csum_off,
@@ -669,11 +686,11 @@ static __always_inline int lb4_extract_key(struct __ctx_buff *ctx __maybe_unused
 {
 	// FIXME: set after adding support for different L4 protocols in LB
 	key->proto = 0;
-	key->address = (dir == CT_INGRESS) ? tuple->saddr : tuple->daddr;
-	csum_l4_offset_and_flags(tuple->nexthdr, csum_off);
+	key->address = (dir == CT_INGRESS) ? ip4->saddr : ip4->daddr;
+	csum_l4_offset_and_flags(ip4->protocol, csum_off);
 
 #ifdef LB_L4
-	return extract_l4_port(ctx, tuple->nexthdr, l4_off, &key->dport);
+	return extract_l4_port(ctx, ip4->protocol, l4_off, &key->dport, ip4);
 #else
 	return 0;
 #endif
