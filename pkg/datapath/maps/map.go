@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/logging"
@@ -164,8 +163,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_proxy4"}...)
 	}
 
-	supportedMapTypes := probes.NewProbeManager().GetMapTypes()
-	if !option.Config.EnableIPv4 || !supportedMapTypes.HaveLruHashMapType {
+	if !option.Config.EnableIPv4FragmentsTracking {
 		maps = append(maps, "cilium_ipv4_frag_datagrams")
 	}
 
