@@ -39,8 +39,9 @@ static int BPF_FUNC(map_delete_elem, const void *map, const void *key);
 /* Time access */
 static __u64 BPF_FUNC(ktime_get_ns);
 
-/* Sockets */
+/* We have cookies! ;-) */
 static __u64 BPF_FUNC(get_socket_cookie, void *ctx);
+static __u64 BPF_FUNC(get_netns_cookie, void *ctx);
 
 /* Debugging */
 static __printf(1,3) void BPF_FUNC(trace_printk, const char *fmt, int fmt_size, ...);

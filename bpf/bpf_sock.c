@@ -76,6 +76,17 @@ void ctx_set_port(struct bpf_sock_addr *ctx, __be16 dport)
 	ctx->user_port = (__u32)dport;
 }
 
+static __always_inline __maybe_unused bool
+ctx_in_hostns(void *ctx __maybe_unused)
+{
+#if HAVE_PROG_TYPE_HELPER(cgroup_sock_addr, bpf_get_netns_cookie) && \
+    HAVE_PROG_TYPE_HELPER(cgroup_sock,      bpf_get_netns_cookie)
+	return get_netns_cookie(ctx) == get_netns_cookie(NULL);
+#else
+	return true;
+#endif
+}
+
 static __always_inline __maybe_unused
 __u64 sock_local_cookie(struct bpf_sock_addr *ctx)
 {
@@ -164,8 +175,9 @@ int sock4_update_revnat(struct bpf_sock_addr *ctx __maybe_unused,
 }
 #endif /* ENABLE_HOST_SERVICES_UDP */
 
-static __always_inline bool sock4_skip_xlate(struct lb4_service *svc,
-					     __be32 address)
+static __always_inline bool
+sock4_skip_xlate(struct lb4_service *svc, const bool in_hostns,
+		 __be32 address)
 {
 	if (is_v4_loopback(address))
 		return false;
@@ -175,18 +187,22 @@ static __always_inline bool sock4_skip_xlate(struct lb4_service *svc,
 		info = ipcache_lookup4(&IPCACHE_MAP, address,
 				       V4_CACHE_KEY_LEN);
 		if (info == NULL ||
-		     (svc->local_scope && info->sec_label != HOST_ID) ||
-		    (!svc->local_scope && info->sec_label != HOST_ID &&
-					  info->sec_label != REMOTE_NODE_ID))
+		    (svc->local_scope && info->sec_label != HOST_ID))
 			return true;
+		if (lb4_svc_is_external_ip(svc)) {
+			if (info->sec_label != HOST_ID &&
+			    info->sec_label != REMOTE_NODE_ID)
+				return in_hostns;
+		}
 	}
 
 	return false;
 }
 
-static __always_inline
-struct lb4_service *sock4_nodeport_wildcard_lookup(struct lb4_key *key __maybe_unused,
-						   const bool include_remote_hosts __maybe_unused)
+static __always_inline struct lb4_service *
+sock4_nodeport_wildcard_lookup(struct lb4_key *key __maybe_unused,
+			       const bool include_remote_hosts __maybe_unused,
+			       const bool in_hostns __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
 	struct remote_endpoint_info *info;
@@ -201,7 +217,7 @@ struct lb4_service *sock4_nodeport_wildcard_lookup(struct lb4_key *key __maybe_u
 	 * have either {REMOTE_NODE,HOST}_ID or loopback address, we
 	 * do a wild-card lookup with IP of 0.
 	 */
-	if (is_v4_loopback(key->address))
+	if (in_hostns && is_v4_loopback(key->address))
 		goto wildcard_lookup;
 
 	info = ipcache_lookup4(&IPCACHE_MAP, key->address, V4_CACHE_KEY_LEN);
@@ -221,6 +237,7 @@ wildcard_lookup:
 static __always_inline int __sock4_xlate(struct bpf_sock_addr *ctx,
 					 struct bpf_sock_addr *ctx_full)
 {
+	const bool in_hostns = ctx_in_hostns(ctx_full);
 	struct lb4_backend *backend;
 	struct lb4_service *svc;
 	struct lb4_key key = {
@@ -240,8 +257,7 @@ static __always_inline int __sock4_xlate(struct bpf_sock_addr *ctx,
 	svc = lb4_lookup_service(&key);
 	if (!svc) {
 		key.dport = ctx_dst_port(ctx);
-
-		svc = sock4_nodeport_wildcard_lookup(&key, true);
+		svc = sock4_nodeport_wildcard_lookup(&key, true, in_hostns);
 		if (svc && !lb4_svc_is_nodeport(svc))
 			svc = NULL;
 	}
@@ -254,7 +270,7 @@ static __always_inline int __sock4_xlate(struct bpf_sock_addr *ctx,
 	 * IP address. But do the service translation if the IP
 	 * is from the host.
 	 */
-	if (sock4_skip_xlate(svc, ctx->user_ip4))
+	if (sock4_skip_xlate(svc, in_hostns, ctx->user_ip4))
 		return -EPERM;
 
 	key.slave = (sock_local_cookie(ctx_full) % svc->count) + 1;
@@ -292,7 +308,8 @@ int sock4_xlate(struct bpf_sock_addr *ctx)
 }
 
 #if defined(ENABLE_NODEPORT) || defined(ENABLE_EXTERNAL_IP)
-static __always_inline int __sock4_post_bind(struct bpf_sock *ctx)
+static __always_inline int __sock4_post_bind(struct bpf_sock *ctx,
+					     struct bpf_sock *ctx_full)
 {
 	struct lb4_service *svc;
 	struct lb4_key key = {
@@ -310,7 +327,8 @@ static __always_inline int __sock4_post_bind(struct bpf_sock *ctx)
 		 * (without remote hosts).
 		 */
 		key.dport = ctx_src_port(ctx);
-		svc = sock4_nodeport_wildcard_lookup(&key, false);
+		svc = sock4_nodeport_wildcard_lookup(&key, false,
+						     ctx_in_hostns(ctx_full));
 	}
 
 	/* If the sockaddr of this socket overlaps with a NodePort
@@ -326,7 +344,7 @@ static __always_inline int __sock4_post_bind(struct bpf_sock *ctx)
 __section("post-bind-sock4")
 int sock4_post_bind(struct bpf_sock *ctx)
 {
-	if (__sock4_post_bind(ctx) < 0)
+	if (__sock4_post_bind(ctx, ctx) < 0)
 		return SYS_REJECT;
 
 	return SYS_PROCEED;
@@ -337,6 +355,7 @@ int sock4_post_bind(struct bpf_sock *ctx)
 static __always_inline int __sock4_xlate_snd(struct bpf_sock_addr *ctx,
 					     struct bpf_sock_addr *ctx_full)
 {
+	const bool in_hostns = ctx_in_hostns(ctx_full);
 	struct lb4_key lkey = {
 		.address	= ctx->user_ip4,
 		.dport		= ctx_dst_port(ctx),
@@ -348,14 +367,14 @@ static __always_inline int __sock4_xlate_snd(struct bpf_sock_addr *ctx,
 	svc = lb4_lookup_service(&lkey);
 	if (!svc) {
 		lkey.dport = ctx_dst_port(ctx);
-		svc = sock4_nodeport_wildcard_lookup(&lkey, true);
+		svc = sock4_nodeport_wildcard_lookup(&lkey, true, in_hostns);
 		if (svc && !lb4_svc_is_nodeport(svc))
 			svc = NULL;
 	}
 	if (!svc)
 		return -ENXIO;
 
-	if (sock4_skip_xlate(svc, ctx->user_ip4))
+	if (sock4_skip_xlate(svc, in_hostns, ctx->user_ip4))
 		return -EPERM;
 
 	lkey.slave = (sock_local_cookie(ctx_full) % svc->count) + 1;
@@ -505,7 +524,8 @@ static __always_inline void ctx_set_v6_address(struct bpf_sock_addr *ctx,
 }
 
 static __always_inline __maybe_unused bool
-sock6_skip_xlate(struct lb6_service *svc, union v6addr *address)
+sock6_skip_xlate(struct lb6_service *svc, const bool in_hostns,
+		 union v6addr *address)
 {
 	if (is_v6_loopback(address))
 		return false;
@@ -515,10 +535,13 @@ sock6_skip_xlate(struct lb6_service *svc, union v6addr *address)
 		info = ipcache_lookup6(&IPCACHE_MAP, address,
 				       V6_CACHE_KEY_LEN);
 		if (info == NULL ||
-		     (svc->local_scope && info->sec_label != HOST_ID) ||
-		    (!svc->local_scope && info->sec_label != HOST_ID &&
-					  info->sec_label != REMOTE_NODE_ID))
+		    (svc->local_scope && info->sec_label != HOST_ID))
 			return true;
+		if (lb6_svc_is_external_ip(svc)) {
+			if (info->sec_label != HOST_ID &&
+			    info->sec_label != REMOTE_NODE_ID)
+				return in_hostns;
+		}
 	}
 
 	return false;
@@ -526,7 +549,8 @@ sock6_skip_xlate(struct lb6_service *svc, union v6addr *address)
 
 static __always_inline __maybe_unused struct lb6_service *
 sock6_nodeport_wildcard_lookup(struct lb6_key *key __maybe_unused,
-			       bool include_remote_hosts __maybe_unused)
+			       const bool include_remote_hosts __maybe_unused,
+			       const bool in_hostns __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
 	struct remote_endpoint_info *info;
@@ -541,7 +565,7 @@ sock6_nodeport_wildcard_lookup(struct lb6_key *key __maybe_unused,
 	 * have either {REMOTE_NODE,HOST}_ID or loopback address, we
 	 * do a wild-card lookup with IP of 0.
 	 */
-	if (is_v6_loopback(&key->address))
+	if (in_hostns && is_v6_loopback(&key->address))
 		goto wildcard_lookup;
 
 	info = ipcache_lookup6(&IPCACHE_MAP, &key->address, V6_CACHE_KEY_LEN);
@@ -604,7 +628,7 @@ static __always_inline int sock6_post_bind_v4_in_v6(struct bpf_sock *ctx)
 	fake_ctx.src_ip4  = addr6.p4;
 	fake_ctx.src_port = ctx->src_port;
 
-	return __sock4_post_bind(&fake_ctx);
+	return __sock4_post_bind(&fake_ctx, ctx);
 #endif /* ENABLE_IPV4 */
 	return 0;
 }
@@ -624,7 +648,8 @@ static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
 	svc = lb6_lookup_service(&key);
 	if (!svc) {
 		key.dport = ctx_src_port(ctx);
-		svc = sock6_nodeport_wildcard_lookup(&key, false);
+		svc = sock6_nodeport_wildcard_lookup(&key, false,
+						     ctx_in_hostns(ctx));
 		if (!svc)
 			return sock6_post_bind_v4_in_v6(ctx);
 	}
@@ -648,6 +673,7 @@ int sock6_post_bind(struct bpf_sock *ctx)
 static __always_inline int __sock6_xlate(struct bpf_sock_addr *ctx)
 {
 #ifdef ENABLE_IPV6
+	const bool in_hostns = ctx_in_hostns(ctx);
 	struct lb6_backend *backend;
 	struct lb6_service *svc;
 	struct lb6_key key = {
@@ -665,8 +691,7 @@ static __always_inline int __sock6_xlate(struct bpf_sock_addr *ctx)
 	svc = lb6_lookup_service(&key);
 	if (!svc) {
 		key.dport = ctx_dst_port(ctx);
-
-		svc = sock6_nodeport_wildcard_lookup(&key, true);
+		svc = sock6_nodeport_wildcard_lookup(&key, true, in_hostns);
 		if (svc && !lb6_svc_is_nodeport(svc))
 			svc = NULL;
 		else if (!svc)
@@ -675,7 +700,7 @@ static __always_inline int __sock6_xlate(struct bpf_sock_addr *ctx)
 	if (!svc)
 		return -ENXIO;
 
-	if (sock6_skip_xlate(svc, &v6_orig))
+	if (sock6_skip_xlate(svc, in_hostns, &v6_orig))
 		return -EPERM;
 
 	key.slave = (sock_local_cookie(ctx) % svc->count) + 1;
@@ -749,6 +774,7 @@ sock6_xlate_snd_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
 static __always_inline int __sock6_xlate_snd(struct bpf_sock_addr *ctx)
 {
 #ifdef ENABLE_IPV6
+	const bool in_hostns = ctx_in_hostns(ctx);
 	struct lb6_backend *backend;
 	struct lb6_service *svc;
 	struct lb6_key lkey = {
@@ -763,8 +789,7 @@ static __always_inline int __sock6_xlate_snd(struct bpf_sock_addr *ctx)
 	svc = lb6_lookup_service(&lkey);
 	if (!svc) {
 		lkey.dport = ctx_dst_port(ctx);
-
-		svc = sock6_nodeport_wildcard_lookup(&lkey, true);
+		svc = sock6_nodeport_wildcard_lookup(&lkey, true, in_hostns);
 		if (svc && !lb6_svc_is_nodeport(svc))
 			svc = NULL;
 		else if (!svc)
@@ -773,7 +798,7 @@ static __always_inline int __sock6_xlate_snd(struct bpf_sock_addr *ctx)
 	if (!svc)
 		return -ENXIO;
 
-	if (sock6_skip_xlate(svc, &v6_orig))
+	if (sock6_skip_xlate(svc, in_hostns, &v6_orig))
 		return -EPERM;
 
 	lkey.slave = (sock_local_cookie(ctx) % svc->count) + 1;
