@@ -22,23 +22,23 @@ set_encrypt_dip(struct xdp_md *ctx __maybe_unused,
 }
 
 static __always_inline __maybe_unused void
-set_identity(struct xdp_md *ctx __maybe_unused, __u32 identity __maybe_unused)
+set_identity_mark(struct xdp_md *ctx __maybe_unused, __u32 identity __maybe_unused)
 {
 }
 
 static __always_inline __maybe_unused void
-set_identity_cb(struct xdp_md *ctx __maybe_unused,
+set_identity_meta(struct xdp_md *ctx __maybe_unused,
 		__u32 identity __maybe_unused)
 {
 }
 
 static __always_inline __maybe_unused void
-set_encrypt_key(struct xdp_md *ctx __maybe_unused, __u8 key __maybe_unused)
+set_encrypt_key_mark(struct xdp_md *ctx __maybe_unused, __u8 key __maybe_unused)
 {
 }
 
 static __always_inline __maybe_unused void
-set_encrypt_key_cb(struct xdp_md *ctx __maybe_unused, __u8 key __maybe_unused)
+set_encrypt_key_meta(struct xdp_md *ctx __maybe_unused, __u8 key __maybe_unused)
 {
 }
 

@@ -32,17 +32,17 @@ set_encrypt_dip(struct __sk_buff *ctx, __u32 ip_endpoint)
 }
 
 /**
- * set_identity - pushes 24 bit identity into ctx mark value.
+ * set_identity_mark - pushes 24 bit identity into ctx mark value.
  */
 static __always_inline __maybe_unused void
-set_identity(struct __sk_buff *ctx, __u32 identity)
+set_identity_mark(struct __sk_buff *ctx, __u32 identity)
 {
 	ctx->mark = ctx->mark & MARK_MAGIC_KEY_MASK;
 	ctx->mark |= ((identity & 0xFFFF) << 16) | ((identity & 0xFF0000) >> 16);
 }
 
 static __always_inline __maybe_unused void
-set_identity_cb(struct __sk_buff *ctx, __u32 identity)
+set_identity_meta(struct __sk_buff *ctx, __u32 identity)
 {
 	ctx->cb[1] = identity;
 }
@@ -51,13 +51,13 @@ set_identity_cb(struct __sk_buff *ctx, __u32 identity)
  * set_encrypt_key - pushes 8 bit key and encryption marker into ctx mark value.
  */
 static __always_inline __maybe_unused void
-set_encrypt_key(struct __sk_buff *ctx, __u8 key)
+set_encrypt_key_mark(struct __sk_buff *ctx, __u8 key)
 {
 	ctx->mark = or_encrypt_key(key);
 }
 
 static __always_inline __maybe_unused void
-set_encrypt_key_cb(struct __sk_buff *ctx, __u8 key)
+set_encrypt_key_meta(struct __sk_buff *ctx, __u8 key)
 {
 	ctx->cb[0] = or_encrypt_key(key);
 }

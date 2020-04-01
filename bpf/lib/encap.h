@@ -45,8 +45,8 @@ encap_and_redirect_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	 * label is stashed in the mark and extracted in bpf_netdev
 	 * to send ctx onto tunnel for encap.
 	 */
-	set_encrypt_key(ctx, key);
-	set_identity(ctx, seclabel);
+	set_encrypt_key_mark(ctx, key);
+	set_identity_mark(ctx, seclabel);
 	ctx_store_meta(ctx, 4, tunnel_endpoint);
 	return IPSEC_ENDPOINT;
 }

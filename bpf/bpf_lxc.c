@@ -351,11 +351,11 @@ pass_to_stack:
 #ifndef ENCAP_IFINDEX
 #ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
-		set_encrypt_key(ctx, encrypt_key);
+		set_encrypt_key_mark(ctx, encrypt_key);
 #ifdef IP_POOLS
 		set_encrypt_dip(ctx, tunnel_endpoint);
 #else
-		set_identity(ctx, SECLABEL);
+		set_identity_mark(ctx, SECLABEL);
 #endif
 	}
 #endif
@@ -702,11 +702,11 @@ pass_to_stack:
 #ifndef ENCAP_IFINDEX
 #ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
-		set_encrypt_key(ctx, encrypt_key);
+		set_encrypt_key_mark(ctx, encrypt_key);
 #ifdef IP_POOLS
 		set_encrypt_dip(ctx, tunnel_endpoint);
 #else
-		set_identity(ctx, SECLABEL);
+		set_identity_mark(ctx, SECLABEL);
 #endif
 	}
 #endif

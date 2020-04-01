@@ -16,7 +16,7 @@ int from_netdev(struct __ctx_buff *ctx)
 	if ((ctx_load_meta(ctx, 0) & MARK_MAGIC_HOST_MASK) ==
 	    MARK_MAGIC_ENCRYPT) {
 		ctx->mark = ctx_load_meta(ctx, 0);
-		set_identity(ctx, ctx_load_meta(ctx, 1));
+		set_identity_mark(ctx, ctx_load_meta(ctx, 1));
 	} else {
 		/* Upper 16 bits may carry proxy port number, clear it out */
 		__u32 magic = ctx_load_meta(ctx, 0) & 0xFFFF;
