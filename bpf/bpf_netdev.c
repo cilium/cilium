@@ -691,9 +691,12 @@ int from_netdev(struct __ctx_buff *ctx)
 	int ret = ret;
 	__u16 proto;
 
-	if (!validate_ethertype(ctx, &proto))
+	if (!validate_ethertype(ctx, &proto)) {
+		send_trace_notify(ctx, TRACE_TO_STACK, HOST_ID, 0, 0, 0,
+				  REASON_FORWARDED, 0);
 		/* Pass unknown traffic to the stack */
 		return CTX_ACT_OK;
+	}
 
 	return do_netdev(ctx, proto);
 }
