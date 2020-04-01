@@ -19,10 +19,10 @@ spec:
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "--connect-timeout", "5", "-o", "/dev/null", "www.google.com"]
+            command: ["curl", "-sS", "--fail", "--connect-timeout", "5", "-o", "/dev/null", "www.google.com"]
         readinessProbe:
           exec:
-            command: ["curl", "-sS", "--connect-timeout", "5", "-o", "/dev/null", "www.google.com"]
+            command: ["curl", "-sS", "--fail", "--connect-timeout", "5", "-o", "/dev/null", "www.google.com"]
 ---
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
