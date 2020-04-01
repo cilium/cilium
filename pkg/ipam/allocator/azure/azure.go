@@ -56,6 +56,7 @@ func (*AllocatorAzure) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (*ipam.
 			return nil, errors.Wrap(err, "Azure subscription ID was not specified via CLI and retrieving it from the Azure IMS was not possible")
 		}
 		subscriptionID = subID
+		log.WithField("subscriptionID", subscriptionID).Debug("Detected subscriptionID via Azure IMS")
 	}
 
 	resourceGroupName := option.Config.AzureResourceGroup
@@ -66,6 +67,7 @@ func (*AllocatorAzure) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (*ipam.
 			return nil, errors.Wrap(err, "Azure resource group name was not specified via CLI and retrieving it from the Azure IMS was not possible")
 		}
 		resourceGroupName = rgName
+		log.WithField("resourceGroupName", resourceGroupName).Debug("Detected resource group name via Azure IMS")
 	}
 
 	if option.Config.EnableMetrics {
