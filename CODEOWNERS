@@ -44,15 +44,13 @@ daemon/cmd/endpoint.* @cilium/endpoint
 daemon/cmd/health.* @cilium/health
 daemon/cmd/hubble.go @cilium/hubble
 daemon/cmd/ipcache.* @cilium/ipcache
-daemon/cmd/k8s_watcher.* @cilium/kubernetes
 daemon/cmd/loadbalancer.* @cilium/loadbalancer
 daemon/cmd/metrics.* @cilium/metrics
 daemon/cmd/policy.* @cilium/policy
 daemon/cmd/prefilter.go @cilium/bpf
 daemon/cmd/proxy.go @cilium/proxy
-daemon/cmd/requirements.go @cilium/bpf
 daemon/cmd/state.go @cilium/endpoint
-daemon/cmd/sysctl.* @cilium/bpf
+daemon/cmd/sysctl_linux.go @cilium/bpf
 Documentation/ @cilium/docs
 Documentation/bpf.rst @scanf @borkmann
 Documentation/contributing/ @cilium/contributing
@@ -60,23 +58,16 @@ envoy/ @cilium/proxy
 examples/ @cilium/docs
 examples/getting-started/Vagrantfile @cilium/ci
 examples/kubernetes/ @cilium/kubernetes
-examples/kubernetes-ingress/ @cilium/kubernetes
 examples/mesos/Vagrantfile @cilium/ci
 examples/minikube/ @cilium/kubernetes
-ginkgo.Jenkinsfile @cilium/ci
-kubernetes-upstream.Jenkinsfile @cilium/ci
-ginkgo-all.Jenkinsfile @cilium/ci
-ginkgo-kubernetes-all.Jenkinsfile @cilium/ci
+*.Jenkinsfile @cilium/ci
 hubble-proxy/ @cilium/hubble
 install/kubernetes/ @cilium/kubernetes
 jenkinsfiles @cilium/ci
-Jenkinsfile @cilium/ci
 Jenkinsfile.nightly @cilium/ci
 operator/ @cilium/operator
 pkg/annotation @cilium/kubernetes
-pkg/apierror/ @cilium/api
-pkg/apipanic/ @cilium/api
-pkg/apisocket/ @cilium/api
+pkg/api/ @cilium/api
 pkg/bpf/ @cilium/bpf
 pkg/byteorder/ @cilium/bpf @cilium/api
 pkg/client @cilium/api
@@ -86,7 +77,6 @@ pkg/controller @cilium/agent
 pkg/counter @cilium/bpf
 pkg/datapath @cilium/bpf
 pkg/datapath/ipcache/ @cilium/ipcache
-pkg/debugdetection @cilium/agent
 pkg/defaults @cilium/agent
 pkg/elf @cilium/bpf
 pkg/endpoint/ @cilium/endpoint
@@ -118,13 +108,10 @@ pkg/monitor/format @cilium/cli
 pkg/monitor/payload @cilium/api
 pkg/mountinfo @cilium/bpf
 pkg/mtu @cilium/bpf
-pkg/operator @cilium/operator
 pkg/option @cilium/option
-pkg/output @cilium/cli
 pkg/pidfile @cilium/agent
 pkg/policy @cilium/policy
 pkg/policy/api/ @cilium/api
-pkg/policy/prefilter.go @cilium/bpf
 pkg/proxy/ @cilium/proxy
 pkg/proxy/accesslog @cilium/api
 pkg/serializer @cilium/agent
@@ -134,7 +121,7 @@ pkg/tuple @cilium/bpf
 plugins/cilium-cni/ @cilium/kubernetes
 plugins/cilium-docker/ @cilium/docker
 proxylib/ @cilium/proxy
-README.md @cilium/docs
+README.rst @cilium/docs
 test/ @cilium/ci
 test/Vagrantfile @cilium/ci
 tests/ @cilium/ci
