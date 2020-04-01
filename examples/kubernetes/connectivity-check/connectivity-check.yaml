@@ -30,7 +30,7 @@ spec:
         imagePullPolicy: IfNotPresent
         readinessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "localhost"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "localhost"]
 ---
 apiVersion: v1
 kind: Service
@@ -75,7 +75,7 @@ spec:
         imagePullPolicy: IfNotPresent
         readinessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "localhost"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "localhost"]
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -100,7 +100,7 @@ spec:
         command: ["/bin/ash", "-c", "sleep 1000000000"]
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "echo-b"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "echo-b"]
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -135,7 +135,7 @@ spec:
         command: ["/bin/ash", "-c", "sleep 1000000000"]
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "echo-b-headless"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "echo-b-headless"]
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -168,10 +168,10 @@ spec:
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "echo-a"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "echo-a"]
         readinessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "echo-a"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "echo-a"]
 ---
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
@@ -228,11 +228,11 @@ spec:
         livenessProbe:
           timeoutSeconds: 7
           exec:
-            command: ["ash", "-c", "! curl -sS --connect-timeout 5 -o /dev/null echo-a"]
+            command: ["ash", "-c", "! curl -sS --fail --connect-timeout 5 -o /dev/null echo-a"]
         readinessProbe:
           timeoutSeconds: 7
           exec:
-            command: ["ash", "-c", "! curl -sS --connect-timeout 5 -o /dev/null echo-a"]
+            command: ["ash", "-c", "! curl -sS --fail --connect-timeout 5 -o /dev/null echo-a"]
 ---
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
@@ -281,7 +281,7 @@ spec:
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "echo-a"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "echo-a"]
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -304,7 +304,7 @@ spec:
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "echo-b"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "echo-b"]
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -337,7 +337,7 @@ spec:
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "echo-b"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "echo-b"]
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -370,7 +370,7 @@ spec:
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "echo-b-headless"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "echo-b-headless"]
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -403,10 +403,10 @@ spec:
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "--connect-timeout", "5", "-o", "/dev/null", "1.1.1.1"]
+            command: ["curl", "-sS", "--fail", "--connect-timeout", "5", "-o", "/dev/null", "1.1.1.1"]
         readinessProbe:
           exec:
-            command: ["curl", "-sS", "--connect-timeout", "5", "-o", "/dev/null", "1.1.1.1"]
+            command: ["curl", "-sS", "--fail", "--connect-timeout", "5", "-o", "/dev/null", "1.1.1.1"]
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -429,10 +429,10 @@ spec:
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "--connect-timeout", "5", "-o", "/dev/null", "www.google.com"]
+            command: ["curl", "-sS", "--fail", "--connect-timeout", "5", "-o", "/dev/null", "www.google.com"]
         readinessProbe:
           exec:
-            command: ["curl", "-sS", "--connect-timeout", "5", "-o", "/dev/null", "www.google.com"]
+            command: ["curl", "-sS", "--fail", "--connect-timeout", "5", "-o", "/dev/null", "www.google.com"]
 ---
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
