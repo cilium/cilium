@@ -456,6 +456,13 @@ New ConfigMap Options
     For users who previously were running with ``nodePort.enabled=true`` it is
     recommended to set the option to ``strict`` before upgrading.
 
+  * ``enable-auto-protect-node-port-range`` has been added to enable
+    auto-appending of a NodePort port range to
+    ``net.ipv4.ip_local_reserved_ports`` if it overlaps with an ephemeral port
+    range from ``net.ipv4.ip_local_port_range``. The option is enabled by
+    default. See :ref:`kubeproxy-free` for the explanation why the overlap can
+    be harmful.
+
 Modified Options
 ~~~~~~~~~~~~~~~~
 
