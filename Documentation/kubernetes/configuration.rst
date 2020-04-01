@@ -313,6 +313,7 @@ filesystems, the mount point path must be reflected in the unit filename.
         What=bpffs
         Where=/sys/fs/bpf
         Type=bpf
+        Options=rw,nosuid,nodev,noexec,relatime,mode=700
 
         [Install]
         WantedBy=multi-user.target
