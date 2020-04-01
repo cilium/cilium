@@ -56,9 +56,7 @@ Documentation/bpf.rst @scanf @borkmann
 Documentation/contributing/ @cilium/contributing
 envoy/ @cilium/proxy
 examples/ @cilium/docs
-examples/getting-started/Vagrantfile @cilium/ci
 examples/kubernetes/ @cilium/kubernetes
-examples/mesos/Vagrantfile @cilium/ci
 examples/minikube/ @cilium/kubernetes
 *.Jenkinsfile @cilium/ci
 hubble-proxy/ @cilium/hubble
@@ -123,11 +121,7 @@ plugins/cilium-docker/ @cilium/docker
 proxylib/ @cilium/proxy
 README.rst @cilium/docs
 test/ @cilium/ci
-test/Vagrantfile @cilium/ci
 tests/ @cilium/ci
-tests/k8s/Vagrantfile @cilium/ci
 Vagrantfile @cilium/ci
 vendor/ @cilium/vendor
-*/Makefile @cilium/janitors
-*/*/Makefile @cilium/janitors
-*/*/*/Makefile @cilium/janitors
+Makefile @cilium/janitors
