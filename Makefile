@@ -382,6 +382,10 @@ ineffassign:
 	@$(ECHO_CHECK) ineffassign
 	$(QUIET) ineffassign .
 
+prealloc:
+	@$(ECHO_CHECK) prealloc
+	$(QUIET) contrib/scripts/check-prealloc.sh
+
 logging-subsys-field:
 	@$(ECHO_CHECK) contrib/scripts/check-logging-subsys-field.sh
 	$(QUIET) contrib/scripts/check-logging-subsys-field.sh
@@ -409,7 +413,7 @@ microk8s: check-microk8s
 	@echo "Or, redeploy the Cilium pods:"
 	@echo "    microk8s.kubectl -n kube-system delete pod -l k8s-app=cilium"
 
-precheck: ineffassign logging-subsys-field
+precheck: ineffassign prealloc logging-subsys-field
 	@$(ECHO_CHECK) contrib/scripts/check-fmt.sh
 	$(QUIET) contrib/scripts/check-fmt.sh
 	@$(ECHO_CHECK) contrib/scripts/check-log-newlines.sh

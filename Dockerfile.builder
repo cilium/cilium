@@ -54,4 +54,5 @@ RUN apt-get update \
 #
 RUN curl -sfL https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz | tar -xzC /usr/local && \
         GO111MODULE=on go get github.com/gordonklaus/ineffassign@1003c8bd00dc2869cb5ca5282e6ce33834fed514 && \
+        GO111MODULE=on go get github.com/alexkohler/prealloc@c5b501dd184f93a10f8dc5e14bc6eb065ac1f26f && \
         go clean -cache -modcache

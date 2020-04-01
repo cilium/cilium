@@ -34,6 +34,8 @@ contribute to Cilium:
 +--------------------------------------------------------------+-----------------------------+--------------------------------------------------+
 + `ineffassign <https://github.com/gordonklaus/ineffassign>`_  | >= ``1003c8b``              | ``go get -u github.com/gordonklaus/ineffassign`` |
 +--------------------------------------------------------------+-----------------------------+--------------------------------------------------+
++ `prealloc <https://github.com/alexkohler/prealloc>`_         | >= ``c5b501d``              | ``go get -u github.com/alexkohler/prealloc``     |
++--------------------------------------------------------------+-----------------------------+--------------------------------------------------+
 + `Docker <https://docs.docker.com/engine/installation/>`_     | OS-Dependent                | N/A (OS-specific)                                |
 +--------------------------------------------------------------+-----------------------------+--------------------------------------------------+
 + `Docker-Compose <https://docs.docker.com/compose/install/>`_ | OS-Dependent                | N/A (OS-specific)                                |
