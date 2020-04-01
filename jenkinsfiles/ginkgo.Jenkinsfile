@@ -22,7 +22,11 @@ pipeline {
     stages {
         stage('Set build name') {
             when {
-                not {environment name: 'GIT_BRANCH', value: 'origin/master'}
+                allOf {
+                    not {environment name: 'GIT_BRANCH', value: 'origin/master'};
+                    not {environment name: 'GIT_BRANCH', value: 'master'};
+                    not {branch 'master'}
+                }
             }
             steps {
                    script {
