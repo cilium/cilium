@@ -79,7 +79,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 
 		/* Decrypt "key" is determined by SPI */
 		ctx->mark = MARK_MAGIC_DECRYPT;
-		set_identity(ctx, key.tunnel_id);
+		set_identity_mark(ctx, key.tunnel_id);
 		/* To IPSec stack on cilium_vxlan we are going to pass
 		 * this up the stack but eth_type_trans has already labeled
 		 * this as an OTHERHOST type packet. To avoid being dropped
@@ -190,7 +190,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 		}
 
 		ctx->mark = MARK_MAGIC_DECRYPT;
-		set_identity(ctx, key.tunnel_id);
+		set_identity_mark(ctx, key.tunnel_id);
 		/* To IPSec stack on cilium_vxlan we are going to pass
 		 * this up the stack but eth_type_trans has already labeled
 		 * this as an OTHERHOST type packet. To avoid being dropped

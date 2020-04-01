@@ -231,11 +231,11 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	if (info && info->key && info->tunnel_endpoint) {
 		__u8 key = get_min_encrypt_key(info->key);
 
-		set_encrypt_key_cb(ctx, key);
+		set_encrypt_key_meta(ctx, key);
 #ifdef IP_POOLS
 		set_encrypt_dip(ctx, info->tunnel_endpoint);
 #else
-		set_identity_cb(ctx, secctx);
+		set_identity_meta(ctx, secctx);
 #endif
 	}
 #endif
@@ -423,11 +423,11 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	if (info && info->key && info->tunnel_endpoint) {
 		__u8 key = get_min_encrypt_key(info->key);
 
-		set_encrypt_key_cb(ctx, key);
+		set_encrypt_key_meta(ctx, key);
 #ifdef IP_POOLS
 		set_encrypt_dip(ctx, info->tunnel_endpoint);
 #else
-		set_identity_cb(ctx, secctx);
+		set_identity_meta(ctx, secctx);
 #endif
 	}
 #endif
