@@ -252,9 +252,6 @@ global:
     # device is the name of the device handling NodePort requests
     # device:
 
-    # dsr enables direct server return for NodePort services
-    dsr: false
-
   # externalIPs is the configuration for ExternalIPs service handling
   externalIPs:
     # enabled enables ExternalIPs functionality
