@@ -121,10 +121,18 @@ func GetBPFCPU() string {
 		if !option.Config.DryMode {
 			// We can probe the availability of BPF instructions indirectly
 			// based on what kernel helpers are available since both were
-			// added in the same release, that is, 4.14.
+			// added in the same release, that is, 4.14 for v2 CPU.
 			if h := probes.NewProbeManager().GetHelpers("xdp"); h != nil {
 				if _, ok := h["bpf_redirect_map"]; ok {
 					nameBPFCPU = "v2"
+				}
+			}
+			// For 5.7 select v3 CPU. We could do it also for earlier kernels
+			// but the jmp/alu32 handling is not suited for pre 5.7 due to
+			// lack of 32 bit subreg tracking.
+			if h := probes.NewProbeManager().GetHelpers("cgroup_sock_addr"); h != nil {
+				if _, ok := h["bpf_get_netns_cookie"]; ok {
+					nameBPFCPU = "v3"
 				}
 			}
 		}
