@@ -7,7 +7,7 @@ pipeline {
 
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
-        GINKGO_TIMEOUT="108m"
+        GINKGO_TIMEOUT="180m"
         TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
         GOPATH="${WORKSPACE}"
         GKE_KEY=credentials('gke-key')
