@@ -379,7 +379,7 @@ govet:
     ./tools/...
 
 ineffassign:
-	@$(ECHO_CHECK) $(GOFILES)
+	@$(ECHO_CHECK) ineffassign
 	$(QUIET) ineffassign .
 
 logging-subsys-field:
