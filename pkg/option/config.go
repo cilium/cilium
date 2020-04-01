@@ -2406,7 +2406,7 @@ func (c *DaemonConfig) populateHostServicesProtos() error {
 func sanitizeIntParam(paramName string, paramDefault int) int {
 	intParam := viper.GetInt(paramName)
 	if intParam <= 0 {
-		if !viper.IsSet(paramName) {
+		if viper.IsSet(paramName) {
 			log.WithFields(
 				logrus.Fields{
 					"parameter":    paramName,
