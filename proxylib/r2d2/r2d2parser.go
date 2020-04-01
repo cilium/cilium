@@ -88,10 +88,11 @@ func (rule *r2d2Rule) Matches(data interface{}) bool {
 // May panic
 func ruleParser(rule *cilium.PortNetworkPolicyRule) []proxylib.L7NetworkPolicyRule {
 	l7Rules := rule.GetL7Rules()
-	var rules []proxylib.L7NetworkPolicyRule
 	if l7Rules == nil {
-		return rules
+		return nil
 	}
+
+	rules := make([]proxylib.L7NetworkPolicyRule, 0, len(l7Rules.GetL7Rules()))
 	for _, l7Rule := range l7Rules.GetL7Rules() {
 		var rr r2d2Rule
 		for k, v := range l7Rule.Rule {

@@ -41,7 +41,7 @@ func makeIPs(count uint32) []net.IP {
 func (ds *DaemonSuite) BenchmarkFqdnCache(c *C) {
 	c.StopTimer()
 
-	var endpoints []*endpoint.Endpoint
+	endpoints := make([]*endpoint.Endpoint, 0, c.N)
 	for i := 0; i < c.N; i++ {
 		lookupTime := time.Now()
 		ep := &endpoint.Endpoint{} // only works because we only touch .DNSHistory

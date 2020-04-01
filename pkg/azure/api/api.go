@@ -201,8 +201,6 @@ func (c *Client) GetInstances(ctx context.Context) (*ipamTypes.InstanceMap, erro
 
 // describeVpcs lists all VPCs
 func (c *Client) describeVpcs(ctx context.Context) ([]network.VirtualNetwork, error) {
-	var vpcs []network.VirtualNetwork
-
 	c.limiter.Limit(ctx, "VirtualNetworks.List")
 
 	sinceStart := spanstat.Start()
@@ -212,6 +210,7 @@ func (c *Client) describeVpcs(ctx context.Context) ([]network.VirtualNetwork, er
 		return nil, err
 	}
 
+	var vpcs []network.VirtualNetwork
 	for result.NotDone() {
 		if err != nil {
 			return nil, err

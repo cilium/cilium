@@ -36,8 +36,7 @@ func listLocalAddresses(family int) ([]net.IP, error) {
 		return nil, err
 	}
 
-	var addresses []net.IP
-
+	addresses := make([]net.IP, 0, len(addrs)-len(ipsToExclude))
 	for _, addr := range addrs {
 		if addr.Scope == int(netlink.SCOPE_LINK) {
 			continue

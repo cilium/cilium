@@ -263,7 +263,6 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 		policyEnabled           bool
 		finalizeList            revert.FinalizeList
 		revertStack             revert.RevertStack
-		updatedStats            []*models.ProxyStatistics
 		insertedDesiredMapState = make(map[policy.Key]struct{})
 	)
 
@@ -289,6 +288,7 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 		return nil, finalizeList.Finalize, revertStack.Revert
 	}
 
+	updatedStats := make([]*models.ProxyStatistics, 0, len(visPolicy))
 	for _, visMeta := range visPolicy {
 		// Create a redirect for every entry in the visibility policy.
 		if e.hasSidecarProxy && visMeta.Parser == policy.ParserTypeHTTP {
