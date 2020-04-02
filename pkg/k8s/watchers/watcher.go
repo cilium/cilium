@@ -433,20 +433,19 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 	k.servicesInit(k8s.Client(), serSvcs, swgSvcs)
 
 	// kubernetes endpoints
-	serEps := serializer.NewFunctionQueue(queueSize)
 	swgEps := lock.NewStoppableWaitGroup()
 
 	// We only enable either "Endpoints" or "EndpointSlice"
 	switch {
 	case k8s.SupportsEndpointSlice():
-		connected := k.endpointSlicesInit(k8s.Client(), serEps, swgEps)
+		connected := k.endpointSlicesInit(k8s.Client(), swgEps)
 		// the cluster has endpoint slices so we should not check for v1.Endpoints
 		if connected {
 			break
 		}
 		fallthrough
 	default:
-		k.endpointsInit(k8s.Client(), serEps, swgEps)
+		k.endpointsInit(k8s.Client(), swgEps)
 	}
 
 	// cilium network policies
