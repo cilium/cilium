@@ -457,8 +457,7 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 
 	// cilium nodes
 	asyncControllers.Add(1)
-	serNodes := serializer.NewFunctionQueue(queueSize)
-	go k.ciliumNodeInit(ciliumNPClient, serNodes, asyncControllers)
+	go k.ciliumNodeInit(ciliumNPClient, asyncControllers)
 
 	// cilium endpoints
 	asyncControllers.Add(1)
