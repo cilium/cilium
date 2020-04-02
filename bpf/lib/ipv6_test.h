@@ -48,7 +48,7 @@ static void test_ipv6_addr_clear_suffix()
 
 static __be32 *dummy_map = NULL;
 
-static __be32 match_dummy_prefix(void *map, __be32 addr, __u32 prefix)
+static __be32 match_dummy_prefix(const void *map, __be32 addr, __u32 prefix)
 {
 	return (addr & GET_PREFIX(prefix)) == *dummy_map;
 }

@@ -10,7 +10,7 @@ static struct ct_entry __ipv4_map[] = {
 	{},
 };
 
-static void *__map_lookup_elem(void *map, void *tuple)
+static void *__map_lookup_elem(const void *map, const void *tuple)
 {
 	if (map == __ipv4_map) {
 		__u64 idx = (__u64)tuple;

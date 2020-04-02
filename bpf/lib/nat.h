@@ -67,14 +67,15 @@ __snat_try_keep_port(__u16 start, __u16 end, __u16 val)
 	       __snat_clamp_port_range(start, end, get_prandom_u32());
 }
 
-static __always_inline __maybe_unused void *__snat_lookup(void *map, void *tuple)
+static __always_inline __maybe_unused void *
+__snat_lookup(const void *map, const void *tuple)
 {
 	return map_lookup_elem(map, tuple);
 }
 
-static __always_inline __maybe_unused int __snat_update(void *map, void *otuple,
-							void *ostate, void *rtuple,
-							void *rstate)
+static __always_inline __maybe_unused int
+__snat_update(const void *map, const void *otuple, const void *ostate,
+	      const void *rtuple, const void *rstate)
 {
 	int ret = map_update_elem(map, rtuple, rstate, BPF_NOEXIST);
 	if (!ret) {
@@ -85,8 +86,8 @@ static __always_inline __maybe_unused int __snat_update(void *map, void *otuple,
 	return ret;
 }
 
-static __always_inline __maybe_unused void __snat_delete(void *map, void *otuple,
-							 void *rtuple)
+static __always_inline __maybe_unused void
+__snat_delete(const void *map, const void *otuple, const void *rtuple)
 {
 	map_delete_elem(map, otuple);
 	map_delete_elem(map, rtuple);
@@ -126,27 +127,27 @@ struct bpf_elf_map __section_maps SNAT_MAPPING_IPV4 = {
 };
 
 static __always_inline
-struct ipv4_nat_entry *snat_v4_lookup(struct ipv4_ct_tuple *tuple)
+struct ipv4_nat_entry *snat_v4_lookup(const struct ipv4_ct_tuple *tuple)
 {
 	return __snat_lookup(&SNAT_MAPPING_IPV4, tuple);
 }
 
-static __always_inline int snat_v4_update(struct ipv4_ct_tuple *otuple,
-					  struct ipv4_nat_entry *ostate,
-					  struct ipv4_ct_tuple *rtuple,
-					  struct ipv4_nat_entry *rstate)
+static __always_inline int snat_v4_update(const struct ipv4_ct_tuple *otuple,
+					  const struct ipv4_nat_entry *ostate,
+					  const struct ipv4_ct_tuple *rtuple,
+					  const struct ipv4_nat_entry *rstate)
 {
 	return __snat_update(&SNAT_MAPPING_IPV4, otuple, ostate,
 			     rtuple, rstate);
 }
 
-static __always_inline void snat_v4_delete(struct ipv4_ct_tuple *otuple,
-					   struct ipv4_ct_tuple *rtuple)
+static __always_inline void snat_v4_delete(const struct ipv4_ct_tuple *otuple,
+					   const struct ipv4_ct_tuple *rtuple)
 {
 	__snat_delete(&SNAT_MAPPING_IPV4, otuple, rtuple);
 }
 
-static __always_inline void snat_v4_swap_tuple(struct ipv4_ct_tuple *otuple,
+static __always_inline void snat_v4_swap_tuple(const struct ipv4_ct_tuple *otuple,
 					       struct ipv4_ct_tuple *rtuple)
 {
 	__builtin_memset(rtuple, 0, sizeof(*rtuple));
@@ -159,7 +160,7 @@ static __always_inline void snat_v4_swap_tuple(struct ipv4_ct_tuple *otuple,
 			NAT_DIR_INGRESS : NAT_DIR_EGRESS;
 }
 
-static __always_inline int snat_v4_reverse_tuple(struct ipv4_ct_tuple *otuple,
+static __always_inline int snat_v4_reverse_tuple(const struct ipv4_ct_tuple *otuple,
 						 struct ipv4_ct_tuple *rtuple)
 {
 	struct ipv4_nat_entry *ostate;
@@ -250,8 +251,8 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 }
 
 static __always_inline int snat_v4_track_local(struct __ctx_buff *ctx,
-					       struct ipv4_ct_tuple *tuple,
-					       struct ipv4_nat_entry *state,
+					       const struct ipv4_ct_tuple *tuple,
+					       const struct ipv4_nat_entry *state,
 					       int dir, __u32 off,
 					       const struct ipv4_nat_target *target)
 {
@@ -607,8 +608,8 @@ static __always_inline int snat_v6_update(struct ipv6_ct_tuple *otuple,
 			     rtuple, rstate);
 }
 
-static __always_inline void snat_v6_delete(struct ipv6_ct_tuple *otuple,
-					   struct ipv6_ct_tuple *rtuple)
+static __always_inline void snat_v6_delete(const struct ipv6_ct_tuple *otuple,
+					   const struct ipv6_ct_tuple *rtuple)
 {
 	__snat_delete(&SNAT_MAPPING_IPV6, otuple, rtuple);
 }
@@ -1031,8 +1032,7 @@ void snat_v6_delete_tuples(struct ipv6_ct_tuple *tuple __maybe_unused)
 
 #ifdef CONNTRACK
 static __always_inline __maybe_unused void
-ct_delete4(void *map __maybe_unused, struct ipv4_ct_tuple *tuple __maybe_unused,
-	   struct __ctx_buff *ctx __maybe_unused)
+ct_delete4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ctx)
 {
 	int err;
 
@@ -1043,8 +1043,7 @@ ct_delete4(void *map __maybe_unused, struct ipv4_ct_tuple *tuple __maybe_unused,
 }
 
 static __always_inline __maybe_unused void
-ct_delete6(void *map __maybe_unused, struct ipv6_ct_tuple *tuple __maybe_unused,
-	   struct __ctx_buff *ctx __maybe_unused)
+ct_delete6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ctx)
 {
 	int err;
 
@@ -1055,13 +1054,15 @@ ct_delete6(void *map __maybe_unused, struct ipv6_ct_tuple *tuple __maybe_unused,
 }
 #else
 static __always_inline __maybe_unused void
-ct_delete4(void *map __maybe_unused, struct ipv4_ct_tuple *tuple __maybe_unused,
+ct_delete4(const void *map __maybe_unused,
+	   struct ipv4_ct_tuple *tuple __maybe_unused,
 	   struct __ctx_buff *ctx __maybe_unused)
 {
 }
 
 static __always_inline __maybe_unused void
-ct_delete6(void *map __maybe_unused, struct ipv6_ct_tuple *tuple __maybe_unused,
+ct_delete6(const void *map __maybe_unused,
+	   struct ipv6_ct_tuple *tuple __maybe_unused,
 	   struct __ctx_buff *ctx __maybe_unused)
 {
 }
