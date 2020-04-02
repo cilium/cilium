@@ -21,7 +21,7 @@ ENV GO_VERSION 1.14.1
 #
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y --no-install-recommends \
-	&& DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
 		apt-utils \
 		binutils \
 		ca-certificates \
@@ -53,7 +53,5 @@ RUN apt-get update \
 # Install Go
 #
 RUN curl -sfL https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz | tar -xzC /usr/local && \
-        go get -d -u github.com/gordonklaus/ineffassign && \
-        cd /go/src/github.com/gordonklaus/ineffassign && \
-        git checkout -b 1003c8bd00dc2869cb5ca5282e6ce33834fed514 1003c8bd00dc2869cb5ca5282e6ce33834fed514 && \
-        go install
+        GO111MODULE=on go get github.com/gordonklaus/ineffassign@1003c8bd00dc2869cb5ca5282e6ce33834fed514 && \
+        go clean -cache -modcache
