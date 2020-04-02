@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,17 +18,14 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/serializer"
 
 	v1 "k8s.io/api/core/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
@@ -40,9 +37,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func (k *K8sWatcher) namespacesInit(k8sClient kubernetes.Interface, serNamespaces *serializer.FunctionQueue, asyncControllers *sync.WaitGroup) {
-
-	swgNamespaces := lock.NewStoppableWaitGroup()
+func (k *K8sWatcher) namespacesInit(k8sClient kubernetes.Interface, asyncControllers *sync.WaitGroup) {
 	namespaceStore, namespaceController := informer.NewInformer(
 		cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
 			"namespaces", v1.NamespaceAll, fields.Everything()),
@@ -56,21 +51,16 @@ func (k *K8sWatcher) namespacesInit(k8sClient kubernetes.Interface, serNamespace
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(metricNS, metricUpdate, valid, equal) }()
-				if oldNS := k8s.CopyObjToV1Namespace(oldObj); oldNS != nil {
-					valid = true
-					if newNS := k8s.CopyObjToV1Namespace(newObj); newNS != nil {
+				if oldNS := k8s.ObjToV1Namespace(oldObj); oldNS != nil {
+					if newNS := k8s.ObjToV1Namespace(newObj); newNS != nil {
+						valid = true
 						if k8s.EqualV1Namespace(oldNS, newNS) {
 							equal = true
 							return
 						}
 
-						swgNamespaces.Add()
-						serNamespaces.Enqueue(func() error {
-							defer swgNamespaces.Done()
-							err := k.updateK8sV1Namespace(oldNS, newNS)
-							k.K8sEventProcessed(metricNS, metricUpdate, err == nil)
-							return nil
-						}, serializer.NoRetry)
+						err := k.updateK8sV1Namespace(oldNS, newNS)
+						k.K8sEventProcessed(metricNS, metricUpdate, err == nil)
 					}
 				}
 			},
@@ -79,22 +69,13 @@ func (k *K8sWatcher) namespacesInit(k8sClient kubernetes.Interface, serNamespace
 	)
 
 	k.namespaceStore = namespaceStore
-	k.blockWaitGroupToSyncResources(wait.NeverStop, swgNamespaces, namespaceController, k8sAPIGroupNamespaceV1Core)
+	k.blockWaitGroupToSyncResources(wait.NeverStop, nil, namespaceController, k8sAPIGroupNamespaceV1Core)
 	k.k8sAPIGroups.addAPI(k8sAPIGroupNamespaceV1Core)
 	asyncControllers.Done()
 	namespaceController.Run(wait.NeverStop)
 }
 
 func (k *K8sWatcher) updateK8sV1Namespace(oldNS, newNS *types.Namespace) error {
-	if oldNS == nil || newNS == nil {
-		return nil
-	}
-
-	// We only care about label updates
-	if comparator.MapStringEquals(oldNS.GetLabels(), newNS.GetLabels()) {
-		return nil
-	}
-
 	oldNSLabels := map[string]string{}
 	newNSLabels := map[string]string{}
 

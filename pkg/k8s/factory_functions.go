@@ -100,14 +100,14 @@ func CopyObjToV1Node(obj interface{}) *types.Node {
 	return node.DeepCopy()
 }
 
-func CopyObjToV1Namespace(obj interface{}) *types.Namespace {
+func ObjToV1Namespace(obj interface{}) *types.Namespace {
 	ns, ok := obj.(*types.Namespace)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Namespace")
 		return nil
 	}
-	return ns.DeepCopy()
+	return ns
 }
 
 func EqualV1NetworkPolicy(np1, np2 *types.NetworkPolicy) bool {
