@@ -283,6 +283,25 @@ func CreateLogFile(filename string, data []byte) error {
 	return err
 }
 
+// WriteToReportFile writes data to filename. It appends to existing files.
+func WriteToReportFile(data []byte, filename string) error {
+	testPath, err := CreateReportDirectory()
+	if err != nil {
+		log.WithError(err).Errorf("cannot create test results path '%s'", testPath)
+		return err
+	}
+
+	err = WriteOrAppendToFile(
+		filepath.Join(testPath, filename),
+		data,
+		LogPerm)
+	if err != nil {
+		log.WithError(err).Errorf("cannot create monitor log file %s", filename)
+		return err
+	}
+	return nil
+}
+
 // reportMap saves the output of the given commands to the specified filename.
 // Function needs a directory path where the files are going to be written and
 // a *SSHMeta instance to execute the commands

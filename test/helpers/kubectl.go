@@ -752,22 +752,8 @@ func (kub *Kubectl) MonitorStart(namespace, pod, filename string) func() error {
 	cb := func() error {
 		cancel()
 		<-ctx.Done()
-		testPath, err := CreateReportDirectory()
-		if err != nil {
-			kub.Logger().WithError(err).Errorf(
-				"cannot create test results path '%s'", testPath)
-			return err
-		}
 
-		err = WriteOrAppendToFile(
-			filepath.Join(testPath, filename),
-			res.CombineOutput().Bytes(),
-			LogPerm)
-		if err != nil {
-			log.WithError(err).Errorf("cannot create monitor log file %s", filename)
-			return err
-		}
-		return nil
+		return WriteToReportFile(res.CombineOutput().Bytes(), filename)
 	}
 
 	return cb
