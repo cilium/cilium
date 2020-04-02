@@ -219,7 +219,7 @@ ctx_redirect(struct xdp_md *ctx, int ifindex, const __u32 flags)
 }
 
 static __always_inline __maybe_unused __u32
-ctx_full_len(struct xdp_md *ctx)
+ctx_full_len(const struct xdp_md *ctx)
 {
 	/* No non-linear section in XDP. */
 	return ctx_data_end(ctx) - ctx_data(ctx);
@@ -239,7 +239,7 @@ ctx_store_meta(struct xdp_md *ctx, const __u64 off, __u32 datum)
 }
 
 static __always_inline __maybe_unused __u32
-ctx_load_meta(struct xdp_md *ctx, const __u64 off)
+ctx_load_meta(const struct xdp_md *ctx, const __u64 off)
 {
 	__u32 *data_meta = ctx_data_meta(ctx);
 	void *data = ctx_data(ctx);
@@ -253,7 +253,7 @@ ctx_load_meta(struct xdp_md *ctx, const __u64 off)
 }
 
 static __always_inline __maybe_unused __u32
-ctx_get_protocol(struct xdp_md *ctx)
+ctx_get_protocol(const struct xdp_md *ctx)
 {
 	void *data_end = ctx_data_end(ctx);
 	struct ethhdr *eth = ctx_data(ctx);
@@ -265,7 +265,7 @@ ctx_get_protocol(struct xdp_md *ctx)
 }
 
 static __always_inline __maybe_unused __u32
-ctx_get_ifindex(struct xdp_md *ctx)
+ctx_get_ifindex(const struct xdp_md *ctx)
 {
 	return ctx->ingress_ifindex;
 }

@@ -176,7 +176,8 @@ static __always_inline bool ct_entry_alive(const struct ct_entry *entry)
 }
 
 /* Helper for holding 2nd service entry alive in nodeport case. */
-static __always_inline bool __ct_entry_keep_alive(void *map, void *tuple)
+static __always_inline bool __ct_entry_keep_alive(const void *map,
+		                                  const void *tuple)
 {
 	struct ct_entry *entry;
 
@@ -198,8 +199,8 @@ static __always_inline bool __ct_entry_keep_alive(void *map, void *tuple)
 	return false;
 }
 
-static __always_inline __u8 __ct_lookup(void *map, struct __ctx_buff *ctx,
-					void *tuple, int action, int dir,
+static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
+					const void *tuple, int action, int dir,
 					struct ct_state *ct_state,
 					bool is_tcp, union tcp_flags seen_flags,
 					__u32 *monitor)
@@ -313,9 +314,11 @@ static __always_inline void ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 }
 
 /* Offset must point to IPv6 */
-static __always_inline int ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
-				      struct __ctx_buff *ctx, int l4_off, int dir,
-				      struct ct_state *ct_state, __u32 *monitor)
+static __always_inline int ct_lookup6(const void *map,
+				      struct ipv6_ct_tuple *tuple,
+				      struct __ctx_buff *ctx, int l4_off,
+				      int dir, struct ct_state *ct_state,
+				      __u32 *monitor)
 {
 	int ret = CT_NEW, action = ACTION_UNSPEC;
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
@@ -475,7 +478,8 @@ static __always_inline void ct4_cilium_dbg_tuple(struct __ctx_buff *ctx, __u8 ty
 }
 
 /* Offset must point to IPv4 header */
-static __always_inline int ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
+static __always_inline int ct_lookup4(const void *map,
+				      struct ipv4_ct_tuple *tuple,
 				      struct __ctx_buff *ctx, int off, int dir,
 				      struct ct_state *ct_state, __u32 *monitor)
 {
@@ -600,9 +604,9 @@ out:
 	return ret;
 }
 
-static __always_inline void ct_update6_backend_id(void *map,
-						  struct ipv6_ct_tuple *tuple,
-						  struct ct_state *state)
+static __always_inline void
+ct_update6_backend_id(const void *map, const struct ipv6_ct_tuple *tuple,
+		      const struct ct_state *state)
 {
 	struct ct_entry *entry;
 
@@ -617,8 +621,8 @@ static __always_inline void ct_update6_backend_id(void *map,
 }
 
 static __always_inline void
-ct_update6_rev_nat_index(void *map, struct ipv6_ct_tuple *tuple,
-			 struct ct_state *state)
+ct_update6_rev_nat_index(const void *map, const struct ipv6_ct_tuple *tuple,
+			 const struct ct_state *state)
 {
 	struct ct_entry *entry;
 
@@ -644,7 +648,7 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 
 	/* Note if this is a proxy connection so that replies can be redirected back to the proxy. */
 	entry.proxy_redirect = proxy_redirect;
-	
+
 	/* See the ct_create4 comments re the rx_bytes hack */
 	if (dir == CT_SERVICE) {
 		entry.backend_id = 0;
@@ -693,9 +697,9 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 	return 0;
 }
 
-static __always_inline void ct_update4_backend_id(void *map,
-						  struct ipv4_ct_tuple *tuple,
-						  struct ct_state *state)
+static __always_inline void ct_update4_backend_id(const void *map,
+						  const struct ipv4_ct_tuple *tuple,
+						  const struct ct_state *state)
 {
 	struct ct_entry *entry;
 
@@ -710,8 +714,8 @@ static __always_inline void ct_update4_backend_id(void *map,
 }
 
 static __always_inline void
-ct_update4_rev_nat_index(void *map, struct ipv4_ct_tuple *tuple,
-			 struct ct_state *state)
+ct_update4_rev_nat_index(const void *map, const struct ipv4_ct_tuple *tuple,
+			 const struct ct_state *state)
 {
 	struct ct_entry *entry;
 
@@ -723,10 +727,11 @@ ct_update4_rev_nat_index(void *map, struct ipv4_ct_tuple *tuple,
 	return;
 }
 
-static __always_inline int ct_create4(const void *map_main, const void *map_related,
+static __always_inline int ct_create4(const void *map_main,
+				      const void *map_related,
 				      struct ipv4_ct_tuple *tuple,
 				      struct __ctx_buff *ctx, const int dir,
-				      struct ct_state *ct_state,
+				      const struct ct_state *ct_state,
 				      bool proxy_redirect)
 {
 	/* Create entry in original direction */
@@ -736,7 +741,7 @@ static __always_inline int ct_create4(const void *map_main, const void *map_rela
 
 	/* Note if this is a proxy connection so that replies can be redirected back to the proxy. */
 	entry.proxy_redirect = proxy_redirect;
-	
+
 	entry.lb_loopback = ct_state->loopback;
 	entry.node_port = ct_state->node_port;
 	entry.dsr = ct_state->dsr;
@@ -828,7 +833,8 @@ static __always_inline int ct_create4(const void *map_main, const void *map_rela
 }
 #else /* !CONNTRACK */
 static __always_inline int
-ct_lookup6(void *map __maybe_unused, struct ipv6_ct_tuple *tuple __maybe_unused,
+ct_lookup6(const void *map __maybe_unused,
+	   struct ipv6_ct_tuple *tuple __maybe_unused,
 	   struct __ctx_buff *ctx __maybe_unused, int off __maybe_unused,
 	   int dir __maybe_unused, struct ct_state *ct_state __maybe_unused,
 	   __u32 *monitor __maybe_unused)
@@ -837,7 +843,8 @@ ct_lookup6(void *map __maybe_unused, struct ipv6_ct_tuple *tuple __maybe_unused,
 }
 
 static __always_inline int
-ct_lookup4(void *map __maybe_unused, struct ipv4_ct_tuple *tuple __maybe_unused,
+ct_lookup4(const void *map __maybe_unused,
+	   struct ipv4_ct_tuple *tuple __maybe_unused,
 	   struct __ctx_buff *ctx __maybe_unused, int off __maybe_unused,
 	   int dir __maybe_unused, struct ct_state *ct_state __maybe_unused,
 	   __u32 *monitor __maybe_unused)
@@ -846,16 +853,16 @@ ct_lookup4(void *map __maybe_unused, struct ipv4_ct_tuple *tuple __maybe_unused,
 }
 
 static __always_inline void
-ct_update6_backend_id(void *map __maybe_unused,
-		      struct ipv6_ct_tuple *tuple __maybe_unused,
-		      struct ct_state *state __maybe_unused)
+ct_update6_backend_id(const void *map __maybe_unused,
+		      const struct ipv6_ct_tuple *tuple __maybe_unused,
+		      const struct ct_state *state __maybe_unused)
 {
 }
 
 static __always_inline void
-ct_update6_rev_nat_index(void *map __maybe_unused,
-			 struct ipv6_ct_tuple *tuple __maybe_unused,
-			 struct ct_state *state __maybe_unused)
+ct_update6_rev_nat_index(const void *map __maybe_unused,
+			 const struct ipv6_ct_tuple *tuple __maybe_unused,
+			 const struct ct_state *state __maybe_unused)
 {
 }
 
@@ -871,16 +878,16 @@ ct_create6(const void *map_main __maybe_unused,
 }
 
 static __always_inline void
-ct_update4_backend_id(void *map __maybe_unused,
-		      struct ipv4_ct_tuple *tuple __maybe_unused,
-		      struct ct_state *state __maybe_unused)
+ct_update4_backend_id(const void *map __maybe_unused,
+		      const struct ipv4_ct_tuple *tuple __maybe_unused,
+		      const struct ct_state *state __maybe_unused)
 {
 }
 
 static __always_inline void
-ct_update4_rev_nat_index(void *map __maybe_unused,
-			 struct ipv4_ct_tuple *tuple __maybe_unused,
-			 struct ct_state *state __maybe_unused)
+ct_update4_rev_nat_index(const void *map __maybe_unused,
+			 const struct ipv4_ct_tuple *tuple __maybe_unused,
+			 const struct ct_state *state __maybe_unused)
 {
 }
 
@@ -889,8 +896,8 @@ ct_create4(const void *map_main __maybe_unused,
 	   const void *map_related __maybe_unused,
 	   struct ipv4_ct_tuple *tuple __maybe_unused,
 	   struct __ctx_buff *ctx __maybe_unused, const int dir __maybe_unused,
-	   struct ct_state *ct_state __maybe_unused,
-	   bool from_proxy __maybe_unused)
+	   const struct ct_state *ct_state __maybe_unused,
+	   bool proxy_redirect __maybe_unused)
 {
 	return 0;
 }

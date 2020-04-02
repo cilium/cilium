@@ -53,7 +53,7 @@ ctx_redirect(struct __sk_buff *ctx __maybe_unused, int ifindex, __u32 flags)
 }
 
 static __always_inline __maybe_unused __u32
-ctx_full_len(struct __sk_buff *ctx)
+ctx_full_len(const struct __sk_buff *ctx)
 {
 	return ctx->len;
 }
@@ -65,19 +65,19 @@ ctx_store_meta(struct __sk_buff *ctx, const __u32 off, __u32 data)
 }
 
 static __always_inline __maybe_unused __u32
-ctx_load_meta(struct __sk_buff *ctx, const __u32 off)
+ctx_load_meta(const struct __sk_buff *ctx, const __u32 off)
 {
 	return ctx->cb[off];
 }
 
 static __always_inline __maybe_unused __u32
-ctx_get_protocol(struct __sk_buff *ctx)
+ctx_get_protocol(const struct __sk_buff *ctx)
 {
 	return ctx->protocol;
 }
 
 static __always_inline __maybe_unused __u32
-ctx_get_ifindex(struct __sk_buff *ctx)
+ctx_get_ifindex(const struct __sk_buff *ctx)
 {
 	return ctx->ifindex;
 }

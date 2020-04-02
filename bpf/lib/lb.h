@@ -428,7 +428,7 @@ static __always_inline int lb6_xlate(struct __ctx_buff *ctx,
 	return CTX_ACT_OK;
 }
 
-static __always_inline int lb6_local(void *map, struct __ctx_buff *ctx,
+static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     int l3_off, int l4_off,
 				     struct csum_offset *csum_off,
 				     struct lb6_key *key,
@@ -800,7 +800,7 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_daddr, __be32 *new_saddr,
 	return CTX_ACT_OK;
 }
 
-static __always_inline int lb4_local(void *map, struct __ctx_buff *ctx,
+static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				     int l3_off, int l4_off,
 				     struct csum_offset *csum_off,
 				     struct lb4_key *key,

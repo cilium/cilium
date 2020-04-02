@@ -79,7 +79,7 @@ account(struct __ctx_buff *ctx, struct policy_entry *policy)
 }
 
 static __always_inline int
-__policy_can_access(void *map, struct __ctx_buff *ctx, __u32 identity,
+__policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 identity,
 		    __u16 dport, __u8 proto, int dir, bool is_fragment, __u8 *match_type)
 {
 #ifdef ALLOW_ICMP_FRAG_NEEDED
