@@ -86,7 +86,8 @@ static __always_inline bool nodeport_uses_dsr(__u8 nexthdr __maybe_unused)
 # endif
 }
 
-static __always_inline void bpf_mark_snat_done(struct __ctx_buff *ctx)
+static __always_inline void
+bpf_mark_snat_done(struct __ctx_buff *ctx __maybe_unused)
 {
 	/* From XDP layer, we do not go through an egress hook from
 	 * here, hence nothing to be done.
@@ -96,7 +97,8 @@ static __always_inline void bpf_mark_snat_done(struct __ctx_buff *ctx)
 #endif
 }
 
-static __always_inline bool bpf_skip_recirculation(struct __ctx_buff *ctx)
+static __always_inline bool
+bpf_skip_recirculation(struct __ctx_buff *ctx __maybe_unused)
 {
 	/* From XDP layer, we do not go through an egress hook from
 	 * here, hence nothing to be skipped.
