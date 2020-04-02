@@ -24,11 +24,9 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
-	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/serializer"
 )
 
-func (k *K8sWatcher) ciliumClusterwideNetworkPoliciesInit(ciliumNPClient *k8s.K8sCiliumClient, serCCNPs *serializer.FunctionQueue, swgCCNPs *lock.StoppableWaitGroup) {
+func (k *K8sWatcher) ciliumClusterwideNetworkPoliciesInit(ciliumNPClient *k8s.K8sCiliumClient) {
 	var (
 		ccnpEventStore    cache.Store
 		ccnpConverterFunc informer.ConvertFunc
@@ -53,49 +51,39 @@ func (k *K8sWatcher) ciliumClusterwideNetworkPoliciesInit(ciliumNPClient *k8s.K8
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(metricCCNP, metricCreate, valid, equal) }()
-				if cnp := k8s.CopyObjToV2CNP(obj); cnp != nil {
+				if cnp := k8s.ObjToSlimCNP(obj); cnp != nil {
 					valid = true
-					swgCCNPs.Add()
-					serCCNPs.Enqueue(func() error {
-						defer swgCCNPs.Done()
-						if cnp.RequiresDerivative() {
-							return nil
-						}
-						err := k.addCiliumNetworkPolicyV2(ciliumNPClient, ccnpEventStore, cnp)
-						k.K8sEventProcessed(metricCCNP, metricCreate, err == nil)
-						return nil
-					}, serializer.NoRetry)
+					if cnp.RequiresDerivative() {
+						return
+					}
+					err := k.addCiliumNetworkPolicyV2(ciliumNPClient, ccnpEventStore, cnp)
+					k.K8sEventProcessed(metricCCNP, metricCreate, err == nil)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(metricCCNP, metricUpdate, valid, equal) }()
-				if oldCNP := k8s.CopyObjToV2CNP(oldObj); oldCNP != nil {
-					valid = true
-					if newCNP := k8s.CopyObjToV2CNP(newObj); newCNP != nil {
+				if oldCNP := k8s.ObjToSlimCNP(oldObj); oldCNP != nil {
+					if newCNP := k8s.ObjToSlimCNP(newObj); newCNP != nil {
+						valid = true
 						if k8s.EqualV2CNP(oldCNP, newCNP) {
 							equal = true
 							return
 						}
 
-						swgCCNPs.Add()
-						serCCNPs.Enqueue(func() error {
-							defer swgCCNPs.Done()
-							if newCNP.RequiresDerivative() {
-								return nil
-							}
+						if newCNP.RequiresDerivative() {
+							return
+						}
 
-							err := k.updateCiliumNetworkPolicyV2(ciliumNPClient, ccnpEventStore, oldCNP, newCNP)
-							k.K8sEventProcessed(metricCCNP, metricUpdate, err == nil)
-							return nil
-						}, serializer.NoRetry)
+						err := k.updateCiliumNetworkPolicyV2(ciliumNPClient, ccnpEventStore, oldCNP, newCNP)
+						k.K8sEventProcessed(metricCCNP, metricUpdate, err == nil)
 					}
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(metricCCNP, metricDelete, valid, equal) }()
-				cnp := k8s.CopyObjToV2CNP(obj)
+				cnp := k8s.ObjToSlimCNP(obj)
 				if cnp == nil {
 					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
 					if !ok {
@@ -104,19 +92,14 @@ func (k *K8sWatcher) ciliumClusterwideNetworkPoliciesInit(ciliumNPClient *k8s.K8
 					// Delete was not observed by the watcher but is
 					// removed from kube-apiserver. This is the last
 					// known state and the object no longer exists.
-					cnp = k8s.CopyObjToV2CNP(deletedObj.Obj)
+					cnp = k8s.ObjToSlimCNP(deletedObj.Obj)
 					if cnp == nil {
 						return
 					}
 				}
 				valid = true
-				swgCCNPs.Add()
-				serCCNPs.Enqueue(func() error {
-					defer swgCCNPs.Done()
-					err := k.deleteCiliumNetworkPolicyV2(cnp)
-					k.K8sEventProcessed(metricCCNP, metricDelete, err == nil)
-					return nil
-				}, serializer.NoRetry)
+				err := k.deleteCiliumNetworkPolicyV2(cnp)
+				k.K8sEventProcessed(metricCCNP, metricDelete, err == nil)
 			},
 		},
 		ccnpConverterFunc,
@@ -124,7 +107,7 @@ func (k *K8sWatcher) ciliumClusterwideNetworkPoliciesInit(ciliumNPClient *k8s.K8
 	)
 	k.blockWaitGroupToSyncResources(
 		wait.NeverStop,
-		swgCCNPs,
+		nil,
 		ciliumV2ClusterwidePolicyController,
 		k8sAPIGroupCiliumClusterwideNetworkPolicyV2,
 	)

@@ -70,14 +70,14 @@ func CopyObjToV1EndpointSlice(obj interface{}) *types.EndpointSlice {
 	return ep.DeepCopy()
 }
 
-func CopyObjToV2CNP(obj interface{}) *types.SlimCNP {
+func ObjToSlimCNP(obj interface{}) *types.SlimCNP {
 	cnp, ok := obj.(*types.SlimCNP)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v2 CiliumNetworkPolicy")
 		return nil
 	}
-	return cnp.DeepCopy()
+	return cnp
 }
 
 func CopyObjToV1Pod(obj interface{}) *types.Pod {

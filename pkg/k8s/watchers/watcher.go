@@ -308,8 +308,10 @@ func (k *K8sWatcher) blockWaitGroupToSyncResources(
 			k.k8sResourceSyncedStopWait[resourceName] = true
 			k.k8sResourceSyncedMu.Unlock()
 		}
-		swg.Stop()
-		swg.Wait()
+		if swg != nil {
+			swg.Stop()
+			swg.Wait()
+		}
 		close(ch)
 	}()
 }
@@ -448,14 +450,10 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 	}
 
 	// cilium network policies
-	serCNPs := serializer.NewFunctionQueue(queueSize)
-	swgCNPs := lock.NewStoppableWaitGroup()
-	k.ciliumNetworkPoliciesInit(ciliumNPClient, serCNPs, swgCNPs)
+	k.ciliumNetworkPoliciesInit(ciliumNPClient)
 
 	// cilium clusterwide network policy
-	serCCNPs := serializer.NewFunctionQueue(queueSize)
-	swgCCNPs := lock.NewStoppableWaitGroup()
-	k.ciliumClusterwideNetworkPoliciesInit(ciliumNPClient, serCCNPs, swgCCNPs)
+	k.ciliumClusterwideNetworkPoliciesInit(ciliumNPClient)
 
 	// cilium nodes
 	asyncControllers.Add(1)
