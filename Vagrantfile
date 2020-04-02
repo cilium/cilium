@@ -49,8 +49,6 @@ echo "getting status of systemd-journald"
 service systemd-journald status
 echo "done configuring journald"
 
-pip3 install -r /home/vagrant/go/src/github.com/cilium/cilium/Documentation/requirements.txt
-
 service docker restart
 echo 'cd ~/go/src/github.com/cilium/cilium' >> /home/vagrant/.bashrc
 chown -R vagrant:vagrant /home/vagrant 2>/dev/null || true
