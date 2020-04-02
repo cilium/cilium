@@ -88,7 +88,7 @@ func enableCNPWatcher() error {
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
-				if cnp := k8s.CopyObjToV2CNP(obj); cnp != nil {
+				if cnp := k8s.ObjToSlimCNP(obj); cnp != nil {
 					groups.AddDerivativeCNPIfNeeded(cnp.CiliumNetworkPolicy)
 					if kvstoreEnabled() {
 						cnpStatusMgr.StartStatusHandler(cnp)
@@ -97,8 +97,8 @@ func enableCNPWatcher() error {
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
-				if oldCNP := k8s.CopyObjToV2CNP(oldObj); oldCNP != nil {
-					if newCNP := k8s.CopyObjToV2CNP(newObj); newCNP != nil {
+				if oldCNP := k8s.ObjToSlimCNP(oldObj); oldCNP != nil {
+					if newCNP := k8s.ObjToSlimCNP(newObj); newCNP != nil {
 						if k8s.EqualV2CNP(oldCNP, newCNP) {
 							return
 						}
@@ -108,7 +108,7 @@ func enableCNPWatcher() error {
 			},
 			DeleteFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
-				cnp := k8s.CopyObjToV2CNP(obj)
+				cnp := k8s.ObjToSlimCNP(obj)
 				if cnp == nil {
 					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
 					if !ok {
@@ -117,7 +117,7 @@ func enableCNPWatcher() error {
 					// Delete was not observed by the watcher but is
 					// removed from kube-apiserver. This is the last
 					// known state and the object no longer exists.
-					cnp = k8s.CopyObjToV2CNP(deletedObj.Obj)
+					cnp = k8s.ObjToSlimCNP(deletedObj.Obj)
 					if cnp == nil {
 						return
 					}
