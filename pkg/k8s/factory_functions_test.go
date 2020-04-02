@@ -470,7 +470,7 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		got := EqualV1Pod(tt.args.o1, tt.args.o2)
+		got := tt.args.o1.DeepEqual(tt.args.o2)
 		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }

@@ -80,14 +80,14 @@ func ObjToSlimCNP(obj interface{}) *types.SlimCNP {
 	return cnp
 }
 
-func CopyObjToV1Pod(obj interface{}) *types.Pod {
+func ObjTov1Pod(obj interface{}) *types.Pod {
 	pod, ok := obj.(*types.Pod)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Pod")
 		return nil
 	}
-	return pod.DeepCopy()
+	return pod
 }
 
 func CopyObjToV1Node(obj interface{}) *types.Node {
@@ -161,53 +161,6 @@ func EqualV1EndpointSlice(ep1, ep2 *types.EndpointSlice) bool {
 func AnnotationsEqual(relevantAnnotations []string, anno1, anno2 map[string]string) bool {
 	for _, an := range relevantAnnotations {
 		if anno1[an] != anno2[an] {
-			return false
-		}
-	}
-	return true
-}
-
-func EqualV1PodContainers(c1, c2 types.PodContainer) bool {
-	if c1.Name != c2.Name ||
-		c1.Image != c2.Image {
-		return false
-	}
-
-	if len(c1.VolumeMountsPaths) != len(c2.VolumeMountsPaths) {
-		return false
-	}
-	for i, vlmMount1 := range c1.VolumeMountsPaths {
-		if vlmMount1 != c2.VolumeMountsPaths[i] {
-			return false
-		}
-	}
-	return true
-}
-
-func EqualV1Pod(pod1, pod2 *types.Pod) bool {
-	// We only care about the HostIP, the PodIP and the labels of the pods.
-	if pod1.StatusPodIP != pod2.StatusPodIP ||
-		pod1.StatusHostIP != pod2.StatusHostIP ||
-		pod1.SpecServiceAccountName != pod2.SpecServiceAccountName ||
-		pod1.SpecHostNetwork != pod2.SpecHostNetwork {
-		return false
-	}
-
-	if !AnnotationsEqual([]string{annotation.ProxyVisibility}, pod1.GetAnnotations(), pod2.GetAnnotations()) {
-		return false
-	}
-
-	oldPodLabels := pod1.GetLabels()
-	newPodLabels := pod2.GetLabels()
-	if !comparator.MapStringEquals(oldPodLabels, newPodLabels) {
-		return false
-	}
-
-	if len(pod1.SpecContainers) != len(pod2.SpecContainers) {
-		return false
-	}
-	for i, c1 := range pod1.SpecContainers {
-		if !EqualV1PodContainers(c1, pod2.SpecContainers[i]) {
 			return false
 		}
 	}
