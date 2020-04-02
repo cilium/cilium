@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: hubble-cli
+spec:
+  selector:
+    matchLabels:
+      k8s-app: hubble-cli
+  template:
+    metadata:
+      labels:
+        k8s-app: hubble-cli
+    spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: k8s-app
+                    operator: In
+                    values:
+                      - cilium
+              topologyKey: "kubernetes.io/hostname"
+      containers:
+        - name: hubble-cli
+          image: "quay.io/cilium/hubble:v0.5.1"
+          imagePullPolicy: IfNotPresent
+          command:
+            - "sleep"
+          args:
+            - "1000h"
+          env:
+            - name: HUBBLE_DEFAULT_SOCKET_PATH
+              value: "unix:///var/run/cilium/hubble.sock"
+          readinessProbe:
+            exec:
+              command:
+                - "hubble"
+                - "status"
+            initialDelaySeconds: 1
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          resources:
+            {}
+          volumeMounts:
+            - mountPath: /var/run/cilium/hubble.sock
+              name: hubble-sock
+              readOnly: true
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 1
+      tolerations:
+        - operator: Exists
+      volumes:
+        - hostPath:
+            path: /var/run/cilium/hubble.sock
+            type: Socket
+          name: hubble-sock
