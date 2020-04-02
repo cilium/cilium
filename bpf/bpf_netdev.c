@@ -516,7 +516,7 @@ do_netdev_encrypt_fib(struct __ctx_buff *ctx __maybe_unused,
 		      int *encrypt_iface __maybe_unused)
 {
 	int ret = 0;
-#if HAVE_PROG_TYPE_HELPER(sched_cls, bpf_fib_lookup)
+#ifdef BPF_HAVE_FIB_LOOKUP
 	struct bpf_fib_lookup fib_params = {};
 	void *data, *data_end;
 	int err;
@@ -563,7 +563,7 @@ do_netdev_encrypt_fib(struct __ctx_buff *ctx __maybe_unused,
 	}
 	*encrypt_iface = fib_params.ifindex;
 drop_err_fib:
-#endif /* HAVE_PROG_TYPE_HELPER(sched_cls, bpf_fib_lookup) */
+#endif /* BPF_HAVE_FIB_LOOKUP */
 	return ret;
 }
 
@@ -572,7 +572,7 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 	int encrypt_iface = 0;
 	int ret = 0;
 
-#if defined(ENCRYPT_NODE) || HAVE_PROG_TYPE_HELPER(sched_cls, bpf_fib_lookup)
+#if defined(ENCRYPT_NODE) || defined(BPF_HAVE_FIB_LOOKUP)
 	encrypt_iface = ENCRYPT_IFACE;
 #endif
 	ret = do_netdev_encrypt_pools(ctx);
@@ -584,7 +584,7 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
 
 	bpf_clear_cb(ctx);
-#if defined(ENCRYPT_NODE) || HAVE_PROG_TYPE_HELPER(sched_cls, bpf_fib_lookup)
+#if defined(ENCRYPT_NODE) || defined(BPF_HAVE_FIB_LOOKUP)
 	return redirect(encrypt_iface, 0);
 #else
 	return CTX_ACT_OK;

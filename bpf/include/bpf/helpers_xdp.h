@@ -8,6 +8,7 @@
 
 #include "compiler.h"
 #include "helpers.h"
+#include "features_xdp.h"
 
 /* Only used helpers in Cilium go below. */
 

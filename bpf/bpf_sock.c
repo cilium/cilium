@@ -79,7 +79,7 @@ void ctx_set_port(struct bpf_sock_addr *ctx, __be16 dport)
 static __always_inline __maybe_unused bool
 ctx_in_hostns(void *ctx __maybe_unused)
 {
-#ifdef ENABLE_HOST_SERVICES_NETNS
+#ifdef BPF_HAVE_NETNS_COOKIE
 	return get_netns_cookie(ctx) == get_netns_cookie(NULL);
 #else
 	return true;
@@ -89,7 +89,7 @@ ctx_in_hostns(void *ctx __maybe_unused)
 static __always_inline __maybe_unused
 __u64 sock_local_cookie(struct bpf_sock_addr *ctx)
 {
-#if HAVE_PROG_TYPE_HELPER(cgroup_sock_addr, bpf_get_socket_cookie)
+#ifdef BPF_HAVE_SOCKET_COOKIE
 	/* prandom() breaks down on UDP, hence preference is on
 	 * socket cookie as built-in selector. On older kernels,
 	 * get_socket_cookie() provides a unique per netns cookie
