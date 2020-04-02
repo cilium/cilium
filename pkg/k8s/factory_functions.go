@@ -90,14 +90,14 @@ func ObjTov1Pod(obj interface{}) *types.Pod {
 	return pod
 }
 
-func CopyObjToV1Node(obj interface{}) *types.Node {
+func ObjToV1Node(obj interface{}) *types.Node {
 	node, ok := obj.(*types.Node)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Node")
 		return nil
 	}
-	return node.DeepCopy()
+	return node
 }
 
 func ObjToV1Namespace(obj interface{}) *types.Namespace {
