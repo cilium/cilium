@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,9 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/serializer"
 	"github.com/cilium/cilium/pkg/source"
 
 	v1 "k8s.io/api/core/v1"
@@ -36,12 +34,11 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, serCiliumEndpoints *serializer.FunctionQueue, asyncControllers *sync.WaitGroup) {
+func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, asyncControllers *sync.WaitGroup) {
 	// CiliumEndpoint objects are used for ipcache discovery until the
 	// key-value store is connected
 	var once sync.Once
 	for {
-		swgCiliumEndpoints := lock.NewStoppableWaitGroup()
 		_, ciliumEndpointInformer := informer.NewInformer(
 			cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
 				"ciliumendpoints", v1.NamespaceAll, fields.Everything()),
@@ -53,35 +50,30 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, se
 					defer func() { k.K8sEventReceived(metricCiliumEndpoint, metricCreate, valid, equal) }()
 					if ciliumEndpoint, ok := obj.(*types.CiliumEndpoint); ok {
 						valid = true
-						endpoint := ciliumEndpoint.DeepCopy()
-						swgCiliumEndpoints.Add()
-						serCiliumEndpoints.Enqueue(func() error {
-							defer swgCiliumEndpoints.Done()
-							endpointUpdated(endpoint)
-							k.K8sEventProcessed(metricCiliumEndpoint, metricCreate, true)
-							return nil
-						}, serializer.NoRetry)
+						endpointUpdated(ciliumEndpoint)
+						k.K8sEventProcessed(metricCiliumEndpoint, metricCreate, true)
 					}
 				},
 				UpdateFunc: func(oldObj, newObj interface{}) {
 					var valid, equal bool
 					defer func() { k.K8sEventReceived(metricCiliumEndpoint, metricUpdate, valid, equal) }()
-					if ciliumEndpoint, ok := newObj.(*types.CiliumEndpoint); ok {
-						valid = true
-						endpoint := ciliumEndpoint.DeepCopy()
-						swgCiliumEndpoints.Add()
-						serCiliumEndpoints.Enqueue(func() error {
-							defer swgCiliumEndpoints.Done()
-							endpointUpdated(endpoint)
+					if oldCE := k8s.ObjToCiliumEndpoint(oldObj); oldCE != nil {
+						if newCE := k8s.ObjToCiliumEndpoint(newObj); newCE != nil {
+							valid = true
+							// TODO add equalness
+							// if oldCE.DeepEqual(newCE) {
+							// 	equal = true
+							// 	return
+							// }
+							endpointUpdated(newCE)
 							k.K8sEventProcessed(metricCiliumEndpoint, metricUpdate, true)
-							return nil
-						}, serializer.NoRetry)
+						}
 					}
 				},
 				DeleteFunc: func(obj interface{}) {
 					var valid, equal bool
 					defer func() { k.K8sEventReceived(metricCiliumEndpoint, metricDelete, valid, equal) }()
-					ciliumEndpoint := k8s.CopyObjToCiliumEndpoint(obj)
+					ciliumEndpoint := k8s.ObjToCiliumEndpoint(obj)
 					if ciliumEndpoint == nil {
 						deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
 						if !ok {
@@ -90,18 +82,13 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, se
 						// Delete was not observed by the watcher but is
 						// removed from kube-apiserver. This is the last
 						// known state and the object no longer exists.
-						ciliumEndpoint = k8s.CopyObjToCiliumEndpoint(deletedObj.Obj)
+						ciliumEndpoint = k8s.ObjToCiliumEndpoint(deletedObj.Obj)
 						if ciliumEndpoint == nil {
 							return
 						}
 					}
 					valid = true
-					swgCiliumEndpoints.Add()
-					serCiliumEndpoints.Enqueue(func() error {
-						defer swgCiliumEndpoints.Done()
-						endpointDeleted(ciliumEndpoint)
-						return nil
-					}, serializer.NoRetry)
+					endpointDeleted(ciliumEndpoint)
 				},
 			},
 			k8s.ConvertToCiliumEndpoint,
@@ -109,7 +96,7 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, se
 		isConnected := make(chan struct{})
 		// once isConnected is closed, it will stop waiting on caches to be
 		// synchronized.
-		k.blockWaitGroupToSyncResources(isConnected, swgCiliumEndpoints, ciliumEndpointInformer, k8sAPIGroupCiliumEndpointV2)
+		k.blockWaitGroupToSyncResources(isConnected, nil, ciliumEndpointInformer, k8sAPIGroupCiliumEndpointV2)
 
 		once.Do(func() {
 			// Signalize that we have put node controller in the wait group
