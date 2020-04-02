@@ -146,9 +146,14 @@ ifeq ($(SKIP_VET),"false")
 endif
 	$(QUIET) echo "mode: count" > coverage-all-tmp.out
 	$(QUIET) echo "mode: count" > coverage.out
-	$(QUIET)$(foreach pkg,$(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)),\
-		$(_GO) test $(GOFLAGS) $(TEST_UNITTEST_LDFLAGS) $(pkg) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) || exit 1; \
-		tail -n +2 coverage.out >> coverage-all-tmp.out;)
+	# It seems that in some env if the path is large enough for the full list
+	# of files, the full bash command in that target gets too big for bash and
+	# hence will trigger an error of too many arguments. As a workaround, we
+	# have to process these packages in different subshells.
+	for pkg in $(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)); do \
+		$(_GO) test $(GOFLAGS) $(TEST_UNITTEST_LDFLAGS) $$pkg $(GOTEST_BASE) $(GOTEST_COVER_OPTS) || exit 1; \
+		tail -n +2 coverage.out >> coverage-all-tmp.out; \
+	done
 	$(MAKE) generate-cov
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 	$(MAKE) stop-kvstores
