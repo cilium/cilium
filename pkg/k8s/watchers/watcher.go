@@ -468,8 +468,7 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 
 	// kubernetes namespaces
 	asyncControllers.Add(1)
-	serNamespaces := serializer.NewFunctionQueue(queueSize)
-	go k.namespacesInit(k8s.Client(), serNamespaces, asyncControllers)
+	go k.namespacesInit(k8s.Client(), asyncControllers)
 
 	asyncControllers.Wait()
 	close(k.controllersStarted)
