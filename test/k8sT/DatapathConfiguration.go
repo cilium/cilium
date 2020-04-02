@@ -17,7 +17,6 @@ package k8sTest
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"regexp"
 	"strconv"
 	"strings"
@@ -149,33 +148,45 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"global.bpf.monitorFlags":       "syn",
 				"global.debug.enabled":          "false",
 			})
-			monitorOutput, targetIP := monitorConnectivityAcrossNodes(kubectl, monitorLog)
+			monitorRes, monitorCancel, targetIP := monitorConnectivityAcrossNodes(kubectl)
+			defer monitorCancel()
 
-			By("Checking that exactly one ICMP notification in each direction was observed")
-			expEgress := fmt.Sprintf("ICMPv4.*DstIP=%s", targetIP)
-			expEgressRegex := regexp.MustCompile(expEgress)
-			egressMatches := expEgressRegex.FindAllIndex(monitorOutput, -1)
-			Expect(len(egressMatches)).To(Equal(1), "Monitor log contained unexpected number of egress notifications matching %q", expEgress)
+			var monitorOutput []byte
+			body := func() bool {
+				monitorOutput = monitorRes.CombineOutput().Bytes()
 
-			expIngress := fmt.Sprintf("ICMPv4.*SrcIP=%s", targetIP)
-			expIngressRegex := regexp.MustCompile(expIngress)
-			ingressMatches := expIngressRegex.FindAllIndex(monitorOutput, -1)
-			Expect(len(ingressMatches)).To(Equal(1), "Monitor log contained unexpected number of ingress notifications matching %q", expIngress)
+				By("Checking that exactly one ICMP notification in each direction was observed")
+				expEgress := fmt.Sprintf("ICMPv4.*DstIP=%s", targetIP)
+				expEgressRegex := regexp.MustCompile(expEgress)
+				egressMatches := expEgressRegex.FindAllIndex(monitorOutput, -1)
+				Expect(len(egressMatches)).To(Equal(1), "Monitor log contained unexpected number of egress notifications matching %q", expEgress)
 
-			By("Checking the set of TCP notifications received matches expectations")
-			// | TCP Flags | Direction | Report? | Why?
-			// +===========+===========+=========+=====
-			// | SYN       |    ->     |    Y    | monitorFlags=SYN
-			// | SYN / ACK |    <-     |    Y    | monitorFlags=SYN
-			// | ACK       |    ->     |    N    | monitorFlags=(!ACK)
-			// | ACK       |    ...    |    N    | monitorFlags=(!ACK)
-			// | ACK       |    <-     |    N    | monitorFlags=(!ACK)
-			// | FIN       |    ->     |    Y    | monitorAggregation=medium
-			// | FIN / ACK |    <-     |    Y    | monitorAggregation=medium
-			// | ACK       |    ->     |    Y    | monitorAggregation=medium
-			egressPktCount := 3
-			ingressPktCount := 2
-			checkMonitorOutput(monitorOutput, egressPktCount, ingressPktCount)
+				expIngress := fmt.Sprintf("ICMPv4.*SrcIP=%s", targetIP)
+				expIngressRegex := regexp.MustCompile(expIngress)
+				ingressMatches := expIngressRegex.FindAllIndex(monitorOutput, -1)
+				Expect(len(ingressMatches)).To(Equal(1), "Monitor log contained unexpected number of ingress notifications matching %q", expIngress)
+
+				By("Checking the set of TCP notifications received matches expectations")
+				// | TCP Flags | Direction | Report? | Why?
+				// +===========+===========+=========+=====
+				// | SYN       |    ->     |    Y    | monitorFlags=SYN
+				// | SYN / ACK |    <-     |    Y    | monitorFlags=SYN
+				// | ACK       |    ->     |    N    | monitorFlags=(!ACK)
+				// | ACK       |    ...    |    N    | monitorFlags=(!ACK)
+				// | ACK       |    <-     |    N    | monitorFlags=(!ACK)
+				// | FIN       |    ->     |    Y    | monitorAggregation=medium
+				// | FIN / ACK |    <-     |    Y    | monitorAggregation=medium
+				// | ACK       |    ->     |    Y    | monitorAggregation=medium
+				egressPktCount := 3
+				ingressPktCount := 2
+				checkMonitorOutput(monitorOutput, egressPktCount, ingressPktCount)
+
+				return true
+			}
+
+			err := helpers.WithTimeout(body, "monitor does not restrict notifications when configured", &helpers.TimeoutConfig{Timeout: helpers.HelperTimeout})
+			Expect(err).To(BeNil(), "Could not read monitor log")
+			helpers.WriteToReportFile(monitorOutput, monitorLog)
 		})
 
 		It("Checks that monitor aggregation flags send notifications", func() {
@@ -185,23 +196,35 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"global.bpf.monitorFlags":       "psh",
 				"global.debug.enabled":          "false",
 			})
-			monitorOutput, _ := monitorConnectivityAcrossNodes(kubectl, monitorLog)
+			monitorRes, monitorCancel, _ := monitorConnectivityAcrossNodes(kubectl)
+			defer monitorCancel()
 
-			By("Checking the set of TCP notifications received matches expectations")
-			// | TCP Flags | Direction | Report? | Why?
-			// +===========+===========+=========+=====
-			// | SYN       |    ->     |    Y    | monitorAggregation=medium
-			// | SYN / ACK |    <-     |    Y    | monitorAggregation=medium
-			// | ACK       |    ->     |    N    | monitorFlags=(!ACK)
-			// | ACK       |    ...    |    N    | monitorFlags=(!ACK)
-			// | PSH       |    ->     |    Y    | monitorFlags=(PSH)
-			// | PSH       |    <-     |    Y    | monitorFlags=(PSH)
-			// | FIN       |    ->     |    Y    | monitorAggregation=medium
-			// | FIN / ACK |    <-     |    Y    | monitorAggregation=medium
-			// | ACK       |    ->     |    Y    | monitorAggregation=medium
-			egressPktCount := 4
-			ingressPktCount := 3
-			checkMonitorOutput(monitorOutput, egressPktCount, ingressPktCount)
+			var monitorOutput []byte
+			body := func() bool {
+				monitorOutput = monitorRes.CombineOutput().Bytes()
+
+				By("Checking the set of TCP notifications received matches expectations")
+				// | TCP Flags | Direction | Report? | Why?
+				// +===========+===========+=========+=====
+				// | SYN       |    ->     |    Y    | monitorAggregation=medium
+				// | SYN / ACK |    <-     |    Y    | monitorAggregation=medium
+				// | ACK       |    ->     |    N    | monitorFlags=(!ACK)
+				// | ACK       |    ...    |    N    | monitorFlags=(!ACK)
+				// | PSH       |    ->     |    Y    | monitorFlags=(PSH)
+				// | PSH       |    <-     |    Y    | monitorFlags=(PSH)
+				// | FIN       |    ->     |    Y    | monitorAggregation=medium
+				// | FIN / ACK |    <-     |    Y    | monitorAggregation=medium
+				// | ACK       |    ->     |    Y    | monitorAggregation=medium
+				egressPktCount := 4
+				ingressPktCount := 3
+				checkMonitorOutput(monitorOutput, egressPktCount, ingressPktCount)
+
+				return true
+			}
+
+			err := helpers.WithTimeout(body, "monitor aggregation did not send notifications", &helpers.TimeoutConfig{Timeout: helpers.HelperTimeout})
+			Expect(err).To(BeNil(), "Could not read monitor log")
+			helpers.WriteToReportFile(monitorOutput, monitorLog)
 		})
 	})
 
@@ -588,7 +611,7 @@ func testPodNetperf(kubectl *helpers.Kubectl, requireMultiNode bool, callOffset 
 	return res.WasSuccessful(), targetIP
 }
 
-func monitorConnectivityAcrossNodes(kubectl *helpers.Kubectl, monitorLog string) (monitorOutput []byte, targetIP string) {
+func monitorConnectivityAcrossNodes(kubectl *helpers.Kubectl) (monitorRes *helpers.CmdRes, monitorCancel func(), targetIP string) {
 	// For local single-node testing, configure requireMultiNode to "false"
 	// and add the labels "cilium.io/ci-node: k8s1" to the node.
 	requireMultiNode := true
@@ -597,19 +620,14 @@ func monitorConnectivityAcrossNodes(kubectl *helpers.Kubectl, monitorLog string)
 	ExpectWithOffset(1, err).Should(BeNil(), "Cannot get cilium pod on k8s1")
 
 	By(fmt.Sprintf("Launching cilium monitor on %q", ciliumPodK8s1))
-	monitorStop := kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPodK8s1, monitorLog)
+	monitorRes, monitorCancel = kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPodK8s1)
 	result, targetIP := testPodConnectivityAndReturnIP(kubectl, requireMultiNode, 2)
-	monitorStop()
 	ExpectWithOffset(1, result).Should(BeTrue(), "Connectivity test between nodes failed")
 
-	monitorPath := fmt.Sprintf("%s/%s", helpers.ReportDirectoryPath(), monitorLog)
-	By("Reading the monitor log at %s", monitorPath)
-	monitorOutput, err = ioutil.ReadFile(monitorPath)
-	ExpectWithOffset(1, err).To(BeNil(), "Could not read monitor log")
-	return monitorOutput, targetIP
+	return monitorRes, monitorCancel, targetIP
 }
 
-func checkMonitorOutput(monitorOutput []byte, egressPktCount, ingressPktCount int) {
+func checkMonitorOutput(monitorOutput []byte, egressPktCount, ingressPktCount int) bool {
 	// Multiple connection attempts may be made, we need to
 	// narrow down to the last connection close, then match
 	// the ephemeral port + flags to ensure that the
@@ -617,7 +635,10 @@ func checkMonitorOutput(monitorOutput []byte, egressPktCount, ingressPktCount in
 	egressTCPExpr := `TCP.*DstPort=80.*FIN=true`
 	egressTCPRegex := regexp.MustCompile(egressTCPExpr)
 	egressTCPMatches := egressTCPRegex.FindAll(monitorOutput, -1)
-	ExpectWithOffset(1, len(egressTCPMatches)).To(BeNumerically(">", 0), "Could not locate final FIN notification in monitor log")
+	if len(egressTCPMatches) <= 0 {
+		GinkgoPrint("Could not locate final FIN notification in monitor log: egressTCPMatches %+v", egressTCPMatches)
+		return false
+	}
 	finalMatch := egressTCPMatches[len(egressTCPMatches)-1]
 	portRegex := regexp.MustCompile(`SrcPort=([0-9]*)`)
 	// FindSubmatch should return ["SrcPort=12345" "12345"]
@@ -625,13 +646,26 @@ func checkMonitorOutput(monitorOutput []byte, egressPktCount, ingressPktCount in
 
 	By("Looking for TCP notifications using the ephemeral port %q", portBytes)
 	port, err := strconv.Atoi(string(portBytes))
-	ExpectWithOffset(1, err).To(BeNil(), fmt.Sprintf("ephemeral port %q could not be converted to integer", string(portBytes)))
+	if err != nil {
+		GinkgoPrint("ephemeral port %q could not be converted to integer: %s", string(portBytes), err)
+		return false
+	}
+
 	expEgress := fmt.Sprintf("SrcPort=%d", port)
 	expEgressRegex := regexp.MustCompile(expEgress)
 	egressMatches := expEgressRegex.FindAllIndex(monitorOutput, -1)
-	ExpectWithOffset(1, len(egressMatches)).To(Equal(egressPktCount), "Monitor log contained unexpected number of egress notifications matching %q", expEgress)
+	if len(egressMatches) != egressPktCount {
+		GinkgoPrint("Could not locate final FIN notification in monitor log: egressTCPMatches %+v", egressTCPMatches)
+		return false
+	}
+
 	expIngress := fmt.Sprintf("DstPort=%d", port)
 	expIngressRegex := regexp.MustCompile(expIngress)
 	ingressMatches := expIngressRegex.FindAllIndex(monitorOutput, -1)
-	ExpectWithOffset(1, len(ingressMatches)).To(Equal(ingressPktCount), "Monitor log contained unexpected number of ingress notifications matching %q", expIngress)
+	if len(ingressMatches) != ingressPktCount {
+		GinkgoPrint("Monitor log contained unexpected number of ingress notifications matching %q", expIngress)
+		return false
+	}
+
+	return true
 }

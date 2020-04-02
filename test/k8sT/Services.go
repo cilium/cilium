@@ -200,9 +200,11 @@ var _ = Describe("K8sServicesTest", func() {
 			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
 
 			By("testing connectivity via cluster IP %s", clusterIP)
-			monitorStop := kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPodK8s1,
-				"cluster-ip-same-node.log")
-			defer monitorStop()
+			monitorRes, monitorCancel := kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPodK8s1)
+			defer func() {
+				monitorCancel()
+				helpers.WriteToReportFile(monitorRes.CombineOutput().Bytes(), "cluster-ip-same-node.log")
+			}()
 
 			httpSVCURL := fmt.Sprintf("http://%s/", clusterIP)
 			tftpSVCURL := fmt.Sprintf("tftp://%s/hello", clusterIP)

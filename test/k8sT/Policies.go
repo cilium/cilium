@@ -17,8 +17,6 @@ package k8sTest
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"regexp"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -857,7 +855,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			checkProxyRedirection := func(resource string, redirected bool, parser policy.L7ParserType) {
 				var (
 					not     = " "
-					re      *regexp.Regexp
+					reStr   string
 					curlCmd string
 				)
 
@@ -867,12 +865,10 @@ var _ = Describe("K8sPolicyTest", func() {
 
 				switch parser {
 				case policy.ParserTypeDNS:
-					reStr := "Request dns from.*Forwarded DNS Query:.*"
-					re = regexp.MustCompile(reStr)
+					reStr = "Request dns from.*Forwarded DNS Query:.*"
 					curlCmd = helpers.CurlFail(resource)
 				case policy.ParserTypeHTTP:
-					reStr := fmt.Sprintf("verdict Forwarded GET http://%s/public", resource)
-					re = regexp.MustCompile(reStr)
+					reStr = fmt.Sprintf("verdict Forwarded GET http://%s/public", resource)
 					curlCmd = helpers.CurlFail(fmt.Sprintf("http://%s/public", resource))
 				default:
 					Fail(fmt.Sprintf("invalid parser type for proxy visibility: %s", parser))
@@ -881,7 +877,12 @@ var _ = Describe("K8sPolicyTest", func() {
 				monitorFile := fmt.Sprintf(monitorFileName, uuid.NewUUID().String())
 
 				By("Starting monitor and generating traffic which should%s redirect to proxy", not)
-				monitorStop := kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPod, monitorFile)
+				monitorRes, monitorCancel := kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPod)
+				defer func() {
+					monitorCancel()
+					monitorRes.WaitUntilFinish()
+					helpers.WriteToReportFile(monitorRes.CombineOutput().Bytes(), monitorFile)
+				}()
 
 				// Let the monitor get started since it is started in the background.
 				time.Sleep(2 * time.Second)
@@ -890,19 +891,14 @@ var _ = Describe("K8sPolicyTest", func() {
 					curlCmd)
 				// Give time for the monitor to be notified of the proxy flow.
 				time.Sleep(2 * time.Second)
-				monitorStop()
 				res.ExpectSuccess("%q cannot curl %q", appPods[helpers.App2], resource)
-				monitorPath := fmt.Sprintf("%s/%s", helpers.ReportDirectoryPath(), monitorFile)
-				By("Reading the monitor log at %s", monitorPath)
-				monitorOutput, err := ioutil.ReadFile(monitorPath)
-				ExpectWithOffset(1, err).To(BeNil(), "Could not read monitor log")
 
 				By("Checking that aforementioned traffic was%sredirected to the proxy", not)
-				out := re.Find(monitorOutput)
+				err := monitorRes.WaitUntilMatchRegexp(reStr)
 				if redirected {
-					ExpectWithOffset(1, out).ToNot(BeNil(), "traffic was not redirected to the proxy when it should have been")
+					ExpectWithOffset(1, err).To(BeNil(), "traffic was not redirected to the proxy when it should have been")
 				} else {
-					ExpectWithOffset(1, out).To(BeNil(), "traffic was redirected to the proxy when it should have not been redirected")
+					ExpectWithOffset(1, err).ToNot(BeNil(), "traffic was redirected to the proxy when it should have not been redirected")
 				}
 			}
 

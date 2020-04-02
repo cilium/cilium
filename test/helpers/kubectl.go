@@ -742,21 +742,14 @@ func (kub *Kubectl) Logs(namespace string, pod string) *CmdRes {
 		fmt.Sprintf("%s -n %s logs %s", KubectlCmd, namespace, pod))
 }
 
-// MonitorStart runs cilium monitor in the background and dumps the contents
-// into a log file for later debugging
-func (kub *Kubectl) MonitorStart(namespace, pod, filename string) func() error {
+// MonitorStart runs cilium monitor in the background and returns the command
+// result, CmdRes, along with a cancel function. The cancel function is used to
+// stop the monitor.
+func (kub *Kubectl) MonitorStart(namespace, pod string) (res *CmdRes, cancel func()) {
 	cmd := fmt.Sprintf("%s exec -n %s %s -- cilium monitor -vv", KubectlCmd, namespace, pod)
 	ctx, cancel := context.WithCancel(context.Background())
-	res := kub.ExecInBackground(ctx, cmd, ExecOptions{SkipLog: true})
 
-	cb := func() error {
-		cancel()
-		<-ctx.Done()
-
-		return WriteToReportFile(res.CombineOutput().Bytes(), filename)
-	}
-
-	return cb
+	return kub.ExecInBackground(ctx, cmd, ExecOptions{SkipLog: true}), cancel
 }
 
 // BackgroundReport dumps the result of the given commands on cilium pods each
