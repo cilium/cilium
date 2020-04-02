@@ -45,7 +45,8 @@ fi
 echo -e "Sending PR for branch v$BRANCH:\n" 1>&2
 cat $SUMMARY 1>&2
 echo -e "\nSending pull request..." 2>&1
-git push origin
+PR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+git push origin "$PR_BRANCH"
 gh pull-request -b "v$BRANCH" -l kind/backports,backport/$BRANCH,requires-janitor-review -F $SUMMARY
 
 prs=$(sed -e 's/^.*#\([0-9]\+\) .*$/\1/g' -e '/^[^0-9]\+/d' $SUMMARY | tr '\n' ' ')
