@@ -39,7 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/serializer"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -462,8 +461,7 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 
 	// kubernetes pods
 	asyncControllers.Add(1)
-	serPods := serializer.NewFunctionQueue(queueSize)
-	go k.podsInit(k8s.Client(), serPods, asyncControllers)
+	go k.podsInit(k8s.Client(), asyncControllers)
 
 	// kubernetes namespaces
 	asyncControllers.Add(1)

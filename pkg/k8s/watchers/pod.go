@@ -34,11 +34,9 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/serializer"
 	"github.com/cilium/cilium/pkg/source"
 
 	"github.com/sirupsen/logrus"
@@ -51,10 +49,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, serPods *serializer.FunctionQueue, asyncControllers *sync.WaitGroup) {
+func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, asyncControllers *sync.WaitGroup) {
 	var once sync.Once
 	for {
-		swgPods := lock.NewStoppableWaitGroup()
 		createPodController := func(fieldSelector fields.Selector) (cache.Store, cache.Controller) {
 			return informer.NewInformer(
 				cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
@@ -63,52 +60,37 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, serPods *serialize
 				0,
 				cache.ResourceEventHandlerFuncs{
 					AddFunc: func(obj interface{}) {
-						var valid, equal bool
-						defer func() { k.K8sEventReceived(metricPod, metricCreate, valid, equal) }()
-						if pod := k8s.CopyObjToV1Pod(obj); pod != nil {
+						var valid bool
+						if pod := k8s.ObjTov1Pod(obj); pod != nil {
 							valid = true
-							swgPods.Add()
-							serPods.Enqueue(func() error {
-								defer swgPods.Done()
-								err := k.addK8sPodV1(pod)
-								k.K8sEventProcessed(metricPod, metricCreate, err == nil)
-								return nil
-							}, serializer.NoRetry)
+							err := k.addK8sPodV1(pod)
+							k.K8sEventProcessed(metricPod, metricCreate, err == nil)
 						}
+						k.K8sEventReceived(metricPod, metricCreate, valid, false)
 					},
 					UpdateFunc: func(oldObj, newObj interface{}) {
 						var valid, equal bool
-						defer func() { k.K8sEventReceived(metricPod, metricUpdate, valid, equal) }()
-						if oldPod := k8s.CopyObjToV1Pod(oldObj); oldPod != nil {
-							valid = true
-							if newPod := k8s.CopyObjToV1Pod(newObj); newPod != nil {
+						if oldPod := k8s.ObjTov1Pod(oldObj); oldPod != nil {
+							if newPod := k8s.ObjTov1Pod(newObj); newPod != nil {
+								valid = true
 								if k8s.EqualV1Pod(oldPod, newPod) {
 									equal = true
-									return
-								}
-								swgPods.Add()
-								serPods.Enqueue(func() error {
-									defer swgPods.Done()
+								} else {
 									err := k.updateK8sPodV1(oldPod, newPod)
 									k.K8sEventProcessed(metricPod, metricUpdate, err == nil)
-									return nil
-								}, serializer.NoRetry)
+								}
 							}
 						}
+						k.K8sEventReceived(metricPod, metricUpdate, valid, equal)
 					},
 					DeleteFunc: func(obj interface{}) {
-						var valid, equal bool
-						defer func() { k.K8sEventReceived(metricPod, metricDelete, valid, equal) }()
-						if pod := k8s.CopyObjToV1Pod(obj); pod != nil {
+						var valid bool
+						if pod := k8s.ObjTov1Pod(obj); pod != nil {
 							valid = true
-							swgPods.Add()
-							serPods.Enqueue(func() error {
-								defer swgPods.Done()
-								err := k.deleteK8sPodV1(pod)
-								k.K8sEventProcessed(metricPod, metricDelete, err == nil)
-								return nil
-							}, serializer.NoRetry)
+							err := k.deleteK8sPodV1(pod)
+							k.K8sEventProcessed(metricPod, metricDelete, err == nil)
 						}
+						k.K8sEventReceived(metricPod, metricDelete, valid, false)
 					},
 				},
 				k8s.ConvertToPod,
@@ -119,7 +101,7 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, serPods *serialize
 		isConnected := make(chan struct{})
 		// once isConnected is closed, it will stop waiting on caches to be
 		// synchronized.
-		k.blockWaitGroupToSyncResources(isConnected, swgPods, podController, k8sAPIGroupPodV1Core)
+		k.blockWaitGroupToSyncResources(isConnected, nil, podController, k8sAPIGroupPodV1Core)
 		once.Do(func() {
 			asyncControllers.Done()
 			k.k8sAPIGroups.addAPI(k8sAPIGroupPodV1Core)
@@ -151,7 +133,7 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, serPods *serialize
 		k.podStore = podStore
 		k.podStoreMU.Unlock()
 
-		k.blockWaitGroupToSyncResources(isConnected, swgPods, podController, k8sAPIGroupPodV1Core)
+		k.blockWaitGroupToSyncResources(isConnected, nil, podController, k8sAPIGroupPodV1Core)
 		go podController.Run(isConnected)
 
 		// Create a new pod controller when we are disconnected with the

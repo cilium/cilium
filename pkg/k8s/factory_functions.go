@@ -80,14 +80,14 @@ func ObjToSlimCNP(obj interface{}) *types.SlimCNP {
 	return cnp
 }
 
-func CopyObjToV1Pod(obj interface{}) *types.Pod {
+func ObjTov1Pod(obj interface{}) *types.Pod {
 	pod, ok := obj.(*types.Pod)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Pod")
 		return nil
 	}
-	return pod.DeepCopy()
+	return pod
 }
 
 func CopyObjToV1Node(obj interface{}) *types.Node {
