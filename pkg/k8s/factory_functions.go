@@ -70,14 +70,14 @@ func CopyObjToV1EndpointSlice(obj interface{}) *types.EndpointSlice {
 	return ep.DeepCopy()
 }
 
-func CopyObjToV2CNP(obj interface{}) *types.SlimCNP {
+func ObjToSlimCNP(obj interface{}) *types.SlimCNP {
 	cnp, ok := obj.(*types.SlimCNP)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v2 CiliumNetworkPolicy")
 		return nil
 	}
-	return cnp.DeepCopy()
+	return cnp
 }
 
 func CopyObjToV1Pod(obj interface{}) *types.Pod {
@@ -154,30 +154,6 @@ func EqualV1EndpointSlice(ep1, ep2 *types.EndpointSlice) bool {
 		ep1.Namespace == ep2.Namespace &&
 		reflect.DeepEqual(ep1.Endpoints, ep2.Endpoints) &&
 		reflect.DeepEqual(ep1.Ports, ep2.Ports)
-}
-
-func EqualV2CNP(cnp1, cnp2 *types.SlimCNP) bool {
-	if !(cnp1.Name == cnp2.Name && cnp1.Namespace == cnp2.Namespace) {
-		return false
-	}
-
-	// Ignore v1.LastAppliedConfigAnnotation annotation
-	lastAppliedCfgAnnotation1, ok1 := cnp1.GetAnnotations()[v1.LastAppliedConfigAnnotation]
-	lastAppliedCfgAnnotation2, ok2 := cnp2.GetAnnotations()[v1.LastAppliedConfigAnnotation]
-	defer func() {
-		if ok1 && cnp1.GetAnnotations() != nil {
-			cnp1.GetAnnotations()[v1.LastAppliedConfigAnnotation] = lastAppliedCfgAnnotation1
-		}
-		if ok2 && cnp2.GetAnnotations() != nil {
-			cnp2.GetAnnotations()[v1.LastAppliedConfigAnnotation] = lastAppliedCfgAnnotation2
-		}
-	}()
-	delete(cnp1.GetAnnotations(), v1.LastAppliedConfigAnnotation)
-	delete(cnp2.GetAnnotations(), v1.LastAppliedConfigAnnotation)
-
-	return comparator.MapStringEquals(cnp1.GetAnnotations(), cnp2.GetAnnotations()) &&
-		reflect.DeepEqual(cnp1.Spec, cnp2.Spec) &&
-		reflect.DeepEqual(cnp1.Specs, cnp2.Specs)
 }
 
 // AnnotationsEqual returns whether the annotation with any key in
