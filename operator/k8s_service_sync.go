@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/serializer"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 
 	"github.com/sirupsen/logrus"
@@ -110,7 +109,6 @@ func startSynchronizingServices() {
 		close(readyChan)
 	}()
 
-	serSvcs := serializer.NewFunctionQueue(1024)
 	swgSvcs := lock.NewStoppableWaitGroup()
 
 	swgEps := lock.NewStoppableWaitGroup()
@@ -124,37 +122,27 @@ func startSynchronizingServices() {
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
-				if k8sSvc := k8s.CopyObjToV1Services(obj); k8sSvc != nil {
+				if k8sSvc := k8s.ObjToV1Services(obj); k8sSvc != nil {
 					log.Debugf("Received service addition %+v", k8sSvc)
-					swgSvcs.Add()
-					serSvcs.Enqueue(func() error {
-						defer swgSvcs.Done()
-						k8sSvcCache.UpdateService(k8sSvc, swgSvcs)
-						return nil
-					}, serializer.NoRetry)
+					k8sSvcCache.UpdateService(k8sSvc, swgSvcs)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
-				if oldk8sSvc := k8s.CopyObjToV1Services(oldObj); oldk8sSvc != nil {
-					if newk8sSvc := k8s.CopyObjToV1Services(newObj); newk8sSvc != nil {
+				if oldk8sSvc := k8s.ObjToV1Services(oldObj); oldk8sSvc != nil {
+					if newk8sSvc := k8s.ObjToV1Services(newObj); newk8sSvc != nil {
 						if k8s.EqualV1Services(oldk8sSvc, newk8sSvc, nil) {
 							return
 						}
 
 						log.Debugf("Received service update %+v", newk8sSvc)
-						swgSvcs.Add()
-						serSvcs.Enqueue(func() error {
-							defer swgSvcs.Done()
-							k8sSvcCache.UpdateService(newk8sSvc, swgSvcs)
-							return nil
-						}, serializer.NoRetry)
+						k8sSvcCache.UpdateService(newk8sSvc, swgSvcs)
 					}
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
-				k8sSvc := k8s.CopyObjToV1Services(obj)
+				k8sSvc := k8s.ObjToV1Services(obj)
 				if k8sSvc == nil {
 					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
 					if !ok {
@@ -163,18 +151,13 @@ func startSynchronizingServices() {
 					// Delete was not observed by the watcher but is
 					// removed from kube-apiserver. This is the last
 					// known state and the object no longer exists.
-					k8sSvc = k8s.CopyObjToV1Services(deletedObj.Obj)
+					k8sSvc = k8s.ObjToV1Services(deletedObj.Obj)
 					if k8sSvc == nil {
 						return
 					}
 				}
 				log.Debugf("Received service deletion %+v", k8sSvc)
-				swgSvcs.Add()
-				serSvcs.Enqueue(func() error {
-					defer swgSvcs.Done()
-					k8sSvcCache.DeleteService(k8sSvc, swgSvcs)
-					return nil
-				}, serializer.NoRetry)
+				k8sSvcCache.DeleteService(k8sSvc, swgSvcs)
 			},
 		},
 		k8s.ConvertToK8sService,
