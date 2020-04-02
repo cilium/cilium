@@ -789,14 +789,14 @@ func ConvertToCiliumEndpoint(obj interface{}) interface{} {
 	}
 }
 
-// CopyObjToCiliumEndpoint attempts to cast object to a CiliumEndpoint object
+// ObjToCiliumEndpoint attempts to cast object to a CiliumEndpoint object
 // and returns a deep copy if the castin succeeds. Otherwise, nil is returned.
-func CopyObjToCiliumEndpoint(obj interface{}) *types.CiliumEndpoint {
+func ObjToCiliumEndpoint(obj interface{}) *types.CiliumEndpoint {
 	ce, ok := obj.(*types.CiliumEndpoint)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid CiliumEndpoint")
 		return nil
 	}
-	return ce.DeepCopy()
+	return ce
 }
