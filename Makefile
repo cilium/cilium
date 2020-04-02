@@ -331,7 +331,7 @@ check-microk8s:
 	@$(ECHO_CHECK) microk8s is ready...
 	$(QUIET)microk8s.status >/dev/null \
 		|| (echo "Error: Microk8s is not running" && exit 1)
-	$(QUIET)microk8s.status -o yaml | grep -q "registry.*enabled" \
+	$(QUIET)microk8s.status --yaml | grep -q "registry.*enabled" \
 		|| (echo "Error: Microk8s registry must be enabled" && exit 1)
 
 LOCAL_IMAGE_TAG=local
