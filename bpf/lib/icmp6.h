@@ -290,7 +290,7 @@ static __always_inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 #endif
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED)
-int tail_icmp6_send_time_exceeded(struct __ctx_buff *ctx)
+int tail_icmp6_send_time_exceeded(struct __ctx_buff *ctx __maybe_unused)
 {
 #ifdef BPF_HAVE_CHANGE_TAIL
 	int ret, nh_off = ctx_load_meta(ctx, 0);
@@ -299,7 +299,8 @@ int tail_icmp6_send_time_exceeded(struct __ctx_buff *ctx)
 	ctx_store_meta(ctx, 0, 0);
 	ret = __icmp6_send_time_exceeded(ctx, nh_off);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, direction);
+		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
+					      direction);
 	return ret;
 #else
 	return 0;
