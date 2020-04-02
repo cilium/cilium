@@ -87,7 +87,7 @@ ipv4_frag_get_l4ports(const struct ipv4_frag_id *frag_id,
 
 	tmp = map_lookup_elem(&IPV4_FRAG_DATAGRAMS_MAP, frag_id);
 	if (!tmp)
-		return DROP_FRAG_NOSUPPORT;
+		return DROP_FRAG_NOT_FOUND;
 
 	/* Do not make ports a pointer to map data, copy from map */
 	__builtin_memcpy(ports, tmp, sizeof(*ports));
