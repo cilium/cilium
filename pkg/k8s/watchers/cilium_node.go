@@ -18,20 +18,19 @@ import (
 	"context"
 	"sync"
 
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/client-go/tools/cache"
+
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/serializer"
-
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/client-go/tools/cache"
 )
 
-func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, serNodes *serializer.FunctionQueue, asyncControllers *sync.WaitGroup) {
+func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncControllers *sync.WaitGroup) {
 
 	// CiliumNode objects are used for node discovery until the key-value
 	// store is connected
@@ -53,13 +52,8 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, serNode
 						if n.IsLocal() {
 							return
 						}
-						swgNodes.Add()
-						serNodes.Enqueue(func() error {
-							defer swgNodes.Done()
-							k.nodeDiscoverManager.NodeUpdated(n)
-							k.K8sEventProcessed(metricCiliumNode, metricCreate, true)
-							return nil
-						}, serializer.NoRetry)
+						k.nodeDiscoverManager.NodeUpdated(n)
+						k.K8sEventProcessed(metricCiliumNode, metricCreate, true)
 					}
 				},
 				UpdateFunc: func(oldObj, newObj interface{}) {
@@ -67,23 +61,19 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, serNode
 					defer func() { k.K8sEventReceived(metricCiliumNode, metricUpdate, valid, equal) }()
 					if ciliumNode, ok := newObj.(*cilium_v2.CiliumNode); ok {
 						valid = true
+						// TODO add DeepEqual here
 						n := node.ParseCiliumNode(ciliumNode)
 						if n.IsLocal() {
 							return
 						}
-						swgNodes.Add()
-						serNodes.Enqueue(func() error {
-							defer swgNodes.Done()
-							k.nodeDiscoverManager.NodeUpdated(n)
-							k.K8sEventProcessed(metricCiliumNode, metricUpdate, true)
-							return nil
-						}, serializer.NoRetry)
+						k.nodeDiscoverManager.NodeUpdated(n)
+						k.K8sEventProcessed(metricCiliumNode, metricUpdate, true)
 					}
 				},
 				DeleteFunc: func(obj interface{}) {
 					var valid, equal bool
 					defer func() { k.K8sEventReceived(metricCiliumNode, metricDelete, valid, equal) }()
-					ciliumNode := k8s.CopyObjToCiliumNode(obj)
+					ciliumNode := k8s.ObjToCiliumNode(obj)
 					if ciliumNode == nil {
 						deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
 						if !ok {
@@ -92,19 +82,14 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, serNode
 						// Delete was not observed by the watcher but is
 						// removed from kube-apiserver. This is the last
 						// known state and the object no longer exists.
-						ciliumNode = k8s.CopyObjToCiliumNode(deletedObj.Obj)
+						ciliumNode = k8s.ObjToCiliumNode(deletedObj.Obj)
 						if ciliumNode == nil {
 							return
 						}
 					}
 					valid = true
 					n := node.ParseCiliumNode(ciliumNode)
-					swgNodes.Add()
-					serNodes.Enqueue(func() error {
-						defer swgNodes.Done()
-						k.nodeDiscoverManager.NodeDeleted(n)
-						return nil
-					}, serializer.NoRetry)
+					k.nodeDiscoverManager.NodeDeleted(n)
 				},
 			},
 			k8s.ConvertToCiliumNode,
