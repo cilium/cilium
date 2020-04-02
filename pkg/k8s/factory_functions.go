@@ -30,14 +30,14 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func CopyObjToV1NetworkPolicy(obj interface{}) *types.NetworkPolicy {
+func ObjToV1NetworkPolicy(obj interface{}) *types.NetworkPolicy {
 	k8sNP, ok := obj.(*types.NetworkPolicy)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 NetworkPolicy")
 		return nil
 	}
-	return k8sNP.DeepCopy()
+	return k8sNP
 }
 
 func ObjToV1Services(obj interface{}) *types.Service {
