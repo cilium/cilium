@@ -11,8 +11,6 @@
 #include <linux/ipv6.h>
 #include <linux/in.h>
 
-#include <bpf_features.h>
-
 // FIXME: GH-3239 LRU logic is not handling timeouts gracefully enough
 // #ifndef HAVE_LRU_HASH_MAP_TYPE
 // #define NEEDS_TIMEOUT 1
@@ -46,11 +44,6 @@
 # ifdef ENABLE_IPV6
 #  define ENABLE_ENCAP_HOST_REMAP 1
 # endif
-#endif
-
-#if HAVE_PROG_TYPE_HELPER(cgroup_sock_addr, bpf_get_netns_cookie) && \
-    HAVE_PROG_TYPE_HELPER(cgroup_sock,      bpf_get_netns_cookie)
-# define ENABLE_HOST_SERVICES_NETNS 1
 #endif
 
 /* These are shared with test/bpf/check-complexity.sh, when modifying any of
