@@ -50,24 +50,24 @@ func CopyObjToV1Services(obj interface{}) *types.Service {
 	return svc.DeepCopy()
 }
 
-func CopyObjToV1Endpoints(obj interface{}) *types.Endpoints {
+func ObjToV1Endpoints(obj interface{}) *types.Endpoints {
 	ep, ok := obj.(*types.Endpoints)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Endpoints")
 		return nil
 	}
-	return ep.DeepCopy()
+	return ep
 }
 
-func CopyObjToV1EndpointSlice(obj interface{}) *types.EndpointSlice {
+func ObjToV1EndpointSlice(obj interface{}) *types.EndpointSlice {
 	ep, ok := obj.(*types.EndpointSlice)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 EndpointSlice")
 		return nil
 	}
-	return ep.DeepCopy()
+	return ep
 }
 
 func ObjToSlimCNP(obj interface{}) *types.SlimCNP {

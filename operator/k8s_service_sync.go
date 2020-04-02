@@ -113,7 +113,6 @@ func startSynchronizingServices() {
 	serSvcs := serializer.NewFunctionQueue(1024)
 	swgSvcs := lock.NewStoppableWaitGroup()
 
-	serEps := serializer.NewFunctionQueue(1024)
 	swgEps := lock.NewStoppableWaitGroup()
 
 	// Watch for v1.Service changes and push changes into ServiceCache
@@ -191,14 +190,14 @@ func startSynchronizingServices() {
 	switch {
 	case k8s.SupportsEndpointSlice():
 		var endpointSliceEnabled bool
-		endpointController, endpointSliceEnabled = endpointSlicesInit(k8s.Client(), serEps, swgEps)
+		endpointController, endpointSliceEnabled = endpointSlicesInit(k8s.Client(), swgEps)
 		// the cluster has endpoint slices so we should not check for v1.Endpoints
 		if endpointSliceEnabled {
 			break
 		}
 		fallthrough
 	default:
-		endpointController = endpointsInit(k8s.Client(), serEps, swgEps)
+		endpointController = endpointsInit(k8s.Client(), swgEps)
 		go endpointController.Run(wait.NeverStop)
 	}
 
@@ -209,8 +208,6 @@ func startSynchronizingServices() {
 		close(k8sSvcCacheSynced)
 
 		cache.WaitForCacheSync(wait.NeverStop, endpointController.HasSynced)
-		swgEps.Stop()
-		swgEps.Wait()
 	}()
 
 	go func() {
@@ -220,7 +217,7 @@ func startSynchronizingServices() {
 	}()
 }
 
-func endpointsInit(k8sClient kubernetes.Interface, serEps *serializer.FunctionQueue, swgEps *lock.StoppableWaitGroup) cache.Controller {
+func endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGroup) cache.Controller {
 	// Watch for v1.Endpoints changes and push changes into ServiceCache
 	_, endpointController := informer.NewInformer(
 		cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
@@ -233,34 +230,24 @@ func endpointsInit(k8sClient kubernetes.Interface, serEps *serializer.FunctionQu
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
-				if k8sEP := k8s.CopyObjToV1Endpoints(obj); k8sEP != nil {
-					swgEps.Add()
-					serEps.Enqueue(func() error {
-						defer swgEps.Done()
-						k8sSvcCache.UpdateEndpoints(k8sEP, swgEps)
-						return nil
-					}, serializer.NoRetry)
+				if k8sEP := k8s.ObjToV1Endpoints(obj); k8sEP != nil {
+					k8sSvcCache.UpdateEndpoints(k8sEP, swgEps)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
-				if oldk8sEP := k8s.CopyObjToV1Endpoints(oldObj); oldk8sEP != nil {
-					if newk8sEP := k8s.CopyObjToV1Endpoints(newObj); newk8sEP != nil {
+				if oldk8sEP := k8s.ObjToV1Endpoints(oldObj); oldk8sEP != nil {
+					if newk8sEP := k8s.ObjToV1Endpoints(newObj); newk8sEP != nil {
 						if k8s.EqualV1Endpoints(oldk8sEP, newk8sEP) {
 							return
 						}
-						swgEps.Add()
-						serEps.Enqueue(func() error {
-							defer swgEps.Done()
-							k8sSvcCache.UpdateEndpoints(newk8sEP, swgEps)
-							return nil
-						}, serializer.NoRetry)
+						k8sSvcCache.UpdateEndpoints(newk8sEP, swgEps)
 					}
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
-				k8sEP := k8s.CopyObjToV1Endpoints(obj)
+				k8sEP := k8s.ObjToV1Endpoints(obj)
 				if k8sEP == nil {
 					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
 					if !ok {
@@ -269,17 +256,12 @@ func endpointsInit(k8sClient kubernetes.Interface, serEps *serializer.FunctionQu
 					// Delete was not observed by the watcher but is
 					// removed from kube-apiserver. This is the last
 					// known state and the object no longer exists.
-					k8sEP = k8s.CopyObjToV1Endpoints(deletedObj.Obj)
+					k8sEP = k8s.ObjToV1Endpoints(deletedObj.Obj)
 					if k8sEP == nil {
 						return
 					}
 				}
-				swgEps.Add()
-				serEps.Enqueue(func() error {
-					defer swgEps.Done()
-					k8sSvcCache.DeleteEndpoints(k8sEP, swgEps)
-					return nil
-				}, serializer.NoRetry)
+				k8sSvcCache.DeleteEndpoints(k8sEP, swgEps)
 			},
 		},
 		k8s.ConvertToK8sEndpoints,
@@ -287,7 +269,7 @@ func endpointsInit(k8sClient kubernetes.Interface, serEps *serializer.FunctionQu
 	return endpointController
 }
 
-func endpointSlicesInit(k8sClient kubernetes.Interface, serEps *serializer.FunctionQueue, swgEps *lock.StoppableWaitGroup) (cache.Controller, bool) {
+func endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGroup) (cache.Controller, bool) {
 	var (
 		hasEndpointSlices = make(chan struct{})
 		once              sync.Once
@@ -306,34 +288,24 @@ func endpointSlicesInit(k8sClient kubernetes.Interface, serEps *serializer.Funct
 					close(hasEndpointSlices)
 				})
 				metrics.EventTSK8s.SetToCurrentTime()
-				if k8sEP := k8s.CopyObjToV1EndpointSlice(obj); k8sEP != nil {
-					swgEps.Add()
-					serEps.Enqueue(func() error {
-						defer swgEps.Done()
-						k8sSvcCache.UpdateEndpointSlices(k8sEP, swgEps)
-						return nil
-					}, serializer.NoRetry)
+				if k8sEP := k8s.ObjToV1EndpointSlice(obj); k8sEP != nil {
+					k8sSvcCache.UpdateEndpointSlices(k8sEP, swgEps)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
-				if oldk8sEP := k8s.CopyObjToV1EndpointSlice(oldObj); oldk8sEP != nil {
-					if newk8sEP := k8s.CopyObjToV1EndpointSlice(newObj); newk8sEP != nil {
+				if oldk8sEP := k8s.ObjToV1EndpointSlice(oldObj); oldk8sEP != nil {
+					if newk8sEP := k8s.ObjToV1EndpointSlice(newObj); newk8sEP != nil {
 						if k8s.EqualV1EndpointSlice(oldk8sEP, newk8sEP) {
 							return
 						}
-						swgEps.Add()
-						serEps.Enqueue(func() error {
-							defer swgEps.Done()
-							k8sSvcCache.UpdateEndpointSlices(newk8sEP, swgEps)
-							return nil
-						}, serializer.NoRetry)
+						k8sSvcCache.UpdateEndpointSlices(newk8sEP, swgEps)
 					}
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
-				k8sEP := k8s.CopyObjToV1EndpointSlice(obj)
+				k8sEP := k8s.ObjToV1EndpointSlice(obj)
 				if k8sEP == nil {
 					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
 					if !ok {
@@ -342,17 +314,12 @@ func endpointSlicesInit(k8sClient kubernetes.Interface, serEps *serializer.Funct
 					// Delete was not observed by the watcher but is
 					// removed from kube-apiserver. This is the last
 					// known state and the object no longer exists.
-					k8sEP = k8s.CopyObjToV1EndpointSlice(deletedObj.Obj)
+					k8sEP = k8s.ObjToV1EndpointSlice(deletedObj.Obj)
 					if k8sEP == nil {
 						return
 					}
 				}
-				swgEps.Add()
-				serEps.Enqueue(func() error {
-					defer swgEps.Done()
-					k8sSvcCache.DeleteEndpointSlices(k8sEP, swgEps)
-					return nil
-				}, serializer.NoRetry)
+				k8sSvcCache.DeleteEndpointSlices(k8sEP, swgEps)
 			},
 		},
 		k8s.ConvertToK8sEndpointSlice,
