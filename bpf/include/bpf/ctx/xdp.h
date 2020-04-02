@@ -125,14 +125,23 @@ __csum_replace_by_diff(__sum16 *sum, __wsum diff)
 	*sum = csum_fold(csum_add(diff, ~csum_unfold(*sum)));
 }
 
+static __always_inline __maybe_unused void
+__csum_replace_by_4(__sum16 *sum, __wsum from, __wsum to)
+{
+	__csum_replace_by_diff(sum, csum_add(~from, to));
+}
+
 static __always_inline __maybe_unused int
 l3_csum_replace(struct xdp_md *ctx, __u64 off, const __u32 from, __u32 to,
 		__u32 flags)
 {
+	__u32 size = flags & BPF_F_HDR_FIELD_MASK;
 	__sum16 *sum;
 	int ret;
 
-	if (unlikely(from != 0 || flags != 0))
+	if (unlikely(flags & ~(BPF_F_HDR_FIELD_MASK)))
+		return -EINVAL;
+	if (unlikely(size != 0 && size != 2))
 		return -EINVAL;
 	/* See xdp_load_bytes(). */
 	asm volatile("r1 = *(u32 *)(%[ctx] +0)\n\t"
@@ -150,7 +159,8 @@ l3_csum_replace(struct xdp_md *ctx, __u64 off, const __u32 from, __u32 to,
 		       [offmax]"i"(__CTX_OFF_MAX), [errno]"i"(-EINVAL)
 		     : "r1", "r2");
 	if (!ret)
-		__csum_replace_by_diff(sum, to);
+		from ? __csum_replace_by_4(sum, from, to) :
+		       __csum_replace_by_diff(sum, to);
 	return ret;
 }
 
@@ -161,12 +171,14 @@ l4_csum_replace(struct xdp_md *ctx, __u64 off, __u32 from, __u32 to,
 		__u32 flags)
 {
 	bool is_mmzero = flags & BPF_F_MARK_MANGLED_0;
+	__u32 size = flags & BPF_F_HDR_FIELD_MASK;
 	__sum16 *sum;
 	int ret;
 
-	if (unlikely(flags & ~(BPF_F_MARK_MANGLED_0 | BPF_F_PSEUDO_HDR)))
+	if (unlikely(flags & ~(BPF_F_MARK_MANGLED_0 | BPF_F_PSEUDO_HDR |
+			       BPF_F_HDR_FIELD_MASK)))
 		return -EINVAL;
-	if (unlikely(from != 0))
+	if (unlikely(size != 0 && size != 2))
 		return -EINVAL;
 	/* See xdp_load_bytes(). */
 	asm volatile("r1 = *(u32 *)(%[ctx] +0)\n\t"
@@ -186,7 +198,8 @@ l4_csum_replace(struct xdp_md *ctx, __u64 off, __u32 from, __u32 to,
 	if (!ret) {
 		if (is_mmzero && !*sum)
 			return 0;
-		__csum_replace_by_diff(sum, to);
+		from ? __csum_replace_by_4(sum, from, to) :
+		       __csum_replace_by_diff(sum, to);
 		if (is_mmzero && !*sum)
 			*sum = CSUM_MANGLED_0;
 	}
