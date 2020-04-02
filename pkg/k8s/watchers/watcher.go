@@ -462,8 +462,7 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 
 	// cilium endpoints
 	asyncControllers.Add(1)
-	serCiliumEndpoints := serializer.NewFunctionQueue(queueSize)
-	go k.ciliumEndpointsInit(ciliumNPClient, serCiliumEndpoints, asyncControllers)
+	go k.ciliumEndpointsInit(ciliumNPClient, asyncControllers)
 
 	// kubernetes pods
 	asyncControllers.Add(1)
