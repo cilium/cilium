@@ -3329,9 +3329,10 @@ func addrsEqual(addr1, addr2 *models.BackendAddress) bool {
 // prefixing with timestamp
 func GenerateNamespaceForTest(seed string) string {
 	lowered := strings.ToLower(ginkgoext.CurrentGinkgoTestDescription().FullTestText)
-	// K8s namespaces cannot have spaces or underscores.
+	// K8s namespaces cannot have spaces, underscores or slashes.
 	replaced := strings.Replace(lowered, " ", "", -1)
 	replaced = strings.Replace(replaced, "_", "", -1)
+	replaced = strings.Replace(replaced, "/", "", -1)
 
 	timestamped := time.Now().Format("200601021504") + seed + replaced
 
