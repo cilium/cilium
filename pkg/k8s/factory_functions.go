@@ -40,14 +40,14 @@ func CopyObjToV1NetworkPolicy(obj interface{}) *types.NetworkPolicy {
 	return k8sNP.DeepCopy()
 }
 
-func CopyObjToV1Services(obj interface{}) *types.Service {
+func ObjToV1Services(obj interface{}) *types.Service {
 	svc, ok := obj.(*types.Service)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Service")
 		return nil
 	}
-	return svc.DeepCopy()
+	return svc
 }
 
 func ObjToV1Endpoints(obj interface{}) *types.Endpoints {
