@@ -1,5 +1,75 @@
 # Changelog
 
+## v1.7.2
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add helm NOTES file (Backport PR #10818, Upstream PR #10641, @soumynathan)
+* Add option to retrieve pprof traces from running cilium-agents (Backport PR #10756, Upstream PR #10666, @aanm)
+* bpf: significantly improve capacity of TCP CT tables (Backport PR #10818, Upstream PR #10518, @borkmann)
+* Docs: Implements Documentation to install Cilium on k3s (Backport PR #10591, Upstream PR #10476, @seanmwinn)
+* Istio integration has been updated to release 1.5.0. (Backport PR #10591, Upstream PR #10564, @jrajahalme)
+* Istio integration is updated to release 1.5.1, with backported fix for GKE/COS. (Backport PR #10813, Upstream PR #10730, @jrajahalme)
+* k8s: Disable several CiliumEndpoint status sections by default (Backport PR #10756, Upstream PR #10490, @tgraf)
+* Keep Cluster IP service handling when accessed from pods when kubeProxyReplacement is set to "disabled" (pre-v1.6 behavior). (Backport PR #10657, Upstream PR #10651, @brb)
+* Protect NodePort port range by appending it to net.ipv4.ip_local_reserved_ports if the range clashes with ephemeral port range (Backport PR #10833, Upstream PR #10782, @brb)
+* Update k8s libraries to 1.17.4 (#10663, @aanm)
+
+**Bugfixes:**
+* cilium: encryption, additional mtu fix for non-default 1500B MTU (Backport PR #10632, Upstream PR #10551, @jrfastab)
+* cilium: set encrypt node route mtu in encryption table (Backport PR #10756, Upstream PR #10741, @jrfastab)
+* cni: fix interface sandbox in cmdAdd return value (Backport PR #10591, Upstream PR #10482, @jaffcheng)
+* Do not throw errors for each new endpoint that is created (Backport PR #10756, Upstream PR #10608, @aanm)
+* eni: Fix unexpected IP release when agent restarts (Backport PR #10756, Upstream PR #9888, @jaffcheng)
+* Fix eks restart pods helm (Backport PR #10591, Upstream PR #10351, @tom-hadlaw-hs)
+* Fix issue where lxc_config.h header disappears after some regenerations (Backport PR #10632, Upstream PR #10630, @joestringer)
+* Fix possible endpoint restore failure in CRD mode. (Backport PR #10818, Upstream PR #10785, @aanm)
+* Improve pod restarts on GKE (Backport PR #10591, Upstream PR #10377, @ap4y)
+* k8s: Defer marking node as ready to just API is served (Backport PR #10818, Upstream PR #10767, @tgraf)
+* Kubernetes connectivity check fixes (Backport PR #10818, Upstream PR #10801, @tgraf)
+* kubernetes: do not set enable-endpoint-health-checking=false with portmap (Backport PR #10756, Upstream PR #10566, @soumynathan)
+* pkg/monitor: Add missing drop reasons (Backport PR #10591, Upstream PR #10554, @Frankkkkk)
+* policy: Keep NameManager locked during SelectorCache operations (Backport PR #10530, Upstream PR #10501, @jrajahalme)
+* pre-flight: Correct tofqdns-precache container name (Backport PR #10756, Upstream PR #10753, @raybejjani)
+* Tight CNP and CCNP schema validation for badly formatted policies (yaml or json) (Backport PR #10833, Upstream PR #10727, @aanm)
+* When running in Kubernetes, Cilium will run a periodic heartbeat and close all open Kubernetes client connections if the active connections become unresponsive. (Backport PR #10756, Upstream PR #10184, @tom-hadlaw-hs)
+
+**CI Changes:**
+* [CI] Replace jenkinsfiles with symlinks (Backport PR #10591, Upstream PR #10262, @nebril)
+* CI: K8sKafkaPolicyTest kafka-broker starts up without errors (Backport PR #10756, Upstream PR #10721, @raybejjani)
+* pkg/k8s: fix heartbeat unit test (Backport PR #10818, Upstream PR #10790, @aanm)
+* test: fix k8s provisioning with feature gates (Backport PR #10756, Upstream PR #10658, @aanm)
+* test: Fix possible race in waitForNPods helper function (Backport PR #10591, Upstream PR #10481, @brb)
+* test: Fix some minor microk8s integration issues (Backport PR #10632, Upstream PR #10577, @joestringer)
+
+**Misc Changes:**
+* Adds details about required kernel versions above 4.9.17, supported OS update (Backport PR #10756, Upstream PR #10537, @seanmwinn)
+* bpf: do not drop unknown protos in nat handling (Backport PR #10591, Upstream PR #10526, @borkmann)
+* cilium, contrib: tighten permissions on systemd bpffs mount unit file (Backport PR #10818, Upstream PR #10805, @borkmann)
+* datapath: Do not log if svc is not found (Backport PR #10756, Upstream PR #10668, @brb)
+* doc: Make Helm version requirements harder to miss, add notes on Helm 2+3 compatibility (Backport PR #10591, Upstream PR #10479, @errordeveloper)
+* doc: Upgrade MarkupSafe to 1.1.1 (Backport PR #10591, Upstream PR #10579, @mrostecki)
+* docs: A few cosmetic improvements in GKE guide (Backport PR #10591, Upstream PR #10550, @errordeveloper)
+* Docs: Add step for mounting bpf filesystem on k3s installations (Backport PR #10591, Upstream PR #10508, @seanmwinn)
+* docs: Clarify wording for cluster and init entities (Backport PR #10591, Upstream PR #10536, @joestringer)
+* docs: fix bird dashboard image scale (Backport PR #10591, Upstream PR #10480, @aanm)
+* docs: Improve policy visibility docs (Backport PR #10632, Upstream PR #10597, @joestringer)
+* docs: Update SIG meeting notes (Backport PR #10591, Upstream PR #10519, @joestringer)
+* Fix incorrect name in sysctl_linux_test.go (Backport PR #10818, Upstream PR #10729, @christarazi)
+* Helm-charts: Fix the values.yaml comment that was misleading (Backport PR #10591, Upstream PR #10515, @soumynathan)
+* helm: re-generate quick-install.yml after PR #10566 (Backport PR #10756, Upstream PR #10694, @tklauser)
+* Improve k8s client heartbeat capability (Backport PR #10756, Upstream PR #10673, @aanm)
+* make: pick up all privileged tests in `make tests-privileged` (Backport PR #10756, Upstream PR #10734, @tklauser)
+* pkg/k8s: fix heartbeat unit test flake (Backport PR #10756, Upstream PR #10690, @aanm)
+* Streamline upgrade docs (Backport PR #10657, Upstream PR #10505, @joestringer)
+* test: Fix kubectl log retrieval for badLogMessages (Backport PR #10833, Upstream PR #10717, @pchaigno)
+* Update Go to 1.13.9 (#10652, @tklauser)
+
+**Other Changes:**
+* helm: Remove dsr option leftover from values.yaml (#10800, @brb)
+
 ## v1.7.1
 
 Summary of Changes
