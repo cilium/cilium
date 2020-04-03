@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 
@@ -125,9 +126,9 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, asyncControllers *
 		<-kvstore.Client().Connected(context.TODO())
 		close(isConnected)
 
-		log.WithField(logfields.Node, node.GetName()).Info("Connected to KVStore, watching for pod events on node")
+		log.WithField(logfields.Node, nodeTypes.GetName()).Info("Connected to KVStore, watching for pod events on node")
 		// Only watch for pod events for our node.
-		podStore, podController = createPodController(fields.ParseSelectorOrDie("spec.nodeName=" + node.GetName()))
+		podStore, podController = createPodController(fields.ParseSelectorOrDie("spec.nodeName=" + nodeTypes.GetName()))
 		isConnected = make(chan struct{})
 		k.podStoreMU.Lock()
 		k.podStore = podStore

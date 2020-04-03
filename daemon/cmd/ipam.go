@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -263,7 +264,7 @@ func (d *Daemon) allocateIPs() error {
 	log.Info("Addressing information:")
 	log.Infof("  Cluster-Name: %s", option.Config.ClusterName)
 	log.Infof("  Cluster-ID: %d", option.Config.ClusterID)
-	log.Infof("  Local node-name: %s", node.GetName())
+	log.Infof("  Local node-name: %s", nodeTypes.GetName())
 	log.Infof("  Node-IPv6: %s", node.GetIPv6())
 
 	if option.Config.EnableIPv6 {

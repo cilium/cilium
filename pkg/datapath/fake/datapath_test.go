@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/datapath"
-	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 
 	"gopkg.in/check.v1"
 )
@@ -37,9 +37,9 @@ func (s *fakeTestSuite) TestNewDatapath(c *check.C) {
 	dp := NewDatapath()
 	c.Assert(dp, check.Not(check.IsNil))
 
-	c.Assert(dp.Node().NodeAdd(node.Node{}), check.IsNil)
-	c.Assert(dp.Node().NodeUpdate(node.Node{}, node.Node{}), check.IsNil)
-	c.Assert(dp.Node().NodeDelete(node.Node{}), check.IsNil)
+	c.Assert(dp.Node().NodeAdd(nodeTypes.Node{}), check.IsNil)
+	c.Assert(dp.Node().NodeUpdate(nodeTypes.Node{}, nodeTypes.Node{}), check.IsNil)
+	c.Assert(dp.Node().NodeDelete(nodeTypes.Node{}), check.IsNil)
 	c.Assert(dp.Node().NodeConfigurationChanged(datapath.LocalNodeConfiguration{}), check.IsNil)
 
 	c.Assert(dp.LocalNodeAddressing().IPv6().Router(), check.Not(check.IsNil))

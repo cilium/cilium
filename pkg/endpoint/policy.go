@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/revert"
@@ -641,7 +642,7 @@ func (e *Endpoint) notifyEndpointRegeneration(err error) {
 // FormatGlobalEndpointID returns the global ID of endpoint in the format
 // / <global ID Prefix>:<cluster name>:<node name>:<endpoint ID> as a string.
 func (e *Endpoint) FormatGlobalEndpointID() string {
-	localNodeName := node.GetName()
+	localNodeName := nodeTypes.GetName()
 	metadata := []string{endpointid.CiliumGlobalIdPrefix.String(), ipcache.AddressSpace, localNodeName, strconv.Itoa(int(e.ID))}
 	return strings.Join(metadata, ":")
 }

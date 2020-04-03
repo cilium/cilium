@@ -16,7 +16,7 @@ package fake
 
 import (
 	"github.com/cilium/cilium/pkg/datapath"
-	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
 
 type fakeNodeHandler struct{}
@@ -26,19 +26,19 @@ func NewNodeHandler() datapath.NodeHandler {
 	return &fakeNodeHandler{}
 }
 
-func (n *fakeNodeHandler) NodeAdd(newNode node.Node) error {
+func (n *fakeNodeHandler) NodeAdd(newNode nodeTypes.Node) error {
 	return nil
 }
 
-func (n *fakeNodeHandler) NodeUpdate(oldNode, newNode node.Node) error {
+func (n *fakeNodeHandler) NodeUpdate(oldNode, newNode nodeTypes.Node) error {
 	return nil
 }
 
-func (n *fakeNodeHandler) NodeDelete(node node.Node) error {
+func (n *fakeNodeHandler) NodeDelete(node nodeTypes.Node) error {
 	return nil
 }
 
-func (n *fakeNodeHandler) NodeValidateImplementation(node node.Node) error {
+func (n *fakeNodeHandler) NodeValidateImplementation(node nodeTypes.Node) error {
 	return nil
 }
 

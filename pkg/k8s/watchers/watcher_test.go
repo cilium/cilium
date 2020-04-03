@@ -32,7 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -80,12 +80,12 @@ func (f *fakeEndpointManager) WaitForEndpointsAtPolicyRev(ctx context.Context, r
 }
 
 type fakeNodeDiscoverManager struct {
-	OnNodeDeleted                  func(n node.Node)
-	OnNodeUpdated                  func(n node.Node)
+	OnNodeDeleted                  func(n nodeTypes.Node)
+	OnNodeUpdated                  func(n nodeTypes.Node)
 	OnClusterSizeDependantInterval func(baseInterval time.Duration) time.Duration
 }
 
-func (f *fakeNodeDiscoverManager) NodeDeleted(n node.Node) {
+func (f *fakeNodeDiscoverManager) NodeDeleted(n nodeTypes.Node) {
 	if f.OnNodeDeleted != nil {
 		f.OnNodeDeleted(n)
 		return
@@ -93,7 +93,7 @@ func (f *fakeNodeDiscoverManager) NodeDeleted(n node.Node) {
 	panic("OnNodeDeleted(node) was called and is not set!")
 }
 
-func (f *fakeNodeDiscoverManager) NodeUpdated(n node.Node) {
+func (f *fakeNodeDiscoverManager) NodeUpdated(n nodeTypes.Node) {
 	if f.OnNodeUpdated != nil {
 		f.OnNodeUpdated(n)
 		return

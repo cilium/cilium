@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -29,7 +30,16 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-func (s *NodeSuite) TestMaskCheck(c *C) {
+// Hook up gocheck into the "go test" runner.
+func Test(t *testing.T) {
+	TestingT(t)
+}
+
+type NodeSuite struct{}
+
+var _ = Suite(&NodeSuite{})
+
+func (s NodeSuite) TestMaskCheck(c *C) {
 	InitDefaultPrefix("")
 
 	allocCIDR := cidr.MustParseCIDR("1.1.1.1/16")
