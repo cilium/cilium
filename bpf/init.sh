@@ -518,7 +518,7 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	CALLS_MAP="cilium_calls_overlay_${ID_WORLD}"
 	COPTS="-DSECLABEL=${ID_WORLD}"
 	if [ "$NODE_PORT" = "true" ]; then
-		COPTS="${COPTS} -DLB_L3 -DLB_L4"
+		COPTS="${COPTS} -DLB_L3 -DLB_L4 -DDISABLE_LOOPBACK_LB"
 	fi
 	bpf_load $ENCAP_DEV "$COPTS" "ingress" bpf_overlay.c bpf_overlay.o from-overlay ${CALLS_MAP}
 	bpf_load $ENCAP_DEV "$COPTS" "egress" bpf_overlay.c bpf_overlay.o to-overlay ${CALLS_MAP}
@@ -539,7 +539,7 @@ if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$MODE" = "routed" ] ||
 		CALLS_MAP=cilium_calls_netdev_${ID_WORLD}
 		COPTS="-DSECLABEL=${ID_WORLD}"
 		if [ "$NODE_PORT" = "true" ]; then
-			COPTS="${COPTS} -DLB_L3 -DLB_L4"
+			COPTS="${COPTS} -DLB_L3 -DLB_L4 -DDISABLE_LOOPBACK_LB"
 		fi
 
 		bpf_load $NATIVE_DEV "$COPTS" "ingress" bpf_netdev.c bpf_netdev.o "from-netdev" $CALLS_MAP
