@@ -281,7 +281,7 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
 				 * can ignore the ipcache if it reports the
 				 * source as HOST_ID.
 				 */
-#ifdef ENABLE_EXTRA_HOST_DEV
+#ifndef ENABLE_EXTRA_HOST_DEV
 				if (sec_label != HOST_ID)
 #endif
 					srcid_from_ipcache = sec_label;
