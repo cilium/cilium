@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodestore "github.com/cilium/cilium/pkg/node/store"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 
@@ -56,7 +57,7 @@ type NodeDiscovery struct {
 	Manager     *nodemanager.Manager
 	LocalConfig datapath.LocalNodeConfiguration
 	Registrar   nodestore.NodeRegistrar
-	LocalNode   node.Node
+	LocalNode   nodeTypes.Node
 	Registered  chan struct{}
 	NetConf     *cnitypes.NetConf
 }
@@ -107,7 +108,7 @@ func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration,
 			IPv4PodSubnets:          option.Config.IPv4PodSubnets,
 			IPv6PodSubnets:          option.Config.IPv6PodSubnets,
 		},
-		LocalNode: node.Node{
+		LocalNode: nodeTypes.Node{
 			Source: source.Local,
 		},
 		Registered: make(chan struct{}),
@@ -121,35 +122,35 @@ func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration,
 func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 	n.LocalNode.Name = nodeName
 	n.LocalNode.Cluster = option.Config.ClusterName
-	n.LocalNode.IPAddresses = []node.Address{}
+	n.LocalNode.IPAddresses = []nodeTypes.Address{}
 	n.LocalNode.IPv4AllocCIDR = node.GetIPv4AllocRange()
 	n.LocalNode.IPv6AllocCIDR = node.GetIPv6AllocRange()
 	n.LocalNode.ClusterID = option.Config.ClusterID
 	n.LocalNode.EncryptionKey = node.GetIPsecKeyIdentity()
 
 	if node.GetExternalIPv4() != nil {
-		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, node.Address{
+		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeInternalIP,
 			IP:   node.GetExternalIPv4(),
 		})
 	}
 
 	if node.GetIPv6() != nil {
-		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, node.Address{
+		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeInternalIP,
 			IP:   node.GetIPv6(),
 		})
 	}
 
 	if node.GetInternalIPv4() != nil {
-		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, node.Address{
+		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeCiliumInternalIP,
 			IP:   node.GetInternalIPv4(),
 		})
 	}
 
 	if node.GetIPv6Router() != nil {
-		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, node.Address{
+		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeCiliumInternalIP,
 			IP:   node.GetIPv6Router(),
 		})
@@ -216,12 +217,12 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 	ciliumClient := k8s.CiliumClient()
 
 	performUpdate := true
-	nodeResource, err := ciliumClient.CiliumV2().CiliumNodes().Get(context.TODO(), node.GetName(), metav1.GetOptions{})
+	nodeResource, err := ciliumClient.CiliumV2().CiliumNodes().Get(context.TODO(), nodeTypes.GetName(), metav1.GetOptions{})
 	if err != nil {
 		performUpdate = false
 		nodeResource = &ciliumv2.CiliumNode{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: node.GetName(),
+				Name: nodeTypes.GetName(),
 			},
 		}
 	}
@@ -230,13 +231,13 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 
 	// Tie the CiliumNode custom resource lifecycle to the lifecycle of the
 	// Kubernetes node
-	if k8sNode, err := k8s.GetNode(k8s.Client(), node.GetName()); err != nil {
+	if k8sNode, err := k8s.GetNode(k8s.Client(), nodeTypes.GetName()); err != nil {
 		log.WithError(err).Warning("Kubernetes node resource representing own node is not available, cannot set OwnerReference")
 	} else {
 		nodeResource.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{
 			APIVersion: "v1",
 			Kind:       "Node",
-			Name:       node.GetName(),
+			Name:       nodeTypes.GetName(),
 			UID:        k8sNode.UID,
 		}}
 		providerID = k8sNode.Spec.ProviderID

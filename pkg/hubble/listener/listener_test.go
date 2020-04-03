@@ -25,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	listener2 "github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/monitor/payload"
-	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 
 	"github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
@@ -57,7 +57,7 @@ func (s *HubbleSuite) TestHubbleListener(c *C) {
 	c.Assert(received.Lost, Equals, pl.Lost)
 	c.Assert(received.Type, Equals, flow.EventType(pl.Type))
 	c.Assert(received.Data, checker.DeepEquals, pl.Data)
-	c.Assert(received.HostName, Equals, node.GetName())
+	c.Assert(received.HostName, Equals, nodeTypes.GetName())
 	// Verify that the events channel is empty now.
 	select {
 	case ev := <-grpcServer.GetEventsChannel():

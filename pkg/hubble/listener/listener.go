@@ -19,8 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/monitor/payload"
-	"github.com/cilium/cilium/pkg/node"
-
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/golang/protobuf/ptypes"
 )
 
@@ -43,7 +42,7 @@ func (ml *hubbleListener) Enqueue(pl *payload.Payload) {
 		Lost:     pl.Lost,
 		Type:     flow.EventType(pl.Type),
 		Time:     ptypes.TimestampNow(),
-		HostName: node.GetName(),
+		HostName: nodeTypes.GetName(),
 	}
 	select {
 	case ml.observer.GetEventsChannel() <- grpcPl:

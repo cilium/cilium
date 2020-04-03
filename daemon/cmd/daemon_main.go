@@ -56,6 +56,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
@@ -1321,7 +1322,7 @@ func runDaemon() {
 
 	if k8s.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
-		k8s.Client().MarkNodeReady(node.GetName())
+		k8s.Client().MarkNodeReady(nodeTypes.GetName())
 		bootstrapStats.k8sInit.End(true)
 	}
 

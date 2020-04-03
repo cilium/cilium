@@ -320,7 +320,6 @@ generate-k8s-api:
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"policy:api")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"pkg:loadbalancer")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"pkg:k8s")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"pkg:node")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/api,"v1:models")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"k8s:types")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:policymap")
@@ -339,6 +338,7 @@ generate-k8s-api:
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:neighborsmap")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:fragmap")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"service:store")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"node:types")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"pkg:tuple")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"pkg:bpf")
 

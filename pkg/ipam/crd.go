@@ -32,12 +32,12 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -113,7 +113,7 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 	ciliumNodeStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 	ciliumNodeInformer := informer.NewInformerWithStore(
 		cache.NewListWatchFromClient(ciliumClient.CiliumV2().RESTClient(),
-			"ciliumnodes", v1.NamespaceAll, ciliumNodeSelector),
+			"ciliumnodes", corev1.NamespaceAll, ciliumNodeSelector),
 		&ciliumv2.CiliumNode{},
 		0,
 		cache.ResourceEventHandlerFuncs{
@@ -414,7 +414,7 @@ type crdAllocator struct {
 // newCRDAllocator creates a new CRD-backed IP allocator
 func newCRDAllocator(family Family, c Configuration, owner Owner, k8sEventReg K8sEventRegister) Allocator {
 	initNodeStore.Do(func() {
-		sharedNodeStore = newNodeStore(node.GetName(), c, owner, k8sEventReg)
+		sharedNodeStore = newNodeStore(nodeTypes.GetName(), c, owner, k8sEventReg)
 	})
 
 	allocator := &crdAllocator{

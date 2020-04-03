@@ -26,7 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
-	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/service/healthserver"
 
 	"github.com/sirupsen/logrus"
@@ -228,7 +228,7 @@ func (s *Service) UpsertService(
 		// Services with trafficPolicy=Local may only use node-local backends.
 		// We implement this by filtering out all backend IPs which are not a
 		// local endpoint.
-		if onlyLocalBackends && len(b.NodeName) > 0 && b.NodeName != node.GetName() {
+		if onlyLocalBackends && len(b.NodeName) > 0 && b.NodeName != nodeTypes.GetName() {
 			continue
 		}
 		backendsCopy = append(backendsCopy, *b.DeepCopy())

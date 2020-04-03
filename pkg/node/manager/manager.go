@@ -24,8 +24,8 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 
@@ -46,7 +46,7 @@ type nodeEntry struct {
 	// If both the nodeEntry.mutex and Manager.mutex must be held, then the
 	// Manager.mutex must *always* be acquired first.
 	mutex lock.Mutex
-	node  node.Node
+	node  nodeTypes.Node
 }
 
 // Manager is the entity that manages a collection of nodes
@@ -71,7 +71,7 @@ type Manager struct {
 	mutex lock.RWMutex
 
 	// nodes is the list of nodes. Access must be protected via mutex.
-	nodes map[node.Identity]*nodeEntry
+	nodes map[nodeTypes.Identity]*nodeEntry
 
 	// nodeHandlersMu protects the nodeHandlers map against concurrent access.
 	nodeHandlersMu lock.RWMutex
@@ -135,7 +135,7 @@ func (m *Manager) Iter(f func(nh datapath.NodeHandler)) {
 func NewManager(name string, dp datapath.NodeHandler) (*Manager, error) {
 	m := &Manager{
 		name:         name,
-		nodes:        map[node.Identity]*nodeEntry{},
+		nodes:        map[nodeTypes.Identity]*nodeEntry{},
 		nodeHandlers: map[datapath.NodeHandler]struct{}{},
 		closeChan:    make(chan struct{}),
 	}
@@ -277,7 +277,7 @@ func (m *Manager) backgroundSync() {
 // node in the manager is added or updated if the source is allowed to update
 // the node. If an update or addition has occurred, NodeUpdate() of the datapath
 // interface is invoked.
-func (m *Manager) NodeUpdated(n node.Node) {
+func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 	log.Debugf("Received node update event from %s: %#v", n.Source, n)
 	nodeIdentity := n.Identity()
 	dpUpdate := true
@@ -362,7 +362,7 @@ func (m *Manager) NodeUpdated(n node.Node) {
 // from the manager if the node is still owned by the source of which the event
 // orgins from. If the node was removed, NodeDelete() is invoked of the
 // datapath interface.
-func (m *Manager) NodeDeleted(n node.Node) {
+func (m *Manager) NodeDeleted(n nodeTypes.Node) {
 	m.metricEventsReceived.WithLabelValues("delete", string(n.Source)).Inc()
 
 	log.Debugf("Received node delete event from %s", n.Source)
@@ -407,7 +407,7 @@ func (m *Manager) NodeDeleted(n node.Node) {
 }
 
 // Exists returns true if a node with the name exists
-func (m *Manager) Exists(id node.Identity) bool {
+func (m *Manager) Exists(id nodeTypes.Identity) bool {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	_, ok := m.nodes[id]
@@ -416,11 +416,11 @@ func (m *Manager) Exists(id node.Identity) bool {
 
 // GetNodeIdentities returns a list of all node identities store in node
 // manager.
-func (m *Manager) GetNodeIdentities() []node.Identity {
+func (m *Manager) GetNodeIdentities() []nodeTypes.Identity {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
-	nodes := make([]node.Identity, 0, len(m.nodes))
+	nodes := make([]nodeTypes.Identity, 0, len(m.nodes))
 	for nodeIdentity := range m.nodes {
 		nodes = append(nodes, nodeIdentity)
 	}
@@ -429,11 +429,11 @@ func (m *Manager) GetNodeIdentities() []node.Identity {
 }
 
 // GetNodes returns a copy of all of the nodes as a map from Identity to Node.
-func (m *Manager) GetNodes() map[node.Identity]node.Node {
+func (m *Manager) GetNodes() map[nodeTypes.Identity]nodeTypes.Node {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
-	nodes := make(map[node.Identity]node.Node)
+	nodes := make(map[nodeTypes.Identity]nodeTypes.Node)
 	for nodeIdentity, entry := range m.nodes {
 		entry.mutex.Lock()
 		nodes[nodeIdentity] = entry.node
@@ -453,6 +453,6 @@ func (m *Manager) DeleteAllNodes() {
 		})
 		entry.mutex.Unlock()
 	}
-	m.nodes = map[node.Identity]*nodeEntry{}
+	m.nodes = map[nodeTypes.Identity]*nodeEntry{}
 	m.mutex.Unlock()
 }

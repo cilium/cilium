@@ -20,7 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 )
@@ -34,7 +34,7 @@ var (
 
 	// KeyCreator creates a node for a shared store
 	KeyCreator = func() store.Key {
-		n := node.Node{}
+		n := nodeTypes.Node{}
 		return &n
 	}
 )
@@ -52,7 +52,7 @@ func NewNodeObserver(manager NodeManager) *NodeObserver {
 }
 
 func (o *NodeObserver) OnUpdate(k store.Key) {
-	if n, ok := k.(*node.Node); ok {
+	if n, ok := k.(*nodeTypes.Node); ok {
 		nodeCopy := n.DeepCopy()
 		nodeCopy.Source = source.KVStore
 		o.manager.NodeUpdated(*nodeCopy)
@@ -60,7 +60,7 @@ func (o *NodeObserver) OnUpdate(k store.Key) {
 }
 
 func (o *NodeObserver) OnDelete(k store.NamedKey) {
-	if n, ok := k.(*node.Node); ok {
+	if n, ok := k.(*nodeTypes.Node); ok {
 		nodeCopy := n.DeepCopy()
 		nodeCopy.Source = source.KVStore
 		o.manager.NodeDeleted(*nodeCopy)
@@ -76,17 +76,17 @@ type NodeRegistrar struct {
 type NodeManager interface {
 	// NodeUpdated is called when the store detects a change in node
 	// information
-	NodeUpdated(n node.Node)
+	NodeUpdated(n nodeTypes.Node)
 
 	// NodeDeleted is called when the store detects a deletion of a node
-	NodeDeleted(n node.Node)
+	NodeDeleted(n nodeTypes.Node)
 
 	// Exists is called to verify if a node exists
-	Exists(id node.Identity) bool
+	Exists(id nodeTypes.Identity) bool
 }
 
 // RegisterNode registers the local node in the cluster
-func (nr *NodeRegistrar) RegisterNode(n *node.Node, manager NodeManager) error {
+func (nr *NodeRegistrar) RegisterNode(n *nodeTypes.Node, manager NodeManager) error {
 	if option.Config.KVStore == "" {
 		return nil
 	}
@@ -114,6 +114,6 @@ func (nr *NodeRegistrar) RegisterNode(n *node.Node, manager NodeManager) error {
 
 // UpdateLocalKeySync synchronizes the local key for the node using the
 // SharedStore.
-func (nr *NodeRegistrar) UpdateLocalKeySync(n *node.Node) error {
+func (nr *NodeRegistrar) UpdateLocalKeySync(n *nodeTypes.Node) error {
 	return nr.SharedStore.UpdateLocalKeySync(context.TODO(), n)
 }

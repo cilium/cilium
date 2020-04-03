@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/spanstat"
@@ -225,7 +225,7 @@ func (k *K8sWatcher) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface
 		updateContext := &k8s.CNPStatusUpdateContext{
 			CiliumNPClient:              ciliumNPClient,
 			CiliumV2Store:               ciliumV2Store,
-			NodeName:                    node.GetName(),
+			NodeName:                    nodeTypes.GetName(),
 			NodeManager:                 k.nodeDiscoverManager,
 			UpdateDuration:              spanstat.Start(),
 			WaitForEndpointsAtPolicyRev: k.endpointManager.WaitForEndpointsAtPolicyRev,
@@ -344,7 +344,7 @@ func (k *K8sWatcher) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient c
 	updateContext := &k8s.CNPStatusUpdateContext{
 		CiliumNPClient:              ciliumNPClient,
 		CiliumV2Store:               ciliumV2Store,
-		NodeName:                    node.GetName(),
+		NodeName:                    nodeTypes.GetName(),
 		NodeManager:                 k.nodeDiscoverManager,
 		UpdateDuration:              spanstat.Start(),
 		WaitForEndpointsAtPolicyRev: k.endpointManager.WaitForEndpointsAtPolicyRev,

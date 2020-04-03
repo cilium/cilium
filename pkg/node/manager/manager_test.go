@@ -25,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
-	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
 
 	"gopkg.in/check.v1"
@@ -41,46 +41,46 @@ var _ = check.Suite(&managerTestSuite{})
 
 type signalNodeHandler struct {
 	EnableNodeAddEvent                    bool
-	NodeAddEvent                          chan node.Node
-	NodeUpdateEvent                       chan node.Node
+	NodeAddEvent                          chan nodeTypes.Node
+	NodeUpdateEvent                       chan nodeTypes.Node
 	EnableNodeUpdateEvent                 bool
-	NodeDeleteEvent                       chan node.Node
+	NodeDeleteEvent                       chan nodeTypes.Node
 	EnableNodeDeleteEvent                 bool
-	NodeValidateImplementationEvent       chan node.Node
+	NodeValidateImplementationEvent       chan nodeTypes.Node
 	EnableNodeValidateImplementationEvent bool
 }
 
 func newSignalNodeHandler() *signalNodeHandler {
 	return &signalNodeHandler{
-		NodeAddEvent:                    make(chan node.Node, 10),
-		NodeUpdateEvent:                 make(chan node.Node, 10),
-		NodeDeleteEvent:                 make(chan node.Node, 10),
-		NodeValidateImplementationEvent: make(chan node.Node, 4096),
+		NodeAddEvent:                    make(chan nodeTypes.Node, 10),
+		NodeUpdateEvent:                 make(chan nodeTypes.Node, 10),
+		NodeDeleteEvent:                 make(chan nodeTypes.Node, 10),
+		NodeValidateImplementationEvent: make(chan nodeTypes.Node, 4096),
 	}
 }
 
-func (n *signalNodeHandler) NodeAdd(newNode node.Node) error {
+func (n *signalNodeHandler) NodeAdd(newNode nodeTypes.Node) error {
 	if n.EnableNodeAddEvent {
 		n.NodeAddEvent <- newNode
 	}
 	return nil
 }
 
-func (n *signalNodeHandler) NodeUpdate(oldNode, newNode node.Node) error {
+func (n *signalNodeHandler) NodeUpdate(oldNode, newNode nodeTypes.Node) error {
 	if n.EnableNodeUpdateEvent {
 		n.NodeUpdateEvent <- newNode
 	}
 	return nil
 }
 
-func (n *signalNodeHandler) NodeDelete(node node.Node) error {
+func (n *signalNodeHandler) NodeDelete(node nodeTypes.Node) error {
 	if n.EnableNodeDeleteEvent {
 		n.NodeDeleteEvent <- node
 	}
 	return nil
 }
 
-func (n *signalNodeHandler) NodeValidateImplementation(node node.Node) error {
+func (n *signalNodeHandler) NodeValidateImplementation(node nodeTypes.Node) error {
 	if n.EnableNodeValidateImplementationEvent {
 		n.NodeValidateImplementationEvent <- node
 	}
@@ -99,7 +99,7 @@ func (s *managerTestSuite) TestNodeLifecycle(c *check.C) {
 	mngr, err := NewManager("test", dp)
 	c.Assert(err, check.IsNil)
 
-	n1 := node.Node{Name: "node1", Cluster: "c1"}
+	n1 := nodeTypes.Node{Name: "node1", Cluster: "c1"}
 	mngr.NodeUpdated(n1)
 
 	select {
@@ -113,7 +113,7 @@ func (s *managerTestSuite) TestNodeLifecycle(c *check.C) {
 		c.Errorf("timeout while waiting for NodeAdd() event for node1")
 	}
 
-	n2 := node.Node{Name: "node2", Cluster: "c1"}
+	n2 := nodeTypes.Node{Name: "node2", Cluster: "c1"}
 	mngr.NodeUpdated(n2)
 
 	select {
@@ -169,7 +169,7 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 	c.Assert(err, check.IsNil)
 	defer mngr.Close()
 
-	n1k8s := node.Node{Name: "node1", Cluster: "c1", Source: source.Kubernetes}
+	n1k8s := nodeTypes.Node{Name: "node1", Cluster: "c1", Source: source.Kubernetes}
 	mngr.NodeUpdated(n1k8s)
 	select {
 	case nodeEvent := <-dp.NodeAddEvent:
@@ -183,7 +183,7 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 	}
 
 	// agent can overwrite kubernetes
-	n1agent := node.Node{Name: "node1", Cluster: "c1", Source: source.Local}
+	n1agent := nodeTypes.Node{Name: "node1", Cluster: "c1", Source: source.Local}
 	mngr.NodeUpdated(n1agent)
 	select {
 	case nodeEvent := <-dp.NodeUpdateEvent:
@@ -240,12 +240,12 @@ func (s *managerTestSuite) BenchmarkUpdateAndDeleteCycle(c *check.C) {
 
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
-		n := node.Node{Name: fmt.Sprintf("%d", i), Source: source.Local}
+		n := nodeTypes.Node{Name: fmt.Sprintf("%d", i), Source: source.Local}
 		mngr.NodeUpdated(n)
 	}
 
 	for i := 0; i < c.N; i++ {
-		n := node.Node{Name: fmt.Sprintf("%d", i), Source: source.Local}
+		n := nodeTypes.Node{Name: fmt.Sprintf("%d", i), Source: source.Local}
 		mngr.NodeDeleted(n)
 	}
 	c.StopTimer()
@@ -259,7 +259,7 @@ func (s *managerTestSuite) TestClusterSizeDependantInterval(c *check.C) {
 	prevInterval := time.Nanosecond
 
 	for i := 0; i < 1000; i++ {
-		n := node.Node{Name: fmt.Sprintf("%d", i), Source: source.Local}
+		n := nodeTypes.Node{Name: fmt.Sprintf("%d", i), Source: source.Local}
 		mngr.NodeUpdated(n)
 		newInterval := mngr.ClusterSizeDependantInterval(time.Minute)
 		c.Assert(newInterval > prevInterval, check.Equals, true)
@@ -303,7 +303,7 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 	}()
 
 	for i := 0; i < numNodes; i++ {
-		n := node.Node{Name: fmt.Sprintf("%d", i), Source: source.Kubernetes}
+		n := nodeTypes.Node{Name: fmt.Sprintf("%d", i), Source: source.Kubernetes}
 		mngr.NodeUpdated(n)
 	}
 

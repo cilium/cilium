@@ -35,7 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -110,8 +110,8 @@ type endpointManager interface {
 }
 
 type nodeDiscoverManager interface {
-	NodeDeleted(n node.Node)
-	NodeUpdated(n node.Node)
+	NodeDeleted(n nodeTypes.Node)
+	NodeUpdated(n nodeTypes.Node)
 	ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration
 }
 

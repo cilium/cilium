@@ -19,7 +19,7 @@ package service
 import (
 	"net"
 
-	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/service/healthserver"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -206,8 +206,8 @@ func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
 	be2 := *lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.2"), 8080)
 
 	// Insert svc1 with local backends
-	be2.NodeName = node.GetName()
-	be1.NodeName = node.GetName()
+	be2.NodeName = nodeTypes.GetName()
+	be1.NodeName = nodeTypes.GetName()
 	backends1 := []lb.Backend{be1, be2}
 
 	_, id1, err := m.svc.UpsertService(frontend1, backends1, lb.SVCTypeLoadBalancer, lb.SVCTrafficPolicyLocal, 32001, "svc1", "ns1")
@@ -220,7 +220,7 @@ func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
 	be1.NodeName = "remote-node"
 	be2.NodeName = "remote-node"
 	backends1 = []lb.Backend{be1, be2}
-	c.Assert(node.GetName(), Not(Equals), "remote-node")
+	c.Assert(nodeTypes.GetName(), Not(Equals), "remote-node")
 
 	new, _, err := m.svc.UpsertService(frontend1, backends1, lb.SVCTypeLoadBalancer, lb.SVCTrafficPolicyLocal, 32001, "svc1", "ns1")
 	c.Assert(err, IsNil)

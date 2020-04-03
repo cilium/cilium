@@ -27,7 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
-	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/cilium/arping"
@@ -47,9 +47,9 @@ type linuxNodeHandler struct {
 	nodeConfig           datapath.LocalNodeConfiguration
 	nodeAddressing       datapath.NodeAddressing
 	datapathConfig       DatapathConfiguration
-	nodes                map[node.Identity]*node.Node
+	nodes                map[nodeTypes.Identity]*nodeTypes.Node
 	enableNeighDiscovery bool
-	neighByNode          map[node.Identity]*netlink.Neigh
+	neighByNode          map[nodeTypes.Identity]*netlink.Neigh
 }
 
 // NewNodeHandler returns a new node handler to handle node events and
@@ -58,8 +58,8 @@ func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapat
 	return &linuxNodeHandler{
 		nodeAddressing: nodeAddressing,
 		datapathConfig: datapathConfig,
-		nodes:          map[node.Identity]*node.Node{},
-		neighByNode:    map[node.Identity]*netlink.Neigh{},
+		nodes:          map[nodeTypes.Identity]*nodeTypes.Node{},
+		neighByNode:    map[nodeTypes.Identity]*netlink.Neigh{},
 	}
 }
 
@@ -399,7 +399,7 @@ func (n *linuxNodeHandler) updateOrRemoveNodeRoutes(old, new []*cidr.CIDR) {
 	}
 }
 
-func (n *linuxNodeHandler) NodeAdd(newNode node.Node) error {
+func (n *linuxNodeHandler) NodeAdd(newNode nodeTypes.Node) error {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
@@ -412,7 +412,7 @@ func (n *linuxNodeHandler) NodeAdd(newNode node.Node) error {
 	return nil
 }
 
-func (n *linuxNodeHandler) NodeUpdate(oldNode, newNode node.Node) error {
+func (n *linuxNodeHandler) NodeUpdate(oldNode, newNode nodeTypes.Node) error {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
@@ -470,7 +470,7 @@ func (n *linuxNodeHandler) enableSubnetIPsec(v4CIDR, v6CIDR []*net.IPNet) {
 	}
 }
 
-func (n *linuxNodeHandler) encryptNode(newNode *node.Node) {
+func (n *linuxNodeHandler) encryptNode(newNode *nodeTypes.Node) {
 	var spi uint8
 	var err error
 
@@ -558,7 +558,7 @@ func neighborLog(spec, iface string, err error, ip *net.IP, hwAddr *net.Hardware
 	}
 }
 
-func (n *linuxNodeHandler) insertNeighbor(newNode *node.Node, ifaceName string) {
+func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName string) {
 	if newNode.IsLocal() {
 		return
 	}
@@ -603,7 +603,7 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *node.Node, ifaceName string) 
 	}
 }
 
-func (n *linuxNodeHandler) deleteNeighbor(oldNode *node.Node) {
+func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
 	neigh, ok := n.neighByNode[oldNode.Identity()]
 	if !ok {
 		return
@@ -618,7 +618,7 @@ func (n *linuxNodeHandler) deleteNeighbor(oldNode *node.Node) {
 	}
 }
 
-func (n *linuxNodeHandler) enableIPsec(newNode *node.Node) {
+func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 	var spi uint8
 	var err error
 
@@ -675,7 +675,7 @@ func (n *linuxNodeHandler) subnetEncryption() bool {
 	return len(n.nodeConfig.IPv4PodSubnets) > 0 || len(n.nodeConfig.IPv6PodSubnets) > 0
 }
 
-func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node, firstAddition bool) error {
+func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAddition bool) error {
 	var (
 		oldIP4Cidr, oldIP6Cidr *cidr.CIDR
 		oldIP4, oldIP6         net.IP
@@ -759,7 +759,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node, firstAddition
 	return nil
 }
 
-func (n *linuxNodeHandler) NodeDelete(oldNode node.Node) error {
+func (n *linuxNodeHandler) NodeDelete(oldNode nodeTypes.Node) error {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
@@ -775,7 +775,7 @@ func (n *linuxNodeHandler) NodeDelete(oldNode node.Node) error {
 	return nil
 }
 
-func (n *linuxNodeHandler) nodeDelete(oldNode *node.Node) error {
+func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 	if oldNode.IsLocal() {
 		return nil
 	}
@@ -1060,7 +1060,7 @@ func (n *linuxNodeHandler) replaceNodeIPSecInRoute(ip *net.IPNet) {
 	}
 }
 
-func (n *linuxNodeHandler) deleteIPsec(oldNode *node.Node) {
+func (n *linuxNodeHandler) deleteIPsec(oldNode *nodeTypes.Node) {
 	if n.nodeConfig.EnableIPv4 && oldNode.IPv4AllocCIDR != nil {
 		ciliumInternalIPv4 := oldNode.GetCiliumInternalIP(false)
 		old4Net := &net.IPNet{IP: ciliumInternalIPv4, Mask: oldNode.IPv4AllocCIDR.Mask}
@@ -1141,7 +1141,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 
 // NodeValidateImplementation is called to validate the implementation of the
 // node in the datapath
-func (n *linuxNodeHandler) NodeValidateImplementation(nodeToValidate node.Node) error {
+func (n *linuxNodeHandler) NodeValidateImplementation(nodeToValidate nodeTypes.Node) error {
 	return n.nodeUpdate(nil, &nodeToValidate, false)
 }
 
