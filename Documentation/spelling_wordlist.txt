@@ -320,6 +320,7 @@ ipsec
 iptables
 ipvlan
 istio
+istioctl
 iteratively
 ixgbe
 ixgbevf
