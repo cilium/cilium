@@ -28,13 +28,6 @@ import (
 // This tests the Istio 1.5.1 integration, following the configuration
 // instructions specified in the Istio Getting Started Guide in
 // Documentation/gettingstarted/istio.rst.
-// Changes to the Getting Started Guide may require re-generating or copying
-// the following manifests:
-// - istio-crds.yaml
-// - istio-cilium.yaml
-// - bookinfo-v1-istio.yaml
-// - bookinfo-v2-istio.yaml
-// Cf. the comments below for each manifest.
 var _ = Describe("K8sIstioTest", func() {
 
 	var (
@@ -42,28 +35,13 @@ var _ = Describe("K8sIstioTest", func() {
 		// installed.
 		istioSystemNamespace = "istio-system"
 
-		// istioCRDYAMLPath is the file generated from istio-init during a
-		// step in Documentation/gettingstarted/istio.rst to setup
-		// Istio 1.5.1. In the GSG the file is directly piped to kubectl.
-		istioCRDYAMLPath = helpers.ManifestGet("istio-crds.yaml")
+		istioVersion = "1.5.1"
 
-		// istioYAMLPath is the istio-cilium.yaml file generated following the
-		// instructions in Documentation/gettingstarted/istio.rst to setup
-		// Istio 1.5.1. mTLS is enabled.
-		istioYAMLPath = helpers.ManifestGet("istio-cilium.yaml")
-
-		// istioServiceNames is the subset of Istio services in the Istio
-		// namespace that are accessed from sidecar proxies.
+		ciliumIstioctlURL = "https://github.com/cilium/istio/releases/download/" + istioVersion + "/cilium-istioctl-" + istioVersion + "-linux.tar.gz"
+		// istioServiceNames is the set of Istio services needed for the tests
 		istioServiceNames = []string{
-			// All the services created by Istio are listed here, but only
-			// those that we care about are uncommented.
-			// "istio-citadel",
-			// "istio-galley",
 			"istio-ingressgateway",
 			"istio-pilot",
-			// "istio-policy",
-			// "istio-telemetry",
-			// "prometheus",
 		}
 
 		// wgetCommand is the command used in this test because the Istio apps
@@ -85,34 +63,30 @@ var _ = Describe("K8sIstioTest", func() {
 		}
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+
+		By("Downloading cilium-istioctl")
+		res := kubectl.Exec(fmt.Sprintf("curl -L %s | tar xz", ciliumIstioctlURL))
+		res.ExpectSuccess("unable to download %s", ciliumIstioctlURL)
+		res = kubectl.ExecShort("./cilium-istioctl version")
+		res.ExpectSuccess("unable to execute cilium-istioctl")
+
 		DeployCiliumAndDNS(kubectl)
 
-		By("Creating the istio-system namespace")
-		res := kubectl.NamespaceCreate(istioSystemNamespace)
-		res.ExpectSuccess("unable to create namespace %q", istioSystemNamespace)
+		By("Labeling default namespace for sidecar injection")
+		res = kubectl.NamespaceLabel(helpers.DefaultNamespace, "istio-injection=enabled")
+		res.ExpectSuccess("unable to label namespace %q", helpers.DefaultNamespace)
 
-		By("Creating the Istio CRDs")
-
-		res = kubectl.ApplyDefault(istioCRDYAMLPath)
-		res.ExpectSuccess("unable to create Istio CRDs")
-
-		By("Waiting for Istio CRDs to be ready")
-		err := kubectl.WaitForCRDCount("istio.io|certmanager.k8s.io", 25, helpers.HelperTimeout)
-		Expect(err).To(BeNil(),
-			"Istio CRDs are not ready after timeout")
-
-		By("Creating the Istio system PODs")
-
-		res = kubectl.ApplyDefault(istioYAMLPath)
-		res.ExpectSuccess("unable to create Istio resources")
+		By("Deplying Istio")
+		res = kubectl.Exec("./cilium-istioctl manifest apply -y")
+		res.ExpectSuccess("unable to deploy Istio")
 	})
 
 	AfterAll(func() {
-		By("Deleting the Istio resources")
-		_ = kubectl.Delete(istioYAMLPath)
+		By("Deleting default namespace sidecar injection label")
+		_ = kubectl.NamespaceLabel(helpers.DefaultNamespace, "istio-injection-")
 
-		By("Deleting the Istio CRDs")
-		_ = kubectl.Delete(istioCRDYAMLPath)
+		By("Deleting the Istio resources")
+		_ = kubectl.Exec(fmt.Sprintf("./cilium-istioctl manifest generate | %s delete -f -", helpers.KubectlCmd))
 
 		By("Waiting all terminating PODs to disappear")
 		err := kubectl.WaitCleanAllTerminatingPods(teardownTimeout)
@@ -269,13 +243,8 @@ var _ = Describe("K8sIstioTest", func() {
 			apiPort := "9080"
 			podNameFilter := "{.items[*].metadata.name}"
 
-			// Those YAML files are the bookinfo-v1.yaml and bookinfo-v2.yaml
-			// manifests injected with Istio sidecars using those commands:
-			// cd test/k8sT/manifests/
-			// istioctl kube-inject -f bookinfo-v1.yaml > bookinfo-v1-istio.yaml
-			// istioctl kube-inject -f bookinfo-v2.yaml > bookinfo-v2-istio.yaml
-			bookinfoV1YAML := helpers.ManifestGet("bookinfo-v1-istio.yaml")
-			bookinfoV2YAML := helpers.ManifestGet("bookinfo-v2-istio.yaml")
+			bookinfoV1YAML := helpers.ManifestGet("bookinfo-v1.yaml")
+			bookinfoV2YAML := helpers.ManifestGet("bookinfo-v2.yaml")
 			l7PolicyPath := helpers.ManifestGet("cnp-specs.yaml")
 
 			waitIstioReady()
