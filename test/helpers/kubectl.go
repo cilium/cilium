@@ -884,6 +884,12 @@ func (kub *Kubectl) DeleteAllInNamespace(name string) *CmdRes {
 		KubectlCmd, KubectlCmd, name))
 }
 
+// NamespaceLabel sets a label in a Kubernetes namespace
+func (kub *Kubectl) NamespaceLabel(namespace string, label string) *CmdRes {
+	ginkgoext.By("Setting label %s in namespace %s", label, namespace)
+	return kub.ExecShort(fmt.Sprintf("%s label --overwrite namespace %s %s", KubectlCmd, namespace, label))
+}
+
 // WaitforPods waits up until timeout seconds have elapsed for all pods in the
 // specified namespace that match the provided JSONPath filter to have their
 // containterStatuses equal to "ready". Returns true if all pods achieve
