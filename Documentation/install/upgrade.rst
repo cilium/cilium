@@ -520,13 +520,19 @@ Removed resource fields
 
 .. _1.7_required_changes:
 
-IMPORTANT: Changes required before upgrading to 1.7.0
+IMPORTANT: Changes required before upgrading to 1.7.x
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. warning::
 
-   Do not upgrade to 1.7.0 before reading the following section and completing
+   Do not upgrade to 1.7.x before reading the following section and completing
    the required steps.
+
+   In particular, if you are using network policy and upgrading from 1.6.x or earlier
+   to 1.7.x or later, you MUST read the 1.7 :ref:`configmap_remote_node_identity`
+   section about the
+   ``enable-remote-node-identity`` flag to avoid potential disruption
+   to connectivity between host networking pods and Cilium-managed pods.
 
 * Cilium has bumped the minimal kubernetes version supported to v1.11.0.
 
@@ -615,8 +621,80 @@ IMPORTANT: Changes required before upgrading to 1.7.0
   connections that previously outlived DNS entries are now better supported,
   and will not be disconnected when the corresponding DNS entry expires.
 
+.. _configmap_remote_node_identity:
+
 New ConfigMap Options
 ~~~~~~~~~~~~~~~~~~~~~
+
+  * ``enable-remote-node-identity`` has been added to enable a new identity
+    for remote cluster nodes. This allows for network policies that distinguish
+    between connections from host networking pods or other processes on the local
+    Kubernetes worker node from those on remote worker nodes.  This is important
+    because Kubernetes Network Policy dictates that network connectivity from the
+    local host must always be allowed, even for pods that have a default deny rule for
+    ingress connectivity.   This is so that network liveness and readiness
+    probes from kubelet will not be dropped by network policy.  Prior to 1.7.x,
+    Cilium achieved this by always allowing ingress host network connectivity from any
+    host in the cluster.  With 1.7 and ``enable-remote-node-identity=true``, Cilium
+    will only automatically allow connectivity from the local node, thereby providing
+    a better default security posture.
+
+    The option is enabled by
+    default for new deployments when generated via Helm, in order to gain the benefits
+    of improved security. The option can be disabled
+    in order to maintain full compatibility with Cilium 1.6.x policy enforcement.
+    **Be aware** that upgrading a cluster to 1.7.x by using helm to generate a new Cilium config
+    that leaves ``enable-remote-node-identity`` set as the default value
+    of ``true`` **can break network connectivity.**
+
+    The reason for this is that
+    with Cilium 1.6.x, the source identity of ANY connection from a host-networking pod or from
+    other processes on a Kubernetes worker node would be the  ``host`` identity.   Thus, a
+    Cilium 1.6.x or earlier environment with network policy enforced may be implicitly
+    relying on the ``allow everything from host identity`` behavior to
+    whitelist traffic from host networking to other Cilium-managed pods.
+    With the shift to 1.7.x, if ``enable-remote-node-identity=true``
+    these connections will be denied by policy if they are coming from
+    a host-networking pod or process on another Kubernetes worker node, since the source
+    will be given the ``remote-node`` identity (which is not automatically
+    allowed) rather than the ``host`` identity (which is automatically allowed).
+
+    An indicator that this is happening would be drops visible in Hubble or
+    Cilium monitor with a source identity equal to 6 (the numeric value for the
+    new ``remote-node`` identity.   For example:
+
+
+    .. parsed-literal::
+
+      xx drop (Policy denied) flow 0x6d7b6dd0 to endpoint 1657, identity 6->51566: 172.16.9.243:47278 -> 172.16.8.21:9093 tcp SYN
+
+
+    There are two ways to address this.  One can set ``enable-remote-node-identity=false``
+    to retain the Cilium 1.6.x behavior.  However, this is not ideal, as it means there is
+    no way to prevent communication between host-networking pods and Cilium-managed pods,
+    since all such connectivity is allowed automatically because it is from the ``host`` identity.
+
+    The other option is to keep ``enable-remote-node-identity=true`` and
+    create policy rules that explicitly whitelist connections between
+    the ``remote-host`` identity and pods that should be reachable from host-networking pods
+    or other processes that may be running on a remote Kubernetes worker node.   An example of
+    such a rule is:
+
+
+    .. parsed-literal::
+
+      apiVersion: "cilium.io/v2"
+      kind: CiliumNetworkPolicy
+      metadata:
+        name: "allow-from-remote-nodes"
+      spec:
+        endpointSelector:
+          matchLabels:
+            app: myapp
+        ingress:
+        - fromEntities:
+          - remote-node
+
 
   * ``enable-well-known-identities`` has been added to control the
     initialization of the well-known identities. Well-known identities have
@@ -629,22 +707,6 @@ New ConfigMap Options
     disabling this option if you are not using the etcd operator respectively
     managed etcd mode to reduce the number of policy identities whitelisted for
     each endpoint.
-
-  * ``enable-remote-node-identity`` has been added to enable a new identity
-    for remote cluster nodes. This allows to treat local and remote cluster
-    nodes differently from a policy perspective. The option is enabled by
-    default for new deployments when generated via Helm. The option is disabled
-    for existing cluster to avoid breaking compatibility in case a cluster is
-    using policy rules allowing from host which expect to allow traffic from
-    all cluster nodes.
-
-    Unless you have policy rules allowing from host which expect to allow
-    traffic from all cluster nodes instead of just the local node, it is a good
-    idea to enable this option as you upgrade as it improves the default
-    security posture of your cluster. If you have policy rules matching on host
-    with the intent of allow from all cluster nodes, it is recommended to
-    modify those policy rules to explicitly allow the entity ``remote-node``
-    and then enable this flag as you upgrade.
 
   * ``kube-proxy-replacement`` has been added to control which features should
     be enabled for the kube-proxy BPF replacement. The option is set to
@@ -1130,7 +1192,7 @@ labels.
 
 The steps below assume a stable cluster with no new identities created during
 the rollout. Once a cilium using CRD-backed identities is running, it may begin
-allocating identities in a way that conflicts with older ones in the kvstore. 
+allocating identities in a way that conflicts with older ones in the kvstore.
 
 The cilium preflight manifest requires etcd support and can be built with:
 
@@ -1192,7 +1254,7 @@ Example migration
 
 Clearing CRD identities
 ~~~~~~~~~~~~~~~~~~~~~~~
- 
+
 If a migration has gone wrong, it possible to start with a clean slate. Ensure that no cilium instances are running with identity-allocation-mode crd and execute:
 
 .. code-block:: shell-session
