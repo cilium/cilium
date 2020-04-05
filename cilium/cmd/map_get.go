@@ -30,7 +30,7 @@ import (
 // mapGetCmd represents the map_get command
 var mapGetCmd = &cobra.Command{
 	Use:     "get <name>",
-	Short:   "Display BPF map information",
+	Short:   "Display cached content of given BPF map",
 	Example: "cilium map get cilium_ipcache",
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
