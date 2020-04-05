@@ -29,8 +29,8 @@ Installation
    k8s-installers
    cni-chaining
 
-Security Tutorials
-------------------
+Network Policy Security Tutorials
+---------------------------------
 
 .. toctree::
    :maxdepth: 1
