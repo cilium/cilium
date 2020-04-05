@@ -21,7 +21,7 @@ import (
 // mapCmd represents the map command
 var mapCmd = &cobra.Command{
 	Use:   "map",
-	Short: "Access BPF maps",
+	Short: "Access userspace cached content of BPF maps",
 }
 
 func init() {
