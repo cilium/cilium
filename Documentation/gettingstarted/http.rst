@@ -6,9 +6,9 @@
 
 .. _gs_http:
 
-********************************
-HTTP/REST API call authorization
-********************************
+************************************************
+Identity-Aware and HTTP-Aware Policy Enforcement
+************************************************
 
 .. include:: gsg_requirements.rst
 
