@@ -158,6 +158,7 @@ amd
 analytics
 api
 apiKeys
+apiVersion
 apiserver
 arithmetics
 asm
@@ -271,6 +272,7 @@ fqdn
 fromCIDR
 fromCIDRSet
 fromEndpoints
+fromEntities
 frontend
 fs
 fwmark
@@ -381,6 +383,7 @@ loopback
 luke
 lwt
 macOS
+matchLabels
 matchPattern
 mc
 mediabot
@@ -401,6 +404,7 @@ multicore
 multinode
 musl
 myCA
+myapp
 mysql
 namespace
 namespaced
