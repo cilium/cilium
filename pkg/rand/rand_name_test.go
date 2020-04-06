@@ -14,7 +14,7 @@
 
 // +build !privileged_tests
 
-package testutils
+package rand
 
 import (
 	"strings"
@@ -27,11 +27,11 @@ func Test(t *testing.T) {
 	TestingT(t)
 }
 
-type TestUtilsSuite struct{}
+type RandSuite struct{}
 
-var _ = Suite(&TestUtilsSuite{})
+var _ = Suite(&RandSuite{})
 
-func (s *TestUtilsSuite) TestRandomRune(c *C) {
+func (s *RandSuite) TestRandomRune(c *C) {
 	c.Assert(len(RandomRune()), Equals, 12)
 
 	c.Assert(len(RandomRuneWithLen(12)), Equals, 12)

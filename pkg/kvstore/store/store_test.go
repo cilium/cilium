@@ -27,7 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/rand"
 
 	. "gopkg.in/check.v1"
 )
@@ -142,19 +142,19 @@ func (s *StoreSuite) TestStoreCreation(c *C) {
 	c.Assert(store, IsNil)
 
 	// Missing KeyCreator must result in error
-	store, err = JoinSharedStore(Configuration{Prefix: testutils.RandomRune()})
+	store, err = JoinSharedStore(Configuration{Prefix: rand.RandomRune()})
 	c.Assert(err, ErrorMatches, "KeyCreator must be specified")
 	c.Assert(store, IsNil)
 
 	// Basic creation should result in default values
-	store, err = JoinSharedStore(Configuration{Prefix: testutils.RandomRune(), KeyCreator: newTestType})
+	store, err = JoinSharedStore(Configuration{Prefix: rand.RandomRune(), KeyCreator: newTestType})
 	c.Assert(err, IsNil)
 	c.Assert(store, Not(IsNil))
 	c.Assert(store.conf.SynchronizationInterval, Equals, option.Config.KVstorePeriodicSync)
 	store.Close(context.TODO())
 
 	// Test with kvstore client specified
-	store, err = JoinSharedStore(Configuration{Prefix: testutils.RandomRune(), KeyCreator: newTestType, Backend: kvstore.Client()})
+	store, err = JoinSharedStore(Configuration{Prefix: rand.RandomRune(), KeyCreator: newTestType, Backend: kvstore.Client()})
 	c.Assert(err, IsNil)
 	c.Assert(store, Not(IsNil))
 	c.Assert(store.conf.SynchronizationInterval, Equals, option.Config.KVstorePeriodicSync)
@@ -178,7 +178,7 @@ func expect(check func() bool) error {
 
 func (s *StoreSuite) TestStoreOperations(c *C) {
 	// Basic creation should result in default values
-	store, err := JoinSharedStore(Configuration{Prefix: testutils.RandomRune(), KeyCreator: newTestType, Observer: &observer{}})
+	store, err := JoinSharedStore(Configuration{Prefix: rand.RandomRune(), KeyCreator: newTestType, Observer: &observer{}})
 	c.Assert(err, IsNil)
 	c.Assert(store, Not(IsNil))
 	defer store.Close(context.TODO())
@@ -221,7 +221,7 @@ func (s *StoreSuite) TestStoreOperations(c *C) {
 func (s *StoreSuite) TestStorePeriodicSync(c *C) {
 	// Create a store with a very short periodic sync interval
 	store, err := JoinSharedStore(Configuration{
-		Prefix:                  testutils.RandomRune(),
+		Prefix:                  rand.RandomRune(),
 		KeyCreator:              newTestType,
 		SynchronizationInterval: 10 * time.Millisecond,
 		Observer:                &observer{},
@@ -250,7 +250,7 @@ func (s *StoreSuite) TestStorePeriodicSync(c *C) {
 
 func (s *StoreSuite) TestStoreLocalKeyProtection(c *C) {
 	store, err := JoinSharedStore(Configuration{
-		Prefix:                  testutils.RandomRune(),
+		Prefix:                  rand.RandomRune(),
 		KeyCreator:              newTestType,
 		SynchronizationInterval: time.Hour, // ensure that periodic sync does not interfer
 		Observer:                &observer{},
@@ -302,12 +302,12 @@ func setupStoreCollaboration(c *C, storePrefix, keyPrefix string) *SharedStore {
 }
 
 func (s *StoreSuite) TestStoreCollaboration(c *C) {
-	storePrefix := testutils.RandomRune()
+	storePrefix := rand.RandomRune()
 
-	collab1 := setupStoreCollaboration(c, storePrefix, testutils.RandomRune())
+	collab1 := setupStoreCollaboration(c, storePrefix, rand.RandomRune())
 	defer collab1.Close(context.TODO())
 
-	collab2 := setupStoreCollaboration(c, storePrefix, testutils.RandomRune())
+	collab2 := setupStoreCollaboration(c, storePrefix, rand.RandomRune())
 	defer collab2.Close(context.TODO())
 
 	c.Assert(expect(func() bool {
