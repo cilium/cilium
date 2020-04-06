@@ -28,6 +28,8 @@ contribute to Cilium:
 +--------------------------------------------------------------+-----------------------------+--------------------------------------------------+
 | `go <https://golang.org/dl/>`_                               | |GO_RELEASE|                | N/A (OS-specific)                                |
 +--------------------------------------------------------------+-----------------------------+--------------------------------------------------+
+| `helm <https://github.com/helm/helm/releases>`_              | |HELM_VERSION|              | N/A (OS-specific)                                |
++----------------------------------------------------------------------------------+--------------------------+---------------------------------+
 + `ginkgo <https://github.com/onsi/ginkgo>`__                  | >= 1.4.0                    | ``go get -u github.com/onsi/ginkgo/ginkgo``      |
 +--------------------------------------------------------------+-----------------------------+--------------------------------------------------+
 + `gomega <https://github.com/onsi/gomega>`_                   | >= 1.2.0                    | ``go get -u github.com/onsi/gomega``             |
@@ -113,7 +115,7 @@ brought up by vagrant:
 * ``MAKECLEAN=1``: Execute ``make clean`` before building cilium in the VM.
 
 If you want to start the VM with cilium enabled with ``containerd``, with
-kubernetes installed and plus a worker, run:
+kubernetes installed and plus a worker, run:+----------------------------------------------------------------------------------+--------------------------+---------------------------------+
 
 ::
 

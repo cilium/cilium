@@ -72,6 +72,9 @@ versionwarning_body_selector = "div.document"
 
 # The version of Go used to compile Cilium
 go_release = open("../GO_VERSION", "r").read().strip()
+helm_version = re.search(
+    'HELM_VERSION\?=(\d.\d.\d)',
+     open("../Makefile.defs", "r").read()).group(1)
 
 # The image tag for Cilium docker images
 image_tag = 'v' + release
@@ -121,7 +124,9 @@ rst_epilog = """
 .. |CHART_RELEASE| replace:: \{h}
 .. |GO_RELEASE| replace:: \{g}
 .. |IMAGE_TAG| replace:: \{i}
-""".format(s=scm_web, b=branch, a=archive_name, f=archive_filename, l=archive_link, c=current_release, n=next_release, h=chart_release, g=go_release, i=image_tag)
+.. |HELM_VERSION| replace:: \{hv}
+""".format(s=scm_web, b=branch, a=archive_name, f=archive_filename, l=archive_link, c=current_release, n=next_release,
+           h=chart_release, g=go_release, i=image_tag, hv=helm_version)
 
 extlinks = {
     'git-tree': (scm_web + "/%s", ''),
