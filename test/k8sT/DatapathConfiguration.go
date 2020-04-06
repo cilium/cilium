@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/cilium/cilium/test/config"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
@@ -73,7 +74,12 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"Service is deleted")
 		}
 
-		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		blacklist := helpers.GetBadLogMessages()
+		if strings.Contains(CurrentGinkgoTestDescription().TestText, "sockops") {
+			delete(blacklist, helpers.ClangErrorsMsg)
+			delete(blacklist, helpers.ClangErrorMsg)
+		}
+		kubectl.ValidateListOfErrorsInLogs(CurrentGinkgoTestDescription().Duration, blacklist)
 	})
 
 	deployNetperf := func() {

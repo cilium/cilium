@@ -213,6 +213,8 @@ const (
 	emptyBPFInitArg   = "empty argument passed to bpf/init.sh"       // from https://github.com/cilium/cilium/issues/10228
 	RemovingMapMsg    = "Removing map to allow for property upgrade" // from https://github.com/cilium/cilium/pull/10626
 	logBufferMessage  = "Log buffer too small to dump verifier log"  // from https://github.com/cilium/cilium/issues/10517
+	ClangErrorsMsg    = " errors generated."                         // from https://github.com/cilium/cilium/issues/10857
+	ClangErrorMsg     = "1 error generated."                         // from https://github.com/cilium/cilium/issues/10857
 
 	// HelmTemplate is the location of the Helm templates to install Cilium
 	HelmTemplate = "../install/kubernetes/cilium"
@@ -268,6 +270,8 @@ var badLogMessages = map[string][]string{
 	emptyBPFInitArg:   nil,
 	RemovingMapMsg:    nil,
 	logBufferMessage:  nil,
+	ClangErrorsMsg:    nil,
+	ClangErrorMsg:     nil,
 }
 
 var ciliumCLICommands = map[string]string{
