@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package cidr
 
 import (
 	"fmt"
+	"math"
 	"net"
 )
 
@@ -47,6 +48,12 @@ func (n *CIDR) DeepCopy() *CIDR {
 	copy(out.IP, n.IP)
 	copy(out.Mask, n.Mask)
 	return out
+}
+
+// AvailableIPs returns the number of IPs available in a CIDR
+func (n *CIDR) AvailableIPs() int {
+	ones, bits := n.Mask.Size()
+	return int(math.Pow(2.0, float64(bits-ones)))
 }
 
 // ParseCIDR parses the CIDR string using net.ParseCIDR
