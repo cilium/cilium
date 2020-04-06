@@ -15,6 +15,8 @@
 package types
 
 import (
+	"strings"
+
 	"github.com/cilium/cilium/pkg/ipam/types"
 )
 
@@ -67,6 +69,11 @@ type AzureInterface struct {
 	// +optional
 	ID string `json:"id,omitempty"`
 
+	// Name is the name of the interface
+	//
+	// +optional
+	Name string `json:"name,omitempty"`
+
 	// MAC is the mac address
 	//
 	// +optional
@@ -85,11 +92,62 @@ type AzureInterface struct {
 
 	// SecurityGroup is the security group associated with the interface
 	SecurityGroup string `json:"security-group,omitempty"`
+
+	// vmssName is the name of the virtual machine scale set. This field is
+	// set by extractIDs()
+	vmssName string
+
+	// vmID is the ID of the virtual machine
+	vmID string
+
+	// resourceGroup is the resource group the interface belongs to
+	resourceGroup string
 }
 
 // InterfaceID returns the identifier of the interface
 func (a *AzureInterface) InterfaceID() string {
 	return a.ID
+}
+
+func (a *AzureInterface) extractIDs() {
+	switch {
+	// //subscriptions/xxx/resourceGroups/yyy/providers/Microsoft.Compute/virtualMachineScaleSets/ssss/virtualMachines/vvv/networkInterfaces/iii
+	case strings.Contains(a.ID, "virtualMachineScaleSets"):
+		segs := strings.Split(a.ID, "/")
+		if len(segs) >= 5 {
+			a.resourceGroup = segs[4]
+		}
+		if len(segs) >= 9 {
+			a.vmssName = segs[8]
+		}
+		if len(segs) >= 11 {
+			a.vmID = segs[10]
+		}
+	}
+}
+
+// ResourceGroup returns the resource group the interface belongs to
+func (a *AzureInterface) ResourceGroup() string {
+	if a.resourceGroup == "" {
+		a.extractIDs()
+	}
+	return a.resourceGroup
+}
+
+// VMScaleSetName returns the VM scale set name the interface belongs to
+func (a *AzureInterface) VMScaleSetName() string {
+	if a.vmssName == "" {
+		a.extractIDs()
+	}
+	return a.vmssName
+}
+
+// VMID returns the VM ID the interface belongs to
+func (a *AzureInterface) VMID() string {
+	if a.vmID == "" {
+		a.extractIDs()
+	}
+	return a.vmID
 }
 
 // ForeachAddress iterates over all addresses and calls fn

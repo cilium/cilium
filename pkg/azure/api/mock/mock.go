@@ -25,6 +25,7 @@ import (
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/lock"
 
+	"github.com/cilium/ipam/service/ipallocator"
 	"golang.org/x/time/rate"
 )
 
@@ -39,9 +40,14 @@ const (
 	MaxOperation
 )
 
+type subnet struct {
+	subnet    *ipamTypes.Subnet
+	allocator *ipallocator.Range
+}
+
 type API struct {
 	mutex     lock.RWMutex
-	subnets   map[string]*ipamTypes.Subnet
+	subnets   map[string]*subnet
 	instances *ipamTypes.InstanceMap
 	vnets     map[string]*ipamTypes.VirtualNetwork
 	errors    map[Operation]error
@@ -52,7 +58,7 @@ type API struct {
 func NewAPI(subnets []*ipamTypes.Subnet, vnets []*ipamTypes.VirtualNetwork) *API {
 	api := &API{
 		instances: ipamTypes.NewInstanceMap(),
-		subnets:   map[string]*ipamTypes.Subnet{},
+		subnets:   map[string]*subnet{},
 		vnets:     map[string]*ipamTypes.VirtualNetwork{},
 		errors:    map[Operation]error{},
 		delaySim:  helpers.NewDelaySimulator(),
@@ -69,9 +75,18 @@ func NewAPI(subnets []*ipamTypes.Subnet, vnets []*ipamTypes.VirtualNetwork) *API
 
 func (a *API) UpdateSubnets(subnets []*ipamTypes.Subnet) {
 	a.mutex.Lock()
-	a.subnets = map[string]*ipamTypes.Subnet{}
+	a.subnets = map[string]*subnet{}
 	for _, s := range subnets {
-		a.subnets[s.ID] = s.DeepCopy()
+		_, cidr, _ := net.ParseCIDR(s.CIDR.String())
+		cidrRange, err := ipallocator.NewCIDRRange(cidr)
+		if err != nil {
+			panic(err)
+		}
+
+		a.subnets[s.ID] = &subnet{
+			subnet:    s.DeepCopy(),
+			allocator: cidrRange,
+		}
 	}
 	a.mutex.Unlock()
 }
@@ -150,7 +165,7 @@ func (a *API) GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetworkMa
 	subnets := ipamTypes.SubnetMap{}
 
 	for _, s := range a.subnets {
-		subnets[s.ID] = s.DeepCopy()
+		subnets[s.subnet.ID] = s.subnet.DeepCopy()
 	}
 
 	for _, v := range a.vnets {
@@ -160,7 +175,7 @@ func (a *API) GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetworkMa
 	return vnets, subnets, nil
 }
 
-func (a *API) AssignPrivateIpAddresses(ctx context.Context, subnetID, interfaceID string, ips []net.IP) error {
+func (a *API) AssignPrivateIpAddresses(ctx context.Context, vmName, vmssName, subnetID, interfaceName string, addresses int) error {
 	a.rateLimit()
 	a.delaySim.Delay(AssignPrivateIpAddresses)
 
@@ -173,21 +188,30 @@ func (a *API) AssignPrivateIpAddresses(ctx context.Context, subnetID, interfaceI
 
 	foundInterface := false
 
-	err := a.instances.ForeachInterface("", func(instanceID, id string, iface ipamTypes.InterfaceRevision) error {
+	err := a.instances.ForeachInterface("", func(id, _ string, iface ipamTypes.InterfaceRevision) error {
 		intf, ok := iface.Resource.(*types.AzureInterface)
 		if !ok {
 			return fmt.Errorf("invalid interface object")
 		}
 
-		if id != interfaceID {
+		if intf.Name != interfaceName || intf.VMID() != vmName {
 			return nil
 		}
 
-		if len(intf.Addresses)+len(ips) > types.InterfaceAddressLimit {
+		if len(intf.Addresses)+addresses > types.InterfaceAddressLimit {
 			return fmt.Errorf("exceeded interface limit")
 		}
 
-		for _, ip := range ips {
+		s, ok := a.subnets[subnetID]
+		if !ok {
+			return fmt.Errorf("subnet %s does not exist", subnetID)
+		}
+
+		for i := 0; i < addresses; i++ {
+			ip, err := s.allocator.AllocateNext()
+			if err != nil {
+				panic("Unable to allocate IP from allocator")
+			}
 			intf.Addresses = append(intf.Addresses, types.AzureAddress{
 				IP:     ip.String(),
 				Subnet: subnetID,
@@ -203,7 +227,7 @@ func (a *API) AssignPrivateIpAddresses(ctx context.Context, subnetID, interfaceI
 	}
 
 	if !foundInterface {
-		return fmt.Errorf("interface %s not found", interfaceID)
+		return fmt.Errorf("interface %s not found", interfaceName)
 	}
 
 	return nil
