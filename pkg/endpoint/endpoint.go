@@ -164,6 +164,9 @@ type Endpoint struct {
 	// IPv4 is the IPv4 address of the endpoint
 	IPv4 addressing.CiliumIPv4
 
+	// ipv4Gateway is the IPv4 gateway of the endpoint
+	ipv4Gateway net.IP
+
 	// nodeMAC is the MAC of the node (agent). The MAC is different for every endpoint.
 	nodeMAC mac.MAC
 
@@ -565,6 +568,11 @@ func (e *Endpoint) IPv4Address() addressing.CiliumIPv4 {
 // IPv6Address returns the IPv6 address of the endpoint
 func (e *Endpoint) IPv6Address() addressing.CiliumIPv6 {
 	return e.IPv6
+}
+
+// GetIPv4Gateway returns the IPv4 gateway of the endpoint
+func (e *Endpoint) GetIPv4Gateway() net.IP {
+	return e.ipv4Gateway
 }
 
 // GetNodeMAC returns the MAC address of the node from this endpoint's perspective.

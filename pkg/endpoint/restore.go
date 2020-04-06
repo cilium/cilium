@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -330,6 +331,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		LXCMAC:                e.mac,
 		IPv6:                  e.IPv6,
 		IPv4:                  e.IPv4,
+		IPv4Gateway:           e.ipv4Gateway,
 		NodeMAC:               e.nodeMAC,
 		SecurityIdentity:      e.SecurityIdentity,
 		Options:               e.Options,
@@ -396,6 +398,9 @@ type serializableEndpoint struct {
 
 	// IPv4 is the IPv4 address of the endpoint
 	IPv4 addressing.CiliumIPv4
+
+	// IPv4Gateway is the IPv4 gateway of the endpoint
+	IPv4Gateway net.IP
 
 	// nodeMAC is the MAC of the node (agent). The MAC is different for every endpoint.
 	NodeMAC mac.MAC
@@ -464,6 +469,7 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.mac = r.LXCMAC
 	ep.IPv6 = r.IPv6
 	ep.IPv4 = r.IPv4
+	ep.ipv4Gateway = r.IPv4Gateway
 	ep.nodeMAC = r.NodeMAC
 	ep.SecurityIdentity = r.SecurityIdentity
 	ep.DNSHistory = r.DNSHistory

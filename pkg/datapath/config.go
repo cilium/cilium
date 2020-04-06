@@ -16,6 +16,7 @@ package datapath
 
 import (
 	"io"
+	"net"
 
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/identity"
@@ -50,6 +51,9 @@ type LoadTimeConfiguration interface {
 	IPv4Address() addressing.CiliumIPv4
 	IPv6Address() addressing.CiliumIPv6
 	GetNodeMAC() mac.MAC
+
+	// The IPv4 gateway of the endpoint.
+	GetIPv4Gateway() net.IP
 }
 
 // CompileTimeConfiguration provides datapath implementations a clean interface

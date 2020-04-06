@@ -17,6 +17,8 @@
 
 #define TEMPLATE_LXC_ID 0xffff
 
+#define LXC_IPV4_GATEWAY_UNKNOWN	0x030200c0	/* 192.0.2.3 */
+
 #ifndef DISABLE_SIP_VERIFICATION
 static __always_inline
 int is_valid_lxc_src_ip(struct ipv6hdr *ip6 __maybe_unused)

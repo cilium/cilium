@@ -16,6 +16,7 @@ package endpoint
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/identity"
@@ -44,6 +45,7 @@ type epInfoCache struct {
 	identity                               identity.NumericIdentity
 	mac                                    mac.MAC
 	ipv4                                   addressing.CiliumIPv4
+	ipv4Gateway                            net.IP
 	ipv6                                   addressing.CiliumIPv6
 	conntrackLocal                         bool
 	requireARPPassthrough                  bool
@@ -79,6 +81,7 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		identity:               e.GetIdentity(),
 		mac:                    e.GetNodeMAC(),
 		ipv4:                   e.IPv4Address(),
+		ipv4Gateway:            e.GetIPv4Gateway(),
 		ipv6:                   e.IPv6Address(),
 		conntrackLocal:         e.ConntrackLocalLocked(),
 		requireARPPassthrough:  e.RequireARPPassthrough(),
@@ -144,6 +147,11 @@ func (ep *epInfoCache) HasIpvlanDataPath() bool {
 // IPv4Address returns the cached IPv4 address for the endpoint.
 func (ep *epInfoCache) IPv4Address() addressing.CiliumIPv4 {
 	return ep.ipv4
+}
+
+// GetIPv4Gateway returns the cached IPv4 gateway for the endpoint.
+func (ep *epInfoCache) GetIPv4Gateway() net.IP {
+	return ep.ipv4Gateway
 }
 
 // IPv6Address returns the cached IPv6 address for the endpoint.

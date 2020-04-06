@@ -15,6 +15,8 @@
 package testutils
 
 import (
+	"net"
+
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -81,6 +83,11 @@ func (e *TestEndpoint) IPv4Address() addressing.CiliumIPv4 {
 	addr, _ := addressing.NewCiliumIPv4("192.0.2.3")
 	return addr
 }
+
+func (e *TestEndpoint) GetIPv4Gateway() net.IP {
+	return net.IPv4(0x0a, 0x5f, 0xff, 0xff)
+}
+
 func (e *TestEndpoint) IPv6Address() addressing.CiliumIPv6 {
 	return e.IPv6
 }

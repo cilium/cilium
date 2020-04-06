@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
@@ -108,6 +109,7 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 				return nil, err
 			}
 			ep.IPv4 = ip4
+			ep.ipv4Gateway = node.GetInternalIPv4()
 		}
 	}
 

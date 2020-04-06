@@ -16,6 +16,7 @@ package loader
 
 import (
 	"fmt"
+	"net"
 	"reflect"
 
 	"github.com/cilium/cilium/pkg/addressing"
@@ -111,6 +112,17 @@ func (t *templateCfg) GetNodeMAC() mac.MAC {
 // a nonsense address that should typically not be routable.
 func (t *templateCfg) IPv4Address() addressing.CiliumIPv4 {
 	return addressing.CiliumIPv4(templateIPv4)
+}
+
+// GetIPv4Gateway always returns an IP in the documentation prefix (RFC5737) as
+// a nonsense address that should typically not be routable. Additionally, the
+// IPv4 gateway of an endpoint is not known on endpoints created with older
+// versions of cilium so the value from this template might not always be
+// replaced. Thus the value returned here also has the special meaning of
+// "gateway unknown" and must be in sync with LXC_IPV4_GATEWAY_UNKNOWN at
+// bpf/lib/lxc.h.
+func (t *templateCfg) GetIPv4Gateway() net.IP {
+	return templateIPv4
 }
 
 // IPv6Address returns an IP in the documentation prefix (RFC3849) to ensure
@@ -212,6 +224,9 @@ func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint32 {
 	}
 	if ipv4 := ep.IPv4Address(); ipv4 != nil {
 		result["LXC_IPV4"] = byteorder.HostSliceToNetwork(ipv4, reflect.Uint32).(uint32)
+	}
+	if ipv4Gw := ep.GetIPv4Gateway(); ipv4Gw != nil {
+		result["LXC_IPV4_GATEWAY"] = byteorder.HostSliceToNetwork(ipv4Gw, reflect.Uint32).(uint32)
 	}
 
 	mac := ep.GetNodeMAC()

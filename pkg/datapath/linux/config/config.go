@@ -434,6 +434,11 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 		fmt.Fprint(fw, defineUint32("LXC_ID", uint32(e.GetID())))
 	}
 
+	// The IPv4 gateway of the endpoint.
+	// While IPV4_GATEWAY can change when cilium agent reloads, LXC_IPV4_GATEWAY
+	// is fixed with the value at the moment the endpoint was created.
+	fmt.Fprintf(fw, defineIPv4("LXC_IPV4_GATEWAY", e.GetIPv4Gateway()))
+
 	fmt.Fprint(fw, defineMAC("NODE_MAC", e.GetNodeMAC()))
 
 	secID := e.GetIdentity().Uint32()
