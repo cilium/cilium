@@ -24,7 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/rand"
 
 	. "gopkg.in/check.v1"
 )
@@ -205,7 +205,7 @@ func (t TestAllocatorKey) PutKeyFromMap(m map[string]string) AllocatorKey {
 }
 
 func randomTestName() string {
-	return testutils.RandomRuneWithPrefix(testPrefix, 12)
+	return rand.RandomRuneWithPrefix(testPrefix, 12)
 }
 
 func (s *AllocatorSuite) TestSelectID(c *C) {

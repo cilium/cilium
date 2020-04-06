@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/allocator"
 
@@ -63,7 +64,7 @@ var (
 func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	kvstore.SetupDummy("etcd")
 
-	s.randomName = testutils.RandomRune()
+	s.randomName = rand.RandomRune()
 
 	kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName)
 	s.svcCache = k8s.NewServiceCache(fakeDatapath.NewNodeAddressing())
