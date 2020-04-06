@@ -1431,9 +1431,9 @@ type DaemonConfig struct {
 	// in the BPF NAT table
 	NATMapEntriesGlobal int
 
-	// PolicyMapMaxEntries is the maximum number of peer identities that an
+	// PolicyMapEntries is the maximum number of peer identities that an
 	// endpoint may allow traffic to exchange traffic with.
-	PolicyMapMaxEntries int
+	PolicyMapEntries int
 
 	// DisableCiliumEndpointCRD disables the use of CiliumEndpoint CRD
 	DisableCiliumEndpointCRD bool
@@ -2182,13 +2182,13 @@ func (c *DaemonConfig) Validate() error {
 		}
 	}
 
-	if c.PolicyMapMaxEntries < PolicyMapMin {
+	if c.PolicyMapEntries < PolicyMapMin {
 		return fmt.Errorf("specified PolicyMap max entries %d must exceed minimum %d",
-			c.PolicyMapMaxEntries, PolicyMapMin)
+			c.PolicyMapEntries, PolicyMapMin)
 	}
-	if c.PolicyMapMaxEntries > PolicyMapMax {
+	if c.PolicyMapEntries > PolicyMapMax {
 		return fmt.Errorf("specified PolicyMap max entries %d must not exceed maximum %d",
-			c.PolicyMapMaxEntries, PolicyMapMax)
+			c.PolicyMapEntries, PolicyMapMax)
 	}
 
 	if c.FragmentsMapEntries < FragmentsMapMin {
@@ -2435,7 +2435,7 @@ func (c *DaemonConfig) Populate() {
 	c.NodesGCInterval = viper.GetDuration(NodesGCInterval)
 	c.FlannelMasterDevice = viper.GetString(FlannelMasterDevice)
 	c.FlannelUninstallOnExit = viper.GetBool(FlannelUninstallOnExit)
-	c.PolicyMapMaxEntries = viper.GetInt(PolicyMapEntriesName)
+	c.PolicyMapEntries = viper.GetInt(PolicyMapEntriesName)
 	c.PProf = viper.GetBool(PProf)
 	c.PreAllocateMaps = viper.GetBool(PreAllocateMapsName)
 	c.PrependIptablesChains = viper.GetBool(PrependIptablesChainsName)

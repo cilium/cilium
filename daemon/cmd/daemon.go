@@ -273,7 +273,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny,
 		option.Config.EnableIPv4, option.Config.EnableIPv6,
 	)
-	policymap.InitMapInfo(option.Config.PolicyMapMaxEntries)
+	policymap.InitMapInfo(option.Config.PolicyMapEntries)
 	fragmap.InitMapInfo(option.Config.FragmentsMapEntries)
 
 	if option.Config.DryMode == false {
