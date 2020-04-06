@@ -105,6 +105,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 				}).Debug("Subnet has IPs available")
 
 				a.InterfaceID = iface.ID
+				a.Interface = interfaceObj
 				a.PoolID = poolID
 				a.AvailableForAllocation = math.IntMin(available, availableOnInterface)
 			}
@@ -117,18 +118,12 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 
 // AllocateIPs performs the Azure IP allocation operation
 func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error {
-	ips, err := n.manager.getAllocator().AllocateMany(a.PoolID, a.AvailableForAllocation)
-	if err != nil {
-		return err
+	iface, ok := a.Interface.Resource.(*types.AzureInterface)
+	if !ok {
+		return fmt.Errorf("invalid interface object")
 	}
 
-	err = n.manager.api.AssignPrivateIpAddresses(ctx, string(a.PoolID), a.InterfaceID, ips)
-	if err != nil {
-		n.manager.getAllocator().ReleaseMany(a.PoolID, ips)
-		return err
-	}
-
-	return nil
+	return n.manager.api.AssignPrivateIpAddresses(ctx, iface.VMID(), iface.VMScaleSetName(), string(a.PoolID), iface.Name, a.AvailableForAllocation)
 }
 
 // CreateInterface is called to create a new interface. This operation is

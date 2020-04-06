@@ -16,7 +16,6 @@ package ipam
 
 import (
 	"context"
-	"net"
 	"time"
 
 	"github.com/cilium/cilium/pkg/ipam"
@@ -32,7 +31,7 @@ import (
 type AzureAPI interface {
 	GetInstances(ctx context.Context) (*ipamTypes.InstanceMap, error)
 	GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetworkMap, ipamTypes.SubnetMap, error)
-	AssignPrivateIpAddresses(ctx context.Context, subnetID, interfaceID string, ips []net.IP) error
+	AssignPrivateIpAddresses(ctx context.Context, instanceID, vmssName, subnetID, interfaceName string, addresses int) error
 }
 
 // InstancesManager maintains the list of instances. It must be kept up to date

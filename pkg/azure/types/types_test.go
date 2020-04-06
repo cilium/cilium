@@ -71,3 +71,13 @@ func (e *TypesSuite) TestForeachAddresses(c *check.C) {
 	})
 	c.Assert(interfaces, check.Equals, 2)
 }
+
+func (e *TypesSuite) TestExtractIDs(c *check.C) {
+	intf := AzureInterface{
+		ID: "/subscriptions/xxx/resourceGroups/MC_aks-test_aks-test_westeurope/providers/Microsoft.Compute/virtualMachineScaleSets/aks-nodepool1-10706209-vmss/virtualMachines/3/networkInterfaces/aks-nodepool1-10706209-vmss",
+	}
+
+	c.Assert(intf.ResourceGroup(), check.Equals, "MC_aks-test_aks-test_westeurope")
+	c.Assert(intf.VMID(), check.Equals, "3")
+	c.Assert(intf.VMScaleSetName(), check.Equals, "aks-nodepool1-10706209-vmss")
+}

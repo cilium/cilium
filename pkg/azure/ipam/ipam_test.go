@@ -168,9 +168,10 @@ func (e *IPAMSuite) TestIpamPreAllocate8(c *check.C) {
 	c.Assert(instances, check.Not(check.IsNil))
 
 	m := ipamTypes.NewInstanceMap()
-	m.Update("i-1", ipamTypes.InterfaceRevision{
+	m.Update("vm1", ipamTypes.InterfaceRevision{
 		Resource: &types.AzureInterface{
-			ID:            "intf-1",
+			ID:            "/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1/networkInterfaces/vmss11",
+			Name:          "eth0",
 			SecurityGroup: "sg1",
 			Addresses: []types.AzureAddress{
 				{
@@ -191,7 +192,7 @@ func (e *IPAMSuite) TestIpamPreAllocate8(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
-	cn := newCiliumNode("node1", "i-1", preAllocate, minAllocate)
+	cn := newCiliumNode("node1", "vm1", preAllocate, minAllocate)
 	statusRevision := k8sapi.statusRevision()
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
@@ -227,9 +228,10 @@ func (e *IPAMSuite) TestIpamMinAllocate10(c *check.C) {
 	c.Assert(instances, check.Not(check.IsNil))
 
 	m := ipamTypes.NewInstanceMap()
-	m.Update("i-1", ipamTypes.InterfaceRevision{
+	m.Update("vm1", ipamTypes.InterfaceRevision{
 		Resource: &types.AzureInterface{
-			ID:            "intf-1",
+			ID:            "/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1/networkInterfaces/vmss11",
+			Name:          "eth0",
 			SecurityGroup: "sg1",
 			Addresses: []types.AzureAddress{
 				{
@@ -250,7 +252,7 @@ func (e *IPAMSuite) TestIpamMinAllocate10(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
-	cn := newCiliumNode("node1", "i-1", preAllocate, minAllocate)
+	cn := newCiliumNode("node1", "vm1", preAllocate, minAllocate)
 	statusRevision := k8sapi.statusRevision()
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
@@ -302,9 +304,10 @@ func (e *IPAMSuite) TestIpamManyNodes(c *check.C) {
 	allInstances := ipamTypes.NewInstanceMap()
 
 	for i := range state {
-		allInstances.Update(fmt.Sprintf("i-%d", i), ipamTypes.InterfaceRevision{
+		allInstances.Update(fmt.Sprintf("vm%d", i), ipamTypes.InterfaceRevision{
 			Resource: &types.AzureInterface{
-				ID:            fmt.Sprintf("intf-%d", i),
+				ID:            fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d/networkInterfaces/vmss11", i),
+				Name:          "eth0",
 				SecurityGroup: "sg1",
 				Addresses:     []types.AzureAddress{},
 				State:         types.StateSucceeded,
@@ -317,7 +320,7 @@ func (e *IPAMSuite) TestIpamManyNodes(c *check.C) {
 	instances.Resync(context.TODO())
 
 	for i := range state {
-		state[i] = &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("i-%d", i)}
+		state[i] = &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("vm%d", i)}
 		state[i].cn = newCiliumNode(state[i].name, state[i].instanceName, 1, minAllocate)
 		mngr.Update(state[i].cn)
 	}
@@ -377,9 +380,10 @@ func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLi
 	c.ResetTimer()
 
 	for i := range state {
-		allInstances.Update(fmt.Sprintf("i-%d", i), ipamTypes.InterfaceRevision{
+		allInstances.Update(fmt.Sprintf("vm%d", i), ipamTypes.InterfaceRevision{
 			Resource: &types.AzureInterface{
-				ID:            fmt.Sprintf("intf-%d", i),
+				ID:            fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d/networkInterfaces/vmss11", i),
+				Name:          "eth0",
 				SecurityGroup: "sg1",
 				Addresses:     []types.AzureAddress{},
 				State:         types.StateSucceeded,
@@ -391,7 +395,7 @@ func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLi
 	instances.Resync(context.Background())
 
 	for i := range state {
-		state[i] = &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("i-%d", i)}
+		state[i] = &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("vm%d", i)}
 		state[i].cn = newCiliumNode(state[i].name, state[i].instanceName, 1, 10)
 		mngr.Update(state[i].cn)
 	}

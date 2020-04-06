@@ -6,6 +6,7 @@ go 1.14
 require (
 	github.com/Azure/azure-sdk-for-go v38.0.0+incompatible
 	github.com/Azure/go-autorest/autorest/azure/auth v0.4.2
+	github.com/Azure/go-autorest/autorest/to v0.3.0
 	github.com/asaskevich/govalidator v0.0.0-20200108200545-475eaeb16496
 	github.com/aws/aws-sdk-go-v2 v0.18.0
 	github.com/blang/semver v3.5.0+incompatible
