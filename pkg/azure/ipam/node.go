@@ -97,7 +97,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 				}
 			}
 
-			poolID, available := n.manager.getAllocator().FirstPoolWithAvailableQuota(preferredPoolIDs)
+			poolID, available := n.manager.FindSubnetForAllocation(preferredPoolIDs)
 			if poolID != ipamTypes.PoolNotExists {
 				scopedLog.WithFields(logrus.Fields{
 					"subnetID":           poolID,

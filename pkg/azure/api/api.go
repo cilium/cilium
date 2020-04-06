@@ -247,6 +247,9 @@ func parseSubnet(subnet *network.Subnet) (s *ipamTypes.Subnet) {
 			return nil
 		}
 		s.CIDR = c
+		if subnet.IPConfigurations != nil {
+			s.AvailableAddresses = c.AvailableIPs() - len(*subnet.IPConfigurations)
+		}
 	}
 
 	return

@@ -18,7 +18,6 @@ package ipam
 
 import (
 	"context"
-	"math"
 
 	apimock "github.com/cilium/cilium/pkg/azure/api/mock"
 	"github.com/cilium/cilium/pkg/azure/types"
@@ -175,48 +174,19 @@ func (e *IPAMSuite) TestGetVpcsAndSubnets(c *check.C) {
 	mngr := NewInstancesManager(api)
 	c.Assert(mngr, check.Not(check.IsNil))
 
-	c.Assert(mngr.getAllocator().PoolExists("subnet-1"), check.Equals, false)
-	c.Assert(mngr.getAllocator().PoolExists("subnet-2"), check.Equals, false)
-	c.Assert(mngr.getAllocator().PoolExists("subnet-3"), check.Equals, false)
+	c.Assert(mngr.subnets["subnet-1"], check.IsNil)
+	c.Assert(mngr.subnets["subnet-2"], check.IsNil)
+	c.Assert(mngr.subnets["subnet-3"], check.IsNil)
 
 	iteration1(api, mngr)
 
-	c.Assert(mngr.getAllocator().PoolExists("subnet-1"), check.Equals, true)
-	c.Assert(mngr.getAllocator().PoolExists("subnet-2"), check.Equals, true)
-	c.Assert(mngr.getAllocator().PoolExists("subnet-3"), check.Equals, false)
+	c.Assert(mngr.subnets["subnet-1"], check.Not(check.IsNil))
+	c.Assert(mngr.subnets["subnet-2"], check.Not(check.IsNil))
+	c.Assert(mngr.subnets["subnet-3"], check.IsNil)
 
 	iteration2(api, mngr)
 
-	c.Assert(mngr.getAllocator().PoolExists("subnet-1"), check.Equals, true)
-	c.Assert(mngr.getAllocator().PoolExists("subnet-2"), check.Equals, true)
-	c.Assert(mngr.getAllocator().PoolExists("subnet-3"), check.Equals, true)
-}
-
-func (e *IPAMSuite) TestPoolQuota(c *check.C) {
-	api := apimock.NewAPI(subnets, vnets)
-	c.Assert(api, check.Not(check.IsNil))
-
-	mngr := NewInstancesManager(api)
-	c.Assert(mngr, check.Not(check.IsNil))
-
-	quota := mngr.GetPoolQuota()
-	c.Assert(len(quota), check.Equals, 0)
-
-	iteration1(api, mngr)
-	quota = mngr.GetPoolQuota()
-	c.Assert(len(quota), check.Equals, 2)
-	// 2 IPs should be allocated
-	c.Assert(quota["subnet-1"].AvailableIPs, check.Equals, int(math.Pow(2.0, 16.0)-4))
-	// No IPs should be allocated
-	c.Assert(quota["subnet-2"].AvailableIPs, check.Equals, int(math.Pow(2.0, 16.0)-2))
-
-	iteration2(api, mngr)
-	quota = mngr.GetPoolQuota()
-	c.Assert(len(quota), check.Equals, 3)
-	// 2 IPs should be allocated
-	c.Assert(quota["subnet-1"].AvailableIPs, check.Equals, int(math.Pow(2.0, 16.0)-4))
-	// No IP should be allocated
-	c.Assert(quota["subnet-2"].AvailableIPs, check.Equals, int(math.Pow(2.0, 16.0)-2))
-	// 1 IP should be allocated
-	c.Assert(quota["subnet-3"].AvailableIPs, check.Equals, int(math.Pow(2.0, 16.0)-3))
+	c.Assert(mngr.subnets["subnet-1"], check.Not(check.IsNil))
+	c.Assert(mngr.subnets["subnet-2"], check.Not(check.IsNil))
+	c.Assert(mngr.subnets["subnet-3"], check.Not(check.IsNil))
 }

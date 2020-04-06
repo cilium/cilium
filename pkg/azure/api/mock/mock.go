@@ -165,7 +165,9 @@ func (a *API) GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetworkMa
 	subnets := ipamTypes.SubnetMap{}
 
 	for _, s := range a.subnets {
-		subnets[s.subnet.ID] = s.subnet.DeepCopy()
+		sd := s.subnet.DeepCopy()
+		sd.AvailableAddresses = s.allocator.Free()
+		subnets[sd.ID] = sd
 	}
 
 	for _, v := range a.vnets {
