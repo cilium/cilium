@@ -1177,7 +1177,7 @@ var _ = Describe("RuntimePolicies", func() {
 			// docker network inspect bridge | jq -r '.[0]."IPAM"."Config"[0]."Gateway"'
 			res = vm.NetworkGet("bridge")
 			res.ExpectSuccess("No docker bridge available for testing egress CIDR within host")
-			filter := fmt.Sprintf(`{ [0].IPAM.Config[0].Gateway }`)
+			filter := `{ [0].IPAM.Config[0].Gateway }`
 			obj, err := res.FindResults(filter)
 			Expect(err).NotTo(HaveOccurred(), "Error occurred while finding docker bridge IP")
 			Expect(obj).To(HaveLen(1), "Unexpectedly found more than one IPAM config element for docker bridge")
@@ -1681,11 +1681,11 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 		}
 		By("Invalid Json")
 
-		invalidJSON := fmt.Sprintf(`
+		invalidJSON := `
 		[{
 			"endpointSelector": {
 				"matchLabels":{"id.httpd1":""}
-			},`)
+			},`
 		testInvalidPolicy(invalidJSON)
 	})
 
@@ -1758,7 +1758,7 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 
 		By("Importing policy that allows ingress to %q from the host and %q", httpd1Label, httpd2Label)
 
-		allowHttpd1IngressHostHttpd2 := fmt.Sprintf(`
+		allowHttpd1IngressHostHttpd2 := `
 			[{
     			"endpointSelector": {"matchLabels":{"id.httpd1":""}},
     			"ingress": [{
@@ -1767,7 +1767,7 @@ var _ = Describe("RuntimePolicyImportTests", func() {
             			{"matchLabels":{"id.httpd2":""}}
 					]
     			}]
-			}]`)
+			}]`
 
 		_, err := vm.PolicyRenderAndImport(allowHttpd1IngressHostHttpd2)
 		Expect(err).Should(BeNil(), "Error importing policy: %s", err)
@@ -1822,7 +1822,7 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 		res = vm.PolicyDelAll()
 		res.ExpectSuccess("Unable to delete all policies")
 
-		allowHttpd1IngressHttpd2 := fmt.Sprintf(`
+		allowHttpd1IngressHttpd2 := `
 			[{
     			"endpointSelector": {"matchLabels":{"id.httpd1":""}},
     			"ingress": [{
@@ -1830,7 +1830,7 @@ var _ = Describe("RuntimePolicyImportTests", func() {
             			{"matchLabels":{"id.httpd2":""}}
 					]
     			}]
-			}]`)
+			}]`
 
 		_, err = vm.PolicyRenderAndImport(allowHttpd1IngressHttpd2)
 		Expect(err).Should(BeNil(), "Error importing policy: %s", err)

@@ -15,7 +15,6 @@
 package neighborsmap
 
 import (
-	"fmt"
 	"unsafe"
 
 	"github.com/cilium/cilium/common/types"
@@ -62,13 +61,13 @@ func (k *Key6) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 func (v *Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 // String converts the key into a human readable string format.
-func (k *Key4) String() string { return fmt.Sprintf("%s", k.ipv4) }
+func (k *Key4) String() string { return k.ipv4.String() }
 
 // String converts the key into a human readable string format.
-func (k *Key6) String() string { return fmt.Sprintf("%s", k.ipv6) }
+func (k *Key6) String() string { return k.ipv6.String() }
 
 // String converts the value into a human readable string format.
-func (v *Value) String() string { return fmt.Sprintf("%s", v.macaddr) }
+func (v *Value) String() string { return v.macaddr.String() }
 
 // NewValue returns a new empty instance of the structure representing the BPF
 // map value.

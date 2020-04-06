@@ -69,7 +69,7 @@ var _ = Describe("K8sHealthTest", func() {
 	}
 
 	checkIP := func(pod, ip string) {
-		jsonpath := fmt.Sprintf("{.nodes[*].host.primary-address.ip}")
+		jsonpath := "{.nodes[*].host.primary-address.ip}"
 		ciliumCmd := fmt.Sprintf("cilium-health status -o jsonpath='%s'", jsonpath)
 
 		err := kubectl.CiliumExecUntilMatch(pod, ciliumCmd, ip)
@@ -90,7 +90,7 @@ var _ = Describe("K8sHealthTest", func() {
 		checkIP(cilium2, cilium2IP)
 
 		By("checking that `cilium-health --probe` succeeds")
-		healthCmd := fmt.Sprintf("cilium-health status --probe -o json")
+		healthCmd := "cilium-health status --probe -o json"
 		status := kubectl.CiliumExec(cilium1, healthCmd)
 		Expect(status.Output()).ShouldNot(ContainSubstring("error"))
 		status.ExpectSuccess()

@@ -84,7 +84,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		err := kubectl.WaitforPods(
 			helpers.DefaultNamespace,
-			fmt.Sprintf("-l zgroup=testapp"), helpers.HelperTimeout)
+			"-l zgroup=testapp", helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
 		_, err = kubectl.GetPodsIPs(helpers.DefaultNamespace, "zgroup=testapp")
@@ -100,7 +100,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		err := kubectl.WaitforPods(
 			helpers.DefaultNamespace,
-			fmt.Sprintf("-l zgroup=http-server"), helpers.HelperTimeout)
+			"-l zgroup=http-server", helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
 		_, err = kubectl.GetPodsIPs(helpers.DefaultNamespace, "zgroup=http-server")
@@ -113,7 +113,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		err := kubectl.WaitforPods(
 			helpers.DefaultNamespace,
-			fmt.Sprintf("-l zgroup=http-clients"), helpers.HelperTimeout)
+			"-l zgroup=http-clients", helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
 		_, err = kubectl.GetPodsIPs(helpers.DefaultNamespace, "zgroup=http-clients")

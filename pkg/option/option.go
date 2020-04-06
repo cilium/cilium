@@ -183,9 +183,9 @@ func (o *IntOptions) GetMutableModel() *models.ConfigurationMap {
 		if config != nil {
 			if config.Format == nil {
 				if v == OptionDisabled {
-					mutableCfg[k] = fmt.Sprintf("Disabled")
+					mutableCfg[k] = "Disabled"
 				} else {
-					mutableCfg[k] = fmt.Sprintf("Enabled")
+					mutableCfg[k] = "Enabled"
 				}
 			} else {
 				mutableCfg[k] = config.Format(v)

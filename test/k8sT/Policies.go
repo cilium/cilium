@@ -870,7 +870,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 				switch parser {
 				case policy.ParserTypeDNS:
-					reStr := fmt.Sprintf("Request dns from.*Forwarded DNS Query:.*")
+					reStr := "Request dns from.*Forwarded DNS Query:.*"
 					re = regexp.MustCompile(reStr)
 					curlCmd = helpers.CurlFail(resource)
 				case policy.ParserTypeHTTP:

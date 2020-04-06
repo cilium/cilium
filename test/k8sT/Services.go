@@ -645,7 +645,7 @@ var _ = Describe("K8sServicesTest", func() {
 			count := 10
 
 			pod, err := kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s2)
-			Expect(err).Should(BeNil(), fmt.Sprintf("Cannot determine cilium pod name"))
+			Expect(err).Should(BeNil(), "Cannot determine cilium pod name")
 
 			res := kubectl.CiliumExec(pod, "cilium service list | grep "+k8s2IP+":"+httpHostPortStr+" | grep HostPort")
 			Expect(res.GetStdOut()).ShouldNot(BeEmpty(), "No HostPort entry for "+k8s2IP+":"+httpHostPortStr)
@@ -828,7 +828,7 @@ var _ = Describe("K8sServicesTest", func() {
 					// Test whether DSR NAT entries are evicted by GC
 
 					pod, err := kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s2)
-					Expect(err).Should(BeNil(), fmt.Sprintf("Cannot determine cilium pod name"))
+					Expect(err).Should(BeNil(), "Cannot determine cilium pod name")
 					// "test-nodeport-k8s2" because we want to trigger SNAT with a single request:
 					// client -> k8s1 -> endpoint @ k8s2.
 					err = kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-k8s2").Unmarshal(&data)
