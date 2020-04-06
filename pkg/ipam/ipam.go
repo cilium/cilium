@@ -71,6 +71,10 @@ type Configuration interface {
 	// SetIPv4NativeRoutingCIDR is called by the IPAM module to announce
 	// the native IPv4 routing CIDR if it exists
 	SetIPv4NativeRoutingCIDR(cidr *cidr.CIDR)
+
+	// IPv4NativeRoutingCIDR is called by the IPAM module retrieve
+	// the native IPv4 routing CIDR if it exists
+	IPv4NativeRoutingCIDR() *cidr.CIDR
 }
 
 // Owner is the interface the owner of an IPAM allocator has to implement

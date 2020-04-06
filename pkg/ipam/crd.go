@@ -464,6 +464,10 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 				result.Master = eni.MAC
 				result.CIDRs = []string{eni.VPC.PrimaryCIDR}
 				result.CIDRs = append(result.CIDRs, eni.VPC.CIDRs...)
+				// Add manually configured Native Routing CIDR
+				if a.conf.IPv4NativeRoutingCIDR() != nil {
+					result.CIDRs = append(result.CIDRs, a.conf.IPv4NativeRoutingCIDR().String())
+				}
 				if eni.Subnet.CIDR != "" {
 					result.GatewayIP = deriveGatewayIP(eni)
 				}
