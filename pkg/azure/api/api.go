@@ -30,10 +30,9 @@ import (
 	"github.com/cilium/cilium/pkg/spanstat"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-07-01/compute"
-	"github.com/Azure/go-autorest/autorest/to"
-
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2019-09-01/network"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
+	"github.com/Azure/go-autorest/autorest/to"
 )
 
 const (
@@ -332,6 +331,14 @@ func (c *Client) AssignPrivateIpAddresses(ctx context.Context, instanceID, vmssN
 	ipConfigurations = append(*netIfConfig.IPConfigurations, ipConfigurations...)
 	netIfConfig.IPConfigurations = &ipConfigurations
 
-	_, err = c.vmss.Update(ctx, c.resourceGroup, vmssName, instanceID, result)
-	return err
+	future, err := c.vmss.Update(ctx, c.resourceGroup, vmssName, instanceID, result)
+	if err != nil {
+		return fmt.Errorf("unable to update virtualmachinescaleset: %s", err)
+	}
+
+	if err := future.WaitForCompletionRef(ctx, c.vmss.Client); err != nil {
+		return fmt.Errorf("error while waiting for virtualmachinescalesets.Update() to complete: %s", err)
+	}
+
+	return nil
 }
