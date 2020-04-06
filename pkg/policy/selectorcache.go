@@ -566,8 +566,10 @@ func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, identiti
 	// identities match" this selector. This has to be updated via whatever is
 	// getting the CIDR identities which correspond to this FQDNSelector. This
 	// is the primary difference here between FQDNSelector and IdentitySelector.
-	fqdnSel.updateSelections()
-	fqdnSel.notifyUsers(added, deleted) // disjoint sets, see the comment above
+	if len(added)+len(deleted) > 0 {
+		fqdnSel.updateSelections()
+		fqdnSel.notifyUsers(added, deleted) // disjoint sets, see the comment above
+	}
 }
 
 // AddFQDNSelector adds the given api.FQDNSelector in to the selector cache. If
