@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/ipam"
-	"github.com/cilium/cilium/pkg/ipam/allocator"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
@@ -40,8 +39,8 @@ type InstancesManager struct {
 	mutex     lock.RWMutex
 	instances *ipamTypes.InstanceMap
 	vnets     ipamTypes.VirtualNetworkMap
+	subnets   ipamTypes.SubnetMap
 	api       AzureAPI
-	allocator allocator.Allocator
 }
 
 // NewInstancesManager returns a new instances manager
@@ -49,15 +48,7 @@ func NewInstancesManager(api AzureAPI) *InstancesManager {
 	return &InstancesManager{
 		instances: ipamTypes.NewInstanceMap(),
 		api:       api,
-		allocator: &allocator.NoOpAllocator{},
 	}
-}
-
-func (m *InstancesManager) getAllocator() (allocator allocator.Allocator) {
-	m.mutex.RLock()
-	allocator = m.allocator
-	m.mutex.RUnlock()
-	return
 }
 
 // CreateNode is called on discovery of a new node
@@ -67,7 +58,22 @@ func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, n *ipam.Node) ipam.Nod
 
 // GetPoolQuota returns the number of available IPs in all IP pools
 func (m *InstancesManager) GetPoolQuota() (quota ipamTypes.PoolQuotaMap) {
-	return m.getAllocator().GetPoolQuota()
+	m.mutex.RLock()
+	pool := ipamTypes.PoolQuotaMap{}
+	for subnetID, subnet := range m.subnets {
+		pool[ipamTypes.PoolID(subnetID)] = ipamTypes.PoolQuota{
+			AvailableIPs: subnet.AvailableAddresses,
+		}
+	}
+	m.mutex.RUnlock()
+	return pool
+}
+
+// GetPoolQuota returns the number of available IPs in all IP pools
+func (m *InstancesManager) FindSubnetForAllocation(preferredPoolIDs []ipamTypes.PoolID) (ipamTypes.PoolID, int) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	return m.subnets.FirstSubnetWithAvailableAddresses(preferredPoolIDs)
 }
 
 // Resync fetches the list of EC2 instances and subnets and updates the local
@@ -94,20 +100,10 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 		"numSubnets":         len(subnets),
 	}).Info("Synchronized Azure IPAM information")
 
-	groupAllocator, err := allocator.NewPoolGroupAllocator(subnets)
-	if err != nil {
-		log.WithError(err).Warning("Unable to create allocator")
-		return time.Time{}
-	}
-
-	// Iterate over all addresses of all instances and reserve them in the
-	// allocator
-	groupAllocator.ReserveAddresses(instances)
-
 	m.mutex.Lock()
 	m.instances = instances
 	m.vnets = vnets
-	m.allocator = groupAllocator
+	m.subnets = subnets
 	m.mutex.Unlock()
 
 	return resyncStart
