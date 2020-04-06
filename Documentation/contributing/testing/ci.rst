@@ -151,11 +151,11 @@ We are currently testing following kernel - k8s version pairs in our CI:
 +====================+==================+
 | Vagrant k8s clusters per PR           |
 +--------------------+------------------+
-| 1.11               | 5.x.x (net-next) |
+| 1.11               | 4.9              |
 +--------------------+------------------+
 | 1.17               | 4.19.57          |
 +--------------------+------------------+
-| 1.18               | 4.9              |
+| 1.18               | 5.x.x (net-next) |
 +--------------------+------------------+
 | Vagrant k8s clusters per backport     |
 | (in addition to PR)                   |
