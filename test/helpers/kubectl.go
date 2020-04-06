@@ -2940,11 +2940,21 @@ func (kub *Kubectl) fillServiceCache() error {
 
 // KubeDNSPreFlightCheck makes sure that kube-dns is plumbed into Cilium.
 func (kub *Kubectl) KubeDNSPreFlightCheck() error {
-	err := kub.fillServiceCache()
-	if err != nil {
-		return err
+	var dnsErr error
+	body := func() bool {
+		dnsErr = kub.fillServiceCache()
+		if dnsErr != nil {
+			return false
+		}
+		dnsErr = kub.servicePreFlightCheck("kube-dns", KubeSystemNamespace)
+		return dnsErr == nil
 	}
-	return kub.servicePreFlightCheck("kube-dns", KubeSystemNamespace)
+
+	err := WithTimeout(body, "DNS not ready within timeout", &TimeoutConfig{Timeout: HelperTimeout})
+	if err != nil {
+		return fmt.Errorf("kube-dns service not ready: %s", dnsErr)
+	}
+	return nil
 }
 
 // servicePreFlightCheck makes sure that k8s service with given name and
