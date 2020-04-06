@@ -70,10 +70,13 @@ func NewClient(subscriptionID, resourceGroup string, metrics MetricsAPI, rateLim
 		limiter:         helpers.NewApiLimiter(metrics, rateLimit, burst),
 	}
 
-	// Authorizer based on environment variables
-	authorizer, err := auth.NewAuthorizerFromEnvironment()
+	// Authorizer based on file first and then environment variables
+	authorizer, err := auth.NewAuthorizerFromFile(compute.DefaultBaseURI)
 	if err != nil {
-		return nil, err
+		authorizer, err = auth.NewAuthorizerFromEnvironment()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	c.interfaces.Authorizer = authorizer
