@@ -540,6 +540,18 @@ const (
 	// LimitTableMax defines the maximum CT or NAT table limit
 	LimitTableMax = 1 << 24 // 16Mi entries (~1GiB of entries per map)
 
+	// PolicyMapMin defines the minimum policy map limit.
+	PolicyMapMin = 1 << 8
+
+	// PolicyMapMax defines the maximum policy map limit.
+	PolicyMapMax = 1 << 16
+
+	// FragmentsMapMin defines the minimum fragments map limit.
+	FragmentsMapMin = 1 << 8
+
+	// FragmentsMapMax defines the maximum fragments map limit.
+	FragmentsMapMax = 1 << 16
+
 	// NATMapEntriesGlobalName configures max entries for BPF NAT table
 	NATMapEntriesGlobalName = "bpf-nat-global-max"
 
@@ -2170,26 +2182,24 @@ func (c *DaemonConfig) Validate() error {
 		}
 	}
 
-	policyMapMin := (1 << 8)
-	policyMapMax := (1 << 16)
-	if c.PolicyMapMaxEntries < policyMapMin {
+	if c.PolicyMapMaxEntries < PolicyMapMin {
 		return fmt.Errorf("specified PolicyMap max entries %d must exceed minimum %d",
-			c.PolicyMapMaxEntries, policyMapMin)
+			c.PolicyMapMaxEntries, PolicyMapMin)
 	}
-	if c.PolicyMapMaxEntries > policyMapMax {
+	if c.PolicyMapMaxEntries > PolicyMapMax {
 		return fmt.Errorf("specified PolicyMap max entries %d must not exceed maximum %d",
-			c.PolicyMapMaxEntries, policyMapMax)
+			c.PolicyMapMaxEntries, PolicyMapMax)
 	}
-	fragmentsMapMin := (1 << 8)
-	fragmentsMapMax := (1 << 16)
-	if c.FragmentsMapEntries < fragmentsMapMin {
+
+	if c.FragmentsMapEntries < FragmentsMapMin {
 		return fmt.Errorf("specified fragments tracking map max entries %d must exceed minimum %d",
-			c.FragmentsMapEntries, fragmentsMapMin)
+			c.FragmentsMapEntries, FragmentsMapMin)
 	}
-	if c.FragmentsMapEntries > fragmentsMapMax {
+	if c.FragmentsMapEntries > FragmentsMapMax {
 		return fmt.Errorf("specified fragments tracking map max entries %d must not exceed maximum %d",
-			c.FragmentsMapEntries, fragmentsMapMax)
+			c.FragmentsMapEntries, FragmentsMapMax)
 	}
+
 	// Validate that the KVStore Lease TTL value lies between a particular range.
 	if c.KVstoreLeaseTTL > defaults.KVstoreLeaseMaxTTL || c.KVstoreLeaseTTL < defaults.LockLeaseTTL {
 		return fmt.Errorf("KVstoreLeaseTTL does not lie in required range(%ds, %ds)",
