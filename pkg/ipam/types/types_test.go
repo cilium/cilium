@@ -159,3 +159,33 @@ func (e *TypesSuite) TestInstanceMapNumInstances(c *check.C) {
 
 	c.Assert(m.NumInstances(), check.Equals, 2)
 }
+
+func (e *TypesSuite) TestFirstSubnetWithAvailableAddresses(c *check.C) {
+	sm := SubnetMap{
+		"s0": &Subnet{AvailableAddresses: 0},
+		"s1": &Subnet{AvailableAddresses: 1},
+		"s2": &Subnet{AvailableAddresses: 0},
+	}
+
+	subnetID, addresses := sm.FirstSubnetWithAvailableAddresses([]PoolID{})
+	c.Assert(subnetID, check.Equals, PoolID("s1"))
+	c.Assert(addresses, check.Equals, 1)
+
+	sm = SubnetMap{
+		"s0": &Subnet{AvailableAddresses: 0},
+		"s1": &Subnet{AvailableAddresses: 0},
+		"s2": &Subnet{AvailableAddresses: 0},
+	}
+	subnetID, addresses = sm.FirstSubnetWithAvailableAddresses([]PoolID{})
+	c.Assert(subnetID, check.Equals, PoolNotExists)
+	c.Assert(addresses, check.Equals, 0)
+
+	sm = SubnetMap{
+		"s0": &Subnet{AvailableAddresses: 0},
+		"s1": &Subnet{AvailableAddresses: 10},
+		"s2": &Subnet{AvailableAddresses: 20},
+	}
+	subnetID, addresses = sm.FirstSubnetWithAvailableAddresses([]PoolID{"s0", "s1"})
+	c.Assert(subnetID, check.Equals, PoolID("s1"))
+	c.Assert(addresses, check.Equals, 10)
+}

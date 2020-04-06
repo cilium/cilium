@@ -156,6 +156,27 @@ type Subnet struct {
 // SubnetMap indexes subnets by subnet ID
 type SubnetMap map[string]*Subnet
 
+// FirstSubnetWithAvailableAddresses returns the first pool ID in the list of
+// subnets with available addresses. If any of the preferred pool IDs have
+// available addresses, the first pool ID with available addresses is returned.
+func (m SubnetMap) FirstSubnetWithAvailableAddresses(preferredPoolIDs []PoolID) (PoolID, int) {
+	for _, p := range preferredPoolIDs {
+		if s := m[string(p)]; s != nil {
+			if s.AvailableAddresses > 0 {
+				return p, s.AvailableAddresses
+			}
+		}
+	}
+
+	for poolID, s := range m {
+		if s.AvailableAddresses > 0 {
+			return PoolID(poolID), s.AvailableAddresses
+		}
+	}
+
+	return PoolNotExists, 0
+}
+
 // VirtualNetwork is the representation of a virtual network
 type VirtualNetwork struct {
 	// ID is the ID of the virtual network
