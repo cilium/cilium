@@ -26,6 +26,7 @@ import (
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -242,7 +243,24 @@ func (n *nodeStore) hasMinimumIPsInPool() (minimumReached bool, required, numAva
 
 		if n.conf.IPAMMode() == option.IPAMENI {
 			if vpcCIDR := deriveVpcCIDR(n.ownNode); vpcCIDR != nil {
-				n.conf.SetIPv4NativeRoutingCIDR(vpcCIDR)
+				if nativeCIDR := n.conf.IPv4NativeRoutingCIDR(); nativeCIDR != nil {
+					logFields := logrus.Fields{
+						"vpc-cidr":                   vpcCIDR.String(),
+						option.IPv4NativeRoutingCIDR: nativeCIDR.String(),
+					}
+
+					ranges4, _ := ip.CoalesceCIDRs([]*net.IPNet{nativeCIDR.IPNet, vpcCIDR.IPNet})
+					if len(ranges4) != 1 {
+						log.WithFields(logFields).Fatal("Native routing CIDR does not contain VPC CIDR.")
+					} else {
+						log.WithFields(logFields).Info("Ignoring autodetected VPC CIDR.")
+					}
+				} else {
+					log.WithFields(logrus.Fields{
+						"vpc-cidr": vpcCIDR.String(),
+					}).Info("Using autodetected VPC CIDR.")
+					n.conf.SetIPv4NativeRoutingCIDR(vpcCIDR)
+				}
 			} else {
 				minimumReached = false
 			}
