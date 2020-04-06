@@ -85,7 +85,7 @@ func (h *hostScopeAllocator) Dump() (map[string]string, string) {
 	alloc := map[string]string{}
 	_, data, err := h.allocator.Snapshot()
 	if err != nil {
-		return nil, fmt.Sprintf("Unable to get a snapshot of the allocator")
+		return nil, "Unable to get a snapshot of the allocator"
 	}
 	if h.allocCIDR.IP.To4() != nil {
 		origIP = big.NewInt(0).SetBytes(h.allocCIDR.IP.To4())

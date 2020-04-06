@@ -138,7 +138,7 @@ func DecodeTraceNotify(data []byte, tn *TraceNotify) error {
 
 func (n *TraceNotify) encryptReason() string {
 	if (n.Reason & TraceReasonEncryptMask) != 0 {
-		return fmt.Sprintf("encrypted ")
+		return "encrypted "
 	}
 	return ""
 }

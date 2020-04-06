@@ -175,7 +175,7 @@ func (v *EndpointInfo) IsHost() bool {
 // String returns the human readable representation of an EndpointInfo
 func (v *EndpointInfo) String() string {
 	if v.Flags&EndpointFlagHost != 0 {
-		return fmt.Sprintf("(localhost)")
+		return "(localhost)"
 	}
 
 	return fmt.Sprintf("id=%-5d flags=0x%04X ifindex=%-3d mac=%s nodemac=%s",

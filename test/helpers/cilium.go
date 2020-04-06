@@ -161,7 +161,7 @@ func (s *SSHMeta) WaitEndpointsDeleted() bool {
 	// cilium-health endpoint is always running.
 	desiredState := "1"
 	body := func() bool {
-		cmd := fmt.Sprintf(`cilium endpoint list -o json | jq '. | length'`)
+		cmd := `cilium endpoint list -o json | jq '. | length'`
 		res := s.Exec(cmd)
 		numEndpointsRunning := strings.TrimSpace(res.GetStdOut())
 		if numEndpointsRunning == desiredState {
@@ -419,7 +419,7 @@ func (s *SSHMeta) SetPolicyEnforcement(status string) *CmdRes {
 	// We check before setting PolicyEnforcement; if we do not, EndpointWait
 	// will fail due to the status of the endpoints not changing.
 	log.Infof("setting %s=%s", PolicyEnforcement, status)
-	res := s.ExecCilium(fmt.Sprintf("config -o json | jq -r '.status.realized[\"policy-enforcement\"]'"))
+	res := s.ExecCilium("config -o json | jq -r '.status.realized[\"policy-enforcement\"]'")
 	if res.SingleOut() == status {
 		return res
 	}

@@ -516,7 +516,7 @@ func init() {
 			"with ephemeral port range (net.ipv4.ip_local_port_range)")
 	option.BindEnv(option.EnableAutoProtectNodePortRange)
 
-	flags.StringSlice(option.NodePortRange, []string{fmt.Sprintf("%d", option.NodePortMinDefault), fmt.Sprintf("%d", option.NodePortMaxDefault)}, fmt.Sprintf("Set the min/max NodePort port range"))
+	flags.StringSlice(option.NodePortRange, []string{fmt.Sprintf("%d", option.NodePortMinDefault), fmt.Sprintf("%d", option.NodePortMaxDefault)}, "Set the min/max NodePort port range")
 	option.BindEnv(option.NodePortRange)
 
 	flags.String(option.LibDir, defaults.LibraryPath, "Directory path to store runtime build environment")

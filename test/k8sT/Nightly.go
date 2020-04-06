@@ -104,7 +104,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	getServices := func() map[string]string {
 		// getServices returns a map of services, where service name is the key
 		// and the ClusterIP is the value.
-		services, err := kubectl.Get(helpers.DefaultNamespace, fmt.Sprintf("services -l zgroup=testapp")).Filter(
+		services, err := kubectl.Get(helpers.DefaultNamespace, "services -l zgroup=testapp").Filter(
 			`{range .items[*]}{.metadata.name}{"="}{.spec.clusterIP}{"\n"}{end}`)
 		ExpectWithOffset(1, err).To(BeNil(), "cannot retrieve testapp services")
 		result := make(map[string]string)

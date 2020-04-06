@@ -61,7 +61,7 @@ var _ = Describe("K8sChaosTest", func() {
 			kubectl.ApplyDefault(demoDSPath).ExpectSuccess("DS deployment cannot be applied")
 
 			err := kubectl.WaitforPods(
-				helpers.DefaultNamespace, fmt.Sprintf("-l zgroup=testDS"), helpers.HelperTimeout)
+				helpers.DefaultNamespace, "-l zgroup=testDS", helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 		})
 
@@ -121,7 +121,7 @@ var _ = Describe("K8sChaosTest", func() {
 			By("Waiting for deployed pods to be ready")
 			err := kubectl.WaitforPods(
 				helpers.DefaultNamespace,
-				fmt.Sprintf("-l zgroup=testDSClient"), helpers.HelperTimeout)
+				"-l zgroup=testDSClient", helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
 			err = kubectl.CiliumEndpointWaitReady()
@@ -190,7 +190,7 @@ var _ = Describe("K8sChaosTest", func() {
 
 			err := kubectl.WaitforPods(
 				helpers.DefaultNamespace,
-				fmt.Sprintf("-l zgroup=testapp"), helpers.HelperTimeout)
+				"-l zgroup=testapp", helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
 			podsIps, err = kubectl.GetPodsIPs(helpers.DefaultNamespace, "zgroup=testapp")
