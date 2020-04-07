@@ -673,6 +673,11 @@ type NodeSpec struct {
 	// +optional
 	ENI eniTypes.ENISpec `json:"eni,omitempty"`
 
+	// Azure is the Azure IPAM specific configuration
+	//
+	// +optional
+	Azure azureTypes.AzureSpec `json:"azure,omitempty"`
+
 	// IPAM is the address management specification. This section can be
 	// populated by a user or it can be automatically populated by an IPAM
 	// operator

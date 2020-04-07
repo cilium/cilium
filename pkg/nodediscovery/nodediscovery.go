@@ -332,6 +332,18 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 		// returned by the Azure API. Convert it to lower case for
 		// consistent results.
 		nodeResource.Spec.InstanceID = strings.ToLower(strings.TrimPrefix(providerID, azureTypes.ProviderPrefix))
+
+		if c := n.NetConf; c != nil {
+			if c.IPAM.MinAllocate != 0 {
+				nodeResource.Spec.IPAM.MinAllocate = c.IPAM.MinAllocate
+			}
+			if c.IPAM.PreAllocate != 0 {
+				nodeResource.Spec.IPAM.PreAllocate = c.IPAM.PreAllocate
+			}
+			if c.Azure.InterfaceName != "" {
+				nodeResource.Spec.Azure.InterfaceName = c.Azure.InterfaceName
+			}
+		}
 	}
 
 	if performUpdate {
