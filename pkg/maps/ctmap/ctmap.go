@@ -86,11 +86,15 @@ const (
 	// MaxTime specifies the last possible time for GCFilter.Time
 	MaxTime = math.MaxUint32
 
-	noAction = iota
-	deleteEntry
-
 	metricsAlive   = "alive"
 	metricsDeleted = "deleted"
+)
+
+type action int
+
+const (
+	noAction action = iota
+	deleteEntry
 )
 
 var globalDeleteLock [mapTypeMax]lock.Mutex
@@ -426,7 +430,7 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 	return stats
 }
 
-func (f *GCFilter) doFiltering(srcIP, dstIP net.IP, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) (action int) {
+func (f *GCFilter) doFiltering(srcIP, dstIP net.IP, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) action {
 	if f.RemoveExpired && entry.Lifetime < f.Time {
 		return deleteEntry
 	}

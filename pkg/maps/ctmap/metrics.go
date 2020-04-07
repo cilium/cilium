@@ -43,7 +43,7 @@ type gcStats struct {
 type gcFamily int
 
 const (
-	gcFamilyIPv4 = iota
+	gcFamilyIPv4 gcFamily = iota
 	gcFamilyIPv6
 )
 
@@ -61,7 +61,7 @@ func (g gcFamily) String() string {
 type gcProtocol int
 
 const (
-	gcProtocolAny = iota
+	gcProtocolAny gcProtocol = iota
 	gcProtocolTCP
 )
 
