@@ -604,53 +604,23 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 		selector: fqdnSelec,
 	}
 
-	// Make the FQDN subsystem aware of this selector and fetch identities
-	// that the FQDN subsystem is aware of.
+	// Make the FQDN subsystem aware of this selector and fetch existing
+	// identities that the FQDN subsystem is aware of.
 	//
-	// If the same 'fqdnSelec' is registered twice here from different
-	// goroutines, we do *NOT* need to unregister the second one because
-	// 'fqdnSelec' is just a struct passed by value. The call below doesn't
-	// retain any references/pointers.
-	//
-	// If this is called twice, one of the results will arbitrarily contain
-	// a real slice of ids, while the other will receive nil. We must fold
-	// them together below.
-	ids := sc.localIdentityNotifier.RegisterForIdentityUpdatesLocked(newFQDNSel.selector)
-
-	// Do not go through the identity cache to see what identities "match" this
-	// selector. This has to be updated via whatever is getting the CIDR identities
-	// which correspond go this FQDNSelector.
-	// Alternatively , we could go through the CIDR identities in the cache
-	// provided they have some 'field' which shows which FQDNs they correspond
-	// to? This would require we keep some set in the Identity for the CIDR.
-	// Is this feasible?
-
 	// Note: No notifications are sent for the existing
 	// identities. Caller must use GetSelections() to get the
 	// current selections after adding a selector. This way the
 	// behavior is the same between the two cases here (selector
 	// is already cached, or is a new one).
-
-	sc.mutex.Lock()
-	defer sc.mutex.Unlock()
-
-	// Check whether the selectorCache was updated while 'newFQDNSel' was
-	// being registered without the 'sc.mutex'. If so, use it. Otherwise
-	// we can use the one we just created/configured above.
-	if sel, exists := sc.selectors[key]; exists {
-		newFQDNSel = sel.(*fqdnSelector)
-	} else {
-		sc.selectors[key] = newFQDNSel
-	}
-
-	// Add the ids from the slice above to the FQDN selector in the cache.
-	// This could plausibly happen twice, once with an empty 'ids' slice
-	// and once with the real 'ids' slice. Either way, they are added to
-	// the selector that is stored in 'sc.selectors[]'
+	ids := sc.localIdentityNotifier.RegisterForIdentityUpdatesLocked(newFQDNSel.selector)
 	for _, id := range ids {
 		newFQDNSel.cachedSelections[id] = struct{}{}
 	}
+
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
 	newFQDNSel.updateSelections()
+	sc.selectors[key] = newFQDNSel
 
 	return newFQDNSel, newFQDNSel.addUser(user)
 }
