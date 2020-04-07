@@ -450,15 +450,17 @@ func failIfContainsBadLogMsg(logs string, blacklist map[string][]string) {
 	}
 }
 
-// RunsOnNetNext checks whether a test case is running on the net next machine
-// which means running on the latest (probably) unreleased kernel
-func RunsOnNetNext() bool {
-	return os.Getenv("NETNEXT") == "true"
+// RunsOnNetNextOr419Kernel checks whether a test case is running on the net-next
+// kernel (depending on the image, it's the latest kernel either from net-next.git
+// or bpf-next.git tree), or on the > 4.19.57 kernel.
+func RunsOnNetNextOr419Kernel() bool {
+	return os.Getenv("NETNEXT") == "true" || os.Getenv("KERNEL") == "419"
 }
 
-// DoesNotRunOnNetNext is the complement function of RunsOnNetNext.
-func DoesNotRunOnNetNext() bool {
-	return !RunsOnNetNext()
+// DoesNotRunOnNetNextOr419Kernel is the complement function of
+// RunsOnNetNextOr419Kernel.
+func DoesNotRunOnNetNextOr419Kernel() bool {
+	return !RunsOnNetNextOr419Kernel()
 }
 
 // DoesNotHaveHosts returns a function which returns true if a CI job
