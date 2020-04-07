@@ -305,6 +305,40 @@ mode would look as follows:
         --set global.k8sServiceHost=API_SERVER_IP \\
         --set global.k8sServicePort=API_SERVER_PORT
 
+NodePort XDP Acceleration
+*************************
+
+Cilium has built-in support for accelerating NodePort, ExternalIPs and LoadBalancer
+services for the case where the arriving request needs to be pushed back out of the
+node when the backend is located on a remote node. This ability to act as a hairpin
+load balancer can be handled by Cilium at the XDP (eXpress Data Path) layer where BPF
+is operating directly in the networking driver instead of a higher layer.
+
+The mode setting ``global.nodePort.acceleration`` allows to enable this acceleration
+through the options ``native`` or ``generic``. The option ``none`` is the default
+and disables the acceleration. The setting of ``global.nodePort.acceleration=native``
+should **always** be preferred over ``generic`` since the latter is a fallback only
+suitable for testing drivers which do not have XDP support. Therefore ``generic``
+mode should only be used for testing, but not in production environments. The majority
+of drivers supporting 10G or higher rates also support ``native`` XDP on a recent
+kernel. For cloud based deployments most of these drivers have SR-IOV variants that
+support native XDP as well.
+
+The ``global.nodePort.acceleration`` setting is supported for DSR, SNAT and hybrid
+modes and can be enabled as follows for ``nodePort.mode=dsr`` in this example:
+
+.. parsed-literal::
+
+    helm install cilium |CHART_RELEASE| \\
+        --namespace kube-system \\
+        --set global.tunnel=disabled \\
+        --set global.autoDirectNodeRoutes=true \\
+        --set global.kubeProxyReplacement=strict \\
+        --set global.nodePort.acceleration=native \\
+        --set global.nodePort.mode=dsr \\
+        --set global.k8sServiceHost=API_SERVER_IP \\
+        --set global.k8sServicePort=API_SERVER_PORT
+
 NodePort Device and Range
 *************************
 
@@ -328,8 +362,6 @@ the reserved ports (``net.ipv4.ip_local_reserved_ports``). This is needed to
 prevent a NodePort service from hijacking traffic of a host local application
 which source port matches the service port. To disable the modification of
 the reserved ports, set ``global.nodePort.autoProtectPortRanges`` to ``false``.
-
-
 
 Container hostPort support
 **************************
