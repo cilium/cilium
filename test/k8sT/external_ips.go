@@ -93,7 +93,7 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 	}
 
 	BeforeAll(func() {
-		if !helpers.RunsOnNetNext() {
+		if !helpers.RunsOnNetNextOr419Kernel() {
 			return
 		}
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
@@ -172,7 +172,7 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 	})
 
 	AfterFailed(func() {
-		if !helpers.RunsOnNetNext() {
+		if !helpers.RunsOnNetNextOr419Kernel() {
 			return
 		}
 		kubectl.CiliumReport(helpers.CiliumNamespace,
@@ -181,7 +181,7 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 	})
 
 	AfterAll(func() {
-		if !helpers.RunsOnNetNext() {
+		if !helpers.RunsOnNetNextOr419Kernel() {
 			return
 		}
 		_ = kubectl.NamespaceDelete(namespaceTest)
@@ -235,7 +235,7 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 	}
 
 	SkipContextIf(
-		func() bool { return helpers.DoesNotRunOnNetNext() },
+		func() bool { return helpers.DoesNotRunOnNetNextOr419Kernel() },
 		"DirectRouting", func() {
 			BeforeAll(func() {
 				deployCilium(map[string]string{
@@ -280,7 +280,7 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 	)
 
 	SkipContextIf(
-		func() bool { return helpers.DoesNotRunOnNetNext() },
+		func() bool { return helpers.DoesNotRunOnNetNextOr419Kernel() },
 		"VxLANMode", func() {
 			BeforeAll(func() {
 				deployCilium(map[string]string{

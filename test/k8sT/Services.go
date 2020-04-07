@@ -723,7 +723,7 @@ var _ = Describe("K8sServicesTest", func() {
 			})
 
 		SkipContextIf(
-			helpers.DoesNotRunOnNetNext,
+			helpers.DoesNotRunOnNetNextOr419Kernel,
 			"Tests NodePort BPF", func() {
 				// TODO(brb) Add with L7 policy test cases after GH#8971 has been fixed
 

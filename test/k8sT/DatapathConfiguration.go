@@ -221,8 +221,8 @@ var _ = Describe("K8sDatapathConfig", func() {
 		}
 
 		It("Check connectivity with transparent encryption and VXLAN encapsulation", func() {
-			if !helpers.RunsOnNetNext() {
-				Skip("Skipping test because it is not running with the net-next kernel")
+			if !helpers.RunsOnNetNextOr419Kernel() {
+				Skip("Skipping test because it is not running with the net-next kernel or 4.19 kernel")
 				return
 			}
 			SkipItIfNoKubeProxy()
