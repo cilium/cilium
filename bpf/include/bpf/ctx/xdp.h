@@ -11,6 +11,7 @@
 
 #include "common.h"
 #include "../helpers_xdp.h"
+#include "../builtins.h"
 
 #define CTX_ACT_OK			XDP_PASS
 #define CTX_ACT_DROP			XDP_DROP
@@ -81,7 +82,6 @@ xdp_store_bytes(struct xdp_md *ctx, __u64 off, const void *from,
 /* Fyi, remapping to stubs helps to assert that the code is not in
  * use since it otherwise triggers a verifier error.
  */
-#define ctx_adjust_room			xdp_adjust_room__stub	/* TODO */
 
 #define ctx_change_type			xdp_change_type__stub
 #define ctx_change_proto		xdp_change_proto__stub
@@ -202,6 +202,45 @@ l4_csum_replace(struct xdp_md *ctx, __u64 off, __u32 from, __u32 to,
 		       __csum_replace_by_diff(sum, to);
 		if (is_mmzero && !*sum)
 			*sum = CSUM_MANGLED_0;
+	}
+	return ret;
+}
+
+static __always_inline __maybe_unused int
+ctx_adjust_room(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
+		const __u64 flags)
+{
+	const __u32 move_len_v4 = 14 + 20;
+	const __u32 move_len_v6 = 14 + 40;
+	void *data, *data_end;
+	int ret;
+
+	build_bug_on(len_diff <= 0 || len_diff >= 64);
+	build_bug_on(mode != BPF_ADJ_ROOM_NET);
+	build_bug_on(flags != 0);
+
+	ret = xdp_adjust_head(ctx, -len_diff);
+
+	/* XXX: Note, this hack is currently tailored to NodePort DSR
+	 * requirements and not a generic helper. If needed elsewhere,
+	 * this must be made more generic.
+	 */
+	if (!ret) {
+		data_end = ctx_data_end(ctx);
+		data = ctx_data(ctx);
+		if (len_diff == 8) {
+			if (data + move_len_v4 + len_diff <= data_end)
+				memmove(data, data + len_diff,
+					move_len_v4);
+			else
+				ret = -EFAULT;
+		} else {
+			if (data + move_len_v6 + len_diff <= data_end)
+				memmove(data, data + len_diff,
+					move_len_v6);
+			else
+				ret = -EFAULT;
+		}
 	}
 	return ret;
 }
