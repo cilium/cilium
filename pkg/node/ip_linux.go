@@ -12,13 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ip
+package node
 
 import (
 	"strings"
 
 	"github.com/vishvananda/netlink"
 )
+
+func init() {
+	initExcludedIPs()
+}
 
 func initExcludedIPs() {
 	// We exclude below bad device prefixes from address selection ...
