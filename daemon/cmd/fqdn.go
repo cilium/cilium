@@ -748,7 +748,7 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 
 	nameMatcher := func(name string) bool { return true }
 	if matchPatternStr != "" {
-		matcher, err := matchpattern.Validate(matchpattern.Sanitize(matchPatternStr))
+		matcher, err := matchpattern.Validate(matchPatternStr)
 		if err != nil {
 			return nil, err
 		}
