@@ -139,6 +139,10 @@ func GenerateL3EgressFQDNRules(numRules int) api.Rules {
 	fooSelector := api.NewESFromLabels(parseFooLabel)
 
 	barSelector := api.FQDNSelector{MatchPattern: "*.BAR.COM"}
+	err := barSelector.Sanitize()
+	if err != nil {
+		panic(err)
+	}
 
 	// Change ingRule and rule in the for-loop below to change what type of rules
 	// are added into the policy repository.

@@ -32,7 +32,7 @@ func (s *PolicyAPITestSuite) TestFQDNSelectorSanitize(c *C) {
 		{MatchPattern: "*cilium.io"},
 		{MatchPattern: "cilium.io"},
 	} {
-		err := accept.sanitize()
+		err := accept.Sanitize()
 		c.Assert(err, IsNil, Commentf("FQDNSelector %+v was rejected but it should be valid", accept))
 	}
 
@@ -41,7 +41,7 @@ func (s *PolicyAPITestSuite) TestFQDNSelectorSanitize(c *C) {
 		{MatchPattern: "[a-z]*.cilium.io."},
 		{MatchName: "cilium.io", MatchPattern: "*cilium.io"},
 	} {
-		err := reject.sanitize()
+		err := reject.Sanitize()
 		c.Assert(err, Not(IsNil), Commentf("FQDNSelector %+v was accepted but it should be invalid", reject))
 	}
 }

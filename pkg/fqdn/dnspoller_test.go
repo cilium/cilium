@@ -41,6 +41,21 @@ var (
 	}
 )
 
+func init() {
+	err := ciliumIOSel.Sanitize()
+	if err != nil {
+		panic(err)
+	}
+	err = githubSel.Sanitize()
+	if err != nil {
+		panic(err)
+	}
+	err = ciliumIOSelMatchPattern.Sanitize()
+	if err != nil {
+		panic(err)
+	}
+}
+
 func (ds *FQDNTestSuite) TestNameManagerSelectorHandling(c *C) {
 	var testCases = []struct {
 		desc                        string

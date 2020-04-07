@@ -17,11 +17,8 @@ package api
 import (
 	"fmt"
 	"regexp"
-	"strings"
 
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
-
-	"github.com/miekg/dns"
 )
 
 var (
@@ -56,43 +53,49 @@ type FQDNSelector struct {
 	//   sub.cilium.io and subdomain.cilium.io match, www.cilium.io,
 	//   blog.cilium.io, cilium.io and google.com do not
 	MatchPattern string `json:"matchPattern,omitempty"`
+
+	// Regexp pattern pre-computed at Sanitize()
+	// TODO: Move this to the policy package (https://github.com/cilium/cilium/issues/8353)
+	matchRE *regexp.Regexp
 }
 
 func (s *FQDNSelector) String() string {
 	return fmt.Sprintf("MatchName: %s, MatchPattern: %s", s.MatchName, s.MatchPattern)
 }
 
-// sanitize for FQDNSelector is a little wonky. While we do more processing
+// Sanitize for FQDNSelector is a little wonky. While we do more processing
 // when using MatchName the basic requirement is that is a valid regexp. We
 // test that it can compile here.
-func (s *FQDNSelector) sanitize() error {
+func (s *FQDNSelector) Sanitize() error {
+	// MatchName and MatchPattern are mutually exclusive in an FQDNSelector (but not in a PortRuleDNS)
 	if len(s.MatchName) > 0 && len(s.MatchPattern) > 0 {
 		return fmt.Errorf("only one of MatchName or MatchPattern is allowed in an FQDNSelector")
 	}
-	if len(s.MatchName) > 0 && !allowedMatchNameChars.MatchString(s.MatchName) {
-		return fmt.Errorf("Invalid characters in MatchName: \"%s\". Only 0-9, a-z, A-Z and . and - characters are allowed", s.MatchName)
+	var match string
+	if len(s.MatchName) > 0 {
+		if !allowedMatchNameChars.MatchString(s.MatchName) {
+			return fmt.Errorf("Invalid characters in MatchName: \"%s\". Only 0-9, a-z, A-Z and . and - characters are allowed", s.MatchName)
+		}
+		match = s.MatchName
 	}
 
-	if len(s.MatchPattern) > 0 && !allowedPatternChars.MatchString(s.MatchPattern) {
-		return fmt.Errorf("Invalid characters in MatchPattern: \"%s\". Only 0-9, a-z, A-Z and ., - and * characters are allowed", s.MatchPattern)
+	if len(s.MatchPattern) > 0 {
+		if !allowedPatternChars.MatchString(s.MatchPattern) {
+			return fmt.Errorf("Invalid characters in MatchPattern: \"%s\". Only 0-9, a-z, A-Z and ., - and * characters are allowed", s.MatchPattern)
+		}
+		match = s.MatchPattern
 	}
-	_, err := matchpattern.Validate(s.MatchPattern)
+	var err error
+	s.matchRE, err = matchpattern.Validate(match)
 	return err
 }
 
-// ToRegex converts the given FQDNSelector to its corresponding regular
-// expression. If the MatchName field is set in the selector, it performs all
-// needed formatting to ensure that the field is a valid regular expression.
-func (s *FQDNSelector) ToRegex() (*regexp.Regexp, error) {
-	var preparedMatch string
-	if s.MatchName != "" {
-		preparedMatch = strings.ToLower(dns.Fqdn(s.MatchName))
-	} else {
-		preparedMatch = matchpattern.Sanitize(s.MatchPattern)
+// ToRegex returns the pre-computed regular expression.
+func (s *FQDNSelector) ToRegex() *regexp.Regexp {
+	if s.matchRE == nil {
+		panic("Internal error: ToFQDN not Sanitized!")
 	}
-
-	regex, err := matchpattern.Validate(preparedMatch)
-	return regex, err
+	return s.matchRE
 }
 
 // PortRuleDNS is an allowed DNS lookup.

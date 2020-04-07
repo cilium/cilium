@@ -110,20 +110,12 @@ func (n *NameManager) RegisterForIdentityUpdatesLocked(selector api.FQDNSelector
 		return nil
 	}
 
-	// This error should never occur since the FQDNSelector has already been
-	// validated, but account for it for good measure.
-	regex, err := selector.ToRegex()
-	if err != nil {
-		log.WithError(err).WithField("fqdnSelector", selector).Error("FQDNSelector did not compile to valid regex")
-		return nil
-	}
-
 	// Update names to poll for DNS poller since we now care about this selector.
 	if len(selector.MatchName) > 0 {
 		n.namesToPoll[prepareMatchName(selector.MatchName)] = struct{}{}
 	}
 
-	n.allSelectors[selector] = regex
+	n.allSelectors[selector] = selector.ToRegex()
 	selectorIPs := n.cache.LookupBySelector(selector)
 
 	// Allocate identities for each IPNet and then map to selector
@@ -131,8 +123,9 @@ func (n *NameManager) RegisterForIdentityUpdatesLocked(selector api.FQDNSelector
 		"fqdnSelector": selector,
 		"ips":          selectorIPs,
 	}).Debug("getting identities for IPs associated with FQDNSelector")
-	var currentlyAllocatedIdentities []*identity.Identity
-	if currentlyAllocatedIdentities, err = ipcache.AllocateCIDRsForIPs(selectorIPs); err != nil {
+
+	currentlyAllocatedIdentities, err := ipcache.AllocateCIDRsForIPs(selectorIPs)
+	if err != nil {
 		log.WithError(err).WithField("prefixes", selectorIPs).Warn(
 			"failed to allocate identities for IPs")
 		return nil

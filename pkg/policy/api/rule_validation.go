@@ -259,7 +259,7 @@ func (e *EgressRule) sanitize() error {
 	}
 
 	for i := range e.ToFQDNs {
-		err := e.ToFQDNs[i].sanitize()
+		err := e.ToFQDNs[i].Sanitize()
 		if err != nil {
 			return err
 		}

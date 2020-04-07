@@ -187,12 +187,7 @@ func (c *DNSCache) LookupBySelector(toFQDN api.FQDNSelector) (ips []net.IP) {
 	}
 
 	if len(toFQDN.MatchPattern) > 0 {
-		// lookup matching DNS names
-		patternRE, err := toFQDN.ToRegex()
-		if err != nil {
-			log.WithError(err).Error("Error compiling matchPattern")
-		}
-		ipMap := c.LookupByRegexp(patternRE)
+		ipMap := c.LookupByRegexp(toFQDN.ToRegex())
 
 		for name, nameIPs := range ipMap {
 			if len(nameIPs) > 0 {
