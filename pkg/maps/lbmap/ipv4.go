@@ -131,16 +131,6 @@ func (v *RevNat4Value) String() string {
 	return fmt.Sprintf("%s:%d", v.Address, v.Port)
 }
 
-func NewRevNat4Value(ip net.IP, port uint16) *RevNat4Value {
-	revNat := RevNat4Value{
-		Port: port,
-	}
-
-	copy(revNat.Address[:], ip.To4())
-
-	return &revNat
-}
-
 type pad3uint8 [3]uint8
 
 // DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
@@ -208,16 +198,6 @@ type Service4Value struct {
 	RevNat    uint16 `align:"rev_nat_index"`
 	Flags     uint8
 	Pad       pad3uint8 `align:"pad"`
-}
-
-func NewService4Value(count uint16, backendID loadbalancer.BackendID, revNat uint16) *Service4Value {
-	svc := Service4Value{
-		BackendID: uint32(backendID),
-		Count:     count,
-		RevNat:    revNat,
-	}
-
-	return &svc
 }
 
 func (s *Service4Value) String() string {
