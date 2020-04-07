@@ -67,6 +67,7 @@ LinuxKit_                  all
 `RedHat Enterprise Linux`_ >= 8.0
 Ubuntu_                    >= 16.04.2, >= 16.10
 Opensuse_                  Tumbleweed, >=Leap 15.0
+RancherOS_                 >= 1.5.5
 ========================== ====================
 
 .. _Amazon Linux 2: https://aws.amazon.com/amazon-linux-2/
@@ -79,6 +80,7 @@ Opensuse_                  Tumbleweed, >=Leap 15.0
 .. _RedHat Enterprise Linux: https://www.redhat.com/en/technologies/linux-platforms/enterprise-linux
 .. _Ubuntu: https://wiki.ubuntu.com/YakketyYak/ReleaseNotes#Linux_kernel_4.8
 .. _Opensuse: https://www.opensuse.org/
+.. _RancherOS: https://rancher.com/rancher-os/
 
 .. [#centos_foot] CentOS 7 requires a third-party kernel provided by `ElRepo <http://elrepo.org/tiki/tiki-index.php>`_
     whereas CentOS 8 ships with a supported kernel.
