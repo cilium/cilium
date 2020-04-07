@@ -119,16 +119,6 @@ type RevNat6Value struct {
 	Port    uint16     `align:"port"`
 }
 
-func NewRevNat6Value(ip net.IP, port uint16) *RevNat6Value {
-	revNat := RevNat6Value{
-		Port: port,
-	}
-
-	copy(revNat.Address[:], ip.To16())
-
-	return &revNat
-}
-
 func (v *RevNat6Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 func (v *RevNat6Value) String() string              { return fmt.Sprintf("%s:%d", v.Address, v.Port) }
 
@@ -198,16 +188,6 @@ type Service6Value struct {
 	RevNat    uint16 `align:"rev_nat_index"`
 	Flags     uint8
 	Pad       pad3uint8 `align:"pad"`
-}
-
-func NewService6Value(count uint16, backendID loadbalancer.BackendID, revNat uint16) *Service6Value {
-	svc := Service6Value{
-		Count:     count,
-		BackendID: uint32(backendID),
-		RevNat:    revNat,
-	}
-
-	return &svc
 }
 
 func (s *Service6Value) String() string {
