@@ -141,6 +141,33 @@ Once you change the image versions locally, create a branch named
 It is important that you use that branch name so the VM images are cached into
 packet.net before the branch is merged.
 
+
+Testing matrix
+^^^^^^^^^^^^^^
+
+We are currently testing following kernel - k8s version pairs in our CI:
+
++--------------------+------------------+
+| Kubernetes version | Kernel version   |
++====================+==================+
+| Vagrant k8s clusters per PR           |
++--------------------+------------------+
+| 1.11               | 5.x.x (net-next) |
++--------------------+------------------+
+| 1.17               | 4.19.57          |
++--------------------+------------------+
+| 1.18               | 4.9              |
++--------------------+------------------+
+| Vagrant k8s clusters per backport     |
+| (in addition to PR)                   |
++--------------------+------------------+
+| 1.{12-17}          | 4.9              |
++--------------------+------------------+
+| GKE clusters                          |
++--------------------+------------------+
+| 1.14.10            | 4.14.138+        |
++--------------------+------------------+
+
 .. _trigger_phrases:
 
 Triggering Pull-Request Builds With Jenkins
