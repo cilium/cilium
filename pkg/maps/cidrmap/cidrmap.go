@@ -154,14 +154,6 @@ func (cm *CIDRMap) Close() error {
 	return bpf.ObjClose(cm.Fd)
 }
 
-// OpenMap opens a new CIDRMap. 'bool' returns 'true' if the map was
-// created, and 'false' if the map already existed. prefixdyn denotes
-// whether element's prefixlen can vary and we thus need to use a LPM
-// trie instead of hash table.
-func OpenMap(path string, prefixlen int, prefixdyn bool) (*CIDRMap, bool, error) {
-	return OpenMapElems(path, prefixlen, prefixdyn, MaxEntries)
-}
-
 // OpenMapElems is the same as OpenMap only with defined maxelem as argument.
 func OpenMapElems(path string, prefixlen int, prefixdyn bool, maxelem uint32) (*CIDRMap, bool, error) {
 	typeMap := bpf.MapTypeLPMTrie
