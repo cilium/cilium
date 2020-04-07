@@ -29,6 +29,9 @@ import (
 
 // Node represents a node representing an Azure instance
 type Node struct {
+	// k8sObj is the CiliumNode custom resource representing the node
+	k8sObj *v2.CiliumNode
+
 	// node contains the general purpose fields of a node
 	node *ipam.Node
 
@@ -38,6 +41,7 @@ type Node struct {
 
 // UpdatedNode is called when an update to the CiliumNode is received.
 func (n *Node) UpdatedNode(obj *v2.CiliumNode) {
+	n.k8sObj = obj
 }
 
 // PopulateStatusFields fills in the status field of the CiliumNode custom
@@ -66,10 +70,21 @@ func (n *Node) ReleaseIPs(ctx context.Context, r *ipam.ReleaseAction) error {
 // PrepareIPAllocation returns the number of IPs that can be allocated/created.
 func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationAction, err error) {
 	a = &ipam.AllocationAction{}
+	requiredIfaceName := n.k8sObj.Spec.Azure.InterfaceName
 	err = n.manager.instances.ForeachInterface(n.node.InstanceID(), func(instanceID, interfaceID string, interfaceObj ipamTypes.InterfaceRevision) error {
 		iface, ok := interfaceObj.Resource.(*types.AzureInterface)
 		if !ok {
 			return fmt.Errorf("invalid interface object")
+		}
+
+		if requiredIfaceName != "" {
+			if iface.Name != requiredIfaceName {
+				scopedLog.WithFields(logrus.Fields{
+					"ifaceName":    iface.Name,
+					"requiredName": requiredIfaceName,
+				}).Debug("Not considering interface for allocation sice it does not match the required name")
+				return nil
+			}
 		}
 
 		scopedLog.WithFields(logrus.Fields{

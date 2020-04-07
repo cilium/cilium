@@ -36,6 +36,23 @@ const (
 	StateSucceeded = "succeeded"
 )
 
+// AzureSpec is the Azure specification of a node running via the Azure IPAM
+//
+// The Azure specification can either be provided explicitly by the user or the
+// cilium agent running on the node can be instructed to create the CiliumNode
+// custom resource along with an Azure specification when the node registers
+// itself to the Kubernetes cluster.
+// This struct is embedded into v2.CiliumNode
+//
+// +k8s:deepcopy-gen=true
+type AzureSpec struct {
+	// InterfaceName is the name of the interface the cilium-operator
+	// will use to allocate all the IPs on
+	//
+	// +optional
+	InterfaceName string `json:"interface-name,omitempty"`
+}
+
 // AzureStatus is the status of Azure addressing of the node
 //
 // This struct is embedded into v2.CiliumNode

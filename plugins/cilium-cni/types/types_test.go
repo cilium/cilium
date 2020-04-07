@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
+	azureTypes "github.com/cilium/cilium/pkg/azure/types"
 	"github.com/cilium/cilium/pkg/checker"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 
@@ -206,6 +207,40 @@ func (t *CNITypesSuite) TestReadCNIConfENIv2WithPlugins(c *check.C) {
 			SubnetTags: map[string]string{
 				"foo": "true",
 			},
+		},
+		IPAM: ipamTypes.IPAMSpec{
+			PreAllocate: 5,
+		},
+	}
+	testConfRead(c, confFile1, &netConf1)
+}
+
+func (t *CNITypesSuite) TestReadCNIConfAzurev2WithPlugins(c *check.C) {
+	confFile1 := `
+{
+  "cniVersion":"0.3.1",
+  "name":"cilium",
+  "plugins": [
+    {
+      "cniVersion":"0.3.1",
+      "type":"cilium-cni",
+      "azure": {
+        "interface-name": "eth1"
+      },
+      "ipam": {
+        "pre-allocate": 5
+      }
+    }
+  ]
+}
+`
+	netConf1 := NetConf{
+		NetConf: cnitypes.NetConf{
+			CNIVersion: "0.3.1",
+			Type:       "cilium-cni",
+		},
+		Azure: azureTypes.AzureSpec{
+			InterfaceName: "eth1",
 		},
 		IPAM: ipamTypes.IPAMSpec{
 			PreAllocate: 5,

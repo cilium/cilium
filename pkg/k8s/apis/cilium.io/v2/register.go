@@ -398,6 +398,10 @@ func createNodeCRD(clientset apiextensionsclient.Interface) error {
 											Type:        "string",
 											Description: "instance-id is the Azure specific identifier of the node",
 										},
+										"interface-name": {
+											Type:        "string",
+											Description: "interface-name represents the name of the interface on which additional IP addreses will be allocated",
+										},
 									},
 								},
 								"eni": {

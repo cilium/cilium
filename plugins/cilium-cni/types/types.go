@@ -21,6 +21,7 @@ import (
 	"net"
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
+	azureTypes "github.com/cilium/cilium/pkg/azure/types"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 
 	cniTypes "github.com/containernetworking/cni/pkg/types"
@@ -31,11 +32,12 @@ import (
 // NetConf is the Cilium specific CNI network configuration
 type NetConf struct {
 	cniTypes.NetConf
-	MTU         int                `json:"mtu"`
-	Args        Args               `json:"args"`
-	ENI         eniTypes.ENISpec   `json:"eni,omitempty"`
-	IPAM        ipamTypes.IPAMSpec `json:"ipam,omitempty"`
-	EnableDebug bool               `json:"enable-debug"`
+	MTU         int                  `json:"mtu"`
+	Args        Args                 `json:"args"`
+	ENI         eniTypes.ENISpec     `json:"eni,omitempty"`
+	Azure       azureTypes.AzureSpec `json:"azure,omitempty"`
+	IPAM        ipamTypes.IPAMSpec   `json:"ipam,omitempty"`
+	EnableDebug bool                 `json:"enable-debug"`
 }
 
 // NetConfList is a CNI chaining configuration
