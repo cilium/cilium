@@ -1,0 +1,20 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "context.go",
+        "disabled.go",
+        "functions.go",
+        "reflection.go",
+        "well_known.go",
+    ],
+    importpath = "github.com/envoyproxy/protoc-gen-validate/templates/shared",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//gogoproto:go_default_library",
+        "//validate:go_default_library",
+        "//vendor/github.com/lyft/protoc-gen-star:go_default_library",
+        "@com_github_golang_protobuf//proto:go_default_library",
+    ],
+)
