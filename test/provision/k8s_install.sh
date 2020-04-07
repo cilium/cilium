@@ -45,13 +45,6 @@ source ${PROVISIONSRC}/helpers.bash
 sudo bash -c "echo MaxSessions 200 >> /etc/ssh/sshd_config"
 sudo systemctl restart ssh
 
-if [[ ! $(helm version | grep ${HELM_VERSION}) ]]; then
-  retry_function "wget -nv https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz"
-  tar xzvf helm-v${HELM_VERSION}-linux-amd64.tar.gz
-  mv linux-amd64/helm /usr/local/bin/
-fi
-helm version
-
 # Install serial ttyS0 server
 cat <<EOF > /etc/systemd/system/serial-getty@ttyS0.service
 [Service]
