@@ -30,7 +30,7 @@ import (
 // code should really move into this package.
 
 func listLocalAddresses(family int) ([]net.IP, error) {
-	ipsToExclude := ip.GetExcludedIPs()
+	ipsToExclude := node.GetExcludedIPs()
 	addrs, err := netlink.AddrList(nil, family)
 	if err != nil {
 		return nil, err

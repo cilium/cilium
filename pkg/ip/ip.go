@@ -755,11 +755,8 @@ func initPrivatePrefixes() {
 	}
 }
 
-var excludedIPs []net.IP
-
 func init() {
 	initPrivatePrefixes()
-	initExcludedIPs()
 }
 
 // IsExcluded returns whether a given IP is must be excluded
@@ -782,12 +779,6 @@ func IsPublicAddr(ip net.IP) bool {
 		}
 	}
 	return true
-}
-
-// GetExcludedIPs returns a list of IPs from netdevices that Cilium
-// needs to exclude to operate
-func GetExcludedIPs() []net.IP {
-	return excludedIPs
 }
 
 // GetCIDRPrefixesFromIPs returns all of the ips as a slice of *net.IPNet.
