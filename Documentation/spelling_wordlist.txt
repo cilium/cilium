@@ -498,6 +498,7 @@ sig
 skb
 sockmap
 src
+SR-IOV
 ssl
 stacktrace
 stap

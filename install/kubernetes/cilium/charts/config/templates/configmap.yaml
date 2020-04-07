@@ -314,6 +314,9 @@ data:
 {{- if .Values.global.nodePort.mode }}
   node-port-mode: {{ .Values.global.nodePort.mode | quote }}
 {{- end }}
+{{- if .Values.global.nodePort.acceleration }}
+  node-port-acceleration: {{ .Values.global.nodePort.acceleration | quote }}
+{{- end }}
   enable-auto-protect-node-port-range: {{ .Values.global.nodePort.autoProtectPortRange | quote }}
 {{- end }}
 

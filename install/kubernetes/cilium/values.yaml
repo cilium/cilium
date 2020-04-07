@@ -277,6 +277,9 @@ global:
     # mode is the mode of NodePort feature
     mode: "hybrid"
 
+    # acceleration is the option to accelerate NodePort via XDP
+    acceleration: "none"
+
     # Append NodePort range to ip_local_reserved_ports if clash with ephemeral
     # ports is detected
     autoProtectPortRange: true
