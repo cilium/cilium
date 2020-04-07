@@ -7,20 +7,23 @@ require (
 	github.com/Azure/azure-sdk-for-go v38.0.0+incompatible
 	github.com/Azure/go-autorest/autorest/azure/auth v0.4.2
 	github.com/Azure/go-autorest/autorest/to v0.3.0
+	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200108200545-475eaeb16496
 	github.com/aws/aws-sdk-go-v2 v0.18.0
 	github.com/blang/semver v3.5.0+incompatible
 	github.com/c9s/goprocinfo v0.0.0-20190309065803-0b2ad9ac246b
 	github.com/cilium/arping v1.0.1-0.20190728065459-c5eaf8d7a710
 	github.com/cilium/ebpf v0.0.0-20191113100448-d9fb101ca1fb
-	github.com/cilium/hubble v0.5.1-0.20200331202457-bfc152cb7c8c
 	github.com/cilium/ipam v0.0.0-20200217195329-a46f8d55f9db
 	github.com/cilium/proxy v0.0.0-20200309181938-3cf80fe45d03
 	github.com/containernetworking/cni v0.7.1
 	github.com/containernetworking/plugins v0.8.2
 	github.com/davecgh/go-spew v1.1.1
+	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v0.7.3-0.20190327010347-be7ac8be2ae0
+	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/libnetwork v0.0.0-20190128195551-d8d4c8cf03d7
+	github.com/envoyproxy/protoc-gen-validate v0.3.0-java
 	github.com/go-openapi/errors v0.19.3
 	github.com/go-openapi/loads v0.19.5
 	github.com/go-openapi/runtime v0.19.4
@@ -28,7 +31,6 @@ require (
 	github.com/go-openapi/strfmt v0.19.4
 	github.com/go-openapi/swag v0.19.7
 	github.com/go-openapi/validate v0.19.5
-	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.3.2
 	github.com/google/go-cmp v0.3.1
 	github.com/google/gopacket v1.1.17
@@ -36,13 +38,20 @@ require (
 	github.com/gorilla/mux v1.7.0
 	github.com/hashicorp/consul/api v1.2.0
 	github.com/hashicorp/go-immutable-radix v1.1.0
+	github.com/hashicorp/golang-lru v0.5.1
+	// must be bound to this old version not to break libnetwork
+	github.com/ishidawataru/sctp v0.0.0-20180213033435-07191f837fed // indirect
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/kevinburke/ssh_config v0.0.0-20190725054713-01f96b0aa0cd
 	github.com/kr/pretty v0.1.0
 	github.com/mattn/go-shellwords v1.0.5
 	github.com/miekg/dns v1.0.14
+	github.com/mitchellh/protoc-gen-go-json v0.0.0-20200113165135-fd297ce346f1
+	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.11.0
 	github.com/onsi/gomega v1.7.0
+	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
+	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/optiopay/kafka v0.0.0-00010101000000-000000000000
 	github.com/pborman/uuid v1.2.0
 	github.com/pkg/errors v0.8.1
@@ -57,8 +66,10 @@ require (
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.1
+	github.com/stretchr/testify v1.4.0
 	github.com/vishvananda/netlink v1.1.1-0.20200210222539-bfba8e4149db
 	go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738
+	go.uber.org/goleak v1.0.0
 	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e

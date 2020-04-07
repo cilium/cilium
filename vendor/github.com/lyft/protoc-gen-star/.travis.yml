@@ -1,0 +1,22 @@
+language: go
+go: "1.11"
+go_import_path: github.com/lyft/protoc-gen-star
+
+env:
+  global:
+    - GLIDE_VER="v0.13.1"
+  matrix:
+    - PROTOC_VER="3.5.1"
+    - PROTOC_VER="3.6.1"
+
+before_install:
+  - mkdir -p $GOPATH/bin
+  - wget "https://github.com/Masterminds/glide/releases/download/${GLIDE_VER}/glide-${GLIDE_VER}-linux-amd64.tar.gz" -O /tmp/glide.tar.gz
+  - tar -xvf /tmp/glide.tar.gz --strip-components 1 -C ${GOPATH}/bin
+  - wget "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-linux-x86_64.zip" -O /tmp/protoc.zip
+  - unzip /tmp/protoc.zip -d /tmp
+  - sudo mv /tmp/bin/protoc /usr/local/bin/protoc
+  - sudo mv /tmp/include/google /usr/local/include/google
+
+install: make testdata
+script: make lint tests

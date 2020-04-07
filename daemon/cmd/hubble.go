@@ -17,18 +17,18 @@ package cmd
 import (
 	"strings"
 
+	hubbleServe "github.com/cilium/cilium/daemon/cmd/hubble-serve"
 	"github.com/cilium/cilium/pkg/api"
-	"github.com/cilium/cilium/pkg/hubble"
+	"github.com/cilium/cilium/pkg/hubble/listener"
+	hubbleMetrics "github.com/cilium/cilium/pkg/hubble/metrics"
+	"github.com/cilium/cilium/pkg/hubble/parser"
+	hubbleServer "github.com/cilium/cilium/pkg/hubble/server"
+	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 
-	hubbleServe "github.com/cilium/hubble/cmd/serve"
-	hubbleMetrics "github.com/cilium/hubble/pkg/metrics"
-	"github.com/cilium/hubble/pkg/parser"
-	hubbleServer "github.com/cilium/hubble/pkg/server"
-	"github.com/cilium/hubble/pkg/server/serveroption"
 	"github.com/sirupsen/logrus"
 )
 
@@ -59,7 +59,7 @@ func (d *Daemon) launchHubble() {
 		return
 	}
 	go observerServer.Start()
-	d.monitorAgent.GetMonitor().RegisterNewListener(d.ctx, hubble.NewHubbleListener(observerServer))
+	d.monitorAgent.GetMonitor().RegisterNewListener(d.ctx, listener.NewHubbleListener(observerServer))
 
 	srv, err := hubbleServe.NewServer(logger,
 		hubbleServe.WithListeners(addresses, api.CiliumGroupName),

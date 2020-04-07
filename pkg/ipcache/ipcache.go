@@ -17,12 +17,12 @@ package ipcache
 import (
 	"net"
 
+	hubbleIPCache "github.com/cilium/cilium/pkg/hubble/ipcache"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
-	hubbleIPCache "github.com/cilium/hubble/pkg/ipcache"
 	"github.com/sirupsen/logrus"
 )
 

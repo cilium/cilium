@@ -20,8 +20,8 @@ import (
 	"io"
 	"net"
 
-	"github.com/cilium/hubble/api/v1/observer"
-	v1 "github.com/cilium/hubble/pkg/api/v1"
+	"github.com/cilium/cilium/api/v1/observer"
+	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	hubbleProto "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -38,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn"
+	hubbleV1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -71,8 +73,6 @@ import (
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/trigger"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
-	hubbleProto "github.com/cilium/hubble/api/v1/flow"
-	hubbleV1 "github.com/cilium/hubble/pkg/api/v1"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
 )
