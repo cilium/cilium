@@ -25,6 +25,9 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/sirupsen/logrus"
 )
 
 // cacheEntry objects hold data passed in via DNSCache.Update, nominally
@@ -166,6 +169,47 @@ func NewDNSCacheWithLimit(minTTL int, limit int) *DNSCache {
 	c := NewDNSCache(minTTL)
 	c.perHostLimit = limit
 	return c
+}
+
+// LookupBySelector returns the IPs from the cached FQDNs matching the given selector.
+func (c *DNSCache) LookupBySelector(toFQDN api.FQDNSelector) (ips []net.IP) {
+	if len(toFQDN.MatchName) > 0 {
+		dnsName := prepareMatchName(toFQDN.MatchName)
+		ips = c.Lookup(dnsName)
+
+		if option.Config.Debug {
+			log.WithFields(logrus.Fields{
+				"DNSName":   dnsName,
+				"IPs":       ips,
+				"matchName": toFQDN.MatchName,
+			}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")
+		}
+	}
+
+	if len(toFQDN.MatchPattern) > 0 {
+		// lookup matching DNS names
+		patternRE, err := toFQDN.ToRegex()
+		if err != nil {
+			log.WithError(err).Error("Error compiling matchPattern")
+		}
+		ipMap := c.LookupByRegexp(patternRE)
+
+		for name, nameIPs := range ipMap {
+			if len(nameIPs) > 0 {
+				if option.Config.Debug {
+					log.WithFields(logrus.Fields{
+						"DNSName":      name,
+						"IPs":          nameIPs,
+						"matchPattern": toFQDN.MatchPattern,
+					}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")
+				}
+				ips = append(ips, nameIPs...)
+			}
+		}
+		ip.KeepUniqueIPs(ips)
+	}
+
+	return ips
 }
 
 // Update inserts a new entry into the cache.

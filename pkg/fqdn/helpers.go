@@ -16,14 +16,10 @@ package fqdn
 
 import (
 	"net"
-	"regexp"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/miekg/dns"
-	"github.com/sirupsen/logrus"
 )
 
 // mapSelectorsToIPs iterates through a set of FQDNSelectors and evalutes whether
@@ -40,60 +36,10 @@ func mapSelectorsToIPs(fqdnSelectors map[api.FQDNSelector]struct{}, cache *DNSCa
 
 	// Map each FQDNSelector to set of CIDRs
 	for ToFQDN := range fqdnSelectors {
-		ipsSelected := make([]net.IP, 0)
-		// lookup matching DNS names
-		if len(ToFQDN.MatchName) > 0 {
-			dnsName := prepareMatchName(ToFQDN.MatchName)
-			lookupIPs := cache.Lookup(dnsName)
-
-			// Mark this FQDNSelector as having no IPs corresponding to it.
-			// FQDNSelectors are guaranteed to have only their MatchName OR
-			// their MatchPattern set (having both set is invalid per
-			// sanitization of FQDNSelectors).
-			if len(lookupIPs) == 0 {
-				missing[ToFQDN] = struct{}{}
-			}
-
-			log.WithFields(logrus.Fields{
-				"DNSName":   dnsName,
-				"IPs":       lookupIPs,
-				"matchName": ToFQDN.MatchName,
-			}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")
-			ipsSelected = append(ipsSelected, lookupIPs...)
-		}
-
-		if len(ToFQDN.MatchPattern) > 0 {
-			// lookup matching DNS names
-			dnsPattern := matchpattern.Sanitize(ToFQDN.MatchPattern)
-			patternREStr := matchpattern.ToRegexp(dnsPattern)
-			var (
-				err       error
-				patternRE *regexp.Regexp
-			)
-
-			if patternRE, err = regexp.Compile(patternREStr); err != nil {
-				log.WithError(err).Error("Error compiling matchPattern")
-			}
-			lookupIPs := cache.LookupByRegexp(patternRE)
-
-			// Mark this pattern missing; it will be unmarked in the loop below
+		ips := cache.LookupBySelector(ToFQDN)
+		if len(ips) == 0 {
 			missing[ToFQDN] = struct{}{}
-
-			for name, ips := range lookupIPs {
-				if len(ips) > 0 {
-					log.WithFields(logrus.Fields{
-						"DNSName":      name,
-						"IPs":          ips,
-						"matchPattern": ToFQDN.MatchPattern,
-					}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")
-					delete(missing, ToFQDN)
-					ipsSelected = append(ipsSelected, ips...)
-				}
-			}
-		}
-
-		ips := ip.KeepUniqueIPs(ipsSelected)
-		if len(ips) > 0 {
+		} else {
 			selectorIPMapping[ToFQDN] = ips
 		}
 	}
