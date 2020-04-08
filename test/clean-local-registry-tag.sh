@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# This script overwrites provided cilium tag image with minimal docker image in order to prevent registry from bloating over time
+
 set -e
 
 if [[ $1 == *"docker.io"* || $1 == *"quay.io"* ]]; then
