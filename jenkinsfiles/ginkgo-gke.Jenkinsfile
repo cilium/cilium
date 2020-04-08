@@ -1,3 +1,6 @@
+// This jenkinsfile sets tag based on git commit hash. Built docker image is tagged accordingly and pushed to local docker registry (living on the node)
+// This allows multiple jobs to use the same registry.
+
 @Library('cilium') _
 
 pipeline {
