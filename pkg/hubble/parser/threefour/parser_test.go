@@ -349,8 +349,8 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 
 	// PolicyVerdictNotify for forwarded flow
 	var flags uint8
-	flags |= monitor.PolicyEgress
-	flags |= monitor.PolicyMatchL3L4 << monitor.PolicyVerdictNotifyFlagMatchTypeBitOffset
+	flags |= api.PolicyEgress
+	flags |= api.PolicyMatchL3L4 << monitor.PolicyVerdictNotifyFlagMatchTypeBitOffset
 	pvn := monitor.PolicyVerdictNotify{
 		Type:        byte(api.MessageTypePolicyVerdict),
 		SubType:     0,
@@ -367,12 +367,12 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 
 	assert.Equal(t, int32(api.MessageTypePolicyVerdict), f.GetEventType().GetType())
 	assert.Equal(t, pb.TrafficDirection_EGRESS, f.GetTrafficDirection())
-	assert.Equal(t, uint32(monitor.PolicyMatchL3L4), f.GetPolicyMatchType())
+	assert.Equal(t, uint32(api.PolicyMatchL3L4), f.GetPolicyMatchType())
 	assert.Equal(t, pb.Verdict_FORWARDED, f.GetVerdict())
 	assert.Equal(t, []string{"dst=label"}, f.GetDestination().GetLabels())
 
 	// PolicyVerdictNotify for dropped flow
-	flags = monitor.PolicyIngress
+	flags = api.PolicyIngress
 	pvn = monitor.PolicyVerdictNotify{
 		Type:        byte(api.MessageTypePolicyVerdict),
 		SubType:     0,
