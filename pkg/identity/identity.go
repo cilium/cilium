@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
 )
 
@@ -70,24 +69,6 @@ type IPIdentityPair struct {
 	K8sPodName   string          `json:"K8sPodName,omitempty"`
 }
 
-func NewIdentityFromModel(base *models.Identity) *Identity {
-	if base == nil {
-		return nil
-	}
-
-	id := &Identity{
-		ID:     NumericIdentity(base.ID),
-		Labels: make(labels.Labels),
-	}
-	for _, v := range base.Labels {
-		lbl := labels.ParseLabel(v)
-		id.Labels[lbl.Key] = lbl
-	}
-	id.Sanitize()
-
-	return id
-}
-
 // Sanitize takes a partially initialized Identity (for example, deserialized
 // from json) and reconstitutes the full object from what has been restored.
 func (id *Identity) Sanitize() {
@@ -114,24 +95,6 @@ func (id *Identity) StringID() string {
 // StringID returns the identity identifier as string
 func (id *Identity) String() string {
 	return id.ID.StringID()
-}
-
-func (id *Identity) GetModel() *models.Identity {
-	if id == nil {
-		return nil
-	}
-
-	ret := &models.Identity{
-		ID:           int64(id.ID),
-		Labels:       []string{},
-		LabelsSHA256: "",
-	}
-
-	for _, v := range id.Labels {
-		ret.Labels = append(ret.Labels, v.String())
-	}
-	ret.LabelsSHA256 = id.GetLabelsSHA256()
-	return ret
 }
 
 // IsReserved returns whether the identity represents a reserved identity
