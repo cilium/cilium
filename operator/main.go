@@ -36,13 +36,14 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
-
 	gops "github.com/google/gops/agent"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
+
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -147,6 +148,14 @@ func runOperator(cmd *cobra.Command) {
 	}
 	close(k8sInitDone)
 
+	restConfig, err := k8s.CreateConfig()
+	if err != nil {
+		log.WithError(err).Fatal("Unable to get Kubernetes client config")
+	}
+	apiextensionsK8sClient, err := apiextensionsclient.NewForConfig(restConfig)
+	if err != nil {
+		log.WithError(err).Fatal("Unable to create apiextensions client")
+	}
 	ciliumK8sClient = k8s.CiliumClient()
 	k8sversion.Update(k8s.Client(), option.Config)
 	if !k8sversion.Capabilities().MinimalVersionMet {
@@ -165,7 +174,6 @@ func runOperator(cmd *cobra.Command) {
 
 	var (
 		nodeManager *allocator.NodeEventHandler
-		err         error
 	)
 	switch ipamMode := option.Config.IPAM; ipamMode {
 	case ipamOption.IPAMAzure, ipamOption.IPAMENI, ipamOption.IPAMOperator:
@@ -183,7 +191,10 @@ func runOperator(cmd *cobra.Command) {
 			log.WithError(err).Fatalf("Unable to start %s allocator", ipamMode)
 		}
 
-		startSynchronizingCiliumNodes(nm)
+		if err := startSynchronizingCiliumNodes(apiextensionsK8sClient, nm); err != nil {
+			log.WithError(err).Fatal("Unable to start synchronizing Cilium nodes")
+		}
+
 		nodeManager = &nm
 
 		switch ipamMode {
@@ -297,7 +308,10 @@ func runOperator(cmd *cobra.Command) {
 			log.Fatal("CRD Identity allocation mode requires k8s to be configured.")
 		}
 
-		startManagingK8sIdentities()
+		if err := startManagingK8sIdentities(apiextensionsK8sClient); err != nil {
+			log.WithError(err).Fatal(
+				"Unable to start managing Kubernetes identities")
+		}
 
 		if operatorOption.Config.IdentityGCInterval != 0 {
 			go startCRDIdentityGC()
@@ -312,7 +326,7 @@ func runOperator(cmd *cobra.Command) {
 		enableCiliumEndpointSyncGC()
 	}
 
-	err = enableCNPWatcher()
+	err = enableCNPWatcher(apiextensionsK8sClient)
 	if err != nil {
 		log.WithError(err).WithField("subsys", "CNPWatcher").Fatal(
 			"Cannot connect to Kubernetes apiserver ")
