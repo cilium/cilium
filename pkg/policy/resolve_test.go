@@ -18,6 +18,7 @@ package policy
 
 import (
 	"fmt"
+	"net"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -202,6 +203,70 @@ func (d DummyOwner) LookupRedirectPort(l4 *L4Filter) uint16 {
 	return 0
 }
 
+type MockDNSProxy struct {
+	allSelectors map[api.FQDNSelector]struct{}
+	dnsdata      map[string][]net.IP
+}
+
+var mockDNSProxy MockDNSProxy = MockDNSProxy{
+	allSelectors: map[api.FQDNSelector]struct{}{},
+	dnsdata: map[string][]net.IP{
+		"foo.bar.com.": {net.ParseIP("1.1.1.1"), net.ParseIP("1.1.1.2")},
+		"bar.bar.com.": {net.ParseIP("2.2.2.1"), net.ParseIP("2.2.2.2")},
+		"bar.foo.com.": {net.ParseIP("3.3.3.1"), net.ParseIP("3.3.3.2")},
+	},
+}
+
+// Lock must be held during any calls to RegisterForIdentityUpdatesLocked or
+// UnregisterForIdentityUpdatesLocked.
+func (d *MockDNSProxy) Lock() {}
+
+// Unlock must be called after calls to RegisterForIdentityUpdatesLocked or
+// UnregisterForIdentityUpdatesLocked are done.
+func (d *MockDNSProxy) Unlock() {}
+
+// RegisterForIdentityUpdatesLocked exposes this FQDNSelector so that identities
+// for IPs contained in a DNS response that matches said selector can be
+// propagated back to the SelectorCache via `UpdateFQDNSelector`. When called,
+// implementers (currently `pkg/fqdn/RuleGen`) should iterate over all DNS
+// names that they are aware of, and see if they match the FQDNSelector.
+// All IPs which correspond to the DNS names which match this Selector will
+// be returned as CIDR identities, as other DNS Names which have already
+// been resolved may match this FQDNSelector.
+// Once this function is called, the SelectorCache will be updated any time
+// new IPs are resolved for DNS names which match this FQDNSelector.
+// This function is only called when the SelectorCache has been made aware
+// of this FQDNSelector for the first time, since we only need to get the
+// set of CIDR identities which match this FQDNSelector already from the
+// identityNotifier on the first pass; any subsequent updates will eventually
+// call `UpdateFQDNSelector`.
+func (d *MockDNSProxy) RegisterForIdentityUpdatesLocked(selector api.FQDNSelector) (identities []identity.NumericIdentity) {
+	re, err := selector.ToRegex()
+	if err != nil {
+		panic(err)
+	}
+
+	var ips []net.IP
+	for k, v := range d.dnsdata {
+		if re.MatchString(k) {
+			ips = append(ips, v...)
+		}
+	}
+
+	// to be completed
+
+	return nil
+}
+
+// UnregisterForIdentityUpdatesLocked removes this FQDNSelector from the set of
+// FQDNSelectors which are being tracked by the identityNotifier. The result
+// of this is that no more updates for IPs which correspond to said selector
+// are propagated back to the SelectorCache via `UpdateFQDNSelector`.
+// This occurs when there are no more users of a given FQDNSelector for the
+// SelectorCache.
+func (d *MockDNSProxy) UnregisterForIdentityUpdatesLocked(selector api.FQDNSelector) {
+}
+
 func bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int, c *C) *Repository {
 	mgr := cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
 	testRepo := NewPolicyRepository(mgr.GetIdentityCache(), nil)
@@ -210,6 +275,7 @@ func bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int, c *C) *Reposit
 	SetPolicyEnabled(option.DefaultEnforcement)
 	GenerateNumIdentities(3000)
 	testSelectorCache.UpdateIdentities(identityCache, nil)
+	testSelectorCache.SetLocalIdentityNotifier(&mockDNSProxy)
 	testRepo.selectorCache = testSelectorCache
 	rulez, _ := testRepo.AddList(ruleGenFunc(numRules))
 
