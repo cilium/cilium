@@ -16,6 +16,8 @@ package monitor
 
 import (
 	"fmt"
+
+	"github.com/cilium/cilium/pkg/monitor/api"
 )
 
 const (
@@ -40,47 +42,7 @@ const (
 	// PolicyVerdictNotifyFlagMatchTypeBitOffset is the bit offset in Flags that
 	// corresponds to the policy match type
 	PolicyVerdictNotifyFlagMatchTypeBitOffset = 3
-
-	// PolicyIngress is the value of Flags&PolicyNotifyFlagDirection for ingress traffic
-	PolicyIngress = 1
-
-	// PolicyEgress is the value of Flags&PolicyNotifyFlagDirection for egress traffic
-	PolicyEgress = 2
-
-	// PolicyMatchNone is the value of MatchType indicatating no policy match
-	PolicyMatchNone = 0
-
-	// PolicyMatchL3Only is the value of MatchType indicating a L3-only match
-	PolicyMatchL3Only = 1
-
-	// PolicyMatchL3L4 is the value of MatchType indicating a L3+L4 match
-	PolicyMatchL3L4 = 2
-
-	// PolicyMatchL4Only is the value of MatchType indicating a L4-only match
-	PolicyMatchL4Only = 3
-
-	// PolicyMatchAll is the value of MatchType indicating an allow-all match
-	PolicyMatchAll = 4
 )
-
-type PolicyMatchType int
-
-func (m PolicyMatchType) String() string {
-	switch m {
-	case PolicyMatchL3Only:
-		return "L3-Only"
-	case PolicyMatchL3L4:
-		return "L3-L4"
-	case PolicyMatchL4Only:
-		return "L4-Only"
-	case PolicyMatchAll:
-		return "all"
-	case PolicyMatchNone:
-		return "none"
-
-	}
-	return "unknown"
-}
 
 // PolicyVerdictNotify is the message format of a policy verdict notification in the bpf ring buffer
 type PolicyVerdictNotify struct {
@@ -102,7 +64,7 @@ type PolicyVerdictNotify struct {
 
 // IsTrafficIngress returns true if this notify is for an ingress traffic
 func (n *PolicyVerdictNotify) IsTrafficIngress() bool {
-	return n.Flags&PolicyVerdictNotifyFlagDirection == PolicyIngress
+	return n.Flags&PolicyVerdictNotifyFlagDirection == api.PolicyIngress
 }
 
 // IsTrafficIPv6 returns true if this notify is for IPv6 traffic
@@ -111,8 +73,8 @@ func (n *PolicyVerdictNotify) IsTrafficIPv6() bool {
 }
 
 // GetPolicyMatchType returns how the traffic matched the policy
-func (n *PolicyVerdictNotify) GetPolicyMatchType() PolicyMatchType {
-	return PolicyMatchType((n.Flags & PolicyVerdictNotifyFlagMatchType) >>
+func (n *PolicyVerdictNotify) GetPolicyMatchType() api.PolicyMatchType {
+	return api.PolicyMatchType((n.Flags & PolicyVerdictNotifyFlagMatchType) >>
 		PolicyVerdictNotifyFlagMatchTypeBitOffset)
 }
 
