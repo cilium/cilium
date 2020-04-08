@@ -26,7 +26,7 @@ update-cmdref: builder-image
 	-$(QUIET)rm -rf cmdref/cilium*.md
 	$(QUIET)$(DOCKER_RUN) ./update-cmdref.sh
 
-check: builder-image update-cmdref
+check: builder-image
 	@$(ECHO_CHECK) cmdref
 	$(QUIET)$(DOCKER_RUN) ./check-cmdref.sh
 	@$(ECHO_CHECK) examples
