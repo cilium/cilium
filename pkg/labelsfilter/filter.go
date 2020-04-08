@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package labels
+package labelsfilter
 
 import (
 	"encoding/json"
@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -61,7 +62,7 @@ func (p LabelPrefix) String() string {
 
 // matches returns true and the length of the matched section if the label is
 // matched by the LabelPrefix. The Ignore flag has no effect at this point.
-func (p LabelPrefix) matches(l Label) (bool, int) {
+func (p LabelPrefix) matches(l labels.Label) (bool, int) {
 	if p.Source != "" && p.Source != l.Source {
 		return false, 0
 	}
@@ -220,7 +221,7 @@ func readLabelPrefixCfgFrom(fileName string) (*labelPrefixCfg, error) {
 	return &lpc, nil
 }
 
-func (cfg *labelPrefixCfg) filterLabels(lbls Labels) (identityLabels, informationLabels Labels) {
+func (cfg *labelPrefixCfg) filterLabels(lbls labels.Labels) (identityLabels, informationLabels labels.Labels) {
 	if len(lbls) == 0 {
 		return nil, nil
 	}
@@ -228,8 +229,8 @@ func (cfg *labelPrefixCfg) filterLabels(lbls Labels) (identityLabels, informatio
 	validLabelPrefixesMU.RLock()
 	defer validLabelPrefixesMU.RUnlock()
 
-	identityLabels = Labels{}
-	informationLabels = Labels{}
+	identityLabels = labels.Labels{}
+	informationLabels = labels.Labels{}
 	for k, v := range lbls {
 		included, ignored := 0, 0
 
@@ -270,9 +271,9 @@ func (cfg *labelPrefixCfg) filterLabels(lbls Labels) (identityLabels, informatio
 	return identityLabels, informationLabels
 }
 
-// FilterLabels returns Labels from the given labels that have the same source and the
+// Filter returns Labels from the given labels that have the same source and the
 // same prefix as one of lpc valid prefixes, as well as labels that do not match
 // the aforementioned filtering criteria.
-func FilterLabels(lbls Labels) (identityLabels, informationLabels Labels) {
+func Filter(lbls labels.Labels) (identityLabels, informationLabels labels.Labels) {
 	return validLabelPrefixes.filterLabels(lbls)
 }
