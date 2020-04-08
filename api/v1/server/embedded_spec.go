@@ -605,7 +605,7 @@ func init() {
     },
     "/healthz": {
       "get": {
-        "description": "Returns health and status information of the Cilium daemon and related\ncomponents such as the local container runtime, connected datastore,\nKubernetes integration.\n",
+        "description": "Returns health and status information of the Cilium daemon and related\ncomponents such as the local container runtime, connected datastore,\nKubernetes integration and Hubble.\n",
         "tags": [
           "daemon"
         ],
@@ -2228,6 +2228,65 @@ func init() {
         }
       }
     },
+    "HubbleStatus": {
+      "description": "Status of the Hubble server",
+      "type": "object",
+      "properties": {
+        "metrics": {
+          "description": "Status of the Hubble metrics server",
+          "type": "object",
+          "properties": {
+            "state": {
+              "description": "State of the Hubble metrics",
+              "type": "string",
+              "enum": [
+                "Ok",
+                "Warning",
+                "Failure",
+                "Disabled"
+              ]
+            }
+          }
+        },
+        "msg": {
+          "description": "Human readable status/error/warning message",
+          "type": "string"
+        },
+        "observer": {
+          "description": "Status of the Hubble observer",
+          "type": "object",
+          "properties": {
+            "current-flows": {
+              "description": "Current number of flows this Hubble observer stores",
+              "type": "integer"
+            },
+            "max-flows": {
+              "description": "Maximum number of flows this Hubble observer is able to store",
+              "type": "integer"
+            },
+            "seen-flows": {
+              "description": "Total number of flows this Hubble observer has seen",
+              "type": "integer"
+            },
+            "uptime": {
+              "description": "Uptime of this Hubble observer instance",
+              "type": "string",
+              "format": "duration"
+            }
+          }
+        },
+        "state": {
+          "description": "State the component is in",
+          "type": "string",
+          "enum": [
+            "Ok",
+            "Warning",
+            "Failure",
+            "Disabled"
+          ]
+        }
+      }
+    },
     "IPAMAddressResponse": {
       "description": "IPAM configuration of an individual address family",
       "type": "object",
@@ -3124,6 +3183,10 @@ func init() {
           "description": "Status of all endpoint controllers",
           "$ref": "#/definitions/ControllerStatuses"
         },
+        "hubble": {
+          "description": "Status of Hubble server",
+          "$ref": "#/definitions/HubbleStatus"
+        },
         "ipam": {
           "description": "Status of IP address management",
           "$ref": "#/definitions/IPAMStatus"
@@ -4006,7 +4069,7 @@ func init() {
     },
     "/healthz": {
       "get": {
-        "description": "Returns health and status information of the Cilium daemon and related\ncomponents such as the local container runtime, connected datastore,\nKubernetes integration.\n",
+        "description": "Returns health and status information of the Cilium daemon and related\ncomponents such as the local container runtime, connected datastore,\nKubernetes integration and Hubble.\n",
         "tags": [
           "daemon"
         ],
@@ -5706,6 +5769,65 @@ func init() {
         }
       }
     },
+    "HubbleStatus": {
+      "description": "Status of the Hubble server",
+      "type": "object",
+      "properties": {
+        "metrics": {
+          "description": "Status of the Hubble metrics server",
+          "type": "object",
+          "properties": {
+            "state": {
+              "description": "State of the Hubble metrics",
+              "type": "string",
+              "enum": [
+                "Ok",
+                "Warning",
+                "Failure",
+                "Disabled"
+              ]
+            }
+          }
+        },
+        "msg": {
+          "description": "Human readable status/error/warning message",
+          "type": "string"
+        },
+        "observer": {
+          "description": "Status of the Hubble observer",
+          "type": "object",
+          "properties": {
+            "current-flows": {
+              "description": "Current number of flows this Hubble observer stores",
+              "type": "integer"
+            },
+            "max-flows": {
+              "description": "Maximum number of flows this Hubble observer is able to store",
+              "type": "integer"
+            },
+            "seen-flows": {
+              "description": "Total number of flows this Hubble observer has seen",
+              "type": "integer"
+            },
+            "uptime": {
+              "description": "Uptime of this Hubble observer instance",
+              "type": "string",
+              "format": "duration"
+            }
+          }
+        },
+        "state": {
+          "description": "State the component is in",
+          "type": "string",
+          "enum": [
+            "Ok",
+            "Warning",
+            "Failure",
+            "Disabled"
+          ]
+        }
+      }
+    },
     "IPAMAddressResponse": {
       "description": "IPAM configuration of an individual address family",
       "type": "object",
@@ -6601,6 +6723,10 @@ func init() {
         "controllers": {
           "description": "Status of all endpoint controllers",
           "$ref": "#/definitions/ControllerStatuses"
+        },
+        "hubble": {
+          "description": "Status of Hubble server",
+          "$ref": "#/definitions/HubbleStatus"
         },
         "ipam": {
           "description": "Status of IP address management",
