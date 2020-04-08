@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package serve
+package server
 
 import (
 	"fmt"
 	"net"
 
-	"github.com/cilium/cilium/api/v1/observer"
-	"github.com/cilium/cilium/api/v1/peer"
+	observerpb "github.com/cilium/cilium/api/v1/observer"
+	peerpb "github.com/cilium/cilium/api/v1/peer"
+	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -30,12 +31,12 @@ import (
 type Server struct {
 	log  *logrus.Entry
 	srv  *grpc.Server
-	opts Options
+	opts serveroption.Options
 }
 
 // NewServer creates a new hubble gRPC server.
-func NewServer(log *logrus.Entry, options ...Option) (*Server, error) {
-	opts := DefaultOptions
+func NewServer(log *logrus.Entry, options ...serveroption.Option) (*Server, error) {
+	opts := serveroption.Default
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {
 			return nil, fmt.Errorf("failed to apply option: %v", err)
@@ -50,10 +51,10 @@ func (s *Server) initGRPCServer() {
 		healthpb.RegisterHealthServer(srv, s.opts.HealthService)
 	}
 	if s.opts.ObserverService != nil {
-		observer.RegisterObserverServer(srv, *s.opts.ObserverService)
+		observerpb.RegisterObserverServer(srv, *s.opts.ObserverService)
 	}
 	if s.opts.PeerService != nil {
-		peer.RegisterPeerServer(srv, *s.opts.PeerService)
+		peerpb.RegisterPeerServer(srv, *s.opts.PeerService)
 	}
 	s.srv = srv
 }

@@ -15,168 +15,120 @@
 package serveroption
 
 import (
-	"context"
+	"fmt"
+	"net"
+	"os"
+	"strings"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/hubble/filters"
+	"github.com/cilium/cilium/api/v1/peer"
+	"github.com/cilium/cilium/pkg/hubble/api"
+	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/observer"
 
-	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
-// CiliumDaemon is a reference to the Cilium's Daemon when running inside Cilium
-type CiliumDaemon interface {
-	DebugEnabled() bool
-}
-
-// Server gives access to the Hubble server
-type Server interface {
-	GetOptions() Options
-	GetLogger() *logrus.Entry
-}
-
-// Default serves only as reference point for default values. Very useful for
-// the CLI to pick these up instead of defining own defaults that need to be
-// kept in sync.
-var Default = Options{
-	MaxFlows:      131071, // 2^17-1
-	MonitorBuffer: 1024,
-}
-
-// Options stores all the configurations values for the hubble server.
+// Options stores all the configuration values for the hubble server.
 type Options struct {
-	// Both sizes should really be uint32 but it's better saved for a single
-	// refactor commit.
-	MaxFlows      int // max number of flows that can be stored in the ring buffer
-	MonitorBuffer int // buffer size for monitor payload
-
-	CiliumDaemon CiliumDaemon // when running inside Cilium, contains a reference to the daemon
-
-	OnServerInit   []OnServerInit          // invoked when the hubble server is initialized
-	OnMonitorEvent []OnMonitorEvent        // invoked before an event is decoded
-	OnDecodedFlow  []OnDecodedFlow         // invoked after a flow has been decoded
-	OnBuildFilter  []filters.OnBuildFilter // invoked while building a flow filter
+	Listeners       map[string]net.Listener
+	HealthService   *health.Server
+	ObserverService *observer.GRPCServer
+	PeerService     *peer.PeerServer
 }
 
-// returning `stop: true` from a callback stops the execution chain, regardless
-// of the error encountered (for example, explicitly filtering out certain
-// events, or similar).
-type stop = bool
-
-// Option customizes the configuration of the hubble server.
+// Option customizes then configuration of the hubble server.
 type Option func(o *Options) error
 
-// OnServerInit is invoked after all server options have been applied
-type OnServerInit interface {
-	OnServerInit(Server) error
-}
-
-// OnServerInitFunc implements OnServerInit for a single function
-type OnServerInitFunc func(Server) error
-
-// OnServerInit is invoked after all server options have been applied
-func (f OnServerInitFunc) OnServerInit(srv Server) error {
-	return f(srv)
-}
-
-// OnMonitorEvent is invoked before each monitor event is decoded
-type OnMonitorEvent interface {
-	OnMonitorEvent(context.Context, *pb.Payload) (stop, error)
-}
-
-// OnMonitorEventFunc implements OnMonitorEvent for a single function
-type OnMonitorEventFunc func(context.Context, *pb.Payload) (stop, error)
-
-// OnMonitorEvent is invoked before each monitor event is decoded
-func (f OnMonitorEventFunc) OnMonitorEvent(ctx context.Context, payload *pb.Payload) (stop, error) {
-	return f(ctx, payload)
-}
-
-// OnDecodedFlow is invoked after a flow has been decoded
-type OnDecodedFlow interface {
-	OnDecodedFlow(context.Context, *pb.Flow) (stop, error)
-}
-
-// OnDecodedFlowFunc implements OnDecodedFlow for a single function
-type OnDecodedFlowFunc func(context.Context, *pb.Flow) (stop, error)
-
-// OnDecodedFlow is invoked after a flow has been decoded
-func (f OnDecodedFlowFunc) OnDecodedFlow(ctx context.Context, flow *pb.Flow) (stop, error) {
-	return f(ctx, flow)
-}
-
-// WithMonitorBuffer controls the size of the buffered channel between the
-// monitor socket and the hubble ring buffer.
-func WithMonitorBuffer(size int) Option {
+// WithListeners configures listeners. Addresses that are prefixed with
+// 'unix://' are assumed to be UNIX domain sockets, in which case appropriate
+// permissions are tentatively set and the group owner is set to socketGroup.
+// Otherwise, the address is assumed to be TCP.
+func WithListeners(addresses []string, socketGroup string) Option {
 	return func(o *Options) error {
-		o.MonitorBuffer = size
+		var opt Option
+		for _, address := range addresses {
+			if strings.HasPrefix(address, "unix://") {
+				opt = WithUnixSocketListener(address, socketGroup)
+			} else {
+				opt = WithTCPListener(address)
+			}
+			if err := opt(o); err != nil {
+				for _, l := range o.Listeners {
+					l.Close()
+				}
+				return err
+			}
+		}
 		return nil
 	}
 }
 
-// WithMaxFlows that the ring buffer is initialized to hold.
-func WithMaxFlows(size int) Option {
+// WithTCPListener configures a TCP listener with the address.
+func WithTCPListener(address string) Option {
 	return func(o *Options) error {
-		o.MaxFlows = size
+		socket, err := net.Listen("tcp", address)
+		if err != nil {
+			return err
+		}
+		if _, exist := o.Listeners[address]; exist {
+			socket.Close()
+			return fmt.Errorf("listener already configured: %s", address)
+		}
+		o.Listeners[address] = socket
 		return nil
 	}
 }
 
-// WithCiliumDaemon provides access to the Cilium daemon via downcast
-func WithCiliumDaemon(daemon CiliumDaemon) Option {
+// WithUnixSocketListener configures a unix domain socket listener with the
+// given file path. When the process runs in privileged mode, the file group
+// owner is set to socketGroup.
+func WithUnixSocketListener(path string, socketGroup string) Option {
 	return func(o *Options) error {
-		o.CiliumDaemon = daemon
+		socketPath := strings.TrimPrefix(path, "unix://")
+		unix.Unlink(socketPath)
+		socket, err := net.Listen("unix", socketPath)
+		if err != nil {
+			return err
+		}
+		if os.Getuid() == 0 {
+			if err := api.SetDefaultPermissions(socketPath, socketGroup); err != nil {
+				return err
+			}
+		}
+		if _, exist := o.Listeners[path]; exist {
+			socket.Close()
+			unix.Unlink(socketPath)
+			return fmt.Errorf("listener already configured: %s", path)
+		}
+		o.Listeners[path] = socket
 		return nil
 	}
 }
 
-// WithOnServerInit adds a new callback to be invoked after server initialization
-func WithOnServerInit(f OnServerInit) Option {
+// WithHealthService configures the server to expose the gRPC health service.
+func WithHealthService() Option {
 	return func(o *Options) error {
-		o.OnServerInit = append(o.OnServerInit, f)
+		healthSvc := health.NewServer()
+		healthSvc.SetServingStatus(v1.ObserverServiceName, healthpb.HealthCheckResponse_SERVING)
+		o.HealthService = healthSvc
 		return nil
 	}
 }
 
-// WithOnServerInitFunc adds a new callback to be invoked after server initialization
-func WithOnServerInitFunc(f func(Server) error) Option {
-	return WithOnServerInit(OnServerInitFunc(f))
-}
-
-// WithOnMonitorEvent adds a new callback to be invoked before decoding
-func WithOnMonitorEvent(f OnMonitorEvent) Option {
+// WithObserverService configures the server to expose the given observer server service.
+func WithObserverService(svc observer.GRPCServer) Option {
 	return func(o *Options) error {
-		o.OnMonitorEvent = append(o.OnMonitorEvent, f)
+		o.ObserverService = &svc
 		return nil
 	}
 }
 
-// WithOnMonitorEventFunc adds a new callback to be invoked before decoding
-func WithOnMonitorEventFunc(f func(context.Context, *pb.Payload) (stop, error)) Option {
-	return WithOnMonitorEvent(OnMonitorEventFunc(f))
-}
-
-// WithOnDecodedFlow adds a new callback to be invoked after decoding
-func WithOnDecodedFlow(f OnDecodedFlow) Option {
+// WithPeerService configures the server to expose the given peer server service.
+func WithPeerService(svc peer.PeerServer) Option {
 	return func(o *Options) error {
-		o.OnDecodedFlow = append(o.OnDecodedFlow, f)
+		o.PeerService = &svc
 		return nil
 	}
-}
-
-// WithOnDecodedFlowFunc adds a new callback to be invoked after decoding
-func WithOnDecodedFlowFunc(f func(context.Context, *pb.Flow) (stop, error)) Option {
-	return WithOnDecodedFlow(OnDecodedFlowFunc(f))
-}
-
-// WithOnBuildFilter adds a new callback to be invoked while building a flow filter
-func WithOnBuildFilter(f filters.OnBuildFilter) Option {
-	return func(o *Options) error {
-		o.OnBuildFilter = append(o.OnBuildFilter, f)
-		return nil
-	}
-}
-
-// WithOnBuildFilterFunc adds a new callback to be invoked while building flow filters
-func WithOnBuildFilterFunc(f filters.OnBuildFilterFunc) Option {
-	return WithOnBuildFilter(filters.OnBuildFilterFunc(f))
 }

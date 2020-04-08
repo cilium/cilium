@@ -14,12 +14,12 @@
 
 // +build !privileged_tests
 
-package server
+package observer
 
 import (
 	"context"
 
-	"github.com/cilium/cilium/api/v1/observer"
+	observerpb "github.com/cilium/cilium/api/v1/observer"
 
 	"google.golang.org/grpc/metadata"
 )
@@ -34,11 +34,11 @@ type FakeGRPCServerStream struct {
 }
 
 type FakeGetFlowsServer struct {
-	OnSend func(response *observer.GetFlowsResponse) error
+	OnSend func(response *observerpb.GetFlowsResponse) error
 	*FakeGRPCServerStream
 }
 
-func (s *FakeGetFlowsServer) Send(response *observer.GetFlowsResponse) error {
+func (s *FakeGetFlowsServer) Send(response *observerpb.GetFlowsResponse) error {
 	if s.OnSend != nil {
 		// TODO: completely convert this into using pb.Flow
 		return s.OnSend(response)

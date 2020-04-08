@@ -20,8 +20,9 @@ import (
 	"io"
 	"net"
 
-	"github.com/cilium/cilium/api/v1/observer"
+	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/proxy/proxyoption"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -33,14 +34,14 @@ import (
 // Server is a proxy that connects to a running instance of hubble gRPC server
 // via unix domain socket.
 type Server struct {
-	client observer.ObserverClient
+	client observerpb.ObserverClient
 	server *grpc.Server
-	opts   Options
+	opts   proxyoption.Options
 }
 
 // NewServer creates a new proxy Server.
-func NewServer(options ...Option) (*Server, error) {
-	opts := DefaultOptions
+func NewServer(options ...proxyoption.Option) (*Server, error) {
+	opts := proxyoption.Default
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {
 			return nil, fmt.Errorf("failed to apply option: %v", err)
@@ -52,7 +53,7 @@ func NewServer(options ...Option) (*Server, error) {
 }
 
 // ensure that GRPCServer implements the observer.ObserverServer interface.
-var _ observer.ObserverServer = (*Server)(nil)
+var _ observerpb.ObserverServer = (*Server)(nil)
 
 // Serve starts the hubble proxy server. Serve does not return unless a
 // listening fails with fatal errors. Serve will return a non-nil error if
@@ -62,7 +63,7 @@ func (s *Server) Serve() error {
 	healthSrv := health.NewServer()
 	healthSrv.SetServingStatus(v1.ObserverServiceName, healthpb.HealthCheckResponse_SERVING)
 	healthpb.RegisterHealthServer(s.server, healthSrv)
-	observer.RegisterObserverServer(s.server, s)
+	observerpb.RegisterObserverServer(s.server, s)
 	socket, err := net.Listen("tcp", s.opts.ListenAddress)
 	if err != nil {
 		return fmt.Errorf("failed to listen on tcp socket %s: %v", s.opts.ListenAddress, err)
@@ -80,7 +81,7 @@ func (s *Server) connectClient() error {
 	if err != nil {
 		return fmt.Errorf("failed to dial grpc: %v", err)
 	}
-	s.client = observer.NewObserverClient(conn)
+	s.client = observerpb.NewObserverClient(conn)
 	return nil
 }
 
@@ -91,7 +92,7 @@ func (s *Server) Stop() {
 
 // GetFlows implements observer.ObserverServer.GetFlows by proxying requests to
 // the hubble instance the proxy is connected to.
-func (s *Server) GetFlows(req *observer.GetFlowsRequest, server observer.Observer_GetFlowsServer) error {
+func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, server observerpb.Observer_GetFlowsServer) error {
 	c, err := s.client.GetFlows(context.Background(), req)
 	if err != nil {
 		return err
@@ -116,6 +117,6 @@ func (s *Server) GetFlows(req *observer.GetFlowsRequest, server observer.Observe
 
 // ServerStatus implements observer.ObserverServer.ServerStatus by proxying
 // requests to the hubble instance the proxy is connected to.
-func (s *Server) ServerStatus(ctx context.Context, req *observer.ServerStatusRequest) (*observer.ServerStatusResponse, error) {
+func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusRequest) (*observerpb.ServerStatusResponse, error) {
 	return s.client.ServerStatus(ctx, req)
 }
