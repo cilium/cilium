@@ -655,6 +655,22 @@ func (d *Daemon) startStatusCollector() {
 				}
 			},
 		},
+		{
+			Name: "hubble",
+			Probe: func(ctx context.Context) (interface{}, error) {
+				return d.getHubbleStatus(ctx), nil
+			},
+			OnStatusUpdate: func(status status.Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if status.Err == nil {
+					if s, ok := status.Data.(*models.HubbleStatus); ok {
+						d.statusResponse.Hubble = s
+					}
+				}
+			},
+		},
 	}
 
 	if k8s.IsEnabled() {
