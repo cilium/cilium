@@ -63,7 +63,6 @@ import (
 	"github.com/cilium/cilium/pkg/version"
 	"github.com/go-openapi/loads"
 	gops "github.com/google/gops/agent"
-	"github.com/jessevdk/go-flags"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -1242,7 +1241,7 @@ func runDaemon() {
 	bootstrapStats.initAPI.Start()
 	srv := server.NewServer(d.instantiateAPI())
 	srv.EnabledListeners = []string{"unix"}
-	srv.SocketPath = flags.Filename(option.Config.SocketPath)
+	srv.SocketPath = option.Config.SocketPath
 	srv.ReadTimeout = apiTimeout
 	srv.WriteTimeout = apiTimeout
 	defer srv.Shutdown()
