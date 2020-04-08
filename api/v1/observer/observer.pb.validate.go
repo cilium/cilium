@@ -115,6 +115,10 @@ func (m *ServerStatusResponse) Validate() error {
 
 	// no validation rules for MaxFlows
 
+	// no validation rules for SeenFlows
+
+	// no validation rules for UptimeNs
+
 	return nil
 }
 

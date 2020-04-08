@@ -37,6 +37,12 @@ message ServerStatusResponse {
 
     // maximum capacity of the ring buffer
     uint64 max_flows = 2;
+
+    // total amount of flows observed since the observer was started
+    uint64 seen_flows = 3;
+
+    // uptime of this observer instance in nanoseconds
+    uint64 uptime_ns = 4;
 }
 
 message GetFlowsRequest {
