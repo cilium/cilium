@@ -39,6 +39,9 @@ type StatusResponse struct {
 	// Status of all endpoint controllers
 	Controllers ControllerStatuses `json:"controllers,omitempty"`
 
+	// Status of Hubble server
+	Hubble *HubbleStatus `json:"hubble,omitempty"`
+
 	// Status of IP address management
 	Ipam *IPAMStatus `json:"ipam,omitempty"`
 
@@ -82,6 +85,10 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateControllers(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateHubble(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -202,6 +209,24 @@ func (m *StatusResponse) validateControllers(formats strfmt.Registry) error {
 			return ve.ValidateName("controllers")
 		}
 		return err
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) validateHubble(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Hubble) { // not required
+		return nil
+	}
+
+	if m.Hubble != nil {
+		if err := m.Hubble.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("hubble")
+			}
+			return err
+		}
 	}
 
 	return nil

@@ -37,7 +37,7 @@ paths:
       description: |
         Returns health and status information of the Cilium daemon and related
         components such as the local container runtime, connected datastore,
-        Kubernetes integration.
+        Kubernetes integration and Hubble.
       tags:
       - daemon
       parameters:
@@ -1543,6 +1543,9 @@ definitions:
       container-runtime:
         description: Status of local container runtime
         "$ref": "#/definitions/Status"
+      hubble:
+        description: Status of Hubble server
+        "$ref": "#/definitions/HubbleStatus"
       kubernetes:
         description: Status of Kubernetes integration
         "$ref": "#/definitions/K8sStatus"
@@ -1595,6 +1598,50 @@ definitions:
       msg:
         type: string
         description: Human readable status/error/warning message
+  HubbleStatus:
+    description: Status of the Hubble server
+    type: object
+    properties:
+      state:
+        type: string
+        description: State the component is in
+        enum:
+          - Ok
+          - Warning
+          - Failure
+          - Disabled
+      msg:
+        type: string
+        description: Human readable status/error/warning message
+      observer:
+        type: object
+        description: Status of the Hubble observer
+        properties:
+          max-flows:
+            type: integer
+            description: Maximum number of flows this Hubble observer is able to store
+          current-flows:
+            type: integer
+            description: Current number of flows this Hubble observer stores
+          seen-flows:
+            type: integer
+            description: Total number of flows this Hubble observer has seen
+          uptime:
+            type: string
+            format: duration
+            description: Uptime of this Hubble observer instance
+      metrics:
+        type: object
+        description: Status of the Hubble metrics server
+        properties:
+          state:
+            type: string
+            description: State of the Hubble metrics
+            enum:
+              - Ok
+              - Warning
+              - Failure
+              - Disabled
   K8sStatus:
     description: Status of Kubernetes integration
     type: object
