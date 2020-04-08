@@ -16,7 +16,7 @@ package listener
 
 import (
 	"github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/hubble/server"
+	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/monitor/payload"
 	"github.com/cilium/cilium/pkg/node"
@@ -25,11 +25,11 @@ import (
 )
 
 type hubbleListener struct {
-	observer server.GRPCServer
+	observer observer.GRPCServer
 }
 
 // NewHubbleListener returns an initialized pointer to hubbleListener.
-func NewHubbleListener(observer server.GRPCServer) listener.MonitorListener {
+func NewHubbleListener(observer observer.GRPCServer) listener.MonitorListener {
 	ml := &hubbleListener{observer}
 	return ml
 }

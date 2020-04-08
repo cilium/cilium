@@ -17,12 +17,13 @@ package cmd
 import (
 	"strings"
 
-	hubbleServe "github.com/cilium/cilium/daemon/cmd/hubble-serve"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/hubble/listener"
-	hubbleMetrics "github.com/cilium/cilium/pkg/hubble/metrics"
+	"github.com/cilium/cilium/pkg/hubble/metrics"
+	"github.com/cilium/cilium/pkg/hubble/observer"
+	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/hubble/parser"
-	hubbleServer "github.com/cilium/cilium/pkg/hubble/server"
+	"github.com/cilium/cilium/pkg/hubble/server"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging"
@@ -50,10 +51,10 @@ func (d *Daemon) launchHubble() {
 		logger.WithError(err).Error("Failed to initialize Hubble")
 		return
 	}
-	observerServer, err := hubbleServer.NewLocalServer(payloadParser, logger,
-		serveroption.WithMaxFlows(option.Config.HubbleFlowBufferSize),
-		serveroption.WithMonitorBuffer(option.Config.HubbleEventQueueSize),
-		serveroption.WithCiliumDaemon(d))
+	observerServer, err := observer.NewLocalServer(payloadParser, logger,
+		observeroption.WithMaxFlows(option.Config.HubbleFlowBufferSize),
+		observeroption.WithMonitorBuffer(option.Config.HubbleEventQueueSize),
+		observeroption.WithCiliumDaemon(d))
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize Hubble")
 		return
@@ -61,10 +62,10 @@ func (d *Daemon) launchHubble() {
 	go observerServer.Start()
 	d.monitorAgent.GetMonitor().RegisterNewListener(d.ctx, listener.NewHubbleListener(observerServer))
 
-	srv, err := hubbleServe.NewServer(logger,
-		hubbleServe.WithListeners(addresses, api.CiliumGroupName),
-		hubbleServe.WithHealthService(),
-		hubbleServe.WithObserverService(observerServer),
+	srv, err := server.NewServer(logger,
+		serveroption.WithListeners(addresses, api.CiliumGroupName),
+		serveroption.WithHealthService(),
+		serveroption.WithObserverService(observerServer),
 	)
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize Hubble server")
@@ -85,7 +86,7 @@ func (d *Daemon) launchHubble() {
 			"address": option.Config.HubbleMetricsServer,
 			"metrics": option.Config.HubbleMetrics,
 		}).Info("Starting Hubble Metrics server")
-		if err := hubbleMetrics.EnableMetrics(log, option.Config.HubbleMetricsServer, option.Config.HubbleMetrics); err != nil {
+		if err := metrics.EnableMetrics(log, option.Config.HubbleMetricsServer, option.Config.HubbleMetrics); err != nil {
 			logger.WithError(err).Warn("Failed to initialize Hubble metrics server")
 			return
 		}

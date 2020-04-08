@@ -1,4 +1,4 @@
-// Copyright 2020 Authors of Cilium
+// Copyright 2020 Authors of Hubble
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,17 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package proxy
+package observeroption
 
-import (
-	"time"
-
-	"github.com/cilium/cilium/pkg/defaults"
-)
-
-// DefaultOptions is the reference point for default values.
-var DefaultOptions = Options{
-	HubbleTarget:  "unix://" + defaults.HubbleSockPath,
-	DialTimeout:   5 * time.Second,
-	ListenAddress: ":4245",
+// Default serves only as reference point for default values. Very useful for
+// the CLI to pick these up instead of defining own defaults that need to be
+// kept in sync.
+var Default = Options{
+	MaxFlows:      131071, // 2^17-1
+	MonitorBuffer: 1024,
 }

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package server
+package observer
 
 import (
 	"context"
@@ -22,14 +22,14 @@ import (
 	"time"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/api/v1/observer"
+	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/filters"
 	"github.com/cilium/cilium/pkg/hubble/metrics"
+	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/hubble/parser"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
-	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
@@ -38,12 +38,12 @@ import (
 
 // DefaultOptions to include in the server. Other packages may extend this
 // in their init() function.
-var DefaultOptions []serveroption.Option
+var DefaultOptions []observeroption.Option
 
 // GRPCServer defines the interface for Hubble gRPC server, extending the
 // auto-generated ObserverServer interface from the protobuf definition.
 type GRPCServer interface {
-	observer.ObserverServer
+	observerpb.ObserverServer
 	// Start starts the server and blocks.
 	Start()
 	// GetEventsChannel returns the channel to push monitor events to.
@@ -78,21 +78,21 @@ type LocalObserverServer struct {
 	log *logrus.Entry
 
 	// channel to receive events from observer server.
-	eventschan chan *observer.GetFlowsResponse
+	eventschan chan *observerpb.GetFlowsResponse
 
 	// payloadParser decodes pb.Payload into pb.Flow
 	payloadParser *parser.Parser
 
-	opts serveroption.Options
+	opts observeroption.Options
 }
 
 // NewLocalServer returns a new local observer server.
 func NewLocalServer(
 	payloadParser *parser.Parser,
 	logger *logrus.Entry,
-	options ...serveroption.Option,
+	options ...observeroption.Option,
 ) (*LocalObserverServer, error) {
-	opts := serveroption.Default // start with defaults
+	opts := observeroption.Default // start with defaults
 	options = append(options, DefaultOptions...)
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {
@@ -110,7 +110,7 @@ func NewLocalServer(
 		ring:          container.NewRing(opts.MaxFlows),
 		events:        make(chan *pb.Payload, opts.MonitorBuffer),
 		stopped:       make(chan struct{}),
-		eventschan:    make(chan *observer.GetFlowsResponse, 100), // option here?
+		eventschan:    make(chan *observerpb.GetFlowsResponse, 100), // option here?
 		payloadParser: payloadParser,
 		opts:          opts,
 	}
@@ -203,15 +203,15 @@ func (s *LocalObserverServer) GetPayloadParser() *parser.Parser {
 }
 
 // GetOptions implements serveroptions.Server.GetOptions.
-func (s *LocalObserverServer) GetOptions() serveroption.Options {
+func (s *LocalObserverServer) GetOptions() observeroption.Options {
 	return s.opts
 }
 
 // ServerStatus should have a comment, apparently. It returns the server status.
 func (s *LocalObserverServer) ServerStatus(
-	ctx context.Context, req *observer.ServerStatusRequest,
-) (*observer.ServerStatusResponse, error) {
-	return &observer.ServerStatusResponse{
+	ctx context.Context, req *observerpb.ServerStatusRequest,
+) (*observerpb.ServerStatusResponse, error) {
+	return &observerpb.ServerStatusResponse{
 		MaxFlows: s.GetRingBuffer().Cap(),
 		NumFlows: s.GetRingBuffer().Len(),
 	}, nil
@@ -219,8 +219,8 @@ func (s *LocalObserverServer) ServerStatus(
 
 // GetFlows implements the proto method for client requests.
 func (s *LocalObserverServer) GetFlows(
-	req *observer.GetFlowsRequest,
-	server observer.Observer_GetFlowsServer,
+	req *observerpb.GetFlowsRequest,
+	server observerpb.Observer_GetFlowsServer,
 ) (err error) {
 	// This context is used for goroutines spawned specifically to serve this
 	// request, meaning it must be cancelled once the request is done and this
@@ -243,8 +243,8 @@ func (s *LocalObserverServer) GetFlows(
 
 func getFlows(
 	ctx context.Context,
-	req *observer.GetFlowsRequest,
-	server observer.Observer_GetFlowsServer,
+	req *observerpb.GetFlowsRequest,
+	server observerpb.Observer_GetFlowsServer,
 	obs GRPCServer,
 	whitelist, blacklist filters.FilterFuncs,
 ) (err error) {
@@ -283,8 +283,8 @@ func getFlows(
 			}
 			return err
 		}
-		err = server.Send(&observer.GetFlowsResponse{
-			ResponseTypes: &observer.GetFlowsResponse_Flow{
+		err = server.Send(&observerpb.GetFlowsResponse{
+			ResponseTypes: &observerpb.GetFlowsResponse_Flow{
 				Flow: flow,
 			},
 		})
@@ -294,7 +294,7 @@ func getFlows(
 	}
 }
 
-func getUntil(req *observer.GetFlowsRequest, defaultTime *timestamp.Timestamp) (time.Time, error) {
+func getUntil(req *observerpb.GetFlowsRequest, defaultTime *timestamp.Timestamp) (time.Time, error) {
 	until := req.GetUntil()
 	if until == nil {
 		until = defaultTime
@@ -335,7 +335,7 @@ type flowsReader struct {
 // newFlowsReader creates a new flowsReader that uses the given RingReader to
 // read through the ring buffer. Only flows that match the request criterias
 // are returned.
-func newFlowsReader(r *container.RingReader, req *observer.GetFlowsRequest, log *logrus.Entry, whitelist, blacklist filters.FilterFuncs) (*flowsReader, error) {
+func newFlowsReader(r *container.RingReader, req *observerpb.GetFlowsRequest, log *logrus.Entry, whitelist, blacklist filters.FilterFuncs) (*flowsReader, error) {
 	log.WithFields(logrus.Fields{
 		"req":       req,
 		"whitelist": whitelist,
@@ -406,7 +406,7 @@ func (r *flowsReader) Next(ctx context.Context) (*pb.Flow, error) {
 
 // newRingReader creates a new RingReader that starts at the correct ring
 // offset to match the flow request.
-func newRingReader(ring *container.Ring, req *observer.GetFlowsRequest, whitelist, blacklist filters.FilterFuncs) (*container.RingReader, error) {
+func newRingReader(ring *container.Ring, req *observerpb.GetFlowsRequest, whitelist, blacklist filters.FilterFuncs) (*container.RingReader, error) {
 	if req.Follow && req.Number == 0 { // no need to rewind
 		return container.NewRingReader(ring, ring.LastWriteParallel()), nil
 	}

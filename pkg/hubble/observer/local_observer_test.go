@@ -14,17 +14,17 @@
 
 // +build !privileged_tests
 
-package server
+package observer
 
 import (
 	"context"
 	"testing"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/api/v1/observer"
+	flowpb "github.com/cilium/cilium/api/v1/flow"
+	observerpb "github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/pkg/hubble/logger"
+	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/hubble/parser"
-	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -58,24 +58,24 @@ func TestNewLocalServer(t *testing.T) {
 }
 
 func TestLocalObserverServer_ServerStatus(t *testing.T) {
-	// (glibsm): This test is really confusing. `serveroption.WithMaxFlows(1)`
+	// (glibsm): This test is really confusing. `observeroption.WithMaxFlows(1)`
 	// results in the actual flow capacity of 2.
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, logger.GetLogger(), serveroption.WithMaxFlows(1))
+	s, err := NewLocalServer(pp, logger.GetLogger(), observeroption.WithMaxFlows(1))
 	require.NoError(t, err)
-	res, err := s.ServerStatus(context.Background(), &observer.ServerStatusRequest{})
+	res, err := s.ServerStatus(context.Background(), &observerpb.ServerStatusRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, &observer.ServerStatusResponse{NumFlows: 0, MaxFlows: 2}, res)
+	assert.Equal(t, &observerpb.ServerStatusResponse{NumFlows: 0, MaxFlows: 2}, res)
 }
 
 func TestLocalObserverServer_GetFlows(t *testing.T) {
 	numFlows := 100
 	queueSize := 0
-	req := &observer.GetFlowsRequest{Number: uint64(10)}
+	req := &observerpb.GetFlowsRequest{Number: uint64(10)}
 	i := 0
 	fakeServer := &FakeGetFlowsServer{
-		OnSend: func(response *observer.GetFlowsResponse) error {
+		OnSend: func(response *observerpb.GetFlowsResponse) error {
 			i++
 			return nil
 		},
@@ -88,8 +88,8 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 
 	pp := noopParser(t)
 	s, err := NewLocalServer(pp, logger.GetLogger(),
-		serveroption.WithMaxFlows(numFlows),
-		serveroption.WithMonitorBuffer(queueSize),
+		observeroption.WithMaxFlows(numFlows),
+		observeroption.WithMonitorBuffer(queueSize),
 	)
 	require.NoError(t, err)
 	go s.Start()
@@ -98,9 +98,9 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 	for i := 0; i < numFlows; i++ {
 		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
 		data := testutils.MustCreateL3L4Payload(tn)
-		pl := &pb.Payload{
+		pl := &flowpb.Payload{
 			Time: &timestamp.Timestamp{Seconds: int64(i)},
-			Type: pb.EventType_EventSample,
+			Type: flowpb.EventType_EventSample,
 			Data: data,
 		}
 		m <- pl
@@ -123,14 +123,14 @@ func TestHooks(t *testing.T) {
 	queueSize := 0
 
 	ciliumDaemon := &fakeCiliumDaemon{}
-	onServerInit := func(srv serveroption.Server) error {
+	onServerInit := func(srv observeroption.Server) error {
 		assert.Equal(t, srv.GetOptions().CiliumDaemon, ciliumDaemon)
 		return nil
 	}
 
 	seenFlows := int64(0)
 	skipEveryNFlows := int64(2)
-	onMonitorEventFirst := func(ctx context.Context, payload *pb.Payload) (bool, error) {
+	onMonitorEventFirst := func(ctx context.Context, payload *flowpb.Payload) (bool, error) {
 		seenFlows++
 
 		assert.Equal(t, payload.Time.Seconds, seenFlows-1)
@@ -139,13 +139,13 @@ func TestHooks(t *testing.T) {
 		}
 		return false, nil
 	}
-	onMonitorEventSecond := func(ctx context.Context, payload *pb.Payload) (bool, error) {
+	onMonitorEventSecond := func(ctx context.Context, payload *flowpb.Payload) (bool, error) {
 		if seenFlows%skipEveryNFlows == 0 {
 			assert.Fail(t, "server did not break loop after onMonitorEventFirst")
 		}
 		return false, nil
 	}
-	onDecodedFlow := func(ctx context.Context, f *pb.Flow) (bool, error) {
+	onDecodedFlow := func(ctx context.Context, f *flowpb.Flow) (bool, error) {
 		if seenFlows%skipEveryNFlows == 0 {
 			assert.Fail(t, "server did not stop decoding after onMonitorEventFirst")
 		}
@@ -154,13 +154,13 @@ func TestHooks(t *testing.T) {
 
 	pp := noopParser(t)
 	s, err := NewLocalServer(pp, logger.GetLogger(),
-		serveroption.WithMaxFlows(numFlows),
-		serveroption.WithMonitorBuffer(queueSize),
-		serveroption.WithCiliumDaemon(ciliumDaemon),
-		serveroption.WithOnServerInitFunc(onServerInit),
-		serveroption.WithOnMonitorEventFunc(onMonitorEventFirst),
-		serveroption.WithOnMonitorEventFunc(onMonitorEventSecond),
-		serveroption.WithOnDecodedFlowFunc(onDecodedFlow),
+		observeroption.WithMaxFlows(numFlows),
+		observeroption.WithMonitorBuffer(queueSize),
+		observeroption.WithCiliumDaemon(ciliumDaemon),
+		observeroption.WithOnServerInitFunc(onServerInit),
+		observeroption.WithOnMonitorEventFunc(onMonitorEventFirst),
+		observeroption.WithOnMonitorEventFunc(onMonitorEventSecond),
+		observeroption.WithOnDecodedFlowFunc(onDecodedFlow),
 	)
 	require.NoError(t, err)
 	go s.Start()
@@ -169,9 +169,9 @@ func TestHooks(t *testing.T) {
 	for i := 0; i < numFlows; i++ {
 		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
 		data := testutils.MustCreateL3L4Payload(tn)
-		pl := &pb.Payload{
+		pl := &flowpb.Payload{
 			Time: &timestamp.Timestamp{Seconds: int64(i)},
-			Type: pb.EventType_EventSample,
+			Type: flowpb.EventType_EventSample,
 			Data: data,
 		}
 		m <- pl
