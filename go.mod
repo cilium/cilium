@@ -41,7 +41,6 @@ require (
 	github.com/hashicorp/golang-lru v0.5.1
 	// must be bound to this old version not to break libnetwork
 	github.com/ishidawataru/sctp v0.0.0-20180213033435-07191f837fed // indirect
-	github.com/jessevdk/go-flags v1.4.0
 	github.com/kevinburke/ssh_config v0.0.0-20190725054713-01f96b0aa0cd
 	github.com/kr/pretty v0.1.0
 	github.com/mattn/go-shellwords v1.0.5
