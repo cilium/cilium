@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/groups"
 
 	"k8s.io/api/core/v1"
+	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -46,7 +47,9 @@ func init() {
 	}
 }
 
-func enableCNPWatcher() error {
+// enableCNPWatcher waits for the CiliumNetowrkPolicy CRD availability and then
+// garbage collects stale CiliumNetowrkPolicy status field entries.
+func enableCNPWatcher(apiextensionsK8sClient apiextensionsclientset.Interface) error {
 	log.Info("Starting to garbage collect stale CiliumNetworkPolicy status field entries...")
 
 	var (
@@ -82,7 +85,7 @@ func enableCNPWatcher() error {
 
 	ciliumV2Controller := informer.NewInformerWithStore(
 		cache.NewListWatchFromClient(k8s.CiliumClient().CiliumV2().RESTClient(),
-			"ciliumnetworkpolicies", v1.NamespaceAll, fields.Everything()),
+			cilium_v2.CNPPluralName, v1.NamespaceAll, fields.Everything()),
 		&cilium_v2.CiliumNetworkPolicy{},
 		0,
 		cache.ResourceEventHandlerFuncs{
@@ -136,6 +139,10 @@ func enableCNPWatcher() error {
 		cnpConverterFunc,
 		cnpStore,
 	)
+
+	if err := WaitForCRD(apiextensionsK8sClient, cilium_v2.CNPName); err != nil {
+		return err
+	}
 	go ciliumV2Controller.Run(wait.NeverStop)
 
 	controller.NewManager().UpdateController("cnp-to-groups",
