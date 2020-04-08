@@ -44,7 +44,7 @@ func (ts *MatchPatternTestSuite) TestMatchPatternREConversion(c *C) {
 		"*.cilium.io.": "^" + allowedDNSCharsREGroup + "*[.]cilium[.]io[.]$",
 		"*":            "^(" + allowedDNSCharsREGroup + "+[.])+$",
 	} {
-		reStr := ToRegexp(source)
+		reStr := toRegexp(source)
 		_, err := regexp.Compile(reStr)
 		c.Assert(err, IsNil, Commentf("Regexp generated from pattern %sis not valid", source))
 		c.Assert(reStr, Equals, target, Commentf("Regexp generated from pattern %s isn't expected", source))
@@ -95,7 +95,7 @@ func (ts *MatchPatternTestSuite) TestMatchPatternMatching(c *C) {
 			reject:  []string{""},
 		},
 	} {
-		reStr := ToRegexp(testCase.pattern)
+		reStr := toRegexp(testCase.pattern)
 		re, err := regexp.Compile(reStr)
 		c.Assert(err, IsNil, Commentf("Regexp generated from pattern is not valid"))
 		for _, accept := range testCase.accept {
@@ -107,14 +107,14 @@ func (ts *MatchPatternTestSuite) TestMatchPatternMatching(c *C) {
 	}
 }
 
-// TestMatchPatternSanitize tests that Sanitize handles any special cases
-func (ts *MatchPatternTestSuite) TestMatchPatternSanitize(c *C) {
+// TestCanonicalizeFQDN tests that CanonicalizeFQDN handles any special cases
+func (ts *MatchPatternTestSuite) TestCanonicalizeFQDN(c *C) {
 	for source, target := range map[string]string{
-		"*":     "*",
-		"*.":    "*.",
-		"*.com": "*.com.",
+		"com.":    "com.",
+		"foo.com": "foo.com.",
+		"BAR.COM": "bar.com.",
 	} {
-		sanitized := Sanitize(source)
-		c.Assert(sanitized, Equals, target, Commentf("matchPattern: %s not sanitized correctly", source))
+		fqdn := CanonicalizeFQDN(source)
+		c.Assert(fqdn, Equals, target, Commentf("matchPattern: %s not canonicalized correctly", source))
 	}
 }

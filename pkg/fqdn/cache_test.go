@@ -27,6 +27,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	. "gopkg.in/check.v1"
 )
 
@@ -754,8 +755,8 @@ func (ds *DNSCacheTestSuite) TestZombiesForceExpire(c *C) {
 	now := time.Now()
 	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes)
 
-	zombies.Upsert(now, "1.1.1.1", "test.com", "anothertest.com")
-	zombies.Upsert(now, "2.2.2.2", "somethingelse.com")
+	zombies.Upsert(now, "1.1.1.1", "test.com.", "anothertest.com.")
+	zombies.Upsert(now, "2.2.2.2", "somethingelse.com.")
 
 	// Without any MarkAlive or SetCTGCTime, all entries remain alive
 	alive, dead := zombies.GC()
@@ -763,38 +764,38 @@ func (ds *DNSCacheTestSuite) TestZombiesForceExpire(c *C) {
 	c.Assert(alive, HasLen, 2)
 
 	// Expire only 1 name on 1 zombie
-	nameMatch, err := regexp.Compile("^test.com$")
+	nameMatch, err := matchpattern.Compile("test.com")
 	c.Assert(err, IsNil)
 	zombies.ForceExpire(time.Time{}, nameMatch, nil)
 
 	alive, dead = zombies.GC()
 	c.Assert(dead, HasLen, 0)
 	assertZombiesContain(c, alive, map[string][]string{
-		"1.1.1.1": {"anothertest.com"},
-		"2.2.2.2": {"somethingelse.com"},
+		"1.1.1.1": {"anothertest.com."},
+		"2.2.2.2": {"somethingelse.com."},
 	})
 
 	// Expire the last name on a zombie. It will be deleted and not returned in a
 	// GC
-	nameMatch, err = regexp.Compile("^anothertest.com$")
+	nameMatch, err = matchpattern.Compile("anothertest.com")
 	c.Assert(err, IsNil)
 	zombies.ForceExpire(time.Time{}, nameMatch, nil)
 	alive, dead = zombies.GC()
 	c.Assert(dead, HasLen, 0)
 	assertZombiesContain(c, alive, map[string][]string{
-		"2.2.2.2": {"somethingelse.com"},
+		"2.2.2.2": {"somethingelse.com."},
 	})
 
 	// Setup again with 2 names for test.com
-	zombies.Upsert(now, "2.2.2.2", "test.com")
+	zombies.Upsert(now, "2.2.2.2", "test.com.")
 
 	// Don't expire if the IP doesn't match
-	err = zombies.ForceExpireByNameIP(time.Time{}, "somethingelse.com", net.ParseIP("1.1.1.1"))
+	err = zombies.ForceExpireByNameIP(time.Time{}, "somethingelse.com.", net.ParseIP("1.1.1.1"))
 	c.Assert(err, IsNil)
 	alive, dead = zombies.GC()
 	c.Assert(dead, HasLen, 0)
 	assertZombiesContain(c, alive, map[string][]string{
-		"2.2.2.2": {"somethingelse.com", "test.com"},
+		"2.2.2.2": {"somethingelse.com.", "test.com."},
 	})
 
 	// Expire 1 name for this IP but leave other names
@@ -803,7 +804,7 @@ func (ds *DNSCacheTestSuite) TestZombiesForceExpire(c *C) {
 	alive, dead = zombies.GC()
 	c.Assert(dead, HasLen, 0)
 	assertZombiesContain(c, alive, map[string][]string{
-		"2.2.2.2": {"test.com"},
+		"2.2.2.2": {"test.com."},
 	})
 
 	// Don't remove if the name doesn't match
@@ -812,7 +813,7 @@ func (ds *DNSCacheTestSuite) TestZombiesForceExpire(c *C) {
 	alive, dead = zombies.GC()
 	c.Assert(dead, HasLen, 0)
 	assertZombiesContain(c, alive, map[string][]string{
-		"2.2.2.2": {"test.com"},
+		"2.2.2.2": {"test.com."},
 	})
 
 	// Clear everything

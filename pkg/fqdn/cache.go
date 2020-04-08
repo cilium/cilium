@@ -941,8 +941,7 @@ func (zombies *DNSZombieMappings) forceExpireLocked(expireLookupsBefore time.Tim
 // The error return is for errors compiling the internal regexp. This should
 // never happen.
 func (zombies *DNSZombieMappings) ForceExpireByNameIP(expireLookupsBefore time.Time, name string, ips ...net.IP) error {
-	reStr := matchpattern.ToRegexp(name)
-	re, err := regexp.Compile(reStr)
+	re, err := matchpattern.Compile(name)
 	if err != nil {
 		return err
 	}

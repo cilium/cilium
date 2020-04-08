@@ -158,7 +158,7 @@ func getDNSMappings() (DNSData map[string][]net.IP, err error) {
 					if err != nil {
 						return nil, err
 					}
-					name := matchpattern.Sanitize(ToFQDN.MatchName)
+					name := matchpattern.CanonicalizeFQDN(ToFQDN.MatchName)
 					DNSData[name] = append(DNSData[name], ip)
 				}
 			}

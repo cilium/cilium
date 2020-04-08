@@ -24,9 +24,10 @@ import (
 
 const allowedDNSCharsREGroup = "[-a-zA-Z0-9_]"
 
-// Validate ensures that pattern is a parseable matchPattern. It returns the
-// regexp generated when validating.
-func Validate(pattern string) (matcher *regexp.Regexp, err error) {
+// Compile ensures that pattern is a parseable matchPattern. The
+// pattern is Sanitized and validated before compiling. It returns the
+// compiled regexp.
+func Compile(pattern string) (matcher *regexp.Regexp, err error) {
 	if pattern != "*" {
 		pattern = dns.Fqdn(pattern)
 
@@ -35,23 +36,20 @@ func Validate(pattern string) (matcher *regexp.Regexp, err error) {
 			return nil, errors.New(`Only alphanumeric ASCII characters, the hyphen "-", underscore "_", "." and "*" are allowed in a matchPattern`)
 		}
 	}
-	return regexp.Compile(ToRegexp(pattern))
+	return regexp.Compile(toRegexp(pattern))
 }
 
-// Sanitize canonicalized the pattern for use by ToRegexp
-func Sanitize(pattern string) string {
-	if pattern == "*" {
-		return pattern
-	}
-
-	return strings.ToLower(dns.Fqdn(pattern))
+// CanonicalizeFQDN appends the trailing dot and lowers the casing as
+// needed to make 'name' a fully qualified domain name (FQDN).
+func CanonicalizeFQDN(name string) string {
+	return strings.ToLower(dns.Fqdn(name))
 }
 
-// ToRegexp converts a MatchPattern field into a regexp string. It does not
+// toRegexp converts a MatchPattern field into a regexp string. It does not
 // validate the pattern.
 // It supports:
 // * to select 0 or more DNS valid characters
-func ToRegexp(pattern string) string {
+func toRegexp(pattern string) string {
 	pattern = strings.TrimSpace(pattern)
 	pattern = strings.ToLower(pattern)
 

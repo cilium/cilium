@@ -89,7 +89,7 @@ func (s *FQDNSelector) Sanitize() error {
 		match = s.MatchPattern
 	}
 	var err error
-	s.matchRE, err = matchpattern.Validate(match)
+	s.matchRE, err = matchpattern.Compile(match)
 	return err
 }
 
@@ -144,7 +144,7 @@ func (r *PortRuleDNS) Sanitize() error {
 		if !allowedMatchNameChars.MatchString(r.MatchName) {
 			return fmt.Errorf("Invalid characters in MatchName: \"%s\". Only 0-9, a-z, A-Z and . and - characters are allowed", r.MatchName)
 		}
-		r.nameRE, err = matchpattern.Validate(r.MatchName)
+		r.nameRE, err = matchpattern.Compile(r.MatchName)
 		if err != nil {
 			return err
 		}
@@ -153,7 +153,7 @@ func (r *PortRuleDNS) Sanitize() error {
 		if !allowedPatternChars.MatchString(r.MatchPattern) {
 			return fmt.Errorf("Invalid characters in MatchPattern: \"%s\". Only 0-9, a-z, A-Z and ., - and * characters are allowed", r.MatchPattern)
 		}
-		r.patternRE, err = matchpattern.Validate(r.MatchPattern)
+		r.patternRE, err = matchpattern.Compile(r.MatchPattern)
 	}
 	return err
 }
