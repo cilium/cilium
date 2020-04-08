@@ -9,6 +9,7 @@
 
 #include "lib/common.h"
 #include "lib/dbg.h"
+#include "lib/proxy.h"
 #include "lib/trace.h"
 
 /* CB_PROXY_MAGIC overlaps with CB_ENCRYPT_MAGIC */
@@ -30,10 +31,8 @@ int to_host(struct __ctx_buff *ctx)
 		/* Upper 16 bits may carry proxy port number */
 		__be16 port = magic >> 16;
 
-		ctx->mark = magic;
 		ctx_store_meta(ctx, 0, CB_PROXY_MAGIC);
-		ctx_change_type(ctx, PACKET_HOST);
-		cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_POST, port);
+		ctx_redirect_to_proxy_first(ctx, port);
 		/* We already traced this in the previous prog with
 		 * more background context, skip trace here. */
 		traced = true;
