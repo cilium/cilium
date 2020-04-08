@@ -14,16 +14,16 @@ $(TARGET): $(SOURCES)
 	$(QUIET)$(GO) build $(GOBUILD) -o $(TARGET)
 
 $(SUBDIRS): force
-	@ $(MAKE) -C $@ all
+	@ $(MAKE) $(SUBMAKEOPTS) -C $@ all
 
 clean:
 	@$(ECHO_CLEAN)
-	$(QUIET)for i in $(SUBDIRS); do $(MAKE) -C $$i clean; done
+	$(QUIET)for i in $(SUBDIRS); do $(MAKE) $(SUBMAKEOPTS) -C $$i clean; done
 	-$(QUIET)rm -f $(TARGET)
 	$(QUIET)$(GO) clean $(GOCLEAN)
 
 install:
-	$(QUIET)for i in $(SUBDIRS); do $(MAKE) -C $$i install; done
+	$(QUIET)for i in $(SUBDIRS); do $(MAKE) $(SUBMAKEOPTS) -C $$i install; done
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(QUIET)$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
 

@@ -17,7 +17,7 @@ clean:
 	@$(ECHO_CLEAN)
 	$(QUIET)rm -f $(TARGET)
 	$(QUIET)$(GO) clean $(GOCLEAN)
-	$(foreach link,$(LINKS), rm -f $(link);)
+	$(foreach link,$(LINKS), $(QUIET)rm -f $(link);)
 
 ifeq ("$(PKG_BUILD)","")
 
