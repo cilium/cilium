@@ -84,6 +84,12 @@ type LocalObserverServer struct {
 	payloadParser *parser.Parser
 
 	opts observeroption.Options
+
+	// startTime is the time when this instance was started
+	startTime time.Time
+
+	// numObservedFlows counts how many flows have been observed
+	numObservedFlows uint64
 }
 
 // NewLocalServer returns a new local observer server.
@@ -112,6 +118,7 @@ func NewLocalServer(
 		stopped:       make(chan struct{}),
 		eventschan:    make(chan *observerpb.GetFlowsResponse, 100), // option here?
 		payloadParser: payloadParser,
+		startTime:     time.Now(),
 		opts:          opts,
 	}
 
@@ -161,6 +168,7 @@ nextEvent:
 			}
 		}
 
+		s.numObservedFlows++
 		// FIXME: Convert metrics into an OnDecodedFlow function
 		metrics.ProcessFlow(flow)
 
@@ -212,8 +220,10 @@ func (s *LocalObserverServer) ServerStatus(
 	ctx context.Context, req *observerpb.ServerStatusRequest,
 ) (*observerpb.ServerStatusResponse, error) {
 	return &observerpb.ServerStatusResponse{
-		MaxFlows: s.GetRingBuffer().Cap(),
-		NumFlows: s.GetRingBuffer().Len(),
+		MaxFlows:  s.GetRingBuffer().Cap(),
+		NumFlows:  s.GetRingBuffer().Len(),
+		SeenFlows: s.numObservedFlows,
+		UptimeNs:  uint64(time.Since(s.startTime).Nanoseconds()),
 	}, nil
 }
 
