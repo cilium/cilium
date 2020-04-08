@@ -43,7 +43,6 @@ pipeline {
                 checkout scm
                 sh 'mkdir -p ${PROJ_PATH}'
                 sh 'ls -A | grep -v src | xargs mv -t ${PROJ_PATH}'
-                sh '/usr/local/bin/cleanup || true'
             }
         }
         stage('Precheck') {
