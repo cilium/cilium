@@ -19,7 +19,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/go-openapi/runtime/flagext"
 	"github.com/go-openapi/swag"
 	"golang.org/x/net/netutil"
 	"golang.org/x/sys/unix"
@@ -71,7 +70,7 @@ type Server struct {
 	EnabledListeners []string
 	CleanupTimeout   time.Duration
 	GracefulTimeout  time.Duration
-	MaxHeaderSize    flagext.ByteSize
+	MaxHeaderSize    int
 
 	SocketPath    string
 	domainSocketL net.Listener
@@ -178,7 +177,7 @@ func (s *Server) Serve() (err error) {
 
 	if s.hasScheme(schemeUnix) {
 		domainSocket := new(http.Server)
-		domainSocket.MaxHeaderBytes = int(s.MaxHeaderSize)
+		domainSocket.MaxHeaderBytes = s.MaxHeaderSize
 		domainSocket.Handler = s.handler
 		if int64(s.CleanupTimeout) > 0 {
 			domainSocket.IdleTimeout = s.CleanupTimeout
@@ -206,7 +205,7 @@ func (s *Server) Serve() (err error) {
 
 	if s.hasScheme(schemeHTTP) {
 		httpServer := new(http.Server)
-		httpServer.MaxHeaderBytes = int(s.MaxHeaderSize)
+		httpServer.MaxHeaderBytes = s.MaxHeaderSize
 		httpServer.ReadTimeout = s.ReadTimeout
 		httpServer.WriteTimeout = s.WriteTimeout
 		httpServer.SetKeepAlivesEnabled(int64(s.KeepAlive) > 0)
@@ -236,7 +235,7 @@ func (s *Server) Serve() (err error) {
 
 	if s.hasScheme(schemeHTTPS) {
 		httpsServer := new(http.Server)
-		httpsServer.MaxHeaderBytes = int(s.MaxHeaderSize)
+		httpsServer.MaxHeaderBytes = s.MaxHeaderSize
 		httpsServer.ReadTimeout = s.TLSReadTimeout
 		httpsServer.WriteTimeout = s.TLSWriteTimeout
 		httpsServer.SetKeepAlivesEnabled(int64(s.TLSKeepAlive) > 0)
