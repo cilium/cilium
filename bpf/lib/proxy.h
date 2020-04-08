@@ -57,6 +57,19 @@ ctx_redirect_to_proxy(struct __ctx_buff *ctx, __be16 proxy_port)
 }
 
 /**
+ * ctx_redirect_to_proxy_first() applies changes to the context to forward
+ * the packet towards the proxy. It is designed to run as the first function
+ * that accesses the context from the current BPF program.
+ */
+static __always_inline void
+ctx_redirect_to_proxy_first(struct __ctx_buff *ctx, __be16 proxy_port)
+{
+	cilium_dbg(ctx, DBG_CAPTURE_PROXY_POST, proxy_port, 0);
+	ctx->mark = MARK_MAGIC_TO_PROXY | (proxy_port << 16);
+	ctx_change_type(ctx, PACKET_HOST);
+}
+
+/**
  * tc_index_skip_ingress_proxy - returns true if packet originates from ingress proxy
  */
 static __always_inline bool tc_index_skip_ingress_proxy(struct __ctx_buff *ctx)
