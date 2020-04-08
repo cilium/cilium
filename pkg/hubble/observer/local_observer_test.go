@@ -66,7 +66,9 @@ func TestLocalObserverServer_ServerStatus(t *testing.T) {
 	require.NoError(t, err)
 	res, err := s.ServerStatus(context.Background(), &observerpb.ServerStatusRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, &observerpb.ServerStatusResponse{NumFlows: 0, MaxFlows: 2}, res)
+	assert.Equal(t, uint64(0), res.SeenFlows)
+	assert.Equal(t, uint64(0), res.NumFlows)
+	assert.Equal(t, uint64(2), res.MaxFlows)
 }
 
 func TestLocalObserverServer_GetFlows(t *testing.T) {
