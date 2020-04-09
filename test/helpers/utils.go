@@ -443,7 +443,7 @@ func failIfContainsBadLogMsg(logs string, blacklist map[string][]string) {
 				}
 				if !ok {
 					fmt.Fprintf(CheckLogs, "⚠️  Found a %q in logs\n", fail)
-					ginkgoext.Fail(fmt.Sprintf("Found a %q in Cilium Logs", fail))
+					Fail(fmt.Sprintf("Found a %q in Cilium Logs", fail))
 				}
 			}
 		}
