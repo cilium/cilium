@@ -116,7 +116,7 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 }
 
 static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
-				       __u32 srcid_from_proxy)
+				       __u32 srcid_from_proxy, bool from_host)
 {
 	struct remote_endpoint_info *info = NULL;
 	void *data, *data_end;
@@ -183,7 +183,8 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		if (ep->flags & ENDPOINT_F_HOST)
 			return CTX_ACT_OK;
 
-		return ipv6_local_delivery(ctx, l3_off, secctx, ep, METRIC_INGRESS);
+		return ipv6_local_delivery(ctx, l3_off, secctx, ep,
+					   METRIC_INGRESS, from_host);
 	}
 
 #ifdef ENCAP_IFINDEX
@@ -248,11 +249,13 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC)
 int tail_handle_ipv6(struct __ctx_buff *ctx)
 {
 	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_IDENTITY);
+	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
 	int ret;
 
 	ctx_store_meta(ctx, CB_SRC_IDENTITY, 0);
+	ctx_store_meta(ctx, CB_FROM_HOST, 0);
 
-	ret = handle_ipv6(ctx, proxy_identity);
+	ret = handle_ipv6(ctx, proxy_identity, from_host);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, proxy_identity, ret,
 					      CTX_ACT_DROP, METRIC_INGRESS);
@@ -308,7 +311,7 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, const struct iphdr *ip4,
 }
 
 static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
-				       __u32 srcid_from_proxy)
+				       __u32 srcid_from_proxy, bool from_host)
 {
 	struct remote_endpoint_info *info = NULL;
 	struct ipv4_ct_tuple tuple = {};
@@ -373,7 +376,8 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 			return CTX_ACT_OK;
 #endif
 
-		return ipv4_local_delivery(ctx, ETH_HLEN, secctx, ip4, ep, METRIC_INGRESS);
+		return ipv4_local_delivery(ctx, ETH_HLEN, secctx, ip4, ep,
+					   METRIC_INGRESS, from_host);
 	}
 
 #ifdef ENCAP_IFINDEX
@@ -443,11 +447,13 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC)
 int tail_handle_ipv4(struct __ctx_buff *ctx)
 {
 	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_IDENTITY);
+	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
 	int ret;
 
 	ctx_store_meta(ctx, CB_SRC_IDENTITY, 0);
+	ctx_store_meta(ctx, CB_FROM_HOST, 0);
 
-	ret = handle_ipv4(ctx, proxy_identity);
+	ret = handle_ipv4(ctx, proxy_identity, from_host);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, proxy_identity,
 					      ret, CTX_ACT_DROP, METRIC_INGRESS);
@@ -616,7 +622,8 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 #endif /* ENCAP_IFINDEX */
 #endif /* ENABLE_IPSEC */
 
-static __always_inline int do_netdev(struct __ctx_buff *ctx, __u16 proto)
+static __always_inline int do_netdev(struct __ctx_buff *ctx, __u16 proto,
+				     bool from_host __maybe_unused)
 {
 	__u32 __maybe_unused identity = 0;
 	int ret;
@@ -660,6 +667,7 @@ static __always_inline int do_netdev(struct __ctx_buff *ctx, __u16 proto)
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		ctx_store_meta(ctx, CB_SRC_IDENTITY, identity);
+		ctx_store_meta(ctx, CB_FROM_HOST, from_host ? 1 : 0);
 		ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_LXC);
 		/* See comment below for IPv4. */
 		return send_drop_notify_error(ctx, identity, DROP_MISSED_TAIL_CALL,
@@ -668,6 +676,7 @@ static __always_inline int do_netdev(struct __ctx_buff *ctx, __u16 proto)
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
 		ctx_store_meta(ctx, CB_SRC_IDENTITY, identity);
+		ctx_store_meta(ctx, CB_FROM_HOST, from_host ? 1 : 0);
 		ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_LXC);
 		/* We are not returning an error here to always allow traffic to
 		 * the stack in case maps have become unavailable.
@@ -688,10 +697,11 @@ static __always_inline int do_netdev(struct __ctx_buff *ctx, __u16 proto)
 /**
  * handle_netdev
  * @ctx		The packet context for this program
+ * @from_host	True if the packet is from the local host
  *
  * Handle netdev traffic coming towards the Cilium-managed network.
  */
-int __always_inline handle_netdev(struct __ctx_buff *ctx)
+int __always_inline handle_netdev(struct __ctx_buff *ctx, bool from_host)
 {
 	int ret = ret;
 	__u16 proto;
@@ -703,19 +713,19 @@ int __always_inline handle_netdev(struct __ctx_buff *ctx)
 		return CTX_ACT_OK;
 	}
 
-	return do_netdev(ctx, proto);
+	return do_netdev(ctx, proto, from_host);
 }
 
 __section("from-netdev")
 int from_netdev(struct __ctx_buff *ctx)
 {
-	return handle_netdev(ctx);
+	return handle_netdev(ctx, false);
 }
 
 __section("from-host")
 int from_host(struct __ctx_buff *ctx)
 {
-	return handle_netdev(ctx);
+	return handle_netdev(ctx, true);
 }
 
 __section("to-netdev")

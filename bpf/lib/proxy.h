@@ -40,7 +40,8 @@
  *   before passing the traffic up to the stack towards the proxy.
  */
 static __always_inline int
-ctx_redirect_to_proxy(struct __ctx_buff *ctx, __be16 proxy_port)
+ctx_redirect_to_proxy(struct __ctx_buff *ctx, __be16 proxy_port,
+		      bool from_host __maybe_unused)
 {
 	ctx->mark = MARK_MAGIC_TO_PROXY | proxy_port << 16;
 
