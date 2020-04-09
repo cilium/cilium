@@ -29,9 +29,9 @@ encap_and_redirect_nomark_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	 * use cb[4] here so it doesn't need to be reset by
 	 * bpf_hostdev_ingress.
 	 */
-	ctx_store_meta(ctx, 0, or_encrypt_key(key));
-	ctx_store_meta(ctx, 1, seclabel);
-	ctx_store_meta(ctx, 4, tunnel_endpoint);
+	ctx_store_meta(ctx, CB_ENCRYPT_MAGIC, or_encrypt_key(key));
+	ctx_store_meta(ctx, CB_ENCRYPT_IDENTITY, seclabel);
+	ctx_store_meta(ctx, CB_ENCRYPT_DST, tunnel_endpoint);
 	return IPSEC_ENDPOINT;
 }
 
@@ -48,7 +48,7 @@ encap_and_redirect_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	 */
 	set_encrypt_key_mark(ctx, key);
 	set_identity_mark(ctx, seclabel);
-	ctx_store_meta(ctx, 4, tunnel_endpoint);
+	ctx_store_meta(ctx, CB_ENCRYPT_DST, tunnel_endpoint);
 	return IPSEC_ENDPOINT;
 }
 #endif /* ENABLE_IPSEC */

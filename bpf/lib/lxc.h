@@ -70,7 +70,8 @@ ctx_redirect_to_proxy_hairpin(struct __ctx_buff *ctx, __be16 proxy_port)
 	struct iphdr *ip4;
 	int ret;
 
-	ctx_store_meta(ctx, 0, MARK_MAGIC_TO_PROXY | (proxy_port << 16));
+	ctx_store_meta(ctx, CB_PROXY_MAGIC,
+		       MARK_MAGIC_TO_PROXY | (proxy_port << 16));
 	bpf_barrier(); /* verifier workaround */
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
