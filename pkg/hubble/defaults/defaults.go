@@ -12,19 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package proxyoption
+package defaults
 
-import (
-	"fmt"
-	"time"
+const (
+	// ServerPort is the default port for hubble server when a provided
+	// listen address does not include one.
+	ServerPort = 4244
 
-	"github.com/cilium/cilium/pkg/defaults"
-	hubbledefaults "github.com/cilium/cilium/pkg/hubble/defaults"
+	// ProxyPort is the default port for hubble's proxy service.
+	ProxyPort = 4245
 )
-
-// Default is the reference point for default values.
-var Default = Options{
-	HubbleTarget:  "unix://" + defaults.HubbleSockPath,
-	DialTimeout:   5 * time.Second,
-	ListenAddress: fmt.Sprintf(":%d", hubbledefaults.ProxyPort),
-}

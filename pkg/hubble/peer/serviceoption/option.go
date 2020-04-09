@@ -12,19 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package proxyoption
+package serviceoption
 
-import (
-	"fmt"
-	"time"
+// Options stores all the configuration values for the peer service.
+type Options struct {
+	SendBufferSize int
+}
 
-	"github.com/cilium/cilium/pkg/defaults"
-	hubbledefaults "github.com/cilium/cilium/pkg/hubble/defaults"
-)
+// Option customizes then configuration of the peer service.
+type Option func(o *Options)
 
-// Default is the reference point for default values.
-var Default = Options{
-	HubbleTarget:  "unix://" + defaults.HubbleSockPath,
-	DialTimeout:   5 * time.Second,
-	ListenAddress: fmt.Sprintf(":%d", hubbledefaults.ProxyPort),
+// WithSendBufferSize sets the size of the send buffer. When the send buffer is
+// full, for example due to errors in the transport, the server disconnects the
+// corresponding client. The send buffer is per connected client.
+func WithSendBufferSize(size int) Option {
+	return func(o *Options) {
+		o.SendBufferSize = size
+	}
 }
