@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	identitymodel "github.com/cilium/cilium/pkg/identity/model"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -649,7 +650,7 @@ func (d *Daemon) GetIdentity(securityIdentity uint64) (*models.Identity, error) 
 	if ident == nil {
 		return nil, fmt.Errorf("identity %d not found", securityIdentity)
 	}
-	return ident.GetModel(), nil
+	return identitymodel.CreateModel(ident), nil
 }
 
 // GetEndpointInfo returns endpoint info for a given IP address. Hubble uses this function to populate

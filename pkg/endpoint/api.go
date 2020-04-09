@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	identitymodel "github.com/cilium/cilium/pkg/identity/model"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/model"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -198,7 +199,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 			// FIXME GH-3280 When we begin implementing revision numbers this will
 			// diverge from models.Endpoint.Spec to reflect the in-datapath config
 			Realized: spec,
-			Identity: e.SecurityIdentity.GetModel(),
+			Identity: identitymodel.CreateModel(e.SecurityIdentity),
 			Labels:   lblMdl,
 			Networking: &models.EndpointNetworking{
 				Addressing: []*models.AddressPair{{

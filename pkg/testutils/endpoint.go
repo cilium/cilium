@@ -15,9 +15,9 @@
 package testutils
 
 import (
-	identityMdl "github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -25,10 +25,7 @@ import (
 )
 
 var (
-	defaultIdentity = identity.NewIdentityFromModel(&identityMdl.Identity{
-		ID:     42,
-		Labels: []string{"foo"},
-	})
+	defaultIdentity = identity.NewIdentity(42, labels.NewLabelsFromModel([]string{"foo"}))
 )
 
 type TestEndpoint struct {
@@ -82,10 +79,7 @@ func (e *TestEndpoint) Logger(subsystem string) *logrus.Entry {
 }
 
 func (e *TestEndpoint) SetIdentity(secID int64, newEndpoint bool) {
-	e.Identity = identity.NewIdentityFromModel(&identityMdl.Identity{
-		ID:     secID,
-		Labels: []string{"bar"},
-	})
+	e.Identity = identity.NewIdentity(identity.NumericIdentity(secID), labels.NewLabelsFromModel([]string{"bar"}))
 }
 
 func (e *TestEndpoint) StateDir() string {
