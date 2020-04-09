@@ -1639,6 +1639,12 @@ definitions:
                 - SNAT
                 - DSR
                 - HYBRID
+              acceleration:
+                type: string
+                enum:
+                - NONE
+                - NATIVE
+                - GENERIC
               portMin:
                 type: integer
               portMax:

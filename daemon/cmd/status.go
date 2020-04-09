@@ -134,6 +134,11 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	if option.Config.EnableNodePort {
 		features.NodePort.Enabled = true
 		features.NodePort.Mode = strings.ToUpper(option.Config.NodePortMode)
+		if option.Config.NodePortAcceleration == option.NodePortAccelerationGeneric {
+			features.NodePort.Acceleration = models.KubeProxyReplacementFeaturesNodePortAccelerationGENERIC
+		} else {
+			features.NodePort.Acceleration = strings.ToUpper(option.Config.NodePortAcceleration)
+		}
 		features.NodePort.PortMin = int64(option.Config.NodePortMin)
 		features.NodePort.PortMax = int64(option.Config.NodePortMax)
 	}

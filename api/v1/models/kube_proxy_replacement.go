@@ -369,6 +369,10 @@ func (m *KubeProxyReplacementFeaturesHostReachableServices) UnmarshalBinary(b []
 // +k8s:deepcopy-gen=true
 type KubeProxyReplacementFeaturesNodePort struct {
 
+	// acceleration
+	// Enum: [NONE NATIVE GENERIC]
+	Acceleration string `json:"acceleration,omitempty"`
+
 	// enabled
 	Enabled bool `json:"enabled,omitempty"`
 
@@ -387,6 +391,10 @@ type KubeProxyReplacementFeaturesNodePort struct {
 func (m *KubeProxyReplacementFeaturesNodePort) Validate(formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.validateAcceleration(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.validateMode(formats); err != nil {
 		res = append(res, err)
 	}
@@ -394,6 +402,52 @@ func (m *KubeProxyReplacementFeaturesNodePort) Validate(formats strfmt.Registry)
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+var kubeProxyReplacementFeaturesNodePortTypeAccelerationPropEnum []interface{}
+
+func init() {
+	var res []string
+	if err := json.Unmarshal([]byte(`["NONE","NATIVE","GENERIC"]`), &res); err != nil {
+		panic(err)
+	}
+	for _, v := range res {
+		kubeProxyReplacementFeaturesNodePortTypeAccelerationPropEnum = append(kubeProxyReplacementFeaturesNodePortTypeAccelerationPropEnum, v)
+	}
+}
+
+const (
+
+	// KubeProxyReplacementFeaturesNodePortAccelerationNONE captures enum value "NONE"
+	KubeProxyReplacementFeaturesNodePortAccelerationNONE string = "NONE"
+
+	// KubeProxyReplacementFeaturesNodePortAccelerationNATIVE captures enum value "NATIVE"
+	KubeProxyReplacementFeaturesNodePortAccelerationNATIVE string = "NATIVE"
+
+	// KubeProxyReplacementFeaturesNodePortAccelerationGENERIC captures enum value "GENERIC"
+	KubeProxyReplacementFeaturesNodePortAccelerationGENERIC string = "GENERIC"
+)
+
+// prop value enum
+func (m *KubeProxyReplacementFeaturesNodePort) validateAccelerationEnum(path, location string, value string) error {
+	if err := validate.Enum(path, location, value, kubeProxyReplacementFeaturesNodePortTypeAccelerationPropEnum); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *KubeProxyReplacementFeaturesNodePort) validateAcceleration(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Acceleration) { // not required
+		return nil
+	}
+
+	// value enum
+	if err := m.validateAccelerationEnum("features"+"."+"nodePort"+"."+"acceleration", "body", m.Acceleration); err != nil {
+		return err
+	}
+
 	return nil
 }
 

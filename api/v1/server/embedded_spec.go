@@ -2482,6 +2482,14 @@ func init() {
             "nodePort": {
               "type": "object",
               "properties": {
+                "acceleration": {
+                  "type": "string",
+                  "enum": [
+                    "NONE",
+                    "NATIVE",
+                    "GENERIC"
+                  ]
+                },
                 "enabled": {
                   "type": "boolean"
                 },
@@ -5960,6 +5968,14 @@ func init() {
             "nodePort": {
               "type": "object",
               "properties": {
+                "acceleration": {
+                  "type": "string",
+                  "enum": [
+                    "NONE",
+                    "NATIVE",
+                    "GENERIC"
+                  ]
+                },
                 "enabled": {
                   "type": "boolean"
                 },
