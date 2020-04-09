@@ -685,8 +685,13 @@ static __always_inline int do_netdev(struct __ctx_buff *ctx, __u16 proto)
 	return ret;
 }
 
-__section("from-netdev")
-int from_netdev(struct __ctx_buff *ctx)
+/**
+ * handle_netdev
+ * @ctx		The packet context for this program
+ *
+ * Handle netdev traffic coming towards the Cilium-managed network.
+ */
+int __always_inline handle_netdev(struct __ctx_buff *ctx)
 {
 	int ret = ret;
 	__u16 proto;
@@ -699,6 +704,18 @@ int from_netdev(struct __ctx_buff *ctx)
 	}
 
 	return do_netdev(ctx, proto);
+}
+
+__section("from-netdev")
+int from_netdev(struct __ctx_buff *ctx)
+{
+	return handle_netdev(ctx);
+}
+
+__section("from-host")
+int from_host(struct __ctx_buff *ctx)
+{
+	return handle_netdev(ctx);
 }
 
 __section("to-netdev")
