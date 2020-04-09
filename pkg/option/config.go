@@ -742,7 +742,7 @@ const (
 	XDPModeNative = "native"
 
 	// XDPModeGeneric for loading progs with XDPModeLinkGeneric
-	XDPModeGeneric = "generic"
+	XDPModeGeneric = "testing-only"
 
 	// XDPModeNone for not having XDP enabled
 	XDPModeNone = "none"
