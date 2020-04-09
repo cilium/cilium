@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
@@ -107,8 +108,8 @@ func (k *K8sWatcher) updateK8sV1Namespace(oldNS, newNS *types.Namespace) error {
 	oldLabels := labels.Map2Labels(oldNSLabels, labels.LabelSourceK8s)
 	newLabels := labels.Map2Labels(newNSLabels, labels.LabelSourceK8s)
 
-	oldIdtyLabels, _ := labels.FilterLabels(oldLabels)
-	newIdtyLabels, _ := labels.FilterLabels(newLabels)
+	oldIdtyLabels, _ := labelsfilter.Filter(oldLabels)
+	newIdtyLabels, _ := labelsfilter.Filter(newLabels)
 
 	eps := k.endpointManager.GetEndpoints()
 	failed := false

@@ -32,6 +32,7 @@ import (
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -255,9 +256,9 @@ func realizePodAnnotationUpdate(podEP *endpoint.Endpoint) {
 
 func updateEndpointLabels(ep *endpoint.Endpoint, oldLbls, newLbls map[string]string) error {
 	newLabels := labels.Map2Labels(newLbls, labels.LabelSourceK8s)
-	newIdtyLabels, _ := labels.FilterLabels(newLabels)
+	newIdtyLabels, _ := labelsfilter.Filter(newLabels)
 	oldLabels := labels.Map2Labels(oldLbls, labels.LabelSourceK8s)
-	oldIdtyLabels, _ := labels.FilterLabels(oldLabels)
+	oldIdtyLabels, _ := labelsfilter.Filter(oldLabels)
 
 	err := ep.ModifyIdentityLabels(newIdtyLabels, oldIdtyLabels)
 	if err != nil {

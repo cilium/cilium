@@ -48,6 +48,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -961,7 +962,7 @@ func initEnv(cmd *cobra.Command) {
 	if !option.Config.EnableIPv4 && !option.Config.EnableIPv6 {
 		log.Fatal("Either IPv4 or IPv6 addressing must be enabled")
 	}
-	if err := labels.ParseLabelPrefixCfg(option.Config.Labels, option.Config.LabelPrefixFile); err != nil {
+	if err := labelsfilter.ParseLabelPrefixCfg(option.Config.Labels, option.Config.LabelPrefixFile); err != nil {
 		log.WithError(err).Fatal("Unable to parse Label prefix configuration")
 	}
 

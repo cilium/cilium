@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/model"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
@@ -138,7 +139,7 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 
 	if base.Labels != nil {
 		lbls := labels.NewLabelsFromModel(base.Labels)
-		identityLabels, infoLabels := labels.FilterLabels(lbls)
+		identityLabels, infoLabels := labelsfilter.Filter(lbls)
 		ep.OpLabels.OrchestrationIdentity = identityLabels
 		ep.OpLabels.OrchestrationInfo = infoLabels
 	}
