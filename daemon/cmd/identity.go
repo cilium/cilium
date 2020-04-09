@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	identitymodel "github.com/cilium/cilium/pkg/identity/model"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -46,7 +47,7 @@ func (h *getIdentity) Handle(params GetIdentityParams) middleware.Responder {
 			return NewGetIdentityIDNotFound()
 		}
 
-		identities = append(identities, identity.GetModel())
+		identities = append(identities, identitymodel.CreateModel(identity))
 	}
 
 	return NewGetIdentityOK().WithPayload(identities)
@@ -73,7 +74,7 @@ func (h *getIdentityID) Handle(params GetIdentityIDParams) middleware.Responder 
 		return NewGetIdentityIDNotFound()
 	}
 
-	return NewGetIdentityIDOK().WithPayload(identity.GetModel())
+	return NewGetIdentityIDOK().WithPayload(identitymodel.CreateModel(identity))
 }
 
 type getIdentityEndpoints struct{}
