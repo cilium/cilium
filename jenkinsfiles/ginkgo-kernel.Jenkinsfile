@@ -7,7 +7,7 @@ pipeline {
 
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
-        VM_MEMORY = "4096"
+        VM_MEMORY = "8192"
         K8S_VERSION="1.17"
         TESTED_SUITE="k8s-${K8S_VERSION}"
         GINKGO_TIMEOUT="300m"
