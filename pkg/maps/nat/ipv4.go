@@ -35,6 +35,9 @@ type NatEntry4 struct {
 	Port      uint16     `align:"to_sport"`
 }
 
+// SizeofNatEntry4 is the size of the NatEntry4 type in bytes.
+const SizeofNatEntry4 = int(unsafe.Sizeof(NatEntry4{}))
+
 // GetValuePtr returns the unsafe.Pointer for n.
 func (n *NatEntry4) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(n) }
 

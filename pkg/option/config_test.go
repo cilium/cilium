@@ -647,3 +647,179 @@ func (s *OptionSuite) TestEndpointStatusValues(c *C) {
 		c.Assert(ok, Equals, true)
 	}
 }
+
+const (
+	_   = iota
+	KiB = 1 << (10 * iota)
+	MiB
+	GiB
+)
+
+func TestBPFMapSizeCalculation(t *testing.T) {
+	type sizes struct {
+		CTMapSizeTCP  int
+		CTMapSizeAny  int
+		NATMapSize    int
+		PolicyMapSize int
+	}
+	tests := []struct {
+		name        string
+		totalMemory uint64
+		ratio       float64
+		want        sizes
+		preTestRun  func()
+	}{
+		{
+			name: "static default sizes",
+			// zero memory and ratio: skip calculateDynamicBPFMapSizes
+			want: sizes{
+				CTMapSizeTCP:  CTMapEntriesGlobalTCPDefault,
+				CTMapSizeAny:  CTMapEntriesGlobalAnyDefault,
+				NATMapSize:    NATMapEntriesGlobalDefault,
+				PolicyMapSize: defaults.PolicyMapEntries,
+			},
+			preTestRun: func() {
+				viper.Set(CTMapEntriesGlobalTCPName, CTMapEntriesGlobalTCPDefault)
+				viper.Set(CTMapEntriesGlobalAnyName, CTMapEntriesGlobalAnyDefault)
+				viper.Set(NATMapEntriesGlobalName, NATMapEntriesGlobalDefault)
+				viper.Set(PolicyMapEntriesName, defaults.PolicyMapEntries)
+			},
+		},
+		{
+			name: "static, non-default sizes inside range",
+			// zero memory and ratio: skip calculateDynamicBPFMapSizes
+			want: sizes{
+				CTMapSizeTCP:  CTMapEntriesGlobalTCPDefault + 128,
+				CTMapSizeAny:  CTMapEntriesGlobalAnyDefault - 64,
+				NATMapSize:    NATMapEntriesGlobalDefault + 256,
+				PolicyMapSize: defaults.PolicyMapEntries - 32,
+			},
+			preTestRun: func() {
+				viper.Set(CTMapEntriesGlobalTCPName, CTMapEntriesGlobalTCPDefault+128)
+				viper.Set(CTMapEntriesGlobalAnyName, CTMapEntriesGlobalAnyDefault-64)
+				viper.Set(NATMapEntriesGlobalName, NATMapEntriesGlobalDefault+256)
+				viper.Set(PolicyMapEntriesName, defaults.PolicyMapEntries-32)
+			},
+		},
+		{
+			name:        "dynamic size without any static sizes (512MB, 3%)",
+			totalMemory: 512 * MiB,
+			ratio:       0.03,
+			want: sizes{
+				CTMapSizeTCP:  68246,
+				CTMapSizeAny:  34123,
+				NATMapSize:    68246,
+				PolicyMapSize: 2132,
+			},
+		},
+		{
+			name:        "dynamic size without any static sizes (1GiB, 3%)",
+			totalMemory: 1 * GiB,
+			ratio:       0.03,
+			want: sizes{
+				CTMapSizeTCP:  136492,
+				CTMapSizeAny:  68246,
+				NATMapSize:    136492,
+				PolicyMapSize: 4265,
+			},
+		},
+		{
+			name:        "dynamic size without any static sizes (2GiB, 3%)",
+			totalMemory: 2 * GiB,
+			ratio:       0.03,
+			want: sizes{
+				CTMapSizeTCP:  272985,
+				CTMapSizeAny:  136492,
+				NATMapSize:    272985,
+				PolicyMapSize: 8530,
+			},
+		},
+		{
+			name:        "dynamic size without any static sizes (4GiB, 3%)",
+			totalMemory: 4 * GiB,
+			ratio:       0.03,
+			want: sizes{
+				CTMapSizeTCP:  545970,
+				CTMapSizeAny:  272985,
+				NATMapSize:    545970,
+				PolicyMapSize: 17061,
+			},
+		},
+		{
+			name:        "dynamic size without any static sizes (16GiB, 3%)",
+			totalMemory: 16 * GiB,
+			ratio:       0.03,
+			want: sizes{
+				CTMapSizeTCP:  2183881,
+				CTMapSizeAny:  1091940,
+				NATMapSize:    2183881,
+				PolicyMapSize: PolicyMapMax,
+			},
+		},
+		{
+			name:        "dynamic size with static CT TCP size (4GiB, 2.5%)",
+			totalMemory: 4 * GiB,
+			ratio:       0.025,
+			want: sizes{
+				CTMapSizeTCP:  CTMapEntriesGlobalTCPDefault + 1024,
+				CTMapSizeAny:  227487,
+				NATMapSize:    454975,
+				PolicyMapSize: 14217,
+			},
+			preTestRun: func() {
+				viper.Set(CTMapEntriesGlobalTCPName, CTMapEntriesGlobalTCPDefault+1024)
+			},
+		},
+		{
+			name:        "huge dynamic size ratio gets clamped (8GiB, 98%)",
+			totalMemory: 16 * GiB,
+			ratio:       0.98,
+			want: sizes{
+				CTMapSizeTCP:  LimitTableMax,
+				CTMapSizeAny:  LimitTableMax,
+				NATMapSize:    LimitTableMax,
+				PolicyMapSize: PolicyMapMax,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			viper.Reset()
+
+			if tt.preTestRun != nil {
+				tt.preTestRun()
+			}
+
+			d := &DaemonConfig{
+				CTMapEntriesGlobalTCP: viper.GetInt(CTMapEntriesGlobalTCPName),
+				CTMapEntriesGlobalAny: viper.GetInt(CTMapEntriesGlobalAnyName),
+				NATMapEntriesGlobal:   viper.GetInt(NATMapEntriesGlobalName),
+				PolicyMapEntries:      viper.GetInt(PolicyMapEntriesName),
+			}
+
+			// cannot set these from the Sizeof* consts from
+			// pkg/maps/* due to circular dependencies.
+			d.SetMapElementSizes(
+				94, // ctmap.SizeofCTKey + policymap.SizeofCTEntry
+				94, // nat.SizeofNATKey + nat.SizeofNATEntry
+				32, // policymap.SizeofPolicyKey + policymap.SizeofPolicyEntry
+			)
+
+			if tt.totalMemory > 0 && tt.ratio > 0.0 {
+				d.calculateDynamicBPFMapSizes(tt.totalMemory, tt.ratio)
+			}
+
+			got := sizes{
+				d.CTMapEntriesGlobalTCP,
+				d.CTMapEntriesGlobalAny,
+				d.NATMapEntriesGlobal,
+				d.PolicyMapEntries,
+			}
+
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("DaemonConfig.calculateDynamicBPFMapSize (-want +got):\n%s", diff)
+			}
+		})
+	}
+}

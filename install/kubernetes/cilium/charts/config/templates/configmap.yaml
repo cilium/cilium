@@ -152,6 +152,10 @@ data:
   # table.
   bpf-nat-global-max: "{{ .Values.global.bpf.natMax }}"
 
+  # Specifies the ratio (0.0-1.0) of total system memory to use for dynamic
+  # sizing of the TCP CT, non-TCP CT, NAT and policy BPF maps.
+  bpf-map-dynamic-size-ratio: "{{ .Values.global.bpf.mapDynamicSizeRatio }}"
+
   # Pre-allocation of map entries allows per-packet latency to be reduced, at
   # the expense of up-front memory allocation for the entries in the maps. The
   # default value below will minimize memory usage in the default installation;
