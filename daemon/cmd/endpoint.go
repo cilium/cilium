@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
@@ -165,7 +166,7 @@ func (d *Daemon) fetchK8sLabelsAndAnnotations(nsName, podName string) (labels.La
 	}
 
 	k8sLbls := labels.Map2Labels(lbls, labels.LabelSourceK8s)
-	identityLabels, infoLabels := labels.FilterLabels(k8sLbls)
+	identityLabels, infoLabels := labelsfilter.Filter(k8sLbls)
 	return identityLabels, infoLabels, annotations, nil
 }
 
@@ -253,7 +254,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 			return invalidDataError(ep, fmt.Errorf("not allowed to add reserved labels: %s", lbls))
 		}
 
-		addLabels, _ = labels.FilterLabels(addLabels)
+		addLabels, _ = labelsfilter.Filter(addLabels)
 		if len(addLabels) == 0 {
 			return invalidDataError(ep, fmt.Errorf("no valid labels provided"))
 		}
@@ -667,8 +668,8 @@ func (h *getEndpointIDHealthz) Handle(params GetEndpointIDHealthzParams) middlew
 // endpoint's labels.
 // Returns an HTTP response code and an error msg (or nil on success).
 func (d *Daemon) modifyEndpointIdentityLabelsFromAPI(id string, add, del labels.Labels) (int, error) {
-	addLabels, _ := labels.FilterLabels(add)
-	delLabels, _ := labels.FilterLabels(del)
+	addLabels, _ := labelsfilter.Filter(add)
+	delLabels, _ := labelsfilter.Filter(del)
 	if lbls := addLabels.FindReserved(); lbls != nil {
 		return PatchEndpointIDLabelsUpdateFailedCode, fmt.Errorf("Not allowed to add reserved labels: %s", lbls)
 	} else if lbls := delLabels.FindReserved(); lbls != nil {

@@ -33,7 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/kvstore"
-	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
@@ -85,7 +85,7 @@ func TestMain(m *testing.M) {
 	option.Config.DryMode = true
 	option.Config.Opts = option.NewIntOptions(&option.DaemonMutableOptionLibrary)
 	// GetConfig the default labels prefix filter
-	err := labels.ParseLabelPrefixCfg(nil, "")
+	err := labelsfilter.ParseLabelPrefixCfg(nil, "")
 	if err != nil {
 		panic("ParseLabelPrefixCfg() failed")
 	}
