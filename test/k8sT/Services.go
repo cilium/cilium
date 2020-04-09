@@ -1215,7 +1215,7 @@ var _ = Describe("K8sServicesTest", func() {
 					})
 				})
 
-				testDSR := func() {
+				testDSR := func(sourcePortForCTGCtest int) {
 					var data v1.Service
 					err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
 					Expect(err).Should(BeNil(), "Cannot retrieve service")
@@ -1233,12 +1233,12 @@ var _ = Describe("K8sServicesTest", func() {
 					Expect(err).Should(BeNil(), "Cannot retrieve service")
 					url = getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
 
-					doRequestsFromThirdHostWithLocalPort(url, 1, true, 64000)
-					res := kubectl.CiliumExecContext(context.TODO(), pod, "cilium bpf nat list | grep 64000")
+					doRequestsFromThirdHostWithLocalPort(url, 1, true, sourcePortForCTGCtest)
+					res := kubectl.CiliumExecContext(context.TODO(), pod, fmt.Sprintf("cilium bpf nat list | grep %d", sourcePortForCTGCtest))
 					Expect(res.GetStdOut()).ShouldNot(BeEmpty(), "NAT entry was not evicted")
 					// Flush CT maps to trigger eviction of the NAT entries (simulates CT GC)
-					kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium bpf ct flush global", "Unable to flush CT maps")
-					res = kubectl.CiliumExecContext(context.TODO(), pod, "cilium bpf nat list | grep 64000")
+					res = kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium bpf ct flush global", "Unable to flush CT maps")
+					res = kubectl.CiliumExecContext(context.TODO(), pod, fmt.Sprintf("cilium bpf nat list | grep %d", sourcePortForCTGCtest))
 					res.ExpectFail("NAT entry was not evicted")
 				}
 
@@ -1249,7 +1249,7 @@ var _ = Describe("K8sServicesTest", func() {
 						"global.autoDirectNodeRoutes": "true",
 					})
 
-					testDSR()
+					testDSR(64000)
 				})
 
 				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with direct routing, DSR and BPF MASQ", func() {
@@ -1260,7 +1260,7 @@ var _ = Describe("K8sServicesTest", func() {
 						"global.bpfMasquerade":        "true",
 					})
 
-					testDSR()
+					testDSR(64001)
 				})
 
 				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing and SNAT", func() {
