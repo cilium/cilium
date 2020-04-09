@@ -15,9 +15,18 @@
 package main
 
 import (
-	"github.com/cilium/cilium/cilium/cmd"
+	"os"
+	"path"
+
+	cilium "github.com/cilium/cilium/cilium/cmd"
+	hubble "github.com/cilium/hubble/cmd"
 )
 
 func main() {
-	cmd.Execute()
+	switch path.Base(os.Args[0]) {
+	case "hubble":
+		hubble.Execute()
+	default:
+		cilium.Execute()
+	}
 }
