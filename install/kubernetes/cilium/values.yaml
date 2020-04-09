@@ -416,7 +416,7 @@ global:
     flowBufferSize: ~
     # Specifies the address the metric server listens to (e.g. ":12345"). The metric server is
     # disabled if this value is empty.
-    metricServer: ~
+    metricsServer: ~
     # List of metrics to collect, for example:
     #
     #   metrics:
