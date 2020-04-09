@@ -12,19 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package proxyoption
+package serviceoption
 
-import (
-	"fmt"
-	"time"
-
-	"github.com/cilium/cilium/pkg/defaults"
-	hubbledefaults "github.com/cilium/cilium/pkg/hubble/defaults"
-)
-
-// Default is the reference point for default values.
+// Default serves only as reference point for default values.
 var Default = Options{
-	HubbleTarget:  "unix://" + defaults.HubbleSockPath,
-	DialTimeout:   5 * time.Second,
-	ListenAddress: fmt.Sprintf(":%d", hubbledefaults.ProxyPort),
+	SendBufferSize: 10,
 }
