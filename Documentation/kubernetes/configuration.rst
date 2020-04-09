@@ -355,9 +355,3 @@ After that you can restart CRI-O:
 
     minikube ssh -- sudo systemctl restart crio
 
-Finally, you need to restart the Cilium pod so it can re-mount
-``/var/run/crio/crio.sock`` which was recreated by CRI-O
-
-::
-
-    kubectl delete -n kube-system pod -l k8s-app=cilium
