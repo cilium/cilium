@@ -132,7 +132,7 @@ the Cilium agent is running in the desired mode:
 .. parsed-literal::
 
     kubectl exec -it -n kube-system cilium-fmh8d -- cilium status | grep KubeProxyReplacement
-    KubeProxyReplacement:   Strict   [NodePort (SNAT, 30000-32767), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
+    KubeProxyReplacement:   Strict   [NodePort (SNAT, 30000-32767, XDP: NONE), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
 
 As a next, optional step, we deploy nginx pods, create a new NodePort service and
 validate that Cilium installed the service correctly.
@@ -334,6 +334,14 @@ modes and can be enabled as follows for ``nodePort.mode=dsr`` in this example:
         --set global.nodePort.mode=dsr \\
         --set global.k8sServiceHost=API_SERVER_IP \\
         --set global.k8sServicePort=API_SERVER_PORT
+
+The current Cilium kube-proxy XDP acceleration mode can also be introspected through
+the ``cilium status`` CLI command:
+
+.. parsed-literal::
+
+    kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep KubeProxyReplacement
+    KubeProxyReplacement:   Strict   [NodePort (SNAT, 30000-32767, XDP: NATIVE), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
 
 NodePort Device and Range
 *************************
@@ -568,7 +576,7 @@ The current Cilium kube-proxy replacement mode can also be introspected through 
 .. parsed-literal::
 
     kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep KubeProxyReplacement
-    KubeProxyReplacement:   Strict   [NodePort (SNAT, 30000-32767), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
+    KubeProxyReplacement:   Strict   [NodePort (SNAT, 30000-32767, XDP: NONE), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
 
 Limitations
 ###########
