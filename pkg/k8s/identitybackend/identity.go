@@ -217,10 +217,9 @@ func (c *crdBackend) RunGC(staleKeysPrevRound map[string]uint64) (map[string]uin
 // reliablyMissing is true.
 // Note: the lock field is not supported with the k8s CRD allocator.
 func (c *crdBackend) UpdateKey(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, reliablyMissing bool) error {
-	var err error
-
-	if err := c.AcquireReference(ctx, id, key, nil); err == nil {
-		log.WithError(err).WithFields(logrus.Fields{
+	err := c.AcquireReference(ctx, id, key, nil)
+	if err == nil {
+		log.WithFields(logrus.Fields{
 			logfields.Identity: id,
 			logfields.Labels:   key,
 		}).Debug("Acquired reference for identity")
@@ -229,7 +228,7 @@ func (c *crdBackend) UpdateKey(ctx context.Context, id idpool.ID, key allocator.
 
 	// The CRD (aka the master key) is missing. Try to recover by recreating it
 	// if reliablyMissing is set.
-	log.WithFields(logrus.Fields{
+	log.WithError(err).WithFields(logrus.Fields{
 		logfields.Identity: id,
 		logfields.Labels:   key,
 	}).Warning("Unable update CRD identity information with a reference for this node")
