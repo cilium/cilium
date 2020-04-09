@@ -107,7 +107,8 @@ not_esp:
 		if (hdrlen < 0)
 			return hdrlen;
 
-		return ipv6_local_delivery(ctx, l3_off, *identity, ep, METRIC_INGRESS);
+		return ipv6_local_delivery(ctx, l3_off, *identity, ep,
+					   METRIC_INGRESS, false);
 	}
 
 to_host:
@@ -212,7 +213,8 @@ not_esp:
 		if (ep->flags & ENDPOINT_F_HOST)
 			goto to_host;
 
-		return ipv4_local_delivery(ctx, ETH_HLEN, *identity, ip4, ep, METRIC_INGRESS);
+		return ipv4_local_delivery(ctx, ETH_HLEN, *identity, ip4, ep,
+					   METRIC_INGRESS, false);
 	}
 
 to_host:
