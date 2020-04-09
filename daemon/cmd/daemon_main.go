@@ -512,7 +512,7 @@ func init() {
 	flags.StringSlice(option.NodePortRange, []string{fmt.Sprintf("%d", option.NodePortMinDefault), fmt.Sprintf("%d", option.NodePortMaxDefault)}, "Set the min/max NodePort port range")
 	option.BindEnv(option.NodePortRange)
 
-	flags.String(option.NodePortAcceleration, option.NodePortAccelerationNone, "BPF NodePort acceleration via XDP (\"none\", \"generic\", \"native\")")
+	flags.String(option.NodePortAcceleration, option.NodePortAccelerationNone, "BPF NodePort acceleration via XDP (\"native\", \"none\")")
 	option.BindEnv(option.NodePortAcceleration)
 
 	flags.String(option.LibDir, defaults.LibraryPath, "Directory path to store runtime build environment")
@@ -617,7 +617,7 @@ func init() {
 	flags.String(option.PrefilterDevice, "undefined", "Device facing external network for XDP prefiltering")
 	option.BindEnv(option.PrefilterDevice)
 
-	flags.String(option.PrefilterMode, option.ModePreFilterNative, "Prefilter mode { "+option.ModePreFilterNative+" | "+option.ModePreFilterGeneric+" } (default: "+option.ModePreFilterNative+")")
+	flags.String(option.PrefilterMode, option.ModePreFilterNative, "Prefilter mode via XDP (\"native\", \"generic\")")
 	option.BindEnv(option.PrefilterMode)
 
 	flags.Bool(option.PreAllocateMapsName, defaults.PreAllocateMaps, "Enable BPF map pre-allocation")
@@ -901,10 +901,13 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	option.Config.ModePreFilter = strings.ToLower(option.Config.ModePreFilter)
+	if option.Config.ModePreFilter == "generic" {
+		option.Config.ModePreFilter = option.ModePreFilterGeneric
+	}
 	if option.Config.ModePreFilter != option.ModePreFilterNative &&
 		option.Config.ModePreFilter != option.ModePreFilterGeneric {
-		log.Fatalf("Invalid setting for --prefilter-mode, must be { %s, %s }",
-			option.ModePreFilterNative, option.ModePreFilterGeneric)
+		log.Fatalf("Invalid setting for --prefilter-mode, must be { %s, generic }",
+			option.ModePreFilterNative)
 	}
 
 	if option.Config.DevicePreFilter != "undefined" {
