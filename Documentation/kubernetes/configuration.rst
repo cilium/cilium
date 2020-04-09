@@ -331,6 +331,11 @@ If you want to use CRIO, generate the YAML using:
 
 .. include:: ../gettingstarted/k8s-install-download-release.rst
 
+.. note::
+
+   The helm ``--set global.containerRuntime.integration=crio`` might not be
+   required for your setup. For more info see :ref:`crio-known-issues`.
+
 .. parsed-literal::
 
    helm install cilium |CHART_RELEASE| \\
@@ -355,3 +360,27 @@ After that you can restart CRI-O:
 
     minikube ssh -- sudo systemctl restart crio
 
+.. _crio-known-issues:
+
+Common CRIO issues
+------------------
+
+Some CRI-O environments automatically mount the bpf filesystem in the pods,
+which is something that Cilium avoids doing when
+``--set global.containerRuntime.integration=crio`` is set. However, some
+CRI-O environments do not mount the bpf filesystem automatically which causes
+Cilium to print the follow message:
+
+.. parsed-literal::
+
+        level=warning msg="BPF system config check: NOT OK." error="CONFIG_BPF kernel parameter is required" subsys=linux-datapath
+        level=warning msg="================================= WARNING ==========================================" subsys=bpf
+        level=warning msg="BPF filesystem is not mounted. This will lead to network disruption when Cilium pods" subsys=bpf
+        level=warning msg="are restarted. Ensure that the BPF filesystem is mounted in the host." subsys=bpf
+        level=warning msg="https://docs.cilium.io/en/stable/kubernetes/requirements/#mounted-bpf-filesystem" subsys=bpf
+        level=warning msg="====================================================================================" subsys=bpf
+        level=info msg="Mounting BPF filesystem at /sys/fs/bpf" subsys=bpf
+
+If you see this warning in the Cilium pod logs with your CRI-O environment,
+please remove the flag ``--set global.containerRuntime.integration=crio`` from
+your helm setup and redeploy Cilium.
