@@ -94,14 +94,14 @@ func NewMap(name string, v4 bool, entries int) *Map {
 
 	if v4 {
 		mapKey = &NatKey4{}
-		sizeKey = int(unsafe.Sizeof(NatKey4{}))
+		sizeKey = SizeofNatKey4
 		mapValue = &NatEntry4{}
-		sizeVal = int(unsafe.Sizeof(NatEntry4{}))
+		sizeVal = SizeofNatEntry4
 	} else {
 		mapKey = &NatKey6{}
-		sizeKey = int(unsafe.Sizeof(NatKey6{}))
+		sizeKey = SizeofNatKey6
 		mapValue = &NatEntry6{}
-		sizeVal = int(unsafe.Sizeof(NatEntry6{}))
+		sizeVal = SizeofNatEntry6
 	}
 	return &Map{
 		Map: *bpf.NewMap(

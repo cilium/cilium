@@ -45,7 +45,7 @@ hook see :ref:`bpf_guide`.
   tc ingress hook can be coupled with above XDP hook. When this is done it
   is reasonable to assume that the majority of the traffic at this
   point is legitimate and destined for the host.
-  
+
   Containers typically use a virtual device called a veth pair which acts
   as a virtual wire connecting the container to the host. By attaching to
   the TC ingress hook of the host side of this veth pair Cilium can monitor
@@ -54,7 +54,7 @@ hook see :ref:`bpf_guide`.
   network traffic to the host side virtual devices with another BPF program
   attached to the tc ingress hook as well Cilium can monitor and enforce
   policy on all traffic entering or exiting the node.
-  
+
   Depending on the use case, containers may also be connected through ipvlan
   devices instead of a veth pair. In this mode, the physical device in the
   host is the ipvlan master where virtual ipvlan devices in slave mode are
@@ -258,6 +258,17 @@ Proxy Map                node             512k            Max 512k concurrent re
 Tunnel                   node             64k             Max 32k nodes (IPv4+IPv6) or 64k nodes (IPv4 or IPv6) across all clusters
 IPv4 Fragmentation       node             8k              Max 8k fragmented datagrams in flight simultaneously on the node
 ======================== ================ =============== =====================================================
+
+For some BPF maps, the upper capacity limit can be overridden using command
+line options for ``cilium-agent``. A given capacity can be set using
+``--bpf-ct-global-tcp-max``, ``--bpf-ct-global-any-max``,
+``--bpf-nat-global-max``, ``--bpf-policy-map-max``, and
+``--bpf-fragments-map-max``.
+
+Using ``--bpf-map-dynamic-size-ratio`` the upper capacity limits of the
+connection tracking, NAT, and policy maps are determined at agent startup based
+on the given ratio of the total system memory. For example a given ratio of 0.03
+leads to 3% of the total system memory to be used for these maps.
 
 Kubernetes Integration
 ======================

@@ -224,7 +224,14 @@ global:
     # natMax is the maximum number of entries for the NAT table
     natMax: 524288
 
-    # montiorAggregation is the level of aggregation for datapath trace events
+    # mapDynamicSizeRatio is the ratio (0.0-1.0) of total system memory to use
+    # for dynamic sizing of CT, NAT and policy BPF maps. If set to 0.0, dynamic
+    # sizing of BPF maps is disabled. The default value of 0.03 (3%) leads to
+    # approximately the default BPF map sizes on a node with 4 GiB of total
+    # system memory.
+    mapDynamicSizeRatio: 0.03
+
+    # monitorAggregation is the level of aggregation for datapath trace events
     monitorAggregation: medium
 
     # monitorInterval is the typical time between monitor notifications for

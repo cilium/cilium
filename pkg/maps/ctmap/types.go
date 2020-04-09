@@ -381,6 +381,8 @@ type CtKey6Global struct {
 	tuple.TupleKey6Global
 }
 
+const SizeofCtKey6Global = int(unsafe.Sizeof(CtKey6Global{}))
+
 // NewValue creates a new bpf.MapValue.
 func (k *CtKey6Global) NewValue() bpf.MapValue { return &CtEntry{} }
 
@@ -482,6 +484,8 @@ type CtEntry struct {
 	LastTxReport     uint32 `align:"last_tx_report"`
 	LastRxReport     uint32 `align:"last_rx_report"`
 }
+
+const SizeofCtEntry = int(unsafe.Sizeof(CtEntry{}))
 
 // GetValuePtr returns the unsafe.Pointer for s.
 func (c *CtEntry) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(c) }
