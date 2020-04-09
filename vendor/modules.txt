@@ -84,6 +84,16 @@ github.com/cilium/ebpf/asm
 github.com/cilium/ebpf/internal
 github.com/cilium/ebpf/internal/unix
 github.com/cilium/ebpf/perf
+# github.com/cilium/hubble v0.5.1-0.20200409144652-24bc03bef1db
+## explicit
+github.com/cilium/hubble/cmd
+github.com/cilium/hubble/cmd/observe
+github.com/cilium/hubble/cmd/status
+github.com/cilium/hubble/cmd/version
+github.com/cilium/hubble/pkg
+github.com/cilium/hubble/pkg/defaults
+github.com/cilium/hubble/pkg/printer
+github.com/cilium/hubble/pkg/time
 # github.com/cilium/ipam v0.0.0-20200217195329-a46f8d55f9db
 ## explicit
 github.com/cilium/ipam/service/allocator
