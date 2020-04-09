@@ -14,11 +14,20 @@
 //
 // +build !privileged_tests
 
-package id
+package idallocator
 
 import (
+	"testing"
+
 	. "gopkg.in/check.v1"
 )
+
+// Hook up gocheck into the "go test" runner.
+func Test(t *testing.T) { TestingT(t) }
+
+type IDSuite struct{}
+
+var _ = Suite(&IDSuite{})
 
 func (s *IDSuite) TestAllocation(c *C) {
 	ReallocatePool()
