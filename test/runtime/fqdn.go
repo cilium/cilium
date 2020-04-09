@@ -1100,7 +1100,7 @@ INITSYSTEM=SYSTEMD`
 func getMapValues(m map[string]string) []interface{} {
 
 	values := make([]interface{}, len(m))
-	var keys []string
+	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
 	}

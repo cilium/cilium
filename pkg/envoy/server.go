@@ -1028,7 +1028,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		ep.GetIPv6Address(),
 		ep.GetIPv4Address(),
 	}
-	var policies []*cilium.NetworkPolicy
+	policies := make([]*cilium.NetworkPolicy, 0, len(ips))
 	for _, ip := range ips {
 		if ip == "" {
 			continue
