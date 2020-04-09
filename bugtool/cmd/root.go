@@ -412,10 +412,9 @@ func getCiliumPods(namespace, label string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	var ciliumPods []string
 
 	lines := strings.Split(output, "\n")
-
+	ciliumPods := make([]string, 0, len(lines))
 	for _, l := range lines {
 		if !strings.HasPrefix(l, "cilium") {
 			continue
