@@ -9,7 +9,11 @@ data:
   # storage. This can either be provided with an external kvstore or with the
   # help of cilium-etcd-operator which operates an etcd cluster automatically.
   kvstore: etcd
+{{- if .Values.global.etcd.k8sService }}
+  kvstore-opt: '{"etcd.config": "/var/lib/etcd-config/etcd.config", "etcd.operator": "true"}'
+{{- else }}
   kvstore-opt: '{"etcd.config": "/var/lib/etcd-config/etcd.config"}'
+{{- end }}
 
   # This etcd-config contains the etcd endpoints of your cluster. If you use
   # TLS please make sure you follow the tutorial in https://cilium.link/etcd-config
