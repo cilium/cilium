@@ -39,6 +39,9 @@ epub latex html: builder-image
 DOCS_PORT = 9081
 
 run-server: stop-server
+	# Work around Docker issue where this directory is created as root in
+	# the `--volume` parameter below. See also GH-10869.
+	$(QUIET)mkdir -p $(CURDIR)/_build/html/
 	$(QUIET)docker container run --rm \
 		--detach \
 		--interactive \
