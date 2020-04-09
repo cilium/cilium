@@ -245,11 +245,7 @@ func (d *MockDNSProxy) Unlock() {}
 // identityNotifier on the first pass; any subsequent updates will eventually
 // call `UpdateFQDNSelector`.
 func (d *MockDNSProxy) RegisterForIdentityUpdatesLocked(selector api.FQDNSelector) (identities []identity.NumericIdentity) {
-	re, err := selector.ToRegex()
-	if err != nil {
-		panic(err)
-	}
-
+	re := selector.ToRegex()
 	var ips []net.IP
 	for k, v := range d.dnsdata {
 		if re.MatchString(k) {

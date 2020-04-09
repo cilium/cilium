@@ -28,24 +28,24 @@ import (
 // Returns the mapping of DNSName to set of IPs which back said DNS name, the
 // set of FQDNSelectors which do not map to any IPs, and the set of
 // FQDNSelectors mapping to a set of IPs.
-func mapSelectorsToIPs(fqdnSelectors map[api.FQDNSelector]struct{}, cache *DNSCache) (selectorsMissingIPs []api.FQDNSelector, selectorIPMapping map[api.FQDNSelector][]net.IP) {
-	missing := make(map[api.FQDNSelector]struct{}) // a set to dedup missing dnsNames
-	selectorIPMapping = make(map[api.FQDNSelector][]net.IP)
+func mapSelectorsToIPs(fqdnSelectors map[api.FQDNSelectorString]api.FQDNSelector, cache *DNSCache) (selectorsMissingIPs []api.FQDNSelectorString, selectorIPMapping map[api.FQDNSelectorString][]net.IP) {
+	missing := make(map[api.FQDNSelectorString]struct{}) // a set to dedup missing dnsNames
+	selectorIPMapping = make(map[api.FQDNSelectorString][]net.IP)
 
 	log.WithField("fqdnSelectors", fqdnSelectors).Debug("mapSelectorsToIPs")
 
 	// Map each FQDNSelector to set of CIDRs
-	for ToFQDN := range fqdnSelectors {
+	for key, ToFQDN := range fqdnSelectors {
 		ips := cache.LookupBySelector(ToFQDN)
 		if len(ips) == 0 {
-			missing[ToFQDN] = struct{}{}
+			missing[key] = struct{}{}
 		} else {
-			selectorIPMapping[ToFQDN] = ips
+			selectorIPMapping[key] = ips
 		}
 	}
 
-	for dnsName := range missing {
-		selectorsMissingIPs = append(selectorsMissingIPs, dnsName)
+	for key := range missing {
+		selectorsMissingIPs = append(selectorsMissingIPs, key)
 	}
 	return selectorsMissingIPs, selectorIPMapping
 }

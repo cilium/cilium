@@ -22,12 +22,12 @@ import (
 
 type DummyIdentityNotifier struct {
 	mutex     lock.Mutex
-	selectors map[api.FQDNSelector][]identity.NumericIdentity
+	selectors map[api.FQDNSelectorString][]identity.NumericIdentity
 }
 
 func NewDummyIdentityNotifier() *DummyIdentityNotifier {
 	return &DummyIdentityNotifier{
-		selectors: make(map[api.FQDNSelector][]identity.NumericIdentity),
+		selectors: make(map[api.FQDNSelectorString][]identity.NumericIdentity),
 	}
 }
 
@@ -45,24 +45,25 @@ func (d *DummyIdentityNotifier) Unlock() {
 
 // RegisterForIdentityUpdatesLocked starts managing this selector.
 func (d *DummyIdentityNotifier) RegisterForIdentityUpdatesLocked(selector api.FQDNSelector) (identities []identity.NumericIdentity) {
-	ids, ok := d.selectors[selector]
+	key := selector.MapKey()
+	ids, ok := d.selectors[key]
 	if !ok {
-		d.selectors[selector] = []identity.NumericIdentity{}
+		d.selectors[key] = []identity.NumericIdentity{}
 	}
 	return ids
 }
 
 // UnregisterForIdentityUpdatesLocked stops managing this selector.
 func (d *DummyIdentityNotifier) UnregisterForIdentityUpdatesLocked(selector api.FQDNSelector) {
-	delete(d.selectors, selector)
+	delete(d.selectors, selector.MapKey())
 }
 
 func (d *DummyIdentityNotifier) InjectIdentitiesForSelector(fqdnSel api.FQDNSelector, ids []identity.NumericIdentity) {
-	d.selectors[fqdnSel] = ids
+	d.selectors[fqdnSel.MapKey()] = ids
 }
 
 // IsRegistered returns whether this selector is being managed.
 func (d *DummyIdentityNotifier) IsRegistered(selector api.FQDNSelector) bool {
-	_, ok := d.selectors[selector]
+	_, ok := d.selectors[selector.MapKey()]
 	return ok
 }

@@ -67,7 +67,7 @@ const (
 	dnsSourceConnection = "connection"
 )
 
-func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, identityAllocator *secIDCache.CachingIdentityAllocator) (map[policyApi.FQDNSelector][]*identity.Identity, error) {
+func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSelectorString][]net.IP, identityAllocator *secIDCache.CachingIdentityAllocator) (map[policyApi.FQDNSelectorString][]*identity.Identity, error) {
 	var err error
 
 	// Used to track identities which are allocated in calls to
@@ -75,7 +75,7 @@ func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSel
 	// we have to undo all of our changes and release the identities.
 	// This is best effort, as releasing can fail as well.
 	usedIdentities := make([]*identity.Identity, 0, len(selectorsWithIPsToUpdate))
-	selectorIdentitySliceMapping := make(map[policyApi.FQDNSelector][]*identity.Identity, len(selectorsWithIPsToUpdate))
+	selectorIdentitySliceMapping := make(map[policyApi.FQDNSelectorString][]*identity.Identity, len(selectorsWithIPsToUpdate))
 
 	// Allocate identities for each IPNet and then map to selector
 	for selector, selectorIPs := range selectorsWithIPsToUpdate {
@@ -97,7 +97,7 @@ func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSel
 	return selectorIdentitySliceMapping, nil
 }
 
-func (d *Daemon) updateSelectorCacheFQDNs(ctx context.Context, selectors map[policyApi.FQDNSelector][]*identity.Identity, selectorsWithoutIPs []policyApi.FQDNSelector) (wg *sync.WaitGroup) {
+func (d *Daemon) updateSelectorCacheFQDNs(ctx context.Context, selectors map[policyApi.FQDNSelectorString][]*identity.Identity, selectorsWithoutIPs []policyApi.FQDNSelectorString) (wg *sync.WaitGroup) {
 	// There may be nothing to update - in this case, we exit and do not need
 	// to trigger policy updates for all endpoints.
 	if len(selectors) == 0 && len(selectorsWithoutIPs) == 0 {
@@ -314,7 +314,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 // updateSelectors propagates the mapping of FQDNSelector to identity, as well
 // as the set of FQDNSelectors which have no IPs which correspond to them
 // (usually due to TTL expiry), down to policy layer managed by this daemon.
-func (d *Daemon) updateSelectors(ctx context.Context, selectorWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, selectorsWithoutIPs []policyApi.FQDNSelector) (wg *sync.WaitGroup, err error) {
+func (d *Daemon) updateSelectors(ctx context.Context, selectorWithIPsToUpdate map[policyApi.FQDNSelectorString][]net.IP, selectorsWithoutIPs []policyApi.FQDNSelectorString) (wg *sync.WaitGroup, err error) {
 	// Convert set of selectors with IPs to update to set of selectors
 	// with identities corresponding to said IPs.
 	selectorsIdentities, err := identitiesForFQDNSelectorIPs(selectorWithIPsToUpdate, d.identityAllocator)

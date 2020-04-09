@@ -17,7 +17,6 @@ package fqdn
 import (
 	"context"
 	"net"
-	"regexp"
 	"sync"
 	"time"
 
@@ -51,7 +50,7 @@ type NameManager struct {
 
 	// allSelectors contains all FQDNSelectors which are present in all policy. We
 	// use these selectors to map selectors --> IPs.
-	allSelectors map[api.FQDNSelector]*regexp.Regexp
+	allSelectors map[api.FQDNSelectorString]api.FQDNSelector
 
 	// cache is a private copy of the pointer from config.
 	cache *DNSCache
@@ -70,10 +69,10 @@ func (n *NameManager) GetModel() *models.NameManager {
 	}
 
 	allSelectors := make([]*models.SelectorEntry, 0, len(n.allSelectors))
-	for fqdnSel, regex := range n.allSelectors {
+	for _, fqdnSel := range n.allSelectors {
 		pair := &models.SelectorEntry{
 			SelectorString: fqdnSel.String(),
-			RegexString:    regex.String(),
+			RegexString:    fqdnSel.ToRegex().String(),
 		}
 		allSelectors = append(allSelectors, pair)
 	}
@@ -104,7 +103,7 @@ func (n *NameManager) Unlock() {
 // Selector will be returned as CIDR identities, as other DNS Names which have
 // already been resolved may match this FQDNSelector.
 func (n *NameManager) RegisterForIdentityUpdatesLocked(selector api.FQDNSelector) []identity.NumericIdentity {
-	_, exists := n.allSelectors[selector]
+	_, exists := n.allSelectors[selector.MapKey()]
 	if exists {
 		log.WithField("fqdnSelector", selector).Warning("FQDNSelector was already registered for updates, returning without any identities")
 		return nil
@@ -115,7 +114,7 @@ func (n *NameManager) RegisterForIdentityUpdatesLocked(selector api.FQDNSelector
 		n.namesToPoll[prepareMatchName(selector.MatchName)] = struct{}{}
 	}
 
-	n.allSelectors[selector] = selector.ToRegex()
+	n.allSelectors[selector.MapKey()] = selector
 	selectorIPs := n.cache.LookupBySelector(selector)
 
 	// Allocate identities for each IPNet and then map to selector
@@ -142,7 +141,7 @@ func (n *NameManager) RegisterForIdentityUpdatesLocked(selector api.FQDNSelector
 // FQDNSelectors which are being tracked by the NameManager. No more updates for IPs
 // which correspond to said selector are propagated.
 func (n *NameManager) UnregisterForIdentityUpdatesLocked(selector api.FQDNSelector) {
-	delete(n.allSelectors, selector)
+	delete(n.allSelectors, selector.MapKey())
 	if len(selector.MatchName) > 0 {
 		delete(n.namesToPoll, prepareMatchName(selector.MatchName))
 	}
@@ -157,7 +156,7 @@ func NewNameManager(config Config) *NameManager {
 	}
 
 	if config.UpdateSelectors == nil {
-		config.UpdateSelectors = func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]net.IP, namesMissingIPs []api.FQDNSelector) (*sync.WaitGroup, error) {
+		config.UpdateSelectors = func(ctx context.Context, selectorIPMapping map[api.FQDNSelectorString][]net.IP, namesMissingIPs []api.FQDNSelectorString) (*sync.WaitGroup, error) {
 			return &sync.WaitGroup{}, nil
 		}
 	}
@@ -165,7 +164,7 @@ func NewNameManager(config Config) *NameManager {
 	return &NameManager{
 		config:       config,
 		namesToPoll:  make(map[string]struct{}),
-		allSelectors: make(map[api.FQDNSelector]*regexp.Regexp),
+		allSelectors: make(map[api.FQDNSelectorString]api.FQDNSelector),
 		cache:        config.Cache,
 	}
 
@@ -221,11 +220,11 @@ func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []strin
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
 
-	affectedFQDNSels := make(map[api.FQDNSelector]struct{}, 0)
+	affectedFQDNSels := make(map[api.FQDNSelectorString]api.FQDNSelector, 0)
 	for _, dnsName := range namesToRegen {
-		for fqdnSel, fqdnRegEx := range n.allSelectors {
-			if fqdnRegEx.MatchString(dnsName) {
-				affectedFQDNSels[fqdnSel] = struct{}{}
+		for fqdnSelStr, fqdnSel := range n.allSelectors {
+			if fqdnSel.ToRegex().MatchString(dnsName) {
+				affectedFQDNSels[fqdnSelStr] = fqdnSel
 			}
 		}
 	}
@@ -252,9 +251,9 @@ func (n *NameManager) CompleteBootstrap() {
 // affectedSelectors: a set of all FQDNSelectors which match DNS Names whose
 // corresponding set of IPs has changed.
 // updatedNames: a map of DNS names to all the valid IPs we store for each.
-func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (affectedSelectors map[api.FQDNSelector]struct{}, updatedNames map[string][]net.IP) {
+func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (affectedSelectors map[api.FQDNSelectorString]api.FQDNSelector, updatedNames map[string][]net.IP) {
 	updatedNames = make(map[string][]net.IP, len(updatedDNSIPs))
-	affectedSelectors = make(map[api.FQDNSelector]struct{}, len(updatedDNSIPs))
+	affectedSelectors = make(map[api.FQDNSelectorString]api.FQDNSelector, len(updatedDNSIPs))
 
 perDNSName:
 	for dnsName, lookupIPs := range updatedDNSIPs {
@@ -279,10 +278,10 @@ perDNSName:
 				"lookupIPs": lookupIPs,
 			}).Debug("FQDN: No selectors registered for updates")
 		}
-		for fqdnSel, fqdnRegex := range n.allSelectors {
-			matches := fqdnRegex.MatchString(dnsName)
+		for fqdnSelStr, fqdnSel := range n.allSelectors {
+			matches := fqdnSel.ToRegex().MatchString(dnsName)
 			if matches {
-				affectedSelectors[fqdnSel] = struct{}{}
+				affectedSelectors[fqdnSelStr] = fqdnSel
 			}
 		}
 	}

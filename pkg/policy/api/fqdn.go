@@ -30,6 +30,9 @@ var (
 	allowedPatternChars = regexp.MustCompile("^[-a-zA-Z0-9.*]+$") // the * inside the [] is a literal *
 )
 
+// FQDNSelectorString is the canonical string used as a map key
+type FQDNSelectorString string
+
 // 'MatchName' and 'MatchPattern' are mutually exclusive
 type FQDNSelector struct {
 	// MatchName matches literal DNS names. A trailing "." is automatically added
@@ -93,9 +96,13 @@ func (s *FQDNSelector) Sanitize() error {
 // ToRegex returns the pre-computed regular expression.
 func (s *FQDNSelector) ToRegex() *regexp.Regexp {
 	if s.matchRE == nil {
-		panic("Internal error: ToFQDN not Sanitized!")
+		panic(fmt.Sprintf("Internal error: ToFQDN (%s) not Sanitized!", s.String()))
 	}
 	return s.matchRE
+}
+
+func (s *FQDNSelector) MapKey() FQDNSelectorString {
+	return FQDNSelectorString(s.String())
 }
 
 // PortRuleDNS is an allowed DNS lookup.

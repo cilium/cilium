@@ -28,6 +28,16 @@ import (
 	. "gopkg.in/check.v1"
 )
 
+var (
+	googleSel = api.FQDNSelector{MatchName: "google.com"}
+	ciliumSel = api.FQDNSelector{MatchName: "cilium.io"}
+)
+
+func init() {
+	googleSel.Sanitize()
+	ciliumSel.Sanitize()
+}
+
 type SelectorCacheTestSuite struct{}
 
 var _ = Suite(&SelectorCacheTestSuite{})
@@ -280,20 +290,20 @@ func (ds *SelectorCacheTestSuite) TestFQDNSelectorUpdates(c *C) {
 	sc := testNewSelectorCache(cache.IdentityCache{})
 
 	// Add some identities to the identity cache
-	googleSel := api.FQDNSelector{MatchName: "google.com"}
-	ciliumSel := api.FQDNSelector{MatchName: "cilium.io"}
-
 	googleIdentities := []identity.NumericIdentity{321, 456, 987}
 	ciliumIdentities := []identity.NumericIdentity{123, 456, 789}
 
-	sc.UpdateFQDNSelector(ciliumSel, ciliumIdentities)
-	sc.UpdateFQDNSelector(googleSel, googleIdentities)
-
 	_, exists := sc.selectors[ciliumSel.String()]
-	c.Assert(exists, Equals, true)
+	c.Assert(exists, Equals, false)
 
 	user1 := newUser(c, "user1", sc)
 	cached := user1.AddFQDNSelector(ciliumSel)
+	c.Assert(user1.adds, Equals, 0)
+	c.Assert(user1.deletes, Equals, 0)
+
+	sc.UpdateFQDNSelector(ciliumSel.MapKey(), ciliumIdentities)
+	c.Assert(user1.adds, Equals, 3)
+	c.Assert(user1.deletes, Equals, 0)
 
 	selections := cached.GetSelections()
 	c.Assert(len(selections), Equals, 3)
@@ -304,6 +314,10 @@ func (ds *SelectorCacheTestSuite) TestFQDNSelectorUpdates(c *C) {
 	// Add another selector from the same user
 	cached2 := user1.AddFQDNSelector(googleSel)
 	c.Assert(cached2, Not(Equals), cached)
+
+	sc.UpdateFQDNSelector(googleSel.MapKey(), googleIdentities)
+	c.Assert(user1.adds, Equals, 6)
+	c.Assert(user1.deletes, Equals, 0)
 
 	// Current selections contain the numeric identities of existing identities that match
 	selections2 := cached2.GetSelections()
@@ -314,17 +328,17 @@ func (ds *SelectorCacheTestSuite) TestFQDNSelectorUpdates(c *C) {
 
 	// Add some identities to the identity cache
 	ciliumIdentities = append(ciliumIdentities, identity.NumericIdentity(123456))
-	sc.UpdateFQDNSelector(ciliumSel, ciliumIdentities)
-	c.Assert(user1.adds, Equals, 1)
+	sc.UpdateFQDNSelector(ciliumSel.MapKey(), ciliumIdentities)
+	c.Assert(user1.adds, Equals, 7)
 	c.Assert(user1.deletes, Equals, 0)
 
 	ciliumIdentities = ciliumIdentities[:1]
-	sc.UpdateFQDNSelector(ciliumSel, ciliumIdentities)
-	c.Assert(user1.adds, Equals, 1)
+	sc.UpdateFQDNSelector(ciliumSel.MapKey(), ciliumIdentities)
+	c.Assert(user1.adds, Equals, 7)
 	c.Assert(user1.deletes, Equals, 3)
 
 	ciliumIdentities = []identity.NumericIdentity{}
-	sc.UpdateFQDNSelector(ciliumSel, ciliumIdentities)
+	sc.UpdateFQDNSelector(ciliumSel.MapKey(), ciliumIdentities)
 	c.Assert(user1.deletes, Equals, 4)
 
 	user1.RemoveSelector(cached)
@@ -334,6 +348,7 @@ func (ds *SelectorCacheTestSuite) TestFQDNSelectorUpdates(c *C) {
 	c.Assert(len(sc.selectors), Equals, 0)
 
 	yahooSel := api.FQDNSelector{MatchName: "yahoo.com"}
+	yahooSel.Sanitize()
 	_, added := sc.AddFQDNSelector(user1, yahooSel)
 	c.Assert(added, Equals, true)
 }
@@ -342,20 +357,16 @@ func (ds *SelectorCacheTestSuite) TestRemoveIdentitiesFQDNSelectors(c *C) {
 	sc := testNewSelectorCache(cache.IdentityCache{})
 
 	// Add some identities to the identity cache
-	googleSel := api.FQDNSelector{MatchName: "google.com"}
-	ciliumSel := api.FQDNSelector{MatchName: "cilium.io"}
-
 	googleIdentities := []identity.NumericIdentity{321, 456, 987}
 	ciliumIdentities := []identity.NumericIdentity{123, 456, 789}
 
-	sc.UpdateFQDNSelector(ciliumSel, ciliumIdentities)
-	sc.UpdateFQDNSelector(googleSel, googleIdentities)
-
 	_, exists := sc.selectors[ciliumSel.String()]
-	c.Assert(exists, Equals, true)
+	c.Assert(exists, Equals, false)
 
 	user1 := newUser(c, "user1", sc)
 	cached := user1.AddFQDNSelector(ciliumSel)
+
+	sc.UpdateFQDNSelector(ciliumSel.MapKey(), ciliumIdentities)
 
 	selections := cached.GetSelections()
 	c.Assert(len(selections), Equals, 3)
@@ -367,6 +378,8 @@ func (ds *SelectorCacheTestSuite) TestRemoveIdentitiesFQDNSelectors(c *C) {
 	cached2 := user1.AddFQDNSelector(googleSel)
 	c.Assert(cached2, Not(Equals), cached)
 
+	sc.UpdateFQDNSelector(googleSel.MapKey(), googleIdentities)
+
 	// Current selections contain the numeric identities of existing identities that match
 	selections2 := cached2.GetSelections()
 	c.Assert(len(selections2), Equals, 3)
@@ -374,9 +387,9 @@ func (ds *SelectorCacheTestSuite) TestRemoveIdentitiesFQDNSelectors(c *C) {
 		c.Assert(selection, Equals, googleIdentities[i])
 	}
 
-	sc.RemoveIdentitiesFQDNSelectors([]api.FQDNSelector{
-		googleSel,
-		ciliumSel,
+	sc.RemoveIdentitiesFQDNSelectors([]api.FQDNSelectorString{
+		googleSel.MapKey(),
+		ciliumSel.MapKey(),
 	})
 
 	selections = cached.GetSelections()
@@ -457,9 +470,6 @@ func (ds *SelectorCacheTestSuite) TestIdentityNotifier(c *C) {
 	c.Assert(idNotifier, Not(IsNil))
 
 	// Add some identities to the identity cache
-	googleSel := api.FQDNSelector{MatchName: "google.com"}
-	ciliumSel := api.FQDNSelector{MatchName: "cilium.io"}
-
 	// Nothing should be registered yet.
 	c.Assert(idNotifier.IsRegistered(ciliumSel), Equals, false)
 	c.Assert(idNotifier.IsRegistered(googleSel), Equals, false)
@@ -487,9 +497,9 @@ func (ds *SelectorCacheTestSuite) TestIdentityNotifier(c *C) {
 	selections2 := cached2.GetSelections()
 	c.Assert(len(selections2), Equals, 0)
 
-	sc.RemoveIdentitiesFQDNSelectors([]api.FQDNSelector{
-		googleSel,
-		ciliumSel,
+	sc.RemoveIdentitiesFQDNSelectors([]api.FQDNSelectorString{
+		googleSel.MapKey(),
+		ciliumSel.MapKey(),
 	})
 
 	selections = cached.GetSelections()

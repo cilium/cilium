@@ -477,31 +477,20 @@ func (l *labelIdentitySelector) matches(identity scIdentity) bool {
 // policy rule as a string) to to the provided list of identities. If the contents
 // of the cachedSelections differ from those in the identities slice, all
 // users are notified.
-func (sc *SelectorCache) UpdateFQDNSelector(fqdnSelec api.FQDNSelector, identities []identity.NumericIdentity) {
+func (sc *SelectorCache) UpdateFQDNSelector(fqdnSelec api.FQDNSelectorString, identities []identity.NumericIdentity) {
 	sc.mutex.Lock()
 	sc.updateFQDNSelector(fqdnSelec, identities)
 	sc.mutex.Unlock()
 }
 
-func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, identities []identity.NumericIdentity) {
-	fqdnKey := fqdnSelec.String()
+func (sc *SelectorCache) updateFQDNSelector(fqdnKey api.FQDNSelectorString, identities []identity.NumericIdentity) {
 
-	var fqdnSel *fqdnSelector
-
-	selector, exists := sc.selectors[fqdnKey]
+	selector, exists := sc.selectors[string(fqdnKey)]
 	if !exists || selector == nil {
-		fqdnSel = &fqdnSelector{
-			selectorManager: selectorManager{
-				key:              fqdnKey,
-				users:            make(map[CachedSelectionUser]struct{}),
-				cachedSelections: make(map[identity.NumericIdentity]struct{}),
-			},
-			selector: fqdnSelec,
-		}
-		sc.selectors[fqdnKey] = fqdnSel
-	} else {
-		fqdnSel = selector.(*fqdnSelector)
+		log.WithFields(logrus.Fields{"fqdnSelectorString": fqdnKey}).Warning("UpdateFQDNSelector on an unregistered selector")
+		return
 	}
+	fqdnSel := selector.(*fqdnSelector)
 
 	// Convert identity slice to map for comparison with cachedSelections map.
 	idsAsMap := make(map[identity.NumericIdentity]struct{}, len(identities))
@@ -810,7 +799,7 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache) {
 
 // RemoveIdentitiesFQDNSelectors removes all identities from being mapped to the
 // set of FQDNSelectors.
-func (sc *SelectorCache) RemoveIdentitiesFQDNSelectors(fqdnSels []api.FQDNSelector) {
+func (sc *SelectorCache) RemoveIdentitiesFQDNSelectors(fqdnSels []api.FQDNSelectorString) {
 	sc.mutex.Lock()
 	noIdentities := []identity.NumericIdentity{}
 

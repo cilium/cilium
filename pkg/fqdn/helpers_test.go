@@ -56,14 +56,14 @@ func (ds *DNSCacheTestSuite) TestMapIPsToSelectors(c *C) {
 	now := time.Now()
 	cache := NewDNSCache(60)
 
-	selectors := map[api.FQDNSelector]struct{}{
-		ciliumIOSel: {},
+	selectors := map[api.FQDNSelectorString]api.FQDNSelector{
+		ciliumIOSel.MapKey(): ciliumIOSel,
 	}
 
 	// Empty cache.
 	selsMissingIPs, selIPMapping := mapSelectorsToIPs(selectors, cache)
 	c.Assert(len(selsMissingIPs), Equals, 1)
-	c.Assert(selsMissingIPs[0], Equals, ciliumIOSel)
+	c.Assert(selsMissingIPs[0], Equals, ciliumIOSel.MapKey())
 	c.Assert(len(selIPMapping), Equals, 0)
 
 	// Just one IP.
@@ -72,7 +72,7 @@ func (ds *DNSCacheTestSuite) TestMapIPsToSelectors(c *C) {
 	selsMissingIPs, selIPMapping = mapSelectorsToIPs(selectors, cache)
 	c.Assert(len(selsMissingIPs), Equals, 0)
 	c.Assert(len(selIPMapping), Equals, 1)
-	ciliumIPs, ok := selIPMapping[ciliumIOSel]
+	ciliumIPs, ok := selIPMapping[ciliumIOSel.MapKey()]
 	c.Assert(ok, Equals, true)
 	c.Assert(len(ciliumIPs), Equals, 1)
 	c.Assert(ciliumIPs[0].Equal(ciliumIP1), Equals, true)
@@ -83,38 +83,38 @@ func (ds *DNSCacheTestSuite) TestMapIPsToSelectors(c *C) {
 	selsMissingIPs, selIPMapping = mapSelectorsToIPs(selectors, cache)
 	c.Assert(len(selsMissingIPs), Equals, 0)
 	c.Assert(len(selIPMapping), Equals, 1)
-	ciliumIPs, ok = selIPMapping[ciliumIOSel]
+	ciliumIPs, ok = selIPMapping[ciliumIOSel.MapKey()]
 	c.Assert(ok, Equals, true)
 	c.Assert(len(ciliumIPs), Equals, 2)
 	c.Assert(ciliumIPs[0].Equal(ciliumIP1), Equals, true)
 	c.Assert(ciliumIPs[1].Equal(ciliumIP2), Equals, true)
 
 	// Test with a MatchPattern.
-	selectors = map[api.FQDNSelector]struct{}{
-		ciliumIOSelMatchPattern: {},
+	selectors = map[api.FQDNSelectorString]api.FQDNSelector{
+		ciliumIOSelMatchPattern.MapKey(): ciliumIOSelMatchPattern,
 	}
 	selsMissingIPs, selIPMapping = mapSelectorsToIPs(selectors, cache)
 	c.Assert(len(selsMissingIPs), Equals, 0)
 	c.Assert(len(selIPMapping), Equals, 1)
-	ciliumIPs, ok = selIPMapping[ciliumIOSelMatchPattern]
+	ciliumIPs, ok = selIPMapping[ciliumIOSelMatchPattern.MapKey()]
 	c.Assert(ok, Equals, true)
 	c.Assert(len(ciliumIPs), Equals, 2)
 	c.Assert(ciliumIPs[0].Equal(ciliumIP1), Equals, true)
 	c.Assert(ciliumIPs[1].Equal(ciliumIP2), Equals, true)
 
-	selectors = map[api.FQDNSelector]struct{}{
-		ciliumIOSelMatchPattern: {},
-		ciliumIOSel:             {},
+	selectors = map[api.FQDNSelectorString]api.FQDNSelector{
+		ciliumIOSelMatchPattern.MapKey(): ciliumIOSelMatchPattern,
+		ciliumIOSel.MapKey():             ciliumIOSel,
 	}
 	selsMissingIPs, selIPMapping = mapSelectorsToIPs(selectors, cache)
 	c.Assert(len(selsMissingIPs), Equals, 0)
 	c.Assert(len(selIPMapping), Equals, 2)
-	ciliumIPs, ok = selIPMapping[ciliumIOSelMatchPattern]
+	ciliumIPs, ok = selIPMapping[ciliumIOSelMatchPattern.MapKey()]
 	c.Assert(ok, Equals, true)
 	c.Assert(len(ciliumIPs), Equals, 2)
 	c.Assert(ciliumIPs[0].Equal(ciliumIP1), Equals, true)
 	c.Assert(ciliumIPs[1].Equal(ciliumIP2), Equals, true)
-	ciliumIPs, ok = selIPMapping[ciliumIOSel]
+	ciliumIPs, ok = selIPMapping[ciliumIOSel.MapKey()]
 	c.Assert(ok, Equals, true)
 	c.Assert(len(ciliumIPs), Equals, 2)
 	c.Assert(ciliumIPs[0].Equal(ciliumIP1), Equals, true)
