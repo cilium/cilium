@@ -354,12 +354,17 @@ pass_to_stack:
 		set_encrypt_key_mark(ctx, encrypt_key);
 #ifdef IP_POOLS
 		set_encrypt_dip(ctx, tunnel_endpoint);
-#else
-		set_identity_mark(ctx, SECLABEL);
 #endif
 	}
 #endif
 #endif
+	/* Always encode the source identity when passing to the stack. If the
+	 * stack hairpins the packet back to a local endpoint the source
+	 * identity can still be derived even if SNAT is performed by a
+	 * component such as portmap */
+	ctx->mark |= MARK_MAGIC_IDENTITY;
+	set_identity_mark(ctx, SECLABEL);
+
 	return CTX_ACT_OK;
 }
 
@@ -705,12 +710,18 @@ pass_to_stack:
 		set_encrypt_key_mark(ctx, encrypt_key);
 #ifdef IP_POOLS
 		set_encrypt_dip(ctx, tunnel_endpoint);
-#else
-		set_identity_mark(ctx, SECLABEL);
 #endif
 	}
 #endif
 #endif
+
+	/* Always encode the source identity when passing to the stack. If the
+	 * stack hairpins the packet back to a local endpoint the source
+	 * identity can still be derived even if SNAT is performed by a
+	 * component such as portmap */
+	ctx->mark |= MARK_MAGIC_IDENTITY;
+	set_identity_mark(ctx, SECLABEL);
+
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
 	return CTX_ACT_OK;
 }
