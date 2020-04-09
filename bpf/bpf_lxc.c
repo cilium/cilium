@@ -62,7 +62,37 @@ static inline bool redirect_to_proxy(int verdict, __u8 dir)
 	return is_defined(ENABLE_HOST_REDIRECT) && verdict > 0 &&
 	       (dir == CT_NEW || dir == CT_ESTABLISHED);
 }
+
+/* clang-7 workaround, the intended C code generates the following
+ *  r1 = r6
+ *  r1 += 8
+ *  ... some other code r6 is ctx pointer buts it is lost after += op
+ *  *(u32 *)(r1 +0) = r4
+ *  resulting in verifier error,
+ *    "dereference of modified ctx ptr R1 off=9 disallowed"
+ *  to resolve this we use the below asm helper to force asm the
+ *  verifier can follow.
+ */
+static inline void asm_set_seclabel_identity(struct __sk_buff *skb)
+{
+	__u32 mark = MARK_MAGIC_IDENTITY;
+	__u32 key = MARK_MAGIC_KEY_MASK;
+	__u32 identity = SECLABEL;
+
+	bpf_barrier();
+	mark |= ((identity & 0xFFFF) << 16) | ((identity & 0xFF0000) >> 16);
+
+	asm volatile("r1 = *(u32 *)(%[ctx] +8)\n\t"
+		     "r1 &= %[key]\n\t"
+		     "r1 |= %[mark]\n\t"
+		     "*(u32 *)(%[ctx] +8) = r1\n\t"
+		     :
+		     : [ctx]"r"(skb), [key]"i"(key), [mark]"r"(mark)
+		     :"r1");
+	bpf_barrier();
+}
 #endif
+
 
 #ifdef ENABLE_IPV6
 static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
@@ -353,12 +383,15 @@ pass_to_stack:
 		set_encrypt_key(skb, encrypt_key);
 #ifdef IP_POOLS
 		set_encrypt_dip(skb, tunnel_endpoint);
-#else
-		set_identity(skb, SECLABEL);
 #endif
 	}
 #endif
 #endif
+	/* Always encode the source identity when passing to the stack. If the
+	 * stack hairpins the packet back to a local endpoint the source
+	 * identity can still be derived even if SNAT is performed by a
+	 * component such as portmap */
+	asm_set_seclabel_identity(skb);
 	return TC_ACT_OK;
 }
 
@@ -681,12 +714,16 @@ pass_to_stack:
 		set_encrypt_key(skb, encrypt_key);
 #ifdef IP_POOLS
 		set_encrypt_dip(skb, tunnel_endpoint);
-#else
-		set_identity(skb, SECLABEL);
 #endif
 	}
 #endif
 #endif
+
+	/* Always encode the source identity when passing to the stack. If the
+	 * stack hairpins the packet back to a local endpoint the source
+	 * identity can still be derived even if SNAT is performed by a
+	 * component such as portmap */
+	asm_set_seclabel_identity(skb);
 	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 	return TC_ACT_OK;
 }
