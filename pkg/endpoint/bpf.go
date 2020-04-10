@@ -1069,6 +1069,7 @@ func (e *Endpoint) applyPolicyMapChanges() (proxyChanges bool, err error) {
 	//  from the desired policy here.
 	adds, deletes := e.desiredPolicy.ConsumeMapChanges()
 
+	// Add policy map entries before deleting to avoid transient drops
 	for keyToAdd, entry := range adds {
 		// Keep the existing proxy port, if any
 		if entry != policy.NoRedirectEntry {
@@ -1108,6 +1109,12 @@ func (e *Endpoint) syncPolicyMap() error {
 	if e.realizedPolicy != e.desiredPolicy {
 		errors := 0
 
+		// Add policy map entries before deleting to avoid transient drops
+		err := e.addPolicyMapDelta()
+		if err != nil {
+			errors++
+		}
+
 		// Delete policy keys present in the realized state, but not present in the desired state
 		for keyToDelete := range e.realizedPolicy.PolicyMapState {
 			// If key that is in realized state is not in desired state, just remove it.
@@ -1116,11 +1123,6 @@ func (e *Endpoint) syncPolicyMap() error {
 					errors++
 				}
 			}
-		}
-
-		err := e.addPolicyMapDelta()
-		if err != nil {
-			errors++
 		}
 
 		if errors > 0 {
