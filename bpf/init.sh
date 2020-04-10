@@ -280,6 +280,14 @@ function bpf_compile()
 	llc -march=bpf -mcpu=probe -mattr=dwarfris -filetype=$TYPE -o $OUT
 }
 
+function xdp_unload()
+{
+	DEV=$1
+	MODE=$2
+
+	ip link set dev $DEV $MODE off 2> /dev/null || true
+}
+
 function xdp_load()
 {
 	DEV=$1
@@ -640,6 +648,14 @@ fi
 if [ "$HOST_DEV1" != "$HOST_DEV2" ]; then
 	bpf_unload $HOST_DEV2 "egress"
 fi
+
+# Remove bpf_xdp.o from previously used devices
+for iface in $(ip -o -a l | awk '{print $2}' | cut -d: -f1 | cut -d@ -f1 | grep -v cilium); do
+	[ "$iface" == "$XDP_DEV" ] && continue
+	for mode in xdpdrv xdpgeneric; do
+		xdp_unload "$iface" "$mode"
+	done
+done
 
 if [ "$XDP_DEV" != "<nil>" ]; then
 	CIDR_MAP="cilium_cidr_v*"
