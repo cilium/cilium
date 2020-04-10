@@ -366,4 +366,8 @@ const (
 	// EnableIPv4FragmentsTracking enables IPv4 fragments tracking for
 	// L4-based lookups
 	EnableIPv4FragmentsTracking = true
+
+	// FragmentsMapEntries is the default number of entries allowed in an
+	// the map used to track datagram fragments.
+	FragmentsMapEntries = 8192
 )

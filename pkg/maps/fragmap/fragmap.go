@@ -26,6 +26,9 @@ const (
 	// MapName is the name of the map used to retrieve L4 ports associated
 	// to the datagram to which an IPv4 belongs.
 	MapName = "cilium_ipv4_frag_datagrams"
+)
+
+var (
 	// MaxEntries is the number of entries in the LRU map
 	MaxEntries = 8192
 )
@@ -68,6 +71,11 @@ func (v *FragmentValue) String() string {
 // NewValue returns a new empty instance of the structure representing the BPF
 // map value.
 func (k FragmentKey) NewValue() bpf.MapValue { return &FragmentValue{} }
+
+// InitMapInfo updates the map info defaults for policy maps.
+func InitMapInfo(maxEntries int) {
+	MaxEntries = maxEntries
+}
 
 // InitMap creates the signal map in the kernel.
 func InitMap() error {

@@ -31,6 +31,7 @@ cilium-agent [flags]
       --bpf-ct-timeout-regular-tcp-syn duration       Establishment timeout for entries in TCP CT table (default 1m0s)
       --bpf-ct-timeout-service-any duration           Timeout for service entries in non-TCP CT table (default 1m0s)
       --bpf-ct-timeout-service-tcp duration           Timeout for established service entries in TCP CT table (default 6h0m0s)
+      --bpf-fragments-map-max int                     Maximum number of entries in fragments tracking map (default 8192)
       --bpf-nat-global-max int                        Maximum number of entries for the global BPF NAT table (default 524288)
       --bpf-policy-map-max int                        Maximum number of entries in endpoint policy map (per endpoint) (default 16384)
       --bpf-root string                               Path to BPF filesystem

@@ -864,6 +864,10 @@ const (
 	// EnableIPv4FragmentsTrackingName is the name of the option to enable
 	// IPv4 fragments tracking for L4-based lookups. Needs LRU map support.
 	EnableIPv4FragmentsTrackingName = "enable-ipv4-fragment-tracking"
+
+	// FragmentsMapEntriesName configures max entries for BPF fragments
+	// tracking map.
+	FragmentsMapEntriesName = "bpf-fragments-map-max"
 )
 
 // HelpFlagSections to format the Cilium Agent help template.
@@ -887,6 +891,7 @@ var HelpFlagSections = []FlagsSection{
 			PolicyMapEntriesName,
 			PreAllocateMapsName,
 			BPFCompileDebugName,
+			FragmentsMapEntriesName,
 		},
 	},
 	{
@@ -1934,6 +1939,11 @@ type DaemonConfig struct {
 	// EnableIPv4FragmentsTracking enables IPv4 fragments tracking for
 	// L4-based lookups. Needs LRU map support.
 	EnableIPv4FragmentsTracking bool
+
+	// FragmentsMapEntries is the maximum number of fragmented datagrams
+	// that can simultaneously be tracked in order to retrieve their L4
+	// ports for all fragments.
+	FragmentsMapEntries int
 }
 
 var (
@@ -2169,6 +2179,16 @@ func (c *DaemonConfig) Validate() error {
 	if c.PolicyMapMaxEntries > policyMapMax {
 		return fmt.Errorf("specified PolicyMap max entries %d must not exceed maximum %d",
 			c.PolicyMapMaxEntries, policyMapMax)
+	}
+	fragmentsMapMin := (1 << 8)
+	fragmentsMapMax := (1 << 16)
+	if c.FragmentsMapEntries < fragmentsMapMin {
+		return fmt.Errorf("specified fragments tracking map max entries %d must exceed minimum %d",
+			c.FragmentsMapEntries, fragmentsMapMin)
+	}
+	if c.FragmentsMapEntries > fragmentsMapMax {
+		return fmt.Errorf("specified fragments tracking map max entries %d must not exceed maximum %d",
+			c.FragmentsMapEntries, fragmentsMapMax)
 	}
 	// Validate that the KVStore Lease TTL value lies between a particular range.
 	if c.KVstoreLeaseTTL > defaults.KVstoreLeaseMaxTTL || c.KVstoreLeaseTTL < defaults.LockLeaseTTL {
@@ -2438,6 +2458,7 @@ func (c *DaemonConfig) Populate() {
 	c.CTMapEntriesTimeoutFIN = viper.GetDuration(CTMapEntriesTimeoutFINName)
 	c.PolicyAuditMode = viper.GetBool(PolicyAuditModeArg)
 	c.EnableIPv4FragmentsTracking = viper.GetBool(EnableIPv4FragmentsTrackingName)
+	c.FragmentsMapEntries = viper.GetInt(FragmentsMapEntriesName)
 
 	if nativeCIDR := viper.GetString(IPv4NativeRoutingCIDR); nativeCIDR != "" {
 		c.ipv4NativeRoutingCIDR = cidr.MustParseCIDR(nativeCIDR)
