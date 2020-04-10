@@ -14,12 +14,12 @@ struct ipv4_frag_id {
 	__be16	id;		/* L4 datagram identifier */
 	__u8	proto;
 	__u8	pad;
-} __attribute__((packed));
+} __packed;
 
 struct ipv4_frag_l4ports {
 	__be16	sport;
 	__be16	dport;
-} __attribute__((packed));
+} __packed;
 
 #ifdef ENABLE_IPV4_FRAGMENTS
 struct bpf_elf_map __section_maps IPV4_FRAG_DATAGRAMS_MAP = {
