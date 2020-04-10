@@ -37,27 +37,28 @@ import (
 const templateWatcherQueueSize = 10
 
 var ignoredELFPrefixes = []string{
-	"2/",                    // Calls within the endpoint
-	"HOST_IP",               // Global
-	"IPV6_NODEPORT",         // Global
-	"ROUTER_IP",             // Global
-	"SNAT_IPV6_EXTERNAL",    // Global
-	"cilium_call_policy",    // Global
-	"cilium_ct",             // All CT maps, including local
-	"cilium_encrypt_state",  // Global
-	"cilium_events",         // Global
-	"cilium_ipcache",        // Global
-	"cilium_lb",             // Global
-	"cilium_lxc",            // Global
-	"cilium_metrics",        // Global
-	"cilium_nodeport_neigh", // All nodeport neigh maps
-	"cilium_policy",         // All policy maps
-	"cilium_proxy",          // Global
-	"cilium_signals",        // Global
-	"cilium_snat",           // All SNAT maps
-	"cilium_tunnel",         // Global
-	"from-container",        // Prog name
-	"to-container",          // Prog name
+	"2/",                         // Calls within the endpoint
+	"HOST_IP",                    // Global
+	"IPV6_NODEPORT",              // Global
+	"ROUTER_IP",                  // Global
+	"SNAT_IPV6_EXTERNAL",         // Global
+	"cilium_call_policy",         // Global
+	"cilium_ct",                  // All CT maps, including local
+	"cilium_encrypt_state",       // Global
+	"cilium_events",              // Global
+	"cilium_ipcache",             // Global
+	"cilium_lb",                  // Global
+	"cilium_lxc",                 // Global
+	"cilium_metrics",             // Global
+	"cilium_nodeport_neigh",      // All nodeport neigh maps
+	"cilium_policy",              // All policy maps
+	"cilium_proxy",               // Global
+	"cilium_signals",             // Global
+	"cilium_snat",                // All SNAT maps
+	"cilium_tunnel",              // Global
+	"cilium_ipv4_frag_datagrams", // Global
+	"from-container",             // Prog name
+	"to-container",               // Prog name
 }
 
 // RestoreTemplates populates the object cache from templates on the filesystem
