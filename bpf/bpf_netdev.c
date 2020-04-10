@@ -35,7 +35,7 @@
 #include "lib/lb.h"
 #include "lib/nodeport.h"
 
-#if defined FROM_HOST && (defined ENABLE_IPV4 || defined ENABLE_IPV6)
+#if defined(FROM_HOST) && (defined(ENABLE_IPV4) || defined(ENABLE_IPV6))
 static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx,
 						__u32 src_identity)
 {
@@ -709,7 +709,9 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	 * workaround.
 	 */
 	int ret = CTX_ACT_OK;
-#if defined(ENABLE_NODEPORT) && (!defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)))
+#if defined(ENABLE_NODEPORT) && \
+	(!defined(ENABLE_DSR) || \
+	 (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)))
 	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) == MARK_MAGIC_SNAT_DONE)
 		return CTX_ACT_OK;
 	ret = nodeport_nat_fwd(ctx, false);

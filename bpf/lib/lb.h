@@ -168,7 +168,7 @@ static __always_inline int extract_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
 	switch (nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
-#ifdef IPV4_FRAGMENTS
+#ifdef ENABLE_IPV4_FRAGMENTS
 		if (ip4) {
 			struct ipv4_frag_l4ports ports = { };
 			int ret;
