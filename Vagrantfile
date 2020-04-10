@@ -13,6 +13,7 @@ $NETNEXT_SERVER_VERSION= (ENV['NETNEXT_SERVER_VERSION'] || $NETNEXT_SERVER_VERSI
 if ENV['NETNEXT'] == "true"
     $SERVER_BOX = $NETNEXT_SERVER_BOX
     $SERVER_VERSION = $NETNEXT_SERVER_VERSION
+    $vm_kernel = '+'
 end
 
 Vagrant.require_version ">= 2.0.0"
@@ -145,7 +146,7 @@ Vagrant.configure(2) do |config|
         vb.cpus = ENV['VM_CPUS'].to_i
     end
 
-    master_vm_name = "#{$vm_base_name}1#{$build_id_name}"
+    master_vm_name = "#{$vm_base_name}1#{$build_id_name}#{$vm_kernel}"
     config.vm.define master_vm_name, primary: true do |cm|
         node_ip = "#{$master_ip}"
 		cm.vm.network "forwarded_port", guest: 6443, host: 7443, auto_correct: true
@@ -201,7 +202,7 @@ Vagrant.configure(2) do |config|
 
     $num_workers.times do |n|
         # n starts with 0
-        node_vm_name = "#{$vm_base_name}#{n+2}#{$build_id_name}"
+        node_vm_name = "#{$vm_base_name}#{n+2}#{$build_id_name}#{$vm_kernel}"
         node_hostname = "#{$vm_base_name}#{n+2}"
         config.vm.define node_vm_name do |node|
             node_ip = $workers_ipv4_addrs[n]
@@ -223,7 +224,7 @@ Vagrant.configure(2) do |config|
                     node_ip = "#{ipv6_addr}"
                 end
             end
-            node.vm.hostname = "#{$vm_base_name}#{n+2}"
+            node.vm.hostname = "#{node_hostname}"
             if ENV['CILIUM_TEMP'] then
                 if ENV["K8S"] then
                     k8sinstall = "#{ENV['CILIUM_TEMP']}/cilium-k8s-install-1st-part.sh"
