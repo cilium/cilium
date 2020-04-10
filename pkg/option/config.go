@@ -863,7 +863,7 @@ const (
 
 	// EnableIPv4FragmentsTrackingName is the name of the option to enable
 	// IPv4 fragments tracking for L4-based lookups. Needs LRU map support.
-	EnableIPv4FragmentsTrackingName = "enable-ipv4-fragments-tracking"
+	EnableIPv4FragmentsTrackingName = "enable-ipv4-fragment-tracking"
 )
 
 // HelpFlagSections to format the Cilium Agent help template.
