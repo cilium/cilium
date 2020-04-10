@@ -85,7 +85,7 @@ union v6addr {
 		__u64 d2;
 	};
         __u8 addr[16];
-} __attribute__((packed));
+} __packed;
 
 static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
 					       __u16 *proto)
@@ -176,7 +176,7 @@ struct endpoint_key {
 	__u8 family;
 	__u8 key;
 	__u16 pad5;
-} __attribute__((packed));
+} __packed;
 
 #define ENDPOINT_F_HOST		1 /* Special endpoint representing local host */
 
@@ -414,12 +414,12 @@ enum {
 /* encrypt_key is the index into the encrypt map */
 struct encrypt_key {
 	__u32 ctx;
-} __attribute__((packed));
+} __packed;
 
 /* encrypt_config is the current encryption context on the node */
 struct encrypt_config {
 	__u8 encrypt_key;
-} __attribute__((packed));
+} __packed;
 
 /**
  * or_encrypt_key - mask and shift key into encryption format
@@ -496,7 +496,7 @@ struct ipv6_ct_tuple {
 	__be16		sport;
 	__u8		nexthdr;
 	__u8		flags;
-} __attribute__((packed));
+} __packed;
 
 struct ipv4_ct_tuple {
 	/* Address fields are reversed, i.e.,
@@ -509,7 +509,7 @@ struct ipv4_ct_tuple {
 	__be16		sport;
 	__u8		nexthdr;
 	__u8		flags;
-} __attribute__((packed));
+} __packed;
 
 struct ct_entry {
 	__u64 rx_packets;
@@ -574,7 +574,7 @@ struct lb6_backend {
 struct lb6_reverse_nat {
 	union v6addr address;
 	__be16 port;
-} __attribute__((packed));
+} __packed;
 
 struct ipv6_revnat_tuple {
 	__u64 cookie;
@@ -622,7 +622,7 @@ struct lb4_backend {
 struct lb4_reverse_nat {
 	__be32 address;
 	__be16 port;
-} __attribute__((packed));
+} __packed;
 
 struct ipv4_revnat_tuple {
 	__u64 cookie;

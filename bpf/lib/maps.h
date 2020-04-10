@@ -133,7 +133,7 @@ struct ipcache_key {
 		};
 		union v6addr	ip6;
 	};
-} __attribute__((packed));
+} __packed;
 
 /* Global IP -> Identity map for applying egress label-based policy */
 struct bpf_elf_map __section_maps IPCACHE_MAP = {
