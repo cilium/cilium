@@ -59,6 +59,10 @@ var ignoredELFPrefixes = []string{
 	"cilium_ipv4_frag_datagrams", // Global
 	"from-container",             // Prog name
 	"to-container",               // Prog name
+	// Endpoint IPv6 address. It's possible for the template object to have
+	// these symbols while the endpoint doesn't, if IPv6 was just enabled and
+	// the endpoint restored.
+	"LXC_IP_",
 }
 
 // RestoreTemplates populates the object cache from templates on the filesystem

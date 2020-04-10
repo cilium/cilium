@@ -75,9 +75,6 @@ func (l *Loader) init(dp datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfi
 		if !option.Config.EnableIPv4 {
 			ignorePrefixes = append(ignorePrefixes, "LXC_IPV4")
 		}
-		if !option.Config.EnableIPv6 {
-			ignorePrefixes = append(ignorePrefixes, "LXC_IP_")
-		}
 		elf.IgnoreSymbolPrefixes(ignorePrefixes)
 	})
 	l.templateCache.Update(nodeCfg)
