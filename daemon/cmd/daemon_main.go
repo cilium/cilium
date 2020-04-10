@@ -760,6 +760,9 @@ func init() {
 	flags.Bool(option.EnableIPv4FragmentsTrackingName, defaults.EnableIPv4FragmentsTracking, "Enable IPv4 fragments tracking for L4-based lookups")
 	option.BindEnv(option.EnableIPv4FragmentsTrackingName)
 
+	flags.Int(option.FragmentsMapEntriesName, defaults.FragmentsMapEntries, "Maximum number of entries in fragments tracking map")
+	option.BindEnv(option.FragmentsMapEntriesName)
+
 	viper.BindPFlags(flags)
 
 	CustomCommandHelpFormat(RootCmd, option.HelpFlagSections)
