@@ -56,7 +56,9 @@ func parseSelector(selector string) (k8sLabels.Selector, error) {
 	return k8sLabels.Parse(translated)
 }
 
-func filterByLabelSelectors(labelSelectors []string, getLabels func(*v1.Event) k8sLabels.Labels) (FilterFunc, error) {
+// FilterByLabelSelectors returns a FilterFunc. The FilterFunc returns true if and only if any of the
+// specified selectors select the event. The caller specifies how to extract labels from the event.
+func FilterByLabelSelectors(labelSelectors []string, getLabels func(*v1.Event) k8sLabels.Labels) (FilterFunc, error) {
 	selectors := make([]k8sLabels.Selector, 0, len(labelSelectors))
 	for _, selector := range labelSelectors {
 		s, err := parseSelector(selector)
@@ -85,7 +87,7 @@ func (l *LabelsFilter) OnBuildFilter(ctx context.Context, ff *pb.FlowFilter) ([]
 	var fs []FilterFunc
 
 	if ff.GetSourceLabel() != nil {
-		slf, err := filterByLabelSelectors(ff.GetSourceLabel(), sourceLabels)
+		slf, err := FilterByLabelSelectors(ff.GetSourceLabel(), sourceLabels)
 		if err != nil {
 			return nil, fmt.Errorf("invalid source label filter: %v", err)
 		}
@@ -93,7 +95,7 @@ func (l *LabelsFilter) OnBuildFilter(ctx context.Context, ff *pb.FlowFilter) ([]
 	}
 
 	if ff.GetDestinationLabel() != nil {
-		dlf, err := filterByLabelSelectors(ff.GetDestinationLabel(), destinationLabels)
+		dlf, err := FilterByLabelSelectors(ff.GetDestinationLabel(), destinationLabels)
 		if err != nil {
 			return nil, fmt.Errorf("invalid destination label filter: %v", err)
 		}
