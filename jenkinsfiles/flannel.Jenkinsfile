@@ -10,7 +10,7 @@ pipeline {
         TESTDIR = "${WORKSPACE}/${PROJ_PATH}/"
         VM_MEMORY = "4096"
         SERVER_BOX = "cilium/ubuntu"
-        NETNEXT=setIfLabel("ci/net-next", "true", "false")
+        NETNEXT=setIfLabel("ci/net-next", "1", "0")
         CNI_INTEGRATION="flannel"
         GINKGO_TIMEOUT="73m"
     }

@@ -10,7 +10,7 @@ will run with node-port feature enabled and without kube-proxy.
 ## Create a k8s cluster with 2 nodes *and* NFS
 
 ```bash
-NETNEXT=true NFS=1 NWORKERS=1 K8S=1 ./contrib/vagrant/start.sh
+NETNEXT=1 NFS=1 NWORKERS=1 K8S=1 ./contrib/vagrant/start.sh
 ```
 
 the NFS is important because it makes the script to create 2 network interfaces on each VM.
