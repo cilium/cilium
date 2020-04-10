@@ -535,10 +535,10 @@ func createIdentityCRD(clientset apiextensionsclient.Interface) error {
 func createUpdateCRD(clientset apiextensionsclient.Interface, CRDName string, crd *apiextensionsv1beta1.CustomResourceDefinition) error {
 	scopedLog := log.WithField("name", CRDName)
 
-	clusterCRD, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.TODO(), crd.ObjectMeta.Name, metav1.GetOptions{})
+	clusterCRD, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.Background(), crd.ObjectMeta.Name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		scopedLog.Info("Creating CRD (CustomResourceDefinition)...")
-		clusterCRD, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{})
+		clusterCRD, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Create(context.Background(), crd, metav1.CreateOptions{})
 		// This occurs when multiple agents race to create the CRD. Since another has
 		// created it, it will also update it, hence the non-error return.
 		if errors.IsAlreadyExists(err) {
@@ -557,7 +557,7 @@ func createUpdateCRD(clientset apiextensionsclient.Interface, CRDName string, cr
 		// Update the CRD with the validation schema.
 		err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
 			clusterCRD, err = clientset.ApiextensionsV1beta1().
-				CustomResourceDefinitions().Get(context.TODO(), crd.ObjectMeta.Name, metav1.GetOptions{})
+				CustomResourceDefinitions().Get(context.Background(), crd.ObjectMeta.Name, metav1.GetOptions{})
 
 			if err != nil {
 				return false, err
@@ -570,7 +570,7 @@ func createUpdateCRD(clientset apiextensionsclient.Interface, CRDName string, cr
 				scopedLog.Debug("CRD validation is different, updating it...")
 				clusterCRD.ObjectMeta.Labels = crd.ObjectMeta.Labels
 				clusterCRD.Spec = crd.Spec
-				_, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Update(context.TODO(), clusterCRD, metav1.UpdateOptions{})
+				_, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Update(context.Background(), clusterCRD, metav1.UpdateOptions{})
 				if err == nil {
 					return true, nil
 				}
@@ -602,14 +602,14 @@ func createUpdateCRD(clientset apiextensionsclient.Interface, CRDName string, cr
 				}
 			}
 		}
-		clusterCRD, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.TODO(), crd.ObjectMeta.Name, metav1.GetOptions{})
+		clusterCRD, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.Background(), crd.ObjectMeta.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
 		return false, err
 	})
 	if err != nil {
-		deleteErr := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(context.TODO(), crd.ObjectMeta.Name, metav1.DeleteOptions{})
+		deleteErr := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(context.Background(), crd.ObjectMeta.Name, metav1.DeleteOptions{})
 		if deleteErr != nil {
 			return fmt.Errorf("unable to delete k8s %s CRD %s. Deleting CRD due: %s", CRDName, deleteErr, err)
 		}
