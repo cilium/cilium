@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: echo-hostnetns
+spec:
+  selector:
+    matchLabels:
+      name: echo-hostnetns
+  template:
+    metadata:
+      labels:
+        name: echo-hostnetns
+    spec:
+      hostNetwork: true
+      containers:
+      - name: echo-container
+        image: docker.io/cilium/echoserver:1.10.2
+        env:
+        - name: PORT
+          value: "6666"
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - -o
+            - /dev/null
+            - localhost:6666
+        readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - -o
+            - /dev/null
+            - localhost:6666
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-hostnetns
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 6666
+    protocol: TCP
+  selector:
+    name: echo-hostnetns
