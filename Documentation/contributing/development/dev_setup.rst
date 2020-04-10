@@ -107,6 +107,7 @@ brought up by vagrant:
   kube-proxy, kubectl and Cilium. When used in combination with ``NWORKERS=1`` a
   second node is created, where ``k8s2`` will be a kubernetes node, which
   contains: kubelet, kube-proxy, kubectl and cilium.
+* ``NETNEXT=1``: Run with net-next kernel.
 * ``IPV4=1``: Run Cilium with IPv4 enabled.
 * ``RUNTIME=x``: Sets up the container runtime to be used inside a kubernetes
   cluster. Valid options are: ``docker``, ``containerd`` and ``crio``. If not

@@ -36,7 +36,7 @@ if ENV['KERNEL'] != nil && ENV['KERNEL'] != ""
     $SERVER_VERSION = instance_variable_get("@v"+ ENV['KERNEL'] + "_SERVER_VERSION")
 end
 
-if ENV['NETNEXT'] == "true"
+if ENV['NETNEXT'] == "true" || ENV['NETNEXT'] == "1" then
     $SERVER_BOX = $NETNEXT_SERVER_BOX
     $SERVER_VERSION = $NETNEXT_SERVER_VERSION
 end

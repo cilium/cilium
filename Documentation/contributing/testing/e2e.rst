@@ -140,7 +140,7 @@ supported version of Kubernetes, run the test suite with the following format:
 
 .. note::
 
-   When provisioning VMs with the net-next kernel (``NETNEXT=true``) on
+   When provisioning VMs with the net-next kernel (``NETNEXT=1``) on
    VirtualBox which version does not match a version of the VM image
    VirtualBox Guest Additions, Vagrant will install a new version of
    the Additions with ``mount.vboxsf``. The latter is not compatible with
