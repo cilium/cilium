@@ -28,7 +28,6 @@ struct bpf_elf_map __section_maps IPV4_FRAG_DATAGRAMS_MAP = {
 	.size_value	= sizeof(struct ipv4_frag_l4ports),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CILIUM_IPV4_FRAG_MAP_MAX_ENTRIES,
-	.flags		= CONDITIONAL_PREALLOC,
 };
 #endif
 
