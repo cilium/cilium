@@ -37,11 +37,11 @@
 #include "lib/nodeport.h"
 #include "lib/policy_log.h"
 
-#if defined ENABLE_ARP_PASSTHROUGH && defined ENABLE_ARP_RESPONDER
+#if defined(ENABLE_ARP_PASSTHROUGH) && defined(ENABLE_ARP_RESPONDER)
 #error "Either ENABLE_ARP_PASSTHROUGH or ENABLE_ARP_RESPONDER can be defined"
 #endif
 
-#if defined ENABLE_IPV4 || defined ENABLE_IPV6
+#if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
 static __always_inline bool redirect_to_proxy(int verdict, __u8 dir)
 {
 	return is_defined(ENABLE_HOST_REDIRECT) && verdict > 0 &&
@@ -778,7 +778,7 @@ int handle_xgress(struct __ctx_buff *ctx)
 	case bpf_htons(ETH_P_ARP):
 		ret = CTX_ACT_OK;
 		break;
-#elif defined ENABLE_ARP_RESPONDER
+#elif defined(ENABLE_ARP_RESPONDER)
 	case bpf_htons(ETH_P_ARP):
 		ep_tail_call(ctx, CILIUM_CALL_ARP);
 		ret = DROP_MISSED_TAIL_CALL;
@@ -982,7 +982,7 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, LXC_ID, SECLABEL);
 
-#if defined LOCAL_DELIVERY_METRICS
+#ifdef LOCAL_DELIVERY_METRICS
 	update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_FORWARDED);
 #endif
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
@@ -1032,7 +1032,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
-#if !defined ENABLE_IPV4_FRAGMENTS
+#ifndef ENABLE_IPV4_FRAGMENTS
 	/* Indicate that this is a datagram fragment for which we cannot
 	 * retrieve L4 ports. Do not set flag if we support fragmentation.
 	 */
@@ -1196,7 +1196,7 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, LXC_ID, SECLABEL);
 
-#if defined LOCAL_DELIVERY_METRICS
+#ifdef LOCAL_DELIVERY_METRICS
 	update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_FORWARDED);
 #endif
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
@@ -1330,7 +1330,7 @@ int handle_to_container(struct __ctx_buff *ctx)
 	ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 
 	switch (proto) {
-#if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER
+#if defined(ENABLE_ARP_PASSTHROUGH) || defined(ENABLE_ARP_RESPONDER)
 	case bpf_htons(ETH_P_ARP):
 		ret = CTX_ACT_OK;
 		break;

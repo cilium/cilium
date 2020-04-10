@@ -474,7 +474,7 @@ static __always_inline int ipv4_ct_extract_l4_ports(struct __ctx_buff *ctx,
 						    int off,
 						    struct ipv4_ct_tuple *tuple)
 {
-#if defined ENABLE_IPV4_FRAGMENTS
+#ifdef ENABLE_IPV4_FRAGMENTS
 	void *data, *data_end;
 	struct iphdr *ip4;
 

@@ -7,7 +7,7 @@
 #include "common.h"
 #include "config.h"
 
-#if defined CT_MAP_TCP4 && defined CT_MAP_TCP6
+#if defined(CT_MAP_TCP4) && defined(CT_MAP_TCP6)
 #ifdef HAVE_LRU_HASH_MAP_TYPE
 #define CT_MAP_TYPE BPF_MAP_TYPE_LRU_HASH
 #else

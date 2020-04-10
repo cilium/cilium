@@ -75,7 +75,7 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 	if (ret != CTX_ACT_OK)
 		return ret;
 
-#if defined LOCAL_DELIVERY_METRICS
+#ifdef LOCAL_DELIVERY_METRICS
 	/*
 	 * Special LXC case for updating egress forwarding metrics.
 	 * Note that the packet could still be dropped but it would show up
@@ -84,7 +84,8 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 	update_metrics(ctx_full_len(ctx), direction, REASON_FORWARDED);
 #endif
 
-#if defined USE_BPF_PROG_FOR_INGRESS_POLICY && !defined FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
+#if defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && \
+	!defined(FORCE_LOCAL_POLICY_EVAL_AT_SOURCE)
 	ctx->mark = (seclabel << 16) | MARK_MAGIC_IDENTITY;
 	return redirect_peer(ep->ifindex, 0);
 #else
@@ -112,7 +113,7 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 	if (ret != CTX_ACT_OK)
 		return ret;
 
-#if defined LOCAL_DELIVERY_METRICS
+#ifdef LOCAL_DELIVERY_METRICS
 	/*
 	 * Special LXC case for updating egress forwarding metrics.
 	 * Note that the packet could still be dropped but it would show up
@@ -121,7 +122,8 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 	update_metrics(ctx_full_len(ctx), direction, REASON_FORWARDED);
 #endif
 
-#if defined USE_BPF_PROG_FOR_INGRESS_POLICY && !defined FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
+#if defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && \
+	!defined(FORCE_LOCAL_POLICY_EVAL_AT_SOURCE)
 	ctx->mark = (seclabel << 16) | MARK_MAGIC_IDENTITY;
 	return redirect_peer(ep->ifindex, 0);
 #else
