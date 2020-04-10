@@ -21,7 +21,7 @@ struct ipv4_frag_l4ports {
 	__be16	dport;
 } __attribute__((packed));
 
-#if defined IPV4_FRAGMENTS
+#if defined ENABLE_IPV4_FRAGMENTS
 struct bpf_elf_map __section_maps IPV4_FRAG_DATAGRAMS_MAP = {
 	.type           = BPF_MAP_TYPE_LRU_HASH,
 	.size_key	= sizeof(struct ipv4_frag_id),
@@ -71,7 +71,7 @@ static __always_inline bool ipv4_is_fragment(struct iphdr *ip4)
 	return ip4->frag_off & bpf_htons(0x3FFF);
 }
 
-#if defined IPV4_FRAGMENTS
+#if defined ENABLE_IPV4_FRAGMENTS
 static __always_inline bool ipv4_is_not_first_fragment(const struct iphdr *ip4)
 {
 	/* Ignore "More fragments" bit to catch all fragments but the first */
@@ -89,7 +89,7 @@ ipv4_frag_get_l4ports(const struct ipv4_frag_id *frag_id,
 		return DROP_FRAG_NOT_FOUND;
 
 	/* Do not make ports a pointer to map data, copy from map */
-	__builtin_memcpy(ports, tmp, sizeof(*ports));
+	memcpy(ports, tmp, sizeof(*ports));
 	return 0;
 }
 
