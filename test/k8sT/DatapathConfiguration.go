@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
-	"strings"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -67,12 +66,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	JustAfterEach(func() {
-		blacklist := helpers.GetBadLogMessages()
-		if strings.Contains(CurrentGinkgoTestDescription().TestText, "sockops") {
-			delete(blacklist, helpers.ClangErrorsMsg)
-			delete(blacklist, helpers.ClangErrorMsg)
-		}
-		kubectl.ValidateListOfErrorsInLogs(CurrentGinkgoTestDescription().Duration, blacklist)
+		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 	})
 
 	deployNetperf := func() {
