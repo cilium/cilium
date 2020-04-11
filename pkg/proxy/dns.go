@@ -42,17 +42,14 @@ type dnsConfiguration struct {
 
 // setRules replaces old l7 rules of a redirect with new ones.
 // TODO: Get rid of the duplication between 'currentRules' and 'r.rules'
-func (dr *dnsRedirect) setRules(wg *completion.WaitGroup, newRules policy.L7DataMap) error {
+func (dr *dnsRedirect) setRules(wg *completion.WaitGroup, newRules policy.L7DataMap) {
 	log.WithFields(logrus.Fields{
 		"newRules":           newRules,
 		logfields.EndpointID: dr.redirect.endpointID,
 	}).Debug("DNS Proxy updating matchNames in allowed list during UpdateRules")
-	if err := DefaultDNSProxy.UpdateAllowed(dr.redirect.endpointID, dr.redirect.dstPort, newRules); err != nil {
-		return err
-	}
-	dr.currentRules = copyRules(dr.redirect.rules)
 
-	return nil
+	DefaultDNSProxy.UpdateAllowed(dr.redirect.endpointID, dr.redirect.dstPort, newRules)
+	dr.currentRules = copyRules(dr.redirect.rules)
 }
 
 // UpdateRules atomically replaces the proxy rules in effect for this redirect.
@@ -60,11 +57,12 @@ func (dr *dnsRedirect) setRules(wg *completion.WaitGroup, newRules policy.L7Data
 // calls to UpdateRules or the returned RevertFunc.
 func (dr *dnsRedirect) UpdateRules(wg *completion.WaitGroup) (revert.RevertFunc, error) {
 	oldRules := dr.currentRules
-	err := dr.setRules(wg, dr.redirect.rules)
+	dr.setRules(wg, dr.redirect.rules)
 	revertFunc := func() error {
-		return dr.setRules(nil, oldRules)
+		dr.setRules(nil, oldRules)
+		return nil
 	}
-	return revertFunc, err
+	return revertFunc, nil
 }
 
 // Close the redirect.
@@ -89,7 +87,8 @@ func createDNSRedirect(r *Redirect, conf dnsConfiguration, endpointInfoRegistry 
 		"conf":        conf,
 	}).Debug("Creating DNS Proxy redirect")
 
-	return dr, dr.setRules(nil, r.rules)
+	dr.setRules(nil, r.rules)
+	return dr, nil
 }
 
 func copyRules(rules policy.L7DataMap) policy.L7DataMap {

@@ -27,7 +27,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
@@ -136,12 +135,12 @@ type portToSelectorAllow map[uint16]cachedSelectorREEntry
 
 // cachedSelectorREEntry maps port numbers to selectors to rules, mirroring
 // policy.L7DataMap but the DNS rules are compiled into a single regexp
-type cachedSelectorREEntry map[policy.CachedSelector]*regexp.Regexp
+type cachedSelectorREEntry map[policy.CachedSelector][]*regexp.Regexp
 
 // setPortRulesForID sets the matching rules for endpointID and destPort for
 // later lookups. It converts newRules into a unified regexp that can be reused
 // later.
-func (allow perEPAllow) setPortRulesForID(endpointID uint64, destPort uint16, newRules policy.L7DataMap) error {
+func (allow perEPAllow) setPortRulesForID(endpointID uint64, destPort uint16, newRules policy.L7DataMap) {
 	// This is the delete case
 	if len(newRules) == 0 {
 		epPorts := allow[endpointID]
@@ -149,7 +148,7 @@ func (allow perEPAllow) setPortRulesForID(endpointID uint64, destPort uint16, ne
 		if len(epPorts) == 0 {
 			delete(allow, endpointID)
 		}
-		return nil
+		return
 	}
 
 	newRE := make(cachedSelectorREEntry)
@@ -157,24 +156,11 @@ func (allow perEPAllow) setPortRulesForID(endpointID uint64, destPort uint16, ne
 		if l7Rules == nil {
 			l7Rules = &policy.PerSelectorPolicy{L7Rules: api.L7Rules{DNS: []api.PortRuleDNS{{MatchPattern: "*"}}}}
 		}
-		reStrings := make([]string, 0, len(l7Rules.DNS))
+		regexes := make([]*regexp.Regexp, 0, len(l7Rules.DNS))
 		for _, dnsRule := range l7Rules.DNS {
-			if len(dnsRule.MatchName) > 0 {
-				dnsRuleName := strings.ToLower(dns.Fqdn(dnsRule.MatchName))
-				dnsPatternAsRE := matchpattern.ToRegexp(dnsRuleName)
-				reStrings = append(reStrings, "("+dnsPatternAsRE+")")
-			}
-			if len(dnsRule.MatchPattern) > 0 {
-				dnsPattern := matchpattern.Sanitize(dnsRule.MatchPattern)
-				dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
-				reStrings = append(reStrings, "("+dnsPatternAsRE+")")
-			}
+			regexes = append(regexes, dnsRule.ToRegexes()...)
 		}
-		re, err := regexp.Compile(strings.Join(reStrings, "|"))
-		if err != nil {
-			return err
-		}
-		newRE[selector] = re
+		newRE[selector] = regexes
 	}
 
 	epPorts, exist := allow[endpointID]
@@ -184,7 +170,6 @@ func (allow perEPAllow) setPortRulesForID(endpointID uint64, destPort uint16, ne
 	}
 
 	epPorts[destPort] = newRE
-	return nil
 }
 
 // getPortRulesForID returns a precompiled regex representing DNS rules for the
@@ -311,11 +296,11 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, looku
 
 // UpdateAllowed sets newRules for endpointID and destPort. It compiles the DNS
 // rules into regexes that are then used in CheckAllowed.
-func (p *DNSProxy) UpdateAllowed(endpointID uint64, destPort uint16, newRules policy.L7DataMap) error {
+func (p *DNSProxy) UpdateAllowed(endpointID uint64, destPort uint16, newRules policy.L7DataMap) {
 	p.Lock()
 	defer p.Unlock()
 
-	return p.allowed.setPortRulesForID(endpointID, destPort, newRules)
+	p.allowed.setPortRulesForID(endpointID, destPort, newRules)
 }
 
 // CheckAllowed checks endpointID, destPort, destID, and name against the rules
@@ -331,10 +316,14 @@ func (p *DNSProxy) CheckAllowed(endpointID uint64, destPort uint16, destID ident
 		return false, nil
 	}
 
-	for selector, re := range epAllow {
+	for selector, regexes := range epAllow {
 		// The port was matched in getPortRulesForID, above.
-		if selector.Selects(destID) && re.MatchString(name) {
-			return true, nil
+		if selector.Selects(destID) {
+			for _, re := range regexes {
+				if re.MatchString(name) {
+					return true, nil
+				}
+			}
 		}
 	}
 

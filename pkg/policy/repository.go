@@ -525,7 +525,7 @@ func (p *Repository) getMatchingRules(securityIdentity *identity.Identity) (ingr
 		if ruleMatches := r.matches(securityIdentity); ruleMatches {
 			// Don't need to update whether ingressMatch is true if it already
 			// has been determined to be true - allows us to not have to check
-			// lenth of slice.
+			// length of slice.
 			if !ingressMatch && len(r.Ingress) > 0 {
 				ingressMatch = true
 			}

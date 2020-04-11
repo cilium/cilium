@@ -129,20 +129,50 @@ type PortRuleDNS struct {
 	//   sub.cilium.io and subdomain.cilium.io match, www.cilium.io,
 	//   blog.cilium.io, cilium.io and google.com do not
 	MatchPattern string `json:"matchPattern,omitempty"`
+
+	// Regexp patterns pre-computed at Sanitize()
+	// TODO: Move this to the policy package (https://github.com/cilium/cilium/issues/8353)
+	nameRE    *regexp.Regexp
+	patternRE *regexp.Regexp
 }
 
 // Sanitize checks that the matchName in the portRule can be compiled as a
 // regex. It does not check that a DNS name is a valid DNS name.
 func (r *PortRuleDNS) Sanitize() error {
-	if len(r.MatchName) > 0 && !allowedMatchNameChars.MatchString(r.MatchName) {
-		return fmt.Errorf("Invalid characters in MatchName: \"%s\". Only 0-9, a-z, A-Z and . and - characters are allowed", r.MatchName)
+	var err error
+	if len(r.MatchName) > 0 {
+		if !allowedMatchNameChars.MatchString(r.MatchName) {
+			return fmt.Errorf("Invalid characters in MatchName: \"%s\". Only 0-9, a-z, A-Z and . and - characters are allowed", r.MatchName)
+		}
+		r.nameRE, err = matchpattern.Validate(r.MatchName)
+		if err != nil {
+			return err
+		}
 	}
-
-	if len(r.MatchPattern) > 0 && !allowedPatternChars.MatchString(r.MatchPattern) {
-		return fmt.Errorf("Invalid characters in MatchPattern: \"%s\". Only 0-9, a-z, A-Z and ., - and * characters are allowed", r.MatchPattern)
+	if len(r.MatchPattern) > 0 {
+		if !allowedPatternChars.MatchString(r.MatchPattern) {
+			return fmt.Errorf("Invalid characters in MatchPattern: \"%s\". Only 0-9, a-z, A-Z and ., - and * characters are allowed", r.MatchPattern)
+		}
+		r.patternRE, err = matchpattern.Validate(r.MatchPattern)
 	}
-	_, err := matchpattern.Validate(r.MatchPattern)
 	return err
+}
+
+// ToRegex returns the pre-computed regular expression(s).
+func (r *PortRuleDNS) ToRegexes() (res []*regexp.Regexp) {
+	if len(r.MatchName) > 0 {
+		if r.nameRE == nil {
+			panic("Internal error: PortRuleDNS not Sanitized!")
+		}
+		res = append(res, r.nameRE)
+	}
+	if len(r.MatchPattern) > 0 {
+		if r.patternRE == nil {
+			panic("Internal error: PortRuleDNS not Sanitized!")
+		}
+		res = append(res, r.patternRE)
+	}
+	return res
 }
 
 // GetAsEndpointSelectors returns a FQDNSelector as a single EntityNone
