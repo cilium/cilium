@@ -198,15 +198,11 @@ func (d *Daemon) init() error {
 		}
 
 		if option.Config.SockopsEnable {
-			disableSockops := func(err error) {
-				option.Config.SockopsEnable = false
-				log.WithError(err).Warn("Disabled '--sockops-enable' due to missing BPF kernel support")
-			}
 			eppolicymap.CreateEPPolicyMap()
 			if err := sockops.SockmapEnable(); err != nil {
-				disableSockops(err)
+				log.WithError(err).Error("Failed to enable Sockmap")
 			} else if err := sockops.SkmsgEnable(); err != nil {
-				disableSockops(err)
+				log.WithError(err).Error("Failed to enable Sockmsg")
 			} else {
 				sockmap.SockmapCreate()
 			}

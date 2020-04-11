@@ -1086,6 +1086,7 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	initKubeProxyReplacementOptions()
+	initSockmapOption()
 
 	// If device has been specified, use it to derive better default
 	// allocation prefixes
@@ -1449,6 +1450,21 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPI {
 	restAPI.PolicyGetIPHandler = NewGetIPHandler()
 
 	return restAPI
+}
+
+func initSockmapOption() {
+	if !option.Config.SockopsEnable {
+		return
+	}
+	if probes.NewProbeManager().GetMapTypes().HaveSockhashMapType {
+		k := probes.NewProbeManager().GetHelpers("sock_ops")
+		h := probes.NewProbeManager().GetHelpers("sk_msg")
+		if h != nil && k != nil {
+			return
+		}
+	}
+	log.Warn("BPF Sock ops not supported by kernel. Disabling '--sockops-enable' feature.")
+	option.Config.SockopsEnable = false
 }
 
 func initKubeProxyReplacementOptions() {
