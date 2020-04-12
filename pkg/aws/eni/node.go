@@ -135,10 +135,10 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ipam.Re
 		}).Debug("ENI has unused IPs that can be released")
 		maxReleaseOnENI := math.IntMin(freeOnENICount, excessIPs)
 
-		firstEniWithFreeIpFound := r.IPsToRelease == nil
-		eniWithMoreFreeIpsFound := maxReleaseOnENI > len(r.IPsToRelease)
+		firstENIWithFreeIPFound := r.IPsToRelease == nil
+		eniWithMoreFreeIPsFound := maxReleaseOnENI > len(r.IPsToRelease)
 		// Select the ENI with the most addresses available for release
-		if firstEniWithFreeIpFound || eniWithMoreFreeIpsFound {
+		if firstENIWithFreeIPFound || eniWithMoreFreeIPsFound {
 			r.InterfaceID = key
 			r.PoolID = ipamTypes.PoolID(e.Subnet.ID)
 			r.IPsToRelease = freeIpsOnENI[:maxReleaseOnENI]
