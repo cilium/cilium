@@ -575,10 +575,10 @@ func (n *Node) determineMaintenanceAction() (*allocatableResources, error) {
 			}).Debug("ENI has unused IPs that can be released")
 			maxReleaseOnENI := math.IntMin(freeOnENICount, n.stats.excessIPs)
 
-			firstEniWithFreeIpFound := a.ipsToReleaseOnENI == nil
-			eniWithMoreFreeIpsFound := maxReleaseOnENI > len(a.ipsToReleaseOnENI)
+			firstENIWithFreeIPFound := a.ipsToReleaseOnENI == nil
+			eniWithMoreFreeIPsFound := maxReleaseOnENI > len(a.ipsToReleaseOnENI)
 			// Select the ENI with the most addresses available for release
-			if firstEniWithFreeIpFound || eniWithMoreFreeIpsFound {
+			if firstENIWithFreeIPFound || eniWithMoreFreeIPsFound {
 				a.eni = key
 				a.subnet = &types.Subnet{ID: e.Subnet.ID}
 				a.ipsToReleaseOnENI = freeIpsOnENI[:maxReleaseOnENI]
