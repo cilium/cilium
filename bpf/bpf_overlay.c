@@ -50,7 +50,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 
 	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 	if (decrypted) {
-		*identity = get_identity(ctx);
+		*identity = key.tunnel_id = get_identity(ctx);
 	} else {
 		if (unlikely(ctx_get_tunnel_key(ctx, &key, sizeof(key), 0) < 0))
 			return DROP_NO_TUNNEL_KEY;
@@ -59,9 +59,8 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		/* Any node encapsulating will map any HOST_ID source to be
 		 * presented as REMOTE_NODE_ID, therefore any attempt to signal
 		 * HOST_ID as source from a remote node can be droppped. */
-		if (*identity == HOST_ID) {
+		if (*identity == HOST_ID)
 			return DROP_INVALID_IDENTITY;
-		}
 	}
 
 	cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
@@ -79,7 +78,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 
 		/* Decrypt "key" is determined by SPI */
 		ctx->mark = MARK_MAGIC_DECRYPT;
-		set_identity_mark(ctx, key.tunnel_id);
+		set_identity_mark(ctx, *identity);
 		/* To IPSec stack on cilium_vxlan we are going to pass
 		 * this up the stack but eth_type_trans has already labeled
 		 * this as an OTHERHOST type packet. To avoid being dropped
@@ -89,7 +88,6 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		ctx_change_type(ctx, PACKET_HOST);
 		return CTX_ACT_OK;
 	} else {
-		key.tunnel_id = get_identity(ctx);
 		ctx->mark = 0;
 	}
 not_esp:
@@ -107,7 +105,7 @@ not_esp:
 		if (hdrlen < 0)
 			return hdrlen;
 
-		return ipv6_local_delivery(ctx, l3_off, key.tunnel_id, ep, METRIC_INGRESS);
+		return ipv6_local_delivery(ctx, l3_off, *identity, ep, METRIC_INGRESS);
 	}
 
 to_host:
@@ -167,15 +165,14 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 	/* If packets are decrypted the key has already been pushed into metadata. */
 	if (decrypted) {
-		*identity = get_identity(ctx);
+		*identity = key.tunnel_id = get_identity(ctx);
 	} else {
 		if (unlikely(ctx_get_tunnel_key(ctx, &key, sizeof(key), 0) < 0))
 			return DROP_NO_TUNNEL_KEY;
 		*identity = key.tunnel_id;
 
-		if (*identity == HOST_ID) {
+		if (*identity == HOST_ID)
 			return DROP_INVALID_IDENTITY;
-		}
 	}
 
 	cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
@@ -192,7 +189,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 		}
 
 		ctx->mark = MARK_MAGIC_DECRYPT;
-		set_identity_mark(ctx, key.tunnel_id);
+		set_identity_mark(ctx, *identity);
 		/* To IPSec stack on cilium_vxlan we are going to pass
 		 * this up the stack but eth_type_trans has already labeled
 		 * this as an OTHERHOST type packet. To avoid being dropped
@@ -202,7 +199,6 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 		ctx_change_type(ctx, PACKET_HOST);
 		return CTX_ACT_OK;
 	} else {
-		key.tunnel_id = get_identity(ctx);
 		ctx->mark = 0;
 	}
 not_esp:
@@ -215,7 +211,7 @@ not_esp:
 		if (ep->flags & ENDPOINT_F_HOST)
 			goto to_host;
 
-		return ipv4_local_delivery(ctx, ETH_HLEN, key.tunnel_id, ip4, ep, METRIC_INGRESS);
+		return ipv4_local_delivery(ctx, ETH_HLEN, *identity, ip4, ep, METRIC_INGRESS);
 	}
 
 to_host:
