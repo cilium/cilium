@@ -178,6 +178,8 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 		}
 	}
 
+	cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
+
 #ifdef ENABLE_IPSEC
 	if (!decrypted) {
 		/* IPSec is not currently enforce (feature coming soon)
