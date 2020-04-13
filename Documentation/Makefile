@@ -22,9 +22,11 @@ update-cmdref: builder-image
 	-$(QUIET)rm -rf cmdref/cilium*.md
 	$(QUIET)$(DOCKER_RUN) ./update-cmdref.sh
 
-check-cmdref: builder-image update-cmdref
+check: builder-image update-cmdref
 	@$(ECHO_CHECK) cmdref
 	$(QUIET)$(DOCKER_RUN) ./check-cmdref.sh
+	@$(ECHO_CHECK) examples
+	$(QUIET)$(DOCKER_RUN) ./check-examples.sh
 
 ifeq ($(V),0)
 SPHINX_OPTS += -q
