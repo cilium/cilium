@@ -58,9 +58,19 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 
 		/* Any node encapsulating will map any HOST_ID source to be
 		 * presented as REMOTE_NODE_ID, therefore any attempt to signal
-		 * HOST_ID as source from a remote node can be droppped. */
+		 * HOST_ID as source from a remote node can be dropped.
+		 *
+		 * If the remote node identity is disabled, we may validate the
+		 * source identity as remote_node, but subsequent processing
+		 * must consider it as REMOTE_NODE_ID. DBG_DECAP below will
+		 * provide the original source identity for debugging purposes,
+		 * but after this point it will be considered as HOST_ID. */
 		if (*identity == HOST_ID)
 			return DROP_INVALID_IDENTITY;
+#ifndef ENABLE_REMOTE_NODE_ID
+		if (*identity == REMOTE_NODE_ID)
+			*identity = HOST_ID;
+#endif
 	}
 
 	cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
@@ -172,8 +182,13 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 			return DROP_NO_TUNNEL_KEY;
 		*identity = key.tunnel_id;
 
+		/* See REMOTE_NODE_ID explanation in handle_ipv6() above. */
 		if (*identity == HOST_ID)
 			return DROP_INVALID_IDENTITY;
+#ifndef ENABLE_REMOTE_NODE_ID
+		if (*identity == REMOTE_NODE_ID)
+			*identity = HOST_ID;
+#endif
 	}
 
 	cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);

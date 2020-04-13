@@ -205,6 +205,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_SERVICES"] = "1"
 	}
 
+	if option.Config.EnableRemoteNodeIdentity {
+		cDefinesMap["ENABLE_REMOTE_NODE_ID"] = "1"
+	}
+
 	if option.Config.EnableHostReachableServices {
 		if option.Config.EnableHostServicesTCP {
 			cDefinesMap["ENABLE_HOST_SERVICES_TCP"] = "1"
