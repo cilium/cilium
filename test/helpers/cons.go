@@ -215,7 +215,8 @@ const (
 	logBufferMessage   = "Log buffer too small to dump verifier log"  // from https://github.com/cilium/cilium/issues/10517
 	ClangErrorsMsg     = " errors generated."                         // from https://github.com/cilium/cilium/issues/10857
 	ClangErrorMsg      = "1 error generated."                         // from https://github.com/cilium/cilium/issues/10857
-	symbolSubstitution = "Skipping symbol substitution"
+	symbolSubstitution = "Skipping symbol substitution"               //
+	uninitializedRegen = "Uninitialized regeneration level"           // from https://github.com/cilium/cilium/pull/10949
 
 	// HelmTemplate is the location of the Helm templates to install Cilium
 	HelmTemplate = "../install/kubernetes/cilium"
@@ -274,6 +275,7 @@ var badLogMessages = map[string][]string{
 	ClangErrorsMsg:     nil,
 	ClangErrorMsg:      nil,
 	symbolSubstitution: nil,
+	uninitializedRegen: nil,
 }
 
 var ciliumCLICommands = map[string]string{
