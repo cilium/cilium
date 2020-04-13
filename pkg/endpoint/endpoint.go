@@ -836,7 +836,8 @@ func (e *Endpoint) Update(cfg *models.EndpointConfigurationSpec) error {
 	// Note: This "retry" behaviour is better suited to a controller, and can be
 	// moved there once we have an endpoint regeneration controller.
 	regenCtx := &regeneration.ExternalRegenerationMetadata{
-		Reason: "endpoint was updated via API",
+		Reason:            "endpoint was updated via API",
+		RegenerationLevel: regeneration.RegenerateWithoutDatapath,
 	}
 
 	// If configuration options are provided, we only regenerate if necessary.
@@ -1028,7 +1029,10 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 // RegenerateWait should only be called when endpoint's state has successfully
 // been changed to "waiting-to-regenerate"
 func (e *Endpoint) RegenerateWait(reason string) error {
-	if !<-e.Regenerate(&regeneration.ExternalRegenerationMetadata{Reason: reason}) {
+	if !<-e.Regenerate(&regeneration.ExternalRegenerationMetadata{
+		Reason:            reason,
+		RegenerationLevel: regeneration.RegenerateWithDatapathRewrite,
+	}) {
 		return fmt.Errorf("error while regenerating endpoint."+
 			" For more info run: 'cilium endpoint get %d'", e.ID)
 	}
@@ -1814,7 +1818,10 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 	e.unlock()
 
 	if readyToRegenerate {
-		e.Regenerate(&regeneration.ExternalRegenerationMetadata{Reason: "updated security labels"})
+		e.Regenerate(&regeneration.ExternalRegenerationMetadata{
+			Reason:            "updated security labels",
+			RegenerationLevel: regeneration.RegenerateWithDatapathRewrite,
+		})
 	}
 
 	return nil
@@ -2163,8 +2170,9 @@ func (e *Endpoint) RegenerateAfterCreation(ctx context.Context, syncBuild bool) 
 		// proxy configuration, this code would effectively deadlock addition
 		// of endpoints.
 		e.Regenerate(&regeneration.ExternalRegenerationMetadata{
-			Reason:        "Initial build on endpoint creation",
-			ParentContext: ctx,
+			Reason:            "Initial build on endpoint creation",
+			ParentContext:     ctx,
+			RegenerationLevel: regeneration.RegenerateWithDatapathRewrite,
 		})
 	}
 

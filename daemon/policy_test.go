@@ -71,7 +71,8 @@ var (
 	testEndpointID = uint16(1)
 
 	regenerationMetadata = &regeneration.ExternalRegenerationMetadata{
-		Reason: "test",
+		Reason:            "test",
+		RegenerationLevel: regeneration.RegenerateWithoutDatapath,
 	}
 
 	CNPAllowTCP80 = api.PortRule{

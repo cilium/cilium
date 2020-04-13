@@ -90,7 +90,8 @@ func (ds *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdenti
 
 var (
 	regenerationMetadata = &regeneration.ExternalRegenerationMetadata{
-		Reason: "test",
+		Reason:            "test",
+		RegenerationLevel: regeneration.RegenerateWithoutDatapath,
 	}
 )
 

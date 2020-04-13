@@ -68,7 +68,10 @@ func (d *Daemon) policyUpdateTrigger(reasons []string) {
 	log.Debugf("Regenerating all endpoints")
 	reason := strings.Join(reasons, ", ")
 
-	regenerationMetadata := &regeneration.ExternalRegenerationMetadata{Reason: reason}
+	regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
+		Reason:            reason,
+		RegenerationLevel: regeneration.RegenerateWithoutDatapath,
+	}
 	d.endpointManager.RegenerateAllEndpoints(regenerationMetadata)
 }
 
@@ -452,7 +455,10 @@ func reactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.EndpointSet, rev u
 	})
 
 	// Regenerate all other endpoints.
-	regenMetadata := &regeneration.ExternalRegenerationMetadata{Reason: "policy rules added"}
+	regenMetadata := &regeneration.ExternalRegenerationMetadata{
+		Reason:            "policy rules added",
+		RegenerationLevel: regeneration.RegenerateWithoutDatapath,
+	}
 	epsToRegen.ForEachGo(&enqueueWaitGroup, func(ep policy.Endpoint) {
 		if ep != nil {
 			switch e := ep.(type) {
