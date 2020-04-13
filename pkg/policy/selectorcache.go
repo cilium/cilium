@@ -150,7 +150,7 @@ type identitySelector interface {
 	addUser(CachedSelectionUser) (added bool)
 
 	// Called with NameManager and SelectorCache locks held
-	removeUser(CachedSelectionUser, identityNotifier) (last bool)
+	removeUser(CachedSelectionUser) (last bool)
 
 	// This may be called while the NameManager lock is held
 	notifyUsers(added, deleted []identity.NumericIdentity)
@@ -319,19 +319,9 @@ func (s *selectorManager) addUser(user CachedSelectionUser) (added bool) {
 }
 
 // lock must be held
-func (s *selectorManager) removeUser(user CachedSelectionUser, dnsProxy identityNotifier) (last bool) {
+func (s *selectorManager) removeUser(user CachedSelectionUser) (last bool) {
 	delete(s.users, user)
 	return len(s.users) == 0
-}
-
-// locks must be held for the dnsProxy and the SelectorCache
-func (f *fqdnSelector) removeUser(user CachedSelectionUser, dnsProxy identityNotifier) (last bool) {
-	delete(f.users, user)
-	if len(f.users) == 0 {
-		dnsProxy.UnregisterForIdentityUpdatesLocked(f.selector)
-		return true
-	}
-	return false
 }
 
 // lock must be held
@@ -688,33 +678,48 @@ func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, selector 
 }
 
 // lock must be held
-func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user CachedSelectionUser) {
+func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user CachedSelectionUser) (last bool) {
 	key := selector.String()
 	sel, exists := sc.selectors[key]
 	if exists {
-		if sel.removeUser(user, sc.localIdentityNotifier) {
+		if sel.removeUser(user) {
 			delete(sc.selectors, key)
+			return true
 		}
 	}
+	return false
 }
 
 // RemoveSelector removes CachedSelector for the user.
 func (sc *SelectorCache) RemoveSelector(selector CachedSelector, user CachedSelectionUser) {
 	sc.localIdentityNotifier.Lock()
 	sc.mutex.Lock()
-	sc.removeSelectorLocked(selector, user)
+	last := sc.removeSelectorLocked(selector, user)
 	sc.mutex.Unlock()
+	if last {
+		if f, ok := selector.(*fqdnSelector); ok {
+			sc.localIdentityNotifier.UnregisterForIdentityUpdatesLocked(f.selector)
+		}
+	}
 	sc.localIdentityNotifier.Unlock()
 }
 
 // RemoveSelectors removes CachedSelectorSlice for the user.
 func (sc *SelectorCache) RemoveSelectors(selectors CachedSelectorSlice, user CachedSelectionUser) {
+	lastFQDNs := []api.FQDNSelector{}
 	sc.localIdentityNotifier.Lock()
 	sc.mutex.Lock()
 	for _, selector := range selectors {
-		sc.removeSelectorLocked(selector, user)
+		if sc.removeSelectorLocked(selector, user) {
+			if f, ok := selector.(*fqdnSelector); ok {
+				lastFQDNs = append(lastFQDNs, f.selector)
+			}
+		}
 	}
 	sc.mutex.Unlock()
+	for _, s := range lastFQDNs {
+		sc.localIdentityNotifier.UnregisterForIdentityUpdatesLocked(s)
+	}
 	sc.localIdentityNotifier.Unlock()
 }
 
@@ -729,7 +734,7 @@ func (sc *SelectorCache) ChangeUser(selector CachedSelector, from, to CachedSele
 		// as this causes FQDN unregistration (if applicable).
 		idSel.addUser(to)
 		// ignoring the return value as we have just added a user above
-		idSel.removeUser(from, sc.localIdentityNotifier)
+		idSel.removeUser(from)
 	}
 	sc.mutex.Unlock()
 }
