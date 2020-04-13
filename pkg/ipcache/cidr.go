@@ -21,7 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/ip"
+	ipPkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/cidr"
 	"github.com/cilium/cilium/pkg/option"
@@ -41,70 +41,77 @@ var (
 // When an identity is freshly allocated for a CIDR, it is added to the
 // ipcache.
 func AllocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
-	return allocateCIDRs(prefixes)
-}
-
-// AllocateCIDRsForIPs attempts to allocate identities for a list of CIDRs. If
-// any allocation fails, all allocations are rolled back and the error is
-// returned. When an identity is freshly allocated for a CIDR, it is added to
-// the ipcache.
-func AllocateCIDRsForIPs(prefixes []net.IP) ([]*identity.Identity, error) {
-	return allocateCIDRs(ip.GetCIDRPrefixesFromIPs(prefixes))
-}
-
-func allocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
 	// maintain list of used identities to undo on error
-	usedIdentities := make([]*identity.Identity, 0, len(prefixes))
+	ids := make([]*identity.Identity, 0, len(prefixes))
 
-	// maintain list of newly allocated identities to update ipcache
-	allocatedIdentities := make(map[string]*identity.Identity, len(prefixes))
-	newlyAllocatedIdentities := map[string]*identity.Identity{}
-
-	for _, prefix := range prefixes {
-		if prefix == nil {
-			continue
-		}
-
-		prefixStr := prefix.String()
-
-		// Figure out if this call needs to be able to update the selector cache synchronously.
-		allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.IPAllocationTimeout)
-		defer cancel()
-
-		if IdentityAllocator == nil {
-			return nil, fmt.Errorf("IdentityAllocator not initialized!")
-		}
-		id, isNew, err := IdentityAllocator.AllocateIdentity(allocateCtx, cidr.GetCIDRLabels(prefix), false)
+	for i, prefix := range prefixes {
+		id, err := allocateCIDR(prefix)
 		if err != nil {
-			IdentityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)
-			return nil, fmt.Errorf("failed to allocate identity for cidr %s: %s", prefixStr, err)
+			// release successfully allocated CIDRs
+			ReleaseCIDRs(prefixes[:i])
+			return nil, err
 		}
-
-		id.CIDRLabel = labels.NewLabelsFromModel([]string{labels.LabelSourceCIDR + ":" + prefixStr})
-
-		usedIdentities = append(usedIdentities, id)
-		allocatedIdentities[prefixStr] = id
-		if isNew {
-			newlyAllocatedIdentities[prefixStr] = id
-		}
-
+		ids = append(ids, id)
 	}
 
-	allocatedIdentitiesSlice := make([]*identity.Identity, 0, len(allocatedIdentities))
+	return ids, nil
+}
+
+// AllocateCIDRForIP attempts to allocate an identity for an IP. When
+// an identity is freshly allocated for an IP, it is added to
+// the ipcache.
+func AllocateCIDRForIP(ip net.IP) (*identity.Identity, error) {
+	return allocateCIDR(ipPkg.IPToPrefix(ip))
+}
+
+// ReleaseCIDRForIP attempts to release an identity for an IP. When
+// the final instance is released, it is removed from the ipcache.
+func ReleaseCIDRForIP(ip net.IP, id *identity.Identity) {
+	releaseCIDR(ipPkg.IPToPrefix(ip), id)
+}
+
+func allocateCIDR(prefix *net.IPNet) (*identity.Identity, error) {
+	if prefix == nil {
+		return nil, fmt.Errorf("nil prefix!")
+	}
+	prefixStr := prefix.String()
+
+	// Figure out if this call needs to be able to update the selector cache synchronously.
+	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.IPAllocationTimeout)
+	defer cancel()
+
+	if IdentityAllocator == nil {
+		return nil, fmt.Errorf("IdentityAllocator not initialized!")
+	}
+	id, isNew, err := IdentityAllocator.AllocateIdentity(allocateCtx, cidr.GetCIDRLabels(prefix), false)
+	if err != nil || id == nil {
+		return nil, fmt.Errorf("failed to allocate identity for cidr %s: %s", prefixStr, err)
+	}
 
 	// Only upsert into ipcache if identity wasn't allocated before.
-	for prefixString, id := range newlyAllocatedIdentities {
-		IPIdentityCache.Upsert(prefixString, nil, 0, nil, Identity{
+	if isNew {
+		id.CIDRLabel = labels.NewLabelsFromModel([]string{labels.LabelSourceCIDR + ":" + prefixStr})
+		IPIdentityCache.Upsert(prefixStr, nil, 0, nil, Identity{
 			ID:     id.ID,
 			Source: source.Generated,
 		})
 	}
+	return id, nil
+}
 
-	for _, id := range allocatedIdentities {
-		allocatedIdentitiesSlice = append(allocatedIdentitiesSlice, id)
+func releaseCIDR(prefix *net.IPNet, id *identity.Identity) {
+	releaseCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
+	defer cancel()
+
+	released, err := IdentityAllocator.Release(releaseCtx, id)
+	if err != nil {
+		log.WithError(err).Warningf("Unable to release identity for CIDR %s. Ignoring error. Identity may be leaked", prefix.String())
+		return
 	}
 
-	return allocatedIdentitiesSlice, nil
+	if released {
+		IPIdentityCache.Delete(prefix.String(), source.Generated)
+	}
 }
 
 // ReleaseCIDRs releases the identities of a list of CIDRs. When the last use
@@ -114,19 +121,8 @@ func ReleaseCIDRs(prefixes []*net.IPNet) {
 		if prefix == nil {
 			continue
 		}
-
 		if id := IdentityAllocator.LookupIdentity(context.TODO(), cidr.GetCIDRLabels(prefix)); id != nil {
-			releaseCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
-			defer cancel()
-
-			released, err := IdentityAllocator.Release(releaseCtx, id)
-			if err != nil {
-				log.WithError(err).Warningf("Unable to release identity for CIDR %s. Ignoring error. Identity may be leaked", prefix.String())
-			}
-
-			if released {
-				IPIdentityCache.Delete(prefix.String(), source.Generated)
-			}
+			releaseCIDR(prefix, id)
 		} else {
 			log.Errorf("Unable to find identity of previously used CIDR %s", prefix.String())
 		}

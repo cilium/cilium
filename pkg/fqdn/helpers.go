@@ -18,37 +18,8 @@ import (
 	"net"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/miekg/dns"
 )
-
-// mapSelectorsToIPs iterates through a set of FQDNSelectors and evalutes whether
-// they match the DNS Names in the cache. If so, the set of IPs which the cache
-// maintains as mapping to each DNS Name are mapped to the matching FQDNSelector.
-// Returns the mapping of DNSName to set of IPs which back said DNS name, the
-// set of FQDNSelectors which do not map to any IPs, and the set of
-// FQDNSelectors mapping to a set of IPs.
-func mapSelectorsToIPs(fqdnSelectors map[api.FQDNSelectorString]api.FQDNSelector, cache *DNSCache) (selectorsMissingIPs []api.FQDNSelectorString, selectorIPMapping map[api.FQDNSelectorString][]net.IP) {
-	missing := make(map[api.FQDNSelectorString]struct{}) // a set to dedup missing dnsNames
-	selectorIPMapping = make(map[api.FQDNSelectorString][]net.IP)
-
-	log.WithField("fqdnSelectors", fqdnSelectors).Debug("mapSelectorsToIPs")
-
-	// Map each FQDNSelector to set of CIDRs
-	for key, ToFQDN := range fqdnSelectors {
-		ips := cache.LookupBySelector(ToFQDN)
-		if len(ips) == 0 {
-			missing[key] = struct{}{}
-		} else {
-			selectorIPMapping[key] = ips
-		}
-	}
-
-	for key := range missing {
-		selectorsMissingIPs = append(selectorsMissingIPs, key)
-	}
-	return selectorsMissingIPs, selectorIPMapping
-}
 
 // sortedIPsAreEqual compares two lists of sorted IPs. If any differ it returns
 // false.

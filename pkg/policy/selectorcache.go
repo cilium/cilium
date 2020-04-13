@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/sirupsen/logrus"
@@ -400,7 +401,7 @@ type identityNotifier interface {
 
 	// RegisterForIdentityUpdatesLocked exposes this FQDNSelector so that identities
 	// for IPs contained in a DNS response that matches said selector can be
-	// propagated back to the SelectorCache via `UpdateFQDNSelector`. When called,
+	// propagated back to the SelectorCache via `UpdateFQDNSelectors`. When called,
 	// implementers (currently `pkg/fqdn/RuleGen`) should iterate over all DNS
 	// names that they are aware of, and see if they match the FQDNSelector.
 	// All IPs which correspond to the DNS names which match this Selector will
@@ -412,13 +413,13 @@ type identityNotifier interface {
 	// of this FQDNSelector for the first time, since we only need to get the
 	// set of CIDR identities which match this FQDNSelector already from the
 	// identityNotifier on the first pass; any subsequent updates will eventually
-	// call `UpdateFQDNSelector`.
+	// call `UpdateFQDNSelectors`.
 	RegisterForIdentityUpdatesLocked(selector api.FQDNSelector) (identities []identity.NumericIdentity)
 
 	// UnregisterForIdentityUpdatesLocked removes this FQDNSelector from the set of
 	// FQDNSelectors which are being tracked by the identityNotifier. The result
 	// of this is that no more updates for IPs which correspond to said selector
-	// are propagated back to the SelectorCache via `UpdateFQDNSelector`.
+	// are propagated back to the SelectorCache via `UpdateFQDNSelectors`.
 	// This occurs when there are no more users of a given FQDNSelector for the
 	// SelectorCache.
 	UnregisterForIdentityUpdatesLocked(selector api.FQDNSelector)
@@ -473,91 +474,97 @@ func (l *labelIdentitySelector) matches(identity scIdentity) bool {
 // No locking needed.
 //
 
-// UpdateFQDNSelector updates the mapping of fqdnKey (the FQDNSelector from a
+// UpdateFQDNSelectors updates the mapping of fqdnKey (the FQDNSelector from a
 // policy rule as a string) to to the provided list of identities. If the contents
 // of the cachedSelections differ from those in the identities slice, all
 // users are notified.
-func (sc *SelectorCache) UpdateFQDNSelector(fqdnSelec api.FQDNSelectorString, identities []identity.NumericIdentity) {
+func (sc *SelectorCache) UpdateFQDNSelectors(selectorIDs map[api.FQDNSelectorString][]identity.NumericIdentity) {
 	sc.mutex.Lock()
-	sc.updateFQDNSelector(fqdnSelec, identities)
+	sc.updateFQDNSelectors(selectorIDs)
 	sc.mutex.Unlock()
 }
 
-func (sc *SelectorCache) updateFQDNSelector(fqdnKey api.FQDNSelectorString, identities []identity.NumericIdentity) {
-
-	selector, exists := sc.selectors[string(fqdnKey)]
-	if !exists || selector == nil {
-		log.WithFields(logrus.Fields{"fqdnSelectorString": fqdnKey}).Warning("UpdateFQDNSelector on an unregistered selector")
-		return
-	}
-	fqdnSel := selector.(*fqdnSelector)
-
-	// Convert identity slice to map for comparison with cachedSelections map.
-	idsAsMap := make(map[identity.NumericIdentity]struct{}, len(identities))
-	for _, v := range identities {
-		idsAsMap[v] = struct{}{}
-	}
-
-	// Note that 'added' and 'deleted' are guaranteed to be
-	// disjoint, as one of them is left as nil, or an identity
-	// being in 'identities' is a precondition for an
-	// identity to be appended to 'added', while the inverse is
-	// true for 'deleted'.
-	var added, deleted []identity.NumericIdentity
-
-	/* TODO - the FQDN side should expose what was changed (IPs added, and removed)
-	*  not all IPs corresponding to an FQDN - this will make this diff much
-	*  cheaper, but will require more plumbing on the FQDN side. for now, this
-	*  is good enough.
-	*
-	*  Case 1: identities did correspond to this FQDN, but no longer do. Reset
-	*  the map
-	 */
-	if len(identities) == 0 && len(fqdnSel.cachedSelections) != 0 {
-		// Need to update deleted to be all in cached selections
-		for k := range fqdnSel.cachedSelections {
-			deleted = append(deleted, k)
+func (sc *SelectorCache) updateFQDNSelectors(selectorIDs map[api.FQDNSelectorString][]identity.NumericIdentity) {
+	for fqdnKey, identities := range selectorIDs {
+		var fqdnSel *fqdnSelector
+		selector, exists := sc.selectors[string(fqdnKey)]
+		if !exists || selector == nil {
+			log.WithFields(logrus.Fields{"fqdnSelectorString": fqdnKey}).Warning("UpdateFQDNSelectors on an unregistered selector")
+			return
 		}
-		fqdnSel.cachedSelections = make(map[identity.NumericIdentity]struct{})
-	} else if len(identities) != 0 && len(fqdnSel.cachedSelections) == 0 {
-		// Case 2: identities now correspond to this FQDN, but didn't before.
-		// We don't have to do any comparison of the maps to see what changed
-		// and what didn't.
-		added = identities
-		fqdnSel.cachedSelections = idsAsMap
-	} else {
-		// Case 3: Something changed resulting in some identities being added
-		// and / or removed. Figure out what these sets are (new identities
-		// added, or identities deleted).
-		for k := range fqdnSel.cachedSelections {
-			// If identity in cached selectors isn't in identities which were
-			// passed in, mark it as being deleted, and remove it from
-			// cachedSelectors.
-			if _, ok := idsAsMap[k]; !ok {
+		fqdnSel = selector.(*fqdnSelector)
+		if option.Config.Debug {
+			log.WithFields(logrus.Fields{
+				"fqdnSelectorString": fqdnKey,
+				"identitySlice":      identities}).Debug("updating FQDN selector")
+		}
+
+		// Convert identity slice to map for comparison with cachedSelections map.
+		idsAsMap := make(map[identity.NumericIdentity]struct{}, len(identities))
+		for _, v := range identities {
+			idsAsMap[v] = struct{}{}
+		}
+
+		// Note that 'added' and 'deleted' are guaranteed to be
+		// disjoint, as one of them is left as nil, or an identity
+		// being in 'identities' is a precondition for an
+		// identity to be appended to 'added', while the inverse is
+		// true for 'deleted'.
+		var added, deleted []identity.NumericIdentity
+
+		// TODO - the FQDN side should expose what was changed (IPs added, and removed)
+		//  not all IPs corresponding to an FQDN - this will make this diff much
+		//  cheaper, but will require more plumbing on the FQDN side. for now, this
+		//  is good enough.
+		//
+		//  Case 1: identities did correspond to this FQDN, but no longer do. Reset
+		//  the map
+		if len(identities) == 0 && len(fqdnSel.cachedSelections) != 0 {
+			// Need to update deleted to be all in cached selections
+			for k := range fqdnSel.cachedSelections {
 				deleted = append(deleted, k)
-				delete(fqdnSel.cachedSelections, k)
+			}
+			fqdnSel.cachedSelections = make(map[identity.NumericIdentity]struct{})
+		} else if len(identities) != 0 && len(fqdnSel.cachedSelections) == 0 {
+			// Case 2: identities now correspond to this FQDN, but didn't before.
+			// We don't have to do any comparison of the maps to see what changed
+			// and what didn't.
+			added = identities
+			fqdnSel.cachedSelections = idsAsMap
+		} else {
+			// Case 3: Something changed resulting in some identities being added
+			// and / or removed. Figure out what these sets are (new identities
+			// added, or identities deleted).
+			for k := range fqdnSel.cachedSelections {
+				// If identity in cached selectors isn't in identities which were
+				// passed in, mark it as being deleted, and remove it from
+				// cachedSelectors.
+				if _, ok := idsAsMap[k]; !ok {
+					deleted = append(deleted, k)
+					delete(fqdnSel.cachedSelections, k)
+				}
+			}
+
+			// Now iterate over the provided identities to update the
+			// cachedSelections accordingly, and so we can see which identities
+			// were actually added (removing those which were added already).
+			for _, allowedIdentity := range identities {
+				if _, ok := fqdnSel.cachedSelections[allowedIdentity]; !ok {
+					// This identity was actually added and not already in the map.
+					added = append(added, allowedIdentity)
+					fqdnSel.cachedSelections[allowedIdentity] = struct{}{}
+				}
 			}
 		}
 
-		// Now iterate over the provided identities to update the
-		// cachedSelections accordingly, and so we can see which identities
-		// were actually added (removing those which were added already).
-		for _, allowedIdentity := range identities {
-			if _, ok := fqdnSel.cachedSelections[allowedIdentity]; !ok {
-				// This identity was actually added and not already in the map.
-				added = append(added, allowedIdentity)
-				fqdnSel.cachedSelections[allowedIdentity] = struct{}{}
-			}
+		// Note: we don't need to go through the identity cache to see what
+		// identities match" this selector. This has to be updated via whatever is
+		// getting the CIDR identities which correspond to this FQDNSelector. This
+		// is the primary difference here between FQDNSelector and IdentitySelector.
+		if len(added)+len(deleted) > 0 {
+			fqdnSel.updateSelections()
+			fqdnSel.notifyUsers(added, deleted) // disjoint sets, see the comment above
 		}
-	}
-
-	// Note: we don't need to go through the identity cache to see what
-	// identities match" this selector. This has to be updated via whatever is
-	// getting the CIDR identities which correspond to this FQDNSelector. This
-	// is the primary difference here between FQDNSelector and IdentitySelector.
-	if len(added)+len(deleted) > 0 {
-		fqdnSel.updateSelections()
-		fqdnSel.notifyUsers(added, deleted) // disjoint sets, see the comment above
 	}
 }
 
@@ -795,16 +802,4 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache) {
 			}
 		}
 	}
-}
-
-// RemoveIdentitiesFQDNSelectors removes all identities from being mapped to the
-// set of FQDNSelectors.
-func (sc *SelectorCache) RemoveIdentitiesFQDNSelectors(fqdnSels []api.FQDNSelectorString) {
-	sc.mutex.Lock()
-	noIdentities := []identity.NumericIdentity{}
-
-	for i := range fqdnSels {
-		sc.updateFQDNSelector(fqdnSels[i], noIdentities)
-	}
-	sc.mutex.Unlock()
 }

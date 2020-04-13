@@ -225,10 +225,12 @@ func (s *DNSProxyTestSuite) TearDownSuite(c *C) {
 
 func (s *DNSProxyTestSuite) TestRejectFromDifferentEndpoint(c *C) {
 	name := "cilium.io."
+	nameRule := api.PortRuleDNS{MatchName: name}
+	nameRule.Sanitize()
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
 			L7Rules: api.L7Rules{
-				DNS: []api.PortRuleDNS{{MatchName: name}},
+				DNS: []api.PortRuleDNS{nameRule},
 			},
 		},
 	}
@@ -243,10 +245,12 @@ func (s *DNSProxyTestSuite) TestRejectFromDifferentEndpoint(c *C) {
 
 func (s *DNSProxyTestSuite) TestAcceptFromMatchingEndpoint(c *C) {
 	name := "cilium.io."
+	nameRule := api.PortRuleDNS{MatchName: name}
+	nameRule.Sanitize()
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
 			L7Rules: api.L7Rules{
-				DNS: []api.PortRuleDNS{{MatchName: name}},
+				DNS: []api.PortRuleDNS{nameRule},
 			},
 		},
 	}
@@ -261,10 +265,12 @@ func (s *DNSProxyTestSuite) TestAcceptFromMatchingEndpoint(c *C) {
 
 func (s *DNSProxyTestSuite) TestAcceptNonRegex(c *C) {
 	name := "simple.io."
+	nameRule := api.PortRuleDNS{MatchName: name}
+	nameRule.Sanitize()
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
 			L7Rules: api.L7Rules{
-				DNS: []api.PortRuleDNS{{MatchName: name}},
+				DNS: []api.PortRuleDNS{nameRule},
 			},
 		},
 	}
@@ -279,10 +285,12 @@ func (s *DNSProxyTestSuite) TestAcceptNonRegex(c *C) {
 
 func (s *DNSProxyTestSuite) TestRejectNonRegex(c *C) {
 	name := "cilium.io."
+	nameRule := api.PortRuleDNS{MatchName: name}
+	nameRule.Sanitize()
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
 			L7Rules: api.L7Rules{
-				DNS: []api.PortRuleDNS{{MatchName: name}},
+				DNS: []api.PortRuleDNS{nameRule},
 			},
 		},
 	}
@@ -297,10 +305,12 @@ func (s *DNSProxyTestSuite) TestRejectNonRegex(c *C) {
 
 func (s *DNSProxyTestSuite) TestRejectNonMatchingRefusedResponse(c *C) {
 	name := "cilium.io."
+	nameRule := api.PortRuleDNS{MatchName: name}
+	nameRule.Sanitize()
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
 			L7Rules: api.L7Rules{
-				DNS: []api.PortRuleDNS{{MatchName: name}},
+				DNS: []api.PortRuleDNS{nameRule},
 			},
 		},
 	}
@@ -332,10 +342,12 @@ func (s *DNSProxyTestSuite) TestRespondViaCorrectProtocol(c *C) {
 	// connet with TCP, and the server only listens on TCP.
 
 	name := "cilium.io."
+	nameRule := api.PortRuleDNS{MatchName: name}
+	nameRule.Sanitize()
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
 			L7Rules: api.L7Rules{
-				DNS: []api.PortRuleDNS{{MatchName: name}},
+				DNS: []api.PortRuleDNS{nameRule},
 			},
 		},
 	}
@@ -360,10 +372,12 @@ func (s *DNSProxyTestSuite) TestRespondMixedCaseInRequestResponse(c *C) {
 	// high-order-bit query uniqueing schemes (and a data exfiltration
 	// vector :( )
 	name := "cilium.io."
+	nameRule := api.PortRuleDNS{MatchName: name}
+	nameRule.Sanitize()
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
 			L7Rules: api.L7Rules{
-				DNS: []api.PortRuleDNS{{MatchName: name}},
+				DNS: []api.PortRuleDNS{nameRule},
 			},
 		},
 	}
@@ -390,10 +404,12 @@ func (s *DNSProxyTestSuite) TestRespondMixedCaseInRequestResponse(c *C) {
 
 func (s *DNSProxyTestSuite) TestCheckAllowedTwiceRemovedOnce(c *C) {
 	name := "cilium.io."
+	nameRule := api.PortRuleDNS{MatchName: name}
+	nameRule.Sanitize()
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
 			L7Rules: api.L7Rules{
-				DNS: []api.PortRuleDNS{{MatchName: name}},
+				DNS: []api.PortRuleDNS{nameRule},
 			},
 		},
 	}
@@ -458,19 +474,35 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	//	| EP1  | DstID1 |      53 | *.ubuntu.com   |
 	//	| EP1  | DstID1 |      53 | aws.amazon.com |
 	//	| EP1  | DstID2 |      53 | cilium.io      |
+	ubuntuPatternRule := api.PortRuleDNS{MatchPattern: "*.ubuntu.com."}
+	err := ubuntuPatternRule.Sanitize()
+	c.Assert(err, Equals, nil)
+	awsPatternRule := api.PortRuleDNS{MatchPattern: "aws.amazon.com."}
+	err = awsPatternRule.Sanitize()
+	c.Assert(err, Equals, nil)
+	ciliumPatternRule := api.PortRuleDNS{MatchPattern: "cilium.io."}
+	err = ciliumPatternRule.Sanitize()
+	c.Assert(err, Equals, nil)
+	examplePatternRule := api.PortRuleDNS{MatchPattern: "example.com."}
+	err = examplePatternRule.Sanitize()
+	c.Assert(err, Equals, nil)
+	wildcardPatternRule := api.PortRuleDNS{MatchPattern: "*"}
+	err = wildcardPatternRule.Sanitize()
+	c.Assert(err, Equals, nil)
+
 	s.proxy.UpdateAllowed(epID1, 53, policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{
-					{MatchPattern: "*.ubuntu.com."},
-					{MatchPattern: "aws.amazon.com."},
+					ubuntuPatternRule,
+					awsPatternRule,
 				},
 			},
 		},
 		cachedDstID2Selector: &policy.PerSelectorPolicy{
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{
-					{MatchPattern: "cilium.io."},
+					ciliumPatternRule,
 				},
 			},
 		},
@@ -481,7 +513,7 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{
-					{MatchPattern: "example.com."},
+					examplePatternRule,
 				},
 			},
 		},
@@ -494,14 +526,14 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{
-					{MatchPattern: "example.com."},
+					examplePatternRule,
 				},
 			},
 		},
 		cachedDstID3Selector: &policy.PerSelectorPolicy{
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{
-					{MatchPattern: "*"},
+					wildcardPatternRule,
 				},
 			},
 		},

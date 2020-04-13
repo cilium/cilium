@@ -35,7 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/identity"
-	secIDCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -66,70 +65,6 @@ const (
 	dnsSourceLookup     = "lookup"
 	dnsSourceConnection = "connection"
 )
-
-func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSelectorString][]net.IP, identityAllocator *secIDCache.CachingIdentityAllocator) (map[policyApi.FQDNSelectorString][]*identity.Identity, error) {
-	var err error
-
-	// Used to track identities which are allocated in calls to
-	// AllocateCIDRs. If we for some reason cannot allocate new CIDRs,
-	// we have to undo all of our changes and release the identities.
-	// This is best effort, as releasing can fail as well.
-	usedIdentities := make([]*identity.Identity, 0, len(selectorsWithIPsToUpdate))
-	selectorIdentitySliceMapping := make(map[policyApi.FQDNSelectorString][]*identity.Identity, len(selectorsWithIPsToUpdate))
-
-	// Allocate identities for each IPNet and then map to selector
-	for selector, selectorIPs := range selectorsWithIPsToUpdate {
-		log.WithFields(logrus.Fields{
-			"fqdnSelector": selector,
-			"ips":          selectorIPs,
-		}).Debug("getting identities for IPs associated with FQDNSelector")
-		var currentlyAllocatedIdentities []*identity.Identity
-		if currentlyAllocatedIdentities, err = ipcache.AllocateCIDRsForIPs(selectorIPs); err != nil {
-			identityAllocator.ReleaseSlice(context.TODO(), nil, usedIdentities)
-			log.WithError(err).WithField("prefixes", selectorIPs).Warn(
-				"failed to allocate identities for IPs")
-			return nil, err
-		}
-		usedIdentities = append(usedIdentities, currentlyAllocatedIdentities...)
-		selectorIdentitySliceMapping[selector] = currentlyAllocatedIdentities
-	}
-
-	return selectorIdentitySliceMapping, nil
-}
-
-func (d *Daemon) updateSelectorCacheFQDNs(ctx context.Context, selectors map[policyApi.FQDNSelectorString][]*identity.Identity, selectorsWithoutIPs []policyApi.FQDNSelectorString) (wg *sync.WaitGroup) {
-	// There may be nothing to update - in this case, we exit and do not need
-	// to trigger policy updates for all endpoints.
-	if len(selectors) == 0 && len(selectorsWithoutIPs) == 0 {
-		return &sync.WaitGroup{}
-	}
-
-	// Update mapping of selector to set of IPs in selector cache.
-	for selector, identitySlice := range selectors {
-		log.WithFields(logrus.Fields{
-			"fqdnSelectorString": selector,
-			"identitySlice":      identitySlice}).Debug("updating FQDN selector")
-		numIds := make([]identity.NumericIdentity, 0, len(identitySlice))
-		for _, numId := range identitySlice {
-			// Nil check here? Hopefully not necessary...
-			numIds = append(numIds, numId.ID)
-		}
-		d.policy.GetSelectorCache().UpdateFQDNSelector(selector, numIds)
-	}
-
-	if len(selectorsWithoutIPs) > 0 {
-		// Selectors which no longer map to IPs (due to TTL expiry, cache being
-		// cleared forcibly via CLI, etc.) still exist in the selector cache
-		// since policy is imported which allows it, but the selector does
-		// not map to any IPs anymore.
-		log.WithFields(logrus.Fields{
-			"fqdnSelectors": selectorsWithoutIPs,
-		}).Debug("removing all identities from FQDN selectors")
-		d.policy.GetSelectorCache().RemoveIdentitiesFQDNSelectors(selectorsWithoutIPs)
-	}
-
-	return d.endpointManager.UpdatePolicyMaps(ctx)
-}
 
 // bootstrapFQDN initializes the toFQDNs related subsystems: DNSPoller,
 // d.dnsNameManager, and the DNS proxy.
@@ -314,16 +249,11 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 // updateSelectors propagates the mapping of FQDNSelector to identity, as well
 // as the set of FQDNSelectors which have no IPs which correspond to them
 // (usually due to TTL expiry), down to policy layer managed by this daemon.
-func (d *Daemon) updateSelectors(ctx context.Context, selectorWithIPsToUpdate map[policyApi.FQDNSelectorString][]net.IP, selectorsWithoutIPs []policyApi.FQDNSelectorString) (wg *sync.WaitGroup, err error) {
-	// Convert set of selectors with IPs to update to set of selectors
-	// with identities corresponding to said IPs.
-	selectorsIdentities, err := identitiesForFQDNSelectorIPs(selectorWithIPsToUpdate, d.identityAllocator)
-	if err != nil {
-		return &sync.WaitGroup{}, err
-	}
+func (d *Daemon) updateSelectors(ctx context.Context, selectorIDs map[policyApi.FQDNSelectorString][]identity.NumericIdentity) (wg *sync.WaitGroup, err error) {
+	// Update mapping of selector to set of IPs in selector cache.
+	d.policy.GetSelectorCache().UpdateFQDNSelectors(selectorIDs)
 
-	// Update mapping in selector cache with new identities.
-	return d.updateSelectorCacheFQDNs(ctx, selectorsIdentities, selectorsWithoutIPs), nil
+	return d.endpointManager.UpdatePolicyMaps(ctx), nil
 }
 
 // pollerResponseNotify handles update events for updates from the poller. It

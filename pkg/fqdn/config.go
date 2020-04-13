@@ -16,10 +16,10 @@ package fqdn
 
 import (
 	"context"
-	"net"
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/miekg/dns"
 )
@@ -50,7 +50,7 @@ type Config struct {
 
 	// UpdateSelectors is a callback to update the mapping of FQDNSelector to
 	// sets of IPs.
-	UpdateSelectors func(ctx context.Context, selectorsWithIPs map[api.FQDNSelectorString][]net.IP, selectorsWithoutIPs []api.FQDNSelectorString) (*sync.WaitGroup, error)
+	UpdateSelectors func(ctx context.Context, selectorIDs map[api.FQDNSelectorString][]identity.NumericIdentity) (*sync.WaitGroup, error)
 
 	// PollerResponseNotify is used when the poller receives DNS data in response
 	// to a successful poll.
