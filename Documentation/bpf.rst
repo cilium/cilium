@@ -3172,6 +3172,44 @@ Now loading into kernel and dumping the map via bpftool:
 Lookup, update, delete, and 'get next key' operations on the map for specific
 keys can be performed through bpftool as well.
 
+If the BPF program has been successfully loaded with BTF debugging information,
+the BTF ID will be shown in ``prog show`` command result denoted in ``btf_id``.
+
+  ::
+
+     # bpftool prog show id 72
+     72: xdp  name balancer_ingres  tag acf44cabb48385ed  gpl
+        loaded_at 2020-04-13T23:12:08+0900  uid 0
+        xlated 19104B  jited 10732B  memlock 20480B  map_ids 126,130,131,127,129,128
+        btf_id 60
+
+This can also be confirmed with ``btf show`` command which dumps all BTF
+objects loaded on a system.
+
+  ::
+
+     # bpftool btf show
+     60: size 12243B  prog_ids 72  map_ids 126,130,131,127,129,128
+
+And the subcommand ``btf dump`` can be used to check which debugging information
+is included in the BTF. With this command, BTF dump can be formatted either
+'raw' or 'c', the one that is used in C code.
+
+  ::
+
+     # bpftool btf dump id 60 format c
+       [...]
+        struct ctl_value {
+              union {
+                      __u64 value;
+                      __u32 ifindex;
+                      __u8 mac[6];
+              };
+        };
+
+        typedef unsigned int u32;
+        [...]
+
 BPF sysctls
 -----------
 
