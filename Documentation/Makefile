@@ -7,7 +7,7 @@ default: html
 clean:
 	-$(QUIET)rm -rf _build
 
-builder-image:
+builder-image: Dockerfile requirements.txt
 	$(QUIET)tar c requirements.txt Dockerfile \
 	  | docker build --tag cilium/docs-builder -
 
