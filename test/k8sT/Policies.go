@@ -213,10 +213,9 @@ var _ = Describe("K8sPolicyTest", func() {
 		})
 
 		BeforeEach(func() {
-			status := kubectl.CiliumExec(
+			kubectl.CiliumExecMustSucceed(context.TODO(),
 				ciliumPod, fmt.Sprintf("cilium config %s=%s",
 					helpers.PolicyEnforcement, helpers.PolicyEnforcementDefault))
-			status.ExpectSuccess()
 
 			err := kubectl.CiliumEndpointWaitReady()
 			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
@@ -246,16 +245,14 @@ var _ = Describe("K8sPolicyTest", func() {
 				Expect(err).Should(BeNil())
 			}
 
-			trace := kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
+			trace := kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
 				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport 80/TCP",
 				namespaceForTest, appPods[helpers.App2], namespaceForTest, appPods[helpers.App1]))
-			trace.ExpectSuccess(trace.CombineOutput().String())
 			trace.ExpectContains("Final verdict: ALLOWED", "Policy trace output mismatch")
 
-			trace = kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
+			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
 				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s",
 				namespaceForTest, appPods[helpers.App3], namespaceForTest, appPods[helpers.App1]))
-			trace.ExpectSuccess(trace.CombineOutput().String())
 			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
 
 			res := kubectl.ExecPodCmd(
@@ -389,16 +386,14 @@ var _ = Describe("K8sPolicyTest", func() {
 				Expect(err).Should(BeNil())
 			}
 
-			trace := kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
+			trace := kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
 				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport 80/TCP",
 				namespaceForTest, appPods[helpers.App2], namespaceForTest, appPods[helpers.App1]))
-			trace.ExpectSuccess(trace.CombineOutput().String())
 			trace.ExpectContains("Final verdict: ALLOWED", "Policy trace output mismatch")
 
-			trace = kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
+			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
 				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s",
 				namespaceForTest, appPods[helpers.App3], namespaceForTest, appPods[helpers.App1]))
-			trace.ExpectSuccess(trace.CombineOutput().String())
 			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
 
 			res := kubectl.ExecPodCmd(
