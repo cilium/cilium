@@ -215,6 +215,14 @@ func (k *k8sMock) Get(node string) (*v2.CiliumNode, error) {
 	return &v2.CiliumNode{}, nil
 }
 
+func (k *k8sMock) Create(*v2.CiliumNode) (*v2.CiliumNode, error) {
+	return &v2.CiliumNode{}, nil
+}
+
+func (k *k8sMock) Delete(nodeName string) error {
+	return nil
+}
+
 func newCiliumNode(node string, preAllocate, minAllocate, used int) *v2.CiliumNode {
 	cn := &v2.CiliumNode{
 		ObjectMeta: metav1.ObjectMeta{Name: node, Namespace: "default"},
