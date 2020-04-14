@@ -1,27 +1,38 @@
-include ../Makefile.quiet
+# Copyright 2017-2020 Authors of Cilium
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 include ../Makefile.defs
 
-TARGET=hubble-proxy
-SOURCES := $(shell find . ../pkg/hubble \( -name '*.go' ! -name '*_test.go' \))
+TARGET := hubble-proxy
 
+.PHONY: all $(TARGET) clean install
 
 all: $(TARGET)
 
-$(TARGET): $(SOURCES)
+$(TARGET):
 	@$(ECHO_GO)
-	$(QUIET)$(GO) build $(GOBUILD) -o $(TARGET)
+	$(QUIET)$(GO_BUILD) -o $@
 	strip $(TARGET)
 
 clean:
-	@$(ECHO_CLEAN) $(notdir $(shell pwd))
+	@$(ECHO_CLEAN)
 	-$(QUIET)rm -f $(TARGET)
-	$(QUIET)$(GO) clean $(GOCLEAN)
+	$(QUIET)$(GO_CLEAN)
 
 install:
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(QUIET)$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(CONFDIR)/bash_completion.d
-	./$(TARGET) completion bash > bash_autocomplete
-	$(QUIET)$(INSTALL) -m 0644 -T bash_autocomplete $(DESTDIR)$(CONFDIR)/bash_completion.d/hubble-proxy
-
-.PHONY: clean install
+	./$(TARGET) completion bash > $(TARGET)_bash_completion
+	$(QUIET)$(INSTALL) -m 0644 -T $(TARGET)_bash_completion $(DESTDIR)$(CONFDIR)/bash_completion.d/$(TARGET)

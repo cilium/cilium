@@ -1,20 +1,33 @@
+# Copyright 2017-2020 Authors of Cilium
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 include ../../Makefile.defs
 
-all: cilium-cni
+TARGET := cilium-cni
 
-TARGET=cilium-cni
+.PHONY: all $(TARGET) clean install
+
+all: $(TARGET)
+
+$(TARGET):
+	@$(ECHO_GO)
+	$(QUIET)$(GO_BUILD) -o $@
 
 clean:
 	@$(ECHO_CLEAN)
-	$(QUIET)$(GO) clean $(GOCLEAN)
 	-$(QUIET)rm -f $(TARGET)
-
-SOURCES := $(shell find ../../api/v1/models ../../common ../../pkg/client ../../pkg/endpoint . -name '*.go')
-
-$(TARGET): $(SOURCES)
-	@$(ECHO_GO)
-	# Compile without cgo to allow use of cilium-cni on non-glibc platforms - see GH-5055
-	$(QUIET)$(GO) build $(GOBUILD) -o $(TARGET)
+	$(QUIET)$(GO_CLEAN)
 
 install:
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(CNICONFDIR)
