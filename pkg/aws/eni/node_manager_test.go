@@ -126,6 +126,10 @@ func (e *ENISuite) TestNodeManagerGet(c *check.C) {
 
 type k8sMock struct{}
 
+func (k *k8sMock) Create(node *v2.CiliumNode) (*v2.CiliumNode, error) {
+	return nil, nil
+}
+
 func (k *k8sMock) Update(node, origNode *v2.CiliumNode) (*v2.CiliumNode, error) {
 	return nil, nil
 }
@@ -136,6 +140,10 @@ func (k *k8sMock) UpdateStatus(node, origNode *v2.CiliumNode) (*v2.CiliumNode, e
 
 func (k *k8sMock) Get(node string) (*v2.CiliumNode, error) {
 	return &v2.CiliumNode{}, nil
+}
+
+func (k *k8sMock) Delete(node string) error {
+	return nil
 }
 
 func newCiliumNode(node, instanceID, instanceType, az, vpcID string, firstInterfaceIndex, preAllocate, minAllocate, maxAllocate int) *v2.CiliumNode {

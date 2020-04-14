@@ -80,6 +80,10 @@ func deleteCiliumNode(nodeManager *ipam.NodeManager, name string) {
 
 type ciliumNodeUpdateImplementation struct{}
 
+func (c *ciliumNodeUpdateImplementation) Create(node *v2.CiliumNode) (*v2.CiliumNode, error) {
+	return ciliumK8sClient.CiliumV2().CiliumNodes().Create(context.TODO(), node, metav1.CreateOptions{})
+}
+
 func (c *ciliumNodeUpdateImplementation) Get(node string) (*v2.CiliumNode, error) {
 	return ciliumK8sClient.CiliumV2().CiliumNodes().Get(context.TODO(), node, metav1.GetOptions{})
 }
@@ -116,4 +120,8 @@ func (c *ciliumNodeUpdateImplementation) Update(node, origNode *v2.CiliumNode) (
 	}
 
 	return nil, nil
+}
+
+func (c *ciliumNodeUpdateImplementation) Delete(nodeName string) error {
+	return ciliumK8sClient.CiliumV2().CiliumNodes().Delete(context.TODO(), nodeName, metav1.DeleteOptions{})
 }

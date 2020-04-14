@@ -81,6 +81,14 @@ func (k *k8sMock) specRevision() int {
 	return k.specRev
 }
 
+func (k *k8sMock) Create(node *v2.CiliumNode) (*v2.CiliumNode, error) {
+	k.mutex.Lock()
+	k.specRev++
+	k.latestCiliumNode[node.Name] = node
+	k.mutex.Unlock()
+	return nil, nil
+}
+
 func (k *k8sMock) Update(node, origNode *v2.CiliumNode) (*v2.CiliumNode, error) {
 	k.mutex.Lock()
 	k.specRev++
@@ -111,6 +119,14 @@ func (k *k8sMock) getLatestNode(name string) *v2.CiliumNode {
 
 func (k *k8sMock) Get(node string) (*v2.CiliumNode, error) {
 	return &v2.CiliumNode{}, nil
+}
+
+func (k *k8sMock) Delete(nodeName string) error {
+	k.mutex.Lock()
+	k.specRev++
+	delete(k.latestCiliumNode, nodeName)
+	k.mutex.Unlock()
+	return nil
 }
 
 func newCiliumNode(node, instanceID string, preAllocate, minAllocate int) *v2.CiliumNode {
