@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/cidr"
+	clustermeshTypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
@@ -493,12 +494,6 @@ const (
 
 	// ClusterIDName is the name of the ClusterID option
 	ClusterIDName = "cluster-id"
-
-	// ClusterIDMin is the minimum value of the cluster ID
-	ClusterIDMin = 0
-
-	// ClusterIDMax is the maximum value of the cluster ID
-	ClusterIDMax = 255
 
 	// ClusterMeshConfigName is the name of the ClusterMeshConfig option
 	ClusterMeshConfigName = "clustermesh-config"
@@ -2099,6 +2094,17 @@ func (c *DaemonConfig) EndpointStatusIsEnabled(option string) bool {
 	return ok
 }
 
+// LocalClusterName returns the name of the cluster Cilium is deployed in
+func (c *DaemonConfig) LocalClusterName() string {
+	return c.ClusterName
+}
+
+// CiliumNamespaceName returns the name of the namespace in which Cilium is
+// deployed in
+func (c *DaemonConfig) CiliumNamespaceName() string {
+	return c.K8sNamespace
+}
+
 func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
 	ip, cidr, err := net.ParseCIDR(c.IPv6ClusterAllocCIDR)
 	if err != nil {
@@ -2144,9 +2150,9 @@ func (c *DaemonConfig) Validate() error {
 		return fmt.Errorf("invalid tunnel mode '%s', valid modes = {%s}", c.Tunnel, GetTunnelModes())
 	}
 
-	if c.ClusterID < ClusterIDMin || c.ClusterID > ClusterIDMax {
+	if c.ClusterID < clustermeshTypes.ClusterIDMin || c.ClusterID > clustermeshTypes.ClusterIDMax {
 		return fmt.Errorf("invalid cluster id %d: must be in range %d..%d",
-			c.ClusterID, ClusterIDMin, ClusterIDMax)
+			c.ClusterID, clustermeshTypes.ClusterIDMin, clustermeshTypes.ClusterIDMax)
 	}
 
 	if c.ClusterID != 0 {

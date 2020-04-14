@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/proxy/logger"
@@ -130,7 +131,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	kvstore.SetupDummy("etcd")
 	defer kvstore.Client().Close()
 
-	identity.InitWellKnownIdentities()
+	identity.InitWellKnownIdentities(&fakeConfig.Config{})
 	idAllocatorOwner := &DummyIdentityAllocatorOwner{}
 
 	mgr := cache.NewCachingIdentityAllocator(idAllocatorOwner)
