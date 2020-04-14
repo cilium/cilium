@@ -5,9 +5,9 @@ ifdef LIBNETWORK_PLUGIN
 SUBDIRS_CILIUM_CONTAINER += plugins/cilium-docker
 endif
 SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) operator plugins tools hubble-proxy
-GOFILES_EVAL := $(subst _$(ROOT_DIR)/,,$(shell $(CGO_DISABLED) $(GOLIST) $(GO) list -e ./...))
+GOFILES_EVAL := $(subst _$(ROOT_DIR)/,,$(shell $(GO_LIST) -e ./...))
 GOFILES ?= $(GOFILES_EVAL)
-TESTPKGS_EVAL := $(subst github.com/cilium/cilium/,,$(shell $(CGO_DISABLED) $(GOLIST) $(GO) list -e ./... | grep -v '/api/v1\|/vendor\|/contrib' | grep -v -P 'test(?!/helpers/logutils)'))
+TESTPKGS_EVAL := $(subst github.com/cilium/cilium/,,$(shell $(GO_LIST) -e ./... | grep -v '/api/v1\|/vendor\|/contrib' | grep -v -P 'test(?!/helpers/logutils)'))
 TESTPKGS ?= $(TESTPKGS_EVAL)
 GOLANGVERSION := $(shell $(GO) version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 GOLANG_SRCFILES := $(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor | sort | uniq)
@@ -89,7 +89,7 @@ tests-privileged:
 	# cilium-map-migrate is a dependency of some unit tests.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C bpf cilium-map-migrate
 	$(QUIET)$(foreach pkg,$(PRIV_TEST_PKGS),\
-		$(GO) test $(GOFLAGS) $(TEST_LDFLAGS) github.com/cilium/cilium/$(pkg) $(GOTEST_PRIV_OPTS) || exit 1;)
+		$(GO_TEST) $(TEST_LDFLAGS) github.com/cilium/cilium/$(pkg) $(GOTEST_PRIV_OPTS) || exit 1;)
 
 start-kvstores:
 ifeq ($(SKIP_KVSTORES),"false")
@@ -151,7 +151,7 @@ endif
 	# hence will trigger an error of too many arguments. As a workaround, we
 	# have to process these packages in different subshells.
 	for pkg in $(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)); do \
-		$(_GO) test $(GOFLAGS) $(TEST_UNITTEST_LDFLAGS) $$pkg $(GOTEST_BASE) $(GOTEST_COVER_OPTS) || exit 1; \
+		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $$pkg $(GOTEST_BASE) $(GOTEST_COVER_OPTS) || exit 1; \
 		tail -n +2 coverage.out >> coverage-all-tmp.out; \
 	done
 	$(MAKE) generate-cov
@@ -160,14 +160,14 @@ endif
 
 bench: start-kvstores
 	$(QUIET)$(foreach pkg,$(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)),\
-		$(GO) test $(GOFLAGS) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) \
+		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) \
 			$(pkg) \
 		|| exit 1;)
 	$(MAKE) stop-kvstores
 
 bench-privileged:
 	$(QUIET)$(foreach pkg,$(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)),\
-		$(GO) test $(GOFLAGS) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) \
+		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) \
 			-tags=privileged_tests $(pkg) \
 		|| exit 1;)
 
@@ -365,7 +365,7 @@ gofmt:
 
 govet:
 	@$(ECHO_CHECK) vetting all GOFILES...
-	$(QUIET) $(GOLIST) $(_GO) vet \
+	$(QUIET) $(GO_VET) \
     ./api/... \
     ./bugtool/... \
     ./cilium/... \
