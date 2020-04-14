@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"time"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -35,6 +36,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
+
+// nodeInfoRequest is used to fetch the return values when querying the RestAPI
+// for Node information. Note that we can't send two values to a channel
+type nodeInfoRequest struct {
+	nodeInfo *v1.Node
+	requestError error
+}
 
 // ParseNodeAddressType converts a Kubernetes NodeAddressType to a Cilium
 // NodeAddressType. If the Kubernetes NodeAddressType does not have a
@@ -209,8 +217,25 @@ func ParseNode(k8sNode *types.Node, source source.Source) *node.Node {
 // GetNode returns the kubernetes nodeName's node information from the
 // kubernetes api server
 func GetNode(c kubernetes.Interface, nodeName string) (*v1.Node, error) {
-	// Try to retrieve node's cidr and addresses from k8s's configuration
-	return c.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
+	// Pass a context so that the call fails if it takes more than 120 seconds
+	ctx, cancel := context.WithTimeout(context.TODO(), 120*time.Second)
+	defer cancel()
+
+	// Execute the REST call using goroutines and channels
+	channel := make(chan nodeInfoResquest, 1)
+	go func() {
+		result := new(nodeInfoResquest)
+	        // Try to retrieve node's cidr and addresses from k8s's configuration
+		result.nodeInfo, result.requestError = c.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+		channel <- *result
+		}()
+	select {
+	case <-ctx.Done():
+		scopedLog.WithError(err).WithField("c.CoreV1().Nodes().Get").Error("Deadline exceeded when fetching the nodeName's information")
+		return nil, ctx.Err()
+	case request := <-channel:
+		return request.nodeInfo, request.requestError
+        }
 }
 
 // SetNodeNetworkUnavailableFalse sets Kubernetes NodeNetworkUnavailable to
