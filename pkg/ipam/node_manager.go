@@ -214,6 +214,10 @@ func (n *NodeManager) GetNames() (allNodeNames []string) {
 	return
 }
 
+func (n *NodeManager) Create(resource *v2.CiliumNode) bool {
+	return n.Update(resource)
+}
+
 // Update is called whenever a CiliumNode resource has been updated in the
 // Kubernetes apiserver
 func (n *NodeManager) Update(resource *v2.CiliumNode) bool {

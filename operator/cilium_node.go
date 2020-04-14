@@ -46,7 +46,9 @@ func startSynchronizingCiliumNodes(nodeManager *ipam.NodeManager) {
 			AddFunc: func(obj interface{}) {
 				if node := k8s.ObjToCiliumNode(obj); node != nil {
 					// node is deep copied before it is stored in pkg/aws/eni
-					nodeManager.Update(node)
+					nodeManager.Create(node)
+				} else {
+					log.Warningf("Unknown CiliumNode object type %T received: %+v", obj, obj)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
