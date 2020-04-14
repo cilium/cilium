@@ -490,3 +490,11 @@ global:
   ci:
     # Make Cilium panic if objects received by k8s are modified.
     kubeCacheMutationDetector: false
+
+  ipam:
+    mode: "cluster-pool"
+    operator:
+      clusterPoolIPv4PodCIDR: "10.0.0.0/8"
+      clusterPoolIPv4MaskSize: 24
+      clusterPoolIPv6PodCIDR: "fd00::/104"
+      clusterPoolIPv6MaskSize: 120
