@@ -154,7 +154,11 @@ func TestRingReader_Next(t *testing.T) {
 }
 
 func TestRingReader_NextFollow(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer goleak.VerifyNone(
+		t,
+		// ignore go routines started by the redirect we do from klog to logrus
+		goleak.IgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
+		goleak.IgnoreTopFunction("io.(*pipe).Read"))
 	ring := NewRing(15)
 	for i := 0; i < 15; i++ {
 		ring.Write(&v1.Event{Timestamp: &timestamp.Timestamp{Seconds: int64(i)}})

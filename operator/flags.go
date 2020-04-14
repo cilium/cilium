@@ -15,7 +15,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"time"
 
@@ -25,7 +24,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"k8s.io/klog"
 )
 
 func init() {
@@ -207,13 +205,4 @@ func init() {
 	option.BindEnv(option.K8sHeartbeatTimeout)
 
 	viper.BindPFlags(flags)
-
-	// Make sure that klog logging variables are initialized so that we can
-	// update them from this file.
-	klog.InitFlags(nil)
-
-	// Make sure klog (used by the client-go dependency) logs to stderr, as it
-	// will try to log to directories that may not exist in the cilium-operator
-	// container (/tmp) and cause the cilium-operator to exit.
-	flag.Set("logtostderr", "true")
 }
