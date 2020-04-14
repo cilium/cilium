@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Authors of Cilium
+// Copyright 2017-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -805,4 +805,9 @@ func IPToPrefix(ip net.IP) *net.IPNet {
 		Mask: net.CIDRMask(bits, bits),
 	}
 	return prefix
+}
+
+// IsIPv4 returns true if the given IP is an IPv4
+func IsIPv4(ip net.IP) bool {
+	return ip.To4() != nil
 }
