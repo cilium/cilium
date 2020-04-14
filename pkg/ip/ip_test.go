@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -695,5 +695,42 @@ func (s *IPTestSuite) BenchmarkKeepUniqueIPs(c *C) {
 		c.StartTimer()
 
 		KeepUniqueIPs(ips)
+	}
+}
+
+func (s *IPTestSuite) TestIsIPv4(c *C) {
+	type args struct {
+		ip net.IP
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "test-1",
+			args: args{
+				ip: nil,
+			},
+			want: false,
+		},
+		{
+			name: "test-2",
+			args: args{
+				ip: net.ParseIP("1.1.1.1"),
+			},
+			want: true,
+		},
+		{
+			name: "test-3",
+			args: args{
+				ip: net.ParseIP("fd00::1"),
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		got := IsIPv4(tt.args.ip)
+		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }
