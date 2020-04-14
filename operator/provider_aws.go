@@ -19,9 +19,10 @@ package main
 import (
 	// These dependencies should be included only when this file is included in the build.
 	allocatorAWS "github.com/cilium/cilium/pkg/ipam/allocator/aws" // AWS allocator.
-	_ "github.com/cilium/cilium/pkg/policy/groups/aws"             // Register AWS policy group provider.
+	"github.com/cilium/cilium/pkg/option"
+	_ "github.com/cilium/cilium/pkg/policy/groups/aws" // Register AWS policy group provider.
 )
 
 func init() {
-	allocatorProviders["aws"] = &allocatorAWS.AllocatorAWS{}
+	allocatorProviders[option.IPAMENI] = &allocatorAWS.AllocatorAWS{}
 }
