@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers/logutils"
+	"github.com/onsi/gomega"
 
 	"github.com/asaskevich/govalidator"
 	"github.com/sirupsen/logrus"
@@ -760,7 +761,7 @@ func (kub *Kubectl) BackgroundReport(commands ...string) (context.CancelFunc, er
 	retrieveInfo := func() {
 		for _, pod := range pods {
 			for _, cmd := range commands {
-				kub.CiliumExec(pod, cmd)
+				kub.CiliumExecContext(context.TODO(), pod, cmd)
 			}
 		}
 	}
@@ -1868,12 +1869,16 @@ func (kub *Kubectl) CiliumExecContext(ctx context.Context, pod string, cmd strin
 	return res
 }
 
-// CiliumExec runs cmd in the specified Cilium pod.
-// Deprecated: use CiliumExecContext instead
-func (kub *Kubectl) CiliumExec(pod string, cmd string) *CmdRes {
-	ctx, cancel := context.WithTimeout(context.Background(), HelperTimeout)
-	defer cancel()
-	return kub.CiliumExecContext(ctx, pod, cmd)
+// CiliumExecMustSucceed runs cmd in the specified Cilium pod.
+// it causes a test failure if the command was not successful.
+func (kub *Kubectl) CiliumExecMustSucceed(ctx context.Context, pod, cmd string, optionalDescription ...interface{}) *CmdRes {
+	res := kub.CiliumExecContext(ctx, pod, cmd)
+	if !res.WasSuccessful() {
+		res.SendToLog(false)
+	}
+	gomega.ExpectWithOffset(1, res).Should(
+		CMDSuccess(), optionalDescription...)
+	return res
 }
 
 // CiliumExecUntilMatch executes the specified command repeatedly for the
@@ -2768,7 +2773,7 @@ func (kub *Kubectl) ciliumStatusPreFlightCheck() error {
 		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
 	}
 	for _, pod := range ciliumPods {
-		status := kub.CiliumExec(pod, "cilium status --all-health --all-nodes")
+		status := kub.CiliumExecContext(context.TODO(), pod, "cilium status --all-health --all-nodes")
 		if !status.WasSuccessful() {
 			return fmt.Errorf("cilium-agent '%s' is unhealthy: %s", pod, status.OutputPrettyPrint())
 		}
@@ -2792,7 +2797,7 @@ func (kub *Kubectl) ciliumControllersPreFlightCheck() error {
 		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
 	}
 	for _, pod := range ciliumPods {
-		status := kub.CiliumExec(pod, fmt.Sprintf(
+		status := kub.CiliumExecContext(context.TODO(), pod, fmt.Sprintf(
 			"cilium status --all-controllers -o jsonpath='%s'", controllersFilter))
 		if !status.WasSuccessful() {
 			return fmt.Errorf("cilium-agent '%s': Cannot run cilium status: %s",
@@ -2800,7 +2805,7 @@ func (kub *Kubectl) ciliumControllersPreFlightCheck() error {
 		}
 		for controller, status := range status.KVOutput() {
 			if status != "0" {
-				failmsg := kub.CiliumExec(pod, "cilium status --all-controllers")
+				failmsg := kub.CiliumExecContext(context.TODO(), pod, "cilium status --all-controllers")
 				return fmt.Errorf("cilium-agent '%s': controller %s is failing: %s",
 					pod, controller, failmsg.OutputPrettyPrint())
 			}
@@ -2825,7 +2830,7 @@ func (kub *Kubectl) ciliumHealthPreFlightCheck() error {
 		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
 	}
 	for _, pod := range ciliumPods {
-		status := kub.CiliumExec(pod, "cilium-health status -o json --probe")
+		status := kub.CiliumExecContext(context.TODO(), pod, "cilium-health status -o json --probe")
 		if !status.WasSuccessful() {
 			return fmt.Errorf(
 				"Cluster connectivity is unhealthy on '%s': %s",
@@ -2915,7 +2920,7 @@ func (kub *Kubectl) fillServiceCache() error {
 	for _, pod := range ciliumPods {
 		podCache := ciliumPodServiceCache{name: pod}
 
-		ciliumServicesRes := kub.CiliumExec(pod, ciliumSvcCmd)
+		ciliumServicesRes := kub.CiliumExecContext(context.TODO(), pod, ciliumSvcCmd)
 		err := ciliumServicesRes.GetErr(
 			fmt.Sprintf("Unable to retrieve Cilium services on %s", pod))
 		if err != nil {
@@ -2927,7 +2932,7 @@ func (kub *Kubectl) fillServiceCache() error {
 			return fmt.Errorf("Unable to unmarshal Cilium services: %s", err.Error())
 		}
 
-		ciliumLbRes := kub.CiliumExec(pod, ciliumBpfLbCmd)
+		ciliumLbRes := kub.CiliumExecContext(context.TODO(), pod, ciliumBpfLbCmd)
 		err = ciliumLbRes.GetErr(
 			fmt.Sprintf("Unable to retrieve Cilium bpf lb list on %s", pod))
 		if err != nil {

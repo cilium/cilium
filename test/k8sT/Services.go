@@ -218,8 +218,7 @@ var _ = Describe("K8sServicesTest", func() {
 			ciliumPods, err := kubectl.GetCiliumPods(helpers.CiliumNamespace)
 			Expect(err).To(BeNil(), "Cannot get cilium pods")
 			for _, pod := range ciliumPods {
-				service := kubectl.CiliumExec(pod, "cilium service list")
-				service.ExpectSuccess("Cannot retrieve services on cilium Pod")
+				service := kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium service list", "Cannot retrieve services on cilium Pod")
 				service.ExpectContains(clusterIP, "ClusterIP is not present in the cilium service list")
 			}
 			for i := 0; i < 10; i++ {
@@ -496,13 +495,13 @@ var _ = Describe("K8sServicesTest", func() {
 			endpointK8s1 := fmt.Sprintf("%s:%d", dstPodIPK8s1, dstPodPort)
 			patternInK8s1 := fmt.Sprintf("UDP IN %s:%d -> %s", srcIP, srcPort, endpointK8s1)
 			cmdInK8s1 := fmt.Sprintf(cmdIn, patternInK8s1)
-			res := kubectl.CiliumExec(ciliumPodK8s1, cmdInK8s1)
+			res := kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdInK8s1)
 			countInK8s1, _ := strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
 
 			endpointK8s2 := fmt.Sprintf("%s:%d", dstPodIPK8s2, dstPodPort)
 			patternInK8s2 := fmt.Sprintf("UDP IN %s:%d -> %s", srcIP, srcPort, endpointK8s2)
 			cmdInK8s2 := fmt.Sprintf(cmdIn, patternInK8s2)
-			res = kubectl.CiliumExec(ciliumPodK8s2, cmdInK8s2)
+			res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s2, cmdInK8s2)
 			countInK8s2, _ := strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
 
 			// Field #11 is "TxPackets=<n>"
@@ -510,12 +509,12 @@ var _ = Describe("K8sServicesTest", func() {
 
 			patternOutK8s1 := fmt.Sprintf("UDP OUT %s:%d -> %s", srcIP, srcPort, endpointK8s1)
 			cmdOutK8s1 := fmt.Sprintf(cmdOut, patternOutK8s1)
-			res = kubectl.CiliumExec(ciliumPod, cmdOutK8s1)
+			res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, cmdOutK8s1)
 			countOutK8s1, _ := strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
 
 			patternOutK8s2 := fmt.Sprintf("UDP OUT %s:%d -> %s", srcIP, srcPort, endpointK8s2)
 			cmdOutK8s2 := fmt.Sprintf(cmdOut, patternOutK8s2)
-			res = kubectl.CiliumExec(ciliumPod, cmdOutK8s2)
+			res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, cmdOutK8s2)
 			countOutK8s2, _ := strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
 
 			// Send datagram
@@ -541,18 +540,18 @@ var _ = Describe("K8sServicesTest", func() {
 			// Because of load balancing we do not know what
 			// backend pod received the datagram, so we check for
 			// each node.
-			res = kubectl.CiliumExec(ciliumPodK8s1, cmdInK8s1)
+			res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdInK8s1)
 			newCountInK8s1, _ := strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
-			res = kubectl.CiliumExec(ciliumPodK8s2, cmdInK8s2)
+			res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s2, cmdInK8s2)
 			newCountInK8s2, _ := strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
 			Expect([]int{newCountInK8s1, newCountInK8s2}).To(SatisfyAny(
 				Equal([]int{countInK8s1, countInK8s2 + delta}),
 				Equal([]int{countInK8s1 + delta, countInK8s2}),
 			), "Failed to account for IPv4 fragments (in)")
 
-			res = kubectl.CiliumExec(ciliumPod, cmdOutK8s1)
+			res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, cmdOutK8s1)
 			newCountOutK8s1, _ := strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
-			res = kubectl.CiliumExec(ciliumPod, cmdOutK8s2)
+			res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, cmdOutK8s2)
 			newCountOutK8s2, _ := strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
 			Expect([]int{newCountOutK8s1, newCountOutK8s2}).To(SatisfyAny(
 				Equal([]int{countOutK8s1, countOutK8s2 + delta}),
@@ -729,13 +728,11 @@ var _ = Describe("K8sServicesTest", func() {
 			// Clear CT tables on both Cilium nodes
 			pod, err := kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s1)
 			Expect(err).Should(BeNil(), "Cannot determine cilium pod name")
-			res := kubectl.CiliumExec(pod, "cilium bpf ct flush global")
-			res.ExpectSuccess("Unable to flush CT maps")
+			kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium bpf ct flush global", "Unable to flush CT maps")
 
 			pod, err = kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s2)
 			Expect(err).Should(BeNil(), "Cannot determine cilium pod name")
-			res = kubectl.CiliumExec(pod, "cilium bpf ct flush global")
-			res.ExpectSuccess("Unable to flush CT maps")
+			kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium bpf ct flush global", "Unable to flush CT maps")
 		}
 
 		testExternalTrafficPolicyLocal := func() {
@@ -802,10 +799,10 @@ var _ = Describe("K8sServicesTest", func() {
 			pod, err := kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s2)
 			Expect(err).Should(BeNil(), "Cannot determine cilium pod name")
 
-			res := kubectl.CiliumExec(pod, "cilium service list | grep "+k8s2IP+":"+httpHostPortStr+" | grep HostPort")
+			res := kubectl.CiliumExecContext(context.TODO(), pod, "cilium service list | grep "+k8s2IP+":"+httpHostPortStr+" | grep HostPort")
 			Expect(res.GetStdOut()).ShouldNot(BeEmpty(), "No HostPort entry for "+k8s2IP+":"+httpHostPortStr)
 
-			res = kubectl.CiliumExec(pod, "cilium service list | grep "+k8s2IP+":"+tftpHostPortStr+" | grep HostPort")
+			res = kubectl.CiliumExecContext(context.TODO(), pod, "cilium service list | grep "+k8s2IP+":"+tftpHostPortStr+" | grep HostPort")
 			Expect(res.GetStdOut()).ShouldNot(BeEmpty(), "No HostPort entry for "+k8s2IP+":"+tftpHostPortStr)
 
 			// Cluster-internal connectivity to HostPort
@@ -1037,13 +1034,11 @@ var _ = Describe("K8sServicesTest", func() {
 					url = getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
 
 					doRequestsFromThirdHostWithLocalPort(url, 1, true, 64000)
-					res := kubectl.CiliumExec(pod, "cilium bpf nat list | grep 64000")
+					res := kubectl.CiliumExecContext(context.TODO(), pod, "cilium bpf nat list | grep 64000")
 					Expect(res.GetStdOut()).ShouldNot(BeEmpty(), "NAT entry was not evicted")
-					res.ExpectSuccess("Unable to list NAT entries")
 					// Flush CT maps to trigger eviction of the NAT entries (simulates CT GC)
-					res = kubectl.CiliumExec(pod, "cilium bpf ct flush global")
-					res.ExpectSuccess("Unable to flush CT maps")
-					res = kubectl.CiliumExec(pod, "cilium bpf nat list | grep 64000")
+					kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium bpf ct flush global", "Unable to flush CT maps")
+					res = kubectl.CiliumExecContext(context.TODO(), pod, "cilium bpf nat list | grep 64000")
 					res.ExpectFail("NAT entry was not evicted")
 				})
 

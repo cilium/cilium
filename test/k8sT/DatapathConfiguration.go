@@ -15,6 +15,7 @@
 package k8sTest
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"regexp"
@@ -213,8 +214,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			By("Checking that BPF tunnels are in place")
 			ciliumPod, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s1)
 			ExpectWithOffset(1, err).Should(BeNil(), "Unable to determine cilium pod on node %s", helpers.K8s1)
-			status := kubectl.CiliumExec(ciliumPod, "cilium bpf tunnel list | wc -l")
-			status.ExpectSuccess()
+			status := kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, "cilium bpf tunnel list | wc -l")
 
 			// ipv4+ipv6: 2 entries for each remote node + 1 header row
 			numEntries := (kubectl.GetNumCiliumNodes()-1)*2 + 1
