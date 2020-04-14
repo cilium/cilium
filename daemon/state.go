@@ -198,8 +198,11 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState, clean bool) er
 
 		restore, err := d.validateEndpoint(ep)
 		if err != nil {
-			scopedLog.WithError(err).Warningf("Unable to restore endpoint, ignoring")
-			failed++
+			// Disconnected EPs are not failures, clean them silently below
+			if !ep.IsDisconnecting() {
+				scopedLog.WithError(err).Warningf("Unable to restore endpoint, ignoring")
+				failed++
+			}
 		}
 		if !restore {
 			if clean {

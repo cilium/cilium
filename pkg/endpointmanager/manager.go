@@ -283,6 +283,7 @@ func (mgr *EndpointManager) ReleaseID(ep *endpoint.Endpoint) error {
 
 // WaitEndpointRemoved waits until all operations associated with Remove of
 // the endpoint have been completed.
+// Note: only used for unit tests
 func (mgr *EndpointManager) WaitEndpointRemoved(ep *endpoint.Endpoint) {
 	<-ep.Unexpose(mgr)
 }
