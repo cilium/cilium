@@ -560,7 +560,11 @@ func TestRingFunctionalitySerialized(t *testing.T) {
 }
 
 func TestRing_ReadFrom_Test_1(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer goleak.VerifyNone(
+		t,
+		// ignore go routines started by the redirect we do from klog to logrus
+		goleak.IgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
+		goleak.IgnoreTopFunction("io.(*pipe).Read"))
 	r := NewRing(0xf)
 	if len(r.data) != 0x10 {
 		t.Errorf("r.data should have a lenght of 0x10. Got %x", len(r.data))
@@ -613,7 +617,11 @@ func TestRing_ReadFrom_Test_1(t *testing.T) {
 }
 
 func TestRing_ReadFrom_Test_2(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer goleak.VerifyNone(
+		t,
+		// ignore go routines started by the redirect we do from klog to logrus
+		goleak.IgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
+		goleak.IgnoreTopFunction("io.(*pipe).Read"))
 	r := NewRing(0xf)
 	if len(r.data) != 0x10 {
 		t.Errorf("r.data should have a length of 0x10. Got %x", len(r.data))
@@ -691,7 +699,11 @@ func TestRing_ReadFrom_Test_2(t *testing.T) {
 }
 
 func TestRing_ReadFrom_Test_3(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer goleak.VerifyNone(
+		t,
+		// ignore go routines started by the redirect we do from klog to logrus
+		goleak.IgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
+		goleak.IgnoreTopFunction("io.(*pipe).Read"))
 	r := NewRing(0xf)
 	if len(r.data) != 0x10 {
 		t.Errorf("r.data should have a length of 0x10. Got %x", len(r.data))
