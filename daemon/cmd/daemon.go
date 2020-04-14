@@ -411,6 +411,10 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 			log.WithError(err).Fatal("Unable to register CRDs")
 		}
 
+		if err := k8s.GetNodeSpec(os.Getenv(k8s.EnvNodeNameSpec)); err != nil {
+			log.WithError(err).Fatal("Unable to connect to get node spec from apiserver")
+		}
+
 		// Kubernetes demands that the localhost can always reach local
 		// pods. Therefore unless the AllowLocalhost policy is set to a
 		// specific mode, always allow localhost to reach local

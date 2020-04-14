@@ -18,7 +18,6 @@ package k8s
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/cilium/cilium/pkg/backoff"
@@ -162,52 +161,60 @@ func Init(conf k8sconfig.Configuration) error {
 			k8sversion.Version(), k8sversion.MinimalVersionConstraint)
 	}
 
-	if nodeName := os.Getenv(EnvNodeNameSpec); nodeName != "" {
-		// Use of the environment variable overwrites the node-name
-		// automatically derived
-		nodeTypes.SetName(nodeName)
+	return nil
+}
 
-		if n := waitForNodeInformation(context.TODO(), nodeName); n != nil {
-			nodeIP4 := n.GetNodeIP(false)
-			nodeIP6 := n.GetNodeIP(true)
-
-			log.WithFields(logrus.Fields{
-				logfields.NodeName:         n.Name,
-				logfields.IPAddr + ".ipv4": nodeIP4,
-				logfields.IPAddr + ".ipv6": nodeIP6,
-				logfields.V4Prefix:         n.IPv4AllocCIDR,
-				logfields.V6Prefix:         n.IPv6AllocCIDR,
-			}).Info("Received own node information from API server")
-
-			useNodeCIDR(n)
-
-			// Note: Node IPs are derived regardless of
-			// option.Config.EnableIPv4 and
-			// option.Config.EnableIPv6. This is done to enable
-			// underlay addressing to be different from overlay
-			// addressing, e.g. an IPv6 only PodCIDR running over
-			// IPv4 encapsulation.
-			if nodeIP4 != nil {
-				node.SetExternalIPv4(nodeIP4)
-			}
-
-			if nodeIP6 != nil {
-				node.SetIPv6(nodeIP6)
-			}
-		} else {
-			// if node resource could not be received, fail if
-			// PodCIDR requirement has been requested
-			if option.Config.K8sRequireIPv4PodCIDR || option.Config.K8sRequireIPv6PodCIDR {
-				log.Fatal("Unable to derive PodCIDR from Kubernetes node resource, giving up")
-			}
+// GetNodeSpec retrieves this node spec from kubernetes. This node information
+// can either be derived from a CiliumNode or a Kubernetes node.
+func GetNodeSpec(nodeName string) error {
+	if nodeName == "" {
+		if option.Config.K8sRequireIPv4PodCIDR || option.Config.K8sRequireIPv6PodCIDR {
+			return fmt.Errorf("node name must be specified via environment variable '%s' to retrieve Kubernetes PodCIDR range", EnvNodeNameSpec)
 		}
-
-		// Annotate addresses will occur later since the user might
-		// want to specify them manually
-	} else if option.Config.K8sRequireIPv4PodCIDR || option.Config.K8sRequireIPv6PodCIDR {
-		return fmt.Errorf("node name must be specified via environment variable '%s' to retrieve Kubernetes PodCIDR range", EnvNodeNameSpec)
+		return nil
 	}
 
+	// Use of the environment variable overwrites the node-name
+	// automatically derived
+	nodeTypes.SetName(nodeName)
+
+	if n := waitForNodeInformation(context.TODO(), nodeName); n != nil {
+		nodeIP4 := n.GetNodeIP(false)
+		nodeIP6 := n.GetNodeIP(true)
+
+		log.WithFields(logrus.Fields{
+			logfields.NodeName:         n.Name,
+			logfields.IPAddr + ".ipv4": nodeIP4,
+			logfields.IPAddr + ".ipv6": nodeIP6,
+			logfields.V4Prefix:         n.IPv4AllocCIDR,
+			logfields.V6Prefix:         n.IPv6AllocCIDR,
+		}).Info("Received own node information from API server")
+
+		useNodeCIDR(n)
+
+		// Note: Node IPs are derived regardless of
+		// option.Config.EnableIPv4 and
+		// option.Config.EnableIPv6. This is done to enable
+		// underlay addressing to be different from overlay
+		// addressing, e.g. an IPv6 only PodCIDR running over
+		// IPv4 encapsulation.
+		if nodeIP4 != nil {
+			node.SetExternalIPv4(nodeIP4)
+		}
+
+		if nodeIP6 != nil {
+			node.SetIPv6(nodeIP6)
+		}
+	} else {
+		// if node resource could not be received, fail if
+		// PodCIDR requirement has been requested
+		if option.Config.K8sRequireIPv4PodCIDR || option.Config.K8sRequireIPv6PodCIDR {
+			log.Fatal("Unable to derive PodCIDR from Kubernetes node resource, giving up")
+		}
+	}
+
+	// Annotate addresses will occur later since the user might
+	// want to specify them manually
 	return nil
 }
 

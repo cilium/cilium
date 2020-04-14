@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package cmd
 import (
 	"context"
 	"errors"
+	"os"
 	"path"
 	"time"
 
@@ -197,6 +198,10 @@ func initK8s(ctx context.Context) (crdBackend allocator.Backend, crdAllocator *a
 
 	if err := k8s.Init(k8sconfig.NewDefaultConfiguration()); err != nil {
 		log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
+	}
+
+	if err := k8s.GetNodeSpec(os.Getenv(k8s.EnvNodeNameSpec)); err != nil {
+		log.WithError(err).Fatal("Unable to connect to get node spec from apiserver")
 	}
 
 	// Update CRDs to ensure ciliumIdentity is present
