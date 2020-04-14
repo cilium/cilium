@@ -11,7 +11,7 @@ pipeline {
         K8S_VERSION="1.17"
         TESTED_SUITE="k8s-${K8S_VERSION}"
         GINKGO_TIMEOUT="300m"
-        DEFAULT_KERNEL="419"
+        KERNEL="419"
     }
 
     options {
@@ -117,7 +117,7 @@ pipeline {
                 retry(3) {
                     timeout(time: 45, unit: 'MINUTES'){
                         dir("${TESTDIR}") {
-                            sh 'KERNEL=$(python get-gh-comment-info.py "${ghprbCommentBody}" --retrieve=version | sed "s/^$/${DEFAULT_KERNEL}/") CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
+                            sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
                         }
                     }
                 }
