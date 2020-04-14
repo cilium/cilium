@@ -84,8 +84,9 @@ github.com/cilium/ebpf/asm
 github.com/cilium/ebpf/internal
 github.com/cilium/ebpf/internal/unix
 github.com/cilium/ebpf/perf
-# github.com/cilium/ipam v0.0.0-20200217195329-a46f8d55f9db
+# github.com/cilium/ipam v0.0.0-20200420133938-2f672ef3ad54
 ## explicit
+github.com/cilium/ipam/cidrset
 github.com/cilium/ipam/service/allocator
 github.com/cilium/ipam/service/ipallocator
 # github.com/cilium/proxy v0.0.0-20200309181938-3cf80fe45d03

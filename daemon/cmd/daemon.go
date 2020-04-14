@@ -411,6 +411,12 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 			log.WithError(err).Fatal("Unable to register CRDs")
 		}
 
+		if option.Config.IPAM == option.IPAMOperator {
+			// Create the CiliumNode custom resource. This call will block until
+			// the custom resource has been created
+			d.nodeDiscovery.UpdateCiliumNodeResource()
+		}
+
 		if err := k8s.GetNodeSpec(os.Getenv(k8s.EnvNodeNameSpec)); err != nil {
 			log.WithError(err).Fatal("Unable to connect to get node spec from apiserver")
 		}

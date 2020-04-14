@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"time"
 
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
@@ -163,7 +164,7 @@ func runOperator(cmd *cobra.Command) {
 		err         error
 	)
 	switch ipamMode := option.Config.IPAM; ipamMode {
-	case option.IPAMAzure, option.IPAMENI:
+	case option.IPAMAzure, option.IPAMENI, option.IPAMOperator:
 		alloc, providerBuiltin := allocatorProviders[ipamMode]
 		if !providerBuiltin {
 			log.Fatalf("%s allocator is not supported by this version of cilium-operator", ipamMode)
@@ -180,6 +181,24 @@ func runOperator(cmd *cobra.Command) {
 
 		startSynchronizingCiliumNodes(nm)
 		nodeManager = &nm
+
+		switch ipamMode {
+		case option.IPAMOperator:
+			// We will use CiliumNodes as the source of truth for the podCIDRs.
+			// Once the CiliumNodes are synchronized with the operator we will
+			// be able to watch for K8s Node events which they will be used
+			// to create the remaining CiliumNodes.
+			<-k8sCiliumNodesCacheSynced
+
+			// We don't want CiliumNodes that don't have podCIDRs to be
+			// allocated with a podCIDR already being used by another node.
+			// For this reason we will call Resync after all CiliumNodes are
+			// synced with the operator to signalize the node manager, since it
+			// knows all podCIDRs that are currently set in the cluster, that
+			// it can allocate podCIDRs for the nodes that don't have a podCIDR
+			// set.
+			nm.Resync(context.Background(), time.Time{})
+		}
 	}
 
 	if kvstoreEnabled() {
