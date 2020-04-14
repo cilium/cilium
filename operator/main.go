@@ -23,7 +23,7 @@ import (
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/components"
-	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/pkg/ipam/allocator"
 	"github.com/cilium/cilium/pkg/k8s"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
@@ -159,7 +159,7 @@ func runOperator(cmd *cobra.Command) {
 	}
 
 	var (
-		nodeManager *ipam.NodeManager
+		nodeManager *allocator.NodeEventHandler
 		err         error
 	)
 
@@ -174,12 +174,13 @@ func runOperator(cmd *cobra.Command) {
 			log.WithError(err).Fatal("Unable to init AWS ENI allocator")
 		}
 
-		nodeManager, err = ipamAllocatorAWS.Start(&ciliumNodeUpdateImplementation{})
+		nm, err := ipamAllocatorAWS.Start(&ciliumNodeUpdateImplementation{})
 		if err != nil {
 			log.WithError(err).Fatal("Unable to start AWS ENI allocator")
 		}
 
-		startSynchronizingCiliumNodes(nodeManager)
+		startSynchronizingCiliumNodes(nm)
+		nodeManager = &nm
 	case option.IPAMAzure:
 		ipamAllocatorAzure, providerBuiltin := allocatorProviders["azure"]
 		if !providerBuiltin {
@@ -190,12 +191,13 @@ func runOperator(cmd *cobra.Command) {
 			log.WithError(err).Fatal("Unable to init Azure allocator")
 		}
 
-		nodeManager, err = ipamAllocatorAzure.Start(&ciliumNodeUpdateImplementation{})
+		nm, err := ipamAllocatorAzure.Start(&ciliumNodeUpdateImplementation{})
 		if err != nil {
 			log.WithError(err).Fatal("Unable to start Azure allocator")
 		}
 
-		startSynchronizingCiliumNodes(nodeManager)
+		startSynchronizingCiliumNodes(nm)
+		nodeManager = &nm
 	}
 
 	if kvstoreEnabled() {

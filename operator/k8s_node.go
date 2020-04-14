@@ -23,7 +23,7 @@ import (
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/pkg/ipam/allocator"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
@@ -45,7 +45,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func runNodeWatcher(nodeManager *ipam.NodeManager) error {
+func runNodeWatcher(nodeManager *allocator.NodeEventHandler) error {
 	log.Info("Starting to synchronize k8s nodes to kvstore...")
 
 	ciliumNodeStore, err := store.JoinSharedStore(store.Configuration{
