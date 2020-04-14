@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,11 +22,14 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
+
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Identity represents the node identity of a node.
@@ -77,6 +80,54 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
 	}
 
 	return
+}
+
+// ToCiliumNode converts the node to a CiliumNode
+func (n *Node) ToCiliumNode() *ciliumv2.CiliumNode {
+	var (
+		podCIDRs               []string
+		ipAddrs                []ciliumv2.NodeAddress
+		healthIPv4, healthIPv6 string
+	)
+
+	if n.IPv4AllocCIDR != nil {
+		podCIDRs = append(podCIDRs, n.IPv4AllocCIDR.String())
+	}
+	if n.IPv6AllocCIDR != nil {
+		podCIDRs = append(podCIDRs, n.IPv6AllocCIDR.String())
+	}
+	if n.IPv4HealthIP != nil {
+		healthIPv4 = n.IPv4HealthIP.String()
+	}
+	if n.IPv6HealthIP != nil {
+		healthIPv6 = n.IPv6HealthIP.String()
+	}
+
+	for _, address := range n.IPAddresses {
+		ipAddrs = append(ipAddrs, ciliumv2.NodeAddress{
+			Type: address.Type,
+			IP:   address.IP.String(),
+		})
+	}
+
+	return &ciliumv2.CiliumNode{
+		ObjectMeta: v1.ObjectMeta{
+			Name: n.Name,
+		},
+		Spec: ciliumv2.NodeSpec{
+			Addresses: ipAddrs,
+			HealthAddressing: ciliumv2.HealthAddressingSpec{
+				IPv4: healthIPv4,
+				IPv6: healthIPv6,
+			},
+			Encryption: ciliumv2.EncryptionSpec{
+				Key: int(n.EncryptionKey),
+			},
+			IPAM: ipamTypes.IPAMSpec{
+				PodCIDRs: podCIDRs,
+			},
+		},
+	}
 }
 
 // Node contains the nodes name, the list of addresses to this address

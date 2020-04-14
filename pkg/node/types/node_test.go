@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -119,5 +119,49 @@ func (s *NodeSuite) TestParseCiliumNode(c *C) {
 		IPv6AllocCIDR: cidr.MustParseCIDR("c0de::/96"),
 		IPv4HealthIP:  net.ParseIP("1.1.1.1"),
 		IPv6HealthIP:  net.ParseIP("c0de::1"),
+	})
+}
+
+func (s *NodeSuite) TestNode_ToCiliumNode(c *C) {
+	nodeResource := Node{
+		Name:   "foo",
+		Source: source.CustomResource,
+		IPAddresses: []Address{
+			{Type: addressing.NodeInternalIP, IP: net.ParseIP("2.2.2.2")},
+			{Type: addressing.NodeExternalIP, IP: net.ParseIP("3.3.3.3")},
+			{Type: addressing.NodeInternalIP, IP: net.ParseIP("c0de::1")},
+			{Type: addressing.NodeExternalIP, IP: net.ParseIP("c0de::2")},
+		},
+		EncryptionKey: uint8(10),
+		IPv4AllocCIDR: cidr.MustParseCIDR("10.10.0.0/16"),
+		IPv6AllocCIDR: cidr.MustParseCIDR("c0de::/96"),
+		IPv4HealthIP:  net.ParseIP("1.1.1.1"),
+		IPv6HealthIP:  net.ParseIP("c0de::1"),
+	}
+
+	n := nodeResource.ToCiliumNode()
+	c.Assert(n, checker.DeepEquals, &ciliumv2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: ""},
+		Spec: ciliumv2.NodeSpec{
+			Addresses: []ciliumv2.NodeAddress{
+				{Type: addressing.NodeInternalIP, IP: "2.2.2.2"},
+				{Type: addressing.NodeExternalIP, IP: "3.3.3.3"},
+				{Type: addressing.NodeInternalIP, IP: "c0de::1"},
+				{Type: addressing.NodeExternalIP, IP: "c0de::2"},
+			},
+			Encryption: ciliumv2.EncryptionSpec{
+				Key: 10,
+			},
+			IPAM: ipamTypes.IPAMSpec{
+				PodCIDRs: []string{
+					"10.10.0.0/16",
+					"c0de::/96",
+				},
+			},
+			HealthAddressing: ciliumv2.HealthAddressingSpec{
+				IPv4: "1.1.1.1",
+				IPv6: "c0de::1",
+			},
+		},
 	})
 }
