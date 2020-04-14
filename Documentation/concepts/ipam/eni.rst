@@ -17,8 +17,8 @@ communicating with the AWS EC2 API.
 
 The architecture ensures that only a single operator communicates with the EC2
 service API to avoid rate-limiting issues in large clusters. A pre-allocation
-watermark allows to maintain a number of IP addresses to be available for use
-on nodes at all time without requiring to contact the EC2 API when a new pod is
+watermark is used to maintain a number of IP addresses to be available for use
+on nodes at all time without needing to contact the EC2 API when a new pod is
 scheduled in the cluster.
 
 ************
@@ -31,10 +31,10 @@ Architecture
 The AWS ENI allocator builds on top of the CRD-backed allocator. Each node
 creates a ``ciliumnodes.cilium.io`` custom resource matching the node name when
 Cilium starts up for the first time on that node. It contacts the EC2 metadata
-API to retrieve instance ID, instance type, and VPC information and populates
-the custom resource with this information. ENI allocation parameters are
-provided as agent configuration option and are passed into the custom resource
-as well.
+API to retrieve the instance ID, instance type, and VPC information, then it
+populates the custom resource with this information. ENI allocation parameters
+are provided as agent configuration option and are passed into the custom
+resource as well.
 
 The Cilium operator listens for new ``ciliumnodes.cilium.io`` custom resources
 and starts managing the IPAM aspect automatically. It scans the EC2 instances
@@ -42,7 +42,7 @@ for existing ENIs with associated IPs and makes them available via the
 ``spec.ipam.available`` field. It will then constantly monitor the used IP
 addresses in the ``status.ipam.used`` field and automatically create ENIs and
 allocate more IPs as needed to meet the IP pre-allocation watermark. This ensures
-that there are always IPs available
+that there are always IPs available.
 
 The selection of subnets to use for allocation as well as attachment of
 security groups to new ENIs can be controlled separately for each node. This
@@ -306,7 +306,7 @@ matches the following criteria:
 
 If multiple subnets match, the subnet with the most available addresses is selected.
 
-After selecting the ENI, the interface index is determine. For this purpose,
+After selecting the ENI, the interface index is determined. For this purpose,
 all existing ENIs are scanned and the first unused index greater than
 ``spec.eni.first-interface-index`` is selected.
 
