@@ -248,9 +248,10 @@ code. Configuration options will be added on request if demand arises.
 ======================== ================ =============== =====================================================
 Map Name                 Scope            Default Limit   Scale Implications
 ======================== ================ =============== =====================================================
-Connection Tracking      node or endpoint 1M TCP/256K UDP Max 1M concurrent TCP connections, max 256K expected UDP answers
+Connection Tracking      node or endpoint 1M TCP/256k UDP Max 1M concurrent TCP connections, max 256k expected UDP answers
+NAT                      node             512k            Max 512k NAT entries
 Endpoints                node             64k             Max 64k local endpoints + host IPs per node
-IP cache                 node             512K            Max 256K endpoints (IPv4+IPv6), max 512k endpoints (IPv4 or IPv6) across all clusters
+IP cache                 node             512k            Max 256k endpoints (IPv4+IPv6), max 512k endpoints (IPv4 or IPv6) across all clusters
 Load Balancer            node             64k             Max 64k cumulative backends across all services across all clusters
 Policy                   endpoint         16k             Max 16k allowed identity + port + protocol pairs for specific endpoint
 Proxy Map                node             512k            Max 512k concurrent redirected TCP connections to proxy
