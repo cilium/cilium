@@ -17,4 +17,7 @@ Command Reference
       cli_index
       cilium-health
       cilium-operator
+      cilium-operator-aws
+      cilium-operator-azure
+      cilium-operator-generic
       kvstore

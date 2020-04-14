@@ -14,6 +14,9 @@ generators=(
     "bugtool/cilium-bugtool cmdref -d"
     "cilium-health/cilium-health --cmdref"
     "operator/cilium-operator --cmdref"
+    "operator/cilium-operator-aws --cmdref"
+    "operator/cilium-operator-azure --cmdref"
+    "operator/cilium-operator-generic --cmdref"
 )
 
 for g in "${generators[@]}" ; do

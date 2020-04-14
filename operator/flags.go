@@ -29,7 +29,7 @@ import (
 )
 
 func init() {
-	cobra.OnInitialize(option.InitConfig("Cilium-Operator", "cilium-operator"))
+	cobra.OnInitialize(option.InitConfig("Cilium-Operator", "cilium-operators"))
 
 	flags := rootCmd.Flags()
 
@@ -44,29 +44,6 @@ func init() {
 
 	flags.Float64(operatorOption.IPAMAPIQPSLimit, defaults.IPAMAPIQPSLimit, "Queries per second limit when accessing external IPAM APIs")
 	option.BindEnv(operatorOption.IPAMAPIQPSLimit)
-
-	flags.String(operatorOption.AzureSubscriptionID, "", "Subscription ID to access Azure API")
-	option.BindEnvWithLegacyEnvFallback(operatorOption.AzureSubscriptionID, "AZURE_SUBSCRIPTION_ID")
-
-	flags.String(operatorOption.AzureResourceGroup, "", "Resource group to use for Azure IPAM")
-	option.BindEnvWithLegacyEnvFallback(operatorOption.AzureResourceGroup, "AZURE_RESOURCE_GROUP")
-
-	flags.Var(option.NewNamedMapOptions(operatorOption.AWSInstanceLimitMapping, &operatorOption.Config.AWSInstanceLimitMapping, nil),
-		operatorOption.AWSInstanceLimitMapping,
-		`Add or overwrite mappings of AWS instance limit in the form of `+
-			`{"AWS instance type": "Maximum Network Interfaces","IPv4 Addresses `+
-			`per Interface","IPv6 Addresses per Interface"}. cli example: `+
-			`--aws-instance-limit-mapping=a1.medium=2,4,4 `+
-			`--aws-instance-limit-mapping=a2.somecustomflavor=4,5,6 `+
-			`configmap example: {"a1.medium": "2,4,4", "a2.somecustomflavor": "4,5,6"}`)
-	option.BindEnv(operatorOption.AWSInstanceLimitMapping)
-
-	flags.Bool(operatorOption.AWSReleaseExcessIPs, false, "Enable releasing excess free IP addresses from AWS ENI.")
-	option.BindEnv(operatorOption.AWSReleaseExcessIPs)
-
-	flags.Var(option.NewNamedMapOptions(operatorOption.ENITags, &operatorOption.Config.ENITags, nil),
-		operatorOption.ENITags, "ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)")
-	option.BindEnv(operatorOption.ENITags)
 
 	flags.StringToStringVar(&operatorOption.Config.IPAMSubnetsTags, operatorOption.IPAMSubnetsTags, operatorOption.Config.IPAMSubnetsTags,
 		"Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag")
@@ -138,8 +115,73 @@ func init() {
 	flags.Bool(operatorOption.EnableMetrics, false, "Enable Prometheus metrics")
 	option.BindEnv(operatorOption.EnableMetrics)
 
-	flags.String(option.IPAM, ipamOption.IPAMHostScopeLegacy, "Backend to use for IPAM")
+	var defaultIPAM string
+	switch binaryName {
+	case "cilium-operator":
+		defaultIPAM = ipamOption.IPAMHostScopeLegacy
+	case "cilium-operator-aws":
+		defaultIPAM = ipamOption.IPAMENI
+	case "cilium-operator-azure":
+		defaultIPAM = ipamOption.IPAMAzure
+	case "cilium-operator-generic":
+		defaultIPAM = ipamOption.IPAMOperator
+	}
+
+	flags.String(option.IPAM, defaultIPAM, "Backend to use for IPAM")
 	option.BindEnv(option.IPAM)
+
+	rootCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+		ipamFlag := cmd.Flag(option.IPAM)
+		if !ipamFlag.Changed {
+			return nil
+		}
+		ipamFlagValue := ipamFlag.Value.String()
+
+		recommendInstead := func() string {
+			switch ipamFlagValue {
+			case ipamOption.IPAMENI:
+				return "cilium-operator-aws"
+			case ipamOption.IPAMAzure:
+				return "cilium-operator-azure"
+			case ipamOption.IPAMKubernetes, ipamOption.IPAMOperator, ipamOption.IPAMCRD:
+				return "cilium-operator-generic"
+			default:
+				return ""
+			}
+		}
+
+		unsupporterErr := func() error {
+			errMsg := fmt.Sprintf("%s doesn't support --%s=%s", binaryName, option.IPAM, ipamFlagValue)
+			if recommendation := recommendInstead(); recommendation != "" {
+				return fmt.Errorf("%s (use %s)", errMsg, recommendation)
+			}
+			return fmt.Errorf(errMsg)
+		}
+
+		switch binaryName {
+		case "cilium-operator":
+			if recommendation := recommendInstead(); recommendation != "" {
+				log.Warnf("cilium-operator will be deprecated in the future, for --%s=%s use %s as it has lower memory footprint", option.IPAM, ipamFlagValue, recommendation)
+			}
+		case "cilium-operator-aws":
+			if ipamFlagValue != ipamOption.IPAMENI {
+				return unsupporterErr()
+			}
+		case "cilium-operator-azure":
+			if ipamFlagValue != ipamOption.IPAMAzure {
+				return unsupporterErr()
+			}
+		case "cilium-operator-generic":
+			switch ipamFlagValue {
+			case ipamOption.IPAMENI, ipamOption.IPAMAzure:
+				return unsupporterErr()
+			case ipamOption.IPAMHostScopeLegacy:
+				return fmt.Errorf("%s, as it is deprecated, but it is still supported by legacy cilium-operator binary)", unsupporterErr().Error())
+			}
+		}
+
+		return nil
+	}
 
 	flags.Duration(operatorOption.IdentityHeartbeatTimeout, 2*defaults.KVstoreLeaseTTL, "Timeout after which identity expires on lack of heartbeat")
 	option.BindEnv(operatorOption.IdentityHeartbeatTimeout)
