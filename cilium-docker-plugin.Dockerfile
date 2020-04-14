@@ -3,8 +3,7 @@ LABEL maintainer="maintainer@cilium.io"
 ADD . /go/src/github.com/cilium/cilium
 WORKDIR /go/src/github.com/cilium/cilium/plugins/cilium-docker
 ARG LOCKDEBUG
-ARG V
-RUN make CGO_ENABLED=0 GOOS=linux LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 EXTRA_GOBUILD_FLAGS="-a -installsuffix cgo"
+RUN make LOCKDEBUG=$LOCKDEBUG
 
 FROM scratch
 LABEL maintainer="maintainer@cilium.io"
