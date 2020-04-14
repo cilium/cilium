@@ -15,3 +15,4 @@ Configuring IPAM modes
    :glob:
 
    ipam-crd
+   ipam-cluster-pool
