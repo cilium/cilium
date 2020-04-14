@@ -304,12 +304,10 @@ function xdp_load()
 	NODE_MAC="{.addr=$(mac2array $NODE_MAC)}"
 
 	bpf_compile $IN $OUT obj "$OPTS -DNODE_MAC=${NODE_MAC}"
-
-	ip link set dev $DEV $MODE off
 	rm -f "$CILIUM_BPF_MNT/xdp/globals/$CIDR_MAP" 2> /dev/null || true
 	cilium-map-migrate -s $OUT
 	set +e
-	ip link set dev $DEV $MODE obj $OUT sec $SEC
+	ip -force link set dev $DEV $MODE obj $OUT sec $SEC
 	RETCODE=$?
 	set -e
 	cilium-map-migrate -e $OUT -r $RETCODE
@@ -660,6 +658,11 @@ for iface in $(ip -o -a l | awk '{print $2}' | cut -d: -f1 | cut -d@ -f1 | grep 
 done
 
 if [ "$XDP_DEV" != "<nil>" ]; then
+	if ip -one link show dev $XDP_DEV | grep -v -q $XDP_MODE; then
+		for mode in xdpdrv xdpgeneric; do
+			xdp_unload "$XDP_DEV" "$mode"
+		done
+	fi
 	CIDR_MAP="cilium_cidr_v*"
 	COPTS="-DSECLABEL=${ID_WORLD} -DCALLS_MAP=cilium_calls_xdp"
 	if [ "$NODE_PORT" = "true" ]; then
