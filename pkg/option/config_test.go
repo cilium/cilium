@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/google/go-cmp/cmp"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	. "gopkg.in/check.v1"
@@ -257,6 +258,213 @@ func (s *OptionSuite) TestEndpointStatusIsEnabled(c *C) {
 	c.Assert(d.EndpointStatusIsEnabled(EndpointStatusHealth), Equals, true)
 	c.Assert(d.EndpointStatusIsEnabled(EndpointStatusPolicy), Equals, true)
 	c.Assert(d.EndpointStatusIsEnabled(EndpointStatusLog), Equals, false)
+}
+
+func TestCheckMapSizeLimits(t *testing.T) {
+	type sizes struct {
+		CTMapEntriesGlobalTCP int
+		CTMapEntriesGlobalAny int
+		NATMapEntriesGlobal   int
+		PolicyMapEntries      int
+		FragmentsMapEntries   int
+		WantErr               bool
+	}
+	tests := []struct {
+		name string
+		d    *DaemonConfig
+		want sizes
+	}{
+		{
+			name: "default map sizes",
+			d: &DaemonConfig{
+				CTMapEntriesGlobalTCP: CTMapEntriesGlobalTCPDefault,
+				CTMapEntriesGlobalAny: CTMapEntriesGlobalAnyDefault,
+				NATMapEntriesGlobal:   NATMapEntriesGlobalDefault,
+				PolicyMapEntries:      defaults.PolicyMapEntries,
+				FragmentsMapEntries:   defaults.FragmentsMapEntries,
+			},
+			want: sizes{
+				CTMapEntriesGlobalTCP: CTMapEntriesGlobalTCPDefault,
+				CTMapEntriesGlobalAny: CTMapEntriesGlobalAnyDefault,
+				NATMapEntriesGlobal:   NATMapEntriesGlobalDefault,
+				PolicyMapEntries:      defaults.PolicyMapEntries,
+				FragmentsMapEntries:   defaults.FragmentsMapEntries,
+				WantErr:               false,
+			},
+		},
+		{
+			name: "arbitrary map sizes within range",
+			d: &DaemonConfig{
+				CTMapEntriesGlobalTCP: 20000,
+				CTMapEntriesGlobalAny: 18000,
+				NATMapEntriesGlobal:   2048,
+				PolicyMapEntries:      512,
+				FragmentsMapEntries:   2 << 14,
+			},
+			want: sizes{
+				CTMapEntriesGlobalTCP: 20000,
+				CTMapEntriesGlobalAny: 18000,
+				NATMapEntriesGlobal:   2048,
+				PolicyMapEntries:      512,
+				FragmentsMapEntries:   2 << 14,
+				WantErr:               false,
+			},
+		},
+		{
+			name: "CT TCP map size below range",
+			d: &DaemonConfig{
+				CTMapEntriesGlobalTCP: LimitTableMin - 1,
+			},
+			want: sizes{
+				CTMapEntriesGlobalTCP: LimitTableMin - 1,
+				WantErr:               true,
+			},
+		},
+		{
+			name: "CT TCP map size above range",
+			d: &DaemonConfig{
+				CTMapEntriesGlobalTCP: LimitTableMax + 1,
+			},
+			want: sizes{
+				CTMapEntriesGlobalTCP: LimitTableMax + 1,
+				WantErr:               true,
+			},
+		},
+		{
+			name: "CT Any map size below range",
+			d: &DaemonConfig{
+				CTMapEntriesGlobalAny: LimitTableMin - 1,
+			},
+			want: sizes{
+				CTMapEntriesGlobalAny: LimitTableMin - 1,
+				WantErr:               true,
+			},
+		},
+		{
+			name: "CT Any map size above range",
+			d: &DaemonConfig{
+				CTMapEntriesGlobalAny: LimitTableMax + 1,
+			},
+			want: sizes{
+				CTMapEntriesGlobalAny: LimitTableMax + 1,
+				WantErr:               true,
+			},
+		},
+		{
+			name: "NAT map size below range",
+			d: &DaemonConfig{
+				NATMapEntriesGlobal: LimitTableMin - 1,
+			},
+			want: sizes{
+				NATMapEntriesGlobal: LimitTableMin - 1,
+				WantErr:             true,
+			},
+		},
+		{
+			name: "NAT map size above range",
+			d: &DaemonConfig{
+				NATMapEntriesGlobal: LimitTableMax + 1,
+			},
+			want: sizes{
+				NATMapEntriesGlobal: LimitTableMax + 1,
+				WantErr:             true,
+			},
+		},
+		{
+			name: "NAT map auto sizing with default size",
+			d: &DaemonConfig{
+				CTMapEntriesGlobalTCP: 2048,
+				CTMapEntriesGlobalAny: 4096,
+				NATMapEntriesGlobal:   NATMapEntriesGlobalDefault,
+				PolicyMapEntries:      defaults.PolicyMapEntries,
+				FragmentsMapEntries:   defaults.FragmentsMapEntries,
+			},
+			want: sizes{
+				CTMapEntriesGlobalTCP: 2048,
+				CTMapEntriesGlobalAny: 4096,
+				NATMapEntriesGlobal:   (2048 + 4096) * 2 / 3,
+				PolicyMapEntries:      defaults.PolicyMapEntries,
+				FragmentsMapEntries:   defaults.FragmentsMapEntries,
+				WantErr:               false,
+			},
+		},
+		{
+			name: "NAT map auto sizing outside of range",
+			d: &DaemonConfig{
+				CTMapEntriesGlobalTCP: 2048,
+				CTMapEntriesGlobalAny: 4096,
+				NATMapEntriesGlobal:   8192,
+			},
+			want: sizes{
+				CTMapEntriesGlobalTCP: 2048,
+				CTMapEntriesGlobalAny: 4096,
+				NATMapEntriesGlobal:   8192,
+				WantErr:               true,
+			},
+		},
+		{
+			name: "Policy map size below range",
+			d: &DaemonConfig{
+				PolicyMapEntries: PolicyMapMin - 1,
+			},
+			want: sizes{
+				PolicyMapEntries: PolicyMapMin - 1,
+				WantErr:          true,
+			},
+		},
+		{
+			name: "Policy map size above range",
+			d: &DaemonConfig{
+				PolicyMapEntries: PolicyMapMax + 1,
+			},
+			want: sizes{
+				PolicyMapEntries: PolicyMapMax + 1,
+				WantErr:          true,
+			},
+		},
+		{
+			name: "Fragments map size below range",
+			d: &DaemonConfig{
+				FragmentsMapEntries: FragmentsMapMin - 1,
+			},
+			want: sizes{
+				FragmentsMapEntries: FragmentsMapMin - 1,
+				WantErr:             true,
+			},
+		},
+		{
+			name: "Fragments map size above range",
+			d: &DaemonConfig{
+				FragmentsMapEntries: FragmentsMapMax + 1,
+			},
+			want: sizes{
+				FragmentsMapEntries: FragmentsMapMax + 1,
+				WantErr:             true,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.d.checkMapSizeLimits()
+
+			got := sizes{
+				CTMapEntriesGlobalTCP: tt.d.CTMapEntriesGlobalTCP,
+				CTMapEntriesGlobalAny: tt.d.CTMapEntriesGlobalAny,
+				NATMapEntriesGlobal:   tt.d.NATMapEntriesGlobal,
+				PolicyMapEntries:      tt.d.PolicyMapEntries,
+				FragmentsMapEntries:   tt.d.FragmentsMapEntries,
+				WantErr:               err != nil,
+			}
+
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("DaemonConfig.checkMapSizeLimits mismatch (-want +got):\n%s", diff)
+
+				if err != nil {
+					t.Error(err)
+				}
+			}
+		})
+	}
 }
 
 func Test_populateNodePortRange(t *testing.T) {

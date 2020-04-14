@@ -2156,48 +2156,8 @@ func (c *DaemonConfig) Validate() error {
 		}
 	}
 
-	if c.CTMapEntriesGlobalTCP < LimitTableMin || c.CTMapEntriesGlobalAny < LimitTableMin {
-		return fmt.Errorf("specified CT tables values %d/%d must exceed minimum %d",
-			c.CTMapEntriesGlobalTCP, c.CTMapEntriesGlobalAny, LimitTableMin)
-	}
-	if c.CTMapEntriesGlobalTCP > LimitTableMax || c.CTMapEntriesGlobalAny > LimitTableMax {
-		return fmt.Errorf("specified CT tables values %d/%d must not exceed maximum %d",
-			c.CTMapEntriesGlobalTCP, c.CTMapEntriesGlobalAny, LimitTableMax)
-	}
-	if c.NATMapEntriesGlobal < LimitTableMin {
-		return fmt.Errorf("specified NAT table size %d must exceed minimum %d",
-			c.NATMapEntriesGlobal, LimitTableMin)
-	}
-	if c.NATMapEntriesGlobal > LimitTableMax {
-		return fmt.Errorf("specified NAT tables size %d must not exceed maximum %d",
-			c.NATMapEntriesGlobal, LimitTableMax)
-	}
-	if c.NATMapEntriesGlobal > c.CTMapEntriesGlobalTCP+c.CTMapEntriesGlobalAny {
-		if c.NATMapEntriesGlobal == NATMapEntriesGlobalDefault {
-			// Auto-size for the case where CT table size was adapted but NAT still on default
-			c.NATMapEntriesGlobal = int((c.CTMapEntriesGlobalTCP + c.CTMapEntriesGlobalAny) * 2 / 3)
-		} else {
-			return fmt.Errorf("specified NAT tables size %d must not exceed maximum CT table size %d",
-				c.NATMapEntriesGlobal, c.CTMapEntriesGlobalTCP+c.CTMapEntriesGlobalAny)
-		}
-	}
-
-	if c.PolicyMapEntries < PolicyMapMin {
-		return fmt.Errorf("specified PolicyMap max entries %d must exceed minimum %d",
-			c.PolicyMapEntries, PolicyMapMin)
-	}
-	if c.PolicyMapEntries > PolicyMapMax {
-		return fmt.Errorf("specified PolicyMap max entries %d must not exceed maximum %d",
-			c.PolicyMapEntries, PolicyMapMax)
-	}
-
-	if c.FragmentsMapEntries < FragmentsMapMin {
-		return fmt.Errorf("specified fragments tracking map max entries %d must exceed minimum %d",
-			c.FragmentsMapEntries, FragmentsMapMin)
-	}
-	if c.FragmentsMapEntries > FragmentsMapMax {
-		return fmt.Errorf("specified fragments tracking map max entries %d must not exceed maximum %d",
-			c.FragmentsMapEntries, FragmentsMapMax)
+	if err := c.checkMapSizeLimits(); err != nil {
+		return err
 	}
 
 	// Validate that the KVStore Lease TTL value lies between a particular range.
@@ -2740,6 +2700,55 @@ func (c *DaemonConfig) populateHostServicesProtos() error {
 			return fmt.Errorf("Protocol other than %s,%s not supported for host reachable services: %s",
 				HostServicesTCP, HostServicesUDP, hostServicesProtos[i])
 		}
+	}
+
+	return nil
+}
+
+func (c *DaemonConfig) checkMapSizeLimits() error {
+	if c.CTMapEntriesGlobalTCP < LimitTableMin || c.CTMapEntriesGlobalAny < LimitTableMin {
+		return fmt.Errorf("specified CT tables values %d/%d must exceed minimum %d",
+			c.CTMapEntriesGlobalTCP, c.CTMapEntriesGlobalAny, LimitTableMin)
+	}
+	if c.CTMapEntriesGlobalTCP > LimitTableMax || c.CTMapEntriesGlobalAny > LimitTableMax {
+		return fmt.Errorf("specified CT tables values %d/%d must not exceed maximum %d",
+			c.CTMapEntriesGlobalTCP, c.CTMapEntriesGlobalAny, LimitTableMax)
+	}
+
+	if c.NATMapEntriesGlobal < LimitTableMin {
+		return fmt.Errorf("specified NAT table size %d must exceed minimum %d",
+			c.NATMapEntriesGlobal, LimitTableMin)
+	}
+	if c.NATMapEntriesGlobal > LimitTableMax {
+		return fmt.Errorf("specified NAT tables size %d must not exceed maximum %d",
+			c.NATMapEntriesGlobal, LimitTableMax)
+	}
+	if c.NATMapEntriesGlobal > c.CTMapEntriesGlobalTCP+c.CTMapEntriesGlobalAny {
+		if c.NATMapEntriesGlobal == NATMapEntriesGlobalDefault {
+			// Auto-size for the case where CT table size was adapted but NAT still on default
+			c.NATMapEntriesGlobal = int((c.CTMapEntriesGlobalTCP + c.CTMapEntriesGlobalAny) * 2 / 3)
+		} else {
+			return fmt.Errorf("specified NAT tables size %d must not exceed maximum CT table size %d",
+				c.NATMapEntriesGlobal, c.CTMapEntriesGlobalTCP+c.CTMapEntriesGlobalAny)
+		}
+	}
+
+	if c.PolicyMapEntries < PolicyMapMin {
+		return fmt.Errorf("specified PolicyMap max entries %d must exceed minimum %d",
+			c.PolicyMapEntries, PolicyMapMin)
+	}
+	if c.PolicyMapEntries > PolicyMapMax {
+		return fmt.Errorf("specified PolicyMap max entries %d must not exceed maximum %d",
+			c.PolicyMapEntries, PolicyMapMax)
+	}
+
+	if c.FragmentsMapEntries < FragmentsMapMin {
+		return fmt.Errorf("specified fragments tracking map max entries %d must exceed minimum %d",
+			c.FragmentsMapEntries, FragmentsMapMin)
+	}
+	if c.FragmentsMapEntries > FragmentsMapMax {
+		return fmt.Errorf("specified fragments tracking map max entries %d must not exceed maximum %d",
+			c.FragmentsMapEntries, FragmentsMapMax)
 	}
 
 	return nil
