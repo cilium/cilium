@@ -18,7 +18,7 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/pkg/ipam/allocator"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
@@ -31,7 +31,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func startSynchronizingCiliumNodes(nodeManager *ipam.NodeManager) {
+func startSynchronizingCiliumNodes(nodeManager allocator.NodeEventHandler) {
 	log.Info("Starting to synchronize CiliumNode custom resources...")
 
 	// TODO: The operator is currently storing a full copy of the
@@ -69,12 +69,12 @@ func startSynchronizingCiliumNodes(nodeManager *ipam.NodeManager) {
 	go ciliumNodeInformer.Run(wait.NeverStop)
 }
 
-func deleteCiliumNode(nodeManager *ipam.NodeManager, name string) {
+func deleteCiliumNode(nodeManager *allocator.NodeEventHandler, name string) {
 	if err := ciliumK8sClient.CiliumV2().CiliumNodes().Delete(context.TODO(), name, metav1.DeleteOptions{}); err == nil {
 		log.WithField("name", name).Info("Removed CiliumNode after receiving node deletion event")
 	}
 	if nodeManager != nil {
-		nodeManager.Delete(name)
+		(*nodeManager).Delete(name)
 	}
 }
 

@@ -24,6 +24,7 @@ import (
 	ec2shim "github.com/cilium/cilium/pkg/aws/ec2"
 	"github.com/cilium/cilium/pkg/aws/eni"
 	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/pkg/ipam/allocator"
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -55,7 +56,7 @@ func (*AllocatorAWS) Init() error {
 // Start kicks of ENI allocation, the initial connection to AWS
 // APIs is done in a blocking manner, given that is successful, a controller is
 // started to manage allocation based on CiliumNode custom resources
-func (*AllocatorAWS) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (*ipam.NodeManager, error) {
+func (*AllocatorAWS) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
 	var (
 		aMetrics ec2shim.MetricsAPI
 		iMetrics ipam.MetricsAPI
