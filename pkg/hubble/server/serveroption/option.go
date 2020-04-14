@@ -1,4 +1,5 @@
 // Copyright 2020 Authors of Hubble
+// Copyright 2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,10 +21,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/cilium/cilium/api/v1/peer"
+	observerpb "github.com/cilium/cilium/api/v1/observer"
+	peerpb "github.com/cilium/cilium/api/v1/peer"
 	"github.com/cilium/cilium/pkg/api"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
-	"github.com/cilium/cilium/pkg/hubble/observer"
 
 	"golang.org/x/sys/unix"
 	"google.golang.org/grpc/health"
@@ -33,9 +34,9 @@ import (
 // Options stores all the configuration values for the hubble server.
 type Options struct {
 	Listeners       map[string]net.Listener
-	HealthService   *health.Server
-	ObserverService *observer.GRPCServer
-	PeerService     *peer.PeerServer
+	HealthService   healthpb.HealthServer
+	ObserverService observerpb.ObserverServer
+	PeerService     peerpb.PeerServer
 }
 
 // Option customizes then configuration of the hubble server.
@@ -118,17 +119,17 @@ func WithHealthService() Option {
 }
 
 // WithObserverService configures the server to expose the given observer server service.
-func WithObserverService(svc observer.GRPCServer) Option {
+func WithObserverService(svc observerpb.ObserverServer) Option {
 	return func(o *Options) error {
-		o.ObserverService = &svc
+		o.ObserverService = svc
 		return nil
 	}
 }
 
 // WithPeerService configures the server to expose the given peer server service.
-func WithPeerService(svc peer.PeerServer) Option {
+func WithPeerService(svc peerpb.PeerServer) Option {
 	return func(o *Options) error {
-		o.PeerService = &svc
+		o.PeerService = svc
 		return nil
 	}
 }

@@ -54,10 +54,10 @@ func (s *Server) initGRPCServer() {
 		healthpb.RegisterHealthServer(srv, s.opts.HealthService)
 	}
 	if s.opts.ObserverService != nil {
-		observerpb.RegisterObserverServer(srv, *s.opts.ObserverService)
+		observerpb.RegisterObserverServer(srv, s.opts.ObserverService)
 	}
 	if s.opts.PeerService != nil {
-		peerpb.RegisterPeerServer(srv, *s.opts.PeerService)
+		peerpb.RegisterPeerServer(srv, s.opts.PeerService)
 	}
 	s.srv = srv
 }
