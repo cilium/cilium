@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/hubble/parser"
+	"github.com/cilium/cilium/pkg/hubble/peer"
 	"github.com/cilium/cilium/pkg/hubble/server"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -83,13 +84,14 @@ func (d *Daemon) launchHubble() {
 		logger.Info("Hubble server is disabled")
 		return
 	}
-	addresses := append(option.Config.HubbleListenAddresses, "unix://"+option.Config.HubbleSocketPath)
+	addresses := option.Config.HubbleListenAddresses
 	for _, address := range addresses {
 		// TODO: remove warning once mutual TLS has been implemented
 		if !strings.HasPrefix(address, "unix://") {
 			logger.WithField("address", address).Warn("Hubble server will be exposing its API insecurely on this address")
 		}
 	}
+
 	payloadParser, err := parser.New(d, d, d, ipcache.IPIdentityCache, d)
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize Hubble")
@@ -106,24 +108,49 @@ func (d *Daemon) launchHubble() {
 	go d.hubbleObserver.Start()
 	d.monitorAgent.GetMonitor().RegisterNewListener(d.ctx, listener.NewHubbleListener(d.hubbleObserver))
 
-	srv, err := server.NewServer(logger,
-		serveroption.WithListeners(addresses),
+	// configure a local hubble instance that serves more gRPC services
+	sockPath := "unix://" + option.Config.HubbleSocketPath
+	localSrv, err := server.NewServer(logger,
+		serveroption.WithUnixSocketListener(sockPath),
 		serveroption.WithHealthService(),
 		serveroption.WithObserverService(d.hubbleObserver),
+		serveroption.WithPeerService(peer.NewService(d.nodeDiscovery.Manager)),
 	)
 	if err != nil {
-		logger.WithError(err).Error("Failed to initialize Hubble server")
+		logger.WithError(err).Error("Failed to initialize local Hubble server")
 		return
 	}
-	logger.WithField("addresses", addresses).Info("Starting Hubble server")
-	if err := srv.Serve(); err != nil {
-		logger.WithError(err).Error("Failed to start Hubble server")
+	logger.WithField("address", sockPath).Info("Starting local Hubble server")
+	if err := localSrv.Serve(); err != nil {
+		logger.WithError(err).Error("Failed to start local Hubble server")
 		return
 	}
 	go func() {
 		<-d.ctx.Done()
-		srv.Stop()
+		localSrv.Stop()
 	}()
+
+	// configure another hubble instance that serve fewer gRPC services
+	if len(addresses) > 0 {
+		srv, err := server.NewServer(logger,
+			serveroption.WithListeners(addresses),
+			serveroption.WithHealthService(),
+			serveroption.WithObserverService(d.hubbleObserver),
+		)
+		if err != nil {
+			logger.WithError(err).Error("Failed to initialize Hubble server")
+			return
+		}
+		logger.WithField("addresses", addresses).Info("Starting Hubble server")
+		if err := srv.Serve(); err != nil {
+			logger.WithError(err).Error("Failed to start Hubble server")
+			return
+		}
+		go func() {
+			<-d.ctx.Done()
+			srv.Stop()
+		}()
+	}
 
 	if option.Config.HubbleMetricsServer != "" {
 		logger.WithFields(logrus.Fields{
