@@ -120,6 +120,20 @@ type IPAMStatus struct {
 	//
 	// +optional
 	Used AllocationMap `json:"used,omitempty"`
+
+	// Operator is the Operator status of the node
+	//
+	// +optional
+	OperatorStatus OperatorStatus `json:"operator-status,omitempty"`
+}
+
+// OperatorStatus is the status used by cilium-operator to report
+// errors in case the allocation CIDR failed.
+type OperatorStatus struct {
+	// Error is the error message set by cilium-operator.
+	//
+	// +optional
+	Error string `json:"error,omitempty"`
 }
 
 // Tags implements generic key value tags
