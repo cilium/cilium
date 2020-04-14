@@ -93,11 +93,11 @@ func (c *ciliumNodeUpdateImplementation) UpdateStatus(origNode, node *v2.CiliumN
 	k8sCapabilities := k8sversion.Capabilities()
 	switch {
 	case k8sCapabilities.UpdateStatus:
-		if !reflect.DeepEqual(origNode.Status, node.Status) {
+		if origNode == nil || !reflect.DeepEqual(origNode.Status, node.Status) {
 			return ciliumK8sClient.CiliumV2().CiliumNodes().UpdateStatus(context.TODO(), node, metav1.UpdateOptions{})
 		}
 	default:
-		if !reflect.DeepEqual(origNode.Status, node.Status) {
+		if origNode == nil || !reflect.DeepEqual(origNode.Status, node.Status) {
 			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(context.TODO(), node, metav1.UpdateOptions{})
 		}
 	}
@@ -110,11 +110,11 @@ func (c *ciliumNodeUpdateImplementation) Update(origNode, node *v2.CiliumNode) (
 	k8sCapabilities := k8sversion.Capabilities()
 	switch {
 	case k8sCapabilities.UpdateStatus:
-		if !reflect.DeepEqual(origNode.Spec, node.Spec) {
+		if origNode == nil || !reflect.DeepEqual(origNode.Spec, node.Spec) {
 			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(context.TODO(), node, metav1.UpdateOptions{})
 		}
 	default:
-		if !reflect.DeepEqual(origNode, node) {
+		if origNode == nil || !reflect.DeepEqual(origNode, node) {
 			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(context.TODO(), node, metav1.UpdateOptions{})
 		}
 	}
