@@ -22,11 +22,17 @@ cilium-operator [flags]
       --cilium-endpoint-gc-interval duration    GC interval for cilium endpoints (default 10m0s)
       --cluster-id int                          Unique identifier of the cluster
       --cluster-name string                     Name of the cluster (default "default")
+      --cluster-pool-ipv4-cidr string           IPv4 CIDR Range for Pods in cluster. Requires 'ipam=cluster-pool' and 'enable-ipv4=true'
+      --cluster-pool-ipv4-mask-size int         Mask size for each IPv4 podCIDR per node. Requires 'ipam=cluster-pool' and 'enable-ipv4=true' (default 24)
+      --cluster-pool-ipv6-cidr string           IPv6 CIDR Range for Pods in cluster. Requires 'ipam=cluster-pool' and 'enable-ipv6=true'
+      --cluster-pool-ipv6-mask-size int         Mask size for each IPv6 podCIDR per node. Requires 'ipam=cluster-pool' and 'enable-ipv6=true' (default 112)
       --cnp-node-status-gc-interval duration    GC interval for nodes which have been removed from the cluster in CiliumNetworkPolicy Status (default 2m0s)
       --cnp-status-update-interval duration     Interval between CNP status updates sent to the k8s-apiserver per-CNP (default 1s)
       --config string                           Configuration file (default "$HOME/ciliumd.yaml")
       --config-dir string                       Configuration directory that contains a file for each option
   -D, --debug                                   Enable debugging mode
+      --enable-ipv4                             Enable IPv4 support (default true)
+      --enable-ipv6                             Enable IPv6 support (default true)
       --enable-k8s-api-discovery                Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-k8s-endpoint-slice               Enables k8s EndpointSlice feature into Cilium-Operator if the k8s cluster supports it (default true)
       --enable-metrics                          Enable Prometheus metrics

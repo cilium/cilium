@@ -655,6 +655,10 @@ const (
 	// option.IPAM
 	IPAMAzure = "azure"
 
+	// IPAMOperator is the value to select the Operator IPAM mode for
+	// option.IPAM
+	IPAMOperator = "cluster-pool"
+
 	// XDPModeNative for loading progs with XDPModeLinkDriver
 	XDPModeNative = "native"
 

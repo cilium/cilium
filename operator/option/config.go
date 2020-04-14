@@ -100,6 +100,22 @@ const (
 	// IAPMSubnetsTags are optional tags used to filter subnets, and interfaces within those subnets
 	IPAMSubnetsTags = "subnet-tags-filter"
 
+	// IPAMOperatorV4CIDR is the cluster IPv4 podCIDR that should be used to
+	// allocate pods in the node.
+	IPAMOperatorV4CIDR = "cluster-pool-ipv4-cidr"
+
+	// IPAMOperatorV6CIDR is the cluster IPv6 podCIDR that should be used to
+	// allocate pods in the node.
+	IPAMOperatorV6CIDR = "cluster-pool-ipv6-cidr"
+
+	// NodeCIDRMaskSizeIPv4 is the IPv4 podCIDR mask size that will be used
+	// per node.
+	NodeCIDRMaskSizeIPv4 = "cluster-pool-ipv4-mask-size"
+
+	// NodeCIDRMaskSizeIPv6 is the IPv6 podCIDR mask size that will be used
+	// per node.
+	NodeCIDRMaskSizeIPv6 = "cluster-pool-ipv6-mask-size"
+
 	// AWS options
 
 	// AWSInstanceLimitMapping allows overwirting AWS instance limits defined in
@@ -206,6 +222,24 @@ type OperatorConfig struct {
 	// IPAMSubnetsTags are optional tags used to filter subnets, and interfaces within those subnets
 	IPAMSubnetsTags map[string]string
 
+	// IPAM Operator options
+
+	// IPAMOperatorV4CIDR is the cluster IPv4 podCIDR that should be used to
+	// allocate pods in the node.
+	IPAMOperatorV4CIDR []string
+
+	// IPAMOperatorV6CIDR is the cluster IPv6 podCIDR that should be used to
+	// allocate pods in the node.
+	IPAMOperatorV6CIDR []string
+
+	// NodeCIDRMaskSizeIPv4 is the IPv4 podCIDR mask size that will be used
+	// per node.
+	NodeCIDRMaskSizeIPv4 int
+
+	// NodeCIDRMaskSizeIPv6 is the IPv6 podCIDR mask size that will be used
+	// per node.
+	NodeCIDRMaskSizeIPv6 int
+
 	// AWS options
 
 	// ENITags are the tags that will be added to every ENI created by the AWS ENI IPAM
@@ -252,6 +286,11 @@ func (c *OperatorConfig) Populate() {
 	c.SyncK8sServices = viper.GetBool(SyncK8sServices)
 	c.SyncK8sNodes = viper.GetBool(SyncK8sNodes)
 	c.UnmanagedPodWatcherInterval = viper.GetInt(UnmanagedPodWatcherInterval)
+	c.NodeCIDRMaskSizeIPv4 = viper.GetInt(NodeCIDRMaskSizeIPv4)
+	c.NodeCIDRMaskSizeIPv6 = viper.GetInt(NodeCIDRMaskSizeIPv6)
+	c.IPAMOperatorV4CIDR = viper.GetStringSlice(IPAMOperatorV4CIDR)
+	c.IPAMOperatorV6CIDR = viper.GetStringSlice(IPAMOperatorV6CIDR)
+	c.NodesGCInterval = viper.GetDuration(NodesGCInterval)
 
 	// AWS options
 

@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	k8sTypes "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -227,7 +228,12 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 		}
 	}
 
-	var providerID string
+	var (
+		providerID       string
+		k8sNodeAddresses []nodeTypes.Address
+	)
+
+	nodeResource.Spec.Addresses = []ciliumv2.NodeAddress{}
 
 	// Tie the CiliumNode custom resource lifecycle to the lifecycle of the
 	// Kubernetes node
@@ -241,23 +247,59 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 			UID:        k8sNode.UID,
 		}}
 		providerID = k8sNode.Spec.ProviderID
+
+		// Get the addresses from k8s node and add them as part of Cilium Node.
+		// Cilium Node should contain all addresses from k8s.
+		nodeInterface := k8s.ConvertToNode(k8sNode)
+		typesNode := nodeInterface.(*k8sTypes.Node)
+		k8sNodeParsed := k8s.ParseNode(typesNode, source.Unspec)
+		k8sNodeAddresses = k8sNodeParsed.IPAddresses
+
+		for _, k8sAddress := range k8sNodeAddresses {
+			k8sAddressStr := k8sAddress.IP.String()
+			nodeResource.Spec.Addresses = append(nodeResource.Spec.Addresses, ciliumv2.NodeAddress{
+				Type: k8sAddress.Type,
+				IP:   k8sAddressStr,
+			})
+		}
 	}
 
-	nodeResource.Spec.Addresses = []ciliumv2.NodeAddress{}
 	for _, address := range n.LocalNode.IPAddresses {
-		nodeResource.Spec.Addresses = append(nodeResource.Spec.Addresses, ciliumv2.NodeAddress{
-			Type: address.Type,
-			IP:   address.IP.String(),
-		})
+		ciliumNodeAddress := address.IP.String()
+		var found bool
+		for _, nodeResourceAddress := range nodeResource.Spec.Addresses {
+			if nodeResourceAddress.IP == ciliumNodeAddress {
+				found = true
+				break
+			}
+		}
+		if !found {
+			nodeResource.Spec.Addresses = append(nodeResource.Spec.Addresses, ciliumv2.NodeAddress{
+				Type: address.Type,
+				IP:   ciliumNodeAddress,
+			})
+		}
 	}
 
-	nodeResource.Spec.IPAM.PodCIDRs = []string{}
-	if cidr := node.GetIPv4AllocRange(); cidr != nil {
-		nodeResource.Spec.IPAM.PodCIDRs = append(nodeResource.Spec.IPAM.PodCIDRs, cidr.String())
-	}
+	switch option.Config.IPAM {
+	case option.IPAMOperator:
+		// We want to keep the podCIDRs untouched in this IPAM mode because
+		// the operator will verify if it can assign such podCIDRs.
+		// If the user was running in non-IPAM Operator mode and then switched
+		// to IPAM Operator, then it is possible that the previous cluster CIDR
+		// from the old IPAM mode differs from the current cluster CIDR set in
+		// the operator.
+		// There is a chance that the operator won't be able to allocate these
+		// podCIDRs, resulting in an error in the CiliumNode status.
+	default:
+		nodeResource.Spec.IPAM.PodCIDRs = []string{}
+		if cidr := node.GetIPv4AllocRange(); cidr != nil {
+			nodeResource.Spec.IPAM.PodCIDRs = append(nodeResource.Spec.IPAM.PodCIDRs, cidr.String())
+		}
 
-	if cidr := node.GetIPv6AllocRange(); cidr != nil {
-		nodeResource.Spec.IPAM.PodCIDRs = append(nodeResource.Spec.IPAM.PodCIDRs, cidr.String())
+		if cidr := node.GetIPv6AllocRange(); cidr != nil {
+			nodeResource.Spec.IPAM.PodCIDRs = append(nodeResource.Spec.IPAM.PodCIDRs, cidr.String())
+		}
 	}
 
 	nodeResource.Spec.Encryption.Key = int(node.GetIPsecKeyIdentity())

@@ -31,6 +31,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+var k8sCiliumNodesCacheSynced = make(chan struct{})
+
 func startSynchronizingCiliumNodes(nodeManager allocator.NodeEventHandler) {
 	log.Info("Starting to synchronize CiliumNode custom resources...")
 
@@ -65,6 +67,11 @@ func startSynchronizingCiliumNodes(nodeManager allocator.NodeEventHandler) {
 		},
 		k8s.ConvertToCiliumNode,
 	)
+
+	go func() {
+		cache.WaitForCacheSync(wait.NeverStop, ciliumNodeInformer.HasSynced)
+		close(k8sCiliumNodesCacheSynced)
+	}()
 
 	go ciliumNodeInformer.Run(wait.NeverStop)
 }

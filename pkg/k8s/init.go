@@ -34,6 +34,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -64,31 +65,50 @@ func waitForNodeInformation(ctx context.Context, nodeName string) *nodeTypes.Nod
 func retrieveNodeInformation(nodeName string) (*nodeTypes.Node, error) {
 	requireIPv4CIDR := option.Config.K8sRequireIPv4PodCIDR
 	requireIPv6CIDR := option.Config.K8sRequireIPv6PodCIDR
+	var n *nodeTypes.Node
 
-	k8sNode, err := GetNode(Client(), nodeName)
-	if err != nil {
-		// If no CIDR is required, retrieving the node information is
-		// optional
-		if !requireIPv4CIDR && !requireIPv6CIDR {
-			return nil, nil
+	if option.Config.IPAM == option.IPAMOperator {
+		ciliumNode, err := CiliumClient().CiliumV2().CiliumNodes().Get(context.TODO(), nodeName, v1.GetOptions{})
+		if err != nil {
+			// If no CIDR is required, retrieving the node information is
+			// optional
+			if !requireIPv4CIDR && !requireIPv6CIDR {
+				return nil, nil
+			}
+
+			return nil, fmt.Errorf("unable to retrieve k8s node information: %s", err)
+
 		}
 
-		return nil, fmt.Errorf("unable to retrieve k8s node information: %s", err)
+		no := nodeTypes.ParseCiliumNode(ciliumNode)
+		n = &no
+		log.WithField(logfields.NodeName, n.Name).Info("Retrieved node information from cilium node")
+	} else {
+		k8sNode, err := GetNode(Client(), nodeName)
+		if err != nil {
+			// If no CIDR is required, retrieving the node information is
+			// optional
+			if !requireIPv4CIDR && !requireIPv6CIDR {
+				return nil, nil
+			}
 
+			return nil, fmt.Errorf("unable to retrieve k8s node information: %s", err)
+
+		}
+
+		nodeInterface := ConvertToNode(k8sNode)
+		if nodeInterface == nil {
+			// This will never happen and the GetNode on line 63 will be soon
+			// make a request from the local store instead.
+			return nil, fmt.Errorf("invalid k8s node: %s", k8sNode)
+		}
+		typesNode := nodeInterface.(*slim_corev1.Node)
+
+		// The source is left unspecified as this node resource should never be
+		// used to update state
+		n = ParseNode(typesNode, source.Unspec)
+		log.WithField(logfields.NodeName, n.Name).Info("Retrieved node information from kubernetes node")
 	}
-
-	nodeInterface := ConvertToNode(k8sNode)
-	if nodeInterface == nil {
-		// This will never happen and the GetNode on line 63 will be soon
-		// make a request from the local store instead.
-		return nil, fmt.Errorf("invalid k8s node: %s", k8sNode)
-	}
-	typesNode := nodeInterface.(*slim_corev1.Node)
-
-	// The source is left unspecified as this node resource should never be
-	// used to update state
-	n := ParseNode(typesNode, source.Unspec)
-	log.WithField(logfields.NodeName, n.Name).Info("Retrieved node information from kubernetes")
 
 	if requireIPv4CIDR && n.IPv4AllocCIDR == nil {
 		return nil, fmt.Errorf("required IPv4 pod CIDR not present in node resource")
