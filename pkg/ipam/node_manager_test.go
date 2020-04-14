@@ -203,11 +203,11 @@ func (e *IPAMSuite) TestNodeManagerGet(c *check.C) {
 
 type k8sMock struct{}
 
-func (k *k8sMock) Update(node, origNode *v2.CiliumNode) (*v2.CiliumNode, error) {
+func (k *k8sMock) Update(origNode, orig *v2.CiliumNode) (*v2.CiliumNode, error) {
 	return nil, nil
 }
 
-func (k *k8sMock) UpdateStatus(node, origNode *v2.CiliumNode) (*v2.CiliumNode, error) {
+func (k *k8sMock) UpdateStatus(origNode, node *v2.CiliumNode) (*v2.CiliumNode, error) {
 	return nil, nil
 }
 
