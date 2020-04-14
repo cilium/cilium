@@ -387,6 +387,13 @@ data:
 {{- end }}
 {{- if and .Values.global.k8s .Values.global.k8s.requireIPv4PodCIDR }}
   k8s-require-ipv4-pod-cidr: {{ .Values.global.k8s.requireIPv4PodCIDR | quote }}
+{{- else }}
+{{- if eq .Values.global.ipam.mode "cluster-pool" }}
+  k8s-require-ipv4-pod-cidr: {{ .Values.global.ipv4.enabled | quote}}
+{{- end }}
+{{- end }}
+{{- if eq .Values.global.ipam.mode "cluster-pool" }}
+  k8s-require-ipv6-pod-cidr: {{ .Values.global.ipv6.enabled | quote}}
 {{- end }}
 {{- if and .Values.global.endpointRoutes .Values.global.endpointRoutes.enabled }}
   enable-endpoint-routes: {{ .Values.global.endpointRoutes.enabled | quote }}
@@ -452,3 +459,16 @@ data:
 
   # A space separated list of iptables chains to disable when installing feeder rules.
   disable-iptables-feeder-rules: {{ .Values.global.disableIptablesFeederRules | join " " | quote }}
+{{ if .Values.global.ipam }}
+  ipam: {{ .Values.global.ipam.mode | quote }}
+{{- if eq .Values.global.ipam.mode "cluster-pool" }}
+{{- if .Values.global.ipv4.enabled }}
+  cluster-pool-ipv4-cidr: {{ .Values.global.ipam.operator.clusterPoolIPv4PodCIDR | quote }}
+  cluster-pool-ipv4-mask-size: {{ .Values.global.ipam.operator.clusterPoolIPv4MaskSize | quote  }}
+{{- end }}
+{{- if .Values.global.ipv6.enabled }}
+  cluster-pool-ipv6-cidr: {{ .Values.global.ipam.operator.clusterPoolIPv6PodCIDR | quote }}
+  cluster-pool-ipv6-mask-size: {{ .Values.global.ipam.operator.clusterPoolIPv6MaskSize | quote }}
+{{- end }}
+{{- end }}
+{{- end }}
