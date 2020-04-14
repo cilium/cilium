@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -74,4 +74,128 @@ func (t *CidrTestSuite) TestAvailableIPs(c *check.C) {
 	c.Assert(cidr.AvailableIPs(), check.Equals, 16777216)
 	cidr = MustParseCIDR("1.1.1.1/32")
 	c.Assert(cidr.AvailableIPs(), check.Equals, 1)
+}
+
+func (t *CidrTestSuite) TestEqual(c *check.C) {
+	ipNet := &net.IPNet{
+		IP:   net.ParseIP("1.2.3.4"),
+		Mask: net.CIDRMask(1, 2),
+	}
+
+	type fields struct {
+		n *CIDR
+	}
+	type args struct {
+		o *CIDR
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   bool
+	}{
+		{
+			name: "test-1",
+			fields: fields{
+				n: &CIDR{
+					IPNet: &net.IPNet{
+						IP:   nil,
+						Mask: nil,
+					},
+				},
+			},
+			args: args{
+				o: &CIDR{
+					IPNet: &net.IPNet{
+						IP:   nil,
+						Mask: nil,
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name:   "test-2",
+			fields: fields{},
+			args: args{
+				o: &CIDR{
+					IPNet: &net.IPNet{
+						IP:   nil,
+						Mask: nil,
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "test-3",
+			fields: fields{
+				n: &CIDR{
+					IPNet: &net.IPNet{
+						IP:   nil,
+						Mask: nil,
+					},
+				},
+			},
+			args: args{},
+			want: false,
+		},
+		{
+			name: "test-4",
+			fields: fields{
+				n: &CIDR{
+					IPNet: &net.IPNet{
+						IP:   net.ParseIP("1.2.3.4"),
+						Mask: net.CIDRMask(1, 2),
+					},
+				},
+			},
+			args: args{
+				o: &CIDR{
+					IPNet: &net.IPNet{
+						IP:   nil,
+						Mask: nil,
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "test-5",
+			fields: fields{
+				n: &CIDR{
+					IPNet: &net.IPNet{
+						IP:   net.ParseIP("1.2.3.4"),
+						Mask: net.CIDRMask(1, 2),
+					},
+				},
+			},
+			args: args{
+				o: &CIDR{
+					IPNet: &net.IPNet{
+						IP:   net.ParseIP("1.2.3.4"),
+						Mask: net.CIDRMask(1, 2),
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "test-6",
+			fields: fields{
+				n: &CIDR{
+					IPNet: ipNet,
+				},
+			},
+			args: args{
+				o: &CIDR{
+					IPNet: ipNet,
+				},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		c.Assert(tt.fields.n.Equal(tt.args.o), check.Equals, tt.want, check.Commentf("Test Name: %s", tt.name))
+	}
 }
