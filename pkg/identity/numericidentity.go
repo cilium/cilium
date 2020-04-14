@@ -21,7 +21,6 @@ import (
 
 	api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -128,7 +127,6 @@ func (w wellKnownIdentities) add(i NumericIdentity, lbls []string) {
 	}
 
 	ReservedIdentityCache[i] = identity
-	metrics.IdentityCount.Inc()
 }
 
 func (w wellKnownIdentities) LookupByLabels(lbls labels.Labels) *Identity {
@@ -149,8 +147,9 @@ func (w wellKnownIdentities) lookupByNumericIdentity(identity NumericIdentity) *
 	return wki.identity
 }
 
-// InitWellKnownIdentities establishes all well-known identities
-func InitWellKnownIdentities() {
+// InitWellKnownIdentities establishes all well-known identities. Returns the
+// number of well-known identities initialized.
+func InitWellKnownIdentities() int {
 	// Derive the namespace in which the Cilium components are running
 	namespace := option.Config.K8sNamespace
 
@@ -264,6 +263,8 @@ func InitWellKnownIdentities() {
 		fmt.Sprintf("k8s:%s=cilium-etcd-operator", api.PolicyLabelServiceAccount),
 		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, option.Config.ClusterName),
 	})
+
+	return len(WellKnown)
 }
 
 var (
@@ -291,11 +292,6 @@ var (
 	// reserved.
 	ErrNotUserIdentity = errors.New("not a user reserved identity")
 )
-
-// UpdateReservedIdentitiesMetrics updates identity metrics based on the reserved identities.
-func UpdateReservedIdentitiesMetrics() {
-	metrics.IdentityCount.Add(float64(len(reservedIdentities)))
-}
 
 // IsUserReservedIdentity returns true if the given NumericIdentity belongs
 // to the space reserved for users.
