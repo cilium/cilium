@@ -1,4 +1,5 @@
 // Copyright 2020 Authors of Hubble
+// Copyright 2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,7 +37,9 @@ type Server struct {
 
 // NewServer creates a new hubble gRPC server.
 func NewServer(log *logrus.Entry, options ...serveroption.Option) (*Server, error) {
-	opts := serveroption.Default
+	opts := serveroption.Options{
+		Listeners: make(map[string]net.Listener),
+	}
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {
 			return nil, fmt.Errorf("failed to apply option: %v", err)
