@@ -132,13 +132,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		return err
 	}
 
-	scopedLog := log.WithField(logfields.XDPDevice, option.Config.XDPDevice)
-	if option.Config.XDPDevice != "undefined" {
-		if err := ProbeXDP(option.Config.XDPDevice, option.Config.XDPMode); err != nil {
-			scopedLog.WithError(err).Warn("Turning off XDP acceleration")
-			option.Config.XDPDevice = "undefined"
-		}
-	}
 	if option.Config.XDPDevice != "undefined" {
 		args[initArgXDPDevice] = option.Config.XDPDevice
 		args[initArgXDPMode] = option.Config.XDPMode
@@ -148,6 +141,8 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	if option.Config.DevicePreFilter != "undefined" {
+		scopedLog := log.WithField(logfields.XDPDevice, option.Config.XDPDevice)
+
 		preFilter, err := prefilter.NewPreFilter()
 		if err != nil {
 			scopedLog.WithError(ret).Warn("Unable to init prefilter")

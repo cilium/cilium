@@ -16,11 +16,8 @@ package loader
 
 import (
 	"fmt"
-	"os/exec"
 
 	"github.com/cilium/cilium/pkg/option"
-
-	"golang.org/x/sys/unix"
 )
 
 func SetXDPMode(mode string) error {
@@ -43,29 +40,6 @@ func SetXDPMode(mode string) error {
 		}
 	case option.XDPModeNone:
 		break
-	}
-	return nil
-}
-
-// ProbeXDP checks whether a given XDP mode is supported for the specified device
-func ProbeXDP(device, mode string) error {
-	cmd := exec.Command("ip", "-force", "link", "set", "dev", device, mode, "off")
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("Cannot run ip command: %v", err)
-	}
-	if err := cmd.Wait(); err != nil {
-		if exiterr, ok := err.(*exec.ExitError); ok {
-			if status, ok := exiterr.Sys().(unix.WaitStatus); ok {
-				switch status.ExitStatus() {
-				case 2:
-					return fmt.Errorf("Mode %s not supported on device %s", mode, device)
-				default:
-					return fmt.Errorf("XDP not supported on OS")
-				}
-			}
-		} else {
-			return fmt.Errorf("Cannot wait for ip command: %v", err)
-		}
 	}
 	return nil
 }
