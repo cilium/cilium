@@ -50,7 +50,7 @@ Known missing features for Kubernetes Network Policy:
 +==============================+==============================================+
 | Use of named ports           | https://github.com/cilium/cilium/issues/2942 |
 +------------------------------+----------------------------------------------+
-| Ingress CIDR-based L4 policy | https://github.com/cilium/cilium/issues/1684 |
+| Ingress CIDR-based L4 policy | https://github.com/cilium/cilium/issues/4129 |
 +------------------------------+----------------------------------------------+
 
 .. _CiliumNetworkPolicy:
