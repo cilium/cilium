@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"time"
 
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
@@ -47,11 +48,13 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-operator")
+	binaryName = filepath.Base(os.Args[0])
+
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, binaryName)
 
 	rootCmd = &cobra.Command{
-		Use:   "cilium-operator",
-		Short: "Run the cilium-operator",
+		Use:   binaryName,
+		Short: "Run " + binaryName,
 		Run: func(cmd *cobra.Command, args []string) {
 			cmdRefDir := viper.GetString(option.CMDRef)
 			if cmdRefDir != "" {
@@ -79,7 +82,7 @@ func initEnv() {
 	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumOperatortName))
 
 	// Logging should always be bootstrapped first. Do not add any code above this!
-	logging.SetupLogging(option.Config.LogDriver, logging.LogOptions(option.Config.LogOpt), "cilium-operator", option.Config.Debug)
+	logging.SetupLogging(option.Config.LogDriver, logging.LogOptions(option.Config.LogOpt), binaryName, option.Config.Debug)
 
 	option.LogRegisteredOptions(log)
 }
@@ -168,7 +171,7 @@ func runOperator(cmd *cobra.Command) {
 	case ipamOption.IPAMAzure, ipamOption.IPAMENI, ipamOption.IPAMOperator:
 		alloc, providerBuiltin := allocatorProviders[ipamMode]
 		if !providerBuiltin {
-			log.Fatalf("%s allocator is not supported by this version of cilium-operator", ipamMode)
+			log.Fatalf("%s allocator is not supported by this version of %s", ipamMode, binaryName)
 		}
 
 		if err := alloc.Init(); err != nil {
@@ -219,7 +222,7 @@ func runOperator(cmd *cobra.Command) {
 			if k8s.IsEnabled() {
 				svcURL, isETCDOperator := kvstore.IsEtcdOperator(option.Config.KVStore, option.Config.KVStoreOpt, option.Config.K8sNamespace)
 				if isETCDOperator {
-					scopedLog.Info("cilium-operator running with service synchronization: automatic etcd service translation enabled")
+					scopedLog.Infof("%s running with service synchronization: automatic etcd service translation enabled", binaryName)
 
 					svcGetter := k8s.ServiceIPGetter(&k8sSvcCache)
 
@@ -272,7 +275,7 @@ func runOperator(cmd *cobra.Command) {
 				}
 			}
 		} else {
-			scopedLog.Info("cilium-operator running without service synchronization: automatic etcd service translation disabled")
+			scopedLog.Infof("%s running without service synchronization: automatic etcd service translation disabled", binaryName)
 		}
 		scopedLog.Info("Connecting to kvstore...")
 		if err := kvstore.Setup(context.TODO(), option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {

@@ -1,1 +1,4 @@
 cilium-operator
+cilium-operator-aws
+cilium-operator-azure
+cilium-operator-generic
