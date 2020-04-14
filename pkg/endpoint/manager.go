@@ -151,7 +151,7 @@ func (e *Endpoint) Unexpose(mgr endpointManager) <-chan struct{} {
 			//
 			// Avoid irritating warning messages.
 			state := ep.GetState()
-			if state != StateRestoring && state != StateDisconnecting {
+			if state != StateRestoring && state != StateDisconnecting && state != StateDisconnected {
 				log.WithError(err).WithField("state", state).Warning("Unable to release endpoint ID")
 			}
 		}
