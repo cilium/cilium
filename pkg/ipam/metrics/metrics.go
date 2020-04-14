@@ -104,9 +104,9 @@ func NewPrometheusMetrics(namespace string, registry *prometheus.Registry) *prom
 
 	// pool_maintainer is a more generic name, but for backward compatibility
 	// of dashboard, keep the metric name deficit_resolver unchanged
-	m.poolMaintainer = newTriggerMetrics(namespace, "deficit_resolver")
-	m.k8sSync = newTriggerMetrics(namespace, "k8s_sync")
-	m.resync = newTriggerMetrics(namespace, "ec2_resync")
+	m.poolMaintainer = NewTriggerMetrics(namespace, "deficit_resolver")
+	m.k8sSync = NewTriggerMetrics(namespace, "k8s_sync")
+	m.resync = NewTriggerMetrics(namespace, "ec2_resync")
 
 	registry.MustRegister(m.IPsAllocated)
 	registry.MustRegister(m.AllocateIpOps)
@@ -116,9 +116,9 @@ func NewPrometheusMetrics(namespace string, registry *prometheus.Registry) *prom
 	registry.MustRegister(m.AvailableIPsPerSubnet)
 	registry.MustRegister(m.Nodes)
 	registry.MustRegister(m.Resync)
-	m.poolMaintainer.register(registry)
-	m.k8sSync.register(registry)
-	m.resync.register(registry)
+	m.poolMaintainer.Register(registry)
+	m.k8sSync.Register(registry)
+	m.resync.Register(registry)
 
 	return m
 }
@@ -174,7 +174,7 @@ type triggerMetrics struct {
 	latency      prometheus.Histogram
 }
 
-func newTriggerMetrics(namespace, name string) *triggerMetrics {
+func NewTriggerMetrics(namespace, name string) *triggerMetrics {
 	return &triggerMetrics{
 		total: prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: namespace,
@@ -203,7 +203,7 @@ func newTriggerMetrics(namespace, name string) *triggerMetrics {
 	}
 }
 
-func (t *triggerMetrics) register(registry *prometheus.Registry) {
+func (t *triggerMetrics) Register(registry *prometheus.Registry) {
 	registry.MustRegister(t.total)
 	registry.MustRegister(t.folds)
 	registry.MustRegister(t.callDuration)
