@@ -60,6 +60,7 @@ import (
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
+	"github.com/cilium/cilium/pkg/metrics"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -294,10 +295,13 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 		return nil, nil, err
 	}
 
-	identity.UpdateReservedIdentitiesMetrics()
+	identity.IterateReservedIdentities(func(_ string, _ identity.NumericIdentity) {
+		metrics.IdentityCount.Inc()
+	})
 	if option.Config.EnableWellKnownIdentities {
 		// Must be done before calling policy.NewPolicyRepository() below.
-		identity.InitWellKnownIdentities()
+		num := identity.InitWellKnownIdentities()
+		metrics.IdentityCount.Add(float64(num))
 	}
 
 	nd := nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig, netConf)
