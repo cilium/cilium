@@ -300,7 +300,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	})
 	if option.Config.EnableWellKnownIdentities {
 		// Must be done before calling policy.NewPolicyRepository() below.
-		num := identity.InitWellKnownIdentities()
+		num := identity.InitWellKnownIdentities(option.Config)
 		metrics.IdentityCount.Add(float64(num))
 	}
 

@@ -17,7 +17,7 @@
 package identity
 
 import (
-	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 
 	. "gopkg.in/check.v1"
 )
@@ -26,7 +26,7 @@ func (s *IdentityTestSuite) TestLocalIdentity(c *C) {
 	localID := NumericIdentity(LocalIdentityFlag | 1)
 	c.Assert(localID.HasLocalScope(), Equals, true)
 
-	maxClusterID := NumericIdentity(option.ClusterIDMax | 1)
+	maxClusterID := NumericIdentity(types.ClusterIDMax | 1)
 	c.Assert(maxClusterID.HasLocalScope(), Equals, false)
 
 	c.Assert(ReservedIdentityWorld.HasLocalScope(), Equals, false)
@@ -54,12 +54,12 @@ func (s *IdentityTestSuite) TestClusterID(c *C) {
 			clusterID: 255,
 		},
 		{ // make sure we support min/max configuration values
-			identity:  option.ClusterIDMin << 16,
-			clusterID: option.ClusterIDMin,
+			identity:  types.ClusterIDMin << 16,
+			clusterID: types.ClusterIDMin,
 		},
 		{
-			identity:  option.ClusterIDMax << 16,
-			clusterID: option.ClusterIDMax,
+			identity:  types.ClusterIDMax << 16,
+			clusterID: types.ClusterIDMax,
 		},
 	}
 
