@@ -12,6 +12,10 @@ arch:
   - amd64
   - arm64
 
+jobs:
+  allow_failures:
+  - arch: arm64
+
 if: branch = master OR type = pull_request
 
 addons:
