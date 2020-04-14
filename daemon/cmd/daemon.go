@@ -571,6 +571,7 @@ func (d *Daemon) Close() {
 	d.nodeDiscovery.Close()
 }
 
+// TriggerReloadWithoutCompile causes all BPF programs and maps to be reloaded,
 // without recompiling the datapath logic for each endpoint. It first attempts
 // to recompile the base programs, and if this fails returns an error. If base
 // program load is successful, it subsequently triggers regeneration of all
