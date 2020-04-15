@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/test/helpers/logutils"
 
 	"github.com/asaskevich/govalidator"
+	"github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 )
@@ -447,6 +448,28 @@ func (kub *Kubectl) GetPodsNodes(namespace string, filter string) (map[string]st
 		return nil, fmt.Errorf("cannot retrieve pods: %s", res.CombineOutput())
 	}
 	return res.KVOutput(), nil
+}
+
+func (kub *Kubectl) GetPodOnNodeWithOffset(nodeName string, podFilter string, callOffset int) (string, string) {
+	var podName string
+
+	callOffset++
+
+	podsNodes, err := kub.GetPodsNodes(DefaultNamespace, fmt.Sprintf("-l %s", podFilter))
+	gomega.ExpectWithOffset(callOffset, err).Should(gomega.BeNil(), "Cannot retrieve pods nodes with filter %q", podFilter)
+	gomega.Expect(podsNodes).ShouldNot(gomega.BeEmpty(), "No pod found in namespace %s with filter %q", DefaultNamespace, podFilter)
+	for pod, node := range podsNodes {
+		if node == nodeName {
+			podName = pod
+			break
+		}
+	}
+	gomega.ExpectWithOffset(callOffset, podName).ShouldNot(gomega.BeEmpty(), "Cannot retrieve pod on node %s with filter %q", nodeName, podFilter)
+	podsIPs, err := kub.GetPodsIPs(DefaultNamespace, podFilter)
+	gomega.ExpectWithOffset(callOffset, err).Should(gomega.BeNil(), "Cannot retrieve pods IPs with filter %q", podFilter)
+	gomega.Expect(podsIPs).ShouldNot(gomega.BeEmpty(), "No pod IP found in namespace %s with filter %q", DefaultNamespace, podFilter)
+	podIP := podsIPs[podName]
+	return podName, podIP
 }
 
 // GetSvcIP returns the cluster IP for the given service. If the service
@@ -2525,6 +2548,16 @@ func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, e
 	}
 
 	return res.Output().String(), nil
+}
+
+// GetNodeInfo provides the node name and IP address based on the label
+// (eg helpers.K8s1 or helpers.K8s2)
+func (kub *Kubectl) GetNodeInfo(label string) (nodeName, nodeIP string) {
+	nodeName, err := kub.GetNodeNameByLabel(label)
+	gomega.ExpectWithOffset(1, err).To(gomega.BeNil(), "Cannot get node by label "+label)
+	nodeIP, err = kub.GetNodeIPByLabel(label)
+	gomega.ExpectWithOffset(1, err).Should(gomega.BeNil(), "Can not retrieve Node IP for "+label)
+	return nodeName, nodeIP
 }
 
 // GetCiliumPodOnNodeWithLabel returns the name of the Cilium pod that is running on node with cilium.io/ci-node label
