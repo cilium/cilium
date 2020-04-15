@@ -228,10 +228,10 @@ func (e *Endpoint) getEndpointPolicy() (policy *cilium_v2.EndpointPolicy) {
 	if e.desiredPolicy != nil {
 		policy = &cilium_v2.EndpointPolicy{
 			Ingress: &cilium_v2.EndpointPolicyDirection{
-				Enforcing: e.desiredPolicy.IngressPolicyEnabled,
+				Enforcing: !e.Options.IsEnabled(option.PolicyAuditMode) && e.desiredPolicy.IngressPolicyEnabled,
 			},
 			Egress: &cilium_v2.EndpointPolicyDirection{
-				Enforcing: e.desiredPolicy.EgressPolicyEnabled,
+				Enforcing: !e.Options.IsEnabled(option.PolicyAuditMode) && e.desiredPolicy.EgressPolicyEnabled,
 			},
 		}
 

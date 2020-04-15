@@ -156,10 +156,13 @@ func (epPolicyMaps *endpointPolicyStatusMap) Remove(endpointID uint16) {
 // UpdateMetrics update the policy enforcement metrics statistics for the endpoints.
 func (epPolicyMaps *endpointPolicyStatusMap) UpdateMetrics() {
 	policyStatus := map[models.EndpointPolicyEnabled]float64{
-		models.EndpointPolicyEnabledNone:    0,
-		models.EndpointPolicyEnabledEgress:  0,
-		models.EndpointPolicyEnabledIngress: 0,
-		models.EndpointPolicyEnabledBoth:    0,
+		models.EndpointPolicyEnabledNone:         0,
+		models.EndpointPolicyEnabledEgress:       0,
+		models.EndpointPolicyEnabledIngress:      0,
+		models.EndpointPolicyEnabledBoth:         0,
+		models.EndpointPolicyEnabledAuditEgress:  0,
+		models.EndpointPolicyEnabledAuditIngress: 0,
+		models.EndpointPolicyEnabledAuditBoth:    0,
 	}
 
 	epPolicyMaps.mutex.Lock()

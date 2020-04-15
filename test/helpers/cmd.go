@@ -120,6 +120,14 @@ func (res *CmdRes) ExpectContains(data string, optionalDescription ...interface{
 		gomega.ContainSubstring(data), optionalDescription...)
 }
 
+// ExpectMatchesRegexp asserts that the stdout of the executed command
+// matches the regexp. It accepts an optional parameter that can be
+// used to annotate failure messages.
+func (res *CmdRes) ExpectMatchesRegexp(regexp string, optionalDescription ...interface{}) bool {
+	return gomega.ExpectWithOffset(1, res.Output().String()).To(
+		gomega.MatchRegexp(regexp), optionalDescription...)
+}
+
 // ExpectDoesNotContain asserts that a string is not contained in the stdout of
 // the executed command. It accepts an optional parameter that can be used to
 // annotate failure messages.
