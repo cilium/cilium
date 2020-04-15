@@ -36,8 +36,14 @@ type endpointManager interface {
 // Expose exposes the endpoint to the endpointmanager. After this function
 // is called, the endpoint may be accessed by any lookup in the endpointmanager.
 func (e *Endpoint) Expose(mgr endpointManager) error {
+	// No need to check liveness as an endpoint can only be deleted via the
+	// API after it has been inserted into the manager.
+	// 'e.ID' written below, read lock is not enough.
+	e.unconditionalLock()
+
 	newID, err := mgr.AllocateID(e.ID)
 	if err != nil {
+		e.unlock()
 		return err
 	}
 	defer close(e.exposed)
@@ -57,12 +63,10 @@ func (e *Endpoint) Expose(mgr endpointManager) error {
 
 	// No need to check liveness as an endpoint can only be deleted via the
 	// API after it has been inserted into the manager.
-	e.unconditionalRLock()
 	mgr.UpdateIDReference(e)
 	e.updateReferences(mgr)
-	e.runlock()
-
 	e.getLogger().Info("New endpoint")
+	e.unlock()
 
 	mgr.RunK8sCiliumEndpointSync(e, option.Config)
 	return nil
