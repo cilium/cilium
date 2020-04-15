@@ -103,7 +103,7 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ipam.Re
 	for key, e := range n.enis {
 		scopedLog.WithFields(logrus.Fields{
 			fieldEniID:     e.ID,
-			"needIndex":    n.k8sObj.Spec.ENI.FirstInterfaceIndex,
+			"needIndex":    *n.k8sObj.Spec.ENI.FirstInterfaceIndex,
 			"index":        e.Number,
 			"numAddresses": len(e.Addresses),
 		}).Debug("Considering ENI for IP release")
@@ -166,7 +166,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 	for key, e := range n.enis {
 		scopedLog.WithFields(logrus.Fields{
 			fieldEniID:     e.ID,
-			"needIndex":    n.k8sObj.Spec.ENI.FirstInterfaceIndex,
+			"needIndex":    *n.k8sObj.Spec.ENI.FirstInterfaceIndex,
 			"index":        e.Number,
 			"addressLimit": limits.IPv4,
 			"numAddresses": len(e.Addresses),
