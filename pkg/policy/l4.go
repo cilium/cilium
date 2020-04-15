@@ -360,8 +360,7 @@ func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, selections
 		if l4.Ingress {
 			direction = trafficdirection.Ingress
 		}
-		l4Policy.AccumulateMapChanges(added, deleted, uint16(l4.Port), uint8(l4.U8Proto), direction,
-			l4.L7RulesPerSelector[selector] != nil, l4.DerivedFromRules)
+		l4Policy.AccumulateMapChanges(added, deleted, l4, direction, l4.L7RulesPerSelector[selector] != nil)
 	}
 }
 
@@ -804,9 +803,12 @@ func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'adds' and 'deletes'.
-func (l4 *L4Policy) AccumulateMapChanges(adds, deletes []identity.NumericIdentity,
-	port uint16, proto uint8, direction trafficdirection.TrafficDirection,
-	redirect bool, derivedFrom labels.LabelArrayList) {
+func (l4 *L4Policy) AccumulateMapChanges(adds, deletes []identity.NumericIdentity, l4Filter *L4Filter,
+	direction trafficdirection.TrafficDirection, redirect bool) {
+	port := uint16(l4Filter.Port)
+	proto := uint8(l4Filter.U8Proto)
+	derivedFrom := l4Filter.DerivedFromRules
+
 	l4.mutex.RLock()
 	for epPolicy := range l4.users {
 		epPolicy.policyMapChanges.AccumulateMapChanges(adds, deletes, port, proto, direction, redirect, derivedFrom)
