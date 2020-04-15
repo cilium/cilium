@@ -17,18 +17,13 @@ package RuntimeTest
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"strings"
-	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
 )
-
-// ensure that our random numbers are seeded differently on each run
-var randGen = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 const (
 	// MonitorDropNotification represents the DropNotification configuration
