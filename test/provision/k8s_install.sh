@@ -64,7 +64,8 @@ sudo service serial-getty@ttyS0 start
 
 # TODO: Check if the k8s version is the same
 if [[ -f  "/etc/provision_finished" ]]; then
-    sudo dpkg -l | grep kubelet
+    echo "Checking that kubelet exists in path"
+    which kubelet
     echo "provision is finished, recompiling"
     $PROVISIONSRC/compile.sh
     exit 0
