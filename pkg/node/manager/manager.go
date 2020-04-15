@@ -61,6 +61,21 @@ type Configuration interface {
 	NodeEncryptionEnabled() bool
 }
 
+// Notifier is the interaface the wraps Subscribe and Unsubscribe. An
+// implementation of this interface notifies subscribers of nodes being added,
+// updated or deleted.
+type Notifier interface {
+	// Subscribe adds the given NodeHandler to the list of subscribers that are
+	// notified of node changes. Upcon call to this method, the NodeHandler is
+	// being notified of all nodes that are already in the cluster by calling
+	// the NodeHandler's NodeAdd callback.
+	Subscribe(datapath.NodeHandler)
+	// Unsubscribe removes the given NodeHandler from the list of subscribers.
+	Unsubscribe(datapath.NodeHandler)
+}
+
+var _ Notifier = (*Manager)(nil)
+
 // Manager is the entity that manages a collection of nodes
 type Manager struct {
 	// mutex is the lock protecting access to the nodes map. The mutex must
