@@ -31,8 +31,7 @@ Step 2: Install Istio
 
 Install the `Helm client <https://docs.helm.sh/using_helm/#installing-helm>`_.
 
-Download `Istio version 1.5.1
-<https://github.com/istio/istio/releases/tag/1.5.1>`_:
+Download `Istio version 1.5.1 <https://github.com/istio/istio/releases/tag/1.5.1>`_:
 
 ::
 
@@ -101,7 +100,7 @@ of Pilot, and disables unused services:
     .. parsed-literal::
 
      helm template istio-cilium-helm --name istio --namespace istio-system \
-        --set pilot.image=docker.io/cilium/istio_pilot:${ISTIO_VERSION} \
+        --set pilot.image=docker.io/cilium/istio_pilot:${ISTIO_VERSION}-1 \
         --set sidecarInjectorWebhook.enabled=false \
         --set global.controlPlaneSecurityEnabled=true \
         --set global.mtls.enabled=true \
@@ -116,7 +115,7 @@ of Pilot, and disables unused services:
     .. parsed-literal::
 
      helm template istio istio-cilium-helm --namespace istio-system \
-        --set pilot.image=docker.io/cilium/istio_pilot:${ISTIO_VERSION} \
+        --set pilot.image=docker.io/cilium/istio_pilot:${ISTIO_VERSION}-1 \
         --set sidecarInjectorWebhook.enabled=false \
         --set global.controlPlaneSecurityEnabled=true \
         --set global.mtls.enabled=true \
