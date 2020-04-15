@@ -9,12 +9,16 @@ if [[ $1 == *"docker.io"* || $1 == *"quay.io"* ]]; then
 	exit 0
 fi
 
-docker pull docker.io/library/busybox:1.31.1
+BUSYBOX_VERSION=1.31.1
 
-docker tag busybox $1/cilium/cilium:$2
-docker tag busybox $1/cilium/cilium-dev:$2
-docker tag busybox $1/cilium/operator:$2
+docker pull docker.io/library/busybox:$BUSYBOX_VERSION
+
+docker tag busybox:$BUSYBOX_VERSION $1/cilium/cilium:$2
+docker tag busybox:$BUSYBOX_VERSION $1/cilium/cilium-dev:$2
+docker tag busybox:$BUSYBOX_VERSION $1/cilium/operator:$2
 
 docker push $1/cilium/cilium:$2
 docker push $1/cilium/cilium-dev:$2
 docker push $1/cilium/operator:$2
+
+docker system prune -f
