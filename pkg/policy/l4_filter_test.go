@@ -81,7 +81,19 @@ func (p *testPolicyContextType) GetEnvoyHTTPRules(*api.L7Rules) (*cilium.HttpNet
 	return nil, true
 }
 
-var testPolicyContext *testPolicyContextType
+var (
+	testPolicyContext               *testPolicyContextType
+	cachedRemoteNodeIdentitySetting bool
+)
+
+func (ds *PolicyTestSuite) SetUpSuite(c *C) {
+	cachedRemoteNodeIdentitySetting = option.Config.EnableRemoteNodeIdentity
+	option.Config.EnableRemoteNodeIdentity = true
+}
+
+func (ds *PolicyTestSuite) TearDownSuite(c *C) {
+	option.Config.EnableRemoteNodeIdentity = cachedRemoteNodeIdentitySetting
+}
 
 // Tests in this file:
 //
