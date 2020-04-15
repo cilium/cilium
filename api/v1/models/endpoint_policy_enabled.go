@@ -31,6 +31,15 @@ const (
 
 	// EndpointPolicyEnabledBoth captures enum value "both"
 	EndpointPolicyEnabledBoth EndpointPolicyEnabled = "both"
+
+	// EndpointPolicyEnabledAuditIngress captures enum value "audit-ingress"
+	EndpointPolicyEnabledAuditIngress EndpointPolicyEnabled = "audit-ingress"
+
+	// EndpointPolicyEnabledAuditEgress captures enum value "audit-egress"
+	EndpointPolicyEnabledAuditEgress EndpointPolicyEnabled = "audit-egress"
+
+	// EndpointPolicyEnabledAuditBoth captures enum value "audit-both"
+	EndpointPolicyEnabledAuditBoth EndpointPolicyEnabled = "audit-both"
 )
 
 // for schema
@@ -38,7 +47,7 @@ var endpointPolicyEnabledEnum []interface{}
 
 func init() {
 	var res []EndpointPolicyEnabled
-	if err := json.Unmarshal([]byte(`["none","ingress","egress","both"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["none","ingress","egress","both","audit-ingress","audit-egress","audit-both"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {

@@ -440,6 +440,18 @@ func (e *Endpoint) policyStatus() models.EndpointPolicyEnabled {
 	case e.realizedPolicy.EgressPolicyEnabled:
 		policyEnabled = models.EndpointPolicyEnabledEgress
 	}
+
+	if e.Options.IsEnabled(option.PolicyAuditMode) {
+		switch policyEnabled {
+		case models.EndpointPolicyEnabledIngress:
+			return models.EndpointPolicyEnabledAuditIngress
+		case models.EndpointPolicyEnabledEgress:
+			return models.EndpointPolicyEnabledAuditEgress
+		case models.EndpointPolicyEnabledBoth:
+			return models.EndpointPolicyEnabledAuditBoth
+		}
+	}
+
 	return policyEnabled
 }
 

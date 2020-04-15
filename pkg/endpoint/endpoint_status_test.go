@@ -425,6 +425,61 @@ func (s *EndpointSuite) TestgetEndpointPolicyMapState(c *check.C) {
 	}
 }
 
+func (s *EndpointSuite) TestEndpointPolicyStatus(c *check.C) {
+	tcs := []struct {
+		ingressEnabled bool
+		egressEnabled  bool
+		auditEnabled   bool
+		status         models.EndpointPolicyEnabled
+	}{
+		{false, false, false, models.EndpointPolicyEnabledNone},
+		{true, false, false, models.EndpointPolicyEnabledIngress},
+		{false, true, false, models.EndpointPolicyEnabledEgress},
+		{true, true, false, models.EndpointPolicyEnabledBoth},
+		{false, false, true, models.EndpointPolicyEnabledNone},
+		{true, false, true, models.EndpointPolicyEnabledAuditIngress},
+		{false, true, true, models.EndpointPolicyEnabledAuditEgress},
+		{true, true, true, models.EndpointPolicyEnabledAuditBoth},
+	}
+
+	e := s.newEndpoint(c, endpointGeneratorSpec{})
+	for _, tc := range tcs {
+		e.realizedPolicy.IngressPolicyEnabled = tc.ingressEnabled
+		e.realizedPolicy.EgressPolicyEnabled = tc.egressEnabled
+		e.Options.SetBool(option.PolicyAuditMode, tc.auditEnabled)
+		c.Assert(e.policyStatus(), checker.Equals, tc.status)
+	}
+}
+
+func (s *EndpointSuite) TestEndpointPolicy(c *check.C) {
+	tcs := []struct {
+		ingressEnabled   bool
+		egressEnabled    bool
+		auditEnabled     bool
+		ingressEnforcing bool
+		egressEnforcing  bool
+	}{
+		{false, false, false, false, false},
+		{true, false, false, true, false},
+		{false, true, false, false, true},
+		{true, true, false, true, true},
+		{false, false, true, false, false},
+		{true, false, true, false, false},
+		{false, true, true, false, false},
+		{true, true, true, false, false},
+	}
+
+	e := s.newEndpoint(c, endpointGeneratorSpec{})
+	for _, tc := range tcs {
+		e.desiredPolicy.IngressPolicyEnabled = tc.ingressEnabled
+		e.desiredPolicy.EgressPolicyEnabled = tc.egressEnabled
+		e.Options.SetBool(option.PolicyAuditMode, tc.auditEnabled)
+		policy := e.getEndpointPolicy()
+		c.Assert(policy.Ingress.Enforcing, checker.Equals, tc.ingressEnforcing)
+		c.Assert(policy.Egress.Enforcing, checker.Equals, tc.egressEnforcing)
+	}
+}
+
 func (s *EndpointSuite) BenchmarkGetCiliumEndpointStatusDeepEqual(c *check.C) {
 	a := s.newEndpoint(c, endpointGeneratorSpec{
 		fakeControllerManager:    true,
