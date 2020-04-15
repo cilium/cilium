@@ -15,7 +15,6 @@
 package rand
 
 import (
-	"math/rand"
 	"time"
 )
 
@@ -23,7 +22,7 @@ import (
 // https://stackoverflow.com/questions/22892120/how-to-generate-a-random-string-of-a-fixed-length-in-golang
 
 var (
-	randGen = rand.New(rand.NewSource(time.Now().UnixNano()))
+	randGen = NewSafeRand(time.Now().UnixNano())
 
 	letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 )

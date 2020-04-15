@@ -17,7 +17,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"strings"
 	"time"
 
@@ -32,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/status"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -50,7 +50,7 @@ const (
 	k8sMinimumEventHearbeat = time.Minute
 )
 
-var randGen = rand.New(rand.NewSource(time.Now().UnixNano()))
+var randGen = rand.NewSafeRand(time.Now().UnixNano())
 
 type k8sVersion struct {
 	version          string
