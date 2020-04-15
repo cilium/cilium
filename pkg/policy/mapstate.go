@@ -31,6 +31,11 @@ var (
 		Identity:         identity.ReservedIdentityHost.Uint32(),
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}
+	// localRemoteNodeKey represents an ingress L3 allow from remote nodes.
+	localRemoteNodeKey = Key{
+		Identity:         identity.ReservedIdentityRemoteNode.Uint32(),
+		TrafficDirection: trafficdirection.Ingress.Uint8(),
+	}
 )
 
 const (
@@ -140,6 +145,9 @@ func (keys MapState) DetermineAllowLocalhostIngress(l4Policy *L4Policy) {
 			},
 		}
 		keys[localHostKey] = NewMapStateEntry(derivedFrom, false)
+		if !option.Config.EnableRemoteNodeIdentity {
+			keys[localRemoteNodeKey] = NewMapStateEntry(derivedFrom, false)
+		}
 	}
 }
 
