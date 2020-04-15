@@ -65,7 +65,7 @@ var (
 func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	kvstore.SetupDummy("etcd")
 
-	s.randomName = rand.RandomRune()
+	s.randomName = rand.RandomString()
 
 	kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName)
 	s.svcCache = k8s.NewServiceCache(fakeDatapath.NewNodeAddressing())

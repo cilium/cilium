@@ -205,7 +205,7 @@ func (t TestAllocatorKey) PutKeyFromMap(m map[string]string) AllocatorKey {
 }
 
 func randomTestName() string {
-	return rand.RandomRuneWithPrefix(testPrefix, 12)
+	return rand.RandomStringWithPrefix(testPrefix, 12)
 }
 
 func (s *AllocatorSuite) TestSelectID(c *C) {

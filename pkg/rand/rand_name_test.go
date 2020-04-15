@@ -31,13 +31,13 @@ type RandSuite struct{}
 
 var _ = Suite(&RandSuite{})
 
-func (s *RandSuite) TestRandomRune(c *C) {
-	c.Assert(len(RandomRune()), Equals, 12)
+func (s *RandSuite) TestRandomString(c *C) {
+	c.Assert(len(RandomString()), Equals, 12)
 
-	c.Assert(len(RandomRuneWithLen(12)), Equals, 12)
-	c.Assert(len(RandomRuneWithLen(0)), Equals, 0)
+	c.Assert(len(RandomStringWithLen(12)), Equals, 12)
+	c.Assert(len(RandomStringWithLen(0)), Equals, 0)
 
-	str := RandomRuneWithPrefix("foo", 12)
-	c.Assert(len(str), Equals, 15)
-	c.Assert(strings.HasPrefix(str, "foo"), Equals, true)
+	s0 := RandomStringWithPrefix("foo", 12)
+	c.Assert(len(s0), Equals, len("foo")+12)
+	c.Assert(strings.HasPrefix(s0, "foo"), Equals, true)
 }
