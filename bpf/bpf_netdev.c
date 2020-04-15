@@ -515,56 +515,13 @@ do_netdev_encrypt_fib(struct __ctx_buff *ctx __maybe_unused,
 		      __u16 proto __maybe_unused,
 		      int *encrypt_iface __maybe_unused)
 {
-	int ret = 0;
 #ifdef BPF_HAVE_FIB_LOOKUP
-	struct bpf_fib_lookup fib_params = {};
-	void *data, *data_end;
-	int err;
-
-	if (proto ==  bpf_htons(ETH_P_IP)) {
-		struct iphdr *ip4;
-
-		if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
-			ret = DROP_INVALID;
-			goto drop_err_fib;
-		}
-
-		fib_params.family = AF_INET;
-		fib_params.ipv4_src = ip4->saddr;
-		fib_params.ipv4_dst = ip4->daddr;
-	} else {
-		struct ipv6hdr *ip6;
-
-		if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
-			ret = DROP_INVALID;
-			goto drop_err_fib;
-		}
-
-		fib_params.family = AF_INET6;
-		ipv6_addr_copy((union v6addr *) &fib_params.ipv6_src, (union v6addr *) &ip6->saddr);
-		ipv6_addr_copy((union v6addr *) &fib_params.ipv6_dst, (union v6addr *) &ip6->daddr);
-	}
-
-	fib_params.ifindex = *encrypt_iface;
-
-	err = fib_lookup(ctx, &fib_params, sizeof(fib_params),
-		    BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
-	if (err != 0) {
-		ret = DROP_NO_FIB;
-		goto drop_err_fib;
-	}
-	if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0) {
-		ret = DROP_WRITE_ERROR;
-		goto drop_err_fib;
-	}
-	if (eth_store_saddr(ctx, fib_params.smac, 0) < 0) {
-		ret = DROP_WRITE_ERROR;
-		goto drop_err_fib;
-	}
-	*encrypt_iface = fib_params.ifindex;
-drop_err_fib:
+        if (proto ==  bpf_htons(ETH_P_IP))
+		return fib_lookup_ipv4(ctx, NULL, encrypt_iface);
+	else
+		return fib_lookup_ipv6(ctx, NULL, encrypt_iface);
 #endif /* BPF_HAVE_FIB_LOOKUP */
-	return ret;
+	return 0;
 }
 
 static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto)

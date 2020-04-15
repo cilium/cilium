@@ -5,8 +5,11 @@
 #define __LIB_IPV6__
 
 #include <linux/ipv6.h>
+#include <bpf/api.h>
 
+#include "common.h"
 #include "dbg.h"
+#include "eth.h"
 
 #define IPV6_FLOWINFO_MASK              bpf_htonl(0x0FFFFFFF)
 #define IPV6_FLOWLABEL_MASK             bpf_htonl(0x000FFFFF)
@@ -254,4 +257,42 @@ static __always_inline int ipv6_addr_is_mapped(union v6addr *addr)
 {
 	return addr->p1 == 0 && addr->p2 == 0 && addr->p3 == 0xFFFF0000;
 }
+
+static __always_inline int fib_lookup_ipv6(struct __ctx_buff *ctx __maybe_unused,
+                                           struct ipv6hdr *ip6 __maybe_unused,
+                                           int *ifindex __maybe_unused)
+{
+	int ret = 0;
+#ifdef BPF_HAVE_FIB_LOOKUP
+	struct bpf_fib_lookup fib_params = {};
+	void *data, *data_end;
+	int err;
+
+	if (ip6 == NULL) {
+		struct iphdr *ip6c;
+		if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+			ret = DROP_INVALID;
+			goto drop_err_fib;
+		}
+		ip6 = ip6c
+	}
+
+	fib_params.family = AF_INET6;
+	ipv6_addr_copy((union v6addr *) &fib_params.ipv6_src, (union v6addr *) &ip6->saddr);
+	ipv6_addr_copy((union v6addr *) &fib_params.ipv6_dst, (union v6addr *) &ip6->daddr);
+
+	err = fib_lookup(ctx, &fib_params, sizeof(fib_params),
+		    BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
+	if (err) {
+		ret = DROP_NO_FIB;
+		goto drop_err_fib;
+	}
+	ret = _eth_store_from_fib(&fib_params);
+	if (!ret)
+		*ifindex = fib_params.ifindex;
+drop_err_fib:
+#endif /* BPF_HAVE_FIB_LOOKUP */
+	return ret;
+}
+
 #endif /* __LIB_IPV6__ */

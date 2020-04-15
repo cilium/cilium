@@ -71,4 +71,12 @@ static __always_inline int eth_store_daddr(struct __ctx_buff *ctx, __u8 *mac,
 	return ctx_store_bytes(ctx, off, mac, ETH_ALEN, 0);
 }
 
+static __always_inline int _eth_store_from_fib(struct __ctx_buff *ctx, struct bpf_fib_lookup *fib_params) {
+	if (eth_store_daddr(ctx, fib_params->dmac, 0) < 0)
+		return DROP_WRITE_ERROR;
+	if (eth_store_saddr(ctx, fib_params->smac, 0) < 0)
+		return DROP_WRITE_ERROR;
+	return 0;
+}
+
 #endif /* __LIB_ETH__ */

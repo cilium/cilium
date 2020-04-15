@@ -58,7 +58,7 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 #ifdef ENABLE_ROUTING
 	union macaddr router_mac = NODE_MAC;
 #endif
-	int ret, verdict, l4_off, hdrlen;
+	int ret, verdict, l4_off, hdrlen, ifindex;
 	struct csum_offset csum_off = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
@@ -365,7 +365,11 @@ pass_to_stack:
 	ctx->mark |= MARK_MAGIC_IDENTITY;
 	set_identity_mark(ctx, SECLABEL);
 
-	return CTX_ACT_OK;
+        ret = fib_lookup_ipv6(ctx, ip6, &ifindex);
+        if (ret)
+		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+        cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, ifindex);
+        return redirect(ifindex, 0);
 }
 
 static __always_inline int handle_ipv6(struct __ctx_buff *ctx, __u32 *dstID)
@@ -424,7 +428,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 #endif
 	void *data, *data_end;
 	struct iphdr *ip4;
-	int ret, verdict, l3_off = ETH_HLEN, l4_off;
+	int ret, verdict, l3_off = ETH_HLEN, l4_off, ifindex;
 	struct csum_offset csum_off = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
@@ -722,8 +726,11 @@ pass_to_stack:
 	ctx->mark |= MARK_MAGIC_IDENTITY;
 	set_identity_mark(ctx, SECLABEL);
 
-	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
-	return CTX_ACT_OK;
+        ret = fib_lookup_ipv4(ctx, ip4, &ifindex);
+        if (ret)
+		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+        cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, ifindex);
+        return redirect(ifindex, 0);
 }
 
 declare_tailcall_if(__or(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
@@ -1137,11 +1144,11 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 				  LXC_ID, ifindex, *reason, monitor);
 	}
 
-	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
-	if (ifindex)
+        ifindex = ctx_load_meta(ctx, CB_IFINDEX);
+        if (ifindex)
 		return redirect_peer(ifindex, 0);
 
-	return CTX_ACT_OK;
+        return CTX_ACT_OK;
 }
 
 declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY)

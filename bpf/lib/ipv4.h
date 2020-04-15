@@ -5,8 +5,11 @@
 #define __LIB_IPV4__
 
 #include <linux/ip.h>
+#include <bpf/api.h>
 
+#include "common.h"
 #include "dbg.h"
+#include "eth.h"
 
 struct ipv4_frag_id {
 	__be32	daddr;
@@ -133,5 +136,42 @@ ipv4_handle_fragment(struct __ctx_buff *ctx,
 						   ports);
 }
 #endif
+
+static __always_inline int fib_lookup_ipv4(struct __ctx_buff *ctx __maybe_unused,
+                                           struct iphdr *ip4 __maybe_unused,
+                                           int *ifindex __maybe_unused)
+{
+	int ret = 0;
+#ifdef BPF_HAVE_FIB_LOOKUP
+	struct bpf_fib_lookup fib_params = {};
+	void *data, *data_end;
+	int err;
+
+	if (ip4 == NULL) {
+		struct iphdr *ip4c;
+		if (!revalidate_data(ctx, &data, &data_end, &ip4c)) {
+			ret = DROP_INVALID;
+			goto drop_err_fib;
+		}
+		ip4 = ip4c;
+	}
+
+	fib_params.family = AF_INET;
+	fib_params.ipv4_src = ip4->saddr;
+	fib_params.ipv4_dst = ip4->daddr;
+
+	err = fib_lookup(ctx, &fib_params, sizeof(fib_params),
+		BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
+	if (err) {
+		ret = DROP_NO_FIB;
+		goto drop_err_fib;
+	}
+	ret = _eth_store_from_fib(&fib_params);
+	if (!ret)
+		*ifindex = fib_params.ifindex;
+drop_err_fib:
+#endif /* BPF_HAVE_FIB_LOOKUP */
+	return ret;
+}
 
 #endif /* __LIB_IPV4__ */
