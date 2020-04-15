@@ -565,7 +565,7 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) {
 //
 // hostWildcardL7 determines if L7 traffic from Host should be
 // wildcarded (in the relevant daemon mode).
-func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSelectorSlice, hostWildcardL7 bool, rule api.PortRule, port api.PortProtocol,
+func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSelectorSlice, hostWildcardL7 []string, rule api.PortRule, port api.PortProtocol,
 	protocol api.L4Proto, ruleLabels labels.LabelArray) (*L4Filter, error) {
 
 	filter, err := createL4Filter(policyCtx, fromEndpoints, rule, port, protocol, ruleLabels, true, nil)
@@ -575,11 +575,13 @@ func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSe
 
 	// If the filter would apply L7 rules for the Host, when we should accept everything from host,
 	// then wildcard Host at L7.
-	if !rule.Rules.IsEmpty() && hostWildcardL7 {
+	if !rule.Rules.IsEmpty() && len(hostWildcardL7) > 0 {
 		for cs := range filter.L7RulesPerSelector {
 			if cs.Selects(identity.ReservedIdentityHost) {
-				hostSelector := api.ReservedEndpointSelectors[labels.IDNameHost]
-				filter.cacheIdentitySelector(hostSelector, policyCtx.GetSelectorCache())
+				for _, name := range hostWildcardL7 {
+					selector := api.ReservedEndpointSelectors[name]
+					filter.cacheIdentitySelector(selector, policyCtx.GetSelectorCache())
+				}
 			}
 		}
 	}
