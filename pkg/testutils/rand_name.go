@@ -27,13 +27,15 @@ func init() {
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
-// RandomRuneWithPrefix returns a random name string with fixed prefix
-func RandomRuneWithPrefix(prefix string, n int) string {
-	return prefix + RandomRuneWithLen(n)
+// RandomStringWithPrefix returns a random string of length n + len(prefix) with
+// the given prefix, containing upper- and lowercase runes.
+func RandomStringWithPrefix(prefix string, n int) string {
+	return prefix + RandomStringWithLen(n)
 }
 
-// RandomRuneWithLen returns a random name of specified length
-func RandomRuneWithLen(n int) string {
+// RandomStringWithLen returns a random string of specified length containing
+// upper- and lowercase runes.
+func RandomStringWithLen(n int) string {
 	b := make([]rune, n)
 	for i := range b {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]
@@ -41,7 +43,7 @@ func RandomRuneWithLen(n int) string {
 	return string(b)
 }
 
-// RandomRune returns a random name with a predefined length of 12
-func RandomRune() string {
-	return RandomRuneWithLen(12)
+// RandomString returns a random string with a predefined length of 12.
+func RandomString() string {
+	return RandomStringWithLen(12)
 }

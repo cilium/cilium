@@ -94,7 +94,7 @@ func (t TestAllocatorKey) PutKeyFromMap(m map[string]string) allocator.Allocator
 }
 
 func randomTestName() string {
-	return testutils.RandomRuneWithPrefix(testPrefix, 12)
+	return testutils.RandomStringWithPrefix(testPrefix, 12)
 }
 
 func (s *AllocatorSuite) BenchmarkAllocate(c *C) {

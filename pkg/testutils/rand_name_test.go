@@ -32,12 +32,12 @@ type TestUtilsSuite struct{}
 var _ = Suite(&TestUtilsSuite{})
 
 func (s *TestUtilsSuite) TestRandomRune(c *C) {
-	c.Assert(len(RandomRune()), Equals, 12)
+	c.Assert(len(RandomString()), Equals, 12)
 
-	c.Assert(len(RandomRuneWithLen(12)), Equals, 12)
-	c.Assert(len(RandomRuneWithLen(0)), Equals, 0)
+	c.Assert(len(RandomStringWithLen(12)), Equals, 12)
+	c.Assert(len(RandomStringWithLen(0)), Equals, 0)
 
-	str := RandomRuneWithPrefix("foo", 12)
+	str := RandomStringWithPrefix("foo", 12)
 	c.Assert(len(str), Equals, 15)
 	c.Assert(strings.HasPrefix(str, "foo"), Equals, true)
 }
