@@ -287,6 +287,14 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 		return fmt.Errorf("Skipping build due to invalid state: %s", e.state)
 	}
 
+	// Bump priority if higher priority event was skipped.
+	// This must be done in the same critical section as the state transition above.
+	if e.skippedRegenerationLevel > context.datapathRegenerationContext.regenerationLevel {
+		context.datapathRegenerationContext.regenerationLevel = e.skippedRegenerationLevel
+	}
+	// reset to the default lowest level
+	e.skippedRegenerationLevel = regeneration.Invalid
+
 	e.unlock()
 
 	stats.prepareBuild.Start()
@@ -427,6 +435,43 @@ func (e *Endpoint) updateRegenerationStatistics(context *regenerationContext, er
 	e.LogStatusOK(BPF, "Successfully regenerated endpoint program (Reason: "+context.Reason+")")
 }
 
+// SetRegenerateStateIfAlive tries to change the state of the endpoint for pending regeneration.
+// Returns 'true' if 'e.Regenerate()' should be called after releasing the endpoint lock.
+// Return 'false' if returned error is non-nil.
+func (e *Endpoint) SetRegenerateStateIfAlive(regenMetadata *regeneration.ExternalRegenerationMetadata) (bool, error) {
+	regen := false
+	err := e.lockAlive()
+	if err != nil {
+		e.LogStatus(Policy, Failure, "Error while handling policy updates for endpoint: "+err.Error())
+	} else {
+		regen = e.setRegenerateStateLocked(regenMetadata)
+		e.unlock()
+	}
+	return regen, err
+}
+
+// setRegenerateStateLocked tries to change the state of the endpoint for pending regeneration.
+// returns 'true' if 'e.Regenerate()' should be called after releasing the endpoint lock.
+func (e *Endpoint) setRegenerateStateLocked(regenMetadata *regeneration.ExternalRegenerationMetadata) bool {
+	var regen bool
+	state := e.getState()
+	switch state {
+	case StateRestoring, StateWaitingToRegenerate:
+		// Bump the skipped regeneration level if needed so that the existing/queued
+		// regeneration can regenerate on the required level.
+		if regenMetadata.RegenerationLevel > e.skippedRegenerationLevel {
+			e.skippedRegenerationLevel = regenMetadata.RegenerationLevel
+			e.logStatusLocked(Other, OK, fmt.Sprintf("Skipped duplicate endpoint regeneration level %s trigger due to %s", regenMetadata.RegenerationLevel.String(), regenMetadata.Reason))
+		} else {
+			e.logStatusLocked(Other, OK, fmt.Sprintf("Skipped duplicate endpoint regeneration trigger due to %s", regenMetadata.Reason))
+		}
+		regen = false
+	default:
+		regen = e.setState(StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
+	}
+	return regen
+}
+
 // RegenerateIfAlive queue a regeneration of this endpoint into the build queue
 // of the endpoint and returns a channel that is closed when the regeneration of
 // the endpoint is complete. The channel returns:
@@ -434,24 +479,13 @@ func (e *Endpoint) updateRegenerationStatistics(context *regenerationContext, er
 //  - true if the regeneration succeed
 //  - nothing and the channel is closed if the regeneration did not happen
 func (e *Endpoint) RegenerateIfAlive(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool {
-	if err := e.lockAlive(); err != nil {
+	regen, err := e.SetRegenerateStateIfAlive(regenMetadata)
+	if err != nil {
 		log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
-		e.LogStatus(Policy, Failure, "Error while handling policy updates for endpoint: "+err.Error())
-	} else {
-		var regen bool
-		state := e.getState()
-		switch state {
-		case StateRestoring, StateWaitingToRegenerate:
-			e.logStatusLocked(Other, OK, fmt.Sprintf("Skipped duplicate endpoint regeneration trigger due to %s", regenMetadata.Reason))
-			regen = false
-		default:
-			regen = e.setState(StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
-		}
-		e.unlock()
-		if regen {
-			// Regenerate logs status according to the build success/failure
-			return e.Regenerate(regenMetadata)
-		}
+	}
+	if regen {
+		// Regenerate logs status according to the build success/failure
+		return e.Regenerate(regenMetadata)
 	}
 
 	ch := make(chan bool)
@@ -560,20 +594,7 @@ func (e *Endpoint) startRegenerationFailureHandler() {
 				return nil
 			}
 
-			if err := e.lockAlive(); err != nil {
-				// We don't need to regenerate because the endpoint is d
-				// disconnecting / is disconnected, exit gracefully.
-				return nil
-			}
-
-			stateTransitionSucceeded := e.setState(StateWaitingToRegenerate, reasonRegenRetry)
-			e.unlock()
-			if !stateTransitionSucceeded {
-				// Another regeneration has already been enqueued.
-				return nil
-			}
-
-			r := &regeneration.ExternalRegenerationMetadata{
+			regenMetadata := &regeneration.ExternalRegenerationMetadata{
 				// TODO (ianvernon) - is there a way we can plumb a parent
 				// context to a controller (e.g., endpoint.aliveCtx)?
 				ParentContext: ctx,
@@ -582,7 +603,15 @@ func (e *Endpoint) startRegenerationFailureHandler() {
 				// of the failure, simply that something failed.
 				RegenerationLevel: regeneration.RegenerateWithDatapathRewrite,
 			}
-			if success := <-e.Regenerate(r); success {
+			regen, _ := e.SetRegenerateStateIfAlive(regenMetadata)
+			if !regen {
+				// We don't need to regenerate because the endpoint is d
+				// disconnecting / is disconnected, or another regeneration has
+				// already been enqueued. Exit gracefully.
+				return nil
+			}
+
+			if success := <-e.Regenerate(regenMetadata); success {
 				return nil
 			}
 			return fmt.Errorf("regeneration recovery failed")

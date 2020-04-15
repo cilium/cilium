@@ -556,6 +556,12 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 			reason = "Waiting on endpoint regeneration because identity is known while handling API PATCH"
 		case StateWaitingForIdentity:
 			reason = "Waiting on endpoint initial program regeneration while handling API PATCH"
+		default:
+			// Caller skips regeneration if reason == "". Bump the skipped regeneration level so that next
+			// regeneration will realise endpoint changes.
+			if e.skippedRegenerationLevel < regeneration.RegenerateWithDatapathRewrite {
+				e.skippedRegenerationLevel = regeneration.RegenerateWithDatapathRewrite
+			}
 		}
 	}
 
