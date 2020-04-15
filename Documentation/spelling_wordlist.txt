@@ -115,6 +115,7 @@ RuleParser
 Runtime
 Runtimes
 SIG
+SR-IOV
 Sep
 Sharma
 Shirokov
@@ -285,6 +286,7 @@ gcloud
 getpeername
 gettingstarted
 github
+gke
 glibc
 globals
 gluecon
@@ -504,7 +506,6 @@ sig
 skb
 sockmap
 src
-SR-IOV
 ssl
 stacktrace
 stap

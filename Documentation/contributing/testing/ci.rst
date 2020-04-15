@@ -37,7 +37,7 @@ After you don't need to run tests on your branch, please remove the branch from 
 
 .. note::
 
-   It is also possible to run specific tests from this suite via ``test-focus``. It takes trailing words as a regex.
+   It is also possible to run specific tests from this suite via ``test-focus`` and ``test-gke``. It takes trailing words as a regex.
 
    +----------------------------------------------------+------------------------------+
    | ``test-focus K8s.*``                               | Runs all kubernetes tests    |
@@ -188,7 +188,7 @@ illustrating which subset of tests the job runs.
 | `Cilium-PR-Ginkgo-Tests-Validated <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Validated/>`_          | test-me-please,   | Yes                |
 |                                                                                                                | restart-ginkgo    |                    |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-PR-Ginkgo-Tests-Kernel <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Kernel/>`_                | test-me-please,   | No                 |
+| `Cilium-PR-Ginkgo-Tests-Kernel <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Kernel/>`_                | test-me-please,   | Yes                |
 |                                                                                                                | test-with-kernel  |                    |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-Ginkgo-Tests-Focus <https://jenkins.cilium.io/view/PR/job/Cilium-PR-Ginkgo-Tests-Validated-Focus/>`_   | test-focus        | No                 |
@@ -200,6 +200,8 @@ illustrating which subset of tests the job runs.
 | `Cilium-PR-Kubernetes-Upstream <https://jenkins.cilium.io/view/PR/job/Cilium-PR-Kubernetes-Upstream/>`_        | test-upstream-k8s | No                 |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-PR-Flannel <https://jenkins.cilium.io/job/Cilium-PR-Flannel/>`_                                        | test-flannel      | No                 |
++----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+| `Cilium-PR-K8s-GKE <https://jenkins.cilium.io/job/Cilium-PR-K8s-GKE/>`_                                        | test-gke          | Yes                |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 
 There are some feature flags based on Pull Requests labels, the list of labels
