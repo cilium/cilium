@@ -290,7 +290,7 @@ func (c *Client) GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetwor
 }
 
 func generateIpConfigName() string {
-	return "Cilium-" + rand.RandomRuneWithLen(8)
+	return rand.RandomStringWithPrefix("Cilium-", 8)
 }
 
 // AssignPrivateIpAddresses assigns the IPs to the interface as specified by
