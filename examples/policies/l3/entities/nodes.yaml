@@ -1,0 +1,12 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "to-dev-from-nodes-in-cluster"
+spec:
+  endpointSelector:
+    matchLabels:
+      env: dev
+  ingress:
+    - fromEntities:
+      - host
+      - remote-node
