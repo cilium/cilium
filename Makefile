@@ -372,6 +372,7 @@ govet:
     ./cilium-health/... \
     ./common/... \
     ./daemon/... \
+    ./hubble-proxy/... \
     ./operator/... \
     ./pkg/... \
     ./plugins/... \
