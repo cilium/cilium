@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"net/url"
 	"os"
 	"strconv"
@@ -32,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
@@ -65,7 +65,7 @@ var (
 	// exist or it was expired.
 	ErrLockLeaseExpired = errors.New("transaction did not succeed: lock lease expired")
 
-	randGen = rand.New(rand.NewSource(time.Now().UnixNano()))
+	randGen = rand.NewSafeRand(time.Now().UnixNano())
 )
 
 type etcdModule struct {

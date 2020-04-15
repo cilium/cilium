@@ -21,7 +21,6 @@ import (
 	"html/template"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -29,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
@@ -40,7 +40,7 @@ import (
 )
 
 // ensure that our random numbers are seeded differently on each run
-var randGen = rand.New(rand.NewSource(time.Now().UnixNano()))
+var randGen = rand.NewSafeRand(time.Now().UnixNano())
 
 // IsRunningOnJenkins detects if the currently running Ginkgo application is
 // most likely running in a Jenkins environment. Returns true if certain

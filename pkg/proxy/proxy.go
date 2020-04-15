@@ -17,7 +17,6 @@ package proxy
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -30,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
+	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/revert"
 
 	"github.com/sirupsen/logrus"
@@ -144,7 +144,7 @@ var (
 	// allocatedPorts is the map of all allocated proxy ports
 	allocatedPorts = make(map[uint16]struct{})
 
-	portRandomizer = rand.New(rand.NewSource(time.Now().UnixNano()))
+	portRandomizer = rand.NewSafeRand(time.Now().UnixNano())
 
 	// proxyPorts is a slice of all supported proxy ports
 	// The number and order of entries are fixed, and the fields
