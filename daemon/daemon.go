@@ -391,7 +391,8 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	k8s.Configure(option.Config.K8sAPIServer, option.Config.K8sKubeConfigPath, defaults.K8sClientQPSLimit, defaults.K8sClientBurst)
 	bootstrapStats.k8sInit.End(true)
 	d.k8sWatcher.RunK8sServiceHandler()
-	policyApi.InitEntities(option.Config.ClusterName)
+	treatRemoteNodeAsHost := option.Config.AlwaysAllowLocalhost() && !option.Config.EnableRemoteNodeIdentity
+	policyApi.InitEntities(option.Config.ClusterName, treatRemoteNodeAsHost)
 
 	bootstrapStats.cleanup.Start()
 	err = clearCiliumVeths()

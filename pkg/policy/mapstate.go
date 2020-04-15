@@ -30,6 +30,11 @@ var (
 		Identity:         identity.ReservedIdentityHost.Uint32(),
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}
+	// localRemoteNodeKey represents an ingress L3 allow from remote nodes.
+	localRemoteNodeKey = Key{
+		Identity:         identity.ReservedIdentityRemoteNode.Uint32(),
+		TrafficDirection: trafficdirection.Ingress.Uint8(),
+	}
 )
 
 // MapState is a state of a policy map.
@@ -101,6 +106,9 @@ func (keys MapState) RedirectPreferredInsert(key Key, entry MapStateEntry) {
 func (keys MapState) DetermineAllowLocalhostIngress(l4Policy *L4Policy) {
 	if option.Config.AlwaysAllowLocalhost() {
 		keys[localHostKey] = MapStateEntry{}
+		if !option.Config.EnableRemoteNodeIdentity {
+			keys[localRemoteNodeKey] = MapStateEntry{}
+		}
 	}
 }
 
