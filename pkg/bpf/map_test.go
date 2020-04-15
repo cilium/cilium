@@ -32,7 +32,6 @@ func (s *BPFTestSuite) TestExtractCommonName(c *C) {
 	c.Assert(extractCommonName("cilium_calls_overlay_2"), Equals, "calls")
 	c.Assert(extractCommonName("cilium_ct4_global"), Equals, "ct4_global")
 	c.Assert(extractCommonName("cilium_ct_any4_global"), Equals, "ct_any4_global")
-	c.Assert(extractCommonName("cilium_ep_config_1157"), Equals, "ep_config")
 	c.Assert(extractCommonName("cilium_events"), Equals, "events")
 	c.Assert(extractCommonName("cilium_ipcache"), Equals, "ipcache")
 	c.Assert(extractCommonName("cilium_lb4_reverse_nat"), Equals, "lb4_reverse_nat")

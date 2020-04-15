@@ -101,8 +101,6 @@ func (ms *MapSweeper) walk(path string, _ os.FileInfo, _ error) error {
 		ctmap.MapNameAny6,
 		ctmap.MapNameAny4,
 		loader.CallsMapName,
-		// Remove this line after v1.7
-		"cilium_ep_config_",
 		endpoint.IpvlanMapName,
 	}
 
