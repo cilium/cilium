@@ -34,14 +34,24 @@ func RandomStringWithPrefix(prefix string, n int) string {
 	return prefix + RandomStringWithLen(n)
 }
 
+func randomStringFromSliceWithLen(runes []rune, n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letterRunes[randGen.Intn(len(runes))]
+	}
+	return string(b)
+}
+
 // RandomStringWithLen returns a random string of specified length containing
 // upper- and lowercase runes.
 func RandomStringWithLen(n int) string {
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letterRunes[randGen.Intn(len(letterRunes))]
-	}
-	return string(b)
+	return randomStringFromSliceWithLen(letterRunes, n)
+}
+
+// RandomLowercaseStringWithLen returns a random string of specified length
+// containing lowercase runes.
+func RandomLowercaseStringWithLen(n int) string {
+	return randomStringFromSliceWithLen(letterRunes[:26], n)
 }
 
 // RandomString returns a random string with a predefined length of 12.
