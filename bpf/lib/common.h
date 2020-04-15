@@ -385,7 +385,10 @@ enum {
 #define MARK_MAGIC_KEY_ID		0xF000
 #define MARK_MAGIC_KEY_MASK		0xFF00
 
-#define MARK_MAGIC_SNAT_DONE		0x0500
+/* IPSec cannot be configured with NodePort BPF today, hence non-conflicting
+ * overlap with MARK_MAGIC_KEY_ID.
+ */
+#define MARK_MAGIC_SNAT_DONE		0x1500
 
 /* IPv4 option used to carry service addr and port for DSR. Lower 16bits set to
  * zero so that they can be OR'd with service port.
