@@ -1,0 +1,10 @@
+[{
+    "labels": [{"key": "name", "value": "to-dev-from-nodes-in-cluster"}],
+    "endpointSelector": {"matchLabels": {"env":"dev"}},
+    "ingress": [{
+        "fromEntities": [
+            "host",
+            "remote-node"
+        ]
+    }]
+}]
