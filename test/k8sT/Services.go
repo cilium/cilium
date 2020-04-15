@@ -965,6 +965,31 @@ var _ = Describe("K8sServicesTest", func() {
 						testHostPort()
 					})
 
+					It("Tests GH#10983", func() {
+						var data v1.Service
+						_, k8s2IP := kubectl.GetNodeInfo(helpers.K8s2)
+
+						// We need two NodePort services with the same single endpoint,
+						// so thus we choose the "test-nodeport{-local,}-k8s2" svc.
+						// Both svcs will be accessed via the k8s2 node, because
+						// "test-nodeport-local-k8s2" has the local external traffic
+						// policy.
+						err := kubectl.Get(helpers.DefaultNamespace, "svc test-nodeport-local-k8s2").Unmarshal(&data)
+						Expect(err).Should(BeNil(), "Can not retrieve service")
+						svc1URL := getHTTPLink(k8s2IP, data.Spec.Ports[0].NodePort)
+						err = kubectl.Get(helpers.DefaultNamespace, "svc test-nodeport-k8s2").Unmarshal(&data)
+						Expect(err).Should(BeNil(), "Can not retrieve service")
+						svc2URL := getHTTPLink(k8s2IP, data.Spec.Ports[0].NodePort)
+
+						// Send two requests from the same src IP and port to the endpoint
+						// via two different NodePort svc to trigger the stale conntrack
+						// entry issue. Once it's fixed, the second request should not
+						// fail.
+						doRequestsFromThirdHostWithLocalPort(svc1URL, 1, false, 64002)
+						time.Sleep(120 * time.Second) // to reuse the source port
+						doRequestsFromThirdHostWithLocalPort(svc2URL, 1, false, 64002)
+					})
+
 					SkipContextIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with MetalLB", func() {
 						var (
 							metalLB string
