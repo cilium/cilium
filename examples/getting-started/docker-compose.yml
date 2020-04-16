@@ -24,6 +24,7 @@ services:
     image: docker.io/cilium/docker-plugin:${CILIUM_TAG}
     command: cilium-docker
     volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
       - /var/run/cilium:/var/run/cilium
       - /run/docker/plugins:/run/docker/plugins
     network_mode: "host"
