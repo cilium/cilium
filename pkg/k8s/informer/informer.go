@@ -15,6 +15,7 @@
 package informer
 
 import (
+	"fmt"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -55,6 +56,8 @@ func NewInformerWithStore(
 	// of update/delete deltas.
 	fifo := cache.NewDeltaFIFO(cache.MetaNamespaceKeyFunc, clientState)
 
+	cacheMutationDetector := cache.NewCacheMutationDetector(fmt.Sprintf("%T", objType))
+
 	cfg := &cache.Config{
 		Queue:            fifo,
 		ListerWatcher:    lw,
@@ -67,6 +70,10 @@ func NewInformerWithStore(
 			for _, d := range obj.(cache.Deltas) {
 
 				obj := convertFunc(d.Object)
+
+				// In CI we detect if the objects were modified and panic
+				// this is a no-op in production environments.
+				cacheMutationDetector.AddObject(obj)
 
 				switch d.Type {
 				case cache.Sync, cache.Added, cache.Updated:
