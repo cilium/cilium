@@ -80,5 +80,6 @@ func IsEnabled() bool {
 	return config.APIServerURL != "" ||
 		config.KubeconfigPath != "" ||
 		(os.Getenv("KUBERNETES_SERVICE_HOST") != "" &&
-			os.Getenv("KUBERNETES_SERVICE_PORT") != "")
+			os.Getenv("KUBERNETES_SERVICE_PORT") != "") ||
+		os.Getenv("K8S_NODE_NAME") != ""
 }
