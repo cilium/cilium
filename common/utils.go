@@ -50,17 +50,6 @@ func C2GoArray(str string) []byte {
 	return ret
 }
 
-// FindEPConfigCHeader returns the full path of the file that is the CHeaderFileName from
-// the slice of files
-func FindEPConfigCHeader(basePath string, epFiles []os.FileInfo) string {
-	for _, epFile := range epFiles {
-		if epFile.Name() == CHeaderFileName {
-			return filepath.Join(basePath, epFile.Name())
-		}
-	}
-	return ""
-}
-
 // GetCiliumVersionString returns the first line containing CiliumCHeaderPrefix.
 func GetCiliumVersionString(epCHeaderFilePath string) (string, error) {
 	f, err := os.Open(epCHeaderFilePath)

@@ -217,6 +217,7 @@ const (
 	ClangErrorMsg      = "1 error generated."                         // from https://github.com/cilium/cilium/issues/10857
 	symbolSubstitution = "Skipping symbol substitution"               //
 	uninitializedRegen = "Uninitialized regeneration level"           // from https://github.com/cilium/cilium/pull/10949
+	unstableStat       = "BUG: stat() has unstable behavior"          // from https://github.com/cilium/cilium/pull/11028
 
 	// HelmTemplate is the location of the Helm templates to install Cilium
 	HelmTemplate = "../install/kubernetes/cilium"
@@ -276,6 +277,7 @@ var badLogMessages = map[string][]string{
 	ClangErrorMsg:      nil,
 	symbolSubstitution: nil,
 	uninitializedRegen: nil,
+	unstableStat:       nil,
 }
 
 var ciliumCLICommands = map[string]string{
