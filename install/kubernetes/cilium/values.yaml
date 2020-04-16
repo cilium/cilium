@@ -294,6 +294,9 @@ global:
     # enabled enables the hostPort functionality
     enabled: false
 
+    # onlyLocal indicates to generate service mapping only for local node
+    onlyLocal: false
+
   # externalIPs is the configuration for ExternalIPs service handling
   externalIPs:
     # enabled enables ExternalIPs functionality

@@ -282,6 +282,9 @@ const (
 	// EnableHostPort enables HostPort forwarding implemented by Cilium in BPF
 	EnableHostPort = "enable-host-port"
 
+	// HostPortOnlyLocal only generates HostPort mapping on local node
+	HostPortOnlyLocal = "host-port-only-local"
+
 	// EnableNodePort enables NodePort services implemented by Cilium in BPF
 	EnableNodePort = "enable-node-port"
 
@@ -1712,6 +1715,9 @@ type DaemonConfig struct {
 	// EnableHostPort enables k8s Pod's hostPort mapping through BPF
 	EnableHostPort bool
 
+	// HostPortOnlyLocal only generates hostport mapping on local node
+	HostPortOnlyLocal bool
+
 	// NodePortMode indicates in which mode NodePort implementation should run
 	// ("snat", "dsr" or "hybrid")
 	NodePortMode string
@@ -2321,8 +2327,9 @@ func (c *DaemonConfig) Populate() {
 	c.EnableExternalIPs = viper.GetBool(EnableExternalIPs)
 	c.EnableL7Proxy = viper.GetBool(EnableL7Proxy)
 	c.EnableTracing = viper.GetBool(EnableTracing)
-	c.EnableNodePort = viper.GetBool(EnableNodePort)
 	c.EnableHostPort = viper.GetBool(EnableHostPort)
+	c.HostPortOnlyLocal = viper.GetBool(HostPortOnlyLocal)
+	c.EnableNodePort = viper.GetBool(EnableNodePort)
 	c.NodePortMode = viper.GetString(NodePortMode)
 	c.NodePortAcceleration = viper.GetString(NodePortAcceleration)
 	c.EnableAutoProtectNodePortRange = viper.GetBool(EnableAutoProtectNodePortRange)

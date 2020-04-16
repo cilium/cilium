@@ -245,6 +245,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 		if option.Config.EnableHostPort {
 			cDefinesMap["ENABLE_HOSTPORT"] = "1"
+			if option.Config.HostPortOnlyLocal {
+				cDefinesMap["HOSTPORT_ONLY_LOCAL"] = "1"
+			}
 		}
 
 		cDefinesMap["NODEPORT_PORT_MIN"] = fmt.Sprintf("%d", option.Config.NodePortMin)

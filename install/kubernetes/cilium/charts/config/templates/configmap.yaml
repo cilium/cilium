@@ -303,6 +303,7 @@ data:
 {{- end }}
 {{- if .Values.global.hostPort }}
   enable-host-port: {{ .Values.global.hostPort.enabled | quote }}
+  host-port-only-local: {{ .Values.global.hostPort.onlyLocal | quote }}
 {{- end }}
 {{- if .Values.global.externalIPs }}
   enable-external-ips: {{ .Values.global.externalIPs.enabled | quote }}

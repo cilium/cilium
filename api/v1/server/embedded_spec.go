@@ -2513,6 +2513,9 @@ func init() {
               "properties": {
                 "enabled": {
                   "type": "boolean"
+                },
+                "local": {
+                  "type": "boolean"
                 }
               }
             },
@@ -6061,6 +6064,9 @@ func init() {
               "type": "object",
               "properties": {
                 "enabled": {
+                  "type": "boolean"
+                },
+                "local": {
                   "type": "boolean"
                 }
               }

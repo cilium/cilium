@@ -144,6 +144,9 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	}
 	if option.Config.EnableHostPort {
 		features.HostPort.Enabled = true
+		if option.Config.HostPortOnlyLocal {
+			features.HostPort.Local = true
+		}
 	}
 	if option.Config.EnableExternalIPs {
 		features.ExternalIPs.Enabled = true

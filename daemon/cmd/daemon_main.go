@@ -490,6 +490,9 @@ func init() {
 	flags.Bool(option.EnableHostPort, true, fmt.Sprintf("Enable k8s hostPort mapping feature (requires enabling %s)", option.EnableNodePort))
 	option.BindEnv(option.EnableHostPort)
 
+	flags.Bool(option.HostPortOnlyLocal, false, fmt.Sprintf("Only generate hostPort mapping on local node (requires enabling %s)", option.EnableHostPort))
+	option.BindEnv(option.HostPortOnlyLocal)
+
 	flags.Bool(option.EnableNodePort, false, "Enable NodePort type services by Cilium (beta)")
 	option.BindEnv(option.EnableNodePort)
 

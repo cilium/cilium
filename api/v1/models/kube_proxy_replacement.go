@@ -304,6 +304,9 @@ type KubeProxyReplacementFeaturesHostPort struct {
 
 	// enabled
 	Enabled bool `json:"enabled,omitempty"`
+
+	// local
+	Local bool `json:"local,omitempty"`
 }
 
 // Validate validates this kube proxy replacement features host port

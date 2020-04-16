@@ -1701,6 +1701,8 @@ definitions:
             properties:
               enabled:
                 type: boolean
+              local:
+                type: boolean
           externalIPs:
             type: object
             properties:

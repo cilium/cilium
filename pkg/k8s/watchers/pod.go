@@ -278,7 +278,7 @@ func (k *K8sWatcher) deleteK8sPodV1(pod *types.Pod) error {
 	return err
 }
 
-func genServiceMappings(pod *types.Pod) []loadbalancer.SVC {
+func genHostPortServiceMappings(localIPv4 net.IP, localIPv6 net.IP, onlyLocal bool, pod *types.Pod) []loadbalancer.SVC {
 	var svcs []loadbalancer.SVC
 	for _, c := range pod.SpecContainers {
 		for _, p := range c.HostPorts {
@@ -289,6 +289,11 @@ func genServiceMappings(pod *types.Pod) []loadbalancer.SVC {
 			if feIP == nil {
 				feIP = net.ParseIP(pod.StatusHostIP)
 			}
+
+			if onlyLocal && !feIP.Equal(localIPv4) && !feIP.Equal(localIPv6) {
+				continue
+			}
+
 			proto, err := loadbalancer.NewL4Type(p.Protocol)
 			if err != nil {
 				continue
@@ -333,7 +338,9 @@ func (k *K8sWatcher) UpsertHostPortMapping(pod *types.Pod) error {
 		return nil
 	}
 
-	svcs := genServiceMappings(pod)
+	svcs := genHostPortServiceMappings(k.datapath.LocalNodeAddressing().IPv4().PrimaryExternal(),
+		k.datapath.LocalNodeAddressing().IPv6().PrimaryExternal(),
+		option.Config.HostPortOnlyLocal, pod)
 	if len(svcs) == 0 {
 		return nil
 	}
@@ -368,7 +375,9 @@ func (k *K8sWatcher) DeleteHostPortMapping(pod *types.Pod) error {
 		return nil
 	}
 
-	svcs := genServiceMappings(pod)
+	svcs := genHostPortServiceMappings(k.datapath.LocalNodeAddressing().IPv4().PrimaryExternal(),
+		k.datapath.LocalNodeAddressing().IPv6().PrimaryExternal(),
+		option.Config.HostPortOnlyLocal, pod)
 	if len(svcs) == 0 {
 		return nil
 	}
