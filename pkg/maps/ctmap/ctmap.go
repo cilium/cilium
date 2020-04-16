@@ -116,6 +116,14 @@ type mapAttributes struct {
 	natMap     NatMap
 }
 
+// A "Record" designates a map entry (key + value), but avoid "entry" because of
+// possible confusion with "CtEntry" (actually the value part).
+// This type is used for JSON dump.
+type CtMapRecord struct {
+	Key   CtKey
+	Value CtEntry
+}
+
 func setupMapInfo(m mapType, define string, mapKey bpf.MapKey, keySize int, maxEntries int, nat NatMap) {
 	mapInfo[m] = mapAttributes{
 		bpfDefine: define,
