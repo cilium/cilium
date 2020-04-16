@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	enirouting "github.com/cilium/cilium/pkg/aws/eni/routing"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -230,12 +231,20 @@ type EndpointAdder interface {
 }
 
 // LaunchAsEndpoint launches the cilium-health agent in a nested network
-// namespace and attaches it to Cilium the same way as any other endpoint,
-// but with special reserved labels.
+// namespace and attaches it to Cilium the same way as any other endpoint, but
+// with special reserved labels.
 //
 // CleanupEndpoint() must be called before calling LaunchAsEndpoint() to ensure
 // cleanup of prior cilium-health endpoint instances.
-func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node.Node, mtuConfig mtu.Configuration, epMgr EndpointAdder, proxy endpoint.EndpointProxy, allocator cache.IdentityAllocator) (*Client, error) {
+func LaunchAsEndpoint(baseCtx context.Context,
+	owner regeneration.Owner,
+	n *node.Node,
+	mtuConfig mtu.Configuration,
+	epMgr EndpointAdder,
+	proxy endpoint.EndpointProxy,
+	allocator cache.IdentityAllocator,
+	eniHealthRouting *enirouting.RoutingInfo) (*Client, error) {
+
 	var (
 		cmd  = launcher.Launcher{}
 		info = &models.EndpointChangeRequest{
@@ -332,9 +341,18 @@ func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node
 	}
 
 	// Set up the endpoint routes
-	hostAddressing := node.GetNodeAddressing()
-	if err = configureHealthRouting(info.ContainerName, epIfaceName, hostAddressing, mtuConfig); err != nil {
+	if err = configureHealthRouting(info.ContainerName, epIfaceName, node.GetNodeAddressing(), mtuConfig); err != nil {
 		return nil, fmt.Errorf("Error while configuring routes: %s", err)
+	}
+
+	if option.Config.IPAM == option.IPAMENI {
+		if err := enirouting.Install(healthIP,
+			eniHealthRouting,
+			mtuConfig.GetDeviceMTU(),
+			option.Config.Masquerade); err != nil {
+
+			return nil, fmt.Errorf("Error while configuring health endpoint rules and routes: %s", err)
+		}
 	}
 
 	if err := epMgr.AddEndpoint(owner, ep, "Create cilium-health endpoint"); err != nil {

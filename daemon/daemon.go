@@ -25,6 +25,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
+	enirouting "github.com/cilium/cilium/pkg/aws/eni/routing"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/controller"
@@ -136,6 +137,10 @@ type Daemon struct {
 	identityAllocator *cache.CachingIdentityAllocator
 
 	k8sWatcher *watchers.K8sWatcher
+
+	// healthEndpointRouting is the information required to set up the health
+	// endpoint's routing in ENI mode
+	healthEndpointRouting *enirouting.RoutingInfo
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
