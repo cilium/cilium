@@ -34,8 +34,13 @@ var bpfCtListCmd = &cobra.Command{
 	Short:   "List connection tracking entries",
 	PreRun:  requireEndpointIDorGlobal,
 	Run: func(cmd *cobra.Command, args []string) {
+		maps := getMaps(args[0])
+		ctMaps := make([]ctmap.CtMap, len(maps))
+		for i, m := range maps {
+			ctMaps[i] = m
+		}
 		common.RequireRootPrivilege("cilium bpf ct list")
-		dumpCt(args[0])
+		dumpCt(ctMaps, args[0])
 	},
 }
 
@@ -44,14 +49,15 @@ func init() {
 	command.AddJSONOutput(bpfCtListCmd)
 }
 
-func dumpCt(eID string) {
-	var maps []*ctmap.Map
+func getMaps(eID string) []*ctmap.Map {
 	if eID == "global" {
-		maps = ctmap.GlobalMaps(true, true)
-	} else {
-		id, _ := strconv.Atoi(eID)
-		maps = ctmap.LocalMaps(&dummyEndpoint{ID: id}, true, true)
+		return ctmap.GlobalMaps(true, true)
 	}
+	id, _ := strconv.Atoi(eID)
+	return ctmap.LocalMaps(&dummyEndpoint{ID: id}, true, true)
+}
+
+func dumpCt(maps []ctmap.CtMap, eID string) {
 	entries := make([]ctmap.CtMapRecord, 0)
 
 	for _, m := range maps {
