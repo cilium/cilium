@@ -144,13 +144,15 @@ var _ = Describe("K8sServicesTest", func() {
 		// service connectivity is correct we tried 10 times, so balance in the
 		// two nodes
 		for _, pod := range pods {
-			By("Making ten curl requests from %q to %q", pod, url)
-			for i := 1; i <= 10; i++ {
+			tries := 10
+			By("Making %d curl requests from %q to %q", tries, pod, url)
+			for i := 1; i <= tries; i++ {
 				res := kubectl.ExecPodCmd(
 					helpers.DefaultNamespace, pod,
 					helpers.CurlFail(url))
 				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
-					"Pod %q can not connect to service %q", pod, url)
+					"Pod %q can not connect to service %q (failed in request %d/%d)",
+					pod, url, i, tries)
 			}
 		}
 	}
@@ -385,7 +387,8 @@ var _ = Describe("K8sServicesTest", func() {
 				res, err := kubectl.ExecInHostNetNS(context.TODO(), fromPod, helpers.CurlFail(url))
 				ExpectWithOffset(1, err).To(BeNil(), "Cannot run curl in host netns")
 				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
-					"%s host can not connect to service %q", fromPod, url)
+					"%s host can not connect to service %q (failed in request %d/%d)",
+					fromPod, url, i, count)
 			}
 		}
 
