@@ -122,7 +122,13 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(ciliumNPClient *k8s.K8sCiliumClie
 					if cnp.RequiresDerivative() {
 						return
 					}
-					err := k.addCiliumNetworkPolicyV2(ciliumNPClient, cnpEventStore, cnp)
+
+					// We need to deepcopy this structure because we are writing
+					// fields.
+					// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
+					cnpCpy := cnp.DeepCopy()
+
+					err := k.addCiliumNetworkPolicyV2(ciliumNPClient, cnpEventStore, cnpCpy)
 					k.K8sEventProcessed(metricCNP, metricCreate, err == nil)
 				}
 			},
@@ -141,7 +147,13 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(ciliumNPClient *k8s.K8sCiliumClie
 							return
 						}
 
-						err := k.updateCiliumNetworkPolicyV2(ciliumNPClient, cnpEventStore, oldCNP, newCNP)
+						// We need to deepcopy this structure because we are writing
+						// fields.
+						// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
+						oldCNPCpy := oldCNP.DeepCopy()
+						newCNPCpy := newCNP.DeepCopy()
+
+						err := k.updateCiliumNetworkPolicyV2(ciliumNPClient, cnpEventStore, oldCNPCpy, newCNPCpy)
 						k.K8sEventProcessed(metricCNP, metricUpdate, err == nil)
 					}
 				}
