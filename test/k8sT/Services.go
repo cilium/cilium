@@ -481,8 +481,8 @@ var _ = Describe("K8sServicesTest", func() {
 		// dstPort:     Target endpoint port for sending the datagram
 		doFragmentedRequest := func(srcPod string, srcIP string, fromNode string, dstPodPort int, dstIP string, dstPort int32) {
 			var (
-				blockSize  = 512
-				blockCount = 10
+				blockSize  = 5120
+				blockCount = 1
 				srcPort    = 12345
 			)
 			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s1)
