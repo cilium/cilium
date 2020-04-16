@@ -1,4 +1,5 @@
 // Copyright 2019 Authors of Hubble
+// Copyright 2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,25 +18,13 @@
 package observer
 
 import (
-	"context"
-
 	observerpb "github.com/cilium/cilium/api/v1/observer"
-
-	"google.golang.org/grpc/metadata"
+	"github.com/cilium/cilium/pkg/hubble/testutils"
 )
-
-type FakeGRPCServerStream struct {
-	OnSetHeader  func(metadata.MD) error
-	OnSendHeader func(metadata.MD) error
-	OnSetTrailer func(m metadata.MD)
-	OnContext    func() context.Context
-	OnSendMsg    func(m interface{}) error
-	OnRecvMsg    func(m interface{}) error
-}
 
 type FakeGetFlowsServer struct {
 	OnSend func(response *observerpb.GetFlowsResponse) error
-	*FakeGRPCServerStream
+	*testutils.FakeGRPCServerStream
 }
 
 func (s *FakeGetFlowsServer) Send(response *observerpb.GetFlowsResponse) error {
@@ -44,46 +33,4 @@ func (s *FakeGetFlowsServer) Send(response *observerpb.GetFlowsResponse) error {
 		return s.OnSend(response)
 	}
 	panic("OnSend not set")
-}
-
-func (s *FakeGRPCServerStream) SetHeader(m metadata.MD) error {
-	if s.OnSetHeader != nil {
-		return s.OnSetHeader(m)
-	}
-	panic("OnSetHeader not set")
-}
-
-func (s *FakeGRPCServerStream) SendHeader(m metadata.MD) error {
-	if s.OnSendHeader != nil {
-		return s.OnSendHeader(m)
-	}
-	panic("OnSendHeader not set")
-}
-
-func (s *FakeGRPCServerStream) SetTrailer(m metadata.MD) {
-	if s.OnSetTrailer != nil {
-		s.OnSetTrailer(m)
-	}
-	panic("OnSetTrailer not set")
-}
-
-func (s *FakeGRPCServerStream) Context() context.Context {
-	if s.OnContext != nil {
-		return s.OnContext()
-	}
-	panic("OnContext not set")
-}
-
-func (s *FakeGRPCServerStream) SendMsg(m interface{}) error {
-	if s.OnSendMsg != nil {
-		return s.OnSendMsg(m)
-	}
-	panic("OnSendMsg not set")
-}
-
-func (s *FakeGRPCServerStream) RecvMsg(m interface{}) error {
-	if s.OnRecvMsg != nil {
-		return s.OnRecvMsg(m)
-	}
-	panic("OnRecvMsg not set")
 }

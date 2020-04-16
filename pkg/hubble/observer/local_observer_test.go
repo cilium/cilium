@@ -81,7 +81,7 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 			i++
 			return nil
 		},
-		FakeGRPCServerStream: &FakeGRPCServerStream{
+		FakeGRPCServerStream: &testutils.FakeGRPCServerStream{
 			OnContext: func() context.Context {
 				return context.Background()
 			},
@@ -193,7 +193,7 @@ func TestLocalObserverServer_OnFlowDelivery(t *testing.T) {
 			flowsReceived++
 			return nil
 		},
-		FakeGRPCServerStream: &FakeGRPCServerStream{
+		FakeGRPCServerStream: &testutils.FakeGRPCServerStream{
 			OnContext: func() context.Context {
 				return context.Background()
 			},
@@ -247,7 +247,7 @@ func TestLocalObserverServer_OnGetFlows(t *testing.T) {
 			flowsReceived++
 			return nil
 		},
-		FakeGRPCServerStream: &FakeGRPCServerStream{
+		FakeGRPCServerStream: &testutils.FakeGRPCServerStream{
 			OnContext: func() context.Context {
 				return context.Background()
 			},
