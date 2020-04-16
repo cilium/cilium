@@ -59,6 +59,14 @@ type NatEntry interface {
 	Dump(key NatKey, start uint64) string
 }
 
+// A "Record" designates a map entry (key + value), but avoid "entry" because of
+// possible confusion with "NatEntry" (actually the value part).
+// This type is used for JSON dump.
+type NatMapRecord struct {
+	Key   NatKey
+	Value NatEntry
+}
+
 // NatDumpCreated returns time in seconds when NAT entry was created.
 func NatDumpCreated(dumpStart, entryCreated uint64) string {
 	tsecCreated := entryCreated / 1000000000
