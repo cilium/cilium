@@ -863,15 +863,6 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 		return POLICY_ACT_PROXY_REDIRECT;
 	}
 
-	if (unlikely(ct_state.rev_nat_index)) {
-		int ret2;
-
-		ret2 = lb6_rev_nat(ctx, l4_off, &csum_off,
-				   ct_state.rev_nat_index, &tuple, 0);
-		if (IS_ERR(ret2))
-			return ret2;
-	}
-
 	verdict = policy_can_access_ingress(ctx, src_label, tuple.dport,
 			tuple.nexthdr, false, &policy_match_type);
 
@@ -1074,16 +1065,6 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 		return DROP_MISSED_TAIL_CALL;
 	}
 #endif
-	if (unlikely(ret == CT_REPLY && ct_state.rev_nat_index &&
-		     !ct_state.loopback)) {
-		int ret2;
-
-		ret2 = lb4_rev_nat(ctx, l3_off, l4_off, &csum_off,
-				   &ct_state, &tuple,
-				   REV_NAT_F_TUPLE_SADDR);
-		if (IS_ERR(ret2))
-			return ret2;
-	}
 
 	verdict = policy_can_access_ingress(ctx, src_label, tuple.dport,
 					    tuple.nexthdr,
