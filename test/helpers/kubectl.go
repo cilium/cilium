@@ -85,21 +85,22 @@ var (
 	// below. These overrides represent a desire to set the default for all
 	// tests, instead of test-specific variations.
 	defaultHelmOptions = map[string]string{
-		"global.registry":               "k8s1:5000/cilium",
-		"agent.image":                   "cilium-dev",
-		"preflight.image":               "cilium-dev", // Set again in init to match agent.image!
-		"global.tag":                    "latest",
-		"operator.image":                "operator",
-		"managed-etcd.registry":         "docker.io/cilium",
-		"global.debug.enabled":          "true",
-		"global.k8s.requireIPv4PodCIDR": "true",
-		"global.pprof.enabled":          "true",
-		"global.logSystemLoad":          "true",
-		"global.bpf.preallocateMaps":    "true",
-		"global.etcd.leaseTTL":          "30s",
-		"global.ipv4.enabled":           "true",
-		"global.ipv6.enabled":           "true",
-		"global.psp.enabled":            "true",
+		"global.registry":                     "k8s1:5000/cilium",
+		"agent.image":                         "cilium-dev",
+		"preflight.image":                     "cilium-dev", // Set again in init to match agent.image!
+		"global.tag":                          "latest",
+		"operator.image":                      "operator",
+		"managed-etcd.registry":               "docker.io/cilium",
+		"global.debug.enabled":                "true",
+		"global.k8s.requireIPv4PodCIDR":       "true",
+		"global.pprof.enabled":                "true",
+		"global.logSystemLoad":                "true",
+		"global.bpf.preallocateMaps":          "true",
+		"global.etcd.leaseTTL":                "30s",
+		"global.ipv4.enabled":                 "true",
+		"global.ipv6.enabled":                 "true",
+		"global.psp.enabled":                  "true",
+		"global.ci.kubeCacheMutationDetector": "true",
 	}
 
 	flannelHelmOverrides = map[string]string{

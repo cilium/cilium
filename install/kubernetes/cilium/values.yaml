@@ -435,3 +435,8 @@ global:
     # See https://github.com/cilium/hubble/blob/master/Documentation/metrics.md for more comprehensive
     # documentation about Hubble's metric collection.
     metrics: []
+
+  # CI specific options: DO NOT USE IN PRODUCTION.
+  ci:
+    # Make Cilium panic if objects received by k8s are modified.
+    kubeCacheMutationDetector: false
