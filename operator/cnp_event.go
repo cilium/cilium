@@ -89,9 +89,15 @@ func enableCNPWatcher() error {
 			AddFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
 				if cnp := k8s.ObjToSlimCNP(obj); cnp != nil {
-					groups.AddDerivativeCNPIfNeeded(cnp.CiliumNetworkPolicy)
+
+					// We need to deepcopy this structure because we are writing
+					// fields.
+					// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
+					cnpCpy := cnp.DeepCopy()
+
+					groups.AddDerivativeCNPIfNeeded(cnpCpy.CiliumNetworkPolicy)
 					if kvstoreEnabled() {
-						cnpStatusMgr.StartStatusHandler(cnp)
+						cnpStatusMgr.StartStatusHandler(cnpCpy)
 					}
 				}
 			},
@@ -102,7 +108,14 @@ func enableCNPWatcher() error {
 						if k8s.EqualV2CNP(oldCNP, newCNP) {
 							return
 						}
-						groups.UpdateDerivativeCNPIfNeeded(newCNP.CiliumNetworkPolicy, oldCNP.CiliumNetworkPolicy)
+
+						// We need to deepcopy this structure because we are writing
+						// fields.
+						// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
+						newCNPCpy := newCNP.DeepCopy()
+						oldCNPCpy := oldCNP.DeepCopy()
+
+						groups.UpdateDerivativeCNPIfNeeded(newCNPCpy.CiliumNetworkPolicy, oldCNPCpy.CiliumNetworkPolicy)
 					}
 				}
 			},
