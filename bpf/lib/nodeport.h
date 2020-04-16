@@ -469,6 +469,7 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 
 	switch (ret) {
 	case CT_NEW:
+redo_all:
 		ct_state_new.src_sec_id = SECLABEL;
 		ct_state_new.node_port = 1;
 		ret = ct_create6(get_ct_map6(&tuple), NULL, &tuple, skb,
@@ -477,7 +478,7 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 			return ret;
 		if (backend_local) {
 			ct_flip_tuple_dir6(&tuple);
-redo:
+redo_local:
 			ct_state_new.rev_nat_index = 0;
 			ret = ct_create6(get_ct_map6(&tuple), NULL, &tuple, skb,
 					 CT_INGRESS, &ct_state_new, false);
@@ -488,13 +489,16 @@ redo:
 
 	case CT_ESTABLISHED:
 	case CT_REPLY:
+		if (unlikely(ct_state.rev_nat_index != svc->rev_nat_index))
+			goto redo_all;
+
 		if (backend_local) {
 			ct_flip_tuple_dir6(&tuple);
 			if (!__ct_entry_keep_alive(get_ct_map6(&tuple),
 						   &tuple)) {
 				ct_state_new.src_sec_id = SECLABEL;
 				ct_state_new.node_port = 1;
-				goto redo;
+				goto redo_local;
 			}
 		}
 		break;
@@ -1018,6 +1022,7 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 
 	switch (ret) {
 	case CT_NEW:
+redo_all:
 		ct_state_new.src_sec_id = SECLABEL;
 		ct_state_new.node_port = 1;
 		ret = ct_create4(get_ct_map4(&tuple), NULL, &tuple, skb,
@@ -1026,7 +1031,9 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 			return ret;
 		if (backend_local) {
 			ct_flip_tuple_dir4(&tuple);
-redo:
+redo_local:
+			/* Reset rev_nat_index, otherwise ipv4_policy() in
+			 * bpf_lxc will do invalid xlation */
 			ct_state_new.rev_nat_index = 0;
 			ret = ct_create4(get_ct_map4(&tuple), NULL, &tuple, skb,
 					 CT_INGRESS, &ct_state_new, false);
@@ -1037,13 +1044,18 @@ redo:
 
 	case CT_ESTABLISHED:
 	case CT_REPLY:
+		/* Recreate CT entries, as the existing one is stale and belongs
+		 * to a flow which target a different svc */
+		if (unlikely(ct_state.rev_nat_index != svc->rev_nat_index))
+			goto redo_all;
+
 		if (backend_local) {
 			ct_flip_tuple_dir4(&tuple);
 			if (!__ct_entry_keep_alive(get_ct_map4(&tuple),
 						   &tuple)) {
 				ct_state_new.src_sec_id = SECLABEL;
 				ct_state_new.node_port = 1;
-				goto redo;
+				goto redo_local;
 			}
 		}
 		break;
