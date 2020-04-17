@@ -49,6 +49,8 @@ func deleteIdentity(identity *types.Identity) error {
 		})
 	if err != nil {
 		log.WithError(err).Error("Unable to delete identity")
+	} else {
+		log.WithFields(logrus.Fields{"identity": identity.GetName()}).Info("Garbage collected identity")
 	}
 
 	return err
