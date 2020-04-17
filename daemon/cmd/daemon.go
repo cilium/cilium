@@ -56,7 +56,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
-	"github.com/cilium/cilium/pkg/maps/fragmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
@@ -275,7 +274,6 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 		option.Config.EnableIPv4, option.Config.EnableIPv6,
 	)
 	policymap.InitMapInfo(option.Config.PolicyMapEntries)
-	fragmap.InitMapInfo(option.Config.FragmentsMapEntries)
 
 	if option.Config.DryMode == false {
 		if err := bpf.ConfigureResourceLimits(); err != nil {

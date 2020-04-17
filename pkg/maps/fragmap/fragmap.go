@@ -28,11 +28,6 @@ const (
 	MapName = "cilium_ipv4_frag_datagrams"
 )
 
-var (
-	// MaxEntries is the number of entries in the LRU map
-	MaxEntries = 8192
-)
-
 // FragmentKey must match 'struct ipv4_frag_id' in "bpf/lib/ipv4.h".
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
@@ -72,20 +67,15 @@ func (v *FragmentValue) String() string {
 // map value.
 func (k FragmentKey) NewValue() bpf.MapValue { return &FragmentValue{} }
 
-// InitMapInfo updates the map info defaults for policy maps.
-func InitMapInfo(maxEntries int) {
-	MaxEntries = maxEntries
-}
-
 // InitMap creates the signal map in the kernel.
-func InitMap() error {
+func InitMap(mapEntries int) error {
 	fragMap := bpf.NewMap(MapName,
 		bpf.MapTypeLRUHash,
 		&FragmentKey{},
 		int(unsafe.Sizeof(FragmentKey{})),
 		&FragmentValue{},
 		int(unsafe.Sizeof(FragmentValue{})),
-		MaxEntries,
+		mapEntries,
 		0,
 		0,
 		bpf.ConvertKeyValue,

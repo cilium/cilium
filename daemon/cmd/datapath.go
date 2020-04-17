@@ -405,7 +405,7 @@ func (d *Daemon) initMaps() error {
 	}
 
 	if option.Config.EnableIPv4FragmentsTracking {
-		if err := fragmap.InitMap(); err != nil {
+		if err := fragmap.InitMap(option.Config.FragmentsMapEntries); err != nil {
 			return err
 		}
 	}

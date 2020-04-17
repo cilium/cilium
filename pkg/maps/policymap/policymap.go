@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -49,8 +50,9 @@ const (
 
 var (
 	// MaxEntries is the upper limit of entries in the per endpoint policy
-	// table
-	MaxEntries = 16384
+	// table. It is set by InitMapInfo(), but unit tests use the initial
+	// value below.
+	MaxEntries = defaults.PolicyMapEntries
 )
 
 type PolicyMap struct {
