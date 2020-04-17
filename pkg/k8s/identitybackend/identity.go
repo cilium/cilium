@@ -129,15 +129,17 @@ type JSONPatch struct {
 // being garbage collected.
 // Note: the lock field is not supported with the k8s CRD allocator.
 func (c *crdBackend) AcquireReference(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, lock kvstore.KVLocker) error {
-	identity := c.get(ctx, key)
-	if identity == nil {
+	identity, exists, err := c.getById(id)
+	if err != nil {
+		return err
+	}
+	if !exists {
 		return fmt.Errorf("identity does not exist")
 	}
 
 	capabilities := k8sversion.Capabilities()
 	identityOps := c.Client.CiliumV2().CiliumIdentities()
 
-	var err error
 	if capabilities.Patch {
 		var patch []byte
 		patch, err = json.Marshal([]JSONPatch{
