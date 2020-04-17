@@ -428,6 +428,8 @@ precheck: ineffassign logging-subsys-field
 	$(QUIET) contrib/scripts/check-missing-tags-in-tests.sh
 	@$(ECHO_CHECK) contrib/scripts/check-assert-deep-equals.sh
 	$(QUIET) contrib/scripts/check-assert-deep-equals.sh
+	@$(ECHO_CHECK) contrib/checkpatch/checkpatch.sh
+	$(QUIET) contrib/checkpatch/checkpatch.sh
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C bpf build_all
 
 pprof-help:
