@@ -348,7 +348,7 @@ ct_recreate6:
 
 #ifdef ENABLE_ROUTING
 to_host:
-	if (is_defined(ENABLE_HOST_REDIRECT)) {
+	if (is_defined(HOST_REDIRECT_TO_INGRESS)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 
 		ret = ipv6_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, METRIC_EGRESS);
@@ -359,7 +359,7 @@ to_host:
 				  HOST_IFINDEX, reason, monitor);
 
 		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
-		return redirect(HOST_IFINDEX, 0);
+		return redirect(HOST_IFINDEX, BPF_F_INGRESS);
 	}
 #endif
 
@@ -675,7 +675,7 @@ ct_recreate4:
 
 #ifdef ENABLE_ROUTING
 to_host:
-	if (is_defined(ENABLE_HOST_REDIRECT)) {
+	if (is_defined(HOST_REDIRECT_TO_INGRESS)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 
 		ret = ipv4_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, ip4);
@@ -686,11 +686,7 @@ to_host:
 				  reason, monitor);
 
 		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
-#ifdef HOST_REDIRECT_TO_INGRESS
 		return redirect(HOST_IFINDEX, BPF_F_INGRESS);
-#else
-		return redirect(HOST_IFINDEX, 0);
-#endif
 	}
 #endif
 
