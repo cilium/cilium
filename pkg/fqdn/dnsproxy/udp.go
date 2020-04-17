@@ -205,10 +205,11 @@ func (s *sessionUDP) WriteResponse(b []byte) (int, error) {
 	// Must give the UDP header to get the source port right.
 	// Reuse the msg buffer, figure out if golang can do gatter-scather IO
 	// with raw sockets?
+	l := len(b)
 	bb := bytes.NewBuffer(s.m[:0])
 	binary.Write(bb, binary.BigEndian, uint16(s.laddr.Port))
 	binary.Write(bb, binary.BigEndian, uint16(s.raddr.Port))
-	binary.Write(bb, binary.BigEndian, uint16(8+len(b)))
+	binary.Write(bb, binary.BigEndian, uint16(8+l))
 	binary.Write(bb, binary.BigEndian, uint16(0)) // checksum
 	bb.Write(b)
 	buf := bb.Bytes()
@@ -224,9 +225,9 @@ func (s *sessionUDP) WriteResponse(b []byte) (int, error) {
 		n, _, err = rawconn4.WriteMsgIP(buf, s.controlMessage(s.laddr), &dst)
 	}
 	if err != nil {
-		log.Warningf("WriteMsgIP: %s", err)
+		log.WithError(err).Warning("WriteMsgIP failed")
 	} else {
-		log.Debugf("WriteMsgIP: wrote %d bytes", n)
+		log.Debugf("dnsproxy: Wrote DNS response (%d/%d bytes) from %s to %s", n-8, l, s.laddr.String(), s.raddr.String())
 	}
 	return n, err
 }
