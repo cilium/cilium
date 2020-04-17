@@ -238,6 +238,13 @@ func (s *LocalObserverServer) GetFlows(
 	ctx, cancel := context.WithCancel(server.Context())
 	defer cancel()
 
+	for _, f := range s.opts.OnGetFlows {
+		ctx, err = f.OnGetFlows(ctx, req)
+		if err != nil {
+			return err
+		}
+	}
+
 	filterList := append(filters.DefaultFilters, s.opts.OnBuildFilter...)
 	whitelist, err := filters.BuildFilterList(ctx, req.Whitelist, filterList)
 	if err != nil {
@@ -275,6 +282,7 @@ func (s *LocalObserverServer) GetFlows(
 		return err
 	}
 
+nextFlow:
 	for ; ; i++ {
 		flow, err := flowsReader.Next(ctx)
 		if err != nil {
@@ -283,6 +291,17 @@ func (s *LocalObserverServer) GetFlows(
 			}
 			return err
 		}
+
+		for _, f := range s.opts.OnFlowDelivery {
+			stop, err := f.OnFlowDelivery(ctx, flow)
+			if err != nil {
+				return err
+			}
+			if stop {
+				continue nextFlow
+			}
+		}
+
 		err = server.Send(&observerpb.GetFlowsResponse{
 			ResponseTypes: &observerpb.GetFlowsResponse_Flow{
 				Flow: flow,
