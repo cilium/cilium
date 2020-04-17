@@ -199,7 +199,6 @@ ct_recreate6:
 	case CT_ESTABLISHED:
 		/* Did we end up at a stale non-service entry? Recreate if so. */
 		if (unlikely(ct_state.rev_nat_index != ct_state_new.rev_nat_index)) {
-			ct_delete6(get_ct_map6(tuple), tuple, ctx);
 			goto ct_recreate6;
 		}
 		break;
@@ -557,7 +556,6 @@ ct_recreate4:
 	case CT_ESTABLISHED:
 		/* Did we end up at a stale non-service entry? Recreate if so. */
 		if (unlikely(ct_state.rev_nat_index != ct_state_new.rev_nat_index)) {
-			ct_delete4(get_ct_map4(&tuple), &tuple, ctx);
 			goto ct_recreate4;
 		}
 		break;
