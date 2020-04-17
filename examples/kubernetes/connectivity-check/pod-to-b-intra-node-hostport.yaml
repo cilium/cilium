@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-to-b-intra-node-hostport
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: pod-to-b-intra-node-hostport
+  template:
+    metadata:
+      labels:
+        name: pod-to-b-intra-node-hostport
+    spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-b
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        image: docker.io/byrnedo/alpine-curl:0.1.8
+        imagePullPolicy: IfNotPresent 
+        livenessProbe:
+          exec:
+            command: [ "curl", "-sS", "--fail", "-o", "/dev/null", "echo-b-host-headless:40000" ]
+        readinessProbe:
+          exec:
+            command: [ "curl", "-sS", "--fail", "-o", "/dev/null", "echo-b-host-headless:40000" ]
+        name: pod-to-b-intra-node-hostport
