@@ -958,6 +958,35 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 				"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()), false); err != nil {
 				return err
 			}
+
+			// Masquerade all traffic that originated from a local
+			// pod and thus carries a security identity and that
+			// was also DNAT'ed. It must be masqueraded to ensure
+			// that reverse NAT can be performed. Otherwise the
+			// reply traffic would be sent directly to the pod
+			// without traversing the Linux stack again.
+			//
+			// This is only done if EnableEndpointRoutes is
+			// disabled, if EnableEndpointRoutes is enabled, then
+			// all traffic always passes through the stack anyway.
+			//
+			// This is required for:
+			//  - portmap/host if both source and destination are
+			//    on the same node
+			//  - kiam if source and server are on the same node
+			if !option.Config.EnableEndpointRoutes {
+				if err := runProg("iptables", append(
+					m.waitArgs,
+					"-t", "nat",
+					"-A", ciliumPostNatChain,
+					"-m", "mark", "--mark", fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIdentity, linux_defaults.MagicMarkHostMask),
+					"-o", localDeliveryInterface,
+					"-m", "conntrack", "--ctstate", "DNAT",
+					"-m", "comment", "--comment", "hairpin traffic that originated from a local pod",
+					"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()), false); err != nil {
+					return err
+				}
+			}
 		}
 	}
 
