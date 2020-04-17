@@ -114,7 +114,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EnableIPv4FragmentsTracking {
 			cDefinesMap["ENABLE_IPV4_FRAGMENTS"] = "1"
 			cDefinesMap["IPV4_FRAG_DATAGRAMS_MAP"] = fragmap.MapName
-			cDefinesMap["CILIUM_IPV4_FRAG_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", fragmap.MaxEntries)
+			cDefinesMap["CILIUM_IPV4_FRAG_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", option.Config.FragmentsMapEntries)
 		}
 	}
 

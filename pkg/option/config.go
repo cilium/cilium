@@ -2756,11 +2756,11 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 	}
 
 	if c.FragmentsMapEntries < FragmentsMapMin {
-		return fmt.Errorf("specified fragments tracking map max entries %d must exceed minimum %d",
+		return fmt.Errorf("specified max entries %d for fragment-tracking map must exceed minimum %d",
 			c.FragmentsMapEntries, FragmentsMapMin)
 	}
 	if c.FragmentsMapEntries > FragmentsMapMax {
-		return fmt.Errorf("specified fragments tracking map max entries %d must not exceed maximum %d",
+		return fmt.Errorf("specified max entries %d for fragment-tracking map must not exceed maximum %d",
 			c.FragmentsMapEntries, FragmentsMapMax)
 	}
 
