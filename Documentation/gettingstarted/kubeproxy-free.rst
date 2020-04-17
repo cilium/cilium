@@ -592,10 +592,6 @@ Limitations
       which uses BPF cgroup hooks to implement the service translation. The getpeername(2)
       hook is currently missing which will be addressed for newer kernels. It is known
       to currently not work with libceph deployments.
-    * Cilium in general currently does not support IP de-/fragmentation. This also includes
-      the BPF kube-proxy replacement. Meaning, while the first packet with L4 header will
-      reach the backend, all subsequent packets will not due to service lookup failing.
-      This will be addressed via `GH issue 10076 <https://github.com/cilium/cilium/issues/10076>`__.
     * Cilium's DSR NodePort mode currently does not operate well in environments with
       TCP Fast Open (TFO) enabled. It is recommended to switch to ``snat`` mode in this
       situation.
