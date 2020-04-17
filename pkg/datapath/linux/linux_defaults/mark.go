@@ -67,6 +67,11 @@ const (
 	// MagicMarkHost determines that the traffic is sourced from the local
 	// host and not from a proxy.
 	MagicMarkHost int = 0x0C00
+
+	// MagicMarkIdentity determines that the traffic carries a security
+	// identity in the skb->mark
+	MagicMarkIdentity int = 0x0F00
+
 	// MagicMarkK8sMasq determines that the traffic should be masqueraded
 	// by kube-proxy in kubernetes environments.
 	MagicMarkK8sMasq int = 0x4000
