@@ -703,7 +703,7 @@ func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool
 
 	// release the key locally, if it was the last use, remove the node
 	// specific value key to remove the global reference mark
-	lastUse, err = a.localKeys.release(k)
+	lastUse, _, err = a.localKeys.release(k)
 	if err != nil {
 		return lastUse, err
 	}
