@@ -33,8 +33,8 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/sirupsen/logrus"
 
+	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -307,12 +307,11 @@ func (c *crdBackend) GetIfLocked(ctx context.Context, key allocator.AllocatorKey
 	return c.Get(ctx, key)
 }
 
-// GetByID returns the key associated with an ID. Returns nil if no key is
-// associated with the ID.
-// Note: the lock field is not supported with the k8s CRD allocator.
-func (c *crdBackend) GetByID(id idpool.ID) (allocator.AllocatorKey, error) {
+// getById fetches the identities from the local store. Returns a nil `err` and
+// false `exists` if an Identity is not found for the given `id`.
+func (c *crdBackend) getById(id idpool.ID) (idty *types.Identity, exists bool, err error) {
 	if c.Store == nil {
-		return nil, fmt.Errorf("store is not available yet")
+		return nil, false, fmt.Errorf("store is not available yet")
 	}
 
 	identityTemplate := &types.Identity{
@@ -325,15 +324,29 @@ func (c *crdBackend) GetByID(id idpool.ID) (allocator.AllocatorKey, error) {
 
 	obj, exists, err := c.Store.Get(identityTemplate)
 	if err != nil {
-		return nil, err
+		return nil, exists, err
 	}
 	if !exists {
-		return nil, nil
+		return nil, exists, nil
 	}
 
 	identity, ok := obj.(*types.Identity)
 	if !ok {
-		return nil, fmt.Errorf("invalid object")
+		return nil, false, fmt.Errorf("invalid object")
+	}
+	return identity, true, nil
+}
+
+// GetByID returns the key associated with an ID. Returns nil if no key is
+// associated with the ID.
+// Note: the lock field is not supported with the k8s CRD allocator.
+func (c *crdBackend) GetByID(id idpool.ID) (allocator.AllocatorKey, error) {
+	identity, exists, err := c.getById(id)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, nil
 	}
 
 	return c.KeyType.PutKeyFromMap(identity.SecurityLabels), nil
