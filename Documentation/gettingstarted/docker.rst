@@ -16,7 +16,8 @@ operating system supported by Vagrant, including Linux, macOS, and Windows.
 Step 0: Install Vagrant
 =======================
 
-If you don't already have Vagrant installed, refer to the :ref:`dev_guide` for links to installation instructions for Vagrant.  
+If you don't already have Vagrant installed, refer to the :ref:`dev_guide` for
+links to installation instructions for Vagrant.
 
 Step 1: Download the Cilium Source Code
 =======================================
@@ -49,9 +50,9 @@ it will print:
 
 ::
 
-    ==> cilium-1: Creating cilium-kvstore
-    ==> cilium-1: Creating cilium
-    ==> cilium-1: Creating cilium-docker-plugin
+    ==> default: Creating cilium-kvstore
+    ==> default: Creating cilium
+    ==> default: Creating cilium-docker-plugin
     $
 
 If the script exits with an error message, do not attempt to proceed with the
@@ -88,14 +89,15 @@ it using the ``cilium`` CLI client. Check the status of the agent by running
 
     $ cilium status
     KVStore:                Ok         Consul: 172.18.0.2:8300
-    ContainerRuntime:       Ok         
-    Kubernetes:             Disabled   
+    Kubernetes:             Disabled
     Cilium:                 Ok         OK
-    NodeMonitor:            Listening for events on 1 CPUs with 64x4096 of shared memory
-    Cilium health daemon:   Ok   
-    Controller Status:      6/6 healthy
-    Proxy Status:           OK, ip 10.15.28.238, port-range 10000-20000
-    Cluster health:   1/1 reachable   (2018-04-05T16:08:22Z)
+    NodeMonitor:            Disabled
+    Cilium health daemon:   Ok
+    IPAM:                   IPv4: 2/65535 allocated from 10.15.0.0/16,
+    Controller Status:      14/14 healthy
+    Proxy Status:           OK, ip 10.15.225.211, 0 redirects active on ports 10000-20000
+    Hubble:                 Disabled
+    Cluster health:         1/1 reachable   (2020-04-17T10:55:03Z)
 
 The status indicates that all components are operational with the Kubernetes
 integration currently being disabled.
@@ -293,7 +295,7 @@ and
     X-Content-Type-Options: nosniff
     Date: Tue, 31 Oct 2017 14:31:09 GMT
     Content-Length: 14
-    
+
     Access denied
 
 As you can see, with Cilium L7 security policies, we are able to permit
@@ -317,9 +319,9 @@ cilium/examples/getting-started directory and type:
 
 ::
 
-    $ vagrant destroy cilium-1
+    $ vagrant destroy
 
 You can always re-create the VM using the steps described above.
 
 If instead you just want to shut down the VM but may use it later,
-``vagrant halt cilium-1`` will work, and you can start it again later.
+``vagrant halt`` will work, and you can start it again later.
