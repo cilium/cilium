@@ -148,11 +148,12 @@ func (d *dummyBackend) GetByID(ctx context.Context, id idpool.ID) (AllocatorKey,
 	return nil, nil
 }
 
-func (d *dummyBackend) Release(ctx context.Context, key AllocatorKey) error {
+func (d *dummyBackend) Release(ctx context.Context, id idpool.ID, key AllocatorKey) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	for id, k := range d.identities {
-		if k.GetKey() == key.GetKey() {
+	for idtyID, k := range d.identities {
+		if k.GetKey() == key.GetKey() &&
+			idtyID == id {
 			delete(d.identities, id)
 			if d.handler != nil {
 				d.handler.OnDelete(id, k)

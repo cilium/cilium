@@ -352,19 +352,20 @@ func (c *crdBackend) GetByID(ctx context.Context, id idpool.ID) (allocator.Alloc
 	return c.KeyType.PutKeyFromMap(identity.SecurityLabels), nil
 }
 
-// Release dissociates this node from using the identity bound to key. When an
-// identity has no references it may be garbage collected.
-func (c *crdBackend) Release(ctx context.Context, key allocator.AllocatorKey) (err error) {
-	identity := c.get(ctx, key)
-	if identity == nil {
+// Release dissociates this node from using the identity bound to the given ID.
+// When an identity has no references it may be garbage collected.
+func (c *crdBackend) Release(ctx context.Context, id idpool.ID, key allocator.AllocatorKey) (err error) {
+	identity, exists, err := c.getById(ctx, id)
+	if err != nil {
+		return err
+	}
+	if !exists || identity == nil {
 		return fmt.Errorf("unable to release identity %s: identity does not exist", key)
 	}
 
 	if _, ok := identity.Status.Nodes[c.NodeName]; !ok {
 		return fmt.Errorf("unable to release identity %s: identity is unused", key)
 	}
-
-	delete(identity.Status.Nodes, c.NodeName)
 
 	capabilities := k8sversion.Capabilities()
 
@@ -389,9 +390,7 @@ func (c *crdBackend) Release(ctx context.Context, key allocator.AllocatorKey) (e
 	}
 
 	identityCopy := identity.DeepCopy()
-	if identityCopy.Status.Nodes == nil {
-		return nil
-	}
+	delete(identityCopy.Status.Nodes, c.NodeName)
 
 	if capabilities.UpdateStatus {
 		_, err = identityOps.UpdateStatus(ctx, identityCopy.CiliumIdentity, metav1.UpdateOptions{})
