@@ -267,6 +267,8 @@ func (c *crdLock) Comparator() interface{} {
 	return nil
 }
 
+// get returns the first identity found for the given set of labels as we might
+// have duplicated entries identities for the same set of labels.
 func (c *crdBackend) get(ctx context.Context, key allocator.AllocatorKey) *types.Identity {
 	if c.Store == nil {
 		return nil
@@ -286,7 +288,7 @@ func (c *crdBackend) get(ctx context.Context, key allocator.AllocatorKey) *types
 	return nil
 }
 
-// Get returns the ID which is allocated to a key in the identity CRDs in
+// Get returns the first ID which is allocated to a key in the identity CRDs in
 // kubernetes.
 // Note: the lock field is not supported with the k8s CRD allocator.
 func (c *crdBackend) Get(ctx context.Context, key allocator.AllocatorKey) (idpool.ID, error) {
