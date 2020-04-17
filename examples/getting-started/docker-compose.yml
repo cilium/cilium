@@ -7,7 +7,6 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/run/cilium:/var/run/cilium
-      - /var/lib/cilium:/var/lib/cilium
       - /sys/fs/bpf:/sys/fs/bpf
       # To access Docker container netns:
       - /var/run/docker/netns:/var/run/docker/netns:rshared
