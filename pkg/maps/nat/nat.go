@@ -43,6 +43,7 @@ const (
 )
 
 // Map represents a NAT map.
+// It also implements the NatMap interface.
 type Map struct {
 	bpf.Map
 	v4 bool
@@ -61,10 +62,20 @@ type NatEntry interface {
 
 // A "Record" designates a map entry (key + value), but avoid "entry" because of
 // possible confusion with "NatEntry" (actually the value part).
-// This type is used for JSON dump.
+// This type is used for JSON dump and mock maps.
 type NatMapRecord struct {
 	Key   NatKey
 	Value NatEntry
+}
+
+// NatMap interface represents a NAT map, and can be reused to implement mock
+// maps for unit tests.
+type NatMap interface {
+	Open() error
+	Close() error
+	Path() (string, error)
+	DumpEntries() (string, error)
+	DumpWithCallback(bpf.DumpCallback) error
 }
 
 // NatDumpCreated returns time in seconds when NAT entry was created.
@@ -108,9 +119,7 @@ func NewMap(name string, v4 bool, entries int) *Map {
 	}
 }
 
-// DumpEntries iterates through Map m and writes the values of the
-// nat entries in m to a string.
-func (m *Map) DumpEntries() (string, error) {
+func doDumpEntries(m NatMap) (string, error) {
 	var buffer bytes.Buffer
 
 	nsecStart, _ := bpf.GetMtime()
@@ -124,6 +133,12 @@ func (m *Map) DumpEntries() (string, error) {
 	}
 	err := m.DumpWithCallback(cb)
 	return buffer.String(), err
+}
+
+// DumpEntries iterates through Map m and writes the values of the
+// nat entries in m to a string.
+func (m *Map) DumpEntries() (string, error) {
+	return doDumpEntries(m)
 }
 
 type gcStats struct {

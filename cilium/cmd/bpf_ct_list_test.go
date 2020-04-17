@@ -40,22 +40,20 @@ type BPFCtListSuite struct{}
 var _ = Suite(&BPFCtListSuite{})
 
 var (
-	srcAddr4 = types.IPv4{10, 10, 10, 2}
-	ctKey4   = ctmap.CtKey4{
+	ctKey4 = ctmap.CtKey4{
 		TupleKey4: tuple.TupleKey4{
 			DestAddr:   types.IPv4{10, 10, 10, 1},
-			SourceAddr: srcAddr4,
+			SourceAddr: types.IPv4{10, 10, 10, 2},
 			DestPort:   byteorder.HostToNetwork(uint16(80)).(uint16),
 			SourcePort: byteorder.HostToNetwork(uint16(13579)).(uint16),
 			NextHeader: 6,
 			Flags:      123,
 		},
 	}
-	srcAddr6 = types.IPv6{1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 121, 98, 219, 61}
-	ctKey6   = ctmap.CtKey6{
+	ctKey6 = ctmap.CtKey6{
 		TupleKey6: tuple.TupleKey6{
 			DestAddr:   types.IPv6{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
-			SourceAddr: srcAddr6,
+			SourceAddr: types.IPv6{1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 121, 98, 219, 61},
 			DestPort:   byteorder.HostToNetwork(uint16(443)).(uint16),
 			SourcePort: byteorder.HostToNetwork(uint16(7878)).(uint16),
 			NextHeader: 17,
@@ -88,7 +86,9 @@ type ctRecord6 struct {
 	Value ctmap.CtEntry
 }
 
-func dumpAndRead(maps []ctmap.CtMap, c *C) string {
+type dumpCallback func(maps []interface{}, args ...interface{})
+
+func dumpAndRead(maps []interface{}, dump dumpCallback, c *C, args ...interface{}) string {
 	// dumpCt() prints to standard output. Let's redirect it to a pipe, and
 	// read the dump from there.
 	stdout := os.Stdout
@@ -98,7 +98,7 @@ func dumpAndRead(maps []ctmap.CtMap, c *C) string {
 	defer func() { os.Stdout = stdout }()
 
 	command.ForceJSON()
-	dumpCt(maps, "")
+	dump(maps, args)
 
 	channel := make(chan string)
 	go func() {
@@ -142,7 +142,11 @@ func (s *BPFCtListSuite) TestDumpCt4(c *C) {
 		),
 	}
 
-	rawDump := dumpAndRead(ctMaps[:], c)
+	maps := make([]interface{}, len(ctMaps))
+	for i, m := range ctMaps {
+		maps[i] = m
+	}
+	rawDump := dumpAndRead(maps, dumpCt, c, "")
 
 	var ctDump []ctRecord4
 	err := json.Unmarshal([]byte(rawDump), &ctDump)
@@ -182,7 +186,11 @@ func (s *BPFCtListSuite) TestDumpCt6(c *C) {
 		),
 	}
 
-	rawDump := dumpAndRead(ctMaps[:], c)
+	maps := make([]interface{}, len(ctMaps))
+	for i, m := range ctMaps {
+		maps[i] = m
+	}
+	rawDump := dumpAndRead(maps, dumpCt, c, "")
 
 	var ctDump []ctRecord6
 	err := json.Unmarshal([]byte(rawDump), &ctDump)
