@@ -35,7 +35,7 @@ var bpfCtListCmd = &cobra.Command{
 	PreRun:  requireEndpointIDorGlobal,
 	Run: func(cmd *cobra.Command, args []string) {
 		maps := getMaps(args[0])
-		ctMaps := make([]ctmap.CtMap, len(maps))
+		ctMaps := make([]interface{}, len(maps))
 		for i, m := range maps {
 			ctMaps[i] = m
 		}
@@ -57,18 +57,19 @@ func getMaps(eID string) []*ctmap.Map {
 	return ctmap.LocalMaps(&dummyEndpoint{ID: id}, true, true)
 }
 
-func dumpCt(maps []ctmap.CtMap, eID string) {
+func dumpCt(maps []interface{}, args ...interface{}) {
 	entries := make([]ctmap.CtMapRecord, 0)
+	eID := args[0]
 
 	for _, m := range maps {
-		path, err := m.Path()
+		path, err := m.(ctmap.CtMap).Path()
 		if err == nil {
-			err = m.Open()
+			err = m.(ctmap.CtMap).Open()
 		}
 		if err != nil {
 			if os.IsNotExist(err) {
 				msg := "Unable to open %s: %s."
-				if eID != "global" {
+				if eID.(string) != "global" {
 					msg = "Unable to open %s: %s: please try using \"cilium bpf ct list global\"."
 				}
 				fmt.Fprintf(os.Stderr, msg+" Skipping.\n", path, err)
@@ -76,7 +77,7 @@ func dumpCt(maps []ctmap.CtMap, eID string) {
 			}
 			Fatalf("Unable to open %s: %s", path, err)
 		}
-		defer m.Close()
+		defer m.(ctmap.CtMap).Close()
 		// Plain output prints immediately, JSON output holds until it
 		// collected values from all maps to have one consistent object
 		if command.OutputJSON() {
@@ -84,11 +85,11 @@ func dumpCt(maps []ctmap.CtMap, eID string) {
 				record := ctmap.CtMapRecord{Key: key.(ctmap.CtKey), Value: *value.(*ctmap.CtEntry)}
 				entries = append(entries, record)
 			}
-			if err = m.DumpWithCallback(callback); err != nil {
+			if err = m.(ctmap.CtMap).DumpWithCallback(callback); err != nil {
 				Fatalf("Error while collecting BPF map entries: %s", err)
 			}
 		} else {
-			out, err := m.DumpEntries()
+			out, err := m.(ctmap.CtMap).DumpEntries()
 			if err != nil {
 				Fatalf("Error while dumping BPF Map: %s", err)
 			}
