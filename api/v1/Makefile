@@ -6,6 +6,7 @@ PROTOC ?= protoc
 HUBBLE_PROTO_SOURCES := \
 	./flow/flow.proto \
 	./peer/peer.proto \
+	./relay/relay.proto \
 	./observer/observer.proto
 
 HUBBLE_GO_TARGETS := $(HUBBLE_PROTO_SOURCES:.proto=.pb.go) $(HUBBLE_PROTO_SOURCES:.proto=.pb.validate.go)

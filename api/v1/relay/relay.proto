@@ -1,0 +1,158 @@
+// Copyright 2020 Authors of Cilium
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+import public "flow/flow.proto";
+
+package relay;
+
+service HubbleRelay {
+    rpc GetEvents(GetEventsRequest) returns (stream GetEventsResponse) {}
+}
+
+// Here I didn't include "follow", "until", and "number". This request assumes follow,
+// and lets the client decide when to end the request, whether it's based on timestamp
+// or the number of responses received.
+message GetEventsRequest{
+    repeated EventFilter blacklist = 1;
+    repeated EventFilter whitelist = 2;
+    google.protobuf.Timestamp since = 3;
+}
+
+message GetEventsResponse{
+    string node = 1;
+    google.protobuf.Timestamp timestamp = 2;
+    oneof event {
+        flow.Flow flow = 3;
+        K8sNamespaceAdded k8s_namespace_added = 4;
+        K8sNamespaceDeleted k8s_namespace_deleted = 5;
+        ServiceAdded service_added = 6;
+        ServiceAdded service_deleted = 7;
+        // This is needed in case the relay server knows that the service exists,
+        // but it doesn't know when it got created. I didn't add the exists event
+        // for k8s namespace because the creation timestamp is always known.
+        ServiceExists service_exists = 8;
+        // It's unclear how we can define what it means for service links to get
+        // added/deleted. For now I'm deferring the decision for whether a particular
+        // link should be included in the service map to the client. Maybe the server
+        // can periodically send service_link events for active links to keep-alive,
+        // and the client can expire older links based on their timestamp.
+        ServiceLink service_link_exists = 9;
+    }
+}
+
+// Here I added different filter types for different events. Another option is to reuse
+// and extend FlowFilter to filter all the events, but I worry that it might become too
+// confusing in terms of figuring out which filter fields apply to which events.
+message EventFilter {
+    repeated EventType type = 1;
+    repeated flow.FlowFilter flow_filter = 2;
+    repeated ServiceFilter service_filter = 3;
+    repeated ServiceLinkFilter service_link_filter = 4;
+}
+
+enum EventType {
+    UNKNOWN_EVENT = 0;
+    FLOW = 1;
+    K8S_NAMESPACE_ADDED = 2;
+    K8S_NAMESPACE_DELETED = 3;
+    SERVICE_ADDED = 4;
+    SERVICE_DELETED = 5;
+    SERVICE_EXISTS = 6;
+    SERVICE_LINK_EXISTS = 7;
+}
+
+message K8sNamespace {
+    string id = 1;
+    string name = 2;
+    google.protobuf.Timestamp creation_timestamp = 3;
+}
+
+message K8sNamespaceAdded {
+    K8sNamespace namespace = 1;
+}
+
+message K8sNamespaceDeleted {
+    K8sNamespace namespace = 1;
+}
+
+// IP protocols. The values of enums do not correspond to actual IP protocol numbers.
+enum IPProtocol {
+    UNKNOWN_IP_PROTOCOL = 0;
+    TCP = 1;
+    UDP = 2;
+    ICMP_V4 = 3;
+    ICMP_V6 = 4;
+}
+
+// Come up with a better name for Service.
+message Service {
+    // An opaque ID that uniquely identifies the service.
+    string id = 1;
+    string name = 2;
+    string namespace = 3;
+    repeated string labels = 4;
+    repeated string dns_names = 5;
+    bool egress_policy_enforced = 6;
+    bool ingress_policy_enforced = 7;
+    // This is a string instead of boolean because Cilium reports status message. If it's
+    // successfully enabled, this string is set to "OK" I think.
+    string visibility_policy_status = 8;
+    // We probably can't reliably set creation timestamp.
+    google.protobuf.Timestamp creation_timestamp = 9;
+}
+
+
+message ServiceAdded {
+    Service service = 1;
+}
+
+message ServiceDeleted {
+    Service service = 1;
+}
+
+message ServiceExists {
+    Service service = 1;
+}
+
+message ServiceFilter {
+    string namespace = 1;
+}
+
+message ServiceLink {
+    // An opaque ID that uniquely identifies this link.
+    string id = 1;
+    // source Service id
+    string source_id = 2;
+    // destination Service id
+    string destination_id = 3;
+    uint32 destination_port = 4;
+    IPProtocol ip_protocol = 5;
+    flow.Verdict verdict = 6;
+}
+
+message ServiceLinkExists {
+    ServiceLink service_link = 1;
+}
+
+message ServiceLinkFilter {
+    repeated ServiceFilter source = 1;
+    repeated ServiceFilter destination = 2;
+    // Use string here to support things like port ranges (e.g. 100-200).
+    repeated string destination_port = 3;
+    repeated flow.Verdict verdict = 4;
+}
+
