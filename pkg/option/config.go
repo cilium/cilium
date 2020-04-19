@@ -2332,6 +2332,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableL7Proxy = viper.GetBool(EnableL7Proxy)
 	c.EnableTracing = viper.GetBool(EnableTracing)
 	c.EnableNodePort = viper.GetBool(EnableNodePort)
+	c.EnableHostPort = viper.GetBool(EnableHostPort)
 	c.NodePortMode = viper.GetString(NodePortMode)
 	c.NodePortAcceleration = viper.GetString(NodePortAcceleration)
 	c.EnableAutoProtectNodePortRange = viper.GetBool(EnableAutoProtectNodePortRange)
