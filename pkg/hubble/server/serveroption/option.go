@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/peer"
-	"github.com/cilium/cilium/pkg/hubble/api"
+	"github.com/cilium/cilium/pkg/api"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 
@@ -45,12 +45,12 @@ type Option func(o *Options) error
 // 'unix://' are assumed to be UNIX domain sockets, in which case appropriate
 // permissions are tentatively set and the group owner is set to socketGroup.
 // Otherwise, the address is assumed to be TCP.
-func WithListeners(addresses []string, socketGroup string) Option {
+func WithListeners(addresses []string) Option {
 	return func(o *Options) error {
 		var opt Option
 		for _, address := range addresses {
 			if strings.HasPrefix(address, "unix://") {
-				opt = WithUnixSocketListener(address, socketGroup)
+				opt = WithUnixSocketListener(address)
 			} else {
 				opt = WithTCPListener(address)
 			}
@@ -84,7 +84,7 @@ func WithTCPListener(address string) Option {
 // WithUnixSocketListener configures a unix domain socket listener with the
 // given file path. When the process runs in privileged mode, the file group
 // owner is set to socketGroup.
-func WithUnixSocketListener(path string, socketGroup string) Option {
+func WithUnixSocketListener(path string) Option {
 	return func(o *Options) error {
 		socketPath := strings.TrimPrefix(path, "unix://")
 		unix.Unlink(socketPath)
@@ -93,7 +93,7 @@ func WithUnixSocketListener(path string, socketGroup string) Option {
 			return err
 		}
 		if os.Getuid() == 0 {
-			if err := api.SetDefaultPermissions(socketPath, socketGroup); err != nil {
+			if err := api.SetDefaultPermissions(socketPath); err != nil {
 				return err
 			}
 		}

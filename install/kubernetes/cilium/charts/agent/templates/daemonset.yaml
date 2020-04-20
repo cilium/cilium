@@ -122,9 +122,6 @@ spec:
               name: cilium-config
               optional: true
 {{- if .Values.global.hubble.enabled }}
-        # Hubble uses this group for its unix domain sockets.
-        - name: HUBBLE_GROUP_NAME
-          value: "cilium"
         # Default Hubble gRPC endpoint for observe/status commands.
         - name: HUBBLE_DEFAULT_SOCKET_PATH
           value: unix://{{ .Values.global.hubble.socketPath }}
