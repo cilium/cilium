@@ -137,6 +137,7 @@ Tracepoints
 Twilio
 Userspace
 VM
+VPC
 Vagrantcloud
 Vagrantfile
 Verifier
