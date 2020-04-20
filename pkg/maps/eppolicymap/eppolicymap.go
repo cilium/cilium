@@ -70,7 +70,7 @@ func CreateWithName(mapName string) error {
 			0, innerMapName)
 
 		if err != nil {
-			log.WithError(err).Warning("unable to create EP to policy map")
+			log.WithError(err).Fatal("unable to create EP to policy map")
 			return
 		}
 
