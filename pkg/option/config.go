@@ -2050,6 +2050,17 @@ func (c *DaemonConfig) AlwaysAllowLocalhost() bool {
 	}
 }
 
+// RemoteNodeIdentitiesEnabled returns true if the remote-node identity feature
+// is enabled
+func (c *DaemonConfig) RemoteNodeIdentitiesEnabled() bool {
+	return c.EnableRemoteNodeIdentity
+}
+
+// NodeEncryptionEnabled returns true if node encryption is enabled
+func (c *DaemonConfig) NodeEncryptionEnabled() bool {
+	return c.EncryptNode
+}
+
 // IPv4Enabled returns true if IPv4 is enabled
 func (c *DaemonConfig) IPv4Enabled() bool {
 	return c.EnableIPv4
