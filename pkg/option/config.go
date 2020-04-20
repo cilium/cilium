@@ -126,18 +126,6 @@ const (
 	// ConntrackGCInterval is the name of the ConntrackGCInterval option
 	ConntrackGCInterval = "conntrack-gc-interval"
 
-	// ContainerRuntime sets the container runtime(s) used by Cilium
-	// { containerd | crio | docker | none | auto } ( "auto" uses the container
-	// runtime found in the order: "docker", "containerd", "crio" )
-	// Deprecated: This option is no longer available since cilium-daemon does
-	//             not have any direct interaction with container runtimes.
-	ContainerRuntime = "container-runtime"
-
-	// ContainerRuntimeEndpoint set the container runtime(s) endpoint(s)
-	// Deprecated: This option is no longer available since cilium-daemon does
-	//             not have any direct interaction with container runtimes.
-	ContainerRuntimeEndpoint = "container-runtime-endpoint"
-
 	// DebugArg is the argument enables debugging mode
 	DebugArg = "debug"
 
@@ -152,9 +140,6 @@ const (
 
 	// DisableEnvoyVersionCheck do not perform Envoy binary version check on startup
 	DisableEnvoyVersionCheck = "disable-envoy-version-check"
-
-	// Docker is the path to docker runtime socket (DEPRECATED: use container-runtime-endpoint instead)
-	Docker = "docker"
 
 	// EnableCEPGC enables CiliumEndpoint garbage collector
 	// Deprecated: use EndpointGCInterval and remove in 1.9
@@ -1115,10 +1100,6 @@ var HelpFlagSections = []FlagsSection{
 var (
 	FQDNRejectOptions = []string{FQDNProxyDenyWithNameError, FQDNProxyDenyWithRefused}
 
-	// ContainerRuntimeAuto is the configuration for autodetecting the
-	// container runtime backends that Cilium should use.
-	ContainerRuntimeAuto = []string{"auto"}
-
 	// MonitorAggregationFlagsDefault ensure that all TCP flags trigger
 	// monitor notifications even under medium monitor aggregation.
 	MonitorAggregationFlagsDefault = []string{"syn", "fin", "rst"}
@@ -1521,7 +1502,6 @@ type DaemonConfig struct {
 	EnableHostReachableServices   bool
 	EnableHostServicesTCP         bool
 	EnableHostServicesUDP         bool
-	DockerEndpoint                string
 	EnablePolicy                  string
 	EnableTracing                 bool
 	EnvoyLog                      string
@@ -2320,7 +2300,6 @@ func (c *DaemonConfig) Populate() {
 	c.EnableHostReachableServices = viper.GetBool(EnableHostReachableServices)
 	c.EnableRemoteNodeIdentity = viper.GetBool(EnableRemoteNodeIdentity)
 	c.K8sHeartbeatTimeout = viper.GetDuration(K8sHeartbeatTimeout)
-	c.DockerEndpoint = viper.GetString(Docker)
 	c.EnableXTSocketFallback = viper.GetBool(EnableXTSocketFallbackName)
 	c.EnableAutoDirectRouting = viper.GetBool(EnableAutoDirectRoutingName)
 	c.EnableEndpointRoutes = viper.GetBool(EnableEndpointRoutes)

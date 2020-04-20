@@ -505,6 +505,8 @@ Removed options
 
 * ``enable-legacy-services``: This option was deprecated in Cilium 1.6 and is
   now removed.
+* The options ``container-runtime`` and ``container-runtime-endpoint`` were
+  deprecated in Cilium 1.7 and are now removed.
 
 Removed helm options
 ~~~~~~~~~~~~~~~~~~~~
