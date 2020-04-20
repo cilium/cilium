@@ -17,7 +17,6 @@
 package allocator
 
 import (
-	"math"
 	"net"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -37,8 +36,8 @@ func (e *AllocatorSuite) TestPoolGroupAllocator(c *check.C) {
 	c.Assert(g.PoolExists("s2"), check.Equals, true)
 	c.Assert(g.PoolExists("s3"), check.Equals, false)
 	quota := g.GetPoolQuota()
-	c.Assert(quota["s1"].AvailableIPs, check.Equals, int(math.Pow(2.0, 16.0))-2)
-	c.Assert(quota["s2"].AvailableIPs, check.Equals, int(math.Pow(2.0, 16.0))-2)
+	c.Assert(quota["s1"].AvailableIPs, check.Equals, 1<<16-2)
+	c.Assert(quota["s2"].AvailableIPs, check.Equals, 1<<16-2)
 }
 
 func (e *AllocatorSuite) TestPoolGroupAllocatorLimit(c *check.C) {
@@ -50,7 +49,7 @@ func (e *AllocatorSuite) TestPoolGroupAllocatorLimit(c *check.C) {
 	c.Assert(g, check.Not(check.IsNil))
 
 	// .0 is reserved
-	maxAvailablePerPool := int(math.Pow(2.0, 8.0)) - 2
+	maxAvailablePerPool := 1<<8 - 2
 	quota := g.GetPoolQuota()
 	c.Assert(quota["s1"].AvailableIPs, check.Equals, maxAvailablePerPool)
 	c.Assert(quota["s2"].AvailableIPs, check.Equals, maxAvailablePerPool)
@@ -83,7 +82,7 @@ func (e *AllocatorSuite) TestPoolGroupAllocatorAllocate(c *check.C) {
 	c.Assert(g, check.Not(check.IsNil))
 
 	// .0 is reserved
-	maxAvailablePerPool := int(math.Pow(2.0, 8.0)) - 2
+	maxAvailablePerPool := 1<<8 - 2
 	quota := g.GetPoolQuota()
 	c.Assert(quota["s1"].AvailableIPs, check.Equals, maxAvailablePerPool)
 	c.Assert(quota["s2"].AvailableIPs, check.Equals, maxAvailablePerPool)
@@ -139,7 +138,7 @@ func (e *AllocatorSuite) TestPoolGroupAllocatorReserve(c *check.C) {
 	g.ReserveAddresses(allocatorTestIPs{"s1": []string{"10.10.0.1", "10.10.0.128", "1.1.1.1"}})
 
 	// .0 is reserved
-	maxAvailablePerPool := int(math.Pow(2.0, 8.0)) - 2
+	maxAvailablePerPool := 1<<8 - 2
 	quota := g.GetPoolQuota()
 
 	// 2 IPs should be reserved in s-1

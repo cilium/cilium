@@ -17,7 +17,6 @@
 package allocator
 
 import (
-	"math"
 	"net"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -42,7 +41,7 @@ func (e *AllocatorSuite) TestPoolAllocator(c *check.C) {
 	c.Assert(s, check.Not(check.IsNil))
 
 	// .0 is reserved
-	maxAvailable := int(math.Pow(2.0, 16.0)) - 2
+	maxAvailable := 1<<16 - 2
 	c.Assert(s.Free(), check.Equals, maxAvailable)
 
 	// Allocate the next available IP
@@ -61,7 +60,7 @@ func (e *AllocatorSuite) TestPoolAllocatorLimit(c *check.C) {
 	c.Assert(s, check.Not(check.IsNil))
 
 	// .0 is reserved
-	maxAvailable := int(math.Pow(2.0, 8.0)) - 2
+	maxAvailable := 1<<8 - 2
 	c.Assert(s.Free(), check.Equals, maxAvailable)
 
 	// Allocate all available IPs
@@ -89,7 +88,7 @@ func (e *AllocatorSuite) TestPoolAllocatorRelease(c *check.C) {
 	c.Assert(s, check.Not(check.IsNil))
 
 	// .0 is reserved
-	maxAvailable := int(math.Pow(2.0, 8.0)) - 2
+	maxAvailable := 1<<8 - 2
 	c.Assert(s.Free(), check.Equals, maxAvailable)
 
 	// Allocate all available IPs
