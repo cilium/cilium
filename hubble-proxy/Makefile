@@ -12,7 +12,6 @@ all: $(TARGET)
 $(TARGET):
 	@$(ECHO_GO)
 	$(QUIET)$(GO_BUILD) -o $@
-	strip $(TARGET)
 
 clean:
 	@$(ECHO_CLEAN)
