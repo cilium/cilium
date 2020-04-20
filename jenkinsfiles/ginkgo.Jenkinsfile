@@ -10,11 +10,11 @@ pipeline {
         VM_MEMORY = "4096"
         SERVER_BOX = "cilium/ubuntu"
         NETNEXT=setIfLabel("ci/net-next", "1", "0")
-        GINKGO_TIMEOUT="300m"
+        GINKGO_TIMEOUT="360m"
     }
 
     options {
-        timeout(time: 300, unit: 'MINUTES')
+        timeout(time: 360, unit: 'MINUTES')
         timestamps()
         ansiColor('xterm')
     }
@@ -208,7 +208,7 @@ pipeline {
         }
         stage ("BDD-Test-PR"){
             options {
-                timeout(time: 130, unit: 'MINUTES')
+                timeout(time: 180, unit: 'MINUTES')
             }
             environment {
                 FAILFAST=setIfLabel("ci/fail-fast", "true", "false")

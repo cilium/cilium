@@ -134,7 +134,7 @@ pipeline {
         }
         stage ("BDD-Test-PR"){
             options {
-                timeout(time: 130, unit: 'MINUTES')
+                timeout(time: 180, unit: 'MINUTES')
             }
             environment {
                 GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"

@@ -43,7 +43,7 @@ pipeline {
     }
 
     options {
-        timeout(time: 300, unit: 'MINUTES')
+        timeout(time: 540, unit: 'MINUTES')
         timestamps()
         ansiColor('xterm')
     }
@@ -181,7 +181,7 @@ pipeline {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
             options {
-                timeout(time: 100, unit: 'MINUTES')
+                timeout(time: 180, unit: 'MINUTES')
             }
             parallel {
                 stage('BDD-Test-k8s-1.12') {
@@ -318,7 +318,7 @@ pipeline {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
             options {
-                timeout(time: 100, unit: 'MINUTES')
+                timeout(time: 180, unit: 'MINUTES')
             }
             parallel {
                 stage('BDD-Test-k8s-1.14') {
@@ -454,7 +454,7 @@ pipeline {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
             options {
-                timeout(time: 100, unit: 'MINUTES')
+                timeout(time: 180, unit: 'MINUTES')
             }
             parallel {
                 stage('BDD-Test-k8s-1.16') {
