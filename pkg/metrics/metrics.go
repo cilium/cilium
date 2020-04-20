@@ -1123,8 +1123,13 @@ func Enable(addr string) <-chan error {
 	go func() {
 		// The Handler function provides a default handler to expose metrics
 		// via an HTTP server. "/metrics" is the usual endpoint for that.
-		http.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
-		errs <- http.ListenAndServe(addr, nil)
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
+		srv := http.Server{
+			Addr:    addr,
+			Handler: mux,
+		}
+		errs <- srv.ListenAndServe()
 	}()
 
 	return errs
