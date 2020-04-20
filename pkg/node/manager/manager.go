@@ -430,6 +430,10 @@ func (m *Manager) NodeDeleted(n node.Node) {
 	}
 
 	for _, address := range entry.node.IPAddresses {
+		if m.legacyNodeIpBehavior() && address.Type != addressing.NodeCiliumInternalIP {
+			continue
+		}
+
 		m.ipcache.Delete(address.IP.String(), n.Source)
 	}
 
