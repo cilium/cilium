@@ -396,6 +396,80 @@ func (s *managerTestSuite) TestIpcache(c *check.C) {
 	}
 }
 
+func (s *managerTestSuite) TestIpcacheHealthIP(c *check.C) {
+	ipcacheMock := newIPcacheMock()
+	mngr, err := NewManager("test", newSignalNodeHandler(), ipcacheMock, &configMock{})
+	c.Assert(err, check.IsNil)
+	defer mngr.Close()
+
+	n1 := nodeTypes.Node{
+		Name:    "node1",
+		Cluster: "c1",
+		IPAddresses: []nodeTypes.Address{
+			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("1.1.1.1")},
+		},
+		IPv4HealthIP: net.ParseIP("4.4.4.4"),
+		IPv6HealthIP: net.ParseIP("f00d::4"),
+	}
+	mngr.NodeUpdated(n1)
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", ip: net.ParseIP("1.1.1.1")})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache upsert for IP 1.1.1.1")
+	}
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", ip: net.ParseIP("4.4.4.4")})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache upsert for IP 4.4.4.4")
+	}
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", ip: net.ParseIP("f00d::4")})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache upsert for IP f00d::4")
+	}
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Errorf("unexected ipcache interaction %+v", event)
+	default:
+	}
+
+	mngr.NodeDeleted(n1)
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", ip: net.ParseIP("1.1.1.1")})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache delete for IP 1.1.1.1")
+	}
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", ip: net.ParseIP("4.4.4.4")})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache delete for IP 4.4.4.4")
+	}
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", ip: net.ParseIP("f00d::4")})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache delete for IP f00d::4")
+	}
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Errorf("unexected ipcache interaction %+v", event)
+	default:
+	}
+}
+
 func (s *managerTestSuite) TestRemoteNodeIdentities(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	mngr, err := NewManager("test", newSignalNodeHandler(), ipcacheMock, &configMock{RemoteNodeIdentity: true})
