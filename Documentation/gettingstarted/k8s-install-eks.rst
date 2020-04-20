@@ -90,6 +90,20 @@ Deploy Cilium release via Helm:
      --set global.tunnel=disabled \\
      --set global.nodeinit.enabled=true
 
+.. note::
+
+   This helm command sets ``global.eni=true`` and ``global.tunnel=disabled``,
+   meaning that Cilium will allocate a fully-routable AWS ENI IP address for each pod,
+   similar to the behavior of the
+   `Amazon VPC CNI plugin <https://docs.aws.amazon.com/eks/latest/userguide/pod-networking.html>`_.
+
+   Cilium can alternatively run in EKS using an overlay mode that gives pods non-VPC-routable IPs.
+   This allows running more pods per Kubernetes worker node than the ENI limit, but means
+   that pod connectivity to resources outside the cluster (e.g., VMs in the VPC or AWS managed
+   services) is masqueraded (i.e., SNAT) by Cilium to use the VPC IP address of the Kubernetes worker node.
+   Excluding the lines for ``global.eni=true`` and ``global.tunnel=disabled`` from the
+   helm command will configure Cilium to use overlay routing mode (which is the helm default).
+
 .. include:: aws-scale-up-cluster.rst
 .. include:: k8s-install-validate.rst
 .. include:: hubble-install.rst
