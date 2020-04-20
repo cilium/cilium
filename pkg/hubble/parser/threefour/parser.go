@@ -172,7 +172,7 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 	decoded.DestinationNames = p.resolveNames(srcEndpoint.ID, dstIP)
 	decoded.L7 = nil
 	decoded.Reply = decodeIsReply(tn)
-	decoded.TrafficDirection = decodeTrafficDirection(pvn)
+	decoded.TrafficDirection = decodeTrafficDirection(srcEndpoint.ID, dn, tn, pvn)
 	decoded.EventType = decodeCiliumEventType(eventType, eventSubType)
 	decoded.SourceService = sourceService
 	decoded.DestinationService = destinationService
@@ -444,7 +444,42 @@ func decodeSecurityIdentities(dn *monitor.DropNotify, tn *monitor.TraceNotify, p
 	return
 }
 
-func decodeTrafficDirection(pvn *monitor.PolicyVerdictNotify) pb.TrafficDirection {
+func decodeTrafficDirection(srcEP uint64, dn *monitor.DropNotify, tn *monitor.TraceNotify, pvn *monitor.PolicyVerdictNotify) pb.TrafficDirection {
+	if dn != nil && dn.Source != 0 {
+		// If the local endpoint at which the drop occurred is the same as the
+		// source of the dropped packet, we assume it was an egress flow. This
+		// implies that we also assume that dropped packets are not dropped
+		// reply packets of an ongoing connection.
+		if dn.Source == uint16(srcEP) {
+			return pb.TrafficDirection_EGRESS
+		}
+		return pb.TrafficDirection_INGRESS
+	}
+	if tn != nil && tn.Source != 0 {
+		// For trace events, we assume that packets may be reply packets of an
+		// ongoing connection. Therefore, we want to access the connection
+		// tracking result from the `Reason` field to invert the direction for
+		// reply packets. The datapath currently populates the `Reason` field
+		// with CT information in TRACE_TO_{LXC,PROXY,HOST,STACK} events.
+		switch tn.ObsPoint {
+		case monitorAPI.TraceToLxc,
+			monitorAPI.TraceToProxy,
+			monitorAPI.TraceToHost,
+			monitorAPI.TraceToStack:
+
+			// true if the traffic source is the local endpoint, i.e. egress
+			isSourceEP := tn.Source == uint16(srcEP)
+			// true if the packet is a reply, i.e. reverse direction
+			isReply := decodeIsReply(tn)
+
+			// isSourceEP != isReply ==
+			//  (isSourceEP && !isReply) || (!isSourceEP && isReply)
+			if isSourceEP != isReply {
+				return pb.TrafficDirection_EGRESS
+			}
+			return pb.TrafficDirection_INGRESS
+		}
+	}
 	if pvn != nil {
 		if pvn.IsTrafficIngress() {
 			return pb.TrafficDirection_INGRESS

@@ -438,6 +438,147 @@ func TestDecodeLocalIdentity(t *testing.T) {
 	assert.Equal(t, []string{"cidr:1.2.3.4/12", "some=label"}, f.GetDestination().GetLabels())
 }
 
+func TestDecodeTrafficDirection(t *testing.T) {
+	localIP := net.ParseIP("1.2.3.4")
+	localEP := uint16(1234)
+	remoteIP := net.ParseIP("5.6.7.8")
+
+	endpointGetter := &testutils.FakeEndpointGetter{
+		OnGetEndpointInfo: func(ip net.IP) (endpoint v1.EndpointInfo, ok bool) {
+			if ip.Equal(localIP) {
+				return &v1.Endpoint{
+					ID: uint64(localEP),
+				}, true
+			}
+			return nil, false
+		},
+	}
+
+	parser, err := New(endpointGetter, nil, nil, nil, nil)
+	require.NoError(t, err)
+	parseFlow := func(event interface{}, srcIPv4, dstIPv4 net.IP) *pb.Flow {
+		data, err := testutils.CreateL3L4Payload(event,
+			&layers.Ethernet{
+				SrcMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+				DstMAC:       net.HardwareAddr{7, 8, 9, 0, 1, 2},
+				EthernetType: layers.EthernetTypeIPv4,
+			},
+			&layers.IPv4{SrcIP: srcIPv4, DstIP: dstIPv4})
+		require.NoError(t, err)
+		f := &pb.Flow{}
+		err = parser.Decode(&pb.Payload{Data: data}, f)
+		require.NoError(t, err)
+		return f
+	}
+
+	// DROP at unknown endpoint
+	dn := monitor.DropNotify{
+		Type: byte(api.MessageTypeDrop),
+	}
+	f := parseFlow(dn, localIP, remoteIP)
+	assert.Equal(t, pb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN, f.GetTrafficDirection())
+	assert.Equal(t, uint64(localEP), f.GetSource().GetID())
+
+	// DROP Egress
+	dn = monitor.DropNotify{
+		Type:   byte(api.MessageTypeDrop),
+		Source: localEP,
+	}
+	f = parseFlow(dn, localIP, remoteIP)
+	assert.Equal(t, pb.TrafficDirection_EGRESS, f.GetTrafficDirection())
+	assert.Equal(t, uint64(localEP), f.GetSource().GetID())
+
+	// DROP Ingress
+	dn = monitor.DropNotify{
+		Type:   byte(api.MessageTypeDrop),
+		Source: localEP,
+	}
+	f = parseFlow(dn, remoteIP, localIP)
+	assert.Equal(t, pb.TrafficDirection_INGRESS, f.GetTrafficDirection())
+	assert.Equal(t, uint64(localEP), f.GetDestination().GetID())
+
+	// TRACE_TO_LXC at unknown endpoint
+	tn := monitor.TraceNotifyV0{
+		Type:     byte(api.MessageTypeTrace),
+		ObsPoint: api.TraceToLxc,
+	}
+	f = parseFlow(tn, localIP, remoteIP)
+	assert.Equal(t, pb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN, f.GetTrafficDirection())
+	assert.Equal(t, uint64(localEP), f.GetSource().GetID())
+
+	// TRACE_TO_LXC Egress
+	tn = monitor.TraceNotifyV0{
+		Type:     byte(api.MessageTypeTrace),
+		Source:   localEP,
+		ObsPoint: api.TraceToLxc,
+	}
+	f = parseFlow(tn, localIP, remoteIP)
+	assert.Equal(t, pb.TrafficDirection_EGRESS, f.GetTrafficDirection())
+	assert.Equal(t, uint64(localEP), f.GetSource().GetID())
+
+	// TRACE_TO_LXC Egress, reversed by CT_REPLY
+	tn = monitor.TraceNotifyV0{
+		Type:     byte(api.MessageTypeTrace),
+		Source:   localEP,
+		ObsPoint: api.TraceToLxc,
+		Reason:   monitor.TraceReasonCtReply,
+	}
+	f = parseFlow(tn, localIP, remoteIP)
+	assert.Equal(t, pb.TrafficDirection_INGRESS, f.GetTrafficDirection())
+	assert.Equal(t, uint64(localEP), f.GetSource().GetID())
+
+	// TRACE_TO_HOST Ingress
+	tn = monitor.TraceNotifyV0{
+		Type:     byte(api.MessageTypeTrace),
+		Source:   localEP,
+		ObsPoint: api.TraceToHost,
+	}
+	f = parseFlow(tn, remoteIP, localIP)
+	assert.Equal(t, pb.TrafficDirection_INGRESS, f.GetTrafficDirection())
+	assert.Equal(t, uint64(localEP), f.GetDestination().GetID())
+
+	// TRACE_TO_HOST Ingress, reversed by CT_REPLY
+	tn = monitor.TraceNotifyV0{
+		Type:     byte(api.MessageTypeTrace),
+		Source:   localEP,
+		ObsPoint: api.TraceToHost,
+		Reason:   monitor.TraceReasonCtReply,
+	}
+	f = parseFlow(tn, remoteIP, localIP)
+	assert.Equal(t, pb.TrafficDirection_EGRESS, f.GetTrafficDirection())
+	assert.Equal(t, uint64(localEP), f.GetDestination().GetID())
+
+	// TRACE_FROM_LXC (traffic direction not supported)
+	tn = monitor.TraceNotifyV0{
+		Type:     byte(api.MessageTypeTrace),
+		Source:   localEP,
+		ObsPoint: api.TraceFromLxc,
+	}
+	f = parseFlow(tn, localIP, remoteIP)
+	assert.Equal(t, pb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN, f.GetTrafficDirection())
+	assert.Equal(t, uint64(localEP), f.GetSource().GetID())
+
+	// PolicyVerdictNotify Egress
+	pvn := monitor.PolicyVerdictNotify{
+		Type:   byte(api.MessageTypePolicyVerdict),
+		Source: localEP,
+		Flags:  api.PolicyEgress,
+	}
+	f = parseFlow(pvn, localIP, remoteIP)
+	assert.Equal(t, pb.TrafficDirection_EGRESS, f.GetTrafficDirection())
+	assert.Equal(t, uint64(localEP), f.GetSource().GetID())
+
+	// PolicyVerdictNotify Ingress
+	pvn = monitor.PolicyVerdictNotify{
+		Type:   byte(api.MessageTypePolicyVerdict),
+		Source: localEP,
+		Flags:  api.PolicyIngress,
+	}
+	f = parseFlow(pvn, remoteIP, localIP)
+	assert.Equal(t, pb.TrafficDirection_INGRESS, f.GetTrafficDirection())
+	assert.Equal(t, uint64(localEP), f.GetDestination().GetID())
+}
+
 func Test_filterCidrLabels(t *testing.T) {
 	type args struct {
 		labels []string
