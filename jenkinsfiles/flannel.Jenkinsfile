@@ -12,7 +12,7 @@ pipeline {
         SERVER_BOX = "cilium/ubuntu"
         NETNEXT=setIfLabel("ci/net-next", "1", "0")
         CNI_INTEGRATION="flannel"
-        GINKGO_TIMEOUT="73m"
+        GINKGO_TIMEOUT="75m"
     }
 
     options {
