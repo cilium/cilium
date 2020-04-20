@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -47,6 +46,19 @@ type nodeEntry struct {
 	// Manager.mutex must *always* be acquired first.
 	mutex lock.Mutex
 	node  node.Node
+}
+
+// IPCache is the set of interactions the node manager performs with the ipcache
+type IPCache interface {
+	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) bool
+	Delete(IP string, source source.Source)
+}
+
+// Configuration is the set of configuration options the node manager depends
+// on
+type Configuration interface {
+	RemoteNodeIdentitiesEnabled() bool
+	NodeEncryptionEnabled() bool
 }
 
 // Manager is the entity that manages a collection of nodes
@@ -97,6 +109,13 @@ type Manager struct {
 	// metricDatapathValidations is the prometheus metric to track the
 	// number of datapath node validation calls
 	metricDatapathValidations prometheus.Counter
+
+	// conf is the configuration of the caller passed in via NewManager.
+	// This field is immutable after NewManager()
+	conf Configuration
+
+	// ipcache is the set operations performed against the ipcache
+	ipcache IPCache
 }
 
 // Subscribe subscribes the given node handler to node events.
@@ -132,10 +151,12 @@ func (m *Manager) Iter(f func(nh datapath.NodeHandler)) {
 }
 
 // NewManager returns a new node manager
-func NewManager(name string, dp datapath.NodeHandler) (*Manager, error) {
+func NewManager(name string, dp datapath.NodeHandler, ipcache IPCache, c Configuration) (*Manager, error) {
 	m := &Manager{
 		name:         name,
 		nodes:        map[node.Identity]*nodeEntry{},
+		conf:         c,
+		ipcache:      ipcache,
 		nodeHandlers: map[datapath.NodeHandler]struct{}{},
 		closeChan:    make(chan struct{}),
 	}
@@ -273,6 +294,19 @@ func (m *Manager) backgroundSync() {
 	}
 }
 
+// legacyNodeIpBehavior returns true if the agent is still running in legacy
+// mode regarding node IPs
+func (m *Manager) legacyNodeIpBehavior() bool {
+	// Cilium < 1.7 only exposed the Cilium internalIP to the ipcache
+	// unless encryption was enabled. This meant that for the majority of
+	// node IPs, CIDR policy rules would apply. With the introduction of
+	// remote-node identities, all node IPs were suddenly added to the
+	// ipcache. This resulted in a behavioral change. New deployments will
+	// provide this behavior out of the gate, existing deployments will
+	// have to opt into this by enabling remote-node identities.
+	return !m.conf.NodeEncryptionEnabled() && !m.conf.RemoteNodeIdentitiesEnabled()
+}
+
 // NodeUpdated is called after the information of a node has been updated. The
 // node in the manager is added or updated if the source is allowed to update
 // the node. If an update or addition has occurred, NodeUpdate() of the datapath
@@ -284,17 +318,21 @@ func (m *Manager) NodeUpdated(n node.Node) {
 	nodeIP := n.GetNodeIP(false)
 
 	remoteHostIdentity := identity.ReservedIdentityHost
-	if option.Config.EnableRemoteNodeIdentity && n.Source != source.Local {
+	if m.conf.RemoteNodeIdentitiesEnabled() && n.Source != source.Local {
 		remoteHostIdentity = identity.ReservedIdentityRemoteNode
 	}
 
 	for _, address := range n.IPAddresses {
 		var tunnelIP net.IP
-		if address.Type == addressing.NodeCiliumInternalIP || option.Config.EncryptNode {
+		if address.Type == addressing.NodeCiliumInternalIP || m.conf.NodeEncryptionEnabled() {
 			tunnelIP = nodeIP
 		}
 
-		isOwning := ipcache.IPIdentityCache.Upsert(address.IP.String(), tunnelIP, n.EncryptionKey, nil, ipcache.Identity{
+		if m.legacyNodeIpBehavior() && address.Type != addressing.NodeCiliumInternalIP {
+			continue
+		}
+
+		isOwning := m.ipcache.Upsert(address.IP.String(), tunnelIP, n.EncryptionKey, nil, ipcache.Identity{
 			ID:     remoteHostIdentity,
 			Source: n.Source,
 		})
@@ -312,7 +350,7 @@ func (m *Manager) NodeUpdated(n node.Node) {
 		if address == nil {
 			continue
 		}
-		isOwning := ipcache.IPIdentityCache.Upsert(address.String(), nodeIP, n.EncryptionKey, nil, ipcache.Identity{
+		isOwning := m.ipcache.Upsert(address.String(), nodeIP, n.EncryptionKey, nil, ipcache.Identity{
 			ID:     identity.ReservedIdentityHealth,
 			Source: n.Source,
 		})
@@ -392,7 +430,7 @@ func (m *Manager) NodeDeleted(n node.Node) {
 	}
 
 	for _, address := range entry.node.IPAddresses {
-		ipcache.IPIdentityCache.Delete(address.IP.String(), n.Source)
+		m.ipcache.Delete(address.IP.String(), n.Source)
 	}
 
 	m.metricNumNodes.Dec()
