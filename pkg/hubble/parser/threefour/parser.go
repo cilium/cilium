@@ -413,7 +413,7 @@ func decodeICMPv6(icmp *layers.ICMPv6) *pb.Layer4 {
 }
 
 func decodeIsReply(tn *monitor.TraceNotify) bool {
-	return tn != nil && tn.Reason == monitor.TraceReasonCtReply
+	return tn != nil && tn.Reason & ^monitor.TraceReasonEncryptMask == monitor.TraceReasonCtReply
 }
 
 func decodeCiliumEventType(eventType, eventSubType uint8) *pb.CiliumEventType {
