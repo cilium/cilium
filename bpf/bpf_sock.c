@@ -135,6 +135,38 @@ bool sock_proto_enabled(__u32 proto)
 }
 
 #ifdef ENABLE_IPV4
+struct ipv4_peer_tuple {
+	__u64 cookie;
+};
+
+struct ipv4_peer_entry {
+	__be32 address;
+	__be16 port;
+};
+
+struct bpf_elf_map __section_maps cilium_lb4_reverse_peer = {
+	.type		= BPF_MAP_TYPE_LRU_HASH,
+	.size_key	= sizeof(struct ipv4_peer_tuple),
+	.size_value	= sizeof(struct ipv4_peer_entry),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= LB4_REVERSE_NAT_SK_MAP_SIZE,
+};
+
+static __always_inline int sock4_update_peer(struct bpf_sock_addr *ctx,
+					     struct lb4_key *lkey)
+{
+	struct ipv4_peer_tuple pkey = {};
+	struct ipv4_peer_entry pval = {};
+
+	pkey.cookie = sock_local_cookie(ctx);
+
+	pval.address = lkey->address;
+	pval.port = lkey->dport;
+
+	return map_update_elem(&cilium_lb4_reverse_peer, &pkey,
+			       &pval, 0);
+}
+
 #ifdef ENABLE_HOST_SERVICES_UDP
 struct bpf_elf_map __section_maps LB4_REVERSE_NAT_SK_MAP = {
 	.type		= BPF_MAP_TYPE_LRU_HASH,
@@ -287,6 +319,8 @@ static __always_inline int __sock4_xlate(struct bpf_sock_addr *ctx,
 		return -ENOENT;
 	}
 
+	sock4_update_peer(ctx_full, &key);
+
 	/* revnat entry is not required for TCP protocol */
 	if (!udp_only && ctx->protocol == IPPROTO_TCP) {
 		goto update_dst;
@@ -309,6 +343,24 @@ __section("from-sock4")
 int sock4_xlate(struct bpf_sock_addr *ctx)
 {
 	__sock4_xlate(ctx, ctx, false);
+	return SYS_PROCEED;
+}
+
+__section("from-name4")
+int name4_xlate(struct bpf_sock_addr *ctx)
+{
+	struct ipv4_peer_entry *pval = NULL;
+	struct ipv4_peer_tuple pkey = {
+		.cookie = sock_local_cookie(ctx),
+	};
+
+	if (ctx->peer)
+		pval = map_lookup_elem(&cilium_lb4_reverse_peer, &pkey);
+	if (pval) {
+		ctx->user_ip4 = pval->address;
+		ctx_set_port(ctx, pval->port);
+	}
+
 	return SYS_PROCEED;
 }
 
@@ -697,6 +749,12 @@ __section("from-sock6")
 int sock6_xlate(struct bpf_sock_addr *ctx)
 {
 	__sock6_xlate(ctx, false);
+	return SYS_PROCEED;
+}
+
+__section("from-name6")
+int name6_xlate(struct bpf_sock_addr *ctx __maybe_unused)
+{
 	return SYS_PROCEED;
 }
 
