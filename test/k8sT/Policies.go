@@ -854,9 +854,10 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			checkProxyRedirection := func(resource string, redirected bool, parser policy.L7ParserType) {
 				var (
-					not     = " "
-					reStr   string
-					curlCmd string
+					not                  = " "
+					reStr                string
+					curlCmd              string
+					monitorOutputTimeout = 10 * time.Second
 				)
 
 				if !redirected {
@@ -894,7 +895,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				res.ExpectSuccess("%q cannot curl %q", appPods[helpers.App2], resource)
 
 				By("Checking that aforementioned traffic was%sredirected to the proxy", not)
-				err := monitorRes.WaitUntilMatchRegexp(reStr)
+				err := monitorRes.WaitUntilMatchRegexp(reStr, monitorOutputTimeout)
 				if redirected {
 					ExpectWithOffset(1, err).To(BeNil(), "traffic was not redirected to the proxy when it should have been")
 				} else {

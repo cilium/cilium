@@ -1559,7 +1559,7 @@ var _ = Describe("RuntimePolicies", func() {
 			res.ExpectSuccess("Cannot ping endpoint with init policy")
 
 			By("Testing cilium monitor output")
-			err = monitorRes.WaitUntilMatchRegexp(fmt.Sprintf(`-> endpoint %s flow [^ ]+ identity 1->`, endpointID))
+			err = monitorRes.WaitUntilMatchRegexp(fmt.Sprintf(`-> endpoint %s flow [^ ]+ identity 1->`, endpointID), helpers.HelperTimeout)
 			Expect(err).To(BeNil(), "Allow on ingress failed")
 			monitorRes.ExpectDoesNotMatchRegexp(fmt.Sprintf(`xx drop \(Policy denied\) flow [^ ]+ to endpoint %s, identity 1->[^0]`, endpointID), "Unexpected drop")
 		})
@@ -1584,7 +1584,7 @@ var _ = Describe("RuntimePolicies", func() {
 			Expect(egressEpModel).NotTo(BeNil(), "nil model returned for endpoint %s", endpointID)
 
 			By("Testing cilium monitor output")
-			err = monitorRes.WaitUntilMatchRegexp(fmt.Sprintf(`-> endpoint %s flow [^ ]+ identity 1->`, endpointID))
+			err = monitorRes.WaitUntilMatchRegexp(fmt.Sprintf(`-> endpoint %s flow [^ ]+ identity 1->`, endpointID), helpers.HelperTimeout)
 			Expect(err).To(BeNil(), "Allow on egress failed")
 			monitorRes.ExpectDoesNotMatchRegexp(fmt.Sprintf(`xx drop \(Policy denied\) flow [^ ]+ to endpoint %s, identity 1->[^0]`, endpointID), "Unexpected drop")
 		})
