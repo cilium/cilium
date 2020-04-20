@@ -19,7 +19,6 @@ package ipam
 import (
 	"context"
 	"fmt"
-	"math"
 	"testing"
 	"time"
 
@@ -279,7 +278,7 @@ func (e *IPAMSuite) TestIpamMinAllocate10(c *check.C) {
 
 	quota := instances.GetPoolQuota()
 	c.Assert(len(quota), check.Equals, 1)
-	c.Assert(quota["subnet-1"].AvailableIPs, check.Equals, int(math.Pow(2.0, 16.0)-16))
+	c.Assert(quota["subnet-1"].AvailableIPs, check.Equals, (1<<16)-16)
 }
 
 type nodeState struct {

@@ -16,7 +16,6 @@ package cidr
 
 import (
 	"fmt"
-	"math"
 	"net"
 )
 
@@ -53,7 +52,7 @@ func (n *CIDR) DeepCopy() *CIDR {
 // AvailableIPs returns the number of IPs available in a CIDR
 func (n *CIDR) AvailableIPs() int {
 	ones, bits := n.Mask.Size()
-	return int(math.Pow(2.0, float64(bits-ones)))
+	return 1 << (bits - ones)
 }
 
 // ParseCIDR parses the CIDR string using net.ParseCIDR
