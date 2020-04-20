@@ -56,8 +56,13 @@ func Init(address string, enabled api.Map) (<-chan error, error) {
 	errChan := make(chan error, 1)
 
 	go func() {
-		http.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
-		errChan <- http.ListenAndServe(address, nil)
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
+		srv := http.Server{
+			Addr:    address,
+			Handler: mux,
+		}
+		errChan <- srv.ListenAndServe()
 	}()
 
 	return errChan, nil
