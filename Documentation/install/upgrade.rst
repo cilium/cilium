@@ -425,17 +425,29 @@ New ConfigMap Options
 ~~~~~~~~~~~~~~~~~~~~~
 
   * ``enable-remote-node-identity`` has been added to enable a new identity
-    for remote cluster nodes. This allows for network policies that distinguish
-    between connections from host networking pods or other processes on the local
-    Kubernetes worker node from those on remote worker nodes.  This is important
-    because Kubernetes Network Policy dictates that network connectivity from the
-    local host must always be allowed, even for pods that have a default deny rule for
-    ingress connectivity.   This is so that network liveness and readiness
-    probes from kubelet will not be dropped by network policy.  Prior to 1.7.x,
-    Cilium achieved this by always allowing ingress host network connectivity from any
-    host in the cluster.  With 1.7 and ``enable-remote-node-identity=true``, Cilium
-    will only automatically allow connectivity from the local node, thereby providing
-    a better default security posture.
+    for remote cluster nodes and to associate all IPs of a node with that new
+    identity. This allows for network policies that distinguish between
+    connections from host networking pods or other processes on the local
+    Kubernetes worker node from those on remote worker nodes.
+
+    After enabling this option, all communication to and from non-local
+    Kubernetes nodes must be whitelisted with a ``toEntity`` or ``fromEntity``
+    rule listing the entity ``remote-node``. The existing entity ``cluster``
+    continues to work and now includes the entity ``remote-node``.  Existing
+    policy rules whitelisting ``host`` will only affect the local node going
+    forward. Existing CIDR-based rules to whitelist node IPs other than the
+    Cilium internal IP (IP assigned to the ``cilium_host`` interface), will no
+    longer take effect.
+
+    This is important because Kubernetes Network Policy dictates that network
+    connectivity from the local host must always be allowed, even for pods that
+    have a default deny rule for ingress connectivity.   This is so that
+    network liveness and readiness probes from kubelet will not be dropped by
+    network policy.  Prior to 1.7.x, Cilium achieved this by always allowing
+    ingress host network connectivity from any host in the cluster.  With 1.7
+    and ``enable-remote-node-identity=true``, Cilium will only automatically
+    allow connectivity from the local node, thereby providing a better default
+    security posture.
 
     The option is enabled by default for new deployments when generated via
     Helm, in order to gain the benefits of improved security. The Helm option

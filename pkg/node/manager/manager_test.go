@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package manager
 
 import (
 	"fmt"
+	"net"
 	"sync"
 	"testing"
 	"time"
@@ -25,7 +26,9 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/source"
 
 	"gopkg.in/check.v1"
@@ -38,6 +41,43 @@ func Test(t *testing.T) {
 type managerTestSuite struct{}
 
 var _ = check.Suite(&managerTestSuite{})
+
+type configMock struct {
+	RemoteNodeIdentity bool
+	NodeEncryption     bool
+}
+
+func (c *configMock) RemoteNodeIdentitiesEnabled() bool {
+	return c.RemoteNodeIdentity
+}
+
+func (c *configMock) NodeEncryptionEnabled() bool {
+	return c.NodeEncryption
+}
+
+type nodeEvent struct {
+	event string
+	ip    net.IP
+}
+
+type ipcacheMock struct {
+	events chan nodeEvent
+}
+
+func newIPcacheMock() *ipcacheMock {
+	return &ipcacheMock{
+		events: make(chan nodeEvent, 1024),
+	}
+}
+
+func (i *ipcacheMock) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) bool {
+	i.events <- nodeEvent{"upsert", net.ParseIP(ip)}
+	return true
+}
+
+func (i *ipcacheMock) Delete(IP string, source source.Source) {
+	i.events <- nodeEvent{"delete", net.ParseIP(IP)}
+}
 
 type signalNodeHandler struct {
 	EnableNodeAddEvent                    bool
@@ -96,7 +136,7 @@ func (s *managerTestSuite) TestNodeLifecycle(c *check.C) {
 	dp.EnableNodeAddEvent = true
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
-	mngr, err := NewManager("test", dp)
+	mngr, err := NewManager("test", dp, newIPcacheMock(), &configMock{})
 	c.Assert(err, check.IsNil)
 
 	n1 := node.Node{Name: "node1", Cluster: "c1"}
@@ -165,7 +205,7 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 	dp.EnableNodeAddEvent = true
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
-	mngr, err := NewManager("test", dp)
+	mngr, err := NewManager("test", dp, newIPcacheMock(), &configMock{})
 	c.Assert(err, check.IsNil)
 	defer mngr.Close()
 
@@ -234,7 +274,7 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 }
 
 func (s *managerTestSuite) BenchmarkUpdateAndDeleteCycle(c *check.C) {
-	mngr, err := NewManager("test", fake.NewNodeHandler())
+	mngr, err := NewManager("test", fake.NewNodeHandler(), newIPcacheMock(), &configMock{})
 	c.Assert(err, check.IsNil)
 	defer mngr.Close()
 
@@ -252,7 +292,7 @@ func (s *managerTestSuite) BenchmarkUpdateAndDeleteCycle(c *check.C) {
 }
 
 func (s *managerTestSuite) TestClusterSizeDependantInterval(c *check.C) {
-	mngr, err := NewManager("test", fake.NewNodeHandler())
+	mngr, err := NewManager("test", fake.NewNodeHandler(), newIPcacheMock(), &configMock{})
 	c.Assert(err, check.IsNil)
 	defer mngr.Close()
 
@@ -277,7 +317,7 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 
 	signalNodeHandler := newSignalNodeHandler()
 	signalNodeHandler.EnableNodeValidateImplementationEvent = true
-	mngr, err := NewManager("test", signalNodeHandler)
+	mngr, err := NewManager("test", signalNodeHandler, newIPcacheMock(), &configMock{})
 	c.Assert(err, check.IsNil)
 	defer mngr.Close()
 
@@ -308,4 +348,180 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 	}
 
 	allNodeValidateCallsReceived.Wait()
+}
+
+func (s *managerTestSuite) TestIpcache(c *check.C) {
+	ipcacheMock := newIPcacheMock()
+	mngr, err := NewManager("test", newSignalNodeHandler(), ipcacheMock, &configMock{})
+	c.Assert(err, check.IsNil)
+	defer mngr.Close()
+
+	n1 := nodeTypes.Node{
+		Name:    "node1",
+		Cluster: "c1",
+		IPAddresses: []nodeTypes.Address{
+			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("1.1.1.1")},
+			{Type: addressing.NodeInternalIP, IP: net.ParseIP("2.2.2.2")},
+			{Type: addressing.NodeExternalIP, IP: net.ParseIP("f00d::1")},
+		},
+	}
+	mngr.NodeUpdated(n1)
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", ip: net.ParseIP("1.1.1.1")})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache upsert for IP 1.1.1.1")
+	}
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Errorf("unexected ipcache interaction %+v", event)
+	default:
+	}
+
+	mngr.NodeDeleted(n1)
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", ip: net.ParseIP("1.1.1.1")})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache delete for IP 1.1.1.1")
+	}
+}
+
+func (s *managerTestSuite) TestRemoteNodeIdentities(c *check.C) {
+	ipcacheMock := newIPcacheMock()
+	mngr, err := NewManager("test", newSignalNodeHandler(), ipcacheMock, &configMock{RemoteNodeIdentity: true})
+	c.Assert(err, check.IsNil)
+	defer mngr.Close()
+
+	n1 := nodeTypes.Node{
+		Name:    "node1",
+		Cluster: "c1",
+		IPAddresses: []nodeTypes.Address{
+			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("1.1.1.1")},
+			{Type: addressing.NodeInternalIP, IP: net.ParseIP("2.2.2.2")},
+			{Type: addressing.NodeExternalIP, IP: net.ParseIP("f00d::1")},
+		},
+	}
+	mngr.NodeUpdated(n1)
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", ip: net.ParseIP("1.1.1.1")})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache upsert for IP 1.1.1.1")
+	}
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", ip: net.ParseIP("2.2.2.2")})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache upsert for IP 2.2.2.2")
+	}
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", ip: net.ParseIP("f00d::1")})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache upsert for IP f00d::1")
+	}
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Errorf("unexected ipcache interaction %+v", event)
+	default:
+	}
+
+	mngr.NodeDeleted(n1)
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", ip: net.ParseIP("1.1.1.1")})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache delete for IP 1.1.1.1")
+	}
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", ip: net.ParseIP("2.2.2.2")})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache delete for IP 2.2.2.2")
+	}
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", ip: net.ParseIP("f00d::1")})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache delete for IP f00d::1")
+	}
+}
+
+func (s *managerTestSuite) TestNodeEncryption(c *check.C) {
+	ipcacheMock := newIPcacheMock()
+	mngr, err := NewManager("test", newSignalNodeHandler(), ipcacheMock, &configMock{NodeEncryption: true})
+	c.Assert(err, check.IsNil)
+	defer mngr.Close()
+
+	n1 := nodeTypes.Node{
+		Name:    "node1",
+		Cluster: "c1",
+		IPAddresses: []nodeTypes.Address{
+			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("1.1.1.1")},
+			{Type: addressing.NodeInternalIP, IP: net.ParseIP("2.2.2.2")},
+			{Type: addressing.NodeExternalIP, IP: net.ParseIP("f00d::1")},
+		},
+	}
+	mngr.NodeUpdated(n1)
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", ip: net.ParseIP("1.1.1.1")})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache upsert for IP 1.1.1.1")
+	}
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", ip: net.ParseIP("2.2.2.2")})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache upsert for IP 2.2.2.2")
+	}
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", ip: net.ParseIP("f00d::1")})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache upsert for IP f00d::1")
+	}
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Errorf("unexected ipcache interaction %+v", event)
+	default:
+	}
+
+	mngr.NodeDeleted(n1)
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", ip: net.ParseIP("1.1.1.1")})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache delete for IP 1.1.1.1")
+	}
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", ip: net.ParseIP("2.2.2.2")})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache delete for IP 2.2.2.2")
+	}
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", ip: net.ParseIP("f00d::1")})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache delete for IP f00d::1")
+	}
 }

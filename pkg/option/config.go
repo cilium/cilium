@@ -1491,6 +1491,17 @@ func (c *DaemonConfig) AlwaysAllowLocalhost() bool {
 	}
 }
 
+// RemoteNodeIdentitiesEnabled returns true if the remote-node identity feature
+// is enabled
+func (c *DaemonConfig) RemoteNodeIdentitiesEnabled() bool {
+	return c.EnableRemoteNodeIdentity
+}
+
+// NodeEncryptionEnabled returns true if node encryption is enabled
+func (c *DaemonConfig) NodeEncryptionEnabled() bool {
+	return c.EncryptNode
+}
+
 // TracingEnabled returns if tracing policy (outlining which rules apply to a
 // specific set of labels) is enabled.
 func (c *DaemonConfig) TracingEnabled() bool {
