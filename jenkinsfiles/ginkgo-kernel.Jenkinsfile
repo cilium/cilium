@@ -8,10 +8,35 @@ pipeline {
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
         VM_MEMORY = "8192"
-        K8S_VERSION="1.17"
+        VM_CPUS = "3"
+        K8S_VERSION= """${sh(
+            returnStdout: true,
+            script: 'echo -n "${JobK8sVersion:-1.17}"'
+            )}"""
         TESTED_SUITE="k8s-${K8S_VERSION}"
         GINKGO_TIMEOUT="300m"
-        DEFAULT_KERNEL="419"
+        DEFAULT_KERNEL="""${sh(
+            returnStdout: true,
+            script: 'echo -n "${JobKernelVersion}"'
+            )}"""
+        // if we are running in net-next, we need to set NETNEXT=1, K8S_NODES=3, NO_CILIUM_ON_NODE="k8s3" and KUBEPROXY="0"
+        // otherwise we set NETNEXT=0, K8S_NODES=2, NO_CILIUM_ON_NODE="" and KUBEPROXY=""
+        NETNEXT="""${sh(
+            returnStdout: true,
+            script: 'if [ "${JobKernelVersion}" = "net-next" ]; then echo -n "1"; else echo -n "0"; fi'
+            )}"""
+        K8S_NODES="""${sh(
+            returnStdout: true,
+            script: 'if [ "${JobKernelVersion}" = "net-next" ]; then echo -n "3"; else echo -n "2"; fi'
+            )}"""
+        NO_CILIUM_ON_NODE="""${sh(
+            returnStdout: true,
+            script: 'if [ "${JobKernelVersion}" = "net-next" ]; then echo -n "k8s3"; else echo -n ""; fi'
+            )}"""
+        KUBEPROXY="""${sh(
+            returnStdout: true,
+            script: 'if [ "${JobKernelVersion}" = "net-next" ]; then echo -n "0"; else echo -n ""; fi'
+            )}"""
     }
 
     options {
@@ -126,7 +151,7 @@ pipeline {
                 unsuccessful {
                     script {
                         if  (!currentBuild.displayName.contains('fail')) {
-                            currentBuild.displayName = 'K8s 1.17 vm provisioning fail\n' + currentBuild.displayName
+                            currentBuild.displayName = 'K8s vm provisioning fail\n' + currentBuild.displayName
                         }
                     }
                 }
@@ -140,11 +165,11 @@ pipeline {
                 GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                 TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                 KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
-                K8S_VERSION="1.17"
                 FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
             steps {
+                sh 'env'
                 sh 'cd ${TESTDIR}; HOME=${GOPATH} ginkgo --focus="$(python get-gh-comment-info.py "${ghprbCommentBody}" | sed "s/^$/K8s*/" | sed "s/Runtime.*/NoTests/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh)'
             }
             post {
@@ -160,7 +185,7 @@ pipeline {
                 unsuccessful {
                     script {
                         if  (!currentBuild.displayName.contains('fail')) {
-                            currentBuild.displayName = 'K8s 1.17 fail\n' + currentBuild.displayName
+                            currentBuild.displayName = 'K8s tests fail\n' + currentBuild.displayName
                         }
                     }
                 }
