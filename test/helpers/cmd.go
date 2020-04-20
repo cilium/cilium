@@ -297,7 +297,7 @@ func (res *CmdRes) WaitUntilMatch(substr string) error {
 
 // WaitUntilMatchRegexp waits until the `CmdRes.stdout` matches the given regexp.
 // If the timeout is reached it will return an error.
-func (res *CmdRes) WaitUntilMatchRegexp(expr string) error {
+func (res *CmdRes) WaitUntilMatchRegexp(expr string, timeout time.Duration) error {
 	r := regexp.MustCompile(expr)
 	body := func() bool {
 		return r.Match(res.Output().Bytes())
@@ -306,7 +306,7 @@ func (res *CmdRes) WaitUntilMatchRegexp(expr string) error {
 	return WithTimeout(
 		body,
 		fmt.Sprintf("The output doesn't match regexp %q after timeout", expr),
-		&TimeoutConfig{Timeout: HelperTimeout})
+		&TimeoutConfig{Timeout: timeout})
 }
 
 // WaitUntilFinish waits until the command context completes correctly
