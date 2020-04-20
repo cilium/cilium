@@ -709,7 +709,7 @@ var _ = Describe("K8sServicesTest", func() {
 			doRequestsFromThirdHost(tftpURL, 10, checkUDP)
 
 			// Make sure all the rest works as expected as well
-			testNodePort(true)
+			//testNodePort(true)
 
 			// Clear CT tables on both Cilium nodes
 			pod, err := kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s1)
