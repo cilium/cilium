@@ -21,7 +21,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
-	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/hubble/listener"
 	"github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/hubble/observer"
@@ -108,7 +107,7 @@ func (d *Daemon) launchHubble() {
 	d.monitorAgent.GetMonitor().RegisterNewListener(d.ctx, listener.NewHubbleListener(d.hubbleObserver))
 
 	srv, err := server.NewServer(logger,
-		serveroption.WithListeners(addresses, api.CiliumGroupName),
+		serveroption.WithListeners(addresses),
 		serveroption.WithHealthService(),
 		serveroption.WithObserverService(d.hubbleObserver),
 	)
