@@ -437,6 +437,12 @@ func (m *Manager) NodeDeleted(n node.Node) {
 		m.ipcache.Delete(address.IP.String(), n.Source)
 	}
 
+	for _, address := range []net.IP{entry.node.IPv4HealthIP, entry.node.IPv6HealthIP} {
+		if address != nil {
+			m.ipcache.Delete(address.String(), n.Source)
+		}
+	}
+
 	m.metricNumNodes.Dec()
 
 	entry.mutex.Lock()
