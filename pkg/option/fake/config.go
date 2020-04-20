@@ -26,3 +26,14 @@ func (f *Config) LocalClusterName() string {
 func (f *Config) CiliumNamespaceName() string {
 	return "kube-system"
 }
+
+// RemoteNodeIdentitiesEnabled returns true if the remote-node identity feature
+// is enabled
+func (f *Config) RemoteNodeIdentitiesEnabled() bool {
+	return true
+}
+
+// NodeEncryptionEnabled returns true if node encryption is enabled
+func (f *Config) NodeEncryptionEnabled() bool {
+	return true
+}
