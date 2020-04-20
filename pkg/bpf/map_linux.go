@@ -24,7 +24,6 @@ import (
 	"io"
 	"os"
 	"path"
-	"reflect"
 	"time"
 	"unsafe"
 
@@ -92,10 +91,16 @@ type cacheEntry struct {
 }
 
 type Map struct {
+	// name is the name of the map. The field is immutable. m.lock must not
+	// be held
+	name string
+
 	MapInfo
 	fd   int
-	name string
 	path string
+
+	// lock protects all fields of this structure and serializes calls to
+	// all Open() variants
 	lock lock.RWMutex
 
 	// inParallelMode is true when the Map is currently being run in
@@ -109,9 +114,6 @@ type Map struct {
 
 	// enableSync is true when synchronization retries have been enabled.
 	enableSync bool
-
-	// openLock serializes calls to Map.Open()
-	openLock lock.Mutex
 
 	// NonPersistent is true if the map does not contain persistent data
 	// and should be removed on startup.
@@ -181,6 +183,7 @@ func (m *Map) WithNonPersistent() *Map {
 	return m
 }
 
+// must be called with m.lock held
 func (m *Map) commonName() string {
 	if m.cachedCommonName != "" {
 		return m.cachedCommonName
@@ -226,17 +229,24 @@ func (m *Map) WithCache() *Map {
 	return m
 }
 
+// GetFd returns the file descriptor of the BPF map
 func (m *Map) GetFd() int {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
 	return m.fd
 }
 
 // Name returns the basename of this map.
 func (m *Map) Name() string {
+	// m.name is immutable, m.lock must not be held for access
 	return m.name
 }
 
 // Path returns the path to this map on the filesystem.
 func (m *Map) Path() (string, error) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
 	if err := m.setPathIfUnset(); err != nil {
 		return "", err
 	}
@@ -266,15 +276,6 @@ func (m *Map) UnpinIfExists() error {
 	}
 
 	return m.Unpin()
-}
-
-// DeepEquals compares the current map against another map to see that the
-// attributes of the two maps are the same.
-func (m *Map) DeepEquals(other *Map) bool {
-	return m.name == other.name &&
-		m.path == other.path &&
-		m.NonPersistent == other.NonPersistent &&
-		reflect.DeepEqual(m.MapInfo, other.MapInfo)
 }
 
 func (m *Map) controllerName() string {
@@ -363,6 +364,7 @@ func OpenMap(name string) (*Map, error) {
 	return m, nil
 }
 
+// must be called with m.lock held for writing
 func (m *Map) setPathIfUnset() error {
 	if m.path == "" {
 		if m.name == "" {
@@ -462,6 +464,7 @@ func (m *Map) Create() (bool, error) {
 	return isNew, m.Close()
 }
 
+// must be called with m.lock held for writing
 func (m *Map) openOrCreate(pin bool) (bool, error) {
 	if m.fd != 0 {
 		return false, nil
@@ -492,10 +495,41 @@ func (m *Map) openOrCreate(pin bool) (bool, error) {
 	return isNew, nil
 }
 
-func (m *Map) Open() error {
-	m.openLock.Lock()
-	defer m.openLock.Unlock()
+func (m *Map) openAndRLock() error {
+	if err := m.Open(); err != nil {
+		return err
+	}
 
+	m.lock.RLock()
+
+	// Due to the race condition in between m.Open() and acquiring m.lock
+	// for reading, the map can be closed. Check for this.
+	if m.fd == 0 {
+		m.lock.RUnlock()
+		return fmt.Errorf("map was closed")
+	}
+
+	return nil
+}
+
+func (m *Map) openAndLock() error {
+	m.lock.Lock()
+	if err := m.open(); err != nil {
+		m.lock.Unlock()
+		return err
+	}
+
+	return nil
+}
+
+func (m *Map) Open() (err error) {
+	m.lock.Lock()
+	err = m.open()
+	m.lock.Unlock()
+	return
+}
+
+func (m *Map) open() error {
 	if m.fd != 0 {
 		return nil
 	}
@@ -549,17 +583,19 @@ type MapValidator func(path string) (bool, error)
 // actual key and value. The callback function should consider creating a
 // deepcopy of the key and value on between each iterations to avoid memory
 // corruption.
+//
+// It is safe to perform BPF map operations from within the callback
 func (m *Map) DumpWithCallback(cb DumpCallback) error {
-	m.lock.RLock()
+	if err := m.openAndRLock(); err != nil {
+		return err
+	}
+	// Even if the lock is temporarily released, the lock is *always* held
+	// when the function exits
 	defer m.lock.RUnlock()
 
 	key := make([]byte, m.KeySize)
 	nextKey := make([]byte, m.KeySize)
 	value := make([]byte, m.ReadValueSize)
-
-	if err := m.Open(); err != nil {
-		return err
-	}
 
 	if err := GetFirstKey(m.fd, unsafe.Pointer(&nextKey[0])); err != nil {
 		if err == io.EOF {
@@ -599,8 +635,19 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 			return err
 		}
 
+		// Release the lock while invoking the callback. The callback
+		// is allowed to perform map operations as well.
+		m.lock.RUnlock()
+
 		if cb != nil {
 			cb(mk, mv)
+		}
+
+		m.lock.RLock()
+		// Check if the map was closed while the callback was invoked
+		// and the lock was not held
+		if m.fd == 0 {
+			return fmt.Errorf("map closed during dump")
 		}
 
 		copy(key, nextKey)
@@ -638,7 +685,19 @@ func (m *Map) DumpWithCallbackIfExists(cb DumpCallback) error {
 //
 // The caller must provide a callback for handling each entry, and a stats
 // object initialized via a call to NewDumpStats().
+//
+// It is safe to perform BPF map operations from within the callback
 func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error {
+	stats.start()
+	defer stats.finish()
+
+	if err := m.openAndRLock(); err != nil {
+		return err
+	}
+	// Even if the lock is temporarily released, the lock is *always* held
+	// when the function exits
+	defer m.lock.RUnlock()
+
 	var (
 		prevKey    = make([]byte, m.KeySize)
 		currentKey = make([]byte, m.KeySize)
@@ -647,12 +706,6 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 
 		prevKeyValid = false
 	)
-	stats.start()
-	defer stats.finish()
-
-	if err := m.Open(); err != nil {
-		return err
-	}
 
 	if err := GetFirstKey(m.fd, unsafe.Pointer(&currentKey[0])); err != nil {
 		stats.Lookup = 1
@@ -728,8 +781,19 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 			return err
 		}
 
+		// Release the lock while invoking the callback. The callback
+		// is allowed to perform map operations as well.
+		m.lock.RUnlock()
+
 		if cb != nil {
 			cb(mk, mv)
+		}
+
+		m.lock.RLock()
+		// Check if the map was closed while the callback was invoked
+		// and the lock was not held
+		if m.fd == 0 {
+			return fmt.Errorf("map closed during dump")
 		}
 
 		if nextKeyErr != nil {
@@ -781,14 +845,12 @@ func (m *Map) DumpIfExists(hash map[string][]string) error {
 }
 
 func (m *Map) Lookup(key MapKey) (MapValue, error) {
-	m.lock.RLock()
+	if err := m.openAndRLock(); err != nil {
+		return nil, err
+	}
 	defer m.lock.RUnlock()
 
 	value := key.NewValue()
-
-	if err := m.Open(); err != nil {
-		return nil, err
-	}
 
 	err := LookupElement(m.fd, key.GetKeyPtr(), value.GetValuePtr())
 	if err != nil {
@@ -797,32 +859,29 @@ func (m *Map) Lookup(key MapKey) (MapValue, error) {
 	return value, nil
 }
 
-func (m *Map) Update(key MapKey, value MapValue) error {
-	var err error
-
+func (m *Map) Update(key MapKey, value MapValue) (err error) {
 	m.lock.Lock()
-	defer m.lock.Unlock()
 
 	defer func() {
-		if m.cache == nil {
-			return
+		if m.cache != nil {
+			desiredAction := OK
+			if err != nil {
+				desiredAction = Insert
+				m.scheduleErrorResolver()
+			}
+
+			m.cache[key.String()] = &cacheEntry{
+				Key:           key,
+				Value:         value,
+				DesiredAction: desiredAction,
+				LastError:     err,
+			}
 		}
 
-		desiredAction := OK
-		if err != nil {
-			desiredAction = Insert
-			m.scheduleErrorResolver()
-		}
-
-		m.cache[key.String()] = &cacheEntry{
-			Key:           key,
-			Value:         value,
-			DesiredAction: desiredAction,
-			LastError:     err,
-		}
+		m.lock.Unlock()
 	}()
 
-	if err = m.Open(); err != nil {
+	if err = m.open(); err != nil {
 		return err
 	}
 
@@ -830,6 +889,7 @@ func (m *Map) Update(key MapKey, value MapValue) error {
 	if option.Config.MetricsConfig.BPFMapOps {
 		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
 	}
+
 	return err
 }
 
@@ -863,14 +923,15 @@ func (m *Map) deleteCacheEntry(key MapKey, err error) {
 }
 
 // Delete deletes the map entry corresponding to the given key.
-func (m *Map) Delete(key MapKey) error {
+func (m *Map) Delete(key MapKey) (err error) {
 	m.lock.Lock()
-	defer m.lock.Unlock()
 
-	var err error
-	defer m.deleteCacheEntry(key, err)
+	defer func() {
+		m.deleteCacheEntry(key, err)
+		m.lock.Unlock()
+	}()
 
-	if err = m.Open(); err != nil {
+	if err = m.open(); err != nil {
 		return err
 	}
 
@@ -893,7 +954,10 @@ func (m *Map) scopedLogger() *logrus.Entry {
 // entries. Note that if entries are added while the taversal is in progress,
 // such entries may survive the deletion process.
 func (m *Map) DeleteAll() error {
-	m.lock.Lock()
+	if err := m.openAndLock(); err != nil {
+		return err
+	}
+
 	defer m.lock.Unlock()
 
 	scopedLog := m.scopedLogger()
@@ -908,10 +972,6 @@ func (m *Map) DeleteAll() error {
 			entry.DesiredAction = Delete
 			entry.LastError = fmt.Errorf("deletion pending")
 		}
-	}
-
-	if err := m.Open(); err != nil {
-		return err
 	}
 
 	mk := m.MapKey.DeepCopyMapKey()
@@ -938,19 +998,6 @@ func (m *Map) DeleteAll() error {
 			return err
 		}
 	}
-}
-
-// GetNextKey returns the next key in the Map after key.
-func (m *Map) GetNextKey(key MapKey, nextKey MapKey) error {
-	if err := m.Open(); err != nil {
-		return err
-	}
-
-	err := GetNextKey(m.fd, key.GetKeyPtr(), nextKey.GetKeyPtr())
-	if option.Config.MetricsConfig.BPFMapOps {
-		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpGetNextKey, metrics.Error2Outcome(err)).Inc()
-	}
-	return err
 }
 
 // ConvertKeyValue converts key and value from bytes to given Golang struct pointers.
@@ -1091,6 +1138,9 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 //
 // Returns true if the map was upgraded.
 func (m *Map) CheckAndUpgrade(desired *MapInfo) bool {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
 	desiredMapType := GetMapType(desired.MapType)
 	desired.Flags |= GetPreAllocateMapFlags(desired.MapType)
 

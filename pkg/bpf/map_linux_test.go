@@ -19,6 +19,7 @@ package bpf
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -137,6 +138,15 @@ func (s *BPFPrivilegedTestSuite) TestOpen(c *C) {
 	c.Assert(err, IsNil)
 }
 
+// deepEquals compares the current map against another map to see that the
+// attributes of the two maps are the same.
+func deepEquals(m, other *Map) bool {
+	return m.name == other.name &&
+		m.path == other.path &&
+		m.NonPersistent == other.NonPersistent &&
+		reflect.DeepEqual(m.MapInfo, other.MapInfo)
+}
+
 func (s *BPFPrivilegedTestSuite) TestOpenMap(c *C) {
 	openedMap, err := OpenMap("cilium_test_no_exist")
 	c.Assert(err, Not(IsNil))
@@ -152,7 +162,7 @@ func (s *BPFPrivilegedTestSuite) TestOpenMap(c *C) {
 		testMap.MapKey = &TestKey{}
 		testMap.MapValue = &TestValue{}
 	}()
-	noDiff := openedMap.DeepEquals(testMap)
+	noDiff := deepEquals(openedMap, testMap)
 	c.Assert(noDiff, Equals, true)
 }
 
@@ -217,7 +227,7 @@ func (s *BPFPrivilegedTestSuite) TestOpenParallel(c *C) {
 	c.Assert(err, Not(IsNil))
 
 	// Check OpenMap warning section
-	noDiff := parallelMap.DeepEquals(testMap)
+	noDiff := deepEquals(parallelMap, testMap)
 	c.Assert(noDiff, Equals, true)
 
 	key1 := &TestKey{Key: 101}
@@ -367,6 +377,10 @@ func (s *BPFPrivilegedTestSuite) TestDump(c *C) {
 	dump4 := map[string][]string{}
 	customCb = func(key MapKey, value MapValue) {
 		dump4[key.String()] = append(dump4[key.String()], "custom-"+value.String())
+		// Perform a BPF map operation in the callback to validate that we don't deadlock
+		v, err := testMap.Lookup(keyZero)
+		c.Assert(err, IsNil)
+		c.Assert(v, checker.DeepEquals, valueZero)
 	}
 	ds := NewDumpStats(testMap)
 	err = testMap.DumpReliablyWithCallback(customCb, ds)
@@ -474,6 +488,40 @@ func (s *BPFPrivilegedTestSuite) TestDumpReliablyWithCallback(c *C) {
 		done <- struct{}{}
 	}()
 	wg.Wait()
+}
+
+func (s *BPFPrivilegedTestSuite) TestDumpClose(c *C) {
+	maxEntries := uint32(256)
+	m := NewMap("cilium_dump_close_test",
+		MapTypeHash,
+		&TestKey{},
+		int(unsafe.Sizeof(TestKey{})),
+		&TestValue{},
+		int(unsafe.Sizeof(TestValue{})),
+		int(maxEntries),
+		BPF_F_NO_PREALLOC,
+		0,
+		ConvertKeyValue,
+	).WithCache()
+	_, err := m.OpenOrCreate()
+	c.Assert(err, IsNil)
+	defer func() {
+		path, _ := m.Path()
+		os.Remove(path)
+	}()
+	defer m.Close()
+
+	for i := uint32(4); i < maxEntries; i++ {
+		err := m.Update(&TestKey{Key: i}, &TestValue{Value: i + 100})
+		c.Check(err, IsNil)
+	}
+
+	customCb := func(key MapKey, value MapValue) {
+		m.Close()
+	}
+	ds := NewDumpStats(m)
+	err = m.DumpReliablyWithCallback(customCb, ds)
+	c.Check(err, ErrorMatches, "map closed during dump")
 }
 
 func (s *BPFPrivilegedTestSuite) TestDeleteAll(c *C) {
