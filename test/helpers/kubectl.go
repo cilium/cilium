@@ -1556,6 +1556,15 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 			"global.k8sServiceHost":       nodeIP,
 			"global.k8sServicePort":       "6443",
 		}
+
+		if os.Getenv("KERNEL") == "419" {
+			// On 4.19 kernel we need to disable debug mode, as otherwise the BPF
+			// datapath programs are hitting the 4k verifier complexity limit when
+			// the BPF NodePort is enabled.
+			// TODO(brb): Determine kernel version via uname; keep agent in debug mode
+			opts["global.debug.enabled"] = "false"
+		}
+
 		for key, value := range opts {
 			options = addIfNotOverwritten(options, key, value)
 		}
