@@ -236,15 +236,6 @@ func init() {
 	flags.Duration(option.ConntrackGCInterval, time.Duration(0), "Overwrite the connection-tracking garbage collection interval")
 	option.BindEnv(option.ConntrackGCInterval)
 
-	flags.StringSlice(option.ContainerRuntime, option.ContainerRuntimeAuto, `Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" )`)
-	option.BindEnv(option.ContainerRuntime)
-	flags.MarkDeprecated(option.ContainerRuntime, "This option is no longer supported and will be removed in v1.8")
-
-	flags.Var(option.NewNamedMapOptions(option.ContainerRuntimeEndpoint, &map[string]string{}, nil),
-		option.ContainerRuntimeEndpoint, `Container runtime(s) endpoint(s).`)
-	option.BindEnv(option.ContainerRuntimeEndpoint)
-	flags.MarkDeprecated(option.ContainerRuntimeEndpoint, "This option is no longer supported and will be removed in v1.8")
-
 	flags.BoolP(option.DebugArg, "D", false, "Enable debugging mode")
 	option.BindEnv(option.DebugArg)
 
