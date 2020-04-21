@@ -50,8 +50,8 @@ type nodeEntry struct {
 
 // IPCache is the set of interactions the node manager performs with the ipcache
 type IPCache interface {
-	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) bool
-	Delete(IP string, source source.Source)
+	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (bool, bool)
+	Delete(IP string, source source.Source) bool
 }
 
 // Configuration is the set of configuration options the node manager depends
@@ -347,7 +347,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 			continue
 		}
 
-		isOwning := m.ipcache.Upsert(address.IP.String(), tunnelIP, n.EncryptionKey, nil, ipcache.Identity{
+		isOwning, _ := m.ipcache.Upsert(address.IP.String(), tunnelIP, n.EncryptionKey, nil, ipcache.Identity{
 			ID:     remoteHostIdentity,
 			Source: n.Source,
 		})
@@ -365,7 +365,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		if address == nil {
 			continue
 		}
-		isOwning := m.ipcache.Upsert(address.String(), nodeIP, n.EncryptionKey, nil, ipcache.Identity{
+		isOwning, _ := m.ipcache.Upsert(address.String(), nodeIP, n.EncryptionKey, nil, ipcache.Identity{
 			ID:     identity.ReservedIdentityHealth,
 			Source: n.Source,
 		})

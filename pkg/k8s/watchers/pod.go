@@ -40,7 +40,9 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -458,28 +460,51 @@ func (k *K8sWatcher) updatePodHostData(pod *types.Pod) (bool, error) {
 		PodName:   pod.Name,
 	}
 
-	var (
-		errs    []string
-		skipped bool
-	)
+	// Store Named ports, if any.
+	for _, container := range pod.SpecContainers {
+		for _, port := range container.ContainerPorts {
+			if port.Name == "" {
+				continue
+			}
+			p, err := u8proto.ParseProtocol(port.Protocol)
+			if err != nil {
+				return true, fmt.Errorf("ContainerPort: invalid protocol: %s", port.Protocol)
+			}
+			if port.ContainerPort < 1 || port.ContainerPort > 65535 {
+				return true, fmt.Errorf("ContainerPort: invalid port: %d", port.ContainerPort)
+			}
+			if k8sMeta.NamedPorts == nil {
+				k8sMeta.NamedPorts = make(policy.NamedPortsMap)
+			}
+			k8sMeta.NamedPorts[port.Name] = policy.NamedPort{
+				Proto: uint8(p),
+				Port:  uint16(port.ContainerPort),
+			}
+		}
+	}
+
+	var errs []string
 	for _, podIP := range pod.StatusPodIPs {
 		// Initial mapping of podIP <-> hostIP <-> identity. The mapping is
 		// later updated once the allocator has determined the real identity.
 		// If the endpoint remains unmanaged, the identity remains untouched.
-		selfOwned := ipcache.IPIdentityCache.Upsert(podIP, hostIP, hostKey, k8sMeta, ipcache.Identity{
+		selfOwned, namedPortsChanged := ipcache.IPIdentityCache.Upsert(podIP, hostIP, hostKey, k8sMeta, ipcache.Identity{
 			ID:     identity.ReservedIdentityUnmanaged,
 			Source: source.Kubernetes,
 		})
+		// This happens at most once due to k8sMeta being the same for all podIPs in this loop
+		if namedPortsChanged {
+			k.policyManager.TriggerPolicyUpdates(true, "Named ports added or updated")
+		}
 		if !selfOwned {
-			skipped = true
 			errs = append(errs, fmt.Sprintf("ipcache entry for podIP %s owned by kvstore or agent", podIP))
 		}
 	}
 	if len(errs) != 0 {
-		return skipped, errors.New(strings.Join(errs, ", "))
+		return true, errors.New(strings.Join(errs, ", "))
 	}
 
-	return skipped, nil
+	return false, nil
 }
 
 func (k *K8sWatcher) deletePodHostData(pod *types.Pod) (bool, error) {

@@ -150,6 +150,9 @@ const (
 	// PortName is a k8s ContainerPort Name
 	PortName = "portName"
 
+	// NamedPorts is a set of named ports
+	NamedPorts = "namedPorts"
+
 	// Family is the L3 protocol family
 	Family = "family"
 

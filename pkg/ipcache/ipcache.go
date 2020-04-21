@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/sirupsen/logrus"
 )
@@ -54,6 +55,8 @@ type K8sMetadata struct {
 	Namespace string
 	// PodName is the Kubernetes pod name behind the IP
 	PodName string
+	// NamedPorts is the set of named ports for the pod
+	NamedPorts policy.NamedPortsMap
 }
 
 // IPCache is a collection of mappings:
@@ -73,6 +76,8 @@ type IPCache struct {
 	v6PrefixLengths map[int]int
 
 	listeners []IPIdentityMappingListener
+
+	namedPorts policy.NamedPortsMap
 }
 
 // NewIPCache returns a new IPCache with the mappings of endpoint IP to security
@@ -86,6 +91,7 @@ func NewIPCache() *IPCache {
 		ipToK8sMetadata:   map[string]K8sMetadata{},
 		v4PrefixLengths:   map[int]int{},
 		v6PrefixLengths:   map[int]int{},
+		namedPorts:        nil,
 	}
 }
 
@@ -157,6 +163,38 @@ func (ipc *IPCache) GetK8sMetadata(ip string) *K8sMetadata {
 	return nil
 }
 
+func (ipc *IPCache) updateNamedPorts() (namedPortsChanged bool) {
+	// Collect new named Ports
+	npm := make(policy.NamedPortsMap, len(ipc.namedPorts))
+	for _, km := range ipc.ipToK8sMetadata {
+		for name, value := range km.NamedPorts {
+			if oldValue, done := npm[name]; done {
+				// Do not process duplicate values
+				if oldValue != value {
+					log.Warning("Confilicting named port definition")
+				}
+				continue
+			}
+			if oldValue, ok := ipc.namedPorts[name]; !ok || oldValue != value {
+				namedPortsChanged = true
+			}
+			npm[name] = value
+		}
+	}
+	if len(npm) != len(ipc.namedPorts) {
+		namedPortsChanged = true
+	}
+	if namedPortsChanged {
+		// swap the new map in
+		if len(npm) == 0 {
+			ipc.namedPorts = nil
+		} else {
+			ipc.namedPorts = npm
+		}
+	}
+	return namedPortsChanged
+}
+
 // Upsert adds / updates the provided IP (endpoint or CIDR prefix) and identity
 // into the IPCache.
 //
@@ -166,7 +204,12 @@ func (ipc *IPCache) GetK8sMetadata(ip string) *K8sMetadata {
 // ownership. hostIP is the location of the given IP. It is optional (may be
 // nil) and is propagated to the listeners. k8sMeta contains Kubernetes-specific
 // metadata such as pod namespace and pod name belonging to the IP (may be nil).
-func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8sMetadata, newIdentity Identity) bool {
+func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8sMetadata, newIdentity Identity) (updated bool, namedPortsChanged bool) {
+	var newNamedPorts policy.NamedPortsMap
+	if k8sMeta != nil {
+		newNamedPorts = k8sMeta.NamedPorts
+	}
+
 	scopedLog := log
 	if option.Config.Debug {
 		scopedLog = log.WithFields(logrus.Fields{
@@ -174,6 +217,13 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 			logfields.Identity: newIdentity,
 			logfields.Key:      hostKey,
 		})
+		if k8sMeta != nil {
+			scopedLog = scopedLog.WithFields(logrus.Fields{
+				logfields.K8sPodName:   k8sMeta.PodName,
+				logfields.K8sNamespace: k8sMeta.Namespace,
+				logfields.NamedPorts:   k8sMeta.NamedPorts,
+			})
+		}
 	}
 
 	ipc.mutex.Lock()
@@ -185,18 +235,19 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 
 	oldHostIP, oldHostKey := ipc.getHostIPCache(ip)
 	oldK8sMeta := ipc.ipToK8sMetadata[ip]
+	metaEqual := oldK8sMeta.Equal(k8sMeta)
 
 	cachedIdentity, found := ipc.ipToIdentityCache[ip]
 	if found {
 		if !source.AllowOverwrite(cachedIdentity.Source, newIdentity.Source) {
-			return false
+			return false, false
 		}
 
 		// Skip update if IP is already mapped to the given identity
 		// and the host IP hasn't changed.
 		if cachedIdentity == newIdentity && oldHostIP.Equal(hostIP) &&
-			hostKey == oldHostKey && oldK8sMeta.Equal(k8sMeta) {
-			return true
+			hostKey == oldHostKey && metaEqual {
+			return true, false
 		}
 
 		oldIdentity = &cachedIdentity.ID
@@ -242,7 +293,7 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 			logfields.Identity: newIdentity,
 			logfields.Key:      hostKey,
 		}).Error("Attempt to upsert invalid IP into ipcache layer")
-		return false
+		return false, false
 	}
 
 	scopedLog.Debug("Upserting IP into ipcache layer")
@@ -267,10 +318,51 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 		ipc.ipToHostIPCache[ip] = IPKeyPair{IP: hostIP, Key: hostKey}
 	}
 
-	if k8sMeta == nil {
-		delete(ipc.ipToK8sMetadata, ip)
-	} else {
-		ipc.ipToK8sMetadata[ip] = *k8sMeta
+	if !metaEqual {
+		// Keep old named ports if new identity is from kv-store and has no named ports.
+		// This needs to be done to preserve the named ports as kv-store does not have them.
+		keepOldNamedPorts := newIdentity.Source == source.KVStore && len(newNamedPorts) == 0 && len(oldK8sMeta.NamedPorts) > 0
+
+		if k8sMeta == nil {
+			if !keepOldNamedPorts {
+				delete(ipc.ipToK8sMetadata, ip)
+			} else {
+				oldK8sMeta.PodName = ""
+				oldK8sMeta.Namespace = ""
+				ipc.ipToK8sMetadata[ip] = oldK8sMeta
+			}
+		} else {
+			meta := *k8sMeta
+			if keepOldNamedPorts {
+				meta.NamedPorts = oldK8sMeta.NamedPorts
+			}
+			ipc.ipToK8sMetadata[ip] = meta
+		}
+
+		// Update named ports
+		if !keepOldNamedPorts {
+			// Check for deleted values
+			for k := range oldK8sMeta.NamedPorts {
+				if _, ok := newNamedPorts[k]; !ok {
+					namedPortsChanged = true
+					break
+				}
+			}
+			if !namedPortsChanged {
+				// Check for added new or changed entries
+				for k, v := range newNamedPorts {
+					if v2, ok := oldK8sMeta.NamedPorts[k]; !ok || v2 != v {
+						namedPortsChanged = true
+						break
+					}
+				}
+			}
+			if namedPortsChanged {
+				// It is possible that some other POD defines same values, check if
+				// anything changes over all the PODs.
+				namedPortsChanged = ipc.updateNamedPorts()
+			}
+		}
 	}
 
 	if callbackListeners {
@@ -279,7 +371,7 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 		}
 	}
 
-	return true
+	return true, namedPortsChanged
 }
 
 // DumpToListenerLocked dumps the entire contents of the IPCache by triggering
@@ -299,7 +391,7 @@ func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
 
 // deleteLocked removes the provided IP-to-security-identity mapping
 // from ipc with the assumption that the IPCache's mutex is held.
-func (ipc *IPCache) deleteLocked(ip string, source source.Source) {
+func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsChanged bool) {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.IPAddr: ip,
 	})
@@ -307,13 +399,13 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) {
 	cachedIdentity, found := ipc.ipToIdentityCache[ip]
 	if !found {
 		scopedLog.Debug("Attempt to remove non-existing IP from ipcache layer")
-		return
+		return false
 	}
 
 	if cachedIdentity.Source != source {
 		scopedLog.WithField("source", cachedIdentity.Source).
 			Debugf("Skipping delete of identity from source %s", source)
-		return
+		return false
 	}
 
 	var cidr *net.IPNet
@@ -356,7 +448,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) {
 		}
 	} else {
 		scopedLog.Error("Attempt to delete invalid IP from ipcache layer")
-		return
+		return false
 	}
 
 	scopedLog.Debug("Deleting IP from ipcache layer")
@@ -369,19 +461,37 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) {
 	delete(ipc.ipToHostIPCache, ip)
 	delete(ipc.ipToK8sMetadata, ip)
 
+	// Update named ports
+	namedPortsChanged = false
+	if oldK8sMeta != nil && len(oldK8sMeta.NamedPorts) > 0 {
+		namedPortsChanged = ipc.updateNamedPorts()
+	}
+
 	if callbackListeners {
 		for _, listener := range ipc.listeners {
 			listener.OnIPIdentityCacheChange(cacheModification, *cidr, oldHostIP, newHostIP,
 				oldIdentity, newIdentity.ID, encryptKey, oldK8sMeta)
 		}
 	}
+
+	return namedPortsChanged
+}
+
+// GetNamedPorts returns a copy of the named ports map. May return nil.
+func (ipc *IPCache) GetNamedPorts() (npm policy.NamedPortsMap) {
+	ipc.mutex.Lock()
+	// Caller can keep using the map after the lock is released, as the map is never changed
+	// once published.
+	npm = ipc.namedPorts
+	ipc.mutex.Unlock()
+	return npm
 }
 
 // Delete removes the provided IP-to-security-identity mapping from the IPCache.
-func (ipc *IPCache) Delete(IP string, source source.Source) {
+func (ipc *IPCache) Delete(IP string, source source.Source) (namedPortsChanged bool) {
 	ipc.mutex.Lock()
 	defer ipc.mutex.Unlock()
-	ipc.deleteLocked(IP, source)
+	return ipc.deleteLocked(IP, source)
 }
 
 // LookupByIP returns the corresponding security identity that endpoint IP maps
@@ -455,7 +565,14 @@ func (m *K8sMetadata) Equal(o *K8sMetadata) bool {
 	} else if m == nil || o == nil {
 		return false
 	}
-
+	if len(m.NamedPorts) != len(o.NamedPorts) {
+		return false
+	}
+	for k, v := range m.NamedPorts {
+		if v2, ok := o.NamedPorts[k]; !ok || v != v2 {
+			return false
+		}
+	}
 	return m.Namespace == o.Namespace && m.PodName == o.PodName
 }
 
