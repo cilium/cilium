@@ -179,9 +179,13 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["LB4_REVERSE_NAT_SK_MAP_SIZE"] = fmt.Sprintf("%d", lbmap.SockRevNat4MapSize)
 
 	if option.Config.EnableSessionAffinity {
-		cDefinesMap["LB_AFFINITY_MATCH_MAP"] = "cilium_lb_affinity_match"
+		cDefinesMap["ENABLE_SESSION_AFFINITY"] = "1"
+		cDefinesMap["LB_AFFINITY_MATCH_MAP"] = lbmap.AffinityMatchMapName
 		if option.Config.EnableIPv4 {
-			cDefinesMap["LB4_AFFINITY_MAP"] = "cilium_lb4_affinity" // TODO(brb) define lbmap
+			cDefinesMap["LB4_AFFINITY_MAP"] = lbmap.Affinity4MapName
+		}
+		if option.Config.EnableIPv6 {
+			cDefinesMap["LB6_AFFINITY_MAP"] = lbmap.Affinity6MapName
 		}
 	}
 
@@ -258,10 +262,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["NODEPORT_PORT_MAX"] = fmt.Sprintf("%d", option.Config.NodePortMax)
 		cDefinesMap["NODEPORT_PORT_MIN_NAT"] = fmt.Sprintf("%d", option.Config.NodePortMax+1)
 		cDefinesMap["NODEPORT_PORT_MAX_NAT"] = "65535"
-	}
-
-	if option.Config.EnableSessionAffinity {
-		cDefinesMap["ENABLE_SESSION_AFFINITY"] = "1"
 	}
 
 	if option.Config.EncryptInterface != "" {
