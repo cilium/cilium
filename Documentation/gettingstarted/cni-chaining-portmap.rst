@@ -4,6 +4,9 @@
     Please use the official rendered version released here:
     http://docs.cilium.io
 
+
+.. _k8s_install_portmap:
+
 ******************
 Portmap (HostPort)
 ******************
