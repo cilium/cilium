@@ -338,6 +338,9 @@ data:
 {{- end }}
   enable-auto-protect-node-port-range: {{ .Values.global.nodePort.autoProtectPortRange | quote }}
 {{- end }}
+{{- if .Values.global.sessionAffinity }}
+  enable-session-affinity: {{ .Values.global.sessionAffinity.enabled | quote }}
+{{- end }}
 
 {{- if and .Values.global.pprof .Values.global.pprof.enabled }}
   pprof: {{ .Values.global.pprof.enabled | quote }}

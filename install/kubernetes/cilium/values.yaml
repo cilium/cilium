@@ -310,6 +310,10 @@ global:
     # enabled enables ExternalIPs functionality
     enabled: false
 
+  # sessionAffinity enable support for service sessionAffinity
+  sessionAffinity:
+    enabled: true
+
   # flannel is the flannel specific configuration
   flannel:
     # enabled enables the flannel integration
