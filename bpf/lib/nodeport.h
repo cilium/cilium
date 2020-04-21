@@ -498,6 +498,8 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 		if (svc)
 			return DROP_IS_CLUSTER_IP;
 
+		ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
+
 		if (nodeport_uses_dsr6(&tuple)) {
 			return CTX_ACT_OK;
 		} else {
@@ -1060,6 +1062,8 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		     !lb4_svc_is_hostport(svc))) {
 		if (svc)
 			return DROP_IS_CLUSTER_IP;
+
+		ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
 		if (nodeport_uses_dsr4(&tuple)) {
 			return CTX_ACT_OK;

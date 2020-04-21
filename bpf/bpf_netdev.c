@@ -131,10 +131,12 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		return DROP_INVALID;
 
 #ifdef ENABLE_NODEPORT
-	if (!bpf_skip_nodeport(ctx)) {
-		ret = nodeport_lb6(ctx, srcid_from_proxy);
-		if (ret < 0)
-			return ret;
+	if (ctx_get_xfer(ctx) != XFER_PKT_NO_SVC) {
+		if (!bpf_skip_nodeport(ctx)) {
+			ret = nodeport_lb6(ctx, srcid_from_proxy);
+			if (ret < 0)
+				return ret;
+		}
 	}
 #if defined(ENCAP_IFINDEX) || defined(NO_REDIRECT)
 	/* See IPv4 case for NO_REDIRECT comments */
@@ -319,10 +321,12 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 		return DROP_INVALID;
 
 #ifdef ENABLE_NODEPORT
-	if (!bpf_skip_nodeport(ctx)) {
-		int ret = nodeport_lb4(ctx, srcid_from_proxy);
-		if (ret < 0)
-			return ret;
+	if (ctx_get_xfer(ctx) != XFER_PKT_NO_SVC) {
+		if (!bpf_skip_nodeport(ctx)) {
+			int ret = nodeport_lb4(ctx, srcid_from_proxy);
+			if (ret < 0)
+				return ret;
+		}
 	}
 #if defined(ENCAP_IFINDEX) || defined(NO_REDIRECT)
 	/* We cannot redirect a packet to a local endpoint in the direct
