@@ -1,0 +1,60 @@
+{{- if .Values.global.hubble.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: hubble-cli
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: hubble-cli
+spec:
+  selector:
+    matchLabels:
+      k8s-app: hubble-cli
+  template:
+    metadata:
+      labels:
+        k8s-app: hubble-cli
+    spec:
+{{- if .Values.global.affinity }}
+      affinity:
+{{ toYaml .Values.global.affinity | indent 8 }}
+{{- end }}
+      containers:
+        - name: hubble-cli
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - "hubble"
+          args:
+{{- toYaml .Values.args | trim | nindent 10 }}
+          env:
+          - name: HUBBLE_DEFAULT_SOCKET_PATH
+            value: unix://{{ .Values.global.hubble.socketPath }}
+          readinessProbe:
+            exec:
+              command:
+              - "hubble"
+              - "status"
+            initialDelaySeconds: 1
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+{{- if .Values.resources }}
+          resources:
+{{- toYaml .Values.resources | trim | nindent 10 }}
+{{- end }}
+          volumeMounts:
+          - mountPath: {{ .Values.global.hubble.socketPath }}
+            name: hubble-sock
+            readOnly: true
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 1
+      tolerations:
+      - operator: Exists
+      volumes:
+      - hostPath:
+          path: {{ .Values.global.hubble.socketPath }}
+          type: Socket
+        name: hubble-sock
+{{- end }}

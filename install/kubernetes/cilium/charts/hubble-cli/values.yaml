@@ -1,0 +1,16 @@
+# Configuration for the Hubble CLI
+image:
+  # repository of the docker image
+  repository: quay.io/cilium/hubble
+  # tag is the container image tag to use
+  tag: v0.5.1
+  # pullPolicy is the container image pull policy
+  pullPolicy: IfNotPresent
+
+# Arguments passed down to Hubble CLI
+args:
+  - observe
+  - --follow
+
+# Specifies the resources for the hubble-cli container
+resources: {}
