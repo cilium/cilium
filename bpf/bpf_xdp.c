@@ -87,8 +87,16 @@ static __always_inline __maybe_unused int
 bpf_xdp_exit(struct __ctx_buff *ctx, const int verdict)
 {
 	/* Undo meta data, so GRO can perform natural aggregation. */
-	if (verdict == CTX_ACT_OK)
-		ctx_adjust_meta(ctx, META_PIVOT);
+	if (verdict == CTX_ACT_OK) {
+		__u32 meta_xfer = ctx_load_meta(ctx, XFER_MARKER);
+
+		/* We transfer data from XFER_MARKER. This specifically
+		 * does not break packet trains in GRO.
+		 */
+		ctx_adjust_meta(ctx, META_PIVOT - sizeof(__u32));
+		ctx_store_meta(ctx, 0, meta_xfer);
+	}
+
 	return verdict;
 }
 
@@ -230,6 +238,7 @@ static __always_inline int check_filters(struct __ctx_buff *ctx)
 	if (ctx_adjust_meta(ctx, -META_PIVOT))
 		return CTX_ACT_OK;
 
+	ctx_store_meta(ctx, XFER_MARKER, 0);
 	bpf_skip_nodeport_clear(ctx);
 
 	switch (proto) {

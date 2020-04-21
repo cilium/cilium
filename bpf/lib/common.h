@@ -46,6 +46,9 @@
 # endif
 #endif
 
+/* XDP to SKB transferred meta data. */
+#define XFER_PKT_NO_SVC		1 /* Skip upper service handling. */
+
 /* These are shared with test/bpf/check-complexity.sh, when modifying any of
  * the below, that script should also be updated. */
 #define CILIUM_CALL_DROP_NOTIFY			1
