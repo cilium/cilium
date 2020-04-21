@@ -204,6 +204,11 @@ func (s *Service6Value) RevNatKey() RevNatKey { return &RevNat6Key{s.RevNat} }
 func (s *Service6Value) SetFlags(flags uint8) { s.Flags = flags }
 func (s *Service6Value) GetFlags() uint8      { return s.Flags }
 
+func (s *Service6Value) SetSessionAffinityTimeoutSec(t uint32) {
+	// See (* Service4Value).SetSessionAffinityTimeoutSec() for comment
+	s.BackendID = t
+}
+
 func (s *Service6Value) SetBackendID(id loadbalancer.BackendID) {
 	s.BackendID = uint32(id)
 }

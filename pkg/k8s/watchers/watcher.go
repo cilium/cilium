@@ -129,6 +129,7 @@ type svcManager interface {
 	DeleteService(frontend loadbalancer.L3n4Addr) (bool, error)
 	UpsertService(frontend loadbalancer.L3n4AddrID, backends []loadbalancer.Backend,
 		svcType loadbalancer.SVCType, svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
+		sessionAffinity bool, sessionAffinityTimeoutSec uint32,
 		svcHealthCheckNodePort uint16, svcName, svcNamespace string) (bool, loadbalancer.ID, error)
 }
 
@@ -681,6 +682,8 @@ func datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) (svcs []loadbalanc
 	for i := range svcs {
 		svcs[i].TrafficPolicy = svc.TrafficPolicy
 		svcs[i].HealthCheckNodePort = svc.HealthCheckNodePort
+		svcs[i].SessionAffinity = svc.SessionAffinity
+		svcs[i].SessionAffinityTimeoutSec = svc.SessionAffinityTimeoutSec
 	}
 
 	return svcs
@@ -739,7 +742,10 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, e
 
 	for _, dpSvc := range svcs {
 		if _, _, err := k.svcManager.UpsertService(dpSvc.Frontend, dpSvc.Backends, dpSvc.Type,
-			dpSvc.TrafficPolicy, dpSvc.HealthCheckNodePort, svcID.Name, svcID.Namespace); err != nil {
+			dpSvc.TrafficPolicy,
+			dpSvc.SessionAffinity, dpSvc.SessionAffinityTimeoutSec,
+			dpSvc.HealthCheckNodePort,
+			svcID.Name, svcID.Namespace); err != nil {
 			scopedLog.WithError(err).Error("Error while inserting service in LB map")
 		}
 	}

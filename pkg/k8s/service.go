@@ -112,6 +112,16 @@ func ParseService(svc *types.Service, nodeAddressing datapath.NodeAddressing) (S
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
 	svcInfo.Shared = getAnnotationShared(svc)
 
+	if svc.Spec.SessionAffinity == v1.ServiceAffinityClientIP {
+		svcInfo.SessionAffinity = true
+		if cfg := svc.Spec.SessionAffinityConfig; cfg != nil && cfg.ClientIP != nil && cfg.ClientIP.TimeoutSeconds != nil {
+			svcInfo.SessionAffinityTimeoutSec = uint32(*cfg.ClientIP.TimeoutSeconds)
+		}
+		if svcInfo.SessionAffinityTimeoutSec == 0 {
+			svcInfo.SessionAffinityTimeoutSec = uint32(v1.DefaultClientIPServiceAffinitySeconds)
+		}
+	}
+
 	for _, port := range svc.Spec.Ports {
 		p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
 		portName := loadbalancer.FEPortName(port.Name)
@@ -232,6 +242,11 @@ type Service struct {
 	LoadBalancerIPs map[string]net.IP
 	Labels          map[string]string
 	Selector        map[string]string
+
+	// SessionAffinity denotes whether service has the clientIP session affinity
+	SessionAffinity bool
+	// SessionAffinityTimeoutSeconds denotes session affinity timeout
+	SessionAffinityTimeoutSec uint32
 }
 
 // String returns the string representation of a service resource
