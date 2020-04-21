@@ -3,6 +3,11 @@
 
 include ../Makefile.defs
 
+# Build all ipam managers in development environments
+ifeq ($(PKG_BUILD),)
+	EXTRA_GO_BUILD_FLAGS += -tags operator_aws,operator_azure,ipam_provider_operator
+endif
+
 TARGET := cilium-operator
 
 .PHONY: all $(TARGET) clean install
