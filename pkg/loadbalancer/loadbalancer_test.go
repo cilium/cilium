@@ -280,7 +280,7 @@ func TestCreateSvcFlag(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := CreateSvcFlag(tt.args.svcLocal, tt.args.svcTypes...); got != tt.want {
+			if got := CreateSvcFlag(tt.args.svcLocal, false, tt.args.svcTypes...); got != tt.want {
 				t.Errorf("CreateSvcFlag() = %v, want %v", got, tt.want)
 			}
 		})
@@ -333,7 +333,7 @@ func TestServiceFlags_IsSvcType(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.s.IsSvcType(tt.args.svcLocal, tt.args.svcType); got != tt.want {
+			if got := tt.s.IsSvcType(tt.args.svcLocal, false, tt.args.svcType); got != tt.want {
 				t.Errorf("IsSvcType() = %v, want %v", got, tt.want)
 			}
 		})

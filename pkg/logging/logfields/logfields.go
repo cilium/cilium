@@ -183,6 +183,13 @@ const (
 	// ServiceNamespace is the orchestration framework namespace of a service name
 	ServiceNamespace = "serviceNamespace"
 
+	// SessionAffinity indicates whether the ClientIP session affinity is enabled
+	// for the service
+	SessionAffinity = "sessionAffinity"
+
+	// SessionAffinityTimeout is a timeout for the session affinity
+	SessionAffinityTimeout = "sessionAffinityTimeout"
+
 	// ClusterName is the name of the cluster
 	ClusterName = "clusterName"
 
