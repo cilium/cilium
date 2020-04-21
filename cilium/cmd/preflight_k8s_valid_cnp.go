@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/k8s"
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2_client "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/client"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
@@ -90,7 +90,7 @@ func validateCNPs() error {
 func validateNPResources(ctx context.Context, name, shortName string) error {
 	var internal apiextensionsinternal.CustomResourceValidation
 	err := v1beta1.Convert_v1beta1_CustomResourceValidation_To_apiextensions_CustomResourceValidation(
-		&v2.CNPCRV,
+		&v2_client.CNPCRV,
 		&internal,
 		nil,
 	)
