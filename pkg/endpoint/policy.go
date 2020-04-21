@@ -181,7 +181,7 @@ func (e *Endpoint) regeneratePolicy() (retErr error) {
 		e.getLogger().WithError(err).Warning("Failed to update policy")
 		return err
 	}
-	calculatedPolicy := e.selectorPolicy.Consume(e, e.k8sPorts)
+	calculatedPolicy := e.selectorPolicy.Consume(e, ipcache.IPIdentityCache.GetNamedPorts())
 
 	stats.policyCalculation.End(true)
 

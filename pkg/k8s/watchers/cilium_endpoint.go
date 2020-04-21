@@ -27,7 +27,9 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/u8proto"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -50,7 +52,7 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, as
 					defer func() { k.K8sEventReceived(metricCiliumEndpoint, metricCreate, valid, equal) }()
 					if ciliumEndpoint, ok := obj.(*types.CiliumEndpoint); ok {
 						valid = true
-						endpointUpdated(ciliumEndpoint)
+						k.endpointUpdated(ciliumEndpoint)
 						k.K8sEventProcessed(metricCiliumEndpoint, metricCreate, true)
 					}
 				},
@@ -65,7 +67,7 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, as
 							// 	equal = true
 							// 	return
 							// }
-							endpointUpdated(newCE)
+							k.endpointUpdated(newCE)
 							k.K8sEventProcessed(metricCiliumEndpoint, metricUpdate, true)
 						}
 					}
@@ -88,7 +90,7 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, as
 						}
 					}
 					valid = true
-					endpointDeleted(ciliumEndpoint)
+					k.endpointDeleted(ciliumEndpoint)
 				},
 			},
 			k8s.ConvertToCiliumEndpoint,
@@ -121,7 +123,7 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, as
 	}
 }
 
-func endpointUpdated(endpoint *types.CiliumEndpoint) {
+func (k *K8sWatcher) endpointUpdated(endpoint *types.CiliumEndpoint) {
 	// default to the standard key
 	encryptionKey := node.GetIPsecKeyIdentity()
 
@@ -149,34 +151,65 @@ func endpointUpdated(endpoint *types.CiliumEndpoint) {
 		}
 
 		k8sMeta := &ipcache.K8sMetadata{
-			Namespace: endpoint.Namespace,
-			PodName:   endpoint.Name,
+			Namespace:  endpoint.Namespace,
+			PodName:    endpoint.Name,
+			NamedPorts: make(policy.NamedPortsMap, len(endpoint.NamedPorts)),
+		}
+		for _, port := range endpoint.NamedPorts {
+			p, err := u8proto.ParseProtocol(port.Protocol)
+			if err != nil {
+				continue
+			}
+			k8sMeta.NamedPorts[port.Name] = policy.NamedPort{
+				Proto: uint8(p),
+				Port:  uint16(port.Port),
+			}
 		}
 
+		namedPortsChanged := false
 		for _, pair := range endpoint.Networking.Addressing {
 			if pair.IPV4 != "" {
-				ipcache.IPIdentityCache.Upsert(pair.IPV4, nodeIP, encryptionKey, k8sMeta,
+				_, portsChanged := ipcache.IPIdentityCache.Upsert(pair.IPV4, nodeIP, encryptionKey, k8sMeta,
 					ipcache.Identity{ID: id, Source: source.CustomResource})
+				if portsChanged {
+					namedPortsChanged = true
+				}
 			}
 
 			if pair.IPV6 != "" {
-				ipcache.IPIdentityCache.Upsert(pair.IPV6, nodeIP, encryptionKey, k8sMeta,
+				_, portsChanged := ipcache.IPIdentityCache.Upsert(pair.IPV6, nodeIP, encryptionKey, k8sMeta,
 					ipcache.Identity{ID: id, Source: source.CustomResource})
+				if portsChanged {
+					namedPortsChanged = true
+				}
 			}
+		}
+		if namedPortsChanged {
+			k.policyManager.TriggerPolicyUpdates(true, "Named ports added or updated")
 		}
 	}
 }
 
-func endpointDeleted(endpoint *types.CiliumEndpoint) {
+func (k *K8sWatcher) endpointDeleted(endpoint *types.CiliumEndpoint) {
 	if endpoint.Networking != nil {
+		namedPortsChanged := false
 		for _, pair := range endpoint.Networking.Addressing {
 			if pair.IPV4 != "" {
-				ipcache.IPIdentityCache.Delete(pair.IPV4, source.CustomResource)
+				portsChanged := ipcache.IPIdentityCache.Delete(pair.IPV4, source.CustomResource)
+				if portsChanged {
+					namedPortsChanged = true
+				}
 			}
 
 			if pair.IPV6 != "" {
-				ipcache.IPIdentityCache.Delete(pair.IPV6, source.CustomResource)
+				portsChanged := ipcache.IPIdentityCache.Delete(pair.IPV6, source.CustomResource)
+				if portsChanged {
+					namedPortsChanged = true
+				}
 			}
+		}
+		if namedPortsChanged {
+			k.policyManager.TriggerPolicyUpdates(true, "Named ports deleted")
 		}
 	}
 }

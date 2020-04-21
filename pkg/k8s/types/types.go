@@ -15,6 +15,7 @@
 package types
 
 import (
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
 	"k8s.io/api/core/v1"
@@ -118,4 +119,5 @@ type CiliumEndpoint struct {
 	Identity   *v2.EndpointIdentity
 	Networking *v2.EndpointNetworking
 	Encryption *v2.EncryptionSpec
+	NamedPorts models.NamedPorts
 }

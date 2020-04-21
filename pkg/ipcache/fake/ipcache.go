@@ -45,11 +45,12 @@ func NewIPCache(events bool) *IPCache {
 	}
 }
 
-func (i *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) bool {
+func (i *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (bool, bool) {
 	i.Events <- NodeEvent{EventUpsert, net.ParseIP(ip)}
-	return true
+	return true, false
 }
 
-func (i *IPCache) Delete(IP string, source source.Source) {
+func (i *IPCache) Delete(IP string, source source.Source) bool {
 	i.Events <- NodeEvent{EventDelete, net.ParseIP(IP)}
+	return false
 }

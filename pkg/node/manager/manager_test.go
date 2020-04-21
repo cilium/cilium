@@ -70,13 +70,14 @@ func newIPcacheMock() *ipcacheMock {
 	}
 }
 
-func (i *ipcacheMock) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) bool {
+func (i *ipcacheMock) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (bool, bool) {
 	i.events <- nodeEvent{"upsert", net.ParseIP(ip)}
-	return true
+	return true, false
 }
 
-func (i *ipcacheMock) Delete(IP string, source source.Source) {
+func (i *ipcacheMock) Delete(IP string, source source.Source) bool {
 	i.events <- nodeEvent{"delete", net.ParseIP(IP)}
+	return false
 }
 
 type signalNodeHandler struct {
