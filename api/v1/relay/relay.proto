@@ -27,9 +27,12 @@ service HubbleRelay {
 // and lets the client decide when to end the request, whether it's based on timestamp
 // or the number of responses received.
 message GetEventsRequest{
-    repeated EventFilter blacklist = 1;
-    repeated EventFilter whitelist = 2;
-    google.protobuf.Timestamp since = 3;
+    // EventType specifies which types of events to subscribe to. If unspecified, the
+    // request is subscribed to all the event types.
+    repeated EventType event_types = 1;
+    repeated EventFilter blacklist = 2;
+    repeated EventFilter whitelist = 3;
+    google.protobuf.Timestamp since = 4;
 }
 
 message GetEventsResponse{
@@ -58,10 +61,11 @@ message GetEventsResponse{
 // and extend FlowFilter to filter all the events, but I worry that it might become too
 // confusing in terms of figuring out which filter fields apply to which events.
 message EventFilter {
-    repeated EventType type = 1;
-    repeated flow.FlowFilter flow_filter = 2;
-    repeated ServiceFilter service_filter = 3;
-    repeated ServiceLinkFilter service_link_filter = 4;
+    oneof filter {
+        flow.FlowFilter flow_filter = 2;
+        ServiceFilter service_filter = 3;
+        ServiceLinkFilter service_link_filter = 4;
+    }
 }
 
 enum EventType {
@@ -129,7 +133,7 @@ message ServiceExists {
 }
 
 message ServiceFilter {
-    string namespace = 1;
+    repeated string namespace = 1;
 }
 
 message ServiceLink {
