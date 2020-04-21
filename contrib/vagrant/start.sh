@@ -343,7 +343,9 @@ EOF
 
 cat <<EOF >> "$filename"
 sleep 2s
-echo "K8S_NODE_NAME=\$(hostname)" >> /etc/sysconfig/cilium
+if [ -n "\${K8S}" ]; then
+    echo "K8S_NODE_NAME=\$(hostname)" >> /etc/sysconfig/cilium
+fi
 echo 'CILIUM_OPTS="${cilium_options}"' >> /etc/sysconfig/cilium
 echo 'CILIUM_OPERATOR_OPTS="${cilium_operator_options}"' >> /etc/sysconfig/cilium
 echo 'PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin' >> /etc/sysconfig/cilium
