@@ -91,6 +91,9 @@ DEFINE_IPV6(SNAT_IPV6_EXTERNAL, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0
 #define LB4_BACKEND_MAP test_cilium_lb4_backends
 #define LB4_REVERSE_NAT_SK_MAP test_cilium_lb4_reverse_sk
 #define LB4_REVERSE_NAT_SK_MAP_SIZE 262144
+#define LB4_AFFINITY_MAP test_cilium_lb4_affinity
+#define LB6_AFFINITY_MAP test_cilium_lb6_affinity
+#define LB_AFFINITY_MATCH_MAP test_cilium_lb_affinity_match
 #define ENABLE_ARP_RESPONDER
 #define TUNNEL_ENDPOINT_MAP_SIZE 65536
 #define ENDPOINTS_MAP_SIZE 65536
