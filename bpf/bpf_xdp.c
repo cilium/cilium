@@ -93,8 +93,12 @@ bpf_xdp_exit(struct __ctx_buff *ctx, const int verdict)
 		/* We transfer data from XFER_MARKER. This specifically
 		 * does not break packet trains in GRO.
 		 */
-		ctx_adjust_meta(ctx, META_PIVOT - sizeof(__u32));
-		ctx_store_meta(ctx, 0, meta_xfer);
+		if (meta_xfer) {
+			ctx_adjust_meta(ctx, META_PIVOT - sizeof(__u32));
+			ctx_store_meta(ctx, 0, meta_xfer);
+		} else {
+			ctx_adjust_meta(ctx, META_PIVOT);
+		}
 	}
 
 	return verdict;
