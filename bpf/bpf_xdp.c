@@ -83,6 +83,15 @@ struct bpf_elf_map __section_maps CIDR6_LMAP_NAME = {
 #endif /* CIDR6_FILTER */
 #endif /* ENABLE_PREFILTER */
 
+static __always_inline __maybe_unused int
+bpf_xdp_exit(struct __ctx_buff *ctx, const int verdict)
+{
+	/* Undo meta data, so GRO can perform natural aggregation. */
+	if (verdict == CTX_ACT_OK)
+		ctx_adjust_meta(ctx, META_PIVOT);
+	return verdict;
+}
+
 #ifdef ENABLE_IPV4
 #ifdef ENABLE_NODEPORT_ACCELERATION
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC)
@@ -97,7 +106,7 @@ int tail_lb_ipv4(struct __ctx_buff *ctx)
 						      METRIC_INGRESS);
 	}
 
-	return ret;
+	return bpf_xdp_exit(ctx, ret);
 }
 
 static __always_inline int check_v4_lb(struct __ctx_buff *ctx)
@@ -161,7 +170,7 @@ int tail_lb_ipv6(struct __ctx_buff *ctx)
 						      METRIC_INGRESS);
 	}
 
-	return ret;
+	return bpf_xdp_exit(ctx, ret);
 }
 
 static __always_inline int check_v6_lb(struct __ctx_buff *ctx)
@@ -238,7 +247,7 @@ static __always_inline int check_filters(struct __ctx_buff *ctx)
 		break;
 	}
 
-	return ret;
+	return bpf_xdp_exit(ctx, ret);
 }
 
 __section("from-netdev")
