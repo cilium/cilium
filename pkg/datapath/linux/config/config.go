@@ -201,6 +201,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENCRYPT_NODE"] = "1"
 	}
 
+	if option.Config.DevicePreFilter != "undefined" {
+		cDefinesMap["ENABLE_PREFILTER"] = "1"
+	}
+
 	if !option.Config.DisableK8sServices {
 		cDefinesMap["ENABLE_SERVICES"] = "1"
 	}
