@@ -147,7 +147,7 @@ struct bpf_elf_map __section_maps LB4_REVERSE_NAT_SK_MAP = {
 static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 					       struct lb4_backend *backend,
 					       struct lb4_key *lkey,
-					       struct lb4_service *slave_svc)
+					       __u16 rev_nat_id)
 {
 	struct ipv4_revnat_tuple rkey = {};
 	struct ipv4_revnat_entry rval = {};
@@ -158,7 +158,7 @@ static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 
 	rval.address = lkey->address;
 	rval.port = lkey->dport;
-	rval.rev_nat_index = slave_svc->rev_nat_index;
+	rval.rev_nat_index = rev_nat_id;
 
 	return map_update_elem(&LB4_REVERSE_NAT_SK_MAP, &rkey,
 			       &rval, 0);
@@ -168,7 +168,7 @@ static __always_inline
 int sock4_update_revnat(struct bpf_sock_addr *ctx __maybe_unused,
 			struct lb4_backend *backend __maybe_unused,
 			struct lb4_key *lkey __maybe_unused,
-			struct lb4_service *slave_svc __maybe_unused)
+			__u16 rev_nat_id __maybe_unused)
 {
 	return -1;
 }
@@ -245,6 +245,9 @@ static __always_inline int __sock4_xlate(struct bpf_sock_addr *ctx,
 		.dport		= ctx_dst_port(ctx),
 	};
 	struct lb4_service *slave_svc;
+	__u32 backend_id = 0;
+	/* Indicates whether a backend was selected from session affinity */
+	bool backend_from_affinity = false;
 
 	if (!udp_only && !sock_proto_enabled(ctx->protocol))
 		return -ENOTSUP;
@@ -273,19 +276,51 @@ static __always_inline int __sock4_xlate(struct bpf_sock_addr *ctx,
 	if (sock4_skip_xlate(svc, in_hostns, ctx->user_ip4))
 		return -EPERM;
 
-	key.slave = (sock_local_cookie(ctx_full) % svc->count) + 1;
+#if defined(ENABLE_SESSION_AFFINITY) && defined(BPF_HAVE_NETNS_COOKIE)
+	/* Session affinity id (a netns cookie) */
+	union lb4_affinity_client_id client_id = { .client_cookie = 0 };
+	if (svc->affinity) {
+		client_id.client_cookie = get_netns_cookie(ctx_full);
+		backend_id = lb4_affinity_backend_id(svc->rev_nat_index,
+						     svc->affinity_timeout,
+						     true, client_id);
+		backend_from_affinity = true;
+	}
+#endif
 
-	slave_svc = __lb4_lookup_slave(&key);
-	if (!slave_svc) {
-		update_metrics(0, METRIC_EGRESS, REASON_LB_NO_SLAVE);
-		return -ENOENT;
+	if (backend_id == 0) {
+reselect_backend: __maybe_unused
+		backend_from_affinity = false;
+		key.slave = (sock_local_cookie(ctx_full) % svc->count) + 1;
+		slave_svc = __lb4_lookup_slave(&key);
+		if (!slave_svc) {
+			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_SLAVE);
+			return -ENOENT;
+		}
+		backend_id = slave_svc->backend_id;
 	}
 
-	backend = __lb4_lookup_backend(slave_svc->backend_id);
+	backend = __lb4_lookup_backend(backend_id);
 	if (!backend) {
+#if defined(ENABLE_SESSION_AFFINITY) && defined(BPF_HAVE_NETNS_COOKIE)
+		if (backend_from_affinity) {
+			/* Backend from the session affinity no longer exists,
+			 * thus select a new one. Also, remove the affinity,
+			 * so that if the svc doesn't have any backend,
+			 * a subsequent request to the svc doesn't hit
+			 * the reselection again. */
+			lb4_delete_affinity(svc->rev_nat_index, true, client_id);
+			goto reselect_backend;
+		}
+#endif
 		update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND);
 		return -ENOENT;
 	}
+
+#if defined(ENABLE_SESSION_AFFINITY) && defined(BPF_HAVE_NETNS_COOKIE)
+	if (svc->affinity)
+		lb4_update_affinity(svc->rev_nat_index, true, client_id, backend_id);
+#endif
 
 	/* revnat entry is not required for TCP protocol */
 	if (!udp_only && ctx->protocol == IPPROTO_TCP) {
@@ -293,7 +328,7 @@ static __always_inline int __sock4_xlate(struct bpf_sock_addr *ctx,
 	}
 
 	if (sock4_update_revnat(ctx_full, backend, &key,
-				slave_svc) < 0) {
+				svc->rev_nat_index) < 0) {
 		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
 		return -ENOMEM;
 	}
@@ -420,7 +455,7 @@ struct bpf_elf_map __section_maps LB6_REVERSE_NAT_SK_MAP = {
 static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 					       struct lb6_backend *backend,
 					       struct lb6_key *lkey,
-					       struct lb6_service *slave_svc)
+					       __u16 rev_nat_index)
 {
 	struct ipv6_revnat_tuple rkey = {};
 	struct ipv6_revnat_entry rval = {};
@@ -431,7 +466,7 @@ static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 
 	rval.address = lkey->address;
 	rval.port = lkey->dport;
-	rval.rev_nat_index = slave_svc->rev_nat_index;
+	rval.rev_nat_index = rev_nat_index;
 
 	return map_update_elem(&LB6_REVERSE_NAT_SK_MAP, &rkey,
 			       &rval, 0);
@@ -441,7 +476,7 @@ static __always_inline
 int sock6_update_revnat(struct bpf_sock_addr *ctx __maybe_unused,
 			struct lb6_backend *backend __maybe_unused,
 			struct lb6_key *lkey __maybe_unused,
-			struct lb6_service *slave_svc __maybe_unused)
+			__u16 rev_nat_index __maybe_unused)
 {
 	return -1;
 }
@@ -637,6 +672,8 @@ static __always_inline int __sock6_xlate(struct bpf_sock_addr *ctx,
 	};
 	struct lb6_service *slave_svc;
 	union v6addr v6_orig;
+	__u32 backend_id = 0;
+	bool backend_from_affinity = false;
 
 	if (!udp_only && !sock_proto_enabled(ctx->protocol))
 		return -ENOTSUP;
@@ -659,26 +696,52 @@ static __always_inline int __sock6_xlate(struct bpf_sock_addr *ctx,
 	if (sock6_skip_xlate(svc, in_hostns, &v6_orig))
 		return -EPERM;
 
-	key.slave = (sock_local_cookie(ctx) % svc->count) + 1;
+#if defined(ENABLE_SESSION_AFFINITY) && defined(BPF_HAVE_NETNS_COOKIE)
+	union lb6_affinity_client_id client_id = { .client_cookie = 0 };
+	if (svc->affinity) {
+		client_id.client_cookie = get_netns_cookie(ctx);
+		backend_id = lb6_affinity_backend_id(svc->rev_nat_index,
+						     svc->affinity_timeout,
+						     true, &client_id);
+		backend_from_affinity = true;
+	}
+#endif
 
-	slave_svc = __lb6_lookup_slave(&key);
-	if (!slave_svc) {
-		update_metrics(0, METRIC_EGRESS, REASON_LB_NO_SLAVE);
-		return -ENOENT;
+	if (backend_id == 0) {
+reselect_backend: __maybe_unused
+		backend_from_affinity = false;
+		key.slave = (sock_local_cookie(ctx) % svc->count) + 1;
+		slave_svc = __lb6_lookup_slave(&key);
+		if (!slave_svc) {
+			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_SLAVE);
+			return -ENOENT;
+		}
+		backend_id = slave_svc->backend_id;
 	}
 
-	backend = __lb6_lookup_backend(slave_svc->backend_id);
+	backend = __lb6_lookup_backend(backend_id);
 	if (!backend) {
+#if defined(ENABLE_SESSION_AFFINITY) && defined(BPF_HAVE_NETNS_COOKIE)
+		if (backend_from_affinity) {
+			lb6_delete_affinity(svc->rev_nat_index, true, &client_id);
+			goto reselect_backend;
+		}
+#endif
 		update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND);
 		return -ENOENT;
 	}
+
+#if defined(ENABLE_SESSION_AFFINITY) && defined(BPF_HAVE_NETNS_COOKIE)
+	if (svc->affinity)
+		lb6_update_affinity(svc->rev_nat_index, true, &client_id, backend_id);
+#endif
 
 	if (!udp_only && ctx->protocol == IPPROTO_TCP) {
 		goto update_dst;
 	}
 
 	if (sock6_update_revnat(ctx, backend, &key,
-			        slave_svc) < 0) {
+			        svc->rev_nat_index) < 0) {
 		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
 		return -ENOMEM;
 	}
