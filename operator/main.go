@@ -193,7 +193,7 @@ func runOperator(cmd *cobra.Command) {
 			// We don't want CiliumNodes that don't have podCIDRs to be
 			// allocated with a podCIDR already being used by another node.
 			// For this reason we will call Resync after all CiliumNodes are
-			// synced with the operator to signalize the node manager, since it
+			// synced with the operator to signal the node manager, since it
 			// knows all podCIDRs that are currently set in the cluster, that
 			// it can allocate podCIDRs for the nodes that don't have a podCIDR
 			// set.

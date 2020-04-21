@@ -146,6 +146,19 @@ type NodesPodCIDRManager struct {
 
 	// Lock protects all fields below
 	lock.Mutex
+	// canAllocatePodCIDRs is set to true once the NodesPodCIDRManager can allocate
+	// podCIDRs for nodes that don't have pod CIDRs allocated to them.
+	canAllocatePodCIDRs bool
+	// We don't want CiliumNodes that don't have podCIDRs to be
+	// allocated with a podCIDR already being used by another node.
+	// For this reason we will call Resync after all CiliumNodes are
+	// synced with the operator to signalize the node manager, since it
+	// knows all podCIDRs that are currently set in the cluster, that
+	// it can allocate podCIDRs for the nodes that don't have a podCIDR
+	// set. This means that we will keep a map of the nodes that want to receive
+	// a podCIDR and once 'canAllocatePodCIDRs' is set to true we will use this
+	// map to allocate podCIDRs for the missing nodes.
+	nodesToAllocate map[string]*v2.CiliumNode
 	// v4CIDRAllocators contains the CIDRs for IPv4 addresses
 	v4CIDRAllocators []CIDRAllocator
 	// v6CIDRAllocators contains the CIDRs for IPv6 addresses
@@ -177,6 +190,7 @@ func NewNodesPodCIDRManager(
 	triggerMetrics trigger.MetricsObserver) *NodesPodCIDRManager {
 
 	n := &NodesPodCIDRManager{
+		nodesToAllocate:     map[string]*v2.CiliumNode{},
 		v4CIDRAllocators:    v4Allocators,
 		v6CIDRAllocators:    v6Allocators,
 		nodes:               map[string]*nodeCIDRs{},
@@ -371,6 +385,10 @@ func (n *NodesPodCIDRManager) update(node *v2.CiliumNode) bool {
 func (n *NodesPodCIDRManager) Delete(nodeName string) {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
+	if !n.canAllocatePodCIDRs {
+		delete(n.nodesToAllocate, nodeName)
+	}
+
 	found := n.releaseIPNets(nodeName)
 	if !found {
 		return
@@ -385,6 +403,19 @@ func (n *NodesPodCIDRManager) Delete(nodeName string) {
 
 // Resync resyncs the nodes with k8s.
 func (n *NodesPodCIDRManager) Resync(context.Context, time.Time) {
+	n.Mutex.Lock()
+	if !n.canAllocatePodCIDRs {
+		n.canAllocatePodCIDRs = true
+		// Iterate over all nodes that we have kept stored up until Resync
+		// is called as now we are allowed to allocate podCIDRs for nodes
+		// without any podCIDR.
+		for _, cn := range n.nodesToAllocate {
+			n.update(cn)
+		}
+		n.nodesToAllocate = nil
+	}
+	n.Mutex.Unlock()
+
 	n.k8sReSync.Trigger()
 }
 
@@ -416,6 +447,14 @@ func (n *NodesPodCIDRManager) allocateNode(node *v2.CiliumNode) (cn *v2.CiliumNo
 	}()
 
 	if len(node.Spec.IPAM.PodCIDRs) == 0 {
+		// If we can't allocate podCIDRs for now we should store the node
+		// temporarily until n.reSync is called.
+		if !n.canAllocatePodCIDRs {
+			log.Debug("Postponing CIDR allocation")
+			n.nodesToAllocate[node.GetName()] = node
+			return nil, false, false, nil
+		}
+
 		// Allocate the next free CIDRs
 		cidrs, allocated, err = n.allocateNext(node.GetName())
 		if err != nil {
@@ -445,10 +484,18 @@ func (n *NodesPodCIDRManager) allocateNode(node *v2.CiliumNode) (cn *v2.CiliumNo
 			return
 		}
 		log.WithFields(logrus.Fields{
-			"cidrs":     cidrs.String(),
-			"allocated": allocated,
+			"cidrs":                 cidrs.String(),
+			"allocated":             allocated,
+			"n.canAllocatePodCIDRs": n.canAllocatePodCIDRs,
 		}).Debug("Allocated existing CIDRs")
 		if !allocated {
+			// If we can't allocate podCIDRs for now we should store the node
+			// temporarily until n.reSync is called.
+			if !n.canAllocatePodCIDRs {
+				n.nodesToAllocate[node.GetName()] = node
+				return nil, false, false, nil
+			}
+
 			// no-op but still update the status to clear out a potential
 			// existing error.
 			if node.Status.IPAM.OperatorStatus.Error != "" {
@@ -556,6 +603,7 @@ func (n *NodesPodCIDRManager) reuseIPNets(nodeName string, v4CIDR, v6CIDR []*net
 		}
 	}
 
+	var canAllocateIPv4PodCIDRs, canAllocateIPv6PodCIDRs bool
 	oldNodeCIDRs, nodeHasCIDRs := n.nodes[nodeName]
 	if nodeHasCIDRs {
 		hasV4CIDR := len(oldNodeCIDRs.v4PodCIDRs) != 0
@@ -589,7 +637,14 @@ func (n *NodesPodCIDRManager) reuseIPNets(nodeName string, v4CIDR, v6CIDR []*net
 				return false, err
 			}
 		}
+		// We are only allowed to allocate new CIDRs if the node already has
+		// CIDRs in its spec. If it does not have it, the CIDRs will be
+		// allocated the next time
+		canAllocateIPv4PodCIDRs = !hasV4CIDR && n.canAllocatePodCIDRs
+		canAllocateIPv6PodCIDRs = !hasV6CIDR && n.canAllocatePodCIDRs
 	} else {
+		canAllocateIPv4PodCIDRs = true
+		canAllocateIPv6PodCIDRs = true
 		oldNodeCIDRs = &nodeCIDRs{}
 	}
 
@@ -606,7 +661,12 @@ func (n *NodesPodCIDRManager) reuseIPNets(nodeName string, v4CIDR, v6CIDR []*net
 		}
 	}()
 
-	if len(n.v4CIDRAllocators) != 0 && len(v4CIDR) != 0 {
+	// The node might want to allocate a new IPv4 podCIDR but it already
+	// has a IPv6 podCIDR. We will only allocate new podCIDRs if
+	// canAllocateIPv4PodCIDRs is set to true. It's fine that we don't allocate
+	// it now since this node will be put into the map of nodes that require
+	// to be allocated in the future.
+	if canAllocateIPv4PodCIDRs && len(n.v4CIDRAllocators) != 0 && len(v4CIDR) != 0 {
 		revertFunc, err = allocateIPNet(v4AllocatorType, n.v4CIDRAllocators, v4CIDR)
 		if err != nil {
 			return
@@ -617,7 +677,12 @@ func (n *NodesPodCIDRManager) reuseIPNets(nodeName string, v4CIDR, v6CIDR []*net
 		allocated = true
 	}
 
-	if len(n.v6CIDRAllocators) != 0 && len(v6CIDR) != 0 {
+	// The node might want to allocate a new IPv6 podCIDR but it already
+	// has a IPv4 podCIDR. We will only allocate new podCIDRs if
+	// canAllocateIPv4PodCIDRs is set to true. It's fine that we don't allocate
+	// it now since this node will be put into the map of nodes that require
+	// to be allocated in the future.
+	if canAllocateIPv6PodCIDRs && len(n.v6CIDRAllocators) != 0 && len(v6CIDR) != 0 {
 		revertFunc, err = allocateIPNet(v6AllocatorType, n.v6CIDRAllocators, v6CIDR)
 		if err != nil {
 			return
