@@ -72,6 +72,7 @@ cilium-agent [flags]
       --enable-node-port                              Enable NodePort type services by Cilium (beta)
       --enable-policy string                          Enable policy enforcement (default "default")
       --enable-remote-node-identity                   Enable use of remote node identity
+      --enable-session-affinity                       Enable support for service session affinity
       --enable-tracing                                Enable tracing while determining policy (debugging)
       --enable-well-known-identities                  Enable well-known identities for known Kubernetes components (default true)
       --enable-xt-socket-fallback                     Enable fallback for missing xt_socket module (default true)
