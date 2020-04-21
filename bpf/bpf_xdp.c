@@ -17,6 +17,7 @@
 #include "lib/events.h"
 #include "lib/nodeport.h"
 
+#ifdef ENABLE_PREFILTER
 #ifndef HAVE_LPM_TRIE_MAP_TYPE
 # undef CIDR4_LPM_PREFILTER
 # undef CIDR6_LPM_PREFILTER
@@ -80,6 +81,7 @@ struct bpf_elf_map __section_maps CIDR6_LMAP_NAME = {
 };
 #endif /* CIDR6_LPM_PREFILTER */
 #endif /* CIDR6_FILTER */
+#endif /* ENABLE_PREFILTER */
 
 #ifdef ENABLE_IPV4
 #ifdef ENABLE_NODEPORT_ACCELERATION
@@ -111,6 +113,7 @@ static __always_inline int check_v4_lb(struct __ctx_buff *ctx __maybe_unused)
 }
 #endif /* ENABLE_NODEPORT_ACCELERATION */
 
+#ifdef ENABLE_PREFILTER
 static __always_inline int check_v4(struct __ctx_buff *ctx)
 {
 	void *data_end = ctx_data_end(ctx);
@@ -136,6 +139,12 @@ static __always_inline int check_v4(struct __ctx_buff *ctx)
 	return check_v4_lb(ctx);
 #endif /* CIDR4_FILTER */
 }
+#else
+static __always_inline int check_v4(struct __ctx_buff *ctx)
+{
+	return check_v4_lb(ctx);
+}
+#endif /* ENABLE_PREFILTER */
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
@@ -168,6 +177,7 @@ static __always_inline int check_v6_lb(struct __ctx_buff *ctx __maybe_unused)
 }
 #endif /* ENABLE_NODEPORT */
 
+#ifdef ENABLE_PREFILTER
 static __always_inline int check_v6(struct __ctx_buff *ctx)
 {
 	void *data_end = ctx_data_end(ctx);
@@ -193,6 +203,12 @@ static __always_inline int check_v6(struct __ctx_buff *ctx)
 	return check_v6_lb(ctx);
 #endif /* CIDR6_FILTER */
 }
+#else
+static __always_inline int check_v6(struct __ctx_buff *ctx)
+{
+	return check_v6_lb(ctx);
+}
+#endif /* ENABLE_PREFILTER */
 #endif /* ENABLE_IPV6 */
 
 static __always_inline int check_filters(struct __ctx_buff *ctx)
