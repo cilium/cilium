@@ -22,3 +22,4 @@ understand the workflow of getting these changes reviewed and merged upstream.
    dev_setup
    images
    codeoverview
+   debugging
