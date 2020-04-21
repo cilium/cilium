@@ -303,6 +303,7 @@ hashtables
 hexData
 hoc
 hostPort
+hostport
 hq
 https
 hugepages
