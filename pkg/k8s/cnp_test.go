@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	cilium_v2_client "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/client"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
 	informer "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
@@ -69,7 +70,7 @@ func (k *K8sIntegrationSuite) SetUpSuite(c *C) {
 		c.Assert(err, IsNil)
 		apiextensionsclientset, err := apiextensionsclient.NewForConfig(restConfig)
 		c.Assert(err, IsNil)
-		err = v2.CreateCustomResourceDefinitions(apiextensionsclientset)
+		err = cilium_v2_client.CreateCustomResourceDefinitions(apiextensionsclientset)
 		c.Assert(err, IsNil)
 
 		client, err := clientset.NewForConfig(restConfig)

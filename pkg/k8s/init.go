@@ -23,7 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
-	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	cilium_v2_client "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/client"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -226,7 +226,7 @@ func RegisterCRDs() error {
 		return fmt.Errorf("Unable to create rest configuration for k8s CRD: %s", err)
 	}
 
-	err = cilium_v2.CreateCustomResourceDefinitions(apiextensionsclientset)
+	err = cilium_v2_client.CreateCustomResourceDefinitions(apiextensionsclientset)
 	if err != nil {
 		return fmt.Errorf("Unable to create custom resource definition: %s", err)
 	}

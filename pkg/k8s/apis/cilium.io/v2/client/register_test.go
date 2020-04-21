@@ -14,7 +14,7 @@
 
 // +build !privileged_tests
 
-package v2
+package client
 
 import (
 	"regexp"
