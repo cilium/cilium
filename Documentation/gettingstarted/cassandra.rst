@@ -26,7 +26,7 @@ Deploy the Demo Application
 
 Now that we have Cilium deployed and ``kube-dns`` operating correctly we can
 deploy our demo Cassandra application.  Since our first
-`HTTP-aware Cilium  Star Wars demo <https://www.cilium.io/blog/2017/5/4/demo-may-the-force-be-with-you>`_
+`HTTP-aware Cilium  Star Wars demo <https://cilium.io/blog/2017/5/4/demo-may-the-force-be-with-you/>`_
 showed how the Galactic Empire used HTTP-aware security policies to protect the Death Star from the
 Rebel Alliance, this Cassandra demo is Star Wars-themed as well.
 

@@ -24,7 +24,7 @@ Installing Kubespray
 
 .. code:: bash
 
-  $ git clone --branch v2.6.0 https://github.com/kubernetes-incubator/kubespray 
+  $ git clone --branch v2.6.0 https://github.com/kubernetes-sigs/kubespray
 
 Install dependencies from ``requirements.txt``
 

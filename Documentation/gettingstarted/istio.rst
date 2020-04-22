@@ -68,7 +68,7 @@ Step 3: Deploy the Bookinfo Application V1
 
 Now that we have Cilium and Istio deployed, we can deploy version
 ``v1`` of the services of the `Istio Bookinfo sample application
-<https://istio.io/docs/examples/bookinfo.html>`_.
+<https://istio.io/docs/examples/bookinfo/>`_.
 
 While the upstream `Istio Bookinfo Application example for Kubernetes
 <https://istio.io/docs/examples/bookinfo/#if-you-are-running-on-kubernetes>`_

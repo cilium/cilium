@@ -15,7 +15,7 @@ and to use Cilium to fully replace it. For simplicity, we will use ``kubeadm`` t
 bootstrap the cluster.
 
 For installing ``kubeadm`` and for more provisioning options please refer to
-`the official kubeadm documentation <https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm>`__.
+`the official kubeadm documentation <https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/>`_.
 
 .. note::
 

@@ -8,4 +8,4 @@ Installation using kubeadm
 ==========================
 
 Instructions about installing Cilium on Kubernetes cluster deployed by kubeadm
-are available in the `official Kubernetes documentation <https://kubernetes.io/docs/setup/independent/create-cluster-kubeadm/#pod-network>`__.
+are available in the `official Kubernetes documentation <https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/#pod-network>`_.

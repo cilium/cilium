@@ -816,7 +816,7 @@ the kernel source for the ``net-next`` tree through git:
 
 ::
 
-    $ git clone git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
+    $ git clone git://git.kernel.org/pub/scm/linux/kernel/git/netdev/net-next.git
 
 If the git commit history is not of interest, then ``--depth 1`` will clone the
 tree much faster by truncating the git history only to the most recent commit.
@@ -825,7 +825,7 @@ In case the ``net`` tree is of interest, it can be cloned from this url:
 
 ::
 
-    $ git clone git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git
+    $ git clone git://git.kernel.org/pub/scm/linux/kernel/git/netdev/net.git
 
 There are dozens of tutorials in the Internet on how to build Linux kernels, one
 good resource is the Kernel Newbies website (https://kernelnewbies.org/KernelBuild)
@@ -1091,9 +1091,9 @@ following commands can be used:
 
 ::
 
-    $ git clone http://llvm.org/git/llvm.git
+    $ git clone https://git.llvm.org/git/llvm.git
     $ cd llvm/tools
-    $ git clone --depth 1 http://llvm.org/git/clang.git
+    $ git clone --depth 1 https://git.llvm.org/git/clang.git
     $ cd ..; mkdir build; cd build
     $ cmake .. -DLLVM_TARGETS_TO_BUILD="BPF;X86" -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DLLVM_BUILD_RUNTIME=OFF
     $ make -j $(getconf _NPROCESSORS_ONLN)
@@ -3814,7 +3814,7 @@ Migrating their production infrastructure away from netfilter's IPVS
 to their previous IPVS setup. This was first presented at the netdev 2.1
 conference:
 
-* Slides: https://www.netdevconf.org/2.1/slides/apr6/zhou-netdev-xdp-2017.pdf
+* Slides: https://netdevconf.info/2.1/slides/apr6/zhou-netdev-xdp-2017.pdf
 * Video: https://youtu.be/YEU2ClcGqts
 
 Another example is the integration of XDP into Cloudflare's DDoS mitigation
@@ -3826,7 +3826,7 @@ to busy poll the NIC and expensive packet re-injection into the kernel's stack.
 The migration over to eBPF and XDP combined best of both worlds by having
 high-performance programmable packet processing directly inside the kernel:
 
-* Slides: https://www.netdevconf.org/2.1/slides/apr6/bertin_Netdev-XDP.pdf
+* Slides: https://netdevconf.info/2.1/slides/apr6/bertin_Netdev-XDP.pdf
 * Video: https://youtu.be/7OuOukmuivg
 
 **XDP operation modes**
@@ -4568,7 +4568,7 @@ legacy cBPF:
   assembly for cases where programs are rather small and simple without needing the
   clang / LLVM toolchain.
 
-  https://github.com/solarflarecom/ebpf_asm
+  https://github.com/Xilinx-CNS/ebpf_asm
 
 ..
 
@@ -4608,7 +4608,7 @@ surrounding ecosystem in user space.
 
 All BPF update newsletters (01 - 12) can be found here:
 
-     https://cilium.io/blog/categories/BPF%20Newsletter
+     https://cilium.io/blog/categories/bpf%20newsletter/
 
 Podcasts
 --------
@@ -4620,8 +4620,8 @@ Incomplete list:
      Linux Networking Update from Netdev Conference,
      Thomas Graf,
      Software Gone Wild, Show 71,
-     http://blog.ipspace.net/2017/02/linux-networking-update-from-netdev.html
-     http://media.blubrry.com/ipspace/stream.ipspace.net/nuggets/podcast/Show_71-NetDev_Update.mp3
+     https://blog.ipspace.net/2017/02/linux-networking-update-from-netdev.html
+     https://www.ipspace.net/nuggets/podcast/Show_71-NetDev_Update.mp3
 
 4. Jan 2017,
      The IO Visor Project,
@@ -4634,8 +4634,8 @@ Incomplete list:
      Fast Linux Packet Forwarding,
      Thomas Graf,
      Software Gone Wild, Show 64,
-     http://blog.ipspace.net/2016/10/fast-linux-packet-forwarding-with.html
-     http://media.blubrry.com/ipspace/stream.ipspace.net/nuggets/podcast/Show_64-Cilium_with_Thomas_Graf.mp3
+     https://blog.ipspace.net/2016/10/fast-linux-packet-forwarding-with.html
+     https://www.ipspace.net/nuggets/podcast/Show_64-Cilium_with_Thomas_Graf.mp3
 
 2. Aug 2016,
      P4 on the Edge,
@@ -4649,7 +4649,7 @@ Incomplete list:
      Thomas Graf,
      OVS Orbit, Episode 4,
      https://ovsorbit.org/#e4
-     https://ovsorbit.benpfaff.org/episode-4.mp3
+     https://ovsorbit.org/episode-4.mp3
 
 Blog posts
 ----------
@@ -4679,7 +4679,7 @@ The following (incomplete) list includes blog posts around BPF, XDP and related 
 30. Apr 2017,
      Liveblog: Cilium for Network and Application Security with BPF and XDP,
      Scott Lowe,
-     http://blog.scottlowe.org//2017/04/18/black-belt-cilium/
+     https://blog.scottlowe.org/2017/04/18/black-belt-cilium/
 
 29. Apr 2017,
      eBPF, part 1: Past, Present, and Future,
@@ -4754,7 +4754,7 @@ The following (incomplete) list includes blog posts around BPF, XDP and related 
 15. Sep 2016,
      Suricata bypass feature,
      Eric Leblond,
-     https://www.stamus-networks.com/2016/09/28/suricata-bypass-feature/
+     https://www.stamus-networks.com/blog/2016/09/28/suricata-bypass-feature
 
 14. Aug 2016,
      Introducing the p0f BPF compiler,
@@ -4864,7 +4864,7 @@ related to BPF and XDP:
      Polytechnique Montreal,
      Trace Aggregation and Collection with eBPF,
      Suchakra Sharma,
-     http://step.polymtl.ca/~suchakra/eBPF-5May2017.pdf
+     https://nova.polymtl.ca/~suchakra/eBPF-5May2017.pdf
 
 40. Apr 2017,
      DockerCon, Austin,
@@ -4876,25 +4876,25 @@ related to BPF and XDP:
      NetDev 2.1, Montreal,
      XDP Mythbusters,
      David S. Miller,
-     https://www.netdevconf.org/2.1/slides/apr7/miller-XDP-MythBusters.pdf
+     https://netdevconf.info/2.1/slides/apr7/miller-XDP-MythBusters.pdf
 
 38. Apr 2017,
      NetDev 2.1, Montreal,
      Droplet: DDoS countermeasures powered by BPF + XDP,
      Huapeng Zhou, Doug Porter, Ryan Tierney, Nikita Shirokov,
-     https://www.netdevconf.org/2.1/slides/apr6/zhou-netdev-xdp-2017.pdf
+     https://netdevconf.info/2.1/slides/apr6/zhou-netdev-xdp-2017.pdf
 
 37. Apr 2017,
      NetDev 2.1, Montreal,
      XDP in practice: integrating XDP in our DDoS mitigation pipeline,
      Gilberto Bertin,
-     https://www.netdevconf.org/2.1/slides/apr6/bertin_Netdev-XDP.pdf
+     https://netdevconf.info/2.1/slides/apr6/bertin_Netdev-XDP.pdf
 
 36. Apr 2017,
      NetDev 2.1, Montreal,
      XDP for the Rest of Us,
      Andy Gospodarek, Jesper Dangaard Brouer,
-     https://www.netdevconf.org/2.1/slides/apr7/gospodarek-Netdev2.1-XDP-for-the-Rest-of-Us_Final.pdf
+     https://netdevconf.info/2.1/slides/apr7/gospodarek-Netdev2.1-XDP-for-the-Rest-of-Us_Final.pdf
 
 35. Mar 2017,
      SCALE15x, Pasadena,
@@ -4905,7 +4905,7 @@ related to BPF and XDP:
 34. Mar 2017,
      XDP Inside and Out,
      David S. Miller,
-     https://github.com/iovisor/bpf-docs/raw/master/XDP_Inside_and_Out.pdf
+     https://raw.githubusercontent.com/iovisor/bpf-docs/master/XDP_Inside_and_Out.pdf
 
 33. Mar 2017,
      OpenSourceDays, Copenhagen,
@@ -4923,7 +4923,7 @@ related to BPF and XDP:
      FOSDEM 2017, Brussels,
      Stateful packet processing with eBPF, an implementation of OpenState interface,
      Quentin Monnet,
-     https://fosdem.org/2017/schedule/event/stateful_ebpf/
+     https://archive.fosdem.org/2017/schedule/event/stateful_ebpf/
 
 30. Feb 2017,
      FOSDEM 2017, Brussels,
@@ -4935,7 +4935,7 @@ related to BPF and XDP:
      FOSDEM 2017, Brussels,
      Cilium - BPF & XDP for containers,
      Thomas Graf,
-     https://fosdem.org/2017/schedule/event/cilium/
+     https://archive.fosdem.org/2017/schedule/event/cilium/
 
 28. Jan 2017,
      linuxconf.au, Hobart,
@@ -4953,13 +4953,13 @@ related to BPF and XDP:
      Linux Plumbers, Santa Fe,
      Cilium: Networking & Security for Containers with BPF & XDP,
      Thomas Graf,
-     http://www.slideshare.net/ThomasGraf5/clium-container-networking-with-bpf-xdp
+     https://www.slideshare.net/ThomasGraf5/clium-container-networking-with-bpf-xdp
 
 25. Nov 2016,
      OVS Conference, Santa Clara,
      Offloading OVS Flow Processing using eBPF,
      William (Cheng-Chun) Tu,
-     http://openvswitch.org/support/ovscon2016/7/1120-tu.pdf
+     http://www.openvswitch.org/support/ovscon2016/7/1120-tu.pdf
 
 24. Oct 2016,
      One.com, Copenhagen,
@@ -4971,31 +4971,31 @@ related to BPF and XDP:
      Docker Distributed Systems Summit, Berlin,
      Cilium: Networking & Security for Containers with BPF & XDP,
      Thomas Graf,
-     http://www.slideshare.net/Docker/cilium-bpf-xdp-for-containers-66969823
+     https://www.slideshare.net/Docker/cilium-bpf-xdp-for-containers-66969823
 
 22. Oct 2016,
      NetDev 1.2, Tokyo,
      Data center networking stack,
      Tom Herbert,
-     http://netdevconf.org/1.2/session.html?tom-herbert
+     https://netdevconf.info/1.2/session.html?tom-herbert
 
 21. Oct 2016,
      NetDev 1.2, Tokyo,
      Fast Programmable Networks & Encapsulated Protocols,
      David S. Miller,
-     http://netdevconf.org/1.2/session.html?david-miller-keynote
+     https://netdevconf.info/1.2/session.html?david-miller-keynote
 
 20. Oct 2016,
      NetDev 1.2, Tokyo,
      XDP workshop - Introduction, experience, and future development,
      Tom Herbert,
-     http://netdevconf.org/1.2/session.html?herbert-xdp-workshop
+     https://netdevconf.info/1.2/session.html?herbert-xdp-workshop
 
 19. Oct 2016,
      NetDev1.2, Tokyo,
      The adventures of a Suricate in eBPF land,
      Eric Leblond,
-     http://netdevconf.org/1.2/slides/oct6/10_suricata_ebpf.pdf
+     https://netdevconf.info/1.2/slides/oct6/10_suricata_ebpf.pdf
 
 18. Oct 2016,
      NetDev1.2, Tokyo,
@@ -5008,13 +5008,13 @@ related to BPF and XDP:
      Advanced programmability and recent updates with tc’s cls_bpf,
      Daniel Borkmann,
      http://borkmann.ch/talks/2016_netdev2.pdf
-     http://www.netdevconf.org/1.2/papers/borkmann.pdf
+     https://netdevconf.info/1.2/papers/borkmann.pdf
 
 16. Oct 2016,
      NetDev 1.2, Tokyo,
      eBPF/XDP hardware offload to SmartNICs,
      Jakub Kicinski, Nic Viljoen,
-     http://netdevconf.org/1.2/papers/eBPF_HW_OFFLOAD.pdf
+     https://netdevconf.info/1.2/papers/eBPF_HW_OFFLOAD.pdf
 
 15. Aug 2016,
      LinuxCon, Toronto,
@@ -5037,13 +5037,13 @@ related to BPF and XDP:
      Linux Meetup, Santa Clara,
      eXpress Data Path,
      Brenden Blanco,
-     http://www.slideshare.net/IOVisor/express-data-path-linux-meetup-santa-clara-july-2016
+     https://www.slideshare.net/IOVisor/express-data-path-linux-meetup-santa-clara-july-2016
 
 11. Jul 2016,
      Linux Meetup, Santa Clara,
      CETH for XDP,
      Yan Chan, Yunsong Lu,
-     http://www.slideshare.net/IOVisor/ceth-for-xdp-linux-meetup-santa-clara-july-2016
+     https://www.slideshare.net/IOVisor/ceth-for-xdp-linux-meetup-santa-clara-july-2016
 
 10. May 2016,
      P4 workshop, Stanford,
@@ -5060,14 +5060,14 @@ related to BPF and XDP:
 8. Mar 2016,
     eXpress Data Path,
     Tom Herbert, Alexei Starovoitov,
-    https://github.com/iovisor/bpf-docs/raw/master/Express_Data_Path.pdf
+    https://raw.githubusercontent.com/iovisor/bpf-docs/master/Express_Data_Path.pdf
 
 7. Feb 2016,
     NetDev1.1, Seville,
     On getting tc classifier fully programmable with cls_bpf,
     Daniel Borkmann,
     http://borkmann.ch/talks/2016_netdev.pdf
-    http://www.netdevconf.org/1.1/proceedings/papers/On-getting-tc-classifier-fully-programmable-with-cls-bpf.pdf
+    https://netdevconf.info/1.1/proceedings/papers/On-getting-tc-classifier-fully-programmable-with-cls-bpf.pdf
 
 6. Jan 2016,
     FOSDEM 2016, Brussels,
@@ -5085,7 +5085,7 @@ related to BPF and XDP:
     Tracing Summit, Seattle,
     LLTng's Trace Filtering and beyond (with some eBPF goodness, of course!),
     Suchakra Sharma,
-    https://github.com/iovisor/bpf-docs/raw/master/ebpf_excerpt_20Aug2015.pdf
+    https://raw.githubusercontent.com/iovisor/bpf-docs/master/ebpf_excerpt_20Aug2015.pdf
 
 3. Jun 2015,
     LinuxCon Japan, Tokyo,
@@ -5103,7 +5103,7 @@ related to BPF and XDP:
     NetDev 0.1, Ottawa,
     BPF: In-kernel Virtual Machine,
     Alexei Starovoitov,
-    http://netdevconf.org/0.1/sessions/15.html
+    https://netdevconf.info/0.1/sessions/15.html
 
 0. Feb 2014,
     DevConf.cz, Brno,

@@ -569,7 +569,7 @@ reproduce the issue.
 
 .. _Slack channel: https://cilium.herokuapp.com
 .. _NodeSelector: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
-.. _RBAC: https://kubernetes.io/docs/admin/authorization/rbac/
+.. _RBAC: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
 .. _CNI: https://github.com/containernetworking/cni
 .. _Volumes: https://kubernetes.io/docs/tasks/configure-pod-container/configure-volume-storage/
 

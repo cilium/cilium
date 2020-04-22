@@ -64,7 +64,7 @@ and services addition and removal on the kube-master which allows it to to
 apply the necessary enforcement on iptables. Thus, the received and sent
 traffic from and to the pods are properly routed to the node and port serving
 for that service. For more information you can check out the kubernetes user
-guide for `Services  <http://kubernetes.io/docs/user-guide/services>`__.
+guide for `Services <https://kubernetes.io/docs/concepts/services-networking/service/>`_.
 
 When implementing ClusterIP, Cilium acts on the same principles as kube-proxy,
 it watches for services addition or removal, but instead of doing the
@@ -79,6 +79,6 @@ The Kubernetes documentation contains more background on the `Kubernetes
 Networking Model
 <https://kubernetes.io/docs/concepts/cluster-administration/networking/>`_ and
 `Kubernetes Network Plugins
-<https://kubernetes.io/docs/concepts/cluster-administration/network-plugins/>`_
+<https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/>`_
 .
 

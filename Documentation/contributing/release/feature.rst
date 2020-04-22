@@ -86,7 +86,7 @@ On Freeze date
 
 #. Set the branch as "Active" and the "Privacy Level" to "Private" in the
    readthedocs Admin page. (Replace ``v1.2`` with the right branch)
-   ``https://readthedocs.org/dashboard/cilium/version/v1.2``
+   ``https://readthedocs.org/dashboard/cilium/version/v1.2/``
 
 #. Since this is the first release being made from a new branch, please
    follow the :ref:`generic_release_process` to release ``v1.2.0-rc1``.

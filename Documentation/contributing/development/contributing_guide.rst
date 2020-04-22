@@ -13,7 +13,7 @@ How To Contribute
 Clone and Provision Environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-#. Make sure you have a `GitHub account <https://github.com/signup/free>`_
+#. Make sure you have a `GitHub account <https://github.com/join>`_
 #. Clone the cilium repository
 
    ::
@@ -31,7 +31,7 @@ Submitting a pull request
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Contributions must be submitted in the form of pull requests against the github
-repository at: `<https://github.com/cilium/cilium>`_
+repository at: https://github.com/cilium/cilium.
 
 #. Fork the Cilium repository to your own personal GitHub space or request
    access to a Cilium developer account on Slack

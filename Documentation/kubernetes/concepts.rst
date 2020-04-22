@@ -70,7 +70,7 @@ Default Ingress Allow from Local Host
 =====================================
 
 Kubernetes has functionality to indicate to users the current health of their
-applications via `Liveness Probes and Readiness Probes <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/>`_.
+applications via `Liveness Probes and Readiness Probes <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/>`_.
 In order for ``kubelet`` to run these health checks for each pod, by default,
 Cilium will always allow all ingress traffic from the local host to each pod. 
  

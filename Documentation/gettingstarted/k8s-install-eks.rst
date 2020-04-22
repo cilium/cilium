@@ -22,7 +22,7 @@ Prerequisites
 -------------
 
 Ensure your AWS credentials are located in ``~/.aws/credentials`` or are stored
-as `environment variables <https://docs.aws.amazon.com/cli/latest/userguide/cli-environment.html>`_ .
+as `environment variables <https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html>`_ .
 
 Next, install `eksctl <https://github.com/weaveworks/eksctl>`_ :
 

@@ -228,7 +228,7 @@ with e.g. ``--datapath-mode=ipvlan --ipvlan-master-device=bond0`` where the
 latter typically specifies the physical networking device which then also acts
 as the ipvlan master device. Note that in case ipvlan datapath mode is deployed
 in L3S mode with Kubernetes, make sure to have a stable kernel running with the
-following ipvlan fix included: `d5256083f62e <https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git/commit/?id=d5256083f62e2720f75bb3c5a928a0afe47d6bc3>`_.
+following ipvlan fix included: `d5256083f62e <https://git.kernel.org/pub/scm/linux/kernel/git/netdev/net.git/commit/?id=d5256083f62e2720f75bb3c5a928a0afe47d6bc3>`_.
 
 This completes the datapath overview. More BPF specifics can be found in the
 :ref:`bpf_guide`. Additional details on how to extend the L7 Policy
