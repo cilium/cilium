@@ -68,7 +68,7 @@ requirements have been met:
 
         Fixes: #4191
 
-        Signed-off-by: Joe Stringer <joe@covalent.io>
+        Signed-off-by: Joe Stringer <joe@cilium.io>
 
    .. note:
 

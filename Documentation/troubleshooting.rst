@@ -56,7 +56,7 @@ context of that pod:
 .. code:: bash
 
     $ kubectl -n kube-system exec -ti cilium-2hq5z -- cilium status
-    KVStore:                Ok   etcd: 1/1 connected: http://demo-etcd-lab--a.etcd.tgraf.test1.lab.corp.covalent.link:2379 - 3.2.5 (Leader)
+    KVStore:                Ok   etcd: 1/1 connected: http://demo-etcd-lab--a.etcd.tgraf.test1.lab.corp.isovalent.link:2379 - 3.2.5 (Leader)
     ContainerRuntime:       Ok   docker daemon: OK
     Kubernetes:             Ok   OK
     Kubernetes APIs:        ["cilium/v2::CiliumNetworkPolicy", "networking.k8s.io/v1::NetworkPolicy", "core/v1::Service", "core/v1::Endpoint", "core/v1::Node", "CustomResourceDefinition"]
