@@ -1,6 +1,7 @@
 Alemayhu
 Ansible
 Apiserver
+artii
 BPF
 Backport
 Backporting
@@ -296,6 +297,7 @@ hardcoded
 hardcoding
 hashtable
 hashtables
+herokuapp
 hexData
 hoc
 hostscope
@@ -528,7 +530,6 @@ supergalatic
 superset
 svc
 sw
-swapi
 sys
 syscall
 sysctl
