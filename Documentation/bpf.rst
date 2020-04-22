@@ -4911,7 +4911,7 @@ related to BPF and XDP:
      OpenSourceDays, Copenhagen,
      XDP - eXpress Data Path, Used for DDoS protection,
      Jesper Dangaard Brouer,
-     https://github.com/iovisor/bpf-docs/raw/master/XDP_Inside_and_Out.pdf
+     http://people.netfilter.org/hawk/presentations/OpenSourceDays2017/XDP_DDoS_protecting_osd2017.pdf
 
 32. Mar 2017,
      source{d}, Infrastructure 2017, Madrid,
