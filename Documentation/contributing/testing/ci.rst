@@ -116,7 +116,7 @@ New versions of this box can be created via `Jenkins Packer Build
 <https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/>`_, where
 new builds of the image will be pushed to  `Vagrant Cloud
 <https://app.vagrantup.com/cilium>`_ . The version of the image corresponds to
-the `BUILD_ID <https://qa.nuxeo.org/jenkins/pipeline-syntax/globals#env>`_
+the `BUILD_ID <https://wiki.jenkins.io/display/JENKINS/Building+a+software+project#Buildingasoftwareproject-below>`_
 environment variable in the Jenkins job. That version ID will be used in Cilium
 `Vagrantfiles
 <https://github.com/cilium/cilium/blob/master/test/Vagrantfile#L10>`_.
