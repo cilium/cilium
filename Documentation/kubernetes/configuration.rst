@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _k8s_configuration:
 
@@ -304,7 +304,7 @@ filesystems, the mount point path must be reflected in the unit filename.
         cat <<EOF | sudo tee /etc/systemd/system/sys-fs-bpf.mount
         [Unit]
         Description=Cilium BPF mounts
-        Documentation=http://docs.cilium.io/
+        Documentation=https://docs.cilium.io/
         DefaultDependencies=no
         Before=local-fs.target umount.target
         After=swap.target
