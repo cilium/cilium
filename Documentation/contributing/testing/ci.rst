@@ -70,7 +70,7 @@ running tests to see which Kubernetes versions will be tested against.
 Ginkgo-CI-Tests-Pipeline
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-https://jenkins.cilium.io/job/Ginkgo-CI-Tests-Pipeline/
+`Ginkgo-CI-Tests-Pipeline`_
 
 Cilium-Nightly-Tests-PR
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -108,12 +108,9 @@ Packer-CI-Build
 As part of Cilium development, we use a custom base box with a bunch of
 pre-installed libraries and tools that we need to enhance our daily workflow.
 That base box is built with `Packer <https://www.packer.io/>`_ and it is hosted
-in the `packer-ci-build
-<https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/>`_ GitHub
-repository.
+in the `packer-ci-build`_ GitHub repository.
 
-New versions of this box can be created via `Jenkins Packer Build
-<https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/>`_, where
+New versions of this box can be created via `Jenkins Packer Build`_, where
 new builds of the image will be pushed to  `Vagrant Cloud
 <https://app.vagrantup.com/cilium>`_ . The version of the image corresponds to
 the `BUILD_ID <https://wiki.jenkins.io/display/JENKINS/Building+a+software+project#Buildingasoftwareproject-below>`_
@@ -126,8 +123,8 @@ repository. Authorized GitHub users can trigger builds with a GitHub comment on
 the PR containing the trigger phrase ``build-me-please``. In case that a new box
 needs to be rebased with a different branch than master, authorized developers
 can run the build with custom parameters. To use a different Cilium branch in
-the `job <https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/>`_ go
-to *Build with parameters* and a base branch can be set as the user needs.
+the `job`_ go to *Build with parameters* and a base branch can be set as the
+user needs.
 
 This box will need to be updated when a new developer needs a new dependency
 that is not installed in the current version of the box, or if a dependency that
@@ -141,6 +138,8 @@ Once you change the image versions locally, create a branch named
 It is important that you use that branch name so the VM images are cached into
 packet.net before the branch is merged.
 
+.. _Jenkins Packer Build: Vagrant-Master-Boxes-Packer-Build_
+.. _job: Vagrant-Master-Boxes-Packer-Build_
 
 Testing matrix
 ^^^^^^^^^^^^^^
@@ -292,7 +291,7 @@ GitHub issues using the process below:
 +---------------------------------------+------------------------------------------------------------------+
 | `Master-Nightly`_                     | Runs durability tests every night                                |
 +---------------------------------------+------------------------------------------------------------------+
-| `Vagrant-Master-Boxes-Packer-Build`_  | Runs on merge into `github.com/cilium/packer-ci-build`_.         |
+| `Vagrant-Master-Boxes-Packer-Build`_  | Runs on merge into `packer-ci-build`_ repository.                |
 +---------------------------------------+------------------------------------------------------------------+
 | :jenkins-branch:`Release-branch <>`   | Runs various Ginkgo tests on merge into branch "\ |SCM_BRANCH|"  |
 +---------------------------------------+------------------------------------------------------------------+
@@ -301,7 +300,7 @@ GitHub issues using the process below:
 .. _Ginkgo-CI-Tests-Pipeline: https://jenkins.cilium.io/job/Ginkgo-CI-Tests-Pipeline/
 .. _Master-Nightly: https://jenkins.cilium.io/job/Cilium-Master-Nightly/
 .. _Vagrant-Master-Boxes-Packer-Build: https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/
-.. _github.com/cilium/packer-ci-build: https://github.com/cilium/packer-ci-build/
+.. _packer-ci-build: https://github.com/cilium/packer-ci-build/
 
 Triage process
 ^^^^^^^^^^^^^^
@@ -350,7 +349,7 @@ Triage process
       tests. A zipfile for all tests is also available.
    #. Check how much time has passed since the last reported occurrence of this
       failure and move this issue to the correct column in the `CI flakes
-      project <https://github.com/cilium/cilium/projects/8>`_ board.
+      project`_ board.
 
 #. If no existing GitHub issue was found, file a `new GitHub issue <https://github.com/cilium/cilium/issues/new>`_:
 
@@ -368,7 +367,7 @@ Triage process
          eventually deleted).
       #. Attach zipfile downloaded from Jenkins with logs from failing test
       #. Include the test name and whole Stacktrace section to help others find this issue.
-      #. Add issue to `CI flakes project <https://github.com/cilium/cilium/projects/8>`_
+      #. Add issue to `CI flakes project`_.
 
    .. note::
 
@@ -400,6 +399,7 @@ Triage process
 * ``CI-Bug, K8sValidatedPolicyTest: Namespaces, pod not ready, #9939``
 * ``Regression, k8s host policy, #1111``
 
+.. _CI flakes project: https://github.com/cilium/cilium/projects/8
 
 Bisect process
 ^^^^^^^^^^^^^^

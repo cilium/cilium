@@ -57,9 +57,10 @@ it will print:
 
 If the script exits with an error message, do not attempt to proceed with the
 tutorial, as later steps will not work properly.   Instead, contact us on the
-`Cilium Slack channel <https://cilium.herokuapp.com>`_.
+`Cilium Slack channel`_.
 
 .. _`Docker Compose`: https://docs.docker.com/compose/
+.. _Cilium Slack channel: https://cilium.herokuapp.com
 
 Step 3: Accessing the VM
 ========================
@@ -305,7 +306,7 @@ microservices.
 
 We hope you enjoyed the tutorial.  Feel free to play more with the setup, read
 the rest of the documentation, and reach out to us on the `Cilium
-Slack channel <https://cilium.herokuapp.com>`_ with any questions!
+Slack channel`_ with any questions!
 
 
 Step 10: Clean-Up

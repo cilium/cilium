@@ -562,10 +562,9 @@ visiting `Slack <https://cilium.herokuapp.com/>`_.
 Report an issue via GitHub
 --------------------------
 
-If you believe to have found an issue in Cilium, please report a `GitHub issue
-<https://github.com/cilium/cilium/issues>`_ and make sure to attach a system
-dump as described above to ensure that developers have the best chance to
-reproduce the issue.
+If you believe to have found an issue in Cilium, please report a
+`GitHub issue`_ and make sure to attach a system dump as described above to
+ensure that developers have the best chance to reproduce the issue.
 
 .. _Slack channel: https://cilium.herokuapp.com
 .. _NodeSelector: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
@@ -576,3 +575,4 @@ reproduce the issue.
 .. _Cilium Frequently Asked Questions (FAQ): https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=label%3Akind%2Fquestion%20
 
 .. _issue tracker: https://github.com/cilium/cilium/issues
+.. _GitHub issue: `issue tracker`_
