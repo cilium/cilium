@@ -123,6 +123,7 @@ var (
 		"nodeinit.reconfigureKubelet": "true",
 		"nodeinit.removeCbrBridge":    "true",
 		"global.cni.binPath":          "/home/kubernetes/bin",
+		"global.nodePort.mode":        "snat",
 	}
 
 	microk8sHelmOverrides = map[string]string{
