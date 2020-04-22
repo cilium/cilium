@@ -31,7 +31,7 @@ Deploy the Demo Application
 Now that we have Cilium deployed and ``kube-dns`` operating correctly we can
 deploy our demo gRPC application.  Since our first demo of Cilium + HTTP-aware security
 policies was Star Wars-themed, we decided to do the same for gRPC. While the
-`HTTP-aware Cilium  Star Wars demo <https://www.cilium.io/blog/2017/5/4/demo-may-the-force-be-with-you>`_
+`HTTP-aware Cilium  Star Wars demo <https://cilium.io/blog/2017/5/4/demo-may-the-force-be-with-you/>`_
 showed how the Galactic Empire used HTTP-aware security policies to protect the Death Star from the
 Rebel Alliance, this gRPC demo shows how the lack of gRPC-aware security policies allowed Leia, Chewbacca, Lando, C-3PO, and R2-D2 to escape from Cloud City, which had been overtaken by
 empire forces.

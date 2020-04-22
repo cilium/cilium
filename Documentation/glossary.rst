@@ -34,13 +34,13 @@ with words you expected to see here.
      https://www.kernel.org/pub/linux/utils/net/iproute2/
 
    llvm
-     http://releases.llvm.org/
+     https://releases.llvm.org/
 
    Linux kernel
      https://www.kernel.org/
 
    DaemonSet
-     https://kubernetes.io/docs/admin/daemons/
+     https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/
 
    ConfigMap
      https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
@@ -49,7 +49,7 @@ with words you expected to see here.
      https://github.com/containernetworking/cni
 
    RBAC
-     https://kubernetes.io/docs/admin/authorization/rbac/
+     https://kubernetes.io/docs/reference/access-authn-authz/rbac/
 
    NodeSelector
      https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
@@ -71,7 +71,7 @@ with words you expected to see here.
      https://kubernetes.io/docs/concepts/services-networking/service/
 
    CustomResourceDefinition
-     https://kubernetes.io/docs/concepts/api-extension/custom-resources/#customresourcedefinitions
+     https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/#customresourcedefinitions
 
    HeadlessServices
      https://kubernetes.io/docs/concepts/services-networking/service/#headless-services

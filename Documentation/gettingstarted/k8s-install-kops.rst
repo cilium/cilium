@@ -21,7 +21,7 @@ Prerequisites
 =============
 
 * `aws cli <https://aws.amazon.com/cli/>`_
-* `kubectl <https://kubernetes.io/docs/tasks/tools/install-kubectl>`_
+* `kubectl <https://kubernetes.io/docs/tasks/tools/install-kubectl/>`_
 * aws account with permissions:
   * AmazonEC2FullAccess
   * AmazonRoute53FullAccess

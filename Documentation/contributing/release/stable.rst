@@ -181,7 +181,7 @@ If you intent to release a new feature release, see the
 
 #. Update the external tools and guides to point to the released Cilium version:
 
-    * `kubeadm <https://kubernetes.io/docs/setup/independent/create-cluster-kubeadm/>`_
+    * `kubeadm <https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/>`_
     * `kops <https://github.com/kubernetes/kops/>`_
     * `kubespray <https://github.com/kubernetes-sigs/kubespray/>`_
 

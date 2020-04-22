@@ -62,7 +62,7 @@ output, to get the JSON output you can use the global option ``-o json``
     $ cilium endpoint list -o json
 
 Moreover, Cilium also provides a `JSONPath
-<http://goessner.net/articles/JsonPath/>`_ support, so detailed information can
+<https://goessner.net/articles/JsonPath/>`_ support, so detailed information can
 be extracted. JSONPath template reference can be found in `Kubernetes
 documentation <https://kubernetes.io/docs/reference/kubectl/jsonpath/>`_
 
@@ -242,7 +242,7 @@ Check cluster Connectivity
 	cilium-health status
 
 There is also a `blog post
-<https://cilium.io/blog/2018/2/6/cilium-troubleshooting-cluster-health-monitor>`_
+<https://cilium.io/blog/2018/2/6/cilium-troubleshooting-cluster-health-monitor/>`_
 related to this tool.
 
 Endpoints
@@ -326,7 +326,7 @@ Kubernetes examples:
 If you running Cilium on top of Kubernetes you may also want a way to list all
 cilium endpoints or policies from a single Kubectl commands. Cilium provides all
 this information to the user by using `Kubernetes Resource Definitions
-<https://kubernetes.io/docs/concepts/api-extension/custom-resources/>`_:
+<https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/>`_:
 
 Policies
 ---------

@@ -79,7 +79,7 @@ These specs help you understand protocol aspects like:
   
 Sometimes, the protocol spec does not give you a full sense of the set of commands that can be sent over the protocol.  In that 
 case, looking at higher-level user documentation can fill in some of these knowledge gaps.  Here are examples for 
-`Redis Commands <https://redis.io/commands>`_ and `Cassandra CQL Commands  <https://docs.datastax.com/en/cql/3.1/cql/cql_reference/cqlCommandsTOC.html>`_ .  
+`Redis Commands <https://redis.io/commands>`_ and `Cassandra CQL Commands <https://docs.datastax.com/en/archived/cql/3.1/cql/cql_reference/cqlCommandsTOC.html>`_ .
  
 Another great trick is to use `Wireshark <https://www.wireshark.org>`_  to capture raw packet data between
 a client and server.   For many protocols, the `Wireshark Sample Captures <https://wiki.wireshark.org/SampleCaptures>`_ 

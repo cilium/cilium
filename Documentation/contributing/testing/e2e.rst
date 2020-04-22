@@ -12,7 +12,7 @@ End-To-End Testing Framework
 Introduction
 ~~~~~~~~~~~~
 
-Cilium uses `Ginkgo <https://onsi.github.io/ginkgo>`_ as a testing framework for
+Cilium uses `Ginkgo <https://onsi.github.io/ginkgo/>`_ as a testing framework for
 writing end-to-end tests which test Cilium all the way from the API level (e.g.
 importing policies, CLI) to the datapath (i.e, whether policy that is imported
 is enforced accordingly in the datapath).  The tests in the ``test`` directory
@@ -533,7 +533,7 @@ mapping with the constant and the helm settings.
 4- For cases where a test should be skipped use the ``SkipIfIntegration``. To
 skip whole contexts, use ``SkipContextIf``. More complex logic can be expressed
 with functions like ``IsIntegration``. These functions are all part of the
-`test/helpers <https://github.com/cilium/cilium/blob/26dec4c4f4311df2b1a6c909b27ff7fe6e46929f/test/helpers>`_
+`test/helpers <https://github.com/cilium/cilium/tree/26dec4c4f4311df2b1a6c909b27ff7fe6e46929f/test/helpers>`_
 package.
 
 Running End-To-End Tests In Other Environments via SSH

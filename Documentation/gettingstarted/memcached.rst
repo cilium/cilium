@@ -30,7 +30,7 @@ Step 2: Deploy the Demo Application
 
 Now that we have Cilium deployed and ``kube-dns`` operating correctly we can
 deploy our demo memcached application.  Since our first
-`HTTP-aware Cilium demo <https://www.cilium.io/blog/2017/5/4/demo-may-the-force-be-with-you>`_ was based on Star Wars, we continue with the theme for the memcached demo as well.
+`HTTP-aware Cilium demo <https://cilium.io/blog/2017/5/4/demo-may-the-force-be-with-you/>`_ was based on Star Wars, we continue with the theme for the memcached demo as well.
 
 Ever wonder how the Alliance Fleet manages the changing positions of their ships? The Alliance Fleet uses memcached to store the coordinates of their ships. The Alliance Fleet leverages the memcached-svc service implemented as a memcached server. Each ship in the fleet constantly updates its coordinates and has the ability to get the coordinates of other ships in the Alliance Fleet.
 

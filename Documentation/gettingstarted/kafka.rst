@@ -23,7 +23,7 @@ Deploy the Demo Application
 Now that we have Cilium deployed and ``kube-dns`` operating correctly we can
 deploy our demo Kafka application.  Since our first demo of Cilium + HTTP-aware security
 policies was Star Wars-themed we decided to do the same for Kafka.  While the
-`HTTP-aware Cilium  Star Wars demo <https://www.cilium.io/blog/2017/5/4/demo-may-the-force-be-with-you>`_
+`HTTP-aware Cilium  Star Wars demo <https://cilium.io/blog/2017/5/4/demo-may-the-force-be-with-you/>`_
 showed how the Galactic Empire used HTTP-aware security policies to protect the Death Star from the
 Rebel Alliance, this Kafka demo shows how the lack of Kafka-aware security policies allowed the
 Rebels to steal the Death Star plans in the first place.
@@ -46,7 +46,7 @@ To keep the setup small, we will just launch a small number of pods to represent
   (label app=kafka).
 - *empire-hq* : A pod representing the Empire's Headquarters, which is the only pod that should
   produce messages to *empire-announce* or *deathstar-plans* (label app=empire-hq).
-- *empire-backup* : A secure backup facility located in `Scarif <http://starwars.wikia.com/wiki/Scarif_vault>`_ ,
+- *empire-backup* : A secure backup facility located in `Scarif <https://starwars.fandom.com/wiki/Scarif_vault>`_ ,
   which is allowed to "consume" from the secret *deathstar-plans* topic (label app=empire-backup).
 - *empire-outpost-8888* : A random outpost in the empire.  It needs to "consume" messages from
   the *empire-announce* topic (label app=empire-outpost).
