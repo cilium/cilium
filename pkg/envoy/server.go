@@ -890,7 +890,8 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, npMap policy.NamedPo
 	}
 
 	PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(l4Policy))
-
+	// map to locate entries already on the same port
+	pnps := make(map[string]*cilium.PortNetworkPolicy, len(l4Policy))
 	for _, l4 := range l4Policy {
 		var protocol envoy_api_v2_core.SocketAddress_Protocol
 		switch l4.Protocol {
@@ -910,12 +911,9 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, npMap policy.NamedPo
 			}
 		}
 
-		pnp := &cilium.PortNetworkPolicy{
-			Port:     uint32(port),
-			Protocol: protocol,
-			Rules:    make([]*cilium.PortNetworkPolicyRule, 0, len(l4.L7RulesPerSelector)),
-		}
+		rules := make([]*cilium.PortNetworkPolicyRule, 0, len(l4.L7RulesPerSelector))
 		allowAll := false
+
 		// Assume none of the rules have side-effects so that rule evaluation can
 		// be stopped as soon as the first allowing rule is found. 'canShortCircuit'
 		// is set to 'false' below if any rules with side effects are encountered,
@@ -932,7 +930,7 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, npMap policy.NamedPo
 					// the other rules.
 					allowAll = true
 				}
-				pnp.Rules = append(pnp.Rules, rule)
+				rules = append(rules, rule)
 			}
 		} else {
 			for sel, l7 := range l4.L7RulesPerSelector {
@@ -946,27 +944,39 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, npMap policy.NamedPo
 						// the other rules.
 						allowAll = true
 					}
-					pnp.Rules = append(pnp.Rules, rule)
+					rules = append(rules, rule)
 				}
 			}
 		}
 		// Short-circuit rules if a rule allows all and all other rules can be short-circuited
 		if allowAll && canShortCircuit {
 			log.Debug("Short circuiting HTTP rules due to rule allowing all and no other rules needing attention")
-			pnp.Rules = nil
+			rules = nil
 		}
 
 		// No rule for this port matches any remote identity.
 		// This means that no traffic was explicitly allowed for this port.
 		// In this case, just don't generate any PortNetworkPolicy for this
 		// port.
-		if !allowAll && len(pnp.Rules) == 0 {
+		if !allowAll && len(rules) == 0 {
 			continue
 		}
 
+		// Add rules to a new or existing entry for this port
+		key := fmt.Sprintf("%d/%s", port, l4.Protocol)
+		pnp, exists := pnps[key]
+		if !exists {
+			pnp = &cilium.PortNetworkPolicy{
+				Port:     uint32(port),
+				Protocol: protocol,
+				Rules:    rules,
+			}
+			pnps[key] = pnp
+			PerPortPolicies = append(PerPortPolicies, pnp)
+		} else {
+			pnp.Rules = append(pnp.Rules, rules...)
+		}
 		SortPortNetworkPolicyRules(pnp.Rules)
-
-		PerPortPolicies = append(PerPortPolicies, pnp)
 	}
 
 	if len(PerPortPolicies) == 0 {
