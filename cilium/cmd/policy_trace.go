@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/command"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
+	"github.com/cilium/cilium/pkg/iana"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
@@ -273,7 +274,7 @@ func getSecIDFromK8s(podName string) (string, error) {
 }
 
 // parseL4PortsSlice parses a given `slice` of strings. Each string should be in
-// the form of `<port>[/<protocol>]`, where the `<port>` is an integer and
+// the form of `<port>[/<protocol>]`, where the `<port>` is an integer or a port name and
 // `<protocol>` is an optional layer 4 protocol `tcp` or `udp`. In case
 // `protocol` is not present, or is set to `any`, the parsed port will be set to
 // `models.PortProtocolAny`.
@@ -295,13 +296,19 @@ func parseL4PortsSlice(slice []string) ([]*models.Port, error) {
 		default:
 			return nil, fmt.Errorf("invalid format %q. Should be <port>[/<protocol>]", v)
 		}
+		port := 0
 		portStr := vSplit[0]
-		port, err := strconv.Atoi(portStr)
-		if err != nil {
-			return nil, fmt.Errorf("invalid port %q: %s", portStr, err)
+		if !iana.IsSvcName(portStr) {
+			var err error
+			port, err = strconv.Atoi(portStr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid port %q: %s", portStr, err)
+			}
+			portStr = ""
 		}
 		l4 := &models.Port{
 			Port:     uint16(port),
+			Name:     portStr,
 			Protocol: protoStr,
 		}
 		rules = append(rules, l4)

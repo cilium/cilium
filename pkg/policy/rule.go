@@ -297,8 +297,12 @@ func rulePortsCoverSearchContext(ports []api.PortProtocol, ctx *SearchContext) b
 	for _, p := range ports {
 		for _, dp := range ctx.DPorts {
 			tracePort := api.PortProtocol{
-				Port:     fmt.Sprintf("%d", dp.Port),
 				Protocol: api.L4Proto(dp.Protocol),
+			}
+			if dp.Name != "" {
+				tracePort.Port = dp.Name
+			} else {
+				tracePort.Port = fmt.Sprintf("%d", dp.Port)
 			}
 			if p.Covers(tracePort) {
 				return true
