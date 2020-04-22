@@ -28,6 +28,14 @@
 # define __packed		__attribute__((packed))
 #endif
 
+#ifndef __nobuiltin
+# if __clang_major__ >= 10
+#  define __nobuiltin(X)	__attribute__((no_builtin(X)))
+# else
+#  define __nobuiltin(X)
+# endif
+#endif
+
 #ifndef likely
 # define likely(X)		__builtin_expect(!!(X), 1)
 #endif
@@ -47,8 +55,16 @@
 # define __fetch(X)		(__u32)(__u64)(&(X))
 #endif
 
+#ifndef __aligned
+# define __aligned(X)		__attribute__((aligned(X)))
+#endif
+
 #ifndef build_bug_on
 # define build_bug_on(E)	((void)sizeof(char[1 - 2*!!(E)]))
+#endif
+
+#ifndef __throw_build_bug
+# define __throw_build_bug()	__builtin_trap()
 #endif
 
 #ifndef __printf

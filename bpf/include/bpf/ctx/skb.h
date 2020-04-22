@@ -26,6 +26,9 @@
 #define CTX_ACT_DROP		TC_ACT_SHOT
 #define CTX_ACT_TX		TC_ACT_REDIRECT
 
+/* Discouraged since prologue will unclone full skb. */
+#define CTX_DIRECT_WRITE_OK	0
+
 #define META_PIVOT		field_sizeof(struct __sk_buff, cb)
 
 #define ctx_load_bytes		skb_load_bytes

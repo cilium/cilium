@@ -486,9 +486,9 @@ static __always_inline __maybe_unused int snat_v4_create_dsr(struct __ctx_buff *
 static __always_inline int snat_v4_process(struct __ctx_buff *ctx, int dir,
 					   const struct ipv4_nat_target *target)
 {
+	struct icmphdr icmphdr __align_stack_8;
 	struct ipv4_nat_entry *state, tmp;
 	struct ipv4_ct_tuple tuple = {};
-	struct icmphdr icmphdr;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	struct {
@@ -948,9 +948,9 @@ static __always_inline __maybe_unused int snat_v6_create_dsr(struct __ctx_buff *
 static __always_inline int snat_v6_process(struct __ctx_buff *ctx, int dir,
 					   const struct ipv6_nat_target *target)
 {
+	struct icmp6hdr icmp6hdr __align_stack_8;
 	struct ipv6_nat_entry *state, tmp;
 	struct ipv6_ct_tuple tuple = {};
-	struct icmp6hdr icmp6hdr;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	int ret, hdrlen;

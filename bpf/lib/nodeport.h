@@ -187,7 +187,7 @@ static __always_inline int set_dsr_ext6(struct __ctx_buff *ctx,
 					struct ipv6hdr *ip6,
 					union v6addr *svc_addr, __be32 svc_port)
 {
-	struct dsr_opt_v6 opt = {};
+	struct dsr_opt_v6 opt __align_stack_8 = {};
 
 	opt.nexthdr = ip6->nexthdr;
 	ip6->nexthdr = NEXTHDR_DEST;
@@ -211,8 +211,8 @@ static __always_inline int set_dsr_ext6(struct __ctx_buff *ctx,
 static __always_inline int find_dsr_v6(struct __ctx_buff *ctx, __u8 nexthdr,
 				       struct dsr_opt_v6 *dsr_opt, bool *found)
 {
+	struct ipv6_opt_hdr opthdr __align_stack_8;
 	int i, len = sizeof(struct ipv6hdr);
-	struct ipv6_opt_hdr opthdr;
 	__u8 nh = nexthdr;
 
 #pragma unroll
