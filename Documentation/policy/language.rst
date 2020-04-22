@@ -308,6 +308,10 @@ init
     security identity has not been resolved yet. This is typically only
     observed in non-Kubernetes environments. See section
     :ref:`endpoint_lifecycle` for details.
+health
+    The health entity represents the health endpoints, used to check cluster
+    connectivity health. Each node managed by Cilium hosts a health endpoint.
+    See `cluster_connectivity_health` for details on health checks.
 world
     The world entity corresponds to all endpoints outside of the cluster.
     Allowing to world is identical to allowing to CIDR 0/0. An alternative
