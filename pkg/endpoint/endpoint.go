@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/annotation"
+	enirouting "github.com/cilium/cilium/pkg/aws/eni/routing"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
@@ -2093,6 +2094,21 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpoin
 			if err := ipam.ReleaseIP(e.IPv6.IP()); err != nil {
 				errs = append(errs, fmt.Errorf("unable to release ipv6 address: %s", err))
 			}
+		}
+	}
+
+	if option.Config.IPAM == option.IPAMENI {
+		e.getLogger().WithFields(logrus.Fields{
+			"ep":     e.GetID(),
+			"ipAddr": e.GetIPv4Address(),
+		}).Debug("Deleting endpoint ENI rules")
+
+		// This is a best-effort attempt to cleanup. We expect there to be one
+		// ingress rule and one egress rule. If we find more than one rule in
+		// either case, then the rules will be left as-is because there was
+		// likely manual intervention.
+		if err := enirouting.Delete(e.IPv4.IP()); err != nil {
+			errs = append(errs, fmt.Errorf("unable to delete endpoint ENI rules: %s", err))
 		}
 	}
 

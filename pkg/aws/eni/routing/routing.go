@@ -19,9 +19,16 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 
+	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+)
+
+var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "eni-routing")
 )
 
 // RoutingInfo represents information that's required to enable
@@ -118,6 +125,74 @@ func Install(ip net.IP, info *RoutingInfo, mtu int, masq bool) error {
 	}); err != nil {
 		return fmt.Errorf("unable to add L2 nexthop route: %s", err)
 	}
+
+	return nil
+}
+
+// Delete removes the ingress and egress rules that control traffic for
+// endpoints. Note that the routes within these rules are not deleted as they
+// can be reused when another endpoint is created on the same node. The reason
+// for this is that ENI devices under-the-hood are simply network interfaces
+// and all network interfaces have an ifindex. This index is then used as the
+// table ID when these rules are created. The routes are created inside a table
+// with this ID, and because this table ID equals the ENI ifindex, it's stable
+// to rely on and therefore can be reused.
+func Delete(ip net.IP) error {
+	ipWithMask := net.IPNet{
+		IP:   ip,
+		Mask: net.CIDRMask(32, 32),
+	}
+
+	scopedLog := log.WithFields(logrus.Fields{
+		"ip": ipWithMask.String(),
+	})
+
+	// Ingress rules
+	ingress := route.Rule{
+		Priority: 20, // After encryption and proxy rules, before local table
+		To:       &ipWithMask,
+		Table:    route.MainTable,
+	}
+	if err := deleteRule(ingress); err != nil {
+		return fmt.Errorf("unable to delete ingress rule from main table with ip %s: %v", ipWithMask.String(), err)
+	}
+
+	scopedLog.WithField("rule", ingress).Debug("Deleted ingress rule")
+
+	// Egress rules
+	egress := route.Rule{
+		Priority: 110, // After local table
+		From:     &ipWithMask,
+	}
+	if err := deleteRule(egress); err != nil {
+		return fmt.Errorf("unable to delete egress rule with ip %s: %v", ipWithMask.String(), err)
+	}
+	scopedLog.WithField("rule", egress).Debug("Deleted egress rule")
+
+	return nil
+}
+
+func deleteRule(r route.Rule) error {
+	rules, err := route.ListRules(netlink.FAMILY_V4, &r)
+	if err != nil {
+		return err
+	}
+
+	length := len(rules)
+	switch {
+	case length > 1:
+		log.WithFields(logrus.Fields{
+			"candidates": rules,
+			"rule":       r,
+		}).Warning("Found too many rules matching, skipping deletion")
+		return nil
+	case length == 1:
+		return route.DeleteRule(r)
+	}
+
+	log.WithFields(logrus.Fields{
+		"rule": r,
+	}).Warning("No rule matching found")
 
 	return nil
 }
