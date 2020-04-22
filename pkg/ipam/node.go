@@ -59,6 +59,9 @@ type Node struct {
 	// when modifying instance state
 	instanceRunning bool
 
+	// instanceStoppedRunning records when an instance was most recently set to not running
+	instanceStoppedRunning time.Time
+
 	// waitingForPoolMaintenance is true when the node is subject to an
 	// IP allocation or release which must be performed before another
 	// allocation or release can be attempted
@@ -128,6 +131,9 @@ func (n *Node) IsRunning() bool {
 func (n *Node) SetRunningLocked(running bool) {
 	n.loggerLocked().Infof("Set running %t", running)
 	n.instanceRunning = running
+	if !n.instanceRunning {
+		n.instanceStoppedRunning = time.Now()
+	}
 }
 
 // Stats returns a copy of the node statistics
@@ -639,10 +645,10 @@ func (n *Node) updateLastResync(syncTime time.Time) {
 // MaintainIPPool attempts to allocate or release all required IPs to fulfill
 // the needed gap. If required, interfaces are created.
 func (n *Node) MaintainIPPool(ctx context.Context) error {
-	// If the instance is no longer running, don't attempt any deficit
+	// If the instance has stopped running for less than a minute, don't attempt any deficit
 	// resolution and wait for the custom resource to be updated as a sign
 	// of life.
-	if !n.isInstanceRunning() {
+	if !n.isInstanceRunning() && n.instanceStoppedRunning.Add(time.Minute).After(time.Now()) {
 		return nil
 	}
 
