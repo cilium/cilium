@@ -208,7 +208,7 @@ There are some feature flags based on Pull Requests labels, the list of labels
 are the following:
 
 - ``area/containerd``: Enable containerd runtime on all Kubernetes test.
-- ``ci/next-next``: Run tests on net-next kernel. This causes the
+- ``ci/net-next``: Run tests on net-next kernel. This causes the
   ``test-me-please`` target to only run on the net-next kernel. It is purely
   for testing on a different kernel, to merge a PR it must pass the CI
   without this flag.
