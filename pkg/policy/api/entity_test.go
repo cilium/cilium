@@ -41,18 +41,21 @@ func (s *PolicyAPITestSuite) TestEntityMatches(c *C) {
 	c.Assert(EntityHost.matches(labels.ParseLabelArray("reserved:host")), Equals, true)
 	c.Assert(EntityHost.matches(labels.ParseLabelArray("reserved:host", "id:foo")), Equals, true)
 	c.Assert(EntityHost.matches(labels.ParseLabelArray("reserved:world")), Equals, false)
+	c.Assert(EntityHost.matches(labels.ParseLabelArray("reserved:health")), Equals, false)
 	c.Assert(EntityHost.matches(labels.ParseLabelArray("reserved:unmanaged")), Equals, false)
 	c.Assert(EntityHost.matches(labels.ParseLabelArray("reserved:none")), Equals, false)
 	c.Assert(EntityHost.matches(labels.ParseLabelArray("id=foo")), Equals, false)
 
 	c.Assert(EntityAll.matches(labels.ParseLabelArray("reserved:host")), Equals, true)
 	c.Assert(EntityAll.matches(labels.ParseLabelArray("reserved:world")), Equals, true)
+	c.Assert(EntityAll.matches(labels.ParseLabelArray("reserved:health")), Equals, true)
 	c.Assert(EntityAll.matches(labels.ParseLabelArray("reserved:unmanaged")), Equals, true)
 	c.Assert(EntityAll.matches(labels.ParseLabelArray("reserved:none")), Equals, true) // in a white-list model, All trumps None
 	c.Assert(EntityAll.matches(labels.ParseLabelArray("id=foo")), Equals, true)
 
 	c.Assert(EntityCluster.matches(labels.ParseLabelArray("reserved:host")), Equals, true)
 	c.Assert(EntityCluster.matches(labels.ParseLabelArray("reserved:init")), Equals, true)
+	c.Assert(EntityCluster.matches(labels.ParseLabelArray("reserved:health")), Equals, true)
 	c.Assert(EntityCluster.matches(labels.ParseLabelArray("reserved:unmanaged")), Equals, true)
 	c.Assert(EntityCluster.matches(labels.ParseLabelArray("reserved:world")), Equals, false)
 	c.Assert(EntityCluster.matches(labels.ParseLabelArray("reserved:none")), Equals, false)
@@ -64,6 +67,7 @@ func (s *PolicyAPITestSuite) TestEntityMatches(c *C) {
 
 	c.Assert(EntityWorld.matches(labels.ParseLabelArray("reserved:host")), Equals, false)
 	c.Assert(EntityWorld.matches(labels.ParseLabelArray("reserved:world")), Equals, true)
+	c.Assert(EntityWorld.matches(labels.ParseLabelArray("reserved:health")), Equals, false)
 	c.Assert(EntityWorld.matches(labels.ParseLabelArray("reserved:unmanaged")), Equals, false)
 	c.Assert(EntityWorld.matches(labels.ParseLabelArray("reserved:none")), Equals, false)
 	c.Assert(EntityWorld.matches(labels.ParseLabelArray("id=foo")), Equals, false)
@@ -71,6 +75,7 @@ func (s *PolicyAPITestSuite) TestEntityMatches(c *C) {
 
 	c.Assert(EntityNone.matches(labels.ParseLabelArray("reserved:host")), Equals, false)
 	c.Assert(EntityNone.matches(labels.ParseLabelArray("reserved:world")), Equals, false)
+	c.Assert(EntityNone.matches(labels.ParseLabelArray("reserved:health")), Equals, false)
 	c.Assert(EntityNone.matches(labels.ParseLabelArray("reserved:unmanaged")), Equals, false)
 	c.Assert(EntityNone.matches(labels.ParseLabelArray("reserved:init")), Equals, false)
 	c.Assert(EntityNone.matches(labels.ParseLabelArray("id=foo")), Equals, false)
@@ -84,6 +89,15 @@ func (s *PolicyAPITestSuite) TestEntitySliceMatches(c *C) {
 	slice := EntitySlice{EntityHost, EntityWorld}
 	c.Assert(slice.matches(labels.ParseLabelArray("reserved:host")), Equals, true)
 	c.Assert(slice.matches(labels.ParseLabelArray("reserved:world")), Equals, true)
+	c.Assert(slice.matches(labels.ParseLabelArray("reserved:health")), Equals, false)
+	c.Assert(slice.matches(labels.ParseLabelArray("reserved:unmanaged")), Equals, false)
+	c.Assert(slice.matches(labels.ParseLabelArray("reserved:none")), Equals, false)
+	c.Assert(slice.matches(labels.ParseLabelArray("id=foo")), Equals, false)
+
+	slice = EntitySlice{EntityHost, EntityHealth}
+	c.Assert(slice.matches(labels.ParseLabelArray("reserved:host")), Equals, true)
+	c.Assert(slice.matches(labels.ParseLabelArray("reserved:world")), Equals, false)
+	c.Assert(slice.matches(labels.ParseLabelArray("reserved:health")), Equals, true)
 	c.Assert(slice.matches(labels.ParseLabelArray("reserved:unmanaged")), Equals, false)
 	c.Assert(slice.matches(labels.ParseLabelArray("reserved:none")), Equals, false)
 	c.Assert(slice.matches(labels.ParseLabelArray("id=foo")), Equals, false)
