@@ -168,6 +168,7 @@ func (s *LocalExecutor) ExecContext(ctx context.Context, cmd string, options ...
 	}
 
 	log.Debugf("running command: %s", cmd)
+	fmt.Fprintln(SSHMetaLogs, cmd)
 	stdout := new(Buffer)
 	stderr := new(Buffer)
 	start := time.Now()
