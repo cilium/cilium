@@ -24,7 +24,7 @@ Prerequisites
 Ensure your AWS credentials are located in ``~/.aws/credentials`` or are stored
 as `environment variables <https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html>`_ .
 
-Next, install `eksctl <https://github.com/weaveworks/eksctl>`_ :
+Next, install `eksctl`_ :
 
 .. tabs::
   .. group-tab:: Linux
@@ -49,12 +49,13 @@ Ensure that aws-iam-authenticator is installed and in the executable path:
 If not, install it based on the `AWS IAM authenticator documentation
 <https://docs.aws.amazon.com/eks/latest/userguide/install-aws-iam-authenticator.html>`_ .
 
+.. _eksctl: https://github.com/weaveworks/eksctl
+
 Create the cluster
 ------------------
 
-Create an EKS cluster with ``eksctl`` see the `eksctl Documentation
-<https://github.com/weaveworks/eksctl>`_ for details on how to set credentials,
-change region, VPC, cluster size, etc.
+Create an EKS cluster with ``eksctl`` see the `eksctl Documentation`_ for
+details on how to set credentials, change region, VPC, cluster size, etc.
 
    .. code:: bash
 
@@ -68,6 +69,8 @@ You should see something like this:
 	[ℹ]  setting availability zones to [us-west-2b us-west-2a us-west-2c]
 	[...]
 	[✔]  EKS cluster "test-cluster" in "us-west-2" region is ready
+
+.. _eksctl Documentation: eksctl_
 
 Delete VPC CNI (``aws-node`` DaemonSet)
 =======================================

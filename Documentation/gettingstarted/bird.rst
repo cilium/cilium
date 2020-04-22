@@ -11,8 +11,9 @@ Using BIRD to run BGP
 
 `BIRD is an open-source implementation for routing Internet Protocol
 packets on Unix-like operating systems <https://en.wikipedia.org/wiki/Bird_Internet_routing_daemon>`_.
-If you are not familiar with it, you had best have a glance at the `User's Guide
-<https://bird.network.cz/?get_doc&f=bird.html&v=20>`_ first.
+If you are not familiar with it, you had best have a glance at the `User's Guide`_ first.
+
+.. _`User's Guide`: https://bird.network.cz/?get_doc&f=bird.html&v=20
 
 `BIRD <https://bird.network.cz>`_ maintains two release families at present:
 ``1.x`` and ``2.x``, and the configuration format varies a lot between them.
@@ -207,7 +208,7 @@ Advanced Configurations
 
 You may need some advanced configurations to make your BGP scheme production-ready.
 This section lists some of these parameters, but we will not dive into details,
-that's BIRD `User's Guide <https://bird.network.cz/?get_doc&f=bird.html&v=20>`_'s responsibility.
+that's BIRD `User's Guide`_'s responsibility.
 
 BFD
 ----
