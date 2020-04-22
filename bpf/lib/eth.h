@@ -56,7 +56,20 @@ static __always_inline int eth_load_saddr(struct __ctx_buff *ctx, __u8 *mac,
 static __always_inline int eth_store_saddr(struct __ctx_buff *ctx, __u8 *mac,
 					   int off)
 {
+#if !CTX_DIRECT_WRITE_OK
 	return ctx_store_bytes(ctx, off + ETH_ALEN, mac, ETH_ALEN, 0);
+#else
+	void *data_end = ctx_data_end(ctx);
+	void *data = ctx_data(ctx);
+
+	if (ctx_no_room(data + off + ETH_ALEN * 2, data_end))
+		return -EFAULT;
+	/* Need to use builtin here since mac came potentially from
+	 * struct bpf_fib_lookup where it's not aligned on stack. :(
+	 */
+	__bpf_memcpy_builtin(data + off + ETH_ALEN, mac, ETH_ALEN);
+	return 0;
+#endif
 }
 
 static __always_inline int eth_load_daddr(struct __ctx_buff *ctx, __u8 *mac,
@@ -68,7 +81,20 @@ static __always_inline int eth_load_daddr(struct __ctx_buff *ctx, __u8 *mac,
 static __always_inline int eth_store_daddr(struct __ctx_buff *ctx, __u8 *mac,
 					   int off)
 {
+#if !CTX_DIRECT_WRITE_OK
 	return ctx_store_bytes(ctx, off, mac, ETH_ALEN, 0);
+#else
+	void *data_end = ctx_data_end(ctx);
+	void *data = ctx_data(ctx);
+
+	if (ctx_no_room(data + off + ETH_ALEN, data_end))
+		return -EFAULT;
+	/* Need to use builtin here since mac came potentially from
+	 * struct bpf_fib_lookup where it's not aligned on stack. :(
+	 */
+	__bpf_memcpy_builtin(data + off, mac, ETH_ALEN);
+	return 0;
+#endif
 }
 
 #endif /* __LIB_ETH__ */
