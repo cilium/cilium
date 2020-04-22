@@ -824,6 +824,12 @@ func initEnv(cmd *cobra.Command) {
 
 	option.LogRegisteredOptions(log)
 
+	// Configure k8s as soon as possible so that k8s.IsEnabled() has the right
+	// behavior.
+	bootstrapStats.k8sInit.Start()
+	k8s.Configure(option.Config.K8sAPIServer, option.Config.K8sKubeConfigPath, defaults.K8sClientQPSLimit, defaults.K8sClientBurst)
+	bootstrapStats.k8sInit.End(true)
+
 	for _, grp := range option.Config.DebugVerbose {
 		switch grp {
 		case argDebugVerboseFlow:
