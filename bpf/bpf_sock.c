@@ -49,7 +49,7 @@ static __always_inline __maybe_unused bool is_v4_in_v6(union v6addr *daddr)
 static __always_inline __maybe_unused void build_v4_in_v6(union v6addr *daddr,
 							  __be32 v4)
 {
-	__builtin_memset(daddr, 0, sizeof(*daddr));
+	memset(daddr, 0, sizeof(*daddr));
 	daddr->addr[10] = 0xff;
 	daddr->addr[11] = 0xff;
 	daddr->p4 = v4;
@@ -529,7 +529,7 @@ sock6_nodeport_wildcard_lookup(struct lb6_key *key __maybe_unused,
 
 	return NULL;
 wildcard_lookup:
-	__builtin_memset(&key->address, 0, sizeof(key->address));
+	memset(&key->address, 0, sizeof(key->address));
 	return lb6_lookup_service(key);
 #else
 	return NULL;
@@ -549,7 +549,7 @@ int sock6_xlate_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused,
 	if (!is_v4_in_v6(&addr6))
 		return -ENXIO;
 
-	__builtin_memset(&fake_ctx, 0, sizeof(fake_ctx));
+	memset(&fake_ctx, 0, sizeof(fake_ctx));
 	fake_ctx.protocol  = ctx->protocol;
 	fake_ctx.user_ip4  = addr6.p4;
 	fake_ctx.user_port = ctx_dst_port(ctx);
@@ -578,7 +578,7 @@ static __always_inline int sock6_post_bind_v4_in_v6(struct bpf_sock *ctx)
 	if (!is_v4_in_v6(&addr6))
 		return 0;
 
-	__builtin_memset(&fake_ctx, 0, sizeof(fake_ctx));
+	memset(&fake_ctx, 0, sizeof(fake_ctx));
 	fake_ctx.protocol = ctx->protocol;
 	fake_ctx.src_ip4  = addr6.p4;
 	fake_ctx.src_port = ctx->src_port;
@@ -720,7 +720,7 @@ sock6_xlate_rcv_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
 	if (!is_v4_in_v6(&addr6))
 		return -ENXIO;
 
-	__builtin_memset(&fake_ctx, 0, sizeof(fake_ctx));
+	memset(&fake_ctx, 0, sizeof(fake_ctx));
 	fake_ctx.protocol  = ctx->protocol;
 	fake_ctx.user_ip4  = addr6.p4;
 	fake_ctx.user_port = ctx_dst_port(ctx);

@@ -47,7 +47,7 @@ xdp_load_bytes(struct xdp_md *ctx, __u64 off, void *to, const __u64 len)
 		       [offmax]"i"(__CTX_OFF_MAX), [errno]"i"(-EINVAL)
 		     : "r1", "r2");
 	if (!ret)
-		__builtin_memcpy(to, from, len);
+		memcpy(to, from, len);
 	return ret;
 }
 
@@ -73,7 +73,7 @@ xdp_store_bytes(struct xdp_md *ctx, __u64 off, const void *from,
 		       [offmax]"i"(__CTX_OFF_MAX), [errno]"i"(-EINVAL)
 		     : "r1", "r2");
 	if (!ret)
-		__builtin_memcpy(to, from, len);
+		memcpy(to, from, len);
 	return ret;
 }
 
