@@ -163,6 +163,8 @@ data:
   policy-audit-mode: "false"
   operator-api-serve-addr: '127.0.0.1:9234'
 
+  # Enable Hubble gRPC service.
+  enable-hubble: "false"
 
   # A space separated list of iptables chains to disable when installing feeder rules.
   disable-iptables-feeder-rules: ""
