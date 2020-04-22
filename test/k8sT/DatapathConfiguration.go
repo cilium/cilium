@@ -315,7 +315,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"global.autoDirectNodeRoutes": "true",
 			})
 
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeFalse(), "Connectivity test between nodes failed")
 		})
 
 		It("Check direct connectivity with per endpoint routes", func() {
