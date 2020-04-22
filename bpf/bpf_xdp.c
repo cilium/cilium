@@ -146,7 +146,7 @@ static __always_inline int check_v4(struct __ctx_buff *ctx)
 		return CTX_ACT_DROP;
 
 #ifdef CIDR4_FILTER
-	__builtin_memcpy(pfx.lpm.data, &ipv4_hdr->saddr, sizeof(pfx.addr));
+	memcpy(pfx.lpm.data, &ipv4_hdr->saddr, sizeof(pfx.addr));
 	pfx.lpm.prefixlen = 32;
 
 #ifdef CIDR4_LPM_PREFILTER
@@ -210,7 +210,7 @@ static __always_inline int check_v6(struct __ctx_buff *ctx)
 		return CTX_ACT_DROP;
 
 #ifdef CIDR6_FILTER
-	__builtin_memcpy(pfx.lpm.data, &ipv6_hdr->saddr, sizeof(pfx.addr));
+	memcpy(pfx.lpm.data, &ipv6_hdr->saddr, sizeof(pfx.addr));
 	pfx.lpm.prefixlen = 128;
 
 #ifdef CIDR6_LPM_PREFILTER
