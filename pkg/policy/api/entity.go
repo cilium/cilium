@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,6 +45,9 @@ const (
 	// EntityRemoteNode is an entity that represents all remote nodes
 	EntityRemoteNode Entity = "remote-node"
 
+	// EntityHealth is an entity that represents all health endpoints.
+	EntityHealth Entity = "health"
+
 	// EntityNone is an entity that can be selected but never exist
 	EntityNone Entity = "none"
 )
@@ -58,6 +61,8 @@ var (
 
 	endpointSelectorRemoteNode = NewESFromLabels(labels.NewLabel(labels.IDNameRemoteNode, "", labels.LabelSourceReserved))
 
+	endpointSelectorHealth = NewESFromLabels(labels.NewLabel(labels.IDNameHealth, "", labels.LabelSourceReserved))
+
 	EndpointSelectorNone = NewESFromLabels(labels.NewLabel(labels.IDNameNone, "", labels.LabelSourceReserved))
 
 	endpointSelectorUnmanaged = NewESFromLabels(labels.NewLabel(labels.IDNameUnmanaged, "", labels.LabelSourceReserved))
@@ -70,6 +75,7 @@ var (
 		EntityHost:       {endpointSelectorHost},
 		EntityInit:       {endpointSelectorInit},
 		EntityRemoteNode: {endpointSelectorRemoteNode},
+		EntityHealth:     {endpointSelectorHealth},
 		EntityNone:       {EndpointSelectorNone},
 
 		// EntityCluster is populated with an empty entry to allow the
