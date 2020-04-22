@@ -137,6 +137,72 @@ e.g.:
 Connectivity Problems
 =====================
 
+Cilium connectivity tests
+-------------------------
+
+The Cilium connectivity test_ deploys a series of services, deployments, and
+CiliumNetworkPolicy which will use various connectivity paths to connect to
+each other. Connectivity paths include with and without service load-balancing
+and various network policy combinations.
+
+.. Note::
+
+          The connectivity tests this will only work in a namespace with no
+          other pods or network policies applied. If there is a Cilium
+          Clusterwide Network Policy enabled, that may also break this
+          connectivity check.
+
+To run the connectivity tests create an isolated test namespace called
+``cilium-test`` to deploy the tests with.
+
+.. parsed-literal::
+
+    $ kubectl create ns cilium-test
+    $ kubectl apply --namespace=cilium-test -f \ |SCM_WEB|\/examples/kubernetes/connectivity-check/connectivity-check.yaml
+
+The tests cover various functionality of the system. Below we call out each test
+type. If tests pass, it suggests functionality of the referenced subsystem.
+
++---------------------------+-----------------------------+-------------------------------+-----------------------------+----------------------------------------+
+| Pod-to-pod (intra-host)   | Pod-to-pod (inter-host)     | Pod-to-service (intra-host)   | Pod-to-service (inter-host) | Pod-to-external resource               |
++===========================+=============================+===============================+=============================+========================================+
+| BPF routing is functional | Data plane, routing, network| BPF service map lookup        | VXLAN overlay port if used  | Egress, CiliumNetworkPolicy, masquerade|
++---------------------------+-----------------------------+-------------------------------+-----------------------------+----------------------------------------+
+
+The pod name indicates the connectivity
+variant and the readiness and liveness gate indicates success or failure of the
+test:
+
+.. _test: \ |SCM_WEB|\/examples/kubernetes/connectivity-check/connectivity-check.yaml
+
+.. code:: bash
+
+    $ kubectl get pods
+    NAME                                                     READY   STATUS             RESTARTS   AGE
+    echo-a-9b85dd869-292s2                                   1/1     Running            0          8m37s
+    echo-b-c7d9f4686-gdwcs                                   1/1     Running            0          8m37s
+    host-to-b-multi-node-clusterip-6d496f7cf9-956jb          1/1     Running            0          8m37s
+    host-to-b-multi-node-headless-bd589bbcf-jwbh2            1/1     Running            0          8m37s
+    pod-to-a-7cc4b6c5b8-9jfjb                                1/1     Running            0          8m36s
+    pod-to-a-allowed-cnp-6cc776bb4d-2cszk                    1/1     Running            0          8m36s
+    pod-to-a-external-1111-5c75bd66db-sxfck                  1/1     Running            0          8m35s
+    pod-to-a-l3-denied-cnp-7fdd9975dd-2pp96                  1/1     Running            0          8m36s
+    pod-to-b-intra-node-9d9d4d6f9-qccfs                      1/1     Running            0          8m35s
+    pod-to-b-multi-node-clusterip-5956c84b7c-hwzfg           1/1     Running            0          8m35s
+    pod-to-b-multi-node-headless-6698899447-xlhfw            1/1     Running            0          8m35s
+    pod-to-external-fqdn-allow-google-cnp-667649bbf6-v6rf8   1/1     Running            0          8m35s
+
+Information about test failures can be determined by describing a failed test
+pod
+
+.. code:: bash
+
+    $ kubectl describe pod pod-to-b-intra-node-hostport
+      Warning  Unhealthy  6s (x6 over 56s)   kubelet, agent1    Readiness probe failed: curl: (7) Failed to connect to echo-b-host-headless port 40000: Connection refused
+      Warning  Unhealthy  2s (x3 over 52s)   kubelet, agent1    Liveness probe failed: curl: (7) Failed to connect to echo-b-host-headless port 40000: Connection refused
+
+.. _cluster_connectivity_health:
+
 Checking cluster connectivity health
 ------------------------------------
 
