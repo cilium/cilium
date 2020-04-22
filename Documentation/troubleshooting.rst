@@ -383,6 +383,8 @@ pod
       Warning  Unhealthy  6s (x6 over 56s)   kubelet, agent1    Readiness probe failed: curl: (7) Failed to connect to echo-b-host-headless port 40000: Connection refused
       Warning  Unhealthy  2s (x3 over 52s)   kubelet, agent1    Liveness probe failed: curl: (7) Failed to connect to echo-b-host-headless port 40000: Connection refused
 
+.. _cluster_connectivity_health:
+
 Checking cluster connectivity health
 ------------------------------------
 
