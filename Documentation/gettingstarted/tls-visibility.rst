@@ -100,8 +100,9 @@ requires four primary steps:
 
 1) Create an internal certificate authority by generating a CA private key and CA certificate.
 
-2) For any destination where TLS inspection is desired (e.g., swapi.co in the example below), generate a
-private key and certificate signing request with a common name that matches the destination DNS name.
+2) For any destination where TLS inspection is desired (e.g., artii.herokuapp.com in the example below),
+generate a private key and certificate signing request with a common name that matches the destination DNS
+name.
 
 3) Use the CA private key to create a signed certificate.
 
@@ -163,23 +164,23 @@ Create Private Key and Certificate Signing Request for a Given DNS Name
 -----------------------------------------------------------------------
 
 Generate an internal private key and certificate signing with a common name that matches the DNS name
-of the destination service to be intercepted for inspection (in this example, use ``swapi.co``).
+of the destination service to be intercepted for inspection (in this example, use ``artii.herokuapp.com``).
 
 First create the private key:
 
 .. parsed-literal::
 
-    $ openssl genrsa -out internal-swapi.key 2048
+    $ openssl genrsa -out internal-artii.key 2048
 
 Next, create a certificate signing request, specifying the DNS name of the destination service
 for the common name field when prompted.  All other prompts can be filled with any value.
 
 .. parsed-literal::
 
-    $ openssl req -new -key internal-swapi.key -out internal-swapi.csr
+    $ openssl req -new -key internal-artii.key -out internal-artii.csr
 
 The only field that must be a specific value is ensuring that ``Common Name`` is the exact DNS
-destination ``swapi.co`` that will be provided to the client.
+destination ``artii.herokuapp.com`` that will be provided to the client.
 
 
 This example workflow will work for any DNS
@@ -189,17 +190,17 @@ name as long as the toFQDNs rule in the policy YAML (below) is also updated to m
 Use CA to Generate a Signed Certificate for the DNS Name
 --------------------------------------------------------
 
-Use the internal CA private key to create a signed certificate for swapi.co named 'internal-swapi.crt .
+Use the internal CA private key to create a signed certificate for artii.herokuapp.com named ``internal-artii.crt``.
 
 .. parsed-literal::
 
-    $ openssl x509 -req -days 360 -in internal-swapi.csr -CA myCA.crt -CAkey myCA.key -CAcreateserial -out internal-swapi.crt -sha256
+    $ openssl x509 -req -days 360 -in internal-artii.csr -CA myCA.crt -CAkey myCA.key -CAcreateserial -out internal-artii.crt -sha256
 
 Next we create a Kubernetes secret that includes both the private key and signed certificates for the destination service:
 
 .. parsed-literal::
 
-    $ kubectl create secret tls swapi-tls-data -n kube-system --cert=internal-swapi.crt --key=internal-swapi.key
+    $ kubectl create secret tls artii-tls-data -n kube-system --cert=internal-artii.crt --key=internal-artii.key
 
 Add the Internal CA as a Trusted CA Inside the Client Pod
 ---------------------------------------------------------
@@ -257,17 +258,17 @@ have not told Cilium which traffic we want to intercept and inspect.   This is d
 the same Cilium Network Policy constructs that are used for other Cilium Network Policies.
 
 The following Cilium network policy indicates that Cilium should perform HTTP-aware inspect
-of communication between the ``mediabot`` pod to ``swapi.co``.
+of communication between the ``mediabot`` pod to ``artii.herokuapp.com``.
 
 .. literalinclude:: ../../examples/kubernetes-tls-inspection/l7-visibility-tls.yaml
 
 Let's take a closer look at the policy:
 * The ``endpointSelector`` means that this policy will only apply to pods with labels ``class: mediabot, org:empire`` to have the egress access.
-* The first egress section uses ``toFQDNs: matchName`` specification to allow TCP port 443 egress to ``swapi.co``.
+* The first egress section uses ``toFQDNs: matchName`` specification to allow TCP port 443 egress to ``artii.herokuapp.com``.
 * The ``http`` section below the toFQDNs rule
 indicates that such connections should be parsed as HTTP, with a policy of ``{}`` which will allow all requests.
 * The ``terminatingTLS`` and ``originatingTLS`` sections indicate that TLS interception should be used to terminate the initial TLS connection
-from mediabot and initiate a new out-bound TLS connection to ``swapi.co``.
+from mediabot and initiate a new out-bound TLS connection to ``artii.herokuapp.com``.
 * The second egress section allows ``mediabot`` pods to access ``kube-dns`` service. Note that
 ``rules: dns`` instructs Cilium to inspect and allow DNS lookups matching specified patterns.
 In this case, inspect and allow all DNS queries.
@@ -286,7 +287,7 @@ Let's apply the policy:
 Demonstrating TLS Inspection
 ============================
 
-Recall that the policy we pushed will allow all HTTPS requests from ``mediabot`` to ``swapi.co``, but will parse all data at
+Recall that the policy we pushed will allow all HTTPS requests from ``mediabot`` to ``artii.herokuapp.com``, but will parse all data at
 the HTTP-layer, meaning that cilium monitor will report each HTTP request and response.
 
 To see this, open a new window and run the following command to identity the name of the
@@ -298,15 +299,15 @@ Then start running cilium monitor in "L7 mode" to monitor for HTTP requests bein
 
     kubectl exec -it -n kube-system cilium-d5x8v -- cilium monitor -t l7
 
-Next in the original window, from the ``mediabot`` pod we can access ``swapi.co`` via HTTPS:
+Next in the original window, from the ``mediabot`` pod we can access ``artii.herokuapp.com`` via HTTPS:
 
 .. parsed-literal::
 
-    $ kubectl exec -it mediabot -- curl -sL https://swapi.co/api/planets/1/
+    $ kubectl exec -it mediabot -- curl -sL 'https://artii.herokuapp.com/fonts_list'
     ...
     ...
 
-    $ kubectl exec -it mediabot -- curl -sL https://swapi.co/api/vehicles/14/
+    $ kubectl exec -it mediabot -- curl -sL 'https://artii.herokuapp.com/make?text=cilium&font=univers'
     ...
     ...
 

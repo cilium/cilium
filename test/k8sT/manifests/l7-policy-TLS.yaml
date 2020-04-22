@@ -16,7 +16,7 @@ spec:
         dns:
           - matchPattern: "*"
   - toFQDNs:
-    - matchPattern: "swapi.co"
+    - matchPattern: "artii.herokuapp.com"
     toPorts:
     - ports:
       - port: "443"
@@ -24,7 +24,7 @@ spec:
       terminatingTLS:
         secret:
           namespace: "default"
-          name: "swapi-server"
+          name: "artii-server"
       originatingTLS:
         secret:
           namespace: "default"
@@ -32,7 +32,7 @@ spec:
       rules:
         http:
         - method: "GET"
-          path: "/api/planets/1/"
+          path: "^/make(\?.*)?$"
           headerMatches:
           - mismatch: REPLACE
             name: "User-Agent"
