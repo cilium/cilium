@@ -10,7 +10,7 @@ Generate the deployment files using Helm and deploy it:
 
 .. code:: bash
 
-    git clone https://github.com/cilium/hubble.git
+    git clone https://github.com/cilium/hubble.git --branch v0.5
     cd hubble/install/kubernetes
 
     helm template hubble \
