@@ -1,10 +1,11 @@
 # Code owners groups and a brief description of their areas:
-# @cilium-janitors      Catch-all for code not otherwise owned
+# @cilium/janitors      Catch-all for code not otherwise owned
 # @cilium/agent         Cilium Agent
 # @cilium/bpf           BPF Data Path
+# @cilium/build         Building and packaging
 # @cilium/ci            Continuous integration, testing
 # @cilium/cli           Commandline interfaces
-# @cilium/contributing  Developer documentation
+# @cilium/contributing  Developer documentation & tools
 # @cilium/docker        Docker plugin
 # @cilium/docs          Documentation, examples
 # @cilium/endpoint      Endpoint package
@@ -18,26 +19,27 @@
 # @cilium/policy        Policy behaviour
 # @cilium/proxy         L7 proxy, Envoy
 # @cilium/vendor        Vendoring, dependency management
-#
-# Specific code owners:
-# @eloycoto             Debian packaging
-# @aanm @ianvernon      Docker packaging
-# @scanf @borkmann      BPF documentation
 
 # The following filepaths should be sorted so that more specific paths occur
 # after the less specific paths, otherwise the ownership for the specific paths
 # is not properly picked up in Github.
 * @cilium/janitors
 api/ @cilium/api
+api/v1/flow/ @cilium/api @cilium/hubble
+api/v1/observer/ @cilium/api @cilium/hubble
+api/v1/peer/ @cilium/api @cilium/hubble
 bpf/ @cilium/bpf
+Makefile* @cilium/build
+bpf/Makefile* @cilium/build @cilium/bpf
+bpf/sockops/Makefile* @cilium/build @cilium/bpf
+Dockerfile* @cilium/build
 bugtool/cmd/ @cilium/cli
 cilium/ @cilium/cli
 cilium/cmd/preflight_k8s_valid_cnp.go @cilium/kubernetes
-cilium-health/cmd/ @cilium/cli
-cilium-health/launch/ @cilium/health
-contrib/packaging/deb/ @eloycoto
-contrib/packaging/docker/ @aanm @ianvernon
-contrib/vagrant @cilium/ci
+cilium-health/ @cilium/health
+cilium-health/cmd/ @cilium/health @cilium/cli
+contrib/packaging/ @cilium/build
+contrib/vagrant/ @cilium/contributing
 daemon/ @cilium/agent
 daemon/cmd/datapath.* @cilium/bpf
 daemon/cmd/endpoint.* @cilium/endpoint
@@ -52,7 +54,7 @@ daemon/cmd/proxy.go @cilium/proxy
 daemon/cmd/state.go @cilium/endpoint
 daemon/cmd/sysctl_linux.go @cilium/bpf
 Documentation/ @cilium/docs
-Documentation/bpf.rst @scanf @borkmann
+Documentation/bpf.rst @cilium/bpf
 Documentation/contributing/ @cilium/contributing
 envoy/ @cilium/proxy
 examples/ @cilium/docs
@@ -61,7 +63,7 @@ examples/minikube/ @cilium/kubernetes
 *.Jenkinsfile @cilium/ci
 hubble-relay/ @cilium/hubble
 hubble-relay.Dockerfile @cilium/hubble
-install/kubernetes/ @cilium/kubernetes
+install/kubernetes/ @cilium/kubernetes @cilium/docs
 jenkinsfiles @cilium/ci
 Jenkinsfile.nightly @cilium/ci
 operator/ @cilium/operator
@@ -107,22 +109,27 @@ pkg/monitor/format @cilium/cli
 pkg/monitor/payload @cilium/api
 pkg/mountinfo @cilium/bpf
 pkg/mtu @cilium/bpf
-pkg/option @cilium/option
+pkg/option @cilium/cli
 pkg/pidfile @cilium/agent
 pkg/policy @cilium/policy
 pkg/policy/api/ @cilium/api
 pkg/proxy/ @cilium/proxy
 pkg/proxy/accesslog @cilium/api
 pkg/serializer @cilium/agent
-pkg/service @cilium/policy
+pkg/service @cilium/loadbalancer
 pkg/sysctl @cilium/bpf
+pkg/testutils/ @cilium/ci
 pkg/tuple @cilium/bpf
 plugins/cilium-cni/ @cilium/kubernetes
 plugins/cilium-docker/ @cilium/docker
 proxylib/ @cilium/proxy
 README.rst @cilium/docs
 test/ @cilium/ci
+test/bpf/ @cilium/ci @cilium/bpf
+test/Makefile* @cilium/ci @cilium/build
 tests/ @cilium/ci
 Vagrantfile @cilium/ci
+/Vagrantfile @cilium/contributing
+go.sum @cilium/vendor
+go.mod @cilium/vendor
 vendor/ @cilium/vendor
-Makefile @cilium/janitors
