@@ -25,6 +25,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/reflection"
 )
 
 // Server is hubble's gRPC server.
@@ -57,6 +58,7 @@ func (s *Server) initGRPCServer() {
 		peerpb.RegisterPeerServer(srv, *s.opts.PeerService)
 	}
 	s.srv = srv
+	reflection.Register(s.srv)
 }
 
 // Serve starts the hubble server. It accepts new connections on configured
