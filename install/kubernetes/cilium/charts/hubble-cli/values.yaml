@@ -11,6 +11,11 @@ image:
 args:
   - observe
   - --follow
+  - --type=trace
+  - --type=drop
+  - --type=l7
+  - --type=policy-verdict
+  - --output=json
 
 # Specifies the resources for the hubble-cli container
 resources: {}
