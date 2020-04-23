@@ -123,9 +123,7 @@ var _ = Describe("K8sHubbleTest", func() {
 			"global.hubble.cli.enabled": "true",
 		})
 
-		err := kubectl.WaitforPods(hubbleNamespace, hubbleSelector, helpers.HelperTimeout)
-		Expect(err).Should(BeNil(), "hubble-cli pods did not become ready")
-
+		var err error
 		hubblePodK8s1, err = hubbleGetPodOnNodeWithLabel(hubbleNamespace, helpers.K8s1)
 		Expect(err).Should(BeNil(), "unable to find hubble-cli pod on %s", helpers.K8s1)
 	})

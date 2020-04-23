@@ -87,6 +87,14 @@ func ExpectCiliumPreFlightInstallReady(vm *helpers.Kubectl) {
 	Expect(err).To(BeNil(), "cilium pre-flight check is not ready after timeout, pods status:\n %s", warningMessage)
 }
 
+// ExpectHubbleClientReady is a wrapper around helpers/WaitForPods. It asserts
+// that the error returned by that function is nil.
+func ExpectHubbleClientReady(vm *helpers.Kubectl) {
+	By("Waiting for Hubble client to be ready")
+	err := vm.WaitforPods(helpers.CiliumNamespace, "-l k8s-app=hubble-cli", longTimeout)
+	ExpectWithOffset(1, err).Should(BeNil(), "Hubble client was not able to get into ready state")
+}
+
 // DeployCiliumAndDNS deploys DNS and cilium into the kubernetes cluster
 func DeployCiliumAndDNS(vm *helpers.Kubectl, ciliumFilename string) {
 	DeployCiliumOptionsAndDNS(vm, ciliumFilename, map[string]string{"global.debug.verbose": "flow"})
@@ -108,6 +116,7 @@ func RedeployCilium(vm *helpers.Kubectl, ciliumFilename string, options map[stri
 	redeployCilium(vm, ciliumFilename, options)
 	ExpectCiliumReady(vm)
 	ExpectCiliumOperatorReady(vm)
+	ExpectHubbleClientReady(vm)
 }
 
 // DeployCiliumOptionsAndDNS deploys DNS and cilium with options into the kubernetes cluster
@@ -137,6 +146,7 @@ func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, ciliumFilename string, optio
 
 	ExpectCiliumReady(vm)
 	ExpectCiliumOperatorReady(vm)
+	ExpectHubbleClientReady(vm)
 	ExpectKubeDNSReady(vm)
 }
 
