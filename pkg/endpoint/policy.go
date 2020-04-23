@@ -680,12 +680,13 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 				metadata := e.FormatGlobalEndpointID()
 				k8sNamespace := e.K8sNamespace
 				k8sPodName := e.K8sPodName
+				namedPorts := e.k8sPorts
 
 				// Release lock as we do not want to have long-lasting key-value
 				// store operations resulting in lock being held for a long time.
 				e.runlock()
 
-				if err := ipcache.UpsertIPToKVStore(ctx, IP, hostIP, ID, key, metadata, k8sNamespace, k8sPodName); err != nil {
+				if err := ipcache.UpsertIPToKVStore(ctx, IP, hostIP, ID, key, metadata, k8sNamespace, k8sPodName, namedPorts); err != nil {
 					return fmt.Errorf("unable to add endpoint IP mapping '%s'->'%d': %s", IP.String(), ID, err)
 				}
 				return nil
