@@ -77,28 +77,28 @@ const (
 ## or, if running Bash 4.1+
 	brew install bash-completion@2
 ## afterwards you only need to run
-	hubble-proxy completion bash > $(brew --prefix)/etc/bash_completion.d/hubble-proxy
+	hubble-relay completion bash > $(brew --prefix)/etc/bash_completion.d/hubble-relay
 
 
 # Installing bash completion on Linux
-## Load the hubble-proxy completion code for bash into the current shell
-	source <(hubble-proxy completion bash)
+## Load the hubble-relay completion code for bash into the current shell
+	source <(hubble-relay completion bash)
 ## Write bash completion code to a file and source if from .bash_profile
-	hubble-proxy completion bash > ~/.hubble-proxy/completion.bash.inc
+	hubble-relay completion bash > ~/.hubble-relay/completion.bash.inc
 	printf "
-	  # hubble-proxy shell completion
-	  source '$HOME/.hubble-proxy/completion.bash.inc'
+	  # hubble-relay shell completion
+	  source '$HOME/.hubble-relay/completion.bash.inc'
 	  " >> $HOME/.bash_profile
 	source $HOME/.bash_profile
 
 # Installing zsh completion on Linux/macOS
-## Load the hubble-proxy completion code for zsh into the current shell
-        source <(hubble-proxy completion zsh)
+## Load the hubble-relay completion code for zsh into the current shell
+        source <(hubble-relay completion zsh)
 ## Write zsh completion code to a file and source if from .zshrc
-        hubble-proxy completion zsh > ~/.hubble-proxy/completion.zsh.inc
+        hubble-relay completion zsh > ~/.hubble-relay/completion.zsh.inc
         printf "
-          # hubble-proxy shell completion
-          source '$HOME/.hubble-proxy/completion.zsh.inc'
+          # hubble-relay shell completion
+          source '$HOME/.hubble-relay/completion.zsh.inc'
           " >> $HOME/.zshrc
         source $HOME/.zshrc`
 )

@@ -19,6 +19,6 @@ const (
 	// listen address does not include one.
 	ServerPort = 4244
 
-	// ProxyPort is the default port for hubble's proxy service.
-	ProxyPort = 4245
+	// RelayPort is the default port for the hubble-relay server.
+	RelayPort = 4245
 )

@@ -12,21 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package proxyoption
+package relayoption
 
 import (
 	"strings"
 	"time"
 )
 
-// Options stores all the configuration values for the hubble proxy server.
+// Options stores all the configuration values for the hubble-relay server.
 type Options struct {
 	HubbleTarget  string
 	DialTimeout   time.Duration
 	ListenAddress string
 }
 
-// Option customizes the configuration of the hubble proxy server.
+// Option customizes the configuration of the hubble-relay server.
 type Option func(o *Options) error
 
 // WithHubbleTarget sets the URL of the hubble server instance to connect to.
@@ -49,7 +49,7 @@ func WithDialTimeout(t time.Duration) Option {
 	}
 }
 
-// WithListenAddress sets the listen address for the hubble proxy server.
+// WithListenAddress sets the listen address for the hubble-relay server.
 func WithListenAddress(a string) Option {
 	return func(o *Options) error {
 		o.ListenAddress = a

@@ -7,7 +7,7 @@ SUBDIRS_CILIUM_CONTAINER := proxylib envoy plugins/cilium-cni bpf cilium daemon 
 ifdef LIBNETWORK_PLUGIN
 SUBDIRS_CILIUM_CONTAINER += plugins/cilium-docker
 endif
-SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) operator plugins tools hubble-proxy
+SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) operator plugins tools hubble-relay
 GOFILES_EVAL := $(subst _$(ROOT_DIR)/,,$(shell $(GO_LIST) -e ./...))
 GOFILES ?= $(GOFILES_EVAL)
 TESTPKGS_EVAL := $(subst github.com/cilium/cilium/,,$(shell $(GO_LIST) -e ./... | grep -v '/api/v1\|/vendor\|/contrib' | grep -v -P 'test(?!/helpers/logutils)'))

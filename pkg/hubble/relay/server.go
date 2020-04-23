@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package proxy
+package relay
 
 import (
 	"context"
@@ -22,7 +22,7 @@ import (
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
-	"github.com/cilium/cilium/pkg/hubble/proxy/proxyoption"
+	"github.com/cilium/cilium/pkg/hubble/relay/relayoption"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -36,12 +36,12 @@ import (
 type Server struct {
 	client observerpb.ObserverClient
 	server *grpc.Server
-	opts   proxyoption.Options
+	opts   relayoption.Options
 }
 
-// NewServer creates a new proxy Server.
-func NewServer(options ...proxyoption.Option) (*Server, error) {
-	opts := proxyoption.Default
+// NewServer creates a new hubble-relay Server.
+func NewServer(options ...relayoption.Option) (*Server, error) {
+	opts := relayoption.Default
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {
 			return nil, fmt.Errorf("failed to apply option: %v", err)
@@ -55,7 +55,7 @@ func NewServer(options ...proxyoption.Option) (*Server, error) {
 // ensure that GRPCServer implements the observer.ObserverServer interface.
 var _ observerpb.ObserverServer = (*Server)(nil)
 
-// Serve starts the hubble proxy server. Serve does not return unless a
+// Serve starts the hubble-relay server. Serve does not return unless a
 // listening fails with fatal errors. Serve will return a non-nil error if
 // Stop() is not called.
 func (s *Server) Serve() error {
@@ -85,13 +85,13 @@ func (s *Server) connectClient() error {
 	return nil
 }
 
-// Stop terminates the hubble proxy server.
+// Stop terminates the hubble-relay server.
 func (s *Server) Stop() {
 	s.server.Stop()
 }
 
 // GetFlows implements observer.ObserverServer.GetFlows by proxying requests to
-// the hubble instance the proxy is connected to.
+// the hubble instance hubble-relay is connected to.
 func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, server observerpb.Observer_GetFlowsServer) error {
 	c, err := s.client.GetFlows(context.Background(), req)
 	if err != nil {
@@ -116,7 +116,7 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, server observerpb.Obs
 }
 
 // ServerStatus implements observer.ObserverServer.ServerStatus by proxying
-// requests to the hubble instance the proxy is connected to.
+// requests to the hubble instance hubble-relay is connected to.
 func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusRequest) (*observerpb.ServerStatusResponse, error) {
 	return s.client.ServerStatus(ctx, req)
 }

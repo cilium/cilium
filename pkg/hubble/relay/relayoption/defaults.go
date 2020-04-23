@@ -12,29 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package version
+package relayoption
 
 import (
 	"fmt"
-	"io"
+	"time"
 
-	"github.com/cilium/cilium/pkg/version"
-
-	"github.com/spf13/cobra"
+	"github.com/cilium/cilium/pkg/defaults"
+	hubbledefaults "github.com/cilium/cilium/pkg/hubble/defaults"
 )
 
-// New creates a new version command.
-func New() *cobra.Command {
-	return &cobra.Command{
-		Use:   "version",
-		Short: "Display detailed version information",
-		Long:  `Displays information about the version of this software.`,
-		Run: func(cmd *cobra.Command, _ []string) {
-			runVersion(cmd.OutOrStdout())
-		},
-	}
-}
-
-func runVersion(out io.Writer) {
-	fmt.Fprintf(out, "Hubble-proxy: %s\n", version.Version)
+// Default is the reference point for default values.
+var Default = Options{
+	HubbleTarget:  "unix://" + defaults.HubbleSockPath,
+	DialTimeout:   5 * time.Second,
+	ListenAddress: fmt.Sprintf(":%d", hubbledefaults.RelayPort),
 }

@@ -20,7 +20,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/cilium/cilium/pkg/hubble/proxy"
+	"github.com/cilium/cilium/pkg/hubble/relay"
 	"golang.org/x/sys/unix"
 
 	"github.com/spf13/cobra"
@@ -39,9 +39,9 @@ func New() *cobra.Command {
 }
 
 func runServe() error {
-	srv, err := proxy.NewServer()
+	srv, err := relay.NewServer()
 	if err != nil {
-		return fmt.Errorf("cannot create proxy server: %v", err)
+		return fmt.Errorf("cannot create hubble-relay server: %v", err)
 	}
 
 	if err := srv.Serve(); err != nil {

@@ -59,7 +59,7 @@ examples/ @cilium/docs
 examples/kubernetes/ @cilium/kubernetes
 examples/minikube/ @cilium/kubernetes
 *.Jenkinsfile @cilium/ci
-hubble-proxy/ @cilium/hubble
+hubble-relay/ @cilium/hubble
 install/kubernetes/ @cilium/kubernetes
 jenkinsfiles @cilium/ci
 Jenkinsfile.nightly @cilium/ci
