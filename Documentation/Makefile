@@ -13,7 +13,7 @@ clean:
 
 builder-image: Dockerfile requirements.txt
 	$(QUIET)tar c requirements.txt Dockerfile \
-	  | $(CONTAINER_ENGINE_FULL) build --tag cilium/docs-builder -
+	  | $(CONTAINER_ENGINE) build --tag cilium/docs-builder -
 
 DOCKER_RUN := $(CONTAINER_ENGINE_FULL) container run --rm \
 		--workdir /src/Documentation \
@@ -48,7 +48,7 @@ run-server: stop-server
 	# Work around Docker issue where this directory is created as root in
 	# the `--volume` parameter below. See also GH-10869.
 	$(QUIET)mkdir -p $(CURDIR)/_build/html/
-	$(QUIET)$(CONTAINER_ENGINE_FULL) container run --rm \
+	$(QUIET)$(CONTAINER_ENGINE) container run --rm \
 		--detach \
 		--interactive \
 		--tty \
@@ -59,4 +59,4 @@ run-server: stop-server
 	@echo "$$(tput setaf 2)Running at http://localhost:$(DOCS_PORT)$$(tput sgr0)"
 
 stop-server:
-	-$(QUIET)$(CONTAINER_ENGINE_FULL) container rm --force --volumes docs-cilium
+	-$(QUIET)$(CONTAINER_ENGINE) container rm --force --volumes docs-cilium
