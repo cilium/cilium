@@ -319,49 +319,32 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 	}
 
 	if !metaEqual {
-		// Keep old named ports if new identity is from kv-store and has no named ports.
-		// This needs to be done to preserve the named ports as kv-store does not have them.
-		keepOldNamedPorts := newIdentity.Source == source.KVStore && len(newNamedPorts) == 0 && len(oldK8sMeta.NamedPorts) > 0
-
 		if k8sMeta == nil {
-			if !keepOldNamedPorts {
-				delete(ipc.ipToK8sMetadata, ip)
-			} else {
-				oldK8sMeta.PodName = ""
-				oldK8sMeta.Namespace = ""
-				ipc.ipToK8sMetadata[ip] = oldK8sMeta
-			}
+			delete(ipc.ipToK8sMetadata, ip)
 		} else {
-			meta := *k8sMeta
-			if keepOldNamedPorts {
-				meta.NamedPorts = oldK8sMeta.NamedPorts
-			}
-			ipc.ipToK8sMetadata[ip] = meta
+			ipc.ipToK8sMetadata[ip] = *k8sMeta
 		}
 
-		// Update named ports
-		if !keepOldNamedPorts {
-			// Check for deleted values
-			for k := range oldK8sMeta.NamedPorts {
-				if _, ok := newNamedPorts[k]; !ok {
+		// Update named ports, first check for deleted values
+		for k := range oldK8sMeta.NamedPorts {
+			if _, ok := newNamedPorts[k]; !ok {
+				namedPortsChanged = true
+				break
+			}
+		}
+		if !namedPortsChanged {
+			// Check for added new or changed entries
+			for k, v := range newNamedPorts {
+				if v2, ok := oldK8sMeta.NamedPorts[k]; !ok || v2 != v {
 					namedPortsChanged = true
 					break
 				}
 			}
-			if !namedPortsChanged {
-				// Check for added new or changed entries
-				for k, v := range newNamedPorts {
-					if v2, ok := oldK8sMeta.NamedPorts[k]; !ok || v2 != v {
-						namedPortsChanged = true
-						break
-					}
-				}
-			}
-			if namedPortsChanged {
-				// It is possible that some other POD defines same values, check if
-				// anything changes over all the PODs.
-				namedPortsChanged = ipc.updateNamedPorts()
-			}
+		}
+		if namedPortsChanged {
+			// It is possible that some other POD defines same values, check if
+			// anything changes over all the PODs.
+			namedPortsChanged = ipc.updateNamedPorts()
 		}
 	}
 

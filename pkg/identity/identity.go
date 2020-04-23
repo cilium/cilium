@@ -67,6 +67,18 @@ type IPIdentityPair struct {
 	Metadata     string          `json:"Metadata"`
 	K8sNamespace string          `json:"K8sNamespace,omitempty"`
 	K8sPodName   string          `json:"K8sPodName,omitempty"`
+	NamedPorts   []NamedPort     `json:"NamedPorts,omitempty"`
+}
+
+// NamedPort is a mapping from a port name to a port number and protocol.
+//
+// WARNING - STABLE API
+// This structure is written as JSON to the key-value store. Do NOT modify this
+// structure in ways which are not JSON forward compatible.
+type NamedPort struct {
+	Name     string `json:"Name"`
+	Port     uint16 `json:"Port"`
+	Protocol string `json:"Protocol"`
 }
 
 // Sanitize takes a partially initialized Identity (for example, deserialized

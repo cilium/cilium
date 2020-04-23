@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"unsafe"
 
@@ -245,11 +246,51 @@ func (l4 *L4Filter) GetPort() uint16 {
 
 // NamedPort represents a mapping from a port name to the port number and protocol
 type NamedPort struct {
-	Proto uint8  // 0 for any
 	Port  uint16 // non-0
+	Proto uint8  // 0 for any
 }
 
 type NamedPortsMap map[string]NamedPort
+
+func ValidatePortName(name string) (string, error) {
+	if !iana.IsSvcName(name) { // Port names are formatted as IANA Service Names
+		return "", fmt.Errorf("Invalid port name \"%s\", not using as a named port", name)
+	}
+	return strings.ToLower(name), nil // Normalize for case-insensitive comparison
+}
+
+func ParsePortProtocol(port int, protocol string) (np NamedPort, err error) {
+	var u8p u8proto.U8proto
+	if protocol == "" {
+		u8p = u8proto.TCP // K8s ContainerPort protocol defaults to TCP
+	} else {
+		var err error
+		u8p, err = u8proto.ParseProtocol(protocol)
+		if err != nil {
+			return np, fmt.Errorf("Invalid protocol \"%s\": %s", protocol, err)
+		}
+	}
+	if port < 1 || port > 65535 {
+		return np, fmt.Errorf("Port number %d out of 16-bit range", port)
+	}
+	return NamedPort{
+		Proto: uint8(u8p),
+		Port:  uint16(port),
+	}, nil
+}
+
+func (npm NamedPortsMap) AddPort(name string, port int, protocol string) error {
+	name, err := ValidatePortName(name)
+	if err != nil {
+		return err
+	}
+	np, err := ParsePortProtocol(port, protocol)
+	if err != nil {
+		return err
+	}
+	npm[name] = np
+	return nil
+}
 
 func (npm NamedPortsMap) GetNamedPort(name string, proto uint8) (port uint16, err error) {
 	if npm == nil {

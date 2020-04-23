@@ -310,21 +310,6 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 	c.Assert(npm["dns"].Port, Equals, uint16(53))
 	c.Assert(npm["dns"].Proto, Equals, uint8(0)) // ANY
 
-	// KVStore source can update Kubernetes source, but will not erase named ports
-	updated, namedPortsChanged = IPIdentityCache.Upsert(endpointIP, nil, 0, nil, Identity{
-		ID:     identity,
-		Source: source.KVStore,
-	})
-	c.Assert(updated, Equals, true)
-	c.Assert(namedPortsChanged, Equals, false)
-	npm = IPIdentityCache.GetNamedPorts()
-	c.Assert(npm, NotNil)
-	c.Assert(len(npm), Equals, 2)
-	c.Assert(npm["http"].Port, Equals, uint16(80))
-	c.Assert(npm["http"].Proto, Equals, uint8(6)) // TCP
-	c.Assert(npm["dns"].Port, Equals, uint16(53))
-	c.Assert(npm["dns"].Proto, Equals, uint8(0)) // ANY
-
 	// No duplicates.
 	c.Assert(len(IPIdentityCache.ipToIdentityCache), Equals, 1)
 	c.Assert(len(IPIdentityCache.identityToIPCache), Equals, 1)
@@ -334,7 +319,7 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 	cachedIdentity, exists = IPIdentityCache.LookupByIP(endpointIP)
 	c.Assert(exists, Equals, true)
 	c.Assert(cachedIdentity.ID, Equals, identity)
-	c.Assert(cachedIdentity.Source, Equals, source.KVStore)
+	c.Assert(cachedIdentity.Source, Equals, source.Kubernetes)
 
 	// 2nd identity
 	endpointIP2 := "10.0.0.16"
@@ -378,7 +363,7 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 	c.Assert(npm["https"].Port, Equals, uint16(443))
 	c.Assert(npm["https"].Proto, Equals, uint8(6)) // TCP
 
-	namedPortsChanged = IPIdentityCache.Delete(endpointIP, source.KVStore)
+	namedPortsChanged = IPIdentityCache.Delete(endpointIP, source.Kubernetes)
 	c.Assert(namedPortsChanged, Equals, true)
 	npm = IPIdentityCache.GetNamedPorts()
 	c.Assert(npm, NotNil)
