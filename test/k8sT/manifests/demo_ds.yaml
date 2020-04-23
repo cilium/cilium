@@ -134,6 +134,25 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  name: test-affinity
+spec:
+  type: NodePort
+  ports:
+  - port: 10080
+    targetPort: 80
+    protocol: TCP
+    name: http
+  - port: 10069
+    targetPort: 69
+    protocol: UDP
+    name: tftp
+  sessionAffinity: ClientIP
+  selector:
+    zgroup: testDS
+---
+apiVersion: v1
+kind: Service
+metadata:
   name: test-nodeport-local
 spec:
   type: NodePort

@@ -101,6 +101,10 @@ var (
 		"global.ipv6.enabled":                 "true",
 		"global.psp.enabled":                  "true",
 		"global.ci.kubeCacheMutationDetector": "true",
+		// Disable by default, so that 4.9 CI build does not panic due to
+		// missing LRU support. On 4.19 and net-next we enable it with
+		// kubeProxyReplacement=strict.
+		"global.sessionAffinity.enabled": "false",
 	}
 
 	flannelHelmOverrides = map[string]string{
@@ -2086,6 +2090,18 @@ func (kub *Kubectl) WaitPolicyDeleted(pod string, policyName string) error {
 	}
 
 	return WithTimeout(body, fmt.Sprintf("Policy %s was not deleted in time", policyName), &TimeoutConfig{Timeout: HelperTimeout})
+}
+
+// WaitPodDeleted waits for pods with the given name to be deleted.
+func (kub *Kubectl) WaitPodDeleted(namespace string, pod string) error {
+	body := func() bool {
+		_, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+		defer cancel()
+		res := kub.GetPods(namespace, pod)
+		return !res.WasSuccessful()
+	}
+
+	return WithTimeout(body, fmt.Sprintf("Pod %s was not deleted in time", pod), &TimeoutConfig{Timeout: HelperTimeout})
 }
 
 // CiliumIsPolicyLoaded returns true if the policy is loaded in the given
