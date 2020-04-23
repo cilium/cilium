@@ -296,19 +296,27 @@ data:
   kube-proxy-replacement:  {{ .Values.global.kubeProxyReplacement | quote }}
 {{- end}}
 {{- if .Values.global.hostServices }}
+{{- if .Values.global.hostServices.enabled }}
   enable-host-reachable-services: {{ .Values.global.hostServices.enabled | quote }}
+{{- end }}
 {{- if ne .Values.global.hostServices.protocols "tcp,udp" }}
   host-reachable-services-protos: {{ .Values.global.hostServices.protocols }}
 {{- end }}
 {{- end }}
 {{- if .Values.global.hostPort }}
+{{- if eq .Values.global.kubeProxyReplacement "partial" }}
   enable-host-port: {{ .Values.global.hostPort.enabled | quote }}
 {{- end }}
+{{- end }}
 {{- if .Values.global.externalIPs }}
+{{- if eq .Values.global.kubeProxyReplacement "partial" }}
   enable-external-ips: {{ .Values.global.externalIPs.enabled | quote }}
 {{- end }}
+{{- end }}
 {{- if .Values.global.nodePort }}
+{{- if eq .Values.global.kubeProxyReplacement "partial" }}
   enable-node-port: {{ .Values.global.nodePort.enabled | quote }}
+{{- end }}
 {{- if .Values.global.nodePort.range }}
   node-port-range: {{ .Values.global.nodePort.range | quote }}
 {{- end }}
