@@ -493,7 +493,7 @@ func init() {
 	flags.Bool(option.EnableNodePort, false, "Enable NodePort type services by Cilium (beta)")
 	option.BindEnv(option.EnableNodePort)
 
-	flags.String(option.NodePortMode, option.NodePortModeHybrid, "BPF NodePort mode (\"snat\", \"dsr\", \"hybrid\")")
+	flags.String(option.NodePortMode, option.NodePortModeSNAT, "BPF NodePort mode (\"snat\", \"dsr\", \"hybrid\")")
 	option.BindEnv(option.NodePortMode)
 
 	flags.Bool(option.EnableAutoProtectNodePortRange, true,
