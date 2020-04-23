@@ -5,6 +5,9 @@ dependencies:
   - name: config
     version: 1.7.90
     condition: config.enabled
+  - name: hubble-cli
+    version: 1.7.90
+    condition: hubble-cli.enabled
   - name: operator
     version: 1.7.90
     condition: operator.enabled
