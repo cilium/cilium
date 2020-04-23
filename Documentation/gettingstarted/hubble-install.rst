@@ -10,7 +10,7 @@ Deploy Hubble using Helm:
 
 .. code:: bash
 
-    git clone https://github.com/cilium/hubble.git
+    git clone https://github.com/cilium/hubble.git --branch v0.5
     cd hubble/install/kubernetes
 
     helm install hubble ./hubble \
