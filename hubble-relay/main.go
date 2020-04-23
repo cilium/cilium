@@ -17,7 +17,7 @@ package main
 import (
 	"os"
 
-	"github.com/cilium/cilium/hubble-proxy/cmd"
+	"github.com/cilium/cilium/hubble-relay/cmd"
 )
 
 func main() {

@@ -3,7 +3,7 @@
 
 include ../Makefile.defs
 
-TARGET := hubble-proxy
+TARGET := hubble-relay
 
 .PHONY: all $(TARGET) clean install
 

@@ -15,20 +15,20 @@
 package cmd
 
 import (
-	"github.com/cilium/cilium/hubble-proxy/cmd/completion"
-	"github.com/cilium/cilium/hubble-proxy/cmd/serve"
-	"github.com/cilium/cilium/hubble-proxy/cmd/version"
+	"github.com/cilium/cilium/hubble-relay/cmd/completion"
+	"github.com/cilium/cilium/hubble-relay/cmd/serve"
+	"github.com/cilium/cilium/hubble-relay/cmd/version"
 	v "github.com/cilium/cilium/pkg/version"
 
 	"github.com/spf13/cobra"
 )
 
-// New creates a new hubble-proxy command.
+// New creates a new hubble-relay command.
 func New() *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:          "hubble-proxy",
-		Short:        "hubble-proxy is a proxy server for the hubble API",
-		Long:         "hubble-proxy is a proxy server for the hubble API.",
+		Use:          "hubble-relay",
+		Short:        "hubble-relay is a proxy server for the hubble API",
+		Long:         "hubble-relay is a proxy server for the hubble API.",
 		SilenceUsage: true,
 		Version:      v.GetCiliumVersion().Version,
 	}
