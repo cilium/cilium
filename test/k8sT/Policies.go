@@ -94,6 +94,8 @@ var _ = Describe("K8sPolicyTest", func() {
 		daemonCfg = map[string]string{
 			"global.tls.secretsBackend": "k8s",
 			"global.debug.verbose":      "flow",
+			"global.hubble.enabled":     "true",
+			"global.hubble.cli.enabled": "true",
 		}
 		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, daemonCfg)
 	})
@@ -109,7 +111,7 @@ var _ = Describe("K8sPolicyTest", func() {
 	})
 
 	AfterAll(func() {
-		kubectl.DeleteCiliumDS()
+		kubectl.Delete(ciliumFilename)
 		ExpectAllPodsTerminated(kubectl)
 		kubectl.CloseSSHClient()
 	})
