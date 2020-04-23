@@ -45,8 +45,8 @@ spec:
 {{- toYaml .Values.resources | trim | nindent 10 }}
 {{- end }}
           volumeMounts:
-          - mountPath: {{ .Values.global.hubble.socketPath }}
-            name: hubble-sock
+          - mountPath: {{ dir .Values.global.hubble.socketPath }}
+            name: hubble-sock-dir
             readOnly: true
       restartPolicy: Always
       terminationGracePeriodSeconds: 1
@@ -54,7 +54,7 @@ spec:
       - operator: Exists
       volumes:
       - hostPath:
-          path: {{ .Values.global.hubble.socketPath }}
-          type: Socket
-        name: hubble-sock
+          path: {{ dir .Values.global.hubble.socketPath }}
+          type: Directory
+        name: hubble-sock-dir
 {{- end }}
