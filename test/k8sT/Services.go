@@ -983,7 +983,7 @@ var _ = Describe("K8sServicesTest", func() {
 						testHostPort()
 					})
 
-					It("Tests GH#10983", func() {
+					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests GH#10983", func() {
 						var data v1.Service
 						_, k8s2IP := kubectl.GetNodeInfo(helpers.K8s2)
 
