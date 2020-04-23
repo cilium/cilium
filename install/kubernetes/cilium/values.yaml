@@ -12,6 +12,10 @@ agent:
 config:
   enabled: true
 
+# Do not include the hubble-cli DaemonSet by default
+hubble-cli:
+  enabled: false
+
 # Include the cilium-operator Deployment
 operator:
   enabled: true
