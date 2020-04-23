@@ -19,9 +19,7 @@ CONFDIR?=/etc
 
 INSTALL = install
 
-# Container engine
-export CONTAINER_ENGINE?=docker
-CONTAINER_ENGINE_FULL=$(QUIET)$(CONTAINER_ENGINE)
+CONTAINER_ENGINE?=docker
 
 # Set DOCKER_IMAGE_TAG with "latest" by default
 ifeq ($(DOCKER_IMAGE_TAG),)

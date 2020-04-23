@@ -16,7 +16,7 @@ GOLANGVERSION := $(shell $(GO) version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 GOLANG_SRCFILES := $(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor | sort | uniq)
 
 SWAGGER_VERSION := v0.20.1
-SWAGGER := $(CONTAINER_ENGINE_FULL) run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
+SWAGGER := $(CONTAINER_ENGINE) run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
 
 COVERPKG_EVAL := $(shell if [ $$(echo "$(TESTPKGS)" | wc -w) -gt 1 ]; then echo "./..."; else echo "$(TESTPKGS)"; fi)
 COVERPKG ?= $(COVERPKG_EVAL)
@@ -98,8 +98,8 @@ tests-privileged:
 start-kvstores:
 ifeq ($(SKIP_KVSTORES),"false")
 	@echo Starting key-value store containers...
-	-$(CONTAINER_ENGINE_FULL) rm -f "cilium-etcd-test-container" 2> /dev/null
-	$(CONTAINER_ENGINE_FULL) run -d \
+	-$(QUIET)$(CONTAINER_ENGINE) rm -f "cilium-etcd-test-container" 2> /dev/null
+	$(QUIET)$(CONTAINER_ENGINE) run -d \
 		-e ETCD_UNSUPPORTED_ARCH=$(GOARCH) \
 		--name "cilium-etcd-test-container" \
 		-p 4002:4001 \
@@ -110,12 +110,12 @@ ifeq ($(SKIP_KVSTORES),"false")
 		-listen-peer-urls http://0.0.0.0:2380 \
 		-initial-cluster-token etcd-cluster-1 \
 		-initial-cluster-state new
-	-$(CONTAINER_ENGINE_FULL) rm -f "cilium-consul-test-container" 2> /dev/null
-	rm -rf /tmp/cilium-consul-certs
-	mkdir /tmp/cilium-consul-certs
-	cp $(CURDIR)/test/consul/* /tmp/cilium-consul-certs
-	chmod -R a+rX /tmp/cilium-consul-certs
-	$(CONTAINER_ENGINE_FULL) run -d \
+	-$(QUIET)$(CONTAINER_ENGINE) rm -f "cilium-consul-test-container" 2> /dev/null
+	$(QUIET)rm -rf /tmp/cilium-consul-certs
+	$(QUIET)mkdir /tmp/cilium-consul-certs
+	$(QUIET)cp $(CURDIR)/test/consul/* /tmp/cilium-consul-certs
+	$(QUIET)chmod -R a+rX /tmp/cilium-consul-certs
+	$(QUIET)$(CONTAINER_ENGINE) run -d \
 		--name "cilium-consul-test-container" \
 		-p 8501:8443 \
 		-e 'CONSUL_LOCAL_CONFIG={"skip_leave_on_interrupt": true, "disable_update_check": true}' \
@@ -126,9 +126,9 @@ endif
 
 stop-kvstores:
 ifeq ($(SKIP_KVSTORES),"false")
-	$(CONTAINER_ENGINE_FULL) rm -f "cilium-etcd-test-container"
-	$(CONTAINER_ENGINE_FULL) rm -f "cilium-consul-test-container"
-	rm -rf /tmp/cilium-consul-certs
+	$(QUIET)$(CONTAINER_ENGINE) rm -f "cilium-etcd-test-container"
+	$(QUIET)$(CONTAINER_ENGINE) rm -f "cilium-consul-test-container"
+	$(QUIET)rm -rf /tmp/cilium-consul-certs
 endif
 
 tests: force
@@ -214,7 +214,7 @@ GIT_VERSION: .git
 docker-cilium-image-for-developers:
 	# DOCKER_BUILDKIT allows for faster build as well as the ability to use
 	# a dedicated dockerignore file per Dockerfile.
-	DOCKER_BUILDKIT=1 $(CONTAINER_ENGINE_FULL) build \
+	$(QUIET)DOCKER_BUILDKIT=1 $(CONTAINER_ENGINE) build \
 	     --build-arg LOCKDEBUG=\
 	     --build-arg V=\
 	     --build-arg LIBNETWORK_PLUGIN=\
@@ -223,12 +223,12 @@ docker-cilium-image-for-developers:
 docker-image: clean docker-image-no-clean docker-operator-image docker-plugin-image
 
 docker-image-no-clean: GIT_VERSION
-	$(CONTAINER_ENGINE_FULL) build \
+	$(QUIET)$(CONTAINER_ENGINE) build \
 		--build-arg LOCKDEBUG=${LOCKDEBUG} \
 		--build-arg V=${V} \
 		--build-arg LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
 		-t "cilium/cilium:$(DOCKER_IMAGE_TAG)" .
-	$(CONTAINER_ENGINE_FULL) tag cilium/cilium:$(DOCKER_IMAGE_TAG) cilium/cilium:$(DOCKER_IMAGE_TAG)-${GOARCH}
+	$(QUIET)$(CONTAINER_ENGINE) tag cilium/cilium:$(DOCKER_IMAGE_TAG) cilium/cilium:$(DOCKER_IMAGE_TAG)-${GOARCH}
 	$(QUIET)echo "Push like this when ready:"
 	$(QUIET)echo "${CONTAINER_ENGINE} push cilium/cilium:$(DOCKER_IMAGE_TAG)-${GOARCH}"
 
@@ -237,12 +237,12 @@ docker-cilium-manifest:
 	$(QUIET) contrib/scripts/push_manifest.sh cilium $(DOCKER_IMAGE_TAG)
 
 dev-docker-image: GIT_VERSION
-	$(CONTAINER_ENGINE_FULL) build \
+	$(QUIET)$(CONTAINER_ENGINE) build \
 		--build-arg LOCKDEBUG=${LOCKDEBUG} \
 		--build-arg V=${V} \
 		--build-arg LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
 		-t "cilium/cilium-dev:$(DOCKER_IMAGE_TAG)" .
-	$(CONTAINER_ENGINE_FULL) tag cilium/cilium-dev:$(DOCKER_IMAGE_TAG) cilium/cilium-dev:$(DOCKER_IMAGE_TAG)-${GOARCH}
+	$(QUIET)$(CONTAINER_ENGINE) tag cilium/cilium-dev:$(DOCKER_IMAGE_TAG) cilium/cilium-dev:$(DOCKER_IMAGE_TAG)-${GOARCH}
 	$(QUIET)echo "Push like this when ready:"
 	$(QUIET)echo "${CONTAINER_ENGINE} push cilium/cilium-dev:$(DOCKER_IMAGE_TAG)-${GOARCH}"
 
@@ -251,8 +251,8 @@ docker-cilium-dev-manifest:
 	$(QUIET) contrib/scripts/push_manifest.sh cilium-dev $(DOCKER_IMAGE_TAG)
 
 docker-operator-image: GIT_VERSION
-	$(CONTAINER_ENGINE_FULL) build --build-arg LOCKDEBUG=${LOCKDEBUG} -f cilium-operator.Dockerfile -t "cilium/operator:$(DOCKER_IMAGE_TAG)" .
-	$(CONTAINER_ENGINE_FULL) tag cilium/operator:$(DOCKER_IMAGE_TAG) cilium/operator:$(DOCKER_IMAGE_TAG)-${GOARCH}
+	$(QUIET)$(CONTAINER_ENGINE) build --build-arg LOCKDEBUG=${LOCKDEBUG} -f cilium-operator.Dockerfile -t "cilium/operator:$(DOCKER_IMAGE_TAG)" .
+	$(QUIET)$(CONTAINER_ENGINE) tag cilium/operator:$(DOCKER_IMAGE_TAG) cilium/operator:$(DOCKER_IMAGE_TAG)-${GOARCH}
 	$(QUIET)echo "Push like this when ready:"
 	$(QUIET)echo "docker push cilium/operator:$(DOCKER_IMAGE_TAG)-${GOARCH}"
 
@@ -261,8 +261,8 @@ docker-operator-manifest:
 	$(QUIET) contrib/scripts/push_manifest.sh operator $(DOCKER_IMAGE_TAG)
 
 docker-plugin-image: GIT_VERSION
-	$(CONTAINER_ENGINE_FULL) build --build-arg LOCKDEBUG=${LOCKDEUBG} -f cilium-docker-plugin.Dockerfile -t "cilium/docker-plugin:$(DOCKER_IMAGE_TAG)" .
-	$(CONTAINER_ENGINE_FULL) tag cilium/docker-plugin:$(DOCKER_IMAGE_TAG) cilium/docker-plugin:$(DOCKER_IMAGE_TAG)-${GOARCH}
+	$(QUIET)$(CONTAINER_ENGINE) build --build-arg LOCKDEBUG=${LOCKDEUBG} -f cilium-docker-plugin.Dockerfile -t "cilium/docker-plugin:$(DOCKER_IMAGE_TAG)" .
+	$(QUIET)$(CONTAINER_ENGINE) tag cilium/docker-plugin:$(DOCKER_IMAGE_TAG) cilium/docker-plugin:$(DOCKER_IMAGE_TAG)-${GOARCH}
 	$(QUIET)echo "Push like this when ready:"
 	$(QUIET)echo "docker push cilium/docker-plugin:$(DOCKER_IMAGE_TAG)-${GOARCH}"
 
@@ -271,16 +271,16 @@ docker-plugin-manifest:
 	$(QUIET) contrib/scripts/push_manifest.sh docker-plugin $(DOCKER_IMAGE_TAG)
 
 docker-image-runtime:
-	cd contrib/packaging/docker && ${CONTAINER_ENGINE} build --build-arg ARCH=$(GOARCH) -t "cilium/cilium-runtime:$(UTC_DATE)" -f Dockerfile.runtime .
-	${CONTAINER_ENGINE} tag cilium/cilium-runtime:$(UTC_DATE) cilium/cilium-runtime:$(UTC_DATE)-${GOARCH}
+	cd contrib/packaging/docker && $(CONTAINER_ENGINE) build --build-arg ARCH=$(GOARCH) -t "cilium/cilium-runtime:$(UTC_DATE)" -f Dockerfile.runtime .
+	$(QUIET)$(CONTAINER_ENGINE) tag cilium/cilium-runtime:$(UTC_DATE) cilium/cilium-runtime:$(UTC_DATE)-${GOARCH}
 
 docker-cilium-runtime-manifest:
 	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh cilium-runtime $(UTC_DATE)
 	$(QUIET) contrib/scripts/push_manifest.sh cilium-runtime $(UTC_DATE)
 
 docker-image-builder:
-	${CONTAINER_ENGINE_FULL} build --build-arg ARCH=$(GOARCH) -t "cilium/cilium-builder:$(UTC_DATE)" -f Dockerfile.builder .
-	${CONTAINER_ENGINE_FULL} tag cilium/cilium-builder:$(UTC_DATE) cilium/cilium-builder:$(UTC_DATE)-${GOARCH}
+	$(QUIET)$(CONTAINER_ENGINE) build --build-arg ARCH=$(GOARCH) -t "cilium/cilium-builder:$(UTC_DATE)" -f Dockerfile.builder .
+	$(QUIET)$(CONTAINER_ENGINE) tag cilium/cilium-builder:$(UTC_DATE) cilium/cilium-builder:$(UTC_DATE)-${GOARCH}
 
 docker-cilium-builder-manifest:
 	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh cilium-builder $(UTC_DATE)
@@ -300,16 +300,16 @@ k8s-tests:
 
 generate-api: api/v1/openapi.yaml
 	@$(ECHO_GEN)api/v1/openapi.yaml
-	-$(SWAGGER) generate server -s server -a restapi \
+	-$(QUIET)$(SWAGGER) generate server -s server -a restapi \
 		-t api/v1 -f api/v1/openapi.yaml --default-scheme=unix -C api/v1/cilium-server.yml
-	-$(SWAGGER) generate client -a restapi \
+	-$(QUIET)$(SWAGGER) generate client -a restapi \
 		-t api/v1 -f api/v1/openapi.yaml
 
 generate-health-api: api/v1/health/openapi.yaml
 	@$(ECHO_GEN)api/v1/health/openapi.yaml
-	-$(SWAGGER) generate server -s server -a restapi \
+	-$(QUIET)$(SWAGGER) generate server -s server -a restapi \
 		-t api/v1 -t api/v1/health/ -f api/v1/health/openapi.yaml --default-scheme=unix -C api/v1/cilium-server.yml
-	-$(SWAGGER) generate client -a restapi \
+	-$(QUIET)$(SWAGGER) generate client -a restapi \
 		-t api/v1 -t api/v1/health/ -f api/v1/health/openapi.yaml
 
 generate-k8s-api:
@@ -413,8 +413,8 @@ LOCAL_IMAGE=localhost:32000/cilium/cilium:$(LOCAL_IMAGE_TAG)
 microk8s: check-microk8s
 	$(QUIET)$(MAKE) dev-docker-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
 	@echo "  DEPLOY image to microk8s ($(LOCAL_IMAGE))"
-	$(CONTAINER_ENGINE_FULL) tag cilium/cilium-dev:$(LOCAL_IMAGE_TAG) $(LOCAL_IMAGE)
-	$(CONTAINER_ENGINE_FULL) push $(LOCAL_IMAGE)
+	$(QUIET)$(CONTAINER_ENGINE) tag cilium/cilium-dev:$(LOCAL_IMAGE_TAG) $(LOCAL_IMAGE)
+	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_IMAGE)
 	$(QUIET)microk8s.kubectl apply -f contrib/k8s/microk8s-prepull.yaml
 	$(QUIET)microk8s.kubectl -n kube-system delete pod -l name=prepull
 	$(QUIET)microk8s.kubectl -n kube-system rollout status ds/prepull
