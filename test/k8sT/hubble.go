@@ -34,7 +34,6 @@ var _ = Describe("K8sHubbleTest", func() {
 
 		hubblePodK8s1 string
 
-		hubbleSelector  = "-l k8s-app=hubble-cli"
 		hubbleNamespace = helpers.CiliumNamespace
 
 		demoPath string
@@ -43,23 +42,6 @@ var _ = Describe("K8sHubbleTest", func() {
 		app1Labels  = "id=app1,zgroup=testapp"
 		apps        = []string{helpers.App1, helpers.App2, helpers.App3}
 	)
-
-	hubbleGetPodOnNodeWithLabel := func(ns, label string) (string, error) {
-		node, err := kubectl.GetNodeNameByLabel(label)
-		if err != nil {
-			return "", fmt.Errorf("unable to find node for label %s", label)
-		}
-
-		filter := fmt.Sprintf(
-			"-o jsonpath='{.items[?(@.spec.nodeName == \"%s\")].metadata.name}'", node)
-
-		res := kubectl.ExecShort(fmt.Sprintf(
-			"%s -n %s get pods %s %s", helpers.KubectlCmd, ns, hubbleSelector, filter))
-		if !res.WasSuccessful() {
-			return "", fmt.Errorf("hubble-cli pod not found on node '%s'", node)
-		}
-		return res.Output().String(), nil
-	}
 
 	hubbleExecUntilMatch := func(ns, pod, cmd, substr string) error {
 		By("Executing %q on %s/%s", cmd, ns, pod)
@@ -124,7 +106,7 @@ var _ = Describe("K8sHubbleTest", func() {
 		})
 
 		var err error
-		hubblePodK8s1, err = hubbleGetPodOnNodeWithLabel(hubbleNamespace, helpers.K8s1)
+		hubblePodK8s1, err = kubectl.GetHubbleClientPodOnNodeWithLabel(hubbleNamespace, helpers.K8s1)
 		Expect(err).Should(BeNil(), "unable to find hubble-cli pod on %s", helpers.K8s1)
 	})
 
