@@ -144,7 +144,7 @@ cilium-agent [flags]
       --mtu int                                       Overwrite auto-detected MTU of underlying network
       --nat46-range string                            IPv6 prefix to map IPv4 addresses to (default "0:0:0:0:0:FFFF::/96")
       --node-port-acceleration string                 BPF NodePort acceleration via XDP ("native", "none") (default "none")
-      --node-port-mode string                         BPF NodePort mode ("snat", "dsr", "hybrid") (default "hybrid")
+      --node-port-mode string                         BPF NodePort mode ("snat", "dsr", "hybrid") (default "snat")
       --node-port-range strings                       Set the min/max NodePort port range (default [30000,32767])
       --policy-audit-mode                             Enable policy audit (non-drop) mode
       --policy-queue-size int                         size of queues for policy-related events (default 100)
