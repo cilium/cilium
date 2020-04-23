@@ -262,9 +262,20 @@ Another advantage in DSR mode is that the client's source IP is preserved, so po
 can match on it at the backend node. In the SNAT mode this is not possible.
 Given a specific backend can be used by multiple services, the backends need to be
 made aware of the service IP/port which they need to reply with. Therefore, Cilium
-encodes this information as an IPv4 option or IPv6 extension header at the cost of
-advertising a lower MTU. For TCP services, Cilium only encodes the service IP/port
-for the SYN packet.
+encodes this information in a Cilium-specific IPv4 option or IPv6 Destination Option
+extension header at the cost of advertising a lower MTU. For TCP services, Cilium
+only encodes the service IP/port for the SYN packet, but not subsequent ones. The
+latter also allows to operate Cilium in a hybrid mode as detailed in the next subsection
+where DSR is used for TCP and SNAT for UDP in order to avoid an otherwise needed MTU
+reduction.
+
+Note that usage of DSR mode might not work in some public cloud provider environments
+due to the Cilium-specific IP options that could be dropped by an underlying fabric.
+Therefore, in case of connectivity issues to services where backends are located on
+a remote node from the node that is processing the given NodePort request, it is
+advised to first check whether the NodePort request actually arrived on the node
+containing the backend. If this was not the case, then switching back to the default
+SNAT mode would be advised as a workaround.
 
 Above helm example configuration in a kube-proxy-free environment with DSR-only mode
 enabled would look as follows:
@@ -290,7 +301,8 @@ through the removed extra hop for replies, in particular, when TCP is the main t
 for workloads.
 
 The mode setting ``global.nodePort.mode`` allows to control the behavior through the
-options ``dsr``, ``snat`` and ``hybrid``.
+options ``dsr``, ``snat`` and ``hybrid``. By default the ``snat`` mode is used in the
+agent.
 
 A helm example configuration in a kube-proxy-free environment with DSR enabled in hybrid
 mode would look as follows:
@@ -302,6 +314,7 @@ mode would look as follows:
         --set global.tunnel=disabled \\
         --set global.autoDirectNodeRoutes=true \\
         --set global.kubeProxyReplacement=strict \\
+        --set global.nodePort.mode=hybrid \\
         --set global.k8sServiceHost=API_SERVER_IP \\
         --set global.k8sServicePort=API_SERVER_PORT
 
@@ -321,7 +334,7 @@ acceleration. The majority of drivers supporting 10G or higher rates also suppor
 have SR-IOV variants that support native XDP as well.
 
 The ``global.nodePort.acceleration`` setting is supported for DSR, SNAT and hybrid
-modes and can be enabled as follows for ``nodePort.mode=dsr`` in this example:
+modes and can be enabled as follows for ``nodePort.mode=hybrid`` in this example:
 
 .. parsed-literal::
 
@@ -331,7 +344,7 @@ modes and can be enabled as follows for ``nodePort.mode=dsr`` in this example:
         --set global.autoDirectNodeRoutes=true \\
         --set global.kubeProxyReplacement=strict \\
         --set global.nodePort.acceleration=native \\
-        --set global.nodePort.mode=dsr \\
+        --set global.nodePort.mode=hybrid \\
         --set global.k8sServiceHost=API_SERVER_IP \\
         --set global.k8sServicePort=API_SERVER_PORT
 
