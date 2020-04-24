@@ -38,7 +38,7 @@ Upon allocation of an IP in the allocation pool, the IP is added to the
 
    The node status update is limited to run at most once every 15 seconds.
    Therefore, if several pods are scheduled at the same time, the update of the
-   status section can bag behind.
+   status section can lag behind.
 
 *************
 Configuration
