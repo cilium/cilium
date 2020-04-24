@@ -50,8 +50,11 @@ Grafana
 Gunawardena
 Holzheu
 Huapeng
+hubble
+hubble-relay
 Hypercalls
 IP
+ipam
 IPsec
 IPv
 Integrations
@@ -213,6 +216,7 @@ cni
 cnp
 codebase
 conf
+contrib
 config
 conntrack
 containerd
@@ -263,6 +267,7 @@ elfutils
 endian
 endianness
 endpointSelector
+endpointmanager
 etcd
 ethernet
 ethtool
@@ -441,6 +446,7 @@ observability
 onData
 onwards
 opcodes
+openapi
 openSUSE
 openssl
 orchestrator
