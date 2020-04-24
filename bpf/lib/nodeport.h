@@ -260,9 +260,9 @@ static __always_inline int find_dsr_v6(struct __ctx_buff *ctx, __u8 nexthdr,
 
 static __always_inline int handle_dsr_v6(struct __ctx_buff *ctx, bool *dsr)
 {
+	struct dsr_opt_v6 opt __align_stack_8 = {};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	struct dsr_opt_v6 opt = {};
 	int ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
