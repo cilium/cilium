@@ -243,7 +243,7 @@ func init() {
 	flags.StringSlice(option.DebugVerbose, []string{}, "List of enabled verbose debug groups")
 	option.BindEnv(option.DebugVerbose)
 
-	flags.StringSliceP(option.Device, "d", []string{}, "List of devices facing cluster/external network for attaching bpf_netdev")
+	flags.StringSliceP(option.Device, "d", []string{}, "List of devices facing cluster/external network for attaching bpf_netdev (first device should be one used for direct routing if tunneling is disabled)")
 	option.BindEnv(option.Device)
 
 	flags.String(option.DatapathMode, defaults.DatapathMode, "Datapath mode name")
