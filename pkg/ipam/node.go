@@ -210,7 +210,15 @@ func (n *Node) getMinAllocate() int {
 
 // getMaxAllocate returns the maximum-allocation setting of an AWS node
 func (n *Node) getMaxAllocate() int {
-	return n.resource.Spec.IPAM.MaxAllocate
+	instanceMax := n.ops.GetMaximumAllocatableIPv4()
+	if n.resource.Spec.IPAM.MaxAllocate > 0 {
+		if n.resource.Spec.IPAM.MaxAllocate > instanceMax {
+			n.loggerLocked().Warningf("max-allocate (%d) is higher than the instance type limits (%d)", n.resource.Spec.IPAM.MaxAllocate, instanceMax)
+		}
+		return n.resource.Spec.IPAM.MaxAllocate
+	}
+
+	return instanceMax
 }
 
 // GetNeededAddresses returns the number of needed addresses that need to be
