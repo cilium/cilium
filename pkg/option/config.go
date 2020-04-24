@@ -2169,6 +2169,10 @@ func (c *DaemonConfig) Validate() error {
 		return err
 	}
 
+	if err := c.checkIPv4NativeRoutingCIDR(); err != nil {
+		return nil
+	}
+
 	// Validate that the KVStore Lease TTL value lies between a particular range.
 	if c.KVstoreLeaseTTL > defaults.KVstoreLeaseMaxTTL || c.KVstoreLeaseTTL < defaults.LockLeaseTTL {
 		return fmt.Errorf("KVstoreLeaseTTL does not lie in required range(%ds, %ds)",
@@ -2753,6 +2757,15 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 	if c.FragmentsMapEntries > FragmentsMapMax {
 		return fmt.Errorf("specified max entries %d for fragment-tracking map must not exceed maximum %d",
 			c.FragmentsMapEntries, FragmentsMapMax)
+	}
+
+	return nil
+}
+
+func (c *DaemonConfig) checkIPv4NativeRoutingCIDR() error {
+	if c.IPv4NativeRoutingCIDR() == nil && c.Masquerade && c.Tunnel == TunnelDisabled && c.IPAMMode() != IPAMENI {
+		return fmt.Errorf("native routing cidr must be configured with option --%s in combination with --%s --%s=%s --%s=%s",
+			IPv4NativeRoutingCIDR, Masquerade, TunnelName, c.Tunnel, IPAM, c.IPAMMode())
 	}
 
 	return nil
