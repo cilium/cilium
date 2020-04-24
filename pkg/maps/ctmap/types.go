@@ -477,7 +477,7 @@ type CtEntry struct {
 	Flags     uint16 `align:"rx_closing"`
 	// RevNAT is in network byte order
 	RevNAT           uint16 `align:"rev_nat_index"`
-	_                uint16 `align:"ifindex"`
+	IfIndex          uint16 `align:"ifindex"`
 	TxFlagsSeen      uint8  `align:"tx_flags_seen"`
 	RxFlagsSeen      uint8  `align:"rx_flags_seen"`
 	SourceSecurityID uint32 `align:"src_sec_id"`
@@ -542,7 +542,7 @@ func (c *CtEntry) flagsString() string {
 
 // String returns the readable format
 func (c *CtEntry) String() string {
-	return fmt.Sprintf("expires=%d RxPackets=%d RxBytes=%d RxFlagsSeen=%#02x LastRxReport=%d TxPackets=%d TxBytes=%d TxFlagsSeen=%#02x LastTxReport=%d %s RevNAT=%d SourceSecurityID=%d \n",
+	return fmt.Sprintf("expires=%d RxPackets=%d RxBytes=%d RxFlagsSeen=%#02x LastRxReport=%d TxPackets=%d TxBytes=%d TxFlagsSeen=%#02x LastTxReport=%d %s RevNAT=%d SourceSecurityID=%d IfIndex=%d \n",
 		c.Lifetime,
 		c.RxPackets,
 		c.RxBytes,
@@ -554,5 +554,6 @@ func (c *CtEntry) String() string {
 		c.LastTxReport,
 		c.flagsString(),
 		byteorder.NetworkToHost(c.RevNAT),
-		c.SourceSecurityID)
+		c.SourceSecurityID,
+		c.IfIndex)
 }
