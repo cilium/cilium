@@ -120,7 +120,7 @@ pipeline {
                         retry(3) {
                             timeout(time: 20, unit: 'MINUTES'){
                                 dir("${TESTDIR}") {
-                                    sh 'CILIUM_REGISTRY="$(./print-node-ip)" ./vagrant-ci-start.sh'
+                                    sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
                                 }
                             }
                         }
@@ -149,7 +149,7 @@ pipeline {
                         retry(3) {
                             timeout(time: 20, unit: 'MINUTES'){
                                 dir("${TESTDIR}") {
-                                    sh 'CILIUM_REGISTRY="$(./print-node-ip)" ./vagrant-ci-start.sh'
+                                    sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
                                 }
                             }
                         }
@@ -257,7 +257,7 @@ pipeline {
                         retry(3) {
                             timeout(time: 20, unit: 'MINUTES'){
                                 dir("${TESTDIR}") {
-                                    sh 'CILIUM_REGISTRY="$(./print-node-ip)" ./vagrant-ci-start.sh'
+                                    sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
                                 }
                             }
                         }
@@ -286,7 +286,7 @@ pipeline {
                         retry(3) {
                             timeout(time: 20, unit: 'MINUTES'){
                                 dir("${TESTDIR}") {
-                                    sh 'CILIUM_REGISTRY="$(./print-node-ip)" ./vagrant-ci-start.sh'
+                                    sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
                                 }
                             }
                         }
@@ -393,7 +393,7 @@ pipeline {
                         retry(3) {
                             timeout(time: 20, unit: 'MINUTES'){
                                 dir("${TESTDIR}") {
-                                    sh 'CILIUM_REGISTRY="$(./print-node-ip)" ./vagrant-ci-start.sh'
+                                    sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
                                 }
                             }
                         }

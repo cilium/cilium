@@ -2,4 +2,7 @@
 
 set -e
 
-hostname -I | awk '{print $1}'
+case "$(uname -s)" in
+    Darwin*) ipconfig getifaddr en0 ;;
+    *)       hostname -I | cut -d " " -f 1
+esac
