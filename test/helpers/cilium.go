@@ -890,7 +890,7 @@ INITSYSTEM=SYSTEMD`
 	if err != nil {
 		return err
 	}
-	defer os.Remove("cilium")
+	defer os.Remove(ciliumConfig)
 
 	confPath := filepath.Join("/home/vagrant/go/src/github.com/cilium/cilium/test", ciliumConfig)
 	res := s.Exec(fmt.Sprintf("sudo cp %s /etc/sysconfig/cilium", confPath))
