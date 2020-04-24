@@ -111,8 +111,6 @@ pipeline {
                         K8S_VERSION="1.12"
                         GOPATH="${WORKSPACE}/${K8S_VERSION}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                        KUBECONFIG="vagrant-kubeconfig"
-                        //setting it here so we don't compile Cilium in vagrant nodes (already done on local node registry)
                     }
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
@@ -140,8 +138,6 @@ pipeline {
                         K8S_VERSION="1.13"
                         GOPATH="${WORKSPACE}/${K8S_VERSION}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                        KUBECONFIG="vagrant-kubeconfig"
-                        //setting it here so we don't compile Cilium in vagrant nodes (already done on local node registry)
                     }
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
@@ -179,10 +175,9 @@ pipeline {
                         K8S_VERSION="1.12"
                         GOPATH="${WORKSPACE}/${K8S_VERSION}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                        KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG} -cilium.registry=$(./print-node-ip.sh)'
+                        sh 'cd ${TESTDIR}; ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.registry=$(./print-node-ip.sh)'
                     }
                     post {
                         always {
@@ -206,10 +201,9 @@ pipeline {
                         K8S_VERSION="1.13"
                         GOPATH="${WORKSPACE}/${K8S_VERSION}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                        KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG} -cilium.registry=$(./print-node-ip.sh)'
+                        sh 'cd ${TESTDIR}; ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.registry=$(./print-node-ip.sh)'
                     }
                     post {
                         always {
@@ -248,8 +242,6 @@ pipeline {
                         K8S_VERSION="1.14"
                         GOPATH="${WORKSPACE}/${K8S_VERSION}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                        KUBECONFIG="vagrant-kubeconfig"
-                        //setting it here so we don't compile Cilium in vagrant nodes (already done on local node registry)
                     }
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
@@ -277,8 +269,6 @@ pipeline {
                         K8S_VERSION="1.15"
                         GOPATH="${WORKSPACE}/${K8S_VERSION}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                        KUBECONFIG="vagrant-kubeconfig"
-                        //setting it here so we don't compile Cilium in vagrant nodes (already done on local node registry)
                     }
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
@@ -316,10 +306,9 @@ pipeline {
                         K8S_VERSION="1.14"
                         GOPATH="${WORKSPACE}/${K8S_VERSION}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                        KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG} -cilium.registry=$(./print-node-ip.sh)'
+                        sh 'cd ${TESTDIR}; ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.registry=$(./print-node-ip.sh)'
                     }
                     post {
                         always {
@@ -343,10 +332,9 @@ pipeline {
                         K8S_VERSION="1.15"
                         GOPATH="${WORKSPACE}/${K8S_VERSION}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                        KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG} -cilium.registry=$(./print-node-ip.sh)'
+                        sh 'cd ${TESTDIR}; ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.registry=$(./print-node-ip.sh)'
                     }
                     post {
                         always {
@@ -384,8 +372,6 @@ pipeline {
                         K8S_VERSION="1.16"
                         GOPATH="${WORKSPACE}/${K8S_VERSION}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                        KUBECONFIG="vagrant-kubeconfig"
-                        //setting it here so we don't compile Cilium in vagrant nodes (already done on local node registry)
                     }
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
@@ -423,10 +409,9 @@ pipeline {
                         K8S_VERSION="1.16"
                         GOPATH="${WORKSPACE}/${K8S_VERSION}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                        KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG} -cilium.registry=$(./print-node-ip.sh)'
+                        sh 'cd ${TESTDIR}; ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.registry=$(./print-node-ip.sh)'
                     }
                     post {
                         always {
