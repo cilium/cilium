@@ -34,6 +34,15 @@
 #if defined(ENABLE_IPV6) && !defined(IPV6_NODEPORT)
 #define IPV6_NODEPORT { .addr = { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 } }
 #endif
+#ifndef DIRECT_ROUTING_DEV_IFINDEX
+#define DIRECT_ROUTING_DEV_IFINDEX 0
+#endif
+#if defined(ENABLE_IPV4) && !defined(IPV4_DIRECT_ROUTING)
+#define IPV4_DIRECT_ROUTING 0
+#endif
+#if defined(ENABLE_IPV6) && !defined(IPV6_DIRECT_ROUTING)
+#define IPV6_DIRECT_ROUTING { .addr = { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 } }
+#endif
 #endif /* ENABLE_NODEPORT */
 
 static __always_inline __maybe_unused void
@@ -329,7 +338,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 		return DROP_INVALID;
 
 	fib_params.family = AF_INET6;
-	fib_params.ifindex = NATIVE_DEV_IFINDEX;
+	fib_params.ifindex = DIRECT_ROUTING_DEV_IFINDEX;
 	ipv6_addr_copy((union v6addr *) &fib_params.ipv6_src, (union v6addr *) &ip6->saddr);
 	ipv6_addr_copy((union v6addr *) &fib_params.ipv6_dst, (union v6addr *) &ip6->daddr);
 
@@ -350,7 +359,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT)
 int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 {
-	int ifindex = NATIVE_DEV_IFINDEX;
+	int ifindex = DIRECT_ROUTING_DEV_IFINDEX;
 	int ret, dir = ctx_load_meta(ctx, CB_NAT);
 	struct bpf_fib_lookup fib_params = {};
 	struct ipv6_nat_target target = {
@@ -360,7 +369,8 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 	};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	union v6addr tmp = IPV6_NODEPORT;
+	union v6addr tmp = IPV6_DIRECT_ROUTING;
+
 
 	target.addr = tmp;
 #ifdef ENCAP_IFINDEX
@@ -945,7 +955,7 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 		return DROP_INVALID;
 
 	fib_params.family = AF_INET;
-	fib_params.ifindex = NATIVE_DEV_IFINDEX;
+	fib_params.ifindex = DIRECT_ROUTING_DEV_IFINDEX;
 	fib_params.ipv4_src = ip4->saddr;
 	fib_params.ipv4_dst = ip4->daddr;
 
@@ -966,7 +976,7 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT)
 int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 {
-	int ifindex = NATIVE_DEV_IFINDEX;
+	int ifindex = DIRECT_ROUTING_DEV_IFINDEX;
 	int ret, dir = ctx_load_meta(ctx, CB_NAT);
 	struct bpf_fib_lookup fib_params = {};
 	struct ipv4_nat_target target = {
@@ -977,7 +987,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 	void *data, *data_end;
 	struct iphdr *ip4;
 
-	target.addr = IPV4_NODEPORT;
+	target.addr = IPV4_DIRECT_ROUTING;
 #ifdef ENCAP_IFINDEX
 	if (dir == NAT_DIR_EGRESS) {
 		struct remote_endpoint_info *info;

@@ -564,24 +564,39 @@ if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$MODE" = "routed" ] ||
 			done
 		fi
 
+		NP_COPTS=""
+
+		if [ "$MODE" = "direct" ] && [ "$NODE_PORT" = "true" ] ; then
+			# First device from the list is used for direct routing between nodes
+			DIRECT_ROUTING_DEV=$(echo "${NATIVE_DEVS}" | cut -d\; -f1)
+			DIRECT_ROUTING_DEV_IDX=$(cat /sys/class/net/${DIRECT_ROUTING_DEV}/ifindex)
+			NP_COPTS="${NP_COPTS} -DDIRECT_ROUTING_DEV_IFINDEX=${DIRECT_ROUTING_DEV_IDX}"
+			if [ "$IP4_HOST" != "<nil>" ]; then
+				NP_COPTS="${NP_COPTS} -DIPV4_DIRECT_ROUTING=${v4_addrs[$DIRECT_ROUTING_DEV]}"
+			fi
+			if [ "$IP6_HOST" != "<nil>" ]; then
+				NP_COPTS="${NP_COPTS} -DIPV6_DIRECT_ROUTING={.addr={${v6_addrs[$DIRECT_ROUTING_DEV]}}}"
+			fi
+		fi
+
 		for NATIVE_DEV in ${NATIVE_DEVS//;/ }; do
-			COPTS="-DSECLABEL=${ID_WORLD}"
+			LOCAL_COPTS="${NP_COPTS} -DSECLABEL=${ID_WORLD}"
 			NATIVE_DEV_IDX=$(cat /sys/class/net/${NATIVE_DEV}/ifindex)
 			CALLS_MAP=cilium_calls_netdev_${NATIVE_DEV_IDX}
 
 			if [ "$NODE_PORT" = "true" ]; then
-				COPTS="${COPTS} -DLB_L3 -DLB_L4 -DDISABLE_LOOPBACK_LB -DNATIVE_DEV_IFINDEX=${NATIVE_DEV_IDX}"
+				LOCAL_COPTS="${LOCAL_COPTS} -DLB_L3 -DLB_L4 -DDISABLE_LOOPBACK_LB -DNATIVE_DEV_IFINDEX=${NATIVE_DEV_IDX}"
 				if [ "$IP4_HOST" != "<nil>" ]; then
-					COPTS="${COPTS} -DIPV4_NODEPORT=${v4_addrs[$NATIVE_DEV]}"
+					LOCAL_COPTS="${LOCAL_COPTS} -DIPV4_NODEPORT=${v4_addrs[$NATIVE_DEV]}"
 				fi
 				if [ "$IP6_HOST" != "<nil>" ]; then
-					COPTS="${COPTS} -DIPV6_NODEPORT={.addr={${v6_addrs[$NATIVE_DEV]}}}"
+					LOCAL_COPTS="${LOCAL_COPTS} -DIPV6_NODEPORT={.addr={${v6_addrs[$NATIVE_DEV]}}}"
 				fi
 			fi
 
-			bpf_load $NATIVE_DEV "$COPTS" "ingress" bpf_netdev.c bpf_netdev.o "from-netdev" $CALLS_MAP
+			bpf_load $NATIVE_DEV "$LOCAL_COPTS" "ingress" bpf_netdev.c bpf_netdev.o "from-netdev" $CALLS_MAP
 			if [ "$NODE_PORT" = "true" ]; then
-				bpf_load $NATIVE_DEV "$COPTS" "egress" bpf_netdev.c bpf_netdev.o "to-netdev" $CALLS_MAP
+				bpf_load $NATIVE_DEV "$LOCAL_COPTS" "egress" bpf_netdev.c bpf_netdev.o "to-netdev" $CALLS_MAP
 			else
 				bpf_unload $NATIVE_DEV "egress"
 			fi
@@ -703,6 +718,17 @@ if [ "$XDP_DEV" != "<nil>" ]; then
 	COPTS="-DSECLABEL=${ID_WORLD} -DCALLS_MAP=cilium_calls_xdp"
 	if [ "$NODE_PORT" = "true" ]; then
 		COPTS="${COPTS} -DLB_L3 -DLB_L4 -DDISABLE_LOOPBACK_LB"
+	fi
+	if [ "$NODE_PORT" = "true" ]; then
+		NATIVE_DEV_IDX=$(cat /sys/class/net/${XDP_DEV}/ifindex)
+		COPTS="${COPTS} ${NP_COPTS} -DNATIVE_DEV_IFINDEX=${NATIVE_DEV_IDX}"
+		# Currently it assumes that XDP_DEV is listed among NATIVE_DEVS
+		if [ "$IP4_HOST" != "<nil>" ]; then
+			COPTS="${COPTS} -DIPV4_NODEPORT=${v4_addrs[$XDP_DEV]}"
+		fi
+		if [ "$IP6_HOST" != "<nil>" ]; then
+			COPTS="${COPTS} -DIPV6_NODEPORT={.addr={${v6_addrs[$XDP_DEV]}}}"
+		fi
 	fi
 	xdp_load $XDP_DEV $XDP_MODE "$COPTS" bpf_xdp.c bpf_xdp.o from-netdev $CIDR_MAP
 fi
