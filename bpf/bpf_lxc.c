@@ -895,6 +895,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.node_port = ct_state.node_port;
+		ct_state_new.ifindex = ct_state.ifindex;
 		ret = ct_create6(get_ct_map6(&tuple), &CT_MAP_ANY6, &tuple, ctx, CT_INGRESS,
 				 &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))
@@ -1110,6 +1111,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.node_port = ct_state.node_port;
+		ct_state_new.ifindex = ct_state.ifindex;
 		ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple, ctx, CT_INGRESS,
 				 &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))

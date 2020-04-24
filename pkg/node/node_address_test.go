@@ -39,8 +39,8 @@ type NodeSuite struct{}
 
 var _ = Suite(&NodeSuite{})
 
-func (s NodeSuite) TestMaskCheck(c *C) {
-	InitDefaultPrefix("")
+func (s *NodeSuite) TestMaskCheck(c *C) {
+	InitDefaultPrefix(nil)
 
 	allocCIDR := cidr.MustParseCIDR("1.1.1.1/16")
 	SetIPv4AllocRange(allocCIDR)

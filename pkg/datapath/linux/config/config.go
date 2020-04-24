@@ -76,12 +76,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	if option.Config.EnableIPv6 {
 		fmt.Fprintf(fw, " cilium.v6.external.str %s\n", node.GetIPv6().String())
 		fmt.Fprintf(fw, " cilium.v6.internal.str %s\n", node.GetIPv6Router().String())
-		fmt.Fprintf(fw, " cilium.v6.nodeport.str %s\n", node.GetNodePortIPv6().String())
+		fmt.Fprintf(fw, " cilium.v6.nodeport.str %s\n", node.GetNodePortIPv6Addrs())
 		fmt.Fprintf(fw, "\n")
 	}
 	fmt.Fprintf(fw, " cilium.v4.external.str %s\n", node.GetExternalIPv4().String())
 	fmt.Fprintf(fw, " cilium.v4.internal.str %s\n", node.GetInternalIPv4().String())
-	fmt.Fprintf(fw, " cilium.v4.nodeport.str %s\n", node.GetNodePortIPv4().String())
+	fmt.Fprintf(fw, " cilium.v4.nodeport.str %s\n", node.GetNodePortIPv4Addrs())
 	fmt.Fprintf(fw, "\n")
 	if option.Config.EnableIPv6 {
 		fw.WriteString(dumpRaw(defaults.RestoreV6Addr, node.GetIPv6Router()))
@@ -92,11 +92,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	if option.Config.EnableIPv6 {
 		extraMacrosMap["ROUTER_IP"] = routerIP.String()
 		fw.WriteString(defineIPv6("ROUTER_IP", routerIP))
-		if option.Config.EnableNodePort {
-			ipv6NP := node.GetNodePortIPv6()
-			extraMacrosMap["IPV6_NODEPORT"] = ipv6NP.String()
-			fw.WriteString(defineIPv6("IPV6_NODEPORT", ipv6NP))
-		}
 	}
 
 	if option.Config.EnableIPv4 {
@@ -106,11 +101,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["IPV4_GATEWAY"] = fmt.Sprintf("%#x", byteorder.HostSliceToNetwork(ipv4GW, reflect.Uint32).(uint32))
 		cDefinesMap["IPV4_LOOPBACK"] = fmt.Sprintf("%#x", byteorder.HostSliceToNetwork(loopbackIPv4, reflect.Uint32).(uint32))
 		cDefinesMap["IPV4_MASK"] = fmt.Sprintf("%#x", byteorder.HostSliceToNetwork(ipv4Range.Mask, reflect.Uint32).(uint32))
-
-		if option.Config.EnableNodePort {
-			ipv4NP := node.GetNodePortIPv4()
-			cDefinesMap["IPV4_NODEPORT"] = fmt.Sprintf("%#x", byteorder.HostSliceToNetwork(ipv4NP, reflect.Uint32).(uint32))
-		}
 
 		if option.Config.EnableIPv4FragmentsTracking {
 			cDefinesMap["ENABLE_IPV4_FRAGMENTS"] = "1"
