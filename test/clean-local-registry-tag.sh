@@ -21,4 +21,4 @@ docker push $1/cilium/cilium:$2
 docker push $1/cilium/cilium-dev:$2
 docker push $1/cilium/operator:$2
 
-docker system prune -f --filter "until=6h"
+docker image prune -f --all --filter "until=-6h"
