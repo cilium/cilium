@@ -115,6 +115,10 @@ global:
   # nodes if worker nodes share a common L2 network segment.
   autoDirectNodeRoutes: false
 
+  # nativeRoutingCIDR allows to explicitly specify the CIDR for native routing. This
+  # value corresponds to the configured cluster-cidr.
+  nativeRoutingCIDR: ""
+
   # endpointRoutes enables use of per endpoint routes instead of routing vis
   # the cilium_host interface
   endpointRoutes:
