@@ -610,3 +610,19 @@ Limitations
       situation.
     * Kubernetes Service sessionAffinity is currently not implemented.
       This will be addressed via `GH issue 9076 <https://github.com/cilium/cilium/issues/9076>`__.
+
+Further Readings
+################
+
+The following presentations describe inner-workings of the kube-proxy replacement in BPF
+in great details:
+
+    * "Liberating Kubernetes from kube-proxy and iptables" (KubeCon North America 2019, `slides
+      <https://docs.google.com/presentation/d/1cZJ-pcwB9WG88wzhDm2jxQY4Sh8adYg0-N3qWQ8593I/edit>`__,
+      `video <https://www.youtube.com/watch?v=bIRwSIwNHC0>`__)
+    * "BPF as a revolutionary technology for the container landscape" (Fosdem 2020, `slides
+      <https://docs.google.com/presentation/d/1VOUcoIxgM_c6M_zAV1dLlRCjyYCMdR3tJv6CEdfLMh8/edit>`__,
+      `video <https://fosdem.org/2020/schedule/event/containers_bpf/>`__)
+    * "Kernel improvements for Cilium socket LB" (LSF/MM/BPF 2020, `slides
+      <https://docs.google.com/presentation/d/1w2zlpGWV7JUhHYd37El_AUZzyUNSvDfktrF5MJ5G8Bs/edit#slide=id.g746fc02b5b_2_0>`__)
+

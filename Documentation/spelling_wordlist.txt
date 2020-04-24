@@ -37,6 +37,7 @@ Elasticsearch
 FIt
 Facebook
 Fastabend
+Fosdem
 GCE
 Gartrell
 Geneve
