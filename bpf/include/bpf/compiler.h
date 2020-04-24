@@ -71,12 +71,20 @@
 # define __printf(X, Y)		__attribute__((__format__(printf, X, Y)))
 #endif
 
+#ifndef barrier
+# define barrier()		asm volatile("": : :"memory")
+#endif
+
+#ifndef barrier_data
+# define barrier_data(ptr)	asm volatile("": :"r"(ptr) :"memory")
+#endif
+
 static __always_inline void bpf_barrier(void)
 {
 	/* Workaround to avoid verifier complaint:
 	 * "dereference of modified ctx ptr R5 off=48+0, ctx+const is allowed, ctx+const+const is not"
 	 */
-	asm volatile("" ::: "memory");
+	barrier();
 }
 
 #ifndef ARRAY_SIZE

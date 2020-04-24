@@ -5,6 +5,7 @@
 #include <bpf/api.h>
 
 #include <assert.h>
+#include <stdlib.h>
 
 #include "lib/utils.h"
 #include "lib/common.h"
@@ -20,14 +21,21 @@ static __u32 __now = 0;
 #define bpf_ktime_get_sec() __now
 
 #include "tests/conntrack_test.h"
+#include "tests/builtin_test.h"
 #include "tests/ipv6_test.h"
 
 int main(int argc, char *argv[])
 {
+	srandom(0x61C88647);
+
 	test_lpm_lookup();
 	test_ipv6_addr_clear_suffix();
+
 	test___ct_update_timeout();
 	test___ct_lookup();
+
+	test___builtin_memzero();
+	test___builtin_memcpy();
 
 	return 0;
 }
