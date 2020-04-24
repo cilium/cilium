@@ -92,6 +92,7 @@ The documentation is divided into the following sections:
    contributing/testing/index
    bpf
    api
+   hubble
 
 .. toctree::
    :maxdepth: 2

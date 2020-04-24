@@ -1,7 +1,6 @@
 Alemayhu
 Ansible
 Apiserver
-artii
 BPF
 Backport
 Backporting
@@ -167,6 +166,7 @@ apiKeys
 apiVersion
 apiserver
 arithmetics
+artii
 asm
 au
 authenticator
@@ -310,6 +310,7 @@ hostPort
 hostport
 hq
 https
+hubble
 hugepages
 hypervisor
 hypervisors
