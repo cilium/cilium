@@ -17,6 +17,10 @@ Related Material
 Presentations
 -------------
 
+* Fosdem, Brussels, 2020 - BPF as a revolutionary technology for the container landscape:
+  `Slides <https://docs.google.com/presentation/d/1VOUcoIxgM_c6M_zAV1dLlRCjyYCMdR3tJv6CEdfLMh8/edit#slide=id.g7055f48ba8_0_0>`__, `Video <https://fosdem.org/2020/schedule/event/containers_bpf/>`__
+* KubeCon, North America 2019 - Liberating Kubernetes from kube-proxy and iptables:
+  `Slides <https://docs.google.com/presentation/d/1cZJ-pcwB9WG88wzhDm2jxQY4Sh8adYg0-N3qWQ8593I/edit#slide=id.g7055f48ba8_0_0>`__, `Video <https://www.youtube.com/watch?v=bIRwSIwNHC0>`__
 * KubeCon, Europe 2019 - Using eBPF to Bring Kubernetes-Aware Security to the Linux Kernel:
   `Video <https://www.youtube.com/watch?v=7PXQB-1U380>`__
 * KubeCon, Europe 2019 - Transparent Chaos Testing with Envoy , Cilium and BPF:
