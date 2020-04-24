@@ -47,7 +47,7 @@ cilium-agent [flags]
       --datapath-mode string                          Datapath mode name (default "veth")
   -D, --debug                                         Enable debugging mode
       --debug-verbose strings                         List of enabled verbose debug groups
-  -d, --device string                                 Device facing cluster/external network for direct L3 (non-overlay mode) (default "undefined")
+  -d, --device strings                                List of devices facing cluster/external network for attaching bpf_netdev
       --disable-cnp-status-updates                    Do not send CNP NodeStatus updates to the Kubernetes api-server (recommended to run with "cnp-node-status-gc=false" in cilium-operator)
       --disable-conntrack                             Disable connection tracking
       --disable-endpoint-crd                          Disable use of CiliumEndpoint CRD

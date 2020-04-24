@@ -20,7 +20,7 @@ IP4_HOST=$3
 IP6_HOST=$4
 MODE=$5
 # Only set if MODE = "direct", "ipvlan", "flannel"
-NATIVE_DEV=$6
+NATIVE_DEVS=$6
 XDP_DEV=$7
 XDP_MODE=$8
 MTU=$9
@@ -33,6 +33,8 @@ BPFFS_ROOT=${15}
 NODE_PORT=${16}
 NODE_PORT_BIND=${17}
 MCPU=${18}
+NODE_PORT_IPV4_ADDRS=${19}
+NODE_PORT_IPV6_ADDRS=${20}
 
 ID_HOST=1
 ID_WORLD=2
@@ -408,16 +410,16 @@ function encap_fail()
 # Base device setup
 case "${MODE}" in
 	"flannel")
-		HOST_DEV1="${NATIVE_DEV}"
-		HOST_DEV2="${NATIVE_DEV}"
+		HOST_DEV1="${NATIVE_DEVS}"
+		HOST_DEV2="${NATIVE_DEVS}"
 
-		setup_dev "${NATIVE_DEV}"
+		setup_dev "${NATIVE_DEVS}"
 		;;
 	"ipvlan")
 		HOST_DEV1="cilium_host"
 		HOST_DEV2="${HOST_DEV1}"
 
-		setup_ipvlan_slave $NATIVE_DEV $HOST_DEV1
+		setup_ipvlan_slave $NATIVE_DEVS $HOST_DEV1
 
 		ip link set $HOST_DEV1 mtu $MTU
 		;;
@@ -466,14 +468,19 @@ case "${MODE}" in
 		echo "#define EPHEMERAL_MIN $CILIUM_EPHEMERAL_MIN" >> $RUNDIR/globals/node_config.h
 
 		if [ "$NODE_PORT" = "true" ]; then
-			sed -i '/^#.*NATIVE_DEV_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
-			NATIVE_DEV_IDX=$(cat /sys/class/net/${NATIVE_DEV}/ifindex)
-			echo "#define NATIVE_DEV_IFINDEX $NATIVE_DEV_IDX" >> $RUNDIR/globals/node_config.h
-			sed -i '/^#.*NATIVE_DEV_MAC.*$/d' $RUNDIR/globals/node_config.h
-			NATIVE_DEV_MAC=$(ip link show $NATIVE_DEV | grep ether | awk '{print $2}')
-			NATIVE_DEV_MAC=$(mac2array $NATIVE_DEV_MAC)
-			echo "#define NATIVE_DEV_MAC { .addr = ${NATIVE_DEV_MAC}}" >> $RUNDIR/globals/node_config.h
-
+			MAC_BY_IFINDEX_MACRO="#define NATIVE_DEV_MAC_BY_IFINDEX(IFINDEX) ({ \\
+	union macaddr __mac = {.addr = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0}}; \\
+	switch (IFINDEX) { \\\\\n"
+			MAC_BY_IFINDEX_MACRO_END="	} \\
+	__mac; })"
+			for NATIVE_DEV in ${NATIVE_DEVS//;/ }; do
+				IDX=$(cat /sys/class/net/${NATIVE_DEV}/ifindex)
+				MAC=$(ip link show $NATIVE_DEV | grep ether | awk '{print $2}')
+				MAC=$(mac2array $MAC)
+				MAC_BY_IFINDEX_MACRO="${MAC_BY_IFINDEX_MACRO}	case ${IDX}: {union macaddr __tmp = {.addr = ${MAC}}; __mac=__tmp;} break; \\\\\n"
+			done
+			MAC_BY_IFINDEX_MACRO="${MAC_BY_IFINDEX_MACRO}${MAC_BY_IFINDEX_MACRO_END}"
+			echo -e "${MAC_BY_IFINDEX_MACRO}" >> $RUNDIR/globals/node_config.h
 		fi
 esac
 
@@ -535,41 +542,75 @@ else
 fi
 
 if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$MODE" = "routed" ] || [ "$NODE_PORT" = "true" ] ; then
-	if [ "$NATIVE_DEV" == "<nil>" ]; then
+	if [ "$NATIVE_DEVS" == "<nil>" ]; then
 		echo "No device specified for $MODE mode, ignoring..."
 	else
 		if [ "$IP6_HOST" != "<nil>" ]; then
 			echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
 		fi
 
-		CALLS_MAP=cilium_calls_netdev_${ID_WORLD}
-		COPTS="-DSECLABEL=${ID_WORLD}"
-		if [ "$NODE_PORT" = "true" ]; then
-			COPTS="${COPTS} -DLB_L3 -DLB_L4 -DDISABLE_LOOPBACK_LB"
+		if [ "$NODE_PORT_IPV4_ADDRS" != "<nil>" ]; then
+			declare -A v4_addrs
+			for a in ${NODE_PORT_IPV4_ADDRS//;/ }; do
+				IFS== read iface addr <<< "$a"
+				v4_addrs[$iface]=$addr
+			done
+		fi
+		if [ "$NODE_PORT_IPV6_ADDRS" != "<nil>" ]; then
+			declare -A v6_addrs
+			for a in ${NODE_PORT_IPV6_ADDRS//;/ }; do
+				IFS== read iface addr <<< "$a"
+				v6_addrs[$iface]=$addr
+			done
 		fi
 
-		bpf_load $NATIVE_DEV "$COPTS" "ingress" bpf_netdev.c bpf_netdev.o "from-netdev" $CALLS_MAP
-		if [ "$NODE_PORT" = "true" ]; then
-			bpf_load $NATIVE_DEV "$COPTS" "egress" bpf_netdev.c bpf_netdev.o "to-netdev" $CALLS_MAP
-		else
-			bpf_unload $NATIVE_DEV "egress"
-		fi
+		for NATIVE_DEV in ${NATIVE_DEVS//;/ }; do
+			COPTS="-DSECLABEL=${ID_WORLD}"
+			NATIVE_DEV_IDX=$(cat /sys/class/net/${NATIVE_DEV}/ifindex)
+			CALLS_MAP=cilium_calls_netdev_${NATIVE_DEV_IDX}
 
-		echo "$NATIVE_DEV" > $RUNDIR/device.state
+			if [ "$NODE_PORT" = "true" ]; then
+				COPTS="${COPTS} -DLB_L3 -DLB_L4 -DDISABLE_LOOPBACK_LB -DNATIVE_DEV_IFINDEX=${NATIVE_DEV_IDX}"
+				if [ "$IP4_HOST" != "<nil>" ]; then
+					COPTS="${COPTS} -DIPV4_NODEPORT=${v4_addrs[$NATIVE_DEV]}"
+				fi
+				if [ "$IP6_HOST" != "<nil>" ]; then
+					COPTS="${COPTS} -DIPV6_NODEPORT={.addr={${v6_addrs[$NATIVE_DEV]}}}"
+				fi
+			fi
+
+			bpf_load $NATIVE_DEV "$COPTS" "ingress" bpf_netdev.c bpf_netdev.o "from-netdev" $CALLS_MAP
+			if [ "$NODE_PORT" = "true" ]; then
+				bpf_load $NATIVE_DEV "$COPTS" "egress" bpf_netdev.c bpf_netdev.o "to-netdev" $CALLS_MAP
+			else
+				bpf_unload $NATIVE_DEV "egress"
+			fi
+		done
+
+		echo "$NATIVE_DEVS" > $RUNDIR/device.state
 	fi
 else
 	FILE=$RUNDIR/device.state
 	if [ -f $FILE ]; then
-		DEV=$(cat $FILE)
-		echo "Removed BPF program from device $DEV"
-		tc qdisc del dev $DEV clsact 2> /dev/null || true
+		DEVS=$(cat $FILE)
+		for DEV in ${DEVS//,/ }; do
+			echo "Removed BPF program from device $DEV"
+			tc qdisc del dev $DEV clsact 2> /dev/null || true
+		done
 		rm $FILE
 	fi
 fi
 
 # Remove bpf_netdev.o from previously used devices
 for iface in $(ip -o -a l | awk '{print $2}' | cut -d: -f1 | cut -d@ -f1 | grep -v cilium); do
-    [ "$iface" == "$NATIVE_DEV" ] && continue
+	found=false
+	for NATIVE_DEV in ${NATIVE_DEVS//;/ }; do
+		if [ "${iface}" == "$NATIVE_DEV" ]; then
+			found=true
+			break
+		fi
+	done
+	$found && continue
     for where in ingress egress; do
         if tc filter show dev "$iface" "$where" | grep -q "bpf_netdev.o"; then
             echo "Removing bpf_netdev.o from $where of $iface"

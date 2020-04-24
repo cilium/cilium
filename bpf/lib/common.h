@@ -717,7 +717,7 @@ struct ct_state {
 	__be32 addr;
 	__be32 svc_addr;
 	__u32 src_sec_id;
-	__u16 unused;
+	__u16 ifindex;
 	__u16 backend_id;	/* Backend ID in lb4_backends */
 };
 

@@ -256,6 +256,9 @@ const (
 	// Device is the device name
 	Device = "device"
 
+	// Devices is the devices name
+	Devices = "devices"
+
 	// IpvlanMasterDevice is the ipvlan master device name
 	IpvlanMasterDevice = "ipvlanMasterDevice"
 
