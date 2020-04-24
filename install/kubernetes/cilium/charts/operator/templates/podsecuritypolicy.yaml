@@ -18,7 +18,12 @@ spec:
   hostIPC: false
   hostPID: false
   runAsUser:
+    # Require the container to run without root privileges.
+    {{- if and .Values.global.psp .Values.runAsUnprivilegedUser}} 
+    rule: 'MustRunAsNonRoot'
+    {{else }}
     rule: 'RunAsAny'
+    {{end}}
   seLinux:
     rule: 'RunAsAny'
   supplementalGroups:

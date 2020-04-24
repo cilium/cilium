@@ -372,6 +372,7 @@ global:
   # psp creates and binds PodSecurityPolicies for the components that require it
   psp:
     enabled: false
+    runAsUnprivilegedUser: true 
 
   # enables non-drop mode for installed policies. In audit mode
   # packets affected by policies will not be dropped. Policy related
