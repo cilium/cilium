@@ -4,8 +4,7 @@
 include ../../Makefile.defs
 
 FLAGS := -I../../bpf/ -I../../bpf/include -I. -D__NR_CPUS__=$(shell nproc) -O2
-FLAGS_GCC := -Wno-builtin-declaration-mismatch
-FLAGS_CLANG :=
+FLAGS_CLANG := -Wno-gnu-variable-sized-type-not-at-end
 
 BPF_CC_FLAGS := ${FLAGS} -target bpf -emit-llvm
 BPF_LLC_FLAGS := -march=bpf -mcpu=probe -filetype=obj
@@ -13,7 +12,6 @@ BPF_LLC_FLAGS := -march=bpf -mcpu=probe -filetype=obj
 LIB := $(shell find ../../bpf/ -name '*.h')
 
 CLANG ?= $(QUIET) clang
-GCC ?= $(QUIET) gcc
 LLC ?= llc
 
 BPF_TARGETS := elf-demo.o
@@ -26,7 +24,7 @@ elf-demo.o: elf-demo.c
 
 %: %.c $(LIB)
 	@$(ECHO_CC)
-	$(GCC) ${FLAGS_GCC} ${FLAGS} -I../../bpf/ $< -o $@
+	$(CLANG) ${FLAGS_CLANG} ${FLAGS} -I../../bpf/ $< -o $@
 
 clean:
 	@$(ECHO_CLEAN)
