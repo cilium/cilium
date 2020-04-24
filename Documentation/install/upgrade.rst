@@ -448,7 +448,7 @@ New ConfigMap Options
     manually using the ``ctTcpMax``, ``ctAnyMax``, ``natMax`` options will take
     precedence over the dynamically determined value.
 
-    On upgrades of existing installations, this option is disable by default,
+    On upgrades of existing installations, this option is disabled by default,
     i.e. it is set to 0.0. Users wanting to use this feature need to enable it
     explicitly in their `ConfigMap`, see section :ref:`upgrade_configmap`.
 
