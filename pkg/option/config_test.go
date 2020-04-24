@@ -24,6 +24,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/cidr"
+
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	. "gopkg.in/check.v1"
@@ -235,6 +237,70 @@ func (s *OptionSuite) TestEndpointStatusIsEnabled(c *C) {
 	c.Assert(d.EndpointStatusIsEnabled(EndpointStatusHealth), Equals, true)
 	c.Assert(d.EndpointStatusIsEnabled(EndpointStatusPolicy), Equals, true)
 	c.Assert(d.EndpointStatusIsEnabled(EndpointStatusLog), Equals, false)
+}
+
+func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
+	tests := []struct {
+		name    string
+		d       *DaemonConfig
+		wantErr bool
+	}{
+		{
+			name: "with native routing cidr",
+			d: &DaemonConfig{
+				Masquerade:            true,
+				Tunnel:                TunnelDisabled,
+				IPAM:                  IPAMCRD,
+				ipv4NativeRoutingCIDR: cidr.MustParseCIDR("10.127.64.0/18"),
+			},
+			wantErr: false,
+		},
+		{
+			name: "without native routing cidr and no masquerade",
+			d: &DaemonConfig{
+				Masquerade: false,
+				Tunnel:     TunnelDisabled,
+				IPAM:       IPAMCRD,
+			},
+			wantErr: false,
+		},
+		{
+			name: "without native routing cidr and tunnel enabled",
+			d: &DaemonConfig{
+				Masquerade: true,
+				Tunnel:     TunnelVXLAN,
+				IPAM:       IPAMCRD,
+			},
+			wantErr: false,
+		},
+		{
+			name: "without native routing cidr and tunnel enabled",
+			d: &DaemonConfig{
+				Masquerade: true,
+				Tunnel:     TunnelDisabled,
+				IPAM:       IPAMENI,
+			},
+			wantErr: false,
+		},
+		{
+			name: "without native routing cidr and with masquerade and tunnel disabled and ipam not eni",
+			d: &DaemonConfig{
+				Masquerade: true,
+				Tunnel:     TunnelDisabled,
+				IPAM:       IPAMCRD,
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.d.checkIPv4NativeRoutingCIDR()
+			if tt.wantErr && err == nil {
+				t.Error("expected error, but got nil")
+			}
+		})
+	}
 }
 
 func (s *OptionSuite) TestEndpointStatusValues(c *C) {
