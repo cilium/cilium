@@ -25,6 +25,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/google/go-cmp/cmp"
 	flag "github.com/spf13/pflag"
@@ -462,6 +463,70 @@ func TestCheckMapSizeLimits(t *testing.T) {
 				if err != nil {
 					t.Error(err)
 				}
+			}
+		})
+	}
+}
+
+func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
+	tests := []struct {
+		name    string
+		d       *DaemonConfig
+		wantErr bool
+	}{
+		{
+			name: "with native routing cidr",
+			d: &DaemonConfig{
+				Masquerade:            true,
+				Tunnel:                TunnelDisabled,
+				IPAM:                  IPAMAzure,
+				ipv4NativeRoutingCIDR: cidr.MustParseCIDR("10.127.64.0/18"),
+			},
+			wantErr: false,
+		},
+		{
+			name: "without native routing cidr and no masquerade",
+			d: &DaemonConfig{
+				Masquerade: false,
+				Tunnel:     TunnelDisabled,
+				IPAM:       IPAMAzure,
+			},
+			wantErr: false,
+		},
+		{
+			name: "without native routing cidr and tunnel enabled",
+			d: &DaemonConfig{
+				Masquerade: true,
+				Tunnel:     TunnelVXLAN,
+				IPAM:       IPAMAzure,
+			},
+			wantErr: false,
+		},
+		{
+			name: "without native routing cidr and tunnel enabled",
+			d: &DaemonConfig{
+				Masquerade: true,
+				Tunnel:     TunnelDisabled,
+				IPAM:       IPAMENI,
+			},
+			wantErr: false,
+		},
+		{
+			name: "without native routing cidr and with masquerade and tunnel disabled and ipam not eni",
+			d: &DaemonConfig{
+				Masquerade: true,
+				Tunnel:     TunnelDisabled,
+				IPAM:       IPAMAzure,
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.d.checkIPv4NativeRoutingCIDR()
+			if tt.wantErr && err == nil {
+				t.Error("expected error, but got nil")
 			}
 		})
 	}
