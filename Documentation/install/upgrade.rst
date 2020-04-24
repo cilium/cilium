@@ -525,6 +525,8 @@ Removed options
   now removed.
 * The options ``container-runtime`` and ``container-runtime-endpoint`` were
   deprecated in Cilium 1.7 and are now removed.
+* The ``conntrack-garbage-collector-interval`` option deprecated in Cilium 1.6
+  is now removed. Please use ``conntrack-gc-interval`` instead.
 
 Removed helm options
 ~~~~~~~~~~~~~~~~~~~~

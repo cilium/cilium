@@ -233,10 +233,6 @@ func init() {
 	flags.String(option.ConfigDir, "", `Configuration directory that contains a file for each option`)
 	option.BindEnv(option.ConfigDir)
 
-	flags.Uint(option.ConntrackGarbageCollectorIntervalDeprecated, 0, "Garbage collection interval for the connection tracking table (in seconds)")
-	flags.MarkDeprecated(option.ConntrackGarbageCollectorIntervalDeprecated, fmt.Sprintf("please use --%s", option.ConntrackGCInterval))
-	option.BindEnv(option.ConntrackGarbageCollectorIntervalDeprecated)
-
 	flags.Duration(option.ConntrackGCInterval, time.Duration(0), "Overwrite the connection-tracking garbage collection interval")
 	option.BindEnv(option.ConntrackGCInterval)
 
