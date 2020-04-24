@@ -295,6 +295,9 @@ data:
   enable-xt-socket-fallback: {{ .Values.global.enableXTSocketFallback | quote }}
   install-iptables-rules: {{ .Values.global.installIptablesRules | quote }}
   auto-direct-node-routes: {{ .Values.global.autoDirectNodeRoutes | quote }}
+  {{- if .Values.global.nativeRoutingCIDR }}
+  native-routing-cidr: {{ .Values.global.nativeRoutingCIDR }}
+  {{- end }}
 
 {{- if .Values.global.kubeProxyReplacement }}
   kube-proxy-replacement:  {{ .Values.global.kubeProxyReplacement | quote }}
