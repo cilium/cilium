@@ -730,9 +730,17 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 		    !(ep->flags & ENDPOINT_F_HOST)) {
 			struct remote_endpoint_info *info;
 			*from_endpoint = true;
+
 			info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr,
 					       V4_CACHE_KEY_LEN);
 			if (info != NULL) {
+#ifdef ENABLE_IP_MASQ_AGENT
+				struct lpm_v4_key pfx;
+				pfx.lpm.prefixlen = 32;
+				memcpy(pfx.lpm.data, &ip4->daddr, sizeof(pfx.addr));
+				if (map_lookup_elem(&IP_MASQ_AGENT_IPV4, &pfx))
+					return false;
+#endif
 				if (info->sec_label == WORLD_ID)
 					return true;
 #ifdef ENCAP_IFINDEX

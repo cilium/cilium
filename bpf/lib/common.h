@@ -671,6 +671,21 @@ static __always_inline int redirect_peer(int ifindex __maybe_unused,
 #endif /* ENABLE_HOST_REDIRECT */
 }
 
+struct lpm_v4_key {
+	struct bpf_lpm_trie_key lpm;
+	__u8 addr[4];
+};
+
+struct lpm_v6_key {
+	struct bpf_lpm_trie_key lpm;
+	__u8 addr[16];
+};
+
+struct lpm_val {
+	/* Just dummy for now. */
+	__u8 flags;
+};
+
 #include "overloadable.h"
 
 #endif /* __LIB_COMMON_H_ */

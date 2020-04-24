@@ -126,6 +126,17 @@ struct bpf_elf_map __section_maps SNAT_MAPPING_IPV4 = {
 #endif
 };
 
+#ifdef ENABLE_IP_MASQ_AGENT
+struct bpf_elf_map __section_maps IP_MASQ_AGENT_IPV4 = {
+	.type		= BPF_MAP_TYPE_LPM_TRIE,
+	.size_key	= sizeof(struct lpm_v4_key),
+	.size_value	= sizeof(struct lpm_val),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= 16384,
+	.flags		= BPF_F_NO_PREALLOC,
+};
+#endif
+
 static __always_inline
 struct ipv4_nat_entry *snat_v4_lookup(const struct ipv4_ct_tuple *tuple)
 {
