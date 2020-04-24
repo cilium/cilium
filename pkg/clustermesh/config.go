@@ -20,7 +20,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	fsnotify "gopkg.in/fsnotify.v1"
+	"github.com/fsnotify/fsnotify"
 )
 
 // clusterLifecycle is the interface to implement in order to receive cluster
