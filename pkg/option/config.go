@@ -120,10 +120,6 @@ const (
 	// represents the value of that option.
 	ConfigDir = "config-dir"
 
-	// ConntrackGarbageCollectorIntervalDeprecated is the deprecated option
-	// name to set the conntrack gc interval
-	ConntrackGarbageCollectorIntervalDeprecated = "conntrack-garbage-collector-interval"
-
 	// ConntrackGCInterval is the name of the ConntrackGCInterval option
 	ConntrackGCInterval = "conntrack-gc-interval"
 
@@ -2307,6 +2303,7 @@ func (c *DaemonConfig) Populate() {
 	c.ClusterMeshConfig = viper.GetString(ClusterMeshConfigName)
 	c.CNPNodeStatusGCInterval = viper.GetDuration(CNPNodeStatusGCInterval)
 	c.CNPStatusUpdateInterval = viper.GetDuration(CNPStatusUpdateInterval)
+	c.ConntrackGCInterval = viper.GetDuration(ConntrackGCInterval)
 	c.DatapathMode = viper.GetString(DatapathMode)
 	c.Debug = viper.GetBool(DebugArg)
 	c.DebugVerbose = viper.GetStringSlice(DebugVerbose)
@@ -2545,12 +2542,6 @@ func (c *DaemonConfig) Populate() {
 
 	if m := viper.GetStringMapString(LogOpt); len(m) != 0 {
 		c.LogOpt = m
-	}
-
-	if val := viper.GetInt(ConntrackGarbageCollectorIntervalDeprecated); val != 0 {
-		c.ConntrackGCInterval = time.Duration(val) * time.Second
-	} else {
-		c.ConntrackGCInterval = viper.GetDuration(ConntrackGCInterval)
 	}
 
 	if val := viper.GetInt64(ENIParallelWorkersDeprecated); val != 0 {
