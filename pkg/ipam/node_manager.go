@@ -86,6 +86,10 @@ type NodeOperations interface {
 	// ReleaseIPs is called after invoking PrepareIPRelease and needs to
 	// perform the release of IPs.
 	ReleaseIPs(ctx context.Context, release *ReleaseAction) error
+
+	// GetMaximumAllocatableIPv4 returns the maximum amount of IPv4 addresses
+	// that can be allocated to the instance
+	GetMaximumAllocatableIPv4() int
 }
 
 // AllocationImplementation is the interface an implementation must provide.

@@ -153,6 +153,10 @@ func (n *nodeOperationsMock) ReleaseIPs(ctx context.Context, release *ReleaseAct
 	return nil
 }
 
+func (n *nodeOperationsMock) GetMaximumAllocatableIPv4() int {
+	return 0
+}
+
 func (e *IPAMSuite) TestGetNodeNames(c *check.C) {
 	am := newAllocationImplementationMock()
 	c.Assert(am, check.Not(check.IsNil))

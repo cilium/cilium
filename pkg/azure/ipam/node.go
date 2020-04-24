@@ -175,3 +175,11 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 
 	return available, nil
 }
+
+// GetMaximumAllocatableIPv4 returns the maximum amount of IPv4 addresses
+// that can be allocated to the instance
+func (n *Node) GetMaximumAllocatableIPv4() int {
+	// An Azure node can allocate up to 256 private IP addresses
+	// source: https://github.com/MicrosoftDocs/azure-docs/blob/master/includes/azure-virtual-network-limits.md#networking-limits---azure-resource-manager
+	return types.InterfaceAddressLimit
+}

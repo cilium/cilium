@@ -39,6 +39,9 @@ const (
 
 	// maxAttachRetries is the maximum number of attachment retries
 	maxAttachRetries = 5
+
+	getMaximumAllocatableIPv4FailureWarningStr = "maximum allocatable ipv4 addresses will be 0 (unlimited)" +
+		" this could lead to ip allocation overflows if the max-allocate flag is not set"
 )
 
 // Node represents a Kubernetes node running Cilium with an associated
@@ -67,7 +70,7 @@ func (n *Node) UpdatedNode(obj *v2.CiliumNode) {
 }
 
 func (n *Node) loggerLocked() *logrus.Entry {
-	if n == nil {
+	if n == nil || n.node == nil {
 		return log
 	}
 
@@ -451,4 +454,44 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 	}
 
 	return available, nil
+}
+
+// GetMaximumAllocatableIPv4 returns the maximum amount of IPv4 addresses
+// that can be allocated to the instance
+func (n *Node) GetMaximumAllocatableIPv4() int {
+	// Retrieve FirstInterfaceIndex from node spec
+	if n == nil ||
+		n.k8sObj == nil ||
+		n.k8sObj.Spec.ENI.FirstInterfaceIndex == nil {
+		n.loggerLocked().WithFields(logrus.Fields{
+			"first-interface-index": "unknown",
+		}).Warningf("Could not determine first interface index, %s", getMaximumAllocatableIPv4FailureWarningStr)
+		return 0
+	}
+	firstInterfaceIndex := *n.k8sObj.Spec.ENI.FirstInterfaceIndex
+
+	// Retrieve limits for the instance type
+	limits, limitsAvailable := n.getLimits()
+	if !limitsAvailable {
+		n.loggerLocked().WithFields(logrus.Fields{
+			"adaptors-limit":        "unknown",
+			"first-interface-index": firstInterfaceIndex,
+		}).Warningf("Could not determined instance limits, %s", getMaximumAllocatableIPv4FailureWarningStr)
+		return 0
+	}
+
+	// Validate the amount of adapters is bigger than the configured FirstInterfaceIndex
+	if limits.Adapters < firstInterfaceIndex {
+		n.loggerLocked().WithFields(logrus.Fields{
+			"adaptors-limit":        limits.Adapters,
+			"first-interface-index": firstInterfaceIndex,
+		}).Warningf(
+			"Instance type network adapters limit is lower than the configured FirstInterfaceIndex, %s",
+			getMaximumAllocatableIPv4FailureWarningStr,
+		)
+		return 0
+	}
+
+	// Return the maximum amount of IP addresses allocatable on the instance
+	return (limits.Adapters - firstInterfaceIndex) * limits.IPv4
 }
