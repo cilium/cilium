@@ -120,6 +120,11 @@ func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, ciliumFilename string, optio
 		By(fmt.Sprintf("%s (hint: %s)",
 			"Assuming that microk8s already has DNS deployed...",
 			"Use 'microk8s.enable dns' to create deployment"))
+	case helpers.CIIntegrationGKE:
+		By("Restarting all kube-system pods")
+		if res := vm.DeleteResource("pod", fmt.Sprintf("-n %s --all", helpers.KubeSystemNamespace)); !res.WasSuccessful() {
+			log.Warningf("Unable to delete kube-system pods: %s", res.OutputPrettyPrint())
+		}
 	default:
 		vm.ApplyDefault(helpers.DNSDeployment(vm.BasePath()))
 		By("Restarting DNS Pods")
@@ -138,6 +143,12 @@ func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, ciliumFilename string, optio
 	ExpectCiliumReady(vm)
 	ExpectCiliumOperatorReady(vm)
 	ExpectKubeDNSReady(vm)
+
+	switch helpers.GetCurrentIntegration() {
+	case helpers.CIIntegrationGKE:
+		err := vm.WaitforPods(helpers.KubeSystemNamespace, "", longTimeout)
+		ExpectWithOffset(1, err).Should(BeNil(), "kube-system pods were not able to get into ready state after restart")
+	}
 }
 
 // SkipIfBenchmark will skip the test if benchmark is not specified
