@@ -449,7 +449,8 @@ var _ = Describe("K8sServicesTest", func() {
 		// dstPodPort:  Receiver pod port (for checking in CT table)
 		// dstIP:       Target endpoint IP for sending the datagram
 		// dstPort:     Target endpoint port for sending the datagram
-		doFragmentedRequest := func(srcPod string, srcPort, dstPodPort int, dstIP string, dstPort int32) {
+		// kubeProxy:   True if kube-proxy is enabled
+		doFragmentedRequest := func(srcPod string, srcPort, dstPodPort int, dstIP string, dstPort int32, kubeProxy bool) {
 			var (
 				blockSize  = 5120
 				blockCount = 1
@@ -486,15 +487,27 @@ var _ = Describe("K8sServicesTest", func() {
 			// Field #11 is "TxPackets=<n>"
 			cmdOut := "cilium bpf ct list global | awk '/%s/ { sub(\".*=\",\"\", $11); print $11 }'"
 
+			if kubeProxy {
+				// If kube-proxy is enabled, we see packets in ctmap with the
+				// service's IP address and port, not backend's.
+				dstIPv4 := strings.Replace(dstIP, "::ffff:", "", 1)
+				endpointK8s1 = fmt.Sprintf("%s:%d", dstIPv4, dstPort)
+				endpointK8s2 = endpointK8s1
+			}
 			patternOutK8s1 := fmt.Sprintf("UDP OUT [^:]+:%d -> %s", srcPort, endpointK8s1)
 			cmdOutK8s1 := fmt.Sprintf(cmdOut, patternOutK8s1)
 			res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdOutK8s1)
 			countOutK8s1, _ := strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
 
+			// If kube-proxy is enabled, the two commands are the same and
+			// there's no point executing it twice.
+			countOutK8s2 := 0
 			patternOutK8s2 := fmt.Sprintf("UDP OUT [^:]+:%d -> %s", srcPort, endpointK8s2)
 			cmdOutK8s2 := fmt.Sprintf(cmdOut, patternOutK8s2)
-			res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdOutK8s2)
-			countOutK8s2, _ := strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
+			if !kubeProxy {
+				res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdOutK8s2)
+				countOutK8s2, _ = strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
+			}
 
 			// Send datagram
 			By("Sending a fragmented packet from %s to endpoint %s:%d", srcPod, dstIP, dstPort)
@@ -530,8 +543,13 @@ var _ = Describe("K8sServicesTest", func() {
 
 			res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdOutK8s1)
 			newCountOutK8s1, _ := strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
-			res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdOutK8s2)
-			newCountOutK8s2, _ := strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
+			// If kube-proxy is enabled, the two commands are the same and
+			// there's no point executing it twice.
+			newCountOutK8s2 := 0
+			if !kubeProxy {
+				res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdOutK8s2)
+				newCountOutK8s2, _ = strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
+			}
 			Expect([]int{newCountOutK8s1, newCountOutK8s2}).To(SatisfyAny(
 				Equal([]int{countOutK8s1, countOutK8s2 + delta}),
 				Equal([]int{countOutK8s1 + delta, countOutK8s2}),
@@ -826,6 +844,7 @@ var _ = Describe("K8sServicesTest", func() {
 			)
 			k8s1Name, k8s1IP := kubectl.GetNodeInfo(helpers.K8s1)
 			k8s2Name, k8s2IP := kubectl.GetNodeInfo(helpers.K8s2)
+			kubeProxy := !helpers.RunsWithoutKubeProxy()
 
 			waitPodsDs()
 
@@ -840,27 +859,27 @@ var _ = Describe("K8sServicesTest", func() {
 			serverPort := data.Spec.Ports[1].TargetPort.IntValue()
 
 			// With ClusterIP
-			doFragmentedRequest(clientPod, srcPort, serverPort, data.Spec.ClusterIP, data.Spec.Ports[1].Port)
+			doFragmentedRequest(clientPod, srcPort, serverPort, data.Spec.ClusterIP, data.Spec.Ports[1].Port, false)
 
 			// From pod via node IPs
-			doFragmentedRequest(clientPod, srcPort+1, serverPort, k8s1IP, nodePort)
-			doFragmentedRequest(clientPod, srcPort+2, serverPort, "::ffff:"+k8s1IP, nodePort)
-			doFragmentedRequest(clientPod, srcPort+3, serverPort, k8s2IP, nodePort)
-			doFragmentedRequest(clientPod, srcPort+4, serverPort, "::ffff:"+k8s2IP, nodePort)
+			doFragmentedRequest(clientPod, srcPort+1, serverPort, k8s1IP, nodePort, kubeProxy)
+			doFragmentedRequest(clientPod, srcPort+2, serverPort, "::ffff:"+k8s1IP, nodePort, kubeProxy)
+			doFragmentedRequest(clientPod, srcPort+3, serverPort, k8s2IP, nodePort, kubeProxy)
+			doFragmentedRequest(clientPod, srcPort+4, serverPort, "::ffff:"+k8s2IP, nodePort, kubeProxy)
 
-			if helpers.RunsWithoutKubeProxy() {
+			if !kubeProxy {
 				localCiliumHostIPv4, err := kubectl.GetCiliumHostIPv4(context.TODO(), k8s1Name)
 				Expect(err).Should(BeNil(), "Cannot retrieve local cilium_host ipv4")
 				remoteCiliumHostIPv4, err := kubectl.GetCiliumHostIPv4(context.TODO(), k8s2Name)
 				Expect(err).Should(BeNil(), "Cannot retrieve remote cilium_host ipv4")
 
 				// From pod via local cilium_host
-				doFragmentedRequest(clientPod, srcPort+5, serverPort, localCiliumHostIPv4, nodePort)
-				doFragmentedRequest(clientPod, srcPort+6, serverPort, "::ffff:"+localCiliumHostIPv4, nodePort)
+				doFragmentedRequest(clientPod, srcPort+5, serverPort, localCiliumHostIPv4, nodePort, kubeProxy)
+				doFragmentedRequest(clientPod, srcPort+6, serverPort, "::ffff:"+localCiliumHostIPv4, nodePort, kubeProxy)
 
 				// From pod via remote cilium_host
-				doFragmentedRequest(clientPod, srcPort+7, serverPort, remoteCiliumHostIPv4, nodePort)
-				doFragmentedRequest(clientPod, srcPort+8, serverPort, "::ffff:"+remoteCiliumHostIPv4, nodePort)
+				doFragmentedRequest(clientPod, srcPort+7, serverPort, remoteCiliumHostIPv4, nodePort, kubeProxy)
+				doFragmentedRequest(clientPod, srcPort+8, serverPort, "::ffff:"+remoteCiliumHostIPv4, nodePort, kubeProxy)
 			}
 		}
 
