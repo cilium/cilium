@@ -1580,6 +1580,11 @@ func initKubeProxyReplacementOptions() {
 
 	if option.Config.EnableNodePort &&
 		option.Config.NodePortAcceleration != option.NodePortAccelerationNone {
+		if option.Config.Tunnel != option.TunnelDisabled {
+			log.Fatalf("Cannot use NodePort acceleration with tunneling. Either run cilium-agent with --%s=%s or --%s=%s",
+				option.NodePortAcceleration, option.NodePortAccelerationNone, option.TunnelName, option.TunnelDisabled)
+		}
+
 		if option.Config.XDPDevice != "undefined" &&
 			option.Config.XDPDevice != option.Config.Device {
 			log.Fatalf("Cannot set NodePort acceleration device: mismatch between Prefilter device %s and NodePort device %s",
