@@ -23,21 +23,6 @@
 # undef CIDR6_LPM_PREFILTER
 #endif
 
-struct lpm_v4_key {
-	struct bpf_lpm_trie_key lpm;
-	__u8 addr[4];
-};
-
-struct lpm_v6_key {
-	struct bpf_lpm_trie_key lpm;
-	__u8 addr[16];
-};
-
-struct lpm_val {
-	/* Just dummy for now. */
-	__u8 flags;
-};
-
 #ifdef CIDR4_FILTER
 struct bpf_elf_map __section_maps CIDR4_HMAP_NAME = {
 	.type		= BPF_MAP_TYPE_HASH,
