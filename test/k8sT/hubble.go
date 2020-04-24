@@ -119,8 +119,8 @@ var _ = Describe("K8sHubbleTest", func() {
 		demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
 
 		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-			"global.hubble.enabled": "true",
-			"hubble-cli.enabled":    "true",
+			"global.hubble.enabled":     "true",
+			"global.hubble.cli.enabled": "true",
 		})
 
 		err := kubectl.WaitforPods(hubbleNamespace, hubbleSelector, helpers.HelperTimeout)

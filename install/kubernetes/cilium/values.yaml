@@ -12,10 +12,6 @@ agent:
 config:
   enabled: true
 
-# Do not include the hubble-cli DaemonSet by default
-hubble-cli:
-  enabled: false
-
 # Include the cilium-operator Deployment
 operator:
   enabled: true
@@ -446,6 +442,9 @@ global:
     # See https://github.com/cilium/hubble/blob/master/Documentation/metrics.md for more comprehensive
     # documentation about Hubble's metric collection.
     metrics: []
+    # Configures the hubble-cli subchart
+    cli:
+      enabled: false
 
   # CI specific options: DO NOT USE IN PRODUCTION.
   ci:
