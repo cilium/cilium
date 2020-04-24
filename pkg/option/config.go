@@ -1637,6 +1637,10 @@ func (c *DaemonConfig) Validate() error {
 		return fmt.Errorf("specified PolicyMap max entries %d must not exceed maximum %d",
 			c.PolicyMapMaxEntries, policyMapMax)
 	}
+	if err := c.checkIPv4NativeRoutingCIDR(); err != nil {
+		return nil
+	}
+
 	// Validate that the KVStore Lease TTL value lies between a particular range.
 	if c.KVstoreLeaseTTL > defaults.KVstoreLeaseMaxTTL || c.KVstoreLeaseTTL < defaults.LockLeaseTTL {
 		return fmt.Errorf("KVstoreLeaseTTL does not lie in required range(%ds, %ds)",
@@ -2098,6 +2102,15 @@ func (c *DaemonConfig) populateHostServicesProtos() error {
 			return fmt.Errorf("Protocol other than %s,%s not supported for host reachable services: %s",
 				HostServicesTCP, HostServicesUDP, hostServicesProtos[i])
 		}
+	}
+
+	return nil
+}
+
+func (c *DaemonConfig) checkIPv4NativeRoutingCIDR() error {
+	if c.IPv4NativeRoutingCIDR() == nil && c.Masquerade && c.Tunnel == TunnelDisabled && c.IPAM != IPAMENI {
+		return fmt.Errorf("native routing cidr must be configured with option --%s in combination with --%s --%s=%s --%s=%s",
+			IPv4NativeRoutingCIDR, Masquerade, TunnelName, c.Tunnel, IPAM, c.IPAM)
 	}
 
 	return nil

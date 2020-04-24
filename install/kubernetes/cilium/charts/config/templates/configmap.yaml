@@ -278,9 +278,9 @@ data:
   iptables-lock-timeout: {{ .Values.global.iptablesLockTimeout | quote }}
 {{- end }}
   auto-direct-node-routes: {{ .Values.global.autoDirectNodeRoutes | quote }}
-  {{- if .Values.global.nativeRoutingCIDR }}
+{{- if .Values.global.nativeRoutingCIDR }}
   native-routing-cidr: {{ .Values.global.nativeRoutingCIDR }}
-  {{- end }}
+{{- end }}
 
 {{- if .Values.global.kubeProxyReplacement }}
   kube-proxy-replacement:  {{ .Values.global.kubeProxyReplacement | quote }}
