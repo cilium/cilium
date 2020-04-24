@@ -19,8 +19,8 @@
 static __u32 __now = 0;
 #define bpf_ktime_get_sec() __now
 
-#include "lib/conntrack_test.h"
-#include "lib/ipv6_test.h"
+#include "tests/conntrack_test.h"
+#include "tests/ipv6_test.h"
 
 int main(int argc, char *argv[])
 {
