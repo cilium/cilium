@@ -64,7 +64,8 @@ function probe_run_ll()
 	PROBE_BASE="${LIB}/probes"
 	OUT="$PROBE_DIR"
 	LIB_INCLUDE="${LIB}/include"
-	PROBE_OPTS="-O2 -I$OUT -I$PROBE_BASE -I$LIB_INCLUDE -Wall"
+	LIB_GNU="/usr/lib/gcc/x86_64-linux-gnu/5/include"
+	PROBE_OPTS="-O2 -I$OUT -I$PROBE_BASE -I$LIB_GNU -I$LIB_INCLUDE -Wall"
 
 	for PROBE in "${PROBE_BASE}"/*.t
 	do
