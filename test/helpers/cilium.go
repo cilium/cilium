@@ -29,7 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/test/config"
-	"github.com/cilium/cilium/test/ginkgo-ext"
+	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers/logutils"
 
 	"github.com/sirupsen/logrus"
@@ -552,7 +552,7 @@ func (s *SSHMeta) PolicyImport(path string) error {
 func (s *SSHMeta) PolicyRenderAndImport(policy string) (int, error) {
 	filename := fmt.Sprintf("policy_%s.json", MakeUID())
 	s.logger.Debugf("PolicyRenderAndImport: render policy to '%s'", filename)
-	err := RenderTemplateToFile(filename, policy, os.ModePerm)
+	err := s.RenderTemplateToFile(filename, policy, os.ModePerm)
 	if err != nil {
 		s.logger.Errorf("PolicyRenderAndImport: cannot create policy file on '%s'", filename)
 		return 0, fmt.Errorf("cannot render the policy:  %s", err)
@@ -886,11 +886,10 @@ CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug
 INITSYSTEM=SYSTEMD`
 
 	ciliumConfig := "cilium.conf.ginkgo"
-	err := RenderTemplateToFile(ciliumConfig, fmt.Sprintf(systemdTemplate, ciliumOpts), os.ModePerm)
+	err := s.RenderTemplateToFile(ciliumConfig, fmt.Sprintf(systemdTemplate, ciliumOpts), os.ModePerm)
 	if err != nil {
 		return err
 	}
-	defer os.Remove(ciliumConfig)
 
 	confPath := filepath.Join("/home/vagrant/go/src/github.com/cilium/cilium/test", ciliumConfig)
 	res := s.Exec(fmt.Sprintf("sudo cp %s /etc/sysconfig/cilium", confPath))

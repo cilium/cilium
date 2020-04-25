@@ -83,25 +83,19 @@ func MakeUID() string {
 	return fmt.Sprintf("%08x", randGen.Uint32())
 }
 
-// RenderTemplateToFile renders a text/template string into a target filename
-// with specific persmisions. Returns eturn an error if the template cannot be
-// validated or the file cannot be created.
-func RenderTemplateToFile(filename string, tmplt string, perm os.FileMode) error {
+// RenderTemplate renders a text/template string into a buffer.
+// Returns eturn an error if the template cannot be validated.
+func RenderTemplate(tmplt string) (*bytes.Buffer, error) {
 	t, err := template.New("").Parse(tmplt)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	content := new(bytes.Buffer)
 	err = t.Execute(content, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	err = ioutil.WriteFile(filename, content.Bytes(), perm)
-	if err != nil {
-		return err
-	}
-	return nil
+	return content, nil
 }
 
 // TimeoutConfig represents the configuration for the timeout of a command.

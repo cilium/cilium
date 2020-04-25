@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -47,6 +48,7 @@ type Executor interface {
 	ExecuteContext(ctx context.Context, cmd string, stdout io.Writer, stderr io.Writer) error
 	String() string
 	BasePath() string
+	RenderTemplateToFile(filename string, tmplt string, perm os.FileMode) error
 	setBasePath()
 
 	Logger() *logrus.Entry
@@ -250,4 +252,20 @@ func (s *LocalExecutor) ExecInBackground(ctx context.Context, cmd string, option
 
 func (s *LocalExecutor) BasePath() string {
 	return s.basePath
+}
+
+// RenderTemplateToFile renders a text/template string into a target filename
+// with specific persmisions. Returns an error if the template cannot be
+// validated or the file cannot be created.
+func (s *LocalExecutor) RenderTemplateToFile(filename string, tmplt string, perm os.FileMode) error {
+	content, err := RenderTemplate(tmplt)
+	if err != nil {
+		return err
+	}
+
+	err = ioutil.WriteFile(filename, content.Bytes(), perm)
+	if err != nil {
+		return err
+	}
+	return nil
 }
