@@ -250,7 +250,7 @@ func (t *Target) CreateApplyManifest(spec *TestSpec, base string) error {
 		if err != nil {
 			return fmt.Errorf("cannot render template: %s", err)
 		}
-		err = helpers.RenderTemplateToFile(t.GetManifestName(spec), data.String(), os.ModePerm)
+		err = spec.Kub.RenderTemplateToFile(t.GetManifestName(spec), data.String(), os.ModePerm)
 		if err != nil {
 			return err
 		}
@@ -286,7 +286,7 @@ func (t *Target) CreateApplyManifest(spec *TestSpec, base string) error {
 			return fmt.Errorf("cannot render template: %s", err)
 		}
 
-		err = helpers.RenderTemplateToFile(t.GetManifestName(spec), data.String(), os.ModePerm)
+		err = spec.Kub.RenderTemplateToFile(t.GetManifestName(spec), data.String(), os.ModePerm)
 		if err != nil {
 			return err
 		}
@@ -473,7 +473,7 @@ spec:
     ports:
       - containerPort: 80`
 
-	err := helpers.RenderTemplateToFile(
+	err := t.Kub.RenderTemplateToFile(
 		t.GetManifestName(),
 		fmt.Sprintf(manifest, t.Prefix, t.SrcPod, t.DestPod, constants.AlpineCurlImage, constants.HttpdImage),
 		os.ModePerm)
