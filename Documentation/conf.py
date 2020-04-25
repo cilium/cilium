@@ -73,6 +73,9 @@ versionwarning_body_selector = "div.document"
 # The version of Go used to compile Cilium
 go_release = open("../GO_VERSION", "r").read().strip()
 
+# The image tag for Cilium docker images
+image_tag = 'v' + release
+
 # Fetch the docs version from an environment variable.
 # Map latest -> master.
 # Map stable -> current version number.
@@ -81,6 +84,7 @@ if branch is None or branch == 'latest':
     branch = 'HEAD'
     archive_name = 'master'
     chart_release = './cilium'
+    image_tag = 'latest'
 elif branch == 'stable':
     branch = release
     archive_name = release
@@ -115,7 +119,8 @@ rst_epilog = """
 .. |NEXT_RELEASE| replace:: \{n}
 .. |CHART_RELEASE| replace:: \{h}
 .. |GO_RELEASE| replace:: \{g}
-""".format(s=scm_web, b=branch, a=archive_name, f=archive_filename, l=archive_link, c=current_release, n=next_release, h=chart_release, g=go_release)
+.. |IMAGE_TAG| replace:: \{i}
+""".format(s=scm_web, b=branch, a=archive_name, f=archive_filename, l=archive_link, c=current_release, n=next_release, h=chart_release, g=go_release, i=image_tag)
 
 extlinks = {
     'git-tree': (scm_web + "/%s", ''),

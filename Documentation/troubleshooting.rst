@@ -92,6 +92,8 @@ of all nodes in the cluster:
     Proxy Status:           OK, ip 10.15.28.238, 0 redirects, port-range 10000-20000
     Cluster health:   1/1 reachable   (2018-02-27T00:24:34Z)
 
+.. _ts_agent_logs:
+
 Logs
 ~~~~
 
