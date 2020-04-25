@@ -74,6 +74,8 @@ Repeat this step for each cluster.
    ``--set global.cluster.name=<name>`` to ``helm install`` when installing or
    updating Cilium.
 
+.. _gs_clustermesh_expose_etcd:
+
 Expose the Cilium etcd to other clusters
 ========================================
 
