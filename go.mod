@@ -24,6 +24,7 @@ require (
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/libnetwork v0.0.0-20190128195551-d8d4c8cf03d7
 	github.com/envoyproxy/protoc-gen-validate v0.3.0-java
+	github.com/francoispqt/gojay v1.2.13
 	github.com/go-openapi/errors v0.19.3
 	github.com/go-openapi/loads v0.19.5
 	github.com/go-openapi/runtime v0.19.4
@@ -43,6 +44,7 @@ require (
 	github.com/ishidawataru/sctp v0.0.0-20180213033435-07191f837fed // indirect
 	github.com/kevinburke/ssh_config v0.0.0-20190725054713-01f96b0aa0cd
 	github.com/kr/pretty v0.1.0
+	github.com/mailru/easyjson v0.7.1
 	github.com/mattn/go-shellwords v1.0.5
 	github.com/miekg/dns v1.0.14
 	github.com/mitchellh/protoc-gen-go-json v0.0.0-20200113165135-fd297ce346f1

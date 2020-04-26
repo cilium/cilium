@@ -19,6 +19,7 @@ package v2
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
@@ -28,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
+	"github.com/francoispqt/gojay"
 	. "gopkg.in/check.v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -409,4 +411,55 @@ func (s *CiliumV2Suite) TestCiliumNodeInstanceID(c *C) {
 	c.Assert((&CiliumNode{Spec: NodeSpec{InstanceID: "foo"}}).InstanceID(), Equals, "foo")
 	c.Assert((&CiliumNode{Spec: NodeSpec{InstanceID: "foo", ENI: eniTypes.ENISpec{InstanceID: "bar"}}}).InstanceID(), Equals, "foo")
 	c.Assert((&CiliumNode{Spec: NodeSpec{ENI: eniTypes.ENISpec{InstanceID: "bar"}}}).InstanceID(), Equals, "bar")
+}
+
+func BenchmarkMarshal(c *testing.B) {
+	expectedPolicyRuleList := &CiliumNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "rule1",
+			UID:       uuidRule,
+		},
+		Specs: api.Rules{&apiRule, &apiRule},
+	}
+	c.ReportAllocs()
+	b, _ := json.Marshal(expectedPolicyRuleList)
+	// c.Assert(err, IsNil)
+	var cnp CiliumNetworkPolicy
+	_ = json.Unmarshal(b, &cnp)
+	// c.Assert(err, IsNil)
+	builder := strings.Builder{}
+	enc := gojay.NewEncoder(&builder)
+	c.ResetTimer()
+	// for i := 0; i < c.N; i++ {
+	// 	_, _ = json.Marshal(expectedPolicyRuleList)
+	// 	// _ = json.Unmarshal(b, &cnp)
+	// }
+
+	if err := enc.Encode(expectedPolicyRuleList); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func BenchmarkUnmarshal(c *testing.B) {
+	expectedPolicyRuleList := &CiliumNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "rule1",
+			UID:       uuidRule,
+		},
+		Specs: api.Rules{&apiRule, &apiRule},
+	}
+	c.ReportAllocs()
+	b, _ := json.Marshal(expectedPolicyRuleList)
+	// c.Assert(err, IsNil)
+	// var cnp CiliumNetworkPolicy
+	// _ = json.Unmarshal(b, &cnp)
+	// c.Assert(err, IsNil)
+	c.ResetTimer()
+	for i := 0; i < c.N; i++ {
+		var cnp CiliumNetworkPolicy
+		// _, _ = json.Marshal(expectedPolicyRuleList)
+		_ = json.Unmarshal(b, &cnp)
+	}
 }
