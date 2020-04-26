@@ -477,7 +477,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	}
 	f := parseFlow(dn, localIP, remoteIP)
 	assert.Equal(t, pb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN, f.GetTrafficDirection())
-	assert.Equal(t, uint64(localEP), f.GetSource().GetID())
+	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
 
 	// DROP Egress
 	dn = monitor.DropNotify{
@@ -486,7 +486,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	}
 	f = parseFlow(dn, localIP, remoteIP)
 	assert.Equal(t, pb.TrafficDirection_EGRESS, f.GetTrafficDirection())
-	assert.Equal(t, uint64(localEP), f.GetSource().GetID())
+	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
 
 	// DROP Ingress
 	dn = monitor.DropNotify{
@@ -495,7 +495,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	}
 	f = parseFlow(dn, remoteIP, localIP)
 	assert.Equal(t, pb.TrafficDirection_INGRESS, f.GetTrafficDirection())
-	assert.Equal(t, uint64(localEP), f.GetDestination().GetID())
+	assert.Equal(t, uint32(localEP), f.GetDestination().GetID())
 
 	// TRACE_TO_LXC at unknown endpoint
 	tn := monitor.TraceNotifyV0{
@@ -504,7 +504,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Equal(t, pb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN, f.GetTrafficDirection())
-	assert.Equal(t, uint64(localEP), f.GetSource().GetID())
+	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
 
 	// TRACE_TO_LXC Egress
 	tn = monitor.TraceNotifyV0{
@@ -514,7 +514,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Equal(t, pb.TrafficDirection_EGRESS, f.GetTrafficDirection())
-	assert.Equal(t, uint64(localEP), f.GetSource().GetID())
+	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
 
 	// TRACE_TO_LXC Egress, reversed by CT_REPLY
 	tn = monitor.TraceNotifyV0{
@@ -525,7 +525,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Equal(t, pb.TrafficDirection_INGRESS, f.GetTrafficDirection())
-	assert.Equal(t, uint64(localEP), f.GetSource().GetID())
+	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
 
 	// TRACE_TO_HOST Ingress
 	tn = monitor.TraceNotifyV0{
@@ -535,7 +535,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	}
 	f = parseFlow(tn, remoteIP, localIP)
 	assert.Equal(t, pb.TrafficDirection_INGRESS, f.GetTrafficDirection())
-	assert.Equal(t, uint64(localEP), f.GetDestination().GetID())
+	assert.Equal(t, uint32(localEP), f.GetDestination().GetID())
 
 	// TRACE_TO_HOST Ingress, reversed by CT_REPLY
 	tn = monitor.TraceNotifyV0{
@@ -546,7 +546,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	}
 	f = parseFlow(tn, remoteIP, localIP)
 	assert.Equal(t, pb.TrafficDirection_EGRESS, f.GetTrafficDirection())
-	assert.Equal(t, uint64(localEP), f.GetDestination().GetID())
+	assert.Equal(t, uint32(localEP), f.GetDestination().GetID())
 
 	// TRACE_FROM_LXC (traffic direction not supported)
 	tn = monitor.TraceNotifyV0{
@@ -556,7 +556,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Equal(t, pb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN, f.GetTrafficDirection())
-	assert.Equal(t, uint64(localEP), f.GetSource().GetID())
+	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
 
 	// PolicyVerdictNotify Egress
 	pvn := monitor.PolicyVerdictNotify{
@@ -566,7 +566,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	}
 	f = parseFlow(pvn, localIP, remoteIP)
 	assert.Equal(t, pb.TrafficDirection_EGRESS, f.GetTrafficDirection())
-	assert.Equal(t, uint64(localEP), f.GetSource().GetID())
+	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
 
 	// PolicyVerdictNotify Ingress
 	pvn = monitor.PolicyVerdictNotify{
@@ -576,7 +576,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	}
 	f = parseFlow(pvn, remoteIP, localIP)
 	assert.Equal(t, pb.TrafficDirection_INGRESS, f.GetTrafficDirection())
-	assert.Equal(t, uint64(localEP), f.GetDestination().GetID())
+	assert.Equal(t, uint32(localEP), f.GetDestination().GetID())
 }
 
 func Test_filterCidrLabels(t *testing.T) {
@@ -763,8 +763,8 @@ func TestTraceNotifyLocalEndpoint(t *testing.T) {
 	err = parser.Decode(&pb.Payload{Data: data}, f)
 	require.NoError(t, err)
 
-	assert.Equal(t, ep.ID, f.Source.ID)
-	assert.Equal(t, uint64(ep.Identity), f.Source.Identity)
+	assert.Equal(t, uint32(ep.ID), f.Source.ID)
+	assert.Equal(t, uint32(ep.Identity), f.Source.Identity)
 	assert.Equal(t, ep.PodNamespace, f.Source.Namespace)
 	assert.Equal(t, ep.Labels, f.Source.Labels)
 	assert.Equal(t, ep.PodName, f.Source.PodName)
