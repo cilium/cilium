@@ -96,7 +96,7 @@ func (t *testFilterFalse) OnBuildFilter(_ context.Context, ff *pb.FlowFilter) ([
 
 func TestOnBuildFilter(t *testing.T) {
 	fl, err := BuildFilterList(context.Background(),
-		[]*pb.FlowFilter{{SourceIdentity: []uint64{1, 2, 3}}}, // true
+		[]*pb.FlowFilter{{SourceIdentity: []uint32{1, 2, 3}}}, // true
 		[]OnBuildFilter{&testFilterTrue{}})                    // true
 	assert.NoError(t, err)
 	assert.Equal(t, true, fl.MatchAll(&v1.Event{Event: &pb.Flow{
@@ -104,7 +104,7 @@ func TestOnBuildFilter(t *testing.T) {
 	}}))
 
 	fl, err = BuildFilterList(context.Background(),
-		[]*pb.FlowFilter{{SourceIdentity: []uint64{1, 2, 3}}}, // true
+		[]*pb.FlowFilter{{SourceIdentity: []uint32{1, 2, 3}}}, // true
 		[]OnBuildFilter{&testFilterFalse{}})                   // false
 	assert.NoError(t, err)
 	assert.Equal(t, false, fl.MatchAll(&v1.Event{Event: &pb.Flow{
@@ -112,7 +112,7 @@ func TestOnBuildFilter(t *testing.T) {
 	}}))
 
 	fl, err = BuildFilterList(context.Background(),
-		[]*pb.FlowFilter{{SourceIdentity: []uint64{1, 2, 3}}}, // true
+		[]*pb.FlowFilter{{SourceIdentity: []uint32{1, 2, 3}}}, // true
 		[]OnBuildFilter{
 			&testFilterFalse{}, // false
 			&testFilterTrue{}}) // true

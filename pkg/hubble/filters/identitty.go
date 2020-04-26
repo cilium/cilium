@@ -29,7 +29,7 @@ func destinationEndpoint(ev *v1.Event) *pb.Endpoint {
 	return ev.GetFlow().GetDestination()
 }
 
-func filterByIdentity(identities []uint64, getEndpoint func(*v1.Event) *pb.Endpoint) FilterFunc {
+func filterByIdentity(identities []uint32, getEndpoint func(*v1.Event) *pb.Endpoint) FilterFunc {
 	return func(ev *v1.Event) bool {
 		if endpoint := getEndpoint(ev); endpoint != nil {
 			for _, i := range identities {

@@ -280,8 +280,8 @@ func decodeEndpoint(endpoint accesslog.EndpointInfo, namespace, podName string) 
 	labels := endpoint.Labels
 	sort.Strings(labels)
 	return &pb.Endpoint{
-		ID:        endpoint.ID,
-		Identity:  endpoint.Identity,
+		ID:        uint32(endpoint.ID),
+		Identity:  uint32(endpoint.Identity),
 		Namespace: namespace,
 		Labels:    labels,
 		PodName:   podName,

@@ -40,7 +40,7 @@ func TestIdentityFilter(t *testing.T) {
 			name: "source-nil",
 			args: args{
 				f: []*pb.FlowFilter{{
-					SourceIdentity: []uint64{1},
+					SourceIdentity: []uint32{1},
 				}},
 				ev: nil,
 			},
@@ -50,7 +50,7 @@ func TestIdentityFilter(t *testing.T) {
 			name: "destination-nil",
 			args: args{
 				f: []*pb.FlowFilter{{
-					DestinationIdentity: []uint64{1},
+					DestinationIdentity: []uint32{1},
 				}},
 				ev: nil,
 			},
@@ -60,7 +60,7 @@ func TestIdentityFilter(t *testing.T) {
 			name: "source-positive",
 			args: args{
 				f: []*pb.FlowFilter{{
-					SourceIdentity: []uint64{1, 2, 3},
+					SourceIdentity: []uint32{1, 2, 3},
 				}},
 				ev: &v1.Event{Event: &pb.Flow{
 					Source: &pb.Endpoint{Identity: 3},
@@ -72,7 +72,7 @@ func TestIdentityFilter(t *testing.T) {
 			name: "source-negative",
 			args: args{
 				f: []*pb.FlowFilter{{
-					SourceIdentity: []uint64{1, 2, 3},
+					SourceIdentity: []uint32{1, 2, 3},
 				}},
 				ev: &v1.Event{Event: &pb.Flow{
 					Source: &pb.Endpoint{Identity: 4},
@@ -84,7 +84,7 @@ func TestIdentityFilter(t *testing.T) {
 			name: "destination-negative",
 			args: args{
 				f: []*pb.FlowFilter{{
-					DestinationIdentity: []uint64{1, 2, 3},
+					DestinationIdentity: []uint32{1, 2, 3},
 				}},
 				ev: &v1.Event{Event: &pb.Flow{
 					Destination: &pb.Endpoint{Identity: 5},

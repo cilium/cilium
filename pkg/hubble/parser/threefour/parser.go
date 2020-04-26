@@ -182,9 +182,9 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 	return nil
 }
 
-func (p *Parser) resolveNames(epID uint64, ip net.IP) (names []string) {
+func (p *Parser) resolveNames(epID uint32, ip net.IP) (names []string) {
 	if p.dnsGetter != nil {
-		return p.dnsGetter.GetNamesOf(epID, ip)
+		return p.dnsGetter.GetNamesOf(uint64(epID), ip)
 	}
 
 	return nil
@@ -228,21 +228,21 @@ func filterCidrLabels(labels []string) []string {
 	return filteredLabels
 }
 
-func sortAndFilterLabels(labels []string, securityIdentity uint64) []string {
-	if securityIdentity&uint64(identity.LocalIdentityFlag) != 0 {
+func sortAndFilterLabels(labels []string, securityIdentity uint32) []string {
+	if securityIdentity&uint32(identity.LocalIdentityFlag) != 0 {
 		labels = filterCidrLabels(labels)
 	}
 	sort.Strings(labels)
 	return labels
 }
 
-func (p *Parser) resolveEndpoint(ip net.IP, securityIdentity uint64) *pb.Endpoint {
+func (p *Parser) resolveEndpoint(ip net.IP, securityIdentity uint32) *pb.Endpoint {
 	// for local endpoints, use the available endpoint information
 	if p.endpointGetter != nil {
 		if ep, ok := p.endpointGetter.GetEndpointInfo(ip); ok {
 			return &pb.Endpoint{
-				ID:        ep.GetID(),
-				Identity:  uint64(ep.GetIdentity()),
+				ID:        uint32(ep.GetID()),
+				Identity:  uint32(ep.GetIdentity()),
 				Namespace: ep.GetK8sNamespace(),
 				Labels:    sortAndFilterLabels(ep.GetLabels(), securityIdentity),
 				PodName:   ep.GetK8sPodName(),
@@ -254,13 +254,13 @@ func (p *Parser) resolveEndpoint(ip net.IP, securityIdentity uint64) *pb.Endpoin
 	var namespace, podName string
 	if p.ipGetter != nil {
 		if ipIdentity, ok := p.ipGetter.GetIPIdentity(ip); ok {
-			securityIdentity = uint64(ipIdentity.Identity)
+			securityIdentity = uint32(ipIdentity.Identity)
 			namespace, podName = ipIdentity.Namespace, ipIdentity.PodName
 		}
 	}
 	var labels []string
 	if p.identityGetter != nil {
-		if id, err := p.identityGetter.GetIdentity(securityIdentity); err != nil {
+		if id, err := p.identityGetter.GetIdentity(uint64(securityIdentity)); err != nil {
 			logger.GetLogger().
 				WithError(err).WithField("identity", securityIdentity).
 				Warn("failed to resolve identity")
@@ -424,27 +424,27 @@ func decodeCiliumEventType(eventType, eventSubType uint8) *pb.CiliumEventType {
 }
 
 func decodeSecurityIdentities(dn *monitor.DropNotify, tn *monitor.TraceNotify, pvn *monitor.PolicyVerdictNotify) (
-	sourceSecurityIdentiy, destinationSecurityIdentity uint64,
+	sourceSecurityIdentiy, destinationSecurityIdentity uint32,
 ) {
 	switch {
 	case dn != nil:
-		sourceSecurityIdentiy = uint64(dn.SrcLabel)
-		destinationSecurityIdentity = uint64(dn.DstLabel)
+		sourceSecurityIdentiy = dn.SrcLabel
+		destinationSecurityIdentity = dn.DstLabel
 	case tn != nil:
-		sourceSecurityIdentiy = uint64(tn.SrcLabel)
-		destinationSecurityIdentity = uint64(tn.DstLabel)
+		sourceSecurityIdentiy = tn.SrcLabel
+		destinationSecurityIdentity = tn.DstLabel
 	case pvn != nil:
 		if pvn.IsTrafficIngress() {
-			sourceSecurityIdentiy = uint64(pvn.RemoteLabel)
+			sourceSecurityIdentiy = pvn.RemoteLabel
 		} else {
-			destinationSecurityIdentity = uint64(pvn.RemoteLabel)
+			destinationSecurityIdentity = pvn.RemoteLabel
 		}
 	}
 
 	return
 }
 
-func decodeTrafficDirection(srcEP uint64, dn *monitor.DropNotify, tn *monitor.TraceNotify, pvn *monitor.PolicyVerdictNotify) pb.TrafficDirection {
+func decodeTrafficDirection(srcEP uint32, dn *monitor.DropNotify, tn *monitor.TraceNotify, pvn *monitor.PolicyVerdictNotify) pb.TrafficDirection {
 	if dn != nil && dn.Source != 0 {
 		// If the local endpoint at which the drop occurred is the same as the
 		// source of the dropped packet, we assume it was an egress flow. This
