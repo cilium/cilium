@@ -219,9 +219,6 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool
 		args = append(args, "-E") // Preprocessor
 	} else {
 		args = append(args, "-emit-llvm")
-		if debug {
-			args = append(args, "-g")
-		}
 	}
 	args = append(args, standardCFlags...)
 	args = append(args, progCFlags(prog, dir)...)
