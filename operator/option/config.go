@@ -126,6 +126,14 @@ const (
 	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2
 	// API to fill out the instnacetype to adapter limit mapping.
 	UpdateEC2AdapterLimitViaAPI = "update-ec2-apdater-limit-via-api"
+
+	// Azure options
+
+	// AzureSubscriptionID is the subscription ID to use when accessing the Azure API
+	AzureSubscriptionID = "azure-subscription-id"
+
+	// AzureResourceGroup is the resource group of the nodes used for the cluster
+	AzureResourceGroup = "azure-resource-group"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -218,6 +226,14 @@ type OperatorConfig struct {
 
 	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2 API to fill out the instnacetype to adapter limit mapping
 	UpdateEC2AdapterLimitViaAPI bool
+
+	// Azure options
+
+	// AzureSubscriptionID is the subscription ID to use when accessing the Azure API
+	AzureSubscriptionID string
+
+	// AzureResourceGroup is the resource group of the nodes used for the cluster
+	AzureResourceGroup string
 }
 
 func (c *OperatorConfig) Populate() {
@@ -241,6 +257,11 @@ func (c *OperatorConfig) Populate() {
 
 	c.AWSReleaseExcessIPs = viper.GetBool(AWSReleaseExcessIPs)
 	c.UpdateEC2AdapterLimitViaAPI = viper.GetBool(UpdateEC2AdapterLimitViaAPI)
+
+	// Azure options
+
+	c.AzureSubscriptionID = viper.GetString(AzureSubscriptionID)
+	c.AzureResourceGroup = viper.GetString(AzureResourceGroup)
 
 	// Deprecated options
 

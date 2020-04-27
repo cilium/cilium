@@ -44,11 +44,11 @@ func init() {
 	flags.Float64(operatorOption.IPAMAPIQPSLimit, defaults.IPAMAPIQPSLimit, "Queries per second limit when accessing external IPAM APIs")
 	option.BindEnv(operatorOption.IPAMAPIQPSLimit)
 
-	flags.String(option.AzureSubscriptionID, "", "Subscription ID to access Azure API")
-	option.BindEnvWithLegacyEnvFallback(option.AzureSubscriptionID, "AZURE_SUBSCRIPTION_ID")
+	flags.String(operatorOption.AzureSubscriptionID, "", "Subscription ID to access Azure API")
+	option.BindEnvWithLegacyEnvFallback(operatorOption.AzureSubscriptionID, "AZURE_SUBSCRIPTION_ID")
 
-	flags.String(option.AzureResourceGroup, "", "Resource group to use for Azure IPAM")
-	option.BindEnvWithLegacyEnvFallback(option.AzureResourceGroup, "AZURE_RESOURCE_GROUP")
+	flags.String(operatorOption.AzureResourceGroup, "", "Resource group to use for Azure IPAM")
+	option.BindEnvWithLegacyEnvFallback(operatorOption.AzureResourceGroup, "AZURE_RESOURCE_GROUP")
 
 	flags.Var(option.NewNamedMapOptions(operatorOption.AWSInstanceLimitMapping, &operatorOption.Config.AWSInstanceLimitMapping, nil),
 		operatorOption.AWSInstanceLimitMapping,
