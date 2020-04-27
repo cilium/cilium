@@ -31,6 +31,7 @@ var flag struct {
 	debug         bool
 	dialTimeout   time.Duration
 	listenAddress string
+	peerService   string
 	retryTimeout  time.Duration
 }
 
@@ -48,12 +49,14 @@ func New() *cobra.Command {
 	cmd.Flags().DurationVar(&flag.dialTimeout, "dial-timeout", relayoption.Default.DialTimeout, "Dial timeout when connecting to hubble peers")
 	cmd.Flags().DurationVar(&flag.retryTimeout, "retry-timeout", relayoption.Default.RetryTimeout, "Time to wait before attempting to reconnect to a hubble peer when the connection is lost")
 	cmd.Flags().StringVar(&flag.listenAddress, "listen-address", relayoption.Default.ListenAddress, "Address on which to listen")
+	cmd.Flags().StringVar(&flag.peerService, "peer-service", relayoption.Default.HubbleTarget, "Address of the server that implements the peer gRPC service")
 	return cmd
 }
 
 func runServe() error {
 	opts := []relayoption.Option{
 		relayoption.WithDialTimeout(flag.dialTimeout),
+		relayoption.WithHubbleTarget(flag.peerService),
 		relayoption.WithListenAddress(flag.listenAddress),
 		relayoption.WithRetryTimeout(flag.retryTimeout),
 	}
