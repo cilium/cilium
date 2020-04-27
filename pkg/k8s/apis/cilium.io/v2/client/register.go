@@ -31,7 +31,6 @@ import (
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -80,30 +79,7 @@ var SchemeGroupVersion = schema.GroupVersion{
 	Version: CustomResourceDefinitionVersion,
 }
 
-// Resource takes an unqualified resource and returns a Group qualified GroupResource
-func Resource(resource string) schema.GroupResource {
-	return SchemeGroupVersion.WithResource(resource).GroupResource()
-}
-
 var (
-	// SchemeBuilder is needed by DeepCopy generator.
-	SchemeBuilder runtime.SchemeBuilder
-	// localSchemeBuilder and AddToScheme will stay in k8s.io/kubernetes.
-	localSchemeBuilder = &SchemeBuilder
-
-	// AddToScheme adds all types of this clientset into the given scheme.
-	// This allows composition of clientsets, like in:
-	//
-	//   import (
-	//     "k8s.io/client-go/kubernetes"
-	//     clientsetscheme "k8s.io/client-go/kuberentes/scheme"
-	//     aggregatorclientsetscheme "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/scheme"
-	//   )
-	//
-	//   kclientset, _ := kubernetes.NewForConfig(c)
-	//   aggregatorclientsetscheme.AddToScheme(clientsetscheme.Scheme)
-	AddToScheme = localSchemeBuilder.AddToScheme
-
 	comparableCRDSchemaVersion = versioncheck.MustVersion(CustomResourceDefinitionSchemaVersion)
 )
 
