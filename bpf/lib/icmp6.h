@@ -73,7 +73,7 @@ static __always_inline int icmp6_send_reply(struct __ctx_buff *ctx, int nh_off)
 static __always_inline int __icmp6_send_echo_reply(struct __ctx_buff *ctx,
 						   int nh_off)
 {
-	struct icmp6hdr icmp6hdr = {}, icmp6hdr_old;
+	struct icmp6hdr icmp6hdr __align_stack_8 = {}, icmp6hdr_old __align_stack_8;
 	int csum_off = nh_off + ICMP6_CSUM_OFFSET;
 	__be32 sum;
 
@@ -141,7 +141,7 @@ static __always_inline int icmp6_send_echo_reply(struct __ctx_buff *ctx,
 static __always_inline int send_icmp6_ndisc_adv(struct __ctx_buff *ctx,
 						int nh_off, union macaddr *mac)
 {
-	struct icmp6hdr icmp6hdr = {}, icmp6hdr_old;
+	struct icmp6hdr icmp6hdr __align_stack_8 = {}, icmp6hdr_old __align_stack_8;
 	__u8 opts[8], opts_old[8];
 	const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
 	__be32 sum;
