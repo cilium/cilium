@@ -329,6 +329,7 @@ func (kub *Kubectl) DeleteAllNamespacesExcept(except []string) error {
 
 // PrepareCluster will prepare the cluster to run tests. It will:
 // - Delete all existing namespaces
+// - Label all nodes so the tests can use them
 func (kub *Kubectl) PrepareCluster() {
 	ginkgoext.By("Preparing cluster")
 	err := kub.DeleteAllNamespacesExcept([]string{
@@ -341,20 +342,48 @@ func (kub *Kubectl) PrepareCluster() {
 	if err != nil {
 		ginkgoext.Failf("Unable to delete non-essential namespaces: %s", err)
 	}
+
+	ginkgoext.By("Labelling nodes")
+	if err = kub.labelNodes(); err != nil {
+		ginkgoext.Failf("unable label nodes: %s", err)
+	}
 }
 
-// LabelNodes labels nodes in vagrant env. If you are running tests on different cluster you need to label your nodes by yourself
-func (kub *Kubectl) LabelNodes() {
-	kub.ExecMiddle(fmt.Sprintf("%s label --overwrite node k8s1 cilium.io/ci-node=k8s1", KubectlCmd))
-	kub.ExecMiddle(fmt.Sprintf("%s label --overwrite node k8s2 cilium.io/ci-node=k8s2", KubectlCmd))
-	kub.ExecMiddle(fmt.Sprintf("%s label --overwrite node k8s3 cilium.io/ci-node=k8s3", KubectlCmd))
+// labelNodes labels all Kubernetes nodes for use by the CI tests
+func (kub *Kubectl) labelNodes() error {
+	cmd := KubectlCmd + " get nodes -o json | jq -r '[ .items[].metadata.name ]'"
+	res := kub.ExecShort(cmd)
+	if !res.WasSuccessful() {
+		return fmt.Errorf("unable to retrieve all nodes with '%s': %s", cmd, res.OutputPrettyPrint())
+	}
+
+	var nodesList []string
+	if err := res.Unmarshal(&nodesList); err != nil {
+		return fmt.Errorf("unable to unmarshal string slice '%#v': %s", nodesList, err)
+	}
+
+	index := 1
+	for _, nodeName := range nodesList {
+		cmd := fmt.Sprintf("%s label --overwrite node %s cilium.io/ci-node=k8s%d", KubectlCmd, nodeName, index)
+		res := kub.ExecShort(cmd)
+		if !res.WasSuccessful() {
+			return fmt.Errorf("unable to label node with '%s': %s", cmd, res.OutputPrettyPrint())
+		}
+		index++
+	}
 
 	node := GetNodeWithoutCilium()
 	if node != "" {
 		// Prevent scheduling any pods on the node, as it will be used as an external client
 		// to send requests to k8s{1,2}
-		kub.ExecMiddle(fmt.Sprintf("%s taint nodes %s key=value:NoSchedule", KubectlCmd, node))
+		cmd := fmt.Sprintf("%s taint nodes %s key=value:NoSchedule", KubectlCmd, node)
+		res := kub.ExecMiddle(cmd)
+		if !res.WasSuccessful() {
+			return fmt.Errorf("unable to taint node with '%s': %s", cmd, res.OutputPrettyPrint())
+		}
 	}
+
+	return nil
 }
 
 // CepGet returns the endpoint model for the given pod name in the specified
