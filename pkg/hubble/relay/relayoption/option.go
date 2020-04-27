@@ -24,6 +24,7 @@ type Options struct {
 	HubbleTarget  string
 	DialTimeout   time.Duration
 	ListenAddress string
+	Debug         bool
 }
 
 // Option customizes the configuration of the hubble-relay server.
@@ -53,6 +54,14 @@ func WithDialTimeout(t time.Duration) Option {
 func WithListenAddress(a string) Option {
 	return func(o *Options) error {
 		o.ListenAddress = a
+		return nil
+	}
+}
+
+// WithDebug enables debug mode.
+func WithDebug() Option {
+	return func(o *Options) error {
+		o.Debug = true
 		return nil
 	}
 }

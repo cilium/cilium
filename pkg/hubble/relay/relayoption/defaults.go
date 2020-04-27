@@ -27,4 +27,5 @@ var Default = Options{
 	HubbleTarget:  "unix://" + defaults.HubbleSockPath,
 	DialTimeout:   5 * time.Second,
 	ListenAddress: fmt.Sprintf(":%d", hubbledefaults.RelayPort),
+	Debug:         false,
 }
