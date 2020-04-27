@@ -31,7 +31,8 @@ type Options struct {
 // Option customizes the configuration of the hubble-relay server.
 type Option func(o *Options) error
 
-// WithHubbleTarget sets the URL of the hubble server instance to connect to.
+// WithHubbleTarget sets the URL of the local hubble instance to connect to.
+// This target MUST implement the Peer service.
 func WithHubbleTarget(t string) Option {
 	return func(o *Options) error {
 		if !strings.HasPrefix(t, "unix://") {
@@ -43,7 +44,7 @@ func WithHubbleTarget(t string) Option {
 }
 
 // WithDialTimeout sets the dial timeout that is used when establishing a
-// connection to the hubble server instance that is being proxied.
+// connection to a hubble peer.
 func WithDialTimeout(t time.Duration) Option {
 	return func(o *Options) error {
 		o.DialTimeout = t
