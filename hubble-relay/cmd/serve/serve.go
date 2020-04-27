@@ -28,9 +28,10 @@ import (
 )
 
 var flag struct {
-	debug        bool
-	dialTimeout  time.Duration
-	retryTimeout time.Duration
+	debug         bool
+	dialTimeout   time.Duration
+	listenAddress string
+	retryTimeout  time.Duration
 }
 
 // New creates a new serve command.
@@ -46,12 +47,14 @@ func New() *cobra.Command {
 	cmd.Flags().BoolVarP(&flag.debug, "debug", "D", false, "Run in debug mode")
 	cmd.Flags().DurationVar(&flag.dialTimeout, "dial-timeout", relayoption.Default.DialTimeout, "Dial timeout when connecting to hubble peers")
 	cmd.Flags().DurationVar(&flag.retryTimeout, "retry-timeout", relayoption.Default.RetryTimeout, "Time to wait before attempting to reconnect to a hubble peer when the connection is lost")
+	cmd.Flags().StringVar(&flag.listenAddress, "listen-address", relayoption.Default.ListenAddress, "Address on which to listen")
 	return cmd
 }
 
 func runServe() error {
 	opts := []relayoption.Option{
 		relayoption.WithDialTimeout(flag.dialTimeout),
+		relayoption.WithListenAddress(flag.listenAddress),
 		relayoption.WithRetryTimeout(flag.retryTimeout),
 	}
 	if flag.debug {
