@@ -27,7 +27,6 @@ import (
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/pkg/errors"
 )
 
@@ -49,7 +48,7 @@ func (*AllocatorAzure) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (*ipam.
 
 	log.Info("Starting Azure IP allocator...")
 
-	subscriptionID := option.Config.AzureSubscriptionID
+	subscriptionID := operatorOption.Config.AzureSubscriptionID
 	if subscriptionID == "" {
 		log.Debug("SubscriptionID was not specified via CLI, retrieving it via Azure IMS")
 		subID, err := azureAPI.GetSubscriptionID(context.TODO())
@@ -60,7 +59,7 @@ func (*AllocatorAzure) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (*ipam.
 		log.WithField("subscriptionID", subscriptionID).Debug("Detected subscriptionID via Azure IMS")
 	}
 
-	resourceGroupName := option.Config.AzureResourceGroup
+	resourceGroupName := operatorOption.Config.AzureResourceGroup
 	if resourceGroupName == "" {
 		log.Debug("ResourceGroupName was not specified via CLI, retrieving it via Azure IMS")
 		rgName, err := azureAPI.GetResourceGroupName(context.TODO())

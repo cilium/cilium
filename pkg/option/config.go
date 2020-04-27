@@ -701,12 +701,6 @@ const (
 	// EnableRemoteNodeIdentity enables use of the remote-node identity
 	EnableRemoteNodeIdentity = "enable-remote-node-identity"
 
-	// AzureSubscriptionID is the subscription ID to use when accessing the Azure API
-	AzureSubscriptionID = "azure-subscription-id"
-
-	// AzureResourceGroup is the resource group of the nodes used for the cluster
-	AzureResourceGroup = "azure-resource-group"
-
 	// PolicyAuditModeArg argument enables policy audit mode.
 	PolicyAuditModeArg = "policy-audit-mode"
 
@@ -1698,12 +1692,6 @@ type DaemonConfig struct {
 
 	// Azure options
 
-	// AzureSubscriptionID is the subscription ID to use when accessing the Azure API
-	AzureSubscriptionID string
-
-	// AzureResourceGroup is the resource group of the nodes used for the cluster
-	AzureResourceGroup string
-
 	// PolicyAuditMode enables non-drop mode for installed policies. In
 	// audit mode packets affected by policies will not be dropped.
 	// Policy related decisions can be checked via the poicy verdict messages.
@@ -2108,8 +2096,6 @@ func (c *DaemonConfig) Populate() {
 	c.AllowLocalhost = viper.GetString(AllowLocalhost)
 	c.AnnotateK8sNode = viper.GetBool(AnnotateK8sNode)
 	c.AutoCreateCiliumNodeResource = viper.GetBool(AutoCreateCiliumNodeResource)
-	c.AzureSubscriptionID = viper.GetString(AzureSubscriptionID)
-	c.AzureResourceGroup = viper.GetString(AzureResourceGroup)
 	c.BPFCompilationDebug = viper.GetBool(BPFCompileDebugName)
 	c.BPFRoot = viper.GetString(BPFRoot)
 	c.CertDirectory = viper.GetString(CertsDirectory)
