@@ -312,35 +312,39 @@ generate-health-api: api/v1/health/openapi.yaml
 		-t api/v1 -t api/v1/health/ -f api/v1/health/openapi.yaml
 
 generate-k8s-api:
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"\
+	aws:types\
+	azure:types\
+	ipam:types\
+	k8s:types\
+	maps:ctmap\
+	maps:encrypt\
+	maps:eppolicymap\
+	maps:eventsmap\
+	maps:fragmap\
+	maps:ipcache\
+	maps:lbmap\
+	maps:lxcmap\
+	maps:metricsmap\
+	maps:nat\
+	maps:neighborsmap\
+	maps:policymap\
+	maps:signalmap\
+	maps:sockmap\
+	maps:tunnel\
+	node:types\
+	policy:api\
+	service:store\
+	")
 	$(call generate_k8s_api_all,github.com/cilium/cilium/pkg/k8s/apis,"cilium.io:v2")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg/aws,"eni:types")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"aws:types")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"azure:types")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"ipam:types")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"policy:api")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"pkg:loadbalancer")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"pkg:k8s")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/api,"v1:models")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"k8s:types")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:policymap")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:ipcache")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:lxcmap")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:tunnel")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:encrypt")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:metricsmap")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:nat")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:lbmap")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:eppolicymap")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:sockmap")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:ctmap")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:eventsmap")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:signalmap")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:neighborsmap")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"maps:fragmap")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"service:store")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"node:types")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"pkg:tuple")
-	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"pkg:bpf")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium,"\
+	pkg:bpf\
+	pkg:k8s\
+	pkg:loadbalancer\
+	pkg:tuple\
+	")
 
 vps:
 	VBoxManage list runningvms
