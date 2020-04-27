@@ -45,8 +45,8 @@ static __always_inline int get_csum_offset(__u8 protocol)
 
 static __always_inline int icmp4_to_icmp6(struct __ctx_buff *ctx, int nh_off)
 {
-	struct icmphdr icmp4;
-	struct icmp6hdr icmp6 = {};
+	struct icmphdr icmp4 __align_stack_8;
+	struct icmp6hdr icmp6 __align_stack_8 = {};
 
 	if (ctx_load_bytes(ctx, nh_off, &icmp4, sizeof(icmp4)) < 0)
 		return DROP_INVALID;
@@ -129,8 +129,8 @@ static __always_inline int icmp4_to_icmp6(struct __ctx_buff *ctx, int nh_off)
 
 static __always_inline int icmp6_to_icmp4(struct __ctx_buff *ctx, int nh_off)
 {
-	struct icmphdr icmp4 = {};
-	struct icmp6hdr icmp6;
+	struct icmphdr icmp4 __align_stack_8 = {};
+	struct icmp6hdr icmp6 __align_stack_8;
 
 	if (ctx_load_bytes(ctx, nh_off, &icmp6, sizeof(icmp6)) < 0)
 		return DROP_INVALID;

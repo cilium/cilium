@@ -88,7 +88,7 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 identity,
 	// of ICMP type 3 code 4 - Fragmentation Needed
 	if (proto == IPPROTO_ICMP) {
 		void *data, *data_end;
-		struct icmphdr icmphdr;
+		struct icmphdr icmphdr __align_stack_8;
 		struct iphdr *ip4;
 
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))

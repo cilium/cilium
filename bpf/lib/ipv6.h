@@ -49,7 +49,7 @@ static __always_inline int ipv6_hdrlen(struct __ctx_buff *ctx, int l3_off,
 				       __u8 *nexthdr)
 {
 	int i, len = sizeof(struct ipv6hdr);
-	struct ipv6_opt_hdr opthdr;
+	struct ipv6_opt_hdr opthdr __align_stack_8;
 	__u8 nh = *nexthdr;
 
 #pragma unroll
