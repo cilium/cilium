@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/cilium/cilium/pkg/hubble/relay"
 	"github.com/cilium/cilium/pkg/hubble/relay/relayoption"
@@ -27,7 +28,9 @@ import (
 )
 
 var flag struct {
-	debug bool
+	debug        bool
+	dialTimeout  time.Duration
+	retryTimeout time.Duration
 }
 
 // New creates a new serve command.
@@ -41,11 +44,16 @@ func New() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVarP(&flag.debug, "debug", "D", false, "Run in debug mode")
+	cmd.Flags().DurationVar(&flag.dialTimeout, "dial-timeout", relayoption.Default.DialTimeout, "Dial timeout when connecting to hubble peers")
+	cmd.Flags().DurationVar(&flag.retryTimeout, "retry-timeout", relayoption.Default.RetryTimeout, "Time to wait before attempting to reconnect to a hubble peer when the connection is lost")
 	return cmd
 }
 
 func runServe() error {
-	var opts []relayoption.Option
+	opts := []relayoption.Option{
+		relayoption.WithDialTimeout(flag.dialTimeout),
+		relayoption.WithRetryTimeout(flag.retryTimeout),
+	}
 	if flag.debug {
 		opts = append(opts, relayoption.WithDebug())
 	}
