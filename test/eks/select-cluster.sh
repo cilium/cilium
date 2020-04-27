@@ -37,7 +37,7 @@ echo "labeling nodes"
 index=1
 for node in $(kubectl get nodes --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}');
 do
-    kubectl label node $node cilium.io/ci-node=k8s$index
+    kubectl label node $node cilium.io/ci-node=k8s$index --overwrite
     index=$((index+1))
 done
 
