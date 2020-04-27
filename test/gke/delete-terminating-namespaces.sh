@@ -16,7 +16,7 @@ kubectl get ns | \
 # The commands mimic the DeleteAllInNamespace function in test/helpers/kubectl.go
 
 # Get all namespaces that exist. Terminating ones have been cleared above.
-NAMESPACES=$( kubectl get ns -o jsonpath='{range .items[*]}{@.metadata.name}{" "}')
+NAMESPACES=$(kubectl get ns -o jsonpath='{range .items[*]}{@.metadata.name}{" "}')
 
 # Get all namespaced types in the k8s system
 TYPES=$(kubectl api-resources --namespaced=true --verbs=delete -o name | tr '\n' ',' | sed -e 's/,$//')
