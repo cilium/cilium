@@ -329,6 +329,42 @@ type Rule struct {
 	Table int
 }
 
+// String returns the string representation of a Rule (adhering to the Stringer
+// interface).
+func (r Rule) String() string {
+	var (
+		str  string
+		from string
+		to   string
+	)
+
+	str += fmt.Sprintf("%d: ", r.Priority)
+
+	if r.From != nil {
+		from = r.From.String()
+	} else {
+		from = "all"
+	}
+
+	if r.To != nil {
+		to = r.To.String()
+	} else {
+		to = "all"
+	}
+
+	if r.Table == unix.RT_TABLE_MAIN {
+		str += fmt.Sprintf("from %s to %s lookup main", from, to)
+	} else {
+		str += fmt.Sprintf("from %s to %s lookup %d", from, to, r.Table)
+	}
+
+	if r.Mark != 0 {
+		str += fmt.Sprintf(" mark 0x%x mask 0x%x", r.Mark, r.Mask)
+	}
+
+	return str
+}
+
 func lookupRule(spec Rule, family int) (bool, error) {
 	rules, err := netlink.RuleList(family)
 	if err != nil {
