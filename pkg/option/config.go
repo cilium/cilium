@@ -83,16 +83,6 @@ const (
 	// the daemon, which can also be disbled using this option.
 	AnnotateK8sNode = "annotate-k8s-node"
 
-	// AwsInstanceLimitMapping allows overwirting AWS instance limits defined in
-	// pkg/aws/eni/limits.go
-	// e.g. {"a1.medium": "2,4,4", "a2.custom2": "4,5,6"}
-	AwsInstanceLimitMapping = "aws-instance-limit-mapping"
-
-	// AwsReleaseExcessIps allows releasing excess free IP addresses from ENI.
-	// Enabling this option reduces waste of IP addresses but may increase
-	// the number of API calls to AWS EC2 service.
-	AwsReleaseExcessIps = "aws-release-excess-ips"
-
 	// BPFRoot is the Path to BPF filesystem
 	BPFRoot = "bpf-root"
 
@@ -134,13 +124,6 @@ const (
 
 	// EnableExternalIPs enables implementation of k8s services with externalIPs in datapath
 	EnableExternalIPs = "enable-external-ips"
-
-	// ENIParallelWorkersDeprecated is the deprecated name of the option
-	// ParallelAllocWorkers that can be removed in Cilium 1.9
-	ENIParallelWorkersDeprecated = "eni-parallel-workers"
-
-	// ParallelAllocWorkers specifies the number of parallel workers to be used for IPAM allocation
-	ParallelAllocWorkers = "parallel-alloc-workers"
 
 	// K8sEnableEndpointSlice enables the k8s EndpointSlice feature into Cilium
 	K8sEnableEndpointSlice = "enable-k8s-endpoint-slice"
@@ -650,12 +633,6 @@ const (
 	// IPAMAzure is the value to select the Azure IPAM plugin for
 	// option.IPAM
 	IPAMAzure = "azure"
-
-	// ENITags are the tags that will be added to every ENI created by the AWS ENI IPAM
-	ENITags = "eni-tags"
-
-	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2 API to fill out the instnacetype to adapter limit mapping
-	UpdateEC2AdapterLimitViaAPI = "update-ec2-apdater-limit-via-api"
 
 	// XDPModeNative for loading progs with XDPModeLinkDriver
 	XDPModeNative = "native"
@@ -1719,28 +1696,7 @@ type DaemonConfig struct {
 	// EnableRemoteNodeIdentity enables use of the remote-node identity
 	EnableRemoteNodeIdentity bool
 
-	// Operator-specific options
-
-	// AWS options
-
-	// ENITags are the tags that will be added to every ENI created by the AWS ENI IPAM
-	ENITags map[string]string
-
-	// ParallelAllocWorkers specifies the number of parallel workers to be used in ENI mode.
-	ParallelAllocWorkers int64
-
-	// AwsInstanceLimitMapping allows overwirting AWS instance limits defined in
-	// pkg/aws/eni/limits.go
-	// e.g. {"a1.medium": "2,4,4", "a2.custom2": "4,5,6"}
-	AwsInstanceLimitMapping map[string]string
-
-	// AwsReleaseExcessIps allows releasing excess free IP addresses from ENI.
-	// Enabling this option reduces waste of IP addresses but may increase
-	// the number of API calls to AWS EC2 service.
-	AwsReleaseExcessIps bool
-
-	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2 API to fill out the instnacetype to adapter limit mapping
-	UpdateEC2AdapterLimitViaAPI bool
+	// Azure options
 
 	// AzureSubscriptionID is the subscription ID to use when accessing the Azure API
 	AzureSubscriptionID string
@@ -1808,7 +1764,6 @@ type DaemonConfig struct {
 var (
 	// Config represents the daemon configuration
 	Config = &DaemonConfig{
-		AwsInstanceLimitMapping:      make(map[string]string),
 		Opts:                         NewIntOptions(&DaemonOptionLibrary),
 		Monitor:                      &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
 		IPv6ClusterAllocCIDR:         defaults.IPv6ClusterAllocCIDR,
@@ -1820,7 +1775,6 @@ var (
 		EnableIPv6:                   defaults.EnableIPv6,
 		EnableL7Proxy:                defaults.EnableL7Proxy,
 		EndpointStatus:               make(map[string]struct{}),
-		ENITags:                      make(map[string]string),
 		ToFQDNsMaxIPsPerHost:         defaults.ToFQDNsMaxIPsPerHost,
 		KVstorePeriodicSync:          defaults.KVstorePeriodicSync,
 		KVstoreConnectivityTimeout:   defaults.KVstoreConnectivityTimeout,
@@ -2264,7 +2218,6 @@ func (c *DaemonConfig) Populate() {
 	c.SockopsEnable = viper.GetBool(SockopsEnableName)
 	c.TracePayloadlen = viper.GetInt(TracePayloadlen)
 	c.Tunnel = viper.GetString(TunnelName)
-	c.UpdateEC2AdapterLimitViaAPI = viper.GetBool(UpdateEC2AdapterLimitViaAPI)
 	c.Version = viper.GetString(Version)
 	c.WriteCNIConfigurationWhenReady = viper.GetString(WriteCNIConfigurationWhenReady)
 	c.PolicyTriggerInterval = viper.GetDuration(PolicyTriggerInterval)
@@ -2358,10 +2311,6 @@ func (c *DaemonConfig) Populate() {
 	c.MonitorAggregationFlags = ctMonitorReportFlags
 
 	// Map options
-	if m := viper.GetStringMapString(AwsInstanceLimitMapping); len(m) != 0 {
-		c.AwsInstanceLimitMapping = m
-	}
-
 	if m := viper.GetStringMapString(FixedIdentityMapping); len(m) != 0 {
 		c.FixedIdentityMapping = m
 	}
@@ -2370,18 +2319,8 @@ func (c *DaemonConfig) Populate() {
 		c.KVStoreOpt = m
 	}
 
-	if m := viper.GetStringMapString(ENITags); len(m) != 0 {
-		c.ENITags = m
-	}
-
 	if m := viper.GetStringMapString(LogOpt); len(m) != 0 {
 		c.LogOpt = m
-	}
-
-	if val := viper.GetInt64(ENIParallelWorkersDeprecated); val != 0 {
-		c.ParallelAllocWorkers = val
-	} else {
-		c.ParallelAllocWorkers = viper.GetInt64(ParallelAllocWorkers)
 	}
 
 	for _, option := range viper.GetStringSlice(EndpointStatus) {
@@ -2469,7 +2408,6 @@ func (c *DaemonConfig) Populate() {
 	c.SelectiveRegeneration = viper.GetBool(SelectiveRegeneration)
 	c.SkipCRDCreation = viper.GetBool(SkipCRDCreation)
 	c.DisableCNPStatusUpdates = viper.GetBool(DisableCNPStatusUpdates)
-	c.AwsReleaseExcessIps = viper.GetBool(AwsReleaseExcessIps)
 }
 
 func (c *DaemonConfig) populateNodePortRange() error {
