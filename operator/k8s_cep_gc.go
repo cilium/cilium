@@ -18,10 +18,10 @@ import (
 	"context"
 	"time"
 
+	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
 	core_v1 "k8s.io/api/core/v1"
@@ -53,11 +53,11 @@ func enableCiliumEndpointSyncGC() {
 	// this dummy manager is needed only to add this controller to the global list
 	controller.NewManager().UpdateController(controllerName,
 		controller.ControllerParams{
-			RunInterval: option.Config.EndpointGCInterval,
+			RunInterval: operatorOption.Config.EndpointGCInterval,
 			DoFunc: func(ctx context.Context) error {
 				var (
 					listOpts = meta_v1.ListOptions{Limit: 10}
-					loopStop = time.Now().Add(option.Config.EndpointGCInterval)
+					loopStop = time.Now().Add(operatorOption.Config.EndpointGCInterval)
 				)
 
 				pods, err := k8s.Client().CoreV1().Pods("").List(ctx, meta_v1.ListOptions{})

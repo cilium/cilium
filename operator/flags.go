@@ -19,6 +19,7 @@ import (
 	"time"
 
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
+	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -31,17 +32,17 @@ func init() {
 
 	flags := rootCmd.Flags()
 
-	flags.Int(option.AWSClientBurstDeprecated, defaults.IPAMAPIBurst, "")
-	flags.MarkDeprecated(option.AWSClientBurstDeprecated, fmt.Sprintf("please use --%s", option.IPAMAPIBurst))
+	flags.Int(operatorOption.AWSClientBurstDeprecated, defaults.IPAMAPIBurst, "")
+	flags.MarkDeprecated(operatorOption.AWSClientBurstDeprecated, fmt.Sprintf("please use --%s", operatorOption.IPAMAPIBurst))
 
-	flags.Int(option.IPAMAPIBurst, defaults.IPAMAPIBurst, "Upper burst limit when accessing external APIs")
-	option.BindEnv(option.IPAMAPIBurst)
+	flags.Int(operatorOption.IPAMAPIBurst, defaults.IPAMAPIBurst, "Upper burst limit when accessing external APIs")
+	option.BindEnv(operatorOption.IPAMAPIBurst)
 
-	flags.Float64(option.AWSClientQPSLimitDeprecated, defaults.IPAMAPIQPSLimit, "")
-	flags.MarkDeprecated(option.AWSClientQPSLimitDeprecated, fmt.Sprintf("please use --%s", option.IPAMAPIQPSLimit))
+	flags.Float64(operatorOption.AWSClientQPSLimitDeprecated, defaults.IPAMAPIQPSLimit, "")
+	flags.MarkDeprecated(operatorOption.AWSClientQPSLimitDeprecated, fmt.Sprintf("please use --%s", operatorOption.IPAMAPIQPSLimit))
 
-	flags.Float64(option.IPAMAPIQPSLimit, defaults.IPAMAPIQPSLimit, "Queries per second limit when accessing external IPAM APIs")
-	option.BindEnv(option.IPAMAPIQPSLimit)
+	flags.Float64(operatorOption.IPAMAPIQPSLimit, defaults.IPAMAPIQPSLimit, "Queries per second limit when accessing external IPAM APIs")
+	option.BindEnv(operatorOption.IPAMAPIQPSLimit)
 
 	flags.String(option.AzureSubscriptionID, "", "Subscription ID to access Azure API")
 	option.BindEnvWithLegacyEnvFallback(option.AzureSubscriptionID, "AZURE_SUBSCRIPTION_ID")
@@ -66,11 +67,13 @@ func init() {
 		option.ENITags, "ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)")
 	option.BindEnv(option.ENITags)
 
-	flags.StringToStringVar(&option.Config.IPAMSubnetsTags, option.IPAMSubnetsTags, option.Config.IPAMSubnetsTags,
+	flags.StringToStringVar(&operatorOption.Config.IPAMSubnetsTags, operatorOption.IPAMSubnetsTags, operatorOption.Config.IPAMSubnetsTags,
 		"Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag")
-	option.BindEnv(option.IPAMSubnetsTags)
-	flags.StringSliceVar(&option.Config.IPAMSubnetsIDs, option.IPAMSubnetsIDs, option.Config.IPAMSubnetsIDs, "Subnets IDs (separated by commas)")
-	option.BindEnv(option.IPAMSubnetsIDs)
+	option.BindEnv(operatorOption.IPAMSubnetsTags)
+
+	flags.StringSliceVar(&operatorOption.Config.IPAMSubnetsIDs, operatorOption.IPAMSubnetsIDs, operatorOption.Config.IPAMSubnetsIDs,
+		"Subnets IDs (separated by commas)")
+	option.BindEnv(operatorOption.IPAMSubnetsIDs)
 
 	flags.Int64(option.ENIParallelWorkersDeprecated, defaults.ParallelAllocWorkers, "")
 	flags.MarkDeprecated(option.ENIParallelWorkersDeprecated, fmt.Sprintf("please use --%s", option.ParallelAllocWorkers))
@@ -97,20 +100,20 @@ func init() {
 	option.BindEnv(option.ConfigDir)
 
 	// Deprecated, remove in 1.9
-	flags.Bool(option.EnableCCNPNodeStatusGC, true, "Enable CiliumClusterwideNetworkPolicy Status garbage collection for nodes which have been removed from the cluster")
-	option.BindEnv(option.EnableCCNPNodeStatusGC)
-	flags.MarkDeprecated(option.EnableCCNPNodeStatusGC, fmt.Sprintf("Please use %s=0 to disable CCNP Status GC", option.CNPNodeStatusGCInterval))
+	flags.Bool(operatorOption.EnableCCNPNodeStatusGC, true, "Enable CiliumClusterwideNetworkPolicy Status garbage collection for nodes which have been removed from the cluster")
+	option.BindEnv(operatorOption.EnableCCNPNodeStatusGC)
+	flags.MarkDeprecated(operatorOption.EnableCCNPNodeStatusGC, fmt.Sprintf("Please use %s=0 to disable CCNP Status GC", operatorOption.CNPNodeStatusGCInterval))
 
 	// Deprecated, remove in 1.9
-	flags.Bool(option.EnableCNPNodeStatusGC, true, "Enable CiliumNetworkPolicy Status garbage collection for nodes which have been removed from the cluster")
-	option.BindEnv(option.EnableCNPNodeStatusGC)
-	flags.MarkDeprecated(option.EnableCNPNodeStatusGC, fmt.Sprintf("Please use %s=0 to disable CNP Status GC", option.CNPNodeStatusGCInterval))
+	flags.Bool(operatorOption.EnableCNPNodeStatusGC, true, "Enable CiliumNetworkPolicy Status garbage collection for nodes which have been removed from the cluster")
+	option.BindEnv(operatorOption.EnableCNPNodeStatusGC)
+	flags.MarkDeprecated(operatorOption.EnableCNPNodeStatusGC, fmt.Sprintf("Please use %s=0 to disable CNP Status GC", operatorOption.CNPNodeStatusGCInterval))
 
-	flags.Duration(option.CNPNodeStatusGCInterval, 2*time.Minute, "GC interval for nodes which have been removed from the cluster in CiliumNetworkPolicy Status")
-	option.BindEnv(option.CNPNodeStatusGCInterval)
+	flags.Duration(operatorOption.CNPNodeStatusGCInterval, 2*time.Minute, "GC interval for nodes which have been removed from the cluster in CiliumNetworkPolicy Status")
+	option.BindEnv(operatorOption.CNPNodeStatusGCInterval)
 
-	flags.Duration(option.CNPStatusUpdateInterval, 1*time.Second, "Interval between CNP status updates sent to the k8s-apiserver per-CNP")
-	option.BindEnv(option.CNPStatusUpdateInterval)
+	flags.Duration(operatorOption.CNPStatusUpdateInterval, 1*time.Second, "Interval between CNP status updates sent to the k8s-apiserver per-CNP")
+	option.BindEnv(operatorOption.CNPStatusUpdateInterval)
 
 	flags.BoolP(option.DebugArg, "D", false, "Enable debugging mode")
 	option.BindEnv(option.DebugArg)
@@ -124,27 +127,27 @@ func init() {
 	option.BindEnv(option.DisableCiliumEndpointCRDName)
 
 	// Deprecated, remove in 1.9
-	flags.Bool(option.EnableCEPGC, true, "Enable CiliumEndpoint garbage collector")
-	option.BindEnv(option.EnableCEPGC)
-	flags.MarkDeprecated(option.EnableCEPGC, fmt.Sprintf("Please use %s=0 to disable CEP GC", option.EndpointGCInterval))
+	flags.Bool(operatorOption.EnableCEPGC, true, "Enable CiliumEndpoint garbage collector")
+	option.BindEnv(operatorOption.EnableCEPGC)
+	flags.MarkDeprecated(operatorOption.EnableCEPGC, fmt.Sprintf("Please use %s=0 to disable CEP GC", operatorOption.EndpointGCInterval))
 
-	flags.Duration(option.EndpointGCInterval, 30*time.Minute, "GC interval for cilium endpoints")
-	option.BindEnv(option.EndpointGCInterval)
+	flags.Duration(operatorOption.EndpointGCInterval, 30*time.Minute, "GC interval for cilium endpoints")
+	option.BindEnv(operatorOption.EndpointGCInterval)
 
-	flags.Bool(option.EnableMetrics, false, "Enable Prometheus metrics")
-	option.BindEnv(option.EnableMetrics)
+	flags.Bool(operatorOption.EnableMetrics, false, "Enable Prometheus metrics")
+	option.BindEnv(operatorOption.EnableMetrics)
 
 	flags.String(option.IPAM, option.IPAMHostScopeLegacy, "Backend to use for IPAM")
 	option.BindEnv(option.IPAM)
 
-	flags.Duration(option.IdentityHeartbeatTimeout, 15*time.Minute, "Timeout after which identity expires on lack of heartbeat")
-	option.BindEnv(option.IdentityHeartbeatTimeout)
+	flags.Duration(operatorOption.IdentityHeartbeatTimeout, 15*time.Minute, "Timeout after which identity expires on lack of heartbeat")
+	option.BindEnv(operatorOption.IdentityHeartbeatTimeout)
 
 	flags.String(option.IdentityAllocationMode, option.IdentityAllocationModeKVstore, "Method to use for identity allocation")
 	option.BindEnv(option.IdentityAllocationMode)
 
-	flags.Duration(option.IdentityGCInterval, defaults.KVstoreLeaseTTL, "GC interval for security identities")
-	option.BindEnv(option.IdentityGCInterval)
+	flags.Duration(operatorOption.IdentityGCInterval, defaults.KVstoreLeaseTTL, "GC interval for security identities")
+	option.BindEnv(operatorOption.IdentityGCInterval)
 
 	flags.String(option.KVStore, "", "Key-value store type")
 	option.BindEnv(option.KVStore)
@@ -168,34 +171,34 @@ func init() {
 	flags.String(option.K8sKubeConfigPath, "", "Absolute path of the kubernetes kubeconfig file")
 	option.BindEnv(option.K8sKubeConfigPath)
 
-	flags.Duration(option.NodesGCInterval, 2*time.Minute, "GC interval for nodes store in the kvstore")
-	option.BindEnv(option.NodesGCInterval)
+	flags.Duration(operatorOption.NodesGCInterval, 2*time.Minute, "GC interval for nodes store in the kvstore")
+	option.BindEnv(operatorOption.NodesGCInterval)
 
-	flags.String(option.OperatorPrometheusServeAddr, ":6942", "Address to serve Prometheus metrics")
-	option.BindEnv(option.OperatorPrometheusServeAddr)
+	flags.String(operatorOption.OperatorPrometheusServeAddr, ":6942", "Address to serve Prometheus metrics")
+	option.BindEnv(operatorOption.OperatorPrometheusServeAddr)
 
-	flags.String(option.OperatorAPIServeAddr, "localhost:9234", "Address to serve API requests")
-	option.BindEnv(option.OperatorAPIServeAddr)
+	flags.String(operatorOption.OperatorAPIServeAddr, "localhost:9234", "Address to serve API requests")
+	option.BindEnv(operatorOption.OperatorAPIServeAddr)
 
-	flags.Bool(option.SyncK8sServices, true, "Synchronize Kubernetes services to kvstore")
-	option.BindEnv(option.SyncK8sServices)
+	flags.Bool(operatorOption.SyncK8sServices, true, "Synchronize Kubernetes services to kvstore")
+	option.BindEnv(operatorOption.SyncK8sServices)
 
-	flags.Bool(option.SyncK8sNodes, true, "Synchronize Kubernetes nodes to kvstore and perform CNP GC")
-	option.BindEnv(option.SyncK8sNodes)
+	flags.Bool(operatorOption.SyncK8sNodes, true, "Synchronize Kubernetes nodes to kvstore and perform CNP GC")
+	option.BindEnv(operatorOption.SyncK8sNodes)
 
-	flags.Int(option.UnmanagedPodWatcherInterval, 15, "Interval to check for unmanaged kube-dns pods (0 to disable)")
-	option.BindEnv(option.UnmanagedPodWatcherInterval)
+	flags.Int(operatorOption.UnmanagedPodWatcherInterval, 15, "Interval to check for unmanaged kube-dns pods (0 to disable)")
+	option.BindEnv(operatorOption.UnmanagedPodWatcherInterval)
 
 	flags.Bool(option.Version, false, "Print version information")
 	option.BindEnv(option.Version)
 
 	// Deprecated, remove in 1.9
 	flags.Uint16Var(&apiServerPort, "api-server-port", 9234, "Port on which the operator should serve API requests")
-	flags.MarkDeprecated("api-server-port", fmt.Sprintf("Please use %s instead", option.OperatorAPIServeAddr))
+	flags.MarkDeprecated("api-server-port", fmt.Sprintf("Please use %s instead", operatorOption.OperatorAPIServeAddr))
 
 	// Deprecated, remove in 1.9
 	flags.StringVar(&operatorMetrics.Address, "metrics-address", ":6942", "Address to serve Prometheus metrics")
-	flags.MarkDeprecated("metrics-address", fmt.Sprintf("Please use %s instead", option.OperatorPrometheusServeAddr))
+	flags.MarkDeprecated("metrics-address", fmt.Sprintf("Please use %s instead", operatorOption.OperatorPrometheusServeAddr))
 
 	flags.String(option.CMDRef, "", "Path to cmdref output directory")
 	flags.MarkHidden(option.CMDRef)

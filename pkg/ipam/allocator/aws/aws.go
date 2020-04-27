@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
+	operatorOption "github.com/cilium/cilium/operator/option"
 	apiMetrics "github.com/cilium/cilium/pkg/api/metrics"
 	ec2shim "github.com/cilium/cilium/pkg/aws/ec2"
 	"github.com/cilium/cilium/pkg/aws/eni"
@@ -82,7 +83,7 @@ func (*AllocatorAWS) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (*ipam.No
 
 	cfg.Region = instance.Region
 
-	if option.Config.EnableMetrics {
+	if operatorOption.Config.EnableMetrics {
 		aMetrics = apiMetrics.NewPrometheusMetrics("ipam", operatorMetrics.Namespace, operatorMetrics.Registry)
 		iMetrics = ipamMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, operatorMetrics.Registry)
 	} else {
@@ -90,8 +91,8 @@ func (*AllocatorAWS) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (*ipam.No
 		iMetrics = &ipamMetrics.NoOpMetrics{}
 	}
 
-	subnetsFilters := ec2shim.NewSubnetsFilters(option.Config.IPAMSubnetsTags, option.Config.IPAMSubnetsIDs)
-	ec2Client := ec2shim.NewClient(ec2.New(cfg), aMetrics, option.Config.IPAMAPIQPSLimit, option.Config.IPAMAPIBurst, subnetsFilters)
+	subnetsFilters := ec2shim.NewSubnetsFilters(operatorOption.Config.IPAMSubnetsTags, operatorOption.Config.IPAMSubnetsIDs)
+	ec2Client := ec2shim.NewClient(ec2.New(cfg), aMetrics, operatorOption.Config.IPAMAPIQPSLimit, operatorOption.Config.IPAMAPIBurst, subnetsFilters)
 	log.Info("Connected to EC2 service API")
 	instances := eni.NewInstancesManager(ec2Client, option.Config.ENITags)
 	nodeManager, err := ipam.NewNodeManager(instances, getterUpdater, iMetrics,

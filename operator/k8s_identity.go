@@ -18,12 +18,12 @@ import (
 	"context"
 	"time"
 
+	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -80,7 +80,7 @@ nextIdentity:
 		}
 
 		for _, heartbeat := range identity.Status.Nodes {
-			if time.Since(heartbeat.Time) < option.Config.IdentityHeartbeatTimeout {
+			if time.Since(heartbeat.Time) < operatorOption.Config.IdentityHeartbeatTimeout {
 				continue nextIdentity
 			}
 		}
@@ -94,11 +94,11 @@ nextIdentity:
 }
 
 func startCRDIdentityGC() {
-	log.Infof("Starting CRD identity garbage collector with %s interval...", option.Config.IdentityGCInterval)
+	log.Infof("Starting CRD identity garbage collector with %s interval...", operatorOption.Config.IdentityGCInterval)
 
 	controller.NewManager().UpdateController("crd-identity-gc",
 		controller.ControllerParams{
-			RunInterval: option.Config.IdentityGCInterval,
+			RunInterval: operatorOption.Config.IdentityGCInterval,
 			DoFunc: func(ctx context.Context) error {
 				identityGCIteration()
 				return nil

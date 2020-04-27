@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -141,11 +142,11 @@ func runNodeWatcher(nodeManager *ipam.NodeManager) error {
 
 	}()
 
-	if option.Config.EnableCNPNodeStatusGC && option.Config.CNPNodeStatusGCInterval != 0 {
+	if operatorOption.Config.EnableCNPNodeStatusGC && operatorOption.Config.CNPNodeStatusGCInterval != 0 {
 		go runCNPNodeStatusGC("cnp-node-gc", false, ciliumNodeStore)
 	}
 
-	if option.Config.EnableCCNPNodeStatusGC && option.Config.CNPNodeStatusGCInterval != 0 {
+	if operatorOption.Config.EnableCCNPNodeStatusGC && operatorOption.Config.CNPNodeStatusGCInterval != 0 {
 		go runCNPNodeStatusGC("ccnp-node-gc", true, ciliumNodeStore)
 	}
 
@@ -168,9 +169,9 @@ func runCNPNodeStatusGC(name string, clusterwide bool, ciliumNodeStore *store.Sh
 
 	controller.NewManager().UpdateController(name,
 		controller.ControllerParams{
-			RunInterval: option.Config.CNPNodeStatusGCInterval,
+			RunInterval: operatorOption.Config.CNPNodeStatusGCInterval,
 			DoFunc: func(ctx context.Context) error {
-				lastRun := time.Now().Add(-option.Config.NodesGCInterval)
+				lastRun := time.Now().Add(-operatorOption.Config.NodesGCInterval)
 				k8sCapabilities := k8sversion.Capabilities()
 				continueID := ""
 				wg := sync.WaitGroup{}

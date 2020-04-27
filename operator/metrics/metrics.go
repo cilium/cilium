@@ -18,7 +18,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/cilium/cilium/pkg/option"
+	operatorOption "github.com/cilium/cilium/operator/option"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -44,8 +44,8 @@ func Register() {
 }
 
 func getPrometheusServerAddr() string {
-	if option.Config.OperatorPrometheusServeAddr == "" {
+	if operatorOption.Config.OperatorPrometheusServeAddr == "" {
 		return Address
 	}
-	return option.Config.OperatorPrometheusServeAddr
+	return operatorOption.Config.OperatorPrometheusServeAddr
 }
