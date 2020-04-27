@@ -23,6 +23,7 @@ import (
 type Options struct {
 	HubbleTarget  string
 	DialTimeout   time.Duration
+	RetryTimeout  time.Duration
 	ListenAddress string
 	Debug         bool
 }
@@ -46,6 +47,15 @@ func WithHubbleTarget(t string) Option {
 func WithDialTimeout(t time.Duration) Option {
 	return func(o *Options) error {
 		o.DialTimeout = t
+		return nil
+	}
+}
+
+// WithRetryTimeout sets the duration to wait before attempting to re-connect
+// to a hubble peer when the connection is lost.
+func WithRetryTimeout(t time.Duration) Option {
+	return func(o *Options) error {
+		o.RetryTimeout = t
 		return nil
 	}
 }
