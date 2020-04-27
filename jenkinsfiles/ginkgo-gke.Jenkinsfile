@@ -14,7 +14,6 @@ pipeline {
         TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
         GOPATH="${WORKSPACE}"
         GKE_KEY=credentials('gke-key')
-        GKE_ZONE="us-west1-a"
         TAG="${GIT_COMMIT}"
         HOME="${WORKSPACE}"
     }
@@ -138,7 +137,7 @@ pipeline {
                         )}"""
                 K8S_VERSION= """${sh(
                         returnStdout: true,
-                        script: 'cd ${TESTDIR}; gke/get-cluster-version.sh'
+                        script: 'cat ${TESTDIR}/gke/cluster-version'
                         )}"""
                 FOCUS= """${sh(
                         returnStdout: true,
