@@ -159,6 +159,7 @@ func BeforeAll(body func()) bool {
 		currentScope.before = append(currentScope.before, body)
 		return BeforeEach(func() {})
 	}
+
 	return true
 }
 
@@ -568,4 +569,9 @@ func SkipItIf(condition func() bool, text string, body func()) bool {
 	}
 
 	return It(text, body)
+}
+
+// Failf calls Fail with a formatted string
+func Failf(msg string, args ...interface{}) {
+	Fail(fmt.Sprintf(msg, args...))
 }

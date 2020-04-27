@@ -273,6 +273,7 @@ var _ = BeforeAll(func() {
 			}
 		}
 		kubectl := helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+		kubectl.PrepareCluster()
 
 		kubectl.LabelNodes()
 

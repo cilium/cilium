@@ -299,6 +299,50 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 	return k
 }
 
+// DeleteAllInNamespace deletes all namespaces except the ones provided in the
+// exception list
+func (kub *Kubectl) DeleteAllNamespacesExcept(except []string) error {
+	cmd := KubectlCmd + " get namespace -o json | jq -r '[ .items[].metadata.name ]'"
+	res := kub.ExecShort(cmd)
+	if !res.WasSuccessful() {
+		return fmt.Errorf("unable to retrieve all namespaces with '%s': %s", cmd, res.OutputPrettyPrint())
+	}
+
+	var namespaceList []string
+	if err := res.Unmarshal(&namespaceList); err != nil {
+		return fmt.Errorf("unable to unmarshal string slice '%#v': %s", namespaceList, err)
+	}
+
+	exceptMap := map[string]struct{}{}
+	for _, e := range except {
+		exceptMap[e] = struct{}{}
+	}
+
+	for _, namespace := range namespaceList {
+		if _, ok := exceptMap[namespace]; !ok {
+			kub.NamespaceDelete(namespace)
+		}
+	}
+
+	return nil
+}
+
+// PrepareCluster will prepare the cluster to run tests. It will:
+// - Delete all existing namespaces
+func (kub *Kubectl) PrepareCluster() {
+	ginkgoext.By("Preparing cluster")
+	err := kub.DeleteAllNamespacesExcept([]string{
+		KubeSystemNamespace,
+		GetCiliumNamespace(GetCurrentIntegration()),
+		"default",
+		"kube-node-lease",
+		"kube-public",
+	})
+	if err != nil {
+		ginkgoext.Failf("Unable to delete non-essential namespaces: %s", err)
+	}
+}
+
 // LabelNodes labels nodes in vagrant env. If you are running tests on different cluster you need to label your nodes by yourself
 func (kub *Kubectl) LabelNodes() {
 	kub.ExecMiddle(fmt.Sprintf("%s label --overwrite node k8s1 cilium.io/ci-node=k8s1", KubectlCmd))
@@ -878,11 +922,10 @@ func (kub *Kubectl) NamespaceCreate(name string) *CmdRes {
 // NamespaceDelete deletes a given Kubernetes namespace
 func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
 	ginkgoext.By("Deleting namespace %s", name)
-	res := kub.DeleteAllInNamespace(name)
-	if !res.WasSuccessful() {
-		kub.Logger().Infof("Error while deleting all objects from %s ns: %s", name, res.GetError())
+	if err := kub.DeleteAllInNamespace(name); err != nil {
+		kub.Logger().Infof("Error while deleting all objects from %s ns: %s", name, err)
 	}
-	res = kub.ExecShort(fmt.Sprintf("%s delete namespace %s", KubectlCmd, name))
+	res := kub.ExecShort(fmt.Sprintf("%s delete namespace %s", KubectlCmd, name))
 	if !res.WasSuccessful() {
 		kub.Logger().Infof("Error while deleting ns %s: %s", name, res.GetError())
 	}
@@ -892,10 +935,14 @@ func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
 }
 
 // DeleteAllInNamespace deletes all k8s objects in a namespace
-func (kub *Kubectl) DeleteAllInNamespace(name string) *CmdRes {
+func (kub *Kubectl) DeleteAllInNamespace(name string) error {
 	// we are getting all namespaced resources from k8s apiserver, and delete all objects of these types in a provided namespace
-	return kub.ExecShort(fmt.Sprintf("%s delete $(%s api-resources --namespaced=true --verbs=delete -o name | tr '\n' ',' | sed -e 's/,$//') -n %s --all",
-		KubectlCmd, KubectlCmd, name))
+	cmd := fmt.Sprintf("%s delete $(%s api-resources --namespaced=true --verbs=delete -o name | tr '\n' ',' | sed -e 's/,$//') -n %s --all", KubectlCmd, KubectlCmd, name)
+	if res := kub.ExecShort(cmd); !res.WasSuccessful() {
+		return fmt.Errorf("unable to run '%s': %s", cmd, res.OutputPrettyPrint())
+	}
+
+	return nil
 }
 
 // NamespaceLabel sets a label in a Kubernetes namespace
