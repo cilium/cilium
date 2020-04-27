@@ -50,22 +50,22 @@ func init() {
 	flags.String(option.AzureResourceGroup, "", "Resource group to use for Azure IPAM")
 	option.BindEnvWithLegacyEnvFallback(option.AzureResourceGroup, "AZURE_RESOURCE_GROUP")
 
-	flags.Var(option.NewNamedMapOptions(option.AwsInstanceLimitMapping, &option.Config.AwsInstanceLimitMapping, nil),
-		option.AwsInstanceLimitMapping,
+	flags.Var(option.NewNamedMapOptions(operatorOption.AWSInstanceLimitMapping, &operatorOption.Config.AWSInstanceLimitMapping, nil),
+		operatorOption.AWSInstanceLimitMapping,
 		`Add or overwrite mappings of AWS instance limit in the form of `+
 			`{"AWS instance type": "Maximum Network Interfaces","IPv4 Addresses `+
 			`per Interface","IPv6 Addresses per Interface"}. cli example: `+
 			`--aws-instance-limit-mapping=a1.medium=2,4,4 `+
 			`--aws-instance-limit-mapping=a2.somecustomflavor=4,5,6 `+
 			`configmap example: {"a1.medium": "2,4,4", "a2.somecustomflavor": "4,5,6"}`)
-	option.BindEnv(option.AwsInstanceLimitMapping)
+	option.BindEnv(operatorOption.AWSInstanceLimitMapping)
 
-	flags.Bool(option.AwsReleaseExcessIps, false, "Enable releasing excess free IP addresses from AWS ENI.")
-	option.BindEnv(option.AwsReleaseExcessIps)
+	flags.Bool(operatorOption.AWSReleaseExcessIPs, false, "Enable releasing excess free IP addresses from AWS ENI.")
+	option.BindEnv(operatorOption.AWSReleaseExcessIPs)
 
-	flags.Var(option.NewNamedMapOptions(option.ENITags, &option.Config.ENITags, nil),
-		option.ENITags, "ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)")
-	option.BindEnv(option.ENITags)
+	flags.Var(option.NewNamedMapOptions(operatorOption.ENITags, &operatorOption.Config.ENITags, nil),
+		operatorOption.ENITags, "ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)")
+	option.BindEnv(operatorOption.ENITags)
 
 	flags.StringToStringVar(&operatorOption.Config.IPAMSubnetsTags, operatorOption.IPAMSubnetsTags, operatorOption.Config.IPAMSubnetsTags,
 		"Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag")
@@ -75,15 +75,15 @@ func init() {
 		"Subnets IDs (separated by commas)")
 	option.BindEnv(operatorOption.IPAMSubnetsIDs)
 
-	flags.Int64(option.ENIParallelWorkersDeprecated, defaults.ParallelAllocWorkers, "")
-	flags.MarkDeprecated(option.ENIParallelWorkersDeprecated, fmt.Sprintf("please use --%s", option.ParallelAllocWorkers))
-	option.BindEnv(option.ENIParallelWorkersDeprecated)
+	flags.Int64(operatorOption.ENIParallelWorkersDeprecated, defaults.ParallelAllocWorkers, "")
+	flags.MarkDeprecated(operatorOption.ENIParallelWorkersDeprecated, fmt.Sprintf("please use --%s", operatorOption.ParallelAllocWorkers))
+	option.BindEnv(operatorOption.ENIParallelWorkersDeprecated)
 
-	flags.Int64(option.ParallelAllocWorkers, defaults.ParallelAllocWorkers, "Maximum number of parallel IPAM workers")
-	option.BindEnv(option.ParallelAllocWorkers)
+	flags.Int64(operatorOption.ParallelAllocWorkers, defaults.ParallelAllocWorkers, "Maximum number of parallel IPAM workers")
+	option.BindEnv(operatorOption.ParallelAllocWorkers)
 
-	flags.Bool(option.UpdateEC2AdapterLimitViaAPI, false, "Use the EC2 API to update the instance type to adapter limits")
-	option.BindEnv(option.UpdateEC2AdapterLimitViaAPI)
+	flags.Bool(operatorOption.UpdateEC2AdapterLimitViaAPI, false, "Use the EC2 API to update the instance type to adapter limits")
+	option.BindEnv(operatorOption.UpdateEC2AdapterLimitViaAPI)
 
 	// Clustermesh dedicated flags
 	flags.Int(option.ClusterIDName, 0, "Unique identifier of the cluster")

@@ -99,6 +99,33 @@ const (
 
 	// IAPMSubnetsTags are optional tags used to filter subnets, and interfaces within those subnets
 	IPAMSubnetsTags = "subnet-tags-filter"
+
+	// AWS options
+
+	// AWSInstanceLimitMapping allows overwirting AWS instance limits defined in
+	// pkg/aws/eni/limits.go
+	// e.g. {"a1.medium": "2,4,4", "a2.custom2": "4,5,6"}
+	AWSInstanceLimitMapping = "aws-instance-limit-mapping"
+
+	// AWSReleaseExcessIPs allows releasing excess free IP addresses from ENI.
+	// Enabling this option reduces waste of IP addresses but may increase
+	// the number of API calls to AWS EC2 service.
+	AWSReleaseExcessIPs = "aws-release-excess-ips"
+
+	// ENITags are the tags that will be added to every ENI created by the
+	// AWS ENI IPAM.
+	ENITags = "eni-tags"
+
+	// ENIParallelWorkersDeprecated is the deprecated name of the option
+	// ParallelAllocWorkers that can be removed in Cilium 1.9
+	ENIParallelWorkersDeprecated = "eni-parallel-workers"
+
+	// ParallelAllocWorkers specifies the number of parallel workers to be used for IPAM allocation
+	ParallelAllocWorkers = "parallel-alloc-workers"
+
+	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2
+	// API to fill out the instnacetype to adapter limit mapping.
+	UpdateEC2AdapterLimitViaAPI = "update-ec2-apdater-limit-via-api"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -170,6 +197,27 @@ type OperatorConfig struct {
 
 	// IPAMSubnetsTags are optional tags used to filter subnets, and interfaces within those subnets
 	IPAMSubnetsTags map[string]string
+
+	// AWS options
+
+	// ENITags are the tags that will be added to every ENI created by the AWS ENI IPAM
+	ENITags map[string]string
+
+	// ParallelAllocWorkers specifies the number of parallel workers to be used in ENI mode.
+	ParallelAllocWorkers int64
+
+	// AWSInstanceLimitMapping allows overwriting AWS instance limits defined in
+	// pkg/aws/eni/limits.go
+	// e.g. {"a1.medium": "2,4,4", "a2.custom2": "4,5,6"}
+	AWSInstanceLimitMapping map[string]string
+
+	// AWSReleaseExcessIps allows releasing excess free IP addresses from ENI.
+	// Enabling this option reduces waste of IP addresses but may increase
+	// the number of API calls to AWS EC2 service.
+	AWSReleaseExcessIPs bool
+
+	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2 API to fill out the instnacetype to adapter limit mapping
+	UpdateEC2AdapterLimitViaAPI bool
 }
 
 func (c *OperatorConfig) Populate() {
@@ -189,6 +237,13 @@ func (c *OperatorConfig) Populate() {
 	c.SyncK8sNodes = viper.GetBool(SyncK8sNodes)
 	c.UnmanagedPodWatcherInterval = viper.GetInt(UnmanagedPodWatcherInterval)
 
+	// AWS options
+
+	c.AWSReleaseExcessIPs = viper.GetBool(AWSReleaseExcessIPs)
+	c.UpdateEC2AdapterLimitViaAPI = viper.GetBool(UpdateEC2AdapterLimitViaAPI)
+
+	// Deprecated options
+
 	if val := viper.GetInt(AWSClientBurstDeprecated); val != 0 {
 		c.IPAMAPIBurst = val
 	} else {
@@ -201,6 +256,14 @@ func (c *OperatorConfig) Populate() {
 		c.IPAMAPIQPSLimit = viper.GetFloat64(IPAMAPIQPSLimit)
 	}
 
+	if val := viper.GetInt64(ENIParallelWorkersDeprecated); val != 0 {
+		c.ParallelAllocWorkers = val
+	} else {
+		c.ParallelAllocWorkers = viper.GetInt64(ParallelAllocWorkers)
+	}
+
+	// Option maps and slices
+
 	if m := viper.GetStringSlice(IPAMSubnetsIDs); len(m) != 0 {
 		c.IPAMSubnetsIDs = m
 	}
@@ -208,10 +271,20 @@ func (c *OperatorConfig) Populate() {
 	if m := viper.GetStringMapString(IPAMSubnetsTags); len(m) != 0 {
 		c.IPAMSubnetsTags = m
 	}
+
+	if m := viper.GetStringMapString(AWSInstanceLimitMapping); len(m) != 0 {
+		c.AWSInstanceLimitMapping = m
+	}
+
+	if m := viper.GetStringMapString(ENITags); len(m) != 0 {
+		c.ENITags = m
+	}
 }
 
 // Config represents the operator configuration.
 var Config = &OperatorConfig{
-	IPAMSubnetsIDs:  make([]string, 0),
-	IPAMSubnetsTags: make(map[string]string),
+	IPAMSubnetsIDs:          make([]string, 0),
+	IPAMSubnetsTags:         make(map[string]string),
+	AWSInstanceLimitMapping: make(map[string]string),
+	ENITags:                 make(map[string]string),
 }
