@@ -15,7 +15,6 @@
 package serve
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -43,24 +42,11 @@ func runServe() error {
 	if err != nil {
 		return fmt.Errorf("cannot create hubble-relay server: %v", err)
 	}
-
-	if err := srv.Serve(); err != nil {
-		return err
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	handleSignal(ctx, cancel)
-	srv.Stop()
-	return nil
-}
-
-func handleSignal(ctx context.Context, cancel context.CancelFunc) {
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, unix.SIGINT, unix.SIGTERM)
-	select {
-	case <-ctx.Done():
-	case <-sigs:
-		cancel()
-	}
+	go func() {
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, unix.SIGINT, unix.SIGTERM)
+		<-sigs
+		srv.Stop()
+	}()
+	return srv.Serve()
 }
