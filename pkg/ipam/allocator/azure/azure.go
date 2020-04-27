@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
+	operatorOption "github.com/cilium/cilium/operator/option"
 	apiMetrics "github.com/cilium/cilium/pkg/api/metrics"
 	azureAPI "github.com/cilium/cilium/pkg/azure/api"
 	azureIPAM "github.com/cilium/cilium/pkg/azure/ipam"
@@ -70,7 +71,7 @@ func (*AllocatorAzure) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (*ipam.
 		log.WithField("resourceGroupName", resourceGroupName).Debug("Detected resource group name via Azure IMS")
 	}
 
-	if option.Config.EnableMetrics {
+	if operatorOption.Config.EnableMetrics {
 		azMetrics = apiMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, "azure", operatorMetrics.Registry)
 		iMetrics = ipamMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, operatorMetrics.Registry)
 	} else {

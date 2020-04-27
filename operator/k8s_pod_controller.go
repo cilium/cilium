@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"time"
 
+	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/option"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,7 +39,7 @@ var (
 func enableUnmanagedKubeDNSController() {
 	controller.NewManager().UpdateController("restart-unmanaged-kube-dns",
 		controller.ControllerParams{
-			RunInterval: time.Duration(option.Config.UnmanagedPodWatcherInterval) * time.Second,
+			RunInterval: time.Duration(operatorOption.Config.UnmanagedPodWatcherInterval) * time.Second,
 			DoFunc: func(ctx context.Context) error {
 				for podName, lastRestart := range lastPodRestart {
 					if time.Since(lastRestart) > 2*minimalPodRestartInterval {

@@ -18,6 +18,7 @@ import (
 	"context"
 	"time"
 
+	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -25,7 +26,6 @@ import (
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/groups"
 
 	"k8s.io/api/core/v1"
@@ -67,7 +67,7 @@ func enableCCNPWatcher() error {
 			return err
 		}
 
-		ccnpStatusMgr = k8s.NewCCNPStatusEventHandler(ccnpSharedStore, ccnpStore, option.Config.CNPStatusUpdateInterval)
+		ccnpStatusMgr = k8s.NewCCNPStatusEventHandler(ccnpSharedStore, ccnpStore, operatorOption.Config.CNPStatusUpdateInterval)
 
 		go ccnpStatusMgr.WatchForCCNPStatusEvents()
 	}
