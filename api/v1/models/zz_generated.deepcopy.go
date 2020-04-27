@@ -536,6 +536,11 @@ func (in *StatusResponse) DeepCopyInto(out *StatusResponse) {
 			}
 		}
 	}
+	if in.Hubble != nil {
+		in, out := &in.Hubble, &out.Hubble
+		*out = new(HubbleStatus)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Ipam != nil {
 		in, out := &in.Ipam, &out.Ipam
 		*out = new(IPAMStatus)
