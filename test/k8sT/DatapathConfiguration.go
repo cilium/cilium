@@ -21,7 +21,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cilium/cilium/test/config"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
@@ -68,12 +67,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	JustAfterEach(func() {
-		if !(config.CiliumTestConfig.HoldEnvironment && TestFailed()) {
-			// To avoid hitting GH-4384
-			kubectl.DeleteResource("service", "test-nodeport testds-service").ExpectSuccess(
-				"Service is deleted")
-		}
-
 		blacklist := helpers.GetBadLogMessages()
 		if strings.Contains(CurrentGinkgoTestDescription().TestText, "sockops") {
 			delete(blacklist, helpers.ClangErrorsMsg)
