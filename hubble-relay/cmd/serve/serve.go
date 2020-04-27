@@ -20,14 +20,19 @@ import (
 	"os/signal"
 
 	"github.com/cilium/cilium/pkg/hubble/relay"
+	"github.com/cilium/cilium/pkg/hubble/relay/relayoption"
 	"golang.org/x/sys/unix"
 
 	"github.com/spf13/cobra"
 )
 
+var flag struct {
+	debug bool
+}
+
 // New creates a new serve command.
 func New() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Run the gRPC proxy server",
 		Long:  `Run the gRPC proxy server.`,
@@ -35,10 +40,16 @@ func New() *cobra.Command {
 			return runServe()
 		},
 	}
+	cmd.Flags().BoolVarP(&flag.debug, "debug", "D", false, "Run in debug mode")
+	return cmd
 }
 
 func runServe() error {
-	srv, err := relay.NewServer()
+	var opts []relayoption.Option
+	if flag.debug {
+		opts = append(opts, relayoption.WithDebug())
+	}
+	srv, err := relay.NewServer(opts...)
 	if err != nil {
 		return fmt.Errorf("cannot create hubble-relay server: %v", err)
 	}
