@@ -30,9 +30,12 @@ all:
 	@$(ECHO_CC)
 	$(QUIET) ${LLC} $(LLC_FLAGS) -filetype=asm -o $@ $(patsubst %.s,%.ll,$@)
 
-check:
+coccicheck:
+	$(QUIET) $(foreach TARGET,$(shell find $(ROOT_DIR)/contrib/coccinelle/ -name '*.cocci'), \
+		spatch --no-show-diff --sp-file ${TARGET} --include-headers --very-quiet --dir . ; )
+
+check: coccicheck
 	@$(ECHO_CHECK)/*.c
-	$(QUIET) spatch --sp-file $(ROOT_DIR)/contrib/coccinelle/null.cocci --dir . --include-headers
 	$(QUIET) sparse -Wsparse-all ${FLAGS} $(ROOT_DIR)/$(RELATIVE_DIR)/*.c
 	$(QUIET) $(CLANG) ${CLANG_FLAGS} --analyze $(ROOT_DIR)/$(RELATIVE_DIR)/*.c
 	$(QUIET) $(foreach SUBDIR,$(SUBDIRS), \
