@@ -188,12 +188,20 @@ var xxx_messageInfo_ServerStatusRequest proto.InternalMessageInfo
 
 type ServerStatusResponse struct {
 	// number of currently captured flows
+	// In a multi-node context, this is the cumulative count of all captured
+	// flows.
 	NumFlows uint64 `protobuf:"varint,1,opt,name=num_flows,json=numFlows,proto3" json:"num_flows,omitempty"`
 	// maximum capacity of the ring buffer
+	// In a multi-node context, this is the aggregation of all ring buffers
+	// capacities.
 	MaxFlows uint64 `protobuf:"varint,2,opt,name=max_flows,json=maxFlows,proto3" json:"max_flows,omitempty"`
 	// total amount of flows observed since the observer was started
+	// In a multi-node context, this is the aggregation of all flows that have
+	// been seen.
 	SeenFlows uint64 `protobuf:"varint,3,opt,name=seen_flows,json=seenFlows,proto3" json:"seen_flows,omitempty"`
 	// uptime of this observer instance in nanoseconds
+	// In a multi-node context, this field corresponds to the uptime of the
+	// longest living instance.
 	UptimeNs             uint64   `protobuf:"varint,4,opt,name=uptime_ns,json=uptimeNs,proto3" json:"uptime_ns,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`

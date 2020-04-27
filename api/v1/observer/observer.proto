@@ -33,15 +33,23 @@ message ServerStatusRequest {}
 
 message ServerStatusResponse {
     // number of currently captured flows
+    // In a multi-node context, this is the cumulative count of all captured
+    // flows.
     uint64 num_flows = 1;
 
     // maximum capacity of the ring buffer
+    // In a multi-node context, this is the aggregation of all ring buffers
+    // capacities.
     uint64 max_flows = 2;
 
     // total amount of flows observed since the observer was started
+    // In a multi-node context, this is the aggregation of all flows that have
+    // been seen.
     uint64 seen_flows = 3;
 
     // uptime of this observer instance in nanoseconds
+    // In a multi-node context, this field corresponds to the uptime of the
+    // longest living instance.
     uint64 uptime_ns = 4;
 }
 
