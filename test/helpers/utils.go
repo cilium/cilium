@@ -128,6 +128,23 @@ func (c *TimeoutConfig) Validate() error {
 // the timeout in config is reached. Returns an error if the timeout is
 // exceeded for body to execute successfully.
 func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
+	err := RepeatUntilTrue(body, config)
+	if err != nil {
+		return fmt.Errorf("%s: %s", msg, err)
+	}
+
+	return nil
+}
+
+// RepeatUntilTrueDefaultTimeout calls RepeatUntilTrue with the default timeout
+// HelperTimeout
+func RepeatUntilTrueDefaultTimeout(body func() bool) error {
+	return RepeatUntilTrue(body, &TimeoutConfig{Timeout: HelperTimeout})
+}
+
+// RepeatUntilTrue repeatedly calls body until body returns true or the timeout
+// expires
+func RepeatUntilTrue(body func() bool, config *TimeoutConfig) error {
 	if err := config.Validate(); err != nil {
 		return err
 	}
@@ -161,7 +178,7 @@ func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
 				go asyncBody(bodyChan)
 			}
 		case <-done:
-			return fmt.Errorf("Timeout reached: %s", msg)
+			return fmt.Errorf("%s timeout expired", config.Timeout)
 		}
 	}
 }
