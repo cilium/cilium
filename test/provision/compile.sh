@@ -72,7 +72,7 @@ then
     fi
 else
     echo "compiling cilium..."
-    sudo -u vagrant -H -E make LOCKDEBUG=1 SKIP_DOCS=true
+    sudo -u vagrant -H -E make LOCKDEBUG=1 SKIP_K8S_CODE_GEN_CHECK=false SKIP_DOCS=true
     echo "installing cilium..."
     make install
     mkdir -p /etc/sysconfig/

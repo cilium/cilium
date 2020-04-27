@@ -32,6 +32,7 @@ BENCHFLAGS ?= $(BENCHFLAGS_EVAL)
 LOGLEVEL ?= "error"
 SKIP_VET ?= "false"
 SKIP_KVSTORES ?= "false"
+SKIP_K8S_CODE_GEN_CHECK ?= "true"
 
 JOB_BASE_NAME ?= cilium_test
 
@@ -424,6 +425,10 @@ microk8s: check-microk8s
 	@echo "    microk8s.kubectl -n kube-system delete pod -l k8s-app=cilium"
 
 precheck: ineffassign logging-subsys-field
+ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")
+	@$(ECHO_CHECK) contrib/scripts/check-k8s-code-gen.sh
+	$(QUIET) contrib/scripts/check-k8s-code-gen.sh
+endif
 	@$(ECHO_CHECK) contrib/scripts/check-fmt.sh
 	$(QUIET) contrib/scripts/check-fmt.sh
 	@$(ECHO_CHECK) contrib/scripts/check-log-newlines.sh
