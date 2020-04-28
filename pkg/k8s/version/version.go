@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/versioncheck"
 
 	go_version "github.com/blang/semver"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -63,6 +64,9 @@ const (
 var (
 	cached = cachedVersion{}
 
+	discoveryAPIGroup = "discovery.k8s.io/v1beta1"
+	endpointSliceKind = "EndpointSlice"
+
 	isGEThanPatchConstraint        = versioncheck.MustCompile(">=1.13.0")
 	isGEThanUpdateStatusConstraint = versioncheck.MustCompile(">=1.11.0")
 	isGThanRootTypeConstraint      = versioncheck.MustCompile(">=1.12.0")
@@ -70,10 +74,6 @@ var (
 	// isGEThanMinimalVersionConstraint is the minimal version required to run
 	// Cilium
 	isGEThanMinimalVersionConstraint = versioncheck.MustCompile(">=" + MinimalVersionConstraint)
-
-	// isGEThanEndpointSliceConstraint is the minimal version that k8s supports
-	// Endpoint slices
-	isGEThanEndpointSliceConstraint = versioncheck.MustCompile(">=1.17.0")
 )
 
 // Version returns the version of the Kubernetes apiserver
@@ -101,8 +101,23 @@ func updateVersion(version go_version.Version) {
 	cached.capabilities.Patch = option.Config.K8sForceJSONPatch || isGEThanPatchConstraint(version)
 	cached.capabilities.UpdateStatus = isGEThanUpdateStatusConstraint(version)
 	cached.capabilities.MinimalVersionMet = isGEThanMinimalVersionConstraint(version)
-	cached.capabilities.EndpointSlice = isGEThanEndpointSliceConstraint(version)
 	cached.capabilities.FieldTypeInCRDSchema = isGThanRootTypeConstraint(version)
+}
+
+func updateServerGroupsAndResources(apiGroups []*metav1.APIGroup, apiResourceLists []*metav1.APIResourceList) {
+	cached.mutex.Lock()
+	defer cached.mutex.Unlock()
+
+	cached.capabilities.EndpointSlice = false
+	for _, rscList := range apiResourceLists {
+		if rscList.GroupVersion == discoveryAPIGroup {
+			for _, rsc := range rscList.APIResources {
+				if rsc.Kind == endpointSliceKind {
+					cached.capabilities.EndpointSlice = true
+				}
+			}
+		}
+	}
 }
 
 // Force forces the use of a specific version
@@ -123,6 +138,13 @@ func Update(client kubernetes.Interface) error {
 	if err != nil {
 		return err
 	}
+
+	apiGroups, apiResourceLists, err := client.Discovery().ServerGroupsAndResources()
+	if err != nil {
+		return err
+	}
+
+	updateServerGroupsAndResources(apiGroups, apiResourceLists)
 
 	// Try GitVersion first. In case of error fallback to MajorMinor
 	if sv.GitVersion != "" {
