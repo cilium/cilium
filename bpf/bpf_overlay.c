@@ -36,7 +36,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		return DROP_INVALID;
 #ifdef ENABLE_NODEPORT
 	if (!bpf_skip_nodeport(ctx)) {
-		int ret = nodeport_lb6(ctx, *identity);
+		ret = nodeport_lb6(ctx, *identity);
 		if (ret < 0)
 			return ret;
 	}
@@ -95,12 +95,14 @@ not_esp:
 
 	/* Lookup IPv6 address in list of local endpoints */
 	if ((ep = lookup_ip6_endpoint(ip6)) != NULL) {
+		__u8 nexthdr;
+
 		/* Let through packets to the node-ip so they are
 		 * processed by the local ip stack */
 		if (ep->flags & ENDPOINT_F_HOST)
 			goto to_host;
 
-		__u8 nexthdr = ip6->nexthdr;
+		nexthdr = ip6->nexthdr;
 		hdrlen = ipv6_hdrlen(ctx, l3_off, &nexthdr);
 		if (hdrlen < 0)
 			return hdrlen;
@@ -113,7 +115,6 @@ to_host:
 	if (1) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		union macaddr router_mac = NODE_MAC;
-		int ret;
 
 		ret = ipv6_l3(ctx, ETH_HLEN, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, METRIC_INGRESS);
 		if (ret != CTX_ACT_OK)

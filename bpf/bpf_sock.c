@@ -601,7 +601,8 @@ int sock6_xlate_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused,
 }
 
 #if defined(ENABLE_NODEPORT) || defined(ENABLE_EXTERNAL_IP)
-static __always_inline int sock6_post_bind_v4_in_v6(struct bpf_sock *ctx)
+static __always_inline int
+sock6_post_bind_v4_in_v6(struct bpf_sock *ctx __maybe_unused)
 {
 #ifdef ENABLE_IPV4
 	struct bpf_sock fake_ctx;
