@@ -17,6 +17,7 @@
 package client
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -24,7 +25,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 
-	"golang.org/x/net/context"
 	. "gopkg.in/check.v1"
 )
 
