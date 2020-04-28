@@ -290,6 +290,9 @@ const (
 	// via XDP ("none", "generic" or "native")
 	NodePortAcceleration = "node-port-acceleration"
 
+	// NodePortBindProtection rejects bind requests to NodePort service ports
+	NodePortBindProtection = "node-port-bind-protection"
+
 	// NodePortRange defines a custom range where to look up NodePort services
 	NodePortRange = "node-port-range"
 
@@ -1722,6 +1725,9 @@ type DaemonConfig struct {
 	// via XDP ("none", "generic" or "native")
 	NodePortAcceleration string
 
+	// NodePortBindProtection rejects bind requests to NodePort service ports
+	NodePortBindProtection bool
+
 	// EnableAutoProtectNodePortRange enables appending NodePort range to
 	// net.ipv4.ip_local_reserved_ports if it overlaps with ephemeral port
 	// range (net.ipv4.ip_local_port_range)
@@ -2339,6 +2345,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableHostPort = viper.GetBool(EnableHostPort)
 	c.NodePortMode = viper.GetString(NodePortMode)
 	c.NodePortAcceleration = viper.GetString(NodePortAcceleration)
+	c.NodePortBindProtection = viper.GetBool(NodePortBindProtection)
 	c.EnableAutoProtectNodePortRange = viper.GetBool(EnableAutoProtectNodePortRange)
 	c.KubeProxyReplacement = viper.GetString(KubeProxyReplacement)
 	c.EnableCEPGC = viper.GetBool(EnableCEPGC)

@@ -503,6 +503,9 @@ func init() {
 	flags.StringSlice(option.NodePortRange, []string{fmt.Sprintf("%d", option.NodePortMinDefault), fmt.Sprintf("%d", option.NodePortMaxDefault)}, "Set the min/max NodePort port range")
 	option.BindEnv(option.NodePortRange)
 
+	flags.Bool(option.NodePortBindProtection, true, "Reject application bind(2) requests to service ports in the NodePort range")
+	option.BindEnv(option.NodePortBindProtection)
+
 	flags.String(option.NodePortAcceleration, option.NodePortAccelerationNone, "BPF NodePort acceleration via XDP (\"native\", \"none\")")
 	option.BindEnv(option.NodePortAcceleration)
 
@@ -1525,6 +1528,10 @@ func initKubeProxyReplacementOptions() {
 			option.Config.NodePortAcceleration != option.NodePortAccelerationGeneric &&
 			option.Config.NodePortAcceleration != option.NodePortAccelerationNative {
 			log.Fatalf("Invalid value for --%s: %s", option.NodePortAcceleration, option.Config.NodePortAcceleration)
+		}
+
+		if !option.Config.NodePortBindProtection {
+			log.Warning("NodePort BPF configured without bind(2) protection against service ports")
 		}
 	}
 
