@@ -261,6 +261,10 @@ global:
     # device is the name of the device handling NodePort requests
     # device:
 
+    # bindProtection is the option to enable or disable prevention of
+    # applications binding to service ports
+    bindProtection: true
+
     # Append NodePort range to ip_local_reserved_ports if clash with ephemeral
     # ports is detected
     autoProtectPortRange: true
