@@ -1200,6 +1200,14 @@ func (kub *Kubectl) DeleteResource(resource, resourceName string) *CmdRes {
 	return kub.Exec(fmt.Sprintf("kubectl delete %s %s", resource, resourceName))
 }
 
+// DeleteInNamespace deletes the Kubernetes manifest at path filepath in a
+// particular namespace
+func (kub *Kubectl) DeleteInNamespace(namespace, filePath string) *CmdRes {
+	kub.Logger().Debugf("deleting %s in namespace %s", filePath, namespace)
+	return kub.ExecShort(
+		fmt.Sprintf("%s -n %s delete -f  %s", KubectlCmd, namespace, filePath))
+}
+
 // Delete deletes the Kubernetes manifest at path filepath.
 func (kub *Kubectl) Delete(filePath string) *CmdRes {
 	kub.Logger().Debugf("deleting %s", filePath)
