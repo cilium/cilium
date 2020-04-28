@@ -6,9 +6,9 @@
 
 .. _concepts_ipam_crd:
 
-#######################
-CRD-Backed (Kubernetes)
-#######################
+##########
+CRD-Backed
+##########
 
 The CRD-backed IPAM mode provides an extendable interface to control the IP
 address management via a Kubernetes Custom Resource Definition (CRD). This

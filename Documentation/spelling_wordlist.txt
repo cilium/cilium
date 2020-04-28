@@ -313,6 +313,7 @@ hexData
 hoc
 hostPort
 hostport
+hostscope
 hq
 https
 hubble

@@ -36,3 +36,4 @@ Address Management Modes
    crd
    azure
    eni
+   gke
