@@ -2,22 +2,18 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
-.. _address_management:
+.. _concepts_datapath:
 
-******************
-Address Management
-******************
-
-Cilium supports multiple different address management modes:
+********
+Datapath
+********
 
 .. toctree::
    :maxdepth: 1
    :glob:
 
-   kubernetes
-   hostscope
-   crd
-   eni
+   native_routing
+   aws_eni
    gke
