@@ -27,7 +27,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var flag struct {
+type flags struct {
 	debug         bool
 	dialTimeout   time.Duration
 	listenAddress string
@@ -37,30 +37,45 @@ var flag struct {
 
 // New creates a new serve command.
 func New() *cobra.Command {
+	var f flags
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Run the gRPC proxy server",
 		Long:  `Run the gRPC proxy server.`,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return runServe()
+			return runServe(f)
 		},
 	}
-	cmd.Flags().BoolVarP(&flag.debug, "debug", "D", false, "Run in debug mode")
-	cmd.Flags().DurationVar(&flag.dialTimeout, "dial-timeout", relayoption.Default.DialTimeout, "Dial timeout when connecting to hubble peers")
-	cmd.Flags().DurationVar(&flag.retryTimeout, "retry-timeout", relayoption.Default.RetryTimeout, "Time to wait before attempting to reconnect to a hubble peer when the connection is lost")
-	cmd.Flags().StringVar(&flag.listenAddress, "listen-address", relayoption.Default.ListenAddress, "Address on which to listen")
-	cmd.Flags().StringVar(&flag.peerService, "peer-service", relayoption.Default.HubbleTarget, "Address of the server that implements the peer gRPC service")
+	cmd.Flags().BoolVarP(
+		&f.debug, "debug", "D", false, "Run in debug mode",
+	)
+	cmd.Flags().DurationVar(
+		&f.dialTimeout, "dial-timeout",
+		relayoption.Default.DialTimeout,
+		"Dial timeout when connecting to hubble peers")
+	cmd.Flags().DurationVar(
+		&f.retryTimeout, "retry-timeout",
+		relayoption.Default.RetryTimeout,
+		"Time to wait before attempting to reconnect to a hubble peer when the connection is lost")
+	cmd.Flags().StringVar(
+		&f.listenAddress, "listen-address",
+		relayoption.Default.ListenAddress,
+		"Address on which to listen")
+	cmd.Flags().StringVar(
+		&f.peerService, "peer-service",
+		relayoption.Default.HubbleTarget,
+		"Address of the server that implements the peer gRPC service")
 	return cmd
 }
 
-func runServe() error {
+func runServe(f flags) error {
 	opts := []relayoption.Option{
-		relayoption.WithDialTimeout(flag.dialTimeout),
-		relayoption.WithHubbleTarget(flag.peerService),
-		relayoption.WithListenAddress(flag.listenAddress),
-		relayoption.WithRetryTimeout(flag.retryTimeout),
+		relayoption.WithDialTimeout(f.dialTimeout),
+		relayoption.WithHubbleTarget(f.peerService),
+		relayoption.WithListenAddress(f.listenAddress),
+		relayoption.WithRetryTimeout(f.retryTimeout),
 	}
-	if flag.debug {
+	if f.debug {
 		opts = append(opts, relayoption.WithDebug())
 	}
 	srv, err := relay.NewServer(opts...)
