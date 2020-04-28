@@ -220,7 +220,7 @@ docker-cilium-image-for-developers:
 	     --build-arg LIBNETWORK_PLUGIN=\
 	     -t "cilium/cilium-dev:"latest"" . -f ./cilium-dev.Dockerfile
 
-docker-image: clean docker-image-no-clean docker-operator-image docker-plugin-image
+docker-image: clean docker-image-no-clean docker-operator-image docker-plugin-image docker-hubble-relay-image
 
 docker-image-no-clean: GIT_VERSION
 	$(QUIET)$(CONTAINER_ENGINE) build \
@@ -285,6 +285,12 @@ docker-image-builder:
 docker-cilium-builder-manifest:
 	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh cilium-builder $(UTC_DATE)
 	$(QUIET) contrib/scripts/push_manifest.sh cilium-builder $(UTC_DATE)
+
+docker-hubble-relay-image:
+	$(CONTAINER_ENGINE_FULL) build -f hubble-relay.Dockerfile -t "cilium/hubble-relay:$(DOCKER_IMAGE_TAG)" .
+	$(CONTAINER_ENGINE_FULL) tag cilium/hubble-relay:$(DOCKER_IMAGE_TAG) cilium/hubble-relay:$(DOCKER_IMAGE_TAG)-${GOARCH}
+	$(QUIET)echo "Push like this when ready:"
+	$(QUIET)echo "${CONTAINER_ENGINE} push cilium/hubble-relay:$(DOCKER_IMAGE_TAG)-${GOARCH}"
 
 build-deb:
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/deb

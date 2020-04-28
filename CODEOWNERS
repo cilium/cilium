@@ -60,6 +60,7 @@ examples/kubernetes/ @cilium/kubernetes
 examples/minikube/ @cilium/kubernetes
 *.Jenkinsfile @cilium/ci
 hubble-relay/ @cilium/hubble
+hubble-relay.Dockerfile @cilium/hubble
 install/kubernetes/ @cilium/kubernetes
 jenkinsfiles @cilium/ci
 Jenkinsfile.nightly @cilium/ci
