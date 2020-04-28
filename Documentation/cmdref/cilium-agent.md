@@ -136,6 +136,7 @@ cilium-agent [flags]
       --monitor-queue-size int                        Size of the event queue when reading monitor events
       --mtu int                                       Overwrite auto-detected MTU of underlying network
       --nat46-range string                            IPv6 prefix to map IPv4 addresses to (default "0:0:0:0:0:FFFF::/96")
+      --node-port-bind-protection                     Reject application bind(2) requests to service ports in the NodePort range (default true)
       --node-port-mode string                         BPF NodePort mode ("snat", "dsr") (default "snat")
       --node-port-range strings                       Set the min/max NodePort port range (default [30000,32767])
       --policy-queue-size int                         size of queues for policy-related events (default 100)
