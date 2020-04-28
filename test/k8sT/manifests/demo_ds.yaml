@@ -3,7 +3,6 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: testds
-  namespace: default
 spec:
   selector:
     matchLabels:
@@ -41,7 +40,6 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: testclient
-  namespace: default
 spec:
   selector:
     matchLabels:
@@ -64,7 +62,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: test-k8s2
-  namespace: default
 spec:
   selector:
     matchLabels:
