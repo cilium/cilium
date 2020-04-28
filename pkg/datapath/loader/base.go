@@ -56,6 +56,7 @@ const (
 	initArgCgroupRoot
 	initArgBpffsRoot
 	initArgNodePort
+	initArgNodePortBind
 	initBPFCPU
 	initArgMax
 )
@@ -248,6 +249,12 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initArgNodePort] = "true"
 	} else {
 		args[initArgNodePort] = "false"
+	}
+
+	if option.Config.NodePortBindProtection {
+		args[initArgNodePortBind] = "true"
+	} else {
+		args[initArgNodePortBind] = "false"
 	}
 
 	args[initBPFCPU] = GetBPFCPU()
