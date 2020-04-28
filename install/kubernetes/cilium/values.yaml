@@ -353,6 +353,10 @@ global:
   # ENI mode configures the options required to run with ENI
   eni: false
 
+  # Google Kubernetes Engine
+  gke:
+    enabled: false
+
   azure:
     enabled: false
     #resourceGroup: group1

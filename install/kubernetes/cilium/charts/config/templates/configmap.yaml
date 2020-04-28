@@ -194,6 +194,14 @@ data:
   cluster-id: "{{ .Values.global.cluster.id }}"
 {{- end }}
 
+{{- if .Values.global.gke.enabled }}
+  ipam: "kubernetes"
+  tunnel: "disabled"
+  enable-endpoint-routes: "true"
+  blacklist-conflicting-routes: "false"
+  enable-local-node-route: "false"
+{{- end }}
+
 {{- if .Values.global.eni }}
   ipam: "eni"
   enable-endpoint-routes: "true"
