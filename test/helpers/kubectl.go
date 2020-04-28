@@ -162,6 +162,14 @@ func HelmOverride(option string) string {
 	return ""
 }
 
+// NativeRoutingEnabled returns true when native routing is enabled for a
+// particular CNI_INTEGRATION
+func NativeRoutingEnabled() bool {
+	tunnelDisabled := HelmOverride("global.tunnel") == "disabled"
+	gkeEnabled := HelmOverride("global.gke.enabled") == "true"
+	return tunnelDisabled || gkeEnabled
+}
+
 func init() {
 	// Set defaults to match passed-in fully-qualified image
 	// If these are further set via CLI, they will be overwritten below
