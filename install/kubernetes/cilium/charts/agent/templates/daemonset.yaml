@@ -38,7 +38,7 @@ spec:
 {{ toYaml .Values.global.affinity | indent 8 }}
 {{- end }}
       containers:
-{{- if .Values.global.sleepAfterInit }}
+{{- if .Values.agent.sleepAfterInit }}
       - command: [ "/bin/bash", "-c", "--" ]
         args: [ "while true; do sleep 30; done;" ]
         livenessProbe:
