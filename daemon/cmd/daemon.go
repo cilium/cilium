@@ -332,9 +332,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	ipcache.IdentityAllocator = d.identityAllocator
 	proxy.Allocator = d.identityAllocator
 
-	d.endpointManager = endpointmanager.NewEndpointManager(&watchers.EndpointSynchronizer{
-		Allocator: d.identityAllocator,
-	})
+	d.endpointManager = endpointmanager.NewEndpointManager(&watchers.EndpointSynchronizer{})
 	d.endpointManager.InitMetrics()
 
 	d.k8sWatcher = watchers.NewK8sWatcher(
