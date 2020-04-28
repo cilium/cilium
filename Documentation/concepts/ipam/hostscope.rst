@@ -4,6 +4,8 @@
     Please use the official rendered version released here:
     http://docs.cilium.io
 
+.. _ipam_hostscope:
+
 ####################
 Host Scope (default)
 ####################
@@ -11,21 +13,26 @@ Host Scope (default)
 The host-scope IPAM mode delegates the address allocation to each individual
 node in the cluster. Each cluster node is assigned an allocation CIDR out of
 which the node can allocate IPs without further coordination with any other
-nodes.
+nodes. For details on running the hostscope IPAM mode in the context of
+Kubernetes, please see :ref:`k8s_hostscope`.
 
 This means that no state needs to be synchronized between cluster nodes to
 allocate IP addresses and to determine whether an IP address belongs to an
 *endpoint* of the cluster and whether that *endpoint* resides on the local
 cluster node.
 
-.. note:: If you are using Kubernetes, the allocation of the node address prefix
-          can be simply delegated to Kubernetes by specifying
-          ``--allocate-node-cidrs`` flag to ``kube-controller-manager``. Cilium
-          will automatically use the IPv4 node CIDR allocated by Kubernetes.
+**************
+Default Values
+**************
 
 The following values are used by default if the cluster prefix is left
 unspecified. These are meant for testing and need to be adjusted according to
 the needs of your environment.
+
+.. note:: Relying default values via automatically generated per node PodCIDRs
+          is discouraged in any production environment. It can result in IPAM
+          conflicts and undesired renumbering if the IPAM state on a node is
+          lost for some reason.
 
 +-------+----------------+--------------------------------------------------+
 | Type  | Cluster        | Node Prefix                                      |

@@ -4,23 +4,19 @@
     Please use the official rendered version released here:
     http://docs.cilium.io
 
-.. _concepts_datapath:
-
-********
-Datapath
-********
-
 .. _aws_eni_datapath:
 
+#######
 AWS ENI
-=======
+#######
 
 The AWS ENI datapath is enabled when Cilium is run with the option
 ``--ipam=eni``. It is a special purpose datapath that is useful when running
 Cilium in an AWS environment.
 
+***********************
 Advantages of the model
------------------------
+***********************
 
 * Pods are assigned ENI IPs which are directly routable in the AWS VPC. This
   simplifies communication of pod traffic within VPCs and avoids the need for
@@ -31,8 +27,9 @@ Advantages of the model
   security group assignments to different pods. See section :ref:`ipam_eni` for
   more details.
 
+***************************
 Disadvantages of this model
----------------------------
+***************************
 
 * The number of ENI IPs is limited per instance. The limit depends on the EC2
   instance type. This can become a problem when attempting to run a larger
@@ -42,11 +39,12 @@ Disadvantages of this model
   subject to rate limiting. This is primarily mitigated via the operator
   design, see section :ref:`ipam_eni` for more details.
 
+************
 Architecture
-------------
+************
 
 Ingress
-~~~~~~~
+=======
 
 1. Traffic is received on one of the ENIs attached to the instance which is
    represented on the node as interface ``ethN``.
@@ -70,7 +68,7 @@ Ingress
    load-balancing, and visibility.
 
 Egress
-~~~~~~
+======
 
 1. The pod's network namespace contains a default route which points to the
    node's router IP via the veth pair which is named ``eth0`` inside of the pod
@@ -99,8 +97,9 @@ Egress
        192.168.0.1 dev eth2
 
 
+*************
 Configuration
--------------
+*************
 
 The AWS ENI datapath is enabled by setting the following option:
 
@@ -133,4 +132,3 @@ The AWS ENI datapath is enabled by setting the following option:
 
 See the section :ref:`ipam_eni` for details on how to configure ENI IPAM
 specific parameters.
-
