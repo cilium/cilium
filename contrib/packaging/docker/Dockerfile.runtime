@@ -1,7 +1,7 @@
 #
 # Cilium runtime base image
 #
-FROM docker.io/library/ubuntu:18.04 as runtime-base
+FROM docker.io/library/ubuntu:20.04 as runtime-base
 RUN apt-get update && \
 apt-get upgrade -y && \
 #
@@ -10,8 +10,6 @@ apt-get upgrade -y && \
 apt-get install -y --no-install-recommends \
 # Additional iproute2 runtime dependencies
     libelf1 libmnl0 \
-# Additional BPF build runtime dependencies
-    libgcc-5-dev \
 # Bash completion for Cilium
     bash-completion \
 # Additional misc runtime dependencies
@@ -19,6 +17,30 @@ apt-get install -y --no-install-recommends \
 apt-get purge --auto-remove && \
 apt-get clean && \
 rm -rf /var/lib/apt/lists/*
+# Add support for auto-detection of iptables mode
+COPY iptables-wrapper /usr/sbin/iptables-wrapper
+RUN update-alternatives \
+    --install /usr/sbin/iptables \
+        iptables \
+        /usr/sbin/iptables-wrapper \
+        100 \
+    --slave /usr/sbin/iptables-restore \
+        iptables-restore \
+        /usr/sbin/iptables-wrapper \
+    --slave /usr/sbin/iptables-save \
+        iptables-save \
+        /usr/sbin/iptables-wrapper
+RUN update-alternatives \
+    --install /usr/sbin/ip6tables \
+        ip6tables \
+        /usr/sbin/iptables-wrapper \
+        100 \
+    --slave /usr/sbin/ip6tables-restore \
+        ip6tables-restore \
+        /usr/sbin/iptables-wrapper \
+    --slave /usr/sbin/ip6tables-save \
+        ip6tables-save \
+        /usr/sbin/iptables-wrapper
 
 #
 # Build Cilium runtime dependencies.
@@ -31,6 +53,7 @@ RUN \
 # Build dependencies
 #
 apt-get update && \
+DEBIAN_FRONTEND="noninteractive" \
 apt-get install -y --no-install-recommends \
 # Base runtime-build dependencies
   make curl ca-certificates xz-utils binutils \
