@@ -2,7 +2,7 @@
 # Cilium build-time dependencies.
 # Image created from this file is used to build Cilium.
 #
-FROM docker.io/library/ubuntu:18.04
+FROM docker.io/library/ubuntu:20.04
 
 LABEL maintainer="maintainer@cilium.io"
 
