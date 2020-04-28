@@ -162,9 +162,12 @@ static __always_inline int nodeport_nat_ipv6_fwd(struct __ctx_buff *ctx,
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = 65535,
 	};
+	int ret;
+
 	ipv6_addr_copy(&target.addr, addr);
-	int ret = nodeport_nat_ipv6_needed(ctx, addr, NAT_DIR_EGRESS) ?
-		snat_v6_process(ctx, NAT_DIR_EGRESS, &target) : CTX_ACT_OK;
+
+	ret = nodeport_nat_ipv6_needed(ctx, addr, NAT_DIR_EGRESS) ?
+	      snat_v6_process(ctx, NAT_DIR_EGRESS, &target) : CTX_ACT_OK;
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
 	return ret;
@@ -356,8 +359,8 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 		dst = (union v6addr *)&ip6->daddr;
 		info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 		if (info != NULL && info->tunnel_endpoint != 0) {
-			int ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
-						      SECLABEL, TRACE_PAYLOAD_LEN);
+			ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
+						  SECLABEL, TRACE_PAYLOAD_LEN);
 			if (ret)
 				return ret;
 
@@ -625,8 +628,8 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 
 			info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 			if (info != NULL && info->tunnel_endpoint != 0) {
-				int ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
-							      SECLABEL, TRACE_PAYLOAD_LEN);
+				ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
+							  SECLABEL, TRACE_PAYLOAD_LEN);
 				if (ret)
 					return ret;
 
@@ -656,9 +659,9 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 			ipv6_addr_copy((union v6addr *) &fib_params.ipv6_src, &tuple.saddr);
 			ipv6_addr_copy((union v6addr *) &fib_params.ipv6_dst, &tuple.daddr);
 
-			int rc = fib_lookup(ctx, &fib_params, sizeof(fib_params),
-					BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
-			if (rc != 0)
+			ret = fib_lookup(ctx, &fib_params, sizeof(fib_params),
+					 BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
+			if (ret != 0)
 				return DROP_NO_FIB;
 
 			if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
@@ -702,6 +705,7 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 						     bool *from_endpoint __maybe_unused,
 						     const bool encap __maybe_unused)
 {
+	struct endpoint_info *ep __maybe_unused;
 	void *data, *data_end;
 	struct iphdr *ip4;
 
@@ -716,8 +720,6 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 			return true;
 		}
 #ifdef ENABLE_MASQUERADE
-		struct endpoint_info *ep;
-
 		/* Do not MASQ when this function is executed from bpf_overlay
 		 * (encap=true denotes this fact). Otherwise, a packet will be
 		 * SNAT'd to cilium_host IP addr. */
@@ -794,27 +796,30 @@ static __always_inline int set_dsr_opt4(struct __ctx_buff *ctx,
 					__be32 svc_addr, __be32 svc_port)
 {
 	union tcp_flags tcp_flags = { .value = 0 };
+	__u32 iph_old, iph_new, opt1, opt2;
 	__be32 sum;
-	__u32 iph_old, iph_new;
 
 	if (ip4->protocol == IPPROTO_TCP) {
 		if (ctx_load_bytes(ctx, ETH_HLEN + sizeof(*ip4) + 12,
 				   &tcp_flags, 2) < 0)
 			return DROP_CT_INVALID_HDR;
-		// Setting the option is required only for the first packet
-		// (SYN), in the case of TCP, as for further packets of the
-		// same connection a remote node will use a NAT entry to
-		// reverse xlate a reply.
+
+		/* Setting the option is required only for the first packet
+		 * (SYN), in the case of TCP, as for further packets of the
+		 * same connection a remote node will use a NAT entry to
+		 * reverse xlate a reply.
+		 */
 		if (!(tcp_flags.value & (TCP_FLAG_SYN)))
 			return 0;
 	}
 
 	iph_old = *(__u32 *)ip4;
-	ip4->ihl += 0x2; // To accommodate u64 option
+	ip4->ihl += 0x2; /* To accommodate u64 option. */
 	ip4->tot_len = bpf_htons(bpf_ntohs(ip4->tot_len) + 0x8);
 	iph_new = *(__u32 *)ip4;
-	__u32 opt1 = bpf_htonl(DSR_IPV4_OPT_32 | svc_port);
-	__u32 opt2 = bpf_htonl(svc_addr);
+
+	opt1 = bpf_htonl(DSR_IPV4_OPT_32 | svc_port);
+	opt2 = bpf_htonl(svc_addr);
 
 	sum = csum_diff(&iph_old, 4, &iph_new, 4, 0);
 	sum = csum_diff(NULL, 0, &opt1, sizeof(opt1), sum);
@@ -829,11 +834,9 @@ static __always_inline int set_dsr_opt4(struct __ctx_buff *ctx,
 	if (ctx_store_bytes(ctx, ETH_HLEN + sizeof(*ip4) + sizeof(opt1),
 			    &opt2, sizeof(opt2), 0) < 0)
 		return DROP_INVALID;
-
 	if (l3_csum_replace(ctx, ETH_HLEN + offsetof(struct iphdr, check),
-	    0, sum, 0) < 0) {
+			    0, sum, 0) < 0)
 		return DROP_CSUM_L3;
-	}
 
 	return 0;
 }
@@ -846,11 +849,12 @@ static __always_inline int handle_dsr_v4(struct __ctx_buff *ctx, bool *dsr)
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	// Check whether IPv4 header contains a 64-bit option (IPv4 header
-	// w/o option (5 x 32-bit words) + the DSR option (2 x 32-bit words))
+	/* Check whether IPv4 header contains a 64-bit option (IPv4 header
+	 * w/o option (5 x 32-bit words) + the DSR option (2 x 32-bit words)).
+	 */
 	if (ip4->ihl == 0x7) {
-		__u32 opt1 = 0;
-		__u32 opt2 = 0;
+		__u32 opt1 = 0, opt2 = 0;
+		__be32 address, dport;
 
 		if (ctx_load_bytes(ctx, ETH_HLEN + sizeof(struct iphdr),
 				   &opt1, sizeof(opt1)) < 0)
@@ -865,9 +869,8 @@ static __always_inline int handle_dsr_v4(struct __ctx_buff *ctx, bool *dsr)
 				return DROP_INVALID;
 
 			opt2 = bpf_ntohl(opt2);
-
-			__be32 dport = opt1 & DSR_IPV4_DPORT_MASK;
-			__be32 address = opt2;
+			dport = opt1 & DSR_IPV4_DPORT_MASK;
+			address = opt2;
 			*dsr = true;
 
 			if (snat_v4_create_dsr(ctx, address, dport) < 0)
@@ -961,8 +964,8 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 
 		info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 		if (info != NULL && info->tunnel_endpoint != 0) {
-			int ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
-						      SECLABEL, TRACE_PAYLOAD_LEN);
+			ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
+						  SECLABEL, TRACE_PAYLOAD_LEN);
 			if (ret)
 				return ret;
 
@@ -1234,8 +1237,8 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 
 			info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 			if (info != NULL && info->tunnel_endpoint != 0) {
-				int ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
-							      SECLABEL, TRACE_PAYLOAD_LEN);
+				ret = __encap_with_nodeid(ctx, info->tunnel_endpoint,
+							  SECLABEL, TRACE_PAYLOAD_LEN);
 				if (ret)
 					return ret;
 
@@ -1254,26 +1257,27 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 
 		dmac = map_lookup_elem(&NODEPORT_NEIGH4, &ip4->daddr);
 		if (dmac) {
-		    if (eth_store_daddr(ctx, dmac->addr, 0) < 0)
-			return DROP_WRITE_ERROR;
-		    if (eth_store_saddr(ctx, mac->addr, 0) < 0)
-			return DROP_WRITE_ERROR;
+			if (eth_store_daddr(ctx, dmac->addr, 0) < 0)
+				return DROP_WRITE_ERROR;
+			if (eth_store_saddr(ctx, mac->addr, 0) < 0)
+				return DROP_WRITE_ERROR;
 		} else {
-		    fib_params.family = AF_INET;
-		    fib_params.ifindex = *ifindex;
+			fib_params.family = AF_INET;
+			fib_params.ifindex = *ifindex;
 
-		    fib_params.ipv4_src = ip4->saddr;
-		    fib_params.ipv4_dst = ip4->daddr;
+			fib_params.ipv4_src = ip4->saddr;
+			fib_params.ipv4_dst = ip4->daddr;
 
-		    int rc = fib_lookup(ctx, &fib_params, sizeof(fib_params),
-				BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
-		    if (rc != 0)
-			return DROP_NO_FIB;
+			ret = fib_lookup(ctx, &fib_params, sizeof(fib_params),
+					 BPF_FIB_LOOKUP_DIRECT |
+					 BPF_FIB_LOOKUP_OUTPUT);
+			if (ret != 0)
+				return DROP_NO_FIB;
 
-		    if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
-			return DROP_WRITE_ERROR;
-		    if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
-			return DROP_WRITE_ERROR;
+			if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
+				return DROP_WRITE_ERROR;
+			if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
+				return DROP_WRITE_ERROR;
 		}
 	} else {
 		if (!bpf_skip_recirculation(ctx)) {

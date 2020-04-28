@@ -83,29 +83,7 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 identity,
 		    __u16 dport, __u8 proto, int dir,
 		    bool is_untracked_fragment, __u8 *match_type)
 {
-#ifdef ALLOW_ICMP_FRAG_NEEDED
-	// When ALLOW_ICMP_FRAG_NEEDED is defined we allow all packets
-	// of ICMP type 3 code 4 - Fragmentation Needed
-	if (proto == IPPROTO_ICMP) {
-		void *data, *data_end;
-		struct icmphdr icmphdr __align_stack_8;
-		struct iphdr *ip4;
-
-		if (!revalidate_data(ctx, &data, &data_end, &ip4))
-			return DROP_INVALID;
-
-		__u32 off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
-
-		if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
-			return DROP_INVALID;
-
-		if(icmphdr.type == ICMP_DEST_UNREACH && icmphdr.code == ICMP_FRAG_NEEDED)
-			return CTX_ACT_OK;
-	}
-#endif /* ALLOW_ICMP_FRAG_NEEDED */
-
 	struct policy_entry *policy;
-
 	struct policy_key key = {
 		.sec_label = identity,
 		.dport = dport,
@@ -113,6 +91,28 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 identity,
 		.egress = !dir,
 		.pad = 0,
 	};
+
+#ifdef ALLOW_ICMP_FRAG_NEEDED
+	/* When ALLOW_ICMP_FRAG_NEEDED is defined we allow all packets
+	 * of ICMP type 3 code 4 - Fragmentation Needed.
+	 */
+	if (proto == IPPROTO_ICMP) {
+		void *data, *data_end;
+		struct icmphdr icmphdr __align_stack_8;
+		struct iphdr *ip4;
+		__u32 off;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+
+		off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
+		if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
+			return DROP_INVALID;
+
+		if(icmphdr.type == ICMP_DEST_UNREACH && icmphdr.code == ICMP_FRAG_NEEDED)
+			return CTX_ACT_OK;
+	}
+#endif /* ALLOW_ICMP_FRAG_NEEDED */
 
 	/* L4 lookup can't be done on untracked fragments. */
 	if (!is_untracked_fragment) {
@@ -219,24 +219,22 @@ static __always_inline int
 policy_can_egress(struct __ctx_buff *ctx, __u32 identity, __u16 dport, __u8 proto,
 		  __u8 *match_type)
 {
+	int ret;
+
 #ifdef ENCAP_IFINDEX
 	if (is_encap(dport, proto))
 		return DROP_ENCAP_PROHIBITED;
 #endif
-
-	int ret = __policy_can_access(&POLICY_MAP, ctx, identity, dport, proto,
-				      CT_EGRESS, false, match_type);
+	ret = __policy_can_access(&POLICY_MAP, ctx, identity, dport, proto,
+				  CT_EGRESS, false, match_type);
 	if (ret >= 0)
 		return ret;
-
 	cilium_dbg(ctx, DBG_POLICY_DENIED, SECLABEL, identity);
-
 #ifdef POLICY_AUDIT_MODE
 	if (IS_ERR(ret)) {
 		ret = CTX_ACT_OK;
 	}
 #endif
-
 	return ret;
 }
 

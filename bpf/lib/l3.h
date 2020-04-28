@@ -63,12 +63,11 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 					       const struct endpoint_info *ep,
 					       __u8 direction)
 {
+	mac_t router_mac = ep->node_mac;
+	mac_t lxc_mac = ep->mac;
 	int ret;
 
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, ep->lxc_id, seclabel);
-
-	mac_t lxc_mac = ep->mac;
-	mac_t router_mac = ep->node_mac;
 
 	/* This will invalidate the size check */
 	ret = ipv6_l3(ctx, l3_off, (__u8 *) &router_mac, (__u8 *) &lxc_mac, direction);
@@ -102,12 +101,11 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 					       const struct endpoint_info *ep,
 					       __u8 direction __maybe_unused)
 {
+	mac_t router_mac = ep->node_mac;
+	mac_t lxc_mac = ep->mac;
 	int ret;
 
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, ep->lxc_id, seclabel);
-
-	mac_t lxc_mac = ep->mac;
-	mac_t router_mac = ep->node_mac;
 
 	ret = ipv4_l3(ctx, l3_off, (__u8 *) &router_mac, (__u8 *) &lxc_mac, ip4);
 	if (ret != CTX_ACT_OK)

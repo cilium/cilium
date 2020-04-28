@@ -95,16 +95,13 @@ static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
 {
 	void *data = ctx_data(ctx);
 	void *data_end = ctx_data_end(ctx);
+	struct ethhdr *eth = data;
 
 	if (data + ETH_HLEN > data_end)
 		return false;
-
-	struct ethhdr *eth = data;
 	*proto = eth->h_proto;
-
 	if (bpf_ntohs(*proto) < ETH_P_802_3_MIN)
 		return false; // non-Ethernet II unsupported
-
 	return true;
 }
 

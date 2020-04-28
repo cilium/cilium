@@ -884,6 +884,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 		send_policy_verdict_notify(ctx, src_label, tuple.dport, tuple.nexthdr,
 						 POLICY_INGRESS, 1, verdict, policy_match_type);
 #ifdef ENABLE_DSR
+	{
 		bool dsr = false;
 
 		ret = handle_dsr_v6(ctx, &dsr);
@@ -891,6 +892,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 			return ret;
 
 		ct_state_new.dsr = dsr;
+	}
 #endif /* ENABLE_DSR */
 
 		ct_state_new.src_sec_id = src_label;
@@ -1099,6 +1101,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 		send_policy_verdict_notify(ctx, src_label, tuple.dport, tuple.nexthdr,
 						 POLICY_INGRESS, 0, verdict, policy_match_type);
 #ifdef ENABLE_DSR
+	{
 		bool dsr = false;
 
 		ret = handle_dsr_v4(ctx, &dsr);
@@ -1106,6 +1109,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 			return ret;
 
 		ct_state_new.dsr = dsr;
+	}
 #endif /* ENABLE_DSR */
 
 		ct_state_new.src_sec_id = src_label;
