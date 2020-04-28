@@ -176,8 +176,8 @@ If you intent to release a new feature release, see the
    Please reach out on the ``#development`` channel on Slack for assistance with
    this task.
 
-#. Update the ``stable`` tags for ``cilium``, ``cilium-operator``, and
-   ``cilium-docker-plugin`` on DockerHub.
+#. Update the ``stable`` tags for ``cilium``, ``cilium-operator``,
+   ``cilium-docker-plugin`` and ``hubble-relay`` on DockerHub.
 
 #. Update the external tools and guides to point to the released Cilium version:
 
