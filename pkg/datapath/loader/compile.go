@@ -82,12 +82,13 @@ type directoryInfo struct {
 }
 
 var (
-	standardCFlags = []string{"-O2", "-target", "bpf",
-		fmt.Sprintf("-D__NR_CPUS__=%d", runtime.NumCPU()),
-		"-Wall", "-Wextra", "-Werror",
+	standardCFlags = []string{"-O2", "-target", "bpf", "-std=gnu89",
+		"-nostdinc", fmt.Sprintf("-D__NR_CPUS__=%d", runtime.NumCPU()),
+		"-Wall", "-Wextra", "-Werror", "-Wshadow",
 		"-Wno-address-of-packed-member",
 		"-Wno-unknown-warning-option",
-		"-Wno-gnu-variable-sized-type-not-at-end"}
+		"-Wno-gnu-variable-sized-type-not-at-end",
+		"-Wdeclaration-after-statement"}
 	standardLDFlags = []string{"-march=bpf"}
 
 	// testIncludes allows the unit tests to inject additional include

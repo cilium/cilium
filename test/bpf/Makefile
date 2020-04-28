@@ -4,9 +4,13 @@
 include ../../Makefile.defs
 
 FLAGS := -I../../bpf/ -I../../bpf/include -I. -D__NR_CPUS__=$(shell nproc) -O2
-FLAGS_CLANG := -Wno-gnu-variable-sized-type-not-at-end
+FLAGS_CLANG := -Wall -Wextra -Werror -Wshadow -Wno-unused-parameter
+FLAGS_CLANG += -Wno-address-of-packed-member
+FLAGS_CLANG += -Wno-unknown-warning-option
+FLAGS_CLANG += -Wno-gnu-variable-sized-type-not-at-end
+FLAGS_CLANG += -Wdeclaration-after-statement
 
-BPF_CC_FLAGS := ${FLAGS} -target bpf -emit-llvm
+BPF_CC_FLAGS := ${FLAGS} -target bpf -std=gnu89 -nostdinc -emit-llvm
 BPF_LLC_FLAGS := -march=bpf -mcpu=probe -filetype=obj
 
 LIB := $(shell find ../../bpf/ -name '*.h')

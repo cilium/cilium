@@ -268,11 +268,12 @@ function bpf_compile()
 	TYPE=$3
 	EXTRA_OPTS=$4
 
-	clang -O2 -target bpf -emit-llvm				\
-	      -Wall -Wextra -Werror					\
+	clang -O2 -target bpf -std=gnu89 -nostdinc -emit-llvm		\
+	      -Wall -Wextra -Werror -Wshadow				\
 	      -Wno-address-of-packed-member				\
 	      -Wno-unknown-warning-option				\
 	      -Wno-gnu-variable-sized-type-not-at-end			\
+	      -Wdeclaration-after-statement				\
 	      -I. -I$DIR -I$LIB -I$LIB/include				\
 	      -D__NR_CPUS__=$(nproc)					\
 	      -DENABLE_ARP_RESPONDER=1					\
