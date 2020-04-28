@@ -32,15 +32,12 @@ Create a GKE Cluster
 ====================
 
 You can apply any method to create a GKE cluster. The example given here is
-using the `Google Cloud SDK <https://cloud.google.com/sdk/>`_. This guide
-will create a single-zone cluster in ``europe-west4-a``; feel free to change
-the zone to one that is closer to where you are. You can create a regional
-cluster with ``--region europe-west4`` also.
+using the `Google Cloud SDK <https://cloud.google.com/sdk/>`_.
 
 .. code:: bash
 
     export CLUSTER_NAME=cluster1
-    gcloud container clusters create $CLUSTER_NAME --username admin --image-type COS --num-nodes 2
+    gcloud container clusters create $CLUSTER_NAME --image-type COS --num-nodes 2
 
 When done, you should be able to access your cluster like this:
 
@@ -50,23 +47,6 @@ When done, you should be able to access your cluster like this:
     NAME                                      STATUS   ROLES    AGE   VERSION
     gke-cluster1-default-pool-a63a765c-flr2   Ready    <none>   6m    v1.11.7-gke.4
     gke-cluster1-default-pool-a63a765c-z73c   Ready    <none>   6m    v1.11.7-gke.4
-
-Create an admin role binding
-============================
-
-In a new GKE cluster an admin role binding needs to be created explicitly in
-order to associate the Google identity (e.g. a personal account, or corporate
-G Suite account), with a Kubernetes identity. To do this run the following
-commands. You might want to run ``gcloud config get-value core/account``
-first, if you have multiple accounts and want to check if you are using the
-correct one (see `GKE RBAC documentation`_ for more info).
-
-.. _GKE RBAC documentation: https://cloud.google.com/kubernetes-engine/docs/how-to/role-based-access-control
-
-.. code:: bash
-
-    account="$(gcloud config get-value core/account 2>/dev/null)"
-    kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user ${account}
 
 Deploy Cilium
 =============
