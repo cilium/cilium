@@ -49,6 +49,13 @@
 
 #define ctx_adjust_meta		({ -ENOTSUPP; })
 
+/* Avoid expensive calls into the kernel flow dissector if it's not an L4
+ * hash. We currently only use the hash for debugging. If needed later, we
+ * can map it to BPF_FUNC(get_hash_recalc) to get the L4 hash.
+ */
+#define get_hash(ctx)		ctx->hash
+#define get_hash_recalc(ctx)	get_hash(ctx)
+
 static __always_inline __maybe_unused int
 ctx_redirect(struct __sk_buff *ctx __maybe_unused, int ifindex, __u32 flags)
 {

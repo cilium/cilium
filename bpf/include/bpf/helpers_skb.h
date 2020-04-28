@@ -12,9 +12,6 @@
 
 /* Only used helpers in Cilium go below. */
 
-/* Packet misc meta data */
-static __u32 BPF_FUNC(get_hash_recalc, struct __sk_buff *skb);
-
 /* Packet redirection */
 static int BPF_FUNC(redirect, int ifindex, __u32 flags);
 

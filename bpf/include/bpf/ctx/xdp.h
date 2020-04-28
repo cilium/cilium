@@ -100,7 +100,8 @@ xdp_store_bytes(const struct xdp_md *ctx, __u64 off, const void *from,
 
 #define ctx_adjust_meta			xdp_adjust_meta
 
-#define get_hash_recalc(ctx)		({ 0; })
+#define get_hash(ctx)			({ 0; })
+#define get_hash_recalc(ctx)		get_hash(ctx)
 
 /* Checksum pieces from Linux kernel. */
 static inline __sum16 csum_fold(__wsum csum)
