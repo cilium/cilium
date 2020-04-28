@@ -23,7 +23,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
@@ -43,11 +42,7 @@ const (
 
 // EndpointSynchronizer currently is an empty type, which wraps around syncing
 // of CiliumEndpoint resources.
-// TODO - see whether folding the global variables below into this function
-// is cleaner.
-type EndpointSynchronizer struct {
-	Allocator *cache.CachingIdentityAllocator
-}
+type EndpointSynchronizer struct{}
 
 // RunK8sCiliumEndpointSync starts a controller that synchronizes the endpoint
 // to the corresponding k8s CiliumEndpoint CRD. It is expected that each CEP
