@@ -25,7 +25,6 @@ import (
 
 	"github.com/cilium/proxy/go/cilium/api"
 	envoy_api_v2 "github.com/cilium/proxy/go/envoy/api/v2"
-	net_context "golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
@@ -86,7 +85,7 @@ func (s *xdsGRPCServer) StreamListeners(stream envoy_api_v2.ListenerDiscoverySer
 	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, ListenerTypeURL)
 }
 
-func (s *xdsGRPCServer) FetchListeners(ctx net_context.Context, req *envoy_api_v2.DiscoveryRequest) (*envoy_api_v2.DiscoveryResponse, error) {
+func (s *xdsGRPCServer) FetchListeners(ctx context.Context, req *envoy_api_v2.DiscoveryRequest) (*envoy_api_v2.DiscoveryResponse, error) {
 	// The Fetch methods are only called via the REST API, which is not
 	// implemented in Cilium. Only the Stream methods are called over gRPC.
 	return nil, ErrNotImplemented
@@ -96,7 +95,7 @@ func (s *xdsGRPCServer) StreamNetworkPolicies(stream cilium.NetworkPolicyDiscove
 	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, NetworkPolicyTypeURL)
 }
 
-func (s *xdsGRPCServer) FetchNetworkPolicies(ctx net_context.Context, req *envoy_api_v2.DiscoveryRequest) (*envoy_api_v2.DiscoveryResponse, error) {
+func (s *xdsGRPCServer) FetchNetworkPolicies(ctx context.Context, req *envoy_api_v2.DiscoveryRequest) (*envoy_api_v2.DiscoveryResponse, error) {
 	// The Fetch methods are only called via the REST API, which is not
 	// implemented in Cilium. Only the Stream methods are called over gRPC.
 	return nil, ErrNotImplemented
@@ -106,7 +105,7 @@ func (s *xdsGRPCServer) StreamNetworkPolicyHosts(stream cilium.NetworkPolicyHost
 	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, NetworkPolicyHostsTypeURL)
 }
 
-func (s *xdsGRPCServer) FetchNetworkPolicyHosts(ctx net_context.Context, req *envoy_api_v2.DiscoveryRequest) (*envoy_api_v2.DiscoveryResponse, error) {
+func (s *xdsGRPCServer) FetchNetworkPolicyHosts(ctx context.Context, req *envoy_api_v2.DiscoveryRequest) (*envoy_api_v2.DiscoveryResponse, error) {
 	// The Fetch methods are only called via the REST API, which is not
 	// implemented in Cilium. Only the Stream methods are called over gRPC.
 	return nil, ErrNotImplemented

@@ -15,6 +15,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -32,7 +33,6 @@ import (
 
 	runtime_client "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-	"golang.org/x/net/context"
 )
 
 type Client struct {
