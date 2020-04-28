@@ -1010,6 +1010,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			var (
 				cnpFromEntitiesHost       string
 				cnpFromEntitiesRemoteNode string
+				cnpFromEntitiesWorld      string
 				// TODO: Add fromEntities tests (GH-10979)
 				//cnpFromEntitiesCluster    string
 				//cnpFromEntitiesWorld      string
@@ -1022,6 +1023,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			BeforeAll(func() {
 				cnpFromEntitiesHost = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-host.yaml")
 				cnpFromEntitiesRemoteNode = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-remote-node.yaml")
+				cnpFromEntitiesWorld = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-world.yaml")
 				k8s1Name, _ = kubectl.GetNodeInfo(helpers.K8s1)
 				k8s2Name, _ = kubectl.GetNodeInfo(helpers.K8s2)
 				_, k8s1PodIP = kubectl.GetPodOnNodeWithOffset(k8s1Name, testDS, 0)
@@ -1069,8 +1071,22 @@ var _ = Describe("K8sPolicyTest", func() {
 				})
 
 				It("Allows from all hosts with cnp fromEntities host policy", func() {
-					By("Installing fromEntities host policy")
-					importPolicy(cnpFromEntitiesHost, "from-entities-host")
+					if helpers.NativeRoutingEnabled() {
+						// When running native-routing mode,
+						// the source IP from host traffic is
+						// unlikely the IP assigned to the
+						// cilium-host interface. In the
+						// remote-node identity legacy mode,
+						// only the IP of the cilium-host
+						// interface is considered host. All
+						// other IPs are considered world.
+						By("Installing fromEntities host and world policy")
+						importPolicy(cnpFromEntitiesWorld, "from-entities-world")
+						importPolicy(cnpFromEntitiesHost, "from-entities-host")
+					} else {
+						By("Installing fromEntities host policy")
+						importPolicy(cnpFromEntitiesHost, "from-entities-host")
+					}
 
 					By("Checking policy correctness")
 					validateNodeConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow)

@@ -152,6 +152,24 @@ var (
 	}
 )
 
+// HelmOverride returns the value of a Helm override option for the currently
+// enabled CNI_INTEGRATION
+func HelmOverride(option string) string {
+	integration := strings.ToLower(os.Getenv("CNI_INTEGRATION"))
+	if overrides, exists := helmOverrides[integration]; exists {
+		return overrides[option]
+	}
+	return ""
+}
+
+// NativeRoutingEnabled returns true when native routing is enabled for a
+// particular CNI_INTEGRATION
+func NativeRoutingEnabled() bool {
+	tunnelDisabled := HelmOverride("global.tunnel") == "disabled"
+	gkeEnabled := HelmOverride("global.gke.enabled") == "true"
+	return tunnelDisabled || gkeEnabled
+}
+
 func init() {
 	// Copy over envronment variables that are passed in.
 	for envVar, helmVar := range map[string]string{
