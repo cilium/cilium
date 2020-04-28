@@ -19,13 +19,14 @@ GKE Requirements
 
    export GKE_PROJECT=gke-clusters
    gcloud projects create $GKE_PROJECT
+   gcloud config set project $GKE_PROJECT
 
 
 3. Enable the GKE API for the project if not already done
 
 ::
 
-   gcloud services enable --project $GKE_PROJECT container.googleapis.com
+   gcloud services enable container.googleapis.com
 
 Create a GKE Cluster
 ====================
@@ -38,8 +39,8 @@ cluster with ``--region europe-west4`` also.
 
 .. code:: bash
 
-    gcloud container --project $GKE_PROJECT clusters create cluster1 \
-       --username admin --image-type COS --num-nodes 2 --zone europe-west4-a
+    export CLUSTER_NAME=cluster1
+    gcloud container clusters create $CLUSTER_NAME --username admin --image-type COS --num-nodes 2
 
 When done, you should be able to access your cluster like this:
 
@@ -70,6 +71,13 @@ correct one (see `GKE RBAC documentation`_ for more info).
 Deploy Cilium
 =============
 
+Extract the Cluster CIDR to enable native-routing:
+
+.. code:: bash
+
+    NATIVE_CIDR=$(gcloud container clusters describe $CLUSTER_NAME | grep -i clusterIpv4Cidr | awk '{print $2}')
+    echo $NATIVE_CIDR
+
 .. include:: k8s-install-download-release.rst
 
 Deploy Cilium release via Helm:
@@ -86,7 +94,9 @@ below. This will ensure all pods are managed by Cilium.
       --set global.nodeinit.enabled=true \\
       --set nodeinit.reconfigureKubelet=true \\
       --set nodeinit.removeCbrBridge=true \\
-      --set global.cni.binPath=/home/kubernetes/bin
+      --set global.cni.binPath=/home/kubernetes/bin \\
+      --set global.gke.enabled=true \\
+      --set global.native-routing-cidr=$NATIVE_CIDR
 
 The NodeInit DaemonSet is required to prepare the GKE nodes as nodes are added
 to the cluster. The NodeInit DaemonSet will perform the following actions:
