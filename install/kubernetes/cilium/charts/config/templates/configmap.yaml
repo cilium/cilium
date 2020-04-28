@@ -344,6 +344,7 @@ data:
 {{- if .Values.global.nodePort.acceleration }}
   node-port-acceleration: {{ .Values.global.nodePort.acceleration | quote }}
 {{- end }}
+  node-port-bind-protection: {{ .Values.global.nodePort.bindProtection | quote }}
   enable-auto-protect-node-port-range: {{ .Values.global.nodePort.autoProtectPortRange | quote }}
 {{- end }}
 
