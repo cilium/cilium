@@ -130,34 +130,37 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 						return nil
 					}
 
-					scopedLog.Debug("Deleting CEP during an initialization")
-					err := ciliumClient.CiliumEndpoints(namespace).Delete(ctx, podName, meta_v1.DeleteOptions{})
+					scopedLog.Debug("Getting CEP during an initialization")
+					localCEP, err = ciliumClient.CiliumEndpoints(namespace).Get(ctx, podName, meta_v1.GetOptions{})
 					// It's only an error if it exists but something else happened
-					if err != nil && !k8serrors.IsNotFound(err) {
-						scopedLog.WithError(err).Warn("Error deleting CEP")
-						return err
-					}
+					switch {
+					case k8serrors.IsNotFound(err):
+						// We can't create localCEP directly, it must come from the k8s
+						// server via an API call.
+						cep := &cilium_v2.CiliumEndpoint{
+							ObjectMeta: meta_v1.ObjectMeta{
+								Name: podName,
+							},
+						}
+						if mdl != nil {
+							cep.Status = *mdl
+						}
+						localCEP, err = ciliumClient.CiliumEndpoints(namespace).Create(ctx, cep, meta_v1.CreateOptions{})
+						if err != nil {
+							scopedLog.WithError(err).Error("Cannot create CEP")
+							return err
+						}
 
-					// We can't create localCEP directly, it must come from the k8s
-					// server via an API call.
-					cep := &cilium_v2.CiliumEndpoint{
-						ObjectMeta: meta_v1.ObjectMeta{
-							Name: podName,
-						},
-					}
-					if mdl != nil {
-						cep.Status = *mdl
-					}
-					localCEP, err = ciliumClient.CiliumEndpoints(namespace).Create(ctx, cep, meta_v1.CreateOptions{})
-					if err != nil {
-						scopedLog.WithError(err).Error("Cannot create CEP")
+						// We have successfully created the CEP and can return. Subsequent
+						// runs will update using localCEP.
+						needInit = false
+						return nil
+					case err != nil:
+						scopedLog.WithError(err).Warn("Error getting CEP")
 						return err
-					}
+					default:
 
-					// We have successfully created the CEP and can return. Subsequent
-					// runs will update using localCEP.
-					needInit = false
-					return nil
+					}
 				}
 
 				// We have no localCEP copy. We need to fetch it for updates, below.
