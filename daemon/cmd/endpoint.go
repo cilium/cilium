@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -151,24 +152,26 @@ func NewPutEndpointIDHandler(d *Daemon) PutEndpointIDHandler {
 
 // fetchK8sLabelsAndAnnotations wraps the k8s package to fetch and provide
 // endpoint metadata. It implements endpoint.MetadataResolverCB.
-func (d *Daemon) fetchK8sLabelsAndAnnotations(nsName, podName string) (labels.Labels, labels.Labels, map[string]string, error) {
+// The returned pod is deepcopied which means the its fields can be written
+// into.
+func (d *Daemon) fetchK8sLabelsAndAnnotations(nsName, podName string) (*types.Pod, labels.Labels, labels.Labels, map[string]string, error) {
 	p, err := d.k8sWatcher.GetCachedPod(nsName, podName)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	ns, err := d.k8sWatcher.GetCachedNamespace(nsName)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	lbls, annotations, err := k8s.GetPodMetadata(ns, p)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	k8sLbls := labels.Map2Labels(lbls, labels.LabelSourceK8s)
 	identityLabels, infoLabels := labelsfilter.Filter(k8sLbls)
-	return identityLabels, infoLabels, annotations, nil
+	return p, identityLabels, infoLabels, annotations, nil
 }
 
 func invalidDataError(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
@@ -262,10 +265,11 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	}
 
 	if ep.K8sNamespaceAndPodNameIsSet() && k8s.IsEnabled() {
-		identityLabels, info, _, err := d.fetchK8sLabelsAndAnnotations(ep.K8sNamespace, ep.K8sPodName)
+		pod, identityLabels, info, _, err := d.fetchK8sLabelsAndAnnotations(ep.K8sNamespace, ep.K8sPodName)
 		if err != nil {
 			ep.Logger("api").WithError(err).Warning("Unable to fetch kubernetes labels")
 		} else {
+			ep.SetPod(pod)
 			addLabels.MergeLabels(identityLabels)
 			infoLabels.MergeLabels(info)
 		}

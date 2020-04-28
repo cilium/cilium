@@ -22,7 +22,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -92,13 +91,7 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 				return
 			}
 
-			ep.UpdateVisibilityPolicy(func(ns, podName string) (proxyVisibility string, err error) {
-				_, _, annotations, err := d.fetchK8sLabelsAndAnnotations(ns, podName)
-				if err != nil {
-					return "", err
-				}
-				return annotations[annotation.ProxyVisibility], nil
-			})
+			ep.RunMetadataResolver(d.fetchK8sLabelsAndAnnotations)
 		}()
 	}
 
