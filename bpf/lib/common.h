@@ -265,6 +265,17 @@ enum {
 	__u16		len_cap;	/* Length of captured bytes */	\
 	__u16		version;	/* Capture header version */
 
+#define __notify_common_hdr(t, s) 	\
+	.type		= (t),		\
+	.subtype	= (s),		\
+	.source		= EVENT_SOURCE,	\
+	.hash		= get_hash_recalc(ctx)
+
+#define __notify_pktcap_hdr(o, c)	\
+	.len_orig	= (o),		\
+	.len_cap	= (c),		\
+	.version	= NOTIFY_CAPTURE_VER
+
 /* Capture notifications version. Must be incremented when format changes. */
 #define NOTIFY_CAPTURE_VER 1
 

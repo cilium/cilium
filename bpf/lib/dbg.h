@@ -129,6 +129,7 @@ enum {
 #endif
 
 #ifdef DEBUG
+#include "common.h"
 #include "utils.h"
 
 # define printk(fmt, ...)					\
@@ -148,34 +149,28 @@ struct debug_msg {
 static __always_inline void cilium_dbg(struct __ctx_buff *ctx, __u8 type,
 				       __u32 arg1, __u32 arg2)
 {
-	__u32 hash = get_hash_recalc(ctx);
 	struct debug_msg msg = {
-		.type = CILIUM_NOTIFY_DBG_MSG,
-		.subtype = type,
-		.source = EVENT_SOURCE,
-		.hash = hash,
-		.arg1 = arg1,
-		.arg2 = arg2,
+		__notify_common_hdr(CILIUM_NOTIFY_DBG_MSG, type),
+		.arg1	= arg1,
+		.arg2	= arg2,
 	};
 
-	ctx_event_output(ctx, &EVENTS_MAP, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
+	ctx_event_output(ctx, &EVENTS_MAP, BPF_F_CURRENT_CPU,
+			 &msg, sizeof(msg));
 }
 
 static __always_inline void cilium_dbg3(struct __ctx_buff *ctx, __u8 type,
 					__u32 arg1, __u32 arg2, __u32 arg3)
 {
-	__u32 hash = get_hash_recalc(ctx);
 	struct debug_msg msg = {
-		.type = CILIUM_NOTIFY_DBG_MSG,
-		.subtype = type,
-		.source = EVENT_SOURCE,
-		.hash = hash,
-		.arg1 = arg1,
-		.arg2 = arg2,
-		.arg3 = arg3,
+		__notify_common_hdr(CILIUM_NOTIFY_DBG_MSG, type),
+		.arg1	= arg1,
+		.arg2	= arg2,
+		.arg3	= arg3,
 	};
 
-	ctx_event_output(ctx, &EVENTS_MAP, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
+	ctx_event_output(ctx, &EVENTS_MAP, BPF_F_CURRENT_CPU,
+			 &msg, sizeof(msg));
 }
 
 struct debug_capture_msg {
@@ -187,19 +182,13 @@ struct debug_capture_msg {
 static __always_inline void cilium_dbg_capture2(struct __ctx_buff *ctx, __u8 type,
 						__u32 arg1, __u32 arg2)
 {
-	__u64 ctx_len = (__u64)ctx_full_len(ctx);
-	__u64 cap_len = min((__u64)TRACE_PAYLOAD_LEN, (__u64)ctx_len);
-	__u32 hash = get_hash_recalc(ctx);
+	__u64 ctx_len = ctx_full_len(ctx);
+	__u64 cap_len = min_t(__u64, TRACE_PAYLOAD_LEN, ctx_len);
 	struct debug_capture_msg msg = {
-		.type = CILIUM_NOTIFY_DBG_CAPTURE,
-		.subtype = type,
-		.source = EVENT_SOURCE,
-		.hash = hash,
-		.len_orig = ctx_len,
-		.len_cap = cap_len,
-		.version = NOTIFY_CAPTURE_VER,
-		.arg1 = arg1,
-		.arg2 = arg2,
+		__notify_common_hdr(CILIUM_NOTIFY_DBG_CAPTURE, type),
+		__notify_pktcap_hdr(ctx_len, cap_len),
+		.arg1	= arg1,
+		.arg2	= arg2,
 	};
 
 	ctx_event_output(ctx, &EVENTS_MAP,

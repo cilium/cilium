@@ -31,13 +31,14 @@ struct policy_verdict_notify {
 		ipv6:1,
 		match_type:3,
 		pad0:2;
-	__u32	pad1; // align with 64 bits
+	__u32	pad1; /* align with 64 bits */
 };
 
 static __always_inline bool policy_verdict_filter_allow(__u32 filter, __u8 dir)
 {
-	// Make dir being volatile to avoid compiler optimizing out filter (thinking
-	// it to be zero).
+	/* Make dir being volatile to avoid compiler optimizing out
+	 * filter (thinking it to be zero).
+	 */
 	volatile __u8 d = dir;
 	return ((filter & d) > 0);
 }
@@ -47,29 +48,23 @@ send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst
 			   __u8 proto, __u8 dir, __u8 is_ipv6, int verdict,
 			   __u8 match_type)
 {
-	if (!policy_verdict_filter_allow(POLICY_VERDICT_LOG_FILTER, dir)) {
-		return;
-	}
+	__u64 ctx_len = ctx_full_len(ctx);
+	__u64 cap_len = min_t(__u64, TRACE_PAYLOAD_LEN, ctx_len);
+	struct policy_verdict_notify msg;
 
-	__u64 ctx_len = (__u64)ctx_full_len(ctx);
-	__u64 cap_len = min((__u64)TRACE_PAYLOAD_LEN, (__u64)ctx_len);
-	__u32 hash = get_hash_recalc(ctx);
-	struct policy_verdict_notify msg = {
-		.type = CILIUM_NOTIFY_POLICY_VERDICT,
-		.source = EVENT_SOURCE,
-		.hash = hash,
-		.len_orig = ctx_len,
-		.len_cap = cap_len,
-		.version = NOTIFY_CAPTURE_VER,
-		.remote_label = remote_label,
-		.verdict = verdict,
-		.dst_port = bpf_ntohs(dst_port),
-		.proto = proto,
-		.dir = dir,
-		.ipv6 = is_ipv6,
-		.match_type = match_type,
-		.pad0 = 0,
-		.pad1 = 0,
+	if (!policy_verdict_filter_allow(POLICY_VERDICT_LOG_FILTER, dir))
+		return;
+
+	msg = (typeof(msg)) {
+		__notify_common_hdr(CILIUM_NOTIFY_POLICY_VERDICT, 0),
+		__notify_pktcap_hdr(ctx_len, cap_len),
+		.remote_label	= remote_label,
+		.verdict	= verdict,
+		.dst_port	= bpf_ntohs(dst_port),
+		.match_type	= match_type,
+		.proto		= proto,
+		.dir		= dir,
+		.ipv6		= is_ipv6,
 	};
 
 	ctx_event_output(ctx, &EVENTS_MAP,

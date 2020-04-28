@@ -143,112 +143,87 @@ static __always_inline void
 send_trace_notify(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst,
 		   __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
 {
+	__u64 ctx_len = ctx_full_len(ctx);
+	__u64 cap_len = min_t(__u64, monitor ? : TRACE_PAYLOAD_LEN,
+			      ctx_len);
+	struct trace_notify msg;
+
 	update_trace_metrics(ctx, obs_point, reason);
 
 	if (!emit_trace_notify(obs_point, monitor))
 		return;
 
-	if (!monitor)
-		monitor = TRACE_PAYLOAD_LEN;
-
-	__u64 ctx_len = (__u64)ctx_full_len(ctx);
-	__u64 cap_len = min((__u64)monitor, (__u64)ctx_len);
-	__u32 hash = get_hash_recalc(ctx);
-	struct trace_notify msg = {
-		.type = CILIUM_NOTIFY_TRACE,
-		.subtype = obs_point,
-		.source = EVENT_SOURCE,
-		.hash = hash,
-		.len_orig = ctx_len,
-		.len_cap = cap_len,
-		.version = NOTIFY_CAPTURE_VER,
-		.src_label = src,
-		.dst_label = dst,
-		.dst_id = dst_id,
-		.reason = reason,
-		.ipv6 = 0,
-		.pad = 0,
-		.ifindex = ifindex,
-		.orig_ip4 = 0,
-		.orig_pad1 = 0,
-		.orig_pad2 = 0,
-		.orig_pad3 = 0,
+	msg = (typeof(msg)) {
+		__notify_common_hdr(CILIUM_NOTIFY_TRACE, obs_point),
+		__notify_pktcap_hdr(ctx_len, cap_len),
+		.src_label	= src,
+		.dst_label	= dst,
+		.dst_id		= dst_id,
+		.reason		= reason,
+		.ifindex	= ifindex,
 	};
+
 	ctx_event_output(ctx, &EVENTS_MAP,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
 }
 
 static __always_inline void
-send_trace_notify4(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst, __be32 orig_addr,
-		   __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
+send_trace_notify4(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst,
+		   __be32 orig_addr, __u16 dst_id, __u32 ifindex, __u8 reason,
+		   __u32 monitor)
 {
+	__u64 ctx_len = ctx_full_len(ctx);
+	__u64 cap_len = min_t(__u64, monitor ? : TRACE_PAYLOAD_LEN,
+			      ctx_len);
+	struct trace_notify msg;
+
 	update_trace_metrics(ctx, obs_point, reason);
 
 	if (!emit_trace_notify(obs_point, monitor))
 		return;
 
-	if (!monitor)
-		monitor = TRACE_PAYLOAD_LEN;
-
-	__u64 ctx_len = (__u64)ctx_full_len(ctx);
-	__u64 cap_len = min((__u64)monitor, (__u64)ctx_len);
-	__u32 hash = get_hash_recalc(ctx);
-	struct trace_notify msg = {
-		.type = CILIUM_NOTIFY_TRACE,
-		.subtype = obs_point,
-		.source = EVENT_SOURCE,
-		.hash = hash,
-		.len_orig = ctx_len,
-		.len_cap = cap_len,
-		.version = NOTIFY_CAPTURE_VER,
-		.src_label = src,
-		.dst_label = dst,
-		.dst_id = dst_id,
-		.reason = reason,
-		.ipv6 = 0,
-		.pad = 0,
-		.ifindex = ifindex,
-		.orig_ip4 = orig_addr,
-		.orig_pad1 = 0,
-		.orig_pad2 = 0,
-		.orig_pad3 = 0,
+	msg = (typeof(msg)) {
+		__notify_common_hdr(CILIUM_NOTIFY_TRACE, obs_point),
+		__notify_pktcap_hdr(ctx_len, cap_len),
+		.src_label	= src,
+		.dst_label	= dst,
+		.dst_id		= dst_id,
+		.reason		= reason,
+		.ifindex	= ifindex,
+		.ipv6		= 0,
+		.orig_ip4	= orig_addr,
 	};
+
 	ctx_event_output(ctx, &EVENTS_MAP,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
 }
 
 static __always_inline void
-send_trace_notify6(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst, union v6addr *orig_addr,
-		   __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
+send_trace_notify6(struct __ctx_buff *ctx, __u8 obs_point, __u32 src, __u32 dst,
+		   union v6addr *orig_addr, __u16 dst_id, __u32 ifindex,
+		   __u8 reason, __u32 monitor)
 {
+	__u64 ctx_len = ctx_full_len(ctx);
+	__u64 cap_len = min_t(__u64, monitor ? : TRACE_PAYLOAD_LEN,
+			      ctx_len);
+	struct trace_notify msg;
+
 	update_trace_metrics(ctx, obs_point, reason);
 
 	if (!emit_trace_notify(obs_point, monitor))
 		return;
 
-	if (!monitor)
-		monitor = TRACE_PAYLOAD_LEN;
-
-	__u64 ctx_len = (__u64)ctx_full_len(ctx);
-	__u64 cap_len = min((__u64)monitor, (__u64)ctx_len);
-	__u32 hash = get_hash_recalc(ctx);
-	struct trace_notify msg = {
-		.type = CILIUM_NOTIFY_TRACE,
-		.subtype = obs_point,
-		.source = EVENT_SOURCE,
-		.hash = hash,
-		.len_orig = ctx_len,
-		.len_cap = cap_len,
-		.version = NOTIFY_CAPTURE_VER,
-		.src_label = src,
-		.dst_label = dst,
-		.dst_id = dst_id,
-		.reason = reason,
-		.ipv6 = 1,
-		.pad = 0,
-		.ifindex = ifindex,
+	msg = (typeof(msg)) {
+		__notify_common_hdr(CILIUM_NOTIFY_TRACE, obs_point),
+		__notify_pktcap_hdr(ctx_len, cap_len),
+		.src_label	= src,
+		.dst_label	= dst,
+		.dst_id		= dst_id,
+		.reason		= reason,
+		.ifindex	= ifindex,
+		.ipv6		= 1,
 	};
 
 	ipv6_addr_copy(&msg.orig_ip6, orig_addr);
