@@ -221,6 +221,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 	Context("Encapsulation", func() {
 		BeforeEach(func() {
 			SkipIfIntegration(helpers.CIIntegrationFlannel)
+			SkipIfIntegration(helpers.CIIntegrationGKE)
 		})
 
 		validateBPFTunnelMap := func() {
@@ -294,6 +295,36 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	Context("DirectRouting", func() {
+		BeforeEach(func() {
+			switch {
+			case helpers.IsIntegration(helpers.CIIntegrationGKE):
+			default:
+				Skip("DirectRouting without AutoDirectNodeRoutes not supported")
+			}
+		})
+
+		It("Check connectivity with direct routing", func() {
+			deployCilium(map[string]string{
+				"global.tunnel":                 "disabled",
+				"global.k8s.requireIPv4PodCIDR": "true",
+				"global.endpointRoutes.enabled": "false",
+			})
+
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+		})
+
+		It("Check connectivity with direct routing and endpointRoutes", func() {
+			deployCilium(map[string]string{
+				"global.tunnel":                 "disabled",
+				"global.k8s.requireIPv4PodCIDR": "true",
+				"global.endpointRoutes.enabled": "true",
+			})
+
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+		})
+	})
+
+	Context("AutoDirectNodeRoutes", func() {
 		BeforeEach(func() {
 			SkipIfIntegration(helpers.CIIntegrationFlannel)
 			SkipIfIntegration(helpers.CIIntegrationGKE)
