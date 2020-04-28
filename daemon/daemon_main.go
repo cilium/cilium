@@ -511,6 +511,9 @@ func init() {
 	flags.StringSlice(option.NodePortRange, []string{fmt.Sprintf("%d", option.NodePortMinDefault), fmt.Sprintf("%d", option.NodePortMaxDefault)}, fmt.Sprintf("Set the min/max NodePort port range"))
 	option.BindEnv(option.NodePortRange)
 
+	flags.Bool(option.NodePortBindProtection, true, "Reject application bind(2) requests to service ports in the NodePort range")
+	option.BindEnv(option.NodePortBindProtection)
+
 	flags.String(option.LibDir, defaults.LibraryPath, "Directory path to store runtime build environment")
 	option.BindEnv(option.LibDir)
 
@@ -1519,6 +1522,10 @@ func initKubeProxyReplacementOptions() {
 			// Currently, DSR does not work in the tunnel mode. Once it's fixed,
 			// the constraint can be removed.
 			log.Fatal("DSR cannot be used with tunnel")
+		}
+
+		if !option.Config.NodePortBindProtection {
+			log.Warning("NodePort BPF configured without bind(2) protection against service ports")
 		}
 	}
 

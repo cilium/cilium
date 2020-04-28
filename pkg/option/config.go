@@ -244,6 +244,9 @@ const (
 	// ("snat" or "dsr")
 	NodePortMode = "node-port-mode"
 
+	// NodePortBindProtection rejects bind requests to NodePort service ports
+	NodePortBindProtection = "node-port-bind-protection"
+
 	// EnableAutoProtectNodePortRange enables appending NodePort range to
 	// net.ipv4.ip_local_reserved_ports if it overlaps with ephemeral port
 	// range (net.ipv4.ip_local_port_range)
@@ -1306,6 +1309,9 @@ type DaemonConfig struct {
 	// ("snat" or "dsr")
 	NodePortMode string
 
+	// NodePortBindProtection rejects bind requests to NodePort service ports
+	NodePortBindProtection bool
+
 	// EnableAutoProtectNodePortRange enables appending NodePort range to
 	// net.ipv4.ip_local_reserved_ports if it overlaps with ephemeral port
 	// range (net.ipv4.ip_local_port_range)
@@ -1777,6 +1783,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableTracing = viper.GetBool(EnableTracing)
 	c.EnableNodePort = viper.GetBool(EnableNodePort)
 	c.NodePortMode = viper.GetString(NodePortMode)
+	c.NodePortBindProtection = viper.GetBool(NodePortBindProtection)
 	c.EnableAutoProtectNodePortRange = viper.GetBool(EnableAutoProtectNodePortRange)
 	c.KubeProxyReplacement = viper.GetString(KubeProxyReplacement)
 	c.EncryptInterface = viper.GetString(EncryptInterface)

@@ -32,6 +32,7 @@ HOSTLB_UDP=${14}
 CGROUP_ROOT=${15}
 BPFFS_ROOT=${16}
 NODE_PORT=${17}
+NODE_PORT_BIND=${18}
 
 ID_HOST=1
 ID_WORLD=2
@@ -581,7 +582,7 @@ if [ "$HOSTLB" = "true" ]; then
 	COPTS="-DLB_L3 -DLB_L4"
 	if [ "$IP6_HOST" != "<nil>" ] || [ "$IP4_HOST" != "<nil>" ] && [ -f /proc/sys/net/ipv6/conf/all/forwarding ]; then
 		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect6 from-sock6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
-		if [ "$NODE_PORT" = "true" ]; then
+		if [ "$NODE_PORT" = "true" ] && [ "$NODE_PORT_BIND" = "true" ]; then
 			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sock post_bind6 post-bind-sock6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		else
 			bpf_clear_cgroups $CGROUP_ROOT post_bind6
@@ -596,7 +597,7 @@ if [ "$HOSTLB" = "true" ]; then
 	fi
 	if [ "$IP4_HOST" != "<nil>" ]; then
 		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect4 from-sock4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
-		if [ "$NODE_PORT" = "true" ]; then
+		if [ "$NODE_PORT" = "true" ] && [ "$NODE_PORT_BIND" = "true" ]; then
 			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sock post_bind4 post-bind-sock4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		else
 			bpf_clear_cgroups $CGROUP_ROOT post_bind4
