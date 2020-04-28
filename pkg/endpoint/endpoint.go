@@ -41,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -211,6 +212,9 @@ type Endpoint struct {
 
 	// K8sNamespace is the Kubernetes namespace of the endpoint
 	K8sNamespace string
+
+	// pod
+	pod *types.Pod
 
 	// policyRevision is the policy revision this endpoint is currently on
 	// to modify this field please use endpoint.setPolicyRevision instead
@@ -1048,6 +1052,21 @@ func (e *Endpoint) GetK8sNamespace() string {
 	return ns
 }
 
+// SetPod sets the pod related to this endpoint.
+func (e *Endpoint) SetPod(pod *types.Pod) {
+	e.unconditionalLock()
+	e.pod = pod
+	e.unlock()
+}
+
+// GetPod retrieves the pod related to this endpoint
+func (e *Endpoint) GetPod() *types.Pod {
+	e.unconditionalRLock()
+	pod := e.pod
+	e.runlock()
+	return pod
+}
+
 // SetK8sNamespace modifies the endpoint's pod name
 func (e *Endpoint) SetK8sNamespace(name string) {
 	e.unconditionalLock()
@@ -1460,7 +1479,7 @@ func APICanModify(e *Endpoint) error {
 
 // MetadataResolverCB provides an implementation for resolving the endpoint
 // metadata for an endpoint such as the associated labels and annotations.
-type MetadataResolverCB func(ns, podName string) (identityLabels labels.Labels, infoLabels labels.Labels, annotations map[string]string, err error)
+type MetadataResolverCB func(ns, podName string) (pod *types.Pod, identityLabels labels.Labels, infoLabels labels.Labels, annotations map[string]string, err error)
 
 // RunMetadataResolver starts a controller associated with the received
 // endpoint which will periodically attempt to resolve the metadata for the
@@ -1482,13 +1501,14 @@ func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
 				ns, podName := e.GetK8sNamespace(), e.GetK8sPodName()
-				identityLabels, info, _, err := resolveMetadata(ns, podName)
+				pod, identityLabels, info, _, err := resolveMetadata(ns, podName)
 				if err != nil {
 					e.Logger(controllerName).WithError(err).Warning("Unable to fetch kubernetes labels")
 					return err
 				}
+				e.SetPod(pod)
 				e.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
-					_, _, annotations, err := resolveMetadata(ns, podName)
+					_, _, _, annotations, err := resolveMetadata(ns, podName)
 					if err != nil {
 						return "", err
 					}

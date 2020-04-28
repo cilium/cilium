@@ -135,11 +135,25 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					// It's only an error if it exists but something else happened
 					switch {
 					case k8serrors.IsNotFound(err):
+						pod := e.GetPod()
+						if pod == nil {
+							scopedLog.Debug("Skipping CiliumEndpoint update because it has no k8s pod")
+							return nil
+						}
+
 						// We can't create localCEP directly, it must come from the k8s
 						// server via an API call.
 						cep := &cilium_v2.CiliumEndpoint{
 							ObjectMeta: meta_v1.ObjectMeta{
 								Name: podName,
+								OwnerReferences: []meta_v1.OwnerReference{
+									{
+										APIVersion: "v1",
+										Kind:       "Pod",
+										Name:       pod.GetObjectMeta().GetName(),
+										UID:        pod.GetObjectMeta().GetUID(),
+									},
+								},
 							},
 						}
 						if mdl != nil {
