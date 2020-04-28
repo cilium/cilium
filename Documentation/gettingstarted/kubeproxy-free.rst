@@ -279,31 +279,16 @@ would look as follows:
         --set global.k8sServiceHost=API_SERVER_IP \\
         --set global.k8sServicePort=API_SERVER_PORT
 
-NodePort Device and Range
-*************************
+NodePort Device, Port and Bind settings
+***************************************
 
-When running Cilium's BPF kube-proxy replacement, by default, a NodePort or
-ExternalIPs service will be accessible through the IP address of a native device
-which has the default route on the host. To change the device, set its name in
-the ``global.nodePort.device`` helm option.
-
-In addition, thanks to the :ref:`host-services` feature, the NodePort service can
-be accessed by default from a host or a Pod within a cluster via it's public,
-cilium_host device or loopback address, e.g. ``127.0.0.1:NODE_PORT``.
-
-If ``kube-apiserver`` was configured to use a non-default NodePort port range,
-then the same range must be passed to Cilium via the ``global.nodePort.range``
-option, for example, as ``--set global.nodePort.range="10000\,32767"`` for a
-range of ``10000-32767``. The default Kubernetes NodePort range is ``30000-32767``.
-
-If the NodePort port range overlaps with the ephemeral port range
-(``net.ipv4.ip_local_port_range``), Cilium will append the NodePort range to
-the reserved ports (``net.ipv4.ip_local_reserved_ports``). This is needed to
-prevent a NodePort service from hijacking traffic of a host local application
-which source port matches the service port. To disable the modification of
-the reserved ports, set ``global.nodePort.autoProtectPortRanges`` to ``false``.
-
-
+By default, the NodePort implementation prevents application ``bind(2)`` requests
+to NodePort service ports. In such case, the application will typically see a
+``bind: Operation not permitted`` error. This happens either globally for older
+kernels or starting from v5.7 kernels only for the host namespace by default
+and therefore not affecting any application pod ``bind(2)`` requests anymore. In
+order to opt-out from this behavior in general, this setting can be changed for
+expert users by switching ``global.nodePort.bindProtection`` to ``false``.
 
 kube-proxy Hybrid Modes
 ***********************
