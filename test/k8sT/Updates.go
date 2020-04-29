@@ -174,8 +174,8 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		)
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium clean state %q was not able to be deployed", chartVersion)
 		ExpectWithOffset(1, cmd).To(helpers.CMDSuccess(), "Cilium clean state %q was not able to be deployed", chartVersion)
-		err = kubectl.WaitforPods(helpers.CiliumNamespace, "-l k8s-app=cilium", longTimeout)
-		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", chartVersion)
+		err = kubectl.WaitForCiliumReadiness()
+		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q did not become ready in time", chartVersion)
 		err = kubectl.WaitForCiliumInitContainerToFinish()
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be clean up environment", chartVersion)
 		cmd = kubectl.ExecMiddle("helm delete cilium --namespace=" + helpers.CiliumNamespace)
@@ -401,7 +401,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		cmd = kubectl.ExecMiddle("helm delete cilium-preflight --namespace=" + helpers.CiliumNamespace)
 		ExpectWithOffset(1, cmd).To(helpers.CMDSuccess(), "Unable to delete preflight")
 
-		err = kubectl.WaitforPods(helpers.CiliumNamespace, "-l k8s-app=cilium", timeout)
+		err = kubectl.WaitForCiliumReadiness()
 		ExpectWithOffset(1, err).Should(BeNil(), "Cilium is not ready after timeout")
 		// Need to run using the kvstore-based allocator because upgrading from
 		// kvstore-based allocator to CRD-based allocator is not currently

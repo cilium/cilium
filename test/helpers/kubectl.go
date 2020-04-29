@@ -39,6 +39,7 @@ import (
 	"github.com/asaskevich/govalidator"
 	"github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -301,6 +302,54 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 	}
 
 	return k
+}
+
+// DaemonSetIsReady validate that a DaemonSet is scheduled on all required
+// nodes and all pods are ready. If this condition is not met, an error is
+// returned. If all pods are ready, then the number of pods is returned.
+func (kub *Kubectl) DaemonSetIsReady(namespace, daemonset string) (int, error) {
+	fullName := namespace + "/" + daemonset
+
+	res := kub.ExecShort(fmt.Sprintf("%s -n %s get daemonset %s -o json", KubectlCmd, namespace, daemonset))
+	if !res.WasSuccessful() {
+		return 0, fmt.Errorf("unable to retrieve daemonset %s: %s", fullName, res.OutputPrettyPrint())
+	}
+
+	d := &appsv1.DaemonSet{}
+	err := res.Unmarshal(d)
+	if err != nil {
+		return 0, fmt.Errorf("unable to unmarshal DaemonSet %s: %s", fullName, err)
+	}
+
+	if d.Status.DesiredNumberScheduled == 0 {
+		return 0, fmt.Errorf("desired number of pods is zero")
+	}
+
+	if d.Status.CurrentNumberScheduled != d.Status.DesiredNumberScheduled {
+		return 0, fmt.Errorf("only %d of %d desired pods are scheduled", d.Status.CurrentNumberScheduled, d.Status.DesiredNumberScheduled)
+	}
+
+	if d.Status.NumberAvailable != d.Status.DesiredNumberScheduled {
+		return 0, fmt.Errorf("only %d of %d desired pods are ready", d.Status.NumberAvailable, d.Status.DesiredNumberScheduled)
+	}
+
+	return int(d.Status.DesiredNumberScheduled), nil
+}
+
+// WaitForCiliumReadiness waits for the Cilium DaemonSet to become ready.
+// Readiness is achieved when all Cilium pods which are desired to run on a
+// node are in ready state.
+func (kub *Kubectl) WaitForCiliumReadiness() error {
+	ginkgoext.By("Waiting for Cilium to become ready")
+	return RepeatUntilTrue(func() bool {
+		numPods, err := kub.DaemonSetIsReady(CiliumNamespace, "cilium")
+		if err != nil {
+			ginkgoext.By("Cilium DaemonSet not ready yet: %s", err)
+		} else {
+			ginkgoext.By("Number of ready Cilium pods: %d", numPods)
+		}
+		return err == nil
+	}, &TimeoutConfig{Timeout: 4 * time.Minute})
 }
 
 // DeleteAllInNamespace deletes all namespaces except the ones provided in the
