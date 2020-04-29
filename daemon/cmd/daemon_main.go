@@ -1706,7 +1706,7 @@ func initKubeProxyReplacementOptions() {
 			if strict {
 				log.Fatal(msg)
 			} else {
-				log.Warn(fmt.Sprintf("%s. Disabling the feature.", msg))
+				log.Warnf("%s. Disabling the feature.", msg)
 				option.Config.EnableSessionAffinity = false
 			}
 
