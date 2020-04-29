@@ -1,0 +1,16 @@
+image: hubble-relay
+
+# Specifies the resources for the hubble-relay pods
+resources: {}
+# Number of replicas run for the hubble-relay deployment.
+numReplicas: 1
+# Host to listen to. Specify an empty string to bind to all the interfaces.
+listenHost: ""
+# Port to listen to.
+listenPort: "4245"
+# Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").
+dialTimeout: ~
+# Backoff duration to retry connecting to the local hubble instance in case of failure (e.g. "30s").
+retryTimeout: ~
+# Port to use for the k8s service backed by hubble-relay pods.
+servicePort: 80
