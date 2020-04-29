@@ -16,6 +16,7 @@ package fqdn
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"regexp"
 	"sync"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -55,6 +57,10 @@ type NameManager struct {
 
 	// cache is a private copy of the pointer from config.
 	cache *DNSCache
+
+	// lastEmittedState mirrors what we've updated selectors with. It is needed
+	// as a reference counter to manage CIDR identities for in-use IPs.
+	lastEmittedState map[api.FQDNSelector][]net.IP
 
 	bootstrapCompleted bool
 }
@@ -127,20 +133,16 @@ func (n *NameManager) RegisterForIdentityUpdatesLocked(selector api.FQDNSelector
 	_, selectorIPMapping := mapSelectorsToIPs(map[api.FQDNSelector]struct{}{selector: {}}, n.cache)
 
 	// Allocate identities for each IPNet and then map to selector
-	selectorIPs := selectorIPMapping[selector]
+	selectorIdentitySliceMapping := n.updateIPIdentities(selectorIPMapping)
 	log.WithFields(logrus.Fields{
 		"fqdnSelector": selector,
-		"ips":          selectorIPs,
+		"ips":          selectorIPMapping[selector],
 	}).Debug("getting identities for IPs associated with FQDNSelector")
-	var currentlyAllocatedIdentities []*identity.Identity
-	if currentlyAllocatedIdentities, err = ipcache.AllocateCIDRsForIPs(selectorIPs); err != nil {
-		log.WithError(err).WithField("prefixes", selectorIPs).Warn(
-			"failed to allocate identities for IPs")
-		return nil
-	}
-	numIDs := make([]identity.NumericIdentity, 0, len(currentlyAllocatedIdentities))
-	for i := range currentlyAllocatedIdentities {
-		numIDs = append(numIDs, currentlyAllocatedIdentities[i].ID)
+	numIDs := make([]identity.NumericIdentity, 0, len(selectorIdentitySliceMapping[selector]))
+	for _, currentlyAllocatedIdentities := range selectorIdentitySliceMapping { // There should only be 1 selector but this is safer
+		for i := range currentlyAllocatedIdentities {
+			numIDs = append(numIDs, currentlyAllocatedIdentities[i].ID)
+		}
 	}
 
 	return numIDs
@@ -154,6 +156,11 @@ func (n *NameManager) UnregisterForIdentityUpdatesLocked(selector api.FQDNSelect
 	if len(selector.MatchName) > 0 {
 		delete(n.namesToPoll, prepareMatchName(selector.MatchName))
 	}
+
+	// Clear IPs in this selector. This will deallocate as needed
+	n.updateIPIdentities(map[api.FQDNSelector][]net.IP{
+		selector: nil,
+	})
 }
 
 // NewNameManager creates an initialized NameManager.
@@ -165,16 +172,17 @@ func NewNameManager(config Config) *NameManager {
 	}
 
 	if config.UpdateSelectors == nil {
-		config.UpdateSelectors = func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]net.IP, namesMissingIPs []api.FQDNSelector) (*sync.WaitGroup, error) {
+		config.UpdateSelectors = func(ctx context.Context, selectorIdentitySliceMapping map[api.FQDNSelector][]*identity.Identity, namesMissingIPs []api.FQDNSelector) (*sync.WaitGroup, error) {
 			return &sync.WaitGroup{}, nil
 		}
 	}
 
 	return &NameManager{
-		config:       config,
-		namesToPoll:  make(map[string]struct{}),
-		allSelectors: make(map[api.FQDNSelector]*regexp.Regexp),
-		cache:        config.Cache,
+		config:           config,
+		namesToPoll:      make(map[string]struct{}),
+		allSelectors:     make(map[api.FQDNSelector]*regexp.Regexp),
+		cache:            config.Cache,
+		lastEmittedState: make(map[api.FQDNSelector][]net.IP),
 	}
 
 }
@@ -219,7 +227,9 @@ func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Tim
 			Debug("No IPs to insert when generating DNS name selected by ToFQDN rule")
 	}
 
-	return n.config.UpdateSelectors(ctx, selectorIPMapping, namesMissingIPs)
+	selectorIdentitySliceMapping := n.updateIPIdentities(selectorIPMapping)
+
+	return n.config.UpdateSelectors(ctx, selectorIdentitySliceMapping, namesMissingIPs)
 }
 
 // ForceGenerateDNS unconditionally regenerates all rules that refer to DNS
@@ -244,9 +254,8 @@ func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []strin
 			Debug("No IPs to insert when generating DNS name selected by ToFQDN rule")
 	}
 
-	// emit the new rules
-	return n.config.
-		UpdateSelectors(ctx, selectorIPMapping, namesMissingIPs)
+	selectorIdentitySliceMapping := n.updateIPIdentities(selectorIPMapping)
+	return n.config.UpdateSelectors(ctx, selectorIdentitySliceMapping, namesMissingIPs)
 }
 
 func (n *NameManager) CompleteBootstrap() {
@@ -323,4 +332,102 @@ func (n *NameManager) updateIPsForName(lookupTime time.Time, dnsName string, new
 	// function is called with already expired data and if other cache data
 	// from before also expired.
 	return (len(cacheIPs) == 0 && len(sortedNewIPs) == 0) || !sortedIPsAreEqual(sortedNewIPs, cacheIPs)
+}
+
+func (n *NameManager) updateIPIdentities(updatedSelectorIPs map[api.FQDNSelector][]net.IP) (selectorIdentitySliceMapping map[api.FQDNSelector][]*identity.Identity) {
+
+	// for each selector in the update
+	//  determine IPs that are new
+	//  detereine IPs that are gone
+	//  set the entry to be the updated IPs
+
+	selectorIdentitySliceMapping = make(map[api.FQDNSelector][]*identity.Identity)
+	for selector, IPs := range updatedSelectorIPs {
+		oldIPs, exists := n.lastEmittedState[selector]
+		if !exists {
+			n.lastEmittedState[selector] = make([]net.IP, 0, len(IPs))
+		}
+
+		var (
+			newlyAdded, alreadyUsed []net.IP
+			removed                 []*net.IPNet
+
+			// oldIPSet begins with all IPs already in-use. We remove IPs that are
+			// already in-use and in the new set of IPs for a selector (in the loop
+			// below). At the end, the leftovers are IPs that are removed by the
+			// update.
+			oldIPSet = make(map[string]struct{})
+		)
+
+		for _, ip := range oldIPs {
+			oldIPSet[ip.String()] = struct{}{}
+		}
+
+		for _, newIP := range IPs {
+			newIPStr := newIP.String()
+			if _, alreadyExists := oldIPSet[newIPStr]; alreadyExists {
+				// The IP was already used by this selector
+				alreadyUsed = append(alreadyUsed, newIP)
+				delete(oldIPSet, newIPStr)
+			} else {
+				newlyAdded = append(newlyAdded, newIP)
+			}
+		}
+
+		var selectorAllocatedIdentities []*identity.Identity
+		// Collect identities for IPs that were already in-use. If any fails,
+		// allocate it again below.
+		for _, ip := range alreadyUsed {
+			IPLen := 4
+			if ip.To4() == nil {
+				IPLen = 16
+			}
+			prefixStr := fmt.Sprintf("%s/%d", ip.String(), 8*IPLen)
+			if IPSecID, exists := ipcache.IPIdentityCache.LookupByPrefix(prefixStr); !exists {
+				newlyAdded = append(newlyAdded, ip)
+				log.WithField("prefixes", ip).Warnf("Failed to lookup existing IP's identity prefixStr %v. It will be recreated: IPIdentityCache: %+v", prefixStr, ipcache.IPIdentityCache)
+			} else {
+				existingIdentity := n.config.IdentityAllocator.LookupIdentityByID(context.TODO(), IPSecID.ID)
+				selectorAllocatedIdentities = append(selectorAllocatedIdentities, existingIdentity)
+			}
+		}
+
+		// Allocate identities for added IPs, and remove them for removed IPs.
+		// Note: We rely on the internal refcounting of the identity allocator,
+		// where we count one reference while a particular selector uses this IP.
+		// This allows us to handle add/deletes of the selector and a case where a
+		// policy has directly created a CIDR entry that matches an IP here.
+		// TODO: handle a failed allocation more gracefully
+		var (
+			err           error
+			newIdentities []*identity.Identity
+		)
+		if newIdentities, err = ipcache.AllocateCIDRsForIPs(ip.KeepUniqueIPs(newlyAdded)); err != nil {
+			log.WithError(err).WithField("prefixes", newlyAdded).Warn("failed to allocate identities for IPs")
+		} else {
+			selectorAllocatedIdentities = append(selectorAllocatedIdentities, newIdentities...)
+		}
+
+		// Release IPs that are not in-use any more.
+		for ipStr := range oldIPSet {
+			ip := net.ParseIP(ipStr)
+			IPLen := 4
+			if ip.To4() == nil {
+				IPLen = 16
+			}
+
+			ipnet := net.IPNet{
+				IP:   ip,
+				Mask: net.CIDRMask(8*len(ip), 8*IPLen),
+			}
+			removed = append(removed, &ipnet)
+		}
+		ipcache.ReleaseCIDRs(removed)
+
+		n.lastEmittedState[selector] = IPs
+		n.lastEmittedState[selector] = ip.KeepUniqueIPs(n.lastEmittedState[selector])
+		selectorIdentitySliceMapping[selector] = selectorAllocatedIdentities
+	}
+
+	return selectorIdentitySliceMapping
 }

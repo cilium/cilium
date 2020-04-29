@@ -16,10 +16,11 @@ package fqdn
 
 import (
 	"context"
-	"net"
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/pkg/identity"
+	secIDCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/miekg/dns"
 )
@@ -40,6 +41,8 @@ type Config struct {
 	// When set to nil, it uses fqdn.DefaultDNSCache, a global cache instance.
 	Cache *DNSCache
 
+	IdentityAllocator *secIDCache.CachingIdentityAllocator
+
 	// DNSConfig includes the Resolver IPs, port, timeout and retry count. It is
 	// expected to be  generated from /etc/resolv.conf.
 	DNSConfig *dns.ClientConfig
@@ -50,7 +53,7 @@ type Config struct {
 
 	// UpdateSelectors is a callback to update the mapping of FQDNSelector to
 	// sets of IPs.
-	UpdateSelectors func(ctx context.Context, selectorsWithIPs map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, error)
+	UpdateSelectors func(ctx context.Context, selectorIdentitySliceMapping map[api.FQDNSelector][]*identity.Identity, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, error)
 
 	// PollerResponseNotify is used when the poller receives DNS data in response
 	// to a successful poll.

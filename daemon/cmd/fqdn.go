@@ -141,6 +141,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 		MinTTL:               option.Config.ToFQDNsMinTTL,
 		OverLimit:            option.Config.ToFQDNsMaxIPsPerHost,
 		Cache:                fqdn.NewDNSCache(option.Config.ToFQDNsMinTTL),
+		IdentityAllocator:    d.identityAllocator,
 		LookupDNSNames:       fqdn.DNSLookupDefaultResolver,
 		UpdateSelectors:      d.updateSelectors,
 		PollerResponseNotify: d.pollerResponseNotify,
@@ -314,16 +315,9 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 // updateSelectors propagates the mapping of FQDNSelector to identity, as well
 // as the set of FQDNSelectors which have no IPs which correspond to them
 // (usually due to TTL expiry), down to policy layer managed by this daemon.
-func (d *Daemon) updateSelectors(ctx context.Context, selectorWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, selectorsWithoutIPs []policyApi.FQDNSelector) (wg *sync.WaitGroup, err error) {
-	// Convert set of selectors with IPs to update to set of selectors
-	// with identities corresponding to said IPs.
-	selectorsIdentities, err := identitiesForFQDNSelectorIPs(selectorWithIPsToUpdate, d.identityAllocator)
-	if err != nil {
-		return &sync.WaitGroup{}, err
-	}
-
+func (d *Daemon) updateSelectors(ctx context.Context, selectorIdentitySliceMapping map[policyApi.FQDNSelector][]*identity.Identity, selectorsWithoutIPs []policyApi.FQDNSelector) (wg *sync.WaitGroup, err error) {
 	// Update mapping in selector cache with new identities.
-	return d.updateSelectorCacheFQDNs(ctx, selectorsIdentities, selectorsWithoutIPs), nil
+	return d.updateSelectorCacheFQDNs(ctx, selectorIdentitySliceMapping, selectorsWithoutIPs), nil
 }
 
 // pollerResponseNotify handles update events for updates from the poller. It
