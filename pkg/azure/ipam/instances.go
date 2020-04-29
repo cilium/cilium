@@ -28,7 +28,7 @@ import (
 
 // AzureAPI is the API surface used of the Azure API
 type AzureAPI interface {
-	GetInstances(ctx context.Context) (*ipamTypes.InstanceMap, error)
+	GetInstances(ctx context.Context, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error)
 	GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetworkMap, ipamTypes.SubnetMap, error)
 	AssignPrivateIpAddresses(ctx context.Context, instanceID, vmssName, subnetID, interfaceName string, addresses int) error
 }
@@ -88,7 +88,7 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 		return time.Time{}
 	}
 
-	instances, err := m.api.GetInstances(ctx)
+	instances, err := m.api.GetInstances(ctx, subnets)
 	if err != nil {
 		log.WithError(err).Warning("Unable to synchronize Azure instances list")
 		return time.Time{}

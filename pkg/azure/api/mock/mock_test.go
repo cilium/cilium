@@ -42,7 +42,7 @@ func (e *MockSuite) TestMock(c *check.C) {
 	api := NewAPI([]*ipamTypes.Subnet{subnet}, []*ipamTypes.VirtualNetwork{{ID: "v-1"}})
 	c.Assert(api, check.Not(check.IsNil))
 
-	instances, err := api.GetInstances(context.Background())
+	instances, err := api.GetInstances(context.Background(), ipamTypes.SubnetMap{})
 	c.Assert(err, check.IsNil)
 	c.Assert(instances.NumInstances(), check.Equals, 0)
 
@@ -59,7 +59,7 @@ func (e *MockSuite) TestMock(c *check.C) {
 		Resource: &types.AzureInterface{ID: ifaceID, Name: "eth0"},
 	})
 	api.UpdateInstances(instances)
-	instances, err = api.GetInstances(context.Background())
+	instances, err = api.GetInstances(context.Background(), ipamTypes.SubnetMap{})
 	c.Assert(err, check.IsNil)
 	c.Assert(instances.NumInstances(), check.Equals, 1)
 	instances.ForeachInterface("", func(instanceID, interfaceID string, iface ipamTypes.InterfaceRevision) error {
@@ -70,7 +70,7 @@ func (e *MockSuite) TestMock(c *check.C) {
 
 	err = api.AssignPrivateIpAddresses(context.Background(), "vm1", "vmss1", "s-1", "eth0", 2)
 	c.Assert(err, check.IsNil)
-	instances, err = api.GetInstances(context.Background())
+	instances, err = api.GetInstances(context.Background(), ipamTypes.SubnetMap{})
 	c.Assert(err, check.IsNil)
 	c.Assert(instances.NumInstances(), check.Equals, 1)
 	instances.ForeachInterface("", func(instanceID, interfaceID string, revision ipamTypes.InterfaceRevision) error {
@@ -91,7 +91,7 @@ func (e *MockSuite) TestSetMockError(c *check.C) {
 	mockError := errors.New("error")
 
 	api.SetMockError(GetInstances, mockError)
-	_, err := api.GetInstances(context.Background())
+	_, err := api.GetInstances(context.Background(), ipamTypes.SubnetMap{})
 	c.Assert(err, check.Equals, mockError)
 
 	api.SetMockError(GetVpcsAndSubnets, mockError)
@@ -109,6 +109,6 @@ func (e *MockSuite) TestSetLimiter(c *check.C) {
 	c.Assert(api, check.Not(check.IsNil))
 
 	api.SetLimiter(10.0, 2)
-	_, err := api.GetInstances(context.Background())
+	_, err := api.GetInstances(context.Background(), ipamTypes.SubnetMap{})
 	c.Assert(err, check.IsNil)
 }

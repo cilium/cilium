@@ -136,7 +136,7 @@ func (a *API) rateLimit() {
 	}
 }
 
-func (a *API) GetInstances(ctx context.Context) (*ipamTypes.InstanceMap, error) {
+func (a *API) GetInstances(ctx context.Context, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error) {
 	a.rateLimit()
 	a.delaySim.Delay(GetInstances)
 

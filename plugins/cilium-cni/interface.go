@@ -26,7 +26,7 @@ import (
 	"github.com/containernetworking/cni/pkg/types/current"
 )
 
-func eniAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, conf models.DaemonConfigurationStatus) error {
+func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, conf models.DaemonConfigurationStatus) error {
 	allCIDRs := make([]*net.IPNet, 0, len(ipam.Cidrs))
 	for _, cidrString := range ipam.Cidrs {
 		_, cidr, err := net.ParseCIDR(cidrString)
