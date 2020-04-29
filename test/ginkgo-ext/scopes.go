@@ -46,10 +46,11 @@ type scope struct {
 	normalTests   int
 	focusedTests  int
 	focused       bool
+	text          string
 }
 
 var (
-	currentScope = &scope{}
+	currentScope = &scope{text: "EntireTestsuite"}
 	rootScope    = currentScope
 	// countersInitialized protects repeat calls of calculate counters on
 	// rootScope. This relies on ginkgo being single-threaded to set the value
@@ -156,8 +157,13 @@ func BeforeAll(body func()) bool {
 			currentScope.before = nil
 			return true
 		}
-		currentScope.before = append(currentScope.before, body)
-		return BeforeEach(func() {})
+
+		contextName := currentScope.text
+		currentScope.before = append(currentScope.before, func() {
+			By("Running BeforeAll block for %s", contextName)
+			body()
+		})
+		return beforeEach(func() {})
 	}
 
 	return true
@@ -170,8 +176,12 @@ func AfterAll(body func()) bool {
 			currentScope.before = nil
 			return true
 		}
-		currentScope.after = append(currentScope.after, body)
-		return AfterEach(func() {})
+		contextName := currentScope.text
+		currentScope.after = append(currentScope.after, func() {
+			By("Running AfterAll block for %s", contextName)
+			body()
+		})
+		return afterEach(func() {})
 	}
 	return true
 }
@@ -184,8 +194,12 @@ func JustAfterEach(body func()) bool {
 			currentScope.before = nil
 			return true
 		}
-		currentScope.justAfterEach = append(currentScope.justAfterEach, body)
-		return AfterEach(func() {})
+		contextName := currentScope.text
+		currentScope.justAfterEach = append(currentScope.justAfterEach, func() {
+			By("Running JustAfterEach block for %s", contextName)
+			body()
+		})
+		return afterEach(func() {})
 	}
 	return true
 }
@@ -198,8 +212,12 @@ func AfterFailed(body func()) bool {
 			currentScope.before = nil
 			return true
 		}
-		currentScope.afterFail = append(currentScope.afterFail, body)
-		return AfterEach(func() {})
+		contextName := currentScope.text
+		currentScope.afterFail = append(currentScope.afterFail, func() {
+			By("Running AfterFailed block for %s", contextName)
+			body()
+		})
+		return afterEach(func() {})
 	}
 	return true
 }
@@ -343,6 +361,17 @@ func RunAfterEach(cs *scope) {
 
 // AfterEach runs the function after each test in context
 func AfterEach(body func(), timeout ...float64) bool {
+	var contextName string
+	if currentScope != nil {
+		contextName = currentScope.text
+	}
+	return afterEach(func() {
+		By("Running AfterEach for block %s", contextName)
+		body()
+	}, timeout...)
+}
+
+func afterEach(body func(), timeout ...float64) bool {
 	if currentScope == nil {
 		return ginkgo.AfterEach(body, timeout...)
 	}
@@ -362,7 +391,18 @@ func AfterEach(body func(), timeout ...float64) bool {
 }
 
 // BeforeEach runs the function before each test in context
-func BeforeEach(body interface{}, timeout ...float64) bool {
+func BeforeEach(body func(), timeout ...float64) bool {
+	var contextName string
+	if currentScope != nil {
+		contextName = currentScope.text
+	}
+	return beforeEach(func() {
+		By("Running BeforeEach block for %s", contextName)
+		body()
+	}, timeout...)
+}
+
+func beforeEach(body interface{}, timeout ...float64) bool {
 	if currentScope == nil {
 		return ginkgo.BeforeEach(body, timeout...)
 	}
@@ -390,7 +430,7 @@ func wrapContextFunc(fn func(string, func()) bool, focused bool) func(string, fu
 		if currentScope == nil {
 			return fn(text, body)
 		}
-		newScope := &scope{parent: currentScope, focused: focused}
+		newScope := &scope{text: text, parent: currentScope, focused: focused}
 		currentScope.children = append(currentScope.children, newScope)
 		currentScope = newScope
 		res := fn(text, body)
