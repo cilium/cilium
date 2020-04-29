@@ -273,6 +273,11 @@ func (in *Pod) DeepCopyInto(out *Pod) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	if in.StatusPodIPs != nil {
+		in, out := &in.StatusPodIPs, &out.StatusPodIPs
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.SpecContainers != nil {
 		in, out := &in.SpecContainers, &out.SpecContainers
 		*out = make([]PodContainer, len(*in))
