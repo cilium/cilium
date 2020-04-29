@@ -254,7 +254,7 @@ docker-operator-image: GIT_VERSION
 	$(CONTAINER_ENGINE_FULL) build --build-arg LOCKDEBUG=${LOCKDEBUG} -f cilium-operator.Dockerfile -t "cilium/operator:$(DOCKER_IMAGE_TAG)" .
 	$(CONTAINER_ENGINE_FULL) tag cilium/operator:$(DOCKER_IMAGE_TAG) cilium/operator:$(DOCKER_IMAGE_TAG)-${GOARCH}
 	$(QUIET)echo "Push like this when ready:"
-	$(QUIET)echo "docker push cilium/operator:$(DOCKER_IMAGE_TAG)-${GOARCH}"
+	$(QUIET)echo "${CONTAINER_ENGINE} push cilium/operator:$(DOCKER_IMAGE_TAG)-${GOARCH}"
 
 docker-operator-manifest:
 	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh operator $(DOCKER_IMAGE_TAG)
@@ -264,7 +264,7 @@ docker-plugin-image: GIT_VERSION
 	$(CONTAINER_ENGINE_FULL) build --build-arg LOCKDEBUG=${LOCKDEUBG} -f cilium-docker-plugin.Dockerfile -t "cilium/docker-plugin:$(DOCKER_IMAGE_TAG)" .
 	$(CONTAINER_ENGINE_FULL) tag cilium/docker-plugin:$(DOCKER_IMAGE_TAG) cilium/docker-plugin:$(DOCKER_IMAGE_TAG)-${GOARCH}
 	$(QUIET)echo "Push like this when ready:"
-	$(QUIET)echo "docker push cilium/docker-plugin:$(DOCKER_IMAGE_TAG)-${GOARCH}"
+	$(QUIET)echo "${CONTAINER_ENGINE} push cilium/docker-plugin:$(DOCKER_IMAGE_TAG)-${GOARCH}"
 
 docker-plugin-manifest:
 	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh docker-plugin $(DOCKER_IMAGE_TAG)
