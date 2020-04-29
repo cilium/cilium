@@ -423,7 +423,7 @@ data:
 
 {{- if .Values.global.kubeProxyReplacement }}
   kube-proxy-replacement:  {{ .Values.global.kubeProxyReplacement | quote }}
-{{- end}}
+{{- end }}
 {{- if .Values.global.hostServices }}
 {{- if .Values.global.hostServices.enabled }}
   enable-host-reachable-services: {{ .Values.global.hostServices.enabled | quote }}
@@ -457,6 +457,9 @@ data:
 {{- end }}
 {{- if .Values.global.nodePort.mode }}
   node-port-mode: {{ .Values.global.nodePort.mode | quote }}
+{{- end }}
+{{- if .Values.global.nodePort.enableHealthCheck }}
+  enable-health-check-nodeport: {{ .Values.global.nodePort.enableHealthCheck | quote}}
 {{- end }}
 {{- if .Values.global.nodePort.acceleration }}
   node-port-acceleration: {{ .Values.global.nodePort.acceleration | quote }}

@@ -282,6 +282,9 @@ func init() {
 	flags.Bool(option.EnableHealthChecking, defaults.EnableHealthChecking, "Enable connectivity health checking")
 	option.BindEnv(option.EnableHealthChecking)
 
+	flags.Bool(option.EnableHealthCheckNodePort, defaults.EnableHealthCheckNodePort, "Enables a healthcheck nodePort server for NodePort services with 'healthCheckNodePort' being set")
+	option.BindEnv(option.EnableHealthCheckNodePort)
+
 	flags.StringSlice(option.EndpointStatus, []string{},
 		"Enable additional CiliumEndpoint status features ("+strings.Join(option.EndpointStatusValues(), ",")+")")
 	option.BindEnv(option.EndpointStatus)
