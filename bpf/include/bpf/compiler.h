@@ -103,10 +103,9 @@ static __always_inline void bpf_barrier(void)
 
 #ifndef READ_ONCE
 # define READ_ONCE(X)						\
-				({ typeof(X) __val;		\
-				   __val = __READ_ONCE(X);	\
-				   bpf_barrier();		\
-				   __val; })
+			({ typeof(X) __val = __READ_ONCE(X);	\
+			   bpf_barrier();			\
+			   __val; })
 #endif
 
 #ifndef WRITE_ONCE
