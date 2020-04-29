@@ -44,24 +44,6 @@ var _ = Describe("K8sHubbleTest", func() {
 		apps        = []string{helpers.App1, helpers.App2, helpers.App3}
 	)
 
-	hubbleExecUntilMatch := func(ns, pod, cmd, substr string) error {
-		By("Executing %q on %s/%s", cmd, ns, pod)
-		body := func() bool {
-			ctx, cancel := context.WithTimeout(context.Background(), helpers.ShortCommandTimeout)
-			defer cancel()
-			res := kubectl.ExecPodCmdContext(ctx, ns, pod, cmd)
-			if !res.WasSuccessful() {
-				return false
-			}
-			return strings.Contains(res.Output().String(), substr)
-		}
-
-		return helpers.WithTimeout(
-			body,
-			fmt.Sprintf("%s is not in the hubble output after timeout", substr),
-			&helpers.TimeoutConfig{Timeout: helpers.MidCommandTimeout})
-	}
-
 	addVisibilityAnnotation := func(ns, podLabels, direction, port, l4proto, l7proto string) {
 		visibilityAnnotation := fmt.Sprintf("<%s/%s/%s/%s>", direction, port, l4proto, l7proto)
 		By("Adding visibility annotation %s on pod with labels %s", visibilityAnnotation, podLabels)
@@ -162,28 +144,36 @@ var _ = Describe("K8sHubbleTest", func() {
 		})
 
 		It("Test L3/L4 Flow", func() {
+			ctx, cancel := context.WithTimeout(context.Background(), helpers.MidCommandTimeout)
+			defer cancel()
+			follow := kubectl.HubbleObserveFollow(ctx, hubbleNamespace, hubblePodK8s1, fmt.Sprintf(
+				"--last 1 --type trace --from-pod %s/%s --to-namespace %s --to-label %s --to-port %d",
+				namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels, app1Port))
+
 			res := kubectl.ExecPodCmd(namespaceForTest, appPods[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", app1ClusterIP)))
 			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App2], app1ClusterIP)
 
-			err := hubbleExecUntilMatch(hubbleNamespace, hubblePodK8s1, fmt.Sprintf(
-				"hubble observe --last 1 --json --type trace --from-pod %s/%s --to-namespace %s --to-label %s --to-port %d",
-				namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels, app1Port), `"Type":"L3_L4"`)
-			Expect(err).To(BeNil(), "hubble observe query timed out")
+			err := follow.WaitUntilMatchFilterLineTimeout(`{$.Type}`, "L3_L4", helpers.ShortCommandTimeout)
+			Expect(err).To(BeNil(), fmt.Sprintf("hubble observe query timed out on %q", follow.OutputPrettyPrint()))
 		})
 
 		It("Test L7 Flow", func() {
 			addVisibilityAnnotation(namespaceForTest, app1Labels, "Ingress", "80", "TCP", "HTTP")
 			defer removeVisbilityAnnotation(namespaceForTest, app1Labels)
 
+			ctx, cancel := context.WithTimeout(context.Background(), helpers.MidCommandTimeout)
+			defer cancel()
+			follow := kubectl.HubbleObserveFollow(ctx, hubbleNamespace, hubblePodK8s1, fmt.Sprintf(
+				"--last 1 --type l7 --from-pod %s/%s --to-namespace %s --to-label %s --protocol http",
+				namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels))
+
 			res := kubectl.ExecPodCmd(namespaceForTest, appPods[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", app1ClusterIP)))
 			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App2], app1ClusterIP)
 
-			err := hubbleExecUntilMatch(hubbleNamespace, hubblePodK8s1, fmt.Sprintf(
-				"hubble observe --last 1 --json --type l7 --from-pod %s/%s --to-namespace %s --to-label %s --protocol http",
-				namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels), `"Type":"L7"`)
-			Expect(err).To(BeNil(), "hubble observe query timed out")
+			err := follow.WaitUntilMatchFilterLineTimeout(`{$.Type}`, "L7", helpers.ShortCommandTimeout)
+			Expect(err).To(BeNil(), fmt.Sprintf("hubble observe query timed out on %q", follow.OutputPrettyPrint()))
 		})
 	})
 })
