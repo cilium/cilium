@@ -549,6 +549,9 @@ New ConfigMap Options
     On upgrades of existing installations, this option is disabled by default,
     i.e. it is set to 0.0. Users wanting to use this feature need to enable it
     explicitly in their `ConfigMap`, see section :ref:`upgrade_configmap`.
+  
+  * ``enable-health-check-nodeport`` has been added to allow to configure
+    NodePort server health check when kube-proxy is disabled. 
 
 Deprecated options
 ~~~~~~~~~~~~~~~~~~

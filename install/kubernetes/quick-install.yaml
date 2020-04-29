@@ -130,6 +130,7 @@ data:
   install-iptables-rules: "true"
   auto-direct-node-routes: "false"
   kube-proxy-replacement:  "probe"
+  enable-health-check-nodeport: "true"
   node-port-bind-protection: "true"
   enable-auto-protect-node-port-range: "true"
   enable-session-affinity: "true"
