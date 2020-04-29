@@ -322,7 +322,7 @@ static __always_inline int __sock4_post_bind(struct bpf_sock *ctx,
 		.dport		= ctx_src_port(ctx),
 	};
 
-	if (!sock_proto_enabled(ctx->protocol))
+	if (!sock_proto_enabled(ctx->protocol) || !ctx_in_hostns(ctx_full))
 		return 0;
 
 	svc = lb4_lookup_service(&key);
@@ -332,8 +332,7 @@ static __always_inline int __sock4_post_bind(struct bpf_sock *ctx,
 		 * (without remote hosts).
 		 */
 		key.dport = ctx_src_port(ctx);
-		svc = sock4_nodeport_wildcard_lookup(&key, false,
-						     ctx_in_hostns(ctx_full));
+		svc = sock4_nodeport_wildcard_lookup(&key, false, true);
 	}
 
 	/* If the sockaddr of this socket overlaps with a NodePort
@@ -595,7 +594,7 @@ static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
 		.dport		= ctx_src_port(ctx),
 	};
 
-	if (!sock_proto_enabled(ctx->protocol))
+	if (!sock_proto_enabled(ctx->protocol) || !ctx_in_hostns(ctx))
 		return 0;
 
 	ctx_get_v6_src_address(ctx, &key.address);
@@ -603,8 +602,7 @@ static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
 	svc = lb6_lookup_service(&key);
 	if (!svc) {
 		key.dport = ctx_src_port(ctx);
-		svc = sock6_nodeport_wildcard_lookup(&key, false,
-						     ctx_in_hostns(ctx));
+		svc = sock6_nodeport_wildcard_lookup(&key, false, true);
 		if (!svc)
 			return sock6_post_bind_v4_in_v6(ctx);
 	}
