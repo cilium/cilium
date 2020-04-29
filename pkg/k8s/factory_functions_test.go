@@ -329,14 +329,14 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 						Name: "pod1",
 					},
 					StatusHostIP: "127.0.0.1",
-					StatusPodIP:  "127.0.0.2",
+					StatusPodIPs: []string{"127.0.0.2"},
 				},
 				o2: &types.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "pod1",
 					},
 					StatusHostIP: "127.0.0.1",
-					StatusPodIP:  "127.0.0.1",
+					StatusPodIPs: []string{"127.0.0.1"},
 				},
 			},
 			want: false,
@@ -349,14 +349,14 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 						Name: "pod1",
 					},
 					StatusHostIP: "127.0.0.1",
-					StatusPodIP:  "127.0.0.2",
+					StatusPodIPs: []string{"127.0.0.2"},
 				},
 				o2: &types.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "pod1",
 					},
 					StatusHostIP: "127.0.0.1",
-					StatusPodIP:  "127.0.0.2",
+					StatusPodIPs: []string{"127.0.0.2"},
 				},
 			},
 			want: true,
@@ -372,14 +372,14 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 						},
 					},
 					StatusHostIP: "127.0.0.1",
-					StatusPodIP:  "127.0.0.2",
+					StatusPodIPs: []string{"127.0.0.2"},
 				},
 				o2: &types.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "pod1",
 					},
 					StatusHostIP: "127.0.0.1",
-					StatusPodIP:  "127.0.0.2",
+					StatusPodIPs: []string{"127.0.0.2"},
 				},
 			},
 			want: false,
@@ -395,7 +395,7 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 						},
 					},
 					StatusHostIP: "127.0.0.1",
-					StatusPodIP:  "127.0.0.2",
+					StatusPodIPs: []string{"127.0.0.2"},
 				},
 				o2: &types.Pod{
 					ObjectMeta: metav1.ObjectMeta{
@@ -405,7 +405,7 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 						},
 					},
 					StatusHostIP: "127.0.0.1",
-					StatusPodIP:  "127.0.0.2",
+					StatusPodIPs: []string{"127.0.0.2"},
 				},
 			},
 			want: true,
@@ -421,7 +421,7 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 						},
 					},
 					StatusHostIP: "127.0.0.1",
-					StatusPodIP:  "127.0.0.2",
+					StatusPodIPs: []string{"127.0.0.2"},
 				},
 				o2: &types.Pod{
 					ObjectMeta: metav1.ObjectMeta{
@@ -434,7 +434,7 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 						},
 					},
 					StatusHostIP: "127.0.0.1",
-					StatusPodIP:  "127.0.0.2",
+					StatusPodIPs: []string{"127.0.0.2"},
 				},
 			},
 			want: false,
@@ -450,7 +450,7 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 						},
 					},
 					StatusHostIP: "127.0.0.1",
-					StatusPodIP:  "127.0.0.2",
+					StatusPodIPs: []string{"127.0.0.2"},
 				},
 				o2: &types.Pod{
 					ObjectMeta: metav1.ObjectMeta{
@@ -463,7 +463,7 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 						},
 					},
 					StatusHostIP: "127.0.0.1",
-					StatusPodIP:  "127.0.0.2",
+					StatusPodIPs: []string{"127.0.0.2"},
 				},
 			},
 			want: true,
