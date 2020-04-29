@@ -290,11 +290,6 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}
 	logger.Debugf("Processing CNI ADD request %#v", args)
 
-	n, err = types.LoadNetConf(args.StdinData)
-	if err != nil {
-		err = fmt.Errorf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err)
-		return
-	}
 	logger.Debugf("CNI NetConf: %#v", n)
 	if n.PrevResult != nil {
 		logger.Debugf("CNI Previous result: %#v", n.PrevResult)
