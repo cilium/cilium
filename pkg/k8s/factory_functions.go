@@ -16,12 +16,14 @@ package k8s
 
 import (
 	"reflect"
+	"sort"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/comparator"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/strings"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/discovery/v1beta1"
@@ -209,10 +211,13 @@ func EqualV1PodContainers(c1, c2 types.PodContainer) bool {
 
 func EqualV1Pod(pod1, pod2 *types.Pod) bool {
 	// We only care about the HostIP, the PodIP and the labels of the pods.
-	if pod1.StatusPodIP != pod2.StatusPodIP ||
-		pod1.StatusHostIP != pod2.StatusHostIP ||
+	if pod1.StatusHostIP != pod2.StatusHostIP ||
 		pod1.SpecServiceAccountName != pod2.SpecServiceAccountName ||
 		pod1.SpecHostNetwork != pod2.SpecHostNetwork {
+		return false
+	}
+
+	if !strings.EqualStrings(pod1.StatusPodIPs, pod2.StatusPodIPs) {
 		return false
 	}
 
@@ -542,6 +547,30 @@ func ConvertToCNP(obj interface{}) interface{} {
 	}
 }
 
+func getPodIPs(podStats v1.PodStatus) []string {
+	// make it a set first
+	ipsMap := make(map[string]struct{}, 1+len(podStats.PodIPs))
+	if podStats.PodIP != "" {
+		ipsMap[podStats.PodIP] = struct{}{}
+	}
+	for _, podIP := range podStats.PodIPs {
+		if podIP.IP != "" {
+			ipsMap[podIP.IP] = struct{}{}
+		}
+	}
+
+	if len(ipsMap) == 0 {
+		return nil
+	}
+
+	ips := make([]string, 0, len(ipsMap))
+	for ipStr := range ipsMap {
+		ips = append(ips, ipStr)
+	}
+	sort.Strings(ips)
+	return ips
+}
+
 // ConvertToPod converts a *v1.Pod into a
 // *types.Pod or a cache.DeletedFinalStateUnknown into
 // a cache.DeletedFinalStateUnknown with a *types.Pod in its Obj.
@@ -568,7 +597,7 @@ func ConvertToPod(obj interface{}) interface{} {
 		p := &types.Pod{
 			TypeMeta:               concreteObj.TypeMeta,
 			ObjectMeta:             concreteObj.ObjectMeta,
-			StatusPodIP:            concreteObj.Status.PodIP,
+			StatusPodIPs:           getPodIPs(concreteObj.Status),
 			StatusHostIP:           concreteObj.Status.HostIP,
 			SpecServiceAccountName: concreteObj.Spec.ServiceAccountName,
 			SpecHostNetwork:        concreteObj.Spec.HostNetwork,
@@ -599,7 +628,7 @@ func ConvertToPod(obj interface{}) interface{} {
 			Obj: &types.Pod{
 				TypeMeta:               pod.TypeMeta,
 				ObjectMeta:             pod.ObjectMeta,
-				StatusPodIP:            pod.Status.PodIP,
+				StatusPodIPs:           getPodIPs(pod.Status),
 				StatusHostIP:           pod.Status.HostIP,
 				SpecServiceAccountName: pod.Spec.ServiceAccountName,
 				SpecHostNetwork:        pod.Spec.HostNetwork,
