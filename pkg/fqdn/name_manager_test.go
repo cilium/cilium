@@ -18,15 +18,55 @@ package fqdn
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"regexp"
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/option"
+	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
 	"github.com/cilium/cilium/pkg/policy/api"
+
 	"github.com/miekg/dns"
 
 	. "gopkg.in/check.v1"
 )
+
+// IPRegexp matches IPv4 or IPv6 addresses. It was stolen from the internet.
+var IPRegexp = regexp.MustCompile(`((^\s*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))\s*$)|(^\s*((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?\s*$))`)
+
+func extractIPFromLabels(lbls labels.Labels) net.IP {
+	for lbl := range lbls {
+		if ipStr := IPRegexp.FindString(lbl); ipStr != "" {
+			return net.ParseIP(ipStr)
+		}
+	}
+
+	return nil
+}
+
+func setupTestAllocator() *cache.CachingIdentityAllocator {
+	option.Config.IdentityAllocationMode = option.IdentityAllocationModeKVstore
+	kvstore.SetupDummy("etcd")
+
+	owner := newDummyOwner()
+	identity.InitWellKnownIdentities(&fakeConfig.Config{})
+	// The nils are only used by k8s CRD identities. We default to kvstore.
+	allocator := cache.NewCachingIdentityAllocator(owner)
+	<-allocator.InitIdentityAllocator(nil, nil)
+	return allocator
+}
+
+func tearDownTestAllocator(mgr *cache.CachingIdentityAllocator) {
+	mgr.Close()
+	//mgr.IdentityAllocator.DeleteAllKeys()
+}
 
 // force a fail if something calls this function
 func lookupFail(c *C, dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error) {
@@ -40,20 +80,30 @@ func lookupFail(c *C, dnsNames []string) (DNSIPs map[string]*DNSIPRecords, error
 // add a rule w/ToCIDRSet, get correct IP4/6 and old rules
 // add a rule, get same UUID label on repeat generations
 func (ds *FQDNTestSuite) TestNameManagerCIDRGeneration(c *C) {
+	allocator := setupTestAllocator()
+	defer tearDownTestAllocator(allocator)
+
 	var (
 		selIPMap map[api.FQDNSelector][]net.IP
 
 		nameManager = NewNameManager(Config{
-			MinTTL: 1,
-			Cache:  NewDNSCache(0),
+			MinTTL:            1,
+			Cache:             NewDNSCache(0),
+			IdentityAllocator: allocator,
 
 			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error) {
 				return lookupFail(c, dnsNames)
 			},
 
-			UpdateSelectors: func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, error) {
-				for k, v := range selectorIPMapping {
-					selIPMap[k] = v
+			UpdateSelectors: func(ctx context.Context, selectorIdentitySliceMapping map[api.FQDNSelector][]*identity.Identity, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, error) {
+				fmt.Printf("FML UpdateSelectors called on %+v", selectorIdentitySliceMapping)
+				for selector, v := range selectorIdentitySliceMapping {
+					for _, ident := range v {
+						if ip := extractIPFromLabels(ident.Labels); ip != nil {
+							fmt.Printf("FML saw IP %v for labels %+v\n", ip, ident.Labels)
+							selIPMap[selector] = append(selIPMap[selector], ip)
+						}
+					}
 				}
 				return &sync.WaitGroup{}, nil
 			},
@@ -92,20 +142,28 @@ func (ds *FQDNTestSuite) TestNameManagerCIDRGeneration(c *C) {
 
 // Test that all IPs are updated when one is
 func (ds *FQDNTestSuite) TestNameManagerMultiIPUpdate(c *C) {
+	allocator := setupTestAllocator()
+	defer tearDownTestAllocator(allocator)
+
 	var (
 		selIPMap map[api.FQDNSelector][]net.IP
 
 		nameManager = NewNameManager(Config{
-			MinTTL: 1,
-			Cache:  NewDNSCache(0),
+			MinTTL:            1,
+			Cache:             NewDNSCache(0),
+			IdentityAllocator: allocator,
 
 			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error) {
 				return lookupFail(c, dnsNames)
 			},
 
-			UpdateSelectors: func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, error) {
-				for k, v := range selectorIPMapping {
-					selIPMap[k] = v
+			UpdateSelectors: func(ctx context.Context, selectorIdentitySliceMapping map[api.FQDNSelector][]*identity.Identity, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, error) {
+				for selector, v := range selectorIdentitySliceMapping {
+					for _, ident := range v {
+						if ip := extractIPFromLabels(ident.Labels); ip != nil {
+							selIPMap[selector] = append(selIPMap[selector], ip)
+						}
+					}
 				}
 				return &sync.WaitGroup{}, nil
 			},
@@ -168,4 +226,68 @@ func (ds *FQDNTestSuite) TestNameManagerMultiIPUpdate(c *C) {
 	c.Assert(exists, Equals, false)
 	nameManager.Unlock()
 
+}
+
+// IdentityCache is a cache of identity to labels mapping
+type IdentityCache map[identity.NumericIdentity]labels.LabelArray
+
+type dummyOwner struct {
+	updated chan identity.NumericIdentity
+	mutex   lock.Mutex
+	cache   IdentityCache
+}
+
+func newDummyOwner() *dummyOwner {
+	return &dummyOwner{
+		cache:   IdentityCache{},
+		updated: make(chan identity.NumericIdentity, 1024),
+	}
+}
+
+func (d *dummyOwner) UpdateIdentities(added, deleted cache.IdentityCache) {
+	d.mutex.Lock()
+	log.Debugf("Dummy UpdateIdentities(added: %v, deleted: %v)", added, deleted)
+	for id, lbls := range added {
+		d.cache[id] = lbls
+		d.updated <- id
+	}
+	for id := range deleted {
+		delete(d.cache, id)
+		d.updated <- id
+	}
+	d.mutex.Unlock()
+}
+
+func (d *dummyOwner) GetIdentity(id identity.NumericIdentity) labels.LabelArray {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	return d.cache[id]
+}
+
+func (d *dummyOwner) GetNodeSuffix() string {
+	return "foo"
+}
+
+// WaitUntilID waits until an update event is received for the
+// 'target' identity and returns the number of events processed to get
+// there. Returns 0 in case of 'd.updated' channel is closed or
+// nothing is received from that channel in 60 seconds.
+func (d *dummyOwner) WaitUntilID(target identity.NumericIdentity) int {
+	rounds := 0
+	for {
+		select {
+		case nid, ok := <-d.updated:
+			if !ok {
+				// updates channel closed
+				return 0
+			}
+			rounds++
+			if nid == target {
+				return rounds
+			}
+		case <-time.After(60 * time.Second):
+			// Timed out waiting for KV-store events
+			return 0
+		}
+	}
 }

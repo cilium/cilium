@@ -18,9 +18,9 @@ package fqdn
 
 import (
 	"context"
-	"net"
 	"sync"
 
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/miekg/dns"
 
@@ -143,7 +143,7 @@ func (ds *FQDNTestSuite) TestNameManagerSelectorHandling(c *C) {
 					return lookupDNSNames(ipLookups, lookups, dnsNames), nil
 				},
 
-				UpdateSelectors: func(context.Context, map[api.FQDNSelector][]net.IP, []api.FQDNSelector) (*sync.WaitGroup, error) {
+				UpdateSelectors: func(context.Context, map[api.FQDNSelector][]*identity.Identity, []api.FQDNSelector) (*sync.WaitGroup, error) {
 					return &sync.WaitGroup{}, nil
 				},
 			}
