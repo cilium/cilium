@@ -785,14 +785,13 @@ var _ = Describe("K8sServicesTest", func() {
 			}
 
 			// Delete the pod, and check that a new backend is chosen
+			nodes, err := kubectl.GetPodsNodes(helpers.DefaultNamespace, dstPod)
+			Expect(err).Should(BeNil(), "Cannot get node name of %s pod", dstPod)
 			kubectl.DeleteResource("pod", dstPod).ExpectSuccess("Unable to delete %s pod", dstPod)
-			kubectl.WaitPodDeleted(helpers.DefaultNamespace, dstPod)
-			// Unfortunately, it takes a while until cilium-agent receives Endpoint
-			// update event which triggers a removal of the deleted dstPod from
-			// the affinity and the service BPF maps. Therefore, the requests below
-			// are flaky.
-			// TODO(brb) don't sleep, instead wait for Endpoint obj update (might be complicated though)
-			time.Sleep(7 * time.Second)
+			// Wait until the pod has been removed from the cilium endpoints list.
+			// Otherwise, the requests below might fail as the non-existing endpoint
+			// will be chosen.
+			kubectl.WaitForCiliumEndpointDeleted(nodes[dstPod], helpers.DefaultNamespace, dstPod)
 
 			for i := 1; i <= count; i++ {
 				if fromOutside {
