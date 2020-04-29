@@ -187,6 +187,10 @@ const (
 	// EnableEndpointHealthChecking
 	EnableEndpointHealthChecking = true
 
+	// EnableHealthCheckNodePort is the default value for
+	// EnableHealthCheckNodePort
+	EnableHealthCheckNodePort = true
+
 	// AlignCheckerName is the BPF object name for the alignchecker.
 	AlignCheckerName = "bpf_alignchecker.o"
 

@@ -279,6 +279,9 @@ global:
     # ports is detected
     autoProtectPortRange: true
 
+    # enableHealthCheck enables healthcheck nodePort server for NodePort services
+    enableHealthCheck: true
+
   # externalIPs is the configuration for ExternalIPs service handling
   externalIPs:
     # enabled enables ExternalIPs functionality

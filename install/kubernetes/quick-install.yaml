@@ -143,6 +143,7 @@ data:
   enable-host-reachable-services: "false"
   enable-external-ips: "false"
   enable-node-port: "false"
+  enable-health-check-nodeport: "true"
   node-port-bind-protection: "true"
   enable-auto-protect-node-port-range: "true"
   enable-endpoint-health-checking: "true"
