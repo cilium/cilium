@@ -204,6 +204,10 @@ illustrating which subset of tests the job runs.
 |                                                                                                                | test-gke          |                    |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 
+For Backport PRs, the phrase ``never-tell-me-the-odds`` should be used to
+trigger all of the above jobs which are marked as required to validate changes
+to existing releases.
+
 There are some feature flags based on Pull Requests labels, the list of labels
 are the following:
 
