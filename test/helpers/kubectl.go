@@ -3492,6 +3492,20 @@ func (kub *Kubectl) HelmTemplate(chartDir, namespace, filename string, options m
 		fmt.Sprintf("--namespace=%s %s > %s", namespace, optionsString, filename))
 }
 
+// HubbleObserve runs `hubble observe --output=json <args>` on 'ns/pod' and
+// waits for its completion.
+func (kub *Kubectl) HubbleObserve(ns, pod string, args string) *CmdRes {
+	ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+	defer cancel()
+	return kub.ExecPodCmdContext(ctx, ns, pod, fmt.Sprintf("hubble observe --output=json %s", args))
+}
+
+// HubbleObserveFollow runs `hubble observe --follow --output=json <args>` on
+// 'ns/pod' in the background. The process is stopped when ctx is cancelled.
+func (kub *Kubectl) HubbleObserveFollow(ctx context.Context, ns, pod string, args string) *CmdRes {
+	return kub.ExecPodCmdBackground(ctx, ns, pod, fmt.Sprintf("hubble observe --follow --output=json %s", args))
+}
+
 func serviceKey(s v1.Service) string {
 	return s.Namespace + "/" + s.Name
 }
