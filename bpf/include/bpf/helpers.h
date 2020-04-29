@@ -57,7 +57,7 @@ static __printf(1,3) void BPF_FUNC(trace_printk, const char *fmt, int fmt_size, 
 static __u32 BPF_FUNC(get_prandom_u32);
 
 /* Checksumming */
-static int BPF_FUNC(csum_diff, void *from, __u32 from_size, void *to,
+static int BPF_FUNC(csum_diff, const void *from, __u32 from_size, void *to,
 		    __u32 to_size, __u32 seed);
 
 /* Tail calls */
