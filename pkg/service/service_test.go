@@ -123,7 +123,7 @@ func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
 	}
 
 	// Should add another service
-	created, id2, err := m.svc.UpsertService(frontend2, backends1, lb.SVCTypeNodePort, lb.SVCTrafficPolicyCluster, false, 0, 0, "svc2", "ns2")
+	created, id2, err := m.svc.UpsertService(frontend2, backends1, lb.SVCTypeNodePort, lb.SVCTrafficPolicyCluster, true, 300, 0, "svc2", "ns2")
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, true)
 	c.Assert(id2, Equals, lb.ID(2))
@@ -131,6 +131,7 @@ func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
 	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
 	c.Assert(m.svc.svcByID[id2].svcName, Equals, "svc2")
 	c.Assert(m.svc.svcByID[id2].svcNamespace, Equals, "ns2")
+	c.Assert(len(m.lbmap.AffinityMatch[uint16(id2)]), Equals, 2)
 
 	// Should remove the service and the backend, but keep another service and
 	// its backends. Also, should remove the affinity match.
@@ -142,7 +143,7 @@ func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
 	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 0)
 
 	// Should delete both backends of service
-	created, id2, err = m.svc.UpsertService(frontend2, nil, lb.SVCTypeNodePort, lb.SVCTrafficPolicyCluster, false, 0, 0, "", "")
+	created, id2, err = m.svc.UpsertService(frontend2, nil, lb.SVCTypeNodePort, lb.SVCTrafficPolicyCluster, true, 300, 0, "", "")
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, false)
 	c.Assert(id2, Equals, lb.ID(2))
@@ -150,6 +151,7 @@ func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
 	c.Assert(len(m.lbmap.BackendByID), Equals, 0)
 	c.Assert(m.svc.svcByID[id2].svcName, Equals, "svc2")
 	c.Assert(m.svc.svcByID[id2].svcNamespace, Equals, "ns2")
+	c.Assert(len(m.lbmap.AffinityMatch[uint16(id2)]), Equals, 0)
 
 	// Should delete the remaining service
 	found, err = m.svc.DeleteServiceByID(lb.ServiceID(id2))
