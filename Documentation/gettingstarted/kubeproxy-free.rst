@@ -860,12 +860,14 @@ This section therefore elaborates on the various ``global.kubeProxyReplacement``
   ``probe`` which checks the underlying kernel for available BPF features and automatically
   disables components responsible for the BPF kube-proxy replacement when kernel support
   is missing, the ``partial`` option requires the user to manually specify which components
-  for the BPF kube-proxy replacement should be used. Similarly to ``strict`` mode, the
-  Cilium agent will bail out on start-up with an error message if the underlying kernel
-  requirements are not met. For fine-grained configuration, ``global.hostServices.enabled``,
-  ``global.nodePort.enabled``, ``global.externalIPs.enabled`` and ``global.hostPort.enabled``
-  can be set to ``true``. By default all four options are set to ``false``. A few example
-  configurations for the ``partial`` option are provided below.
+  for the BPF kube-proxy replacement should be used. When ``global.kubeProxyReplacement``
+  is set to ``partial`` make sure to also set ``global.enableHealthCheckNodeport`` to
+  ``false``, so that the Cilium agent does not start the NodePort health check server.
+  Similarly to ``strict`` mode, the Cilium agent will bail out on start-up with an error
+  message if the underlying kernel requirements are not met. For fine-grained configuration,
+  ``global.hostServices.enabled``, ``global.nodePort.enabled``, ``global.externalIPs.enabled``
+  and ``global.hostPort.enabled`` can be set to ``true``. By default all four options are set
+  to ``false``. A few example configurations for the ``partial`` option are provided below.
 
   The following helm setup below would be equivalent to ``global.kubeProxyReplacement=strict``
   in a kube-proxy-free environment:

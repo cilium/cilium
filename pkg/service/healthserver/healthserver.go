@@ -17,6 +17,7 @@ package healthserver
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"sync/atomic"
@@ -25,8 +26,10 @@ import (
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "service-healthserver")
@@ -188,6 +191,13 @@ func (h *httpHealthHTTPServerFactory) newHTTPHealthServer(port uint16, svc *Serv
 
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 			svc := srv.loadService()
+			if errors.Is(err, unix.EADDRINUSE) {
+				log.WithError(err).WithFields(logrus.Fields{
+					logfields.ServiceName:                svc.Service.Name,
+					logfields.ServiceNamespace:           svc.Service.Namespace,
+					logfields.ServiceHealthCheckNodePort: port,
+				}).Errorf("ListenAndServe failed for service health server, since the user might be running with kube-proxy. Please ensure that '--%s' option is set to false if '--%s' is set to '%s'", option.EnableHealthCheckNodePort, option.KubeProxyReplacement, option.KubeProxyReplacementPartial)
+			}
 			log.WithError(err).WithFields(logrus.Fields{
 				logfields.ServiceName:                svc.Service.Name,
 				logfields.ServiceNamespace:           svc.Service.Namespace,

@@ -129,13 +129,18 @@ type Service struct {
 
 // NewService creates a new instance of the service handler.
 func NewService(monitorNotify monitorNotify) *Service {
+
+	var localHealthServer healthServer
+	if option.Config.EnableHealthCheckNodePort {
+		localHealthServer = healthserver.New()
+	}
 	return &Service{
 		svcByHash:       map[string]*svcInfo{},
 		svcByID:         map[lb.ID]*svcInfo{},
 		backendRefCount: counter.StringCounter{},
 		backendByHash:   map[string]*lb.Backend{},
 		monitorNotify:   monitorNotify,
-		healthServer:    healthserver.New(),
+		healthServer:    localHealthServer,
 		lbmap:           &lbmap.LBBPFMap{},
 	}
 }
@@ -266,8 +271,10 @@ func (s *Service) UpsertService(
 	// only contain local backends (i.e. it has externalTrafficPolicy=Local)
 	if onlyLocalBackends && filterBackends {
 		localBackendCount := len(backendsCopy)
-		s.healthServer.UpsertService(lb.ID(svc.frontend.ID), svc.svcNamespace, svc.svcName,
-			localBackendCount, svc.svcHealthCheckNodePort)
+		if option.Config.EnableHealthCheckNodePort {
+			s.healthServer.UpsertService(lb.ID(svc.frontend.ID), svc.svcNamespace, svc.svcName,
+				localBackendCount, svc.svcHealthCheckNodePort)
+		}
 	} else if svc.svcHealthCheckNodePort == 0 {
 		// Remove the health check server in case this service used to have
 		// externalTrafficPolicy=Local with HealthCheckNodePort in the previous
@@ -761,7 +768,9 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 		return fmt.Errorf("Unable to release service ID %d: %s", svc.frontend.ID, err)
 	}
 
-	s.healthServer.DeleteService(lb.ID(svc.frontend.ID))
+	if option.Config.EnableHealthCheckNodePort {
+		s.healthServer.DeleteService(lb.ID(svc.frontend.ID))
+	}
 
 	deleteMetric.Inc()
 	s.notifyMonitorServiceDelete(svc.frontend.ID)

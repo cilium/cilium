@@ -356,6 +356,9 @@ global:
     # ports is detected
     autoProtectPortRange: true
 
+    # enableHealthCheck enables healthcheck nodePort server for NodePort services
+    enableHealthCheck: true
+
   # hostPort is the configuration for container hostPort mapping
   hostPort:
     # enabled enables the hostPort functionality

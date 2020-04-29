@@ -63,6 +63,7 @@ cilium-agent [flags]
       --enable-endpoint-health-checking               Enable connectivity health checking between virtual endpoints (default true)
       --enable-endpoint-routes                        Use per endpoint routes instead of routing via cilium_host
       --enable-external-ips                           Enable k8s service externalIPs feature (requires enabling enable-node-port) (default true)
+      --enable-health-check-nodeport                  Enables a healthcheck nodePort server for NodePort services with 'healthCheckNodePort' being set (default true)
       --enable-health-checking                        Enable connectivity health checking (default true)
       --enable-host-firewall                          Enable host network policies (beta)
       --enable-host-port                              Enable k8s hostPort mapping feature (requires enabling enable-node-port) (default true)
