@@ -99,7 +99,8 @@ func redeployCilium(vm *helpers.Kubectl, ciliumFilename string, options map[stri
 // an existing testsuite that calls DeployCiliumAndDNS(...).
 func RedeployCilium(vm *helpers.Kubectl, ciliumFilename string, options map[string]string) {
 	redeployCilium(vm, ciliumFilename, options)
-	ExpectCiliumReady(vm)
+	err := vm.CiliumPreFlightCheck()
+	ExpectWithOffset(1, err).Should(BeNil(), "cilium pre-flight checks failed")
 	ExpectCiliumOperatorReady(vm)
 }
 
@@ -133,7 +134,8 @@ func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, ciliumFilename string, optio
 	default:
 	}
 
-	ExpectCiliumReady(vm)
+	err := vm.CiliumPreFlightCheck()
+	ExpectWithOffset(1, err).Should(BeNil(), "cilium pre-flight checks failed")
 	ExpectCiliumOperatorReady(vm)
 	ExpectKubeDNSReady(vm)
 
