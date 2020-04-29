@@ -65,7 +65,7 @@ func TestL34Decode(t *testing.T) {
 		},
 	}
 	dnsGetter := &testutils.FakeFQDNCache{
-		OnGetNamesOf: func(epID uint64, ip net.IP) (names []string) {
+		OnGetNamesOf: func(epID uint32, ip net.IP) (names []string) {
 			if epID == 1234 {
 				switch {
 				case ip.Equal(net.ParseIP("192.168.33.11")):
@@ -166,7 +166,7 @@ func TestL34Decode(t *testing.T) {
 		},
 	}
 	dnsGetter = &testutils.FakeFQDNCache{
-		OnGetNamesOf: func(epID uint64, ip net.IP) (names []string) {
+		OnGetNamesOf: func(epID uint32, ip net.IP) (names []string) {
 			if epID == 1234 {
 				switch {
 				case ip.Equal(net.ParseIP("f00d::a10:0:0:9195")):
@@ -269,10 +269,10 @@ func TestDecodeTraceNotify(t *testing.T) {
 	require.NoError(t, err)
 	buf.Write(buffer.Bytes())
 	require.NoError(t, err)
-	identityGetter := &testutils.FakeIdentityGetter{OnGetIdentity: func(securityIdentity uint64) (*models.Identity, error) {
-		if securityIdentity == (uint64)(tn.SrcLabel) {
+	identityGetter := &testutils.FakeIdentityGetter{OnGetIdentity: func(securityIdentity uint32) (*models.Identity, error) {
+		if securityIdentity == tn.SrcLabel {
 			return &models.Identity{Labels: []string{"src=label"}}, nil
-		} else if securityIdentity == (uint64)(tn.DstLabel) {
+		} else if securityIdentity == tn.DstLabel {
 			return &models.Identity{Labels: []string{"dst=label"}}, nil
 		}
 		return nil, fmt.Errorf("identity not found for %d", securityIdentity)
@@ -313,10 +313,10 @@ func TestDecodeDropNotify(t *testing.T) {
 	buf.Write(buffer.Bytes())
 	require.NoError(t, err)
 	identityGetter := &testutils.FakeIdentityGetter{
-		OnGetIdentity: func(securityIdentity uint64) (*models.Identity, error) {
-			if securityIdentity == (uint64)(dn.SrcLabel) {
+		OnGetIdentity: func(securityIdentity uint32) (*models.Identity, error) {
+			if securityIdentity == dn.SrcLabel {
 				return &models.Identity{Labels: []string{"src=label"}}, nil
-			} else if securityIdentity == (uint64)(dn.DstLabel) {
+			} else if securityIdentity == dn.DstLabel {
 				return &models.Identity{Labels: []string{"dst=label"}}, nil
 			}
 			return nil, fmt.Errorf("identity not found for %d", securityIdentity)
@@ -336,8 +336,8 @@ func TestDecodeDropNotify(t *testing.T) {
 func TestDecodePolicyVerdictNotify(t *testing.T) {
 	var remoteLabel uint32 = 123
 	identityGetter := &testutils.FakeIdentityGetter{
-		OnGetIdentity: func(securityIdentity uint64) (*models.Identity, error) {
-			if securityIdentity == uint64(remoteLabel) {
+		OnGetIdentity: func(securityIdentity uint32) (*models.Identity, error) {
+			if securityIdentity == remoteLabel {
 				return &models.Identity{Labels: []string{"dst=label"}}, nil
 			}
 			return nil, fmt.Errorf("identity not found for %d", securityIdentity)
@@ -422,7 +422,7 @@ func TestDecodeLocalIdentity(t *testing.T) {
 	data, err := testutils.CreateL3L4Payload(tn)
 	require.NoError(t, err)
 	identityGetter := &testutils.FakeIdentityGetter{
-		OnGetIdentity: func(securityIdentity uint64) (*models.Identity, error) {
+		OnGetIdentity: func(securityIdentity uint32) (*models.Identity, error) {
 			return &models.Identity{Labels: []string{"some=label", "cidr:1.2.3.4/12", "cidr:1.2.3.4/11"}}, nil
 		},
 	}

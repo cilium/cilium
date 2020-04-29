@@ -184,7 +184,7 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 
 func (p *Parser) resolveNames(epID uint32, ip net.IP) (names []string) {
 	if p.dnsGetter != nil {
-		return p.dnsGetter.GetNamesOf(uint64(epID), ip)
+		return p.dnsGetter.GetNamesOf(epID, ip)
 	}
 
 	return nil
@@ -260,7 +260,7 @@ func (p *Parser) resolveEndpoint(ip net.IP, securityIdentity uint32) *pb.Endpoin
 	}
 	var labels []string
 	if p.identityGetter != nil {
-		if id, err := p.identityGetter.GetIdentity(uint64(securityIdentity)); err != nil {
+		if id, err := p.identityGetter.GetIdentity(securityIdentity); err != nil {
 			logger.GetLogger().
 				WithError(err).WithField("identity", securityIdentity).
 				Warn("failed to resolve identity")

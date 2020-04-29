@@ -654,7 +654,7 @@ func (d *Daemon) GetNodeSuffix() string {
 // to populate source and destination labels of flows.
 //
 //  - IdentityGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L40
-func (d *Daemon) GetIdentity(securityIdentity uint64) (*models.Identity, error) {
+func (d *Daemon) GetIdentity(securityIdentity uint32) (*models.Identity, error) {
 	ident := d.identityAllocator.LookupIdentityByID(context.Background(), identity.NumericIdentity(securityIdentity))
 	if ident == nil {
 		return nil, fmt.Errorf("identity %d not found", securityIdentity)
@@ -678,7 +678,7 @@ func (d *Daemon) GetEndpointInfo(ip net.IP) (endpoint hubbleV1.EndpointInfo, ok 
 // FQDN cache of an endpoint specified by sourceEpID.
 //
 //  - DNSGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L27
-func (d *Daemon) GetNamesOf(sourceEpID uint64, ip net.IP) []string {
+func (d *Daemon) GetNamesOf(sourceEpID uint32, ip net.IP) []string {
 	ep := d.endpointManager.LookupCiliumID(uint16(sourceEpID))
 	if ep == nil {
 		return nil

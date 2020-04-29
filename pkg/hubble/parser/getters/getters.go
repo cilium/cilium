@@ -27,7 +27,7 @@ import (
 type DNSGetter interface {
 	// GetNamesOf fetches FQDNs of a given IP from the perspective of
 	// the endpoint with ID sourceEpID
-	GetNamesOf(sourceEpID uint64, ip net.IP) (names []string)
+	GetNamesOf(sourceEpID uint32, ip net.IP) (names []string)
 }
 
 // EndpointGetter ...
@@ -39,7 +39,7 @@ type EndpointGetter interface {
 // IdentityGetter ...
 type IdentityGetter interface {
 	// GetIdentity fetches a full identity object given a numeric security id.
-	GetIdentity(id uint64) (*models.Identity, error)
+	GetIdentity(id uint32) (*models.Identity, error)
 }
 
 // IPGetter fetches per-IP metadata

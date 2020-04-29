@@ -103,12 +103,12 @@ func TestDecodeL7HTTPRecord(t *testing.T) {
 	data := encodeL7Record(t, lr)
 
 	dnsGetter := &testutils.FakeFQDNCache{
-		OnGetNamesOf: func(epID uint64, ip net.IP) (names []string) {
+		OnGetNamesOf: func(epID uint32, ip net.IP) (names []string) {
 			ipStr := ip.String()
 			switch {
-			case epID == fakeSourceEndpoint.ID && ipStr == fakeDestinationEndpoint.IPv4:
+			case epID == uint32(fakeSourceEndpoint.ID) && ipStr == fakeDestinationEndpoint.IPv4:
 				return []string{"endpoint-1234"}
-			case epID == fakeDestinationEndpoint.ID && ipStr == fakeSourceEndpoint.IPv4:
+			case epID == uint32(fakeDestinationEndpoint.ID) && ipStr == fakeSourceEndpoint.IPv4:
 				return []string{"endpoint-4321"}
 			}
 			return nil
