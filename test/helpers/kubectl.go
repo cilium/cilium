@@ -2092,16 +2092,28 @@ func (kub *Kubectl) WaitPolicyDeleted(pod string, policyName string) error {
 	return WithTimeout(body, fmt.Sprintf("Policy %s was not deleted in time", policyName), &TimeoutConfig{Timeout: HelperTimeout})
 }
 
-// WaitPodDeleted waits for pods with the given name to be deleted.
-func (kub *Kubectl) WaitPodDeleted(namespace string, pod string) error {
+// WaitForCiliumEndpointDeleted waits until the given pod is removed from
+// the cilium endpoint list on the given node.
+func (kub *Kubectl) WaitForCiliumEndpointDeleted(node, namespace, pod string) error {
+	ciliumPod, err := kub.GetCiliumPodOnNode(namespace, node)
+	if err != nil {
+		return err
+	}
+
 	body := func() bool {
-		_, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
 		defer cancel()
-		res := kub.GetPods(namespace, pod)
+		cmd := fmt.Sprintf(
+			`cilium endpoint list -o json | jq -r '.[] | select (.status."external-identifiers"."pod-name" == "%s/%s")'`,
+			namespace, pod)
+		res := kub.CiliumExecContext(ctx, ciliumPod, cmd)
 		return !res.WasSuccessful()
 	}
 
-	return WithTimeout(body, fmt.Sprintf("Pod %s was not deleted in time", pod), &TimeoutConfig{Timeout: HelperTimeout})
+	return WithTimeout(body,
+		fmt.Sprintf("Cilium endpoint %s/%s on node %s was not deleted in time",
+			namespace, pod, node),
+		&TimeoutConfig{Timeout: HelperTimeout})
 }
 
 // CiliumIsPolicyLoaded returns true if the policy is loaded in the given
