@@ -58,7 +58,7 @@ type PodContainer struct {
 type Pod struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
-	StatusPodIP            string
+	StatusPodIPs           []string
 	StatusHostIP           string
 	SpecServiceAccountName string
 	SpecHostNetwork        bool

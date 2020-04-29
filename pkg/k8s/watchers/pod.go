@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,8 +16,10 @@ package watchers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/annotation"
@@ -41,7 +43,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -164,7 +166,7 @@ func (k *K8sWatcher) addK8sPodV1(pod *types.Pod) error {
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sPodName:   pod.ObjectMeta.Name,
 		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
-		"podIP":                pod.StatusPodIP,
+		"podIPs":               pod.StatusPodIPs,
 		"hostIP":               pod.StatusHostIP,
 	})
 
@@ -277,7 +279,7 @@ func (k *K8sWatcher) deleteK8sPodV1(pod *types.Pod) error {
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sPodName:   pod.ObjectMeta.Name,
 		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
-		"podIP":                pod.StatusPodIP,
+		"podIPs":               pod.StatusPodIPs,
 		"hostIP":               pod.StatusHostIP,
 	})
 
@@ -303,9 +305,9 @@ func (k *K8sWatcher) updatePodHostIP(pod *types.Pod) (bool, error) {
 		return true, fmt.Errorf("no/invalid HostIP: %s", pod.StatusHostIP)
 	}
 
-	podIP := net.ParseIP(pod.StatusPodIP)
-	if podIP == nil {
-		return true, fmt.Errorf("no/invalid PodIP: %s", pod.StatusPodIP)
+	err := validIPs(pod.StatusPodIPs)
+	if err != nil {
+		return true, err
 	}
 
 	hostKey := node.GetIPsecKeyIdentity()
@@ -315,18 +317,28 @@ func (k *K8sWatcher) updatePodHostIP(pod *types.Pod) (bool, error) {
 		PodName:   pod.Name,
 	}
 
-	// Initial mapping of podIP <-> hostIP <-> identity. The mapping is
-	// later updated once the allocator has determined the real identity.
-	// If the endpoint remains unmanaged, the identity remains untouched.
-	selfOwned := ipcache.IPIdentityCache.Upsert(pod.StatusPodIP, hostIP, hostKey, k8sMeta, ipcache.Identity{
-		ID:     identity.ReservedIdentityUnmanaged,
-		Source: source.Kubernetes,
-	})
-	if !selfOwned {
-		return true, fmt.Errorf("ipcache entry owned by kvstore or agent")
+	var (
+		errs    []string
+		skipped bool
+	)
+	for _, podIP := range pod.StatusPodIPs {
+		// Initial mapping of podIP <-> hostIP <-> identity. The mapping is
+		// later updated once the allocator has determined the real identity.
+		// If the endpoint remains unmanaged, the identity remains untouched.
+		selfOwned := ipcache.IPIdentityCache.Upsert(podIP, hostIP, hostKey, k8sMeta, ipcache.Identity{
+			ID:     identity.ReservedIdentityUnmanaged,
+			Source: source.Kubernetes,
+		})
+		if !selfOwned {
+			skipped = true
+			errs = append(errs, fmt.Sprintf("ipcache entry for podIP %s owned by kvstore or agent", podIP))
+		}
+	}
+	if len(errs) != 0 {
+		return skipped, errors.New(strings.Join(errs, ", "))
 	}
 
-	return false, nil
+	return skipped, nil
 }
 
 func (k *K8sWatcher) deletePodHostIP(pod *types.Pod) (bool, error) {
@@ -334,26 +346,52 @@ func (k *K8sWatcher) deletePodHostIP(pod *types.Pod) (bool, error) {
 		return true, fmt.Errorf("pod is using host networking")
 	}
 
-	podIP := net.ParseIP(pod.StatusPodIP)
-	if podIP == nil {
-		return true, fmt.Errorf("no/invalid PodIP: %s", pod.StatusPodIP)
+	err := validIPs(pod.StatusPodIPs)
+	if err != nil {
+		return true, err
 	}
 
-	// a small race condition exists here as deletion could occur in
-	// parallel based on another event but it doesn't matter as the
-	// identity is going away
-	id, exists := ipcache.IPIdentityCache.LookupByIP(pod.StatusPodIP)
-	if !exists {
-		return true, fmt.Errorf("identity for IP does not exist in case")
+	var (
+		errs    []string
+		skipped bool
+	)
+
+	for _, podIP := range pod.StatusPodIPs {
+		// a small race condition exists here as deletion could occur in
+		// parallel based on another event but it doesn't matter as the
+		// identity is going away
+		id, exists := ipcache.IPIdentityCache.LookupByIP(podIP)
+		if !exists {
+			skipped = true
+			errs = append(errs, fmt.Sprintf("identity for IP %s does not exist in case", podIP))
+			continue
+		}
+
+		if id.Source != source.Kubernetes {
+			skipped = true
+			errs = append(errs, fmt.Sprintf("ipcache entry for IP %s not owned by kubernetes source", podIP))
+			continue
+		}
+
+		ipcache.IPIdentityCache.Delete(podIP, source.Kubernetes)
 	}
 
-	if id.Source != source.Kubernetes {
-		return true, fmt.Errorf("ipcache entry not owned by kubernetes source")
+	if len(errs) != 0 {
+		return skipped, errors.New(strings.Join(errs, ", "))
 	}
 
-	ipcache.IPIdentityCache.Delete(pod.StatusPodIP, source.Kubernetes)
+	return skipped, nil
+}
 
-	return false, nil
+func validIPs(ipStrs []string) error {
+	for _, ipStr := range ipStrs {
+		podIP := net.ParseIP(ipStr)
+		if podIP == nil {
+			return fmt.Errorf("no/invalid PodIP: %s", ipStr)
+		}
+	}
+
+	return nil
 }
 
 // GetCachedPod returns a pod from the local store. Depending if the Cilium
@@ -379,7 +417,7 @@ func (k *K8sWatcher) GetCachedPod(namespace, name string) (*types.Pod, error) {
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(schema.GroupResource{
+		return nil, k8sErrors.NewNotFound(schema.GroupResource{
 			Group:    "core",
 			Resource: "pod",
 		}, name)
