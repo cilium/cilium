@@ -17,8 +17,8 @@ import (
 // FakeFQDNCache is used for unit tests that needs FQDNCache and/or DNSGetter.
 type FakeFQDNCache struct {
 	OnInitializeFrom func(entries []*models.DNSLookup)
-	OnAddDNSLookup   func(epID uint64, lookupTime time.Time, domainName string, ips []net.IP, ttl uint32)
-	OnGetNamesOf     func(epID uint64, ip net.IP) []string
+	OnAddDNSLookup   func(epID uint32, lookupTime time.Time, domainName string, ips []net.IP, ttl uint32)
+	OnGetNamesOf     func(epID uint32, ip net.IP) []string
 }
 
 // InitializeFrom implements FQDNCache.InitializeFrom.
@@ -31,25 +31,25 @@ func (f *FakeFQDNCache) InitializeFrom(entries []*models.DNSLookup) {
 }
 
 // AddDNSLookup implements FQDNCache.AddDNSLookup.
-func (f *FakeFQDNCache) AddDNSLookup(epID uint64, lookupTime time.Time, domainName string, ips []net.IP, ttl uint32) {
+func (f *FakeFQDNCache) AddDNSLookup(epID uint32, lookupTime time.Time, domainName string, ips []net.IP, ttl uint32) {
 	if f.OnAddDNSLookup != nil {
 		f.OnAddDNSLookup(epID, lookupTime, domainName, ips, ttl)
 		return
 	}
-	panic("AddDNSLookup(uint64, time.Time, string, []net.IP, uint32) should not have been called since it was not defined")
+	panic("AddDNSLookup(uint32, time.Time, string, []net.IP, uint32) should not have been called since it was not defined")
 }
 
 // GetNamesOf implements FQDNCache.GetNameOf.
-func (f *FakeFQDNCache) GetNamesOf(epID uint64, ip net.IP) []string {
+func (f *FakeFQDNCache) GetNamesOf(epID uint32, ip net.IP) []string {
 	if f.OnGetNamesOf != nil {
 		return f.OnGetNamesOf(epID, ip)
 	}
-	panic("GetNamesOf(uint64, net.IP) should not have been called since it was not defined")
+	panic("GetNamesOf(uint32, net.IP) should not have been called since it was not defined")
 }
 
 // NoopDNSGetter always returns an empty response.
 var NoopDNSGetter = FakeFQDNCache{
-	OnGetNamesOf: func(sourceEpID uint64, ip net.IP) (fqdns []string) {
+	OnGetNamesOf: func(sourceEpID uint32, ip net.IP) (fqdns []string) {
 		return nil
 	},
 }
@@ -116,11 +116,11 @@ var NoopServiceGetter = FakeServiceGetter{
 
 // FakeIdentityGetter is used for unit tests that need IdentityGetter.
 type FakeIdentityGetter struct {
-	OnGetIdentity func(securityIdentity uint64) (*models.Identity, error)
+	OnGetIdentity func(securityIdentity uint32) (*models.Identity, error)
 }
 
 // GetIdentity implements IdentityGetter.GetIPIdentity.
-func (f *FakeIdentityGetter) GetIdentity(securityIdentity uint64) (*models.Identity, error) {
+func (f *FakeIdentityGetter) GetIdentity(securityIdentity uint32) (*models.Identity, error) {
 	if f.OnGetIdentity != nil {
 		return f.OnGetIdentity(securityIdentity)
 	}
@@ -129,7 +129,7 @@ func (f *FakeIdentityGetter) GetIdentity(securityIdentity uint64) (*models.Ident
 
 // NoopIdentityGetter always returns an empty response.
 var NoopIdentityGetter = FakeIdentityGetter{
-	OnGetIdentity: func(securityIdentity uint64) (*models.Identity, error) {
+	OnGetIdentity: func(securityIdentity uint32) (*models.Identity, error) {
 		return &models.Identity{}, nil
 	},
 }

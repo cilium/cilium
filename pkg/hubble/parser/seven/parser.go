@@ -114,8 +114,8 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 	var sourceNames, destinationNames []string
 	var sourceNamespace, sourcePod, destinationNamespace, destinationPod string
 	if p.dnsGetter != nil {
-		sourceNames = p.dnsGetter.GetNamesOf(destinationEndpoint.ID, sourceIP)
-		destinationNames = p.dnsGetter.GetNamesOf(sourceEndpoint.ID, destinationIP)
+		sourceNames = p.dnsGetter.GetNamesOf(uint32(destinationEndpoint.ID), sourceIP)
+		destinationNames = p.dnsGetter.GetNamesOf(uint32(sourceEndpoint.ID), destinationIP)
 	}
 	if p.ipGetter != nil {
 		if id, ok := p.ipGetter.GetIPIdentity(sourceIP); ok {
