@@ -1,0 +1,17 @@
+{{- if .Values.global.hubble.enabled }}
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ .Chart.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: {{ .Chart.Name }}
+spec:
+  type: ClusterIP
+  selector:
+    k8s-app: {{ .Chart.Name }}
+  ports:
+  - protocol: TCP
+    port: {{ .Values.servicePort }}
+    targetPort: {{ .Values.listenPort }}
+{{- end }}
