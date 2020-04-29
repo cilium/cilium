@@ -17,6 +17,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -147,7 +148,7 @@ func (c *Client) describeNetworkInterfaces(ctx context.Context) ([]network.Inter
 
 // parseInterfaces parses a network.Interface as returned by the Azure API
 // converts it into a types.AzureInterface
-func parseInterface(iface *network.Interface) (instanceID string, i *types.AzureInterface) {
+func parseInterface(iface *network.Interface, subnets ipamTypes.SubnetMap) (instanceID string, i *types.AzureInterface) {
 	i = &types.AzureInterface{}
 
 	if iface.VirtualMachine != nil && iface.VirtualMachine.ID != nil {
@@ -183,6 +184,11 @@ func parseInterface(iface *network.Interface) (instanceID string, i *types.Azure
 
 				if ip.Subnet != nil {
 					addr.Subnet = *ip.Subnet.ID
+					if subnet, ok := subnets[addr.Subnet]; ok {
+						if gateway := deriveGatewayIP(subnet.CIDR.IP); gateway != "" {
+							i.GatewayIP = gateway
+						}
+					}
 				}
 
 				i.Addresses = append(i.Addresses, addr)
@@ -193,9 +199,17 @@ func parseInterface(iface *network.Interface) (instanceID string, i *types.Azure
 	return
 }
 
+// deriveGatewayIP finds the default gateway for a given Azure subnet.
+// inspired by pkg/ipam/crd.go (as AWS, Azure reserves the first subnet IP for the gw).
+// Ref: https://docs.microsoft.com/en-us/azure/virtual-network/virtual-networks-faq#are-there-any-restrictions-on-using-ip-addresses-within-these-subnets
+func deriveGatewayIP(subnetIP net.IP) string {
+	addr := subnetIP.To4()
+	return net.IPv4(addr[0], addr[1], addr[2], addr[3]+1).String()
+}
+
 // GetInstances returns the list of all instances including all attached
 // interfaces as instanceMap
-func (c *Client) GetInstances(ctx context.Context) (*ipamTypes.InstanceMap, error) {
+func (c *Client) GetInstances(ctx context.Context, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error) {
 	instances := ipamTypes.NewInstanceMap()
 
 	networkInterfaces, err := c.describeNetworkInterfaces(ctx)
@@ -204,7 +218,7 @@ func (c *Client) GetInstances(ctx context.Context) (*ipamTypes.InstanceMap, erro
 	}
 
 	for _, iface := range networkInterfaces {
-		if id, azureInterface := parseInterface(&iface); id != "" {
+		if id, azureInterface := parseInterface(&iface, subnets); id != "" {
 			instances.Update(id, ipamTypes.InterfaceRevision{Resource: azureInterface})
 		}
 	}
@@ -217,8 +231,8 @@ func (c *Client) describeVpcs(ctx context.Context) ([]network.VirtualNetwork, er
 	c.limiter.Limit(ctx, "VirtualNetworks.List")
 
 	sinceStart := spanstat.Start()
-	result, err := c.virtualnetworks.ListComplete(ctx, c.resourceGroup)
-	c.metricsAPI.ObserveAPICall("Interfaces.ListAll", deriveStatus(err), sinceStart.Seconds())
+	result, err := c.virtualnetworks.ListAllComplete(ctx)
+	c.metricsAPI.ObserveAPICall("virtualnetworks.ListAll", deriveStatus(err), sinceStart.Seconds())
 	if err != nil {
 		return nil, err
 	}

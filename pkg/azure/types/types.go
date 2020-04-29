@@ -110,6 +110,11 @@ type AzureInterface struct {
 	// SecurityGroup is the security group associated with the interface
 	SecurityGroup string `json:"security-group,omitempty"`
 
+	// GatewayIP is the interface subnet's default route
+	//
+	// +optional
+	GatewayIP string
+
 	// vmssName is the name of the virtual machine scale set. This field is
 	// set by extractIDs()
 	vmssName string
