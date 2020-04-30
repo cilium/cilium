@@ -45,6 +45,15 @@ data:
   #   the kvstore by commenting out the identity-allocation-mode below, or
   #   setting it to "kvstore".
   identity-allocation-mode: {{ .Values.global.identityAllocationMode }}
+{{- if .Values.global.identityHeartbeatTimeout }}
+  identity-heartbeat-timeout: "{{ .Values.global.identityHeartbeatTimeout }}"
+{{- end }}
+{{- if .Values.global.identityGCInterval }}
+  identity-gc-interval: "{{ .Values.global.identityGCInterval }}"
+{{- end }}
+{{- if .Values.global.endpointGCInterval }}
+  cilium-endpoint-gc-interval: "{{ .Values.global.endpointGCInterval }}"
+{{- end }}
 
   # identity-change-grace-period is the grace period that needs to pass
   # before an endpoint that has changed its identity will start using
