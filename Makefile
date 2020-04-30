@@ -499,12 +499,16 @@ postcheck: build
 minikube:
 	$(QUIET) contrib/scripts/minikube.sh
 
-update-golang: update-golang-dockerfiles update-travis-go-version update-test-go-version
+update-golang: update-golang-dockerfiles update-gh-actions-go-version update-travis-go-version update-test-go-version
 
 update-golang-dockerfiles:
 	$(QUIET) sed -i 's/GO_VERSION .*/GO_VERSION $(GO_VERSION)/g' Dockerfile.builder
 	$(QUIET) for fl in $(shell find . -path ./vendor -prune -o -name "*Dockerfile*" -print) ; do sed -i 's/golang:.* /golang:$(GO_VERSION) as /g' $$fl ; done
 	@echo "Updated go version in Dockerfiles to $(GO_VERSION)"
+
+update-gh-actions-go-version:
+	$(QUIET) for fl in $(shell find .github/workflows -name "*.yaml" -print) ; do sed -i 's/go-version: .*/go-version: $(GO_VERSION)/g' $$fl ; done
+	@echo "Updated go version in GitHub Actions to $(GO_VERSION)"
 
 update-travis-go-version:
 	$(QUIET) sed -e 's/TRAVIS_GO_VERSION/$(GO_VERSION)/g' .travis.yml.tmpl > .travis.yml
