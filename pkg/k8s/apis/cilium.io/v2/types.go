@@ -518,10 +518,13 @@ type CiliumIdentity struct {
 	// SecurityLabels is the source-of-truth set of labels for this identity.
 	SecurityLabels map[string]string `json:"security-labels"`
 
+	// Status is deprecated and no longer used, it will be removed in Cilium 1.9
 	Status IdentityStatus `json:"status"`
 }
 
 // IdentityStatus is the status of an identity
+//
+// This structure is deprecated, do not use.
 type IdentityStatus struct {
 	Nodes map[string]metav1.Time `json:"nodes,omitempty"`
 }
