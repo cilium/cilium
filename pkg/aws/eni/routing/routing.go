@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -73,7 +74,7 @@ func Install(ip net.IP, info *RoutingInfo, mtu int, masq bool) error {
 
 	// Route all traffic to the ENI address via the main routing table
 	if err := route.ReplaceRule(route.Rule{
-		Priority: 20, // After encryption and proxy rules, before local table
+		Priority: linux_defaults.RulePriorityIngress,
 		To:       &ipWithMask,
 		Table:    route.MainTable,
 	}); err != nil {
@@ -85,7 +86,7 @@ func Install(ip net.IP, info *RoutingInfo, mtu int, masq bool) error {
 		// CIDR configured for the VPC on which the endpoint has the IP on.
 		for _, cidr := range info.IPv4CIDRs {
 			if err := route.ReplaceRule(route.Rule{
-				Priority: 110, // After local table
+				Priority: linux_defaults.RulePriorityEgress,
 				From:     &ipWithMask,
 				To:       &cidr,
 				Table:    ifindex,
@@ -96,7 +97,7 @@ func Install(ip net.IP, info *RoutingInfo, mtu int, masq bool) error {
 	} else {
 		// Lookup a VPC specific table for all traffic from an endpoint.
 		if err := route.ReplaceRule(route.Rule{
-			Priority: 110, // After local table
+			Priority: linux_defaults.RulePriorityEgress,
 			From:     &ipWithMask,
 			Table:    ifindex,
 		}); err != nil {
@@ -149,7 +150,7 @@ func Delete(ip net.IP) error {
 
 	// Ingress rules
 	ingress := route.Rule{
-		Priority: 20, // After encryption and proxy rules, before local table
+		Priority: linux_defaults.RulePriorityIngress,
 		To:       &ipWithMask,
 		Table:    route.MainTable,
 	}
@@ -161,7 +162,7 @@ func Delete(ip net.IP) error {
 
 	// Egress rules
 	egress := route.Rule{
-		Priority: 110, // After local table
+		Priority: linux_defaults.RulePriorityEgress,
 		From:     &ipWithMask,
 	}
 	if err := deleteRule(egress); err != nil {
