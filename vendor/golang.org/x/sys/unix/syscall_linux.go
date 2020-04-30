@@ -1757,6 +1757,9 @@ func Signalfd(fd int, sigmask *Sigset_t, flags int) (newfd int, err error) {
 //sys	Syncfs(fd int) (err error)
 //sysnb	Sysinfo(info *Sysinfo_t) (err error)
 //sys	Tee(rfd int, wfd int, len int, flags int) (n int64, err error)
+//sysnb TimerfdCreate(clockid int, flags int) (fd int, err error)
+//sysnb TimerfdGettime(fd int, currValue *ItimerSpec) (err error)
+//sysnb TimerfdSettime(fd int, flags int, newValue *ItimerSpec, oldValue *ItimerSpec) (err error)
 //sysnb	Tgkill(tgid int, tid int, sig syscall.Signal) (err error)
 //sysnb	Times(tms *Tms) (ticks uintptr, err error)
 //sysnb	Umask(mask int) (oldmask int)
@@ -2178,7 +2181,6 @@ func Klogset(typ int, arg int) (err error) {
 // TimerGetoverrun
 // TimerGettime
 // TimerSettime
-// Timerfd
 // Tkill (obsolete)
 // Tuxcall
 // Umount2
