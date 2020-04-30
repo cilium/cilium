@@ -52,54 +52,57 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+func (k *K8sWatcher) createPodController(getter cache.Getter, fieldSelector fields.Selector) (cache.Store, cache.Controller) {
+	return informer.NewInformer(
+		cache.NewListWatchFromClient(getter,
+			"pods", v1.NamespaceAll, fieldSelector),
+		&v1.Pod{},
+		0,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				var valid bool
+				if pod := k8s.ObjTov1Pod(obj); pod != nil {
+					valid = true
+					err := k.addK8sPodV1(pod)
+					k.K8sEventProcessed(metricPod, metricCreate, err == nil)
+				}
+				k.K8sEventReceived(metricPod, metricCreate, valid, false)
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				var valid, equal bool
+				if oldPod := k8s.ObjTov1Pod(oldObj); oldPod != nil {
+					if newPod := k8s.ObjTov1Pod(newObj); newPod != nil {
+						valid = true
+						if k8s.EqualV1Pod(oldPod, newPod) {
+							equal = true
+						} else {
+							err := k.updateK8sPodV1(oldPod, newPod)
+							k.K8sEventProcessed(metricPod, metricUpdate, err == nil)
+						}
+					}
+				}
+				k.K8sEventReceived(metricPod, metricUpdate, valid, equal)
+			},
+			DeleteFunc: func(obj interface{}) {
+				var valid bool
+				if pod := k8s.ObjTov1Pod(obj); pod != nil {
+					valid = true
+					err := k.deleteK8sPodV1(pod)
+					k.K8sEventProcessed(metricPod, metricDelete, err == nil)
+				}
+				k.K8sEventReceived(metricPod, metricDelete, valid, false)
+			},
+		},
+		k8s.ConvertToPod,
+	)
+}
+
 func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, asyncControllers *sync.WaitGroup) {
 	var once sync.Once
 	for {
-		createPodController := func(fieldSelector fields.Selector) (cache.Store, cache.Controller) {
-			return informer.NewInformer(
-				cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
-					"pods", v1.NamespaceAll, fieldSelector),
-				&v1.Pod{},
-				0,
-				cache.ResourceEventHandlerFuncs{
-					AddFunc: func(obj interface{}) {
-						var valid bool
-						if pod := k8s.ObjTov1Pod(obj); pod != nil {
-							valid = true
-							err := k.addK8sPodV1(pod)
-							k.K8sEventProcessed(metricPod, metricCreate, err == nil)
-						}
-						k.K8sEventReceived(metricPod, metricCreate, valid, false)
-					},
-					UpdateFunc: func(oldObj, newObj interface{}) {
-						var valid, equal bool
-						if oldPod := k8s.ObjTov1Pod(oldObj); oldPod != nil {
-							if newPod := k8s.ObjTov1Pod(newObj); newPod != nil {
-								valid = true
-								if k8s.EqualV1Pod(oldPod, newPod) {
-									equal = true
-								} else {
-									err := k.updateK8sPodV1(oldPod, newPod)
-									k.K8sEventProcessed(metricPod, metricUpdate, err == nil)
-								}
-							}
-						}
-						k.K8sEventReceived(metricPod, metricUpdate, valid, equal)
-					},
-					DeleteFunc: func(obj interface{}) {
-						var valid bool
-						if pod := k8s.ObjTov1Pod(obj); pod != nil {
-							valid = true
-							err := k.deleteK8sPodV1(pod)
-							k.K8sEventProcessed(metricPod, metricDelete, err == nil)
-						}
-						k.K8sEventReceived(metricPod, metricDelete, valid, false)
-					},
-				},
-				k8s.ConvertToPod,
-			)
-		}
-		podStore, podController := createPodController(fields.Everything())
+		podStore, podController := k.createPodController(
+			k8sClient.CoreV1().RESTClient(),
+			fields.Everything())
 
 		isConnected := make(chan struct{})
 		// once isConnected is closed, it will stop waiting on caches to be
@@ -130,7 +133,9 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, asyncControllers *
 
 		log.WithField(logfields.Node, nodeTypes.GetName()).Info("Connected to KVStore, watching for pod events on node")
 		// Only watch for pod events for our node.
-		podStore, podController = createPodController(fields.ParseSelectorOrDie("spec.nodeName=" + nodeTypes.GetName()))
+		podStore, podController = k.createPodController(
+			k8sClient.CoreV1().RESTClient(),
+			fields.ParseSelectorOrDie("spec.nodeName="+nodeTypes.GetName()))
 		isConnected = make(chan struct{})
 		k.podStoreMU.Lock()
 		k.podStore = podStore
