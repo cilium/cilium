@@ -406,8 +406,6 @@ data:
 {{- if .Values.global.hubble.enabled }}
   # UNIX domain socket for Hubble server to listen to.
   hubble-socket-path:  {{ .Values.global.hubble.socketPath | quote }}
-  # A space separated list of additional addresses for Hubble server to listen to.
-  hubble-listen-addresses: {{ .Values.global.hubble.listenAddresses | join " " | quote }}
 {{- if .Values.global.hubble.eventQueueSize }}
   # Buffer size of the channel for Hubble to receive monitor events. If this field is not set,
   # the buffer size is set to the default monitor queue size.
@@ -428,10 +426,10 @@ data:
     {{.}}
   {{- end }}
 {{- end }}
-{{ if and .Values.global.hubble.ui.enabled (not (has "0.0.0.0:50051" .Values.global.hubble.listenAddresses)) }}
-  # A space separated list of additional addresses for Hubble server to listen to.
+  # A space separated list of additional addresses for Hubble server to listen to (e.g. ":50051 :50052").
+{{- if and .Values.global.hubble.ui.enabled (not (has "0.0.0.0:50051" .Values.global.hubble.listenAddresses)) }}
   hubble-listen-addresses: {{ append .Values.global.hubble.listenAddresses "0.0.0.0:50051" | join " " | quote }}
-{{- else if .Values.global.hubble.listenAddresses}}
+{{- else }}
   hubble-listen-addresses: {{ .Values.global.hubble.listenAddresses | join " " | quote }}
 {{- end }}
 {{- end }}
