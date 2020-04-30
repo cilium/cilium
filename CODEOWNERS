@@ -1,6 +1,8 @@
 # Code owners groups and a brief description of their areas:
 # @cilium/janitors      Catch-all for code not otherwise owned
 # @cilium/agent         Cilium Agent
+# @cilium/aws           Integration with AWS
+# @cilium/azure         Integration with Azure
 # @cilium/bpf           BPF Data Path
 # @cilium/build         Building and packaging
 # @cilium/ci            Continuous integration, testing
@@ -11,6 +13,7 @@
 # @cilium/endpoint      Endpoint package
 # @cilium/health        Cilium cluster health tool
 # @cilium/hubble        Hubble integration
+# @cilium/ipam          IPAM
 # @cilium/kubernetes    K8s integration, K8s CNI plugin
 # @cilium/kvstore       Key/Value store: Consul, etcd
 # @cilium/loadbalancer  Load balancer
@@ -71,6 +74,8 @@ Jenkinsfile.nightly @cilium/ci
 /operator/ @cilium/operator
 /pkg/annotation @cilium/kubernetes
 /pkg/api/ @cilium/api
+/pkg/aws/ @cilium/aws
+/pkg/azure/ @cilium/azure
 /pkg/bpf/ @cilium/bpf
 /pkg/byteorder/ @cilium/bpf @cilium/api
 /pkg/client @cilium/api
@@ -89,6 +94,10 @@ Jenkinsfile.nightly @cilium/ci
 /pkg/health/ @cilium/health
 /pkg/hubble/ @cilium/hubble
 /pkg/identity @cilium/policy
+/pkg/ipam/ @cilium/ipam
+/pkg/ipam/allocator/aws/ @cilium/ipam @cilium/aws
+/pkg/ipam/allocator/azure/ @cilium/ipam @cilium/azure
+/pkg/ipam/allocator/operator/ @cilium/ipam @cilium/operator
 /pkg/ipcache/ @cilium/ipcache
 /pkg/k8s/ @cilium/kubernetes
 /pkg/k8s/apis/cilium.io/v2/ @cilium/api
@@ -115,6 +124,7 @@ Jenkinsfile.nightly @cilium/ci
 /pkg/pidfile @cilium/agent
 /pkg/policy @cilium/policy
 /pkg/policy/api/ @cilium/api
+/pkg/policy/groups/aws/ @cilium/policy @cilium/aws
 /pkg/proxy/ @cilium/proxy
 /pkg/proxy/accesslog @cilium/api
 /pkg/serializer @cilium/agent
