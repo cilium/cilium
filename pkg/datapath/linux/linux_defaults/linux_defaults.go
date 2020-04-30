@@ -37,6 +37,15 @@ const (
 	// IPSecProtocolID IP protocol ID for IPSec defined in RFC4303
 	RouteProtocolIPSec = 50
 
+	// RulePriorityIngress is the priority of the rule used for ingress routing
+	// of endpoints. This priority is after encryption and proxy rules, and
+	// before the local table priority.
+	RulePriorityIngress = 20
+
+	// RulePriorityEgress is the priority of the rule used for egress routing
+	// of endpoints. This priority is after the local table priority.
+	RulePriorityEgress = 110
+
 	// TunnelDeviceName the default name of the tunnel device when using vxlan
 	TunnelDeviceName = "cilium_vxlan"
 
