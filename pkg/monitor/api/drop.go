@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -80,6 +80,9 @@ var errors = map[uint8]string{
 	175: "First logical datagram fragment not found",
 	176: "Forbidden ICMPv6 message",
 	177: "Denied by LB src range check",
+	178: "Socket lookup failed",
+	179: "Socket assign failed",
+	180: "Proxy redirection not supported for protocol",
 }
 
 // DropReason prints the drop reason in a human readable string
