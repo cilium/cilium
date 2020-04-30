@@ -62,15 +62,16 @@ func Wrk(endpoint string) string {
 // variadic optinalValues argument. This is passed on to fmt.Sprintf() and uses
 // into the curl message
 func CurlFail(endpoint string, optionalValues ...interface{}) string {
-	statsInfo := `time-> DNS: '%{time_namelookup}(%{remote_ip})', Connect: '%{time_connect}',` +
-		`Transfer '%{time_starttransfer}', total '%{time_total}'`
+	//statsInfo := `time-> DNS: '%{time_namelookup}(%{remote_ip})', Connect: '%{time_connect}',` +
+	//`Transfer '%{time_starttransfer}', total '%{time_total}', local_port: '%{local_port}'`
 
 	if len(optionalValues) > 0 {
 		endpoint = fmt.Sprintf(endpoint, optionalValues...)
 	}
 	return fmt.Sprintf(
-		`curl --path-as-is -s -D /dev/stderr --fail --connect-timeout %[1]d --max-time %[2]d %[3]s -w "%[4]s"`,
-		CurlConnectTimeout, CurlMaxTimeout, endpoint, statsInfo)
+		`/bin/sh -c "echo \"foobar: \$$\" && exec curl --path-as-is -s -D /dev/stderr --fail --connect-timeout %[1]d --max-time %[2]d %[3]s"`,
+		//`curl --path-as-is -s -D /dev/stderr --fail --connect-timeout %[1]d --max-time %[2]d %[3]s`,
+		CurlConnectTimeout, CurlMaxTimeout, endpoint)
 }
 
 // CurlWithHTTPCode retunrs the string representation of the curl command which

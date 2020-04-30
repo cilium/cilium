@@ -392,14 +392,14 @@ var _ = Describe("K8sServicesTest", func() {
 			}
 		}
 
-		failBind := func(addr string, port int32, proto, fromPod string) {
-			By("Trying to bind NodePort addr %q:%d on %s", addr, port, fromPod)
-			res, err := kubectl.ExecInHostNetNS(context.TODO(), fromPod,
-				helpers.PythonBind(addr, uint16(port), proto))
-			ExpectWithOffset(1, err).To(BeNil(), "Cannot run python in host netns")
-			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
-				"%s host unexpectedly was able to bind on %q:%d, it should fail", fromPod, addr, port)
-		}
+		//failBind := func(addr string, port int32, proto, fromPod string) {
+		//	By("Trying to bind NodePort addr %q:%d on %s", addr, port, fromPod)
+		//	res, err := kubectl.ExecInHostNetNS(context.TODO(), fromPod,
+		//		helpers.PythonBind(addr, uint16(port), proto))
+		//	ExpectWithOffset(1, err).To(BeNil(), "Cannot run python in host netns")
+		//	ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
+		//		"%s host unexpectedly was able to bind on %q:%d, it should fail", fromPod, addr, port)
+		//}
 
 		doRequestsExpectingHTTPCode := func(url string, count int, expectedCode string, fromPod string) {
 			By("Making %d HTTP requests from %s to %q, expecting HTTP %s", count, fromPod, url, expectedCode)
@@ -558,7 +558,28 @@ var _ = Describe("K8sServicesTest", func() {
 			), "Failed to account for IPv4 fragments to %s (out)", dstIP)
 		}
 
+		startMonitor := func() {
+			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s1)
+			Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
+			ciliumPodK8s2, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s2)
+			Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s2")
+			monitorRes1, monitorCancel1 := kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPodK8s1)
+			monitorRes2, monitorCancel2 := kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPodK8s2)
+
+			helpers.FoobarCallback = func() {
+				time.Sleep(1 * time.Second)
+				monitorCancel1()
+				helpers.WriteToReportFile(monitorRes1.CombineOutput().Bytes(), "foobar-k8s1.log")
+				monitorCancel2()
+				helpers.WriteToReportFile(monitorRes2.CombineOutput().Bytes(), "foobar-k8s2.log")
+			}
+		}
+
 		testNodePort := func(bpfNodePort bool) {
+			if bpfNodePort {
+				startMonitor()
+			}
+
 			var data v1.Service
 			k8s1Name, k8s1IP := kubectl.GetNodeInfo(helpers.K8s1)
 			k8s2Name, k8s2IP := kubectl.GetNodeInfo(helpers.K8s2)
@@ -574,7 +595,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 			// From host via localhost IP
 			// TODO: IPv6
-			count := 10
+			count := 20
 			httpURL = getHTTPLink("127.0.0.1", data.Spec.Ports[0].NodePort)
 			tftpURL = getTFTPLink("127.0.0.1", data.Spec.Ports[1].NodePort)
 			doRequests(httpURL, count, k8s1Name)
@@ -667,38 +688,38 @@ var _ = Describe("K8sServicesTest", func() {
 
 				// From pod via local cilium_host
 				httpURL = getHTTPLink(localCiliumHostIPv4, data.Spec.Ports[0].NodePort)
-				tftpURL = getTFTPLink(localCiliumHostIPv4, data.Spec.Ports[1].NodePort)
+				//tftpURL = getTFTPLink(localCiliumHostIPv4, data.Spec.Ports[1].NodePort)
 				testCurlRequest(testDSClient, httpURL)
-				testCurlRequest(testDSClient, tftpURL)
+				//testCurlRequest(testDSClient, tftpURL)
 
 				httpURL = getHTTPLink("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[0].NodePort)
-				tftpURL = getTFTPLink("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[1].NodePort)
+				//tftpURL = getTFTPLink("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[1].NodePort)
 				testCurlRequest(testDSClient, httpURL)
-				testCurlRequest(testDSClient, tftpURL)
+				//testCurlRequest(testDSClient, tftpURL)
 
-				// From pod via remote cilium_host
-				httpURL = getHTTPLink(remoteCiliumHostIPv4, data.Spec.Ports[0].NodePort)
-				tftpURL = getTFTPLink(remoteCiliumHostIPv4, data.Spec.Ports[1].NodePort)
-				testCurlRequest(testDSClient, httpURL)
-				testCurlRequest(testDSClient, tftpURL)
+				//// From pod via remote cilium_host
+				//httpURL = getHTTPLink(remoteCiliumHostIPv4, data.Spec.Ports[0].NodePort)
+				//tftpURL = getTFTPLink(remoteCiliumHostIPv4, data.Spec.Ports[1].NodePort)
+				//testCurlRequest(testDSClient, httpURL)
+				//testCurlRequest(testDSClient, tftpURL)
 
-				httpURL = getHTTPLink("::ffff:"+remoteCiliumHostIPv4, data.Spec.Ports[0].NodePort)
-				tftpURL = getTFTPLink("::ffff:"+remoteCiliumHostIPv4, data.Spec.Ports[1].NodePort)
-				testCurlRequest(testDSClient, httpURL)
-				testCurlRequest(testDSClient, tftpURL)
+				//httpURL = getHTTPLink("::ffff:"+remoteCiliumHostIPv4, data.Spec.Ports[0].NodePort)
+				//tftpURL = getTFTPLink("::ffff:"+remoteCiliumHostIPv4, data.Spec.Ports[1].NodePort)
+				//testCurlRequest(testDSClient, httpURL)
+				//testCurlRequest(testDSClient, tftpURL)
 
-				// Ensure the NodePort cannot be bound from any redirected address
-				failBind(localCiliumHostIPv4, data.Spec.Ports[0].NodePort, "tcp", k8s1Name)
-				failBind(localCiliumHostIPv4, data.Spec.Ports[1].NodePort, "udp", k8s1Name)
-				failBind("127.0.0.1", data.Spec.Ports[0].NodePort, "tcp", k8s1Name)
-				failBind("127.0.0.1", data.Spec.Ports[1].NodePort, "udp", k8s1Name)
-				failBind("", data.Spec.Ports[0].NodePort, "tcp", k8s1Name)
-				failBind("", data.Spec.Ports[1].NodePort, "udp", k8s1Name)
+				//// Ensure the NodePort cannot be bound from any redirected address
+				//failBind(localCiliumHostIPv4, data.Spec.Ports[0].NodePort, "tcp", k8s1Name)
+				//failBind(localCiliumHostIPv4, data.Spec.Ports[1].NodePort, "udp", k8s1Name)
+				//failBind("127.0.0.1", data.Spec.Ports[0].NodePort, "tcp", k8s1Name)
+				//failBind("127.0.0.1", data.Spec.Ports[1].NodePort, "udp", k8s1Name)
+				//failBind("", data.Spec.Ports[0].NodePort, "tcp", k8s1Name)
+				//failBind("", data.Spec.Ports[1].NodePort, "udp", k8s1Name)
 
-				failBind("::ffff:127.0.0.1", data.Spec.Ports[0].NodePort, "tcp", k8s1Name)
-				failBind("::ffff:127.0.0.1", data.Spec.Ports[1].NodePort, "udp", k8s1Name)
-				failBind("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[0].NodePort, "tcp", k8s1Name)
-				failBind("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[1].NodePort, "udp", k8s1Name)
+				//failBind("::ffff:127.0.0.1", data.Spec.Ports[0].NodePort, "tcp", k8s1Name)
+				//failBind("::ffff:127.0.0.1", data.Spec.Ports[1].NodePort, "udp", k8s1Name)
+				//failBind("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[0].NodePort, "tcp", k8s1Name)
+				//failBind("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[1].NodePort, "udp", k8s1Name)
 			}
 		}
 
@@ -718,8 +739,8 @@ var _ = Describe("K8sServicesTest", func() {
 			//   won't have the client IP but the service IP (given the request comes
 			//   from the Cilium node to the backend, not from the client directly).
 			//   Same in case of Hybrid mode for UDP.
-			doRequestsFromThirdHost(httpURL, 10, checkTCP)
-			doRequestsFromThirdHost(tftpURL, 10, checkUDP)
+			doRequestsFromThirdHost(httpURL, 20, checkTCP)
+			doRequestsFromThirdHost(tftpURL, 20, checkUDP)
 
 			// Make sure all the rest works as expected as well
 			testNodePort(true)
@@ -1166,34 +1187,37 @@ var _ = Describe("K8sServicesTest", func() {
 					res.ExpectFail("NAT entry was not evicted")
 				})
 
-				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing and SNAT", func() {
-					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-						"global.nodePort.acceleration": "testing-only",
-						"global.nodePort.mode":         "snat",
-						"global.tunnel":                "disabled",
-						"global.autoDirectNodeRoutes":  "true",
-					})
-					testNodePortExternal(false, false)
-				})
+				Context("XDP", func() {
 
-				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing and Hybrid", func() {
-					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-						"global.nodePort.acceleration": "testing-only",
-						"global.nodePort.mode":         "hybrid",
-						"global.tunnel":                "disabled",
-						"global.autoDirectNodeRoutes":  "true",
+					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing and SNAT", func() {
+						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+							"global.nodePort.acceleration": "testing-only",
+							"global.nodePort.mode":         "snat",
+							"global.tunnel":                "disabled",
+							"global.autoDirectNodeRoutes":  "true",
+						})
+						testNodePortExternal(false, false)
 					})
-					testNodePortExternal(true, false)
-				})
 
-				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing and DSR", func() {
-					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-						"global.nodePort.acceleration": "testing-only",
-						"global.nodePort.mode":         "dsr",
-						"global.tunnel":                "disabled",
-						"global.autoDirectNodeRoutes":  "true",
+					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing and Hybrid", func() {
+						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+							"global.nodePort.acceleration": "testing-only",
+							"global.nodePort.mode":         "hybrid",
+							"global.tunnel":                "disabled",
+							"global.autoDirectNodeRoutes":  "true",
+						})
+						testNodePortExternal(true, false)
 					})
-					testNodePortExternal(true, true)
+
+					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing and DSR", func() {
+						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+							"global.nodePort.acceleration": "testing-only",
+							"global.nodePort.mode":         "dsr",
+							"global.tunnel":                "disabled",
+							"global.autoDirectNodeRoutes":  "true",
+						})
+						testNodePortExternal(true, true)
+					})
 				})
 
 				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with TC, direct routing and SNAT", func() {
@@ -1225,6 +1249,7 @@ var _ = Describe("K8sServicesTest", func() {
 					})
 					testNodePortExternal(true, true)
 				})
+
 			})
 
 		// Net-next and not old versions, because of LRU requirement.
