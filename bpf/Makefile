@@ -3,7 +3,7 @@
 
 include ../Makefile.defs
 
-.PHONY: all subdirs check preprocess assembly install clean
+.PHONY: all build_all subdirs check force preprocess assembly install clean $(BUILD_PERMUTATIONS_DEP)
 
 SUBDIRS = sockops
 
@@ -17,7 +17,8 @@ include ./Makefile.bpf
 ifeq ("$(PKG_BUILD)","")
 all: $(BPF) $(TARGET) subdirs
 
-build_all:
+build_all: force
+	@touch $(BUILD_PERMUTATIONS_DEP)
 	@$(ECHO_CHECK)/*.c BUILD_PERMUTATIONS=1
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) all BUILD_PERMUTATIONS=1
 
