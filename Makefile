@@ -287,8 +287,8 @@ docker-cilium-builder-manifest:
 	$(QUIET) contrib/scripts/push_manifest.sh cilium-builder $(UTC_DATE)
 
 docker-hubble-relay-image:
-	$(CONTAINER_ENGINE_FULL) build -f hubble-relay.Dockerfile -t "cilium/hubble-relay:$(DOCKER_IMAGE_TAG)" .
-	$(CONTAINER_ENGINE_FULL) tag cilium/hubble-relay:$(DOCKER_IMAGE_TAG) cilium/hubble-relay:$(DOCKER_IMAGE_TAG)-${GOARCH}
+	$(QUIET)$(CONTAINER_ENGINE) build -f hubble-relay.Dockerfile -t "cilium/hubble-relay:$(DOCKER_IMAGE_TAG)" .
+	$(QUIET)$(CONTAINER_ENGINE) tag cilium/hubble-relay:$(DOCKER_IMAGE_TAG) cilium/hubble-relay:$(DOCKER_IMAGE_TAG)-${GOARCH}
 	$(QUIET)echo "Push like this when ready:"
 	$(QUIET)echo "${CONTAINER_ENGINE} push cilium/hubble-relay:$(DOCKER_IMAGE_TAG)-${GOARCH}"
 
