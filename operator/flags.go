@@ -131,7 +131,7 @@ func init() {
 	option.BindEnv(operatorOption.EnableCEPGC)
 	flags.MarkDeprecated(operatorOption.EnableCEPGC, fmt.Sprintf("Please use %s=0 to disable CEP GC", operatorOption.EndpointGCInterval))
 
-	flags.Duration(operatorOption.EndpointGCInterval, 30*time.Minute, "GC interval for cilium endpoints")
+	flags.Duration(operatorOption.EndpointGCInterval, 10*time.Minute, "GC interval for cilium endpoints")
 	option.BindEnv(operatorOption.EndpointGCInterval)
 
 	flags.Bool(operatorOption.EnableMetrics, false, "Enable Prometheus metrics")
@@ -140,7 +140,8 @@ func init() {
 	flags.String(option.IPAM, option.IPAMHostScopeLegacy, "Backend to use for IPAM")
 	option.BindEnv(option.IPAM)
 
-	flags.Duration(operatorOption.IdentityHeartbeatTimeout, 15*time.Minute, "Timeout after which identity expires on lack of heartbeat")
+	// 31 minutes is the default to be slightly larger than 3x EndpointGCInterval
+	flags.Duration(operatorOption.IdentityHeartbeatTimeout, 31*time.Minute, "Timeout after which identity expires on lack of heartbeat")
 	option.BindEnv(operatorOption.IdentityHeartbeatTimeout)
 
 	flags.String(option.IdentityAllocationMode, option.IdentityAllocationModeKVstore, "Method to use for identity allocation")

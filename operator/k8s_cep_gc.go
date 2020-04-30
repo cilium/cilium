@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
@@ -70,6 +71,7 @@ func enableCiliumEndpointSyncGC() {
 					podsCache[pod.Namespace+"/"+pod.Name] = &pod
 				}
 
+				timeNow := time.Now()
 			perCEPFetch:
 				for time.Now().Before(loopStop) { // Guard against no-break bugs
 					time.Sleep(time.Second) // Throttle lookups in case of a busy loop
@@ -96,6 +98,10 @@ func enableCiliumEndpointSyncGC() {
 
 					// For each CEP we fetched, check if we know about it
 					for _, cep := range ceps.Items {
+						if cep.Status.Identity != nil {
+							identityHeartbeat.MarkAlive(strconv.FormatInt(cep.Status.Identity.ID, 10), timeNow)
+						}
+
 						cepFullName := cep.Namespace + "/" + cep.Name
 						_, exists := podsCache[cepFullName]
 						if !exists {
