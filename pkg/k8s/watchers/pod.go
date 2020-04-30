@@ -121,6 +121,18 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, asyncControllers *
 		return isConnected
 	}
 
+	// We will watch for pods on th entire cluster to keep existing
+	// functionality untouched. If we are running with CiliumEndpoint CRD
+	// enabled then it means that we can simply watch for pods that are created
+	// for this node.
+	if !option.Config.DisableCiliumEndpointCRD {
+		watchNodePods()
+		return
+	}
+
+	// If CiliumEndpointCRD is disabled, we will fallback on watching all pods
+	// and then watching on the pods created for this node if the
+	// K8sEventHandover is enabled.
 	for {
 		podStore, podController := k.createPodController(
 			k8sClient.CoreV1().RESTClient(),
