@@ -18,6 +18,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/cilium/cilium/operator/identity"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -56,12 +57,11 @@ func deleteIdentity(identity *types.Identity) error {
 	return err
 }
 
+var identityHeartbeat *identity.IdentityHeartbeatStore
+
 // identityGCIteration is a single iteration of a garbage collection. It will
-// delete identities that have node status entries that are all older than
-// k8sIdentityHeartbeatTimeout.
-// Note: cilium-operator deletes identities in the OnDelete handler when they
-// have no nodes using them (status is empty). This generally means that
-// deletes here are for longer lived identities with no active users.
+// delete identities that have not had its heartbeat lifesign updated since
+// option.Config.IdentityHeartbeatTimeout
 func identityGCIteration() {
 	log.Debug("Running CRD identity garbage collector")
 
@@ -70,7 +70,6 @@ func identityGCIteration() {
 		return
 	}
 
-nextIdentity:
 	for _, identityObject := range identityStore.List() {
 		identity, ok := identityObject.(*types.Identity)
 		if !ok {
@@ -79,21 +78,23 @@ nextIdentity:
 			continue
 		}
 
-		for _, heartbeat := range identity.Status.Nodes {
-			if time.Since(heartbeat.Time) < operatorOption.Config.IdentityHeartbeatTimeout {
-				continue nextIdentity
-			}
+		if !identityHeartbeat.IsAlive(identity.Name) {
+			log.WithFields(logrus.Fields{
+				logfields.Identity: identity,
+				"nodes":            identity.Status.Nodes,
+			}).Debug("Deleting unused identity")
+			deleteIdentity(identity)
 		}
-
-		log.WithFields(logrus.Fields{
-			logfields.Identity: identity,
-			"nodes":            identity.Status.Nodes,
-		}).Debug("Deleting unused identity")
-		deleteIdentity(identity)
 	}
+
+	identityHeartbeat.GC()
 }
 
 func startCRDIdentityGC() {
+	if operatorOption.Config.EndpointGCInterval == 0 {
+		log.Fatal("The CiliumIdentity garabge collector requires the CiliumEndpoint garbage collector to be enabled")
+	}
+
 	log.Infof("Starting CRD identity garbage collector with %s interval...", operatorOption.Config.IdentityGCInterval)
 
 	controller.NewManager().UpdateController("crd-identity-gc",
@@ -106,15 +107,9 @@ func startCRDIdentityGC() {
 		})
 }
 
-func handleIdentityUpdate(identity *types.Identity) {
-	// If no more nodes are using this identity, release the ID for reuse.
-	// If deleteIdentity fails the identity will be removed by the periodic GC.
-	if len(identity.Status.Nodes) == 0 {
-		deleteIdentity(identity)
-	}
-}
-
 func startManagingK8sIdentities() {
+	identityHeartbeat = identity.NewIdentityHeartbeatStore(operatorOption.Config.IdentityHeartbeatTimeout)
+
 	identityStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 	identityInformer := informer.NewInformerWithStore(
 		cache.NewListWatchFromClient(ciliumK8sClient.CiliumV2().RESTClient(),
@@ -122,10 +117,35 @@ func startManagingK8sIdentities() {
 		&v2.CiliumIdentity{},
 		0,
 		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				if identity, ok := obj.(*types.Identity); ok {
+					// A new identity is always alive
+					identityHeartbeat.MarkAlive(identity.Name, time.Now())
+				}
+			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				if identity, ok := newObj.(*types.Identity); ok {
-					handleIdentityUpdate(identity)
+					// Any update to the identity marks it as alive
+					identityHeartbeat.MarkAlive(identity.Name, time.Now())
 				}
+			},
+			DeleteFunc: func(obj interface{}) {
+				identity, ok := obj.(*types.Identity)
+				if !ok {
+					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+					if ok {
+						identity, ok = deletedObj.Obj.(*types.Identity)
+					}
+					if !ok {
+						return
+					}
+				}
+				// When the identity is deleted, delete the
+				// heartbeat entry as well. This will not be
+				// 100% accurate as the CiliumEndpoint can live
+				// longer than the CiliumIdentity. See
+				// identityHeartbeat.GC()
+				identityHeartbeat.Delete(identity.Name)
 			},
 		},
 		types.ConvertToIdentity,
