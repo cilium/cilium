@@ -16,7 +16,6 @@ package identitybackend
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -28,7 +27,6 @@ import (
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/types"
-	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
@@ -38,7 +36,6 @@ import (
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	k8sTypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -87,8 +84,6 @@ func sanitizeK8sLabels(old map[string]string) (selected, skipped map[string]stri
 
 // AllocateID will create an identity CRD, thus creating the identity for this
 // key-> ID mapping.
-// Note: This does not create a reference to this node to indicate that it is
-// using this identity. That must be done with AcquireReference.
 // Note: the lock field is not supported with the k8s CRD allocator.
 func (c *crdBackend) AllocateID(ctx context.Context, id idpool.ID, key allocator.AllocatorKey) error {
 	selectedLabels, skippedLabels := sanitizeK8sLabels(key.GetAsMap())
@@ -100,11 +95,6 @@ func (c *crdBackend) AllocateID(ctx context.Context, id idpool.ID, key allocator
 			Labels: selectedLabels,
 		},
 		SecurityLabels: key.GetAsMap(),
-		Status: v2.IdentityStatus{
-			Nodes: map[string]metav1.Time{
-				c.NodeName: metav1.Now(),
-			},
-		},
 	}
 
 	_, err := c.Client.CiliumV2().CiliumIdentities().Create(ctx, identity, metav1.CreateOptions{})
@@ -115,95 +105,13 @@ func (c *crdBackend) AllocateIDIfLocked(ctx context.Context, id idpool.ID, key a
 	return c.AllocateID(ctx, id, key)
 }
 
-// JSONPatch structure based on the RFC 6902
-// Note: This mirros pkg/k8s/json_patch.go but using that directly would cause
-// an import loop.
-type JSONPatch struct {
-	OP    string      `json:"op,omitempty"`
-	Path  string      `json:"path,omitempty"`
-	Value interface{} `json:"value"`
-}
-
-// AcquireReference updates the status field of the CRD corresponding to id
-// with this node. This marks that CRD as used by this node, and will stop it
-// being garbage collected.
-// Note: the lock field is not supported with the k8s CRD allocator.
+// AcquireReference acquires a reference to the identity.
 func (c *crdBackend) AcquireReference(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, lock kvstore.KVLocker) error {
-	identity, exists, err := c.getById(ctx, id)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return fmt.Errorf("identity does not exist")
-	}
-
-	capabilities := k8sversion.Capabilities()
-	identityOps := c.Client.CiliumV2().CiliumIdentities()
-
-	if capabilities.Patch {
-		var patch []byte
-		patch, err = json.Marshal([]JSONPatch{
-			{
-				OP:    "test",
-				Path:  "/status",
-				Value: nil,
-			},
-			{
-				OP:   "add",
-				Path: "/status",
-				Value: v2.IdentityStatus{
-					Nodes: map[string]metav1.Time{
-						c.NodeName: metav1.Now(),
-					},
-				},
-			},
-		})
-		if err != nil {
-			return err
-		}
-
-		_, err = identityOps.Patch(ctx, identity.GetName(), k8sTypes.JSONPatchType, patch, metav1.PatchOptions{}, "status")
-		if err != nil {
-			patch, err = json.Marshal([]JSONPatch{
-				{
-					OP:    "replace",
-					Path:  "/status/nodes/" + c.NodeName,
-					Value: metav1.Now(),
-				},
-			})
-			if err != nil {
-				return err
-			}
-			_, err = identityOps.Patch(ctx, identity.GetName(), k8sTypes.JSONPatchType, patch, metav1.PatchOptions{}, "status")
-		}
-
-		if err == nil {
-			return nil
-		}
-		log.WithError(err).Debug("Error patching status. Continuing update via UpdateStatus")
-		/* fall through and attempt UpdateStatus() or Update() */
-	}
-
-	identityCopy := identity.DeepCopy()
-	if identityCopy.Status.Nodes == nil {
-		identityCopy.Status.Nodes = map[string]metav1.Time{
-			c.NodeName: metav1.Now(),
-		}
-	} else {
-		identityCopy.Status.Nodes[c.NodeName] = metav1.Now()
-	}
-
-	if capabilities.UpdateStatus {
-		_, err = identityOps.UpdateStatus(ctx, identityCopy.CiliumIdentity, metav1.UpdateOptions{})
-		if err == nil {
-			return nil
-		}
-		log.WithError(err).Debug("Error updating status. Continuing update via Update")
-		/* fall through and attempt Update() */
-	}
-
-	_, err = identityOps.Update(ctx, identityCopy.CiliumIdentity, metav1.UpdateOptions{})
-	return err
+	// For CiliumIdentity-based allocation, the reference counting is
+	// handled via CiliumEndpoint. Any CiliumEndpoint referring to a
+	// CiliumIdentity will keep the CiliumIdentity alive. No action is
+	// needed to acquire the reference here.
+	return nil
 }
 
 func (c *crdBackend) RunLocksGC(_ context.Context, _ map[string]kvstore.Value) (map[string]kvstore.Value, error) {
@@ -359,54 +267,11 @@ func (c *crdBackend) GetByID(ctx context.Context, id idpool.ID) (allocator.Alloc
 // Release dissociates this node from using the identity bound to the given ID.
 // When an identity has no references it may be garbage collected.
 func (c *crdBackend) Release(ctx context.Context, id idpool.ID, key allocator.AllocatorKey) (err error) {
-	identity, exists, err := c.getById(ctx, id)
-	if err != nil {
-		return err
-	}
-	if !exists || identity == nil {
-		return fmt.Errorf("unable to release identity %s: identity does not exist", key)
-	}
-
-	if _, ok := identity.Status.Nodes[c.NodeName]; !ok {
-		return fmt.Errorf("unable to release identity %s: identity is unused", key)
-	}
-
-	capabilities := k8sversion.Capabilities()
-
-	identityOps := c.Client.CiliumV2().CiliumIdentities()
-	if capabilities.Patch {
-		var patch []byte
-		patch, err = json.Marshal([]JSONPatch{
-			{
-				OP:   "delete",
-				Path: "/status/nodes/" + c.NodeName,
-			},
-		})
-		if err != nil {
-			return err
-		}
-		_, err = identityOps.Patch(ctx, identity.GetName(), k8sTypes.JSONPatchType, patch, metav1.PatchOptions{}, "status")
-		if err == nil {
-			return nil
-		}
-		log.WithError(err).Debug("Error patching status. Continuing update via UpdateStatus")
-		/* fall through and attempt UpdateStatus() or Update() */
-	}
-
-	identityCopy := identity.DeepCopy()
-	delete(identityCopy.Status.Nodes, c.NodeName)
-
-	if capabilities.UpdateStatus {
-		_, err = identityOps.UpdateStatus(ctx, identityCopy.CiliumIdentity, metav1.UpdateOptions{})
-		if err == nil {
-			return nil
-		}
-		log.WithError(err).Debug("Error updating status. Continuing update via Update")
-		/* fall through and attempt Update() */
-	}
-
-	_, err = identityOps.Update(ctx, identityCopy.CiliumIdentity, metav1.UpdateOptions{})
-	return err
+	// For CiliumIdentity-based allocation, the reference counting is
+	// handled via CiliumEndpoint. Any CiliumEndpoint referring to a
+	// CiliumIdentity will keep the CiliumIdentity alive. No action is
+	// needed to release the reference here.
+	return nil
 }
 
 func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMutations, stopChan chan struct{}) {
