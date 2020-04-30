@@ -72,6 +72,7 @@ var (
 func initEnv() {
 	// Prepopulate option.Config with options from CLI.
 	option.Config.Populate()
+	operatorOption.Config.Populate()
 
 	// add hooks after setting up metrics in the option.Confog
 	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumOperatortName))
