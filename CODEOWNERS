@@ -40,6 +40,7 @@ Dockerfile* @cilium/build
 /cilium-health/cmd/ @cilium/health @cilium/cli
 /contrib/packaging/ @cilium/build
 /contrib/vagrant/ @cilium/contributing
+/contrib/coccinelle/ @cilium/bpf
 /daemon/ @cilium/agent
 /daemon/cmd/datapath.* @cilium/bpf
 /daemon/cmd/endpoint.* @cilium/endpoint
