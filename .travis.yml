@@ -1,12 +1,9 @@
-# This is an auto-generated file please modify .travis.yml.tmpl instead
-
 language: go
 
 dist: bionic
 sudo: required
 
-go:
-  - 1.14.2
+go: "1.14.2"
 
 arch:
   - amd64
