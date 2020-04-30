@@ -43,7 +43,7 @@ file.
         --set config.enabled=false \\
         --set operator.enabled=false \\
         > cilium-preflight.yaml
-      kubectl create cilium-preflight.yaml
+      kubectl create -f cilium-preflight.yaml
 
   .. group-tab:: Helm
 
@@ -68,7 +68,7 @@ file.
         --set global.k8sServiceHost=API_SERVER_IP \\
         --set global.k8sServicePort=API_SERVER_PORT \\
         > cilium-preflight.yaml
-      kubectl create cilium-preflight.yaml
+      kubectl create -f cilium-preflight.yaml
 
   .. group-tab:: Helm (kubeproxy-free)
 
@@ -1028,7 +1028,7 @@ The cilium preflight manifest requires etcd support and can be built with:
       --set global.etcd.enabled=true \
       --set global.etcd.ssl=true \
       > cilium-preflight.yaml
-    kubectl create cilium-preflight.yaml
+    kubectl create -f cilium-preflight.yaml
 
 
 Example migration
