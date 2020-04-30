@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	// NOTE: syscall is deprecated, but it is replaced by golang.org/x/sys
+	//       which reuses syscall.Errno similarly to how we do below.
+	"syscall"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/monitor/api"
@@ -103,6 +106,9 @@ const (
 	DbgIPIDMapSucceed6
 	DbgLbStaleCT
 	DbgInheritIdentity
+	DbgSkLookup4
+	DbgSkLookup6
+	DbgSkAssign
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -186,6 +192,13 @@ func ctLookup6Info1(n *DebugMsg) string {
 func ctCreate6Info(n *DebugMsg) string {
 	return fmt.Sprintf("proxy-port=%d revnat=%d src-identity=%d",
 		n.Arg1>>16, byteorder.NetworkToHost(uint16(n.Arg1&0xFFFF)), n.Arg2)
+}
+
+func skAssignInfo(n *DebugMsg) string {
+	if n.Arg1 == 0 {
+		return "Success"
+	}
+	return syscall.Errno(n.Arg1).Error()
 }
 
 func verdictInfo(arg uint32) string {
@@ -361,6 +374,12 @@ func (n *DebugMsg) subTypeString() string {
 		return fmt.Sprintf("Stale CT entry found stale_ct.rev_nat_id=%d, svc.rev_nat_id=%d", n.Arg2, n.Arg1)
 	case DbgInheritIdentity:
 		return fmt.Sprintf("Inheriting identity=%d from stack", n.Arg1)
+	case DbgSkLookup4:
+		return fmt.Sprintf("Socket lookup: %s", ctLookup4Info1(n))
+	case DbgSkLookup6:
+		return fmt.Sprintf("Socket lookup: %s", ctLookup6Info1(n))
+	case DbgSkAssign:
+		return fmt.Sprintf("Socket assign: %s", skAssignInfo(n))
 	default:
 		return fmt.Sprintf("Unknown message type=%d arg1=%d arg2=%d", n.SubType, n.Arg1, n.Arg2)
 	}

@@ -105,8 +105,19 @@ enum {
 				 * arg2: stale CT rev_nat_id
 				 * arg3: unused
 				 */
-	DBG_INHERIT_IDENTITY	/* arg1: ctx->mark
+	DBG_INHERIT_IDENTITY,	/* arg1: ctx->mark
 				 * arg2: unused
+				 */
+	DBG_SK_LOOKUP4,		/* arg1: saddr
+				 * arg2: daddr
+				 * arg3: (sport << 16) | dport
+				 */
+	DBG_SK_LOOKUP6,		/* arg1: saddr (last 4 bytes)
+				 * arg2: daddr (last 4 bytes)
+				 * arg3: (sport << 16) | dport
+				 */
+	DBG_SK_ASSIGN,		/* arg1: result
+				 * arg2: unuseds
 				 */
 };
 
