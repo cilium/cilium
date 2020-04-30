@@ -448,8 +448,8 @@ static __always_inline int lb6_xlate(struct __ctx_buff *ctx,
 				     union v6addr *new_dst, __u8 nexthdr __maybe_unused,
 				     int l3_off, int l4_off,
 				     struct csum_offset *csum_off,
-				     struct lb6_key *key,
-				     struct lb6_backend *backend __maybe_unused)
+				     const struct lb6_key *key,
+				     const struct lb6_backend *backend __maybe_unused)
 {
 	ipv6_store_daddr(ctx, new_dst->addr, l3_off);
 
@@ -540,7 +540,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     struct csum_offset *csum_off,
 				     struct lb6_key *key,
 				     struct ipv6_ct_tuple *tuple,
-				     struct lb6_service *svc,
+				     const struct lb6_service *svc,
 				     struct ct_state *state)
 {
 	__u32 monitor; // Deliberately ignored; regular CT will determine monitoring.
@@ -713,8 +713,8 @@ __lb6_lookup_backend(__u16 backend_id __maybe_unused)
 static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l4_off,
 					 struct csum_offset *csum_off,
 					 struct ipv4_ct_tuple *tuple, int flags,
-					 struct lb4_reverse_nat *nat,
-					 struct ct_state *ct_state)
+					 const struct lb4_reverse_nat *nat,
+					 const struct ct_state *ct_state)
 {
 	__be32 old_sip, new_sip, sum = 0;
 	int ret;
@@ -914,7 +914,7 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_daddr, __be32 *new_saddr,
 	     __be32 *old_saddr, __u8 nexthdr __maybe_unused,
 	     int l3_off, int l4_off,
 	     struct csum_offset *csum_off, struct lb4_key *key,
-	     struct lb4_backend *backend __maybe_unused)
+	     const struct lb4_backend *backend __maybe_unused)
 {
 	int ret;
 	__be32 sum;
@@ -1021,7 +1021,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				     struct csum_offset *csum_off,
 				     struct lb4_key *key,
 				     struct ipv4_ct_tuple *tuple,
-				     struct lb4_service *svc,
+				     const struct lb4_service *svc,
 				     struct ct_state *state, __be32 saddr)
 {
 	__u32 monitor; // Deliberately ignored; regular CT will determine monitoring.

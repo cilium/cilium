@@ -23,7 +23,7 @@
 
 #include "bpf_sockops.h"
 
-static __always_inline void sk_msg_extract4_key(struct sk_msg_md *msg,
+static __always_inline void sk_msg_extract4_key(const struct sk_msg_md *msg,
 						struct sock_key *key)
 {
 	key->dip4 = msg->remote_ip4;

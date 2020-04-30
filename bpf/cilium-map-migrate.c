@@ -174,7 +174,7 @@ out_fd:
 	return ret;
 }
 
-static void bpf_elf_close(struct bpf_elf_ctx *ctx)
+static void bpf_elf_close(const struct bpf_elf_ctx *ctx)
 {
 	elf_end(ctx->elf_fd);
 	close(ctx->obj_fd);
@@ -186,7 +186,7 @@ static const char *bpf_str_tab_name(const struct bpf_elf_ctx *ctx,
 	return ctx->str_tab->d_buf + sym->st_name;
 }
 
-static int bpf_map_verify_all_offs(struct bpf_elf_ctx *ctx, int end)
+static int bpf_map_verify_all_offs(const struct bpf_elf_ctx *ctx, int end)
 {
 	GElf_Sym sym;
 	int off, i;
@@ -234,7 +234,7 @@ static const char *bpf_map_fetch_name(struct bpf_elf_ctx *ctx, unsigned long off
 	return NULL;
 }
 
-static int bpf_map_num_sym(struct bpf_elf_ctx *ctx)
+static int bpf_map_num_sym(const struct bpf_elf_ctx *ctx)
 {
 	int i, num = 0;
 	GElf_Sym sym;
@@ -385,7 +385,7 @@ static int bpf_handle_finalize(struct bpf_elf_ctx *ctx,
 	}
 }
 
-static int bpf_fill_section_data(struct bpf_elf_ctx *ctx, int section,
+static int bpf_fill_section_data(const struct bpf_elf_ctx *ctx, int section,
 				 struct bpf_elf_sec_data *data)
 {
 	Elf_Data *sec_edata;
@@ -418,7 +418,7 @@ static int bpf_fill_section_data(struct bpf_elf_ctx *ctx, int section,
 }
 
 static int bpf_fetch_symtab(struct bpf_elf_ctx *ctx, int section,
-			    struct bpf_elf_sec_data *data)
+			    const struct bpf_elf_sec_data *data)
 {
 	ctx->sym_tab = data->sec_data;
 	ctx->sym_num = data->sec_hdr.sh_size /
@@ -427,14 +427,14 @@ static int bpf_fetch_symtab(struct bpf_elf_ctx *ctx, int section,
 }
 
 static int bpf_fetch_strtab(struct bpf_elf_ctx *ctx, int section,
-			    struct bpf_elf_sec_data *data)
+			    const struct bpf_elf_sec_data *data)
 {
 	ctx->str_tab = data->sec_data;
 	return 0;
 }
 
 static int bpf_fetch_maps_begin(struct bpf_elf_ctx *ctx, int section,
-				struct bpf_elf_sec_data *data)
+				const struct bpf_elf_sec_data *data)
 {
 	ctx->map_tab = data->sec_data;
 	ctx->map_len = data->sec_data->d_size;

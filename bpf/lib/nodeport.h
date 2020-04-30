@@ -111,7 +111,7 @@ bpf_mark_snat_done(struct __ctx_buff *ctx __maybe_unused)
 }
 
 static __always_inline bool
-bpf_skip_recirculation(struct __ctx_buff *ctx __maybe_unused)
+bpf_skip_recirculation(const struct __ctx_buff *ctx __maybe_unused)
 {
 	/* From XDP layer, we do not go through an egress hook from
 	 * here, hence nothing to be skipped.
@@ -281,7 +281,7 @@ static __always_inline int handle_dsr_v6(struct __ctx_buff *ctx, bool *dsr)
 }
 
 static __always_inline int xlate_dsr_v6(struct __ctx_buff *ctx,
-					struct ipv6_ct_tuple *tuple,
+					const struct ipv6_ct_tuple *tuple,
 					int l4_off)
 {
 	struct ipv6_ct_tuple nat_tup = *tuple;
@@ -851,7 +851,7 @@ static __always_inline int handle_dsr_v4(struct __ctx_buff *ctx, bool *dsr)
 }
 
 static __always_inline int xlate_dsr_v4(struct __ctx_buff *ctx,
-					struct ipv4_ct_tuple *tuple,
+					const struct ipv4_ct_tuple *tuple,
 					int l4_off)
 {
 	struct ipv4_ct_tuple nat_tup = *tuple;

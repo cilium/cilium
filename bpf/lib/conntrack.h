@@ -659,7 +659,7 @@ ct_update6_rev_nat_index(const void *map, const struct ipv6_ct_tuple *tuple,
 static __always_inline int ct_create6(const void *map_main, const void *map_related,
 				      struct ipv6_ct_tuple *tuple,
 				      struct __ctx_buff *ctx, const int dir,
-				      struct ct_state *ct_state,
+				      const struct ct_state *ct_state,
 				      bool proxy_redirect)
 {
 	/* Create entry in original direction */

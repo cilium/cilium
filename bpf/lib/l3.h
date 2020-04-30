@@ -60,7 +60,7 @@ static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
 #ifdef ENABLE_IPV6
 static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_off,
 					       __u32 seclabel,
-					       struct endpoint_info *ep,
+					       const struct endpoint_info *ep,
 					       __u8 direction)
 {
 	int ret;
@@ -99,7 +99,7 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 
 static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_off,
 					       __u32 seclabel, struct iphdr *ip4,
-					       struct endpoint_info *ep,
+					       const struct endpoint_info *ep,
 					       __u8 direction __maybe_unused)
 {
 	int ret;

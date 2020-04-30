@@ -38,7 +38,7 @@ static __always_inline int ipv4_load_daddr(struct __ctx_buff *ctx, int off,
 }
 
 static __always_inline int ipv4_dec_ttl(struct __ctx_buff *ctx, int off,
-					struct iphdr *ip4)
+					const struct iphdr *ip4)
 {
 	__u8 new_ttl, ttl = ip4->ttl;
 
@@ -53,12 +53,12 @@ static __always_inline int ipv4_dec_ttl(struct __ctx_buff *ctx, int off,
 	return 0;
 }
 
-static __always_inline int ipv4_hdrlen(struct iphdr *ip4)
+static __always_inline int ipv4_hdrlen(const struct iphdr *ip4)
 {
 	return ip4->ihl * 4;
 }
 
-static __always_inline bool ipv4_is_fragment(struct iphdr *ip4)
+static __always_inline bool ipv4_is_fragment(const struct iphdr *ip4)
 {
 	// The frag_off portion of the header consists of:
 	//

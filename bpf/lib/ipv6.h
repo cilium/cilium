@@ -35,12 +35,12 @@
 
 #define NEXTHDR_MAX             255
 
-static __always_inline int ipv6_optlen(struct ipv6_opt_hdr *opthdr)
+static __always_inline int ipv6_optlen(const struct ipv6_opt_hdr *opthdr)
 {
 	return (opthdr->hdrlen + 1) << 3;
 }
 
-static __always_inline int ipv6_authlen(struct ipv6_opt_hdr *opthdr)
+static __always_inline int ipv6_authlen(const struct ipv6_opt_hdr *opthdr)
 {
 	return (opthdr->hdrlen + 2) << 2;
 }
@@ -85,13 +85,15 @@ static __always_inline int ipv6_hdrlen(struct __ctx_buff *ctx, int l3_off,
 	return DROP_INVALID_EXTHDR;
 }
 
-static __always_inline void ipv6_addr_copy(union v6addr *dst, union v6addr *src)
+static __always_inline void ipv6_addr_copy(union v6addr *dst,
+					   const union v6addr *src)
 {
 	dst->d1 = src->d1;
 	dst->d2 = src->d2;
 }
 
-static __always_inline __u64 ipv6_addrcmp(union v6addr *a, union v6addr *b)
+static __always_inline __u64 ipv6_addrcmp(const union v6addr *a,
+					  const union v6addr *b)
 {
 	__u64 tmp;
 
@@ -102,8 +104,9 @@ static __always_inline __u64 ipv6_addrcmp(union v6addr *a, union v6addr *b)
 }
 
 // Only works with contiguous masks.
-static __always_inline int ipv6_addr_in_net(union v6addr *addr, union v6addr *net,
-					    union v6addr *mask)
+static __always_inline int ipv6_addr_in_net(const union v6addr *addr,
+					    const union v6addr *net,
+					    const union v6addr *mask)
 {
 	return ((addr->p1 & mask->p1) == net->p1)
 		&& (!mask->p2
@@ -250,7 +253,7 @@ static __always_inline __be32 ipv6_pseudohdr_checksum(struct ipv6hdr *hdr,
 /*
  * Ipv4 mapped address - 0:0:0:0:0:FFFF::/96
  */
-static __always_inline int ipv6_addr_is_mapped(union v6addr *addr)
+static __always_inline int ipv6_addr_is_mapped(const union v6addr *addr)
 {
 	return addr->p1 == 0 && addr->p2 == 0 && addr->p3 == 0xFFFF0000;
 }
