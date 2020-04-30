@@ -27,7 +27,7 @@
 #define __CTX_OFF_MAX			0xff
 
 static __always_inline __maybe_unused int
-xdp_load_bytes(struct xdp_md *ctx, __u64 off, void *to, const __u64 len)
+xdp_load_bytes(const struct xdp_md *ctx, __u64 off, void *to, const __u64 len)
 {
 	void *from;
 	int ret;
@@ -55,7 +55,7 @@ xdp_load_bytes(struct xdp_md *ctx, __u64 off, void *to, const __u64 len)
 }
 
 static __always_inline __maybe_unused int
-xdp_store_bytes(struct xdp_md *ctx, __u64 off, const void *from,
+xdp_store_bytes(const struct xdp_md *ctx, __u64 off, const void *from,
 		const __u64 len, __u64 flags __maybe_unused)
 {
 	void *to;
@@ -136,7 +136,8 @@ __csum_replace_by_4(__sum16 *sum, __wsum from, __wsum to)
 }
 
 static __always_inline __maybe_unused int
-l3_csum_replace(struct xdp_md *ctx, __u64 off, const __u32 from, __u32 to,
+l3_csum_replace(const struct xdp_md *ctx, __u64 off, const __u32 from,
+		__u32 to,
 		__u32 flags)
 {
 	__u32 size = flags & BPF_F_HDR_FIELD_MASK;
@@ -171,7 +172,7 @@ l3_csum_replace(struct xdp_md *ctx, __u64 off, const __u32 from, __u32 to,
 #define CSUM_MANGLED_0		((__sum16)0xffff)
 
 static __always_inline __maybe_unused int
-l4_csum_replace(struct xdp_md *ctx, __u64 off, __u32 from, __u32 to,
+l4_csum_replace(const struct xdp_md *ctx, __u64 off, __u32 from, __u32 to,
 		__u32 flags)
 {
 	bool is_mmzero = flags & BPF_F_MARK_MANGLED_0;
@@ -252,7 +253,7 @@ ctx_adjust_room(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 #define redirect			redirect__stub
 
 static __always_inline __maybe_unused int
-ctx_redirect(struct xdp_md *ctx, int ifindex, const __u32 flags)
+ctx_redirect(const struct xdp_md *ctx, int ifindex, const __u32 flags)
 {
 	if (unlikely(flags))
 		return -ENOTSUPP;

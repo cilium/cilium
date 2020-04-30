@@ -20,7 +20,7 @@ bpf_clear_meta(struct __sk_buff *ctx)
  * get_identity - returns source identity from the mark field
  */
 static __always_inline __maybe_unused int
-get_identity(struct __sk_buff *ctx)
+get_identity(const struct __sk_buff *ctx)
 {
 	return ((ctx->mark & 0xFF) << 16) | ctx->mark >> 16;
 }
@@ -63,7 +63,7 @@ set_encrypt_key_meta(struct __sk_buff *ctx, __u8 key)
 }
 
 static __always_inline __maybe_unused int
-redirect_self(struct __sk_buff *ctx)
+redirect_self(const struct __sk_buff *ctx)
 {
 	/* Looping back the packet into the originating netns. In
 	 * case of veth, it's xmit'ing into the hosts' veth device

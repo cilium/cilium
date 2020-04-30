@@ -616,7 +616,7 @@ static __always_inline void snat_v6_delete(const struct ipv6_ct_tuple *otuple,
 	__snat_delete(&SNAT_MAPPING_IPV6, otuple, rtuple);
 }
 
-static __always_inline void snat_v6_swap_tuple(struct ipv6_ct_tuple *otuple,
+static __always_inline void snat_v6_swap_tuple(const struct ipv6_ct_tuple *otuple,
 					       struct ipv6_ct_tuple *rtuple)
 {
 	memset(rtuple, 0, sizeof(*rtuple));
@@ -722,7 +722,7 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 
 static __always_inline int snat_v6_track_local(struct __ctx_buff *ctx,
 					       struct ipv6_ct_tuple *tuple,
-					       struct ipv6_nat_entry *state,
+					       const struct ipv6_nat_entry *state,
 					       int dir, __u32 off,
 					       const struct ipv6_nat_target *target)
 {

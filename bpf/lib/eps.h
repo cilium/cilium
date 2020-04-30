@@ -32,7 +32,7 @@ __lookup_ip4_endpoint(__u32 ip)
 }
 
 static __always_inline __maybe_unused struct endpoint_info *
-lookup_ip4_endpoint(struct iphdr *ip4)
+lookup_ip4_endpoint(const struct iphdr *ip4)
 {
 	return __lookup_ip4_endpoint(ip4->daddr);
 }
@@ -59,7 +59,8 @@ lookup_ip4_endpoint_policy_map(__u32 ip)
 #define V6_CACHE_KEY_LEN (sizeof(union v6addr)*8)
 
 static __always_inline __maybe_unused struct remote_endpoint_info *
-ipcache_lookup6(struct bpf_elf_map *map, union v6addr *addr, __u32 prefix)
+ipcache_lookup6(struct bpf_elf_map *map, const union v6addr *addr,
+		__u32 prefix)
 {
 	struct ipcache_key key = {
 		.lpm_key = { IPCACHE_PREFIX_LEN(prefix), {} },

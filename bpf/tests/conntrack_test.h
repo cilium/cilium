@@ -32,7 +32,7 @@ void advance_time() {
 }
 
 // Return true IFF 'entry' will expire in 'seconds'.
-bool timeout_in(struct ct_entry *entry, int seconds) {
+bool timeout_in(const struct ct_entry *entry, int seconds) {
         return entry->lifetime == __now + seconds;
 }
 

@@ -203,8 +203,8 @@ static __always_inline int icmp6_to_icmp4(struct __ctx_buff *ctx, int nh_off)
 	return csum_diff(&icmp6, sizeof(icmp6), &icmp4, sizeof(icmp4), 0);
 }
 
-static __always_inline int ipv6_prefix_match(struct in6_addr *addr,
-					     union v6addr *v6prefix)
+static __always_inline int ipv6_prefix_match(const struct in6_addr *addr,
+					     const union v6addr *v6prefix)
 {
 	if (addr->in6_u.u6_addr32[0] == v6prefix->p1 &&
 	    addr->in6_u.u6_addr32[1] == v6prefix->p2 &&
@@ -221,7 +221,8 @@ static __always_inline int ipv6_prefix_match(struct in6_addr *addr,
  * d6 = nat46_prefix<d4> or v6_dst if non null
  */
 static __always_inline int ipv4_to_ipv6(struct __ctx_buff *ctx, struct iphdr *ip4,
-					int nh_off, union v6addr *v6_dst)
+					int nh_off,
+					const union v6addr *v6_dst)
 {
 	struct ipv6hdr v6 = {};
 	struct iphdr v4;
