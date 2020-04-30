@@ -3214,11 +3214,6 @@ func (kub *Kubectl) ciliumServicePreFlightCheck() error {
 				k8sSvc.Spec.ClusterIP == v1.ClusterIPNone {
 				continue
 			}
-			// TODO(brb) check NodePort and LoadBalancer services
-			if k8sSvc.Spec.Type == v1.ServiceTypeNodePort ||
-				k8sSvc.Spec.Type == v1.ServiceTypeLoadBalancer {
-				continue
-			}
 			if _, ok := k8sServicesFound[key]; !ok {
 				notFoundServices = append(notFoundServices, key)
 			}
@@ -3349,44 +3344,7 @@ func serviceKey(s v1.Service) string {
 	return s.Namespace + "/" + s.Name
 }
 
-// validateCiliumSvc checks if given Cilium service has corresponding k8s services and endpoints in given slices
-func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.Endpoints, k8sServicesFound map[string]bool) error {
-	var k8sService *v1.Service
-
-	// TODO(brb) validate NodePort, LoadBalancer and HostPort services
-	if cSvc.Status.Realized.Flags != nil {
-		switch cSvc.Status.Realized.Flags.Type {
-		case models.ServiceSpecFlagsTypeNodePort,
-			models.ServiceSpecFlagsTypeHostPort,
-			models.ServiceSpecFlagsTypeExternalIPs:
-			return nil
-		case "LoadBalancer":
-			return nil
-		}
-	}
-
-	for _, k8sSvc := range k8sSvcs {
-		if k8sSvc.Spec.ClusterIP == cSvc.Status.Realized.FrontendAddress.IP {
-			k8sService = &k8sSvc
-			break
-		}
-	}
-	if k8sService == nil {
-		return fmt.Errorf("Could not find Cilium service with ip %s in k8s", cSvc.Spec.FrontendAddress.IP)
-	}
-
-	var k8sServicePort *v1.ServicePort
-	for _, k8sPort := range k8sService.Spec.Ports {
-		if k8sPort.Port == int32(cSvc.Status.Realized.FrontendAddress.Port) {
-			k8sServicePort = &k8sPort
-			k8sServicesFound[serviceKey(*k8sService)] = true
-			break
-		}
-	}
-	if k8sServicePort == nil {
-		return fmt.Errorf("Could not find Cilium service with address %s:%d in k8s", cSvc.Spec.FrontendAddress.IP, cSvc.Spec.FrontendAddress.Port)
-	}
-
+func validateSvcEndpoint(cSvc models.Service, k8sEps []v1.Endpoints) error {
 	for _, backAddr := range cSvc.Status.Realized.BackendAddresses {
 		foundEp := false
 		for _, k8sEp := range k8sEps {
@@ -3403,6 +3361,64 @@ func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.En
 		}
 	}
 	return nil
+}
+
+// validateCiliumSvc checks if given Cilium service has corresponding k8s services and endpoints in given slices
+func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.Endpoints, k8sServicesFound map[string]bool) error {
+	typ := models.ServiceSpecFlagsTypeClusterIP
+	if cSvc.Status.Realized.Flags != nil {
+		typ = cSvc.Status.Realized.Flags.Type
+		switch typ {
+		case models.ServiceSpecFlagsTypeHostPort, "LoadBalancer":
+			// TODO(tk): not sure how to validate these
+			return validateSvcEndpoint(cSvc, k8sEps)
+		}
+	}
+
+	var k8sService *v1.Service
+	var k8sServicePort *v1.ServicePort
+K8S_SVCS:
+	for _, k8sSvc := range k8sSvcs {
+		switch typ {
+		case models.ServiceSpecFlagsTypeNodePort:
+			for _, svcPort := range k8sSvc.Spec.Ports {
+				if svcPort.NodePort == int32(cSvc.Status.Realized.FrontendAddress.Port) {
+					k8sService = &k8sSvc
+					k8sServicePort = &svcPort
+					break K8S_SVCS
+				}
+			}
+		case models.ServiceSpecFlagsTypeExternalIPs:
+			for _, svcIP := range k8sSvc.Spec.ExternalIPs {
+				if svcIP == cSvc.Status.Realized.FrontendAddress.IP {
+					k8sService = &k8sSvc
+					break K8S_SVCS
+				}
+			}
+		default: // ClusterIP
+			if k8sSvc.Spec.ClusterIP == cSvc.Status.Realized.FrontendAddress.IP {
+				k8sService = &k8sSvc
+				break K8S_SVCS
+			}
+		}
+	}
+
+	if k8sService != nil && k8sServicePort == nil {
+		for _, svcPort := range k8sService.Spec.Ports {
+			if svcPort.Port == int32(cSvc.Status.Realized.FrontendAddress.Port) {
+				k8sServicePort = &svcPort
+				break
+			}
+		}
+	}
+	if k8sService == nil || k8sServicePort == nil {
+		return fmt.Errorf("Could not find Cilium service of type %v with address %s:%d in k8s",
+			typ, cSvc.Spec.FrontendAddress.IP, cSvc.Spec.FrontendAddress.Port)
+	}
+
+	k8sServicesFound[serviceKey(*k8sService)] = true
+
+	return validateSvcEndpoint(cSvc, k8sEps)
 }
 
 func validateCiliumSvcLB(cSvc models.Service, lbMap map[string][]string) error {
