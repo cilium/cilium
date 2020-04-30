@@ -501,7 +501,7 @@ update-golang-dockerfiles:
 	@echo "Updated go version in Dockerfiles to $(GO_VERSION)"
 
 update-travis-go-version:
-	$(QUIET) sed -e 's/TRAVIS_GO_VERSION/$(GO_VERSION)/g' .travis.yml.tmpl > .travis.yml
+	$(QUIET) sed -i 's/go: ".*/go: "$(GO_VERSION)"/g' .travis.yml
 	@echo "Updated go version in .travis.yml to $(GO_VERSION)"
 
 update-test-go-version:
