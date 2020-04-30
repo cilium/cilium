@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// This tests the Istio 1.5.1 integration, following the configuration
+// This tests the Istio integration, following the configuration
 // instructions specified in the Istio Getting Started Guide in
 // Documentation/gettingstarted/istio.rst.
 var _ = Describe("K8sIstioTest", func() {
@@ -35,7 +35,7 @@ var _ = Describe("K8sIstioTest", func() {
 		// installed.
 		istioSystemNamespace = "istio-system"
 
-		istioVersion = "1.5.1"
+		istioVersion = "1.5.2"
 
 		ciliumIstioctlURL = "https://github.com/cilium/istio/releases/download/" + istioVersion + "/cilium-istioctl-" + istioVersion + "-linux.tar.gz"
 		// istioServiceNames is the set of Istio services needed for the tests
@@ -60,7 +60,7 @@ var _ = Describe("K8sIstioTest", func() {
 		k8sVersion := helpers.GetCurrentK8SEnv()
 		switch k8sVersion {
 		case "1.7", "1.8", "1.9", "1.10", "1.11", "1.12", "1.13":
-			Skip(fmt.Sprintf("Istio 1.5.1 doesn't support K8S %s", k8sVersion))
+			Skip(fmt.Sprintf("Istio %s doesn't support K8S %s", istioVersion, k8sVersion))
 		}
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
