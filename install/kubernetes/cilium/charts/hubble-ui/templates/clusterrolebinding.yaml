@@ -1,4 +1,3 @@
-{{- if .Values.global.hubble.ui.enabled }}
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -11,4 +10,3 @@ subjects:
   - kind: ServiceAccount
     namespace: {{ .Release.Namespace }}
     name: hubble-ui 
-{{- end }}

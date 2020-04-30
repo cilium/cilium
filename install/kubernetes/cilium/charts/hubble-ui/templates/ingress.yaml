@@ -1,4 +1,4 @@
-{{- if and .Values.global.hubble.ui.enabled .Values.ingress.enabled -}}
+{{- if .Values.ingress.enabled -}}
 {{- $ingressPath := .Values.ingress.path -}}
 apiVersion: extensions/v1beta1
 kind: Ingress
