@@ -99,6 +99,28 @@ func (k *K8sWatcher) createPodController(getter cache.Getter, fieldSelector fiel
 
 func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, asyncControllers *sync.WaitGroup) {
 	var once sync.Once
+	watchNodePods := func() chan struct{} {
+		// Only watch for pod events for our node.
+		podStore, podController := k.createPodController(
+			k8sClient.CoreV1().RESTClient(),
+			fields.ParseSelectorOrDie("spec.nodeName="+nodeTypes.GetName()))
+		isConnected := make(chan struct{})
+		k.podStoreMU.Lock()
+		k.podStore = podStore
+		k.podStoreMU.Unlock()
+		k.podStoreOnce.Do(func() {
+			close(k.podStoreSet)
+		})
+
+		k.blockWaitGroupToSyncResources(isConnected, nil, podController, k8sAPIGroupPodV1Core)
+		once.Do(func() {
+			asyncControllers.Done()
+			k.k8sAPIGroups.addAPI(k8sAPIGroupPodV1Core)
+		})
+		go podController.Run(isConnected)
+		return isConnected
+	}
+
 	for {
 		podStore, podController := k.createPodController(
 			k8sClient.CoreV1().RESTClient(),
@@ -132,17 +154,7 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, asyncControllers *
 		close(isConnected)
 
 		log.WithField(logfields.Node, nodeTypes.GetName()).Info("Connected to KVStore, watching for pod events on node")
-		// Only watch for pod events for our node.
-		podStore, podController = k.createPodController(
-			k8sClient.CoreV1().RESTClient(),
-			fields.ParseSelectorOrDie("spec.nodeName="+nodeTypes.GetName()))
-		isConnected = make(chan struct{})
-		k.podStoreMU.Lock()
-		k.podStore = podStore
-		k.podStoreMU.Unlock()
-
-		k.blockWaitGroupToSyncResources(isConnected, nil, podController, k8sAPIGroupPodV1Core)
-		go podController.Run(isConnected)
+		isConnected = watchNodePods()
 
 		// Create a new pod controller when we are disconnected with the
 		// kvstore
