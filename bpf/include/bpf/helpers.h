@@ -42,6 +42,11 @@ static __u64 BPF_FUNC(ktime_get_ns);
 /* We have cookies! ;-) */
 static __u64 BPF_FUNC(get_socket_cookie, void *ctx);
 static __u64 BPF_FUNC(get_netns_cookie, void *ctx);
+static int BPF_FUNC_REMAP(sock_event_output, struct bpf_sock_addr *ctx, void *map,
+			  __u64 index, const void *data, __u32 size) =
+			 (void *)BPF_FUNC_perf_event_output;
+
+
 
 /* Debugging */
 static __printf(1,3) void BPF_FUNC(trace_printk, const char *fmt, int fmt_size, ...);
@@ -65,6 +70,8 @@ static void BPF_FUNC(tail_call, void *ctx, void *map, __u32 index);
 
 /* System helpers */
 static __u32 BPF_FUNC(get_smp_processor_id);
+
+static __u64 BPF_FUNC(get_current_pid_tgid);
 
 /* Routing helpers */
 static int BPF_FUNC(fib_lookup, void *ctx, struct bpf_fib_lookup *params,
