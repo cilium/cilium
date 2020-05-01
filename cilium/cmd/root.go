@@ -62,7 +62,7 @@ func init() {
 	flags.StringP("host", "H", "", "URI to server-side API")
 	viper.BindPFlags(flags)
 	rootCmd.AddCommand(newCmdCompletion(os.Stdout))
-	rootCmd.SetOut(os.Stderr)
+	rootCmd.SetOut(os.Stdout)
 	rootCmd.SetErr(os.Stderr)
 }
 
@@ -142,7 +142,12 @@ var (
 	  # Cilium shell completion
 	  source '$HOME/.cilium/completion.zsh.inc'
 	  " >> $HOME/.zshrc
-	source $HOME/.zshrc`
+	source $HOME/.zshrc
+
+# Installing fish completion on Linux/macOS
+## Write fish completion code to fish specific location
+	cilium completion fish > ~/.config/fish/completions/cilium.fish
+`
 )
 
 func newCmdCompletion(out io.Writer) *cobra.Command {
@@ -154,7 +159,7 @@ func newCmdCompletion(out io.Writer) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCompletion(out, cmd, args)
 		},
-		ValidArgs: []string{"bash", "zsh"},
+		ValidArgs: []string{"bash", "zsh", "fish"},
 	}
 
 	return cmd
@@ -176,6 +181,12 @@ func runCompletion(out io.Writer, cmd *cobra.Command, args []string) error {
 			return err
 		}
 		return cmd.Root().GenZshCompletion(out)
+	}
+	if args[0] == "fish" {
+		if _, err := out.Write([]byte(copyRightHeader)); err != nil {
+			return err
+		}
+		return cmd.Root().GenFishCompletion(out, true)
 	}
 	return fmt.Errorf("unsupported shell: %s", args[0])
 }

@@ -47,6 +47,11 @@ cilium completion [shell] [flags]
 	  source '$HOME/.cilium/completion.zsh.inc'
 	  " >> $HOME/.zshrc
 	source $HOME/.zshrc
+
+# Installing fish completion on Linux/macOS
+## Write fish completion code to fish specific location
+	cilium completion fish > ~/.config/fish/completions/cilium.fish
+
 ```
 
 ### Options
