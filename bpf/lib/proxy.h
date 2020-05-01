@@ -10,6 +10,154 @@
 #error "Proxy redirection is only supported from skb context"
 #endif
 
+#ifdef ENABLE_TPROXY
+static __always_inline int
+assign_socket_tcp(struct __ctx_buff *ctx,
+		  struct bpf_sock_tuple *tuple, __u32 len, bool established)
+{
+	int result = DROP_PROXY_LOOKUP_FAILED;
+	struct bpf_sock *sk = NULL;
+	__u16 dbg_ctx;
+
+	sk = skc_lookup_tcp(ctx, tuple, len, BPF_F_CURRENT_NETNS, 0);
+	if (!sk)
+		goto out;
+
+	if (established && sk->state == BPF_TCP_TIME_WAIT)
+		goto release;
+	if (established && sk->state == BPF_TCP_LISTEN)
+		goto release;
+
+	dbg_ctx = sk->family << 16 | ctx->protocol;
+	result = sk_assign(ctx, sk, 0);
+	cilium_dbg(ctx, DBG_SK_ASSIGN, -result, dbg_ctx);
+	if (result == 0)
+		result = CTX_ACT_OK;
+	else
+		result = DROP_PROXY_SET_FAILED;
+release:
+	sk_release(sk);
+out:
+	return result;
+}
+
+static __always_inline int
+assign_socket_udp(struct __ctx_buff *ctx,
+		  struct bpf_sock_tuple *tuple, __u32 len,
+		  bool established __maybe_unused)
+{
+	int result = DROP_PROXY_LOOKUP_FAILED;
+	struct bpf_sock *sk = NULL;
+	__u16 dbg_ctx;
+
+	sk = sk_lookup_udp(ctx, tuple, len, BPF_F_CURRENT_NETNS, 0);
+	if (!sk)
+		goto out;
+
+	dbg_ctx = sk->family << 16 | ctx->protocol;
+	result = sk_assign(ctx, sk, 0);
+	cilium_dbg(ctx, DBG_SK_ASSIGN, -result, dbg_ctx);
+	if (result == 0)
+		result = CTX_ACT_OK;
+	else
+		result = DROP_PROXY_SET_FAILED;
+	sk_release(sk);
+out:
+	return result;
+}
+
+static __always_inline int
+assign_socket(struct __ctx_buff *ctx,
+	      struct bpf_sock_tuple *tuple, __u32 len,
+	      __u8 nexthdr, bool established)
+{
+	/* Workaround: While the below functions are nearly identical in C
+	 * implementation, the 'struct bpf_sock *' has a different verifier
+	 * pointer type, which means we can't fold these implementations
+	 * together.
+	 */
+	switch (nexthdr) {
+	case IPPROTO_TCP:
+		return assign_socket_tcp(ctx, tuple, len, established);
+	case IPPROTO_UDP:
+		return assign_socket_udp(ctx, tuple, len, established);
+	}
+	return DROP_PROXY_UNKNOWN_PROTO;
+}
+
+/**
+ * combine_ports joins the specified ports in a manner consistent with
+ * pkg/monitor/dataapth_debug.go to report the ports ino monitor messages.
+ */
+static __always_inline __u32
+combine_ports(__u16 dport, __u16 sport)
+{
+	return (bpf_ntohs(dport) << 16) | bpf_ntohs(sport);
+}
+
+#define CTX_REDIRECT_FN(NAME, CT_TUPLE_TYPE, SK_FIELD,				\
+			DBG_LOOKUP_CODE, DADDR_DBG, SADDR_DBG)			\
+/**										\
+ * ctx_redirect_to_proxy_ingress4 / ctx_redirect_to_proxy_ingress6		\
+ * @ctx			pointer to program context				\
+ * @tuple		pointer to *scratch buffer* with packet tuple		\
+ * @proxy_port		port to redirect traffic towards			\
+ *										\
+ * Prefetch the proxy socket and associate with the ctx. Must be run on tc	\
+ * ingress. Will modify 'tuple'!						\
+ */										\
+static __always_inline int							\
+NAME(struct __ctx_buff *ctx, CT_TUPLE_TYPE * ct_tuple, __be16 proxy_port)	\
+{										\
+	struct bpf_sock_tuple *tuple = (struct bpf_sock_tuple *)ct_tuple;	\
+	__u8 nexthdr = ct_tuple->nexthdr;					\
+	__u32 len = sizeof(tuple->SK_FIELD);					\
+	__u16 port;								\
+	int result;								\
+										\
+	/* The provided 'ct_tuple' is in the internal Cilium format, which	\
+	 * reverses the source/destination ports as compared with the actual	\
+	 * packet contents. 'bpf_sock_tuple' in the eBPF API needs these to	\
+	 * match normal packet ordering to successfully look up the		\
+	 * corresponding socket. So, swap them here.				\
+	 */									\
+	port = tuple->SK_FIELD.sport;						\
+	tuple->SK_FIELD.sport = tuple->SK_FIELD.dport;				\
+	tuple->SK_FIELD.dport = port;						\
+										\
+	/* Look for established socket locally first */				\
+	cilium_dbg3(ctx, DBG_LOOKUP_CODE,					\
+		    tuple->SK_FIELD.SADDR_DBG, tuple->SK_FIELD.DADDR_DBG,	\
+		    combine_ports(tuple->SK_FIELD.dport, tuple->SK_FIELD.sport));	\
+	result = assign_socket(ctx, tuple, len, nexthdr, true);			\
+	if (result == CTX_ACT_OK)						\
+		goto out;							\
+										\
+	/* if there's no established connection, locate the tproxy socket */	\
+	tuple->SK_FIELD.dport = proxy_port;					\
+	tuple->SK_FIELD.sport = 0;						\
+	memset(&tuple->SK_FIELD.daddr, 0, sizeof(tuple->SK_FIELD.daddr));	\
+	memset(&tuple->SK_FIELD.saddr, 0, sizeof(tuple->SK_FIELD.saddr));	\
+	cilium_dbg3(ctx, DBG_LOOKUP_CODE,					\
+		    tuple->SK_FIELD.SADDR_DBG, tuple->SK_FIELD.DADDR_DBG,	\
+		    combine_ports(tuple->SK_FIELD.dport, tuple->SK_FIELD.sport));	\
+	result = assign_socket(ctx, tuple, len, nexthdr, false);		\
+										\
+out:										\
+	return result;								\
+}
+
+#ifdef ENABLE_IPV4
+CTX_REDIRECT_FN(ctx_redirect_to_proxy_ingress4, struct ipv4_ct_tuple, ipv4,
+		DBG_SK_LOOKUP4, daddr, saddr)
+#endif
+#ifdef ENABLE_IPV6
+CTX_REDIRECT_FN(ctx_redirect_to_proxy_ingress6, struct ipv6_ct_tuple, ipv6,
+		DBG_SK_LOOKUP6, daddr[3], saddr[3])
+#endif
+#undef CTX_REDIRECT_FN
+#endif /* ENABLE_TPROXY */
+
 /**
  * __ctx_redirect_to_proxy configures the ctx with the proxy mark and proxy
  * port number to ensure that the stack redirects the packet into the proxy.
@@ -44,6 +192,8 @@ __ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 			__be16 proxy_port, bool from_host __maybe_unused,
 			bool ipv4 __maybe_unused)
 {
+	int result = CTX_ACT_OK;
+
 	ctx->mark = MARK_MAGIC_TO_PROXY | proxy_port << 16;
 
 #ifdef HOST_REDIRECT_TO_INGRESS
@@ -55,8 +205,20 @@ __ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 #else
 	cilium_dbg(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port, 0);
 
+#ifdef ENABLE_TPROXY
+	if (proxy_port && !from_host) {
+#ifdef ENABLE_IPV4
+		if (ipv4)
+			result = ctx_redirect_to_proxy_ingress4(ctx, tuple, proxy_port);
+#endif /* ENABLE_IPV4 */
+#ifdef ENABLE_IPV6
+		if (!ipv4)
+			result = ctx_redirect_to_proxy_ingress6(ctx, tuple, proxy_port);
+#endif /* ENABLE_IPV6 */
+	}
+#endif /* ENABLE_TPROXY */
 	ctx_change_type(ctx, PACKET_HOST); /* Required for ingress packets from overlay */
-	return CTX_ACT_OK;
+	return result;
 #endif
 }
 
