@@ -34,6 +34,9 @@ type EndpointStatus struct {
 	// Most recent status log. See endpoint/{id}/log for the complete log.
 	Log EndpointStatusLog `json:"log,omitempty"`
 
+	// List of named ports that can be used in Network Policy
+	NamedPorts NamedPorts `json:"namedPorts,omitempty"`
+
 	// Networking properties of the endpoint
 	Networking *EndpointNetworking `json:"networking,omitempty"`
 
@@ -73,6 +76,10 @@ func (m *EndpointStatus) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateLog(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateNamedPorts(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -195,6 +202,22 @@ func (m *EndpointStatus) validateLog(formats strfmt.Registry) error {
 	if err := m.Log.Validate(formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("log")
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (m *EndpointStatus) validateNamedPorts(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.NamedPorts) { // not required
+		return nil
+	}
+
+	if err := m.NamedPorts.Validate(formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("namedPorts")
 		}
 		return err
 	}

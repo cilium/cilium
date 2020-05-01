@@ -19,6 +19,9 @@ import (
 // swagger:model Port
 type Port struct {
 
+	// Optional layer 4 port name
+	Name string `json:"name,omitempty"`
+
 	// Layer 4 port number
 	Port uint16 `json:"port,omitempty"`
 

@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // GetLabelsModel returns the labels of the endpoint in their representation
@@ -227,6 +228,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 			Controllers: controllerMdl,
 			State:       currentState, // TODO: Validate
 			Health:      e.getHealthModel(),
+			NamedPorts:  e.getNamedPortsModel(),
 		},
 	}
 
@@ -296,6 +298,31 @@ func (e *Endpoint) GetHealthModel() *models.EndpointHealth {
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 	return e.getHealthModel()
+}
+
+// getNamedPortsModel returns the endpoint's NamedPorts object.
+//
+// Must be called with e.Mutex locked.
+func (e *Endpoint) getNamedPortsModel() (np models.NamedPorts) {
+	k8sPorts := e.k8sPorts
+	np = make(models.NamedPorts, 0, len(k8sPorts))
+	for name, value := range k8sPorts {
+		np = append(np, &models.Port{
+			Name:     name,
+			Port:     value.Port,
+			Protocol: u8proto.U8proto(value.Proto).String(),
+		})
+	}
+	return np
+}
+
+// GetNamedPortsModel returns the endpoint's NamedPorts object.
+func (e *Endpoint) GetNamedPortsModel() models.NamedPorts {
+	if err := e.rlockAlive(); err != nil {
+		return nil
+	}
+	defer e.runlock()
+	return e.getNamedPortsModel()
 }
 
 // GetModel returns the API model of endpoint e.

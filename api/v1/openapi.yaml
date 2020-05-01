@@ -1121,6 +1121,9 @@ definitions:
       health:
         description: Summary overall endpoint & subcomponent health
         "$ref": "#/definitions/EndpointHealth"
+      namedPorts:
+        description: List of named ports that can be used in Network Policy
+        "$ref": "#/definitions/NamedPorts"
   EndpointState:
     description: State of endpoint
     type: string
@@ -2024,6 +2027,9 @@ definitions:
         description: Layer 4 port number
         type: integer
         format: uint16
+      name:
+        description: Optional layer 4 port name
+        type: string
   SelectorCache:
     description: cache of which identities match selectors in the policy repository
     type: array
@@ -2451,3 +2457,10 @@ definitions:
       name:
         description: Name assigned to the IP (e.g. Kubernetes pod name)
         type: string
+  NamedPorts:
+    description: |
+      List of named Layer 4 port and protocol pairs which will be used in Network
+      Policy specs.
+    type: array
+    items:
+      "$ref": "#/definitions/Port"
