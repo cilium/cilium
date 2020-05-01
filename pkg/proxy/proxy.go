@@ -643,8 +643,8 @@ func (p *Proxy) UpdateRedirectMetrics() {
 }
 
 // UpdateNetworkPolicy must update the redirect configuration of an endpoint in the proxy
-func (p *Proxy) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
-	return p.XDSServer.UpdateNetworkPolicy(ep, policy, ingressPolicyEnforced, egressPolicyEnforced, wg)
+func (p *Proxy) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy, npMap policy.NamedPortsMap, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
+	return p.XDSServer.UpdateNetworkPolicy(ep, policy, npMap, ingressPolicyEnforced, egressPolicyEnforced, wg)
 }
 
 // UseCurrentNetworkPolicy inserts a Completion to the WaitGroup if the current network policy has not yet been acked

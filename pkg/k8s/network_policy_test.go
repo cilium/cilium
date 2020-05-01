@@ -651,7 +651,7 @@ func (s *K8sSuite) TestParseNetworkPolicyIngressL4AllowAll(c *C) {
 	c.Assert(repo.AllowsIngressRLocked(&ctxAToC90), Equals, api.Denied)
 }
 
-func (s *K8sSuite) TestParseNetworkPolicyUnknownProto(c *C) {
+func (s *K8sSuite) TestParseNetworkPolicyNamedPort(c *C) {
 	netPolicy := &networkingv1.NetworkPolicy{
 		Spec: networkingv1.NetworkPolicySpec{
 			Ingress: []networkingv1.NetworkPolicyIngressRule{
@@ -660,8 +660,33 @@ func (s *K8sSuite) TestParseNetworkPolicyUnknownProto(c *C) {
 						{
 							Port: &intstr.IntOrString{
 								Type:   intstr.String,
-								StrVal: "unknown",
+								StrVal: "port-80",
 							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	rules, err := ParseNetworkPolicy(netPolicy)
+	c.Assert(err, IsNil)
+	c.Assert(len(rules), Equals, 1)
+}
+
+func (s *K8sSuite) TestParseNetworkPolicyUnknownProto(c *C) {
+	unknownProtocol := v1.Protocol("unknown")
+	netPolicy := &networkingv1.NetworkPolicy{
+		Spec: networkingv1.NetworkPolicySpec{
+			Ingress: []networkingv1.NetworkPolicyIngressRule{
+				{
+					Ports: []networkingv1.NetworkPolicyPort{
+						{
+							Port: &intstr.IntOrString{
+								Type:   intstr.String,
+								StrVal: "port-80",
+							},
+							Protocol: &unknownProtocol,
 						},
 					},
 				},

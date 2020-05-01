@@ -29,8 +29,8 @@ import (
 // to compute datapath-level policy configuration.
 type SelectorPolicy interface {
 	// Consume returns the policy in terms of connectivity to peer
-	// Identities. The callee MUST NOT modify the returned pointer.
-	Consume(owner PolicyOwner) *EndpointPolicy
+	// Identities.
+	Consume(owner PolicyOwner, npMap NamedPortsMap) *EndpointPolicy
 }
 
 // PolicyCache represents a cache of resolved policies for identities.
@@ -211,9 +211,9 @@ func (cip *cachedSelectorPolicy) setPolicy(policy *selectorPolicy) {
 //
 // This denotes that a particular endpoint is 'consuming' the policy from the
 // selector policy cache.
-func (cip *cachedSelectorPolicy) Consume(owner PolicyOwner) *EndpointPolicy {
+func (cip *cachedSelectorPolicy) Consume(owner PolicyOwner, npMap NamedPortsMap) *EndpointPolicy {
 	// TODO: This currently computes the EndpointPolicy from SelectorPolicy
 	// on-demand, however in future the cip is intended to cache the
 	// EndpointPolicy for this Identity and emit datapath deltas instead.
-	return cip.getPolicy().DistillPolicy(owner)
+	return cip.getPolicy().DistillPolicy(owner, npMap)
 }

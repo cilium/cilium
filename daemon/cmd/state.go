@@ -41,7 +41,7 @@ type endpointRestoreState struct {
 	toClean  []*endpoint.Endpoint
 }
 
-// validateEndpoint attempts to determine that the endpoint is valid, ie it
+// validateEndpoint attempts to determine that the restored endpoint is valid, ie it
 // still exists in k8s, its datapath devices are present, and Cilium is
 // responsible for its workload, etc.
 //

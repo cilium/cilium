@@ -586,6 +586,7 @@ func k8sContainerToTypesContainer(k8sContainers []v1.Container) []types.PodConta
 				ContainerPort: port.ContainerPort,
 				HostPort:      port.HostPort,
 				HostIP:        port.HostIP,
+				Name:          port.Name,
 			}
 			ports = append(ports, cp)
 		}

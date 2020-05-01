@@ -49,6 +49,7 @@ type SlimCNP struct {
 }
 
 type ContainerPort struct {
+	Name          string
 	Protocol      string
 	ContainerPort int32
 	HostPort      int32
